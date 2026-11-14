@@ -1,5 +1,4 @@
 #include "guikit/widgets/heading.hpp"
-#include <algorithm>
 #include <cmath>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
@@ -53,7 +52,7 @@ float Heading::ComputeBottomSeparatorSpace(
 ) noexcept {
     if (opts.separator.IsEnabled() && opts.separator.placement == HeadingSeparator::Bottom) {
         const HeadingMetrics& m = theme.GetHeading(opts.level, size);
-        const float divPad = std::max(4.0f, m.gap * 0.75f);
+        const float divPad = keel::max(4.0f, m.gap * 0.75f);
         const float strokeW = theme.Scale(opts.separator.width);
         return divPad + strokeW + divPad * 0.5f;
     }
@@ -63,7 +62,7 @@ float Heading::ComputeBottomSeparatorSpace(
 Response Heading::Run(
     Context& ctx,
     const HeadingOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
@@ -182,7 +181,7 @@ void Heading::Render(
 
     Rect resolveBounds = bounds;
     if (bottomSepSpace > 0.0f) {
-        resolveBounds.h = std::max(0.0f, resolveBounds.h - bottomSepSpace);
+        resolveBounds.h = keel::max(0.0f, resolveBounds.h - bottomSepSpace);
     }
 
     ElementGeometry geom = Element::Resolve(resolveBounds, {0.0f, 0.0f}, spec, &canvas, theme);
@@ -216,10 +215,10 @@ void Heading::Render(
     const float spanW = inner.w;
 
     if (opts.separator.placement == HeadingSeparator::Bottom) {
-        const float sepPad = std::max(4.0f, m.gap * 0.75f);
+        const float sepPad = keel::max(4.0f, m.gap * 0.75f);
         float contentBottom = geom.controlRect.Bottom();
-        if (geom.hasLabel) contentBottom = std::max(contentBottom, geom.labelRect.Bottom());
-        if (geom.hasDesc)  contentBottom = std::max(contentBottom, geom.descRect.Bottom());
+        if (geom.hasLabel) contentBottom = keel::max(contentBottom, geom.labelRect.Bottom());
+        if (geom.hasDesc)  contentBottom = keel::max(contentBottom, geom.descRect.Bottom());
         const float sepY = std::floor(contentBottom + sepPad) + 0.5f;
         Separator::RenderLine(
             canvas,
@@ -231,8 +230,8 @@ void Heading::Render(
     } else if (opts.separator.placement == HeadingSeparator::Trailing && geom.controlRect.h > 0.0f) {
         const Rect& labelBarRect = geom.controlRect;
         const Vec2 rawBar = MeasureLabelBar(spec, geom.labelFontSize, &canvas, theme);
-        const float barW = std::min(labelBarRect.w, rawBar.x);
-        const float barLeftX = labelBarRect.x + std::max(0.0f, labelBarRect.w - barW) * alignFactor;
+        const float barW = keel::min(labelBarRect.w, rawBar.x);
+        const float barLeftX = labelBarRect.x + keel::max(0.0f, labelBarRect.w - barW) * alignFactor;
         const float barRightX = barLeftX + barW;
 
         const float lineY = std::floor(labelBarRect.y + labelBarRect.h * 0.5f) + 0.5f;

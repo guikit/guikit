@@ -1,15 +1,12 @@
 #include "guikit/backend/thor_canvas.hpp"
 #include "guikit/backend/vector_backend.hpp"
-#include <algorithm>
-#include <bit>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
-#include <iostream>
-#include <thread>
 #include "guikit/core/assets.hpp"
 #include "guikit/core/text_util.hpp"
 #include "guikit/core/tokens.hpp"
+#include "keel/algo.h"
 #include "keel/fs.h"
 #include "keel/utf8.h"
 #include "thorvg.h"
@@ -22,14 +19,19 @@ namespace guikit {
 
 namespace {
 
-std::string ExtractFontName(std::string_view path) {
-    const size_t slash = path.find_last_of("/\\");
-    const std::string_view base = (slash == std::string_view::npos) ? path : path.substr(slash + 1);
-    const size_t dot = base.find_last_of('.');
-    if (dot != std::string_view::npos && dot > 0) {
-        return std::string(base.substr(0, dot));
+keel::String ExtractFontName(keel::StringRef path) {
+    size_t lastSep = keel::StringRef::npos;
+    for (size_t i = 0; i < path.size(); ++i) {
+        if (path[i] == '/' || path[i] == '\\') {
+            lastSep = i;
+        }
     }
-    return std::string(base);
+    const keel::StringRef base = (lastSep == keel::StringRef::npos) ? path : path.substr(lastSep + 1);
+    const size_t dot = base.rfind('.');
+    if (dot != keel::StringRef::npos && dot > 0) {
+        return keel::String::from(base.substr(0, dot));
+    }
+    return keel::String::from(base);
 }
 
 [[nodiscard]] constexpr size_t FontStyleSlotIndex(FontStyle style) noexcept {
@@ -37,7 +39,7 @@ std::string ExtractFontName(std::string_view path) {
     return (idx < 5u) ? idx : 0u;
 }
 
-[[nodiscard]] std::string_view ClampUtf8Prefix(std::string_view text, size_t maxBytes) noexcept {
+[[nodiscard]] keel::StringRef ClampUtf8Prefix(keel::StringRef text, size_t maxBytes) noexcept {
     if (text.size() <= maxBytes) {
         return text;
     }
@@ -53,7 +55,7 @@ struct ScopedCStr {
     keel::String heapFallback{};
     const char* ptr{nullptr};
 
-    explicit ScopedCStr(std::string_view sv) {
+    explicit ScopedCStr(keel::StringRef sv) {
         if (sv.size() < sizeof(inlineBuf)) {
             if (!sv.empty()) {
                 std::memcpy(inlineBuf, sv.data(), sv.size());
@@ -118,21 +120,21 @@ ThorCanvas::ThorCanvas(bool loadDefaultFonts) {
     }
 
     // Auto-detect primary UI font across embedded assets and system locations
-    const std::string_view defaultFontCandidates[] = {
+    const keel::StringRef defaultFontCandidates[] = {
         "assets/fonts/Roboto-Regular.ttf",
         "C:/Windows/Fonts/segoeui.ttf",
         "C:/Windows/Fonts/arial.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/System/Library/Fonts/Supplemental/Arial.ttf"
     };
-    for (std::string_view candidate : defaultFontCandidates) {
+    for (keel::StringRef candidate : defaultFontCandidates) {
         if (LoadFontFile(candidate, FontStyle::Regular)) {
             break;
         }
     }
 
     // Auto-detect monospace font for code editors, Markdown code blocks & telemetry
-    const std::string_view monoFontCandidates[] = {
+    const keel::StringRef monoFontCandidates[] = {
         "assets/fonts/JetBrainsMono-Regular.ttf",
         "assets/fonts/RobotoMono-Regular.ttf",
         "C:/Windows/Fonts/CascadiaMono.ttf",
@@ -142,7 +144,7 @@ ThorCanvas::ThorCanvas(bool loadDefaultFonts) {
         "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
         "/System/Library/Fonts/Menlo.ttc"
     };
-    for (std::string_view candidate : monoFontCandidates) {
+    for (keel::StringRef candidate : monoFontCandidates) {
         if (LoadFontFile(candidate, FontStyle::Monospace)) {
             break;
         }
@@ -184,11 +186,11 @@ void ThorCanvas::SyncViewportClip() {
         m_canvas->viewport(0, 0, static_cast<int32_t>(m_width), static_cast<int32_t>(m_height));
     } else {
         const Rect& cr = m_clipStack.back();
-        const int32_t x0 = std::clamp(static_cast<int32_t>(std::floor(cr.x)), 0, static_cast<int32_t>(m_width));
-        const int32_t y0 = std::clamp(static_cast<int32_t>(std::floor(cr.y)), 0, static_cast<int32_t>(m_height));
-        const int32_t x1 = std::clamp(static_cast<int32_t>(std::ceil(cr.Right())), 0, static_cast<int32_t>(m_width));
-        const int32_t y1 = std::clamp(static_cast<int32_t>(std::ceil(cr.Bottom())), 0, static_cast<int32_t>(m_height));
-        m_canvas->viewport(x0, y0, std::max(0, x1 - x0), std::max(0, y1 - y0));
+        const int32_t x0 = keel::clamp(static_cast<int32_t>(std::floor(cr.x)), 0, static_cast<int32_t>(m_width));
+        const int32_t y0 = keel::clamp(static_cast<int32_t>(std::floor(cr.y)), 0, static_cast<int32_t>(m_height));
+        const int32_t x1 = keel::clamp(static_cast<int32_t>(std::ceil(cr.Right())), 0, static_cast<int32_t>(m_width));
+        const int32_t y1 = keel::clamp(static_cast<int32_t>(std::ceil(cr.Bottom())), 0, static_cast<int32_t>(m_height));
+        m_canvas->viewport(x0, y0, keel::max(0, x1 - x0), keel::max(0, y1 - y0));
     }
 }
 
@@ -205,16 +207,16 @@ void ThorCanvas::SetTarget(uint32_t* buffer, uint32_t width, uint32_t height, ui
 }
 
 bool ThorCanvas::LoadFontMemoryInternal(
-    std::string_view name,
-    std::span<const uint8_t> data,
+    keel::StringRef name,
+    keel::ArrayRef<uint8_t> data,
     FontStyle style,
-    std::string_view mimeType,
+    keel::StringRef mimeType,
     bool copyData
 ) {
     if (name.empty() || data.empty()) return false;
 
-    const std::string fontName(name);
-    const std::string mimeStr = mimeType.empty() ? "ttf" : std::string(mimeType);
+    const keel::SmallString<128> fontName(name);
+    const keel::SmallString<32> mimeStr(mimeType.empty() ? keel::StringRef("ttf") : mimeType);
     if (tvg::Text::load(
             fontName.c_str(),
             reinterpret_cast<const char*>(data.data()),
@@ -225,7 +227,7 @@ bool ThorCanvas::LoadFontMemoryInternal(
     }
 
     FontSlot& slot = m_fonts[FontStyleSlotIndex(style)];
-    slot.name = fontName;
+    slot.name.assign(name);
     slot.loaded = true;
     m_textMeasureCache.clear();
     m_textStampCache.clear();
@@ -233,21 +235,21 @@ bool ThorCanvas::LoadFontMemoryInternal(
 }
 
 bool ThorCanvas::LoadFontMemory(
-    std::string_view name,
-    std::span<const uint8_t> data,
+    keel::StringRef name,
+    keel::ArrayRef<uint8_t> data,
     FontStyle style,
-    std::string_view mimeType
+    keel::StringRef mimeType
 ) {
     return LoadFontMemoryInternal(name, data, style, mimeType, true);
 }
 
-bool ThorCanvas::LoadFontFile(std::string_view path, FontStyle style) {
+bool ThorCanvas::LoadFontFile(keel::StringRef path, FontStyle style) {
     if (path.empty()) return false;
 
     // 1. Check virtual / build-time embedded asset registry first (Native + WebAssembly)
     if (auto asset = Assets::Find(path); asset && !asset->Empty()) {
-        const std::string fontName = ExtractFontName(path);
-        const std::string_view mime = asset->mimeType.empty() ? Assets::InferMimeType(path) : asset->mimeType;
+        const keel::String fontName = ExtractFontName(path);
+        const keel::StringRef mime = asset->mimeType.empty() ? Assets::InferMimeType(path) : asset->mimeType;
         const bool copyData = !IsStaticEmbeddedAssetPointer(asset->data);
         if (LoadFontMemoryInternal(fontName, asset->Bytes(), style, mime, copyData)) {
             return true;
@@ -255,14 +257,15 @@ bool ThorCanvas::LoadFontFile(std::string_view path, FontStyle style) {
     }
 
     // 2. Check disk (UTF-8 aware path resolution, probing direct path and relative parent prefixes)
-    const std::string fontName = ExtractFontName(path);
-    const std::string_view mime = Assets::InferMimeType(path);
+    const keel::String fontName = ExtractFontName(path);
+    const keel::StringRef mime = Assets::InferMimeType(path);
     const bool isAbsolute = keel::path_is_absolute(path);
-    const std::string_view prefixes[] = {"", "../", "../../", "../../../"};
+    const keel::StringRef prefixes[] = {"", "../", "../../", "../../../"};
 
-    for (std::string_view prefix : prefixes) {
+    for (keel::StringRef prefix : prefixes) {
         if (isAbsolute && !prefix.empty()) break;
-        const std::string candidate = std::string(prefix) + std::string(path);
+        keel::SmallString<256> candidate(prefix);
+        candidate.append(path);
         auto res = keel::fs_read_file(candidate);
         if (!res.is_ok() || res.value().empty()) continue;
         const auto& bytes = res.value();
@@ -345,7 +348,7 @@ void ThorCanvas::End() {
     FlushCanvas();
 }
 
-void ThorCanvas::Clear(Color color, std::optional<Rect> rect) {
+void ThorCanvas::Clear(Color color, keel::Optional<Rect> rect) {
     if (!m_targetBuffer || m_width == 0 || m_height == 0) return;
 
     FlushCanvas();
@@ -354,7 +357,7 @@ void ThorCanvas::Clear(Color color, std::optional<Rect> rect) {
     if (!rect.has_value()) {
         m_gpuPasses.clear();
         for (uint32_t y = 0; y < m_height; ++y) {
-            std::fill_n(m_targetBuffer + y * m_stride, m_width, rawColor);
+            keel::fill(keel::MutArrayRef<uint32_t>(m_targetBuffer + y * m_stride, m_width), rawColor);
         }
     } else {
         const Rect sClear(rect->x * m_scale, rect->y * m_scale, rect->w * m_scale, rect->h * m_scale);
@@ -365,18 +368,28 @@ void ThorCanvas::Clear(Color color, std::optional<Rect> rect) {
                    sClear.Right() >= clipR.Right() - 1.0f &&
                    sClear.Bottom() >= clipR.Bottom() - 1.0f;
         };
-        std::erase_if(m_gpuPasses, [&](const GpuShaderPassDesc& p) {
-            return isCoveredByClear(p.clipRect);
-        });
+        size_t writeIdx = 0;
+        for (size_t i = 0; i < m_gpuPasses.size(); ++i) {
+            if (!isCoveredByClear(m_gpuPasses[i].clipRect)) {
+                if (writeIdx != i) {
+                    m_gpuPasses[writeIdx] = keel::move(m_gpuPasses[i]);
+                }
+                ++writeIdx;
+            }
+        }
+        m_gpuPasses.resize(writeIdx);
 
-        const int startX = std::max(0, static_cast<int>(std::floor(sClear.x)));
-        const int startY = std::max(0, static_cast<int>(std::floor(sClear.y)));
-        const int endX = std::min(static_cast<int>(m_width), static_cast<int>(std::ceil(sClear.Right())));
-        const int endY = std::min(static_cast<int>(m_height), static_cast<int>(std::ceil(sClear.Bottom())));
+        const int startX = keel::max(0, static_cast<int>(std::floor(sClear.x)));
+        const int startY = keel::max(0, static_cast<int>(std::floor(sClear.y)));
+        const int endX = keel::min(static_cast<int>(m_width), static_cast<int>(std::ceil(sClear.Right())));
+        const int endY = keel::min(static_cast<int>(m_height), static_cast<int>(std::ceil(sClear.Bottom())));
         const int w = endX - startX;
         if (w > 0 && endY > startY) {
             for (int y = startY; y < endY; ++y) {
-                std::fill_n(m_targetBuffer + y * m_stride + startX, w, rawColor);
+                keel::fill(
+                    keel::MutArrayRef<uint32_t>(m_targetBuffer + y * m_stride + startX, static_cast<size_t>(w)),
+                    rawColor
+                );
             }
         }
     }
@@ -387,21 +400,21 @@ void ThorCanvas::PushClip(Rect clipRect) {
     const float sy1 = std::floor(clipRect.y * m_scale);
     const float sx2 = std::ceil(clipRect.Right() * m_scale);
     const float sy2 = std::ceil(clipRect.Bottom() * m_scale);
-    const Rect sClip(sx1, sy1, std::max(0.0f, sx2 - sx1), std::max(0.0f, sy2 - sy1));
+    const Rect sClip(sx1, sy1, keel::max(0.0f, sx2 - sx1), keel::max(0.0f, sy2 - sy1));
     if (!m_clipStack.empty()) {
         const Rect& parent = m_clipStack.back();
-        const float x1 = std::max(parent.x, sClip.x);
-        const float y1 = std::max(parent.y, sClip.y);
-        const float x2 = std::min(parent.Right(), sClip.Right());
-        const float y2 = std::min(parent.Bottom(), sClip.Bottom());
-        m_clipStack.emplace_back(x1, y1, std::max(0.0f, x2 - x1), std::max(0.0f, y2 - y1));
+        const float x1 = keel::max(parent.x, sClip.x);
+        const float y1 = keel::max(parent.y, sClip.y);
+        const float x2 = keel::min(parent.Right(), sClip.Right());
+        const float y2 = keel::min(parent.Bottom(), sClip.Bottom());
+        m_clipStack.emplace_back(x1, y1, keel::max(0.0f, x2 - x1), keel::max(0.0f, y2 - y1));
 
         const Rect& gpuParent = m_gpuClipStack.back();
-        const float gx1 = std::max(gpuParent.x, sClip.x);
-        const float gy1 = std::max(gpuParent.y, sClip.y);
-        const float gx2 = std::min(gpuParent.Right(), sClip.Right());
-        const float gy2 = std::min(gpuParent.Bottom(), sClip.Bottom());
-        m_gpuClipStack.emplace_back(gx1, gy1, std::max(0.0f, gx2 - gx1), std::max(0.0f, gy2 - gy1));
+        const float gx1 = keel::max(gpuParent.x, sClip.x);
+        const float gy1 = keel::max(gpuParent.y, sClip.y);
+        const float gx2 = keel::min(gpuParent.Right(), sClip.Right());
+        const float gy2 = keel::min(gpuParent.Bottom(), sClip.Bottom());
+        m_gpuClipStack.emplace_back(gx1, gy1, keel::max(0.0f, gx2 - gx1), keel::max(0.0f, gy2 - gy1));
     } else {
         m_clipStack.push_back(sClip);
         // Root clip (depth 0) is the frame's dirty-rect damage clip; GPU underlays must cover the full viewport
@@ -420,7 +433,7 @@ void ThorCanvas::PopClip() {
     SyncViewportClip();
 }
 
-void ThorCanvas::ApplyClip(tvg::Paint* paint, std::optional<Rect> bounds) {
+void ThorCanvas::ApplyClip(tvg::Paint* paint, keel::Optional<Rect> bounds) {
     // Hardware/engine integer viewport clipping is synchronized on PushClip/PopClip via m_canvas->viewport(),
     // so per-paint RLE clip masks are never needed for rectangular stack clips.
     (void)paint;
@@ -438,17 +451,23 @@ void ThorCanvas::DrawRect(Rect rect, Color fill) {
     }
 
     if (m_targetBuffer && m_width > 0 && m_height > 0) {
-        const int x0 = std::clamp(static_cast<int>(std::round(sRect.x)), 0, static_cast<int>(m_width));
-        const int y0 = std::clamp(static_cast<int>(std::round(sRect.y)), 0, static_cast<int>(m_height));
-        const int x1 = std::clamp(static_cast<int>(std::round(sRect.Right())), 0, static_cast<int>(m_width));
-        const int y1 = std::clamp(static_cast<int>(std::round(sRect.Bottom())), 0, static_cast<int>(m_height));
+        const int x0 = keel::clamp(static_cast<int>(std::round(sRect.x)), 0, static_cast<int>(m_width));
+        const int y0 = keel::clamp(static_cast<int>(std::round(sRect.y)), 0, static_cast<int>(m_height));
+        const int x1 = keel::clamp(static_cast<int>(std::round(sRect.Right())), 0, static_cast<int>(m_width));
+        const int y1 = keel::clamp(static_cast<int>(std::round(sRect.Bottom())), 0, static_cast<int>(m_height));
         const int w = x1 - x0;
         if (w > 0 && y1 > y0) {
             FlushCanvas();
             if (fill.a == 255) {
                 const uint32_t rawCol = fill.ToUint32();
                 for (int y = y0; y < y1; ++y) {
-                    std::fill_n(m_targetBuffer + static_cast<size_t>(y) * m_stride + x0, w, rawCol);
+                    keel::fill(
+                        keel::MutArrayRef<uint32_t>(
+                            m_targetBuffer + static_cast<size_t>(y) * m_stride + x0,
+                            static_cast<size_t>(w)
+                        ),
+                        rawCol
+                    );
                 }
             } else {
                 const uint32_t sPre = PremultiplyColor(fill);
@@ -480,7 +499,7 @@ void ThorCanvas::DrawRoundRect(
     if (rect.w <= 0.0f || rect.h <= 0.0f || !m_canvas) return;
     if (fill.a == 0 && (stroke.a == 0 || strokeWidth <= 0.0f)) return;
 
-    const float sRadius = std::max(0.0f, radius * m_scale);
+    const float sRadius = keel::max(0.0f, radius * m_scale);
     if (sRadius <= 0.05f) {
         if (stroke.a == 0 || strokeWidth <= 0.0f) {
             DrawRect(rect, fill);
@@ -489,7 +508,7 @@ void ThorCanvas::DrawRoundRect(
         if (fill.a > 0) {
             DrawRect(rect, fill);
         }
-        const float invScale = 1.0f / std::max(0.0001f, m_scale);
+        const float invScale = 1.0f / keel::max(0.0001f, m_scale);
         const float rx0 = std::round(rect.x * m_scale) * invScale;
         const float ry0 = std::round(rect.y * m_scale) * invScale;
         const float rx1 = std::round(rect.Right() * m_scale) * invScale;
@@ -501,12 +520,12 @@ void ThorCanvas::DrawRoundRect(
         const float maxBottom = (m_height > 0)
             ? (static_cast<float>(m_height) * invScale - strokeWidth)
             : (ry1 - hw);
-        const float x0 = (m_width > 0) ? std::max(0.0f, rx0 - hw) : (rx0 - hw);
-        const float y0 = (m_height > 0) ? std::max(0.0f, ry0 - hw) : (ry0 - hw);
-        const float xR = std::min(rx1 - hw, maxRight);
-        const float yB = std::min(ry1 - hw, maxBottom);
-        const float w = std::max(strokeWidth, (xR - x0) + strokeWidth);
-        const float h = std::max(strokeWidth, (yB - y0) + strokeWidth);
+        const float x0 = (m_width > 0) ? keel::max(0.0f, rx0 - hw) : (rx0 - hw);
+        const float y0 = (m_height > 0) ? keel::max(0.0f, ry0 - hw) : (ry0 - hw);
+        const float xR = keel::min(rx1 - hw, maxRight);
+        const float yB = keel::min(ry1 - hw, maxBottom);
+        const float w = keel::max(strokeWidth, (xR - x0) + strokeWidth);
+        const float h = keel::max(strokeWidth, (yB - y0) + strokeWidth);
         DrawRect(Rect(x0, y0, w, strokeWidth), stroke);
         DrawRect(Rect(x0, yB, w, strokeWidth), stroke);
         if (h > strokeWidth * 2.0f) {
@@ -550,11 +569,11 @@ void ThorCanvas::DrawRoundRect(
     m_hasPendingPaints = true;
 }
 
-Vec2 ThorCanvas::MeasureText(std::string_view text, float fontSize) {
+Vec2 ThorCanvas::MeasureText(keel::StringRef text, float fontSize) {
     return MeasureTextStyled(text, fontSize, FontStyle::Regular);
 }
 
-Vec2 ThorCanvas::MeasureTextStyled(std::string_view text, float fontSize, FontStyle style) {
+Vec2 ThorCanvas::MeasureTextStyled(keel::StringRef text, float fontSize, FontStyle style) {
     if (text.empty() || fontSize <= 0.0f) {
         return {0.0f, 0.0f};
     }
@@ -632,7 +651,7 @@ float ThorCanvas::GetLineHeight(float fontSize) {
 }
 
 const ThorCanvas::TextStampEntry& ThorCanvas::ResolveTextStamp(
-    std::string_view text,
+    keel::StringRef text,
     float scaledFontSize,
     Color color,
     FontStyle style
@@ -641,7 +660,7 @@ const ThorCanvas::TextStampEntry& ThorCanvas::ResolveTextStamp(
     for (char c : text) {
         h = (h ^ static_cast<uint8_t>(c)) * 1099511628211ULL;
     }
-    const float qFontSize = std::max(1.0f, std::round(scaledFontSize * 4.0f) * 0.25f);
+    const float qFontSize = keel::max(1.0f, std::round(scaledFontSize * 4.0f) * 0.25f);
     uint32_t fsBits = 0;
     std::memcpy(&fsBits, &qFontSize, sizeof(float));
 
@@ -649,7 +668,7 @@ const ThorCanvas::TextStampEntry& ThorCanvas::ResolveTextStamp(
         .textHash = h,
         .fontSizeBits = fsBits,
         .colorRgba = color.ToUint32(),
-        .textLen = static_cast<uint16_t>(std::min<size_t>(text.size(), 65535u)),
+        .textLen = static_cast<uint16_t>(keel::min<size_t>(text.size(), 65535u)),
         .style = static_cast<uint8_t>(style)
     };
 
@@ -665,15 +684,15 @@ const ThorCanvas::TextStampEntry& ThorCanvas::ResolveTextStamp(
     const Vec2 m = MeasureTextStyled(text, qFontSize, style);
     if (m.x <= 0.0f || m.y <= 0.0f) {
         entry.empty = true;
-        return m_textStampCache.get_or_insert(key, std::move(entry));
+        return m_textStampCache.get_or_insert(key, keel::move(entry));
     }
 
     const int padLeft = 3;
-    const int padTop = std::max(3, static_cast<int>(std::ceil(qFontSize * 0.25f)));
-    const int padRight = std::max(6, static_cast<int>(std::ceil(qFontSize * 0.35f)));
-    const int padBottom = std::max(4, static_cast<int>(std::ceil(qFontSize * 0.40f)));
-    const int bufW = std::clamp(static_cast<int>(std::ceil(m.x)) + padLeft + padRight, 4, 2048);
-    const int bufH = std::clamp(static_cast<int>(std::ceil(m.y)) + padTop + padBottom, 4, 256);
+    const int padTop = keel::max(3, static_cast<int>(std::ceil(qFontSize * 0.25f)));
+    const int padRight = keel::max(6, static_cast<int>(std::ceil(qFontSize * 0.35f)));
+    const int padBottom = keel::max(4, static_cast<int>(std::ceil(qFontSize * 0.40f)));
+    const int bufW = keel::clamp(static_cast<int>(std::ceil(m.x)) + padLeft + padRight, 4, 2048);
+    const int bufH = keel::clamp(static_cast<int>(std::ceil(m.y)) + padTop + padBottom, 4, 256);
 
     if (!m_stampCanvas) {
         m_stampCanvas = tvg::SwCanvas::gen(tvg::EngineOption::None);
@@ -746,7 +765,7 @@ const ThorCanvas::TextStampEntry& ThorCanvas::ResolveTextStamp(
         }
     }
 
-    return m_textStampCache.get_or_insert(key, std::move(entry));
+    return m_textStampCache.get_or_insert(key, keel::move(entry));
 }
 
 const ThorCanvas::TextStampEntry& ThorCanvas::ResolveShapeStamp(
@@ -757,11 +776,11 @@ const ThorCanvas::TextStampEntry& ThorCanvas::ResolveShapeStamp(
     Color stroke,
     float scaledStrokeWidth
 ) {
-    const uint16_t qW = static_cast<uint16_t>(std::clamp(static_cast<int>(std::round(scaledW * 4.0f)), 1, 4096));
-    const uint16_t qH = static_cast<uint16_t>(std::clamp(static_cast<int>(std::round(scaledH * 4.0f)), 1, 4096));
-    const uint16_t qRad = static_cast<uint16_t>(std::clamp(static_cast<int>(std::round(scaledRadius * 4.0f)), 0, 4096));
+    const uint16_t qW = static_cast<uint16_t>(keel::clamp(static_cast<int>(std::round(scaledW * 4.0f)), 1, 4096));
+    const uint16_t qH = static_cast<uint16_t>(keel::clamp(static_cast<int>(std::round(scaledH * 4.0f)), 1, 4096));
+    const uint16_t qRad = static_cast<uint16_t>(keel::clamp(static_cast<int>(std::round(scaledRadius * 4.0f)), 0, 4096));
     const uint16_t qStrokeW = (stroke.a > 0 && scaledStrokeWidth > 0.0f)
-        ? static_cast<uint16_t>(std::clamp(static_cast<int>(std::round(scaledStrokeWidth * 4.0f)), 1, 1024))
+        ? static_cast<uint16_t>(keel::clamp(static_cast<int>(std::round(scaledStrokeWidth * 4.0f)), 1, 1024))
         : 0u;
 
     const ShapeStampKey key{
@@ -788,8 +807,8 @@ const ThorCanvas::TextStampEntry& ThorCanvas::ResolveShapeStamp(
     const float sw = static_cast<float>(qStrokeW) * 0.25f;
 
     const int pad = static_cast<int>(std::ceil(sw * 0.5f)) + 2;
-    const int bufW = std::clamp(static_cast<int>(std::ceil(w)) + pad * 2, 4, 512);
-    const int bufH = std::clamp(static_cast<int>(std::ceil(h)) + pad * 2, 4, 256);
+    const int bufW = keel::clamp(static_cast<int>(std::ceil(w)) + pad * 2, 4, 512);
+    const int bufH = keel::clamp(static_cast<int>(std::ceil(h)) + pad * 2, 4, 256);
 
     if (!m_stampCanvas) {
         m_stampCanvas = tvg::SwCanvas::gen(tvg::EngineOption::None);
@@ -848,14 +867,14 @@ const ThorCanvas::TextStampEntry& ThorCanvas::ResolveShapeStamp(
         }
     }
 
-    return m_shapeStampCache.get_or_insert(key, std::move(entry));
+    return m_shapeStampCache.get_or_insert(key, keel::move(entry));
 }
 
 void ThorCanvas::BlitTextStamp(
     const TextStampEntry& stamp,
     int dstX,
     int dstY,
-    std::optional<Rect> extraClip
+    keel::Optional<Rect> extraClip
 ) {
     if (stamp.empty || stamp.pixels.empty() || !m_targetBuffer || m_width == 0 || m_height == 0) {
         return;
@@ -866,23 +885,23 @@ void ThorCanvas::BlitTextStamp(
     const int x1 = x0 + static_cast<int>(stamp.width);
     const int y1 = y0 + static_cast<int>(stamp.height);
 
-    int clipX0 = std::max(0, x0);
-    int clipY0 = std::max(0, y0);
-    int clipX1 = std::min(static_cast<int>(m_width), x1);
-    int clipY1 = std::min(static_cast<int>(m_height), y1);
+    int clipX0 = keel::max(0, x0);
+    int clipY0 = keel::max(0, y0);
+    int clipX1 = keel::min(static_cast<int>(m_width), x1);
+    int clipY1 = keel::min(static_cast<int>(m_height), y1);
 
     if (!m_clipStack.empty()) {
         const Rect& cr = m_clipStack.back();
-        clipX0 = std::max(clipX0, static_cast<int>(std::floor(cr.x)));
-        clipY0 = std::max(clipY0, static_cast<int>(std::floor(cr.y)));
-        clipX1 = std::min(clipX1, static_cast<int>(std::ceil(cr.Right())));
-        clipY1 = std::min(clipY1, static_cast<int>(std::ceil(cr.Bottom())));
+        clipX0 = keel::max(clipX0, static_cast<int>(std::floor(cr.x)));
+        clipY0 = keel::max(clipY0, static_cast<int>(std::floor(cr.y)));
+        clipX1 = keel::min(clipX1, static_cast<int>(std::ceil(cr.Right())));
+        clipY1 = keel::min(clipY1, static_cast<int>(std::ceil(cr.Bottom())));
     }
     if (extraClip.has_value()) {
-        clipX0 = std::max(clipX0, static_cast<int>(std::floor(extraClip->x)));
-        clipY0 = std::max(clipY0, static_cast<int>(std::floor(extraClip->y)));
-        clipX1 = std::min(clipX1, static_cast<int>(std::ceil(extraClip->Right())));
-        clipY1 = std::min(clipY1, static_cast<int>(std::ceil(extraClip->Bottom())));
+        clipX0 = keel::max(clipX0, static_cast<int>(std::floor(extraClip->x)));
+        clipY0 = keel::max(clipY0, static_cast<int>(std::floor(extraClip->y)));
+        clipX1 = keel::min(clipX1, static_cast<int>(std::ceil(extraClip->Right())));
+        clipY1 = keel::min(clipY1, static_cast<int>(std::ceil(extraClip->Bottom())));
     }
 
     if (clipX0 >= clipX1 || clipY0 >= clipY1) {
@@ -908,12 +927,12 @@ void ThorCanvas::BlitTextStamp(
     }
 }
 
-void ThorCanvas::DrawText(std::string_view text, Vec2 pos, float fontSize, Color color) {
+void ThorCanvas::DrawText(keel::StringRef text, Vec2 pos, float fontSize, Color color) {
     DrawTextStyled(text, pos, fontSize, color, FontStyle::Regular);
 }
 
 void ThorCanvas::DrawTextStyled(
-    std::string_view text,
+    keel::StringRef text,
     Vec2 pos,
     float fontSize,
     Color color,
@@ -924,8 +943,8 @@ void ThorCanvas::DrawTextStyled(
     if (!m_clipStack.empty() && (m_clipStack.back().w <= 0.0f || m_clipStack.back().h <= 0.0f)) return;
 
     const bool hasRot = std::abs(angleDeg) > 0.01f;
-    if (!hasRot && m_targetBuffer && m_width > 0 && m_height > 0 && text.find('\n') == std::string_view::npos) {
-        const std::string_view stampText = ClampUtf8Prefix(text, 512);
+    if (!hasRot && m_targetBuffer && m_width > 0 && m_height > 0 && text.find('\n') == keel::StringRef::npos) {
+        const keel::StringRef stampText = ClampUtf8Prefix(text, 512);
         const Vec2 m = MeasureTextStyled(stampText, fontSize, style);
         const Rect approxBounds(
             (pos.x - 2.0f) * m_scale,
@@ -979,7 +998,7 @@ void ThorCanvas::DrawTextStyled(
 }
 
 void ThorCanvas::DrawTextBox(
-    std::string_view text,
+    keel::StringRef text,
     Rect bounds,
     float fontSize,
     Color color,
@@ -990,7 +1009,7 @@ void ThorCanvas::DrawTextBox(
 }
 
 void ThorCanvas::DrawTextBoxStyled(
-    std::string_view text,
+    keel::StringRef text,
     Rect bounds,
     float fontSize,
     Color color,
@@ -1006,7 +1025,7 @@ void ThorCanvas::DrawTextBoxStyled(
     }
 
     keel::FixedString<256> truncated;
-    std::string_view drawText = text;
+    keel::StringRef drawText = text;
     if (bounds.w > 0.0f && MeasureTextStyled(text, fontSize, style).x > bounds.w + kTextSubpixelTolerance) {
         truncated = TextUtil::TruncateWithEllipsis(text, bounds.w, fontSize, this, style);
         drawText = truncated;
@@ -1014,8 +1033,8 @@ void ThorCanvas::DrawTextBoxStyled(
     if (drawText.empty()) return;
 
     if (m_targetBuffer && m_width > 0 && m_height > 0 &&
-        drawText.find('\n') == std::string_view::npos) {
-        const std::string_view stampText = ClampUtf8Prefix(drawText, 512);
+        drawText.find('\n') == keel::StringRef::npos) {
+        const keel::StringRef stampText = ClampUtf8Prefix(drawText, 512);
         const float scaledFs = fontSize * m_scale;
         const TextStampEntry& capStamp = ResolveTextStamp("H", scaledFs, Color(255, 255, 255, 255), style);
         const bool capEmpty = capStamp.empty;
@@ -1036,7 +1055,7 @@ void ThorCanvas::DrawTextBoxStyled(
         const float ty = sBounds.y + (sBounds.h - static_cast<float>(capH)) * alignY - static_cast<float>(capOffY);
         const int dstX = static_cast<int>(std::round(tx));
         const int dstY = static_cast<int>(std::round(ty));
-        const float vPad = std::max(4.0f, scaledFs * 0.35f);
+        const float vPad = keel::max(4.0f, scaledFs * 0.35f);
         BlitTextStamp(stamp, dstX, dstY, Rect(sBounds.x - 2.0f, sBounds.y - vPad, sBounds.w + 4.0f, sBounds.h + vPad * 2.0f));
         return;
     }
@@ -1073,15 +1092,15 @@ void ThorCanvas::DrawLine(Vec2 p1, Vec2 p2, Color color, float strokeWidth) {
     if (color.a == 0 || strokeWidth <= 0.0f || !m_canvas) return;
     if (!m_hasPendingPaints) {
         if (std::abs(p1.y - p2.y) <= 0.05f) {
-            const float x0 = std::min(p1.x, p2.x);
-            const float x1 = std::max(p1.x, p2.x);
+            const float x0 = keel::min(p1.x, p2.x);
+            const float x1 = keel::max(p1.x, p2.x);
             const float hw = strokeWidth * 0.5f;
             DrawRect(Rect(x0 - hw, p1.y - hw, (x1 - x0) + strokeWidth, strokeWidth), color);
             return;
         }
         if (std::abs(p1.x - p2.x) <= 0.05f) {
-            const float y0 = std::min(p1.y, p2.y);
-            const float y1 = std::max(p1.y, p2.y);
+            const float y0 = keel::min(p1.y, p2.y);
+            const float y1 = keel::max(p1.y, p2.y);
             const float hw = strokeWidth * 0.5f;
             DrawRect(Rect(p1.x - hw, y0 - hw, strokeWidth, (y1 - y0) + strokeWidth), color);
             return;
@@ -1102,10 +1121,10 @@ void ThorCanvas::DrawLine(Vec2 p1, Vec2 p2, Color color, float strokeWidth) {
     if (!m_clipStack.empty()) {
         const Rect& cr = m_clipStack.back();
         if (cr.w <= 0.0f || cr.h <= 0.0f) return;
-        clipMinX = std::max(clipMinX, cr.x - pad);
-        clipMinY = std::max(clipMinY, cr.y - pad);
-        clipMaxX = std::min(clipMaxX, cr.Right() + pad);
-        clipMaxY = std::min(clipMaxY, cr.Bottom() + pad);
+        clipMinX = keel::max(clipMinX, cr.x - pad);
+        clipMinY = keel::max(clipMinY, cr.y - pad);
+        clipMaxX = keel::min(clipMaxX, cr.Right() + pad);
+        clipMaxY = keel::min(clipMaxY, cr.Bottom() + pad);
     }
 
     const float dx = sp2.x - sp1.x;
@@ -1161,10 +1180,10 @@ void ThorCanvas::DrawTriangle(
     const Vec2 sp2(p2.x * m_scale, p2.y * m_scale);
     const Vec2 sp3(p3.x * m_scale, p3.y * m_scale);
     const float pad = strokeWidth * m_scale + 1.0f;
-    const float minX = std::min({sp1.x, sp2.x, sp3.x}) - pad;
-    const float minY = std::min({sp1.y, sp2.y, sp3.y}) - pad;
-    const float maxX = std::max({sp1.x, sp2.x, sp3.x}) + pad;
-    const float maxY = std::max({sp1.y, sp2.y, sp3.y}) + pad;
+    const float minX = keel::min(sp1.x, keel::min(sp2.x, sp3.x)) - pad;
+    const float minY = keel::min(sp1.y, keel::min(sp2.y, sp3.y)) - pad;
+    const float maxX = keel::max(sp1.x, keel::max(sp2.x, sp3.x)) + pad;
+    const float maxY = keel::max(sp1.y, keel::max(sp2.y, sp3.y)) + pad;
     const Rect triBounds(minX, minY, maxX - minX, maxY - minY);
 
     if (!m_clipStack.empty()) {
@@ -1267,7 +1286,7 @@ void ThorCanvas::DrawPath(const VectorPath& path, const PathPaint& paint) {
     m_hasPendingPaints = true;
 }
 
-ThorCanvas::ImageCacheEntry& ThorCanvas::ResolveImageEntry(std::string_view source) {
+ThorCanvas::ImageCacheEntry& ThorCanvas::ResolveImageEntry(keel::StringRef source) {
     static ImageCacheEntry s_emptyEntry{};
     if (source.empty()) return s_emptyEntry;
 
@@ -1281,15 +1300,12 @@ ThorCanvas::ImageCacheEntry& ThorCanvas::ResolveImageEntry(std::string_view sour
     }
 
     ImageCacheEntry entry{};
-    std::string_view trimmed = source;
-    while (!trimmed.empty() && (trimmed.front() == ' ' || trimmed.front() == '\t' || trimmed.front() == '\n' || trimmed.front() == '\r')) {
-        trimmed.remove_prefix(1);
-    }
+    const keel::StringRef trimmed = source.trim_left();
 
     auto* probe = tvg::Picture::gen();
     if (trimmed.starts_with("<svg") || trimmed.starts_with("<?xml")) {
         entry.isInlineSvg = true;
-        entry.resolvedDataOrPath = std::string(trimmed);
+        entry.resolvedDataOrPath.assign(trimmed);
         if (probe->load(entry.resolvedDataOrPath.data(),
                         static_cast<uint32_t>(entry.resolvedDataOrPath.size()),
                         "svg",
@@ -1303,7 +1319,7 @@ ThorCanvas::ImageCacheEntry& ThorCanvas::ResolveImageEntry(std::string_view sour
             }
         }
     } else if (auto asset = Assets::Find(source); asset && !asset->Empty()) {
-        const std::string mimeStr(asset->mimeType);
+        const keel::SmallString<16> mimeStr(asset->mimeType);
         const char* mime = mimeStr.empty() ? nullptr : mimeStr.c_str();
         if (probe->load(reinterpret_cast<const char*>(asset->data),
                         static_cast<uint32_t>(asset->size),
@@ -1315,7 +1331,7 @@ ThorCanvas::ImageCacheEntry& ThorCanvas::ResolveImageEntry(std::string_view sour
             if (w > 0.0f && h > 0.0f) {
                 entry.embeddedData = asset->data;
                 entry.embeddedSize = asset->size;
-                entry.embeddedMimeType = mimeStr;
+                entry.embeddedMimeType.assign(asset->mimeType);
                 entry.isEmbedded = true;
                 entry.size = {w, h};
                 entry.valid = true;
@@ -1326,12 +1342,13 @@ ThorCanvas::ImageCacheEntry& ThorCanvas::ResolveImageEntry(std::string_view sour
     if (!entry.valid && !entry.isInlineSvg) {
         const char* prefixes[] = {"", "../", "../../", "../../../"};
         for (const char* prefix : prefixes) {
-            std::string candidate = std::string(prefix) + std::string(source);
+            keel::String candidate(prefix);
+            candidate.append(source);
             if (probe->load(candidate.c_str()) == tvg::Result::Success) {
                 float w = 0.0f, h = 0.0f;
                 probe->size(&w, &h);
                 if (w > 0.0f && h > 0.0f) {
-                    entry.resolvedDataOrPath = std::move(candidate);
+                    entry.resolvedDataOrPath = keel::move(candidate);
                     entry.size = {w, h};
                     entry.valid = true;
                     break;
@@ -1341,16 +1358,16 @@ ThorCanvas::ImageCacheEntry& ThorCanvas::ResolveImageEntry(std::string_view sour
     }
     delete probe;
 
-    return m_imageCache.get_or_insert(keel::String::from(source), std::move(entry));
+    return m_imageCache.get_or_insert(keel::String::from(source), keel::move(entry));
 }
 
-Vec2 ThorCanvas::GetImageSize(std::string_view source) {
+Vec2 ThorCanvas::GetImageSize(keel::StringRef source) {
     const auto& entry = ResolveImageEntry(source);
     return entry.valid ? entry.size : Vec2{0.0f, 0.0f};
 }
 
 bool ThorCanvas::DrawImage(
-    std::string_view source,
+    keel::StringRef source,
     Rect destRect,
     float cornerRadius,
     uint8_t opacity
@@ -1372,13 +1389,13 @@ bool ThorCanvas::DrawImage(
         return false;
     }
 
-    const float sRad = std::max(0.0f, cornerRadius * m_scale);
+    const float sRad = keel::max(0.0f, cornerRadius * m_scale);
     const int dstX0 = static_cast<int>(std::round(sBounds.x));
     const int dstY0 = static_cast<int>(std::round(sBounds.y));
     const int dstX1 = static_cast<int>(std::round(sBounds.Right()));
     const int dstY1 = static_cast<int>(std::round(sBounds.Bottom()));
-    const uint32_t dstW = static_cast<uint32_t>(std::max(1, dstX1 - dstX0));
-    const uint32_t dstH = static_cast<uint32_t>(std::max(1, dstY1 - dstY0));
+    const uint32_t dstW = static_cast<uint32_t>(keel::max(1, dstX1 - dstX0));
+    const uint32_t dstH = static_cast<uint32_t>(keel::max(1, dstY1 - dstY0));
 
     if (sRad <= 0.0f && m_targetBuffer && dstW <= 256u && dstH <= 256u) {
         if (entry.cachedRasterW != dstW || entry.cachedRasterH != dstH || entry.cachedPixels.empty()) {
@@ -1492,7 +1509,7 @@ bool ThorCanvas::DrawPixels(
         return false;
     }
 
-    const float sRad = std::max(0.0f, cornerRadius * m_scale);
+    const float sRad = keel::max(0.0f, cornerRadius * m_scale);
     Rect sBounds(destRect.x * m_scale, destRect.y * m_scale, destRect.w * m_scale, destRect.h * m_scale);
     if (sRad <= 0.0f) {
         const int dstX0 = static_cast<int>(std::round(sBounds.x));
@@ -1506,17 +1523,17 @@ bool ThorCanvas::DrawPixels(
         }
 
         if (m_targetBuffer && m_width > 0 && m_height > 0) {
-            int clipX0 = std::max(0, dstX0);
-            int clipY0 = std::max(0, dstY0);
-            int clipX1 = std::min(static_cast<int>(m_width), dstX1);
-            int clipY1 = std::min(static_cast<int>(m_height), dstY1);
+            int clipX0 = keel::max(0, dstX0);
+            int clipY0 = keel::max(0, dstY0);
+            int clipX1 = keel::min(static_cast<int>(m_width), dstX1);
+            int clipY1 = keel::min(static_cast<int>(m_height), dstY1);
 
             if (!m_clipStack.empty()) {
                 const Rect& cr = m_clipStack.back();
-                clipX0 = std::max(clipX0, static_cast<int>(std::floor(cr.x)));
-                clipY0 = std::max(clipY0, static_cast<int>(std::floor(cr.y)));
-                clipX1 = std::min(clipX1, static_cast<int>(std::ceil(cr.Right())));
-                clipY1 = std::min(clipY1, static_cast<int>(std::ceil(cr.Bottom())));
+                clipX0 = keel::max(clipX0, static_cast<int>(std::floor(cr.x)));
+                clipY0 = keel::max(clipY0, static_cast<int>(std::floor(cr.y)));
+                clipX1 = keel::min(clipX1, static_cast<int>(std::ceil(cr.Right())));
+                clipY1 = keel::min(clipY1, static_cast<int>(std::ceil(cr.Bottom())));
             }
             if (clipX0 >= clipX1 || clipY0 >= clipY1) {
                 return true;
@@ -1556,13 +1573,13 @@ bool ThorCanvas::DrawPixels(
                 const uint32_t maxU = (width - 1u) << 16;
 
                 for (int y = clipY0; y < clipY1; ++y, curV += stepY) {
-                    const uint32_t sy = std::min(height - 1u, curV >> 16);
+                    const uint32_t sy = keel::min(height - 1u, curV >> 16);
                     const uint32_t* srcRow = pixels + static_cast<size_t>(sy) * width;
                     uint32_t* dstRow = m_targetBuffer + static_cast<size_t>(y) * m_stride + clipX0;
                     uint32_t curU = startU;
                     if (opacity == 255) {
                         for (int x = 0; x < spanW; ++x, curU += stepX) {
-                            const uint32_t s = srcRow[std::min(curU, maxU) >> 16];
+                            const uint32_t s = srcRow[keel::min(curU, maxU) >> 16];
                             if (s >= 0xFF000000u) {
                                 dstRow[x] = s;
                             } else if (s != 0u) {
@@ -1571,7 +1588,7 @@ bool ThorCanvas::DrawPixels(
                         }
                     } else {
                         for (int x = 0; x < spanW; ++x, curU += stepX) {
-                            const uint32_t s = AlphaBlendSwar(srcRow[std::min(curU, maxU) >> 16], opacity);
+                            const uint32_t s = AlphaBlendSwar(srcRow[keel::min(curU, maxU) >> 16], opacity);
                             if (s != 0u) {
                                 dstRow[x] = BlendPreNormalSwar(s, dstRow[x]);
                             }
@@ -1642,14 +1659,17 @@ void ThorCanvas::PunchHole(Rect rect) {
     }
     if (sRect.w <= 0.0f || sRect.h <= 0.0f) return;
 
-    const int startX = std::max(0, static_cast<int>(std::floor(sRect.x)));
-    const int startY = std::max(0, static_cast<int>(std::floor(sRect.y)));
-    const int endX = std::min(static_cast<int>(m_width), static_cast<int>(std::ceil(sRect.Right())));
-    const int endY = std::min(static_cast<int>(m_height), static_cast<int>(std::ceil(sRect.Bottom())));
+    const int startX = keel::max(0, static_cast<int>(std::floor(sRect.x)));
+    const int startY = keel::max(0, static_cast<int>(std::floor(sRect.y)));
+    const int endX = keel::min(static_cast<int>(m_width), static_cast<int>(std::ceil(sRect.Right())));
+    const int endY = keel::min(static_cast<int>(m_height), static_cast<int>(std::ceil(sRect.Bottom())));
     const int w = endX - startX;
     if (w > 0 && endY > startY) {
         for (int y = startY; y < endY; ++y) {
-            std::fill_n(m_targetBuffer + y * m_stride + startX, w, 0x00000000u);
+            keel::fill(
+                keel::MutArrayRef<uint32_t>(m_targetBuffer + y * m_stride + startX, static_cast<size_t>(w)),
+                0x00000000u
+            );
         }
     }
 }
@@ -1670,7 +1690,16 @@ bool ThorCanvas::DrawGpuShaderPass(const GpuShaderPassDesc& pass, bool punchHole
                            pass.plotRect.w * m_scale, pass.plotRect.h * m_scale);
     scaled.clipRect = m_gpuClipStack.empty() ? scaled.plotRect : scaled.plotRect.Intersect(m_gpuClipStack.back());
     if (scaled.clipRect.w <= 0.5f || scaled.clipRect.h <= 0.5f) {
-        std::erase_if(m_gpuPasses, [&](const GpuShaderPassDesc& p) { return p.widgetId == scaled.widgetId; });
+        size_t writeIdx = 0;
+        for (size_t i = 0; i < m_gpuPasses.size(); ++i) {
+            if (m_gpuPasses[i].widgetId != scaled.widgetId) {
+                if (writeIdx != i) {
+                    m_gpuPasses[writeIdx] = keel::move(m_gpuPasses[i]);
+                }
+                ++writeIdx;
+            }
+        }
+        m_gpuPasses.resize(writeIdx);
         return true;
     }
 
@@ -1684,17 +1713,17 @@ bool ThorCanvas::DrawGpuShaderPass(const GpuShaderPassDesc& pass, bool punchHole
     return true;
 }
 
-bool ThorCanvas::CaptureRegion(Rect rect, std::vector<uint32_t>& outPixels, uint32_t& outW, uint32_t& outH) {
+bool ThorCanvas::CaptureRegion(Rect rect, keel::Array<uint32_t>& outPixels, uint32_t& outW, uint32_t& outH) {
     if (!m_targetBuffer || m_width == 0 || m_height == 0 || rect.w <= 0.0f || rect.h <= 0.0f) {
         return false;
     }
 
     const Rect sRect(rect.x * m_scale, rect.y * m_scale, rect.w * m_scale, rect.h * m_scale);
     const Rect visRect = m_gpuClipStack.empty() ? sRect : sRect.Intersect(m_gpuClipStack.back());
-    const int x0 = std::clamp(static_cast<int>(std::round(visRect.x)), 0, static_cast<int>(m_width));
-    const int y0 = std::clamp(static_cast<int>(std::round(visRect.y)), 0, static_cast<int>(m_height));
-    const int x1 = std::clamp(static_cast<int>(std::round(visRect.Right())), 0, static_cast<int>(m_width));
-    const int y1 = std::clamp(static_cast<int>(std::round(visRect.Bottom())), 0, static_cast<int>(m_height));
+    const int x0 = keel::clamp(static_cast<int>(std::round(visRect.x)), 0, static_cast<int>(m_width));
+    const int y0 = keel::clamp(static_cast<int>(std::round(visRect.y)), 0, static_cast<int>(m_height));
+    const int x1 = keel::clamp(static_cast<int>(std::round(visRect.Right())), 0, static_cast<int>(m_width));
+    const int y1 = keel::clamp(static_cast<int>(std::round(visRect.Bottom())), 0, static_cast<int>(m_height));
     const int w = x1 - x0;
     const int h = y1 - y0;
     if (w <= 0 || h <= 0) {
@@ -1724,7 +1753,7 @@ bool ThorCanvas::CaptureRegion(Rect rect, std::vector<uint32_t>& outPixels, uint
     return true;
 }
 
-bool ThorCanvas::RestoreRegion(Rect rect, const std::vector<uint32_t>& inPixels, uint32_t inW, uint32_t inH) {
+bool ThorCanvas::RestoreRegion(Rect rect, keel::ArrayRef<uint32_t> inPixels, uint32_t inW, uint32_t inH) {
     if (!m_targetBuffer || m_width == 0 || m_height == 0 || inW == 0 || inH == 0 ||
         inPixels.size() < static_cast<size_t>(inW) * static_cast<size_t>(inH)) {
         return false;
@@ -1732,10 +1761,10 @@ bool ThorCanvas::RestoreRegion(Rect rect, const std::vector<uint32_t>& inPixels,
 
     const Rect sRect(rect.x * m_scale, rect.y * m_scale, rect.w * m_scale, rect.h * m_scale);
     const Rect visRect = m_gpuClipStack.empty() ? sRect : sRect.Intersect(m_gpuClipStack.back());
-    const int x0 = std::clamp(static_cast<int>(std::round(visRect.x)), 0, static_cast<int>(m_width));
-    const int y0 = std::clamp(static_cast<int>(std::round(visRect.y)), 0, static_cast<int>(m_height));
-    const int x1 = std::clamp(static_cast<int>(std::round(visRect.Right())), 0, static_cast<int>(m_width));
-    const int y1 = std::clamp(static_cast<int>(std::round(visRect.Bottom())), 0, static_cast<int>(m_height));
+    const int x0 = keel::clamp(static_cast<int>(std::round(visRect.x)), 0, static_cast<int>(m_width));
+    const int y0 = keel::clamp(static_cast<int>(std::round(visRect.y)), 0, static_cast<int>(m_height));
+    const int x1 = keel::clamp(static_cast<int>(std::round(visRect.Right())), 0, static_cast<int>(m_width));
+    const int y1 = keel::clamp(static_cast<int>(std::round(visRect.Bottom())), 0, static_cast<int>(m_height));
     const int w = x1 - x0;
     const int h = y1 - y0;
     if (w != static_cast<int>(inW) || h != static_cast<int>(inH)) {
@@ -1748,10 +1777,10 @@ bool ThorCanvas::RestoreRegion(Rect rect, const std::vector<uint32_t>& inPixels,
     int clipY1 = y1;
     if (!m_clipStack.empty()) {
         const Rect& clip = m_clipStack.back();
-        clipX0 = std::max(clipX0, static_cast<int>(std::floor(clip.x)));
-        clipY0 = std::max(clipY0, static_cast<int>(std::floor(clip.y)));
-        clipX1 = std::min(clipX1, static_cast<int>(std::ceil(clip.Right())));
-        clipY1 = std::min(clipY1, static_cast<int>(std::ceil(clip.Bottom())));
+        clipX0 = keel::max(clipX0, static_cast<int>(std::floor(clip.x)));
+        clipY0 = keel::max(clipY0, static_cast<int>(std::floor(clip.y)));
+        clipX1 = keel::min(clipX1, static_cast<int>(std::ceil(clip.Right())));
+        clipY1 = keel::min(clipY1, static_cast<int>(std::ceil(clip.Bottom())));
     }
     if (clipX1 <= clipX0 || clipY1 <= clipY0) {
         return true;
@@ -1772,8 +1801,8 @@ bool ThorCanvas::RestoreRegion(Rect rect, const std::vector<uint32_t>& inPixels,
     return true;
 }
 
-std::unique_ptr<ICanvas> CreateThorVectorCanvas(bool loadDefaultFonts) {
-    return std::make_unique<ThorCanvas>(loadDefaultFonts);
+keel::UniquePtr<ICanvas> CreateThorVectorCanvas(bool loadDefaultFonts) {
+    return keel::make_unique<ThorCanvas>(loadDefaultFonts);
 }
 
 namespace {
@@ -1787,18 +1816,22 @@ struct LodePngStateGuard {
     LodePngStateGuard& operator=(const LodePngStateGuard&) = delete;
 };
 
-struct FreeDeleter {
-    void operator()(unsigned char* p) const noexcept {
-        if (p) std::free(p);
+struct MallocBytesGuard {
+    unsigned char* ptr{nullptr};
+    explicit MallocBytesGuard(unsigned char* p) noexcept : ptr(p) {}
+    ~MallocBytesGuard() noexcept {
+        if (ptr) std::free(ptr);
     }
+    MallocBytesGuard(const MallocBytesGuard&) = delete;
+    MallocBytesGuard& operator=(const MallocBytesGuard&) = delete;
 };
 #endif
 
 bool DecodeThorImageFromMemory(
-    std::span<const uint8_t> encodedBytes,
+    keel::ArrayRef<uint8_t> encodedBytes,
     uint32_t& outWidth,
     uint32_t& outHeight,
-    std::vector<uint32_t>& outRgbaPixels
+    keel::Array<uint32_t>& outRgbaPixels
 ) {
     outWidth = 0;
     outHeight = 0;
@@ -1836,33 +1869,33 @@ bool DecodeThorImageFromMemory(
             encodedBytes.data(),
             encodedBytes.size()
         );
-        std::unique_ptr<unsigned char, FreeDeleter> decodedBytes(rawPtr);
+        MallocBytesGuard decodedBytes(rawPtr);
 
-        if (err != 0 || !decodedBytes || srcW == 0 || srcH == 0 || srcW > 4096 || srcH > 4096) {
+        if (err != 0 || !decodedBytes.ptr || srcW == 0 || srcH == 0 || srcW > 4096 || srcH > 4096) {
             return false;
         }
 
         if (decodeGuard.state.info_png.iccp_defined) {
-            lodepng_toSrgb(decodedBytes.get(), decodedBytes.get(), srcW, srcH, &decodeGuard.state);
+            lodepng_toSrgb(decodedBytes.ptr, decodedBytes.ptr, srcW, srcH, &decodeGuard.state);
         }
 
         outWidth = srcW;
         outHeight = srcH;
         const size_t totalPx = static_cast<size_t>(srcW) * srcH;
         outRgbaPixels.resize(totalPx);
-        const unsigned char* srcBuf = decodedBytes.get();
+        const unsigned char* srcBuf = decodedBytes.ptr;
 
-        if constexpr (std::endian::native == std::endian::little) {
-            std::memcpy(outRgbaPixels.data(), srcBuf, totalPx * sizeof(uint32_t));
-        } else {
-            for (size_t i = 0; i < totalPx; ++i) {
-                const size_t b = i * 4u;
-                outRgbaPixels[i] = (static_cast<uint32_t>(srcBuf[b + 3]) << 24u) |
-                                   (static_cast<uint32_t>(srcBuf[b + 2]) << 16u) |
-                                   (static_cast<uint32_t>(srcBuf[b + 1]) << 8u) |
-                                   static_cast<uint32_t>(srcBuf[b + 0]);
-            }
+#if !defined(__BYTE_ORDER__) || (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+        std::memcpy(outRgbaPixels.data(), srcBuf, totalPx * sizeof(uint32_t));
+#else
+        for (size_t i = 0; i < totalPx; ++i) {
+            const size_t b = i * 4u;
+            outRgbaPixels[i] = (static_cast<uint32_t>(srcBuf[b + 3]) << 24u) |
+                               (static_cast<uint32_t>(srcBuf[b + 2]) << 16u) |
+                               (static_cast<uint32_t>(srcBuf[b + 1]) << 8u) |
+                               static_cast<uint32_t>(srcBuf[b + 0]);
         }
+#endif
         return true;
     }
 #endif

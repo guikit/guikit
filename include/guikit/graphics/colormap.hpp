@@ -1,9 +1,6 @@
 #pragma once
 
-#include <array>
 #include <cstdint>
-#include <span>
-#include <string_view>
 #include "guikit/core/types.hpp"
 
 namespace guikit {
@@ -56,19 +53,19 @@ enum class Colormap : uint8_t {
 [[nodiscard]] uint32_t SampleColormapAbgr(Colormap map, float t, bool invert = false) noexcept;
 
 /// Returns a precomputed 256-entry `Color` lookup table for the specified `Colormap` (zero frame allocation).
-[[nodiscard]] const std::array<Color, 256>& GetColormapLut(Colormap map, bool invert = false) noexcept;
+[[nodiscard]] const keel::StaticArray<Color, 256>& GetColormapLut(Colormap map, bool invert = false) noexcept;
 
 /// Returns a precomputed 256-entry `ABGR8888` lookup table for the specified `Colormap` (zero frame allocation).
-[[nodiscard]] const std::array<uint32_t, 256>& GetColormapLutAbgr(Colormap map, bool invert = false) noexcept;
+[[nodiscard]] const keel::StaticArray<uint32_t, 256>& GetColormapLutAbgr(Colormap map, bool invert = false) noexcept;
 
 /// Copies the precomputed 256-entry `ABGR8888` lookup table into a destination array (e.g. GPU shader descriptor).
 void CopyColormapLutAbgr(Colormap map, uint32_t outAbgr[256], bool invert = false) noexcept;
 
 /// Returns the human-readable display name of a `Colormap`.
-[[nodiscard]] std::string_view GetColormapName(Colormap map) noexcept;
+[[nodiscard]] keel::StringRef GetColormapName(Colormap map) noexcept;
 
 /// Returns a static span of all `Colormap` display names in enum order (`0 .. Count-1`).
-[[nodiscard]] std::span<const std::string_view> GetAllColormapNames() noexcept;
+[[nodiscard]] keel::ArrayRef<keel::StringRef> GetAllColormapNames() noexcept;
 
 /// Draws a smooth colorbar strip (horizontal or vertical) for the specified `Colormap`.
 void DrawColormapBar(

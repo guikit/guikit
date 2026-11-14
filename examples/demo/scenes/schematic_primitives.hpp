@@ -1,11 +1,8 @@
 #pragma once
 
-#include <algorithm>
 #include <cmath>
-#include <string_view>
-#include <utility>
-#include <vector>
 #include "guikit/panels/scene.hpp"
+#include "keel/keel.h"
 
 namespace guikit::demo {
 
@@ -70,12 +67,12 @@ public:
     }
 
     void WireH(float x1, float x2, float y) {
-        if (x1 > x2) std::swap(x1, x2);
+        if (x1 > x2) keel::swap(x1, x2);
         m_wires.push_back({{x1, y}, {x2, y}});
     }
 
     void WireV(float x, float y1, float y2) {
-        if (y1 > y2) std::swap(y1, y2);
+        if (y1 > y2) keel::swap(y1, y2);
         m_wires.push_back({{x, y1}, {x, y2}});
     }
 
@@ -88,8 +85,8 @@ public:
     /// Flushes all recorded interconnecting wires, clipping them cleanly against component bodies
     /// so every component interior remains transparent and showcases the Scene Canvas Backdrop.
     void FlushWires() {
-        std::vector<std::pair<float, float>> intervals;
-        std::vector<std::pair<float, float>> nextIntervals;
+        keel::Array<WireInterval> intervals;
+        keel::Array<WireInterval> nextIntervals;
         for (const auto& [a, b] : m_wires) {
             const float dx = b.x - a.x;
             const float dy = b.y - a.y;
@@ -106,7 +103,7 @@ public:
                 } else {
                     tx0 = (r.x - a.x) / dx;
                     tx1 = (r.Right() - a.x) / dx;
-                    if (tx0 > tx1) std::swap(tx0, tx1);
+                    if (tx0 > tx1) keel::swap(tx0, tx1);
                 }
 
                 float ty0 = 0.0f, ty1 = 1.0f;
@@ -115,11 +112,11 @@ public:
                 } else {
                     ty0 = (r.y - a.y) / dy;
                     ty1 = (r.Bottom() - a.y) / dy;
-                    if (ty0 > ty1) std::swap(ty0, ty1);
+                    if (ty0 > ty1) keel::swap(ty0, ty1);
                 }
 
-                const float tEnter = std::max(0.0f, std::max(tx0, ty0));
-                const float tExit  = std::min(1.0f, std::min(tx1, ty1));
+                const float tEnter = keel::max(0.0f, keel::max(tx0, ty0));
+                const float tExit  = keel::min(1.0f, keel::min(tx1, ty1));
                 if (tEnter >= tExit - 1e-4f) continue;
 
                 nextIntervals.clear();
@@ -135,7 +132,7 @@ public:
                         }
                     }
                 }
-                intervals.swap(nextIntervals);
+                keel::swap(intervals, nextIntervals);
                 if (intervals.empty()) break;
             }
 
@@ -167,10 +164,10 @@ public:
         if (len < 0.5f) return;
         const float ux = dx / len;
         const float uy = dy / len;
-        const float step = std::max(2.0f, dashLen + gapLen);
+        const float step = keel::max(2.0f, dashLen + gapLen);
 
         for (float t = 0.0f; t < len; t += step) {
-            const float tEnd = std::min(len, t + dashLen);
+            const float tEnd = keel::min(len, t + dashLen);
             m_scene.DrawLine(
                 {a.x + ux * t, a.y + uy * t},
                 {a.x + ux * tEnd, a.y + uy * tEnd},
@@ -193,7 +190,7 @@ public:
     }
 
     /// Draws a numbered PCB edge terminal pin inside a circle (`1`..`15`).
-    void BoardPin(Vec2 pt, std::string_view number) {
+    void BoardPin(Vec2 pt, keel::StringRef number) {
         auto item = m_scene.Item({
             .id = number,
             .title = "PCB Edge Terminal",
@@ -229,7 +226,7 @@ public:
     }
 
     /// Draws a hollow triangular off-sheet signal arrow (e.g. "TO RIGHTHAND AMPLIFIER").
-    void SignalArrowDown(Vec2 pt, std::string_view line1 = "", std::string_view line2 = "") {
+    void SignalArrowDown(Vec2 pt, keel::StringRef line1 = "", keel::StringRef line2 = "") {
         AddCutout(Rect(pt.x - 3.6f, pt.y - 7.2f, 7.2f, 7.2f));
         m_scene.DrawTriangle(
             {pt.x, pt.y},
@@ -266,7 +263,7 @@ public:
     }
 
     /// Helper to draw an aligned two-line or single-line component label on the left (`side < 0`) or right (`side > 0`).
-    void SideLabel(Vec2 anchor, int side, std::string_view line1, std::string_view line2 = "") {
+    void SideLabel(Vec2 anchor, int side, keel::StringRef line1, keel::StringRef line2 = "") {
         const float boxW = 48.0f;
         const float alignX = (side >= 0) ? 0.0f : 1.0f;
         const float rx = (side >= 0) ? anchor.x : (anchor.x - boxW);
@@ -288,8 +285,8 @@ public:
     void Resistor(
         Vec2 center,
         bool vertical,
-        std::string_view refDes,
-        std::string_view value,
+        keel::StringRef refDes,
+        keel::StringRef value,
         int labelSide = 1,
         bool dashed = false
     ) {
@@ -347,8 +344,8 @@ public:
     void Potentiometer(
         Vec2 center,
         bool vertical,
-        std::string_view refDes,
-        std::string_view value,
+        keel::StringRef refDes,
+        keel::StringRef value,
         int labelSide = -1
     ) {
         auto item = m_scene.Item({
@@ -382,7 +379,7 @@ public:
     }
 
     /// Draws a BS 3939 cartridge fuse (`FS1`) with continuous conductor passing through the body.
-    void Fuse(Vec2 center, bool vertical, std::string_view refDes, int labelSide = 1) {
+    void Fuse(Vec2 center, bool vertical, keel::StringRef refDes, int labelSide = 1) {
         auto item = m_scene.Item({
             .id = refDes,
             .title = "Mains Fuse",
@@ -409,8 +406,8 @@ public:
     void Capacitor(
         Vec2 center,
         bool vertical,
-        std::string_view refDes,
-        std::string_view value,
+        keel::StringRef refDes,
+        keel::StringRef value,
         bool electrolytic = false,
         int posSide = -1,
         int labelSide = -1
@@ -474,7 +471,7 @@ public:
     }
 
     /// Draws a 4-loop horizontal inductor coil (`L100`).
-    void InductorH(Vec2 center, std::string_view refDes, float totalWidth = 38.0f) {
+    void InductorH(Vec2 center, keel::StringRef refDes, float totalWidth = 38.0f) {
         auto item = m_scene.Item({
             .id = refDes,
             .title = "Output Choke",
@@ -500,12 +497,12 @@ public:
     void Diode(
         Vec2 center,
         float dirDeg,
-        std::string_view refDes,
-        std::string_view partNum = "",
+        keel::StringRef refDes,
+        keel::StringRef partNum = "",
         bool isZener = false,
         int labelSide = 1
     ) {
-        std::optional<SceneItemScope> itemScope;
+        keel::Optional<SceneItemScope> itemScope;
         if (!refDes.empty()) {
             itemScope.emplace(m_scene.Item({
                 .id = refDes,
@@ -569,8 +566,8 @@ public:
     void TransistorBJT(
         Vec2 center,
         bool isPNP,
-        std::string_view refDes,
-        std::string_view partNum,
+        keel::StringRef refDes,
+        keel::StringRef partNum,
         bool baseLeft = true,
         bool emitterAtTop = false,
         int labelSide = -1
@@ -1106,10 +1103,20 @@ public:
     }
 
 private:
+    struct WireSegment {
+        Vec2 a{};
+        Vec2 b{};
+    };
+
+    struct WireInterval {
+        float u0{0.0f};
+        float u1{1.0f};
+    };
+
     SceneScope& m_scene;
     SchematicPalette m_pal;
-    std::vector<std::pair<Vec2, Vec2>> m_wires;
-    std::vector<Rect> m_cutouts;
+    keel::Array<WireSegment> m_wires;
+    keel::Array<Rect> m_cutouts;
 };
 
 /// Renders the complete QUAD 303 Power Amplifier Circuit Diagram (Drawing M12160)

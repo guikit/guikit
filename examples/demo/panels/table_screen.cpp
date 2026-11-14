@@ -1,11 +1,5 @@
 #include "../demo_context.hpp"
-#include <algorithm>
-#include <array>
 #include <cmath>
-#include <cstdio>
-#include <sstream>
-#include <string>
-#include <vector>
 
 namespace guikit::demo {
 
@@ -13,8 +7,8 @@ namespace {
 
 struct SignalTargetRow {
     int id{0};
-    std::string callsign{};
-    std::string modulation{};
+    keel::FixedString<64> callsign{};
+    keel::FixedString<32> modulation{};
     float freqMhz{0.0f};
     float bearingDeg{0.0f};
     float snrDb{0.0f};
@@ -33,7 +27,7 @@ struct TableDemoState {
     bool showFooter{true};
     bool liveTelemetry{true};
 
-    std::string filterQuery{};
+    keel::SmallString<128> filterQuery{};
     int selectedRow{0};
     int sortCol{2}; // Default sorted by Frequency
     TableSortDirection sortDir{TableSortDirection::Ascending};
@@ -44,18 +38,18 @@ struct TableDemoState {
     int pendingJumpRow{-1};
     size_t lastVisibleCount{0};
 
-    std::vector<SignalTargetRow> rows{};
+    keel::Array<SignalTargetRow> rows{};
     bool initialized{false};
 
     void EnsureInitialized() {
         if (initialized) return;
         initialized = true;
 
-        static constexpr std::array<const char*, 8> kCallsigns = {
+        static constexpr keel::StaticArray<const char*, 8> kCallsigns = {
             "VHF-BEACON-01", "UHF-LINK-ALPHA", "SAT-DOWNLINK-4", "RADAR-NAV-TX",
             "AIS-TRANSPONDER", "DMR-REPEATER-7", "OFDM-TELEMETRY", "SONAR-BUOY-12"
         };
-        static constexpr std::array<const char*, 6> kMods = {
+        static constexpr keel::StaticArray<const char*, 6> kMods = {
             "QPSK", "OFDM-64", "FM-Narrow", "GMSK", "BPSK-CW", "16-QAM"
         };
 
@@ -64,15 +58,18 @@ struct TableDemoState {
         for (int i = 0; i < 48; ++i) {
             SignalTargetRow r;
             r.id = 1001 + i;
-            r.callsign = std::string(kCallsigns[static_cast<size_t>(i) % kCallsigns.size()]) +
-                         "-" + std::to_string((i / 8) + 1);
+            r.callsign = keel::format_fixed<64>(
+                "{}-{}",
+                kCallsigns[static_cast<size_t>(i) % kCallsigns.size()],
+                (i / 8) + 1
+            );
             r.modulation = kMods[static_cast<size_t>(i * 3) % kMods.size()];
             r.freqMhz = 118.500f + static_cast<float>(i) * 14.375f;
             r.bearingDeg = -165.0f + std::fmod(static_cast<float>(i) * 29.5f, 330.0f);
             r.snrDb = 8.0f + std::fmod(static_cast<float>(i) * 7.3f, 31.0f);
             r.status = (r.snrDb > 33.0f) ? 3 : ((r.snrDb > 22.0f) ? 0 : ((r.snrDb > 14.0f) ? 1 : 2));
             r.tracked = (i % 3 != 2);
-            rows.push_back(std::move(r));
+            rows.push_back(r);
         }
         SortRows();
     }
@@ -80,12 +77,12 @@ struct TableDemoState {
     void SortRows() {
         if (sortCol < 0 || sortDir == TableSortDirection::None) return;
         const bool asc = (sortDir == TableSortDirection::Ascending);
-        std::stable_sort(rows.begin(), rows.end(), [&](const SignalTargetRow& a, const SignalTargetRow& b) {
+        keel::sort(rows, [&](const SignalTargetRow& a, const SignalTargetRow& b) {
             switch (sortCol) {
                 case 0: return asc ? (a.tracked > b.tracked) : (a.tracked < b.tracked);
                 case 1: return asc ? (a.id < b.id) : (a.id > b.id);
-                case 2: return asc ? (a.callsign < b.callsign) : (a.callsign > b.callsign);
-                case 3: return asc ? (a.modulation < b.modulation) : (a.modulation > b.modulation);
+                case 2: return asc ? (a.callsign.as_ref() < b.callsign.as_ref()) : (a.callsign.as_ref() > b.callsign.as_ref());
+                case 3: return asc ? (a.modulation.as_ref() < b.modulation.as_ref()) : (a.modulation.as_ref() > b.modulation.as_ref());
                 case 4: return asc ? (a.freqMhz < b.freqMhz) : (a.freqMhz > b.freqMhz);
                 case 5: return asc ? (a.bearingDeg < b.bearingDeg) : (a.bearingDeg > b.bearingDeg);
                 case 6: return asc ? (a.snrDb < b.snrDb) : (a.snrDb > b.snrDb);
@@ -103,7 +100,7 @@ TableDemoState g_tableDemo;
 void RenderTableInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     g_tableDemo.EnsureInitialized();
 
-    static constexpr std::array<std::string_view, 2> kModeLabels = {"Rich DataGrid", "100k Virtual"};
+    static constexpr keel::StaticArray<keel::StringRef, 2> kModeLabels = {"Rich DataGrid", "100k Virtual"};
     if (auto el = ui.Element({
         .label = "Table Mode",
         .description = "Switch between Rich Widget DataGrid (48 targets) and 100,000-row O(1) virtualized log"
@@ -192,7 +189,7 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
                 auto& r = g_tableDemo.rows[i];
                 if (!r.tracked) continue;
                 const float wave = std::sin(t * 2.2f + static_cast<float>(i) * 0.7f);
-                r.snrDb = std::clamp(20.0f + wave * 14.0f + static_cast<float>(i % 5) * 1.5f, 3.0f, 39.5f);
+                r.snrDb = keel::clamp(20.0f + wave * 14.0f + static_cast<float>(i % 5) * 1.5f, 3.0f, 39.5f);
                 r.bearingDeg += std::cos(t * 1.1f + static_cast<float>(i)) * 0.08f;
                 r.status = (r.snrDb > 34.0f) ? 3 : ((r.snrDb > 22.0f) ? 0 : ((r.snrDb > 12.0f) ? 1 : 2));
             }
@@ -200,21 +197,20 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         }
 
         // Build filtered indices
-        std::vector<size_t> filteredIndices;
-        filteredIndices.reserve(g_tableDemo.rows.size());
+        keel::SmallArray<size_t, 64> filteredIndices;
+        const keel::StringRef query = g_tableDemo.filterQuery.as_ref();
         for (size_t i = 0; i < g_tableDemo.rows.size(); ++i) {
-            if (g_tableDemo.filterQuery.empty()) {
+            if (query.empty()) {
                 filteredIndices.push_back(i);
             } else {
                 const auto& r = g_tableDemo.rows[i];
-                if (r.callsign.find(g_tableDemo.filterQuery) != std::string::npos ||
-                    r.modulation.find(g_tableDemo.filterQuery) != std::string::npos) {
+                if (r.callsign.as_ref().contains(query) || r.modulation.as_ref().contains(query)) {
                     filteredIndices.push_back(i);
                 }
             }
         }
 
-        static const std::array<TableColumn, 8> kSignalCols = {{
+        static const keel::StaticArray<TableColumn, 8> kSignalCols = {{
             {.title = "Track",      .width = 62.0f,  .minWidth = 52.0f, .align = Align::Center, .sortable = true},
             {.title = "Target ID",  .width = 86.0f,  .minWidth = 68.0f, .align = Align::Start,  .sortable = true},
             {.title = "Callsign",   .flex = 1.5f,    .minWidth = 130.0f,.align = Align::Start,  .sortable = true},
@@ -225,13 +221,16 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
             {.title = "State",      .width = 104.0f, .minWidth = 84.0f, .align = Align::Center, .sortable = true}
         }};
 
-        char footerBuf[128];
-        std::snprintf(
-            footerBuf, sizeof(footerBuf),
-            "Selected: %s | Double-click column divider to reset width",
+        const keel::StringRef selCallsign =
             (g_tableDemo.selectedRow >= 0 && static_cast<size_t>(g_tableDemo.selectedRow) < filteredIndices.size())
-                ? g_tableDemo.rows[filteredIndices[static_cast<size_t>(g_tableDemo.selectedRow)]].callsign.c_str()
-                : "None"
+                ? g_tableDemo.rows[filteredIndices[static_cast<size_t>(g_tableDemo.selectedRow)]].callsign.as_ref()
+                : keel::StringRef("None");
+
+        char footerBuf[128];
+        keel::format_buf(
+            footerBuf, sizeof(footerBuf),
+            "Selected: {} | Double-click column divider to reset width",
+            selCallsign
         );
 
         if (auto table = ui.Size(g_tableDemo.tableSize).Table(kSignalCols, {
@@ -268,10 +267,10 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
                     ui.Text(ui.Format("T-{:04d}", item.id), {.variant = UiVariant::Secondary});
 
                     // Col 2: Callsign with leading icon
-                    ui.Element({.label = item.callsign, .icon = Icon::Play(), .stretch = StretchMode::Compact});
+                    ui.Element({.label = item.callsign.as_ref(), .icon = Icon::Play(), .stretch = StretchMode::Compact});
 
                     // Col 3: Modulation badge
-                    ui.Element({.badge = {item.modulation, UiVariant::Info}, .stretch = StretchMode::Compact});
+                    ui.Element({.badge = {item.modulation.as_ref(), UiVariant::Info}, .stretch = StretchMode::Compact});
 
                     // Col 4: Frequency
                     ui.Text(ui.Format("{:.3f} MHz", item.freqMhz));
@@ -279,7 +278,7 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
                     // Col 5: Azimuth bearing
                     ui.Text(
                         ui.Format("{:+05.1f} deg", item.bearingDeg),
-                        {.variant = (std::abs(item.bearingDeg) < 25.0f) ? UiVariant::Success : UiVariant::Default}
+                        {.variant = (std::fabs(item.bearingDeg) < 25.0f) ? UiVariant::Success : UiVariant::Default}
                     );
 
                     // Col 6: Embedded Segmented VU ProgressBar widget
@@ -290,11 +289,11 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
                     });
 
                     // Col 7: Status pill badge
-                    static constexpr std::array<const char*, 4> kStatusLabels = {"LOCKED", "TRACKING", "SCANNING", "OVERLOAD"};
-                    static constexpr std::array<UiVariant, 4> kStatusVars = {
+                    static constexpr keel::StaticArray<const char*, 4> kStatusLabels = {"LOCKED", "TRACKING", "SCANNING", "OVERLOAD"};
+                    static constexpr keel::StaticArray<UiVariant, 4> kStatusVars = {
                         UiVariant::Success, UiVariant::Primary, UiVariant::Warning, UiVariant::Danger
                     };
-                    const size_t stIdx = static_cast<size_t>(std::clamp(item.status, 0, 3));
+                    const size_t stIdx = static_cast<size_t>(keel::clamp(item.status, 0, 3));
                     ui.Element({.badge = {kStatusLabels[stIdx], kStatusVars[stIdx]}, .stretch = StretchMode::Compact});
                 }
             }
@@ -303,7 +302,7 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         // Mode 1: 100,000 Rows Virtualized Stress-Test
         constexpr size_t kTotalVirtualRows = 100000;
 
-        static const std::array<TableColumn, 6> kVirtualCols = {{
+        static const keel::StaticArray<TableColumn, 6> kVirtualCols = {{
             {.title = "Packet ID",   .width = 110.0f, .minWidth = 80.0f,  .align = Align::Start,  .sortable = true},
             {.title = "Timestamp",   .width = 125.0f, .minWidth = 95.0f,  .align = Align::Start,  .sortable = true},
             {.title = "Source Node", .flex = 1.3f,    .minWidth = 120.0f, .align = Align::Start,  .sortable = true},
@@ -313,9 +312,9 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         }};
 
         char ftrBuf[128];
-        std::snprintf(
+        keel::format_buf(
             ftrBuf, sizeof(ftrBuf),
-            "Virtualized O(1) Clipper: Materialized %zu rows in DOM out of 100,000",
+            "Virtualized O(1) Clipper: Materialized {} rows in DOM out of 100,000",
             g_tableDemo.lastVisibleCount
         );
 
@@ -354,7 +353,7 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
                     const uint32_t tenths = static_cast<uint32_t>(logicalIdx % 10);
                     ui.Text(ui.Format("12:{:02}:{:02}.{}00", mins, secs, tenths));
 
-                    static constexpr std::array<const char*, 6> kNodes = {
+                    static constexpr keel::StaticArray<const char*, 6> kNodes = {
                         "ARRAY-NORTH-A1", "ARRAY-EAST-B4", "HYDROPHONE-C2",
                         "SDR-RECEIVER-09", "BEAMFORMER-DSP", "SATCOM-GATEWAY"
                     };
@@ -381,38 +380,45 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
     }
 }
 
-std::string GenerateTableCode(const DemoContext& /*ctx*/) {
-    std::ostringstream out;
-    out << "static const std::array<guikit::TableColumn, 5> cols = {{\n"
-        << "    {.title = \"ID\",        .width = 80.0f,  .sortable = true},\n"
-        << "    {.title = \"Callsign\",  .flex = 1.5f,    .sortable = true},\n"
-        << "    {.title = \"Frequency\", .width = 120.0f, .align = guikit::Align::End, .sortable = true},\n"
-        << "    {.title = \"SNR Level\", .flex = 1.4f,    .sortable = true},\n"
-        << "    {.title = \"Status\",    .width = 100.0f, .align = guikit::Align::Center, .sortable = true}\n"
-        << "}};\n\n"
-        << "if (auto table = ui.Size(guikit::UiSize::" << SizeName(g_tableDemo.tableSize) << ").Table(cols, {\n"
-        << "    .totalRows = rows.size(),\n"
-        << "    .selectedRow = &selectedRow,\n"
-        << "    .sortColumn = &sortCol,\n"
-        << "    .sortDirection = &sortDir,\n"
-        << "    .stickyHeader = " << (g_tableDemo.stickyHeader ? "true" : "false") << ",\n"
-        << "    .striped = " << (g_tableDemo.striped ? "true" : "false") << ",\n"
-        << "    .gridLines = " << (g_tableDemo.gridLines ? "true" : "false") << ",\n"
-        << "    .resizableColumns = " << (g_tableDemo.resizableColumns ? "true" : "false") << ",\n"
-        << "    .showRowNumbers = " << (g_tableDemo.showRowNumbers ? "true" : "false") << ",\n"
-        << "    .showFooter = " << (g_tableDemo.showFooter ? "true" : "false") << "\n"
-        << "})) {\n"
-        << "    for (size_t r = table.FirstVisibleRow(); r < table.EndVisibleRow(); ++r) {\n"
-        << "        if (auto row = table.Row(r)) {\n"
-        << "            ui.Text(ui.Format(\"T-{:04d}\", rows[r].id));\n"
-        << "            ui.Text(rows[r].callsign);\n"
-        << "            ui.Text(ui.Format(\"{:.3f} MHz\", rows[r].freqMhz));\n"
-        << "            ui.ProgressBar(rows[r].snrDb, 0.0f, 40.0f, {.segments = 12, .multiZoneColor = true});\n"
-        << "            ui.Element({.badge = {\"LOCKED\", guikit::UiVariant::Success}, .stretch = guikit::StretchMode::Compact});\n"
-        << "        }\n"
-        << "    }\n"
-        << "}";
-    return out.str();
+keel::String GenerateTableCode(const DemoContext& /*ctx*/) {
+    return keel::format(
+        "static const keel::StaticArray<guikit::TableColumn, 5> cols = {{{{\n"
+        "    {{.title = \"ID\",        .width = 80.0f,  .sortable = true}},\n"
+        "    {{.title = \"Callsign\",  .flex = 1.5f,    .sortable = true}},\n"
+        "    {{.title = \"Frequency\", .width = 120.0f, .align = guikit::Align::End, .sortable = true}},\n"
+        "    {{.title = \"SNR Level\", .flex = 1.4f,    .sortable = true}},\n"
+        "    {{.title = \"Status\",    .width = 100.0f, .align = guikit::Align::Center, .sortable = true}}\n"
+        "}}}};\n\n"
+        "if (auto table = ui.Size(guikit::UiSize::{}).Table(cols, {{\n"
+        "    .totalRows = rows.size(),\n"
+        "    .selectedRow = &selectedRow,\n"
+        "    .sortColumn = &sortCol,\n"
+        "    .sortDirection = &sortDir,\n"
+        "    .stickyHeader = {},\n"
+        "    .striped = {},\n"
+        "    .gridLines = {},\n"
+        "    .resizableColumns = {},\n"
+        "    .showRowNumbers = {},\n"
+        "    .showFooter = {}\n"
+        "}})) {{\n"
+        "    for (size_t r = table.FirstVisibleRow(); r < table.EndVisibleRow(); ++r) {{\n"
+        "        if (auto row = table.Row(r)) {{\n"
+        "            ui.Text(ui.Format(\"T-{{:04d}}\", rows[r].id));\n"
+        "            ui.Text(rows[r].callsign);\n"
+        "            ui.Text(ui.Format(\"{{:.3f}} MHz\", rows[r].freqMhz));\n"
+        "            ui.ProgressBar(rows[r].snrDb, 0.0f, 40.0f, {{.segments = 12, .multiZoneColor = true}});\n"
+        "            ui.Element({{.badge = {{\"LOCKED\", guikit::UiVariant::Success}}, .stretch = guikit::StretchMode::Compact}});\n"
+        "        }}\n"
+        "    }}\n"
+        "}}",
+        SizeName(g_tableDemo.tableSize),
+        g_tableDemo.stickyHeader ? "true" : "false",
+        g_tableDemo.striped ? "true" : "false",
+        g_tableDemo.gridLines ? "true" : "false",
+        g_tableDemo.resizableColumns ? "true" : "false",
+        g_tableDemo.showRowNumbers ? "true" : "false",
+        g_tableDemo.showFooter ? "true" : "false"
+    );
 }
 
 } // namespace guikit::demo

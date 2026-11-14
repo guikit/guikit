@@ -1,13 +1,13 @@
 #pragma once
 
-#include <optional>
-#include <source_location>
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
 #include "guikit/graphics/icon.hpp"
+#include "keel/core.h"
+#include "keel/optional.h"
 
 namespace guikit {
 
@@ -24,15 +24,15 @@ struct AccordionOptions {
     UiText tooltip{};                               ///< Optional hover tooltip text for the header
     bool defaultOpen{true};                         ///< Initial open state when state is managed by Context
     Placement chevronPlacement{Placement::Leading}; ///< Chevron position: Leading (left of label/icon) or Trailing (far right)
-    std::optional<float> gap{std::nullopt};         ///< Vertical gap between children inside expanded body (nullopt = from theme)
-    std::optional<Padding> padding{std::nullopt};   ///< Padding around expanded body children (nullopt = default top/bottom spacing)
+    keel::Optional<float> gap{keel::kNullOpt};         ///< Vertical gap between children inside expanded body (nullopt = from theme)
+    keel::Optional<Padding> padding{keel::kNullOpt};   ///< Padding around expanded body children (nullopt = default top/bottom spacing)
     StateColor background{};                        ///< Per-state header backdrop color (Default = subtle surface bar, None = transparent, Surface/Primary/... = custom)
     Border border{};                                ///< Header border stroke & corner radius
     bool disabled{false};                           ///< Whether the accordion header and its children are disabled
     const UiTheme* theme{nullptr};                  ///< Optional scoped theme override
-    std::optional<float> scale{std::nullopt};       ///< Optional local UI scale factor override
-    std::optional<bool> debugBounds{std::nullopt};  ///< Scoped debug bounding box overlay override
-    std::optional<bool> inspectMode{std::nullopt};  ///< Scoped interactive DevTools inspector override
+    keel::Optional<float> scale{keel::kNullOpt};       ///< Optional local UI scale factor override
+    keel::Optional<bool> debugBounds{keel::kNullOpt};  ///< Scoped debug bounding box overlay override
+    keel::Optional<bool> inspectMode{keel::kNullOpt};  ///< Scoped interactive DevTools inspector override
 };
 
 /// Persistent per-accordion open/collapsed state stored in Context.
@@ -58,13 +58,13 @@ public:
         : ContainerScope(ctx, bodyNode), response(res), m_open(isOpen) {}
 
     AccordionScope(AccordionScope&& other) noexcept
-        : ContainerScope(std::move(other)), response(other.response), m_open(other.m_open) {
+        : ContainerScope(keel::move(other)), response(other.response), m_open(other.m_open) {
         other.m_open = false;
     }
 
     AccordionScope& operator=(AccordionScope&& other) noexcept {
         if (this != &other) {
-            ContainerScope::operator=(std::move(other));
+            ContainerScope::operator=(keel::move(other));
             response = other.response;
             m_open = other.m_open;
             other.m_open = false;
@@ -90,7 +90,7 @@ public:
     [[nodiscard]] static AccordionScope Open(
         Context& ctx,
         const AccordionOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return Open(ctx, nullptr, opts, loc);
     }
@@ -99,7 +99,7 @@ public:
         Context& ctx,
         bool* externalOpen,
         const AccordionOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] static Vec2 MeasureHeader(

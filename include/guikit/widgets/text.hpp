@@ -1,10 +1,9 @@
 #pragma once
 
-#include <source_location>
-#include <string_view>
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/types.hpp"
+#include "keel/core.h"
 
 namespace guikit {
 
@@ -27,7 +26,7 @@ public:
         Context& ctx,
         UiText label,
         const TextOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Measures intrinsic dimensions based on text content and typography metrics.

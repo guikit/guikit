@@ -2,11 +2,10 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <optional>
-#include <span>
-#include <string>
-#include <string_view>
-#include <vector>
+#include "keel/array.h"
+#include "keel/optional.h"
+#include "keel/ref.h"
+#include "keel/string.h"
 
 namespace guikit {
 
@@ -14,34 +13,34 @@ namespace guikit {
 struct AssetView {
     const uint8_t* data{nullptr};
     size_t size{0};
-    std::string_view mimeType{}; // Format/extension hint: "png", "svg", "jpg", "ttf", etc.
+    keel::StringRef mimeType{}; // Format/extension hint: "png", "svg", "jpg", "ttf", etc.
 
     [[nodiscard]] constexpr bool Empty() const noexcept {
         return data == nullptr || size == 0;
     }
 
-    [[nodiscard]] constexpr std::span<const uint8_t> Bytes() const noexcept {
+    [[nodiscard]] constexpr keel::ArrayRef<uint8_t> Bytes() const noexcept {
         return {data, size};
     }
 
-    [[nodiscard]] constexpr std::string_view AsStringView() const noexcept {
+    [[nodiscard]] constexpr keel::StringRef AsStringView() const noexcept {
         return (data != nullptr && size > 0)
-            ? std::string_view(reinterpret_cast<const char*>(data), size)
-            : std::string_view{};
+            ? keel::StringRef(reinterpret_cast<const char*>(data), size)
+            : keel::StringRef{};
     }
 };
 
 namespace detail {
 
 struct EmbeddedAssetEntry {
-    std::string_view path;
-    std::string_view mimeType;
+    keel::StringRef path;
+    keel::StringRef mimeType;
     const uint8_t* data{nullptr};
     size_t size{0};
 };
 
 /// Provided by the build-time generated embedded_assets.cpp translation unit.
-[[nodiscard]] std::span<const EmbeddedAssetEntry> GetEmbeddedAssets() noexcept;
+[[nodiscard]] keel::ArrayRef<EmbeddedAssetEntry> GetEmbeddedAssets() noexcept;
 
 } // namespace detail
 
@@ -53,41 +52,41 @@ public:
     /// - Converts '\' to '/'
     /// - Strips leading "./", "../", and "/" prefixes
     /// - Canonicalizes "images/..." or "fonts/..." to "assets/..." when matching embedded roots
-    [[nodiscard]] static std::string NormalizePath(std::string_view path);
+    [[nodiscard]] static keel::String NormalizePath(keel::StringRef path);
 
     /// Infers a short format/MIME extension ("png", "svg", "jpg", "ttf", "otf") from a path.
-    [[nodiscard]] static std::string_view InferMimeType(std::string_view path) noexcept;
+    [[nodiscard]] static keel::StringRef InferMimeType(keel::StringRef path) noexcept;
 
     /// Looks up an asset by virtual path (checks runtime overrides first, then build-time embedded assets).
-    [[nodiscard]] static std::optional<AssetView> Find(std::string_view virtualPath);
+    [[nodiscard]] static keel::Optional<AssetView> Find(keel::StringRef virtualPath);
 
     /// Returns true if the virtual asset exists in the runtime or build-time registry.
-    [[nodiscard]] static bool Exists(std::string_view virtualPath);
+    [[nodiscard]] static bool Exists(keel::StringRef virtualPath);
 
     /// Registers or overrides a non-owning in-memory asset at runtime.
     /// The caller must ensure `data` remains valid for the lifetime of the registration.
     static void Register(
-        std::string_view virtualPath,
+        keel::StringRef virtualPath,
         const uint8_t* data,
         size_t size,
-        std::string_view mimeType = {}
+        keel::StringRef mimeType = {}
     );
 
     /// Registers or overrides an owned byte buffer in the runtime asset registry.
     static void RegisterOwned(
-        std::string_view virtualPath,
-        std::vector<uint8_t> bytes,
-        std::string_view mimeType = {}
+        keel::StringRef virtualPath,
+        keel::ArrayRef<uint8_t> bytes,
+        keel::StringRef mimeType = {}
     );
 
     /// Removes a runtime-registered asset override (restoring any build-time embedded asset at that path).
-    static bool Unregister(std::string_view virtualPath);
+    static bool Unregister(keel::StringRef virtualPath);
 
     /// Clears all runtime-registered asset overrides.
     static void ClearRuntime();
 
     /// Returns a list of all available virtual asset paths (embedded + runtime).
-    [[nodiscard]] static std::vector<std::string> ListPaths();
+    [[nodiscard]] static keel::Array<keel::String> ListPaths();
 };
 
 } // namespace guikit

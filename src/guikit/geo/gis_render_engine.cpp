@@ -1,21 +1,23 @@
 #include "guikit/geo/gis_render_engine.hpp"
 #include "guikit/geo/polygon_triangulator.hpp"
 #include "guikit/backend/vector_backend.hpp"
+#include "keel/algo.h"
+#include "keel/array.h"
+#include "keel/core.h"
 #include "keel/format.h"
+#include "keel/fs.h"
 #include "keel/hash.h"
 #include "keel/hash_map.h"
 #include "keel/hash_set.h"
-#include <algorithm>
+#include "keel/smart_ptr.h"
+#include "keel/string.h"
+#include "keel/time.h"
 #include <atomic>
-#include <chrono>
 #include <cmath>
 #include <condition_variable>
-#include <cstdio>
 #include <cstring>
-#include <memory>
 #include <mutex>
 #include <thread>
-#include <vector>
 
 namespace guikit::geo {
 
@@ -34,26 +36,17 @@ std::mutex& GetDefaultBasemapMutex() {
     return s_mtx;
 }
 
-std::shared_ptr<IRasterTileProvider>& GetDefaultBasemapStorage() {
-    static std::shared_ptr<IRasterTileProvider> s_provider;
+keel::Arc<IRasterTileProvider>& GetDefaultBasemapStorage() {
+    static keel::Arc<IRasterTileProvider> s_provider;
     return s_provider;
 }
 
 constexpr bool kEnableFileDebugLog = false;
 
-void AppendRenderDebugLog(std::string_view line) noexcept {
+[[maybe_unused]] void AppendRenderDebugLog(keel::StringRef line) noexcept {
     if constexpr (!kEnableFileDebugLog) {
         (void)line;
         return;
-    }
-    static FILE* s_f = nullptr;
-    if (!s_f) {
-        s_f = std::fopen("hackionics_debug.log", "a");
-    }
-    if (s_f) {
-        std::fwrite(line.data(), 1, line.size(), s_f);
-        std::fputc('\n', s_f);
-        std::fflush(s_f);
     }
 }
 
@@ -81,21 +74,21 @@ constexpr float kTileGuardBandPx = 8.0f;
 // ============================================================================
 
 [[nodiscard]] guikit::Color WithAlpha(guikit::Color c, float alphaFactor) noexcept {
-    const float a = std::clamp(alphaFactor * 255.0f, 0.0f, 255.0f);
+    const float a = keel::clamp(alphaFactor * 255.0f, 0.0f, 255.0f);
     return guikit::Color(c.r, c.g, c.b, static_cast<uint8_t>(std::lround(a)));
 }
 
 [[nodiscard]] guikit::Color BrightenColor(guikit::Color c, int delta) noexcept {
     return guikit::Color(
-        static_cast<uint8_t>(std::clamp(static_cast<int>(c.r) + delta, 0, 255)),
-        static_cast<uint8_t>(std::clamp(static_cast<int>(c.g) + delta, 0, 255)),
-        static_cast<uint8_t>(std::clamp(static_cast<int>(c.b) + delta, 0, 255)),
+        static_cast<uint8_t>(keel::clamp(static_cast<int>(c.r) + delta, 0, 255)),
+        static_cast<uint8_t>(keel::clamp(static_cast<int>(c.g) + delta, 0, 255)),
+        static_cast<uint8_t>(keel::clamp(static_cast<int>(c.b) + delta, 0, 255)),
         c.a
     );
 }
 
 [[nodiscard]] guikit::Color LerpColor(guikit::Color a, guikit::Color b, float t) noexcept {
-    const float ct = std::clamp(t, 0.0f, 1.0f);
+    const float ct = keel::clamp(t, 0.0f, 1.0f);
     return guikit::Color(
         static_cast<uint8_t>(std::lround(static_cast<float>(a.r) + (static_cast<float>(b.r) - static_cast<float>(a.r)) * ct)),
         static_cast<uint8_t>(std::lround(static_cast<float>(a.g) + (static_cast<float>(b.g) - static_cast<float>(a.g)) * ct)),
@@ -169,19 +162,19 @@ struct ResolvedFeatureStyle {
     float depthM,
     const GisRenderConfig& cfg
 ) noexcept {
-    const float safeShallow = std::max(0.2f, std::min(cfg.shallowContourM, cfg.safetyContourM));
-    const float safeContour = std::max(safeShallow + 0.2f, cfg.safetyContourM);
-    const float safeDeep    = std::max(safeContour + 1.0f, cfg.deepContourM);
+    const float safeShallow = keel::max(0.2f, keel::min(cfg.shallowContourM, cfg.safetyContourM));
+    const float safeContour = keel::max(safeShallow + 0.2f, cfg.safetyContourM);
+    const float safeDeep    = keel::max(safeContour + 1.0f, cfg.deepContourM);
 
     if (cfg.chartPalette == ChartPalette::MarineNight) {
         if (depthM <= 0.02f) return guikit::Color(22, 58, 48, 255);     // Intertidal dark teal
         if (depthM <= safeShallow) return guikit::Color(14, 68, 108, 255);
         if (depthM <= safeContour) {
-            const float t = (depthM - safeShallow) / std::max(0.1f, safeContour - safeShallow);
+            const float t = (depthM - safeShallow) / keel::max(0.1f, safeContour - safeShallow);
             return LerpColor(guikit::Color(14, 68, 108, 255), guikit::Color(11, 48, 80, 255), t);
         }
         if (depthM <= safeDeep) {
-            const float t = (depthM - safeContour) / std::max(0.1f, safeDeep - safeContour);
+            const float t = (depthM - safeContour) / keel::max(0.1f, safeDeep - safeContour);
             return LerpColor(guikit::Color(11, 48, 80, 255), guikit::Color(8, 28, 48, 255), t);
         }
         return guikit::Color(6, 19, 34, 255);
@@ -191,11 +184,11 @@ struct ResolvedFeatureStyle {
         if (depthM <= 0.02f) return guikit::Color(72, 132, 108, 255);
         if (depthM <= safeShallow) return guikit::Color(36, 118, 178, 255);
         if (depthM <= safeContour) {
-            const float t = (depthM - safeShallow) / std::max(0.1f, safeContour - safeShallow);
+            const float t = (depthM - safeShallow) / keel::max(0.1f, safeContour - safeShallow);
             return LerpColor(guikit::Color(44, 128, 188, 255), guikit::Color(32, 92, 142, 255), t);
         }
         if (depthM <= safeDeep) {
-            const float t = (depthM - safeContour) / std::max(0.1f, safeDeep - safeContour);
+            const float t = (depthM - safeContour) / keel::max(0.1f, safeDeep - safeContour);
             return LerpColor(guikit::Color(32, 92, 142, 255), guikit::Color(22, 58, 92, 255), t);
         }
         return guikit::Color(17, 42, 68, 255);
@@ -206,28 +199,28 @@ struct ResolvedFeatureStyle {
         return guikit::Color(166, 217, 184, 255); // Intertidal green-teal
     }
     if (depthM <= safeShallow) {
-        const float t = std::clamp(depthM / safeShallow, 0.0f, 1.0f);
+        const float t = keel::clamp(depthM / safeShallow, 0.0f, 1.0f);
         return LerpColor(guikit::Color(66, 174, 242, 255), guikit::Color(94, 190, 248, 255), t);
     }
     if (depthM <= safeContour) {
-        const float t = (depthM - safeShallow) / std::max(0.1f, safeContour - safeShallow);
+        const float t = (depthM - safeShallow) / keel::max(0.1f, safeContour - safeShallow);
         return LerpColor(guikit::Color(118, 202, 250, 255), guikit::Color(154, 219, 252, 255), t);
     }
     const float midDeep = safeContour + (safeDeep - safeContour) * 0.45f;
     if (depthM <= midDeep) {
-        const float t = (depthM - safeContour) / std::max(0.1f, midDeep - safeContour);
+        const float t = (depthM - safeContour) / keel::max(0.1f, midDeep - safeContour);
         return LerpColor(guikit::Color(182, 228, 253, 255), guikit::Color(214, 240, 254, 255), t);
     }
     if (depthM <= safeDeep) {
-        const float t = (depthM - midDeep) / std::max(0.1f, safeDeep - midDeep);
+        const float t = (depthM - midDeep) / keel::max(0.1f, safeDeep - midDeep);
         return LerpColor(guikit::Color(218, 241, 254, 255), guikit::Color(239, 249, 255, 255), t);
     }
-    const float tDeep = std::clamp((depthM - safeDeep) / 15.0f, 0.0f, 1.0f);
+    const float tDeep = keel::clamp((depthM - safeDeep) / 15.0f, 0.0f, 1.0f);
     return LerpColor(guikit::Color(242, 250, 255, 255), guikit::Color(250, 253, 255, 255), tDeep);
 }
 
 [[nodiscard]] guikit::Color ScaleColorAlpha(guikit::Color c, float alphaScale) noexcept {
-    const float a = std::clamp((static_cast<float>(c.a) / 255.0f) * alphaScale, 0.0f, 1.0f);
+    const float a = keel::clamp((static_cast<float>(c.a) / 255.0f) * alphaScale, 0.0f, 1.0f);
     return WithAlpha(c, a);
 }
 
@@ -238,8 +231,8 @@ struct ResolvedFeatureStyle {
     bool bakeFillOpacity = false
 ) noexcept {
     const geo::LayerStyle& ls = layer.style;
-    const float strokeScale = std::clamp(ls.strokeWidthPx / 2.0f, 0.15f, 5.0f);
-    const float fillAlphaScale = bakeFillOpacity ? std::clamp(ls.fillOpacity, 0.0f, 1.0f) : 1.0f;
+    const float strokeScale = keel::clamp(ls.strokeWidthPx / 2.0f, 0.15f, 5.0f);
+    const float fillAlphaScale = bakeFillOpacity ? keel::clamp(ls.fillOpacity, 0.0f, 1.0f) : 1.0f;
     const bool customCol = ls.useCustomColor;
 
     // Classic GIS mode or unclassified user features use the layer's custom style
@@ -524,11 +517,11 @@ struct ResolvedFeatureStyle {
         default:                                          break;
     }
     int minRank = 90;
-    const size_t sampleLimit = std::min<size_t>(layer.features.size(), 32);
+    const size_t sampleLimit = keel::min<size_t>(layer.features.size(), 32);
     for (size_t i = 0; i < sampleLimit; ++i) {
         const geo::GeoFeature& f = layer.features[i];
         if (!f.HasPolygons() && !f.HasLines()) continue;
-        minRank = std::min(minRank, CartographicPainterRank(f));
+        minRank = keel::min(minRank, CartographicPainterRank(f));
     }
     return minRank;
 }
@@ -553,20 +546,20 @@ struct CellNorm3857Bounds {
     guikit::MapCrs crs
 ) noexcept {
     if (crs == guikit::MapCrs::EPSG3857_WebMercator) {
-        const double invTileN = 1.0 / static_cast<double>(1 << std::clamp(cell.id.z, 0, 22));
+        const double invTileN = 1.0 / static_cast<double>(1 << keel::clamp(cell.id.z, 0, 22));
         const float u0 = static_cast<float>(static_cast<double>(cell.id.x) * invTileN);
         const float u1 = static_cast<float>(static_cast<double>(cell.id.x + 1) * invTileN);
         const float v0 = static_cast<float>(static_cast<double>(cell.id.y) * invTileN);
         const float v1 = static_cast<float>(static_cast<double>(cell.id.y + 1) * invTileN);
-        return {u0, u1, v0, v1, std::max(1e-9f, u1 - u0), std::max(1e-9f, v1 - v0)};
+        return {u0, u1, v0, v1, keel::max(1e-9f, u1 - u0), keel::max(1e-9f, v1 - v0)};
     }
     const guikit::Vec2 nw3857 = guikit::MapGrid::GeoToNormalized(cell.geoBounds.nw, guikit::MapCrs::EPSG3857_WebMercator);
     const guikit::Vec2 se3857 = guikit::MapGrid::GeoToNormalized(cell.geoBounds.se, guikit::MapCrs::EPSG3857_WebMercator);
-    const float u0 = std::min(nw3857.x, se3857.x);
-    const float u1 = std::max(nw3857.x, se3857.x);
-    const float v0 = std::min(nw3857.y, se3857.y);
-    const float v1 = std::max(nw3857.y, se3857.y);
-    return {u0, u1, v0, v1, std::max(1e-9f, u1 - u0), std::max(1e-9f, v1 - v0)};
+    const float u0 = keel::min(nw3857.x, se3857.x);
+    const float u1 = keel::max(nw3857.x, se3857.x);
+    const float v0 = keel::min(nw3857.y, se3857.y);
+    const float v1 = keel::max(nw3857.y, se3857.y);
+    return {u0, u1, v0, v1, keel::max(1e-9f, u1 - u0), keel::max(1e-9f, v1 - v0)};
 }
 
 // Projects a pre-computed EPSG:3857 normalized 2D point into tile pixel space [0..tileSizeF] for any active CRS.
@@ -592,9 +585,9 @@ struct CellNorm3857Bounds {
         };
     }
 
-    const double tileN = static_cast<double>(1 << std::clamp(cell.id.z, 0, 22));
-    const double n = std::numbers::pi * (1.0 - 2.0 * static_cast<double>(normPt3857.y));
-    const double latDeg = std::atan(std::sinh(n)) * (180.0 / std::numbers::pi);
+    const double tileN = static_cast<double>(1 << keel::clamp(cell.id.z, 0, 22));
+    const double n = guikit::MapGrid::kPi * (1.0 - 2.0 * static_cast<double>(normPt3857.y));
+    const double latDeg = std::atan(std::sinh(n)) * (180.0 / guikit::MapGrid::kPi);
 
     if (guikit::MapGrid::IsCylindricalCrs(crs)) {
         const auto [uCrs, vCrs] = guikit::MapGrid::GeoToNormalizedDouble({latDeg, 0.0}, crs);
@@ -614,7 +607,7 @@ struct CellNorm3857Bounds {
 }
 
 void ClipRingToTileGuardBand(
-    std::span<const guikit::Vec2> normRing,
+    keel::ArrayRef<guikit::Vec2> normRing,
     float u0,
     float v0,
     float invSpanU,
@@ -623,9 +616,9 @@ void ClipRingToTileGuardBand(
     guikit::MapCrs crs,
     float tileSizeF,
     float minDecimateSqPx,
-    std::vector<guikit::Vec2>& outClippedPx,
-    std::vector<guikit::Vec2>& scratchA,
-    std::vector<guikit::Vec2>& scratchB
+    keel::Array<guikit::Vec2>& outClippedPx,
+    keel::Array<guikit::Vec2>& scratchA,
+    keel::Array<guikit::Vec2>& scratchB
 ) {
     outClippedPx.clear();
     if (normRing.size() < 3) return;
@@ -667,7 +660,7 @@ void ClipRingToTileGuardBand(
 
     // Fast AABB Trivial Accept: all projected vertices lie completely inside the tile guard-band
     if (minX >= kMinBound && maxX <= kMaxBound && minY >= kMinBound && maxY <= kMaxBound) {
-        outClippedPx.swap(scratchA);
+        keel::swap(outClippedPx, scratchA);
         return;
     }
 
@@ -817,7 +810,7 @@ void ClipRingToTileGuardBand(
 
 size_t AppendPolylineToVectorPath(
     guikit::VectorPath& path,
-    std::span<const guikit::Vec2> normLine,
+    keel::ArrayRef<guikit::Vec2> normLine,
     float u0,
     float v0,
     float invSpanU,
@@ -916,9 +909,9 @@ void BlendPremulTileOntoOpaqueComposite(
                 const uint32_t sr = s & 0xFFu;
                 const uint32_t sg = (s >> 8) & 0xFFu;
                 const uint32_t sb = (s >> 16) & 0xFFu;
-                const uint32_t dr = std::min(255u, sr + (((d & 0xFFu) * invA + 127u) >> 8));
-                const uint32_t dg = std::min(255u, sg + ((((d >> 8) & 0xFFu) * invA + 127u) >> 8));
-                const uint32_t db = std::min(255u, sb + ((((d >> 16) & 0xFFu) * invA + 127u) >> 8));
+                const uint32_t dr = keel::min(255u, sr + (((d & 0xFFu) * invA + 127u) >> 8));
+                const uint32_t dg = keel::min(255u, sg + ((((d >> 8) & 0xFFu) * invA + 127u) >> 8));
+                const uint32_t db = keel::min(255u, sb + ((((d >> 16) & 0xFFu) * invA + 127u) >> 8));
                 dst[i] = 0xFF000000u | (db << 16) | (dg << 8) | dr;
             }
         }
@@ -934,9 +927,9 @@ void BlendPremulTileOntoOpaqueComposite(
             const uint32_t sb = (((s >> 16) & 0xFFu) * op + 127u) >> 8;
             const uint32_t d = dst[i];
             const uint32_t invA = 255u - sa;
-            const uint32_t dr = std::min(255u, sr + (((d & 0xFFu) * invA + 127u) >> 8));
-            const uint32_t dg = std::min(255u, sg + ((((d >> 8) & 0xFFu) * invA + 127u) >> 8));
-            const uint32_t db = std::min(255u, sb + ((((d >> 16) & 0xFFu) * invA + 127u) >> 8));
+            const uint32_t dr = keel::min(255u, sr + (((d & 0xFFu) * invA + 127u) >> 8));
+            const uint32_t dg = keel::min(255u, sg + ((((d >> 8) & 0xFFu) * invA + 127u) >> 8));
+            const uint32_t db = keel::min(255u, sb + ((((d >> 16) & 0xFFu) * invA + 127u) >> 8));
             dst[i] = 0xFF000000u | (db << 16) | (dg << 8) | dr;
         }
     }
@@ -947,12 +940,12 @@ std::mutex& GetCanvasLifecycleMutex() {
     return s_mtx;
 }
 
-[[nodiscard]] std::unique_ptr<guikit::ICanvas> CreateCanvasThreadSafe() {
+[[nodiscard]] keel::UniquePtr<guikit::ICanvas> CreateCanvasThreadSafe() {
     std::scoped_lock lk(GetCanvasLifecycleMutex());
     return guikit::CreateOffscreenVectorCanvas();
 }
 
-void DestroyCanvasThreadSafe(std::unique_ptr<guikit::ICanvas>& canvas) noexcept {
+void DestroyCanvasThreadSafe(keel::UniquePtr<guikit::ICanvas>& canvas) noexcept {
     if (!canvas) return;
     std::scoped_lock lk(GetCanvasLifecycleMutex());
     canvas.reset();
@@ -1025,7 +1018,7 @@ struct TileCoordKeyHasher {
 };
 
 struct CachedVectorTile {
-    std::vector<uint32_t> pixels;
+    keel::Array<uint32_t> pixels;
     guikit::Rect normQueryBox{};
     uint64_t styleHash{0};
     uint64_t lastUsedFrame{0};
@@ -1034,7 +1027,7 @@ struct CachedVectorTile {
 };
 
 struct CompositeTile {
-    std::vector<uint32_t> pixels;
+    keel::Array<uint32_t> pixels;
     guikit::Rect normQueryBox{};
     uint64_t compositeSignature{0};
     uint64_t lastUsedFrame{0};
@@ -1050,7 +1043,7 @@ struct AsyncTileCandidate {
     geo::ChartFeatureClass chartClass{geo::ChartFeatureClass::Generic};
     float maxDimPx{256.0f};
     ResolvedFeatureStyle style{};
-    std::shared_ptr<const geo::DecodedGeometryPayload> payload;
+    keel::Arc<const geo::DecodedGeometryPayload> payload;
 };
 
 struct AsyncLayerTileJobKey {
@@ -1076,11 +1069,36 @@ struct AsyncLayerTileJobKeyHasher {
     }
 };
 
+struct InFlightTileStamp {
+    uint64_t styleHash{0};
+    uint64_t windowUpdateFrame{0};
+};
+
+struct WindowGenCounter {
+    alignas(8) uint64_t value{0};
+
+    uint64_t FetchAddRelaxed(uint64_t delta = 1) noexcept {
+#if defined(__clang__) || defined(__GNUC__)
+        return __atomic_fetch_add(&value, delta, __ATOMIC_RELAXED);
+#else
+        return std::atomic_ref<uint64_t>(value).fetch_add(delta, std::memory_order_relaxed);
+#endif
+    }
+
+    [[nodiscard]] uint64_t LoadRelaxed() const noexcept {
+#if defined(__clang__) || defined(__GNUC__)
+        return __atomic_load_n(&value, __ATOMIC_RELAXED);
+#else
+        return std::atomic_ref<const uint64_t>(value).load(std::memory_order_relaxed);
+#endif
+    }
+};
+
 struct AsyncLoadedFeaturePayload {
     uint64_t layerUid{0};
     uint32_t featureIndex{0};
     uint64_t featureUid{0};
-    std::shared_ptr<const geo::DecodedGeometryPayload> payload;
+    keel::Arc<const geo::DecodedGeometryPayload> payload;
 };
 
 struct AsyncLayerTileJob {
@@ -1095,8 +1113,8 @@ struct AsyncLayerTileJob {
     bool lodSimplification{true};
     float lodPixelTolerance{1.25f};
     float distSq{0.0f};
-    std::shared_ptr<geo::IFeaturePager> pager;
-    std::vector<AsyncTileCandidate> candidates;
+    keel::Arc<geo::IFeaturePager> pager;
+    keel::Array<AsyncTileCandidate> candidates;
 };
 
 struct AsyncLayerTileResult {
@@ -1106,56 +1124,56 @@ struct AsyncLayerTileResult {
     uint64_t windowUpdateFrame{0};
     uint64_t epoch{0};
     guikit::Rect queryBox{};
-    std::vector<uint32_t> pixels;
+    keel::Array<uint32_t> pixels;
     bool hasAnyGeometry{false};
-    std::vector<AsyncLoadedFeaturePayload> newlyLoadedPayloads;
+    keel::Array<AsyncLoadedFeaturePayload> newlyLoadedPayloads;
 };
 
 struct AsyncWindowJob {
     uint64_t layerUid{0};
-    std::shared_ptr<geo::IFeaturePager> pager;
+    keel::Arc<geo::IFeaturePager> pager;
     geo::SpatialWindowRequest req{};
     uint64_t epoch{0};
-    std::shared_ptr<std::atomic<uint64_t>> activeGenPtr;
+    keel::Arc<WindowGenCounter> activeGenPtr;
 };
 
 struct AsyncWindowResult {
     uint64_t layerUid{0};
     uint64_t generation{0};
     uint64_t epoch{0};
-    std::shared_ptr<geo::SpatialWindowSnapshot> snapshot;
+    keel::Arc<geo::SpatialWindowSnapshot> snapshot;
 };
 
 struct AsyncBasemapJob {
-    std::string sourceId;
-    std::shared_ptr<geo::IRasterTileProvider> provider;
+    keel::String sourceId;
+    keel::Arc<geo::IRasterTileProvider> provider;
     geo::SlippyTileKey tileKey{};
     float distSq{0.0f};
     uint64_t epoch{0};
 };
 
 struct AsyncBasemapResult {
-    std::string sourceId;
+    keel::String sourceId;
     geo::SlippyTileKey tileKey{};
     uint64_t epoch{0};
-    std::shared_ptr<const geo::RasterTileImage> image;
+    keel::Arc<const geo::RasterTileImage> image;
 };
 
 void RasterizeCandidatesToPixels(
     guikit::ICanvas& canvas,
     guikit::VectorPath& fillPath,
     guikit::VectorPath& strokePath,
-    std::vector<guikit::Vec2>& clippedRing,
-    std::vector<guikit::Vec2>& scratchA,
-    std::vector<guikit::Vec2>& scratchB,
-    std::span<const AsyncTileCandidate> candidates,
+    keel::Array<guikit::Vec2>& clippedRing,
+    keel::Array<guikit::Vec2>& scratchA,
+    keel::Array<guikit::Vec2>& scratchB,
+    keel::ArrayRef<AsyncTileCandidate> candidates,
     const guikit::OsmTileCell& cell,
     guikit::MapCrs crs,
     uint32_t tileSizePx,
     const guikit::Rect& queryBox,
     bool lodSimplification,
     float lodPixelTolerance,
-    std::vector<uint32_t>& outPixels,
+    keel::Array<uint32_t>& outPixels,
     bool& outHasAnyGeometry
 ) {
     const float tileSizeF = static_cast<float>(tileSizePx);
@@ -1340,8 +1358,8 @@ public:
 #if !defined(__EMSCRIPTEN__) || defined(__EMSCRIPTEN_PTHREADS__)
         m_windowWorker = std::thread([this]() { WindowWorkerLoop(); });
 
-        const unsigned int hw = std::max(2u, std::thread::hardware_concurrency());
-        const size_t numTileWorkers = std::clamp<size_t>(hw / 2u, 2u, 4u);
+        const unsigned int hw = keel::max(2u, std::thread::hardware_concurrency());
+        const size_t numTileWorkers = keel::clamp<size_t>(hw / 2u, 2u, 4u);
         m_tileWorkers.reserve(numTileWorkers);
         for (size_t i = 0; i < numTileWorkers; ++i) {
             m_tileWorkers.emplace_back([this]() { TileWorkerLoop(); });
@@ -1358,7 +1376,7 @@ public:
             std::scoped_lock lk(m_windowMutex, m_tileMutex, m_basemapMutex);
             m_shutdown.store(true, std::memory_order_release);
             for (auto [uid, genPtr] : m_layerWindowGenerations) {
-                if (genPtr) genPtr->fetch_add(1, std::memory_order_relaxed);
+                if (genPtr) genPtr->FetchAddRelaxed(1);
             }
             m_pendingWindowJobs.clear();
             m_pendingTileJobs.clear();
@@ -1382,7 +1400,7 @@ public:
         {
             std::scoped_lock lk(m_windowMutex);
             for (auto [uid, genPtr] : m_layerWindowGenerations) {
-                if (genPtr) genPtr->fetch_add(1, std::memory_order_relaxed);
+                if (genPtr) genPtr->FetchAddRelaxed(1);
             }
             m_pendingWindowJobs.clear();
             m_completedWindowResults.clear();
@@ -1423,7 +1441,7 @@ public:
         std::scoped_lock lk(m_windowMutex);
         auto& genPtr = m_layerWindowGenerations.get_or_insert(layerUid);
         if (!genPtr) {
-            genPtr = std::make_shared<std::atomic<uint64_t>>(0);
+            genPtr = keel::make_arc<WindowGenCounter>();
         }
 
         // Check if an identical window job is already pending or in-flight
@@ -1447,7 +1465,7 @@ public:
             return;
         }
 
-        const uint64_t nextGen = genPtr->fetch_add(1, std::memory_order_relaxed) + 1;
+        const uint64_t nextGen = genPtr->FetchAddRelaxed(1) + 1;
         geo::SpatialWindowRequest req{};
         req.layerUid = layerUid;
         req.srsId = layer.srsId;
@@ -1475,18 +1493,18 @@ public:
         m_windowCv.notify_one();
     }
 
-    void DrainCompletedWindows(std::vector<AsyncWindowResult>& outResults) {
+    void DrainCompletedWindows(keel::Array<AsyncWindowResult>& outResults) {
         outResults.clear();
         const uint64_t curEpoch = GetCurrentEpoch();
         std::scoped_lock lk(m_windowMutex);
         for (AsyncWindowResult& res : m_completedWindowResults) {
             if (res.epoch != curEpoch || !res.snapshot) continue;
             if (const auto* gPtr = m_layerWindowGenerations.get(res.layerUid); gPtr && *gPtr) {
-                if (res.generation < (*gPtr)->load(std::memory_order_relaxed)) {
+                if (res.generation < (*gPtr)->LoadRelaxed()) {
                     continue; // Superseded by a newer window request for this layer
                 }
             }
-            outResults.push_back(std::move(res));
+            outResults.push_back(keel::move(res));
         }
         m_completedWindowResults.clear();
     }
@@ -1515,7 +1533,7 @@ public:
     [[nodiscard]] bool IsLayerTilePending(const AsyncLayerTileJobKey& key, uint64_t styleHash, uint64_t windowUpdateFrame) const {
         std::scoped_lock lk(m_tileMutex);
         if (const auto* inFlight = m_inFlightTileKeys.get(key)) {
-            if (inFlight->first == styleHash && inFlight->second == windowUpdateFrame) {
+            if (inFlight->styleHash == styleHash && inFlight->windowUpdateFrame == windowUpdateFrame) {
                 return true;
             }
         }
@@ -1537,29 +1555,29 @@ public:
         {
             std::scoped_lock lk(m_tileMutex);
             if (const auto* inFlight = m_inFlightTileKeys.get(job.jobKey)) {
-                if (inFlight->first == job.styleHash && inFlight->second == job.windowUpdateFrame) {
+                if (inFlight->styleHash == job.styleHash && inFlight->windowUpdateFrame == job.windowUpdateFrame) {
                     return;
                 }
             }
             for (AsyncLayerTileJob& existing : m_pendingTileJobs) {
                 if (existing.jobKey == job.jobKey) {
-                    existing = std::move(job);
+                    existing = keel::move(job);
                     m_tileCv.notify_one();
                     return;
                 }
             }
-            m_pendingTileJobs.push_back(std::move(job));
+            m_pendingTileJobs.push_back(keel::move(job));
         }
         m_tileCv.notify_one();
     }
 
-    void DrainCompletedLayerTiles(std::vector<AsyncLayerTileResult>& outResults) {
+    void DrainCompletedLayerTiles(keel::Array<AsyncLayerTileResult>& outResults) {
         outResults.clear();
         const uint64_t curEpoch = GetCurrentEpoch();
         std::scoped_lock lk(m_tileMutex);
         for (AsyncLayerTileResult& res : m_completedTileResults) {
             if (res.epoch == curEpoch) {
-                outResults.push_back(std::move(res));
+                outResults.push_back(keel::move(res));
             }
         }
         m_completedTileResults.clear();
@@ -1571,22 +1589,22 @@ public:
     }
 
     void EnqueueBasemapTileJob(
-        const std::shared_ptr<geo::IRasterTileProvider>& provider,
+        const keel::Arc<geo::IRasterTileProvider>& provider,
         const geo::SlippyTileKey& tileKey,
         float distSq
     ) {
         if (!provider) return;
         const uint64_t curEpoch = GetCurrentEpoch();
-        const std::string srcId = std::string(provider->GetSourceId());
+        const keel::StringRef srcId = provider->GetSourceId();
         if (!HasBackgroundWorkerThreads()) {
             auto img = provider->FetchTileBlocking(tileKey);
             if (img && img->IsValid()) {
                 std::scoped_lock lk(m_basemapMutex);
                 m_completedBasemapResults.push_back(AsyncBasemapResult{
-                    .sourceId = srcId,
+                    .sourceId = keel::String::from(srcId),
                     .tileKey = tileKey,
                     .epoch = curEpoch,
-                    .image = std::move(img)
+                    .image = keel::move(img)
                 });
             }
             return;
@@ -1598,12 +1616,12 @@ public:
             }
             for (AsyncBasemapJob& existing : m_pendingBasemapJobs) {
                 if (existing.tileKey == tileKey && existing.sourceId == srcId) {
-                    existing.distSq = std::min(existing.distSq, distSq);
+                    existing.distSq = keel::min(existing.distSq, distSq);
                     return;
                 }
             }
             m_pendingBasemapJobs.push_back(AsyncBasemapJob{
-                .sourceId = srcId,
+                .sourceId = keel::String::from(srcId),
                 .provider = provider,
                 .tileKey = tileKey,
                 .distSq = distSq,
@@ -1613,13 +1631,13 @@ public:
         m_basemapCv.notify_one();
     }
 
-    void DrainCompletedBasemapTiles(std::vector<AsyncBasemapResult>& outResults) {
+    void DrainCompletedBasemapTiles(keel::Array<AsyncBasemapResult>& outResults) {
         outResults.clear();
         const uint64_t curEpoch = GetCurrentEpoch();
         std::scoped_lock lk(m_basemapMutex);
         for (AsyncBasemapResult& res : m_completedBasemapResults) {
             if (res.epoch == curEpoch) {
-                outResults.push_back(std::move(res));
+                outResults.push_back(keel::move(res));
             }
         }
         m_completedBasemapResults.clear();
@@ -1631,7 +1649,7 @@ public:
     }
 
     bool WaitForIdle(uint32_t timeoutMs = 5000) {
-        const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
+        const uint64_t deadlineMs = keel::monotonic_ms() + static_cast<uint64_t>(timeoutMs);
         for (;;) {
             bool anyActive = false;
             {
@@ -1641,10 +1659,10 @@ public:
                             !m_pendingBasemapJobs.empty() || m_inFlightBasemapCount > 0;
             }
             if (!anyActive) return true;
-            if (std::chrono::steady_clock::now() >= deadline) {
+            if (keel::monotonic_ms() >= deadlineMs) {
                 return false;
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            std::this_thread::yield();
         }
     }
 
@@ -1662,7 +1680,7 @@ private:
                 }
                 auto it = m_pendingWindowJobs.begin();
                 const uint64_t kUid = (*it).key;
-                job = std::move((*it).value);
+                job = keel::move((*it).value);
                 m_pendingWindowJobs.remove(kUid);
                 m_inFlightWindowCount = 1;
                 m_inFlightWindowLayerUid = job.layerUid;
@@ -1671,11 +1689,11 @@ private:
                 m_inFlightWindowScaleFilter = job.req.scaleFiltering;
             }
 
-            std::shared_ptr<geo::SpatialWindowSnapshot> snapshot;
+            keel::Arc<geo::SpatialWindowSnapshot> snapshot;
             if (job.pager && job.epoch == GetCurrentEpoch()) {
                 snapshot = job.pager->BuildSpatialWindowSnapshot(
                     job.req,
-                    job.activeGenPtr.get()
+                    job.activeGenPtr ? &job.activeGenPtr->value : nullptr
                 );
             }
 
@@ -1685,14 +1703,16 @@ private:
                 m_inFlightWindowLayerUid = 0;
                 if (snapshot && snapshot->changed && job.epoch == GetCurrentEpoch()) {
                     // Replace any earlier undrained result for the same layer
-                    std::erase_if(m_completedWindowResults, [&](const AsyncWindowResult& r) {
-                        return r.layerUid == job.layerUid;
-                    });
+                    for (size_t ri = m_completedWindowResults.size(); ri > 0; --ri) {
+                        if (m_completedWindowResults[ri - 1].layerUid == job.layerUid) {
+                            m_completedWindowResults.swap_remove(ri - 1);
+                        }
+                    }
                     m_completedWindowResults.push_back(AsyncWindowResult{
                         .layerUid = job.layerUid,
                         .generation = job.req.requestGeneration,
                         .epoch = job.epoch,
-                        .snapshot = std::move(snapshot)
+                        .snapshot = keel::move(snapshot)
                     });
                 }
             }
@@ -1700,14 +1720,14 @@ private:
     }
 
     void TileWorkerLoop() {
-        std::unique_ptr<guikit::ICanvas> workerCanvas = CreateCanvasThreadSafe();
+        keel::UniquePtr<guikit::ICanvas> workerCanvas = CreateCanvasThreadSafe();
         guikit::VectorPath fillPath;
         guikit::VectorPath strokePath;
         fillPath.Reserve(256, 256);
         strokePath.Reserve(512, 512);
-        std::vector<guikit::Vec2> clippedRing;
-        std::vector<guikit::Vec2> scratchA;
-        std::vector<guikit::Vec2> scratchB;
+        keel::Array<guikit::Vec2> clippedRing;
+        keel::Array<guikit::Vec2> scratchA;
+        keel::Array<guikit::Vec2> scratchB;
 
         for (;;) {
             AsyncLayerTileJob job{};
@@ -1722,19 +1742,19 @@ private:
 
                 const int curZ = m_activeTileZoom.load(std::memory_order_relaxed);
                 // Pick the job matching `curZ` and closest to viewport center (`distSq`)
-                auto bestIt = m_pendingTileJobs.begin();
-                for (auto it = m_pendingTileJobs.begin(); it != m_pendingTileJobs.end(); ++it) {
-                    const bool bestMatchesZ = (bestIt->jobKey.z == curZ);
-                    const bool curMatchesZ = (it->jobKey.z == curZ);
+                size_t bestIdx = 0;
+                for (size_t i = 1; i < m_pendingTileJobs.size(); ++i) {
+                    const bool bestMatchesZ = (m_pendingTileJobs[bestIdx].jobKey.z == curZ);
+                    const bool curMatchesZ = (m_pendingTileJobs[i].jobKey.z == curZ);
                     if (curMatchesZ != bestMatchesZ) {
-                        if (curMatchesZ) bestIt = it;
-                    } else if (it->distSq < bestIt->distSq) {
-                        bestIt = it;
+                        if (curMatchesZ) bestIdx = i;
+                    } else if (m_pendingTileJobs[i].distSq < m_pendingTileJobs[bestIdx].distSq) {
+                        bestIdx = i;
                     }
                 }
-                job = std::move(*bestIt);
-                m_pendingTileJobs.erase(bestIt);
-                m_inFlightTileKeys.put(job.jobKey, std::pair<uint64_t, uint64_t>{job.styleHash, job.windowUpdateFrame});
+                job = keel::move(m_pendingTileJobs[bestIdx]);
+                m_pendingTileJobs.swap_remove(bestIdx);
+                m_inFlightTileKeys.put(job.jobKey, InFlightTileStamp{job.styleHash, job.windowUpdateFrame});
                 ++m_inFlightTileCount;
             }
 
@@ -1797,7 +1817,7 @@ private:
                     std::scoped_lock lk(m_tileMutex);
                     m_inFlightTileKeys.remove(job.jobKey);
                     if (m_inFlightTileCount > 0) --m_inFlightTileCount;
-                    m_completedTileResults.push_back(std::move(res));
+                    m_completedTileResults.push_back(keel::move(res));
                     continue;
                 }
             }
@@ -1825,23 +1845,23 @@ private:
                 }
 
                 const int curZ = m_activeTileZoom.load(std::memory_order_relaxed);
-                auto bestIt = m_pendingBasemapJobs.begin();
-                for (auto it = m_pendingBasemapJobs.begin(); it != m_pendingBasemapJobs.end(); ++it) {
-                    const bool bestMatchesZ = (bestIt->tileKey.z == curZ);
-                    const bool curMatchesZ = (it->tileKey.z == curZ);
+                size_t bestIdx = 0;
+                for (size_t i = 1; i < m_pendingBasemapJobs.size(); ++i) {
+                    const bool bestMatchesZ = (m_pendingBasemapJobs[bestIdx].tileKey.z == curZ);
+                    const bool curMatchesZ = (m_pendingBasemapJobs[i].tileKey.z == curZ);
                     if (curMatchesZ != bestMatchesZ) {
-                        if (curMatchesZ) bestIt = it;
-                    } else if (it->distSq < bestIt->distSq) {
-                        bestIt = it;
+                        if (curMatchesZ) bestIdx = i;
+                    } else if (m_pendingBasemapJobs[i].distSq < m_pendingBasemapJobs[bestIdx].distSq) {
+                        bestIdx = i;
                     }
                 }
-                job = std::move(*bestIt);
-                m_pendingBasemapJobs.erase(bestIt);
+                job = keel::move(m_pendingBasemapJobs[bestIdx]);
+                m_pendingBasemapJobs.swap_remove(bestIdx);
                 m_inFlightBasemapKeys.insert(job.tileKey);
                 ++m_inFlightBasemapCount;
             }
 
-            std::shared_ptr<const geo::RasterTileImage> img;
+            keel::Arc<const geo::RasterTileImage> img;
             const int activeZ = m_activeTileZoom.load(std::memory_order_relaxed);
             if (job.provider && job.epoch == GetCurrentEpoch() && std::abs(job.tileKey.z - activeZ) <= 2) {
                 img = job.provider->FetchTileBlocking(job.tileKey);
@@ -1853,10 +1873,10 @@ private:
                 if (m_inFlightBasemapCount > 0) --m_inFlightBasemapCount;
                 if (img && img->IsValid() && job.epoch == GetCurrentEpoch()) {
                     m_completedBasemapResults.push_back(AsyncBasemapResult{
-                        .sourceId = std::move(job.sourceId),
+                        .sourceId = keel::move(job.sourceId),
                         .tileKey = job.tileKey,
                         .epoch = job.epoch,
-                        .image = std::move(img)
+                        .image = keel::move(img)
                     });
                 }
             }
@@ -1869,9 +1889,9 @@ private:
 
     mutable std::mutex m_windowMutex;
     std::condition_variable m_windowCv;
-    keel::HashMap<uint64_t, std::shared_ptr<std::atomic<uint64_t>>> m_layerWindowGenerations;
+    keel::HashMap<uint64_t, keel::Arc<WindowGenCounter>> m_layerWindowGenerations;
     keel::HashMap<uint64_t, AsyncWindowJob> m_pendingWindowJobs;
-    std::vector<AsyncWindowResult> m_completedWindowResults;
+    keel::Array<AsyncWindowResult> m_completedWindowResults;
     size_t m_inFlightWindowCount{0};
     uint64_t m_inFlightWindowLayerUid{0};
     guikit::GeoBounds m_inFlightWindowGeo{};
@@ -1881,19 +1901,19 @@ private:
 
     mutable std::mutex m_tileMutex;
     std::condition_variable m_tileCv;
-    std::vector<AsyncLayerTileJob> m_pendingTileJobs;
-    keel::HashMap<AsyncLayerTileJobKey, std::pair<uint64_t, uint64_t>, AsyncLayerTileJobKeyHasher> m_inFlightTileKeys;
-    std::vector<AsyncLayerTileResult> m_completedTileResults;
+    keel::Array<AsyncLayerTileJob> m_pendingTileJobs;
+    keel::HashMap<AsyncLayerTileJobKey, InFlightTileStamp, AsyncLayerTileJobKeyHasher> m_inFlightTileKeys;
+    keel::Array<AsyncLayerTileResult> m_completedTileResults;
     size_t m_inFlightTileCount{0};
-    std::vector<std::thread> m_tileWorkers;
+    keel::Array<std::thread> m_tileWorkers;
 
     mutable std::mutex m_basemapMutex;
     std::condition_variable m_basemapCv;
-    std::vector<AsyncBasemapJob> m_pendingBasemapJobs;
+    keel::Array<AsyncBasemapJob> m_pendingBasemapJobs;
     keel::HashSet<geo::SlippyTileKey, geo::SlippyTileKeyHash> m_inFlightBasemapKeys;
-    std::vector<AsyncBasemapResult> m_completedBasemapResults;
+    keel::Array<AsyncBasemapResult> m_completedBasemapResults;
     size_t m_inFlightBasemapCount{0};
-    std::vector<std::thread> m_basemapWorkers;
+    keel::Array<std::thread> m_basemapWorkers;
 };
 
 AsyncChartStreamer& GetAsyncStreamer() {
@@ -1901,14 +1921,14 @@ AsyncChartStreamer& GetAsyncStreamer() {
     return s_streamer;
 }
 
-[[nodiscard]] std::shared_ptr<const geo::DecodedGeometryPayload> GetOrCacheInMemoryFeaturePayload(
+[[nodiscard]] keel::Arc<const geo::DecodedGeometryPayload> GetOrCacheInMemoryFeaturePayload(
     const geo::GeoFeature& feat
 ) {
     if (feat.sharedGeometry) {
         return feat.sharedGeometry;
     }
     if (!feat.geometryLoaded) {
-        return nullptr;
+        return {};
     }
     feat.sharedGeometry = feat.BuildDecodedGeometryPayload();
     return feat.sharedGeometry;
@@ -1951,7 +1971,7 @@ public:
         m_basemapTiles.clear();
     }
 
-    void SyncConfig(const GisRenderConfig& cfg, guikit::MapCrs crs, std::string_view basemapSourceId) {
+    void SyncConfig(const GisRenderConfig& cfg, guikit::MapCrs crs, keel::StringRef basemapSourceId) {
         const uint32_t newTileSize = ResolveTileSizePx(cfg.tileSizePx);
         if (newTileSize != m_tileSizePx || crs != m_activeCrs) {
             Clear();
@@ -1959,7 +1979,7 @@ public:
             m_activeCrs = crs;
         }
         if (m_activeBasemapSourceId != basemapSourceId) {
-            m_activeBasemapSourceId = std::string(basemapSourceId);
+            m_activeBasemapSourceId.assign(basemapSourceId);
             m_basemapTiles.clear();
             ++m_basemapGeneration;
             for (auto [k, comp] : m_compositeTiles) {
@@ -1967,16 +1987,16 @@ public:
                 comp.compositeSignature = 0ULL;
             }
         }
-        m_maxLayerTiles = std::clamp<size_t>(cfg.maxLayerTiles, 64u, 2048u);
-        m_maxCompositeTiles = std::clamp<size_t>(cfg.maxCompositeTiles, 64u, 2048u);
+        m_maxLayerTiles = keel::clamp<size_t>(cfg.maxLayerTiles, 64u, 2048u);
+        m_maxCompositeTiles = keel::clamp<size_t>(cfg.maxCompositeTiles, 64u, 2048u);
     }
 
     [[nodiscard]] uint32_t GetTileSizePx() const noexcept { return m_tileSizePx; }
     [[nodiscard]] float GetTileSizeF() const noexcept { return static_cast<float>(m_tileSizePx); }
     [[nodiscard]] guikit::MapCrs GetActiveCrs() const noexcept { return m_activeCrs; }
 
-    void GarbageCollectLayers(std::span<const geo::GeoLayer> layers) {
-        std::vector<uint64_t> staleUids;
+    void GarbageCollectLayers(keel::ArrayRef<geo::GeoLayer> layers) {
+        keel::Array<uint64_t> staleUids;
         for (auto [uid, store] : m_layerStores) {
             bool found = false;
             for (const geo::GeoLayer& lyr : layers) {
@@ -2000,7 +2020,7 @@ public:
         HashCombineVal(topoHash, crs);
         HashCombineVal(topoHash, layer.uid);
         const size_t fCount = layer.isWindowStreamed
-            ? std::max(layer.estimatedTotalFeatures, static_cast<size_t>(1u))
+            ? keel::max(layer.estimatedTotalFeatures, static_cast<size_t>(1u))
             : layer.features.size();
         HashCombineVal(topoHash, fCount);
 
@@ -2019,7 +2039,7 @@ public:
 
     size_t InvalidateTilesForDirtiedBoxes(
         uint64_t layerUid,
-        std::span<const guikit::Rect> dirtiedNormBoxes,
+        keel::ArrayRef<guikit::Rect> dirtiedNormBoxes,
         uint64_t frameTick = 0
     ) noexcept {
         LayerTileStore* storePtr = m_layerStores.get(layerUid);
@@ -2029,7 +2049,7 @@ public:
         size_t invalidatedCount = 0;
         if (storePtr) {
             LayerTileStore& store = *storePtr;
-            std::vector<TileCoordKey> toErase;
+            keel::Array<TileCoordKey> toErase;
             for (auto [tileKey, tile] : store.tiles) {
                 bool shouldInvalidate = !tile.hasAnyGeometry;
                 if (!shouldInvalidate) {
@@ -2092,7 +2112,7 @@ public:
         uint64_t frameTick
     ) const {
         if (store.tiles.size() >= m_maxLayerTiles && !store.tiles.contains(key)) {
-            EvictOldestLayerTiles(store, m_maxLayerTiles - std::min<size_t>(32u, m_maxLayerTiles / 4u));
+            EvictOldestLayerTiles(store, m_maxLayerTiles - keel::min<size_t>(32u, m_maxLayerTiles / 4u));
         }
         CachedVectorTile& tile = store.tiles.get_or_insert(key);
         tile.pixels.clear();
@@ -2119,11 +2139,11 @@ public:
 
         const TileCoordKey key{res.jobKey.z, res.jobKey.x, res.jobKey.y};
         if (store.tiles.size() >= m_maxLayerTiles && !store.tiles.contains(key)) {
-            EvictOldestLayerTiles(store, m_maxLayerTiles - std::min<size_t>(32u, m_maxLayerTiles / 4u));
+            EvictOldestLayerTiles(store, m_maxLayerTiles - keel::min<size_t>(32u, m_maxLayerTiles / 4u));
         }
 
         CachedVectorTile& tile = store.tiles.get_or_insert(key);
-        tile.pixels = std::move(res.pixels);
+        tile.pixels = keel::move(res.pixels);
         tile.normQueryBox = res.queryBox;
         tile.styleHash = res.styleHash;
         tile.lastUsedFrame = frameTick;
@@ -2146,9 +2166,9 @@ public:
     }
 
     bool StoreBasemapTile(
-        std::string_view sourceId,
+        keel::StringRef sourceId,
         const geo::SlippyTileKey& tileKey,
-        std::shared_ptr<const geo::RasterTileImage> img
+        keel::Arc<const geo::RasterTileImage> img
     ) {
         if (!img || !img->IsValid() || tileKey.tileSizePx != m_tileSizePx || sourceId != m_activeBasemapSourceId) {
             return false;
@@ -2158,7 +2178,7 @@ public:
             m_basemapTiles.remove(victimKey);
         }
         const TileCoordKey key{tileKey.z, tileKey.x, tileKey.y};
-        m_basemapTiles.put(key, std::move(img));
+        m_basemapTiles.put(key, keel::move(img));
         ++m_basemapGeneration;
 
         if (CompositeTile* comp = m_compositeTiles.get(key)) {
@@ -2183,13 +2203,13 @@ public:
         const guikit::Rect& normQueryBox,
         uint64_t compositeSignature,
         uint32_t bgPx,
-        std::span<const CompositeLayerRef> layerRefs,
+        keel::ArrayRef<CompositeLayerRef> layerRefs,
         uint64_t frameTick,
         bool useBasemapOverlay = false,
         uint8_t basemapOpacityByte = 255
     ) {
         if (m_compositeTiles.size() >= m_maxCompositeTiles && !m_compositeTiles.contains(key)) {
-            EvictOldestCompositeTiles(m_maxCompositeTiles - std::min<size_t>(48u, m_maxCompositeTiles / 4u));
+            EvictOldestCompositeTiles(m_maxCompositeTiles - keel::min<size_t>(48u, m_maxCompositeTiles / 4u));
         }
         const size_t numTilePx = static_cast<size_t>(m_tileSizePx) * static_cast<size_t>(m_tileSizePx);
         CompositeTile& comp = m_compositeTiles.get_or_insert(key);
@@ -2266,7 +2286,7 @@ public:
 
         // Perform eviction and map insertion BEFORE taking any pointers into m_compositeTiles!
         if (m_compositeTiles.size() >= m_maxCompositeTiles && !m_compositeTiles.contains(key)) {
-            EvictOldestCompositeTiles(m_maxCompositeTiles - std::min<size_t>(48u, m_maxCompositeTiles / 4u));
+            EvictOldestCompositeTiles(m_maxCompositeTiles - keel::min<size_t>(48u, m_maxCompositeTiles / 4u));
         }
 
         CompositeTile& comp = m_compositeTiles.get_or_insert(key);
@@ -2287,11 +2307,11 @@ public:
             const uint32_t qx = static_cast<uint32_t>(key.x & ((1 << ancestorShift) - 1)) * subSpan;
             const uint32_t qy = static_cast<uint32_t>(key.y & ((1 << ancestorShift) - 1)) * subSpan;
             for (uint32_t y = 0; y < m_tileSizePx; ++y) {
-                const uint32_t sy = std::min(m_tileSizePx - 1u, qy + (y >> ancestorShift));
+                const uint32_t sy = keel::min(m_tileSizePx - 1u, qy + (y >> ancestorShift));
                 const uint32_t* srcRow = ancestorTile->pixels.data() + static_cast<size_t>(sy) * m_tileSizePx;
                 uint32_t* dstRow = comp.pixels.data() + static_cast<size_t>(y) * m_tileSizePx;
                 for (uint32_t x = 0; x < m_tileSizePx; ++x) {
-                    const uint32_t sx = std::min(m_tileSizePx - 1u, qx + (x >> ancestorShift));
+                    const uint32_t sx = keel::min(m_tileSizePx - 1u, qx + (x >> ancestorShift));
                     dstRow[x] = srcRow[sx];
                 }
             }
@@ -2337,7 +2357,7 @@ public:
         bool canRunSyncFastPath,
         size_t* outPagedInCount = nullptr,
         bool hasDeadline = false,
-        std::chrono::steady_clock::time_point deadline = {},
+        uint64_t deadlineUs = 0,
         size_t minPagedBeforeCheck = 96,
         bool* outAbortedOrQueued = nullptr
     ) {
@@ -2406,7 +2426,7 @@ public:
 
             const float featWpx = feat.normBounds.w * invSpanU;
             const float featHpx = feat.normBounds.h * invSpanV;
-            const float maxDimPx = std::max(featWpx, featHpx);
+            const float maxDimPx = keel::max(featWpx, featHpx);
 
             const float minFeaturePx = (feat.chartClass == geo::ChartFeatureClass::DepthArea ||
                                         feat.chartClass == geo::ChartFeatureClass::LandArea)
@@ -2452,10 +2472,11 @@ public:
             return FindTile(store, key, frameTick);
         }
 
-        std::stable_sort(m_candidates.begin(), m_candidates.end(),
+        keel::sort(m_candidates,
             [](const TileCandidate& a, const TileCandidate& b) noexcept {
                 if (a.painterRank != b.painterRank) return a.painterRank < b.painterRank;
-                return a.sortDepth < b.sortDepth;
+                if (a.sortDepth != b.sortDepth) return a.sortDepth < b.sortDepth;
+                return a.featIdx < b.featIdx;
             });
 
         size_t missingDiskCount = 0;
@@ -2507,7 +2528,7 @@ public:
                 });
             }
 
-            GetAsyncStreamer().EnqueueLayerTileJob(std::move(job));
+            GetAsyncStreamer().EnqueueLayerTileJob(keel::move(job));
             if (outAbortedOrQueued) *outAbortedOrQueued = true;
             return nullptr;
         }
@@ -2521,7 +2542,7 @@ public:
             if (!feat.geometryLoaded) {
                 if (hasDeadline && newlyPagedInTile >= minPagedBeforeCheck &&
                     (newlyPagedInTile & 7u) == 0u) {
-                    if (std::chrono::steady_clock::now() >= deadline) {
+                    if (keel::monotonic_us() >= deadlineUs) {
                         if (outAbortedOrQueued) *outAbortedOrQueued = true;
                         return nullptr;
                     }
@@ -2552,7 +2573,7 @@ public:
         }
 
         if (store.tiles.size() >= m_maxLayerTiles && !store.tiles.contains(key)) {
-            EvictOldestLayerTiles(store, m_maxLayerTiles - std::min<size_t>(32u, m_maxLayerTiles / 4u));
+            EvictOldestLayerTiles(store, m_maxLayerTiles - keel::min<size_t>(32u, m_maxLayerTiles / 4u));
         }
 
         CachedVectorTile& tile = store.tiles.get_or_insert(key);
@@ -2605,17 +2626,17 @@ private:
             if (const auto* pPtr = m_basemapTiles.get(parentKey);
                 pPtr && *pPtr && (*pPtr)->rgbaPixels.size() == numTilePx) {
                 const uint32_t* srcData = (*pPtr)->rgbaPixels.data();
-                const uint32_t subSpan = std::max(1u, m_tileSizePx >> shift);
+                const uint32_t subSpan = keel::max(1u, m_tileSizePx >> shift);
                 const uint32_t qx = static_cast<uint32_t>(key.x & ((1 << shift) - 1)) * subSpan;
                 const uint32_t qy = static_cast<uint32_t>(key.y & ((1 << shift) - 1)) * subSpan;
 
                 m_upscaledBasemapScratch.resize(numTilePx);
                 for (uint32_t y = 0; y < m_tileSizePx; ++y) {
-                    const uint32_t sy = std::min(m_tileSizePx - 1u, qy + (y >> shift));
+                    const uint32_t sy = keel::min(m_tileSizePx - 1u, qy + (y >> shift));
                     const uint32_t* srcRow = srcData + static_cast<size_t>(sy) * m_tileSizePx;
                     uint32_t* dstRow = m_upscaledBasemapScratch.data() + static_cast<size_t>(y) * m_tileSizePx;
                     for (uint32_t x = 0; x < m_tileSizePx; ++x) {
-                        const uint32_t sx = std::min(m_tileSizePx - 1u, qx + (x >> shift));
+                        const uint32_t sx = keel::min(m_tileSizePx - 1u, qx + (x >> shift));
                         dstRow[x] = srcRow[sx];
                     }
                 }
@@ -2656,25 +2677,25 @@ private:
         }
     }
 
-    std::unique_ptr<guikit::ICanvas> m_tileCanvas;
+    keel::UniquePtr<guikit::ICanvas> m_tileCanvas;
     guikit::VectorPath m_fillPath;
     guikit::VectorPath m_strokePath;
     uint32_t m_tileSizePx{256};
     guikit::MapCrs m_activeCrs{guikit::MapCrs::EPSG3857_WebMercator};
-    std::string m_activeBasemapSourceId;
+    keel::String m_activeBasemapSourceId;
     uint64_t m_basemapGeneration{1};
     size_t m_maxLayerTiles{256};
     size_t m_maxCompositeTiles{384};
     keel::HashMap<uint64_t, LayerTileStore> m_layerStores;
     keel::HashMap<TileCoordKey, CompositeTile, TileCoordKeyHasher> m_compositeTiles;
-    keel::HashMap<TileCoordKey, std::shared_ptr<const geo::RasterTileImage>, TileCoordKeyHasher> m_basemapTiles;
-    mutable std::vector<uint32_t> m_upscaledBasemapScratch;
-    std::vector<uint32_t> m_queryIndices;
-    std::vector<guikit::Vec2> m_clippedRing;
-    std::vector<guikit::Vec2> m_scratchA;
-    std::vector<guikit::Vec2> m_scratchB;
-    std::vector<TileCandidate> m_candidates;
-    std::vector<AsyncTileCandidate> m_syncAsyncCandidates;
+    keel::HashMap<TileCoordKey, keel::Arc<const geo::RasterTileImage>, TileCoordKeyHasher> m_basemapTiles;
+    mutable keel::Array<uint32_t> m_upscaledBasemapScratch;
+    keel::Array<uint32_t> m_queryIndices;
+    keel::Array<guikit::Vec2> m_clippedRing;
+    keel::Array<guikit::Vec2> m_scratchA;
+    keel::Array<guikit::Vec2> m_scratchB;
+    keel::Array<TileCandidate> m_candidates;
+    keel::Array<AsyncTileCandidate> m_syncAsyncCandidates;
 };
 
 PerLayerTileCacheManager& GetTileCache() {
@@ -2682,7 +2703,7 @@ PerLayerTileCacheManager& GetTileCache() {
     return s_cache;
 }
 
-[[nodiscard]] std::shared_ptr<geo::IRasterTileProvider> ResolveActiveBasemapProvider(
+[[nodiscard]] keel::Arc<geo::IRasterTileProvider> ResolveActiveBasemapProvider(
     const GisRenderConfig& cfg
 ) {
     if (cfg.customBasemapProvider) {
@@ -2692,7 +2713,7 @@ PerLayerTileCacheManager& GetTileCache() {
         if (auto defaultProv = GisRenderEngine::GetDefaultBasemapProvider()) {
             return defaultProv;
         }
-        static std::shared_ptr<geo::IRasterTileProvider> s_defaultOsmProvider = geo::CreateOsmRasterTileProvider();
+        static keel::Arc<geo::IRasterTileProvider> s_defaultOsmProvider = geo::CreateOsmRasterTileProvider();
         return s_defaultOsmProvider;
     }
     return nullptr;
@@ -2710,7 +2731,7 @@ void DrawLoadingTilePlaceholder(
     const guikit::Rect& r = cell.worldRect;
     const float cellScreenW = r.w * zoom;
     const float cellScreenH = r.h * zoom;
-    const float minSidePx = std::min(cellScreenW, cellScreenH);
+    const float minSidePx = keel::min(cellScreenW, cellScreenH);
     if (minSidePx < 24.0f) {
         return;
     }
@@ -2748,8 +2769,8 @@ void DrawLoadingTilePlaceholder(
     }
 
     // 2. Crisp L-shaped corner brackets indicating an active background tile job
-    const float insetW = std::min(5.0f * invZ, r.w * 0.12f);
-    const float armLenW = std::clamp(minSidePx * 0.12f, 6.0f, 16.0f) * invZ;
+    const float insetW = keel::min(5.0f * invZ, r.w * 0.12f);
+    const float armLenW = keel::clamp(minSidePx * 0.12f, 6.0f, 16.0f) * invZ;
     const float bracketStrokeW = (hasPreview ? 1.35f : 1.65f) * invZ;
     const float bx0 = x0 + insetW;
     const float by0 = y0 + insetW;
@@ -2770,10 +2791,7 @@ void DrawLoadingTilePlaceholder(
     scene.DrawLine({bx1, by1}, {bx1, by1 - armLenW}, accentCol, bracketStrokeW);
 
     // 3. Animated radar/sonar loading spinner + [z/x/y] tile status badge
-    const auto nowMs = static_cast<uint64_t>(
-        std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now().time_since_epoch()).count()
-    );
+    const uint64_t nowMs = keel::monotonic_ms();
     const uint32_t cellPhase = static_cast<uint32_t>((cell.id.x * 37 + cell.id.y * 17) & 63);
     const float spinAngleDeg = std::fmod(
         static_cast<float>(nowMs % 3600ULL) * 0.30f +
@@ -2783,8 +2801,8 @@ void DrawLoadingTilePlaceholder(
     );
 
     const float spinnerRadiusPx = hasPreview
-        ? std::clamp(minSidePx * 0.075f, 6.5f, 11.5f)
-        : std::clamp(minSidePx * 0.11f, 8.5f, 15.5f);
+        ? keel::clamp(minSidePx * 0.075f, 6.5f, 11.5f)
+        : keel::clamp(minSidePx * 0.11f, 8.5f, 15.5f);
     const float spinnerRadiusW = spinnerRadiusPx * invZ;
 
     // When a mipmap preview is already visible, anchor a compact badge near the top-right corner
@@ -2815,9 +2833,10 @@ void DrawLoadingTilePlaceholder(
 
     if (!hasPreview && minSidePx >= 84.0f) {
         char labelBuf[48]{};
-        std::snprintf(labelBuf, sizeof(labelBuf), "LOADING [%d/%d/%d]", cell.id.z, cell.id.x, cell.id.y);
-        const std::string_view labelSv(labelBuf);
-        const float pillW = std::min(r.w * 0.86f, 118.0f * invZ);
+        const keel::StringRef labelSv = keel::format_buf(
+            labelBuf, "LOADING [%d/%d/%d]", cell.id.z, cell.id.x, cell.id.y
+        );
+        const float pillW = keel::min(r.w * 0.86f, 118.0f * invZ);
         const float pillH = 16.0f * invZ;
         const guikit::Rect pillRect(
             cx - pillW * 0.5f,
@@ -2867,7 +2886,7 @@ void DrawLoadingTilePlaceholder(
 
     HashCombineVal(h, lyr.uid);
     const size_t fCount = lyr.isWindowStreamed
-        ? std::max(lyr.estimatedTotalFeatures, static_cast<size_t>(1u))
+        ? keel::max(lyr.estimatedTotalFeatures, static_cast<size_t>(1u))
         : lyr.features.size();
     HashCombineVal(h, fCount);
     HashCombineVal(h, lyr.style.useCustomColor);
@@ -2885,44 +2904,48 @@ void DrawLoadingTilePlaceholder(
 // Pan-Invariant Zoom-Level World-Space Declutter Cache (Pre-Indexed Compact Lists)
 // ============================================================================
 
-[[nodiscard]] std::string_view ResolveFeatureLabelText(
+[[nodiscard]] keel::StringRef ResolveFeatureLabelText(
     const geo::GeoFeature& feat,
     const GisRenderConfig& cfg
 ) noexcept {
     if (!cfg.preferredLanguage.empty()) {
-        const std::string_view lang = cfg.preferredLanguage;
+        const keel::StringRef lang = cfg.preferredLanguage;
         if (lang == "ru" && !feat.labelRu.empty()) {
-            return feat.labelRu;
+            return feat.labelRu.as_ref();
         }
         if (lang == "en" && !feat.labelEn.empty()) {
-            return feat.labelEn;
+            return feat.labelEn.as_ref();
         }
         for (const auto& [k, v] : feat.properties) {
-            if (const auto* sv = std::get_if<std::string>(&v.value); sv && !sv->empty()) {
-                if ((k.size() == 5 + lang.size() && k.starts_with("name:") && std::string_view(k).substr(5) == lang) ||
-                    (k.size() == 6 + lang.size() && k.starts_with("label_") && std::string_view(k).substr(6) == lang)) {
-                    return *sv;
+            if (v.is_string()) {
+                const keel::StringRef sv = v.as_string();
+                if (!sv.empty()) {
+                    const keel::StringRef kRef = k.as_ref();
+                    if ((kRef.size() == 5 + lang.size() && kRef.starts_with("name:") && kRef.substr(5) == lang) ||
+                        (kRef.size() == 6 + lang.size() && kRef.starts_with("label_") && kRef.substr(6) == lang)) {
+                        return sv;
+                    }
                 }
             }
         }
     }
     if (cfg.preferRussianLabels && !feat.labelRu.empty()) {
-        return feat.labelRu;
+        return feat.labelRu.as_ref();
     }
     if (!feat.labelEn.empty()) {
-        return feat.labelEn;
+        return feat.labelEn.as_ref();
     }
     if (!feat.labelRu.empty()) {
-        return feat.labelRu;
+        return feat.labelRu.as_ref();
     }
     if ((feat.chartClass == geo::ChartFeatureClass::Generic || feat.featureCode == "LNDELV") &&
         !feat.name.empty()) {
-        return feat.name;
+        return feat.name.as_ref();
     }
     return {};
 }
 
-[[nodiscard]] size_t CountUtf8CodePoints(std::string_view s) noexcept {
+[[maybe_unused]] [[nodiscard]] size_t CountUtf8CodePoints(keel::StringRef s) noexcept {
     size_t count = 0;
     for (size_t i = 0; i < s.size();) {
         const uint8_t c = static_cast<uint8_t>(s[i]);
@@ -2938,10 +2961,10 @@ void DrawLoadingTilePlaceholder(
     return count;
 }
 
-[[nodiscard]] std::string_view FormatMapCalloutLabel(
+[[nodiscard]] keel::StringRef FormatMapCalloutLabel(
     const geo::GeoFeature& feat,
     const GisRenderConfig& cfg,
-    std::string& scratchBuf,
+    keel::String& scratchBuf,
     size_t* outCharCount = nullptr
 ) {
     if (outCharCount) *outCharCount = 0;
@@ -2951,14 +2974,14 @@ void DrawLoadingTilePlaceholder(
         return {};
     }
 
-    std::string_view raw = ResolveFeatureLabelText(feat, cfg);
+    keel::StringRef raw = ResolveFeatureLabelText(feat, cfg);
     if (raw.empty()) return {};
 
     // 2. Optional S-52 filter: suppress multi-sentence INFORM / TXTDSC cautionary notes (containing '|')
     //    or regulatory caution/restricted area notes from cluttering the map surface
     if (cfg.hideMultiLineNotesOnMap) {
-        if (raw.find('|') != std::string_view::npos ||
-            raw.find('\n') != std::string_view::npos ||
+        if (raw.find('|') != keel::StringRef::npos ||
+            raw.find('\n') != keel::StringRef::npos ||
             IsCautionOrRestrictedArea(feat)) {
             return {};
         }
@@ -2993,17 +3016,17 @@ void DrawLoadingTilePlaceholder(
         }
         scratchBuf.append("...");
         if (outCharCount) *outCharCount = charCount + 3;
-        return scratchBuf;
+        return scratchBuf.as_ref();
     }
 
     if (outCharCount) *outCharCount = charCount;
 
-    if (raw.find('|') != std::string_view::npos || raw.find('\n') != std::string_view::npos) {
+    if (raw.find('|') != keel::StringRef::npos || raw.find('\n') != keel::StringRef::npos) {
         scratchBuf.assign(raw);
         for (char& ch : scratchBuf) {
             if (ch == '|' || ch == '\n' || ch == '\r') ch = ' ';
         }
-        return scratchBuf;
+        return scratchBuf.as_ref();
     }
 
     return raw;
@@ -3026,7 +3049,7 @@ public:
     }
 
     void Sync(
-        std::span<const geo::GeoLayer> layers,
+        keel::ArrayRef<geo::GeoLayer> layers,
         const GisRenderConfig& cfg,
         int tileZoom,
         guikit::MapCrs crs,
@@ -3070,8 +3093,8 @@ public:
         }
 
         m_cachedKey = key;
-        const float spanX = std::max(1e-5f, paddedVisNormBox.w);
-        const float spanY = std::max(1e-5f, paddedVisNormBox.h);
+        const float spanX = keel::max(1e-5f, paddedVisNormBox.w);
+        const float spanY = keel::max(1e-5f, paddedVisNormBox.h);
         m_safeNormBox = guikit::Rect(
             paddedVisNormBox.x - spanX * 0.30f,
             paddedVisNormBox.y - spanY * 0.30f,
@@ -3091,13 +3114,13 @@ public:
         m_acceptedSoundings.clear();
         ClearOccupiedCells();
 
-        const float worldPxScale = static_cast<float>(256ULL << std::clamp(tileZoom, 0, 22));
+        const float worldPxScale = static_cast<float>(256ULL << keel::clamp(tileZoom, 0, 22));
         auto toWorldPx = [crs, worldPxScale](guikit::Vec2 norm3857, guikit::GeoCoord geo) noexcept -> guikit::Vec2 {
             if (crs == guikit::MapCrs::EPSG3857_WebMercator || crs == guikit::MapCrs::EPSG3395_WorldMercator) {
                 return {norm3857.x * worldPxScale, norm3857.y * worldPxScale};
             }
             if (crs == guikit::MapCrs::EPSG4326_PlateCarree) {
-                const float ny = static_cast<float>((90.0 - std::clamp(geo.lat, -90.0, 90.0)) * (1.0 / 180.0));
+                const float ny = static_cast<float>((90.0 - keel::clamp(geo.lat, -90.0, 90.0)) * (1.0 / 180.0));
                 return {norm3857.x * worldPxScale, ny * worldPxScale};
             }
             const guikit::Vec2 n = guikit::MapGrid::GeoToNormalized(geo, crs);
@@ -3114,7 +3137,7 @@ public:
                 continue;
             }
             if (!layer.normBounds.Intersects(queryNormBox)) continue;
-            const float ptScale = std::clamp(layer.style.pointRadiusPx / 6.5f, 0.35f, 3.5f);
+            const float ptScale = keel::clamp(layer.style.pointRadiusPx / 6.5f, 0.35f, 3.5f);
             const float boxHalf = 7.0f * ptScale;
 
             auto processPass1Feat = [&](uint32_t fi) {
@@ -3136,11 +3159,11 @@ public:
 
             if (layer.features.size() > 2048) {
                 m_queryScratch.clear();
-                    layer.spatialIndex.query_box(
-                        keel::RTreeBox<float>::from_xywh(queryNormBox.x, queryNormBox.y, queryNormBox.w, queryNormBox.h),
-                        [&](uint32_t fi) { m_queryScratch.push_back(fi); }
-                    );
-                std::sort(m_queryScratch.begin(), m_queryScratch.end());
+                layer.spatialIndex.query_box(
+                    keel::RTreeBox<float>::from_xywh(queryNormBox.x, queryNormBox.y, queryNormBox.w, queryNormBox.h),
+                    [&](uint32_t fi) { m_queryScratch.push_back(fi); }
+                );
+                keel::sort(m_queryScratch);
                 for (uint32_t fi : m_queryScratch) {
                     if (fi < layer.features.size()) processPass1Feat(fi);
                 }
@@ -3163,7 +3186,7 @@ public:
                     continue;
                 }
                 if (!layer.normBounds.Intersects(queryNormBox)) continue;
-                const float ptScale = std::clamp(layer.style.pointRadiusPx / 6.5f, 0.35f, 3.5f);
+                const float ptScale = keel::clamp(layer.style.pointRadiusPx / 6.5f, 0.35f, 3.5f);
 
                 auto processPass2Feat = [&](uint32_t fi) {
                     const geo::GeoFeature& feat = layer.features[fi];
@@ -3194,7 +3217,7 @@ public:
                         keel::RTreeBox<float>::from_xywh(queryNormBox.x, queryNormBox.y, queryNormBox.w, queryNormBox.h),
                         [&](uint32_t fi) { m_queryScratch.push_back(fi); }
                     );
-                    std::sort(m_queryScratch.begin(), m_queryScratch.end());
+                    keel::sort(m_queryScratch);
                     for (uint32_t fi : m_queryScratch) {
                         if (fi < layer.features.size()) processPass2Feat(fi);
                     }
@@ -3208,7 +3231,7 @@ public:
 
         // Pass 3: Cartographic Text Labels (`labelRu` / `labelEn` / Named Features)
         if (cfg.showFeatureCallouts) {
-            std::string labelScratch;
+            keel::String labelScratch;
             constexpr uint32_t kNoCalloutMask =
                 (1u << static_cast<uint8_t>(geo::ChartFeatureClass::Sounding)) |
                 (1u << static_cast<uint8_t>(geo::ChartFeatureClass::DepthArea)) |
@@ -3233,11 +3256,11 @@ public:
                     if (ShouldSkipFeatureAtZoom(feat, tileZoom, cfg)) return;
 
                     size_t charCount = 0;
-                    const std::string_view labelText = FormatMapCalloutLabel(feat, cfg, labelScratch, &charCount);
+                    const keel::StringRef labelText = FormatMapCalloutLabel(feat, cfg, labelScratch, &charCount);
                     if (labelText.empty()) return;
 
                     const guikit::Vec2 wpt = toWorldPx(feat.normCentroid, feat.centroid);
-                    const float estWidthPx = std::clamp(static_cast<float>(charCount) * 6.0f + 10.0f, 16.0f, 640.0f);
+                    const float estWidthPx = keel::clamp(static_cast<float>(charCount) * 6.0f + 10.0f, 16.0f, 640.0f);
                     const float estHeightPx = 16.0f;
                     const float offsetX = !feat.points.empty() ? 8.0f : (-estWidthPx * 0.4f);
                     const float offsetY = -7.0f;
@@ -3255,7 +3278,7 @@ public:
                         keel::RTreeBox<float>::from_xywh(queryNormBox.x, queryNormBox.y, queryNormBox.w, queryNormBox.h),
                         [&](uint32_t fi) { m_queryScratch.push_back(fi); }
                     );
-                    std::sort(m_queryScratch.begin(), m_queryScratch.end());
+                    keel::sort(m_queryScratch);
                     for (uint32_t fi : m_queryScratch) {
                         if (fi < layer.features.size()) processPass3Feat(fi);
                     }
@@ -3314,7 +3337,7 @@ public:
                 }
             }
 
-            std::sort(m_soundingCands.begin(), m_soundingCands.end(),
+            keel::sort(m_soundingCands,
                 [](const SoundingCand& a, const SoundingCand& b) noexcept {
                     if (a.depth != b.depth) return a.depth < b.depth;
                     if (a.layerIdx != b.layerIdx) return a.layerIdx < b.layerIdx;
@@ -3331,9 +3354,9 @@ public:
         }
     }
 
-    [[nodiscard]] std::span<const AcceptedItem> GetAcceptedSymbols() const noexcept { return m_acceptedSymbols; }
-    [[nodiscard]] std::span<const AcceptedItem> GetAcceptedLabels() const noexcept { return m_acceptedLabels; }
-    [[nodiscard]] std::span<const AcceptedItem> GetAcceptedSoundings() const noexcept { return m_acceptedSoundings; }
+    [[nodiscard]] keel::ArrayRef<AcceptedItem> GetAcceptedSymbols() const noexcept { return m_acceptedSymbols; }
+    [[nodiscard]] keel::ArrayRef<AcceptedItem> GetAcceptedLabels() const noexcept { return m_acceptedLabels; }
+    [[nodiscard]] keel::ArrayRef<AcceptedItem> GetAcceptedSoundings() const noexcept { return m_acceptedSoundings; }
     [[nodiscard]] size_t GetTotalDecluttered() const noexcept { return m_totalDecluttered; }
 
 private:
@@ -3348,7 +3371,7 @@ private:
         } else {
             ++m_curEpoch;
             if (m_curEpoch == 0U) {
-                std::fill(m_cellEpochs.begin(), m_cellEpochs.end(), 0U);
+                keel::fill(m_cellEpochs.as_mut_ref(), 0U);
                 m_curEpoch = 1U;
             }
         }
@@ -3421,15 +3444,15 @@ private:
     uint64_t m_cachedKey{0};
     guikit::Rect m_safeNormBox{0.0f, 0.0f, 0.0f, 0.0f};
     size_t m_totalDecluttered{0};
-    std::vector<AcceptedItem> m_acceptedSymbols;
-    std::vector<AcceptedItem> m_acceptedLabels;
-    std::vector<AcceptedItem> m_acceptedSoundings;
-    std::vector<uint64_t> m_cellKeys;
-    std::vector<uint32_t> m_cellEpochs;
+    keel::Array<AcceptedItem> m_acceptedSymbols;
+    keel::Array<AcceptedItem> m_acceptedLabels;
+    keel::Array<AcceptedItem> m_acceptedSoundings;
+    keel::Array<uint64_t> m_cellKeys;
+    keel::Array<uint32_t> m_cellEpochs;
     uint32_t m_curEpoch{1};
     size_t m_occupiedCount{0};
-    std::vector<uint32_t> m_queryScratch;
-    std::vector<SoundingCand> m_soundingCands;
+    keel::Array<uint32_t> m_queryScratch;
+    keel::Array<SoundingCand> m_soundingCands;
 };
 
 WorldDeclutterCache& GetDeclutterCache() {
@@ -3441,7 +3464,7 @@ WorldDeclutterCache& GetDeclutterCache() {
 // O(log N) R-Tree Geometric Hit-Testing (Points -> Lines -> Polygons with Holes)
 // ============================================================================
 
-[[nodiscard]] bool PointInNormRing(guikit::Vec2 pt, std::span<const guikit::Vec2> ring) noexcept {
+[[nodiscard]] bool PointInNormRing(guikit::Vec2 pt, keel::ArrayRef<guikit::Vec2> ring) noexcept {
     if (ring.size() < 3) return false;
     bool inside = false;
     for (size_t i = 0, j = ring.size() - 1; i < ring.size(); j = i++) {
@@ -3464,7 +3487,7 @@ WorldDeclutterCache& GetDeclutterCache() {
         const float py = p.y - a.y;
         return px * px + py * py;
     }
-    const float t = std::clamp(((p.x - a.x) * dx + (p.y - a.y) * dy) / lenSq, 0.0f, 1.0f);
+    const float t = keel::clamp(((p.x - a.x) * dx + (p.y - a.y) * dy) / lenSq, 0.0f, 1.0f);
     const float projX = a.x + t * dx;
     const float projY = a.y + t * dy;
     const float ex = p.x - projX;
@@ -3499,7 +3522,7 @@ CursorHitCache& GetCursorHitCache() noexcept {
     guikit::Vec2 cursorNorm,
     float pickRadiusNorm,
     int tileZoom,
-    std::span<const geo::GeoLayer> layers,
+    keel::ArrayRef<geo::GeoLayer> layers,
     const GisRenderConfig& cfg,
     uint64_t frameTick,
     size_t* outPagedInCount = nullptr
@@ -3546,7 +3569,7 @@ CursorHitCache& GetCursorHitCache() noexcept {
     float bestPolyArea = 1e30f;
 
     size_t syncHitPagedCount = 0;
-    std::vector<uint32_t> candidates;
+    keel::Array<uint32_t> candidates;
     for (const geo::GeoLayer& layer : layers) {
         if (!layer.visible || layer.features.empty()) continue;
         if (!layer.normBounds.Intersects(pickBox)) continue;
@@ -3574,7 +3597,7 @@ CursorHitCache& GetCursorHitCache() noexcept {
             if (bestPoint.feat) continue;
 
             // Skip sub-pixel lines/polygons at low zoom
-            const float maxDimNorm = std::max(feat.normBounds.w, feat.normBounds.h);
+            const float maxDimNorm = keel::max(feat.normBounds.w, feat.normBounds.h);
             if (maxDimNorm < minPickableFeatureDim) continue;
 
             // 2. Line hit-test
@@ -3610,7 +3633,7 @@ CursorHitCache& GetCursorHitCache() noexcept {
             if (feat.chartClass == geo::ChartFeatureClass::CoverageMask && !cfg.showCoverageBounds) {
                 continue;
             }
-            const float bboxArea = std::max(1e-12f, feat.normBounds.w * feat.normBounds.h);
+            const float bboxArea = keel::max(1e-12f, feat.normBounds.w * feat.normBounds.h);
             const float priorityWeight = (feat.chartClass == geo::ChartFeatureClass::DepthArea)
                 ? 4.0f
                 : ((feat.chartClass == geo::ChartFeatureClass::SeabedOrMarineArea) ? 2.5f : 1.0f);
@@ -3667,19 +3690,19 @@ CursorHitCache& GetCursorHitCache() noexcept {
 // Direct Feature Highlight & Marine Symbol Helpers
 // ============================================================================
 
-[[nodiscard]] guikit::Color ResolveIalaBuoyColor(std::string_view lightOrColor, guikit::Color fallback) noexcept {
+[[nodiscard]] guikit::Color ResolveIalaBuoyColor(keel::StringRef lightOrColor, guikit::Color fallback) noexcept {
     if (lightOrColor.empty()) return fallback;
     // Check standard IHO S-57 COLOUR codes, letter abbreviations, and light strings
     if (lightOrColor == "R" || lightOrColor == "3" || lightOrColor == "RW" || lightOrColor == "WR" ||
         lightOrColor == "3,1" || lightOrColor == "1,3" ||
-        lightOrColor.find("Red") != std::string_view::npos ||
-        lightOrColor.find("red") != std::string_view::npos) {
+        lightOrColor.contains("Red") ||
+        lightOrColor.contains("red")) {
         return guikit::Color(239, 68, 68, 255); // IALA Red (Port / Safe Water)
     }
     if (lightOrColor == "G" || lightOrColor == "4" ||
         lightOrColor == "4,1" || lightOrColor == "1,4" ||
-        lightOrColor.find("Green") != std::string_view::npos ||
-        lightOrColor.find("green") != std::string_view::npos) {
+        lightOrColor.contains("Green") ||
+        lightOrColor.contains("green")) {
         return guikit::Color(16, 185, 129, 255); // IALA Green (Starboard)
     }
     if (lightOrColor == "Y" || lightOrColor == "6" ||
@@ -3687,13 +3710,13 @@ CursorHitCache& GetCursorHitCache() noexcept {
         lightOrColor == "YBY" || lightOrColor == "BYB" ||
         lightOrColor == "6,2" || lightOrColor == "2,6" ||
         lightOrColor == "6,2,6" || lightOrColor == "2,6,2" ||
-        lightOrColor.find("Yellow") != std::string_view::npos ||
-        lightOrColor.find("yellow") != std::string_view::npos) {
+        lightOrColor.contains("Yellow") ||
+        lightOrColor.contains("yellow")) {
         return guikit::Color(245, 158, 11, 255); // IALA Yellow / Cardinal (Black-Yellow)
     }
     if (lightOrColor == "W" || lightOrColor == "1" ||
-        lightOrColor.find("White") != std::string_view::npos ||
-        lightOrColor.find("white") != std::string_view::npos) {
+        lightOrColor.contains("White") ||
+        lightOrColor.contains("white")) {
         return guikit::Color(56, 189, 248, 255); // Lighted Mark / Sector
     }
     return fallback;
@@ -3702,7 +3725,7 @@ CursorHitCache& GetCursorHitCache() noexcept {
 void DrawWorldRing(
     guikit::MapViewScope& map,
     guikit::SceneScope& scene,
-    std::span<const guikit::GeoCoord> ring,
+    keel::ArrayRef<guikit::GeoCoord> ring,
     guikit::Color strokeColor,
     float strokeWidthWorld,
     float minSegmentWorldSq,
@@ -3715,7 +3738,7 @@ void DrawWorldRing(
     if (ring.size() < 2) return;
 
     const guikit::Rect visW = scene.GetVisibleWorldRect();
-    const float padW = std::max(strokeWidthWorld * 4.0f, std::max(visW.w, visW.h) * 0.05f);
+    const float padW = keel::max(strokeWidthWorld * 4.0f, keel::max(visW.w, visW.h) * 0.05f);
     const float clipMinX = visW.x - padW;
     const float clipMinY = visW.y - padW;
     const float clipMaxX = visW.Right() + padW;
@@ -3840,7 +3863,7 @@ void RenderHighlightedFeatureOverlay(
 } // namespace
 
 size_t GisRenderEngine::EnforceFeatureRamBudget(
-    std::span<const geo::GeoLayer> layers,
+    keel::ArrayRef<geo::GeoLayer> layers,
     size_t maxResidentBytes,
     uint64_t protectedTick,
     size_t* outResidentFeatures,
@@ -3887,8 +3910,8 @@ size_t GisRenderEngine::EnforceFeatureRamBudget(
                 uint32_t bytes{0};
                 bool isWindowStreamed{false};
             };
-            std::vector<EvictCandidate> evictPool;
-            evictPool.reserve(std::min<size_t>(totalResidentFeatures, 65536u));
+            keel::Array<EvictCandidate> evictPool;
+            evictPool.reserve(keel::min<size_t>(totalResidentFeatures, 65536u));
 
             for (const geo::GeoLayer& layer : layers) {
                 if (!layer.pager) continue;
@@ -3913,7 +3936,7 @@ size_t GisRenderEngine::EnforceFeatureRamBudget(
             }
 
             // Sort least-recently-used first; break ties by evicting largest allocations first
-            std::sort(evictPool.begin(), evictPool.end(),
+            keel::sort(evictPool,
                 [](const EvictCandidate& a, const EvictCandidate& b) noexcept {
                     if (a.lastAccessTick != b.lastAccessTick) {
                         return a.lastAccessTick < b.lastAccessTick;
@@ -3949,7 +3972,7 @@ size_t GisRenderEngine::EnforceFeatureRamBudget(
                 const size_t lyrTarget = (maxResidentBytes == 0)
                     ? 0u
                     : static_cast<size_t>((static_cast<double>(targetBytes) * static_cast<double>(lyrBytes)) /
-                                          static_cast<double>(std::max<size_t>(1u, totalResidentBytes)));
+                                          static_cast<double>(keel::max<size_t>(1u, totalResidentBytes)));
                 evictedCount += layer.pager->EvictChunksToBudget(lyrTarget, protectedTick);
             }
 
@@ -4010,12 +4033,12 @@ Color GisRenderEngine::GetWaterBackgroundColor(ChartPalette palette) noexcept {
     }
 }
 
-void GisRenderEngine::SetDefaultBasemapProvider(std::shared_ptr<IRasterTileProvider> provider) {
+void GisRenderEngine::SetDefaultBasemapProvider(keel::Arc<IRasterTileProvider> provider) {
     std::scoped_lock lk(GetDefaultBasemapMutex());
-    GetDefaultBasemapStorage() = std::move(provider);
+    GetDefaultBasemapStorage() = keel::move(provider);
 }
 
-std::shared_ptr<IRasterTileProvider> GisRenderEngine::GetDefaultBasemapProvider() {
+keel::Arc<IRasterTileProvider> GisRenderEngine::GetDefaultBasemapProvider() {
     std::scoped_lock lk(GetDefaultBasemapMutex());
     return GetDefaultBasemapStorage();
 }
@@ -4026,7 +4049,7 @@ void GisRenderEngine::SetBreadcrumbCallback(BreadcrumbCallback cb) noexcept {
 
 GisRenderStats GisRenderEngine::RenderLayers(
     guikit::MapViewScope& map,
-    std::span<const geo::GeoLayer> layers,
+    keel::ArrayRef<geo::GeoLayer> layers,
     const GisRenderConfig& cfg,
     uint64_t& ioSelectedFeatureUid,
     bool lightMode
@@ -4041,7 +4064,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
     const bool isPanning = scene.IsPanning();
     const bool useAsyncStreaming = cfg.asyncBackgroundStreaming && HasBackgroundWorkerThreads();
 
-    const float zoom = std::max(0.0001f, scene.GetZoom());
+    const float zoom = keel::max(0.0001f, scene.GetZoom());
     const float invZ = 1.0f / zoom;
     const float minSegWorld = cfg.lodSimplification ? (cfg.lodPixelTolerance * invZ) : 0.0f;
     const float minSegWorldSq = minSegWorld * minSegWorld;
@@ -4049,12 +4072,12 @@ GisRenderStats GisRenderEngine::RenderLayers(
     GetAsyncStreamer().SetActiveTileZoom(tileZoom);
 
     const uint32_t configuredTileSizePx = ResolveTileSizePx(cfg.tileSizePx);
-    const std::shared_ptr<geo::IRasterTileProvider> activeBasemapProvider = ResolveActiveBasemapProvider(cfg);
-    const std::string_view basemapSourceId = activeBasemapProvider
+    const keel::Arc<geo::IRasterTileProvider> activeBasemapProvider = ResolveActiveBasemapProvider(cfg);
+    const keel::StringRef basemapSourceId = activeBasemapProvider
         ? activeBasemapProvider->GetSourceId()
-        : std::string_view{};
+        : keel::StringRef{};
     const uint8_t basemapOpacityByte = activeBasemapProvider
-        ? static_cast<uint8_t>(std::clamp(std::lround(std::clamp(cfg.basemapOpacity, 0.0f, 1.0f) * 255.0f), 0L, 255L))
+        ? static_cast<uint8_t>(keel::clamp(std::lround(keel::clamp(cfg.basemapOpacity, 0.0f, 1.0f) * 255.0f), 0L, 255L))
         : 0u;
     const bool useBasemapOverlay = (activeBasemapProvider != nullptr && basemapOpacityByte > 0);
 
@@ -4085,14 +4108,14 @@ GisRenderStats GisRenderEngine::RenderLayers(
     // Compute normalized Web Mercator visible box for fast O(log N) R-Tree queries
     const guikit::Vec2 visNwNorm = guikit::MapGrid::GeoToNormalized(visBounds.nw, guikit::MapCrs::EPSG3857_WebMercator);
     const guikit::Vec2 visSeNorm = guikit::MapGrid::GeoToNormalized(visBounds.se, guikit::MapCrs::EPSG3857_WebMercator);
-    const float visMinX = std::min(visNwNorm.x, visSeNorm.x);
-    const float visMinY = std::min(visNwNorm.y, visSeNorm.y);
-    const float visMaxX = std::max(visNwNorm.x, visSeNorm.x);
-    const float visMaxY = std::max(visNwNorm.y, visSeNorm.y);
+    const float visMinX = keel::min(visNwNorm.x, visSeNorm.x);
+    const float visMinY = keel::min(visNwNorm.y, visSeNorm.y);
+    const float visMaxX = keel::max(visNwNorm.x, visSeNorm.x);
+    const float visMaxY = keel::max(visNwNorm.y, visSeNorm.y);
     const guikit::Rect visNormBox(visMinX, visMinY, visMaxX - visMinX, visMaxY - visMinY);
 
     // Padded query box (80 px screen margin) so labels near screen edges slide smoothly without popping
-    const float worldPixelsTotal = std::max(256.0f, 2048.0f * zoom);
+    const float worldPixelsTotal = keel::max(256.0f, 2048.0f * zoom);
     const float labelPadNorm = 80.0f / worldPixelsTotal;
     const guikit::Rect paddedVisNormBox(
         visMinX - labelPadNorm,
@@ -4105,44 +4128,44 @@ GisRenderStats GisRenderEngine::RenderLayers(
     // so polygon/line layers always have 100% spatial coverage for every visible tile cell.
     guikit::GeoBounds tileUnionGeoBounds = visBounds;
     if (cfg.useVectorTileCache && !viewState.visibleTiles.empty()) {
-        double uMinLon = std::min(visBounds.nw.lon, visBounds.se.lon);
-        double uMaxLon = std::max(visBounds.nw.lon, visBounds.se.lon);
-        double uMinLat = std::min(visBounds.nw.lat, visBounds.se.lat);
-        double uMaxLat = std::max(visBounds.nw.lat, visBounds.se.lat);
+        double uMinLon = keel::min(visBounds.nw.lon, visBounds.se.lon);
+        double uMaxLon = keel::max(visBounds.nw.lon, visBounds.se.lon);
+        double uMinLat = keel::min(visBounds.nw.lat, visBounds.se.lat);
+        double uMaxLat = keel::max(visBounds.nw.lat, visBounds.se.lat);
         const double kGuardFrac = static_cast<double>(kTileGuardBandPx) / static_cast<double>(configuredTileSizePx);
         for (const guikit::OsmTileCell& cell : viewState.visibleTiles) {
-            const double cMinLon = std::min(cell.geoBounds.nw.lon, cell.geoBounds.se.lon);
-            const double cMaxLon = std::max(cell.geoBounds.nw.lon, cell.geoBounds.se.lon);
-            const double cMinLat = std::min(cell.geoBounds.nw.lat, cell.geoBounds.se.lat);
-            const double cMaxLat = std::max(cell.geoBounds.nw.lat, cell.geoBounds.se.lat);
+            const double cMinLon = keel::min(cell.geoBounds.nw.lon, cell.geoBounds.se.lon);
+            const double cMaxLon = keel::max(cell.geoBounds.nw.lon, cell.geoBounds.se.lon);
+            const double cMinLat = keel::min(cell.geoBounds.nw.lat, cell.geoBounds.se.lat);
+            const double cMaxLat = keel::max(cell.geoBounds.nw.lat, cell.geoBounds.se.lat);
             const double padLon = (cMaxLon - cMinLon) * kGuardFrac;
             const double padLat = (cMaxLat - cMinLat) * kGuardFrac;
-            uMinLon = std::min(uMinLon, cMinLon - padLon);
-            uMaxLon = std::max(uMaxLon, cMaxLon + padLon);
-            uMinLat = std::min(uMinLat, cMinLat - padLat);
-            uMaxLat = std::max(uMaxLat, cMaxLat + padLat);
+            uMinLon = keel::min(uMinLon, cMinLon - padLon);
+            uMaxLon = keel::max(uMaxLon, cMaxLon + padLon);
+            uMinLat = keel::min(uMinLat, cMinLat - padLat);
+            uMaxLat = keel::max(uMaxLat, cMaxLat + padLat);
         }
-        tileUnionGeoBounds.nw = {std::clamp(uMaxLat, -85.05112878, 85.05112878), std::clamp(uMinLon, -180.0, 180.0)};
-        tileUnionGeoBounds.se = {std::clamp(uMinLat, -85.05112878, 85.05112878), std::clamp(uMaxLon, -180.0, 180.0)};
+        tileUnionGeoBounds.nw = {keel::clamp(uMaxLat, -85.05112878, 85.05112878), keel::clamp(uMinLon, -180.0, 180.0)};
+        tileUnionGeoBounds.se = {keel::clamp(uMinLat, -85.05112878, 85.05112878), keel::clamp(uMaxLon, -180.0, 180.0)};
     }
 
-    const auto frameRenderStart = std::chrono::steady_clock::now();
+    const uint64_t frameRenderStartUs = keel::monotonic_us();
 
     // Stream active spatial window chunks for massive Out-of-Core GeoPackage layers.
-    const auto syncStart = std::chrono::steady_clock::now();
-    std::vector<guikit::Rect> dirtiedBoxes;
+    const uint64_t syncStartUs = keel::monotonic_us();
+    keel::Array<guikit::Rect> dirtiedBoxes;
     size_t totalInvalidatedTilesThisFrame = 0;
 
     if (useAsyncStreaming) {
-        std::vector<AsyncWindowResult> completedWindows;
+        keel::Array<AsyncWindowResult> completedWindows;
         GetAsyncStreamer().DrainCompletedWindows(completedWindows);
         for (AsyncWindowResult& winRes : completedWindows) {
             if (!winRes.snapshot) continue;
             for (const geo::GeoLayer& layer : layers) {
                 if (layer.uid == winRes.layerUid) {
-                    const std::vector<guikit::Rect> snapDirtied = winRes.snapshot->dirtiedNormBoxes;
+                    const keel::Array<guikit::Rect> snapDirtied = winRes.snapshot->dirtiedNormBoxes.clone();
                     const size_t newlyPaged = winRes.snapshot->newlyPagedFeatures;
-                    if (const_cast<geo::GeoLayer&>(layer).ApplyWindowSnapshot(std::move(*winRes.snapshot))) {
+                    if (const_cast<geo::GeoLayer&>(layer).ApplyWindowSnapshot(keel::move(*winRes.snapshot))) {
                         stats.pagedInFeaturesThisFrame += newlyPaged;
                         totalInvalidatedTilesThisFrame += GetTileCache().InvalidateTilesForDirtiedBoxes(
                             layer.uid, snapDirtied, s_frameCounter
@@ -4198,14 +4221,14 @@ GisRenderStats GisRenderEngine::RenderLayers(
     if (useAsyncStreaming) {
         stats.cachedTilesPending += GetAsyncStreamer().GetPendingWindowCount();
     }
-    const double syncMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - syncStart).count();
+    const double syncMs = static_cast<double>(keel::monotonic_us() - syncStartUs) * 0.001;
 
     size_t activeWindowFeatures = 0;
     for (const geo::GeoLayer& layer : layers) {
         if (layer.visible) {
             ++stats.visibleLayers;
             stats.totalFeatures += layer.isWindowStreamed
-                ? std::max(layer.estimatedTotalFeatures, layer.features.size())
+                ? keel::max(layer.estimatedTotalFeatures, layer.features.size())
                 : layer.features.size();
             activeWindowFeatures += layer.features.size();
         }
@@ -4240,13 +4263,13 @@ GisRenderStats GisRenderEngine::RenderLayers(
             const guikit::Rect cursorHitRect(mouseWorld.x - hitR, mouseWorld.y - hitR, hitR * 2.0f, hitR * 2.0f);
             char catBuf[160];
             const auto catLabelRef = keel::format_buf(catBuf, "%s [%s]",
-                hoveredMatch.layer->name,
+                hoveredMatch.layer->name.as_ref(),
                 hoveredMatch.feat->featureCode.empty()
                     ? geo::GeometryTypeToString(hoveredMatch.feat->type)
-                    : std::string_view(hoveredMatch.feat->featureCode));
+                    : hoveredMatch.feat->featureCode.as_ref());
             auto item = scene.Item({
-                .id = hoveredMatch.feat->id,
-                .title = hoveredMatch.feat->name,
+                .id = hoveredMatch.feat->id.as_ref(),
+                .title = hoveredMatch.feat->name.as_ref(),
                 .category = catLabelRef,
                 .hitRect = cursorHitRect,
                 .selectable = true,
@@ -4279,10 +4302,10 @@ GisRenderStats GisRenderEngine::RenderLayers(
         float maxTileWorldX = viewState.visibleTiles.front().worldRect.Right();
         float maxTileWorldY = viewState.visibleTiles.front().worldRect.Bottom();
         for (const guikit::OsmTileCell& cell : viewState.visibleTiles) {
-            minTileWorldX = std::min(minTileWorldX, cell.worldRect.x);
-            minTileWorldY = std::min(minTileWorldY, cell.worldRect.y);
-            maxTileWorldX = std::max(maxTileWorldX, cell.worldRect.Right());
-            maxTileWorldY = std::max(maxTileWorldY, cell.worldRect.Bottom());
+            minTileWorldX = keel::min(minTileWorldX, cell.worldRect.x);
+            minTileWorldY = keel::min(minTileWorldY, cell.worldRect.y);
+            maxTileWorldX = keel::max(maxTileWorldX, cell.worldRect.Right());
+            maxTileWorldY = keel::max(maxTileWorldY, cell.worldRect.Bottom());
         }
         scene.DrawRect(
             guikit::Rect(minTileWorldX, minTileWorldY, maxTileWorldX - minTileWorldX, maxTileWorldY - minTileWorldY),
@@ -4293,7 +4316,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
     double rasterMs = 0.0;
     const size_t numVisTiles = viewState.visibleTiles.size();
     if (cfg.useVectorTileCache && !viewState.visibleTiles.empty()) {
-        const auto rasterPassStart = std::chrono::steady_clock::now();
+        const uint64_t rasterPassStartUs = keel::monotonic_us();
         PerLayerTileCacheManager& cache = GetTileCache();
         cache.SyncConfig(cfg, viewState.crs, basemapSourceId);
         cache.GarbageCollectLayers(layers);
@@ -4302,10 +4325,10 @@ GisRenderStats GisRenderEngine::RenderLayers(
         const float tileSizeF = cache.GetTileSizeF();
 
         if (useBasemapOverlay) {
-            std::vector<AsyncBasemapResult> completedBasemapTiles;
+            keel::Array<AsyncBasemapResult> completedBasemapTiles;
             GetAsyncStreamer().DrainCompletedBasemapTiles(completedBasemapTiles);
             for (AsyncBasemapResult& bm : completedBasemapTiles) {
-                if (cache.StoreBasemapTile(bm.sourceId, bm.tileKey, std::move(bm.image))) {
+                if (cache.StoreBasemapTile(bm.sourceId.as_ref(), bm.tileKey, keel::move(bm.image))) {
                     ++stats.cachedTilesRendered;
                 }
             }
@@ -4321,7 +4344,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
             bool isActiveStyle{false};
         };
 
-        std::vector<OrderedLayerEntry> tileLayers;
+        keel::Array<OrderedLayerEntry> tileLayers;
         tileLayers.reserve(layers.size());
         for (size_t li = 0; li < layers.size(); ++li) {
             const geo::GeoLayer& lyr = layers[li];
@@ -4330,13 +4353,13 @@ GisRenderStats GisRenderEngine::RenderLayers(
             }
             float effectiveOpacity = 1.0f;
             if (lyr.polygonFeatureCount > 0 && lyr.style.renderFill) {
-                effectiveOpacity = std::clamp(lyr.style.fillOpacity, 0.0f, 1.0f);
+                effectiveOpacity = keel::clamp(lyr.style.fillOpacity, 0.0f, 1.0f);
                 if (useBasemapOverlay && lyr.HasChartClass(geo::ChartFeatureClass::DepthArea)) {
-                    effectiveOpacity *= std::clamp(cfg.bathymetryOverBasemapOpacity, 0.05f, 1.0f);
+                    effectiveOpacity *= keel::clamp(cfg.bathymetryOverBasemapOpacity, 0.05f, 1.0f);
                 }
             }
             const uint8_t layerOpacityByte = static_cast<uint8_t>(
-                std::clamp(std::lround(effectiveOpacity * 255.0f), 0L, 255L)
+                keel::clamp(std::lround(effectiveOpacity * 255.0f), 0L, 255L)
             );
             if (layerOpacityByte == 0) continue;
 
@@ -4357,7 +4380,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
 
         // Drain completed background layer tiles AFTER `SyncLayerStore` so `activeTopologyHash` is initialized
         if (useAsyncStreaming) {
-            std::vector<AsyncLayerTileResult> completedLayerTiles;
+            keel::Array<AsyncLayerTileResult> completedLayerTiles;
             GetAsyncStreamer().DrainCompletedLayerTiles(completedLayerTiles);
             for (AsyncLayerTileResult& ltRes : completedLayerTiles) {
                 for (const AsyncLoadedFeaturePayload& lp : ltRes.newlyLoadedPayloads) {
@@ -4374,14 +4397,14 @@ GisRenderStats GisRenderEngine::RenderLayers(
                         }
                     }
                 }
-                if (cache.StoreAsyncLayerTile(std::move(ltRes), s_frameCounter)) {
+                if (cache.StoreAsyncLayerTile(keel::move(ltRes), s_frameCounter)) {
                     ++stats.cachedTilesRendered;
                 }
             }
         }
 
         // Sort back-to-front by cartographic rank for deterministic compositing
-        std::stable_sort(tileLayers.begin(), tileLayers.end(),
+        keel::sort(tileLayers,
             [](const OrderedLayerEntry& a, const OrderedLayerEntry& b) noexcept {
                 if (a.cartoRank != b.cartoRank) return a.cartoRank < b.cartoRank;
                 return a.layerIdx < b.layerIdx;
@@ -4399,7 +4422,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
             HashCombineVal(compositeSignature, cache.GetBasemapGeneration());
         }
 
-        std::vector<PerLayerTileCacheManager::CompositeLayerRef> compositeRefs;
+        keel::Array<PerLayerTileCacheManager::CompositeLayerRef> compositeRefs;
         compositeRefs.reserve(tileLayers.size());
         for (const OrderedLayerEntry& entry : tileLayers) {
             HashCombineVal(compositeSignature, entry.layer->uid);
@@ -4419,7 +4442,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
             float distSq{0.0f};
             bool hasPreview{false};
         };
-        std::vector<PendingCellTask> pendingCells;
+        keel::Array<PendingCellTask> pendingCells;
         pendingCells.reserve(numVisTiles);
 
         for (size_t ci = 0; ci < numVisTiles; ++ci) {
@@ -4436,7 +4459,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
                 const geo::SlippyTileKey bmKey{cell.id.z, cell.id.x, cell.id.y, tileSizePx};
                 auto cachedBm = activeBasemapProvider->TryGetCachedTile(bmKey);
                 if (cachedBm && cachedBm->IsValid()) {
-                    if (cache.StoreBasemapTile(basemapSourceId, bmKey, std::move(cachedBm))) {
+                    if (cache.StoreBasemapTile(basemapSourceId, bmKey, keel::move(cachedBm))) {
                         ++stats.cachedTilesRendered;
                     }
                 } else {
@@ -4512,31 +4535,33 @@ GisRenderStats GisRenderEngine::RenderLayers(
 
         if (!pendingCells.empty()) {
             const bool isStyleDrag = (cfg.activeStyleLayerIdx >= 0);
-            std::stable_sort(pendingCells.begin(), pendingCells.end(),
+            keel::sort(pendingCells,
                 [isStyleDrag](const PendingCellTask& a, const PendingCellTask& b) noexcept {
                     if (isStyleDrag) {
                         if (a.lastUpdatedFrame != b.lastUpdatedFrame) {
                             return a.lastUpdatedFrame < b.lastUpdatedFrame;
                         }
-                        return a.distSq < b.distSq;
+                        if (a.distSq != b.distSq) return a.distSq < b.distSq;
+                        return a.cellIdx < b.cellIdx;
                     }
                     if (a.hasPreview != b.hasPreview) {
                         return !a.hasPreview; // Tiles without fallback preview get highest priority
                     }
-                    return a.distSq < b.distSq; // Center-outward radial completion
+                    if (a.distSq != b.distSq) return a.distSq < b.distSq; // Center-outward radial completion
+                    return a.cellIdx < b.cellIdx;
                 });
 
-            const float baseBudgetMs = std::clamp(cfg.tileRenderBudgetMs, 1.0f, 30.0f);
-            const float effectiveBudgetMs = isPanning ? std::min(baseBudgetMs, 4.0f) : baseBudgetMs;
-            const auto deadline = frameRenderStart + std::chrono::microseconds(static_cast<int64_t>(effectiveBudgetMs * 1000.0f));
-            const auto fastPathDeadline = frameRenderStart + std::chrono::microseconds(isPanning ? 1400 : 2500);
+            const float baseBudgetMs = keel::clamp(cfg.tileRenderBudgetMs, 1.0f, 30.0f);
+            const float effectiveBudgetMs = isPanning ? keel::min(baseBudgetMs, 4.0f) : baseBudgetMs;
+            const uint64_t deadlineUs = frameRenderStartUs + static_cast<uint64_t>(effectiveBudgetMs * 1000.0f);
+            const uint64_t fastPathDeadlineUs = frameRenderStartUs + static_cast<uint64_t>(isPanning ? 1400 : 2500);
             size_t completedCells = 0;
 
             for (size_t pi = 0; pi < pendingCells.size(); ++pi) {
                 const size_t ci = pendingCells[pi].cellIdx;
                 if (!useAsyncStreaming &&
                     (completedCells >= 1 || syncMs >= 3.0) &&
-                    std::chrono::steady_clock::now() >= deadline) {
+                    keel::monotonic_us() >= deadlineUs) {
                     stats.cachedTilesPending += (pendingCells.size() - pi);
                     break;
                 }
@@ -4554,21 +4579,23 @@ GisRenderStats GisRenderEngine::RenderLayers(
                     (cb.v1 - cb.v0) + 2.0f * marginV
                 );
 
-                std::string layerSummary;
+                keel::String layerSummary;
                 bool allLayersReady = true;
                 for (const OrderedLayerEntry& entry : tileLayers) {
                     const CachedVectorTile* lt = PerLayerTileCacheManager::FindTile(*entry.store, key, s_frameCounter);
                     if (lt && lt->styleHash == entry.styleHash) {
-                        if (lt->hasAnyGeometry) {
-                            if (!layerSummary.empty()) layerSummary += ",";
-                            layerSummary += entry.layer->tableName.empty() ? entry.layer->name : entry.layer->tableName;
+                        if constexpr (kEnableFileDebugLog) {
+                            if (lt->hasAnyGeometry) {
+                                if (!layerSummary.empty()) layerSummary.append(",");
+                                layerSummary.append(entry.layer->tableName.empty() ? entry.layer->name.as_ref() : entry.layer->tableName.as_ref());
+                            }
                         }
                         continue;
                     }
 
                     if (!useAsyncStreaming &&
                         (completedCells >= 1 || stats.pagedInFeaturesThisFrame >= 48) &&
-                        std::chrono::steady_clock::now() >= deadline) {
+                        keel::monotonic_us() >= deadlineUs) {
                         allLayersReady = false;
                         break;
                     }
@@ -4576,7 +4603,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
                     bool abortedOrQueued = false;
                     const size_t minPagedBeforeCheck = (completedCells == 0) ? 48u : 16u;
                     const bool canRunSyncFastPath =
-                        !useAsyncStreaming || (std::chrono::steady_clock::now() < fastPathDeadline);
+                        !useAsyncStreaming || (keel::monotonic_us() < fastPathDeadlineUs);
                     const CachedVectorTile* rendered = cache.RasterizeOrDispatchLayerTile(
                         *entry.store,
                         key,
@@ -4591,7 +4618,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
                         canRunSyncFastPath,
                         &stats.pagedInFeaturesThisFrame,
                         /*hasDeadline=*/!useAsyncStreaming,
-                        deadline,
+                        deadlineUs,
                         minPagedBeforeCheck,
                         &abortedOrQueued
                     );
@@ -4602,9 +4629,11 @@ GisRenderStats GisRenderEngine::RenderLayers(
                         }
                         continue;
                     }
-                    if (rendered->hasAnyGeometry) {
-                        if (!layerSummary.empty()) layerSummary += ",";
-                        layerSummary += entry.layer->tableName.empty() ? entry.layer->name : entry.layer->tableName;
+                    if constexpr (kEnableFileDebugLog) {
+                        if (rendered->hasAnyGeometry) {
+                            if (!layerSummary.empty()) layerSummary.append(",");
+                            layerSummary.append(entry.layer->tableName.empty() ? entry.layer->name.as_ref() : entry.layer->tableName.as_ref());
+                        }
                     }
                 }
 
@@ -4631,17 +4660,19 @@ GisRenderStats GisRenderEngine::RenderLayers(
                 ++completedCells;
                 ++stats.cachedTilesRendered;
 
-                const auto logLine = keel::format(
-                    "[RasterTile] frame=%llu [%d/%d/%d] geo=[%.3f..%.3fE, %.3f..%.3fN] drawnLayers=[%s]",
-                    s_frameCounter,
-                    cell.id.z, cell.id.x, cell.id.y,
-                    std::min(cell.geoBounds.nw.lon, cell.geoBounds.se.lon),
-                    std::max(cell.geoBounds.nw.lon, cell.geoBounds.se.lon),
-                    std::min(cell.geoBounds.nw.lat, cell.geoBounds.se.lat),
-                    std::max(cell.geoBounds.nw.lat, cell.geoBounds.se.lat),
-                    layerSummary.empty() ? std::string_view("EMPTY") : std::string_view(layerSummary)
-                );
-                AppendRenderDebugLog(std::string(logLine));
+                if constexpr (kEnableFileDebugLog) {
+                    const auto logLine = keel::format(
+                        "[RasterTile] frame=%llu [%d/%d/%d] geo=[%.3f..%.3fE, %.3f..%.3fN] drawnLayers=[%s]",
+                        s_frameCounter,
+                        cell.id.z, cell.id.x, cell.id.y,
+                        keel::min(cell.geoBounds.nw.lon, cell.geoBounds.se.lon),
+                        keel::max(cell.geoBounds.nw.lon, cell.geoBounds.se.lon),
+                        keel::min(cell.geoBounds.nw.lat, cell.geoBounds.se.lat),
+                        keel::max(cell.geoBounds.nw.lat, cell.geoBounds.se.lat),
+                        layerSummary.empty() ? keel::StringRef("EMPTY") : layerSummary.as_ref()
+                    );
+                    AppendRenderDebugLog(logLine);
+                }
             }
         }
 
@@ -4679,25 +4710,32 @@ GisRenderStats GisRenderEngine::RenderLayers(
                 );
             }
         }
-        rasterMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - rasterPassStart).count();
+        rasterMs = static_cast<double>(keel::monotonic_us() - rasterPassStartUs) * 0.001;
     } else {
         // Direct immediate-mode vector pass (used when VectorTileCache is toggled off)
-        std::vector<const geo::GeoLayer*> orderedLayers;
+        struct OrderedDirectLayer {
+            const geo::GeoLayer* layer{nullptr};
+            size_t layerIdx{0};
+            int rank{90};
+        };
+        keel::Array<OrderedDirectLayer> orderedLayers;
         orderedLayers.reserve(layers.size());
-        for (const geo::GeoLayer& layer : layers) {
+        for (size_t li = 0; li < layers.size(); ++li) {
+            const geo::GeoLayer& layer = layers[li];
             if (!layer.visible || layer.features.empty()) continue;
             if (cfg.frustumCulling && !layer.normBounds.Intersects(visNormBox)) continue;
-            orderedLayers.push_back(&layer);
+            orderedLayers.push_back({&layer, li, CartographicLayerRank(layer)});
         }
-        std::stable_sort(orderedLayers.begin(), orderedLayers.end(),
-            [](const geo::GeoLayer* a, const geo::GeoLayer* b) noexcept {
-                return CartographicLayerRank(*a) < CartographicLayerRank(*b);
+        keel::sort(orderedLayers,
+            [](const OrderedDirectLayer& a, const OrderedDirectLayer& b) noexcept {
+                if (a.rank != b.rank) return a.rank < b.rank;
+                return a.layerIdx < b.layerIdx;
             });
 
-        std::vector<uint32_t> visIndices;
+        keel::Array<uint32_t> visIndices;
         for (int pass = 0; pass < 2; ++pass) {
-            for (const geo::GeoLayer* layerPtr : orderedLayers) {
-                const geo::GeoLayer& layer = *layerPtr;
+            for (const OrderedDirectLayer& entry : orderedLayers) {
+                const geo::GeoLayer& layer = *entry.layer;
                 if (pass == 0 && layer.polygonFeatureCount == 0) continue;
                 if (pass == 1 && layer.lineFeatureCount == 0 && layer.polygonFeatureCount == 0) continue;
 
@@ -4707,7 +4745,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
                     [&](uint32_t fi) { visIndices.push_back(fi); }
                 );
                 if (pass == 0 && layer.HasChartClass(geo::ChartFeatureClass::DepthArea) && visIndices.size() > 1) {
-                    std::stable_sort(visIndices.begin(), visIndices.end(),
+                    keel::sort(visIndices,
                         [&layer](uint32_t a, uint32_t b) noexcept {
                             const geo::GeoFeature& fa = layer.features[a];
                             const geo::GeoFeature& fb = layer.features[b];
@@ -4715,7 +4753,8 @@ GisRenderStats GisRenderEngine::RenderLayers(
                                            : (!std::isnan(fa.depthMeters) ? fa.depthMeters : 10000.0f);
                             const float db = !std::isnan(fb.minDepthMeters) ? fb.minDepthMeters
                                            : (!std::isnan(fb.depthMeters) ? fb.depthMeters : 10000.0f);
-                            return da > db;
+                            if (da != db) return da > db;
+                            return a < b;
                         });
                 }
 
@@ -4730,7 +4769,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
                         if (!feat.EnsureGeometryLoaded(s_frameCounter)) continue;
                         if (!wasLoaded) ++stats.pagedInFeaturesThisFrame;
 
-                        auto& mutablePolys = const_cast<std::vector<geo::GeoPolygon>&>(feat.polygons);
+                        auto& mutablePolys = const_cast<keel::Array<geo::GeoPolygon>&>(feat.polygons);
                         for (geo::GeoPolygon& poly : mutablePolys) {
                             if (st.renderFill && poly.triangles.empty() && poly.exteriorRing.size() >= 3) {
                                 geo::PolygonTriangulator::TriangulatePolygon(poly);
@@ -4776,35 +4815,37 @@ GisRenderStats GisRenderEngine::RenderLayers(
     //    (Pre-Indexed Compact Lists: O(accepted) instead of O(totalFeatures))
     // ========================================================================
     EmitRenderBreadcrumb("GisRenderEngine::Stage3_WorldDeclutterOverlay", static_cast<int>(s_frameCounter), tileZoom);
-    const auto declutterStart = std::chrono::steady_clock::now();
+    const uint64_t declutterStartUs = keel::monotonic_us();
     WorldDeclutterCache& declutterCache = GetDeclutterCache();
     declutterCache.Sync(layers, cfg, tileZoom, viewState.crs, paddedVisNormBox);
     stats.declutteredLabels = declutterCache.GetTotalDecluttered();
-    const double declutterMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - declutterStart).count();
+    const double declutterMs = static_cast<double>(keel::monotonic_us() - declutterStartUs) * 0.001;
 
-    if (totalInvalidatedTilesThisFrame > 0 || stats.cachedTilesRendered > 0 || syncMs >= 1.0 || declutterMs >= 1.0) {
-        const double totalFrameMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - frameRenderStart).count();
-        const auto logLine = keel::format(
-            "[FrameTiles] frame=%llu z=%d vis=[%.3f..%.3fE, %.3f..%.3fN] visTiles=%zu hit=%zu new=%zu pend=%zu invalidated=%zu activeFeats=%zu pagedIn=%zu ms=%.2f (sync=%.2f raster=%.2f declutter=%.2f)",
-            s_frameCounter,
-            tileZoom,
-            std::min(visBounds.nw.lon, visBounds.se.lon),
-            std::max(visBounds.nw.lon, visBounds.se.lon),
-            std::min(visBounds.nw.lat, visBounds.se.lat),
-            std::max(visBounds.nw.lat, visBounds.se.lat),
-            numVisTiles,
-            stats.cachedTilesHit,
-            stats.cachedTilesRendered,
-            stats.cachedTilesPending,
-            totalInvalidatedTilesThisFrame,
-            activeWindowFeatures,
-            stats.pagedInFeaturesThisFrame,
-            totalFrameMs,
-            syncMs,
-            rasterMs,
-            declutterMs
-        );
-        AppendRenderDebugLog(std::string(logLine));
+    if constexpr (kEnableFileDebugLog) {
+        if (totalInvalidatedTilesThisFrame > 0 || stats.cachedTilesRendered > 0 || syncMs >= 1.0 || declutterMs >= 1.0) {
+            const double totalFrameMs = static_cast<double>(keel::monotonic_us() - frameRenderStartUs) * 0.001;
+            const auto logLine = keel::format(
+                "[FrameTiles] frame=%llu z=%d vis=[%.3f..%.3fE, %.3f..%.3fN] visTiles=%zu hit=%zu new=%zu pend=%zu invalidated=%zu activeFeats=%zu pagedIn=%zu ms=%.2f (sync=%.2f raster=%.2f declutter=%.2f)",
+                s_frameCounter,
+                tileZoom,
+                keel::min(visBounds.nw.lon, visBounds.se.lon),
+                keel::max(visBounds.nw.lon, visBounds.se.lon),
+                keel::min(visBounds.nw.lat, visBounds.se.lat),
+                keel::max(visBounds.nw.lat, visBounds.se.lat),
+                numVisTiles,
+                stats.cachedTilesHit,
+                stats.cachedTilesRendered,
+                stats.cachedTilesPending,
+                totalInvalidatedTilesThisFrame,
+                activeWindowFeatures,
+                stats.pagedInFeaturesThisFrame,
+                totalFrameMs,
+                syncMs,
+                rasterMs,
+                declutterMs
+            );
+            AppendRenderDebugLog(logLine);
+        }
     }
 
     // Pass 3A: Render Accepted Point Symbols (Buoys/Beacons, Underwater Hazards, Generic Points)
@@ -4820,7 +4861,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
         }
         ++stats.renderedFeatures;
 
-        const float ptScale = std::clamp(layer.style.pointRadiusPx / 6.5f, 0.35f, 3.5f);
+        const float ptScale = keel::clamp(layer.style.pointRadiusPx / 6.5f, 0.35f, 3.5f);
         const bool customCol = layer.style.useCustomColor;
         const bool isSel = (feat.uid == ioSelectedFeatureUid);
         const bool asSeamark = layer.style.renderAsSeamark;
@@ -4828,7 +4869,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
         if (feat.chartClass == geo::ChartFeatureClass::BuoyOrBeacon) {
             const guikit::Color buoyCol = isSel
                 ? selAccent
-                : (customCol ? layer.style.primaryColor : ResolveIalaBuoyColor(feat.lightOrColor, guikit::Color(232, 121, 249, 255)));
+                : (customCol ? layer.style.primaryColor : ResolveIalaBuoyColor(feat.lightOrColor.as_ref(), guikit::Color(232, 121, 249, 255)));
             const bool isLitMark = asSeamark && (feat.hasLight || feat.featureCode == "LIGHTS");
             for (const guikit::GeoCoord& pt : feat.points) {
                 if (isLitMark && tileZoom >= 12) {
@@ -4887,9 +4928,9 @@ GisRenderStats GisRenderEngine::RenderLayers(
             for (const guikit::GeoCoord& pt : feat.points) {
                 if (asSeamark) {
                     auto smItem = map.DrawSeamark(pt, {
-                        .id = feat.id,
-                        .title = layer.style.showLabels ? std::string_view(feat.name) : std::string_view{},
-                        .category = layer.name,
+                        .id = feat.id.as_ref(),
+                        .title = layer.style.showLabels ? feat.name.as_ref() : keel::StringRef{},
+                        .category = layer.name.as_ref(),
                         .radiusPx = layer.style.pointRadiusPx,
                         .showLightSector = true,
                         .color = ptCol,
@@ -4909,7 +4950,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
 
     // Pass 3B: Render Accepted Pan-Invariant Text Labels (`labelRu` / `labelEn` / Named Features)
     if (cfg.showFeatureCallouts) {
-        std::string labelScratch;
+        keel::String labelScratch;
         for (const auto& item : declutterCache.GetAcceptedLabels()) {
             if (item.layerIdx >= layers.size()) continue;
             const geo::GeoLayer& layer = layers[item.layerIdx];
@@ -4920,11 +4961,11 @@ GisRenderStats GisRenderEngine::RenderLayers(
             }
 
             size_t charCount = 0;
-            const std::string_view labelText = FormatMapCalloutLabel(feat, cfg, labelScratch, &charCount);
+            const keel::StringRef labelText = FormatMapCalloutLabel(feat, cfg, labelScratch, &charCount);
             if (labelText.empty()) continue;
 
             const bool isSel = (feat.uid == ioSelectedFeatureUid);
-            const float estWidthPx = std::clamp(static_cast<float>(charCount) * 6.0f + 10.0f, 16.0f, 640.0f);
+            const float estWidthPx = keel::clamp(static_cast<float>(charCount) * 6.0f + 10.0f, 16.0f, 640.0f);
             const float offsetX = !feat.points.empty() ? 8.0f : (-estWidthPx * 0.4f);
             const float offsetY = -7.0f;
 
@@ -4962,22 +5003,22 @@ GisRenderStats GisRenderEngine::RenderLayers(
             }
 
             const guikit::GeoCoord pt = feat.points[0];
-            const float d = std::max(0.0f, feat.depthMeters);
+            const float d = keel::max(0.0f, feat.depthMeters);
             const int wholeM = static_cast<int>(std::floor(d + 0.04f));
             const int tenths = static_cast<int>(std::lround((d - static_cast<float>(wholeM)) * 10.0f));
             const guikit::Color sndCol = (d <= cfg.safetyContourM) ? shallowSndCol : deepSndCol;
 
             char wholeBuf[16]{};
-            std::snprintf(wholeBuf, sizeof(wholeBuf), "%d", wholeM);
+            const keel::StringRef wholeRef = keel::format_buf(wholeBuf, "%d", wholeM);
 
             if (d < 12.0f && tenths > 0 && tenths < 10) {
-                map.DrawGeoText(wholeBuf, pt, {-5.0f, -5.0f}, 9.5f, sndCol, guikit::FontStyle::Bold);
+                map.DrawGeoText(wholeRef, pt, {-5.0f, -5.0f}, 9.5f, sndCol, guikit::FontStyle::Bold);
                 char tenthBuf[8]{};
-                std::snprintf(tenthBuf, sizeof(tenthBuf), "%d", tenths);
+                const keel::StringRef tenthRef = keel::format_buf(tenthBuf, "%d", tenths);
                 const float subOffX = (wholeM >= 10) ? 6.5f : 1.5f;
-                map.DrawGeoText(tenthBuf, pt, {subOffX, -2.0f}, 7.8f, sndCol, guikit::FontStyle::Regular);
+                map.DrawGeoText(tenthRef, pt, {subOffX, -2.0f}, 7.8f, sndCol, guikit::FontStyle::Regular);
             } else {
-                map.DrawGeoText(wholeBuf, pt, {-4.0f, -5.0f}, 9.5f, sndCol, guikit::FontStyle::Regular);
+                map.DrawGeoText(wholeRef, pt, {-4.0f, -5.0f}, 9.5f, sndCol, guikit::FontStyle::Regular);
             }
 
             ++stats.renderedFeatures;
@@ -5019,7 +5060,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
         s_pendingBudgetCheck = true;
     }
 
-    const float clampedBudgetMb = std::clamp(cfg.featureCacheBudgetMb, 1.0f, 1024.0f);
+    const float clampedBudgetMb = keel::clamp(cfg.featureCacheBudgetMb, 1.0f, 1024.0f);
     const size_t maxResidentBytes = static_cast<size_t>(clampedBudgetMb * 1024.0f * 1024.0f);
     const bool budgetChanged = (s_lastMaxResidentBytes != maxResidentBytes);
     const bool cooldownElapsed = (s_frameCounter - s_lastEvictCheckFrame >= 45u);

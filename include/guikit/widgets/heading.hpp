@@ -1,8 +1,8 @@
 #pragma once
 
-#include <optional>
-#include <source_location>
 #include "guikit/core/element.hpp"
+#include "keel/core.h"
+#include "keel/optional.h"
 
 namespace guikit {
 
@@ -18,16 +18,16 @@ struct HeadingOptions {
     InlineOrder inlineOrder{InlineOrder::LabelFirst};       ///< Sequencing order in Inline layout (LabelFirst = Label then Description, ControlFirst = Description then Label)
     Align align{Align::Start};                              ///< Horizontal alignment (Start, Center, End)
     StretchMode stretch{StretchMode::Fill};                 ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};               ///< Explicit heading width in dp (or legacy ratio 0.0..1.0 in Fill)
-    std::optional<float> widthRatio{std::nullopt};          ///< Normalized fill ratio 0.0..1.0 of available width in Fill mode
+    keel::Optional<float> width{keel::kNullOpt};            ///< Explicit heading width in dp (or legacy ratio 0.0..1.0 in Fill)
+    keel::Optional<float> widthRatio{keel::kNullOpt};       ///< Normalized fill ratio 0.0..1.0 of available width in Fill mode
     StateColor background{};                                ///< Per-state outer surface backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                                        ///< Outer border thickness, corner radius, and per-state border stroke color
     HeadingDivider separator{};                             ///< Built-in section divider placement, stroke color, and thickness
     bool disabled{false};                                   ///< Whether the heading is rendered in a disabled state
     const UiTheme* theme{nullptr};                          ///< Optional scoped theme override
-    std::optional<float> scale{std::nullopt};               ///< Optional local UI scale factor override
-    std::optional<bool> debugBounds{std::nullopt};          ///< Scoped debug bounding box overlay override
-    std::optional<bool> inspectMode{std::nullopt};          ///< Scoped interactive DevTools inspector override
+    keel::Optional<float> scale{keel::kNullOpt};            ///< Optional local UI scale factor override
+    keel::Optional<bool> debugBounds{keel::kNullOpt};       ///< Scoped debug bounding box overlay override
+    keel::Optional<bool> inspectMode{keel::kNullOpt};       ///< Scoped interactive DevTools inspector override
 };
 
 /// `Heading` inherits from `Element`, uses `HeadingMetrics` typography (`headingTypography = true`),
@@ -55,7 +55,7 @@ public:
     static Response Run(
         Context& ctx,
         const HeadingOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     static Vec2 Measure(

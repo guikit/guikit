@@ -1,12 +1,11 @@
 #pragma once
 
-#include <optional>
-#include <source_location>
-#include <string_view>
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/types.hpp"
+#include "keel/core.h"
+#include "keel/optional.h"
 
 namespace guikit {
 
@@ -19,15 +18,15 @@ struct CheckboxOptions {
     StateColor color{};                            ///< Per-state accent fill color when checked
     Align align{Align::Start};                     ///< Standalone control alignment (Start, Center, End)
     StretchMode stretch{StretchMode::Compact};     ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};      ///< Control width in dp (or legacy ratio 0.0..1.0 in Fill)
-    std::optional<float> widthRatio{std::nullopt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
-    std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = auto from UiSize)
+    keel::Optional<float> width{keel::kNullOpt};      ///< Control width in dp (or legacy ratio 0.0..1.0 in Fill)
+    keel::Optional<float> widthRatio{keel::kNullOpt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
+    keel::Optional<float> height{keel::kNullOpt};     ///< Explicit control height in points (nullopt = auto from UiSize)
     StateColor background{};                       ///< Per-state control well backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                               ///< Control well border stroke & corner radius configuration
     bool disabled{false};                          ///< Interaction suppression
     bool indeterminate{false};                     ///< Tri-state / partial check (horizontal dash)
     const UiTheme* theme{nullptr};                 ///< Optional scoped theme override
-    std::optional<float> scale{std::nullopt};      ///< Optional scoped scale factor override
+    keel::Optional<float> scale{keel::kNullOpt};      ///< Optional scoped scale factor override
 };
 static_assert(sizeof(CheckboxOptions) <= 384, "CheckboxOptions must stay compact");
 
@@ -40,7 +39,7 @@ public:
         bool* value,
         bool checkedState,
         const CheckboxOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Measures intrinsic dimensions based on box size, gap, and label text.

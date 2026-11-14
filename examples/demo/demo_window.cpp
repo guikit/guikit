@@ -189,7 +189,7 @@ void DemoWindow::RenderPreviewToolbar(guikit::Context& ui) {
             ui.InvalidateAll();
         }
 
-        static constexpr std::array<std::string_view, 2> kOrientationVariants = {"Port", "Land"};
+        static constexpr keel::StaticArray<keel::StringRef, 2> kOrientationVariants = {"Port", "Land"};
         const bool canRotateDevice = (m_demoCtx.previewFormFactorIdx == 1 || m_demoCtx.previewFormFactorIdx == 2);
         if (previewTb.Toggle(m_demoCtx.previewLandscape, {
             .text = {m_demoCtx.previewLandscape ? "Land" : "Port", kOrientationVariants},
@@ -215,8 +215,8 @@ void DemoWindow::RenderPreviewToolbar(guikit::Context& ui) {
 
         bool zoomChanged = false;
         if (m_demoCtx.previewZoomModeIdx >= kPreviewZoomPresetNames.size()) {
-            const std::string_view customLabel = ui.AllocString(ui.Format("{}%", effZoomPct));
-            const std::array<std::string_view, 9> zoomItemsWithCustom = {
+            const keel::StringRef customLabel = ui.AllocString(ui.Format("{}%", effZoomPct));
+            const keel::StaticArray<keel::StringRef, 9> zoomItemsWithCustom = {
                 kPreviewZoomPresetNames[0],
                 kPreviewZoomPresetNames[1],
                 kPreviewZoomPresetNames[2],
@@ -345,7 +345,7 @@ void DemoWindow::RenderBottomStatusBar(guikit::Context& ui) {
 
         sb.Spacer();
 
-        static const std::array<guikit::CommandPaletteItem, 17> kGlobalCommands = {{
+        static const keel::StaticArray<guikit::CommandPaletteItem, 17> kGlobalCommands = {{
             {.label = "Go to LevelMeter / Segmented VU Meter", .category = "Elements",  .description = "LED dB meters, peak-hold & clip LED", .icon = guikit::Icon::Play()},
             {.label = "Go to TagInput Editable Chips",         .category = "Elements",  .description = "Editable tag pills & delimiter split",.icon = guikit::Icon::Edit()},
             {.label = "Go to Select / MultiSelect / ComboBox", .category = "Elements",  .description = "Dropdown, live filter & tag chips",   .icon = guikit::Icon::Plus()},
@@ -417,7 +417,7 @@ void DemoWindow::RenderBottomStatusBar(guikit::Context& ui) {
 
 void DemoWindow::DispatchInspector(guikit::Context& ui, NavCategory cat, DemoContext& ctx) {
     using InspectorFn = void (*)(guikit::Context&, DemoContext&);
-    static constexpr std::array<InspectorFn, 37> kInspectors = {
+    static constexpr keel::StaticArray<InspectorFn, 37> kInspectors = {
         // 1. ELEMENTS
         &RenderHeadingInspector,
         &RenderButtonInspector,
@@ -473,7 +473,7 @@ void DemoWindow::DispatchInspector(guikit::Context& ui, NavCategory cat, DemoCon
 
 void DemoWindow::DispatchSandboxStage(guikit::Context& ui, NavCategory cat, DemoContext& ctx) {
     using StageFn = void (*)(guikit::Context&, DemoContext&);
-    static constexpr std::array<StageFn, 37> kStages = {
+    static constexpr keel::StaticArray<StageFn, 37> kStages = {
         // 1. ELEMENTS
         &RenderHeadingStage,
         &RenderButtonStage,
@@ -527,9 +527,9 @@ void DemoWindow::DispatchSandboxStage(guikit::Context& ui, NavCategory cat, Demo
     }
 }
 
-std::string DemoWindow::DispatchCodeGenerator(NavCategory cat, const DemoContext& ctx) {
-    using CodeGenFn = std::string (*)(const DemoContext&);
-    static constexpr std::array<CodeGenFn, 37> kGenerators = {
+keel::String DemoWindow::DispatchCodeGenerator(NavCategory cat, const DemoContext& ctx) {
+    using CodeGenFn = keel::String (*)(const DemoContext&);
+    static constexpr keel::StaticArray<CodeGenFn, 37> kGenerators = {
         // 1. ELEMENTS
         &GenerateHeadingCode,
         &GenerateButtonCode,

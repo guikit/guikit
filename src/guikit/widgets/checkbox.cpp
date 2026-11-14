@@ -1,5 +1,4 @@
 #include "guikit/widgets/checkbox.hpp"
-#include <algorithm>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
@@ -35,7 +34,7 @@ Response Checkbox::Run(
     bool* value,
     bool checkedState,
     const CheckboxOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
     struct ThemePopGuard {
@@ -224,7 +223,7 @@ void Checkbox::Render(
         markColor = markColor.WithAlphaF(0.40f);
     } else if (focused) {
         boxStroke = pal.focusRing;
-        strokeWidth = std::max(strokeWidth, 2.0f);
+        strokeWidth = keel::max(strokeWidth, 2.0f);
     }
 
     // Draw box

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <source_location>
+#include "keel/core.h"
 
 namespace guikit {
 
@@ -13,14 +13,14 @@ public:
     static void Run(
         Context& ctx,
         float flex = 1.0f,
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Inserts a fixed non-stretching gap of `sizeDp` logical dp along the parent container's main axis.
     static void Gap(
         Context& ctx,
         float sizeDp = 8.0f,
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 };
 

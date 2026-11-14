@@ -1,9 +1,8 @@
 #include "guikit/core/scrollbar.hpp"
 
-#include <algorithm>
 #include <cmath>
-#include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/context.hpp"
 
 namespace guikit {
 
@@ -14,8 +13,8 @@ ScrollbarGeometry Scrollbar::ComputeVertical(
     const ScrollbarMetrics& metrics
 ) noexcept {
     ScrollbarGeometry geom{};
-    const float viewportH = std::max(0.0f, viewportRect.h);
-    const float maxScroll = std::max(0.0f, contentHeight - viewportH);
+    const float viewportH = keel::max(0.0f, viewportRect.h);
+    const float maxScroll = keel::max(0.0f, contentHeight - viewportH);
     geom.maxScroll = maxScroll;
 
     if (maxScroll <= 0.5f || contentHeight <= 0.0f || viewportH <= 8.0f || viewportRect.w <= 8.0f) {
@@ -23,26 +22,26 @@ ScrollbarGeometry Scrollbar::ComputeVertical(
     }
 
     geom.visible = true;
-    const float trackW = std::max(3.0f, metrics.trackWidth);
-    const float margin = std::max(2.0f, metrics.margin);
+    const float trackW = keel::max(3.0f, metrics.trackWidth);
+    const float margin = keel::max(2.0f, metrics.margin);
     const float trackX = std::round(viewportRect.Right() - trackW - margin);
     const float trackY = viewportRect.y + margin;
-    const float trackH = std::max(8.0f, viewportH - margin * 2.0f);
-    const float minThumb = std::min(trackH, std::max(16.0f, metrics.minThumbLength));
-    const float thumbH = std::clamp(
+    const float trackH = keel::max(8.0f, viewportH - margin * 2.0f);
+    const float minThumb = keel::min(trackH, keel::max(16.0f, metrics.minThumbLength));
+    const float thumbH = keel::clamp(
         std::round(trackH * (viewportH / contentHeight)),
         minThumb,
         trackH
     );
-    const float travel = std::max(0.0f, trackH - thumbH);
-    const float ratio = std::clamp(scrollOffset / maxScroll, 0.0f, 1.0f);
+    const float travel = keel::max(0.0f, trackH - thumbH);
+    const float ratio = keel::clamp(scrollOffset / maxScroll, 0.0f, 1.0f);
     const float thumbY = std::round(trackY + travel * ratio);
 
     geom.travel = travel;
     geom.trackRect = Rect(trackX, trackY, trackW, trackH);
     geom.thumbRect = Rect(trackX, thumbY, trackW, thumbH);
 
-    const float hitW = std::max(metrics.gutter, trackW + margin * 2.0f);
+    const float hitW = keel::max(metrics.gutter, trackW + margin * 2.0f);
     const float hitX = viewportRect.Right() - hitW;
     geom.hitTrackRect = Rect(hitX, viewportRect.y, hitW, viewportH);
     geom.hitThumbRect = Rect(hitX, thumbY - 2.0f, hitW, thumbH + 4.0f);
@@ -57,11 +56,11 @@ ScrollbarGeometry Scrollbar::UpdateVertical(
     float& ioScrollOffset,
     ScrollbarState& ioState,
     const ScrollbarMetrics& metrics,
-    std::optional<Rect> wheelHoverRect
+    keel::Optional<Rect> wheelHoverRect
 ) noexcept {
-    const float viewportH = std::max(0.0f, viewportRect.h);
-    const float maxScroll = std::max(0.0f, contentHeight - viewportH);
-    ioScrollOffset = std::clamp(ioScrollOffset, 0.0f, maxScroll);
+    const float viewportH = keel::max(0.0f, viewportRect.h);
+    const float maxScroll = keel::max(0.0f, contentHeight - viewportH);
+    ioScrollOffset = keel::clamp(ioScrollOffset, 0.0f, maxScroll);
 
     ScrollbarGeometry geom = ComputeVertical(viewportRect, contentHeight, ioScrollOffset, metrics);
     if (!geom.visible) {
@@ -82,7 +81,7 @@ ScrollbarGeometry Scrollbar::UpdateVertical(
     if (wheelBounds.Contains(mouse)) {
         const Vec2 wheel = ctx.GetMouseWheel();
         if (wheel.y != 0.0f || wheel.x != 0.0f) {
-            ioScrollOffset = std::clamp(ioScrollOffset - wheel.y * metrics.scrollStep, 0.0f, maxScroll);
+            ioScrollOffset = keel::clamp(ioScrollOffset - wheel.y * metrics.scrollStep, 0.0f, maxScroll);
             ctx.ConsumeMouseWheel();
             geom = ComputeVertical(viewportRect, contentHeight, ioScrollOffset, metrics);
         }
@@ -96,7 +95,7 @@ ScrollbarGeometry Scrollbar::UpdateVertical(
         if (ctx.IsMouseDown()) {
             if (geom.travel > 0.5f) {
                 const float deltaY = mouse.y - ioState.dragStartMouse;
-                ioScrollOffset = std::clamp(
+                ioScrollOffset = keel::clamp(
                     ioState.dragStartScroll + (deltaY / geom.travel) * maxScroll,
                     0.0f,
                     maxScroll
@@ -119,11 +118,11 @@ ScrollbarGeometry Scrollbar::UpdateVertical(
                 ctx.SetActiveId(activeOwnerId);
             }
         } else {
-            const float pageStep = std::max(24.0f, viewportH * 0.8f);
+            const float pageStep = keel::max(24.0f, viewportH * 0.8f);
             if (mouse.y < geom.thumbRect.y) {
-                ioScrollOffset = std::max(0.0f, ioScrollOffset - pageStep);
+                ioScrollOffset = keel::max(0.0f, ioScrollOffset - pageStep);
             } else if (mouse.y > geom.thumbRect.Bottom()) {
-                ioScrollOffset = std::min(maxScroll, ioScrollOffset + pageStep);
+                ioScrollOffset = keel::min(maxScroll, ioScrollOffset + pageStep);
             }
             geom = ComputeVertical(viewportRect, contentHeight, ioScrollOffset, metrics);
         }

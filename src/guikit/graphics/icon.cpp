@@ -1,5 +1,4 @@
 #include "guikit/graphics/icon.hpp"
-#include <algorithm>
 #include <cmath>
 #include "guikit/backend/i_canvas.hpp"
 
@@ -11,10 +10,10 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
     }
 
     if (m_type == SourceType::Builtin) {
-        const float s = std::min(bounds.w, bounds.h);
+        const float s = keel::min(bounds.w, bounds.h);
         const float cx = bounds.x + bounds.w * 0.5f;
         const float cy = bounds.y + bounds.h * 0.5f;
-        const float stroke = std::max(1.5f, s * 0.12f);
+        const float stroke = keel::max(1.5f, s * 0.12f);
         const float hw = s * 0.5f;
 
         switch (m_id) {
@@ -32,8 +31,8 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
             }
 
             case IconId::Plus: {
-                const float t = (s >= 11.0f) ? std::max(2.0f, std::round(s * 0.14f)) : 1.5f;
-                const float armLen = std::max(2.0f, std::round(s * 0.25f));
+                const float t = (s >= 11.0f) ? keel::max(2.0f, std::round(s * 0.14f)) : 1.5f;
+                const float armLen = keel::max(2.0f, std::round(s * 0.25f));
                 const float span = t + armLen * 2.0f;
                 const float vx = std::round(cx - t * 0.5f);
                 const float hy = std::round(cy - t * 0.5f);
@@ -51,8 +50,8 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
             }
 
             case IconId::Minus: {
-                const float t = (s >= 11.0f) ? std::max(2.0f, std::round(s * 0.14f)) : 1.5f;
-                const float armLen = std::max(2.0f, std::round(s * 0.25f));
+                const float t = (s >= 11.0f) ? keel::max(2.0f, std::round(s * 0.14f)) : 1.5f;
+                const float armLen = keel::max(2.0f, std::round(s * 0.25f));
                 const float span = t + armLen * 2.0f;
                 const float vx = std::round(cx - t * 0.5f);
                 const float hy = std::round(cy - t * 0.5f);
@@ -70,7 +69,7 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
             }
 
             case IconId::Pause: {
-                const float barW = std::max(2.0f, s * 0.16f);
+                const float barW = keel::max(2.0f, s * 0.16f);
                 const float barH = s * 0.60f;
                 const float gap = s * 0.12f;
                 canvas.DrawRect(Rect(cx - gap - barW, cy - barH * 0.5f, barW, barH), tint);
@@ -80,7 +79,7 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
 
             case IconId::Stop: {
                 const float sz = s * 0.56f;
-                canvas.DrawRoundRect(Rect(cx - sz * 0.5f, cy - sz * 0.5f, sz, sz), std::max(1.5f, s * 0.10f), tint);
+                canvas.DrawRoundRect(Rect(cx - sz * 0.5f, cy - sz * 0.5f, sz, sz), keel::max(1.5f, s * 0.10f), tint);
                 break;
             }
 
@@ -160,7 +159,7 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
             case IconId::Settings: {
                 const float rHub = s * 0.22f;
                 const float rTeeth = s * 0.38f;
-                const float toothStroke = std::max(2.0f, stroke * 1.3f);
+                const float toothStroke = keel::max(2.0f, stroke * 1.3f);
 
                 // 6 radial gear teeth spaced at 60 degree intervals
                 for (int i = 0; i < 6; ++i) {
@@ -285,7 +284,7 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
 
             case IconId::DebugContinue: {
                 // VS Code Continue: Left vertical bar + Right filled play triangle
-                const float barW = std::max(1.8f, stroke * 1.15f);
+                const float barW = keel::max(1.8f, stroke * 1.15f);
                 const float barH = s * 0.60f;
                 canvas.DrawRoundRect(Rect(cx - s * 0.36f, cy - barH * 0.5f, barW, barH), barW * 0.5f, tint);
                 const Vec2 pTop(cx - s * 0.12f, cy - s * 0.30f);
@@ -297,7 +296,7 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
 
             case IconId::StepOver: {
                 // VS Code Step Over: Bottom dot + curved arc jumping over the dot with arrowhead on the right
-                const float dotR = std::max(1.6f, s * 0.11f);
+                const float dotR = keel::max(1.6f, s * 0.11f);
                 canvas.DrawRoundRect(Rect(cx - dotR, cy + s * 0.24f - dotR, dotR * 2.0f, dotR * 2.0f), dotR, tint);
 
                 const float arcCy = cy + s * 0.08f;
@@ -321,7 +320,7 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
 
             case IconId::StepInto: {
                 // VS Code Step Into: Vertical arrow pointing down toward a bottom dot
-                const float dotR = std::max(1.6f, s * 0.11f);
+                const float dotR = keel::max(1.6f, s * 0.11f);
                 canvas.DrawRoundRect(Rect(cx - dotR, cy + s * 0.27f - dotR, dotR * 2.0f, dotR * 2.0f), dotR, tint);
 
                 const Vec2 tip(cx, cy + s * 0.07f);
@@ -333,7 +332,7 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
 
             case IconId::StepOut: {
                 // VS Code Step Out: Vertical arrow pointing up away from a bottom dot
-                const float dotR = std::max(1.6f, s * 0.11f);
+                const float dotR = keel::max(1.6f, s * 0.11f);
                 canvas.DrawRoundRect(Rect(cx - dotR, cy + s * 0.27f - dotR, dotR * 2.0f, dotR * 2.0f), dotR, tint);
 
                 const Vec2 tip(cx, cy - s * 0.35f);
@@ -370,7 +369,7 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
     } else if (m_type == SourceType::Asset && !m_path.empty()) {
         canvas.DrawImage(m_path, bounds, 0.0f, tint.a);
     } else if (m_type == SourceType::Texture && m_textureId != 0) {
-        canvas.DrawTexture(m_textureId, bounds, std::nullopt, tint);
+        canvas.DrawTexture(m_textureId, bounds, keel::kNullOpt, tint);
     }
 }
 

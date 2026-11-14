@@ -1,7 +1,5 @@
 #pragma once
 
-#include <optional>
-#include <source_location>
 #include "guikit/core/theme.hpp"
 #include "guikit/core/types.hpp"
 
@@ -21,8 +19,8 @@ public:
         Context& ctx,
         float extentRatio = 0.0f,
         Color colorOverride = Color::Transparent(),
-        std::source_location loc = std::source_location::current(),
-        std::optional<Orientation> lineOrientationOverride = std::nullopt
+        keel::SourceLocation loc = keel::SourceLocation::current(),
+        keel::Optional<Orientation> lineOrientationOverride = keel::kNullOpt
     );
 
     /// Renders a crisp, half-pixel-aligned separator line between `p0` and `p1`.

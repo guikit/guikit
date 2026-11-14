@@ -1,5 +1,4 @@
 #include "../demo_context.hpp"
-#include <format>
 
 namespace guikit::demo {
 
@@ -74,8 +73,8 @@ void RenderColorPickerStage(guikit::Context& ui, DemoContext& ctx) {
     }
 }
 
-std::string GenerateColorPickerCode(const DemoContext& ctx) {
-    return std::format(
+keel::String GenerateColorPickerCode(const DemoContext& ctx) {
+    return keel::format(
         "if (auto el = ui.{}Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"

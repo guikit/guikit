@@ -1,14 +1,13 @@
 #pragma once
 
 #include <cstdint>
-#include <functional>
-#include <memory>
-#include <string>
-#include <string_view>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/backend/vector_backend.hpp"
 #include "guikit/core/frame_metrics.hpp"
 #include "guikit/core/theme.hpp"
+#include "keel/function.h"
+#include "keel/smart_ptr.h"
+#include "keel/string.h"
 
 namespace guikit {
 
@@ -16,7 +15,7 @@ class Context;
 
 /// Configuration options for initializing a `guikit::MainWindow` application host.
 struct MainWindowConfig {
-    std::string title = "GuiKit Application";
+    keel::FixedString<128> title{"GuiKit Application"};
     int width = 1380;
     int height = 800;
     int minWidth = 320;
@@ -38,15 +37,15 @@ struct MainWindowConfig {
     ThemeMode initialThemeMode = ThemeMode::Dark;
     Density initialDensity = Density::Standard;
     ShellStyle initialShellStyle = ShellStyle::Docked;
-    std::optional<UiTheme> initialTheme = std::nullopt; ///< Optional complete initial theme override
+    keel::Optional<UiTheme> initialTheme = keel::kNullOpt; ///< Optional complete initial theme override
     VectorCanvasFactory canvasFactory = nullptr; ///< Optional per-window custom `ICanvas` factory override
 };
 
 /// Callbacks invoked by an `IWindowBackend` into its hosting `MainWindow`.
 struct WindowHostCallbacks {
-    std::function<bool()> onCloseRequested;
-    std::function<void(int width, int height)> onResize;
-    std::function<void()> onLiveResizeRender;
+    keel::Function<bool()> onCloseRequested;
+    keel::Function<void(int width, int height)> onResize;
+    keel::Function<void()> onLiveResizeRender;
 };
 
 /// Abstract platform windowing and presentation backend for `guikit::MainWindow`.
@@ -56,7 +55,7 @@ public:
     virtual ~IWindowBackend() = default;
 
     /// Creates the platform window, graphics context, and binds clipboard callbacks to `ui`.
-    virtual bool Initialize(const MainWindowConfig& config, Context& ui, const WindowHostCallbacks& callbacks) = 0;
+    virtual bool Initialize(const MainWindowConfig& config, Context& ui, WindowHostCallbacks callbacks) = 0;
 
     /// Releases all OS window, texture, cursor, and GPU resources.
     virtual void Shutdown() noexcept = 0;
@@ -72,7 +71,7 @@ public:
     [[nodiscard]] virtual bool UsesMainLoopCallback() const noexcept { return false; }
 
     /// Starts an inverted platform main loop, invoking `stepFn()` each frame until it returns `false`.
-    virtual void RunMainLoopCallback(std::function<bool()> stepFn) { (void)stepFn; }
+    virtual void RunMainLoopCallback(keel::Function<bool()> stepFn) { (void)stepFn; }
 
     /// Returns the active 2D rendering canvas owned by this window backend.
     [[nodiscard]] virtual ICanvas& GetCanvas() noexcept = 0;
@@ -106,15 +105,15 @@ public:
     virtual void SetGpuShadersEnabled(bool enabled) noexcept = 0;
 
     virtual void UpdateSystemCursor(CursorType cursor) noexcept = 0;
-    virtual void OpenUrl(std::string_view url) const noexcept = 0;
+    virtual void OpenUrl(keel::StringRef url) const noexcept = 0;
 };
 
-using WindowBackendFactory = std::unique_ptr<IWindowBackend>(*)();
+using WindowBackendFactory = keel::UniquePtr<IWindowBackend>(*)();
 
 /// Registers the default platform `IWindowBackend` factory used when `MainWindow` is constructed without an explicit backend.
 void RegisterDefaultWindowBackendFactory(WindowBackendFactory factory) noexcept;
 
 /// Instantiates the registered default `IWindowBackend` (or returns `nullptr` if no window backend is registered).
-[[nodiscard]] std::unique_ptr<IWindowBackend> CreateDefaultWindowBackend();
+[[nodiscard]] keel::UniquePtr<IWindowBackend> CreateDefaultWindowBackend();
 
 } // namespace guikit

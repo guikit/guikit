@@ -1,26 +1,25 @@
 #include "../demo_context.hpp"
-#include <format>
-#include <vector>
 
 namespace guikit::demo {
 
 namespace {
+inline constexpr keel::StaticArray<keel::StringRef, 8> kPlainItems = {
+    "Option Alpha",
+    "Option Beta",
+    "Option Gamma",
+    "Option Delta",
+    "Option Epsilon",
+    "Signal Harmonic",
+    "Sonar Beamformer",
+    "Waterfall Spectrum"
+};
+
 struct SelectState {
     int mode = 1; // 0 = Select, 1 = ComboBox (Searchable), 2 = Autocomplete (Editable), 3 = MultiSelect
     size_t idx = 0;
-    std::string customText = "Option Alpha";
-    std::vector<size_t> multiSelected = {0, 2, 5};
-    std::vector<std::string_view> plainItems = {
-        "Option Alpha",
-        "Option Beta",
-        "Option Gamma",
-        "Option Delta",
-        "Option Epsilon",
-        "Signal Harmonic",
-        "Sonar Beamformer",
-        "Waterfall Spectrum"
-    };
-    std::string placeholder = "Select or search...";
+    keel::SmallString<128> customText{"Option Alpha"};
+    keel::SmallArray<size_t, 8> multiSelected = keel::SmallArray<size_t, 8>::from({0, 2, 5});
+    keel::SmallString<128> placeholder{"Select or search..."};
     uint32_t maxItems = 5;
     bool clearable = true;
     bool richItems = true;
@@ -28,8 +27,8 @@ struct SelectState {
 };
 SelectState s_state;
 
-std::vector<guikit::SelectItem> BuildRichSelectItems() {
-    return {
+keel::StaticArray<guikit::SelectItem, 8> BuildRichSelectItems() {
+    return {{
         {.text = "Option Alpha",       .prefix = guikit::Icon::Play(),     .suffix = "100 Hz"},
         {.text = "Option Beta",        .prefix = guikit::Icon::Settings(), .suffix = "250 Hz"},
         {.text = "Option Gamma",       .prefix = guikit::Icon::Flash(),    .suffix = "500 Hz"},
@@ -38,7 +37,7 @@ std::vector<guikit::SelectItem> BuildRichSelectItems() {
         {.text = "Signal Harmonic",    .prefix = guikit::Icon::Refresh(),  .suffix = "DSP"},
         {.text = "Sonar Beamformer",   .prefix = guikit::Icon::Folder(),   .suffix = "DDS"},
         {.text = "Waterfall Spectrum", .prefix = guikit::Icon::Check(),    .suffix = "RTSA"}
-    };
+    }};
 }
 } // namespace
 
@@ -47,8 +46,8 @@ void RenderSelectInspector(guikit::Context& ui, DemoContext&) {
         if (ui.Segmented(s_state.mode, {"Select", "ComboBox", "Autocomplete", "MultiSelect"}, {
             .stretch = guikit::StretchMode::Fill
         }).changed) {
-            if (s_state.mode == 2 && s_state.customText.empty() && s_state.idx < s_state.plainItems.size()) {
-                s_state.customText = std::string(s_state.plainItems[s_state.idx]);
+            if (s_state.mode == 2 && s_state.customText.empty() && s_state.idx < kPlainItems.size()) {
+                s_state.customText.assign(kPlainItems[s_state.idx]);
             }
             ui.InvalidateAll();
         }
@@ -109,38 +108,38 @@ void RenderSelectStage(guikit::Context& ui, DemoContext& ctx) {
             if (s_state.richItems) {
                 ui.Size(ctx.controlsSize).Select(s_state.idx, richList, opts);
             } else {
-                ui.Size(ctx.controlsSize).Select(s_state.idx, s_state.plainItems, opts);
+                ui.Size(ctx.controlsSize).Select(s_state.idx, kPlainItems, opts);
             }
         } else if (s_state.mode == 1) {
             if (s_state.richItems) {
                 ui.Size(ctx.controlsSize).ComboBox(s_state.idx, richList, opts);
             } else {
-                ui.Size(ctx.controlsSize).ComboBox(s_state.idx, s_state.plainItems, opts);
+                ui.Size(ctx.controlsSize).ComboBox(s_state.idx, kPlainItems, opts);
             }
         } else if (s_state.mode == 2) {
             if (s_state.richItems) {
                 ui.Size(ctx.controlsSize).Autocomplete(s_state.customText, richList, opts);
             } else {
-                ui.Size(ctx.controlsSize).Autocomplete(s_state.customText, s_state.plainItems, opts);
+                ui.Size(ctx.controlsSize).Autocomplete(s_state.customText, kPlainItems, opts);
             }
         } else {
             opts.searchable = true;
             if (s_state.richItems) {
                 ui.Size(ctx.controlsSize).MultiSelect(s_state.multiSelected, richList, opts);
             } else {
-                ui.Size(ctx.controlsSize).MultiSelect(s_state.multiSelected, s_state.plainItems, opts);
+                ui.Size(ctx.controlsSize).MultiSelect(s_state.multiSelected, kPlainItems, opts);
             }
         }
     }
 }
 
-std::string GenerateSelectCode(const DemoContext& ctx) {
-    const std::string_view widgetCall = (s_state.mode == 0)
+keel::String GenerateSelectCode(const DemoContext& ctx) {
+    const keel::StringRef widgetCall = (s_state.mode == 0)
         ? "Select(presetIndex"
         : ((s_state.mode == 1)
             ? "ComboBox(presetIndex"
             : ((s_state.mode == 2) ? "Autocomplete(customText" : "MultiSelect(selectedIndices"));
-    return std::format(
+    return keel::format(
         "if (auto el = ui.{}Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"

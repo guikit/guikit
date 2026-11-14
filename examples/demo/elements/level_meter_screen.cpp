@@ -1,8 +1,6 @@
+#include <cmath>
 #include "../demo_context.hpp"
 #include "guikit/widgets/level_meter.hpp"
-#include <array>
-#include <cmath>
-#include <format>
 
 namespace guikit::demo {
 
@@ -29,7 +27,7 @@ LevelMeterDemoState s_state;
 } // namespace
 
 void RenderLevelMeterInspector(guikit::Context& ui, DemoContext&) {
-    static constexpr std::array<std::string_view, 2> channelModes = {"Mono (1ch)", "Stereo (L/R)"};
+    static constexpr keel::StaticArray<keel::StringRef, 2> channelModes = {"Mono (1ch)", "Stereo (L/R)"};
     if (auto el = ui.Element({
         .label = "Channel Configuration",
         .description = "Single-channel dBFS vs Stereo L/R pair"
@@ -42,7 +40,7 @@ void RenderLevelMeterInspector(guikit::Context& ui, DemoContext&) {
         }
     }
 
-    static constexpr std::array<std::string_view, 2> orientNames = {"Horizontal", "Vertical"};
+    static constexpr keel::StaticArray<keel::StringRef, 2> orientNames = {"Horizontal", "Vertical"};
     if (auto el = ui.Element({.label = "Orientation"})) {
         if (ui.StepSlider(s_state.orientationIdx, orientNames, {
             .showTicks = true,
@@ -136,22 +134,22 @@ void RenderLevelMeterInspector(guikit::Context& ui, DemoContext&) {
 
 void RenderLevelMeterStage(guikit::Context& ui, DemoContext& ctx) {
     float chLeft = s_state.levelDb;
-    float chRight = std::clamp(s_state.levelDb - s_state.stereoSpreadDb, -60.0f, 0.0f);
+    float chRight = keel::clamp(s_state.levelDb - s_state.stereoSpreadDb, -60.0f, 0.0f);
 
     if (s_state.simulateLive) {
         const double t = ui.GetCurrentTimeSec();
         const float envL = static_cast<float>(
             std::sin(t * 4.2) * 4.5 +
             std::sin(t * 11.3) * 2.8 +
-            std::max(0.0, std::sin(t * 1.9)) * 4.2
+            keel::max(0.0, std::sin(t * 1.9)) * 4.2
         );
         const float envR = static_cast<float>(
             std::sin(t * 3.8 + 0.9) * 4.5 +
             std::cos(t * 9.7) * 3.0 +
-            std::max(0.0, std::sin(t * 1.9 + 0.4)) * 4.0
+            keel::max(0.0, std::sin(t * 1.9 + 0.4)) * 4.0
         );
-        chLeft = std::clamp(s_state.levelDb + envL, -60.0f, 0.0f);
-        chRight = std::clamp(s_state.levelDb - s_state.stereoSpreadDb + envR, -60.0f, 0.0f);
+        chLeft = keel::clamp(s_state.levelDb + envL, -60.0f, 0.0f);
+        chRight = keel::clamp(s_state.levelDb - s_state.stereoSpreadDb + envR, -60.0f, 0.0f);
         ui.RequestRepaint(2);
     }
 
@@ -159,8 +157,8 @@ void RenderLevelMeterStage(guikit::Context& ui, DemoContext& ctx) {
         ? guikit::Orientation::Horizontal
         : guikit::Orientation::Vertical;
 
-    static constexpr std::array<std::string_view, 2> kStereoLabels = {"L", "R"};
-    static constexpr std::array<std::string_view, 1> kMonoLabels = {"IN"};
+    static constexpr keel::StaticArray<keel::StringRef, 2> kStereoLabels = {"L", "R"};
+    static constexpr keel::StaticArray<keel::StringRef, 1> kMonoLabels = {"IN"};
 
     guikit::LevelMeterOptions opts{
         .orientation = orient,
@@ -172,8 +170,8 @@ void RenderLevelMeterStage(guikit::Context& ui, DemoContext& ctx) {
         .showValue = s_state.showValue,
         .valueFormat = "%.1f dB",
         .channelLabels = (s_state.channelModeIdx == 1)
-            ? std::span<const std::string_view>(kStereoLabels)
-            : std::span<const std::string_view>(kMonoLabels),
+            ? keel::ArrayRef<keel::StringRef>(kStereoLabels)
+            : keel::ArrayRef<keel::StringRef>(kMonoLabels),
         .barThickness = s_state.barThickness,
         .color = ctx.GetControlColor(),
         .stretch = ctx.GetElementStretch(),
@@ -201,7 +199,7 @@ void RenderLevelMeterStage(guikit::Context& ui, DemoContext& ctx) {
     })) {
         if (auto sz = ui.Size(ctx.controlsSize)) {
             if (s_state.channelModeIdx == 1) {
-                const std::array<float, 2> stereoVals = {chLeft, chRight};
+                const keel::StaticArray<float, 2> stereoVals = {chLeft, chRight};
                 guikit::LevelMeter::Run(ui, stereoVals, -60.0f, 0.0f, opts);
             } else {
                 guikit::LevelMeter::Run(ui, static_cast<double>(chLeft), -60.0, 0.0, opts);
@@ -210,14 +208,14 @@ void RenderLevelMeterStage(guikit::Context& ui, DemoContext& ctx) {
     }
 }
 
-std::string GenerateLevelMeterCode(const DemoContext& ctx) {
-    const std::string_view orientName = (s_state.orientationIdx == 0) ? "Horizontal" : "Vertical";
+keel::String GenerateLevelMeterCode(const DemoContext& ctx) {
+    const keel::StringRef orientName = (s_state.orientationIdx == 0) ? "Horizontal" : "Vertical";
     const uint32_t segVal = s_state.segmented ? s_state.segments : 0u;
 
     if (s_state.channelModeIdx == 1) {
-        return std::format(
-            "static constexpr std::array<std::string_view, 2> kChannels = {{\"L\", \"R\"}};\n"
-            "const std::array<float, 2> levelsDb = {{{:.1f}f, {:.1f}f}};\n"
+        return keel::format(
+            "static constexpr keel::StaticArray<keel::StringRef, 2> kChannels = {{\"L\", \"R\"}};\n"
+            "const keel::StaticArray<float, 2> levelsDb = {{{:.1f}f, {:.1f}f}};\n"
             "if (auto el = ui.{}Element({{\n"
             "    .label = {},\n"
             "    .description = {},\n"
@@ -252,7 +250,7 @@ std::string GenerateLevelMeterCode(const DemoContext& ctx) {
             "    }});\n"
             "}}",
             s_state.levelDb,
-            std::clamp(s_state.levelDb - s_state.stereoSpreadDb, -60.0f, 0.0f),
+            keel::clamp(s_state.levelDb - s_state.stereoSpreadDb, -60.0f, 0.0f),
             FormatUiSizePrefix(ctx.elemSize),
             ctx.FormatElementLabelCode(),
             ctx.FormatElementDescCode(),
@@ -284,7 +282,7 @@ std::string GenerateLevelMeterCode(const DemoContext& ctx) {
         );
     }
 
-    return std::format(
+    return keel::format(
         "if (auto el = ui.{}Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"

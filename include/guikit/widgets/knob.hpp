@@ -1,8 +1,9 @@
 #pragma once
 
-#include <optional>
-#include <source_location>
-#include <string_view>
+#include <cstdint>
+#include "keel/core.h"
+#include "keel/optional.h"
+#include "keel/ref.h"
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -17,8 +18,8 @@ class ICanvas;
 struct KnobOptions {
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
     UiText valueFormat{};                          ///< Format string for value (e.g. "%.1f dB", "%.0f %%"; empty = default numeric format)
-    std::optional<double> step{std::nullopt};      ///< Step quantization (defaults to 1.0 for integers, continuous for float/double)
-    std::optional<double> defaultValue{std::nullopt}; ///< Optional reset value on double-click
+    keel::Optional<double> step{keel::kNullOpt};   ///< Step quantization (defaults to 1.0 for integers, continuous for float/double)
+    keel::Optional<double> defaultValue{keel::kNullOpt}; ///< Optional reset value on double-click
     uint32_t tickCount{11};                        ///< Number of radial tick marks when showTicks is true (0 = auto from step or 11)
     bool showValue{true};                          ///< Whether to display current formatted value text
     bool showTicks{true};                          ///< Render radial scale tick marks around the dial
@@ -28,14 +29,14 @@ struct KnobOptions {
     StateColor color{};                            ///< Per-state accent fill color for active arc, pointer, and ticks
     StretchMode stretch{StretchMode::Compact};     ///< Sizing behavior: Compact, Space, Fill
     Align align{Align::Center};                    ///< Standalone control alignment (Start, Center, End)
-    std::optional<float> width{std::nullopt};      ///< Control width in dp (or legacy ratio 0.0..1.0 in Fill)
-    std::optional<float> widthRatio{std::nullopt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
-    std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = auto from UiSize)
+    keel::Optional<float> width{keel::kNullOpt};   ///< Control width in dp (or legacy ratio 0.0..1.0 in Fill)
+    keel::Optional<float> widthRatio{keel::kNullOpt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
+    keel::Optional<float> height{keel::kNullOpt};  ///< Explicit control height in points (nullopt = auto from UiSize)
     StateColor background{};                       ///< Per-state control well backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                               ///< Control well border stroke & corner radius configuration
     bool disabled{false};                          ///< Interaction suppression
     const UiTheme* theme{nullptr};                 ///< Optional scoped theme override
-    std::optional<float> scale{std::nullopt};      ///< Optional scoped scale factor override
+    keel::Optional<float> scale{keel::kNullOpt};   ///< Optional scoped scale factor override
 };
 
 /// Internal runtime state stored per-widget ID for Knob drag interaction.
@@ -50,7 +51,7 @@ struct KnobData {
     KnobOptions opts{};
     float normalizedValue{0.0f};
     float normalizedOrigin{0.0f};
-    std::string_view valueText{};
+    keel::StringRef valueText{};
     bool active{false};
 };
 
@@ -65,12 +66,12 @@ public:
         double minVal,
         double maxVal,
         const KnobOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     static Vec2 Measure(
         const KnobOptions& opts,
-        std::string_view valueText,
+        keel::StringRef valueText,
         UiSize size,
         ICanvas* canvas,
         const UiTheme& theme,
@@ -78,7 +79,7 @@ public:
     );
     static Vec2 Measure(
         const KnobOptions& opts,
-        std::string_view valueText,
+        keel::StringRef valueText,
         UiSize size,
         ICanvas* canvas = nullptr,
         float availableWidth = 0.0f
@@ -89,7 +90,7 @@ public:
         Rect bounds,
         float normalizedValue,
         float normalizedOrigin,
-        std::string_view valueText,
+        keel::StringRef valueText,
         const KnobOptions& opts,
         UiSize size,
         bool hovered,

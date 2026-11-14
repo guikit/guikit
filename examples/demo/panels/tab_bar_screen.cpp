@@ -1,5 +1,4 @@
 #include "../demo_context.hpp"
-#include <format>
 
 namespace guikit::demo {
 
@@ -25,7 +24,7 @@ void RenderTabBarInspector(guikit::Context& ui, DemoContext& ctx) {
             ui.InvalidateAll();
         }
     }
-    static constexpr std::array<std::string_view, 2> styleNames = {"Underline", "Pill"};
+    static constexpr keel::StaticArray<keel::StringRef, 2> styleNames = {"Underline", "Pill"};
     size_t styleIdx = (s_state.style == guikit::TabBarStyle::Pill) ? 1 : 0;
     if (auto el = ui.Element({.label = "TabBar Style"})) {
         if (ui.StepSlider(styleIdx, styleNames, {.showTicks = true, .showLabels = true}).changed) {
@@ -60,7 +59,7 @@ void RenderTabBarInspector(guikit::Context& ui, DemoContext& ctx) {
 }
 
 void RenderTabBarStage(guikit::Context& ui, DemoContext& ctx) {
-    static const std::array<guikit::TabItem, 3> demoTabs = {{
+    static const keel::StaticArray<guikit::TabItem, 3> demoTabs = {{
         {.label = "First", .icon = guikit::Icon::Settings()},
         {.label = "Second", .icon = guikit::Icon::Eye()},
         {.label = "Third", .icon = guikit::Icon::Play()}
@@ -82,8 +81,8 @@ void RenderTabBarStage(guikit::Context& ui, DemoContext& ctx) {
     });
 }
 
-std::string GenerateTabBarCode(const DemoContext& ctx) {
-    return std::format(
+keel::String GenerateTabBarCode(const DemoContext& ctx) {
+    return keel::format(
         "ui.{}TabBar(activeTab, tabItems, {{\n"
         "    .style = guikit::TabBarStyle::{},\n"
         "    .showSeparator = {},\n"
@@ -95,7 +94,7 @@ std::string GenerateTabBarCode(const DemoContext& ctx) {
         "    .border = {{.width = {:.1f}f, .radius = {:.1f}f, .color = {}}},\n"
         "    .activeColor = guikit::Color::Transparent(),\n"
         "    .theme = nullptr,\n"
-        "    .scale = std::nullopt\n"
+        "    .scale = keel::kNullOpt\n"
         "}});",
         FormatUiSizePrefix(ctx.controlsSize),
         s_state.style == guikit::TabBarStyle::Pill ? "Pill" : "Underline",

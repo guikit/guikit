@@ -1,13 +1,12 @@
 #pragma once
 
-#include <optional>
-#include <source_location>
-#include <string_view>
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/types.hpp"
 #include "guikit/graphics/icon.hpp"
+#include "keel/core.h"
+#include "keel/optional.h"
 
 namespace guikit {
 
@@ -24,19 +23,19 @@ struct ButtonOptions {
     Placement iconPlacement{Placement::Leading};
     Align align{Align::Center};                    ///< Content horizontal alignment inside button capsule (Start, Center, End)
     StretchMode stretch{StretchMode::Compact};     ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};      ///< Capsule width in dp (or legacy ratio 0.0..1.0 in Fill)
-    std::optional<float> widthRatio{std::nullopt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
-    std::optional<float> height{std::nullopt};     ///< Explicit capsule height in points (nullopt = inherit defaultHeight from UiSize)
-    std::optional<float> minWidth{std::nullopt};   ///< Minimum capsule width constraint in points
+    keel::Optional<float> width{keel::kNullOpt};      ///< Capsule width in dp (or legacy ratio 0.0..1.0 in Fill)
+    keel::Optional<float> widthRatio{keel::kNullOpt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
+    keel::Optional<float> height{keel::kNullOpt};     ///< Explicit capsule height in points (nullopt = inherit defaultHeight from UiSize)
+    keel::Optional<float> minWidth{keel::kNullOpt};   ///< Minimum capsule width constraint in points
     StateColor background{StateColor::Surface()};  ///< Capsule surface fill configuration (Surface/Default = on, None = off, or custom StateColor)
     Border border{};                               ///< Capsule border stroke & corner radius configuration
     bool disabled{false};
     bool active{false};
     bool loading{false};                           ///< Renders an animated vector spinner and suppresses click activation
     bool square{false};                            ///< Force square (defaultHeight x defaultHeight) button geometry
-    std::optional<Color> iconColor{std::nullopt};  ///< Optional custom icon tint override
+    keel::Optional<Color> iconColor{keel::kNullOpt};  ///< Optional custom icon tint override
     const UiTheme* theme{nullptr};                 ///< Optional scoped theme override
-    std::optional<float> scale{std::nullopt};      ///< Optional local UI scale factor override
+    keel::Optional<float> scale{keel::kNullOpt};      ///< Optional local UI scale factor override
 };
 
 /// Type alias for button response.
@@ -49,7 +48,7 @@ public:
     static Response Run(
         Context& ctx,
         const ButtonOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Measures intrinsic dimensions based on content (icon + label + padding for current UiSize).

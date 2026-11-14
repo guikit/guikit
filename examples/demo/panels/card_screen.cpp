@@ -1,6 +1,4 @@
 #include "../demo_context.hpp"
-#include <array>
-#include <format>
 
 namespace guikit::demo {
 
@@ -17,11 +15,11 @@ struct CardDemoState {
 
 CardDemoState s_card;
 
-constexpr std::array<std::string_view, 8> kBgShort = {
+constexpr keel::StaticArray<keel::StringRef, 8> kBgShort = {
     "Surf", "None", "Pri", "Sec", "Suc", "Wrn", "Dgr", "Inf"
 };
 
-constexpr std::array<std::string_view, 7> kBorderShort = {
+constexpr keel::StaticArray<keel::StringRef, 7> kBorderShort = {
     "Def", "Pri", "Sec", "Suc", "Wrn", "Dgr", "Inf"
 };
 
@@ -38,7 +36,7 @@ guikit::StateColor ResolveCardBg() noexcept {
     }
 }
 
-std::string_view CardBgCodeName() noexcept {
+keel::StringRef CardBgCodeName() noexcept {
     switch (s_card.bgIdx) {
         case 1: return "guikit::StateColor::None()";
         case 2: return "guikit::StateColor::Primary()";
@@ -63,7 +61,7 @@ guikit::StateColor ResolveCardBorderColor() noexcept {
     }
 }
 
-std::string_view CardBorderCodeName() noexcept {
+keel::StringRef CardBorderCodeName() noexcept {
     switch (s_card.borderIdx) {
         case 1: return "guikit::StateColor::Primary()";
         case 2: return "guikit::StateColor::Secondary()";
@@ -170,8 +168,8 @@ void RenderCardStage(guikit::Context& ui, DemoContext& ctx) {
     }
 }
 
-std::string GenerateCardCode(const DemoContext& ctx) {
-    return std::format(
+keel::String GenerateCardCode(const DemoContext& ctx) {
+    return keel::format(
         "if (auto card = ui.{}Card({{\n"
         "    .minWidth = {:.1f}f,\n"
         "    .gap = {:.1f}f,\n"

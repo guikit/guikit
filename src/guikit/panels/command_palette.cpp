@@ -1,24 +1,22 @@
 #include "guikit/panels/command_palette.hpp"
-#include <algorithm>
-#include <array>
-#include <cctype>
 #include <cmath>
-#include <string>
-#include <string_view>
-#include <vector>
-#include "keel/format.h"
-#include "keel/small_array.h"
-#include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/context.hpp"
 #include "guikit/core/scrollbar.hpp"
 #include "guikit/core/text_util.hpp"
+#include "keel/array.h"
+#include "keel/core.h"
+#include "keel/format.h"
+#include "keel/small_array.h"
+#include "keel/static_array.h"
+#include "keel/string.h"
 
 namespace guikit {
 
 namespace {
 
 struct CommandPalettePersistState {
-    std::string query{};
+    keel::SmallString<128> query{};
     int highlightedPos{0};
     float scrollOffset{0.0f};
     Vec2 lastMousePos{-10000.0f, -10000.0f};
@@ -31,13 +29,13 @@ struct CommandPalettePersistState {
 
 struct FilteredCommandEntry {
     int origIndex{0};
-    size_t labelMatchPos{std::string_view::npos};
+    size_t labelMatchPos{keel::kInvalidIndex};
     size_t labelMatchLen{0};
 };
 
 keel::SmallArray<FilteredCommandEntry, 64> FilterItems(
-    std::span<const CommandPaletteItem> items,
-    std::string_view query
+    keel::ArrayRef<CommandPaletteItem> items,
+    keel::StringRef query
 ) {
     keel::SmallArray<FilteredCommandEntry, 64> result;
     result.reserve(items.size());
@@ -47,15 +45,15 @@ keel::SmallArray<FilteredCommandEntry, 64> FilterItems(
         if (query.empty()) {
             result.push_back(FilteredCommandEntry{
                 .origIndex = static_cast<int>(i),
-                .labelMatchPos = std::string_view::npos,
+                .labelMatchPos = keel::kInvalidIndex,
                 .labelMatchLen = 0
             });
             continue;
         }
 
-        const std::string_view labelSv = it.label;
-        const std::string_view catSv = it.category;
-        const std::string_view descSv = it.description;
+        const keel::StringRef labelSv = it.label;
+        const keel::StringRef catSv = it.category;
+        const keel::StringRef descSv = it.description;
 
         size_t labelPos = 0;
         size_t labelLen = 0;
@@ -68,11 +66,11 @@ keel::SmallArray<FilteredCommandEntry, 64> FilterItems(
             continue;
         }
 
-        if (TextUtil::FindCaseInsensitive(catSv, query) != std::string_view::npos ||
-            TextUtil::FindCaseInsensitive(descSv, query) != std::string_view::npos) {
+        if (TextUtil::FindCaseInsensitive(catSv, query) != keel::kInvalidIndex ||
+            TextUtil::FindCaseInsensitive(descSv, query) != keel::kInvalidIndex) {
             result.push_back(FilteredCommandEntry{
                 .origIndex = static_cast<int>(i),
-                .labelMatchPos = std::string_view::npos,
+                .labelMatchPos = keel::kInvalidIndex,
                 .labelMatchLen = 0
             });
         }
@@ -85,9 +83,9 @@ keel::SmallArray<FilteredCommandEntry, 64> FilterItems(
 CommandPaletteResponse CommandPalette::Run(
     Context& ctx,
     bool& isOpen,
-    std::span<const CommandPaletteItem> items,
+    keel::ArrayRef<CommandPaletteItem> items,
     const CommandPaletteOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
     auto& st = ctx.GetOrCreatePersistentState<CommandPalettePersistState>(id);
@@ -136,15 +134,15 @@ CommandPaletteResponse CommandPalette::Run(
             if (bsMods.ctrl) {
                 st.query.clear();
             } else {
-                const size_t prev = TextUtil::PrevCharBoundary(st.query, st.query.size());
-                st.query.erase(prev);
+                const size_t prev = TextUtil::PrevCharBoundary(st.query.as_ref(), st.query.size());
+                st.query.resize(prev);
             }
             queryModified = true;
         }
     }
 
-    const std::vector<std::string> pendingText = ctx.ConsumePendingTextInput();
-    for (const std::string& chunk : pendingText) {
+    const keel::Array<keel::String> pendingText = ctx.ConsumePendingTextInput();
+    for (const keel::String& chunk : pendingText) {
         for (char c : chunk) {
             const unsigned char uc = static_cast<unsigned char>(c);
             if (uc >= 32 && uc != 127) {
@@ -161,14 +159,14 @@ CommandPaletteResponse CommandPalette::Run(
     }
 
     // 2. Filter items against current query
-    keel::SmallArray<FilteredCommandEntry, 64> filtered = FilterItems(items, st.query);
+    keel::SmallArray<FilteredCommandEntry, 64> filtered = FilterItems(items, st.query.as_ref());
     const int filteredCount = static_cast<int>(filtered.size());
 
     if (filteredCount == 0) {
         st.highlightedPos = -1;
         st.scrollOffset = 0.0f;
     } else {
-        st.highlightedPos = std::clamp(st.highlightedPos, 0, filteredCount - 1);
+        st.highlightedPos = keel::clamp(st.highlightedPos, 0, filteredCount - 1);
     }
 
     // 3. Compute geometry from UiSize + Density tokens and content-aware natural row widths
@@ -184,32 +182,32 @@ CommandPaletteResponse CommandPalette::Run(
     const float descFont   = theme.ResolveFontSize(UiText{}, TextRole::BodySmall, activeSize);
     const float badgeFont  = theme.ResolveFontSize(UiText{}, TextRole::LabelSmall, activeSize);
 
-    const float searchH   = std::round(std::max(im.defaultHeight + 10.0f * s, searchFont * 2.8f));
-    const float rowH      = std::round(std::max(sm.itemHeight + 8.0f * s, labelFont * 2.5f));
-    const float listPadY  = std::round(std::max(4.0f * s, cm.paddingY * 0.75f));
+    const float searchH   = std::round(keel::max(im.defaultHeight + 10.0f * s, searchFont * 2.8f));
+    const float rowH      = std::round(keel::max(sm.itemHeight + 8.0f * s, labelFont * 2.5f));
+    const float listPadY  = std::round(keel::max(4.0f * s, cm.paddingY * 0.75f));
     const float footerH   = opts.showFooterHints
-        ? std::round(std::max(cm.defaultHeight * 0.82f, badgeFont * 2.5f))
+        ? std::round(keel::max(cm.defaultHeight * 0.82f, badgeFont * 2.5f))
         : 0.0f;
     const float rowInsetX = std::round(6.0f * s);
     const float rowPadX   = std::round(im.paddingX);
     const float icSz      = std::round(cm.iconSize);
-    const float catPillH  = std::round(std::max(16.0f * s, badgeFont + 7.0f * s));
-    const float keyPillH  = std::round(std::max(18.0f * s, badgeFont + 9.0f * s));
+    const float catPillH  = std::round(keel::max(16.0f * s, badgeFont + 7.0f * s));
+    const float keyPillH  = std::round(keel::max(18.0f * s, badgeFont + 9.0f * s));
 
     // Measure uniform tabular category column width across all items (prevents jagged label alignment)
     float maxCatPillW = 0.0f;
     for (const auto& it : items) {
-        const std::string_view catSv = it.category;
+        const keel::StringRef catSv = it.category;
         if (!catSv.empty()) {
             const float cw = TextUtil::MeasureWidth(catSv, badgeFont, measureCanvas);
-            maxCatPillW = std::max(maxCatPillW, std::ceil(cw + 12.0f * s));
+            maxCatPillW = keel::max(maxCatPillW, std::ceil(cw + 12.0f * s));
         }
     }
 
     // Measure natural content width across all items so auto-sizing fits icon + category + label + description + shortcut
-    const float escW = std::round(std::max(32.0f * s, TextUtil::MeasureWidth("ESC", badgeFont, measureCanvas) + 14.0f * s));
+    const float escW = std::round(keel::max(32.0f * s, TextUtil::MeasureWidth("ESC", badgeFont, measureCanvas) + 14.0f * s));
     const float escH = keyPillH;
-    const float clearSz = std::round(std::max(20.0f * s, icSz + 6.0f * s));
+    const float clearSz = std::round(keel::max(20.0f * s, icSz + 6.0f * s));
 
     float maxNaturalW = rowPadX * 2.0f + icSz + 10.0f * s
         + TextUtil::MeasureWidth(opts.placeholder, searchFont, measureCanvas)
@@ -229,7 +227,7 @@ CommandPaletteResponse CommandPalette::Run(
             rowW += 12.0f * s + std::ceil(sw + 12.0f * s);
         }
         rowW += 22.0f * s; // right breathing room + scrollbar gutter reserve
-        maxNaturalW = std::max(maxNaturalW, rowW);
+        maxNaturalW = keel::max(maxNaturalW, rowW);
     }
 
     Rect backdropRect = ctx.GetPopupViewportRect();
@@ -240,15 +238,15 @@ CommandPaletteResponse CommandPalette::Run(
         }
     }
 
-    const float minW = theme.Scale(std::max(260.0f, opts.minWidth));
-    const float maxW = std::max(minW, theme.Scale(opts.maxWidth));
+    const float minW = theme.Scale(keel::max(260.0f, opts.minWidth));
+    const float maxW = keel::max(minW, theme.Scale(opts.maxWidth));
     const float targetW = (opts.width.has_value() && *opts.width > 0.0f)
-        ? theme.Scale(std::max(260.0f, *opts.width))
-        : std::clamp(std::ceil(maxNaturalW), minW, maxW);
-    const float cardW = std::round(std::min(std::max(200.0f * s, backdropRect.w - 24.0f * s), targetW));
-    const uint32_t maxVis = std::max<uint32_t>(1u, opts.maxVisibleItems);
+        ? theme.Scale(keel::max(260.0f, *opts.width))
+        : keel::clamp(std::ceil(maxNaturalW), minW, maxW);
+    const float cardW = std::round(keel::min(keel::max(200.0f * s, backdropRect.w - 24.0f * s), targetW));
+    const uint32_t maxVis = keel::max<uint32_t>(1u, opts.maxVisibleItems);
     const uint32_t visRows = (filteredCount > 0)
-        ? std::min<uint32_t>(static_cast<uint32_t>(filteredCount), maxVis)
+        ? keel::min<uint32_t>(static_cast<uint32_t>(filteredCount), maxVis)
         : 1u;
     const float listViewportH = (filteredCount > 0)
         ? (static_cast<float>(visRows) * rowH + listPadY * 2.0f)
@@ -256,7 +254,7 @@ CommandPaletteResponse CommandPalette::Run(
     const float cardH = searchH + 1.0f + listViewportH + (opts.showFooterHints ? (1.0f + footerH) : 0.0f);
 
     const float cardX = std::round(backdropRect.x + (backdropRect.w - cardW) * 0.5f);
-    const float cardY = std::round(backdropRect.y + std::max(20.0f * s, backdropRect.h * 0.14f));
+    const float cardY = std::round(backdropRect.y + keel::max(20.0f * s, backdropRect.h * 0.14f));
     const Rect cardRect(cardX, cardY, cardW, cardH);
     const Rect searchRect(cardX, cardY, cardW, searchH);
     const Rect listRect(cardX, cardY + searchH + 1.0f, cardW, listViewportH);
@@ -278,8 +276,8 @@ CommandPaletteResponse CommandPalette::Run(
     );
 
     const float totalListContentH = (filteredCount > 0) ? (static_cast<float>(filteredCount) * rowH) : 0.0f;
-    const float innerListViewportH = std::max(0.0f, listViewportH - listPadY * 2.0f);
-    const float maxScroll = std::max(0.0f, totalListContentH - innerListViewportH);
+    const float innerListViewportH = keel::max(0.0f, listViewportH - listPadY * 2.0f);
+    const float maxScroll = keel::max(0.0f, totalListContentH - innerListViewportH);
 
     auto scrollHighlightedIntoView = [&]() {
         if (st.highlightedPos < 0 || filteredCount <= 0) return;
@@ -290,13 +288,13 @@ CommandPaletteResponse CommandPalette::Run(
         } else if (itemBottom > st.scrollOffset + innerListViewportH) {
             st.scrollOffset = itemBottom - innerListViewportH;
         }
-        st.scrollOffset = std::clamp(st.scrollOffset, 0.0f, maxScroll);
+        st.scrollOffset = keel::clamp(st.scrollOffset, 0.0f, maxScroll);
     };
 
     // 4. Keyboard navigation & execution
     auto moveHighlight = [&](int delta) {
         if (filteredCount <= 0) return;
-        st.highlightedPos = std::clamp(st.highlightedPos + delta, 0, filteredCount - 1);
+        st.highlightedPos = keel::clamp(st.highlightedPos + delta, 0, filteredCount - 1);
         scrollHighlightedIntoView();
         ctx.InvalidateAll();
     };
@@ -347,12 +345,12 @@ CommandPaletteResponse CommandPalette::Run(
 
     // 5. Mouse wheel, interactive scrollbar & hit testing
     ScrollbarMetrics sbm = theme.GetScrollbar(activeSize);
-    sbm.scrollStep = std::max(sbm.scrollStep, rowH * 1.25f);
+    sbm.scrollStep = keel::max(sbm.scrollStep, rowH * 1.25f);
     const Rect sbViewport(
         listRect.x,
         listRect.y + listPadY - sbm.margin,
         listRect.w,
-        std::max(0.0f, listRect.h - (listPadY - sbm.margin) * 2.0f)
+        keel::max(0.0f, listRect.h - (listPadY - sbm.margin) * 2.0f)
     );
 
     const Vec2 mouse = ctx.GetMousePos();
@@ -408,7 +406,7 @@ CommandPaletteResponse CommandPalette::Run(
                     st.scrollOffset = 0.0f;
                     ctx.ConsumeMouseClick();
                     ctx.InvalidateAll();
-                    filtered = FilterItems(items, st.query);
+                    filtered = FilterItems(items, st.query.as_ref());
                     sbGeom = Scrollbar::ComputeVertical(sbViewport, static_cast<float>(filtered.size()) * rowH, st.scrollOffset, sbm);
                 } else if (escPillHovered) {
                     isOpen = false;
@@ -456,14 +454,14 @@ CommandPaletteResponse CommandPalette::Run(
 
     // 6. Snapshot data into frame arena for deferred overlay rendering
     struct DrawRowItem {
-        std::string_view label;
-        std::string_view category;
-        std::string_view description;
-        std::string_view shortcut;
+        keel::StringRef label;
+        keel::StringRef category;
+        keel::StringRef description;
+        keel::StringRef shortcut;
         Icon icon;
         bool disabled{false};
         bool highlighted{false};
-        size_t matchPos{std::string_view::npos};
+        size_t matchPos{keel::kInvalidIndex};
         size_t matchLen{0};
         Rect rowRect{};
     };
@@ -482,10 +480,10 @@ CommandPaletteResponse CommandPalette::Run(
             continue;
         }
         arenaRows[drawRowCount++] = DrawRowItem{
-            .label = ctx.AllocString(std::string_view(src.label)),
-            .category = ctx.AllocString(std::string_view(src.category)),
-            .description = ctx.AllocString(std::string_view(src.description)),
-            .shortcut = ctx.AllocString(std::string_view(src.shortcut)),
+            .label = ctx.AllocString(src.label),
+            .category = ctx.AllocString(src.category),
+            .description = ctx.AllocString(src.description),
+            .shortcut = ctx.AllocString(src.shortcut),
             .icon = ctx.AllocIcon(src.icon),
             .disabled = src.disabled,
             .highlighted = (static_cast<int>(i) == st.highlightedPos),
@@ -494,13 +492,13 @@ CommandPaletteResponse CommandPalette::Run(
             .rowRect = Rect(cardRect.x + rowInsetX, std::round(rowY), cardRect.w - rowInsetX * 2.0f - sbRightReserve, rowH)
         };
     }
-    const std::span<const DrawRowItem> drawRows(arenaRows, drawRowCount);
+    const keel::ArrayRef<DrawRowItem> drawRows(arenaRows, drawRowCount);
 
-    const std::string_view queryCopy = ctx.AllocString(st.query);
+    const keel::StringRef queryCopy = ctx.AllocString(st.query.as_ref());
     const UiText placeholderCopy = ctx.AllocText(opts.placeholder);
     const bool showFooter = opts.showFooterHints;
     const float backdropOpacity = opts.backdropOpacity;
-    const std::optional<Color> backdropColor = opts.backdropColor;
+    const keel::Optional<Color> backdropColor = opts.backdropColor;
     const StateColor bgOpt = opts.background;
     const Border borderOpt = opts.border;
     const bool cursorVis = ctx.IsCursorVisible();
@@ -557,7 +555,7 @@ CommandPaletteResponse CommandPalette::Run(
                 c.DrawRect(backdropRect, *backdropColor);
             }
         } else {
-            const float alpha = std::clamp(backdropOpacity, 0.0f, 0.95f);
+            const float alpha = keel::clamp(backdropOpacity, 0.0f, 0.95f);
             if (alpha > 0.001f && backdropRect.w > 0.0f && backdropRect.h > 0.0f) {
                 c.DrawRect(backdropRect, Color(0, 0, 0, static_cast<uint8_t>(std::round(alpha * 255.0f))));
             }
@@ -608,7 +606,7 @@ CommandPaletteResponse CommandPalette::Run(
 
         const float textStartX = searchIconRect.Right() + 10.0f * s;
         const float textEndX = (!queryCopy.empty() ? clearRect.x : escRect.x) - 8.0f * s;
-        const Rect queryTextRect(textStartX, searchRect.y, std::max(10.0f, textEndX - textStartX), searchRect.h);
+        const Rect queryTextRect(textStartX, searchRect.y, keel::max(10.0f, textEndX - textStartX), searchRect.h);
 
         c.PushClip(queryTextRect);
         if (queryCopy.empty()) {
@@ -616,7 +614,7 @@ CommandPaletteResponse CommandPalette::Run(
             TextUtil::DrawUiText(
                 c,
                 placeholderCopy,
-                Rect(textStartX + placeholderOffset, searchRect.y, std::max(10.0f, queryTextRect.w - placeholderOffset), searchRect.h),
+                Rect(textStartX + placeholderOffset, searchRect.y, keel::max(10.0f, queryTextRect.w - placeholderOffset), searchRect.h),
                 searchFont,
                 searchRect.h,
                 pal.textMuted,
@@ -626,7 +624,7 @@ CommandPaletteResponse CommandPalette::Run(
             );
             if (cursorVis) {
                 const float caretH = std::round(searchFont * 1.15f);
-                const Rect caretRect(textStartX, std::round(searchRect.Center().y - caretH * 0.5f), std::max(1.5f, std::round(1.5f * s)), caretH);
+                const Rect caretRect(textStartX, std::round(searchRect.Center().y - caretH * 0.5f), keel::max(1.5f, std::round(1.5f * s)), caretH);
                 c.DrawRect(caretRect, primaryCol);
             }
         } else {
@@ -647,7 +645,7 @@ CommandPaletteResponse CommandPalette::Run(
                 const Rect caretRect(
                     std::round(drawX + qw + 1.0f * s),
                     std::round(searchRect.Center().y - caretH * 0.5f),
-                    std::max(1.5f, std::round(1.5f * s)),
+                    keel::max(1.5f, std::round(1.5f * s)),
                     caretH
                 );
                 c.DrawRect(caretRect, primaryCol);
@@ -677,7 +675,7 @@ CommandPaletteResponse CommandPalette::Run(
 
         // Divider line below search bar
         c.DrawRect(
-            Rect(cardRect.x + 1.0f, searchRect.Bottom(), std::max(0.0f, cardRect.w - 2.0f), 1.0f),
+            Rect(cardRect.x + 1.0f, searchRect.Bottom(), keel::max(0.0f, cardRect.w - 2.0f), 1.0f),
             pal.borderSubtle
         );
 
@@ -706,8 +704,8 @@ CommandPaletteResponse CommandPalette::Run(
                         0.0f
                     );
                     // Left 3px accent bar in primary
-                    const float barW = std::max(2.0f, std::round(3.0f * s));
-                    const float barH = std::max(8.0f, rr.h - 10.0f * s);
+                    const float barW = keel::max(2.0f, std::round(3.0f * s));
+                    const float barH = keel::max(8.0f, rr.h - 10.0f * s);
                     c.DrawRoundRect(
                         Rect(rr.x + 2.0f * s, std::round(rr.y + (rr.h - barH) * 0.5f), barW, barH),
                         barW * 0.5f,
@@ -760,7 +758,7 @@ CommandPaletteResponse CommandPalette::Run(
 
                 // Tabular [category] column prefix (uniform width so all labels align vertically)
                 if (maxCatPillW > 0.0f) {
-                    const float catColW = std::min(maxCatPillW, std::max(36.0f * s, (rightEdge - curX) * 0.30f));
+                    const float catColW = keel::min(maxCatPillW, keel::max(36.0f * s, (rightEdge - curX) * 0.30f));
                     if (!row.category.empty()) {
                         const Rect catRect(
                             curX,
@@ -777,7 +775,7 @@ CommandPaletteResponse CommandPalette::Run(
                         );
                         const auto truncCat = TextUtil::TruncateWithEllipsis(
                             row.category,
-                            std::max(0.0f, catColW - 8.0f * s),
+                            keel::max(0.0f, catColW - 8.0f * s),
                             badgeFont,
                             &c
                         );
@@ -794,9 +792,9 @@ CommandPaletteResponse CommandPalette::Run(
                 }
 
                 // Label with matched substring highlight and graceful ellipsis fallback
-                const float availTextW = std::max(0.0f, rightEdge - curX);
+                const float availTextW = keel::max(0.0f, rightEdge - curX);
                 if (availTextW > 4.0f) {
-                    const std::string_view labelSv = row.label;
+                    const keel::StringRef labelSv = row.label;
                     const float fullLabelW = c.MeasureText(labelSv, labelFont).x;
 
                     TextUtil::DrawHighlightedTextBox(
@@ -813,7 +811,7 @@ CommandPaletteResponse CommandPalette::Run(
                         0.5f
                     );
 
-                    curX += std::min(fullLabelW, availTextW) + 12.0f * s;
+                    curX += keel::min(fullLabelW, availTextW) + 12.0f * s;
 
                     // Optional secondary description
                     if (!row.description.empty() && rightEdge - curX > 24.0f * s) {
@@ -845,21 +843,21 @@ CommandPaletteResponse CommandPalette::Run(
         // 5. Optional Footer Hints Bar
         if (showFooter && footerRect.h > 0.0f) {
             c.DrawRect(
-                Rect(cardRect.x + 1.0f, listRect.Bottom(), std::max(0.0f, cardRect.w - 2.0f), 1.0f),
+                Rect(cardRect.x + 1.0f, listRect.Bottom(), keel::max(0.0f, cardRect.w - 2.0f), 1.0f),
                 pal.borderSubtle
             );
 
             const Rect footerInner(
                 footerRect.x + rowPadX + 2.0f * s,
                 footerRect.y,
-                std::max(0.0f, footerRect.w - (rowPadX + 2.0f * s) * 2.0f),
+                keel::max(0.0f, footerRect.w - (rowPadX + 2.0f * s) * 2.0f),
                 footerRect.h
             );
 
             char countBuf[48]{};
-            const std::string_view countLabel = (totalFiltered == 1)
-                ? std::string_view("1 command")
-                : std::string_view(countBuf, static_cast<size_t>(keel::format_buf(countBuf, sizeof(countBuf), "%zu commands", totalFiltered)));
+            const keel::StringRef countLabel = (totalFiltered == 1)
+                ? keel::StringRef("1 command")
+                : keel::format_buf(countBuf, "%zu commands", totalFiltered);
             const float countW = c.MeasureText(countLabel, badgeFont).x;
             c.DrawTextBox(
                 countLabel,
@@ -872,10 +870,10 @@ CommandPaletteResponse CommandPalette::Run(
 
             // Render structured keycap hint pills: [↑↓] Navigate   [Enter] Execute   [Esc] Close
             struct FooterHint {
-                std::string_view key;
-                std::string_view action;
+                keel::StringRef key;
+                keel::StringRef action;
             };
-            static constexpr std::array<FooterHint, 3> kHints = {{
+            static constexpr keel::StaticArray<FooterHint, 3> kHints = {{
                 {"↑↓",    "Navigate"},
                 {"Enter", "Execute"},
                 {"Esc",   "Close"}
@@ -883,7 +881,7 @@ CommandPaletteResponse CommandPalette::Run(
 
             float hintX = footerInner.x;
             const float maxHintRight = footerInner.Right() - countW - 12.0f * s;
-            const float kcapH = std::round(std::max(16.0f * s, badgeFont + 5.0f * s));
+            const float kcapH = std::round(keel::max(16.0f * s, badgeFont + 5.0f * s));
             const float kcapY = std::round(footerRect.y + (footerRect.h - kcapH) * 0.5f);
 
             for (const auto& h : kHints) {

@@ -1,11 +1,7 @@
 #include "guikit/widgets/markdown.hpp"
-#include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <cstdio>
-#include <memory>
-#include <string>
-#include <vector>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/control.hpp"
@@ -15,8 +11,13 @@
 #include "guikit/graphics/icon.hpp"
 #include "guikit/widgets/image.hpp"
 #include "guikit/widgets/text_area.hpp"
+#include "keel/array.h"
+#include "keel/core.h"
 #include "keel/hash_map.h"
 #include "keel/lru_cache.h"
+#include "keel/ref.h"
+#include "keel/smart_ptr.h"
+#include "keel/string.h"
 
 namespace guikit {
 
@@ -44,7 +45,7 @@ enum class BlockKind : uint8_t {
 };
 
 struct TableCell {
-    std::vector<InlineSpan> spans{};
+    keel::Array<InlineSpan> spans{};
 };
 
 struct MarkdownBlock {
@@ -56,22 +57,22 @@ struct MarkdownBlock {
     int8_t taskState{-1};               // -1 = normal bullet, 0 = [ ], 1 = [x]
     int taskIndex{-1};                  // 0-based index across task items in document
     AlertKind alertKind{AlertKind::None};
-    std::string alertTitle{};
-    std::string codeLang{};
-    std::string rawText{};              // Code block content or Image path
-    std::string imageAlt{};             // Image caption / alt
-    std::vector<InlineSpan> spans{};
-    std::vector<Align> tableAligns{};
-    std::vector<std::vector<TableCell>> tableRows{}; // row 0 = header
+    keel::String alertTitle{};
+    keel::String codeLang{};
+    keel::String rawText{};             // Code block content or Image path
+    keel::String imageAlt{};            // Image caption / alt
+    keel::Array<InlineSpan> spans{};
+    keel::Array<Align> tableAligns{};
+    keel::Array<keel::Array<TableCell>> tableRows{}; // row 0 = header
     int codeBlockIndex{-1};
 };
 
 struct ParsedMarkdownDoc {
     uint64_t sourceHash{0};
-    std::vector<MarkdownBlock> blocks{};
+    keel::Array<MarkdownBlock> blocks{};
 };
 
-std::string_view TrimView(std::string_view sv) noexcept {
+keel::StringRef TrimView(keel::StringRef sv) noexcept {
     while (!sv.empty() && (sv.front() == ' ' || sv.front() == '\t' || sv.front() == '\r')) {
         sv.remove_prefix(1);
     }
@@ -81,16 +82,16 @@ std::string_view TrimView(std::string_view sv) noexcept {
     return sv;
 }
 
-std::vector<std::string_view> SplitTableCells(std::string_view rowLine) {
-    std::string_view s = TrimView(rowLine);
+keel::Array<keel::StringRef> SplitTableCells(keel::StringRef rowLine) {
+    keel::StringRef s = TrimView(rowLine);
     if (!s.empty() && s.front() == '|') s.remove_prefix(1);
     if (!s.empty() && s.back() == '|') s.remove_suffix(1);
 
-    std::vector<std::string_view> cells;
+    keel::Array<keel::StringRef> cells;
     size_t pos = 0;
     while (pos <= s.size()) {
         const size_t pipe = s.find('|', pos);
-        if (pipe == std::string_view::npos) {
+        if (pipe == keel::StringRef::npos) {
             cells.push_back(TrimView(s.substr(pos)));
             break;
         }
@@ -100,17 +101,17 @@ std::vector<std::string_view> SplitTableCells(std::string_view rowLine) {
     return cells;
 }
 
-bool IsTableSeparatorRow(std::string_view line, std::vector<Align>& outAligns) {
-    const std::string_view t = TrimView(line);
-    if (t.find('|') == std::string_view::npos || t.find('-') == std::string_view::npos) {
+bool IsTableSeparatorRow(keel::StringRef line, keel::Array<Align>& outAligns) {
+    const keel::StringRef t = TrimView(line);
+    if (t.find('|') == keel::StringRef::npos || t.find('-') == keel::StringRef::npos) {
         return false;
     }
     const auto cells = SplitTableCells(t);
     if (cells.empty()) return false;
 
-    std::vector<Align> aligns;
+    keel::Array<Align> aligns;
     aligns.reserve(cells.size());
-    for (std::string_view c : cells) {
+    for (keel::StringRef c : cells) {
         if (c.empty()) return false;
         bool hasDash = false;
         for (char ch : c) {
@@ -124,30 +125,30 @@ bool IsTableSeparatorRow(std::string_view line, std::vector<Align>& outAligns) {
         else if (rightColon) aligns.push_back(Align::End);
         else aligns.push_back(Align::Start);
     }
-    outAligns = std::move(aligns);
+    outAligns = keel::move(aligns);
     return true;
 }
 
-std::shared_ptr<const ParsedMarkdownDoc> GetOrParseMarkdown(std::string_view source) {
-    thread_local keel::LruCache<uint64_t, std::shared_ptr<const ParsedMarkdownDoc>, 64> s_cache;
+keel::Arc<const ParsedMarkdownDoc> GetOrParseMarkdown(keel::StringRef source) {
+    thread_local keel::LruCache<uint64_t, keel::Arc<const ParsedMarkdownDoc>, 64> s_cache;
     const uint64_t h = detail::HashArgs(source, source.size());
     if (const auto* found = s_cache.find(h)) {
         return *found;
     }
 
-    auto docPtr = std::make_shared<ParsedMarkdownDoc>();
+    auto docPtr = keel::make_arc<ParsedMarkdownDoc>();
     ParsedMarkdownDoc& doc = *docPtr;
     doc.sourceHash = h;
 
-    std::vector<std::string_view> lines;
+    keel::Array<keel::StringRef> lines;
     size_t pos = 0;
     while (pos <= source.size()) {
         const size_t nl = source.find('\n', pos);
-        if (nl == std::string_view::npos) {
+        if (nl == keel::StringRef::npos) {
             lines.push_back(source.substr(pos));
             break;
         }
-        std::string_view l = source.substr(pos, nl - pos);
+        keel::StringRef l = source.substr(pos, nl - pos);
         if (!l.empty() && l.back() == '\r') l.remove_suffix(1);
         lines.push_back(l);
         pos = nl + 1;
@@ -157,8 +158,8 @@ std::shared_ptr<const ParsedMarkdownDoc> GetOrParseMarkdown(std::string_view sou
     int nextTaskIdx = 0;
     size_t i = 0;
     while (i < lines.size()) {
-        const std::string_view rawLine = lines[i];
-        const std::string_view trimmed = TrimView(rawLine);
+        const keel::StringRef rawLine = lines[i];
+        const keel::StringRef trimmed = TrimView(rawLine);
 
         if (trimmed.empty()) {
             ++i;
@@ -169,10 +170,10 @@ std::shared_ptr<const ParsedMarkdownDoc> GetOrParseMarkdown(std::string_view sou
         if (trimmed.starts_with("```")) {
             MarkdownBlock blk{};
             blk.kind = BlockKind::CodeBlock;
-            blk.codeLang = std::string(TrimView(trimmed.substr(3)));
+            blk.codeLang.assign(TrimView(trimmed.substr(3)));
             blk.codeBlockIndex = nextCodeBlockIdx++;
             ++i;
-            std::string code;
+            keel::String code;
             while (i < lines.size()) {
                 if (TrimView(lines[i]).starts_with("```")) {
                     ++i;
@@ -182,8 +183,8 @@ std::shared_ptr<const ParsedMarkdownDoc> GetOrParseMarkdown(std::string_view sou
                 code.append(lines[i]);
                 ++i;
             }
-            blk.rawText = std::move(code);
-            doc.blocks.push_back(std::move(blk));
+            blk.rawText = keel::move(code);
+            doc.blocks.push_back(keel::move(blk));
             continue;
         }
 
@@ -199,7 +200,7 @@ std::shared_ptr<const ParsedMarkdownDoc> GetOrParseMarkdown(std::string_view sou
             if (allSame) {
                 MarkdownBlock blk{};
                 blk.kind = BlockKind::Divider;
-                doc.blocks.push_back(std::move(blk));
+                doc.blocks.push_back(keel::move(blk));
                 ++i;
                 continue;
             }
@@ -216,7 +217,7 @@ std::shared_ptr<const ParsedMarkdownDoc> GetOrParseMarkdown(std::string_view sou
                 blk.kind = BlockKind::Heading;
                 blk.headingLevel = lvl;
                 blk.spans = ParseInlineSpans(TrimView(trimmed.substr(lvl + 1)));
-                doc.blocks.push_back(std::move(blk));
+                doc.blocks.push_back(keel::move(blk));
                 ++i;
                 continue;
             }
@@ -225,16 +226,16 @@ std::shared_ptr<const ParsedMarkdownDoc> GetOrParseMarkdown(std::string_view sou
         // 4. Standalone Image: ![Alt](path)
         if (trimmed.starts_with("![")) {
             const size_t closeBr = trimmed.find("](");
-            const size_t closePar = (closeBr != std::string_view::npos) ? trimmed.find(')', closeBr + 2) : std::string_view::npos;
-            if (closeBr != std::string_view::npos && closePar != std::string_view::npos) {
+            const size_t closePar = (closeBr != keel::StringRef::npos) ? trimmed.find(')', closeBr + 2) : keel::StringRef::npos;
+            if (closeBr != keel::StringRef::npos && closePar != keel::StringRef::npos) {
                 MarkdownBlock blk{};
                 blk.kind = BlockKind::ImageBlock;
-                blk.imageAlt = std::string(trimmed.substr(2, closeBr - 2));
-                blk.rawText = std::string(TrimView(trimmed.substr(closeBr + 2, closePar - closeBr - 2)));
+                blk.imageAlt.assign(trimmed.substr(2, closeBr - 2));
+                blk.rawText.assign(TrimView(trimmed.substr(closeBr + 2, closePar - closeBr - 2)));
                 if (!blk.imageAlt.empty()) {
                     blk.spans = ParseInlineSpans(blk.imageAlt, FontStyle::Italic, false);
                 }
-                doc.blocks.push_back(std::move(blk));
+                doc.blocks.push_back(keel::move(blk));
                 ++i;
                 continue;
             }
@@ -242,27 +243,27 @@ std::shared_ptr<const ParsedMarkdownDoc> GetOrParseMarkdown(std::string_view sou
 
         // 5. Blockquote or GitHub Alert: > [!NOTE] / > text
         if (trimmed.starts_with(">")) {
-            std::string_view firstContent = TrimView(trimmed.substr(1));
+            keel::StringRef firstContent = TrimView(trimmed.substr(1));
             AlertKind alert = AlertKind::None;
-            std::string alertTitle;
-            if (firstContent.starts_with("[!NOTE]"))          { alert = AlertKind::Note;      alertTitle = "Note"; }
-            else if (firstContent.starts_with("[!TIP]"))      { alert = AlertKind::Tip;       alertTitle = "Tip"; }
-            else if (firstContent.starts_with("[!IMPORTANT]")){ alert = AlertKind::Important; alertTitle = "Important"; }
-            else if (firstContent.starts_with("[!WARNING]"))  { alert = AlertKind::Warning;   alertTitle = "Warning"; }
-            else if (firstContent.starts_with("[!CAUTION]"))  { alert = AlertKind::Caution;   alertTitle = "Caution"; }
+            keel::String alertTitle;
+            if (firstContent.starts_with("[!NOTE]"))          { alert = AlertKind::Note;      alertTitle.assign("Note"); }
+            else if (firstContent.starts_with("[!TIP]"))      { alert = AlertKind::Tip;       alertTitle.assign("Tip"); }
+            else if (firstContent.starts_with("[!IMPORTANT]")){ alert = AlertKind::Important; alertTitle.assign("Important"); }
+            else if (firstContent.starts_with("[!WARNING]"))  { alert = AlertKind::Warning;   alertTitle.assign("Warning"); }
+            else if (firstContent.starts_with("[!CAUTION]"))  { alert = AlertKind::Caution;   alertTitle.assign("Caution"); }
 
-            std::string combined;
+            keel::String combined;
             if (alert != AlertKind::None) {
                 const size_t closeBr = firstContent.find(']');
-                std::string_view rest = (closeBr != std::string_view::npos) ? TrimView(firstContent.substr(closeBr + 1)) : std::string_view{};
+                keel::StringRef rest = (closeBr != keel::StringRef::npos) ? TrimView(firstContent.substr(closeBr + 1)) : keel::StringRef{};
                 if (!rest.empty()) combined.append(rest);
                 ++i;
             }
 
             while (i < lines.size()) {
-                const std::string_view ql = TrimView(lines[i]);
+                const keel::StringRef ql = TrimView(lines[i]);
                 if (!ql.starts_with(">")) break;
-                const std::string_view sub = TrimView(ql.substr(1));
+                const keel::StringRef sub = TrimView(ql.substr(1));
                 if (!sub.empty()) {
                     if (!combined.empty()) combined.push_back(' ');
                     combined.append(sub);
@@ -273,25 +274,25 @@ std::shared_ptr<const ParsedMarkdownDoc> GetOrParseMarkdown(std::string_view sou
             MarkdownBlock blk{};
             blk.kind = (alert != AlertKind::None) ? BlockKind::Alert : BlockKind::Blockquote;
             blk.alertKind = alert;
-            blk.alertTitle = std::move(alertTitle);
+            blk.alertTitle = keel::move(alertTitle);
             blk.spans = ParseInlineSpans(combined);
-            doc.blocks.push_back(std::move(blk));
+            doc.blocks.push_back(keel::move(blk));
             continue;
         }
 
         // 6. Table: | Header | ... followed by | --- | --- |
-        std::vector<Align> tableAligns;
-        if (trimmed.find('|') != std::string_view::npos && i + 1 < lines.size() &&
+        keel::Array<Align> tableAligns;
+        if (trimmed.find('|') != keel::StringRef::npos && i + 1 < lines.size() &&
             IsTableSeparatorRow(lines[i + 1], tableAligns)) {
             MarkdownBlock blk{};
             blk.kind = BlockKind::Table;
-            blk.tableAligns = std::move(tableAligns);
+            blk.tableAligns = keel::move(tableAligns);
 
-            auto parseRow = [](std::string_view rowLine) {
+            auto parseRow = [](keel::StringRef rowLine) {
                 const auto rawCells = SplitTableCells(rowLine);
-                std::vector<TableCell> row;
+                keel::Array<TableCell> row;
                 row.reserve(rawCells.size());
-                for (std::string_view c : rawCells) {
+                for (keel::StringRef c : rawCells) {
                     row.push_back(TableCell{ParseInlineSpans(c)});
                 }
                 return row;
@@ -300,12 +301,12 @@ std::shared_ptr<const ParsedMarkdownDoc> GetOrParseMarkdown(std::string_view sou
             blk.tableRows.push_back(parseRow(lines[i]));
             i += 2; // Skip header and separator row
             while (i < lines.size()) {
-                const std::string_view tl = TrimView(lines[i]);
-                if (tl.empty() || tl.find('|') == std::string_view::npos) break;
+                const keel::StringRef tl = TrimView(lines[i]);
+                if (tl.empty() || tl.find('|') == keel::StringRef::npos) break;
                 blk.tableRows.push_back(parseRow(tl));
                 ++i;
             }
-            doc.blocks.push_back(std::move(blk));
+            doc.blocks.push_back(keel::move(blk));
             continue;
         }
 
@@ -314,13 +315,13 @@ std::shared_ptr<const ParsedMarkdownDoc> GetOrParseMarkdown(std::string_view sou
         while (leadingSpaces < rawLine.size() && rawLine[leadingSpaces] == ' ') {
             ++leadingSpaces;
         }
-        const uint8_t indentLvl = static_cast<uint8_t>(std::min<size_t>(3, leadingSpaces / 2));
+        const uint8_t indentLvl = static_cast<uint8_t>(keel::min<size_t>(3, leadingSpaces / 2));
 
         if ((trimmed.starts_with("- ") || trimmed.starts_with("* ")) && trimmed.size() > 2) {
             MarkdownBlock blk{};
             blk.kind = BlockKind::ListItem;
             blk.indentLevel = indentLvl;
-            std::string_view itemText = TrimView(trimmed.substr(2));
+            keel::StringRef itemText = TrimView(trimmed.substr(2));
             if (itemText.starts_with("[ ] ")) {
                 blk.taskState = 0;
                 blk.taskIndex = nextTaskIdx++;
@@ -331,7 +332,7 @@ std::shared_ptr<const ParsedMarkdownDoc> GetOrParseMarkdown(std::string_view sou
                 itemText = TrimView(itemText.substr(4));
             }
             blk.spans = ParseInlineSpans(itemText);
-            doc.blocks.push_back(std::move(blk));
+            doc.blocks.push_back(keel::move(blk));
             ++i;
             continue;
         }
@@ -349,18 +350,18 @@ std::shared_ptr<const ParsedMarkdownDoc> GetOrParseMarkdown(std::string_view sou
             for (size_t d = 0; d < digitEnd; ++d) {
                 num = static_cast<uint16_t>(num * 10 + (trimmed[d] - '0'));
             }
-            blk.listNumber = std::max<uint16_t>(1, num);
+            blk.listNumber = keel::max<uint16_t>(1, num);
             blk.spans = ParseInlineSpans(TrimView(trimmed.substr(digitEnd + 2)));
-            doc.blocks.push_back(std::move(blk));
+            doc.blocks.push_back(keel::move(blk));
             ++i;
             continue;
         }
 
         // 8. Standard Paragraph (merge consecutive plain lines)
-        std::string paraText(trimmed);
+        keel::String paraText = keel::String::from(trimmed);
         ++i;
         while (i < lines.size()) {
-            const std::string_view nextT = TrimView(lines[i]);
+            const keel::StringRef nextT = TrimView(lines[i]);
             if (nextT.empty() || nextT.starts_with("#") || nextT.starts_with("```") ||
                 nextT.starts_with(">") || nextT.starts_with("- ") || nextT.starts_with("* ") ||
                 nextT.starts_with("![") || nextT.starts_with("---") || nextT.starts_with("|")) {
@@ -374,10 +375,10 @@ std::shared_ptr<const ParsedMarkdownDoc> GetOrParseMarkdown(std::string_view sou
         MarkdownBlock blk{};
         blk.kind = BlockKind::Paragraph;
         blk.spans = ParseInlineSpans(paraText);
-        doc.blocks.push_back(std::move(blk));
+        doc.blocks.push_back(keel::move(blk));
     }
 
-    return s_cache.put(h, std::move(docPtr));
+    return s_cache.put(h, keel::move(docPtr));
 }
 
 constexpr Rect OffsetRect(Rect r, Vec2 delta) noexcept {
@@ -385,9 +386,9 @@ constexpr Rect OffsetRect(Rect r, Vec2 delta) noexcept {
 }
 
 float HeadingFontSize(uint8_t level, const MarkdownOptions& opts, const UiTheme& theme, float zoom) noexcept {
-    const HeadingLevel hl = static_cast<HeadingLevel>(std::clamp<uint8_t>(level, 1, 6));
+    const HeadingLevel hl = static_cast<HeadingLevel>(keel::clamp<uint8_t>(level, 1, 6));
     const float base = theme.GetHeading(hl).titleFontSize;
-    return base * std::clamp(opts.headingScale, 0.5f, 2.5f) * zoom;
+    return base * keel::clamp(opts.headingScale, 0.5f, 2.5f) * zoom;
 }
 
 Color AlertAccentColor(AlertKind kind, const UiTheme& theme) noexcept {
@@ -418,7 +419,7 @@ struct CopyBtnHitRegion {
     Rect boxLocalRect{};
     float headerH{0.0f};
     int codeBlockIndex{-1};
-    std::string_view rawCode{};
+    keel::StringRef rawCode{};
 };
 
 struct TaskHitRegion {
@@ -428,7 +429,7 @@ struct TaskHitRegion {
 };
 
 struct CodeRenderSpan {
-    std::string_view text{};
+    keel::StringRef text{};
     Color color{};
     float localOffsetX{0.0f};
 };
@@ -437,11 +438,11 @@ struct CodeVisualLineLayout {
     size_t logicalLine{0};
     bool isFirstSlice{true};
     bool isLastSlice{true};
-    std::string_view sliceStr{};
+    keel::StringRef sliceStr{};
     float localY{0.0f};
     float textLocalY{0.0f};
     size_t tokenIndex{SIZE_MAX};
-    std::vector<CodeRenderSpan> renderSpans{};
+    keel::Array<CodeRenderSpan> renderSpans{};
 };
 
 struct BlockLayout {
@@ -460,7 +461,7 @@ struct BlockLayout {
     float headerH{0.0f};
     Rect markerLocalRect{};
 
-    std::vector<CodeVisualLineLayout> codeVisualLines{};
+    keel::Array<CodeVisualLineLayout> codeVisualLines{};
     float gutterW{0.0f};
     float codeStartX{0.0f};
     float spaceW{0.0f};
@@ -471,15 +472,15 @@ struct BlockLayout {
     Rect imgLocalRect{};
     float imgRadius{0.0f};
 
-    std::vector<float> colWidths{};
-    std::vector<float> colX{};
-    std::vector<float> rowHeights{};
-    std::vector<std::vector<InlineFlowLayout>> cellFlows{};
-    std::vector<std::vector<Vec2>> cellFlowOrigins{};
+    keel::Array<float> colWidths{};
+    keel::Array<float> colX{};
+    keel::Array<float> rowHeights{};
+    keel::Array<keel::Array<InlineFlowLayout>> cellFlows{};
+    keel::Array<keel::Array<Vec2>> cellFlowOrigins{};
 };
 
 struct MarkdownDocumentLayout {
-    std::shared_ptr<const ParsedMarkdownDoc> doc{}; // Keeps backing AST & rawText slices alive while layout lives
+    keel::Arc<const ParsedMarkdownDoc> doc{}; // Keeps backing AST & rawText slices alive while layout lives
     uint64_t layoutKey{0};
     float totalWidth{0.0f};
     float totalHeight{0.0f};
@@ -487,19 +488,19 @@ struct MarkdownDocumentLayout {
     float scale{1.0f};
     Rect contentLocalBounds{};
     DocumentTextMap textMap{};
-    std::vector<BlockLayout> blocks{};
-    std::vector<LinkHitRegion> linkRegions{};
-    std::vector<CopyBtnHitRegion> copyRegions{};
-    std::vector<TaskHitRegion> taskRegions{};
+    keel::Array<BlockLayout> blocks{};
+    keel::Array<LinkHitRegion> linkRegions{};
+    keel::Array<CopyBtnHitRegion> copyRegions{};
+    keel::Array<TaskHitRegion> taskRegions{};
 };
 
 struct MarkdownPassResult {
     float totalWidth{0.0f};
     float totalHeight{0.0f};
-    std::string_view hoveredLink{};
+    keel::StringRef hoveredLink{};
     Rect hoveredLinkRect{};
     int hoveredCopyBlock{-1};
-    std::string_view hoveredCopyCode{};
+    keel::StringRef hoveredCopyCode{};
     int hoveredTaskIndex{-1};
     bool hoveredTaskCurrentState{false};
 };
@@ -546,29 +547,29 @@ uint64_t ComputeMarkdownLayoutKey(
     );
 }
 
-std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
+keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
     ICanvas* canvas,
     float outerWidth,
-    const std::shared_ptr<const ParsedMarkdownDoc>& docPtr,
+    const keel::Arc<const ParsedMarkdownDoc>& docPtr,
     const MarkdownOptions& opts,
     const UiTheme& theme,
     float zoom,
     uint64_t layoutKey
 ) {
-    auto layoutPtr = std::make_shared<MarkdownDocumentLayout>();
+    auto layoutPtr = keel::make_arc<MarkdownDocumentLayout>();
     MarkdownDocumentLayout& out = *layoutPtr;
     out.doc = docPtr;
     out.layoutKey = layoutKey;
     const ParsedMarkdownDoc& doc = *docPtr;
 
-    const float effZoom = std::clamp(zoom, 0.5f, 3.0f);
+    const float effZoom = keel::clamp(zoom, 0.5f, 3.0f);
     const float s = theme.Scale(1.0f) * effZoom;
-    const float docPad = std::max(0.0f, opts.documentPadding) * s;
+    const float docPad = keel::max(0.0f, opts.documentPadding) * s;
 
     out.effZoom = effZoom;
     out.scale = s;
 
-    float availW = std::max(120.0f, outerWidth - docPad * 2.0f);
+    float availW = keel::max(120.0f, outerWidth - docPad * 2.0f);
     float startX = docPad;
     if (opts.maxContentWidth.has_value() && *opts.maxContentWidth > 0.0f) {
         const float maxColW = *opts.maxContentWidth * s;
@@ -586,13 +587,13 @@ std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
     const float inlineCodeFs = opts.inlineCodeFontSize.has_value()
         ? (theme.Scale(*opts.inlineCodeFontSize) * effZoom)
         : (bodyFs * 0.92f);
-    const float lhScale = std::clamp(opts.lineHeightScale, 0.8f, 2.5f);
+    const float lhScale = keel::clamp(opts.lineHeightScale, 0.8f, 2.5f);
     const float codeLineH = (canvas ? canvas->GetLineHeight(codeFs) : theme.GetLineHeight(codeFs)) * lhScale;
     const float gap = opts.blockGap * s;
-    const float blkPad = std::max(4.0f, opts.blockPadding) * s;
-    const float blkRad = std::max(0.0f, opts.blockRadius) * s;
-    const float paraIndent = std::max(0.0f, opts.paragraphIndent) * s;
-    const float listStep = std::max(8.0f, opts.listIndent) * s;
+    const float blkPad = keel::max(4.0f, opts.blockPadding) * s;
+    const float blkRad = keel::max(0.0f, opts.blockRadius) * s;
+    const float paraIndent = keel::max(0.0f, opts.paragraphIndent) * s;
+    const float listStep = keel::max(8.0f, opts.listIndent) * s;
 
     float curY = contentBounds.y;
     bool firstBlock = true;
@@ -614,14 +615,14 @@ std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                 const float h = 8.0f * s;
                 bl.localBounds = Rect(contentBounds.x, curY, availW, h);
                 curY += h;
-                out.totalWidth = std::max(out.totalWidth, availW);
+                out.totalWidth = keel::max(out.totalWidth, availW);
                 break;
             }
 
             case BlockKind::Heading: {
                 const float hFs = HeadingFontSize(blk.headingLevel, opts, theme, effZoom);
                 const float headingInlineCodeFs = opts.inlineCodeFontSize.has_value()
-                    ? (inlineCodeFs * (hFs / std::max(1.0f, bodyFs)) * 0.85f)
+                    ? (inlineCodeFs * (hFs / keel::max(1.0f, bodyFs)) * 0.85f)
                     : (hFs * 0.75f);
                 const float startY = curY;
                 bl.flowLocalOrigin = {contentBounds.x, curY};
@@ -646,7 +647,7 @@ std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                     curY += 2.0f * s;
                 }
                 bl.localBounds = Rect(contentBounds.x, startY, availW, curY - startY);
-                out.totalWidth = std::max(out.totalWidth, bl.flow.width);
+                out.totalWidth = keel::max(out.totalWidth, bl.flow.width);
                 break;
             }
 
@@ -668,14 +669,14 @@ std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                 CommitInlineFlowToDocument(bl.flow, bl.flowLocalOrigin, out.textMap, out.linkRegions);
                 curY += bl.flow.height;
                 bl.localBounds = Rect(contentBounds.x, startY, availW, bl.flow.height);
-                out.totalWidth = std::max(out.totalWidth, bl.flow.width);
+                out.totalWidth = keel::max(out.totalWidth, bl.flow.width);
                 break;
             }
 
             case BlockKind::Blockquote: {
                 const float padX = blkPad + 2.0f * s;
                 const float padY = blkPad * 0.7f;
-                const float innerW = std::max(40.0f, availW - padX * 2.0f);
+                const float innerW = keel::max(40.0f, availW - padX * 2.0f);
                 bl.flowLocalOrigin = {contentBounds.x + padX, curY + padY};
                 bl.flow = BuildInlineFlowLayout(
                     canvas,
@@ -694,7 +695,7 @@ std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                 bl.localBounds = Rect(contentBounds.x, curY, availW, boxH);
                 bl.boxRadius = blkRad;
                 curY += boxH;
-                out.totalWidth = std::max(out.totalWidth, availW);
+                out.totalWidth = keel::max(out.totalWidth, availW);
                 break;
             }
 
@@ -702,7 +703,7 @@ std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                 const float padX = blkPad + 4.0f * s;
                 const float padY = blkPad * 0.85f;
                 const float headerH = 20.0f * s;
-                const float innerW = std::max(40.0f, availW - padX * 2.0f);
+                const float innerW = keel::max(40.0f, availW - padX * 2.0f);
                 bl.padX = padX;
                 bl.padY = padY;
                 bl.headerH = headerH;
@@ -724,14 +725,14 @@ std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                 const float boxH = padY * 2.0f + headerH + 4.0f * s + bl.flow.height;
                 bl.localBounds = Rect(contentBounds.x, curY, availW, boxH);
                 curY += boxH;
-                out.totalWidth = std::max(out.totalWidth, availW);
+                out.totalWidth = keel::max(out.totalWidth, availW);
                 break;
             }
 
             case BlockKind::ListItem: {
                 const float indent = static_cast<float>(blk.indentLevel) * listStep + (listStep + 4.0f * s);
                 const float itemX = contentBounds.x + indent;
-                const float itemW = std::max(40.0f, availW - indent);
+                const float itemW = keel::max(40.0f, availW - indent);
                 const float lineH = (canvas ? canvas->GetLineHeight(bodyFs) : theme.GetLineHeight(bodyFs)) * lhScale;
                 const float markerX = itemX - 18.0f * s;
 
@@ -764,19 +765,19 @@ std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                     FontStyle::Regular
                 );
                 CommitInlineFlowToDocument(bl.flow, bl.flowLocalOrigin, out.textMap, out.linkRegions);
-                bl.localBounds = Rect(contentBounds.x, curY, availW, std::max(lineH, bl.flow.height));
+                bl.localBounds = Rect(contentBounds.x, curY, availW, keel::max(lineH, bl.flow.height));
                 curY += bl.flow.height;
-                out.totalWidth = std::max(out.totalWidth, indent + bl.flow.width);
+                out.totalWidth = keel::max(out.totalWidth, indent + bl.flow.width);
                 break;
             }
 
             case BlockKind::CodeBlock: {
-                std::vector<std::string_view> codeLines;
+                keel::Array<keel::StringRef> codeLines;
                 size_t p = 0;
-                std::string_view raw = blk.rawText;
+                keel::StringRef raw = blk.rawText;
                 while (p <= raw.size()) {
                     const size_t nl = raw.find('\n', p);
-                    if (nl == std::string_view::npos) {
+                    if (nl == keel::StringRef::npos) {
                         codeLines.push_back(raw.substr(p));
                         break;
                     }
@@ -790,8 +791,8 @@ std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                 const float padX = blkPad;
                 const float gutterW = opts.codeLineNumbers ? (36.0f * s) : 0.0f;
                 const float codeStartX = contentBounds.x + gutterW + padX;
-                const float codeAvailW = std::max(48.0f * s, availW - gutterW - padX * 2.0f);
-                const float spaceW = std::max(1.0f, MeasureStyledSlice(canvas, " ", codeFs, FontStyle::Monospace));
+                const float codeAvailW = keel::max(48.0f * s, availW - gutterW - padX * 2.0f);
+                const float spaceW = keel::max(1.0f, MeasureStyledSlice(canvas, " ", codeFs, FontStyle::Monospace));
                 const float codeGlyphH = canvas ? canvas->MeasureTextStyled("Mg", codeFs, FontStyle::Monospace).y : codeFs;
 
                 SyntaxConfig synCfg = SyntaxConfig::ForLanguage(blk.codeLang);
@@ -802,13 +803,13 @@ std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                     ? opts.codePalette->identifier
                     : theme.palette.textPrimary;
 
-                std::vector<TextSpan> syntaxSpans;
+                keel::Array<TextSpan> syntaxSpans;
                 bool inBlockComment = false;
 
                 bl.codeVisualLines.reserve(codeLines.size());
 
                 for (size_t ln = 0; ln < codeLines.size(); ++ln) {
-                    const std::string_view lineStr = codeLines[ln];
+                    const keel::StringRef lineStr = codeLines[ln];
                     syntaxSpans.clear();
                     if (opts.syntaxHighlight && !lineStr.empty()) {
                         TextArea::HighlightLine(
@@ -826,8 +827,8 @@ std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                         const size_t vIdx = bl.codeVisualLines.size();
                         const float ly = curY + headerH + padY + static_cast<float>(vIdx) * codeLineH;
                         const float textY = ly + (codeLineH - ((codeGlyphH > 0.0f) ? codeGlyphH : codeFs)) * 0.5f;
-                        const std::string_view sliceStr = lineStr.substr(startCol, len);
-                        const float lineW = std::max(spaceW, MeasureStyledSlice(canvas, sliceStr, codeFs, FontStyle::Monospace));
+                        const keel::StringRef sliceStr = lineStr.substr(startCol, len);
+                        const float lineW = keel::max(spaceW, MeasureStyledSlice(canvas, sliceStr, codeFs, FontStyle::Monospace));
                         const Rect lineRect(codeStartX, ly, lineW, codeLineH);
 
                         const size_t tokIdx = out.textMap.tokens.size();
@@ -862,10 +863,10 @@ std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                                 for (const TextSpan& sp : syntaxSpans) {
                                     const size_t spStart = static_cast<size_t>(sp.startCol);
                                     const size_t spEnd = spStart + static_cast<size_t>(sp.length);
-                                    const size_t segStart = std::max(spStart, startCol);
-                                    const size_t segEnd = std::min({spEnd, sliceEnd, lineStr.size()});
+                                    const size_t segStart = keel::max(spStart, startCol);
+                                    const size_t segEnd = keel::min(spEnd, keel::min(sliceEnd, lineStr.size()));
                                     if (segEnd > segStart) {
-                                        const std::string_view tok = lineStr.substr(segStart, segEnd - segStart);
+                                        const keel::StringRef tok = lineStr.substr(segStart, segEnd - segStart);
                                         bool allSpaces = true;
                                         for (char ch : tok) {
                                             if (ch != ' ' && ch != '\t') {
@@ -886,7 +887,7 @@ std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                             }
                         }
 
-                        bl.codeVisualLines.push_back(std::move(vline));
+                        bl.codeVisualLines.push_back(keel::move(vline));
                     };
 
                     if (lineStr.empty()) {
@@ -901,8 +902,8 @@ std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
 
                     size_t pos = 0;
                     while (pos < lineStr.size()) {
-                        const size_t approxChars = std::max<size_t>(1, static_cast<size_t>(std::floor(codeAvailW / spaceW)));
-                        size_t fitEnd = std::min(lineStr.size(), pos + approxChars);
+                        const size_t approxChars = keel::max<size_t>(1, static_cast<size_t>(std::floor(codeAvailW / spaceW)));
+                        size_t fitEnd = keel::min(lineStr.size(), pos + approxChars);
                         while (fitEnd < lineStr.size() && (static_cast<unsigned char>(lineStr[fitEnd]) & 0xC0) == 0x80) {
                             ++fitEnd;
                         }
@@ -936,7 +937,7 @@ std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                             }
                         }
                         if (splitEnd <= pos) {
-                            splitEnd = std::min(lineStr.size(), pos + 1);
+                            splitEnd = keel::min(lineStr.size(), pos + 1);
                             while (splitEnd < lineStr.size() && (static_cast<unsigned char>(lineStr[splitEnd]) & 0xC0) == 0x80) {
                                 ++splitEnd;
                             }
@@ -969,7 +970,7 @@ std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                 });
 
                 curY += totalBoxH;
-                out.totalWidth = std::max(out.totalWidth, availW);
+                out.totalWidth = keel::max(out.totalWidth, availW);
                 break;
             }
 
@@ -981,9 +982,9 @@ std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                 }
                 const Vec2 scaledNat = { nat.x * s, nat.y * s };
                 const float maxH = opts.imageMaxHeight * s;
-                const float scaleFactor = std::min({1.0f, availW / scaledNat.x, maxH / scaledNat.y});
-                const float imgW = std::max(40.0f, scaledNat.x * scaleFactor);
-                const float imgH = std::max(30.0f, scaledNat.y * scaleFactor);
+                const float scaleFactor = keel::min(1.0f, keel::min(availW / scaledNat.x, maxH / scaledNat.y));
+                const float imgW = keel::max(40.0f, scaledNat.x * scaleFactor);
+                const float imgH = keel::max(30.0f, scaledNat.y * scaleFactor);
                 const float imgX = contentBounds.x + (availW - imgW) * 0.5f;
                 bl.imgLocalRect = Rect(imgX, curY, imgW, imgH);
                 bl.imgRadius = opts.imageRadius * s;
@@ -1011,23 +1012,23 @@ std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                     curY += bl.flow.height;
                 }
                 bl.localBounds = Rect(contentBounds.x, startY, availW, curY - startY);
-                out.totalWidth = std::max(out.totalWidth, availW);
+                out.totalWidth = keel::max(out.totalWidth, availW);
                 break;
             }
 
             case BlockKind::Table: {
                 if (blk.tableRows.empty()) break;
-                size_t numCols = std::max<size_t>(1, blk.tableAligns.size());
+                size_t numCols = keel::max<size_t>(1, blk.tableAligns.size());
                 for (const auto& r : blk.tableRows) {
-                    numCols = std::max(numCols, r.size());
+                    numCols = keel::max(numCols, r.size());
                 }
 
-                const float cellPadX = std::clamp(availW / (static_cast<float>(numCols) * 14.0f), 4.5f * s, 10.0f * s);
-                const float cellPadY = std::clamp(cellPadX * 0.7f, 4.5f * s, 7.0f * s);
+                const float cellPadX = keel::clamp(availW / (static_cast<float>(numCols) * 14.0f), 4.5f * s, 10.0f * s);
+                const float cellPadY = keel::clamp(cellPadX * 0.7f, 4.5f * s, 7.0f * s);
 
                 // 1. Single-pass intrinsic width measurement per cell
-                std::vector<float> minTextW(numCols, 24.0f * s);
-                std::vector<float> naturalTextW(numCols, 24.0f * s);
+                keel::Array<float> minTextW(numCols, 24.0f * s);
+                keel::Array<float> naturalTextW(numCols, 24.0f * s);
 
                 for (size_t r = 0; r < blk.tableRows.size(); ++r) {
                     const FontStyle rowBaseStyle = (r == 0) ? FontStyle::Bold : FontStyle::Regular;
@@ -1041,29 +1042,29 @@ std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                             rowBaseStyle,
                             s
                         );
-                        minTextW[c] = std::max(minTextW[c], cellMinTokW);
-                        naturalTextW[c] = std::max(naturalTextW[c], cellNatW);
+                        minTextW[c] = keel::max(minTextW[c], cellMinTokW);
+                        naturalTextW[c] = keel::max(naturalTextW[c], cellNatW);
                     }
                 }
 
                 float sumMinTextW = 0.0f;
                 for (size_t c = 0; c < numCols; ++c) {
-                    minTextW[c] = std::min(minTextW[c], naturalTextW[c]);
+                    minTextW[c] = keel::min(minTextW[c], naturalTextW[c]);
                     sumMinTextW += minTextW[c];
                 }
 
                 const float totalPadW = static_cast<float>(numCols) * cellPadX * 2.0f;
-                const float availTextW = std::max(32.0f * s, availW - totalPadW);
+                const float availTextW = keel::max(32.0f * s, availW - totalPadW);
                 const float tableFontScale = (availTextW < sumMinTextW * 1.03f && sumMinTextW > 0.0f)
-                    ? std::clamp(availTextW / (sumMinTextW * 1.03f), 0.68f, 1.0f)
+                    ? keel::clamp(availTextW / (sumMinTextW * 1.03f), 0.68f, 1.0f)
                     : 1.0f;
                 const float tableBodyFs = bodyFs * tableFontScale;
                 const float tableCodeFs = inlineCodeFs * tableFontScale;
                 const float tableEffZoom = effZoom * tableFontScale;
                 const float minRowH = (canvas ? canvas->GetLineHeight(tableBodyFs) : theme.GetLineHeight(tableBodyFs)) * lhScale + cellPadY * 2.0f;
 
-                std::vector<float> minColW(numCols, 0.0f);
-                std::vector<float> naturalColW(numCols, 0.0f);
+                keel::Array<float> minColW(numCols, 0.0f);
+                keel::Array<float> naturalColW(numCols, 0.0f);
                 float sumMinW = 0.0f;
                 float sumNatW = 0.0f;
                 for (size_t c = 0; c < numCols; ++c) {
@@ -1091,7 +1092,7 @@ std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                     }
                 }
 
-                bl.colX.resize(numCols, contentBounds.x);
+                bl.colX.assign(numCols, contentBounds.x);
                 {
                     float accumX = contentBounds.x;
                     for (size_t c = 0; c < numCols; ++c) {
@@ -1102,8 +1103,12 @@ std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
 
                 // 2. Build each cell's InlineFlowLayout ONCE, compute rowHeights, and commit tokens at centered Y
                 const size_t numRows = blk.tableRows.size();
-                bl.cellFlows.resize(numRows, std::vector<InlineFlowLayout>(numCols));
-                bl.cellFlowOrigins.resize(numRows, std::vector<Vec2>(numCols));
+                bl.cellFlows.resize(numRows);
+                bl.cellFlowOrigins.resize(numRows);
+                for (size_t r = 0; r < numRows; ++r) {
+                    bl.cellFlows[r].resize(numCols);
+                    bl.cellFlowOrigins[r].resize(numCols);
+                }
                 bl.rowHeights.assign(numRows, minRowH);
                 float tableH = 0.0f;
 
@@ -1113,7 +1118,7 @@ std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                     float maxCellH = 0.0f;
                     for (size_t c = 0; c < numCols && c < rowCells.size(); ++c) {
                         const Align colAlign = (c < blk.tableAligns.size()) ? blk.tableAligns[c] : Align::Start;
-                        const float cellInnerW = std::max(8.0f, bl.colWidths[c] - cellPadX * 2.0f);
+                        const float cellInnerW = keel::max(8.0f, bl.colWidths[c] - cellPadX * 2.0f);
                         bl.cellFlows[r][c] = BuildInlineFlowLayout(
                             canvas,
                             rowCells[c].spans,
@@ -1127,9 +1132,9 @@ std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                             cellStyle,
                             colAlign
                         );
-                        maxCellH = std::max(maxCellH, bl.cellFlows[r][c].height);
+                        maxCellH = keel::max(maxCellH, bl.cellFlows[r][c].height);
                     }
-                    bl.rowHeights[r] = std::max(minRowH, maxCellH + cellPadY * 2.0f);
+                    bl.rowHeights[r] = keel::max(minRowH, maxCellH + cellPadY * 2.0f);
                     tableH += bl.rowHeights[r];
                 }
 
@@ -1139,7 +1144,7 @@ std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                     const auto& rowCells = blk.tableRows[r];
                     for (size_t c = 0; c < numCols && c < rowCells.size(); ++c) {
                         const float cellContentH = bl.cellFlows[r][c].height;
-                        const float cellContentY = ry + std::max(cellPadY, (rowH - cellContentH) * 0.5f);
+                        const float cellContentY = ry + keel::max(cellPadY, (rowH - cellContentH) * 0.5f);
                         const Vec2 cellOrigin{bl.colX[c] + cellPadX, cellContentY};
                         bl.cellFlowOrigins[r][c] = cellOrigin;
                         CommitInlineFlowToDocument(bl.cellFlows[r][c], cellOrigin, out.textMap, out.linkRegions);
@@ -1152,29 +1157,29 @@ std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                 bl.padX = cellPadX;
                 bl.padY = cellPadY;
                 curY += tableH;
-                out.totalWidth = std::max(out.totalWidth, availW);
+                out.totalWidth = keel::max(out.totalWidth, availW);
                 break;
             }
         }
 
-        out.blocks.push_back(std::move(bl));
+        out.blocks.push_back(keel::move(bl));
     }
 
-    out.totalHeight = std::max(0.0f, curY + docPad);
+    out.totalHeight = keel::max(0.0f, curY + docPad);
     out.totalWidth += docPad * 2.0f;
     return layoutPtr;
 }
 
-std::shared_ptr<const MarkdownDocumentLayout> GetOrBuildMarkdownLayout(
+keel::Arc<const MarkdownDocumentLayout> GetOrBuildMarkdownLayout(
     ICanvas* canvas,
     float outerWidth,
-    const std::shared_ptr<const ParsedMarkdownDoc>& doc,
+    const keel::Arc<const ParsedMarkdownDoc>& doc,
     const MarkdownOptions& opts,
     const UiTheme& theme,
     float zoom
 ) {
-    thread_local keel::LruCache<uint64_t, std::shared_ptr<const MarkdownDocumentLayout>, 32> s_layoutCache;
-    const float effZoom = std::clamp(zoom, 0.5f, 3.0f);
+    thread_local keel::LruCache<uint64_t, keel::Arc<const MarkdownDocumentLayout>, 32> s_layoutCache;
+    const float effZoom = keel::clamp(zoom, 0.5f, 3.0f);
     const uint64_t key = ComputeMarkdownLayoutKey(doc->sourceHash, outerWidth, effZoom, opts, theme, canvas != nullptr);
 
     if (const auto* cached = s_layoutCache.find(key)) {
@@ -1182,7 +1187,7 @@ std::shared_ptr<const MarkdownDocumentLayout> GetOrBuildMarkdownLayout(
     }
 
     auto built = BuildMarkdownDocumentLayout(canvas, outerWidth, doc, opts, theme, effZoom, key);
-    return s_layoutCache.put(key, std::move(built));
+    return s_layoutCache.put(key, keel::move(built));
 }
 
 // --- Phase 3A: O(1) / O(K) Document Hit-Testing (Zero Layout, Zero Font Measurement) ---
@@ -1453,7 +1458,7 @@ void RenderMarkdownDocumentLayout(
                 );
 
                 const float lblFs = theme.GetFontSize(TextRole::LabelSmall) * effZoom;
-                const std::string_view langLabel = blk.codeLang.empty() ? "code" : std::string_view(blk.codeLang);
+                const keel::StringRef langLabel = blk.codeLang.empty() ? keel::StringRef("code") : blk.codeLang.as_ref();
                 canvas.DrawTextStyled(
                     langLabel,
                     {screenBlk.x + bl.padX, screenBlk.y + (bl.headerH - lblFs) * 0.5f},
@@ -1541,7 +1546,7 @@ void RenderMarkdownDocumentLayout(
                     }
 
                     if (opts.codeShowWhitespace && !vline.sliceStr.empty() && bl.spaceW > 0.0f) {
-                        const float dotR = std::max(1.2f, 1.4f * s);
+                        const float dotR = keel::max(1.2f, 1.4f * s);
                         const float cy = screenLy + bl.codeLineH * 0.5f;
                         for (size_t c = 0; c < vline.sliceStr.size(); ++c) {
                             if (vline.sliceStr[c] == ' ') {
@@ -1586,7 +1591,7 @@ void RenderMarkdownDocumentLayout(
                 }
                 if (!canvas.DrawImage(blk.rawText, imgRect, bl.imgRadius, 255)) {
                     canvas.DrawTextBox(
-                        blk.imageAlt.empty() ? blk.rawText : std::string_view(blk.imageAlt),
+                        blk.imageAlt.empty() ? blk.rawText.as_ref() : blk.imageAlt.as_ref(),
                         imgRect.Inset(8.0f),
                         theme.GetFontSize(TextRole::LabelMedium) * effZoom,
                         theme.palette.textMuted,
@@ -1639,7 +1644,7 @@ void RenderMarkdownDocumentLayout(
                             canvas.DrawLine({cx, ry}, {cx, ry + rowH}, theme.palette.borderSubtle, 1.0f);
                         }
                         if (r < bl.cellFlows.size() && c < bl.cellFlows[r].size() && !bl.cellFlows[r][c].items.empty()) {
-                            canvas.PushClip(Rect(cx + 1.0f, ry + 1.0f, std::max(1.0f, cw - 2.0f), std::max(1.0f, rowH - 2.0f)));
+                            canvas.PushClip(Rect(cx + 1.0f, ry + 1.0f, keel::max(1.0f, cw - 2.0f), keel::max(1.0f, rowH - 2.0f)));
                             RenderInlineFlowLayout(
                                 canvas,
                                 bl.cellFlows[r][c],
@@ -1666,31 +1671,31 @@ struct MarkdownState {
     uint64_t docSourceHash{0};
     int copiedBlockIndex{-1};
     float zoom{1.0f};
-    std::shared_ptr<const MarkdownDocumentLayout> cachedLayout{};
+    keel::Arc<const MarkdownDocumentLayout> cachedLayout{};
 
     // Selection & Cursor state
     size_t cursorOffset{0};
     size_t selAnchorOffset{0};
     bool isDraggingSelection{false};
     float preferredCursorX{-1.0f};
-    std::string cachedSelectedText{};
+    keel::String cachedSelectedText{};
 
     // Interactive Task List overrides
     keel::HashMap<int, bool> taskOverrides{};
 
     // In-document Search state
     bool searchBarOpen{false};
-    std::string searchQuery{};
+    keel::String searchQuery{};
     int activeSearchMatch{0};
 
     bool HasSelection() const noexcept {
         return cursorOffset != selAnchorOffset;
     }
     size_t SelMin() const noexcept {
-        return std::min(cursorOffset, selAnchorOffset);
+        return keel::min(cursorOffset, selAnchorOffset);
     }
     size_t SelMax() const noexcept {
-        return std::max(cursorOffset, selAnchorOffset);
+        return keel::max(cursorOffset, selAnchorOffset);
     }
 };
 
@@ -1741,7 +1746,7 @@ MarkdownOptions CloneMarkdownOptionsWithoutCallbacks(const MarkdownOptions& src)
 }
 
 struct MarkdownPayload {
-    std::string_view text{};
+    keel::StringRef text{};
     MarkdownOptions opts{};
     float zoom{1.0f};
     int hoveredCopyBlock{-1};
@@ -1753,7 +1758,7 @@ struct MarkdownPayload {
     bool showCaret{false};
     size_t caretOffset{0};
     bool searchBarOpen{false};
-    std::string_view activeSearchQuery{};
+    keel::StringRef activeSearchQuery{};
     int activeSearchMatch{-1};
     int searchMatchCount{0};
     const keel::HashMap<int, bool>* taskOverrides{nullptr};
@@ -1765,9 +1770,9 @@ struct MarkdownPayload {
 
 MarkdownResponse Markdown::Run(
     Context& ctx,
-    std::string_view markdownText,
+    keel::StringRef markdownText,
     const MarkdownOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
     struct ThemePopGuard {
@@ -1797,7 +1802,7 @@ MarkdownResponse Markdown::Run(
     }
 
     if (optsCopy.zoom != nullptr) {
-        state.zoom = std::clamp(*optsCopy.zoom, 0.5f, 3.0f);
+        state.zoom = keel::clamp(*optsCopy.zoom, 0.5f, 3.0f);
     }
 
     Response baseRes = ctx.Interact(id);
@@ -1811,7 +1816,7 @@ MarkdownResponse Markdown::Run(
         bool zoomChanged = false;
         if (baseRes.hovered && ctx.GetKeyModifiers().ctrl && std::abs(ctx.GetMouseWheel().y) > 0.01f) {
             const float step = (ctx.GetMouseWheel().y > 0.0f) ? 0.1f : -0.1f;
-            const float nextZoom = std::clamp( std::round((state.zoom + step) * 10.0f) / 10.0f, 0.5f, 3.0f );
+            const float nextZoom = keel::clamp(std::round((state.zoom + step) * 10.0f) / 10.0f, 0.5f, 3.0f);
             if (std::abs(nextZoom - state.zoom) > 0.001f) {
                 state.zoom = nextZoom;
                 zoomChanged = true;
@@ -1819,10 +1824,10 @@ MarkdownResponse Markdown::Run(
         }
         if (isFocused || baseRes.hovered) {
             if (ctx.ConsumeAction(KeyAction::ZoomIn)) {
-                state.zoom = std::clamp(std::round((state.zoom + 0.1f) * 10.0f) / 10.0f, 0.5f, 3.0f);
+                state.zoom = keel::clamp(std::round((state.zoom + 0.1f) * 10.0f) / 10.0f, 0.5f, 3.0f);
                 zoomChanged = true;
             } else if (ctx.ConsumeAction(KeyAction::ZoomOut)) {
-                state.zoom = std::clamp(std::round((state.zoom - 0.1f) * 10.0f) / 10.0f, 0.5f, 3.0f);
+                state.zoom = keel::clamp(std::round((state.zoom - 0.1f) * 10.0f) / 10.0f, 0.5f, 3.0f);
                 zoomChanged = true;
             } else if (ctx.ConsumeAction(KeyAction::ZoomReset)) {
                 state.zoom = 1.0f;
@@ -1863,8 +1868,8 @@ MarkdownResponse Markdown::Run(
     );
 
     const size_t maxOffset = textMap.plainText.size();
-    state.cursorOffset = std::min(state.cursorOffset, maxOffset);
-    state.selAnchorOffset = std::min(state.selAnchorOffset, maxOffset);
+    state.cursorOffset = keel::min(state.cursorOffset, maxOffset);
+    state.selAnchorOffset = keel::min(state.selAnchorOffset, maxOffset);
 
     int hoveredCopyBlock = hit.hoveredCopyBlock;
 
@@ -1954,19 +1959,19 @@ MarkdownResponse Markdown::Run(
             } else if (ctx.ConsumeAction(KeyAction::DeletePrevChar)) {
                 if (!state.searchQuery.empty()) {
                     const size_t prev = TextUtil::PrevCharBoundary(state.searchQuery, state.searchQuery.size());
-                    state.searchQuery.erase(prev);
+                    state.searchQuery.resize(prev);
                     state.activeSearchMatch = 0;
                 }
             } else if (ctx.ConsumeAction(KeyAction::DeletePrevWord)) {
                 if (!state.searchQuery.empty()) {
                     const size_t prev = TextUtil::PrevWordBoundary(state.searchQuery, state.searchQuery.size());
-                    state.searchQuery.erase(prev);
+                    state.searchQuery.resize(prev);
                     state.activeSearchMatch = 0;
                 }
             } else {
                 const auto typedChunks = ctx.ConsumePendingTextInput();
                 if (!typedChunks.empty()) {
-                    for (const std::string& chunk : typedChunks) {
+                    for (const keel::String& chunk : typedChunks) {
                         for (char ch : chunk) {
                             if (static_cast<unsigned char>(ch) >= 32) {
                                 state.searchQuery.push_back(ch);
@@ -1980,7 +1985,7 @@ MarkdownResponse Markdown::Run(
 
         if (optsCopy.enableSelection) {
             auto moveCursorHoriz = [&](size_t newOff, bool extendSelection) {
-                state.cursorOffset = std::min(newOff, maxOffset);
+                state.cursorOffset = keel::min(newOff, maxOffset);
                 if (!extendSelection) {
                     state.selAnchorOffset = state.cursorOffset;
                 }
@@ -1994,7 +1999,7 @@ MarkdownResponse Markdown::Run(
                 if (state.preferredCursorX < 0.0f) {
                     state.preferredCursorX = GetCursorXForOffset(textMap, hitCanvas, state.cursorOffset);
                 }
-                const int targetLine = std::clamp(
+                const int targetLine = keel::clamp(
                     static_cast<int>(curLine) + lineDelta,
                     0,
                     static_cast<int>(textMap.lines.size()) - 1
@@ -2012,7 +2017,7 @@ MarkdownResponse Markdown::Run(
                 if (state.HasSelection()) {
                     const size_t s0 = state.SelMin();
                     const size_t s1 = state.SelMax();
-                    ctx.SetClipboardText(std::string_view(textMap.plainText).substr(s0, s1 - s0));
+                    ctx.SetClipboardText(textMap.plainText.as_ref().substr(s0, s1 - s0));
                 }
             } else if (ctx.ConsumeAction(KeyAction::SelectAll)) {
                 state.selAnchorOffset = 0;
@@ -2093,9 +2098,9 @@ MarkdownResponse Markdown::Run(
     }
 
     // 5. Compute Search Matches & Selected Text for Response
-    const std::string_view effectiveQuery = !optsCopy.searchQuery.empty()
+    const keel::StringRef effectiveQuery = !optsCopy.searchQuery.empty()
         ? optsCopy.searchQuery
-        : std::string_view(state.searchQuery);
+        : state.searchQuery.as_ref();
     const auto matches = FindSearchMatches(textMap.plainText, effectiveQuery);
     res.searchMatchCount = static_cast<int>(matches.size());
     if (!matches.empty()) {
@@ -2110,8 +2115,8 @@ MarkdownResponse Markdown::Run(
     }
 
     if (state.HasSelection() && state.SelMax() <= textMap.plainText.size()) {
-        state.cachedSelectedText = textMap.plainText.substr(state.SelMin(), state.SelMax() - state.SelMin());
-        res.selectedText = state.cachedSelectedText;
+        state.cachedSelectedText.assign(textMap.plainText.as_ref().substr(state.SelMin(), state.SelMax() - state.SelMin()));
+        res.selectedText = state.cachedSelectedText.as_ref();
     }
 
     // 6. Create Node & Payload
@@ -2223,7 +2228,7 @@ MarkdownResponse Markdown::Run(
             }
         }
 
-        std::shared_ptr<const MarkdownDocumentLayout> layoutHolder;
+        keel::Arc<const MarkdownDocumentLayout> layoutHolder;
         const MarkdownDocumentLayout& layout =
             (p->layout != nullptr && std::abs(p->layout->totalWidth - ctrlRect.w) < 1.0f)
                 ? *p->layout
@@ -2239,7 +2244,7 @@ MarkdownResponse Markdown::Run(
         overlay.activeSearchMatch = p->activeSearchMatch;
         overlay.taskOverrides = p->taskOverrides;
 
-        std::vector<SearchMatchRange> matches;
+        keel::Array<SearchMatchRange> matches;
         if (!p->activeSearchQuery.empty()) {
             matches = FindSearchMatches(layout.textMap.plainText, p->activeSearchQuery);
             overlay.searchMatches = &matches;
@@ -2275,9 +2280,9 @@ MarkdownResponse Markdown::Run(
             );
             canvas.DrawRoundRect(barRect, 6.0f * s, th.palette.surfaceElevated, th.palette.accent, 1.2f);
             const float fs = th.GetFontSize(TextRole::BodySmall);
-            const std::string disp = p->activeSearchQuery.empty()
-                ? "Find in document..."
-                : std::string(p->activeSearchQuery);
+            const keel::StringRef disp = p->activeSearchQuery.empty()
+                ? keel::StringRef("Find in document...")
+                : p->activeSearchQuery;
             canvas.DrawTextBox(
                 disp,
                 Rect(barRect.x + 10.0f * s, barRect.y, barW - 76.0f * s, barH),
@@ -2332,7 +2337,7 @@ MarkdownResponse Markdown::Run(
 }
 
 Vec2 Markdown::Measure(
-    std::string_view markdownText,
+    keel::StringRef markdownText,
     const MarkdownOptions& opts,
     UiSize size,
     ICanvas* canvas,
@@ -2341,7 +2346,7 @@ Vec2 Markdown::Measure(
 ) {
     (void)size;
     const auto doc = GetOrParseMarkdown(markdownText);
-    const float effZoom = (opts.zoom != nullptr) ? std::clamp(*opts.zoom, 0.5f, 3.0f) : 1.0f;
+    const float effZoom = (opts.zoom != nullptr) ? keel::clamp(*opts.zoom, 0.5f, 3.0f) : 1.0f;
 
     float ctrlW = (availableWidth > 0.0f) ? availableWidth : theme.Scale(520.0f);
     if (Control::HasExplicitDpWidth(opts.stretch, opts.width, opts.widthRatio)) {
@@ -2356,13 +2361,13 @@ Vec2 Markdown::Measure(
     const float finalH = (opts.height.has_value() && *opts.height > 0.0f)
         ? theme.Scale(*opts.height)
         : layout->totalHeight;
-    return { std::max(ctrlW, layout->totalWidth), finalH };
+    return { keel::max(ctrlW, layout->totalWidth), finalH };
 }
 
 void Markdown::Render(
     ICanvas& canvas,
     Rect bounds,
-    std::string_view markdownText,
+    keel::StringRef markdownText,
     const MarkdownOptions& opts,
     UiSize size,
     Vec2 mousePos,
@@ -2385,7 +2390,7 @@ void Markdown::Render(
     }
 
     const auto doc = GetOrParseMarkdown(markdownText);
-    const float effZoom = (opts.zoom != nullptr) ? std::clamp(*opts.zoom, 0.5f, 3.0f) : 1.0f;
+    const float effZoom = (opts.zoom != nullptr) ? keel::clamp(*opts.zoom, 0.5f, 3.0f) : 1.0f;
 
     const auto layout = GetOrBuildMarkdownLayout(&canvas, bounds.w, doc, opts, theme, effZoom);
     const MarkdownPassResult hit = HitTestMarkdownLayout(

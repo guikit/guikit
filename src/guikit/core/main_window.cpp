@@ -1,8 +1,9 @@
 #include "guikit/core/main_window.hpp"
 
-#include <algorithm>
-#include <chrono>
-#include <iostream>
+#include <cmath>
+#include "keel/core.h"
+#include "keel/format.h"
+#include "keel/time.h"
 
 namespace guikit {
 
@@ -16,16 +17,16 @@ void RegisterDefaultWindowBackendFactory(WindowBackendFactory factory) noexcept 
     g_defaultWindowBackendFactory = factory;
 }
 
-std::unique_ptr<IWindowBackend> CreateDefaultWindowBackend() {
+keel::UniquePtr<IWindowBackend> CreateDefaultWindowBackend() {
     if (g_defaultWindowBackendFactory != nullptr) {
         return g_defaultWindowBackendFactory();
     }
     return nullptr;
 }
 
-MainWindow::MainWindow(MainWindowConfig config, std::unique_ptr<IWindowBackend> backend)
-    : m_config(std::move(config))
-    , m_backend(backend ? std::move(backend) : CreateDefaultWindowBackend())
+MainWindow::MainWindow(MainWindowConfig config, keel::UniquePtr<IWindowBackend> backend)
+    : m_config(keel::move(config))
+    , m_backend(backend ? keel::move(backend) : CreateDefaultWindowBackend())
     , m_shellTheme(m_config.initialTheme.has_value()
                    ? *m_config.initialTheme
                    : (m_config.initialThemeMode == ThemeMode::Light
@@ -39,7 +40,7 @@ MainWindow::MainWindow(MainWindowConfig config, std::unique_ptr<IWindowBackend> 
     if (!m_config.initialTheme.has_value()) {
         m_shellTheme.SetShellStyle(m_config.initialShellStyle);
     }
-    m_ui.SetOpenUrlCallback([this](std::string_view url) { OpenUrl(url); });
+    m_ui.SetOpenUrlCallback([this](keel::StringRef url) { OpenUrl(url); });
     SetShellScale(m_config.initialScale);
     for (size_t i = 0; i < kHeartbeatMsValues.size(); ++i) {
         if (kHeartbeatMsValues[i] == m_config.idleHeartbeatMs) {
@@ -56,7 +57,7 @@ MainWindow::~MainWindow() {
 }
 
 int MainWindow::Run(RenderCallback renderCallback) {
-    m_renderCallback = std::move(renderCallback);
+    m_renderCallback = keel::move(renderCallback);
     return Run();
 }
 
@@ -64,7 +65,7 @@ int MainWindow::Run() {
     if (!m_backend) {
         m_backend = CreateDefaultWindowBackend();
         if (!m_backend) {
-            std::cerr << "guikit::MainWindow::Run() failed: no IWindowBackend registered or provided.\n";
+            keel::eprintln("guikit::MainWindow::Run() failed: no IWindowBackend registered or provided.");
             return 1;
         }
     }
@@ -73,7 +74,7 @@ int MainWindow::Run() {
     m_ui.SetClearColor(m_shellTheme.palette.background);
     m_ui.SetIdleHeartbeatMs(m_config.idleHeartbeatMs);
 
-    const WindowHostCallbacks hostCallbacks{
+    WindowHostCallbacks hostCallbacks{
         .onCloseRequested = [this]() -> bool {
             if (OnCloseRequested()) {
                 m_running = false;
@@ -89,7 +90,7 @@ int MainWindow::Run() {
         }
     };
 
-    if (!m_backend->Initialize(m_config, m_ui, hostCallbacks)) {
+    if (!m_backend->Initialize(m_config, m_ui, keel::move(hostCallbacks))) {
         return 1;
     }
 
@@ -174,7 +175,7 @@ void MainWindow::RenderFrame() {
 
     m_backend->PrepareFrameTarget(m_ui);
 
-    const auto frameWorkStart = std::chrono::steady_clock::now();
+    const keel::u64 frameWorkStartNs = keel::monotonic_ns();
     m_metrics.BeginFrame();
 
     m_ui.BeginFrame({static_cast<float>(winW), static_cast<float>(winH)}, GetDpiScale());
@@ -216,16 +217,20 @@ void MainWindow::RenderFrame() {
     }
 
     if (shouldPresent && !m_backend->IsVsyncEnabled() && !m_reactiveMode) {
-        const auto frameEnd = std::chrono::steady_clock::now();
-        const double frameElapsedMs = std::chrono::duration<double, std::milli>(frameEnd - frameWorkStart).count();
+        const keel::u64 frameEndNs = keel::monotonic_ns();
+        const double frameElapsedMs = (frameEndNs > frameWorkStartNs)
+            ? (static_cast<double>(frameEndNs - frameWorkStartNs) * 1e-6)
+            : 0.0;
         m_backend->PaceFrame(frameElapsedMs, true);
     }
 
-    m_metrics.EndFrame(std::max(1.0f, m_config.targetFps));
+    m_metrics.EndFrame(keel::max(1.0f, m_config.targetFps));
 
     if (!shouldPresent && m_ui.NeedsRepaint()) {
-        const auto frameEnd = std::chrono::steady_clock::now();
-        const double frameElapsedMs = std::chrono::duration<double, std::milli>(frameEnd - frameWorkStart).count();
+        const keel::u64 frameEndNs = keel::monotonic_ns();
+        const double frameElapsedMs = (frameEndNs > frameWorkStartNs)
+            ? (static_cast<double>(frameEndNs - frameWorkStartNs) * 1e-6)
+            : 0.0;
         m_backend->PaceFrame(frameElapsedMs, false);
     }
 }
@@ -236,7 +241,7 @@ void MainWindow::WakeUp() noexcept {
     }
 }
 
-void MainWindow::OpenUrl(std::string_view url) const noexcept {
+void MainWindow::OpenUrl(keel::StringRef url) const noexcept {
     if (m_backend) {
         m_backend->OpenUrl(url);
     }
@@ -326,7 +331,7 @@ void MainWindow::SetShellFloating(bool floating) noexcept {
 }
 
 void MainWindow::SetShellScale(float scale) noexcept {
-    m_shellScale = std::clamp(scale, 0.5f, 3.0f);
+    m_shellScale = keel::clamp(scale, 0.5f, 3.0f);
     size_t bestIdx = 0;
     float bestDiff = 1e9f;
     for (size_t i = 0; i < kScaleValues.size(); ++i) {
@@ -341,7 +346,7 @@ void MainWindow::SetShellScale(float scale) noexcept {
 }
 
 void MainWindow::SetShellScaleIndex(size_t index) noexcept {
-    m_shellScaleIndex = std::min(index, kScaleValues.size() - 1);
+    m_shellScaleIndex = keel::min(index, kScaleValues.size() - 1);
     m_shellScale = kScaleValues[m_shellScaleIndex];
     m_ui.InvalidateAll();
 }
@@ -360,8 +365,8 @@ void MainWindow::SetCommandPaletteOpen(bool open) noexcept {
 bool MainWindow::RenderSidebarCycleButton(
     ToolbarScope& tb,
     SidebarMode& mode,
-    std::string_view label,
-    std::string_view sidebarTitle,
+    keel::StringRef label,
+    keel::StringRef sidebarTitle,
     const Icon& icon
 ) {
     const StateColor btnColor = (mode == SidebarMode::Expanded)
@@ -370,7 +375,7 @@ bool MainWindow::RenderSidebarCycleButton(
             ? StateColor::Info()
             : StateColor::Ghost();
 
-    const std::string_view tooltip = (mode == SidebarMode::Expanded)
+    const keel::StringRef tooltip = (mode == SidebarMode::Expanded)
         ? m_ui.Format("{}: Expanded (Click for Compact Icons, Right-click to Collapse)", sidebarTitle)
         : (mode == SidebarMode::Compact)
             ? m_ui.Format("{}: Compact Icons (Click to Collapse, Right-click to Expand)", sidebarTitle)
@@ -408,12 +413,12 @@ bool MainWindow::RenderSidebarCycleButton(
 bool MainWindow::RenderSidebarToggle(
     ToolbarScope& tb,
     SidebarMode& mode,
-    std::string_view label,
-    std::string_view sidebarTitle,
+    keel::StringRef label,
+    keel::StringRef sidebarTitle,
     const Icon& icon
 ) {
     bool visible = (mode != SidebarMode::Collapsed);
-    const std::string_view tooltip = visible
+    const keel::StringRef tooltip = visible
         ? m_ui.Format("{}: Expanded (Click to Collapse)", sidebarTitle)
         : m_ui.Format("{}: Collapsed (Click to Expand)", sidebarTitle);
 
@@ -583,7 +588,7 @@ void MainWindow::RenderTelemetryStatus(StatusBarScope& sb, bool gpuSceneActive) 
 
 CommandPaletteResponse MainWindow::RenderCommandPalette(
     StatusBarScope& sb,
-    std::span<const CommandPaletteItem> items,
+    keel::ArrayRef<CommandPaletteItem> items,
     UiText placeholder
 ) {
     if (m_ui.ConsumeShortcut(Key::K, true)) {

@@ -1,9 +1,9 @@
 #include "guikit/widgets/car_cluster_view.hpp"
 
-#include <algorithm>
-#include <array>
 #include <cmath>
-#include <cstdio>
+#include "keel/core.h"
+#include "keel/format.h"
+#include "keel/ref.h"
 #include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 
@@ -206,31 +206,31 @@ void DrawGaugeNeedle(
 }
 
 void FormatGearText(GearSelector sel, int gear, char outMode[4], char outGear[8]) noexcept {
-    const int clampedGear = std::clamp(gear, 1, 8);
+    const int clampedGear = keel::clamp(gear, 1, 8);
     switch (sel) {
         case GearSelector::Park:
-            std::snprintf(outMode, 4, "P");
-            std::snprintf(outGear, 8, "PARK");
+            keel::format_buf(outMode, 4, "P");
+            keel::format_buf(outGear, 8, "PARK");
             break;
         case GearSelector::Reverse:
-            std::snprintf(outMode, 4, "R");
-            std::snprintf(outGear, 8, "REV");
+            keel::format_buf(outMode, 4, "R");
+            keel::format_buf(outGear, 8, "REV");
             break;
         case GearSelector::Neutral:
-            std::snprintf(outMode, 4, "N");
-            std::snprintf(outGear, 8, "NEUT");
+            keel::format_buf(outMode, 4, "N");
+            keel::format_buf(outGear, 8, "NEUT");
             break;
         case GearSelector::Drive:
-            std::snprintf(outMode, 4, "D");
-            std::snprintf(outGear, 8, "D%d", clampedGear);
+            keel::format_buf(outMode, 4, "D");
+            keel::format_buf(outGear, 8, "D%d", clampedGear);
             break;
         case GearSelector::Sport:
-            std::snprintf(outMode, 4, "S");
-            std::snprintf(outGear, 8, "S%d", clampedGear);
+            keel::format_buf(outMode, 4, "S");
+            keel::format_buf(outGear, 8, "S%d", clampedGear);
             break;
         case GearSelector::Manual:
-            std::snprintf(outMode, 4, "M");
-            std::snprintf(outGear, 8, "M%d", clampedGear);
+            keel::format_buf(outMode, 4, "M");
+            keel::format_buf(outGear, 8, "M%d", clampedGear);
             break;
     }
 }
@@ -249,22 +249,22 @@ void RenderShiftLightStrip(
 
     float loadNorm = 0.0f;
     if (opts.powertrain == PowertrainMode::IceTurbo) {
-        const float shiftStartRpm = std::max(2500.0f, opts.redlineRpm * 0.58f);
-        loadNorm = std::clamp((opts.rpm - shiftStartRpm) / std::max(500.0f, opts.redlineRpm - shiftStartRpm), 0.0f, 1.08f);
+        const float shiftStartRpm = keel::max(2500.0f, opts.redlineRpm * 0.58f);
+        loadNorm = keel::clamp((opts.rpm - shiftStartRpm) / keel::max(500.0f, opts.redlineRpm - shiftStartRpm), 0.0f, 1.08f);
     } else {
-        loadNorm = std::clamp(opts.evPowerKw / 420.0f, 0.0f, 1.08f);
+        loadNorm = keel::clamp(opts.evPowerKw / 420.0f, 0.0f, 1.08f);
     }
 
     constexpr int kNumLeds = 15;
     const float padX = 12.0f * s;
-    const float availW = std::max(40.0f, stripRect.w - padX * 2.0f);
+    const float availW = keel::max(40.0f, stripRect.w - padX * 2.0f);
     const float gap = 4.0f * s;
-    const float ledW = std::max(4.0f, (availW - gap * static_cast<float>(kNumLeds - 1)) / static_cast<float>(kNumLeds));
-    const float ledH = std::min(stripRect.h - 2.0f * s, 7.0f * s);
+    const float ledW = keel::max(4.0f, (availW - gap * static_cast<float>(kNumLeds - 1)) / static_cast<float>(kNumLeds));
+    const float ledH = keel::min(stripRect.h - 2.0f * s, 7.0f * s);
     const float y = stripRect.y + (stripRect.h - ledH) * 0.5f;
 
     const bool shiftFlash = (loadNorm >= 0.97f);
-    const int litCount = static_cast<int>(std::round(std::clamp(loadNorm, 0.0f, 1.0f) * static_cast<float>(kNumLeds)));
+    const int litCount = static_cast<int>(std::round(keel::clamp(loadNorm, 0.0f, 1.0f) * static_cast<float>(kNumLeds)));
 
     for (int i = 0; i < kNumLeds; ++i) {
         const float x = stripRect.x + padX + static_cast<float>(i) * (ledW + gap);
@@ -295,7 +295,7 @@ void DrawTurnSignalArrow(ICanvas& canvas, Rect box, bool isLeft, bool active, fl
     const Color fill = active ? Color(34, 197, 94, 255) : Color(30, 41, 59, 170);
     const Color stroke = active ? Color(134, 239, 172, 255) : Color(71, 85, 105, 150);
     const Vec2 c = box.Center();
-    const float w = std::min(box.w, box.h) * 0.44f;
+    const float w = keel::min(box.w, box.h) * 0.44f;
     const float h = w * 0.82f;
 
     if (isLeft) {
@@ -310,7 +310,7 @@ void DrawTurnSignalArrow(ICanvas& canvas, Rect box, bool isLeft, bool active, fl
 void DrawTelltalePill(
     ICanvas& canvas,
     Rect r,
-    std::string_view label,
+    keel::StringRef label,
     bool active,
     Color activeColor,
     float s
@@ -335,7 +335,7 @@ void RenderTelltaleBar(
     const bool leftBlink = (tt.leftTurn || tt.hazard) && tt.blinkPhaseOn;
     const bool rightBlink = (tt.rightTurn || tt.hazard) && tt.blinkPhaseOn;
 
-    const float arrowSize = std::min(barRect.h - 2.0f * s, 22.0f * s);
+    const float arrowSize = keel::min(barRect.h - 2.0f * s, 22.0f * s);
     const float cy = barRect.y + barRect.h * 0.5f;
 
     // Left Turn Arrow
@@ -347,7 +347,7 @@ void RenderTelltaleBar(
     DrawTurnSignalArrow(canvas, rightArrowRect, false, rightBlink, s);
 
     // Left cluster of lighting & chassis telltale badges
-    const float pillH = std::min(barRect.h - 4.0f * s, 18.0f * s);
+    const float pillH = keel::min(barRect.h - 4.0f * s, 18.0f * s);
     const float pillY = cy - pillH * 0.5f;
     float lx = leftArrowRect.Right() + 8.0f * s;
     const float gap = 5.0f * s;
@@ -364,7 +364,7 @@ void RenderTelltaleBar(
 
     // Right cluster of safety & warning telltale badges
     float rx = rightArrowRect.x - 8.0f * s;
-    auto pushRightPill = [&](std::string_view text, float w, bool on, Color c) {
+    auto pushRightPill = [&](keel::StringRef text, float w, bool on, Color c) {
         rx -= w;
         if (rx > lx + 80.0f * s) {
             DrawTelltalePill(canvas, Rect(rx, pillY, w, pillH), text, on, c, s);
@@ -390,18 +390,17 @@ void RenderTelltaleBar(
         case ClusterDriveTheme::TrackGold:    themeTitle = "TRACK";   break;
     }
     char centerBadge[64]{};
-    std::snprintf(
+    const keel::StringRef centerBadgeRef = keel::format_buf(
         centerBadge,
-        sizeof(centerBadge),
         "%s  ·  %s",
         themeTitle,
         (opts.powertrain == PowertrainMode::IceTurbo) ? "TWIN-TURBO 8-DCT" : "DUAL-MOTOR AWD"
     );
-    const float centerW = std::min(220.0f * s, std::max(100.0f * s, rx - lx - 12.0f * s));
+    const float centerW = keel::min(220.0f * s, keel::max(100.0f * s, rx - lx - 12.0f * s));
     if (centerW >= 100.0f * s) {
         const Rect centerPill(barRect.Center().x - centerW * 0.5f, pillY, centerW, pillH);
         canvas.DrawRoundRect(centerPill, pillH * 0.5f, pal.primaryAccent.WithAlpha(28), pal.primaryAccent.WithAlpha(185), 1.0f * s);
-        canvas.DrawTextBox(centerBadge, centerPill, 10.0f * s, pal.textBright, 0.5f, 0.5f);
+        canvas.DrawTextBox(centerBadgeRef, centerPill, 10.0f * s, pal.textBright, 0.5f, 0.5f);
     }
 }
 
@@ -416,7 +415,7 @@ void RenderSpeedometerDial(
     float s
 ) noexcept {
     const Vec2 center = dialBox.Center();
-    const float radius = std::min(dialBox.w, dialBox.h) * 0.47f;
+    const float radius = keel::min(dialBox.w, dialBox.h) * 0.47f;
     if (radius < 45.0f) return;
 
     // Outer metallic ring & recessed dial face
@@ -426,9 +425,9 @@ void RenderSpeedometerDial(
     // Scale parameters: 135 deg (7:30) to 405 deg (4:30) -> 270 deg sweep
     constexpr float kStartDeg = 135.0f;
     constexpr float kSweepDeg = 270.0f;
-    const float maxSpdDisp = std::max(60.0f, DisplaySpeed(opts.maxSpeedKmh, opts.speedUnit));
-    const float curSpdDisp = std::clamp(DisplaySpeed(opts.speedKmh, opts.speedUnit), 0.0f, maxSpdDisp);
-    const float spdNorm = std::clamp(curSpdDisp / maxSpdDisp, 0.0f, 1.0f);
+    const float maxSpdDisp = keel::max(60.0f, DisplaySpeed(opts.maxSpeedKmh, opts.speedUnit));
+    const float curSpdDisp = keel::clamp(DisplaySpeed(opts.speedKmh, opts.speedUnit), 0.0f, maxSpdDisp);
+    const float spdNorm = keel::clamp(curSpdDisp / maxSpdDisp, 0.0f, 1.0f);
     const float needleDeg = kStartDeg + spdNorm * kSweepDeg;
 
     // Background track arc & glowing active speed arc
@@ -441,7 +440,7 @@ void RenderSpeedometerDial(
 
     // Adaptive Cruise Control (ACC) target bug on the rim
     if (opts.cruiseSet && opts.telltales.adasCruiseActive) {
-        const float cruiseDisp = std::clamp(DisplaySpeed(opts.cruiseTargetKmh, opts.speedUnit), 0.0f, maxSpdDisp);
+        const float cruiseDisp = keel::clamp(DisplaySpeed(opts.cruiseTargetKmh, opts.speedUnit), 0.0f, maxSpdDisp);
         const float cruiseDeg = kStartDeg + (cruiseDisp / maxSpdDisp) * kSweepDeg;
         const float cRad = cruiseDeg * kDegToRad;
         const Vec2 bugTip{center.x + std::cos(cRad) * (arcR - 4.0f * s), center.y + std::sin(cRad) * (arcR - 4.0f * s)};
@@ -477,9 +476,8 @@ void RenderSpeedometerDial(
             const float labelR = radius * 0.65f;
             const Vec2 lp{center.x + std::cos(rad) * labelR, center.y + std::sin(rad) * labelR};
             char buf[16]{};
-            std::snprintf(buf, sizeof(buf), "%d", v);
             const Rect lblBox(lp.x - 16.0f * s, lp.y - 8.0f * s, 32.0f * s, 16.0f * s);
-            canvas.DrawTextBox(buf, lblBox, std::clamp(radius * 0.095f, 8.5f * s, 12.5f * s),
+            canvas.DrawTextBox(keel::format_buf(buf, "%d", v), lblBox, keel::clamp(radius * 0.095f, 8.5f * s, 12.5f * s),
                                (static_cast<float>(v) <= curSpdDisp + 0.5f) ? pal.textBright : pal.textSecondary, 0.5f, 0.5f);
         }
     }
@@ -490,12 +488,11 @@ void RenderSpeedometerDial(
 
     // Center Digital Speed Readout
     char spdBuf[16]{};
-    std::snprintf(spdBuf, sizeof(spdBuf), "%.0f", curSpdDisp);
-    const float bigFs = std::clamp(radius * 0.34f, 18.0f * s, 38.0f * s);
-    const float subFs = std::clamp(radius * 0.095f, 8.5f * s, 12.0f * s);
+    const float bigFs = keel::clamp(radius * 0.34f, 18.0f * s, 38.0f * s);
+    const float subFs = keel::clamp(radius * 0.095f, 8.5f * s, 12.0f * s);
 
     canvas.DrawTextBox(
-        spdBuf,
+        keel::format_buf(spdBuf, "%.0f", curSpdDisp),
         Rect(center.x - radius * 0.36f, center.y - bigFs * 0.68f, radius * 0.72f, bigFs * 1.15f),
         bigFs,
         pal.textBright,
@@ -512,7 +509,7 @@ void RenderSpeedometerDial(
     );
 
     // Bottom Opening (55 deg .. 125 deg): Fuel / SoC Bar & Range Readout
-    const float fuelNorm = std::clamp(opts.fuelOrSocPct * 0.01f, 0.0f, 1.0f);
+    const float fuelNorm = keel::clamp(opts.fuelOrSocPct * 0.01f, 0.0f, 1.0f);
     const Color fuelCol = (fuelNorm < 0.15f) ? pal.dangerRed : ((opts.powertrain == PowertrainMode::ElectricDualMotor) ? pal.ecoGreen : pal.secondaryAccent);
     const float botArcR = radius * 0.76f;
     DrawCircularArc(canvas, center, botArcR, 122.0f, 58.0f, Color(30, 41, 59, 170), 4.0f * s, 20);
@@ -522,9 +519,8 @@ void RenderSpeedometerDial(
 
     char fuelBuf[32]{};
     const float dispRange = DisplayDistance(opts.estimatedRangeKm, opts.speedUnit);
-    std::snprintf(
+    const keel::StringRef fuelRef = keel::format_buf(
         fuelBuf,
-        sizeof(fuelBuf),
         "%s %.0f%% · %.0f %s",
         (opts.powertrain == PowertrainMode::ElectricDualMotor) ? "SOC" : "FUEL",
         opts.fuelOrSocPct,
@@ -532,9 +528,9 @@ void RenderSpeedometerDial(
         DistUnitLabel(opts.speedUnit)
     );
     canvas.DrawTextBox(
-        fuelBuf,
+        fuelRef,
         Rect(center.x - radius * 0.56f, center.y + radius * 0.50f, radius * 1.12f, 16.0f * s),
-        std::clamp(radius * 0.088f, 8.0f * s, 11.0f * s),
+        keel::clamp(radius * 0.088f, 8.0f * s, 11.0f * s),
         pal.textSecondary,
         0.5f,
         0.5f
@@ -553,7 +549,7 @@ void RenderTachOrPowerDial(
     float s
 ) noexcept {
     const Vec2 center = dialBox.Center();
-    const float radius = std::min(dialBox.w, dialBox.h) * 0.47f;
+    const float radius = keel::min(dialBox.w, dialBox.h) * 0.47f;
     if (radius < 45.0f) return;
 
     DrawCircleRing(canvas, center, radius, pal.dialBg, pal.dialRim, 2.0f * s);
@@ -567,9 +563,9 @@ void RenderTachOrPowerDial(
     Color activeArcCol = pal.primaryAccent;
 
     if (opts.powertrain == PowertrainMode::IceTurbo) {
-        const float maxRpm = std::max(6000.0f, opts.maxRpm);
-        const float redlineRpm = std::clamp(opts.redlineRpm, 4500.0f, maxRpm);
-        const float curRpm = std::clamp(opts.rpm, 0.0f, maxRpm);
+        const float maxRpm = keel::max(6000.0f, opts.maxRpm);
+        const float redlineRpm = keel::clamp(opts.redlineRpm, 4500.0f, maxRpm);
+        const float curRpm = keel::clamp(opts.rpm, 0.0f, maxRpm);
         const float rpmNorm = curRpm / maxRpm;
         const float redlineNorm = redlineRpm / maxRpm;
         needleDeg = kStartDeg + rpmNorm * kSweepDeg;
@@ -608,11 +604,10 @@ void RenderTachOrPowerDial(
                 const float labelR = radius * 0.65f;
                 const Vec2 lp{center.x + std::cos(rad) * labelR, center.y + std::sin(rad) * labelR};
                 char buf[8]{};
-                std::snprintf(buf, sizeof(buf), "%d", t / 5);
                 canvas.DrawTextBox(
-                    buf,
+                    keel::format_buf(buf, "%d", t / 5),
                     Rect(lp.x - 12.0f * s, lp.y - 8.0f * s, 24.0f * s, 16.0f * s),
-                    std::clamp(radius * 0.105f, 9.0f * s, 13.5f * s),
+                    keel::clamp(radius * 0.105f, 9.0f * s, 13.5f * s),
                     inRed ? pal.dangerRed : pal.textBright,
                     0.5f,
                     0.5f
@@ -626,7 +621,7 @@ void RenderTachOrPowerDial(
         DrawCircularArc(canvas, center, arcR, kStartDeg, kZeroDeg, pal.ecoGreen.WithAlpha(75), 5.0f * s, 16);
         DrawCircularArc(canvas, center, arcR, kZeroDeg, kStartDeg + kSweepDeg, Color(30, 41, 59, 165), 5.0f * s, 32);
 
-        const float kw = std::clamp(opts.evPowerKw, -150.0f, 450.0f);
+        const float kw = keel::clamp(opts.evPowerKw, -150.0f, 450.0f);
         if (kw >= 0.0f) {
             const float pNorm = kw / 450.0f;
             needleDeg = kZeroDeg + pNorm * (270.0f - 67.5f);
@@ -667,7 +662,7 @@ void RenderTachOrPowerDial(
                 canvas.DrawTextBox(
                     et.label,
                     Rect(lp.x - 16.0f * s, lp.y - 8.0f * s, 32.0f * s, 16.0f * s),
-                    std::clamp(radius * 0.092f, 8.5f * s, 11.5f * s),
+                    keel::clamp(radius * 0.092f, 8.5f * s, 11.5f * s),
                     et.col,
                     0.5f,
                     0.5f
@@ -688,12 +683,11 @@ void RenderTachOrPowerDial(
     if (showSpeedInsideCenter) {
         // TrackCentral mode: Speed + Gear badge + RPM/kW inside the dominant central dial
         char spdBuf[16]{};
-        std::snprintf(spdBuf, sizeof(spdBuf), "%.0f", DisplaySpeed(opts.speedKmh, opts.speedUnit));
-        const float bigFs = std::clamp(radius * 0.32f, 20.0f * s, 40.0f * s);
-        const float subFs = std::clamp(radius * 0.090f, 8.5f * s, 11.5f * s);
+        const float bigFs = keel::clamp(radius * 0.32f, 20.0f * s, 40.0f * s);
+        const float subFs = keel::clamp(radius * 0.090f, 8.5f * s, 11.5f * s);
 
         canvas.DrawTextBox(
-            spdBuf,
+            keel::format_buf(spdBuf, "%.0f", DisplaySpeed(opts.speedKmh, opts.speedUnit)),
             Rect(center.x - hubR * 0.85f, center.y - hubR * 0.65f, hubR * 1.70f, bigFs * 1.1f),
             bigFs,
             pal.textBright,
@@ -714,8 +708,8 @@ void RenderTachOrPowerDial(
         canvas.DrawTextBox(gearStr, gearBox, 12.0f * s, pal.textBright, 0.5f, 0.5f);
     } else {
         // DualDial mode: Large Gear Indicator + Digital RPM or kW
-        const float gearFs = std::clamp(radius * 0.30f, 17.0f * s, 32.0f * s);
-        const float subFs = std::clamp(radius * 0.092f, 8.5f * s, 11.5f * s);
+        const float gearFs = keel::clamp(radius * 0.30f, 17.0f * s, 32.0f * s);
+        const float subFs = keel::clamp(radius * 0.092f, 8.5f * s, 11.5f * s);
 
         canvas.DrawTextBox(
             gearStr,
@@ -727,13 +721,11 @@ void RenderTachOrPowerDial(
         );
 
         char subBuf[24]{};
-        if (opts.powertrain == PowertrainMode::IceTurbo) {
-            std::snprintf(subBuf, sizeof(subBuf), "%.0f RPM", opts.rpm);
-        } else {
-            std::snprintf(subBuf, sizeof(subBuf), "%+.0f kW", opts.evPowerKw);
-        }
+        const keel::StringRef subRef = (opts.powertrain == PowertrainMode::IceTurbo)
+            ? keel::format_buf(subBuf, "%.0f RPM", opts.rpm)
+            : keel::format_buf(subBuf, "%+.0f kW", opts.evPowerKw);
         canvas.DrawTextBox(
-            subBuf,
+            subRef,
             Rect(center.x - hubR * 0.88f, center.y + gearFs * 0.34f, hubR * 1.76f, subFs * 1.4f),
             subFs,
             pal.textSecondary,
@@ -744,7 +736,7 @@ void RenderTachOrPowerDial(
 
     // Bottom Opening: Coolant / Oil / Battery Temperature Bar
     const float tempC = opts.coolantOrBattTempC;
-    const float tempNorm = std::clamp((tempC - 40.0f) / 90.0f, 0.0f, 1.0f);
+    const float tempNorm = keel::clamp((tempC - 40.0f) / 90.0f, 0.0f, 1.0f);
     const Color tempCol = (tempC > 112.0f) ? pal.dangerRed : pal.secondaryAccent;
     const float botArcR = radius * 0.76f;
     DrawCircularArc(canvas, center, botArcR, 122.0f, 58.0f, Color(30, 41, 59, 170), 4.0f * s, 20);
@@ -753,29 +745,25 @@ void RenderTachOrPowerDial(
     }
 
     char tempBuf[36]{};
-    if (opts.powertrain == PowertrainMode::IceTurbo) {
-        std::snprintf(
-            tempBuf,
-            sizeof(tempBuf),
-            "OIL %.0f%s · %+.1f bar",
-            DisplayTemp(opts.oilTempC, opts.speedUnit),
-            TempUnitLabel(opts.speedUnit),
-            opts.boostBar
-        );
-    } else {
-        std::snprintf(
-            tempBuf,
-            sizeof(tempBuf),
-            "BATT %.0f%s · %.1f kWh",
-            DisplayTemp(opts.coolantOrBattTempC, opts.speedUnit),
-            TempUnitLabel(opts.speedUnit),
-            opts.avgConsumption
-        );
-    }
+    const keel::StringRef tempRef = (opts.powertrain == PowertrainMode::IceTurbo)
+        ? keel::format_buf(
+              tempBuf,
+              "OIL %.0f%s · %+.1f bar",
+              DisplayTemp(opts.oilTempC, opts.speedUnit),
+              TempUnitLabel(opts.speedUnit),
+              opts.boostBar
+          )
+        : keel::format_buf(
+              tempBuf,
+              "BATT %.0f%s · %.1f kWh",
+              DisplayTemp(opts.coolantOrBattTempC, opts.speedUnit),
+              TempUnitLabel(opts.speedUnit),
+              opts.avgConsumption
+          );
     canvas.DrawTextBox(
-        tempBuf,
+        tempRef,
         Rect(center.x - radius * 0.56f, center.y + radius * 0.50f, radius * 1.12f, 16.0f * s),
-        std::clamp(radius * 0.086f, 8.0f * s, 11.0f * s),
+        keel::clamp(radius * 0.086f, 8.0f * s, 11.0f * s),
         pal.textSecondary,
         0.5f,
         0.5f
@@ -797,7 +785,7 @@ void RenderAdasLaneRadarPage(
 
     const float horizonY = bodyRect.y + bodyRect.h * 0.26f;
     const float botY = bodyRect.Bottom() - 4.0f * s;
-    const float roadH = std::max(20.0f, botY - horizonY);
+    const float roadH = keel::max(20.0f, botY - horizonY);
     const float cx = bodyRect.Center().x;
 
     // Sky & Horizon Glow
@@ -806,7 +794,7 @@ void RenderAdasLaneRadarPage(
     canvas.DrawLine({bodyRect.x, horizonY}, {bodyRect.Right(), horizonY}, pal.primaryAccent.WithAlpha(95), 1.2f * s);
 
     // Perspective 3D road curvature from steeringAngleDeg
-    const float steerCurve = std::clamp(opts.steeringAngleDeg / 45.0f, -1.0f, 1.0f) * (bodyRect.w * 0.22f);
+    const float steerCurve = keel::clamp(opts.steeringAngleDeg / 45.0f, -1.0f, 1.0f) * (bodyRect.w * 0.22f);
     const float topHalfW = bodyRect.w * 0.08f;
     const float botHalfW = bodyRect.w * 0.44f;
 
@@ -867,12 +855,12 @@ void RenderAdasLaneRadarPage(
 
     // Radar Lead Vehicle (scaled by adasLeadDistanceM in [10 .. 100 m])
     if (opts.adasLeadDetected) {
-        const float distM = std::clamp(opts.adasLeadDistanceM, 8.0f, 110.0f);
-        const float distNorm = 1.0f - std::clamp((distM - 8.0f) / 102.0f, 0.0f, 1.0f);
+        const float distM = keel::clamp(opts.adasLeadDistanceM, 8.0f, 110.0f);
+        const float distNorm = 1.0f - keel::clamp((distM - 8.0f) / 102.0f, 0.0f, 1.0f);
         const float leadDepthT = 0.14f + distNorm * 0.46f;
         const float leadY = horizonY + leadDepthT * roadH;
         const float leadCx = laneCenterAt(leadDepthT);
-        const float carW = std::clamp(bodyRect.w * (0.10f + leadDepthT * 0.22f), 22.0f * s, 72.0f * s);
+        const float carW = keel::clamp(bodyRect.w * (0.10f + leadDepthT * 0.22f), 22.0f * s, 72.0f * s);
         const float carH = carW * 0.62f;
 
         const Color radarCol = (distM < 18.0f) ? pal.dangerRed : ((distM < 32.0f) ? pal.warningAmber : pal.ecoGreen);
@@ -891,16 +879,16 @@ void RenderAdasLaneRadarPage(
 
         // Distance & speed floating badge above lead vehicle
         char distBuf[32]{};
-        std::snprintf(distBuf, sizeof(distBuf), "%.0fm · %.0f %s",
+        const keel::StringRef distRef = keel::format_buf(distBuf, "%.0fm · %.0f %s",
                       distM, DisplaySpeed(opts.adasLeadSpeedKmh, opts.speedUnit), SpeedUnitLabel(opts.speedUnit));
-        const float badgeW = std::min(bodyRect.w - 8.0f * s, 102.0f * s);
-        const Rect badgeR(leadCx - badgeW * 0.5f, std::max(bodyRect.y + 4.0f * s, cabinBody.y - 18.0f * s), badgeW, 15.0f * s);
+        const float badgeW = keel::min(bodyRect.w - 8.0f * s, 102.0f * s);
+        const Rect badgeR(leadCx - badgeW * 0.5f, keel::max(bodyRect.y + 4.0f * s, cabinBody.y - 18.0f * s), badgeW, 15.0f * s);
         canvas.DrawRoundRect(badgeR, 4.0f * s, Color(9, 14, 24, 220), radarCol, 1.0f * s);
-        canvas.DrawTextBox(distBuf, badgeR, 9.0f * s, radarCol, 0.5f, 0.5f);
+        canvas.DrawTextBox(distRef, badgeR, 9.0f * s, radarCol, 0.5f, 0.5f);
     }
 
     // Foreground Ego Vehicle Silhouette (with active brake lights & turn signals!)
-    const float egoW = std::clamp(bodyRect.w * 0.34f, 44.0f * s, 92.0f * s);
+    const float egoW = keel::clamp(bodyRect.w * 0.34f, 44.0f * s, 92.0f * s);
     const float egoH = egoW * 0.56f;
     const float egoY = botY - 6.0f * s;
     const Rect egoLower(cx - egoW * 0.5f, egoY - egoH * 0.55f, egoW, egoH * 0.52f);
@@ -930,12 +918,12 @@ void RenderAdasLaneRadarPage(
 
     // Top HUD Readout inside ADAS MFD: ACC Set Speed + Steering Angle
     char accBuf[48]{};
-    std::snprintf(accBuf, sizeof(accBuf), "ACC %.0f %s  |  STEER %+.0f deg",
+    const keel::StringRef accRef = keel::format_buf(accBuf, "ACC %.0f %s  |  STEER %+.0f deg",
                   DisplaySpeed(opts.cruiseTargetKmh, opts.speedUnit),
                   SpeedUnitLabel(opts.speedUnit),
                   opts.steeringAngleDeg);
     canvas.DrawTextBox(
-        accBuf,
+        accRef,
         Rect(bodyRect.x + 6.0f * s, bodyRect.y + 4.0f * s, bodyRect.w - 12.0f * s, 16.0f * s),
         9.5f * s,
         pal.textSecondary,
@@ -956,8 +944,8 @@ void RenderTpmsChassisPage(
     canvas.PushClip(bodyRect);
 
     const Vec2 c = bodyRect.Center();
-    const float chW = std::min(bodyRect.w * 0.26f, 56.0f * s);
-    const float chH = std::min(bodyRect.h * 0.62f, 118.0f * s);
+    const float chW = keel::min(bodyRect.w * 0.26f, 56.0f * s);
+    const float chH = keel::min(bodyRect.h * 0.62f, 118.0f * s);
     const Rect chassisRect(c.x - chW * 0.5f, c.y - chH * 0.5f - 6.0f * s, chW, chH);
 
     // Axles & Drivetrain spine
@@ -990,7 +978,7 @@ void RenderTpmsChassisPage(
 
         // Callout card on Left or Right side
         const bool isLeft = (i % 2 == 0);
-        const float cardW = std::max(54.0f * s, (bodyRect.w - chW) * 0.40f);
+        const float cardW = keel::max(54.0f * s, (bodyRect.w - chW) * 0.40f);
         const float cardH = 34.0f * s;
         const float cardX = isLeft ? (bodyRect.x + 6.0f * s) : (bodyRect.Right() - 6.0f * s - cardW);
         const float cardY = wheelCenters[i].y - cardH * 0.5f;
@@ -1000,23 +988,21 @@ void RenderTpmsChassisPage(
 
         char line1[24]{};
         char line2[24]{};
-        if (opts.speedUnit == SpeedUnit::Mph) {
-            std::snprintf(line1, sizeof(line1), "%s %.0f psi", wheelNames[i], DisplayPressure(bar, opts.speedUnit));
-        } else {
-            std::snprintf(line1, sizeof(line1), "%s %.2f bar", wheelNames[i], bar);
-        }
-        std::snprintf(line2, sizeof(line2), "%.0f %s", DisplayTemp(tmpC, opts.speedUnit), TempUnitLabel(opts.speedUnit));
+        const keel::StringRef line1Ref = (opts.speedUnit == SpeedUnit::Mph)
+            ? keel::format_buf(line1, "%s %.0f psi", wheelNames[i], DisplayPressure(bar, opts.speedUnit))
+            : keel::format_buf(line1, "%s %.2f bar", wheelNames[i], bar);
+        const keel::StringRef line2Ref = keel::format_buf(line2, "%.0f %s", DisplayTemp(tmpC, opts.speedUnit), TempUnitLabel(opts.speedUnit));
 
-        canvas.DrawTextBox(line1, Rect(cardR.x + 3.0f * s, cardR.y + 2.0f * s, cardR.w - 6.0f * s, 15.0f * s), 9.5f * s, pal.textBright, 0.5f, 0.5f);
-        canvas.DrawTextBox(line2, Rect(cardR.x + 3.0f * s, cardR.y + 17.0f * s, cardR.w - 6.0f * s, 14.0f * s), 8.8f * s, wCol, 0.5f, 0.5f);
+        canvas.DrawTextBox(line1Ref, Rect(cardR.x + 3.0f * s, cardR.y + 2.0f * s, cardR.w - 6.0f * s, 15.0f * s), 9.5f * s, pal.textBright, 0.5f, 0.5f);
+        canvas.DrawTextBox(line2Ref, Rect(cardR.x + 3.0f * s, cardR.y + 17.0f * s, cardR.w - 6.0f * s, 14.0f * s), 8.8f * s, wCol, 0.5f, 0.5f);
     }
 
     // Bottom AWD Torque Split & Oil/Batt Temp Summary
     char splitBuf[48]{};
-    const float frontPct = std::clamp(opts.frontTorquePct, 0.0f, 100.0f);
-    std::snprintf(splitBuf, sizeof(splitBuf), "AWD SPLIT: F %.0f%% / R %.0f%%", frontPct, 100.0f - frontPct);
+    const float frontPct = keel::clamp(opts.frontTorquePct, 0.0f, 100.0f);
+    const keel::StringRef splitRef = keel::format_buf(splitBuf, "AWD SPLIT: F %.0f%% / R %.0f%%", frontPct, 100.0f - frontPct);
     canvas.DrawTextBox(
-        splitBuf,
+        splitRef,
         Rect(bodyRect.x + 6.0f * s, bodyRect.Bottom() - 20.0f * s, bodyRect.w - 12.0f * s, 16.0f * s),
         9.2f * s,
         pal.primaryAccent,
@@ -1036,7 +1022,7 @@ void RenderGForceDynamicsPage(
 ) noexcept {
     canvas.PushClip(bodyRect);
 
-    const float gRadius = std::min(bodyRect.w * 0.36f, bodyRect.h * 0.34f);
+    const float gRadius = keel::min(bodyRect.w * 0.36f, bodyRect.h * 0.34f);
     const Vec2 gCenter{bodyRect.Center().x, bodyRect.y + gRadius + 14.0f * s};
 
     // Concentric G rings: 0.5G, 1.0G, 1.5G
@@ -1047,17 +1033,17 @@ void RenderGForceDynamicsPage(
     canvas.DrawLine({gCenter.x, gCenter.y - gRadius}, {gCenter.x, gCenter.y + gRadius}, pal.tickMinor, 0.9f * s);
 
     // Live G-Vector puck (max scale = 1.5 G)
-    const float normX = std::clamp(opts.latG / 1.5f, -1.0f, 1.0f);
-    const float normY = std::clamp(-opts.lonG / 1.5f, -1.0f, 1.0f);
+    const float normX = keel::clamp(opts.latG / 1.5f, -1.0f, 1.0f);
+    const float normY = keel::clamp(-opts.lonG / 1.5f, -1.0f, 1.0f);
     const Vec2 puck{gCenter.x + normX * gRadius, gCenter.y + normY * gRadius};
     canvas.DrawLine(gCenter, puck, pal.primaryAccent, 2.0f * s);
     DrawCircleRing(canvas, puck, 5.0f * s, pal.dangerRed, pal.textBright, 1.4f * s);
 
     const float totalG = std::hypot(opts.latG, opts.lonG);
     char gBuf[48]{};
-    std::snprintf(gBuf, sizeof(gBuf), "%.2f G  (PEAK %.2f G)", totalG, std::max(totalG, opts.peakG));
+    const keel::StringRef gRef = keel::format_buf(gBuf, "%.2f G  (PEAK %.2f G)", totalG, keel::max(totalG, opts.peakG));
     canvas.DrawTextBox(
-        gBuf,
+        gRef,
         Rect(bodyRect.x + 6.0f * s, gCenter.y + gRadius + 3.0f * s, bodyRect.w - 12.0f * s, 15.0f * s),
         9.5f * s,
         pal.textBright,
@@ -1070,8 +1056,8 @@ void RenderGForceDynamicsPage(
     const float barW = bodyRect.w - 24.0f * s;
     const float barX = bodyRect.x + 12.0f * s;
     if (barsY + 34.0f * s <= bodyRect.Bottom() && barW > 40.0f) {
-        const float thrFrac = std::clamp(opts.throttlePct * 0.01f, 0.0f, 1.0f);
-        const float brkFrac = std::clamp(opts.brakePct * 0.01f, 0.0f, 1.0f);
+        const float thrFrac = keel::clamp(opts.throttlePct * 0.01f, 0.0f, 1.0f);
+        const float brkFrac = keel::clamp(opts.brakePct * 0.01f, 0.0f, 1.0f);
 
         const Rect thrTrack(barX, barsY, barW, 8.0f * s);
         canvas.DrawRoundRect(thrTrack, 3.0f * s, Color(24, 34, 48, 200), pal.cardBorder, 0.8f * s);
@@ -1086,9 +1072,9 @@ void RenderGForceDynamicsPage(
         }
 
         char pedBuf[48]{};
-        std::snprintf(pedBuf, sizeof(pedBuf), "THR %.0f%%   |   BRK %.0f%%", opts.throttlePct, opts.brakePct);
+        const keel::StringRef pedRef = keel::format_buf(pedBuf, "THR %.0f%%   |   BRK %.0f%%", opts.throttlePct, opts.brakePct);
         canvas.DrawTextBox(
-            pedBuf,
+            pedRef,
             Rect(barX, barsY + 21.0f * s, barW, 14.0f * s),
             8.8f * s,
             pal.textSecondary,
@@ -1116,7 +1102,7 @@ void RenderCenterMfd(
     const float footerH = 18.0f * s;
     const Rect headerRect(mfdRect.x, mfdRect.y, mfdRect.w, headerH);
     const Rect footerRect(mfdRect.x, mfdRect.Bottom() - footerH, mfdRect.w, footerH);
-    const Rect bodyRect(mfdRect.x + 2.0f * s, mfdRect.y + headerH, mfdRect.w - 4.0f * s, std::max(10.0f, mfdRect.h - headerH - footerH));
+    const Rect bodyRect(mfdRect.x + 2.0f * s, mfdRect.y + headerH, mfdRect.w - 4.0f * s, keel::max(10.0f, mfdRect.h - headerH - footerH));
 
     const char* pageTitle = "ADAS 3D LANE & RADAR";
     switch (opts.centerMfd) {
@@ -1168,7 +1154,7 @@ void RenderTrackLeftWing(
     canvas.PushClip(wingRect.Inset(6.0f * s));
 
     const float x = wingRect.x + 12.0f * s;
-    const float w = std::max(20.0f, wingRect.w - 24.0f * s);
+    const float w = keel::max(20.0f, wingRect.w - 24.0f * s);
     float y = wingRect.y + 10.0f * s;
 
     // 1. Digital Speed & ACC Card
@@ -1176,22 +1162,29 @@ void RenderTrackLeftWing(
     y += 14.0f * s;
 
     char spdStr[32]{};
-    std::snprintf(spdStr, sizeof(spdStr), "%.0f %s", DisplaySpeed(opts.speedKmh, opts.speedUnit), SpeedUnitLabel(opts.speedUnit));
-    canvas.DrawTextBox(spdStr, Rect(x, y, w, 28.0f * s), 22.0f * s, pal.textBright, 0.0f, 0.5f);
+    canvas.DrawTextBox(
+        keel::format_buf(spdStr, "%.0f %s", DisplaySpeed(opts.speedKmh, opts.speedUnit), SpeedUnitLabel(opts.speedUnit)),
+        Rect(x, y, w, 28.0f * s),
+        22.0f * s,
+        pal.textBright,
+        0.0f,
+        0.5f
+    );
     y += 32.0f * s;
 
     // 2. Boost / Power Horizontal Bar
     const bool isIce = (opts.powertrain == PowertrainMode::IceTurbo);
     char boostLbl[48]{};
     float boostFrac = 0.0f;
+    keel::StringRef boostRef{};
     if (isIce) {
-        std::snprintf(boostLbl, sizeof(boostLbl), "TURBO BOOST  %+.2f bar", opts.boostBar);
-        boostFrac = std::clamp((opts.boostBar + 0.5f) / 2.5f, 0.0f, 1.0f);
+        boostRef = keel::format_buf(boostLbl, "TURBO BOOST  %+.2f bar", opts.boostBar);
+        boostFrac = keel::clamp((opts.boostBar + 0.5f) / 2.5f, 0.0f, 1.0f);
     } else {
-        std::snprintf(boostLbl, sizeof(boostLbl), "MOTOR POWER  %+.0f kW", opts.evPowerKw);
-        boostFrac = std::clamp((opts.evPowerKw + 150.0f) / 600.0f, 0.0f, 1.0f);
+        boostRef = keel::format_buf(boostLbl, "MOTOR POWER  %+.0f kW", opts.evPowerKw);
+        boostFrac = keel::clamp((opts.evPowerKw + 150.0f) / 600.0f, 0.0f, 1.0f);
     }
-    canvas.DrawTextBox(boostLbl, Rect(x, y, w, 14.0f * s), 9.2f * s, pal.textSecondary, 0.0f, 0.5f);
+    canvas.DrawTextBox(boostRef, Rect(x, y, w, 14.0f * s), 9.2f * s, pal.textSecondary, 0.0f, 0.5f);
     y += 15.0f * s;
     canvas.DrawRoundRect(Rect(x, y, w, 8.0f * s), 3.0f * s, Color(24, 34, 48, 220), pal.cardBorder, 0.8f * s);
     canvas.DrawRoundRect(Rect(x, y, w * boostFrac, 8.0f * s), 3.0f * s, pal.primaryAccent);
@@ -1199,50 +1192,47 @@ void RenderTrackLeftWing(
 
     // 3. Oil & Coolant / Battery Temperature Bars
     char t1Lbl[48]{};
-    std::snprintf(
+    const keel::StringRef t1Ref = keel::format_buf(
         t1Lbl,
-        sizeof(t1Lbl),
         "%s  %.0f %s",
         isIce ? "COOLANT TEMP" : "BATTERY TEMP",
         DisplayTemp(opts.coolantOrBattTempC, opts.speedUnit),
         TempUnitLabel(opts.speedUnit)
     );
-    canvas.DrawTextBox(t1Lbl, Rect(x, y, w, 14.0f * s), 9.2f * s, pal.textSecondary, 0.0f, 0.5f);
+    canvas.DrawTextBox(t1Ref, Rect(x, y, w, 14.0f * s), 9.2f * s, pal.textSecondary, 0.0f, 0.5f);
     y += 15.0f * s;
-    const float cFrac = std::clamp((opts.coolantOrBattTempC - 30.0f) / 95.0f, 0.0f, 1.0f);
+    const float cFrac = keel::clamp((opts.coolantOrBattTempC - 30.0f) / 95.0f, 0.0f, 1.0f);
     canvas.DrawRoundRect(Rect(x, y, w, 7.0f * s), 3.0f * s, Color(24, 34, 48, 220), pal.cardBorder, 0.8f * s);
     canvas.DrawRoundRect(Rect(x, y, w * cFrac, 7.0f * s), 3.0f * s, pal.secondaryAccent);
     y += 15.0f * s;
 
     char t2Lbl[48]{};
-    std::snprintf(
+    const keel::StringRef t2Ref = keel::format_buf(
         t2Lbl,
-        sizeof(t2Lbl),
         "OIL TEMP  %.0f %s",
         DisplayTemp(opts.oilTempC, opts.speedUnit),
         TempUnitLabel(opts.speedUnit)
     );
-    canvas.DrawTextBox(t2Lbl, Rect(x, y, w, 14.0f * s), 9.2f * s, pal.textSecondary, 0.0f, 0.5f);
+    canvas.DrawTextBox(t2Ref, Rect(x, y, w, 14.0f * s), 9.2f * s, pal.textSecondary, 0.0f, 0.5f);
     y += 15.0f * s;
-    const float oFrac = std::clamp((opts.oilTempC - 40.0f) / 100.0f, 0.0f, 1.0f);
+    const float oFrac = keel::clamp((opts.oilTempC - 40.0f) / 100.0f, 0.0f, 1.0f);
     canvas.DrawRoundRect(Rect(x, y, w, 7.0f * s), 3.0f * s, Color(24, 34, 48, 220), pal.cardBorder, 0.8f * s);
     canvas.DrawRoundRect(Rect(x, y, w * oFrac, 7.0f * s), 3.0f * s, pal.warningAmber);
     y += 16.0f * s;
 
     // 4. Fuel / SoC & Range Bar
     char fLbl[48]{};
-    std::snprintf(
+    const keel::StringRef fRef = keel::format_buf(
         fLbl,
-        sizeof(fLbl),
         "%s  %.0f%%  (%.0f %s)",
         isIce ? "FUEL LEVEL" : "BATTERY SOC",
         opts.fuelOrSocPct,
         DisplayDistance(opts.estimatedRangeKm, opts.speedUnit),
         DistUnitLabel(opts.speedUnit)
     );
-    canvas.DrawTextBox(fLbl, Rect(x, y, w, 14.0f * s), 9.2f * s, pal.textSecondary, 0.0f, 0.5f);
+    canvas.DrawTextBox(fRef, Rect(x, y, w, 14.0f * s), 9.2f * s, pal.textSecondary, 0.0f, 0.5f);
     y += 15.0f * s;
-    const float fFrac = std::clamp(opts.fuelOrSocPct * 0.01f, 0.0f, 1.0f);
+    const float fFrac = keel::clamp(opts.fuelOrSocPct * 0.01f, 0.0f, 1.0f);
     canvas.DrawRoundRect(Rect(x, y, w, 7.0f * s), 3.0f * s, Color(24, 34, 48, 220), pal.cardBorder, 0.8f * s);
     canvas.DrawRoundRect(Rect(x, y, w * fFrac, 7.0f * s), 3.0f * s, pal.ecoGreen);
 
@@ -1271,7 +1261,7 @@ void RenderBottomTripBar(
     const char* kModeChars[6] = {"P", "R", "N", "D", "S", "M"};
 
     const float cellW = 24.0f * s;
-    const float cellH = std::min(botRect.h - 4.0f * s, 18.0f * s);
+    const float cellH = keel::min(botRect.h - 4.0f * s, 18.0f * s);
     const float gap = 4.0f * s;
     const float totalW = cellW * 6.0f + gap * 5.0f;
     const float startX = botRect.Center().x - totalW * 0.5f;
@@ -1284,35 +1274,31 @@ void RenderBottomTripBar(
             canvas.DrawRoundRect(cr, 4.0f * s, pal.primaryAccent, pal.textBright, 1.0f * s);
         }
         char lbl[8]{};
-        if (active && (kModes[i] == GearSelector::Drive || kModes[i] == GearSelector::Sport || kModes[i] == GearSelector::Manual)) {
-            std::snprintf(lbl, sizeof(lbl), "%s%d", kModeChars[i], std::clamp(opts.currentGear, 1, 8));
-        } else {
-            std::snprintf(lbl, sizeof(lbl), "%s", kModeChars[i]);
-        }
-        canvas.DrawTextBox(lbl, cr, 10.0f * s, active ? Color(9, 13, 22, 255) : pal.textMuted, 0.5f, 0.5f);
+        const keel::StringRef lblRef = (active && (kModes[i] == GearSelector::Drive || kModes[i] == GearSelector::Sport || kModes[i] == GearSelector::Manual))
+            ? keel::format_buf(lbl, "%s%d", kModeChars[i], keel::clamp(opts.currentGear, 1, 8))
+            : keel::StringRef(kModeChars[i]);
+        canvas.DrawTextBox(lblRef, cr, 10.0f * s, active ? Color(9, 13, 22, 255) : pal.textMuted, 0.5f, 0.5f);
     }
 
     // Left Trip & Ambient Temperature Readout
     char leftInfo[64]{};
-    std::snprintf(
+    const keel::StringRef leftRef = keel::format_buf(
         leftInfo,
-        sizeof(leftInfo),
         "OUT %.1f°%s   ·   AVG %.1f %s",
         DisplayTemp(opts.outsideTempC, opts.speedUnit),
         TempUnitLabel(opts.speedUnit),
         opts.avgConsumption,
         (opts.powertrain == PowertrainMode::ElectricDualMotor) ? "kWh/100" : "L/100"
     );
-    const float sideW = std::max(0.0f, startX - botRect.x - 16.0f * s);
+    const float sideW = keel::max(0.0f, startX - botRect.x - 16.0f * s);
     if (sideW > 60.0f * s) {
-        canvas.DrawTextBox(leftInfo, Rect(botRect.x + 10.0f * s, botRect.y, sideW, botRect.h), 9.5f * s, pal.textSecondary, 0.0f, 0.5f);
+        canvas.DrawTextBox(leftRef, Rect(botRect.x + 10.0f * s, botRect.y, sideW, botRect.h), 9.5f * s, pal.textSecondary, 0.0f, 0.5f);
     }
 
     // Right Trip & Total Odometer Readout
     char rightInfo[64]{};
-    std::snprintf(
+    const keel::StringRef rightRef = keel::format_buf(
         rightInfo,
-        sizeof(rightInfo),
         "TRIP %.1f %s   ·   ODO %06.0f %s",
         DisplayDistance(opts.tripDistanceKm, opts.speedUnit),
         DistUnitLabel(opts.speedUnit),
@@ -1320,7 +1306,7 @@ void RenderBottomTripBar(
         DistUnitLabel(opts.speedUnit)
     );
     if (sideW > 60.0f * s) {
-        canvas.DrawTextBox(rightInfo, Rect(startX + totalW + 6.0f * s, botRect.y, sideW, botRect.h), 9.5f * s, pal.textSecondary, 1.0f, 0.5f);
+        canvas.DrawTextBox(rightRef, Rect(startX + totalW + 6.0f * s, botRect.y, sideW, botRect.h), 9.5f * s, pal.textSecondary, 1.0f, 0.5f);
     }
 }
 
@@ -1342,26 +1328,26 @@ void ResolveClusterStageRects(
     if (opts.showBottomTripBar && (botY - topY) > 140.0f) botY -= 30.0f * s;
 
     const float stageX = ctrlRect.x + 10.0f * s;
-    const float stageW = std::max(40.0f, ctrlRect.w - 20.0f * s);
-    const float stageH = std::max(40.0f, botY - topY);
+    const float stageW = keel::max(40.0f, ctrlRect.w - 20.0f * s);
+    const float stageH = keel::max(40.0f, botY - topY);
     const float gap = 10.0f * s;
 
     if (opts.layoutMode == ClusterLayoutMode::DualDial) {
-        const float dialSize = std::min(stageH, (stageW - gap * 2.0f) * 0.36f);
-        const float mfdW = std::max(90.0f, stageW - dialSize * 2.0f - gap * 2.0f);
+        const float dialSize = keel::min(stageH, (stageW - gap * 2.0f) * 0.36f);
+        const float mfdW = keel::max(90.0f, stageW - dialSize * 2.0f - gap * 2.0f);
         outLeftGauge  = Rect(stageX, topY, dialSize, stageH);
         outCenterMfd  = Rect(stageX + dialSize + gap, topY + 4.0f * s, mfdW, stageH - 8.0f * s);
         outRightGauge = Rect(stageX + stageW - dialSize, topY, dialSize, stageH);
     } else if (opts.layoutMode == ClusterLayoutMode::TrackCentral) {
-        const float centerDialW = std::min(stageH * 1.04f, stageW * 0.40f);
-        const float wingW = std::max(80.0f, (stageW - centerDialW - gap * 2.0f) * 0.5f);
+        const float centerDialW = keel::min(stageH * 1.04f, stageW * 0.40f);
+        const float wingW = keel::max(80.0f, (stageW - centerDialW - gap * 2.0f) * 0.5f);
         outLeftGauge  = Rect(stageX, topY + 4.0f * s, wingW, stageH - 8.0f * s);
         outCenterMfd  = Rect(stageX + wingW + gap, topY, centerDialW, stageH);
         outRightGauge = Rect(stageX + stageW - wingW, topY + 4.0f * s, wingW, stageH - 8.0f * s);
     } else {
         // ModernWide: slightly compact side dials (28% each) + wide panoramic MFD (44%)
-        const float dialSize = std::min(stageH * 0.92f, (stageW - gap * 2.0f) * 0.28f);
-        const float mfdW = std::max(120.0f, stageW - dialSize * 2.0f - gap * 2.0f);
+        const float dialSize = keel::min(stageH * 0.92f, (stageW - gap * 2.0f) * 0.28f);
+        const float mfdW = keel::max(120.0f, stageW - dialSize * 2.0f - gap * 2.0f);
         outLeftGauge  = Rect(stageX, topY, dialSize, stageH);
         outCenterMfd  = Rect(stageX + dialSize + gap, topY + 2.0f * s, mfdW, stageH - 4.0f * s);
         outRightGauge = Rect(stageX + stageW - dialSize, topY, dialSize, stageH);
@@ -1389,14 +1375,14 @@ void RenderCarClusterViewNode(const Node* node, ICanvas& canvas, const UiTheme& 
 
     // Outer automotive binnacle frame
     canvas.DrawRoundRect(ctrlRect, outerRadius, binnacleBg, binnacleBorder, borderW);
-    canvas.PushClip(ctrlRect.Inset(std::max(1.0f, borderW)));
+    canvas.PushClip(ctrlRect.Inset(keel::max(1.0f, borderW)));
 
     float topY = ctrlRect.y + 6.0f * s;
     float botY = ctrlRect.Bottom() - 6.0f * s;
 
     // 1. Top Shift-Lights Strip
     if (opts.showShiftLights && (botY - topY) > 160.0f) {
-        const float slW = std::min(ctrlRect.w * 0.46f, 320.0f * s);
+        const float slW = keel::min(ctrlRect.w * 0.46f, 320.0f * s);
         const Rect slRect(ctrlRect.Center().x - slW * 0.5f, topY, slW, 10.0f * s);
         RenderShiftLightStrip(canvas, slRect, opts, pal, s);
         topY += 12.0f * s;
@@ -1479,7 +1465,7 @@ Vec2 CarClusterView::Measure(
 CarClusterViewResponse CarClusterView::Run(
     Context& ctx,
     const CarClusterViewOptions& optsIn,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     UiTheme* pushedTheme = ctx.PushScopedTheme(optsIn.theme, optsIn.scale);
     struct ThemePopGuard {
@@ -1505,7 +1491,7 @@ CarClusterViewResponse CarClusterView::Run(
 
     auto& state = ctx.GetOrCreatePersistentState<CarClusterViewState>(id);
     // Advance animated road scroll phase proportionally to vehicle speed
-    const float speedMps = std::max(0.0f, opts.speedKmh) / 3.6f;
+    const float speedMps = keel::max(0.0f, opts.speedKmh) / 3.6f;
     state.roadScrollPhase = std::fmod(state.roadScrollPhase + static_cast<double>(speedMps) * 0.0018, 1.0);
 
     Rect prevBounds = baseRes.rect;
@@ -1532,16 +1518,16 @@ CarClusterViewResponse CarClusterView::Run(
 
         if (hovered) {
             const Vec2 center = ctrlRect.Center();
-            const float nx = std::clamp((mouse.x - center.x) / std::max(1.0f, ctrlRect.w * 0.45f), -1.0f, 1.0f);
-            const float ny = std::clamp((mouse.y - center.y) / std::max(1.0f, ctrlRect.h * 0.42f), -1.0f, 1.0f);
+            const float nx = keel::clamp((mouse.x - center.x) / keel::max(1.0f, ctrlRect.w * 0.45f), -1.0f, 1.0f);
+            const float ny = keel::clamp((mouse.y - center.y) / keel::max(1.0f, ctrlRect.h * 0.42f), -1.0f, 1.0f);
             resp.cursorNorm = {nx, ny};
             resp.cursorSteerDeg = nx * 45.0f;
             if (ny < -0.04f) {
-                resp.cursorThrottlePct = std::clamp((-ny - 0.04f) / 0.96f, 0.0f, 1.0f) * 100.0f;
+                resp.cursorThrottlePct = keel::clamp((-ny - 0.04f) / 0.96f, 0.0f, 1.0f) * 100.0f;
                 resp.cursorBrakePct = 0.0f;
             } else if (ny > 0.04f) {
                 resp.cursorThrottlePct = 0.0f;
-                resp.cursorBrakePct = std::clamp((ny - 0.04f) / 0.96f, 0.0f, 1.0f) * 100.0f;
+                resp.cursorBrakePct = keel::clamp((ny - 0.04f) / 0.96f, 0.0f, 1.0f) * 100.0f;
             }
 
             // Click inside MFD area cycles MFD page if bound
@@ -1559,7 +1545,7 @@ CarClusterViewResponse CarClusterView::Run(
             const float wheelY = ctx.GetMouseWheel().y;
             if (std::abs(wheelY) > 0.01f && opts.manualGearPtr) {
                 const int step = (wheelY > 0.0f) ? 1 : -1;
-                const int newGear = std::clamp(*opts.manualGearPtr + step, 1, 8);
+                const int newGear = keel::clamp(*opts.manualGearPtr + step, 1, 8);
                 if (newGear != *opts.manualGearPtr) {
                     *opts.manualGearPtr = newGear;
                     resp.changed = true;

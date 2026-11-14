@@ -1,7 +1,7 @@
 #pragma once
 
-#include <vector>
 #include "guikit/geo/geo_types.hpp"
+#include "keel/ref.h"
 
 namespace guikit::geo {
 
@@ -15,7 +15,7 @@ public:
 
     /// Computes signed area of a closed ring in (lon, lat) coordinates.
     /// Positive = Counter-Clockwise (CCW), Negative = Clockwise (CW).
-    [[nodiscard]] static double SignedAreaLonLat(const std::vector<guikit::GeoCoord>& ring) noexcept;
+    [[nodiscard]] static double SignedAreaLonLat(keel::ArrayRef<guikit::GeoCoord> ring) noexcept;
 };
 
 } // namespace guikit::geo

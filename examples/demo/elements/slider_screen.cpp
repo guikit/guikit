@@ -1,5 +1,4 @@
 #include "../demo_context.hpp"
-#include <format>
 
 namespace guikit::demo {
 
@@ -25,8 +24,8 @@ struct SliderDemoState {
     bool showValue = true;
     guikit::Orientation orientation = guikit::Orientation::Horizontal;
     guikit::Placement valuePlacement = guikit::Placement::Trailing;
-    std::string textLeft = "";
-    std::string textRight = "";
+    keel::SmallString<64> textLeft{""};
+    keel::SmallString<64> textRight{""};
 };
 SliderDemoState s_state;
 
@@ -36,7 +35,7 @@ constexpr const char* OrientationEnumName(guikit::Orientation o) noexcept {
 } // namespace
 
 void RenderSliderInspector(guikit::Context& ui, DemoContext&) {
-    static constexpr std::array<std::string_view, 4> modeNames = {"Slider", "Step", "Range", "Progress"};
+    static constexpr keel::StaticArray<keel::StringRef, 4> modeNames = {"Slider", "Step", "Range", "Progress"};
     if (auto el = ui.Element({
         .label = "Track Control Mode",
         .description = "Slider / StepSlider / RangeSlider / ProgressBar"
@@ -51,7 +50,7 @@ void RenderSliderInspector(guikit::Context& ui, DemoContext&) {
 
     if (s_state.modeIdx != 3) {
         int orientIdx = (s_state.orientation == guikit::Orientation::Vertical) ? 1 : 0;
-        static constexpr std::array<std::string_view, 2> orientNames = {"Horizontal", "Vertical (Fader)"};
+        static constexpr keel::StaticArray<keel::StringRef, 2> orientNames = {"Horizontal", "Vertical (Fader)"};
         if (auto el = ui.Element({.label = "Orientation"})) {
             if (ui.Segmented(orientIdx, orientNames).changed) {
                 s_state.orientation = (orientIdx == 1)
@@ -65,7 +64,7 @@ void RenderSliderInspector(guikit::Context& ui, DemoContext&) {
     if (auto el = ui.Element({.label = "Show Value Tag"})) {
         if (ui.Switch(s_state.showValue).changed) ui.InvalidateAll();
     }
-    static constexpr std::array<std::string_view, 5> valPlaceNames = {"Lead", "Trail", "Top", "Btm", "Thumb"};
+    static constexpr keel::StaticArray<keel::StringRef, 5> valPlaceNames = {"Lead", "Trail", "Top", "Btm", "Thumb"};
     size_t valPlaceIdx = static_cast<size_t>(s_state.valuePlacement);
     if (auto el = ui.Element({.label = "Value Placement", .disabled = !s_state.showValue})) {
         if (ui.StepSlider(valPlaceIdx, valPlaceNames, {
@@ -159,7 +158,7 @@ void RenderSliderInspector(guikit::Context& ui, DemoContext&) {
 }
 
 void RenderSliderStage(guikit::Context& ui, DemoContext& ctx) {
-    const std::optional<double> stepOpt = s_state.quantizeStep ? std::optional<double>(5.0) : std::nullopt;
+    const keel::Optional<double> stepOpt = s_state.quantizeStep ? keel::Optional<double>(5.0) : keel::kNullOpt;
     if (auto el = ui.Size(ctx.elemSize).Element({
         .label = ctx.GetElementLabel(),
         .description = ctx.GetElementDescription(),
@@ -191,7 +190,7 @@ void RenderSliderStage(guikit::Context& ui, DemoContext& ctx) {
                 .disabled = ctx.elemDisabled
             });
         } else if (s_state.modeIdx == 1) {
-            static constexpr std::array<std::string_view, 5> stepItems = {"Off", "Low", "Mid", "High", "Max"};
+            static constexpr keel::StaticArray<keel::StringRef, 5> stepItems = {"Off", "Low", "Mid", "High", "Max"};
             ui.Size(ctx.controlsSize).StepSlider(s_state.stepIdx, stepItems, {
                 .orientation = s_state.orientation,
                 .textLeft = s_state.textLeft,
@@ -231,7 +230,7 @@ void RenderSliderStage(guikit::Context& ui, DemoContext& ctx) {
                 .textLeft = s_state.textLeft,
                 .textRight = s_state.textRight,
                 .valueFormat = "%.1f %%",
-                .peakHoldValue = s_state.progressShowPeak ? std::optional<double>(s_state.progressPeakVal) : std::nullopt,
+                .peakHoldValue = s_state.progressShowPeak ? keel::Optional<double>(s_state.progressPeakVal) : keel::kNullOpt,
                 .segments = s_state.progressSegmented ? s_state.progressSegments : 0u,
                 .trackHeight = s_state.progressBarHeight,
                 .showValue = s_state.showValue,
@@ -249,9 +248,9 @@ void RenderSliderStage(guikit::Context& ui, DemoContext& ctx) {
     }
 }
 
-std::string GenerateSliderCode(const DemoContext& ctx) {
+keel::String GenerateSliderCode(const DemoContext& ctx) {
     if (s_state.modeIdx == 0) {
-        return std::format(
+        return keel::format(
             "if (auto el = ui.{}Element({{\n"
             "    .label = {},\n"
             "    .description = {},\n"
@@ -298,7 +297,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             OrientationEnumName(s_state.orientation),
             s_state.textLeft,
             s_state.textRight,
-            s_state.quantizeStep ? "5.0" : "std::nullopt",
+            s_state.quantizeStep ? "5.0" : "keel::kNullOpt",
             s_state.showValue ? "true" : "false",
             PlacementName(s_state.valuePlacement),
             ctx.FormatControlColorCode(),
@@ -311,8 +310,8 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
         );
     }
     if (s_state.modeIdx == 1) {
-        return std::format(
-            "static constexpr std::array<std::string_view, 5> stepItems = {{\"Off\", \"Low\", \"Mid\", \"High\", \"Max\"}};\n"
+        return keel::format(
+            "static constexpr keel::StaticArray<keel::StringRef, 5> stepItems = {{\"Off\", \"Low\", \"Mid\", \"High\", \"Max\"}};\n"
             "if (auto el = ui.{}Element({{\n"
             "    .label = {},\n"
             "    .description = {},\n"
@@ -373,7 +372,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
         );
     }
     if (s_state.modeIdx == 2) {
-        return std::format(
+        return keel::format(
             "if (auto el = ui.{}Element({{\n"
             "    .label = {},\n"
             "    .description = {},\n"
@@ -421,7 +420,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             OrientationEnumName(s_state.orientation),
             s_state.textLeft,
             s_state.textRight,
-            s_state.quantizeStep ? "5.0" : "std::nullopt",
+            s_state.quantizeStep ? "5.0" : "keel::kNullOpt",
             s_state.rangeMinSpan,
             s_state.showValue ? "true" : "false",
             PlacementName(s_state.valuePlacement),
@@ -434,7 +433,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             ctx.elemDisabled ? "true" : "false"
         );
     }
-    return std::format(
+    return keel::format(
         "if (auto el = ui.{}Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"
@@ -482,7 +481,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
         FormatUiSizePrefix(ctx.controlsSize),
         s_state.textLeft,
         s_state.textRight,
-        s_state.progressShowPeak ? std::format("{:.1f}", s_state.progressPeakVal) : "std::nullopt",
+        s_state.progressShowPeak ? keel::format_fixed<32>("{:.1f}", s_state.progressPeakVal) : keel::FixedString<32>("keel::kNullOpt"),
         s_state.progressSegmented ? s_state.progressSegments : 0u,
         s_state.progressBarHeight,
         s_state.showValue ? "true" : "false",

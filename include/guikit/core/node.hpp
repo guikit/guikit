@@ -2,9 +2,6 @@
 
 #include <cassert>
 #include <cstdint>
-#include <optional>
-#include <string_view>
-#include <type_traits>
 #include "guikit/core/id.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
@@ -140,8 +137,8 @@ struct Node {
     NodeType type{NodeType::Container};
     uint8_t gridColumns{12};    ///< Number of columns in Grid layout container
     uint8_t colSpan{12};        ///< Number of grid columns occupied by this item (1..12)
-    std::optional<bool> debugBoundsOverride{std::nullopt};
-    std::optional<bool> inspectModeOverride{std::nullopt};
+    keel::Optional<bool> debugBoundsOverride{keel::kNullOpt};
+    keel::Optional<bool> inspectModeOverride{keel::kNullOpt};
 
     // Packed layout enums & 1-bit interaction/container flags (maintains <= 256B / 4 cache lines)
     FlexDirection direction : 3 {FlexDirection::Column};
@@ -204,7 +201,7 @@ struct Node {
     float borderWidth{0.0f};
     float cornerRadius{0.0f};
     Color textColor{255, 255, 255, 255};
-    std::string_view text{};
+    keel::StringRef text{};
 
     // Generic arena-allocated widget payload (ButtonOptions, InputFieldData, CarouselData, user data, etc.)
     void* payload{nullptr};
@@ -219,14 +216,14 @@ struct Node {
     template <typename T>
     void SetPayload(T* ptr) noexcept {
         payload = ptr;
-        payloadTypeId = ptr ? detail::GetPayloadTypeId<std::remove_cv_t<T>>() : 0;
+        payloadTypeId = ptr ? detail::GetPayloadTypeId<keel::RemoveCv<T>>() : 0;
     }
 
     /// Casts payload to the specified widget data type, returning nullptr on type mismatch.
     template <typename T>
     [[nodiscard]] T* As() noexcept {
         if (!payload) return nullptr;
-        if (payloadTypeId != 0 && payloadTypeId != detail::GetPayloadTypeId<std::remove_cv_t<T>>()) {
+        if (payloadTypeId != 0 && payloadTypeId != detail::GetPayloadTypeId<keel::RemoveCv<T>>()) {
             return nullptr;
         }
         return static_cast<T*>(payload);
@@ -236,7 +233,7 @@ struct Node {
     template <typename T>
     [[nodiscard]] const T* As() const noexcept {
         if (!payload) return nullptr;
-        if (payloadTypeId != 0 && payloadTypeId != detail::GetPayloadTypeId<std::remove_cv_t<T>>()) {
+        if (payloadTypeId != 0 && payloadTypeId != detail::GetPayloadTypeId<keel::RemoveCv<T>>()) {
             return nullptr;
         }
         return static_cast<const T*>(payload);
@@ -264,7 +261,7 @@ struct Node {
     }
 
     /// Returns the canonical human-readable element type name for inspector and debug tooling.
-    [[nodiscard]] constexpr std::string_view GetTypeName() const noexcept {
+    [[nodiscard]] constexpr keel::StringRef GetTypeName() const noexcept {
         switch (type) {
             case NodeType::Row:         return "Row";
             case NodeType::Column:      return "Column";

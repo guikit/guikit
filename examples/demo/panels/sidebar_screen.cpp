@@ -1,6 +1,4 @@
 #include "../demo_context.hpp"
-#include <algorithm>
-#include <format>
 
 namespace guikit::demo {
 
@@ -30,7 +28,7 @@ struct SidebarState {
 };
 SidebarState s_state;
 
-constexpr std::string_view ModeEnumName(guikit::SidebarMode m) noexcept {
+constexpr keel::StringRef ModeEnumName(guikit::SidebarMode m) noexcept {
     switch (m) {
         case guikit::SidebarMode::Compact:   return "Compact";
         case guikit::SidebarMode::Collapsed: return "Collapsed";
@@ -38,7 +36,7 @@ constexpr std::string_view ModeEnumName(guikit::SidebarMode m) noexcept {
     }
 }
 
-constexpr std::string_view StatusStyleName(guikit::StatusBarStyle s) noexcept {
+constexpr keel::StringRef StatusStyleName(guikit::StatusBarStyle s) noexcept {
     switch (s) {
         case guikit::StatusBarStyle::Header: return "Header";
         case guikit::StatusBarStyle::Accent: return "Accent";
@@ -59,7 +57,7 @@ void RenderSidebarInspector(guikit::Context& ui, DemoContext& ctx) {
     }
     ctx.RenderVariantPicker(ui);
 
-    static constexpr std::array<std::string_view, 2> sbMenuStyleNames = {"Pill", "Indicator"};
+    static constexpr keel::StaticArray<keel::StringRef, 2> sbMenuStyleNames = {"Pill", "Indicator"};
     size_t sbStyleIdx = (s_state.menuStyle == guikit::SidebarMenuStyle::Indicator) ? 1 : 0;
     if (auto el = ui.Element({.label = "Menu Style"})) {
         if (ui.StepSlider(sbStyleIdx, sbMenuStyleNames, {.showTicks = true, .showLabels = true}).changed) {
@@ -68,7 +66,7 @@ void RenderSidebarInspector(guikit::Context& ui, DemoContext& ctx) {
         }
     }
 
-    static constexpr std::array<std::string_view, 2> sbSideNames = {"Left", "Right"};
+    static constexpr keel::StaticArray<keel::StringRef, 2> sbSideNames = {"Left", "Right"};
     size_t sbSideIdx = (s_state.side == guikit::SidebarSide::Right) ? 1 : 0;
     if (auto el = ui.Element({.label = "Dock Side"})) {
         if (ui.StepSlider(sbSideIdx, sbSideNames, {.showTicks = true, .showLabels = true}).changed) {
@@ -129,7 +127,7 @@ void RenderSidebarInspector(guikit::Context& ui, DemoContext& ctx) {
     }
 
     if (s_state.showActivityBar) {
-        static constexpr std::array<std::string_view, 2> abStyleNames = {"Indicator", "Pill"};
+        static constexpr keel::StaticArray<keel::StringRef, 2> abStyleNames = {"Indicator", "Pill"};
         size_t abStyleIdx = (s_state.activityStyle == guikit::ActivityBarStyle::Pill) ? 1 : 0;
         if (auto el = ui.Element({.label = "ActivityBar Style"})) {
             if (ui.StepSlider(abStyleIdx, abStyleNames, {.showTicks = true, .showLabels = true}).changed) {
@@ -246,7 +244,7 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
             // 2. Primary Sidebar docked flush next to ActivityBar (or on outer edge when standalone)
             if (auto sb = ui.Sidebar(s_state.mode, {
                 .side = s_state.side,
-                .width = s_state.autoWidth ? std::nullopt : std::optional<float>(s_state.fixedWidth),
+                .width = s_state.autoWidth ? keel::kNullOpt : keel::Optional<float>(s_state.fixedWidth),
                 .resizable = s_state.resizable,
                 .allowCompact = s_state.allowCompact,
                 .allowCollapse = s_state.allowCollapse,
@@ -257,13 +255,13 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
                     .style = s_state.menuStyle,
                     .color = ctx.ResolveControlColor()
                 })) {
-                    static constexpr std::array<std::string_view, 3> actHeaders = {
+                    static constexpr keel::StaticArray<keel::StringRef, 3> actHeaders = {
                         "EXPLORER", "ANALYTICS", "PIPELINES"
                     };
                     if (s_state.showSections) {
                         menu.Section(s_state.showActivityBar
-                            ? actHeaders[static_cast<size_t>(std::clamp(s_state.activityIdx, 0, 2))]
-                            : std::string_view("WORKSPACE"));
+                            ? actHeaders[static_cast<size_t>(keel::clamp(s_state.activityIdx, 0, 2))]
+                            : keel::StringRef("WORKSPACE"));
                     }
                     menu.Item(s_state.menuIdx, 0, {
                         .text = "Overview",
@@ -303,11 +301,11 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
                 .widthMode = guikit::SizeMode::Stretch,
                 .heightMode = guikit::SizeMode::Stretch
             })) {
-                static constexpr std::array<std::string_view, 4> pageTitles = {
+                static constexpr keel::StaticArray<keel::StringRef, 4> pageTitles = {
                     "Overview", "Analytics", "Deployments", "Settings"
                 };
                 ui.Size(guikit::UiSize::Sm).Heading({
-                    .label = pageTitles[static_cast<size_t>(std::clamp(s_state.menuIdx, 0, 3))],
+                    .label = pageTitles[static_cast<size_t>(keel::clamp(s_state.menuIdx, 0, 3))],
                     .description = "Drag the Sidebar border sash to resize or snap between Expanded, Compact, and Collapsed modes.",
                     .badge = {ModeEnumName(s_state.mode), ctx.ResolveControlColor()}
                 });
@@ -351,12 +349,12 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
                     .heightMode = guikit::SizeMode::Stretch,
                     .padding = guikit::Padding::All(10.0f)
                 })) {
-                    static constexpr std::array<std::string_view, 3> tabContents = {
+                    static constexpr keel::StaticArray<keel::StringRef, 3> tabContents = {
                         "[CUDA Solver] Completed 2D acoustic ray trace (0.99 km, depth 24.5 m) in 14.2 ms.",
                         "[Warn] 2 boundary reflections attenuated below -65 dB threshold.",
                         "[Slice 2D] Drag the top border of this BottomPanel up/down to resize the cross-section viewport."
                     };
-                    ui.Text(tabContents[static_cast<size_t>(std::clamp(s_state.bottomTabIdx, 0, 2))], {
+                    ui.Text(tabContents[static_cast<size_t>(keel::clamp(s_state.bottomTabIdx, 0, 2))], {
                         .role = guikit::TextRole::BodySmall,
                         .variant = guikit::UiVariant::Secondary
                     });
@@ -395,11 +393,21 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
     }
 }
 
-std::string GenerateSidebarCode(const DemoContext& ctx) {
-    const std::string sideStr = (s_state.side == guikit::SidebarSide::Right) ? "Right" : "Left";
-    std::string actCode;
+keel::String GenerateSidebarCode(const DemoContext& ctx) {
+    const keel::StringRef sideStr = (s_state.side == guikit::SidebarSide::Right) ? "Right" : "Left";
+    keel::String out;
+
+    keel::format_into(
+        out,
+        "// Theme-driven application shell framing (Docked vs Floating)\n"
+        "theme.SetShellStyle(guikit::ShellStyle::{});\n"
+        "ui.SetTheme(theme);\n\n",
+        s_state.floatingFrame ? "Floating" : "Docked"
+    );
+
     if (s_state.showActivityBar) {
-        actCode = std::format(
+        keel::format_into(
+            out,
             "if (auto bar = ui.Size(guikit::UiSize::{}).ActivityBar(sidebarMode, {{\n"
             "    .side = guikit::SidebarSide::{},\n"
             "    .style = guikit::ActivityBarStyle::{},\n"
@@ -419,46 +427,12 @@ std::string GenerateSidebarCode(const DemoContext& ctx) {
         );
     }
 
-    std::string bpCode;
-    if (s_state.showBottomPanel) {
-        bpCode = std::format(
-            "\n\nif (auto bp = ui.BottomPanel(showBottomPanel, {{\n"
-            "    .height = 180.0f,\n"
-            "    .resizable = {},\n"
-            "    .allowCollapse = {}\n"
-            "}})) {{\n"
-            "    if (auto tb = ui.Toolbar({{.style = guikit::ToolbarStyle::Header}})) {{\n"
-            "        tb.Item(activeTab, 0, {{.text = \"Output\", .icon = guikit::Icon::Play()}});\n"
-            "        tb.Spacer();\n"
-            "        if (tb.Action({{.icon = guikit::Icon::Close(), .square = true}}).clicked) showBottomPanel = false;\n"
-            "    }}\n"
-            "    // Bottom panel content (charts, logs, 2D slice view)\n"
-            "}}",
-            s_state.resizable ? "true" : "false",
-            s_state.allowCollapse ? "true" : "false"
-        );
-    }
+    const auto widthExpr = s_state.autoWidth
+        ? keel::FixedString<32>("keel::kNullOpt")
+        : keel::format_fixed<32>("{:.1f}f", s_state.fixedWidth);
 
-    std::string statusCode;
-    if (s_state.showStatusBar) {
-        statusCode = std::format(
-            "\n\nif (auto sb = ui.StatusBar({{.style = guikit::StatusBarStyle::{}}})) {{\n"
-            "    sb.Item({{.text = \"Ready\", .dotColor = theme.variants.success.base}});\n"
-            "    sb.Spacer();\n"
-            "    if (sb.Action({{.text = \"Bottom Panel\", .active = showBottomPanel}}).clicked) {{\n"
-            "        showBottomPanel = !showBottomPanel;\n"
-            "    }}\n"
-            "}}",
-            StatusStyleName(s_state.statusBarStyle)
-        );
-    }
-
-    return std::format(
-        "// Theme-driven application shell framing (Docked vs Floating)\n"
-        "theme.SetShellStyle(guikit::ShellStyle::{});\n"
-        "ui.SetTheme(theme);\n\n",
-        s_state.floatingFrame ? "Floating" : "Docked"
-    ) + actCode + std::format(
+    keel::format_into(
+        out,
         "if (auto sb = ui.Sidebar(sidebarMode, {{\n"
         "    .side = guikit::SidebarSide::{},\n"
         "    .width = {},\n"
@@ -477,7 +451,7 @@ std::string GenerateSidebarCode(const DemoContext& ctx) {
         "    }}\n"
         "}}",
         sideStr,
-        s_state.autoWidth ? "std::nullopt" : std::format("{:.1f}f", s_state.fixedWidth),
+        widthExpr,
         s_state.resizable ? "true" : "false",
         s_state.allowCompact ? "true" : "false",
         s_state.allowCollapse ? "true" : "false",
@@ -486,7 +460,43 @@ std::string GenerateSidebarCode(const DemoContext& ctx) {
         VariantName(ctx.btnVariant),
         s_state.showBadges ? ", .badge = \"3\"" : "",
         s_state.showBadges ? ", .badge = \"New\"" : ""
-    ) + bpCode + statusCode;
+    );
+
+    if (s_state.showBottomPanel) {
+        keel::format_into(
+            out,
+            "\n\nif (auto bp = ui.BottomPanel(showBottomPanel, {{\n"
+            "    .height = 180.0f,\n"
+            "    .resizable = {},\n"
+            "    .allowCollapse = {}\n"
+            "}})) {{\n"
+            "    if (auto tb = ui.Toolbar({{.style = guikit::ToolbarStyle::Header}})) {{\n"
+            "        tb.Item(activeTab, 0, {{.text = \"Output\", .icon = guikit::Icon::Play()}});\n"
+            "        tb.Spacer();\n"
+            "        if (tb.Action({{.icon = guikit::Icon::Close(), .square = true}}).clicked) showBottomPanel = false;\n"
+            "    }}\n"
+            "    // Bottom panel content (charts, logs, 2D slice view)\n"
+            "}}",
+            s_state.resizable ? "true" : "false",
+            s_state.allowCollapse ? "true" : "false"
+        );
+    }
+
+    if (s_state.showStatusBar) {
+        keel::format_into(
+            out,
+            "\n\nif (auto sb = ui.StatusBar({{.style = guikit::StatusBarStyle::{}}})) {{\n"
+            "    sb.Item({{.text = \"Ready\", .dotColor = theme.variants.success.base}});\n"
+            "    sb.Spacer();\n"
+            "    if (sb.Action({{.text = \"Bottom Panel\", .active = showBottomPanel}}).clicked) {{\n"
+            "        showBottomPanel = !showBottomPanel;\n"
+            "    }}\n"
+            "}}",
+            StatusStyleName(s_state.statusBarStyle)
+        );
+    }
+
+    return out;
 }
 
 } // namespace guikit::demo

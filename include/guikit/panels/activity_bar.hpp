@@ -1,10 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <initializer_list>
-#include <optional>
-#include <span>
-#include <source_location>
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -12,6 +8,9 @@
 #include "guikit/core/types.hpp"
 #include "guikit/graphics/icon.hpp"
 #include "guikit/panels/sidebar.hpp"
+#include "keel/core.h"
+#include "keel/optional.h"
+#include "keel/ref.h"
 
 namespace guikit {
 
@@ -42,17 +41,17 @@ struct ActivityBarOptions {
     ActivityBarStyle style{ActivityBarStyle::Indicator}; ///< Active item indicator style
     StateColor color{};                                 ///< Default accent color for active items and badges (Default = theme accent)
     SidebarMode* linkedSidebarMode{nullptr};            ///< Optional companion Sidebar mode for VS Code click-to-toggle/expand behavior
-    std::optional<bool> flushWithSidebar{std::nullopt}; ///< Dock adjacent same-side Sidebar flush (nullopt = auto from theme.shellStyle)
-    std::optional<float> width{std::nullopt};           ///< Optional explicit rail width (nullopt = auto-fit to square icon cells)
-    std::optional<float> gap{4.0f};                     ///< Vertical spacing between consecutive items
-    std::optional<Padding> padding{std::nullopt};       ///< Internal rail padding (nullopt = compact symmetric padding)
+    keel::Optional<bool> flushWithSidebar{keel::kNullOpt}; ///< Dock adjacent same-side Sidebar flush (nullopt = auto from theme.shellStyle)
+    keel::Optional<float> width{keel::kNullOpt};           ///< Optional explicit rail width (nullopt = auto-fit to square icon cells)
+    keel::Optional<float> gap{4.0f};                     ///< Vertical spacing between consecutive items
+    keel::Optional<Padding> padding{keel::kNullOpt};       ///< Internal rail padding (nullopt = compact symmetric padding)
     StateColor background{};
     Border border{.width = 1.0f};
     bool disabled{false};
     const UiTheme* theme{nullptr};
-    std::optional<float> scale{std::nullopt};
-    std::optional<bool> debugBounds{std::nullopt};
-    std::optional<bool> inspectMode{std::nullopt};
+    keel::Optional<float> scale{keel::kNullOpt};
+    keel::Optional<bool> debugBounds{keel::kNullOpt};
+    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// Internal runtime payload allocated in frame arena for ActivityBar item nodes.
@@ -73,7 +72,7 @@ public:
     /// Adds a clickable activity bar item and returns its interaction Response.
     Response Item(
         const ActivityBarItem& item,
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Adds a stateful activity bar item bound to `selectedValue` (enum, int, size_t).
@@ -85,7 +84,7 @@ public:
         T& selectedValue,
         T itemValue,
         ActivityBarItem item,
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         const bool isSelected = (selectedValue == itemValue);
         const bool isSidebarOpen = (m_opts.linkedSidebarMode == nullptr) ||
@@ -116,16 +115,16 @@ public:
     /// that does not modify the active view selection or linked Sidebar state.
     Response Action(
         ActivityBarItem item,
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return Item(item, loc);
     }
 
     /// Adds a subtle horizontal separator line across the ActivityBar.
-    void Separator(std::source_location loc = std::source_location::current());
+    void Separator(keel::SourceLocation loc = keel::SourceLocation::current());
 
     /// Adds an elastic vertical spacer pushing subsequent items (e.g. Settings/Account) to the bottom.
-    void Spacer(float flex = 1.0f, std::source_location loc = std::source_location::current());
+    void Spacer(float flex = 1.0f, keel::SourceLocation loc = keel::SourceLocation::current());
 
     [[nodiscard]] const Response* operator->() const noexcept { return &response; }
 
@@ -141,7 +140,7 @@ public:
     [[nodiscard]] static ActivityBarScope Open(
         Context& ctx,
         const ActivityBarOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Convenience overload binding a companion SidebarMode directly for VS Code toggle behavior.
@@ -149,7 +148,7 @@ public:
         Context& ctx,
         SidebarMode& linkedSidebarMode,
         ActivityBarOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         opts.linkedSidebarMode = &linkedSidebarMode;
         return Open(ctx, opts, loc);
@@ -159,9 +158,9 @@ public:
     static Response Run(
         Context& ctx,
         int& activeIndex,
-        std::span<const ActivityBarItem> items,
+        keel::ArrayRef<ActivityBarItem> items,
         const ActivityBarOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Renders a single standalone ActivityBarItem inside the current container.
@@ -169,7 +168,7 @@ public:
         Context& ctx,
         const ActivityBarItem& item,
         const ActivityBarOptions& barOpts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Measures intrinsic dimensions of a single ActivityBar item cell.

@@ -7,7 +7,7 @@ namespace guikit {
 ContainerScope Wrap::Open(
     Context& ctx,
     const WrapOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();

@@ -1,5 +1,4 @@
 #include "guikit/layout/grid.hpp"
-#include <algorithm>
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 
@@ -8,7 +7,7 @@ namespace guikit {
 GridScope Grid::Open(
     Context& ctx,
     const GridOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
@@ -22,7 +21,7 @@ GridScope Grid::Open(
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     node->direction = FlexDirection::Grid;
-    node->gridColumns = static_cast<uint8_t>(std::clamp(opts.columns, 1, 24));
+    node->gridColumns = static_cast<uint8_t>(keel::clamp(opts.columns, 1, 24));
     node->minColWidth = theme.Scale(opts.minColWidth);
     node->gap = theme.ResolveGap(opts.gap, activeSize);
     node->runGap = opts.runGap.has_value() ? theme.Scale(*opts.runGap) : node->gap;
@@ -62,7 +61,7 @@ GridScope Grid::Open(
     return GridScope(&ctx, node);
 }
 
-ContainerScope GridScope::Cell(int span, CellOptions opts, std::source_location loc) {
+ContainerScope GridScope::Cell(int span, CellOptions opts, keel::SourceLocation loc) {
     if (!m_ctx) return ContainerScope(nullptr, nullptr);
 
     const Id id = m_ctx->MakeChildId(loc);
@@ -78,7 +77,7 @@ ContainerScope GridScope::Cell(int span, CellOptions opts, std::source_location 
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     node->direction = FlexDirection::Column;
-    node->colSpan = static_cast<uint8_t>(std::clamp(span, 1, maxCols));
+    node->colSpan = static_cast<uint8_t>(keel::clamp(span, 1, maxCols));
     node->minWidth = theme.Scale(opts.minWidth);
     if (opts.maxWidth.has_value() && *opts.maxWidth > 0.0f) {
         node->maxWidth = theme.Scale(*opts.maxWidth);
@@ -110,36 +109,36 @@ ContainerScope GridScope::Cell(int span, CellOptions opts, std::source_location 
     return ContainerScope(m_ctx, node);
 }
 
-ContainerScope GridScope::Cell(CellOptions opts, std::source_location loc) {
+ContainerScope GridScope::Cell(CellOptions opts, keel::SourceLocation loc) {
     const int maxCols = (m_node && m_node->gridColumns > 0) ? static_cast<int>(m_node->gridColumns) : 12;
     return Cell(maxCols, opts, loc);
 }
 
-ContainerScope GridScope::Cell12(CellOptions opts, std::source_location loc) {
+ContainerScope GridScope::Cell12(CellOptions opts, keel::SourceLocation loc) {
     return Cell(12, opts, loc);
 }
 
-ContainerScope GridScope::Cell8(CellOptions opts, std::source_location loc) {
+ContainerScope GridScope::Cell8(CellOptions opts, keel::SourceLocation loc) {
     return Cell(8, opts, loc);
 }
 
-ContainerScope GridScope::Cell6(CellOptions opts, std::source_location loc) {
+ContainerScope GridScope::Cell6(CellOptions opts, keel::SourceLocation loc) {
     return Cell(6, opts, loc);
 }
 
-ContainerScope GridScope::Cell4(CellOptions opts, std::source_location loc) {
+ContainerScope GridScope::Cell4(CellOptions opts, keel::SourceLocation loc) {
     return Cell(4, opts, loc);
 }
 
-ContainerScope GridScope::Cell3(CellOptions opts, std::source_location loc) {
+ContainerScope GridScope::Cell3(CellOptions opts, keel::SourceLocation loc) {
     return Cell(3, opts, loc);
 }
 
-ContainerScope GridScope::Cell2(CellOptions opts, std::source_location loc) {
+ContainerScope GridScope::Cell2(CellOptions opts, keel::SourceLocation loc) {
     return Cell(2, opts, loc);
 }
 
-ContainerScope GridScope::Cell1(CellOptions opts, std::source_location loc) {
+ContainerScope GridScope::Cell1(CellOptions opts, keel::SourceLocation loc) {
     return Cell(1, opts, loc);
 }
 

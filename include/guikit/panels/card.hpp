@@ -1,10 +1,10 @@
 #pragma once
 
-#include <optional>
-#include <source_location>
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
+#include "keel/core.h"
+#include "keel/optional.h"
 
 namespace guikit {
 
@@ -14,14 +14,14 @@ class Context;
 /// Options for configuring a visual Card surface container.
 struct CardOptions {
     float minWidth{0.0f};                           ///< Minimum card width constraint (0 = auto content intrinsic)
-    std::optional<float> maxWidth{std::nullopt};
-    std::optional<float> width{std::nullopt};
-    std::optional<float> height{std::nullopt};
-    std::optional<float> minHeight{std::nullopt};
-    std::optional<float> maxHeight{std::nullopt};
+    keel::Optional<float> maxWidth{keel::kNullOpt};
+    keel::Optional<float> width{keel::kNullOpt};
+    keel::Optional<float> height{keel::kNullOpt};
+    keel::Optional<float> minHeight{keel::kNullOpt};
+    keel::Optional<float> maxHeight{keel::kNullOpt};
     float flexGrow{1.0f};
-    std::optional<float> gap{std::nullopt};        ///< Gap between child elements inside card (nullopt = from theme)
-    std::optional<Padding> padding{std::nullopt};   ///< Card padding (nullopt = auto from theme)
+    keel::Optional<float> gap{keel::kNullOpt};        ///< Gap between child elements inside card (nullopt = from theme)
+    keel::Optional<Padding> padding{keel::kNullOpt};   ///< Card padding (nullopt = auto from theme)
     StateColor background{};
     Border border{.width = 1.0f};
     bool clipChildren{true};                        ///< Clip children to prevent content bleeding outside rounded card
@@ -29,9 +29,9 @@ struct CardOptions {
     SizeMode heightMode{SizeMode::Fit};
     bool disabled{false};
     const UiTheme* theme{nullptr};
-    std::optional<float> scale{std::nullopt};
-    std::optional<bool> debugBounds{std::nullopt};
-    std::optional<bool> inspectMode{std::nullopt};
+    keel::Optional<float> scale{keel::kNullOpt};
+    keel::Optional<bool> debugBounds{keel::kNullOpt};
+    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// Autonomous immediate mode Card surface container entry point.
@@ -40,7 +40,7 @@ public:
     [[nodiscard]] static ContainerScope Open(
         Context& ctx,
         const CardOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 };
 

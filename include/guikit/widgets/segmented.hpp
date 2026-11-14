@@ -1,15 +1,14 @@
 #pragma once
 
-#include <optional>
-#include <span>
-#include <source_location>
-#include <string_view>
-#include <vector>
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/types.hpp"
 #include "guikit/graphics/icon.hpp"
+#include "keel/core.h"
+#include "keel/optional.h"
+#include "keel/ref.h"
+#include "keel/string.h"
 
 namespace guikit {
 
@@ -31,23 +30,23 @@ struct SegmentedOptions {
     StateColor color{};                            ///< Active segment pill fill color (Default/None = elevated surface + accent border, or Primary/Success/etc.)
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
     Align align{Align::Start};                     ///< Standalone horizontal control alignment (Start, Center, End)
-    std::optional<float> width{std::nullopt};      ///< Control width in dp (or legacy ratio 0.0..1.0 in Fill)
-    std::optional<float> widthRatio{std::nullopt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
-    std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = inherit defaultHeight from UiSize)
-    std::optional<float> minWidth{std::nullopt};   ///< Minimum control width constraint in points
+    keel::Optional<float> width{keel::kNullOpt};      ///< Control width in dp (or legacy ratio 0.0..1.0 in Fill)
+    keel::Optional<float> widthRatio{keel::kNullOpt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
+    keel::Optional<float> height{keel::kNullOpt};     ///< Explicit control height in points (nullopt = inherit defaultHeight from UiSize)
+    keel::Optional<float> minWidth{keel::kNullOpt};   ///< Minimum control width constraint in points
     StateColor background{StateColor::Surface()};  ///< Outer capsule/track surface fill color
     Border border{};                               ///< Outer capsule/track border stroke & corner radius
     bool equalWidth{true};                         ///< Give all segments equal width (true) or size each segment to its content (false)
     bool showDividers{true};                       ///< Render subtle vertical hairlines between unselected adjacent segments
     bool disabled{false};                          ///< Interaction suppression
     const UiTheme* theme{nullptr};                 ///< Optional scoped theme override
-    std::optional<float> scale{std::nullopt};      ///< Optional scoped scale factor override
+    keel::Optional<float> scale{keel::kNullOpt};      ///< Optional scoped scale factor override
 };
 
 /// Internal runtime state allocated in frame arena for Segmented nodes.
 struct SegmentedData {
     SegmentedOptions opts{};
-    std::span<const SegmentedItem> items{};
+    keel::ArrayRef<SegmentedItem> items{};
     size_t selectedIndex{size_t(-1)};
     uint32_t selectedMask{0};
     bool multiSelect{false};
@@ -64,25 +63,25 @@ public:
         size_t* selectedIndex,
         int* selectedIntIndex,
         uint32_t* selectedMask,
-        std::span<const SegmentedItem> items,
+        keel::ArrayRef<SegmentedItem> items,
         const SegmentedOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
-    /// Convenience immediate mode entry point for Segmented control with plain string_view items.
+    /// Convenience immediate mode entry point for Segmented control with plain StringRef items.
     static Response Run(
         Context& ctx,
         size_t* selectedIndex,
         int* selectedIntIndex,
         uint32_t* selectedMask,
-        std::span<const std::string_view> items,
+        keel::ArrayRef<keel::StringRef> items,
         const SegmentedOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Measures intrinsic dimensions of the segmented control based on segment items, icons, and sizing mode.
     static Vec2 Measure(
-        std::span<const SegmentedItem> items,
+        keel::ArrayRef<SegmentedItem> items,
         const SegmentedOptions& opts,
         UiSize size,
         ICanvas* canvas,
@@ -90,7 +89,7 @@ public:
         float availableWidth = 0.0f
     );
     static Vec2 Measure(
-        std::span<const SegmentedItem> items,
+        keel::ArrayRef<SegmentedItem> items,
         const SegmentedOptions& opts,
         UiSize size,
         ICanvas* canvas = nullptr,
@@ -101,7 +100,7 @@ public:
     static void Render(
         ICanvas& canvas,
         Rect bounds,
-        std::span<const SegmentedItem> items,
+        keel::ArrayRef<SegmentedItem> items,
         size_t selectedIndex,
         uint32_t selectedMask,
         bool multiSelect,

@@ -1,29 +1,23 @@
 #include "../demo_context.hpp"
-#include <algorithm>
-#include <chrono>
 #include <cmath>
 #include <cstdint>
-#include <format>
-#include <numbers>
-#include <string>
-#include <string_view>
-#include <vector>
 
 namespace guikit::demo {
 
 namespace {
 
-constexpr float kTwoPi = 2.0f * std::numbers::pi_v<float>;
+constexpr float kPi = 3.14159265358979323846f;
+constexpr float kTwoPi = 2.0f * kPi;
 
 struct SignalDemoState {
     size_t presetIdx = 0;
     float sampleRate = 48000.0f;
-    std::vector<float> samples;
-    std::vector<guikit::SignalMarker> markers;
+    keel::Array<float> samples;
+    keel::Array<guikit::SignalMarker> markers;
     guikit::SignalSelection selection{};
     double playheadSec = 0.42;
     bool livePlayhead = false;
-    std::chrono::steady_clock::time_point lastWallClock{};
+    uint64_t lastWallNs = 0;
 
     guikit::SignalPanelOrder panelOrder = guikit::SignalPanelOrder::WaveformTop;
     float splitRatio = 0.45f;
@@ -45,41 +39,41 @@ struct SignalDemoState {
     bool showCrosshair = true;
 
     bool requestResetView = false;
-    std::optional<double> requestViewStartSec{};
-    std::optional<double> requestViewEndSec{};
-    std::optional<guikit::Vec2> requestFreqRangeHz{};
+    keel::Optional<double> requestViewStartSec{};
+    keel::Optional<double> requestViewEndSec{};
+    keel::Optional<guikit::Vec2> requestFreqRangeHz{};
 
     guikit::SignalViewResponse lastResp{};
     bool initialized = false;
 
-    static constexpr std::array<std::string_view, 4> presetNames = {
+    static constexpr keel::StaticArray<keel::StringRef, 4> presetNames = {
         "1. Harmonic Speech & Formant Chirp (96k smp / 2.0s)",
         "2. LFM Radar & Hopping Telemetry (96k smp / 2.0s)",
         "3. Percussive Transients & Overdrive (96k smp / 2.0s)",
         "4. Ultra-Long Telemetry Stream (1.2M smp / 25.0s)"
     };
 
-    static constexpr std::array<std::string_view, 2> panelOrderNames = {
+    static constexpr keel::StaticArray<keel::StringRef, 2> panelOrderNames = {
         "Waveform Top", "Spectrogram Top"
     };
 
-    static constexpr std::array<std::string_view, 2> ampScaleNames = {
+    static constexpr keel::StaticArray<keel::StringRef, 2> ampScaleNames = {
         "dBFS", "Linear"
     };
 
-    static constexpr std::array<std::string_view, 2> freqScaleNames = {
+    static constexpr keel::StaticArray<keel::StringRef, 2> freqScaleNames = {
         "Linear Hz", "Log Hz"
     };
 
-    static constexpr std::array<std::string_view, 4> windowNames = {
+    static constexpr keel::StaticArray<keel::StringRef, 4> windowNames = {
         "Hann", "Hamming", "Blackman", "Rect"
     };
 
-    static constexpr std::array<std::string_view, 4> fftSizeNames = {
+    static constexpr keel::StaticArray<keel::StringRef, 4> fftSizeNames = {
         "256", "512", "1024", "2048"
     };
 
-    static constexpr std::array<uint32_t, 4> fftSizeValues = {
+    static constexpr keel::StaticArray<uint32_t, 4> fftSizeValues = {
         256, 512, 1024, 2048
     };
 };
@@ -118,11 +112,11 @@ void BuildSignalPreset(SignalDemoState& st, size_t preset) {
             float v = 0.002f * WhiteNoise(rng);
 
             if (t < 0.55f) {
-                const float env = std::sin(std::numbers::pi_v<float> * (t / 0.55f));
+                const float env = std::sin(kPi * (t / 0.55f));
                 const float f0 = 220.0f + 45.0f * std::sin(kTwoPi * 3.2f * t);
                 phaseF0 += static_cast<double>(kTwoPi * f0 / st.sampleRate);
                 const float f1Center = 900.0f + 700.0f * (t / 0.55f);
-                const float f2Center = 2400.0f + 1600.0f * std::sin(std::numbers::pi_v<float> * (t / 0.55f));
+                const float f2Center = 2400.0f + 1600.0f * std::sin(kPi * (t / 0.55f));
                 float sum = 0.0f;
                 for (int h = 1; h <= 28; ++h) {
                     const float fh = f0 * static_cast<float>(h);
@@ -137,13 +131,13 @@ void BuildSignalPreset(SignalDemoState& st, size_t preset) {
                 v += 0.48f * env * sum;
             } else if (t < 0.85f) {
                 const float localT = (t - 0.55f) / 0.30f;
-                const float env = std::sin(std::numbers::pi_v<float> * localT);
+                const float env = std::sin(kPi * localT);
                 const float carrier = std::sin(kTwoPi * 6800.0f * t + 4.5f * std::sin(kTwoPi * 1100.0f * t));
                 const float sub = std::sin(kTwoPi * 1250.0f * t) * std::exp(-localT * 4.0f);
                 v += env * (0.35f * WhiteNoise(rng) * std::sin(kTwoPi * 9500.0f * t) + 0.45f * carrier + 0.30f * sub);
             } else if (t < 1.48f) {
                 const float localT = (t - 0.85f) / 0.63f;
-                const float env = std::sin(std::numbers::pi_v<float> * localT);
+                const float env = std::sin(kPi * localT);
                 const float instFreq = 350.0f + 9200.0f * localT * localT;
                 phaseChirp += static_cast<double>(kTwoPi * instFreq / st.sampleRate);
                 v += env * (0.58f * std::sin(static_cast<float>(phaseChirp)) +
@@ -151,7 +145,7 @@ void BuildSignalPreset(SignalDemoState& st, size_t preset) {
                             0.12f * std::sin(static_cast<float>(phaseChirp * 3.0)));
             } else {
                 const float localT = (t - 1.48f) / 0.52f;
-                const float env = std::exp(-localT * 3.6f) * std::min(1.0f, localT * 25.0f);
+                const float env = std::exp(-localT * 3.6f) * keel::min(1.0f, localT * 25.0f);
                 const float vib = 1.0f + 0.015f * std::sin(kTwoPi * 6.5f * t);
                 const float c1 = std::sin(kTwoPi * 523.25f * vib * t);
                 const float c2 = std::sin(kTwoPi * 659.25f * vib * t);
@@ -160,15 +154,13 @@ void BuildSignalPreset(SignalDemoState& st, size_t preset) {
                 const float c5 = std::sin(kTwoPi * 3135.96f * vib * t);
                 v += 0.85f * env * (0.32f * c1 + 0.25f * c2 + 0.20f * c3 + 0.14f * c4 + 0.09f * c5);
             }
-            st.samples[i] = std::clamp(v, -0.98f, 0.98f);
+            st.samples[i] = keel::clamp(v, -0.98f, 0.98f);
         }
 
-        st.markers = {
-            {0.04, "Formant Onset", guikit::Color{56, 189, 248, 255}},
-            {0.55, "FM Sibilant",   guikit::Color{245, 158, 11, 255}},
-            {0.85, "Harmonic Chirp",guikit::Color{168, 85, 247, 255}},
-            {1.48, "Vibrato Chord", guikit::Color{34, 197, 94, 255}}
-        };
+        st.markers.push_back({0.04, "Formant Onset", guikit::Color{56, 189, 248, 255}});
+        st.markers.push_back({0.55, "FM Sibilant",   guikit::Color{245, 158, 11, 255}});
+        st.markers.push_back({0.85, "Harmonic Chirp",guikit::Color{168, 85, 247, 255}});
+        st.markers.push_back({1.48, "Vibrato Chord", guikit::Color{34, 197, 94, 255}});
         st.selection = {
             .active = true,
             .startTimeSec = 0.88,
@@ -183,7 +175,7 @@ void BuildSignalPreset(SignalDemoState& st, size_t preset) {
         const size_t N = 96000;
         st.samples.assign(N, 0.0f);
         double phase = 0.0;
-        static constexpr std::array<float, 8> hopFreqs = {
+        static constexpr keel::StaticArray<float, 8> hopFreqs = {
             1800.0f, 6400.0f, 3600.0f, 11200.0f, 4800.0f, 15400.0f, 8200.0f, 19200.0f
         };
         for (size_t i = 0; i < N; ++i) {
@@ -195,14 +187,14 @@ void BuildSignalPreset(SignalDemoState& st, size_t preset) {
             if (t >= 0.06f && t < 0.46f) {
                 // Up-Chirp 1.5 kHz -> 20 kHz
                 const float u = (t - 0.06f) / 0.40f;
-                const float win = std::sin(std::numbers::pi_v<float> * u);
+                const float win = std::sin(kPi * u);
                 const float f = 1500.0f + 18500.0f * u;
                 phase += static_cast<double>(kTwoPi * f / st.sampleRate);
                 v += 0.78f * win * std::sin(static_cast<float>(phase));
             } else if (t >= 0.54f && t < 0.94f) {
                 // Down-Chirp 21 kHz -> 2 kHz + Simultaneous Counter-Chirp
                 const float u = (t - 0.54f) / 0.40f;
-                const float win = std::sin(std::numbers::pi_v<float> * u);
+                const float win = std::sin(kPi * u);
                 const float fDown = 21000.0f - 19000.0f * u;
                 const float fUp = 2000.0f + 14000.0f * u;
                 phase += static_cast<double>(kTwoPi * fDown / st.sampleRate);
@@ -211,20 +203,18 @@ void BuildSignalPreset(SignalDemoState& st, size_t preset) {
             } else if (t >= 1.02f && t < 1.94f) {
                 // Stepped FHSS Telemetry Hops
                 const float hopDur = (1.94f - 1.02f) / static_cast<float>(hopFreqs.size());
-                const size_t hopIdx = std::min(hopFreqs.size() - 1, static_cast<size_t>((t - 1.02f) / hopDur));
+                const size_t hopIdx = keel::min(hopFreqs.size() - 1, static_cast<size_t>((t - 1.02f) / hopDur));
                 const float hopLocal = std::fmod(t - 1.02f, hopDur) / hopDur;
-                const float env = std::sin(std::numbers::pi_v<float> * hopLocal);
+                const float env = std::sin(kPi * hopLocal);
                 const float f = hopFreqs[hopIdx];
                 v += 0.72f * env * (std::sin(kTwoPi * f * t) + 0.25f * std::sin(kTwoPi * (f + 950.0f) * t));
             }
-            st.samples[i] = std::clamp(v, -0.98f, 0.98f);
+            st.samples[i] = keel::clamp(v, -0.98f, 0.98f);
         }
 
-        st.markers = {
-            {0.06, "LFM Up-Chirp",  guikit::Color{56, 189, 248, 255}},
-            {0.54, "Dual X-Chirp",  guikit::Color{245, 158, 11, 255}},
-            {1.02, "FHSS Hopping",  guikit::Color{34, 197, 94, 255}}
-        };
+        st.markers.push_back({0.06, "LFM Up-Chirp",  guikit::Color{56, 189, 248, 255}});
+        st.markers.push_back({0.54, "Dual X-Chirp",  guikit::Color{245, 158, 11, 255}});
+        st.markers.push_back({1.02, "FHSS Hopping",  guikit::Color{34, 197, 94, 255}});
         st.selection = {
             .active = true,
             .startTimeSec = 0.54,
@@ -238,7 +228,7 @@ void BuildSignalPreset(SignalDemoState& st, size_t preset) {
         // Preset 2: Percussive Transients & Overdrive Saturation (96,000 samples / 2.0s)
         const size_t N = 96000;
         st.samples.assign(N, 0.0f);
-        static constexpr std::array<float, 6> hitTimes = {0.08f, 0.38f, 0.68f, 0.98f, 1.28f, 1.58f};
+        static constexpr keel::StaticArray<float, 6> hitTimes = {0.08f, 0.38f, 0.68f, 0.98f, 1.28f, 1.58f};
         for (size_t i = 0; i < N; ++i) {
             const float t = static_cast<float>(i) / st.sampleRate;
             float v = 0.003f * WhiteNoise(rng);
@@ -260,14 +250,12 @@ void BuildSignalPreset(SignalDemoState& st, size_t preset) {
                     v += raw;
                 }
             }
-            st.samples[i] = std::clamp(v, -0.99f, 0.99f);
+            st.samples[i] = keel::clamp(v, -0.99f, 0.99f);
         }
 
-        st.markers = {
-            {0.08, "Kick Transient", guikit::Color{56, 189, 248, 255}},
-            {0.38, "Snare Burst",    guikit::Color{245, 158, 11, 255}},
-            {0.98, "Clipped Hit",    guikit::Color{239, 68, 68, 255}}
-        };
+        st.markers.push_back({0.08, "Kick Transient", guikit::Color{56, 189, 248, 255}});
+        st.markers.push_back({0.38, "Snare Burst",    guikit::Color{245, 158, 11, 255}});
+        st.markers.push_back({0.98, "Clipped Hit",    guikit::Color{239, 68, 68, 255}});
         st.selection = {
             .active = true,
             .startTimeSec = 0.36,
@@ -289,22 +277,20 @@ void BuildSignalPreset(SignalDemoState& st, size_t preset) {
             const float sweepFreq = 400.0f + 8500.0f * (0.5f + 0.5f * std::sin(kTwoPi * 0.12f * t));
             phase += static_cast<double>(kTwoPi * sweepFreq / st.sampleRate);
 
-            const float pulseMod = std::max(0.0f, std::sin(kTwoPi * 1.5f * t));
+            const float pulseMod = keel::max(0.0f, std::sin(kTwoPi * 1.5f * t));
             const float harmonic1 = std::sin(static_cast<float>(phase));
             const float harmonic2 = 0.45f * std::sin(static_cast<float>(phase * 2.0));
             const float carrierHi = 0.28f * pulseMod * std::sin(kTwoPi * (12000.0f + 4000.0f * std::cos(kTwoPi * 0.4f * t)) * t);
             const float noise = 0.015f * WhiteNoise(rng);
 
             const float v = macroEnv * (0.55f * harmonic1 + harmonic2) + carrierHi + noise;
-            st.samples[i] = std::clamp(v, -0.98f, 0.98f);
+            st.samples[i] = keel::clamp(v, -0.98f, 0.98f);
         }
 
-        st.markers = {
-            {2.50,  "Sweep Crest #1", guikit::Color{56, 189, 248, 255}},
-            {8.33,  "Mid Telemetry",  guikit::Color{245, 158, 11, 255}},
-            {16.60, "Burst Window",   guikit::Color{168, 85, 247, 255}},
-            {22.00, "Tail Marker",    guikit::Color{34, 197, 94, 255}}
-        };
+        st.markers.push_back({2.50,  "Sweep Crest #1", guikit::Color{56, 189, 248, 255}});
+        st.markers.push_back({8.33,  "Mid Telemetry",  guikit::Color{245, 158, 11, 255}});
+        st.markers.push_back({16.60, "Burst Window",   guikit::Color{168, 85, 247, 255}});
+        st.markers.push_back({22.00, "Tail Marker",    guikit::Color{34, 197, 94, 255}});
         st.selection = {
             .active = true,
             .startTimeSec = 6.0,
@@ -320,29 +306,29 @@ void BuildSignalPreset(SignalDemoState& st, size_t preset) {
 void EnsureSignalInitialized() {
     if (!s_sig.initialized) {
         s_sig.initialized = true;
-        s_sig.lastWallClock = std::chrono::steady_clock::now();
+        s_sig.lastWallNs = keel::monotonic_ns();
         BuildSignalPreset(s_sig, 0);
     }
 }
 
 void StepSignalPlayback(SignalDemoState& st) {
-    const auto now = std::chrono::steady_clock::now();
-    double dt = std::chrono::duration<double>(now - st.lastWallClock).count();
-    st.lastWallClock = now;
-    dt = std::clamp(dt, 0.0, 0.08);
+    const uint64_t nowNs = keel::monotonic_ns();
+    double dt = static_cast<double>(nowNs - st.lastWallNs) * 1e-9;
+    st.lastWallNs = nowNs;
+    dt = keel::clamp(dt, 0.0, 0.08);
     if (!st.livePlayhead || st.samples.empty()) {
         return;
     }
     if (dt < 0.004) {
         dt = 0.016;
     }
-    const double totalDur = static_cast<double>(st.samples.size()) / static_cast<double>(std::max(1.0f, st.sampleRate));
+    const double totalDur = static_cast<double>(st.samples.size()) / static_cast<double>(keel::max(1.0f, st.sampleRate));
     const double vStart = (st.lastResp.viewEndSec > st.lastResp.viewStartSec) ? st.lastResp.viewStartSec : 0.0;
     const double vEnd   = (st.lastResp.viewEndSec > st.lastResp.viewStartSec) ? st.lastResp.viewEndSec : totalDur;
-    const double span   = std::max(1e-4, vEnd - vStart);
+    const double span   = keel::max(1e-4, vEnd - vStart);
     st.playheadSec += dt;
     if (st.playheadSec > vEnd || st.playheadSec < vStart) {
-        st.playheadSec = vStart + std::fmod(std::max(0.0, st.playheadSec - vStart), span);
+        st.playheadSec = vStart + std::fmod(keel::max(0.0, st.playheadSec - vStart), span);
     }
 }
 
@@ -501,7 +487,7 @@ void RenderSignalInspector(guikit::Context& ui, DemoContext&) {
         .border = {.radius = 6.0f}
     })) {
         ui.Text(
-            ui.Format("Signal: {:L} smp ({:.2f} s @ {:.0f} Hz)",
+            ui.Format("Signal: {} smp ({:.2f} s @ {:.0f} Hz)",
                       s_sig.lastResp.totalSamples,
                       s_sig.lastResp.totalDurationSec,
                       s_sig.sampleRate),
@@ -579,22 +565,22 @@ void RenderSignalStage(guikit::Context& ui, DemoContext&) {
     s_sig.requestFreqRangeHz.reset();
 }
 
-std::string GenerateSignalCode(const DemoContext&) {
-    static constexpr std::array<std::string_view, 2> orderEnums = {
+keel::String GenerateSignalCode(const DemoContext&) {
+    static constexpr keel::StaticArray<keel::StringRef, 2> orderEnums = {
         "WaveformTop", "SpectrogramTop"
     };
-    static constexpr std::array<std::string_view, 2> ampEnums = {
+    static constexpr keel::StaticArray<keel::StringRef, 2> ampEnums = {
         "dBFS", "Linear"
     };
-    static constexpr std::array<std::string_view, 2> freqEnums = {
+    static constexpr keel::StaticArray<keel::StringRef, 2> freqEnums = {
         "Linear", "Logarithmic"
     };
-    static constexpr std::array<std::string_view, 4> winEnums = {
+    static constexpr keel::StaticArray<keel::StringRef, 4> winEnums = {
         "Hann", "Hamming", "BlackmanHarris", "Rectangular"
     };
 
     const uint32_t fftSize = SignalDemoState::fftSizeValues[s_sig.fftSizeIdx];
-    return std::format(
+    return keel::format(
         "// Synchronized DAW Waveform (Mipmap Pyramid) + STFT Spectrogram Analyzer\n"
         "auto resp = ui.SignalView(samples, {{\n"
         "    .sampleRate = {:.1f}f,\n"

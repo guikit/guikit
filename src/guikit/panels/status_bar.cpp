@@ -1,8 +1,7 @@
 #include "guikit/panels/status_bar.hpp"
-#include <algorithm>
 #include <cmath>
-#include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
 #include "guikit/panels/toolbar.hpp"
@@ -78,20 +77,20 @@ Vec2 MeasureStatusSegment(
         ++parts;
     }
     if (!o.badge.empty() || o.badge.HasContentOrReserve()) {
-        const float badgeFont = std::max(9.0f * scale, fontSize * 0.85f);
+        const float badgeFont = keel::max(9.0f * scale, fontSize * 0.85f);
         const float badgeTextW = TextUtil::MeasureWidth(o.badge, badgeFont, canvas);
-        w += std::max(14.0f * scale, badgeTextW + 8.0f * scale);
+        w += keel::max(14.0f * scale, badgeTextW + 8.0f * scale);
         ++parts;
     }
     if (parts > 1) {
         w += static_cast<float>(parts - 1) * itemGap;
     }
     if (o.minWidth.has_value() && *o.minWidth > 0.0f) {
-        w = std::max(w, *o.minWidth * scale);
+        w = keel::max(w, *o.minWidth * scale);
     }
 
     const float h = ResolveStatusBarHeight(theme, node->uiSize, scale) - 4.0f * scale;
-    return {std::ceil(w), std::max(16.0f * scale, h)};
+    return {std::ceil(w), keel::max(16.0f * scale, h)};
 }
 
 void RenderStatusSegment(
@@ -163,7 +162,7 @@ void RenderStatusSegment(
     // 4. Text label
     if (!o.text.empty()) {
         const Vec2 textSz = canvas.MeasureText(o.text.text, fontSize);
-        const float reservedW = std::max(textSz.x, TextUtil::MeasureWidth(o.text, fontSize, &canvas));
+        const float reservedW = keel::max(textSz.x, TextUtil::MeasureWidth(o.text, fontSize, &canvas));
         const float textY = std::round(centerY - textSz.y * 0.5f - 1.5f * scale);
         canvas.DrawText(o.text.text, {curX, textY}, fontSize, fg);
         curX += reservedW + itemGap;
@@ -171,10 +170,10 @@ void RenderStatusSegment(
 
     // 5. Optional trailing badge pill
     if (!o.badge.empty()) {
-        const float badgeFont = std::max(9.0f * scale, fontSize * 0.85f);
+        const float badgeFont = keel::max(9.0f * scale, fontSize * 0.85f);
         const Vec2 bSz = canvas.MeasureText(o.badge.text, badgeFont);
-        const float pillH = std::min(r.h - 2.0f * scale, std::max(13.0f * scale, bSz.y + 2.0f * scale));
-        const float pillW = std::max(pillH, bSz.x + 8.0f * scale);
+        const float pillH = keel::min(r.h - 2.0f * scale, keel::max(13.0f * scale, bSz.y + 2.0f * scale));
+        const float pillW = keel::max(pillH, bSz.x + 8.0f * scale);
         const Rect pillRect(curX, centerY - pillH * 0.5f, pillW, pillH);
 
         const Color pillBg = (payload->barStyle == StatusBarStyle::Accent)
@@ -193,7 +192,7 @@ void RenderStatusSegment(
 
 void StatusBarScope::Item(
     const StatusItemOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     if (!m_ctx) return;
     StatusBar::RenderSegment(*m_ctx, opts, m_opts.style, false, loc);
@@ -201,13 +200,13 @@ void StatusBarScope::Item(
 
 Response StatusBarScope::Action(
     const StatusItemOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     if (!m_ctx) return Response{};
     return StatusBar::RenderSegment(*m_ctx, opts, m_opts.style, true, loc);
 }
 
-void StatusBarScope::Separator(float heightRatio, std::source_location loc) {
+void StatusBarScope::Separator(float heightRatio, keel::SourceLocation loc) {
     if (!m_ctx || !m_node) return;
     const Color col = (m_opts.style == StatusBarStyle::Accent)
         ? m_ctx->GetTheme().palette.accentText.WithAlphaF(0.3f)
@@ -215,7 +214,7 @@ void StatusBarScope::Separator(float heightRatio, std::source_location loc) {
     guikit::Separator::Run(*m_ctx, heightRatio, col, loc);
 }
 
-void StatusBarScope::Spacer(std::source_location loc) {
+void StatusBarScope::Spacer(keel::SourceLocation loc) {
     if (!m_ctx) return;
     const Id id = m_ctx->MakeChildId(loc);
     Node* spacer = m_ctx->CreateNode(NodeType::Spacer, id);
@@ -227,7 +226,7 @@ void StatusBarScope::Spacer(std::source_location loc) {
     };
 }
 
-void StatusBarScope::Gap(float sizeDp, std::source_location loc) {
+void StatusBarScope::Gap(float sizeDp, keel::SourceLocation loc) {
     if (!m_ctx) return;
     guikit::Spacer::Gap(*m_ctx, sizeDp, loc);
 }
@@ -235,7 +234,7 @@ void StatusBarScope::Gap(float sizeDp, std::source_location loc) {
 StatusBarScope StatusBar::Open(
     Context& ctx,
     const StatusBarOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
@@ -315,7 +314,7 @@ Response StatusBar::RenderSegment(
     const StatusItemOptions& opts,
     StatusBarStyle barStyle,
     bool interactive,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();

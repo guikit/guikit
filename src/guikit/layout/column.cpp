@@ -7,7 +7,7 @@ namespace guikit {
 ContainerScope Column::Open(
     Context& ctx,
     const ColumnOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();

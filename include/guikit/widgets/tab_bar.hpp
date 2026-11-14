@@ -2,14 +2,13 @@
 
 #include <cstdint>
 #include <initializer_list>
-#include <optional>
-#include <span>
-#include <source_location>
-#include <string_view>
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/types.hpp"
 #include "guikit/graphics/icon.hpp"
+#include "keel/core.h"
+#include "keel/optional.h"
+#include "keel/ref.h"
 
 namespace guikit {
 
@@ -37,7 +36,7 @@ struct TabItem {
 
 /// Response returned by TabBar::Run, extending Response with closed-tab notification.
 struct TabBarResponse : Response {
-    std::optional<size_t> closedIndex{std::nullopt}; ///< Index of the tab whose close ('X') button was clicked this frame
+    keel::Optional<size_t> closedIndex{keel::kNullOpt}; ///< Index of the tab whose close ('X') button was clicked this frame
 };
 
 /// Configuration options for TabBar widget.
@@ -47,13 +46,13 @@ struct TabBarOptions {
     bool fullWidth{false};      ///< Stretch tabs equally to fill available container width
     bool scrollable{true};      ///< Enable horizontal scrolling with arrows when tabs overflow
     bool disabled{false};       ///< Disable interaction across the entire TabBar
-    std::optional<float> gap{std::nullopt};   ///< Gap between consecutive tab items (nullopt = from theme)
-    std::optional<Padding> padding{std::nullopt};   ///< Container padding around tabs (nullopt = auto based on style)
+    keel::Optional<float> gap{keel::kNullOpt};   ///< Gap between consecutive tab items (nullopt = from theme)
+    keel::Optional<Padding> padding{keel::kNullOpt};   ///< Container padding around tabs (nullopt = auto based on style)
     StateColor background{};                     ///< Optional background fill color for the tab bar
     Border border{};                             ///< Optional border configuration (color, width, radius)
     Color activeColor{Color::Transparent()}; ///< Optional custom accent color override
     const UiTheme* theme{nullptr};            ///< Optional scoped theme override
-    std::optional<float> scale{std::nullopt}; ///< Optional scoped scale factor override
+    keel::Optional<float> scale{keel::kNullOpt}; ///< Optional scoped scale factor override
 };
 
 /// Internal runtime state allocated in frame arena for TabItem nodes.
@@ -70,9 +69,9 @@ public:
     static TabBarResponse Run(
         Context& ctx,
         int& activeIndex,
-        std::span<const TabItem> tabs,
+        keel::ArrayRef<TabItem> tabs,
         const TabBarOptions& opts,
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Measures intrinsic dimensions of a single tab item.

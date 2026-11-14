@@ -2,10 +2,9 @@
 
 #include <cstdint>
 #include <cstring>
-#include <string>
-#include <vector>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/backend/vector_backend.hpp"
+#include "keel/array.h"
 #include "keel/hash_map.h"
 #include "keel/string.h"
 
@@ -34,14 +33,14 @@ public:
     void SetTarget(uint32_t* buffer, uint32_t width, uint32_t height, uint32_t stride) override;
 
     /// Loads a TrueType/OpenType font from a virtual asset path or filesystem path for the specified `FontStyle` slot.
-    bool LoadFontFile(std::string_view path, FontStyle style = FontStyle::Regular) override;
+    bool LoadFontFile(keel::StringRef path, FontStyle style = FontStyle::Regular) override;
 
     /// Loads a TrueType/OpenType font directly from an in-memory buffer for the specified `FontStyle` slot.
     bool LoadFontMemory(
-        std::string_view name,
-        std::span<const uint8_t> data,
+        keel::StringRef name,
+        keel::ArrayRef<uint8_t> data,
         FontStyle style = FontStyle::Regular,
-        std::string_view mimeType = "ttf"
+        keel::StringRef mimeType = "ttf"
     ) override;
 
     // ICanvas implementation
@@ -49,8 +48,8 @@ public:
     void End() override;
     [[nodiscard]] float GetScale() const noexcept override { return m_scale; }
     void SetScale(float scale) override { m_scale = (scale > 0.0f) ? scale : 1.0f; }
-    [[nodiscard]] std::string_view GetBackendName() const noexcept override { return "ThorVG (Vector Software)"; }
-    void Clear(Color color, std::optional<Rect> rect = std::nullopt) override;
+    [[nodiscard]] keel::StringRef GetBackendName() const noexcept override { return "ThorVG (Vector Software)"; }
+    void Clear(Color color, keel::Optional<Rect> rect = keel::kNullOpt) override;
 
     void PushClip(Rect clipRect) override;
     void PopClip() override;
@@ -64,12 +63,12 @@ public:
         float strokeWidth = 0.0f
     ) override;
 
-    Vec2 MeasureText(std::string_view text, float fontSize) override;
-    Vec2 MeasureTextStyled(std::string_view text, float fontSize, FontStyle style) override;
+    Vec2 MeasureText(keel::StringRef text, float fontSize) override;
+    Vec2 MeasureTextStyled(keel::StringRef text, float fontSize, FontStyle style) override;
     [[nodiscard]] float GetLineHeight(float fontSize) override;
-    void DrawText(std::string_view text, Vec2 pos, float fontSize, Color color) override;
+    void DrawText(keel::StringRef text, Vec2 pos, float fontSize, Color color) override;
     void DrawTextStyled(
-        std::string_view text,
+        keel::StringRef text,
         Vec2 pos,
         float fontSize,
         Color color,
@@ -77,7 +76,7 @@ public:
         float angleDeg = 0.0f
     ) override;
     void DrawTextBox(
-        std::string_view text,
+        keel::StringRef text,
         Rect bounds,
         float fontSize,
         Color color,
@@ -85,7 +84,7 @@ public:
         float alignY = 0.5f
     ) override;
     void DrawTextBoxStyled(
-        std::string_view text,
+        keel::StringRef text,
         Rect bounds,
         float fontSize,
         Color color,
@@ -104,9 +103,9 @@ public:
     ) override;
     void DrawPath(const VectorPath& path, const PathPaint& paint) override;
 
-    Vec2 GetImageSize(std::string_view source) override;
+    Vec2 GetImageSize(keel::StringRef source) override;
     bool DrawImage(
-        std::string_view source,
+        keel::StringRef source,
         Rect destRect,
         float cornerRadius = 0.0f,
         uint8_t opacity = 255
@@ -128,40 +127,40 @@ public:
     }
     [[nodiscard]] bool SupportsGpuShaders() const noexcept override { return m_gpuShadersEnabled; }
     bool DrawGpuShaderPass(const GpuShaderPassDesc& pass, bool punchHole = true) override;
-    bool CaptureRegion(Rect rect, std::vector<uint32_t>& outPixels, uint32_t& outW, uint32_t& outH) override;
-    bool RestoreRegion(Rect rect, const std::vector<uint32_t>& inPixels, uint32_t inW, uint32_t inH) override;
+    bool CaptureRegion(Rect rect, keel::Array<uint32_t>& outPixels, uint32_t& outW, uint32_t& outH) override;
+    bool RestoreRegion(Rect rect, keel::ArrayRef<uint32_t> inPixels, uint32_t inW, uint32_t inH) override;
 
-    [[nodiscard]] const std::vector<GpuShaderPassDesc>& GetGpuShaderPasses() const noexcept override { return m_gpuPasses; }
+    [[nodiscard]] keel::ArrayRef<GpuShaderPassDesc> GetGpuShaderPasses() const noexcept override { return m_gpuPasses; }
     [[nodiscard]] bool HasActiveGpuPasses() const noexcept override {
         return m_gpuShadersEnabled && !m_gpuPasses.empty();
     }
 
 private:
     struct ImageCacheEntry {
-        std::string resolvedDataOrPath;
+        keel::String resolvedDataOrPath;
         const uint8_t* embeddedData{nullptr};
         size_t embeddedSize{0};
-        std::string embeddedMimeType;
+        keel::SmallString<16> embeddedMimeType;
         Vec2 size{0.0f, 0.0f};
         bool isInlineSvg{false};
         bool isEmbedded{false};
         bool valid{false};
         uint32_t cachedRasterW{0};
         uint32_t cachedRasterH{0};
-        std::vector<uint32_t> cachedPixels;
+        keel::Array<uint32_t> cachedPixels;
     };
 
-    ImageCacheEntry& ResolveImageEntry(std::string_view source);
+    ImageCacheEntry& ResolveImageEntry(keel::StringRef source);
     bool LoadFontMemoryInternal(
-        std::string_view name,
-        std::span<const uint8_t> data,
+        keel::StringRef name,
+        keel::ArrayRef<uint8_t> data,
         FontStyle style,
-        std::string_view mimeType,
+        keel::StringRef mimeType,
         bool copyData
     );
     [[nodiscard]] bool NeedsSyntheticBold(FontStyle style) const noexcept;
     [[nodiscard]] bool NeedsSyntheticItalic(FontStyle style) const noexcept;
-    void ApplyClip(tvg::Paint* paint, std::optional<Rect> bounds = std::nullopt);
+    void ApplyClip(tvg::Paint* paint, keel::Optional<Rect> bounds = keel::kNullOpt);
     void ApplyFont(tvg::Text* txt, FontStyle style) const;
     void PunchHole(Rect rect);
     void FlushCanvas();
@@ -169,7 +168,7 @@ private:
 
     tvg::SwCanvas* m_canvas{nullptr};
     tvg::SwCanvas* m_stampCanvas{nullptr};
-    std::vector<uint32_t> m_stampScratch;
+    keel::Array<uint32_t> m_stampScratch;
     tvg::Text* m_measureText{nullptr};
     uint32_t* m_targetBuffer{nullptr};
     uint32_t m_width{0};
@@ -179,17 +178,17 @@ private:
     bool m_gpuShadersEnabled{false};
     bool m_hasPendingPaints{false};
 
-    std::vector<GpuShaderPassDesc> m_gpuPasses;
+    keel::Array<GpuShaderPassDesc> m_gpuPasses;
 
-    std::vector<Rect> m_clipStack;
-    std::vector<Rect> m_gpuClipStack;
+    keel::Array<Rect> m_clipStack;
+    keel::Array<Rect> m_gpuClipStack;
 
     struct FontSlot {
-        std::string name;
+        keel::String name;
         bool loaded{false};
     };
     static constexpr size_t kFontStyleCount = 5;
-    std::array<FontSlot, kFontStyleCount> m_fonts{};
+    keel::StaticArray<FontSlot, kFontStyleCount> m_fonts{};
 
     struct TextMeasureKey {
         uint64_t hash;
@@ -236,7 +235,7 @@ private:
     };
 
     struct TextStampEntry {
-        std::vector<uint32_t> pixels;
+        keel::Array<uint32_t> pixels;
         uint16_t width{0};
         uint16_t height{0};
         int16_t offsetX{0};
@@ -273,7 +272,7 @@ private:
     };
 
     const TextStampEntry& ResolveTextStamp(
-        std::string_view text,
+        keel::StringRef text,
         float scaledFontSize,
         Color color,
         FontStyle style
@@ -290,7 +289,7 @@ private:
         const TextStampEntry& stamp,
         int dstX,
         int dstY,
-        std::optional<Rect> extraClip = std::nullopt
+        keel::Optional<Rect> extraClip = keel::kNullOpt
     );
 
     keel::HashMap<TextMeasureKey, Vec2, TextMeasureKeyHash> m_textMeasureCache;
@@ -300,7 +299,7 @@ private:
 };
 
 /// Creates a new `ThorCanvas` instance.
-[[nodiscard]] std::unique_ptr<ICanvas> CreateThorVectorCanvas(bool loadDefaultFonts = true);
+[[nodiscard]] keel::UniquePtr<ICanvas> CreateThorVectorCanvas(bool loadDefaultFonts = true);
 
 /// Registers the ThorVG vector canvas factory and image decoder as the default vector backend.
 void RegisterThorVectorBackend() noexcept;

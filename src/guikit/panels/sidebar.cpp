@@ -1,8 +1,7 @@
 #include "guikit/panels/sidebar.hpp"
-#include <algorithm>
 #include <cmath>
-#include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/graphics/icon.hpp"
 #include "guikit/panels/scroll_area.hpp"
@@ -23,8 +22,8 @@ Rect ComputeToggleRect(
     const float toggleH = 28.0f * scale;
     const float baseCenterY = bounds.Center().y + static_cast<float>(sameSideIndex) * (toggleH + 6.0f * scale);
     const float minY = bounds.y + 4.0f * scale;
-    const float maxY = std::max(minY, bounds.Bottom() - toggleH - 4.0f * scale);
-    const float toggleY = std::clamp(baseCenterY - toggleH * 0.5f, minY, maxY);
+    const float maxY = keel::max(minY, bounds.Bottom() - toggleH - 4.0f * scale);
+    const float toggleY = keel::clamp(baseCenterY - toggleH * 0.5f, minY, maxY);
 
     const float toggleX = (side == SidebarSide::Left)
         ? (edgeX - 1.0f * scale)
@@ -91,7 +90,7 @@ SidebarScope Sidebar::Open(
     Context& ctx,
     SidebarMode* externalMode,
     const SidebarOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     uint32_t sameSideIndex = 0;
     bool hasFlushSibling = false;
@@ -121,7 +120,7 @@ SidebarScope Sidebar::Open(
     const ComponentMetrics& m = theme.GetMetrics(activeSize);
     const float metricMinW = (m.defaultHeight / safeScale) * 3.8f;
     const Rect parentBounds = ctx.GetParentPrevFrameBounds();
-    const float clampedRatio = std::clamp(opts.maxRatio, 0.15f, 0.90f);
+    const float clampedRatio = keel::clamp(opts.maxRatio, 0.15f, 0.90f);
 
     auto& state = ctx.GetOrCreatePersistentState<SidebarPersistState>(id);
     if (!state.initialized) {
@@ -139,12 +138,12 @@ SidebarScope Sidebar::Open(
     const float baseW = opts.width.value_or(state.lastExpandedWidth > 0.0f ? state.lastExpandedWidth : 180.0f);
     const float effMinW = (opts.minWidth.has_value() && *opts.minWidth > 0.0f)
         ? *opts.minWidth
-        : (opts.resizable ? std::min(baseW, metricMinW) : 0.0f);
+        : (opts.resizable ? keel::min(baseW, metricMinW) : 0.0f);
     const float parentMaxW = (parentBounds.w > 1.0f)
-        ? std::max(effMinW, (parentBounds.w / safeScale) * clampedRatio)
-        : std::max(effMinW, 560.0f);
+        ? keel::max(effMinW, (parentBounds.w / safeScale) * clampedRatio)
+        : keel::max(effMinW, 560.0f);
     const float effMaxW = (opts.maxWidth.has_value() && *opts.maxWidth > 0.0f)
-        ? std::max(effMinW, (parentBounds.w > 1.0f) ? std::min(*opts.maxWidth, parentMaxW) : *opts.maxWidth)
+        ? keel::max(effMinW, (parentBounds.w > 1.0f) ? keel::min(*opts.maxWidth, parentMaxW) : *opts.maxWidth)
         : parentMaxW;
 
     const Rect prevBounds = ctx.GetPrevUnclippedBounds(id);
@@ -194,7 +193,7 @@ SidebarScope Sidebar::Open(
 
             if (onToggle && !state.draggingSash) {
                 const SidebarMode nextM = NextSidebarMode(state.mode, opts.allowCompact, opts.allowCollapse);
-                std::string_view tip = "Toggle Sidebar";
+                keel::StringRef tip = "Toggle Sidebar";
                 if (nextM == SidebarMode::Compact) {
                     tip = "Compact Rail (Icons Only)";
                 } else if (nextM == SidebarMode::Collapsed) {
@@ -333,7 +332,7 @@ SidebarScope Sidebar::Open(
                         state.mode = SidebarMode::Expanded;
                         modeChanged = true;
                     }
-                    const float clampedW = std::clamp(rawLogicalW, effMinW, effMaxW);
+                    const float clampedW = keel::clamp(rawLogicalW, effMinW, effMaxW);
                     if (std::abs(state.customWidth - clampedW) > 0.25f) {
                         state.customWidth = clampedW;
                         state.lastExpandedWidth = clampedW;
@@ -429,14 +428,14 @@ SidebarScope Sidebar::Open(
         node->minWidth = theme.Scale(effMinW);
         if (state.customWidth > 0.0f) {
             const float effW = (parentBounds.w > 1.0f)
-                ? std::clamp(state.customWidth, effMinW, effMaxW)
+                ? keel::clamp(state.customWidth, effMinW, effMaxW)
                 : state.customWidth;
             node->widthMode = SizeMode::Fixed;
             node->fixedWidth = theme.Scale(effW);
             reportedLogicalW = effW;
         } else if (opts.width.has_value()) {
             const float effW = (parentBounds.w > 1.0f)
-                ? std::clamp(*opts.width, effMinW, effMaxW)
+                ? keel::clamp(*opts.width, effMinW, effMaxW)
                 : *opts.width;
             node->widthMode = SizeMode::Fixed;
             node->fixedWidth = theme.Scale(effW);
@@ -509,10 +508,10 @@ SidebarScope Sidebar::Open(
 
             // 1. Draw interactive splitter (sash) highlight when hovered or actively dragged
             if (sashHov || sashDrag) {
-                const float cornerInset = std::max(2.0f * activeScale, node->cornerRadius);
+                const float cornerInset = keel::max(2.0f * activeScale, node->cornerRadius);
                 const float glowW = 6.0f * activeScale;
                 const float lineW = (sashDrag ? 2.5f : 2.0f) * activeScale;
-                const float spanH = std::max(0.0f, r.h - cornerInset * 2.0f);
+                const float spanH = keel::max(0.0f, r.h - cornerInset * 2.0f);
                 const Rect glowRect(curEdgeX - glowW * 0.5f, r.y + cornerInset, glowW, spanH);
                 const Rect lineRect(curEdgeX - lineW * 0.5f, r.y + cornerInset, lineW, spanH);
                 canvas.DrawRect(glowRect, p.accent.WithAlphaF(sashDrag ? 0.25f : 0.14f));

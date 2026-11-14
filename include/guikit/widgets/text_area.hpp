@@ -1,16 +1,16 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
-#include <optional>
-#include <span>
-#include <source_location>
-#include <string>
-#include <string_view>
-#include <vector>
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
+#include "keel/array.h"
+#include "keel/core.h"
+#include "keel/optional.h"
+#include "keel/ref.h"
+#include "keel/string.h"
 
 namespace guikit {
 
@@ -26,9 +26,9 @@ struct TextSpan {
 
 /// Signature for syntax highlighter function: called only for currently visible lines.
 using SyntaxHighlighter = void (*)(
-    std::string_view lineText,
+    keel::StringRef lineText,
     size_t lineIndex,
-    std::vector<TextSpan>& outSpans,
+    keel::Array<TextSpan>& outSpans,
     const UiTheme& theme,
     void* userData
 );
@@ -38,16 +38,16 @@ using SyntaxHighlighter = void (*)(
 /// section headers, MATLAB transpose disambiguation, JSON keys, code folding, and color palette overrides.
 struct SyntaxConfig {
     bool enabled{false};                                        ///< Whether rule-based syntax highlighting is active
-    std::string_view languageName{"Plain Text"};                ///< Language display name in status bar
-    std::span<const std::string_view> keywords{};               ///< Control flow / language keywords
-    std::span<const std::string_view> types{};                  ///< Built-in and library type identifiers
-    std::span<const std::string_view> builtins{};               ///< Built-in standard library functions / constants
-    std::span<const std::string_view> foldOpenKeywords{};       ///< Block opening keywords (e.g. function, if, for in MATLAB)
-    std::span<const std::string_view> foldCloseKeywords{};      ///< Block closing keywords (e.g. end in MATLAB)
-    std::string_view lineComment{"//"};                         ///< Single-line comment prefix (empty to disable)
-    std::string_view sectionPrefix{};                           ///< Section header prefix (e.g. "%%" in MATLAB)
-    std::string_view blockCommentStart{"/*"};                   ///< Block comment opening delimiter (e.g. "/*" or "%{")
-    std::string_view blockCommentEnd{"*/"};                     ///< Block comment closing delimiter (e.g. "*/" or "%}")
+    keel::StringRef languageName{"Plain Text"};                 ///< Language display name in status bar
+    keel::ArrayRef<keel::StringRef> keywords{};                 ///< Control flow / language keywords
+    keel::ArrayRef<keel::StringRef> types{};                    ///< Built-in and library type identifiers
+    keel::ArrayRef<keel::StringRef> builtins{};                 ///< Built-in standard library functions / constants
+    keel::ArrayRef<keel::StringRef> foldOpenKeywords{};         ///< Block opening keywords (e.g. function, if, for in MATLAB)
+    keel::ArrayRef<keel::StringRef> foldCloseKeywords{};        ///< Block closing keywords (e.g. end in MATLAB)
+    keel::StringRef lineComment{"//"};                          ///< Single-line comment prefix (empty to disable)
+    keel::StringRef sectionPrefix{};                            ///< Section header prefix (e.g. "%%" in MATLAB)
+    keel::StringRef blockCommentStart{"/*"};                    ///< Block comment opening delimiter (e.g. "/*" or "%{")
+    keel::StringRef blockCommentEnd{"*/"};                      ///< Block comment closing delimiter (e.g. "*/" or "%}")
     char preprocessorPrefix{'#'};                               ///< Preprocessor line prefix ('\0' to disable)
     bool highlightStrings{true};                                ///< Highlight "..." and '...' literals
     bool highlightNumbers{true};                                ///< Highlight numeric literals (42, 3.14f, 0xFF, 1e-6i)
@@ -55,7 +55,7 @@ struct SyntaxConfig {
     bool highlightPunctuation{true};                            ///< Highlight operators and punctuation
     bool transposeApostrophe{false};                            ///< Disambiguate MATLAB transpose A' from 'string' literal
     bool highlightJsonKeys{false};                              ///< Distinguish JSON object keys ("key":) from string values
-    std::optional<SyntaxPalette> palette{std::nullopt};         ///< Optional custom color palette override
+    keel::Optional<SyntaxPalette> palette{keel::kNullOpt};      ///< Optional custom color palette override
 
     /// Built-in C / C++20 syntax preset.
     [[nodiscard]] static SyntaxConfig Cpp() noexcept;
@@ -70,7 +70,7 @@ struct SyntaxConfig {
     [[nodiscard]] static SyntaxConfig Python() noexcept;
 
     /// Resolves a Markdown / language identifier tag (e.g. "cpp", "matlab", "json", "py") to a SyntaxConfig preset.
-    [[nodiscard]] static SyntaxConfig ForLanguage(std::string_view langTag) noexcept;
+    [[nodiscard]] static SyntaxConfig ForLanguage(keel::StringRef langTag) noexcept;
 
     /// Plain text (no syntax highlighting).
     [[nodiscard]] static constexpr SyntaxConfig Plain() noexcept { return SyntaxConfig{.enabled = false}; }
@@ -89,24 +89,24 @@ struct CodeDiagnostic {
     uint32_t startCol{0};                                       ///< 0-based start column (0 = first non-whitespace char)
     uint32_t endCol{0};                                         ///< 0-based end column (0 = end of line)
     DiagnosticSeverity severity{DiagnosticSeverity::Error};     ///< Diagnostic severity (Error, Warning, Info)
-    std::string_view message{};                                 ///< Diagnostic message displayed in hover tooltip & status bar
-    std::string_view code{};                                    ///< Optional diagnostic identifier (e.g. "C2065", "MLINT")
-    std::string_view anchor{};                                  ///< Optional source code substring anchor for automatic line/column tracking
+    keel::StringRef message{};                                  ///< Diagnostic message displayed in hover tooltip & status bar
+    keel::StringRef code{};                                     ///< Optional diagnostic identifier (e.g. "C2065", "MLINT")
+    keel::StringRef anchor{};                                   ///< Optional source code substring anchor for automatic line/column tracking
 };
 
 /// Represents an inline debugger variable value annotation rendered at the end of a source line.
 struct CodeInlineValue {
     size_t line{1};                                             ///< 1-based line number
-    std::string_view text{};                                    ///< Inline readout text (e.g. "N = 1024 | snr = +24.8 dB")
+    keel::StringRef text{};                                     ///< Inline readout text (e.g. "N = 1024 | snr = +24.8 dB")
     UiVariant variant{UiVariant::Info};                         ///< Semantic accent variant for the inline readout
-    std::string_view anchor{};                                  ///< Optional source code substring anchor for automatic line tracking
+    keel::StringRef anchor{};                                   ///< Optional source code substring anchor for automatic line tracking
 };
 
 /// Represents a live variable in the debugger scope for interactive hover DataTip inspection.
 struct CodeDebugVar {
-    std::string_view name{};                                    ///< Variable / symbol identifier in source code
-    std::string_view value{};                                   ///< Live value text (e.g. "[64x1 complex double] peak = 1.00")
-    std::string_view type{};                                    ///< Optional type description (e.g. "Eigen::VectorXcf")
+    keel::StringRef name{};                                     ///< Variable / symbol identifier in source code
+    keel::StringRef value{};                                    ///< Live value text (e.g. "[64x1 complex double] peak = 1.00")
+    keel::StringRef type{};                                     ///< Optional type description (e.g. "Eigen::VectorXcf")
 };
 
 /// Debugger control actions triggered via keyboard shortcuts (F5/F9/F10/F11) or floating debug toolbar.
@@ -130,7 +130,7 @@ struct TextAreaResponse : Response {
     size_t activeSearchMatch{0};                                ///< 1-based index of active Find match (0 if none)
     CodeDebugAction debugAction{CodeDebugAction::None};         ///< Debugger action triggered during this frame
     size_t toggledBreakpointLine{0};                            ///< 1-based line number where breakpoint was toggled (0 if none)
-    std::string_view hoveredWord{};                             ///< Identifier token currently under the mouse cursor
+    keel::StringRef hoveredWord{};                              ///< Identifier token currently under the mouse cursor
     int lineDelta{0};                                           ///< Net number of lines inserted (+N) or deleted (-N) during this frame
     size_t editLine{0};                                         ///< 1-based line number where line insertion/deletion occurred (0 if none)
 };
@@ -138,7 +138,7 @@ struct TextAreaResponse : Response {
 /// Clean configuration options for TextArea / Code Editor widget.
 struct TextAreaOptions {
     UiText placeholder{};                               ///< Placeholder text when empty
-    std::optional<uint32_t> rows{std::nullopt};         ///< Visible height expressed in rows/lines
+    keel::Optional<uint32_t> rows{keel::kNullOpt};      ///< Visible height expressed in rows/lines
     bool autoHeight{false};                             ///< Automatically fit height to content line count
     bool readOnly{false};                               ///< Non-editable display mode (still allows selection & copy)
     bool showLineNumbers{true};                         ///< Toggleable line numbers gutter (1, 2, 3...)
@@ -149,26 +149,26 @@ struct TextAreaOptions {
     bool insertSpaces{true};                            ///< Insert spaces instead of '\t' on Tab / smart indent
     bool allowZoom{true};                               ///< Allow interactive Ctrl + Mouse Wheel zoom (50%..300%)
     float zoom{1.0f};                                   ///< Base editor zoom factor (1.0f = 100%)
-    std::optional<SyntaxConfig> syntax{std::nullopt};   ///< Configurable rule-based syntax highlighting
-    std::optional<SyntaxPalette> syntaxPalette{std::nullopt}; ///< Optional syntax color palette override
+    keel::Optional<SyntaxConfig> syntax{keel::kNullOpt};      ///< Configurable rule-based syntax highlighting
+    keel::Optional<SyntaxPalette> syntaxPalette{keel::kNullOpt}; ///< Optional syntax color palette override
     SyntaxHighlighter syntaxHighlighter{nullptr};       ///< Optional custom syntax highlighting callback
     void* highlighterUserData{nullptr};                 ///< User data passed to syntaxHighlighter
-    std::optional<CursorBlinkMode> cursorMode{std::nullopt}; ///< Caret visibility and blinking behavior
+    keel::Optional<CursorBlinkMode> cursorMode{keel::kNullOpt}; ///< Caret visibility and blinking behavior
     StateColor color{};                                 ///< Optional focus ring / accent color override
     Align align{Align::Start};                          ///< Horizontal alignment in parent container
     StretchMode stretch{StretchMode::Fill};             ///< Horizontal sizing behavior (Compact, Space, Fill)
-    std::optional<float> width{std::nullopt};           ///< Explicit width in dp (or legacy ratio 0.0..1.0 in Fill)
-    std::optional<float> widthRatio{std::nullopt};      ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
-    std::optional<float> height{std::nullopt};          ///< Explicit height of the editor box in points/pixels
+    keel::Optional<float> width{keel::kNullOpt};        ///< Explicit width in dp (or legacy ratio 0.0..1.0 in Fill)
+    keel::Optional<float> widthRatio{keel::kNullOpt};   ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
+    keel::Optional<float> height{keel::kNullOpt};       ///< Explicit height of the editor box in points/pixels
     SizeMode heightMode{SizeMode::Fit};                 ///< Vertical sizing behavior in layout (Fit or Stretch)
     StateColor background{};                            ///< Optional background fill color override
     Border border{};                                    ///< Optional border configuration (color, width, radius)
-    std::optional<float> scale{std::nullopt};           ///< Optional local UI scale factor override
+    keel::Optional<float> scale{keel::kNullOpt};        ///< Optional local UI scale factor override
     const UiTheme* theme{nullptr};                      ///< Optional local theme override
     UiText tooltip{};                                   ///< Optional hover tooltip text
     bool disabled{false};                               ///< Interaction suppression
-    std::optional<bool> debugBounds{std::nullopt};
-    std::optional<bool> inspectMode{std::nullopt};
+    keel::Optional<bool> debugBounds{keel::kNullOpt};
+    keel::Optional<bool> inspectMode{keel::kNullOpt};
 
     // --- IDE & Code Intelligence Features ---
     bool showMinimap{false};                            ///< Render syntax-colored code overview minimap on the right
@@ -183,15 +183,15 @@ struct TextAreaOptions {
 
     // --- Debugger & Diagnostics Interface ---
     bool enableBreakpoints{false};                      ///< Enable gutter breakpoint toggling even if breakpoints == nullptr
-    std::vector<size_t>* breakpoints{nullptr};          ///< Optional external 1-based breakpoint line numbers
+    IndexListSink breakpoints{};                        ///< Optional external 1-based breakpoint line numbers
     size_t executionLine{0};                            ///< Active debugger instruction pointer (1-based line, 0 = none)
     size_t* executionLinePtr{nullptr};                  ///< Optional pointer to external executionLine shifted automatically on edits
     bool showDebugToolbar{false};                       ///< Show floating debugger toolbar (Continue, Step Over/Into/Out, Stop)
     Align debugToolbarAlign{Align::Center};             ///< Horizontal placement of floating debug toolbar (Start=Left, Center, End=Right)
-    std::optional<UiSize> toolbarSize{std::nullopt};    ///< Optional UiSize override for floating debug/search/action toolbars (nullopt = inherit editor size)
-    std::span<const CodeDiagnostic> diagnostics{};      ///< Inline compiler/linter diagnostics (wavy squiggles + tooltips)
-    std::span<const CodeInlineValue> inlineValues{};    ///< Live debugger inline variable values at end of lines
-    std::span<const CodeDebugVar> debugVariables{};     ///< Live variables for hover DataTip inspection over identifiers
+    keel::Optional<UiSize> toolbarSize{keel::kNullOpt}; ///< Optional UiSize override for floating debug/search/action toolbars (nullopt = inherit editor size)
+    keel::ArrayRef<CodeDiagnostic> diagnostics{};       ///< Inline compiler/linter diagnostics (wavy squiggles + tooltips)
+    keel::ArrayRef<CodeInlineValue> inlineValues{};     ///< Live debugger inline variable values at end of lines
+    keel::ArrayRef<CodeDebugVar> debugVariables{};      ///< Live variables for hover DataTip inspection over identifiers
 };
 
 struct TextAreaLogicalLine {
@@ -247,41 +247,41 @@ struct TextAreaState {
     bool replaceOpen{false};
     bool gotoOpen{false};
     int overlayFocus{0}; ///< 0 = Code Editor, 1 = Find input, 2 = Replace input, 3 = GoToLine input
-    std::string searchQuery{};
-    std::string replaceQuery{};
-    std::string gotoQuery{};
+    keel::String searchQuery{};
+    keel::String replaceQuery{};
+    keel::String gotoQuery{};
     bool matchCase{false};
     bool wholeWord{false};
     size_t activeMatchIdx{0};
     size_t searchMatchCount{0};
 
     // Code folding & debugger state
-    std::vector<size_t> foldedLines{};       ///< 0-based start line indices of folded blocks
-    std::vector<size_t> internalBreakpoints{}; ///< 1-based breakpoint lines when opts.breakpoints == nullptr
+    keel::Array<size_t> foldedLines{};         ///< 0-based start line indices of folded blocks
+    keel::Array<size_t> internalBreakpoints{}; ///< 1-based breakpoint lines when opts.breakpoints == nullptr
     size_t prevExecutionLine{0};
 
     // Line-shift & statement-anchor tracking state
     bool baselineInitialized{false};
-    std::string prevDocumentText{};
-    std::vector<size_t> baselineToCurrentLine{};
-    std::vector<std::string> baselineSignatures{};
-    std::vector<CodeInlineValue> resolvedInlineValues{};
-    std::vector<CodeDiagnostic> resolvedDiagnostics{};
+    keel::String prevDocumentText{};
+    keel::Array<size_t> baselineToCurrentLine{};
+    keel::Array<keel::String> baselineSignatures{};
+    keel::Array<CodeInlineValue> resolvedInlineValues{};
+    keel::Array<CodeDiagnostic> resolvedDiagnostics{};
 
     // Cached line / fold / visual layout buffers (avoids per-frame heap allocations & static re-parsing)
     uint64_t cachedDocHash{0};
     size_t cachedDocSize{static_cast<size_t>(-1)};
     bool cachedFoldEnabled{false};
     uint64_t cachedFoldSyntaxHash{0};
-    std::vector<TextAreaLogicalLine> cachedLogicalLines{};
-    std::vector<TextAreaFoldRegion> cachedFoldRegions{};
-    std::vector<TextAreaVisualLine> scratchVisualLines{};
+    keel::Array<TextAreaLogicalLine> cachedLogicalLines{};
+    keel::Array<TextAreaFoldRegion> cachedFoldRegions{};
+    keel::Array<TextAreaVisualLine> scratchVisualLines{};
 };
 
 /// Internal runtime state allocated in frame arena for TextArea nodes.
 struct TextAreaData {
     TextAreaOptions opts{};
-    std::string_view text{};
+    keel::StringRef text{};
     size_t cursor{0};
     size_t selectionStart{0};
     size_t selectionEnd{0};
@@ -308,9 +308,9 @@ struct TextAreaData {
     bool replaceOpen{false};
     bool gotoOpen{false};
     int overlayFocus{0};
-    std::string_view searchQuery{};
-    std::string_view replaceQuery{};
-    std::string_view gotoQuery{};
+    keel::StringRef searchQuery{};
+    keel::StringRef replaceQuery{};
+    keel::StringRef gotoQuery{};
     bool matchCase{false};
     bool wholeWord{false};
     size_t activeMatchIdx{0};
@@ -318,16 +318,16 @@ struct TextAreaData {
     int hoveredOverlayBtn{-1};
 
     // Folding & Debugger snapshot
-    std::span<const size_t> foldedLines{};
-    std::span<const size_t> breakpoints{};
-    std::span<const TextAreaLogicalLine> precomputedLogicalLines{};
-    std::span<const TextAreaFoldRegion> precomputedFoldRegions{};
-    int hoveredGutterLine{-1};      ///< 0-based line hovered in breakpoint gutter
-    int hoveredFoldLine{-1};        ///< 0-based line hovered in folding chevron area
-    int hoveredDebugBtn{-1};        ///< Hovered button index in floating debug toolbar (0..5 = buttons, 98 = grip)
-    std::string_view hoveredWord{}; ///< Identifier currently under mouse cursor
-    size_t hoveredWordLine{0};      ///< 0-based line of hoveredWord
-    size_t hoveredWordCol{0};       ///< 0-based start col of hoveredWord
+    keel::ArrayRef<size_t> foldedLines{};
+    keel::ArrayRef<size_t> breakpoints{};
+    keel::ArrayRef<TextAreaLogicalLine> precomputedLogicalLines{};
+    keel::ArrayRef<TextAreaFoldRegion> precomputedFoldRegions{};
+    int hoveredGutterLine{-1};       ///< 0-based line hovered in breakpoint gutter
+    int hoveredFoldLine{-1};         ///< 0-based line hovered in folding chevron area
+    int hoveredDebugBtn{-1};         ///< Hovered button index in floating debug toolbar (0..5 = buttons, 98 = grip)
+    keel::StringRef hoveredWord{};   ///< Identifier currently under mouse cursor
+    size_t hoveredWordLine{0};       ///< 0-based line of hoveredWord
+    size_t hoveredWordCol{0};        ///< 0-based start col of hoveredWord
 };
 
 /// Autonomous high-performance TextArea / Code Editor widget logic (execution, measuring, and virtualized rendering).
@@ -336,15 +336,15 @@ public:
     /// Primary immediate mode entry point for TextArea (editable or read-only).
     static TextAreaResponse Run(
         Context& ctx,
-        std::string* stringValue,
-        std::string_view displayFallback,
+        keel::Optional<keel::StringSink> stringValue,
+        keel::StringRef displayFallback,
         const TextAreaOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Measures intrinsic dimensions based on content lines, rows, autoHeight, and external Element labels.
     static Vec2 Measure(
-        std::string_view text,
+        keel::StringRef text,
         const TextAreaOptions& opts,
         UiSize size,
         ICanvas* canvas,
@@ -352,7 +352,7 @@ public:
         float availableWidth = 0.0f
     );
     static Vec2 Measure(
-        std::string_view text,
+        keel::StringRef text,
         const TextAreaOptions& opts,
         UiSize size,
         ICanvas* canvas = nullptr
@@ -362,7 +362,7 @@ public:
     static void Render(
         ICanvas& canvas,
         Rect bounds,
-        std::string_view text,
+        keel::StringRef text,
         const TextAreaOptions& opts,
         UiSize size,
         bool hovered = false,
@@ -378,10 +378,10 @@ public:
     /// Configurable rule-based line highlighter emitting contiguous styled spans covering lineText.
     /// Optional inOutBlockComment allows stateful multi-line block comment tracking across lines.
     static void HighlightLine(
-        std::string_view lineText,
+        keel::StringRef lineText,
         size_t lineIndex,
         const SyntaxConfig& config,
-        std::vector<TextSpan>& outSpans,
+        keel::Array<TextSpan>& outSpans,
         const UiTheme& theme,
         const SyntaxPalette* paletteOverride = nullptr,
         bool* inOutBlockComment = nullptr
@@ -389,9 +389,9 @@ public:
 
     /// Built-in high-performance C++ syntax highlighter for code snippets and editors.
     static void CppHighlighter(
-        std::string_view lineText,
+        keel::StringRef lineText,
         size_t lineIndex,
-        std::vector<TextSpan>& outSpans,
+        keel::Array<TextSpan>& outSpans,
         const UiTheme& theme,
         void* userData = nullptr
     );

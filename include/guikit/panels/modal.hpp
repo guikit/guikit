@@ -1,13 +1,12 @@
 #pragma once
 
-#include <optional>
-#include <source_location>
-#include <string_view>
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/types.hpp"
 #include "guikit/graphics/icon.hpp"
+#include "keel/core.h"
+#include "keel/optional.h"
 
 namespace guikit {
 
@@ -22,23 +21,23 @@ struct ModalOptions {
     Icon icon{};                                   ///< Optional leading header icon (auto-resolved from variant if empty and variant != Default)
     UiVariant variant{UiVariant::Default};         ///< Semantic accent variant for header badge and accent bar
     float width{440.0f};                           ///< Dialog box width in logical pixels
-    std::optional<float> height{std::nullopt};     ///< Explicit dialog height in logical pixels (nullopt = fit content)
+    keel::Optional<float> height{keel::kNullOpt};     ///< Explicit dialog height in logical pixels (nullopt = fit content)
     float maxHeightRatio{0.88f};                   ///< Maximum height as fraction of backdrop height
-    std::optional<float> gap{std::nullopt};        ///< Vertical gap between body child widgets
-    std::optional<Padding> padding{std::nullopt};  ///< Body padding (nullopt = standard spacious dialog padding)
+    keel::Optional<float> gap{keel::kNullOpt};        ///< Vertical gap between body child widgets
+    keel::Optional<Padding> padding{keel::kNullOpt};  ///< Body padding (nullopt = standard spacious dialog padding)
     StateColor background{};                       ///< Optional dialog surface background color override
     Border border{.width = 1.0f, .radius = 12.0f}; ///< Dialog border width, corner radius, and color
     float backdropOpacity{0.55f};                  ///< Dimmed backdrop alpha (0.0..1.0)
-    std::optional<Color> backdropColor{std::nullopt}; ///< Optional explicit backdrop tint override
+    keel::Optional<Color> backdropColor{keel::kNullOpt}; ///< Optional explicit backdrop tint override
     bool closeOnBackdrop{true};                    ///< Dismiss modal when clicking outside the dialog box
     bool closeOnEscape{true};                      ///< Dismiss modal when pressing Escape
     bool showCloseButton{true};                    ///< Render [X] close button in top-right header
     bool showHeaderDivider{true};                  ///< Render 1px divider below header when title/subtitle is present
     bool confineToParent{false};                   ///< Center and clip backdrop inside current parent container instead of full viewport
     const UiTheme* theme{nullptr};
-    std::optional<float> scale{std::nullopt};
-    std::optional<bool> debugBounds{std::nullopt};
-    std::optional<bool> inspectMode{std::nullopt};
+    keel::Optional<float> scale{keel::kNullOpt};
+    keel::Optional<bool> debugBounds{keel::kNullOpt};
+    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// RAII scope guard returned by `ui.Modal(...)`.
@@ -68,7 +67,7 @@ public:
     ModalScope& operator=(const ModalScope&) = delete;
 
     ModalScope(ModalScope&& other) noexcept
-        : ContainerScope(std::move(other))
+        : ContainerScope(keel::move(other))
         , response(other.response)
         , closedByUser(other.closedByUser)
         , m_openPtr(other.m_openPtr)
@@ -80,7 +79,7 @@ public:
     ModalScope& operator=(ModalScope&& other) noexcept {
         if (this != &other) {
             EndModalIfNeeded();
-            ContainerScope::operator=(std::move(other));
+            ContainerScope::operator=(keel::move(other));
             response = other.response;
             closedByUser = other.closedByUser;
             m_openPtr = other.m_openPtr;
@@ -108,7 +107,7 @@ public:
         Context& ctx,
         bool& open,
         const ModalOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     static Vec2 Measure(

@@ -1,8 +1,4 @@
 #include "../demo_context.hpp"
-#include <algorithm>
-#include <format>
-#include <sstream>
-#include <vector>
 
 namespace guikit::demo {
 
@@ -29,11 +25,11 @@ struct CodeEditorState {
     float zoom = 1.0f;
 
     size_t syntaxMode = 0; // 0 = C++20, 1 = MATLAB, 2 = JSON, 3 = Python, 4 = Custom
-    static constexpr std::array<std::string_view, 5> syntaxLabels = {
+    static constexpr keel::StaticArray<keel::StringRef, 5> syntaxLabels = {
         "C++20", "MATLAB", "JSON", "Python", "Custom"
     };
     size_t colorScheme = 0; // 0 = Theme Default, 1 = VS Code Dark+, 2 = Monokai, 3 = Dracula, 4 = One Dark, 5 = MATLAB, 6 = Solarized, 7 = GitHub Light
-    static constexpr std::array<std::string_view, 8> colorSchemeLabels = {
+    static constexpr keel::StaticArray<keel::StringRef, 8> colorSchemeLabels = {
         "Theme Default",
         "VS Code Dark+",
         "Monokai Pro",
@@ -43,45 +39,46 @@ struct CodeEditorState {
         "Solarized Dark",
         "GitHub Light"
     };
-    static constexpr std::array<std::string_view, 5> customKeywords = {"rule", "when", "then", "emit", "alert"};
-    static constexpr std::array<std::string_view, 4> customTypes = {"Sensor", "Signal", "Threshold", "Millis"};
+    static constexpr keel::StaticArray<keel::StringRef, 5> customKeywords = {"rule", "when", "then", "emit", "alert"};
+    static constexpr keel::StaticArray<keel::StringRef, 4> customTypes = {"Sensor", "Signal", "Threshold", "Millis"};
     size_t debugToolbarAlignIdx = 1; // 0 = Left (Start), 1 = Center, 2 = Right (End)
-    static constexpr std::array<std::string_view, 3> debugToolbarAlignLabels = {
+    static constexpr keel::StaticArray<keel::StringRef, 3> debugToolbarAlignLabels = {
         "Left", "Center", "Right"
     };
 
-    std::string editorBuffer;
-    std::vector<size_t> breakpoints;
+    keel::String editorBuffer{};
+    keel::Array<size_t> breakpoints{};
     size_t executionLine = 14;
     int stepCounter = 0;
-    std::string lastDebugEvent = "Paused at breakpoint";
+    keel::FixedString<128> lastDebugEvent = "Paused at breakpoint";
 
-    std::vector<std::string> ownedStrings;
-    std::vector<CodeDiagnostic> diagnostics;
-    std::vector<CodeInlineValue> inlineValues;
-    std::vector<CodeDebugVar> debugVariables;
+    keel::Array<keel::String> ownedStrings{};
+    keel::Array<CodeDiagnostic> diagnostics{};
+    keel::Array<CodeInlineValue> inlineValues{};
+    keel::Array<CodeDebugVar> debugVariables{};
 
     CodeEditorState() {
         LoadPreset(0);
     }
 
-    std::string_view StoreString(std::string s) {
-        ownedStrings.push_back(std::move(s));
-        return ownedStrings.back();
+    keel::StringRef StoreString(keel::String s) {
+        ownedStrings.push_back(keel::move(s));
+        return ownedStrings.back().as_ref();
     }
 
-    size_t FindLineContaining(std::string_view needle, size_t fallbackLine) const {
+    size_t FindLineContaining(keel::StringRef needle, size_t fallbackLine) const {
         if (needle.empty()) return fallbackLine;
+        const keel::StringRef buf = editorBuffer.as_ref();
         size_t lineNum = 1;
         size_t pos = 0;
-        while (pos <= editorBuffer.size()) {
-            const size_t nextNl = editorBuffer.find('\n', pos);
-            const size_t len = (nextNl == std::string::npos) ? (editorBuffer.size() - pos) : (nextNl - pos);
-            const std::string_view lineView(editorBuffer.data() + pos, len);
-            if (lineView.find(needle) != std::string_view::npos) {
+        while (pos <= buf.size()) {
+            const size_t nextNl = buf.find('\n', pos);
+            const size_t len = (nextNl == keel::StringRef::npos) ? (buf.size() - pos) : (nextNl - pos);
+            const keel::StringRef lineView = buf.substr(pos, len);
+            if (lineView.contains(needle)) {
                 return lineNum;
             }
-            if (nextNl == std::string::npos) break;
+            if (nextNl == keel::StringRef::npos) break;
             pos = nextNl + 1;
             ++lineNum;
         }
@@ -122,24 +119,24 @@ struct CodeEditorState {
                 const size_t loopLine = FindLineContaining("for (size_t k", 16);
                 const size_t accLine = FindLineContaining("float weighted", 18);
                 inlineValues.push_back({11, "sampleRate = 48000.0 Hz, nyquist = 24000.0 Hz", UiVariant::Info, "nyquist"});
-                inlineValues.push_back({14, StoreString(std::format("gain = {:.2f}, cutoffHz = 2400.0f", gainVal)), UiVariant::Success, "energyAcc = 0.0"});
+                inlineValues.push_back({14, StoreString(keel::format("gain = {:.2f}, cutoffHz = 2400.0f", gainVal)), UiVariant::Success, "energyAcc = 0.0"});
                 if (executionLine >= loopLine) {
-                    inlineValues.push_back({16, StoreString(std::format("k = {}, omega = {:.4f} rad", stepCounter % 4, 0.3142f * ((stepCounter % 4) + 1))), UiVariant::Info, "for (size_t k"});
+                    inlineValues.push_back({16, StoreString(keel::format("k = {}, omega = {:.4f} rad", stepCounter % 4, 0.3142f * ((stepCounter % 4) + 1))), UiVariant::Info, "for (size_t k"});
                 }
                 if (executionLine >= accLine) {
-                    inlineValues.push_back({18, StoreString(std::format("energyAcc = {:.4f}, rms = {:.3f}", rmsVal * 4.0f, rmsVal)), UiVariant::Warning, "float weighted"});
+                    inlineValues.push_back({18, StoreString(keel::format("energyAcc = {:.4f}, rms = {:.3f}", rmsVal * 4.0f, rmsVal)), UiVariant::Warning, "float weighted"});
                 }
             }
             if (showHoverDataTips) {
                 const float gainVal = 1.85f + 0.05f * static_cast<float>(stepCounter % 5);
-                debugVariables = {
+                debugVariables.assign({
                     {"sampleRate", "48000.0", "double"},
                     {"cutoffHz", "2400.0f", "float"},
-                    {"gain", StoreString(std::format("{:.3f}f", gainVal)), "float"},
-                    {"energyAcc", StoreString(std::format("{:.5f}", 2.828f * gainVal)), "double"},
-                    {"coeffs", "size=4 [0.25f, 0.50f, 0.25f, 0.0f]", "std::span<float>"},
+                    {"gain", StoreString(keel::format("{:.3f}f", gainVal)), "float"},
+                    {"energyAcc", StoreString(keel::format("{:.5f}", 2.828f * gainVal)), "double"},
+                    {"coeffs", "size=4 [0.25f, 0.50f, 0.25f, 0.0f]", "keel::ArrayRef<float>"},
                     {"nyquist", "24000.0", "const double"}
-                };
+                });
             }
         } else if (syntaxMode == 1) { // MATLAB
             if (showDiagnostics) {
@@ -159,14 +156,14 @@ struct CodeEditorState {
                 inlineValues.push_back({9, "Fs = 10000, N = 1024, f0 = 1250", UiVariant::Info, "N = length(x)"});
                 inlineValues.push_back({13, "w = 1024x1 double [hann window]", UiVariant::Success, "w = hann("});
                 if (executionLine >= fftLine) {
-                    inlineValues.push_back({15, StoreString(std::format("H = 1024x1 complex, peakBin = {}", 128 + (stepCounter % 3))), UiVariant::Info, "H = fft("});
+                    inlineValues.push_back({15, StoreString(keel::format("H = 1024x1 complex, peakBin = {}", 128 + (stepCounter % 3))), UiVariant::Info, "H = fft("});
                 }
                 if (executionLine >= snrLine) {
                     inlineValues.push_back({20, "snr_dB = +28.42 dB, peakFreq = 1250.0 Hz", UiVariant::Success, "snr_dB = max("});
                 }
             }
             if (showHoverDataTips) {
-                debugVariables = {
+                debugVariables.assign({
                     {"Fs", "10000", "double (1x1)"},
                     {"N", "1024", "double (1x1)"},
                     {"f0", "1250", "double (1x1)"},
@@ -175,7 +172,7 @@ struct CodeEditorState {
                     {"H", "max |H| = 512.0 + 0.0i", "complex double (1024x1)"},
                     {"P_dB", "[-42.1, -38.9, ..., 0.0 dB]", "double (1024x1)"},
                     {"snr_dB", "28.4215", "double (1x1)"}
-                };
+                });
             }
         } else if (syntaxMode == 2) { // JSON
             if (showDiagnostics) {
@@ -194,12 +191,12 @@ struct CodeEditorState {
                 inlineValues.push_back({15, "maxThreads = 32 (active)", UiVariant::Success, "\"maxThreads\""});
             }
             if (showHoverDataTips) {
-                debugVariables = {
+                debugVariables.assign({
                     {"engine", "{ name: \"GuiKit Code Editor\", version: \"2.4.0\" }", "object"},
                     {"maxThreads", "32", "number"},
                     {"simd", "\"AVX-512\"", "string"},
                     {"languages", "[\"C++20\", \"MATLAB\", \"JSON\", \"Python\"]", "array[4]"}
-                };
+                });
             }
         } else if (syntaxMode == 3) { // Python
             if (showDiagnostics) {
@@ -215,15 +212,15 @@ struct CodeEditorState {
             }
             if (showInlineValues && executionLine > 0) {
                 inlineValues.push_back({6, "epochs = 12, lr = 0.0015", UiVariant::Info, "self.epochs"});
-                inlineValues.push_back({11, StoreString(std::format("idx = {}, loss = {:.5f}", (stepCounter % 12), 0.42f / ((stepCounter % 6) + 1))), UiVariant::Success, "for idx, w"});
+                inlineValues.push_back({11, StoreString(keel::format("idx = {}, loss = {:.5f}", (stepCounter % 12), 0.42f / ((stepCounter % 6) + 1))), UiVariant::Success, "for idx, w"});
             }
             if (showHoverDataTips) {
-                debugVariables = {
+                debugVariables.assign({
                     {"epochs", "12", "int"},
                     {"lr", "0.0015", "float"},
                     {"loss", "0.08412", "float"},
                     {"weights", "device='cuda:0', dtype=float32", "Tensor[64, 64]"}
-                };
+                });
             }
         }
     }
@@ -232,22 +229,22 @@ struct CodeEditorState {
         syntaxMode = mode;
         stepCounter = 0;
         if (mode == 0) { // C++20
-            editorBuffer =
+            editorBuffer = keel::String::from(
                 "#include <cmath>\n"
-                "#include <span>\n"
-                "#include <numbers>\n\n"
+                "#include \"keel/keel.h\"\n\n"
+                "constexpr double kPi = 3.14159265358979323846;\n"
                 "// === DSP Biquad & Spectral Energy Kernel ===\n"
                 "/* Multi-line block comment:\n"
                 "   Try Ctrl+F (Find), Ctrl+H (Replace), Ctrl+G (Go to Line),\n"
                 "   F9 (Breakpoint), F10 (Step Over), F5 (Continue), or click gutter chevrons! */\n"
                 "namespace dsp::kernel {\n\n"
-                "float ComputeBandEnergy(std::span<float> coeffs, double sampleRate) {\n"
+                "float ComputeBandEnergy(keel::ArrayRef<float> coeffs, double sampleRate) {\n"
                 "    const double nyquist = sampleRate * 0.5;\n"
                 "    float cutoffHz = 2400.0f;\n"
                 "    float gain = 1.85f;\n"
                 "    double energyAcc = 0.0;\n"
                 "    for (size_t k = 0; k < coeffs.size(); ++k) {\n"
-                "        const double omega = (2.0 * std::numbers::pi * cutoffHz) / nyquist;\n"
+                "        const double omega = (2.0 * kPi * cutoffHz) / nyquist;\n"
                 "        float weighted = coeffs[k] * gain * std::cos(omega * double(k));\n"
                 "        energyAcc += weighted * weighted;\n"
                 "    }\n"
@@ -257,12 +254,13 @@ struct CodeEditorState {
                 "    }\n"
                 "    return 0.0f;\n"
                 "}\n\n"
-                "} // namespace dsp::kernel\n";
-            breakpoints = {14, 18, 22};
+                "} // namespace dsp::kernel\n"
+            );
+            breakpoints.assign({14, 18, 22});
             executionLine = 14;
             lastDebugEvent = "Paused at dsp::kernel::ComputeBandEnergy (Ln 14)";
         } else if (mode == 1) { // MATLAB
-            editorBuffer =
+            editorBuffer = keel::String::from(
                 "%% MATLAB Spectral Beamforming & Welch PSD Analysis\n"
                 "%{\n"
                 "   Block comment: demonstrates MATLAB transpose (x') vs strings ('periodic'),\n"
@@ -284,12 +282,13 @@ struct CodeEditorState {
                 "    end\n"
                 "    snr_dB = max(P_dB) - median(P_dB);\n"
                 "    disp(['Estimated SNR: ', num2str(snr_dB), ' dB']);\n"
-                "end\n";
-            breakpoints = {13, 15, 20};
+                "end\n"
+            );
+            breakpoints.assign({13, 15, 20});
             executionLine = 13;
             lastDebugEvent = "Paused in analyzeSpectrum.m (Ln 13)";
         } else if (mode == 2) { // JSON
-            editorBuffer =
+            editorBuffer = keel::String::from(
                 "{\n"
                 "    \"schema\": \"guikit.ide.v2\",\n"
                 "    \"engine\": {\n"
@@ -309,12 +308,13 @@ struct CodeEditorState {
                 "        \"inlineValues\": true,\n"
                 "        \"hoverDataTips\": true\n"
                 "    }\n"
-                "}\n";
-            breakpoints = {2, 15};
+                "}\n"
+            );
+            breakpoints.assign({2, 15});
             executionLine = 15;
             lastDebugEvent = "Inspecting JSON configuration node (Ln 15)";
         } else if (mode == 3) { // Python
-            editorBuffer =
+            editorBuffer = keel::String::from(
                 "# Python Neural Spectral Filter Trainer\n"
                 "import math\n\n"
                 "class SpectralTrainer:\n"
@@ -326,20 +326,22 @@ struct CodeEditorState {
                 "        for idx, w in enumerate(weights):\n"
                 "            grad = math.sin(w * (idx + 1)) * self.lr\n"
                 "            loss += abs(grad) * 0.25\n"
-                "        return round(loss, 5)\n";
-            breakpoints = {10, 12};
+                "        return round(loss, 5)\n"
+            );
+            breakpoints.assign({10, 12});
             executionLine = 11;
             lastDebugEvent = "Paused in SpectralTrainer.fit_epoch (Ln 11)";
         } else { // Custom DSL
-            editorBuffer =
+            editorBuffer = keel::String::from(
                 "# Custom Rule Engine DSL (Declarative SyntaxConfig)\n"
                 "rule OverheatProtection {\n"
                 "    when Sensor.temp > 85.5 then {\n"
                 "        emit Signal(\"EMERGENCY_STOP\", 100);\n"
                 "        alert Threshold(85.5);\n"
                 "    }\n"
-                "}\n";
-            breakpoints = {3, 4};
+                "}\n"
+            );
+            breakpoints.assign({3, 4});
             executionLine = 4;
             lastDebugEvent = "Rule engine triggered on line 4";
         }
@@ -355,20 +357,23 @@ struct CodeEditorState {
     }
 
     bool IsLineExecutable(size_t line1Based) const {
-        std::istringstream iss(editorBuffer);
-        std::string lineText;
+        const keel::StringRef buf = editorBuffer.as_ref();
         size_t cur = 1;
-        while (std::getline(iss, lineText)) {
+        size_t pos = 0;
+        while (pos <= buf.size()) {
+            const size_t nextNl = buf.find('\n', pos);
+            const size_t len = (nextNl == keel::StringRef::npos) ? (buf.size() - pos) : (nextNl - pos);
             if (cur == line1Based) {
-                size_t first = lineText.find_first_not_of(" \t\r");
-                if (first == std::string::npos) return false;
-                std::string_view trimmed(lineText.data() + first, lineText.size() - first);
+                const keel::StringRef trimmed = buf.substr(pos, len).trim();
+                if (trimmed.empty()) return false;
                 if (trimmed.starts_with("//") || trimmed.starts_with("#") || trimmed.starts_with("%") ||
                     trimmed.starts_with("/*") || trimmed.starts_with("*") || trimmed == "{" || trimmed == "}") {
                     return false;
                 }
                 return true;
             }
+            if (nextNl == keel::StringRef::npos) break;
+            pos = nextNl + 1;
             ++cur;
         }
         return false;
@@ -382,7 +387,7 @@ struct CodeEditorState {
         } else if (action == CodeDebugAction::Restart) {
             stepCounter = 0;
             executionLine = !breakpoints.empty() ? breakpoints.front() : 1;
-            lastDebugEvent = std::format("Debugger restarted at Ln {}", executionLine);
+            lastDebugEvent = keel::format_fixed<128>("Debugger restarted at Ln {}", executionLine);
         } else if (action == CodeDebugAction::StepOver || action == CodeDebugAction::StepInto) {
             ++stepCounter;
             size_t nextLine = (executionLine == 0) ? 1 : (executionLine + 1);
@@ -392,11 +397,11 @@ struct CodeEditorState {
                 ++nextLine;
             }
             executionLine = nextLine;
-            lastDebugEvent = std::format("Stepped to Ln {} (step #{})", executionLine, stepCounter);
+            lastDebugEvent = keel::format_fixed<128>("Stepped to Ln {} (step #{})", executionLine, stepCounter);
         } else if (action == CodeDebugAction::StepOut) {
             ++stepCounter;
-            executionLine = std::min(totalLines, std::max<size_t>(1, executionLine + 3));
-            lastDebugEvent = std::format("Stepped out to Ln {}", executionLine);
+            executionLine = keel::min(totalLines, keel::max<size_t>(1, executionLine + 3));
+            lastDebugEvent = keel::format_fixed<128>("Stepped out to Ln {}", executionLine);
         } else if (action == CodeDebugAction::Continue) {
             ++stepCounter;
             if (breakpoints.empty()) {
@@ -411,7 +416,7 @@ struct CodeEditorState {
                     }
                 }
                 executionLine = foundBp;
-                lastDebugEvent = std::format("Continued to breakpoint at Ln {}", executionLine);
+                lastDebugEvent = keel::format_fixed<128>("Continued to breakpoint at Ln {}", executionLine);
             }
         }
         RebuildDynamicDebugData();
@@ -526,7 +531,7 @@ void RenderCodeEditorStage(guikit::Context& ui, DemoContext& ctx) {
         };
     }
 
-    std::optional<guikit::SyntaxPalette> synPalette = std::nullopt;
+    keel::Optional<guikit::SyntaxPalette> synPalette = keel::kNullOpt;
     switch (s_state.colorScheme) {
         case 1: synPalette = guikit::SyntaxPalette::VsCodeDark(); break;
         case 2: synPalette = guikit::SyntaxPalette::Monokai(); break;
@@ -545,7 +550,7 @@ void RenderCodeEditorStage(guikit::Context& ui, DemoContext& ctx) {
     guikit::TextAreaResponse resp{};
     if (auto el = ui.Size(ctx.elemSize).Element({
         .label = s_state.showLabel ? "Code Editor & Debugger" : "",
-        .description = s_state.showDesc ? std::string_view(s_state.lastDebugEvent) : std::string_view{}
+        .description = s_state.showDesc ? s_state.lastDebugEvent.as_ref() : keel::StringRef{}
     })) {
         resp = ui.Size(ctx.controlsSize).TextArea(s_state.editorBuffer, {
             .autoHeight = false,
@@ -591,14 +596,14 @@ void RenderCodeEditorStage(guikit::Context& ui, DemoContext& ctx) {
     }
 }
 
-std::string GenerateCodeEditorCode(const DemoContext& ctx) {
-    std::string synLine = "guikit::SyntaxConfig::Cpp()";
+keel::String GenerateCodeEditorCode(const DemoContext& ctx) {
+    keel::StringRef synLine = "guikit::SyntaxConfig::Cpp()";
     if (s_state.syntaxMode == 1) synLine = "guikit::SyntaxConfig::Matlab()";
     else if (s_state.syntaxMode == 2) synLine = "guikit::SyntaxConfig::Json()";
     else if (s_state.syntaxMode == 3) synLine = "guikit::SyntaxConfig::Python()";
     else if (s_state.syntaxMode == 4) synLine = "customSyntaxConfig";
 
-    std::string palLine = "std::nullopt";
+    keel::StringRef palLine = "keel::kNullOpt";
     if (s_state.colorScheme == 1) palLine = "guikit::SyntaxPalette::VsCodeDark()";
     else if (s_state.colorScheme == 2) palLine = "guikit::SyntaxPalette::Monokai()";
     else if (s_state.colorScheme == 3) palLine = "guikit::SyntaxPalette::Dracula()";
@@ -607,11 +612,11 @@ std::string GenerateCodeEditorCode(const DemoContext& ctx) {
     else if (s_state.colorScheme == 6) palLine = "guikit::SyntaxPalette::Solarized()";
     else if (s_state.colorScheme == 7) palLine = "guikit::SyntaxPalette::GitHubLight()";
 
-    const std::string_view dbgAlignStr = (s_state.debugToolbarAlignIdx == 0)
+    const keel::StringRef dbgAlignStr = (s_state.debugToolbarAlignIdx == 0)
         ? "guikit::Align::Start"
         : ((s_state.debugToolbarAlignIdx == 2) ? "guikit::Align::End" : "guikit::Align::Center");
 
-    return std::format(
+    return keel::format(
         "auto resp = ui.{}TextArea(sourceBuffer, {{\n"
         "    .showLineNumbers = {},\n"
         "    .showWhitespace = {},\n"

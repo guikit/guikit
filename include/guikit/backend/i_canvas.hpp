@@ -1,13 +1,9 @@
 #pragma once
 
-#include <array>
 #include <cstdint>
-#include <optional>
-#include <span>
-#include <string>
-#include <string_view>
-#include <vector>
 #include "guikit/core/types.hpp"
+#include "keel/array.h"
+#include "keel/optional.h"
 
 namespace guikit {
 
@@ -44,8 +40,15 @@ enum class FillRule : uint8_t {
 /// Engine-agnostic flat contiguous 2D vector path buffer.
 /// Zero virtual call overhead during vertex assembly; reusable across frames via Clear().
 struct VectorPath {
-    std::vector<PathVerb> verbs;
-    std::vector<Vec2> points;
+    keel::Array<PathVerb> verbs;
+    keel::Array<Vec2> points;
+
+    [[nodiscard]] VectorPath clone() const {
+        VectorPath copy;
+        copy.verbs = verbs.clone();
+        copy.points = points.clone();
+        return copy;
+    }
 
     void Clear() noexcept {
         verbs.clear();
@@ -78,7 +81,7 @@ struct VectorPath {
         verbs.push_back(PathVerb::Close);
     }
 
-    void AddClosedRing(std::span<const Vec2> ring) {
+    void AddClosedRing(keel::ArrayRef<Vec2> ring) {
         if (ring.size() < 3) return;
         verbs.push_back(PathVerb::MoveTo);
         points.push_back(ring[0]);
@@ -127,16 +130,16 @@ public:
     virtual void SetTarget(uint32_t* /*buffer*/, uint32_t /*width*/, uint32_t /*height*/, uint32_t /*stride*/) {}
 
     /// Loads a TrueType/OpenType font from a virtual asset path or filesystem path for the specified `FontStyle` slot.
-    virtual bool LoadFontFile(std::string_view /*path*/, FontStyle /*style*/ = FontStyle::Regular) {
+    virtual bool LoadFontFile(keel::StringRef /*path*/, FontStyle /*style*/ = FontStyle::Regular) {
         return false;
     }
 
     /// Loads a TrueType/OpenType font directly from an in-memory buffer for the specified `FontStyle` slot.
     virtual bool LoadFontMemory(
-        std::string_view /*name*/,
-        std::span<const uint8_t> /*data*/,
+        keel::StringRef /*name*/,
+        keel::ArrayRef<uint8_t> /*data*/,
         FontStyle /*style*/ = FontStyle::Regular,
-        std::string_view /*mimeType*/ = "ttf"
+        keel::StringRef /*mimeType*/ = "ttf"
     ) {
         return false;
     }
@@ -154,10 +157,10 @@ public:
     virtual void SetScale(float scale) = 0;
 
     /// Human-readable backend identifier name (e.g. "ThorVG (Vector Software)", "Blend2D (JIT SIMD)", "SDL3 (Direct GPU)").
-    [[nodiscard]] virtual std::string_view GetBackendName() const noexcept = 0;
+    [[nodiscard]] virtual keel::StringRef GetBackendName() const noexcept = 0;
 
     /// Clears the entire canvas surface or a targeted sub-rectangle to a specified background color.
-    virtual void Clear(Color color, std::optional<Rect> rect = std::nullopt) = 0;
+    virtual void Clear(Color color, keel::Optional<Rect> rect = keel::kNullOpt) = 0;
 
     /// Pushes a rectangular clipping boundary.
     virtual void PushClip(Rect clipRect) = 0;
@@ -178,10 +181,10 @@ public:
     ) = 0;
 
     /// Measures the dimensions of a single-line text string using backend font metrics.
-    virtual Vec2 MeasureText(std::string_view text, float fontSize) = 0;
+    virtual Vec2 MeasureText(keel::StringRef text, float fontSize) = 0;
 
     /// Measures the dimensions of a styled single-line text string (Bold, Italic, Monospace).
-    virtual Vec2 MeasureTextStyled(std::string_view text, float fontSize, FontStyle /*style*/) {
+    virtual Vec2 MeasureTextStyled(keel::StringRef text, float fontSize, FontStyle /*style*/) {
         return MeasureText(text, fontSize);
     }
 
@@ -189,11 +192,11 @@ public:
     [[nodiscard]] virtual float GetLineHeight(float fontSize) = 0;
 
     /// Draws a single-line text string with specified font size and color.
-    virtual void DrawText(std::string_view text, Vec2 pos, float fontSize, Color color) = 0;
+    virtual void DrawText(keel::StringRef text, Vec2 pos, float fontSize, Color color) = 0;
 
     /// Draws a single-line text string with typographic style and optional rotation angle in degrees.
     virtual void DrawTextStyled(
-        std::string_view text,
+        keel::StringRef text,
         Vec2 pos,
         float fontSize,
         Color color,
@@ -205,7 +208,7 @@ public:
 
     /// Draws text constrained within a bounding rectangle with horizontal and vertical alignment factors [0..1].
     virtual void DrawTextBox(
-        std::string_view text,
+        keel::StringRef text,
         Rect bounds,
         float fontSize,
         Color color,
@@ -215,7 +218,7 @@ public:
 
     /// Draws styled text constrained within a bounding rectangle with horizontal and vertical alignment factors [0..1].
     virtual void DrawTextBoxStyled(
-        std::string_view text,
+        keel::StringRef text,
         Rect bounds,
         float fontSize,
         Color color,
@@ -228,7 +231,7 @@ public:
 
     /// Convenience overload of DrawTextBox with explicit FontStyle.
     void DrawTextBox(
-        std::string_view text,
+        keel::StringRef text,
         Rect bounds,
         float fontSize,
         Color color,
@@ -317,14 +320,14 @@ public:
 
     /// Queries the natural (unscaled) dimensions of a vector/raster image (SVG, PNG, JPG, or inline <svg>).
     /// Returns {0, 0} if the image cannot be found or loaded.
-    virtual Vec2 GetImageSize(std::string_view /*source*/) {
+    virtual Vec2 GetImageSize(keel::StringRef /*source*/) {
         return {0.0f, 0.0f};
     }
 
     /// Draws a vector or raster image (SVG, PNG, JPG, or inline <svg>) stretched to `destRect`.
     /// Returns true if the image was loaded and queued for rendering.
     virtual bool DrawImage(
-        std::string_view /*source*/,
+        keel::StringRef /*source*/,
         Rect /*destRect*/,
         float /*cornerRadius*/ = 0.0f,
         uint8_t /*opacity*/ = 255
@@ -365,17 +368,17 @@ public:
     virtual void DrawTexture(
         uint64_t /*textureId*/,
         Rect /*destRect*/,
-        std::optional<Rect> /*srcRect*/ = std::nullopt,
+        keel::Optional<Rect> /*srcRect*/ = keel::kNullOpt,
         Color /*tint*/ = Color(255, 255, 255, 255)
     ) {}
 
     /// Multi-API fragment shader source bundle for hardware GPU underlay passes.
     struct GpuShaderSource {
-        std::string_view shaderId;     ///< Unique program cache key (e.g. "guikit.sonar.v1")
-        std::string_view glslEs2;      ///< OpenGL 2.1 / OpenGL ES 2.0 / WebGL 1.0 & 2.0 fragment shader source
-        std::string_view wgsl{};       ///< Optional WebGPU WGSL source
-        std::string_view hlsl{};       ///< Optional Direct3D 11/12 HLSL source
-        std::string_view msl{};        ///< Optional Apple Metal MSL source
+        keel::StringRef shaderId;     ///< Unique program cache key (e.g. "guikit.sonar.v1")
+        keel::StringRef glslEs2;      ///< OpenGL 2.1 / OpenGL ES 2.0 / WebGL 1.0 & 2.0 fragment shader source
+        keel::StringRef wgsl{};       ///< Optional WebGPU WGSL source
+        keel::StringRef hlsl{};       ///< Optional Direct3D 11/12 HLSL source
+        keel::StringRef msl{};        ///< Optional Apple Metal MSL source
     };
 
     /// Generic 16-byte aligned `float4` uniform register (`std140` / `cbuffer` layout).
@@ -410,7 +413,7 @@ public:
         const uint32_t* lutAbgr256{nullptr}; ///< Pointer to persistent 256-entry ABGR8888 LUT (zero-copy)
 
         // Standard 8 x float4 (128-byte std140) uniform parameter bank (`uniform vec4 u_Params[8]`)
-        std::array<GpuFloat4, 8> params{};
+        keel::StaticArray<GpuFloat4, 8> params{};
     };
 
     /// Enables or disables GPU shader underlay pass recording on this canvas.
@@ -423,9 +426,8 @@ public:
     [[nodiscard]] virtual bool HasActiveGpuPasses() const noexcept { return false; }
 
     /// Returns recorded GPU shader underlay passes for the current frame.
-    [[nodiscard]] virtual const std::vector<GpuShaderPassDesc>& GetGpuShaderPasses() const noexcept {
-        static const std::vector<GpuShaderPassDesc> kEmpty;
-        return kEmpty;
+    [[nodiscard]] virtual keel::ArrayRef<GpuShaderPassDesc> GetGpuShaderPasses() const noexcept {
+        return {};
     }
 
     /// Queues a generic 2D GPU shader underlay pass and optionally punches a transparent window in the CPU layer.
@@ -433,12 +435,12 @@ public:
     virtual bool DrawGpuShaderPass(const GpuShaderPassDesc& /*pass*/, bool /*punchHole*/ = true) { return false; }
 
     /// Flushes pending draw commands and captures a physical pixel snapshot of `rect` for retained base-layer caching.
-    virtual bool CaptureRegion(Rect /*rect*/, std::vector<uint32_t>& /*outPixels*/, uint32_t& /*outW*/, uint32_t& /*outH*/) {
+    virtual bool CaptureRegion(Rect /*rect*/, keel::Array<uint32_t>& /*outPixels*/, uint32_t& /*outW*/, uint32_t& /*outH*/) {
         return false;
     }
 
     /// Flushes pending draw commands and blits a previously captured pixel snapshot directly into the target surface.
-    virtual bool RestoreRegion(Rect /*rect*/, const std::vector<uint32_t>& /*inPixels*/, uint32_t /*inW*/, uint32_t /*inH*/) {
+    virtual bool RestoreRegion(Rect /*rect*/, keel::ArrayRef<uint32_t> /*inPixels*/, uint32_t /*inW*/, uint32_t /*inH*/) {
         return false;
     }
 };

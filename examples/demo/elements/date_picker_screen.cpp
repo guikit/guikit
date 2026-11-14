@@ -1,8 +1,5 @@
 #include "../demo_context.hpp"
 #include "guikit/widgets/date_picker.hpp"
-#include <format>
-#include <string>
-#include <string_view>
 
 namespace guikit::demo {
 
@@ -36,7 +33,7 @@ guikit::DatePickerMode ActiveMode() noexcept {
     }
 }
 
-std::string_view ModeEnumName(guikit::DatePickerMode mode) noexcept {
+keel::StringRef ModeEnumName(guikit::DatePickerMode mode) noexcept {
     switch (mode) {
         case guikit::DatePickerMode::Date:     return "Date";
         case guikit::DatePickerMode::DateTime: return "DateTime";
@@ -99,10 +96,10 @@ void RenderDatePickerStage(guikit::Context& ui, DemoContext& ctx) {
     }
 }
 
-std::string GenerateDatePickerCode(const DemoContext& ctx) {
+keel::String GenerateDatePickerCode(const DemoContext& ctx) {
     const NavCategory navCat = NavCategory::ElemDatePicker;
     const guikit::DatePickerMode mode = ActiveMode();
-    return std::format(
+    return keel::format(
         "if (auto el = ui.{}Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"

@@ -1,5 +1,4 @@
 #include "guikit/widgets/segmented.hpp"
-#include <algorithm>
 #include <cmath>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
@@ -45,12 +44,12 @@ float MeasureSegmentNaturalWidth(
         : 0.0f;
     const bool hasIcon = item.icon.IsValid();
     const bool hasText = (textW > 0.0f);
-    const float padX = std::max(8.0f, cm.paddingX * 0.78f);
+    const float padX = keel::max(8.0f, cm.paddingX * 0.78f);
     const float iconGap = 6.0f;
 
     if (hasIcon && hasText) {
         if (item.iconPlacement == Placement::Top || item.iconPlacement == Placement::Bottom) {
-            return std::max(textW, cm.iconSize) + padX * 2.0f;
+            return keel::max(textW, cm.iconSize) + padX * 2.0f;
         }
         return textW + cm.iconSize + iconGap + padX * 2.0f;
     }
@@ -61,7 +60,7 @@ float MeasureSegmentNaturalWidth(
 }
 
 Vec2 MeasureSegmentedBox(
-    std::span<const SegmentedItem> items,
+    keel::ArrayRef<SegmentedItem> items,
     const SegmentedOptions& opts,
     UiSize size,
     ICanvas* canvas,
@@ -75,7 +74,7 @@ Vec2 MeasureSegmentedBox(
     float sumSegW = 0.0f;
     for (const SegmentedItem& it : items) {
         const float sw = MeasureSegmentNaturalWidth(it, size, canvas, theme);
-        maxSegW = std::max(maxSegW, sw);
+        maxSegW = keel::max(maxSegW, sw);
         sumSegW += sw;
         if (it.icon.IsValid() && it.text.HasContentOrReserve() &&
             (it.iconPlacement == Placement::Top || it.iconPlacement == Placement::Bottom)) {
@@ -83,13 +82,13 @@ Vec2 MeasureSegmentedBox(
         }
     }
 
-    const size_t count = std::max<size_t>(1, items.size());
+    const size_t count = keel::max<size_t>(1, items.size());
     float totalW = opts.equalWidth
         ? (maxSegW * static_cast<float>(count) + inset * 2.0f)
         : (sumSegW + inset * 2.0f);
 
     if (opts.minWidth.has_value()) {
-        totalW = std::max(theme.Scale(*opts.minWidth), totalW);
+        totalW = keel::max(theme.Scale(*opts.minWidth), totalW);
     }
     if (Control::HasExplicitDpWidth(opts.stretch, opts.width, opts.widthRatio)) {
         totalW = theme.Scale(*opts.width);
@@ -98,7 +97,7 @@ Vec2 MeasureSegmentedBox(
     float defaultH = cm.defaultHeight;
     if (hasStackedIconText) {
         const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
-        defaultH = std::max(defaultH, cm.iconSize + fontSize + 14.0f);
+        defaultH = keel::max(defaultH, cm.iconSize + fontSize + 14.0f);
     }
     const float boxH = opts.height.has_value() ? theme.Scale(*opts.height) : defaultH;
     return {totalW, boxH};
@@ -106,7 +105,7 @@ Vec2 MeasureSegmentedBox(
 
 void ComputeSegmentRects(
     Rect trackRect,
-    std::span<const SegmentedItem> items,
+    keel::ArrayRef<SegmentedItem> items,
     const SegmentedOptions& opts,
     UiSize size,
     ICanvas* canvas,
@@ -135,14 +134,14 @@ void ComputeSegmentRects(
         keel::SmallArray<float, 16> natW(items.size(), 1.0f);
         float sumNat = 0.0f;
         for (size_t i = 0; i < items.size(); ++i) {
-            natW[i] = std::max(1.0f, MeasureSegmentNaturalWidth(items[i], size, canvas, theme));
+            natW[i] = keel::max(1.0f, MeasureSegmentNaturalWidth(items[i], size, canvas, theme));
             sumNat += natW[i];
         }
         float curX = inner.x;
         for (size_t i = 0; i < items.size(); ++i) {
             const float w = (i + 1 == items.size())
-                ? std::max(0.0f, inner.Right() - curX)
-                : (inner.w * (natW[i] / std::max(1.0f, sumNat)));
+                ? keel::max(0.0f, inner.Right() - curX)
+                : (inner.w * (natW[i] / keel::max(1.0f, sumNat)));
             outRects.emplace_back(curX, inner.y, w, inner.h);
             curX += w;
         }
@@ -159,7 +158,7 @@ Color ResolveContrastingTextOnFill(Color fill, const ThemePalette& pal) noexcept
 } // namespace
 
 Vec2 Segmented::Measure(
-    std::span<const SegmentedItem> items,
+    keel::ArrayRef<SegmentedItem> items,
     const SegmentedOptions& opts,
     UiSize size,
     ICanvas* canvas,
@@ -172,7 +171,7 @@ Vec2 Segmented::Measure(
 }
 
 Vec2 Segmented::Measure(
-    std::span<const SegmentedItem> items,
+    keel::ArrayRef<SegmentedItem> items,
     const SegmentedOptions& opts,
     UiSize size,
     ICanvas* canvas,
@@ -187,16 +186,16 @@ Response Segmented::Run(
     size_t* selectedIndex,
     int* selectedIntIndex,
     uint32_t* selectedMask,
-    std::span<const std::string_view> items,
+    keel::ArrayRef<keel::StringRef> items,
     const SegmentedOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     keel::SmallArray<SegmentedItem, 16> richItems;
     richItems.reserve(items.size());
-    for (std::string_view sv : items) {
+    for (keel::StringRef sv : items) {
         richItems.push_back(SegmentedItem{.text = sv});
     }
-    return Run(ctx, selectedIndex, selectedIntIndex, selectedMask, richItems, opts, loc);
+    return Run(ctx, selectedIndex, selectedIntIndex, selectedMask, richItems.as_ref(), opts, loc);
 }
 
 Response Segmented::Run(
@@ -204,9 +203,9 @@ Response Segmented::Run(
     size_t* selectedIndex,
     int* selectedIntIndex,
     uint32_t* selectedMask,
-    std::span<const SegmentedItem> items,
+    keel::ArrayRef<SegmentedItem> items,
     const SegmentedOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
     struct ThemePopGuard {
@@ -383,7 +382,7 @@ Response Segmented::Run(
 
     auto* data = ctx.AllocPayload<SegmentedData>();
     data->opts = optsCopy;
-    data->items = std::span<const SegmentedItem>(arenaItems, items.size());
+    data->items = keel::ArrayRef<SegmentedItem>(arenaItems, items.size());
     data->selectedIndex = currIndex;
     data->selectedMask = currMask;
     data->multiSelect = multiSelect;
@@ -450,7 +449,7 @@ Response Segmented::Run(
 void Segmented::Render(
     ICanvas& canvas,
     Rect bounds,
-    std::span<const SegmentedItem> items,
+    keel::ArrayRef<SegmentedItem> items,
     size_t selectedIndex,
     uint32_t selectedMask,
     bool multiSelect,
@@ -499,7 +498,7 @@ void Segmented::Render(
 
     keel::SmallArray<Rect, 16> segRects;
     ComputeSegmentRects(trackRect, items, opts, size, &canvas, theme, segRects);
-    const float pillRadius = std::max(2.0f, trackRadius - inset);
+    const float pillRadius = keel::max(2.0f, trackRadius - inset);
 
     auto isSegmentSelected = [&](size_t idx) noexcept -> bool {
         if (multiSelect) {
@@ -519,7 +518,7 @@ void Segmented::Render(
             if (!curSel && !nextSel && !curHov && !nextHov) {
                 const Rect& r = segRects[i];
                 const float x = std::round(r.Right());
-                const float padY = std::max(4.0f, r.h * 0.22f);
+                const float padY = keel::max(4.0f, r.h * 0.22f);
                 canvas.DrawLine({x, r.y + padY}, {x, r.Bottom() - padY}, divCol, 1.0f);
             }
         }
@@ -571,12 +570,12 @@ void Segmented::Render(
         const bool hasIcon = item.icon.IsValid();
         const bool hasText = !item.text.empty();
         const float fontSize = theme.ResolveFontSize(item.text, TextRole::LabelMedium, size);
-        const float iconSz = std::min(cm.iconSize, std::max(8.0f, std::min(sr.w, sr.h) - 4.0f));
+        const float iconSz = keel::min(cm.iconSize, keel::max(8.0f, keel::min(sr.w, sr.h) - 4.0f));
 
         if (hasIcon && hasText) {
             if (item.iconPlacement == Placement::Top || item.iconPlacement == Placement::Bottom) {
-                const float padX = std::min(theme.Scale(3.0f), sr.w * 0.10f);
-                const float availW = std::max(0.0f, sr.w - padX * 2.0f);
+                const float padX = keel::min(theme.Scale(3.0f), sr.w * 0.10f);
+                const float availW = keel::max(0.0f, sr.w - padX * 2.0f);
                 const float gapY = 2.0f;
                 const float totalH = iconSz + gapY + fontSize;
                 if (availW < fontSize * 1.15f || sr.h < iconSz + fontSize * 0.85f) {
@@ -597,9 +596,9 @@ void Segmented::Render(
                     }
                 }
             } else {
-                const float padX = std::min(theme.Scale(4.0f), sr.w * 0.12f);
-                const float gapX = std::min(theme.Scale(5.0f), std::max(2.0f, sr.w * 0.08f));
-                const float availW = std::max(0.0f, sr.w - padX * 2.0f);
+                const float padX = keel::min(theme.Scale(4.0f), sr.w * 0.12f);
+                const float gapX = keel::min(theme.Scale(5.0f), keel::max(2.0f, sr.w * 0.08f));
+                const float availW = keel::max(0.0f, sr.w - padX * 2.0f);
                 const float availTextW = availW - iconSz - gapX;
 
                 // When segment is too narrow to show meaningful text beside the icon, auto-collapse to centered icon
@@ -608,15 +607,15 @@ void Segmented::Render(
                     item.icon.Draw(canvas, iconRect, fgColor);
                 } else {
                     keel::FixedString<256> truncatedLabel;
-                    std::string_view displayLabel = item.text.text;
+                    keel::StringRef displayLabel = item.text.text;
                     float textW = canvas.MeasureText(displayLabel, fontSize).x;
                     if (textW > availTextW + kTextSubpixelTolerance) {
                         truncatedLabel = TextUtil::TruncateWithEllipsis(item.text.text, availTextW, fontSize, &canvas);
                         displayLabel = truncatedLabel;
-                        textW = std::min(availTextW, canvas.MeasureText(displayLabel, fontSize).x);
+                        textW = keel::min(availTextW, canvas.MeasureText(displayLabel, fontSize).x);
                     }
                     const float totalW = iconSz + gapX + textW;
-                    const float startX = sr.x + std::max(padX, (sr.w - totalW) * 0.5f);
+                    const float startX = sr.x + keel::max(padX, (sr.w - totalW) * 0.5f);
                     const float iconY = sr.y + (sr.h - iconSz) * 0.5f;
                     if (item.iconPlacement == Placement::Trailing) {
                         const Rect textRect(startX, sr.y, availTextW, sr.h);
@@ -635,7 +634,7 @@ void Segmented::Render(
             const Rect iconRect(sr.x + (sr.w - iconSz) * 0.5f, sr.y + (sr.h - iconSz) * 0.5f, iconSz, iconSz);
             item.icon.Draw(canvas, iconRect, fgColor);
         } else if (hasText) {
-            const float padX = std::min(theme.Scale(4.0f), sr.w * 0.12f);
+            const float padX = keel::min(theme.Scale(4.0f), sr.w * 0.12f);
             canvas.DrawTextBox(item.text.text, sr.Inset(padX, 0.0f), fontSize, fgColor, 0.5f, 0.5f);
         }
 

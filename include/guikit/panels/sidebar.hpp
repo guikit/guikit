@@ -1,11 +1,11 @@
 #pragma once
 
-#include <optional>
-#include <source_location>
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
+#include "keel/core.h"
+#include "keel/optional.h"
 
 namespace guikit {
 
@@ -30,9 +30,9 @@ enum class SidebarMode : uint8_t {
 struct SidebarOptions {
     SidebarSide side{SidebarSide::Left};                ///< Docking side (Left by default, or Right)
     SidebarMode defaultMode{SidebarMode::Expanded};     ///< Initial mode when managed by Context
-    std::optional<float> width{std::nullopt};           ///< Explicit sidebar width in Expanded mode (nullopt = Fit to content)
-    std::optional<float> minWidth{std::nullopt};        ///< Optional minimum width in logical dp (nullopt = auto from theme metrics)
-    std::optional<float> maxWidth{std::nullopt};        ///< Optional maximum width in logical dp (nullopt = auto from parent width * maxRatio)
+    keel::Optional<float> width{keel::kNullOpt};           ///< Explicit sidebar width in Expanded mode (nullopt = Fit to content)
+    keel::Optional<float> minWidth{keel::kNullOpt};        ///< Optional minimum width in logical dp (nullopt = auto from theme metrics)
+    keel::Optional<float> maxWidth{keel::kNullOpt};        ///< Optional maximum width in logical dp (nullopt = auto from parent width * maxRatio)
     float maxRatio{0.65f};                              ///< Maximum fraction of parent container width the sidebar can occupy (0.15 .. 0.90)
     bool resizable{false};                              ///< Allow dragging the inner border (sash) to resize or snap-collapse
     bool allowCompact{false};                           ///< Support Compact (icons-only rail) mode via drag-snap or toggle button
@@ -40,16 +40,16 @@ struct SidebarOptions {
     bool showToggleButton{false};                       ///< Optional floating edge tab on border (false by default; Sash line handles resize/collapse)
     bool scrollable{true};                              ///< Automatically scroll vertically when content overflows
     VisibilityPolicy scrollbar{VisibilityPolicy::Auto};
-    std::optional<float> gap{std::nullopt};             ///< Gap between child elements inside sidebar (nullopt = from theme)
-    std::optional<Padding> padding{std::nullopt};       ///< Sidebar internal padding (nullopt = auto from theme)
+    keel::Optional<float> gap{keel::kNullOpt};             ///< Gap between child elements inside sidebar (nullopt = from theme)
+    keel::Optional<Padding> padding{keel::kNullOpt};       ///< Sidebar internal padding (nullopt = auto from theme)
     StateColor background{};
     Border border{.width = 1.0f};
     bool clipChildren{true};
     bool disabled{false};
     const UiTheme* theme{nullptr};
-    std::optional<float> scale{std::nullopt};
-    std::optional<bool> debugBounds{std::nullopt};
-    std::optional<bool> inspectMode{std::nullopt};
+    keel::Optional<float> scale{keel::kNullOpt};
+    keel::Optional<bool> debugBounds{keel::kNullOpt};
+    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// Persistent state stored per Sidebar in Context.
@@ -80,7 +80,7 @@ public:
         : ContainerScope(ctx, node), response(res), m_mode(mode), m_width(width) {}
 
     SidebarScope(SidebarScope&& other) noexcept
-        : ContainerScope(std::move(other))
+        : ContainerScope(keel::move(other))
         , response(other.response)
         , m_mode(other.m_mode)
         , m_width(other.m_width) {
@@ -89,7 +89,7 @@ public:
 
     SidebarScope& operator=(SidebarScope&& other) noexcept {
         if (this != &other) {
-            ContainerScope::operator=(std::move(other));
+            ContainerScope::operator=(keel::move(other));
             response = other.response;
             m_mode = other.m_mode;
             m_width = other.m_width;
@@ -121,7 +121,7 @@ public:
     [[nodiscard]] static SidebarScope Open(
         Context& ctx,
         const SidebarOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return Open(ctx, nullptr, opts, loc);
     }
@@ -130,7 +130,7 @@ public:
         Context& ctx,
         SidebarMode* externalMode,
         const SidebarOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 };
 

@@ -1,5 +1,4 @@
 #include "guikit/layout/spacer.hpp"
-#include <algorithm>
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 
@@ -8,7 +7,7 @@ namespace guikit {
 void Spacer::Run(
     Context& ctx,
     float flex,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
     Node* node = ctx.CreateNode(NodeType::Spacer, id);
@@ -33,13 +32,13 @@ void Spacer::Run(
 void Spacer::Gap(
     Context& ctx,
     float sizeDp,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
     Node* node = ctx.CreateNode(NodeType::Spacer, id);
     node->isSpacer = false;
     node->flexGrow = 0.0f;
-    const float scaled = std::max(0.0f, ctx.GetTheme().Scale(sizeDp));
+    const float scaled = keel::max(0.0f, ctx.GetTheme().Scale(sizeDp));
     const bool horizontalParent = node->parent != nullptr &&
         (node->parent->direction == FlexDirection::Row || node->parent->direction == FlexDirection::Wrap);
     node->widthMode = SizeMode::Fixed;

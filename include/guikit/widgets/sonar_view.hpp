@@ -1,18 +1,17 @@
 #pragma once
 
 #include <cstdint>
-#include <optional>
-#include <source_location>
-#include <span>
-#include <string>
-#include <string_view>
-#include <vector>
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
 #include "guikit/graphics/colormap.hpp"
 #include "guikit/graphics/icon.hpp"
+#include "keel/array.h"
+#include "keel/core.h"
+#include "keel/optional.h"
+#include "keel/ref.h"
+#include "keel/string.h"
 
 namespace guikit {
 
@@ -50,7 +49,7 @@ struct PolarPoint {
 /// Tracked contact / target rendered on the tactical overlay with velocity vector and snail-trail history.
 struct SonarTarget {
     int id{0};
-    std::string callsign{};
+    keel::FixedString<64> callsign{};
     SonarTargetClass classification{SonarTargetClass::Diver};
     float rangeMeters{100.0f};          ///< Distance from transducer / radar origin in meters
     float bearingDeg{0.0f};             ///< Azimuth angle in degrees (0 = North / Dead Ahead, clockwise)
@@ -58,7 +57,22 @@ struct SonarTarget {
     float courseDeg{180.0f};            ///< Target heading / course over ground in degrees
     float depthMeters{6.0f};            ///< Estimated target depth in meters (for 3D/DDS sonar)
     float snrDb{18.0f};                 ///< Target signal-to-noise ratio in dB
-    std::vector<PolarPoint> trail{};    ///< Historical polar positions (snail trail)
+    keel::Array<PolarPoint> trail{};    ///< Historical polar positions (snail trail)
+
+    [[nodiscard]] SonarTarget clone() const {
+        SonarTarget out{};
+        out.id = id;
+        out.callsign = callsign;
+        out.classification = classification;
+        out.rangeMeters = rangeMeters;
+        out.bearingDeg = bearingDeg;
+        out.speedMetersPerSec = speedMetersPerSec;
+        out.courseDeg = courseDeg;
+        out.depthMeters = depthMeters;
+        out.snrDb = snrDb;
+        out.trail = trail.clone();
+        return out;
+    }
 };
 
 /// Tactical perimeter / exclusion sector that triggers an intrusion alarm when entered by a threat target.
@@ -97,7 +111,7 @@ struct SonarViewOptions {
     float sweepBeamWidthDeg{18.0f};                 ///< Angular width of the active sweep update wedge
 
     // --- Tactical Overlay & Instruments ---
-    std::span<const SonarTarget> targets{};         ///< Active ARPA / Diver Detection tracked contacts
+    keel::ArrayRef<SonarTarget> targets{};          ///< Active ARPA / Diver Detection tracked contacts
     SonarGuardZone guardZone{};                     ///< Optional perimeter alarm sector
     bool showRangeRings{true};                      ///< Concentric range rings/arcs with distance readouts
     bool showBearingDial{true};                     ///< Outer compass rose / azimuth degree ticks and spokes
@@ -120,18 +134,18 @@ struct SonarViewOptions {
 
     // --- Sizing & Styling ---
     StretchMode stretch{StretchMode::Fill};
-    std::optional<float> width{std::nullopt};
-    std::optional<float> widthRatio{std::nullopt};
-    std::optional<float> height{std::nullopt};
+    keel::Optional<float> width{keel::kNullOpt};
+    keel::Optional<float> widthRatio{keel::kNullOpt};
+    keel::Optional<float> height{keel::kNullOpt};
     SizeMode heightMode{SizeMode::Stretch};
     StateColor background{};
     Border border{};
     bool disabled{false};
     UiText tooltip{};
     const UiTheme* theme{nullptr};
-    std::optional<float> scale{std::nullopt};
-    std::optional<bool> debugBounds{std::nullopt};
-    std::optional<bool> inspectMode{std::nullopt};
+    keel::Optional<float> scale{keel::kNullOpt};
+    keel::Optional<bool> debugBounds{keel::kNullOpt};
+    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// Rich tactical & hydroacoustic telemetry returned by `ui.SonarView(...)`.
@@ -162,13 +176,13 @@ class SonarView {
 public:
     static SonarViewResponse Run(
         Context& ctx,
-        std::span<const float> polarMatrix,
+        keel::ArrayRef<float> polarMatrix,
         const SonarViewOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] static Vec2 Measure(
-        std::span<const float> polarMatrix,
+        keel::ArrayRef<float> polarMatrix,
         const SonarViewOptions& opts,
         UiSize size,
         ICanvas* canvas = nullptr,

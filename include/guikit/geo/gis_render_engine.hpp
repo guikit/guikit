@@ -1,13 +1,12 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
-#include <memory>
-#include <span>
-#include <string>
-#include <string_view>
-#include "guikit/panels/map_view.hpp"
 #include "guikit/geo/chart_data_source.hpp"
 #include "guikit/geo/geo_types.hpp"
+#include "guikit/panels/map_view.hpp"
+#include "keel/ref.h"
+#include "keel/smart_ptr.h"
 
 namespace guikit::geo {
 
@@ -21,7 +20,7 @@ enum class ChartPalette : uint8_t {
 
 using GisColorPalette = ChartPalette;
 
-[[nodiscard]] constexpr std::string_view ChartPaletteName(ChartPalette p) noexcept {
+[[nodiscard]] constexpr keel::StringRef ChartPaletteName(ChartPalette p) noexcept {
     switch (p) {
         case ChartPalette::MarineDay:   return "S-52 Marine Day (Bright)";
         case ChartPalette::MarineDusk:  return "S-52 Marine Dusk (Twilight)";
@@ -31,7 +30,7 @@ using GisColorPalette = ChartPalette;
     return "S-52 Marine Day";
 }
 
-[[nodiscard]] constexpr std::string_view GisColorPaletteName(ChartPalette p) noexcept {
+[[nodiscard]] constexpr keel::StringRef GisColorPaletteName(ChartPalette p) noexcept {
     return ChartPaletteName(p);
 }
 
@@ -89,7 +88,7 @@ struct GisRenderConfig {
     bool hideLandOverBasemap{true};          ///< Suppress opaque S-57 LNDARE fill when basemap is active so basemap land/streets show through
     float basemapOpacity{1.0f};              ///< Opacity of the underlying raster basemap [0..1]
     float bathymetryOverBasemapOpacity{0.78f}; ///< Opacity of depth area (DEPARE) fills when overlaid on a raster basemap
-    std::shared_ptr<IRasterTileProvider> customBasemapProvider{}; ///< Optional custom raster tile provider (defaults to registered default or Cartographic Basemap)
+    keel::Arc<IRasterTileProvider> customBasemapProvider{}; ///< Optional custom raster tile provider (defaults to registered default or Cartographic Basemap)
 
     // --- Configurable Cartographic Labeling Policy ---
     bool showAreaFeatureLabels{true};        ///< Render text callouts on polygonal marine areas (SEAARE, SBDARE, etc.)
@@ -112,7 +111,7 @@ public:
     /// ICanvas vector tile cache, S-52 depth shading, screen-space label decluttering, and O(log N) hit-testing.
     static GisRenderStats RenderLayers(
         MapViewScope& map,
-        std::span<const GeoLayer> layers,
+        keel::ArrayRef<GeoLayer> layers,
         const GisRenderConfig& cfg,
         uint64_t& ioSelectedFeatureUid,
         bool lightMode = true
@@ -122,7 +121,7 @@ public:
     /// feature geometries and attribute dictionaries whose `lastAccessTick < protectedTick` until
     /// resident heap usage is within `maxResidentBytes`. Returns the number of evicted features.
     static size_t EnforceFeatureRamBudget(
-        std::span<const GeoLayer> layers,
+        keel::ArrayRef<GeoLayer> layers,
         size_t maxResidentBytes,
         uint64_t protectedTick = UINT64_MAX,
         size_t* outResidentFeatures = nullptr,
@@ -140,8 +139,8 @@ public:
 
     /// Registers or retrieves the default raster basemap tile provider used when `cfg.showOsmBasemap` is true
     /// and `cfg.customBasemapProvider` is null. If none is registered, falls back to `CreateCartographicBasemapTileProvider()`.
-    static void SetDefaultBasemapProvider(std::shared_ptr<IRasterTileProvider> provider);
-    [[nodiscard]] static std::shared_ptr<IRasterTileProvider> GetDefaultBasemapProvider();
+    static void SetDefaultBasemapProvider(keel::Arc<IRasterTileProvider> provider);
+    [[nodiscard]] static keel::Arc<IRasterTileProvider> GetDefaultBasemapProvider();
 
     /// Registers an optional diagnostic breadcrumb callback invoked at key rendering stages.
     static void SetBreadcrumbCallback(BreadcrumbCallback cb) noexcept;

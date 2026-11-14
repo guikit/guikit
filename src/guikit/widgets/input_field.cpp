@@ -1,12 +1,11 @@
 #include "guikit/widgets/input_field.hpp"
-#include <algorithm>
 #include <cmath>
 #include <cstring>
-#include <string>
-#include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
+#include "keel/core.h"
 #include "keel/utf8.h"
 
 namespace guikit {
@@ -51,9 +50,9 @@ Vec2 MeasureInputBox(
     } else if (opts.stretch != StretchMode::Fill && hasVariants) {
             const float inputFont = theme.ResolveFontSize(opts.valueFormat, TextRole::LabelMedium, size);
             float contentW = 0.0f;
-            for (std::string_view v : opts.valueFormat.variants) {
+            for (keel::StringRef v : opts.valueFormat.variants) {
                 if (!v.empty()) {
-                    contentW = std::max(contentW, TextUtil::MeasureWidth(v, inputFont, canvas));
+                    contentW = keel::max(contentW, TextUtil::MeasureWidth(v, inputFont, canvas));
                 }
             }
 
@@ -79,11 +78,11 @@ Vec2 MeasureInputBox(
     }
 
     if (ctrl.minWidth.has_value()) {
-        boxW = std::max(theme.Scale(*ctrl.minWidth), boxW);
+        boxW = keel::max(theme.Scale(*ctrl.minWidth), boxW);
     } else if (hasExplicitDpW || (hasVariants && opts.stretch != StretchMode::Fill)) {
-        boxW = std::max(m.defaultHeight, boxW);
+        boxW = keel::max(m.defaultHeight, boxW);
     } else {
-        boxW = std::max(m.minWidth, boxW);
+        boxW = keel::max(m.minWidth, boxW);
     }
     return {boxW, m.defaultHeight};
 }
@@ -151,7 +150,7 @@ InputBoxRects ResolveInputBoxRects(
         rightX -= 4.0f;
     }
 
-    const float availW = std::max(0.0f, rightX - leftX);
+    const float availW = keel::max(0.0f, rightX - leftX);
     return InputBoxRects{
         .boxRect = boxRect,
         .textRect = Rect(leftX, boxRect.y, availW, boxRect.h),
@@ -160,15 +159,15 @@ InputBoxRects ResolveInputBoxRects(
     };
 }
 
-size_t SnapToUtf8CodepointBoundary(std::string_view text, size_t idx) noexcept {
-    idx = std::min(idx, text.size());
+size_t SnapToUtf8CodepointBoundary(keel::StringRef text, size_t idx) noexcept {
+    idx = keel::min(idx, text.size());
     while (idx > 0 && idx < text.size() && (static_cast<unsigned char>(text[idx]) & 0xC0) == 0x80) {
         --idx;
     }
     return idx;
 }
 
-std::string_view AllocPasswordMask(Context& ctx, std::string_view text) noexcept {
+keel::StringRef AllocPasswordMask(Context& ctx, keel::StringRef text) noexcept {
     const size_t cpCount = keel::utf8_codepoint_count(text);
     if (cpCount == 0) {
         return {};
@@ -181,7 +180,7 @@ std::string_view AllocPasswordMask(Context& ctx, std::string_view text) noexcept
     return {buf, cpCount};
 }
 
-size_t CodepointOffsetToByteIndex(std::string_view text, size_t cpIndex) noexcept {
+size_t CodepointOffsetToByteIndex(keel::StringRef text, size_t cpIndex) noexcept {
     size_t byteIdx = 0;
     for (size_t i = 0; i < cpIndex && byteIdx < text.size(); ++i) {
         byteIdx = keel::utf8_next_boundary(text, byteIdx);
@@ -189,20 +188,20 @@ size_t CodepointOffsetToByteIndex(std::string_view text, size_t cpIndex) noexcep
     return byteIdx;
 }
 
-size_t ByteIndexToCodepointOffset(std::string_view text, size_t byteIndex) noexcept {
-    const size_t clamped = std::min(byteIndex, text.size());
+size_t ByteIndexToCodepointOffset(keel::StringRef text, size_t byteIndex) noexcept {
+    const size_t clamped = keel::min(byteIndex, text.size());
     return keel::utf8_codepoint_count(text.substr(0, clamped));
 }
 
-std::string_view SanitizeInputText(
+keel::StringRef SanitizeInputText(
     Context& ctx,
-    std::string_view raw,
+    keel::StringRef raw,
     InputFilter filter,
     size_t maxLength
 ) noexcept {
     if (raw.empty()) return raw;
 
-    std::string_view filtered = raw;
+    keel::StringRef filtered = raw;
     if (filter != InputFilter::Any) {
         char* out = ctx.GetArena().alloc_array<char>(raw.size());
         size_t outLen = 0;
@@ -263,10 +262,10 @@ std::string_view SanitizeInputText(
 
 Response InputField::Run(
     Context& ctx,
-    std::string* stringValue,
-    std::string_view displayFallback,
+    keel::Optional<keel::StringSink> stringValue,
+    keel::StringRef displayFallback,
     const InputFieldOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
     struct ThemePopGuard {
@@ -310,7 +309,7 @@ Response InputField::Run(
     optsCopy.suffix = ctx.AllocAffix(opts.suffix);
     optsCopy.valueFormat = ctx.AllocText(opts.valueFormat);
 
-    std::string_view valStr = (stringValue != nullptr) ? std::string_view(*stringValue) : displayFallback;
+    keel::StringRef valStr = stringValue.has_value() ? stringValue->as_ref() : displayFallback;
 
     auto& state = ctx.GetOrCreatePersistentState<InputFieldState>(id);
     if (!res.pressed && !mouseJustPressed) {
@@ -338,9 +337,9 @@ Response InputField::Run(
         } else if (clearHovered) {
             state.actionBtnDown = true;
             state.scrollX = 0.0f;
-            if (stringValue != nullptr) {
+            if (stringValue.has_value()) {
                 stringValue->clear();
-                valStr = *stringValue;
+                valStr = stringValue->as_ref();
             } else {
                 valStr = "";
             }
@@ -354,13 +353,13 @@ Response InputField::Run(
 
     size_t cursor = 0;
     size_t selAnchor = 0;
-    std::string_view displayText = valStr;
+    keel::StringRef displayText = valStr;
     const InputFilter effFilter = (opts.filter != InputFilter::Any)
         ? opts.filter
         : (opts.numericOnly ? InputFilter::Decimal : InputFilter::Any);
 
     if (isFocused || ctx.HasActiveTextEdit(id)) {
-        std::string_view currentEditText = ctx.EnsureTextEdit(id, valStr, /*multiline=*/false, opts.readOnly);
+        keel::StringRef currentEditText = ctx.EnsureTextEdit(id, valStr, /*multiline=*/false, opts.readOnly);
         const bool justGainedFocus = (!wasFocused && isFocused);
         if (opts.selectAllOnFocus && justGainedFocus && !state.actionBtnDown) {
             ctx.SetTextEditCursor(id, currentEditText.size(), 0);
@@ -374,7 +373,7 @@ Response InputField::Run(
         const float inputFont = theme.ResolveFontSize(optsCopy.valueFormat, TextRole::LabelMedium, activeSize);
 
         const bool isMasked = opts.password && !state.passwordRevealed;
-        const std::string_view hitTestText = (isMasked && !currentEditText.empty())
+        const keel::StringRef hitTestText = (isMasked && !currentEditText.empty())
             ? AllocPasswordMask(ctx, currentEditText)
             : currentEditText;
 
@@ -454,11 +453,11 @@ Response InputField::Run(
         displayText = ctx.GetOrStartTextEdit(id, valStr, cursor, selAnchor, changed, submitted, /*multiline=*/false, opts.readOnly);
 
         if (changed && !opts.readOnly && (effFilter != InputFilter::Any || opts.maxLength > 0)) {
-            const std::string_view sanitized = SanitizeInputText(ctx, displayText, effFilter, opts.maxLength);
+            const keel::StringRef sanitized = SanitizeInputText(ctx, displayText, effFilter, opts.maxLength);
             if (sanitized != displayText) {
                 ctx.SetTextEditBuffer(id, sanitized);
-                cursor = std::min(cursor, sanitized.size());
-                selAnchor = std::min(selAnchor, sanitized.size());
+                cursor = keel::min(cursor, sanitized.size());
+                selAnchor = keel::min(selAnchor, sanitized.size());
                 ctx.SetTextEditCursor(id, cursor, selAnchor);
                 displayText = sanitized;
                 changed = (displayText != valStr);
@@ -471,10 +470,21 @@ Response InputField::Run(
         }
 
         if (changed && !opts.readOnly) {
-            if (stringValue != nullptr) {
-                *stringValue = displayText;
+            if (stringValue.has_value()) {
+                const keel::StringRef prevVal = ctx.AllocString(valStr);
+                stringValue->assign(displayText);
+                const keel::StringRef stored = stringValue->as_ref();
+                if (stored != displayText) {
+                    cursor = keel::min(cursor, stored.size());
+                    selAnchor = keel::min(selAnchor, stored.size());
+                    ctx.SetTextEditBuffer(id, stored);
+                    ctx.SetTextEditCursor(id, cursor, selAnchor);
+                    displayText = stored;
+                }
+                res.changed = (displayText != prevVal);
+            } else {
+                res.changed = true;
             }
-            res.changed = true;
         }
 
         if (submitted) {
@@ -487,24 +497,24 @@ Response InputField::Run(
 
         if (rects.textRect.w > 0.0f && isFocused) {
             const bool maskAfterEdit = opts.password && !state.passwordRevealed;
-            const std::string_view measureText = (maskAfterEdit && !displayText.empty())
+            const keel::StringRef measureText = (maskAfterEdit && !displayText.empty())
                 ? AllocPasswordMask(ctx, displayText)
                 : displayText;
             const size_t mappedCursor = maskAfterEdit
                 ? ByteIndexToCodepointOffset(displayText, cursor)
                 : cursor;
-            const size_t safeCursor = std::min(mappedCursor, measureText.size());
+            const size_t safeCursor = keel::min(mappedCursor, measureText.size());
             const float cursorX = TextUtil::MeasureWidth(measureText.substr(0, safeCursor), inputFont, canvas);
             const float fullTextW = TextUtil::MeasureWidth(measureText, inputFont, canvas);
-            const float visibleW = std::max(0.0f, rects.textRect.w - 2.0f);
+            const float visibleW = keel::max(0.0f, rects.textRect.w - 2.0f);
 
             if (cursorX < state.scrollX) {
                 state.scrollX = cursorX;
             } else if (cursorX > state.scrollX + visibleW) {
                 state.scrollX = cursorX - visibleW;
             }
-            const float maxScroll = std::max(0.0f, fullTextW - visibleW);
-            state.scrollX = std::clamp(state.scrollX, 0.0f, maxScroll);
+            const float maxScroll = keel::max(0.0f, fullTextW - visibleW);
+            state.scrollX = keel::clamp(state.scrollX, 0.0f, maxScroll);
         } else if (!isFocused) {
             state.scrollX = 0.0f;
         }
@@ -512,11 +522,11 @@ Response InputField::Run(
         state.scrollX = 0.0f;
     }
 
-    const size_t selStart = std::min(cursor, selAnchor);
-    const size_t selEnd = std::max(cursor, selAnchor);
+    const size_t selStart = keel::min(cursor, selAnchor);
+    const size_t selEnd = keel::max(cursor, selAnchor);
 
     const bool maskRendered = opts.password && !state.passwordRevealed;
-    const std::string_view renderedText = (maskRendered && !displayText.empty())
+    const keel::StringRef renderedText = (maskRendered && !displayText.empty())
         ? AllocPasswordMask(ctx, displayText)
         : ctx.AllocString(displayText);
     const size_t renderCursor = maskRendered ? ByteIndexToCodepointOffset(displayText, cursor) : cursor;
@@ -575,7 +585,7 @@ Response InputField::Run(
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<InputFieldData>();
         return InputField::Measure(
-            d ? d->displayText : std::string_view{},
+            d ? d->displayText : keel::StringRef{},
             d ? d->opts : InputFieldOptions{},
             n->uiSize,
             canvas,
@@ -588,7 +598,7 @@ Response InputField::Run(
         InputField::Render(
             canvas,
             n->computedRect,
-            d ? d->displayText : std::string_view{},
+            d ? d->displayText : keel::StringRef{},
             d ? d->opts : InputFieldOptions{},
             n->uiSize,
             n->hovered,
@@ -625,7 +635,7 @@ Response InputField::Run(
 }
 
 Vec2 InputField::Measure(
-    std::string_view /*displayText*/,
+    keel::StringRef /*displayText*/,
     const InputFieldOptions& opts,
     UiSize size,
     ICanvas* canvas,
@@ -638,7 +648,7 @@ Vec2 InputField::Measure(
 }
 
 Vec2 InputField::Measure(
-    std::string_view displayText,
+    keel::StringRef displayText,
     const InputFieldOptions& opts,
     UiSize size,
     ICanvas* canvas,
@@ -651,7 +661,7 @@ Vec2 InputField::Measure(
 void InputField::Render(
     ICanvas& canvas,
     Rect bounds,
-    std::string_view displayText,
+    keel::StringRef displayText,
     const InputFieldOptions& opts,
     UiSize size,
     bool hovered,
@@ -768,7 +778,7 @@ void InputField::Render(
         if (clearHovered && !disabled) {
             canvas.DrawRoundRect(btnRect, 4.0f, pal.surfaceHover, Color::Transparent(), 0.0f);
         }
-        const float clearIconSz = std::max(8.0f, m.iconSize - 2.0f);
+        const float clearIconSz = keel::max(8.0f, m.iconSize - 2.0f);
         const Rect icRect(
             rightX + (btnSize - clearIconSz) * 0.5f,
             boxRect.y + (boxRect.h - clearIconSz) * 0.5f,
@@ -780,19 +790,19 @@ void InputField::Render(
         rightX -= 4.0f;
     }
 
-    const float availW = std::max(0.0f, rightX - leftX);
+    const float availW = keel::max(0.0f, rightX - leftX);
     const Rect textRect(leftX, boxRect.y, availW, boxRect.h);
     canvas.PushClip(textRect);
 
     if (focused && !disabled && selStart != selEnd && !displayText.empty()) {
-        const size_t s0 = std::min({selStart, selEnd, displayText.size()});
-        const size_t s1 = std::min(std::max(selStart, selEnd), displayText.size());
+        const size_t s0 = keel::min(keel::min(selStart, selEnd), displayText.size());
+        const size_t s1 = keel::min(keel::max(selStart, selEnd), displayText.size());
         if (s1 > s0) {
             const float x0 = textRect.x - scrollX + canvas.MeasureText(displayText.substr(0, s0), inputFont).x;
             const float x1 = textRect.x - scrollX + canvas.MeasureText(displayText.substr(0, s1), inputFont).x;
             const float selH = inputFont * 1.25f;
             const float selY = boxRect.y + (boxRect.h - selH) * 0.5f;
-            const Rect selRect(x0, selY, std::max(1.0f, x1 - x0), selH);
+            const Rect selRect(x0, selY, keel::max(1.0f, x1 - x0), selH);
             canvas.DrawRoundRect(selRect, 2.0f, pal.accent.WithAlpha(88), Color::Transparent(), 0.0f);
         }
     }
@@ -804,7 +814,7 @@ void InputField::Render(
         canvas.DrawTextBox(opts.placeholder.text, textRect, phFont, placeholderCol, 0.0f, 0.5f);
     } else if (!displayText.empty()) {
         if (focused || scrollX > 0.0f) {
-            const float fullW = std::max(textRect.w, canvas.MeasureText(displayText, inputFont).x + 8.0f);
+            const float fullW = keel::max(textRect.w, canvas.MeasureText(displayText, inputFont).x + 8.0f);
             const Rect scrolledRect(textRect.x - scrollX, textRect.y, fullW, textRect.h);
             canvas.DrawTextBox(displayText, scrolledRect, inputFont, textCol, 0.0f, 0.5f);
         } else {
@@ -813,8 +823,8 @@ void InputField::Render(
     }
 
     if (focused && !disabled && !opts.readOnly && cursorVisible) {
-        const size_t safeCursor = std::min(cursor, displayText.size());
-        const std::string_view sub = displayText.substr(0, safeCursor);
+        const size_t safeCursor = keel::min(cursor, displayText.size());
+        const keel::StringRef sub = displayText.substr(0, safeCursor);
         const float subW = canvas.MeasureText(sub, inputFont).x;
         const float caretX = textRect.x - scrollX + subW;
         const float caretH = inputFont * 1.15f;

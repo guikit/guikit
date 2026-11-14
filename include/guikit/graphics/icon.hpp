@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <string_view>
 #include "guikit/core/types.hpp"
 
 namespace guikit {
@@ -74,7 +73,7 @@ public:
     {}
 
     // Factory methods
-    [[nodiscard]] static Icon File(std::string_view path) noexcept {
+    [[nodiscard]] static Icon File(keel::StringRef path) noexcept {
         Icon ic;
         if (!path.empty()) {
             ic.m_type = SourceType::Asset;
@@ -135,7 +134,7 @@ public:
 
     [[nodiscard]] constexpr SourceType GetType() const noexcept { return m_type; }
     [[nodiscard]] constexpr IconId GetId() const noexcept { return m_id; }
-    [[nodiscard]] constexpr std::string_view GetPath() const noexcept { return m_path; }
+    [[nodiscard]] constexpr keel::StringRef GetPath() const noexcept { return m_path; }
 
     [[nodiscard]] constexpr bool operator==(const Icon& other) const noexcept {
         if (m_type != other.m_type) return false;
@@ -164,7 +163,7 @@ public:
 private:
     IconId m_id{IconId::None};
     SourceType m_type{SourceType::None};
-    std::string_view m_path{};
+    keel::StringRef m_path{};
     uint64_t m_textureId{0};
     Vec2 m_texSize{0.0f, 0.0f};
 };

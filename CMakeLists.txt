@@ -472,4 +472,22 @@ if (GUIKIT_BUILD_TESTS)
         target_compile_options(test_guikit_header_purity PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME guikit_header_purity COMMAND test_guikit_header_purity)
+
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/keel/include/keel/core.h")
+        set(_GUIKIT_KEEL_INC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/keel/include")
+    else()
+        get_target_property(_GUIKIT_KEEL_INC_DIR keel::keel INTERFACE_INCLUDE_DIRECTORIES)
+    endif()
+    string(REPLACE ";" "|" _GUIKIT_STD_INC_JOINED "${CMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES}")
+    add_test(
+        NAME guikit_header_purity_scan
+        COMMAND ${CMAKE_COMMAND}
+            "-DGUIKIT_INCLUDE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/include"
+            "-DKEEL_INCLUDE_DIR=${_GUIKIT_KEEL_INC_DIR}"
+            "-DCOMPILER_PATH=${CMAKE_CXX_COMPILER}"
+            "-DCOMPILER_ID=${CMAKE_CXX_COMPILER_ID}"
+            "-DSTD_INC_DIRS=${_GUIKIT_STD_INC_JOINED}"
+            "-DCMAKE_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckHeaderPurity.cmake"
+    )
 endif()

@@ -1,10 +1,9 @@
 #include "guikit/panels/carousel.hpp"
-#include <algorithm>
 #include <cmath>
-#include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
-#include "guikit/core/solver.hpp"
+#include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
+#include "guikit/core/solver.hpp"
 #include "guikit/panels/scroll_area.hpp"
 
 namespace guikit {
@@ -12,7 +11,7 @@ namespace guikit {
 ContainerScope Carousel::Open(
     Context& ctx,
     const CarouselOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
@@ -104,7 +103,7 @@ void Carousel::BeginScrollInteraction(
             const float wheelDelta = (wheel.x != 0.0f) ? wheel.x : wheel.y;
             if (wheelDelta != 0.0f) {
                 const float baseX = state.animatingX ? state.targetOffsetX : state.offset.x;
-                state.targetOffsetX = std::max(0.0f, baseX - wheelDelta * (cm.scrollStep * 0.45f));
+                state.targetOffsetX = keel::max(0.0f, baseX - wheelDelta * (cm.scrollStep * 0.45f));
                 state.animatingX = true;
                 state.lastAnimTimeSec = ctx.GetCurrentTimeSec();
                 cData->targetOffsetX = state.targetOffsetX;
@@ -129,7 +128,7 @@ Vec2 Carousel::Measure(const Node* node, float /*availableWidth*/, ICanvas* /*ca
         const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
         const float ch = (child->heightMode == SizeMode::Fixed) ? child->fixedHeight : child->intrinsicSize.y;
         totalWidth += cw;
-        maxHeight = std::max(maxHeight, ch);
+        maxHeight = keel::max(maxHeight, ch);
         ++activeChildren;
     }
 
@@ -182,8 +181,8 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
 
     const float startX = node->computedRect.x + node->padding.left;
     const float startY = node->computedRect.y + node->padding.top;
-    const float fullW = std::max(0.0f, node->computedRect.w - node->padding.Horizontal());
-    const float fullH = std::max(0.0f, node->computedRect.h - node->padding.Vertical());
+    const float fullW = keel::max(0.0f, node->computedRect.w - node->padding.Horizontal());
+    const float fullH = keel::max(0.0f, node->computedRect.h - node->padding.Vertical());
 
     // 1. Calculate total width of all children
     float totalChildrenW = 0.0f;
@@ -238,23 +237,23 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
     // 3. Overflow detected: compute arrow dimensions from theme tokens
     const CarouselMetrics& cm = theme.GetCarousel(node->uiSize);
     const float arrowMargin = cm.margin;
-    const float arrowBtnH = std::max(0.0f, std::min(fullH - cm.margin * 2.0f, cm.arrowButtonSize));
+    const float arrowBtnH = keel::max(0.0f, keel::min(fullH - cm.margin * 2.0f, cm.arrowButtonSize));
     const float arrowBtnW = arrowBtnH; // Clean square button
     const float arrowGap = cm.gap;
     const float arrowY = startY + (fullH - arrowBtnH) * 0.5f;
     const float btnGutter = arrowMargin + arrowBtnW + arrowGap;
-    const float maxScrollX = std::max(0.0f, totalChildrenW - fullW);
+    const float maxScrollX = keel::max(0.0f, totalChildrenW - fullW);
 
     // Resolve item-boundary stepping when a navigation arrow was clicked
     if (cData && cData->stepDirection != 0) {
         const int8_t dir = cData->stepDirection;
         cData->stepDirection = 0;
 
-        const float baseX = std::clamp(cData->baseTargetX, 0.0f, maxScrollX);
+        const float baseX = keel::clamp(cData->baseTargetX, 0.0f, maxScrollX);
         const float visLeft = baseX + ((baseX > 1.0f) ? btnGutter : 0.0f);
         const float visRight = baseX + fullW - ((baseX < maxScrollX - 1.0f) ? btnGutter : 0.0f);
-        const float midViewportW = std::max(1.0f, fullW - 2.0f * btnGutter);
-        const float minAdvance = std::min(cm.scrollStep * 0.5f, midViewportW * 0.5f);
+        const float midViewportW = keel::max(1.0f, fullW - 2.0f * btnGutter);
+        const float minAdvance = keel::min(cm.scrollStep * 0.5f, midViewportW * 0.5f);
         float nextTarget = baseX;
 
         if (dir > 0) {
@@ -277,8 +276,8 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
                 nextTarget = maxScrollX;
             } else {
                 const float minOffsetForR = rRight - (fullW - btnGutter);
-                const float maxLeadOffset = std::max(baseX + 2.0f, rX - btnGutter);
-                const float desiredMin = std::min(maxLeadOffset, std::max(baseX + minAdvance, minOffsetForR));
+                const float maxLeadOffset = keel::max(baseX + 2.0f, rX - btnGutter);
+                const float desiredMin = keel::min(maxLeadOffset, keel::max(baseX + minAdvance, minOffsetForR));
                 bool foundSnap = false;
                 relX = 0.0f;
                 for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
@@ -323,7 +322,7 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
             } else {
                 const float minOffsetKeepLVisible = lRight - (fullW - btnGutter);
                 const float maxOffsetForL = lX - btnGutter;
-                const float effMinOffset = std::min(maxOffsetForL, std::max(minOffsetKeepLVisible, baseX - midViewportW));
+                const float effMinOffset = keel::min(maxOffsetForL, keel::max(minOffsetKeepLVisible, baseX - midViewportW));
                 bool foundSnap = false;
                 relX = 0.0f;
                 for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
@@ -350,7 +349,7 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
             }
         }
 
-        cData->targetOffsetX = std::clamp(nextTarget, 0.0f, maxScrollX);
+        cData->targetOffsetX = keel::clamp(nextTarget, 0.0f, maxScrollX);
         cData->animatingX = true;
     }
 
@@ -375,7 +374,7 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
                         ? maxScrollX
                         : ((relX + cw) - (fullW - btnGutter));
                 }
-                newTarget = std::clamp(newTarget, 0.0f, maxScrollX);
+                newTarget = keel::clamp(newTarget, 0.0f, maxScrollX);
                 if (std::abs(newTarget - node->scrollOffset.x) > 0.5f) {
                     cData->targetOffsetX = newTarget;
                     cData->animatingX = true;
@@ -387,7 +386,7 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
     }
 
     // Clamp scroll offset
-    node->scrollOffset.x = std::clamp(node->scrollOffset.x, 0.0f, maxScrollX);
+    node->scrollOffset.x = keel::clamp(node->scrollOffset.x, 0.0f, maxScrollX);
 
     // Dynamic gutters: only allocate gutter space when an arrow is active
     const bool canScrollLeft = (node->scrollOffset.x > 1.0f);
@@ -396,7 +395,7 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
     const float rightGutter = canScrollRight ? btnGutter : 0.0f;
 
     const float viewportX = startX + leftGutter;
-    const float viewportW = std::max(0.0f, fullW - leftGutter - rightGutter);
+    const float viewportW = keel::max(0.0f, fullW - leftGutter - rightGutter);
 
     if (cData) {
         cData->showLeftArrow = canScrollLeft;
@@ -473,7 +472,7 @@ void Carousel::RenderArrows(
             canvas.DrawRoundRect(rect, cm.cornerRadius, bg);
         }
 
-        const float isz = std::min(rect.w, cm.iconSize);
+        const float isz = keel::min(rect.w, cm.iconSize);
         const Rect iconBounds(
             rect.x + (rect.w - isz) * 0.5f,
             rect.y + (rect.h - isz) * 0.5f,
@@ -487,7 +486,7 @@ void Carousel::RenderArrows(
     auto* cData = node->As<CarouselData>();
     if (!cData) return;
 
-    const float sepInsetY = std::max(4.0f, std::round(node->computedRect.h * 0.18f));
+    const float sepInsetY = keel::max(4.0f, std::round(node->computedRect.h * 0.18f));
     const float sepY1 = node->computedRect.y + sepInsetY;
     const float sepY2 = node->computedRect.Bottom() - sepInsetY;
     const Color sepCol = pal.borderSubtle.WithAlphaF(0.65f);
@@ -518,8 +517,8 @@ void Carousel::Update(Context& ctx, Node* node) {
     if (!node || !node->id.IsValid()) return;
     auto& state = ctx.GetOrCreatePersistentState<ScrollState>(node->id);
     auto* cData = node->As<CarouselData>();
-    const float fullW = std::max(0.0f, node->computedRect.w - node->padding.Horizontal());
-    const float maxScrollX = std::max(0.0f, node->scrollContentSize.x - fullW);
+    const float fullW = keel::max(0.0f, node->computedRect.w - node->padding.Horizontal());
+    const float maxScrollX = keel::max(0.0f, node->scrollContentSize.x - fullW);
 
     if (maxScrollX <= 0.5f) {
         state.offset.x = 0.0f;
@@ -531,15 +530,15 @@ void Carousel::Update(Context& ctx, Node* node) {
     }
 
     if (cData && cData->animatingX) {
-        state.targetOffsetX = std::clamp(cData->targetOffsetX, 0.0f, maxScrollX);
+        state.targetOffsetX = keel::clamp(cData->targetOffsetX, 0.0f, maxScrollX);
         state.animatingX = true;
     } else if (!state.animatingX) {
-        state.offset.x = std::clamp(node->scrollOffset.x, 0.0f, maxScrollX);
+        state.offset.x = keel::clamp(node->scrollOffset.x, 0.0f, maxScrollX);
         state.targetOffsetX = state.offset.x;
     }
 
     if (state.animatingX) {
-        state.targetOffsetX = std::clamp(state.targetOffsetX, 0.0f, maxScrollX);
+        state.targetOffsetX = keel::clamp(state.targetOffsetX, 0.0f, maxScrollX);
         const double now = ctx.GetCurrentTimeSec();
         float dt = static_cast<float>(now - state.lastAnimTimeSec);
         state.lastAnimTimeSec = now;
@@ -555,9 +554,9 @@ void Carousel::Update(Context& ctx, Node* node) {
         } else {
             const float alpha = 1.0f - std::exp(-20.0f * dt);
             const float stepMove = diff * alpha;
-            const float minMove = (diff > 0.0f) ? std::min(diff, 0.75f) : std::max(diff, -0.75f);
+            const float minMove = (diff > 0.0f) ? keel::min(diff, 0.75f) : keel::max(diff, -0.75f);
             state.offset.x += (std::abs(stepMove) < std::abs(minMove)) ? minMove : stepMove;
-            state.offset.x = std::clamp(state.offset.x, 0.0f, maxScrollX);
+            state.offset.x = keel::clamp(state.offset.x, 0.0f, maxScrollX);
             if (cData) cData->animatingX = true;
             ctx.RequestRepaint(2);
         }

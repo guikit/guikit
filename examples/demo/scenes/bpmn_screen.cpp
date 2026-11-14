@@ -1,6 +1,6 @@
+#include <cmath>
 #include "../demo_context.hpp"
 #include "guikit/widgets/bpmn_editor.hpp"
-#include <format>
 
 namespace guikit::demo {
 
@@ -389,8 +389,8 @@ struct BpmnDemoState {
     uint32_t selectedEdgeId{0};
     uint32_t selectedLaneId{0};
     guikit::BpmnEditorResponse lastResp{};
-    std::string exportedXmlBuffer{};
-    std::string xmlStatusText{};
+    keel::String exportedXmlBuffer{};
+    keel::String xmlStatusText{};
 
     void EnsureInitialized() {
         if (!initialized) {
@@ -418,7 +418,7 @@ BpmnDemoState s_bpmn;
 void RenderBpmnInspector(guikit::Context& ui, DemoContext&) {
     s_bpmn.EnsureInitialized();
 
-    static constexpr std::array<std::string_view, 3> kPresetNames = {
+    static constexpr keel::StaticArray<keel::StringRef, 3> kPresetNames = {
         "1. E-Commerce Order & Payment Orchestration",
         "2. Cloud CI/CD Canary & Auto-Rollback",
         "3. AI Credit Underwriting & Escalation"
@@ -449,8 +449,8 @@ void RenderBpmnInspector(guikit::Context& ui, DemoContext&) {
     if (auto row = ui.Row({.gap = 6.0f})) {
         if (ui.Button({.text = "Export BPMN XML", .icon = guikit::Icon::Save(), .color = guikit::StateColor::Secondary(), .stretch = guikit::StretchMode::Fill})) {
             s_bpmn.exportedXmlBuffer = guikit::BpmnEditor::ExportBpmnXml(s_bpmn.diagram);
-            ui.SetClipboardText(s_bpmn.exportedXmlBuffer);
-            s_bpmn.xmlStatusText = std::format("Exported {} bytes of BPMN 2.0 XML (+DI) to clipboard", s_bpmn.exportedXmlBuffer.size());
+            ui.SetClipboardText(s_bpmn.exportedXmlBuffer.as_ref());
+            s_bpmn.xmlStatusText = keel::format("Exported {} bytes of BPMN 2.0 XML (+DI) to clipboard", s_bpmn.exportedXmlBuffer.size());
             ui.InvalidateAll();
         }
         if (ui.Button({.text = "Round-Trip Import", .icon = guikit::Icon::Folder(), .color = guikit::StateColor::Primary(), .stretch = guikit::StretchMode::Fill})) {
@@ -458,18 +458,18 @@ void RenderBpmnInspector(guikit::Context& ui, DemoContext&) {
                 s_bpmn.exportedXmlBuffer = guikit::BpmnEditor::ExportBpmnXml(s_bpmn.diagram);
             }
             guikit::BpmnDiagram imported{};
-            if (guikit::BpmnEditor::ImportBpmnXml(s_bpmn.exportedXmlBuffer, imported)) {
-                s_bpmn.diagram = std::move(imported);
-                s_bpmn.xmlStatusText = std::format("Imported {} nodes, {} flows, {} lanes from BPMN 2.0 XML",
+            if (guikit::BpmnEditor::ImportBpmnXml(s_bpmn.exportedXmlBuffer.as_ref(), imported)) {
+                s_bpmn.diagram = keel::move(imported);
+                s_bpmn.xmlStatusText = keel::format("Imported {} nodes, {} flows, {} lanes from BPMN 2.0 XML",
                     s_bpmn.diagram.nodes.size(), s_bpmn.diagram.edges.size(), s_bpmn.diagram.lanes.size());
             } else {
-                s_bpmn.xmlStatusText = "Failed to parse BPMN 2.0 XML buffer";
+                s_bpmn.xmlStatusText.assign("Failed to parse BPMN 2.0 XML buffer");
             }
             ui.InvalidateAll();
         }
     }
     if (!s_bpmn.xmlStatusText.empty()) {
-        ui.Text(s_bpmn.xmlStatusText, {.role = guikit::TextRole::BodySmall, .variant = guikit::UiVariant::Secondary});
+        ui.Text(s_bpmn.xmlStatusText.as_ref(), {.role = guikit::TextRole::BodySmall, .variant = guikit::UiVariant::Secondary});
     }
 
     // --- Token Simulation Section ---
@@ -518,7 +518,7 @@ void RenderBpmnInspector(guikit::Context& ui, DemoContext&) {
                 }
             }
             if (selNode->type == guikit::BpmnNodeType::Task) {
-                static constexpr std::array<std::string_view, 9> kTaskKindNames = {
+                static constexpr keel::StaticArray<keel::StringRef, 9> kTaskKindNames = {
                     "None", "User Task", "Service Task", "Send Task", "Receive Task",
                     "Script Task", "Manual Task", "Business Rule (DMN)", "Call Activity"
                 };
@@ -537,7 +537,7 @@ void RenderBpmnInspector(guikit::Context& ui, DemoContext&) {
                 }
             }
         } else if (selNode->type == guikit::BpmnNodeType::Gateway) {
-            static constexpr std::array<std::string_view, 4> kGwNames = {
+            static constexpr keel::StaticArray<keel::StringRef, 4> kGwNames = {
                 "Exclusive (XOR x)", "Parallel (AND +)", "Inclusive (OR o)", "Event-Based"
             };
             size_t gk = static_cast<size_t>(selNode->gatewayType);
@@ -551,7 +551,7 @@ void RenderBpmnInspector(guikit::Context& ui, DemoContext&) {
                    selNode->type == guikit::BpmnNodeType::IntermediateEvent ||
                    selNode->type == guikit::BpmnNodeType::BoundaryEvent ||
                    selNode->type == guikit::BpmnNodeType::EndEvent) {
-            static constexpr std::array<std::string_view, 7> kEvNames = {
+            static constexpr keel::StaticArray<keel::StringRef, 7> kEvNames = {
                 "None", "Message", "Timer", "Error", "Signal", "Escalation", "Terminate"
             };
             size_t ek = static_cast<size_t>(selNode->eventDef);
@@ -578,7 +578,7 @@ void RenderBpmnInspector(guikit::Context& ui, DemoContext&) {
         if (auto el = ui.Element({.label = "Flow Condition / Label"})) {
             if (ui.InputField(selEdge->label).changed) ui.InvalidateAll();
         }
-        static constexpr std::array<std::string_view, 5> kFlowNames = {
+        static constexpr keel::StaticArray<keel::StringRef, 5> kFlowNames = {
             "Sequence Flow", "Conditional Flow (Diamond)", "Default Flow (Slash \\)", "Message Flow (Dashed)", "Association (Dotted)"
         };
         size_t fk = static_cast<size_t>(selEdge->flowType);
@@ -607,7 +607,7 @@ void RenderBpmnInspector(guikit::Context& ui, DemoContext&) {
 
     // --- Canvas & Modeler Appearance ---
     ui.Size(guikit::UiSize::Xs).Heading({.label = "MODELER & CANVAS UX", .separator = guikit::HeadingSeparator::Bottom});
-    static constexpr std::array<std::string_view, 4> kThemeNames = {"Auto", "bpmn.io", "Camunda", "Blueprint"};
+    static constexpr keel::StaticArray<keel::StringRef, 4> kThemeNames = {"Auto", "bpmn.io", "Camunda", "Blueprint"};
     size_t thIdx = static_cast<size_t>(s_bpmn.themePreset);
     if (auto el = ui.Element({.label = "Color Theme"})) {
         if (ui.StepSlider(thIdx, kThemeNames, {.showTicks = true, .showLabels = true}).changed) {
@@ -616,7 +616,7 @@ void RenderBpmnInspector(guikit::Context& ui, DemoContext&) {
         }
     }
 
-    static constexpr std::array<std::string_view, 2> kRouteNames = {"Orthogonal (Manhattan)", "Cubic Bezier"};
+    static constexpr keel::StaticArray<keel::StringRef, 2> kRouteNames = {"Orthogonal (Manhattan)", "Cubic Bezier"};
     size_t rtIdx = static_cast<size_t>(s_bpmn.routingMode);
     if (auto el = ui.Element({.label = "Edge Routing"})) {
         if (ui.StepSlider(rtIdx, kRouteNames, {.showTicks = true, .showLabels = true}).changed) {
@@ -674,11 +674,11 @@ void RenderBpmnStage(guikit::Context& ui, DemoContext&) {
     });
 }
 
-std::string GenerateBpmnCode(const DemoContext&) {
-    static constexpr std::array<std::string_view, 4> kThemeEnum = {
+keel::String GenerateBpmnCode(const DemoContext&) {
+    static constexpr keel::StaticArray<keel::StringRef, 4> kThemeEnum = {
         "Auto", "BpmnIoClassic", "CamundaDark", "Blueprint"
     };
-    return std::format(
+    return keel::format(
         "// 100% bpmn.io-Parity BPMN 2.0 Modeler, Token Simulator & XML Round-Trip\n"
         "guikit::BpmnEditorResponse resp = ui.BpmnEditor(diagram, {{\n"
         "    .routingMode = guikit::BpmnRoutingMode::{},\n"
@@ -697,7 +697,7 @@ std::string GenerateBpmnCode(const DemoContext&) {
         "}});\n"
         "\n"
         "// Standard BPMN 2.0 XML + BPMNDI Serialization / Deserialization\n"
-        "std::string xml = guikit::BpmnEditor::ExportBpmnXml(diagram);\n"
+        "keel::String xml = guikit::BpmnEditor::ExportBpmnXml(diagram);\n"
         "guikit::BpmnEditor::ImportBpmnXml(xml, diagram);",
         (s_bpmn.routingMode == guikit::BpmnRoutingMode::Orthogonal) ? "Orthogonal" : "Bezier",
         kThemeEnum[static_cast<size_t>(s_bpmn.themePreset)],

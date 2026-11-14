@@ -1,12 +1,7 @@
 #pragma once
 
-#include <array>
+#include <cstddef>
 #include <cstdint>
-#include <optional>
-#include <source_location>
-#include <span>
-#include <string_view>
-#include <vector>
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
@@ -14,6 +9,10 @@
 #include "guikit/graphics/colormap.hpp"
 #include "guikit/graphics/icon.hpp"
 #include "guikit/widgets/histogram.hpp"
+#include "keel/core.h"
+#include "keel/optional.h"
+#include "keel/ref.h"
+#include "keel/static_array.h"
 
 namespace guikit {
 
@@ -74,7 +73,7 @@ struct ImageViewData {
     }
 
     [[nodiscard]] static ImageViewData FromFloat(
-        std::span<const float> pixels,
+        keel::ArrayRef<float> pixels,
         uint32_t w,
         uint32_t h,
         uint32_t ch = 1,
@@ -92,7 +91,7 @@ struct ImageViewData {
     }
 
     [[nodiscard]] static ImageViewData FromU16(
-        std::span<const uint16_t> pixels,
+        keel::ArrayRef<uint16_t> pixels,
         uint32_t w,
         uint32_t h,
         uint32_t ch = 1,
@@ -110,7 +109,7 @@ struct ImageViewData {
     }
 
     [[nodiscard]] static ImageViewData FromU8(
-        std::span<const uint8_t> pixels,
+        keel::ArrayRef<uint8_t> pixels,
         uint32_t w,
         uint32_t h,
         uint32_t ch = 3,
@@ -131,7 +130,7 @@ struct ImageViewData {
 /// Interactive state and tonal parameters for `ui.ImageView` (can be persisted by caller or managed internally).
 struct ImageViewParams {
     /// Per-channel Window/Level/Gamma/Invert: [0] = Master/Mono, [1] = Red, [2] = Green, [3] = Blue.
-    std::array<ChannelTransferParams, 4> channels{};
+    keel::StaticArray<ChannelTransferParams, 4> channels{};
     bool initialized{false};
 
     HistogramChannel activeHistChannel{HistogramChannel::Master};
@@ -153,8 +152,8 @@ struct ImageViewOptions {
     StretchMode stretch{StretchMode::Fill};
 
     // --- Sizing & Geometry ---
-    std::optional<float> width{std::nullopt};
-    std::optional<float> widthRatio{std::nullopt};
+    keel::Optional<float> width{keel::kNullOpt};
+    keel::Optional<float> widthRatio{keel::kNullOpt};
     float height{620.0f};
     float minHeight{360.0f};
     SizeMode heightMode{SizeMode::Fit};
@@ -166,7 +165,7 @@ struct ImageViewOptions {
     bool sidebarOnRight{false};         ///< False = Sidebar on Left (drs-xview style); True = Sidebar on Right
     float sidebarWidth{300.0f};         ///< Width of the built-in sidebar in logical points
     bool showTopToolbar{true};          ///< Show quick zoom/fit/rotate/channel bar at top of image viewport
-    std::optional<UiSize> toolbarSize{std::nullopt}; ///< Size token for top toolbar buttons (nullopt = inherit widget UiSize)
+    keel::Optional<UiSize> toolbarSize{keel::kNullOpt}; ///< Size token for top toolbar buttons (nullopt = inherit widget UiSize)
     bool showStatusBar{true};           ///< Show bottom telemetry bar (X, Y, Raw pixel values, Zoom, W/L)
     bool showPixelGridAtHighZoom{true}; ///< Draw pixel boundary grid when zoom >= 1200%
     bool enableLineProfile{true};       ///< Enable RMB cross-section Line Profile measurement tool
@@ -176,9 +175,9 @@ struct ImageViewOptions {
     bool disabled{false};
     UiText tooltip{};
     const UiTheme* theme{nullptr};
-    std::optional<float> scale{std::nullopt};
-    std::optional<bool> debugBounds{std::nullopt};
-    std::optional<bool> inspectMode{std::nullopt};
+    keel::Optional<float> scale{keel::kNullOpt};
+    keel::Optional<bool> debugBounds{keel::kNullOpt};
+    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// Telemetry and interaction response returned by `ui.ImageView`.
@@ -190,7 +189,7 @@ struct ImageViewResponse : public Response {
     bool cursorInsideImage{false};      ///< True when mouse cursor is over a valid source image pixel
     uint32_t cursorImageX{0};           ///< Source image X coordinate [0 .. width-1]
     uint32_t cursorImageY{0};           ///< Source image Y coordinate [0 .. height-1]
-    std::array<float, 4> cursorSample{};///< Raw sample values under cursor (ch 0..3)
+    keel::StaticArray<float, 4> cursorSample{}; ///< Raw sample values under cursor (ch 0..3)
     float cursorLuminance{0.0f};        ///< Raw intensity (1ch) or luminance (3ch) under cursor
 
     bool profileActive{false};          ///< True when a cross-section RMB line profile is active
@@ -222,19 +221,19 @@ public:
         const ImageViewData& data,
         ImageViewParams& params,
         const ImageViewOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     static ImageViewResponse Run(
         Context& ctx,
         const ImageViewData& data,
         const ImageViewOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Computes quantile-based Auto Window on a 256-bin histogram distribution.
     static void ApplyQuantileAutoWindow(
-        std::span<const uint32_t> bins,
+        keel::ArrayRef<uint32_t> bins,
         float minVal,
         float maxVal,
         AutoWindowTarget target,

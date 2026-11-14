@@ -1,16 +1,16 @@
 #include "guikit/backend/sdl_canvas.hpp"
 #include "guikit/core/text_util.hpp"
-#include <SDL3/SDL.h>
-#include <algorithm>
-#include <cmath>
-#include <numbers>
-#include <string>
-#include <vector>
 #include "guikit/core/tokens.hpp"
+#include "keel/small_array.h"
+#include "keel/string.h"
+#include <SDL3/SDL.h>
+#include <cmath>
 
 namespace guikit {
 
 namespace {
+
+constexpr float kPi = 3.14159265358979323846f;
 
 [[nodiscard]] constexpr SDL_FColor ToSdlFColor(Color c) noexcept {
     return SDL_FColor{
@@ -53,7 +53,7 @@ void SdlCanvas::SetScale(float scale) {
     }
 }
 
-void SdlCanvas::Clear(Color color, std::optional<Rect> rect) {
+void SdlCanvas::Clear(Color color, keel::Optional<Rect> rect) {
     if (!m_renderer) return;
 
     SDL_SetRenderDrawColor(m_renderer, color.r, color.g, color.b, color.a);
@@ -68,11 +68,11 @@ void SdlCanvas::Clear(Color color, std::optional<Rect> rect) {
 void SdlCanvas::PushClip(Rect clipRect) {
     if (!m_clipStack.empty()) {
         const Rect& parent = m_clipStack.back();
-        const float x1 = std::max(parent.x, clipRect.x);
-        const float y1 = std::max(parent.y, clipRect.y);
-        const float x2 = std::min(parent.Right(), clipRect.Right());
-        const float y2 = std::min(parent.Bottom(), clipRect.Bottom());
-        m_clipStack.emplace_back(x1, y1, std::max(0.0f, x2 - x1), std::max(0.0f, y2 - y1));
+        const float x1 = keel::max(parent.x, clipRect.x);
+        const float y1 = keel::max(parent.y, clipRect.y);
+        const float x2 = keel::min(parent.Right(), clipRect.Right());
+        const float y2 = keel::min(parent.Bottom(), clipRect.Bottom());
+        m_clipStack.emplace_back(x1, y1, keel::max(0.0f, x2 - x1), keel::max(0.0f, y2 - y1));
     } else {
         m_clipStack.push_back(clipRect);
     }
@@ -121,8 +121,8 @@ void SdlCanvas::DrawRoundRect(
 ) {
     if (!m_renderer || rect.w <= 0.0f || rect.h <= 0.0f) return;
 
-    const float maxRadius = std::min(rect.w, rect.h) * 0.5f;
-    const float r = std::clamp(radius, 0.0f, maxRadius);
+    const float maxRadius = keel::min(rect.w, rect.h) * 0.5f;
+    const float r = keel::clamp(radius, 0.0f, maxRadius);
 
     if (r <= 1.0f) {
         if (fill.a > 0) {
@@ -141,8 +141,7 @@ void SdlCanvas::DrawRoundRect(
     constexpr int kSegmentsPerCorner = 6;
     constexpr int kPerimeterPoints = kSegmentsPerCorner * 4;
 
-    std::vector<SDL_FPoint> perimeter;
-    perimeter.reserve(kPerimeterPoints + 1);
+    keel::SmallArray<SDL_FPoint, kPerimeterPoints + 1> perimeter;
 
     const auto addArc = [&](float cx, float cy, float startAngle, float endAngle) {
         for (int i = 0; i < kSegmentsPerCorner; ++i) {
@@ -156,13 +155,13 @@ void SdlCanvas::DrawRoundRect(
     };
 
     // 1. Top-left corner (PI to 3*PI/2)
-    addArc(rect.x + r, rect.y + r, std::numbers::pi_v<float>, 1.5f * std::numbers::pi_v<float>);
+    addArc(rect.x + r, rect.y + r, kPi, 1.5f * kPi);
     // 2. Top-right corner (3*PI/2 to 2*PI)
-    addArc(rect.Right() - r, rect.y + r, 1.5f * std::numbers::pi_v<float>, 2.0f * std::numbers::pi_v<float>);
+    addArc(rect.Right() - r, rect.y + r, 1.5f * kPi, 2.0f * kPi);
     // 3. Bottom-right corner (0 to PI/2)
-    addArc(rect.Right() - r, rect.Bottom() - r, 0.0f, 0.5f * std::numbers::pi_v<float>);
+    addArc(rect.Right() - r, rect.Bottom() - r, 0.0f, 0.5f * kPi);
     // 4. Bottom-left corner (PI/2 to PI)
-    addArc(rect.x + r, rect.Bottom() - r, 0.5f * std::numbers::pi_v<float>, std::numbers::pi_v<float>);
+    addArc(rect.x + r, rect.Bottom() - r, 0.5f * kPi, kPi);
 
     if (fill.a > 0) {
         SDL_SetRenderDrawBlendMode(m_renderer, SDL_BLENDMODE_BLEND);
@@ -171,16 +170,14 @@ void SdlCanvas::DrawRoundRect(
         const SDL_FPoint center{rect.x + rect.w * 0.5f, rect.y + rect.h * 0.5f};
         const SDL_FColor fcol = ToSdlFColor(fill);
 
-        std::vector<SDL_Vertex> vertices;
-        vertices.reserve(kPerimeterPoints + 1);
+        keel::SmallArray<SDL_Vertex, kPerimeterPoints + 1> vertices;
         vertices.push_back(SDL_Vertex{center, fcol, {0.0f, 0.0f}});
 
         for (const auto& pt : perimeter) {
             vertices.push_back(SDL_Vertex{pt, fcol, {0.0f, 0.0f}});
         }
 
-        std::vector<int> indices;
-        indices.reserve(kPerimeterPoints * 3);
+        keel::SmallArray<int, kPerimeterPoints * 3> indices;
         for (int i = 0; i < kPerimeterPoints; ++i) {
             indices.push_back(0); // center
             indices.push_back(i + 1);
@@ -205,7 +202,7 @@ void SdlCanvas::DrawRoundRect(
     }
 }
 
-Vec2 SdlCanvas::MeasureText(std::string_view text, float fontSize) {
+Vec2 SdlCanvas::MeasureText(keel::StringRef text, float fontSize) {
     if (fontSize <= 0.0f) {
         return {0.0f, 0.0f};
     }
@@ -218,17 +215,17 @@ float SdlCanvas::GetLineHeight(float fontSize) {
     return fontSize * kDefaultLineHeightMultiplier;
 }
 
-void SdlCanvas::DrawText(std::string_view text, Vec2 pos, float fontSize, Color color) {
+void SdlCanvas::DrawText(keel::StringRef text, Vec2 pos, float fontSize, Color color) {
     if (!m_renderer || text.empty() || color.a == 0) return;
 
     SDL_SetRenderDrawBlendMode(m_renderer, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(m_renderer, color.r, color.g, color.b, color.a);
-    const std::string textStr(text);
+    const keel::SmallString<256> textStr(text);
     SDL_RenderDebugText(m_renderer, pos.x, pos.y, textStr.c_str());
 }
 
 void SdlCanvas::DrawTextBox(
-    std::string_view text,
+    keel::StringRef text,
     Rect bounds,
     float fontSize,
     Color color,
@@ -238,14 +235,14 @@ void SdlCanvas::DrawTextBox(
     if (text.empty() || color.a == 0 || bounds.w <= 0.0f || bounds.h <= 0.0f) return;
 
     keel::FixedString<256> truncated;
-    std::string_view drawText = text;
+    keel::StringRef drawText = text;
     if (bounds.w > 0.0f && MeasureText(text, fontSize).x > bounds.w + kTextSubpixelTolerance) {
         truncated = TextUtil::TruncateWithEllipsis(text, bounds.w, fontSize, this);
         drawText = truncated;
     }
 
     const Vec2 dims = MeasureText(drawText, fontSize);
-    const float x = bounds.x + std::max(0.0f, (bounds.w - dims.x) * alignX);
+    const float x = bounds.x + keel::max(0.0f, (bounds.w - dims.x) * alignX);
     const float y = bounds.y + (bounds.h - dims.y) * alignY;
 
     PushClip(bounds);
@@ -285,7 +282,7 @@ void SdlCanvas::DrawLine(Vec2 p1, Vec2 p2, Color color, float strokeWidth) {
 void SdlCanvas::DrawTexture(
     uint64_t textureId,
     Rect destRect,
-    std::optional<Rect> srcRect,
+    keel::Optional<Rect> srcRect,
     Color tint
 ) {
     if (!m_renderer || textureId == 0 || destRect.w <= 0.0f || destRect.h <= 0.0f) return;

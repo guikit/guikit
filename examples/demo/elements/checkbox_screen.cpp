@@ -1,5 +1,4 @@
 #include "../demo_context.hpp"
-#include <format>
 
 namespace guikit::demo {
 
@@ -57,8 +56,8 @@ void RenderCheckboxStage(guikit::Context& ui, DemoContext& ctx) {
     }
 }
 
-std::string GenerateCheckboxCode(const DemoContext& ctx) {
-    return std::format(
+keel::String GenerateCheckboxCode(const DemoContext& ctx) {
+    return keel::format(
         "if (auto el = ui.{}Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"

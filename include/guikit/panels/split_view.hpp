@@ -1,13 +1,13 @@
 #pragma once
 
-#include <optional>
-#include <source_location>
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
 #include "guikit/panels/box.hpp"
+#include "keel/core.h"
+#include "keel/optional.h"
 
 namespace guikit {
 
@@ -29,17 +29,17 @@ struct SplitViewOptions {
     bool collapsible{false};                          ///< Snap pane to 0% / 100% when dragged near edge
     SizeMode widthMode{SizeMode::Stretch};
     SizeMode heightMode{SizeMode::Stretch};
-    std::optional<float> width{std::nullopt};
-    std::optional<float> height{std::nullopt};
+    keel::Optional<float> width{keel::kNullOpt};
+    keel::Optional<float> height{keel::kNullOpt};
     Padding padding{};
     StateColor background{};
     Border border{};
     bool clipChildren{true};
     bool disabled{false};
     const UiTheme* theme{nullptr};
-    std::optional<float> scale{std::nullopt};
-    std::optional<bool> debugBounds{std::nullopt};
-    std::optional<bool> inspectMode{std::nullopt};
+    keel::Optional<float> scale{keel::kNullOpt};
+    keel::Optional<bool> debugBounds{keel::kNullOpt};
+    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 class [[nodiscard]] SplitViewScope : public ContainerScope {
@@ -53,7 +53,7 @@ public:
         : ContainerScope(ctx, node), response(res), m_ratio(ratio), m_dragging(dragging) {}
 
     SplitViewScope(SplitViewScope&& other) noexcept
-        : ContainerScope(std::move(other))
+        : ContainerScope(keel::move(other))
         , response(other.response)
         , m_ratio(other.m_ratio)
         , m_dragging(other.m_dragging) {
@@ -62,7 +62,7 @@ public:
 
     SplitViewScope& operator=(SplitViewScope&& other) noexcept {
         if (this != &other) {
-            ContainerScope::operator=(std::move(other));
+            ContainerScope::operator=(keel::move(other));
             response = other.response;
             m_ratio = other.m_ratio;
             m_dragging = other.m_dragging;
@@ -73,12 +73,12 @@ public:
 
     [[nodiscard]] BoxScope First(
         const BoxOptions& opts = {.widthMode = SizeMode::Stretch, .heightMode = SizeMode::Stretch, .clipChildren = true},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] BoxScope Second(
         const BoxOptions& opts = {.widthMode = SizeMode::Stretch, .heightMode = SizeMode::Stretch, .clipChildren = true},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] constexpr float Ratio() const noexcept { return m_ratio; }
@@ -95,21 +95,21 @@ public:
     [[nodiscard]] static SplitViewScope Open(
         Context& ctx,
         const SplitViewOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] static SplitViewScope Open(
         Context& ctx,
         float& ratio,
         const SplitViewOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] static SplitViewScope Open(
         Context& ctx,
         float* externalRatio,
         const SplitViewOptions& opts,
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 };
 

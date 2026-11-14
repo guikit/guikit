@@ -1,9 +1,5 @@
 #include "../demo_context.hpp"
 #include "guikit/panels/command_palette.hpp"
-#include <array>
-#include <format>
-#include <string>
-#include <string_view>
 
 namespace guikit::demo {
 
@@ -22,9 +18,9 @@ struct OverlaysDemoState {
     bool showCloseButton = true;
     bool showHeaderDivider = true;
     bool confineModalToStage = false;
-    std::string profileName = "Station-Alpha";
+    keel::FixedString<128> profileName = "Station-Alpha";
     bool autoReconnect = true;
-    std::string lastModalStatus = "Ready";
+    keel::FixedString<128> lastModalStatus = "Ready";
 
     // ContextMenu settings & state
     size_t triggerModeIdx = 0; // 0 = RightClick, 1 = LeftClick
@@ -32,7 +28,7 @@ struct OverlaysDemoState {
     bool itemBookmarked = true;
     bool itemLocked = false;
     bool itemGridSnap = true;
-    std::string lastMenuAction = "No item clicked yet";
+    keel::FixedString<128> lastMenuAction = "No item clicked yet";
     int duplicateCount = 0;
 
     // Toast settings & state
@@ -52,23 +48,23 @@ struct OverlaysDemoState {
     float paletteWidth = 660.0f;
     int paletteMaxVisible = 8;
     bool paletteShowFooter = true;
-    std::string lastPaletteCommand = "None (press Ctrl+K or click Open)";
+    keel::FixedString<160> lastPaletteCommand = "None (press Ctrl+K or click Open)";
 };
 
 OverlaysDemoState s_ov;
 
-constexpr std::array<std::string_view, 6> kToastPlacementNames = {
+constexpr keel::StaticArray<keel::StringRef, 6> kToastPlacementNames = {
     "BottomRight", "TopRight", "BottomLeft", "TopLeft", "TopCenter", "BottomCenter"
 };
 
-constexpr std::array<std::string_view, 6> kToastPlacementShort = {
+constexpr keel::StaticArray<keel::StringRef, 6> kToastPlacementShort = {
     "BR", "TR", "BL", "TL", "TC", "BC"
 };
 
 } // namespace
 
 void RenderOverlaysInspector(guikit::Context& ui, DemoContext& ctx) {
-    static constexpr std::array<std::string_view, 4> kOverlayModes = {
+    static constexpr keel::StaticArray<keel::StringRef, 4> kOverlayModes = {
         "Modal", "Menu", "Toast", "Palette"
     };
     if (auto el = ui.Element({.label = "Overlay Component", .layout = guikit::ElementLayout::Stacked})) {
@@ -108,7 +104,7 @@ void RenderOverlaysInspector(guikit::Context& ui, DemoContext& ctx) {
             if (ui.Switch(s_ov.confineModalToStage).changed) ui.InvalidateAll();
         }
     } else if (s_ov.activeOverlay == 1) {
-        static constexpr std::array<std::string_view, 2> kTriggerLabels = {"RightClick", "LeftClick"};
+        static constexpr keel::StaticArray<keel::StringRef, 2> kTriggerLabels = {"RightClick", "LeftClick"};
         if (auto el = ui.Element({.label = "Trigger Mode", .layout = guikit::ElementLayout::Stacked})) {
             if (ui.Segmented(s_ov.triggerModeIdx, kTriggerLabels).changed) {
                 ui.InvalidateAll();
@@ -217,12 +213,12 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                     s_ov.confirmDeleteModalOpen = true;
                 }
             }
-            ui.Text(s_ov.lastModalStatus, {
+            ui.Text(s_ov.lastModalStatus.as_ref(), {
                 .role = guikit::TextRole::BodySmall,
                 .variant = guikit::UiVariant::Secondary
             });
         } else if (s_ov.activeOverlay == 1) {
-            const std::array<guikit::ContextMenuItem, 6> menuItems = {{
+            const keel::StaticArray<guikit::ContextMenuItem, 6> menuItems = {{
                 {.label = "Edit Properties",  .shortcut = "Enter",  .icon = guikit::Icon::Edit()},
                 {.label = "Copy Config",      .shortcut = "Ctrl+C", .icon = guikit::Icon::Copy(), .separatorAfter = true},
                 {.label = "Bookmark Target",  .shortcut = "Ctrl+B", .checked = s_ov.itemBookmarked, .hasCheck = true},
@@ -238,15 +234,15 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                     case 1: s_ov.lastMenuAction = "Clicked: Copy Config"; break;
                     case 2:
                         s_ov.itemBookmarked = !s_ov.itemBookmarked;
-                        s_ov.lastMenuAction = std::format("Bookmark = {}", s_ov.itemBookmarked ? "ON" : "OFF");
+                        s_ov.lastMenuAction = keel::format_fixed<128>("Bookmark = {}", s_ov.itemBookmarked ? "ON" : "OFF");
                         break;
                     case 3:
                         s_ov.itemGridSnap = !s_ov.itemGridSnap;
-                        s_ov.lastMenuAction = std::format("Snap to Grid = {}", s_ov.itemGridSnap ? "ON" : "OFF");
+                        s_ov.lastMenuAction = keel::format_fixed<128>("Snap to Grid = {}", s_ov.itemGridSnap ? "ON" : "OFF");
                         break;
                     case 4:
                         s_ov.itemLocked = !s_ov.itemLocked;
-                        s_ov.lastMenuAction = std::format("Lock Transform = {}", s_ov.itemLocked ? "ON" : "OFF");
+                        s_ov.lastMenuAction = keel::format_fixed<128>("Lock Transform = {}", s_ov.itemLocked ? "ON" : "OFF");
                         break;
                     case 5:
                         s_ov.lastMenuAction = "Clicked: Delete Node";
@@ -288,7 +284,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                 });
                 handleMenuResult(btnMenu);
             }
-            ui.Text(s_ov.lastMenuAction, {
+            ui.Text(s_ov.lastMenuAction.as_ref(), {
                 .role = guikit::TextRole::BodySmall,
                 .variant = guikit::UiVariant::Secondary
             });
@@ -301,7 +297,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                 }).clicked) {
                     ++s_ov.toastCounter;
                     ui.ShowToast({
-                        .title = std::string_view(ui.Format("Telemetry Sync #{}", s_ov.toastCounter)),
+                        .title = ui.Format("Telemetry Sync #{}", s_ov.toastCounter),
                         .message = "Connected to primary stream at 48.0 kHz.",
                         .variant = guikit::UiVariant::Info,
                         .duration = s_ov.toastDuration,
@@ -379,7 +375,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
             }).clicked) {
                 s_ov.commandPaletteOpen = true;
             }
-            ui.Text(s_ov.lastPaletteCommand, {
+            ui.Text(s_ov.lastPaletteCommand.as_ref(), {
                 .role = guikit::TextRole::BodySmall,
                 .variant = guikit::UiVariant::Secondary
             });
@@ -387,7 +383,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
     }
 
     // Active CommandPalette host
-    static const std::array<guikit::CommandPaletteItem, 6> kPaletteCommands = {{
+    static const keel::StaticArray<guikit::CommandPaletteItem, 6> kPaletteCommands = {{
         {.label = "Configure Telemetry Endpoint", .category = "Dialog",    .description = "Open station profile dialog",         .shortcut = "Ctrl+E", .icon = guikit::Icon::Settings()},
         {.label = "Spawn Info Notification",      .category = "Toast",     .description = "Emit a streaming info toast",         .shortcut = "Alt+I",  .icon = guikit::Icon::Flash()},
         {.label = "Toggle Bookmark Target",       .category = "Workspace", .description = "Pin or unpin the active target node", .shortcut = "Ctrl+B", .icon = guikit::Icon::Check()},
@@ -398,8 +394,8 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
 
     auto cpRes = ui.Size(ctx.controlsSize).CommandPalette(s_ov.commandPaletteOpen, kPaletteCommands, {
         .placeholder = "Type a command or search...",
-        .width = s_ov.paletteAutoWidth ? std::nullopt : std::optional<float>(s_ov.paletteWidth),
-        .maxVisibleItems = static_cast<uint32_t>(std::max(1, s_ov.paletteMaxVisible)),
+        .width = s_ov.paletteAutoWidth ? keel::kNullOpt : keel::Optional<float>(s_ov.paletteWidth),
+        .maxVisibleItems = static_cast<uint32_t>(keel::max(1, s_ov.paletteMaxVisible)),
         .backdropOpacity = s_ov.backdropOpacity,
         .closeOnBackdropClick = s_ov.closeOnBackdrop,
         .closeOnEscape = s_ov.closeOnEscape,
@@ -409,7 +405,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
 
     if (cpRes.changed && cpRes.selectedIndex >= 0 && static_cast<size_t>(cpRes.selectedIndex) < kPaletteCommands.size()) {
         const auto& cmd = kPaletteCommands[static_cast<size_t>(cpRes.selectedIndex)];
-        s_ov.lastPaletteCommand = std::format("Executed: [{}] {}", std::string_view(cmd.category), std::string_view(cmd.label));
+        s_ov.lastPaletteCommand = keel::format_fixed<160>("Executed: [{}] {}", cmd.category, cmd.label);
         if (cpRes.selectedIndex == 0) s_ov.customModalOpen = true;
         else if (cpRes.selectedIndex == 4) ui.ClearToasts();
         else if (cpRes.selectedIndex == 5) s_ov.confirmDeleteModalOpen = true;
@@ -448,7 +444,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                 .icon = guikit::Icon::Check(),
                 .color = guikit::StateColor::FromVariant(ctx.btnVariant)
             }).clicked) {
-                s_ov.lastModalStatus = std::format("Saved '{}'", s_ov.profileName);
+                s_ov.lastModalStatus = keel::format_fixed<128>("Saved '{}'", s_ov.profileName.as_ref());
                 modal.Close();
             }
         }
@@ -490,17 +486,17 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
     ui.ToastHost({
         .placement = static_cast<guikit::ToastPlacement>(s_ov.toastPlacementIdx),
         .width = s_ov.toastWidth,
-        .maxVisible = static_cast<size_t>(std::max(1, s_ov.toastMaxVisible)),
+        .maxVisible = static_cast<size_t>(keel::max(1, s_ov.toastMaxVisible)),
         .pauseOnHover = s_ov.toastPauseOnHover,
         .confineToParent = s_ov.confineToastToStage
     });
 }
 
-std::string GenerateOverlaysCode(const DemoContext& ctx) {
-    const std::string szPrefix = FormatUiSizePrefix(ctx.controlsSize);
+keel::String GenerateOverlaysCode(const DemoContext& ctx) {
+    const auto szPrefix = FormatUiSizePrefix(ctx.controlsSize);
 
     if (s_ov.activeOverlay == 0) {
-        return std::format(
+        return keel::format(
             "if (auto modal = ui.{}Modal(isModalOpen, {{\n"
             "    .title = \"Configure Station Endpoint\",\n"
             "    .subtitle = \"Edit connection parameters for the active station.\",\n"
@@ -526,8 +522,8 @@ std::string GenerateOverlaysCode(const DemoContext& ctx) {
     }
 
     if (s_ov.activeOverlay == 1) {
-        const std::string_view trigName = (s_ov.triggerModeIdx == 0) ? "RightClick" : "LeftClick";
-        return std::format(
+        const keel::StringRef trigName = (s_ov.triggerModeIdx == 0) ? "RightClick" : "LeftClick";
+        return keel::format(
             "auto menuRes = ui.{}ContextMenu(targetResponse, {{\n"
             "    {{.label = \"Edit Properties\", .shortcut = \"Enter\",  .icon = guikit::Icon::Edit()}},\n"
             "    {{.label = \"Copy Config\",     .shortcut = \"Ctrl+C\", .icon = guikit::Icon::Copy(), .separatorAfter = true}},\n"
@@ -544,8 +540,8 @@ std::string GenerateOverlaysCode(const DemoContext& ctx) {
     }
 
     if (s_ov.activeOverlay == 2) {
-        const std::string_view placementName = kToastPlacementNames[s_ov.toastPlacementIdx];
-        return std::format(
+        const keel::StringRef placementName = kToastPlacementNames[s_ov.toastPlacementIdx];
+        return keel::format(
             "ui.ShowToast({{\n"
             "    .title = \"Configuration Saved\",\n"
             "    .message = \"Profile committed to flash.\",\n"
@@ -568,7 +564,7 @@ std::string GenerateOverlaysCode(const DemoContext& ctx) {
         );
     }
 
-    return std::format(
+    return keel::format(
         "auto cpRes = ui.CommandPalette(isPaletteOpen, commands, {{\n"
         "    .placeholder = \"Type a command or search...\",\n"
         "    .width = {:.1f}f,\n"

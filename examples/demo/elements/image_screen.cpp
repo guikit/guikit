@@ -1,7 +1,5 @@
-#include "../demo_context.hpp"
-#include <algorithm>
 #include <cmath>
-#include <format>
+#include "../demo_context.hpp"
 
 namespace guikit::demo {
 
@@ -9,17 +7,17 @@ namespace {
 
 struct ImageState {
     size_t sourceIdx = 0;
-    static constexpr std::array<std::string_view, 2> sources = {
+    static constexpr keel::StaticArray<keel::StringRef, 2> sources = {
         "assets/images/lena.png",
         "assets/images/missing_preview.png"
     };
-    static constexpr std::array<std::string_view, 2> sourceNames = {
+    static constexpr keel::StaticArray<keel::StringRef, 2> sourceNames = {
         "Lena (assets/images/lena.png)",
         "Missing Asset (Alt Fallback)"
     };
-    std::string altText = "Fallback: asset unavailable";
+    keel::SmallString<128> altText{"Fallback: asset unavailable"};
     guikit::ObjectFit fit = guikit::ObjectFit::Contain;
-    static constexpr std::array<std::string_view, 5> fitModeNames = {
+    static constexpr keel::StaticArray<keel::StringRef, 5> fitModeNames = {
         "Contain", "Cover", "Fill", "ScaleDown", "Original"
     };
     guikit::Align alignX = guikit::Align::Center;
@@ -59,7 +57,7 @@ void RenderImageInspector(guikit::Context& ui, DemoContext&) {
         }
     }
 
-    static constexpr std::array<std::string_view, 3> alignNames = {"Start", "Center", "End"};
+    static constexpr keel::StaticArray<keel::StringRef, 3> alignNames = {"Start", "Center", "End"};
     size_t axIdx = static_cast<size_t>(s_state.alignX);
     if (auto el = ui.Element({.label = "Horizontal Fit Align"})) {
         if (ui.StepSlider(axIdx, alignNames, {
@@ -99,7 +97,7 @@ void RenderImageInspector(guikit::Context& ui, DemoContext&) {
 }
 
 void RenderImageStage(guikit::Context& ui, DemoContext& ctx) {
-    const uint8_t alpha = static_cast<uint8_t>(std::clamp(std::lround(s_state.opacityPct * 2.55f), 0l, 255l));
+    const uint8_t alpha = static_cast<uint8_t>(keel::clamp(std::lround(s_state.opacityPct * 2.55f), 0l, 255l));
     if (auto el = ui.Size(ctx.elemSize).Element({
         .label = ctx.GetElementLabel(),
         .description = ctx.GetElementDescription(),
@@ -130,10 +128,10 @@ void RenderImageStage(guikit::Context& ui, DemoContext& ctx) {
     }
 }
 
-std::string GenerateImageCode(const DemoContext& ctx) {
-    const int alpha = static_cast<int>(std::clamp(std::lround(s_state.opacityPct * 2.55f), 0l, 255l));
+keel::String GenerateImageCode(const DemoContext& ctx) {
+    const int alpha = static_cast<int>(keel::clamp(std::lround(s_state.opacityPct * 2.55f), 0l, 255l));
 
-    return std::format(
+    return keel::format(
         "if (auto el = ui.{}Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"

@@ -1,6 +1,4 @@
 #include "../demo_context.hpp"
-#include <array>
-#include <format>
 
 namespace guikit::demo {
 
@@ -19,7 +17,7 @@ struct ToolbarDemoState {
 };
 ToolbarDemoState s_tb;
 
-constexpr std::string_view StyleEnumName(guikit::ToolbarStyle s) noexcept {
+constexpr keel::StringRef StyleEnumName(guikit::ToolbarStyle s) noexcept {
     switch (s) {
         case guikit::ToolbarStyle::Header:   return "Header";
         case guikit::ToolbarStyle::Floating: return "Floating";
@@ -27,7 +25,7 @@ constexpr std::string_view StyleEnumName(guikit::ToolbarStyle s) noexcept {
     }
 }
 
-constexpr std::string_view OverflowEnumName(guikit::ToolbarOverflow o) noexcept {
+constexpr keel::StringRef OverflowEnumName(guikit::ToolbarOverflow o) noexcept {
     switch (o) {
         case guikit::ToolbarOverflow::Scroll: return "Scroll";
         case guikit::ToolbarOverflow::Wrap:   return "Wrap";
@@ -38,7 +36,7 @@ constexpr std::string_view OverflowEnumName(guikit::ToolbarOverflow o) noexcept 
 } // namespace
 
 void RenderToolbarInspector(guikit::Context& ui, DemoContext& ctx) {
-    static constexpr std::array<std::string_view, 3> kStyleLabels = {"Surface", "Header", "Floating"};
+    static constexpr keel::StaticArray<keel::StringRef, 3> kStyleLabels = {"Surface", "Header", "Floating"};
     size_t styleIdx = (s_tb.style == guikit::ToolbarStyle::Header)
         ? 1
         : (s_tb.style == guikit::ToolbarStyle::Floating ? 2 : 0);
@@ -51,7 +49,7 @@ void RenderToolbarInspector(guikit::Context& ui, DemoContext& ctx) {
         }
     }
 
-    static constexpr std::array<std::string_view, 2> kOrientLabels = {"Horizontal", "Vertical"};
+    static constexpr keel::StaticArray<keel::StringRef, 2> kOrientLabels = {"Horizontal", "Vertical"};
     size_t orientIdx = (s_tb.orientation == guikit::Orientation::Vertical) ? 1 : 0;
     if (auto el = ui.Element({.label = "Orientation", .layout = guikit::ElementLayout::Stacked})) {
         if (ui.Segmented(orientIdx, kOrientLabels).changed) {
@@ -63,7 +61,7 @@ void RenderToolbarInspector(guikit::Context& ui, DemoContext& ctx) {
     }
 
     if (s_tb.orientation == guikit::Orientation::Horizontal) {
-        static constexpr std::array<std::string_view, 4> kOverflowLabels = {"Compact", "Scroll", "Wrap", "Clip"};
+        static constexpr keel::StaticArray<keel::StringRef, 4> kOverflowLabels = {"Compact", "Scroll", "Wrap", "Clip"};
         size_t overflowIdx = static_cast<size_t>(s_tb.overflow);
         if (auto el = ui.Element({.label = "Overflow Policy", .layout = guikit::ElementLayout::Stacked})) {
             if (ui.Segmented(overflowIdx, kOverflowLabels).changed) {
@@ -137,11 +135,11 @@ void RenderToolbarStage(guikit::Context& ui, DemoContext& ctx) {
             .badge = (s_tb.showBadges && s_tb.liveCapture) ? "REC" : ""
         });
 
-        static constexpr std::array<std::string_view, 3> kTriggerModes = {
+        static constexpr keel::StaticArray<keel::StringRef, 3> kTriggerModes = {
             "Auto Trigger", "Normal Trigger", "Single Shot"
         };
         tb.SplitToggle(s_tb.triggerArmed, s_tb.triggerMode, kTriggerModes, {
-            .text = kTriggerModes[static_cast<size_t>(std::clamp(s_tb.triggerMode, 0, 2))],
+            .text = kTriggerModes[static_cast<size_t>(keel::clamp(s_tb.triggerMode, 0, 2))],
             .tooltip = "Toggle Trigger & Select Mode",
             .icon = guikit::Icon::Flash(),
             .square = isSq
@@ -163,8 +161,8 @@ void RenderToolbarStage(guikit::Context& ui, DemoContext& ctx) {
     }
 }
 
-std::string GenerateToolbarCode(const DemoContext& ctx) {
-    return std::format(
+keel::String GenerateToolbarCode(const DemoContext& ctx) {
+    return keel::format(
         "if (auto tb = ui.{}Toolbar({{\n"
         "    .style = guikit::ToolbarStyle::{},\n"
         "    .orientation = guikit::Orientation::{},\n"

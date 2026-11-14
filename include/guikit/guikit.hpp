@@ -44,7 +44,7 @@ struct Version {
     static constexpr int major = GUIKIT_VERSION_MAJOR;
     static constexpr int minor = GUIKIT_VERSION_MINOR;
     static constexpr int patch = GUIKIT_VERSION_PATCH;
-    static constexpr std::string_view string = GUIKIT_VERSION_STRING;
+    static constexpr keel::StringRef string = GUIKIT_VERSION_STRING;
 };
 
 } // namespace guikit

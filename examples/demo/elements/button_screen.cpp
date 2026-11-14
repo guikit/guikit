@@ -1,11 +1,10 @@
 #include "../demo_context.hpp"
-#include <format>
 
 namespace guikit::demo {
 
 namespace {
 struct ButtonState {
-    std::string text = "Click me";
+    keel::SmallString<128> text{"Click me"};
     bool hasIcon = true;
     guikit::Placement iconPlacement = guikit::Placement::Leading;
     guikit::Align controlAlign = guikit::Align::Center;
@@ -26,7 +25,7 @@ void RenderButtonInspector(guikit::Context& ui, DemoContext&) {
         }
     }
 
-    static constexpr std::array<std::string_view, 3> alignNames = {"Start (Left)", "Center", "End (Right)"};
+    static constexpr keel::StaticArray<keel::StringRef, 3> alignNames = {"Start (Left)", "Center", "End (Right)"};
     size_t alignIdx = (s_state.controlAlign == guikit::Align::Start) ? 0 : ((s_state.controlAlign == guikit::Align::End) ? 2 : 1);
     const bool alignDisabled = s_state.square;
     if (auto el = ui.Element({.label = "Content Alignment", .disabled = alignDisabled})) {
@@ -38,7 +37,7 @@ void RenderButtonInspector(guikit::Context& ui, DemoContext&) {
     if (auto el = ui.Element({.label = "Show Capsule Icon"})) {
         if (ui.Switch(s_state.hasIcon).changed) ui.InvalidateAll();
     }
-    static constexpr std::array<std::string_view, 4> placeNames = {"Leading", "Trailing", "Top", "Bottom"};
+    static constexpr keel::StaticArray<keel::StringRef, 4> placeNames = {"Leading", "Trailing", "Top", "Bottom"};
     size_t placeIdx = (s_state.iconPlacement == guikit::Placement::Trailing) ? 1 : ((s_state.iconPlacement == guikit::Placement::Top) ? 2 : ((s_state.iconPlacement == guikit::Placement::Bottom) ? 3 : 0));
     const bool placeDisabled = !s_state.hasIcon || s_state.square;
     if (auto el = ui.Element({.label = "Icon Placement", .disabled = placeDisabled})) {
@@ -53,9 +52,9 @@ void RenderButtonInspector(guikit::Context& ui, DemoContext&) {
 }
 
 void RenderButtonStage(guikit::Context& ui, DemoContext& ctx) {
-    std::string btnText = (s_state.clicks > 0 && !s_state.text.empty())
-        ? std::format("{} ({}x)", s_state.text, s_state.clicks)
-        : s_state.text;
+    const keel::StringRef btnText = (s_state.clicks > 0 && !s_state.text.empty())
+        ? ui.Format("{} ({}x)", s_state.text, s_state.clicks)
+        : s_state.text.as_ref();
     if (auto el = ui.Size(ctx.elemSize).Element({
         .label = ctx.GetElementLabel(),
         .description = ctx.GetElementDescription(),
@@ -89,8 +88,8 @@ void RenderButtonStage(guikit::Context& ui, DemoContext& ctx) {
     }
 }
 
-std::string GenerateButtonCode(const DemoContext& ctx) {
-    return std::format(
+keel::String GenerateButtonCode(const DemoContext& ctx) {
+    return keel::format(
         "if (auto el = ui.{}Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"

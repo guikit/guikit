@@ -1,16 +1,15 @@
 #pragma once
 
 #include <cstdint>
-#include <optional>
-#include <span>
-#include <source_location>
-#include <string_view>
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
 #include "guikit/graphics/icon.hpp"
+#include "keel/core.h"
+#include "keel/optional.h"
+#include "keel/ref.h"
 #include "keel/string.h"
 
 namespace guikit {
@@ -41,23 +40,23 @@ struct BreadcrumbOptions {
     StateColor color{};
     StretchMode stretch{StretchMode::Compact};
     Align align{Align::Start};
-    std::optional<float> width{std::nullopt};
-    std::optional<float> widthRatio{std::nullopt};
-    std::optional<float> height{std::nullopt};
+    keel::Optional<float> width{keel::kNullOpt};
+    keel::Optional<float> widthRatio{keel::kNullOpt};
+    keel::Optional<float> height{keel::kNullOpt};
     StateColor background{};
     Border border{};
     UiText tooltip{};
     bool disabled{false};
     const UiTheme* theme{nullptr};
-    std::optional<float> scale{std::nullopt};
-    std::optional<bool> debugBounds{std::nullopt};
-    std::optional<bool> inspectMode{std::nullopt};
+    keel::Optional<float> scale{keel::kNullOpt};
+    keel::Optional<bool> debugBounds{keel::kNullOpt};
+    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// Internal runtime payload allocated in frame arena for Breadcrumb nodes.
 struct BreadcrumbData {
     BreadcrumbOptions opts{};
-    std::span<const BreadcrumbItem> items{};
+    keel::ArrayRef<BreadcrumbItem> items{};
     size_t activeIndex{0};
     bool popupOpen{false};
     int hoveredToken{-1};
@@ -70,37 +69,37 @@ public:
     static Response Run(
         Context& ctx,
         size_t& activeIndex,
-        std::span<const std::string_view> items,
+        keel::ArrayRef<keel::StringRef> items,
         const BreadcrumbOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     static Response Run(
         Context& ctx,
         size_t& activeIndex,
-        std::span<const BreadcrumbItem> items,
+        keel::ArrayRef<BreadcrumbItem> items,
         const BreadcrumbOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     static Response Run(
         Context& ctx,
         int& activeIndex,
-        std::span<const std::string_view> items,
+        keel::ArrayRef<keel::StringRef> items,
         const BreadcrumbOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     static Response Run(
         Context& ctx,
         int& activeIndex,
-        std::span<const BreadcrumbItem> items,
+        keel::ArrayRef<BreadcrumbItem> items,
         const BreadcrumbOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     static Vec2 Measure(
-        std::span<const BreadcrumbItem> items,
+        keel::ArrayRef<BreadcrumbItem> items,
         const BreadcrumbOptions& opts,
         UiSize size,
         ICanvas* canvas,

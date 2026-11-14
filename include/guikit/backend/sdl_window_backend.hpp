@@ -1,11 +1,6 @@
 #pragma once
 
-#include <array>
-#include <atomic>
-#include <chrono>
 #include <cstdint>
-#include <memory>
-#include <vector>
 #include "guikit/backend/i_window_backend.hpp"
 #include "guikit/backend/sdl_gl_shader_engine.hpp"
 #include "guikit/backend/vector_backend.hpp"
@@ -27,19 +22,19 @@ namespace guikit {
 /// SDL3 + OpenGL ES3 / WebGL2 implementation of `guikit::IWindowBackend` with interchangeable `ICanvas`.
 class SdlWindowBackend final : public IWindowBackend {
 public:
-    explicit SdlWindowBackend(std::unique_ptr<ICanvas> canvas = nullptr);
+    explicit SdlWindowBackend(keel::UniquePtr<ICanvas> canvas = nullptr);
     ~SdlWindowBackend() override;
 
     SdlWindowBackend(const SdlWindowBackend&) = delete;
     SdlWindowBackend& operator=(const SdlWindowBackend&) = delete;
 
-    bool Initialize(const MainWindowConfig& config, Context& ui, const WindowHostCallbacks& callbacks) override;
+    bool Initialize(const MainWindowConfig& config, Context& ui, WindowHostCallbacks callbacks) override;
     void Shutdown() noexcept override;
 
     bool PumpEvents(Context& ui, bool reactiveMode, int sleepTimeoutMs) override;
     void WakeUp() noexcept override;
     [[nodiscard]] bool UsesMainLoopCallback() const noexcept override;
-    void RunMainLoopCallback(std::function<bool()> stepFn) override;
+    void RunMainLoopCallback(keel::Function<bool()> stepFn) override;
 
     [[nodiscard]] ICanvas& GetCanvas() noexcept override { return *m_canvas; }
     [[nodiscard]] const ICanvas& GetCanvas() const noexcept override { return *m_canvas; }
@@ -64,7 +59,7 @@ public:
     void SetGpuShadersEnabled(bool enabled) noexcept override;
 
     void UpdateSystemCursor(CursorType cursor) noexcept override;
-    void OpenUrl(std::string_view url) const noexcept override;
+    void OpenUrl(keel::StringRef url) const noexcept override;
 
     [[nodiscard]] SDL_Window* GetSdlWindow() const noexcept { return m_window; }
     [[nodiscard]] SDL_Renderer* GetSdlRenderer() const noexcept { return m_renderer; }
@@ -93,9 +88,9 @@ private:
     int m_height = 800;
     int m_bufWidth = 0;
     int m_bufHeight = 0;
-    std::vector<uint32_t> m_pixelBuffer;
+    keel::Array<uint32_t> m_pixelBuffer;
 
-    std::unique_ptr<ICanvas> m_canvas;
+    keel::UniquePtr<ICanvas> m_canvas;
     bool m_hasExplicitCanvas = false;
     bool m_usingFallbackCanvas = false;
     SdlGlShaderEngine m_gpuShaderEngine;
@@ -103,7 +98,7 @@ private:
     bool m_shouldExit = false;
     bool m_minimized = false;
     bool m_skipRenderThisStep = false;
-    std::atomic<bool> m_wakePending{false};
+    uint32_t m_wakePending{0};
     bool m_vsyncEnabled = true;
     bool m_gpuShadersEnabled = false;
     bool m_isLiveResizeFrame = false;
@@ -112,19 +107,19 @@ private:
     float m_mouseCoordScale = 1.0f;
     float m_displayPxPerMm = 96.0f / 25.4f;
 
-    std::chrono::steady_clock::time_point m_lastLiveResizeTime{};
-    std::chrono::steady_clock::time_point m_lastEmscriptenRenderTime{};
-    std::function<bool()> m_emscriptenStepFn;
+    keel::u64 m_lastLiveResizeTimeNs{0};
+    keel::u64 m_lastEmscriptenRenderTimeNs{0};
+    keel::Function<bool()> m_emscriptenStepFn;
 
-    std::array<SDL_Cursor*, 9> m_cursors{};
+    keel::StaticArray<SDL_Cursor*, 9> m_cursors{};
     CursorType m_activeCursor = CursorType::Default;
 };
 
 /// Creates a new `SdlWindowBackend` instance using the default registered vector canvas.
-[[nodiscard]] std::unique_ptr<IWindowBackend> CreateSdlWindowBackend();
+[[nodiscard]] keel::UniquePtr<IWindowBackend> CreateSdlWindowBackend();
 
 /// Creates a new `SdlWindowBackend` instance with an explicitly injected `ICanvas` backend.
-[[nodiscard]] std::unique_ptr<IWindowBackend> CreateSdlWindowBackend(std::unique_ptr<ICanvas> canvas);
+[[nodiscard]] keel::UniquePtr<IWindowBackend> CreateSdlWindowBackend(keel::UniquePtr<ICanvas> canvas);
 
 /// Registers `CreateSdlWindowBackend` as the default `IWindowBackend` factory for `guikit::MainWindow`.
 void RegisterSdlWindowBackend() noexcept;

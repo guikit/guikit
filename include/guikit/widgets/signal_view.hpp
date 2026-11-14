@@ -1,18 +1,18 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
-#include <optional>
-#include <source_location>
-#include <span>
-#include <string>
-#include <string_view>
-#include <vector>
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
 #include "guikit/graphics/colormap.hpp"
 #include "guikit/graphics/icon.hpp"
+#include "keel/array.h"
+#include "keel/core.h"
+#include "keel/optional.h"
+#include "keel/ref.h"
+#include "keel/string.h"
 
 namespace guikit {
 
@@ -48,7 +48,7 @@ enum class FftWindowType : uint8_t {
 /// Interactive timeline cue marker displayed on the time ruler and across signal panels.
 struct SignalMarker {
     double timeSec{0.0};
-    std::string label{};
+    keel::FixedString<64> label{};
     Color color{245, 158, 11, 255};
 };
 
@@ -115,28 +115,28 @@ struct SignalViewOptions {
     float* waveformGainBinding{nullptr};            ///< Optional external float updated when user zooms amplitude ruler
     double* playheadTimeSec{nullptr};               ///< Optional external playhead timestamp in seconds
     SignalSelection* selection{nullptr};            ///< Optional external time/spectral selection state
-    std::vector<SignalMarker>* markers{nullptr};    ///< Optional external cue markers vector
+    keel::Array<SignalMarker>* markers{nullptr};    ///< Optional external cue markers array
 
     // --- Programmatic Camera / View Requests ---
-    std::optional<double> requestViewStartSec{std::nullopt};
-    std::optional<double> requestViewEndSec{std::nullopt};
-    std::optional<Vec2> requestFreqRangeHz{std::nullopt};
+    keel::Optional<double> requestViewStartSec{keel::kNullOpt};
+    keel::Optional<double> requestViewEndSec{keel::kNullOpt};
+    keel::Optional<Vec2> requestFreqRangeHz{keel::kNullOpt};
     bool requestResetView{false};
 
     // --- Sizing & Styling ---
     StretchMode stretch{StretchMode::Fill};
-    std::optional<float> width{std::nullopt};
-    std::optional<float> widthRatio{std::nullopt};
-    std::optional<float> height{std::nullopt};
+    keel::Optional<float> width{keel::kNullOpt};
+    keel::Optional<float> widthRatio{keel::kNullOpt};
+    keel::Optional<float> height{keel::kNullOpt};
     SizeMode heightMode{SizeMode::Stretch};
     StateColor background{};
     Border border{};
     bool disabled{false};
     UiText tooltip{};
     const UiTheme* theme{nullptr};
-    std::optional<float> scale{std::nullopt};
-    std::optional<bool> debugBounds{std::nullopt};
-    std::optional<bool> inspectMode{std::nullopt};
+    keel::Optional<float> scale{keel::kNullOpt};
+    keel::Optional<bool> debugBounds{keel::kNullOpt};
+    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// Rich telemetry & interaction response returned by `ui.SignalView(...)`.
@@ -173,13 +173,13 @@ class SignalView {
 public:
     static SignalViewResponse Run(
         Context& ctx,
-        std::span<const float> samples,
+        keel::ArrayRef<float> samples,
         const SignalViewOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] static Vec2 Measure(
-        std::span<const float> samples,
+        keel::ArrayRef<float> samples,
         const SignalViewOptions& opts,
         UiSize size,
         ICanvas* canvas = nullptr,

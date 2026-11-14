@@ -2,16 +2,15 @@
 
 #include <cstdint>
 #include <initializer_list>
-#include <optional>
-#include <span>
-#include <source_location>
-#include <string_view>
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
 #include "guikit/graphics/icon.hpp"
+#include "keel/core.h"
+#include "keel/optional.h"
+#include "keel/ref.h"
 
 namespace guikit {
 
@@ -42,13 +41,13 @@ struct SidebarMenuOptions {
     SidebarMenuStyle style{SidebarMenuStyle::Pill};
     bool collapsed{false};                          ///< Compact icon-only rail mode (hides text, badges, and section titles)
     StateColor color{};                             ///< Default highlight color for active items (Default = theme Primary)
-    std::optional<float> gap{4.0f};                 ///< Vertical gap between consecutive menu items
+    keel::Optional<float> gap{4.0f};                ///< Vertical gap between consecutive menu items
     float sectionGap{8.0f};                         ///< Extra top spacing before a non-first Section header
-    std::optional<float> width{std::nullopt};       ///< Optional explicit menu width (nullopt = Fit/Stretch to container)
+    keel::Optional<float> width{keel::kNullOpt};    ///< Optional explicit menu width (nullopt = Fit/Stretch to container)
     Border border{};                                ///< Optional item border / corner rounding radius override
     bool disabled{false};
     const UiTheme* theme{nullptr};
-    std::optional<float> scale{std::nullopt};
+    keel::Optional<float> scale{keel::kNullOpt};
 };
 
 /// Internal runtime payload allocated in frame arena for SidebarItem leaf nodes.
@@ -67,13 +66,13 @@ public:
     void Section(
         UiText title,
         bool separator = true,
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Adds a clickable navigation item and returns its interaction Response.
     Response Item(
         const SidebarMenuItem& item,
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Adds a navigation item bound to a state variable (enum, int, size_t, etc.), updating it on click.
@@ -82,7 +81,7 @@ public:
         T& selectedValue,
         T itemValue,
         SidebarMenuItem item,
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         item.active = (selectedValue == itemValue);
         Response res = Item(item, loc);
@@ -95,10 +94,10 @@ public:
     }
 
     /// Adds a horizontal separator line between menu groups.
-    void Separator(std::source_location loc = std::source_location::current());
+    void Separator(keel::SourceLocation loc = keel::SourceLocation::current());
 
     /// Adds a vertical expanding spacer pushing subsequent items to the bottom of the menu.
-    void Spacer(float flex = 1.0f, std::source_location loc = std::source_location::current());
+    void Spacer(float flex = 1.0f, keel::SourceLocation loc = keel::SourceLocation::current());
 
 private:
     void InvalidateContext() noexcept;
@@ -112,16 +111,16 @@ public:
     [[nodiscard]] static SidebarMenuScope Open(
         Context& ctx,
         const SidebarMenuOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Primary immediate-mode span entry point (renders all items and updates activeIndex on selection).
     static Response Run(
         Context& ctx,
         int& activeIndex,
-        std::span<const SidebarMenuItem> items,
+        keel::ArrayRef<SidebarMenuItem> items,
         const SidebarMenuOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Renders a single standalone SidebarMenuItem inside the current container.
@@ -129,7 +128,7 @@ public:
         Context& ctx,
         const SidebarMenuItem& item,
         const SidebarMenuOptions& menuOpts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Measures intrinsic dimensions of a single sidebar menu item.

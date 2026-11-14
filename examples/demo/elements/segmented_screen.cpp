@@ -1,5 +1,4 @@
 #include "../demo_context.hpp"
-#include <format>
 
 namespace guikit::demo {
 
@@ -40,7 +39,7 @@ void RenderSegmentedInspector(guikit::Context& ui, DemoContext&) {
         }
     }
 
-    static constexpr std::array<std::string_view, 4> placeNames = {"Leading", "Trailing", "Top", "Bottom"};
+    static constexpr keel::StaticArray<keel::StringRef, 4> placeNames = {"Leading", "Trailing", "Top", "Bottom"};
     size_t placeIdx = static_cast<size_t>(s_state.iconPlacement);
     if (placeIdx > 3) placeIdx = 0;
     if (auto el = ui.Element({
@@ -74,7 +73,7 @@ void RenderSegmentedInspector(guikit::Context& ui, DemoContext&) {
 }
 
 void RenderSegmentedStage(guikit::Context& ui, DemoContext& ctx) {
-    const std::array<guikit::SegmentedItem, 4> items = {{
+    const keel::StaticArray<guikit::SegmentedItem, 4> items = {{
         {
             .text = s_state.showText ? "Sine" : "",
             .icon = s_state.showIcons ? guikit::Icon::Refresh() : guikit::Icon{},
@@ -135,14 +134,14 @@ void RenderSegmentedStage(guikit::Context& ui, DemoContext& ctx) {
     }
 }
 
-std::string GenerateSegmentedCode(const DemoContext& ctx) {
-    const std::string fnName = s_state.multiSelect ? "SegmentedMask" : "Segmented";
-    const std::string varName = s_state.multiSelect ? "activeMask" : "selectedMode";
-    const std::string colorCode = (ctx.btnVariant == guikit::UiVariant::Default)
-        ? "guikit::StateColor::Default()"
+keel::String GenerateSegmentedCode(const DemoContext& ctx) {
+    const keel::StringRef fnName = s_state.multiSelect ? "SegmentedMask" : "Segmented";
+    const keel::StringRef varName = s_state.multiSelect ? "activeMask" : "selectedMode";
+    const keel::FixedString<64> colorCode = (ctx.btnVariant == guikit::UiVariant::Default)
+        ? keel::FixedString<64>("guikit::StateColor::Default()")
         : ctx.FormatControlColorCode();
 
-    return std::format(
+    return keel::format(
         "if (auto el = ui.{}Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"

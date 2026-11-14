@@ -1,13 +1,12 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
-#include <optional>
-#include <string>
-#include <string_view>
-#include <vector>
 #include "guikit/core/theme.hpp"
 #include "guikit/core/types.hpp"
 #include "guikit/graphics/icon.hpp"
+#include "keel/optional.h"
+#include "keel/string.h"
 
 namespace guikit {
 
@@ -45,17 +44,17 @@ struct ToastHostOptions {
     bool pauseOnHover{true};
     bool confineToParent{false}; ///< Anchor inside current container bounds instead of full viewport
     const UiTheme* theme{nullptr};
-    std::optional<float> scale{std::nullopt};
+    keel::Optional<float> scale{keel::kNullOpt};
 };
 
 /// Active runtime state of a single queued Toast notification.
 struct ToastEntry {
     uint64_t id{0};
-    std::string title{};
-    std::string message{};
+    keel::String title{};
+    keel::String message{};
     TextWrap titleWrap{};
     TextWrap messageWrap{};
-    std::string iconPath{};
+    keel::String iconPath{};
     UiVariant variant{UiVariant::Info};
     Icon icon{};
     float duration{4.0f};

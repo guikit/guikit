@@ -1,8 +1,7 @@
 #include "guikit/panels/context_menu.hpp"
-#include <algorithm>
 #include <cmath>
-#include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/context.hpp"
 #include "guikit/core/text_util.hpp"
 #include "keel/small_array.h"
 
@@ -22,11 +21,11 @@ struct ContextMenuPersistState {
 ContextMenuResponse ContextMenu::Run(
     Context& ctx,
     bool* externalOpen,
-    std::optional<Vec2> explicitAnchorPos,
+    keel::Optional<Vec2> explicitAnchorPos,
     Rect triggerRect,
-    std::span<const ContextMenuItem> items,
+    keel::ArrayRef<ContextMenuItem> items,
     const ContextMenuOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
@@ -68,7 +67,7 @@ ContextMenuResponse ContextMenu::Run(
     ICanvas* canvas = ctx.GetCanvas();
     const float s = (theme.scale > 0.0f) ? theme.scale : activeScale;
     const ComponentMetrics& cm = theme.GetMetrics(activeSize);
-    const float rowH = std::round(std::max(32.0f * s, cm.defaultHeight * 0.9f));
+    const float rowH = std::round(keel::max(32.0f * s, cm.defaultHeight * 0.9f));
     const float sepH = std::round(9.0f * s);
     const float padX = std::round(12.0f * s);
     const float padY = std::round(6.0f * s);
@@ -106,12 +105,12 @@ ContextMenuResponse ContextMenu::Run(
             : (shortcutGap + TextUtil::MeasureUiTextWidth(item.shortcut, shortcutFont, canvas));
         const float leadW = anyLeadingSlot ? iconSlotW : 0.0f;
         const float trailW = anyTrailingCheck ? iconSlotW : 0.0f;
-        maxContentW = std::max(maxContentW, leadW + lw + sw + trailW);
+        maxContentW = keel::max(maxContentW, leadW + lw + sw + trailW);
     }
 
     float menuW = maxContentW + padX * 2.0f + 8.0f * s;
     if (opts.minWidth.has_value()) {
-        menuW = std::max(menuW, theme.Scale(*opts.minWidth));
+        menuW = keel::max(menuW, theme.Scale(*opts.minWidth));
     }
     if (opts.width.has_value() && *opts.width > 0.0f) {
         menuW = theme.Scale(*opts.width);
@@ -130,7 +129,7 @@ ContextMenuResponse ContextMenu::Run(
             }
         }
         if (vp.w > 0.0f) {
-            x = std::clamp(x, vp.x + 6.0f, std::max(vp.x + 6.0f, vp.Right() - menuW - 6.0f));
+            x = keel::clamp(x, vp.x + 6.0f, keel::max(vp.x + 6.0f, vp.Right() - menuW - 6.0f));
         }
         if (vp.h > 0.0f && y + menuH > vp.Bottom() - 6.0f) {
             if (fromTriggerBox && triggerRect.h > 0.0f && triggerRect.y - menuH - 4.0f >= vp.y + 6.0f) {
@@ -140,7 +139,7 @@ ContextMenuResponse ContextMenu::Run(
             }
         }
         if (vp.h > 0.0f) {
-            y = std::clamp(y, vp.y + 6.0f, std::max(vp.y + 6.0f, vp.Bottom() - menuH - 6.0f));
+            y = keel::clamp(y, vp.y + 6.0f, keel::max(vp.y + 6.0f, vp.Bottom() - menuH - 6.0f));
         }
         return Rect(std::round(x), std::round(y), std::round(menuW), std::round(menuH));
     };
@@ -156,7 +155,7 @@ ContextMenuResponse ContextMenu::Run(
                     ? Vec2{triggerRect.x, triggerRect.Bottom() + 4.0f}
                     : mouse
             );
-            const Rect popupRect = clampMenuRect(state.anchorPos, explicitAnchorPos == std::nullopt && triggerRect.h > 0.0f);
+            const Rect popupRect = clampMenuRect(state.anchorPos, explicitAnchorPos == keel::kNullOpt && triggerRect.h > 0.0f);
             ctx.OpenPopup(id, popupRect);
             state.keyboardIndex = -1;
             isOpen = true;
@@ -363,8 +362,8 @@ ContextMenuResponse ContextMenu::Run(
 
     // Copy items into an arena snapshot slice for the deferred overlay draw pass
     struct OverlayItemData {
-        std::string_view label;
-        std::string_view shortcut;
+        keel::StringRef label;
+        keel::StringRef shortcut;
         Icon icon;
         UiVariant variant;
         bool checked;
@@ -395,11 +394,11 @@ ContextMenuResponse ContextMenu::Run(
             .sepY = r.sepY
         };
     }
-    const std::span<const OverlayItemData> drawItems(arenaDrawItems, rows.size());
+    const keel::ArrayRef<OverlayItemData> drawItems(arenaDrawItems, rows.size());
 
     const float radius = opts.border.radius.has_value()
         ? theme.Scale(*opts.border.radius)
-        : theme.ResolveRadius(std::nullopt, activeSize);
+        : theme.ResolveRadius(keel::kNullOpt, activeSize);
 
     ctx.SetOpenPopupVisualHash(detail::HashArgs(
         popupRect.x,
@@ -451,9 +450,9 @@ ContextMenuResponse ContextMenu::Run(
                     const Color hovBg = isDanger
                         ? dangerCol.WithAlphaF(theme.mode == ThemeMode::Dark ? 0.22f : 0.14f)
                         : (it.checked && iconWithCheck ? pal.surfaceActive : pal.surfaceHover);
-                    c.DrawRoundRect(it.rect, std::max(4.0f * s, radius - 2.0f * s), hovBg, Color::Transparent(), 0.0f);
+                    c.DrawRoundRect(it.rect, keel::max(4.0f * s, radius - 2.0f * s), hovBg, Color::Transparent(), 0.0f);
                 } else if (it.checked && iconWithCheck) {
-                    c.DrawRoundRect(it.rect, std::max(4.0f * s, radius - 2.0f * s), pal.surfaceHover, Color::Transparent(), 0.0f);
+                    c.DrawRoundRect(it.rect, keel::max(4.0f * s, radius - 2.0f * s), pal.surfaceHover, Color::Transparent(), 0.0f);
                 }
 
                 Color fg = isDanger ? dangerCol : (it.checked && iconWithCheck ? pal.accent : pal.textPrimary);
@@ -493,7 +492,7 @@ ContextMenuResponse ContextMenu::Run(
                     }
                     rightPad -= iconSlotW;
                 }
-                float availW = std::max(10.0f, rightPad - textX);
+                float availW = keel::max(10.0f, rightPad - textX);
 
                 if (!it.shortcut.empty()) {
                     const float sw = c.MeasureText(it.shortcut, shortcutFont).x;
@@ -505,7 +504,7 @@ ContextMenuResponse ContextMenu::Run(
                         1.0f,
                         0.5f
                     );
-                    availW = std::max(10.0f, rightPad - sw - 12.0f * s - textX);
+                    availW = keel::max(10.0f, rightPad - sw - 12.0f * s - textX);
                 }
 
                 c.DrawTextBox(
@@ -520,7 +519,7 @@ ContextMenuResponse ContextMenu::Run(
 
             if (it.separatorBelow) {
                 c.DrawRect(
-                    Rect(popupRect.x + 6.0f * s, it.sepY, std::max(0.0f, popupRect.w - 12.0f * s), 1.0f),
+                    Rect(popupRect.x + 6.0f * s, it.sepY, keel::max(0.0f, popupRect.w - 12.0f * s), 1.0f),
                     pal.borderSubtle
                 );
             }

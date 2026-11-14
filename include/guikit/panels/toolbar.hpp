@@ -1,10 +1,5 @@
 #pragma once
 
-#include <initializer_list>
-#include <optional>
-#include <span>
-#include <source_location>
-#include <string_view>
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -12,6 +7,9 @@
 #include "guikit/core/types.hpp"
 #include "guikit/graphics/icon.hpp"
 #include "guikit/panels/context_menu.hpp"
+#include "keel/core.h"
+#include "keel/optional.h"
+#include "keel/ref.h"
 
 namespace guikit {
 
@@ -43,12 +41,12 @@ struct ToolButtonOptions {
     Placement iconPlacement{Placement::Leading};
     Align align{Align::Center};                 ///< Content horizontal alignment (Start = left, Center, End = right)
     StretchMode stretch{StretchMode::Compact};  ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};   ///< Explicit capsule width in pixels
-    std::optional<float> minWidth{std::nullopt};///< Minimum capsule width in pixels
+    keel::Optional<float> width{keel::kNullOpt};   ///< Explicit capsule width in pixels
+    keel::Optional<float> minWidth{keel::kNullOpt};///< Minimum capsule width in pixels
     bool disabled{false};
     bool active{false};                         ///< Toggle active/selected highlight state
     bool square{false};                         ///< Force square (defaultHeight x defaultHeight) button geometry
-    std::optional<Color> iconColor{std::nullopt}; ///< Optional custom icon tint override
+    keel::Optional<Color> iconColor{keel::kNullOpt}; ///< Optional custom icon tint override
     UiText badge{};                             ///< Optional compact corner/trailing badge counter
 };
 
@@ -65,15 +63,15 @@ struct ToolbarOptions {
     ToolbarStyle style{ToolbarStyle::Surface};              ///< Surface (default), Header (flush), or Floating (compact island)
     Orientation orientation{Orientation::Horizontal};       ///< Horizontal bar or Vertical tool palette
     ToolbarOverflow overflow{ToolbarOverflow::AutoCompact}; ///< Overflow behavior when tools exceed horizontal space
-    std::optional<float> gap{std::nullopt};                 ///< Gap between toolbar items (nullopt = inherit size)
-    std::optional<Padding> padding{std::nullopt};       ///< Internal toolbar padding token or explicit insets
+    keel::Optional<float> gap{keel::kNullOpt};                 ///< Gap between toolbar items (nullopt = inherit size)
+    keel::Optional<Padding> padding{keel::kNullOpt};       ///< Internal toolbar padding token or explicit insets
     StateColor background{};
     Border border{};
     bool disabled{false};
     const UiTheme* theme{nullptr};
-    std::optional<float> scale{std::nullopt};
-    std::optional<bool> debugBounds{std::nullopt};
-    std::optional<bool> inspectMode{std::nullopt};
+    keel::Optional<float> scale{keel::kNullOpt};
+    keel::Optional<bool> debugBounds{keel::kNullOpt};
+    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// RAII scope for Toolbar container.
@@ -86,33 +84,33 @@ public:
         : ContainerScope(ctx, node), response(res), m_opts(opts) {}
 
     /// Adds a separator line between tool groups (vertical in Horizontal toolbars, horizontal in Vertical toolbars).
-    void Separator(float heightRatio = 0.55f, std::source_location loc = std::source_location::current());
+    void Separator(float heightRatio = 0.55f, keel::SourceLocation loc = keel::SourceLocation::current());
 
     /// Adds an elastic spacer pushing subsequent tools to the far end of the toolbar.
-    void Spacer(std::source_location loc = std::source_location::current());
+    void Spacer(keel::SourceLocation loc = keel::SourceLocation::current());
 
     /// Adds a fixed non-stretching gap in logical dp along the toolbar's main axis.
-    void Gap(float sizeDp = 8.0f, std::source_location loc = std::source_location::current());
+    void Gap(float sizeDp = 8.0f, keel::SourceLocation loc = keel::SourceLocation::current());
 
     /// Adds a compact tool button with icon and optional label.
     Response ToolButton(
         ToolButtonOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Alias for ToolButton representing a stateless command action.
     Response Action(
         ToolButtonOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return ToolButton(std::move(opts), loc);
+        return ToolButton(keel::move(opts), loc);
     }
 
     /// Adds a stateful toggle button bound to `active`, highlighting when active and flipping `active` on click.
     Response Toggle(
         bool& active,
         ToolButtonOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Adds a mutually exclusive tool selector bound to `selectedValue` (enum, int, size_t).
@@ -121,7 +119,7 @@ public:
         T& selectedValue,
         T itemValue,
         ToolButtonOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         const bool isSelected = (selectedValue == itemValue);
         opts.active = isSelected;
@@ -130,7 +128,7 @@ public:
         } else if (!isSelected) {
             opts.color = StateColor::Ghost();
         }
-        Response res = ToolButton(std::move(opts), loc);
+        Response res = ToolButton(keel::move(opts), loc);
         if (res.clicked && !isSelected) {
             selectedValue = itemValue;
             res.changed = true;
@@ -142,139 +140,73 @@ public:
     /// Adds a dropdown tool button that opens a floating ContextMenu on click.
     ContextMenuResponse Dropdown(
         ToolButtonOptions opts,
-        std::span<const ContextMenuItem> menuItems,
+        keel::ArrayRef<ContextMenuItem> menuItems,
         ContextMenuOptions menuOpts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
-
-    ContextMenuResponse Dropdown(
-        ToolButtonOptions opts,
-        std::initializer_list<ContextMenuItem> menuItems,
-        ContextMenuOptions menuOpts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return Dropdown(
-            std::move(opts),
-            std::span<const ContextMenuItem>(menuItems.begin(), menuItems.size()),
-            std::move(menuOpts),
-            loc
-        );
-    }
 
     /// Adds a split tool button: left zone triggers the primary action, right chevron opens a ContextMenu.
     SplitButtonResponse SplitButton(
         ToolButtonOptions opts,
-        std::span<const ContextMenuItem> menuItems,
+        keel::ArrayRef<ContextMenuItem> menuItems,
         ContextMenuOptions menuOpts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
-
-    SplitButtonResponse SplitButton(
-        ToolButtonOptions opts,
-        std::initializer_list<ContextMenuItem> menuItems,
-        ContextMenuOptions menuOpts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return SplitButton(
-            std::move(opts),
-            std::span<const ContextMenuItem>(menuItems.begin(), menuItems.size()),
-            std::move(menuOpts),
-            loc
-        );
-    }
 
     /// Adds a split toggle button: left zone toggles `active`, right chevron selects `selectedIndex` from `items`.
     SplitButtonResponse SplitToggle(
         bool& active,
         int& selectedIndex,
-        std::span<const std::string_view> items,
+        keel::ArrayRef<keel::StringRef> items,
         ToolButtonOptions opts = {},
         ContextMenuOptions menuOpts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     template <IndexLike IndexT>
-        requires(!std::is_same_v<std::remove_cv_t<IndexT>, int>)
+        requires(!keel::IsSame<keel::RemoveCv<IndexT>, int>)
     SplitButtonResponse SplitToggle(
         bool& active,
         IndexT& selectedIndex,
-        std::span<const std::string_view> items,
+        keel::ArrayRef<keel::StringRef> items,
         ToolButtonOptions opts = {},
         ContextMenuOptions menuOpts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         int raw = static_cast<int>(selectedIndex);
-        const SplitButtonResponse r = SplitToggle(active, raw, items, std::move(opts), std::move(menuOpts), loc);
+        const SplitButtonResponse r = SplitToggle(active, raw, items, keel::move(opts), keel::move(menuOpts), loc);
         if (r.selectionChanged && raw >= 0) {
             selectedIndex = static_cast<IndexT>(raw);
         }
         return r;
-    }
-
-    template <IndexLike IndexT>
-    SplitButtonResponse SplitToggle(
-        bool& active,
-        IndexT& selectedIndex,
-        std::initializer_list<std::string_view> items,
-        ToolButtonOptions opts = {},
-        ContextMenuOptions menuOpts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return SplitToggle(
-            active,
-            selectedIndex,
-            std::span<const std::string_view>(items.begin(), items.size()),
-            std::move(opts),
-            std::move(menuOpts),
-            loc
-        );
     }
 
     /// Adds a split toggle button with rich ContextMenuItem entries (supporting icons, shortcuts, disabled items).
     SplitButtonResponse SplitToggle(
         bool& active,
         int& selectedIndex,
-        std::span<const ContextMenuItem> items,
+        keel::ArrayRef<ContextMenuItem> items,
         ToolButtonOptions opts = {},
         ContextMenuOptions menuOpts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     template <IndexLike IndexT>
-        requires(!std::is_same_v<std::remove_cv_t<IndexT>, int>)
+        requires(!keel::IsSame<keel::RemoveCv<IndexT>, int>)
     SplitButtonResponse SplitToggle(
         bool& active,
         IndexT& selectedIndex,
-        std::span<const ContextMenuItem> items,
+        keel::ArrayRef<ContextMenuItem> items,
         ToolButtonOptions opts = {},
         ContextMenuOptions menuOpts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         int raw = static_cast<int>(selectedIndex);
-        const SplitButtonResponse r = SplitToggle(active, raw, items, std::move(opts), std::move(menuOpts), loc);
+        const SplitButtonResponse r = SplitToggle(active, raw, items, keel::move(opts), keel::move(menuOpts), loc);
         if (r.selectionChanged && raw >= 0) {
             selectedIndex = static_cast<IndexT>(raw);
         }
         return r;
-    }
-
-    template <IndexLike IndexT>
-    SplitButtonResponse SplitToggle(
-        bool& active,
-        IndexT& selectedIndex,
-        std::initializer_list<ContextMenuItem> items,
-        ToolButtonOptions opts = {},
-        ContextMenuOptions menuOpts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return SplitToggle(
-            active,
-            selectedIndex,
-            std::span<const ContextMenuItem>(items.begin(), items.size()),
-            std::move(opts),
-            std::move(menuOpts),
-            loc
-        );
     }
 
     /// Direct access to underlying Context.
@@ -292,21 +224,21 @@ public:
     [[nodiscard]] static ToolbarScope Open(
         Context& ctx,
         ToolbarOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     static Response ToolButton(
         Context& ctx,
         const ToolButtonOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     static SplitButtonResponse SplitButton(
         Context& ctx,
         const ToolButtonOptions& opts,
-        std::span<const ContextMenuItem> menuItems,
+        keel::ArrayRef<ContextMenuItem> menuItems,
         ContextMenuOptions menuOpts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     static void RenderSeparator(

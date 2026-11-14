@@ -1,29 +1,34 @@
-#include <iostream>
-#include <vector>
-#include "guikit/context.hpp"
-#include "guikit/core/assets.hpp"
-#include "guikit/core/rich_text.hpp"
-#include "guikit/core/text_util.hpp"
-#include "guikit/core/theme.hpp"
-#include <SDL3/SDL.h>
+#include "guikit/guikit.hpp"
+
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include "guikit/backend/sdl_canvas.hpp"
 #include "guikit/backend/sdl_gl_shader_engine.hpp"
 #include "guikit/backend/sdl_window_backend.hpp"
 #include "guikit/backend/thor_canvas.hpp"
+#include "guikit/core/assets.hpp"
+#include "guikit/core/rich_text.hpp"
+#include "guikit/core/text_util.hpp"
 #if GUIKIT_HAS_SCENES
 #include "guikit/geo/geo_json_io.hpp"
 #include "guikit/geo/gis_render_engine.hpp"
+#if __has_include("keel/http.h")
 #include "keel/http.h"
 #endif
-#include "thorvg.h"
+#endif
+#include "keel/keel.h"
+#if __has_include(<SDL3/SDL.h>)
+#include <SDL3/SDL.h>
+#endif
 
 static int g_failures = 0;
 
 #define CHECK(cond)                                                                  \
     do {                                                                             \
         if (!(cond)) {                                                               \
-            std::cerr << "[FAIL] " << #cond << " (" << __FILE__ << ":" << __LINE__   \
-                      << ")\n";                                                      \
+            keel::eprintln("[FAIL] {} ({}:{})", #cond, __FILE__, __LINE__);          \
             ++g_failures;                                                            \
         }                                                                            \
     } while (0)
@@ -31,9 +36,8 @@ static int g_failures = 0;
 #define CHECK_NEAR(a, b, eps)                                                        \
     do {                                                                             \
         if (std::abs((a) - (b)) > (eps)) {                                           \
-            std::cerr << "[FAIL] " << #a << " (" << (a) << ") != " << #b            \
-                      << " (" << (b) << ") [" << __FILE__ << ":" << __LINE__        \
-                      << "]\n";                                                      \
+            keel::eprintln("[FAIL] {} ({}) != {} ({}) [{}:{}]",                      \
+                           #a, (a), #b, (b), __FILE__, __LINE__);                    \
             ++g_failures;                                                            \
         }                                                                            \
     } while (0)
@@ -46,7 +50,7 @@ void TestImmediateApiWorkflow() {
 
     const uint32_t width = 800;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     WidgetResponse b1;
@@ -105,7 +109,7 @@ void TestThorCanvasTextRendering() {
     ThorCanvas canvas;
     const uint32_t width = 200;
     const uint32_t height = 100;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     bool fontOk = canvas.LoadFontFile("assets/fonts/Roboto-Regular.ttf");
@@ -114,20 +118,10 @@ void TestThorCanvasTextRendering() {
     const Vec2 lenaSize = canvas.GetImageSize("assets/images/lena.png");
     CHECK(lenaSize.x > 0.0f && lenaSize.y > 0.0f);
 
-    std::fill(pixels.begin(), pixels.end(), 0);
+    std::memset(pixels.data(), 0, pixels.size() * sizeof(uint32_t));
     canvas.Begin(width, height);
-
-    // Direct ThorVG test with layout box:
-    auto txtBox = tvg::Text::gen();
-    txtBox->text("Overview");
-    txtBox->font(nullptr);
-    txtBox->size(14.0f);
-    txtBox->layout(120.0f, 36.0f);
-    txtBox->align(0.5f, 0.5f);
-    txtBox->translate(10.0f, 10.0f);
-    txtBox->fill(255, 255, 255);
-    // Add to canvas directly or via ThorCanvas
-    // We can test this!
+    canvas.DrawTextBox("Overview", Rect(10.0f, 10.0f, 120.0f, 36.0f), 14.0f, Color(255, 255, 255), 0.5f, 0.5f);
+    canvas.End();
 
     int minY = 999, maxY = -1, minX = 999, maxX = -1;
     for (uint32_t y = 0; y < height; ++y) {
@@ -140,9 +134,8 @@ void TestThorCanvasTextRendering() {
             }
         }
     }
-    std::cout << "[PIXEL BOUNDS] pos=(10, 10), fontSize=24 -> X=[" << minX << ".." << maxX 
-              << "], Y=[" << minY << ".." << maxY << "], width=" << (maxX - minX + 1)
-              << ", height=" << (maxY - minY + 1) << "\n";
+    keel::println("[PIXEL BOUNDS] pos=(10, 10), fontSize=24 -> X=[{}..{}], Y=[{}..{}], width={}, height={}",
+                  minX, maxX, minY, maxY, maxX - minX + 1, maxY - minY + 1);
     CHECK(minX >= 0 && minY >= 0);
 }
 
@@ -152,7 +145,7 @@ void TestHeaderRowTextMetricsAndNoOverlap() {
     ThorCanvas canvas;
     const uint32_t width = 800;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     // Accurate text advance verification
@@ -199,7 +192,7 @@ void TestFooterExitButtonStaysVisibleInNarrowWindow() {
     ThorCanvas canvas;
     const uint32_t width = 500;
     const uint32_t height = 400;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     WidgetResponse exitBtn;
@@ -250,7 +243,7 @@ void TestWrapContainerInContextApi() {
 
     const uint32_t width = 300;
     const uint32_t height = 400;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     WidgetResponse b1;
@@ -305,7 +298,7 @@ void TestFooterExitButtonPushedToBottomWithCardAndWrap() {
     ThorCanvas canvas;
     const uint32_t width = 800;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     WidgetResponse exitBtn;
@@ -383,7 +376,7 @@ void TestUiTokensAndIconFactories() {
     ThorCanvas canvas;
     const uint32_t width = 100;
     const uint32_t height = 100;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
     canvas.Begin(width, height);
     icPlay.Draw(canvas, Rect(10.0f, 10.0f, 24.0f, 24.0f), Color::Hex(0xFFFFFFFF));
@@ -398,7 +391,7 @@ void TestTwoLevelDisabledWorkflow() {
     ThorCanvas canvas;
     const uint32_t width = 400;
     const uint32_t height = 200;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     WidgetResponse btnEnabled;
@@ -465,7 +458,7 @@ void TestBoxSlotWithUiSizeToken() {
     ThorCanvas canvas;
     const uint32_t width = 400;
     const uint32_t height = 200;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     WidgetResponse btnLarge;
@@ -505,7 +498,7 @@ void TestButtonWidgetRunAndResponseChaining() {
     ThorCanvas canvas;
     const uint32_t width = 400;
     const uint32_t height = 200;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     ButtonResponse btn1;
@@ -577,7 +570,7 @@ void TestUiStringAndContextFormatting() {
     ThorCanvas canvas;
     const uint32_t width = 400;
     const uint32_t height = 200;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
@@ -585,16 +578,16 @@ void TestUiStringAndContextFormatting() {
         ui.Text(ui.Format("Value: {}", 99));
         ui.Button({.text = ui.String("Action")});
 
-        // Verify temporary ui.Format / ui.String converted to std::string_view points into frame arena (not stack)
+        // Verify temporary ui.Format / ui.String returned keel::StringRef points into frame arena (not stack)
         // and does not truncate strings > 64 or > 128 bytes.
-        std::string_view persistedView = std::string_view(ui.Format(
+        keel::StringRef persistedView = ui.Format(
             "Long UTF-8 summary string exceeding 128 bytes: [0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-0123456789abcdef] {:g} %",
-            0.1 * 0.2));
+            0.1 * 0.2);
         CHECK(persistedView.size() > 130);
         CHECK(persistedView.ends_with(" 0.02 %"));
 
         // Verify temporary Icon::File paths are arena-copied via AllocIcon across widgets before EndFrame
-        std::string tempIconPath = "assets/icons/custom_dynamic.svg";
+        keel::String tempIconPath("assets/icons/custom_dynamic.svg");
         Icon arenaIcon = ui.AllocIcon(Icon::File(tempIconPath));
         int segIdx = 0;
         const SegmentedItem segItems[] = {
@@ -613,7 +606,7 @@ void TestUiStringAndContextFormatting() {
         };
         ui.CommandPalette(paletteOpen, cmdItems);
         // Clobber stack buffer before EndFrame to catch any dangling string_view
-        std::fill(tempIconPath.begin(), tempIconPath.end(), 'X');
+        std::memset(tempIconPath.data(), 'X', tempIconPath.size());
         CHECK(arenaIcon.GetPath() == "assets/icons/custom_dynamic.svg");
     }
     ui.EndFrame(canvas);
@@ -632,7 +625,7 @@ void TestBoxContainerGapSpacing() {
     ThorCanvas canvas;
     const uint32_t width = 400;
     const uint32_t height = 300;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     WidgetResponse b1;
@@ -686,7 +679,7 @@ void TestAutonomousTextWidgetAndTypographyRoles() {
     ThorCanvas canvas;
     const uint32_t width = 800;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     Response rDisp;
@@ -802,7 +795,7 @@ void TestSwitchAndCheckboxWidgets() {
     ThorCanvas canvas;
     const uint32_t width = 500;
     const uint32_t height = 400;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     bool switchState = false;
@@ -1007,12 +1000,12 @@ void TestInputFieldWidget() {
 
     const uint32_t width = 600;
     const uint32_t height = 500;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     float speedDrop = 50.0f;
     int count = 42;
-    std::string sampleName = "Specimen-A";
+    keel::String sampleName("Specimen-A");
     float optInputVal = 12.3f;
 
     Response rSpeed;
@@ -1261,7 +1254,7 @@ void TestInputFieldWidget() {
     CHECK(selE == 8); // "Specimen"
 
     // 4e. UTF-8 Cyrillic editing & word navigation
-    sampleName = "Привет мир";
+    sampleName.assign("Привет мир");
     ui.ClearFocus();
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderUI();
@@ -1291,7 +1284,7 @@ void TestInputFieldWidget() {
     CHECK(sampleName == "Привет ");
 
     // Restore sampleName to "Specimen-A-X"
-    sampleName = "Specimen-A-X";
+    sampleName.assign("Specimen-A-X");
 
     // 5. Click outside (e.g. at 5, 5 in padding) to blur focus
     ui.OnMouseMove({5.0f, 5.0f});
@@ -1317,12 +1310,12 @@ void TestSelectWidget() {
 
     const uint32_t width = 800;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     size_t baudIndex = 1; // "19200"
     int modeIndex = 0;   // "Auto"
-    std::string profile = "Standard";
+    keel::String profile("Standard");
     bool disabledMode = false;
 
     WidgetResponse rBaud;
@@ -1643,13 +1636,13 @@ void TestGridAndCardLayout() {
     ThorCanvas canvas;
     const uint32_t width = 800;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     bool switchVal1 = false;
     bool switchVal2 = true;
     float speedVal = 120.0f;
-    std::string nameVal = "Axis-1";
+    keel::String nameVal("Axis-1");
 
     WidgetResponse sw1Res;
     WidgetResponse sw2Res;
@@ -1755,7 +1748,7 @@ void TestScrollAreaImmediateMode() {
     ThorCanvas canvas;
     const uint32_t width = 800;
     const uint32_t height = 400;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     WidgetResponse btn1Res;
@@ -1848,7 +1841,7 @@ void TestScrollAreaImmediateMode() {
     // Regression test: ScrollArea containing a single tall Markdown widget
     // Verify both mouse wheel and scrollbar thumb drag produce dirty damage and update child position immediately
     {
-        static constexpr std::string_view kTallMd =
+        static constexpr keel::StringRef kTallMd =
             "# Section 1\n\nParagraph 1.\n\n"
             "## Section 2\n\nParagraph 2.\n\n"
             "## Section 3\n\nParagraph 3.\n\n"
@@ -1891,8 +1884,8 @@ void TestScrollAreaImmediateMode() {
         const float sbX = 600.0f - sm.margin - sm.trackWidth * 0.5f;
         const float trackLen = 220.0f - 2.0f * sm.margin;
         const float maxScroll = scrollNode->scrollContentSize.y - 220.0f;
-        const float thumbLen = std::clamp((220.0f / scrollNode->scrollContentSize.y) * trackLen, sm.minThumbLength, trackLen);
-        const float travel = std::max(0.0f, trackLen - thumbLen);
+        const float thumbLen = keel::clamp((220.0f / scrollNode->scrollContentSize.y) * trackLen, sm.minThumbLength, trackLen);
+        const float travel = keel::max(0.0f, trackLen - thumbLen);
         const float thumbY = sm.margin + (wheelScrollY / maxScroll) * travel + thumbLen * 0.5f;
 
         ui.OnMouseMove({sbX, thumbY});
@@ -1961,12 +1954,12 @@ void TestScrollAreaImmediateMode() {
         CHECK(sawBold);
         CHECK(sawItalic);
 
-        // C. Self-contained textPool in InlineFlowLayout: destroying temporary std::string must never dangle atom slices
-        std::shared_ptr<const InlineFlowLayout> cachedFlow;
+        // C. Self-contained textPool in InlineFlowLayout: destroying temporary keel::String must never dangle atom slices
+        keel::Arc<const InlineFlowLayout> cachedFlow;
         {
-            std::string tempDynamic = std::string("Dynamic ") + "`code_token`" + " and **bold_word**";
+            keel::String tempDynamic("Dynamic `code_token` and **bold_word**");
             cachedFlow = GetOrBuildRichTextFlow(&canvas, tempDynamic, 300.0f, 13.0f, 12.0f, 1.35f, UiTheme::Dark());
-            std::fill(tempDynamic.begin(), tempDynamic.end(), 'X');
+            std::memset(tempDynamic.data(), 'X', tempDynamic.size());
         }
         CHECK(cachedFlow != nullptr);
         if (cachedFlow) {
@@ -1985,15 +1978,15 @@ void TestScrollAreaImmediateMode() {
         struct RichCountingCanvas : public ThorCanvas {
             int layoutMeasureCalls{0};
             bool insideDrawText{false};
-            Vec2 MeasureText(std::string_view text, float fontSize) override {
+            Vec2 MeasureText(keel::StringRef text, float fontSize) override {
                 if (!insideDrawText) ++layoutMeasureCalls;
                 return ThorCanvas::MeasureText(text, fontSize);
             }
-            Vec2 MeasureTextStyled(std::string_view text, float fontSize, FontStyle style) override {
+            Vec2 MeasureTextStyled(keel::StringRef text, float fontSize, FontStyle style) override {
                 if (!insideDrawText) ++layoutMeasureCalls;
                 return ThorCanvas::MeasureTextStyled(text, fontSize, style);
             }
-            void DrawTextStyled(std::string_view text, Vec2 pos, float fontSize, Color color, FontStyle style, float angleDeg = 0.0f) override {
+            void DrawTextStyled(keel::StringRef text, Vec2 pos, float fontSize, Color color, FontStyle style, float angleDeg = 0.0f) override {
                 insideDrawText = true;
                 ThorCanvas::DrawTextStyled(text, pos, fontSize, color, style, angleDeg);
                 insideDrawText = false;
@@ -2001,7 +1994,7 @@ void TestScrollAreaImmediateMode() {
         };
 
         RichCountingCanvas richCanvas;
-        std::vector<uint32_t> richPixels(500 * 300, 0);
+        keel::Array<uint32_t> richPixels(500 * 300);
         richCanvas.SetTarget(richPixels.data(), 500, 300, 500);
 
         Context uiRich;
@@ -2040,7 +2033,7 @@ void TestReactiveEventLoop() {
     using namespace guikit;
     Context ui;
     ThorCanvas canvas;
-    std::vector<uint32_t> pixels(100 * 100, 0);
+    keel::Array<uint32_t> pixels(100 * 100);
     canvas.SetTarget(pixels.data(), 100, 100, 100);
 
     // Initial state: starts with 3 repaint frames to render initial scene
@@ -2130,10 +2123,10 @@ void TestDirtyRectDamageTracking() {
     ThorCanvas canvas;
     const uint32_t width = 800;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
-    auto renderUI = [&](std::string* editVal = nullptr) {
+    auto renderUI = [&](keel::String* editVal = nullptr) {
         if (auto row = ui.Row()) {
             if (auto b = ui.Box({.fixedWidth = 120.0f})) {
                 ui.Button({.text = "Test Button"});
@@ -2179,7 +2172,7 @@ void TestDirtyRectDamageTracking() {
     CHECK(ui.GetDirtyRect().h < 100.0f);
 
     // Frame 4: Caret blink toggles in an InputField
-    std::string text = "Editable";
+    keel::String text("Editable");
     bool shouldFocus = true;
     auto renderInput = [&]() {
         if (auto row = ui.Row()) {
@@ -2307,11 +2300,11 @@ void TestTabBarWidgetWorkflow() {
     ThorCanvas canvas;
     const uint32_t width = 800;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     int activeTab = 0;
-    const std::vector<TabItem> tabs = {
+    const TabItem tabs[] = {
         {.label = "Overview", .icon = Icon::Eye()},
         {.label = "Telemetry", .icon = Icon::Play(), .badge = "Live"},
         {.label = "Disabled", .disabled = true},
@@ -2464,7 +2457,7 @@ void TestToolbarWidgetWorkflow() {
     ThorCanvas canvas;
     const uint32_t width = 800;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     Response btnNew;
@@ -2577,7 +2570,7 @@ void TestToolbarWidgetWorkflow() {
     bool trigActive = false;
     int trigMode = 0;
     SplitButtonResponse splitRes{};
-    static constexpr std::array<std::string_view, 3> kTrigModes = {"Auto", "Normal", "Single"};
+    static constexpr keel::StaticArray<keel::StringRef, 3> kTrigModes = {"Auto", "Normal", "Single"};
 
     auto renderSplitToolbar = [&]() {
         ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
@@ -2652,7 +2645,7 @@ void TestLabelVariantsStableSizing() {
     ThorCanvas canvas;
     const uint32_t width = 800;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     bool state = false;
@@ -2687,15 +2680,15 @@ void TestLabelVariantsStableSizing() {
 
     // Also verify Slider and StepSlider intrinsic width stability across min/max and variants
     {
-        static constexpr std::array<std::string_view, 2> autoPxVars = {"Auto", "%.0f px"};
+        static constexpr keel::StaticArray<keel::StringRef, 2> autoPxVars = {"Auto", "%.0f px"};
         SliderOptions slOpts{.valueFormat = {"Auto", autoPxVars}, .showValue = true, .stretch = StretchMode::Compact};
         const Vec2 szAuto = Slider::Measure(slOpts, 0.0, 0.0, 400.0, UiSize::Md, &canvas, ui.GetTheme());
         slOpts.valueFormat = {"%.0f px", autoPxVars};
         const Vec2 szPx = Slider::Measure(slOpts, 400.0, 0.0, 400.0, UiSize::Md, &canvas, ui.GetTheme());
         CHECK_NEAR(szAuto.x, szPx.x, 0.001f);
 
-        static constexpr std::array<std::string_view, 3> shortSteps = {"A", "B", "C"};
-        static constexpr std::array<std::string_view, 3> fullNames = {"Short", "Medium", "ExtraLongVariantName"};
+        static constexpr keel::StaticArray<keel::StringRef, 3> shortSteps = {"A", "B", "C"};
+        static constexpr keel::StaticArray<keel::StringRef, 3> fullNames = {"Short", "Medium", "ExtraLongVariantName"};
         StepSliderOptions stOpts{
             .stepLabels = shortSteps,
             .showValue = true,
@@ -2708,8 +2701,8 @@ void TestLabelVariantsStableSizing() {
         CHECK_NEAR(st0.x, st2.x, 0.001f);
 
         // Verify InputField Compact auto-width calculation from valueFormat variants (and that placeholder does not affect width)
-        static constexpr std::array<std::string_view, 2> shortNumVars = {"0", "99"};
-        static constexpr std::array<std::string_view, 2> longEndpointVars = {"localhost", "https://production-cluster.guikit.dev:8443"};
+        static constexpr keel::StaticArray<keel::StringRef, 2> shortNumVars = {"0", "99"};
+        static constexpr keel::StaticArray<keel::StringRef, 2> longEndpointVars = {"localhost", "https://production-cluster.guikit.dev:8443"};
         InputFieldOptions inShortOpts{
             .placeholder = "Very long placeholder hint that must not inflate compact box width...",
             .suffix = "%",
@@ -2742,14 +2735,14 @@ void TestContainerSizeInheritanceAndWidgetStretch() {
     ThorCanvas canvas;
     const uint32_t width = 800;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     // 1. Verify container UiSize inheritance across widgets
     Response btnLg, btnSm;
     bool switchVal = false;
     bool checkVal = false;
-    std::string inputVal = "42";
+    keel::String inputVal("42");
     int selectIdx = 0;
     Response swLg, swSm, cbLg, cbSm, inLg, inSm, selLg, selSm;
 
@@ -2862,7 +2855,7 @@ void TestUiStyleAndDensityScaling() {
     ThorCanvas canvas;
     const uint32_t width = 400;
     const uint32_t height = 300;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     WidgetResponse b1, b2;
@@ -2929,7 +2922,7 @@ void TestLeafWidgetSizeOverrides() {
     ThorCanvas canvas;
     const uint32_t width = 800;
     const uint32_t height = 1200;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     WidgetResponse btnInherit, btnXl, btnXs;
@@ -2941,9 +2934,9 @@ void TestLeafWidgetSizeOverrides() {
 
     bool swVal = true;
     bool cbVal = true;
-    std::string inVal = "Test";
+    keel::String inVal("Test");
     size_t selIdx = 0;
-    const std::vector<std::string_view> selItems = {"Option 1", "Option 2"};
+    static constexpr keel::StaticArray<keel::StringRef, 2> selItems = {"Option 1", "Option 2"};
 
     auto render = [&]() {
         // Container has default ambient size (UiSize::Md)
@@ -3104,16 +3097,17 @@ void TestHeadingWidgetWorkflow() {
                 lines.push_back({p1, p2, color, thickness});
                 ThorCanvas::DrawLine(p1, p2, color, thickness);
             }
+            using ThorCanvas::Clear;
             void Clear() {
                 roundRects.clear();
                 lines.clear();
             }
-            std::vector<RoundRectRec> roundRects;
-            std::vector<LineRec> lines;
+            keel::Array<RoundRectRec> roundRects;
+            keel::Array<LineRec> lines;
         };
 
         const UiTheme theme = UiTheme::Dark();
-        std::vector<uint32_t> spyPixels(800 * 200, 0);
+        keel::Array<uint32_t> spyPixels(800 * 200);
         HeadingStrokeSpyCanvas spyCanvas;
         spyCanvas.SetTarget(spyPixels.data(), 800, 200, 800);
 
@@ -3250,12 +3244,12 @@ void TestHeadingWidgetWorkflow() {
     Context ui;
     const int width = 800;
     const int height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     ThorCanvas canvas;
     canvas.SetTarget(pixels.data(), width, height, width);
 
     Response head1, head2, head3, head4;
-    std::string dynamicSubtitle = "Initial Subtitle";
+    keel::String dynamicSubtitle("Initial Subtitle");
     auto renderUI = [&]() {
         if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
             head1 = ui.Heading({.label = "System Overview", .description = dynamicSubtitle});
@@ -3309,7 +3303,7 @@ void TestHeadingWidgetWorkflow() {
     CHECK(!ui.HasDirtyDamage());
 
     // Frame 4: change dynamic subtitle -> dirty damage must trigger and cover r1
-    dynamicSubtitle = "Updated Subtitle with Alert";
+    dynamicSubtitle.assign("Updated Subtitle with Alert");
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderUI();
     ui.EndFrame(canvas);
@@ -3327,7 +3321,7 @@ void TestDpiScalingAndBackendMetadata() {
 
     const uint32_t winWidth = 1200;
     const uint32_t winHeight = 900;
-    std::vector<uint32_t> pixels(winWidth * winHeight, 0);
+    keel::Array<uint32_t> pixels(winWidth * winHeight);
     canvas.SetTarget(pixels.data(), winWidth, winHeight, winWidth);
 
     // Backend metadata check
@@ -3408,14 +3402,14 @@ void TestSdlCanvasBackendInterface() {
 void TestIndustrialDashboardNoBlackLines() {
     using namespace guikit;
 
-    const std::vector<float> testScales = {1.0f, 1.25f, 1.5f, 1.75f, 2.0f};
+    static constexpr keel::StaticArray<float, 5> testScales = {1.0f, 1.25f, 1.5f, 1.75f, 2.0f};
 
     for (float testScale : testScales) {
         Context ui;
         ThorCanvas canvas;
         const uint32_t width = 1000;
         const uint32_t height = 750;
-        std::vector<uint32_t> pixels(width * height, 0);
+        keel::Array<uint32_t> pixels(width * height);
         canvas.SetTarget(pixels.data(), width, height, width);
 
         bool enableSensors = true;
@@ -3446,7 +3440,7 @@ void TestIndustrialDashboardNoBlackLines() {
                     tb.ToolButton({.text = "Theme: Dark"});
                 }
 
-                const std::vector<TabItem> navTabs = {
+                const TabItem navTabs[] = {
                     {.label = "Overview", .icon = Icon::Eye()},
                     {.label = "Flexbox Demo", .icon = Icon::Settings()},
                     {.label = "Industrial Dashboard", .icon = Icon::Folder(), .badge = "Live"}
@@ -3540,10 +3534,10 @@ void TestIndustrialDashboardNoBlackLines() {
         auto checkCardSeams = [&](int frameNum) {
             const float s = testScale;
             // Physical pixel bounds of card interior
-            const uint32_t startY = static_cast<uint32_t>(std::max(0.0f, (cardRect.y + 15.0f) * s));
-            const uint32_t endY = static_cast<uint32_t>(std::min(static_cast<float>(height), (cardRect.Bottom() - 15.0f) * s));
-            const uint32_t startX = static_cast<uint32_t>(std::max(0.0f, (cardRect.x + 15.0f) * s));
-            const uint32_t endX = static_cast<uint32_t>(std::min(static_cast<float>(width), (cardRect.Right() - 15.0f) * s));
+            const uint32_t startY = static_cast<uint32_t>(keel::max(0.0f, (cardRect.y + 15.0f) * s));
+            const uint32_t endY = static_cast<uint32_t>(keel::min(static_cast<float>(height), (cardRect.Bottom() - 15.0f) * s));
+            const uint32_t startX = static_cast<uint32_t>(keel::max(0.0f, (cardRect.x + 15.0f) * s));
+            const uint32_t endX = static_cast<uint32_t>(keel::min(static_cast<float>(width), (cardRect.Right() - 15.0f) * s));
 
             for (uint32_t y = startY; y < endY; ++y) {
                 int clearCount = 0;
@@ -3557,7 +3551,7 @@ void TestIndustrialDashboardNoBlackLines() {
                     }
                 }
                 if (clearCount > 50) {
-                    std::cerr << "[SCALE " << testScale << " FRAME " << frameNum << " DEFECT] Row y=" << y << " has " << clearCount << " clearColor pixels inside card!\n";
+                    keel::eprintln("[SCALE {} FRAME {} DEFECT] Row y={} has {} clearColor pixels inside card!", testScale, frameNum, y, clearCount);
                     CHECK(clearCount <= 50);
                 }
             }
@@ -3595,7 +3589,7 @@ void TestCarouselWidgetAndTabBarOverflow() {
     ThorCanvas canvas;
     const uint32_t width = 300;
     const uint32_t height = 400;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     // 1. Standalone Carousel with buttons
@@ -3687,7 +3681,7 @@ void TestCarouselWidgetAndTabBarOverflow() {
 
     // 2. TabBar with overflow and auto-scroll to active tab
     int activeTab = 0;
-    const std::vector<TabItem> longTabs = {
+    const TabItem longTabs[] = {
         {.label = "General"},
         {.label = "Network"},
         {.label = "Security"},
@@ -3732,7 +3726,7 @@ void TestDebugBoundsAndInspectMode() {
 
     const uint32_t width = 800;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     CHECK(!ui.IsDebugBounds());
@@ -3786,10 +3780,10 @@ void TestPostRenderDelegateWorkflow() {
     ThorCanvas canvas;
     const uint32_t width = 400;
     const uint32_t height = 300;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
-    static std::vector<int> executionTrace;
+    static keel::Array<int> executionTrace;
     executionTrace.clear();
 
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
@@ -3830,12 +3824,12 @@ void TestPostRenderDelegateWorkflow() {
 void TestContainersAndLayoutsReorganization() {
     using namespace guikit;
 
-    std::cout << "  - TestContainersAndLayoutsReorganization...\n";
+    keel::println("  - TestContainersAndLayoutsReorganization...");
     Context ui;
     ThorCanvas canvas;
     const uint32_t width = 800;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     ui.BeginFrame({800.0f, 600.0f});
@@ -3927,7 +3921,8 @@ using namespace guikit;
 
 // Definition of a 3rd party user-defined widget
 struct MyCustomBadge {
-    static Response Run(Context& ctx, std::string_view text, UiVariant variant = UiVariant::Success, std::source_location loc = std::source_location::current()) {
+    static Response Run(Context& ctx, keel::StringRef text, UiVariant variant = UiVariant::Success, keel::SourceLocation loc = keel::SourceLocation::current()) {
+        (void)variant;
         const Id id = ctx.MakeChildId(loc);
         Node* node = ctx.CreateNode(NodeType::Custom, id);
         node->text = ctx.AllocString(text);
@@ -3941,7 +3936,7 @@ struct MyCustomBadge {
 
 // Definition of a 3rd party user-defined container
 struct MyCustomPanel {
-    static ContainerScope Open(Context& ctx, float minWidth = 100.0f, std::source_location loc = std::source_location::current()) {
+    static ContainerScope Open(Context& ctx, float minWidth = 100.0f, keel::SourceLocation loc = keel::SourceLocation::current()) {
         const Id id = ctx.MakeChildId(loc);
         Node* node = ctx.CreateNode(NodeType::Container, id);
         node->direction = FlexDirection::Column;
@@ -3957,8 +3952,8 @@ struct MyCustomPanel {
 void TestGenericTemplateFacade() {
     using namespace guikit;
 
-    static_assert(WidgetRunnable<MyCustomBadge, std::string_view>);
-    static_assert(WidgetRunnable<MyCustomBadge, std::string_view, UiVariant>);
+    static_assert(WidgetRunnable<MyCustomBadge, keel::StringRef>);
+    static_assert(WidgetRunnable<MyCustomBadge, keel::StringRef, UiVariant>);
     static_assert(WidgetRunnable<Button, ButtonOptions>);
     static_assert(ContainerOpenable<MyCustomPanel>);
     static_assert(ContainerOpenable<MyCustomPanel, float>);
@@ -3969,7 +3964,7 @@ void TestGenericTemplateFacade() {
     ThorCanvas canvas;
     const uint32_t width = 400;
     const uint32_t height = 300;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
@@ -3991,7 +3986,7 @@ void TestContextCleanArchitectureAndStateGC() {
     ThorCanvas canvas;
     const uint32_t width = 400;
     const uint32_t height = 300;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     // 1. Verify ActiveEditState buffer text manipulation
@@ -4002,27 +3997,27 @@ void TestContextCleanArchitectureAndStateGC() {
     bool submitted = false;
 
     // Start editing with "Hello"
-    std::string_view text1 = ui.GetOrStartTextEdit(inputId, "Hello", cursor, changed, submitted);
+    keel::StringRef text1 = ui.GetOrStartTextEdit(inputId, "Hello", cursor, changed, submitted);
     CHECK(text1 == "Hello");
     CHECK(cursor == 5);
 
     // Test text insertion
     ui.OnTextInput(" World");
-    std::string_view text2 = ui.GetOrStartTextEdit(inputId, text1, cursor, changed, submitted);
+    keel::StringRef text2 = ui.GetOrStartTextEdit(inputId, text1, cursor, changed, submitted);
     CHECK(text2 == "Hello World");
     CHECK(cursor == 11);
     CHECK(changed);
 
     // Test backspace
     ui.OnKeyDown(Key::Backspace);
-    std::string_view text3 = ui.GetOrStartTextEdit(inputId, text2, cursor, changed, submitted);
+    keel::StringRef text3 = ui.GetOrStartTextEdit(inputId, text2, cursor, changed, submitted);
     CHECK(text3 == "Hello Worl");
     CHECK(cursor == 10);
 
     // Test Home, Delete
     ui.OnKeyDown(Key::Home);
     ui.OnKeyDown(Key::Delete);
-    std::string_view text4 = ui.GetOrStartTextEdit(inputId, text3, cursor, changed, submitted);
+    keel::StringRef text4 = ui.GetOrStartTextEdit(inputId, text3, cursor, changed, submitted);
     CHECK(text4 == "ello Worl");
     CHECK(cursor == 0);
 
@@ -4086,7 +4081,7 @@ void TestScopedThemeAndScaleOverrides() {
 
     const uint32_t width = 800;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     UiTheme customTheme = UiTheme::Light();
@@ -4216,7 +4211,7 @@ void TestSliderAndStepSliderWidgets() {
     ThorCanvas canvas;
     const uint32_t width = 400;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     float floatVal = 5.0f;
@@ -4224,7 +4219,7 @@ void TestSliderAndStepSliderWidgets() {
     size_t stepIndex = 1;
     UiSize activeSize = UiSize::Sm;
     UiSize activeRadius = UiSize::None;
-    static constexpr std::array<std::string_view, 3> stepLabels = {"Low", "Medium", "High"};
+    static constexpr keel::StaticArray<keel::StringRef, 3> stepLabels = {"Low", "Medium", "High"};
 
     Response r1, r2, r3, r4, r5;
     auto renderUI = [&]() {
@@ -4323,7 +4318,7 @@ void TestVerticalSlider() {
     ThorCanvas canvas;
     const uint32_t width = 400;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
     const UiTheme& theme = ui.GetTheme();
     const SliderMetrics& m = theme.GetSlider(UiSize::Md);
@@ -4335,7 +4330,7 @@ void TestVerticalSlider() {
                                   .stretch = StretchMode::Compact};
         const Vec2 hSize = Slider::Measure(hOpts, 50.0, 0.0, 100.0, UiSize::Md, &canvas, theme);
         const Vec2 vSize = Slider::Measure(vOpts, 50.0, 0.0, 100.0, UiSize::Md, &canvas, theme);
-        CHECK_NEAR(vSize.x, std::max(m.defaultHeight, m.thumbSize), 0.5f);
+        CHECK_NEAR(vSize.x, keel::max(m.defaultHeight, m.thumbSize), 0.5f);
         CHECK_NEAR(vSize.y, m.defaultWidth + m.thumbSize, 0.5f);
         CHECK_NEAR(hSize.x, vSize.y, 0.5f); // same travel, rotated
         CHECK(vSize.y > vSize.x);
@@ -4424,11 +4419,11 @@ void TestSceneContentDamageAndItemDrag() {
     ThorCanvas canvas;
     const uint32_t width = 420;
     const uint32_t height = 320;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     float rectX = 50.0f;
-    std::vector<uint32_t> img(16 * 16, 0xff0000ffu);
+    keel::Array<uint32_t> img(16 * 16, 0xff0000ffu);
     Vec2 handle{200.0f, 150.0f};
     Vec2 handleAtStart{};
     SceneItemDrag drag{};
@@ -4571,11 +4566,11 @@ void TestVerticalStepAndRangeSliders() {
     ThorCanvas canvas;
     const uint32_t width = 400;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
     const UiTheme& theme = ui.GetTheme();
     const SliderMetrics& m = theme.GetSlider(UiSize::Md);
-    static constexpr std::array<std::string_view, 4> steps = {"0.5", "1", "2", "6"};
+    static constexpr keel::StaticArray<keel::StringRef, 4> steps = {"0.5", "1", "2", "6"};
 
     // 1. Measure: vertical StepSlider reserves a labels column right of the track
     {
@@ -4585,14 +4580,14 @@ void TestVerticalStepAndRangeSliders() {
                                         .stretch = StretchMode::Compact};
         const Vec2 bareSize = StepSlider::Measure(bare, 0, steps.size(), UiSize::Md, &canvas, theme);
         const Vec2 labeledSize = StepSlider::Measure(labeled, 0, steps.size(), UiSize::Md, &canvas, theme);
-        CHECK_NEAR(bareSize.x, std::max(m.defaultHeight, m.thumbSize), 0.5f);
+        CHECK_NEAR(bareSize.x, keel::max(m.defaultHeight, m.thumbSize), 0.5f);
         CHECK(labeledSize.x > bareSize.x + m.tickGap);
         CHECK_NEAR(labeledSize.y, bareSize.y, 0.5f); // labels do not add height
 
         const RangeSliderOptions range{.orientation = Orientation::Vertical, .showValue = false,
                                        .stretch = StretchMode::Compact};
         const Vec2 rangeSize = RangeSlider::Measure(range, 20.0, 60.0, 0.0, 80.0, UiSize::Md, &canvas, theme);
-        CHECK_NEAR(rangeSize.x, std::max(m.defaultHeight, m.thumbSize), 0.5f);
+        CHECK_NEAR(rangeSize.x, keel::max(m.defaultHeight, m.thumbSize), 0.5f);
         CHECK_NEAR(rangeSize.y, m.defaultWidth + m.thumbSize, 0.5f);
     }
 
@@ -4620,7 +4615,7 @@ void TestVerticalStepAndRangeSliders() {
     CHECK(rb.x > sb.x + sb.w);
 
     // 2. StepSlider: press near the top -> last step, drag to the bottom -> first step
-    const float trackX = sb.x + std::max(m.defaultHeight, m.thumbSize) * 0.5f;
+    const float trackX = sb.x + keel::max(m.defaultHeight, m.thumbSize) * 0.5f;
     ui.OnMouseMove({trackX, sb.y + 4.0f});
     ui.OnMouseDown(1);
     frame();
@@ -4643,7 +4638,7 @@ void TestVerticalStepAndRangeSliders() {
     // 3. RangeSlider: travel coordinate maps value v to y = bottom - halfThumb - v / 80 * length
     const float half = m.thumbSize * 0.5f;
     const float len = rb.h - m.thumbSize;
-    const float rx = rb.x + std::max(m.defaultHeight, m.thumbSize) * 0.5f;
+    const float rx = rb.x + keel::max(m.defaultHeight, m.thumbSize) * 0.5f;
     auto yOf = [&](double v) { return rb.y + rb.h - half - static_cast<float>(v / 80.0) * len; };
 
     // Press just below the low thumb -> drags the low thumb (not the high one)
@@ -4685,7 +4680,7 @@ void TestPixelGeometryAndWidgetUiSizeDecoupling() {
     ThorCanvas canvas;
     const uint32_t width = 800;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     ButtonResponse btnLg;
@@ -4777,7 +4772,7 @@ void TestPixelGeometryAndWidgetUiSizeDecoupling() {
 
 void TestTextWrappingAndBackendIndependence() {
     using namespace guikit;
-    std::cout << "  - TestTextWrappingAndBackendIndependence...\n";
+    keel::println("  - TestTextWrappingAndBackendIndependence...");
 
     // 1. TextUtil unit checks with fallback ratio (canvas = nullptr)
     const float singleW = TextUtil::MeasureWidth("Hello World", 14.0f, nullptr);
@@ -4786,11 +4781,11 @@ void TestTextWrappingAndBackendIndependence() {
     // Truncation with ellipsis
     const auto trunc = TextUtil::TruncateWithEllipsis("Very long string that needs truncation", 60.0f, 14.0f, nullptr);
     CHECK(!trunc.empty());
-    CHECK(std::string_view(trunc).ends_with("..."));
+    CHECK(trunc.ends_with("..."));
     CHECK(TextUtil::MeasureWidth(trunc, 14.0f, nullptr) <= 60.0f + 0.1f);
 
     // Multi-line word wrap
-    const std::string sentence = "Sensory tripwire thresholds & limits for automated closed-loop machinery";
+    const keel::String sentence("Sensory tripwire thresholds & limits for automated closed-loop machinery");
     const auto lines = TextUtil::WrapText(sentence, 120.0f, 12.0f, nullptr);
     CHECK(lines.size() >= 2);
     for (const auto& line : lines) {
@@ -4853,7 +4848,7 @@ void TestTextWrappingAndBackendIndependence() {
     CHECK(b3.x >= b2.Right() - 0.01f);
 
     // 4. TabBar rendering at 100% and 150% scales: labels must not falsely truncate
-    static const std::array<guikit::TabItem, 3> testTabs = {{
+    static const keel::StaticArray<guikit::TabItem, 3> testTabs = {{
         {.label = "Overview"},
         {.label = "Industrial Dashboard", .badge = "Live"},
         {.label = "Network Diagnostics"}
@@ -4862,7 +4857,7 @@ void TestTextWrappingAndBackendIndependence() {
     for (float testScale : {1.0f, 1.5f}) {
         int tabIdx = 0;
         ThorCanvas thorCanvas;
-        std::vector<uint32_t> px(800 * 600, 0);
+        keel::Array<uint32_t> px(800 * 600);
         thorCanvas.SetTarget(px.data(), 800, 600, 800);
         thorCanvas.Begin(800, 600, testScale);
 
@@ -4876,12 +4871,12 @@ void TestTextWrappingAndBackendIndependence() {
     }
 
     // 5. Verify TextUtil::TruncateWithEllipsis behaves deterministically
-    const std::string fullText = "Industrial Dashboard";
+    const keel::String fullText("Industrial Dashboard");
     const auto trFull = TextUtil::TruncateWithEllipsis(fullText, 400.0f, 14.0f, nullptr);
     CHECK(trFull == fullText);
 
     const auto trShort = TextUtil::TruncateWithEllipsis(fullText, 60.0f, 14.0f, nullptr);
-    CHECK(std::string_view(trShort).ends_with("..."));
+    CHECK(trShort.ends_with("..."));
     CHECK(trShort.length() < fullText.length());
 }
 
@@ -4893,10 +4888,10 @@ void TestTextAreaWidgetWorkflow() {
 
     const uint32_t width = 800;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
-    std::string sampleCode = "ui.Button({\n    .label = \"Test\",\n    .variant = guikit::UiVariant::Primary\n});";
+    keel::String sampleCode("ui.Button({\n    .label = \"Test\",\n    .variant = guikit::UiVariant::Primary\n});");
 
     // 1. Measure test: autoHeight must scale with line count, Element header, and zoom
     const auto mSingle = TextArea::Measure("Single Line", {.autoHeight = true}, UiSize::Md, &canvas);
@@ -4908,9 +4903,9 @@ void TestTextAreaWidgetWorkflow() {
     CHECK(mWithHeader.y > mMulti.y);
 
     // 2. Configurable Syntax Highlighter test (Cpp, Json, Custom)
-    std::vector<TextSpan> spans;
+    keel::Array<TextSpan> spans;
     const auto theme = UiTheme::Dark();
-    const std::string_view cppLine = "const int count = Compute(42, \"ok\"); // comment";
+    const keel::StringRef cppLine = "const int count = Compute(42, \"ok\"); // comment";
     TextArea::HighlightLine(cppLine, 0, SyntaxConfig::Cpp(), spans, theme);
     CHECK(!spans.empty());
     // Verify spans cover the entire line contiguously with no gaps or overlaps
@@ -4924,7 +4919,7 @@ void TestTextAreaWidgetWorkflow() {
     for (const auto& sp : spans) {
         CHECK(sp.startCol == expectedCol);
         expectedCol = sp.startCol + sp.length;
-        const std::string_view tok = cppLine.substr(sp.startCol, sp.length);
+        const keel::StringRef tok = cppLine.substr(sp.startCol, sp.length);
         if (tok == "const" && sp.color == theme.syntax.keyword) foundKeyword = true;
         if (tok == "int" && sp.color == theme.syntax.type) foundType = true;
         if (tok == "Compute" && sp.color == theme.syntax.function) foundFunc = true;
@@ -4941,8 +4936,8 @@ void TestTextAreaWidgetWorkflow() {
     CHECK(foundComment);
 
     // Custom SyntaxConfig test
-    static constexpr std::array<std::string_view, 2> customKw = {"rule", "when"};
-    static constexpr std::array<std::string_view, 1> customTy = {"Sensor"};
+    static constexpr keel::StaticArray<keel::StringRef, 2> customKw = {"rule", "when"};
+    static constexpr keel::StaticArray<keel::StringRef, 1> customTy = {"Sensor"};
     SyntaxConfig customCfg{
         .enabled = true,
         .keywords = customKw,
@@ -4955,7 +4950,7 @@ void TestTextAreaWidgetWorkflow() {
     CHECK(spans.back().color == theme.syntax.comment);
 
     // 3. Interactive 2D editing, multiline navigation (Up/Down/Tab/Enter), and Ctrl+Wheel zoom
-    std::string editableText = "int a = 1;\nint b = 2;";
+    keel::String editableText("int a = 1;\nint b = 2;");
     float editorZoom = 1.0f;
     Response editRes;
     auto renderEditor = [&]() {
@@ -5018,7 +5013,7 @@ void TestTextAreaWidgetWorkflow() {
     const float glyphBoxH = canvas.MeasureTextStyled("Mg", codeFontSize, FontStyle::Monospace).y;
     CHECK(glyphBoxH > codeFontSize * 1.35f);
 
-    std::string coordText = "AAAA\nBBBB\nCCCC";
+    keel::String coordText("AAAA\nBBBB\nCCCC");
     Response coordRes;
     auto renderCoordEditor = [&]() {
         coordRes = ui.TextArea(coordText, {
@@ -5036,9 +5031,9 @@ void TestTextAreaWidgetWorkflow() {
 
     // Compute exact linear line height and gutter width for Md size
     const auto& cm = theme.GetMetrics(UiSize::Md);
-    const float lineH = std::max(theme.GetLineHeight(codeFontSize), glyphBoxH * 1.14f);
-    const float padY = std::max(theme.Scale(8.0f), cm.paddingY);
-    const float padX = std::max(theme.Scale(10.0f), cm.paddingX);
+    const float lineH = keel::max(theme.GetLineHeight(codeFontSize), glyphBoxH * 1.14f);
+    const float padY = keel::max(theme.Scale(8.0f), cm.paddingY);
+    const float padX = keel::max(theme.Scale(10.0f), cm.paddingX);
     const float charW = canvas.MeasureTextStyled("B", codeFontSize, FontStyle::Monospace).x;
     const float digitW = canvas.MeasureTextStyled("8", codeFontSize, FontStyle::Monospace).x;
     const float gutterW = 2.0f * digitW + charW * 1.25f * 2.0f;
@@ -5104,7 +5099,7 @@ void TestButtonAlignmentAndProceduralIcons() {
     ThorCanvas canvas;
     const uint32_t width = 400;
     const uint32_t height = 500;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     // Verify IconId enum values & procedural drawing
@@ -5176,7 +5171,7 @@ void TestButtonAlignmentAndProceduralIcons() {
             lastCapsuleRect = rect;
             ThorCanvas::DrawRoundRect(rect, radius, fill, stroke, strokeWidth);
         }
-        void DrawTextBox(std::string_view text, Rect bounds, float fontSize, Color color, float alignX = 0.0f, float alignY = 0.5f) override {
+        void DrawTextBox(keel::StringRef text, Rect bounds, float fontSize, Color color, float alignX = 0.0f, float alignY = 0.5f) override {
             lastTextBounds = bounds;
             lastAlignX = alignX;
             ThorCanvas::DrawTextBox(text, bounds, fontSize, color, alignX, alignY);
@@ -5187,7 +5182,7 @@ void TestButtonAlignmentAndProceduralIcons() {
     };
 
     RecordingCanvas recCanvas;
-    std::vector<uint32_t> recPixels(800 * 600, 0);
+    keel::Array<uint32_t> recPixels(800 * 600);
     recCanvas.SetTarget(recPixels.data(), 800, 600, 800);
     const UiTheme& darkTheme = UiTheme::Dark();
     const Rect widgetBounds(50.0f, 100.0f, 400.0f, 80.0f);
@@ -5245,7 +5240,7 @@ void TestButtonAlignmentAndProceduralIcons() {
     CHECK_NEAR(alignXCenter, 0.5f, 0.01f);
     CHECK_NEAR(alignXEnd, 1.0f, 0.01f);
 
-    std::cout << "  [PASS] TestButtonAlignmentAndProceduralIcons completed\n";
+    keel::println("  [PASS] TestButtonAlignmentAndProceduralIcons completed");
 }
 
 void TestWidgetRadiusOverride() {
@@ -5255,10 +5250,10 @@ void TestWidgetRadiusOverride() {
     ThorCanvas canvas;
     const uint32_t width = 400;
     const uint32_t height = 300;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
-    std::string inputText = "hello";
+    keel::String inputText("hello");
 
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)}, 1.0f);
     if (auto col = ui.Column({.gap = 8.0f})) {
@@ -5279,18 +5274,18 @@ void TestWidgetRadiusOverride() {
     }
     ui.EndFrame(canvas);
 
-    std::cout << "  [PASS] TestWidgetRadiusOverride completed\n";
+    keel::println("  [PASS] TestWidgetRadiusOverride completed");
 }
 
 void TestButtonExternalLabelDescriptionAndPlacement() {
-    std::cout << "[TEST] Running TestButtonExternalLabelDescriptionAndPlacement...\n";
+    keel::println("[TEST] Running TestButtonExternalLabelDescriptionAndPlacement...");
 
     ThorCanvas canvas;
     Context ui;
 
     const uint32_t width = 600;
     const uint32_t height = 500;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     // 1. Measure comparisons
@@ -5315,7 +5310,7 @@ void TestButtonExternalLabelDescriptionAndPlacement() {
 
     // 2. Full immediate mode execution and rendering across all placements
     size_t selIdx = 0;
-    static const std::array<std::string_view, 3> items = {"Alpha", "Beta", "Gamma"};
+    static const keel::StaticArray<keel::StringRef, 3> items = {"Alpha", "Beta", "Gamma"};
 
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)}, 1.0f);
     if (auto col = ui.Column({.gap = 8.0f})) {
@@ -5376,7 +5371,7 @@ void TestButtonExternalLabelDescriptionAndPlacement() {
     }
     ui.EndFrame(canvas);
 
-    std::cout << "  [PASS] TestButtonExternalLabelDescriptionAndPlacement completed\n";
+    keel::println("  [PASS] TestButtonExternalLabelDescriptionAndPlacement completed");
 }
 
 void TestWidgetStretchModesAndExplicitWidth() {
@@ -5386,13 +5381,14 @@ void TestWidgetStretchModesAndExplicitWidth() {
     ThorCanvas canvas;
     const uint32_t width = 800;
     const uint32_t height = 1200;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     // 1. Button explicit width & minWidth in standalone Measure
     {
         ButtonOptions btnDef{.text = "Go"};
         Vec2 szDef = Button::Measure(btnDef, UiSize::Md, &canvas, ui.GetTheme());
+        CHECK(szDef.x > 0.0f);
 
         ButtonOptions btnWidth{.text = "Go", .width = 180.0f};
         Vec2 szWidth = Button::Measure(btnWidth, UiSize::Md, &canvas, ui.GetTheme());
@@ -5468,8 +5464,8 @@ void TestWidgetStretchModesAndExplicitWidth() {
     bool cbVal = true;
     float slVal = 50.0f;
     size_t selIdx = 0;
-    static const std::array<std::string_view, 2> selOpts = {"Alpha", "Beta"};
-    std::string inText = "Test";
+    static const keel::StaticArray<keel::StringRef, 2> selOpts = {"Alpha", "Beta"};
+    keel::String inText("Test");
 
     auto render = [&]() {
         if (auto col = ui.Column({.widthMode = SizeMode::Stretch})) {
@@ -5704,14 +5700,14 @@ void TestWidgetStretchModesAndExplicitWidth() {
     CHECK_NEAR(rTrBetween.w, 800.0f, 0.01f);
     CHECK_NEAR(rTrFill.w, 800.0f, 0.01f);
 
-    std::cout << "  [PASS] TestWidgetStretchModesAndExplicitWidth completed\n";
+    keel::println("  [PASS] TestWidgetStretchModesAndExplicitWidth completed");
 }
 
 namespace {
 class LabelRecordingCanvas : public guikit::ThorCanvas {
 public:
     struct TextBoxCall {
-        std::string text;
+        keel::String text;
         guikit::Rect bounds;
         float alignX;
         guikit::Color color;
@@ -5720,22 +5716,22 @@ public:
         lastRoundRect = rect;
         ThorCanvas::DrawRoundRect(rect, radius, fill, stroke, strokeWidth);
     }
-    void DrawTextBox(std::string_view text, guikit::Rect bounds, float fontSize, guikit::Color color, float alignX = 0.0f, float alignY = 0.5f) override {
-        textBoxCalls.push_back({std::string(text), bounds, alignX, color});
+    void DrawTextBox(keel::StringRef text, guikit::Rect bounds, float fontSize, guikit::Color color, float alignX = 0.0f, float alignY = 0.5f) override {
+        textBoxCalls.push_back({keel::String(text), bounds, alignX, color});
         ThorCanvas::DrawTextBox(text, bounds, fontSize, color, alignX, alignY);
     }
     void Reset() {
         lastRoundRect = {};
         textBoxCalls.clear();
     }
-    const TextBoxCall* FindTextBox(std::string_view text) const {
+    const TextBoxCall* FindTextBox(keel::StringRef text) const {
         for (const auto& c : textBoxCalls) {
             if (c.text == text) return &c;
         }
         return nullptr;
     }
     guikit::Rect lastRoundRect{};
-    std::vector<TextBoxCall> textBoxCalls;
+    keel::Array<TextBoxCall> textBoxCalls;
 };
 } // namespace
 
@@ -5743,7 +5739,7 @@ void TestLabelAlignmentGeometryOptionA() {
     using namespace guikit;
 
     LabelRecordingCanvas recCanvas;
-    std::vector<uint32_t> pixels(800 * 600, 0);
+    keel::Array<uint32_t> pixels(800 * 600);
     recCanvas.SetTarget(pixels.data(), 800, 600, 800);
     const UiTheme& darkTheme = UiTheme::Dark();
     const Rect widgetBounds(50.0f, 100.0f, 800.0f, 80.0f);
@@ -6174,18 +6170,18 @@ void TestLabelAlignmentGeometryOptionA() {
         }
     }
 
-    std::cout << "  [PASS] TestLabelAlignmentGeometryOptionA completed\n";
+    keel::println("  [PASS] TestLabelAlignmentGeometryOptionA completed");
 }
 
 void TestUiTextAndControlCompanionText() {
     using namespace guikit;
-    std::cout << "  - TestUiTextAndControlCompanionText...\n";
+    keel::println("  - TestUiTextAndControlCompanionText...");
 
     static_assert(sizeof(UiText) <= 80);
 
     const UiTheme& darkTheme = UiTheme::Dark();
     LabelRecordingCanvas recCanvas;
-    std::vector<uint32_t> pixels(800 * 600, 0);
+    keel::Array<uint32_t> pixels(800 * 600);
     recCanvas.SetTarget(pixels.data(), 800, 600, 800);
     const Rect widgetBounds(20.0f, 20.0f, 400.0f, 120.0f);
 
@@ -6357,7 +6353,7 @@ void TestUiTextAndControlCompanionText() {
         }
     }
 
-    std::cout << "  [PASS] TestUiTextAndControlCompanionText completed\n";
+    keel::println("  [PASS] TestUiTextAndControlCompanionText completed");
 }
 
 void TestSidebarAndSidebarMenuWorkflow() {
@@ -6387,7 +6383,7 @@ void TestSidebarAndSidebarMenuWorkflow() {
     Context ui;
     const uint32_t width = 1000;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     ThorCanvas canvas;
     canvas.SetTarget(pixels.data(), width, height, width);
 
@@ -6585,16 +6581,16 @@ void TestSidebarAndSidebarMenuWorkflow() {
         CHECK(scrolledY < initialY - 10.0f);
     }
 
-    std::cout << "  [PASS] TestSidebarAndSidebarMenuWorkflow completed\n";
+    keel::println("  [PASS] TestSidebarAndSidebarMenuWorkflow completed");
 }
 
 void TestUiTextModesAndVerticalSpaceReservation() {
     using namespace guikit;
-    std::cout << "  - TestUiTextModesAndVerticalSpaceReservation...\n";
+    keel::println("  - TestUiTextModesAndVerticalSpaceReservation...");
 
     const UiTheme& darkTheme = UiTheme::Dark();
     LabelRecordingCanvas recCanvas;
-    std::vector<uint32_t> pixels(800 * 600, 0);
+    keel::Array<uint32_t> pixels(800 * 600);
     recCanvas.SetTarget(pixels.data(), 800, 600, 800);
 
     // 1. Single-line truncation with "..." when text exceeds bounds
@@ -6657,7 +6653,7 @@ void TestUiTextModesAndVerticalSpaceReservation() {
     // 3. Zero vertical layout shift when conditional error description appears/disappears (TextWrap::Reserve(1))
     {
         Context ui;
-        std::string email = "user@";
+        keel::String email("user@");
         bool hasError = false;
         Response inputRes;
         Response submitBtnRes;
@@ -6709,12 +6705,12 @@ void TestUiTextModesAndVerticalSpaceReservation() {
     // 4. Zero vertical shift for multi-line fixed reservation (TextWrap::Fixed(2))
     {
         Context ui;
-        std::string password;
+        keel::String password;
         int errorStage = 0; // 0 = no error, 1 = 1-line error, 2 = 3-line error (clamped to 2 lines)
         Response submitBtnRes;
 
         auto renderPasswordForm = [&]() {
-            std::string_view errText = "";
+            keel::StringRef errText = "";
             if (errorStage == 1) {
                 errText = "Too short";
             } else if (errorStage == 2) {
@@ -6792,16 +6788,16 @@ void TestUiTextModesAndVerticalSpaceReservation() {
         CHECK(recCanvas.textBoxCalls.size() >= 2); // Wrapped text + button text
     }
 
-    std::cout << "  [PASS] TestUiTextModesAndVerticalSpaceReservation completed\n";
+    keel::println("  [PASS] TestUiTextModesAndVerticalSpaceReservation completed");
 }
 
 void TestSelectItemsAndUnifiedAffixes() {
     using namespace guikit;
-    std::cout << "  - TestSelectItemsAndUnifiedAffixes...\n";
+    keel::println("  - TestSelectItemsAndUnifiedAffixes...");
 
     const UiTheme& darkTheme = UiTheme::Dark();
     LabelRecordingCanvas recCanvas;
-    std::vector<uint32_t> pixels(800 * 600, 0);
+    keel::Array<uint32_t> pixels(800 * 600);
     recCanvas.SetTarget(pixels.data(), 800, 600, 800);
 
     // 1. Unified UiAffix in InputField: icon only, text only, and combined icon + text
@@ -6840,7 +6836,7 @@ void TestSelectItemsAndUnifiedAffixes() {
         size_t selectedIdx = 0;
         Response selRes;
 
-        const std::vector<SelectItem> items = {
+        const SelectItem items[] = {
             {.text = "1920x1080", .prefix = "FHD", .suffix = {"60 Hz", UiVariant::Muted}},
             {.text = "2560x1440", .prefix = {Icon::Settings(), "QHD"}, .suffix = {"144 Hz", UiVariant::Info}},
             {.text = "3840x2160", .prefix = "4K", .suffix = {"Pro", Icon::Check(), UiVariant::Warning}, .disabled = true},
@@ -6943,17 +6939,17 @@ void TestSelectItemsAndUnifiedAffixes() {
         CHECK(ui.IsPopupOpen(selRes.id));
     }
 
-    std::cout << "  [PASS] TestSelectItemsAndUnifiedAffixes completed\n";
+    keel::println("  [PASS] TestSelectItemsAndUnifiedAffixes completed");
 }
 
 void TestSelectPopupScrollingWithMaxVisibleItems() {
     using namespace guikit;
     const UiTheme& darkTheme = UiTheme::Dark();
     LabelRecordingCanvas recCanvas;
-    std::vector<uint32_t> pixels(800 * 600, 0);
+    keel::Array<uint32_t> pixels(800 * 600);
     recCanvas.SetTarget(pixels.data(), 800, 600, 800);
 
-    const std::array<SelectItem, 8> items = {{
+    const keel::StaticArray<SelectItem, 8> items = {{
         {.text = "Option 0", .suffix = "S0"},
         {.text = "Option 1", .suffix = "S1"},
         {.text = "Option 2", .suffix = "S2"},
@@ -6974,11 +6970,11 @@ void TestSelectPopupScrollingWithMaxVisibleItems() {
 
         auto renderPair = [&]() {
             if (auto col = ui.Column({.gap = 8.0f})) {
-                resNoScroll = ui.Select(idxA, std::span<const SelectItem>(items), {
+                resNoScroll = ui.Select(idxA, items, {
                     .maxVisibleItems = 10,
                     .stretch = StretchMode::Compact
                 });
-                resScroll = ui.Select(idxB, std::span<const SelectItem>(items), {
+                resScroll = ui.Select(idxB, items, {
                     .maxVisibleItems = 3,
                     .stretch = StretchMode::Compact
                 });
@@ -7007,7 +7003,7 @@ void TestSelectPopupScrollingWithMaxVisibleItems() {
             if (auto sa = ui.ScrollArea()) {
                 if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
                     if (auto el = ui.Element({.label = "Scrollable Select"})) {
-                        selRes = ui.Select(selectedIdx, std::span<const SelectItem>(items), {
+                        selRes = ui.Select(selectedIdx, items, {
                             .maxVisibleItems = 3
                         });
                     }
@@ -7146,14 +7142,14 @@ void TestSelectPopupScrollingWithMaxVisibleItems() {
         CHECK(selRes.changed);
     }
 
-    std::cout << "  [PASS] TestSelectPopupScrollingWithMaxVisibleItems completed\n";
+    keel::println("  [PASS] TestSelectPopupScrollingWithMaxVisibleItems completed");
 }
 
 void TestBaseElementsAllInOneEnhancements() {
     using namespace guikit;
     const UiTheme& darkTheme = UiTheme::Dark();
     LabelRecordingCanvas recCanvas;
-    std::vector<uint32_t> pixels(800 * 600, 0);
+    keel::Array<uint32_t> pixels(800 * 600);
     recCanvas.SetTarget(pixels.data(), 800, 600, 800);
 
     // 1. Type-safe Node::SetPayload<T> and Node::As<T>() verification
@@ -7290,8 +7286,8 @@ void TestBaseElementsAllInOneEnhancements() {
     // 4. InputField: Password Masking & Reveal Toggle, Clearable Button, Numeric min/max/step
     {
         Context ui;
-        std::string pwdText = "secret";
-        std::string searchText = "query123";
+        keel::String pwdText("secret");
+        keel::String searchText("query123");
         int numVal = 10;
         Response pwdRes, searchRes, numRes;
 
@@ -7463,7 +7459,7 @@ void TestBaseElementsAllInOneEnhancements() {
         }
     }
 
-    std::cout << "  [PASS] TestBaseElementsAllInOneEnhancements completed\n";
+    keel::println("  [PASS] TestBaseElementsAllInOneEnhancements completed");
 }
 
 void TestImageSceneAndMarkdownWidgets() {
@@ -7473,14 +7469,14 @@ void TestImageSceneAndMarkdownWidgets() {
     ThorCanvas canvas;
     const uint32_t width = 800;
     const uint32_t height = 900;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
-    static constexpr std::string_view kInlineSvg =
+    static constexpr keel::StringRef kInlineSvg =
         R"(<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100" width="200" height="100">)"
         R"(<rect x="0" y="0" width="200" height="100" fill="#38BDF8"/></svg>)";
 
-    static constexpr std::string_view kSampleMd =
+    static constexpr keel::StringRef kSampleMd =
         "# Title Heading\n\n"
         "Paragraph with **bold**, *italic*, `code`, and [Link](https://guikit.dev).\n\n"
         "> [!NOTE]\n"
@@ -7645,16 +7641,16 @@ void TestImageSceneAndMarkdownWidgets() {
         CHECK(stageImgRes.rect.h <= 300.0f - 48.0f + 0.5f);
     }
 
-    std::cout << "  [PASS] TestImageSceneAndMarkdownWidgets completed\n";
+    keel::println("  [PASS] TestImageSceneAndMarkdownWidgets completed");
 }
 
 void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
     using namespace guikit;
-    std::cout << "  [TEST] TestUnifiedElementHeaderDecorationsAcrossWidgets...\n";
+    keel::println("  [TEST] TestUnifiedElementHeaderDecorationsAcrossWidgets...");
 
     Context ui;
     ThorCanvas canvas;
-    std::vector<uint32_t> pixels(800 * 900, 0);
+    keel::Array<uint32_t> pixels(800 * 900);
     canvas.SetTarget(pixels.data(), 800, 900, 800);
 
     // 1. Verify that adding icon, badge, and Element/Control frame to widgets increases measured width/height appropriately
@@ -7698,11 +7694,11 @@ void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
     // 2. Render all Element-based widgets with icon/badge and Element/Control frames in a live frame
     float sliderVal = 42.0f;
     size_t stepIdx = 1;
-    std::string inputVal = "hello";
+    keel::String inputVal("hello");
     size_t selectIdx = 0;
     bool swVal = true;
     bool cbVal = false;
-    static constexpr std::array<std::string_view, 3> items = {"One", "Two", "Three"};
+    static constexpr keel::StaticArray<keel::StringRef, 3> items = {"One", "Two", "Three"};
 
     for (int frame = 0; frame < 2; ++frame) {
         ui.BeginFrame({800.0f, 900.0f});
@@ -7820,7 +7816,7 @@ void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
         ui.EndFrame(canvas);
     }
 
-    std::cout << "  [PASS] TestUnifiedElementHeaderDecorationsAcrossWidgets completed\n";
+    keel::println("  [PASS] TestUnifiedElementHeaderDecorationsAcrossWidgets completed");
 }
 
 #if GUIKIT_HAS_SCENES
@@ -7832,13 +7828,13 @@ void TestSignalViewWidgetWorkflow() {
 
     const uint32_t width = 960;
     const uint32_t height = 540;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     // Generate 240,000 samples (5.0 seconds @ 48 kHz) with a 2 kHz sine + 8 kHz harmonic
     const size_t numSamples = 240000;
     const float sampleRate = 48000.0f;
-    std::vector<float> samples(numSamples, 0.0f);
+    keel::Array<float> samples(numSamples, 0.0f);
     for (size_t i = 0; i < numSamples; ++i) {
         const float t = static_cast<float>(i) / sampleRate;
         samples[i] = 0.6f * std::sin(2.0f * 3.14159265f * 2000.0f * t) +
@@ -7856,10 +7852,9 @@ void TestSignalViewWidgetWorkflow() {
         .lowFreqHz = 1000.0f,
         .highFreqHz = 10000.0f
     };
-    std::vector<SignalMarker> markers = {
-        {1.0, "Cue A", Color{56, 189, 248, 255}},
-        {3.5, "Cue B", Color{245, 158, 11, 255}}
-    };
+    keel::Array<SignalMarker> markers;
+    markers.push_back(SignalMarker{1.0, "Cue A", Color{56, 189, 248, 255}});
+    markers.push_back(SignalMarker{3.5, "Cue B", Color{245, 158, 11, 255}});
     SignalPanelOrder panelOrder = SignalPanelOrder::WaveformTop;
     SignalViewResponse resp{};
 
@@ -7919,7 +7914,7 @@ void TestSignalViewWidgetWorkflow() {
     renderFrame();
     CHECK(resp.rect.w > 800.0f);
 
-    std::cout << "  [PASS] TestSignalViewWidgetWorkflow completed\n";
+    keel::println("  [PASS] TestSignalViewWidgetWorkflow completed");
 }
 
 void TestMapViewWidgetWorkflow() {
@@ -7930,12 +7925,12 @@ void TestMapViewWidgetWorkflow() {
 
     const uint32_t width = 960;
     const uint32_t height = 540;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     MapCrs crs = MapCrs::EPSG3857_WebMercator;
-    std::optional<GeoCoord> reqCenter{};
-    std::optional<float> reqZoom{};
+    keel::Optional<GeoCoord> reqCenter{};
+    keel::Optional<float> reqZoom{};
     MapViewState lastView{};
     size_t itemCount = 0;
 
@@ -8065,29 +8060,29 @@ void TestMapViewWidgetWorkflow() {
     CHECK(gisStats.totalFeatures == chart.totalFeatures);
     CHECK(gisStats.renderedFeatures > 0 || gisStats.cachedTilesRendered > 0 || gisStats.cachedTilesHit > 0);
 
-    std::cout << "  [PASS] TestMapViewWidgetWorkflow completed\n";
+    keel::println("  [PASS] TestMapViewWidgetWorkflow completed");
 }
 
 void TestSonarViewWidgetWorkflow() {
     using namespace guikit;
-    std::cout << "  - TestSonarViewWidgetWorkflow...\n";
+    keel::println("  - TestSonarViewWidgetWorkflow...");
 
     Context ui;
     ThorCanvas canvas;
 
     const uint32_t width = 900;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     const uint32_t numBeams = 90;
     const uint32_t numBins = 128;
-    std::vector<float> polarMatrix(numBeams * numBins, 0.25f);
+    keel::Array<float> polarMatrix(numBeams * numBins, 0.25f);
     for (size_t i = 0; i < polarMatrix.size(); ++i) {
         polarMatrix[i] = 0.15f + 0.65f * static_cast<float>((i * 17) % 100) / 100.0f;
     }
 
-    std::vector<SonarTarget> targets = {
+    const SonarTarget targets[] = {
         {
             .id = 10,
             .callsign = "DIVER-01",
@@ -8175,7 +8170,7 @@ void TestSonarViewWidgetWorkflow() {
     renderFrame();
     CHECK(lastResp.displayMode == SonarDisplayMode::BScan);
 
-    std::cout << "  [PASS] TestSonarViewWidgetWorkflow completed\n";
+    keel::println("  [PASS] TestSonarViewWidgetWorkflow completed");
 }
 
 void TestSonarAndSignalGpuShaderPipeline() {
@@ -8186,11 +8181,11 @@ void TestSonarAndSignalGpuShaderPipeline() {
 
     const uint32_t width = 800;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0xFF112233u);
+    keel::Array<uint32_t> pixels(width * height, 0xFF112233u);
     canvas.SetTarget(pixels.data(), width, height, width);
 
-    std::vector<float> sonarMatrix(90 * 128, 0.4f);
-    std::vector<float> audioSamples(4096, 0.0f);
+    keel::Array<float> sonarMatrix(90 * 128, 0.4f);
+    keel::Array<float> audioSamples(4096, 0.0f);
     for (size_t i = 0; i < audioSamples.size(); ++i) {
         audioSamples[i] = std::sin(static_cast<float>(i) * 0.1f) * 0.5f;
     }
@@ -8281,6 +8276,7 @@ void TestSonarAndSignalGpuShaderPipeline() {
     }
     CHECK(opaqueCount > 20);
 
+#if __has_include(<SDL3/SDL.h>)
     // 4. Test real SDL3 OpenGL renderer + SdlGlShaderEngine underlay rendering & pixel readback
     if (SDL_Init(SDL_INIT_VIDEO)) {
         SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
@@ -8335,12 +8331,12 @@ void TestSonarAndSignalGpuShaderPipeline() {
             constexpr int kMoveFrames = 20;
             for (int m = 0; m < kMoveFrames; ++m) {
                 ui.OnMouseMove({specPlot.x + 25.0f + static_cast<float>(m * 4), specPlot.y + 15.0f + static_cast<float>((m % 5) * 3)});
-                const auto t0 = std::chrono::steady_clock::now();
+                const keel::u64 t0 = keel::monotonic_ns();
                 ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
                 renderUI();
                 ui.EndFrame(canvas);
-                const auto t1 = std::chrono::steady_clock::now();
-                totalCrosshairMs += std::chrono::duration<double, std::milli>(t1 - t0).count();
+                const keel::u64 t1 = keel::monotonic_ns();
+                totalCrosshairMs += static_cast<double>(t1 - t0) / 1e6;
 
                 CHECK(ui.HasDirtyDamage());
                 CHECK(!ui.IsFullRepaint());
@@ -8348,7 +8344,7 @@ void TestSonarAndSignalGpuShaderPipeline() {
                 CHECK(canvas.GetGpuShaderPasses().size() == 2);
             }
             const double avgCrosshairMs = totalCrosshairMs / static_cast<double>(kMoveFrames);
-            std::cout << "  [BENCH] SignalView mouse crosshair move CPU frame time: " << avgCrosshairMs << " ms/frame\n";
+            keel::println("  [BENCH] SignalView mouse crosshair move CPU frame time: {:.3f} ms/frame", avgCrosshairMs);
             CHECK(avgCrosshairMs < 5.0);
 
             gpuEngine.Shutdown();
@@ -8358,8 +8354,9 @@ void TestSonarAndSignalGpuShaderPipeline() {
         }
         SDL_Quit();
     }
+#endif
 
-    std::cout << "  [PASS] TestSonarAndSignalGpuShaderPipeline completed\n";
+    keel::println("  [PASS] TestSonarAndSignalGpuShaderPipeline completed");
 }
 
 void TestWaterfallViewWidgetAndGpuRingBuffer() {
@@ -8371,12 +8368,12 @@ void TestWaterfallViewWidgetAndGpuRingBuffer() {
 
     const uint32_t width = 960;
     const uint32_t height = 640;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     constexpr uint32_t kBins = 256;
-    std::vector<float> specSlice(kBins, -95.0f);
-    std::vector<float> doaSlice(181, -85.0f);
+    keel::Array<float> specSlice(kBins, -95.0f);
+    keel::Array<float> doaSlice(181, -85.0f);
 
     // Inject synthetic peaks
     for (uint32_t i = 0; i < kBins; ++i) {
@@ -8479,7 +8476,7 @@ void TestWaterfallViewWidgetAndGpuRingBuffer() {
     CHECK(!ui.IsFullRepaint());
     CHECK(canvas.GetGpuShaderPasses().size() == 2);
 
-    std::cout << "  [PASS] TestWaterfallViewWidgetAndGpuRingBuffer completed\n";
+    keel::println("  [PASS] TestWaterfallViewWidgetAndGpuRingBuffer completed");
 }
 #endif
 
@@ -8490,7 +8487,7 @@ void TestRangeSliderProgressBarSpinBoxAndRadioButton() {
     ThorCanvas canvas;
     const uint32_t width = 700;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     float lowFreq = 20.0f;
@@ -8659,7 +8656,7 @@ void TestRangeSliderProgressBarSpinBoxAndRadioButton() {
     CHECK(highFreq > 65.0f);
     CHECK_NEAR(highFreq - lowFreq, 40.0f, 1.0f); // Span preserved!
 
-    std::cout << "  [PASS] TestRangeSliderProgressBarSpinBoxAndRadioButton completed\n";
+    keel::println("  [PASS] TestRangeSliderProgressBarSpinBoxAndRadioButton completed");
 }
 
 void TestTableVirtualizedDataGridWorkflow() {
@@ -8669,7 +8666,7 @@ void TestTableVirtualizedDataGridWorkflow() {
     ThorCanvas canvas;
     const uint32_t width = 800;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     constexpr size_t kTotalRows = 100000;
@@ -8687,7 +8684,7 @@ void TestTableVirtualizedDataGridWorkflow() {
     Rect tableBounds{};
     Rect firstProgressRect{};
 
-    static const std::array<TableColumn, 5> cols = {{
+    static const keel::StaticArray<TableColumn, 5> cols = {{
         {.title = "Track",  .width = 70.0f,  .align = Align::Center, .sortable = true},
         {.title = "ID",     .width = 100.0f, .sortable = true},
         {.title = "Signal", .flex = 1.5f,    .minWidth = 80.0f,      .sortable = true},
@@ -8848,18 +8845,18 @@ void TestTableVirtualizedDataGridWorkflow() {
     renderUI();
     ui.EndFrame(canvas);
 
-    std::cout << "  [PASS] TestTableVirtualizedDataGridWorkflow completed\n";
+    keel::println("  [PASS] TestTableVirtualizedDataGridWorkflow completed");
 }
 
 void TestCodeEditorIdeAndDebuggerWorkflow() {
     using namespace guikit;
-    std::cout << "[TEST] Running TestCodeEditorIdeAndDebuggerWorkflow...\n";
+    keel::println("[TEST] Running TestCodeEditorIdeAndDebuggerWorkflow...");
 
     Context ui;
     ThorCanvas canvas;
     const uint32_t width = 900;
     const uint32_t height = 650;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     // 1. Verify built-in multi-language presets
@@ -8887,20 +8884,21 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
     CHECK(ghPal.comment != vsPal.comment);
 
     // 2. Render MATLAB editor with IDE & Debugger features enabled (including showWhitespace & custom SyntaxPalette)
-    std::string code =
+    keel::String code(
         "%% Spectral Section\n"
         "function y = filterSig(x)\n"
         "\tw = hann(64, 'periodic');\n"
         "    y = (x') * w;\n"
-        "end\n";
-    std::vector<size_t> breakpoints = {3};
-    std::vector<CodeDiagnostic> diagnostics = {
+        "end\n");
+    keel::Array<size_t> breakpoints;
+    breakpoints.push_back(3);
+    const CodeDiagnostic diagnostics[] = {
         {3, 4, 8, DiagnosticSeverity::Warning, "Test warning", "W01"}
     };
-    std::vector<CodeInlineValue> inlineValues = {
+    const CodeInlineValue inlineValues[] = {
         {3, "w = 64x1 double"}
     };
-    std::vector<CodeDebugVar> debugVars = {
+    const CodeDebugVar debugVars[] = {
         {"w", "[0.0 .. 1.0]", "double (64x1)"}
     };
     size_t execLine = 3;
@@ -8955,19 +8953,19 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
     renderIde();
     ui.EndFrame(canvas);
 
-    const std::string initialCode = code;
+    const keel::String initialCode = code.clone();
     ui.OnTextInput("A");
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderIde();
     ui.EndFrame(canvas);
-    const std::string afterA = code;
+    const keel::String afterA = code.clone();
     CHECK(afterA != initialCode);
 
     ui.OnTextInput("(");
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderIde();
     ui.EndFrame(canvas);
-    const std::string afterParen = code;
+    const keel::String afterParen = code.clone();
     // Auto-close should have inserted "()" at EOL
     CHECK(afterParen.size() == afterA.size() + 2);
 
@@ -9013,7 +9011,7 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderIde();
     ui.EndFrame(canvas);
-    breakpoints = {3};
+    breakpoints.assign(1, 3);
     execLine = 3;
 
     // 4b. Test automatic line-shift tracking for breakpoints, executionLine, inlineValues, and diagnostics
@@ -9195,11 +9193,11 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
         CHECK(st->debugToolbarRatio < 0.0f);
     }
 
-    std::cout << "  [PASS] TestCodeEditorIdeAndDebuggerWorkflow completed\n";
+    keel::println("  [PASS] TestCodeEditorIdeAndDebuggerWorkflow completed");
 }
 
 void TestKeymapAndMarkdownTopTierFeatures() {
-    std::cout << "  [RUN] TestKeymapAndMarkdownTopTierFeatures...\n";
+    keel::println("  [RUN] TestKeymapAndMarkdownTopTierFeatures...");
     using namespace guikit;
 
     // 1. Verify centralized Keymap & KeyAction (and Action alias)
@@ -9233,16 +9231,16 @@ void TestKeymapAndMarkdownTopTierFeatures() {
     ThorCanvas canvas;
     const uint32_t width = 640;
     const uint32_t height = 480;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
-    std::string clipboardText;
+    keel::String clipboardText;
     ui.SetClipboardCallbacks(
-        [&]() -> std::string { return clipboardText; },
-        [&](std::string_view s) { clipboardText = std::string(s); }
+        [&]() -> keel::String { return clipboardText.clone(); },
+        [&](keel::StringRef s) { clipboardText.assign(s); }
     );
 
-    const std::string_view mdDoc =
+    const keel::StringRef mdDoc =
         "# Title Heading\n\n"
         "Paragraph with **bold** and `code` tokens.\n\n"
         "- [ ] First interactive task\n"
@@ -9253,7 +9251,7 @@ void TestKeymapAndMarkdownTopTierFeatures() {
         "```\n";
 
     float zoom = 1.0f;
-    std::string searchQuery;
+    keel::String searchQuery;
     MarkdownResponse mdRes{};
     Id scrollId = Id::Null();
 
@@ -9326,8 +9324,8 @@ void TestKeymapAndMarkdownTopTierFeatures() {
     renderMd();
     ui.EndFrame(canvas);
     CHECK(!mdRes.selectedText.empty());
-    CHECK(mdRes.selectedText.find("Title Heading") != std::string_view::npos);
-    CHECK(mdRes.selectedText.find("y = fft(x);") != std::string_view::npos);
+    CHECK(mdRes.selectedText.find("Title Heading") != keel::StringRef::npos);
+    CHECK(mdRes.selectedText.find("y = fft(x);") != keel::StringRef::npos);
 
     // Copy via KeyAction::Copy (Ctrl+C)
     ui.OnKeyDown(Key::C, {.ctrl = true});
@@ -9335,7 +9333,7 @@ void TestKeymapAndMarkdownTopTierFeatures() {
     renderMd();
     ui.EndFrame(canvas);
     CHECK(!clipboardText.empty());
-    CHECK(clipboardText.find("Title Heading") != std::string::npos);
+    CHECK(clipboardText.find("Title Heading") != keel::StringRef::npos);
 
     // Test keyboard cursor & selection movement (MoveDocStart -> SelectWordRight -> Copy)
     ui.OnKeyDown(Key::Home, {.ctrl = true});
@@ -9351,27 +9349,27 @@ void TestKeymapAndMarkdownTopTierFeatures() {
     CHECK(mdRes.selectedText == "Title");
 
     // Test Search match counting
-    searchQuery = "task";
+    searchQuery.assign("task");
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderMd();
     ui.EndFrame(canvas);
     CHECK(mdRes.searchMatchCount == 2);
     CHECK(mdRes.activeSearchMatch == 0);
 
-    std::cout << "  [PASS] TestKeymapAndMarkdownTopTierFeatures completed\n";
+    keel::println("  [PASS] TestKeymapAndMarkdownTopTierFeatures completed");
 }
 
 void TestUnifiedColormapHistogramAndImageView() {
     using namespace guikit;
-    std::cout << "  -> TestUnifiedColormapHistogramAndImageView...\n";
+    keel::println("  -> TestUnifiedColormapHistogramAndImageView...");
 
     // 1. Verify unified Colormap LUTs & inversion symmetry across all 4 scientific widgets
 #if GUIKIT_HAS_SCENES
-    static_assert(std::is_same_v<decltype(SignalViewOptions::colormap), Colormap>);
-    static_assert(std::is_same_v<decltype(SonarViewOptions::colormap), Colormap>);
-    static_assert(std::is_same_v<decltype(WaterfallViewOptions::colormap), Colormap>);
+    static_assert(keel::IsSame<decltype(SignalViewOptions::colormap), Colormap>);
+    static_assert(keel::IsSame<decltype(SonarViewOptions::colormap), Colormap>);
+    static_assert(keel::IsSame<decltype(WaterfallViewOptions::colormap), Colormap>);
 #endif
-    static_assert(std::is_same_v<decltype(ImageViewParams::colormap), Colormap>);
+    static_assert(keel::IsSame<decltype(ImageViewParams::colormap), Colormap>);
 
     const auto allNames = GetAllColormapNames();
     CHECK(allNames.size() == static_cast<size_t>(Colormap::Count));
@@ -9398,7 +9396,7 @@ void TestUnifiedColormapHistogramAndImageView() {
     }
 
     // 2. Verify Quantile Auto Window on a synthetic 256-bin distribution
-    std::array<uint32_t, 256> testBins{};
+    keel::StaticArray<uint32_t, 256> testBins{};
     for (size_t i = 20; i <= 200; ++i) {
         testBins[i] = 100;
     }
@@ -9414,14 +9412,14 @@ void TestUnifiedColormapHistogramAndImageView() {
     ThorCanvas canvas;
     const uint32_t W = 1000;
     const uint32_t H = 700;
-    std::vector<uint32_t> framePixels(W * H, 0);
+    keel::Array<uint32_t> framePixels(W * H);
     canvas.SetTarget(framePixels.data(), W, H, W);
 
     // Prepare 64x48 16-bit single-channel test image and 64x48 3-channel RGB test image
     constexpr uint32_t imgW = 64;
     constexpr uint32_t imgH = 48;
-    std::vector<uint16_t> mono16(imgW * imgH, 0);
-    std::vector<float> rgbFloat(imgW * imgH * 3, 0.0f);
+    keel::Array<uint16_t> mono16(imgW * imgH);
+    keel::Array<float> rgbFloat(imgW * imgH * 3, 0.0f);
     for (uint32_t y = 0; y < imgH; ++y) {
         for (uint32_t x = 0; x < imgW; ++y) {
             break;
@@ -9502,12 +9500,12 @@ void TestUnifiedElementExplicitHeight() {
     ThorCanvas canvas;
     const uint32_t width = 600;
     const uint32_t height = 800;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
-    std::string inputVal = "Test";
+    keel::String inputVal("Test");
     size_t selectIdx = 0;
-    static constexpr std::array<std::string_view, 2> selectItems = {"A", "B"};
+    static constexpr keel::StaticArray<keel::StringRef, 2> selectItems = {"A", "B"};
     float sliderVal = 50.0f;
     bool switchVal = false;
     bool checkVal = true;
@@ -9549,7 +9547,7 @@ void TestElementOuterFrameAndControlWellFrame() {
     ThorCanvas canvas;
     const uint32_t width = 800;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     const UiTheme& theme = ui.GetTheme();
@@ -9706,7 +9704,7 @@ void TestAttitudeViewWidgetWorkflow() {
     ThorCanvas canvas;
     const uint32_t width = 900;
     const uint32_t height = 650;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     float fovPitch = 50.0f;
@@ -9804,7 +9802,7 @@ void TestCarClusterViewWidgetWorkflow() {
     ThorCanvas canvas;
     const uint32_t width = 960;
     const uint32_t height = 560;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     ClusterLayoutMode layoutMode = ClusterLayoutMode::DualDial;
@@ -9900,10 +9898,10 @@ void TestCarClusterViewWidgetWorkflow() {
 }
 
 void TestBpmnEditorWidgetWorkflow() {
-    std::cout << "  -> TestBpmnEditorWidgetWorkflow\n";
+    keel::println("  -> TestBpmnEditorWidgetWorkflow");
     Context ui;
     ThorCanvas canvas;
-    std::vector<uint32_t> pixels(960 * 600, 0);
+    keel::Array<uint32_t> pixels(960 * 600);
     canvas.SetTarget(pixels.data(), 960, 600, 960);
 
     BpmnDiagram diagram;
@@ -10013,7 +10011,7 @@ void TestGisDemoBayGeoJsonAndRenderEngine() {
     ThorCanvas canvas;
     const uint32_t width = 800;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     GisRenderConfig settings{};
@@ -10052,7 +10050,7 @@ void TestAccordionWidgetWorkflow() {
     ThorCanvas canvas;
     const uint32_t width = 600;
     const uint32_t height = 500;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     int bodyExecutedCount1 = 0;
@@ -10152,7 +10150,7 @@ void TestSizeScopeChainingAndIsolation() {
     ThorCanvas canvas;
     const uint32_t width = 600;
     const uint32_t height = 500;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     Response btnInheritedInsideXlElement{};
@@ -10206,18 +10204,18 @@ void TestSizeScopeChainingAndIsolation() {
 
 void TestTreeViewAndTreeItemWorkflow() {
     using namespace guikit;
-    std::cout << "[TEST] Running TestTreeViewAndTreeItemWorkflow...\n";
+    keel::println("[TEST] Running TestTreeViewAndTreeItemWorkflow...");
 
     Context ui;
     ThorCanvas canvas;
     const uint32_t width = 700;
     const uint32_t height = 500;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     int selectedIndex = -1;
     Id selectedId = Id::Null();
-    std::string filterQuery;
+    keel::String filterQuery;
     bool rootOpen = true;
     bool collapsedBranchOpen = false;
     bool chkRoot = true;
@@ -10362,7 +10360,7 @@ void TestTreeViewAndTreeItemWorkflow() {
     CHECK(checkChangedFlag == true);
 
     // 4. Filter by "Deep Hidden" -> automatically expands collapsed branch and shows ancestor + matching leaf (2 items)
-    filterQuery = "Deep Hidden";
+    filterQuery.assign("Deep Hidden");
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderUI();
     ui.EndFrame(canvas);
@@ -10460,13 +10458,13 @@ void TestTreeViewAndTreeItemWorkflow() {
 
     CHECK(multiColSelected == 0);
 
-    std::cout << "  [PASS] TestTreeViewAndTreeItemWorkflow completed\n";
+    keel::println("  [PASS] TestTreeViewAndTreeItemWorkflow completed");
 }
 
 void TestKnobSpinBoxAndRadioElements() {
     const uint32_t width = 640;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixelBuffer(width * height, 0);
+    keel::Array<uint32_t> pixelBuffer(width * height);
     ThorCanvas canvas;
     canvas.SetTarget(pixelBuffer.data(), width, height, width);
 
@@ -10673,18 +10671,18 @@ void TestKnobSpinBoxAndRadioElements() {
     CHECK(rSingleRadio.changed);
     CHECK(singleRadio == true);
 
-    std::cout << "  [PASS] TestKnobSpinBoxAndRadioElements completed\n";
+    keel::println("  [PASS] TestKnobSpinBoxAndRadioElements completed");
 }
 
 void TestSegmentedAndColorPickerElements() {
     using namespace guikit;
-    std::cout << "  -> TestSegmentedAndColorPickerElements...\n";
+    keel::println("  -> TestSegmentedAndColorPickerElements...");
 
     Context ui;
     ThorCanvas canvas;
     const uint32_t width = 640;
     const uint32_t height = 560;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     size_t segIndex = 0;
@@ -10802,18 +10800,18 @@ void TestSegmentedAndColorPickerElements() {
     renderScene();
     ui.EndFrame(canvas);
 
-    std::cout << "  [PASS] TestSegmentedAndColorPickerElements completed\n";
+    keel::println("  [PASS] TestSegmentedAndColorPickerElements completed");
 }
 
 void TestSidebarResizableCompactAndCollapsedModes() {
     using namespace guikit;
-    std::cout << "  -> TestSidebarResizableCompactAndCollapsedModes...\n";
+    keel::println("  -> TestSidebarResizableCompactAndCollapsedModes...");
 
     Context ui;
     ThorCanvas canvas;
     const uint32_t width = 800;
     const uint32_t height = 500;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     SidebarMode sbMode = SidebarMode::Expanded;
@@ -10929,18 +10927,18 @@ void TestSidebarResizableCompactAndCollapsedModes() {
     CHECK(bodyExecuted == true);
     CHECK(std::abs(sbNode->computedRect.w - 280.0f) < 1.0f);
 
-    std::cout << "  [PASS] TestSidebarResizableCompactAndCollapsedModes completed\n";
+    keel::println("  [PASS] TestSidebarResizableCompactAndCollapsedModes completed");
 }
 
 void TestModalContextMenuAndToastWorkflow() {
     using namespace guikit;
-    std::cout << "[TEST] Running TestModalContextMenuAndToastWorkflow...\n";
+    keel::println("[TEST] Running TestModalContextMenuAndToastWorkflow...");
 
     Context ui;
     ThorCanvas canvas;
     const uint32_t width = 800;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     bool modalOpen = false;
@@ -10952,7 +10950,7 @@ void TestModalContextMenuAndToastWorkflow() {
     Rect modalDialogRect{};
     ContextMenuResponse ctxResp{};
 
-    const std::vector<ContextMenuItem> menuItems = {
+    const ContextMenuItem menuItems[] = {
         {.label = "Inspect Packet", .shortcut = "Enter", .icon = Icon::Search()},
         {.label = "Copy Frame HEX", .shortcut = "Ctrl+C", .icon = Icon::Copy(), .separatorAfter = true},
         {.label = "Disabled Action", .disabled = true},
@@ -11105,18 +11103,18 @@ void TestModalContextMenuAndToastWorkflow() {
     ui.ClearToasts();
     CHECK(ui.GetActiveToastCount() == 0);
 
-    std::cout << "  [PASS] TestModalContextMenuAndToastWorkflow completed\n";
+    keel::println("  [PASS] TestModalContextMenuAndToastWorkflow completed");
 }
 
 void TestActivityBarAndLinkedSidebarWorkflow() {
     using namespace guikit;
-    std::cout << "[TEST] Running TestActivityBarAndLinkedSidebarWorkflow...\n";
+    keel::println("[TEST] Running TestActivityBarAndLinkedSidebarWorkflow...");
 
     Context ui;
     ThorCanvas canvas;
     const uint32_t width = 900;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     int activeTool = 0;
@@ -11236,18 +11234,18 @@ void TestActivityBarAndLinkedSidebarWorkflow() {
     CHECK(activeTool == 1);
     CHECK(sbMode == SidebarMode::Expanded);
 
-    std::cout << "  [PASS] TestActivityBarAndLinkedSidebarWorkflow completed\n";
+    keel::println("  [PASS] TestActivityBarAndLinkedSidebarWorkflow completed");
 }
 
 void TestBottomPanelAndStatusBarWorkflow() {
     using namespace guikit;
-    std::cout << "[TEST] Running TestBottomPanelAndStatusBarWorkflow...\n";
+    keel::println("[TEST] Running TestBottomPanelAndStatusBarWorkflow...");
 
     Context ui;
     ThorCanvas canvas;
     const uint32_t width = 800;
     const uint32_t height = 600;
-    std::vector<uint32_t> pixels(width * height, 0);
+    keel::Array<uint32_t> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
     bool showPanel = true;
@@ -11432,14 +11430,14 @@ void TestBottomPanelAndStatusBarWorkflow() {
         CHECK(std::abs(btnRect.w) > 50.0f);
     }
 
-    std::cout << "  [PASS] TestBottomPanelAndStatusBarWorkflow completed\n";
+    keel::println("  [PASS] TestBottomPanelAndStatusBarWorkflow completed");
 }
 
 #if GUIKIT_HAS_SCENES
 void TestPanelSashAndBodyOcclusionOverMapViewAndScene() {
     Context ui;
     ThorCanvas canvas;
-    std::vector<uint32_t> pixels(800 * 600, 0);
+    keel::Array<uint32_t> pixels(800 * 600);
     canvas.SetTarget(pixels.data(), 800, 600, 800);
 
     bool showBottom = true;
@@ -11685,7 +11683,7 @@ void TestPanelSashAndBodyOcclusionOverMapViewAndScene() {
     CHECK(mapScopeHovered == false);
     CHECK(gisStats.hoveredFeatureUid == 0);
 
-    std::cout << "  [PASS] TestPanelSashAndBodyOcclusionOverMapViewAndScene completed\n";
+    keel::println("  [PASS] TestPanelSashAndBodyOcclusionOverMapViewAndScene completed");
 }
 #endif
 
@@ -11693,7 +11691,7 @@ void TestReviewP0AndP1Regressions() {
     using namespace guikit;
 
     ThorCanvas canvas;
-    std::vector<uint32_t> pixels(800 * 600, 0);
+    keel::Array<uint32_t> pixels(800 * 600);
     canvas.SetTarget(pixels.data(), 800, 600, 800);
 
     // 1. Callsite-based MakeChildId: conditional sibling insertion does NOT shift IDs or lose focus,
@@ -11701,7 +11699,7 @@ void TestReviewP0AndP1Regressions() {
     {
         Context ui;
         bool showBanner = false;
-        std::string query = "init";
+        keel::String query("init");
         WidgetResponse inputResp{};
         Id loopIds[3]{};
 
@@ -11808,8 +11806,8 @@ void TestReviewP0AndP1Regressions() {
     // 3. Per-widget Undo / Redo history preserved across focus switches between InputFields
     {
         Context ui;
-        std::string fieldA = "alpha";
-        std::string fieldB = "beta";
+        keel::String fieldA("alpha");
+        keel::String fieldB("beta");
         Id idA{}, idB{};
 
         auto renderFields = [&]() {
@@ -11851,7 +11849,7 @@ void TestReviewP0AndP1Regressions() {
     // 4. Open Modal traps keyboard input & focus away from background InputField and restores focus on close
     {
         Context ui;
-        std::string bgText = "safe";
+        keel::String bgText("safe");
         bool modalOpen = false;
         Id bgId{};
 
@@ -11895,7 +11893,7 @@ void TestReviewP0AndP1Regressions() {
         // Line 0: "АБВГ" (4 codepoints, 8 bytes)
         // Line 1: "abcd" (4 codepoints, 4 bytes)
         // Line 2: "ДЁЖЗ" (4 codepoints, 8 bytes)
-        std::string doc = "АБВГ\nabcd\nДЁЖЗ";
+        keel::String doc("АБВГ\nabcd\nДЁЖЗ");
         Id taId{};
 
         auto renderEditor = [&]() {
@@ -11920,7 +11918,7 @@ void TestReviewP0AndP1Regressions() {
         CHECK(doc == "АБВГ\nabcd\nДЁ!ЖЗ");
 
         // UTF-8 Password InputField: "пароль" (6 codepoints, 12 bytes) -> Backspace deletes 1 Cyrillic codepoint ("парол")
-        std::string pwd = "пароль";
+        keel::String pwd("пароль");
         Id pwdId{};
         auto renderPwd = [&]() {
             ui.BeginFrame({400.0f, 200.0f});
@@ -11936,7 +11934,7 @@ void TestReviewP0AndP1Regressions() {
         CHECK(pwd == "парол");
 
         // UTF-8 case-insensitive search helper used by TreeView / TagInput / TextArea
-        CHECK(TextUtil::FindCaseInsensitive("Модуль Сигналов", "сигнал") != std::string_view::npos);
+        CHECK(TextUtil::FindCaseInsensitive("Модуль Сигналов", "сигнал") != keel::StringRef::npos);
         CHECK(TextUtil::FindCaseInsensitive("Привет", "ПРИВЕТ") == 0u);
     }
 
@@ -11981,10 +11979,11 @@ void TestReviewP0AndP1Regressions() {
     }
 }
 
+void TestKeelZeroCopyWidgetBindings();
+void TestExternalStlDuckTypedInterop();
+
 int main() {
-    std::cout << std::unitbuf;
-    std::cerr << std::unitbuf;
-    std::cout << "[RUN] Testing GuiKit Context & Immediate Mode API...\n";
+    keel::println("[RUN] Testing GuiKit Context & Immediate Mode API...");
 
     TestTextWrappingAndBackendIndependence();
 
@@ -12093,7 +12092,7 @@ int main() {
     {
         guikit::Context ui;
         guikit::ThorCanvas canvas;
-        std::vector<uint32_t> pixels(800 * 200, 0);
+        keel::Array<uint32_t> pixels(800 * 200);
         canvas.SetTarget(pixels.data(), 800, 200, 800);
 
         bool t1 = true, t2 = false, t3 = true, t4 = true, t5 = true;
@@ -12132,7 +12131,7 @@ int main() {
     {
         guikit::Context ui;
         guikit::ThorCanvas canvas;
-        std::vector<uint32_t> pixels(600 * 240, 0);
+        keel::Array<uint32_t> pixels(600 * 240);
         canvas.SetTarget(pixels.data(), 600, 240, 600);
 
         float valDetached = 129.0f;
@@ -12207,15 +12206,15 @@ int main() {
     {
         guikit::Context ui;
         guikit::ThorCanvas canvas;
-        std::vector<uint32_t> pixels(800 * 400, 0);
+        keel::Array<uint32_t> pixels(800 * 400);
         canvas.SetTarget(pixels.data(), 800, 400, 800);
 
         size_t comboIdx = 0; // "Alpha"
-        std::string autoVal = "";
+        keel::String autoVal("");
         guikit::Response rCombo{};
         guikit::Response rAuto{};
 
-        const std::vector<std::string_view> items = {
+        static constexpr keel::StaticArray<keel::StringRef, 5> items = {
             "Alpha",
             "Beta",
             "Gamma",
@@ -12329,18 +12328,20 @@ int main() {
     {
         guikit::Context ui;
         guikit::ThorCanvas canvas;
-        std::vector<uint32_t> pixels(800 * 600, 0);
+        keel::Array<uint32_t> pixels(800 * 600);
         canvas.SetTarget(pixels.data(), 800, 600, 800);
 
-        std::vector<size_t> multiSel = {0, 2};
-        const std::vector<std::string_view> multiItems = {"Alpha", "Beta", "Gamma", "Delta"};
+        keel::Array<size_t> multiSel;
+        multiSel.push_back(0);
+        multiSel.push_back(2);
+        static constexpr keel::StaticArray<keel::StringRef, 4> multiItems = {"Alpha", "Beta", "Gamma", "Delta"};
         guikit::DateTime dt{2026, 10, 20, 14, 30, 0};
         size_t crumbIdx = 1;
-        const std::vector<std::string_view> crumbItems = {"Home", "Workspaces", "DSP", "Sonar"};
+        static constexpr keel::StaticArray<keel::StringRef, 4> crumbItems = {"Home", "Workspaces", "DSP", "Sonar"};
         size_t pageIdx = 2;
         float splitRatio = 0.4f;
         bool cmdOpen = false;
-        const std::vector<guikit::CommandPaletteItem> cmdItems = {
+        const guikit::CommandPaletteItem cmdItems[] = {
             {.label = "Open Signal View", .category = "Scenes", .shortcut = "Ctrl+1"},
             {.label = "Open Sonar View",  .category = "Scenes", .shortcut = "Ctrl+2"},
             {.label = "Reset Layout",     .category = "Window", .shortcut = "Ctrl+R"}
@@ -12448,11 +12449,11 @@ int main() {
 
         // 2b. CommandPalette content-aware auto-fit width, explicit width override, and UiSize scaling
         {
-            static const std::array<guikit::CommandPaletteItem, 2> kShortCmds = {{
+            static const keel::StaticArray<guikit::CommandPaletteItem, 2> kShortCmds = {{
                 {.label = "Save", .shortcut = "Ctrl+S"},
                 {.label = "Quit", .shortcut = "Ctrl+Q"}
             }};
-            static const std::array<guikit::CommandPaletteItem, 2> kLongCmds = {{
+            static const keel::StaticArray<guikit::CommandPaletteItem, 2> kLongCmds = {{
                 {.label = "Toggle Docked / Floating Island Shell", .category = "Workspace", .description = "Switch between flush IDE & floating island frame", .shortcut = "Ctrl+Shift+F"},
                 {.label = "Go to LevelMeter / Segmented VU Meter", .category = "Elements",  .description = "LED dB meters, peak-hold & clip LED"}
             }};
@@ -12479,7 +12480,7 @@ int main() {
             CHECK(rXl.rect.h > rXs.rect.h);
 
             // Verify mouse wheel scrolling and interactive scrollbar thumb drag on multi-frame open CommandPalette
-            static const std::array<guikit::CommandPaletteItem, 8> kManyCmds = {{
+            static const keel::StaticArray<guikit::CommandPaletteItem, 8> kManyCmds = {{
                 {.label = "Cmd 0"}, {.label = "Cmd 1"}, {.label = "Cmd 2"}, {.label = "Cmd 3"},
                 {.label = "Cmd 4"}, {.label = "Cmd 5"}, {.label = "Cmd 6"}, {.label = "Cmd 7"}
             }};
@@ -12553,16 +12554,16 @@ int main() {
 
         // 3. keel::FixedString Rule-of-Zero copy safety + Breadcrumb & Pagination interactive click tests
         {
-            static_assert(std::is_trivially_copyable_v<keel::FixedString<>>);
+            static_assert(keel::IsTriviallyCopyable<keel::FixedString<>>);
             keel::FixedString<> copiedInline;
             {
-                std::string dynamicStr = "Workspace";
-                copiedInline = keel::FixedString<>(std::string_view(dynamicStr));
-                keel::FixedString<> overwriteStack = keel::FixedString<>(std::string_view(""));
+                keel::String dynamicStr("Workspace");
+                copiedInline = keel::FixedString<>(dynamicStr.as_ref());
+                keel::FixedString<> overwriteStack = keel::FixedString<>(keel::StringRef(""));
                 (void)overwriteStack;
             }
             CHECK(copiedInline == "Workspace");
-            CHECK(std::string_view(copiedInline.c_str()) == "Workspace");
+            CHECK(keel::StringRef(copiedInline.c_str()) == "Workspace");
 
             // Click first item ("Home") in Breadcrumb -> changes crumbIdx from 1 to 0
             ui.OnMouseMove({rCrumb.rect.x + 18.0f, rCrumb.rect.Center().y});
@@ -12636,7 +12637,7 @@ int main() {
             // Collapsed Breadcrumb '...' pill opens dropdown popup instead of inline expansion
             size_t collapsedActive = 4;
             guikit::Response rColBc{};
-            static constexpr std::array<std::string_view, 5> kDeepTrail = {
+            static constexpr keel::StaticArray<keel::StringRef, 5> kDeepTrail = {
                 "Workspace", "Clusters", "Production", "Telemetry", "LiveStream"
             };
             auto renderCollapsedBc = [&]() {
@@ -12739,13 +12740,15 @@ int main() {
     {
         guikit::Context ui;
         guikit::ThorCanvas canvas;
-        std::vector<uint32_t> pixels(800 * 600, 0);
+        keel::Array<uint32_t> pixels(800 * 600);
         canvas.SetTarget(pixels.data(), 800, 600, 800);
 
         double dbLevel = -12.0;
-        std::array<float, 2> stereoLevels = {-6.0f, 0.0f}; // R channel at 0.0 dB -> triggers clip latch
-        static constexpr std::array<std::string_view, 2> kStereoCh = {"L", "R"};
-        std::vector<std::string> tags = {"dsp", "radar"};
+        keel::StaticArray<float, 2> stereoLevels = {-6.0f, 0.0f}; // R channel at 0.0 dB -> triggers clip latch
+        static constexpr keel::StaticArray<keel::StringRef, 2> kStereoCh = {"L", "R"};
+        keel::Array<keel::String> tags;
+        tags.push_back(keel::String("dsp"));
+        tags.push_back(keel::String("radar"));
 
         guikit::Response rMono{};
         guikit::Response rStereo{};
@@ -12923,6 +12926,7 @@ int main() {
 #if GUIKIT_HAS_SCENES
     // Cross-platform keel::http (URL parser, HttpClient, WebSocketClient) + LodePNG raster tile decoder
     {
+#if __has_include("keel/http.h")
         const auto parsedHttps = keel::parse_url("https://tile.openstreetmap.org/14/9532/5841.png");
         CHECK(parsedHttps.valid && parsedHttps.is_secure && !parsedHttps.is_websocket);
         CHECK(parsedHttps.host == "tile.openstreetmap.org" && parsedHttps.port == 443);
@@ -12938,6 +12942,7 @@ int main() {
 
         keel::WebSocketClient ws;
         CHECK(ws.state() == keel::WebSocketState::Disconnected);
+#endif
 
         static constexpr uint8_t kSample1x1Png[] = {
             0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
@@ -12950,7 +12955,7 @@ int main() {
             0xB0, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E,
             0x44, 0xAE, 0x42, 0x60, 0x82
         };
-        std::vector<uint32_t> rgba;
+        keel::Array<uint32_t> rgba;
         CHECK(guikit::geo::DecodePngAndScaleToRgba(kSample1x1Png, 256, rgba));
         CHECK(rgba.size() == 256u * 256u);
     }
@@ -12961,7 +12966,7 @@ int main() {
         using namespace guikit;
         Context ui;
         ThorCanvas canvas;
-        std::vector<uint32_t> pixels(800 * 600, 0);
+        keel::Array<uint32_t> pixels(800 * 600);
         canvas.SetTarget(pixels.data(), 800, 600, 800);
 
         SidebarMode sbMode = SidebarMode::Expanded;
@@ -13174,7 +13179,7 @@ int main() {
         using namespace guikit;
         const UiTheme& darkTheme = UiTheme::Dark();
         LabelRecordingCanvas recCanvas;
-        std::vector<uint32_t> pixels(400 * 200, 0);
+        keel::Array<uint32_t> pixels(400 * 200);
         recCanvas.SetTarget(pixels.data(), 400, 200, 400);
 
         // 1. Element::Resolve with StretchMode::Fill and .width = 0.5f in a narrow 280px container
@@ -13227,7 +13232,7 @@ int main() {
         // stay strictly within the clipped Box bounds via GetPopupViewportRect()
         Context ui;
         ThorCanvas thorCanvas;
-        std::vector<uint32_t> fullPixels(1400 * 900, 0);
+        keel::Array<uint32_t> fullPixels(1400 * 900);
         thorCanvas.SetTarget(fullPixels.data(), 1400, 900, 1400);
 
         DateTime dt{.year = 2026, .month = 10, .day = 14};
@@ -13333,7 +13338,7 @@ int main() {
         // with copy=false while FlushCanvas() ran after stack frame pop.
         {
             ui.ClosePopup();
-            std::vector<uint32_t> hiDpiPixels(2400 * 1400, 0);
+            keel::Array<uint32_t> hiDpiPixels(2400 * 1400);
             thorCanvas.SetTarget(hiDpiPixels.data(), 2400, 1400, 2400);
             for (int f = 0; f < 2; ++f) {
                 ui.BeginFrame({2400.0f, 1400.0f}, 1.0f);
@@ -13372,15 +13377,15 @@ int main() {
         {
             Context clipUi;
             ThorCanvas clipCanvas;
-            std::vector<uint32_t> clipPixels(1200 * 800, 0);
+            keel::Array<uint32_t> clipPixels(1200 * 800);
             clipCanvas.SetTarget(clipPixels.data(), 1200, 800, 1200);
             clipCanvas.SetGpuShadersEnabled(true);
 
-            std::vector<float> sonarMatrix(64 * 64, 0.5f);
-            std::vector<float> wfSlice(128, -45.0f);
+            keel::Array<float> sonarMatrix(64 * 64, 0.5f);
+            keel::Array<float> wfSlice(128, -45.0f);
             uint64_t wfSeq = 1;
             bool bottomOpen = true;
-            std::string codeBuf = "auto resp = ui.SonarView(polarMatrix, {\n    .numBeams = 180,\n    .numRangeBins = 256\n});";
+            keel::String codeBuf("auto resp = ui.SonarView(polarMatrix, {\n    .numBeams = 180,\n    .numRangeBins = 256\n});");
             Rect codeAreaRect{};
             SonarViewResponse lastSonarResp{};
             WaterfallViewResponse lastWfResp{};
@@ -13513,7 +13518,7 @@ int main() {
         {
             Context tbUi;
             ThorCanvas tbCanvas;
-            std::vector<uint32_t> tbPixels(800 * 200, 0);
+            keel::Array<uint32_t> tbPixels(800 * 200);
             tbCanvas.SetTarget(tbPixels.data(), 800, 200, 800);
 
             ToolbarOverflow policy = ToolbarOverflow::AutoCompact;
@@ -13619,10 +13624,10 @@ int main() {
         {
             Context mdUi;
             ThorCanvas mdCanvas;
-            std::vector<uint32_t> mdPixels(340 * 600, 0);
+            keel::Array<uint32_t> mdPixels(340 * 600);
             mdCanvas.SetTarget(mdPixels.data(), 340, 600, 340);
 
-            constexpr std::string_view kDoc =
+            constexpr keel::StringRef kDoc =
                 "# GuiKit Rich Markdown Engine\n\n"
                 "Welcome to **GuiKit's** native vector `ui.Markdown` viewer! Everything is parsed into a lightweight cached AST "
                 "and rendered at **60+ FPS** via *ThorVG* with crisp typography, **bold**, *italic*, ~~strikethrough~~, "
@@ -13658,7 +13663,7 @@ int main() {
         // --- Architectural test: ScopedOverlayHitCheck nesting, unified ThorCanvas metrics, and TextUtil::FindCaseInsensitive ---
         {
             ThorCanvas archCanvas;
-            std::vector<uint32_t> archPixels(320 * 120, 0);
+            keel::Array<uint32_t> archPixels(320 * 120);
             archCanvas.SetTarget(archPixels.data(), 320, 120, 320);
 
             // 1. Unified vertical metrics between MeasureText and MeasureTextStyled
@@ -13672,7 +13677,7 @@ int main() {
             size_t mLen = 0;
             CHECK(TextUtil::FindCaseInsensitive("Палитра Команд", "команд", mPos, mLen));
             CHECK(mPos > 0);
-            CHECK(mLen == std::string_view("Команд").size());
+            CHECK(mLen == keel::StringRef("Команд").size());
 
             // 3. Nested ScopedOverlayHitCheck restores outer overlay hit check ID on inner scope exit
             Context ovUi;
@@ -13712,7 +13717,7 @@ int main() {
             SdlCanvas directGpuCanvas(nullptr);
             CHECK(directGpuCanvas.UsesCpuFramebuffer() == false);
 
-            SdlWindowBackend customWinBackend(std::make_unique<SdlCanvas>(nullptr));
+            SdlWindowBackend customWinBackend(keel::make_unique<SdlCanvas>(nullptr));
             CHECK(customWinBackend.GetCanvas().UsesCpuFramebuffer() == false);
             CHECK(customWinBackend.GetCanvas().GetBackendName() == "SDL3 (Direct GPU)");
 
@@ -13888,21 +13893,21 @@ int main() {
 
             // 8. Markdown production typography, nested inline spans, dynamic table row heights, and soft-wrapped code blocks
             {
-                const std::string nestedMd =
+                const keel::String nestedMd(
                     "## 1. Embedded Image Asset (`assets/images/lena.png`)\n\n"
-                    "- [x] **Centralized `KeyAction` & `Keymap`** (`Copy`, `Find`, `SelectAll`)\n";
+                    "- [x] **Centralized `KeyAction` & `Keymap`** (`Copy`, `Find`, `SelectAll`)\n");
 
-                const std::string tableMd =
+                const keel::String tableMd(
                     "| Component | Layer | Coordinate Space | Responsibility |\n"
                     "| :--- | :---: | :---: | :--- |\n"
                     "| `Keymap` | Core | Input Dispatch | Configurable `KeyAction` bindings |\n"
                     "| `ui.TextArea` | Widget | Line Virtualized | IDE Code Editor & Syntax Engine |\n"
-                    "| `ui.Markdown` | Widget | Flow Layout | Rich AST Document Viewer |\n";
+                    "| `ui.Markdown` | Widget | Flow Layout | Rich AST Document Viewer |\n");
 
-                const std::string longCodeMd =
+                const keel::String longCodeMd(
                     "```cpp\n"
                     "const guikit::Rect visible = scene.GetVisibleWorldBounds({1600.0f, 1000.0f}, cameraState);\n"
-                    "```\n";
+                    "```\n");
 
                 Context mdUi;
                 const UiTheme& mdTheme = mdUi.GetTheme();
@@ -13917,14 +13922,14 @@ int main() {
                 CHECK(narrowCodeSz.y > wideCodeSz.y + 14.0f);
 
                 // Image caption multi-line wrapping in narrow viewports
-                const std::string imgCaptionMd =
-                    "![Lena Standard Test Image (512x512 PNG - Embedded Native & WASM Asset)](assets/images/lena.png)\n";
+                const keel::String imgCaptionMd(
+                    "![Lena Standard Test Image (512x512 PNG - Embedded Native & WASM Asset)](assets/images/lena.png)\n");
                 const Vec2 wideImgSz = Markdown::Measure(imgCaptionMd, {}, UiSize::Md, &archCanvas, mdTheme, 1200.0f);
                 const Vec2 narrowImgSz = Markdown::Measure(imgCaptionMd, {}, UiSize::Md, &archCanvas, mdTheme, 280.0f);
                 CHECK(narrowImgSz.y > wideImgSz.y + 10.0f);
 
                 // Ultra-narrow heading with (`assets/images/lena.png`) splits the code pill at '/' and keeps `)` attached
-                const std::string headingCodeMd = "## 1. Embedded Image Asset (`assets/images/lena.png`)\n";
+                const keel::String headingCodeMd("## 1. Embedded Image Asset (`assets/images/lena.png`)\n");
                 const Vec2 wideHeadSz = Markdown::Measure(headingCodeMd, {}, UiSize::Md, &archCanvas, mdTheme, 1200.0f);
                 const Vec2 ultraNarrowHeadSz = Markdown::Measure(headingCodeMd, {}, UiSize::Md, &archCanvas, mdTheme, 200.0f);
                 CHECK(ultraNarrowHeadSz.y > wideHeadSz.y + 20.0f);
@@ -13932,7 +13937,7 @@ int main() {
 
                 // Verify nested `code` inside **bold** parses without raw backticks and soft-wrapped code copies cleanly
                 MarkdownResponse mdResp;
-                const std::string combinedMd = nestedMd + "\n" + longCodeMd;
+                const keel::String combinedMd = keel::format("{}\n{}", nestedMd, longCodeMd);
                 auto runMdFrame = [&]() {
                     mdUi.BeginFrame({380.0f, 600.0f});
                     mdResp = mdUi.Markdown(combinedMd, {.height = 500.0f});
@@ -13954,25 +13959,25 @@ int main() {
 
                 CHECK(!mdResp.selectedText.empty());
                 // Nested `KeyAction` & `Keymap` inside **...** must not contain literal backticks
-                CHECK(mdResp.selectedText.find("Centralized KeyAction & Keymap") != std::string::npos);
-                CHECK(mdResp.selectedText.find("`KeyAction`") == std::string::npos);
+                CHECK(mdResp.selectedText.find("Centralized KeyAction & Keymap") != keel::StringRef::npos);
+                CHECK(mdResp.selectedText.find("`KeyAction`") == keel::StringRef::npos);
                 // Soft-wrapped code line must remain a single logical line in plainText / selection
-                CHECK(mdResp.selectedText.find("const guikit::Rect visible = scene.GetVisibleWorldBounds") != std::string::npos);
+                CHECK(mdResp.selectedText.find("const guikit::Rect visible = scene.GetVisibleWorldBounds") != keel::StringRef::npos);
 
                 // 9. Verify 3-Phase Retained Markdown Layout Cache (Zero-Measurement on Scroll/Hover & Viewport Frustum Culling)
                 struct CountingThorCanvas : public ThorCanvas {
                     int layoutMeasureCalls{0};
                     int drawTextCalls{0};
                     bool insideDrawText{false};
-                    Vec2 MeasureText(std::string_view text, float fontSize) override {
+                    Vec2 MeasureText(keel::StringRef text, float fontSize) override {
                         if (!insideDrawText) ++layoutMeasureCalls;
                         return ThorCanvas::MeasureText(text, fontSize);
                     }
-                    Vec2 MeasureTextStyled(std::string_view text, float fontSize, FontStyle style) override {
+                    Vec2 MeasureTextStyled(keel::StringRef text, float fontSize, FontStyle style) override {
                         if (!insideDrawText) ++layoutMeasureCalls;
                         return ThorCanvas::MeasureTextStyled(text, fontSize, style);
                     }
-                    void DrawTextStyled(std::string_view text, Vec2 pos, float fontSize, Color color, FontStyle style, float angleDeg = 0.0f) override {
+                    void DrawTextStyled(keel::StringRef text, Vec2 pos, float fontSize, Color color, FontStyle style, float angleDeg = 0.0f) override {
                         ++drawTextCalls;
                         insideDrawText = true;
                         ThorCanvas::DrawTextStyled(text, pos, fontSize, color, style, angleDeg);
@@ -13981,13 +13986,13 @@ int main() {
                 };
 
                 CountingThorCanvas countCanvas;
-                std::vector<uint32_t> countPixels(420 * 1200, 0);
+                keel::Array<uint32_t> countPixels(420 * 1200);
                 countCanvas.SetTarget(countPixels.data(), 420, 1200, 420);
 
-                std::string bigDoc = "# Title Heading\n\nIntro paragraph with [link](https://example.com) and `inline code`.\n\n";
+                keel::String bigDoc("# Title Heading\n\nIntro paragraph with [link](https://example.com) and `inline code`.\n\n");
                 for (int i = 0; i < 12; ++i) {
-                    bigDoc += "## Section " + std::to_string(i) + "\n\n";
-                    bigDoc += "Paragraph body for section " + std::to_string(i) + " with **bold**, *italic*, and `pill`.\n\n";
+                    keel::format_into(bigDoc, "## Section {}\n\n", i);
+                    keel::format_into(bigDoc, "Paragraph body for section {} with **bold**, *italic*, and `pill`.\n\n", i);
                 }
 
                 Context retainedUi;
@@ -14024,12 +14029,12 @@ int main() {
                     ThorCanvas modalCanvas;
                     const uint32_t mw = 600;
                     const uint32_t mh = 400;
-                    std::vector<uint32_t> modalPixels(mw * mh, 0);
+                    keel::Array<uint32_t> modalPixels(mw * mh);
                     modalCanvas.SetTarget(modalPixels.data(), mw, mh, mw);
 
                     Context modalUi;
                     bool modalOpen = false;
-                    std::string statusText = "Ready";
+                    keel::String statusText("Ready");
                     Response cancelBtnRes{};
                     Rect modalDialogRect{};
 
@@ -14062,7 +14067,7 @@ int main() {
                                 modalDialogRect = modal.response.rect;
                                 cancelBtnRes = modalUi.Button({.text = "Cancel"});
                                 if (cancelBtnRes.clicked) {
-                                    statusText = "Cancelled Modal";
+                                    statusText.assign("Cancelled Modal");
                                     modal.Close();
                                 }
                             }
@@ -14103,8 +14108,8 @@ int main() {
                     CHECK(modalUi.IsFullRepaint());
                     CHECK(modalPixels[40 * mw + 40] == cleanBackdropPixel);
                     // Sample below modalDialogRect where the drop shadow was drawn (y = modalDialogRect.Bottom() + 6)
-                    const uint32_t shadowY = std::min<uint32_t>(mh - 1, static_cast<uint32_t>(modalDialogRect.Bottom() + 6.0f));
-                    const uint32_t shadowX = std::min<uint32_t>(mw - 1, static_cast<uint32_t>(modalDialogRect.Center().x));
+                    const uint32_t shadowY = keel::min<uint32_t>(mh - 1, static_cast<uint32_t>(modalDialogRect.Bottom() + 6.0f));
+                    const uint32_t shadowX = keel::min<uint32_t>(mw - 1, static_cast<uint32_t>(modalDialogRect.Center().x));
                     CHECK(modalPixels[shadowY * mw + shadowX] == cleanBackdropPixel);
 
                     // Frame N+2: idle -> dirty-rect engine settles with zero dirty damage
@@ -14139,7 +14144,7 @@ int main() {
                     if (monoAsset) {
                         ThorCanvas memCanvas(false);
                         {
-                            std::vector<uint8_t> tempFontBytes(monoAsset->data, monoAsset->data + monoAsset->size);
+                            keel::Array<uint8_t> tempFontBytes(keel::ArrayRef<uint8_t>(monoAsset->data, monoAsset->size));
                             CHECK(memCanvas.LoadFontMemory("TempMonoBold", tempFontBytes, FontStyle::Bold, "ttf"));
                         }
                         // tempFontBytes is now destroyed; measuring and rendering must safely use ThorVG's internal copy
@@ -14156,7 +14161,7 @@ int main() {
                     ThorCanvas sceneBpCanvas;
                     const uint32_t sw = 1000;
                     const uint32_t sh = 700;
-                    std::vector<uint32_t> sceneBpPixels(sw * sh, 0);
+                    keel::Array<uint32_t> sceneBpPixels(sw * sh);
                     sceneBpCanvas.SetTarget(sceneBpPixels.data(), sw, sh, sw);
 
                     bool showBp = false;
@@ -14265,8 +14270,8 @@ int main() {
                     // --- ThorCanvas::DrawTextBoxStyled preserves leading spaces at alignX=0 ---
                     {
                         ThorCanvas txtCanvas;
-                        std::vector<uint32_t> bufNoSpace(200 * 40, 0);
-                        std::vector<uint32_t> bufWithSpace(200 * 40, 0);
+                        keel::Array<uint32_t> bufNoSpace(200 * 40);
+                        keel::Array<uint32_t> bufWithSpace(200 * 40);
 
                         txtCanvas.SetTarget(bufNoSpace.data(), 200, 40, 200);
                         txtCanvas.Begin(200, 40, 1.0f);
@@ -14278,7 +14283,7 @@ int main() {
                         txtCanvas.DrawTextBoxStyled("   ABC", Rect(10.0f, 4.0f, 180.0f, 32.0f), 16.0f, Color(255, 255, 255), FontStyle::Regular, 0.0f, 0.5f);
                         txtCanvas.End();
 
-                        auto findFirstInkX = [](const std::vector<uint32_t>& px) {
+                        auto findFirstInkX = [](keel::ArrayRef<uint32_t> px) {
                             int minX = 200;
                             for (int y = 0; y < 40; ++y) {
                                 for (int x = 0; x < 200; ++x) {
@@ -14294,11 +14299,11 @@ int main() {
                     {
                         Context idleUi;
                         ThorCanvas idleCanvas;
-                        std::vector<uint32_t> idlePixels(800 * 600, 0);
+                        keel::Array<uint32_t> idlePixels(800 * 600);
                         idleCanvas.SetTarget(idlePixels.data(), 800, 600, 800);
 
                         bool bpOpen = true;
-                        std::string statusLabel = "Ready";
+                        keel::String statusLabel("Ready");
                         Response tipBtn{};
 
                         auto runShellFrame = [&]() {
@@ -14335,7 +14340,7 @@ int main() {
                         CHECK(!idleUi.IsFullRepaint());
 
                         // Frame 4: update a single text label -> MUST do partial dirty-rect repaint (NOT full repaint!)
-                        statusLabel = "Updated";
+                        statusLabel.assign("Updated");
                         runShellFrame();
                         CHECK(idleUi.HasDirtyDamage());
                         CHECK(!idleUi.IsFullRepaint());
@@ -14359,7 +14364,7 @@ int main() {
                     {
                         Context auditUi;
                         ThorCanvas auditCanvas;
-                        std::vector<uint32_t> auditPixels(900 * 900, 0);
+                        keel::Array<uint32_t> auditPixels(900 * 900);
                         auditCanvas.SetTarget(auditPixels.data(), 900, 900, 900);
 
                         // 1. ContainerScope move-assignment & explicit Close()
@@ -14442,15 +14447,15 @@ int main() {
                             {.label = "Metrics", .closable = true},
                             {.label = "Logs",    .closable = true}
                         };
-                        static constexpr std::string_view kStageNames[] = {"LP", "BP", "HP"};
+                        static constexpr keel::StringRef kStageNames[] = {"LP", "BP", "HP"};
 
                         auto runEnumAndTabs = [&](TabBarStyle style) {
                             auditUi.BeginFrame({800.0f, 600.0f}, 1.0f);
                             if (auto col = auditUi.Column({.gap = 8.0f})) {
-                                tabResp = auditUi.TabBar(tabStage, std::span<const TabItem>(kClosableTabs), {.style = style});
-                                segResp = auditUi.Segmented(stage, std::span<const std::string_view>(kStageNames), {.width = 300.0f});
-                                auditUi.Select(stage, std::span<const std::string_view>(kStageNames));
-                                auditUi.StepSlider(stage, std::span<const std::string_view>(kStageNames));
+                                tabResp = auditUi.TabBar(tabStage, kClosableTabs, {.style = style});
+                                segResp = auditUi.Segmented(stage, kStageNames, {.width = 300.0f});
+                                auditUi.Select(stage, kStageNames);
+                                auditUi.StepSlider(stage, kStageNames);
                             }
                             auditUi.EndFrame(auditCanvas);
                         };
@@ -14490,7 +14495,7 @@ int main() {
                         keel::FixedString<32> keelShort{"InitVal"};
                         keel::String keelIntStr{""};
                         keel::String keelHexStr{""};
-                        std::string maxLenStr{};
+                        keel::String maxLenStr{};
                         keel::SmallArray<size_t, 8> multiIndices;
                         multiIndices.push_back(1);
                         keel::SmallArray<keel::FixedString<24>, 8> keelTags;
@@ -14501,10 +14506,10 @@ int main() {
                         float cutoffFreq = 125.0f;
                         // Non-null-terminated substring view: first 7 chars are "%.1f Hz", followed by garbage "%s%s%n"
                         const char rawFmtBuf[] = "%.1f Hz%s%s%n_TRAILING";
-                        const std::string_view subFmt(rawFmtBuf, 7);
+                        const keel::StringRef subFmt(rawFmtBuf, 7);
 
                         Response selAllIn{}, intIn{}, hexIn{}, maxIn{}, bigSpinResp{}, codeResp{};
-                        static constexpr std::string_view kMultiOpts[] = {"Ch0", "Ch1", "Ch2"};
+                        static constexpr keel::StringRef kMultiOpts[] = {"Ch0", "Ch1", "Ch2"};
 
                         auto runInputsAndKeel = [&]() {
                             auditUi.BeginFrame({800.0f, 800.0f}, 1.0f);
@@ -14513,7 +14518,7 @@ int main() {
                                 intIn    = auditUi.InputField(keelIntStr, {.filter = InputFilter::Integer});
                                 hexIn    = auditUi.InputField(keelHexStr, {.filter = InputFilter::Hex});
                                 maxIn    = auditUi.InputField(maxLenStr, {.maxLength = 4});
-                                auditUi.MultiSelect(multiIndices, std::span<const std::string_view>(kMultiOpts));
+                                auditUi.MultiSelect(multiIndices, kMultiOpts);
                                 auditUi.TagInput(keelTags);
                                 bigSpinResp = auditUi.SpinBox(bigCounter, int64_t(0), int64_t(9000000000LL), int64_t(1000));
                                 auditUi.SpinBox(cutoffFreq, 20.0f, 20000.0f, 10.0f, {.valueFormat = subFmt});
@@ -14591,11 +14596,11 @@ int main() {
                         if (auto col = auditUi.Column({.gap = 8.0f})) {
                             // Pass stack-local arrays that go out of scope BEFORE EndFrame to verify arena-copy safety!
                             {
-                                const std::string_view localMonths[12] = {
+                                const keel::StringRef localMonths[12] = {
                                     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
                                     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
                                 };
-                                const std::string_view localDays[7] = {"Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"};
+                                const keel::StringRef localDays[7] = {"Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"};
                                 auditUi.DatePicker(pickedDate, {
                                     .minDate = minDt,
                                     .maxDate = maxDt,
@@ -14682,12 +14687,473 @@ int main() {
         }
     }
 
+    TestKeelZeroCopyWidgetBindings();
+    TestExternalStlDuckTypedInterop();
+
     if (g_failures == 0) {
-        std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";
+        keel::println("[PASS] All GuiKit Context tests passed successfully!");
         return 0;
     } else {
-        std::cerr << "[FAIL] Total failures: " << g_failures << "\n";
+        keel::eprintln("[FAIL] Total failures: {}", g_failures);
         return 1;
     }
 }
+
+void TestKeelZeroCopyWidgetBindings() {
+    using namespace guikit;
+    keel::println("  -> TestKeelZeroCopyWidgetBindings...");
+
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 960;
+    const uint32_t height = 900;
+    keel::Array<uint32_t> pixels(width * height, 0u);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    // 1. InputField in-place editing of FixedString<16>, SmallString<32>, and String
+    keel::FixedString<16> fixed16("Hello");
+    keel::SmallString<32> small32("Inline");
+    keel::String heapStr("HeapInit");
+
+    // 2. CodeEditor / TextArea editing String & FixedString<32> + SmallArray<size_t, 8> breakpoints
+    keel::String editorCode("int x = 1;\nint y = 2;\nreturn x + y;");
+    keel::FixedString<32> fixedArea("line1\nline2");
+    keel::SmallArray<size_t, 8> bpSmallArray;
+    bpSmallArray.push_back(3);
+
+    // 3. Select / ComboBox / Autocomplete (FixedString<32> & String) + MultiSelect (SmallArray<size_t, 8> & Array<size_t>)
+    static constexpr keel::StaticArray<keel::StringRef, 4> kFilterModes = {
+        "LowPass", "BandPass", "HighPass", "Notch"
+    };
+    keel::FixedString<32> selFixed("LowPass");
+    keel::String selHeap("BandPass");
+    keel::FixedString<32> comboFixed("LowPass");
+    keel::String comboHeap("BandPass");
+    keel::FixedString<32> autoFixed("");
+    keel::String autoHeap("");
+
+    keel::SmallArray<size_t, 8> multiSmall;
+    multiSmall.push_back(0);
+    multiSmall.push_back(2);
+
+    keel::Array<size_t> multiHeap;
+    multiHeap.push_back(1);
+    multiHeap.push_back(3);
+
+    // 4. TagInput bound to SmallArray<FixedString<32>, 8>, Array<String>, and SmallArray<TagItem, 8>
+    keel::SmallArray<keel::FixedString<32>, 8> fixedTags;
+    fixedTags.push_back("alpha");
+
+    keel::Array<keel::String> heapTags;
+    heapTags.push_back(keel::String("dsp"));
+
+    keel::SmallArray<TagItem, 8> richTags;
+    richTags.push_back(TagItem{.text = "core", .variant = UiVariant::Info});
+
+    Response rFixed{}, rSmall{}, rHeap{};
+    CodeEditorResponse rCode{};
+    TextAreaResponse rFixedArea{};
+    Response rSelFixed{}, rSelHeap{};
+    Response rComboFixed{}, rComboHeap{};
+    Response rAutoFixed{}, rAutoHeap{};
+    Response rMultiSmall{}, rMultiHeap{};
+    Response rTagsFixed{}, rTagsHeap{}, rTagsRich{};
+
+    auto renderFrame = [&]() {
+        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)}, 1.0f);
+        if (auto col = ui.Column({.gap = 6.0f, .padding = Padding::All(8.0f), .widthMode = SizeMode::Stretch})) {
+            if (auto r1 = ui.Row({.gap = 8.0f})) {
+                rFixed = ui.InputField(fixed16, {.width = 220.0f});
+                rSmall = ui.InputField(small32, {.width = 220.0f});
+                rHeap  = ui.InputField(heapStr, {.width = 220.0f});
+            }
+            if (auto r2 = ui.Row({.gap = 8.0f})) {
+                rCode = ui.CodeEditor(editorCode, {
+                    .rows = 4,
+                    .showLineNumbers = true,
+                    .width = 420.0f,
+                    .enableBreakpoints = true,
+                    .breakpoints = &bpSmallArray
+                });
+                rFixedArea = ui.TextArea(fixedArea, {
+                    .rows = 4,
+                    .width = 320.0f
+                });
+            }
+            if (auto r3 = ui.Row({.gap = 8.0f})) {
+                rSelFixed   = ui.Select(selFixed, kFilterModes, {.width = 180.0f});
+                rSelHeap    = ui.Select(selHeap, kFilterModes, {.width = 180.0f});
+                rComboFixed = ui.ComboBox(comboFixed, kFilterModes, {.width = 180.0f});
+                rComboHeap  = ui.ComboBox(comboHeap, kFilterModes, {.width = 180.0f});
+            }
+            if (auto r4 = ui.Row({.gap = 8.0f})) {
+                rAutoFixed  = ui.Autocomplete(autoFixed, kFilterModes, {.width = 180.0f});
+                rAutoHeap   = ui.Autocomplete(autoHeap, kFilterModes, {.width = 180.0f});
+                rMultiSmall = ui.MultiSelect(multiSmall, kFilterModes, {.width = 240.0f, .searchable = true});
+                rMultiHeap  = ui.MultiSelect(multiHeap, kFilterModes, {.width = 240.0f, .searchable = true});
+            }
+            if (auto r5 = ui.Row({.gap = 8.0f})) {
+                rTagsFixed = ui.TagInput(fixedTags, {.splitOnComma = true, .width = 260.0f});
+                rTagsHeap  = ui.TagInput(heapTags, {.splitOnComma = true, .width = 260.0f});
+                rTagsRich  = ui.TagInput(richTags, {.width = 260.0f});
+            }
+        }
+        ui.EndFrame(canvas);
+    };
+
+    renderFrame();
+    renderFrame();
+
+    // --- 1a. FixedString<16>: type beyond 15-byte max capacity -> verify truncation + cursor sync! ---
+    ui.RequestFocus(rFixed.id);
+    renderFrame();
+    ui.OnKeyDown(Key::End);
+    ui.OnTextInput("0123456789ABCDEF"); // 5 + 16 = 21 bytes attempted, capacity = 15 bytes
+    renderFrame();
+    CHECK(rFixed.changed);
+    CHECK(fixed16.size() == 15u);
+    CHECK(fixed16.full());
+    CHECK(fixed16.as_ref() == "Hello0123456789");
+    CHECK(ui.GetTextEditAnchor(rFixed.id) == 15u);
+
+    // Immediate Backspace must delete the 15th byte ('9'), proving internal edit buffer & cursor synced to 15 (not 21)
+    ui.OnKeyDown(Key::Backspace);
+    renderFrame();
+    CHECK(fixed16.size() == 14u);
+    CHECK(fixed16.as_ref() == "Hello012345678");
+    CHECK(ui.GetTextEditAnchor(rFixed.id) == 14u);
+
+    // Typing a 2-byte UTF-8 codepoint ("Я") at 14/15 bytes must clamp cleanly at UTF-8 boundary (14 bytes)
+    ui.OnTextInput("Я");
+    renderFrame();
+    CHECK(fixed16.size() == 14u);
+    CHECK(fixed16.as_ref() == "Hello012345678");
+    CHECK(ui.GetTextEditAnchor(rFixed.id) == 14u);
+
+    // --- 1b. SmallString<32>: inline edit <= 31 bytes, then heap spill > 31 bytes ---
+    ui.RequestFocus(rSmall.id);
+    renderFrame();
+    ui.OnKeyDown(Key::End);
+    ui.OnTextInput("_ok");
+    renderFrame();
+    CHECK(small32.is_inline());
+    CHECK(small32.as_ref() == "Inline_ok");
+
+    ui.OnTextInput("_0123456789_0123456789_spill");
+    renderFrame();
+    CHECK(!small32.is_inline());
+    CHECK(small32.size() > 31u);
+    CHECK(small32.ends_with("_spill"));
+
+    // --- 1c. keel::String: dynamic heap string edit ---
+    ui.RequestFocus(rHeap.id);
+    renderFrame();
+    ui.OnKeyDown(Key::End);
+    ui.OnTextInput("_Edited");
+    renderFrame();
+    CHECK(heapStr.as_ref() == "HeapInit_Edited");
+
+    // --- 2. CodeEditor (keel::String + SmallArray<size_t, 8> breakpoints) & TextArea (FixedString<32>) ---
+    ui.RequestFocus(rCode.id);
+    renderFrame();
+    ui.OnKeyDown(Key::Home, {.ctrl = true});
+    ui.OnKeyDown(Key::Enter);
+    renderFrame();
+    CHECK(rCode.changed);
+    CHECK(rCode.lineDelta == 1);
+    CHECK(editorCode.starts_with("\nint x = 1;"));
+    CHECK(bpSmallArray.size() == 1u && bpSmallArray[0] == 4u);
+
+    ui.OnKeyDown(Key::F9);
+    renderFrame();
+    CHECK(bpSmallArray.size() == 2u);
+
+    ui.RequestFocus(rFixedArea.id);
+    renderFrame();
+    ui.OnKeyDown(Key::End, {.ctrl = true});
+    ui.OnTextInput("_0123456789_0123456789_overflow");
+    renderFrame();
+    CHECK(fixedArea.size() == 31u);
+    CHECK(fixedArea.full());
+    CHECK(fixedArea.starts_with("line1\nline2_0123456789"));
+
+    // --- 3a. Select bound to FixedString<32> and String ---
+    auto clickWidget = [&](const Response& r) {
+        ui.OnMouseMove({r.rect.x + 20.0f, r.rect.Center().y});
+        ui.OnMouseDown(1);
+        renderFrame();
+        ui.OnMouseUp(1);
+        renderFrame();
+    };
+
+    clickWidget(rSelFixed);
+    CHECK(ui.IsPopupOpen(rSelFixed.id));
+    ui.OnKeyDown(Key::Down);
+    renderFrame();
+    CHECK(selFixed.as_ref() == "BandPass");
+    ui.OnKeyDown(Key::Escape);
+    renderFrame();
+
+    clickWidget(rSelHeap);
+    CHECK(ui.IsPopupOpen(rSelHeap.id));
+    ui.OnKeyDown(Key::Down);
+    renderFrame();
+    CHECK(selHeap.as_ref() == "HighPass");
+    ui.OnKeyDown(Key::Escape);
+    renderFrame();
+
+    // --- 3b. ComboBox bound to FixedString<32> and String ---
+    clickWidget(rComboFixed);
+    CHECK(ui.IsPopupOpen(rComboFixed.id));
+    ui.OnTextInput("not");
+    renderFrame();
+    ui.OnKeyDown(Key::Enter);
+    renderFrame();
+    CHECK(comboFixed.as_ref() == "Notch");
+
+    clickWidget(rComboHeap);
+    CHECK(ui.IsPopupOpen(rComboHeap.id));
+    ui.OnTextInput("low");
+    renderFrame();
+    ui.OnKeyDown(Key::Enter);
+    renderFrame();
+    CHECK(comboHeap.as_ref() == "LowPass");
+
+    // --- 3c. Autocomplete bound to FixedString<32> and String ---
+    clickWidget(rAutoFixed);
+    ui.OnTextInput("high");
+    renderFrame();
+    ui.OnKeyDown(Key::Enter);
+    renderFrame();
+    CHECK(autoFixed.as_ref() == "HighPass");
+
+    clickWidget(rAutoHeap);
+    ui.OnTextInput("CustomFIR");
+    renderFrame();
+    ui.OnKeyDown(Key::Enter);
+    renderFrame();
+    CHECK(autoHeap.as_ref() == "CustomFIR");
+
+    // --- 3d. MultiSelect bound to SmallArray<size_t, 8> and Array<size_t> ---
+    ui.OnMouseMove({rMultiSmall.rect.Right() - 12.0f, rMultiSmall.rect.Center().y});
+    ui.OnMouseDown(1);
+    renderFrame();
+    ui.OnMouseUp(1);
+    renderFrame();
+    CHECK(ui.IsPopupOpen(rMultiSmall.id));
+    ui.OnKeyDown(Key::Backspace);
+    renderFrame();
+    CHECK(multiSmall.size() == 1u && multiSmall[0] == 0u);
+    ui.OnKeyDown(Key::Escape);
+    renderFrame();
+
+    ui.OnMouseMove({rMultiHeap.rect.Right() - 12.0f, rMultiHeap.rect.Center().y});
+    ui.OnMouseDown(1);
+    renderFrame();
+    ui.OnMouseUp(1);
+    renderFrame();
+    CHECK(ui.IsPopupOpen(rMultiHeap.id));
+    ui.OnKeyDown(Key::Backspace);
+    renderFrame();
+    CHECK(multiHeap.size() == 1u && multiHeap[0] == 1u);
+    ui.OnKeyDown(Key::Escape);
+    renderFrame();
+
+    // --- 4. TagInput bound to SmallArray<FixedString<32>, 8>, Array<String>, and SmallArray<TagItem, 8> ---
+    ui.RequestFocus(rTagsFixed.id);
+    renderFrame();
+    ui.OnTextInput("beta,gamma,");
+    renderFrame();
+    CHECK(fixedTags.size() == 3u);
+    CHECK(fixedTags[1].as_ref() == "beta");
+    CHECK(fixedTags[2].as_ref() == "gamma");
+
+    ui.RequestFocus(rTagsHeap.id);
+    renderFrame();
+    ui.OnTextInput("fft");
+    renderFrame();
+    ui.OnKeyDown(Key::Enter);
+    renderFrame();
+    CHECK(heapTags.size() == 2u);
+    CHECK(heapTags[1].as_ref() == "fft");
+    ui.OnKeyDown(Key::Backspace);
+    renderFrame();
+    CHECK(heapTags.size() == 1u);
+    CHECK(heapTags[0].as_ref() == "dsp");
+
+    ui.RequestFocus(rTagsRich.id);
+    renderFrame();
+    ui.OnTextInput("gpu");
+    renderFrame();
+    ui.OnKeyDown(Key::Enter);
+    renderFrame();
+    CHECK(richTags.size() == 2u);
+    CHECK(richTags[0].variant == UiVariant::Info);
+    CHECK(richTags[1].text.as_ref() == "gpu");
+
+    keel::println("  [PASS] TestKeelZeroCopyWidgetBindings completed");
+}
+
+// STL headers are included ONLY here at the very bottom (after guikit.hpp and all keel-native tests)
+// to verify zero-header duck-typed STL interoperability without including keel/interop_std.h.
+#include <optional>
+#include <span>
+#include <string>
+#include <string_view>
+#include <vector>
+
+void TestExternalStlDuckTypedInterop() {
+    using namespace guikit;
+    keel::println("  -> TestExternalStlDuckTypedInterop...");
+
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 900;
+    const uint32_t height = 760;
+    keel::Array<uint32_t> pixels(width * height, 0u);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    const std::string stdLabel = "External std::string Label";
+    const std::string_view stdBtnText = "External std::string_view Button";
+    const std::optional<float> optExplicitWidth = 240.0f;
+    const std::optional<float> optAutoWidth = std::nullopt;
+
+    std::string stdInput = "stl_edit";
+    std::string stdCode = "float gain = 1.0f;\nreturn gain;";
+    std::vector<size_t> stdBreakpoints = {2};
+
+    const std::vector<SelectItem> stdSelectItems = {
+        {.text = "Alpha"},
+        {.text = "Beta"},
+        {.text = "Gamma"}
+    };
+    const std::span<const SelectItem> stdSelectSpan(stdSelectItems);
+
+    std::string stdSelStr = "Alpha";
+    std::string_view stdSelView = "Beta";
+    std::vector<size_t> stdMultiIndices = {0, 2};
+    std::vector<std::string> stdStringTags = {"stl", "duck"};
+    std::vector<TagItem> stdRichTags = {
+        TagItem{.text = "badge", .variant = UiVariant::Success}
+    };
+
+    const std::vector<float> stdLevels = {-12.0f, -3.0f};
+    const std::span<const float> stdLevelsSpan(stdLevels);
+
+    Response rTextStr{}, rTextSv{}, rBtn{}, rInput{};
+    CodeEditorResponse rCode{};
+    Response rSelStr{}, rSelView{}, rMulti{};
+    Response rStrTags{}, rRichTags{}, rMeter{};
+
+    auto renderStlFrame = [&]() {
+        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)}, 1.0f);
+        if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(12.0f), .widthMode = SizeMode::Stretch})) {
+            rTextStr = ui.Text(stdLabel);
+            rTextSv  = ui.Text(stdBtnText);
+            rBtn     = ui.Button({.text = stdBtnText, .tooltip = stdLabel, .width = optExplicitWidth});
+            rInput   = ui.InputField(stdInput, {.width = optAutoWidth});
+            rCode    = ui.CodeEditor(stdCode, {
+                .rows = 4,
+                .showLineNumbers = true,
+                .enableBreakpoints = true,
+                .breakpoints = &stdBreakpoints
+            });
+            if (auto row = ui.Row({.gap = 8.0f})) {
+                rSelStr  = ui.Select(stdSelStr, stdSelectSpan, {.width = 200.0f});
+                rSelView = ui.Select(stdSelView, stdSelectItems, {.width = 200.0f});
+                rMulti   = ui.MultiSelect(stdMultiIndices, stdSelectSpan, {.width = 240.0f, .searchable = true});
+            }
+            if (auto row2 = ui.Row({.gap = 8.0f})) {
+                rStrTags  = ui.TagInput(stdStringTags, {.splitOnComma = true, .width = 260.0f});
+                rRichTags = ui.TagInput(stdRichTags, {.width = 260.0f});
+                rMeter    = ui.LevelMeter(stdLevelsSpan, -60.0f, 0.0f, {.width = 160.0f});
+            }
+        }
+        ui.EndFrame(canvas);
+    };
+
+    renderStlFrame();
+    renderStlFrame();
+
+    CHECK(rTextStr.rect.w > 40.0f);
+    CHECK(rTextSv.rect.w > 40.0f);
+    CHECK_NEAR(rBtn.rect.w, 240.0f, 0.5f);
+    CHECK(rMeter.rect.w > 100.0f);
+
+    // 1. Mutate std::string via ui.InputField
+    ui.RequestFocus(rInput.id);
+    renderStlFrame();
+    ui.OnKeyDown(Key::End);
+    ui.OnTextInput("_ok");
+    renderStlFrame();
+    CHECK(stdInput == "stl_edit_ok");
+
+    // 2. Mutate std::string + std::vector<size_t> breakpoints via ui.CodeEditor
+    ui.RequestFocus(rCode.id);
+    renderStlFrame();
+    ui.OnKeyDown(Key::Home, {.ctrl = true});
+    ui.OnKeyDown(Key::Enter);
+    renderStlFrame();
+    CHECK(stdCode.starts_with("\nfloat gain = 1.0f;"));
+    CHECK(stdBreakpoints.size() == 1u && stdBreakpoints[0] == 3u);
+
+    // 3. Mutate std::string and std::string_view via ui.Select + std::span<const SelectItem>
+    ui.OnMouseMove({rSelStr.rect.x + 20.0f, rSelStr.rect.Center().y});
+    ui.OnMouseDown(1);
+    renderStlFrame();
+    ui.OnMouseUp(1);
+    renderStlFrame();
+    CHECK(ui.IsPopupOpen(rSelStr.id));
+    ui.OnKeyDown(Key::Down);
+    renderStlFrame();
+    CHECK(stdSelStr == "Beta");
+    ui.OnKeyDown(Key::Escape);
+    renderStlFrame();
+
+    ui.OnMouseMove({rSelView.rect.x + 20.0f, rSelView.rect.Center().y});
+    ui.OnMouseDown(1);
+    renderStlFrame();
+    ui.OnMouseUp(1);
+    renderStlFrame();
+    CHECK(ui.IsPopupOpen(rSelView.id));
+    ui.OnKeyDown(Key::Down);
+    renderStlFrame();
+    CHECK(stdSelView == "Gamma");
+    ui.OnKeyDown(Key::Escape);
+    renderStlFrame();
+
+    // 4. Mutate std::vector<size_t> via ui.MultiSelect
+    ui.OnMouseMove({rMulti.rect.Right() - 12.0f, rMulti.rect.Center().y});
+    ui.OnMouseDown(1);
+    renderStlFrame();
+    ui.OnMouseUp(1);
+    renderStlFrame();
+    CHECK(ui.IsPopupOpen(rMulti.id));
+    ui.OnKeyDown(Key::Backspace);
+    renderStlFrame();
+    CHECK(stdMultiIndices.size() == 1u && stdMultiIndices[0] == 0u);
+    ui.OnKeyDown(Key::Escape);
+    renderStlFrame();
+
+    // 5. Mutate std::vector<std::string> and std::vector<TagItem> via ui.TagInput
+    ui.RequestFocus(rStrTags.id);
+    renderStlFrame();
+    ui.OnTextInput("interop,");
+    renderStlFrame();
+    CHECK(stdStringTags.size() == 3u);
+    CHECK(stdStringTags[2] == "interop");
+
+    ui.RequestFocus(rRichTags.id);
+    renderStlFrame();
+    ui.OnTextInput("verified");
+    renderStlFrame();
+    ui.OnKeyDown(Key::Enter);
+    renderStlFrame();
+    CHECK(stdRichTags.size() == 2u);
+    CHECK(stdRichTags[0].variant == UiVariant::Success);
+    CHECK(stdRichTags[1].text.as_ref() == "verified");
+
+    keel::println("  [PASS] TestExternalStlDuckTypedInterop completed");
+}
+
 

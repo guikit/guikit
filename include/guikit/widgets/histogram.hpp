@@ -1,19 +1,17 @@
 #pragma once
 
-#include <algorithm>
-#include <array>
 #include <cmath>
 #include <cstdint>
-#include <optional>
-#include <source_location>
-#include <span>
-#include <string_view>
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
 #include "guikit/graphics/colormap.hpp"
 #include "guikit/graphics/icon.hpp"
+#include "keel/core.h"
+#include "keel/optional.h"
+#include "keel/ref.h"
+#include "keel/static_array.h"
 
 namespace guikit {
 
@@ -59,7 +57,7 @@ struct ChannelTransferParams {
     }
 
     constexpr void ResetToRange(float minVal, float maxVal) noexcept {
-        const float span = std::max(1e-4f, maxVal - minVal);
+        const float span = keel::max(1e-4f, maxVal - minVal);
         window = span;
         level = minVal + span * 0.5f;
         gamma = 1.0f;
@@ -69,9 +67,9 @@ struct ChannelTransferParams {
     /// Evaluates normalized output intensity [0.0, 1.0] for an input sample `val`.
     [[nodiscard]] float Evaluate(float val) const noexcept {
         const float lo = Low();
-        const float span = std::max(1e-5f, window);
-        float t = std::clamp((val - lo) / span, 0.0f, 1.0f);
-        const float safeGamma = std::clamp(gamma, 0.05f, 10.0f);
+        const float span = keel::max(1e-5f, window);
+        float t = keel::clamp((val - lo) / span, 0.0f, 1.0f);
+        const float safeGamma = keel::clamp(gamma, 0.05f, 10.0f);
         if (std::abs(safeGamma - 1.0f) > 1e-3f) {
             t = std::pow(t, 1.0f / safeGamma);
         }
@@ -85,15 +83,15 @@ struct ChannelTransferParams {
 /// Input bin distribution descriptor for single-channel (Intensity) or multi-channel (RGB + Luminance) histograms.
 struct HistogramData {
     uint32_t channelCount{1};                   ///< 1 = monochrome intensity, 3 = RGB + Luminance
-    std::span<const uint32_t> binsLum{};        ///< Primary intensity (1ch) or Luminance (3ch) bins
-    std::span<const uint32_t> binsR{};          ///< Red channel bins (when channelCount >= 3)
-    std::span<const uint32_t> binsG{};          ///< Green channel bins (when channelCount >= 3)
-    std::span<const uint32_t> binsB{};          ///< Blue channel bins (when channelCount >= 3)
+    keel::ArrayRef<uint32_t> binsLum{};         ///< Primary intensity (1ch) or Luminance (3ch) bins
+    keel::ArrayRef<uint32_t> binsR{};           ///< Red channel bins (when channelCount >= 3)
+    keel::ArrayRef<uint32_t> binsG{};           ///< Green channel bins (when channelCount >= 3)
+    keel::ArrayRef<uint32_t> binsB{};           ///< Blue channel bins (when channelCount >= 3)
     float minValue{0.0f};                       ///< Minimum physical/intensity value corresponding to bin 0
     float maxValue{65535.0f};                   ///< Maximum physical/intensity value corresponding to last bin
 
     [[nodiscard]] static constexpr HistogramData Mono(
-        std::span<const uint32_t> bins,
+        keel::ArrayRef<uint32_t> bins,
         float minVal = 0.0f,
         float maxVal = 65535.0f
     ) noexcept {
@@ -106,10 +104,10 @@ struct HistogramData {
     }
 
     [[nodiscard]] static constexpr HistogramData Rgb(
-        std::span<const uint32_t> lum,
-        std::span<const uint32_t> r,
-        std::span<const uint32_t> g,
-        std::span<const uint32_t> b,
+        keel::ArrayRef<uint32_t> lum,
+        keel::ArrayRef<uint32_t> r,
+        keel::ArrayRef<uint32_t> g,
+        keel::ArrayRef<uint32_t> b,
         float minVal = 0.0f,
         float maxVal = 255.0f
     ) noexcept {
@@ -131,8 +129,8 @@ struct HistogramOptions {
     StretchMode stretch{StretchMode::Fill};
 
     // --- Sizing & Geometry ---
-    std::optional<float> width{std::nullopt};
-    std::optional<float> widthRatio{std::nullopt};
+    keel::Optional<float> width{keel::kNullOpt};
+    keel::Optional<float> widthRatio{keel::kNullOpt};
     float height{136.0f};
     float minHeight{96.0f};
     SizeMode heightMode{SizeMode::Fit};
@@ -150,15 +148,15 @@ struct HistogramOptions {
     bool interactive{true};                     ///< Allow dragging low/high handles and window band
 
     /// Optional per-channel transfer parameters (indices 1..3 = R, G, B) for multi-curve overlay in Master RGB view.
-    std::optional<std::array<ChannelTransferParams, 4>> multiChannelParams{std::nullopt};
+    keel::Optional<keel::StaticArray<ChannelTransferParams, 4>> multiChannelParams{keel::kNullOpt};
 
     // --- State & Accessibility ---
     bool disabled{false};
     UiText tooltip{};
     const UiTheme* theme{nullptr};
-    std::optional<float> scale{std::nullopt};
-    std::optional<bool> debugBounds{std::nullopt};
-    std::optional<bool> inspectMode{std::nullopt};
+    keel::Optional<float> scale{keel::kNullOpt};
+    keel::Optional<bool> debugBounds{keel::kNullOpt};
+    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// Extended telemetry and interaction response returned by `ui.Histogram`.
@@ -193,7 +191,7 @@ public:
         const HistogramData& data,
         ChannelTransferParams& transfer,
         const HistogramOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 };
 

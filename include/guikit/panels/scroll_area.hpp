@@ -1,12 +1,12 @@
 #pragma once
 
-#include <optional>
-#include <source_location>
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/id.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
+#include "keel/core.h"
+#include "keel/optional.h"
 
 namespace guikit {
 
@@ -38,20 +38,20 @@ struct ScrollAreaOptions {
     VisibilityPolicy scrollbar{VisibilityPolicy::Auto};
     Alignment align{Alignment::Stretch};            ///< Cross-axis alignment inside scroll content rect
     Justify justify{Justify::Start};                ///< Main-axis justification when content is smaller than viewport
-    std::optional<float> gap{std::nullopt};        ///< Gap between consecutive scroll items (nullopt = zero)
-    std::optional<Padding> padding{std::nullopt};   ///< Viewport content padding (nullopt = zero)
-    std::optional<float> width{std::nullopt};       ///< Explicit fixed width in dp
-    std::optional<float> height{std::nullopt};      ///< Explicit fixed height in dp
-    std::optional<float> maxHeight{std::nullopt};   ///< Maximum viewport height in dp (shrink-wraps content up to maxHeight)
+    keel::Optional<float> gap{keel::kNullOpt};        ///< Gap between consecutive scroll items (nullopt = zero)
+    keel::Optional<Padding> padding{keel::kNullOpt};   ///< Viewport content padding (nullopt = zero)
+    keel::Optional<float> width{keel::kNullOpt};       ///< Explicit fixed width in dp
+    keel::Optional<float> height{keel::kNullOpt};      ///< Explicit fixed height in dp
+    keel::Optional<float> maxHeight{keel::kNullOpt};   ///< Maximum viewport height in dp (shrink-wraps content up to maxHeight)
     SizeMode widthMode{SizeMode::Stretch};
     SizeMode heightMode{SizeMode::Stretch};
     StateColor background{};
     Border border{};
     bool disabled{false};
     const UiTheme* theme{nullptr};
-    std::optional<float> scale{std::nullopt};
-    std::optional<bool> debugBounds{std::nullopt};
-    std::optional<bool> inspectMode{std::nullopt};
+    keel::Optional<float> scale{keel::kNullOpt};
+    keel::Optional<bool> debugBounds{keel::kNullOpt};
+    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// ScrollArea container logic and shared 1D/2D scrollbar primitives.
@@ -61,7 +61,7 @@ public:
     [[nodiscard]] static ContainerScope Open(
         Context& ctx,
         const ScrollAreaOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Returns the active visible viewport rectangle (computed bounds minus padding and gutter).

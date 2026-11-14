@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <string_view>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/tokens.hpp"
 #include "keel/small_array.h"
@@ -20,13 +19,14 @@ class TextUtil {
 public:
     /// Measures single-line text width in points using canvas or fallback ratio.
     [[nodiscard]] static float MeasureWidth(
-        std::string_view text,
+        keel::StringRef text,
         float fontSize,
         ICanvas* canvas = nullptr
     ) noexcept;
 
     /// Measures maximum single-line text width across UiText's active string and all its candidate variants.
-    template <std::same_as<UiText> T>
+    template <typename T>
+        requires keel::IsSame<T, UiText>
     [[nodiscard]] static float MeasureWidth(
         const T& text,
         float fontSize,
@@ -45,7 +45,7 @@ public:
     /// If text already fits, returns a FixedString copy of text.
     /// If maxWidth cannot even accommodate "...", returns empty string.
     [[nodiscard]] static keel::FixedString<256> TruncateWithEllipsis(
-        std::string_view text,
+        keel::StringRef text,
         float maxWidth,
         float fontSize,
         ICanvas* canvas = nullptr,
@@ -55,8 +55,8 @@ public:
     /// Splits text into wrapped lines that fit within maxWidth points.
     /// Breaks by words/whitespace, falling back to character-level breaking if a word exceeds maxWidth.
     /// Preserves explicit newline characters ('\n').
-    [[nodiscard]] static keel::SmallArray<std::string_view, 16> WrapText(
-        std::string_view text,
+    [[nodiscard]] static keel::SmallArray<keel::StringRef, 16> WrapText(
+        keel::StringRef text,
         float maxWidth,
         float fontSize,
         ICanvas* canvas = nullptr
@@ -64,7 +64,7 @@ public:
 
     /// Calculates total height of wrapped text given maxWidth and lineHeight.
     [[nodiscard]] static float MeasureWrappedHeight(
-        std::string_view text,
+        keel::StringRef text,
         float maxWidth,
         float fontSize,
         float lineHeight,
@@ -118,23 +118,23 @@ public:
     );
 
     /// Returns the byte index of the previous UTF-8 codepoint boundary before `index`.
-    [[nodiscard]] static size_t PrevCharBoundary(std::string_view text, size_t index) noexcept;
+    [[nodiscard]] static size_t PrevCharBoundary(keel::StringRef text, size_t index) noexcept;
 
     /// Returns the byte index of the next UTF-8 codepoint boundary after `index`.
-    [[nodiscard]] static size_t NextCharBoundary(std::string_view text, size_t index) noexcept;
+    [[nodiscard]] static size_t NextCharBoundary(keel::StringRef text, size_t index) noexcept;
 
     /// Returns the byte index of the previous word boundary before `index` (for Ctrl+Left / Ctrl+Backspace).
-    [[nodiscard]] static size_t PrevWordBoundary(std::string_view text, size_t index) noexcept;
+    [[nodiscard]] static size_t PrevWordBoundary(keel::StringRef text, size_t index) noexcept;
 
     /// Returns the byte index of the next word boundary after `index` (for Ctrl+Right / Ctrl+Delete).
-    [[nodiscard]] static size_t NextWordBoundary(std::string_view text, size_t index) noexcept;
+    [[nodiscard]] static size_t NextWordBoundary(keel::StringRef text, size_t index) noexcept;
 
     /// Computes the `[outStart, outEnd]` byte range of the word or token at `index` (for double-click selection).
-    static void SelectWordAt(std::string_view text, size_t index, size_t& outStart, size_t& outEnd) noexcept;
+    static void SelectWordAt(keel::StringRef text, size_t index, size_t& outStart, size_t& outEnd) noexcept;
 
     /// Hit-tests a horizontal local coordinate `localX` (in points from text start) to the nearest UTF-8 character boundary byte index.
     [[nodiscard]] static size_t HitTestIndex(
-        std::string_view text,
+        keel::StringRef text,
         float localX,
         float fontSize,
         ICanvas* canvas = nullptr
@@ -143,25 +143,25 @@ public:
     /// Finds the first UTF-8 (ASCII + Cyrillic) case-insensitive occurrence of `needle` inside `haystack`.
     /// Returns true and populates `[outBytePos, outBytePos + outByteLen)` when found.
     [[nodiscard]] static bool FindCaseInsensitive(
-        std::string_view haystack,
-        std::string_view needle,
+        keel::StringRef haystack,
+        keel::StringRef needle,
         size_t& outBytePos,
         size_t& outByteLen
     ) noexcept;
 
     /// Finds the first UTF-8 (ASCII + Cyrillic) case-insensitive occurrence of `needle` inside `haystack`.
-    /// Returns the starting byte offset, or `std::string_view::npos` if not found.
+    /// Returns the starting byte offset, or `keel::kInvalidIndex` if not found.
     [[nodiscard]] static size_t FindCaseInsensitive(
-        std::string_view haystack,
-        std::string_view needle
+        keel::StringRef haystack,
+        keel::StringRef needle
     ) noexcept;
 
     /// Renders single-line text inside `bounds` (with ellipsis truncation if needed) and draws a rounded
-    /// highlight pill behind the matched byte range `[matchPos, matchPos + matchLen)` when `matchPos != npos`.
+    /// highlight pill behind the matched byte range `[matchPos, matchPos + matchLen)` when `matchPos != keel::kInvalidIndex`.
     /// Because the text is rendered in a single unbroken pass, baseline and kerning remain 100% invariant.
     static void DrawHighlightedTextBox(
         ICanvas& canvas,
-        std::string_view text,
+        keel::StringRef text,
         Rect bounds,
         float fontSize,
         Color textColor,

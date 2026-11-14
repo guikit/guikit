@@ -1,8 +1,9 @@
 #include "guikit/core/frame_metrics.hpp"
 
-#include <algorithm>
 #include <cstdio>
-#include <thread>
+#include "keel/core.h"
+#include "keel/format.h"
+#include "keel/time.h"
 
 #if defined(_WIN32)
     #ifndef WIN32_LEAN_AND_MEAN
@@ -26,25 +27,51 @@
 
 namespace guikit {
 
+namespace {
+
+[[nodiscard]] int QueryNumProcessors() noexcept {
+#if defined(_WIN32)
+    SYSTEM_INFO sysInfo{};
+    GetSystemInfo(&sysInfo);
+    return keel::max(1, static_cast<int>(sysInfo.dwNumberOfProcessors));
+#elif defined(__EMSCRIPTEN__)
+    return 1;
+#else
+    const long n = sysconf(_SC_NPROCESSORS_ONLN);
+    return (n > 0) ? static_cast<int>(n) : 1;
+#endif
+}
+
+[[nodiscard]] constexpr double DeltaSeconds(keel::u64 endNs, keel::u64 startNs) noexcept {
+    return (endNs > startNs) ? (static_cast<double>(endNs - startNs) * 1e-9) : 0.0;
+}
+
+[[nodiscard]] constexpr float DeltaMillisecondsF(keel::u64 endNs, keel::u64 startNs) noexcept {
+    return (endNs > startNs) ? static_cast<float>(static_cast<double>(endNs - startNs) * 1e-6) : 0.0f;
+}
+
+} // namespace
+
 FrameMetrics::FrameMetrics() noexcept {
-    m_numProcessors = std::max(1, static_cast<int>(std::thread::hardware_concurrency()));
-    m_lastCpuCheckTime = std::chrono::steady_clock::now();
+    m_numProcessors = QueryNumProcessors();
+    const keel::u64 nowNs = keel::monotonic_ns();
+    m_lastCpuCheckTimeNs = nowNs;
     m_lastProcessCpuSec = QueryProcessCpuSeconds();
     m_ramBytes = QueryProcessRamBytes();
     m_displayRamMb = static_cast<float>(static_cast<double>(m_ramBytes) / (1024.0 * 1024.0));
-    m_lastDisplayUpdateTime = m_lastCpuCheckTime;
-    m_lastFrameTime = m_lastCpuCheckTime;
-    m_lastFrameEnd = m_lastCpuCheckTime;
-    m_lastPresentedTime = m_lastCpuCheckTime;
-    m_fpsWindowStart = m_lastCpuCheckTime;
+    m_lastDisplayUpdateTimeNs = nowNs;
+    m_lastFrameTimeNs = nowNs;
+    m_lastFrameEndNs = nowNs;
+    m_lastPresentedTimeNs = nowNs;
+    m_fpsWindowStartNs = nowNs;
 }
 
 void FrameMetrics::BeginFrame() noexcept {
-    const auto now = std::chrono::steady_clock::now();
+    const keel::u64 nowNs = keel::monotonic_ns();
     m_wokeFromIdle = false;
     if (m_hasPreviousFrame) {
-        const auto betweenFrames = now - m_lastFrameEnd;
-        const float sleepSec = std::chrono::duration<float>(betweenFrames).count();
+        const keel::u64 betweenFramesNs = (nowNs > m_lastFrameEndNs) ? (nowNs - m_lastFrameEndNs) : 0ULL;
+        const float sleepSec = static_cast<float>(static_cast<double>(betweenFramesNs) * 1e-9);
         if (sleepSec > 0.25f) {
             m_wokeFromIdle = true;
             m_pendingWakePresent = false;
@@ -53,45 +80,45 @@ void FrameMetrics::BeginFrame() noexcept {
             m_smoothedCpuMs = 0.0f;
             m_smoothedGpuMs = 0.0f;
             m_fpsFrameCount = 0;
-            m_fpsWindowStart = now;
-            UpdateProcessTelemetry(now);
-            RefreshDisplayStrings(now, m_lastTargetFps);
+            m_fpsWindowStartNs = nowNs;
+            UpdateProcessTelemetry(nowNs);
+            RefreshDisplayStrings(nowNs, m_lastTargetFps);
         } else {
             if (sleepSec > 0.035f) {
-                m_fpsWindowStart += betweenFrames;
+                m_fpsWindowStartNs += betweenFramesNs;
             }
             if (m_pendingWakePresent) {
                 m_isIdle = false;
                 m_smoothedCpuMs = m_pendingWakeCpuMs;
                 m_smoothedGpuMs = m_pendingWakeGpuMs;
-                m_fpsWindowStart = m_pendingWakeStart;
+                m_fpsWindowStartNs = m_pendingWakeStartNs;
                 m_fpsFrameCount = 1;
                 m_pendingWakePresent = false;
             }
         }
     }
-    m_frameStart = now;
-    m_lastFrameTime = now;
+    m_frameStartNs = nowNs;
+    m_lastFrameTimeNs = nowNs;
     m_hasPreviousFrame = true;
 }
 
 void FrameMetrics::MarkFramePresented() noexcept {
-    const auto now = std::chrono::steady_clock::now();
+    const keel::u64 nowNs = keel::monotonic_ns();
     m_hasPresentedFrames = true;
     if (m_wokeFromIdle) {
         m_pendingWakePresent = true;
-        m_pendingWakeStart = m_frameStart;
+        m_pendingWakeStartNs = m_frameStartNs;
         return;
     }
-    m_lastPresentedTime = now;
+    m_lastPresentedTimeNs = nowNs;
     m_isIdle = false;
     ++m_fpsFrameCount;
 }
 
 void FrameMetrics::MarkCpuDone() noexcept {
-    m_cpuDone = std::chrono::steady_clock::now();
-    const float workMs = std::chrono::duration<float, std::milli>(m_cpuDone - m_frameStart).count();
-    m_accumulatedWorkSec += static_cast<double>(std::max(0.0f, workMs)) * 1e-3;
+    m_cpuDoneNs = keel::monotonic_ns();
+    const float workMs = DeltaMillisecondsF(m_cpuDoneNs, m_frameStartNs);
+    m_accumulatedWorkSec += static_cast<double>(keel::max(0.0f, workMs)) * 1e-3;
     if (m_wokeFromIdle) {
         m_pendingWakeCpuMs = workMs;
         return;
@@ -105,13 +132,13 @@ void FrameMetrics::MarkCpuDone() noexcept {
 }
 
 void FrameMetrics::MarkGpuStart() noexcept {
-    m_gpuStart = std::chrono::steady_clock::now();
+    m_gpuStartNs = keel::monotonic_ns();
 }
 
 void FrameMetrics::MarkGpuDone() noexcept {
-    m_gpuDone = std::chrono::steady_clock::now();
-    const float gpuMs = std::chrono::duration<float, std::milli>(m_gpuDone - m_gpuStart).count();
-    m_accumulatedWorkSec += static_cast<double>(std::max(0.0f, gpuMs)) * 1e-3;
+    m_gpuDoneNs = keel::monotonic_ns();
+    const float gpuMs = DeltaMillisecondsF(m_gpuDoneNs, m_gpuStartNs);
+    m_accumulatedWorkSec += static_cast<double>(keel::max(0.0f, gpuMs)) * 1e-3;
     if (m_wokeFromIdle) {
         m_pendingWakeGpuMs = gpuMs;
         return;
@@ -125,22 +152,22 @@ void FrameMetrics::MarkGpuDone() noexcept {
 }
 
 void FrameMetrics::EndFrame(float targetFps) noexcept {
-    const auto now = std::chrono::steady_clock::now();
-    m_lastFrameEnd = now;
+    const keel::u64 nowNs = keel::monotonic_ns();
+    m_lastFrameEndNs = nowNs;
     m_lastTargetFps = targetFps;
 
     if (m_hasPresentedFrames && !m_wokeFromIdle) {
-        const float idleElapsed = std::chrono::duration<float>(now - m_lastPresentedTime).count();
+        const float idleElapsed = static_cast<float>(DeltaSeconds(nowNs, m_lastPresentedTimeNs));
         if (idleElapsed > 0.25f) {
             m_isIdle = true;
             m_smoothedFps = 0.0f;
             m_smoothedCpuMs = 0.0f;
             m_smoothedGpuMs = 0.0f;
             m_fpsFrameCount = 0;
-            m_fpsWindowStart = now;
+            m_fpsWindowStartNs = nowNs;
         } else {
             m_isIdle = false;
-            const float fpsElapsed = std::chrono::duration<float>(now - m_fpsWindowStart).count();
+            const float fpsElapsed = static_cast<float>(DeltaSeconds(nowNs, m_fpsWindowStartNs));
             const float windowThreshold = (m_smoothedFps <= 0.0f) ? 0.20f : 0.30f;
             if (fpsElapsed >= windowThreshold && m_fpsFrameCount > 0) {
                 const float measuredFps = static_cast<float>(m_fpsFrameCount) / fpsElapsed;
@@ -150,45 +177,45 @@ void FrameMetrics::EndFrame(float targetFps) noexcept {
                     m_smoothedFps = m_smoothedFps * 0.70f + measuredFps * 0.30f;
                 }
                 m_fpsFrameCount = 0;
-                m_fpsWindowStart = now;
+                m_fpsWindowStartNs = nowNs;
             }
         }
     } else {
         m_isIdle = true;
         m_smoothedFps = 0.0f;
-        m_fpsWindowStart = now;
+        m_fpsWindowStartNs = nowNs;
     }
 
-    UpdateProcessTelemetry(now);
+    UpdateProcessTelemetry(nowNs);
 
-    const double displayElapsed = std::chrono::duration<double>(now - m_lastDisplayUpdateTime).count();
+    const double displayElapsed = DeltaSeconds(nowNs, m_lastDisplayUpdateTimeNs);
     if (displayElapsed >= 0.3 || m_displayFps <= 0.0f || m_isIdle) {
-        RefreshDisplayStrings(now, targetFps);
+        RefreshDisplayStrings(nowNs, targetFps);
     }
 }
 
-void FrameMetrics::UpdateProcessTelemetry(std::chrono::steady_clock::time_point now) noexcept {
-    const double elapsedCpuSec = std::chrono::duration<double>(now - m_lastCpuCheckTime).count();
+void FrameMetrics::UpdateProcessTelemetry(keel::u64 nowNs) noexcept {
+    const double elapsedCpuSec = DeltaSeconds(nowNs, m_lastCpuCheckTimeNs);
     if (elapsedCpuSec >= 0.5) {
 #if defined(__EMSCRIPTEN__)
         const float pct = static_cast<float>((m_accumulatedWorkSec / elapsedCpuSec) * 100.0);
-        m_cpuPercent = m_isIdle ? 0.0f : std::clamp(pct, 0.0f, 100.0f);
+        m_cpuPercent = m_isIdle ? 0.0f : keel::clamp(pct, 0.0f, 100.0f);
 #else
         const double curCpuSec = QueryProcessCpuSeconds();
         if (curCpuSec >= 0.0 && m_lastProcessCpuSec >= 0.0) {
             const double deltaCpu = curCpuSec - m_lastProcessCpuSec;
             const float pct = static_cast<float>((deltaCpu / (elapsedCpuSec * m_numProcessors)) * 100.0);
-            m_cpuPercent = std::clamp(pct, 0.0f, 100.0f);
+            m_cpuPercent = keel::clamp(pct, 0.0f, 100.0f);
         }
         m_lastProcessCpuSec = curCpuSec;
 #endif
         m_accumulatedWorkSec = 0.0;
         m_ramBytes = QueryProcessRamBytes();
-        m_lastCpuCheckTime = now;
+        m_lastCpuCheckTimeNs = nowNs;
     }
 }
 
-void FrameMetrics::RefreshDisplayStrings(std::chrono::steady_clock::time_point now, float targetFps) noexcept {
+void FrameMetrics::RefreshDisplayStrings(keel::u64 nowNs, float targetFps) noexcept {
     if (m_ramBytes == 0) {
         m_ramBytes = QueryProcessRamBytes();
     }
@@ -199,56 +226,36 @@ void FrameMetrics::RefreshDisplayStrings(std::chrono::steady_clock::time_point n
     m_displayRamMb = static_cast<float>(static_cast<double>(m_ramBytes) / (1024.0 * 1024.0));
 
     const float targetFrameMs = (targetFps > 0.0f) ? (1000.0f / targetFps) : 16.67f;
-    m_displayGpuBudgetPercent = std::clamp((m_displayGpuTimeMs / targetFrameMs) * 100.0f, 0.0f, 100.0f);
-
-    char fpsBuf[32];
-    char cpuBuf[48];
-    char gpuBuf[48];
-    char ramBuf[32];
+    m_displayGpuBudgetPercent = keel::clamp((m_displayGpuTimeMs / targetFrameMs) * 100.0f, 0.0f, 100.0f);
 
     if (m_isIdle) {
-        std::snprintf(fpsBuf, sizeof(fpsBuf), "0 FPS (Idle)");
+        m_fpsString = "0 FPS (Idle)";
     } else {
-        std::snprintf(fpsBuf, sizeof(fpsBuf), "%.0f FPS", m_displayFps);
+        m_fpsString = keel::format_fixed<64>("{:.0f} FPS", m_displayFps);
     }
-    std::snprintf(
-        cpuBuf,
-        sizeof(cpuBuf),
-        "CPU: %.2f ms (%.1f%%)",
+    m_cpuString = keel::format_fixed<64>(
+        "CPU: {:.2f} ms ({:.1f}%)",
         m_displayCpuTimeMs,
         m_displayCpuPercent
     );
-    std::snprintf(
-        gpuBuf,
-        sizeof(gpuBuf),
-        "GPU: %.2f ms (%.0f%% budget)",
+    m_gpuString = keel::format_fixed<64>(
+        "GPU: {:.2f} ms ({:.0f}% budget)",
         m_displayGpuTimeMs,
         m_displayGpuBudgetPercent
     );
-    std::snprintf(
-        ramBuf,
-        sizeof(ramBuf),
-        "RAM: %.1f MB",
+    m_ramString = keel::format_fixed<64>(
+        "RAM: {:.1f} MB",
         m_displayRamMb
     );
 
-    m_fpsString = fpsBuf;
-    m_cpuString = cpuBuf;
-    m_gpuString = gpuBuf;
-    m_ramString = ramBuf;
-
-    char buf[160];
-    std::snprintf(
-        buf,
-        sizeof(buf),
-        "%s | %s | %s | %s",
-        fpsBuf,
-        cpuBuf,
-        gpuBuf,
-        ramBuf
+    m_statusString = keel::format_fixed<192>(
+        "{} | {} | {} | {}",
+        m_fpsString,
+        m_cpuString,
+        m_gpuString,
+        m_ramString
     );
-    m_statusString = buf;
-    m_lastDisplayUpdateTime = now;
+    m_lastDisplayUpdateTimeNs = nowNs;
 }
 
 size_t FrameMetrics::QueryProcessRamBytes() noexcept {

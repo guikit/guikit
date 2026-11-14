@@ -1,9 +1,7 @@
 #include "guikit/widgets/knob.hpp"
-#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
-#include <numbers>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
@@ -13,7 +11,7 @@ namespace guikit {
 
 namespace {
 
-constexpr float kPi = std::numbers::pi_v<float>;
+constexpr float kPi = 3.14159265358979323846f;
 constexpr float kMinAngleRad = -1.25f * kPi; // -225 deg (7:30 o'clock)
 constexpr float kMaxAngleRad =  0.25f * kPi; //  +45 deg (4:30 o'clock)
 constexpr float kSweepRad    = kMaxAngleRad - kMinAngleRad; // 270 deg (1.5 * pi)
@@ -49,12 +47,12 @@ ControlSpec EffectiveKnobControl(const KnobOptions& opts, UiSize size, const UiT
     return c;
 }
 
-double QuantizeAndClamp(double val, double minVal, double maxVal, std::optional<double> step) noexcept {
-    if (maxVal < minVal) std::swap(minVal, maxVal);
-    val = std::clamp(val, minVal, maxVal);
+double QuantizeAndClamp(double val, double minVal, double maxVal, keel::Optional<double> step) noexcept {
+    if (maxVal < minVal) keel::swap(minVal, maxVal);
+    val = keel::clamp(val, minVal, maxVal);
     if (step.has_value() && *step > 0.0) {
         const double steps = std::round((val - minVal) / *step);
-        val = std::clamp(minVal + steps * (*step), minVal, maxVal);
+        val = keel::clamp(minVal + steps * (*step), minVal, maxVal);
     }
     return val;
 }
@@ -67,18 +65,18 @@ void FormatKnobValue(
     const KnobOptions& opts
 ) noexcept {
     if (!opts.valueFormat.empty()) {
-        if (opts.valueFormat.text.find('%') == std::string_view::npos) {
+        if (opts.valueFormat.text.find('%') == keel::StringRef::npos) {
             std::snprintf(buf, bufSize, "%.*s",
                           static_cast<int>(opts.valueFormat.text.size()),
                           opts.valueFormat.text.data());
         } else {
             char fmtBuf[128]{};
-            const size_t copyLen = std::min(opts.valueFormat.text.size(), sizeof(fmtBuf) - 1);
+            const size_t copyLen = keel::min(opts.valueFormat.text.size(), sizeof(fmtBuf) - 1);
             std::memcpy(fmtBuf, opts.valueFormat.text.data(), copyLen);
             fmtBuf[copyLen] = '\0';
-            if (isInt && opts.valueFormat.text.find('f') == std::string_view::npos) {
-                if (opts.valueFormat.text.find("ll") != std::string_view::npos ||
-                    opts.valueFormat.text.find('z') != std::string_view::npos) {
+            if (isInt && opts.valueFormat.text.find('f') == keel::StringRef::npos) {
+                if (opts.valueFormat.text.find("ll") != keel::StringRef::npos ||
+                    opts.valueFormat.text.find('z') != keel::StringRef::npos) {
                     std::snprintf(buf, bufSize, fmtBuf, static_cast<long long>(std::llround(val)));
                 } else {
                     std::snprintf(buf, bufSize, fmtBuf, static_cast<int>(std::llround(val)));
@@ -114,14 +112,14 @@ void DrawAnnularArc(
     if (std::abs(endAngleRad - startAngleRad) < 1e-4f) return;
 
     if (endAngleRad < startAngleRad) {
-        std::swap(startAngleRad, endAngleRad);
+        keel::swap(startAngleRad, endAngleRad);
     }
 
     const float halfT = thickness * 0.5f;
     const float rOuter = radius + halfT;
-    const float rInner = std::max(0.5f, radius - halfT);
+    const float rInner = keel::max(0.5f, radius - halfT);
     const float span = endAngleRad - startAngleRad;
-    const int segs = std::clamp(static_cast<int>(std::ceil(span / (kPi / 24.0f))), 6, 64);
+    const int segs = keel::clamp(static_cast<int>(std::ceil(span / (kPi / 24.0f))), 6, 64);
 
     VectorPath path;
     path.Reserve(static_cast<size_t>(segs * 2 + 4), static_cast<size_t>(segs * 2 + 4));
@@ -163,7 +161,7 @@ Response Knob::Run(
     double minVal,
     double maxVal,
     const KnobOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
     struct ThemePopGuard {
@@ -178,12 +176,12 @@ Response Knob::Run(
     const bool isInt = (intVal != nullptr);
 
     if (maxVal < minVal) {
-        std::swap(minVal, maxVal);
+        keel::swap(minVal, maxVal);
     }
-    const double span = std::max(1e-9, maxVal - minVal);
-    const std::optional<double> effectiveStep = opts.step.has_value()
+    const double span = keel::max(1e-9, maxVal - minVal);
+    const keel::Optional<double> effectiveStep = opts.step.has_value()
         ? opts.step
-        : (isInt ? std::optional<double>(1.0) : std::nullopt);
+        : (isInt ? keel::Optional<double>(1.0) : keel::kNullOpt);
 
     auto readVal = [&]() noexcept -> double {
         if (doubleVal != nullptr) return *doubleVal;
@@ -313,19 +311,19 @@ Response Knob::Run(
             FormatKnobValue(maxBuf, sizeof(maxBuf), maxVal, isInt, optsCopy);
             FormatKnobValue(midBuf, sizeof(midBuf), minVal + span * 0.888, isInt, optsCopy);
 
-            auto* varArr = ctx.GetArena().alloc_array<std::string_view>(3);
+            auto* varArr = ctx.GetArena().alloc_array<keel::StringRef>(3);
             varArr[0] = ctx.AllocString(minBuf);
             varArr[1] = ctx.AllocString(maxBuf);
             varArr[2] = ctx.AllocString(midBuf);
-            optsCopy.valueFormat.variants = std::span<const std::string_view>(varArr, 3);
+            optsCopy.valueFormat.variants = keel::ArrayRef<keel::StringRef>(varArr, 3);
         }
     }
 
-    const float normVal = static_cast<float>(std::clamp((currentVal - minVal) / span, 0.0, 1.0));
+    const float normVal = static_cast<float>(keel::clamp((currentVal - minVal) / span, 0.0, 1.0));
     float normOrigin = 0.0f;
     if (optsCopy.bipolar) {
         if (minVal < 0.0 && maxVal > 0.0) {
-            normOrigin = static_cast<float>(std::clamp((0.0 - minVal) / span, 0.0, 1.0));
+            normOrigin = static_cast<float>(keel::clamp((0.0 - minVal) / span, 0.0, 1.0));
         } else {
             normOrigin = 0.5f;
         }
@@ -367,7 +365,7 @@ Response Knob::Run(
         const auto* d = n->As<KnobData>();
         return Knob::Measure(
             d ? d->opts : KnobOptions{},
-            d ? d->valueText : std::string_view{},
+            d ? d->valueText : keel::StringRef{},
             n->uiSize,
             canvas,
             theme,
@@ -381,7 +379,7 @@ Response Knob::Run(
             n->computedRect,
             d ? d->normalizedValue : 0.0f,
             d ? d->normalizedOrigin : 0.0f,
-            d ? d->valueText : std::string_view{},
+            d ? d->valueText : keel::StringRef{},
             d ? d->opts : KnobOptions{},
             n->uiSize,
             n->hovered,
@@ -408,7 +406,7 @@ Response Knob::Run(
 
 Vec2 Knob::Measure(
     const KnobOptions& opts,
-    std::string_view valueText,
+    keel::StringRef valueText,
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme,
@@ -423,25 +421,25 @@ Vec2 Knob::Measure(
     if (opts.showValue && (!valueText.empty() || !opts.valueFormat.variants.empty())) {
         const float valFont = theme.ResolveFontSize(opts.valueFormat, TextRole::LabelSmall, size);
         float textW = valueText.empty() ? 0.0f : TextUtil::MeasureWidth(valueText, valFont, canvas);
-        for (std::string_view v : opts.valueFormat.variants) {
+        for (keel::StringRef v : opts.valueFormat.variants) {
             if (!v.empty()) {
-                textW = std::max(textW, TextUtil::MeasureWidth(v, valFont, canvas));
+                textW = keel::max(textW, TextUtil::MeasureWidth(v, valFont, canvas));
             }
         }
-        textW = std::max(textW + theme.Scale(4.0f), theme.Scale(32.0f));
+        textW = keel::max(textW + theme.Scale(4.0f), theme.Scale(32.0f));
         const float textH = valFont * 1.25f;
         const float gap = theme.Scale(4.0f);
 
         switch (opts.valuePlacement) {
             case Placement::Top:
             case Placement::Bottom:
-                w = std::max(w, textW);
+                w = keel::max(w, textW);
                 h += gap + textH;
                 break;
             case Placement::Leading:
             case Placement::Trailing:
                 w += gap + textW;
-                h = std::max(h, textH);
+                h = keel::max(h, textH);
                 break;
             case Placement::Thumb:
                 break;
@@ -453,7 +451,7 @@ Vec2 Knob::Measure(
 
 Vec2 Knob::Measure(
     const KnobOptions& opts,
-    std::string_view valueText,
+    keel::StringRef valueText,
     UiSize size,
     ICanvas* canvas,
     float availableWidth
@@ -467,7 +465,7 @@ void Knob::Render(
     Rect bounds,
     float normalizedValue,
     float normalizedOrigin,
-    std::string_view valueText,
+    keel::StringRef valueText,
     const KnobOptions& opts,
     UiSize size,
     bool hovered,
@@ -498,29 +496,29 @@ void Knob::Render(
         const float textH = valFont * 1.25f;
         const float gap = theme.Scale(4.0f);
         if (opts.valuePlacement == Placement::Bottom) {
-            const float dialH = std::max(16.0f, innerRect.h - textH - gap);
+            const float dialH = keel::max(16.0f, innerRect.h - textH - gap);
             dialArea = Rect(innerRect.x, innerRect.y, innerRect.w, dialH);
             valRect = Rect(innerRect.x, innerRect.y + dialH + gap, innerRect.w, textH);
         } else if (opts.valuePlacement == Placement::Top) {
-            const float dialH = std::max(16.0f, innerRect.h - textH - gap);
+            const float dialH = keel::max(16.0f, innerRect.h - textH - gap);
             valRect = Rect(innerRect.x, innerRect.y, innerRect.w, textH);
             dialArea = Rect(innerRect.x, innerRect.y + textH + gap, innerRect.w, dialH);
         } else if (opts.valuePlacement == Placement::Leading) {
             float textW = TextUtil::MeasureWidth(valueText, valFont, &canvas) + theme.Scale(4.0f);
-            for (std::string_view v : opts.valueFormat.variants) {
-                if (!v.empty()) textW = std::max(textW, TextUtil::MeasureWidth(v, valFont, &canvas) + theme.Scale(4.0f));
+            for (keel::StringRef v : opts.valueFormat.variants) {
+                if (!v.empty()) textW = keel::max(textW, TextUtil::MeasureWidth(v, valFont, &canvas) + theme.Scale(4.0f));
             }
-            textW = std::max(textW, theme.Scale(32.0f));
-            const float dialW = std::max(16.0f, innerRect.w - textW - gap);
+            textW = keel::max(textW, theme.Scale(32.0f));
+            const float dialW = keel::max(16.0f, innerRect.w - textW - gap);
             valRect = Rect(innerRect.x, innerRect.y, textW, innerRect.h);
             dialArea = Rect(innerRect.x + textW + gap, innerRect.y, dialW, innerRect.h);
         } else if (opts.valuePlacement == Placement::Trailing) {
             float textW = TextUtil::MeasureWidth(valueText, valFont, &canvas) + theme.Scale(4.0f);
-            for (std::string_view v : opts.valueFormat.variants) {
-                if (!v.empty()) textW = std::max(textW, TextUtil::MeasureWidth(v, valFont, &canvas) + theme.Scale(4.0f));
+            for (keel::StringRef v : opts.valueFormat.variants) {
+                if (!v.empty()) textW = keel::max(textW, TextUtil::MeasureWidth(v, valFont, &canvas) + theme.Scale(4.0f));
             }
-            textW = std::max(textW, theme.Scale(32.0f));
-            const float dialW = std::max(16.0f, innerRect.w - textW - gap);
+            textW = keel::max(textW, theme.Scale(32.0f));
+            const float dialW = keel::max(16.0f, innerRect.w - textW - gap);
             dialArea = Rect(innerRect.x, innerRect.y, dialW, innerRect.h);
             valRect = Rect(innerRect.x + dialW + gap, innerRect.y, textW, innerRect.h);
         }
@@ -528,13 +526,13 @@ void Knob::Render(
 
     const float defaultDia = GetDefaultKnobDiameter(size, theme);
     const float dialDiameter = (opts.width.has_value() || opts.height.has_value())
-        ? std::min(dialArea.w, dialArea.h)
-        : std::min({dialArea.w, dialArea.h, defaultDia});
+        ? keel::min(dialArea.w, dialArea.h)
+        : keel::min(keel::min(dialArea.w, dialArea.h), defaultDia);
     const Vec2 center(
         dialArea.x + dialArea.w * 0.5f,
         dialArea.y + dialArea.h * 0.5f
     );
-    const float outerR = std::max(6.0f, dialDiameter * 0.5f - theme.Scale(1.5f));
+    const float outerR = keel::max(6.0f, dialDiameter * 0.5f - theme.Scale(1.5f));
 
     // Resolve colors
     const VariantColors& primaryVar = theme.GetVariant(UiVariant::Primary);
@@ -562,23 +560,23 @@ void Knob::Render(
         textCol = textCol.WithAlphaF(0.40f);
     }
 
-    const float normVal = std::clamp(normalizedValue, 0.0f, 1.0f);
-    const float normOrig = std::clamp(normalizedOrigin, 0.0f, 1.0f);
+    const float normVal = keel::clamp(normalizedValue, 0.0f, 1.0f);
+    const float normOrig = keel::clamp(normalizedOrigin, 0.0f, 1.0f);
     const float valAngle = kMinAngleRad + kSweepRad * normVal;
     const float origAngle = kMinAngleRad + kSweepRad * normOrig;
 
-    const float tickLen = opts.showTicks ? std::max(2.5f, outerR * 0.13f) : 0.0f;
+    const float tickLen = opts.showTicks ? keel::max(2.5f, outerR * 0.13f) : 0.0f;
     const float tickGap = opts.showTicks ? theme.Scale(2.0f) : 0.0f;
-    const float arcThickness = std::clamp(outerR * 0.14f, theme.Scale(2.5f), theme.Scale(5.5f));
+    const float arcThickness = keel::clamp(outerR * 0.14f, theme.Scale(2.5f), theme.Scale(5.5f));
     const float arcRadius = outerR - tickLen - tickGap - arcThickness * 0.5f;
 
     // 1. Radial scale ticks around outer perimeter
     if (opts.showTicks && outerR >= 12.0f) {
-        const uint32_t numTicks = std::clamp(opts.tickCount == 0 ? 11u : opts.tickCount, 2u, 31u);
+        const uint32_t numTicks = keel::clamp(opts.tickCount == 0 ? 11u : opts.tickCount, 2u, 31u);
         const float rTickOuter = outerR;
         const float rTickInner = outerR - tickLen;
-        const float loT = std::min(normOrig, normVal);
-        const float hiT = std::max(normOrig, normVal);
+        const float loT = keel::min(normOrig, normVal);
+        const float hiT = keel::max(normOrig, normVal);
 
         for (uint32_t i = 0; i < numTicks; ++i) {
             const float t = static_cast<float>(i) / static_cast<float>(numTicks - 1);
@@ -616,7 +614,7 @@ void Knob::Render(
 
     // 3. Inner circular rotor cap
     const float rotorGap = opts.showArc ? (arcThickness * 0.5f + theme.Scale(3.5f)) : theme.Scale(2.0f);
-    const float rotorR = std::max(5.0f, (opts.showArc ? arcRadius : (outerR - tickLen - tickGap)) - rotorGap);
+    const float rotorR = keel::max(5.0f, (opts.showArc ? arcRadius : (outerR - tickLen - tickGap)) - rotorGap);
     const Rect rotorRect(center.x - rotorR, center.y - rotorR, rotorR * 2.0f, rotorR * 2.0f);
     const float rotorStrokeW = focused ? theme.Scale(2.0f) : theme.Scale(1.4f);
     canvas.DrawRoundRect(rotorRect, rotorR, rotorFill, rotorBorder, rotorStrokeW);
@@ -636,13 +634,13 @@ void Knob::Render(
 
     // 4. Rotor pointer line & indicator dot
     const bool centerValueMode = hasValText && (opts.valuePlacement == Placement::Thumb);
-    const float ptrOuterR = std::max(2.0f, rotorR - theme.Scale(3.0f));
+    const float ptrOuterR = keel::max(2.0f, rotorR - theme.Scale(3.0f));
     const float ptrInnerR = centerValueMode
-        ? std::max(1.5f, rotorR * 0.68f)
-        : std::max(1.5f, rotorR * 0.28f);
+        ? keel::max(1.5f, rotorR * 0.68f)
+        : keel::max(1.5f, rotorR * 0.28f);
     const Vec2 ptrStart(center.x + std::cos(valAngle) * ptrInnerR, center.y + std::sin(valAngle) * ptrInnerR);
     const Vec2 ptrEnd(center.x + std::cos(valAngle) * ptrOuterR, center.y + std::sin(valAngle) * ptrOuterR);
-    const float ptrWidth = std::max(1.8f, theme.Scale(2.2f));
+    const float ptrWidth = keel::max(1.8f, theme.Scale(2.2f));
     canvas.DrawLine(ptrStart, ptrEnd, accentCol, ptrWidth);
 
     const float tipDotR = ptrWidth * 0.65f;
@@ -651,7 +649,7 @@ void Knob::Render(
     // 5. Value readout text
     if (hasValText) {
         if (centerValueMode) {
-            const float centerFont = std::min(valFont, std::max(8.0f, rotorR * 0.62f));
+            const float centerFont = keel::min(valFont, keel::max(8.0f, rotorR * 0.62f));
             canvas.DrawTextBox(valueText, rotorRect, centerFont, textCol, 0.5f, 0.5f);
         } else if (valRect.w > 1.0f && valRect.h > 1.0f) {
             const float alignX = (opts.valuePlacement == Placement::Leading) ? 1.0f

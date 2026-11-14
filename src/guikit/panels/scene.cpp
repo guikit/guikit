@@ -1,14 +1,14 @@
 #include "guikit/panels/scene.hpp"
-#include <algorithm>
 #include <cmath>
-#include <cstdio>
-#include <string>
 #include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
 #include "guikit/panels/scroll_area.hpp"
 #include "guikit/widgets/image.hpp"
+#include "keel/core.h"
+#include "keel/format.h"
+#include "keel/string.h"
 
 namespace guikit {
 
@@ -31,14 +31,14 @@ uint64_t HashPixelBuffer(const uint32_t* px, size_t count, uint64_t hash) noexce
     return hash;
 }
 
-std::optional<Rect> ResolveWorldBounds(const SceneOptions& opts) noexcept {
+keel::Optional<Rect> ResolveWorldBounds(const SceneOptions& opts) noexcept {
     if (opts.worldBounds.has_value() && opts.worldBounds->w > 0.0f && opts.worldBounds->h > 0.0f) {
         return *opts.worldBounds;
     }
     if (opts.worldSize.has_value() && opts.worldSize->x > 0.0f && opts.worldSize->y > 0.0f) {
         return Rect(0.0f, 0.0f, opts.worldSize->x, opts.worldSize->y);
     }
-    return std::nullopt;
+    return keel::kNullOpt;
 }
 
 Vec2 ComputeSceneControlSize(
@@ -46,14 +46,14 @@ Vec2 ComputeSceneControlSize(
     const UiTheme& theme,
     float availableWidth
 ) noexcept {
-    const std::optional<Rect> wb = ResolveWorldBounds(opts);
+    const keel::Optional<Rect> wb = ResolveWorldBounds(opts);
     const float defW = wb.has_value() ? theme.Scale(wb->w) : theme.Scale(360.0f);
     const float defH = wb.has_value() ? theme.Scale(wb->h) : theme.Scale(opts.minHeight);
     const float aspect = (defH > 0.0f) ? (defW / defH) : (16.0f / 9.0f);
 
     float ctrlW = defW;
     if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f) {
-        const float ratio = std::clamp(opts.width.value_or(1.0f), 0.01f, 1.0f);
+        const float ratio = keel::clamp(opts.width.value_or(1.0f), 0.01f, 1.0f);
         ctrlW = availableWidth * ratio;
     } else if (opts.width.has_value() && *opts.width > 0.0f) {
         ctrlW = theme.Scale(*opts.width);
@@ -63,10 +63,10 @@ Vec2 ComputeSceneControlSize(
     if (opts.height.has_value() && *opts.height > 0.0f) {
         ctrlH = theme.Scale(*opts.height);
     } else if (opts.heightMode == SizeMode::Fit && wb.has_value() && aspect > 0.0f) {
-        ctrlH = std::max(theme.Scale(opts.minHeight), ctrlW / aspect);
+        ctrlH = keel::max(theme.Scale(opts.minHeight), ctrlW / aspect);
     }
 
-    return { std::max(40.0f, ctrlW), std::max(40.0f, ctrlH) };
+    return { keel::max(40.0f, ctrlW), keel::max(40.0f, ctrlH) };
 }
 
 void ApplyInitialFit(
@@ -77,7 +77,7 @@ void ApplyInitialFit(
 ) noexcept {
     if (vp.w <= 1.0f || vp.h <= 1.0f) return;
 
-    const std::optional<Rect> wb = ResolveWorldBounds(opts);
+    const keel::Optional<Rect> wb = ResolveWorldBounds(opts);
     state.lastWorldBounds = wb;
     state.lastFitPadding = opts.fitPadding;
 
@@ -88,20 +88,20 @@ void ApplyInitialFit(
         return;
     }
 
-    const float s = std::max(0.0001f, theme.Scale(1.0f));
+    const float s = keel::max(0.0001f, theme.Scale(1.0f));
     const Padding pad = theme.ResolvePadding(opts.fitPadding, UiSize::Md);
     const Rect availBox(
         pad.left,
         pad.top,
-        std::max(1.0f, vp.w - pad.Horizontal()),
-        std::max(1.0f, vp.h - pad.Vertical())
+        keel::max(1.0f, vp.w - pad.Horizontal()),
+        keel::max(1.0f, vp.h - pad.Vertical())
     );
     const Vec2 scaledWorld = { wb->w * s, wb->h * s };
     const Rect fitted = ComputeBoxFit(opts.initialFit, scaledWorld, availBox);
     const float fitZoom = (scaledWorld.x > 0.0f) ? (fitted.w / scaledWorld.x) : 1.0f;
-    const float effMinZoom = opts.worldBounds.has_value() ? std::min(opts.minZoom, fitZoom * 0.1f) : opts.minZoom;
-    const float effMaxZoom = opts.worldBounds.has_value() ? std::max(opts.maxZoom, fitZoom * 10.0f) : opts.maxZoom;
-    state.zoom = std::clamp(fitZoom, effMinZoom, effMaxZoom);
+    const float effMinZoom = opts.worldBounds.has_value() ? keel::min(opts.minZoom, fitZoom * 0.1f) : opts.minZoom;
+    const float effMaxZoom = opts.worldBounds.has_value() ? keel::max(opts.maxZoom, fitZoom * 10.0f) : opts.maxZoom;
+    state.zoom = keel::clamp(fitZoom, effMinZoom, effMaxZoom);
 
     const float ws = s * state.zoom;
     state.pan = {
@@ -117,7 +117,7 @@ void ClampCameraToWorld(
     Rect vp,
     const UiTheme& theme
 ) noexcept {
-    const std::optional<Rect> wb = ResolveWorldBounds(opts);
+    const keel::Optional<Rect> wb = ResolveWorldBounds(opts);
     if (!opts.clampToWorld || !wb.has_value() || vp.w <= 0.0f || vp.h <= 0.0f) {
         return;
     }
@@ -127,8 +127,8 @@ void ClampCameraToWorld(
     const Rect availBox(
         pad.left,
         pad.top,
-        std::max(1.0f, vp.w - pad.Horizontal()),
-        std::max(1.0f, vp.h - pad.Vertical())
+        keel::max(1.0f, vp.w - pad.Horizontal()),
+        keel::max(1.0f, vp.h - pad.Vertical())
     );
     const float worldScreenW = wb->w * ws;
     const float worldScreenH = wb->h * ws;
@@ -138,7 +138,7 @@ void ClampCameraToWorld(
     } else {
         const float minPanX = availBox.Right() - wb->Right() * ws;
         const float maxPanX = availBox.x - wb->x * ws;
-        state.pan.x = std::clamp(state.pan.x, minPanX, maxPanX);
+        state.pan.x = keel::clamp(state.pan.x, minPanX, maxPanX);
     }
 
     if (worldScreenH <= availBox.h) {
@@ -146,7 +146,7 @@ void ClampCameraToWorld(
     } else {
         const float minPanY = availBox.Bottom() - wb->Bottom() * ws;
         const float maxPanY = availBox.y - wb->y * ws;
-        state.pan.y = std::clamp(state.pan.y, minPanY, maxPanY);
+        state.pan.y = keel::clamp(state.pan.y, minPanY, maxPanY);
     }
 }
 
@@ -177,8 +177,8 @@ HudLayout ComputeHudLayout(Rect vp, const UiTheme& theme, bool hasHScroll, bool 
     const float totalW = pad * 2.0f + sqW + fitW + oneW + sqW + badgeW + gap * 4.0f;
     const float totalH = btnH + pad * 2.0f;
 
-    const float x = std::max(vp.x + 4.0f * s, vp.Right() - totalW - marginX);
-    const float y = std::max(vp.y + 4.0f * s, vp.Bottom() - totalH - marginY);
+    const float x = keel::max(vp.x + 4.0f * s, vp.Right() - totalW - marginX);
+    const float y = keel::max(vp.y + 4.0f * s, vp.Bottom() - totalH - marginY);
 
     hud.barRect = Rect(x, y, totalW, totalH);
     float cx = x + pad;
@@ -343,10 +343,10 @@ void SceneScope::FinalizeItem(int32_t itemIndex, int32_t prevItemIndex) noexcept
     bool hasGeom = false;
 
     auto expandPt = [&](Vec2 p) {
-        minX = std::min(minX, p.x);
-        minY = std::min(minY, p.y);
-        maxX = std::max(maxX, p.x);
-        maxY = std::max(maxY, p.y);
+        minX = keel::min(minX, p.x);
+        minY = keel::min(minY, p.y);
+        maxX = keel::max(maxX, p.x);
+        maxY = keel::max(maxY, p.y);
         hasGeom = true;
     };
     auto expandRect = [&](Rect r) {
@@ -411,7 +411,7 @@ void SceneScope::FinalizeItem(int32_t itemIndex, int32_t prevItemIndex) noexcept
     }
 }
 
-std::span<const SceneItemInfo> SceneScope::GetItems() const noexcept {
+keel::ArrayRef<SceneItemInfo> SceneScope::GetItems() const noexcept {
     if (!m_payload) return {};
     return m_payload->items;
 }
@@ -436,7 +436,7 @@ void SceneScope::ClearSelection() noexcept {
     }
 }
 
-void SceneScope::SelectItem(std::string_view id, bool addToSelection) noexcept {
+void SceneScope::SelectItem(keel::StringRef id, bool addToSelection) noexcept {
     if (!m_payload || !m_payload->state || id.empty()) return;
     const uint64_t key = detail::HashStringView(id);
     if (!addToSelection) {
@@ -456,13 +456,13 @@ float SceneScope::GetZoom() const noexcept {
 
 float SceneScope::GetWorldScale() const noexcept {
     if (!m_ctx || !m_payload || !m_payload->state) return 1.0f;
-    return std::max(0.0001f, m_ctx->GetTheme().Scale(1.0f) * m_payload->state->zoom);
+    return keel::max(0.0001f, m_ctx->GetTheme().Scale(1.0f) * m_payload->state->zoom);
 }
 
 void SceneScope::SetZoom(float zoom) noexcept {
     if (!m_payload || !m_payload->state) return;
     SceneState& st = *m_payload->state;
-    const float newZoom = std::clamp(zoom, m_payload->opts.minZoom, m_payload->opts.maxZoom);
+    const float newZoom = keel::clamp(zoom, m_payload->opts.minZoom, m_payload->opts.maxZoom);
     if (std::abs(newZoom - st.zoom) > 0.0001f) {
         st.zoom = newZoom;
         if (m_ctx && m_viewport.w > 1.0f && m_viewport.h > 1.0f) {
@@ -471,13 +471,13 @@ void SceneScope::SetZoom(float zoom) noexcept {
     }
 }
 
-void SceneScope::CenterOn(Vec2 worldPoint, std::optional<float> zoom) noexcept {
+void SceneScope::CenterOn(Vec2 worldPoint, keel::Optional<float> zoom) noexcept {
     if (!m_payload || !m_payload->state) return;
     SceneState& st = *m_payload->state;
     const float prevZoom = st.zoom;
     const Vec2 prevPan = st.pan;
     if (zoom.has_value()) {
-        st.zoom = std::clamp(*zoom, m_payload->opts.minZoom, m_payload->opts.maxZoom);
+        st.zoom = keel::clamp(*zoom, m_payload->opts.minZoom, m_payload->opts.maxZoom);
     }
     if (m_ctx && m_viewport.w > 1.0f && m_viewport.h > 1.0f) {
         const UiTheme& theme = m_ctx->GetTheme();
@@ -532,7 +532,7 @@ Vec2 SceneScope::WorldToScreen(Vec2 worldPt) const noexcept {
 
 Vec2 SceneScope::ScreenToWorld(Vec2 screenPt) const noexcept {
     if (!m_ctx || !m_payload || !m_payload->state) return screenPt;
-    const float s = std::max(0.0001f, m_ctx->GetTheme().Scale(1.0f) * m_payload->state->zoom);
+    const float s = keel::max(0.0001f, m_ctx->GetTheme().Scale(1.0f) * m_payload->state->zoom);
     return {
         (screenPt.x - m_viewport.x - m_payload->state->pan.x) / s,
         (screenPt.y - m_viewport.y - m_payload->state->pan.y) / s
@@ -551,7 +551,7 @@ Rect SceneScope::GetVisibleWorldRect() const noexcept {
     if (m_viewport.w <= 0.0f || m_viewport.h <= 0.0f) return {};
     const Vec2 tl = ScreenToWorld(m_viewport.Pos());
     const Vec2 br = ScreenToWorld({m_viewport.Right(), m_viewport.Bottom()});
-    return { tl.x, tl.y, std::max(0.0f, br.x - tl.x), std::max(0.0f, br.y - tl.y) };
+    return { tl.x, tl.y, keel::max(0.0f, br.x - tl.x), keel::max(0.0f, br.y - tl.y) };
 }
 
 Vec2 SceneScope::GetMouseWorldPos() const noexcept {
@@ -580,7 +580,7 @@ bool SceneScope::WasClicked(int button) const noexcept {
 }
 
 void SceneScope::DrawImage(
-    std::string_view source,
+    keel::StringRef source,
     Rect worldRect,
     float radius,
     uint8_t opacity
@@ -619,6 +619,20 @@ void SceneScope::DrawPixels(
     cmd.radius = radius;
     cmd.opacity = opacity;
     PushCmd(cmd);
+}
+
+void SceneScope::DrawPixels(
+    keel::ArrayRef<uint32_t> pixels,
+    uint32_t width,
+    uint32_t height,
+    Rect worldRect,
+    float radius,
+    uint8_t opacity,
+    uint64_t contentVersion
+) {
+    if (pixels.empty() || width == 0 || height == 0) return;
+    if (pixels.size() < static_cast<size_t>(width) * height) return;
+    DrawPixels(pixels.data(), width, height, worldRect, radius, opacity, contentVersion);
 }
 
 void SceneScope::DrawRect(
@@ -719,8 +733,40 @@ void SceneScope::DrawLine(Vec2 worldP1, Vec2 worldP2, Color color, float strokeW
     PushCmd(cmd);
 }
 
+void SceneScope::DrawPolyline(
+    keel::ArrayRef<Vec2> points,
+    Color color,
+    float strokeWidth,
+    bool closed
+) {
+    if (!m_payload || points.size() < 2) return;
+    for (size_t i = 0; i + 1 < points.size(); ++i) {
+        DrawLine(points[i], points[i + 1], color, strokeWidth);
+    }
+    if (closed && points.size() >= 3) {
+        DrawLine(points.back(), points.front(), color, strokeWidth);
+    }
+}
+
+void SceneScope::DrawPolygon(
+    keel::ArrayRef<Vec2> points,
+    Color fill,
+    Color stroke,
+    float strokeWidth
+) {
+    if (!m_payload || points.size() < 3) return;
+    if (fill.a > 0) {
+        for (size_t i = 1; i + 1 < points.size(); ++i) {
+            DrawTriangle(points[0], points[i], points[i + 1], fill);
+        }
+    }
+    if (stroke.a > 0 && strokeWidth > 0.0f) {
+        DrawPolyline(points, stroke, strokeWidth, true);
+    }
+}
+
 void SceneScope::DrawText(
-    std::string_view text,
+    keel::StringRef text,
     Vec2 worldPos,
     float fontSize,
     Color color,
@@ -746,7 +792,7 @@ void SceneScope::DrawText(
 }
 
 void SceneScope::DrawText(
-    std::string_view text,
+    keel::StringRef text,
     Vec2 worldPos,
     float fontSize,
     Color color,
@@ -770,7 +816,7 @@ void SceneScope::DrawText(
 }
 
 void SceneScope::DrawTextBox(
-    std::string_view text,
+    keel::StringRef text,
     Rect worldRect,
     float fontSize,
     Color color,
@@ -808,7 +854,7 @@ void UpdateSceneCameraTransform(
     SceneState& state = *payload->state;
     const SceneOptions& opts = payload->opts;
 
-    const std::optional<Rect> curWorldBounds = ResolveWorldBounds(opts);
+    const keel::Optional<Rect> curWorldBounds = ResolveWorldBounds(opts);
     const bool worldConfigChanged =
         (curWorldBounds != state.lastWorldBounds) ||
         (opts.fitPadding != state.lastFitPadding);
@@ -822,7 +868,7 @@ void UpdateSceneCameraTransform(
     }
     if (state.pendingCenterWorld.has_value()) {
         if (state.pendingCenterZoom.has_value()) {
-            state.zoom = std::clamp(*state.pendingCenterZoom, opts.minZoom, opts.maxZoom);
+            state.zoom = keel::clamp(*state.pendingCenterZoom, opts.minZoom, opts.maxZoom);
         }
         const float s = theme.Scale(1.0f) * state.zoom;
         state.pan.x = vp.w * 0.5f - state.pendingCenterWorld->x * s;
@@ -845,7 +891,7 @@ void UpdateSceneCameraTransform(
     const Vec2 preInputPan = state.pan;
 
     const float s = theme.Scale(1.0f);
-    const float worldScale = std::max(0.0001f, state.zoom * s);
+    const float worldScale = keel::max(0.0001f, state.zoom * s);
     const Vec2 mousePos = ctx.GetMousePos();
     const bool notOccluded = !ctx.IsMouseOccluded(node->id, mousePos);
     const bool insideVp = ctx.IsRectHovered(node->id, vp);
@@ -878,15 +924,15 @@ void UpdateSceneCameraTransform(
                     (centerRel.y - state.pan.y) / worldScale
                 };
                 if (state.hoveredHudBtn == 1) {
-                    state.zoom = std::clamp(state.zoom / opts.zoomStep, opts.minZoom, opts.maxZoom);
+                    state.zoom = keel::clamp(state.zoom / opts.zoomStep, opts.minZoom, opts.maxZoom);
                     state.pan = centerRel - worldCenter * (state.zoom * s);
                 } else if (state.hoveredHudBtn == 2) {
                     ApplyInitialFit(state, opts, vp, theme);
                 } else if (state.hoveredHudBtn == 3) {
-                    state.zoom = std::clamp(1.0f, opts.minZoom, opts.maxZoom);
+                    state.zoom = keel::clamp(1.0f, opts.minZoom, opts.maxZoom);
                     state.pan = centerRel - worldCenter * (state.zoom * s);
                 } else if (state.hoveredHudBtn == 4) {
-                    state.zoom = std::clamp(state.zoom * opts.zoomStep, opts.minZoom, opts.maxZoom);
+                    state.zoom = keel::clamp(state.zoom * opts.zoomStep, opts.minZoom, opts.maxZoom);
                     state.pan = centerRel - worldCenter * (state.zoom * s);
                 }
                 ctx.ConsumeMouseClick();
@@ -902,7 +948,7 @@ void UpdateSceneCameraTransform(
         const float cornerReserve = (showVScroll && showHScroll) ? (sm.trackWidth + sm.margin) : 0.0f;
 
         if (showVScroll) {
-            float scrollY = std::clamp(-state.pan.y, 0.0f, std::max(0.0f, worldScreenH - vp.h));
+            float scrollY = keel::clamp(-state.pan.y, 0.0f, keel::max(0.0f, worldScreenH - vp.h));
             ScrollArea::UpdateAxisScrollbar(
                 ctx,
                 node->id,
@@ -925,7 +971,7 @@ void UpdateSceneCameraTransform(
         }
 
         if (showHScroll) {
-            float scrollX = std::clamp(-state.pan.x, 0.0f, std::max(0.0f, worldScreenW - vp.w));
+            float scrollX = keel::clamp(-state.pan.x, 0.0f, keel::max(0.0f, worldScreenW - vp.w));
             ScrollArea::UpdateAxisScrollbar(
                 ctx,
                 node->id,
@@ -960,7 +1006,7 @@ void UpdateSceneCameraTransform(
         if (wheel.y != 0.0f) {
             const float oldZoom = state.zoom;
             const float factor = std::pow(opts.zoomStep, wheel.y);
-            const float newZoom = std::clamp(oldZoom * factor, opts.minZoom, opts.maxZoom);
+            const float newZoom = keel::clamp(oldZoom * factor, opts.minZoom, opts.maxZoom);
             if (std::abs(newZoom - oldZoom) > 0.0001f) {
                 const Vec2 mouseRel = mousePos - vp.Pos();
                 const Vec2 worldUnderMouse = {
@@ -977,8 +1023,8 @@ void UpdateSceneCameraTransform(
     }
 
     const Vec2 mouseWorld = {
-        (mousePos.x - vp.x - state.pan.x) / std::max(0.0001f, state.zoom * s),
-        (mousePos.y - vp.y - state.pan.y) / std::max(0.0001f, state.zoom * s)
+        (mousePos.x - vp.x - state.pan.x) / keel::max(0.0001f, state.zoom * s),
+        (mousePos.y - vp.y - state.pan.y) / keel::max(0.0001f, state.zoom * s)
     };
 
     // 4a. Item drag: one-frame flags reset, then follow / release / cancel, then press on a draggable item.
@@ -1068,7 +1114,7 @@ void UpdateSceneCameraTransform(
 SceneScope Scene::Open(
     Context& ctx,
     const SceneOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     return OpenWithId(ctx, ctx.MakeChildId(loc), opts);
 }
@@ -1284,8 +1330,8 @@ void Scene::Update(Context& ctx, Node* node) {
     const float worldScreenH = hasWorld ? (opts.worldSize->y * s * state.zoom) : 0.0f;
 
     const Vec2 mouseWorld = {
-        (mousePos.x - vp.x - state.pan.x) / std::max(0.0001f, state.zoom * s),
-        (mousePos.y - vp.y - state.pan.y) / std::max(0.0001f, state.zoom * s)
+        (mousePos.x - vp.x - state.pan.x) / keel::max(0.0001f, state.zoom * s),
+        (mousePos.y - vp.y - state.pan.y) / keel::max(0.0001f, state.zoom * s)
     };
 
     // Spatial Hit-Testing for SceneItems (smallest-area / topmost priority)
@@ -1300,7 +1346,7 @@ void Scene::Update(Context& ctx, Node* node) {
         state.hoveredItemKey = state.draggedItemKey;   // the dragged item stays "under the pointer"
     } else if ((opts.selectableItems || anyDraggable) && insideVp && !hudConsumed && !scrollbarBusy &&
                !state.panning && !state.boxSelecting) {
-        const float worldHitPad = (3.5f * s) / std::max(0.0001f, state.zoom * s);
+        const float worldHitPad = (3.5f * s) / keel::max(0.0001f, state.zoom * s);
         float bestArea = 1e30f;
 
         for (const SceneItemInfo& item : payload->items) {
@@ -1352,7 +1398,7 @@ void Scene::Update(Context& ctx, Node* node) {
         }
         if (hov && !hov->tooltip.text.empty()) {
             const Rect wb = hov->worldBounds;
-            const float ws = std::max(0.0001f, state.zoom * s);
+            const float ws = keel::max(0.0001f, state.zoom * s);
             ctx.SetTooltip(hov->tooltip, Rect(vp.x + state.pan.x + wb.x * ws, vp.y + state.pan.y + wb.y * ws,
                                                wb.w * ws, wb.h * ws));
         } else if (!opts.tooltip.text.empty()) {
@@ -1362,10 +1408,10 @@ void Scene::Update(Context& ctx, Node* node) {
 
     // Complete Marquee Box Selection or Click-to-Select on mouse button release
     if (state.boxSelecting && !mouseDown) {
-        const float x1 = std::min(state.boxSelectStartWorld.x, state.boxSelectCurrentWorld.x);
-        const float y1 = std::min(state.boxSelectStartWorld.y, state.boxSelectCurrentWorld.y);
-        const float x2 = std::max(state.boxSelectStartWorld.x, state.boxSelectCurrentWorld.x);
-        const float y2 = std::max(state.boxSelectStartWorld.y, state.boxSelectCurrentWorld.y);
+        const float x1 = keel::min(state.boxSelectStartWorld.x, state.boxSelectCurrentWorld.x);
+        const float y1 = keel::min(state.boxSelectStartWorld.y, state.boxSelectCurrentWorld.y);
+        const float x2 = keel::max(state.boxSelectStartWorld.x, state.boxSelectCurrentWorld.x);
+        const float y2 = keel::max(state.boxSelectStartWorld.y, state.boxSelectCurrentWorld.y);
         const Rect marquee(x1, y1, x2 - x1, y2 - y1);
 
         if (!mods.ctrl) {
@@ -1390,10 +1436,15 @@ void Scene::Update(Context& ctx, Node* node) {
             if (state.hoveredItemKey != 0) {
                 state.clickedItemKey = state.hoveredItemKey;
                 if (mods.ctrl) {
-                    auto it = std::find(state.selectedItemKeys.begin(), state.selectedItemKeys.end(), state.hoveredItemKey);
-                    if (it != state.selectedItemKeys.end()) {
-                        state.selectedItemKeys.erase(it);
-                    } else {
+                    bool removed = false;
+                    for (size_t i = 0; i < state.selectedItemKeys.size(); ++i) {
+                        if (state.selectedItemKeys[i] == state.hoveredItemKey) {
+                            state.selectedItemKeys.remove_at(i);
+                            removed = true;
+                            break;
+                        }
+                    }
+                    if (!removed) {
                         state.selectedItemKeys.push_back(state.hoveredItemKey);
                     }
                 } else {
@@ -1445,7 +1496,7 @@ void Scene::Update(Context& ctx, Node* node) {
     );
 
     node->scrollContentSize = { worldScreenW, worldScreenH };
-    node->scrollOffset = { std::max(0.0f, -state.pan.x), std::max(0.0f, -state.pan.y) };
+    node->scrollOffset = { keel::max(0.0f, -state.pan.x), keel::max(0.0f, -state.pan.y) };
 }
 
 void Scene::RenderBackgroundAndWorld(
@@ -1482,7 +1533,7 @@ void Scene::RenderBackgroundAndWorld(
 
     // Adaptive world-space coordinate grid (GridDots or GridLines)
     if ((opts.backgroundStyle == SceneBackground::GridDots || opts.backgroundStyle == SceneBackground::GridLines) && worldScale > 0.001f) {
-        float worldStep = std::max(4.0f, opts.gridStep);
+        float worldStep = keel::max(4.0f, opts.gridStep);
         while (worldStep * worldScale < 16.0f * s) worldStep *= 2.0f;
         while (worldStep * worldScale > 160.0f * s) worldStep *= 0.5f;
 
@@ -1509,7 +1560,7 @@ void Scene::RenderBackgroundAndWorld(
                 canvas.DrawLine({vp.x, originY}, {vp.Right(), originY}, axisCol, 1.5f);
             }
         } else {
-            const float dotSize = std::max(2.0f, 2.0f * s);
+            const float dotSize = keel::max(2.0f, 2.0f * s);
             for (float y = startY; y <= vp.Bottom(); y += screenStep) {
                 if (y < vp.y) continue;
                 for (float x = startX; x <= vp.Right(); x += screenStep) {
@@ -1547,8 +1598,8 @@ void Scene::RenderBackgroundAndWorld(
         return Rect(
             static_cast<float>(x0),
             static_cast<float>(y0),
-            static_cast<float>(std::max(0.0, x1 - x0)),
-            static_cast<float>(std::max(0.0, y1 - y0))
+            static_cast<float>(keel::max(0.0, x1 - x0)),
+            static_cast<float>(keel::max(0.0, y1 - y0))
         );
     };
 
@@ -1609,7 +1660,7 @@ void Scene::RenderBackgroundAndWorld(
                 const Rect dst = worldRectToScreen(cmd.rect);
                 if (dst.Intersects(vp)) {
                     const float sw = (cmd.strokeWidth > 0.0f)
-                        ? std::max(0.75f, cmd.strokeWidth * strokeScale * strokeBoost)
+                        ? keel::max(0.75f, cmd.strokeWidth * strokeScale * strokeBoost)
                         : 0.0f;
                     Color fill = cmd.fill;
                     Color stroke = cmd.stroke;
@@ -1634,7 +1685,7 @@ void Scene::RenderBackgroundAndWorld(
                     vp.y + state.pan.y + cmd.p2.y * worldScale
                 };
                 const Color col = (tintFactor > 0.0f) ? blendColor(cmd.fill, accentCol, tintFactor) : cmd.fill;
-                canvas.DrawLine(sp1, sp2, col, std::max(0.75f, cmd.strokeWidth * strokeScale * strokeBoost));
+                canvas.DrawLine(sp1, sp2, col, keel::max(0.75f, cmd.strokeWidth * strokeScale * strokeBoost));
                 break;
             }
             case SceneDrawCmd::Type::Triangle: {
@@ -1651,7 +1702,7 @@ void Scene::RenderBackgroundAndWorld(
                     vp.y + state.pan.y + cmd.p3.y * worldScale
                 };
                 const float sw = (cmd.strokeWidth > 0.0f)
-                    ? std::max(0.75f, cmd.strokeWidth * strokeScale * strokeBoost)
+                    ? keel::max(0.75f, cmd.strokeWidth * strokeScale * strokeBoost)
                     : 0.0f;
                 const Color fill = (tintFactor > 0.0f) ? blendColor(cmd.fill, accentCol, tintFactor) : cmd.fill;
                 const Color stroke = (tintFactor > 0.0f) ? blendColor(cmd.stroke, accentCol, tintFactor) : cmd.stroke;
@@ -1743,10 +1794,10 @@ void Scene::RenderBackgroundAndWorld(
 
     // 5. Render Shift+Drag Marquee Selection Box
     if (state.boxSelecting) {
-        const float wx1 = std::min(state.boxSelectStartWorld.x, state.boxSelectCurrentWorld.x);
-        const float wy1 = std::min(state.boxSelectStartWorld.y, state.boxSelectCurrentWorld.y);
-        const float wx2 = std::max(state.boxSelectStartWorld.x, state.boxSelectCurrentWorld.x);
-        const float wy2 = std::max(state.boxSelectStartWorld.y, state.boxSelectCurrentWorld.y);
+        const float wx1 = keel::min(state.boxSelectStartWorld.x, state.boxSelectCurrentWorld.x);
+        const float wy1 = keel::min(state.boxSelectStartWorld.y, state.boxSelectCurrentWorld.y);
+        const float wx2 = keel::max(state.boxSelectStartWorld.x, state.boxSelectCurrentWorld.x);
+        const float wy2 = keel::max(state.boxSelectStartWorld.y, state.boxSelectCurrentWorld.y);
         const Rect mScreen = worldRectToScreen(Rect(wx1, wy1, wx2 - wx1, wy2 - wy1));
         if (mScreen.w > 1.0f || mScreen.h > 1.0f) {
             canvas.DrawRoundRect(mScreen, 2.0f * s, accentCol.WithAlpha(35), accentCol, 1.5f * s);
@@ -1785,7 +1836,7 @@ void Scene::RenderOverlays(
             canvas,
             vp,
             worldScreenH,
-            std::max(0.0f, -state.pan.y),
+            keel::max(0.0f, -state.pan.y),
             false,
             node->scrollbarHovered,
             node->scrollbarActive,
@@ -1799,7 +1850,7 @@ void Scene::RenderOverlays(
             canvas,
             vp,
             worldScreenW,
-            std::max(0.0f, -state.pan.x),
+            keel::max(0.0f, -state.pan.x),
             true,
             node->scrollbarHoveredX,
             node->scrollbarActiveX,
@@ -1817,7 +1868,7 @@ void Scene::RenderOverlays(
         canvas.DrawRoundRect(hud.barRect, 6.0f * s, hudBg, hudBorder, 1.0f);
 
         const float fs = theme.GetFontSize(TextRole::LabelSmall);
-        auto drawHudBtn = [&](Rect r, std::string_view text, uint8_t btnId) {
+        auto drawHudBtn = [&](Rect r, keel::StringRef text, uint8_t btnId) {
             if (state.hoveredHudBtn == btnId) {
                 canvas.DrawRoundRect(r, 4.0f * s, theme.palette.accent.WithAlpha(45));
             }
@@ -1830,9 +1881,9 @@ void Scene::RenderOverlays(
         drawHudBtn(hud.oneBtn, "100%", 3);
         drawHudBtn(hud.plusBtn, "+", 4);
 
-        char zoomBuf[24];
-        std::snprintf(zoomBuf, sizeof(zoomBuf), "%.0f%%", state.zoom * 100.0f);
-        canvas.DrawTextBox(zoomBuf, hud.badgeRect, fs, theme.palette.textSecondary, 0.5f, 0.5f);
+        char zoomBuf[24]{};
+        const keel::StringRef zoomStr = keel::format_buf(zoomBuf, "%.0f%%", state.zoom * 100.0f);
+        canvas.DrawTextBox(zoomStr, hud.badgeRect, fs, theme.palette.textSecondary, 0.5f, 0.5f);
 
         // CAD Component Inspector Pill (Bottom-Left) when an item is hovered or selected
         const SceneItemInfo* hovItem = nullptr;
@@ -1845,44 +1896,47 @@ void Scene::RenderOverlays(
         const size_t selCount = state.selectedItemKeys.size();
         const SceneItemInfo* activeInfo = hovItem ? hovItem : primarySelItem;
         if (activeInfo || selCount > 0) {
-            std::string badgeText;
-            std::string detailText;
+            keel::SmallString<64> badgeText;
+            keel::SmallString<192> detailText;
             if (selCount > 1 && !hovItem) {
-                badgeText = "MULTI-SELECT";
-                char buf[96];
-                auto r = keel::format_buf(buf, "%zu components selected  (Ctrl+Click or Shift+Drag)", selCount);
-                detailText.assign(r.data(), r.size());
+                badgeText.assign("MULTI-SELECT");
+                char buf[96]{};
+                detailText.assign(keel::format_buf(buf, "%zu components selected  (Ctrl+Click or Shift+Drag)", selCount));
             } else if (activeInfo) {
-                badgeText = activeInfo->category.empty()
-                    ? (activeInfo->selected ? "SELECTED" : "HOVER")
-                    : std::string(activeInfo->category);
-                detailText = std::string(activeInfo->id);
+                badgeText.assign(activeInfo->category.empty()
+                    ? keel::StringRef(activeInfo->selected ? "SELECTED" : "HOVER")
+                    : activeInfo->category);
+                detailText.assign(activeInfo->id);
                 if (!activeInfo->title.empty()) {
-                    detailText += "  —  ";
-                    detailText += activeInfo->title;
+                    detailText.append("  —  ");
+                    detailText.append(activeInfo->title);
                 }
                 if (selCount > 1) {
-                    char buf[64];
-                    auto r = keel::format_buf(buf, "  (+%zu selected)", selCount - 1);
-                    detailText.append(r.data(), r.size());
+                    char buf[64]{};
+                    detailText.append(keel::format_buf(buf, "  (+%zu selected)", selCount - 1));
                 }
             }
 
             if (!detailText.empty()) {
                 const float pad = 4.0f * s;
-                const float badgeTextW = canvas.MeasureText(badgeText, fs).x + 14.0f * s;
-                const float detailTextW = canvas.MeasureText(detailText, fs).x + 16.0f * s;
-                const float pillW = std::min(hud.barRect.x - (vp.x + 16.0f * s), pad * 2.0f + badgeTextW + detailTextW);
+                const float badgeTextW = canvas.MeasureText(badgeText.as_ref(), fs).x + 14.0f * s;
+                const float detailTextW = canvas.MeasureText(detailText.as_ref(), fs).x + 16.0f * s;
+                const float pillW = keel::min(hud.barRect.x - (vp.x + 16.0f * s), pad * 2.0f + badgeTextW + detailTextW);
                 if (pillW > 80.0f * s) {
                     const Rect pillRect(vp.x + 10.0f * s, hud.barRect.y, pillW, hud.barRect.h);
                     canvas.DrawRoundRect(pillRect, 6.0f * s, hudBg, hudBorder, 1.0f);
 
                     const Rect catRect(pillRect.x + pad, pillRect.y + pad, badgeTextW, pillRect.h - pad * 2.0f);
                     canvas.DrawRoundRect(catRect, 4.0f * s, theme.palette.accent.WithAlpha(40));
-                    canvas.DrawTextBox(badgeText, catRect, fs, theme.palette.accent, 0.5f, 0.5f);
+                    canvas.DrawTextBox(badgeText.as_ref(), catRect, fs, theme.palette.accent, 0.5f, 0.5f);
 
-                    const Rect txtRect(catRect.Right() + 8.0f * s, pillRect.y + pad, std::max(0.0f, pillRect.Right() - catRect.Right() - 12.0f * s), pillRect.h - pad * 2.0f);
-                    canvas.DrawTextBox(detailText, txtRect, fs, theme.palette.textPrimary, 0.0f, 0.5f);
+                    const Rect txtRect(
+                        catRect.Right() + 8.0f * s,
+                        pillRect.y + pad,
+                        keel::max(0.0f, pillRect.Right() - catRect.Right() - 12.0f * s),
+                        pillRect.h - pad * 2.0f
+                    );
+                    canvas.DrawTextBox(detailText.as_ref(), txtRect, fs, theme.palette.textPrimary, 0.0f, 0.5f);
                 }
             }
         }

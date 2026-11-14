@@ -72,15 +72,15 @@ if (ui.Size(guikit::UiSize::Sm).Button({.text = "Compact Action"})) { /* ... */ 
 }
 ```
 
-### Rule 4: Use `ui.Format(...)` & `ui.String(...)` for Per-Frame Strings — Do NOT Allocate `std::string` Every Frame
-`ui.Format(fmt, args...)` and `ui.String(text)` allocate directly into the per-frame `keel::Arena` (`ctx.GetArena()`) and return a zero-heap-allocation `keel::StringRef` (implicitly convertible to `std::string_view` and `UiText`) valid for the entire frame:
+### Rule 4: Use `ui.Format(...)` & `ui.String(...)` for Per-Frame Strings — Use `keel` Containers for State
+`ui.Format(fmt, args...)` and `ui.String(text)` allocate directly into the per-frame `keel::Arena` (`ctx.GetArena()`) and return a zero-heap-allocation `keel::StringRef` (implicitly convertible to `UiText`) valid for the entire frame. For persistent widget state, prefer `keel::FixedString<N>`, `keel::SmallString<N>`, `keel::String`, `keel::SmallArray<T, N>`, and `keel::Array<T>` (external STL containers also bind seamlessly via zero-header duck-typed `keel` concepts):
 
 ```cpp
-// GOOD: Zero heap allocation
+// GOOD: Zero heap allocation per frame
 ui.Text(ui.Format("FPS: {:.1f} | Nodes: {}", fps, nodeCount));
 
-// BAD: Heap allocation every frame
-ui.Text(std::format("FPS: {:.1f} | Nodes: {}", fps, nodeCount));
+// BAD: Heap-allocating temporary strings every frame
+ui.Text(keel::format("FPS: {:.1f} | Nodes: {}", fps, nodeCount));
 ```
 
 ### Rule 5: Use `UiText::Rich(...)` & `ui.Markdown(...)` — Do NOT Write Custom Text Parsers
@@ -98,7 +98,7 @@ Hardcoded colors break Dark/Light theme switching and hover/active states.
 - For surfaces and custom drawing, read tokens from `const auto& pal = ui.GetThemePalette();` (`pal.background`, `pal.surface`, `pal.surfaceElevated`, `pal.border`, `pal.textPrimary`, `pal.textSecondary`, `pal.accent`) and scale pixel distances via `ui.GetTheme().Scale(px)`.
 
 ### Rule 7: Automatic Loop ID Disambiguation (`MakeChildId`) & Stable Scene Item IDs
-Immediate-mode widgets (`Button`, `Switch`, `Slider`, `Element`, etc.) automatically derive their state ID via `ctx.MakeChildId(loc)`, which hashes `(childIndex, source_location, parentId)`. Widgets rendered in a `for` loop inside a container (`Column`, `Row`, `Card`, `Toolbar`) are automatically disambiguated by `childIndex` without passing manual `.id` fields:
+Immediate-mode widgets (`Button`, `Switch`, `Slider`, `Element`, etc.) automatically derive their state ID via `ctx.MakeChildId(loc)`, which hashes `(childIndex, keel::SourceLocation, parentId)`. Widgets rendered in a `for` loop inside a container (`Column`, `Row`, `Card`, `Toolbar`) are automatically disambiguated by `childIndex` without passing manual `.id` fields:
 
 ```cpp
 for (size_t i = 0; i < channels.size(); ++i) {
@@ -199,7 +199,7 @@ Before drawing custom shapes on `ICanvas`, check this inventory:
 - **Typography & Structure**: `Heading` (`HeadingLevel::H1`–`H6` + description + icon + separator), `Text` (semantic `TextRole` + `UiVariant` + `UiText::Rich`), `Element` (universal form field decorator), `Image` (PNG/JPG/SVG with `ObjectFit::Contain`/`Cover`/`ScaleDown` & corner rounding), procedural vector `Icon::*` library (`Icon::Play()`, `Icon::Settings()`, `Icon::Search()`, etc.).
 - **Buttons & Selection**: `Button` (solid/outline/ghost, icons, `.badge`, `.loading` spinner), `Switch`, `Checkbox` (with `indeterminate` support), `Radio`, `Segmented` (single-select `IndexLike` integer or `enum class`) & `SegmentedMask` (multi-select bitmask).
 - **Numeric & Metering**: `Slider`, `RangeSlider` (`minVal`, `maxVal`), `StepSlider` (`IndexLike` integer or `enum class`) — horizontal, or vertical via `.orientation = Orientation::Vertical` (min at the bottom, `stretch = Fill` fills the height, StepSlider labels right of the ticks), `ProgressBar` (smooth, discrete LED segments, `.indeterminate`, horizontal or vertical), `LevelMeter` (single & multi-channel audio/telemetry dB bargraph with 3-zone coloring, peak-hold & clip LED), `Knob` (rotary encoder with bipolar arc & radial ticks), `SpinBox` (64-bit integer & float numeric stepper with typematic hold-repeat).
-- **Text, Tags & Dropdowns**: `InputField` (supports `std::string`, `keel::FixedString<N>`, `keel::String`; password, `InputFilter::Integer`/`Decimal`/`Hex`, `.maxLength`, `.selectAllOnFocus`, prefix/suffix icons, clear button), `TagInput` (`std::vector` or `keel::SmallArray` / `keel::Array`), `Select` (`IndexLike` integer/`enum`, `std::string`, `keel::FixedString<N>`, `keel::String`), `ComboBox` (searchable select), `Autocomplete` (free-text with suggestions), `MultiSelect` (`std::vector<size_t>` or `keel::SmallArray<size_t, N>` / `keel::Array<size_t>`).
+- **Text, Tags & Dropdowns**: `InputField` (in-place zero-copy editing of `keel::FixedString<N>`, `keel::SmallString<N>`, `keel::String`, plus duck-typed `WritableString` interop; password, `InputFilter::Integer`/`Decimal`/`Hex`, `.maxLength`, `.selectAllOnFocus`, prefix/suffix icons, clear button), `TagInput` (`keel::SmallArray` / `keel::Array` of strings or `TagItem`, plus duck-typed list interop), `Select` (`IndexLike` integer/`enum`, `keel::FixedString<N>`, `keel::SmallString<N>`, `keel::String`), `ComboBox` (searchable select), `Autocomplete` (free-text with suggestions), `MultiSelect` (`keel::SmallArray<size_t, N>` / `keel::Array<size_t>`, plus duck-typed index list interop).
 - **Pickers**: `ColorPicker` (2D HSV saturation/value canvas, hue/alpha sliders, HEX input, custom `.swatches`), `DatePicker` (`Date`, `DateTime`, `Time` modes with `DateTime::Today()`, `minDate`/`maxDate`, localized month/weekday labels & leap-year math).
 - **Navigation & Data**: `TabBar` (underline/pill/card/folder styles, `.closable` tabs returning `TabBarResponse::closedIndex`, `IndexLike` integer/`enum` binding, overflow scroll), `Breadcrumb` (with interactive `...` collapse menu), `Pagination` (ellipsis windowing), `Toolbar` (`ToolButton` / `Action`, `Toggle`, `Item`, `Dropdown`, `SplitButton`, `SplitToggle`, `Separator`, `Spacer` with `AutoCompact`/`Scroll`/`Wrap`/`Clip` overflow), `Sidebar`, `SidebarMenu`, `ActivityBar`, `BottomPanel`, `StatusBar`, `Accordion`, `Carousel`, `TreeView` (multi-column, filterable hierarchy), `Table` (virtualized 100k+ row data grid with sorting & selection).
 - **Overlays**: `Modal` (`if (auto m = ui.Modal(open, opts))`), `ContextMenu`, `CommandPalette` (`Ctrl+K` fuzzy command launcher), `Toast` (`ui.ShowToast(...)` + `ui.ToastHost()`).
@@ -211,9 +211,10 @@ Before drawing custom shapes on `ICanvas`, check this inventory:
 
 When modifying or extending GuiKit itself:
 
-1. **Header & Source File Naming (`snake_case` only)**:
+1. **Header & Source File Naming (`snake_case` only) & Zero-STL Header Purity**:
    - Public headers live in `include/guikit/<module>/<file_name>.hpp` and implementation files in `src/guikit/<module>/<file_name>.cpp`.
-   - Public headers must never leak `<windows.h>`, `<SDL3/SDL.h>`, `"thorvg.h"`, or internal `using namespace` directives (`test_guikit_header_purity` enforces this with `-Werror`).
+   - **`keel` is the sole foundational systems layer** (do NOT define `keel` re-export aliases in `namespace guikit`; use `keel::*` directly).
+   - Public headers in `include/guikit/` must **never** include STL container/utility headers (`<string>`, `<string_view>`, `<vector>`, `<span>`, `<optional>`, `<array>`, `<functional>`, `<memory>`, `<unordered_map>`, `<variant>`, `<chrono>`, `<source_location>`, `<typeindex>`, `<algorithm>`, `<type_traits>`, `<utility>`, `<concepts>`, `<compare>`, `<limits>`) or leak `<windows.h>`, `<SDL3/SDL.h>`, `"thorvg.h"`, or internal `using namespace` directives. Only minimal C/freestanding headers (`<cassert>`, `<cmath>`, `<cstddef>`, `<cstdint>`, `<cstring>`, `<initializer_list>`, `<new>`) and `"keel/*.h"` are allowed (`guikit_header_purity` and `guikit_header_purity_scan` enforce this).
    - Umbrella headers:
      - `#include "guikit/guikit.hpp"` (master umbrella header)
      - `#include "guikit/core.hpp"` (`guikit::core` widgets, panels, layouts)
@@ -226,10 +227,11 @@ When modifying or extending GuiKit itself:
    - **Private Class Members**: `m_camelCase` (`m_activeId`, `m_hadModalLastFrame`).
    - **Compile-Time Constants**: `kPascalCase` (`kDefaultFontSize`, `kMaxChannels`).
 3. **Zero-Heap-Allocation Hot Paths & Frame Arena Lifetimes (`keel`)**:
-   - Inside widget and layout implementations (`src/guikit/`), avoid per-frame `std::vector`, `std::string`, or `std::format` heap allocations. Use `keel::SmallArray<T, N>` (`#include "keel/small_array.h"`), `ctx.GetArena()` (`keel::Arena`), `ctx.AllocPayload<T>(...)`, and `keel::format_arena(...)`.
+   - Across `include/guikit/` and `src/guikit/`, use `keel::StringRef`, `keel::ArrayRef<T>`, `keel::MutArrayRef<T>`, `keel::Optional<T>` (`keel::kNullOpt`), `keel::StaticArray<T, N>`, `keel::UniquePtr<T>`, `keel::Arc<T>`, `keel::String`, `keel::SmallString<N>`, `keel::FixedString<N>`, `keel::Array<T>`, `keel::SmallArray<T, N>`, `keel::FixedArray<T, N>`, `keel::HashMap<K, V>`, `keel::Function`, `keel::SmallFunction`, `keel::FunctionRef`, `keel::SourceLocation`, `keel::TypeId`, and `keel::monotonic_ns()`.
+   - Inside widget and layout hot paths (`src/guikit/`), avoid per-frame heap allocations: use `keel::SmallArray<T, N>`, `ctx.GetArena()` (`keel::Arena`), `ctx.AllocPayload<T>(...)`, `keel::format_buf(...)`, and `keel::format_arena(...)`.
    - Whenever widget options (`UiText`, `UiAffix`, `Icon`) are stored in a `Node` payload or captured into a deferred `ctx.RegisterOverlay(...)` callback, copy their string/path views into the frame arena via `ctx.AllocText(...)`, `ctx.AllocAffix(...)`, `ctx.AllocIcon(...)`, or `ctx.AllocString(...)` so temporary caller buffers never dangle during `EndFrame`.
 4. **Formatting & Quality**:
-   - C++20 standard (`constexpr`, `[[nodiscard]]`, `noexcept`, `std::string_view`, `std::span`).
+   - C++20 standard (`constexpr`, `[[nodiscard]]`, `noexcept`, `keel::StringRef`, `keel::ArrayRef<T>`).
    - Formatting is enforced by `.clang-format` (4-space indent, 120-column limit, `Attach` braces, case-sensitive sorted includes) and `.editorconfig` (UTF-8, LF line endings).
 5. **Building & Running Tests**:
    ```powershell

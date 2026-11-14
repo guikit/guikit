@@ -1,10 +1,9 @@
 #pragma once
 
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <string>
-#include <string_view>
+#include "keel/ref.h"
+#include "keel/string.h"
 
 namespace guikit {
 
@@ -42,34 +41,34 @@ public:
     [[nodiscard]] float GetRamUsageMb() const noexcept { return m_displayRamMb; }
     [[nodiscard]] bool IsIdle() const noexcept { return m_isIdle; }
 
-    [[nodiscard]] std::string_view GetFpsString() const noexcept { return m_fpsString; }
-    [[nodiscard]] std::string_view GetCpuString() const noexcept { return m_cpuString; }
-    [[nodiscard]] std::string_view GetGpuString() const noexcept { return m_gpuString; }
-    [[nodiscard]] std::string_view GetRamString() const noexcept { return m_ramString; }
+    [[nodiscard]] keel::StringRef GetFpsString() const noexcept { return m_fpsString.as_ref(); }
+    [[nodiscard]] keel::StringRef GetCpuString() const noexcept { return m_cpuString.as_ref(); }
+    [[nodiscard]] keel::StringRef GetGpuString() const noexcept { return m_gpuString.as_ref(); }
+    [[nodiscard]] keel::StringRef GetRamString() const noexcept { return m_ramString.as_ref(); }
 
     /// Returns human-readable status line, e.g. "60 FPS | CPU: 1.4% (1.80 ms) | GPU: 0.20 ms (2% budget) | RAM: 42.3 MB"
-    [[nodiscard]] std::string_view GetStatusString() const noexcept {
-        return m_statusString;
+    [[nodiscard]] keel::StringRef GetStatusString() const noexcept {
+        return m_statusString.as_ref();
     }
 
 private:
-    void UpdateProcessTelemetry(std::chrono::steady_clock::time_point now) noexcept;
-    void RefreshDisplayStrings(std::chrono::steady_clock::time_point now, float targetFps) noexcept;
+    void UpdateProcessTelemetry(keel::u64 nowNs) noexcept;
+    void RefreshDisplayStrings(keel::u64 nowNs, float targetFps) noexcept;
 
     static size_t QueryProcessRamBytes() noexcept;
     static double QueryProcessCpuSeconds() noexcept;
 
-    std::chrono::steady_clock::time_point m_frameStart{};
-    std::chrono::steady_clock::time_point m_cpuDone{};
-    std::chrono::steady_clock::time_point m_gpuStart{};
-    std::chrono::steady_clock::time_point m_gpuDone{};
-    std::chrono::steady_clock::time_point m_lastFrameTime{};
-    std::chrono::steady_clock::time_point m_lastFrameEnd{};
-    std::chrono::steady_clock::time_point m_lastPresentedTime{};
-    std::chrono::steady_clock::time_point m_lastCpuCheckTime{};
-    std::chrono::steady_clock::time_point m_lastDisplayUpdateTime{};
-    std::chrono::steady_clock::time_point m_fpsWindowStart{};
-    std::chrono::steady_clock::time_point m_pendingWakeStart{};
+    keel::u64 m_frameStartNs{0};
+    keel::u64 m_cpuDoneNs{0};
+    keel::u64 m_gpuStartNs{0};
+    keel::u64 m_gpuDoneNs{0};
+    keel::u64 m_lastFrameTimeNs{0};
+    keel::u64 m_lastFrameEndNs{0};
+    keel::u64 m_lastPresentedTimeNs{0};
+    keel::u64 m_lastCpuCheckTimeNs{0};
+    keel::u64 m_lastDisplayUpdateTimeNs{0};
+    keel::u64 m_fpsWindowStartNs{0};
+    keel::u64 m_pendingWakeStartNs{0};
 
     double m_lastProcessCpuSec{-1.0};
     double m_accumulatedWorkSec{0.0};
@@ -97,11 +96,11 @@ private:
     size_t m_ramBytes{0};
     float m_displayRamMb{0.0f};
 
-    std::string m_fpsString{"0 FPS (Idle)"};
-    std::string m_cpuString{"CPU: 0.00 ms (0.0%)"};
-    std::string m_gpuString{"GPU: 0.00 ms (0% budget)"};
-    std::string m_ramString{"RAM: 0.0 MB"};
-    std::string m_statusString{"Initializing metrics..."};
+    keel::FixedString<64> m_fpsString{"0 FPS (Idle)"};
+    keel::FixedString<64> m_cpuString{"CPU: 0.00 ms (0.0%)"};
+    keel::FixedString<64> m_gpuString{"GPU: 0.00 ms (0% budget)"};
+    keel::FixedString<64> m_ramString{"RAM: 0.0 MB"};
+    keel::FixedString<192> m_statusString{"Initializing metrics..."};
 };
 
 } // namespace guikit

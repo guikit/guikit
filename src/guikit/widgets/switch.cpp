@@ -1,5 +1,4 @@
 #include "guikit/widgets/switch.hpp"
-#include <algorithm>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
@@ -24,7 +23,7 @@ Vec2 MeasureSwitchControl(
         const float leftW = TextUtil::MeasureWidth(opts.textLeft, leftFont, canvas);
         const float leftH = canvas ? canvas->GetLineHeight(leftFont) : theme.GetLineHeight(leftFont);
         ctrlW += leftW + m.gap;
-        ctrlH = std::max(ctrlH, leftH);
+        ctrlH = keel::max(ctrlH, leftH);
     }
 
     if (!opts.textRight.empty() || !opts.textRight.variants.empty()) {
@@ -32,7 +31,7 @@ Vec2 MeasureSwitchControl(
         const float rightW = TextUtil::MeasureWidth(opts.textRight, rightFont, canvas);
         const float rightH = canvas ? canvas->GetLineHeight(rightFont) : theme.GetLineHeight(rightFont);
         ctrlW += m.gap + rightW;
-        ctrlH = std::max(ctrlH, rightH);
+        ctrlH = keel::max(ctrlH, rightH);
     }
 
     return {ctrlW, ctrlH};
@@ -65,7 +64,7 @@ Response Switch::Run(
     bool* value,
     bool checkedState,
     const SwitchOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
     struct ThemePopGuard {
@@ -216,7 +215,7 @@ void Switch::Render(
     Control::RenderFrame(canvas, bounds, ctrl, size, disabled, theme, hovered, pressed || focused);
 
     const Rect ctrlRect = Control::ResolveInnerRect(bounds, ctrl, size, theme);
-    float curX = ctrlRect.x + std::max(0.0f, (ctrlRect.w - ctrlDims.x) * 0.5f);
+    float curX = ctrlRect.x + keel::max(0.0f, (ctrlRect.w - ctrlDims.x) * 0.5f);
     if (!opts.textLeft.empty() || !opts.textLeft.variants.empty()) {
         const float leftFont = theme.ResolveFontSize(opts.textLeft, TextRole::LabelMedium, size);
         const float leftW = TextUtil::MeasureWidth(opts.textLeft, leftFont, &canvas);
@@ -300,7 +299,7 @@ void Switch::Render(
         knobFill = knobFill.WithAlphaF(0.40f);
     } else if (focused) {
         trackStroke = pal.focusRing;
-        strokeWidth = std::max(strokeWidth, 2.0f);
+        strokeWidth = keel::max(strokeWidth, 2.0f);
     }
 
     // Draw track

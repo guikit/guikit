@@ -1,6 +1,4 @@
 #include "../demo_context.hpp"
-#include <array>
-#include <format>
 
 namespace guikit::demo {
 
@@ -18,7 +16,7 @@ struct BreadcrumbDemoState {
 
 BreadcrumbDemoState s_bc;
 
-constexpr std::string_view SeparatorEnumName(guikit::BreadcrumbSeparator s) noexcept {
+constexpr keel::StringRef SeparatorEnumName(guikit::BreadcrumbSeparator s) noexcept {
     switch (s) {
         case guikit::BreadcrumbSeparator::Chevron: return "Chevron";
         case guikit::BreadcrumbSeparator::Slash:   return "Slash";
@@ -48,7 +46,7 @@ void RenderBreadcrumbInspector(guikit::Context& ui, DemoContext& ctx) {
         .separator = guikit::HeadingSeparator::Bottom
     });
 
-    static constexpr std::array<std::string_view, 4> kSepNames = {
+    static constexpr keel::StaticArray<keel::StringRef, 4> kSepNames = {
         "Chevron", "Slash", "Arrow", "Dot"
     };
     if (auto el = ui.Element({.label = "Separator Style"})) {
@@ -87,7 +85,7 @@ void RenderBreadcrumbStage(guikit::Context& ui, DemoContext& ctx) {
     const guikit::StateColor activeCol = guikit::StateColor::FromVariant(ctx.btnVariant);
     const uint32_t maxVis = (s_bc.maxVisibleItems >= 2) ? static_cast<uint32_t>(s_bc.maxVisibleItems) : 0u;
 
-    const std::array<guikit::BreadcrumbItem, 5> crumbs = {{
+    const keel::StaticArray<guikit::BreadcrumbItem, 5> crumbs = {{
         {.label = "Workspace",  .icon = s_bc.showCrumbIcons ? guikit::Icon::Folder()   : guikit::Icon{}},
         {.label = "Clusters",   .icon = s_bc.showCrumbIcons ? guikit::Icon::Settings() : guikit::Icon{}, .badge = s_bc.showCrumbBadges ? "EU" : ""},
         {.label = "Production", .icon = s_bc.showCrumbIcons ? guikit::Icon::Flash()    : guikit::Icon{}},
@@ -105,12 +103,12 @@ void RenderBreadcrumbStage(guikit::Context& ui, DemoContext& ctx) {
     });
 }
 
-std::string GenerateBreadcrumbCode(const DemoContext& ctx) {
-    const std::string sizePrefix = FormatUiSizePrefix(ctx.controlsSize);
+keel::String GenerateBreadcrumbCode(const DemoContext& ctx) {
+    const auto sizePrefix = FormatUiSizePrefix(ctx.controlsSize);
     const uint32_t maxVis = (s_bc.maxVisibleItems >= 2) ? static_cast<uint32_t>(s_bc.maxVisibleItems) : 0u;
 
-    return std::format(
-        "static const std::array<guikit::BreadcrumbItem, 5> crumbs = {{{{\n"
+    return keel::format(
+        "static const keel::StaticArray<guikit::BreadcrumbItem, 5> crumbs = {{{{\n"
         "    {{.label = \"Workspace\",  .icon = guikit::Icon::Folder()}},\n"
         "    {{.label = \"Clusters\",   .icon = guikit::Icon::Settings(), .badge = \"EU\"}},\n"
         "    {{.label = \"Production\", .icon = guikit::Icon::Flash()}},\n"

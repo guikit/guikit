@@ -1,6 +1,4 @@
 #include "../demo_context.hpp"
-#include <algorithm>
-#include <format>
 
 namespace guikit::demo {
 
@@ -83,13 +81,13 @@ void RenderPaginationInspector(guikit::Context& ui, DemoContext& ctx) {
 
 void RenderPaginationStage(guikit::Context& ui, DemoContext& ctx) {
     const guikit::StateColor activeCol = guikit::StateColor::FromVariant(ctx.btnVariant);
-    const size_t totalPages = static_cast<size_t>(std::max(1, s_pg.totalPages));
+    const size_t totalPages = static_cast<size_t>(keel::max(1, s_pg.totalPages));
     if (s_pg.currentPage >= totalPages) {
         s_pg.currentPage = totalPages - 1;
     }
 
     ui.Size(ctx.controlsSize).Pagination(s_pg.currentPage, totalPages, {
-        .siblingCount = static_cast<uint32_t>(std::max(0, s_pg.siblingCount)),
+        .siblingCount = static_cast<uint32_t>(keel::max(0, s_pg.siblingCount)),
         .showFirstLast = s_pg.showFirstLast,
         .showPrevNext = s_pg.showPrevNext,
         .showPageInfo = s_pg.showPageInfo,
@@ -101,10 +99,10 @@ void RenderPaginationStage(guikit::Context& ui, DemoContext& ctx) {
     });
 }
 
-std::string GeneratePaginationCode(const DemoContext& ctx) {
-    const std::string sizePrefix = FormatUiSizePrefix(ctx.controlsSize);
+keel::String GeneratePaginationCode(const DemoContext& ctx) {
+    const auto sizePrefix = FormatUiSizePrefix(ctx.controlsSize);
 
-    return std::format(
+    return keel::format(
         "ui.{}Pagination(currentPage, {}, {{\n"
         "    .siblingCount = {},\n"
         "    .showFirstLast = {},\n"

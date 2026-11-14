@@ -1,12 +1,105 @@
 #include "guikit/context.hpp"
-#include <algorithm>
-#include <string>
 #include "guikit/core/text_util.hpp"
+#include "keel/static_array.h"
+#include "keel/time.h"
 #include "keel/utf8.h"
 
 namespace guikit {
 
-Context::Context() {
+namespace {
+
+[[nodiscard]] bool ContainsId(keel::ArrayRef<Id> list, Id target) noexcept {
+    for (const Id& id : list) {
+        if (id == target) {
+            return true;
+        }
+    }
+    return false;
+}
+
+[[nodiscard]] size_t FindIdIndex(keel::ArrayRef<Id> list, Id target) noexcept {
+    for (size_t i = 0; i < list.size(); ++i) {
+        if (list[i] == target) {
+            return i;
+        }
+    }
+    return keel::kInvalidIndex;
+}
+
+/// Searches backwards in `s[0 .. maxExclusivePos - 1]` for `c`, returning `keel::StringRef::npos` if not found.
+[[nodiscard]] size_t StrRfindBefore(keel::StringRef s, char c, size_t maxExclusivePos) noexcept {
+    if (maxExclusivePos == 0 || s.empty()) {
+        return keel::StringRef::npos;
+    }
+    return s.substr(0, keel::min(maxExclusivePos, s.size())).rfind(c);
+}
+
+void StrEraseRange(keel::String& s, size_t pos, size_t count) noexcept {
+    if (pos >= s.size() || count == 0) {
+        return;
+    }
+    const size_t actual = keel::min(count, s.size() - pos);
+    const size_t tail = s.size() - (pos + actual);
+    if (tail > 0) {
+        keel::mem_move(s.data() + pos, s.data() + pos + actual, tail);
+    }
+    s.resize(s.size() - actual);
+}
+
+void StrInsert(keel::String& s, size_t pos, keel::StringRef ins) {
+    if (ins.empty()) {
+        return;
+    }
+    pos = keel::min(pos, s.size());
+    if (pos == s.size()) {
+        s.append(ins);
+        return;
+    }
+    if (s.data() != nullptr && ins.data() >= s.data() && ins.data() <= s.data() + s.size()) {
+        keel::String copy = keel::String::from(ins);
+        StrInsert(s, pos, copy.as_ref());
+        return;
+    }
+    const size_t oldLen = s.size();
+    const size_t insLen = ins.size();
+    s.resize(oldLen + insLen);
+    keel::mem_move(s.data() + pos + insLen, s.data() + pos, oldLen - pos);
+    keel::mem_copy(s.data() + pos, ins.data(), insLen);
+}
+
+void StrInsertChar(keel::String& s, size_t pos, char c) {
+    StrInsert(s, pos, keel::StringRef(&c, 1));
+}
+
+void StrReplace(keel::String& s, size_t pos, size_t count, keel::StringRef rep) {
+    pos = keel::min(pos, s.size());
+    if (s.data() != nullptr && rep.data() >= s.data() && rep.data() <= s.data() + s.size()) {
+        keel::String copy = keel::String::from(rep);
+        StrReplace(s, pos, count, copy.as_ref());
+        return;
+    }
+    StrEraseRange(s, pos, count);
+    StrInsert(s, pos, rep);
+}
+
+template <typename T, typename Pred>
+void ArrayEraseIf(keel::Array<T>& arr, Pred&& pred) noexcept {
+    size_t writeIdx = 0;
+    for (size_t i = 0; i < arr.size(); ++i) {
+        if (!pred(arr[i])) {
+            if (writeIdx != i) {
+                arr[writeIdx] = keel::move(arr[i]);
+            }
+            ++writeIdx;
+        }
+    }
+    arr.resize(writeIdx);
+}
+
+} // namespace
+
+Context::Context()
+    : m_startTimeNs(keel::monotonic_ns()) {
     m_sizeStack.push_back(UiSize::Md);
     m_disabledStack.push_back(false);
 }
@@ -44,8 +137,10 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
     m_dpiScale = effScale;
 
     if (!m_manualTime) {
-        const auto now = std::chrono::steady_clock::now();
-        m_currentTimeSec = std::chrono::duration<double>(now - m_startTime).count();
+        const keel::u64 nowNs = keel::monotonic_ns();
+        m_currentTimeSec = (nowNs >= m_startTimeNs)
+            ? static_cast<double>(nowNs - m_startTimeNs) * 1e-9
+            : 0.0;
     }
 
     ClearOverlayPasses();
@@ -74,20 +169,20 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
             m_editState.id == m_focusedId &&
             (m_editState.multiline || m_suspendDirectEditInput) &&
             !m_editState.readOnly;
-        for (auto it = m_pendingKeyEvents.begin(); it != m_pendingKeyEvents.end(); ) {
-            const bool isIndent = m_keymap.Matches(KeyAction::Indent, it->key, it->mods);
-            const bool isUnindent = m_keymap.Matches(KeyAction::Unindent, it->key, it->mods);
+        for (size_t evIdx = 0; evIdx < m_pendingKeyEvents.size(); ) {
+            const QueuedKeyEvent ev = m_pendingKeyEvents[evIdx];
+            const bool isIndent = m_keymap.Matches(KeyAction::Indent, ev.key, ev.mods);
+            const bool isUnindent = m_keymap.Matches(KeyAction::Unindent, ev.key, ev.mods);
             if ((isIndent || isUnindent) && !multilineEditorFocused) {
                 const bool reverse = isUnindent;
-                it = m_pendingKeyEvents.erase(it);
-                auto curIt = std::find(activeFocusables.begin(), activeFocusables.end(), m_focusedId);
+                m_pendingKeyEvents.remove_at(evIdx);
+                const size_t curIdx = FindIdIndex(activeFocusables, m_focusedId);
                 Id nextId = Id::Null();
-                if (curIt == activeFocusables.end()) {
+                if (curIdx == keel::kInvalidIndex) {
                     nextId = reverse ? activeFocusables.back() : activeFocusables.front();
                 } else {
-                    const size_t idx = static_cast<size_t>(std::distance(activeFocusables.begin(), curIt));
                     const size_t n = activeFocusables.size();
-                    const size_t nextIdx = reverse ? ((idx + n - 1) % n) : ((idx + 1) % n);
+                    const size_t nextIdx = reverse ? ((curIdx + n - 1) % n) : ((curIdx + 1) % n);
                     nextId = activeFocusables[nextIdx];
                 }
                 if (m_editState.id.IsValid() && m_editState.id != nextId) {
@@ -98,7 +193,7 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
                 m_suspendDirectEditInput = false;
                 InvalidateAll();
             } else {
-                ++it;
+                ++evIdx;
             }
         }
     }
@@ -181,7 +276,7 @@ Node* Context::CreateNode(NodeType type, Id id) {
     return node;
 }
 
-Id Context::MakeChildIdForParent(Id parentId, std::source_location loc) {
+Id Context::MakeChildIdForParent(Id parentId, keel::SourceLocation loc) {
     const char* filePtr = loc.file_name();
     uint64_t fileHash = detail::Fnv1aOffsetBasis;
     if (filePtr != nullptr) {
@@ -199,7 +294,7 @@ Id Context::MakeChildIdForParent(Id parentId, std::source_location loc) {
     return detail::FinalizeCallsiteId(callsiteHash, occurrenceIndex);
 }
 
-Id Context::MakeChildId(std::source_location loc) {
+Id Context::MakeChildId(keel::SourceLocation loc) {
     const Id parentId = m_containerStack.empty() ? Id::Null() : m_containerStack.back()->id;
     return MakeChildIdForParent(parentId, loc);
 }
@@ -290,7 +385,7 @@ Rect Context::GetParentPrevFrameBounds() const {
     int startIdx = -1;
     Rect r{};
     for (int i = static_cast<int>(m_containerStack.size()) - 1; i >= 0; --i) {
-        const Node* parent = m_containerStack[i];
+        const Node* parent = m_containerStack[static_cast<size_t>(i)];
         if (!parent || !parent->id.IsValid()) continue;
         const Rect* found = m_prevFrameBounds.get(parent->id);
         if (found != nullptr && found->w > 1.0f && found->h > 1.0f) {
@@ -305,19 +400,19 @@ Rect Context::GetParentPrevFrameBounds() const {
 
     const int stackSize = static_cast<int>(m_containerStack.size());
     for (int i = startIdx; i < stackSize; ++i) {
-        const Node* c = m_containerStack[i];
+        const Node* c = m_containerStack[static_cast<size_t>(i)];
         if (!c) continue;
 
         if (i > startIdx) {
             if (c->heightMode == SizeMode::Fixed && c->fixedHeight > 0.0f) {
-                const float h = std::min(r.h, c->fixedHeight);
+                const float h = keel::min(r.h, c->fixedHeight);
                 if (c->type == NodeType::BottomPanel) {
                     r.y = r.Bottom() - h;
                 }
                 r.h = h;
             }
             if (c->widthMode == SizeMode::Fixed && c->fixedWidth > 0.0f) {
-                r.w = std::min(r.w, c->fixedWidth);
+                r.w = keel::min(r.w, c->fixedWidth);
             }
         } else if ((c->type == NodeType::BottomPanel || c->type == NodeType::Sidebar) &&
                    c->heightMode == SizeMode::Fixed && c->fixedHeight > 0.0f) {
@@ -326,19 +421,19 @@ Rect Context::GetParentPrevFrameBounds() const {
 
         r.x += c->padding.left;
         r.y += c->padding.top;
-        r.w = std::max(0.0f, r.w - (c->padding.left + c->padding.right));
-        r.h = std::max(0.0f, r.h - (c->padding.top + c->padding.bottom));
+        r.w = keel::max(0.0f, r.w - (c->padding.left + c->padding.right));
+        r.h = keel::max(0.0f, r.h - (c->padding.top + c->padding.bottom));
 
         if (c->direction == FlexDirection::Column &&
             (i + 1 < stackSize || c->type == NodeType::BottomPanel || c->type == NodeType::Sidebar)) {
             const Node* stopChild = (i + 1 < stackSize)
-                ? m_containerStack[i + 1]
+                ? m_containerStack[static_cast<size_t>(i + 1)]
                 : c->lastChild;
             for (const Node* ch = c->firstChild; ch != nullptr && ch != stopChild; ch = ch->nextSibling) {
                 if (ch->heightMode == SizeMode::Fixed && ch->fixedHeight > 0.0f && !ch->sidebarCollapsed) {
                     const float consumeH = ch->fixedHeight + c->gap;
                     r.y += consumeH;
-                    r.h = std::max(0.0f, r.h - consumeH);
+                    r.h = keel::max(0.0f, r.h - consumeH);
                 }
             }
         }
@@ -391,7 +486,7 @@ UiTheme* Context::PushTheme(const UiTheme& theme) {
     return arenaTheme;
 }
 
-UiTheme* Context::PushScopedTheme(const UiTheme* explicitTheme, std::optional<float> explicitScale) {
+UiTheme* Context::PushScopedTheme(const UiTheme* explicitTheme, keel::Optional<float> explicitScale) {
     if (explicitTheme == nullptr && !explicitScale.has_value()) {
         return nullptr;
     }
@@ -458,197 +553,196 @@ bool Context::IsDisabled() const {
     return !m_disabledStack.empty() && m_disabledStack.back();
 }
 
-ContainerScope Context::Row(RowOptions opts, std::source_location loc) {
+ContainerScope Context::Row(RowOptions opts, keel::SourceLocation loc) {
     return Open<guikit::Row>(opts, loc);
 }
 
-ContainerScope Context::Column(ColumnOptions opts, std::source_location loc) {
+ContainerScope Context::Column(ColumnOptions opts, keel::SourceLocation loc) {
     return Open<guikit::Column>(opts, loc);
 }
 
-ContainerScope Context::Wrap(WrapOptions opts, std::source_location loc) {
+ContainerScope Context::Wrap(WrapOptions opts, keel::SourceLocation loc) {
     return Open<guikit::Wrap>(opts, loc);
 }
 
-
-GridScope Context::Grid(GridOptions opts, std::source_location loc) {
+GridScope Context::Grid(GridOptions opts, keel::SourceLocation loc) {
     return Open<guikit::Grid>(opts, loc);
 }
 
-void Context::Spacer(float flex, std::source_location loc) {
+void Context::Spacer(float flex, keel::SourceLocation loc) {
     Run<guikit::Spacer>(flex, loc);
 }
 
-void Context::Gap(float sizeDp, std::source_location loc) {
+void Context::Gap(float sizeDp, keel::SourceLocation loc) {
     guikit::Spacer::Gap(*this, sizeDp, loc);
 }
 
-void Context::Separator(float extentRatio, Color colorOverride, std::source_location loc) {
+void Context::Separator(float extentRatio, Color colorOverride, keel::SourceLocation loc) {
     guikit::Separator::Run(*this, extentRatio, colorOverride, loc);
 }
 
-void Context::Separator(Color colorOverride, std::source_location loc) {
+void Context::Separator(Color colorOverride, keel::SourceLocation loc) {
     guikit::Separator::Run(*this, 0.0f, colorOverride, loc);
 }
 
-void Context::Separator(Orientation lineOrientation, float extentRatio, Color colorOverride, std::source_location loc) {
+void Context::Separator(Orientation lineOrientation, float extentRatio, Color colorOverride, keel::SourceLocation loc) {
     guikit::Separator::Run(*this, extentRatio, colorOverride, loc, lineOrientation);
 }
 
-AccordionScope Context::Accordion(AccordionOptions opts, std::source_location loc) {
+AccordionScope Context::Accordion(AccordionOptions opts, keel::SourceLocation loc) {
     return guikit::Accordion::Open(*this, nullptr, opts, loc);
 }
 
-AccordionScope Context::Accordion(std::string_view label, AccordionOptions opts, std::source_location loc) {
+AccordionScope Context::Accordion(keel::StringRef label, AccordionOptions opts, keel::SourceLocation loc) {
     opts.label.text = label;
     return guikit::Accordion::Open(*this, nullptr, opts, loc);
 }
 
-AccordionScope Context::Accordion(bool& open, AccordionOptions opts, std::source_location loc) {
+AccordionScope Context::Accordion(bool& open, AccordionOptions opts, keel::SourceLocation loc) {
     return guikit::Accordion::Open(*this, &open, opts, loc);
 }
 
-ContainerScope Context::Box(BoxOptions opts, std::source_location loc) {
+ContainerScope Context::Box(BoxOptions opts, keel::SourceLocation loc) {
     return Open<guikit::Box>(opts, loc);
 }
 
-ContainerScope Context::Card(CardOptions opts, std::source_location loc) {
+ContainerScope Context::Card(CardOptions opts, keel::SourceLocation loc) {
     return Open<guikit::Card>(opts, loc);
 }
 
-ContainerScope Context::ScrollArea(ScrollAreaOptions opts, std::source_location loc) {
+ContainerScope Context::ScrollArea(ScrollAreaOptions opts, keel::SourceLocation loc) {
     return Open<guikit::ScrollArea>(opts, loc);
 }
 
-ContainerScope Context::Carousel(CarouselOptions opts, std::source_location loc) {
+ContainerScope Context::Carousel(CarouselOptions opts, keel::SourceLocation loc) {
     return Open<guikit::Carousel>(opts, loc);
 }
 
-SidebarScope Context::Sidebar(SidebarOptions opts, std::source_location loc) {
+SidebarScope Context::Sidebar(SidebarOptions opts, keel::SourceLocation loc) {
     return guikit::Sidebar::Open(*this, nullptr, opts, loc);
 }
 
-SidebarScope Context::Sidebar(SidebarMode& mode, SidebarOptions opts, std::source_location loc) {
+SidebarScope Context::Sidebar(SidebarMode& mode, SidebarOptions opts, keel::SourceLocation loc) {
     return guikit::Sidebar::Open(*this, &mode, opts, loc);
 }
 
-SidebarScope Context::Sidebar(bool& open, SidebarOptions opts, std::source_location loc) {
+SidebarScope Context::Sidebar(bool& open, SidebarOptions opts, keel::SourceLocation loc) {
     SidebarMode mode = open ? SidebarMode::Expanded : SidebarMode::Collapsed;
     SidebarScope scope = guikit::Sidebar::Open(*this, &mode, opts, loc);
     open = (mode != SidebarMode::Collapsed);
     return scope;
 }
 
-SceneScope Context::Scene(SceneOptions opts, std::source_location loc) {
+SceneScope Context::Scene(SceneOptions opts, keel::SourceLocation loc) {
     return Open<guikit::Scene>(opts, loc);
 }
 
-TreeViewScope Context::TreeView(TreeViewOptions opts, std::source_location loc) {
+TreeViewScope Context::TreeView(TreeViewOptions opts, keel::SourceLocation loc) {
     return Open<guikit::TreeView>(opts, loc);
 }
 
-TreeItemScope Context::TreeItem(TreeItemOptions opts, std::source_location loc) {
+TreeItemScope Context::TreeItem(TreeItemOptions opts, keel::SourceLocation loc) {
     return guikit::TreeView::OpenItem(*this, nullptr, opts, loc);
 }
 
-TreeItemScope Context::TreeItem(std::string_view label, TreeItemOptions opts, std::source_location loc) {
+TreeItemScope Context::TreeItem(keel::StringRef label, TreeItemOptions opts, keel::SourceLocation loc) {
     opts.label.text = label;
     return guikit::TreeView::OpenItem(*this, nullptr, opts, loc);
 }
 
-TreeItemScope Context::TreeItem(bool& open, TreeItemOptions opts, std::source_location loc) {
+TreeItemScope Context::TreeItem(bool& open, TreeItemOptions opts, keel::SourceLocation loc) {
     return guikit::TreeView::OpenItem(*this, &open, opts, loc);
 }
 
-TreeItemScope Context::TreeItem(bool& open, std::string_view label, TreeItemOptions opts, std::source_location loc) {
+TreeItemScope Context::TreeItem(bool& open, keel::StringRef label, TreeItemOptions opts, keel::SourceLocation loc) {
     opts.label.text = label;
     return guikit::TreeView::OpenItem(*this, &open, opts, loc);
 }
 
-Response Context::Button(ButtonOptions opts, std::source_location loc) {
+Response Context::Button(ButtonOptions opts, keel::SourceLocation loc) {
     return Run<guikit::Button>(opts, loc);
 }
 
-keel::StringRef Context::String(std::string_view text) {
+keel::StringRef Context::String(keel::StringRef text) {
     if (text.empty()) return keel::StringRef{};
-    return m_arena.alloc_string(keel::StringRef(text.data(), text.size()));
-}
-
-std::string_view Context::AllocString(std::string_view text) {
-    if (text.empty()) return {};
     return m_arena.alloc_string(text);
 }
 
-Response Context::Text(UiText label, TextOptions opts, std::source_location loc) {
+keel::StringRef Context::AllocString(keel::StringRef text) {
+    if (text.empty()) return keel::StringRef{};
+    return m_arena.alloc_string(text);
+}
+
+Response Context::Text(UiText label, TextOptions opts, keel::SourceLocation loc) {
     return Run<guikit::Text>(label, opts, loc);
 }
 
-ElementScope Context::Element(ElementOptions opts, std::source_location loc) {
+ElementScope Context::Element(ElementOptions opts, keel::SourceLocation loc) {
     return Open<guikit::Element>(opts, loc);
 }
 
-Response Context::Heading(HeadingOptions opts, std::source_location loc) {
+Response Context::Heading(HeadingOptions opts, keel::SourceLocation loc) {
     return Run<guikit::Heading>(opts, loc);
 }
 
-Response Context::Image(std::string_view source, ImageOptions opts, std::source_location loc) {
+Response Context::Image(keel::StringRef source, ImageOptions opts, keel::SourceLocation loc) {
     return Run<guikit::Image>(source, opts, loc);
 }
 
-Response Context::Image(ImageOptions opts, std::source_location loc) {
+Response Context::Image(ImageOptions opts, keel::SourceLocation loc) {
     return Run<guikit::Image>(opts.source, opts, loc);
 }
 
-MarkdownResponse Context::Markdown(std::string_view markdownText, const MarkdownOptions& opts, std::source_location loc) {
+MarkdownResponse Context::Markdown(keel::StringRef markdownText, const MarkdownOptions& opts, keel::SourceLocation loc) {
     return Run<guikit::Markdown>(markdownText, opts, loc);
 }
 
-Response Context::Switch(bool& value, SwitchOptions opts, std::source_location loc) {
+Response Context::Switch(bool& value, SwitchOptions opts, keel::SourceLocation loc) {
     return Run<guikit::Switch>(&value, value, opts, loc);
 }
 
-Response Context::Switch(const bool& checked, SwitchOptions opts, std::source_location loc) {
+Response Context::Switch(const bool& checked, SwitchOptions opts, keel::SourceLocation loc) {
     return Run<guikit::Switch>(nullptr, checked, opts, loc);
 }
 
-Response Context::Checkbox(bool& value, CheckboxOptions opts, std::source_location loc) {
+Response Context::Checkbox(bool& value, CheckboxOptions opts, keel::SourceLocation loc) {
     return Run<guikit::Checkbox>(&value, value, opts, loc);
 }
 
-Response Context::Checkbox(const bool& checked, CheckboxOptions opts, std::source_location loc) {
+Response Context::Checkbox(const bool& checked, CheckboxOptions opts, keel::SourceLocation loc) {
     return Run<guikit::Checkbox>(nullptr, checked, opts, loc);
 }
 
-Response Context::Radio(bool& value, RadioOptions opts, std::source_location loc) {
+Response Context::Radio(bool& value, RadioOptions opts, keel::SourceLocation loc) {
     return Run<guikit::Radio>(&value, value, opts, loc);
 }
 
-Response Context::Radio(const bool& checked, RadioOptions opts, std::source_location loc) {
+Response Context::Radio(const bool& checked, RadioOptions opts, keel::SourceLocation loc) {
     return Run<guikit::Radio>(nullptr, checked, opts, loc);
 }
 
-Response Context::InputField(std::string& value, InputFieldOptions opts, std::source_location loc) {
-    return Run<guikit::InputField>(&value, std::string_view{}, opts, loc);
-}
-
-Response Context::InputField(std::string_view value, InputFieldOptions opts, std::source_location loc) {
-    return Run<guikit::InputField>(nullptr, value, opts, loc);
+Response Context::InputField(keel::StringRef value, InputFieldOptions opts, keel::SourceLocation loc) {
+    return Run<guikit::InputField>(keel::Optional<keel::StringSink>{}, value, opts, loc);
 }
 
 Response Context::StepSlider(
     UiSize& size,
     StepSliderOptions opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
-    static constexpr std::array<std::string_view, 6> kSizeLabelsWithNone = {"A", "XS", "SM", "MD", "LG", "XL"};
-    static constexpr std::array<UiSize, 6> kSizesWithNone = {UiSize::None, UiSize::Xs, UiSize::Sm, UiSize::Md, UiSize::Lg, UiSize::Xl};
+    static constexpr keel::StaticArray<keel::StringRef, 6> kSizeLabelsWithNone = {{"A", "XS", "SM", "MD", "LG", "XL"}};
+    static constexpr keel::StaticArray<UiSize, 6> kSizesWithNone = {{
+        UiSize::None, UiSize::Xs, UiSize::Sm, UiSize::Md, UiSize::Lg, UiSize::Xl
+    }};
 
-    static constexpr std::array<std::string_view, 5> kSizeLabels = {"XS", "SM", "MD", "LG", "XL"};
-    static constexpr std::array<UiSize, 5> kSizes = {UiSize::Xs, UiSize::Sm, UiSize::Md, UiSize::Lg, UiSize::Xl};
+    static constexpr keel::StaticArray<keel::StringRef, 5> kSizeLabels = {{"XS", "SM", "MD", "LG", "XL"}};
+    static constexpr keel::StaticArray<UiSize, 5> kSizes = {{
+        UiSize::Xs, UiSize::Sm, UiSize::Md, UiSize::Lg, UiSize::Xl
+    }};
 
     const bool hasNone = opts.includeNone;
-    const auto sizesSpan = hasNone ? std::span<const UiSize>(kSizesWithNone) : std::span<const UiSize>(kSizes);
-    const auto labelsSpan = hasNone ? std::span<const std::string_view>(kSizeLabelsWithNone) : std::span<const std::string_view>(kSizeLabels);
+    const keel::ArrayRef<UiSize> sizesSpan = hasNone ? kSizesWithNone.as_ref() : kSizes.as_ref();
+    const keel::ArrayRef<keel::StringRef> labelsSpan = hasNone ? kSizeLabelsWithNone.as_ref() : kSizeLabels.as_ref();
 
     size_t idx = hasNone ? 0 : 2;
     for (size_t i = 0; i < sizesSpan.size(); ++i) {
@@ -672,18 +766,18 @@ Response Context::StepSlider(
 Response Context::StepSlider(
     UiVariant& variant,
     StepSliderOptions opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
-    static constexpr std::array<std::string_view, 8> kVariantLabels = {
+    static constexpr keel::StaticArray<keel::StringRef, 8> kVariantLabels = {{
         "Def", "Pri", "Sec", "Suc", "Wrn", "Dgr", "Inf", "Gho"
-    };
-    static constexpr std::array<std::string_view, 8> kVariantFullNames = {
+    }};
+    static constexpr keel::StaticArray<keel::StringRef, 8> kVariantFullNames = {{
         "Default", "Primary", "Secondary", "Success", "Warning", "Danger", "Info", "Ghost"
-    };
-    static constexpr std::array<UiVariant, 8> kVariants = {
+    }};
+    static constexpr keel::StaticArray<UiVariant, 8> kVariants = {{
         UiVariant::Default, UiVariant::Primary, UiVariant::Secondary, UiVariant::Success,
         UiVariant::Warning, UiVariant::Danger, UiVariant::Info, UiVariant::Ghost
-    };
+    }};
 
     size_t idx = 0;
     for (size_t i = 0; i < kVariants.size(); ++i) {
@@ -694,13 +788,13 @@ Response Context::StepSlider(
     }
 
     if (opts.stepLabels.empty()) {
-        opts.stepLabels = kVariantLabels;
+        opts.stepLabels = kVariantLabels.as_ref();
     }
     if (opts.valueText.empty() && idx < kVariantFullNames.size()) {
         opts.valueText.text = kVariantFullNames[idx];
     }
     if (opts.valueText.variants.empty()) {
-        opts.valueText.variants = kVariantFullNames;
+        opts.valueText.variants = kVariantFullNames.as_ref();
     }
     if (!opts.valueText.color.HasAny() && variant != UiVariant::Default) {
         opts.valueText.color = StateColor::FromTextVariant(variant);
@@ -718,21 +812,21 @@ Response Context::StepSlider(
 
 ToolbarScope Context::Toolbar(
     ToolbarOptions opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     return Open<guikit::Toolbar>(opts, loc);
 }
 
 Response Context::ToolButton(
     ToolButtonOptions opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     return Toolbar::ToolButton(*this, opts, loc);
 }
 
 SidebarMenuScope Context::SidebarMenu(
     SidebarMenuOptions opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     return Open<guikit::SidebarMenu>(opts, loc);
 }
@@ -741,29 +835,29 @@ uint64_t Context::ShowToast(ToastOptions opts) {
     const uint64_t id = ++m_nextToastId;
     ToastEntry entry{};
     entry.id = id;
-    entry.title = std::string(opts.title.text);
-    entry.message = std::string(opts.message.text);
+    entry.title = keel::String::from(opts.title.text);
+    entry.message = keel::String::from(opts.message.text);
     entry.titleWrap = opts.title.wrap;
     entry.messageWrap = opts.message.wrap;
     entry.variant = opts.variant;
     entry.icon = opts.icon;
     if (!opts.icon.GetPath().empty()) {
-        entry.iconPath = std::string(opts.icon.GetPath());
+        entry.iconPath = keel::String::from(opts.icon.GetPath());
     }
     entry.duration = opts.duration;
     entry.showProgress = opts.showProgress;
     entry.closable = opts.closable;
     entry.elapsedSec = 0.0;
     entry.lastTickSec = m_currentTimeSec;
-    m_toasts.push_back(std::move(entry));
+    m_toasts.push_back(keel::move(entry));
     InvalidateAll();
     return id;
 }
 
 void Context::DismissToast(uint64_t id) noexcept {
-    for (auto it = m_toasts.begin(); it != m_toasts.end(); ++it) {
-        if (it->id == id) {
-            m_toasts.erase(it);
+    for (size_t i = 0; i < m_toasts.size(); ++i) {
+        if (m_toasts[i].id == id) {
+            m_toasts.remove_at(i);
             InvalidateAll();
             return;
         }
@@ -787,25 +881,25 @@ void Context::RequestFocus(Id id) {
 }
 
 void Context::SetClipboardCallbacks(ClipboardGetFn getFn, ClipboardSetFn setFn) {
-    m_clipboardGetFn = std::move(getFn);
-    m_clipboardSetFn = std::move(setFn);
+    m_clipboardGetFn = keel::move(getFn);
+    m_clipboardSetFn = keel::move(setFn);
 }
 
-void Context::SetClipboardText(std::string_view text) {
-    m_clipboardText = std::string(text);
+void Context::SetClipboardText(keel::StringRef text) {
+    m_clipboardText.assign(text);
     if (m_clipboardSetFn) {
         m_clipboardSetFn(text);
     }
 }
 
-std::string Context::GetClipboardText() const {
+keel::String Context::GetClipboardText() const {
     if (m_clipboardGetFn) {
-        std::string ext = m_clipboardGetFn();
+        keel::String ext = m_clipboardGetFn();
         if (!ext.empty() || m_clipboardText.empty()) {
             return ext;
         }
     }
-    return m_clipboardText;
+    return m_clipboardText.clone();
 }
 
 bool Context::ActiveEditState::DeleteSelection() {
@@ -814,10 +908,10 @@ bool Context::ActiveEditState::DeleteSelection() {
     }
     SaveUndo();
     preferredColumn.reset();
-    const size_t s = std::min(SelectionStart(), text.size());
-    const size_t e = std::min(SelectionEnd(), text.size());
+    const size_t s = keel::min(SelectionStart(), text.size());
+    const size_t e = keel::min(SelectionEnd(), text.size());
     if (e > s) {
-        text.erase(s, e - s);
+        StrEraseRange(text, s, e - s);
         cursor = s;
         selectionAnchor = s;
         changed = true;
@@ -827,13 +921,12 @@ bool Context::ActiveEditState::DeleteSelection() {
     return false;
 }
 
-void Context::ActiveEditState::Insert(std::string_view utf8Text) {
+void Context::ActiveEditState::Insert(keel::StringRef utf8Text) {
     if (readOnly || utf8Text.empty()) {
         return;
     }
 
-    std::string sanitized;
-    sanitized.reserve(utf8Text.size());
+    keel::String sanitized = keel::String::with_capacity(utf8Text.size());
     for (char c : utf8Text) {
         const uint8_t u = static_cast<uint8_t>(c);
         if (c == '\r') {
@@ -859,7 +952,7 @@ void Context::ActiveEditState::Insert(std::string_view utf8Text) {
 
     if (autoCloseBrackets && multiline && !readOnly && sanitized.size() == 1) {
         const char c = sanitized[0];
-        const size_t safeCur = std::min(cursor, text.size());
+        const size_t safeCur = keel::min(cursor, text.size());
 
         // Overtype closing bracket/quote if cursor is right before it
         if (!HasSelection() && safeCur < text.size() &&
@@ -880,10 +973,10 @@ void Context::ActiveEditState::Insert(std::string_view utf8Text) {
         if (closeChar != 0) {
             if (HasSelection()) {
                 SaveUndo();
-                const size_t s = std::min(SelectionStart(), text.size());
-                const size_t e = std::min(SelectionEnd(), text.size());
-                text.insert(e, 1, closeChar);
-                text.insert(s, 1, c);
+                const size_t s = keel::min(SelectionStart(), text.size());
+                const size_t e = keel::min(SelectionEnd(), text.size());
+                StrInsertChar(text, e, closeChar);
+                StrInsertChar(text, s, c);
                 selectionAnchor = s + 1;
                 cursor = e + 1;
                 changed = true;
@@ -910,8 +1003,8 @@ void Context::ActiveEditState::Insert(std::string_view utf8Text) {
                                     text[safeCur] == ',' || text[safeCur] == ';';
                 if (allowAutoClose && nextOk) {
                     SaveUndo();
-                    const char pairStr[3] = {c, closeChar, '\0'};
-                    text.insert(safeCur, pairStr, 2);
+                    const char pairStr[2] = {c, closeChar};
+                    StrInsert(text, safeCur, keel::StringRef(pairStr, 2));
                     cursor = safeCur + 1;
                     selectionAnchor = cursor;
                     changed = true;
@@ -923,10 +1016,10 @@ void Context::ActiveEditState::Insert(std::string_view utf8Text) {
 
     SaveUndo();
     if (HasSelection()) {
-        const size_t s = std::min(SelectionStart(), text.size());
-        const size_t e = std::min(SelectionEnd(), text.size());
+        const size_t s = keel::min(SelectionStart(), text.size());
+        const size_t e = keel::min(SelectionEnd(), text.size());
         if (e > s) {
-            text.erase(s, e - s);
+            StrEraseRange(text, s, e - s);
         }
         cursor = s;
         selectionAnchor = s;
@@ -936,7 +1029,7 @@ void Context::ActiveEditState::Insert(std::string_view utf8Text) {
         cursor = text.size();
     }
     if (!sanitized.empty()) {
-        text.insert(cursor, sanitized);
+        StrInsert(text, cursor, sanitized.as_ref());
         cursor += sanitized.size();
         selectionAnchor = cursor;
     }
@@ -954,21 +1047,21 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
         preferredColumn.reset();
     }
 
-    auto utf8OffsetAtColumn = [](std::string_view lineSv, size_t targetCodepointCol) noexcept -> size_t {
+    auto utf8OffsetAtColumn = [](keel::StringRef lineSv, size_t targetCodepointCol) noexcept -> size_t {
         size_t byteOff = 0;
         for (size_t colIdx = 0; colIdx < targetCodepointCol && byteOff < lineSv.size(); ++colIdx) {
             byteOff = keel::utf8_next_boundary(lineSv, byteOff);
         }
-        return std::min(byteOff, lineSv.size());
+        return keel::min(byteOff, lineSv.size());
     };
 
     auto moveLinesVertically = [&](int lineDelta, bool extendSel) -> bool {
         if (!multiline) return false;
-        const size_t safeCur = std::min(cursor, text.size());
-        const size_t prevNl = (safeCur > 0) ? text.rfind('\n', safeCur - 1) : std::string::npos;
-        size_t curLineStart = (prevNl == std::string::npos) ? 0 : (prevNl + 1);
+        const size_t safeCur = keel::min(cursor, text.size());
+        const size_t prevNl = StrRfindBefore(text.as_ref(), '\n', safeCur);
+        size_t curLineStart = (prevNl == keel::StringRef::npos) ? 0 : (prevNl + 1);
         const size_t col = keel::utf8_codepoint_count(
-            std::string_view(text).substr(curLineStart, safeCur - curLineStart)
+            text.substr(curLineStart, safeCur - curLineStart)
         );
         if (!preferredColumn.has_value()) {
             preferredColumn = col;
@@ -987,18 +1080,18 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
                     break;
                 }
                 const size_t prevLineEnd = curLineStart - 1;
-                const size_t prevPrevNl = (prevLineEnd > 0) ? text.rfind('\n', prevLineEnd - 1) : std::string::npos;
-                curLineStart = (prevPrevNl == std::string::npos) ? 0 : (prevPrevNl + 1);
+                const size_t prevPrevNl = StrRfindBefore(text.as_ref(), '\n', prevLineEnd);
+                curLineStart = (prevPrevNl == keel::StringRef::npos) ? 0 : (prevPrevNl + 1);
             }
             size_t lineEnd = text.find('\n', curLineStart);
-            if (lineEnd == std::string::npos) lineEnd = text.size();
-            const std::string_view targetLine = std::string_view(text).substr(curLineStart, lineEnd - curLineStart);
+            if (lineEnd == keel::StringRef::npos) lineEnd = text.size();
+            const keel::StringRef targetLine = text.substr(curLineStart, lineEnd - curLineStart);
             cursor = curLineStart + utf8OffsetAtColumn(targetLine, targetCol);
         } else if (lineDelta > 0) {
             const int steps = lineDelta;
             size_t curLineEnd = text.find('\n', curLineStart);
             for (int s = 0; s < steps; ++s) {
-                if (curLineEnd == std::string::npos) {
+                if (curLineEnd == keel::StringRef::npos) {
                     if (s == 0) {
                         cursor = text.size();
                         if (!extendSel) selectionAnchor = cursor;
@@ -1009,8 +1102,8 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
                 curLineStart = curLineEnd + 1;
                 curLineEnd = text.find('\n', curLineStart);
             }
-            const size_t lineEnd = (curLineEnd == std::string::npos) ? text.size() : curLineEnd;
-            const std::string_view targetLine = std::string_view(text).substr(curLineStart, lineEnd - curLineStart);
+            const size_t lineEnd = (curLineEnd == keel::StringRef::npos) ? text.size() : curLineEnd;
+            const keel::StringRef targetLine = text.substr(curLineStart, lineEnd - curLineStart);
             cursor = curLineStart + utf8OffsetAtColumn(targetLine, targetCol);
         }
 
@@ -1024,23 +1117,27 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
         case KeyAction::MoveLineUp:
         case KeyAction::MoveLineDown: {
             if (!multiline || readOnly) return false;
-            const size_t safeCur = std::min(cursor, text.size());
-            const size_t prevNl = (safeCur > 0) ? text.rfind('\n', safeCur - 1) : std::string::npos;
-            const size_t curLineStart = (prevNl == std::string::npos) ? 0 : (prevNl + 1);
+            const size_t safeCur = keel::min(cursor, text.size());
+            const size_t prevNl = StrRfindBefore(text.as_ref(), '\n', safeCur);
+            const size_t curLineStart = (prevNl == keel::StringRef::npos) ? 0 : (prevNl + 1);
             size_t curLineEnd = text.find('\n', safeCur);
-            if (curLineEnd == std::string::npos) curLineEnd = text.size();
+            if (curLineEnd == keel::StringRef::npos) curLineEnd = text.size();
             const size_t col = safeCur - curLineStart;
 
             if (action == KeyAction::MoveLineUp) {
                 if (curLineStart > 0) {
                     SaveUndo();
                     const size_t prevLineEnd = curLineStart - 1;
-                    const size_t prevPrevNl = (prevLineEnd > 0) ? text.rfind('\n', prevLineEnd - 1) : std::string::npos;
-                    const size_t prevLineStart = (prevPrevNl == std::string::npos) ? 0 : (prevPrevNl + 1);
-                    std::string curLine = text.substr(curLineStart, curLineEnd - curLineStart);
-                    std::string prevLine = text.substr(prevLineStart, prevLineEnd - prevLineStart);
-                    text.replace(prevLineStart, curLineEnd - prevLineStart, curLine + "\n" + prevLine);
-                    cursor = prevLineStart + std::min(col, curLine.size());
+                    const size_t prevPrevNl = StrRfindBefore(text.as_ref(), '\n', prevLineEnd);
+                    const size_t prevLineStart = (prevPrevNl == keel::StringRef::npos) ? 0 : (prevPrevNl + 1);
+                    keel::String curLine = keel::String::from(text.substr(curLineStart, curLineEnd - curLineStart));
+                    keel::String prevLine = keel::String::from(text.substr(prevLineStart, prevLineEnd - prevLineStart));
+                    keel::String swapped = keel::String::with_capacity(curLine.size() + 1 + prevLine.size());
+                    swapped.append(curLine.as_ref());
+                    swapped.push_back('\n');
+                    swapped.append(prevLine.as_ref());
+                    StrReplace(text, prevLineStart, curLineEnd - prevLineStart, swapped.as_ref());
+                    cursor = prevLineStart + keel::min(col, curLine.size());
                     selectionAnchor = cursor;
                     changed = true;
                 }
@@ -1049,11 +1146,15 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
                     SaveUndo();
                     const size_t nextLineStart = curLineEnd + 1;
                     size_t nextLineEnd = text.find('\n', nextLineStart);
-                    if (nextLineEnd == std::string::npos) nextLineEnd = text.size();
-                    std::string curLine = text.substr(curLineStart, curLineEnd - curLineStart);
-                    std::string nextLine = text.substr(nextLineStart, nextLineEnd - nextLineStart);
-                    text.replace(curLineStart, nextLineEnd - curLineStart, nextLine + "\n" + curLine);
-                    cursor = curLineStart + nextLine.size() + 1 + std::min(col, curLine.size());
+                    if (nextLineEnd == keel::StringRef::npos) nextLineEnd = text.size();
+                    keel::String curLine = keel::String::from(text.substr(curLineStart, curLineEnd - curLineStart));
+                    keel::String nextLine = keel::String::from(text.substr(nextLineStart, nextLineEnd - nextLineStart));
+                    keel::String swapped = keel::String::with_capacity(nextLine.size() + 1 + curLine.size());
+                    swapped.append(nextLine.as_ref());
+                    swapped.push_back('\n');
+                    swapped.append(curLine.as_ref());
+                    StrReplace(text, curLineStart, nextLineEnd - curLineStart, swapped.as_ref());
+                    cursor = curLineStart + nextLine.size() + 1 + keel::min(col, curLine.size());
                     selectionAnchor = cursor;
                     changed = true;
                 }
@@ -1082,9 +1183,9 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
 
         case KeyAction::Paste:
             if (!readOnly) {
-                const std::string clip = ctx.GetClipboardText();
+                const keel::String clip = ctx.GetClipboardText();
                 if (!clip.empty()) {
-                    Insert(clip);
+                    Insert(clip.as_ref());
                 }
             }
             return true;
@@ -1104,28 +1205,30 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
         case KeyAction::DuplicateLine: {
             if (!multiline || readOnly) return false;
             if (HasSelection()) {
-                const std::string sel(SelectedText());
+                const keel::String sel = keel::String::from(SelectedText());
                 if (!sel.empty()) {
-                    size_t nextPos = text.find(sel, SelectionEnd());
-                    if (nextPos == std::string::npos) {
-                        nextPos = text.find(sel, 0);
+                    size_t nextPos = text.find(sel.as_ref(), SelectionEnd());
+                    if (nextPos == keel::StringRef::npos) {
+                        nextPos = text.find(sel.as_ref(), 0);
                     }
-                    if (nextPos != std::string::npos && nextPos != SelectionStart()) {
+                    if (nextPos != keel::StringRef::npos && nextPos != SelectionStart()) {
                         selectionAnchor = nextPos;
                         cursor = nextPos + sel.size();
                         return true;
                     }
                 }
             }
-            const size_t safeCur = std::min(cursor, text.size());
-            const size_t prevNl = (safeCur > 0) ? text.rfind('\n', safeCur - 1) : std::string::npos;
-            const size_t curLineStart = (prevNl == std::string::npos) ? 0 : (prevNl + 1);
+            const size_t safeCur = keel::min(cursor, text.size());
+            const size_t prevNl = StrRfindBefore(text.as_ref(), '\n', safeCur);
+            const size_t curLineStart = (prevNl == keel::StringRef::npos) ? 0 : (prevNl + 1);
             size_t curLineEnd = text.find('\n', safeCur);
-            if (curLineEnd == std::string::npos) curLineEnd = text.size();
+            if (curLineEnd == keel::StringRef::npos) curLineEnd = text.size();
             const size_t col = safeCur - curLineStart;
-            const std::string lineCopy = text.substr(curLineStart, curLineEnd - curLineStart);
+            keel::String dup = keel::String::with_capacity(1 + (curLineEnd - curLineStart));
+            dup.push_back('\n');
+            dup.append(text.substr(curLineStart, curLineEnd - curLineStart));
             SaveUndo();
-            text.insert(curLineEnd, "\n" + lineCopy);
+            StrInsert(text, curLineEnd, dup.as_ref());
             cursor = curLineEnd + 1 + col;
             selectionAnchor = cursor;
             changed = true;
@@ -1135,15 +1238,15 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
         case KeyAction::DeleteLine: {
             if (!multiline || readOnly) return false;
             SaveUndo();
-            const size_t safeCur = std::min(cursor, text.size());
-            const size_t prevNl = (safeCur > 0) ? text.rfind('\n', safeCur - 1) : std::string::npos;
-            const size_t curLineStart = (prevNl == std::string::npos) ? 0 : (prevNl + 1);
+            const size_t safeCur = keel::min(cursor, text.size());
+            const size_t prevNl = StrRfindBefore(text.as_ref(), '\n', safeCur);
+            const size_t curLineStart = (prevNl == keel::StringRef::npos) ? 0 : (prevNl + 1);
             size_t curLineEnd = text.find('\n', safeCur);
-            if (curLineEnd != std::string::npos) {
-                text.erase(curLineStart, curLineEnd - curLineStart + 1);
-                cursor = std::min(curLineStart, text.size());
+            if (curLineEnd != keel::StringRef::npos) {
+                StrEraseRange(text, curLineStart, curLineEnd - curLineStart + 1);
+                cursor = keel::min(curLineStart, text.size());
             } else if (curLineStart > 0) {
-                text.erase(curLineStart - 1, text.size() - (curLineStart - 1));
+                StrEraseRange(text, curLineStart - 1, text.size() - (curLineStart - 1));
                 cursor = text.size();
             } else {
                 text.clear();
@@ -1162,7 +1265,7 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
                 DeleteSelection();
             } else if (cursor > 0 && !text.empty()) {
                 SaveUndo();
-                const size_t safeCur = std::min(cursor, text.size());
+                const size_t safeCur = keel::min(cursor, text.size());
                 if (autoCloseBrackets && multiline && !byWord && safeCur < text.size()) {
                     const char prevC = text[safeCur - 1];
                     const char nextC = text[safeCur];
@@ -1171,7 +1274,7 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
                         (prevC == '{' && nextC == '}') ||
                         (prevC == '"' && nextC == '"') ||
                         (prevC == '\'' && nextC == '\'')) {
-                        text.erase(safeCur - 1, 2);
+                        StrEraseRange(text, safeCur - 1, 2);
                         cursor = safeCur - 1;
                         selectionAnchor = cursor;
                         changed = true;
@@ -1179,10 +1282,10 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
                     }
                 }
                 const size_t prev = byWord
-                    ? TextUtil::PrevWordBoundary(text, safeCur)
-                    : TextUtil::PrevCharBoundary(text, safeCur);
+                    ? TextUtil::PrevWordBoundary(text.as_ref(), safeCur)
+                    : TextUtil::PrevCharBoundary(text.as_ref(), safeCur);
                 if (safeCur > prev) {
-                    text.erase(prev, safeCur - prev);
+                    StrEraseRange(text, prev, safeCur - prev);
                     cursor = prev;
                     selectionAnchor = cursor;
                     changed = true;
@@ -1202,10 +1305,10 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
             } else if (cursor < text.size()) {
                 SaveUndo();
                 const size_t next = byWord
-                    ? TextUtil::NextWordBoundary(text, cursor)
-                    : TextUtil::NextCharBoundary(text, cursor);
+                    ? TextUtil::NextWordBoundary(text.as_ref(), cursor)
+                    : TextUtil::NextCharBoundary(text.as_ref(), cursor);
                 if (next > cursor) {
-                    text.erase(cursor, next - cursor);
+                    StrEraseRange(text, cursor, next - cursor);
                     selectionAnchor = cursor;
                     changed = true;
                 }
@@ -1221,15 +1324,15 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
             const bool byWord = (action == KeyAction::MoveWordLeft || action == KeyAction::SelectWordLeft);
             if (!extendSel && HasSelection()) {
                 if (byWord) {
-                    cursor = TextUtil::PrevWordBoundary(text, SelectionStart());
+                    cursor = TextUtil::PrevWordBoundary(text.as_ref(), SelectionStart());
                 } else {
                     cursor = SelectionStart();
                 }
                 selectionAnchor = cursor;
             } else {
                 cursor = byWord
-                    ? TextUtil::PrevWordBoundary(text, cursor)
-                    : TextUtil::PrevCharBoundary(text, cursor);
+                    ? TextUtil::PrevWordBoundary(text.as_ref(), cursor)
+                    : TextUtil::PrevCharBoundary(text.as_ref(), cursor);
                 if (!extendSel) {
                     selectionAnchor = cursor;
                 }
@@ -1245,15 +1348,15 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
             const bool byWord = (action == KeyAction::MoveWordRight || action == KeyAction::SelectWordRight);
             if (!extendSel && HasSelection()) {
                 if (byWord) {
-                    cursor = TextUtil::NextWordBoundary(text, SelectionEnd());
+                    cursor = TextUtil::NextWordBoundary(text.as_ref(), SelectionEnd());
                 } else {
                     cursor = SelectionEnd();
                 }
                 selectionAnchor = cursor;
             } else {
                 cursor = byWord
-                    ? TextUtil::NextWordBoundary(text, cursor)
-                    : TextUtil::NextCharBoundary(text, cursor);
+                    ? TextUtil::NextWordBoundary(text.as_ref(), cursor)
+                    : TextUtil::NextCharBoundary(text.as_ref(), cursor);
                 if (!extendSel) {
                     selectionAnchor = cursor;
                 }
@@ -1285,9 +1388,9 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
             const bool extendSel = (action == KeyAction::SelectLineStart || action == KeyAction::SelectDocStart);
             const bool docStart = (action == KeyAction::MoveDocStart || action == KeyAction::SelectDocStart);
             if (multiline && !docStart) {
-                const size_t safeCur = std::min(cursor, text.size());
-                const size_t prevNl = (safeCur > 0) ? text.rfind('\n', safeCur - 1) : std::string::npos;
-                const size_t lineStart = (prevNl == std::string::npos) ? 0 : prevNl + 1;
+                const size_t safeCur = keel::min(cursor, text.size());
+                const size_t prevNl = StrRfindBefore(text.as_ref(), '\n', safeCur);
+                const size_t lineStart = (prevNl == keel::StringRef::npos) ? 0 : prevNl + 1;
                 size_t firstNonWs = lineStart;
                 while (firstNonWs < text.size() && (text[firstNonWs] == ' ' || text[firstNonWs] == '\t')) {
                     ++firstNonWs;
@@ -1316,7 +1419,7 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
             const bool docEnd = (action == KeyAction::MoveDocEnd || action == KeyAction::SelectDocEnd);
             if (multiline && !docEnd) {
                 const size_t nextNl = text.find('\n', cursor);
-                cursor = (nextNl == std::string::npos) ? text.size() : nextNl;
+                cursor = (nextNl == keel::StringRef::npos) ? text.size() : nextNl;
             } else {
                 cursor = text.size();
             }
@@ -1329,31 +1432,36 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
         case KeyAction::Indent:
         case KeyAction::Unindent: {
             if (multiline && !readOnly) {
-                const size_t stepCols = std::clamp<size_t>(tabSize, 1, 16);
-                const std::string indentUnit = insertSpaces ? std::string(stepCols, ' ') : std::string(1, '\t');
+                const size_t stepCols = keel::clamp<size_t>(tabSize, 1, 16);
+                keel::FixedString<20> indentUnit;
+                if (insertSpaces) {
+                    for (size_t i = 0; i < stepCols; ++i) indentUnit.push_back(' ');
+                } else {
+                    indentUnit.push_back('\t');
+                }
                 const size_t unitLen = indentUnit.size();
                 const bool unindent = (action == KeyAction::Unindent);
-                const bool multiLineSel = HasSelection() && (SelectedText().find('\n') != std::string_view::npos);
+                const bool multiLineSel = HasSelection() && (SelectedText().find('\n') != keel::StringRef::npos);
                 if (unindent || multiLineSel) {
-                    const size_t selS = std::min(SelectionStart(), text.size());
-                    size_t selE = std::min(SelectionEnd(), text.size());
+                    const size_t selS = keel::min(SelectionStart(), text.size());
+                    size_t selE = keel::min(SelectionEnd(), text.size());
                     if (selE > selS && text[selE - 1] == '\n') {
                         --selE;
                     }
-                    const size_t prevNl = (selS > 0) ? text.rfind('\n', selS - 1) : std::string::npos;
-                    const size_t blockStart = (prevNl == std::string::npos) ? 0 : (prevNl + 1);
+                    const size_t prevNl = StrRfindBefore(text.as_ref(), '\n', selS);
+                    const size_t blockStart = (prevNl == keel::StringRef::npos) ? 0 : (prevNl + 1);
                     size_t blockEnd = text.find('\n', selE);
-                    if (blockEnd == std::string::npos) blockEnd = text.size();
+                    if (blockEnd == keel::StringRef::npos) blockEnd = text.size();
 
                     SaveUndo();
                     size_t pos = blockStart;
                     bool anyModified = false;
                     while (pos <= blockEnd && pos <= text.size()) {
                         size_t lineEnd = text.find('\n', pos);
-                        if (lineEnd == std::string::npos) lineEnd = text.size();
+                        if (lineEnd == keel::StringRef::npos) lineEnd = text.size();
 
                         if (!unindent) {
-                            text.insert(pos, indentUnit);
+                            StrInsert(text, pos, indentUnit.as_ref());
                             if (cursor >= pos) cursor += unitLen;
                             if (selectionAnchor >= pos) selectionAnchor += unitLen;
                             blockEnd += unitLen;
@@ -1369,7 +1477,7 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
                                 }
                             }
                             if (rem > 0) {
-                                text.erase(pos, rem);
+                                StrEraseRange(text, pos, rem);
                                 if (cursor > pos) {
                                     cursor = (cursor >= pos + rem) ? (cursor - rem) : pos;
                                 }
@@ -1392,7 +1500,7 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
                     }
                     return true;
                 }
-                Insert(indentUnit);
+                Insert(indentUnit.as_ref());
                 return true;
             }
             return false;
@@ -1401,12 +1509,17 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
         case KeyAction::Confirm:
             if (multiline) {
                 if (!readOnly) {
-                    const size_t stepCols = std::clamp<size_t>(tabSize, 1, 16);
-                    const std::string indentUnit = insertSpaces ? std::string(stepCols, ' ') : std::string(1, '\t');
-                    const size_t safeCur = std::min(cursor, text.size());
-                    const size_t prevNl = (safeCur > 0) ? text.rfind('\n', safeCur - 1) : std::string::npos;
-                    const size_t curLineStart = (prevNl == std::string::npos) ? 0 : (prevNl + 1);
-                    std::string indent;
+                    const size_t stepCols = keel::clamp<size_t>(tabSize, 1, 16);
+                    keel::FixedString<20> indentUnit;
+                    if (insertSpaces) {
+                        for (size_t i = 0; i < stepCols; ++i) indentUnit.push_back(' ');
+                    } else {
+                        indentUnit.push_back('\t');
+                    }
+                    const size_t safeCur = keel::min(cursor, text.size());
+                    const size_t prevNl = StrRfindBefore(text.as_ref(), '\n', safeCur);
+                    const size_t curLineStart = (prevNl == keel::StringRef::npos) ? 0 : (prevNl + 1);
+                    keel::String indent;
                     for (size_t i = curLineStart; i < safeCur && (text[i] == ' ' || text[i] == '\t'); ++i) {
                         indent.push_back(text[i]);
                     }
@@ -1417,9 +1530,15 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
                             (prevC == '[' && nextC == ']') ||
                             (prevC == '(' && nextC == ')')) {
                             SaveUndo();
-                            const std::string mid = "\n" + indent + indentUnit;
-                            const std::string tail = "\n" + indent;
-                            text.insert(safeCur, mid + tail);
+                            keel::String mid = keel::String::with_capacity(1 + indent.size() + indentUnit.size());
+                            mid.push_back('\n');
+                            mid.append(indent.as_ref());
+                            mid.append(indentUnit.as_ref());
+                            keel::String full = keel::String::with_capacity(mid.size() + 1 + indent.size());
+                            full.append(mid.as_ref());
+                            full.push_back('\n');
+                            full.append(indent.as_ref());
+                            StrInsert(text, safeCur, full.as_ref());
                             cursor = safeCur + mid.size();
                             selectionAnchor = cursor;
                             changed = true;
@@ -1432,10 +1551,13 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
                             --checkPos;
                         }
                         if (checkPos > curLineStart && (text[checkPos - 1] == '{' || text[checkPos - 1] == '[' || text[checkPos - 1] == '(')) {
-                            indent += indentUnit;
+                            indent.append(indentUnit.as_ref());
                         }
                     }
-                    Insert("\n" + indent);
+                    keel::String nlIndent = keel::String::with_capacity(1 + indent.size());
+                    nlIndent.push_back('\n');
+                    nlIndent.append(indent.as_ref());
+                    Insert(nlIndent.as_ref());
                 }
                 return true;
             }
@@ -1461,7 +1583,7 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
 void Context::RequestRepaint(int frames) noexcept {
     if (frames <= 0) return;
     const int target = (!m_containerStack.empty() && frames == 1) ? 2 : frames;
-    m_repaintFrames = std::max(m_repaintFrames, target);
+    m_repaintFrames = keel::max(m_repaintFrames, target);
 }
 
 bool Context::NeedsRepaint() const noexcept {
@@ -1553,23 +1675,20 @@ bool Context::IsDirectEditAllowed() const noexcept {
         return false;
     }
     if (m_prevFrameModalId.IsValid()) {
-        const bool insideModal = std::find(
-            m_prevModalFocusableIds.begin(), m_prevModalFocusableIds.end(), m_focusedId
-        ) != m_prevModalFocusableIds.end();
-        if (!insideModal) {
+        if (!ContainsId(m_prevModalFocusableIds, m_focusedId)) {
             return false;
         }
     }
     return true;
 }
 
-void Context::OnTextInput(std::string_view utf8Text) {
+void Context::OnTextInput(keel::StringRef utf8Text) {
     ResetCursorBlink();
     RequestRepaint(3);
     if (IsDirectEditAllowed()) {
         m_editState.Insert(utf8Text);
     } else {
-        m_pendingTextInput.emplace_back(utf8Text);
+        m_pendingTextInput.push_back(keel::String::from(utf8Text));
     }
 }
 
@@ -1619,8 +1738,8 @@ void Context::ClosePopup() {
         m_openPopupId = Id::Null();
         m_openPopupRect = Rect{};
         m_openPopupVisualHash = 0;
-        std::erase_if(m_prevOverlayHitRegions, [closedId](const OverlayHitRegion& r) { return r.id == closedId; });
-        std::erase_if(m_currOverlayHitRegions, [closedId](const OverlayHitRegion& r) { return r.id == closedId; });
+        ArrayEraseIf(m_prevOverlayHitRegions, [closedId](const OverlayHitRegion& r) { return r.id == closedId; });
+        ArrayEraseIf(m_currOverlayHitRegions, [closedId](const OverlayHitRegion& r) { return r.id == closedId; });
         RequestRepaint(2);
     }
 }
@@ -1790,11 +1909,11 @@ bool Context::IsMouseBlockedForCurrentScope() const noexcept {
     for (const Node* n : m_containerStack) {
         if (!n) continue;
         if (n->type == NodeType::Modal) {
-            currentZLayer = std::max<uint8_t>(currentZLayer, 2);
+            currentZLayer = keel::max<uint8_t>(currentZLayer, 2);
         } else if (n->type == NodeType::Sidebar ||
                    n->type == NodeType::BottomPanel ||
                    n->type == NodeType::StatusBar) {
-            currentZLayer = std::max<uint8_t>(currentZLayer, 1);
+            currentZLayer = keel::max<uint8_t>(currentZLayer, 1);
         }
     }
 
@@ -1857,9 +1976,9 @@ void Context::RegisterFocusable(Id id, bool disabled) {
 }
 
 bool Context::ConsumeKey(Key key) {
-    for (auto it = m_pendingKeyEvents.begin(); it != m_pendingKeyEvents.end(); ++it) {
-        if (it->key == key) {
-            m_pendingKeyEvents.erase(it);
+    for (size_t i = 0; i < m_pendingKeyEvents.size(); ++i) {
+        if (m_pendingKeyEvents[i].key == key) {
+            m_pendingKeyEvents.remove_at(i);
             return true;
         }
     }
@@ -1867,10 +1986,10 @@ bool Context::ConsumeKey(Key key) {
 }
 
 bool Context::ConsumeKey(Key key, KeyModifiers& outMods) {
-    for (auto it = m_pendingKeyEvents.begin(); it != m_pendingKeyEvents.end(); ++it) {
-        if (it->key == key) {
-            outMods = it->mods;
-            m_pendingKeyEvents.erase(it);
+    for (size_t i = 0; i < m_pendingKeyEvents.size(); ++i) {
+        if (m_pendingKeyEvents[i].key == key) {
+            outMods = m_pendingKeyEvents[i].mods;
+            m_pendingKeyEvents.remove_at(i);
             return true;
         }
     }
@@ -1878,9 +1997,10 @@ bool Context::ConsumeKey(Key key, KeyModifiers& outMods) {
 }
 
 bool Context::ConsumeShortcut(Key key, bool ctrl, bool shift, bool alt) {
-    for (auto it = m_pendingKeyEvents.begin(); it != m_pendingKeyEvents.end(); ++it) {
-        if (it->key == key && it->mods.ctrl == ctrl && it->mods.shift == shift && it->mods.alt == alt) {
-            m_pendingKeyEvents.erase(it);
+    for (size_t i = 0; i < m_pendingKeyEvents.size(); ++i) {
+        const auto& ev = m_pendingKeyEvents[i];
+        if (ev.key == key && ev.mods.ctrl == ctrl && ev.mods.shift == shift && ev.mods.alt == alt) {
+            m_pendingKeyEvents.remove_at(i);
             return true;
         }
     }
@@ -1891,17 +2011,18 @@ bool Context::ConsumeAction(KeyAction action) {
     if (action == KeyAction::None) {
         return false;
     }
-    for (auto it = m_pendingKeyEvents.begin(); it != m_pendingKeyEvents.end(); ++it) {
-        if (m_keymap.Matches(action, it->key, it->mods)) {
-            m_pendingKeyEvents.erase(it);
+    for (size_t i = 0; i < m_pendingKeyEvents.size(); ++i) {
+        const auto& ev = m_pendingKeyEvents[i];
+        if (m_keymap.Matches(action, ev.key, ev.mods)) {
+            m_pendingKeyEvents.remove_at(i);
             return true;
         }
     }
     return false;
 }
 
-std::vector<std::string> Context::ConsumePendingTextInput() {
-    std::vector<std::string> res = std::move(m_pendingTextInput);
+keel::Array<keel::String> Context::ConsumePendingTextInput() {
+    keel::Array<keel::String> res = keel::move(m_pendingTextInput);
     m_pendingTextInput.clear();
     return res;
 }
@@ -1917,29 +2038,29 @@ void Context::FlushActiveEditHistory() noexcept {
             hist = m_editHistories.get(m_editState.id);
         }
         if (hist) {
-            hist->lastText = m_editState.text;
-            hist->undoStack = std::move(m_editState.undoStack);
-            hist->redoStack = std::move(m_editState.redoStack);
+            hist->lastText.assign(m_editState.text.as_ref());
+            hist->undoStack = keel::move(m_editState.undoStack);
+            hist->redoStack = keel::move(m_editState.redoStack);
         }
         m_editState.undoStack.clear();
         m_editState.redoStack.clear();
     } else if (TextEditHistory* existing = m_editHistories.get(m_editState.id)) {
-        existing->lastText = m_editState.text;
+        existing->lastText.assign(m_editState.text.as_ref());
         existing->undoStack.clear();
         existing->redoStack.clear();
     }
 }
 
-std::string_view Context::EnsureTextEdit(
+keel::StringRef Context::EnsureTextEdit(
     Id id,
-    std::string_view initialText,
+    keel::StringRef initialText,
     bool multiline,
     bool readOnly
 ) {
     if (m_editState.id != id) {
         FlushActiveEditHistory();
         m_editState.id = id;
-        m_editState.text = initialText;
+        m_editState.text.assign(initialText);
         m_editState.cursor = m_editState.text.size();
         m_editState.selectionAnchor = m_editState.cursor;
         m_editState.undoStack.clear();
@@ -1947,8 +2068,8 @@ std::string_view Context::EnsureTextEdit(
         if (id.IsValid()) {
             if (TextEditHistory* hist = m_editHistories.get(id)) {
                 if (hist->lastText == initialText) {
-                    m_editState.undoStack = std::move(hist->undoStack);
-                    m_editState.redoStack = std::move(hist->redoStack);
+                    m_editState.undoStack = keel::move(hist->undoStack);
+                    m_editState.redoStack = keel::move(hist->redoStack);
                 } else {
                     hist->lastText.assign(initialText);
                     hist->undoStack.clear();
@@ -1968,20 +2089,20 @@ std::string_view Context::EnsureTextEdit(
         m_editState.multiline = multiline;
         m_editState.readOnly = readOnly;
         if ((multiline || readOnly) && !m_editState.changed && m_editState.text != initialText) {
-            m_editState.text = initialText;
-            m_editState.cursor = std::min(m_editState.cursor, m_editState.text.size());
-            m_editState.selectionAnchor = std::min(m_editState.selectionAnchor, m_editState.text.size());
+            m_editState.text.assign(initialText);
+            m_editState.cursor = keel::min(m_editState.cursor, m_editState.text.size());
+            m_editState.selectionAnchor = keel::min(m_editState.selectionAnchor, m_editState.text.size());
             m_editState.undoStack.clear();
             m_editState.redoStack.clear();
             m_editState.preferredColumn.reset();
         }
     }
-    return m_editState.text;
+    return m_editState.text.as_ref();
 }
 
-std::string_view Context::GetOrStartTextEdit(
+keel::StringRef Context::GetOrStartTextEdit(
     Id id,
-    std::string_view initialText,
+    keel::StringRef initialText,
     size_t& outCursor,
     bool& outChanged,
     bool& outSubmitted,
@@ -1991,9 +2112,9 @@ std::string_view Context::GetOrStartTextEdit(
     return GetOrStartTextEdit(id, initialText, outCursor, anchor, outChanged, outSubmitted, multiline, false);
 }
 
-std::string_view Context::GetOrStartTextEdit(
+keel::StringRef Context::GetOrStartTextEdit(
     Id id,
-    std::string_view initialText,
+    keel::StringRef initialText,
     size_t& outCursor,
     size_t& outSelectionAnchor,
     bool& outChanged,
@@ -2004,24 +2125,25 @@ std::string_view Context::GetOrStartTextEdit(
     EnsureTextEdit(id, initialText, multiline, readOnly);
 
     for (const auto& txt : m_pendingTextInput) {
-        m_editState.Insert(txt);
+        m_editState.Insert(txt.as_ref());
     }
     m_pendingTextInput.clear();
 
-    for (auto it = m_pendingKeyEvents.begin(); it != m_pendingKeyEvents.end(); ) {
+    for (size_t i = 0; i < m_pendingKeyEvents.size(); ) {
+        const QueuedKeyEvent ev = m_pendingKeyEvents[i];
         bool lostFocus = false;
-        if (m_editState.HandleKey(*this, it->key, it->mods, lostFocus)) {
+        if (m_editState.HandleKey(*this, ev.key, ev.mods, lostFocus)) {
             if (lostFocus) {
                 m_focusedId = Id::Null();
             }
-            it = m_pendingKeyEvents.erase(it);
+            m_pendingKeyEvents.remove_at(i);
         } else {
-            ++it;
+            ++i;
         }
     }
 
-    m_editState.cursor = std::min(m_editState.cursor, m_editState.text.size());
-    m_editState.selectionAnchor = std::min(m_editState.selectionAnchor, m_editState.text.size());
+    m_editState.cursor = keel::min(m_editState.cursor, m_editState.text.size());
+    m_editState.selectionAnchor = keel::min(m_editState.selectionAnchor, m_editState.text.size());
 
     outCursor = m_editState.cursor;
     outSelectionAnchor = m_editState.selectionAnchor;
@@ -2035,10 +2157,10 @@ std::string_view Context::GetOrStartTextEdit(
         m_editState.id = Id::Null();
     }
 
-    return m_editState.text;
+    return m_editState.text.as_ref();
 }
 
-void Context::SetTextEditBuffer(Id id, std::string_view text) {
+void Context::SetTextEditBuffer(Id id, keel::StringRef text) {
     if (!id.IsValid()) return;
     m_editState.id = id;
     m_editState.text.assign(text);
@@ -2052,8 +2174,8 @@ void Context::SetTextEditBuffer(Id id, std::string_view text) {
 
 void Context::SetTextEditCursor(Id id, size_t cursor, size_t selectionAnchor) noexcept {
     if (m_editState.id == id && id.IsValid()) {
-        m_editState.cursor = std::min(cursor, m_editState.text.size());
-        m_editState.selectionAnchor = std::min(selectionAnchor, m_editState.text.size());
+        m_editState.cursor = keel::min(cursor, m_editState.text.size());
+        m_editState.selectionAnchor = keel::min(selectionAnchor, m_editState.text.size());
         m_editState.preferredColumn.reset();
         ResetCursorBlink();
     }
@@ -2067,17 +2189,17 @@ void Context::SetTextEditAutoClose(Id id, bool enabled) noexcept {
 
 void Context::SetTextEditIndentation(Id id, uint8_t tabSize, bool insertSpaces) noexcept {
     if (m_editState.id == id && id.IsValid()) {
-        m_editState.tabSize = static_cast<uint8_t>(std::clamp<int>(tabSize, 1, 16));
+        m_editState.tabSize = static_cast<uint8_t>(keel::clamp<int>(tabSize, 1, 16));
         m_editState.insertSpaces = insertSpaces;
     }
 }
 
-void Context::ApplyTextEditChange(Id id, std::string_view newText, size_t newCursor, size_t newSelectionAnchor) {
+void Context::ApplyTextEditChange(Id id, keel::StringRef newText, size_t newCursor, size_t newSelectionAnchor) {
     if (!id.IsValid() || m_editState.id != id || m_editState.readOnly) return;
     m_editState.SaveUndo();
     m_editState.text.assign(newText);
-    m_editState.cursor = std::min(newCursor, m_editState.text.size());
-    m_editState.selectionAnchor = std::min(newSelectionAnchor, m_editState.text.size());
+    m_editState.cursor = keel::min(newCursor, m_editState.text.size());
+    m_editState.selectionAnchor = keel::min(newSelectionAnchor, m_editState.text.size());
     m_editState.preferredColumn.reset();
     m_editState.changed = true;
     ResetCursorBlink();
@@ -2128,7 +2250,7 @@ void Context::AdvanceTime(double deltaSeconds) noexcept {
     m_currentTimeSec += deltaSeconds;
 }
 
-bool Context::IsCursorVisible(std::optional<CursorBlinkMode> modeOverride) const noexcept {
+bool Context::IsCursorVisible(keel::Optional<CursorBlinkMode> modeOverride) const noexcept {
     const CursorBlinkMode mode = modeOverride.value_or(m_cursorConfig.mode);
     switch (mode) {
         case CursorBlinkMode::Hidden:
@@ -2237,9 +2359,9 @@ static void CollectBoundsRecursive(
         parentClip = node->computedRect;
         curZLayer = 2;
     } else if ((node->type == NodeType::Sidebar || node->type == NodeType::BottomPanel) && !node->sidebarCollapsed) {
-        curZLayer = std::max<uint8_t>(curZLayer, 1);
+        curZLayer = keel::max<uint8_t>(curZLayer, 1);
     } else if (node->type == NodeType::StatusBar) {
-        curZLayer = std::max<uint8_t>(curZLayer, 1);
+        curZLayer = keel::max<uint8_t>(curZLayer, 1);
     }
 
     const uint32_t preIdx = ++ioOrderCounter;
@@ -2258,7 +2380,8 @@ static void CollectBoundsRecursive(
 
         if (node != rootNode && clipped.w > 0.0f && clipped.h > 0.0f) {
             hitRecordIdx = outHitNodes.size();
-            typename HitVecT::value_type rec{};
+            using ElemT = keel::RemoveCvRef<decltype(*outHitNodes.data())>;
+            ElemT rec{};
             rec.id = node->id;
             rec.rect = clipped;
             rec.preIndex = preIdx;
@@ -2425,9 +2548,9 @@ void Context::EndFrame(ICanvas& canvas) {
         }
     }
     ClearOverlayHitBuilders();
-    m_prevOverlayHitRegions = std::move(m_currOverlayHitRegions);
+    m_prevOverlayHitRegions = keel::move(m_currOverlayHitRegions);
     m_currOverlayHitRegions.clear();
-    m_prevHitNodes = std::move(m_currHitNodes);
+    m_prevHitNodes = keel::move(m_currHitNodes);
     m_currHitNodes.clear();
     m_prevHitNodeMap.clear();
     m_prevHitNodeMap.reserve(m_prevHitNodes.size());
@@ -2435,17 +2558,15 @@ void Context::EndFrame(ICanvas& canvas) {
         m_prevHitNodeMap.put(m_prevHitNodes[i].id, i);
     }
 
-    m_prevFrameBounds = std::move(m_currFrameBounds);
-    m_prevUnclippedBounds = std::move(m_currUnclippedBounds);
-    m_prevFocusableIds = std::move(m_currFocusableIds);
-    m_prevModalFocusableIds = std::move(m_currModalFocusableIds);
+    m_prevFrameBounds = keel::move(m_currFrameBounds);
+    m_prevUnclippedBounds = keel::move(m_currUnclippedBounds);
+    m_prevFocusableIds = keel::move(m_currFocusableIds);
+    m_prevModalFocusableIds = keel::move(m_currModalFocusableIds);
 
     // Suspend focus from occluded background widgets when a Modal opens, and restore it when the Modal closes
     if (m_currFrameModalId.IsValid()) {
         if (m_focusedId.IsValid()) {
-            const bool insideModal = std::find(
-                m_prevModalFocusableIds.begin(), m_prevModalFocusableIds.end(), m_focusedId
-            ) != m_prevModalFocusableIds.end();
+            const bool insideModal = ContainsId(m_prevModalFocusableIds, m_focusedId);
             if (!insideModal) {
                 if (!m_savedFocusBeforeModal.IsValid()) {
                     m_savedFocusBeforeModal = m_focusedId;
@@ -2460,10 +2581,7 @@ void Context::EndFrame(ICanvas& canvas) {
         }
     } else if (m_savedFocusBeforeModal.IsValid()) {
         if (!m_focusedId.IsValid()) {
-            const bool stillFocusable = std::find(
-                m_prevFocusableIds.begin(), m_prevFocusableIds.end(), m_savedFocusBeforeModal
-            ) != m_prevFocusableIds.end();
-            if (stillFocusable) {
+            if (ContainsId(m_prevFocusableIds, m_savedFocusBeforeModal)) {
                 m_focusedId = m_savedFocusBeforeModal;
             }
         }
@@ -2486,7 +2604,7 @@ void Context::EndFrame(ICanvas& canvas) {
     // Calculate dirty damage regions by snapshot diffing
     keel::HashMap<Id, WidgetSnapshot> currSnapshots;
     currSnapshots.reserve(m_prevSnapshots.size() + 16);
-    std::vector<Rect> damageRects = std::move(m_explicitDamageRects);
+    keel::Array<Rect> damageRects = keel::move(m_explicitDamageRects);
     m_explicitDamageRects.clear();
 
     auto addDamage = [&](Rect r) {
@@ -2552,7 +2670,7 @@ void Context::EndFrame(ICanvas& canvas) {
                 snap.flags |= (cursorVis ? 16u : 0u) | 32u;
                 snap.cursor = m_editState.cursor;
                 snap.selectionAnchor = m_editState.selectionAnchor;
-                h = detail::HashStringView(m_editState.text, h);
+                h = detail::HashStringView(m_editState.text.as_ref(), h);
             }
             snap.visualHash = h;
 
@@ -2659,10 +2777,10 @@ void Context::EndFrame(ICanvas& canvas) {
     } else {
         // Snap each damage rect to integer logical pixel bounds and coalesce overlapping regions
         for (const Rect& raw : damageRects) {
-            const float x1 = std::max(0.0f, std::floor(raw.x));
-            const float y1 = std::max(0.0f, std::floor(raw.y));
-            const float x2 = std::min(logicalSize.x, std::ceil(raw.Right()));
-            const float y2 = std::min(logicalSize.y, std::ceil(raw.Bottom()));
+            const float x1 = keel::max(0.0f, std::floor(raw.x));
+            const float y1 = keel::max(0.0f, std::floor(raw.y));
+            const float x2 = keel::min(logicalSize.x, std::ceil(raw.Right()));
+            const float y2 = keel::min(logicalSize.y, std::ceil(raw.Bottom()));
             if (x2 > x1 && y2 > y1) {
                 m_dirtyRects.emplace_back(x1, y1, x2 - x1, y2 - y1);
             }
@@ -2675,7 +2793,7 @@ void Context::EndFrame(ICanvas& canvas) {
                 for (size_t j = i + 1; j < m_dirtyRects.size(); ++j) {
                     if (m_dirtyRects[i].Intersects(m_dirtyRects[j])) {
                         m_dirtyRects[i] = m_dirtyRects[i].Union(m_dirtyRects[j]);
-                        m_dirtyRects.erase(m_dirtyRects.begin() + static_cast<ptrdiff_t>(j));
+                        m_dirtyRects.remove_at(j);
                         mergedAny = true;
                         break;
                     }
@@ -2717,7 +2835,7 @@ void Context::EndFrame(ICanvas& canvas) {
     m_hadInspectModeLastFrame = anyInspectMode;
     m_prevFrameModalId = m_currFrameModalId;
     m_prevFrameModalBackdropRect = m_currFrameModalBackdropRect;
-    m_prevSnapshots = std::move(currSnapshots);
+    m_prevSnapshots = keel::move(currSnapshots);
 
     // If damage exists, clear target buffer and rasterize scene graph
     if (m_hasDirtyDamage) {
@@ -2852,7 +2970,7 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
     // (e.g. full-bleed toolbars, titlebars, or sidebars) never bleed outside the parent's rounded corners.
     if (isContainerSurface && node->clipChildren && node->cornerRadius > 1.5f && node->firstChild != nullptr) {
         const Rect& r = node->computedRect;
-        const float rad = std::clamp(node->cornerRadius, 0.0f, std::min(r.w, r.h) * 0.5f);
+        const float rad = keel::clamp(node->cornerRadius, 0.0f, keel::min(r.w, r.h) * 0.5f);
         if (rad > 1.5f) {
             Color outerBg = m_clearColor;
             for (const Node* anc = node->parent; anc != nullptr; anc = anc->parent) {
@@ -2865,8 +2983,8 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
                 const int steps = static_cast<int>(std::ceil(rad));
                 for (int i = 0; i < steps; ++i) {
                     const float dy = static_cast<float>(i);
-                    const float rem = std::max(0.0f, rad - dy - 0.35f);
-                    const float dx = std::max(0.0f, rad - std::sqrt(std::max(0.0f, rad * rad - rem * rem)));
+                    const float rem = keel::max(0.0f, rad - dy - 0.35f);
+                    const float dx = keel::max(0.0f, rad - std::sqrt(keel::max(0.0f, rad * rad - rem * rem)));
                     if (dx > 0.25f) {
                         canvas.DrawRect(Rect(r.x - 0.5f, r.y + dy, dx + 1.0f, 1.25f), outerBg);
                         canvas.DrawRect(Rect(r.Right() - dx - 0.5f, r.y + dy, dx + 1.0f, 1.25f), outerBg);
@@ -2882,17 +3000,17 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
     if (hasContainerBorder) {
         const Rect& r = node->computedRect;
         if (node->cornerRadius <= 0.0f && node->type == NodeType::Sidebar) {
-            const float x = node->sidebarRight ? r.x : std::max(r.x, r.Right() - node->borderWidth);
+            const float x = node->sidebarRight ? r.x : keel::max(r.x, r.Right() - node->borderWidth);
             canvas.DrawRect(Rect(x, r.y, node->borderWidth, r.h), node->borderColor);
         } else if (node->cornerRadius <= 0.0f &&
                    (node->type == NodeType::BottomPanel || node->type == NodeType::StatusBar)) {
             canvas.DrawRect(Rect(r.x, r.y, r.w, node->borderWidth), node->borderColor);
         } else if (node->cornerRadius <= 0.0f && node->type == NodeType::Toolbar) {
             if (node->direction == FlexDirection::Column) {
-                const float x = std::max(r.x, r.Right() - node->borderWidth);
+                const float x = keel::max(r.x, r.Right() - node->borderWidth);
                 canvas.DrawRect(Rect(x, r.y, node->borderWidth, r.h), node->borderColor);
             } else {
-                const float y = std::max(r.y, r.Bottom() - node->borderWidth);
+                const float y = keel::max(r.y, r.Bottom() - node->borderWidth);
                 canvas.DrawRect(Rect(r.x, y, r.w, node->borderWidth), node->borderColor);
             }
         } else {
@@ -2987,8 +3105,8 @@ void Context::RenderDebugBoundsRecursive(Node* node, ICanvas& canvas, bool inher
         const Rect strokeRect(
             node->computedRect.x + 0.5f,
             node->computedRect.y + 0.5f,
-            std::max(0.0f, node->computedRect.w - 1.0f),
-            std::max(0.0f, node->computedRect.h - 1.0f)
+            keel::max(0.0f, node->computedRect.w - 1.0f),
+            keel::max(0.0f, node->computedRect.h - 1.0f)
         );
         canvas.DrawRoundRect(strokeRect, 0.0f, Color(0, 0, 0, 0), stroke, 1.0f);
 
@@ -3011,7 +3129,7 @@ void Context::RenderDebugBoundsRecursive(Node* node, ICanvas& canvas, bool inher
             if (p.bottom > 0.0f) {
                 canvas.DrawRect(Rect(x, y + h - p.bottom, w, p.bottom), padColor);
             }
-            const float midH = std::max(0.0f, h - p.top - p.bottom);
+            const float midH = keel::max(0.0f, h - p.top - p.bottom);
             if (midH > 0.0f) {
                 if (p.left > 0.0f) {
                     canvas.DrawRect(Rect(x, y + p.top, p.left, midH), padColor);
@@ -3111,8 +3229,8 @@ void Context::RenderInspectOverlay(Node* root, ICanvas& canvas, Vec2 logicalSize
     const Rect contentRect(
         target->computedRect.x + target->padding.left,
         target->computedRect.y + target->padding.top,
-        std::max(0.0f, target->computedRect.w - target->padding.Horizontal()),
-        std::max(0.0f, target->computedRect.h - target->padding.Vertical())
+        keel::max(0.0f, target->computedRect.w - target->padding.Horizontal()),
+        keel::max(0.0f, target->computedRect.h - target->padding.Vertical())
     );
     if (contentRect.w > 0.0f && contentRect.h > 0.0f) {
         canvas.DrawRect(contentRect, Color(111, 168, 220, 100));
@@ -3133,7 +3251,7 @@ void Context::RenderInspectOverlay(Node* root, ICanvas& canvas, Vec2 logicalSize
         if (p.bottom > 0.0f) {
             canvas.DrawRect(Rect(x, y + h - p.bottom, w, p.bottom), devToolsPadColor);
         }
-        const float midH = std::max(0.0f, h - p.top - p.bottom);
+        const float midH = keel::max(0.0f, h - p.top - p.bottom);
         if (midH > 0.0f) {
             if (p.left > 0.0f) {
                 canvas.DrawRect(Rect(x, y + p.top, p.left, midH), devToolsPadColor);
@@ -3150,14 +3268,14 @@ void Context::RenderInspectOverlay(Node* root, ICanvas& canvas, Vec2 logicalSize
 
     // 2. Build DevTools floating info badge
     char typeBuf[64];
-    std::string_view typeStr;
+    keel::StringRef typeStr;
     if (target->type == NodeType::Cell) {
         typeStr = keel::format_buf(typeBuf, "Cell (%d)", target->colSpan);
     } else {
         typeStr = target->GetTypeName();
     }
 
-    std::string_view labelStr;
+    keel::StringRef labelStr;
     if (!target->text.empty()) {
         labelStr = target->text.substr(0, 24);
     } else if (target->type == NodeType::Heading) {
@@ -3169,34 +3287,34 @@ void Context::RenderInspectOverlay(Node* root, ICanvas& canvas, Vec2 logicalSize
     }
 
     char line1Buf[128];
-    std::string_view line1 = labelStr.empty() ? typeStr : std::string_view(
-        keel::format_buf(line1Buf, "%s \"%s\"", typeStr, labelStr).data()
-    );
+    const keel::StringRef line1 = labelStr.empty()
+        ? typeStr
+        : keel::format_buf(line1Buf, "%s \"%s\"", typeStr, labelStr);
     char line2Buf[64];
-    std::string_view line2(keel::format_buf(line2Buf, "%.1f × %.1f px", target->computedRect.w, target->computedRect.h).data());
+    const keel::StringRef line2 = keel::format_buf(line2Buf, "%.1f × %.1f px", target->computedRect.w, target->computedRect.h);
     char line3Buf[96];
-    std::string_view line3;
+    keel::StringRef line3;
     if (p.top > 0.0f || p.bottom > 0.0f || p.left > 0.0f || p.right > 0.0f) {
-        line3 = std::string_view(keel::format_buf(line3Buf, "pad: %.0f, %.0f, %.0f, %.0f", p.top, p.right, p.bottom, p.left).data());
+        line3 = keel::format_buf(line3Buf, "pad: %.0f, %.0f, %.0f, %.0f", p.top, p.right, p.bottom, p.left);
     } else if (target->gap > 0.0f) {
-        line3 = std::string_view(keel::format_buf(line3Buf, "gap: %.0f px", target->gap).data());
+        line3 = keel::format_buf(line3Buf, "gap: %.0f px", target->gap);
     } else if (target->isSpacer) {
-        line3 = std::string_view(keel::format_buf(line3Buf, "flex: %.1f", target->flexGrow).data());
+        line3 = keel::format_buf(line3Buf, "flex: %.1f", target->flexGrow);
     } else {
         const char* alignStr = "Start";
         if (target->align == Alignment::Center) alignStr = "Center";
         else if (target->align == Alignment::End) alignStr = "End";
         else if (target->align == Alignment::Stretch) alignStr = "Stretch";
-        line3 = std::string_view(keel::format_buf(line3Buf, "align: %s", alignStr).data());
+        line3 = keel::format_buf(line3Buf, "align: %s", alignStr);
     }
 
     const float fontSize = 11.0f;
     const float w1 = canvas.MeasureText(line1, fontSize).x;
     const float w2 = canvas.MeasureText(line2, fontSize).x;
     const float w3 = canvas.MeasureText(line3, fontSize).x;
-    const float maxTextW = std::max({w1, w2, w3});
+    const float maxTextW = keel::max(w1, keel::max(w2, w3));
 
-    const float badgeW = std::max(140.0f, maxTextW + 24.0f);
+    const float badgeW = keel::max(140.0f, maxTextW + 24.0f);
     const float badgeH = 58.0f;
 
     // Positioning with smart flip if close to viewport boundaries
@@ -3208,8 +3326,8 @@ void Context::RenderInspectOverlay(Node* root, ICanvas& canvas, Vec2 logicalSize
     if (by + badgeH > logicalSize.y - 8.0f) {
         by = m_mousePos.y - badgeH - 12.0f;
     }
-    bx = std::clamp(bx, 8.0f, std::max(8.0f, logicalSize.x - badgeW - 8.0f));
-    by = std::clamp(by, 8.0f, std::max(8.0f, logicalSize.y - badgeH - 8.0f));
+    bx = keel::clamp(bx, 8.0f, keel::max(8.0f, logicalSize.x - badgeW - 8.0f));
+    by = keel::clamp(by, 8.0f, keel::max(8.0f, logicalSize.y - badgeH - 8.0f));
 
     const Rect badgeRect(bx, by, badgeW, badgeH);
 
@@ -3230,14 +3348,14 @@ void Context::RenderTooltipOverlay(ICanvas& canvas, Vec2 logicalSize) {
 
     const float maxTextW = 280.0f;
     const float natW = TextUtil::MeasureUiTextWidth(m_activeTooltip, fontSize, &canvas);
-    const float contentW = std::min(natW, maxTextW);
+    const float contentW = keel::min(natW, maxTextW);
     const float contentH = TextUtil::MeasureUiTextHeight(
-        m_activeTooltip, std::max(1.0f, contentW), fontSize, lineH, &canvas);
+        m_activeTooltip, keel::max(1.0f, contentW), fontSize, lineH, &canvas);
 
     const float padX = 10.0f;
     const float padY = 6.0f;
-    const float boxW = std::max(28.0f, contentW + padX * 2.0f);
-    const float boxH = std::max(24.0f, contentH + padY * 2.0f);
+    const float boxW = keel::max(28.0f, contentW + padX * 2.0f);
+    const float boxH = keel::max(24.0f, contentH + padY * 2.0f);
 
     const Rect vp = (m_activeTooltipViewport.w > 1.0f && m_activeTooltipViewport.h > 1.0f)
         ? m_activeTooltipViewport
@@ -3253,8 +3371,8 @@ void Context::RenderTooltipOverlay(ICanvas& canvas, Vec2 logicalSize) {
         }
     }
 
-    bx = std::clamp(bx, vp.x + 6.0f, std::max(vp.x + 6.0f, vp.Right() - boxW - 6.0f));
-    by = std::clamp(by, vp.y + 6.0f, std::max(vp.y + 6.0f, vp.Bottom() - boxH - 6.0f));
+    bx = keel::clamp(bx, vp.x + 6.0f, keel::max(vp.x + 6.0f, vp.Right() - boxW - 6.0f));
+    by = keel::clamp(by, vp.y + 6.0f, keel::max(vp.y + 6.0f, vp.Bottom() - boxH - 6.0f));
 
     canvas.PushClip(vp);
     const Rect boxRect(bx, by, boxW, boxH);

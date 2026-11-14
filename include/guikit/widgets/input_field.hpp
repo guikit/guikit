@@ -1,14 +1,15 @@
 #pragma once
 
-#include <optional>
-#include <source_location>
-#include <string>
-#include <string_view>
+#include <cstddef>
+#include <cstdint>
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/types.hpp"
 #include "guikit/graphics/icon.hpp"
+#include "keel/core.h"
+#include "keel/optional.h"
+#include "keel/string.h"
 
 namespace guikit {
 
@@ -31,12 +32,12 @@ struct InputFieldOptions {
     UiAffix suffix{};                              ///< Trailing symbol/text and/or icon inside field on right (e.g. ":443", {"UTF-8", Icon::Check()})
     UiText valueFormat{};                          ///< Optional text styling and/or candidate width variants
     Align align{Align::Start};                     ///< Standalone control alignment (Start, Center, End)
-    std::optional<CursorBlinkMode> cursorMode{std::nullopt}; ///< Cursor blink override (inherits context config if nullopt)
+    keel::Optional<CursorBlinkMode> cursorMode{keel::kNullOpt}; ///< Cursor blink override (inherits context config if nullopt)
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};      ///< Input box width in dp (or legacy ratio 0.0..1.0 in Fill)
-    std::optional<float> widthRatio{std::nullopt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
-    std::optional<float> height{std::nullopt};     ///< Explicit input box height in points (nullopt = inherit defaultHeight from UiSize)
-    std::optional<float> minWidth{std::nullopt};   ///< Minimum input box width constraint in points
+    keel::Optional<float> width{keel::kNullOpt};      ///< Input box width in dp (or legacy ratio 0.0..1.0 in Fill)
+    keel::Optional<float> widthRatio{keel::kNullOpt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
+    keel::Optional<float> height{keel::kNullOpt};     ///< Explicit input box height in points (nullopt = inherit defaultHeight from UiSize)
+    keel::Optional<float> minWidth{keel::kNullOpt};   ///< Minimum input box width constraint in points
     StateColor color{};                            ///< Optional focus ring & caret accent color override (e.g. StateColor::Danger() for validation error)
     StateColor background{StateColor::Surface()};  ///< Input box surface fill color (Surface/Default = on, None = off, or custom StateColor)
     Border border{};                               ///< Input box border stroke & corner radius configuration
@@ -50,13 +51,13 @@ struct InputFieldOptions {
     bool disabled{false};                          ///< Interaction suppression
     bool readOnly{false};                          ///< Non-editable display mode
     const UiTheme* theme{nullptr};                 ///< Optional scoped theme override
-    std::optional<float> scale{std::nullopt};      ///< Optional scoped scale factor override
+    keel::Optional<float> scale{keel::kNullOpt};      ///< Optional scoped scale factor override
 };
 
 /// Internal runtime state allocated in frame arena for InputField nodes.
 struct InputFieldData {
     InputFieldOptions opts{};
-    std::string_view displayText{};
+    keel::StringRef displayText{};
     size_t cursor{0};
     size_t selStart{0};
     size_t selEnd{0};
@@ -73,18 +74,18 @@ struct InputFieldData {
 /// Autonomous text InputField widget logic (execution, measuring, and rendering).
 class InputField {
 public:
-    /// Primary immediate mode entry point for InputField with editable string pointer or display fallback.
+    /// Primary immediate mode entry point for InputField with editable StringSink or display fallback.
     static Response Run(
         Context& ctx,
-        std::string* stringValue,
-        std::string_view displayFallback,
+        keel::Optional<keel::StringSink> stringValue,
+        keel::StringRef displayFallback,
         const InputFieldOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Measures intrinsic dimensions based on content, prefix, suffix, and sizing mode.
     static Vec2 Measure(
-        std::string_view displayText,
+        keel::StringRef displayText,
         const InputFieldOptions& opts,
         UiSize size,
         ICanvas* canvas,
@@ -92,7 +93,7 @@ public:
         float availableWidth = 0.0f
     );
     static Vec2 Measure(
-        std::string_view displayText,
+        keel::StringRef displayText,
         const InputFieldOptions& opts,
         UiSize size,
         ICanvas* canvas = nullptr,
@@ -103,7 +104,7 @@ public:
     static void Render(
         ICanvas& canvas,
         Rect bounds,
-        std::string_view displayText,
+        keel::StringRef displayText,
         const InputFieldOptions& opts,
         UiSize size,
         bool hovered = false,

@@ -1,5 +1,4 @@
 #include "guikit/widgets/image.hpp"
-#include <algorithm>
 #include <cmath>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
@@ -13,7 +12,7 @@ namespace {
 constexpr float kDefaultFallbackWidth = 240.0f;
 constexpr float kDefaultFallbackHeight = 140.0f;
 
-Vec2 ResolveNaturalImageSize(std::string_view source, ICanvas* canvas) noexcept {
+Vec2 ResolveNaturalImageSize(keel::StringRef source, ICanvas* canvas) noexcept {
     if (canvas && !source.empty()) {
         const Vec2 sz = canvas->GetImageSize(source);
         if (sz.x > 0.0f && sz.y > 0.0f) {
@@ -50,8 +49,8 @@ Vec2 ComputeControlBoxSize(
     const UiTheme& theme,
     float availableWidth
 ) noexcept {
-    const float natW = std::max(1.0f, theme.Scale(naturalSize.x));
-    const float natH = std::max(1.0f, theme.Scale(naturalSize.y));
+    const float natW = keel::max(1.0f, theme.Scale(naturalSize.x));
+    const float natH = keel::max(1.0f, theme.Scale(naturalSize.y));
     const float aspect = natW / natH;
 
     float ctrlW = natW;
@@ -62,7 +61,7 @@ Vec2 ComputeControlBoxSize(
         ctrlW = availableWidth * ratio;
     }
     if (availableWidth > 0.0f) {
-        ctrlW = std::min(ctrlW, availableWidth);
+        ctrlW = keel::min(ctrlW, availableWidth);
     }
 
     float ctrlH = natH;
@@ -75,19 +74,19 @@ Vec2 ComputeControlBoxSize(
     }
 
     if (opts.maxHeight.has_value() && *opts.maxHeight > 0.0f) {
-        ctrlH = std::min(ctrlH, theme.Scale(*opts.maxHeight));
+        ctrlH = keel::min(ctrlH, theme.Scale(*opts.maxHeight));
     }
 
-    return { std::max(1.0f, ctrlW), std::max(1.0f, ctrlH) };
+    return { keel::max(1.0f, ctrlW), keel::max(1.0f, ctrlH) };
 }
 
 } // namespace
 
 Response Image::Run(
     Context& ctx,
-    std::string_view source,
+    keel::StringRef source,
     const ImageOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
     struct ThemePopGuard {
@@ -187,7 +186,7 @@ Response Image::Run(
 }
 
 Vec2 Image::Measure(
-    std::string_view source,
+    keel::StringRef source,
     const ImageOptions& opts,
     UiSize size,
     ICanvas* canvas,
@@ -201,7 +200,7 @@ Vec2 Image::Measure(
 }
 
 Vec2 Image::Measure(
-    std::string_view source,
+    keel::StringRef source,
     const ImageOptions& opts,
     UiSize size,
     ICanvas* canvas,
@@ -225,9 +224,9 @@ void Image::DrawCheckerboard(
     const Color c2 = isDark ? Color(34, 42, 58, 255) : Color(220, 226, 234, 255);
 
     canvas.DrawRoundRect(rect, radius, c1);
-    canvas.PushClip(rect.Inset(std::max(1.0f, radius * 0.25f)));
+    canvas.PushClip(rect.Inset(keel::max(1.0f, radius * 0.25f)));
 
-    const float step = std::max(4.0f, theme.Scale(cellSize));
+    const float step = keel::max(4.0f, theme.Scale(cellSize));
     const int cols = static_cast<int>(std::ceil(rect.w / step));
     const int rows = static_cast<int>(std::ceil(rect.h / step));
 
@@ -235,8 +234,8 @@ void Image::DrawCheckerboard(
         for (int c = (r & 1); c < cols; c += 2) {
             const float x = rect.x + static_cast<float>(c) * step;
             const float y = rect.y + static_cast<float>(r) * step;
-            const float w = std::min(step, rect.Right() - x);
-            const float h = std::min(step, rect.Bottom() - y);
+            const float w = keel::min(step, rect.Right() - x);
+            const float h = keel::min(step, rect.Bottom() - y);
             if (w > 0.0f && h > 0.0f) {
                 canvas.DrawRect(Rect(x, y, w, h), c2);
             }
@@ -249,7 +248,7 @@ void Image::DrawCheckerboard(
 void Image::Render(
     ICanvas& canvas,
     Rect bounds,
-    std::string_view source,
+    keel::StringRef source,
     const ImageOptions& opts,
     UiSize size,
     bool hovered,
@@ -309,7 +308,7 @@ void Image::Render(
         canvas.DrawRoundRect(box, rad, bg, disabled ? border.WithAlphaF(0.40f) : border, 1.0f);
 
         const float fs = cm.companionFontSize;
-        std::string_view fallbackText = !opts.alt.empty() ? opts.alt.text : (!source.empty() ? source : "Image Placeholder");
+        keel::StringRef fallbackText = !opts.alt.empty() ? opts.alt.text : (!source.empty() ? source : keel::StringRef("Image Placeholder"));
         canvas.DrawTextBox(fallbackText, box.Inset(cm.paddingX), fs, disabled ? theme.palette.textDisabled : theme.palette.textMuted, 0.5f, 0.5f);
     }
 

@@ -1,10 +1,10 @@
 #pragma once
- 
-#include <optional>
-#include <source_location>
+
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
+#include "keel/core.h"
+#include "keel/optional.h"
 
 namespace guikit {
 
@@ -13,27 +13,27 @@ class Context;
 
 /// Options for configuring a visual Box container.
 struct BoxOptions {
-    std::optional<float> gap{std::nullopt};        ///< Gap between stacked children (nullopt = from theme)
+    keel::Optional<float> gap{keel::kNullOpt};        ///< Gap between stacked children (nullopt = from theme)
     SizeMode widthMode{SizeMode::Stretch};
     SizeMode heightMode{SizeMode::Fit};
-    std::optional<float> width{std::nullopt};
-    std::optional<float> height{std::nullopt};
-    std::optional<float> minWidth{std::nullopt};
-    std::optional<float> maxWidth{std::nullopt};
-    std::optional<float> minHeight{std::nullopt};
-    std::optional<float> maxHeight{std::nullopt};
+    keel::Optional<float> width{keel::kNullOpt};
+    keel::Optional<float> height{keel::kNullOpt};
+    keel::Optional<float> minWidth{keel::kNullOpt};
+    keel::Optional<float> maxWidth{keel::kNullOpt};
+    keel::Optional<float> minHeight{keel::kNullOpt};
+    keel::Optional<float> maxHeight{keel::kNullOpt};
     float flexGrow{1.0f};
     float fixedWidth{0.0f};
     float fixedHeight{0.0f};
-    std::optional<Padding> padding{std::nullopt};   ///< Container padding (nullopt = zero)
+    keel::Optional<Padding> padding{keel::kNullOpt};   ///< Container padding (nullopt = zero)
     StateColor background{};
     Border border{};
     bool clipChildren{false};
     bool disabled{false};
     const UiTheme* theme{nullptr};
-    std::optional<float> scale{std::nullopt};
-    std::optional<bool> debugBounds{std::nullopt};
-    std::optional<bool> inspectMode{std::nullopt};
+    keel::Optional<float> scale{keel::kNullOpt};
+    keel::Optional<bool> debugBounds{keel::kNullOpt};
+    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// Autonomous immediate mode Box container entry point.
@@ -42,7 +42,7 @@ public:
     [[nodiscard]] static ContainerScope Open(
         Context& ctx,
         const BoxOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 };
 

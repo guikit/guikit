@@ -1,9 +1,8 @@
 #include "guikit/panels/map_view.hpp"
-#include <algorithm>
 #include <cmath>
-#include <cstdio>
-#include <string>
 #include "guikit/context.hpp"
+#include "keel/core.h"
+#include "keel/format.h"
 
 namespace guikit {
 
@@ -13,7 +12,7 @@ struct MapViewInternalState {
     bool cameraInitialized{false};
     MapCrs lastCrs{MapCrs::EPSG3857_WebMercator};
     GeoCoord lastCenterGeo{54.1825, 7.8853};
-    std::optional<Vec2> lastMouseWorld{};
+    keel::Optional<Vec2> lastMouseWorld{keel::kNullOpt};
 };
 
 void RenderMapBackgroundLayers(
@@ -33,12 +32,12 @@ void RenderMapBackgroundLayers(
 
         bool drewBaseTile = false;
         if (opts.tileSource != nullptr) {
-            const std::string_view baseUri = opts.tileSource(cell.id, 0, opts.tileSourceUserData);
+            const keel::StringRef baseUri = opts.tileSource(cell.id, 0, opts.tileSourceUserData);
             if (!baseUri.empty()) {
                 scene.DrawImage(baseUri, r);
                 drewBaseTile = true;
             }
-            const std::string_view overlayUri = opts.tileSource(cell.id, 1, opts.tileSourceUserData);
+            const keel::StringRef overlayUri = opts.tileSource(cell.id, 1, opts.tileSourceUserData);
             if (!overlayUri.empty()) {
                 scene.DrawImage(overlayUri, r);
             }
@@ -58,16 +57,28 @@ MapViewScope::MapViewScope(
     const MapViewState& viewState,
     bool lightMode
 ) noexcept
-    : m_scene(std::move(scene)),
+    : m_scene(keel::move(scene)),
       m_opts(opts),
-      m_view(viewState),
+      m_view(viewState.clone()),
+      m_lightMode(lightMode),
+      m_active(static_cast<bool>(m_scene)) {}
+
+MapViewScope::MapViewScope(
+    SceneScope&& scene,
+    const MapViewOptions& opts,
+    MapViewState&& viewState,
+    bool lightMode
+) noexcept
+    : m_scene(keel::move(scene)),
+      m_opts(opts),
+      m_view(keel::move(viewState)),
       m_lightMode(lightMode),
       m_active(static_cast<bool>(m_scene)) {}
 
 MapViewScope::MapViewScope(MapViewScope&& other) noexcept
-    : m_scene(std::move(other.m_scene)),
+    : m_scene(keel::move(other.m_scene)),
       m_opts(other.m_opts),
-      m_view(std::move(other.m_view)),
+      m_view(keel::move(other.m_view)),
       m_lightMode(other.m_lightMode),
       m_active(other.m_active) {
     other.m_active = false;
@@ -95,8 +106,8 @@ GeoCoord MapViewScope::ScreenToGeo(Vec2 screenPt) const noexcept {
     return WorldToGeo(m_scene.ScreenToWorld(screenPt));
 }
 
-void MapViewScope::CenterOnGeo(GeoCoord coord, std::optional<float> tileZoom) noexcept {
-    std::optional<float> sceneZoom{};
+void MapViewScope::CenterOnGeo(GeoCoord coord, keel::Optional<float> tileZoom) noexcept {
+    keel::Optional<float> sceneZoom{keel::kNullOpt};
     if (tileZoom.has_value()) {
         sceneZoom = MapGrid::TileZoomToSceneZoom(*tileZoom, m_opts.baseZoom);
     }
@@ -112,9 +123,9 @@ SceneItemScope MapViewScope::GeoItem(
     float hitRadiusPx,
     const SceneItemOptions& opts
 ) {
-    const float invZ = 1.0f / std::max(0.0001f, m_scene.GetZoom());
+    const float invZ = 1.0f / keel::max(0.0001f, m_scene.GetZoom());
     const Vec2 wPos = GeoToWorld(coord);
-    const float r = std::max(2.0f, hitRadiusPx) * invZ;
+    const float r = keel::max(2.0f, hitRadiusPx) * invZ;
     SceneItemOptions itemOpts = opts;
     if (!itemOpts.hitRect.has_value()) {
         itemOpts.hitRect = Rect(wPos.x - r, wPos.y - r, r * 2.0f, r * 2.0f);
@@ -128,18 +139,18 @@ void MapViewScope::DrawGeoLine(
     Color color,
     float strokeWidthPx
 ) {
-    const float invZ = 1.0f / std::max(0.0001f, m_scene.GetZoom());
+    const float invZ = 1.0f / keel::max(0.0001f, m_scene.GetZoom());
     m_scene.DrawLine(GeoToWorld(from), GeoToWorld(to), color, strokeWidthPx * invZ);
 }
 
 void MapViewScope::DrawGeoPolyline(
-    std::span<const GeoCoord> coords,
+    keel::ArrayRef<GeoCoord> coords,
     Color color,
     float strokeWidthPx,
     bool closed
 ) {
     if (coords.size() < 2) return;
-    const float invZ = 1.0f / std::max(0.0001f, m_scene.GetZoom());
+    const float invZ = 1.0f / keel::max(0.0001f, m_scene.GetZoom());
     const float w = strokeWidthPx * invZ;
     for (size_t i = 0; i + 1 < coords.size(); ++i) {
         m_scene.DrawLine(GeoToWorld(coords[i]), GeoToWorld(coords[i + 1]), color, w);
@@ -156,7 +167,7 @@ void MapViewScope::DrawGeoCircle(
     Color stroke,
     float strokeWidthPx
 ) {
-    const float invZ = 1.0f / std::max(0.0001f, m_scene.GetZoom());
+    const float invZ = 1.0f / keel::max(0.0001f, m_scene.GetZoom());
     m_scene.DrawCircle(GeoToWorld(center), radiusPx * invZ, fill, stroke, strokeWidthPx * invZ);
 }
 
@@ -169,7 +180,7 @@ void MapViewScope::DrawGeoArc(
     float strokeWidthPx,
     int segments
 ) {
-    const float invZ = 1.0f / std::max(0.0001f, m_scene.GetZoom());
+    const float invZ = 1.0f / keel::max(0.0001f, m_scene.GetZoom());
     m_scene.DrawArc(
         GeoToWorld(center),
         radiusPx * invZ,
@@ -182,14 +193,14 @@ void MapViewScope::DrawGeoArc(
 }
 
 void MapViewScope::DrawGeoText(
-    std::string_view text,
+    keel::StringRef text,
     GeoCoord coord,
     Vec2 offsetPx,
     float fontSize,
     Color color,
     FontStyle style
 ) {
-    const float invZ = 1.0f / std::max(0.0001f, m_scene.GetZoom());
+    const float invZ = 1.0f / keel::max(0.0001f, m_scene.GetZoom());
     const Vec2 wPos = GeoToWorld(coord);
     m_scene.DrawText(
         text,
@@ -205,9 +216,9 @@ SceneItemScope MapViewScope::DrawSeamark(
     GeoCoord coord,
     const MapSeamarkOptions& opts
 ) {
-    const float invZ = 1.0f / std::max(0.0001f, m_scene.GetZoom());
+    const float invZ = 1.0f / keel::max(0.0001f, m_scene.GetZoom());
     const Vec2 wPos = GeoToWorld(coord);
-    const float r = std::max(2.0f, opts.radiusPx) * invZ;
+    const float r = keel::max(2.0f, opts.radiusPx) * invZ;
     const Rect hitBox(wPos.x - r * 2.0f, wPos.y - r * 2.0f, r * 4.0f, r * 4.0f);
 
     SceneItemScope item = m_scene.Item({
@@ -261,7 +272,7 @@ SceneItemScope MapViewScope::DrawSeamark(
 }
 
 void MapViewScope::RenderForegroundOverlays() {
-    const float z = std::max(0.0001f, m_scene.GetZoom());
+    const float z = keel::max(0.0001f, m_scene.GetZoom());
     const float invZ = 1.0f / z;
     const Rect visWorld = m_scene.GetVisibleWorldRect();
 
@@ -274,10 +285,10 @@ void MapViewScope::RenderForegroundOverlays() {
         const Color gratMajorCol = m_lightMode ? Color::Rgba(13, 148, 136, 175)  : Color::Rgba(45, 212, 191, 175);
         const Color gratZeroCol  = m_lightMode ? Color::Rgba(220, 38, 38, 200)   : Color::Rgba(248, 113, 113, 205);
 
-        const float vy0 = std::clamp(visWorld.y, 0.0f, m_opts.worldSize);
-        const float vy1 = std::clamp(visWorld.Bottom(), 0.0f, m_opts.worldSize);
-        const float vx0 = std::clamp(visWorld.x, 0.0f, m_opts.worldSize);
-        const float vx1 = std::clamp(visWorld.Right(), 0.0f, m_opts.worldSize);
+        const float vy0 = keel::clamp(visWorld.y, 0.0f, m_opts.worldSize);
+        const float vy1 = keel::clamp(visWorld.Bottom(), 0.0f, m_opts.worldSize);
+        const float vx0 = keel::clamp(visWorld.x, 0.0f, m_opts.worldSize);
+        const float vx1 = keel::clamp(visWorld.Right(), 0.0f, m_opts.worldSize);
 
         if (MapGrid::IsCylindricalCrs(m_opts.crs)) {
             for (const GraticuleLine& m : m_view.meridians) {
@@ -293,10 +304,10 @@ void MapViewScope::RenderForegroundOverlays() {
             }
         } else {
             // Curved / converging meridians & parallels for Transverse Mercator (UTM / GSK-2011 / SK-42) and Polar Stereographic
-            const double minLat = std::clamp(m_view.visibleBounds.se.lat, -89.9, 89.9);
-            const double maxLat = std::clamp(m_view.visibleBounds.nw.lat, -89.9, 89.9);
-            const double minLon = std::clamp(m_view.visibleBounds.nw.lon, -180.0, 180.0);
-            const double maxLon = std::clamp(m_view.visibleBounds.se.lon, -180.0, 180.0);
+            const double minLat = keel::clamp(m_view.visibleBounds.se.lat, -89.9, 89.9);
+            const double maxLat = keel::clamp(m_view.visibleBounds.nw.lat, -89.9, 89.9);
+            const double minLon = keel::clamp(m_view.visibleBounds.nw.lon, -180.0, 180.0);
+            const double maxLon = keel::clamp(m_view.visibleBounds.se.lon, -180.0, 180.0);
             constexpr int kMeridianSegs = 12;
             constexpr int kParallelSegs = 18;
 
@@ -350,9 +361,10 @@ void MapViewScope::RenderForegroundOverlays() {
 
             if (screenTileW >= 64.0f) {
                 char labelBuf[48]{};
-                std::snprintf(labelBuf, sizeof(labelBuf), "z=%d  [%d, %d]", cell.id.z, cell.id.x, cell.id.y);
+                const keel::StringRef labelSv = keel::format_buf(
+                    labelBuf, "z=%d  [%d, %d]", cell.id.z, cell.id.x, cell.id.y);
                 m_scene.DrawTextBox(
-                    labelBuf,
+                    labelSv,
                     Rect(r.x, r.y + r.h * 0.34f, r.w, r.h * 0.18f),
                     12.0f,
                     tileIdTextCol,
@@ -365,9 +377,10 @@ void MapViewScope::RenderForegroundOverlays() {
 
             if (screenTileW >= 150.0f) {
                 char uriBuf[64]{};
-                std::snprintf(uriBuf, sizeof(uriBuf), "/tile/%d/%d/%d.png", cell.id.z, cell.id.x, cell.id.y);
+                const keel::StringRef uriSv = keel::format_buf(
+                    uriBuf, "/tile/%d/%d/%d.png", cell.id.z, cell.id.x, cell.id.y);
                 m_scene.DrawTextBox(
-                    uriBuf,
+                    uriSv,
                     Rect(r.x, r.y + r.h * 0.52f, r.w, r.h * 0.14f),
                     10.5f,
                     tileMetaCol,
@@ -379,7 +392,7 @@ void MapViewScope::RenderForegroundOverlays() {
 
                 const auto nwText = MapGrid::FormatCoord(cell.geoBounds.nw, m_opts.coordFormat, m_opts.crs);
                 m_scene.DrawText(
-                    nwText,
+                    nwText.as_ref(),
                     {r.x + 6.0f * invZ, r.y + 6.0f * invZ},
                     9.5f,
                     tileMetaCol,
@@ -402,17 +415,18 @@ void MapViewScope::RenderForegroundOverlays() {
         const Color rulerText   = m_lightMode ? Color::Rgba(15, 23, 42, 240)    : Color::Rgba(226, 232, 240, 240);
         const Color tickAccent  = m_lightMode ? Color::Rgba(13, 148, 136, 220)  : Color::Rgba(45, 212, 191, 220);
 
-        const Rect topBar(topRulerStartX, visWorld.y, std::max(0.0f, visWorld.w - leftBarW), rulerThick);
-        const Rect leftBar(visWorld.x, leftRulerStartY, leftBarW, std::max(0.0f, visWorld.h - rulerThick));
+        const Rect topBar(topRulerStartX, visWorld.y, keel::max(0.0f, visWorld.w - leftBarW), rulerThick);
+        const Rect leftBar(visWorld.x, leftRulerStartY, leftBarW, keel::max(0.0f, visWorld.h - rulerThick));
         m_scene.DrawRect(topBar, rulerBg);
         m_scene.DrawRect(leftBar, rulerBg);
 
         for (size_t i = 0; i + 1 < m_view.meridians.size(); ++i) {
             const GraticuleLine& m = m_view.meridians[i];
-            if ((std::abs(m.stepIndex) & 1) == 0) {
+            const int absIdx = m.stepIndex < 0 ? -m.stepIndex : m.stepIndex;
+            if ((absIdx & 1) == 0) {
                 const float nextX = m_view.meridians[i + 1].worldPos;
-                const float x0 = std::max(topRulerStartX, std::min(m.worldPos, nextX));
-                const float x1 = std::min(visWorld.Right(), std::max(m.worldPos, nextX));
+                const float x0 = keel::max(topRulerStartX, keel::min(m.worldPos, nextX));
+                const float x1 = keel::min(visWorld.Right(), keel::max(m.worldPos, nextX));
                 if (x1 > x0) {
                     m_scene.DrawRect(
                         Rect(x0, visWorld.y + rulerThick - 4.0f * invZ, x1 - x0, 4.0f * invZ),
@@ -424,10 +438,11 @@ void MapViewScope::RenderForegroundOverlays() {
 
         for (size_t i = 0; i + 1 < m_view.parallels.size(); ++i) {
             const GraticuleLine& p = m_view.parallels[i];
-            if ((std::abs(p.stepIndex) & 1) == 0) {
+            const int absIdx = p.stepIndex < 0 ? -p.stepIndex : p.stepIndex;
+            if ((absIdx & 1) == 0) {
                 const float nextY = m_view.parallels[i + 1].worldPos;
-                const float y0 = std::max(leftRulerStartY, std::min(p.worldPos, nextY));
-                const float y1 = std::min(visWorld.Bottom(), std::max(p.worldPos, nextY));
+                const float y0 = keel::max(leftRulerStartY, keel::min(p.worldPos, nextY));
+                const float y1 = keel::min(visWorld.Bottom(), keel::max(p.worldPos, nextY));
                 if (y1 > y0) {
                     m_scene.DrawRect(
                         Rect(leftBar.Right() - 4.0f * invZ, y0, 4.0f * invZ, y1 - y0),
@@ -456,23 +471,21 @@ void MapViewScope::RenderForegroundOverlays() {
         for (const GraticuleLine& m : m_view.meridians) {
             if (m.worldPos >= topRulerStartX && m.worldPos + 44.0f * invZ <= visWorld.Right()) {
                 const auto lbl = MapGrid::FormatGraticuleTick(m.degrees, /*isLat=*/false, m_view.graticuleStepArcMin);
-                m_scene.DrawText(lbl, {m.worldPos + 4.0f * invZ, visWorld.y + 3.0f * invZ}, 10.0f, rulerText, FontStyle::Monospace, false);
+                m_scene.DrawText(lbl.as_ref(), {m.worldPos + 4.0f * invZ, visWorld.y + 3.0f * invZ}, 10.0f, rulerText, FontStyle::Monospace, false);
             }
         }
         for (const GraticuleLine& p : m_view.parallels) {
             if (p.worldPos >= leftRulerStartY + 14.0f * invZ && p.worldPos <= visWorld.Bottom()) {
                 const auto lbl = MapGrid::FormatGraticuleTick(p.degrees, /*isLat=*/true, m_view.graticuleStepArcMin);
-                m_scene.DrawText(lbl, {leftBar.x + 4.0f * invZ, p.worldPos - 13.0f * invZ}, 10.0f, rulerText, FontStyle::Monospace, false);
+                m_scene.DrawText(lbl.as_ref(), {leftBar.x + 4.0f * invZ, p.worldPos - 13.0f * invZ}, 10.0f, rulerText, FontStyle::Monospace, false);
             }
         }
 
         char stepBuf[32]{};
-        if (m_view.graticuleStepArcMin >= 60.0) {
-            std::snprintf(stepBuf, sizeof(stepBuf), "Grid %.0f°", m_view.graticuleStepArcMin / 60.0);
-        } else {
-            std::snprintf(stepBuf, sizeof(stepBuf), "Grid %.1f' NM", m_view.graticuleStepArcMin);
-        }
-        m_scene.DrawText(stepBuf, {visWorld.x + 4.0f * invZ, visWorld.y + 3.0f * invZ}, 10.0f, tickAccent, FontStyle::Bold, false);
+        const keel::StringRef stepSv = (m_view.graticuleStepArcMin >= 60.0)
+            ? keel::format_buf(stepBuf, "Grid %.0f°", m_view.graticuleStepArcMin / 60.0)
+            : keel::format_buf(stepBuf, "Grid %.1f' NM", m_view.graticuleStepArcMin);
+        m_scene.DrawText(stepSv, {visWorld.x + 4.0f * invZ, visWorld.y + 3.0f * invZ}, 10.0f, tickAccent, FontStyle::Bold, false);
     }
 
     // 2. Dual Scale Bar Overlay (Nautical Miles NM/cab + Metric km/m)
@@ -509,13 +522,13 @@ void MapViewScope::RenderForegroundOverlays() {
 MapViewScope MapView::Open(
     Context& ctx,
     const MapViewOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
     auto& mapState = ctx.GetOrCreatePersistentState<MapViewInternalState>(id);
     auto& sceneState = ctx.GetOrCreatePersistentState<SceneState>(id);
 
-    const float worldSize = std::max(256.0f, opts.worldSize);
+    const float worldSize = keel::max(256.0f, opts.worldSize);
 
     // Pre-schedule camera centering before Scene::Open runs UpdateSceneCameraTransform
     if (!mapState.cameraInitialized || !sceneState.initialized || opts.requestResetView) {
@@ -575,7 +588,7 @@ MapViewScope MapView::Open(
     const UiTheme& activeTheme = (safeOpts.theme != nullptr) ? *safeOpts.theme : ctx.GetTheme();
     const bool lightMode = (activeTheme.mode == ThemeMode::Light);
 
-    const float z = std::max(0.0001f, scene.GetZoom());
+    const float z = keel::max(0.0001f, scene.GetZoom());
     const Rect vp = scene.GetViewportRect();
     const Rect visWorld = scene.GetVisibleWorldRect();
     Vec2 mouseWorld = scene.GetMouseWorldPos();
@@ -605,7 +618,7 @@ MapViewScope MapView::Open(
 
     RenderMapBackgroundLayers(scene, safeOpts, view, lightMode);
 
-    return MapViewScope(std::move(scene), safeOpts, view, lightMode);
+    return MapViewScope(keel::move(scene), safeOpts, keel::move(view), lightMode);
 }
 
 } // namespace guikit

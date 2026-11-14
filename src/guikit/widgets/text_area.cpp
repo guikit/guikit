@@ -1,11 +1,7 @@
 #include "guikit/widgets/text_area.hpp"
-#include <algorithm>
-#include <array>
 #include <cctype>
 #include <cmath>
 #include <cstdio>
-#include <string>
-#include <vector>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/control.hpp"
@@ -13,7 +9,14 @@
 #include "guikit/core/text_util.hpp"
 #include "guikit/panels/toolbar.hpp"
 #include "guikit/widgets/button.hpp"
+#include "keel/array.h"
+#include "keel/core.h"
+#include "keel/format.h"
+#include "keel/memory.h"
 #include "keel/number.h"
+#include "keel/small_array.h"
+#include "keel/static_array.h"
+#include "keel/string.h"
 #include "keel/utf8.h"
 
 namespace guikit {
@@ -22,7 +25,7 @@ namespace {
 
 // --- Built-in Language Dictionaries ---
 
-static constexpr std::array<std::string_view, 67> kCppKeywords = {
+static constexpr keel::StaticArray<keel::StringRef, 67> kCppKeywords = {
     "alignas", "alignof", "auto", "break", "case", "catch", "class", "concept",
     "const", "consteval", "constexpr", "constinit", "continue", "co_await",
     "co_return", "co_yield", "decltype", "default", "delete", "do", "else",
@@ -35,7 +38,7 @@ static constexpr std::array<std::string_view, 67> kCppKeywords = {
     "virtual", "volatile", "while", "import"
 };
 
-static constexpr std::array<std::string_view, 86> kCppTypes = {
+static constexpr keel::StaticArray<keel::StringRef, 86> kCppTypes = {
     "bool", "char", "char8_t", "char16_t", "char32_t", "wchar_t", "short", "int",
     "long", "signed", "unsigned", "float", "double", "void", "size_t", "ptrdiff_t",
     "int8_t", "int16_t", "int32_t", "int64_t", "uint8_t", "uint16_t", "uint32_t",
@@ -52,20 +55,20 @@ static constexpr std::array<std::string_view, 86> kCppTypes = {
     "Toolbar"
 };
 
-static constexpr std::array<std::string_view, 24> kMatlabKeywords = {
+static constexpr keel::StaticArray<keel::StringRef, 24> kMatlabKeywords = {
     "break", "case", "catch", "classdef", "continue", "else", "elseif", "end",
     "enumeration", "events", "for", "function", "global", "if", "methods",
     "otherwise", "parfor", "persistent", "properties", "return", "spmd",
     "switch", "try", "while"
 };
 
-static constexpr std::array<std::string_view, 21> kMatlabTypes = {
+static constexpr keel::StaticArray<keel::StringRef, 21> kMatlabTypes = {
     "double", "single", "int8", "uint8", "int16", "uint16", "int32", "uint32",
     "int64", "uint64", "logical", "char", "string", "cell", "struct", "table",
     "timetable", "categorical", "function_handle", "gpuArray", "complex"
 };
 
-static constexpr std::array<std::string_view, 68> kMatlabBuiltins = {
+static constexpr keel::StaticArray<keel::StringRef, 68> kMatlabBuiltins = {
     "fft", "ifft", "fftshift", "ifftshift", "abs", "angle", "real", "imag",
     "conj", "zeros", "ones", "eye", "linspace", "logspace", "sin", "cos",
     "tan", "asin", "acos", "atan2", "exp", "log", "log10", "sqrt", "sum",
@@ -76,32 +79,32 @@ static constexpr std::array<std::string_view, 68> kMatlabBuiltins = {
     "eps", "true", "false", "disp", "fprintf", "sprintf", "error"
 };
 
-static constexpr std::array<std::string_view, 11> kMatlabFoldOpen = {
+static constexpr keel::StaticArray<keel::StringRef, 11> kMatlabFoldOpen = {
     "function", "if", "for", "while", "switch", "try", "parfor", "classdef",
     "methods", "properties", "events"
 };
 
-static constexpr std::array<std::string_view, 1> kMatlabFoldClose = {
+static constexpr keel::StaticArray<keel::StringRef, 1> kMatlabFoldClose = {
     "end"
 };
 
-static constexpr std::array<std::string_view, 3> kJsonKeywords = {
+static constexpr keel::StaticArray<keel::StringRef, 3> kJsonKeywords = {
     "true", "false", "null"
 };
 
-static constexpr std::array<std::string_view, 35> kPythonKeywords = {
+static constexpr keel::StaticArray<keel::StringRef, 35> kPythonKeywords = {
     "False", "None", "True", "and", "as", "assert", "async", "await", "break",
     "class", "continue", "def", "del", "elif", "else", "except", "finally",
     "for", "from", "global", "if", "import", "in", "is", "lambda", "nonlocal",
     "not", "or", "pass", "raise", "return", "try", "while", "with", "yield"
 };
 
-static constexpr std::array<std::string_view, 18> kPythonTypes = {
+static constexpr keel::StaticArray<keel::StringRef, 18> kPythonTypes = {
     "int", "float", "complex", "bool", "str", "bytes", "list", "tuple", "dict",
     "set", "frozenset", "object", "type", "Optional", "List", "Dict", "Tuple", "Any"
 };
 
-static constexpr std::array<std::string_view, 22> kPythonBuiltins = {
+static constexpr keel::StaticArray<keel::StringRef, 22> kPythonBuiltins = {
     "print", "len", "range", "enumerate", "zip", "map", "filter", "sorted",
     "sum", "min", "max", "abs", "round", "isinstance", "getattr", "setattr",
     "hasattr", "open", "super", "property", "staticmethod", "classmethod"
@@ -121,16 +124,60 @@ char ToLowerAscii(char c) noexcept {
     return (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c;
 }
 
-bool ContainsToken(std::span<const std::string_view> list, std::string_view token) noexcept {
-    for (std::string_view item : list) {
+bool ContainsToken(keel::ArrayRef<keel::StringRef> list, keel::StringRef token) noexcept {
+    for (keel::StringRef item : list) {
         if (item == token) return true;
     }
     return false;
 }
 
+bool ContainsSizeT(keel::ArrayRef<size_t> list, size_t val) noexcept {
+    for (size_t item : list) {
+        if (item == val) return true;
+    }
+    return false;
+}
+
+void SortSizeT(keel::MutArrayRef<size_t> arr) noexcept {
+    const size_t n = arr.size();
+    for (size_t gap = n / 2; gap > 0; gap /= 2) {
+        for (size_t i = gap; i < n; ++i) {
+            const size_t temp = arr[i];
+            size_t j = i;
+            while (j >= gap && arr[j - gap] > temp) {
+                arr[j] = arr[j - gap];
+                j -= gap;
+            }
+            arr[j] = temp;
+        }
+    }
+}
+
+void StringEraseSpan(keel::String& s, size_t pos, size_t len) {
+    if (pos >= s.size() || len == 0) return;
+    const size_t rem = keel::min(len, s.size() - pos);
+    const size_t tail = s.size() - (pos + rem);
+    if (tail > 0) {
+        keel::mem_move(s.data() + pos, s.data() + pos + rem, tail);
+    }
+    s.resize(s.size() - rem);
+}
+
+void StringInsertSpan(keel::String& s, size_t pos, keel::StringRef ins) {
+    if (ins.empty()) return;
+    const size_t oldSize = s.size();
+    const size_t clampedPos = keel::min(pos, oldSize);
+    s.resize(oldSize + ins.size());
+    const size_t tail = oldSize - clampedPos;
+    if (tail > 0) {
+        keel::mem_move(s.data() + clampedPos + ins.size(), s.data() + clampedPos, tail);
+    }
+    keel::mem_copy(s.data() + clampedPos, ins.data(), ins.size());
+}
+
 float MeasureChunkNoTabs(
     ICanvas* canvas,
-    std::string_view chunk,
+    keel::StringRef chunk,
     float fontSize,
     FontStyle style
 ) noexcept {
@@ -144,18 +191,18 @@ float MeasureChunkNoTabs(
 
 float MeasureSegmentWidth(
     ICanvas* canvas,
-    std::string_view seg,
+    keel::StringRef seg,
     float fontSize,
     FontStyle style,
     uint8_t tabSize = 4
 ) noexcept {
     if (seg.empty() || fontSize <= 0.0f) return 0.0f;
     const size_t firstTab = seg.find('\t');
-    if (firstTab == std::string_view::npos) {
+    if (firstTab == keel::StringRef::npos) {
         return MeasureChunkNoTabs(canvas, seg, fontSize, style);
     }
 
-    const float tabCols = static_cast<float>(std::clamp<int>(tabSize, 1, 16));
+    const float tabCols = static_cast<float>(keel::clamp<int>(tabSize, 1, 16));
     const float tabW = MeasureChunkNoTabs(canvas, " ", fontSize, style) * tabCols;
     float totalW = 0.0f;
     size_t pos = 0;
@@ -169,7 +216,7 @@ float MeasureSegmentWidth(
             pos = tabEnd;
         } else {
             size_t nextTab = seg.find('\t', pos);
-            if (nextTab == std::string_view::npos) {
+            if (nextTab == keel::StringRef::npos) {
                 nextTab = seg.size();
             }
             totalW += MeasureChunkNoTabs(canvas, seg.substr(pos, nextTab - pos), fontSize, style);
@@ -181,7 +228,7 @@ float MeasureSegmentWidth(
 
 size_t HitTestColumnInLine(
     ICanvas* canvas,
-    std::string_view lineSub,
+    keel::StringRef lineSub,
     float localX,
     float fontSize,
     FontStyle style,
@@ -215,12 +262,32 @@ struct SearchMatch {
     size_t endCol{0};
 };
 
-void SplitLogicalLines(std::string_view text, std::vector<LogicalLine>& outLines) {
+void SortFoldRegions(keel::MutArrayRef<FoldRegion> arr) noexcept {
+    const size_t n = arr.size();
+    for (size_t gap = n / 2; gap > 0; gap /= 2) {
+        for (size_t i = gap; i < n; ++i) {
+            const FoldRegion temp = arr[i];
+            size_t j = i;
+            while (j >= gap) {
+                const FoldRegion& prev = arr[j - gap];
+                const bool tempBeforePrev =
+                    temp.startLine < prev.startLine ||
+                    (temp.startLine == prev.startLine && temp.endLine > prev.endLine);
+                if (!tempBeforePrev) break;
+                arr[j] = prev;
+                j -= gap;
+            }
+            arr[j] = temp;
+        }
+    }
+}
+
+void SplitLogicalLines(keel::StringRef text, keel::Array<LogicalLine>& outLines) {
     outLines.clear();
     size_t start = 0;
     while (start <= text.size()) {
         const size_t nl = text.find('\n', start);
-        if (nl == std::string_view::npos) {
+        if (nl == keel::StringRef::npos) {
             size_t len = text.size() - start;
             if (len > 0 && text[start + len - 1] == '\r') {
                 --len;
@@ -241,10 +308,10 @@ void SplitLogicalLines(std::string_view text, std::vector<LogicalLine>& outLines
 }
 
 void ComputeFoldRegions(
-    std::string_view text,
-    std::span<const LogicalLine> logicalLines,
+    keel::StringRef text,
+    keel::ArrayRef<LogicalLine> logicalLines,
     const SyntaxConfig* synCfg,
-    std::vector<FoldRegion>& outRegions
+    keel::Array<FoldRegion>& outRegions
 ) {
     outRegions.clear();
     if (logicalLines.size() < 2) return;
@@ -253,15 +320,14 @@ void ComputeFoldRegions(
         size_t lineIdx{0};
         bool isKeyword{false};
     };
-    std::vector<OpenEntry> stack;
-    stack.reserve(16);
+    keel::SmallArray<OpenEntry, 16> stack;
 
-    const std::string_view lineComment = synCfg ? synCfg->lineComment : "//";
-    const auto openKw = synCfg ? synCfg->foldOpenKeywords : std::span<const std::string_view>{};
-    const auto closeKw = synCfg ? synCfg->foldCloseKeywords : std::span<const std::string_view>{};
+    const keel::StringRef lineComment = synCfg ? synCfg->lineComment : "//";
+    const auto openKw = synCfg ? synCfg->foldOpenKeywords : keel::ArrayRef<keel::StringRef>{};
+    const auto closeKw = synCfg ? synCfg->foldCloseKeywords : keel::ArrayRef<keel::StringRef>{};
 
     for (size_t i = 0; i < logicalLines.size(); ++i) {
-        const std::string_view raw = text.substr(logicalLines[i].startOffset, logicalLines[i].length);
+        const keel::StringRef raw = text.substr(logicalLines[i].startOffset, logicalLines[i].length);
         size_t p = 0;
         while (p < raw.size() && (raw[p] == ' ' || raw[p] == '\t')) ++p;
         if (p >= raw.size()) continue;
@@ -272,7 +338,7 @@ void ComputeFoldRegions(
             if (IsIdentStart(raw[p])) {
                 size_t wEnd = p + 1;
                 while (wEnd < raw.size() && IsIdentChar(raw[wEnd])) ++wEnd;
-                const std::string_view firstWord = raw.substr(p, wEnd - p);
+                const keel::StringRef firstWord = raw.substr(p, wEnd - p);
                 if (ContainsToken(openKw, firstWord)) {
                     // Check that the same line doesn't already end with 'end'
                     bool closedOnSameLine = false;
@@ -294,12 +360,13 @@ void ComputeFoldRegions(
                         stack.push_back({i, true});
                     }
                 } else if (ContainsToken(closeKw, firstWord)) {
-                    for (auto it = stack.rbegin(); it != stack.rend(); ++it) {
-                        if (it->isKeyword) {
-                            if (i > it->lineIdx) {
-                                outRegions.push_back({it->lineIdx, i});
+                    for (size_t sIdx = stack.size(); sIdx > 0; --sIdx) {
+                        const size_t k = sIdx - 1;
+                        if (stack[k].isKeyword) {
+                            if (i > stack[k].lineIdx) {
+                                outRegions.push_back({stack[k].lineIdx, i});
                             }
-                            stack.erase(std::next(it).base());
+                            stack.remove_at(k);
                             break;
                         }
                     }
@@ -335,12 +402,13 @@ void ComputeFoldRegions(
             if (c == '{') {
                 stack.push_back({i, false});
             } else if (c == '}') {
-                for (auto it = stack.rbegin(); it != stack.rend(); ++it) {
-                    if (!it->isKeyword) {
-                        if (i > it->lineIdx) {
-                            outRegions.push_back({it->lineIdx, i});
+                for (size_t sIdx = stack.size(); sIdx > 0; --sIdx) {
+                    const size_t k = sIdx - 1;
+                    if (!stack[k].isKeyword) {
+                        if (i > stack[k].lineIdx) {
+                            outRegions.push_back({stack[k].lineIdx, i});
                         }
-                        stack.erase(std::next(it).base());
+                        stack.remove_at(k);
                         break;
                     }
                 }
@@ -348,12 +416,10 @@ void ComputeFoldRegions(
         }
     }
 
-    std::sort(outRegions.begin(), outRegions.end(), [](const FoldRegion& a, const FoldRegion& b) {
-        return a.startLine < b.startLine || (a.startLine == b.startLine && a.endLine > b.endLine);
-    });
+    SortFoldRegions(outRegions);
 }
 
-const FoldRegion* FindFoldRegionStartingAt(std::span<const FoldRegion> regions, size_t lineIdx) noexcept {
+const FoldRegion* FindFoldRegionStartingAt(keel::ArrayRef<FoldRegion> regions, size_t lineIdx) noexcept {
     for (const FoldRegion& r : regions) {
         if (r.startLine == lineIdx) return &r;
         if (r.startLine > lineIdx) break;
@@ -361,7 +427,7 @@ const FoldRegion* FindFoldRegionStartingAt(std::span<const FoldRegion> regions, 
     return nullptr;
 }
 
-bool IsLineFoldedStart(std::span<const size_t> foldedLines, size_t lineIdx) noexcept {
+bool IsLineFoldedStart(keel::ArrayRef<size_t> foldedLines, size_t lineIdx) noexcept {
     for (size_t fl : foldedLines) {
         if (fl == lineIdx) return true;
     }
@@ -369,8 +435,8 @@ bool IsLineFoldedStart(std::span<const size_t> foldedLines, size_t lineIdx) noex
 }
 
 bool IsLineHiddenByFold(
-    std::span<const FoldRegion> regions,
-    std::span<const size_t> foldedLines,
+    keel::ArrayRef<FoldRegion> regions,
+    keel::ArrayRef<size_t> foldedLines,
     size_t lineIdx
 ) noexcept {
     if (foldedLines.empty() || regions.empty()) return false;
@@ -386,16 +452,16 @@ bool IsLineHiddenByFold(
 }
 
 void BuildVisualLines(
-    std::string_view text,
-    std::span<const LogicalLine> logicalLines,
+    keel::StringRef text,
+    keel::ArrayRef<LogicalLine> logicalLines,
     bool wordWrap,
     float wrapWidth,
     float fontSize,
     FontStyle style,
     ICanvas* canvas,
-    std::vector<VisualLine>& outVisual,
-    std::span<const FoldRegion> foldRegions = {},
-    std::span<const size_t> foldedLines = {},
+    keel::Array<VisualLine>& outVisual,
+    keel::ArrayRef<FoldRegion> foldRegions = {},
+    keel::ArrayRef<size_t> foldedLines = {},
     uint8_t tabSize = 4
 ) {
     outVisual.clear();
@@ -406,7 +472,7 @@ void BuildVisualLines(
             continue;
         }
         const LogicalLine& ll = logicalLines[i];
-        const std::string_view lineStr = text.substr(ll.startOffset, ll.length);
+        const keel::StringRef lineStr = text.substr(ll.startOffset, ll.length);
         if (!wordWrap || wrapWidth <= 24.0f || lineStr.empty()) {
             outVisual.push_back({i, ll.startOffset, 0, ll.length, true});
             continue;
@@ -435,7 +501,7 @@ void BuildVisualLines(
                 }
             }
             const size_t takeEnd = (lastBreak > subStart && cur < ll.length) ? lastBreak : cur;
-            const size_t subLen = std::max<size_t>(1, takeEnd - subStart);
+            const size_t subLen = keel::max<size_t>(1, takeEnd - subStart);
             outVisual.push_back({i, ll.startOffset + subStart, subStart, subLen, first});
             first = false;
             subStart += subLen;
@@ -447,12 +513,12 @@ void BuildVisualLines(
 }
 
 void FindAllSearchMatches(
-    std::string_view text,
-    std::span<const LogicalLine> logicalLines,
-    std::string_view query,
+    keel::StringRef text,
+    keel::ArrayRef<LogicalLine> logicalLines,
+    keel::StringRef query,
     bool matchCase,
     bool wholeWord,
-    std::vector<SearchMatch>& outMatches
+    keel::Array<SearchMatch>& outMatches
 ) {
     outMatches.clear();
     if (query.empty() || text.empty()) return;
@@ -469,11 +535,11 @@ void FindAllSearchMatches(
     for (size_t lineIdx = 0; lineIdx < logicalLines.size(); ++lineIdx) {
         const LogicalLine& ll = logicalLines[lineIdx];
         if (matchCase && ll.length < qLen) continue;
-        const std::string_view lineStr = text.substr(ll.startOffset, ll.length);
+        const keel::StringRef lineStr = text.substr(ll.startOffset, ll.length);
 
         size_t col = 0;
         while (col < ll.length) {
-            size_t matchStart = std::string_view::npos;
+            size_t matchStart = keel::StringRef::npos;
             size_t matchLen = 0;
             if (matchCase) {
                 matchStart = lineStr.find(query, col);
@@ -484,7 +550,7 @@ void FindAllSearchMatches(
                     matchStart = col + relPos;
                 }
             }
-            if (matchStart == std::string_view::npos || matchLen == 0) {
+            if (matchStart == keel::StringRef::npos || matchLen == 0) {
                 break;
             }
             const size_t matchEnd = matchStart + matchLen;
@@ -513,7 +579,7 @@ void FindAllSearchMatches(
                     .startCol = matchStart,
                     .endCol = matchEnd
                 });
-                col = std::max(matchEnd, keel::utf8_next_boundary(lineStr, matchStart));
+                col = keel::max(matchEnd, keel::utf8_next_boundary(lineStr, matchStart));
             } else {
                 col = keel::utf8_next_boundary(lineStr, matchStart);
             }
@@ -522,25 +588,25 @@ void FindAllSearchMatches(
 }
 
 bool FindMatchingBracketPair(
-    std::string_view text,
+    keel::StringRef text,
     size_t cursorOffset,
     size_t& outOpenOffset,
     size_t& outCloseOffset
 ) noexcept {
     if (text.empty()) return false;
-    const size_t safeCur = std::min(cursorOffset, text.size());
+    const size_t safeCur = keel::min(cursorOffset, text.size());
 
     auto isBracket = [](char c) noexcept {
         return c == '(' || c == ')' || c == '[' || c == ']' || c == '{' || c == '}';
     };
 
-    size_t brPos = std::string_view::npos;
+    size_t brPos = keel::StringRef::npos;
     if (safeCur < text.size() && isBracket(text[safeCur])) {
         brPos = safeCur;
     } else if (safeCur > 0 && isBracket(text[safeCur - 1])) {
         brPos = safeCur - 1;
     }
-    if (brPos == std::string_view::npos) return false;
+    if (brPos == keel::StringRef::npos) return false;
 
     const char c = text[brPos];
     const bool forward = (c == '(' || c == '[' || c == '{');
@@ -550,7 +616,7 @@ bool FindMatchingBracketPair(
 
     int depth = 0;
     if (forward) {
-        const size_t maxScan = std::min(text.size(), brPos + 16384);
+        const size_t maxScan = keel::min(text.size(), brPos + 16384);
         for (size_t i = brPos; i < maxScan; ++i) {
             if (text[i] == c) ++depth;
             else if (text[i] == target) {
@@ -580,9 +646,9 @@ bool FindMatchingBracketPair(
     return false;
 }
 
-std::string_view ExtractWordAtOffset(std::string_view text, size_t offset, size_t* outStartOffset = nullptr) noexcept {
+keel::StringRef ExtractWordAtOffset(keel::StringRef text, size_t offset, size_t* outStartOffset = nullptr) noexcept {
     if (text.empty()) return {};
-    size_t pos = std::min(offset, text.size());
+    size_t pos = keel::min(offset, text.size());
     if (pos == text.size() || !IsIdentChar(text[pos])) {
         if (pos > 0 && IsIdentChar(text[pos - 1])) {
             --pos;
@@ -599,9 +665,9 @@ std::string_view ExtractWordAtOffset(std::string_view text, size_t offset, size_
     return text.substr(s, e - s);
 }
 
-std::string_view ExtractCodeWithoutLineComment(
-    std::string_view lineText,
-    std::string_view commentPrefix
+keel::StringRef ExtractCodeWithoutLineComment(
+    keel::StringRef lineText,
+    keel::StringRef commentPrefix
 ) noexcept {
     size_t start = 0;
     while (start < lineText.size() && (lineText[start] == ' ' || lineText[start] == '\t' || lineText[start] == '\r')) {
@@ -610,7 +676,7 @@ std::string_view ExtractCodeWithoutLineComment(
     if (start >= lineText.size()) {
         return {};
     }
-    const std::string_view sub = lineText.substr(start);
+    const keel::StringRef sub = lineText.substr(start);
     if (sub.starts_with("/*") || sub.starts_with("*/") || sub.starts_with("%{") || sub.starts_with("%}")) {
         return {};
     }
@@ -645,7 +711,7 @@ std::string_view ExtractCodeWithoutLineComment(
         }
     }
 
-    std::string_view code = sub.substr(0, codeLen);
+    keel::StringRef code = sub.substr(0, codeLen);
     while (!code.empty() && (code.back() == ' ' || code.back() == '\t' || code.back() == '\r')) {
         code.remove_suffix(1);
     }
@@ -656,15 +722,15 @@ std::string_view ExtractCodeWithoutLineComment(
 }
 
 bool HasCodeBeforeOffsetOnLine(
-    std::string_view docText,
+    keel::StringRef docText,
     const LogicalLine& ll,
     size_t cursorOffset
 ) noexcept {
     if (cursorOffset <= ll.startOffset) {
         return false;
     }
-    const size_t len = std::min(cursorOffset - ll.startOffset, ll.length);
-    const std::string_view prefix = docText.substr(ll.startOffset, len);
+    const size_t len = keel::min(cursorOffset - ll.startOffset, ll.length);
+    const keel::StringRef prefix = docText.substr(ll.startOffset, len);
     for (char c : prefix) {
         if (c != ' ' && c != '\t' && c != '\r') {
             return true;
@@ -673,7 +739,7 @@ bool HasCodeBeforeOffsetOnLine(
     return false;
 }
 
-std::string_view ExtractLeadingIdentifierOrKey(std::string_view code) noexcept {
+keel::StringRef ExtractLeadingIdentifierOrKey(keel::StringRef code) noexcept {
     size_t i = 0;
     while (i < code.size() && (code[i] == ' ' || code[i] == '\t' || code[i] == '(' || code[i] == '[' || code[i] == '*' || code[i] == '&')) {
         ++i;
@@ -700,8 +766,8 @@ std::string_view ExtractLeadingIdentifierOrKey(std::string_view code) noexcept {
     return {};
 }
 
-std::string_view ExtractAssignedTargetIdentifier(std::string_view code) noexcept {
-    const std::string_view lead = ExtractLeadingIdentifierOrKey(code);
+keel::StringRef ExtractAssignedTargetIdentifier(keel::StringRef code) noexcept {
+    const keel::StringRef lead = ExtractLeadingIdentifierOrKey(code);
     if (lead == "for" || lead == "while" || lead == "if" || lead == "elif" ||
         lead == "else" || lead == "switch" || lead == "return" || lead == "function" ||
         lead == "def" || lead == "class" || lead == "rule" || lead == "when" ||
@@ -710,7 +776,7 @@ std::string_view ExtractAssignedTargetIdentifier(std::string_view code) noexcept
     }
 
     int parenDepth = 0;
-    size_t eqPos = std::string_view::npos;
+    size_t eqPos = keel::StringRef::npos;
     for (size_t i = 0; i < code.size(); ++i) {
         const char c = code[i];
         if (c == '(' || c == '[') {
@@ -726,7 +792,7 @@ std::string_view ExtractAssignedTargetIdentifier(std::string_view code) noexcept
             }
         }
     }
-    if (eqPos == std::string_view::npos || eqPos == 0) {
+    if (eqPos == keel::StringRef::npos || eqPos == 0) {
         return {};
     }
 
@@ -765,8 +831,8 @@ std::string_view ExtractAssignedTargetIdentifier(std::string_view code) noexcept
 }
 
 bool DoesLineMatchBaselineSignature(
-    std::string_view currentCode,
-    std::string_view baselineCode
+    keel::StringRef currentCode,
+    keel::StringRef baselineCode
 ) noexcept {
     if (currentCode.empty()) {
         return false;
@@ -777,32 +843,32 @@ bool DoesLineMatchBaselineSignature(
     if (currentCode == baselineCode) {
         return true;
     }
-    const std::string_view baseTarget = ExtractAssignedTargetIdentifier(baselineCode);
+    const keel::StringRef baseTarget = ExtractAssignedTargetIdentifier(baselineCode);
     if (!baseTarget.empty()) {
-        const std::string_view curTarget = ExtractAssignedTargetIdentifier(currentCode);
+        const keel::StringRef curTarget = ExtractAssignedTargetIdentifier(currentCode);
         if (curTarget == baseTarget) {
             return true;
         }
         return false;
     }
-    const std::string_view baseLead = ExtractLeadingIdentifierOrKey(baselineCode);
-    const std::string_view curLead = ExtractLeadingIdentifierOrKey(currentCode);
+    const keel::StringRef baseLead = ExtractLeadingIdentifierOrKey(baselineCode);
+    const keel::StringRef curLead = ExtractLeadingIdentifierOrKey(currentCode);
     return !baseLead.empty() && (curLead == baseLead);
 }
 
 size_t ResolveTrackedCodeLine(
-    std::string_view docText,
-    std::span<const LogicalLine> logicalLines,
+    keel::StringRef docText,
+    keel::ArrayRef<LogicalLine> logicalLines,
     size_t requestedLine1,
-    std::string_view explicitAnchor,
-    std::span<const size_t> baselineToCurrentLine,
-    std::span<const std::string> baselineSignatures,
-    std::string_view commentPrefix
+    keel::StringRef explicitAnchor,
+    keel::ArrayRef<size_t> baselineToCurrentLine,
+    keel::ArrayRef<keel::String> baselineSignatures,
+    keel::StringRef commentPrefix
 ) noexcept {
     if (logicalLines.empty() || requestedLine1 == 0) {
         return 0;
     }
-    auto getLineCode = [&](size_t line1) noexcept -> std::string_view {
+    auto getLineCode = [&](size_t line1) noexcept -> keel::StringRef {
         if (line1 < 1 || line1 > logicalLines.size()) {
             return {};
         }
@@ -813,25 +879,25 @@ size_t ResolveTrackedCodeLine(
     const size_t mappedLine1 = (requestedLine1 < baselineToCurrentLine.size() && baselineToCurrentLine[requestedLine1] > 0)
         ? baselineToCurrentLine[requestedLine1]
         : requestedLine1;
-    const std::string_view baseSig = (requestedLine1 < baselineSignatures.size())
-        ? std::string_view(baselineSignatures[requestedLine1])
-        : std::string_view{};
+    const keel::StringRef baseSig = (requestedLine1 < baselineSignatures.size())
+        ? baselineSignatures[requestedLine1].as_ref()
+        : keel::StringRef{};
 
     if (!explicitAnchor.empty()) {
-        const std::string_view mappedCode = getLineCode(mappedLine1);
-        if (!mappedCode.empty() && (mappedCode.find(explicitAnchor) != std::string_view::npos || DoesLineMatchBaselineSignature(mappedCode, baseSig))) {
+        const keel::StringRef mappedCode = getLineCode(mappedLine1);
+        if (!mappedCode.empty() && (mappedCode.find(explicitAnchor) != keel::StringRef::npos || DoesLineMatchBaselineSignature(mappedCode, baseSig))) {
             return mappedLine1;
         }
         for (size_t delta = 1; delta <= logicalLines.size(); ++delta) {
             if (mappedLine1 + delta <= logicalLines.size()) {
-                const std::string_view c = getLineCode(mappedLine1 + delta);
-                if (!c.empty() && c.find(explicitAnchor) != std::string_view::npos) {
+                const keel::StringRef c = getLineCode(mappedLine1 + delta);
+                if (!c.empty() && c.find(explicitAnchor) != keel::StringRef::npos) {
                     return mappedLine1 + delta;
                 }
             }
             if (mappedLine1 > delta) {
-                const std::string_view c = getLineCode(mappedLine1 - delta);
-                if (!c.empty() && c.find(explicitAnchor) != std::string_view::npos) {
+                const keel::StringRef c = getLineCode(mappedLine1 - delta);
+                if (!c.empty() && c.find(explicitAnchor) != keel::StringRef::npos) {
                     return mappedLine1 - delta;
                 }
             }
@@ -839,7 +905,7 @@ size_t ResolveTrackedCodeLine(
         return 0;
     }
 
-    const std::string_view mappedCode = getLineCode(mappedLine1);
+    const keel::StringRef mappedCode = getLineCode(mappedLine1);
     if (DoesLineMatchBaselineSignature(mappedCode, baseSig)) {
         return mappedLine1;
     }
@@ -875,7 +941,7 @@ EditorFontMetrics ResolveEditorFontMetrics(
     uint8_t tabSize = 4
 ) noexcept {
     EditorFontMetrics m{};
-    const float clampedZoom = std::clamp(effZoom, 0.5f, 3.0f);
+    const float clampedZoom = keel::clamp(effZoom, 0.5f, 3.0f);
     m.fontSize = baseFontSize * clampedZoom;
 
     if (canvas) {
@@ -892,14 +958,14 @@ EditorFontMetrics ResolveEditorFontMetrics(
         m.digitAdvance = m.fontSize * 0.60f;
     }
 
-    m.lineHeight = std::max(theme.GetLineHeight(m.fontSize), m.glyphBoxH * 1.14f);
+    m.lineHeight = keel::max(theme.GetLineHeight(m.fontSize), m.glyphBoxH * 1.14f);
     m.textOffsetY = (m.lineHeight - m.glyphBoxH) * 0.5f;
-    m.tabAdvance = m.spaceAdvance * static_cast<float>(std::clamp<int>(tabSize, 1, 16));
+    m.tabAdvance = m.spaceAdvance * static_cast<float>(keel::clamp<int>(tabSize, 1, 16));
     return m;
 }
 
 Vec2 MeasureEditorBox(
-    std::string_view text,
+    keel::StringRef text,
     const TextAreaOptions& opts,
     UiSize size,
     ICanvas* canvas,
@@ -915,8 +981,8 @@ Vec2 MeasureEditorBox(
     const EditorFontMetrics fm = ResolveEditorFontMetrics(canvas, theme, baseFontSize, effZoom, textStyle);
     const float fontSize = fm.fontSize;
     const float lineHeight = fm.lineHeight;
-    const float padY = std::max(theme.Scale(8.0f), cm.paddingY);
-    const float padX = std::max(theme.Scale(10.0f), cm.paddingX);
+    const float padY = keel::max(theme.Scale(8.0f), cm.paddingY);
+    const float padX = keel::max(theme.Scale(10.0f), cm.paddingX);
     const float statusH = opts.showStatusBar ? theme.Scale(22.0f) : 0.0f;
 
     size_t lineCount = 1;
@@ -925,13 +991,13 @@ Vec2 MeasureEditorBox(
     for (char c : text) {
         if (c == '\n') {
             ++lineCount;
-            maxLineChars = std::max(maxLineChars, curChars);
+            maxLineChars = keel::max(maxLineChars, curChars);
             curChars = 0;
         } else if (c != '\r') {
             ++curChars;
         }
     }
-    maxLineChars = std::max(maxLineChars, curChars);
+    maxLineChars = keel::max(maxLineChars, curChars);
 
     float boxH = 0.0f;
     if (opts.height.has_value()) {
@@ -939,7 +1005,7 @@ Vec2 MeasureEditorBox(
     } else if (opts.autoHeight) {
         boxH = static_cast<float>(lineCount) * lineHeight + padY * 2.0f + statusH;
     } else if (opts.rows.has_value()) {
-        const uint32_t r = std::max(1u, *opts.rows);
+        const uint32_t r = keel::max(1u, *opts.rows);
         boxH = static_cast<float>(r) * lineHeight + padY * 2.0f + statusH;
     } else {
         boxH = 4.0f * lineHeight + padY * 2.0f + statusH;
@@ -951,10 +1017,10 @@ Vec2 MeasureEditorBox(
         ++digits;
         n /= 10;
     }
-    const bool hasBpGutter = (opts.breakpoints != nullptr) || opts.enableBreakpoints ||
+    const bool hasBpGutter = opts.breakpoints.has_target() || opts.enableBreakpoints ||
         (opts.executionLine > 0) || (opts.executionLinePtr != nullptr && *opts.executionLinePtr > 0);
-    const float bpWidth = hasBpGutter ? std::max(theme.Scale(28.0f) * effZoom, fm.spaceAdvance * 3.4f) : 0.0f;
-    const float foldWidth = opts.codeFolding ? std::max(theme.Scale(14.0f) * effZoom, fm.spaceAdvance * 1.85f) : 0.0f;
+    const float bpWidth = hasBpGutter ? keel::max(theme.Scale(28.0f) * effZoom, fm.spaceAdvance * 3.4f) : 0.0f;
+    const float foldWidth = opts.codeFolding ? keel::max(theme.Scale(14.0f) * effZoom, fm.spaceAdvance * 1.85f) : 0.0f;
     const float gutterPadX = fm.spaceAdvance * 1.25f;
     const float gutterWidth = opts.showLineNumbers
         ? (bpWidth + static_cast<float>(digits) * fm.digitAdvance + gutterPadX * 2.0f + foldWidth)
@@ -968,8 +1034,8 @@ Vec2 MeasureEditorBox(
         boxW = availableWidth * ratio;
     } else {
         const float charAdv = MeasureChunkNoTabs(canvas, "M", fontSize, textStyle);
-        const float estimatedW = gutterWidth + padX * 2.0f + static_cast<float>(std::min<size_t>(maxLineChars, 80)) * charAdv + theme.Scale(24.0f);
-        boxW = std::max(boxW, estimatedW);
+        const float estimatedW = gutterWidth + padX * 2.0f + static_cast<float>(keel::min<size_t>(maxLineChars, 80)) * charAdv + theme.Scale(24.0f);
+        boxW = keel::max(boxW, estimatedW);
     }
 
     return {boxW, boxH};
@@ -995,7 +1061,7 @@ struct DebugToolbarRects {
     Rect gripRect{};
     float minBarX{0.0f};
     float maxBarX{0.0f};
-    std::array<Rect, 6> btnRects{}; ///< Continue, StepOver, StepInto, StepOut, Restart, Stop
+    keel::StaticArray<Rect, 6> btnRects{}; ///< Continue, StepOver, StepInto, StepOut, Restart, Stop
 };
 
 struct EditorLayoutRects {
@@ -1035,8 +1101,8 @@ struct EditorLayoutRects {
 
 EditorLayoutRects ComputeEditorLayout(
     Rect bounds,
-    std::string_view text,
-    std::span<const LogicalLine> logicalLines,
+    keel::StringRef text,
+    keel::ArrayRef<LogicalLine> logicalLines,
     const TextAreaOptions& opts,
     UiSize size,
     ICanvas* canvas,
@@ -1048,9 +1114,9 @@ EditorLayoutRects ComputeEditorLayout(
     bool searchOpen,
     bool replaceOpen,
     bool gotoOpen,
-    std::span<const FoldRegion> foldRegions,
-    std::span<const size_t> foldedLines,
-    std::vector<VisualLine>& outVisualLines,
+    keel::ArrayRef<FoldRegion> foldRegions,
+    keel::ArrayRef<size_t> foldedLines,
+    keel::Array<VisualLine>& outVisualLines,
     float debugToolbarRatio = -1.0f
 ) {
     EditorLayoutRects L{};
@@ -1070,20 +1136,20 @@ EditorLayoutRects ComputeEditorLayout(
     L.lineHeight = L.metrics.lineHeight;
     L.editorBox = bounds;
 
-    const float padY = std::max(theme.Scale(8.0f), cm.paddingY);
-    const float padX = std::max(theme.Scale(10.0f), cm.paddingX);
+    const float padY = keel::max(theme.Scale(8.0f), cm.paddingY);
+    const float padX = keel::max(theme.Scale(10.0f), cm.paddingX);
 
     size_t digits = 2;
-    size_t n = std::max<size_t>(1, logicalLines.size());
+    size_t n = keel::max<size_t>(1, logicalLines.size());
     while (n >= 100) {
         ++digits;
         n /= 10;
     }
 
-    const bool hasBpGutter = (opts.breakpoints != nullptr) || opts.enableBreakpoints ||
+    const bool hasBpGutter = opts.breakpoints.has_target() || opts.enableBreakpoints ||
         (opts.executionLine > 0) || (opts.executionLinePtr != nullptr && *opts.executionLinePtr > 0);
-    L.bpColWidth = hasBpGutter ? std::max(theme.Scale(28.0f) * effZoom, L.metrics.spaceAdvance * 3.4f) : 0.0f;
-    L.foldColWidth = opts.codeFolding ? std::max(theme.Scale(14.0f) * effZoom, L.metrics.spaceAdvance * 1.85f) : 0.0f;
+    L.bpColWidth = hasBpGutter ? keel::max(theme.Scale(28.0f) * effZoom, L.metrics.spaceAdvance * 3.4f) : 0.0f;
+    L.foldColWidth = opts.codeFolding ? keel::max(theme.Scale(14.0f) * effZoom, L.metrics.spaceAdvance * 1.85f) : 0.0f;
     const float gutterPadX = L.metrics.spaceAdvance * 1.25f;
     L.gutterWidth = opts.showLineNumbers
         ? (L.bpColWidth + static_cast<float>(digits) * L.metrics.digitAdvance + gutterPadX * 2.0f + L.foldColWidth)
@@ -1091,8 +1157,8 @@ EditorLayoutRects ComputeEditorLayout(
 
     // Unzoomed (100%) gutter width for zoom-invariant floating toolbar track bounds
     const EditorFontMetrics baseMetrics = ResolveEditorFontMetrics(canvas, theme, baseFontSize, 1.0f, textStyle, opts.tabSize);
-    const float baseBpColW = hasBpGutter ? std::max(theme.Scale(28.0f), baseMetrics.spaceAdvance * 3.4f) : 0.0f;
-    const float baseFoldColW = opts.codeFolding ? std::max(theme.Scale(14.0f), baseMetrics.spaceAdvance * 1.85f) : 0.0f;
+    const float baseBpColW = hasBpGutter ? keel::max(theme.Scale(28.0f), baseMetrics.spaceAdvance * 3.4f) : 0.0f;
+    const float baseFoldColW = opts.codeFolding ? keel::max(theme.Scale(14.0f), baseMetrics.spaceAdvance * 1.85f) : 0.0f;
     const float baseGutterPadX = baseMetrics.spaceAdvance * 1.25f;
     const float baseGutterW = opts.showLineNumbers
         ? (baseBpColW + static_cast<float>(digits) * baseMetrics.digitAdvance + baseGutterPadX * 2.0f + baseFoldColW)
@@ -1101,8 +1167,8 @@ EditorLayoutRects ComputeEditorLayout(
     const Rect fullInner(
         L.editorBox.x + 1.0f,
         L.editorBox.y + 1.0f,
-        std::max(0.0f, L.editorBox.w - 2.0f),
-        std::max(0.0f, L.editorBox.h - 2.0f)
+        keel::max(0.0f, L.editorBox.w - 2.0f),
+        keel::max(0.0f, L.editorBox.h - 2.0f)
     );
 
     L.statusBarHeight = (opts.showStatusBar && fullInner.h > theme.Scale(60.0f)) ? theme.Scale(22.0f) : 0.0f;
@@ -1110,7 +1176,7 @@ EditorLayoutRects ComputeEditorLayout(
         fullInner.x,
         fullInner.y,
         fullInner.w,
-        std::max(0.0f, fullInner.h - L.statusBarHeight)
+        keel::max(0.0f, fullInner.h - L.statusBarHeight)
     );
     if (L.statusBarHeight > 0.0f) {
         L.statusBarRect = Rect(
@@ -1125,7 +1191,7 @@ EditorLayoutRects ComputeEditorLayout(
         L.gutterRect = Rect(
             L.innerBounds.x,
             L.innerBounds.y,
-            std::min(L.gutterWidth, L.innerBounds.w),
+            keel::min(L.gutterWidth, L.innerBounds.w),
             L.innerBounds.h
         );
     }
@@ -1133,16 +1199,16 @@ EditorLayoutRects ComputeEditorLayout(
     L.hasMinimap = opts.showMinimap && (L.innerBounds.w > theme.Scale(280.0f)) && (L.innerBounds.h > theme.Scale(60.0f));
     L.minimapWidth = L.hasMinimap ? theme.Scale(64.0f) : 0.0f;
 
-    float prelimTextW = std::max(0.0f, L.innerBounds.w - L.gutterWidth - L.minimapWidth - padX * 2.0f);
+    float prelimTextW = keel::max(0.0f, L.innerBounds.w - L.gutterWidth - L.minimapWidth - padX * 2.0f);
     BuildVisualLines(text, logicalLines, opts.wordWrap, prelimTextW, L.fontSize, textStyle, canvas, outVisualLines, foldRegions, foldedLines, opts.tabSize);
 
     L.totalContentH = static_cast<float>(outVisualLines.size()) * L.lineHeight;
-    const float availTextH = std::max(0.0f, L.innerBounds.h - padY * 2.0f);
+    const float availTextH = keel::max(0.0f, L.innerBounds.h - padY * 2.0f);
     L.needVScroll = !opts.autoHeight && (L.totalContentH > availTextH + 1.0f) && sm.trackWidth > 0.0f;
 
     const float vBarReserve = L.needVScroll ? (sm.trackWidth + sm.margin * 2.0f) : 0.0f;
     if (L.needVScroll && opts.wordWrap) {
-        prelimTextW = std::max(0.0f, L.innerBounds.w - L.gutterWidth - L.minimapWidth - padX * 2.0f - vBarReserve);
+        prelimTextW = keel::max(0.0f, L.innerBounds.w - L.gutterWidth - L.minimapWidth - padX * 2.0f - vBarReserve);
         BuildVisualLines(text, logicalLines, opts.wordWrap, prelimTextW, L.fontSize, textStyle, canvas, outVisualLines, foldRegions, foldedLines, opts.tabSize);
         L.totalContentH = static_cast<float>(outVisualLines.size()) * L.lineHeight;
     }
@@ -1152,7 +1218,7 @@ EditorLayoutRects ComputeEditorLayout(
         for (size_t li = 0; li < logicalLines.size(); ++li) {
             const LogicalLine& ll = logicalLines[li];
             if (ll.length == 0) continue;
-            const std::string_view ls = text.substr(ll.startOffset, ll.length);
+            const keel::StringRef ls = text.substr(ll.startOffset, ll.length);
             float lineW = MeasureSegmentWidth(canvas, ls, L.fontSize, textStyle, opts.tabSize);
             if (!opts.inlineValues.empty()) {
                 for (const CodeInlineValue& iv : opts.inlineValues) {
@@ -1162,15 +1228,15 @@ EditorLayoutRects ComputeEditorLayout(
                     }
                 }
             }
-            L.maxLineW = std::max(L.maxLineW, lineW);
+            L.maxLineW = keel::max(L.maxLineW, lineW);
         }
     }
 
-    const float availTextW = std::max(0.0f, L.innerBounds.w - L.gutterWidth - L.minimapWidth - padX * 2.0f - vBarReserve);
+    const float availTextW = keel::max(0.0f, L.innerBounds.w - L.gutterWidth - L.minimapWidth - padX * 2.0f - vBarReserve);
     L.needHScroll = !opts.wordWrap && (L.maxLineW > availTextW + 2.0f) && sm.trackWidth > 0.0f;
     const float hBarReserve = L.needHScroll ? (sm.trackWidth + sm.margin * 2.0f) : 0.0f;
 
-    const float finalViewportH = std::max(0.0f, L.innerBounds.h - padY * 2.0f - hBarReserve);
+    const float finalViewportH = keel::max(0.0f, L.innerBounds.h - padY * 2.0f - hBarReserve);
     L.needVScroll = !opts.autoHeight && (L.totalContentH > finalViewportH + 1.0f) && sm.trackWidth > 0.0f;
     const float finalVBarReserve = L.needVScroll ? (sm.trackWidth + sm.margin * 2.0f) : 0.0f;
 
@@ -1186,25 +1252,25 @@ EditorLayoutRects ComputeEditorLayout(
     L.textViewport = Rect(
         L.innerBounds.x + L.gutterWidth + padX,
         L.innerBounds.y + padY,
-        std::max(0.0f, L.innerBounds.w - L.gutterWidth - L.minimapWidth - padX * 2.0f - finalVBarReserve),
+        keel::max(0.0f, L.innerBounds.w - L.gutterWidth - L.minimapWidth - padX * 2.0f - finalVBarReserve),
         finalViewportH
     );
 
-    L.maxScrollY = std::max(0.0f, L.totalContentH - L.textViewport.h);
-    L.maxScrollX = opts.wordWrap ? 0.0f : std::max(0.0f, L.maxLineW + theme.Scale(24.0f) - L.textViewport.w);
+    L.maxScrollY = keel::max(0.0f, L.totalContentH - L.textViewport.h);
+    L.maxScrollX = opts.wordWrap ? 0.0f : keel::max(0.0f, L.maxLineW + theme.Scale(24.0f) - L.textViewport.w);
 
-    const float clampedScrollY = std::clamp(scrollY, 0.0f, L.maxScrollY);
-    const float clampedScrollX = std::clamp(scrollX, 0.0f, L.maxScrollX);
+    const float clampedScrollY = keel::clamp(scrollY, 0.0f, L.maxScrollY);
+    const float clampedScrollX = keel::clamp(scrollX, 0.0f, L.maxScrollX);
 
     if (L.needVScroll) {
         const float trackX = L.innerBounds.Right() - sm.trackWidth - sm.margin;
         const float trackY = L.innerBounds.y + sm.margin;
-        const float trackH = std::max(0.0f, L.innerBounds.h - sm.margin * 2.0f - hBarReserve);
+        const float trackH = keel::max(0.0f, L.innerBounds.h - sm.margin * 2.0f - hBarReserve);
         L.vTrackRect = Rect(trackX, trackY, sm.trackWidth, trackH);
         if (trackH > 0.0f && L.totalContentH > 0.0f) {
-            const float visibleRatio = std::clamp(L.textViewport.h / L.totalContentH, 0.05f, 1.0f);
-            const float thumbH = std::min(trackH, std::max(sm.minThumbLength, trackH * visibleRatio));
-            const float maxTravel = std::max(0.0f, trackH - thumbH);
+            const float visibleRatio = keel::clamp(L.textViewport.h / L.totalContentH, 0.05f, 1.0f);
+            const float thumbH = keel::min(trackH, keel::max(sm.minThumbLength, trackH * visibleRatio));
+            const float maxTravel = keel::max(0.0f, trackH - thumbH);
             const float thumbY = trackY + ((L.maxScrollY > 0.0f) ? (clampedScrollY / L.maxScrollY) * maxTravel : 0.0f);
             L.vThumbRect = Rect(trackX, thumbY, sm.trackWidth, thumbH);
         }
@@ -1213,20 +1279,20 @@ EditorLayoutRects ComputeEditorLayout(
     if (L.needHScroll) {
         const float trackX = L.innerBounds.x + L.gutterWidth + sm.margin;
         const float trackY = L.innerBounds.Bottom() - sm.trackWidth - sm.margin;
-        const float trackW = std::max(0.0f, L.innerBounds.w - L.gutterWidth - L.minimapWidth - sm.margin * 2.0f - (L.needVScroll ? (sm.trackWidth + sm.margin) : 0.0f));
+        const float trackW = keel::max(0.0f, L.innerBounds.w - L.gutterWidth - L.minimapWidth - sm.margin * 2.0f - (L.needVScroll ? (sm.trackWidth + sm.margin) : 0.0f));
         L.hTrackRect = Rect(trackX, trackY, trackW, sm.trackWidth);
         const float totalW = L.maxLineW + theme.Scale(24.0f);
         if (trackW > 0.0f && totalW > 0.0f) {
-            const float visibleRatio = std::clamp(L.textViewport.w / totalW, 0.05f, 1.0f);
-            const float thumbW = std::min(trackW, std::max(sm.minThumbLength, trackW * visibleRatio));
-            const float maxTravel = std::max(0.0f, trackW - thumbW);
+            const float visibleRatio = keel::clamp(L.textViewport.w / totalW, 0.05f, 1.0f);
+            const float thumbW = keel::min(trackW, keel::max(sm.minThumbLength, trackW * visibleRatio));
+            const float maxTravel = keel::max(0.0f, trackW - thumbW);
             const float thumbX = trackX + ((L.maxScrollX > 0.0f) ? (clampedScrollX / L.maxScrollX) * maxTravel : 0.0f);
             L.hThumbRect = Rect(thumbX, trackY, thumbW, sm.trackWidth);
         }
     }
 
     // Top-right quick buttons (Copy, Search, Zoom %) when Search overlay is closed — sized via UiSize & Button::Measure
-    const float overlayMargin = std::max(theme.Scale(4.0f), tbGap * 0.75f);
+    const float overlayMargin = keel::max(theme.Scale(4.0f), tbGap * 0.75f);
     const float overlayRight = L.innerBounds.Right() - finalVBarReserve - L.minimapWidth - overlayMargin;
     const float overlayTop = L.innerBounds.y + overlayMargin;
     float rightCursor = overlayRight;
@@ -1268,12 +1334,12 @@ EditorLayoutRects ComputeEditorLayout(
         const Vec2 sqSz = Button::Measure(sqOpts, L.toolbarSize, canvas, theme);
         const float rowH = sqSz.y;
         const float sqBtn = sqSz.x;
-        const float pad = std::max(theme.Scale(4.0f), tbGap * 0.65f);
-        const float gap = std::max(theme.Scale(3.0f), tbGap * 0.50f);
+        const float pad = keel::max(theme.Scale(4.0f), tbGap * 0.65f);
+        const float gap = keel::max(theme.Scale(3.0f), tbGap * 0.50f);
         const bool showRep = searchOpen && replaceOpen && !opts.readOnly;
         const float countW = tbCm.defaultHeight * 2.0f;
         const float maxPanelW = tbCm.defaultHeight * 13.5f;
-        const float panelW = std::min(maxPanelW, std::max(tbCm.defaultHeight * 6.5f, L.textViewport.w - tbGap));
+        const float panelW = keel::min(maxPanelW, keel::max(tbCm.defaultHeight * 6.5f, L.textViewport.w - tbGap));
         const float panelH = showRep ? (rowH * 2.0f + pad * 2.0f + gap) : (rowH + pad * 2.0f);
         const float panelX = overlayRight - panelW;
         const float panelY = overlayTop;
@@ -1292,12 +1358,12 @@ EditorLayoutRects ComputeEditorLayout(
         const float rightControlsW = searchOpen
             ? (sqBtn * 3.0f + countW + gap * 4.0f)
             : (sqBtn + gap);
-        const float findTotalW = std::max(tbCm.defaultHeight * 2.0f, (panelX + panelW - pad) - x - rightControlsW);
+        const float findTotalW = keel::max(tbCm.defaultHeight * 2.0f, (panelX + panelW - pad) - x - rightControlsW);
         S.findInputRect = Rect(x, y1, findTotalW, rowH);
 
         if (searchOpen) {
-            const float inset = std::max(theme.Scale(2.0f), pad * 0.45f);
-            const float toggleSz = std::max(theme.Scale(16.0f), rowH - inset * 2.0f);
+            const float inset = keel::max(theme.Scale(2.0f), pad * 0.45f);
+            const float toggleSz = keel::max(theme.Scale(16.0f), rowH - inset * 2.0f);
             S.wordBtnRect = Rect(S.findInputRect.Right() - toggleSz - inset, y1 + inset, toggleSz, toggleSz);
             S.caseBtnRect = Rect(S.wordBtnRect.x - toggleSz - inset * 0.75f, y1 + inset, toggleSz, toggleSz);
 
@@ -1344,8 +1410,8 @@ EditorLayoutRects ComputeEditorLayout(
         const Vec2 btnSz = Button::Measure(dbgBtnOpts, L.toolbarSize, canvas, theme);
         const float btnW = btnSz.x;
         const float btnH2 = btnSz.y;
-        const float gap = std::max(theme.Scale(2.0f), tbGap * 0.50f);
-        const float pad = std::max(theme.Scale(4.0f), tbGap * 0.65f);
+        const float gap = keel::max(theme.Scale(2.0f), tbGap * 0.50f);
+        const float pad = keel::max(theme.Scale(4.0f), tbGap * 0.65f);
         const float gripW = tbCm.iconSize * 1.15f;
         const float sepExtra = tbGap; // Group separator slot before Restart & Stop
         const float barW = gripW + 6.0f * btnW + 5.0f * gap + sepExtra + pad * 2.0f;
@@ -1354,24 +1420,24 @@ EditorLayoutRects ComputeEditorLayout(
         const float fixedVBarReserve = (!opts.autoHeight && sm.trackWidth > 0.0f) ? (sm.trackWidth + sm.margin * 2.0f) : 0.0f;
         const float fixedRightLimit = L.innerBounds.Right() - fixedVBarReserve - L.minimapWidth - overlayMargin - stableCopyReserve;
         const float minBarX = L.innerBounds.x + baseGutterW + padX;
-        const float maxBarX = std::max(minBarX, fixedRightLimit - barW);
+        const float maxBarX = keel::max(minBarX, fixedRightLimit - barW);
         L.debugToolbar.minBarX = minBarX;
         L.debugToolbar.maxBarX = maxBarX;
 
         float barX = minBarX;
         if (debugToolbarRatio >= 0.0f) {
-            barX = minBarX + std::clamp(debugToolbarRatio, 0.0f, 1.0f) * std::max(0.0f, maxBarX - minBarX);
+            barX = minBarX + keel::clamp(debugToolbarRatio, 0.0f, 1.0f) * keel::max(0.0f, maxBarX - minBarX);
         } else if (opts.debugToolbarAlign == Align::Start) {
             barX = minBarX;
         } else if (opts.debugToolbarAlign == Align::End) {
             barX = maxBarX;
         } else {
             // Align::Center — centered within zoom-invariant track [minBarX, maxBarX]
-            barX = std::clamp(L.innerBounds.x + (L.innerBounds.w - barW) * 0.5f, minBarX, maxBarX);
+            barX = keel::clamp(L.innerBounds.x + (L.innerBounds.w - barW) * 0.5f, minBarX, maxBarX);
         }
 
         if (L.searchOverlay.panelRect.w > 0.0f && barX + barW > L.searchOverlay.panelRect.x - tbGap) {
-            barX = std::max(minBarX, L.searchOverlay.panelRect.x - barW - tbGap);
+            barX = keel::max(minBarX, L.searchOverlay.panelRect.x - barW - tbGap);
         }
         L.debugToolbar.panelRect = Rect(barX, overlayTop, barW, btnH2 + pad * 2.0f);
         L.debugToolbar.gripRect = Rect(barX, overlayTop, pad + gripW, btnH2 + pad * 2.0f);
@@ -1398,7 +1464,7 @@ EditorLayoutRects ComputeEditorLayout(
     return L;
 }
 
-size_t FindVisualLineForOffset(const std::vector<VisualLine>& visualLines, size_t offset) noexcept {
+size_t FindVisualLineForOffset(keel::ArrayRef<VisualLine> visualLines, size_t offset) noexcept {
     if (visualLines.empty()) return 0;
     for (size_t i = 0; i < visualLines.size(); ++i) {
         const VisualLine& vl = visualLines[i];
@@ -1413,7 +1479,7 @@ size_t FindVisualLineForOffset(const std::vector<VisualLine>& visualLines, size_
     return visualLines.size() - 1;
 }
 
-size_t FindLogicalLineForOffset(std::span<const LogicalLine> logicalLines, size_t offset) noexcept {
+size_t FindLogicalLineForOffset(keel::ArrayRef<LogicalLine> logicalLines, size_t offset) noexcept {
     if (logicalLines.empty()) return 0;
     for (size_t i = 0; i < logicalLines.size(); ++i) {
         const LogicalLine& ll = logicalLines[i];
@@ -1425,15 +1491,15 @@ size_t FindLogicalLineForOffset(std::span<const LogicalLine> logicalLines, size_
 }
 
 void DrawWavyUnderline(ICanvas& canvas, float x0, float x1, float y, Color col, float scale) {
-    const float step = std::max(2.5f, 3.0f * scale);
-    const float amp = std::max(1.2f, 1.5f * scale);
+    const float step = keel::max(2.5f, 3.0f * scale);
+    const float amp = keel::max(1.2f, 1.5f * scale);
     float x = x0;
     bool up = true;
     while (x < x1) {
-        const float nx = std::min(x1, x + step);
+        const float nx = keel::min(x1, x + step);
         const float yA = up ? (y - amp) : (y + amp);
         const float yB = up ? (y + amp) : (y - amp);
-        canvas.DrawLine({x, yA}, {nx, yB}, col, std::max(1.0f, 1.25f * scale));
+        canvas.DrawLine({x, yA}, {nx, yB}, col, keel::max(1.0f, 1.25f * scale));
         x = nx;
         up = !up;
     }
@@ -1533,8 +1599,8 @@ SyntaxConfig SyntaxConfig::Python() noexcept {
     };
 }
 
-SyntaxConfig SyntaxConfig::ForLanguage(std::string_view langTag) noexcept {
-    std::string lower;
+SyntaxConfig SyntaxConfig::ForLanguage(keel::StringRef langTag) noexcept {
+    keel::SmallString<32> lower;
     lower.reserve(langTag.size());
     for (char c : langTag) {
         if (c != ' ' && c != '\t' && c != '\r' && c != '\n') {
@@ -1557,10 +1623,10 @@ SyntaxConfig SyntaxConfig::ForLanguage(std::string_view langTag) noexcept {
 }
 
 void TextArea::HighlightLine(
-    std::string_view lineText,
+    keel::StringRef lineText,
     size_t /*lineIndex*/,
     const SyntaxConfig& config,
-    std::vector<TextSpan>& outSpans,
+    keel::Array<TextSpan>& outSpans,
     const UiTheme& theme,
     const SyntaxPalette* paletteOverride,
     bool* inOutBlockComment
@@ -1583,7 +1649,7 @@ void TextArea::HighlightLine(
     // Stateful multiline block comment continuation from previous line
     if (inOutBlockComment && *inOutBlockComment && !config.blockCommentEnd.empty()) {
         const size_t endPos = lineText.find(config.blockCommentEnd);
-        if (endPos == std::string_view::npos) {
+        if (endPos == keel::StringRef::npos) {
             outSpans.push_back({0, static_cast<uint32_t>(len), pal.comment});
             return;
         }
@@ -1611,8 +1677,14 @@ void TextArea::HighlightLine(
 
     // Preprocessor directive check
     if (config.preprocessorPrefix != '\0' && i < len && lineText[i] == config.preprocessorPrefix) {
-        size_t qPos = lineText.find_first_of("\"<", i + 1);
-        if (qPos != std::string_view::npos && config.highlightStrings) {
+        size_t qPos = keel::StringRef::npos;
+        for (size_t k = i + 1; k < len; ++k) {
+            if (lineText[k] == '"' || lineText[k] == '<') {
+                qPos = k;
+                break;
+            }
+        }
+        if (qPos != keel::StringRef::npos && config.highlightStrings) {
             outSpans.push_back({static_cast<uint32_t>(i), static_cast<uint32_t>(qPos - i), pal.preprocessor});
             outSpans.push_back({static_cast<uint32_t>(qPos), static_cast<uint32_t>(len - qPos), pal.string});
         } else {
@@ -1640,7 +1712,7 @@ void TextArea::HighlightLine(
             i += config.blockCommentStart.size();
             if (!config.blockCommentEnd.empty()) {
                 const size_t endPos = lineText.find(config.blockCommentEnd, i);
-                if (endPos != std::string_view::npos) {
+                if (endPos != keel::StringRef::npos) {
                     i = endPos + config.blockCommentEnd.size();
                 } else {
                     i = len;
@@ -1717,7 +1789,7 @@ void TextArea::HighlightLine(
             while (i < len && IsIdentChar(lineText[i])) {
                 ++i;
             }
-            const std::string_view word = lineText.substr(start, i - start);
+            const keel::StringRef word = lineText.substr(start, i - start);
             Color tokenColor = pal.identifier;
             if (ContainsToken(config.keywords, word)) {
                 tokenColor = pal.keyword;
@@ -1766,9 +1838,9 @@ void TextArea::HighlightLine(
 }
 
 void TextArea::CppHighlighter(
-    std::string_view lineText,
+    keel::StringRef lineText,
     size_t lineIndex,
-    std::vector<TextSpan>& outSpans,
+    keel::Array<TextSpan>& outSpans,
     const UiTheme& theme,
     void* /*userData*/
 ) {
@@ -1777,10 +1849,10 @@ void TextArea::CppHighlighter(
 
 TextAreaResponse TextArea::Run(
     Context& ctx,
-    std::string* stringValue,
-    std::string_view displayFallback,
+    keel::Optional<keel::StringSink> stringValue,
+    keel::StringRef displayFallback,
     const TextAreaOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     const auto scopedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
 
@@ -1816,10 +1888,40 @@ TextAreaResponse TextArea::Run(
     Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
     optsCopy.placeholder = ctx.AllocText(opts.placeholder);
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);
+    if (optsCopy.syntax.has_value()) {
+        SyntaxConfig& syn = *optsCopy.syntax;
+        syn.languageName = ctx.AllocString(syn.languageName);
+        syn.lineComment = ctx.AllocString(syn.lineComment);
+        syn.sectionPrefix = ctx.AllocString(syn.sectionPrefix);
+        syn.blockCommentStart = ctx.AllocString(syn.blockCommentStart);
+        syn.blockCommentEnd = ctx.AllocString(syn.blockCommentEnd);
+        auto copyStrArray = [&](keel::ArrayRef<keel::StringRef> src) -> keel::ArrayRef<keel::StringRef> {
+            if (src.empty()) return {};
+            keel::MutArrayRef<keel::StringRef> dst = ctx.GetArena().create_slice<keel::StringRef>(src.size());
+            for (size_t i = 0; i < src.size(); ++i) {
+                dst[i] = ctx.AllocString(src[i]);
+            }
+            return dst;
+        };
+        syn.keywords = copyStrArray(syn.keywords);
+        syn.types = copyStrArray(syn.types);
+        syn.builtins = copyStrArray(syn.builtins);
+        syn.foldOpenKeywords = copyStrArray(syn.foldOpenKeywords);
+        syn.foldCloseKeywords = copyStrArray(syn.foldCloseKeywords);
+    }
+    if (!opts.debugVariables.empty()) {
+        keel::MutArrayRef<CodeDebugVar> vars = ctx.GetArena().create_slice<CodeDebugVar>(opts.debugVariables.size());
+        for (size_t i = 0; i < opts.debugVariables.size(); ++i) {
+            vars[i].name = ctx.AllocString(opts.debugVariables[i].name);
+            vars[i].value = ctx.AllocString(opts.debugVariables[i].value);
+            vars[i].type = ctx.AllocString(opts.debugVariables[i].type);
+        }
+        optsCopy.debugVariables = vars;
+    }
 
-    const std::string_view callerText = (stringValue != nullptr) ? std::string_view(*stringValue) : displayFallback;
-    std::string_view valStr = callerText;
-    const std::string_view lineCmtPrefix = (opts.syntax.has_value() && !opts.syntax->lineComment.empty())
+    const keel::StringRef callerText = stringValue.has_value() ? stringValue->as_ref() : displayFallback;
+    keel::StringRef valStr = callerText;
+    const keel::StringRef lineCmtPrefix = (opts.syntax.has_value() && !opts.syntax->lineComment.empty())
         ? opts.syntax->lineComment
         : "//";
 
@@ -1834,28 +1936,29 @@ TextAreaResponse TextArea::Run(
         if (state.baselineInitialized && ctx.HasActiveTextEdit(id)) {
             ctx.SetTextEditBuffer(id, callerText);
         }
-        std::vector<LogicalLine> initLines;
+        keel::Array<LogicalLine> initLines;
         SplitLogicalLines(callerText, initLines);
         state.baselineToCurrentLine.assign(initLines.size() + 1, 0);
-        state.baselineSignatures.assign(initLines.size() + 1, std::string{});
+        state.baselineSignatures.clear();
+        state.baselineSignatures.resize(initLines.size() + 1);
         for (size_t i = 0; i < initLines.size(); ++i) {
             state.baselineToCurrentLine[i + 1] = i + 1;
-            const std::string_view rawLine = callerText.substr(initLines[i].startOffset, initLines[i].length);
-            state.baselineSignatures[i + 1] = std::string(ExtractCodeWithoutLineComment(rawLine, lineCmtPrefix));
+            const keel::StringRef rawLine = callerText.substr(initLines[i].startOffset, initLines[i].length);
+            state.baselineSignatures[i + 1].assign(ExtractCodeWithoutLineComment(rawLine, lineCmtPrefix));
         }
         state.prevDocumentText.assign(callerText);
-        state.prevCursor = std::min(state.cursor, callerText.size());
+        state.prevCursor = keel::min(state.cursor, callerText.size());
         state.prevTextSize = callerText.size();
         state.prevLineCount = initLines.size();
         state.baselineInitialized = true;
     }
 
-    const float reqZoom = std::clamp(opts.zoom, 0.5f, 3.0f);
+    const float reqZoom = keel::clamp(opts.zoom, 0.5f, 3.0f);
     if (std::abs(state.lastOptsZoom - reqZoom) > 0.001f) {
         state.zoom = reqZoom;
         state.lastOptsZoom = reqZoom;
     }
-    state.zoom = std::clamp(state.zoom, 0.5f, 3.0f);
+    state.zoom = keel::clamp(state.zoom, 0.5f, 3.0f);
 
     if (opts.debugToolbarAlign != state.lastDebugToolbarAlign) {
         state.lastDebugToolbarAlign = opts.debugToolbarAlign;
@@ -1864,16 +1967,16 @@ TextAreaResponse TextArea::Run(
 
     if (opts.allowZoom && !effectiveDisabled && (isFocused || res.hovered)) {
         if (ctx.ConsumeAction(KeyAction::ZoomIn)) {
-            state.zoom = std::clamp(state.zoom + 0.10f, 0.5f, 3.0f);
+            state.zoom = keel::clamp(state.zoom + 0.10f, 0.5f, 3.0f);
         } else if (ctx.ConsumeAction(KeyAction::ZoomOut)) {
-            state.zoom = std::clamp(state.zoom - 0.10f, 0.5f, 3.0f);
+            state.zoom = keel::clamp(state.zoom - 0.10f, 0.5f, 3.0f);
         } else if (ctx.ConsumeAction(KeyAction::ZoomReset)) {
             state.zoom = 1.0f;
         }
     }
 
     auto applyZoomAnchor = [&](float newZoom) {
-        const float clampedNew = std::clamp(newZoom, 0.5f, 3.0f);
+        const float clampedNew = keel::clamp(newZoom, 0.5f, 3.0f);
         if (state.prevAppliedZoom > 0.001f && std::abs(clampedNew - state.prevAppliedZoom) > 0.0001f) {
             const float ratio = clampedNew / state.prevAppliedZoom;
             state.scrollY *= ratio;
@@ -1914,9 +2017,9 @@ TextAreaResponse TextArea::Run(
         ctx.SetTextEditIndentation(id, opts.tabSize, opts.insertSpaces);
     }
 
-    std::vector<LogicalLine>& logicalLines = state.cachedLogicalLines;
-    std::vector<FoldRegion>& foldRegions = state.cachedFoldRegions;
-    std::vector<VisualLine>& visualLines = state.scratchVisualLines;
+    keel::Array<LogicalLine>& logicalLines = state.cachedLogicalLines;
+    keel::Array<FoldRegion>& foldRegions = state.cachedFoldRegions;
+    keel::Array<VisualLine>& visualLines = state.scratchVisualLines;
 
     const uint64_t docHash = detail::HashArgs(valStr);
     const uint64_t foldSyntaxHash = opts.syntax.has_value()
@@ -1935,7 +2038,7 @@ TextAreaResponse TextArea::Run(
         state.cachedDocSize = valStr.size();
     }
 
-    auto resolveDebugAndDiagnosticMarkers = [&](std::string_view curDoc) {
+    auto resolveDebugAndDiagnosticMarkers = [&](keel::StringRef curDoc) {
         if (opts.executionLinePtr != nullptr) {
             optsCopy.executionLine = *opts.executionLinePtr;
         } else if (opts.executionLine > 0 && opts.executionLine < state.baselineToCurrentLine.size() && state.baselineToCurrentLine[opts.executionLine] > 0) {
@@ -1981,8 +2084,8 @@ TextAreaResponse TextArea::Run(
                 d.anchor = ctx.AllocString(diag.anchor);
                 if (!diag.anchor.empty()) {
                     const LogicalLine& ll = logicalLines[resolvedLine - 1];
-                    const std::string_view fullLine = curDoc.substr(ll.startOffset, ll.length);
-                    if (const size_t anchorPos = fullLine.find(diag.anchor); anchorPos != std::string_view::npos) {
+                    const keel::StringRef fullLine = curDoc.substr(ll.startOffset, ll.length);
+                    if (const size_t anchorPos = fullLine.find(diag.anchor); anchorPos != keel::StringRef::npos) {
                         d.startCol = static_cast<uint32_t>(anchorPos);
                         d.endCol = static_cast<uint32_t>(anchorPos + diag.anchor.size());
                     }
@@ -2002,30 +2105,39 @@ TextAreaResponse TextArea::Run(
             state.cachedFoldSyntaxHash = foldSyntaxHash;
         }
         // Prune any stale foldedLines that no longer start a valid fold region
-        state.foldedLines.erase(
-            std::remove_if(state.foldedLines.begin(), state.foldedLines.end(), [&](size_t fl) {
-                return FindFoldRegionStartingAt(foldRegions, fl) == nullptr;
-            }),
-            state.foldedLines.end()
-        );
+        size_t writeIdx = 0;
+        for (size_t i = 0; i < state.foldedLines.size(); ++i) {
+            const size_t fl = state.foldedLines[i];
+            if (FindFoldRegionStartingAt(foldRegions, fl) != nullptr) {
+                state.foldedLines[writeIdx++] = fl;
+            }
+        }
+        state.foldedLines.resize(writeIdx);
     } else {
         foldRegions.clear();
         state.cachedFoldEnabled = false;
         state.foldedLines.clear();
     }
 
-    std::vector<size_t>& activeBreakpoints = (opts.breakpoints != nullptr)
-        ? *opts.breakpoints
-        : state.internalBreakpoints;
+    IndexListSink activeBreakpoints = opts.breakpoints.has_target()
+        ? opts.breakpoints
+        : IndexListSink(state.internalBreakpoints);
 
     auto toggleBreakpointAtLine = [&](size_t line1Based) {
         if (line1Based == 0 || line1Based > logicalLines.size()) return;
-        auto it = std::find(activeBreakpoints.begin(), activeBreakpoints.end(), line1Based);
-        if (it != activeBreakpoints.end()) {
-            activeBreakpoints.erase(it);
+        const keel::ArrayRef<size_t> bpView = activeBreakpoints.as_ref();
+        size_t foundIdx = bpView.size();
+        for (size_t i = 0; i < bpView.size(); ++i) {
+            if (bpView[i] == line1Based) {
+                foundIdx = i;
+                break;
+            }
+        }
+        if (foundIdx < bpView.size()) {
+            activeBreakpoints.erase_at(foundIdx);
         } else {
             activeBreakpoints.push_back(line1Based);
-            std::sort(activeBreakpoints.begin(), activeBreakpoints.end());
+            SortSizeT(activeBreakpoints.as_mut_ref());
         }
         res.debugAction = CodeDebugAction::ToggleBreakpoint;
         res.toggledBreakpointLine = line1Based;
@@ -2033,15 +2145,18 @@ TextAreaResponse TextArea::Run(
 
     auto ensureLineUnfolded = [&](size_t line0Based) {
         if (state.foldedLines.empty()) return;
-        state.foldedLines.erase(
-            std::remove_if(state.foldedLines.begin(), state.foldedLines.end(), [&](size_t fl) {
-                if (const FoldRegion* r = FindFoldRegionStartingAt(foldRegions, fl)) {
-                    return line0Based > r->startLine && line0Based <= r->endLine;
-                }
-                return false;
-            }),
-            state.foldedLines.end()
-        );
+        size_t writeIdx = 0;
+        for (size_t i = 0; i < state.foldedLines.size(); ++i) {
+            const size_t fl = state.foldedLines[i];
+            bool shouldUnfold = false;
+            if (const FoldRegion* r = FindFoldRegionStartingAt(foldRegions, fl)) {
+                shouldUnfold = (line0Based > r->startLine && line0Based <= r->endLine);
+            }
+            if (!shouldUnfold) {
+                state.foldedLines[writeIdx++] = fl;
+            }
+        }
+        state.foldedLines.resize(writeIdx);
     };
 
     // Unfold if debugger executionLine stepped into a folded block
@@ -2061,7 +2176,7 @@ TextAreaResponse TextArea::Run(
         ensureLineUnfolded(line0Based);
         BuildVisualLines(valStr, logicalLines, opts.wordWrap, L.textViewport.w, L.fontSize, textStyle, canvas, visualLines, foldRegions, state.foldedLines, opts.tabSize);
         L.totalContentH = static_cast<float>(visualLines.size()) * L.lineHeight;
-        L.maxScrollY = std::max(0.0f, L.totalContentH - L.textViewport.h);
+        L.maxScrollY = keel::max(0.0f, L.totalContentH - L.textViewport.h);
         size_t targetVis = 0;
         for (size_t v = 0; v < visualLines.size(); ++v) {
             if (visualLines[v].logicalLine >= line0Based) {
@@ -2072,7 +2187,7 @@ TextAreaResponse TextArea::Run(
         const float lineTop = static_cast<float>(targetVis) * L.lineHeight;
         const float lineBot = lineTop + L.lineHeight;
         if (lineTop < state.scrollY || lineBot > state.scrollY + L.textViewport.h) {
-            state.scrollY = std::clamp(lineTop - L.textViewport.h * 0.35f, 0.0f, L.maxScrollY);
+            state.scrollY = keel::clamp(lineTop - L.textViewport.h * 0.35f, 0.0f, L.maxScrollY);
         }
     };
 
@@ -2093,8 +2208,8 @@ TextAreaResponse TextArea::Run(
             state.overlayFocus = 1;
             size_t s0 = 0, s1 = 0;
             if (ctx.GetTextEditSelection(id, s0, s1) && s1 > s0 && (s1 - s0) <= 64) {
-                const std::string_view sel = valStr.substr(s0, s1 - s0);
-                if (sel.find('\n') == std::string_view::npos) {
+                const keel::StringRef sel = valStr.substr(s0, s1 - s0);
+                if (sel.find('\n') == keel::StringRef::npos) {
                     state.searchQuery.assign(sel);
                 }
             }
@@ -2107,8 +2222,8 @@ TextAreaResponse TextArea::Run(
             state.overlayFocus = state.searchQuery.empty() ? 1 : 2;
             size_t s0 = 0, s1 = 0;
             if (state.searchQuery.empty() && ctx.GetTextEditSelection(id, s0, s1) && s1 > s0 && (s1 - s0) <= 64) {
-                const std::string_view sel = valStr.substr(s0, s1 - s0);
-                if (sel.find('\n') == std::string_view::npos) {
+                const keel::StringRef sel = valStr.substr(s0, s1 - s0);
+                if (sel.find('\n') == keel::StringRef::npos) {
                     state.searchQuery.assign(sel);
                 }
             }
@@ -2122,7 +2237,7 @@ TextAreaResponse TextArea::Run(
         }
         // KeyAction::ToggleComment (default Ctrl+/)
         if (!opts.readOnly && ctx.ConsumeAction(KeyAction::ToggleComment)) {
-            const std::string_view cmtPrefix = (opts.syntax.has_value() && !opts.syntax->lineComment.empty())
+            const keel::StringRef cmtPrefix = (opts.syntax.has_value() && !opts.syntax->lineComment.empty())
                 ? opts.syntax->lineComment
                 : "//";
             size_t selS = state.selectionStart;
@@ -2135,7 +2250,7 @@ TextAreaResponse TextArea::Run(
 
             bool allCommented = true;
             for (size_t li = firstLine; li <= lastLine; ++li) {
-                const std::string_view ls = valStr.substr(logicalLines[li].startOffset, logicalLines[li].length);
+                const keel::StringRef ls = valStr.substr(logicalLines[li].startOffset, logicalLines[li].length);
                 size_t p = 0;
                 while (p < ls.size() && (ls[p] == ' ' || ls[p] == '\t')) ++p;
                 if (p >= ls.size()) continue;
@@ -2145,7 +2260,7 @@ TextAreaResponse TextArea::Run(
                 }
             }
 
-            std::string newDoc(valStr);
+            keel::String newDoc = keel::String::from(valStr);
             size_t newCur = state.cursor;
             size_t newAnc = (state.cursor == state.selectionStart) ? state.selectionEnd : state.selectionStart;
             ptrdiff_t cumulativeShift = 0;
@@ -2153,7 +2268,7 @@ TextAreaResponse TextArea::Run(
             for (size_t li = firstLine; li <= lastLine; ++li) {
                 const size_t lineStart = static_cast<size_t>(static_cast<ptrdiff_t>(logicalLines[li].startOffset) + cumulativeShift);
                 const size_t lineLen = logicalLines[li].length;
-                const std::string_view ls = std::string_view(newDoc).substr(lineStart, lineLen);
+                const keel::StringRef ls = newDoc.as_ref().substr(lineStart, lineLen);
                 size_t p = 0;
                 while (p < ls.size() && (ls[p] == ' ' || ls[p] == '\t')) ++p;
                 if (p >= ls.size() && firstLine != lastLine) continue;
@@ -2164,13 +2279,15 @@ TextAreaResponse TextArea::Run(
                     if (p + remLen < ls.size() && ls[p + remLen] == ' ') {
                         ++remLen;
                     }
-                    newDoc.erase(editPos, remLen);
+                    StringEraseSpan(newDoc, editPos, remLen);
                     if (newCur > editPos) newCur = (newCur >= editPos + remLen) ? (newCur - remLen) : editPos;
                     if (newAnc > editPos) newAnc = (newAnc >= editPos + remLen) ? (newAnc - remLen) : editPos;
                     cumulativeShift -= static_cast<ptrdiff_t>(remLen);
                 } else if (!allCommented) {
-                    const std::string ins = std::string(cmtPrefix) + " ";
-                    newDoc.insert(editPos, ins);
+                    keel::SmallString<32> ins;
+                    ins.append(cmtPrefix);
+                    ins.push_back(' ');
+                    StringInsertSpan(newDoc, editPos, ins);
                     if (newCur >= editPos) newCur += ins.size();
                     if (newAnc >= editPos) newAnc += ins.size();
                     cumulativeShift += static_cast<ptrdiff_t>(ins.size());
@@ -2184,7 +2301,7 @@ TextAreaResponse TextArea::Run(
         }
 
         // Debugger actions: ToggleBreakpoint (F9), DebugContinue (F5), DebugStop (Shift+F5), DebugStepOver (F10), DebugStepInto (F11), DebugStepOut (Shift+F11)
-        if ((opts.breakpoints != nullptr || opts.enableBreakpoints) && ctx.ConsumeAction(KeyAction::ToggleBreakpoint)) {
+        if ((opts.breakpoints.has_target() || opts.enableBreakpoints) && ctx.ConsumeAction(KeyAction::ToggleBreakpoint)) {
             const size_t curLine0 = FindLogicalLineForOffset(logicalLines, state.cursor);
             toggleBreakpointAtLine(curLine0 + 1);
         }
@@ -2204,7 +2321,7 @@ TextAreaResponse TextArea::Run(
     }
 
     // Compute search matches if search is open
-    std::vector<SearchMatch> searchMatches;
+    keel::Array<SearchMatch> searchMatches;
     if (state.searchOpen && !state.searchQuery.empty()) {
         FindAllSearchMatches(valStr, logicalLines, state.searchQuery, state.matchCase, state.wholeWord, searchMatches);
     }
@@ -2228,8 +2345,11 @@ TextAreaResponse TextArea::Run(
         if (opts.readOnly || searchMatches.empty()) return;
         if (state.activeMatchIdx >= searchMatches.size()) state.activeMatchIdx = 0;
         const SearchMatch m = searchMatches[state.activeMatchIdx];
-        std::string newDoc(valStr);
-        newDoc.replace(m.startOffset, m.endOffset - m.startOffset, state.replaceQuery);
+        keel::String newDoc;
+        newDoc.reserve(valStr.size() - (m.endOffset - m.startOffset) + state.replaceQuery.size());
+        newDoc.append(valStr.substr(0, m.startOffset));
+        newDoc.append(state.replaceQuery);
+        newDoc.append(valStr.substr(m.endOffset));
         const size_t newCur = m.startOffset + state.replaceQuery.size();
         ctx.ApplyTextEditChange(id, newDoc, newCur, newCur);
         valStr = ctx.EnsureTextEdit(id, newDoc, true, opts.readOnly);
@@ -2245,7 +2365,7 @@ TextAreaResponse TextArea::Run(
 
     auto performReplaceAll = [&]() {
         if (opts.readOnly || searchMatches.empty() || state.searchQuery.empty()) return;
-        std::string newDoc;
+        keel::String newDoc;
         newDoc.reserve(valStr.size());
         size_t lastPos = 0;
         for (const SearchMatch& m : searchMatches) {
@@ -2254,7 +2374,7 @@ TextAreaResponse TextArea::Run(
             lastPos = m.endOffset;
         }
         newDoc.append(valStr.substr(lastPos));
-        const size_t newCur = std::min(state.cursor, newDoc.size());
+        const size_t newCur = keel::min(state.cursor, newDoc.size());
         ctx.ApplyTextEditChange(id, newDoc, newCur, newCur);
         valStr = ctx.EnsureTextEdit(id, newDoc, true, opts.readOnly);
         SplitLogicalLines(valStr, logicalLines);
@@ -2282,13 +2402,13 @@ TextAreaResponse TextArea::Run(
 
     // Handle keyboard input inside Find / Replace / GoToLine overlay when overlayFocus != 0
     if (isFocused && !effectiveDisabled && state.overlayFocus != 0) {
-        std::string* targetStr = (state.overlayFocus == 1) ? &state.searchQuery
-                               : (state.overlayFocus == 2) ? &state.replaceQuery
-                               : &state.gotoQuery;
+        keel::String* targetStr = (state.overlayFocus == 1) ? &state.searchQuery
+                                : (state.overlayFocus == 2) ? &state.replaceQuery
+                                : &state.gotoQuery;
 
         const auto typedList = ctx.ConsumePendingTextInput();
         bool queryEdited = false;
-        for (const std::string& t : typedList) {
+        for (const keel::String& t : typedList) {
             for (char c : t) {
                 if (c >= 32 && c != 127) {
                     if (state.overlayFocus == 3 && !std::isdigit(static_cast<unsigned char>(c))) {
@@ -2349,7 +2469,7 @@ TextAreaResponse TextArea::Run(
                 const auto lineRes = keel::parse_u64(state.gotoQuery);
                 if (lineRes.is_ok() && lineRes.value() >= 1) {
                     const size_t targetLine1 = static_cast<size_t>(lineRes.value());
-                    const size_t line0 = std::min(targetLine1 - 1, logicalLines.size() - 1);
+                    const size_t line0 = keel::min(targetLine1 - 1, logicalLines.size() - 1);
                     const size_t destOffset = logicalLines[line0].startOffset;
                     ctx.SetTextEditCursor(id, destOffset, destOffset);
                     state.cursor = destOffset;
@@ -2442,7 +2562,7 @@ TextAreaResponse TextArea::Run(
     int hoveredFoldLine = -1;
     if (res.hovered && L.gutterRect.w > 0.0f && L.gutterRect.Contains(mousePos)) {
         const float relY = (mousePos.y - L.textViewport.y) + state.scrollY;
-        const int rawVisIdx = static_cast<int>(std::floor(relY / std::max(1.0f, L.lineHeight)));
+        const int rawVisIdx = static_cast<int>(std::floor(relY / keel::max(1.0f, L.lineHeight)));
         if (rawVisIdx >= 0 && rawVisIdx < static_cast<int>(visualLines.size())) {
             const VisualLine& vl = visualLines[static_cast<size_t>(rawVisIdx)];
             if (vl.isFirstSubLine) {
@@ -2450,7 +2570,7 @@ TextAreaResponse TextArea::Run(
                     if (FindFoldRegionStartingAt(foldRegions, vl.logicalLine) != nullptr) {
                         hoveredFoldLine = static_cast<int>(vl.logicalLine);
                     }
-                } else if (opts.breakpoints != nullptr || opts.enableBreakpoints) {
+                } else if (opts.breakpoints.has_target() || opts.enableBreakpoints) {
                     hoveredGutterLine = static_cast<int>(vl.logicalLine);
                 }
             }
@@ -2476,10 +2596,10 @@ TextAreaResponse TextArea::Run(
                 ctx.ConsumeMouseWheel();
             } else if (!opts.wordWrap && (ctx.GetKeyModifiers().shift || std::abs(wheel.x) > std::abs(wheel.y)) && L.maxScrollX > 0.0f) {
                 const float delta = (std::abs(wheel.x) > 0.001f) ? wheel.x : wheel.y;
-                state.scrollX = std::clamp(state.scrollX - delta * L.lineHeight * 2.5f, 0.0f, L.maxScrollX);
+                state.scrollX = keel::clamp(state.scrollX - delta * L.lineHeight * 2.5f, 0.0f, L.maxScrollX);
                 ctx.ConsumeMouseWheel();
             } else if (!opts.autoHeight && L.maxScrollY > 0.0f && std::abs(wheel.y) > 0.001f) {
-                state.scrollY = std::clamp(state.scrollY - wheel.y * L.lineHeight * 2.5f, 0.0f, L.maxScrollY);
+                state.scrollY = keel::clamp(state.scrollY - wheel.y * L.lineHeight * 2.5f, 0.0f, L.maxScrollY);
                 ctx.ConsumeMouseWheel();
             }
         }
@@ -2548,9 +2668,15 @@ TextAreaResponse TextArea::Run(
         } else if (hoveredFoldLine >= 0) {
             consumedByChrome = true;
             const size_t fl = static_cast<size_t>(hoveredFoldLine);
-            auto it = std::find(state.foldedLines.begin(), state.foldedLines.end(), fl);
-            if (it != state.foldedLines.end()) {
-                state.foldedLines.erase(it);
+            size_t foundIdx = state.foldedLines.size();
+            for (size_t fi = 0; fi < state.foldedLines.size(); ++fi) {
+                if (state.foldedLines[fi] == fl) {
+                    foundIdx = fi;
+                    break;
+                }
+            }
+            if (foundIdx < state.foldedLines.size()) {
+                state.foldedLines.remove_at(foundIdx);
             } else {
                 state.foldedLines.push_back(fl);
             }
@@ -2566,7 +2692,7 @@ TextAreaResponse TextArea::Run(
             toggleBreakpointAtLine(static_cast<size_t>(hoveredGutterLine) + 1);
         } else if (copyHovered) {
             consumedByChrome = true;
-            std::string_view toCopy = valStr;
+            keel::StringRef toCopy = valStr;
             if (state.selectionEnd > state.selectionStart && state.selectionEnd <= valStr.size()) {
                 toCopy = valStr.substr(state.selectionStart, state.selectionEnd - state.selectionStart);
             }
@@ -2593,8 +2719,8 @@ TextAreaResponse TextArea::Run(
         } else if (vTrackHovered) {
             consumedByChrome = true;
             const float halfThumb = L.vThumbRect.h * 0.5f;
-            const float maxTravel = std::max(1.0f, L.vTrackRect.h - L.vThumbRect.h);
-            const float t = std::clamp((mousePos.y - L.vTrackRect.y - halfThumb) / maxTravel, 0.0f, 1.0f);
+            const float maxTravel = keel::max(1.0f, L.vTrackRect.h - L.vThumbRect.h);
+            const float t = keel::clamp((mousePos.y - L.vTrackRect.y - halfThumb) / maxTravel, 0.0f, 1.0f);
             state.scrollY = t * L.maxScrollY;
             state.draggingVThumb = true;
             state.dragGrabOffset = halfThumb;
@@ -2605,8 +2731,8 @@ TextAreaResponse TextArea::Run(
         } else if (hTrackHovered) {
             consumedByChrome = true;
             const float halfThumb = L.hThumbRect.w * 0.5f;
-            const float maxTravel = std::max(1.0f, L.hTrackRect.w - L.hThumbRect.w);
-            const float t = std::clamp((mousePos.x - L.hTrackRect.x - halfThumb) / maxTravel, 0.0f, 1.0f);
+            const float maxTravel = keel::max(1.0f, L.hTrackRect.w - L.hThumbRect.w);
+            const float t = keel::clamp((mousePos.x - L.hTrackRect.x - halfThumb) / maxTravel, 0.0f, 1.0f);
             state.scrollX = t * L.maxScrollX;
             state.draggingHThumb = true;
             state.dragGrabOffset = halfThumb;
@@ -2621,7 +2747,7 @@ TextAreaResponse TextArea::Run(
         const float travel = L.debugToolbar.maxBarX - L.debugToolbar.minBarX;
         if (travel > 0.5f) {
             const float targetX = mousePos.x - state.debugToolbarGrabOffset;
-            state.debugToolbarRatio = std::clamp((targetX - L.debugToolbar.minBarX) / travel, 0.0f, 1.0f);
+            state.debugToolbarRatio = keel::clamp((targetX - L.debugToolbar.minBarX) / travel, 0.0f, 1.0f);
             L = ComputeEditorLayout(
                 refBounds, valStr, logicalLines, optsCopy, activeSize, canvas, theme,
                 state.zoom, state.scrollX, state.scrollY, copyFeedbackActive,
@@ -2633,28 +2759,28 @@ TextAreaResponse TextArea::Run(
     }
     if (state.draggingMinimap && ctx.IsMouseDown() && L.hasMinimap && L.minimapRect.h > 0.0f) {
         const float microStep = theme.Scale(3.0f);
-        const float totalMiniH = std::max(1.0f, static_cast<float>(visualLines.size()) * microStep);
-        const float effMiniH = std::min(L.minimapRect.h, totalMiniH);
-        const float t = std::clamp((mousePos.y - L.minimapRect.y) / std::max(1.0f, effMiniH), 0.0f, 1.0f);
+        const float totalMiniH = keel::max(1.0f, static_cast<float>(visualLines.size()) * microStep);
+        const float effMiniH = keel::min(L.minimapRect.h, totalMiniH);
+        const float t = keel::clamp((mousePos.y - L.minimapRect.y) / keel::max(1.0f, effMiniH), 0.0f, 1.0f);
         state.scrollY = t * L.maxScrollY;
     }
     if (state.draggingVThumb && ctx.IsMouseDown() && L.needVScroll) {
-        const float maxTravel = std::max(1.0f, L.vTrackRect.h - L.vThumbRect.h);
-        const float t = std::clamp((mousePos.y - L.vTrackRect.y - state.dragGrabOffset) / maxTravel, 0.0f, 1.0f);
+        const float maxTravel = keel::max(1.0f, L.vTrackRect.h - L.vThumbRect.h);
+        const float t = keel::clamp((mousePos.y - L.vTrackRect.y - state.dragGrabOffset) / maxTravel, 0.0f, 1.0f);
         state.scrollY = t * L.maxScrollY;
     }
     if (state.draggingHThumb && ctx.IsMouseDown() && L.needHScroll) {
-        const float maxTravel = std::max(1.0f, L.hTrackRect.w - L.hThumbRect.w);
-        const float t = std::clamp((mousePos.x - L.hTrackRect.x - state.dragGrabOffset) / maxTravel, 0.0f, 1.0f);
+        const float maxTravel = keel::max(1.0f, L.hTrackRect.w - L.hThumbRect.w);
+        const float t = keel::clamp((mousePos.x - L.hTrackRect.x - state.dragGrabOffset) / maxTravel, 0.0f, 1.0f);
         state.scrollX = t * L.maxScrollX;
     }
 
-    state.scrollY = std::clamp(state.scrollY, 0.0f, L.maxScrollY);
-    state.scrollX = std::clamp(state.scrollX, 0.0f, L.maxScrollX);
+    state.scrollY = keel::clamp(state.scrollY, 0.0f, L.maxScrollY);
+    state.scrollX = keel::clamp(state.scrollX, 0.0f, L.maxScrollX);
 
     size_t cursor = state.cursor;
     size_t selAnchor = state.cursor;
-    std::string_view displayText = valStr;
+    keel::StringRef displayText = valStr;
 
     if (isFocused || ctx.HasActiveTextEdit(id)) {
         // 2D Mouse hit-testing for cursor & selection
@@ -2662,10 +2788,10 @@ TextAreaResponse TextArea::Run(
             const float relY = (mousePos.y - L.textViewport.y) + state.scrollY;
             const float relX = (mousePos.x - L.textViewport.x) + state.scrollX;
 
-            const int rawVisIdx = static_cast<int>(std::floor(relY / std::max(1.0f, L.lineHeight)));
-            const size_t visIdx = static_cast<size_t>(std::clamp(rawVisIdx, 0, static_cast<int>(visualLines.size()) - 1));
+            const int rawVisIdx = static_cast<int>(std::floor(relY / keel::max(1.0f, L.lineHeight)));
+            const size_t visIdx = static_cast<size_t>(keel::clamp(rawVisIdx, 0, static_cast<int>(visualLines.size()) - 1));
             const VisualLine& vl = visualLines[visIdx];
-            const std::string_view subStr = valStr.substr(vl.startOffset, vl.length);
+            const keel::StringRef subStr = valStr.substr(vl.startOffset, vl.length);
             const size_t colInSub = HitTestColumnInLine(canvas, subStr, relX, L.fontSize, textStyle, opts.tabSize);
             const size_t hitIdx = vl.startOffset + colInSub;
 
@@ -2702,15 +2828,15 @@ TextAreaResponse TextArea::Run(
                 }
             } else if (state.draggingText) {
                 if (mousePos.y < L.textViewport.y && state.scrollY > 0.0f) {
-                    state.scrollY = std::max(0.0f, state.scrollY - L.lineHeight * 0.35f);
+                    state.scrollY = keel::max(0.0f, state.scrollY - L.lineHeight * 0.35f);
                 } else if (mousePos.y > L.textViewport.Bottom() && state.scrollY < L.maxScrollY) {
-                    state.scrollY = std::min(L.maxScrollY, state.scrollY + L.lineHeight * 0.35f);
+                    state.scrollY = keel::min(L.maxScrollY, state.scrollY + L.lineHeight * 0.35f);
                 }
                 if (!opts.wordWrap) {
                     if (mousePos.x < L.textViewport.x && state.scrollX > 0.0f) {
-                        state.scrollX = std::max(0.0f, state.scrollX - L.lineHeight * 0.5f);
+                        state.scrollX = keel::max(0.0f, state.scrollX - L.lineHeight * 0.5f);
                     } else if (mousePos.x > L.textViewport.Right() && state.scrollX < L.maxScrollX) {
-                        state.scrollX = std::min(L.maxScrollX, state.scrollX + L.lineHeight * 0.5f);
+                        state.scrollX = keel::min(L.maxScrollX, state.scrollX + L.lineHeight * 0.5f);
                     }
                 }
 
@@ -2739,11 +2865,22 @@ TextAreaResponse TextArea::Run(
         changed = changed || modifiedByIdeCommand || (displayText != state.prevDocumentText);
 
         if (changed && !opts.readOnly) {
-            if (stringValue != nullptr) {
-                *stringValue = displayText;
+            if (stringValue.has_value()) {
+                const keel::StringRef prevCallerVal = ctx.AllocString(stringValue->as_ref());
+                stringValue->assign(displayText);
+                const keel::StringRef stored = stringValue->as_ref();
+                if (stored != displayText) {
+                    cursor = keel::min(cursor, stored.size());
+                    selAnchor = keel::min(selAnchor, stored.size());
+                    ctx.SetTextEditBuffer(id, stored);
+                    ctx.SetTextEditCursor(id, cursor, selAnchor);
+                    displayText = stored;
+                }
+                res.changed = (displayText != prevCallerVal) || (displayText != state.prevDocumentText);
+            } else {
+                res.changed = true;
             }
-            res.changed = true;
-            std::vector<LogicalLine> oldLogicalLines;
+            keel::Array<LogicalLine> oldLogicalLines;
             SplitLogicalLines(state.prevDocumentText, oldLogicalLines);
             SplitLogicalLines(displayText, logicalLines);
             const size_t oldLineCount = oldLogicalLines.size();
@@ -2752,10 +2889,28 @@ TextAreaResponse TextArea::Run(
             // Automatically shift breakpoints, executionLine, and baseline line mapping when lines are inserted/deleted
             if (newLineCount != oldLineCount) {
                 const ptrdiff_t diff = static_cast<ptrdiff_t>(newLineCount) - static_cast<ptrdiff_t>(oldLineCount);
-                const size_t safePreCur = std::min(state.prevCursor, state.prevDocumentText.size());
+                const keel::StringRef oldDoc = state.prevDocumentText.as_ref();
+                size_t prefixLen = 0;
+                const size_t maxCommon = keel::min(oldDoc.size(), displayText.size());
+                while (prefixLen < maxCommon && oldDoc[prefixLen] == displayText[prefixLen]) {
+                    ++prefixLen;
+                }
+                size_t rawSuffixLen = 0;
+                while (rawSuffixLen < maxCommon &&
+                       oldDoc[oldDoc.size() - 1 - rawSuffixLen] == displayText[displayText.size() - 1 - rawSuffixLen]) {
+                    ++rawSuffixLen;
+                }
+                const size_t suffixBound = oldDoc.size() - rawSuffixLen;
+                const size_t editLo = keel::min(prefixLen, suffixBound);
+                const size_t editHi = keel::max(prefixLen, suffixBound);
+                const size_t safePreCur = keel::clamp(
+                    keel::min(state.prevCursor, oldDoc.size()),
+                    editLo,
+                    editHi
+                );
                 const size_t oldEditLine0 = FindLogicalLineForOffset(oldLogicalLines, safePreCur);
                 const size_t oldEditLine1 = oldEditLine0 + 1;
-                const size_t safePostCur = std::min(cursor, displayText.size());
+                const size_t safePostCur = keel::min(cursor, displayText.size());
                 const size_t newEditLine0 = FindLogicalLineForOffset(logicalLines, safePostCur);
                 const size_t newEditLine1 = newEditLine0 + 1;
 
@@ -2775,19 +2930,24 @@ TextAreaResponse TextArea::Run(
                 auto shiftLineNum = [&](size_t& lineNum) {
                     if (lineNum == 0) return;
                     if (lineNum >= shiftStartLine1) {
-                        const ptrdiff_t shifted = std::max<ptrdiff_t>(minTargetLine, static_cast<ptrdiff_t>(lineNum) + diff);
-                        lineNum = std::min<size_t>(static_cast<size_t>(shifted), newLineCount);
+                        const ptrdiff_t shifted = keel::max<ptrdiff_t>(minTargetLine, static_cast<ptrdiff_t>(lineNum) + diff);
+                        lineNum = keel::min<size_t>(static_cast<size_t>(shifted), newLineCount);
                     } else if (lineNum > newLineCount) {
                         lineNum = newLineCount;
                     }
                 };
 
-                for (size_t& bp : activeBreakpoints) {
+                keel::MutArrayRef<size_t> bpMut = activeBreakpoints.as_mut_ref();
+                for (size_t& bp : bpMut) {
                     shiftLineNum(bp);
                 }
-                if (activeBreakpoints.size() > 1) {
-                    std::sort(activeBreakpoints.begin(), activeBreakpoints.end());
-                    activeBreakpoints.erase(std::unique(activeBreakpoints.begin(), activeBreakpoints.end()), activeBreakpoints.end());
+                if (bpMut.size() > 1) {
+                    SortSizeT(bpMut);
+                    for (size_t bi = bpMut.size() - 1; bi > 0; --bi) {
+                        if (bpMut[bi] == bpMut[bi - 1]) {
+                            activeBreakpoints.erase_at(bi);
+                        }
+                    }
                 }
 
                 for (size_t b = 1; b < state.baselineToCurrentLine.size(); ++b) {
@@ -2828,8 +2988,8 @@ TextAreaResponse TextArea::Run(
         }
 
         state.cursor = cursor;
-        state.selectionStart = std::min(cursor, selAnchor);
-        state.selectionEnd = std::max(cursor, selAnchor);
+        state.selectionStart = keel::min(cursor, selAnchor);
+        state.selectionEnd = keel::max(cursor, selAnchor);
 
         // If cursor moved into a folded region via keyboard navigation, unfold it
         const size_t curLogical = FindLogicalLineForOffset(logicalLines, cursor);
@@ -2858,19 +3018,19 @@ TextAreaResponse TextArea::Run(
             }
 
             if (!opts.wordWrap && L.textViewport.w > 0.0f) {
-                const size_t colOffset = (cursor >= cvl.startOffset) ? std::min(cursor - cvl.startOffset, cvl.length) : 0;
-                const std::string_view prefix = displayText.substr(cvl.startOffset, colOffset);
+                const size_t colOffset = (cursor >= cvl.startOffset) ? keel::min(cursor - cvl.startOffset, cvl.length) : 0;
+                const keel::StringRef prefix = displayText.substr(cvl.startOffset, colOffset);
                 const float curX = MeasureSegmentWidth(canvas, prefix, L.fontSize, textStyle, opts.tabSize);
                 const float margin = theme.Scale(16.0f);
                 if (curX < state.scrollX + margin) {
-                    state.scrollX = std::max(0.0f, curX - margin);
+                    state.scrollX = keel::max(0.0f, curX - margin);
                 } else if (curX > state.scrollX + L.textViewport.w - margin) {
-                    state.scrollX = std::min(L.maxScrollX, curX - L.textViewport.w + margin);
+                    state.scrollX = keel::min(L.maxScrollX, curX - L.textViewport.w + margin);
                 }
             }
 
-            state.scrollY = std::clamp(state.scrollY, 0.0f, L.maxScrollY);
-            state.scrollX = std::clamp(state.scrollX, 0.0f, L.maxScrollX);
+            state.scrollY = keel::clamp(state.scrollY, 0.0f, L.maxScrollY);
+            state.scrollX = keel::clamp(state.scrollX, 0.0f, L.maxScrollX);
             state.prevCursor = cursor;
             state.prevTextSize = displayText.size();
         }
@@ -2884,7 +3044,7 @@ TextAreaResponse TextArea::Run(
 
     // Tooltips for Debug Toolbar & Search/Replace overlay buttons
     if (hoveredDebugBtn >= 0 && hoveredDebugBtn < 6) {
-        static constexpr std::array<std::string_view, 6> kDbgTips = {
+        static constexpr keel::StaticArray<keel::StringRef, 6> kDbgTips = {
             "Continue (F5)",
             "Step Over (F10)",
             "Step Into (F11)",
@@ -2896,7 +3056,7 @@ TextAreaResponse TextArea::Run(
     } else if (hoveredDebugBtn == 98 && !state.draggingDebugToolbar) {
         ctx.SetTooltip("Drag to move Debug Toolbar (Double-click to reset)", L.debugToolbar.gripRect);
     } else if (hoveredOverlayBtn >= 0) {
-        static constexpr std::array<std::string_view, 8> kOverlayTips = {
+        static constexpr keel::StaticArray<keel::StringRef, 8> kOverlayTips = {
             "Toggle Replace (Ctrl+H)",
             "Match Case",
             "Match Whole Word",
@@ -2912,16 +3072,16 @@ TextAreaResponse TextArea::Run(
     }
 
     // Detect hovered word & diagnostic tooltip in textViewport
-    std::string_view hoveredWord{};
+    keel::StringRef hoveredWord{};
     size_t hoveredWordLine = 0;
     size_t hoveredWordCol = 0;
     if (res.hovered && L.textViewport.Contains(mousePos) && hoveredOverlayBtn < 0 && hoveredDebugBtn < 0) {
         const float relY = (mousePos.y - L.textViewport.y) + state.scrollY;
         const float relX = (mousePos.x - L.textViewport.x) + state.scrollX;
-        const int rawVisIdx = static_cast<int>(std::floor(relY / std::max(1.0f, L.lineHeight)));
+        const int rawVisIdx = static_cast<int>(std::floor(relY / keel::max(1.0f, L.lineHeight)));
         if (rawVisIdx >= 0 && rawVisIdx < static_cast<int>(visualLines.size())) {
             const VisualLine& vl = visualLines[static_cast<size_t>(rawVisIdx)];
-            const std::string_view subStr = displayText.substr(vl.startOffset, vl.length);
+            const keel::StringRef subStr = displayText.substr(vl.startOffset, vl.length);
             const size_t colInSub = HitTestColumnInLine(canvas, subStr, relX, L.fontSize, textStyle, opts.tabSize);
             const size_t hitOffset = vl.startOffset + colInSub;
             size_t wordStartOff = 0;
@@ -2950,18 +3110,34 @@ TextAreaResponse TextArea::Run(
     }
 
     // Populate TextAreaResponse telemetry
-    const size_t safeCur = std::min(cursor, displayText.size());
+    const size_t safeCur = keel::min(cursor, displayText.size());
     const size_t curLogIdx = FindLogicalLineForOffset(logicalLines, safeCur);
     res.cursorLine = curLogIdx + 1;
     res.cursorColumn = (safeCur - logicalLines[curLogIdx].startOffset) + 1;
     res.totalLines = logicalLines.size();
     res.searchMatchCount = state.searchMatchCount;
     res.activeSearchMatch = (state.searchMatchCount > 0) ? (state.activeMatchIdx + 1) : 0;
-    const std::string_view arenaHoveredWord = ctx.AllocString(hoveredWord);
+    const keel::StringRef arenaHoveredWord = ctx.AllocString(hoveredWord);
     res.hoveredWord = arenaHoveredWord;
 
     const bool cursorVisible = isFocused && ctx.IsCursorVisible(opts.cursorMode);
     const float cursorWidth = ctx.GetCursorConfig().width;
+
+    const keel::ArrayRef<size_t> bpView = activeBreakpoints.as_ref();
+    keel::MutArrayRef<size_t> arenaBps{};
+    if (!bpView.empty()) {
+        arenaBps = ctx.GetArena().create_slice<size_t>(bpView.size());
+        for (size_t i = 0; i < bpView.size(); ++i) {
+            arenaBps[i] = bpView[i];
+        }
+    }
+    keel::MutArrayRef<size_t> arenaFolded{};
+    if (!state.foldedLines.empty()) {
+        arenaFolded = ctx.GetArena().create_slice<size_t>(state.foldedLines.size());
+        for (size_t i = 0; i < state.foldedLines.size(); ++i) {
+            arenaFolded[i] = state.foldedLines[i];
+        }
+    }
 
     Node* node = ctx.CreateNode(NodeType::TextArea, id);
     node->debugBoundsOverride = opts.debugBounds;
@@ -3001,8 +3177,8 @@ TextAreaResponse TextArea::Run(
         data->activeMatchIdx = state.activeMatchIdx;
         data->searchMatchCount = state.searchMatchCount;
         data->hoveredOverlayBtn = hoveredOverlayBtn;
-        data->foldedLines = state.foldedLines;
-        data->breakpoints = activeBreakpoints;
+        data->foldedLines = arenaFolded;
+        data->breakpoints = arenaBps;
         data->precomputedLogicalLines = logicalLines;
         data->precomputedFoldRegions = foldRegions;
         data->hoveredGutterLine = hoveredGutterLine;
@@ -3014,14 +3190,14 @@ TextAreaResponse TextArea::Run(
     }
     node->SetPayload(data);
 
-    uint64_t markersHash = detail::HashArgs(optsCopy.diagnostics.size(), optsCopy.inlineValues.size(), activeBreakpoints.size());
+    uint64_t markersHash = detail::HashArgs(optsCopy.diagnostics.size(), optsCopy.inlineValues.size(), bpView.size());
     for (const CodeInlineValue& iv : optsCopy.inlineValues) {
         markersHash = detail::HashArgs(markersHash, iv.line, iv.text, static_cast<uint8_t>(iv.variant));
     }
     for (const CodeDiagnostic& d : optsCopy.diagnostics) {
         markersHash = detail::HashArgs(markersHash, d.line, d.startCol, d.endCol, static_cast<uint8_t>(d.severity), d.message);
     }
-    for (size_t bp : activeBreakpoints) {
+    for (size_t bp : bpView) {
         markersHash = detail::HashArgs(markersHash, bp);
     }
 
@@ -3050,7 +3226,7 @@ TextAreaResponse TextArea::Run(
         optsCopy.background,
         optsCopy.border,
         optsCopy.syntax.has_value() ? optsCopy.syntax->enabled : false,
-        optsCopy.syntax.has_value() ? optsCopy.syntax->languageName : std::string_view{},
+        optsCopy.syntax.has_value() ? optsCopy.syntax->languageName : keel::StringRef{},
         effSynPal.editorBg.ToUint32(),
         effSynPal.keyword.ToUint32(),
         effSynPal.string.ToUint32(),
@@ -3071,9 +3247,9 @@ TextAreaResponse TextArea::Run(
         state.replaceOpen,
         state.gotoOpen,
         state.overlayFocus,
-        data ? data->searchQuery : std::string_view{},
-        data ? data->replaceQuery : std::string_view{},
-        data ? data->gotoQuery : std::string_view{},
+        data ? data->searchQuery : keel::StringRef{},
+        data ? data->replaceQuery : keel::StringRef{},
+        data ? data->gotoQuery : keel::StringRef{},
         state.matchCase,
         state.wholeWord,
         state.activeMatchIdx,
@@ -3081,7 +3257,7 @@ TextAreaResponse TextArea::Run(
         hoveredDebugBtn,
         hoveredGutterLine,
         hoveredFoldLine,
-        data ? data->hoveredWord : std::string_view{},
+        data ? data->hoveredWord : keel::StringRef{},
         cursor,
         state.selectionStart,
         state.selectionEnd,
@@ -3165,7 +3341,7 @@ TextAreaResponse TextArea::Run(
 }
 
 Vec2 TextArea::Measure(
-    std::string_view text,
+    keel::StringRef text,
     const TextAreaOptions& opts,
     UiSize size,
     ICanvas* canvas,
@@ -3176,7 +3352,7 @@ Vec2 TextArea::Measure(
 }
 
 Vec2 TextArea::Measure(
-    std::string_view text,
+    keel::StringRef text,
     const TextAreaOptions& opts,
     UiSize size,
     ICanvas* canvas
@@ -3187,7 +3363,7 @@ Vec2 TextArea::Measure(
 void TextArea::Render(
     ICanvas& canvas,
     Rect bounds,
-    std::string_view text,
+    keel::StringRef text,
     const TextAreaOptions& opts,
     UiSize size,
     bool hovered,
@@ -3223,7 +3399,7 @@ void TextArea::Render(
     const ScrollbarMetrics& sm = theme.GetScrollbar(size);
     const FontStyle textStyle = opts.monospace ? FontStyle::Monospace : FontStyle::Regular;
 
-    const float effZoom = std::clamp(extData ? extData->zoom : opts.zoom, 0.5f, 3.0f);
+    const float effZoom = keel::clamp(extData ? extData->zoom : opts.zoom, 0.5f, 3.0f);
     const float effScrollX = extData ? extData->scrollX : 0.0f;
     const float effScrollY = extData ? extData->scrollY : scrollY;
     const size_t selStart = extData ? extData->selectionStart : cursor;
@@ -3232,27 +3408,26 @@ void TextArea::Render(
     const bool searchOpen = extData && extData->searchOpen;
     const bool replaceOpen = extData && extData->replaceOpen;
     const bool gotoOpen = extData && extData->gotoOpen;
-    const std::span<const size_t> foldedLines = extData ? extData->foldedLines : std::span<const size_t>{};
-    const std::span<const size_t> breakpoints = extData ? extData->breakpoints
-        : (opts.breakpoints ? std::span<const size_t>(*opts.breakpoints) : std::span<const size_t>{});
+    const keel::ArrayRef<size_t> foldedLines = extData ? extData->foldedLines : keel::ArrayRef<size_t>{};
+    const keel::ArrayRef<size_t> breakpoints = extData ? extData->breakpoints : opts.breakpoints.as_ref();
 
-    std::vector<LogicalLine> fallbackLogicalLines;
-    std::span<const LogicalLine> logicalLines =
-        (extData && !extData->precomputedLogicalLines.empty()) ? extData->precomputedLogicalLines : std::span<const LogicalLine>{};
+    keel::Array<LogicalLine> fallbackLogicalLines;
+    keel::ArrayRef<LogicalLine> logicalLines =
+        (extData && !extData->precomputedLogicalLines.empty()) ? extData->precomputedLogicalLines : keel::ArrayRef<LogicalLine>{};
     if (logicalLines.empty()) {
         SplitLogicalLines(text, fallbackLogicalLines);
         logicalLines = fallbackLogicalLines;
     }
 
-    std::vector<FoldRegion> fallbackFoldRegions;
-    std::span<const FoldRegion> foldRegions =
-        (extData && opts.codeFolding) ? extData->precomputedFoldRegions : std::span<const FoldRegion>{};
+    keel::Array<FoldRegion> fallbackFoldRegions;
+    keel::ArrayRef<FoldRegion> foldRegions =
+        (extData && opts.codeFolding) ? extData->precomputedFoldRegions : keel::ArrayRef<FoldRegion>{};
     if (opts.codeFolding && (!extData || extData->precomputedLogicalLines.empty())) {
         ComputeFoldRegions(text, logicalLines, opts.syntax.has_value() ? &*opts.syntax : nullptr, fallbackFoldRegions);
         foldRegions = fallbackFoldRegions;
     }
 
-    std::vector<VisualLine> visualLines;
+    keel::Array<VisualLine> visualLines;
     const EditorLayoutRects L = ComputeEditorLayout(
         bounds, text, logicalLines, opts, size, &canvas, theme,
         effZoom, effScrollX, effScrollY,
@@ -3290,16 +3465,16 @@ void TextArea::Render(
     if (innerBounds.w <= 2.0f || innerBounds.h <= 2.0f) return;
 
     // Precompute search matches and word occurrence target
-    std::vector<SearchMatch> searchMatches;
+    keel::Array<SearchMatch> searchMatches;
     if (searchOpen && extData && !extData->searchQuery.empty()) {
         FindAllSearchMatches(text, logicalLines, extData->searchQuery, extData->matchCase, extData->wholeWord, searchMatches);
     }
 
-    const size_t safeCursor = std::min(cursor, text.size());
-    std::string_view activeWord{};
+    const size_t safeCursor = keel::min(cursor, text.size());
+    keel::StringRef activeWord{};
     if (opts.highlightOccurrences && focused && !disabled && !searchOpen) {
         if (hasSelection && (selEnd - selStart) <= 48) {
-            const std::string_view s = text.substr(selStart, selEnd - selStart);
+            const keel::StringRef s = text.substr(selStart, selEnd - selStart);
             bool validIdent = !s.empty() && IsIdentStart(s[0]);
             for (char ch : s) {
                 if (!IsIdentChar(ch)) { validIdent = false; break; }
@@ -3310,8 +3485,8 @@ void TextArea::Render(
         }
     }
 
-    size_t matchBracketOpen = std::string_view::npos;
-    size_t matchBracketClose = std::string_view::npos;
+    size_t matchBracketOpen = keel::StringRef::npos;
+    size_t matchBracketClose = keel::StringRef::npos;
     const bool hasBracketPair = opts.matchBrackets && focused && !disabled &&
         FindMatchingBracketPair(text, safeCursor, matchBracketOpen, matchBracketClose);
 
@@ -3329,8 +3504,8 @@ void TextArea::Render(
     }
 
     const Rect textViewport = L.textViewport;
-    const float clampedScrollY = std::clamp(effScrollY, 0.0f, L.maxScrollY);
-    const float clampedScrollX = std::clamp(effScrollX, 0.0f, L.maxScrollX);
+    const float clampedScrollY = keel::clamp(effScrollY, 0.0f, L.maxScrollY);
+    const float clampedScrollX = keel::clamp(effScrollX, 0.0f, L.maxScrollX);
 
     const size_t activeVisRow = FindVisualLineForOffset(visualLines, safeCursor);
     const size_t activeLogicalLine = visualLines[activeVisRow].logicalLine;
@@ -3353,14 +3528,14 @@ void TextArea::Render(
     // 5. Virtualized visible lines loop
     const size_t totalVisLines = visualLines.size();
     const size_t firstVisLine = (L.lineHeight > 0.0f)
-        ? static_cast<size_t>(std::max(0.0f, std::floor(clampedScrollY / L.lineHeight)))
+        ? static_cast<size_t>(keel::max(0.0f, std::floor(clampedScrollY / L.lineHeight)))
         : 0;
     const size_t maxVisCount = (L.lineHeight > 0.0f)
         ? (static_cast<size_t>(std::ceil(textViewport.h / L.lineHeight)) + 2)
         : totalVisLines;
-    const size_t lastVisLine = std::min(totalVisLines, firstVisLine + maxVisCount);
+    const size_t lastVisLine = keel::min(totalVisLines, firstVisLine + maxVisCount);
 
-    std::vector<TextSpan> syntaxSpans;
+    keel::Array<TextSpan> syntaxSpans;
     syntaxSpans.reserve(32);
     size_t cachedLogicalLine = static_cast<size_t>(-1);
 
@@ -3374,7 +3549,7 @@ void TextArea::Render(
         const size_t targetLog = visualLines[firstVisLine].logicalLine;
         const size_t scanStart = (targetLog > 250) ? (targetLog - 250) : 0;
         for (size_t li = scanStart; li < targetLog; ++li) {
-            const std::string_view ls = text.substr(logicalLines[li].startOffset, logicalLines[li].length);
+            const keel::StringRef ls = text.substr(logicalLines[li].startOffset, logicalLines[li].length);
             size_t pos = 0;
             while (pos < ls.size()) {
                 if (!inBlockComment) {
@@ -3383,12 +3558,12 @@ void TextArea::Render(
                         break;
                     }
                     const size_t bStart = ls.find(opts.syntax->blockCommentStart, pos);
-                    if (bStart == std::string_view::npos) break;
+                    if (bStart == keel::StringRef::npos) break;
                     inBlockComment = true;
                     pos = bStart + opts.syntax->blockCommentStart.size();
                 } else {
                     const size_t bEnd = ls.find(opts.syntax->blockCommentEnd, pos);
-                    if (bEnd == std::string_view::npos) break;
+                    if (bEnd == keel::StringRef::npos) break;
                     inBlockComment = false;
                     pos = bEnd + opts.syntax->blockCommentEnd.size();
                 }
@@ -3431,18 +3606,18 @@ void TextArea::Render(
             const float centerY = lineY + L.lineHeight * 0.5f;
 
             // Breakpoint indicator (left lane of bpColWidth)
-            const bool hasBp = std::find(breakpoints.begin(), breakpoints.end(), vl.logicalLine + 1) != breakpoints.end();
+            const bool hasBp = ContainsSizeT(breakpoints, vl.logicalLine + 1);
             const bool hovBp = extData && (extData->hoveredGutterLine == static_cast<int>(vl.logicalLine));
             if (hasBp || hovBp) {
-                const float bpR = std::min(L.lineHeight * 0.28f, theme.Scale(5.0f) * effZoom);
-                const float bpX = innerBounds.x + std::max(bpR + theme.Scale(3.5f), L.bpColWidth * 0.25f);
+                const float bpR = keel::min(L.lineHeight * 0.28f, theme.Scale(5.0f) * effZoom);
+                const float bpX = innerBounds.x + keel::max(bpR + theme.Scale(3.5f), L.bpColWidth * 0.25f);
                 const Color bpCol = hasBp ? Color(239, 68, 68, 245) : Color(239, 68, 68, 105);
                 canvas.DrawRoundRect(Rect(bpX - bpR, centerY - bpR, bpR * 2.0f, bpR * 2.0f), bpR, bpCol, hasBp ? Color(254, 202, 202, 180) : Color(0, 0, 0, 0), 1.0f);
             }
 
             // Debugger execution arrow (▶) (right lane of bpColWidth, never overlapping breakpoint)
             if (isExecLine) {
-                const float ax = innerBounds.x + std::max(theme.Scale(14.5f) * effZoom, L.bpColWidth * 0.56f);
+                const float ax = innerBounds.x + keel::max(theme.Scale(14.5f) * effZoom, L.bpColWidth * 0.56f);
                 const float aw = theme.Scale(7.5f) * effZoom;
                 const float ah = theme.Scale(5.0f) * effZoom;
                 const Color arrowFill(251, 191, 36, 255);
@@ -3462,14 +3637,14 @@ void TextArea::Render(
                 char numBuf[16]{};
                 const int nLen = std::snprintf(numBuf, sizeof(numBuf), "%zu", vl.logicalLine + 1);
                 if (nLen > 0) {
-                    const std::string_view numStr(numBuf, static_cast<size_t>(nLen));
+                    const keel::StringRef numStr(numBuf, static_cast<size_t>(nLen));
                     const bool isCurrentLine = focused && !disabled && (vl.logicalLine == activeLogicalLine);
                     const Color numCol = disabled
                         ? pal.textDisabled
                         : (isExecLine ? Color(251, 191, 36) : (isCurrentLine ? editorTextPrimary : editorTextMuted));
                     const float numW = MeasureChunkNoTabs(&canvas, numStr, L.fontSize, FontStyle::Monospace);
                     const float gutterPadRight = L.metrics.spaceAdvance * 1.15f + L.foldColWidth;
-                    const float numX = innerBounds.x + std::max(2.0f, L.gutterWidth - gutterPadRight - numW);
+                    const float numX = innerBounds.x + keel::max(2.0f, L.gutterWidth - gutterPadRight - numW);
                     canvas.DrawTextStyled(numStr, Vec2{numX, textY}, L.fontSize, numCol, FontStyle::Monospace);
                 }
             }
@@ -3481,7 +3656,7 @@ void TextArea::Render(
                     const bool hovFold = extData && (extData->hoveredFoldLine == static_cast<int>(vl.logicalLine));
                     const Color chevCol = hovFold ? editorTextPrimary : editorTextSecondary;
                     const float cx = L.gutterRect.Right() - L.foldColWidth * 0.5f;
-                    const float icoSz = std::min(L.foldColWidth * 0.85f, theme.Scale(11.0f));
+                    const float icoSz = keel::min(L.foldColWidth * 0.85f, theme.Scale(11.0f));
                     const Rect chevRect(cx - icoSz * 0.5f, centerY - icoSz * 0.5f, icoSz, icoSz);
                     if (hovFold) {
                         canvas.DrawRoundRect(chevRect, theme.Scale(2.5f), editorBorderSubtle);
@@ -3498,11 +3673,11 @@ void TextArea::Render(
         const float startX = textViewport.x - clampedScrollX;
         const size_t vlEndOffset = vl.startOffset + vl.length;
         const LogicalLine& ll = logicalLines[vl.logicalLine];
-        const std::string_view fullLineStr = text.substr(ll.startOffset, ll.length);
-        const std::string_view subLineStr = text.substr(vl.startOffset, vl.length);
+        const keel::StringRef fullLineStr = text.substr(ll.startOffset, ll.length);
+        const keel::StringRef subLineStr = text.substr(vl.startOffset, vl.length);
 
         // Indent guides
-        const size_t tabStep = std::clamp<size_t>(opts.tabSize, 1, 16);
+        const size_t tabStep = keel::clamp<size_t>(opts.tabSize, 1, 16);
         if (opts.showIndentGuides && vl.isFirstSubLine && !fullLineStr.empty()) {
             size_t leadSpaces = 0;
             for (char ch : fullLineStr) {
@@ -3550,8 +3725,8 @@ void TextArea::Render(
                 const SearchMatch& m = searchMatches[mi];
                 if (m.logicalLine != vl.logicalLine) continue;
                 if (m.endOffset <= vl.startOffset || m.startOffset >= vlEndOffset) continue;
-                const size_t s0 = std::max(m.startOffset, vl.startOffset) - vl.startOffset;
-                const size_t s1 = std::min(m.endOffset, vlEndOffset) - vl.startOffset;
+                const size_t s0 = keel::max(m.startOffset, vl.startOffset) - vl.startOffset;
+                const size_t s1 = keel::min(m.endOffset, vlEndOffset) - vl.startOffset;
                 const float mx = startX + MeasureSegmentWidth(&canvas, subLineStr.substr(0, s0), L.fontSize, textStyle, opts.tabSize);
                 const float mw = MeasureSegmentWidth(&canvas, subLineStr.substr(s0, s1 - s0), L.fontSize, textStyle, opts.tabSize);
                 const bool isActiveMatch = (extData && mi == extData->activeMatchIdx);
@@ -3563,11 +3738,11 @@ void TextArea::Render(
 
         // Selection highlight rectangle
         if (hasSelection && focused && !disabled) {
-            const size_t s0 = std::max(selStart, vl.startOffset);
-            const size_t s1 = std::min(selEnd, vlEndOffset);
+            const size_t s0 = keel::max(selStart, vl.startOffset);
+            const size_t s1 = keel::min(selEnd, vlEndOffset);
             if (s1 > s0 || (selStart <= vl.startOffset && selEnd > vlEndOffset)) {
-                const std::string_view preSel = text.substr(vl.startOffset, s0 - vl.startOffset);
-                const std::string_view midSel = text.substr(s0, s1 - s0);
+                const keel::StringRef preSel = text.substr(vl.startOffset, s0 - vl.startOffset);
+                const keel::StringRef midSel = text.substr(s0, s1 - s0);
                 const float selX0 = startX + MeasureSegmentWidth(&canvas, preSel, L.fontSize, textStyle, opts.tabSize);
                 float selW = MeasureSegmentWidth(&canvas, midSel, L.fontSize, textStyle, opts.tabSize);
                 if (selEnd > vlEndOffset) {
@@ -3581,7 +3756,8 @@ void TextArea::Render(
 
         // Bracket matching boxes
         if (hasBracketPair) {
-            for (size_t bOff : {matchBracketOpen, matchBracketClose}) {
+            const size_t bracketOffsets[2] = {matchBracketOpen, matchBracketClose};
+            for (size_t bOff : bracketOffsets) {
                 if (bOff >= vl.startOffset && bOff < vlEndOffset) {
                     const size_t bCol = bOff - vl.startOffset;
                     const float bx = startX + MeasureSegmentWidth(&canvas, subLineStr.substr(0, bCol), L.fontSize, textStyle, opts.tabSize);
@@ -3599,7 +3775,7 @@ void TextArea::Render(
 
         // Track screen position of hoveredWord for DataTip overlay
         if (extData && !extData->hoveredWord.empty() && vl.logicalLine == extData->hoveredWordLine && vl.isFirstSubLine) {
-            const size_t wCol = std::min(extData->hoveredWordCol, subLineStr.size());
+            const size_t wCol = keel::min(extData->hoveredWordCol, subLineStr.size());
             const float wx = startX + MeasureSegmentWidth(&canvas, subLineStr.substr(0, wCol), L.fontSize, textStyle, opts.tabSize);
             const float ww = MeasureSegmentWidth(&canvas, extData->hoveredWord, L.fontSize, textStyle, opts.tabSize);
             hoveredWordScreenRect = Rect(wx, lineY, ww, L.lineHeight);
@@ -3608,7 +3784,7 @@ void TextArea::Render(
         // Render text or syntax spans
         const Color wsCol = editorTextMuted.WithAlphaF(0.55f);
         const float wsCenterY = lineY + L.lineHeight * 0.52f;
-        const float wsDotR = std::max(1.1f, theme.Scale(1.35f) * effZoom);
+        const float wsDotR = keel::max(1.1f, theme.Scale(1.35f) * effZoom);
         auto drawSpaceDots = [&](float baseX, size_t count) {
             if (!opts.showWhitespace || count == 0) return;
             for (size_t i = 0; i < count; ++i) {
@@ -3620,8 +3796,8 @@ void TextArea::Render(
         };
         auto drawTabArrows = [&](float baseX, size_t count) {
             if (!opts.showWhitespace || count == 0) return;
-            const float strokeW = std::max(1.0f, theme.Scale(1.15f) * effZoom);
-            const float headSz = std::min(L.lineHeight * 0.20f, L.metrics.spaceAdvance * 0.45f);
+            const float strokeW = keel::max(1.0f, theme.Scale(1.15f) * effZoom);
+            const float headSz = keel::min(L.lineHeight * 0.20f, L.metrics.spaceAdvance * 0.45f);
             for (size_t i = 0; i < count; ++i) {
                 const float tx0 = baseX + static_cast<float>(i) * L.metrics.tabAdvance + L.metrics.spaceAdvance * 0.35f;
                 const float tx1 = baseX + static_cast<float>(i + 1) * L.metrics.tabAdvance - L.metrics.spaceAdvance * 0.35f;
@@ -3635,7 +3811,7 @@ void TextArea::Render(
 
         float curX = startX;
         if (vl.length > 0) {
-            auto drawPiece = [&](std::string_view piece, Color col) {
+            auto drawPiece = [&](keel::StringRef piece, Color col) {
                 size_t p = 0;
                 while (p < piece.size()) {
                     if (piece[p] == '\t') {
@@ -3649,10 +3825,10 @@ void TextArea::Render(
                         p = tabEnd;
                     } else {
                         size_t nextTab = piece.find('\t', p);
-                        if (nextTab == std::string_view::npos) {
+                        if (nextTab == keel::StringRef::npos) {
                             nextTab = piece.size();
                         }
-                        const std::string_view seg = piece.substr(p, nextTab - p);
+                        const keel::StringRef seg = piece.substr(p, nextTab - p);
 
                         size_t firstNonSpace = 0;
                         while (firstNonSpace < seg.size() && seg[firstNonSpace] == ' ') {
@@ -3668,7 +3844,7 @@ void TextArea::Render(
                             while (lastNonSpace > firstNonSpace && seg[lastNonSpace - 1] == ' ') {
                                 --lastNonSpace;
                             }
-                            const std::string_view body = seg.substr(firstNonSpace, lastNonSpace - firstNonSpace);
+                            const keel::StringRef body = seg.substr(firstNonSpace, lastNonSpace - firstNonSpace);
                             const float bodyW = MeasureChunkNoTabs(&canvas, body, L.fontSize, textStyle);
                             if (curX + bodyW >= textViewport.x - 4.0f && curX <= textViewport.Right() + 4.0f) {
                                 canvas.DrawTextStyled(body, Vec2{curX, textY}, L.fontSize, col, textStyle);
@@ -3723,8 +3899,8 @@ void TextArea::Render(
                     if (spEnd <= subStartCol) continue;
                     if (spStart >= subEndCol) break;
 
-                    const size_t clipStart = std::max(spStart, subStartCol);
-                    const size_t clipEnd = std::min(spEnd, subEndCol);
+                    const size_t clipStart = keel::max(spStart, subStartCol);
+                    const size_t clipEnd = keel::min(spEnd, subEndCol);
 
                     if (clipStart > curCol) {
                         drawPiece(fullLineStr.substr(curCol, clipStart - curCol), synPal.identifier);
@@ -3749,8 +3925,8 @@ void TextArea::Render(
             const float eolW = L.metrics.spaceAdvance * 0.62f;
             const float eolTop = wsCenterY - L.lineHeight * 0.18f;
             const float eolBot = wsCenterY + L.lineHeight * 0.12f;
-            const float headSz = std::min(L.lineHeight * 0.14f, L.metrics.spaceAdvance * 0.30f);
-            const float strokeW = std::max(1.0f, theme.Scale(1.1f) * effZoom);
+            const float headSz = keel::min(L.lineHeight * 0.14f, L.metrics.spaceAdvance * 0.30f);
+            const float strokeW = keel::max(1.0f, theme.Scale(1.1f) * effZoom);
             if (eolX + eolW >= textViewport.x - 2.0f && eolX <= textViewport.Right() + 2.0f) {
                 canvas.DrawLine({eolX + eolW, eolTop}, {eolX + eolW, eolBot}, wsCol, strokeW);
                 canvas.DrawLine({eolX + eolW, eolBot}, {eolX, eolBot}, wsCol, strokeW);
@@ -3775,7 +3951,7 @@ void TextArea::Render(
         // Attached to the end of the logical line (last visual sub-line, or folded block header)
         const bool isLastSubLine = (vl.startCol + vl.length >= ll.length) || isFoldedStart;
         if (isLastSubLine && !opts.inlineValues.empty()) {
-            const std::string_view cmtPrefix = (opts.syntax.has_value() && !opts.syntax->lineComment.empty())
+            const keel::StringRef cmtPrefix = (opts.syntax.has_value() && !opts.syntax->lineComment.empty())
                 ? opts.syntax->lineComment
                 : "//";
             if (!ExtractCodeWithoutLineComment(fullLineStr, cmtPrefix).empty()) {
@@ -3786,7 +3962,7 @@ void TextArea::Render(
                         float ivX = curX + L.metrics.spaceAdvance * 2.2f;
                         bool clampedRight = false;
                         if (opts.wordWrap && ivX + ivW > textViewport.Right() - theme.Scale(4.0f)) {
-                            ivX = std::max(textViewport.x + theme.Scale(4.0f), textViewport.Right() - theme.Scale(4.0f) - ivW);
+                            ivX = keel::max(textViewport.x + theme.Scale(4.0f), textViewport.Right() - theme.Scale(4.0f) - ivW);
                             clampedRight = true;
                         }
                         const float ivH = L.lineHeight - theme.Scale(3.0f);
@@ -3808,34 +3984,34 @@ void TextArea::Render(
             for (const CodeDiagnostic& diag : opts.diagnostics) {
                 if (diag.line != vl.logicalLine + 1) continue;
                 size_t dStart = diag.startCol;
-                size_t dEnd = (diag.endCol > diag.startCol) ? std::min<size_t>(diag.endCol, fullLineStr.size()) : fullLineStr.size();
+                size_t dEnd = (diag.endCol > diag.startCol) ? keel::min<size_t>(diag.endCol, fullLineStr.size()) : fullLineStr.size();
                 if (dStart == 0 && diag.endCol == 0) {
                     while (dStart < fullLineStr.size() && (fullLineStr[dStart] == ' ' || fullLineStr[dStart] == '\t')) ++dStart;
                 }
                 if (dEnd <= vl.startCol || dStart >= vl.startCol + vl.length) continue;
-                const size_t s0 = std::max(dStart, vl.startCol) - vl.startCol;
-                const size_t s1 = std::min(dEnd, vl.startCol + vl.length) - vl.startCol;
+                const size_t s0 = keel::max(dStart, vl.startCol) - vl.startCol;
+                const size_t s1 = keel::min(dEnd, vl.startCol + vl.length) - vl.startCol;
                 const float x0 = startX + MeasureSegmentWidth(&canvas, subLineStr.substr(0, s0), L.fontSize, textStyle, opts.tabSize);
                 const float x1 = startX + MeasureSegmentWidth(&canvas, subLineStr.substr(0, s1), L.fontSize, textStyle, opts.tabSize);
                 const Color sqCol = (diag.severity == DiagnosticSeverity::Error) ? Color(239, 68, 68, 235)
                                   : (diag.severity == DiagnosticSeverity::Warning) ? Color(245, 158, 11, 235)
                                   : Color(56, 189, 248, 220);
-                DrawWavyUnderline(canvas, x0, std::max(x0 + L.metrics.spaceAdvance, x1), lineY + L.lineHeight - theme.Scale(2.0f), sqCol, effZoom);
+                DrawWavyUnderline(canvas, x0, keel::max(x0 + L.metrics.spaceAdvance, x1), lineY + L.lineHeight - theme.Scale(2.0f), sqCol, effZoom);
             }
         }
 
         // Render active cursor caret (when focus is in the code editor)
         if (focused && cursorVisible && !disabled && vIdx == activeVisRow && (!extData || extData->overlayFocus == 0)) {
             const size_t colInSub = (safeCursor >= vl.startOffset)
-                ? std::min(safeCursor - vl.startOffset, vl.length)
+                ? keel::min(safeCursor - vl.startOffset, vl.length)
                 : 0;
-            const std::string_view beforeCursor = text.substr(vl.startOffset, colInSub);
+            const keel::StringRef beforeCursor = text.substr(vl.startOffset, colInSub);
             const float caretX = startX + MeasureSegmentWidth(&canvas, beforeCursor, L.fontSize, textStyle, opts.tabSize);
             if (caretX >= textViewport.x - 2.0f && caretX <= textViewport.Right() + 2.0f) {
-                const float caretH = std::max(L.glyphBoxH, L.lineHeight - theme.Scale(2.0f));
+                const float caretH = keel::max(L.glyphBoxH, L.lineHeight - theme.Scale(2.0f));
                 const float caretY = lineY + (L.lineHeight - caretH) * 0.5f;
                 const float reqCaretW = extData ? extData->cursorWidth : 1.8f;
-                const float caretW = std::max(1.0f, theme.Scale(reqCaretW));
+                const float caretW = keel::max(1.0f, theme.Scale(reqCaretW));
                 canvas.DrawRect(
                     Rect(caretX, caretY, caretW, caretH),
                     editorCaret
@@ -3861,19 +4037,19 @@ void TextArea::Render(
 
         const float microStep = theme.Scale(3.0f);
         const float microH = theme.Scale(1.6f);
-        const size_t maxMiniLines = static_cast<size_t>(std::max(1.0f, L.minimapRect.h / microStep));
+        const size_t maxMiniLines = static_cast<size_t>(keel::max(1.0f, L.minimapRect.h / microStep));
         const size_t startVis = (visualLines.size() > maxMiniLines && L.maxScrollY > 0.0f)
             ? static_cast<size_t>((clampedScrollY / L.maxScrollY) * static_cast<float>(visualLines.size() - maxMiniLines))
             : 0;
-        const size_t endVis = std::min(visualLines.size(), startVis + maxMiniLines);
+        const size_t endVis = keel::min(visualLines.size(), startVis + maxMiniLines);
 
         // Draw viewport slider box on minimap
-        const float visCountF = static_cast<float>(std::max<size_t>(1, lastVisLine - firstVisLine));
+        const float visCountF = static_cast<float>(keel::max<size_t>(1, lastVisLine - firstVisLine));
         const float vpTopY = L.minimapRect.y + static_cast<float>(firstVisLine > startVis ? firstVisLine - startVis : 0) * microStep;
-        const float vpH = std::min(L.minimapRect.Bottom() - vpTopY, visCountF * microStep);
+        const float vpH = keel::min(L.minimapRect.Bottom() - vpTopY, visCountF * microStep);
         const bool miniActive = extData && (extData->minimapHovered || extData->minimapDragging);
         canvas.DrawRect(
-            Rect(L.minimapRect.x + 1.0f, vpTopY, L.minimapRect.w - 1.0f, std::max(theme.Scale(10.0f), vpH)),
+            Rect(L.minimapRect.x + 1.0f, vpTopY, L.minimapRect.w - 1.0f, keel::max(theme.Scale(10.0f), vpH)),
             pal.focusRing.WithAlphaF(miniActive ? 0.22f : 0.12f)
         );
 
@@ -3881,14 +4057,14 @@ void TextArea::Render(
         for (size_t mv = startVis; mv < endVis; ++mv) {
             const VisualLine& vl = visualLines[mv];
             const float my = L.minimapRect.y + static_cast<float>(mv - startVis) * microStep + theme.Scale(2.0f);
-            const std::string_view ls = text.substr(vl.startOffset, vl.length);
+            const keel::StringRef ls = text.substr(vl.startOffset, vl.length);
 
             // Execution line marker on minimap
             if (opts.executionLine == vl.logicalLine + 1) {
                 canvas.DrawRect(Rect(L.minimapRect.x + 1.0f, my - 0.5f, L.minimapRect.w - 2.0f, microStep), Color(251, 191, 36, 160));
             }
             // Breakpoint dot on minimap
-            if (std::find(breakpoints.begin(), breakpoints.end(), vl.logicalLine + 1) != breakpoints.end()) {
+            if (ContainsSizeT(breakpoints, vl.logicalLine + 1)) {
                 canvas.DrawRect(Rect(L.minimapRect.x + 2.0f, my, theme.Scale(3.5f), microStep), Color(239, 68, 68, 230));
             }
 
@@ -3899,7 +4075,7 @@ void TextArea::Render(
                 if (cIdx >= ls.size() || cIdx >= 88) break;
                 const size_t tokStart = cIdx;
                 while (cIdx < ls.size() && ls[cIdx] != ' ' && ls[cIdx] != '\t' && cIdx < 88) ++cIdx;
-                const std::string_view tok = ls.substr(tokStart, cIdx - tokStart);
+                const keel::StringRef tok = ls.substr(tokStart, cIdx - tokStart);
                 Color mCol = synPal.identifier.WithAlphaF(0.55f);
                 if (useConfigSyntax) {
                     if (!opts.syntax->lineComment.empty() && tok.starts_with(opts.syntax->lineComment)) {
@@ -3913,7 +4089,7 @@ void TextArea::Render(
                     }
                 }
                 const float mx = L.minimapRect.x + theme.Scale(4.0f) + static_cast<float>(tokStart) * charScale;
-                const float mw = std::max(1.5f, static_cast<float>(cIdx - tokStart) * charScale);
+                const float mw = keel::max(1.5f, static_cast<float>(cIdx - tokStart) * charScale);
                 canvas.DrawRect(Rect(mx, my, mw, microH), mCol);
             }
         }
@@ -3927,7 +4103,7 @@ void TextArea::Render(
         canvas.DrawRoundRect(L.vThumbRect, sm.cornerRadius, thumbCol);
 
         // Overview ruler ticks on vertical scrollbar track
-        const float totalLinesF = static_cast<float>(std::max<size_t>(1, logicalLines.size()));
+        const float totalLinesF = static_cast<float>(keel::max<size_t>(1, logicalLines.size()));
         for (const SearchMatch& m : searchMatches) {
             const float ty = L.vTrackRect.y + (static_cast<float>(m.logicalLine) / totalLinesF) * L.vTrackRect.h;
             canvas.DrawRect(Rect(L.vTrackRect.x, ty, L.vTrackRect.w, theme.Scale(2.0f)), Color(245, 158, 11, 210));
@@ -3960,14 +4136,14 @@ void TextArea::Render(
             if (dv.name == extData->hoveredWord) {
                 const float tipFs = theme.GetFontSize(TextRole::LabelSmall, size);
                 char headerBuf[256];
-                const std::string_view headerStr = dv.type.empty()
-                    ? std::string_view(dv.name)
-                    : std::string_view(keel::format_buf(headerBuf, "%s : %s", dv.name, dv.type).data());
+                const keel::StringRef headerStr = dv.type.empty()
+                    ? dv.name
+                    : keel::format_buf(headerBuf, "%s : %s", dv.name, dv.type);
                 const float w1 = MeasureChunkNoTabs(&canvas, headerStr, tipFs, FontStyle::Monospace);
                 const float w2 = MeasureChunkNoTabs(&canvas, dv.value, tipFs, FontStyle::Monospace);
-                const float cardW = std::max(w1, w2) + theme.Scale(18.0f);
+                const float cardW = keel::max(w1, w2) + theme.Scale(18.0f);
                 const float cardH = theme.Scale(38.0f);
-                float cardX = std::clamp(hoveredWordScreenRect.x, textViewport.x + 4.0f, std::max(textViewport.x + 4.0f, textViewport.Right() - cardW - 4.0f));
+                float cardX = keel::clamp(hoveredWordScreenRect.x, textViewport.x + 4.0f, keel::max(textViewport.x + 4.0f, textViewport.Right() - cardW - 4.0f));
                 float cardY = hoveredWordScreenRect.y - cardH - theme.Scale(4.0f);
                 if (cardY < innerBounds.y + 4.0f) {
                     cardY = hoveredWordScreenRect.Bottom() + theme.Scale(4.0f);
@@ -3995,7 +4171,7 @@ void TextArea::Render(
 
         // Draw VS Code-style 6-dot drag grip on the left side of the floating debug toolbar
         const float gripSlotW = DT.btnRects[0].x - DT.panelRect.x;
-        const float dotSz = std::max(2.0f, tbCm.iconSize * 0.14f);
+        const float dotSz = keel::max(2.0f, tbCm.iconSize * 0.14f);
         const float dotStepY = tbCm.iconSize * 0.32f;
         const float dotStepX = tbCm.iconSize * 0.28f;
         const float gripX = DT.panelRect.x + (gripSlotW - dotStepX - dotSz) * 0.5f;
@@ -4011,12 +4187,12 @@ void TextArea::Render(
         const Rect sepRect(
             DT.btnRects[3].Right(),
             DT.panelRect.y,
-            std::max(1.0f, DT.btnRects[4].x - DT.btnRects[3].Right()),
+            keel::max(1.0f, DT.btnRects[4].x - DT.btnRects[3].Right()),
             DT.panelRect.h
         );
         Toolbar::RenderSeparator(canvas, sepRect, pal.borderSubtle, theme);
 
-        static constexpr std::array<IconId, 6> kDbgIcons = {
+        static constexpr keel::StaticArray<IconId, 6> kDbgIcons = {
             IconId::DebugContinue, // Continue (F5)
             IconId::StepOver,      // Step Over (F10)
             IconId::StepInto,      // Step Into (F11)
@@ -4024,7 +4200,7 @@ void TextArea::Render(
             IconId::Refresh,       // Restart
             IconId::Stop           // Stop (Shift+F5)
         };
-        const std::array<Color, 6> dbgColors = {
+        const keel::StaticArray<Color, 6> dbgColors = {
             Color(34, 197, 94),   // Continue (F5) - Emerald
             Color(56, 189, 248),  // Step Over (F10) - Sky Blue
             Color(56, 189, 248),  // Step Into (F11) - Sky Blue
@@ -4064,22 +4240,22 @@ void TextArea::Render(
             Button::Render(canvas, rBtn, bOpts, tbSize, hovBtn == btnIdx, false, disabled, theme, false);
         };
 
-        const float inputPadX = std::max(theme.Scale(6.0f), tbCm.paddingX * 0.55f);
+        const float inputPadX = keel::max(theme.Scale(6.0f), tbCm.paddingX * 0.55f);
 
         if (searchOpen) {
             renderSquareToolBtn(S.toggleReplaceBtn, replaceOpen ? IconId::ChevronDown : IconId::ChevronRight, replaceOpen, 0);
 
             const bool findFocused = (extData->overlayFocus == 1);
             canvas.DrawRoundRect(S.findInputRect, btnRad, pal.inputBackground, findFocused ? pal.focusRing : pal.inputBorder, 1.0f);
-            const Rect findTextRect(S.findInputRect.x + inputPadX, S.findInputRect.y, std::max(10.0f, S.caseBtnRect.x - S.findInputRect.x - inputPadX * 1.3f), S.findInputRect.h);
+            const Rect findTextRect(S.findInputRect.x + inputPadX, S.findInputRect.y, keel::max(10.0f, S.caseBtnRect.x - S.findInputRect.x - inputPadX * 1.3f), S.findInputRect.h);
             if (extData->searchQuery.empty() && !findFocused) {
                 canvas.DrawTextBox("Find...", findTextRect, badgeFs, pal.textMuted, 0.0f, 0.5f);
             } else {
                 canvas.DrawTextBox(extData->searchQuery, findTextRect, badgeFs, pal.textPrimary, 0.0f, 0.5f);
                 if (findFocused && cursorVisible) {
                     const float qW = TextUtil::MeasureWidth(extData->searchQuery, badgeFs, &canvas);
-                    const float cx = std::min(findTextRect.Right() - 2.0f, findTextRect.x + qW + 1.0f);
-                    const float caretPad = std::max(3.0f, S.findInputRect.h * 0.16f);
+                    const float cx = keel::min(findTextRect.Right() - 2.0f, findTextRect.x + qW + 1.0f);
+                    const float caretPad = keel::max(3.0f, S.findInputRect.h * 0.16f);
                     canvas.DrawRect(Rect(cx, S.findInputRect.y + caretPad, 1.5f, S.findInputRect.h - caretPad * 2.0f), pal.caret);
                 }
             }
@@ -4108,7 +4284,7 @@ void TextArea::Render(
                 const float bx1 = S.wordBtnRect.x + S.wordBtnRect.w * 0.20f;
                 const float bx2 = S.wordBtnRect.Right() - S.wordBtnRect.w * 0.20f;
                 const float by = S.wordBtnRect.Bottom() - S.wordBtnRect.h * 0.14f;
-                const float bh = std::max(1.8f, S.wordBtnRect.h * 0.10f);
+                const float bh = keel::max(1.8f, S.wordBtnRect.h * 0.10f);
                 canvas.DrawLine({bx1, by - bh}, {bx1, by}, fg, 1.2f);
                 canvas.DrawLine({bx1, by}, {bx2, by}, fg, 1.2f);
                 canvas.DrawLine({bx2, by - bh}, {bx2, by}, fg, 1.2f);
@@ -4142,8 +4318,8 @@ void TextArea::Render(
                     canvas.DrawTextBox(extData->replaceQuery, repTextRect, badgeFs, pal.textPrimary, 0.0f, 0.5f);
                     if (repFocused && cursorVisible) {
                         const float qW = TextUtil::MeasureWidth(extData->replaceQuery, badgeFs, &canvas);
-                        const float cx = std::min(repTextRect.Right() - 2.0f, repTextRect.x + qW + 1.0f);
-                        const float caretPad = std::max(3.0f, S.replaceInputRect.h * 0.16f);
+                        const float cx = keel::min(repTextRect.Right() - 2.0f, repTextRect.x + qW + 1.0f);
+                        const float caretPad = keel::max(3.0f, S.replaceInputRect.h * 0.16f);
                         canvas.DrawRect(Rect(cx, S.replaceInputRect.y + caretPad, 1.5f, S.replaceInputRect.h - caretPad * 2.0f), pal.caret);
                     }
                 }
@@ -4278,14 +4454,14 @@ void TextArea::Render(
         }
         canvas.DrawTextBox(
             leftStatus,
-            Rect(sbX, L.statusBarRect.y, std::max(10.0f, L.statusBarRect.w * 0.65f - (sbX - L.statusBarRect.x)), L.statusBarRect.h),
+            Rect(sbX, L.statusBarRect.y, keel::max(10.0f, L.statusBarRect.w * 0.65f - (sbX - L.statusBarRect.x)), L.statusBarRect.h),
             sbFs,
             editorTextSecondary,
             0.0f,
             0.5f
         );
 
-        const std::string_view langName = (opts.syntax.has_value() && opts.syntax->enabled)
+        const keel::StringRef langName = (opts.syntax.has_value() && opts.syntax->enabled)
             ? opts.syntax->languageName
             : "Plain Text";
         char rightStatus[96]{};

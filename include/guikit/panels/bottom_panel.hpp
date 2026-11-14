@@ -1,11 +1,11 @@
 #pragma once
 
-#include <optional>
-#include <source_location>
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
+#include "keel/core.h"
+#include "keel/optional.h"
 
 namespace guikit {
 
@@ -22,25 +22,25 @@ enum class BottomPanelMode : uint8_t {
 /// Options for configuring a dockable bottom panel surface container.
 struct BottomPanelOptions {
     BottomPanelMode defaultMode{BottomPanelMode::Expanded}; ///< Initial mode when managed by Context
-    std::optional<float> height{220.0f};                    ///< Explicit panel height in Expanded mode (nullopt = Fit to content)
-    std::optional<float> minHeight{std::nullopt};           ///< Optional minimum height in logical dp (nullopt = auto from theme metrics)
-    std::optional<float> maxHeight{std::nullopt};           ///< Optional maximum height in logical dp (nullopt = auto from parent height * maxRatio)
+    keel::Optional<float> height{220.0f};                    ///< Explicit panel height in Expanded mode (nullopt = Fit to content)
+    keel::Optional<float> minHeight{keel::kNullOpt};           ///< Optional minimum height in logical dp (nullopt = auto from theme metrics)
+    keel::Optional<float> maxHeight{keel::kNullOpt};           ///< Optional maximum height in logical dp (nullopt = auto from parent height * maxRatio)
     float maxRatio{0.75f};                                  ///< Maximum fraction of parent container height the panel can occupy (0.15 .. 0.95)
     bool resizable{true};                                   ///< Allow dragging the top border (sash) up/down to resize or snap-collapse
     bool allowCollapse{true};                               ///< Support Collapsed (completely minimized 0px) mode via drag-snap or toggle
     bool showToggleButton{false};                           ///< Optional floating edge pill button on the top border
     bool scrollable{false};                                 ///< Automatically scroll vertically when content overflows
     VisibilityPolicy scrollbar{VisibilityPolicy::Auto};
-    std::optional<float> gap{0.0f};                         ///< Gap between direct children (0px by default so inner Toolbar docks flush)
-    std::optional<Padding> padding{Padding::All(0.0f)};     ///< Internal padding (0px by default so inner Toolbar/views fill edge-to-edge)
+    keel::Optional<float> gap{0.0f};                         ///< Gap between direct children (0px by default so inner Toolbar docks flush)
+    keel::Optional<Padding> padding{Padding::All(0.0f)};     ///< Internal padding (0px by default so inner Toolbar/views fill edge-to-edge)
     StateColor background{};
     Border border{.width = 1.0f};
     bool clipChildren{true};
     bool disabled{false};
     const UiTheme* theme{nullptr};
-    std::optional<float> scale{std::nullopt};
-    std::optional<bool> debugBounds{std::nullopt};
-    std::optional<bool> inspectMode{std::nullopt};
+    keel::Optional<float> scale{keel::kNullOpt};
+    keel::Optional<bool> debugBounds{keel::kNullOpt};
+    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// Persistent state stored per BottomPanel in Context.
@@ -71,7 +71,7 @@ public:
         : ContainerScope(ctx, node), response(res), m_mode(mode), m_height(height) {}
 
     BottomPanelScope(BottomPanelScope&& other) noexcept
-        : ContainerScope(std::move(other))
+        : ContainerScope(keel::move(other))
         , response(other.response)
         , m_mode(other.m_mode)
         , m_height(other.m_height) {
@@ -80,7 +80,7 @@ public:
 
     BottomPanelScope& operator=(BottomPanelScope&& other) noexcept {
         if (this != &other) {
-            ContainerScope::operator=(std::move(other));
+            ContainerScope::operator=(keel::move(other));
             response = other.response;
             m_mode = other.m_mode;
             m_height = other.m_height;
@@ -111,7 +111,7 @@ public:
     [[nodiscard]] static BottomPanelScope Open(
         Context& ctx,
         const BottomPanelOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return Open(ctx, static_cast<BottomPanelMode*>(nullptr), opts, loc);
     }
@@ -120,14 +120,14 @@ public:
         Context& ctx,
         bool* open,
         const BottomPanelOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] static BottomPanelScope Open(
         Context& ctx,
         BottomPanelMode* externalMode,
         const BottomPanelOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 };
 

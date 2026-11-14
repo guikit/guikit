@@ -1,9 +1,9 @@
 #pragma once
 
-#include <optional>
-#include <span>
-#include <source_location>
-#include <string_view>
+#include <cstdint>
+#include "keel/core.h"
+#include "keel/optional.h"
+#include "keel/ref.h"
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -19,21 +19,21 @@ struct ColorPickerOptions {
     UiText tooltip{};                              ///< Optional floating tooltip shown on hover
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
     Align align{Align::Start};                     ///< Standalone horizontal control alignment (Start, Center, End)
-    std::optional<float> width{std::nullopt};      ///< Control width in dp (or legacy ratio 0.0..1.0 in Fill)
-    std::optional<float> widthRatio{std::nullopt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
-    std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = inherit from UiSize)
-    std::optional<float> minWidth{std::nullopt};   ///< Minimum control width constraint in points
+    keel::Optional<float> width{keel::kNullOpt};   ///< Control width in dp (or legacy ratio 0.0..1.0 in Fill)
+    keel::Optional<float> widthRatio{keel::kNullOpt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
+    keel::Optional<float> height{keel::kNullOpt};  ///< Explicit control height in points (nullopt = inherit from UiSize)
+    keel::Optional<float> minWidth{keel::kNullOpt}; ///< Minimum control width constraint in points
     StateColor background{StateColor::Surface()};  ///< Control well surface fill color
     Border border{};                               ///< Control well border stroke & corner radius
     bool showHex{true};                            ///< Display formatted #RRGGBB / #RRGGBBAA text inside the closed swatch button
     bool showAlpha{true};                          ///< Enable alpha channel slider and #RRGGBBAA hex representation
     bool showSwatches{true};                       ///< Display quick preset color swatches inside the picker panel/popover
     bool inlinePanel{false};                       ///< Render the full interactive SV + Hue/Alpha picker inline instead of a closed button + popover
-    std::span<const Color> swatches{};             ///< Optional custom color swatches (preferred name; empty = fallback to presets or default palette)
-    std::span<const Color> presets{};              ///< Legacy alias for swatches (empty = default 10-color palette)
+    keel::ArrayRef<Color> swatches{};              ///< Optional custom color swatches (preferred name; empty = fallback to presets or default palette)
+    keel::ArrayRef<Color> presets{};               ///< Legacy alias for swatches (empty = default 10-color palette)
     bool disabled{false};                          ///< Interaction suppression
     const UiTheme* theme{nullptr};                 ///< Optional scoped theme override
-    std::optional<float> scale{std::nullopt};      ///< Optional scoped scale factor override
+    keel::Optional<float> scale{keel::kNullOpt};   ///< Optional scoped scale factor override
 };
 
 /// Internal runtime state stored per-widget ID for ColorPicker HSV continuity and drag tracking.
@@ -54,7 +54,7 @@ struct ColorPickerData {
     float h{210.0f};
     float s{0.75f};
     float v{0.90f};
-    std::string_view hexText{};
+    keel::StringRef hexText{};
     int hoveredSwatch{-1};
     bool isOpen{false};
 };
@@ -67,7 +67,7 @@ public:
         Context& ctx,
         Color& value,
         const ColorPickerOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Converts RGB [0..255] to HSV (h in [0..360], s in [0..1], v in [0..1]).
@@ -99,7 +99,7 @@ public:
         float h,
         float s,
         float v,
-        std::string_view hexText,
+        keel::StringRef hexText,
         int hoveredSwatch,
         const ColorPickerOptions& opts,
         UiSize size,
@@ -118,7 +118,7 @@ public:
         float h,
         float s,
         float v,
-        std::string_view hexText,
+        keel::StringRef hexText,
         int hoveredSwatch,
         const ColorPickerOptions& opts,
         UiSize size,

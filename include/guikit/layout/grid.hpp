@@ -1,7 +1,5 @@
 #pragma once
 
-#include <optional>
-#include <source_location>
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
@@ -13,47 +11,47 @@ class Context;
 
 /// Options for configuring a 12-column responsive cell grid layout.
 struct GridOptions {
-    int columns{12};                                ///< Total number of columns in the grid (default: 12)
-    float minColWidth{0.0f};                        ///< Minimum column width before wrapping items (0 = auto content intrinsic)
-    std::optional<float> gap{std::nullopt};        ///< Horizontal gap between columns (nullopt = from theme)
-    std::optional<float> runGap{std::nullopt};     ///< Vertical gap between wrapped rows (nullopt = match gap)
-    std::optional<Padding> padding{std::nullopt};   ///< Container padding (nullopt = zero)
+    int columns{12};                                  ///< Total number of columns in the grid (default: 12)
+    float minColWidth{0.0f};                          ///< Minimum column width before wrapping items (0 = auto content intrinsic)
+    keel::Optional<float> gap{keel::kNullOpt};        ///< Horizontal gap between columns (nullopt = from theme)
+    keel::Optional<float> runGap{keel::kNullOpt};     ///< Vertical gap between wrapped rows (nullopt = match gap)
+    keel::Optional<Padding> padding{keel::kNullOpt};  ///< Container padding (nullopt = zero)
     Alignment align{Alignment::Stretch};
     Justify justify{Justify::Start};
     SizeMode widthMode{SizeMode::Stretch};
     SizeMode heightMode{SizeMode::Fit};
-    std::optional<float> width{std::nullopt};
-    std::optional<float> height{std::nullopt};
-    std::optional<float> minWidth{std::nullopt};
-    std::optional<float> maxWidth{std::nullopt};
-    std::optional<float> minHeight{std::nullopt};
-    std::optional<float> maxHeight{std::nullopt};
+    keel::Optional<float> width{keel::kNullOpt};
+    keel::Optional<float> height{keel::kNullOpt};
+    keel::Optional<float> minWidth{keel::kNullOpt};
+    keel::Optional<float> maxWidth{keel::kNullOpt};
+    keel::Optional<float> minHeight{keel::kNullOpt};
+    keel::Optional<float> maxHeight{keel::kNullOpt};
     float flexGrow{1.0f};
     bool disabled{false};
     const UiTheme* theme{nullptr};
-    std::optional<float> scale{std::nullopt};
-    std::optional<bool> debugBounds{std::nullopt};
-    std::optional<bool> inspectMode{std::nullopt};
+    keel::Optional<float> scale{keel::kNullOpt};
+    keel::Optional<bool> debugBounds{keel::kNullOpt};
+    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// Options for configuring an individual grid cell slot.
 struct CellOptions {
-    float minWidth{0.0f};                           ///< Minimum width constraint (0 = auto content intrinsic)
-    std::optional<float> maxWidth{std::nullopt};
-    std::optional<float> height{std::nullopt};
-    std::optional<float> minHeight{std::nullopt};
-    std::optional<float> maxHeight{std::nullopt};
-    std::optional<float> gap{std::nullopt};        ///< Gap between stacked children inside this cell
-    std::optional<Padding> padding{std::nullopt};   ///< Internal cell padding (nullopt = zero)
+    float minWidth{0.0f};                             ///< Minimum width constraint (0 = auto content intrinsic)
+    keel::Optional<float> maxWidth{keel::kNullOpt};
+    keel::Optional<float> height{keel::kNullOpt};
+    keel::Optional<float> minHeight{keel::kNullOpt};
+    keel::Optional<float> maxHeight{keel::kNullOpt};
+    keel::Optional<float> gap{keel::kNullOpt};        ///< Gap between stacked children inside this cell
+    keel::Optional<Padding> padding{keel::kNullOpt};  ///< Internal cell padding (nullopt = zero)
     Alignment align{Alignment::Stretch};
     Justify justify{Justify::Start};
     SizeMode heightMode{SizeMode::Fit};
     bool disabled{false};
-    bool clipChildren{false};                       ///< Clip cell children to cell boundaries (default: false)
+    bool clipChildren{false};                         ///< Clip cell children to cell boundaries (default: false)
     const UiTheme* theme{nullptr};
-    std::optional<float> scale{std::nullopt};
-    std::optional<bool> debugBounds{std::nullopt};
-    std::optional<bool> inspectMode{std::nullopt};
+    keel::Optional<float> scale{keel::kNullOpt};
+    keel::Optional<bool> debugBounds{keel::kNullOpt};
+    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// Specialized RAII Scope guard for Grid containers providing direct cell slot helpers.
@@ -62,18 +60,18 @@ public:
     using ContainerScope::ContainerScope;
 
     /// Arbitrary span cell slot (1..12 columns)
-    [[nodiscard]] ContainerScope Cell(int span, CellOptions opts = {}, std::source_location loc = std::source_location::current());
+    [[nodiscard]] ContainerScope Cell(int span, CellOptions opts = {}, keel::SourceLocation loc = keel::SourceLocation::current());
 
     /// Full-width cell slot spanning all columns of this Grid
-    [[nodiscard]] ContainerScope Cell(CellOptions opts = {}, std::source_location loc = std::source_location::current());
+    [[nodiscard]] ContainerScope Cell(CellOptions opts = {}, keel::SourceLocation loc = keel::SourceLocation::current());
 
-    [[nodiscard]] ContainerScope Cell12(CellOptions opts = {}, std::source_location loc = std::source_location::current());
-    [[nodiscard]] ContainerScope Cell8(CellOptions opts = {}, std::source_location loc = std::source_location::current());
-    [[nodiscard]] ContainerScope Cell6(CellOptions opts = {}, std::source_location loc = std::source_location::current());
-    [[nodiscard]] ContainerScope Cell4(CellOptions opts = {}, std::source_location loc = std::source_location::current());
-    [[nodiscard]] ContainerScope Cell3(CellOptions opts = {}, std::source_location loc = std::source_location::current());
-    [[nodiscard]] ContainerScope Cell2(CellOptions opts = {}, std::source_location loc = std::source_location::current());
-    [[nodiscard]] ContainerScope Cell1(CellOptions opts = {}, std::source_location loc = std::source_location::current());
+    [[nodiscard]] ContainerScope Cell12(CellOptions opts = {}, keel::SourceLocation loc = keel::SourceLocation::current());
+    [[nodiscard]] ContainerScope Cell8(CellOptions opts = {}, keel::SourceLocation loc = keel::SourceLocation::current());
+    [[nodiscard]] ContainerScope Cell6(CellOptions opts = {}, keel::SourceLocation loc = keel::SourceLocation::current());
+    [[nodiscard]] ContainerScope Cell4(CellOptions opts = {}, keel::SourceLocation loc = keel::SourceLocation::current());
+    [[nodiscard]] ContainerScope Cell3(CellOptions opts = {}, keel::SourceLocation loc = keel::SourceLocation::current());
+    [[nodiscard]] ContainerScope Cell2(CellOptions opts = {}, keel::SourceLocation loc = keel::SourceLocation::current());
+    [[nodiscard]] ContainerScope Cell1(CellOptions opts = {}, keel::SourceLocation loc = keel::SourceLocation::current());
 };
 
 /// Autonomous immediate mode Grid layout entry point.
@@ -82,7 +80,7 @@ public:
     [[nodiscard]] static GridScope Open(
         Context& ctx,
         const GridOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 };
 

@@ -1,14 +1,13 @@
 #include "../demo_context.hpp"
-#include <format>
 
 namespace guikit::demo {
 
 namespace {
 struct InputState {
-    std::string text = "guikit.dev";
-    std::string placeholder = "Enter domain...";
-    std::string prefix = "https://";
-    std::string suffix = ":443";
+    keel::SmallString<128> text{"guikit.dev"};
+    keel::SmallString<128> placeholder{"Enter domain..."};
+    keel::SmallString<64> prefix{"https://"};
+    keel::SmallString<64> suffix{":443"};
     guikit::CursorBlinkMode cursorMode = guikit::CursorBlinkMode::Blinking;
     bool password = false;
     bool clearable = true;
@@ -43,7 +42,7 @@ void RenderInputInspector(guikit::Context& ui, DemoContext&) {
         if (ui.Switch(s_state.password).changed) ui.InvalidateAll();
     }
 
-    static constexpr std::array<std::string_view, 3> cursorModes = {"Blinking", "Solid", "Hidden"};
+    static constexpr keel::StaticArray<keel::StringRef, 3> cursorModes = {"Blinking", "Solid", "Hidden"};
     size_t curIdx = (s_state.cursorMode == guikit::CursorBlinkMode::Solid) ? 1 : ((s_state.cursorMode == guikit::CursorBlinkMode::Hidden) ? 2 : 0);
     if (auto el = ui.Element({.label = "Cursor Blink Mode"})) {
         if (ui.StepSlider(curIdx, cursorModes, {.showTicks = true, .showLabels = true}).changed) {
@@ -89,8 +88,8 @@ void RenderInputStage(guikit::Context& ui, DemoContext& ctx) {
     }
 }
 
-std::string GenerateInputCode(const DemoContext& ctx) {
-    return std::format(
+keel::String GenerateInputCode(const DemoContext& ctx) {
+    return keel::format(
         "if (auto el = ui.{}Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"

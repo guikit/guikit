@@ -1,17 +1,16 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
-#include <optional>
-#include <source_location>
-#include <span>
-#include <string_view>
-#include <vector>
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/id.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
+#include "keel/core.h"
+#include "keel/optional.h"
+#include "keel/ref.h"
 
 namespace guikit {
 
@@ -42,52 +41,52 @@ struct TableColumn {
 
 /// Per-cell alignment override when using `table.Cell(...)`.
 struct TableCellOptions {
-    std::optional<Align> align{std::nullopt}; ///< Override horizontal alignment (nullopt = inherit from TableColumn)
+    keel::Optional<Align> align{keel::kNullOpt}; ///< Override horizontal alignment (nullopt = inherit from TableColumn)
 };
 
 /// Per-row visual & interaction options.
 struct TableRowOptions {
-    std::optional<UiVariant> tint{std::nullopt}; ///< Optional subtle row background tint (Success/Warning/Danger/Info/Primary)
-    bool disabled{false};                        ///< Suppresses row selection and dims cell contents
+    keel::Optional<UiVariant> tint{keel::kNullOpt}; ///< Optional subtle row background tint (Success/Warning/Danger/Info/Primary)
+    bool disabled{false};                           ///< Suppresses row selection and dims cell contents
 };
 
 /// Configuration options for the Table / DataGrid container.
 struct TableOptions {
-    UiText tooltip{};                               ///< Optional tooltip when hovering header
+    UiText tooltip{};                                   ///< Optional tooltip when hovering header
 
     // --- Virtualization & Row Metrics ---
-    size_t totalRows{0};                            ///< Total row count (0 = auto-count; >0 enables O(1) virtualized scrolling)
-    std::optional<float> rowHeight{std::nullopt};   ///< Row height in points (nullopt = derived from UiSize)
-    std::optional<float> headerHeight{std::nullopt};///< Sticky header height in points (nullopt = derived from UiSize)
+    size_t totalRows{0};                                ///< Total row count (0 = auto-count; >0 enables O(1) virtualized scrolling)
+    keel::Optional<float> rowHeight{keel::kNullOpt};    ///< Row height in points (nullopt = derived from UiSize)
+    keel::Optional<float> headerHeight{keel::kNullOpt}; ///< Sticky header height in points (nullopt = derived from UiSize)
 
     // --- Selection & Sorting Bindings ---
-    int* selectedRow{nullptr};                      ///< Optional bound index of selected row (-1 = none)
-    int* sortColumn{nullptr};                       ///< Optional bound index of sorted column (-1 = none)
-    TableSortDirection* sortDirection{nullptr};     ///< Optional bound sort direction (Ascending / Descending)
+    int* selectedRow{nullptr};                          ///< Optional bound index of selected row (-1 = none)
+    int* sortColumn{nullptr};                           ///< Optional bound index of sorted column (-1 = none)
+    TableSortDirection* sortDirection{nullptr};         ///< Optional bound sort direction (Ascending / Descending)
 
     // --- Appearance & Features ---
-    bool stickyHeader{true};                        ///< Pin column header bar at top of viewport
-    bool striped{true};                             ///< Alternating zebra row background shading
-    bool gridLines{true};                           ///< Draw vertical column & horizontal row grid lines
+    bool stickyHeader{true};                            ///< Pin column header bar at top of viewport
+    bool striped{true};                                 ///< Alternating zebra row background shading
+    bool gridLines{true};                               ///< Draw vertical column & horizontal row grid lines
     StateColor background{};
     Border border{.width = 1.0f};
-    bool hoverableRows{true};                       ///< Highlight row under mouse cursor
-    bool resizableColumns{true};                    ///< Allow dragging column dividers in header to resize
-    bool showRowNumbers{false};                     ///< Prepend an automatic '#' row index column on the left
-    bool showFooter{false};                         ///< Show bottom summary footer bar (visible row range, total rows, footerText)
-    UiText footerText{};                            ///< Optional right-aligned summary text in footer bar
+    bool hoverableRows{true};                           ///< Highlight row under mouse cursor
+    bool resizableColumns{true};                        ///< Allow dragging column dividers in header to resize
+    bool showRowNumbers{false};                         ///< Prepend an automatic '#' row index column on the left
+    bool showFooter{false};                             ///< Show bottom summary footer bar (visible row range, total rows, footerText)
+    UiText footerText{};                                ///< Optional right-aligned summary text in footer bar
 
     // --- Sizing & Theme ---
     VisibilityPolicy scrollbar{VisibilityPolicy::Auto};
-    std::optional<float> width{std::nullopt};
-    std::optional<float> widthRatio{std::nullopt};
-    std::optional<float> height{std::nullopt};      ///< Explicit height in points (nullopt = Stretch in flex parent or fit rows)
+    keel::Optional<float> width{keel::kNullOpt};
+    keel::Optional<float> widthRatio{keel::kNullOpt};
+    keel::Optional<float> height{keel::kNullOpt};       ///< Explicit height in points (nullopt = Stretch in flex parent or fit rows)
     StretchMode stretch{StretchMode::Fill};
     bool disabled{false};
     const UiTheme* theme{nullptr};
-    std::optional<float> scale{std::nullopt};
-    std::optional<bool> debugBounds{std::nullopt};
-    std::optional<bool> inspectMode{std::nullopt};
+    keel::Optional<float> scale{keel::kNullOpt};
+    keel::Optional<bool> debugBounds{keel::kNullOpt};
+    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 class TableScope;
@@ -223,9 +222,9 @@ class Table {
 public:
     [[nodiscard]] static TableScope Open(
         Context& ctx,
-        std::span<const TableColumn> columns,
+        keel::ArrayRef<TableColumn> columns,
         const TableOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] static Vec2 Measure(

@@ -1,8 +1,5 @@
 #pragma once
 
-#include <optional>
-#include <source_location>
-#include <string_view>
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
@@ -24,19 +21,19 @@ struct ElementOptions {
     UiText tooltip{};                                         ///< Optional hover tooltip text
     Icon icon{};                                              ///< Optional vector icon before label
     UiText badge{};                                           ///< Optional pill badge after label (supports independent StateColor)
-    std::optional<ElementLayout> layout{std::nullopt};        ///< Text placement relative to control: Stacked, Top, Bottom, Inline (nullopt = control default)
-    std::optional<InlineOrder> inlineOrder{std::nullopt};     ///< Sequencing order in Inline layout (nullopt = control default)
+    keel::Optional<ElementLayout> layout{keel::kNullOpt};     ///< Text placement relative to control: Stacked, Top, Bottom, Inline (nullopt = control default)
+    keel::Optional<InlineOrder> inlineOrder{keel::kNullOpt};  ///< Sequencing order in Inline layout (nullopt = control default)
     Align align{Align::Start};                                ///< Horizontal alignment (Start, Center, End)
-    std::optional<StretchMode> stretch{std::nullopt};         ///< Sizing behavior: Compact, Space, Fill (nullopt = inherit from child control or Fill when standalone)
-    std::optional<float> width{std::nullopt};                 ///< Explicit element/control width in dp (or legacy ratio 0.0..1.0 in Fill)
-    std::optional<float> widthRatio{std::nullopt};            ///< Normalized fill ratio 0.0..1.0 of available width in Fill mode
+    keel::Optional<StretchMode> stretch{keel::kNullOpt};      ///< Sizing behavior: Compact, Space, Fill (nullopt = inherit from child control or Fill when standalone)
+    keel::Optional<float> width{keel::kNullOpt};              ///< Explicit element/control width in dp (or legacy ratio 0.0..1.0 in Fill)
+    keel::Optional<float> widthRatio{keel::kNullOpt};         ///< Normalized fill ratio 0.0..1.0 of available width in Fill mode
     StateColor background{};                                  ///< Per-state outer surface backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                                          ///< Outer element border thickness, corner radius, and per-state color
     bool disabled{false};                                     ///< Whether the element and its child control are rendered in a disabled state
     const UiTheme* theme{nullptr};                            ///< Optional scoped theme override
-    std::optional<float> scale{std::nullopt};                 ///< Optional local UI scale factor override
-    std::optional<bool> debugBounds{std::nullopt};            ///< Scoped debug bounding box overlay override
-    std::optional<bool> inspectMode{std::nullopt};            ///< Scoped interactive DevTools inspector override
+    keel::Optional<float> scale{keel::kNullOpt};              ///< Optional local UI scale factor override
+    keel::Optional<bool> debugBounds{keel::kNullOpt};         ///< Scoped debug bounding box overlay override
+    keel::Optional<bool> inspectMode{keel::kNullOpt};         ///< Scoped interactive DevTools inspector override
 };
 
 /// RAII scope returned by `ui.Element(...)`.
@@ -77,8 +74,8 @@ struct ElementSpec {
     InlineOrder inlineOrder{InlineOrder::LabelFirst};     ///< Sequencing order in Inline layout
     Align align{Align::Start};                            ///< Horizontal alignment (Start, Center, End)
     StretchMode stretch{StretchMode::Compact};            ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};             ///< Explicit control/element width in dp (or legacy ratio 0.0..1.0 in Fill)
-    std::optional<float> widthRatio{std::nullopt};        ///< Normalized fill ratio 0.0..1.0 of available width in Fill mode
+    keel::Optional<float> width{keel::kNullOpt};          ///< Explicit control/element width in dp (or legacy ratio 0.0..1.0 in Fill)
+    keel::Optional<float> widthRatio{keel::kNullOpt};     ///< Normalized fill ratio 0.0..1.0 of available width in Fill mode
     ControlSpec control{};                                ///< Specification for the inner control slot (`controlRect`)
     StateColor background{};                              ///< Per-state outer surface backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                                      ///< Outer element border thickness, corner radius, and per-state color
@@ -142,14 +139,14 @@ public:
     static ElementScope Open(
         Context& ctx,
         const ElementOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Immediate mode entry point for a standalone control-less `Element`.
     static Response Run(
         Context& ctx,
         const ElementOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return Open(ctx, opts, loc).response;
     }

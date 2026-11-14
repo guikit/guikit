@@ -1,5 +1,4 @@
 #include "guikit/widgets/toast.hpp"
-#include <algorithm>
 #include <cmath>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
@@ -49,7 +48,7 @@ void Toast::RunHost(
     }
 
     ICanvas* canvas = ctx.GetCanvas();
-    const float cardW = std::min(std::max(160.0f, hostBounds.w - 24.0f * s), theme.Scale(opts.width));
+    const float cardW = keel::min(keel::max(160.0f, hostBounds.w - 24.0f * s), theme.Scale(opts.width));
     const float gap = theme.Scale(opts.gap);
     const float margin = theme.Scale(opts.margin);
     const float padX = 14.0f * s;
@@ -65,7 +64,7 @@ void Toast::RunHost(
     const Vec2 mouse = ctx.GetMousePos();
 
     // Determine visible slice (newest toasts up to maxVisible)
-    const size_t maxVis = std::max<size_t>(1, opts.maxVisible);
+    const size_t maxVis = keel::max<size_t>(1, opts.maxVisible);
     const size_t startIdx = (entries.size() > maxVis) ? (entries.size() - maxVis) : 0;
 
     struct LayoutToast {
@@ -81,7 +80,7 @@ void Toast::RunHost(
     for (size_t i = startIdx; i < entries.size(); ++i) {
         const auto& e = entries[i];
         const float rightReserve = e.closable ? (closeBtnSz + 8.0f * s) : 0.0f;
-        const float textW = std::max(40.0f, cardW - padX * 2.0f - (iconBoxSz + 10.0f * s) - rightReserve);
+        const float textW = keel::max(40.0f, cardW - padX * 2.0f - (iconBoxSz + 10.0f * s) - rightReserve);
 
         float contentH = 0.0f;
         float msgH = 0.0f;
@@ -90,19 +89,19 @@ void Toast::RunHost(
         }
         if (!e.message.empty()) {
             if (!e.title.empty()) contentH += 3.0f * s;
-            UiText msgText(e.message);
+            UiText msgText(e.message.as_ref());
             msgText.wrap = e.messageWrap;
             msgH = TextUtil::MeasureUiTextHeight(msgText, textW, msgFont, msgLineH, canvas, &theme);
-            contentH += std::max(msgLineH, msgH);
+            contentH += keel::max(msgLineH, msgH);
         }
-        contentH = std::max(contentH, iconBoxSz);
+        contentH = keel::max(contentH, iconBoxSz);
         const float cardH = std::round(padY * 2.0f + contentH + (e.showProgress && e.duration > 0.0f ? 4.0f * s : 0.0f));
 
         LayoutToast lt{};
         lt.index = i;
         lt.cardRect = Rect(0.0f, 0.0f, std::round(cardW), cardH);
         lt.textW = textW;
-        lt.msgH = std::max(msgLineH, msgH);
+        lt.msgH = keel::max(msgLineH, msgH);
         layoutList.push_back(lt);
     }
 
@@ -164,41 +163,22 @@ void Toast::RunHost(
     }
 
     // Advance timers on all entries
-    for (auto it = entries.begin(); it != entries.end(); ) {
-        if (it->id == dismissId && dismissId != 0) {
-            it = entries.erase(it);
-            ctx.InvalidateAll();
-            continue;
-        }
-        const double dt = std::max(0.0, nowSec - it->lastTickSec);
-        it->lastTickSec = nowSec;
-        if (it->duration > 0.0f) {
-            if (!(opts.pauseOnHover && it->hovered)) {
-                it->elapsedSec += dt;
+    for (size_t i = 0; i < entries.size(); ++i) {
+        auto& e = entries[i];
+        const double dt = keel::max(0.0, nowSec - e.lastTickSec);
+        e.lastTickSec = nowSec;
+        if (e.duration > 0.0f) {
+            if (!(opts.pauseOnHover && e.hovered)) {
+                e.elapsedSec += dt;
             }
             anyAnimated = true;
-            if (it->elapsedSec >= static_cast<double>(it->duration)) {
-                it = entries.erase(it);
-                ctx.InvalidateAll();
-                continue;
-            }
         }
-        ++it;
     }
 
-    if (anyAnimated) {
-        ctx.InvalidateAll();
-        ctx.RequestRepaint(2);
-    }
-
-    if (entries.empty()) {
-        return;
-    }
-
-    // Rebuild snapshot for overlay draw pass after any erasures
+    // Build snapshot for overlay draw pass before erasing dismissed/expired entries
     struct DrawToastData {
-        std::string_view title{};
-        std::string_view message{};
+        keel::StringRef title{};
+        keel::StringRef message{};
         TextWrap titleWrap{};
         TextWrap messageWrap{};
         UiVariant variant{UiVariant::Info};
@@ -217,34 +197,57 @@ void Toast::RunHost(
     keel::SmallArray<DrawToastData, 8> drawList;
     drawList.reserve(layoutList.size());
     for (const auto& lt : layoutList) {
-        if (lt.index < entries.size() && entries[lt.index].id != dismissId) {
-            const auto& ent = entries[lt.index];
-            Icon safeIcon = ent.icon;
-            if (!ent.iconPath.empty()) {
-                safeIcon = Icon::File(ent.iconPath);
-            }
-            drawList.push_back(DrawToastData{
-                .title = ctx.AllocString(ent.title),
-                .message = ctx.AllocString(ent.message),
-                .titleWrap = ent.titleWrap,
-                .messageWrap = ent.messageWrap,
-                .variant = ent.variant,
-                .icon = ctx.AllocIcon(safeIcon),
-                .duration = ent.duration,
-                .elapsedSec = ent.elapsedSec,
-                .closable = ent.closable,
-                .showProgress = ent.showProgress,
-                .hovered = ent.hovered,
-                .closeHovered = ent.closeHovered,
-                .cardRect = lt.cardRect,
-                .closeRect = lt.closeRect,
-                .textW = lt.textW,
-                .msgH = lt.msgH
-            });
+        if (lt.index >= entries.size()) continue;
+        const auto& ent = entries[lt.index];
+        const bool dismissed = (dismissId != 0 && ent.id == dismissId);
+        const bool expired = (ent.duration > 0.0f && ent.elapsedSec >= static_cast<double>(ent.duration));
+        if (dismissed || expired) continue;
+
+        Icon safeIcon = ent.icon;
+        if (!ent.iconPath.empty()) {
+            safeIcon = Icon::File(ent.iconPath.as_ref());
+        }
+        drawList.push_back(DrawToastData{
+            .title = ctx.AllocString(ent.title.as_ref()),
+            .message = ctx.AllocString(ent.message.as_ref()),
+            .titleWrap = ent.titleWrap,
+            .messageWrap = ent.messageWrap,
+            .variant = ent.variant,
+            .icon = ctx.AllocIcon(safeIcon),
+            .duration = ent.duration,
+            .elapsedSec = ent.elapsedSec,
+            .closable = ent.closable,
+            .showProgress = ent.showProgress,
+            .hovered = ent.hovered,
+            .closeHovered = ent.closeHovered,
+            .cardRect = lt.cardRect,
+            .closeRect = lt.closeRect,
+            .textW = lt.textW,
+            .msgH = lt.msgH
+        });
+    }
+
+    for (size_t i = 0; i < entries.size(); ) {
+        const bool dismissed = (dismissId != 0 && entries[i].id == dismissId);
+        const bool expired = (entries[i].duration > 0.0f && entries[i].elapsedSec >= static_cast<double>(entries[i].duration));
+        if (dismissed || expired) {
+            entries.remove_at(i);
+            ctx.InvalidateAll();
+        } else {
+            ++i;
         }
     }
 
-    ctx.RegisterOverlay([drawList = std::move(drawList), theme, s, padX, padY, iconBoxSz, closeBtnSz, titleFont, msgFont, titleLineH, msgLineH](ICanvas& c) {
+    if (anyAnimated) {
+        ctx.InvalidateAll();
+        ctx.RequestRepaint(2);
+    }
+
+    if (drawList.empty()) {
+        return;
+    }
+
+    ctx.RegisterOverlay([drawList = keel::move(drawList), theme, s, padX, padY, iconBoxSz, closeBtnSz, titleFont, msgFont, titleLineH, msgLineH](ICanvas& c) {
         const auto& pal = theme.palette;
         const float radius = 10.0f * s;
 
@@ -350,7 +353,7 @@ void Toast::RunHost(
 
             // Bottom countdown progress bar
             if (e.showProgress && e.duration > 0.0f) {
-                const float ratio = std::clamp(
+                const float ratio = keel::clamp(
                     1.0f - static_cast<float>(e.elapsedSec / static_cast<double>(e.duration)),
                     0.0f,
                     1.0f

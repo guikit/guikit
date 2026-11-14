@@ -1,20 +1,17 @@
 #pragma once
 
-#include <atomic>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
-#include <limits>
-#include <memory>
-#include <span>
-#include <string>
-#include <string_view>
-#include <utility>
-#include <variant>
-#include <vector>
 #include "guikit/core/types.hpp"
-#include "guikit/geo/map_grid.hpp"
 #include "guikit/geo/chart_data_source.hpp"
+#include "guikit/geo/map_grid.hpp"
+#include "keel/array.h"
+#include "keel/core.h"
+#include "keel/ref.h"
 #include "keel/rtree.h"
+#include "keel/smart_ptr.h"
+#include "keel/string.h"
 
 namespace guikit::geo {
 
@@ -30,7 +27,7 @@ enum class GeometryType : uint8_t {
 };
 
 /// Returns human-readable OGC geometry type name.
-[[nodiscard]] constexpr std::string_view GeometryTypeToString(GeometryType type) noexcept {
+[[nodiscard]] constexpr keel::StringRef GeometryTypeToString(GeometryType type) noexcept {
     switch (type) {
         case GeometryType::Point:              return "Point";
         case GeometryType::MultiPoint:         return "MultiPoint";
@@ -78,7 +75,7 @@ enum class ChartFeatureClass : uint8_t {
 };
 
 /// Returns human-readable marine chart class label.
-[[nodiscard]] constexpr std::string_view ChartFeatureClassToString(ChartFeatureClass cls) noexcept {
+[[nodiscard]] constexpr keel::StringRef ChartFeatureClassToString(ChartFeatureClass cls) noexcept {
     switch (cls) {
         case ChartFeatureClass::CoverageMask:       return "Coverage Mask (M_COVR)";
         case ChartFeatureClass::DepthArea:          return "Depth Area (DEPARE)";
@@ -108,14 +105,14 @@ struct GeoTriangle {
 
 /// Polygon with an exterior ring, optional interior hole rings, pre-projected Mercator rings, and LODs.
 struct GeoPolygon {
-    std::vector<guikit::GeoCoord> exteriorRing{};
-    std::vector<std::vector<guikit::GeoCoord>> interiorRings{};
-    std::vector<GeoTriangle> triangles{};
+    keel::Array<guikit::GeoCoord> exteriorRing{};
+    keel::Array<keel::Array<guikit::GeoCoord>> interiorRings{};
+    keel::Array<GeoTriangle> triangles{};
 
     // Pre-projected normalized Web Mercator [0..1]x[0..1] coordinates & Douglas-Peucker LOD
-    std::vector<guikit::Vec2> normExterior{};
-    std::vector<guikit::Vec2> normExteriorLod{};
-    std::vector<std::vector<guikit::Vec2>> normInterior{};
+    keel::Array<guikit::Vec2> normExterior{};
+    keel::Array<guikit::Vec2> normExteriorLod{};
+    keel::Array<keel::Array<guikit::Vec2>> normInterior{};
     guikit::Rect normBounds{};
 
     guikit::GeoBounds bounds{};
@@ -128,19 +125,33 @@ struct GeoPolygon {
         }
         return total;
     }
+
+    [[nodiscard]] GeoPolygon clone() const {
+        GeoPolygon copy{};
+        copy.exteriorRing = exteriorRing.clone();
+        copy.interiorRings = interiorRings.clone();
+        copy.triangles = triangles.clone();
+        copy.normExterior = normExterior.clone();
+        copy.normExteriorLod = normExteriorLod.clone();
+        copy.normInterior = normInterior.clone();
+        copy.normBounds = normBounds;
+        copy.bounds = bounds;
+        copy.hasValidBounds = hasValidBounds;
+        return copy;
+    }
 };
 
-/// Thread-safe, immutable decoded geometry payload (`std::shared_ptr<const DecodedGeometryPayload>`).
+/// Thread-safe, immutable decoded geometry payload (`keel::Arc<const DecodedGeometryPayload>`).
 /// Shared across background tile rasterizer threads and active window snapshots without deep-copying or data races.
 struct DecodedGeometryPayload {
     int64_t featureId{0};
     GeometryType type{GeometryType::MultiPolygon};
-    std::vector<guikit::GeoCoord> points{};
-    std::vector<std::vector<guikit::GeoCoord>> lines{};
-    std::vector<GeoPolygon> polygons{};
-    std::vector<guikit::Vec2> normPoints{};
-    std::vector<std::vector<guikit::Vec2>> normLines{};
-    std::vector<std::vector<guikit::Vec2>> normLinesLod{};
+    keel::Array<guikit::GeoCoord> points{};
+    keel::Array<keel::Array<guikit::GeoCoord>> lines{};
+    keel::Array<GeoPolygon> polygons{};
+    keel::Array<guikit::Vec2> normPoints{};
+    keel::Array<keel::Array<guikit::Vec2>> normLines{};
+    keel::Array<keel::Array<guikit::Vec2>> normLinesLod{};
     guikit::GeoBounds bounds{};
     guikit::Rect normBounds{};
     guikit::GeoCoord centroid{};
@@ -149,30 +160,146 @@ struct DecodedGeometryPayload {
     uint32_t cachedPolygonCount{0};
     uint32_t cachedHoleCount{0};
     uint32_t residentHeapBytes{0};
+
+    [[nodiscard]] DecodedGeometryPayload clone() const {
+        DecodedGeometryPayload copy{};
+        copy.featureId = featureId;
+        copy.type = type;
+        copy.points = points.clone();
+        copy.lines = lines.clone();
+        copy.polygons = polygons.clone();
+        copy.normPoints = normPoints.clone();
+        copy.normLines = normLines.clone();
+        copy.normLinesLod = normLinesLod.clone();
+        copy.bounds = bounds;
+        copy.normBounds = normBounds;
+        copy.centroid = centroid;
+        copy.normCentroid = normCentroid;
+        copy.cachedVertexCount = cachedVertexCount;
+        copy.cachedPolygonCount = cachedPolygonCount;
+        copy.cachedHoleCount = cachedHoleCount;
+        copy.residentHeapBytes = residentHeapBytes;
+        return copy;
+    }
 };
 
 /// Strongly-typed feature attribute value (GeoJSON property or GeoPackage SQLite column).
 struct AttributeValue {
-    using Variant = std::variant<std::monostate, bool, int64_t, double, std::string>;
-    Variant value{std::monostate{}};
+    enum class Kind : uint8_t {
+        Null = 0,
+        Bool,
+        Int,
+        Double,
+        String
+    };
 
-    AttributeValue() = default;
-    AttributeValue(std::nullptr_t) : value(std::monostate{}) {}
-    AttributeValue(bool b) : value(b) {}
-    AttributeValue(int64_t i) : value(i) {}
-    AttributeValue(int i) : value(static_cast<int64_t>(i)) {}
-    AttributeValue(double d) : value(d) {}
-    AttributeValue(std::string s) : value(std::move(s)) {}
-    AttributeValue(std::string_view sv) : value(std::string(sv)) {}
-    AttributeValue(const char* s) : value(std::string(s ? s : "")) {}
+    AttributeValue() noexcept : m_kind(Kind::Null), m_double(0.0) {}
+    AttributeValue(decltype(nullptr)) noexcept : m_kind(Kind::Null), m_double(0.0) {}
+    AttributeValue(bool b) noexcept : m_kind(Kind::Bool), m_bool(b) {}
 
-    [[nodiscard]] bool IsNull() const noexcept {
-        return std::holds_alternative<std::monostate>(value);
+    template <typename T>
+        requires(keel::IsIntegral<T> && !keel::IsSame<keel::RemoveCv<T>, bool>)
+    AttributeValue(T i) noexcept : m_kind(Kind::Int), m_int(static_cast<int64_t>(i)) {}
+
+    AttributeValue(double d) noexcept : m_kind(Kind::Double), m_double(d) {}
+    AttributeValue(float f) noexcept : m_kind(Kind::Double), m_double(static_cast<double>(f)) {}
+
+    AttributeValue(keel::StringRef sv) : m_kind(Kind::String), m_double(0.0), m_str(keel::String::from(sv)) {}
+    AttributeValue(const char* s) : m_kind(Kind::String), m_double(0.0), m_str(keel::String::from(s ? s : "")) {}
+    AttributeValue(keel::String&& s) noexcept : m_kind(Kind::String), m_double(0.0), m_str(keel::move(s)) {}
+
+    AttributeValue(const AttributeValue&) = delete;
+    AttributeValue& operator=(const AttributeValue&) = delete;
+
+    AttributeValue(AttributeValue&& other) noexcept
+        : m_kind(other.m_kind), m_double(0.0), m_str(keel::move(other.m_str)) {
+        switch (m_kind) {
+            case Kind::Bool:   m_bool = other.m_bool; break;
+            case Kind::Int:    m_int = other.m_int; break;
+            case Kind::Double: m_double = other.m_double; break;
+            default: break;
+        }
+        other.m_kind = Kind::Null;
+        other.m_double = 0.0;
     }
 
-    [[nodiscard]] std::string ToString() const;
-    [[nodiscard]] std::string_view TypeLabel() const noexcept;
-    [[nodiscard]] bool MatchesSearch(std::string_view queryLower) const;
+    AttributeValue& operator=(AttributeValue&& other) noexcept {
+        if (this != &other) {
+            m_kind = other.m_kind;
+            m_str = keel::move(other.m_str);
+            switch (m_kind) {
+                case Kind::Bool:   m_bool = other.m_bool; break;
+                case Kind::Int:    m_int = other.m_int; break;
+                case Kind::Double: m_double = other.m_double; break;
+                default:           m_double = 0.0; break;
+            }
+            other.m_kind = Kind::Null;
+            other.m_double = 0.0;
+        }
+        return *this;
+    }
+
+    [[nodiscard]] AttributeValue clone() const {
+        switch (m_kind) {
+            case Kind::Null:   return AttributeValue{};
+            case Kind::Bool:   return AttributeValue(m_bool);
+            case Kind::Int:    return AttributeValue(m_int);
+            case Kind::Double: return AttributeValue(m_double);
+            case Kind::String: return AttributeValue(m_str.clone());
+        }
+        return AttributeValue{};
+    }
+
+    [[nodiscard]] constexpr Kind kind() const noexcept { return m_kind; }
+    [[nodiscard]] constexpr bool is_null() const noexcept { return m_kind == Kind::Null; }
+    [[nodiscard]] constexpr bool is_bool() const noexcept { return m_kind == Kind::Bool; }
+    [[nodiscard]] constexpr bool is_int() const noexcept { return m_kind == Kind::Int; }
+    [[nodiscard]] constexpr bool is_double() const noexcept { return m_kind == Kind::Double; }
+    [[nodiscard]] constexpr bool is_string() const noexcept { return m_kind == Kind::String; }
+    [[nodiscard]] constexpr bool IsNull() const noexcept { return m_kind == Kind::Null; }
+
+    [[nodiscard]] constexpr bool as_bool() const noexcept {
+        return m_kind == Kind::Bool ? m_bool : false;
+    }
+    [[nodiscard]] constexpr int64_t as_int() const noexcept {
+        if (m_kind == Kind::Int) return m_int;
+        if (m_kind == Kind::Double) return static_cast<int64_t>(m_double);
+        return 0;
+    }
+    [[nodiscard]] constexpr double as_double() const noexcept {
+        if (m_kind == Kind::Double) return m_double;
+        if (m_kind == Kind::Int) return static_cast<double>(m_int);
+        return 0.0;
+    }
+    [[nodiscard]] keel::StringRef as_string() const noexcept {
+        return m_kind == Kind::String ? m_str.as_ref() : keel::StringRef{};
+    }
+    [[nodiscard]] size_t string_capacity() const noexcept {
+        return m_kind == Kind::String ? m_str.capacity() : 0;
+    }
+
+    [[nodiscard]] keel::String ToString() const;
+    [[nodiscard]] keel::StringRef TypeLabel() const noexcept;
+    [[nodiscard]] bool MatchesSearch(keel::StringRef queryLower) const;
+
+private:
+    Kind m_kind{Kind::Null};
+    union {
+        bool m_bool;
+        int64_t m_int;
+        double m_double;
+    };
+    keel::String m_str{};
+};
+
+/// Key-value attribute pair stored on a `GeoFeature` (supports structured bindings `const auto& [k, v]`).
+struct GeoProperty {
+    keel::String key{};
+    AttributeValue value{};
+
+    [[nodiscard]] GeoProperty clone() const {
+        return {key.clone(), value.clone()};
+    }
 };
 
 struct GeoFeature;
@@ -193,7 +320,7 @@ public:
 
     /// Thread-safe: returns a shared, immutable `DecodedGeometryPayload` for `featureId`, decoding it from
     /// the backing source (SQLite or HTTP) on the calling worker thread if not yet in cache.
-    [[nodiscard]] virtual std::shared_ptr<const DecodedGeometryPayload> GetOrLoadGeometryPayload(
+    [[nodiscard]] virtual keel::Arc<const DecodedGeometryPayload> GetOrLoadGeometryPayload(
         int64_t featureId,
         int defaultSrsId,
         uint64_t accessTick = 0
@@ -201,13 +328,13 @@ public:
 
     /// Non-blocking O(1) RAM lookup: returns the cached `DecodedGeometryPayload` if already decoded in RAM,
     /// or `nullptr` without touching disk/network.
-    [[nodiscard]] virtual std::shared_ptr<const DecodedGeometryPayload> TryGetCachedGeometryPayload(
+    [[nodiscard]] virtual keel::Arc<const DecodedGeometryPayload> TryGetCachedGeometryPayload(
         int64_t featureId,
         uint64_t accessTick = 0
     ) const noexcept {
         (void)featureId;
         (void)accessTick;
-        return nullptr;
+        return {};
     }
 
     /// Returns true when this layer streams features dynamically by spatial viewport chunks (for multi-gigabyte datasets).
@@ -231,13 +358,13 @@ public:
     /// Builds a complete, self-contained `SpatialWindowSnapshot` (`features` + pre-built `LayerSpatialIndex` R-Tree)
     /// on a background worker thread without mutating any live `GeoLayer` on the UI thread.
     /// If `activeGeneration` no longer matches `req.requestGeneration`, aborts early and returns `nullptr`.
-    [[nodiscard]] virtual std::shared_ptr<SpatialWindowSnapshot> BuildSpatialWindowSnapshot(
+    [[nodiscard]] virtual keel::Arc<SpatialWindowSnapshot> BuildSpatialWindowSnapshot(
         const SpatialWindowRequest& req,
-        const std::atomic<uint64_t>* activeGeneration = nullptr
+        const uint64_t* activeGeneration = nullptr
     ) const {
         (void)req;
         (void)activeGeneration;
-        return nullptr;
+        return {};
     }
 
     /// Synchronizes `ioLayer.features` and `ioLayer.spatialIndex` with the active camera viewport
@@ -250,7 +377,7 @@ public:
         float tileZoom,
         bool scaleFiltering,
         uint64_t frameTick,
-        std::vector<guikit::Rect>* outDirtiedNormBoxes = nullptr) const {
+        keel::Array<guikit::Rect>* outDirtiedNormBoxes = nullptr) const {
         (void)ioLayer;
         (void)geoViewBounds;
         (void)normViewBox;
@@ -281,21 +408,21 @@ public:
 /// Single geographic vector feature with geometry, pre-projected Mercator cache, and marine semantics.
 struct GeoFeature {
     uint64_t uid{0};
-    std::string id{};           ///< Scene-unique interactive ID (e.g. "L1_F0")
-    std::string displayId{};    ///< Original feature ID or FID from GeoJSON / GPKG
-    std::string name{};         ///< Resolved human-readable label
+    keel::String id{};          ///< Scene-unique interactive ID (e.g. "L1_F0")
+    keel::String displayId{};   ///< Original feature ID or FID from GeoJSON / GPKG
+    keel::String name{};        ///< Resolved human-readable label
     GeometryType type{GeometryType::Point};
 
     // Semantic marine chart metadata (extracted once at load/finalization time)
-    std::string featureCode{};  ///< Uppercase S-57 / OGC feature code (e.g. "DEPARE", "SOUNDG", "BOYLAT")
+    keel::String featureCode{}; ///< Uppercase S-57 / OGC feature code (e.g. "DEPARE", "SOUNDG", "BOYLAT")
     ChartFeatureClass chartClass{ChartFeatureClass::Generic};
     bool hasLight{false};       ///< True when feature is a light ("LIGHTS") or carries S-57 LITCHR/SIGGRP/VALNMR
-    float depthMeters{std::numeric_limits<float>::quiet_NaN()};
-    float minDepthMeters{std::numeric_limits<float>::quiet_NaN()};
-    float maxDepthMeters{std::numeric_limits<float>::quiet_NaN()};
-    std::string lightOrColor{}; ///< IHO S-57 COLOUR or IALA light descriptor
-    std::string labelRu{};
-    std::string labelEn{};
+    float depthMeters{NAN};
+    float minDepthMeters{NAN};
+    float maxDepthMeters{NAN};
+    keel::String lightOrColor{};///< IHO S-57 COLOUR or IALA light descriptor
+    keel::String labelRu{};
+    keel::String labelEn{};
 
     // Out-of-Core SQLite Spatial Paging & LRU Eviction state
     int64_t sqliteRowId{0};                         ///< > 0 when backed by an on-disk SQLite .gpkg row
@@ -309,14 +436,14 @@ struct GeoFeature {
     mutable bool geometryLoaded{true};              ///< False when polygon/line rings are unloaded from RAM
     mutable bool propertiesLoaded{true};            ///< False when full attribute dictionary is unloaded from RAM
 
-    mutable std::vector<guikit::GeoCoord> points{};
-    mutable std::vector<std::vector<guikit::GeoCoord>> lines{};
-    mutable std::vector<GeoPolygon> polygons{};
+    mutable keel::Array<guikit::GeoCoord> points{};
+    mutable keel::Array<keel::Array<guikit::GeoCoord>> lines{};
+    mutable keel::Array<GeoPolygon> polygons{};
 
     // Pre-projected normalized Web Mercator [0..1]x[0..1] coordinates & LODs
-    mutable std::vector<guikit::Vec2> normPoints{};
-    mutable std::vector<std::vector<guikit::Vec2>> normLines{};
-    mutable std::vector<std::vector<guikit::Vec2>> normLinesLod{};
+    mutable keel::Array<guikit::Vec2> normPoints{};
+    mutable keel::Array<keel::Array<guikit::Vec2>> normLines{};
+    mutable keel::Array<keel::Array<guikit::Vec2>> normLinesLod{};
     guikit::Rect normBounds{};
     guikit::Vec2 normCentroid{};
 
@@ -324,8 +451,10 @@ struct GeoFeature {
     guikit::GeoCoord centroid{};
     bool hasValidBounds{false};
 
-    mutable std::shared_ptr<const DecodedGeometryPayload> sharedGeometry{};
-    mutable std::vector<std::pair<std::string, AttributeValue>> properties{};
+    mutable keel::Arc<const DecodedGeometryPayload> sharedGeometry{};
+    mutable keel::Array<GeoProperty> properties{};
+
+    [[nodiscard]] GeoFeature clone() const;
 
     [[nodiscard]] bool HasDepth() const noexcept { return !std::isnan(depthMeters); }
     [[nodiscard]] bool HasDepthRange() const noexcept { return !std::isnan(minDepthMeters) || !std::isnan(maxDepthMeters); }
@@ -360,7 +489,7 @@ struct GeoFeature {
     void ApplyDecodedGeometryPayload(const DecodedGeometryPayload& payload) const;
 
     /// Builds an immutable `DecodedGeometryPayload` from this feature's currently resident geometry.
-    [[nodiscard]] std::shared_ptr<const DecodedGeometryPayload> BuildDecodedGeometryPayload() const;
+    [[nodiscard]] keel::Arc<const DecodedGeometryPayload> BuildDecodedGeometryPayload() const;
 
     /// Ensures the full SQLite attribute dictionary (`properties`) is resident in RAM.
     /// Returns true if a page-in from SQLite actually occurred on this call.
@@ -392,16 +521,17 @@ struct GeoFeature {
     void RecomputeNormalizedEnvelopeFromBounds() noexcept;
 
     /// Extracts marine chart metadata (`featureCode`, `chartClass`, depths, labels) and resolves `name`.
-    void ResolveDisplayName(size_t fallbackIndex, std::string_view layerHint = {});
+    void ResolveDisplayName(size_t fallbackIndex, keel::StringRef layerHint = {});
 
     /// Sets or updates a property key-value pair.
-    void SetProperty(std::string key, AttributeValue val);
+    void SetProperty(keel::StringRef key, AttributeValue val);
+    void SetProperty(keel::String&& key, AttributeValue val);
 
     /// Finds a property by case-insensitive key and returns its string representation, or empty if absent.
-    [[nodiscard]] std::string GetPropertyString(std::string_view key) const;
+    [[nodiscard]] keel::String GetPropertyString(keel::StringRef key) const;
 
     /// Finds a numeric property by case-insensitive key, or returns NaN if absent.
-    [[nodiscard]] float GetPropertyFloat(std::string_view key) const noexcept;
+    [[nodiscard]] float GetPropertyFloat(keel::StringRef key) const noexcept;
 
     /// Total number of vertices across all points, lines, and polygon rings.
     [[nodiscard]] size_t VertexCount() const noexcept;
@@ -414,7 +544,7 @@ struct GeoFeature {
     [[nodiscard]] size_t HoleCount() const noexcept;
 
     /// Case-insensitive full-text search across feature name, ID, feature code, and properties.
-    [[nodiscard]] bool MatchesSearch(std::string_view query) const;
+    [[nodiscard]] bool MatchesSearch(keel::StringRef query) const;
 };
 
 /// Background spatial window request posted by the UI thread to `AsyncChartStreamer`.
@@ -440,9 +570,9 @@ struct SpatialWindowRequest {
 struct SpatialWindowSnapshot {
     uint64_t layerUid{0};
     uint64_t requestGeneration{0};
-    std::vector<GeoFeature> features{};
+    keel::Array<GeoFeature> features{};
     keel::RTree<uint32_t, float> spatialIndex{};
-    std::vector<guikit::Rect> dirtiedNormBoxes{};
+    keel::Array<guikit::Rect> dirtiedNormBoxes{};
     size_t pointFeatureCount{0};
     size_t lineFeatureCount{0};
     size_t polygonFeatureCount{0};
@@ -472,16 +602,16 @@ using GeoLayerStyle = LayerStyle;
 /// Vector GIS layer loaded from a GeoJSON file or a GeoPackage (.gpkg) feature table.
 struct GeoLayer {
     uint64_t uid{0};
-    std::string name{"Untitled Layer"};
-    std::string sourcePath{};
-    std::string format{"GeoJSON"};  ///< "GeoJSON" or "GeoPackage"
-    std::string tableName{};        ///< SQLite feature table name (for .gpkg)
+    keel::String name{"Untitled Layer"};
+    keel::String sourcePath{};
+    keel::String format{"GeoJSON"}; ///< "GeoJSON" or "GeoPackage"
+    keel::String tableName{};       ///< SQLite feature table name (for .gpkg)
     int srsId{4326};                ///< Original spatial reference system ID (e.g. 4326, 3857, 3395)
     bool visible{true};
     LayerStyle style{};
 
-    std::shared_ptr<IFeaturePager> pager{};
-    std::vector<GeoFeature> features{};
+    keel::Arc<IFeaturePager> pager{};
+    keel::Array<GeoFeature> features{};
     keel::RTree<uint32_t, float> spatialIndex{};
     guikit::GeoBounds bounds{};
     guikit::Rect normBounds{};
@@ -498,6 +628,8 @@ struct GeoLayer {
     bool isWindowStreamed{false};     ///< True when features are dynamically streamed per viewport window
     ChartFeatureClass dominantChartClass{ChartFeatureClass::Generic};
     uint32_t chartClassMask{0};       ///< Bitmask of (1u << static_cast<uint8_t>(cls)) present in this layer
+
+    [[nodiscard]] GeoLayer clone() const;
 
     [[nodiscard]] bool HasChartClass(ChartFeatureClass cls) const noexcept {
         return (chartClassMask & (1u << static_cast<uint8_t>(cls))) != 0u;
@@ -536,10 +668,10 @@ public:
     [[nodiscard]] static guikit::GeoCoord ToWgs84(double x, double y, int srsId = 4326) noexcept;
 
     /// Converts WGS84 (lat, lon) into target SRS coordinates (x, y) for any supported EPSG code.
-    [[nodiscard]] static std::pair<double, double> FromWgs84(guikit::GeoCoord coord, int srsId = 3857) noexcept;
+    [[nodiscard]] static guikit::GeoPlanar FromWgs84(guikit::GeoCoord coord, int srsId = 3857) noexcept;
 
     /// Converts WGS84 (lat, lon) to Web Mercator (EPSG:3857) meters (x, y).
-    [[nodiscard]] static std::pair<double, double> Wgs84ToWebMercatorMeters(guikit::GeoCoord coord) noexcept;
+    [[nodiscard]] static guikit::GeoPlanar Wgs84ToWebMercatorMeters(guikit::GeoCoord coord) noexcept;
 
     /// Expands `bounds` to include `pt`.
     static void ExpandBounds(guikit::GeoBounds& bounds, bool& initialized, guikit::GeoCoord pt) noexcept;
@@ -561,15 +693,15 @@ public:
 
     /// Classifies an S-57 / OGC feature code (or thematic layer hint) into a `ChartFeatureClass`.
     [[nodiscard]] static ChartFeatureClass ClassifyFeatureCode(
-        std::string_view featureCode,
+        keel::StringRef featureCode,
         GeometryType geomType,
-        std::string_view layerOrTableHint = {}
+        keel::StringRef layerOrTableHint = {}
     ) noexcept;
 };
 
 /// Fast O(1)-hinted lookup of a `GeoFeature` by its 64-bit `uid` across a span of `GeoLayer`s.
 [[nodiscard]] const GeoFeature* FindFeatureByUid(
-    std::span<const GeoLayer> layers,
+    keel::ArrayRef<GeoLayer> layers,
     uint64_t uid,
     const GeoLayer** outLayer = nullptr
 ) noexcept;

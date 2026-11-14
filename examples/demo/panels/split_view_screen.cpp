@@ -1,9 +1,5 @@
 #include "../demo_context.hpp"
 #include "guikit/panels/split_view.hpp"
-#include <array>
-#include <format>
-#include <string>
-#include <string_view>
 
 namespace guikit::demo {
 
@@ -25,17 +21,17 @@ struct SplitViewDemoState {
 
 SplitViewDemoState s_split;
 
-constexpr std::array<std::string_view, 2> kLayoutModes = {
+constexpr keel::StaticArray<keel::StringRef, 2> kLayoutModes = {
     "3-Pane Nested", "2-Pane Single"
 };
 
-constexpr std::array<std::string_view, 2> kOrientations = {
+constexpr keel::StaticArray<keel::StringRef, 2> kOrientations = {
     "Horizontal", "Vertical"
 };
 
 void RenderPanePlaceholder(
     guikit::Context& ui,
-    std::string_view title,
+    keel::StringRef title,
     float ratioPct,
     guikit::UiVariant badgeVariant
 ) {
@@ -234,11 +230,11 @@ void RenderSplitViewStage(guikit::Context& ui, DemoContext& ctx) {
     }
 }
 
-std::string GenerateSplitViewCode(const DemoContext& ctx) {
+keel::String GenerateSplitViewCode(const DemoContext& ctx) {
     (void)ctx;
-    const std::string_view orientName = kOrientations[s_split.orientationIdx];
+    const keel::StringRef orientName = kOrientations[s_split.orientationIdx];
     if (s_split.layoutModeIdx == 1) {
-        return std::format(
+        return keel::format(
             "if (auto split = ui.SplitView(ratio, {{\n"
             "    .orientation = guikit::Orientation::{},\n"
             "    .defaultRatio = 0.35f,\n"
@@ -268,8 +264,8 @@ std::string GenerateSplitViewCode(const DemoContext& ctx) {
         );
     }
 
-    const std::string_view nestedOrientName = (s_split.orientationIdx == 0) ? "Vertical" : "Horizontal";
-    return std::format(
+    const keel::StringRef nestedOrientName = (s_split.orientationIdx == 0) ? "Vertical" : "Horizontal";
+    return keel::format(
         "if (auto split = ui.SplitView(primaryRatio, {{\n"
         "    .orientation = guikit::Orientation::{},\n"
         "    .defaultRatio = 0.35f,\n"

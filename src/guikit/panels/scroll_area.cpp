@@ -1,7 +1,7 @@
 #include "guikit/panels/scroll_area.hpp"
-#include <algorithm>
-#include "guikit/context.hpp"
+#include <cmath>
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 
 namespace guikit {
@@ -9,7 +9,7 @@ namespace guikit {
 ContainerScope ScrollArea::Open(
     Context& ctx,
     const ScrollAreaOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
@@ -88,14 +88,14 @@ void ScrollArea::RenderAxisScrollbar(
     const float viewLen = isHorizontal ? viewportRect.w : viewportRect.h;
     if (viewLen <= 10.0f || contentLength <= 0.0f) return;
 
-    const float trackLen = std::max(0.0f, viewLen - 2.0f * m.margin - cornerReserve);
+    const float trackLen = keel::max(0.0f, viewLen - 2.0f * m.margin - cornerReserve);
     if (trackLen <= 4.0f) return;
 
-    const float effContent = std::max(viewLen, contentLength);
+    const float effContent = keel::max(viewLen, contentLength);
     const float maxScroll = effContent - viewLen;
-    const float thumbLen = std::clamp((viewLen / effContent) * trackLen, m.minThumbLength, trackLen);
-    const float travel = std::max(0.0f, trackLen - thumbLen);
-    const float ratio = (maxScroll > 0.0f) ? std::clamp(scrollOffset / maxScroll, 0.0f, 1.0f) : 0.0f;
+    const float thumbLen = keel::clamp((viewLen / effContent) * trackLen, m.minThumbLength, trackLen);
+    const float travel = keel::max(0.0f, trackLen - thumbLen);
+    const float ratio = (maxScroll > 0.0f) ? keel::clamp(scrollOffset / maxScroll, 0.0f, 1.0f) : 0.0f;
 
     Rect trackRect{};
     Rect thumbRect{};
@@ -147,17 +147,17 @@ void ScrollArea::UpdateAxisScrollbar(
     const float prevOffset = ioScrollOffset;
     const ScrollbarMetrics& m = theme.GetScrollbar(size);
     const float viewLen = isHorizontal ? viewportRect.w : viewportRect.h;
-    const float maxScroll = std::max(0.0f, contentLength - viewLen);
-    ioScrollOffset = std::clamp(ioScrollOffset, 0.0f, maxScroll);
+    const float maxScroll = keel::max(0.0f, contentLength - viewLen);
+    ioScrollOffset = keel::clamp(ioScrollOffset, 0.0f, maxScroll);
 
     if (viewLen <= 10.0f || maxScroll <= 0.0f) {
         ioDragging = false;
         return;
     }
 
-    const float trackLen = std::max(0.0f, viewLen - 2.0f * m.margin - cornerReserve);
-    const float thumbLen = std::clamp((viewLen / contentLength) * trackLen, m.minThumbLength, trackLen);
-    const float travel = std::max(0.0f, trackLen - thumbLen);
+    const float trackLen = keel::max(0.0f, viewLen - 2.0f * m.margin - cornerReserve);
+    const float thumbLen = keel::clamp((viewLen / contentLength) * trackLen, m.minThumbLength, trackLen);
+    const float travel = keel::max(0.0f, trackLen - thumbLen);
     const float ratio = (maxScroll > 0.0f) ? (ioScrollOffset / maxScroll) : 0.0f;
 
     Rect trackRect{};
@@ -180,7 +180,7 @@ void ScrollArea::UpdateAxisScrollbar(
         trackRect = Rect(trackX, trackY, m.trackWidth, trackLen);
         thumbRect = Rect(trackX, thumbY, m.trackWidth, thumbLen);
         const float hitX = trackX - hitExpand;
-        const float hitW = std::max(0.0f, (viewportRect.Right() - 1.5f) - hitX);
+        const float hitW = keel::max(0.0f, (viewportRect.Right() - 1.5f) - hitX);
         hitTrackRect = Rect(hitX, trackY, hitW, trackLen);
         hitThumbRect = Rect(hitX, thumbY, hitW, thumbLen);
     }
@@ -203,9 +203,9 @@ void ScrollArea::UpdateAxisScrollbar(
         const float mouseCoord = isHorizontal ? mousePos.x : mousePos.y;
         const float thumbCoord = isHorizontal ? thumbRect.x : thumbRect.y;
         if (mouseCoord < thumbCoord) {
-            ioScrollOffset = std::max(0.0f, ioScrollOffset - viewLen * 0.8f);
+            ioScrollOffset = keel::max(0.0f, ioScrollOffset - viewLen * 0.8f);
         } else {
-            ioScrollOffset = std::min(maxScroll, ioScrollOffset + viewLen * 0.8f);
+            ioScrollOffset = keel::min(maxScroll, ioScrollOffset + viewLen * 0.8f);
         }
     }
 
@@ -214,7 +214,7 @@ void ScrollArea::UpdateAxisScrollbar(
         if (mouseDown) {
             const float delta = isHorizontal ? (mousePos.x - ioDragStartMouse.x) : (mousePos.y - ioDragStartMouse.y);
             if (travel > 0.0f) {
-                ioScrollOffset = std::clamp(ioDragStartOffset + (delta / travel) * maxScroll, 0.0f, maxScroll);
+                ioScrollOffset = keel::clamp(ioDragStartOffset + (delta / travel) * maxScroll, 0.0f, maxScroll);
             }
         } else {
             ioDragging = false;
@@ -300,8 +300,8 @@ Rect ScrollArea::GetContentClipRect(const Node* node, const UiTheme& theme) {
     return Rect(
         node->computedRect.x + node->padding.left,
         node->computedRect.y + node->padding.top,
-        std::max(0.0f, node->computedRect.w - node->padding.Horizontal() - gutterX),
-        std::max(0.0f, node->computedRect.h - node->padding.Vertical() - gutterY)
+        keel::max(0.0f, node->computedRect.w - node->padding.Horizontal() - gutterX),
+        keel::max(0.0f, node->computedRect.h - node->padding.Vertical() - gutterY)
     );
 }
 
@@ -347,22 +347,22 @@ void ScrollArea::Update(Context& ctx, Node* node) {
             node->computedRect.Contains(mousePos) &&
             !ctx.IsMouseOccluded(node->id, mousePos) &&
             !ctx.GetKeyModifiers().ctrl) {
-            const float maxScrollY = allowV ? std::max(0.0f, node->scrollContentSize.y - node->computedRect.h) : 0.0f;
-            const float maxScrollX = allowH ? std::max(0.0f, node->scrollContentSize.x - node->computedRect.w) : 0.0f;
+            const float maxScrollY = allowV ? keel::max(0.0f, node->scrollContentSize.y - node->computedRect.h) : 0.0f;
+            const float maxScrollX = allowH ? keel::max(0.0f, node->scrollContentSize.x - node->computedRect.w) : 0.0f;
             const Vec2 prevOffset = state.offset;
 
             if (node->scrollOrientation == Orientation::Horizontal ||
                 (node->scrollOrientation == Orientation::Both && ctx.GetKeyModifiers().shift && wheel.x == 0.0f)) {
                 const float delta = (wheel.x != 0.0f) ? wheel.x : wheel.y;
                 if (allowH) {
-                    state.offset.x = std::clamp(state.offset.x - delta * m.scrollStep, 0.0f, maxScrollX);
+                    state.offset.x = keel::clamp(state.offset.x - delta * m.scrollStep, 0.0f, maxScrollX);
                 }
             } else {
                 if (allowV) {
-                    state.offset.y = std::clamp(state.offset.y - wheel.y * m.scrollStep, 0.0f, maxScrollY);
+                    state.offset.y = keel::clamp(state.offset.y - wheel.y * m.scrollStep, 0.0f, maxScrollY);
                 }
                 if (allowH) {
-                    state.offset.x = std::clamp(state.offset.x - wheel.x * m.scrollStep, 0.0f, maxScrollX);
+                    state.offset.x = keel::clamp(state.offset.x - wheel.x * m.scrollStep, 0.0f, maxScrollX);
                 }
             }
 
@@ -393,8 +393,8 @@ void ScrollArea::Update(Context& ctx, Node* node) {
             cornerReserve
         );
     } else if (allowV) {
-        const float maxScrollY = std::max(0.0f, node->scrollContentSize.y - node->computedRect.h);
-        state.offset.y = std::clamp(state.offset.y, 0.0f, maxScrollY);
+        const float maxScrollY = keel::max(0.0f, node->scrollContentSize.y - node->computedRect.h);
+        state.offset.y = keel::clamp(state.offset.y, 0.0f, maxScrollY);
         state.draggingY = false;
     } else {
         state.offset.y = 0.0f;
@@ -422,8 +422,8 @@ void ScrollArea::Update(Context& ctx, Node* node) {
             cornerReserve
         );
     } else if (allowH) {
-        const float maxScrollX = std::max(0.0f, node->scrollContentSize.x - node->computedRect.w);
-        state.offset.x = std::clamp(state.offset.x, 0.0f, maxScrollX);
+        const float maxScrollX = keel::max(0.0f, node->scrollContentSize.x - node->computedRect.w);
+        state.offset.x = keel::clamp(state.offset.x, 0.0f, maxScrollX);
         state.draggingX = false;
     } else {
         state.offset.x = 0.0f;

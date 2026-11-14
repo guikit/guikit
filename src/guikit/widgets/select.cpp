@@ -1,12 +1,14 @@
 #include "guikit/widgets/select.hpp"
-#include <algorithm>
-#include <vector>
-#include "keel/format.h"
-#include "keel/small_array.h"
-#include "guikit/context.hpp"
+#include <cstddef>
+#include <cstdint>
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
+#include "keel/core.h"
+#include "keel/format.h"
+#include "keel/small_array.h"
+#include "keel/string.h"
 
 namespace guikit {
 
@@ -39,17 +41,17 @@ Vec2 MeasureSelectBox(const SelectOptions& opts, UiSize size, const UiTheme& the
     const bool hasExplicitDpW = Control::HasExplicitDpWidth(opts.stretch, ctrl.width, ctrl.widthRatio);
     float boxW = hasExplicitDpW ? theme.Scale(*ctrl.width) : m.defaultWidth;
     if (ctrl.minWidth.has_value()) {
-        boxW = std::max(theme.Scale(*ctrl.minWidth), boxW);
+        boxW = keel::max(theme.Scale(*ctrl.minWidth), boxW);
     } else if (!hasExplicitDpW) {
-        boxW = std::max(m.minWidth, boxW);
+        boxW = keel::max(m.minWidth, boxW);
     } else {
-        boxW = std::max(m.defaultHeight, boxW);
+        boxW = keel::max(m.defaultHeight, boxW);
     }
     return {boxW, m.defaultHeight};
 }
 
-size_t SnapToUtf8CodepointBoundary(std::string_view text, size_t idx) noexcept {
-    idx = std::min(idx, text.size());
+size_t SnapToUtf8CodepointBoundary(keel::StringRef text, size_t idx) noexcept {
+    idx = keel::min(idx, text.size());
     while (idx > 0 && idx < text.size() && (static_cast<unsigned char>(text[idx]) & 0xC0) == 0x80) {
         --idx;
     }
@@ -57,21 +59,21 @@ size_t SnapToUtf8CodepointBoundary(std::string_view text, size_t idx) noexcept {
 }
 
 bool FindCaseInsensitiveSubstring(
-    std::string_view haystack,
-    std::string_view needle,
+    keel::StringRef haystack,
+    keel::StringRef needle,
     size_t& outBytePos,
     size_t& outByteLen
 ) noexcept {
     return TextUtil::FindCaseInsensitive(haystack, needle, outBytePos, outByteLen);
 }
 
-bool ContainsCaseInsensitive(std::string_view haystack, std::string_view needle) noexcept {
+bool ContainsCaseInsensitive(keel::StringRef haystack, keel::StringRef needle) noexcept {
     size_t pos = 0;
     size_t len = 0;
     return FindCaseInsensitiveSubstring(haystack, needle, pos, len);
 }
 
-bool MatchesSelectFilter(const SelectItem& item, std::string_view query) noexcept {
+bool MatchesSelectFilter(const SelectItem& item, keel::StringRef query) noexcept {
     if (query.empty()) {
         return true;
     }
@@ -131,7 +133,7 @@ SelectBoxRects ResolveSelectBoxRects(
         rightX -= sW + 6.0f;
     }
 
-    const float availW = std::max(0.0f, rightX - leftX);
+    const float availW = keel::max(0.0f, rightX - leftX);
     return SelectBoxRects{
         .boxRect = boxRect,
         .textRect = Rect(leftX, boxRect.y, availW, boxRect.h),
@@ -151,7 +153,7 @@ Rect Select::GetBoxRect(
 ) {
     const Vec2 boxDims = Select::Measure(opts, size, canvas, theme, bounds.w);
     const float alignFactor = (opts.align == Align::End) ? 1.0f : ((opts.align == Align::Center) ? 0.5f : 0.0f);
-    float ctrlW = std::min(bounds.w, boxDims.x);
+    float ctrlW = keel::min(bounds.w, boxDims.x);
     if (!Control::HasExplicitDpWidth(opts.stretch, opts.width, opts.widthRatio)) {
         if (const auto fillRatio = Control::ResolveFillRatio(opts.stretch, opts.width, opts.widthRatio)) {
             ctrlW = bounds.w * (*fillRatio);
@@ -160,7 +162,7 @@ Rect Select::GetBoxRect(
         }
     }
     const float ctrlX = bounds.x + (bounds.w - ctrlW) * alignFactor;
-    const float ctrlH = std::min(boxDims.y, bounds.h);
+    const float ctrlH = keel::min(boxDims.y, bounds.h);
     const float ctrlY = bounds.y + (bounds.h - ctrlH) * 0.5f;
     return Rect(ctrlX, ctrlY, ctrlW, ctrlH);
 }
@@ -191,15 +193,15 @@ Response Select::Run(
     Context& ctx,
     size_t* selectedIndex,
     int* selectedIntIndex,
-    std::string* selectedString,
-    std::string_view* selectedStringView,
-    std::span<const std::string_view> items,
+    keel::Optional<keel::StringSink> selectedString,
+    keel::StringRef* selectedStringView,
+    keel::ArrayRef<keel::StringRef> items,
     const SelectOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     keel::SmallArray<SelectItem, 32> richItems;
     richItems.reserve(items.size());
-    for (std::string_view sv : items) {
+    for (keel::StringRef sv : items) {
         richItems.push_back(SelectItem{.text = sv});
     }
     return Run(ctx, selectedIndex, selectedIntIndex, selectedString, selectedStringView, richItems, opts, loc);
@@ -209,11 +211,11 @@ Response Select::Run(
     Context& ctx,
     size_t* selectedIndex,
     int* selectedIntIndex,
-    std::string* selectedString,
-    std::string_view* selectedStringView,
-    std::span<const SelectItem> items,
+    keel::Optional<keel::StringSink> selectedString,
+    keel::StringRef* selectedStringView,
+    keel::ArrayRef<SelectItem> items,
     const SelectOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
     struct ThemePopGuard {
@@ -248,7 +250,7 @@ Response Select::Run(
     }
 
     // Determine currently selected index from pointers
-    auto findMatchingIndex = [&](std::string_view sv) -> size_t {
+    auto findMatchingIndex = [&](keel::StringRef sv) -> size_t {
         for (size_t i = 0; i < items.size(); ++i) {
             if (items[i].text.text == sv) {
                 return i;
@@ -264,8 +266,8 @@ Response Select::Run(
         if (*selectedIntIndex >= 0 && static_cast<size_t>(*selectedIntIndex) < items.size()) {
             currIndex = static_cast<size_t>(*selectedIntIndex);
         }
-    } else if (selectedString != nullptr) {
-        currIndex = findMatchingIndex(*selectedString);
+    } else if (selectedString.has_value()) {
+        currIndex = findMatchingIndex(selectedString->as_ref());
     } else if (selectedStringView != nullptr) {
         currIndex = findMatchingIndex(*selectedStringView);
     }
@@ -296,12 +298,12 @@ Response Select::Run(
     for (const SelectItem& it : items) {
         const UiAffix& effPfx = it.prefix.HasContentOrReserve() ? it.prefix : optsCopy.prefix;
         const UiAffix& effSfx = it.suffix.HasContentOrReserve() ? it.suffix : optsCopy.suffix;
-        maxRowW = std::max(maxRowW, measureRowContentW(it.text, effPfx, effSfx));
+        maxRowW = keel::max(maxRowW, measureRowContentW(it.text, effPfx, effSfx));
         // Also ensure popup row width (with item's own prefix & suffix) fits
-        maxRowW = std::max(maxRowW, measureRowContentW(it.text, it.prefix, it.suffix));
+        maxRowW = keel::max(maxRowW, measureRowContentW(it.text, it.prefix, it.suffix));
     }
     if (optsCopy.placeholder.HasContentOrReserve()) {
-        maxRowW = std::max(maxRowW, measureRowContentW(optsCopy.placeholder, optsCopy.prefix, optsCopy.suffix));
+        maxRowW = keel::max(maxRowW, measureRowContentW(optsCopy.placeholder, optsCopy.prefix, optsCopy.suffix));
     }
 
     const bool exceedsVisibleItems = optsCopy.maxVisibleItems.has_value()
@@ -311,9 +313,9 @@ Response Select::Run(
     const float clearExtraW = optsCopy.clearable ? (m.iconSize + 8.0f) : 0.0f;
     float intrinsicW = maxRowW + m.paddingX * 2.0f + m.iconSize + 8.0f + clearExtraW + (exceedsVisibleItems ? sm.gutter : 0.0f);
     if (optsCopy.minWidth.has_value()) {
-        intrinsicW = std::max(theme.Scale(*optsCopy.minWidth), intrinsicW);
+        intrinsicW = keel::max(theme.Scale(*optsCopy.minWidth), intrinsicW);
     } else {
-        intrinsicW = std::max(m.minWidth, intrinsicW);
+        intrinsicW = keel::max(m.minWidth, intrinsicW);
     }
     if (optsCopy.stretch != StretchMode::Fill && optsCopy.width.has_value()) {
         intrinsicW = theme.Scale(*optsCopy.width);
@@ -337,7 +339,7 @@ Response Select::Run(
         float dragStartScrollY{0.0f};
         bool scrollbarHovered{false};
         bool scrollbarActive{false};
-        std::string filterText{};
+        keel::SmallString<64> filterText{};
         float scrollX{0.0f};
         double lastClickTime{-10.0};
         Vec2 lastClickPos{-1000.0f, -1000.0f};
@@ -374,13 +376,13 @@ Response Select::Run(
     auto hasValueToClear = [&]() -> bool {
         if (!opts.clearable || effectiveDisabled) return false;
         if (isEditable) {
-            if (selectedString != nullptr && !selectedString->empty()) return true;
+            if (selectedString.has_value() && !selectedString->empty()) return true;
             if (selectedStringView != nullptr && !selectedStringView->empty()) return true;
             return !popupState.filterText.empty();
         }
         if (wasOpen && opts.searchable && !popupState.filterText.empty()) return true;
         if (currIndex < items.size()) return true;
-        if (selectedString != nullptr && !selectedString->empty()) return true;
+        if (selectedString.has_value() && !selectedString->empty()) return true;
         if (selectedStringView != nullptr && !selectedStringView->empty()) return true;
         return false;
     };
@@ -401,14 +403,14 @@ Response Select::Run(
         const bool hadSelection = (currIndex < items.size())
             || (selectedIndex != nullptr && *selectedIndex != size_t(-1))
             || (selectedIntIndex != nullptr && *selectedIntIndex != -1)
-            || (selectedString != nullptr && !selectedString->empty())
+            || (selectedString.has_value() && !selectedString->empty())
             || (selectedStringView != nullptr && !selectedStringView->empty());
 
         currIndex = size_t(-1);
         if (selectedIndex != nullptr) *selectedIndex = size_t(-1);
         if (selectedIntIndex != nullptr) *selectedIntIndex = -1;
-        if (selectedString != nullptr) selectedString->clear();
-        if (selectedStringView != nullptr) *selectedStringView = std::string_view{};
+        if (selectedString.has_value()) selectedString->clear();
+        if (selectedStringView != nullptr) *selectedStringView = keel::StringRef{};
         if (ctx.HasActiveTextEdit(id)) {
             ctx.SetTextEditBuffer(id, "");
         }
@@ -431,7 +433,7 @@ Response Select::Run(
     bool editChanged = false;
     bool editSubmitted = false;
     bool isEditingText = false;
-    std::string_view editDisplayText{};
+    keel::StringRef editDisplayText{};
 
     if (!effectiveDisabled && isSearchable) {
         const bool shouldRunTextEdit = isEditable
@@ -439,13 +441,13 @@ Response Select::Run(
             : (wasOpen || isFocused || ctx.HasActiveTextEdit(id));
 
         if (shouldRunTextEdit) {
-            std::string_view initText = isEditable
-                ? (selectedString != nullptr ? std::string_view(*selectedString)
+            keel::StringRef initText = isEditable
+                ? (selectedString.has_value() ? selectedString->as_ref()
                    : (selectedStringView != nullptr ? *selectedStringView
-                      : (currIndex < items.size() ? items[currIndex].text.text : std::string_view(popupState.filterText))))
-                : std::string_view(popupState.filterText);
+                      : (currIndex < items.size() ? items[currIndex].text.text : popupState.filterText.as_ref())))
+                : popupState.filterText.as_ref();
 
-            std::string_view currentEditText = ctx.EnsureTextEdit(id, initText, /*multiline=*/false, /*readOnly=*/false);
+            keel::StringRef currentEditText = ctx.EnsureTextEdit(id, initText, /*multiline=*/false, /*readOnly=*/false);
             showClearBtn = opts.clearable && (!currentEditText.empty() || (!isEditable && currIndex < items.size()));
             rects = ResolveSelectBoxRects(boxRect, activePrefix, activeSuffix, activeSize, canvas, theme, showClearBtn);
             clearHovered = showClearBtn && res.hovered && rects.clearRect.Contains(mousePos);
@@ -532,21 +534,31 @@ Response Select::Run(
             if (isEditable) {
                 isEditingText = isFocused || wasOpen;
                 if (editChanged) {
-                    if (selectedString != nullptr) {
-                        *selectedString = std::string(editDisplayText);
+                    if (selectedString.has_value()) {
+                        const keel::StringRef prevVal = ctx.AllocString(initText);
+                        selectedString->assign(editDisplayText);
+                        const keel::StringRef stored = selectedString->as_ref();
+                        if (stored != editDisplayText) {
+                            cursor = keel::min(cursor, stored.size());
+                            selAnchor = keel::min(selAnchor, stored.size());
+                            ctx.SetTextEditBuffer(id, stored);
+                            ctx.SetTextEditCursor(id, cursor, selAnchor);
+                            editDisplayText = stored;
+                        }
+                        res.changed = (editDisplayText != prevVal);
                     } else {
-                        popupState.filterText = std::string(editDisplayText);
+                        popupState.filterText.assign(editDisplayText);
+                        res.changed = true;
                     }
                     currIndex = findMatchingIndex(editDisplayText);
                     if (selectedIndex != nullptr) *selectedIndex = currIndex;
                     if (selectedIntIndex != nullptr) *selectedIntIndex = (currIndex < items.size()) ? static_cast<int>(currIndex) : -1;
-                    if (selectedStringView != nullptr) *selectedStringView = (currIndex < items.size()) ? items[currIndex].text.text : std::string_view{};
+                    if (selectedStringView != nullptr) *selectedStringView = (currIndex < items.size()) ? items[currIndex].text.text : keel::StringRef{};
                     popupState.filterActive = true;
                     popupState.highlightedFilteredIdx = 0;
-                    res.changed = true;
                 }
             } else {
-                popupState.filterText = std::string(editDisplayText);
+                popupState.filterText.assign(editDisplayText);
                 if (editChanged) {
                     popupState.highlightedFilteredIdx = 0;
                 }
@@ -637,7 +649,7 @@ Response Select::Run(
             popupState.highlightedFilteredIdx = -1;
         } else if (isEditable) {
             if (!editChanged) {
-                std::string_view curVal = (selectedString != nullptr) ? std::string_view(*selectedString) : editDisplayText;
+                keel::StringRef curVal = selectedString.has_value() ? selectedString->as_ref() : editDisplayText;
                 popupState.filterActive = (currIndex == size_t(-1) && !curVal.empty());
                 ctx.EnsureTextEdit(id, curVal, /*multiline=*/false, /*readOnly=*/false);
             }
@@ -652,14 +664,14 @@ Response Select::Run(
     }
 
     // Build filtered item indices
-    std::string_view activeQuery{};
+    keel::StringRef activeQuery{};
     if (isOpen && isSearchable) {
         if (isEditable) {
             if (popupState.filterActive) {
-                activeQuery = (selectedString != nullptr) ? std::string_view(*selectedString) : editDisplayText;
+                activeQuery = selectedString.has_value() ? selectedString->as_ref() : editDisplayText;
             }
         } else {
-            activeQuery = popupState.filterText;
+            activeQuery = popupState.filterText.as_ref();
         }
     }
 
@@ -710,14 +722,14 @@ Response Select::Run(
         } else if (itemBottom > popupState.scrollY + viewportH) {
             popupState.scrollY = itemBottom - viewportH;
         }
-        popupState.scrollY = std::clamp(popupState.scrollY, 0.0f, maxScrollY);
+        popupState.scrollY = keel::clamp(popupState.scrollY, 0.0f, maxScrollY);
     };
 
     auto computePopupRect = [&](size_t rowCount) -> Rect {
         const float popupW = boxRect.w > 0.0f ? boxRect.w : intrinsicW;
-        const size_t clampedRows = std::max<size_t>(1, rowCount);
+        const size_t clampedRows = keel::max<size_t>(1, rowCount);
         const size_t visibleCount = (opts.maxVisibleItems.has_value() && *opts.maxVisibleItems > 0)
-            ? std::min(clampedRows, static_cast<size_t>(*opts.maxVisibleItems))
+            ? keel::min(clampedRows, static_cast<size_t>(*opts.maxVisibleItems))
             : clampedRows;
         const float contentH = static_cast<float>(visibleCount) * m.itemHeight + 8.0f;
         float popupH = contentH;
@@ -729,15 +741,15 @@ Response Select::Run(
             const float availDown = vp.Bottom() - popupY - 6.0f;
             const float availUp = boxRect.y - 4.0f - (vp.y + 6.0f);
             if (popupY + popupH > vp.Bottom() - 6.0f && availUp > availDown) {
-                popupY = std::max(vp.y + 6.0f, boxRect.y - 4.0f - popupH);
-                popupH = std::clamp(boxRect.y - 4.0f - popupY, std::min(m.itemHeight + 8.0f, vp.h - 8.0f), popupH);
+                popupY = keel::max(vp.y + 6.0f, boxRect.y - 4.0f - popupH);
+                popupH = keel::clamp(boxRect.y - 4.0f - popupY, keel::min(m.itemHeight + 8.0f, vp.h - 8.0f), popupH);
             } else if (popupY + popupH > vp.Bottom() - 6.0f) {
-                popupH = std::max(std::min(m.itemHeight + 8.0f, vp.h - 8.0f), availDown);
-                popupY = std::clamp(popupY, vp.y + 4.0f, std::max(vp.y + 4.0f, vp.Bottom() - popupH - 4.0f));
+                popupH = keel::max(keel::min(m.itemHeight + 8.0f, vp.h - 8.0f), availDown);
+                popupY = keel::clamp(popupY, vp.y + 4.0f, keel::max(vp.y + 4.0f, vp.Bottom() - popupH - 4.0f));
             }
         }
         if (vp.w > 0.0f) {
-            popupX = std::clamp(popupX, vp.x + 4.0f, std::max(vp.x + 4.0f, vp.Right() - popupW - 4.0f));
+            popupX = keel::clamp(popupX, vp.x + 4.0f, keel::max(vp.x + 4.0f, vp.Right() - popupW - 4.0f));
         }
         return Rect(popupX, popupY, popupW, popupH);
     };
@@ -746,9 +758,9 @@ Response Select::Run(
         const Rect popupRect = computePopupRect(effectiveRowCount);
         ctx.OpenPopup(id, popupRect);
         if (!wasOpen) {
-            const float viewportH = std::max(0.0f, popupRect.h - 8.0f);
-            const float maxScrollY = std::max(0.0f, totalContentH - viewportH);
-            popupState.scrollY = std::clamp(popupState.scrollY, 0.0f, maxScrollY);
+            const float viewportH = keel::max(0.0f, popupRect.h - 8.0f);
+            const float maxScrollY = keel::max(0.0f, totalContentH - viewportH);
+            popupState.scrollY = keel::clamp(popupState.scrollY, 0.0f, maxScrollY);
             if (currFilteredPos >= 0) {
                 scrollItemIntoView(static_cast<size_t>(currFilteredPos), viewportH, maxScrollY);
             } else {
@@ -762,20 +774,20 @@ Response Select::Run(
 
     auto applySelection = [&](size_t newIdx) {
         if (newIdx >= items.size()) return;
-        const bool strDiffers = (selectedString != nullptr && *selectedString != items[newIdx].text.text) ||
+        const bool strDiffers = (selectedString.has_value() && selectedString->as_ref() != items[newIdx].text.text) ||
                                 (selectedStringView != nullptr && *selectedStringView != items[newIdx].text.text);
         if (currIndex != newIdx || strDiffers) {
             res.changed = true;
             currIndex = newIdx;
             if (selectedIndex != nullptr) *selectedIndex = newIdx;
             if (selectedIntIndex != nullptr) *selectedIntIndex = static_cast<int>(newIdx);
-            if (selectedString != nullptr) *selectedString = std::string(items[newIdx].text.text);
+            if (selectedString.has_value()) selectedString->assign(items[newIdx].text.text);
             if (selectedStringView != nullptr) *selectedStringView = items[newIdx].text.text;
         }
-        if (isEditable && selectedString != nullptr) {
-            editDisplayText = *selectedString;
-            ctx.SetTextEditBuffer(id, *selectedString);
-            cursor = selectedString->size();
+        if (isEditable && selectedString.has_value()) {
+            editDisplayText = selectedString->as_ref();
+            ctx.SetTextEditBuffer(id, editDisplayText);
+            cursor = editDisplayText.size();
             selAnchor = cursor;
             popupState.filterActive = false;
         } else if (opts.searchable) {
@@ -793,17 +805,17 @@ Response Select::Run(
         auto hitScope = ctx.ScopedOverlayHitCheck(id);
         const Rect popupRect = ctx.GetOpenPopupRect();
         const Vec2 mouse = ctx.GetMousePos();
-        const float viewportH = std::max(0.0f, popupRect.h - 8.0f);
-        const float maxScrollY = std::max(0.0f, totalContentH - viewportH);
+        const float viewportH = keel::max(0.0f, popupRect.h - 8.0f);
+        const float maxScrollY = keel::max(0.0f, totalContentH - viewportH);
         const bool hasScrollbar = (maxScrollY > 0.5f);
 
-        popupState.scrollY = std::clamp(popupState.scrollY, 0.0f, maxScrollY);
+        popupState.scrollY = keel::clamp(popupState.scrollY, 0.0f, maxScrollY);
 
         // 1. Mouse wheel scrolling inside popup
         if (hasScrollbar && popupRect.Contains(mouse)) {
             const Vec2 wheel = ctx.GetMouseWheel();
             if (wheel.y != 0.0f || wheel.x != 0.0f) {
-                popupState.scrollY = std::clamp(popupState.scrollY - wheel.y * sm.scrollStep, 0.0f, maxScrollY);
+                popupState.scrollY = keel::clamp(popupState.scrollY - wheel.y * sm.scrollStep, 0.0f, maxScrollY);
                 ctx.ConsumeMouseWheel();
             }
         }
@@ -813,10 +825,10 @@ Response Select::Run(
         if (hasScrollbar && popupRect.h > 10.0f) {
             const float trackX = popupRect.Right() - sm.trackWidth - sm.margin;
             const float trackY = popupRect.y + sm.margin;
-            const float trackH = std::max(0.0f, popupRect.h - 2.0f * sm.margin);
-            const float thumbH = std::clamp((viewportH / std::max(1.0f, totalContentH)) * trackH, sm.minThumbLength, trackH);
-            const float travelH = std::max(0.0f, trackH - thumbH);
-            const float scrollRatio = (maxScrollY > 0.0f) ? std::clamp(popupState.scrollY / maxScrollY, 0.0f, 1.0f) : 0.0f;
+            const float trackH = keel::max(0.0f, popupRect.h - 2.0f * sm.margin);
+            const float thumbH = keel::clamp((viewportH / keel::max(1.0f, totalContentH)) * trackH, sm.minThumbLength, trackH);
+            const float travelH = keel::max(0.0f, trackH - thumbH);
+            const float scrollRatio = (maxScrollY > 0.0f) ? keel::clamp(popupState.scrollY / maxScrollY, 0.0f, 1.0f) : 0.0f;
             const float thumbY = trackY + scrollRatio * travelH;
 
             const Rect trackRect(trackX, trackY, sm.trackWidth, trackH);
@@ -835,9 +847,9 @@ Response Select::Run(
                     ctx.SetActiveId(id);
                 } else {
                     if (mouse.y < thumbRect.y) {
-                        popupState.scrollY = std::max(0.0f, popupState.scrollY - viewportH * 0.8f);
+                        popupState.scrollY = keel::max(0.0f, popupState.scrollY - viewportH * 0.8f);
                     } else if (mouse.y > thumbRect.Bottom()) {
-                        popupState.scrollY = std::min(maxScrollY, popupState.scrollY + viewportH * 0.8f);
+                        popupState.scrollY = keel::min(maxScrollY, popupState.scrollY + viewportH * 0.8f);
                     }
                 }
                 ctx.ConsumeMouseClick();
@@ -847,7 +859,7 @@ Response Select::Run(
                 if (ctx.IsMouseDown()) {
                     if (travelH > 0.0f) {
                         const float deltaY = mouse.y - popupState.dragStartMouseY;
-                        popupState.scrollY = std::clamp(
+                        popupState.scrollY = keel::clamp(
                             popupState.dragStartScrollY + (deltaY / travelH) * maxScrollY,
                             0.0f,
                             maxScrollY
@@ -867,7 +879,7 @@ Response Select::Run(
         popupState.scrollbarActive = popupState.draggingScrollbar;
 
         // 3. Check hover and click on dropdown items (suppressed when dragging or hovering scrollbar)
-        const float itemW = std::max(0.0f, popupRect.w - 8.0f - (hasScrollbar ? sm.gutter : 0.0f));
+        const float itemW = keel::max(0.0f, popupRect.w - 8.0f - (hasScrollbar ? sm.gutter : 0.0f));
         const Rect itemsViewport(popupRect.x + 4.0f, popupRect.y + 4.0f, itemW, viewportH);
 
         if (!popupState.draggingScrollbar && !popupState.scrollbarHovered && itemsViewport.Contains(mouse)) {
@@ -1002,19 +1014,19 @@ Response Select::Run(
     UiText currentDisplayText{};
     if (isEditingText) {
         if (isEditable) {
-            if (selectedString != nullptr) {
-                currentDisplayText = *selectedString;
+            if (selectedString.has_value()) {
+                currentDisplayText = selectedString->as_ref();
             } else if (!editDisplayText.empty()) {
                 currentDisplayText = editDisplayText;
             }
         } else {
-            currentDisplayText = popupState.filterText;
+            currentDisplayText = popupState.filterText.as_ref();
         }
     } else {
         if (currIndex < items.size()) {
             currentDisplayText = items[currIndex].text;
-        } else if (selectedString != nullptr && !selectedString->empty()) {
-            currentDisplayText = *selectedString;
+        } else if (selectedString.has_value() && !selectedString->empty()) {
+            currentDisplayText = selectedString->as_ref();
         } else if (selectedStringView != nullptr && !selectedStringView->empty()) {
             currentDisplayText = *selectedStringView;
         } else {
@@ -1029,19 +1041,19 @@ Response Select::Run(
 
     if (isEditingText && rects.textRect.w > 0.0f) {
         const float inputFont = theme.ResolveFontSize(currentDisplayText, TextRole::LabelMedium, activeSize);
-        const std::string_view measureText = currentDisplayText.text;
-        const size_t safeCursor = std::min(cursor, measureText.size());
+        const keel::StringRef measureText = currentDisplayText.text;
+        const size_t safeCursor = keel::min(cursor, measureText.size());
         const float cursorX = TextUtil::MeasureWidth(measureText.substr(0, safeCursor), inputFont, canvas);
         const float fullTextW = TextUtil::MeasureWidth(measureText, inputFont, canvas);
-        const float visibleW = std::max(0.0f, rects.textRect.w - 2.0f);
+        const float visibleW = keel::max(0.0f, rects.textRect.w - 2.0f);
 
         if (cursorX < popupState.scrollX) {
             popupState.scrollX = cursorX;
         } else if (cursorX > popupState.scrollX + visibleW) {
             popupState.scrollX = cursorX - visibleW;
         }
-        const float maxScroll = std::max(0.0f, fullTextW - visibleW);
-        popupState.scrollX = std::clamp(popupState.scrollX, 0.0f, maxScroll);
+        const float maxScroll = keel::max(0.0f, fullTextW - visibleW);
+        popupState.scrollX = keel::clamp(popupState.scrollX, 0.0f, maxScroll);
     } else {
         popupState.scrollX = 0.0f;
     }
@@ -1069,9 +1081,9 @@ Response Select::Run(
             copy.suffix = ctx.AllocAffix(copy.suffix);
             arenaPopupItems[fi] = copy;
         }
-        const std::span<const SelectItem> popupItemsSpan(arenaPopupItems, filteredIndices.size());
+        const keel::ArrayRef<SelectItem> popupItemsSpan(arenaPopupItems, filteredIndices.size());
 
-        const std::string_view highlightQueryStr = ctx.AllocString(activeQuery);
+        const keel::StringRef highlightQueryStr = ctx.AllocString(activeQuery);
         ctx.SetOpenPopupVisualHash(detail::HashArgs(
             currentPopupRect.x,
             currentPopupRect.y,
@@ -1124,8 +1136,8 @@ Response Select::Run(
     optsCopy.prefix = ctx.AllocAffix(activePrefix);
     optsCopy.suffix = ctx.AllocAffix(activeSuffix);
 
-    const size_t selStart = std::min(cursor, selAnchor);
-    const size_t selEnd = std::max(cursor, selAnchor);
+    const size_t selStart = keel::min(cursor, selAnchor);
+    const size_t selEnd = keel::max(cursor, selAnchor);
     const bool finalFocused = isOpen || ctx.IsFocused(id);
 
     auto* data = ctx.AllocPayload<SelectData>();
@@ -1312,7 +1324,7 @@ void Select::Render(
         if (clearHovered && !disabled) {
             canvas.DrawRoundRect(clearBtnRect, 4.0f, pal.surfaceHover, Color::Transparent(), 0.0f);
         }
-        const float clearIconSz = std::max(8.0f, m.iconSize - 2.0f);
+        const float clearIconSz = keel::max(8.0f, m.iconSize - 2.0f);
         const Rect icRect(
             rightX + (btnSize - clearIconSz) * 0.5f,
             boxRect.y + (boxRect.h - clearIconSz) * 0.5f,
@@ -1335,26 +1347,26 @@ void Select::Render(
     }
 
     // Center display text / placeholder / editable input
-    const float availW = std::max(0.0f, rightX - leftX);
+    const float availW = keel::max(0.0f, rightX - leftX);
     const Rect textRect(leftX, boxRect.y, availW, boxRect.h);
     canvas.PushClip(textRect);
 
     if (isEditing) {
-        const std::string_view displayText = currentText.text;
+        const keel::StringRef displayText = currentText.text;
         const float inputFont = theme.ResolveFontSize(currentText, TextRole::LabelMedium, size);
         const Color textCol = currentText.color.HasAny()
             ? theme.ResolveTextColor(currentText, UiVariant::Default, disabled, hovered, open || focused)
             : (disabled ? pal.textPrimary.WithAlphaF(0.40f) : pal.textPrimary);
 
         if (!disabled && selStart != selEnd && !displayText.empty()) {
-            const size_t s0 = std::min({selStart, selEnd, displayText.size()});
-            const size_t s1 = std::min(std::max(selStart, selEnd), displayText.size());
+            const size_t s0 = keel::min(keel::min(selStart, selEnd), displayText.size());
+            const size_t s1 = keel::min(keel::max(selStart, selEnd), displayText.size());
             if (s1 > s0) {
                 const float x0 = textRect.x - scrollX + canvas.MeasureText(displayText.substr(0, s0), inputFont).x;
                 const float x1 = textRect.x - scrollX + canvas.MeasureText(displayText.substr(0, s1), inputFont).x;
                 const float selH = inputFont * 1.25f;
                 const float selY = boxRect.y + (boxRect.h - selH) * 0.5f;
-                const Rect selRect(x0, selY, std::max(1.0f, x1 - x0), selH);
+                const Rect selRect(x0, selY, keel::max(1.0f, x1 - x0), selH);
                 canvas.DrawRoundRect(selRect, 2.0f, pal.accent.WithAlpha(88), Color::Transparent(), 0.0f);
             }
         }
@@ -1365,14 +1377,14 @@ void Select::Render(
                 : inputFont;
             canvas.DrawTextBox(opts.placeholder.text, textRect, phFont, placeholderCol, 0.0f, 0.5f);
         } else if (!displayText.empty()) {
-            const float fullW = std::max(textRect.w, canvas.MeasureText(displayText, inputFont).x + 8.0f);
+            const float fullW = keel::max(textRect.w, canvas.MeasureText(displayText, inputFont).x + 8.0f);
             const Rect scrolledRect(textRect.x - scrollX, textRect.y, fullW, textRect.h);
             canvas.DrawTextBox(displayText, scrolledRect, inputFont, textCol, 0.0f, 0.5f);
         }
 
         if (!disabled && cursorVisible) {
-            const size_t safeCursor = std::min(cursor, displayText.size());
-            const std::string_view sub = displayText.substr(0, safeCursor);
+            const size_t safeCursor = keel::min(cursor, displayText.size());
+            const keel::StringRef sub = displayText.substr(0, safeCursor);
             const float subW = canvas.MeasureText(sub, inputFont).x;
             const float caretX = textRect.x - scrollX + subW;
             const float caretH = inputFont * 1.15f;
@@ -1394,7 +1406,7 @@ void Select::Render(
 void Select::RenderPopup(
     ICanvas& canvas,
     Rect popupRect,
-    std::span<const std::string_view> items,
+    keel::ArrayRef<keel::StringRef> items,
     size_t selectedIndex,
     int hoveredIndex,
     const SelectOptions& opts,
@@ -1403,11 +1415,11 @@ void Select::RenderPopup(
     float scrollY,
     bool scrollbarHovered,
     bool scrollbarActive,
-    std::string_view highlightQuery
+    keel::StringRef highlightQuery
 ) {
     keel::SmallArray<SelectItem, 32> richItems;
     richItems.reserve(items.size());
-    for (std::string_view sv : items) {
+    for (keel::StringRef sv : items) {
         richItems.push_back(SelectItem{.text = sv});
     }
     RenderPopup(canvas, popupRect, richItems, selectedIndex, hoveredIndex, opts, size, theme, scrollY, scrollbarHovered, scrollbarActive, highlightQuery);
@@ -1416,7 +1428,7 @@ void Select::RenderPopup(
 void Select::RenderPopup(
     ICanvas& canvas,
     Rect popupRect,
-    std::span<const SelectItem> items,
+    keel::ArrayRef<SelectItem> items,
     size_t selectedIndex,
     int hoveredIndex,
     const SelectOptions& opts,
@@ -1425,7 +1437,7 @@ void Select::RenderPopup(
     float scrollY,
     bool scrollbarHovered,
     bool scrollbarActive,
-    std::string_view highlightQuery
+    keel::StringRef highlightQuery
 ) {
     const bool isSearchable = opts.searchable || opts.editable;
     if (popupRect.w <= 0.0f || popupRect.h <= 0.0f || (items.empty() && !isSearchable)) {
@@ -1448,7 +1460,7 @@ void Select::RenderPopup(
     canvas.DrawRoundRect(popupRect, m.cornerRadius, popupBg, popupBorder, 1.0f);
 
     if (items.empty()) {
-        const Rect emptyRect(popupRect.x + m.paddingX, popupRect.y + 4.0f, std::max(0.0f, popupRect.w - m.paddingX * 2.0f), std::max(0.0f, popupRect.h - 8.0f));
+        const Rect emptyRect(popupRect.x + m.paddingX, popupRect.y + 4.0f, keel::max(0.0f, popupRect.w - m.paddingX * 2.0f), keel::max(0.0f, popupRect.h - 8.0f));
         canvas.PushClip(emptyRect);
         const UiText emptyTxt = opts.emptyText.empty() ? UiText{"No matching items"} : opts.emptyText;
         const float emptyFont = theme.ResolveFontSize(emptyTxt, TextRole::LabelMedium, size);
@@ -1458,13 +1470,13 @@ void Select::RenderPopup(
         return;
     }
 
-    const float viewportH = std::max(0.0f, popupRect.h - 8.0f);
+    const float viewportH = keel::max(0.0f, popupRect.h - 8.0f);
     const float totalContentH = static_cast<float>(items.size()) * m.itemHeight;
-    const float maxScrollY = std::max(0.0f, totalContentH - viewportH);
+    const float maxScrollY = keel::max(0.0f, totalContentH - viewportH);
     const bool hasScrollbar = (maxScrollY > 0.5f);
-    const float clampedScrollY = std::clamp(scrollY, 0.0f, maxScrollY);
-    const float itemW = std::max(0.0f, popupRect.w - 8.0f - (hasScrollbar ? sm.gutter : 0.0f));
-    const Rect itemsClipRect(popupRect.x + 1.0f, popupRect.y + 4.0f, std::max(0.0f, popupRect.w - 2.0f), viewportH);
+    const float clampedScrollY = keel::clamp(scrollY, 0.0f, maxScrollY);
+    const float itemW = keel::max(0.0f, popupRect.w - 8.0f - (hasScrollbar ? sm.gutter : 0.0f));
+    const Rect itemsClipRect(popupRect.x + 1.0f, popupRect.y + 4.0f, keel::max(0.0f, popupRect.w - 2.0f), viewportH);
 
     canvas.PushClip(itemsClipRect);
 
@@ -1529,7 +1541,7 @@ void Select::RenderPopup(
         }
 
         const float selFont = theme.ResolveFontSize(item.text, TextRole::LabelMedium, size);
-        const Rect itemTextRect(textLeftX, itemRect.y, std::max(0.0f, textRightX - textLeftX), itemRect.h);
+        const Rect itemTextRect(textLeftX, itemRect.y, keel::max(0.0f, textRightX - textLeftX), itemRect.h);
 
         // Highlight matched substring when search query is active
         if (!highlightQuery.empty() && !item.text.empty()) {
@@ -1563,9 +1575,9 @@ void Select::RenderPopup(
         canvas.PushClip(popupRect);
         const float trackX = popupRect.Right() - sm.trackWidth - sm.margin;
         const float trackY = popupRect.y + sm.margin;
-        const float trackH = std::max(0.0f, popupRect.h - 2.0f * sm.margin);
-        const float thumbH = std::clamp((viewportH / std::max(1.0f, totalContentH)) * trackH, sm.minThumbLength, trackH);
-        const float travelH = std::max(0.0f, trackH - thumbH);
+        const float trackH = keel::max(0.0f, popupRect.h - 2.0f * sm.margin);
+        const float thumbH = keel::clamp((viewportH / keel::max(1.0f, totalContentH)) * trackH, sm.minThumbLength, trackH);
+        const float travelH = keel::max(0.0f, trackH - thumbH);
         const float scrollRatio = (maxScrollY > 0.0f) ? (clampedScrollY / maxScrollY) : 0.0f;
         const float thumbY = trackY + scrollRatio * travelH;
 
@@ -1614,8 +1626,8 @@ struct MultiChipLayout {
 MultiChipLayout ComputeMultiChipLayout(
     Rect textRect,
     float boxH,
-    std::span<const size_t> selectedIndices,
-    std::span<const SelectItem> items,
+    keel::ArrayRef<size_t> selectedIndices,
+    keel::ArrayRef<SelectItem> items,
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme,
@@ -1624,11 +1636,15 @@ MultiChipLayout ComputeMultiChipLayout(
     MultiChipLayout layout{};
     layout.afterChipsX = textRect.x;
 
-    keel::SmallArray<std::pair<size_t, size_t>, 16> validEntries;
+    struct ValidEntry {
+        size_t selIdx{0};
+        size_t itemIdx{0};
+    };
+    keel::SmallArray<ValidEntry, 16> validEntries;
     validEntries.reserve(selectedIndices.size());
     for (size_t si = 0; si < selectedIndices.size(); ++si) {
         if (selectedIndices[si] < items.size()) {
-            validEntries.emplace_back(si, selectedIndices[si]);
+            validEntries.push_back(ValidEntry{si, selectedIndices[si]});
         }
     }
     layout.totalValidCount = validEntries.size();
@@ -1637,25 +1653,25 @@ MultiChipLayout ComputeMultiChipLayout(
     }
 
     const SelectMetrics& m = theme.GetSelect(size);
-    const float chipH = std::max(14.0f, boxH - 8.0f);
+    const float chipH = keel::max(14.0f, boxH - 8.0f);
     const float chipY = textRect.y + (textRect.h - chipH) * 0.5f;
-    const float chipFont = std::max(10.0f, theme.ResolveFontSize(UiText{}, TextRole::LabelSmall, size));
-    const float chipIconSz = std::max(10.0f, m.iconSize - 2.0f);
-    const float removeIconSz = std::max(8.0f, m.iconSize - 4.0f);
+    const float chipFont = keel::max(10.0f, theme.ResolveFontSize(UiText{}, TextRole::LabelSmall, size));
+    const float chipIconSz = keel::max(10.0f, m.iconSize - 2.0f);
+    const float removeIconSz = keel::max(8.0f, m.iconSize - 4.0f);
     const float removeBtnW = removeIconSz + 6.0f;
     const float chipGap = 4.0f;
 
-    const float availW = std::max(24.0f, textRect.w - reserveInputW);
+    const float availW = keel::max(24.0f, textRect.w - reserveInputW);
 
     keel::SmallArray<float, 16> chipWidths(validEntries.size(), 0.0f);
     for (size_t i = 0; i < validEntries.size(); ++i) {
-        const SelectItem& it = items[validEntries[i].second];
+        const SelectItem& it = items[validEntries[i].itemIdx];
         const float textW = TextUtil::MeasureUiTextWidth(it.text, chipFont, canvas);
         const float iconW = (!it.prefix.icon.IsEmpty()) ? (chipIconSz + 4.0f) : 0.0f;
         chipWidths[i] = 6.0f + iconW + textW + 4.0f + removeBtnW;
     }
 
-    const size_t maxCap = std::min(validEntries.size(), SelectData::kMaxChips);
+    const size_t maxCap = keel::min(validEntries.size(), SelectData::kMaxChips);
     float totalAllW = 0.0f;
     for (size_t i = 0; i < validEntries.size(); ++i) {
         if (i > 0) totalAllW += chipGap;
@@ -1672,7 +1688,7 @@ MultiChipLayout ComputeMultiChipLayout(
             const size_t rem = validEntries.size() - count;
             if (rem == 0) continue;
             char badgeBuf[32]{};
-            const std::string_view badgeStr = keel::format_buf(badgeBuf, "+%zu", rem);
+            const keel::StringRef badgeStr = keel::format_buf(badgeBuf, "+%zu", rem);
             const float bw = TextUtil::MeasureWidth(badgeStr, chipFont, canvas) + 12.0f;
             float sumW = 0.0f;
             for (size_t j = 0; j < count; ++j) {
@@ -1696,8 +1712,8 @@ MultiChipLayout ComputeMultiChipLayout(
             } else {
                 layout.overflowCount = validEntries.size();
                 char badgeBuf[32]{};
-                const std::string_view badgeStr = keel::format_buf(badgeBuf, "+%zu", layout.overflowCount);
-                badgeW = std::min(availW, TextUtil::MeasureWidth(badgeStr, chipFont, canvas) + 12.0f);
+                const keel::StringRef badgeStr = keel::format_buf(badgeBuf, "+%zu", layout.overflowCount);
+                badgeW = keel::min(availW, TextUtil::MeasureWidth(badgeStr, chipFont, canvas) + 12.0f);
             }
         }
     }
@@ -1709,8 +1725,8 @@ MultiChipLayout ComputeMultiChipLayout(
         const Rect cRect(curX, chipY, w, chipH);
         const Rect rRect(curX + w - removeBtnW, chipY, removeBtnW, chipH);
         layout.visibleChips.push_back(MultiChipBox{
-            .selectedVecIdx = validEntries[i].first,
-            .itemIdx = validEntries[i].second,
+            .selectedVecIdx = validEntries[i].selIdx,
+            .itemIdx = validEntries[i].itemIdx,
             .chipRect = cRect,
             .removeRect = rRect
         });
@@ -1818,7 +1834,7 @@ void RenderMultiSelectNode(
         if (data.clearHovered && !disabled) {
             canvas.DrawRoundRect(clearBtnRect, 4.0f, pal.surfaceHover, Color::Transparent(), 0.0f);
         }
-        const float clearIconSz = std::max(8.0f, m.iconSize - 2.0f);
+        const float clearIconSz = keel::max(8.0f, m.iconSize - 2.0f);
         const Rect icRect(
             rightX + (btnSize - clearIconSz) * 0.5f,
             boxRect.y + (boxRect.h - clearIconSz) * 0.5f,
@@ -1840,15 +1856,15 @@ void RenderMultiSelectNode(
         rightX -= 6.0f;
     }
 
-    const float availW = std::max(0.0f, rightX - leftX);
+    const float availW = keel::max(0.0f, rightX - leftX);
     const Rect textRect(leftX, boxRect.y, availW, boxRect.h);
     canvas.PushClip(textRect);
 
-    const float chipH = std::max(14.0f, boxRect.h - 8.0f);
+    const float chipH = keel::max(14.0f, boxRect.h - 8.0f);
     const float chipY = boxRect.y + (boxRect.h - chipH) * 0.5f;
-    const float chipFont = std::max(10.0f, theme.ResolveFontSize(UiText{}, TextRole::LabelSmall, size));
-    const float chipIconSz = std::max(10.0f, m.iconSize - 2.0f);
-    const float removeIconSz = std::max(8.0f, m.iconSize - 4.0f);
+    const float chipFont = keel::max(10.0f, theme.ResolveFontSize(UiText{}, TextRole::LabelSmall, size));
+    const float chipIconSz = keel::max(10.0f, m.iconSize - 2.0f);
+    const float removeIconSz = keel::max(8.0f, m.iconSize - 4.0f);
     const float removeBtnW = removeIconSz + 6.0f;
     const float chipGap = 4.0f;
 
@@ -1876,7 +1892,7 @@ void RenderMultiSelectNode(
             innerX += chipIconSz + 4.0f;
         }
 
-        const float maxTxtW = std::max(0.0f, (curX + w - removeBtnW - 2.0f) - innerX);
+        const float maxTxtW = keel::max(0.0f, (curX + w - removeBtnW - 2.0f) - innerX);
         const Rect chipTxtRect(innerX, chipY, maxTxtW, chipH);
         TextUtil::DrawUiText(canvas, chip.text, chipTxtRect, chipFont, chipH, chipTextCol, 0.0f, 0.5f, &theme);
 
@@ -1902,8 +1918,8 @@ void RenderMultiSelectNode(
     if (data.totalSelectedCount > data.chipCount) {
         const size_t overflowN = data.totalSelectedCount - data.chipCount;
         char badgeBuf[32]{};
-        const std::string_view badgeStr = keel::format_buf(badgeBuf, "+%zu", overflowN);
-        const float bw = std::min(std::max(0.0f, textRect.Right() - curX), TextUtil::MeasureWidth(badgeStr, chipFont, &canvas) + 12.0f);
+        const keel::StringRef badgeStr = keel::format_buf(badgeBuf, "+%zu", overflowN);
+        const float bw = keel::min(keel::max(0.0f, textRect.Right() - curX), TextUtil::MeasureWidth(badgeStr, chipFont, &canvas) + 12.0f);
         if (bw > 8.0f) {
             const Rect bRect(curX, chipY, bw, chipH);
             canvas.DrawRoundRect(bRect, 4.0f, primaryCol.WithAlphaF(0.22f), chipBorder, 1.0f);
@@ -1913,11 +1929,11 @@ void RenderMultiSelectNode(
     }
 
     // Search filter text or placeholder when empty
-    const std::string_view displayText = data.displayText.text;
+    const keel::StringRef displayText = data.displayText.text;
     if (data.isEditing) {
         const float inputFont = theme.ResolveFontSize(data.displayText, TextRole::LabelMedium, size);
         const Color textCol = disabled ? pal.textPrimary.WithAlphaF(0.40f) : pal.textPrimary;
-        const Rect editRect(curX, boxRect.y, std::max(0.0f, textRect.Right() - curX), boxRect.h);
+        const Rect editRect(curX, boxRect.y, keel::max(0.0f, textRect.Right() - curX), boxRect.h);
 
         if (displayText.empty() && data.totalSelectedCount == 0 && !opts.placeholder.empty()) {
             const float phFont = !opts.placeholder.size.IsAuto()
@@ -1925,14 +1941,14 @@ void RenderMultiSelectNode(
                 : inputFont;
             canvas.DrawTextBox(opts.placeholder.text, editRect, phFont, placeholderCol, 0.0f, 0.5f);
         } else if (!displayText.empty()) {
-            const float fullW = std::max(editRect.w, canvas.MeasureText(displayText, inputFont).x + 8.0f);
+            const float fullW = keel::max(editRect.w, canvas.MeasureText(displayText, inputFont).x + 8.0f);
             const Rect scrolledRect(editRect.x - data.scrollX, editRect.y, fullW, editRect.h);
             canvas.DrawTextBox(displayText, scrolledRect, inputFont, textCol, 0.0f, 0.5f);
         }
 
         if (!disabled && data.cursorVisible) {
-            const size_t safeCursor = std::min(data.cursor, displayText.size());
-            const std::string_view sub = displayText.substr(0, safeCursor);
+            const size_t safeCursor = keel::min(data.cursor, displayText.size());
+            const keel::StringRef sub = displayText.substr(0, safeCursor);
             const float subW = canvas.MeasureText(sub, inputFont).x;
             const float caretX = editRect.x - data.scrollX + subW;
             const float caretH = inputFont * 1.15f;
@@ -1950,8 +1966,8 @@ void RenderMultiSelectNode(
 void RenderMultiPopup(
     ICanvas& canvas,
     Rect popupRect,
-    std::span<const SelectItem> items,
-    std::span<const uint8_t> itemSelectedFlags,
+    keel::ArrayRef<SelectItem> items,
+    keel::ArrayRef<uint8_t> itemSelectedFlags,
     int hoveredIndex,
     const SelectOptions& opts,
     UiSize size,
@@ -1959,7 +1975,7 @@ void RenderMultiPopup(
     float scrollY,
     bool scrollbarHovered,
     bool scrollbarActive,
-    std::string_view highlightQuery
+    keel::StringRef highlightQuery
 ) {
     if (popupRect.w <= 0.0f || popupRect.h <= 0.0f || (items.empty() && !opts.searchable)) {
         return;
@@ -1978,7 +1994,7 @@ void RenderMultiPopup(
     canvas.DrawRoundRect(popupRect, m.cornerRadius, popupBg, popupBorder, 1.0f);
 
     if (items.empty()) {
-        const Rect emptyRect(popupRect.x + m.paddingX, popupRect.y + 4.0f, std::max(0.0f, popupRect.w - m.paddingX * 2.0f), std::max(0.0f, popupRect.h - 8.0f));
+        const Rect emptyRect(popupRect.x + m.paddingX, popupRect.y + 4.0f, keel::max(0.0f, popupRect.w - m.paddingX * 2.0f), keel::max(0.0f, popupRect.h - 8.0f));
         canvas.PushClip(emptyRect);
         const UiText emptyTxt = opts.emptyText.empty() ? UiText{"No matching items"} : opts.emptyText;
         const float emptyFont = theme.ResolveFontSize(emptyTxt, TextRole::LabelMedium, size);
@@ -1988,13 +2004,13 @@ void RenderMultiPopup(
         return;
     }
 
-    const float viewportH = std::max(0.0f, popupRect.h - 8.0f);
+    const float viewportH = keel::max(0.0f, popupRect.h - 8.0f);
     const float totalContentH = static_cast<float>(items.size()) * m.itemHeight;
-    const float maxScrollY = std::max(0.0f, totalContentH - viewportH);
+    const float maxScrollY = keel::max(0.0f, totalContentH - viewportH);
     const bool hasScrollbar = (maxScrollY > 0.5f);
-    const float clampedScrollY = std::clamp(scrollY, 0.0f, maxScrollY);
-    const float itemW = std::max(0.0f, popupRect.w - 8.0f - (hasScrollbar ? sm.gutter : 0.0f));
-    const Rect itemsClipRect(popupRect.x + 1.0f, popupRect.y + 4.0f, std::max(0.0f, popupRect.w - 2.0f), viewportH);
+    const float clampedScrollY = keel::clamp(scrollY, 0.0f, maxScrollY);
+    const float itemW = keel::max(0.0f, popupRect.w - 8.0f - (hasScrollbar ? sm.gutter : 0.0f));
+    const Rect itemsClipRect(popupRect.x + 1.0f, popupRect.y + 4.0f, keel::max(0.0f, popupRect.w - 2.0f), viewportH);
 
     canvas.PushClip(itemsClipRect);
 
@@ -2061,7 +2077,7 @@ void RenderMultiPopup(
         }
 
         const float selFont = theme.ResolveFontSize(item.text, TextRole::LabelMedium, size);
-        const Rect itemTextRect(textLeftX, itemRect.y, std::max(0.0f, textRightX - textLeftX), itemRect.h);
+        const Rect itemTextRect(textLeftX, itemRect.y, keel::max(0.0f, textRightX - textLeftX), itemRect.h);
 
         if (!highlightQuery.empty() && !item.text.empty()) {
             size_t matchPos = 0;
@@ -2093,9 +2109,9 @@ void RenderMultiPopup(
         canvas.PushClip(popupRect);
         const float trackX = popupRect.Right() - sm.trackWidth - sm.margin;
         const float trackY = popupRect.y + sm.margin;
-        const float trackH = std::max(0.0f, popupRect.h - 2.0f * sm.margin);
-        const float thumbH = std::clamp((viewportH / std::max(1.0f, totalContentH)) * trackH, sm.minThumbLength, trackH);
-        const float travelH = std::max(0.0f, trackH - thumbH);
+        const float trackH = keel::max(0.0f, popupRect.h - 2.0f * sm.margin);
+        const float thumbH = keel::clamp((viewportH / keel::max(1.0f, totalContentH)) * trackH, sm.minThumbLength, trackH);
+        const float travelH = keel::max(0.0f, trackH - thumbH);
         const float scrollRatio = (maxScrollY > 0.0f) ? (clampedScrollY / maxScrollY) : 0.0f;
         const float thumbY = trackY + scrollRatio * travelH;
 
@@ -2119,14 +2135,14 @@ void RenderMultiPopup(
 
 Response Select::RunMulti(
     Context& ctx,
-    std::vector<size_t>& selectedIndices,
-    std::span<const std::string_view> items,
+    IndexListSink selectedIndices,
+    keel::ArrayRef<keel::StringRef> items,
     const SelectOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     keel::SmallArray<SelectItem, 32> richItems;
     richItems.reserve(items.size());
-    for (std::string_view sv : items) {
+    for (keel::StringRef sv : items) {
         richItems.push_back(SelectItem{.text = sv});
     }
     return RunMulti(ctx, selectedIndices, richItems, opts, loc);
@@ -2134,10 +2150,10 @@ Response Select::RunMulti(
 
 Response Select::RunMulti(
     Context& ctx,
-    std::vector<size_t>& selectedIndices,
-    std::span<const SelectItem> items,
+    IndexListSink selectedIndices,
+    keel::ArrayRef<SelectItem> items,
     const SelectOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
     struct ThemePopGuard {
@@ -2152,7 +2168,6 @@ Response Select::RunMulti(
     const bool isSearchable = opts.searchable;
 
     const bool wasOpen = ctx.IsPopupOpen(id);
-    const bool wasFocused = ctx.IsFocused(id) && !effectiveDisabled;
 
     ctx.RegisterFocusable(id, effectiveDisabled);
 
@@ -2192,10 +2207,10 @@ Response Select::RunMulti(
 
     float maxRowW = 0.0f;
     for (const SelectItem& it : items) {
-        maxRowW = std::max(maxRowW, measureRowContentW(it.text, it.prefix, it.suffix) + 22.0f);
+        maxRowW = keel::max(maxRowW, measureRowContentW(it.text, it.prefix, it.suffix) + 22.0f);
     }
     if (optsCopy.placeholder.HasContentOrReserve()) {
-        maxRowW = std::max(maxRowW, measureRowContentW(optsCopy.placeholder, optsCopy.prefix, optsCopy.suffix));
+        maxRowW = keel::max(maxRowW, measureRowContentW(optsCopy.placeholder, optsCopy.prefix, optsCopy.suffix));
     }
 
     const bool exceedsVisibleItems = optsCopy.maxVisibleItems.has_value()
@@ -2205,9 +2220,9 @@ Response Select::RunMulti(
     const float clearExtraW = optsCopy.clearable ? (m.iconSize + 8.0f) : 0.0f;
     float intrinsicW = maxRowW + m.paddingX * 2.0f + m.iconSize + 8.0f + clearExtraW + (exceedsVisibleItems ? sm.gutter : 0.0f);
     if (optsCopy.minWidth.has_value()) {
-        intrinsicW = std::max(theme.Scale(*optsCopy.minWidth), intrinsicW);
+        intrinsicW = keel::max(theme.Scale(*optsCopy.minWidth), intrinsicW);
     } else {
-        intrinsicW = std::max(m.minWidth, intrinsicW);
+        intrinsicW = keel::max(m.minWidth, intrinsicW);
     }
     if (optsCopy.stretch != StretchMode::Fill && optsCopy.width.has_value()) {
         intrinsicW = theme.Scale(*optsCopy.width);
@@ -2231,7 +2246,7 @@ Response Select::RunMulti(
         float dragStartScrollY{0.0f};
         bool scrollbarHovered{false};
         bool scrollbarActive{false};
-        std::string filterText{};
+        keel::SmallString<64> filterText{};
         float scrollX{0.0f};
         bool actionBtnDown{false};
         int highlightedFilteredIdx{-1};
@@ -2272,13 +2287,13 @@ Response Select::RunMulti(
 
     const float inputFont = theme.ResolveFontSize(optsCopy.placeholder, TextRole::LabelMedium, activeSize);
     const float reserveW = (wasOpen && isSearchable && !popupState.filterText.empty())
-        ? std::min(rects.textRect.w * 0.45f, TextUtil::MeasureWidth(popupState.filterText, inputFont, canvas) + 16.0f)
+        ? keel::min(rects.textRect.w * 0.45f, TextUtil::MeasureWidth(popupState.filterText, inputFont, canvas) + 16.0f)
         : 0.0f;
 
     MultiChipLayout chipLayout = ComputeMultiChipLayout(
         rects.textRect,
         boxRect.h,
-        selectedIndices,
+        selectedIndices.as_ref(),
         items,
         activeSize,
         canvas,
@@ -2300,7 +2315,7 @@ Response Select::RunMulti(
     if (mouseJustPressed && hoveredChipRemove >= 0) {
         const size_t vecIdx = chipLayout.visibleChips[hoveredChipRemove].selectedVecIdx;
         if (vecIdx < selectedIndices.size()) {
-            selectedIndices.erase(selectedIndices.begin() + static_cast<std::ptrdiff_t>(vecIdx));
+            selectedIndices.erase_at(vecIdx);
             res.changed = true;
         }
         popupState.actionBtnDown = true;
@@ -2310,7 +2325,7 @@ Response Select::RunMulti(
         rects = ResolveSelectBoxRects(boxRect, opts.prefix, opts.suffix, activeSize, canvas, theme, showClearBtn);
         clearHovered = showClearBtn && res.hovered && rects.clearRect.Contains(mousePos);
         chevronHovered = res.hovered && rects.chevronRect.Contains(mousePos);
-        chipLayout = ComputeMultiChipLayout(rects.textRect, boxRect.h, selectedIndices, items, activeSize, canvas, theme, reserveW);
+        chipLayout = ComputeMultiChipLayout(rects.textRect, boxRect.h, selectedIndices.as_ref(), items, activeSize, canvas, theme, reserveW);
     } else if (mouseJustPressed && clearHovered) {
         popupState.actionBtnDown = true;
         popupState.scrollX = 0.0f;
@@ -2326,7 +2341,7 @@ Response Select::RunMulti(
         showClearBtn = false;
         clearHovered = false;
         rects = ResolveSelectBoxRects(boxRect, opts.prefix, opts.suffix, activeSize, canvas, theme, showClearBtn);
-        chipLayout = ComputeMultiChipLayout(rects.textRect, boxRect.h, selectedIndices, items, activeSize, canvas, theme, 0.0f);
+        chipLayout = ComputeMultiChipLayout(rects.textRect, boxRect.h, selectedIndices.as_ref(), items, activeSize, canvas, theme, 0.0f);
         res.clicked = false;
     }
 
@@ -2336,11 +2351,11 @@ Response Select::RunMulti(
     // Backspace when filterText is empty removes the last selected chip
     if (!effectiveDisabled && (wasOpen || isFocused) && popupState.filterText.empty() && !selectedIndices.empty()) {
         if (ctx.ConsumeKey(Key::Backspace)) {
-            selectedIndices.pop_back();
+            selectedIndices.erase_at(selectedIndices.size() - 1);
             res.changed = true;
             showClearBtn = hasValueToClear();
             rects = ResolveSelectBoxRects(boxRect, opts.prefix, opts.suffix, activeSize, canvas, theme, showClearBtn);
-            chipLayout = ComputeMultiChipLayout(rects.textRect, boxRect.h, selectedIndices, items, activeSize, canvas, theme, 0.0f);
+            chipLayout = ComputeMultiChipLayout(rects.textRect, boxRect.h, selectedIndices.as_ref(), items, activeSize, canvas, theme, 0.0f);
         }
     }
 
@@ -2349,10 +2364,10 @@ Response Select::RunMulti(
     bool editChanged = false;
     bool editSubmitted = false;
     bool isEditingText = false;
-    std::string_view editDisplayText{};
+    keel::StringRef editDisplayText{};
 
     if (!effectiveDisabled && isSearchable && (wasOpen || isFocused || ctx.HasActiveTextEdit(id))) {
-        std::string_view currentEditText = ctx.EnsureTextEdit(id, popupState.filterText, /*multiline=*/false, /*readOnly=*/false);
+        keel::StringRef currentEditText = ctx.EnsureTextEdit(id, popupState.filterText.as_ref(), /*multiline=*/false, /*readOnly=*/false);
         editDisplayText = ctx.GetOrStartTextEdit(
             id,
             currentEditText,
@@ -2363,7 +2378,7 @@ Response Select::RunMulti(
             /*multiline=*/false,
             /*readOnly=*/false
         );
-        popupState.filterText = std::string(editDisplayText);
+        popupState.filterText.assign(editDisplayText);
         if (editChanged) {
             popupState.highlightedFilteredIdx = 0;
         }
@@ -2432,9 +2447,9 @@ Response Select::RunMulti(
         isEditingText = isOpen;
     }
 
-    const std::string_view activeQuery = (isOpen && isSearchable)
-        ? std::string_view(popupState.filterText)
-        : std::string_view{};
+    const keel::StringRef activeQuery = (isOpen && isSearchable)
+        ? popupState.filterText.as_ref()
+        : keel::StringRef{};
 
     keel::SmallArray<size_t, 64> filteredIndices;
     filteredIndices.reserve(items.size());
@@ -2473,14 +2488,14 @@ Response Select::RunMulti(
         } else if (itemBottom > popupState.scrollY + viewportH) {
             popupState.scrollY = itemBottom - viewportH;
         }
-        popupState.scrollY = std::clamp(popupState.scrollY, 0.0f, maxScrollY);
+        popupState.scrollY = keel::clamp(popupState.scrollY, 0.0f, maxScrollY);
     };
 
     auto computePopupRect = [&](size_t rowCount) -> Rect {
         const float popupW = boxRect.w > 0.0f ? boxRect.w : intrinsicW;
-        const size_t clampedRows = std::max<size_t>(1, rowCount);
+        const size_t clampedRows = keel::max<size_t>(1, rowCount);
         const size_t visibleCount = (opts.maxVisibleItems.has_value() && *opts.maxVisibleItems > 0)
-            ? std::min(clampedRows, static_cast<size_t>(*opts.maxVisibleItems))
+            ? keel::min(clampedRows, static_cast<size_t>(*opts.maxVisibleItems))
             : clampedRows;
         const float contentH = static_cast<float>(visibleCount) * m.itemHeight + 8.0f;
         float popupH = contentH;
@@ -2492,15 +2507,15 @@ Response Select::RunMulti(
             const float availDown = vp.Bottom() - popupY - 6.0f;
             const float availUp = boxRect.y - 4.0f - (vp.y + 6.0f);
             if (popupY + popupH > vp.Bottom() - 6.0f && availUp > availDown) {
-                popupY = std::max(vp.y + 6.0f, boxRect.y - 4.0f - popupH);
-                popupH = std::clamp(boxRect.y - 4.0f - popupY, std::min(m.itemHeight + 8.0f, vp.h - 8.0f), popupH);
+                popupY = keel::max(vp.y + 6.0f, boxRect.y - 4.0f - popupH);
+                popupH = keel::clamp(boxRect.y - 4.0f - popupY, keel::min(m.itemHeight + 8.0f, vp.h - 8.0f), popupH);
             } else if (popupY + popupH > vp.Bottom() - 6.0f) {
-                popupH = std::max(std::min(m.itemHeight + 8.0f, vp.h - 8.0f), availDown);
-                popupY = std::clamp(popupY, vp.y + 4.0f, std::max(vp.y + 4.0f, vp.Bottom() - popupH - 4.0f));
+                popupH = keel::max(keel::min(m.itemHeight + 8.0f, vp.h - 8.0f), availDown);
+                popupY = keel::clamp(popupY, vp.y + 4.0f, keel::max(vp.y + 4.0f, vp.Bottom() - popupH - 4.0f));
             }
         }
         if (vp.w > 0.0f) {
-            popupX = std::clamp(popupX, vp.x + 4.0f, std::max(vp.x + 4.0f, vp.Right() - popupW - 4.0f));
+            popupX = keel::clamp(popupX, vp.x + 4.0f, keel::max(vp.x + 4.0f, vp.Right() - popupW - 4.0f));
         }
         return Rect(popupX, popupY, popupW, popupH);
     };
@@ -2509,9 +2524,9 @@ Response Select::RunMulti(
         const Rect popupRect = computePopupRect(effectiveRowCount);
         ctx.OpenPopup(id, popupRect);
         if (!wasOpen) {
-            const float viewportH = std::max(0.0f, popupRect.h - 8.0f);
-            const float maxScrollY = std::max(0.0f, totalContentH - viewportH);
-            popupState.scrollY = std::clamp(popupState.scrollY, 0.0f, maxScrollY);
+            const float viewportH = keel::max(0.0f, popupRect.h - 8.0f);
+            const float maxScrollY = keel::max(0.0f, totalContentH - viewportH);
+            popupState.scrollY = keel::clamp(popupState.scrollY, 0.0f, maxScrollY);
         }
     } else if (isOpen && effectiveRowCount == 0) {
         ctx.ClosePopup();
@@ -2520,12 +2535,14 @@ Response Select::RunMulti(
 
     auto toggleItemSelection = [&](size_t itemIdx) {
         if (itemIdx >= items.size() || items[itemIdx].disabled) return;
-        auto it = std::find(selectedIndices.begin(), selectedIndices.end(), itemIdx);
-        if (it != selectedIndices.end()) {
-            selectedIndices.erase(it);
-        } else {
-            selectedIndices.push_back(itemIdx);
+        for (size_t si = 0; si < selectedIndices.size(); ++si) {
+            if (selectedIndices[si] == itemIdx) {
+                selectedIndices.erase_at(si);
+                res.changed = true;
+                return;
+            }
         }
+        selectedIndices.push_back(itemIdx);
         res.changed = true;
     };
 
@@ -2534,16 +2551,16 @@ Response Select::RunMulti(
         auto hitScope = ctx.ScopedOverlayHitCheck(id);
         const Rect popupRect = ctx.GetOpenPopupRect();
         const Vec2 mouse = ctx.GetMousePos();
-        const float viewportH = std::max(0.0f, popupRect.h - 8.0f);
-        const float maxScrollY = std::max(0.0f, totalContentH - viewportH);
+        const float viewportH = keel::max(0.0f, popupRect.h - 8.0f);
+        const float maxScrollY = keel::max(0.0f, totalContentH - viewportH);
         const bool hasScrollbar = (maxScrollY > 0.5f);
 
-        popupState.scrollY = std::clamp(popupState.scrollY, 0.0f, maxScrollY);
+        popupState.scrollY = keel::clamp(popupState.scrollY, 0.0f, maxScrollY);
 
         if (hasScrollbar && popupRect.Contains(mouse)) {
             const Vec2 wheel = ctx.GetMouseWheel();
             if (wheel.y != 0.0f || wheel.x != 0.0f) {
-                popupState.scrollY = std::clamp(popupState.scrollY - wheel.y * sm.scrollStep, 0.0f, maxScrollY);
+                popupState.scrollY = keel::clamp(popupState.scrollY - wheel.y * sm.scrollStep, 0.0f, maxScrollY);
                 ctx.ConsumeMouseWheel();
             }
         }
@@ -2552,10 +2569,10 @@ Response Select::RunMulti(
         if (hasScrollbar && popupRect.h > 10.0f) {
             const float trackX = popupRect.Right() - sm.trackWidth - sm.margin;
             const float trackY = popupRect.y + sm.margin;
-            const float trackH = std::max(0.0f, popupRect.h - 2.0f * sm.margin);
-            const float thumbH = std::clamp((viewportH / std::max(1.0f, totalContentH)) * trackH, sm.minThumbLength, trackH);
-            const float travelH = std::max(0.0f, trackH - thumbH);
-            const float scrollRatio = (maxScrollY > 0.0f) ? std::clamp(popupState.scrollY / maxScrollY, 0.0f, 1.0f) : 0.0f;
+            const float trackH = keel::max(0.0f, popupRect.h - 2.0f * sm.margin);
+            const float thumbH = keel::clamp((viewportH / keel::max(1.0f, totalContentH)) * trackH, sm.minThumbLength, trackH);
+            const float travelH = keel::max(0.0f, trackH - thumbH);
+            const float scrollRatio = (maxScrollY > 0.0f) ? keel::clamp(popupState.scrollY / maxScrollY, 0.0f, 1.0f) : 0.0f;
             const float thumbY = trackY + scrollRatio * travelH;
 
             const Rect trackRect(trackX, trackY, sm.trackWidth, trackH);
@@ -2574,9 +2591,9 @@ Response Select::RunMulti(
                     ctx.SetActiveId(id);
                 } else {
                     if (mouse.y < thumbRect.y) {
-                        popupState.scrollY = std::max(0.0f, popupState.scrollY - viewportH * 0.8f);
+                        popupState.scrollY = keel::max(0.0f, popupState.scrollY - viewportH * 0.8f);
                     } else if (mouse.y > thumbRect.Bottom()) {
-                        popupState.scrollY = std::min(maxScrollY, popupState.scrollY + viewportH * 0.8f);
+                        popupState.scrollY = keel::min(maxScrollY, popupState.scrollY + viewportH * 0.8f);
                     }
                 }
                 ctx.ConsumeMouseClick();
@@ -2586,7 +2603,7 @@ Response Select::RunMulti(
                 if (ctx.IsMouseDown()) {
                     if (travelH > 0.0f) {
                         const float deltaY = mouse.y - popupState.dragStartMouseY;
-                        popupState.scrollY = std::clamp(
+                        popupState.scrollY = keel::clamp(
                             popupState.dragStartScrollY + (deltaY / travelH) * maxScrollY,
                             0.0f,
                             maxScrollY
@@ -2605,7 +2622,7 @@ Response Select::RunMulti(
         }
         popupState.scrollbarActive = popupState.draggingScrollbar;
 
-        const float itemW = std::max(0.0f, popupRect.w - 8.0f - (hasScrollbar ? sm.gutter : 0.0f));
+        const float itemW = keel::max(0.0f, popupRect.w - 8.0f - (hasScrollbar ? sm.gutter : 0.0f));
         const Rect itemsViewport(popupRect.x + 4.0f, popupRect.y + 4.0f, itemW, viewportH);
 
         if (!popupState.draggingScrollbar && !popupState.scrollbarHovered && itemsViewport.Contains(mouse)) {
@@ -2697,12 +2714,12 @@ Response Select::RunMulti(
     chevronHovered = res.hovered && rects.chevronRect.Contains(mousePos);
 
     const float finalReserveW = (isOpen && isSearchable && !popupState.filterText.empty())
-        ? std::min(rects.textRect.w * 0.45f, TextUtil::MeasureWidth(popupState.filterText, inputFont, canvas) + 16.0f)
+        ? keel::min(rects.textRect.w * 0.45f, TextUtil::MeasureWidth(popupState.filterText.as_ref(), inputFont, canvas) + 16.0f)
         : 0.0f;
     chipLayout = ComputeMultiChipLayout(
         rects.textRect,
         boxRect.h,
-        selectedIndices,
+        selectedIndices.as_ref(),
         items,
         activeSize,
         canvas,
@@ -2723,7 +2740,13 @@ Response Select::RunMulti(
         uint64_t selectionHash = 0;
         for (size_t fi = 0; fi < filteredIndices.size(); ++fi) {
             const size_t origIdx = filteredIndices[fi];
-            const bool isSel = std::find(selectedIndices.begin(), selectedIndices.end(), origIdx) != selectedIndices.end();
+            bool isSel = false;
+            for (size_t selIdx : selectedIndices) {
+                if (selIdx == origIdx) {
+                    isSel = true;
+                    break;
+                }
+            }
             arenaSelectedFlags[fi] = isSel ? 1 : 0;
             if (isSel) {
                 selectionHash = detail::HashArgs(selectionHash, fi);
@@ -2734,10 +2757,10 @@ Response Select::RunMulti(
             copy.suffix = ctx.AllocAffix(copy.suffix);
             arenaPopupItems[fi] = copy;
         }
-        const std::span<const SelectItem> popupItemsSpan(arenaPopupItems, filteredIndices.size());
-        const std::span<const uint8_t> selectedFlagsSpan(arenaSelectedFlags, filteredIndices.size());
+        const keel::ArrayRef<SelectItem> popupItemsSpan(arenaPopupItems, filteredIndices.size());
+        const keel::ArrayRef<uint8_t> selectedFlagsSpan(arenaSelectedFlags, filteredIndices.size());
 
-        const std::string_view highlightQueryStr = ctx.AllocString(activeQuery);
+        const keel::StringRef highlightQueryStr = ctx.AllocString(activeQuery);
         ctx.SetOpenPopupVisualHash(detail::HashArgs(
             currentPopupRect.x,
             currentPopupRect.y,
@@ -2790,11 +2813,11 @@ Response Select::RunMulti(
 
     auto* data = ctx.AllocPayload<SelectData>();
     data->opts = optsCopy;
-    data->displayText = ctx.AllocText(UiText{popupState.filterText});
+    data->displayText = ctx.AllocText(UiText{popupState.filterText.as_ref()});
     data->isEditing = isEditingText;
     data->cursor = cursor;
-    data->selStart = std::min(cursor, selAnchor);
-    data->selEnd = std::max(cursor, selAnchor);
+    data->selStart = keel::min(cursor, selAnchor);
+    data->selEnd = keel::max(cursor, selAnchor);
     data->scrollX = popupState.scrollX;
     data->cursorVisible = isEditingText && finalFocused && !effectiveDisabled && ctx.IsCursorVisible(optsCopy.cursorMode);
     data->cursorWidth = ctx.GetCursorConfig().width;
@@ -2803,7 +2826,7 @@ Response Select::RunMulti(
     data->chevronHovered = chevronHovered;
     data->isMulti = true;
     data->totalSelectedCount = chipLayout.totalValidCount;
-    data->chipCount = std::min(chipLayout.visibleChips.size(), SelectData::kMaxChips);
+    data->chipCount = keel::min(chipLayout.visibleChips.size(), SelectData::kMaxChips);
 
     uint64_t chipsHash = detail::HashArgs(data->totalSelectedCount, data->chipCount);
     for (size_t i = 0; i < data->chipCount; ++i) {

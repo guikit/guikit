@@ -1,5 +1,4 @@
 #include "../demo_context.hpp"
-#include <format>
 
 namespace guikit::demo {
 
@@ -22,8 +21,8 @@ void RenderRadioInspector(guikit::Context& ui, DemoContext&) {
         }
     }
     if (s_state.groupDemo) {
-        static constexpr std::array<std::string_view, 3> optNames = {"Opt A", "Opt B", "Opt C"};
-        size_t idx = static_cast<size_t>(std::clamp(s_state.selectedIdx, 0, 2));
+        static constexpr keel::StaticArray<keel::StringRef, 3> optNames = {"Opt A", "Opt B", "Opt C"};
+        size_t idx = static_cast<size_t>(keel::clamp(s_state.selectedIdx, 0, 2));
         if (auto el = ui.Element({.label = "Active Selection"})) {
             if (ui.StepSlider(idx, optNames, {.showTicks = true, .showLabels = true}).changed) {
                 s_state.selectedIdx = static_cast<int>(idx);
@@ -52,7 +51,7 @@ void RenderRadioStage(guikit::Context& ui, DemoContext& ctx) {
     if (s_state.groupDemo) {
         if (auto col = ui.Column({.gap = 14.0f})) {
             if (auto el = ui.Size(ctx.elemSize).Element({
-                .label = guikit::UiText{ctx.elemLabel.empty() ? "Option A — Automatic Gain (AGC)" : ctx.elemLabel, ctx.elemLabelVariant},
+                .label = guikit::UiText{ctx.elemLabel.empty() ? keel::StringRef("Option A — Automatic Gain (AGC)") : ctx.elemLabel.as_ref(), ctx.elemLabelVariant},
                 .description = ctx.GetElementDescription(),
                 .icon = ctx.GetElementIcon(),
                 .badge = ctx.GetElementBadge(),
@@ -116,9 +115,9 @@ void RenderRadioStage(guikit::Context& ui, DemoContext& ctx) {
     }
 }
 
-std::string GenerateRadioCode(const DemoContext& ctx) {
+keel::String GenerateRadioCode(const DemoContext& ctx) {
     if (s_state.groupDemo) {
-        return std::format(
+        return keel::format(
             "if (auto el = ui.{}Element({{\n"
             "    .label = {},\n"
             "    .description = {},\n"
@@ -164,7 +163,7 @@ std::string GenerateRadioCode(const DemoContext& ctx) {
             ctx.elemDisabled ? "true" : "false"
         );
     }
-    return std::format(
+    return keel::format(
         "if (auto el = ui.{}Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"

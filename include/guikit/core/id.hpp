@@ -1,11 +1,9 @@
 #pragma once
 
 #include <cstdint>
-#include <functional>
-#include <source_location>
-#include <string_view>
-#include <type_traits>
+#include "keel/core.h"
 #include "keel/hash.h"
+#include "keel/ref.h"
 
 namespace guikit {
 
@@ -20,7 +18,10 @@ struct Id {
     [[nodiscard]] constexpr bool IsValid() const noexcept { return value != 0; }
 
     [[nodiscard]] constexpr bool operator==(const Id& other) const noexcept = default;
-    [[nodiscard]] constexpr auto operator<=>(const Id& other) const noexcept = default;
+    [[nodiscard]] constexpr bool operator<(const Id& other) const noexcept { return value < other.value; }
+    [[nodiscard]] constexpr bool operator<=(const Id& other) const noexcept { return value <= other.value; }
+    [[nodiscard]] constexpr bool operator>(const Id& other) const noexcept { return value > other.value; }
+    [[nodiscard]] constexpr bool operator>=(const Id& other) const noexcept { return value >= other.value; }
 };
 
 namespace detail {
@@ -30,7 +31,7 @@ inline constexpr uint64_t Fnv1aOffsetBasis = keel::kFnv1aOffsetBasis;
 inline constexpr uint64_t Fnv1aPrime = keel::kFnv1aPrime;
 
 constexpr uint64_t HashBytes(const void* data, size_t size, uint64_t hash = Fnv1aOffsetBasis) noexcept {
-    if (std::is_constant_evaluated()) {
+    if (__builtin_is_constant_evaluated()) {
         const auto* bytes = static_cast<const uint8_t*>(data);
         for (size_t i = 0; i < size; ++i) {
             hash ^= static_cast<uint64_t>(bytes[i]);
@@ -41,7 +42,7 @@ constexpr uint64_t HashBytes(const void* data, size_t size, uint64_t hash = Fnv1
     return keel::fnv1a64_bytes(data, size, hash);
 }
 
-constexpr uint64_t HashStringView(std::string_view str, uint64_t hash = Fnv1aOffsetBasis) noexcept {
+constexpr uint64_t HashStringView(keel::StringRef str, uint64_t hash = Fnv1aOffsetBasis) noexcept {
     return keel::fnv1a64_chars(str.data(), str.size(), hash);
 }
 
@@ -51,11 +52,11 @@ constexpr uint64_t HashInt64(uint64_t val, uint64_t hash = Fnv1aOffsetBasis) noe
 
 template <typename T>
 constexpr uint64_t HashVal(const T& val, uint64_t hash = Fnv1aOffsetBasis) noexcept {
-    using CleanT = std::decay_t<T>;
-    if constexpr (std::is_same_v<CleanT, const char*>) {
-        return val ? HashStringView(std::string_view(val), hash) : hash;
-    } else if constexpr (std::is_convertible_v<CleanT, std::string_view>) {
-        return HashStringView(std::string_view(val), hash);
+    using CleanT = keel::Decay<T>;
+    if constexpr (keel::IsSame<CleanT, const char*>) {
+        return val ? HashStringView(keel::StringRef(val), hash) : hash;
+    } else if constexpr (keel::IsConvertible<CleanT, keel::StringRef>) {
+        return HashStringView(keel::StringRef(val), hash);
     } else if constexpr (requires { val.text; val.icon; val.iconPlacement; }) {
         hash = HashVal(val.text, hash);
         const uint8_t icType = static_cast<uint8_t>(val.icon.GetType());
@@ -81,7 +82,7 @@ constexpr uint64_t HashVal(const T& val, uint64_t hash = Fnv1aOffsetBasis) noexc
         const uint8_t richVal = val.wrap.rich ? 1u : 0u;
         hash = HashBytes(&richVal, sizeof(richVal), hash);
         if constexpr (requires { val.variants; }) {
-            for (std::string_view v : val.variants) {
+            for (keel::StringRef v : val.variants) {
                 hash = HashStringView(v, hash);
             }
         }
@@ -118,8 +119,8 @@ constexpr uint64_t HashVal(const T& val, uint64_t hash = Fnv1aOffsetBasis) noexc
         hash = HashBytes(&val.width, sizeof(val.width), hash);
         hash = HashVal(val.color, hash);
         return hash;
-    } else if constexpr (std::is_enum_v<CleanT>) {
-        auto underlying = static_cast<std::underlying_type_t<CleanT>>(val);
+    } else if constexpr (keel::IsEnum<CleanT>) {
+        auto underlying = static_cast<keel::UnderlyingType<CleanT>>(val);
         return HashBytes(&underlying, sizeof(underlying), hash);
     } else {
         return HashBytes(&val, sizeof(val), hash);
@@ -165,7 +166,7 @@ constexpr uint64_t HashArgs(const Args&... args) noexcept {
 /// Generates an automatic ID combining source location, occurrence index, and optional parent ID.
 [[nodiscard]] inline constexpr Id MakeId(
     uint32_t childIndex,
-    std::source_location loc = std::source_location::current(),
+    keel::SourceLocation loc = keel::SourceLocation::current(),
     Id parentId = Id::Null()
 ) noexcept {
     const uint64_t fileHash = detail::HashStringView(loc.file_name());
@@ -176,14 +177,6 @@ constexpr uint64_t HashArgs(const Args&... args) noexcept {
 }
 
 } // namespace guikit
-
-// Standard hash support for guikit::Id
-template <>
-struct std::hash<guikit::Id> {
-    size_t operator()(const guikit::Id& id) const noexcept {
-        return static_cast<size_t>(id.value);
-    }
-};
 
 // Keel hash support for guikit::Id
 template <>

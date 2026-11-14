@@ -1,5 +1,4 @@
 #include "../demo_context.hpp"
-#include <format>
 
 namespace guikit::demo {
 
@@ -64,7 +63,7 @@ void RenderKnobInspector(guikit::Context& ui, DemoContext&) {
         if (ui.Switch(s_state.showValue).changed) ui.InvalidateAll();
     }
 
-    static constexpr std::array<std::string_view, 5> valPlaceNames = {"Lead", "Trail", "Top", "Btm", "Thumb"};
+    static constexpr keel::StaticArray<keel::StringRef, 5> valPlaceNames = {"Lead", "Trail", "Top", "Btm", "Thumb"};
     size_t valPlaceIdx = static_cast<size_t>(s_state.valuePlacement);
     if (auto el = ui.Element({.label = "Value Placement", .disabled = !s_state.showValue})) {
         if (ui.StepSlider(valPlaceIdx, valPlaceNames, {
@@ -79,7 +78,7 @@ void RenderKnobInspector(guikit::Context& ui, DemoContext&) {
 }
 
 void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
-    const std::optional<double> stepOpt = s_state.quantizeStep ? std::optional<double>(5.0) : std::nullopt;
+    const keel::Optional<double> stepOpt = s_state.quantizeStep ? keel::Optional<double>(5.0) : keel::kNullOpt;
 
     if (s_state.rackDemo) {
         if (auto card = ui.Card({.gap = 16.0f, .padding = guikit::Padding::All(18.0f), .border = {.width = 1.0f, .radius = 10.0f}})) {
@@ -238,8 +237,8 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
     }
 }
 
-std::string GenerateKnobCode(const DemoContext& ctx) {
-    return std::format(
+keel::String GenerateKnobCode(const DemoContext& ctx) {
+    return keel::format(
         "if (auto el = ui.{}Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"
@@ -288,7 +287,7 @@ std::string GenerateKnobCode(const DemoContext& ctx) {
         s_state.bipolar ? "-50.0f" : "0.0f",
         s_state.bipolar ? "50.0f" : "100.0f",
         s_state.bipolar ? "%+.1f %%" : "%.1f %%",
-        s_state.quantizeStep ? "5.0" : "std::nullopt",
+        s_state.quantizeStep ? "5.0" : "keel::kNullOpt",
         s_state.bipolar ? "0.0" : "50.0",
         s_state.tickCount,
         s_state.showValue ? "true" : "false",

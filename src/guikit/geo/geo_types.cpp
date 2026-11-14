@@ -1,15 +1,12 @@
 #include "guikit/geo/geo_types.hpp"
 #include "guikit/geo/polygon_triangulator.hpp"
+#include <cmath>
+#include <mutex>
+#include "keel/core.h"
 #include "keel/format.h"
 #include "keel/lru_cache.h"
 #include "keel/number.h"
-#include <algorithm>
-#include <array>
-#include <cctype>
-#include <cmath>
-#include <cstdio>
-#include <mutex>
-#include <numbers>
+#include "keel/static_array.h"
 
 namespace guikit::geo {
 
@@ -23,7 +20,7 @@ namespace {
     return (c >= 'a' && c <= 'z') ? static_cast<char>(c - ('a' - 'A')) : c;
 }
 
-[[nodiscard]] bool EqualsIgnoreCaseAscii(std::string_view a, std::string_view b) noexcept {
+[[nodiscard]] bool EqualsIgnoreCaseAscii(keel::StringRef a, keel::StringRef b) noexcept {
     if (a.size() != b.size()) return false;
     for (size_t i = 0; i < a.size(); ++i) {
         if (LowerChar(a[i]) != LowerChar(b[i])) return false;
@@ -31,23 +28,23 @@ namespace {
     return true;
 }
 
-[[nodiscard]] std::string ToLowerAscii(std::string_view sv) {
-    std::string out(sv);
+[[nodiscard]] keel::String ToLowerAscii(keel::StringRef sv) {
+    keel::String out = keel::String::from(sv);
     for (char& c : out) {
         c = LowerChar(c);
     }
     return out;
 }
 
-[[nodiscard]] std::string ToUpperAscii(std::string_view sv) {
-    std::string out(sv);
+[[nodiscard]] keel::String ToUpperAscii(keel::StringRef sv) {
+    keel::String out = keel::String::from(sv);
     for (char& c : out) {
         c = UpperChar(c);
     }
     return out;
 }
 
-[[nodiscard]] bool ContainsCaseInsensitive(std::string_view haystack, std::string_view needleLower) noexcept {
+[[nodiscard]] bool ContainsCaseInsensitive(keel::StringRef haystack, keel::StringRef needleLower) noexcept {
     if (needleLower.empty()) return true;
     if (haystack.size() < needleLower.size()) return false;
     const size_t limit = haystack.size() - needleLower.size();
@@ -69,10 +66,10 @@ void ExpandNormBounds(guikit::Rect& r, bool& init, guikit::Vec2 p) noexcept {
         r = guikit::Rect(p.x, p.y, 0.0f, 0.0f);
         init = true;
     } else {
-        const float minX = std::min(r.x, p.x);
-        const float minY = std::min(r.y, p.y);
-        const float maxX = std::max(r.Right(), p.x);
-        const float maxY = std::max(r.Bottom(), p.y);
+        const float minX = keel::min(r.x, p.x);
+        const float minY = keel::min(r.y, p.y);
+        const float maxX = keel::max(r.Right(), p.x);
+        const float maxY = keel::max(r.Bottom(), p.y);
         r = guikit::Rect(minX, minY, maxX - minX, maxY - minY);
     }
 }
@@ -84,20 +81,20 @@ void UnionNormBounds(guikit::Rect& r, bool& init, guikit::Rect other) noexcept {
 
 // Fast radial + perpendicular vertex decimation for overview LOD rings
 void BuildLodRing(
-    const std::vector<guikit::Vec2>& src,
+    keel::ArrayRef<guikit::Vec2> src,
     guikit::Rect normBox,
     bool closed,
-    std::vector<guikit::Vec2>& outLod
+    keel::Array<guikit::Vec2>& outLod
 ) {
     outLod.clear();
     if (src.size() <= 20) {
         return;
     }
-    const float span = std::max(normBox.w, normBox.h);
-    const float tol = std::max(1e-7f, span * 0.015f);
+    const float span = keel::max(normBox.w, normBox.h);
+    const float tol = keel::max(1e-7f, span * 0.015f);
     const float tolSq = tol * tol;
 
-    outLod.reserve(std::min<size_t>(src.size(), 64));
+    outLod.reserve(keel::min<size_t>(src.size(), 64));
     outLod.push_back(src.front());
     guikit::Vec2 lastKept = src.front();
 
@@ -117,45 +114,110 @@ void BuildLodRing(
 
 } // namespace
 
-std::string AttributeValue::ToString() const {
-    if (std::holds_alternative<std::monostate>(value)) {
-        return "null";
-    }
-    if (const auto* b = std::get_if<bool>(&value)) {
-        return *b ? "true" : "false";
-    }
-    if (const auto* i = std::get_if<int64_t>(&value)) {
-        return std::to_string(*i);
-    }
-    if (const auto* d = std::get_if<double>(&value)) {
-        char buf[64]{};
-        std::snprintf(buf, sizeof(buf), "%.6g", *d);
-        return std::string(buf);
-    }
-    if (const auto* s = std::get_if<std::string>(&value)) {
-        return *s;
+keel::String AttributeValue::ToString() const {
+    switch (m_kind) {
+        case Kind::Null:   return keel::String::from("null");
+        case Kind::Bool:   return keel::String::from(m_bool ? "true" : "false");
+        case Kind::Int:    return keel::format("%lld", static_cast<long long>(m_int));
+        case Kind::Double: return keel::format("%.6g", m_double);
+        case Kind::String: return m_str.clone();
     }
     return {};
 }
 
-std::string_view AttributeValue::TypeLabel() const noexcept {
-    if (std::holds_alternative<std::monostate>(value)) return "null";
-    if (std::holds_alternative<bool>(value))           return "bool";
-    if (std::holds_alternative<int64_t>(value))        return "int";
-    if (std::holds_alternative<double>(value))         return "float";
-    if (std::holds_alternative<std::string>(value))    return "str";
+keel::StringRef AttributeValue::TypeLabel() const noexcept {
+    switch (m_kind) {
+        case Kind::Null:   return "null";
+        case Kind::Bool:   return "bool";
+        case Kind::Int:    return "int";
+        case Kind::Double: return "float";
+        case Kind::String: return "str";
+    }
     return "unknown";
 }
 
-bool AttributeValue::MatchesSearch(std::string_view queryLower) const {
+bool AttributeValue::MatchesSearch(keel::StringRef queryLower) const {
     if (queryLower.empty()) return true;
-    if (const auto* s = std::get_if<std::string>(&value)) {
-        return ContainsCaseInsensitive(*s, queryLower);
+    if (m_kind == Kind::String) {
+        return ContainsCaseInsensitive(m_str.as_ref(), queryLower);
     }
-    return ContainsCaseInsensitive(ToString(), queryLower);
+    const keel::String tmp = ToString();
+    return ContainsCaseInsensitive(tmp.as_ref(), queryLower);
 }
 
-std::shared_ptr<const DecodedGeometryPayload> IFeaturePager::GetOrLoadGeometryPayload(
+GeoFeature GeoFeature::clone() const {
+    GeoFeature copy{};
+    copy.uid = uid;
+    copy.id = id.clone();
+    copy.displayId = displayId.clone();
+    copy.name = name.clone();
+    copy.type = type;
+    copy.featureCode = featureCode.clone();
+    copy.chartClass = chartClass;
+    copy.hasLight = hasLight;
+    copy.depthMeters = depthMeters;
+    copy.minDepthMeters = minDepthMeters;
+    copy.maxDepthMeters = maxDepthMeters;
+    copy.lightOrColor = lightOrColor.clone();
+    copy.labelRu = labelRu.clone();
+    copy.labelEn = labelEn.clone();
+    copy.sqliteRowId = sqliteRowId;
+    copy.srsId = srsId;
+    copy.cachedVertexCount = cachedVertexCount;
+    copy.cachedPolygonCount = cachedPolygonCount;
+    copy.cachedHoleCount = cachedHoleCount;
+    copy.pager = pager;
+    copy.residentHeapBytes = residentHeapBytes;
+    copy.lastAccessTick = lastAccessTick;
+    copy.geometryLoaded = geometryLoaded;
+    copy.propertiesLoaded = propertiesLoaded;
+    copy.points = points.clone();
+    copy.lines = lines.clone();
+    copy.polygons = polygons.clone();
+    copy.normPoints = normPoints.clone();
+    copy.normLines = normLines.clone();
+    copy.normLinesLod = normLinesLod.clone();
+    copy.normBounds = normBounds;
+    copy.normCentroid = normCentroid;
+    copy.bounds = bounds;
+    copy.centroid = centroid;
+    copy.hasValidBounds = hasValidBounds;
+    copy.sharedGeometry = sharedGeometry;
+    copy.properties = properties.clone();
+    return copy;
+}
+
+GeoLayer GeoLayer::clone() const {
+    GeoLayer copy{};
+    copy.uid = uid;
+    copy.name = name.clone();
+    copy.sourcePath = sourcePath.clone();
+    copy.format = format.clone();
+    copy.tableName = tableName.clone();
+    copy.srsId = srsId;
+    copy.visible = visible;
+    copy.style = style;
+    copy.pager = pager;
+    copy.features = features.clone();
+    copy.spatialIndex = spatialIndex.clone();
+    copy.bounds = bounds;
+    copy.normBounds = normBounds;
+    copy.hasValidBounds = hasValidBounds;
+    copy.pointFeatureCount = pointFeatureCount;
+    copy.lineFeatureCount = lineFeatureCount;
+    copy.polygonFeatureCount = polygonFeatureCount;
+    copy.totalVertices = totalVertices;
+    copy.totalTriangles = totalTriangles;
+    copy.estimatedTotalFeatures = estimatedTotalFeatures;
+    copy.windowGeneration = windowGeneration;
+    copy.isWindowStreamed = isWindowStreamed;
+    copy.dominantChartClass = dominantChartClass;
+    copy.chartClassMask = chartClassMask;
+    copy.BindFeaturePagerPointers();
+    return copy;
+}
+
+keel::Arc<const DecodedGeometryPayload> IFeaturePager::GetOrLoadGeometryPayload(
     int64_t featureId,
     int defaultSrsId,
     uint64_t accessTick
@@ -168,7 +230,7 @@ std::shared_ptr<const DecodedGeometryPayload> IFeaturePager::GetOrLoadGeometryPa
     tempFeat.srsId = defaultSrsId;
     tempFeat.geometryLoaded = false;
     if (!LoadFeatureGeometry(featureId, defaultSrsId, tempFeat)) {
-        return nullptr;
+        return {};
     }
     return tempFeat.BuildDecodedGeometryPayload();
 }
@@ -177,13 +239,13 @@ void GeoFeature::ApplyDecodedGeometryPayload(const DecodedGeometryPayload& paylo
     auto& mutableSelf = const_cast<GeoFeature&>(*this);
     mutableSelf.type = payload.type;
     if (!payload.points.empty()) {
-        points = payload.points;
-        normPoints = payload.normPoints;
+        points = payload.points.clone();
+        normPoints = payload.normPoints.clone();
     }
-    lines = payload.lines;
-    normLines = payload.normLines;
-    normLinesLod = payload.normLinesLod;
-    polygons = payload.polygons;
+    lines = payload.lines.clone();
+    normLines = payload.normLines.clone();
+    normLinesLod = payload.normLinesLod.clone();
+    polygons = payload.polygons.clone();
     if (payload.bounds.nw.lat != 0.0 || payload.bounds.se.lat != 0.0 ||
         payload.bounds.nw.lon != 0.0 || payload.bounds.se.lon != 0.0) {
         mutableSelf.bounds = payload.bounds;
@@ -199,16 +261,16 @@ void GeoFeature::ApplyDecodedGeometryPayload(const DecodedGeometryPayload& paylo
     (void)RefreshResidentHeapBytes();
 }
 
-std::shared_ptr<const DecodedGeometryPayload> GeoFeature::BuildDecodedGeometryPayload() const {
-    auto payload = std::make_shared<DecodedGeometryPayload>();
+keel::Arc<const DecodedGeometryPayload> GeoFeature::BuildDecodedGeometryPayload() const {
+    auto payload = keel::make_arc<DecodedGeometryPayload>();
     payload->featureId = sqliteRowId;
     payload->type = type;
-    payload->points = points;
-    payload->lines = lines;
-    payload->polygons = polygons;
-    payload->normPoints = normPoints;
-    payload->normLines = normLines;
-    payload->normLinesLod = normLinesLod;
+    payload->points = points.clone();
+    payload->lines = lines.clone();
+    payload->polygons = polygons.clone();
+    payload->normPoints = normPoints.clone();
+    payload->normLines = normLines.clone();
+    payload->normLinesLod = normLinesLod.clone();
     payload->bounds = bounds;
     payload->normBounds = normBounds;
     payload->centroid = centroid;
@@ -216,8 +278,7 @@ std::shared_ptr<const DecodedGeometryPayload> GeoFeature::BuildDecodedGeometryPa
     payload->cachedVertexCount = cachedVertexCount;
     payload->cachedPolygonCount = cachedPolygonCount;
     payload->cachedHoleCount = cachedHoleCount;
-    payload->residentHeapBytes = static_cast<uint32_t>(
-        std::min<size_t>(RefreshResidentHeapBytes(), std::numeric_limits<uint32_t>::max()));
+    payload->residentHeapBytes = static_cast<uint32_t>(keel::min<size_t>(RefreshResidentHeapBytes(), UINT32_MAX));
     return payload;
 }
 
@@ -242,7 +303,7 @@ bool GeoFeature::TryEnsureGeometryLoadedNonBlocking(uint64_t accessTick) const n
     }
     if (auto cached = pager->TryGetCachedGeometryPayload(sqliteRowId, accessTick)) {
         try {
-            sharedGeometry = std::move(cached);
+            sharedGeometry = keel::move(cached);
             ApplyDecodedGeometryPayload(*sharedGeometry);
             return true;
         } catch (...) {
@@ -257,7 +318,7 @@ bool GeoFeature::EnsureGeometryLoaded(uint64_t accessTick) const {
         return true;
     }
     if (auto payload = pager->GetOrLoadGeometryPayload(sqliteRowId, srsId, accessTick)) {
-        sharedGeometry = std::move(payload);
+        sharedGeometry = keel::move(payload);
         ApplyDecodedGeometryPayload(*sharedGeometry);
         return true;
     }
@@ -314,12 +375,9 @@ size_t GeoFeature::RefreshResidentHeapBytes() const noexcept {
         }
     }
     for (const auto& [k, v] : properties) {
-        bytes += sizeof(std::pair<std::string, AttributeValue>) + k.capacity();
-        if (const auto* s = std::get_if<std::string>(&v.value)) {
-            bytes += s->capacity();
-        }
+        bytes += sizeof(GeoProperty) + k.capacity() + v.string_capacity();
     }
-    residentHeapBytes = static_cast<uint32_t>(std::min<size_t>(bytes, std::numeric_limits<uint32_t>::max()));
+    residentHeapBytes = static_cast<uint32_t>(keel::min<size_t>(bytes, UINT32_MAX));
     return bytes;
 }
 
@@ -364,10 +422,10 @@ void GeoFeature::RecomputeNormalizedEnvelopeFromBounds() noexcept {
     }
     const guikit::Vec2 nwNorm = guikit::MapGrid::GeoToNormalized(bounds.nw, guikit::MapCrs::EPSG3857_WebMercator);
     const guikit::Vec2 seNorm = guikit::MapGrid::GeoToNormalized(bounds.se, guikit::MapCrs::EPSG3857_WebMercator);
-    const float minX = std::min(nwNorm.x, seNorm.x);
-    const float maxX = std::max(nwNorm.x, seNorm.x);
-    const float minY = std::min(nwNorm.y, seNorm.y);
-    const float maxY = std::max(nwNorm.y, seNorm.y);
+    const float minX = keel::min(nwNorm.x, seNorm.x);
+    const float maxX = keel::max(nwNorm.x, seNorm.x);
+    const float minY = keel::min(nwNorm.y, seNorm.y);
+    const float maxY = keel::max(nwNorm.y, seNorm.y);
     normBounds = guikit::Rect(minX, minY, maxX - minX, maxY - minY);
     normCentroid = guikit::MapGrid::GeoToNormalized(centroid, guikit::MapCrs::EPSG3857_WebMercator);
 }
@@ -481,93 +539,84 @@ void GeoFeature::RecomputeBoundsAndCentroid() {
     (void)RefreshResidentHeapBytes();
 }
 
-void GeoFeature::ResolveDisplayName(size_t fallbackIndex, std::string_view layerHint) {
+void GeoFeature::ResolveDisplayName(size_t fallbackIndex, keel::StringRef layerHint) {
     // Single pass over properties to extract marine metadata & display name without O(K*M) allocations
-    std::string fallbackTitle;
-    std::string fallbackFeatureType;
+    keel::String fallbackTitle;
+    keel::String fallbackFeatureType;
+
+    auto extractFloatAttr = [](const AttributeValue& v, float& ioTarget) noexcept {
+        if (!std::isnan(ioTarget)) return;
+        if (v.is_double() || v.is_int()) {
+            ioTarget = static_cast<float>(v.as_double());
+        } else if (v.is_string()) {
+            if (const auto res = keel::parse_f32(v.as_string()); res.is_ok()) {
+                ioTarget = res.value();
+            }
+        }
+    };
 
     for (const auto& [k, v] : properties) {
-        if (v.IsNull()) continue;
+        if (v.is_null()) continue;
+        const keel::StringRef keyRef = k.as_ref();
 
-        if (EqualsIgnoreCaseAscii(k, "objl") || EqualsIgnoreCaseAscii(k, "feature_code") ||
-            EqualsIgnoreCaseAscii(k, "acronym") || EqualsIgnoreCaseAscii(k, "s57_class")) {
-            if (featureCode.empty()) featureCode = ToUpperAscii(v.ToString());
-        } else if (EqualsIgnoreCaseAscii(k, "valsou") || EqualsIgnoreCaseAscii(k, "depth") ||
-                   EqualsIgnoreCaseAscii(k, "depth_m") || EqualsIgnoreCaseAscii(k, "valdco") ||
-                   EqualsIgnoreCaseAscii(k, "elevat") || EqualsIgnoreCaseAscii(k, "height")) {
-            if (std::isnan(depthMeters)) {
-                if (const auto* d = std::get_if<double>(&v.value)) depthMeters = static_cast<float>(*d);
-                else if (const auto* i = std::get_if<int64_t>(&v.value)) depthMeters = static_cast<float>(*i);
-                else if (const auto* s = std::get_if<std::string>(&v.value)) {
-                    if (const auto res = keel::parse_f32(*s); res.is_ok()) {
-                        depthMeters = res.value();
-                    }
-                }
+        if (EqualsIgnoreCaseAscii(keyRef, "objl") || EqualsIgnoreCaseAscii(keyRef, "feature_code") ||
+            EqualsIgnoreCaseAscii(keyRef, "acronym") || EqualsIgnoreCaseAscii(keyRef, "s57_class")) {
+            if (featureCode.empty()) {
+                const keel::String s = v.ToString();
+                featureCode = ToUpperAscii(s.as_ref());
             }
-        } else if (EqualsIgnoreCaseAscii(k, "drval1") || EqualsIgnoreCaseAscii(k, "min_depth_m") ||
-                   EqualsIgnoreCaseAscii(k, "depth_min") || EqualsIgnoreCaseAscii(k, "min_depth")) {
-            if (std::isnan(minDepthMeters)) {
-                if (const auto* d = std::get_if<double>(&v.value)) minDepthMeters = static_cast<float>(*d);
-                else if (const auto* i = std::get_if<int64_t>(&v.value)) minDepthMeters = static_cast<float>(*i);
-                else if (const auto* s = std::get_if<std::string>(&v.value)) {
-                    if (const auto res = keel::parse_f32(*s); res.is_ok()) {
-                        minDepthMeters = res.value();
-                    }
-                }
-            }
-        } else if (EqualsIgnoreCaseAscii(k, "drval2") || EqualsIgnoreCaseAscii(k, "max_depth_m") ||
-                   EqualsIgnoreCaseAscii(k, "depth_max") || EqualsIgnoreCaseAscii(k, "max_depth")) {
-            if (std::isnan(maxDepthMeters)) {
-                if (const auto* d = std::get_if<double>(&v.value)) maxDepthMeters = static_cast<float>(*d);
-                else if (const auto* i = std::get_if<int64_t>(&v.value)) maxDepthMeters = static_cast<float>(*i);
-                else if (const auto* s = std::get_if<std::string>(&v.value)) {
-                    if (const auto res = keel::parse_f32(*s); res.is_ok()) {
-                        maxDepthMeters = res.value();
-                    }
-                }
-            }
-        } else if (EqualsIgnoreCaseAscii(k, "colour") || EqualsIgnoreCaseAscii(k, "color")) {
+        } else if (EqualsIgnoreCaseAscii(keyRef, "valsou") || EqualsIgnoreCaseAscii(keyRef, "depth") ||
+                   EqualsIgnoreCaseAscii(keyRef, "depth_m") || EqualsIgnoreCaseAscii(keyRef, "valdco") ||
+                   EqualsIgnoreCaseAscii(keyRef, "elevat") || EqualsIgnoreCaseAscii(keyRef, "height")) {
+            extractFloatAttr(v, depthMeters);
+        } else if (EqualsIgnoreCaseAscii(keyRef, "drval1") || EqualsIgnoreCaseAscii(keyRef, "min_depth_m") ||
+                   EqualsIgnoreCaseAscii(keyRef, "depth_min") || EqualsIgnoreCaseAscii(keyRef, "min_depth")) {
+            extractFloatAttr(v, minDepthMeters);
+        } else if (EqualsIgnoreCaseAscii(keyRef, "drval2") || EqualsIgnoreCaseAscii(keyRef, "max_depth_m") ||
+                   EqualsIgnoreCaseAscii(keyRef, "depth_max") || EqualsIgnoreCaseAscii(keyRef, "max_depth")) {
+            extractFloatAttr(v, maxDepthMeters);
+        } else if (EqualsIgnoreCaseAscii(keyRef, "colour") || EqualsIgnoreCaseAscii(keyRef, "color")) {
             if (lightOrColor.empty()) lightOrColor = v.ToString();
-        } else if (EqualsIgnoreCaseAscii(k, "litchr") || EqualsIgnoreCaseAscii(k, "siggrp") ||
-                   EqualsIgnoreCaseAscii(k, "sigper") || EqualsIgnoreCaseAscii(k, "valnmr") ||
-                   EqualsIgnoreCaseAscii(k, "seamark:light:character")) {
-            const std::string s = v.ToString();
+        } else if (EqualsIgnoreCaseAscii(keyRef, "litchr") || EqualsIgnoreCaseAscii(keyRef, "siggrp") ||
+                   EqualsIgnoreCaseAscii(keyRef, "sigper") || EqualsIgnoreCaseAscii(keyRef, "valnmr") ||
+                   EqualsIgnoreCaseAscii(keyRef, "seamark:light:character")) {
+            keel::String s = v.ToString();
             if (!s.empty()) {
                 hasLight = true;
-                if (lightOrColor.empty()) lightOrColor = s;
+                if (lightOrColor.empty()) lightOrColor = keel::move(s);
             }
-        } else if (EqualsIgnoreCaseAscii(k, "nobjnm") || EqualsIgnoreCaseAscii(k, "name_ru") ||
-                   EqualsIgnoreCaseAscii(k, "label_ru") || EqualsIgnoreCaseAscii(k, "buoy_name_ru")) {
+        } else if (EqualsIgnoreCaseAscii(keyRef, "nobjnm") || EqualsIgnoreCaseAscii(keyRef, "name_ru") ||
+                   EqualsIgnoreCaseAscii(keyRef, "label_ru") || EqualsIgnoreCaseAscii(keyRef, "buoy_name_ru")) {
             if (labelRu.empty()) labelRu = v.ToString();
-        } else if (EqualsIgnoreCaseAscii(k, "objnam") || EqualsIgnoreCaseAscii(k, "name") ||
-                   EqualsIgnoreCaseAscii(k, "name_en") || EqualsIgnoreCaseAscii(k, "label_en") ||
-                   EqualsIgnoreCaseAscii(k, "buoy_name_en")) {
+        } else if (EqualsIgnoreCaseAscii(keyRef, "objnam") || EqualsIgnoreCaseAscii(keyRef, "name") ||
+                   EqualsIgnoreCaseAscii(keyRef, "name_en") || EqualsIgnoreCaseAscii(keyRef, "label_en") ||
+                   EqualsIgnoreCaseAscii(keyRef, "buoy_name_en")) {
             if (labelEn.empty()) labelEn = v.ToString();
-        } else if (EqualsIgnoreCaseAscii(k, "title") || EqualsIgnoreCaseAscii(k, "label") ||
-                   EqualsIgnoreCaseAscii(k, "seamark:name") || EqualsIgnoreCaseAscii(k, "port_name") ||
-                   EqualsIgnoreCaseAscii(k, "zone_name") || EqualsIgnoreCaseAscii(k, "route_name") ||
-                   EqualsIgnoreCaseAscii(k, "natsur") || EqualsIgnoreCaseAscii(k, "inform")) {
+        } else if (EqualsIgnoreCaseAscii(keyRef, "title") || EqualsIgnoreCaseAscii(keyRef, "label") ||
+                   EqualsIgnoreCaseAscii(keyRef, "seamark:name") || EqualsIgnoreCaseAscii(keyRef, "port_name") ||
+                   EqualsIgnoreCaseAscii(keyRef, "zone_name") || EqualsIgnoreCaseAscii(keyRef, "route_name") ||
+                   EqualsIgnoreCaseAscii(keyRef, "natsur") || EqualsIgnoreCaseAscii(keyRef, "inform")) {
             if (fallbackTitle.empty()) fallbackTitle = v.ToString();
-        } else if (EqualsIgnoreCaseAscii(k, "feature_type") || EqualsIgnoreCaseAscii(k, "layer")) {
+        } else if (EqualsIgnoreCaseAscii(keyRef, "feature_type") || EqualsIgnoreCaseAscii(keyRef, "layer")) {
             if (fallbackFeatureType.empty()) fallbackFeatureType = v.ToString();
         }
     }
 
     if (featureCode.empty() && !fallbackFeatureType.empty() && fallbackFeatureType.size() == 6) {
-        featureCode = ToUpperAscii(fallbackFeatureType);
+        featureCode = ToUpperAscii(fallbackFeatureType.as_ref());
     }
     if (featureCode.empty() && layerHint.size() == 6) {
         featureCode = ToUpperAscii(layerHint);
     }
-    if (featureCode == "LIGHTS" || featureCode == "LITFLT" || featureCode == "LITVES") {
+    if (featureCode.as_ref() == "LIGHTS" || featureCode.as_ref() == "LITFLT" || featureCode.as_ref() == "LITVES") {
         hasLight = true;
     }
 
     if (chartClass == ChartFeatureClass::Generic) {
         chartClass = SrsTransform::ClassifyFeatureCode(
-            featureCode,
+            featureCode.as_ref(),
             type,
-            !fallbackFeatureType.empty() ? std::string_view(fallbackFeatureType) : layerHint
+            !fallbackFeatureType.empty() ? fallbackFeatureType.as_ref() : layerHint
         );
     }
 
@@ -576,103 +625,99 @@ void GeoFeature::ResolveDisplayName(size_t fallbackIndex, std::string_view layer
     }
 
     if (!labelRu.empty()) {
-        name = labelRu;
+        name = labelRu.clone();
         return;
     }
     if (!labelEn.empty()) {
-        name = labelEn;
+        name = labelEn.clone();
         return;
     }
     if (!fallbackTitle.empty()) {
-        name = fallbackTitle;
+        name = keel::move(fallbackTitle);
         return;
     }
     if (chartClass == ChartFeatureClass::Sounding && !std::isnan(depthMeters)) {
-        char buf[32]{};
-        std::snprintf(buf, sizeof(buf), "%.1f m", static_cast<double>(depthMeters));
-        name = buf;
+        name = keel::format("%.1f m", static_cast<double>(depthMeters));
         return;
     }
-    if ((chartClass == ChartFeatureClass::DepthContour || featureCode == "LNDELV") && !std::isnan(depthMeters)) {
-        char buf[32]{};
-        std::snprintf(buf, sizeof(buf), "%.4g m", static_cast<double>(depthMeters));
-        name = buf;
+    if ((chartClass == ChartFeatureClass::DepthContour || featureCode.as_ref() == "LNDELV") && !std::isnan(depthMeters)) {
+        name = keel::format("%.4g m", static_cast<double>(depthMeters));
         return;
     }
     if (chartClass == ChartFeatureClass::DepthArea && (!std::isnan(minDepthMeters) || !std::isnan(maxDepthMeters))) {
-        char buf[48]{};
-        std::snprintf(
-            buf,
-            sizeof(buf),
+        name = keel::format(
             "DEPARE %.2g..%.2g m",
             std::isnan(minDepthMeters) ? 0.0 : static_cast<double>(minDepthMeters),
             std::isnan(maxDepthMeters) ? 0.0 : static_cast<double>(maxDepthMeters)
         );
-        name = buf;
         return;
     }
     if (!lightOrColor.empty() && !featureCode.empty()) {
-        auto s = keel::format("%s (%s)", featureCode, lightOrColor);
-        name.assign(s.data(), s.size());
+        name = keel::format("%s (%s)", featureCode, lightOrColor);
         return;
     }
     if (!featureCode.empty()) {
         if (!displayId.empty()) {
-            auto s = keel::format("%s #%s", featureCode, displayId);
-            name.assign(s.data(), s.size());
+            name = keel::format("%s #%s", featureCode, displayId);
         } else {
-            auto s = keel::format("%s #%zu", featureCode, fallbackIndex + 1);
-            name.assign(s.data(), s.size());
+            name = keel::format("%s #%zu", featureCode, fallbackIndex + 1);
         }
         return;
     }
     if (!fallbackFeatureType.empty()) {
-        name = fallbackFeatureType;
+        name = keel::move(fallbackFeatureType);
         return;
     }
 
     if (!displayId.empty()) {
-        auto s = keel::format("%s #%s", GeometryTypeToString(type), displayId);
-        name.assign(s.data(), s.size());
+        name = keel::format("%s #%s", GeometryTypeToString(type), displayId);
     } else {
-        auto s = keel::format("%s #%zu", GeometryTypeToString(type), fallbackIndex + 1);
-        name.assign(s.data(), s.size());
+        name = keel::format("%s #%zu", GeometryTypeToString(type), fallbackIndex + 1);
     }
 }
 
-void GeoFeature::SetProperty(std::string key, AttributeValue val) {
+void GeoFeature::SetProperty(keel::StringRef key, AttributeValue val) {
     for (auto& [k, v] : properties) {
-        if (k == key) {
-            v = std::move(val);
+        if (k.as_ref() == key) {
+            v = keel::move(val);
             return;
         }
     }
-    properties.emplace_back(std::move(key), std::move(val));
+    properties.push_back(GeoProperty{keel::String::from(key), keel::move(val)});
 }
 
-std::string GeoFeature::GetPropertyString(std::string_view key) const {
+void GeoFeature::SetProperty(keel::String&& key, AttributeValue val) {
+    for (auto& [k, v] : properties) {
+        if (k.as_ref() == key.as_ref()) {
+            v = keel::move(val);
+            return;
+        }
+    }
+    properties.push_back(GeoProperty{keel::move(key), keel::move(val)});
+}
+
+keel::String GeoFeature::GetPropertyString(keel::StringRef key) const {
     if (!propertiesLoaded && pager && sqliteRowId > 0) {
         (void)EnsurePropertiesLoaded();
     }
     for (const auto& [k, v] : properties) {
-        if (EqualsIgnoreCaseAscii(k, key) && !v.IsNull()) {
+        if (EqualsIgnoreCaseAscii(k.as_ref(), key) && !v.is_null()) {
             return v.ToString();
         }
     }
     return {};
 }
 
-float GeoFeature::GetPropertyFloat(std::string_view key) const noexcept {
+float GeoFeature::GetPropertyFloat(keel::StringRef key) const noexcept {
     if (!propertiesLoaded && pager && sqliteRowId > 0) {
         (void)EnsurePropertiesLoaded();
     }
     for (const auto& [k, v] : properties) {
-        if (EqualsIgnoreCaseAscii(k, key) && !v.IsNull()) {
-            if (const auto* d = std::get_if<double>(&v.value)) return static_cast<float>(*d);
-            if (const auto* i = std::get_if<int64_t>(&v.value)) return static_cast<float>(*i);
+        if (EqualsIgnoreCaseAscii(k.as_ref(), key) && !v.is_null()) {
+            if (v.is_double() || v.is_int()) return static_cast<float>(v.as_double());
         }
     }
-    return std::numeric_limits<float>::quiet_NaN();
+    return NAN;
 }
 
 size_t GeoFeature::VertexCount() const noexcept {
@@ -708,21 +753,22 @@ size_t GeoFeature::HoleCount() const noexcept {
     return total;
 }
 
-bool GeoFeature::MatchesSearch(std::string_view query) const {
+bool GeoFeature::MatchesSearch(keel::StringRef query) const {
     if (query.empty()) return true;
-    const std::string qLower = ToLowerAscii(query);
+    const keel::String qLower = ToLowerAscii(query);
+    const keel::StringRef qRef = qLower.as_ref();
 
-    if (ContainsCaseInsensitive(name, qLower)) return true;
-    if (ContainsCaseInsensitive(featureCode, qLower)) return true;
-    if (ContainsCaseInsensitive(labelRu, qLower)) return true;
-    if (ContainsCaseInsensitive(labelEn, qLower)) return true;
-    if (ContainsCaseInsensitive(lightOrColor, qLower)) return true;
-    if (ContainsCaseInsensitive(displayId, qLower)) return true;
-    if (ContainsCaseInsensitive(id, qLower)) return true;
-    if (ContainsCaseInsensitive(GeometryTypeToString(type), qLower)) return true;
+    if (ContainsCaseInsensitive(name.as_ref(), qRef)) return true;
+    if (ContainsCaseInsensitive(featureCode.as_ref(), qRef)) return true;
+    if (ContainsCaseInsensitive(labelRu.as_ref(), qRef)) return true;
+    if (ContainsCaseInsensitive(labelEn.as_ref(), qRef)) return true;
+    if (ContainsCaseInsensitive(lightOrColor.as_ref(), qRef)) return true;
+    if (ContainsCaseInsensitive(displayId.as_ref(), qRef)) return true;
+    if (ContainsCaseInsensitive(id.as_ref(), qRef)) return true;
+    if (ContainsCaseInsensitive(GeometryTypeToString(type), qRef)) return true;
 
     for (const auto& [k, v] : properties) {
-        if (ContainsCaseInsensitive(k, qLower) || v.MatchesSearch(qLower)) {
+        if (ContainsCaseInsensitive(k.as_ref(), qRef) || v.MatchesSearch(qRef)) {
             return true;
         }
     }
@@ -735,7 +781,7 @@ bool GeoFeature::MatchesSearch(std::string_view query) const {
 
 namespace {
 
-void BuildFeatureSpatialIndex(keel::RTree<uint32_t, float>& index, const std::vector<GeoFeature>& features) {
+void BuildFeatureSpatialIndex(keel::RTree<uint32_t, float>& index, keel::ArrayRef<GeoFeature> features) {
     index.clear();
     if (features.empty()) return;
 
@@ -803,7 +849,7 @@ void GeoLayer::FinalizeLayer(uint64_t layerUid, bool forceTriangulateAll) {
                     } else {
                         ++pointFeatureCount;
                     }
-                    totalVertices += std::max<size_t>(1u, f.VertexCount());
+                    totalVertices += keel::max<size_t>(1u, f.VertexCount());
                 }
                 if (dominantChartClass == ChartFeatureClass::Generic) {
                     dominantChartClass = features.front().chartClass;
@@ -824,8 +870,8 @@ void GeoLayer::FinalizeLayer(uint64_t layerUid, bool forceTriangulateAll) {
     BindFeaturePagerPointers();
 
     const bool doTriangulate = forceTriangulateAll || (features.size() <= 512 && !pager);
-    const std::string layerHint = !tableName.empty() ? tableName : name;
-    std::array<size_t, 16> classCounts{};
+    const keel::StringRef layerHint = !tableName.empty() ? tableName.as_ref() : name.as_ref();
+    keel::StaticArray<size_t, 16> classCounts{};
     uint32_t activeClassMask = 0;
 
     for (size_t i = 0; i < features.size(); ++i) {
@@ -837,22 +883,19 @@ void GeoLayer::FinalizeLayer(uint64_t layerUid, bool forceTriangulateAll) {
         if (!isWindowStreamed || feat.sqliteRowId <= 0 || feat.uid != expectedUid || feat.id.empty()) {
             feat.uid = expectedUid;
             if (isWindowStreamed && feat.sqliteRowId > 0) {
-                char idBuf[40]{};
-                std::snprintf(idBuf, sizeof(idBuf), "L%llu_R%lld",
-                              static_cast<unsigned long long>(layerUid),
-                              static_cast<long long>(feat.sqliteRowId));
-                feat.id = idBuf;
+                char idBuf[40];
+                feat.id.assign(keel::format_buf(idBuf, "L%llu_R%lld",
+                                                static_cast<unsigned long long>(layerUid),
+                                                static_cast<long long>(feat.sqliteRowId)));
             } else {
-                char idBuf[40]{};
-                std::snprintf(idBuf, sizeof(idBuf), "L%llu_F%zu",
-                              static_cast<unsigned long long>(layerUid), i);
-                feat.id = idBuf;
+                char idBuf[40];
+                feat.id.assign(keel::format_buf(idBuf, "L%llu_F%zu",
+                                                static_cast<unsigned long long>(layerUid), i));
             }
         }
         if (feat.displayId.empty()) {
-            char dispBuf[24]{};
-            std::snprintf(dispBuf, sizeof(dispBuf), "%llu", static_cast<unsigned long long>(lowId));
-            feat.displayId = dispBuf;
+            char dispBuf[24];
+            feat.displayId.assign(keel::format_buf(dispBuf, "%llu", static_cast<unsigned long long>(lowId)));
         }
 
         if (doTriangulate && feat.geometryLoaded) {
@@ -945,8 +988,8 @@ bool GeoLayer::ApplyWindowSnapshot(SpatialWindowSnapshot&& snapshot) noexcept {
     const ChartFeatureClass savedDominantClass = dominantChartClass;
     const uint32_t savedClassMask = chartClassMask;
 
-    features = std::move(snapshot.features);
-    spatialIndex = std::move(snapshot.spatialIndex);
+    features = keel::move(snapshot.features);
+    spatialIndex = keel::move(snapshot.spatialIndex);
     pointFeatureCount = snapshot.pointFeatureCount;
     lineFeatureCount = snapshot.lineFeatureCount;
     polygonFeatureCount = snapshot.polygonFeatureCount;
@@ -980,13 +1023,15 @@ size_t GeoLayer::EvictAllPagedPayloads() const noexcept {
         freed += feat.UnloadPropertiesPayload();
     }
     if (pager) {
-        freed += pager->EvictChunksToBudget(0, std::numeric_limits<uint64_t>::max());
+        freed += pager->EvictChunksToBudget(0, UINT64_MAX);
         pager->CloseIdleConnection();
     }
     return freed;
 }
 
 guikit::GeoCoord SrsTransform::ToWgs84(double x, double y, int srsId) noexcept {
+    constexpr double kPi = guikit::MapGrid::kPi;
+
     // 1. WGS84 / UTM Northern Hemisphere (EPSG:32601 .. EPSG:32660)
     if (srsId >= 32601 && srsId <= 32660) {
         const int zone = srsId - 32600;
@@ -1096,8 +1141,8 @@ guikit::GeoCoord SrsTransform::ToWgs84(double x, double y, int srsId) noexcept {
 
     if (srsId == 3857 || srsId == 900913 || ((srsId == 4326 || srsId == 7683) && looksLikeMeters)) {
         constexpr double R = guikit::MapGrid::kEarthRadiusMeters;
-        const double lon = (x / R) * (180.0 / std::numbers::pi);
-        const double lat = (2.0 * std::atan(std::exp(y / R)) - 0.5 * std::numbers::pi) * (180.0 / std::numbers::pi);
+        const double lon = (x / R) * (180.0 / kPi);
+        const double lat = (2.0 * std::atan(std::exp(y / R)) - 0.5 * kPi) * (180.0 / kPi);
         return {
             guikit::MapGrid::ClampLat(lat, guikit::MapCrs::EPSG4326_PlateCarree),
             guikit::MapGrid::ClampLon(lon)
@@ -1107,15 +1152,15 @@ guikit::GeoCoord SrsTransform::ToWgs84(double x, double y, int srsId) noexcept {
     if (srsId == 3395) {
         constexpr double R = guikit::MapGrid::kEarthRadiusMeters;
         constexpr double e = guikit::MapGrid::kWgs84Eccentricity;
-        const double lon = (x / R) * (180.0 / std::numbers::pi);
+        const double lon = (x / R) * (180.0 / kPi);
         const double ts = std::exp(-y / R);
-        double phi = 0.5 * std::numbers::pi - 2.0 * std::atan(ts);
+        double phi = 0.5 * kPi - 2.0 * std::atan(ts);
         for (int iter = 0; iter < 6; ++iter) {
             const double esin = e * std::sin(phi);
             const double con = std::pow((1.0 - esin) / (1.0 + esin), 0.5 * e);
-            phi = 0.5 * std::numbers::pi - 2.0 * std::atan(ts * con);
+            phi = 0.5 * kPi - 2.0 * std::atan(ts * con);
         }
-        const double lat = phi * (180.0 / std::numbers::pi);
+        const double lat = phi * (180.0 / kPi);
         return {
             guikit::MapGrid::ClampLat(lat, guikit::MapCrs::EPSG4326_PlateCarree),
             guikit::MapGrid::ClampLon(lon)
@@ -1128,7 +1173,9 @@ guikit::GeoCoord SrsTransform::ToWgs84(double x, double y, int srsId) noexcept {
     };
 }
 
-std::pair<double, double> SrsTransform::FromWgs84(guikit::GeoCoord coord, int srsId) noexcept {
+guikit::GeoPlanar SrsTransform::FromWgs84(guikit::GeoCoord coord, int srsId) noexcept {
+    constexpr double kPi = guikit::MapGrid::kPi;
+
     if (srsId == 4326 || srsId == 7683) {
         return {
             guikit::MapGrid::ClampLon(coord.lon),
@@ -1141,13 +1188,13 @@ std::pair<double, double> SrsTransform::FromWgs84(guikit::GeoCoord coord, int sr
     if (srsId == 3395) {
         constexpr double R = guikit::MapGrid::kEarthRadiusMeters;
         constexpr double e = guikit::MapGrid::kWgs84Eccentricity;
-        const double lonRad = guikit::MapGrid::ClampLon(coord.lon) * (std::numbers::pi / 180.0);
-        const double phi = guikit::MapGrid::ClampLat(coord.lat, guikit::MapCrs::EPSG3395_WorldMercator) * (std::numbers::pi / 180.0);
+        const double lonRad = guikit::MapGrid::ClampLon(coord.lon) * (kPi / 180.0);
+        const double phi = guikit::MapGrid::ClampLat(coord.lat, guikit::MapCrs::EPSG3395_WorldMercator) * (kPi / 180.0);
         const double eSin = e * std::sin(phi);
         const double cf = std::pow((1.0 - eSin) / (1.0 + eSin), 0.5 * e);
         return {
             R * lonRad,
-            R * std::log(std::tan(0.25 * std::numbers::pi + 0.5 * phi) * cf)
+            R * std::log(std::tan(0.25 * kPi + 0.5 * phi) * cf)
         };
     }
     if (srsId >= 32601 && srsId <= 32660) {
@@ -1242,12 +1289,13 @@ std::pair<double, double> SrsTransform::FromWgs84(guikit::GeoCoord coord, int sr
     return Wgs84ToWebMercatorMeters(coord);
 }
 
-std::pair<double, double> SrsTransform::Wgs84ToWebMercatorMeters(guikit::GeoCoord coord) noexcept {
+guikit::GeoPlanar SrsTransform::Wgs84ToWebMercatorMeters(guikit::GeoCoord coord) noexcept {
+    constexpr double kPi = guikit::MapGrid::kPi;
     constexpr double R = guikit::MapGrid::kEarthRadiusMeters;
-    const double lonRad = guikit::MapGrid::ClampLon(coord.lon) * (std::numbers::pi / 180.0);
-    const double latRad = guikit::MapGrid::ClampLat(coord.lat, guikit::MapCrs::EPSG3857_WebMercator) * (std::numbers::pi / 180.0);
+    const double lonRad = guikit::MapGrid::ClampLon(coord.lon) * (kPi / 180.0);
+    const double latRad = guikit::MapGrid::ClampLat(coord.lat, guikit::MapCrs::EPSG3857_WebMercator) * (kPi / 180.0);
     const double x = R * lonRad;
-    const double y = R * std::log(std::tan(0.25 * std::numbers::pi + 0.5 * latRad));
+    const double y = R * std::log(std::tan(0.25 * kPi + 0.5 * latRad));
     return {x, y};
 }
 
@@ -1259,10 +1307,10 @@ void SrsTransform::ExpandBounds(guikit::GeoBounds& bounds, bool& initialized, gu
         bounds.se.lon = pt.lon;
         initialized = true;
     } else {
-        bounds.nw.lat = std::max(bounds.nw.lat, pt.lat);
-        bounds.nw.lon = std::min(bounds.nw.lon, pt.lon);
-        bounds.se.lat = std::min(bounds.se.lat, pt.lat);
-        bounds.se.lon = std::max(bounds.se.lon, pt.lon);
+        bounds.nw.lat = keel::max(bounds.nw.lat, pt.lat);
+        bounds.nw.lon = keel::min(bounds.nw.lon, pt.lon);
+        bounds.se.lat = keel::min(bounds.se.lat, pt.lat);
+        bounds.se.lon = keel::max(bounds.se.lon, pt.lon);
     }
 }
 
@@ -1272,15 +1320,15 @@ void SrsTransform::UnionBounds(guikit::GeoBounds& bounds, bool& initialized, con
 }
 
 bool SrsTransform::BoundsIntersect(const guikit::GeoBounds& a, const guikit::GeoBounds& b) noexcept {
-    const double aMinLon = std::min(a.nw.lon, a.se.lon);
-    const double aMaxLon = std::max(a.nw.lon, a.se.lon);
-    const double aMinLat = std::min(a.se.lat, a.nw.lat);
-    const double aMaxLat = std::max(a.se.lat, a.nw.lat);
+    const double aMinLon = keel::min(a.nw.lon, a.se.lon);
+    const double aMaxLon = keel::max(a.nw.lon, a.se.lon);
+    const double aMinLat = keel::min(a.se.lat, a.nw.lat);
+    const double aMaxLat = keel::max(a.se.lat, a.nw.lat);
 
-    const double bMinLon = std::min(b.nw.lon, b.se.lon);
-    const double bMaxLon = std::max(b.nw.lon, b.se.lon);
-    const double bMinLat = std::min(b.se.lat, b.nw.lat);
-    const double bMaxLat = std::max(b.se.lat, b.nw.lat);
+    const double bMinLon = keel::min(b.nw.lon, b.se.lon);
+    const double bMaxLon = keel::max(b.nw.lon, b.se.lon);
+    const double bMinLat = keel::min(b.se.lat, b.nw.lat);
+    const double bMaxLat = keel::max(b.se.lat, b.nw.lat);
 
     if (aMaxLon < bMinLon || aMinLon > bMaxLon) return false;
     if (aMaxLat < bMinLat || aMinLat > bMaxLat) return false;
@@ -1295,19 +1343,19 @@ guikit::GeoCoord SrsTransform::BoundsCenter(const guikit::GeoBounds& bounds) noe
 }
 
 float SrsTransform::EstimateFitTileZoom(const guikit::GeoBounds& bounds) noexcept {
-    const double dLon = std::max(1e-5, std::abs(bounds.se.lon - bounds.nw.lon));
-    const double dLat = std::max(1e-5, std::abs(bounds.nw.lat - bounds.se.lat));
-    const double maxSpanDeg = std::max(dLon, dLat * 1.45);
+    const double dLon = keel::max(1e-5, std::abs(bounds.se.lon - bounds.nw.lon));
+    const double dLat = keel::max(1e-5, std::abs(bounds.nw.lat - bounds.se.lat));
+    const double maxSpanDeg = keel::max(dLon, dLat * 1.45);
 
     if (maxSpanDeg <= 0.005) {
         return 14.5f;
     }
     const double z = std::log2(360.0 / maxSpanDeg) - 0.35;
-    return static_cast<float>(std::clamp(z, 1.5, 16.5));
+    return static_cast<float>(keel::clamp(z, 1.5, 16.5));
 }
 
 guikit::Color SrsTransform::DefaultLayerColor(size_t paletteIndex) noexcept {
-    static constexpr std::array<guikit::Color, 8> kPalette = {{
+    static constexpr keel::StaticArray<guikit::Color, 8> kPalette = {{
         guikit::Color(56, 189, 248, 255),   // Sky Cyan
         guikit::Color(16, 185, 129, 255),   // Emerald Green
         guikit::Color(245, 158, 11, 255),   // Amber Gold
@@ -1321,11 +1369,11 @@ guikit::Color SrsTransform::DefaultLayerColor(size_t paletteIndex) noexcept {
 }
 
 ChartFeatureClass SrsTransform::ClassifyFeatureCode(
-    std::string_view code,
+    keel::StringRef code,
     GeometryType geomType,
-    std::string_view layerHint
+    keel::StringRef layerHint
 ) noexcept {
-    const std::string_view effectiveCode = !code.empty() ? code : layerHint;
+    const keel::StringRef effectiveCode = !code.empty() ? code : layerHint;
     if (!effectiveCode.empty()) {
         if (EqualsIgnoreCaseAscii(effectiveCode, "M_COVR") || EqualsIgnoreCaseAscii(effectiveCode, "M_NPUB") ||
             EqualsIgnoreCaseAscii(effectiveCode, "M_NSYS") || EqualsIgnoreCaseAscii(effectiveCode, "M_QUAL")) {
@@ -1440,7 +1488,7 @@ ChartFeatureClass SrsTransform::ClassifyFeatureCode(
 }
 
 const GeoFeature* FindFeatureByUid(
-    std::span<const GeoLayer> layers,
+    keel::ArrayRef<GeoLayer> layers,
     uint64_t uid,
     const GeoLayer** outLayer
 ) noexcept {
@@ -1484,24 +1532,24 @@ namespace {
 
 class CartographicFallbackTileProvider final : public IRasterTileProvider {
 public:
-    [[nodiscard]] std::string_view GetSourceId() const noexcept override {
+    [[nodiscard]] keel::StringRef GetSourceId() const noexcept override {
         return "carto_fallback";
     }
 
-    [[nodiscard]] std::string_view GetDisplayName() const noexcept override {
+    [[nodiscard]] keel::StringRef GetDisplayName() const noexcept override {
         return "Cartographic Basemap Grid";
     }
 
-    [[nodiscard]] std::shared_ptr<const RasterTileImage> TryGetCachedTile(
+    [[nodiscard]] keel::Arc<const RasterTileImage> TryGetCachedTile(
         const SlippyTileKey& key
     ) const noexcept override {
         const SlippyTileKey normKey = NormalizeKey(key);
         std::lock_guard<std::mutex> lk(m_mutex);
         auto* cached = m_cache.get(normKey);
-        return cached ? *cached : nullptr;
+        return cached ? *cached : keel::Arc<const RasterTileImage>{};
     }
 
-    [[nodiscard]] std::shared_ptr<const RasterTileImage> FetchTileBlocking(
+    [[nodiscard]] keel::Arc<const RasterTileImage> FetchTileBlocking(
         const SlippyTileKey& key
     ) override {
         const SlippyTileKey normKey = NormalizeKey(key);
@@ -1509,7 +1557,7 @@ public:
             return cached;
         }
 
-        auto tileImg = std::make_shared<RasterTileImage>();
+        auto tileImg = keel::make_arc<RasterTileImage>();
         tileImg->key = normKey;
         tileImg->width = normKey.tileSizePx;
         tileImg->height = normKey.tileSizePx;
@@ -1521,7 +1569,7 @@ public:
         const uint8_t baseR = evenChecker ? 236 : 231;
         const uint8_t baseG = evenChecker ? 233 : 228;
         const uint8_t baseB = evenChecker ? 222 : 216;
-        const uint32_t subStep = std::max(16u, sz / 4u);
+        const uint32_t subStep = keel::max(16u, sz / 4u);
 
         for (uint32_t py = 0; py < sz; ++py) {
             for (uint32_t px = 0; px < sz; ++px) {
@@ -1541,11 +1589,12 @@ public:
             }
         }
 
+        keel::Arc<const RasterTileImage> constImg = keel::move(tileImg);
         {
             std::lock_guard<std::mutex> lk(m_mutex);
-            m_cache.put(normKey, tileImg);
+            m_cache.put(normKey, constImg);
         }
-        return tileImg;
+        return constImg;
     }
 
     void ClearCache() noexcept override {
@@ -1555,22 +1604,22 @@ public:
 
 private:
     [[nodiscard]] static SlippyTileKey NormalizeKey(const SlippyTileKey& k) noexcept {
-        const int z = std::clamp(k.z, 0, 19);
+        const int z = keel::clamp(k.z, 0, 19);
         const int n = 1 << z;
         const int x = ((k.x % n) + n) % n;
-        const int y = std::clamp(k.y, 0, n - 1);
+        const int y = keel::clamp(k.y, 0, n - 1);
         const uint32_t sz = (k.tileSizePx <= 160u) ? 128u : ((k.tileSizePx >= 384u) ? 512u : 256u);
         return SlippyTileKey{.z = z, .x = x, .y = y, .tileSizePx = sz};
     }
 
     mutable std::mutex m_mutex{};
-    mutable keel::LruCache<SlippyTileKey, std::shared_ptr<const RasterTileImage>, 256, SlippyTileKeyHash> m_cache{};
+    mutable keel::LruCache<SlippyTileKey, keel::Arc<const RasterTileImage>, 256, SlippyTileKeyHash> m_cache{};
 };
 
 } // namespace
 
-std::shared_ptr<IRasterTileProvider> CreateCartographicBasemapTileProvider() {
-    return std::make_shared<CartographicFallbackTileProvider>();
+keel::Arc<IRasterTileProvider> CreateCartographicBasemapTileProvider() {
+    return keel::make_arc<CartographicFallbackTileProvider>();
 }
 
 } // namespace guikit::geo

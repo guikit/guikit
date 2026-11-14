@@ -1,18 +1,11 @@
-#include <algorithm>
-#include <array>
-#include <chrono>
 #include <cmath>
-#include <cstdio>
-#include <numbers>
-#include <string>
-#include <vector>
+#include <cstdint>
+#include <cstring>
 #include "../demo_context.hpp"
 
 namespace guikit::demo {
 
 namespace {
-
-constexpr float kPi = std::numbers::pi_v<float>;
 
 struct WaterfallDemoState {
     bool initialized{false};
@@ -59,13 +52,13 @@ struct WaterfallDemoState {
     bool requestClearHistory{false};
 
     uint64_t sliceSequence{1};
-    std::vector<float> currentSliceDb{};
-    std::vector<float> initialHistoryMatrix{};
-    std::vector<WaterfallTrack> tracks{};
+    keel::Array<float> currentSliceDb{};
+    keel::Array<float> initialHistoryMatrix{};
+    keel::Array<WaterfallTrack> tracks{};
 
     double simTimeSec{0.0};
     double sliceAccumSec{0.0};
-    std::chrono::steady_clock::time_point lastWallClock{};
+    uint64_t lastWallNs{0};
 
     WaterfallViewResponse lastResp{};
 };
@@ -80,7 +73,7 @@ WaterfallDemoState s_wf{};
 }
 
 [[nodiscard]] inline float GaussianLobe(float x, float center, float sigma) noexcept {
-    const float d = (x - center) / std::max(1e-4f, sigma);
+    const float d = (x - center) / keel::max(1e-4f, sigma);
     return std::exp(-0.5f * d * d);
 }
 
@@ -102,7 +95,7 @@ void SynthesizeSliceAtTime(
             // Scenario 1: Hydroacoustic LOFAR / DEMON (Submarine Turbine Harmonics + Generator Tonal)
             const float f0 = 1450.0f + 22.0f * static_cast<float>(std::sin(tSec * 0.18));
             const float genF = 7850.0f + 95.0f * static_cast<float>(std::cos(tSec * 0.27));
-            const float cavBurst = std::max(0.0f, static_cast<float>(std::sin(tSec * 1.9) - 0.55f));
+            const float cavBurst = keel::max(0.0f, static_cast<float>(std::sin(tSec * 1.9) - 0.55f));
 
             for (uint32_t i = 0; i < N; ++i) {
                 const float u = static_cast<float>(i) / static_cast<float>(N - 1);
@@ -134,7 +127,7 @@ void SynthesizeSliceAtTime(
                     linPower += cav * std::pow(10.0f, -42.0f / 10.0f);
                 }
 
-                outSliceDb[i] = 10.0f * std::log10(std::max(1e-13f, linPower));
+                outSliceDb[i] = 10.0f * std::log10(keel::max(1e-13f, linPower));
             }
         } else {
             // Scenario 0: RF SDR Wideband RTSA (CW Pilot + QPSK Carrier + FHSS Hopper + LFM Radar Chirp)
@@ -143,11 +136,11 @@ void SynthesizeSliceAtTime(
             const float qpskBw = 2200.0f;
 
             // FHSS Hopper changes slot every 0.85 seconds
-            const uint32_t hopSlot = static_cast<uint32_t>(std::floor(std::max(0.0, tSec + 100.0) / 0.85));
+            const uint32_t hopSlot = static_cast<uint32_t>(std::floor(keel::max(0.0, tSec + 100.0) / 0.85));
             const float hopFreq = 13200.0f + static_cast<float>((hopSlot * 2654435761u) % 5200u);
 
             // Swept LFM Chirp between 19.2 kHz and 22.4 kHz
-            const float chirpPhase = static_cast<float>(std::fmod(std::max(0.0, tSec + 100.0) * 0.65, 1.0));
+            const float chirpPhase = static_cast<float>(std::fmod(keel::max(0.0, tSec + 100.0) * 0.65, 1.0));
             const float chirpF = 19200.0f + chirpPhase * 3000.0f;
 
             for (uint32_t i = 0; i < N; ++i) {
@@ -165,7 +158,7 @@ void SynthesizeSliceAtTime(
                 // 2. Wideband QPSK flat-top carrier with raised-cosine roll-off
                 const float dfQpsk = std::abs(f - qpskCenter);
                 if (dfQpsk < qpskBw * 0.75f) {
-                    const float edge = std::clamp((qpskBw * 0.65f - dfQpsk) / (qpskBw * 0.25f), 0.0f, 1.0f);
+                    const float edge = keel::clamp((qpskBw * 0.65f - dfQpsk) / (qpskBw * 0.25f), 0.0f, 1.0f);
                     const float ripple = 0.75f + 0.5f * n1;
                     linPower += edge * ripple * std::pow(10.0f, -31.0f / 10.0f);
                 }
@@ -176,7 +169,7 @@ void SynthesizeSliceAtTime(
                 // 4. Swept LFM Chirp
                 linPower += GaussianLobe(f, chirpF, 130.0f) * std::pow(10.0f, -24.0f / 10.0f);
 
-                outSliceDb[i] = 10.0f * std::log10(std::max(1e-13f, linPower));
+                outSliceDb[i] = 10.0f * std::log10(keel::max(1e-13f, linPower));
             }
         }
     } else {
@@ -222,7 +215,7 @@ void SynthesizeSliceAtTime(
             addArrayResponse(brg3, -34.0f + 10.0f * fade3, beamWidth * 1.15f);
             addArrayResponse(brg4, -12.0f, beamWidth * 0.90f);
 
-            outSliceDb[i] = 10.0f * std::log10(std::max(1e-13f, linPower));
+            outSliceDb[i] = 10.0f * std::log10(keel::max(1e-13f, linPower));
         }
     }
 }
@@ -253,7 +246,7 @@ void RebuildTracksAtTime(WaterfallDemoState& st, double nowSec) {
                     .snrDb = snrDb
                 });
             }
-            st.tracks.push_back(std::move(trk));
+            st.tracks.push_back(keel::move(trk));
         };
 
         buildDoaTrack(1, "TRK-01 ALPHA", WaterfallTrackStatus::Tracking, -19.0f, 22.5f, 9.0f, [](double t) {
@@ -289,7 +282,7 @@ void RebuildTracksAtTime(WaterfallDemoState& st, double nowSec) {
                     .snrDb = trk.snrDb
                 });
             }
-            st.tracks.push_back(std::move(trk));
+            st.tracks.push_back(keel::move(trk));
         };
 
         buildSpecTrack(1, "SHAFT-F0", WaterfallTrackStatus::Tracking, -18.0f, 220.0f, [](double t) {
@@ -318,12 +311,12 @@ void RebuildTracksAtTime(WaterfallDemoState& st, double nowSec) {
                 .snrDb = 32.0f
             });
         }
-        st.tracks.push_back(std::move(trk));
+        st.tracks.push_back(keel::move(trk));
     }
 }
 
 void LoadWaterfallScenario(WaterfallDemoState& st, int scenarioIdx) {
-    st.scenarioIndex = std::clamp(scenarioIdx, 0, 3);
+    st.scenarioIndex = keel::clamp(scenarioIdx, 0, 3);
     if (st.scenarioIndex == 0) {
         // RF SDR Wideband Spectrum RTSA
         st.modeIndex = 0;
@@ -377,19 +370,19 @@ void LoadWaterfallScenario(WaterfallDemoState& st, int scenarioIdx) {
     st.initialHistoryMatrix.resize(static_cast<size_t>(st.historyRows) * st.numBins);
 
     // Pre-populate all historyRows so the waterfall is 100% full immediately upon switching scenarios
-    const double rowDt = static_cast<double>(st.historyDurationSec) / static_cast<double>(std::max(1u, st.historyRows - 1));
+    const double rowDt = static_cast<double>(st.historyDurationSec) / static_cast<double>(keel::max(1u, st.historyRows - 1));
     for (uint32_t age = 0; age < st.historyRows; ++age) {
         const double tRow = st.simTimeSec - static_cast<double>(age) * rowDt;
         float* dstRow = st.initialHistoryMatrix.data() + static_cast<size_t>(age) * st.numBins;
         SynthesizeSliceAtTime(st, tRow, 1000u - age, dstRow);
     }
-    std::copy_n(st.initialHistoryMatrix.data(), st.numBins, st.currentSliceDb.data());
+    std::memcpy(st.currentSliceDb.data(), st.initialHistoryMatrix.data(), st.numBins * sizeof(float));
     RebuildTracksAtTime(st, st.simTimeSec);
 
     st.requestClearHistory = true;
     st.requestResetZoom = true;
     st.sliceSequence++;
-    st.lastWallClock = std::chrono::steady_clock::now();
+    st.lastWallNs = keel::monotonic_ns();
     st.initialized = true;
 }
 
@@ -399,9 +392,9 @@ void StepWaterfallSimulation(WaterfallDemoState& st) {
         return;
     }
 
-    const auto now = std::chrono::steady_clock::now();
-    const double dt = std::clamp(std::chrono::duration<double>(now - st.lastWallClock).count(), 0.0, 0.1);
-    st.lastWallClock = now;
+    const uint64_t nowNs = keel::monotonic_ns();
+    const double dt = keel::clamp(static_cast<double>(nowNs - st.lastWallNs) * 1e-9, 0.0, 0.1);
+    st.lastWallNs = nowNs;
 
     if (!st.liveStream) {
         return;
@@ -410,7 +403,7 @@ void StepWaterfallSimulation(WaterfallDemoState& st) {
     st.simTimeSec += dt;
     st.sliceAccumSec += dt;
 
-    const double slicePeriod = 1.0 / std::clamp(static_cast<double>(st.updateRateHz), 5.0, 60.0);
+    const double slicePeriod = 1.0 / keel::clamp(static_cast<double>(st.updateRateHz), 5.0, 60.0);
     if (st.sliceAccumSec >= slicePeriod) {
         st.sliceAccumSec = std::fmod(st.sliceAccumSec, slicePeriod);
         st.sliceSequence++;
@@ -432,7 +425,7 @@ void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         ui.Size(guikit::UiSize::Sm).Switch(s_wf.liveStream);
     }
 
-    static constexpr std::array<std::string_view, 4> kScenarios = {
+    static constexpr keel::StaticArray<keel::StringRef, 4> kScenarios = {
         "RTSA: RF SDR Band (FHSS + QPSK)",
         "RTSA: Acoustic LOFAR / DEMON",
         "DOA/BTR: Towed-Array Sonar",
@@ -448,7 +441,7 @@ void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         }
     }
 
-    static constexpr std::array<std::string_view, 3> kLayouts = {
+    static constexpr keel::StaticArray<keel::StringRef, 3> kLayouts = {
         "Split (Trace + Waterfall)",
         "Waterfall Only",
         "Live Trace Only"
@@ -636,54 +629,50 @@ void RenderWaterfallStage(guikit::Context& ui, DemoContext& /*ctx*/) {
     s_wf.requestClearHistory = false;
 }
 
-std::string GenerateWaterfallCode(const DemoContext& /*ctx*/) {
-    static constexpr std::array<const char*, 2> kModeEnums = {
+keel::String GenerateWaterfallCode(const DemoContext& /*ctx*/) {
+    static constexpr keel::StaticArray<const char*, 2> kModeEnums = {
         "WaterfallMode::SpectrumRtsa",
         "WaterfallMode::DoaBtr"
     };
-    static constexpr std::array<const char*, 3> kLayoutEnums = {
+    static constexpr keel::StaticArray<const char*, 3> kLayoutEnums = {
         "WaterfallLayout::SplitTraceAndWaterfall",
         "WaterfallLayout::WaterfallOnly",
         "WaterfallLayout::TraceOnly"
     };
-    const std::string_view cmapName = guikit::GetColormapName(s_wf.colormap);
+    const keel::StringRef cmapName = guikit::GetColormapName(s_wf.colormap);
 
-    char buf[2048];
-    std::snprintf(
-        buf,
-        sizeof(buf),
+    return keel::format(
         "// Hardware Ring-Buffer Waterfall (RTSA Spectrum Analyzer & DOA / BTR Target Tracker)\n"
-        "// Uploads only 1 row (glTexSubImage2D) per new slice; 0%% CPU scrolling via GLSL modulo ring-buffer\n"
-        "auto resp = ui.WaterfallView(latestSliceDb, {\n"
-        "    .mode               = guikit::%s,\n"
-        "    .viewLayout         = guikit::%s,\n"
-        "    .colormap           = guikit::Colormap::%.*s,\n"
-        "    .numBins            = %u,\n"
-        "    .historyRows        = %u,\n"
-        "    .historyDurationSec = %.1ff,\n"
-        "    .minX               = %.1ff,\n"
-        "    .maxX               = %.1ff,\n"
+        "// Uploads only 1 row (glTexSubImage2D) per new slice; 0% CPU scrolling via GLSL modulo ring-buffer\n"
+        "auto resp = ui.WaterfallView(latestSliceDb, {{\n"
+        "    .mode               = guikit::{},\n"
+        "    .viewLayout         = guikit::{},\n"
+        "    .colormap           = guikit::Colormap::{},\n"
+        "    .numBins            = {},\n"
+        "    .historyRows        = {},\n"
+        "    .historyDurationSec = {:.1f}f,\n"
+        "    .minX               = {:.1f}f,\n"
+        "    .maxX               = {:.1f}f,\n"
         "    .sliceSequence      = sliceSeqCounter,\n"
-        "    .dbFloor            = %.1ff,\n"
-        "    .dbCeil             = %.1ff,\n"
-        "    .gainDb             = %+.1ff,\n"
-        "    .thresholdGateDb    = %.1ff,\n"
-        "    .gateSuppression    = %.2ff,\n"
-        "    .gamma              = %.2ff,\n"
+        "    .dbFloor            = {:.1f}f,\n"
+        "    .dbCeil             = {:.1f}f,\n"
+        "    .gainDb             = {:+.1f}f,\n"
+        "    .thresholdGateDb    = {:.1f}f,\n"
+        "    .gateSuppression    = {:.2f}f,\n"
+        "    .gamma              = {:.2f}f,\n"
         "    .tracks             = activeTracks,\n"
-        "    .showLiveTrace      = %s,\n"
-        "    .showPeakHold       = %s,\n"
-        "    .showAverageTrace   = %s,\n"
-        "    .showTracks         = %s,\n"
-        "    .showHarmonicComb   = %s,\n"
+        "    .showLiveTrace      = {},\n"
+        "    .showPeakHold       = {},\n"
+        "    .showAverageTrace   = {},\n"
+        "    .showTracks         = {},\n"
+        "    .showHarmonicComb   = {},\n"
         "    .selectedTrackId    = &selectedTrackId,\n"
         "    .thresholdGateDbPtr = &thresholdGateDb,\n"
         "    .heightMode         = guikit::SizeMode::Stretch\n"
-        "});\n",
-        kModeEnums[std::clamp(s_wf.modeIndex, 0, 1)],
-        kLayoutEnums[std::clamp(s_wf.layoutIndex, 0, 2)],
-        static_cast<int>(cmapName.size()),
-        cmapName.data(),
+        "}});\n",
+        kModeEnums[static_cast<size_t>(keel::clamp(s_wf.modeIndex, 0, 1))],
+        kLayoutEnums[static_cast<size_t>(keel::clamp(s_wf.layoutIndex, 0, 2))],
+        cmapName,
         s_wf.numBins,
         s_wf.historyRows,
         s_wf.historyDurationSec,
@@ -701,7 +690,6 @@ std::string GenerateWaterfallCode(const DemoContext& /*ctx*/) {
         s_wf.showTracks ? "true" : "false",
         s_wf.showHarmonicComb ? "true" : "false"
     );
-    return std::string(buf);
 }
 
 } // namespace guikit::demo

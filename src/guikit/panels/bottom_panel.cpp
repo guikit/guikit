@@ -1,8 +1,7 @@
 #include "guikit/panels/bottom_panel.hpp"
-#include <algorithm>
 #include <cmath>
-#include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/graphics/icon.hpp"
 #include "guikit/panels/scroll_area.hpp"
@@ -19,8 +18,8 @@ Rect ComputeTopToggleRect(
     const float toggleW = 28.0f * scale;
     const float toggleH = 13.0f * scale;
     const float minX = bounds.x + 4.0f * scale;
-    const float maxX = std::max(minX, bounds.Right() - toggleW - 4.0f * scale);
-    const float toggleX = std::clamp(bounds.Center().x - toggleW * 0.5f, minX, maxX);
+    const float maxX = keel::max(minX, bounds.Right() - toggleW - 4.0f * scale);
+    const float toggleX = keel::clamp(bounds.Center().x - toggleW * 0.5f, minX, maxX);
     const float toggleY = edgeY - toggleH + 1.0f * scale;
     return Rect(toggleX, toggleY, toggleW, toggleH);
 }
@@ -43,7 +42,7 @@ BottomPanelScope BottomPanel::Open(
     Context& ctx,
     bool* open,
     const BottomPanelOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     if (open == nullptr) {
         return Open(ctx, static_cast<BottomPanelMode*>(nullptr), opts, loc);
@@ -58,7 +57,7 @@ BottomPanelScope BottomPanel::Open(
     Context& ctx,
     BottomPanelMode* externalMode,
     const BottomPanelOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
     const Id sashId(detail::HashArgs(id.value, uint64_t(0x42505F53415348ull)));
@@ -72,7 +71,7 @@ BottomPanelScope BottomPanel::Open(
     const ComponentMetrics& m = theme.GetMetrics(activeSize);
     const float metricMinH = (m.defaultHeight / safeScale) * 2.5f;
     const Rect parentBounds = ctx.GetParentPrevFrameBounds();
-    const float clampedRatio = std::clamp(opts.maxRatio, 0.15f, 0.95f);
+    const float clampedRatio = keel::clamp(opts.maxRatio, 0.15f, 0.95f);
 
     auto& state = ctx.GetOrCreatePersistentState<BottomPanelPersistState>(id);
     if (!state.initialized) {
@@ -90,12 +89,12 @@ BottomPanelScope BottomPanel::Open(
     const float baseH = opts.height.value_or(state.lastExpandedHeight > 0.0f ? state.lastExpandedHeight : 200.0f);
     const float effMinH = (opts.minHeight.has_value() && *opts.minHeight > 0.0f)
         ? *opts.minHeight
-        : (opts.resizable ? std::min(baseH, metricMinH) : 0.0f);
+        : (opts.resizable ? keel::min(baseH, metricMinH) : 0.0f);
     const float parentMaxH = (parentBounds.h > 1.0f)
-        ? std::max(effMinH, (parentBounds.h / safeScale) * clampedRatio)
-        : std::max(effMinH, 560.0f);
+        ? keel::max(effMinH, (parentBounds.h / safeScale) * clampedRatio)
+        : keel::max(effMinH, 560.0f);
     const float effMaxH = (opts.maxHeight.has_value() && *opts.maxHeight > 0.0f)
-        ? std::max(effMinH, (parentBounds.h > 1.0f) ? std::min(*opts.maxHeight, parentMaxH) : *opts.maxHeight)
+        ? keel::max(effMinH, (parentBounds.h > 1.0f) ? keel::min(*opts.maxHeight, parentMaxH) : *opts.maxHeight)
         : parentMaxH;
 
     const Rect prevBounds = ctx.GetPrevUnclippedBounds(id);
@@ -144,7 +143,7 @@ BottomPanelScope BottomPanel::Open(
             state.sashHovered = onSash;
 
             if (onToggle && !state.draggingSash) {
-                const std::string_view tip = (state.mode == BottomPanelMode::Collapsed)
+                const keel::StringRef tip = (state.mode == BottomPanelMode::Collapsed)
                     ? "Expand Bottom Panel"
                     : "Minimize Bottom Panel";
                 ctx.SetTooltip(tip, toggleRect);
@@ -254,7 +253,7 @@ BottomPanelScope BottomPanel::Open(
                         state.mode = BottomPanelMode::Expanded;
                         modeChanged = true;
                     }
-                    const float clampedH = std::clamp(rawLogicalH, effMinH, effMaxH);
+                    const float clampedH = keel::clamp(rawLogicalH, effMinH, effMaxH);
                     if (std::abs(state.customHeight - clampedH) > 0.25f) {
                         state.customHeight = clampedH;
                         state.lastExpandedHeight = clampedH;
@@ -330,14 +329,14 @@ BottomPanelScope BottomPanel::Open(
         node->minHeight = theme.Scale(effMinH);
         if (state.customHeight > 0.0f) {
             const float effH = (parentBounds.h > 1.0f)
-                ? std::clamp(state.customHeight, effMinH, effMaxH)
+                ? keel::clamp(state.customHeight, effMinH, effMaxH)
                 : state.customHeight;
             node->heightMode = SizeMode::Fixed;
             node->fixedHeight = theme.Scale(effH);
             reportedLogicalH = effH;
         } else if (opts.height.has_value()) {
             const float effH = (parentBounds.h > 1.0f)
-                ? std::clamp(*opts.height, effMinH, effMaxH)
+                ? keel::clamp(*opts.height, effMinH, effMaxH)
                 : *opts.height;
             node->heightMode = SizeMode::Fixed;
             node->fixedHeight = theme.Scale(effH);
@@ -411,10 +410,10 @@ BottomPanelScope BottomPanel::Open(
 
             // 1. Draw interactive top splitter (sash) highlight when hovered or actively dragged
             if (sashHov || sashDrag) {
-                const float cornerInset = std::max(2.0f * activeScale, node->cornerRadius);
+                const float cornerInset = keel::max(2.0f * activeScale, node->cornerRadius);
                 const float glowH = 6.0f * activeScale;
                 const float lineH = (sashDrag ? 2.5f : 2.0f) * activeScale;
-                const float spanW = std::max(0.0f, r.w - cornerInset * 2.0f);
+                const float spanW = keel::max(0.0f, r.w - cornerInset * 2.0f);
                 const Rect glowRect(r.x + cornerInset, curEdgeY - glowH * 0.5f, spanW, glowH);
                 const Rect lineRect(r.x + cornerInset, curEdgeY - lineH * 0.5f, spanW, lineH);
                 canvas.DrawRect(glowRect, p.accent.WithAlphaF(sashDrag ? 0.25f : 0.14f));

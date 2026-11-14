@@ -2,10 +2,8 @@
 #include "keel/small_array.h"
 
 #include <SDL3/SDL.h>
-#include <algorithm>
 #include <cmath>
 #include <cstring>
-#include <string>
 
 #ifdef _WIN32
 #define GUIKIT_GL_APIENTRY __stdcall
@@ -162,7 +160,7 @@ bool LoadAllGlProcs() noexcept {
     return ok;
 }
 
-uint32_t CompileGlShader(uint32_t type, std::string_view src) noexcept {
+uint32_t CompileGlShader(uint32_t type, keel::StringRef src) noexcept {
     uint32_t shader = g_gl.CreateShader(type);
     if (!shader) return 0;
     const char* ptr = src.data();
@@ -181,7 +179,7 @@ uint32_t CompileGlShader(uint32_t type, std::string_view src) noexcept {
     return shader;
 }
 
-uint32_t BuildGlProgram(std::string_view vsSrc, std::string_view fsSrc) noexcept {
+uint32_t BuildGlProgram(keel::StringRef vsSrc, keel::StringRef fsSrc) noexcept {
     uint32_t vs = CompileGlShader(kGL_VERTEX_SHADER, vsSrc);
     if (!vs) return 0;
     uint32_t fs = CompileGlShader(kGL_FRAGMENT_SHADER, fsSrc);
@@ -212,7 +210,7 @@ uint32_t BuildGlProgram(std::string_view vsSrc, std::string_view fsSrc) noexcept
 }
 
 // Shared Vertex Shader: maps unit quad [0..1]x[0..1] to u_PlotRect in top-left screen coordinates
-constexpr std::string_view kSharedVertSrc = R"(
+constexpr keel::StringRef kSharedVertSrc = R"(
 #ifdef GL_ES
 precision highp float;
 #endif
@@ -233,7 +231,7 @@ void main() {
 )";
 
 // Lightweight probe fragment shader to validate GLSL compilation on initialization
-constexpr std::string_view kProbeFragSrc = R"(
+constexpr keel::StringRef kProbeFragSrc = R"(
 #ifdef GL_ES
 precision highp float;
 #endif
@@ -244,7 +242,7 @@ void main() {
 )";
 
 [[nodiscard]] inline uint32_t PackRG16Norm(float normVal) noexcept {
-    const float clamped = std::clamp(normVal, 0.0f, 1.0f);
+    const float clamped = keel::clamp(normVal, 0.0f, 1.0f);
     const uint32_t q = static_cast<uint32_t>(std::lround(clamped * 65535.0f));
     const uint32_t hi = (q >> 8) & 0xFFu;
     const uint32_t lo = q & 0xFFu;
@@ -268,27 +266,29 @@ bool SdlGlShaderEngine::Initialize(SDL_Renderer* renderer) {
         return false;
     }
 
-    const std::string_view nameView(rendererName);
+    const keel::StringRef nameView(rendererName);
     const bool isGlBackend =
-        (nameView.find("opengl") != std::string_view::npos) ||
-        (nameView.find("OpenGL") != std::string_view::npos) ||
-        (nameView.find("webgl") != std::string_view::npos);
+        nameView.contains("opengl") ||
+        nameView.contains("OpenGL") ||
+        nameView.contains("webgl");
     if (!isGlBackend) {
-        m_backendSummary = std::string("Unavailable (SDL driver: ") + rendererName + ")";
+        m_backendSummary.assign("Unavailable (SDL driver: ");
+        m_backendSummary.append(rendererName);
+        m_backendSummary.append(")");
         return false;
     }
 
     SDL_FlushRenderer(renderer);
 
     if (!LoadAllGlProcs()) {
-        m_backendSummary = "Unavailable (GL proc load failed)";
+        m_backendSummary.assign("Unavailable (GL proc load failed)");
         return false;
     }
 
     // Validate GLSL compiler and linker with a minimal probe shader
     const uint32_t probeProgram = BuildGlProgram(kSharedVertSrc, kProbeFragSrc);
     if (!probeProgram) {
-        m_backendSummary = "Unavailable (GLSL compilation failed)";
+        m_backendSummary.assign("Unavailable (GLSL compilation failed)");
         return false;
     }
     g_gl.DeleteProgram(probeProgram);
@@ -314,7 +314,9 @@ bool SdlGlShaderEngine::Initialize(SDL_Renderer* renderer) {
 
     m_renderer = renderer;
     m_available = true;
-    m_backendSummary = std::string("Active (SDL ") + rendererName + " GLSL)";
+    m_backendSummary.assign("Active (SDL ");
+    m_backendSummary.append(rendererName);
+    m_backendSummary.append(" GLSL)");
     return true;
 }
 
@@ -336,7 +338,7 @@ void SdlGlShaderEngine::Shutdown() {
     m_programs.clear();
     m_renderer = nullptr;
     m_available = false;
-    m_backendSummary = "Disabled";
+    m_backendSummary.assign("Disabled");
 }
 
 const SdlGlShaderEngine::CompiledProgram* SdlGlShaderEngine::GetOrCompileProgram(const ICanvas::GpuShaderSource& src) {
@@ -442,7 +444,7 @@ void SdlGlShaderEngine::RenderPass(
         g_gl.BindTexture(kGL_TEXTURE_2D, cache.dataTex);
     }
 
-    const float invNormScale = 1.0f / std::max(1e-6f, pass.dataNormScale);
+    const float invNormScale = 1.0f / keel::max(1e-6f, pass.dataNormScale);
     const bool needFullUpload = dimsChanged || (cache.uploadedFullGen != pass.fullGeneration);
     const uint64_t deltaSlices = (pass.sliceGeneration > 0 && pass.sliceGeneration >= cache.uploadedSliceGen)
         ? (pass.sliceGeneration - cache.uploadedSliceGen)
@@ -488,10 +490,10 @@ void SdlGlShaderEngine::RenderPass(
     }
 
     // 3. Configure Scissor Box (converting top-left UI coords to bottom-left GL coords)
-    const int scX = std::max(0, static_cast<int>(std::floor(pass.clipRect.x)));
-    const int scTop = std::max(0, static_cast<int>(std::floor(pass.clipRect.y)));
-    const int scRight = std::min(static_cast<int>(viewportW), static_cast<int>(std::ceil(pass.clipRect.Right())));
-    const int scBottom = std::min(static_cast<int>(viewportH), static_cast<int>(std::ceil(pass.clipRect.Bottom())));
+    const int scX = keel::max(0, static_cast<int>(std::floor(pass.clipRect.x)));
+    const int scTop = keel::max(0, static_cast<int>(std::floor(pass.clipRect.y)));
+    const int scRight = keel::min(static_cast<int>(viewportW), static_cast<int>(std::ceil(pass.clipRect.Right())));
+    const int scBottom = keel::min(static_cast<int>(viewportH), static_cast<int>(std::ceil(pass.clipRect.Bottom())));
     const int scW = scRight - scX;
     const int scH = scBottom - scTop;
     if (scW <= 0 || scH <= 0) return;

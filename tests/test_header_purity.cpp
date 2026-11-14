@@ -25,7 +25,64 @@
 #error "guikit public headers must not leak C/Win32 macros"
 #endif
 
-// 2. Verify `guikit::geo` internal/GIS symbols do NOT leak into `namespace guikit`
+// 2. Verify zero STL container / utility header pollution in public headers (keel-only baseline)
+#if defined(_GLIBCXX_STRING) || defined(_LIBCPP_STRING) || defined(_STRING_)
+#error "guikit public headers must not leak <string>"
+#endif
+
+#if defined(_GLIBCXX_STRING_VIEW) || defined(_LIBCPP_STRING_VIEW) || defined(_STRING_VIEW_)
+#error "guikit public headers must not leak <string_view>"
+#endif
+
+#if defined(_GLIBCXX_VECTOR) || defined(_LIBCPP_VECTOR) || defined(_VECTOR_)
+#error "guikit public headers must not leak <vector>"
+#endif
+
+#if defined(_GLIBCXX_SPAN) || defined(_LIBCPP_SPAN) || defined(_SPAN_)
+#error "guikit public headers must not leak <span>"
+#endif
+
+#if defined(_GLIBCXX_OPTIONAL) || defined(_LIBCPP_OPTIONAL) || defined(_OPTIONAL_)
+#error "guikit public headers must not leak <optional>"
+#endif
+
+#if defined(_GLIBCXX_ARRAY) || defined(_LIBCPP_ARRAY) || defined(_ARRAY_)
+#error "guikit public headers must not leak <array>"
+#endif
+
+#if defined(_GLIBCXX_FUNCTIONAL) || defined(_LIBCPP_FUNCTIONAL) || defined(_FUNCTIONAL_)
+#error "guikit public headers must not leak <functional>"
+#endif
+
+#if defined(_GLIBCXX_MEMORY) || defined(_LIBCPP_MEMORY) || defined(_MEMORY_)
+#error "guikit public headers must not leak <memory>"
+#endif
+
+#if defined(_GLIBCXX_UNORDERED_MAP) || defined(_LIBCPP_UNORDERED_MAP) || defined(_UNORDERED_MAP_)
+#error "guikit public headers must not leak <unordered_map>"
+#endif
+
+#if defined(_GLIBCXX_VARIANT) || defined(_LIBCPP_VARIANT) || defined(_VARIANT_)
+#error "guikit public headers must not leak <variant>"
+#endif
+
+#if defined(_GLIBCXX_CHRONO) || defined(_LIBCPP_CHRONO) || defined(_CHRONO_)
+#error "guikit public headers must not leak <chrono>"
+#endif
+
+#if defined(_GLIBCXX_SOURCE_LOCATION) || defined(_LIBCPP_SOURCE_LOCATION) || defined(_SOURCE_LOCATION_)
+#error "guikit public headers must not leak <source_location>"
+#endif
+
+#if defined(_GLIBCXX_TYPEINDEX) || defined(_LIBCPP_TYPEINDEX) || defined(_TYPEINDEX_)
+#error "guikit public headers must not leak <typeindex>"
+#endif
+
+#if defined(_GLIBCXX_ALGORITHM) || defined(_LIBCPP_ALGORITHM) || defined(_ALGORITHM_)
+#error "guikit public headers must not leak <algorithm>"
+#endif
+
+// 3. Verify `guikit::geo` internal/GIS symbols do NOT leak into `namespace guikit`
 namespace purity_probe {
 struct PolygonTriangulator {
     int ok{1};
@@ -48,7 +105,7 @@ namespace {
     const LayerStyle b{};
     const AttributeValue c{};
 #if defined(GUIKIT_HAS_SCENES) && GUIKIT_HAS_SCENES
-    static_assert(std::is_same_v<guikit::GeoJsonIO, guikit::geo::GeoJsonIO>);
+    static_assert(keel::IsSame<guikit::GeoJsonIO, guikit::geo::GeoJsonIO>);
 #endif
     return a.ok + b.ok + c.ok;
 }

@@ -1,12 +1,9 @@
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include "../demo_context.hpp"
 #include "guikit/geo/geo_json_io.hpp"
 #include "guikit/geo/gis_render_engine.hpp"
-#include <algorithm>
-#include <cmath>
-#include <format>
-#include <optional>
-#include <string>
-#include <vector>
 
 namespace guikit::demo {
 
@@ -14,8 +11,8 @@ namespace {
 
 struct GisScreenState {
     bool initialized{false};
-    std::string loadedAssetPath{"assets/geo/demo_bay.geojson"};
-    std::vector<guikit::GeoLayer> layers;
+    keel::StringRef loadedAssetPath{"assets/geo/demo_bay.geojson"};
+    keel::Array<guikit::GeoLayer> layers;
     guikit::GeoBBox chartBounds{};
     size_t totalFeatures{0};
     size_t totalVertices{0};
@@ -42,18 +39,18 @@ struct GisScreenState {
     guikit::GisRenderStats lastStats{};
     uint64_t selectedFeatureUid{0};
 
-    std::optional<guikit::GeoCoord> pendingCenterGeo{};
-    std::optional<float> pendingTileZoom{};
+    keel::Optional<guikit::GeoCoord> pendingCenterGeo{};
+    keel::Optional<float> pendingTileZoom{};
     bool requestResetView{false};
 
-    static constexpr std::array<std::string_view, 4> paletteNames = {
+    static constexpr keel::StaticArray<keel::StringRef, 4> paletteNames = {
         "S-52 Marine Day (Bright)",
         "S-52 Marine Dusk (Twilight)",
         "S-52 Marine Night (Bridge Dark)",
         "Classic Vector GIS"
     };
 
-    static constexpr std::array<std::string_view, 7> crsNames = {
+    static constexpr keel::StaticArray<keel::StringRef, 7> crsNames = {
         "EPSG:3857 Web Mercator (WGS84)",
         "EPSG:3395 World Mercator (Ellipsoid)",
         "EPSG:4326 Plate Carrée (Equirect)",
@@ -63,7 +60,7 @@ struct GisScreenState {
         "EPSG:3995 Arctic Polar Stereo"
     };
 
-    static constexpr std::array<std::string_view, 5> coordFormatNames = {
+    static constexpr keel::StaticArray<keel::StringRef, 5> coordFormatNames = {
         "Nautical DMM (DD° MM.mm')",
         "Decimal Degrees (DD.dddd°)",
         "DMS (DD° MM' SS.s\")",
@@ -71,7 +68,7 @@ struct GisScreenState {
         "GOST Gauss-Krüger (X / Y m)"
     };
 
-    static constexpr std::array<std::string_view, 3> tileSizeNames = {
+    static constexpr keel::StaticArray<keel::StringRef, 3> tileSizeNames = {
         "128 px (Ultra-Fast Low Latency)",
         "256 px (Standard Slippy Tile)",
         "512 px (High-Density Retina)"
@@ -83,17 +80,17 @@ struct GisScreenState {
 
         auto res = guikit::GeoJsonIO::LoadFromFile(loadedAssetPath, /*splitByThematicClass=*/true);
         if (res.ok && !res.layers.empty()) {
-            layers = std::move(res.layers);
+            layers = keel::move(res.layers);
             chartBounds = res.totalBounds;
             totalFeatures = res.totalFeatures;
             totalVertices = res.totalVertices;
 
             if (chartBounds.IsValid()) {
                 initialCenter = chartBounds.Center();
-                const double spanLon = std::max(0.005, chartBounds.SpanLon());
-                const double spanLat = std::max(0.005, chartBounds.SpanLat());
-                const double maxSpan = std::max(spanLon, spanLat * 1.35);
-                initialTileZoom = std::clamp(
+                const double spanLon = keel::max(0.005, chartBounds.SpanLon());
+                const double spanLat = keel::max(0.005, chartBounds.SpanLat());
+                const double maxSpan = keel::max(spanLon, spanLat * 1.35);
+                initialTileZoom = keel::clamp(
                     static_cast<float>(std::log2(360.0 / (maxSpan * 1.35))),
                     2.0f,
                     16.5f
@@ -216,8 +213,9 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
     if (!s_state.layers.empty()) {
         ui.Size(guikit::UiSize::Xs).Heading({.label = "THEMATIC ENC LAYERS", .separator = guikit::HeadingSeparator::Bottom});
         for (auto& layer : s_state.layers) {
-            const std::string lbl = std::format("{} ({})", layer.name, layer.features.size());
-            if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = lbl})) {
+            if (auto el = ui.Size(guikit::UiSize::Sm).Element({
+                .label = ui.Format("{} ({})", layer.name.as_ref(), layer.features.size())
+            })) {
                 if (ui.Size(guikit::UiSize::Sm).Checkbox(layer.visible).changed) {
                     ui.InvalidateAll();
                 }
@@ -268,8 +266,8 @@ void RenderOsmMapStage(guikit::Context& ui, DemoContext& ctx) {
     s_state.requestResetView = false;
 }
 
-std::string GenerateOsmMapCode(const DemoContext&) {
-    static constexpr std::array<std::string_view, 7> crsEnumNames = {
+keel::String GenerateOsmMapCode(const DemoContext&) {
+    static constexpr keel::StaticArray<keel::StringRef, 7> crsEnumNames = {
         "EPSG3857_WebMercator",
         "EPSG3395_WorldMercator",
         "EPSG4326_PlateCarree",
@@ -278,21 +276,21 @@ std::string GenerateOsmMapCode(const DemoContext&) {
         "EPSG28406_Pulkovo42Zone6",
         "EPSG3995_ArcticPolar"
     };
-    static constexpr std::array<std::string_view, 5> fmtEnumNames = {
+    static constexpr keel::StaticArray<keel::StringRef, 5> fmtEnumNames = {
         "NauticalDMM",
         "DecimalDegrees",
         "DMS",
         "UTM_Meters",
         "GaussKruger_Meters"
     };
-    static constexpr std::array<std::string_view, 4> palEnumNames = {
+    static constexpr keel::StaticArray<keel::StringRef, 4> palEnumNames = {
         "MarineDay",
         "MarineDusk",
         "MarineNight",
         "ClassicGis"
     };
 
-    return std::format(
+    return keel::format(
         "// Load embedded or disk S-57 / ENC GeoJSON chart (Native + WebAssembly):\n"
         "auto chart = guikit::GeoJsonIO::LoadFromFile(\"assets/geo/demo_bay.geojson\", true);\n\n"
         "if (auto map = ui.MapView({{\n"

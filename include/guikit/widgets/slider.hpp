@@ -1,9 +1,10 @@
 #pragma once
 
-#include <optional>
-#include <span>
-#include <source_location>
-#include <string_view>
+#include <cstddef>
+#include <cstdint>
+#include "keel/core.h"
+#include "keel/optional.h"
+#include "keel/ref.h"
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -27,17 +28,17 @@ struct SliderOptions {
     UiText textRight{};                            ///< Optional companion text inside control on the right of the track (above it when Vertical)
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
     UiText valueFormat{};                          ///< Format string and style for value (e.g. "%.1f %%", {"%.1f dB", StateColor::Info()}, or static text; empty text = default numeric format)
-    std::optional<double> step{std::nullopt};      ///< Step quantization (defaults to 1.0 for integers, continuous for float)
+    keel::Optional<double> step{keel::kNullOpt};   ///< Step quantization (defaults to 1.0 for integers, continuous for float)
     Align align{Align::Start};                     ///< Standalone control alignment (Start, Center, End)
     bool showValue{true};                          ///< Whether to display current formatted value text inside control
     Placement valuePlacement{Placement::Trailing}; ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
     StateColor color{};                            ///< Per-state accent fill color for active track and thumb
-    std::optional<float> scale{std::nullopt};      ///< Local scale override
+    keel::Optional<float> scale{keel::kNullOpt};   ///< Local scale override
     const UiTheme* theme{nullptr};                 ///< Scoped theme override
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};      ///< Control width in dp (or legacy ratio 0.0..1.0 in Fill)
-    std::optional<float> widthRatio{std::nullopt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
-    std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = intrinsic height from UiSize)
+    keel::Optional<float> width{keel::kNullOpt};   ///< Control width in dp (or legacy ratio 0.0..1.0 in Fill)
+    keel::Optional<float> widthRatio{keel::kNullOpt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
+    keel::Optional<float> height{keel::kNullOpt};  ///< Explicit control height in points (nullopt = intrinsic height from UiSize)
     StateColor background{};                       ///< Per-state control well backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                               ///< Control well border stroke & corner radius configuration
     bool disabled{false};                          ///< Interaction suppression
@@ -52,7 +53,7 @@ struct StepSliderOptions {
     UiText textLeft{};                             ///< Optional companion text inside control on the left of the track (below it when Vertical)
     UiText textRight{};                            ///< Optional companion text inside control on the right of the track (above it when Vertical)
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
-    std::span<const std::string_view> stepLabels{};///< Optional text labels for each discrete step
+    keel::ArrayRef<keel::StringRef> stepLabels{};  ///< Optional text labels for each discrete step
     Align align{Align::Start};                     ///< Standalone control alignment (Start, Center, End)
     bool showTicks{true};                          ///< Whether to render tick marks at each step
     bool showLabels{true};                         ///< Whether to render stepLabels below ticks (right of them when Vertical)
@@ -61,12 +62,12 @@ struct StepSliderOptions {
     UiText valueText{};                            ///< Optional custom display text/style for current value
     bool includeNone{false};                       ///< For UiSize overload: if true, range includes UiSize::None (None..Xl)
     StateColor color{};                            ///< Per-state accent fill color for active track and thumb
-    std::optional<float> scale{std::nullopt};      ///< Local scale override
+    keel::Optional<float> scale{keel::kNullOpt};   ///< Local scale override
     const UiTheme* theme{nullptr};                 ///< Scoped theme override
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};      ///< Control width in dp (or legacy ratio 0.0..1.0 in Fill)
-    std::optional<float> widthRatio{std::nullopt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
-    std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = intrinsic height from UiSize)
+    keel::Optional<float> width{keel::kNullOpt};   ///< Control width in dp (or legacy ratio 0.0..1.0 in Fill)
+    keel::Optional<float> widthRatio{keel::kNullOpt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
+    keel::Optional<float> height{keel::kNullOpt};  ///< Explicit control height in points (nullopt = intrinsic height from UiSize)
     StateColor background{};                       ///< Per-state control well backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                               ///< Control well border stroke & corner radius configuration
     bool disabled{false};                          ///< Interaction suppression
@@ -82,18 +83,18 @@ struct RangeSliderOptions {
     UiText textRight{};                            ///< Optional companion text inside control on the right of the track (above it when Vertical)
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
     UiText valueFormat{};                          ///< Format string for range values (e.g. "%.0f .. %.0f Hz" or "%.1f %%")
-    std::optional<double> step{std::nullopt};      ///< Step quantization (defaults to 1.0 for integers, continuous for float)
+    keel::Optional<double> step{keel::kNullOpt};   ///< Step quantization (defaults to 1.0 for integers, continuous for float)
     double minSpan{0.0};                           ///< Minimum separation between low and high values
     Align align{Align::Start};                     ///< Standalone control alignment (Start, Center, End)
     bool showValue{true};                          ///< Whether to display current formatted range text inside control
     Placement valuePlacement{Placement::Trailing}; ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
     StateColor color{};                            ///< Per-state accent fill color for active interval and thumbs
-    std::optional<float> scale{std::nullopt};      ///< Local scale override
+    keel::Optional<float> scale{keel::kNullOpt};   ///< Local scale override
     const UiTheme* theme{nullptr};                 ///< Scoped theme override
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};      ///< Control width in dp (or legacy ratio 0.0..1.0 in Fill)
-    std::optional<float> widthRatio{std::nullopt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
-    std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = intrinsic height from UiSize)
+    keel::Optional<float> width{keel::kNullOpt};   ///< Control width in dp (or legacy ratio 0.0..1.0 in Fill)
+    keel::Optional<float> widthRatio{keel::kNullOpt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
+    keel::Optional<float> height{keel::kNullOpt};  ///< Explicit control height in points (nullopt = intrinsic height from UiSize)
     StateColor background{};                       ///< Per-state control well backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                               ///< Control well border stroke & corner radius configuration
     bool disabled{false};                          ///< Interaction suppression
@@ -106,22 +107,22 @@ struct ProgressBarOptions {
     UiText textRight{};                            ///< Optional companion text inside control on the right of the track (above when Vertical)
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
     UiText valueFormat{};                          ///< Format string for value (e.g. "%.0f %%", "%.1f dB"; empty = default numeric format)
-    std::optional<double> peakHoldValue{std::nullopt}; ///< Optional peak-hold marker value on the track (for VU/dB level meters)
+    keel::Optional<double> peakHoldValue{keel::kNullOpt}; ///< Optional peak-hold marker value on the track (for VU/dB level meters)
     uint32_t segments{0};                          ///< 0 = smooth continuous bar; >0 = segmented LED/VU level meter (e.g. 20 segments)
     float warningRatio{0.70f};                     ///< Normalized threshold [0..1] for Warning zone when multiZoneColor is true
     float dangerRatio{0.90f};                      ///< Normalized threshold [0..1] for Danger zone when multiZoneColor is true
-    std::optional<float> trackHeight{std::nullopt};///< Optional bar thickness override in points
+    keel::Optional<float> trackHeight{keel::kNullOpt}; ///< Optional bar thickness override in points
     Align align{Align::Start};                     ///< Standalone control alignment (Start, Center, End)
     bool showValue{true};                          ///< Whether to display current formatted value text inside control
     bool indeterminate{false};                     ///< Animated indeterminate shuttle bar when progress duration is unknown
     Placement valuePlacement{Placement::Trailing}; ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
     StateColor color{};                            ///< Per-state accent fill color for active bar (or base zone when multiZoneColor is true)
-    std::optional<float> scale{std::nullopt};      ///< Local scale override
+    keel::Optional<float> scale{keel::kNullOpt};   ///< Local scale override
     const UiTheme* theme{nullptr};                 ///< Scoped theme override
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};      ///< Control width in dp (or legacy ratio 0.0..1.0 in Fill)
-    std::optional<float> widthRatio{std::nullopt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
-    std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = intrinsic height from UiSize)
+    keel::Optional<float> width{keel::kNullOpt};   ///< Control width in dp (or legacy ratio 0.0..1.0 in Fill)
+    keel::Optional<float> widthRatio{keel::kNullOpt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
+    keel::Optional<float> height{keel::kNullOpt};  ///< Explicit control height in points (nullopt = intrinsic height from UiSize)
     bool multiZoneColor{false};                    ///< Color bar/segments across 3 zones (Variant/Success -> Warning -> Danger)
     StateColor background{};                       ///< Per-state control well backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                               ///< Control well border stroke & corner radius configuration
@@ -146,7 +147,7 @@ public:
         double min,
         double max,
         const SliderOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     static Vec2 Measure(
@@ -194,7 +195,7 @@ public:
         int* indexInt,
         size_t totalSteps,
         const StepSliderOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     static Vec2 Measure(
@@ -244,7 +245,7 @@ public:
         double min,
         double max,
         const RangeSliderOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     static Vec2 Measure(
@@ -296,7 +297,7 @@ public:
         double min,
         double max,
         const ProgressBarOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     static Vec2 Measure(

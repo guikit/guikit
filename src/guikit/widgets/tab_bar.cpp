@@ -1,5 +1,4 @@
 #include "guikit/widgets/tab_bar.hpp"
-#include <algorithm>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
@@ -11,9 +10,9 @@ namespace guikit {
 namespace {
 
 Rect ComputeTabCloseButtonRect(Rect bounds, const ComponentMetrics& m) noexcept {
-    const float btnSz = std::max(12.0f, m.iconSize);
-    const float padX = std::min(m.paddingX, bounds.w * 0.12f);
-    const float bx = bounds.Right() - std::max(4.0f, padX * 0.65f) - btnSz;
+    const float btnSz = keel::max(12.0f, m.iconSize);
+    const float padX = keel::min(m.paddingX, bounds.w * 0.12f);
+    const float bx = bounds.Right() - keel::max(4.0f, padX * 0.65f) - btnSz;
     const float by = bounds.y + (bounds.h - btnSz) * 0.5f;
     return Rect(bx, by, btnSz, btnSz);
 }
@@ -23,9 +22,9 @@ Rect ComputeTabCloseButtonRect(Rect bounds, const ComponentMetrics& m) noexcept 
 TabBarResponse TabBar::Run(
     Context& ctx,
     int& activeIndex,
-    std::span<const TabItem> tabs,
+    keel::ArrayRef<TabItem> tabs,
     const TabBarOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     TabBarResponse res;
     if (tabs.empty()) return res;
@@ -34,7 +33,7 @@ TabBarResponse TabBar::Run(
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
     const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
 
-    std::optional<ContainerScope> carouselScope;
+    keel::Optional<ContainerScope> carouselScope;
     Node* barNode = nullptr;
 
     if (opts.scrollable && !opts.fullWidth) {
@@ -301,14 +300,14 @@ Vec2 TabBar::MeasureTab(
     }
 
     if (item.closable) {
-        const float closeBtnSz = std::max(12.0f, m.iconSize);
+        const float closeBtnSz = keel::max(12.0f, m.iconSize);
         contentW += (contentW > 0.0f ? 6.0f : 0.0f) + closeBtnSz;
     }
 
     const float padX = m.paddingX + (opts.style == TabBarStyle::Folder ? theme.Scale(4.0f) : 0.0f);
     const float totalW = contentW + padX * 2.0f;
 
-    return {std::max(m.defaultHeight, totalW), m.defaultHeight};
+    return {keel::max(m.defaultHeight, totalW), m.defaultHeight};
 }
 
 Vec2 TabBar::MeasureTab(
@@ -364,11 +363,11 @@ void TabBar::RenderTab(
         if (active) {
             const float lineH = 3.0f;
             const float linePad = 2.0f;
-            const Rect lineR(bounds.x + linePad, bounds.Bottom() - lineH, std::max(0.0f, bounds.w - linePad * 2.0f), lineH);
+            const Rect lineR(bounds.x + linePad, bounds.Bottom() - lineH, keel::max(0.0f, bounds.w - linePad * 2.0f), lineH);
             canvas.DrawRoundRect(lineR, 1.5f, accentCol);
         }
         if (focused && !active && !disabled) {
-            canvas.DrawRoundRect(Rect(bounds.x + 1.0f, bounds.y + 2.0f, std::max(0.0f, bounds.w - 2.0f), std::max(0.0f, bounds.h - 4.0f)), m.cornerRadius, Color::Transparent(), pal.focusRing, 1.5f);
+            canvas.DrawRoundRect(Rect(bounds.x + 1.0f, bounds.y + 2.0f, keel::max(0.0f, bounds.w - 2.0f), keel::max(0.0f, bounds.h - 4.0f)), m.cornerRadius, Color::Transparent(), pal.focusRing, 1.5f);
         }
     } else if (opts.style == TabBarStyle::Card) {
         const float r = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : m.cornerRadius;
@@ -376,8 +375,8 @@ void TabBar::RenderTab(
         if (active) {
             canvas.DrawRoundRect(cardR, r, pal.surface, pal.border, 1.0f);
             // Mask baseline seam under active card tab
-            canvas.DrawRect(Rect(bounds.x + 1.0f, bounds.Bottom() - 1.5f, std::max(0.0f, bounds.w - 2.0f), 2.0f), pal.surface);
-            canvas.DrawRoundRect(Rect(bounds.x + 1.0f, bounds.y + 2.0f, std::max(0.0f, bounds.w - 2.0f), 2.5f), 1.0f, accentCol);
+            canvas.DrawRect(Rect(bounds.x + 1.0f, bounds.Bottom() - 1.5f, keel::max(0.0f, bounds.w - 2.0f), 2.0f), pal.surface);
+            canvas.DrawRoundRect(Rect(bounds.x + 1.0f, bounds.y + 2.0f, keel::max(0.0f, bounds.w - 2.0f), 2.5f), 1.0f, accentCol);
         } else {
             if (opts.showSeparator) {
                 canvas.DrawLine(Vec2(bounds.x, bounds.Bottom() - 0.5f), Vec2(bounds.Right(), bounds.Bottom() - 0.5f), pal.borderSubtle, 1.0f);
@@ -387,10 +386,10 @@ void TabBar::RenderTab(
             }
         }
         if (focused && !disabled) {
-            canvas.DrawRoundRect(Rect(bounds.x + 1.0f, bounds.y + 3.0f, std::max(0.0f, bounds.w - 2.0f), std::max(0.0f, bounds.h - 4.0f)), std::max(0.0f, r - 1.0f), Color::Transparent(), pal.focusRing, 1.5f);
+            canvas.DrawRoundRect(Rect(bounds.x + 1.0f, bounds.y + 3.0f, keel::max(0.0f, bounds.w - 2.0f), keel::max(0.0f, bounds.h - 4.0f)), keel::max(0.0f, r - 1.0f), Color::Transparent(), pal.focusRing, 1.5f);
         }
     } else if (opts.style == TabBarStyle::Folder) {
-        const float slope = std::min(theme.Scale(6.0f), bounds.w * 0.14f);
+        const float slope = keel::min(theme.Scale(6.0f), bounds.w * 0.14f);
         const float topY = bounds.y + (active ? 1.5f : 4.0f);
         const float botY = bounds.Bottom();
         VectorPath folderPath;
@@ -410,13 +409,13 @@ void TabBar::RenderTab(
             canvas.DrawPath(folderPath, p);
         }
         if (active) {
-            canvas.DrawRect(Rect(bounds.x + 1.0f, botY - 1.5f, std::max(0.0f, bounds.w - 2.0f), 2.0f), pal.surfaceElevated);
+            canvas.DrawRect(Rect(bounds.x + 1.0f, botY - 1.5f, keel::max(0.0f, bounds.w - 2.0f), 2.0f), pal.surfaceElevated);
             canvas.DrawLine(Vec2(bounds.x + slope, topY + 0.5f), Vec2(bounds.Right() - slope, topY + 0.5f), accentCol, 2.0f);
         } else if (opts.showSeparator) {
             canvas.DrawLine(Vec2(bounds.x, botY - 0.5f), Vec2(bounds.Right(), botY - 0.5f), pal.borderSubtle, 1.0f);
         }
         if (focused && !disabled) {
-            canvas.DrawRoundRect(Rect(bounds.x + slope, topY + 1.0f, std::max(0.0f, bounds.w - slope * 2.0f), std::max(0.0f, botY - topY - 2.0f)), 2.0f, Color::Transparent(), pal.focusRing, 1.5f);
+            canvas.DrawRoundRect(Rect(bounds.x + slope, topY + 1.0f, keel::max(0.0f, bounds.w - slope * 2.0f), keel::max(0.0f, botY - topY - 2.0f)), 2.0f, Color::Transparent(), pal.focusRing, 1.5f);
         }
     } else {
         // Pill / Segmented style
@@ -433,7 +432,7 @@ void TabBar::RenderTab(
             if (*opts.border.radius == 0.0f) {
                 pillRadius = 0.0f;
             } else {
-                pillRadius = std::max(0.0f, *opts.border.radius - padTop);
+                pillRadius = keel::max(0.0f, *opts.border.radius - padTop);
             }
         }
 
@@ -468,8 +467,8 @@ void TabBar::RenderTab(
     const float closeReserve = item.closable ? (closeRect.w + 6.0f) : 0.0f;
 
     // Measure components to center content within tab bounds (gracefully adapting at narrow tab widths)
-    const float padX = std::min(m.paddingX, bounds.w * 0.12f);
-    const float innerW = std::max(0.0f, bounds.w - padX * 2.0f - closeReserve);
+    const float padX = keel::min(m.paddingX, bounds.w * 0.12f);
+    const float innerW = keel::max(0.0f, bounds.w - padX * 2.0f - closeReserve);
     const bool hasIcon = item.icon.IsValid();
     const bool hasLabel = item.label.HasContentOrReserve();
     float badgeW = 0.0f;
@@ -480,18 +479,18 @@ void TabBar::RenderTab(
         (innerW >= (hasIcon ? m.iconSize + 6.0f : 0.0f) + badgeW + (hasLabel ? labelFont * 2.2f + 6.0f : 0.0f));
 
     const float iconAndBadgeW = (hasIcon ? m.iconSize : 0.0f) + (showBadge ? badgeW + 6.0f : 0.0f);
-    const float availLabelW = std::max(0.0f, innerW - iconAndBadgeW - ((hasIcon && hasLabel) ? 6.0f : 0.0f));
+    const float availLabelW = keel::max(0.0f, innerW - iconAndBadgeW - ((hasIcon && hasLabel) ? 6.0f : 0.0f));
     const bool showLabel = !item.label.empty() && (!hasIcon || availLabelW >= labelFont * 1.35f);
 
     keel::FixedString<256> truncatedLabel;
-    std::string_view displayLabel = item.label.text;
+    keel::StringRef displayLabel = item.label.text;
     float labelW = 0.0f;
     if (showLabel) {
         labelW = canvas.MeasureText(displayLabel, labelFont).x;
         if (labelW > availLabelW + kTextSubpixelTolerance && availLabelW > 0.0f) {
             truncatedLabel = TextUtil::TruncateWithEllipsis(item.label.text, availLabelW, labelFont, &canvas);
             displayLabel = truncatedLabel;
-            labelW = std::min(availLabelW, canvas.MeasureText(displayLabel, labelFont).x);
+            labelW = keel::min(availLabelW, canvas.MeasureText(displayLabel, labelFont).x);
         }
     }
 
@@ -506,8 +505,8 @@ void TabBar::RenderTab(
         contentW += badgeW;
     }
 
-    const float contentAreaW = std::max(0.0f, bounds.w - closeReserve);
-    float curX = bounds.x + std::max(padX, (contentAreaW - contentW) * 0.5f);
+    const float contentAreaW = keel::max(0.0f, bounds.w - closeReserve);
+    float curX = bounds.x + keel::max(padX, (contentAreaW - contentW) * 0.5f);
     const float centerY = bounds.y + bounds.h * 0.5f;
 
     // Draw Icon
@@ -552,7 +551,7 @@ void TabBar::RenderTab(
         if (closeHovered && !disabled) {
             canvas.DrawRoundRect(closeRect, 3.5f, pal.surfaceHover);
         }
-        const float icSz = std::max(8.0f, closeRect.w * 0.68f);
+        const float icSz = keel::max(8.0f, closeRect.w * 0.68f);
         const Rect icRect(
             closeRect.x + (closeRect.w - icSz) * 0.5f,
             closeRect.y + (closeRect.h - icSz) * 0.5f,

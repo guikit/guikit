@@ -1,9 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <optional>
-#include <string_view>
-#include <vector>
 #include "guikit/backend/i_canvas.hpp"
 
 struct SDL_Renderer;
@@ -30,9 +27,9 @@ public:
     void End() override;
     [[nodiscard]] float GetScale() const noexcept override { return m_scale; }
     void SetScale(float scale) override;
-    [[nodiscard]] std::string_view GetBackendName() const noexcept override { return "SDL3 (Direct GPU)"; }
+    [[nodiscard]] keel::StringRef GetBackendName() const noexcept override { return "SDL3 (Direct GPU)"; }
 
-    void Clear(Color color, std::optional<Rect> rect = std::nullopt) override;
+    void Clear(Color color, keel::Optional<Rect> rect = keel::kNullOpt) override;
 
     void PushClip(Rect clipRect) override;
     void PopClip() override;
@@ -46,11 +43,11 @@ public:
         float strokeWidth = 0.0f
     ) override;
 
-    Vec2 MeasureText(std::string_view text, float fontSize) override;
+    Vec2 MeasureText(keel::StringRef text, float fontSize) override;
     [[nodiscard]] float GetLineHeight(float fontSize) override;
-    void DrawText(std::string_view text, Vec2 pos, float fontSize, Color color) override;
+    void DrawText(keel::StringRef text, Vec2 pos, float fontSize, Color color) override;
     void DrawTextBox(
-        std::string_view text,
+        keel::StringRef text,
         Rect bounds,
         float fontSize,
         Color color,
@@ -62,7 +59,7 @@ public:
     void DrawTexture(
         uint64_t textureId,
         Rect destRect,
-        std::optional<Rect> srcRect = std::nullopt,
+        keel::Optional<Rect> srcRect = keel::kNullOpt,
         Color tint = Color(255, 255, 255, 255)
     ) override;
 
@@ -73,7 +70,7 @@ private:
     uint32_t m_width{0};
     uint32_t m_height{0};
     float m_scale{1.0f};
-    std::vector<Rect> m_clipStack;
+    keel::Array<Rect> m_clipStack;
 };
 
 } // namespace guikit

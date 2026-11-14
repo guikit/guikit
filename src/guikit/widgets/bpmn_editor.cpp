@@ -1,11 +1,18 @@
 #include "guikit/widgets/bpmn_editor.hpp"
 
-#include <algorithm>
-#include <array>
 #include <cmath>
-#include <cstdio>
+#include <cstddef>
+#include <cstdint>
 #include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
+#include "keel/algo.h"
+#include "keel/array.h"
+#include "keel/format.h"
+#include "keel/hash_map.h"
+#include "keel/number.h"
+#include "keel/small_array.h"
+#include "keel/static_array.h"
+#include "keel/string.h"
 
 namespace guikit {
 
@@ -214,6 +221,16 @@ struct AlignmentGuide {
     float worldSpanMax{0.0f};
 };
 
+struct NodePosEntry {
+    uint32_t id{0};
+    Vec2 pos{0.0f, 0.0f};
+};
+
+struct LaneRectEntry {
+    uint32_t id{0};
+    Rect rect{};
+};
+
 struct BpmnEditorState {
     bool initialized{false};
     size_t lastDiagramNodeCount{0};
@@ -225,7 +242,7 @@ struct BpmnEditorState {
     BpmnTool activeTool{BpmnTool::Select};
 
     // Selection state
-    std::vector<uint32_t> selectedNodes{};
+    keel::Array<uint32_t> selectedNodes{};
     uint32_t primaryNodeId{0};
     uint32_t selectedEdgeId{0};
     uint32_t selectedLaneId{0};
@@ -254,7 +271,7 @@ struct BpmnEditorState {
     bool draggingNodes{false};
     bool dragUndoRecorded{false};
     Vec2 dragStartWorld{0.0f, 0.0f};
-    std::vector<std::pair<uint32_t, Vec2>> dragInitialNodePos{};
+    keel::Array<NodePosEntry> dragInitialNodePos{};
     uint32_t dragBoundaryHostId{0};
 
     // Node corner resize (`Task`, `SubProcess`, `TextAnnotation`)
@@ -276,7 +293,7 @@ struct BpmnEditorState {
     int dragEdgeSegIdx{-1};
     bool dragEdgeSegHorizontal{true};
     Vec2 dragEdgeStartWorld{0.0f, 0.0f};
-    std::vector<Vec2> dragEdgeInitWaypoints{};
+    keel::Array<Vec2> dragEdgeInitWaypoints{};
 
     bool reconnectingEdge{false};
     uint32_t reconnectEdgeId{0};
@@ -292,7 +309,7 @@ struct BpmnEditorState {
     int laneResizeEdge{0}; // 0 = move, 1 = right edge, 2 = bottom edge
     Vec2 laneDragStartWorld{0.0f, 0.0f};
     Rect laneInitialRect{};
-    std::vector<std::pair<uint32_t, Vec2>> laneContainedNodeOffsets{};
+    keel::Array<NodePosEntry> laneContainedNodeOffsets{};
 
     // Lasso box selection
     bool lassoActive{false};
@@ -305,8 +322,8 @@ struct BpmnEditorState {
     bool spaceToolHorizontal{true};
     Vec2 spaceStartWorld{0.0f, 0.0f};
     Vec2 spaceCurrentWorld{0.0f, 0.0f};
-    std::vector<std::pair<uint32_t, Vec2>> spaceInitialNodes{};
-    std::vector<std::pair<uint32_t, Rect>> spaceInitialLanes{};
+    keel::Array<NodePosEntry> spaceInitialNodes{};
+    keel::Array<LaneRectEntry> spaceInitialLanes{};
 
     // Interactive wire connection
     bool connectingWire{false};
@@ -321,16 +338,16 @@ struct BpmnEditorState {
     uint32_t editingLaneId{0};
 
     // Smart alignment guides active during node drag or ghost creation preview
-    std::vector<AlignmentGuide> activeGuides{};
+    keel::Array<AlignmentGuide> activeGuides{};
 
     // Undo / Redo stacks
-    std::vector<BpmnDiagram> undoStack{};
-    std::vector<BpmnDiagram> redoStack{};
+    keel::Array<BpmnDiagram> undoStack{};
+    keel::Array<BpmnDiagram> redoStack{};
     BpmnDiagram renderSnapshot{};
 
     // Clipboard for Copy / Paste
-    std::vector<BpmnNode> clipboardNodes{};
-    std::vector<BpmnEdge> clipboardEdges{};
+    keel::Array<BpmnNode> clipboardNodes{};
+    keel::Array<BpmnEdge> clipboardEdges{};
 
     // Token simulation timing
     double lastSimTickSec{0.0};
@@ -342,7 +359,10 @@ struct BpmnEditorState {
     [[nodiscard]] bool IsNodeSelected(uint32_t id) const noexcept {
         if (id == 0) return false;
         if (primaryNodeId == id) return true;
-        return std::find(selectedNodes.begin(), selectedNodes.end(), id) != selectedNodes.end();
+        for (uint32_t selId : selectedNodes) {
+            if (selId == id) return true;
+        }
+        return false;
     }
 
     void SelectSingleNode(uint32_t id) {
@@ -356,11 +376,16 @@ struct BpmnEditorState {
 
     void ToggleNodeSelection(uint32_t id) {
         if (id == 0) return;
-        auto it = std::find(selectedNodes.begin(), selectedNodes.end(), id);
-        if (it != selectedNodes.end()) {
-            selectedNodes.erase(it);
-            primaryNodeId = selectedNodes.empty() ? 0 : selectedNodes.back();
-        } else {
+        bool removed = false;
+        for (size_t i = 0; i < selectedNodes.size(); ++i) {
+            if (selectedNodes[i] == id) {
+                selectedNodes.remove_at(i);
+                primaryNodeId = selectedNodes.empty() ? 0 : selectedNodes.back();
+                removed = true;
+                break;
+            }
+        }
+        if (!removed) {
             selectedNodes.push_back(id);
             primaryNodeId = id;
         }
@@ -379,16 +404,16 @@ struct BpmnEditorState {
 
     void PushUndo(const BpmnDiagram& d) {
         if (undoStack.size() >= 48) {
-            undoStack.erase(undoStack.begin());
+            undoStack.remove_at(0);
         }
-        undoStack.push_back(d);
+        undoStack.push_back(d.clone());
         redoStack.clear();
     }
 
     bool Undo(BpmnDiagram& d) {
         if (undoStack.empty()) return false;
-        redoStack.push_back(d);
-        d = std::move(undoStack.back());
+        redoStack.push_back(d.clone());
+        d = keel::move(undoStack.back());
         undoStack.pop_back();
         ClearSelection();
         return true;
@@ -396,8 +421,8 @@ struct BpmnEditorState {
 
     bool Redo(BpmnDiagram& d) {
         if (redoStack.empty()) return false;
-        undoStack.push_back(d);
-        d = std::move(redoStack.back());
+        undoStack.push_back(d.clone());
+        d = keel::move(redoStack.back());
         redoStack.pop_back();
         ClearSelection();
         return true;
@@ -409,7 +434,7 @@ struct BpmnEditorPayload {
     BpmnEditorResponse resp{};
     const BpmnDiagram* diagramSnapshot{nullptr};
     const BpmnEditorState* stateSnapshot{nullptr};
-    std::string_view activeEditBuffer{};
+    keel::StringRef activeEditBuffer{};
     size_t activeEditCursor{0};
     bool cursorBlinkOn{true};
     float animPhase{0.0f};
@@ -421,7 +446,7 @@ struct BpmnEditorPayload {
 
 void DrawWrappedTextBox(
     ICanvas& canvas,
-    std::string_view text,
+    keel::StringRef text,
     Rect bounds,
     float fontSize,
     Color color,
@@ -432,56 +457,60 @@ void DrawWrappedTextBox(
 ) {
     if (text.empty() || color.a == 0 || bounds.w <= 4.0f || bounds.h <= 4.0f || maxLines == 0) return;
 
-    std::vector<std::string> lines;
-    lines.reserve(maxLines);
+    keel::SmallArray<keel::SmallString<128>, 8> lines;
 
     size_t pos = 0;
     while (pos <= text.size() && lines.size() < maxLines) {
         const size_t nl = text.find('\n', pos);
-        const std::string_view para = (nl == std::string_view::npos)
+        const keel::StringRef para = (nl == keel::kInvalidIndex)
             ? text.substr(pos)
             : text.substr(pos, nl - pos);
 
         // Word-wrap `para` into `bounds.w`
         size_t wPos = 0;
-        std::string currentLine;
+        keel::SmallString<128> currentLine;
         while (wPos < para.size() && lines.size() < maxLines) {
             while (wPos < para.size() && para[wPos] == ' ') ++wPos;
             if (wPos >= para.size()) break;
             const size_t nextSpace = para.find(' ', wPos);
-            const std::string_view word = (nextSpace == std::string_view::npos)
+            const keel::StringRef word = (nextSpace == keel::kInvalidIndex)
                 ? para.substr(wPos)
                 : para.substr(wPos, nextSpace - wPos);
 
-            std::string candidate = currentLine.empty()
-                ? std::string(word)
-                : (currentLine + " " + std::string(word));
+            keel::SmallString<128> candidate;
+            if (currentLine.empty()) {
+                candidate.append(word);
+            } else {
+                candidate.append(currentLine);
+                candidate.push_back(' ');
+                candidate.append(word);
+            }
 
             const float candW = canvas.MeasureTextStyled(candidate, fontSize, style).x;
             if (!currentLine.empty() && candW > bounds.w && lines.size() + 1 < maxLines) {
-                lines.push_back(std::move(currentLine));
-                currentLine = std::string(word);
+                lines.push_back(keel::move(currentLine));
+                currentLine = keel::SmallString<128>::from(word);
             } else {
-                currentLine = std::move(candidate);
+                currentLine = keel::move(candidate);
             }
-            if (nextSpace == std::string_view::npos) break;
+            if (nextSpace == keel::kInvalidIndex) break;
             wPos = nextSpace + 1;
         }
         if (!currentLine.empty() && lines.size() < maxLines) {
-            lines.push_back(std::move(currentLine));
+            lines.push_back(keel::move(currentLine));
         }
 
-        if (nl == std::string_view::npos) break;
+        if (nl == keel::kInvalidIndex) break;
         pos = nl + 1;
     }
 
     if (lines.empty()) return;
 
-    const float lineH = std::max(fontSize * 1.18f, canvas.GetLineHeight(fontSize) * 0.94f);
+    const float lineH = keel::max(fontSize * 1.18f, canvas.GetLineHeight(fontSize) * 0.94f);
     const float totalH = static_cast<float>(lines.size()) * lineH;
     float startY = bounds.y + (bounds.h - totalH) * alignY;
 
-    for (const std::string& line : lines) {
+    for (const auto& line : lines) {
         const Rect lr(bounds.x, startY, bounds.w, lineH);
         canvas.DrawTextBox(line, lr, fontSize, color, alignX, 0.5f);
         startY += lineH;
@@ -490,7 +519,7 @@ void DrawWrappedTextBox(
 
 void DrawVerticalRotatedHeaderText(
     ICanvas& canvas,
-    std::string_view text,
+    keel::StringRef text,
     Rect stripRect,
     float fontSize,
     Color color,
@@ -500,7 +529,7 @@ void DrawVerticalRotatedHeaderText(
     canvas.PushClip(stripRect);
     const Vec2 tm = canvas.MeasureTextStyled(text, fontSize, style);
     const float tx = stripRect.x + (stripRect.w - tm.y) * 0.5f;
-    const float ty = stripRect.y + (stripRect.h + std::min(tm.x, stripRect.h - 8.0f)) * 0.5f;
+    const float ty = stripRect.y + (stripRect.h + keel::min(tm.x, stripRect.h - 8.0f)) * 0.5f;
     canvas.DrawTextStyled(text, {tx, ty}, fontSize, color, style, -90.0f);
     canvas.PopClip();
 }
@@ -517,7 +546,7 @@ void DrawVerticalRotatedHeaderText(
 }
 
 [[nodiscard]] Vec2 ScreenToWorld(Vec2 s, const Rect& viewRect, Vec2 pan, float zoom) noexcept {
-    const float z = std::max(0.05f, zoom);
+    const float z = keel::max(0.05f, zoom);
     return Vec2{
         (s.x - viewRect.x - pan.x) / z,
         (s.y - viewRect.y - pan.y) / z
@@ -545,16 +574,16 @@ void DrawVerticalRotatedHeaderText(
             maxY = r.Bottom();
             any = true;
         } else {
-            minX = std::min(minX, r.x);
-            minY = std::min(minY, r.y);
-            maxX = std::max(maxX, r.Right());
-            maxY = std::max(maxY, r.Bottom());
+            minX = keel::min(minX, r.x);
+            minY = keel::min(minY, r.y);
+            maxX = keel::max(maxX, r.Right());
+            maxY = keel::max(maxY, r.Bottom());
         }
     };
     for (const auto& l : diagram.lanes) includeRect(l.rect);
     for (const auto& n : diagram.nodes) includeRect(n.Bounds());
     if (!any) return Rect(0.0f, 0.0f, 1200.0f, 700.0f);
-    return Rect(minX, minY, std::max(200.0f, maxX - minX), std::max(140.0f, maxY - minY));
+    return Rect(minX, minY, keel::max(200.0f, maxX - minX), keel::max(140.0f, maxY - minY));
 }
 
 void FitDiagramToViewport(const BpmnDiagram& diagram, const Rect& viewRect, float leftInset, BpmnEditorState& state) noexcept {
@@ -564,11 +593,11 @@ void FitDiagramToViewport(const BpmnDiagram& diagram, const Rect& viewRect, floa
     const float padRight = 24.0f;
     const float padTop = 54.0f;
     const float padBottom = 34.0f;
-    const float availW = std::max(120.0f, viewRect.w - padLeft - padRight);
-    const float availH = std::max(120.0f, viewRect.h - padTop - padBottom);
-    const float zx = availW / std::max(100.0f, wb.w);
-    const float zy = availH / std::max(100.0f, wb.h);
-    state.zoom = std::clamp(std::min(zx, zy), 0.35f, 1.25f);
+    const float availW = keel::max(120.0f, viewRect.w - padLeft - padRight);
+    const float availH = keel::max(120.0f, viewRect.h - padTop - padBottom);
+    const float zx = availW / keel::max(100.0f, wb.w);
+    const float zy = availH / keel::max(100.0f, wb.h);
+    state.zoom = keel::clamp(keel::min(zx, zy), 0.35f, 1.25f);
     state.pan.x = padLeft + (availW - wb.w * state.zoom) * 0.5f - wb.x * state.zoom;
     state.pan.y = padTop + (availH - wb.h * state.zoom) * 0.5f - wb.y * state.zoom;
 }
@@ -652,9 +681,9 @@ void ResolveAutoPorts(
     }
 }
 
-void SimplifyOrthogonalPoints(std::vector<Vec2>& pts) {
+void SimplifyOrthogonalPoints(keel::SmallArray<Vec2, 32>& pts) {
     if (pts.size() < 3) return;
-    std::vector<Vec2> out;
+    keel::SmallArray<Vec2, 32> out;
     out.reserve(pts.size());
     out.push_back(pts.front());
     for (size_t i = 1; i < pts.size(); ++i) {
@@ -663,10 +692,10 @@ void SimplifyOrthogonalPoints(std::vector<Vec2>& pts) {
         }
     }
     if (out.size() < 3) {
-        pts = std::move(out);
+        pts = keel::move(out);
         return;
     }
-    std::vector<Vec2> clean;
+    keel::SmallArray<Vec2, 32> clean;
     clean.reserve(out.size());
     clean.push_back(out.front());
     for (size_t i = 1; i + 1 < out.size(); ++i) {
@@ -680,10 +709,10 @@ void SimplifyOrthogonalPoints(std::vector<Vec2>& pts) {
         }
     }
     clean.push_back(out.back());
-    pts = std::move(clean);
+    pts = keel::move(clean);
 }
 
-[[nodiscard]] std::vector<Vec2> BuildEdgeWorldPoints(
+[[nodiscard]] keel::SmallArray<Vec2, 32> BuildEdgeWorldPoints(
     const BpmnDiagram& diagram,
     const BpmnNode& fromNode,
     const BpmnNode& toNode,
@@ -697,12 +726,11 @@ void SimplifyOrthogonalPoints(std::vector<Vec2>& pts) {
     const Vec2 p0 = GetNodePortWorldPos(fromNode, fromSide);
     const Vec2 p1 = GetNodePortWorldPos(toNode, toSide);
 
-    std::vector<Vec2> pts;
-    pts.reserve(8);
+    keel::SmallArray<Vec2, 32> pts;
     pts.push_back(p0);
 
     if (!edge.waypoints.empty()) {
-        std::vector<Vec2> customWps = edge.waypoints;
+        keel::SmallArray<Vec2, 32> customWps(edge.waypoints.as_ref());
         if (routingMode == BpmnRoutingMode::Orthogonal) {
             const bool fromH = (fromSide == BpmnPortSide::Left || fromSide == BpmnPortSide::Right);
             const bool toH = (toSide == BpmnPortSide::Left || toSide == BpmnPortSide::Right);
@@ -742,7 +770,7 @@ void SimplifyOrthogonalPoints(std::vector<Vec2>& pts) {
 
     if (routingMode == BpmnRoutingMode::Bezier) {
         const float dist = std::hypot(p1.x - p0.x, p1.y - p0.y);
-        const float tangent = std::clamp(dist * 0.42f, 28.0f, 150.0f);
+        const float tangent = keel::clamp(dist * 0.42f, 28.0f, 150.0f);
         const Vec2 c0{p0.x + d0.x * tangent, p0.y + d0.y * tangent};
         const Vec2 c1{p1.x + d1.x * tangent, p1.y + d1.y * tangent};
         constexpr int kSteps = 18;
@@ -775,27 +803,27 @@ void SimplifyOrthogonalPoints(std::vector<Vec2>& pts) {
 
     constexpr float kStub = 20.0f;
     Vec2 s0{p0.x + d0.x * kStub, p0.y + d0.y * kStub};
-    if (fromSide == BpmnPortSide::Left)   s0.x = std::min(s0.x, srcBox.x - 4.0f);
-    if (fromSide == BpmnPortSide::Right)  s0.x = std::max(s0.x, srcBox.Right() + 4.0f);
-    if (fromSide == BpmnPortSide::Top)    s0.y = std::min(s0.y, srcBox.y - 4.0f);
-    if (fromSide == BpmnPortSide::Bottom) s0.y = std::max(s0.y, srcBox.Bottom() + 4.0f);
+    if (fromSide == BpmnPortSide::Left)   s0.x = keel::min(s0.x, srcBox.x - 4.0f);
+    if (fromSide == BpmnPortSide::Right)  s0.x = keel::max(s0.x, srcBox.Right() + 4.0f);
+    if (fromSide == BpmnPortSide::Top)    s0.y = keel::min(s0.y, srcBox.y - 4.0f);
+    if (fromSide == BpmnPortSide::Bottom) s0.y = keel::max(s0.y, srcBox.Bottom() + 4.0f);
 
     Vec2 s1{p1.x + d1.x * kStub, p1.y + d1.y * kStub};
-    if (toSide == BpmnPortSide::Left)   s1.x = std::min(s1.x, dstBox.x - 4.0f);
-    if (toSide == BpmnPortSide::Right)  s1.x = std::max(s1.x, dstBox.Right() + 4.0f);
-    if (toSide == BpmnPortSide::Top)    s1.y = std::min(s1.y, dstBox.y - 4.0f);
-    if (toSide == BpmnPortSide::Bottom) s1.y = std::max(s1.y, dstBox.Bottom() + 4.0f);
+    if (toSide == BpmnPortSide::Left)   s1.x = keel::min(s1.x, dstBox.x - 4.0f);
+    if (toSide == BpmnPortSide::Right)  s1.x = keel::max(s1.x, dstBox.Right() + 4.0f);
+    if (toSide == BpmnPortSide::Top)    s1.y = keel::min(s1.y, dstBox.y - 4.0f);
+    if (toSide == BpmnPortSide::Bottom) s1.y = keel::max(s1.y, dstBox.Bottom() + 4.0f);
 
     auto segHitsRect = [](Vec2 a, Vec2 b, const Rect& r) noexcept -> bool {
-        const float minX = std::min(a.x, b.x);
-        const float maxX = std::max(a.x, b.x);
-        const float minY = std::min(a.y, b.y);
-        const float maxY = std::max(a.y, b.y);
+        const float minX = keel::min(a.x, b.x);
+        const float maxX = keel::max(a.x, b.x);
+        const float minY = keel::min(a.y, b.y);
+        const float maxY = keel::max(a.y, b.y);
         return (maxX > r.x + 0.5f && minX < r.Right() - 0.5f &&
                 maxY > r.y + 0.5f && minY < r.Bottom() - 0.5f);
     };
 
-    auto isPathClear = [&](std::initializer_list<Vec2> chain, bool checkOtherNodes = true) -> bool {
+    auto isPathClear = [&](keel::ArrayRef<Vec2> chain, bool checkOtherNodes = true) -> bool {
         Vec2 prev{};
         bool first = true;
         for (Vec2 pt : chain) {
@@ -843,7 +871,7 @@ void SimplifyOrthogonalPoints(std::vector<Vec2>& pts) {
         } else {
             bool routed = false;
             if (facing) {
-                const std::array<float, 5> candMidX = {
+                const keel::StaticArray<float, 5> candMidX = {
                     (s0.x + s1.x) * 0.5f,
                     s0.x,
                     s1.x,
@@ -862,8 +890,8 @@ void SimplifyOrthogonalPoints(std::vector<Vec2>& pts) {
             }
             if (!routed) {
                 const float detourY = (p1.y >= p0.y)
-                    ? std::max(srcBox.Bottom(), dstBox.Bottom()) + 16.0f
-                    : std::min(srcBox.y, dstBox.y) - 16.0f;
+                    ? keel::max(srcBox.Bottom(), dstBox.Bottom()) + 16.0f
+                    : keel::min(srcBox.y, dstBox.y) - 16.0f;
                 pts.push_back(s0);
                 pts.push_back({s0.x, detourY});
                 pts.push_back({s1.x, detourY});
@@ -889,13 +917,13 @@ void SimplifyOrthogonalPoints(std::vector<Vec2>& pts) {
             }
             if (!routed) {
                 pts.push_back(s0);
-                const std::array<float, 6> candX = {
+                const keel::StaticArray<float, 6> candX = {
                     s1.x,
                     s0.x,
                     (srcBox.Right() + dstBox.x) * 0.5f,
                     srcBox.Right() + 16.0f,
-                    std::max(srcBox.Right(), dstBox.Right()) + 16.0f,
-                    std::min(srcBox.x, dstBox.x) - 16.0f
+                    keel::max(srcBox.Right(), dstBox.Right()) + 16.0f,
+                    keel::min(srcBox.x, dstBox.x) - 16.0f
                 };
                 for (int pass = 0; pass < 2 && !routed; ++pass) {
                     for (float dx : candX) {
@@ -909,7 +937,7 @@ void SimplifyOrthogonalPoints(std::vector<Vec2>& pts) {
                     }
                 }
                 if (!routed) {
-                    const float detourX = std::max(srcBox.Right(), dstBox.Right()) + 18.0f;
+                    const float detourX = keel::max(srcBox.Right(), dstBox.Right()) + 18.0f;
                     pts.push_back({detourX, s0.y});
                     pts.push_back({detourX, s1.y});
                     pts.push_back(s1);
@@ -927,13 +955,13 @@ void SimplifyOrthogonalPoints(std::vector<Vec2>& pts) {
         } else {
             pts.push_back(s0);
             bool routed = false;
-            const std::array<float, 6> candMidX = {
+            const keel::StaticArray<float, 6> candMidX = {
                 (srcBox.Right() + dstBox.x) * 0.5f,
                 srcBox.Right() + 14.0f,
                 s1.x,
                 srcBox.x - 14.0f,
-                std::max(srcBox.Right(), dstBox.Right()) + 18.0f,
-                std::min(srcBox.x, dstBox.x) - 18.0f
+                keel::max(srcBox.Right(), dstBox.Right()) + 18.0f,
+                keel::min(srcBox.x, dstBox.x) - 18.0f
             };
             for (int pass = 0; pass < 2 && !routed; ++pass) {
                 for (float mx : candMidX) {
@@ -964,12 +992,12 @@ void SimplifyOrthogonalPoints(std::vector<Vec2>& pts) {
         } else {
             pts.push_back(s0);
             bool routed = false;
-            const std::array<float, 5> candMidY = {
+            const keel::StaticArray<float, 5> candMidY = {
                 adjustMidYClearOfLanes((s0.y + s1.y) * 0.5f),
                 s1.y,
                 srcBox.Bottom() + 14.0f,
                 srcBox.y - 14.0f,
-                std::max(srcBox.Bottom(), dstBox.Bottom()) + 18.0f
+                keel::max(srcBox.Bottom(), dstBox.Bottom()) + 18.0f
             };
             for (int pass = 0; pass < 2 && !routed; ++pass) {
                 for (float my : candMidY) {
@@ -996,9 +1024,9 @@ void SimplifyOrthogonalPoints(std::vector<Vec2>& pts) {
     return pts;
 }
 
-[[nodiscard]] std::vector<Vec2> BuildRoundedPolyline(const std::vector<Vec2>& pts, float cornerRadius) {
-    if (pts.size() < 3 || cornerRadius <= 1.0f) return pts;
-    std::vector<Vec2> out;
+[[nodiscard]] keel::SmallArray<Vec2, 64> BuildRoundedPolyline(keel::ArrayRef<Vec2> pts, float cornerRadius) {
+    if (pts.size() < 3 || cornerRadius <= 1.0f) return keel::SmallArray<Vec2, 64>(pts);
+    keel::SmallArray<Vec2, 64> out;
     out.reserve(pts.size() * 4);
     out.push_back(pts.front());
 
@@ -1020,7 +1048,7 @@ void SimplifyOrthogonalPoints(std::vector<Vec2>& pts) {
             continue;
         }
 
-        const float r = std::min({cornerRadius, len1 * 0.42f, len2 * 0.42f});
+        const float r = keel::min(cornerRadius, keel::min(len1 * 0.42f, len2 * 0.42f));
         const Vec2 u1{dx1 / len1, dy1 / len1};
         const Vec2 u2{dx2 / len2, dy2 / len2};
 
@@ -1053,7 +1081,7 @@ void SimplifyOrthogonalPoints(std::vector<Vec2>& pts) {
         const float dy = p.y - a.y;
         return dx * dx + dy * dy;
     }
-    const float t = std::clamp(((p.x - a.x) * vx + (p.y - a.y) * vy) / lenSq, 0.0f, 1.0f);
+    const float t = keel::clamp(((p.x - a.x) * vx + (p.y - a.y) * vy) / lenSq, 0.0f, 1.0f);
     const float projX = a.x + t * vx;
     const float projY = a.y + t * vy;
     const float dx = p.x - projX;
@@ -1062,7 +1090,7 @@ void SimplifyOrthogonalPoints(std::vector<Vec2>& pts) {
 }
 
 [[nodiscard]] Vec2 SamplePolylineAtProgress(
-    const std::vector<Vec2>& pts,
+    keel::ArrayRef<Vec2> pts,
     float progress,
     Vec2* outMidpoint = nullptr,
     bool* outHorizontalSeg = nullptr
@@ -1101,7 +1129,7 @@ void SimplifyOrthogonalPoints(std::vector<Vec2>& pts) {
                             std::abs(pts[longestIdx + 1].y - pts[longestIdx].y);
     }
 
-    const float targetDist = std::clamp(progress, 0.0f, 1.0f) * totalLen;
+    const float targetDist = keel::clamp(progress, 0.0f, 1.0f) * totalLen;
     float accum = 0.0f;
     for (size_t i = 0; i + 1 < pts.size(); ++i) {
         const float seg = std::hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y);
@@ -1128,9 +1156,9 @@ void DrawDashedLine(ICanvas& canvas, Vec2 a, Vec2 b, Color col, float width, flo
     if (len <= 0.5f) return;
     const float ux = dx / len;
     const float uy = dy / len;
-    const float step = std::max(2.0f, dashLen + gapLen);
+    const float step = keel::max(2.0f, dashLen + gapLen);
     for (float d = 0.0f; d < len; d += step) {
-        const float dEnd = std::min(len, d + dashLen);
+        const float dEnd = keel::min(len, d + dashLen);
         canvas.DrawLine(
             {a.x + ux * d, a.y + uy * d},
             {a.x + ux * dEnd, a.y + uy * dEnd},
@@ -1181,7 +1209,7 @@ void DrawEventDefinitionSymbol(
     Color bgColor,
     float s
 ) {
-    const float sw = std::max(1.2f, 1.4f * s);
+    const float sw = keel::max(1.2f, 1.4f * s);
     switch (def) {
         case BpmnEventDefinition::None:
             break;
@@ -1289,8 +1317,8 @@ void DrawCogwheel(ICanvas& canvas, Vec2 c, float r, Color col, Color bgCol, floa
 
 void DrawTaskTypeMarker(ICanvas& canvas, Rect iconRect, BpmnTaskType taskType, Color col, Color bgCol, float s) {
     const Vec2 c = iconRect.Center();
-    const float r = std::min(iconRect.w, iconRect.h) * 0.46f;
-    const float sw = std::max(1.15f, 1.35f * s);
+    const float r = keel::min(iconRect.w, iconRect.h) * 0.46f;
+    const float sw = keel::max(1.15f, 1.35f * s);
 
     switch (taskType) {
         case BpmnTaskType::None:
@@ -1356,7 +1384,7 @@ void DrawTaskTypeMarker(ICanvas& canvas, Rect iconRect, BpmnTaskType taskType, C
 }
 
 void DrawGatewayMarker(ICanvas& canvas, Vec2 center, float halfSize, BpmnGatewayType gwType, Color col, float s) {
-    const float sw = std::max(1.9f, 2.4f * s);
+    const float sw = keel::max(1.9f, 2.4f * s);
     switch (gwType) {
         case BpmnGatewayType::Exclusive: {
             const float d = halfSize * 0.34f;
@@ -1384,7 +1412,7 @@ void DrawGatewayMarker(ICanvas& canvas, Vec2 center, float halfSize, BpmnGateway
         case BpmnGatewayType::EventBased: {
             const float r1 = halfSize * 0.50f;
             const float r2 = halfSize * 0.39f;
-            const float swThin = std::max(1.1f, 1.3f * s);
+            const float swThin = keel::max(1.1f, 1.3f * s);
             canvas.DrawRoundRect(Rect(center.x - r1, center.y - r1, r1 * 2.0f, r1 * 2.0f), r1, Color(0, 0, 0, 0), col, swThin);
             canvas.DrawRoundRect(Rect(center.x - r2, center.y - r2, r2 * 2.0f, r2 * 2.0f), r2, Color(0, 0, 0, 0), col, swThin);
             const float pr = halfSize * 0.24f;
@@ -1427,7 +1455,7 @@ void DrawGatewayMarker(ICanvas& canvas, Vec2 center, float halfSize, BpmnGateway
     float* outAlignX = nullptr,
     float* outAlignY = nullptr
 ) noexcept {
-    const float zs = std::clamp(zoom, 0.42f, 2.0f) * s;
+    const float zs = keel::clamp(zoom, 0.42f, 2.0f) * s;
     const Vec2 center = sr.Center();
     const float offX = node.labelOffset.x * zoom;
     const float offY = node.labelOffset.y * zoom;
@@ -1477,8 +1505,8 @@ void DrawGatewayMarker(ICanvas& canvas, Vec2 center, float halfSize, BpmnGateway
            type == BpmnNodeType::TextAnnotation;
 }
 
-[[nodiscard]] std::array<Rect, 4> GetNodeResizeHandleRects(const Rect& sr, float zoom, float s) noexcept {
-    const float zs = std::clamp(zoom, 0.35f, 2.2f) * s;
+[[nodiscard]] keel::StaticArray<Rect, 4> GetNodeResizeHandleRects(const Rect& sr, float zoom, float s) noexcept {
+    const float zs = keel::clamp(zoom, 0.35f, 2.2f) * s;
     const float pad = 5.0f * zs;
     const Rect outline(sr.x - pad, sr.y - pad, sr.w + pad * 2.0f, sr.h + pad * 2.0f);
     const float hs = 6.5f * s;
@@ -1503,8 +1531,8 @@ void DrawExternalNodeLabel(
     bool isLabelHovered = false
 ) {
     if (node.label.empty() || zoom < 0.42f) return;
-    const float zs = std::clamp(zoom, 0.42f, 2.0f) * s;
-    const float fs = std::clamp(11.0f * zs, 8.5f * s, 13.5f * s);
+    const float zs = keel::clamp(zoom, 0.42f, 2.0f) * s;
+    const float fs = keel::clamp(11.0f * zs, 8.5f * s, 13.5f * s);
     float alignX = 0.5f;
     float alignY = 0.0f;
     Rect lblRect = ComputeExternalNodeLabelScreenRect(diagram, node, sr, zoom, s, &alignX, &alignY);
@@ -1521,7 +1549,7 @@ void DrawExternalNodeLabel(
 
     if (isLabelHovered || (isNodeSelected && (std::abs(node.labelOffset.x) > 0.5f || std::abs(node.labelOffset.y) > 0.5f))) {
         const Color c = isLabelHovered ? pal.selectAccent : pal.hoverAccent.WithAlpha(160);
-        const float sw = std::max(1.0f, 1.15f * s);
+        const float sw = keel::max(1.0f, 1.15f * s);
         DrawDashedLine(canvas, {lblRect.x, lblRect.y}, {lblRect.Right(), lblRect.y}, c, sw, 3.5f * s, 2.5f * s);
         DrawDashedLine(canvas, {lblRect.Right(), lblRect.y}, {lblRect.Right(), lblRect.Bottom()}, c, sw, 3.5f * s, 2.5f * s);
         DrawDashedLine(canvas, {lblRect.Right(), lblRect.Bottom()}, {lblRect.x, lblRect.Bottom()}, c, sw, 3.5f * s, 2.5f * s);
@@ -1546,12 +1574,12 @@ void DrawNodeVisual(
     bool showResizeHandles = false,
     int hoveredResizeCorner = -1
 ) {
-    const float zs = std::clamp(zoom, 0.35f, 2.2f) * s;
+    const float zs = keel::clamp(zoom, 0.35f, 2.2f) * s;
     const Vec2 center = sr.Center();
 
     // Optional SLA Heatmap halo on activities
     if (showSlaHeatmap && (node.type == BpmnNodeType::Task || node.type == BpmnNodeType::SubProcess)) {
-        const float slaNorm = std::clamp((node.slaDurationMs - 100.0f) / 1400.0f, 0.0f, 1.0f);
+        const float slaNorm = keel::clamp((node.slaDurationMs - 100.0f) / 1400.0f, 0.0f, 1.0f);
         const Color heatCol = (slaNorm > 0.66f)
             ? Color(244, 63, 94, 58)
             : ((slaNorm > 0.33f) ? Color(245, 158, 11, 52) : Color(16, 185, 129, 44));
@@ -1575,7 +1603,7 @@ void DrawNodeVisual(
             rad,
             pal.simActiveGreen.WithAlpha(80),
             pal.simActiveGreen,
-            std::max(1.5f, 1.8f * s)
+            keel::max(1.5f, 1.8f * s)
         );
     }
 
@@ -1584,19 +1612,19 @@ void DrawNodeVisual(
         case BpmnNodeType::IntermediateEvent:
         case BpmnNodeType::BoundaryEvent:
         case BpmnNodeType::EndEvent: {
-            const float r = std::min(sr.w, sr.h) * 0.5f;
+            const float r = keel::min(sr.w, sr.h) * 0.5f;
             Color fill = pal.startEventFill;
             Color stroke = pal.startEventStroke;
-            float strokeW = std::max(1.6f, 2.0f * zs);
+            float strokeW = keel::max(1.6f, 2.0f * zs);
 
             if (node.type == BpmnNodeType::IntermediateEvent || node.type == BpmnNodeType::BoundaryEvent) {
                 fill = pal.interEventFill;
                 stroke = pal.interEventStroke;
-                strokeW = std::max(1.4f, 1.75f * zs);
+                strokeW = keel::max(1.4f, 1.75f * zs);
             } else if (node.type == BpmnNodeType::EndEvent) {
                 fill = pal.endEventFill;
                 stroke = pal.endEventStroke;
-                strokeW = std::max(2.8f, 3.6f * zs);
+                strokeW = keel::max(2.8f, 3.6f * zs);
             }
             if (node.customColor.a > 0) {
                 stroke = node.customColor;
@@ -1611,7 +1639,7 @@ void DrawNodeVisual(
             if (node.nonInterrupting && (node.type == BpmnNodeType::IntermediateEvent || node.type == BpmnNodeType::BoundaryEvent)) {
                 canvas.DrawRoundRect(Rect(center.x - r, center.y - r, r * 2.0f, r * 2.0f), r, fill);
                 DrawDashedCircle(canvas, center, r, stroke, strokeW, 14);
-                DrawDashedCircle(canvas, center, r * 0.78f, stroke, std::max(1.1f, 1.3f * zs), 12);
+                DrawDashedCircle(canvas, center, r * 0.78f, stroke, keel::max(1.1f, 1.3f * zs), 12);
             } else {
                 canvas.DrawRoundRect(Rect(center.x - r, center.y - r, r * 2.0f, r * 2.0f), r, fill, stroke, strokeW);
                 if (node.type == BpmnNodeType::IntermediateEvent || node.type == BpmnNodeType::BoundaryEvent) {
@@ -1621,7 +1649,7 @@ void DrawNodeVisual(
                         rInner,
                         Color(0, 0, 0, 0),
                         stroke,
-                        std::max(1.1f, 1.35f * zs)
+                        keel::max(1.1f, 1.35f * zs)
                     );
                 }
             }
@@ -1637,8 +1665,8 @@ void DrawNodeVisual(
             const float hh = sr.h * 0.5f;
             const Color stroke = (node.customColor.a > 0) ? node.customColor : pal.gatewayStroke;
             DrawDiamond(canvas, {center.x, center.y + 1.8f * zs}, hw, hh, pal.nodeShadow, Color(0, 0, 0, 0), 0.0f);
-            DrawDiamond(canvas, center, hw, hh, pal.gatewayFill, stroke, std::max(1.6f, 2.0f * zs));
-            DrawGatewayMarker(canvas, center, std::min(hw, hh), node.gatewayType, stroke, zs);
+            DrawDiamond(canvas, center, hw, hh, pal.gatewayFill, stroke, keel::max(1.6f, 2.0f * zs));
+            DrawGatewayMarker(canvas, center, keel::min(hw, hh), node.gatewayType, stroke, zs);
             DrawExternalNodeLabel(canvas, diagram, node, sr, zoom, s, pal, isSelected, isLabelHovered);
             break;
         }
@@ -1648,7 +1676,7 @@ void DrawNodeVisual(
             const float rad = 10.0f * zs;
             const bool isCall = (node.type == BpmnNodeType::Task && node.taskType == BpmnTaskType::CallActivity);
             const bool isExpSub = (node.type == BpmnNodeType::SubProcess && node.isExpanded);
-            const float strokeW = isCall ? std::max(2.8f, 3.6f * zs) : std::max(1.5f, 1.9f * zs);
+            const float strokeW = isCall ? keel::max(2.8f, 3.6f * zs) : keel::max(1.5f, 1.9f * zs);
             const Color strokeCol = (node.customColor.a > 0) ? node.customColor : pal.nodeStroke;
             const Color fillCol = isExpSub ? pal.nodeFill.WithAlpha(220) : pal.nodeFill;
 
@@ -1660,7 +1688,7 @@ void DrawNodeVisual(
                 const float hdrH = 26.0f * zs;
                 canvas.DrawLine({sr.x, sr.y + hdrH}, {sr.Right(), sr.y + hdrH}, strokeCol.WithAlpha(90), 1.0f * s);
                 if (!node.label.empty() && zoom >= 0.35f) {
-                    const float fs = std::clamp(11.5f * zs, 8.5f * s, 13.5f * s);
+                    const float fs = keel::clamp(11.5f * zs, 8.5f * s, 13.5f * s);
                     canvas.DrawTextBox(node.label, Rect(sr.x + 10.0f * zs, sr.y + 3.0f * zs, sr.w - 20.0f * zs, hdrH - 4.0f * zs), fs, pal.textPrimary, 0.5f, 0.5f);
                 }
             } else {
@@ -1672,7 +1700,7 @@ void DrawNodeVisual(
 
                 // Centered multi-line wrapped Task label (`bpmn-js` style, up to 3 lines)
                 if (!node.label.empty() && zoom >= 0.35f) {
-                    const float fs = std::clamp(11.5f * zs, 8.5f * s, 13.5f * s);
+                    const float fs = keel::clamp(11.5f * zs, 8.5f * s, 13.5f * s);
                     const float topPad = 14.0f * zs;
                     const float botPad = (node.type == BpmnNodeType::SubProcess || node.parallelMultiInstance || node.loopMarker ||
                                           (showSlaHeatmap && !node.documentation.empty()))
@@ -1681,8 +1709,8 @@ void DrawNodeVisual(
                     const Rect textRect(
                         sr.x + 8.0f * zs,
                         sr.y + topPad,
-                        std::max(16.0f, sr.w - 16.0f * zs),
-                        std::max(14.0f, sr.h - topPad - botPad)
+                        keel::max(16.0f, sr.w - 16.0f * zs),
+                        keel::max(14.0f, sr.h - topPad - botPad)
                     );
                     DrawWrappedTextBox(canvas, node.label, textRect, fs, pal.textPrimary, FontStyle::Regular, 0.5f, 0.5f, 3);
                 }
@@ -1695,7 +1723,7 @@ void DrawNodeVisual(
                 const float fillW = progBg.w * (0.25f + 0.75f * std::abs(std::sin(animPhase * kPi)));
                 canvas.DrawRoundRect(Rect(progBg.x, progBg.y, fillW, progBg.h), 2.0f * zs, pal.simActiveGreen);
             } else if (showSlaHeatmap && !node.documentation.empty() && zoom >= 0.55f && node.type == BpmnNodeType::Task && !node.parallelMultiInstance && !node.loopMarker) {
-                const float subFs = std::clamp(9.0f * zs, 7.5f * s, 10.5f * s);
+                const float subFs = keel::clamp(9.0f * zs, 7.5f * s, 10.5f * s);
                 const Rect subRect(sr.x + 8.0f * zs, sr.Bottom() - 15.0f * zs, sr.w - 16.0f * zs, 12.0f * zs);
                 canvas.DrawTextBox(node.documentation, subRect, subFs, pal.textMuted, 0.5f, 0.5f);
             }
@@ -1704,30 +1732,30 @@ void DrawNodeVisual(
             if (node.type == BpmnNodeType::SubProcess) {
                 const float ms = 13.0f * zs;
                 const Rect mr(center.x - ms * 0.5f, sr.Bottom() - ms - 3.5f * zs, ms, ms);
-                canvas.DrawRoundRect(mr, 2.0f * zs, pal.nodeFill, strokeCol, std::max(1.1f, 1.3f * zs));
+                canvas.DrawRoundRect(mr, 2.0f * zs, pal.nodeFill, strokeCol, keel::max(1.1f, 1.3f * zs));
                 const Vec2 mc = mr.Center();
-                canvas.DrawLine({mc.x - ms * 0.28f, mc.y}, {mc.x + ms * 0.28f, mc.y}, strokeCol, std::max(1.1f, 1.35f * zs));
+                canvas.DrawLine({mc.x - ms * 0.28f, mc.y}, {mc.x + ms * 0.28f, mc.y}, strokeCol, keel::max(1.1f, 1.35f * zs));
                 if (!isExpSub) {
-                    canvas.DrawLine({mc.x, mc.y - ms * 0.28f}, {mc.x, mc.y + ms * 0.28f}, strokeCol, std::max(1.1f, 1.35f * zs));
+                    canvas.DrawLine({mc.x, mc.y - ms * 0.28f}, {mc.x, mc.y + ms * 0.28f}, strokeCol, keel::max(1.1f, 1.35f * zs));
                 }
             } else if (node.parallelMultiInstance) {
                 const float mh = 9.0f * zs;
                 const float my = sr.Bottom() - mh - 4.0f * zs;
                 for (int i = -1; i <= 1; ++i) {
                     const float mx = center.x + static_cast<float>(i) * 3.5f * zs;
-                    canvas.DrawLine({mx, my}, {mx, my + mh}, strokeCol, std::max(1.2f, 1.45f * zs));
+                    canvas.DrawLine({mx, my}, {mx, my + mh}, strokeCol, keel::max(1.2f, 1.45f * zs));
                 }
             } else if (node.loopMarker) {
                 const float lr = 4.5f * zs;
                 const Vec2 lc{center.x, sr.Bottom() - lr - 4.0f * zs};
-                canvas.DrawRoundRect(Rect(lc.x - lr, lc.y - lr, lr * 2.0f, lr * 2.0f), lr, Color(0, 0, 0, 0), strokeCol, std::max(1.1f, 1.35f * zs));
+                canvas.DrawRoundRect(Rect(lc.x - lr, lc.y - lr, lr * 2.0f, lr * 2.0f), lr, Color(0, 0, 0, 0), strokeCol, keel::max(1.1f, 1.35f * zs));
             }
             break;
         }
 
         case BpmnNodeType::DataObject: {
-            const float fold = std::min(sr.w, sr.h) * 0.26f;
-            const float sw = std::max(1.3f, 1.6f * zs);
+            const float fold = keel::min(sr.w, sr.h) * 0.26f;
+            const float sw = keel::max(1.3f, 1.6f * zs);
             canvas.DrawRoundRect(sr, 2.0f * zs, pal.dataFill, pal.nodeStroke, sw);
             canvas.DrawLine({sr.Right() - fold, sr.y}, {sr.Right() - fold, sr.y + fold}, pal.nodeStroke, sw);
             canvas.DrawLine({sr.Right() - fold, sr.y + fold}, {sr.Right(), sr.y + fold}, pal.nodeStroke, sw);
@@ -1736,7 +1764,7 @@ void DrawNodeVisual(
         }
 
         case BpmnNodeType::DataStore: {
-            const float sw = std::max(1.3f, 1.6f * zs);
+            const float sw = keel::max(1.3f, 1.6f * zs);
             const float capH = sr.h * 0.28f;
             canvas.DrawRoundRect(sr, 6.0f * zs, pal.dataFill, pal.nodeStroke, sw);
             canvas.DrawRoundRect(Rect(sr.x, sr.y, sr.w, capH), capH * 0.5f, pal.laneHeaderBg, pal.nodeStroke, sw);
@@ -1746,14 +1774,14 @@ void DrawNodeVisual(
         }
 
         case BpmnNodeType::TextAnnotation: {
-            const float sw = std::max(1.4f, 1.8f * zs);
+            const float sw = keel::max(1.4f, 1.8f * zs);
             const float bw = 10.0f * zs;
             canvas.DrawLine({sr.x + bw, sr.y}, {sr.x, sr.y}, pal.nodeStroke, sw);
             canvas.DrawLine({sr.x, sr.y}, {sr.x, sr.Bottom()}, pal.nodeStroke, sw);
             canvas.DrawLine({sr.x, sr.Bottom()}, {sr.x + bw, sr.Bottom()}, pal.nodeStroke, sw);
             if (!node.label.empty() && zoom >= 0.38f) {
-                const float fs = std::clamp(10.5f * zs, 8.0f * s, 12.5f * s);
-                const Rect tr(sr.x + 8.0f * zs, sr.y + 2.0f * zs, std::max(8.0f, sr.w - 10.0f * zs), std::max(8.0f, sr.h - 4.0f * zs));
+                const float fs = keel::clamp(10.5f * zs, 8.0f * s, 12.5f * s);
+                const Rect tr(sr.x + 8.0f * zs, sr.y + 2.0f * zs, keel::max(8.0f, sr.w - 10.0f * zs), keel::max(8.0f, sr.h - 4.0f * zs));
                 DrawWrappedTextBox(canvas, node.label, tr, fs, pal.textSecondary, FontStyle::Regular, 0.0f, 0.5f, 3);
             }
             break;
@@ -1770,7 +1798,7 @@ void DrawNodeVisual(
                 3.0f * s,
                 pal.selectGlow.WithAlpha(24),
                 pal.selectAccent,
-                std::max(1.4f, 1.7f * s)
+                keel::max(1.4f, 1.7f * s)
             );
             if (showResizeHandles && IsResizableNode(node.type)) {
                 const auto handles = GetNodeResizeHandleRects(sr, zoom, s);
@@ -1786,7 +1814,7 @@ void DrawNodeVisual(
                 }
             }
         } else {
-            const float osw = std::max(1.1f, 1.3f * s);
+            const float osw = keel::max(1.1f, 1.3f * s);
             DrawDashedLine(canvas, {outlineRect.x, outlineRect.y}, {outlineRect.Right(), outlineRect.y}, pal.hoverAccent, osw, 4.0f * s, 3.0f * s);
             DrawDashedLine(canvas, {outlineRect.Right(), outlineRect.y}, {outlineRect.Right(), outlineRect.Bottom()}, pal.hoverAccent, osw, 4.0f * s, 3.0f * s);
             DrawDashedLine(canvas, {outlineRect.Right(), outlineRect.Bottom()}, {outlineRect.x, outlineRect.Bottom()}, pal.hoverAccent, osw, 4.0f * s, 3.0f * s);
@@ -1797,30 +1825,30 @@ void DrawNodeVisual(
     // Token execution counter badge in Token Simulation mode
     if (simulationActive && (node.tokenExecutionCount > 0 || node.activeTokensInside > 0) && zoom >= 0.45f) {
         char buf[32];
-        std::snprintf(buf, sizeof(buf), "%u", node.tokenExecutionCount + node.activeTokensInside);
-        const float bFs = std::clamp(9.5f * zs, 8.0f * s, 11.5f * s);
-        const float bw = std::max(18.0f * zs, canvas.MeasureText(buf, bFs).x + 8.0f * zs);
+        const keel::StringRef badgeStr = keel::format_buf(buf, "%u", node.tokenExecutionCount + node.activeTokensInside);
+        const float bFs = keel::clamp(9.5f * zs, 8.0f * s, 11.5f * s);
+        const float bw = keel::max(18.0f * zs, canvas.MeasureText(badgeStr, bFs).x + 8.0f * zs);
         const float bh = 16.0f * zs;
         const Rect badgeRect(sr.Right() - bw * 0.65f, sr.y - bh * 0.45f, bw, bh);
         const Color badgeBg = (node.activeTokensInside > 0) ? pal.simActiveGreen : pal.selectAccent;
         canvas.DrawRoundRect(badgeRect, bh * 0.5f, badgeBg, pal.canvasBg, 1.2f * s);
-        canvas.DrawTextBox(buf, badgeRect, bFs, Color(255, 255, 255, 255), 0.5f, 0.5f);
+        canvas.DrawTextBox(badgeStr, badgeRect, bFs, Color(255, 255, 255, 255), 0.5f, 0.5f);
     }
 }
 
 [[nodiscard]] Rect ComputeEdgeLabelScreenRect(
     ICanvas* canvas,
-    const std::vector<Vec2>& rawScreenPts,
+    keel::ArrayRef<Vec2> rawScreenPts,
     const BpmnEdge& edge,
     float zoom,
     float s
 ) noexcept {
     if (edge.label.empty() || rawScreenPts.size() < 2) return Rect{};
-    const float zs = std::clamp(zoom, 0.4f, 2.0f) * s;
+    const float zs = keel::clamp(zoom, 0.4f, 2.0f) * s;
     Vec2 mid{0.0f, 0.0f};
     bool isHorizSeg = true;
     (void)SamplePolylineAtProgress(rawScreenPts, 0.5f, &mid, &isHorizSeg);
-    const float fs = std::clamp(10.2f * zs, 8.0f * s, 12.5f * s);
+    const float fs = keel::clamp(10.2f * zs, 8.0f * s, 12.5f * s);
     const Vec2 tm = canvas
         ? canvas->MeasureText(edge.label, fs)
         : Vec2{static_cast<float>(edge.label.size()) * fs * 0.56f, fs * 1.2f};
@@ -1836,7 +1864,7 @@ void DrawNodeVisual(
 
 void DrawEdgeVisual(
     ICanvas& canvas,
-    const std::vector<Vec2>& rawScreenPts,
+    keel::ArrayRef<Vec2> rawScreenPts,
     const BpmnEdge& edge,
     BpmnRoutingMode routingMode,
     float zoom,
@@ -1850,22 +1878,26 @@ void DrawEdgeVisual(
     bool isLabelHovered = false
 ) {
     if (rawScreenPts.size() < 2) return;
-    const float zs = std::clamp(zoom, 0.4f, 2.0f) * s;
+    const float zs = keel::clamp(zoom, 0.4f, 2.0f) * s;
     Color col = (edge.flowType == BpmnFlowType::MessageFlow) ? pal.edgeMessage : pal.edgeStroke;
     if (isSimActiveBranch) col = pal.simActiveGreen;
     if (isHovered) col = pal.hoverAccent;
     if (isSelected) col = pal.selectAccent;
 
     const float sw = (isSelected || isHovered || isSimActiveBranch)
-        ? std::max(2.0f, 2.3f * zs)
-        : std::max(1.5f, 1.8f * zs);
+        ? keel::max(2.0f, 2.3f * zs)
+        : keel::max(1.5f, 1.8f * zs);
 
     const bool useRoundedCorners =
         (routingMode == BpmnRoutingMode::Orthogonal) &&
         (edge.flowType != BpmnFlowType::MessageFlow && edge.flowType != BpmnFlowType::Association);
 
-    const std::vector<Vec2> drawPts = useRoundedCorners
-        ? BuildRoundedPolyline(rawScreenPts, 6.0f * zs)
+    keel::SmallArray<Vec2, 64> roundedPts;
+    if (useRoundedCorners) {
+        roundedPts = BuildRoundedPolyline(rawScreenPts, 6.0f * zs);
+    }
+    const keel::ArrayRef<Vec2> drawPts = useRoundedCorners
+        ? roundedPts.as_ref()
         : rawScreenPts;
 
     if (isSelected) {
@@ -1983,7 +2015,7 @@ void DrawEdgeVisual(
 
     // Clean `bpmn-js` Edge Label placement (above horizontal segments so the wire stays unbroken, or knockout halo on vertical segments)
     if (!edge.label.empty() && zoom >= 0.45f) {
-        const float fs = std::clamp(10.2f * zs, 8.0f * s, 12.5f * s);
+        const float fs = keel::clamp(10.2f * zs, 8.0f * s, 12.5f * s);
         const Rect pill = ComputeEdgeLabelScreenRect(&canvas, rawScreenPts, edge, zoom, s);
         canvas.DrawRoundRect(
             pill,
@@ -2002,12 +2034,12 @@ void DrawEdgeVisual(
 
 struct PaletteItemDesc {
     BpmnTool tool;
-    std::string_view shortTag;
-    std::string_view tooltip;
+    keel::StringRef shortTag;
+    keel::StringRef tooltip;
     bool separatorAfter{false};
 };
 
-inline constexpr std::array<PaletteItemDesc, 15> kPaletteItems = {{
+inline constexpr keel::StaticArray<PaletteItemDesc, 15> kPaletteItems = {{
     {BpmnTool::Select,                  "V",   "Activate the select / move tool (V)"},
     {BpmnTool::Hand,                    "H",   "Activate the hand tool (H)"},
     {BpmnTool::Lasso,                   "L",   "Activate the lasso tool (L)"},
@@ -2025,7 +2057,7 @@ inline constexpr std::array<PaletteItemDesc, 15> kPaletteItems = {{
     {BpmnTool::CreateLane,              "☰",   "Create Pool/Participant"}
 }};
 
-inline constexpr std::array<std::string_view, 8> kContextPadTooltips = {{
+inline constexpr keel::StaticArray<keel::StringRef, 8> kContextPadTooltips = {{
     "Append Task",
     "Append Gateway",
     "Append EndEvent",
@@ -2036,24 +2068,27 @@ inline constexpr std::array<std::string_view, 8> kContextPadTooltips = {{
     "Remove element (Del)"
 }};
 
-[[nodiscard]] std::vector<int> GetContextPadActionsForNode(const BpmnNode& node) {
+[[nodiscard]] keel::ArrayRef<int> GetContextPadActionsForNode(const BpmnNode& node) noexcept {
+    static constexpr int kEndActions[] = {4, 5, 6, 7};
+    static constexpr int kArtifactActions[] = {4, 6, 7};
+    static constexpr int kDefaultActions[] = {0, 1, 2, 3, 4, 5, 6, 7};
     switch (node.type) {
         case BpmnNodeType::EndEvent:
             // In BPMN 2.0, EndEvent cannot have outgoing SequenceFlow
-            return {4, 5, 6, 7};
+            return kEndActions;
         case BpmnNodeType::DataObject:
         case BpmnNodeType::DataStore:
         case BpmnNodeType::TextAnnotation:
             // Artifacts only support Association connect, Annotation append, and Delete
-            return {4, 6, 7};
+            return kArtifactActions;
         default:
-            return {0, 1, 2, 3, 4, 5, 6, 7};
+            return kDefaultActions;
     }
 }
 
 void DrawContextPadButtonIcon(ICanvas& canvas, Rect r, int btnIdx, Color col, const BpmnPalette& pal, float s) {
     const Vec2 c = r.Center();
-    const float sw = std::max(1.25f, 1.45f * s);
+    const float sw = keel::max(1.25f, 1.45f * s);
     switch (btnIdx) {
         case 0: { // Append Task (rounded rectangle)
             canvas.DrawRoundRect(Rect(c.x - 6.8f * s, c.y - 4.8f * s, 13.6f * s, 9.6f * s), 2.4f * s, Color(0, 0, 0, 0), col, sw);
@@ -2119,7 +2154,7 @@ void DrawContextPadButtonIcon(ICanvas& canvas, Rect r, int btnIdx, Color col, co
 
 void DrawPaletteButtonIcon(ICanvas& canvas, Rect r, BpmnTool tool, Color col, const BpmnPalette& pal, float s) {
     const Vec2 c = r.Center();
-    const float sw = std::max(1.25f, 1.45f * s);
+    const float sw = keel::max(1.25f, 1.45f * s);
     switch (tool) {
         case BpmnTool::Select: {
             const Vec2 p0{c.x - 4.5f * s, c.y - 6.0f * s};
@@ -2226,12 +2261,12 @@ void DrawPaletteButtonIcon(ICanvas& canvas, Rect r, BpmnTool tool, Color col, co
     const float x = viewRect.x + 12.0f * s;
     const float y = viewRect.y + (showTopBar ? 50.0f : 12.0f) * s;
     const float w = 42.0f * s;
-    const float h = std::min(std::max(120.0f, viewRect.h - (y - viewRect.y) - 52.0f * s), 462.0f * s);
+    const float h = keel::min(keel::max(120.0f, viewRect.h - (y - viewRect.y) - 52.0f * s), 462.0f * s);
     return Rect(x, y, w, h);
 }
 
 [[nodiscard]] Rect ComputeTopBarRect(const Rect& viewRect, float s) noexcept {
-    return Rect(viewRect.x + 12.0f * s, viewRect.y + 10.0f * s, std::max(200.0f, viewRect.w - 24.0f * s), 32.0f * s);
+    return Rect(viewRect.x + 12.0f * s, viewRect.y + 10.0f * s, keel::max(200.0f, viewRect.w - 24.0f * s), 32.0f * s);
 }
 
 [[nodiscard]] Rect ComputeMinimapRect(const Rect& viewRect, float s) noexcept {
@@ -2251,7 +2286,7 @@ void DrawPaletteButtonIcon(ICanvas& canvas, Rect r, BpmnTool tool, Color col, co
 // ============================================================================
 
 void SpawnTokenFromStartEvent(BpmnDiagram& diagram, const BpmnNode& startNode, BpmnEditorState& state) {
-    static constexpr std::array<Color, 5> kTokenColors = {{
+    static constexpr keel::StaticArray<Color, 5> kTokenColors = {{
         Color(16, 185, 129, 255),
         Color(56, 189, 248, 255),
         Color(245, 158, 11, 255),
@@ -2279,7 +2314,7 @@ void SpawnTokenFromStartEvent(BpmnDiagram& diagram, const BpmnNode& startNode, B
 
 void StepTokenSimulation(BpmnDiagram& diagram, BpmnEditorState& state, float dtSec, float speedMultiplier, bool autoSpawn) {
     if (state.simPaused) return;
-    const float dt = std::clamp(dtSec, 0.001f, 0.12f) * std::clamp(speedMultiplier, 0.2f, 4.0f);
+    const float dt = keel::clamp(dtSec, 0.001f, 0.12f) * keel::clamp(speedMultiplier, 0.2f, 4.0f);
 
     if (autoSpawn && diagram.tokens.size() < 24) {
         state.spawnCooldownSec -= dt;
@@ -2296,8 +2331,8 @@ void StepTokenSimulation(BpmnDiagram& diagram, BpmnEditorState& state, float dtS
 
     for (auto& n : diagram.nodes) n.activeTokensInside = 0;
 
-    std::vector<BpmnToken> spawnedNext{};
-    std::vector<size_t> removeIndices{};
+    keel::SmallArray<BpmnToken, 32> spawnedNext{};
+    keel::SmallArray<size_t, 32> removeIndices{};
 
     for (size_t i = 0; i < diagram.tokens.size(); ++i) {
         BpmnToken& tok = diagram.tokens[i];
@@ -2328,7 +2363,7 @@ void StepTokenSimulation(BpmnDiagram& diagram, BpmnEditorState& state, float dtS
                     spawnedNext.push_back(dwellTok);
                 } else if (target->type == BpmnNodeType::Gateway) {
                     target->tokenExecutionCount++;
-                    std::vector<const BpmnEdge*> outEdges;
+                    keel::SmallArray<const BpmnEdge*, 8> outEdges;
                     for (const auto& e : diagram.edges) {
                         if (e.fromNodeId == target->id && e.flowType != BpmnFlowType::Association) {
                             outEdges.push_back(&e);
@@ -2368,7 +2403,7 @@ void StepTokenSimulation(BpmnDiagram& diagram, BpmnEditorState& state, float dtS
                 removeIndices.push_back(i);
                 continue;
             }
-            const float dwellSec = std::clamp(host->slaDurationMs / 1000.0f, 0.25f, 2.0f);
+            const float dwellSec = keel::clamp(host->slaDurationMs / 1000.0f, 0.25f, 2.0f);
             tok.progress += dt / dwellSec;
             if (tok.progress >= 1.0f) {
                 host->tokenExecutionCount++;
@@ -2390,11 +2425,14 @@ void StepTokenSimulation(BpmnDiagram& diagram, BpmnEditorState& state, float dtS
     }
 
     if (!removeIndices.empty()) {
-        std::sort(removeIndices.begin(), removeIndices.end());
-        removeIndices.erase(std::unique(removeIndices.begin(), removeIndices.end()), removeIndices.end());
-        for (auto it = removeIndices.rbegin(); it != removeIndices.rend(); ++it) {
-            if (*it < diagram.tokens.size()) {
-                diagram.tokens.erase(diagram.tokens.begin() + static_cast<std::ptrdiff_t>(*it));
+        keel::sort(removeIndices.as_mut_ref());
+        for (size_t k = removeIndices.size(); k > 0; --k) {
+            const size_t remIdx = removeIndices[k - 1];
+            if (k < removeIndices.size() && remIdx == removeIndices[k]) {
+                continue;
+            }
+            if (remIdx < diagram.tokens.size()) {
+                diagram.tokens.remove_at(remIdx);
             }
         }
     }
@@ -2430,7 +2468,7 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
     const float radius = opts.border.radius.value_or(8.0f) * s;
     const Color canvasBg = opts.background.Resolve(node->hovered, node->pressed, node->disabled, pal.canvasBg);
     const Color canvasBorder = opts.border.color.Resolve(node->hovered, node->pressed, node->disabled, pal.canvasBorder);
-    const float borderW = (opts.border.width > 0.0f) ? std::max(1.0f, opts.border.width * s) : (1.0f * s);
+    const float borderW = (opts.border.width > 0.0f) ? keel::max(1.0f, opts.border.width * s) : (1.0f * s);
 
     // 1. Canvas Background & Border
     canvas.DrawRoundRect(viewRect, radius, canvasBg, canvasBorder, borderW);
@@ -2438,7 +2476,7 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
 
     const Vec2 pan = state.pan;
     const float zoom = state.zoom;
-    const float zs = std::clamp(zoom, 0.35f, 2.2f) * s;
+    const float zs = keel::clamp(zoom, 0.35f, 2.2f) * s;
 
     // 2. World Grid
     if (opts.showGrid && opts.gridStep >= 8.0f) {
@@ -2465,8 +2503,8 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
     }
 
     // 3. Swimlanes & Participant Pools (`BpmnLane`) - Authentic `bpmn.io` Two-Column Vertical Header Strip
-    const float poolStripW = std::clamp(28.0f * zs, 18.0f * s, 36.0f * s);
-    const float laneStripW = std::clamp(28.0f * zs, 18.0f * s, 36.0f * s);
+    const float poolStripW = keel::clamp(28.0f * zs, 18.0f * s, 36.0f * s);
+    const float laneStripW = keel::clamp(28.0f * zs, 18.0f * s, 36.0f * s);
 
     // Draw individual lane bands and vertical lane headers first
     for (size_t i = 0; i < diagram.lanes.size(); ++i) {
@@ -2482,21 +2520,21 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
         const bool isLaneHov = (state.hoveredLaneId == lane.id);
         const Color laneBg = (i % 2 == 0) ? pal.laneBgEven : pal.laneBgOdd;
         const Color borderCol = isLaneSel ? pal.selectAccent : (isLaneHov ? pal.hoverAccent : pal.laneBorder);
-        const float bw = isLaneSel ? std::max(1.8f, 2.2f * s) : std::max(1.0f, 1.2f * s);
+        const float bw = isLaneSel ? keel::max(1.8f, 2.2f * s) : keel::max(1.0f, 1.2f * s);
 
         canvas.DrawRect(sr, laneBg);
         canvas.DrawLine({sr.x + leftOffset, sr.y}, {sr.Right(), sr.y}, borderCol, bw);
         canvas.DrawLine({sr.x + leftOffset, sr.Bottom()}, {sr.Right(), sr.Bottom()}, borderCol, bw);
         canvas.DrawLine({sr.Right(), sr.y}, {sr.Right(), sr.Bottom()}, borderCol, bw);
 
-        const Rect laneHdrRect(sr.x + leftOffset, sr.y, std::min(laneStripW, std::max(0.0f, sr.w - leftOffset)), sr.h);
+        const Rect laneHdrRect(sr.x + leftOffset, sr.y, keel::min(laneStripW, keel::max(0.0f, sr.w - leftOffset)), sr.h);
         const Color hdrAccent = (lane.accentColor.a > 0) ? lane.accentColor : pal.laneHeaderBg;
         canvas.DrawRect(laneHdrRect, hdrAccent);
         canvas.DrawLine({laneHdrRect.x, laneHdrRect.y}, {laneHdrRect.x, laneHdrRect.Bottom()}, borderCol, bw);
         canvas.DrawLine({laneHdrRect.Right(), laneHdrRect.y}, {laneHdrRect.Right(), laneHdrRect.Bottom()}, borderCol, bw);
 
         if (zoom >= 0.35f) {
-            const float fs = std::clamp(11.0f * zs, 8.0f * s, 13.0f * s);
+            const float fs = keel::clamp(11.0f * zs, 8.0f * s, 13.0f * s);
             DrawVerticalRotatedHeaderText(canvas, lane.name, laneHdrRect, fs, pal.laneText, FontStyle::Bold);
         }
     }
@@ -2504,7 +2542,7 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
     // Draw unified outer Participant Pool vertical header strip for contiguous lanes sharing `poolName`
     size_t groupStart = 0;
     while (groupStart < diagram.lanes.size()) {
-        const std::string& pName = diagram.lanes[groupStart].poolName;
+        const keel::StringRef pName = diagram.lanes[groupStart].poolName;
         size_t groupEnd = groupStart + 1;
         Rect unionWorld = diagram.lanes[groupStart].rect;
         while (groupEnd < diagram.lanes.size() && diagram.lanes[groupEnd].poolName == pName) {
@@ -2513,12 +2551,12 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
         }
         if (!pName.empty()) {
             const Rect poolSr = WorldToScreenRect(unionWorld, viewRect, pan, zoom);
-            const Rect poolHdrRect(poolSr.x, poolSr.y, std::min(poolStripW, poolSr.w), poolSr.h);
+            const Rect poolHdrRect(poolSr.x, poolSr.y, keel::min(poolStripW, poolSr.w), poolSr.h);
             canvas.DrawRect(poolHdrRect, pal.poolHeaderBg);
-            canvas.DrawRoundRect(poolSr, 3.0f * s, Color(0, 0, 0, 0), pal.laneBorder, std::max(1.2f, 1.5f * s));
-            canvas.DrawLine({poolHdrRect.Right(), poolHdrRect.y}, {poolHdrRect.Right(), poolHdrRect.Bottom()}, pal.laneBorder, std::max(1.2f, 1.4f * s));
+            canvas.DrawRoundRect(poolSr, 3.0f * s, Color(0, 0, 0, 0), pal.laneBorder, keel::max(1.2f, 1.5f * s));
+            canvas.DrawLine({poolHdrRect.Right(), poolHdrRect.y}, {poolHdrRect.Right(), poolHdrRect.Bottom()}, pal.laneBorder, keel::max(1.2f, 1.4f * s));
             if (zoom >= 0.35f) {
-                const float fs = std::clamp(11.5f * zs, 8.5f * s, 13.5f * s);
+                const float fs = keel::clamp(11.5f * zs, 8.5f * s, 13.5f * s);
                 DrawVerticalRotatedHeaderText(canvas, pName, poolHdrRect, fs, pal.laneText, FontStyle::Bold);
             }
         }
@@ -2531,8 +2569,8 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
         const BpmnNode* toNode = diagram.FindNode(edge.toNodeId);
         if (!fromNode || !toNode) continue;
 
-        const std::vector<Vec2> worldPts = BuildEdgeWorldPoints(diagram, *fromNode, *toNode, edge, opts.routingMode);
-        std::vector<Vec2> screenPts;
+        const auto worldPts = BuildEdgeWorldPoints(diagram, *fromNode, *toNode, edge, opts.routingMode);
+        keel::SmallArray<Vec2, 32> screenPts;
         screenPts.reserve(worldPts.size());
         for (const Vec2& wp : worldPts) {
             screenPts.push_back(WorldToScreen(wp, viewRect, pan, zoom));
@@ -2652,15 +2690,15 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
                 const BpmnNode* toNode = diagram.FindNode(edge->toNodeId);
                 if (!fromNode || !toNode) continue;
 
-                const std::vector<Vec2> worldPts = BuildEdgeWorldPoints(diagram, *fromNode, *toNode, *edge, opts.routingMode);
+                const auto worldPts = BuildEdgeWorldPoints(diagram, *fromNode, *toNode, *edge, opts.routingMode);
                 const Vec2 wPos = SamplePolylineAtProgress(worldPts, tok.progress);
                 const Vec2 sPos = WorldToScreen(wPos, viewRect, pan, zoom);
-                const float tr = std::clamp(8.5f * zoom * s, 6.0f * s, 12.0f * s);
+                const float tr = keel::clamp(8.5f * zoom * s, 6.0f * s, 12.0f * s);
                 canvas.DrawRoundRect(Rect(sPos.x - tr * 1.4f, sPos.y - tr * 1.4f, tr * 2.8f, tr * 2.8f), tr * 1.4f, tok.color.WithAlpha(75));
                 canvas.DrawRoundRect(Rect(sPos.x - tr, sPos.y - tr, tr * 2.0f, tr * 2.0f), tr, tok.color, Color(255, 255, 255, 240), 1.5f * s);
                 char ibuf[16];
-                std::snprintf(ibuf, sizeof(ibuf), "%u", tok.instanceId);
-                canvas.DrawTextBox(ibuf, Rect(sPos.x - tr, sPos.y - tr, tr * 2.0f, tr * 2.0f), tr * 1.05f, Color(255, 255, 255, 255), 0.5f, 0.5f);
+                const keel::StringRef instStr = keel::format_buf(ibuf, "%u", tok.instanceId);
+                canvas.DrawTextBox(instStr, Rect(sPos.x - tr, sPos.y - tr, tr * 2.0f, tr * 2.0f), tr * 1.05f, Color(255, 255, 255, 255), 0.5f, 0.5f);
             }
         }
     }
@@ -2687,11 +2725,11 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
         if (state.spaceToolHorizontal) {
             DrawDashedLine(canvas, {sSplit.x, viewRect.y}, {sSplit.x, viewRect.Bottom()}, pal.selectAccent, 1.8f * s, 6.0f * s, 4.0f * s);
             DrawDashedLine(canvas, {sCurr.x, viewRect.y}, {sCurr.x, viewRect.Bottom()}, pal.guideLaser, 1.8f * s, 6.0f * s, 4.0f * s);
-            canvas.DrawRect(Rect(std::min(sSplit.x, sCurr.x), viewRect.y, std::abs(sCurr.x - sSplit.x), viewRect.h), pal.selectGlow);
+            canvas.DrawRect(Rect(keel::min(sSplit.x, sCurr.x), viewRect.y, std::abs(sCurr.x - sSplit.x), viewRect.h), pal.selectGlow);
         } else {
             DrawDashedLine(canvas, {viewRect.x, sSplit.y}, {viewRect.Right(), sSplit.y}, pal.selectAccent, 1.8f * s, 6.0f * s, 4.0f * s);
             DrawDashedLine(canvas, {viewRect.x, sCurr.y}, {viewRect.Right(), sCurr.y}, pal.guideLaser, 1.8f * s, 6.0f * s, 4.0f * s);
-            canvas.DrawRect(Rect(viewRect.x, std::min(sSplit.y, sCurr.y), viewRect.w, std::abs(sCurr.y - sSplit.y)), pal.selectGlow);
+            canvas.DrawRect(Rect(viewRect.x, keel::min(sSplit.y, sCurr.y), viewRect.w, std::abs(sCurr.y - sSplit.y)), pal.selectGlow);
         }
     }
 
@@ -2699,7 +2737,7 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
     if (state.lassoActive) {
         const Vec2 a = WorldToScreen(state.lassoStartWorld, viewRect, pan, zoom);
         const Vec2 b = WorldToScreen(state.lassoEndWorld, viewRect, pan, zoom);
-        const Rect lr(std::min(a.x, b.x), std::min(a.y, b.y), std::abs(b.x - a.x), std::abs(b.y - a.y));
+        const Rect lr(keel::min(a.x, b.x), keel::min(a.y, b.y), std::abs(b.x - a.x), std::abs(b.y - a.y));
         canvas.DrawRoundRect(lr, 3.0f * s, pal.selectGlow, pal.selectAccent, 1.4f * s);
     }
 
@@ -2739,16 +2777,16 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
     if (opts.showContextPad && !opts.readOnly && !opts.tokenSimulation && state.editingNodeId == 0 && state.editingEdgeId == 0) {
         if (state.primaryNodeId != 0 && state.selectedNodes.size() <= 1) {
             if (const BpmnNode* selNode = diagram.FindNode(state.primaryNodeId)) {
-                const std::vector<int> actions = GetContextPadActionsForNode(*selNode);
-                const int cols = std::min(4, static_cast<int>(actions.size()));
+                const keel::ArrayRef<int> actions = GetContextPadActionsForNode(*selNode);
+                const int cols = keel::min(4, static_cast<int>(actions.size()));
                 const int rows = (static_cast<int>(actions.size()) + 3) / 4;
                 const Rect nsr = WorldToScreenRect(selNode->Bounds(), viewRect, pan, zoom);
                 const float btnS = 26.0f * s;
                 const float gap = 4.0f * s;
                 const float padW = (btnS + gap) * static_cast<float>(cols) + 4.0f * s;
                 const float padH = (btnS + gap) * static_cast<float>(rows) + 4.0f * s;
-                const float padX = std::min(viewRect.Right() - padW - 12.0f * s, nsr.Right() + 10.0f * s);
-                const float padY = std::clamp(nsr.y - 4.0f * s, viewRect.y + 48.0f * s, viewRect.Bottom() - padH - 12.0f * s);
+                const float padX = keel::min(viewRect.Right() - padW - 12.0f * s, nsr.Right() + 10.0f * s);
+                const float padY = keel::clamp(nsr.y - 4.0f * s, viewRect.y + 48.0f * s, viewRect.Bottom() - padH - 12.0f * s);
                 const Rect padFrame(padX - 4.0f * s, padY - 4.0f * s, padW, padH);
                 canvas.DrawRoundRect(padFrame, 6.0f * s, pal.hudBg, pal.hudBorder, 1.2f * s);
 
@@ -2771,7 +2809,7 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
 
                 // Floating tooltip for hovered Context Pad button
                 if (state.hoveredContextPadBtn >= 0 && state.hoveredContextPadBtn < 8 && !state.replaceMenuOpen) {
-                    const std::string_view tip = kContextPadTooltips[static_cast<size_t>(state.hoveredContextPadBtn)];
+                    const keel::StringRef tip = kContextPadTooltips[static_cast<size_t>(state.hoveredContextPadBtn)];
                     const float tfs = 10.0f * s;
                     const Vec2 tm = canvas.MeasureText(tip, tfs);
                     const Rect tipRect(padFrame.x, padFrame.y - tm.y - 10.0f * s, tm.x + 12.0f * s, tm.y + 6.0f * s);
@@ -2780,7 +2818,7 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
                 }
 
                 if (state.replaceMenuOpen) {
-                    std::array<std::string_view, 8> items{};
+                    keel::StaticArray<keel::StringRef, 8> items{};
                     size_t itemCount = 0;
                     if (selNode->type == BpmnNodeType::Task || selNode->type == BpmnNodeType::SubProcess) {
                         items = {
@@ -2812,7 +2850,7 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
                             if (k >= 6) {
                                 DrawPaletteButtonIcon(canvas, iconBox, BpmnTool::CreateSubProcess, pal.textPrimary, pal, s * 0.85f);
                             } else {
-                                static constexpr std::array<BpmnTaskType, 6> kRowTasks = {
+                                static constexpr keel::StaticArray<BpmnTaskType, 6> kRowTasks = {
                                     BpmnTaskType::User, BpmnTaskType::Service, BpmnTaskType::Send,
                                     BpmnTaskType::Receive, BpmnTaskType::Script, BpmnTaskType::BusinessRule
                                 };
@@ -2839,7 +2877,7 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
                     const Vec2 sMid = WorldToScreen(wMid, viewRect, pan, zoom);
                     const Rect bar(sMid.x - 110.0f * s, sMid.y - 38.0f * s, 220.0f * s, 26.0f * s);
                     canvas.DrawRoundRect(bar, 5.0f * s, pal.hudBg, pal.selectAccent, 1.2f * s);
-                    static constexpr std::array<std::string_view, 6> kEdgeActions = {"Seq", "Def \\", "Cond", "Msg", "Auto", "Del"};
+                    static constexpr keel::StaticArray<keel::StringRef, 6> kEdgeActions = {"Seq", "Def \\", "Cond", "Msg", "Auto", "Del"};
                     const float bw = (bar.w - 8.0f * s) / 6.0f;
                     for (int i = 0; i < 6; ++i) {
                         const Rect br(bar.x + 4.0f * s + static_cast<float>(i) * bw, bar.y + 3.0f * s, bw - 2.0f * s, bar.h - 6.0f * s);
@@ -2851,9 +2889,9 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
         } else if (state.selectedLaneId != 0) {
             if (const BpmnLane* selLane = diagram.FindLane(state.selectedLaneId)) {
                 const Rect lsr = WorldToScreenRect(selLane->rect, viewRect, pan, zoom);
-                const Rect bar(std::max(viewRect.x + 58.0f * s, lsr.x + 44.0f * s), std::max(viewRect.y + 48.0f * s, lsr.y - 30.0f * s), 232.0f * s, 26.0f * s);
+                const Rect bar(keel::max(viewRect.x + 58.0f * s, lsr.x + 44.0f * s), keel::max(viewRect.y + 48.0f * s, lsr.y - 30.0f * s), 232.0f * s, 26.0f * s);
                 canvas.DrawRoundRect(bar, 5.0f * s, pal.hudBg, pal.selectAccent, 1.2f * s);
-                static constexpr std::array<std::string_view, 4> kLaneActions = {"+Above", "+Below", "Split /2", "Del Lane"};
+                static constexpr keel::StaticArray<keel::StringRef, 4> kLaneActions = {"+Above", "+Below", "Split /2", "Del Lane"};
                 const float bw = (bar.w - 8.0f * s) / 4.0f;
                 for (int i = 0; i < 4; ++i) {
                     const Rect br(bar.x + 4.0f * s + static_cast<float>(i) * bw, bar.y + 3.0f * s, bw - 2.0f * s, bar.h - 6.0f * s);
@@ -2885,9 +2923,10 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
             editBox = Rect(lsr.x + 48.0f * s, lsr.y + 6.0f * s, 180.0f * s, 28.0f * s);
         }
         canvas.DrawRoundRect(editBox, 5.0f * s, pal.hudBg, pal.selectAccent, 2.0f * s);
-        const std::string displayStr = payload->cursorBlinkOn
-            ? (std::string(payload->activeEditBuffer) + "|")
-            : std::string(payload->activeEditBuffer);
+        keel::SmallString<256> displayStr = keel::SmallString<256>::from(payload->activeEditBuffer);
+        if (payload->cursorBlinkOn) {
+            displayStr.push_back('|');
+        }
         canvas.DrawTextBox(displayStr, Rect(editBox.x + 8.0f * s, editBox.y, editBox.w - 16.0f * s, editBox.h), 11.5f * s, pal.textPrimary, 0.0f, 0.5f);
     }
 
@@ -2946,7 +2985,7 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
         );
 
         float rx = topBar.Right() - 6.0f * s;
-        auto drawTopPill = [&](std::string_view text, float w, bool active, Color activeCol) -> Rect {
+        auto drawTopPill = [&](keel::StringRef text, float w, bool active, Color activeCol) -> Rect {
             rx -= w;
             const Rect pr(rx, topBar.y + 4.0f * s, w, topBar.h - 8.0f * s);
             rx -= 5.0f * s;
@@ -2994,8 +3033,8 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
         canvas.DrawRoundRect(minusR, 3.0f * s, pal.hudHover);
         canvas.DrawTextBox("-", minusR, 12.0f * s, pal.textPrimary, 0.5f, 0.5f);
         char zBuf[24];
-        std::snprintf(zBuf, sizeof(zBuf), "%.0f%%", zoom * 100.0f);
-        canvas.DrawTextBox(zBuf, pctR, 10.5f * s, pal.textSecondary, 0.5f, 0.5f);
+        const keel::StringRef zStr = keel::format_buf(zBuf, "%.0f%%", zoom * 100.0f);
+        canvas.DrawTextBox(zStr, pctR, 10.5f * s, pal.textSecondary, 0.5f, 0.5f);
         canvas.DrawRoundRect(plusR, 3.0f * s, pal.hudHover);
         canvas.DrawTextBox("+", plusR, 12.0f * s, pal.textPrimary, 0.5f, 0.5f);
         canvas.DrawRoundRect(fitR, 3.0f * s, pal.hudHover);
@@ -3010,9 +3049,9 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
 
         const Rect wb = ComputeDiagramWorldBounds(diagram);
         const float pad = 8.0f * s;
-        const float sx = (mm.w - pad * 2.0f) / std::max(100.0f, wb.w);
-        const float sy = (mm.h - pad * 2.0f) / std::max(100.0f, wb.h);
-        const float ms = std::min(sx, sy);
+        const float sx = (mm.w - pad * 2.0f) / keel::max(100.0f, wb.w);
+        const float sy = (mm.h - pad * 2.0f) / keel::max(100.0f, wb.h);
+        const float ms = keel::min(sx, sy);
         const float ox = mm.x + (mm.w - wb.w * ms) * 0.5f - wb.x * ms;
         const float oy = mm.y + (mm.h - wb.h * ms) * 0.5f - wb.y * ms;
 
@@ -3024,7 +3063,7 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
             if (n.type == BpmnNodeType::StartEvent) nc = pal.startEventStroke;
             else if (n.type == BpmnNodeType::EndEvent) nc = pal.endEventStroke;
             else if (n.type == BpmnNodeType::Gateway) nc = pal.gatewayStroke;
-            canvas.DrawRect(Rect(ox + n.pos.x * ms, oy + n.pos.y * ms, std::max(2.5f, n.size.x * ms), std::max(2.5f, n.size.y * ms)), nc);
+            canvas.DrawRect(Rect(ox + n.pos.x * ms, oy + n.pos.y * ms, keel::max(2.5f, n.size.x * ms), keel::max(2.5f, n.size.y * ms)), nc);
         }
 
         const Vec2 camTL = ScreenToWorld({viewRect.x, viewRect.y}, viewRect, pan, zoom);
@@ -3067,7 +3106,7 @@ BpmnEditorResponse BpmnEditor::Run(
     Context& ctx,
     BpmnDiagram& diagram,
     const BpmnEditorOptions& optsIn,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     UiTheme* pushedTheme = ctx.PushScopedTheme(optsIn.theme, optsIn.scale);
     struct ThemePopGuard {
@@ -3140,7 +3179,7 @@ BpmnEditorResponse BpmnEditor::Run(
     const double nowSec = ctx.GetCurrentTime();
     if (effOpts.tokenSimulation) {
         const float dtSec = (state.lastSimTickSec > 0.0)
-            ? static_cast<float>(std::clamp(nowSec - state.lastSimTickSec, 0.004, 0.08))
+            ? static_cast<float>(keel::clamp(nowSec - state.lastSimTickSec, 0.004, 0.08))
             : 0.016f;
         state.lastSimTickSec = nowSec;
         StepTokenSimulation(diagram, state, dtSec, effOpts.simulationSpeed, effOpts.autoSpawnTokens);
@@ -3152,23 +3191,23 @@ BpmnEditorResponse BpmnEditor::Run(
         }
     }
 
-    std::string activeEditStr{};
+    keel::SmallString<256> activeEditStr{};
     size_t activeEditCursor = 0;
     const Id editId = Id(id.value ^ 0x9E3779B97F4A7C15ULL);
     if (state.editingNodeId != 0 || state.editingEdgeId != 0 || state.editingLaneId != 0) {
-        std::string initialText{};
+        keel::StringRef initialText{};
         if (const BpmnNode* en = diagram.FindNode(state.editingNodeId)) initialText = en->label;
         else if (const BpmnEdge* ee = diagram.FindEdge(state.editingEdgeId)) initialText = ee->label;
         else if (const BpmnLane* el = diagram.FindLane(state.editingLaneId)) initialText = el->name;
 
         bool textChanged = false;
         bool textSubmitted = false;
-        const std::string_view bufView = ctx.GetOrStartTextEdit(editId, initialText, activeEditCursor, textChanged, textSubmitted, false);
-        activeEditStr = std::string(bufView);
+        const keel::StringRef bufView = ctx.GetOrStartTextEdit(editId, initialText, activeEditCursor, textChanged, textSubmitted, false);
+        activeEditStr = keel::SmallString<256>::from(bufView);
         if (textChanged) {
-            if (BpmnNode* en = diagram.FindNode(state.editingNodeId)) en->label = activeEditStr;
-            else if (BpmnEdge* ee = diagram.FindEdge(state.editingEdgeId)) ee->label = activeEditStr;
-            else if (BpmnLane* el = diagram.FindLane(state.editingLaneId)) el->name = activeEditStr;
+            if (BpmnNode* en = diagram.FindNode(state.editingNodeId)) en->label = bufView;
+            else if (BpmnEdge* ee = diagram.FindEdge(state.editingEdgeId)) ee->label = bufView;
+            else if (BpmnLane* el = diagram.FindLane(state.editingLaneId)) el->name = bufView;
             resp.changed = true;
             resp.diagramModified = true;
         }
@@ -3304,11 +3343,11 @@ BpmnEditorResponse BpmnEditor::Run(
                 const Vec2 centerScreen = viewRect.Center();
                 const Vec2 centerWorld = ScreenToWorld(centerScreen, viewRect, state.pan, state.zoom);
                 if (minusR.Contains(mouse)) {
-                    state.zoom = std::clamp(state.zoom / 1.18f, 0.25f, 2.5f);
+                    state.zoom = keel::clamp(state.zoom / 1.18f, 0.25f, 2.5f);
                     state.pan.x = centerScreen.x - viewRect.x - centerWorld.x * state.zoom;
                     state.pan.y = centerScreen.y - viewRect.y - centerWorld.y * state.zoom;
                 } else if (plusR.Contains(mouse)) {
-                    state.zoom = std::clamp(state.zoom * 1.18f, 0.25f, 2.5f);
+                    state.zoom = keel::clamp(state.zoom * 1.18f, 0.25f, 2.5f);
                     state.pan.x = centerScreen.x - viewRect.x - centerWorld.x * state.zoom;
                     state.pan.y = centerScreen.y - viewRect.y - centerWorld.y * state.zoom;
                 } else if (pctR.Contains(mouse)) {
@@ -3329,13 +3368,13 @@ BpmnEditorResponse BpmnEditor::Run(
                 hudConsumedClick = true;
                 const Rect wb = ComputeDiagramWorldBounds(diagram);
                 const float pad = 8.0f * s;
-                const float sx = (mm.w - pad * 2.0f) / std::max(100.0f, wb.w);
-                const float sy = (mm.h - pad * 2.0f) / std::max(100.0f, wb.h);
-                const float ms = std::min(sx, sy);
+                const float sx = (mm.w - pad * 2.0f) / keel::max(100.0f, wb.w);
+                const float sy = (mm.h - pad * 2.0f) / keel::max(100.0f, wb.h);
+                const float ms = keel::min(sx, sy);
                 const float ox = mm.x + (mm.w - wb.w * ms) * 0.5f - wb.x * ms;
                 const float oy = mm.y + (mm.h - wb.h * ms) * 0.5f - wb.y * ms;
-                const float targetWorldX = (mouse.x - ox) / std::max(1e-4f, ms);
-                const float targetWorldY = (mouse.y - oy) / std::max(1e-4f, ms);
+                const float targetWorldX = (mouse.x - ox) / keel::max(1e-4f, ms);
+                const float targetWorldY = (mouse.y - oy) / keel::max(1e-4f, ms);
                 state.pan.x = viewRect.w * 0.5f - targetWorldX * state.zoom;
                 state.pan.y = viewRect.h * 0.5f - targetWorldY * state.zoom;
                 ctx.RequestRepaint(2);
@@ -3348,10 +3387,10 @@ BpmnEditorResponse BpmnEditor::Run(
                 if (BpmnNode* selNode = diagram.FindNode(state.primaryNodeId)) {
                     const Rect nsr = WorldToScreenRect(selNode->Bounds(), viewRect, state.pan, state.zoom);
                     const auto padActions = GetContextPadActionsForNode(*selNode);
-                    const int numCols = std::min(4, static_cast<int>(padActions.size()));
+                    const int numCols = keel::min(4, static_cast<int>(padActions.size()));
                     const int numRows = (static_cast<int>(padActions.size()) + 3) / 4;
-                    const float padX = std::min(viewRect.Right() - 156.0f * s, nsr.Right() + 10.0f * s);
-                    const float padY = std::clamp(nsr.y - 4.0f * s, viewRect.y + 48.0f * s, viewRect.Bottom() - 100.0f * s);
+                    const float padX = keel::min(viewRect.Right() - 156.0f * s, nsr.Right() + 10.0f * s);
+                    const float padY = keel::clamp(nsr.y - 4.0f * s, viewRect.y + 48.0f * s, viewRect.Bottom() - 100.0f * s);
                     const float btnS = 26.0f * s;
                     const float gap = 4.0f * s;
                     const Rect padFrame(
@@ -3392,7 +3431,7 @@ BpmnEditorResponse BpmnEditor::Run(
                                                 mutNode->isExpanded = false;
                                                 mutNode->size = BpmnDiagram::DefaultNodeSize(BpmnNodeType::Task);
                                                 mutNode->pos = {oldCenter.x - mutNode->size.x * 0.5f, oldCenter.y - mutNode->size.y * 0.5f};
-                                                static constexpr std::array<BpmnTaskType, 6> kTaskTypes = {
+                                                static constexpr keel::StaticArray<BpmnTaskType, 6> kTaskTypes = {
                                                     BpmnTaskType::User, BpmnTaskType::Service, BpmnTaskType::Send,
                                                     BpmnTaskType::Receive, BpmnTaskType::Script, BpmnTaskType::BusinessRule
                                                 };
@@ -3430,11 +3469,11 @@ BpmnEditorResponse BpmnEditor::Run(
                                 const Vec2 srcCenter = selNode->Center();
                                 const uint32_t srcLane = selNode->laneId;
 
-                                auto appendQuickNode = [&](BpmnNodeType newType, std::string label, BpmnFlowType flow) {
+                                auto appendQuickNode = [&](BpmnNodeType newType, keel::StringRef label, BpmnFlowType flow) {
                                     state.PushUndo(diagram);
                                     BpmnNode nn{};
                                     nn.type = newType;
-                                    nn.label = std::move(label);
+                                    nn.label = label;
                                     nn.size = BpmnDiagram::DefaultNodeSize(newType);
                                     if (newType == BpmnNodeType::TextAnnotation) {
                                         const float targetCX = SnapValue(srcCenter.x + srcSize.x * 0.5f + 70.0f, effOpts.gridStep);
@@ -3447,7 +3486,7 @@ BpmnEditorResponse BpmnEditor::Run(
                                     }
                                     nn.laneId = srcLane;
                                     if (newType == BpmnNodeType::IntermediateEvent) nn.eventDef = BpmnEventDefinition::Timer;
-                                    const uint32_t newId = diagram.AddNode(std::move(nn));
+                                    const uint32_t newId = diagram.AddNode(keel::move(nn));
                                     diagram.AddEdge(srcId, newId, flow);
                                     state.SelectSingleNode(newId);
                                     resp.changed = true;
@@ -3494,7 +3533,7 @@ BpmnEditorResponse BpmnEditor::Run(
                         if (bar.Contains(mouse)) {
                             hudConsumedClick = true;
                             const float bw = (bar.w - 8.0f * s) / 6.0f;
-                            const int idx = std::clamp(static_cast<int>((mouse.x - (bar.x + 4.0f * s)) / bw), 0, 5);
+                            const int idx = keel::clamp(static_cast<int>((mouse.x - (bar.x + 4.0f * s)) / bw), 0, 5);
                             state.PushUndo(diagram);
                             if (idx == 0) selEdge->flowType = BpmnFlowType::SequenceFlow;
                             else if (idx == 1) selEdge->flowType = BpmnFlowType::DefaultFlow;
@@ -3516,14 +3555,14 @@ BpmnEditorResponse BpmnEditor::Run(
             } else if (!hudConsumedClick && lmbClicked && state.selectedLaneId != 0) {
                 if (BpmnLane* selLane = diagram.FindLane(state.selectedLaneId)) {
                     const Rect lsr = WorldToScreenRect(selLane->rect, viewRect, state.pan, state.zoom);
-                    const Rect bar(std::max(viewRect.x + 58.0f * s, lsr.x + 44.0f * s), std::max(viewRect.y + 48.0f * s, lsr.y - 30.0f * s), 232.0f * s, 26.0f * s);
+                    const Rect bar(keel::max(viewRect.x + 58.0f * s, lsr.x + 44.0f * s), keel::max(viewRect.y + 48.0f * s, lsr.y - 30.0f * s), 232.0f * s, 26.0f * s);
                     if (bar.Contains(mouse)) {
                         hudConsumedClick = true;
                         const float bw = (bar.w - 8.0f * s) / 4.0f;
-                        const int idx = std::clamp(static_cast<int>((mouse.x - (bar.x + 4.0f * s)) / bw), 0, 3);
+                        const int idx = keel::clamp(static_cast<int>((mouse.x - (bar.x + 4.0f * s)) / bw), 0, 3);
                         state.PushUndo(diagram);
                         const Rect curR = selLane->rect;
-                        const std::string poolName = selLane->poolName;
+                        const auto poolName = selLane->poolName;
                         if (idx == 0) {
                             const uint32_t newId = diagram.AddLane(poolName, "Upper Lane", Rect(curR.x, curR.y - 180.0f, curR.w, 180.0f));
                             state.selectedLaneId = newId;
@@ -3533,7 +3572,9 @@ BpmnEditorResponse BpmnEditor::Run(
                         } else if (idx == 2 && curR.h >= 140.0f) {
                             const float halfH = curR.h * 0.5f;
                             selLane->rect.h = halfH;
-                            diagram.AddLane(poolName, selLane->name + " B", Rect(curR.x, curR.y + halfH, curR.w, halfH));
+                            keel::SmallString<128> splitName = keel::SmallString<128>::from(selLane->name);
+                            splitName.append(" B");
+                            diagram.AddLane(poolName, splitName, Rect(curR.x, curR.y + halfH, curR.w, halfH));
                         } else if (idx == 3) {
                             diagram.RemoveLane(selLane->id);
                             state.ClearSelection();
@@ -3552,7 +3593,7 @@ BpmnEditorResponse BpmnEditor::Run(
             if (std::abs(wheel.y) > 0.01f) {
                 const Vec2 worldBefore = ScreenToWorld(mouse, viewRect, state.pan, state.zoom);
                 const float factor = (wheel.y > 0.0f) ? 1.12f : (1.0f / 1.12f);
-                state.zoom = std::clamp(state.zoom * factor, 0.25f, 2.5f);
+                state.zoom = keel::clamp(state.zoom * factor, 0.25f, 2.5f);
                 state.pan.x = mouse.x - viewRect.x - worldBefore.x * state.zoom;
                 state.pan.y = mouse.y - viewRect.y - worldBefore.y * state.zoom;
                 ctx.ConsumeMouseWheel();
@@ -3629,30 +3670,32 @@ BpmnEditorResponse BpmnEditor::Run(
 
             // G3. Check External Labels (Events, Gateways, DataObjects, DataStores, and Edges)
             if (state.hoveredResizeCorner < 0 && state.hoveredEdgeEndpoint == 0 && state.hoveredEdgeSegIdx < 0) {
-                for (auto it = diagram.nodes.rbegin(); it != diagram.nodes.rend(); ++it) {
-                    if (!IsExternalLabelNode(it->type) || it->label.empty()) continue;
-                    const Rect nsr = WorldToScreenRect(it->Bounds(), viewRect, state.pan, state.zoom);
-                    const Rect lsr = ComputeExternalNodeLabelScreenRect(diagram, *it, nsr, state.zoom, s);
+                for (size_t revIdx = diagram.nodes.size(); revIdx > 0; --revIdx) {
+                    const auto& nd = diagram.nodes[revIdx - 1];
+                    if (!IsExternalLabelNode(nd.type) || nd.label.empty()) continue;
+                    const Rect nsr = WorldToScreenRect(nd.Bounds(), viewRect, state.pan, state.zoom);
+                    const Rect lsr = ComputeExternalNodeLabelScreenRect(diagram, nd, nsr, state.zoom, s);
                     if (lsr.Contains(mouse)) {
-                        state.hoveredLabelNodeId = it->id;
-                        state.hoveredNodeId = it->id;
+                        state.hoveredLabelNodeId = nd.id;
+                        state.hoveredNodeId = nd.id;
                         break;
                     }
                 }
                 if (state.hoveredLabelNodeId == 0) {
-                    for (auto it = diagram.edges.rbegin(); it != diagram.edges.rend(); ++it) {
-                        if (it->label.empty()) continue;
-                        const BpmnNode* fn = diagram.FindNode(it->fromNodeId);
-                        const BpmnNode* tn = diagram.FindNode(it->toNodeId);
+                    for (size_t revIdx = diagram.edges.size(); revIdx > 0; --revIdx) {
+                        const auto& ed = diagram.edges[revIdx - 1];
+                        if (ed.label.empty()) continue;
+                        const BpmnNode* fn = diagram.FindNode(ed.fromNodeId);
+                        const BpmnNode* tn = diagram.FindNode(ed.toNodeId);
                         if (!fn || !tn) continue;
-                        const auto wpts = BuildEdgeWorldPoints(diagram, *fn, *tn, *it, effOpts.routingMode);
-                        std::vector<Vec2> spts;
+                        const auto wpts = BuildEdgeWorldPoints(diagram, *fn, *tn, ed, effOpts.routingMode);
+                        keel::SmallArray<Vec2, 32> spts;
                         spts.reserve(wpts.size());
                         for (const auto& pt : wpts) spts.push_back(WorldToScreen(pt, viewRect, state.pan, state.zoom));
-                        const Rect elr = ComputeEdgeLabelScreenRect(canvas, spts, *it, state.zoom, s);
+                        const Rect elr = ComputeEdgeLabelScreenRect(canvas, spts, ed, state.zoom, s);
                         if (elr.w > 0.0f && elr.Contains(mouse)) {
-                            state.hoveredLabelEdgeId = it->id;
-                            state.hoveredEdgeId = it->id;
+                            state.hoveredLabelEdgeId = ed.id;
+                            state.hoveredEdgeId = ed.id;
                             break;
                         }
                     }
@@ -3663,14 +3706,15 @@ BpmnEditorResponse BpmnEditor::Run(
             if (state.hoveredResizeCorner < 0 && state.hoveredEdgeEndpoint == 0 && state.hoveredEdgeSegIdx < 0 &&
                 state.hoveredLabelNodeId == 0 && state.hoveredLabelEdgeId == 0) {
                 for (int pass = 0; pass < 3 && state.hoveredNodeId == 0; ++pass) {
-                    for (auto it = diagram.nodes.rbegin(); it != diagram.nodes.rend(); ++it) {
-                        const bool isBoundary = (it->type == BpmnNodeType::BoundaryEvent);
-                        const bool isExpandedSub = (it->type == BpmnNodeType::SubProcess && it->isExpanded);
+                    for (size_t revIdx = diagram.nodes.size(); revIdx > 0; --revIdx) {
+                        const auto& nd = diagram.nodes[revIdx - 1];
+                        const bool isBoundary = (nd.type == BpmnNodeType::BoundaryEvent);
+                        const bool isExpandedSub = (nd.type == BpmnNodeType::SubProcess && nd.isExpanded);
                         if (pass == 0 && !isBoundary) continue;
                         if (pass == 1 && (isBoundary || isExpandedSub)) continue;
                         if (pass == 2 && !isExpandedSub) continue;
-                        if (it->Bounds().Contains(wp)) {
-                            state.hoveredNodeId = it->id;
+                        if (nd.Bounds().Contains(wp)) {
+                            state.hoveredNodeId = nd.id;
                             break;
                         }
                     }
@@ -3690,7 +3734,7 @@ BpmnEditorResponse BpmnEditor::Run(
             }
 
             if (state.hoveredNodeId == 0 && state.hoveredEdgeId == 0) {
-                const float tolWorld = 7.5f / std::max(0.25f, state.zoom);
+                const float tolWorld = 7.5f / keel::max(0.25f, state.zoom);
                 const float tolSq = tolWorld * tolWorld;
                 for (const auto& edge : diagram.edges) {
                     const BpmnNode* fn = diagram.FindNode(edge.fromNodeId);
@@ -3707,9 +3751,10 @@ BpmnEditorResponse BpmnEditor::Run(
                 }
             }
 
-            for (auto it = diagram.lanes.rbegin(); it != diagram.lanes.rend(); ++it) {
-                if (it->rect.Contains(wp)) {
-                    state.hoveredLaneId = it->id;
+            for (size_t revIdx = diagram.lanes.size(); revIdx > 0; --revIdx) {
+                const auto& ln = diagram.lanes[revIdx - 1];
+                if (ln.rect.Contains(wp)) {
+                    state.hoveredLaneId = ln.id;
                     break;
                 }
             }
@@ -3748,16 +3793,16 @@ BpmnEditorResponse BpmnEditor::Run(
                         gPos.x = oc.x - gSize.x * 0.5f;
                         state.activeGuides.push_back(AlignmentGuide{
                             true, oc.x,
-                            std::min(gPos.y, other.pos.y) - 20.0f,
-                            std::max(gPos.y + gSize.y, other.pos.y + other.size.y) + 20.0f
+                            keel::min(gPos.y, other.pos.y) - 20.0f,
+                            keel::max(gPos.y + gSize.y, other.pos.y + other.size.y) + 20.0f
                         });
                     }
                     if (std::abs((gPos.y + gSize.y * 0.5f) - oc.y) <= snapTol) {
                         gPos.y = oc.y - gSize.y * 0.5f;
                         state.activeGuides.push_back(AlignmentGuide{
                             false, oc.y,
-                            std::min(gPos.x, other.pos.x) - 20.0f,
-                            std::max(gPos.x + gSize.x, other.pos.x + other.size.x) + 20.0f
+                            keel::min(gPos.x, other.pos.x) - 20.0f,
+                            keel::max(gPos.x + gSize.x, other.pos.x + other.size.x) + 20.0f
                         });
                     }
                 }
@@ -3783,18 +3828,24 @@ BpmnEditorResponse BpmnEditor::Run(
                         break;
                     }
                 } else if (n.type == BpmnNodeType::Gateway && n.gatewayType == BpmnGatewayType::Exclusive && sr.Contains(mouse)) {
-                    std::vector<uint32_t> outIds;
+                    keel::SmallArray<uint32_t, 8> outIds;
                     for (const auto& e : diagram.edges) {
                         if (e.fromNodeId == n.id && e.flowType != BpmnFlowType::Association) {
                             outIds.push_back(e.id);
                         }
                     }
                     if (!outIds.empty()) {
-                        auto it = std::find(outIds.begin(), outIds.end(), n.activeOutgoingEdgeId);
-                        if (it == outIds.end() || ++it == outIds.end()) {
+                        size_t curIdx = outIds.size();
+                        for (size_t oi = 0; oi < outIds.size(); ++oi) {
+                            if (outIds[oi] == n.activeOutgoingEdgeId) {
+                                curIdx = oi;
+                                break;
+                            }
+                        }
+                        if (curIdx >= outIds.size() || curIdx + 1 >= outIds.size()) {
                             n.activeOutgoingEdgeId = outIds.front();
                         } else {
-                            n.activeOutgoingEdgeId = *it;
+                            n.activeOutgoingEdgeId = outIds[curIdx + 1];
                         }
                         hudConsumedClick = true;
                         ctx.RequestRepaint(2);
@@ -3875,7 +3926,7 @@ BpmnEditorResponse BpmnEditor::Run(
                             nn.eventDef = BpmnEventDefinition::Error;
                             nn.label = "Exception";
                             if (const BpmnNode* host = diagram.FindNode(state.dragBoundaryHostId)) {
-                                nn.boundaryRatioX = std::clamp((resp.mouseWorldPos.x - host->pos.x) / std::max(1.0f, host->size.x), 0.15f, 0.85f);
+                                nn.boundaryRatioX = keel::clamp((resp.mouseWorldPos.x - host->pos.x) / keel::max(1.0f, host->size.x), 0.15f, 0.85f);
                             }
                         } else {
                             nn.type = BpmnNodeType::IntermediateEvent;
@@ -3895,7 +3946,7 @@ BpmnEditorResponse BpmnEditor::Run(
                 nn.size = BpmnDiagram::DefaultNodeSize(nn.type);
                 nn.pos = state.ghostSnappedPos;
                 nn.laneId = state.hoveredLaneId;
-                const uint32_t newId = diagram.AddNode(std::move(nn));
+                const uint32_t newId = diagram.AddNode(keel::move(nn));
                 state.SelectSingleNode(newId);
             }
             state.activeTool = BpmnTool::Select;
@@ -3921,8 +3972,8 @@ BpmnEditorResponse BpmnEditor::Run(
             state.spaceCurrentWorld = resp.mouseWorldPos;
             state.spaceInitialNodes.clear();
             state.spaceInitialLanes.clear();
-            for (const auto& n : diagram.nodes) state.spaceInitialNodes.emplace_back(n.id, n.pos);
-            for (const auto& l : diagram.lanes) state.spaceInitialLanes.emplace_back(l.id, l.rect);
+            for (const auto& n : diagram.nodes) state.spaceInitialNodes.push_back(NodePosEntry{n.id, n.pos});
+            for (const auto& l : diagram.lanes) state.spaceInitialLanes.push_back(LaneRectEntry{l.id, l.rect});
         } else if (!hudConsumedClick && lmbClicked && state.activeTool == BpmnTool::Lasso) {
             ctx.RequestFocus(id);
             state.lassoActive = true;
@@ -3961,27 +4012,30 @@ BpmnEditorResponse BpmnEditor::Run(
                             int segIdx = state.hoveredEdgeSegIdx;
                             const bool isHoriz = std::abs(fullPts[static_cast<size_t>(segIdx) + 1].y - fullPts[static_cast<size_t>(segIdx)].y) <=
                                                  std::abs(fullPts[static_cast<size_t>(segIdx) + 1].x - fullPts[static_cast<size_t>(segIdx)].x);
-                            std::vector<Vec2> inner;
-                            for (size_t k = 1; k + 1 < fullPts.size(); ++k) inner.push_back(fullPts[k]);
-                            if (inner.empty()) {
+                            keel::Array<Vec2> inner;
+                            if (fullPts.size() <= 2) {
                                 const Vec2 mid{(fullPts.front().x + fullPts.back().x) * 0.5f, (fullPts.front().y + fullPts.back().y) * 0.5f};
                                 inner.push_back(mid);
                                 inner.push_back(mid);
                                 segIdx = 1;
-                            } else if (segIdx == 0) {
-                                inner.insert(inner.begin(), inner.front());
-                                segIdx = 1;
-                            } else if (segIdx >= static_cast<int>(fullPts.size()) - 2) {
-                                inner.push_back(inner.back());
-                                segIdx = static_cast<int>(inner.size()) - 1;
+                            } else {
+                                if (segIdx == 0) {
+                                    inner.push_back(fullPts[1]);
+                                    segIdx = 1;
+                                }
+                                for (size_t k = 1; k + 1 < fullPts.size(); ++k) inner.push_back(fullPts[k]);
+                                if (state.hoveredEdgeSegIdx >= static_cast<int>(fullPts.size()) - 2) {
+                                    inner.push_back(inner.back());
+                                    segIdx = static_cast<int>(inner.size()) - 1;
+                                }
                             }
-                            se->waypoints = inner;
+                            se->waypoints = keel::move(inner);
                             state.draggingEdgeSegment = true;
                             state.dragEdgeId = se->id;
                             state.dragEdgeSegIdx = segIdx;
                             state.dragEdgeSegHorizontal = isHoriz;
                             state.dragEdgeStartWorld = resp.mouseWorldPos;
-                            state.dragEdgeInitWaypoints = se->waypoints;
+                            state.dragEdgeInitWaypoints = se->waypoints.clone();
                         }
                     }
                 }
@@ -4040,12 +4094,12 @@ BpmnEditorResponse BpmnEditor::Run(
                         state.dragInitialNodePos.clear();
                         for (uint32_t selId : state.selectedNodes) {
                             if (const BpmnNode* sn = diagram.FindNode(selId)) {
-                                state.dragInitialNodePos.emplace_back(selId, sn->pos);
+                                state.dragInitialNodePos.push_back(NodePosEntry{selId, sn->pos});
                                 if (sn->type == BpmnNodeType::SubProcess && sn->isExpanded) {
                                     const Rect sb = sn->Bounds();
                                     for (const auto& child : diagram.nodes) {
                                         if (child.id != sn->id && !state.IsNodeSelected(child.id) && sb.Contains(child.Center())) {
-                                            state.dragInitialNodePos.emplace_back(child.id, child.pos);
+                                            state.dragInitialNodePos.push_back(NodePosEntry{child.id, child.pos});
                                         }
                                     }
                                 }
@@ -4064,7 +4118,7 @@ BpmnEditorResponse BpmnEditor::Run(
                 if (!effOpts.readOnly && !effOpts.tokenSimulation) {
                     if (const BpmnLane* l = diagram.FindLane(state.hoveredLaneId)) {
                         const float headerWorldW = 64.0f;
-                        const float edgeTol = 12.0f / std::max(0.25f, state.zoom);
+                        const float edgeTol = 12.0f / keel::max(0.25f, state.zoom);
                         if (std::abs(resp.mouseWorldPos.x - l->rect.Right()) <= edgeTol) {
                             state.draggingLane = true;
                             state.laneResizeEdge = 1;
@@ -4082,7 +4136,7 @@ BpmnEditorResponse BpmnEditor::Run(
                             state.laneContainedNodeOffsets.clear();
                             for (const auto& n : diagram.nodes) {
                                 if (l->rect.Contains(n.Center())) {
-                                    state.laneContainedNodeOffsets.emplace_back(n.id, n.pos);
+                                    state.laneContainedNodeOffsets.push_back(NodePosEntry{n.id, n.pos});
                                 }
                             }
                         } else {
@@ -4129,18 +4183,18 @@ BpmnEditorResponse BpmnEditor::Run(
                     float bottom = state.resizeInitialBounds.Bottom();
 
                     if (state.resizeCorner == 0 || state.resizeCorner == 3) {
-                        left = std::min(right - minW, left + delta.x);
-                        if (effOpts.snapToGrid && !mods.alt) left = std::min(right - minW, SnapValue(left, effOpts.gridStep));
+                        left = keel::min(right - minW, left + delta.x);
+                        if (effOpts.snapToGrid && !mods.alt) left = keel::min(right - minW, SnapValue(left, effOpts.gridStep));
                     } else {
-                        right = std::max(left + minW, right + delta.x);
-                        if (effOpts.snapToGrid && !mods.alt) right = std::max(left + minW, SnapValue(right, effOpts.gridStep));
+                        right = keel::max(left + minW, right + delta.x);
+                        if (effOpts.snapToGrid && !mods.alt) right = keel::max(left + minW, SnapValue(right, effOpts.gridStep));
                     }
                     if (state.resizeCorner == 0 || state.resizeCorner == 1) {
-                        top = std::min(bottom - minH, top + delta.y);
-                        if (effOpts.snapToGrid && !mods.alt) top = std::min(bottom - minH, SnapValue(top, effOpts.gridStep));
+                        top = keel::min(bottom - minH, top + delta.y);
+                        if (effOpts.snapToGrid && !mods.alt) top = keel::min(bottom - minH, SnapValue(top, effOpts.gridStep));
                     } else {
-                        bottom = std::max(top + minH, bottom + delta.y);
-                        if (effOpts.snapToGrid && !mods.alt) bottom = std::max(top + minH, SnapValue(bottom, effOpts.gridStep));
+                        bottom = keel::max(top + minH, bottom + delta.y);
+                        if (effOpts.snapToGrid && !mods.alt) bottom = keel::max(top + minH, SnapValue(bottom, effOpts.gridStep));
                     }
                     rn->pos = {left, top};
                     rn->size = {right - left, bottom - top};
@@ -4163,7 +4217,7 @@ BpmnEditorResponse BpmnEditor::Run(
                         resp.mouseWorldPos.x - state.dragEdgeStartWorld.x,
                         resp.mouseWorldPos.y - state.dragEdgeStartWorld.y
                     };
-                    se->waypoints = state.dragEdgeInitWaypoints;
+                    se->waypoints = state.dragEdgeInitWaypoints.clone();
                     const int wpIdx0 = state.dragEdgeSegIdx - 1;
                     const int wpIdx1 = state.dragEdgeSegIdx;
                     if (state.dragEdgeSegHorizontal) {
@@ -4263,7 +4317,7 @@ BpmnEditorResponse BpmnEditor::Run(
                     resp.mouseWorldPos.y - state.dragStartWorld.y
                 };
                 if (!state.dragUndoRecorded && (std::abs(delta.x) > 2.0f || std::abs(delta.y) > 2.0f)) {
-                    BpmnDiagram beforeSnap = diagram;
+                    BpmnDiagram beforeSnap = diagram.clone();
                     for (const auto& [nid, initPos] : state.dragInitialNodePos) {
                         if (BpmnNode* n = beforeSnap.FindNode(nid)) n->pos = initPos;
                     }
@@ -4278,7 +4332,7 @@ BpmnEditorResponse BpmnEditor::Run(
                     if (n->type == BpmnNodeType::BoundaryEvent && n->attachedToNodeId != 0) {
                         if (const BpmnNode* host = diagram.FindNode(n->attachedToNodeId)) {
                             const float newCenterX = initPos.x + n->size.x * 0.5f + delta.x;
-                            n->boundaryRatioX = std::clamp((newCenterX - host->pos.x) / std::max(1.0f, host->size.x), 0.15f, 0.85f);
+                            n->boundaryRatioX = keel::clamp((newCenterX - host->pos.x) / keel::max(1.0f, host->size.x), 0.15f, 0.85f);
                         }
                         continue;
                     }
@@ -4301,16 +4355,16 @@ BpmnEditorResponse BpmnEditor::Run(
                                 targetPos.x = oc.x - n->size.x * 0.5f;
                                 state.activeGuides.push_back(AlignmentGuide{
                                     true, oc.x,
-                                    std::min(targetPos.y, other.pos.y) - 20.0f,
-                                    std::max(targetPos.y + n->size.y, other.pos.y + other.size.y) + 20.0f
+                                    keel::min(targetPos.y, other.pos.y) - 20.0f,
+                                    keel::max(targetPos.y + n->size.y, other.pos.y + other.size.y) + 20.0f
                                 });
                             }
                             if (std::abs(myCY - oc.y) <= snapTol) {
                                 targetPos.y = oc.y - n->size.y * 0.5f;
                                 state.activeGuides.push_back(AlignmentGuide{
                                     false, oc.y,
-                                    std::min(targetPos.x, other.pos.x) - 20.0f,
-                                    std::max(targetPos.x + n->size.x, other.pos.x + other.size.x) + 20.0f
+                                    keel::min(targetPos.x, other.pos.x) - 20.0f,
+                                    keel::max(targetPos.x + n->size.x, other.pos.x + other.size.x) + 20.0f
                                 });
                             }
                         }
@@ -4337,9 +4391,9 @@ BpmnEditorResponse BpmnEditor::Run(
                         resp.mouseWorldPos.y - state.laneDragStartWorld.y
                     };
                     if (state.laneResizeEdge == 1) {
-                        l->rect.w = std::max(320.0f, SnapValue(state.laneInitialRect.w + delta.x, effOpts.gridStep));
+                        l->rect.w = keel::max(320.0f, SnapValue(state.laneInitialRect.w + delta.x, effOpts.gridStep));
                     } else if (state.laneResizeEdge == 2) {
-                        l->rect.h = std::max(110.0f, SnapValue(state.laneInitialRect.h + delta.y, effOpts.gridStep));
+                        l->rect.h = keel::max(110.0f, SnapValue(state.laneInitialRect.h + delta.y, effOpts.gridStep));
                     } else {
                         l->rect.x = SnapValue(state.laneInitialRect.x + delta.x, effOpts.gridStep);
                         l->rect.y = SnapValue(state.laneInitialRect.y + delta.y, effOpts.gridStep);
@@ -4388,13 +4442,13 @@ BpmnEditorResponse BpmnEditor::Run(
                         if (!l) continue;
                         if (state.spaceToolHorizontal) {
                             if (initR.x < state.spaceStartWorld.x && initR.Right() > state.spaceStartWorld.x) {
-                                l->rect.w = std::max(240.0f, initR.w + shift);
+                                l->rect.w = keel::max(240.0f, initR.w + shift);
                             } else if (initR.x >= state.spaceStartWorld.x) {
                                 l->rect.x = initR.x + shift;
                             }
                         } else {
                             if (initR.y < state.spaceStartWorld.y && initR.Bottom() > state.spaceStartWorld.y) {
-                                l->rect.h = std::max(100.0f, initR.h + shift);
+                                l->rect.h = keel::max(100.0f, initR.h + shift);
                             } else if (initR.y >= state.spaceStartWorld.y) {
                                 l->rect.y = initR.y + shift;
                             }
@@ -4416,8 +4470,8 @@ BpmnEditorResponse BpmnEditor::Run(
             if (lmbDown) {
                 state.lassoEndWorld = resp.mouseWorldPos;
                 const Rect box(
-                    std::min(state.lassoStartWorld.x, state.lassoEndWorld.x),
-                    std::min(state.lassoStartWorld.y, state.lassoEndWorld.y),
+                    keel::min(state.lassoStartWorld.x, state.lassoEndWorld.x),
+                    keel::min(state.lassoStartWorld.y, state.lassoEndWorld.y),
                     std::abs(state.lassoEndWorld.x - state.lassoStartWorld.x),
                     std::abs(state.lassoEndWorld.y - state.lassoStartWorld.y)
                 );
@@ -4501,7 +4555,7 @@ BpmnEditorResponse BpmnEditor::Run(
                 }
                 for (const auto& e : diagram.edges) {
                     if (state.IsNodeSelected(e.fromNodeId) && state.IsNodeSelected(e.toNodeId)) {
-                        state.clipboardEdges.push_back(e);
+                        state.clipboardEdges.push_back(e.clone());
                     }
                 }
             } else if (ctx.ConsumeShortcut(Key::V, true, false) && !state.clipboardNodes.empty()) {
@@ -4513,7 +4567,7 @@ BpmnEditorResponse BpmnEditor::Run(
                     copy.id = 0;
                     copy.pos.x += 40.0f;
                     copy.pos.y += 40.0f;
-                    const uint32_t newId = diagram.AddNode(std::move(copy));
+                    const uint32_t newId = diagram.AddNode(keel::move(copy));
                     idMap.put(oldId, newId);
                     state.selectedNodes.push_back(newId);
                 }
@@ -4529,24 +4583,24 @@ BpmnEditorResponse BpmnEditor::Run(
                 resp.diagramModified = true;
             } else if (ctx.ConsumeShortcut(Key::D, true, false) && !state.selectedNodes.empty()) {
                 state.PushUndo(diagram);
-                std::vector<uint32_t> newSel;
+                keel::Array<uint32_t> newSel;
                 for (uint32_t nid : state.selectedNodes) {
                     if (const BpmnNode* n = diagram.FindNode(nid)) {
                         BpmnNode copy = *n;
                         copy.id = 0;
                         copy.pos.x += 40.0f;
                         copy.pos.y += 40.0f;
-                        newSel.push_back(diagram.AddNode(std::move(copy)));
+                        newSel.push_back(diagram.AddNode(keel::move(copy)));
                     }
                 }
-                state.selectedNodes = std::move(newSel);
+                state.selectedNodes = keel::move(newSel);
                 state.primaryNodeId = state.selectedNodes.empty() ? 0 : state.selectedNodes.back();
                 resp.changed = true;
                 resp.diagramModified = true;
             } else if (ctx.ConsumeKey(Key::Delete) || ctx.ConsumeKey(Key::Backspace)) {
                 if (!state.selectedNodes.empty()) {
                     state.PushUndo(diagram);
-                    const auto toDel = state.selectedNodes;
+                    const auto toDel = state.selectedNodes.clone();
                     for (uint32_t nid : toDel) diagram.RemoveNode(nid);
                     state.ClearSelection();
                     resp.changed = true;
@@ -4612,7 +4666,7 @@ BpmnEditorResponse BpmnEditor::Run(
         ctx.SetTooltip(opts.tooltip, baseRes.rect);
     }
 
-    state.renderSnapshot = diagram;
+    state.renderSnapshot = diagram.clone();
 
     Node* node = ctx.CreateNode(NodeType::BpmnEditor, id);
     node->theme = pushedTheme;
@@ -4762,26 +4816,24 @@ BpmnEditorResponse BpmnEditor::Run(
 // ============================================================================
 namespace {
 
-std::string EscapeXmlText(std::string_view s) {
-    std::string out;
-    out.reserve(s.size() + 8);
+keel::String EscapeXmlText(keel::StringRef s) {
+    keel::String out = keel::String::with_capacity(s.size() + 8);
     for (char c : s) {
         switch (c) {
-            case '&':  out += "&amp;"; break;
-            case '<':  out += "&lt;"; break;
-            case '>':  out += "&gt;"; break;
-            case '"':  out += "&quot;"; break;
-            case '\'': out += "&apos;"; break;
-            case '\n': out += "&#10;"; break;
+            case '&':  out.append("&amp;"); break;
+            case '<':  out.append("&lt;"); break;
+            case '>':  out.append("&gt;"); break;
+            case '"':  out.append("&quot;"); break;
+            case '\'': out.append("&apos;"); break;
+            case '\n': out.append("&#10;"); break;
             default:   out.push_back(c); break;
         }
     }
     return out;
 }
 
-std::string UnescapeXmlText(std::string_view s) {
-    std::string out;
-    out.reserve(s.size());
+keel::String UnescapeXmlText(keel::StringRef s) {
+    keel::String out = keel::String::with_capacity(s.size());
     for (size_t i = 0; i < s.size(); ++i) {
         if (s[i] == '&') {
             if (s.substr(i, 5) == "&amp;")  { out.push_back('&');  i += 4; continue; }
@@ -4796,57 +4848,64 @@ std::string UnescapeXmlText(std::string_view s) {
     return out;
 }
 
-std::string ExtractXmlAttr(std::string_view tag, std::string_view attrName) {
-    const std::string needle = std::string(attrName) + "=\"";
+keel::String ExtractXmlAttr(keel::StringRef tag, keel::StringRef attrName) {
+    keel::SmallString<64> needle = keel::SmallString<64>::from(attrName);
+    needle.append("=\"");
     const size_t pos = tag.find(needle);
-    if (pos == std::string_view::npos) return {};
+    if (pos == keel::kInvalidIndex) return keel::String{};
     const size_t valStart = pos + needle.size();
     const size_t valEnd = tag.find('"', valStart);
-    if (valEnd == std::string_view::npos) return {};
+    if (valEnd == keel::kInvalidIndex) return keel::String{};
     return UnescapeXmlText(tag.substr(valStart, valEnd - valStart));
 }
 
-float ExtractXmlFloatAttr(std::string_view tag, std::string_view attrName, float fallback = 0.0f) {
-    const std::string s = ExtractXmlAttr(tag, attrName);
+float ExtractXmlFloatAttr(keel::StringRef tag, keel::StringRef attrName, float fallback = 0.0f) {
+    const keel::String s = ExtractXmlAttr(tag, attrName);
     if (s.empty()) return fallback;
-    try {
-        return std::stof(s);
-    } catch (...) {
-        return fallback;
-    }
+    const auto parsed = keel::parse_f32(s.as_ref().trim());
+    return parsed.is_ok() ? parsed.value() : fallback;
 }
 
-uint32_t ParseTrailingIdNumber(std::string_view xmlId) {
+uint32_t ParseTrailingIdNumber(keel::StringRef xmlId) {
     size_t i = xmlId.size();
     while (i > 0 && xmlId[i - 1] >= '0' && xmlId[i - 1] <= '9') --i;
     if (i == xmlId.size()) return 0;
-    try {
-        return static_cast<uint32_t>(std::stoul(std::string(xmlId.substr(i))));
-    } catch (...) {
-        return 0;
-    }
+    const auto parsed = keel::parse_u64(xmlId.substr(i));
+    return parsed.is_ok() ? static_cast<uint32_t>(parsed.value()) : 0;
 }
+
+struct PendingBoundaryAttach {
+    uint32_t nodeId{0};
+    keel::String hostXmlId{};
+};
 
 } // namespace
 
-std::string BpmnEditor::ExportBpmnXml(const BpmnDiagram& diagram) {
-    std::string xml;
-    xml.reserve(8192);
-    xml += "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
-    xml += "<bpmn:definitions xmlns:bpmn=\"http://www.omg.org/spec/BPMN/20100524/MODEL\"\n";
-    xml += "                  xmlns:bpmndi=\"http://www.omg.org/spec/BPMN/20100524/DI\"\n";
-    xml += "                  xmlns:dc=\"http://www.omg.org/spec/DD/20100524/DC\"\n";
-    xml += "                  xmlns:di=\"http://www.omg.org/spec/DD/20100524/DI\"\n";
-    xml += "                  id=\"Definitions_1\" targetNamespace=\"http://bpmn.io/schema/bpmn\">\n";
-    xml += "  <bpmn:process id=\"Process_1\" name=\"" + EscapeXmlText(diagram.name) + "\" isExecutable=\"true\">\n";
+keel::String BpmnEditor::ExportBpmnXml(const BpmnDiagram& diagram) {
+    keel::String xml = keel::String::with_capacity(8192);
+    xml.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+    xml.append("<bpmn:definitions xmlns:bpmn=\"http://www.omg.org/spec/BPMN/20100524/MODEL\"\n");
+    xml.append("                  xmlns:bpmndi=\"http://www.omg.org/spec/BPMN/20100524/DI\"\n");
+    xml.append("                  xmlns:dc=\"http://www.omg.org/spec/DD/20100524/DC\"\n");
+    xml.append("                  xmlns:di=\"http://www.omg.org/spec/DD/20100524/DI\"\n");
+    xml.append("                  id=\"Definitions_1\" targetNamespace=\"http://bpmn.io/schema/bpmn\">\n");
+    const keel::String procNameEsc = EscapeXmlText(diagram.name);
+    keel::format_into(xml, "  <bpmn:process id=\"Process_1\" name=\"{}\" isExecutable=\"true\">\n", procNameEsc);
 
     if (!diagram.lanes.empty()) {
-        xml += "    <bpmn:laneSet id=\"LaneSet_1\">\n";
+        xml.append("    <bpmn:laneSet id=\"LaneSet_1\">\n");
         for (const auto& l : diagram.lanes) {
-            xml += "      <bpmn:lane id=\"Lane_" + std::to_string(l.id) + "\" name=\"" + EscapeXmlText(l.name) + "\""
-                   " poolName=\"" + EscapeXmlText(l.poolName) + "\" />\n";
+            const keel::String laneNameEsc = EscapeXmlText(l.name);
+            const keel::String poolNameEsc = EscapeXmlText(l.poolName);
+            keel::format_into(
+                xml,
+                "      <bpmn:lane id=\"Lane_{}\" name=\"{}\" poolName=\"{}\" />\n",
+                l.id,
+                laneNameEsc,
+                poolNameEsc
+            );
         }
-        xml += "    </bpmn:laneSet>\n";
+        xml.append("    </bpmn:laneSet>\n");
     }
 
     for (const auto& n : diagram.nodes) {
@@ -4882,10 +4941,15 @@ std::string BpmnEditor::ExportBpmnXml(const BpmnDiagram& diagram) {
             case BpmnNodeType::DataStore:         tag = "bpmn:dataStoreReference"; break;
             case BpmnNodeType::TextAnnotation:    tag = "bpmn:textAnnotation"; break;
         }
-        xml += "    <" + std::string(tag) + " id=\"FlowNode_" + std::to_string(n.id) + "\" name=\"" + EscapeXmlText(n.label) + "\"";
+        const keel::String labelEsc = EscapeXmlText(n.label);
+        keel::format_into(xml, "    <{} id=\"FlowNode_{}\" name=\"{}\"", tag, n.id, labelEsc);
         if (n.type == BpmnNodeType::BoundaryEvent && n.attachedToNodeId != 0) {
-            xml += " attachedToRef=\"FlowNode_" + std::to_string(n.attachedToNodeId) + "\"";
-            xml += std::string(" cancelActivity=\"") + (n.nonInterrupting ? "false" : "true") + "\"";
+            keel::format_into(
+                xml,
+                " attachedToRef=\"FlowNode_{}\" cancelActivity=\"{}\"",
+                n.attachedToNodeId,
+                n.nonInterrupting ? "false" : "true"
+            );
         }
         if (n.eventDef != BpmnEventDefinition::None &&
             (n.type == BpmnNodeType::StartEvent || n.type == BpmnNodeType::IntermediateEvent ||
@@ -4900,9 +4964,9 @@ std::string BpmnEditor::ExportBpmnXml(const BpmnDiagram& diagram) {
                 case BpmnEventDefinition::Terminate:  evTag = "bpmn:terminateEventDefinition"; break;
                 case BpmnEventDefinition::None:       break;
             }
-            xml += ">\n      <" + std::string(evTag) + " />\n    </" + std::string(tag) + ">\n";
+            keel::format_into(xml, ">\n      <{} />\n    </{}>\n", evTag, tag);
         } else {
-            xml += " />\n";
+            xml.append(" />\n");
         }
     }
 
@@ -4910,46 +4974,67 @@ std::string BpmnEditor::ExportBpmnXml(const BpmnDiagram& diagram) {
         const char* ftag = "bpmn:sequenceFlow";
         if (e.flowType == BpmnFlowType::MessageFlow) ftag = "bpmn:messageFlow";
         else if (e.flowType == BpmnFlowType::Association) ftag = "bpmn:association";
-        xml += "    <" + std::string(ftag) + " id=\"Flow_" + std::to_string(e.id) +
-               "\" sourceRef=\"FlowNode_" + std::to_string(e.fromNodeId) +
-               "\" targetRef=\"FlowNode_" + std::to_string(e.toNodeId) + "\"";
-        if (e.flowType == BpmnFlowType::DefaultFlow) xml += " isDefault=\"true\"";
-        else if (e.flowType == BpmnFlowType::ConditionalFlow) xml += " isConditional=\"true\"";
-        if (!e.label.empty()) xml += " name=\"" + EscapeXmlText(e.label) + "\"";
-        xml += " />\n";
+        keel::format_into(
+            xml,
+            "    <{} id=\"Flow_{}\" sourceRef=\"FlowNode_{}\" targetRef=\"FlowNode_{}\"",
+            ftag,
+            e.id,
+            e.fromNodeId,
+            e.toNodeId
+        );
+        if (e.flowType == BpmnFlowType::DefaultFlow) xml.append(" isDefault=\"true\"");
+        else if (e.flowType == BpmnFlowType::ConditionalFlow) xml.append(" isConditional=\"true\"");
+        if (!e.label.empty()) {
+            const keel::String edgeLabelEsc = EscapeXmlText(e.label);
+            keel::format_into(xml, " name=\"{}\"", edgeLabelEsc);
+        }
+        xml.append(" />\n");
     }
 
-    xml += "  </bpmn:process>\n";
-    xml += "  <bpmndi:BPMNDiagram id=\"BPMNDiagram_1\">\n";
-    xml += "    <bpmndi:BPMNPlane id=\"BPMNPlane_1\" bpmnElement=\"Process_1\">\n";
+    xml.append("  </bpmn:process>\n");
+    xml.append("  <bpmndi:BPMNDiagram id=\"BPMNDiagram_1\">\n");
+    xml.append("    <bpmndi:BPMNPlane id=\"BPMNPlane_1\" bpmnElement=\"Process_1\">\n");
 
     for (const auto& l : diagram.lanes) {
-        xml += "      <bpmndi:BPMNShape id=\"Lane_" + std::to_string(l.id) + "_di\" bpmnElement=\"Lane_" + std::to_string(l.id) + "\" isHorizontal=\"true\">\n";
-        xml += "        <dc:Bounds x=\"" + std::to_string(static_cast<int>(l.rect.x)) +
-               "\" y=\"" + std::to_string(static_cast<int>(l.rect.y)) +
-               "\" width=\"" + std::to_string(static_cast<int>(l.rect.w)) +
-               "\" height=\"" + std::to_string(static_cast<int>(l.rect.h)) + "\" />\n";
-        xml += "      </bpmndi:BPMNShape>\n";
+        keel::format_into(
+            xml,
+            "      <bpmndi:BPMNShape id=\"Lane_{}_di\" bpmnElement=\"Lane_{}\" isHorizontal=\"true\">\n"
+            "        <dc:Bounds x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" />\n"
+            "      </bpmndi:BPMNShape>\n",
+            l.id,
+            l.id,
+            static_cast<int>(l.rect.x),
+            static_cast<int>(l.rect.y),
+            static_cast<int>(l.rect.w),
+            static_cast<int>(l.rect.h)
+        );
     }
 
     for (const auto& n : diagram.nodes) {
-        xml += "      <bpmndi:BPMNShape id=\"FlowNode_" + std::to_string(n.id) + "_di\" bpmnElement=\"FlowNode_" + std::to_string(n.id) + "\"";
+        keel::format_into(xml, "      <bpmndi:BPMNShape id=\"FlowNode_{}_di\" bpmnElement=\"FlowNode_{}\"", n.id, n.id);
         if (n.type == BpmnNodeType::SubProcess) {
-            xml += std::string(" isExpanded=\"") + (n.isExpanded ? "true" : "false") + "\"";
+            keel::format_into(xml, " isExpanded=\"{}\"", n.isExpanded ? "true" : "false");
         }
-        xml += ">\n";
-        xml += "        <dc:Bounds x=\"" + std::to_string(static_cast<int>(n.pos.x)) +
-               "\" y=\"" + std::to_string(static_cast<int>(n.pos.y)) +
-               "\" width=\"" + std::to_string(static_cast<int>(n.size.x)) +
-               "\" height=\"" + std::to_string(static_cast<int>(n.size.y)) + "\" />\n";
+        xml.append(">\n");
+        keel::format_into(
+            xml,
+            "        <dc:Bounds x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" />\n",
+            static_cast<int>(n.pos.x),
+            static_cast<int>(n.pos.y),
+            static_cast<int>(n.size.x),
+            static_cast<int>(n.size.y)
+        );
         if (std::abs(n.labelOffset.x) > 0.5f || std::abs(n.labelOffset.y) > 0.5f) {
-            xml += "        <bpmndi:BPMNLabel>\n";
-            xml += "          <dc:Bounds x=\"" + std::to_string(static_cast<int>(n.pos.x + n.labelOffset.x)) +
-                   "\" y=\"" + std::to_string(static_cast<int>(n.pos.y + n.labelOffset.y)) +
-                   "\" width=\"90\" height=\"20\" />\n";
-            xml += "        </bpmndi:BPMNLabel>\n";
+            keel::format_into(
+                xml,
+                "        <bpmndi:BPMNLabel>\n"
+                "          <dc:Bounds x=\"{}\" y=\"{}\" width=\"90\" height=\"20\" />\n"
+                "        </bpmndi:BPMNLabel>\n",
+                static_cast<int>(n.pos.x + n.labelOffset.x),
+                static_cast<int>(n.pos.y + n.labelOffset.y)
+            );
         }
-        xml += "      </bpmndi:BPMNShape>\n";
+        xml.append("      </bpmndi:BPMNShape>\n");
     }
 
     for (const auto& e : diagram.edges) {
@@ -4957,29 +5042,36 @@ std::string BpmnEditor::ExportBpmnXml(const BpmnDiagram& diagram) {
         const BpmnNode* tn = diagram.FindNode(e.toNodeId);
         if (!fn || !tn) continue;
         const auto wpts = BuildEdgeWorldPoints(diagram, *fn, *tn, e, BpmnRoutingMode::Orthogonal);
-        xml += "      <bpmndi:BPMNEdge id=\"Flow_" + std::to_string(e.id) + "_di\" bpmnElement=\"Flow_" + std::to_string(e.id) + "\">\n";
+        keel::format_into(xml, "      <bpmndi:BPMNEdge id=\"Flow_{}_di\" bpmnElement=\"Flow_{}\">\n", e.id, e.id);
         for (const auto& pt : wpts) {
-            xml += "        <di:waypoint x=\"" + std::to_string(static_cast<int>(pt.x)) +
-                   "\" y=\"" + std::to_string(static_cast<int>(pt.y)) + "\" />\n";
+            keel::format_into(
+                xml,
+                "        <di:waypoint x=\"{}\" y=\"{}\" />\n",
+                static_cast<int>(pt.x),
+                static_cast<int>(pt.y)
+            );
         }
         if (std::abs(e.labelOffset.x) > 0.5f || std::abs(e.labelOffset.y) > 0.5f) {
-            xml += "        <bpmndi:BPMNLabel>\n";
-            xml += "          <dc:Bounds x=\"" + std::to_string(static_cast<int>(e.labelOffset.x)) +
-                   "\" y=\"" + std::to_string(static_cast<int>(e.labelOffset.y)) +
-                   "\" width=\"80\" height=\"20\" />\n";
-            xml += "        </bpmndi:BPMNLabel>\n";
+            keel::format_into(
+                xml,
+                "        <bpmndi:BPMNLabel>\n"
+                "          <dc:Bounds x=\"{}\" y=\"{}\" width=\"80\" height=\"20\" />\n"
+                "        </bpmndi:BPMNLabel>\n",
+                static_cast<int>(e.labelOffset.x),
+                static_cast<int>(e.labelOffset.y)
+            );
         }
-        xml += "      </bpmndi:BPMNEdge>\n";
+        xml.append("      </bpmndi:BPMNEdge>\n");
     }
 
-    xml += "    </bpmndi:BPMNPlane>\n";
-    xml += "  </bpmndi:BPMNDiagram>\n";
-    xml += "</bpmn:definitions>\n";
+    xml.append("    </bpmndi:BPMNPlane>\n");
+    xml.append("  </bpmndi:BPMNDiagram>\n");
+    xml.append("</bpmn:definitions>\n");
     return xml;
 }
 
-bool BpmnEditor::ImportBpmnXml(std::string_view xml, BpmnDiagram& outDiagram) {
-    if (xml.find("<bpmn:") == std::string_view::npos && xml.find("<definitions") == std::string_view::npos) {
+bool BpmnEditor::ImportBpmnXml(keel::StringRef xml, BpmnDiagram& outDiagram) {
+    if (xml.find("<bpmn:") == keel::kInvalidIndex && xml.find("<definitions") == keel::kInvalidIndex) {
         return false;
     }
 
@@ -4990,20 +5082,16 @@ bool BpmnEditor::ImportBpmnXml(std::string_view xml, BpmnDiagram& outDiagram) {
     keel::HashMap<keel::String, uint32_t> nodeIdMap;
     keel::HashMap<keel::String, uint32_t> laneIdMap;
     keel::HashMap<keel::String, uint32_t> edgeIdMap;
-    std::vector<std::pair<uint32_t, std::string>> pendingBoundaryAttach;
-
-    auto toRef = [](std::string_view sv) noexcept {
-        return keel::StringRef(sv);
-    };
+    keel::Array<PendingBoundaryAttach> pendingBoundaryAttach;
 
     size_t pos = 0;
     while (pos < xml.size()) {
         const size_t lt = xml.find('<', pos);
-        if (lt == std::string_view::npos) break;
+        if (lt == keel::kInvalidIndex) break;
         const size_t gt = xml.find('>', lt + 1);
-        if (gt == std::string_view::npos) break;
+        if (gt == keel::kInvalidIndex) break;
 
-        const std::string_view tagContent = xml.substr(lt + 1, gt - lt - 1);
+        const keel::StringRef tagContent = xml.substr(lt + 1, gt - lt - 1);
         pos = gt + 1;
         if (tagContent.empty() || tagContent[0] == '?' || tagContent[0] == '!' || tagContent[0] == '/') continue;
 
@@ -5012,27 +5100,26 @@ bool BpmnEditor::ImportBpmnXml(std::string_view xml, BpmnDiagram& outDiagram) {
                tagContent[nameEnd] != '\r' && tagContent[nameEnd] != '\n' && tagContent[nameEnd] != '/') {
             ++nameEnd;
         }
-        std::string_view tagName = tagContent.substr(0, nameEnd);
+        const keel::StringRef tagName = tagContent.substr(0, nameEnd);
         const size_t colon = tagName.find(':');
-        const std::string_view localName = (colon != std::string_view::npos) ? tagName.substr(colon + 1) : tagName;
+        const keel::StringRef localName = (colon != keel::kInvalidIndex) ? tagName.substr(colon + 1) : tagName;
 
         if (localName == "process") {
-            const std::string procName = ExtractXmlAttr(tagContent, "name");
+            const keel::String procName = ExtractXmlAttr(tagContent, "name");
             if (!procName.empty()) parsed.name = procName;
         } else if (localName == "lane") {
-            const std::string xmlId = ExtractXmlAttr(tagContent, "id");
-            const std::string name = ExtractXmlAttr(tagContent, "name");
-            std::string poolName = ExtractXmlAttr(tagContent, "poolName");
-            if (poolName.empty()) poolName = parsed.name;
+            keel::String xmlId = ExtractXmlAttr(tagContent, "id");
+            const keel::String name = ExtractXmlAttr(tagContent, "name");
+            const keel::String poolNameAttr = ExtractXmlAttr(tagContent, "poolName");
             BpmnLane l{};
             l.id = ParseTrailingIdNumber(xmlId);
             if (l.id == 0) l.id = parsed.nextId++;
-            else parsed.nextId = std::max(parsed.nextId, l.id + 1);
-            l.name = name.empty() ? "Lane" : name;
-            l.poolName = poolName;
+            else parsed.nextId = keel::max(parsed.nextId, l.id + 1);
+            l.name = name.empty() ? keel::StringRef("Lane") : name.as_ref();
+            l.poolName = poolNameAttr.empty() ? parsed.name.as_ref() : poolNameAttr.as_ref();
             l.rect = Rect(80.0f, 80.0f + static_cast<float>(parsed.lanes.size()) * 190.0f, 1280.0f, 190.0f);
-            laneIdMap.put(keel::String::from(toRef(xmlId)), l.id);
-            parsed.lanes.push_back(std::move(l));
+            laneIdMap.put(keel::move(xmlId), l.id);
+            parsed.lanes.push_back(keel::move(l));
         } else if (localName == "startEvent" || localName == "intermediateCatchEvent" || localName == "intermediateThrowEvent" ||
                    localName == "boundaryEvent" || localName == "endEvent" ||
                    localName == "task" || localName == "userTask" || localName == "serviceTask" ||
@@ -5042,22 +5129,25 @@ bool BpmnEditor::ImportBpmnXml(std::string_view xml, BpmnDiagram& outDiagram) {
                    localName == "exclusiveGateway" || localName == "parallelGateway" ||
                    localName == "inclusiveGateway" || localName == "eventBasedGateway" ||
                    localName == "dataObjectReference" || localName == "dataStoreReference" || localName == "textAnnotation") {
-            const std::string xmlId = ExtractXmlAttr(tagContent, "id");
+            keel::String xmlId = ExtractXmlAttr(tagContent, "id");
             if (xmlId.empty()) continue;
 
             BpmnNode n{};
             n.id = ParseTrailingIdNumber(xmlId);
             if (n.id == 0) n.id = parsed.nextId++;
-            else parsed.nextId = std::max(parsed.nextId, n.id + 1);
-            n.label = ExtractXmlAttr(tagContent, "name");
+            else parsed.nextId = keel::max(parsed.nextId, n.id + 1);
+            const keel::String nodeLabel = ExtractXmlAttr(tagContent, "name");
+            n.label = nodeLabel;
 
             if (localName == "startEvent") n.type = BpmnNodeType::StartEvent;
             else if (localName == "intermediateCatchEvent" || localName == "intermediateThrowEvent") n.type = BpmnNodeType::IntermediateEvent;
             else if (localName == "boundaryEvent") {
                 n.type = BpmnNodeType::BoundaryEvent;
                 n.nonInterrupting = (ExtractXmlAttr(tagContent, "cancelActivity") == "false");
-                const std::string attachedRef = ExtractXmlAttr(tagContent, "attachedToRef");
-                if (!attachedRef.empty()) pendingBoundaryAttach.emplace_back(n.id, attachedRef);
+                keel::String attachedRef = ExtractXmlAttr(tagContent, "attachedToRef");
+                if (!attachedRef.empty()) {
+                    pendingBoundaryAttach.push_back(PendingBoundaryAttach{n.id, keel::move(attachedRef)});
+                }
             } else if (localName == "endEvent") n.type = BpmnNodeType::EndEvent;
             else if (localName == "subProcess") n.type = BpmnNodeType::SubProcess;
             else if (localName == "exclusiveGateway") { n.type = BpmnNodeType::Gateway; n.gatewayType = BpmnGatewayType::Exclusive; }
@@ -5082,68 +5172,71 @@ bool BpmnEditor::ImportBpmnXml(std::string_view xml, BpmnDiagram& outDiagram) {
             n.pos = {140.0f + static_cast<float>(parsed.nodes.size()) * 160.0f, 180.0f};
 
             if (tagContent.back() != '/') {
-                const std::string closeNeedle = "</" + std::string(tagName) + ">";
+                keel::SmallString<64> closeNeedle = keel::SmallString<64>::from("</");
+                closeNeedle.append(tagName);
+                closeNeedle.push_back('>');
                 const size_t closePos = xml.find(closeNeedle, pos);
-                if (closePos != std::string_view::npos) {
-                    const std::string_view body = xml.substr(pos, closePos - pos);
-                    if (body.find("messageEventDefinition") != std::string_view::npos)        n.eventDef = BpmnEventDefinition::Message;
-                    else if (body.find("timerEventDefinition") != std::string_view::npos)     n.eventDef = BpmnEventDefinition::Timer;
-                    else if (body.find("errorEventDefinition") != std::string_view::npos)     n.eventDef = BpmnEventDefinition::Error;
-                    else if (body.find("signalEventDefinition") != std::string_view::npos)    n.eventDef = BpmnEventDefinition::Signal;
-                    else if (body.find("escalationEventDefinition") != std::string_view::npos) n.eventDef = BpmnEventDefinition::Escalation;
-                    else if (body.find("terminateEventDefinition") != std::string_view::npos)  n.eventDef = BpmnEventDefinition::Terminate;
+                if (closePos != keel::kInvalidIndex) {
+                    const keel::StringRef body = xml.substr(pos, closePos - pos);
+                    if (body.find("messageEventDefinition") != keel::kInvalidIndex)        n.eventDef = BpmnEventDefinition::Message;
+                    else if (body.find("timerEventDefinition") != keel::kInvalidIndex)     n.eventDef = BpmnEventDefinition::Timer;
+                    else if (body.find("errorEventDefinition") != keel::kInvalidIndex)     n.eventDef = BpmnEventDefinition::Error;
+                    else if (body.find("signalEventDefinition") != keel::kInvalidIndex)    n.eventDef = BpmnEventDefinition::Signal;
+                    else if (body.find("escalationEventDefinition") != keel::kInvalidIndex) n.eventDef = BpmnEventDefinition::Escalation;
+                    else if (body.find("terminateEventDefinition") != keel::kInvalidIndex)  n.eventDef = BpmnEventDefinition::Terminate;
                     pos = closePos + closeNeedle.size();
                 }
             }
 
-            nodeIdMap.put(keel::String::from(toRef(xmlId)), n.id);
-            parsed.nodes.push_back(std::move(n));
+            nodeIdMap.put(keel::move(xmlId), n.id);
+            parsed.nodes.push_back(keel::move(n));
         } else if (localName == "sequenceFlow" || localName == "messageFlow" || localName == "association") {
-            const std::string xmlId = ExtractXmlAttr(tagContent, "id");
-            const std::string srcRef = ExtractXmlAttr(tagContent, "sourceRef");
-            const std::string dstRef = ExtractXmlAttr(tagContent, "targetRef");
-            const uint32_t* srcIdPtr = nodeIdMap.get(toRef(srcRef));
-            const uint32_t* dstIdPtr = nodeIdMap.get(toRef(dstRef));
+            keel::String xmlId = ExtractXmlAttr(tagContent, "id");
+            const keel::String srcRef = ExtractXmlAttr(tagContent, "sourceRef");
+            const keel::String dstRef = ExtractXmlAttr(tagContent, "targetRef");
+            const uint32_t* srcIdPtr = nodeIdMap.get(srcRef.as_ref());
+            const uint32_t* dstIdPtr = nodeIdMap.get(dstRef.as_ref());
             if (!srcIdPtr || !dstIdPtr) continue;
 
             BpmnEdge e{};
             e.id = ParseTrailingIdNumber(xmlId);
             if (e.id == 0) e.id = parsed.nextId++;
-            else parsed.nextId = std::max(parsed.nextId, e.id + 1);
+            else parsed.nextId = keel::max(parsed.nextId, e.id + 1);
             e.fromNodeId = *srcIdPtr;
             e.toNodeId = *dstIdPtr;
-            e.label = ExtractXmlAttr(tagContent, "name");
+            const keel::String edgeLabel = ExtractXmlAttr(tagContent, "name");
+            e.label = edgeLabel;
             if (localName == "messageFlow") e.flowType = BpmnFlowType::MessageFlow;
             else if (localName == "association") e.flowType = BpmnFlowType::Association;
             else if (ExtractXmlAttr(tagContent, "isDefault") == "true") e.flowType = BpmnFlowType::DefaultFlow;
             else if (ExtractXmlAttr(tagContent, "isConditional") == "true") e.flowType = BpmnFlowType::ConditionalFlow;
             else e.flowType = BpmnFlowType::SequenceFlow;
 
-            if (!xmlId.empty()) edgeIdMap.put(keel::String::from(toRef(xmlId)), e.id);
-            parsed.edges.push_back(std::move(e));
+            if (!xmlId.empty()) edgeIdMap.put(keel::move(xmlId), e.id);
+            parsed.edges.push_back(keel::move(e));
         } else if (localName == "BPMNShape") {
-            const std::string elemRef = ExtractXmlAttr(tagContent, "bpmnElement");
-            const std::string expandedStr = ExtractXmlAttr(tagContent, "isExpanded");
+            const keel::String elemRef = ExtractXmlAttr(tagContent, "bpmnElement");
+            const keel::String expandedStr = ExtractXmlAttr(tagContent, "isExpanded");
             const size_t shapeEnd = xml.find("</bpmndi:BPMNShape>", pos);
-            const size_t altEnd = (shapeEnd == std::string_view::npos) ? xml.find("</BPMNShape>", pos) : shapeEnd;
-            if (altEnd != std::string_view::npos) {
-                const std::string_view shapeBody = xml.substr(pos, altEnd - pos);
+            const size_t altEnd = (shapeEnd == keel::kInvalidIndex) ? xml.find("</BPMNShape>", pos) : shapeEnd;
+            if (altEnd != keel::kInvalidIndex) {
+                const keel::StringRef shapeBody = xml.substr(pos, altEnd - pos);
                 const size_t bPos = shapeBody.find("Bounds");
-                if (bPos != std::string_view::npos) {
+                if (bPos != keel::kInvalidIndex) {
                     const size_t bEnd = shapeBody.find('>', bPos);
-                    if (bEnd != std::string_view::npos) {
-                        const std::string_view bTag = shapeBody.substr(bPos, bEnd - bPos);
+                    if (bEnd != keel::kInvalidIndex) {
+                        const keel::StringRef bTag = shapeBody.substr(bPos, bEnd - bPos);
                         const float x = ExtractXmlFloatAttr(bTag, "x", 0.0f);
                         const float y = ExtractXmlFloatAttr(bTag, "y", 0.0f);
                         const float w = ExtractXmlFloatAttr(bTag, "width", 100.0f);
                         const float h = ExtractXmlFloatAttr(bTag, "height", 80.0f);
-                        if (const uint32_t* nidPtr = nodeIdMap.get(toRef(elemRef))) {
+                        if (const uint32_t* nidPtr = nodeIdMap.get(elemRef.as_ref())) {
                             if (BpmnNode* n = parsed.FindNode(*nidPtr)) {
                                 n->pos = {x, y};
                                 n->size = {w, h};
                                 if (!expandedStr.empty()) n->isExpanded = (expandedStr == "true");
                             }
-                        } else if (const uint32_t* lidPtr = laneIdMap.get(toRef(elemRef))) {
+                        } else if (const uint32_t* lidPtr = laneIdMap.get(elemRef.as_ref())) {
                             if (BpmnLane* l = parsed.FindLane(*lidPtr)) {
                                 l->rect = Rect(x, y, w, h);
                             }
@@ -5153,26 +5246,26 @@ bool BpmnEditor::ImportBpmnXml(std::string_view xml, BpmnDiagram& outDiagram) {
                 pos = altEnd;
             }
         } else if (localName == "BPMNEdge") {
-            const std::string elemRef = ExtractXmlAttr(tagContent, "bpmnElement");
+            const keel::String elemRef = ExtractXmlAttr(tagContent, "bpmnElement");
             const size_t edgeEnd = xml.find("</bpmndi:BPMNEdge>", pos);
-            const size_t altEnd = (edgeEnd == std::string_view::npos) ? xml.find("</BPMNEdge>", pos) : edgeEnd;
-            const uint32_t* eidPtr = edgeIdMap.get(toRef(elemRef));
-            if (altEnd != std::string_view::npos && eidPtr) {
-                const std::string_view edgeBody = xml.substr(pos, altEnd - pos);
-                std::vector<Vec2> allPts;
+            const size_t altEnd = (edgeEnd == keel::kInvalidIndex) ? xml.find("</BPMNEdge>", pos) : edgeEnd;
+            const uint32_t* eidPtr = edgeIdMap.get(elemRef.as_ref());
+            if (altEnd != keel::kInvalidIndex && eidPtr) {
+                const keel::StringRef edgeBody = xml.substr(pos, altEnd - pos);
+                keel::SmallArray<Vec2, 16> allPts;
                 size_t wpScan = 0;
                 while (wpScan < edgeBody.size()) {
                     const size_t wPos = edgeBody.find("waypoint", wpScan);
-                    if (wPos == std::string_view::npos) break;
+                    if (wPos == keel::kInvalidIndex) break;
                     const size_t wEnd = edgeBody.find('>', wPos);
-                    if (wEnd == std::string_view::npos) break;
-                    const std::string_view wTag = edgeBody.substr(wPos, wEnd - wPos);
+                    if (wEnd == keel::kInvalidIndex) break;
+                    const keel::StringRef wTag = edgeBody.substr(wPos, wEnd - wPos);
                     allPts.push_back(Vec2{ExtractXmlFloatAttr(wTag, "x", 0.0f), ExtractXmlFloatAttr(wTag, "y", 0.0f)});
                     wpScan = wEnd + 1;
                 }
                 if (allPts.size() > 2) {
                     if (BpmnEdge* e = parsed.FindEdge(*eidPtr)) {
-                        e->waypoints.assign(allPts.begin() + 1, allPts.end() - 1);
+                        e->waypoints.assign(allPts.slice(1, allPts.size() - 2));
                     }
                 }
                 pos = altEnd;
@@ -5181,12 +5274,12 @@ bool BpmnEditor::ImportBpmnXml(std::string_view xml, BpmnDiagram& outDiagram) {
     }
 
     for (const auto& [bid, hostXmlId] : pendingBoundaryAttach) {
-        if (const uint32_t* hostIdPtr = nodeIdMap.get(toRef(hostXmlId))) {
+        if (const uint32_t* hostIdPtr = nodeIdMap.get(hostXmlId.as_ref())) {
             BpmnNode* bn = parsed.FindNode(bid);
             const BpmnNode* host = parsed.FindNode(*hostIdPtr);
             if (bn && host) {
                 bn->attachedToNodeId = host->id;
-                bn->boundaryRatioX = std::clamp((bn->Center().x - host->pos.x) / std::max(1.0f, host->size.x), 0.15f, 0.85f);
+                bn->boundaryRatioX = keel::clamp((bn->Center().x - host->pos.x) / keel::max(1.0f, host->size.x), 0.15f, 0.85f);
             }
         }
     }
@@ -5205,9 +5298,8 @@ bool BpmnEditor::ImportBpmnXml(std::string_view xml, BpmnDiagram& outDiagram) {
         return false;
     }
 
-    outDiagram = std::move(parsed);
+    outDiagram = keel::move(parsed);
     return true;
 }
 
 } // namespace guikit
-

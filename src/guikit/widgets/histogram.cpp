@@ -1,12 +1,14 @@
 #include "guikit/widgets/histogram.hpp"
-#include <algorithm>
-#include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdio>
-#include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 #include "guikit/core/node.hpp"
+#include "keel/core.h"
+#include "keel/static_array.h"
+#include "keel/string.h"
 
 namespace guikit {
 
@@ -35,7 +37,7 @@ struct HistogramGeometry {
     Rect headerRect{};
     Rect plotRect{};
     Rect colorbarRect{};
-    std::array<Rect, 4> pillRects{};
+    keel::StaticArray<Rect, 4> pillRects{};
     bool hasHeader{false};
     bool hasPills{false};
     bool hasColorbar{false};
@@ -59,14 +61,14 @@ struct HistogramGeometry {
     const float colorbarGap = g.hasColorbar ? (4.0f * scale) : 0.0f;
 
     if (g.hasHeader) {
-        g.headerRect = Rect(box.x + pad, box.y + 4.0f * scale, std::max(0.0f, box.w - pad * 2.0f), headerH);
+        g.headerRect = Rect(box.x + pad, box.y + 4.0f * scale, keel::max(0.0f, box.w - pad * 2.0f), headerH);
         if (g.hasPills) {
             const float pillW = 28.0f * scale;
             const float pillGap = 3.0f * scale;
             const float totalPillsW = pillW * 4.0f + pillGap * 3.0f;
             float px = g.headerRect.Right() - totalPillsW;
             const float py = g.headerRect.y + 1.0f * scale;
-            const float ph = std::max(12.0f, g.headerRect.h - 2.0f * scale);
+            const float ph = keel::max(12.0f, g.headerRect.h - 2.0f * scale);
             for (size_t i = 0; i < 4; ++i) {
                 g.pillRects[i] = Rect(px, py, pillW, ph);
                 px += pillW + pillGap;
@@ -79,8 +81,8 @@ struct HistogramGeometry {
     g.plotRect = Rect(
         box.x + pad,
         plotTop,
-        std::max(16.0f, box.w - pad * 2.0f),
-        std::max(16.0f, plotBottom - plotTop)
+        keel::max(16.0f, box.w - pad * 2.0f),
+        keel::max(16.0f, plotBottom - plotTop)
     );
 
     if (g.hasColorbar) {
@@ -109,7 +111,7 @@ struct HistogramGeometry {
     return 0.0f;
 }
 
-[[nodiscard]] uint32_t MaxBinOf(std::span<const uint32_t> bins) noexcept {
+[[nodiscard]] uint32_t MaxBinOf(keel::ArrayRef<uint32_t> bins) noexcept {
     uint32_t m = 1;
     for (uint32_t v : bins) {
         if (v > m) m = v;
@@ -144,7 +146,7 @@ void FormatHistValue(char* buf, size_t bufSize, float v, float span) noexcept {
 void DrawChannelDistribution(
     ICanvas& c,
     const Rect& plotRect,
-    std::span<const uint32_t> bins,
+    keel::ArrayRef<uint32_t> bins,
     uint32_t maxCount,
     HistogramScaleMode scaleMode,
     Color fillCol,
@@ -155,17 +157,17 @@ void DrawChannelDistribution(
     }
     const size_t n = bins.size();
     const float barW = plotRect.w / static_cast<float>(n);
-    const float usableH = std::max(2.0f, plotRect.h - 3.0f);
+    const float usableH = keel::max(2.0f, plotRect.h - 3.0f);
 
     Vec2 prevTop{};
     bool hasPrev = false;
     for (size_t i = 0; i < n; ++i) {
-        const float normH = std::clamp(ScaleBinValue(bins[i], maxCount, scaleMode), 0.0f, 1.0f);
+        const float normH = keel::clamp(ScaleBinValue(bins[i], maxCount, scaleMode), 0.0f, 1.0f);
         const float bh = normH * usableH;
         const float bx = plotRect.x + static_cast<float>(i) * barW;
         const float by = plotRect.Bottom() - bh;
         if (bh >= 0.5f && fillCol.a > 0) {
-            c.DrawRect(Rect(bx, by, std::max(1.0f, barW + 0.35f), bh), fillCol);
+            c.DrawRect(Rect(bx, by, keel::max(1.0f, barW + 0.35f), bh), fillCol);
         }
         const Vec2 curTop{bx + barW * 0.5f, by};
         if (hasPrev && strokeCol.a > 0) {
@@ -185,9 +187,9 @@ void DrawTransferCurveLine(
     Color curveColor,
     float strokeWidth
 ) noexcept {
-    const float domainSpan = std::max(1e-5f, maxVal - minVal);
-    const float xlo = plotRect.x + std::clamp((tp.Low() - minVal) / domainSpan, 0.0f, 1.0f) * plotRect.w;
-    const float xhi = plotRect.x + std::clamp((tp.High() - minVal) / domainSpan, 0.0f, 1.0f) * plotRect.w;
+    const float domainSpan = keel::max(1e-5f, maxVal - minVal);
+    const float xlo = plotRect.x + keel::clamp((tp.Low() - minVal) / domainSpan, 0.0f, 1.0f) * plotRect.w;
+    const float xhi = plotRect.x + keel::clamp((tp.High() - minVal) / domainSpan, 0.0f, 1.0f) * plotRect.w;
 
     constexpr int kSegments = 24;
     Vec2 prevPt{};
@@ -195,7 +197,7 @@ void DrawTransferCurveLine(
         const float u = static_cast<float>(i) / static_cast<float>(kSegments);
         const float val = tp.Low() + u * tp.window;
         const float outY = tp.Evaluate(val);
-        const float sx = std::clamp(xlo + u * (xhi - xlo), plotRect.x, plotRect.Right());
+        const float sx = keel::clamp(xlo + u * (xhi - xlo), plotRect.x, plotRect.Right());
         const float sy = plotRect.Bottom() - outY * plotRect.h;
         const Vec2 pt{sx, sy};
         if (i > 0) {
@@ -230,7 +232,7 @@ Vec2 Histogram::Measure(
         const float ratio = Control::ResolveFillRatio(opts.stretch, opts.width, opts.widthRatio).value_or(1.0f);
         w = availableWidth * ratio;
     }
-    const float h = std::max(theme.Scale(opts.minHeight), theme.Scale(opts.height));
+    const float h = keel::max(theme.Scale(opts.minHeight), theme.Scale(opts.height));
     return {w, h};
 }
 
@@ -239,7 +241,7 @@ HistogramResponse Histogram::Run(
     const HistogramData& data,
     ChannelTransferParams& transfer,
     const HistogramOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
     struct ThemePopGuard {
@@ -268,7 +270,7 @@ HistogramResponse Histogram::Run(
     const HistogramGeometry geom = ComputeHistogramGeometry(ctrlRect, data, optsCopy, scale);
 
     const float minVal = data.minValue;
-    const float maxVal = std::max(minVal + 1e-4f, data.maxValue);
+    const float maxVal = keel::max(minVal + 1e-4f, data.maxValue);
     const float domainSpan = maxVal - minVal;
 
     const Vec2 mouse = ctx.GetMousePos();
@@ -294,8 +296,8 @@ HistogramResponse Histogram::Run(
 
     // 2. Interactive W/L handle & band dragging on plotRect
     if (!effectiveDisabled && optsCopy.interactive && !clickedPill && geom.plotRect.w > 8.0f) {
-        const float xlo = geom.plotRect.x + std::clamp((transfer.Low() - minVal) / domainSpan, 0.0f, 1.0f) * geom.plotRect.w;
-        const float xhi = geom.plotRect.x + std::clamp((transfer.High() - minVal) / domainSpan, 0.0f, 1.0f) * geom.plotRect.w;
+        const float xlo = geom.plotRect.x + keel::clamp((transfer.Low() - minVal) / domainSpan, 0.0f, 1.0f) * geom.plotRect.w;
+        const float xhi = geom.plotRect.x + keel::clamp((transfer.High() - minVal) / domainSpan, 0.0f, 1.0f) * geom.plotRect.w;
         const float grabRadius = 7.0f * scale;
 
         const Rect expandedPlot(
@@ -341,20 +343,20 @@ HistogramResponse Histogram::Run(
             if (ctx.IsMouseDown()) {
                 ctx.SetActiveId(id);
                 const float fineFactor = mods.shift ? 0.2f : 1.0f;
-                const float dxNorm = ((mouse.x - st.grabMouseX) / std::max(1.0f, geom.plotRect.w)) * fineFactor;
+                const float dxNorm = ((mouse.x - st.grabMouseX) / keel::max(1.0f, geom.plotRect.w)) * fineFactor;
                 const float dVal = dxNorm * domainSpan;
-                const float minWin = std::max(1e-4f, domainSpan * 0.002f);
+                const float minWin = keel::max(1e-4f, domainSpan * 0.002f);
 
                 if (st.dragMode == HistDragMode::DragLow) {
-                    const float newLo = std::clamp(st.grabLow + dVal, minVal, st.grabHigh - minWin);
+                    const float newLo = keel::clamp(st.grabLow + dVal, minVal, st.grabHigh - minWin);
                     transfer.SetLowHigh(newLo, st.grabHigh, minWin);
                 } else if (st.dragMode == HistDragMode::DragHigh) {
-                    const float newHi = std::clamp(st.grabHigh + dVal, st.grabLow + minWin, maxVal);
+                    const float newHi = keel::clamp(st.grabHigh + dVal, st.grabLow + minWin, maxVal);
                     transfer.SetLowHigh(st.grabLow, newHi, minWin);
                 } else if (st.dragMode == HistDragMode::DragLevel) {
-                    const float newLevel = std::clamp(st.grabLevel + dVal, minVal, maxVal);
+                    const float newLevel = keel::clamp(st.grabLevel + dVal, minVal, maxVal);
                     transfer.level = newLevel;
-                    transfer.window = std::max(minWin, st.grabWindow);
+                    transfer.window = keel::max(minWin, st.grabWindow);
                 }
                 res.windowLevelChanged = true;
                 res.changed = true;
@@ -375,16 +377,16 @@ HistogramResponse Histogram::Run(
 
     // 3. Hover telemetry
     if (baseRes.hovered && geom.plotRect.Contains(mouse)) {
-        const float u = std::clamp((mouse.x - geom.plotRect.x) / std::max(1.0f, geom.plotRect.w), 0.0f, 1.0f);
+        const float u = keel::clamp((mouse.x - geom.plotRect.x) / keel::max(1.0f, geom.plotRect.w), 0.0f, 1.0f);
         res.hoveredValue = minVal + u * domainSpan;
-        std::span<const uint32_t> activeBins = data.binsLum;
+        keel::ArrayRef<uint32_t> activeBins = data.binsLum;
         if (data.channelCount >= 3) {
             if (res.activeChannel == HistogramChannel::Red && !data.binsR.empty()) activeBins = data.binsR;
             else if (res.activeChannel == HistogramChannel::Green && !data.binsG.empty()) activeBins = data.binsG;
             else if (res.activeChannel == HistogramChannel::Blue && !data.binsB.empty()) activeBins = data.binsB;
         }
         if (!activeBins.empty()) {
-            const size_t idx = std::min(activeBins.size() - 1, static_cast<size_t>(u * static_cast<float>(activeBins.size())));
+            const size_t idx = keel::min(activeBins.size() - 1, static_cast<size_t>(u * static_cast<float>(activeBins.size())));
             res.hoveredBin = static_cast<int>(idx);
             res.hoveredCount = activeBins[idx];
         }
@@ -420,7 +422,7 @@ HistogramResponse Histogram::Run(
     node->active = res.pressed;
     node->focused = baseRes.focused;
     node->heightMode = optsCopy.heightMode;
-    node->minHeight = std::max(theme.Scale(optsCopy.minHeight), theme.Scale(optsCopy.height));
+    node->minHeight = keel::max(theme.Scale(optsCopy.minHeight), theme.Scale(optsCopy.height));
 
     ControlSpec ctrlSpec{};
     ctrlSpec.width = optsCopy.width;
@@ -428,7 +430,7 @@ HistogramResponse Histogram::Run(
     Control::SetupNode(ctx, node, ctrlSpec, optsCopy.stretch, optsCopy.align);
     if (!node->parent || node->parent->type != NodeType::Element) {
         node->heightMode = optsCopy.heightMode;
-        node->minHeight = std::max(theme.Scale(optsCopy.minHeight), theme.Scale(optsCopy.height));
+        node->minHeight = keel::max(theme.Scale(optsCopy.minHeight), theme.Scale(optsCopy.height));
         ctx.AdaptChildToContainer(node);
         if (optsCopy.heightMode == SizeMode::Fit && node->heightMode == SizeMode::Stretch) {
             node->heightMode = SizeMode::Fit;
@@ -437,9 +439,9 @@ HistogramResponse Histogram::Run(
 
     // Visual hash for damage tracking
     uint64_t binsFp = data.binsLum.size();
-    auto mixBins = [&](std::span<const uint32_t> b) {
+    auto mixBins = [&](keel::ArrayRef<uint32_t> b) {
         if (b.empty()) return;
-        const size_t step = std::max<size_t>(1, b.size() / 16);
+        const size_t step = keel::max<size_t>(1, b.size() / 16);
         for (size_t i = 0; i < b.size(); i += step) {
             binsFp = detail::HashArgs(binsFp, b[i]);
         }
@@ -508,7 +510,7 @@ HistogramResponse Histogram::Run(
 
         const HistogramGeometry g = ComputeHistogramGeometry(box, d, o, scale);
         const float minVal = d.minValue;
-        const float maxVal = std::max(minVal + 1e-4f, d.maxValue);
+        const float maxVal = keel::max(minVal + 1e-4f, d.maxValue);
         const float domainSpan = maxVal - minVal;
         const float smallFs = th.GetFontSize(TextRole::LabelSmall) * 0.86f;
 
@@ -522,7 +524,7 @@ HistogramResponse Histogram::Run(
                 char rangeBuf[64]{};
                 std::snprintf(rangeBuf, sizeof(rangeBuf), "[%s .. %s]", loBuf, hiBuf);
                 const float maxLabelW = g.hasPills
-                    ? std::max(20.0f, g.pillRects[0].x - g.headerRect.x - 4.0f * scale)
+                    ? keel::max(20.0f, g.pillRects[0].x - g.headerRect.x - 4.0f * scale)
                     : g.headerRect.w;
                 c.DrawTextBox(
                     rangeBuf,
@@ -535,7 +537,7 @@ HistogramResponse Histogram::Run(
             }
 
             if (g.hasPills) {
-                static constexpr std::array<std::string_view, 4> kPillLabels = {"RGB", "R", "G", "B"};
+                static constexpr keel::StaticArray<keel::StringRef, 4> kPillLabels = {"RGB", "R", "G", "B"};
                 for (size_t i = 0; i < 4; ++i) {
                     const auto ch = static_cast<HistogramChannel>(i);
                     const bool isSelected = (o.activeChannel == ch);
@@ -573,12 +575,10 @@ HistogramResponse Histogram::Run(
             const Color barStroke = isDark ? Color(165, 210, 255, 230) : Color(37, 99, 235, 230);
             DrawChannelDistribution(c, pr, d.binsLum, maxB, o.scaleMode, barFill, barStroke);
         } else {
-            uint32_t maxAll = std::max({
-                MaxBinOf(d.binsLum),
-                MaxBinOf(d.binsR),
-                MaxBinOf(d.binsG),
-                MaxBinOf(d.binsB)
-            });
+            uint32_t maxAll = keel::max(
+                keel::max(MaxBinOf(d.binsLum), MaxBinOf(d.binsR)),
+                keel::max(MaxBinOf(d.binsG), MaxBinOf(d.binsB))
+            );
 
             if (o.activeChannel == HistogramChannel::Master) {
                 DrawChannelDistribution(c, pr, d.binsR, maxAll, o.scaleMode, Color(239, 68, 68, 70),  Color(248, 113, 113, 210));
@@ -611,8 +611,8 @@ HistogramResponse Histogram::Run(
         }
 
         // 3. Window / Level [xlo .. xhi] Overlay Band, Transfer Curve & Grab Handles
-        const float xlo = pr.x + std::clamp((tp.Low() - minVal) / domainSpan, 0.0f, 1.0f) * pr.w;
-        const float xhi = pr.x + std::clamp((tp.High() - minVal) / domainSpan, 0.0f, 1.0f) * pr.w;
+        const float xlo = pr.x + keel::clamp((tp.Low() - minVal) / domainSpan, 0.0f, 1.0f) * pr.w;
+        const float xhi = pr.x + keel::clamp((tp.High() - minVal) / domainSpan, 0.0f, 1.0f) * pr.w;
         const float xmid = 0.5f * (xlo + xhi);
         const Color activeAccent = GetChannelAccentColor(o.activeChannel, isDark);
 
@@ -652,7 +652,7 @@ HistogramResponse Histogram::Run(
             if (d.channelCount < 3 || o.activeChannel == HistogramChannel::Master) {
                 DrawColormapBar(c, g.colorbarRect, o.colormap, false, tp.invert, 2.0f * scale, borderCol);
             } else {
-                std::array<uint32_t, 256> chLut{};
+                keel::StaticArray<uint32_t, 256> chLut{};
                 for (size_t i = 0; i < 256; ++i) {
                     const uint8_t v = static_cast<uint8_t>(tp.invert ? (255 - i) : i);
                     if (o.activeChannel == HistogramChannel::Red) {

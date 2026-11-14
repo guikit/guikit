@@ -1,12 +1,12 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
-#include <optional>
-#include <source_location>
-#include <span>
-#include <string_view>
 #include "guikit/geo/map_grid.hpp"
 #include "guikit/panels/scene.hpp"
+#include "keel/core.h"
+#include "keel/optional.h"
+#include "keel/ref.h"
 
 namespace guikit {
 
@@ -14,14 +14,14 @@ class Context;
 
 /// Configuration options for an interactive IALA nautical seamark / waypoint symbol on a MapView.
 struct MapSeamarkOptions {
-    std::string_view id{};                      ///< Unique identifier for selection & inspector (e.g. "WP-HELGOLAND")
-    std::string_view title{};                   ///< Display label rendered next to the seamark
-    std::string_view category{"IALA Seamark"};  ///< Category description shown in floating inspector
+    keel::StringRef id{};                       ///< Unique identifier for selection & inspector (e.g. "WP-HELGOLAND")
+    keel::StringRef title{};                    ///< Display label rendered next to the seamark
+    keel::StringRef category{"IALA Seamark"};   ///< Category description shown in floating inspector
     float radiusPx{7.0f};                       ///< Screen-space symbol radius in logical pixels (zoom-invariant)
     bool showLightSector{true};                 ///< Render outer IALA light sector arc
     float sectorStartDeg{-65.0f};               ///< Light sector start angle in degrees
     float sectorSweepDeg{130.0f};               ///< Light sector angular sweep in degrees
-    std::optional<Color> color{std::nullopt};   ///< Custom symbol color (defaults to chart magenta / cyan when selected)
+    keel::Optional<Color> color{keel::kNullOpt};///< Custom symbol color (defaults to chart magenta / cyan when selected)
     bool selectable{true};                      ///< Participate in click & marquee selection
 };
 
@@ -41,8 +41,8 @@ struct MapViewOptions {
     // --- Initial & Programmatic Camera Framing ---
     GeoCoord initialCenter{54.1825, 7.8853};    ///< Default initial center (Helgoland / German Bight)
     float initialTileZoom{7.0f};                ///< Default initial tile zoom level
-    std::optional<GeoCoord> requestCenterGeo{std::nullopt}; ///< Programmatic jump to geographic coordinate
-    std::optional<float> requestTileZoom{std::nullopt};     ///< Programmatic jump to tile zoom level
+    keel::Optional<GeoCoord> requestCenterGeo{keel::kNullOpt}; ///< Programmatic jump to geographic coordinate
+    keel::Optional<float> requestTileZoom{keel::kNullOpt};     ///< Programmatic jump to tile zoom level
     bool requestResetView{false};               ///< Reset camera to initialCenter & initialTileZoom
 
     // --- Built-in Cartographic Layers & Overlays ---
@@ -57,9 +57,9 @@ struct MapViewOptions {
     StretchMode stretch{StretchMode::Fill};
     SizeMode widthMode{SizeMode::Stretch};
     SizeMode heightMode{SizeMode::Stretch};
-    std::optional<float> width{std::nullopt};
-    std::optional<float> widthRatio{std::nullopt};
-    std::optional<float> height{std::nullopt};
+    keel::Optional<float> width{keel::kNullOpt};
+    keel::Optional<float> widthRatio{keel::kNullOpt};
+    keel::Optional<float> height{keel::kNullOpt};
     float minHeight{220.0f};
     float minZoom{0.25f};
     float maxZoom{4096.0f};
@@ -75,9 +75,9 @@ struct MapViewOptions {
     UiText tooltip{};
     bool disabled{false};
     const UiTheme* theme{nullptr};
-    std::optional<float> scale{std::nullopt};
-    std::optional<bool> debugBounds{std::nullopt};
-    std::optional<bool> inspectMode{std::nullopt};
+    keel::Optional<float> scale{keel::kNullOpt};
+    keel::Optional<bool> debugBounds{keel::kNullOpt};
+    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// RAII scope for `ui.MapView(...)` providing geographic (Lat/Lon) drawing, hit-testing, and telemetry.
@@ -87,6 +87,13 @@ public:
         SceneScope&& scene,
         const MapViewOptions& opts,
         const MapViewState& viewState,
+        bool lightMode
+    ) noexcept;
+
+    MapViewScope(
+        SceneScope&& scene,
+        const MapViewOptions& opts,
+        MapViewState&& viewState,
         bool lightMode
     ) noexcept;
 
@@ -118,7 +125,7 @@ public:
     [[nodiscard]] GeoCoord ScreenToGeo(Vec2 screenPt) const noexcept;
 
     // --- Imperative Camera Control ---
-    void CenterOnGeo(GeoCoord coord, std::optional<float> tileZoom = std::nullopt) noexcept;
+    void CenterOnGeo(GeoCoord coord, keel::Optional<float> tileZoom = keel::kNullOpt) noexcept;
     void ResetView() noexcept;
 
     // --- Interactive Geographic Items & Drawing Primitives ---
@@ -139,7 +146,7 @@ public:
 
     /// Draws a connected multi-leg geographic polyline or closed polygon outline.
     void DrawGeoPolyline(
-        std::span<const GeoCoord> coords,
+        keel::ArrayRef<GeoCoord> coords,
         Color color,
         float strokeWidthPx = 1.8f,
         bool closed = false
@@ -167,7 +174,7 @@ public:
 
     /// Draws a zoom-invariant text label anchored at a geographic coordinate with an optional pixel offset.
     void DrawGeoText(
-        std::string_view text,
+        keel::StringRef text,
         GeoCoord coord,
         Vec2 offsetPx = {0.0f, 0.0f},
         float fontSize = 11.0f,
@@ -186,7 +193,7 @@ public:
     [[nodiscard]] const SceneScope& GetScene() const noexcept { return m_scene; }
     [[nodiscard]] bool IsHovered() const noexcept { return m_scene.IsHovered(); }
     [[nodiscard]] bool WasClicked(int button = 1) const noexcept { return m_scene.WasClicked(button); }
-    [[nodiscard]] std::span<const SceneItemInfo> GetItems() const noexcept { return m_scene.GetItems(); }
+    [[nodiscard]] keel::ArrayRef<SceneItemInfo> GetItems() const noexcept { return m_scene.GetItems(); }
     [[nodiscard]] const SceneItemInfo* GetHoveredItem() const noexcept { return m_scene.GetHoveredItem(); }
     [[nodiscard]] size_t GetSelectedCount() const noexcept { return m_scene.GetSelectedCount(); }
 
@@ -206,7 +213,7 @@ public:
     [[nodiscard]] static MapViewScope Open(
         Context& ctx,
         const MapViewOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 };
 

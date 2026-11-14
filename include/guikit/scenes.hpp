@@ -9,6 +9,7 @@
 #endif
 
 #include "guikit/core.hpp"
+#include "guikit/geo/chart_data_source.hpp"
 #include "guikit/geo/geo_json_io.hpp"
 #include "guikit/geo/geo_types.hpp"
 #include "guikit/geo/gis_render_engine.hpp"

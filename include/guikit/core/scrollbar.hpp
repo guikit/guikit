@@ -1,6 +1,5 @@
 #pragma once
 
-#include <optional>
 #include "guikit/core/id.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/types.hpp"
@@ -50,7 +49,7 @@ public:
         float& ioScrollOffset,
         ScrollbarState& ioState,
         const ScrollbarMetrics& metrics,
-        std::optional<Rect> wheelHoverRect = std::nullopt
+        keel::Optional<Rect> wheelHoverRect = keel::kNullOpt
     ) noexcept;
 
     /// Renders a vertical scrollbar track and thumb into `canvas` according to `geom` and interaction state.

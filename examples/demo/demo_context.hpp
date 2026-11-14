@@ -1,9 +1,10 @@
 #pragma once
 
-#include <array>
-#include <string>
-#include <string_view>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include "guikit/guikit.hpp"
+#include "keel/keel.h"
 
 namespace guikit::demo {
 
@@ -87,7 +88,7 @@ enum class PreviewFormFactor : uint8_t {
     Full        ///< Clean edge-to-edge artboard on the recessed backdrop
 };
 
-inline constexpr std::array<std::string_view, 4> kPreviewFormFactorNames = {
+inline constexpr keel::StaticArray<keel::StringRef, 4> kPreviewFormFactorNames = {
     "Window",
     "Tablet",
     "Phone",
@@ -106,7 +107,7 @@ enum class PreviewZoomMode : uint8_t {
     Custom       ///< Custom zoom factor driven by Ctrl + MouseWheel
 };
 
-inline constexpr std::array<std::string_view, 8> kPreviewZoomPresetNames = {
+inline constexpr keel::StaticArray<keel::StringRef, 8> kPreviewZoomPresetNames = {
     "Fit",
     "1:1",
     "75%",
@@ -117,7 +118,7 @@ inline constexpr std::array<std::string_view, 8> kPreviewZoomPresetNames = {
     "200%"
 };
 
-constexpr std::string_view CategoryDisplayTitle(NavCategory cat) noexcept {
+constexpr keel::StringRef CategoryDisplayTitle(NavCategory cat) noexcept {
     switch (cat) {
         case NavCategory::ElemHeading:       return "Heading — Section & Title Typography";
         case NavCategory::ElemButton:        return "Button — Interactive Push Control";
@@ -160,12 +161,12 @@ constexpr std::string_view CategoryDisplayTitle(NavCategory cat) noexcept {
     return "GuiKit Preview";
 }
 
-inline constexpr std::array<std::string_view, 3> kStretchModeNames = {"Compact", "Space", "Fill"};
-inline constexpr std::array<std::string_view, 4> kElementLayoutNames = {"Stacked", "Top", "Bottom", "Inline"};
-inline constexpr std::array<std::string_view, 2> kInlineOrderNames = {"LabelFirst", "ControlFirst"};
-inline constexpr std::array<std::string_view, 3> kLabelAlignNames = {"Start (Left)", "Center", "End (Right)"};
+inline constexpr keel::StaticArray<keel::StringRef, 3> kStretchModeNames = {"Compact", "Space", "Fill"};
+inline constexpr keel::StaticArray<keel::StringRef, 4> kElementLayoutNames = {"Stacked", "Top", "Bottom", "Inline"};
+inline constexpr keel::StaticArray<keel::StringRef, 2> kInlineOrderNames = {"LabelFirst", "ControlFirst"};
+inline constexpr keel::StaticArray<keel::StringRef, 3> kLabelAlignNames = {"Start (Left)", "Center", "End (Right)"};
 
-constexpr std::string_view StretchModeEnumName(guikit::StretchMode m) noexcept {
+constexpr keel::StringRef StretchModeEnumName(guikit::StretchMode m) noexcept {
     switch (m) {
         case guikit::StretchMode::Compact: return "Compact";
         case guikit::StretchMode::Space:   return "Space";
@@ -173,7 +174,7 @@ constexpr std::string_view StretchModeEnumName(guikit::StretchMode m) noexcept {
     }
 }
 
-constexpr std::string_view ElementLayoutEnumName(guikit::ElementLayout l) noexcept {
+constexpr keel::StringRef ElementLayoutEnumName(guikit::ElementLayout l) noexcept {
     switch (l) {
         case guikit::ElementLayout::Stacked: return "Stacked";
         case guikit::ElementLayout::Top:     return "Top";
@@ -183,7 +184,7 @@ constexpr std::string_view ElementLayoutEnumName(guikit::ElementLayout l) noexce
     return "Stacked";
 }
 
-constexpr std::string_view InlineOrderEnumName(guikit::InlineOrder o) noexcept {
+constexpr keel::StringRef InlineOrderEnumName(guikit::InlineOrder o) noexcept {
     switch (o) {
         case guikit::InlineOrder::LabelFirst:   return "LabelFirst";
         case guikit::InlineOrder::ControlFirst: return "ControlFirst";
@@ -191,7 +192,7 @@ constexpr std::string_view InlineOrderEnumName(guikit::InlineOrder o) noexcept {
     return "LabelFirst";
 }
 
-constexpr std::string_view LabelAlignEnumName(guikit::Align a) noexcept {
+constexpr keel::StringRef LabelAlignEnumName(guikit::Align a) noexcept {
     switch (a) {
         case guikit::Align::Start:   return "Start";
         case guikit::Align::Center:  return "Center";
@@ -201,7 +202,7 @@ constexpr std::string_view LabelAlignEnumName(guikit::Align a) noexcept {
     return "Start";
 }
 
-constexpr std::string_view AlignName(guikit::Align a) noexcept {
+constexpr keel::StringRef AlignName(guikit::Align a) noexcept {
     switch (a) {
         case guikit::Align::Start:   return "Start";
         case guikit::Align::Center:  return "Center";
@@ -211,7 +212,7 @@ constexpr std::string_view AlignName(guikit::Align a) noexcept {
     return "Center";
 }
 
-constexpr std::string_view VariantName(guikit::UiVariant v) noexcept {
+constexpr keel::StringRef VariantName(guikit::UiVariant v) noexcept {
     switch (v) {
         case guikit::UiVariant::Primary:   return "Primary";
         case guikit::UiVariant::Secondary: return "Secondary";
@@ -225,7 +226,7 @@ constexpr std::string_view VariantName(guikit::UiVariant v) noexcept {
     }
 }
 
-constexpr std::string_view SizeName(guikit::UiSize s) noexcept {
+constexpr keel::StringRef SizeName(guikit::UiSize s) noexcept {
     switch (s) {
         case guikit::UiSize::Xs: return "Xs";
         case guikit::UiSize::Sm: return "Sm";
@@ -236,14 +237,14 @@ constexpr std::string_view SizeName(guikit::UiSize s) noexcept {
     }
 }
 
-inline std::string FormatUiSizePrefix(guikit::UiSize s) {
+inline keel::FixedString<48> FormatUiSizePrefix(guikit::UiSize s) noexcept {
     if (s == guikit::UiSize::None) {
-        return "";
+        return {};
     }
-    return "Size(guikit::UiSize::" + std::string(SizeName(s)) + ").";
+    return keel::format_fixed<48>("Size(guikit::UiSize::{}).", SizeName(s));
 }
 
-constexpr std::string_view PlacementName(guikit::Placement p) noexcept {
+constexpr keel::StringRef PlacementName(guikit::Placement p) noexcept {
     switch (p) {
         case guikit::Placement::Leading:  return "Leading";
         case guikit::Placement::Trailing: return "Trailing";
@@ -254,7 +255,7 @@ constexpr std::string_view PlacementName(guikit::Placement p) noexcept {
     return "Trailing";
 }
 
-constexpr std::string_view CursorModeName(guikit::CursorBlinkMode m) noexcept {
+constexpr keel::StringRef CursorModeName(guikit::CursorBlinkMode m) noexcept {
     switch (m) {
         case guikit::CursorBlinkMode::Blinking: return "Blinking";
         case guikit::CursorBlinkMode::Solid:    return "Solid";
@@ -263,15 +264,15 @@ constexpr std::string_view CursorModeName(guikit::CursorBlinkMode m) noexcept {
     return "Blinking";
 }
 
-inline std::string FormatDesc(bool show, std::string_view text, guikit::UiVariant v) {
-    if (!show) return "\"\"";
+inline keel::String FormatDesc(bool show, keel::StringRef text, guikit::UiVariant v) {
+    if (!show) return keel::String::from("\"\"");
     if (v == guikit::UiVariant::Muted) {
-        return std::string("\"") + std::string(text) + "\"";
+        return keel::format("\"{}\"", text);
     }
-    return std::string("{\"") + std::string(text) + "\", guikit::StateColor::" + std::string(VariantName(v)) + "()}";
+    return keel::format("{{\"{}\", guikit::StateColor::{}()}}", text, VariantName(v));
 }
 
-inline constexpr std::array<std::string_view, 9> kBgPresetShort = {"Off", "Srf", "Pri", "Sec", "Suc", "Wrn", "Dgr", "Inf", "Gho"};
+inline constexpr keel::StaticArray<keel::StringRef, 9> kBgPresetShort = {"Off", "Srf", "Pri", "Sec", "Suc", "Wrn", "Dgr", "Inf", "Gho"};
 
 constexpr guikit::StateColor BgPresetToStateColor(
     size_t idx,
@@ -314,34 +315,30 @@ constexpr guikit::StateColor BgPresetToTrackColor(size_t idx) noexcept {
     }
 }
 
-inline std::string BgPresetToCode(
+inline keel::String BgPresetToCode(
     size_t idx,
     bool defaultEnabled,
     float tint = 1.0f,
     float alpha = 1.0f
 ) {
-    std::string code;
+    keel::String code;
     switch (idx) {
-        case 0:  return defaultEnabled ? "guikit::StateColor::None()" : "guikit::StateColor::Default()";
-        case 1:  code = "guikit::StateColor::Surface()"; break;
-        case 2:  code = "guikit::StateColor::Primary()"; break;
-        case 3:  code = "guikit::StateColor::Secondary()"; break;
-        case 4:  code = "guikit::StateColor::Success()"; break;
-        case 5:  code = "guikit::StateColor::Warning()"; break;
-        case 6:  code = "guikit::StateColor::Danger()"; break;
-        case 7:  code = "guikit::StateColor::Info()"; break;
-        case 8:  code = "guikit::StateColor::Ghost()"; break;
-        default: return defaultEnabled ? "guikit::StateColor::Surface()" : "guikit::StateColor::Default()";
+        case 0:  return keel::String::from(defaultEnabled ? "guikit::StateColor::None()" : "guikit::StateColor::Default()");
+        case 1:  code = keel::String::from("guikit::StateColor::Surface()"); break;
+        case 2:  code = keel::String::from("guikit::StateColor::Primary()"); break;
+        case 3:  code = keel::String::from("guikit::StateColor::Secondary()"); break;
+        case 4:  code = keel::String::from("guikit::StateColor::Success()"); break;
+        case 5:  code = keel::String::from("guikit::StateColor::Warning()"); break;
+        case 6:  code = keel::String::from("guikit::StateColor::Danger()"); break;
+        case 7:  code = keel::String::from("guikit::StateColor::Info()"); break;
+        case 8:  code = keel::String::from("guikit::StateColor::Ghost()"); break;
+        default: return keel::String::from(defaultEnabled ? "guikit::StateColor::Surface()" : "guikit::StateColor::Default()");
     }
     if (idx >= 2 && idx <= 7 && tint < 0.995f) {
-        char buf[32];
-        std::snprintf(buf, sizeof(buf), ".Tinted(%.2ff)", tint);
-        code += buf;
+        keel::format_into(code, ".Tinted({:.2f}f)", tint);
     }
     if (alpha < 0.995f) {
-        char buf[32];
-        std::snprintf(buf, sizeof(buf), ".WithAlphaF(%.2ff)", alpha);
-        code += buf;
+        keel::format_into(code, ".WithAlphaF({:.2f}f)", alpha);
     }
     return code;
 }
@@ -376,13 +373,13 @@ struct DemoContext {
     guikit::UiSize elemSize = guikit::UiSize::None;
     guikit::UiSize controlsSize = guikit::UiSize::None;
     guikit::UiVariant btnVariant = guikit::UiVariant::Primary;
-    std::string elemLabel = "Element Label";
+    keel::SmallString<128> elemLabel{"Element Label"};
     guikit::UiVariant elemLabelVariant = guikit::UiVariant::Default;
-    std::string elemDesc = "Secondary description text";
+    keel::SmallString<128> elemDesc{"Secondary description text"};
     guikit::UiVariant elemDescVariant = guikit::UiVariant::Muted;
     bool elemWordWrap = true;
     bool elemShowIcon = false;
-    std::string elemBadge = "";
+    keel::SmallString<128> elemBadge{""};
     guikit::UiVariant elemBadgeVariant = guikit::UiVariant::Info;
     guikit::ElementLayout elemLayout = guikit::ElementLayout::Stacked;
     guikit::InlineOrder elemInlineOrder = guikit::InlineOrder::LabelFirst;
@@ -398,7 +395,7 @@ struct DemoContext {
     float elemBorderWidth = 0.0f;
     guikit::UiVariant elemBorderVariant = guikit::UiVariant::Default;
     float elemBorderRadius = 8.0f;
-    std::array<size_t, 16> ctrlBgIdxByCat = {0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0};
+    keel::StaticArray<size_t, 16> ctrlBgIdxByCat = {0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0};
     float ctrlBgTint = 1.0f;
     float ctrlBgAlpha = 1.0f;
     float ctrlBorderWidth = 0.0f;
@@ -456,13 +453,13 @@ struct DemoContext {
         return static_cast<guikit::StretchMode>(elemStretchIdx);
     }
 
-    std::optional<float> GetElementWidth() const noexcept {
+    keel::Optional<float> GetElementWidth() const noexcept {
         if (elemStretchIdx == 2) return elemFillRatio;
-        return (elemWidth > 0.0f) ? std::optional<float>(elemWidth) : std::nullopt;
+        return (elemWidth > 0.0f) ? keel::Optional<float>(elemWidth) : keel::kNullOpt;
     }
 
-    std::optional<float> GetElementHeight() const noexcept {
-        return (elemHeight > 0.0f) ? std::optional<float>(elemHeight) : std::nullopt;
+    keel::Optional<float> GetElementHeight() const noexcept {
+        return (elemHeight > 0.0f) ? keel::Optional<float>(elemHeight) : keel::kNullOpt;
     }
 
     static constexpr bool IsCtrlBgDefaultEnabled(NavCategory cat) noexcept {
@@ -482,22 +479,22 @@ struct DemoContext {
         return BgPresetToStateColor(bgIdx, IsCtrlBgDefaultEnabled(cat), ctrlBgTint, ctrlBgAlpha);
     }
 
-    std::string FormatElemBackgroundCode() const {
+    keel::String FormatElemBackgroundCode() const {
         return BgPresetToCode(elemBgIdx, false, elemBgTint, elemBgAlpha);
     }
 
-    std::string FormatControlBackgroundCode(NavCategory cat) const {
+    keel::String FormatControlBackgroundCode(NavCategory cat) const {
         const size_t idx = static_cast<size_t>(cat);
         const size_t bgIdx = (idx < ctrlBgIdxByCat.size()) ? ctrlBgIdxByCat[idx] : 0;
         return BgPresetToCode(bgIdx, IsCtrlBgDefaultEnabled(cat), ctrlBgTint, ctrlBgAlpha);
     }
 
-    std::optional<float> GetOptionalControlBorderWidth() const noexcept {
-        return (ctrlBorderWidth > 0.0f) ? std::optional<float>(ctrlBorderWidth) : std::nullopt;
+    keel::Optional<float> GetOptionalControlBorderWidth() const noexcept {
+        return (ctrlBorderWidth > 0.0f) ? keel::Optional<float>(ctrlBorderWidth) : keel::kNullOpt;
     }
 
-    std::optional<float> GetElemBorderRadius() const noexcept {
-        return (elemBackground.IsBackgroundEnabled(false) || elemBorderWidth > 0.0f) ? std::optional<float>(elemBorderRadius) : std::nullopt;
+    keel::Optional<float> GetElemBorderRadius() const noexcept {
+        return (elemBackground.IsBackgroundEnabled(false) || elemBorderWidth > 0.0f) ? keel::Optional<float>(elemBorderRadius) : keel::kNullOpt;
     }
 
     guikit::StateColor GetElemBorderColor() const noexcept {
@@ -534,28 +531,28 @@ struct DemoContext {
         };
     }
 
-    std::string FormatElementLabelCode() const {
-        if (elemLabel.empty()) return "\"\"";
+    keel::String FormatElementLabelCode() const {
+        if (elemLabel.empty()) return keel::String::from("\"\"");
         if (elemLabelVariant == guikit::UiVariant::Default) {
-            return std::string("\"") + elemLabel + "\"";
+            return keel::format("\"{}\"", elemLabel);
         }
-        return std::string("{\"") + elemLabel + "\", guikit::StateColor::" + std::string(VariantName(elemLabelVariant)) + "()}";
+        return keel::format("{{\"{}\", guikit::StateColor::{}()}}", elemLabel, VariantName(elemLabelVariant));
     }
 
-    std::string FormatElementDescCode() const {
+    keel::String FormatElementDescCode() const {
         return FormatDesc(!elemDesc.empty(), elemDesc, elemDescVariant);
     }
 
-    std::string FormatElementIconCode() const {
+    keel::StringRef FormatElementIconCode() const noexcept {
         return elemShowIcon ? "guikit::Icon::Edit()" : "{}";
     }
 
-    std::string FormatElementBadgeCode() const {
-        if (elemBadge.empty()) return "\"\"";
-        return std::string("{\"") + elemBadge + "\", guikit::StateColor::" + std::string(VariantName(elemBadgeVariant)) + "()}";
+    keel::String FormatElementBadgeCode() const {
+        if (elemBadge.empty()) return keel::String::from("\"\"");
+        return keel::format("{{\"{}\", guikit::StateColor::{}()}}", elemBadge, VariantName(elemBadgeVariant));
     }
 
-    std::string_view FormatHeadingLevelCode() const noexcept {
+    keel::StringRef FormatHeadingLevelCode() const noexcept {
         switch (elemHeadingLevel) {
             case guikit::HeadingLevel::H1: return "guikit::HeadingLevel::H1";
             case guikit::HeadingLevel::H2: return "guikit::HeadingLevel::H2";
@@ -575,102 +572,91 @@ struct DemoContext {
         };
     }
 
-    std::string FormatSeparatorCode() const {
+    keel::String FormatSeparatorCode() const {
         if (elemSeparator == guikit::HeadingSeparator::None) {
-            return "guikit::HeadingSeparator::None";
+            return keel::String::from("guikit::HeadingSeparator::None");
         }
-        const std::string_view placeStr = (elemSeparator == guikit::HeadingSeparator::Bottom)
+        const keel::StringRef placeStr = (elemSeparator == guikit::HeadingSeparator::Bottom)
             ? "guikit::HeadingSeparator::Bottom"
             : "guikit::HeadingSeparator::Trailing";
-        const bool defaultWidth = std::abs(elemSeparatorWidth - 1.0f) < 0.01f;
+        const bool defaultWidth = std::fabs(elemSeparatorWidth - 1.0f) < 0.01f;
         if (elemSeparatorVariant == guikit::UiVariant::Default && defaultWidth) {
-            return std::string(placeStr);
+            return keel::String::from(placeStr);
         }
-        const std::string colStr = std::string("guikit::StateColor::") + std::string(VariantName(elemSeparatorVariant)) + "()";
         if (defaultWidth) {
-            return "{" + std::string(placeStr) + ", " + colStr + "}";
+            return keel::format("{{{}, guikit::StateColor::{}()}}", placeStr, VariantName(elemSeparatorVariant));
         }
-        char wBuf[32];
-        std::snprintf(wBuf, sizeof(wBuf), "%.1ff", elemSeparatorWidth);
-        return "{" + std::string(placeStr) + ", " + colStr + ", " + std::string(wBuf) + "}";
+        return keel::format("{{{}, guikit::StateColor::{}(), {:.1f}f}}", placeStr, VariantName(elemSeparatorVariant), elemSeparatorWidth);
     }
 
-    std::string FormatElementWidthCode() const {
+    keel::FixedString<32> FormatElementWidthCode() const noexcept {
         if (elemStretchIdx == 2) {
-            char buf[32];
-            std::snprintf(buf, sizeof(buf), "%.2ff", elemFillRatio);
-            return buf;
+            return keel::format_fixed<32>("{:.2f}f", elemFillRatio);
         }
         if (elemWidth > 0.0f) {
-            char buf[32];
-            std::snprintf(buf, sizeof(buf), "%.1ff", elemWidth);
-            return buf;
+            return keel::format_fixed<32>("{:.1f}f", elemWidth);
         }
-        return "std::nullopt";
+        return "keel::kNullOpt";
     }
 
-    std::string FormatElementHeightCode() const {
+    keel::FixedString<32> FormatElementHeightCode() const noexcept {
         if (elemHeight > 0.0f) {
-            char buf[32];
-            std::snprintf(buf, sizeof(buf), "%.1ff", elemHeight);
-            return buf;
+            return keel::format_fixed<32>("{:.1f}f", elemHeight);
         }
-        return "std::nullopt";
+        return "keel::kNullOpt";
     }
 
-    std::string FormatElemBorderRadiusCode() const {
+    keel::FixedString<32> FormatElemBorderRadiusCode() const noexcept {
         if (elemBackground.IsBackgroundEnabled(false) || elemBorderWidth > 0.0f) {
-            char buf[32];
-            std::snprintf(buf, sizeof(buf), "%.1ff", elemBorderRadius);
-            return buf;
+            return keel::format_fixed<32>("{:.1f}f", elemBorderRadius);
         }
-        return "std::nullopt";
+        return "keel::kNullOpt";
     }
 
     guikit::StateColor GetControlColor() const noexcept {
         return guikit::StateColor::FromVariant(btnVariant);
     }
 
-    std::string FormatControlColorCode() const {
-        return std::string("guikit::StateColor::") + std::string(VariantName(btnVariant)) + "()";
+    keel::FixedString<64> FormatControlColorCode() const noexcept {
+        return keel::format_fixed<64>("guikit::StateColor::{}()", VariantName(btnVariant));
     }
 
-    std::string FormatElemBorderColorCode() const {
-        return std::string("guikit::StateColor::") + std::string(VariantName(elemBorderVariant)) + "()";
+    keel::FixedString<64> FormatElemBorderColorCode() const noexcept {
+        return keel::format_fixed<64>("guikit::StateColor::{}()", VariantName(elemBorderVariant));
     }
 
-    std::string FormatCtrlBorderColorCode() const {
-        return std::string("guikit::StateColor::") + std::string(VariantName(ctrlBorderVariant)) + "()";
+    keel::FixedString<64> FormatCtrlBorderColorCode() const noexcept {
+        return keel::format_fixed<64>("guikit::StateColor::{}()", VariantName(ctrlBorderVariant));
     }
 
-    std::string FormatElemBorderCode() const {
-        char bwBuf[32];
-        std::snprintf(bwBuf, sizeof(bwBuf), "%.1ff", elemBorderWidth);
-        return "{.width = " + std::string(bwBuf) +
-               ", .radius = " + FormatElemBorderRadiusCode() +
-               ", .color = " + FormatElemBorderColorCode() + "}";
+    keel::String FormatElemBorderCode() const {
+        return keel::format(
+            "{{.width = {:.1f}f, .radius = {}, .color = {}}}",
+            elemBorderWidth,
+            FormatElemBorderRadiusCode(),
+            FormatElemBorderColorCode()
+        );
     }
 
-    std::string FormatCtrlBorderCode() const {
-        char bwBuf[32];
-        char brBuf[32];
-        std::snprintf(bwBuf, sizeof(bwBuf), "%.1ff", ctrlBorderWidth);
-        std::snprintf(brBuf, sizeof(brBuf), "%.1ff", ctrlBorderRadius);
-        return "{.width = " + std::string(bwBuf) +
-               ", .radius = " + std::string(brBuf) +
-               ", .color = " + FormatCtrlBorderColorCode() + "}";
+    keel::String FormatCtrlBorderCode() const {
+        return keel::format(
+            "{{.width = {:.1f}f, .radius = {:.1f}f, .color = {}}}",
+            ctrlBorderWidth,
+            ctrlBorderRadius,
+            FormatCtrlBorderColorCode()
+        );
     }
 
-    std::string FormatControlSpecCode(NavCategory cat, std::optional<guikit::Align> alignOpt = std::nullopt) const {
-        std::string res = "{\n";
-        res += "        .width = " + FormatElementWidthCode() + ",\n";
-        res += "        .height = " + FormatElementHeightCode() + ",\n";
+    keel::String FormatControlSpecCode(NavCategory cat, keel::Optional<guikit::Align> alignOpt = keel::kNullOpt) const {
+        keel::String res = keel::String::from("{\n");
+        keel::format_into(res, "        .width = {},\n", FormatElementWidthCode());
+        keel::format_into(res, "        .height = {},\n", FormatElementHeightCode());
         if (alignOpt.has_value()) {
-            res += "        .align = guikit::Align::" + std::string(AlignName(*alignOpt)) + ",\n";
+            keel::format_into(res, "        .align = guikit::Align::{},\n", AlignName(*alignOpt));
         }
-        res += "        .background = " + FormatControlBackgroundCode(cat) + ",\n";
-        res += "        .border = " + FormatCtrlBorderCode() + "\n";
-        res += "    }";
+        keel::format_into(res, "        .background = {},\n", FormatControlBackgroundCode(cat));
+        keel::format_into(res, "        .border = {}\n", FormatCtrlBorderCode());
+        res.append("    }");
         return res;
     }
 
@@ -701,8 +687,8 @@ struct DemoContext {
     }
 
     void RenderDescVariantPicker(guikit::Context& ui, guikit::UiVariant& descVar, bool enabled) {
-        static constexpr std::array<std::string_view, 7> descVarShort = {"Mut", "Def", "Pri", "Suc", "Wrn", "Dgr", "Inf"};
-        static constexpr std::array<guikit::UiVariant, 7> descVars = {
+        static constexpr keel::StaticArray<keel::StringRef, 7> descVarShort = {"Mut", "Def", "Pri", "Suc", "Wrn", "Dgr", "Inf"};
+        static constexpr keel::StaticArray<guikit::UiVariant, 7> descVars = {
             guikit::UiVariant::Muted, guikit::UiVariant::Default, guikit::UiVariant::Primary,
             guikit::UiVariant::Success, guikit::UiVariant::Warning, guikit::UiVariant::Danger, guikit::UiVariant::Info
         };
@@ -1014,7 +1000,7 @@ struct DemoContext {
             }
         }
 
-        static constexpr std::array<std::string_view, 3> asmDensityLabels = {"Compact", "Standard", "Touch"};
+        static constexpr keel::StaticArray<keel::StringRef, 3> asmDensityLabels = {"Compact", "Standard", "Touch"};
         size_t dIdx = (previewTheme.density == guikit::Density::Compact) ? 0 : ((previewTheme.density == guikit::Density::Touch) ? 2 : 1);
         if (auto el = ui.Element({.label = "Layout Density"})) {
             if (ui.StepSlider(dIdx, asmDensityLabels, {.showTicks = true, .showLabels = true}).changed) {
@@ -1048,159 +1034,159 @@ struct DemoContext {
 // ============================================================================
 void RenderHeadingInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderHeadingStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateHeadingCode(const DemoContext& ctx);
+keel::String GenerateHeadingCode(const DemoContext& ctx);
 
 void RenderButtonInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderButtonStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateButtonCode(const DemoContext& ctx);
+keel::String GenerateButtonCode(const DemoContext& ctx);
 
 void RenderSliderInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderSliderStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateSliderCode(const DemoContext& ctx);
+keel::String GenerateSliderCode(const DemoContext& ctx);
 
 void RenderLevelMeterInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderLevelMeterStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateLevelMeterCode(const DemoContext& ctx);
+keel::String GenerateLevelMeterCode(const DemoContext& ctx);
 
 void RenderKnobInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderKnobStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateKnobCode(const DemoContext& ctx);
+keel::String GenerateKnobCode(const DemoContext& ctx);
 
 void RenderSpinBoxInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderSpinBoxStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateSpinBoxCode(const DemoContext& ctx);
+keel::String GenerateSpinBoxCode(const DemoContext& ctx);
 
 void RenderInputInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderInputStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateInputCode(const DemoContext& ctx);
+keel::String GenerateInputCode(const DemoContext& ctx);
 
 void RenderTagInputInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderTagInputStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateTagInputCode(const DemoContext& ctx);
+keel::String GenerateTagInputCode(const DemoContext& ctx);
 
 void RenderSelectInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderSelectStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateSelectCode(const DemoContext& ctx);
+keel::String GenerateSelectCode(const DemoContext& ctx);
 
 void RenderSegmentedInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderSegmentedStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateSegmentedCode(const DemoContext& ctx);
+keel::String GenerateSegmentedCode(const DemoContext& ctx);
 
 void RenderColorPickerInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderColorPickerStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateColorPickerCode(const DemoContext& ctx);
+keel::String GenerateColorPickerCode(const DemoContext& ctx);
 
 void RenderDatePickerInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderDatePickerStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateDatePickerCode(const DemoContext& ctx);
+keel::String GenerateDatePickerCode(const DemoContext& ctx);
 
 void RenderSwitchInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderSwitchStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateSwitchCode(const DemoContext& ctx);
+keel::String GenerateSwitchCode(const DemoContext& ctx);
 
 void RenderCheckboxInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderCheckboxStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateCheckboxCode(const DemoContext& ctx);
+keel::String GenerateCheckboxCode(const DemoContext& ctx);
 
 void RenderRadioInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderRadioStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateRadioCode(const DemoContext& ctx);
+keel::String GenerateRadioCode(const DemoContext& ctx);
 
 // ============================================================================
 // 2. PANELS & NAV (Containers & Navigation)
 // ============================================================================
 void RenderCardInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderCardStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateCardCode(const DemoContext& ctx);
+keel::String GenerateCardCode(const DemoContext& ctx);
 
 void RenderSplitViewInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderSplitViewStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateSplitViewCode(const DemoContext& ctx);
+keel::String GenerateSplitViewCode(const DemoContext& ctx);
 
 void RenderTabBarInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderTabBarStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateTabBarCode(const DemoContext& ctx);
+keel::String GenerateTabBarCode(const DemoContext& ctx);
 
 void RenderBreadcrumbInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderBreadcrumbStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateBreadcrumbCode(const DemoContext& ctx);
+keel::String GenerateBreadcrumbCode(const DemoContext& ctx);
 
 void RenderPaginationInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderPaginationStage(guikit::Context& ui, DemoContext& ctx);
-std::string GeneratePaginationCode(const DemoContext& ctx);
+keel::String GeneratePaginationCode(const DemoContext& ctx);
 
 void RenderSidebarInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateSidebarCode(const DemoContext& ctx);
+keel::String GenerateSidebarCode(const DemoContext& ctx);
 
 void RenderTreeViewInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateTreeViewCode(const DemoContext& ctx);
+keel::String GenerateTreeViewCode(const DemoContext& ctx);
 
 void RenderTableInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderTableStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateTableCode(const DemoContext& ctx);
+keel::String GenerateTableCode(const DemoContext& ctx);
 
 void RenderOverlaysInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateOverlaysCode(const DemoContext& ctx);
+keel::String GenerateOverlaysCode(const DemoContext& ctx);
 
 void RenderToolbarInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderToolbarStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateToolbarCode(const DemoContext& ctx);
+keel::String GenerateToolbarCode(const DemoContext& ctx);
 
 // ============================================================================
 // 3. CONTENT & MEDIA (Documents, Editors, Graphics)
 // ============================================================================
 void RenderImageInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderImageStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateImageCode(const DemoContext& ctx);
+keel::String GenerateImageCode(const DemoContext& ctx);
 
 void RenderMarkdownInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderMarkdownStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateMarkdownCode(const DemoContext& ctx);
+keel::String GenerateMarkdownCode(const DemoContext& ctx);
 
 void RenderCodeEditorInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderCodeEditorStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateCodeEditorCode(const DemoContext& ctx);
+keel::String GenerateCodeEditorCode(const DemoContext& ctx);
 
 // ============================================================================
 // 4. 2D SCENES (Interactive Vector Viewports & GIS)
 // ============================================================================
 void RenderSchematicInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderSchematicStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateSchematicCode(const DemoContext& ctx);
+keel::String GenerateSchematicCode(const DemoContext& ctx);
 
 void RenderOsmMapInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderOsmMapStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateOsmMapCode(const DemoContext& ctx);
+keel::String GenerateOsmMapCode(const DemoContext& ctx);
 
 void RenderSignalInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderSignalStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateSignalCode(const DemoContext& ctx);
+keel::String GenerateSignalCode(const DemoContext& ctx);
 
 void RenderSonarInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderSonarStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateSonarCode(const DemoContext& ctx);
+keel::String GenerateSonarCode(const DemoContext& ctx);
 
 void RenderWaterfallInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderWaterfallStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateWaterfallCode(const DemoContext& ctx);
+keel::String GenerateWaterfallCode(const DemoContext& ctx);
 
 void RenderImageViewInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderImageViewStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateImageViewCode(const DemoContext& ctx);
+keel::String GenerateImageViewCode(const DemoContext& ctx);
 
 void RenderAttitudeInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderAttitudeStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateAttitudeCode(const DemoContext& ctx);
+keel::String GenerateAttitudeCode(const DemoContext& ctx);
 
 void RenderCarDashboardInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderCarDashboardStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateCarDashboardCode(const DemoContext& ctx);
+keel::String GenerateCarDashboardCode(const DemoContext& ctx);
 
 void RenderBpmnInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderBpmnStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateBpmnCode(const DemoContext& ctx);
+keel::String GenerateBpmnCode(const DemoContext& ctx);
 
 } // namespace guikit::demo

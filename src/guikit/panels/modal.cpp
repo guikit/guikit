@@ -1,8 +1,7 @@
 #include "guikit/panels/modal.hpp"
-#include <algorithm>
 #include <cmath>
-#include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
 
@@ -102,7 +101,7 @@ float Modal::ComputeHeaderHeight(
     }
 
     const float minHeaderContentH = 26.0f * s;
-    const float contentH = std::max(minHeaderContentH, textStackH);
+    const float contentH = keel::max(minHeaderContentH, textStackH);
     const float topPad = 14.0f * s;
     const float bottomPad = 12.0f * s;
     return topPad + contentH + bottomPad;
@@ -112,7 +111,7 @@ ModalScope Modal::Open(
     Context& ctx,
     bool& open,
     const ModalOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
     if (!open) {
@@ -227,7 +226,7 @@ ModalScope Modal::Open(
     node->inspectModeOverride = opts.inspectMode;
     node->direction = FlexDirection::Column;
     node->widthMode = SizeMode::Fixed;
-    node->fixedWidth = theme.Scale(std::max(180.0f, opts.width));
+    node->fixedWidth = theme.Scale(keel::max(180.0f, opts.width));
     if (opts.height.has_value() && *opts.height > 0.0f) {
         node->heightMode = SizeMode::Fixed;
         node->fixedHeight = theme.Scale(*opts.height);
@@ -243,7 +242,7 @@ ModalScope Modal::Open(
     );
     node->cornerRadius = opts.border.radius.has_value()
         ? theme.Scale(*opts.border.radius)
-        : theme.ResolveRadius(std::nullopt, activeSize);
+        : theme.ResolveRadius(keel::kNullOpt, activeSize);
     node->clipChildren = true;
     node->uiSize = activeSize;
     node->disabled = ctx.IsDisabled();
@@ -296,7 +295,7 @@ Vec2 Modal::Measure(
         const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
         const float ch = (child->heightMode == SizeMode::Fixed) ? child->fixedHeight : child->intrinsicSize.y;
         totalH += ch;
-        maxW = std::max(maxW, cw);
+        maxW = keel::max(maxW, cw);
         ++activeChildren;
     }
     if (activeChildren > 1) {
@@ -332,11 +331,11 @@ Rect Modal::ResolveDialogRect(
         if (payload->backdropRect.w > 1.0f && payload->backdropRect.h > 1.0f) {
             backdrop = payload->backdropRect;
         }
-        maxRatio = std::clamp(payload->opts.maxHeightRatio, 0.25f, 0.98f);
+        maxRatio = keel::clamp(payload->opts.maxHeightRatio, 0.25f, 0.98f);
     }
-    const float w = std::min(std::max(120.0f, backdrop.w - 24.0f), node->fixedWidth);
-    const float maxH = std::max(80.0f, backdrop.h * maxRatio);
-    const float h = std::min(maxH, std::max(60.0f, resolvedHeight));
+    const float w = keel::min(keel::max(120.0f, backdrop.w - 24.0f), node->fixedWidth);
+    const float maxH = keel::max(80.0f, backdrop.h * maxRatio);
+    const float h = keel::min(maxH, keel::max(60.0f, resolvedHeight));
     const float x = std::round(backdrop.x + (backdrop.w - w) * 0.5f);
     const float y = std::round(backdrop.y + (backdrop.h - h) * 0.46f);
     return Rect(x, y, w, h);
@@ -352,8 +351,8 @@ Rect Modal::GetBodyClipRect(const Node* node) noexcept {
     return Rect(
         r.x + 1.0f,
         r.y + headerH,
-        std::max(0.0f, r.w - 2.0f),
-        std::max(0.0f, r.h - headerH - 1.0f)
+        keel::max(0.0f, r.w - 2.0f),
+        keel::max(0.0f, r.h - headerH - 1.0f)
     );
 }
 
@@ -385,7 +384,7 @@ void Modal::Render(
             canvas.DrawRect(backdropRect, *opts.backdropColor);
         }
     } else {
-        const float alpha = std::clamp(opts.backdropOpacity, 0.0f, 0.95f);
+        const float alpha = keel::clamp(opts.backdropOpacity, 0.0f, 0.95f);
         if (alpha > 0.001f && backdropRect.w > 0.0f && backdropRect.h > 0.0f) {
             canvas.DrawRect(backdropRect, Color(4, 7, 14, static_cast<uint8_t>(std::round(alpha * 255.0f))));
         }
@@ -435,7 +434,7 @@ void Modal::Render(
     if (hasSemanticVariant) {
         canvas.PushClip(Rect(dialogRect.x, dialogRect.y, dialogRect.w, 4.0f * s));
         canvas.DrawRoundRect(
-            Rect(dialogRect.x, dialogRect.y, dialogRect.w, std::max(r * 2.0f, 8.0f * s)),
+            Rect(dialogRect.x, dialogRect.y, dialogRect.w, keel::max(r * 2.0f, 8.0f * s)),
             r,
             accentCol,
             Color::Transparent(),
@@ -492,7 +491,7 @@ void Modal::Render(
             contentX += badgeSz + 12.0f * s;
         }
 
-        const float textW = std::max(10.0f, availRight - contentX);
+        const float textW = keel::max(10.0f, availRight - contentX);
         float textY = dialogRect.y + topPad;
 
         if (!opts.title.empty()) {
@@ -533,7 +532,7 @@ void Modal::Render(
         if (opts.showHeaderDivider) {
             const float divY = std::round(dialogRect.y + headerH) - 1.0f;
             canvas.DrawRect(
-                Rect(dialogRect.x + 1.0f, divY, std::max(0.0f, dialogRect.w - 2.0f), 1.0f),
+                Rect(dialogRect.x + 1.0f, divY, keel::max(0.0f, dialogRect.w - 2.0f), 1.0f),
                 pal.borderSubtle
             );
         }

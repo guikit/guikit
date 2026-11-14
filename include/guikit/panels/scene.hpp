@@ -1,11 +1,7 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
-#include <optional>
-#include <source_location>
-#include <span>
-#include <string_view>
-#include <vector>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/id.hpp"
@@ -13,6 +9,10 @@
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
 #include "keel/arena.h"
+#include "keel/array.h"
+#include "keel/core.h"
+#include "keel/optional.h"
+#include "keel/ref.h"
 
 namespace guikit {
 
@@ -30,10 +30,10 @@ enum class SceneBackground : uint8_t {
 
 /// Configuration options for an interactive world-space item inside a Scene.
 struct SceneItemOptions {
-    std::string_view id{};                      ///< Unique item identifier within the scene (e.g. "R100", "TR101")
-    std::string_view title{};                   ///< Display value or part number (e.g. "220K", "BC 154")
-    std::string_view category{};                ///< Component category/type (e.g. "Resistor", "PNP Transistor")
-    std::optional<Rect> hitRect{std::nullopt};  ///< Explicit world-space hit box (auto-computed from geometry if nullopt)
+    keel::StringRef id{};                       ///< Unique item identifier within the scene (e.g. "R100", "TR101")
+    keel::StringRef title{};                    ///< Display value or part number (e.g. "220K", "BC 154")
+    keel::StringRef category{};                 ///< Component category/type (e.g. "Resistor", "PNP Transistor")
+    keel::Optional<Rect> hitRect{keel::kNullOpt}; ///< Explicit world-space hit box (auto-computed from geometry if nullopt)
     bool selectable{true};                      ///< Whether this item participates in hit-testing and selection
     bool showSelectionFrame{true};              ///< Whether to draw automatic CAD hover/selection box around worldBounds
     bool draggable{false};                      ///< Pressing the item drags it (SceneItemScope::GetDrag) instead of panning the scene; hit-tested even when SceneOptions::selectableItems is false
@@ -43,9 +43,9 @@ struct SceneItemOptions {
 /// Resolved metadata, interaction flags, and world-space bounding box of a recorded SceneItem.
 struct SceneItemInfo {
     uint64_t key{0};                ///< Deterministic 64-bit item key
-    std::string_view id{};          ///< Frame-arena allocated identifier
-    std::string_view title{};       ///< Frame-arena allocated title/value
-    std::string_view category{};    ///< Frame-arena allocated category
+    keel::StringRef id{};           ///< Frame-arena allocated identifier
+    keel::StringRef title{};        ///< Frame-arena allocated title/value
+    keel::StringRef category{};     ///< Frame-arena allocated category
     Rect worldBounds{};             ///< World-space bounding box of the item's geometry
     int32_t firstCmdIndex{0};       ///< First draw command index belonging to this item
     bool hasExplicitBounds{false};  ///< True if hitRect was explicitly provided
@@ -90,7 +90,7 @@ struct SceneState {
     // Interactive SceneItem selection & marquee state
     uint64_t hoveredItemKey{0};
     uint64_t clickedItemKey{0};
-    std::vector<uint64_t> selectedItemKeys{};
+    keel::Array<uint64_t> selectedItemKeys{};
     uint64_t hoveredDraggableKey{0};    ///< hoveredItemKey when that item is draggable (press starts a drag)
     uint64_t draggedItemKey{0};         ///< Item being dragged (0 = none)
     uint64_t dragStartedKey{0};         ///< One-frame: drag started on this item
@@ -103,10 +103,10 @@ struct SceneState {
     bool boxSelecting{false};
     Vec2 boxSelectStartWorld{0.0f, 0.0f};
     Vec2 boxSelectCurrentWorld{0.0f, 0.0f};
-    std::optional<Vec2> pendingCenterWorld{std::nullopt};
-    std::optional<float> pendingCenterZoom{std::nullopt};
+    keel::Optional<Vec2> pendingCenterWorld{keel::kNullOpt};
+    keel::Optional<float> pendingCenterZoom{keel::kNullOpt};
     Rect lastViewport{};
-    std::optional<Rect> lastWorldBounds{std::nullopt};
+    keel::Optional<Rect> lastWorldBounds{keel::kNullOpt};
     Padding lastFitPadding{};
     bool preUpdatedCamera{false};
     bool preUpdateHudConsumed{false};
@@ -133,8 +133,8 @@ struct SceneTextOptions {
 
 /// Configuration options for a 2D Scene camera viewport.
 struct SceneOptions {
-    std::optional<Vec2> worldSize{std::nullopt};        ///< Bounded world dimensions (0..W, 0..H), or nullopt for infinite world (OSM maps, graphs)
-    std::optional<Rect> worldBounds{std::nullopt};      ///< Arbitrary world coordinate rectangle (minX, minY, width, height) to frame in viewport
+    keel::Optional<Vec2> worldSize{keel::kNullOpt};     ///< Bounded world dimensions (0..W, 0..H), or nullopt for infinite world (OSM maps, graphs)
+    keel::Optional<Rect> worldBounds{keel::kNullOpt};   ///< Arbitrary world coordinate rectangle (minX, minY, width, height) to frame in viewport
     Padding fitPadding{};                               ///< Screen-space inset padding in dp reserved around fitted worldBounds / worldSize
     ObjectFit initialFit{ObjectFit::Contain};           ///< Initial camera framing when worldSize / worldBounds is set
     SceneBackground backgroundStyle{SceneBackground::Checkerboard};
@@ -143,9 +143,9 @@ struct SceneOptions {
     StretchMode stretch{StretchMode::Fill};
     SizeMode widthMode{SizeMode::Stretch};
     SizeMode heightMode{SizeMode::Stretch};
-    std::optional<float> width{std::nullopt};           ///< Explicit width in dp (or legacy ratio 0.0..1.0 in Fill mode)
-    std::optional<float> widthRatio{std::nullopt};      ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
-    std::optional<float> height{std::nullopt};          ///< Explicit height in px
+    keel::Optional<float> width{keel::kNullOpt};        ///< Explicit width in dp (or legacy ratio 0.0..1.0 in Fill mode)
+    keel::Optional<float> widthRatio{keel::kNullOpt};   ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
+    keel::Optional<float> height{keel::kNullOpt};       ///< Explicit height in px
     float minHeight{220.0f};                            ///< Minimum fallback height when placed inside a Fit/ScrollArea container
     float minZoom{0.1f};
     float maxZoom{16.0f};
@@ -156,15 +156,15 @@ struct SceneOptions {
     bool showScrollbars{true};                          ///< Render 2D (X/Y) scrollbars when worldSize overflows viewport
     bool showControls{true};                            ///< Render floating Zoom HUD (-, Fit, 100%, +)
     bool clampToWorld{true};                            ///< Clamp panning to worldSize bounds when worldSize is finite
-    std::optional<bool> scaleStrokeWithZoom{std::nullopt}; ///< Scale line/rect strokeWidth with zoom (defaults to false when worldBounds is set, true otherwise)
+    keel::Optional<bool> scaleStrokeWithZoom{keel::kNullOpt}; ///< Scale line/rect strokeWidth with zoom (defaults to false when worldBounds is set, true otherwise)
     StateColor background{};
     Border border{.width = 1.0f, .radius = 6.0f};
     UiText tooltip{};                                   ///< Floating tooltip while the scene is hovered and no item with its own tooltip is under the pointer
     bool disabled{false};
     const UiTheme* theme{nullptr};
-    std::optional<float> scale{std::nullopt};
-    std::optional<bool> debugBounds{std::nullopt};
-    std::optional<bool> inspectMode{std::nullopt};
+    keel::Optional<float> scale{keel::kNullOpt};
+    keel::Optional<bool> debugBounds{keel::kNullOpt};
+    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// Recorded world-space drawing command executed during Scene rendering.
@@ -180,7 +180,7 @@ struct SceneDrawCmd {
     };
     Type type{Type::Rect};
     int32_t itemIndex{-1};      ///< Owning SceneItemInfo index in ScenePayload::items (-1 if unowned)
-    std::string_view textOrSource{};
+    keel::StringRef textOrSource{};
     const uint32_t* pixels{nullptr};
     uint32_t pixelW{0};
     uint32_t pixelH{0};
@@ -260,7 +260,7 @@ public:
     [[nodiscard]] SceneItemScope Item(const SceneItemOptions& opts);
 
     /// Returns all interactive items recorded in the scene during this frame.
-    [[nodiscard]] std::span<const SceneItemInfo> GetItems() const noexcept;
+    [[nodiscard]] keel::ArrayRef<SceneItemInfo> GetItems() const noexcept;
 
     /// Returns the currently hovered item (or nullptr if none).
     [[nodiscard]] const SceneItemInfo* GetHoveredItem() const noexcept;
@@ -272,7 +272,7 @@ public:
     void ClearSelection() noexcept;
 
     /// Selects an item by its string identifier.
-    void SelectItem(std::string_view id, bool addToSelection = false) noexcept;
+    void SelectItem(keel::StringRef id, bool addToSelection = false) noexcept;
 
     /// Returns the current camera zoom multiplier.
     [[nodiscard]] float GetZoom() const noexcept;
@@ -284,7 +284,7 @@ public:
     void SetZoom(float zoom) noexcept;
 
     /// Centers the camera on a specific world-space coordinate with an optional new zoom multiplier.
-    void CenterOn(Vec2 worldPoint, std::optional<float> zoom = std::nullopt) noexcept;
+    void CenterOn(Vec2 worldPoint, keel::Optional<float> zoom = keel::kNullOpt) noexcept;
 
     /// Resets camera to initial fit framing.
     void ResetView() noexcept;
@@ -324,7 +324,7 @@ public:
 
     /// Queues a vector or raster image (SVG, PNG, JPG) in World Coordinates.
     void DrawImage(
-        std::string_view source,
+        keel::StringRef source,
         Rect worldRect,
         float radius = 0.0f,
         uint8_t opacity = 255
@@ -335,6 +335,17 @@ public:
     /// `contentVersion` (non-zero, changed whenever the pixels change) is given.
     void DrawPixels(
         const uint32_t* pixels,
+        uint32_t width,
+        uint32_t height,
+        Rect worldRect,
+        float radius = 0.0f,
+        uint8_t opacity = 255,
+        uint64_t contentVersion = 0
+    );
+
+    /// Queues an in-memory ABGR8888 pixel slice in World Coordinates.
+    void DrawPixels(
+        keel::ArrayRef<uint32_t> pixels,
         uint32_t width,
         uint32_t height,
         Rect worldRect,
@@ -385,9 +396,25 @@ public:
     /// Queues a line segment in World Coordinates.
     void DrawLine(Vec2 worldP1, Vec2 worldP2, Color color, float strokeWidth = 1.0f);
 
+    /// Queues a connected polyline (or closed polygon outline) in World Coordinates.
+    void DrawPolyline(
+        keel::ArrayRef<Vec2> points,
+        Color color,
+        float strokeWidth = 1.0f,
+        bool closed = false
+    );
+
+    /// Queues a filled/stroked convex polygon in World Coordinates.
+    void DrawPolygon(
+        keel::ArrayRef<Vec2> points,
+        Color fill,
+        Color stroke = Color::Transparent(),
+        float strokeWidth = 0.0f
+    );
+
     /// Queues a text label in World Coordinates.
     void DrawText(
-        std::string_view text,
+        keel::StringRef text,
         Vec2 worldPos,
         float fontSize,
         Color color,
@@ -398,7 +425,7 @@ public:
 
     /// Queues an anchor-aligned text label at a world coordinate with optional screen-space dp offset.
     void DrawText(
-        std::string_view text,
+        keel::StringRef text,
         Vec2 worldPos,
         float fontSize,
         Color color,
@@ -407,7 +434,7 @@ public:
 
     /// Queues aligned text inside a World Coordinate bounding box (with optional rotation angle in degrees).
     void DrawTextBox(
-        std::string_view text,
+        keel::StringRef text,
         Rect worldRect,
         float fontSize,
         Color color,
@@ -436,7 +463,7 @@ public:
     [[nodiscard]] static SceneScope Open(
         Context& ctx,
         const SceneOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Opens an immediate mode 2D Scene container using an already-resolved widget ID (e.g. MapView wrapper).

@@ -1,8 +1,7 @@
 #include "guikit/panels/activity_bar.hpp"
-#include <algorithm>
 #include <cmath>
-#include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 
 namespace guikit {
@@ -15,18 +14,18 @@ void ActivityBarScope::InvalidateContext() noexcept {
 
 Response ActivityBarScope::Item(
     const ActivityBarItem& item,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     if (!m_ctx) return Response{};
     return ActivityBar::Item(*m_ctx, item, m_opts, loc);
 }
 
-void ActivityBarScope::Separator(std::source_location loc) {
+void ActivityBarScope::Separator(keel::SourceLocation loc) {
     if (!m_ctx || !m_node) return;
     guikit::Separator::Run(*m_ctx, 0.0f, Color::Transparent(), loc);
 }
 
-void ActivityBarScope::Spacer(float flex, std::source_location loc) {
+void ActivityBarScope::Spacer(float flex, keel::SourceLocation loc) {
     if (!m_ctx) return;
     const Id id = m_ctx->MakeChildId(loc);
     Node* spacer = m_ctx->CreateNode(NodeType::Spacer, id);
@@ -42,7 +41,7 @@ void ActivityBarScope::Spacer(float flex, std::source_location loc) {
 ActivityBarScope ActivityBar::Open(
     Context& ctx,
     const ActivityBarOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
@@ -119,9 +118,9 @@ ActivityBarScope ActivityBar::Open(
 Response ActivityBar::Run(
     Context& ctx,
     int& activeIndex,
-    std::span<const ActivityBarItem> items,
+    keel::ArrayRef<ActivityBarItem> items,
     const ActivityBarOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     Response barRes{};
     if (auto scope = Open(ctx, opts, loc)) {
@@ -146,7 +145,7 @@ Response ActivityBar::Item(
     Context& ctx,
     const ActivityBarItem& item,
     const ActivityBarOptions& barOpts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
@@ -318,17 +317,17 @@ void ActivityBar::RenderItem(
     // 1. Active edge indicator bar (drawn on Left edge when docked Left, Right edge when docked Right)
     if (opts.style == ActivityBarStyle::Indicator && item.active) {
         const float barW = 3.0f;
-        const float barPadY = std::min(6.0f, bounds.h * 0.20f);
+        const float barPadY = keel::min(6.0f, bounds.h * 0.20f);
         const float barX = (opts.side == SidebarSide::Right)
             ? (bounds.Right() - barW - 1.0f)
             : (bounds.x + 1.0f);
-        const Rect barRect(barX, bounds.y + barPadY, barW, std::max(4.0f, bounds.h - barPadY * 2.0f));
+        const Rect barRect(barX, bounds.y + barPadY, barW, keel::max(4.0f, bounds.h - barPadY * 2.0f));
         const Color barCol = disabled ? v.bg.WithAlphaF(0.40f) : v.bg;
         canvas.DrawRoundRect(barRect, barW * 0.5f, barCol);
     }
 
     // 2. Centered Icon (or fallback monogram letter)
-    const float iconSz = std::min(bounds.w * 0.56f, std::round(m.iconSize * 1.12f));
+    const float iconSz = keel::min(bounds.w * 0.56f, std::round(m.iconSize * 1.12f));
     if (item.icon.IsValid()) {
         const Rect iconRect(
             bounds.x + (bounds.w - iconSz) * 0.5f,
@@ -344,10 +343,10 @@ void ActivityBar::RenderItem(
 
     // 3. Corner Badge (compact counter pill in the bottom-right corner with surface cutout border)
     if (!item.badge.empty()) {
-        const float badgeFont = std::max(9.0f, theme.ResolveFontSize(item.badge, TextRole::LabelSmall, size) - 1.5f);
+        const float badgeFont = keel::max(9.0f, theme.ResolveFontSize(item.badge, TextRole::LabelSmall, size) - 1.5f);
         const Vec2 badgeDims = canvas.MeasureText(item.badge.text, badgeFont);
-        const float badgeH = std::min(bounds.h * 0.48f, std::max(13.0f, badgeFont + 3.0f));
-        const float badgeW = std::min(bounds.w - 4.0f, std::max(badgeH, badgeDims.x + 6.0f));
+        const float badgeH = keel::min(bounds.h * 0.48f, keel::max(13.0f, badgeFont + 3.0f));
+        const float badgeW = keel::min(bounds.w - 4.0f, keel::max(badgeH, badgeDims.x + 6.0f));
         const Rect badgeRect(
             bounds.Right() - badgeW - 2.0f,
             bounds.Bottom() - badgeH - 2.0f,

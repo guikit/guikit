@@ -1,13 +1,9 @@
 #pragma once
 
-#include <concepts>
 #include <cstdint>
-#include <optional>
-#include <string>
-#include <string_view>
-#include <type_traits>
 #include "guikit/core/types.hpp"
 #include "guikit/graphics/icon.hpp"
+#include "keel/optional.h"
 
 namespace guikit {
 
@@ -120,10 +116,10 @@ enum class StateColorToken : uint8_t {
 /// Pure C++20 aggregate supporting designated initializers (`{.normal = ..., .hover = ...}`)
 /// as well as semantic preset constants (`StateColor::Danger()`, `StateColor::Warning()`, etc.).
 struct StateColor {
-    std::optional<Color> normal{std::nullopt};      ///< Idle / resting / unchecked state color
-    std::optional<Color> hover{std::nullopt};       ///< Mouse-hovered state color
-    std::optional<Color> active{std::nullopt};      ///< Pressed / checked / focused / filled state color
-    std::optional<Color> disabled{std::nullopt};    ///< Disabled state color
+    keel::Optional<Color> normal{keel::kNullOpt};   ///< Idle / resting / unchecked state color
+    keel::Optional<Color> hover{keel::kNullOpt};    ///< Mouse-hovered state color
+    keel::Optional<Color> active{keel::kNullOpt};   ///< Pressed / checked / focused / filled state color
+    keel::Optional<Color> disabled{keel::kNullOpt}; ///< Disabled state color
     StateColorToken token{StateColorToken::Custom}; ///< Optional semantic theme token resolved via UiTheme
     uint8_t surfaceTint{255};                       ///< Surface mix weight (255 = pure color, 0 = pure theme surface)
     uint8_t alphaScale{255};                        ///< Post-resolve alpha multiplier (255 = 100% opacity, 0 = 0% opacity)
@@ -140,7 +136,7 @@ struct StateColor {
     /// Produces an opaque tonal surface (callout/well backdrop) that adapts automatically to both Light and Dark themes.
     [[nodiscard]] constexpr StateColor Tinted(float amount = 0.14f) const noexcept {
         StateColor copy = *this;
-        const float clamped = std::clamp(amount, 0.0f, 1.0f);
+        const float clamped = keel::clamp(amount, 0.0f, 1.0f);
         copy.surfaceTint = static_cast<uint8_t>(clamped * 255.0f + 0.5f);
         return copy;
     }
@@ -148,7 +144,7 @@ struct StateColor {
     /// Scales the resolved alpha channel across all interaction states (`0.0f` = transparent, `1.0f` = unchanged) while keeping theme reactivity.
     [[nodiscard]] constexpr StateColor WithAlphaF(float factor) const noexcept {
         StateColor copy = *this;
-        const float clamped = std::clamp(factor, 0.0f, 1.0f);
+        const float clamped = keel::clamp(factor, 0.0f, 1.0f);
         copy.alphaScale = static_cast<uint8_t>(clamped * 255.0f + 0.5f);
         return copy;
     }
@@ -178,9 +174,9 @@ struct StateColor {
 
     [[nodiscard]] static constexpr Color BrightenColor(Color c) noexcept {
         return Color(
-            static_cast<uint8_t>(std::min(255, static_cast<int>(c.r) + (255 - static_cast<int>(c.r)) / 5)),
-            static_cast<uint8_t>(std::min(255, static_cast<int>(c.g) + (255 - static_cast<int>(c.g)) / 5)),
-            static_cast<uint8_t>(std::min(255, static_cast<int>(c.b) + (255 - static_cast<int>(c.b)) / 5)),
+            static_cast<uint8_t>(keel::min(255, static_cast<int>(c.r) + (255 - static_cast<int>(c.r)) / 5)),
+            static_cast<uint8_t>(keel::min(255, static_cast<int>(c.g) + (255 - static_cast<int>(c.g)) / 5)),
+            static_cast<uint8_t>(keel::min(255, static_cast<int>(c.b) + (255 - static_cast<int>(c.b)) / 5)),
             c.a
         );
     }
@@ -433,9 +429,9 @@ struct StateColor {
 /// Pure C++20 aggregate supporting designated initializers (`{.width = 1.0f, .radius = 8.0f, .color = StateColor::Danger()}`)
 /// as well as concise positional initialization (`{1.0f}`) and static factory presets.
 struct Border {
-    float width{0.0f};                         ///< Stroke thickness in points (0.0f = none / theme default)
-    std::optional<float> radius{std::nullopt}; ///< Corner radius override in points (nullopt = theme radius)
-    StateColor color{};                        ///< Per-state border stroke color (normal, hover, active, disabled)
+    float width{0.0f};                           ///< Stroke thickness in points (0.0f = none / theme default)
+    keel::Optional<float> radius{keel::kNullOpt}; ///< Corner radius override in points (nullopt = theme radius)
+    StateColor color{};                          ///< Per-state border stroke color (normal, hover, active, disabled)
 
     [[nodiscard]] constexpr bool HasStroke() const noexcept {
         return width > 0.0f;
@@ -452,7 +448,7 @@ struct Border {
     [[nodiscard]] static constexpr Border Solid(
         float w = 1.0f,
         StateColor col = {},
-        std::optional<float> r = std::nullopt
+        keel::Optional<float> r = keel::kNullOpt
     ) noexcept {
         return {w, r, col};
     }
@@ -509,9 +505,9 @@ struct HeadingDivider {
 /// - Scale presets (`TextSize::Xs()`, `Sm()`, `Md()`, `Lg()`, `Xl()`, or `UiSize` in `UiText`)
 /// - Typographic role (`TextRole::HeadlineSmall`, `TextRole::CodeSmall`, etc.)
 struct TextSize {
-    float px{0.0f};                             ///< Explicit pixel size (> 0.0f overrides theme scale)
-    UiSize preset{UiSize::None};                ///< Relative scale preset (Xs, Sm, Md, Lg, Xl) resolved via UiTheme
-    std::optional<TextRole> role{std::nullopt}; ///< Optional typographic role (Display, Headline, Title, Body, Label, Code)
+    float px{0.0f};                               ///< Explicit pixel size (> 0.0f overrides theme scale)
+    UiSize preset{UiSize::None};                  ///< Relative scale preset (Xs, Sm, Md, Lg, Xl) resolved via UiTheme
+    keel::Optional<TextRole> role{keel::kNullOpt}; ///< Optional typographic role (Display, Headline, Title, Body, Label, Code)
 
     constexpr TextSize() noexcept = default;
     constexpr TextSize(float inPx) noexcept : px(inPx) {}
@@ -597,39 +593,41 @@ struct UiText;
 namespace detail {
 template <typename S>
 concept UiStringLike =
-    std::convertible_to<const S&, std::string_view> &&
-    !std::is_same_v<std::decay_t<S>, UiText> &&
-    !std::is_same_v<std::decay_t<S>, TextVariants>;
+    keel::IsConvertible<const S&, keel::StringRef> &&
+    !keel::IsSame<keel::Decay<S>, UiText> &&
+    !keel::IsSame<keel::Decay<S>, TextVariants>;
 
 template <typename S>
     requires UiStringLike<S>
-[[nodiscard]] constexpr std::string_view ToUiStringView(const S& s) noexcept {
-    if constexpr (std::is_convertible_v<const S&, const char*>) {
+[[nodiscard]] constexpr keel::StringRef ToUiStringView(const S& s) noexcept {
+    if constexpr (keel::IsConvertible<const S&, const char*>) {
         const char* p = s;
-        return p ? std::string_view(p) : std::string_view{};
+        return p ? keel::StringRef(p) : keel::StringRef{};
     } else {
-        return static_cast<std::string_view>(s);
+        return keel::StringRef(s);
     }
 }
 
+void AcceptTextVariants(TextVariants) noexcept;
+
 template <typename T>
 concept UiTextModifier =
-    std::is_same_v<std::decay_t<T>, TextSize> ||
-    std::is_same_v<std::decay_t<T>, float> ||
-    std::is_same_v<std::decay_t<T>, UiSize> ||
-    std::is_same_v<std::decay_t<T>, TextRole> ||
-    std::is_same_v<std::decay_t<T>, StateColor> ||
-    std::is_same_v<std::decay_t<T>, Color> ||
-    std::is_same_v<std::decay_t<T>, UiVariant> ||
-    std::is_same_v<std::decay_t<T>, TextVariants> ||
-    std::is_same_v<std::decay_t<T>, TextWrap>;
+    keel::IsSame<keel::Decay<T>, TextSize> ||
+    keel::IsSame<keel::Decay<T>, float> ||
+    keel::IsSame<keel::Decay<T>, UiSize> ||
+    keel::IsSame<keel::Decay<T>, TextRole> ||
+    keel::IsSame<keel::Decay<T>, StateColor> ||
+    keel::IsSame<keel::Decay<T>, Color> ||
+    keel::IsSame<keel::Decay<T>, UiVariant> ||
+    requires(const T& v) { AcceptTextVariants(v); } ||
+    keel::IsSame<keel::Decay<T>, TextWrap>;
 } // namespace detail
 
 /// Styled text wrapper combining text content with font size (`TextSize`), per-state color (`StateColor`),
 /// wrapping/line reservation policy (`TextWrap`), and candidate width/height variants (`TextVariants`).
-/// Implicitly constructible from string literals, std::string_view, std::string, and BasicUiString (ui.Format).
+/// Implicitly constructible from string literals, `keel::StringRef`, `keel::String` (`ui.Format`), and external string types.
 struct UiText {
-    std::string_view text{};
+    keel::StringRef text{};
     TextSize size{};
     StateColor color{};
     TextWrap wrap{};
@@ -657,7 +655,7 @@ struct UiText {
     /// defaulting to multi-line word wrap unless overridden by a `TextWrap` modifier.
     template <typename S, detail::UiTextModifier... Mods>
         requires detail::UiStringLike<S>
-    [[nodiscard]] static constexpr UiText Rich(const S& s, Mods... mods) noexcept {
+    [[nodiscard]] static constexpr UiText Rich(const S& s, const Mods&... mods) noexcept {
         UiText out;
         out.text = detail::ToUiStringView(s);
         out.wrap = TextWrap::Rich();
@@ -669,18 +667,18 @@ struct UiText {
     constexpr UiText(const char* s) noexcept : text(s ? s : "") {}
 
     template <typename S>
-        requires (detail::UiStringLike<S> && !std::is_convertible_v<const S&, const char*>)
-    constexpr UiText(const S& s) noexcept : text(static_cast<std::string_view>(s)) {}
+        requires (detail::UiStringLike<S> && !keel::IsConvertible<const S&, const char*>)
+    constexpr UiText(const S& s) noexcept : text(keel::StringRef(s)) {}
 
     template <detail::UiTextModifier... Mods>
         requires (sizeof...(Mods) >= 1)
-    constexpr UiText(Mods... mods) noexcept {
+    constexpr UiText(const Mods&... mods) noexcept {
         (ApplyModifier(mods), ...);
     }
 
     template <typename S, detail::UiTextModifier... Mods>
         requires (detail::UiStringLike<S> && sizeof...(Mods) >= 1)
-    constexpr UiText(const S& s, Mods... mods) noexcept : text(detail::ToUiStringView(s)) {
+    constexpr UiText(const S& s, const Mods&... mods) noexcept : text(detail::ToUiStringView(s)) {
         (ApplyModifier(mods), ...);
     }
 
@@ -695,17 +693,17 @@ struct UiText {
     constexpr UiText(TextWrap w, TextVariants vars) noexcept : wrap(w), variants(vars) {}
     constexpr UiText(UiVariant v, TextWrap w, TextVariants vars) noexcept : color(StateColor::FromTextVariant(v)), wrap(w), variants(vars) {}
 
-    constexpr UiText(std::string_view s, TextVariants vars) noexcept : text(s), variants(vars) {}
-    constexpr UiText(std::string_view s, UiVariant v, TextVariants vars) noexcept : text(s), color(StateColor::FromTextVariant(v)), variants(vars) {}
-    constexpr UiText(std::string_view s, StateColor c, TextVariants vars) noexcept : text(s), color(c), variants(vars) {}
-    constexpr UiText(std::string_view s, TextVariants vars, UiVariant v) noexcept : text(s), color(StateColor::FromTextVariant(v)), variants(vars) {}
-    constexpr UiText(std::string_view s, TextSize sz, TextVariants vars) noexcept : text(s), size(sz), variants(vars) {}
-    constexpr UiText(std::string_view s, TextRole r, TextVariants vars) noexcept : text(s), size(r), variants(vars) {}
-    constexpr UiText(std::string_view s, TextVariants vars, TextRole r) noexcept : text(s), size(r), variants(vars) {}
-    constexpr UiText(std::string_view s, TextRole r, UiVariant v, TextVariants vars) noexcept : text(s), size(r), color(StateColor::FromTextVariant(v)), variants(vars) {}
-    constexpr UiText(std::string_view s, UiVariant v, TextRole r, TextVariants vars) noexcept : text(s), size(r), color(StateColor::FromTextVariant(v)), variants(vars) {}
-    constexpr UiText(std::string_view s, TextWrap w, TextVariants vars) noexcept : text(s), wrap(w), variants(vars) {}
-    constexpr UiText(std::string_view s, UiVariant v, TextWrap w, TextVariants vars) noexcept : text(s), color(StateColor::FromTextVariant(v)), wrap(w), variants(vars) {}
+    constexpr UiText(keel::StringRef s, TextVariants vars) noexcept : text(s), variants(vars) {}
+    constexpr UiText(keel::StringRef s, UiVariant v, TextVariants vars) noexcept : text(s), color(StateColor::FromTextVariant(v)), variants(vars) {}
+    constexpr UiText(keel::StringRef s, StateColor c, TextVariants vars) noexcept : text(s), color(c), variants(vars) {}
+    constexpr UiText(keel::StringRef s, TextVariants vars, UiVariant v) noexcept : text(s), color(StateColor::FromTextVariant(v)), variants(vars) {}
+    constexpr UiText(keel::StringRef s, TextSize sz, TextVariants vars) noexcept : text(s), size(sz), variants(vars) {}
+    constexpr UiText(keel::StringRef s, TextRole r, TextVariants vars) noexcept : text(s), size(r), variants(vars) {}
+    constexpr UiText(keel::StringRef s, TextVariants vars, TextRole r) noexcept : text(s), size(r), variants(vars) {}
+    constexpr UiText(keel::StringRef s, TextRole r, UiVariant v, TextVariants vars) noexcept : text(s), size(r), color(StateColor::FromTextVariant(v)), variants(vars) {}
+    constexpr UiText(keel::StringRef s, UiVariant v, TextRole r, TextVariants vars) noexcept : text(s), size(r), color(StateColor::FromTextVariant(v)), variants(vars) {}
+    constexpr UiText(keel::StringRef s, TextWrap w, TextVariants vars) noexcept : text(s), wrap(w), variants(vars) {}
+    constexpr UiText(keel::StringRef s, UiVariant v, TextWrap w, TextVariants vars) noexcept : text(s), color(StateColor::FromTextVariant(v)), wrap(w), variants(vars) {}
 
     [[nodiscard]] constexpr UiText WithSize(TextSize s) const noexcept {
         UiText copy = *this;
@@ -751,17 +749,25 @@ struct UiText {
     [[nodiscard]] constexpr bool HasContentOrReserve() const noexcept {
         return !text.empty() || !variants.empty() || wrap.minLines > 0;
     }
-    [[nodiscard]] constexpr size_t length() const noexcept { return text.length(); }
+    [[nodiscard]] constexpr size_t length() const noexcept { return text.size(); }
     [[nodiscard]] constexpr const char* data() const noexcept { return text.data(); }
-    [[nodiscard]] constexpr operator std::string_view() const noexcept { return text; }
+    [[nodiscard]] constexpr operator keel::StringRef() const noexcept { return text; }
 
     [[nodiscard]] constexpr TextRole RoleOr(TextRole fallback) const noexcept {
         return size.role.value_or(fallback);
     }
 
     [[nodiscard]] constexpr bool operator==(const UiText& other) const noexcept = default;
-    [[nodiscard]] constexpr bool operator==(std::string_view sv) const noexcept { return text == sv; }
-    [[nodiscard]] constexpr bool operator==(const char* s) const noexcept { return text == (s ? std::string_view(s) : std::string_view{}); }
+    [[nodiscard]] constexpr bool operator==(keel::StringRef sv) const noexcept { return text == sv; }
+    [[nodiscard]] constexpr bool operator==(const char* s) const noexcept {
+        return text == (s ? keel::StringRef(s) : keel::StringRef{});
+    }
+    template <typename S>
+        requires (detail::UiStringLike<S> && !keel::IsSame<keel::Decay<S>, keel::StringRef> &&
+                  !keel::IsConvertible<const S&, const char*>)
+    [[nodiscard]] constexpr bool operator==(const S& s) const noexcept {
+        return text == keel::StringRef(s);
+    }
 };
 static_assert(sizeof(UiText) <= 80, "UiText must remain compact (<= 80 bytes)");
 
@@ -775,7 +781,7 @@ struct UiAffix {
     constexpr UiAffix(const char* s) noexcept : text(s) {}
 
     template <typename S>
-        requires (detail::UiStringLike<S> && !std::is_convertible_v<const S&, const char*>)
+        requires (detail::UiStringLike<S> && !keel::IsConvertible<const S&, const char*>)
     constexpr UiAffix(const S& s) noexcept : text(s) {}
 
     constexpr UiAffix(UiText t) noexcept : text(t) {}
@@ -815,7 +821,7 @@ struct UiAffix {
 
     // TextVariants support
     constexpr UiAffix(TextVariants vars) noexcept : text(vars) {}
-    constexpr UiAffix(std::string_view s, TextVariants vars) noexcept : text(s, vars) {}
+    constexpr UiAffix(keel::StringRef s, TextVariants vars) noexcept : text(s, vars) {}
     constexpr UiAffix(Icon ic, TextVariants vars) noexcept : text(vars), icon(ic), iconPlacement(Placement::Leading) {}
 
     [[nodiscard]] constexpr UiAffix WithIcon(Icon ic, Placement placement = Placement::Leading) const noexcept {
@@ -863,15 +869,21 @@ struct UiAffix {
         return icon.IsValid();
     }
 
-    [[nodiscard]] constexpr operator std::string_view() const noexcept { return text.text; }
+    [[nodiscard]] constexpr operator keel::StringRef() const noexcept { return text.text; }
     [[nodiscard]] constexpr operator const UiText&() const noexcept { return text; }
 
     [[nodiscard]] constexpr bool operator==(const UiAffix& other) const noexcept = default;
-    [[nodiscard]] constexpr bool operator==(std::string_view sv) const noexcept {
+    [[nodiscard]] constexpr bool operator==(keel::StringRef sv) const noexcept {
         return !icon.IsValid() && text.text == sv;
     }
     [[nodiscard]] constexpr bool operator==(const char* s) const noexcept {
         return !icon.IsValid() && text == s;
+    }
+    template <typename S>
+        requires (detail::UiStringLike<S> && !keel::IsSame<keel::Decay<S>, keel::StringRef> &&
+                  !keel::IsConvertible<const S&, const char*>)
+    [[nodiscard]] constexpr bool operator==(const S& s) const noexcept {
+        return !icon.IsValid() && text.text == keel::StringRef(s);
     }
     [[nodiscard]] constexpr bool operator==(const Icon& ic) const noexcept {
         return text.empty() && icon == ic;

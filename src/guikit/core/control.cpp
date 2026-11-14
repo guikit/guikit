@@ -1,5 +1,4 @@
 #include "guikit/core/control.hpp"
-#include <algorithm>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/element.hpp"
@@ -16,7 +15,7 @@ float Control::ComputeWellPadding(
         return 0.0f;
     }
     const ComponentMetrics& cm = theme.GetMetrics(size);
-    const float basePad = std::max(theme.Scale(4.0f), cm.paddingX * 0.5f);
+    const float basePad = keel::max(theme.Scale(4.0f), cm.paddingX * 0.5f);
     const float strokePad = (spec.border.width > 0.0f) ? theme.Scale(spec.border.width) : 0.0f;
     return basePad + strokePad;
 }
@@ -35,7 +34,7 @@ Vec2 Control::Measure(
         result.y += wellPad * 2.0f;
     }
     if (!spec.stretchable && !spec.hasIntrinsicBox && HasExplicitDpWidth(stretch, spec.width, spec.widthRatio)) {
-        result.x = std::max(result.x, theme.Scale(*spec.width));
+        result.x = keel::max(result.x, theme.Scale(*spec.width));
     }
     if (spec.height.has_value() && *spec.height > 0.0f) {
         result.y = theme.Scale(*spec.height);
@@ -114,18 +113,18 @@ void Control::RenderFrame(
 void Control::InheritElementSizing(
     Context& ctx,
     StretchMode& ioStretch,
-    std::optional<float>& ioWidth,
+    keel::Optional<float>& ioWidth,
     bool inheritWidth
 ) noexcept {
-    std::optional<float> dummyRatio{std::nullopt};
+    keel::Optional<float> dummyRatio{keel::kNullOpt};
     InheritElementSizing(ctx, ioStretch, ioWidth, dummyRatio, inheritWidth);
 }
 
 void Control::InheritElementSizing(
     Context& ctx,
     StretchMode& ioStretch,
-    std::optional<float>& ioWidth,
-    std::optional<float>& ioWidthRatio,
+    keel::Optional<float>& ioWidth,
+    keel::Optional<float>& ioWidthRatio,
     bool inheritWidth
 ) noexcept {
     Node* parent = ctx.GetCurrentContainer();
@@ -243,10 +242,10 @@ void Control::SetupNode(
         if (node->pressed) parent->pressed = true;
         if (node->focused || node->active) parent->active = true;
         if (node->minWidth > 0.0f) {
-            parent->minWidth = std::max(parent->minWidth, node->minWidth);
+            parent->minWidth = keel::max(parent->minWidth, node->minWidth);
         }
         if (node->minHeight > 0.0f) {
-            parent->minHeight = std::max(parent->minHeight, node->minHeight);
+            parent->minHeight = keel::max(parent->minHeight, node->minHeight);
         }
         return;
     }
@@ -277,7 +276,7 @@ void Control::SetupNode(
     }
 
     const bool hasExplicitDpW = HasExplicitDpWidth(stretch, spec.width, spec.widthRatio);
-    const std::optional<float> fillRatioOpt = ResolveFillRatio(stretch, spec.width, spec.widthRatio);
+    const keel::Optional<float> fillRatioOpt = ResolveFillRatio(stretch, spec.width, spec.widthRatio);
     const bool inHorizontalFlow = (parent != nullptr) &&
         (parent->direction == FlexDirection::Row || parent->direction == FlexDirection::Wrap) &&
         !parent->equalWidths;
@@ -322,7 +321,7 @@ void Control::ArrangeStandaloneNode(
         if (node->type == NodeType::Image || node->type == NodeType::Markdown) {
             intrinsic = measured;
         } else {
-            intrinsic.y = std::max(node->minHeight, measured.y);
+            intrinsic.y = keel::max(node->minHeight, measured.y);
         }
     }
 
@@ -339,29 +338,29 @@ void Control::ArrangeStandaloneNode(
                              node->parent->direction == FlexDirection::Row &&
                              node->parent->equalWidths);
     const bool isFill = (node->widthMode == SizeMode::Stretch && node->fixedWidth >= 0.0f) || inEqualRow;
-    const float fillRatio = (node->fixedWidth >= 0.0f) ? std::clamp(node->fixedWidth, 0.0f, 1.0f) : 1.0f;
+    const float fillRatio = (node->fixedWidth >= 0.0f) ? keel::clamp(node->fixedWidth, 0.0f, 1.0f) : 1.0f;
     const float alignFactor = (node->align == Alignment::End)
         ? 1.0f
         : ((node->align == Alignment::Center) ? 0.5f : 0.0f);
 
     if (!node->ctrlStretchable && isFill && fillRatio < 1.0f) {
         const float effW = (fillRatio > 0.0f)
-            ? std::min(bounds.w, std::max(bounds.w * fillRatio, intrinsic.x))
+            ? keel::min(bounds.w, keel::max(bounds.w * fillRatio, intrinsic.x))
             : 0.0f;
         bounds.x += (bounds.w - effW) * alignFactor;
         bounds.w = effW;
     }
 
-    float ctrlW = std::min(bounds.w, intrinsic.x);
+    float ctrlW = keel::min(bounds.w, intrinsic.x);
     if (node->ctrlStretchable && isFill) {
         ctrlW = (fillRatio < 1.0f && fillRatio > 0.0f)
-            ? std::min(bounds.w, std::max(bounds.w * fillRatio, intrinsic.x))
+            ? keel::min(bounds.w, keel::max(bounds.w * fillRatio, intrinsic.x))
             : (bounds.w * fillRatio);
     }
 
     const bool stretchH = node->ctrlStretchH || (node->heightMode == SizeMode::Stretch);
     const float ctrlX = bounds.x + (bounds.w - ctrlW) * alignFactor;
-    const float ctrlH = stretchH ? bounds.h : std::min(intrinsic.y, bounds.h);
+    const float ctrlH = stretchH ? bounds.h : keel::min(intrinsic.y, bounds.h);
     const float ctrlY = stretchH ? bounds.y : (bounds.y + (bounds.h - ctrlH) * 0.5f);
     node->computedRect = Rect(ctrlX, ctrlY, ctrlW, ctrlH);
 }

@@ -7,7 +7,7 @@ namespace guikit {
 ContainerScope Card::Open(
     Context& ctx,
     const CardOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     const Id idOuter = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();

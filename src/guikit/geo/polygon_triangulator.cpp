@@ -1,8 +1,8 @@
 #include "guikit/geo/polygon_triangulator.hpp"
-#include <algorithm>
 #include <cmath>
-#include <limits>
-#include <numeric>
+#include "keel/algo.h"
+#include "keel/array.h"
+#include "keel/core.h"
 #include "keel/small_array.h"
 
 namespace guikit::geo {
@@ -35,8 +35,8 @@ constexpr double kEps = 1e-11;
 }
 
 /// Cleans a polygon ring by removing duplicate consecutive points and closing duplicate vertex.
-[[nodiscard]] std::vector<guikit::GeoCoord> CleanRing(const std::vector<guikit::GeoCoord>& raw) {
-    std::vector<guikit::GeoCoord> cleaned;
+[[nodiscard]] keel::Array<guikit::GeoCoord> CleanRing(keel::ArrayRef<guikit::GeoCoord> raw) {
+    keel::Array<guikit::GeoCoord> cleaned;
     cleaned.reserve(raw.size());
     for (const auto& pt : raw) {
         if (cleaned.empty() || !NearlyEqual(cleaned.back(), pt)) {
@@ -51,8 +51,8 @@ constexpr double kEps = 1e-11;
 
 /// Splices a CW hole ring into the CCW outer contour using Eberly's horizontal ray bridge method.
 void BridgeHoleIntoContour(
-    std::vector<guikit::GeoCoord>& contour,
-    const std::vector<guikit::GeoCoord>& hole
+    keel::Array<guikit::GeoCoord>& contour,
+    keel::ArrayRef<guikit::GeoCoord> hole
 ) {
     if (contour.size() < 3 || hole.size() < 3) {
         return;
@@ -69,8 +69,8 @@ void BridgeHoleIntoContour(
     const guikit::GeoCoord M = hole[holeMaxIdx];
 
     // 2. Cast ray M + t * (1, 0) (eastward along constant latitude M.lat) against all contour edges
-    double bestIntersectLon = std::numeric_limits<double>::infinity();
-    size_t bestEdgeEndpointIdx = std::numeric_limits<size_t>::max();
+    double bestIntersectLon = HUGE_VAL;
+    size_t bestEdgeEndpointIdx = SIZE_MAX;
     guikit::GeoCoord I{};
 
     const size_t n = contour.size();
@@ -104,8 +104,8 @@ void BridgeHoleIntoContour(
     }
 
     // Fallback: if ray missed due to numerical edge cases, connect to closest contour vertex
-    if (bestEdgeEndpointIdx == std::numeric_limits<size_t>::max()) {
-        double minDistSq = std::numeric_limits<double>::infinity();
+    if (bestEdgeEndpointIdx == SIZE_MAX) {
+        double minDistSq = HUGE_VAL;
         bestEdgeEndpointIdx = 0;
         for (size_t i = 0; i < n; ++i) {
             const double dx = contour[i].lon - M.lon;
@@ -124,11 +124,11 @@ void BridgeHoleIntoContour(
             guikit::GeoCoord triB = I;
             guikit::GeoCoord triC = P;
             if (Cross2D(triA, triB, triC) < 0.0) {
-                std::swap(triB, triC);
+                keel::swap(triB, triC);
             }
 
             double minAngleCos = -2.0; // We want smallest angle with +X axis (i.e. largest cos)
-            double minDistSq = std::numeric_limits<double>::infinity();
+            double minDistSq = HUGE_VAL;
             size_t visibleIdx = bestEdgeEndpointIdx;
 
             for (size_t i = 0; i < n; ++i) {
@@ -161,7 +161,7 @@ void BridgeHoleIntoContour(
 
     // 4. Splice hole ring into contour at `bestEdgeEndpointIdx` via a bridge edge:
     // contour[0 .. bestEdgeEndpointIdx] -> hole[holeMaxIdx .. holeMaxIdx] -> contour[bestEdgeEndpointIdx .. n-1]
-    std::vector<guikit::GeoCoord> merged;
+    keel::Array<guikit::GeoCoord> merged;
     merged.reserve(contour.size() + hole.size() + 2);
 
     for (size_t i = 0; i <= bestEdgeEndpointIdx; ++i) {
@@ -175,12 +175,12 @@ void BridgeHoleIntoContour(
         merged.push_back(contour[i]);
     }
 
-    contour = std::move(merged);
+    contour = keel::move(merged);
 }
 
 } // namespace
 
-double PolygonTriangulator::SignedAreaLonLat(const std::vector<guikit::GeoCoord>& ring) noexcept {
+double PolygonTriangulator::SignedAreaLonLat(keel::ArrayRef<guikit::GeoCoord> ring) noexcept {
     if (ring.size() < 3) return 0.0;
     double area2 = 0.0;
     const size_t n = ring.size();
@@ -205,40 +205,40 @@ void PolygonTriangulator::TriangulatePolygon(GeoPolygon& poly) {
         }
     }
 
-    std::vector<guikit::GeoCoord> contour = CleanRing(poly.exteriorRing);
+    keel::Array<guikit::GeoCoord> contour = CleanRing(poly.exteriorRing);
     if (contour.size() < 3) {
         return;
     }
 
     // Ensure exterior contour is Counter-Clockwise (CCW)
     if (SignedAreaLonLat(contour) < 0.0) {
-        std::reverse(contour.begin(), contour.end());
+        keel::reverse(contour.as_mut_ref());
     }
 
     // Prepare and bridge interior hole rings (each oriented Clockwise)
     if (!poly.interiorRings.empty()) {
         struct PreparedHole {
-            std::vector<guikit::GeoCoord> ring;
-            double maxLon{-std::numeric_limits<double>::infinity()};
+            keel::Array<guikit::GeoCoord> ring{};
+            double maxLon{-HUGE_VAL};
         };
-        std::vector<PreparedHole> holes;
+        keel::Array<PreparedHole> holes;
         holes.reserve(poly.interiorRings.size());
 
         for (const auto& rawHole : poly.interiorRings) {
             auto cleaned = CleanRing(rawHole);
             if (cleaned.size() < 3) continue;
             if (SignedAreaLonLat(cleaned) > 0.0) {
-                std::reverse(cleaned.begin(), cleaned.end());
+                keel::reverse(cleaned.as_mut_ref());
             }
             double maxLon = cleaned[0].lon;
             for (const auto& pt : cleaned) {
-                maxLon = std::max(maxLon, pt.lon);
+                maxLon = keel::max(maxLon, pt.lon);
             }
-            holes.push_back({std::move(cleaned), maxLon});
+            holes.push_back({keel::move(cleaned), maxLon});
         }
 
         // Sort holes from rightmost to leftmost as required by Eberly's algorithm
-        std::sort(holes.begin(), holes.end(), [](const PreparedHole& a, const PreparedHole& b) {
+        keel::sort(holes, [](const PreparedHole& a, const PreparedHole& b) noexcept {
             return a.maxLon > b.maxLon;
         });
 
@@ -254,7 +254,9 @@ void PolygonTriangulator::TriangulatePolygon(GeoPolygon& poly) {
     poly.triangles.reserve(totalVerts - 2);
     keel::SmallArray<uint32_t, 64> indices;
     indices.resize(totalVerts);
-    std::iota(indices.begin(), indices.end(), 0u);
+    for (size_t i = 0; i < totalVerts; ++i) {
+        indices[i] = static_cast<uint32_t>(i);
+    }
 
     auto isEar = [&](size_t idxInList, bool strictPointCheck) -> bool {
         const size_t m = indices.size();

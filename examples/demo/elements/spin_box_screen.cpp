@@ -1,5 +1,4 @@
 #include "../demo_context.hpp"
-#include <format>
 
 namespace guikit::demo {
 
@@ -12,14 +11,14 @@ struct SpinBoxState {
     guikit::SpinBoxStepStyle stepStyle = guikit::SpinBoxStepStyle::Detached;
     int iconStyleIdx = 0; // 0 = Minus/Plus, 1 = Chevrons, 2 = Arrows
     bool showFillBar = true;
-    std::string prefix = "";
-    std::string suffix = "MHz";
+    keel::SmallString<64> prefix{""};
+    keel::SmallString<64> suffix{"MHz"};
     guikit::CursorBlinkMode cursorMode = guikit::CursorBlinkMode::Blinking;
     bool readOnly = false;
 };
 SpinBoxState s_state;
 
-constexpr std::string_view StepStyleEnumName(guikit::SpinBoxStepStyle style) noexcept {
+constexpr keel::StringRef StepStyleEnumName(guikit::SpinBoxStepStyle style) noexcept {
     switch (style) {
         case guikit::SpinBoxStepStyle::None:     return "None";
         case guikit::SpinBoxStepStyle::Inline:   return "Inline";
@@ -31,18 +30,18 @@ constexpr std::string_view StepStyleEnumName(guikit::SpinBoxStepStyle style) noe
 } // namespace
 
 void RenderSpinBoxInspector(guikit::Context& ui, DemoContext&) {
-    static constexpr std::array<std::string_view, 4> stepStyleLabels = {"None", "Inline", "Detached", "Split"};
+    static constexpr keel::StaticArray<keel::StringRef, 4> stepStyleLabels = {"None", "Inline", "Detached", "Split"};
     int styleIdx = static_cast<int>(s_state.stepStyle);
     if (auto el = ui.Element({
         .label = "Stepper Style (- / +)",
         .description = "None, Inline inside box, Detached square buttons after box, or Split sides"
     })) {
         if (ui.Segmented(styleIdx, stepStyleLabels).changed) {
-            s_state.stepStyle = static_cast<guikit::SpinBoxStepStyle>(std::clamp(styleIdx, 0, 3));
+            s_state.stepStyle = static_cast<guikit::SpinBoxStepStyle>(keel::clamp(styleIdx, 0, 3));
             ui.InvalidateAll();
         }
     }
-    static constexpr std::array<std::string_view, 3> iconStyleLabels = {"Minus / Plus", "Chevrons", "Arrows"};
+    static constexpr keel::StaticArray<keel::StringRef, 3> iconStyleLabels = {"Minus / Plus", "Chevrons", "Arrows"};
     if (auto el = ui.Element({
         .label = "Stepper Icons",
         .description = "Custom vector icons for decrement / increment buttons"
@@ -67,7 +66,7 @@ void RenderSpinBoxInspector(guikit::Context& ui, DemoContext&) {
         if (ui.InputField(s_state.suffix, {.placeholder = "e.g. MHz / dB / %", .clearable = true}).changed) ui.InvalidateAll();
     }
 
-    static constexpr std::array<std::string_view, 3> cursorModes = {"Blinking", "Solid", "Hidden"};
+    static constexpr keel::StaticArray<keel::StringRef, 3> cursorModes = {"Blinking", "Solid", "Hidden"};
     size_t curIdx = (s_state.cursorMode == guikit::CursorBlinkMode::Solid) ? 1 : ((s_state.cursorMode == guikit::CursorBlinkMode::Hidden) ? 2 : 0);
     if (auto el = ui.Element({.label = "Cursor Blink Mode"})) {
         if (ui.StepSlider(curIdx, cursorModes, {.showTicks = true, .showLabels = true}).changed) {
@@ -125,15 +124,15 @@ void RenderSpinBoxStage(guikit::Context& ui, DemoContext& ctx) {
     }
 }
 
-std::string GenerateSpinBoxCode(const DemoContext& ctx) {
-    const std::string_view minusIconCode = (s_state.iconStyleIdx == 1)
+keel::String GenerateSpinBoxCode(const DemoContext& ctx) {
+    const keel::StringRef minusIconCode = (s_state.iconStyleIdx == 1)
         ? "guikit::Icon::ChevronDown()"
         : ((s_state.iconStyleIdx == 2) ? "guikit::Icon::ArrowLeft()" : "guikit::Icon::Minus()");
-    const std::string_view plusIconCode = (s_state.iconStyleIdx == 1)
+    const keel::StringRef plusIconCode = (s_state.iconStyleIdx == 1)
         ? "guikit::Icon::ChevronUp()"
         : ((s_state.iconStyleIdx == 2) ? "guikit::Icon::ArrowRight()" : "guikit::Icon::Plus()");
 
-    return std::format(
+    return keel::format(
         "if (auto el = ui.{}Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"

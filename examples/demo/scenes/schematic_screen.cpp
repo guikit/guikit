@@ -1,13 +1,12 @@
 #include "../demo_context.hpp"
 #include "schematic_primitives.hpp"
-#include <format>
 
 namespace guikit::demo {
 
 namespace {
 struct SchematicState {
     guikit::SceneBackground bg = guikit::SceneBackground::Solid;
-    static constexpr std::array<std::string_view, 4> bgNames = {
+    static constexpr keel::StaticArray<keel::StringRef, 4> bgNames = {
         "Solid", "Checker", "Dots", "Lines"
     };
     bool selectableItems = true;
@@ -62,8 +61,8 @@ void RenderSchematicStage(guikit::Context& ui, DemoContext& ctx) {
     }
 }
 
-std::string GenerateSchematicCode(const DemoContext& ctx) {
-    return std::format(
+keel::String GenerateSchematicCode(const DemoContext& ctx) {
+    return keel::format(
         "if (auto scene = ui.Scene({{\n"
         "    .worldSize = guikit::Vec2{{2200.0f, 920.0f}},\n"
         "    .backgroundStyle = guikit::SceneBackground::{},\n"

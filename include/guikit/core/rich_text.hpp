@@ -2,16 +2,14 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <memory>
-#include <string>
-#include <string_view>
-#include <utility>
-#include <vector>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/types.hpp"
+#include "keel/array.h"
 #include "keel/hash_map.h"
 #include "keel/lru_cache.h"
+#include "keel/smart_ptr.h"
+#include "keel/string.h"
 
 namespace guikit {
 
@@ -29,8 +27,23 @@ struct InlineSpan {
     InlineKind kind{InlineKind::Text};
     FontStyle style{FontStyle::Regular};
     bool strikethrough{false};
-    std::string text{};
-    std::string url{};
+    keel::String text{};
+    keel::String url{};
+
+    [[nodiscard]] InlineSpan clone() const {
+        InlineSpan copy;
+        copy.kind = kind;
+        copy.style = style;
+        copy.strikethrough = strikethrough;
+        copy.text = text.clone();
+        copy.url = url.clone();
+        return copy;
+    }
+};
+
+struct FloatPair {
+    float first{0.0f};
+    float second{0.0f};
 };
 
 [[nodiscard]] constexpr FontStyle CombineFontStyles(FontStyle a, FontStyle b) noexcept {
@@ -49,23 +62,23 @@ struct InlineSpan {
 
 [[nodiscard]] float MeasureStyledSlice(
     ICanvas* canvas,
-    std::string_view text,
+    keel::StringRef text,
     float fontSize,
     FontStyle style
 ) noexcept;
 
 /// Parses inline rich-text markup (**bold**, *italic*, `code`, ~~strikethrough~~, [label](url))
 /// with support for nested styles inside bold/italic/strikethrough/link spans.
-[[nodiscard]] std::vector<InlineSpan> ParseInlineSpans(
-    std::string_view line,
+[[nodiscard]] keel::Array<InlineSpan> ParseInlineSpans(
+    keel::StringRef line,
     FontStyle inheritedStyle = FontStyle::Regular,
     bool inheritedStrike = false
 );
 
 /// Fast single-pass intrinsic width measurement returning {minUnbreakableTokenWidth, unwrappedSingleLineWidth}.
-[[nodiscard]] std::pair<float, float> MeasureInlineSpansIntrinsicWidths(
+[[nodiscard]] FloatPair MeasureInlineSpansIntrinsicWidths(
     ICanvas* canvas,
-    const std::vector<InlineSpan>& spans,
+    keel::ArrayRef<InlineSpan> spans,
     float bodyFs,
     float inlineCodeFs,
     FontStyle rowBaseStyle,
@@ -74,9 +87,9 @@ struct InlineSpan {
 
 /// Cached O(1) intrinsic width measurement for a rich-text markup string: returns {minTokenWidth, unwrappedWidth}.
 /// Avoids re-parsing and re-measuring fonts on steady-state frames.
-[[nodiscard]] std::pair<float, float> GetOrMeasureRichTextIntrinsicWidths(
+[[nodiscard]] FloatPair GetOrMeasureRichTextIntrinsicWidths(
     ICanvas* canvas,
-    std::string_view richMarkup,
+    keel::StringRef richMarkup,
     float bodyFs,
     float inlineCodeFs,
     FontStyle baseStyle = FontStyle::Regular,
@@ -108,7 +121,7 @@ struct PositionedLine {
 
 struct LinkHitRegion {
     Rect localRect{};
-    std::string_view url{};
+    keel::StringRef url{};
 };
 
 struct SearchMatchRange {
@@ -122,24 +135,24 @@ struct RenderOverlayState {
     size_t selMax{0};
     bool showCaret{false};
     size_t caretOffset{0};
-    const std::vector<SearchMatchRange>* searchMatches{nullptr};
+    const keel::Array<SearchMatchRange>* searchMatches{nullptr};
     int activeSearchMatch{-1};
     const keel::HashMap<int, bool>* taskOverrides{nullptr};
 };
 
 struct DocumentTextMap {
-    std::string plainText{};
-    std::vector<PositionedToken> tokens{};
-    std::vector<PositionedLine> lines{};
+    keel::String plainText{};
+    keel::Array<PositionedToken> tokens{};
+    keel::Array<PositionedLine> lines{};
 
-    void AddToken(Rect r, std::string_view str, float fontSize, FontStyle style, float textPadX = 0.0f);
+    void AddToken(Rect r, keel::StringRef str, float fontSize, FontStyle style, float textPadX = 0.0f);
     void AppendNewline();
 };
 
-[[nodiscard]] std::pair<float, float> SubRangePixelBounds(
+[[nodiscard]] FloatPair SubRangePixelBounds(
     ICanvas* canvas,
     const PositionedToken& tok,
-    std::string_view fullPlainText,
+    keel::StringRef fullPlainText,
     size_t selMin,
     size_t selMax
 );
@@ -161,15 +174,15 @@ struct DocumentTextMap {
     size_t offset
 );
 
-[[nodiscard]] std::vector<SearchMatchRange> FindSearchMatches(
-    std::string_view text,
-    std::string_view query
+[[nodiscard]] keel::Array<SearchMatchRange> FindSearchMatches(
+    keel::StringRef text,
+    keel::StringRef query
 );
 
 void DrawTokenSelectionAndSearchHighlights(
     ICanvas& canvas,
     const PositionedToken& tok,
-    std::string_view fullPlainText,
+    keel::StringRef fullPlainText,
     const RenderOverlayState* overlay,
     const UiTheme& theme,
     Vec2 docOrigin
@@ -178,7 +191,7 @@ void DrawTokenSelectionAndSearchHighlights(
 void DrawTokenCaretIfPresent(
     ICanvas& canvas,
     const PositionedToken& tok,
-    std::string_view fullPlainText,
+    keel::StringRef fullPlainText,
     const RenderOverlayState* overlay,
     const UiTheme& theme,
     Vec2 docOrigin
@@ -193,8 +206,8 @@ struct InlineAtom {
     FontStyle style{FontStyle::Regular};
     bool strikethrough{false};
     bool isWhitespace{false};
-    std::string_view text{};
-    std::string_view url{};
+    keel::StringRef text{};
+    keel::StringRef url{};
     float width{0.0f};
     float fontSize{13.0f};
     float padX{0.0f};
@@ -209,44 +222,34 @@ struct PositionedAtom {
 };
 
 /// Self-contained, immutable inline flow layout in local (0, 0) coordinates.
-/// Owns `textPool` (heap-allocated `std::vector<char>` with zero SSO) so all `InlineAtom::text`
-/// and `InlineAtom::url` views remain valid across moves, copies, and cache retention.
+/// Owns `textPool` (heap-allocated `keel::Array<char>` with zero SSO) so all `InlineAtom::text`
+/// and `InlineAtom::url` views remain valid across moves, clones, and cache retention.
 struct InlineFlowLayout {
-    std::vector<char> textPool{};
+    keel::Array<char> textPool{};
     float width{0.0f};
     float height{0.0f};
     float lineH{0.0f};
     float scale{1.0f};
     size_t lineCount{0};
-    std::vector<PositionedAtom> items{};
+    keel::Array<PositionedAtom> items{};
 
     InlineFlowLayout() = default;
     InlineFlowLayout(InlineFlowLayout&&) noexcept = default;
     InlineFlowLayout& operator=(InlineFlowLayout&&) noexcept = default;
+    InlineFlowLayout(const InlineFlowLayout&) = delete;
+    InlineFlowLayout& operator=(const InlineFlowLayout&) = delete;
 
-    InlineFlowLayout(const InlineFlowLayout& other)
-        : textPool(other.textPool),
-          width(other.width),
-          height(other.height),
-          lineH(other.lineH),
-          scale(other.scale),
-          lineCount(other.lineCount),
-          items(other.items) {
-        RebaseViews(other.textPool.data(), other.textPool.size());
-    }
-
-    InlineFlowLayout& operator=(const InlineFlowLayout& other) {
-        if (this != &other) {
-            textPool = other.textPool;
-            width = other.width;
-            height = other.height;
-            lineH = other.lineH;
-            scale = other.scale;
-            lineCount = other.lineCount;
-            items = other.items;
-            RebaseViews(other.textPool.data(), other.textPool.size());
-        }
-        return *this;
+    [[nodiscard]] InlineFlowLayout clone() const {
+        InlineFlowLayout copy;
+        copy.textPool = textPool.clone();
+        copy.width = width;
+        copy.height = height;
+        copy.lineH = lineH;
+        copy.scale = scale;
+        copy.lineCount = lineCount;
+        copy.items = items.clone();
+        copy.RebaseViews(textPool.data(), textPool.size());
+        return copy;
     }
 
 private:
@@ -255,10 +258,10 @@ private:
         const char* newBase = textPool.data();
         for (PositionedAtom& pa : items) {
             if (!pa.atom.text.empty() && pa.atom.text.data() >= oldBase && pa.atom.text.data() < oldBase + poolLen) {
-                pa.atom.text = std::string_view(newBase + (pa.atom.text.data() - oldBase), pa.atom.text.size());
+                pa.atom.text = keel::StringRef(newBase + (pa.atom.text.data() - oldBase), pa.atom.text.size());
             }
             if (!pa.atom.url.empty() && pa.atom.url.data() >= oldBase && pa.atom.url.data() < oldBase + poolLen) {
-                pa.atom.url = std::string_view(newBase + (pa.atom.url.data() - oldBase), pa.atom.url.size());
+                pa.atom.url = keel::StringRef(newBase + (pa.atom.url.data() - oldBase), pa.atom.url.size());
             }
         }
     }
@@ -267,7 +270,7 @@ private:
 /// Builds a self-contained InlineFlowLayout in local (0, 0) coordinates from pre-parsed spans.
 [[nodiscard]] InlineFlowLayout BuildInlineFlowLayout(
     ICanvas* canvas,
-    const std::vector<InlineSpan>& spans,
+    keel::ArrayRef<InlineSpan> spans,
     float maxWidth,
     float baseFontSize,
     float codeBaseFontSize,
@@ -280,9 +283,9 @@ private:
 );
 
 /// Retrieves or builds a cached InlineFlowLayout for a rich-text markup string (supports explicit '\n' line breaks).
-[[nodiscard]] std::shared_ptr<const InlineFlowLayout> GetOrBuildRichTextFlow(
+[[nodiscard]] keel::Arc<const InlineFlowLayout> GetOrBuildRichTextFlow(
     ICanvas* canvas,
-    std::string_view richMarkup,
+    keel::StringRef richMarkup,
     float maxWidth,
     float baseFontSize,
     float codeBaseFontSize,
@@ -298,7 +301,7 @@ void CommitInlineFlowToDocument(
     InlineFlowLayout& flow,
     Vec2 flowDocOrigin,
     DocumentTextMap& textMap,
-    std::vector<LinkHitRegion>& linkRegions
+    keel::Array<LinkHitRegion>& linkRegions
 );
 
 /// Renders a pre-built InlineFlowLayout at `flowScreenOrigin` with zero font measurements (optional DocumentTextMap).

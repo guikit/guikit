@@ -1,9 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <string>
-#include <string_view>
-#include <vector>
 #include "guikit/backend/i_canvas.hpp"
 #include "keel/hash_map.h"
 #include "keel/string.h"
@@ -42,7 +39,7 @@ public:
     [[nodiscard]] bool IsAvailable() const noexcept { return m_available; }
 
     /// Returns a human-readable description of the active GPU shader backend.
-    [[nodiscard]] std::string_view GetBackendSummary() const noexcept { return m_backendSummary; }
+    [[nodiscard]] keel::StringRef GetBackendSummary() const noexcept { return m_backendSummary.as_ref(); }
 
     /// Renders all active `GpuShaderPassDesc` passes recorded on `canvas` into the current OpenGL backbuffer.
     /// Must be called after `SDL_RenderClear(renderer)` and before compositing the UI overlay texture.
@@ -78,14 +75,14 @@ private:
 
     SDL_Renderer* m_renderer{nullptr};
     bool m_available{false};
-    std::string m_backendSummary{"Disabled"};
+    keel::SmallString<64> m_backendSummary{"Disabled"};
     uint64_t m_frameCounter{0};
 
     uint32_t m_quadVbo{0};
 
     keel::HashMap<keel::String, CompiledProgram> m_programs;
     keel::HashMap<uint64_t, WidgetTextureCache> m_textureCaches;
-    std::vector<uint32_t> m_uploadScratch;
+    keel::Array<uint32_t> m_uploadScratch;
 };
 
 } // namespace guikit

@@ -1,8 +1,7 @@
 #include "guikit/layout/separator.hpp"
-#include <algorithm>
 #include <cmath>
-#include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 
 namespace guikit {
@@ -31,7 +30,7 @@ void Separator::Render(
     const Color stroke = color.a > 0 ? color : theme.palette.borderSubtle;
     if (orientation == Orientation::Vertical) {
         const float midY = std::floor(bounds.Center().y) + 0.5f;
-        const float padX = std::max(2.0f, bounds.w * insetRatio);
+        const float padX = keel::max(2.0f, bounds.w * insetRatio);
         RenderLine(
             canvas,
             Vec2(bounds.x + padX, midY),
@@ -41,7 +40,7 @@ void Separator::Render(
         );
     } else {
         const float midX = std::floor(bounds.Center().x) + 0.5f;
-        const float padY = std::max(2.0f, bounds.h * insetRatio);
+        const float padY = keel::max(2.0f, bounds.h * insetRatio);
         RenderLine(
             canvas,
             Vec2(midX, bounds.y + padY),
@@ -56,8 +55,8 @@ void Separator::Run(
     Context& ctx,
     float extentRatio,
     Color colorOverride,
-    std::source_location loc,
-    std::optional<Orientation> lineOrientationOverride
+    keel::SourceLocation loc,
+    keel::Optional<Orientation> lineOrientationOverride
 ) {
     const Id id = ctx.MakeChildId(loc);
     const float scale = ctx.GetCurrentScale();
@@ -74,7 +73,7 @@ void Separator::Run(
     } else {
         sep->borderColor = ctx.GetTheme().palette.borderSubtle;
     }
-    const float clampedExtent = (extentRatio > 0.0f) ? std::clamp(extentRatio, 0.05f, 1.0f) : 0.0f;
+    const float clampedExtent = (extentRatio > 0.0f) ? keel::clamp(extentRatio, 0.05f, 1.0f) : 0.0f;
     sep->visualHash = detail::HashArgs(sep->borderColor, drawVerticalLine, clampedExtent);
 
     if (drawVerticalLine) {
@@ -84,7 +83,7 @@ void Separator::Run(
         if ((parent != nullptr && (parent->fixedHeight > 0.0f || parent->type == NodeType::Toolbar)) || clampedExtent > 0.0f || isStatusBar) {
             const float minR = isStatusBar ? 0.2f : 0.1f;
             const float maxR = isStatusBar ? 0.9f : 1.0f;
-            const float ratio = (clampedExtent > 0.0f) ? std::clamp(clampedExtent, minR, maxR) : 0.55f;
+            const float ratio = (clampedExtent > 0.0f) ? keel::clamp(clampedExtent, minR, maxR) : 0.55f;
             const float parentH = (parent != nullptr && parent->fixedHeight > 0.0f)
                 ? parent->fixedHeight
                 : ((isStatusBar ? 26.0f : 32.0f) * scale);
@@ -105,7 +104,7 @@ void Separator::Run(
                 const Color stroke = n->borderColor.a > 0 ? n->borderColor : theme.palette.borderSubtle;
                 const float midX = std::floor(n->computedRect.Center().x) + 0.5f;
                 const float centerY = n->computedRect.Center().y;
-                const float halfH = std::max(4.0f, std::round(n->computedRect.h * 0.42f));
+                const float halfH = keel::max(4.0f, std::round(n->computedRect.h * 0.42f));
                 Separator::RenderLine(
                     canvas,
                     Vec2(midX, std::floor(centerY - halfH) + 0.5f),
@@ -136,11 +135,11 @@ void Separator::Run(
             const Color stroke = n->borderColor.a > 0 ? n->borderColor : theme.palette.borderSubtle;
             float padX = 2.0f;
             if (n->fixedWidth > 0.0f && n->fixedWidth < 1.0f) {
-                padX = std::max(0.0f, n->computedRect.w * (1.0f - n->fixedWidth) * 0.5f);
+                padX = keel::max(0.0f, n->computedRect.w * (1.0f - n->fixedWidth) * 0.5f);
             } else if (n->parent && n->parent->type == NodeType::Toolbar) {
-                padX = std::max(2.0f, n->computedRect.w * 0.18f);
+                padX = keel::max(2.0f, n->computedRect.w * 0.18f);
             } else if (n->parent && n->parent->type == NodeType::Sidebar && n->parent->sidebarCompact) {
-                padX = std::min(6.0f, n->computedRect.w * 0.18f);
+                padX = keel::min(6.0f, n->computedRect.w * 0.18f);
             }
             Separator::RenderLine(
                 canvas,

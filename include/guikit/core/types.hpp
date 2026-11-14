@@ -1,22 +1,19 @@
 #pragma once
 
-#include <algorithm>
-#include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <initializer_list>
-#include <optional>
-#include <span>
-#include <string_view>
-#include <type_traits>
-#include <vector>
+#include "keel/core.h"
+#include "keel/ref.h"
+#include "keel/static_array.h"
 
 namespace guikit {
 
 /// Concept matching any integral or enum index type except `bool`.
 template <typename T>
-concept IndexLike = (std::is_integral_v<std::remove_cvref_t<T>> || std::is_enum_v<std::remove_cvref_t<T>>) &&
-                    !std::is_same_v<std::remove_cvref_t<T>, bool>;
+concept IndexLike = (keel::IsIntegral<keel::RemoveCvRef<T>> || keel::IsEnum<keel::RemoveCvRef<T>>) &&
+                    !keel::IsSame<keel::RemoveCvRef<T>, bool>;
 
 /// Standard system mouse cursor shapes requested by interactive widgets and resize handles.
 enum class CursorType : uint8_t {
@@ -121,10 +118,10 @@ struct Rect {
     }
 
     [[nodiscard]] constexpr Rect Intersect(const Rect& other) const noexcept {
-        const float nx = std::max(x, other.x);
-        const float ny = std::max(y, other.y);
-        const float nr = std::min(Right(), other.Right());
-        const float nb = std::min(Bottom(), other.Bottom());
+        const float nx = keel::max(x, other.x);
+        const float ny = keel::max(y, other.y);
+        const float nr = keel::min(Right(), other.Right());
+        const float nb = keel::min(Bottom(), other.Bottom());
         if (nr <= nx || nb <= ny) {
             return {nx, ny, 0.0f, 0.0f};
         }
@@ -132,11 +129,11 @@ struct Rect {
     }
 
     [[nodiscard]] constexpr Rect Inset(float amount) const noexcept {
-        return {x + amount, y + amount, std::max(0.0f, w - 2.0f * amount), std::max(0.0f, h - 2.0f * amount)};
+        return {x + amount, y + amount, keel::max(0.0f, w - 2.0f * amount), keel::max(0.0f, h - 2.0f * amount)};
     }
 
     [[nodiscard]] constexpr Rect Inset(float dx, float dy) const noexcept {
-        return {x + dx, y + dy, std::max(0.0f, w - 2.0f * dx), std::max(0.0f, h - 2.0f * dy)};
+        return {x + dx, y + dy, keel::max(0.0f, w - 2.0f * dx), keel::max(0.0f, h - 2.0f * dy)};
     }
 
     [[nodiscard]] constexpr float Area() const noexcept {
@@ -146,10 +143,10 @@ struct Rect {
     [[nodiscard]] constexpr Rect Union(const Rect& other) const noexcept {
         if (w <= 0.0f || h <= 0.0f) return other;
         if (other.w <= 0.0f || other.h <= 0.0f) return *this;
-        const float nx = std::min(x, other.x);
-        const float ny = std::min(y, other.y);
-        const float nr = std::max(Right(), other.Right());
-        const float nb = std::max(Bottom(), other.Bottom());
+        const float nx = keel::min(x, other.x);
+        const float ny = keel::min(y, other.y);
+        const float nr = keel::max(Right(), other.Right());
+        const float nb = keel::max(Bottom(), other.Bottom());
         return {nx, ny, nr - nx, nb - ny};
     }
 
@@ -220,7 +217,7 @@ struct Color {
     }
 
     [[nodiscard]] constexpr Color WithAlphaF(float factor) const noexcept {
-        const float clamped = std::clamp(factor, 0.0f, 1.0f);
+        const float clamped = keel::clamp(factor, 0.0f, 1.0f);
         return {r, g, b, static_cast<uint8_t>(static_cast<float>(a) * clamped)};
     }
 
@@ -246,12 +243,17 @@ struct Color {
     }
 
     [[nodiscard]] static constexpr Color Lerp(Color a, Color b, float t) noexcept {
-        const float f = std::clamp(t, 0.0f, 1.0f);
+        const float f = keel::clamp(t, 0.0f, 1.0f);
+        auto lerpCh = [f](uint8_t u0, uint8_t u1) constexpr noexcept -> uint8_t {
+            const float v0 = static_cast<float>(u0);
+            const float v1 = static_cast<float>(u1);
+            return static_cast<uint8_t>(v0 + f * (v1 - v0));
+        };
         return {
-            static_cast<uint8_t>(std::lerp(static_cast<float>(a.r), static_cast<float>(b.r), f)),
-            static_cast<uint8_t>(std::lerp(static_cast<float>(a.g), static_cast<float>(b.g), f)),
-            static_cast<uint8_t>(std::lerp(static_cast<float>(a.b), static_cast<float>(b.b), f)),
-            static_cast<uint8_t>(std::lerp(static_cast<float>(a.a), static_cast<float>(b.a), f))
+            lerpCh(a.r, b.r),
+            lerpCh(a.g, b.g),
+            lerpCh(a.b, b.b),
+            lerpCh(a.a, b.a)
         };
     }
 };
@@ -547,7 +549,7 @@ public:
     }
 
 private:
-    std::array<KeyBinding, kActionCount> m_bindings{};
+    keel::StaticArray<KeyBinding, kActionCount> m_bindings{};
 };
 
 /// Visual blinking mode for input caret / cursor.
@@ -596,49 +598,136 @@ class TextVariants {
 public:
     constexpr TextVariants() noexcept = default;
 
-    constexpr TextVariants(std::initializer_list<std::string_view> list) noexcept
-        : m_span(list.begin(), list.size())
-    {
-    }
+    constexpr TextVariants(std::initializer_list<keel::StringRef> list) noexcept
+        : m_span(list) {}
 
-    constexpr TextVariants(std::span<const std::string_view> s) noexcept
-        : m_span(s)
-    {
-    }
+    constexpr TextVariants(keel::ArrayRef<keel::StringRef> s) noexcept
+        : m_span(s) {}
 
-    template <size_t N>
-    constexpr TextVariants(const std::array<std::string_view, N>& arr) noexcept
-        : m_span(arr.data(), arr.size())
-    {
-    }
-
-    TextVariants(const std::vector<std::string_view>& vec) noexcept
-        : m_span(vec.data(), vec.size())
-    {
-    }
+    template <typename R>
+        requires(!keel::IsSame<keel::Decay<R>, TextVariants> &&
+                 !keel::IsSame<keel::Decay<R>, keel::ArrayRef<keel::StringRef>> &&
+                 requires(const R& r) { keel::ArrayRef<keel::StringRef>(r); })
+    constexpr TextVariants(const R& range) noexcept
+        : m_span(range) {}
 
     [[nodiscard]] constexpr auto begin() const noexcept { return m_span.begin(); }
     [[nodiscard]] constexpr auto end() const noexcept { return m_span.end(); }
     [[nodiscard]] constexpr bool empty() const noexcept { return m_span.empty(); }
     [[nodiscard]] constexpr size_t size() const noexcept { return m_span.size(); }
-    [[nodiscard]] constexpr std::span<const std::string_view> span() const noexcept { return m_span; }
+    [[nodiscard]] constexpr keel::ArrayRef<keel::StringRef> span() const noexcept { return m_span; }
 
     [[nodiscard]] constexpr bool operator==(const TextVariants& other) const noexcept {
-        if (m_span.size() != other.m_span.size()) {
-            return false;
-        }
-        for (size_t i = 0; i < m_span.size(); ++i) {
-            if (m_span[i] != other.m_span[i]) {
-                return false;
-            }
-        }
-        return true;
+        return m_span == other.m_span;
     }
 
 private:
-    std::span<const std::string_view> m_span{};
+    keel::ArrayRef<keel::StringRef> m_span{};
 };
 static_assert(sizeof(TextVariants) == 2 * sizeof(void*), "TextVariants must remain 2 * sizeof(void*) bytes");
+
+/// Concept matching any dynamic `size_t` list (`keel::Array<size_t>`, `keel::SmallArray<size_t, N>`,
+/// `keel::FixedArray<size_t, N>`, or external `std::vector<size_t>`) without including STL headers.
+template <typename C>
+concept WritableIndexList =
+    !keel::IsConst<C> &&
+    requires(C& c, const C& cc, size_t v) {
+        { c.data() } -> keel::SameAs<size_t*>;
+        { cc.data() } -> keel::SameAs<const size_t*>;
+        { cc.size() } -> keel::SameAs<size_t>;
+        c.push_back(v);
+        c.pop_back();
+        c.clear();
+    };
+
+/// Non-owning type-erased mutable adapter over a dynamic `size_t` list (`MultiSelect`, `TextAreaOptions::breakpoints`).
+class IndexListSink {
+public:
+    struct Ops {
+        keel::MutArrayRef<size_t> (*view_fn)(void* obj) noexcept;
+        void (*push_fn)(void* obj, size_t val);
+        void (*erase_at_fn)(void* obj, size_t idx);
+        void (*clear_fn)(void* obj);
+    };
+
+    constexpr IndexListSink() noexcept = default;
+    constexpr IndexListSink(decltype(nullptr)) noexcept {}
+
+    template <WritableIndexList C>
+    constexpr IndexListSink(C* c) noexcept
+        : m_obj(c), m_ops(c ? &ops_for<C>() : nullptr) {}
+
+    template <WritableIndexList C>
+        requires(!keel::IsSame<keel::Decay<C>, IndexListSink>)
+    explicit constexpr IndexListSink(C& c) noexcept
+        : m_obj(&c), m_ops(&ops_for<C>()) {}
+
+    [[nodiscard]] constexpr bool has_target() const noexcept { return m_obj != nullptr && m_ops != nullptr; }
+    [[nodiscard]] explicit constexpr operator bool() const noexcept { return has_target(); }
+    [[nodiscard]] constexpr bool operator==(decltype(nullptr)) const noexcept { return !has_target(); }
+    [[nodiscard]] constexpr bool operator!=(decltype(nullptr)) const noexcept { return has_target(); }
+
+    [[nodiscard]] keel::ArrayRef<size_t> as_ref() const noexcept {
+        if (!has_target()) return {};
+        const keel::MutArrayRef<size_t> m = m_ops->view_fn(m_obj);
+        return keel::ArrayRef<size_t>(m.data(), m.size());
+    }
+
+    [[nodiscard]] keel::MutArrayRef<size_t> as_mut_ref() const noexcept {
+        return has_target() ? m_ops->view_fn(m_obj) : keel::MutArrayRef<size_t>{};
+    }
+
+    [[nodiscard]] size_t size() const noexcept { return as_ref().size(); }
+    [[nodiscard]] bool empty() const noexcept { return as_ref().empty(); }
+    [[nodiscard]] const size_t* begin() const noexcept { return as_ref().begin(); }
+    [[nodiscard]] const size_t* end() const noexcept { return as_ref().end(); }
+    [[nodiscard]] size_t& operator[](size_t i) const noexcept { return as_mut_ref()[i]; }
+
+    void push_back(size_t val) const {
+        if (has_target()) m_ops->push_fn(m_obj, val);
+    }
+
+    void erase_at(size_t idx) const {
+        if (has_target()) m_ops->erase_at_fn(m_obj, idx);
+    }
+
+    void clear() const {
+        if (has_target()) m_ops->clear_fn(m_obj);
+    }
+
+private:
+    template <WritableIndexList C>
+    static const Ops& ops_for() noexcept {
+        static constexpr Ops kOps{
+            +[](void* obj) noexcept -> keel::MutArrayRef<size_t> {
+                auto& c = *static_cast<C*>(obj);
+                return keel::MutArrayRef<size_t>(c.data(), c.size());
+            },
+            +[](void* obj, size_t val) {
+                auto& c = *static_cast<C*>(obj);
+                if constexpr (requires(const C& cc) { cc.full(); }) {
+                    if (c.full()) return;
+                }
+                c.push_back(val);
+            },
+            +[](void* obj, size_t idx) {
+                auto& c = *static_cast<C*>(obj);
+                const size_t n = c.size();
+                if (idx >= n) return;
+                size_t* p = c.data();
+                for (size_t i = idx + 1; i < n; ++i) {
+                    p[i - 1] = p[i];
+                }
+                c.pop_back();
+            },
+            +[](void* obj) { static_cast<C*>(obj)->clear(); },
+        };
+        return kOps;
+    }
+
+    void* m_obj{nullptr};
+    const Ops* m_ops{nullptr};
+};
 
 namespace literals {
     constexpr Dp operator""_dp(long double v) noexcept {
@@ -730,13 +819,13 @@ enum class ObjectFit : uint8_t {
 
     switch (fit) {
         case ObjectFit::Contain:
-            scale = std::min(scaleX, scaleY);
+            scale = keel::min(scaleX, scaleY);
             break;
         case ObjectFit::Cover:
-            scale = std::max(scaleX, scaleY);
+            scale = keel::max(scaleX, scaleY);
             break;
         case ObjectFit::ScaleDown:
-            scale = std::min(1.0f, std::min(scaleX, scaleY));
+            scale = keel::min(1.0f, keel::min(scaleX, scaleY));
             break;
         case ObjectFit::Original:
             scale = 1.0f;

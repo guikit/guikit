@@ -1,17 +1,12 @@
-#include <algorithm>
-#include <array>
-#include <chrono>
 #include <cmath>
-#include <cstdio>
-#include <numbers>
-#include <string>
+#include <cstdint>
 #include "../demo_context.hpp"
 
 namespace guikit::demo {
 
 namespace {
 
-constexpr float kPi = std::numbers::pi_v<float>;
+constexpr float kPi = 3.14159265358979323846f;
 constexpr float kDegToRad = kPi / 180.0f;
 
 struct AttitudeDemoState {
@@ -63,7 +58,7 @@ struct AttitudeDemoState {
     float fovPitchDeg{50.0f};
 
     double simTimeSec{0.0};
-    std::chrono::steady_clock::time_point lastWallClock{};
+    uint64_t lastWallNs{0};
     AttitudeViewResponse lastResp{};
 };
 
@@ -82,21 +77,21 @@ AttitudeDemoState s_att{};
 }
 
 void StepAttitudeSimulation(guikit::Context& ui, AttitudeDemoState& st) {
-    const auto now = std::chrono::steady_clock::now();
+    const uint64_t nowNs = keel::monotonic_ns();
     if (!st.initialized) {
-        st.lastWallClock = now;
+        st.lastWallNs = nowNs;
         st.initialized = true;
     }
 
-    double dt = std::chrono::duration<double>(now - st.lastWallClock).count();
-    st.lastWallClock = now;
-    dt = std::clamp(dt, 0.001, 0.05);
+    double dt = static_cast<double>(nowNs - st.lastWallNs) * 1e-9;
+    st.lastWallNs = nowNs;
+    dt = keel::clamp(dt, 0.001, 0.05);
     const float fdt = static_cast<float>(dt);
     st.simTimeSec += dt;
 
     if (st.controlModeIndex == 3) {
         // Manual mode: keep derived Mach and G-load coherent with sliders
-        st.machNumber = std::clamp(st.airspeedKnots / 348.0f, 0.10f, 0.99f);
+        st.machNumber = keel::clamp(st.airspeedKnots / 348.0f, 0.10f, 0.99f);
         return;
     }
 
@@ -105,8 +100,8 @@ void StepAttitudeSimulation(guikit::Context& ui, AttitudeDemoState& st) {
     const Vec2 adiCenter = (adiR.w > 20.0f) ? adiR.Center() : Vec2{640.0f, 400.0f};
     const float adiRadius = (adiR.w > 20.0f) ? (adiR.w * 0.5f) : 220.0f;
 
-    const float nx = std::clamp((mousePos.x - adiCenter.x) / std::max(40.0f, adiRadius), -1.0f, 1.0f);
-    const float ny = std::clamp((mousePos.y - adiCenter.y) / std::max(40.0f, adiRadius), -1.0f, 1.0f);
+    const float nx = keel::clamp((mousePos.x - adiCenter.x) / keel::max(40.0f, adiRadius), -1.0f, 1.0f);
+    const float ny = keel::clamp((mousePos.y - adiCenter.y) / keel::max(40.0f, adiRadius), -1.0f, 1.0f);
     const Rect horR = (st.lastResp.horizonRect.w > 20.0f) ? st.lastResp.horizonRect : adiR;
     const bool mouseInStage = (horR.w > 20.0f) &&
                               mousePos.x >= (horR.x - 160.0f) && mousePos.x <= (horR.Right() + 160.0f) &&
@@ -119,7 +114,7 @@ void StepAttitudeSimulation(guikit::Context& ui, AttitudeDemoState& st) {
         // Mode 0: Direct Mouse Follow (Mouse position maps directly to Roll & Pitch)
         const float cmdRoll = mouseInStage ? (nx * 65.0f) : 0.0f;
         const float cmdPitch = mouseInStage ? (-ny * 38.0f) : 2.5f;
-        const float alpha = std::clamp(fdt * 12.0f, 0.05f, 1.0f);
+        const float alpha = keel::clamp(fdt * 12.0f, 0.05f, 1.0f);
         st.rollDeg += (cmdRoll - st.rollDeg) * alpha;
         st.pitchDeg += (cmdPitch - st.pitchDeg) * alpha;
         st.fdRollDeg = cmdRoll;
@@ -133,9 +128,9 @@ void StepAttitudeSimulation(guikit::Context& ui, AttitudeDemoState& st) {
             const float rollRateDegPerSec = sx * 135.0f;
             const float pitchRateDegPerSec = -sy * 65.0f;
             st.rollDeg = WrapRollDeg(st.rollDeg + rollRateDegPerSec * fdt);
-            st.pitchDeg = std::clamp(st.pitchDeg + pitchRateDegPerSec * fdt, -85.0f, 85.0f);
-            st.fdRollDeg = std::clamp(sx * 45.0f, -60.0f, 60.0f);
-            st.fdPitchDeg = std::clamp(st.pitchDeg + pitchRateDegPerSec * 0.25f, -30.0f, 30.0f);
+            st.pitchDeg = keel::clamp(st.pitchDeg + pitchRateDegPerSec * fdt, -85.0f, 85.0f);
+            st.fdRollDeg = keel::clamp(sx * 45.0f, -60.0f, 60.0f);
+            st.fdPitchDeg = keel::clamp(st.pitchDeg + pitchRateDegPerSec * 0.25f, -30.0f, 30.0f);
         }
     } else if (st.controlModeIndex == 2) {
         // Mode 2: Automated Autopilot Figure-8 Flight Pattern
@@ -144,7 +139,7 @@ void StepAttitudeSimulation(guikit::Context& ui, AttitudeDemoState& st) {
         const float targetPitch = 3.0f + 9.5f * std::sin(t * 1.10f);
         st.fdRollDeg = 36.0f * std::sin((t + 0.45f) * 0.55f);
         st.fdPitchDeg = 3.0f + 9.5f * std::sin((t + 0.45f) * 1.10f);
-        const float alpha = std::clamp(fdt * 6.0f, 0.02f, 1.0f);
+        const float alpha = keel::clamp(fdt * 6.0f, 0.02f, 1.0f);
         st.rollDeg += (targetRoll - st.rollDeg) * alpha;
         st.pitchDeg += (targetPitch - st.pitchDeg) * alpha;
     }
@@ -155,70 +150,70 @@ void StepAttitudeSimulation(guikit::Context& ui, AttitudeDemoState& st) {
 
     // Vertical speed (FPM) driven by pitch angle and airspeed
     const float targetVsi = std::sin((st.pitchDeg - 2.0f) * kDegToRad) * st.airspeedKnots * 88.0f;
-    st.verticalSpeedFpm += (targetVsi - st.verticalSpeedFpm) * std::clamp(fdt * 6.0f, 0.05f, 1.0f);
-    st.altitudeFeet = std::clamp(st.altitudeFeet + (st.verticalSpeedFpm / 60.0f) * fdt, 0.0f, 50000.0f);
-    st.radioAltitudeFeet = std::clamp(st.altitudeFeet - 10650.0f, 20.0f, 2500.0f);
+    st.verticalSpeedFpm += (targetVsi - st.verticalSpeedFpm) * keel::clamp(fdt * 6.0f, 0.05f, 1.0f);
+    st.altitudeFeet = keel::clamp(st.altitudeFeet + (st.verticalSpeedFpm / 60.0f) * fdt, 0.0f, 50000.0f);
+    st.radioAltitudeFeet = keel::clamp(st.altitudeFeet - 10650.0f, 20.0f, 2500.0f);
 
     // Airspeed responds to dive/climb + autothrottle restoring toward targetAirspeedBug
     const float gravityAccelKtPerSec = -std::sin((st.pitchDeg - 2.0f) * kDegToRad) * 18.0f;
     const float autoThrottleKtPerSec = (st.targetAirspeedBug - st.airspeedKnots) * 0.45f;
-    st.airspeedKnots = std::clamp(st.airspeedKnots + (gravityAccelKtPerSec + autoThrottleKtPerSec) * fdt, 95.0f, 380.0f);
-    st.machNumber = std::clamp(st.airspeedKnots / 348.0f, 0.15f, 0.99f);
+    st.airspeedKnots = keel::clamp(st.airspeedKnots + (gravityAccelKtPerSec + autoThrottleKtPerSec) * fdt, 95.0f, 380.0f);
+    st.machNumber = keel::clamp(st.airspeedKnots / 348.0f, 0.15f, 0.99f);
 
     // Coordinated turn rate integrates magnetic heading
-    const float turnRateDegPerSec = std::clamp(std::tan( std::clamp(st.rollDeg, -70.0f, 70.0f) * kDegToRad ) * 4.2f, -18.0f, 18.0f);
+    const float turnRateDegPerSec = keel::clamp(std::tan( keel::clamp(st.rollDeg, -70.0f, 70.0f) * kDegToRad ) * 4.2f, -18.0f, 18.0f);
     st.headingDeg = WrapHeadingDeg(st.headingDeg + turnRateDegPerSec * fdt);
 
     // Normal load factor (G) and inclinometer slip/skid ball
-    const float bankCos = std::max(0.35f, std::cos(std::clamp(st.rollDeg, -70.0f, 70.0f) * kDegToRad));
+    const float bankCos = keel::max(0.35f, std::cos(keel::clamp(st.rollDeg, -70.0f, 70.0f) * kDegToRad));
     const float targetG = (1.0f / bankCos) + pitchRate * 0.035f;
-    st.gLoad += (std::clamp(targetG, -2.5f, 6.0f) - st.gLoad) * std::clamp(fdt * 8.0f, 0.05f, 1.0f);
+    st.gLoad += (keel::clamp(targetG, -2.5f, 6.0f) - st.gLoad) * keel::clamp(fdt * 8.0f, 0.05f, 1.0f);
 
-    const float targetSlip = std::clamp(-rollRate * 0.008f, -0.85f, 0.85f);
-    st.slipSkid += (targetSlip - st.slipSkid) * std::clamp(fdt * 7.0f, 0.05f, 1.0f);
-    st.aoaDeg = std::clamp(2.0f + (st.gLoad - 1.0f) * 2.4f, -4.0f, 14.0f);
+    const float targetSlip = keel::clamp(-rollRate * 0.008f, -0.85f, 0.85f);
+    st.slipSkid += (targetSlip - st.slipSkid) * keel::clamp(fdt * 7.0f, 0.05f, 1.0f);
+    st.aoaDeg = keel::clamp(2.0f + (st.gLoad - 1.0f) * 2.4f, -4.0f, 14.0f);
     st.sideslipDeg = st.slipSkid * 3.5f;
 
     // Smoothly animate ILS Localizer & Glideslope deviation relative to target bugs
-    st.locDeviationDots = std::clamp(std::sin(static_cast<float>(st.simTimeSec) * 0.35f) * 0.8f - st.rollDeg * 0.02f, -2.2f, 2.2f);
-    st.gsDeviationDots = std::clamp((st.targetAltitudeBug - st.altitudeFeet) / 250.0f, -2.2f, 2.2f);
+    st.locDeviationDots = keel::clamp(std::sin(static_cast<float>(st.simTimeSec) * 0.35f) * 0.8f - st.rollDeg * 0.02f, -2.2f, 2.2f);
+    st.gsDeviationDots = keel::clamp((st.targetAltitudeBug - st.altitudeFeet) / 250.0f, -2.2f, 2.2f);
 }
 
 } // namespace
 
 void RenderAttitudeInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
-    static constexpr std::array<std::string_view, 4> kControlModes = {
+    static constexpr keel::StaticArray<keel::StringRef, 4> kControlModes = {
         "Mouse Follow (Direct)",
         "Virtual Stick (FBW 360°)",
         "Autopilot Figure-8",
         "Manual Sliders"
     };
-    static constexpr std::array<std::string_view, 3> kDisplayModes = {
+    static constexpr keel::StaticArray<keel::StringRef, 3> kDisplayModes = {
         "Full PFD (Primary Flight Display)",
         "Compact ADI (No Side Tapes)",
         "HUD Overlay (Collimator)"
     };
-    static constexpr std::array<std::string_view, 4> kViewportModes = {
+    static constexpr keel::StaticArray<keel::StringRef, 4> kViewportModes = {
         "Auto (By Display Mode)",
         "Full-Bleed (Edge-to-Edge)",
         "Rounded Dome (Classic Bezel)",
         "Circular Sphere"
     };
-    static constexpr std::array<std::string_view, 2> kRefModes = {
+    static constexpr keel::StaticArray<keel::StringRef, 2> kRefModes = {
         "Western (Moving Horizon)",
         "Russian KPPI (Moving Aircraft)"
     };
-    static constexpr std::array<std::string_view, 3> kColorSchemes = {
+    static constexpr keel::StaticArray<keel::StringRef, 3> kColorSchemes = {
         "Glass Cockpit (Sky/Earth)",
         "HUD Phosphor Green",
         "Tactical Dark"
     };
-    static constexpr std::array<std::string_view, 3> kFdStyles = {
+    static constexpr keel::StaticArray<keel::StringRef, 3> kFdStyles = {
         "Off",
         "Single-Cue V-Bar",
         "Dual-Cue Crossbars"
     };
-    static constexpr std::array<std::string_view, 3> kAircraftSymbols = {
+    static constexpr keel::StaticArray<keel::StringRef, 3> kAircraftSymbols = {
         "Gull-Wing (Garmin / Airbus)",
         "Classic W-Wing",
         "Russian KPPI Silhouette"
@@ -428,66 +423,63 @@ void RenderAttitudeStage(guikit::Context& ui, DemoContext& /*ctx*/) {
     });
 }
 
-std::string GenerateAttitudeCode(const DemoContext& /*ctx*/) {
-    static constexpr std::array<const char*, 3> kModeEnums = {
+keel::String GenerateAttitudeCode(const DemoContext& /*ctx*/) {
+    static constexpr keel::StaticArray<const char*, 3> kModeEnums = {
         "AttitudeDisplayMode::FullPFD",
         "AttitudeDisplayMode::CompactADI",
         "AttitudeDisplayMode::HudOverlay"
     };
-    static constexpr std::array<const char*, 4> kViewportEnums = {
+    static constexpr keel::StaticArray<const char*, 4> kViewportEnums = {
         "AttitudeViewportMode::Auto",
         "AttitudeViewportMode::FullBleed",
         "AttitudeViewportMode::RoundedDome",
         "AttitudeViewportMode::Circular"
     };
-    static constexpr std::array<const char*, 2> kRefEnums = {
+    static constexpr keel::StaticArray<const char*, 2> kRefEnums = {
         "HorizonReferenceMode::WesternMovingHorizon",
         "HorizonReferenceMode::EasternMovingAircraft"
     };
-    static constexpr std::array<const char*, 3> kSchemeEnums = {
+    static constexpr keel::StaticArray<const char*, 3> kSchemeEnums = {
         "AttitudeColorScheme::GlassCockpit",
         "AttitudeColorScheme::HudGreen",
         "AttitudeColorScheme::TacticalDark"
     };
-    static constexpr std::array<const char*, 3> kFdEnums = {
+    static constexpr keel::StaticArray<const char*, 3> kFdEnums = {
         "FlightDirectorStyle::Off",
         "FlightDirectorStyle::SingleCueVBar",
         "FlightDirectorStyle::DualCueCrossbars"
     };
 
-    char buf[2048];
-    std::snprintf(
-        buf,
-        sizeof(buf),
+    return keel::format(
         "// Avionics Primary Flight Display (PFD) & Artificial Horizon Widget\n"
-        "auto resp = ui.AttitudeView({\n"
-        "    .displayMode          = guikit::%s,\n"
-        "    .viewportMode         = guikit::%s,\n"
-        "    .referenceMode        = guikit::%s,\n"
-        "    .colorScheme          = guikit::%s,\n"
-        "    .flightDirectorStyle  = guikit::%s,\n"
-        "    .rollDeg              = %.1ff,\n"
-        "    .pitchDeg             = %.1ff,\n"
-        "    .headingDeg           = %.1ff,\n"
-        "    .airspeedKnots        = %.1ff,\n"
-        "    .machNumber           = %.2ff,\n"
-        "    .altitudeFeet         = %.0ff,\n"
-        "    .verticalSpeedFpm     = %.0ff,\n"
-        "    .slipSkid             = %.2ff,\n"
-        "    .gLoad                = %.2ff,\n"
-        "    .showFlightPathVector = %s,\n"
-        "    .showIlsDiamonds      = %s,\n"
+        "auto resp = ui.AttitudeView({{\n"
+        "    .displayMode          = guikit::{},\n"
+        "    .viewportMode         = guikit::{},\n"
+        "    .referenceMode        = guikit::{},\n"
+        "    .colorScheme          = guikit::{},\n"
+        "    .flightDirectorStyle  = guikit::{},\n"
+        "    .rollDeg              = {:.1f}f,\n"
+        "    .pitchDeg             = {:.1f}f,\n"
+        "    .headingDeg           = {:.1f}f,\n"
+        "    .airspeedKnots        = {:.1f}f,\n"
+        "    .machNumber           = {:.2f}f,\n"
+        "    .altitudeFeet         = {:.0f}f,\n"
+        "    .verticalSpeedFpm     = {:.0f}f,\n"
+        "    .slipSkid             = {:.2f}f,\n"
+        "    .gLoad                = {:.2f}f,\n"
+        "    .showFlightPathVector = {},\n"
+        "    .showIlsDiamonds      = {},\n"
         "    .fovPitchDegPtr       = &fovPitchDeg,\n"
         "    .heightMode           = guikit::SizeMode::Stretch\n"
-        "});\n"
-        "if (resp.cursorInsideAdi) {\n"
-        "    // Mouse stick telemetry: roll = %.1f deg, pitch = %.1f deg\n"
-        "}\n",
-        kModeEnums[std::clamp(s_att.displayModeIndex, 0, 2)],
-        kViewportEnums[std::clamp(s_att.viewportModeIndex, 0, 3)],
-        kRefEnums[std::clamp(s_att.referenceModeIndex, 0, 1)],
-        kSchemeEnums[std::clamp(s_att.colorSchemeIndex, 0, 2)],
-        kFdEnums[std::clamp(s_att.fdStyleIndex, 0, 2)],
+        "}});\n"
+        "if (resp.cursorInsideAdi) {{\n"
+        "    // Mouse stick telemetry: roll = {:.1f} deg, pitch = {:.1f} deg\n"
+        "}}\n",
+        kModeEnums[static_cast<size_t>(keel::clamp(s_att.displayModeIndex, 0, 2))],
+        kViewportEnums[static_cast<size_t>(keel::clamp(s_att.viewportModeIndex, 0, 3))],
+        kRefEnums[static_cast<size_t>(keel::clamp(s_att.referenceModeIndex, 0, 1))],
+        kSchemeEnums[static_cast<size_t>(keel::clamp(s_att.colorSchemeIndex, 0, 2))],
+        kFdEnums[static_cast<size_t>(keel::clamp(s_att.fdStyleIndex, 0, 2))],
         s_att.rollDeg,
         s_att.pitchDeg,
         s_att.headingDeg,
@@ -502,7 +494,6 @@ std::string GenerateAttitudeCode(const DemoContext& /*ctx*/) {
         s_att.lastResp.cursorRollDeg,
         s_att.lastResp.cursorPitchDeg
     );
-    return std::string(buf);
 }
 
 } // namespace guikit::demo

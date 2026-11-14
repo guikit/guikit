@@ -1,90 +1,89 @@
 #include "guikit/geo/geo_json_io.hpp"
-#include "guikit/geo/polygon_triangulator.hpp"
 #include "guikit/core/assets.hpp"
+#include "guikit/geo/polygon_triangulator.hpp"
+#include <cmath>
 #include "keel/algo.h"
+#include "keel/arena.h"
 #include "keel/format.h"
 #include "keel/fs.h"
 #include "keel/number.h"
-#include <algorithm>
-#include <cctype>
-#include <cmath>
-#include <cstdio>
-#include <variant>
+#include "keel/small_array.h"
 
 namespace guikit::geo {
 
 namespace {
 
 // ============================================================================
-// Self-Contained RFC 8259 JSON DOM for GeoJSON Parsing
+// Self-Contained Arena-Backed RFC 8259 JSON DOM for GeoJSON Parsing
 // ============================================================================
 
-struct RawCoordsSlice {
-    std::string_view text{};
-};
-
-struct JsonValue;
-using JsonArray = std::vector<JsonValue>;
-using JsonObject = std::vector<std::pair<std::string, JsonValue>>;
+struct JsonKeyValue;
 
 struct JsonValue {
-    using Storage = std::variant<
-        std::monostate,
-        bool,
-        int64_t,
-        double,
-        std::string,
-        JsonArray,
-        JsonObject,
-        RawCoordsSlice
-    >;
-    Storage data{std::monostate{}};
+    enum class Kind : uint8_t {
+        Null = 0,
+        Bool,
+        Int,
+        Double,
+        String,
+        Array,
+        Object,
+        CoordsSlice
+    };
 
-    [[nodiscard]] bool IsNull() const noexcept   { return std::holds_alternative<std::monostate>(data); }
-    [[nodiscard]] bool IsBool() const noexcept   { return std::holds_alternative<bool>(data); }
-    [[nodiscard]] bool IsInt() const noexcept    { return std::holds_alternative<int64_t>(data); }
-    [[nodiscard]] bool IsDouble() const noexcept { return std::holds_alternative<double>(data); }
-    [[nodiscard]] bool IsNumber() const noexcept { return IsInt() || IsDouble(); }
-    [[nodiscard]] bool IsString() const noexcept { return std::holds_alternative<std::string>(data); }
-    [[nodiscard]] bool IsArray() const noexcept  { return std::holds_alternative<JsonArray>(data); }
-    [[nodiscard]] bool IsObject() const noexcept { return std::holds_alternative<JsonObject>(data); }
-    [[nodiscard]] bool IsCoordsSlice() const noexcept { return std::holds_alternative<RawCoordsSlice>(data); }
+    Kind kind{Kind::Null};
+    union {
+        bool boolVal;
+        int64_t intVal;
+        double doubleVal{0.0};
+    };
+    keel::StringRef textVal{};
+    keel::ArrayRef<JsonValue> arrVal{};
+    keel::ArrayRef<JsonKeyValue> objVal{};
 
-    [[nodiscard]] double AsDouble(double fallback = 0.0) const noexcept {
-        if (const auto* d = std::get_if<double>(&data)) return *d;
-        if (const auto* i = std::get_if<int64_t>(&data)) return static_cast<double>(*i);
+    [[nodiscard]] constexpr bool IsNull() const noexcept        { return kind == Kind::Null; }
+    [[nodiscard]] constexpr bool IsBool() const noexcept        { return kind == Kind::Bool; }
+    [[nodiscard]] constexpr bool IsInt() const noexcept         { return kind == Kind::Int; }
+    [[nodiscard]] constexpr bool IsDouble() const noexcept      { return kind == Kind::Double; }
+    [[nodiscard]] constexpr bool IsNumber() const noexcept      { return IsInt() || IsDouble(); }
+    [[nodiscard]] constexpr bool IsString() const noexcept      { return kind == Kind::String; }
+    [[nodiscard]] constexpr bool IsArray() const noexcept       { return kind == Kind::Array; }
+    [[nodiscard]] constexpr bool IsObject() const noexcept      { return kind == Kind::Object; }
+    [[nodiscard]] constexpr bool IsCoordsSlice() const noexcept { return kind == Kind::CoordsSlice; }
+
+    [[nodiscard]] constexpr double AsDouble(double fallback = 0.0) const noexcept {
+        if (kind == Kind::Double) return doubleVal;
+        if (kind == Kind::Int) return static_cast<double>(intVal);
         return fallback;
     }
 
-    [[nodiscard]] std::string_view AsString(std::string_view fallback = {}) const noexcept {
-        if (const auto* s = std::get_if<std::string>(&data)) return *s;
+    [[nodiscard]] constexpr keel::StringRef AsString(keel::StringRef fallback = {}) const noexcept {
+        if (kind == Kind::String) return textVal;
         return fallback;
     }
 
-    [[nodiscard]] const JsonArray* AsArray() const noexcept {
-        return std::get_if<JsonArray>(&data);
-    }
-
-    [[nodiscard]] const JsonObject* AsObject() const noexcept {
-        return std::get_if<JsonObject>(&data);
-    }
-
-    [[nodiscard]] std::string_view AsCoordsSlice() const noexcept {
-        if (const auto* cs = std::get_if<RawCoordsSlice>(&data)) return cs->text;
+    [[nodiscard]] constexpr keel::StringRef AsCoordsSlice() const noexcept {
+        if (kind == Kind::CoordsSlice) return textVal;
         return {};
     }
 
-    [[nodiscard]] const JsonValue* Find(std::string_view key) const noexcept {
-        const auto* obj = AsObject();
-        if (!obj) return nullptr;
-        for (const auto& [k, v] : *obj) {
-            if (k == key) return &v;
-        }
-        return nullptr;
-    }
+    [[nodiscard]] const JsonValue* Find(keel::StringRef key) const noexcept;
 };
 
-void AppendUtf8Codepoint(std::string& out, uint32_t cp) {
+struct JsonKeyValue {
+    keel::StringRef key{};
+    JsonValue value{};
+};
+
+const JsonValue* JsonValue::Find(keel::StringRef key) const noexcept {
+    if (kind != Kind::Object) return nullptr;
+    for (const auto& kv : objVal) {
+        if (kv.key == key) return &kv.value;
+    }
+    return nullptr;
+}
+
+void AppendUtf8Codepoint(keel::String& out, uint32_t cp) {
     if (cp <= 0x7Fu) {
         out.push_back(static_cast<char>(cp));
     } else if (cp <= 0x7FFu) {
@@ -104,7 +103,8 @@ void AppendUtf8Codepoint(std::string& out, uint32_t cp) {
 
 class JsonParser {
 public:
-    explicit JsonParser(std::string_view src) : m_src(src) {
+    JsonParser(keel::StringRef src, keel::Arena& arena)
+        : m_src(src), m_arena(arena) {
         // Skip UTF-8 BOM if present
         if (m_src.size() >= 3 &&
             static_cast<uint8_t>(m_src[0]) == 0xEF &&
@@ -114,14 +114,14 @@ public:
         }
     }
 
-    bool ParseRoot(JsonValue& outRoot, std::string& outError) {
+    bool ParseRoot(JsonValue& outRoot, keel::String& outError) {
         SkipWhitespace();
         if (AtEnd()) {
-            outError = "Empty JSON document";
+            outError.assign("Empty JSON document");
             return false;
         }
         if (!ParseValue(outRoot, 0)) {
-            outError = m_error;
+            outError = keel::move(m_error);
             return false;
         }
         SkipWhitespace();
@@ -163,10 +163,9 @@ private:
         }
     }
 
-    bool Fail(std::string_view msg) {
+    bool Fail(keel::StringRef msg) {
         if (m_error.empty()) {
-            auto s = keel::format("JSON parse error at line %zu, col %zu: %s", m_line, m_col, msg);
-            m_error.assign(s.data(), s.size());
+            m_error = keel::format("JSON parse error at line %zu, col %zu: %s", m_line, m_col, msg);
         }
         return false;
     }
@@ -203,7 +202,9 @@ private:
             } else if (c == ']') {
                 --bracketDepth;
                 if (bracketDepth == 0) {
-                    out.data = RawCoordsSlice{m_src.substr(startPos, m_pos - startPos)};
+                    out = JsonValue{};
+                    out.kind = JsonValue::Kind::CoordsSlice;
+                    out.textVal = m_src.substr(startPos, m_pos - startPos);
                     return true;
                 }
             }
@@ -225,9 +226,11 @@ private:
             case '{': return ParseObject(out, depth + 1);
             case '[': return ParseArray(out, depth + 1);
             case '"': {
-                std::string s;
+                keel::StringRef s;
                 if (!ParseString(s)) return false;
-                out.data = std::move(s);
+                out = JsonValue{};
+                out.kind = JsonValue::Kind::String;
+                out.textVal = s;
                 return true;
             }
             case 't': return ParseLiteral("true", true, out);
@@ -244,13 +247,15 @@ private:
         }
     }
 
-    bool ParseLiteral(std::string_view lit, bool val, JsonValue& out) {
+    bool ParseLiteral(keel::StringRef lit, bool val, JsonValue& out) {
         if (m_src.substr(m_pos, lit.size()) != lit) {
             char buf[64];
             return Fail(keel::format_buf(buf, "Expected '%s'", lit));
         }
         for (size_t i = 0; i < lit.size(); ++i) Advance();
-        out.data = val;
+        out = JsonValue{};
+        out.kind = JsonValue::Kind::Bool;
+        out.boolVal = val;
         return true;
     }
 
@@ -259,7 +264,8 @@ private:
             return Fail("Expected 'null'");
         }
         for (int i = 0; i < 4; ++i) Advance();
-        out.data = std::monostate{};
+        out = JsonValue{};
+        out.kind = JsonValue::Kind::Null;
         return true;
     }
 
@@ -280,27 +286,50 @@ private:
         return true;
     }
 
-    bool ParseString(std::string& out) {
+    bool ParseString(keel::StringRef& out) {
         if (Advance() != '"') return Fail("Expected '\"'");
-        out.clear();
+        const size_t rawStart = m_pos;
 
+        // Fast zero-copy scan for unescaped strings (direct slice into m_src!)
+        bool hasEscape = false;
+        size_t scanPos = m_pos;
+        while (scanPos < m_src.size()) {
+            const char sc = m_src[scanPos];
+            if (sc == '"') {
+                const size_t len = scanPos - rawStart;
+                for (size_t k = 0; k <= len; ++k) Advance();
+                out = m_src.substr(rawStart, len);
+                return true;
+            }
+            if (sc == '\\') {
+                hasEscape = true;
+                break;
+            }
+            ++scanPos;
+        }
+        if (!hasEscape && scanPos >= m_src.size()) {
+            return Fail("Unterminated string literal");
+        }
+
+        m_scratchStr.clear();
         while (!AtEnd()) {
             const char c = Advance();
             if (c == '"') {
+                out = m_arena.alloc_string(m_scratchStr.as_ref());
                 return true;
             }
             if (c == '\\') {
                 if (AtEnd()) return Fail("Unterminated escape sequence");
                 const char esc = Advance();
                 switch (esc) {
-                    case '"':  out.push_back('"'); break;
-                    case '\\': out.push_back('\\'); break;
-                    case '/':  out.push_back('/'); break;
-                    case 'b':  out.push_back('\b'); break;
-                    case 'f':  out.push_back('\f'); break;
-                    case 'n':  out.push_back('\n'); break;
-                    case 'r':  out.push_back('\r'); break;
-                    case 't':  out.push_back('\t'); break;
+                    case '"':  m_scratchStr.push_back('"'); break;
+                    case '\\': m_scratchStr.push_back('\\'); break;
+                    case '/':  m_scratchStr.push_back('/'); break;
+                    case 'b':  m_scratchStr.push_back('\b'); break;
+                    case 'f':  m_scratchStr.push_back('\f'); break;
+                    case 'n':  m_scratchStr.push_back('\n'); break;
+                    case 'r':  m_scratchStr.push_back('\r'); break;
+                    case 't':  m_scratchStr.push_back('\t'); break;
                     case 'u': {
                         uint32_t cp = 0;
                         if (!ParseHex4(cp)) return false;
@@ -316,15 +345,15 @@ private:
                                 }
                             }
                         }
-                        AppendUtf8Codepoint(out, cp);
+                        AppendUtf8Codepoint(m_scratchStr, cp);
                         break;
                     }
                     default:
-                        out.push_back(esc);
+                        m_scratchStr.push_back(esc);
                         break;
                 }
             } else {
-                out.push_back(c);
+                m_scratchStr.push_back(c);
             }
         }
         return Fail("Unterminated string literal");
@@ -364,16 +393,20 @@ private:
             while (Peek() >= '0' && Peek() <= '9') Advance();
         }
 
-        const std::string_view token = m_src.substr(start, m_pos - start);
+        const keel::StringRef token = m_src.substr(start, m_pos - start);
         if (!isFloat) {
             if (const auto res = keel::parse_i64(token); res.is_ok()) {
-                out.data = static_cast<int64_t>(res.value());
+                out = JsonValue{};
+                out.kind = JsonValue::Kind::Int;
+                out.intVal = static_cast<int64_t>(res.value());
                 return true;
             }
         }
 
         if (const auto res = keel::parse_f64(token); res.is_ok()) {
-            out.data = res.value();
+            out = JsonValue{};
+            out.kind = JsonValue::Kind::Double;
+            out.doubleVal = res.value();
             return true;
         }
 
@@ -382,18 +415,19 @@ private:
 
     bool ParseArray(JsonValue& out, int depth) {
         if (Advance() != '[') return Fail("Expected '['");
-        JsonArray arr;
         SkipWhitespace();
         if (Peek() == ']') {
             Advance();
-            out.data = std::move(arr);
+            out = JsonValue{};
+            out.kind = JsonValue::Kind::Array;
             return true;
         }
 
+        keel::SmallArray<JsonValue, 16> elems;
         while (true) {
-            JsonValue elem;
+            JsonValue elem{};
             if (!ParseValue(elem, depth)) return false;
-            arr.push_back(std::move(elem));
+            elems.push_back(elem);
 
             SkipWhitespace();
             const char c = Peek();
@@ -412,26 +446,33 @@ private:
             }
         }
 
-        out.data = std::move(arr);
+        JsonValue* dst = m_arena.alloc_array<JsonValue>(elems.size());
+        for (size_t i = 0; i < elems.size(); ++i) {
+            dst[i] = elems[i];
+        }
+        out = JsonValue{};
+        out.kind = JsonValue::Kind::Array;
+        out.arrVal = keel::ArrayRef<JsonValue>(dst, elems.size());
         return true;
     }
 
     bool ParseObject(JsonValue& out, int depth) {
         if (Advance() != '{') return Fail("Expected '{'");
-        JsonObject obj;
         SkipWhitespace();
         if (Peek() == '}') {
             Advance();
-            out.data = std::move(obj);
+            out = JsonValue{};
+            out.kind = JsonValue::Kind::Object;
             return true;
         }
 
+        keel::SmallArray<JsonKeyValue, 16> pairs;
         while (true) {
             SkipWhitespace();
             if (Peek() != '"') {
                 return Fail("Expected string key in object");
             }
-            std::string key;
+            keel::StringRef key;
             if (!ParseString(key)) return false;
 
             SkipWhitespace();
@@ -440,13 +481,13 @@ private:
             }
 
             SkipWhitespace();
-            JsonValue val;
+            JsonValue val{};
             if (key == "coordinates" && Peek() == '[') {
                 if (!ParseRawBracketSlice(val)) return false;
             } else {
                 if (!ParseValue(val, depth)) return false;
             }
-            obj.emplace_back(std::move(key), std::move(val));
+            pairs.push_back(JsonKeyValue{key, val});
 
             SkipWhitespace();
             const char c = Peek();
@@ -465,15 +506,23 @@ private:
             }
         }
 
-        out.data = std::move(obj);
+        JsonKeyValue* dst = m_arena.alloc_array<JsonKeyValue>(pairs.size());
+        for (size_t i = 0; i < pairs.size(); ++i) {
+            dst[i] = pairs[i];
+        }
+        out = JsonValue{};
+        out.kind = JsonValue::Kind::Object;
+        out.objVal = keel::ArrayRef<JsonKeyValue>(dst, pairs.size());
         return true;
     }
 
-    std::string_view m_src;
+    keel::StringRef m_src;
+    keel::Arena& m_arena;
     size_t m_pos{0};
     size_t m_line{1};
     size_t m_col{1};
-    std::string m_error{};
+    keel::String m_scratchStr{};
+    keel::String m_error{};
 };
 
 // ============================================================================
@@ -482,7 +531,7 @@ private:
 
 class CoordSliceReader {
 public:
-    explicit CoordSliceReader(std::string_view sv, int srsId) noexcept
+    explicit CoordSliceReader(keel::StringRef sv, int srsId) noexcept
         : m_sv(sv), m_srsId(srsId) {}
 
     void SkipWs() noexcept {
@@ -553,7 +602,7 @@ public:
     }
 
     // Reads `[[lon, lat], [lon, lat], ...]`
-    [[nodiscard]] bool ReadCoordRing(std::vector<guikit::GeoCoord>& outRing) {
+    [[nodiscard]] bool ReadCoordRing(keel::Array<guikit::GeoCoord>& outRing) {
         if (!Consume('[')) return false;
         outRing.clear();
         if (Consume(']')) return true;
@@ -573,15 +622,15 @@ public:
     }
 
     // Reads `[[[lon, lat], ...], ...]` into LineStrings
-    [[nodiscard]] bool ReadMultiLineRings(std::vector<std::vector<guikit::GeoCoord>>& outLines) {
+    [[nodiscard]] bool ReadMultiLineRings(keel::Array<keel::Array<guikit::GeoCoord>>& outLines) {
         if (!Consume('[')) return false;
         if (Consume(']')) return true;
         size_t added = 0;
         while (true) {
-            std::vector<guikit::GeoCoord> line;
+            keel::Array<guikit::GeoCoord> line;
             if (!ReadCoordRing(line)) return false;
             if (line.size() >= 2) {
-                outLines.push_back(std::move(line));
+                outLines.push_back(keel::move(line));
                 ++added;
             }
             if (Consume(',')) {
@@ -596,7 +645,7 @@ public:
     }
 
     // Reads `[[[lon, lat], ...], ...]` into one GeoPolygon (exterior + interior holes)
-    [[nodiscard]] bool ReadPolygonRings(std::vector<GeoPolygon>& outPolys) {
+    [[nodiscard]] bool ReadPolygonRings(keel::Array<GeoPolygon>& outPolys) {
         if (!Consume('[')) return false;
         if (Consume(']')) return true;
 
@@ -606,28 +655,28 @@ public:
         while (Consume(',')) {
             if (Consume(']')) {
                 if (poly.exteriorRing.size() >= 3) {
-                    outPolys.push_back(std::move(poly));
+                    outPolys.push_back(keel::move(poly));
                     return true;
                 }
                 return false;
             }
-            std::vector<guikit::GeoCoord> hole;
+            keel::Array<guikit::GeoCoord> hole;
             if (!ReadCoordRing(hole)) return false;
             if (hole.size() >= 3) {
-                poly.interiorRings.push_back(std::move(hole));
+                poly.interiorRings.push_back(keel::move(hole));
             }
         }
 
         if (!Consume(']')) return false;
         if (poly.exteriorRing.size() >= 3) {
-            outPolys.push_back(std::move(poly));
+            outPolys.push_back(keel::move(poly));
             return true;
         }
         return false;
     }
 
     // Reads `[[[[lon, lat], ...], ...], ...]` into multiple GeoPolygons
-    [[nodiscard]] bool ReadMultiPolygonRings(std::vector<GeoPolygon>& outPolys) {
+    [[nodiscard]] bool ReadMultiPolygonRings(keel::Array<GeoPolygon>& outPolys) {
         if (!Consume('[')) return false;
         if (Consume(']')) return false;
         const size_t before = outPolys.size();
@@ -645,7 +694,7 @@ public:
     }
 
 private:
-    std::string_view m_sv;
+    keel::StringRef m_sv;
     int m_srsId{4326};
     size_t m_pos{0};
 };
@@ -654,45 +703,62 @@ private:
 // GeoJSON Geometry & Attribute Extraction Helpers
 // ============================================================================
 
-[[nodiscard]] std::string CompactJsonValueToString(const JsonValue& v) {
-    if (v.IsNull()) return "null";
-    if (const auto* b = std::get_if<bool>(&v.data)) return *b ? "true" : "false";
-    if (const auto* i = std::get_if<int64_t>(&v.data)) return std::to_string(*i);
-    if (const auto* d = std::get_if<double>(&v.data)) {
-        char buf[64]{};
-        std::snprintf(buf, sizeof(buf), "%.6g", *d);
-        return std::string(buf);
-    }
-    if (const auto* s = std::get_if<std::string>(&v.data)) return *s;
-    if (const auto* cs = std::get_if<RawCoordsSlice>(&v.data)) return std::string(cs->text);
-    if (const auto* arr = v.AsArray()) {
-        std::string out = "[";
-        for (size_t i = 0; i < arr->size(); ++i) {
-            if (i > 0) out += ", ";
-            out += CompactJsonValueToString((*arr)[i]);
+void AppendCompactJsonValue(keel::String& out, const JsonValue& v) {
+    switch (v.kind) {
+        case JsonValue::Kind::Null:
+            out.append("null");
+            break;
+        case JsonValue::Kind::Bool:
+            out.append(v.boolVal ? "true" : "false");
+            break;
+        case JsonValue::Kind::Int: {
+            char buf[32];
+            out.append(keel::format_buf(buf, "%lld", static_cast<long long>(v.intVal)));
+            break;
         }
-        out += "]";
-        return out;
-    }
-    if (const auto* obj = v.AsObject()) {
-        std::string out = "{";
-        for (size_t i = 0; i < obj->size(); ++i) {
-            if (i > 0) out += ", ";
-            out += (*obj)[i].first + ": " + CompactJsonValueToString((*obj)[i].second);
+        case JsonValue::Kind::Double: {
+            char buf[64];
+            out.append(keel::format_buf(buf, "%.6g", v.doubleVal));
+            break;
         }
-        out += "}";
-        return out;
+        case JsonValue::Kind::String:
+        case JsonValue::Kind::CoordsSlice:
+            out.append(v.textVal);
+            break;
+        case JsonValue::Kind::Array:
+            out.push_back('[');
+            for (size_t i = 0; i < v.arrVal.size(); ++i) {
+                if (i > 0) out.append(", ");
+                AppendCompactJsonValue(out, v.arrVal[i]);
+            }
+            out.push_back(']');
+            break;
+        case JsonValue::Kind::Object:
+            out.push_back('{');
+            for (size_t i = 0; i < v.objVal.size(); ++i) {
+                if (i > 0) out.append(", ");
+                out.append(v.objVal[i].key);
+                out.append(": ");
+                AppendCompactJsonValue(out, v.objVal[i].value);
+            }
+            out.push_back('}');
+            break;
     }
-    return {};
 }
 
 [[nodiscard]] AttributeValue JsonToAttributeValue(const JsonValue& v) {
-    if (v.IsNull()) return AttributeValue(nullptr);
-    if (const auto* b = std::get_if<bool>(&v.data)) return AttributeValue(*b);
-    if (const auto* i = std::get_if<int64_t>(&v.data)) return AttributeValue(*i);
-    if (const auto* d = std::get_if<double>(&v.data)) return AttributeValue(*d);
-    if (const auto* s = std::get_if<std::string>(&v.data)) return AttributeValue(*s);
-    return AttributeValue(CompactJsonValueToString(v));
+    switch (v.kind) {
+        case JsonValue::Kind::Null:   return AttributeValue(nullptr);
+        case JsonValue::Kind::Bool:   return AttributeValue(v.boolVal);
+        case JsonValue::Kind::Int:    return AttributeValue(v.intVal);
+        case JsonValue::Kind::Double: return AttributeValue(v.doubleVal);
+        case JsonValue::Kind::String: return AttributeValue(v.textVal);
+        default: {
+            keel::String compact;
+            AppendCompactJsonValue(compact, v);
+            return AttributeValue(keel::move(compact));
+        }
+    }
 }
 
 bool ParseGeometryObject(const JsonValue& geomObj, int srsId, GeoFeature& feat, bool isTopLevel = true) {
@@ -700,7 +766,7 @@ bool ParseGeometryObject(const JsonValue& geomObj, int srsId, GeoFeature& feat, 
     const auto* typeVal = geomObj.Find("type");
     if (!typeVal || !typeVal->IsString()) return false;
 
-    const std::string_view gType = typeVal->AsString();
+    const keel::StringRef gType = typeVal->AsString();
 
     if (gType == "GeometryCollection") {
         if (isTopLevel) {
@@ -709,7 +775,7 @@ bool ParseGeometryObject(const JsonValue& geomObj, int srsId, GeoFeature& feat, 
         const auto* geomsVal = geomObj.Find("geometries");
         if (geomsVal && geomsVal->IsArray()) {
             bool anyOk = false;
-            for (const JsonValue& subGeom : *geomsVal->AsArray()) {
+            for (const JsonValue& subGeom : geomsVal->arrVal) {
                 if (ParseGeometryObject(subGeom, srsId, feat, false)) {
                     anyOk = true;
                 }
@@ -721,7 +787,7 @@ bool ParseGeometryObject(const JsonValue& geomObj, int srsId, GeoFeature& feat, 
 
     const auto* coordsVal = geomObj.Find("coordinates");
     if (!coordsVal) return false;
-    const std::string_view coordsSlice = coordsVal->AsCoordsSlice();
+    const keel::StringRef coordsSlice = coordsVal->AsCoordsSlice();
     if (coordsSlice.empty()) return false;
 
     CoordSliceReader reader(coordsSlice, srsId);
@@ -729,7 +795,7 @@ bool ParseGeometryObject(const JsonValue& geomObj, int srsId, GeoFeature& feat, 
     if (gType == "Point") {
         if (isTopLevel) feat.type = GeometryType::Point;
         guikit::GeoCoord pt{};
-        double optZ = std::numeric_limits<double>::quiet_NaN();
+        double optZ = static_cast<double>(NAN);
         if (reader.ReadCoordPair(pt, &optZ)) {
             feat.points.push_back(pt);
             if (!std::isnan(optZ) && std::isnan(feat.depthMeters)) {
@@ -742,7 +808,7 @@ bool ParseGeometryObject(const JsonValue& geomObj, int srsId, GeoFeature& feat, 
 
     if (gType == "MultiPoint") {
         if (isTopLevel) feat.type = GeometryType::MultiPoint;
-        std::vector<guikit::GeoCoord> pts;
+        keel::Array<guikit::GeoCoord> pts;
         if (reader.ReadCoordRing(pts) && !pts.empty()) {
             for (const auto& pt : pts) {
                 feat.points.push_back(pt);
@@ -754,9 +820,9 @@ bool ParseGeometryObject(const JsonValue& geomObj, int srsId, GeoFeature& feat, 
 
     if (gType == "LineString") {
         if (isTopLevel) feat.type = GeometryType::LineString;
-        std::vector<guikit::GeoCoord> line;
+        keel::Array<guikit::GeoCoord> line;
         if (reader.ReadCoordRing(line) && line.size() >= 2) {
-            feat.lines.push_back(std::move(line));
+            feat.lines.push_back(keel::move(line));
             return true;
         }
         return false;
@@ -788,66 +854,68 @@ int DetectGeoJsonSrsId(const JsonValue& rootObj) {
     const auto* nameVal = propsVal->Find("name");
     if (!nameVal || !nameVal->IsString()) return 4326;
 
-    const std::string_view crsName = nameVal->AsString();
-    if (crsName.find("3857") != std::string_view::npos || crsName.find("900913") != std::string_view::npos) {
+    const keel::StringRef crsName = nameVal->AsString();
+    if (crsName.contains("3857") || crsName.contains("900913")) {
         return 3857;
     }
-    if (crsName.find("3395") != std::string_view::npos) {
+    if (crsName.contains("3395")) {
         return 3395;
     }
     return 4326;
 }
 
-void ParseFeatureObject(const JsonValue& featObj, int srsId, std::vector<GeoFeature>& outFeatures) {
+void ParseFeatureObject(const JsonValue& featObj, int srsId, keel::Array<GeoFeature>& outFeatures) {
     if (!featObj.IsObject()) return;
 
     GeoFeature feat;
 
     if (const auto* idVal = featObj.Find("id")) {
         if (idVal->IsString()) {
-            feat.displayId = std::string(idVal->AsString());
-        } else if (const auto* i = std::get_if<int64_t>(&idVal->data)) {
-            feat.displayId = std::to_string(*i);
-        } else if (const auto* d = std::get_if<double>(&idVal->data)) {
+            feat.displayId.assign(idVal->AsString());
+        } else if (idVal->IsInt()) {
+            char buf[32];
+            feat.displayId.assign(keel::format_buf(buf, "%lld", static_cast<long long>(idVal->intVal)));
+        } else if (idVal->IsDouble()) {
             char buf[64];
-            const auto r = keel::format_buf(buf, "{}", *d);
-            feat.displayId.assign(r.data(), r.size());
+            feat.displayId.assign(keel::format_buf(buf, "%.6g", idVal->doubleVal));
         }
     }
 
     if (const auto* propsVal = featObj.Find("properties")) {
-        if (const auto* propsObj = propsVal->AsObject()) {
-            feat.properties.reserve(propsObj->size());
-            for (const auto& [k, v] : *propsObj) {
-                if (v.IsNull()) continue;
-                feat.properties.emplace_back(k, JsonToAttributeValue(v));
+        if (propsVal->IsObject()) {
+            feat.properties.reserve(propsVal->objVal.size());
+            for (const auto& kv : propsVal->objVal) {
+                if (kv.value.IsNull()) continue;
+                feat.properties.push_back(GeoProperty{
+                    keel::String::from(kv.key),
+                    JsonToAttributeValue(kv.value)
+                });
             }
         }
     }
 
     if (const auto* geomVal = featObj.Find("geometry")) {
         if (ParseGeometryObject(*geomVal, srsId, feat, true)) {
-            outFeatures.push_back(std::move(feat));
+            outFeatures.push_back(keel::move(feat));
         }
     }
 }
 
-void EscapeJsonString(std::string& out, std::string_view sv) {
+void EscapeJsonString(keel::String& out, keel::StringRef sv) {
     out.push_back('"');
     for (char c : sv) {
         switch (c) {
-            case '"':  out += "\\\""; break;
-            case '\\': out += "\\\\"; break;
-            case '\b': out += "\\b"; break;
-            case '\f': out += "\\f"; break;
-            case '\n': out += "\\n"; break;
-            case '\r': out += "\\r"; break;
-            case '\t': out += "\\t"; break;
+            case '"':  out.append("\\\""); break;
+            case '\\': out.append("\\\\"); break;
+            case '\b': out.append("\\b"); break;
+            case '\f': out.append("\\f"); break;
+            case '\n': out.append("\\n"); break;
+            case '\r': out.append("\\r"); break;
+            case '\t': out.append("\\t"); break;
             default:
                 if (static_cast<unsigned char>(c) < 0x20u) {
-                    char buf[8]{};
-                    std::snprintf(buf, sizeof(buf), "\\u%04x", static_cast<unsigned int>(static_cast<unsigned char>(c)));
-                    out += buf;
+                    char buf[8];
+                    out.append(keel::format_buf(buf, "\\u%04x", static_cast<unsigned int>(static_cast<unsigned char>(c))));
                 } else {
                     out.push_back(c);
                 }
@@ -857,21 +925,19 @@ void EscapeJsonString(std::string& out, std::string_view sv) {
     out.push_back('"');
 }
 
-void AppendRingJson(std::string& out, const std::vector<guikit::GeoCoord>& ring, bool closeRing) {
+void AppendRingJson(keel::String& out, keel::ArrayRef<guikit::GeoCoord> ring, bool closeRing) {
     out.push_back('[');
     for (size_t i = 0; i < ring.size(); ++i) {
-        if (i > 0) out += ", ";
-        char buf[64]{};
-        std::snprintf(buf, sizeof(buf), "[%.6f, %.6f]", ring[i].lon, ring[i].lat);
-        out += buf;
+        if (i > 0) out.append(", ");
+        char buf[64];
+        out.append(keel::format_buf(buf, "[%.6f, %.6f]", ring[i].lon, ring[i].lat));
     }
     if (closeRing && !ring.empty()) {
         const auto& f = ring.front();
         const auto& b = ring.back();
         if (std::abs(f.lon - b.lon) > 1e-9 || std::abs(f.lat - b.lat) > 1e-9) {
-            char buf[64]{};
-            std::snprintf(buf, sizeof(buf), ", [%.6f, %.6f]", f.lon, f.lat);
-            out += buf;
+            char buf[64];
+            out.append(keel::format_buf(buf, ", [%.6f, %.6f]", f.lon, f.lat));
         }
     }
     out.push_back(']');
@@ -944,19 +1010,19 @@ void AppendRingJson(std::string& out, const std::vector<guikit::GeoCoord>& ring,
 }
 
 bool TryReadTextFromAssetsOrDisk(
-    std::string_view filePath,
-    std::string& outContent,
-    std::string& outResolvedPath,
-    std::string& outError
+    keel::StringRef filePath,
+    keel::String& outContent,
+    keel::String& outResolvedPath,
+    keel::String& outError
 ) {
     if (filePath.empty()) {
-        outError = "Empty file path";
+        outError.assign("Empty file path");
         return false;
     }
 
     // 1. Check embedded assets first (Native + WebAssembly)
     if (auto asset = guikit::Assets::Find(filePath); asset && !asset->Empty()) {
-        outContent = std::string(asset->AsStringView());
+        outContent = keel::String::from(asset->AsStringView());
         outResolvedPath = guikit::Assets::NormalizePath(filePath);
         return true;
     }
@@ -964,62 +1030,61 @@ bool TryReadTextFromAssetsOrDisk(
     // 2. Check disk (direct path first, then relative parent prefixes for demo working directories)
     const char* prefixes[] = {"", "../", "../../", "../../../"};
     for (const char* prefix : prefixes) {
-        std::string candidate(prefix);
+        keel::String candidate = keel::String::from(prefix);
         candidate.append(filePath);
-        auto res = keel::fs_read_text(candidate);
+        auto res = keel::fs_read_text(candidate.as_ref());
         if (!res.is_ok()) continue;
-        outContent.assign(res.value().data(), res.value().size());
-        outResolvedPath = std::move(candidate);
+        outContent = keel::move(res.value());
+        outResolvedPath = keel::move(candidate);
         return true;
     }
 
-    auto s = keel::format("Cannot open GeoJSON file: %s", filePath);
-    outError.assign(s.data(), s.size());
+    outError = keel::format("Cannot open GeoJSON file: %s", filePath);
     return false;
 }
 
 } // namespace
 
-GeoJsonResult GeoJsonIO::ParseFromString(std::string_view jsonText, std::string_view defaultLayerName) {
+GeoJsonResult GeoJsonIO::ParseFromString(keel::StringRef jsonText, keel::StringRef defaultLayerName) {
     GeoJsonResult res;
-    JsonValue root;
-    JsonParser parser(jsonText);
+    keel::Arena domArena(keel::max<size_t>(keel::Arena::kDefaultReserveSize, jsonText.size() * 4u + 1024u * 1024u));
+    JsonValue root{};
+    JsonParser parser(jsonText, domArena);
     if (!parser.ParseRoot(root, res.error)) {
         return res;
     }
 
     if (!root.IsObject()) {
-        res.error = "GeoJSON root must be a JSON object";
+        res.error.assign("GeoJSON root must be a JSON object");
         return res;
     }
 
-    res.layer.name = std::string(defaultLayerName);
-    res.layer.format = "GeoJSON";
+    res.layer.name.assign(defaultLayerName);
+    res.layer.format.assign("GeoJSON");
     res.layer.srsId = DetectGeoJsonSrsId(root);
 
     if (const auto* nameVal = root.Find("name"); nameVal && nameVal->IsString()) {
-        const std::string_view docName = nameVal->AsString();
+        const keel::StringRef docName = nameVal->AsString();
         if (!docName.empty()) {
-            res.layer.name = std::string(docName);
+            res.layer.name.assign(docName);
         }
     }
 
     const auto* typeVal = root.Find("type");
     if (!typeVal || !typeVal->IsString()) {
-        res.error = "Missing 'type' property on GeoJSON root object";
+        res.error.assign("Missing 'type' property on GeoJSON root object");
         return res;
     }
 
-    const std::string_view rootType = typeVal->AsString();
+    const keel::StringRef rootType = typeVal->AsString();
     if (rootType == "FeatureCollection") {
         const auto* featsVal = root.Find("features");
         if (!featsVal || !featsVal->IsArray()) {
-            res.error = "FeatureCollection is missing 'features' array";
+            res.error.assign("FeatureCollection is missing 'features' array");
             return res;
         }
-        const auto* featsArr = featsVal->AsArray();
-        res.layer.features.reserve(featsArr->size());
-        for (const JsonValue& featVal : *featsArr) {
+        res.layer.features.reserve(featsVal->arrVal.size());
+        for (const JsonValue& featVal : featsVal->arrVal) {
             ParseFeatureObject(featVal, res.layer.srsId, res.layer.features);
         }
     } else if (rootType == "Feature") {
@@ -1027,10 +1092,9 @@ GeoJsonResult GeoJsonIO::ParseFromString(std::string_view jsonText, std::string_
     } else {
         GeoFeature singleFeat;
         if (ParseGeometryObject(root, res.layer.srsId, singleFeat, true)) {
-            res.layer.features.push_back(std::move(singleFeat));
+            res.layer.features.push_back(keel::move(singleFeat));
         } else {
-            auto s = keel::format("Unsupported or empty GeoJSON root type '%s'", rootType);
-            res.error.assign(s.data(), s.size());
+            res.error = keel::format("Unsupported or empty GeoJSON root type '%s'", rootType);
             return res;
         }
     }
@@ -1040,37 +1104,36 @@ GeoJsonResult GeoJsonIO::ParseFromString(std::string_view jsonText, std::string_
     return res;
 }
 
-GeoJsonResult GeoJsonIO::LoadFromFile(std::string_view filePath) {
+GeoJsonResult GeoJsonIO::LoadFromFile(keel::StringRef filePath) {
     GeoJsonResult res;
-    std::string content;
-    std::string resolvedPath;
+    keel::String content;
+    keel::String resolvedPath;
     if (!TryReadTextFromAssetsOrDisk(filePath, content, resolvedPath, res.error)) {
         return res;
     }
 
     const keel::StringRef stemRef = keel::path_stem(filePath);
-    std::string stem(stemRef);
-    if (stem.empty()) stem = "GeoJSON Layer";
+    const keel::StringRef stem = stemRef.empty() ? keel::StringRef("GeoJSON Layer") : stemRef;
 
-    res = ParseFromString(content, stem);
-    res.layer.sourcePath = resolvedPath;
+    res = ParseFromString(content.as_ref(), stem);
+    res.layer.sourcePath = keel::move(resolvedPath);
     return res;
 }
 
 GeoJsonLoadResult GeoJsonIO::ParseThematicLayersFromString(
-    std::string_view jsonText,
-    std::string_view defaultLayerName,
+    keel::StringRef jsonText,
+    keel::StringRef defaultLayerName,
     bool splitByThematicClass
 ) {
     GeoJsonLoadResult res{};
     GeoJsonResult singleRes = ParseFromString(jsonText, defaultLayerName);
     if (!singleRes.ok) {
-        res.errorMessage = singleRes.error;
+        res.errorMessage = keel::move(singleRes.error);
         return res;
     }
 
     if (singleRes.layer.features.empty()) {
-        res.errorMessage = "No valid geographic features found in GeoJSON";
+        res.errorMessage.assign("No valid geographic features found in GeoJSON");
         return res;
     }
 
@@ -1080,7 +1143,7 @@ GeoJsonLoadResult GeoJsonIO::ParseThematicLayersFromString(
         res.hasValidBounds = singleRes.layer.hasValidBounds;
         res.totalFeatures = singleRes.layer.features.size();
         res.totalVertices = singleRes.layer.totalVertices;
-        res.layers.push_back(std::move(singleRes.layer));
+        res.layers.push_back(keel::move(singleRes.layer));
         res.ok = true;
         return res;
     }
@@ -1089,7 +1152,7 @@ GeoJsonLoadResult GeoJsonIO::ParseThematicLayersFromString(
         int rankKey = 0;
         GeoLayer layer{};
     };
-    std::vector<RankedLayer> grouped;
+    keel::Array<RankedLayer> grouped;
     for (GeoFeature& feat : singleRes.layer.features) {
         const int key = CartographicSortRank(feat.chartClass) * 100 + static_cast<int>(feat.chartClass);
         GeoLayer* target = nullptr;
@@ -1102,14 +1165,14 @@ GeoJsonLoadResult GeoJsonIO::ParseThematicLayersFromString(
         if (!target) {
             RankedLayer rl{};
             rl.rankKey = key;
-            rl.layer.name = std::string(ChartFeatureClassToString(feat.chartClass));
-            rl.layer.format = "GeoJSON";
+            rl.layer.name.assign(ChartFeatureClassToString(feat.chartClass));
+            rl.layer.format.assign("GeoJSON");
             rl.layer.srsId = singleRes.layer.srsId;
             rl.layer.dominantChartClass = feat.chartClass;
-            grouped.push_back(std::move(rl));
+            grouped.push_back(keel::move(rl));
             target = &grouped.back().layer;
         }
-        target->features.push_back(std::move(feat));
+        target->features.push_back(keel::move(feat));
     }
 
     keel::sort(grouped, [](const RankedLayer& a, const RankedLayer& b) noexcept { return a.rankKey < b.rankKey; });
@@ -1125,7 +1188,7 @@ GeoJsonLoadResult GeoJsonIO::ParseThematicLayersFromString(
         }
         res.totalFeatures += layer.features.size();
         res.totalVertices += layer.totalVertices;
-        res.layers.push_back(std::move(layer));
+        res.layers.push_back(keel::move(layer));
     }
 
     res.ok = true;
@@ -1133,186 +1196,189 @@ GeoJsonLoadResult GeoJsonIO::ParseThematicLayersFromString(
 }
 
 GeoJsonLoadResult GeoJsonIO::LoadThematicLayersFromFile(
-    std::string_view filePath,
+    keel::StringRef filePath,
     bool splitByThematicClass
 ) {
     GeoJsonLoadResult res{};
-    std::string content;
-    std::string resolvedPath;
+    keel::String content;
+    keel::String resolvedPath;
     if (!TryReadTextFromAssetsOrDisk(filePath, content, resolvedPath, res.errorMessage)) {
         return res;
     }
 
     const keel::StringRef stemRef = keel::path_stem(filePath);
-    std::string stem(stemRef);
-    if (stem.empty()) stem = "GeoJSON Layer";
+    const keel::StringRef stem = stemRef.empty() ? keel::StringRef("GeoJSON Layer") : stemRef;
 
-    res = ParseThematicLayersFromString(content, stem, splitByThematicClass);
+    res = ParseThematicLayersFromString(content.as_ref(), stem, splitByThematicClass);
     for (auto& layer : res.layers) {
-        layer.sourcePath = resolvedPath;
+        layer.sourcePath.assign(resolvedPath.as_ref());
     }
     return res;
 }
 
-std::string GeoJsonIO::SerializeLayer(const GeoLayer& layer, bool prettyPrint) {
-    const std::string_view nl = prettyPrint ? "\n" : "";
-    const std::string_view ind1 = prettyPrint ? "  " : "";
-    const std::string_view ind2 = prettyPrint ? "    " : "";
-    const std::string_view ind3 = prettyPrint ? "      " : "";
+keel::String GeoJsonIO::SerializeLayer(const GeoLayer& layer, bool prettyPrint) {
+    const keel::StringRef nl = prettyPrint ? "\n" : "";
+    const keel::StringRef ind1 = prettyPrint ? "  " : "";
+    const keel::StringRef ind2 = prettyPrint ? "    " : "";
+    const keel::StringRef ind3 = prettyPrint ? "      " : "";
 
-    std::string out;
-    out.reserve(layer.features.size() * 256 + 128);
-    out += "{";
-    out += nl;
-    out += ind1;
-    out += "\"type\": \"FeatureCollection\",";
-    out += nl;
-    out += ind1;
-    out += "\"name\": ";
-    EscapeJsonString(out, layer.name);
-    out += ",";
-    out += nl;
-    out += ind1;
-    out += "\"features\": [";
-    out += nl;
+    keel::String out = keel::String::with_capacity(layer.features.size() * 256 + 128);
+    out.push_back('{');
+    out.append(nl);
+    out.append(ind1);
+    out.append("\"type\": \"FeatureCollection\",");
+    out.append(nl);
+    out.append(ind1);
+    out.append("\"name\": ");
+    EscapeJsonString(out, layer.name.as_ref());
+    out.push_back(',');
+    out.append(nl);
+    out.append(ind1);
+    out.append("\"features\": [");
+    out.append(nl);
 
     for (size_t fi = 0; fi < layer.features.size(); ++fi) {
         const GeoFeature& feat = layer.features[fi];
         (void)feat.EnsureGeometryLoaded();
         (void)feat.EnsurePropertiesLoaded();
-        out += ind2;
-        out += "{";
-        out += nl;
-        out += ind3;
-        out += "\"type\": \"Feature\",";
-        out += nl;
+        out.append(ind2);
+        out.push_back('{');
+        out.append(nl);
+        out.append(ind3);
+        out.append("\"type\": \"Feature\",");
+        out.append(nl);
 
         if (!feat.displayId.empty()) {
-            out += ind3;
-            out += "\"id\": ";
-            EscapeJsonString(out, feat.displayId);
-            out += ",";
-            out += nl;
+            out.append(ind3);
+            out.append("\"id\": ");
+            EscapeJsonString(out, feat.displayId.as_ref());
+            out.push_back(',');
+            out.append(nl);
         }
 
         // Properties
-        out += ind3;
-        out += "\"properties\": {";
+        out.append(ind3);
+        out.append("\"properties\": {");
         for (size_t pi = 0; pi < feat.properties.size(); ++pi) {
-            if (pi > 0) out += ", ";
+            if (pi > 0) out.append(", ");
             const auto& [k, v] = feat.properties[pi];
-            EscapeJsonString(out, k);
-            out += ": ";
-            if (v.IsNull()) {
-                out += "null";
-            } else if (const auto* b = std::get_if<bool>(&v.value)) {
-                out += (*b ? "true" : "false");
-            } else if (const auto* i = std::get_if<int64_t>(&v.value)) {
-                out += std::to_string(*i);
-            } else if (const auto* d = std::get_if<double>(&v.value)) {
-                char buf[64]{};
-                std::snprintf(buf, sizeof(buf), "%.6g", *d);
-                out += buf;
-            } else if (const auto* s = std::get_if<std::string>(&v.value)) {
-                EscapeJsonString(out, *s);
+            EscapeJsonString(out, k.as_ref());
+            out.append(": ");
+            switch (v.kind()) {
+                case AttributeValue::Kind::Null:
+                    out.append("null");
+                    break;
+                case AttributeValue::Kind::Bool:
+                    out.append(v.as_bool() ? "true" : "false");
+                    break;
+                case AttributeValue::Kind::Int: {
+                    char buf[32];
+                    out.append(keel::format_buf(buf, "%lld", static_cast<long long>(v.as_int())));
+                    break;
+                }
+                case AttributeValue::Kind::Double: {
+                    char buf[64];
+                    out.append(keel::format_buf(buf, "%.6g", v.as_double()));
+                    break;
+                }
+                case AttributeValue::Kind::String:
+                    EscapeJsonString(out, v.as_string());
+                    break;
             }
         }
-        out += "},";
-        out += nl;
+        out.append("},");
+        out.append(nl);
 
         // Geometry
-        out += ind3;
-        out += "\"geometry\": ";
+        out.append(ind3);
+        out.append("\"geometry\": ");
         if (!feat.polygons.empty()) {
             if (feat.polygons.size() == 1 && feat.type != GeometryType::MultiPolygon) {
-                out += "{\"type\": \"Polygon\", \"coordinates\": [";
+                out.append("{\"type\": \"Polygon\", \"coordinates\": [");
                 AppendRingJson(out, feat.polygons[0].exteriorRing, true);
                 for (const auto& hole : feat.polygons[0].interiorRings) {
-                    out += ", ";
+                    out.append(", ");
                     AppendRingJson(out, hole, true);
                 }
-                out += "]}";
+                out.append("]}");
             } else {
-                out += "{\"type\": \"MultiPolygon\", \"coordinates\": [";
+                out.append("{\"type\": \"MultiPolygon\", \"coordinates\": [");
                 for (size_t p = 0; p < feat.polygons.size(); ++p) {
-                    if (p > 0) out += ", ";
-                    out += "[";
+                    if (p > 0) out.append(", ");
+                    out.push_back('[');
                     AppendRingJson(out, feat.polygons[p].exteriorRing, true);
                     for (const auto& hole : feat.polygons[p].interiorRings) {
-                        out += ", ";
+                        out.append(", ");
                         AppendRingJson(out, hole, true);
                     }
-                    out += "]";
+                    out.push_back(']');
                 }
-                out += "]}";
+                out.append("]}");
             }
         } else if (!feat.lines.empty()) {
             if (feat.lines.size() == 1 && feat.type != GeometryType::MultiLineString) {
-                out += "{\"type\": \"LineString\", \"coordinates\": ";
+                out.append("{\"type\": \"LineString\", \"coordinates\": ");
                 AppendRingJson(out, feat.lines[0], false);
-                out += "}";
+                out.push_back('}');
             } else {
-                out += "{\"type\": \"MultiLineString\", \"coordinates\": [";
+                out.append("{\"type\": \"MultiLineString\", \"coordinates\": [");
                 for (size_t l = 0; l < feat.lines.size(); ++l) {
-                    if (l > 0) out += ", ";
+                    if (l > 0) out.append(", ");
                     AppendRingJson(out, feat.lines[l], false);
                 }
-                out += "]}";
+                out.append("]}");
             }
         } else if (!feat.points.empty()) {
             if (feat.points.size() == 1 && feat.type != GeometryType::MultiPoint) {
-                char buf[96]{};
-                std::snprintf(
+                char buf[96];
+                out.append(keel::format_buf(
                     buf,
-                    sizeof(buf),
                     "{\"type\": \"Point\", \"coordinates\": [%.6f, %.6f]}",
                     feat.points[0].lon,
                     feat.points[0].lat
-                );
-                out += buf;
+                ));
             } else {
-                out += "{\"type\": \"MultiPoint\", \"coordinates\": ";
+                out.append("{\"type\": \"MultiPoint\", \"coordinates\": ");
                 AppendRingJson(out, feat.points, false);
-                out += "}";
+                out.push_back('}');
             }
         } else {
-            out += "null";
+            out.append("null");
         }
 
-        out += nl;
-        out += ind2;
-        out += "}";
+        out.append(nl);
+        out.append(ind2);
+        out.push_back('}');
         if (fi + 1 < layer.features.size()) {
-            out += ",";
+            out.push_back(',');
         }
-        out += nl;
+        out.append(nl);
     }
 
-    out += ind1;
-    out += "]";
-    out += nl;
-    out += "}";
-    out += nl;
+    out.append(ind1);
+    out.push_back(']');
+    out.append(nl);
+    out.push_back('}');
+    out.append(nl);
     return out;
 }
 
-bool GeoJsonIO::SaveToFile(const GeoLayer& layer, std::string_view filePath, std::string* outError) {
-    const std::string json = SerializeLayer(layer, true);
-    const keel::Error err = keel::fs_write_text(filePath, json);
+bool GeoJsonIO::SaveToFile(const GeoLayer& layer, keel::StringRef filePath, keel::String* outError) {
+    const keel::String json = SerializeLayer(layer, true);
+    const keel::Error err = keel::fs_write_text(filePath, json.as_ref());
     if (err) {
         if (outError) {
-            auto s = keel::format("Cannot open file for writing: %s", filePath);
-            outError->assign(s.data(), s.size());
+            *outError = keel::format("Cannot open file for writing: %s", filePath);
         }
         return false;
     }
     return true;
 }
 
-std::vector<GeoLayer> GeoJsonIO::BuildDefaultHydrographicChart() {
+keel::Array<GeoLayer> GeoJsonIO::BuildDefaultHydrographicChart() {
     auto loaded = LoadThematicLayersFromFile("assets/geo/demo_bay.geojson", true);
     if (loaded.ok && !loaded.layers.empty()) {
-        return std::move(loaded.layers);
+        return keel::move(loaded.layers);
     }
     return {};
 }

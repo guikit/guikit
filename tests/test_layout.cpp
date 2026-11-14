@@ -1,32 +1,28 @@
 #include <cmath>
-#include <iostream>
 #include "guikit/core.hpp"
-#include "guikit/core/theme.hpp"
-#include "guikit/core/solver.hpp"
 #include "guikit/core/node.hpp"
+#include "guikit/core/solver.hpp"
+#include "guikit/core/theme.hpp"
 #include "guikit/panels/carousel.hpp"
 #include "guikit/panels/scroll_area.hpp"
-#include "keel/arena.h"
+#include "keel/keel.h"
 
 static int g_failures = 0;
 
-#define CHECK(cond)                                                                  \
-    do {                                                                             \
-        if (!(cond)) {                                                               \
-            std::cerr << "[FAIL] " << #cond << " (" << __FILE__ << ":" << __LINE__   \
-                      << ")\n";                                                      \
-            ++g_failures;                                                            \
-        }                                                                            \
+#define CHECK(cond)                                                         \
+    do {                                                                    \
+        if (!(cond)) {                                                      \
+            keel::eprintln("[FAIL] {} ({}:{})", #cond, __FILE__, __LINE__); \
+            ++g_failures;                                                   \
+        }                                                                   \
     } while (0)
 
-#define CHECK_NEAR(a, b, eps)                                                        \
-    do {                                                                             \
-        if (std::abs((a) - (b)) > (eps)) {                                           \
-            std::cerr << "[FAIL] " << #a << " (" << (a) << ") != " << #b            \
-                      << " (" << (b) << ") [" << __FILE__ << ":" << __LINE__        \
-                      << "]\n";                                                      \
-            ++g_failures;                                                            \
-        }                                                                            \
+#define CHECK_NEAR(a, b, eps)                                                                            \
+    do {                                                                                                 \
+        if (std::abs((a) - (b)) > (eps)) {                                                               \
+            keel::eprintln("[FAIL] {} ({}) != {} ({}) [{}:{}]", #a, (a), #b, (b), __FILE__, __LINE__);   \
+            ++g_failures;                                                                                \
+        }                                                                                                \
     } while (0)
 
 void TestRowEqualStretch() {
@@ -1218,16 +1214,18 @@ void TestGapDpAndContainerSizingConstraints() {
         void End() override {}
         [[nodiscard]] float GetScale() const noexcept override { return m_scale; }
         void SetScale(float s) override { m_scale = s; }
-        [[nodiscard]] std::string_view GetBackendName() const noexcept override { return "LayoutMock"; }
-        void Clear(Color, std::optional<Rect> = std::nullopt) override {}
+        [[nodiscard]] keel::StringRef GetBackendName() const noexcept override { return "LayoutMock"; }
+        void Clear(Color, keel::Optional<Rect> = keel::kNullOpt) override {}
         void PushClip(Rect) override {}
         void PopClip() override {}
         void DrawRect(Rect, Color) override {}
         void DrawRoundRect(Rect, float, Color, Color = Color(0, 0, 0, 0), float = 0.0f) override {}
-        Vec2 MeasureText(std::string_view t, float fs) override { return {static_cast<float>(t.size()) * fs * 0.5f, fs}; }
+        Vec2 MeasureText(keel::StringRef t, float fs) override {
+            return {static_cast<float>(t.size()) * fs * 0.5f, fs};
+        }
         [[nodiscard]] float GetLineHeight(float fs) override { return fs * 1.2f; }
-        void DrawText(std::string_view, Vec2, float, Color) override {}
-        void DrawTextBox(std::string_view, Rect, float, Color, float = 0.0f, float = 0.5f) override {}
+        void DrawText(keel::StringRef, Vec2, float, Color) override {}
+        void DrawTextBox(keel::StringRef, Rect, float, Color, float = 0.0f, float = 0.5f) override {}
         void DrawLine(Vec2, Vec2, Color, float = 1.0f) override {}
     private:
         float m_scale{1.0f};
@@ -1317,7 +1315,7 @@ void TestGapDpAndContainerSizingConstraints() {
 }
 
 int main() {
-    std::cout << "[RUN] Testing GuiKit Layout Solver...\n";
+    keel::println("[RUN] Testing GuiKit Layout Solver...");
 
     TestRowEqualStretch();
     TestRowWithSpacer();
@@ -1339,10 +1337,10 @@ int main() {
     TestGapDpAndContainerSizingConstraints();
 
     if (g_failures == 0) {
-        std::cout << "[PASS] All GuiKit Layout tests passed successfully!\n";
+        keel::println("[PASS] All GuiKit Layout tests passed successfully!");
         return 0;
     } else {
-        std::cerr << "[FAIL] Total failures: " << g_failures << "\n";
+        keel::eprintln("[FAIL] Total failures: {}", g_failures);
         return 1;
     }
 }

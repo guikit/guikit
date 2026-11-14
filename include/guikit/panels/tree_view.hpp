@@ -1,13 +1,7 @@
 #pragma once
 
-#include <array>
+#include <cstddef>
 #include <cstdint>
-#include <optional>
-#include <source_location>
-#include <span>
-#include <string>
-#include <string_view>
-#include <vector>
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/id.hpp"
 #include "guikit/core/response.hpp"
@@ -16,6 +10,12 @@
 #include "guikit/core/types.hpp"
 #include "guikit/graphics/icon.hpp"
 #include "guikit/panels/table.hpp"
+#include "keel/array.h"
+#include "keel/core.h"
+#include "keel/optional.h"
+#include "keel/ref.h"
+#include "keel/static_array.h"
+#include "keel/string.h"
 
 namespace guikit {
 
@@ -40,38 +40,64 @@ enum class TreeSelectionStyle : uint8_t {
     Indicator   ///< Subtle tinted row background with a vertical accent bar on the left edge
 };
 
+/// Non-owning mutable UTF-8 string sink for `TreeViewOptions::filterText` (accepts `&myKeelString`,
+/// `&mySmallString`, `&myFixedString`, `&myStdString`, `keel::StringSink`, or `nullptr`).
+class TreeFilterSink {
+public:
+    constexpr TreeFilterSink() noexcept = default;
+    constexpr TreeFilterSink(decltype(nullptr)) noexcept {}
+    constexpr TreeFilterSink(keel::StringSink sink) noexcept : m_sink(sink) {}
+
+    template <keel::WritableString S>
+    constexpr TreeFilterSink(S* str) noexcept : m_sink(str ? keel::StringSink(*str) : keel::StringSink{}) {}
+
+    template <keel::WritableString S>
+    explicit constexpr TreeFilterSink(S& str) noexcept : m_sink(str) {}
+
+    [[nodiscard]] constexpr bool valid() const noexcept { return m_sink.valid(); }
+    [[nodiscard]] constexpr explicit operator bool() const noexcept { return m_sink.valid(); }
+    [[nodiscard]] constexpr bool operator==(decltype(nullptr)) const noexcept { return !m_sink.valid(); }
+    [[nodiscard]] constexpr bool operator!=(decltype(nullptr)) const noexcept { return m_sink.valid(); }
+    [[nodiscard]] constexpr keel::StringRef as_ref() const noexcept { return m_sink.as_ref(); }
+    void assign(keel::StringRef text) const { m_sink.assign(text); }
+    [[nodiscard]] constexpr const keel::StringSink& sink() const noexcept { return m_sink; }
+
+private:
+    keel::StringSink m_sink{};
+};
+
 /// Configuration options for a TreeView hierarchical container.
 struct TreeViewOptions {
     UiText title{};                                                 ///< Optional header title displayed in the top bar
-    std::span<const TableColumn> columns{};                         ///< Optional multi-column definitions (Col 0 = Hierarchy, Col 1..N-1 = trailing cells)
+    keel::ArrayRef<TableColumn> columns{};                          ///< Optional multi-column definitions (Col 0 = Hierarchy, Col 1..N-1 = trailing cells)
     bool stickyHeader{true};                                        ///< Render column header bar when columns are configured
     bool resizableColumns{true};                                    ///< Allow dragging column dividers in the header bar to resize
     bool gridLines{false};                                          ///< Draw vertical column & horizontal row grid lines
     TreeGuides guides{TreeGuides::Connected};                       ///< Hierarchy guide line style
     TreeSelectionStyle selectionStyle{TreeSelectionStyle::Indicator}; ///< Selection highlight style
     StateColor color{};                                             ///< Accent color override for selection, guides, and checkboxes (Default = theme accent)
-    std::optional<float> indent{std::nullopt};                      ///< Per-level indentation in points (nullopt = derived from UiSize)
-    std::optional<float> rowGap{2.0f};                              ///< Vertical gap between consecutive tree rows
-    std::optional<Padding> padding{std::nullopt};                   ///< Internal viewport padding around tree items
+    keel::Optional<float> indent{keel::kNullOpt};                   ///< Per-level indentation in points (nullopt = derived from UiSize)
+    keel::Optional<float> rowGap{2.0f};                             ///< Vertical gap between consecutive tree rows
+    keel::Optional<Padding> padding{keel::kNullOpt};                ///< Internal viewport padding around tree items
     bool striped{false};                                            ///< Alternating subtle row background shading
     bool expandOnSelect{false};                                     ///< Clicking anywhere on a branch row also toggles open/collapsed state
     bool searchable{false};                                         ///< Show built-in search/filter bar at the top
-    std::string_view searchPlaceholder{"Filter tree..."};           ///< Placeholder text for the search input
-    std::string* filterText{nullptr};                               ///< Optional bound external filter query string
+    keel::StringRef searchPlaceholder{"Filter tree..."};            ///< Placeholder text for the search input
+    TreeFilterSink filterText{};                                    ///< Optional bound external filter query string
     bool showToolbar{false};                                        ///< Show Expand All / Collapse All buttons in the header bar
     int* selectedIndex{nullptr};                                    ///< Optional bound 0-based index of the selected item (-1 = none)
     Id* selectedId{nullptr};                                        ///< Optional bound Id of the selected item
     VisibilityPolicy scrollbar{VisibilityPolicy::Auto};             ///< Scrollbar visibility policy
     StretchMode stretch{StretchMode::Fill};                         ///< Horizontal sizing mode
-    std::optional<float> width{std::nullopt};                       ///< Optional explicit width (px in Compact/Space, ratio 0.0..1.0 in Fill)
-    std::optional<float> height{std::nullopt};                      ///< Optional explicit height in points
+    keel::Optional<float> width{keel::kNullOpt};                    ///< Optional explicit width (px in Compact/Space, ratio 0.0..1.0 in Fill)
+    keel::Optional<float> height{keel::kNullOpt};                   ///< Optional explicit height in points
     StateColor background{};                                        ///< Panel background color (Default = surface, None = transparent)
     Border border{.width = 1.0f};                                   ///< Outer frame border stroke & corner radius
     bool disabled{false};                                           ///< Disable the entire TreeView and all nested items
     const UiTheme* theme{nullptr};                                  ///< Optional scoped theme override
-    std::optional<float> scale{std::nullopt};                       ///< Optional local UI scale factor override
-    std::optional<bool> debugBounds{std::nullopt};                  ///< Scoped debug bounding box overlay override
-    std::optional<bool> inspectMode{std::nullopt};                  ///< Scoped interactive DevTools inspector override
+    keel::Optional<float> scale{keel::kNullOpt};                    ///< Optional local UI scale factor override
+    keel::Optional<bool> debugBounds{keel::kNullOpt};               ///< Scoped debug bounding box overlay override
+    keel::Optional<bool> inspectMode{keel::kNullOpt};               ///< Scoped interactive DevTools inspector override
 };
 
 /// Configuration options for an individual TreeItem (branch or leaf) inside a TreeView or container.
@@ -89,12 +115,12 @@ struct TreeItemOptions {
     bool* checked{nullptr};                         ///< Optional bound boolean checkbox state (renders interactive checkbox when non-null)
     bool indeterminate{false};                      ///< Renders checkbox in indeterminate [-] tri-state
     bool forceBranch{false};                        ///< Forces rendering the expand/collapse chevron even if no child TreeItems are emitted
-    std::optional<float> controlWidth{std::nullopt};///< Optional explicit width in points for embedded trailing control slot
+    keel::Optional<float> controlWidth{keel::kNullOpt}; ///< Optional explicit width in points for embedded trailing control slot
     StateColor background{};                        ///< Optional custom row background override
     Border border{};                                ///< Optional custom row border override
     bool disabled{false};                           ///< Disable this item and its children
     const UiTheme* theme{nullptr};                  ///< Optional scoped theme override
-    std::optional<float> scale{std::nullopt};       ///< Optional local UI scale factor override
+    keel::Optional<float> scale{keel::kNullOpt};    ///< Optional local UI scale factor override
 };
 
 /// Persistent per-TreeItem state stored in Context.
@@ -125,16 +151,16 @@ struct VisibleTreeItemEntry {
 struct TreeViewState {
     static constexpr size_t kMaxColumns = 16;
 
-    std::string filterText{};
+    keel::SmallString<128> filterText{};
     Id selectedId{Id::Null()};
     int selectedIndex{-1};
     uint32_t bulkToggleGen{0};
     bool bulkToggleOpen{true};
-    std::vector<VisibleTreeItemEntry> prevVisibleItems{};
+    keel::Array<VisibleTreeItemEntry> prevVisibleItems{};
 
     uint16_t userColCount{0};
-    std::array<float, kMaxColumns> userColWidths{};
-    std::array<bool, kMaxColumns> hasUserColWidth{};
+    keel::StaticArray<float, kMaxColumns> userColWidths{};
+    keel::StaticArray<bool, kMaxColumns> hasUserColWidth{};
     int resizingCol{-1};
     float resizeStartX{0.0f};
     float resizeStartWidth{0.0f};
@@ -158,14 +184,14 @@ public:
     TreeViewScope& operator=(const TreeViewScope&) = delete;
 
     TreeViewScope(TreeViewScope&& other) noexcept
-        : ContainerScope(std::move(other)), m_payload(other.m_payload) {
+        : ContainerScope(keel::move(other)), m_payload(other.m_payload) {
         other.m_payload = nullptr;
     }
 
     TreeViewScope& operator=(TreeViewScope&& other) noexcept {
         if (this != &other) {
             Finalize();
-            ContainerScope::operator=(std::move(other));
+            ContainerScope::operator=(keel::move(other));
             m_payload = other.m_payload;
             other.m_payload = nullptr;
         }
@@ -179,7 +205,7 @@ public:
     void CollapseAll() noexcept;
 
     /// Returns the active search/filter text for this TreeView.
-    [[nodiscard]] std::string_view GetFilterText() const noexcept;
+    [[nodiscard]] keel::StringRef GetFilterText() const noexcept;
 
     /// Returns the number of visible TreeItems emitted so far in this TreeView during the current frame.
     [[nodiscard]] int VisibleItemCount() const noexcept;
@@ -231,7 +257,7 @@ public:
     TreeItemScope& operator=(const TreeItemScope&) = delete;
 
     TreeItemScope(TreeItemScope&& other) noexcept
-        : ContainerScope(std::move(other))
+        : ContainerScope(keel::move(other))
         , response(other.response)
         , open(other.open)
         , toggled(other.toggled)
@@ -246,7 +272,7 @@ public:
     TreeItemScope& operator=(TreeItemScope&& other) noexcept {
         if (this != &other) {
             Finalize();
-            ContainerScope::operator=(std::move(other));
+            ContainerScope::operator=(keel::move(other));
             response = other.response;
             open = other.open;
             toggled = other.toggled;
@@ -274,7 +300,7 @@ public:
     /// placed directly inside `if (auto item = ui.TreeItem(...))` automatically occupy `Col 1..N-1` without needing `item.Cell()`.
     [[nodiscard]] ContainerScope Cell(
         const TableCellOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
 private:
@@ -289,14 +315,14 @@ public:
     [[nodiscard]] static TreeViewScope Open(
         Context& ctx,
         const TreeViewOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] static TreeItemScope OpenItem(
         Context& ctx,
         bool* externalOpen,
         const TreeItemOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] static Vec2 MeasureRow(

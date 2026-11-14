@@ -1,19 +1,16 @@
 #pragma once
 
-#include <chrono>
-#include <functional>
-#include <initializer_list>
-#include <optional>
-#include <span>
-#include <source_location>
-#include <string_view>
-#include <type_traits>
-#include <typeindex>
-#include <vector>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include "keel/arena.h"
 #include "keel/array.h"
+#include "keel/core.h"
 #include "keel/format.h"
+#include "keel/function.h"
 #include "keel/hash_map.h"
+#include "keel/optional.h"
+#include "keel/ref.h"
 #include "keel/small_array.h"
 #include "keel/string.h"
 #include "guikit/backend/i_canvas.hpp"
@@ -100,89 +97,56 @@ class SizeScope;
 /// C++20 concept for any autonomous widget providing a static Run method.
 template <typename T, typename... Args>
 concept WidgetRunnable = requires(Context& ctx, Args&&... args) {
-    { T::Run(ctx, std::forward<Args>(args)...) };
+    { T::Run(ctx, keel::forward<Args>(args)...) };
 };
 
 /// C++20 concept for any autonomous layout or panel container providing a static Open method.
 template <typename T, typename... Args>
 concept ContainerOpenable = requires(Context& ctx, Args&&... args) {
-    { T::Open(ctx, std::forward<Args>(args)...) };
+    { T::Open(ctx, keel::forward<Args>(args)...) };
 };
 
-template <typename S>
-concept KeelMutableString =
-    !std::is_const_v<std::remove_reference_t<S>> &&
-    !std::is_same_v<std::remove_cvref_t<S>, std::string> &&
-    !std::is_same_v<std::remove_cvref_t<S>, std::string_view> &&
-    !std::is_same_v<std::remove_cvref_t<S>, keel::StringRef> &&
-    !std::is_pointer_v<std::remove_cvref_t<S>> &&
-    requires(S& s, keel::StringRef ref) {
-        { s.as_ref() } -> std::same_as<keel::StringRef>;
-        s.assign(ref);
+/// Zero-header concept for non-const duck-typed string_view-like targets (e.g. external `std::string_view`).
+template <typename SV>
+concept MutableForeignStringView =
+    !keel::IsConst<keel::RemoveReference<SV>> &&
+    !keel::IsSame<keel::RemoveCvRef<SV>, keel::StringRef> &&
+    !keel::WritableString<SV> &&
+    keel::IsTriviallyCopyable<keel::RemoveCvRef<SV>> &&
+    requires(SV& sv, const char* d, size_t n) {
+        typename keel::RemoveCvRef<SV>::traits_type;
+        { sv.data() } -> keel::detail::ConvertibleTo<const char*>;
+        { sv.size() } -> keel::detail::ConvertibleTo<size_t>;
+        sv = keel::RemoveCvRef<SV>(d, n);
     };
-
-template <typename Arr>
-concept KeelIndexArray =
-    !std::is_const_v<std::remove_reference_t<Arr>> &&
-    !std::is_same_v<std::remove_cvref_t<Arr>, std::vector<size_t>> &&
-    requires(Arr& a) {
-        { a.data() } -> std::convertible_to<const size_t*>;
-        { a.size() } -> std::convertible_to<size_t>;
-        a.clear();
-    } &&
-    (requires(Arr& a, size_t v) { a.try_push_back(v); } ||
-     requires(Arr& a, size_t v) { a.push_back(v); });
-
-template <typename Arr>
-concept KeelTagStringArray =
-    !std::is_const_v<std::remove_reference_t<Arr>> &&
-    !std::is_same_v<std::remove_cvref_t<Arr>, std::vector<std::string>> &&
-    requires(Arr& a) {
-        { a.size() } -> std::convertible_to<size_t>;
-        a.clear();
-        requires KeelMutableString<std::remove_cvref_t<decltype(*a.data())>>;
-    };
-
-template <typename Arr>
-concept KeelTagItemArray =
-    !std::is_const_v<std::remove_reference_t<Arr>> &&
-    !std::is_same_v<std::remove_cvref_t<Arr>, std::vector<TagItem>> &&
-    requires(Arr& a) {
-        { a.data() } -> std::convertible_to<const TagItem*>;
-        { a.size() } -> std::convertible_to<size_t>;
-        a.clear();
-    } &&
-    (requires(Arr& a, TagItem&& item) { a.try_push_back(std::move(item)); } ||
-     requires(Arr& a, TagItem&& item) { a.push_back(std::move(item)); });
 
 template <typename T>
 concept SpinBoxNumeric =
-    !std::is_const_v<std::remove_reference_t<T>> &&
-    !std::is_same_v<std::decay_t<T>, bool> &&
-    (std::integral<std::decay_t<T>> || std::floating_point<std::decay_t<T>>);
+    !keel::IsConst<keel::RemoveReference<T>> &&
+    !keel::IsSame<keel::Decay<T>, bool> &&
+    (keel::IsIntegral<keel::Decay<T>> || keel::IsFloatingPoint<keel::Decay<T>>);
 
 template <typename T>
 concept SelectTarget =
-    !std::is_const_v<std::remove_reference_t<T>> &&
+    !keel::IsConst<keel::RemoveReference<T>> &&
     (IndexLike<T> ||
-     std::is_same_v<std::remove_cvref_t<T>, std::string> ||
-     std::is_same_v<std::remove_cvref_t<T>, std::string_view> ||
-     std::is_same_v<std::remove_cvref_t<T>, keel::StringRef> ||
-     KeelMutableString<T>);
+     keel::WritableString<T> ||
+     keel::IsSame<keel::RemoveCvRef<T>, keel::StringRef> ||
+     MutableForeignStringView<T>);
 
 template <typename T>
 concept SliderNumeric =
-    !std::is_const_v<std::remove_reference_t<T>> &&
-    !std::is_same_v<std::decay_t<T>, bool> &&
-    (std::integral<std::decay_t<T>> || std::floating_point<std::decay_t<T>>);
+    !keel::IsConst<keel::RemoveReference<T>> &&
+    !keel::IsSame<keel::Decay<T>, bool> &&
+    (keel::IsIntegral<keel::Decay<T>> || keel::IsFloatingPoint<keel::Decay<T>>);
 
 namespace detail {
 
 struct StateKey {
     Id id;
-    std::type_index type;
+    keel::TypeId type;
 
-    bool operator==(const StateKey& other) const noexcept {
+    constexpr bool operator==(const StateKey& other) const noexcept {
         return id == other.id && type == other.type;
     }
 };
@@ -190,7 +154,7 @@ struct StateKey {
 struct StateKeyHash {
     keel::u64 operator()(const StateKey& k) const noexcept {
         const keel::u64 h1 = keel::Hash<Id>{}(k.id);
-        const keel::u64 h2 = static_cast<keel::u64>(k.type.hash_code());
+        const keel::u64 h2 = keel::Hash<keel::TypeId>{}(k.type);
         return keel::hash_u64(h1 ^ (h2 + 0x9e3779b97f4a7c15ULL + (h1 << 6) + (h1 >> 2)));
     }
 };
@@ -205,8 +169,8 @@ struct StoredState {
 
     template <typename T>
     static StoredState Create(T&& val, uint64_t frameIndex, bool isPersistent = false) {
-        using Decayed = std::decay_t<T>;
-        Decayed* p = keel::default_allocator()->create<Decayed>(std::forward<T>(val));
+        using Decayed = keel::Decay<T>;
+        Decayed* p = keel::default_allocator()->create<Decayed>(keel::forward<T>(val));
         StoredState s;
         s.ptr = p;
         s.destroy = [](void* raw) noexcept {
@@ -270,7 +234,7 @@ public:
     void OnMouseMove(Vec2 pos);
     void OnMouseDown(int button);
     void OnMouseUp(int button);
-    void OnTextInput(std::string_view utf8Text);
+    void OnTextInput(keel::StringRef utf8Text);
     void OnKeyDown(Key key, KeyModifiers mods = {});
     void OnMouseWheel(float x, float y);
 
@@ -347,7 +311,6 @@ public:
     /// Returns the current clear color.
     [[nodiscard]] Color GetClearColor() const noexcept { return m_clearColor; }
 
-
     /// Sets the UI density preset (Standard, Compact, Touch).
     void SetDensity(Density density) noexcept { m_theme.SetDensity(density); InvalidateAll(); }
 
@@ -373,7 +336,7 @@ public:
     [[nodiscard]] Rect GetDirtyRect() const noexcept { return m_dirtyRect; }
 
     /// Returns the list of mutually disjoint dirty damage rectangles for this frame (in logical points).
-    [[nodiscard]] const std::vector<Rect>& GetDirtyRects() const noexcept { return m_dirtyRects; }
+    [[nodiscard]] keel::ArrayRef<Rect> GetDirtyRects() const noexcept { return m_dirtyRects; }
 
     /// Returns the active bounding rectangle of the dirty damage region in physical pixels for GPU blitting.
     [[nodiscard]] Rect GetPhysicalDirtyRect() const noexcept {
@@ -381,7 +344,7 @@ public:
         const float y1 = std::floor(m_dirtyRect.y * m_dpiScale);
         const float x2 = std::ceil(m_dirtyRect.Right() * m_dpiScale);
         const float y2 = std::ceil(m_dirtyRect.Bottom() * m_dpiScale);
-        return Rect(x1, y1, std::max(0.0f, x2 - x1), std::max(0.0f, y2 - y1));
+        return Rect(x1, y1, keel::max(0.0f, x2 - x1), keel::max(0.0f, y2 - y1));
     }
 
     /// Returns the active DPI / UI scale factor.
@@ -411,95 +374,95 @@ public:
             ~ExecGuard() noexcept { c.EndWidgetExecution(); }
         } guard{*this};
         BeginWidgetExecution();
-        return WidgetT::Run(*this, std::forward<Args>(args)...);
+        return WidgetT::Run(*this, keel::forward<Args>(args)...);
     }
 
     /// Dispatches opening to any autonomous layout or panel container satisfying ContainerOpenable.
     template <typename ContainerT, typename... Args>
         requires ContainerOpenable<ContainerT, Args...>
     [[nodiscard]] decltype(auto) Open(Args&&... args) {
-        return ContainerT::Open(*this, std::forward<Args>(args)...);
+        return ContainerT::Open(*this, keel::forward<Args>(args)...);
     }
 
     // --- Layout Scopes ---
     [[nodiscard]] ContainerScope Row(
         RowOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] ContainerScope Column(
         ColumnOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] ContainerScope Wrap(
         WrapOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] GridScope Grid(
         GridOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     void Spacer(
         float flex = 1.0f,
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     void Gap(
         float sizeDp = 8.0f,
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     void Separator(
         float extentRatio = 0.0f,
         Color colorOverride = Color::Transparent(),
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     void Separator(
         Color colorOverride,
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     void Separator(
         Orientation lineOrientation,
         float extentRatio = 0.0f,
         Color colorOverride = Color::Transparent(),
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     // --- Panel Scopes ---
     [[nodiscard]] AccordionScope Accordion(
         AccordionOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] AccordionScope Accordion(
-        std::string_view label,
+        keel::StringRef label,
         AccordionOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] AccordionScope Accordion(
         bool& open,
         AccordionOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     template <typename T, typename U>
-        requires (!std::is_same_v<std::decay_t<T>, bool> && requires(T& a, const U& b) {
-            { a == b } -> std::convertible_to<bool>;
+        requires (!keel::IsSame<keel::Decay<T>, bool> && requires(T& a, const U& b) {
+            static_cast<bool>(a == b);
             a = static_cast<T>(b);
         })
     [[nodiscard]] AccordionScope Accordion(
         T& activeValue,
         const U& sectionValue,
         AccordionOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        bool isOpen = (activeValue == sectionValue);
+        bool isOpen = static_cast<bool>(activeValue == sectionValue);
         auto scope = guikit::Accordion::Open(*this, &isOpen, opts, loc);
         if (scope.response.changed && isOpen) {
             activeValue = static_cast<T>(sectionValue);
@@ -509,44 +472,44 @@ public:
 
     [[nodiscard]] ContainerScope Box(
         BoxOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] ContainerScope Card(
         CardOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] ContainerScope ScrollArea(
         ScrollAreaOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] ContainerScope Carousel(
         CarouselOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] SidebarScope Sidebar(
         SidebarOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] SidebarScope Sidebar(
         SidebarMode& mode,
         SidebarOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] SidebarScope Sidebar(
         bool& open,
         SidebarOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] ActivityBarScope ActivityBar(
         ActivityBarOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return guikit::ActivityBar::Open(*this, opts, loc);
     }
@@ -554,25 +517,25 @@ public:
     [[nodiscard]] ActivityBarScope ActivityBar(
         SidebarMode& linkedSidebarMode,
         ActivityBarOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return guikit::ActivityBar::Open(*this, linkedSidebarMode, std::move(opts), loc);
+        return guikit::ActivityBar::Open(*this, linkedSidebarMode, keel::move(opts), loc);
     }
 
     template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
+        requires (!keel::IsConst<IndexT>)
     Response ActivityBar(
         IndexT& activeIndex,
-        std::span<const ActivityBarItem> items,
+        keel::ArrayRef<ActivityBarItem> items,
         ActivityBarOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         struct ExecGuard {
             Context& c;
             ~ExecGuard() noexcept { c.EndWidgetExecution(); }
         } guard{*this};
         BeginWidgetExecution();
-        if constexpr (std::is_same_v<std::decay_t<IndexT>, int>) {
+        if constexpr (keel::IsSame<keel::Decay<IndexT>, int>) {
             return guikit::ActivityBar::Run(*this, activeIndex, items, opts, loc);
         } else {
             int idx = static_cast<int>(activeIndex);
@@ -584,20 +547,9 @@ public:
         }
     }
 
-    template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
-    Response ActivityBar(
-        IndexT& activeIndex,
-        std::initializer_list<ActivityBarItem> items,
-        ActivityBarOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return ActivityBar(activeIndex, std::span<const ActivityBarItem>(items.begin(), items.size()), std::move(opts), loc);
-    }
-
     [[nodiscard]] BottomPanelScope BottomPanel(
         BottomPanelOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return guikit::BottomPanel::Open(*this, opts, loc);
     }
@@ -605,7 +557,7 @@ public:
     [[nodiscard]] BottomPanelScope BottomPanel(
         BottomPanelMode& mode,
         BottomPanelOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return guikit::BottomPanel::Open(*this, &mode, opts, loc);
     }
@@ -613,7 +565,7 @@ public:
     [[nodiscard]] BottomPanelScope BottomPanel(
         BottomPanelMode* mode,
         BottomPanelOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return guikit::BottomPanel::Open(*this, mode, opts, loc);
     }
@@ -621,7 +573,7 @@ public:
     [[nodiscard]] BottomPanelScope BottomPanel(
         bool& open,
         BottomPanelOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return guikit::BottomPanel::Open(*this, &open, opts, loc);
     }
@@ -629,21 +581,21 @@ public:
     [[nodiscard]] BottomPanelScope BottomPanel(
         bool* open,
         BottomPanelOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return guikit::BottomPanel::Open(*this, open, opts, loc);
     }
 
     [[nodiscard]] StatusBarScope StatusBar(
         StatusBarOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return guikit::StatusBar::Open(*this, opts, loc);
     }
 
     [[nodiscard]] SplitViewScope SplitView(
         const SplitViewOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return guikit::SplitView::Open(*this, opts, loc);
     }
@@ -651,86 +603,69 @@ public:
     [[nodiscard]] SplitViewScope SplitView(
         float& ratio,
         const SplitViewOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return guikit::SplitView::Open(*this, ratio, opts, loc);
     }
 
     [[nodiscard]] SceneScope Scene(
         SceneOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
 #if GUIKIT_HAS_SCENES
     [[nodiscard]] MapViewScope MapView(
         MapViewOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return Open<guikit::MapView>(opts, loc);
     }
 #endif
 
     [[nodiscard]] TableScope Table(
-        std::span<const TableColumn> columns,
+        keel::ArrayRef<TableColumn> columns,
         const TableOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return guikit::Table::Open(*this, columns, opts, loc);
     }
 
-    [[nodiscard]] TableScope Table(
-        std::initializer_list<TableColumn> columns,
-        const TableOptions& opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return guikit::Table::Open(*this, std::span<const TableColumn>(columns.begin(), columns.size()), opts, loc);
-    }
-
     [[nodiscard]] TreeViewScope TreeView(
         TreeViewOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] TreeViewScope TreeView(
-        std::span<const TableColumn> columns,
+        keel::ArrayRef<TableColumn> columns,
         TreeViewOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         opts.columns = columns;
-        return TreeView(std::move(opts), loc);
-    }
-
-    [[nodiscard]] TreeViewScope TreeView(
-        std::initializer_list<TableColumn> columns,
-        TreeViewOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        opts.columns = std::span<const TableColumn>(columns.begin(), columns.size());
-        return TreeView(std::move(opts), loc);
+        return TreeView(keel::move(opts), loc);
     }
 
     [[nodiscard]] TreeItemScope TreeItem(
         TreeItemOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] TreeItemScope TreeItem(
-        std::string_view label,
+        keel::StringRef label,
         TreeItemOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] TreeItemScope TreeItem(
         bool& open,
         TreeItemOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] TreeItemScope TreeItem(
         bool& open,
-        std::string_view label,
+        keel::StringRef label,
         TreeItemOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     // --- Scale & State Scopes ---
@@ -745,7 +680,7 @@ public:
 
     [[nodiscard]] SizeScope Size(UiSize size) noexcept;
 
-    template<typename Fn>
+    template <typename Fn>
     void Size(UiSize size, Fn&& fn) {
         PushSize(size);
         fn();
@@ -756,7 +691,7 @@ public:
     void PopDisabled();
     [[nodiscard]] bool IsDisabled() const;
 
-    template<typename Fn>
+    template <typename Fn>
     void Disabled(bool disabled, Fn&& fn) {
         PushDisabled(disabled);
         fn();
@@ -765,7 +700,7 @@ public:
 
     // --- Theme & Scale Scopes ---
     UiTheme* PushTheme(const UiTheme& theme);
-    UiTheme* PushScopedTheme(const UiTheme* explicitTheme, std::optional<float> explicitScale);
+    UiTheme* PushScopedTheme(const UiTheme* explicitTheme, keel::Optional<float> explicitScale);
     void PopTheme();
 
     void PushScale(float scale);
@@ -774,14 +709,14 @@ public:
         return m_scaleStack.empty() ? 1.0f : m_scaleStack.back();
     }
 
-    template<typename Fn>
+    template <typename Fn>
     void Theme(const UiTheme& theme, Fn&& fn) {
         PushTheme(theme);
         fn();
         PopTheme();
     }
 
-    template<typename Fn>
+    template <typename Fn>
     void Scale(float scale, Fn&& fn) {
         PushScale(scale);
         fn();
@@ -791,70 +726,69 @@ public:
     // --- Widgets ---
     Response Button(
         ButtonOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     Response Text(
         UiText label,
         TextOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
-
 
     // --- Element / Heading Widgets ---
     ElementScope Element(
         ElementOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     Response Heading(
         HeadingOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     // --- Image Widget ---
     Response Image(
-        std::string_view source,
+        keel::StringRef source,
         ImageOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     Response Image(
         ImageOptions opts,
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     // --- Markdown Document Viewer Widget ---
     MarkdownResponse Markdown(
-        std::string_view markdownText,
+        keel::StringRef markdownText,
         const MarkdownOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
 #if GUIKIT_HAS_SCENES
     // --- SignalView (Waveform + Spectrogram DAW Analyzer) Widget ---
     SignalViewResponse SignalView(
-        std::span<const float> samples,
+        keel::ArrayRef<float> samples,
         const SignalViewOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return Run<guikit::SignalView>(samples, opts, loc);
     }
 
     // --- SonarView (Polar Heatmap / Diver Detection Sonar / PPI Radar) Widget ---
     SonarViewResponse SonarView(
-        std::span<const float> polarMatrix,
+        keel::ArrayRef<float> polarMatrix,
         const SonarViewOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return Run<guikit::SonarView>(polarMatrix, opts, loc);
     }
 
     // --- WaterfallView (RTSA Spectrum Analyzer & DOA / BTR Target Tracker) Widget ---
     WaterfallViewResponse WaterfallView(
-        std::span<const float> latestSliceDb,
+        keel::ArrayRef<float> latestSliceDb,
         const WaterfallViewOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return Run<guikit::WaterfallView>(latestSliceDb, opts, loc);
     }
@@ -865,7 +799,7 @@ public:
         const HistogramData& data,
         ChannelTransferParams& transfer,
         const HistogramOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return Run<guikit::Histogram>(data, transfer, opts, loc);
     }
@@ -875,7 +809,7 @@ public:
         const ImageViewData& data,
         ImageViewParams& params,
         const ImageViewOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return Run<guikit::ImageView>(data, params, opts, loc);
     }
@@ -883,7 +817,7 @@ public:
     ImageViewResponse ImageView(
         const ImageViewData& data,
         const ImageViewOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return Run<guikit::ImageView>(data, opts, loc);
     }
@@ -892,7 +826,7 @@ public:
     // --- AttitudeView (Avionics Artificial Horizon & Primary Flight Display) Widget ---
     AttitudeViewResponse AttitudeView(
         const AttitudeViewOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return Run<guikit::AttitudeView>(opts, loc);
     }
@@ -900,7 +834,7 @@ public:
     // --- CarClusterView (Automotive Digital Instrument Cluster & ADAS Cockpit) Widget ---
     CarClusterViewResponse CarClusterView(
         const CarClusterViewOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return Run<guikit::CarClusterView>(opts, loc);
     }
@@ -909,7 +843,7 @@ public:
     BpmnEditorResponse BpmnEditor(
         BpmnDiagram& diagram,
         const BpmnEditorOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return Run<guikit::BpmnEditor>(diagram, opts, loc);
     }
@@ -919,41 +853,41 @@ public:
     Response Switch(
         bool& value,
         SwitchOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     Response Switch(
         const bool& checked,
         SwitchOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
-    Response Switch(const bool*, SwitchOptions = {}, std::source_location = std::source_location::current()) = delete;
+    Response Switch(const bool*, SwitchOptions = {}, keel::SourceLocation = keel::SourceLocation::current()) = delete;
 
     // --- Checkbox & Radio Widgets ---
     Response Checkbox(
         bool& value,
         CheckboxOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     Response Checkbox(
         const bool& checked,
         CheckboxOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
-    Response Checkbox(const bool*, CheckboxOptions = {}, std::source_location = std::source_location::current()) = delete;
+    Response Checkbox(const bool*, CheckboxOptions = {}, keel::SourceLocation = keel::SourceLocation::current()) = delete;
 
     template <typename T, typename U = T>
-        requires (std::equality_comparable_with<T, U>)
+        requires requires(const T& a, const U& b) { static_cast<bool>(a == b); }
     Response Radio(
         T& currentValue,
         const U& optionValue,
         RadioOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        const bool isSelected = (currentValue == optionValue);
+        const bool isSelected = static_cast<bool>(currentValue == optionValue);
         bool state = isSelected;
         Response r = Run<guikit::Radio>(&state, isSelected, opts, loc);
         if (r.clicked && !isSelected) {
@@ -968,105 +902,99 @@ public:
     Response Radio(
         bool& value,
         RadioOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     Response Radio(
         const bool& checked,
         RadioOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
-    Response Radio(const bool*, RadioOptions = {}, std::source_location = std::source_location::current()) = delete;
+    Response Radio(const bool*, RadioOptions = {}, keel::SourceLocation = keel::SourceLocation::current()) = delete;
 
     template <typename T, typename U = T>
-        requires (std::equality_comparable_with<T, U>)
+        requires requires(const T& a, const U& b) { static_cast<bool>(a == b); }
     Response RadioButton(
         T& currentValue,
         const U& optionValue,
         RadioOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return Radio(currentValue, optionValue, std::move(opts), loc);
+        return Radio(currentValue, optionValue, keel::move(opts), loc);
     }
 
     Response RadioButton(
         bool& checked,
         RadioOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return Radio(checked, std::move(opts), loc);
+        return Radio(checked, keel::move(opts), loc);
     }
 
     // --- InputField & SpinBox Widgets ---
-    Response InputField(
-        std::string& value,
-        InputFieldOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    );
-
-    Response InputField(
-        std::string_view value,
-        InputFieldOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    );
-
-    template <KeelMutableString S>
+    template <keel::WritableString S>
     Response InputField(
         S& value,
         InputFieldOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        const keel::StringRef ref = value.as_ref();
-        std::string tmp(ref.data(), ref.size());
-        Response r = InputField(tmp, std::move(opts), loc);
-        if (r.changed) {
-            value.assign(keel::StringRef(tmp.data(), tmp.size()));
-        }
-        return r;
+        return Run<guikit::InputField>(keel::Optional<keel::StringSink>(keel::StringSink(value)), keel::StringRef{}, opts, loc);
     }
+
+    Response InputField(
+        keel::StringRef value,
+        InputFieldOptions opts = {},
+        keel::SourceLocation loc = keel::SourceLocation::current()
+    );
 
     template <SpinBoxNumeric T>
     Response SpinBox(
         T& value,
         SpinBoxOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        using Decayed = std::decay_t<T>;
-        if constexpr (std::is_same_v<Decayed, float>) {
+        using Decayed = keel::Decay<T>;
+        if constexpr (keel::IsSame<Decayed, float>) {
             return Run<guikit::SpinBox>(&value, nullptr, nullptr, opts, loc);
-        } else if constexpr (std::is_same_v<Decayed, double>) {
+        } else if constexpr (keel::IsSame<Decayed, double>) {
             return Run<guikit::SpinBox>(nullptr, &value, nullptr, opts, loc);
-        } else if constexpr (std::floating_point<Decayed>) {
+        } else if constexpr (keel::IsFloatingPoint<Decayed>) {
             double tmp = static_cast<double>(value);
             Response r = Run<guikit::SpinBox>(nullptr, &tmp, nullptr, opts, loc);
             if (r.changed) {
                 value = static_cast<Decayed>(tmp);
             }
             return r;
-        } else if constexpr (std::is_same_v<Decayed, int64_t>) {
+        } else if constexpr (keel::IsSame<Decayed, int64_t>) {
             return Run<guikit::SpinBox>(nullptr, nullptr, &value, opts, loc);
         } else {
-            constexpr int64_t kTypeMin = std::unsigned_integral<Decayed>
+            constexpr int64_t kInt64Max = static_cast<int64_t>((~uint64_t{0}) >> 1);
+            constexpr int64_t kInt64Min = -kInt64Max - 1;
+            constexpr size_t kBits = sizeof(Decayed) * 8;
+            constexpr int64_t kTypeMin = keel::IsUnsigned<Decayed>
                 ? int64_t{0}
-                : static_cast<int64_t>(std::numeric_limits<Decayed>::lowest());
-            constexpr int64_t kTypeMax = (static_cast<uint64_t>(std::numeric_limits<Decayed>::max()) >=
-                                          static_cast<uint64_t>(std::numeric_limits<int64_t>::max()))
-                ? std::numeric_limits<int64_t>::max()
-                : static_cast<int64_t>(std::numeric_limits<Decayed>::max());
-            if constexpr (std::unsigned_integral<Decayed>) {
+                : ((sizeof(Decayed) >= sizeof(int64_t)) ? kInt64Min : -(int64_t{1} << (kBits - 1)));
+            constexpr int64_t kTypeMax = keel::IsUnsigned<Decayed>
+                ? ((sizeof(Decayed) >= sizeof(uint64_t))
+                       ? kInt64Max
+                       : static_cast<int64_t>(static_cast<Decayed>(~Decayed{0})))
+                : ((sizeof(Decayed) >= sizeof(int64_t))
+                       ? kInt64Max
+                       : ((int64_t{1} << (kBits - 1)) - 1));
+            if constexpr (keel::IsUnsigned<Decayed>) {
                 if (!opts.min.has_value()) {
                     opts.min = 0.0;
                 } else {
-                    opts.min = std::max(0.0, *opts.min);
+                    opts.min = keel::max(0.0, *opts.min);
                 }
             }
-            int64_t tmp = (static_cast<uint64_t>(value) > static_cast<uint64_t>(kTypeMax) && std::unsigned_integral<Decayed>)
+            int64_t tmp = (keel::IsUnsigned<Decayed> && static_cast<uint64_t>(value) > static_cast<uint64_t>(kTypeMax))
                 ? kTypeMax
                 : static_cast<int64_t>(value);
             Response r = Run<guikit::SpinBox>(nullptr, nullptr, &tmp, opts, loc);
             if (r.changed) {
-                value = static_cast<Decayed>(std::clamp(tmp, kTypeMin, kTypeMax));
+                value = static_cast<Decayed>(keel::clamp(tmp, kTypeMin, kTypeMax));
             }
             return r;
         }
@@ -1079,124 +1007,93 @@ public:
         double maxVal,
         double stepVal = 1.0,
         SpinBoxOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         if (!opts.min.has_value()) opts.min = minVal;
         if (!opts.max.has_value()) opts.max = maxVal;
         if (!opts.step.has_value()) opts.step = stepVal;
-        return SpinBox(value, std::move(opts), loc);
+        return SpinBox(value, keel::move(opts), loc);
     }
 
     // --- TextArea & CodeEditor Widgets ---
-    TextAreaResponse TextArea(
-        std::string& value,
-        const TextAreaOptions& opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return Run<guikit::TextArea>(&value, std::string_view{}, opts, loc);
-    }
-
-    TextAreaResponse TextArea(
-        std::string_view value,
-        const TextAreaOptions& opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return Run<guikit::TextArea>(nullptr, value, opts, loc);
-    }
-
-    template <KeelMutableString S>
+    template <keel::WritableString S>
     TextAreaResponse TextArea(
         S& value,
         const TextAreaOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        const keel::StringRef ref = value.as_ref();
-        std::string tmp(ref.data(), ref.size());
-        TextAreaResponse r = TextArea(tmp, opts, loc);
-        if (r.changed) {
-            value.assign(keel::StringRef(tmp.data(), tmp.size()));
-        }
-        return r;
+        return Run<guikit::TextArea>(keel::Optional<keel::StringSink>(keel::StringSink(value)), keel::StringRef{}, opts, loc);
     }
 
-    CodeEditorResponse CodeEditor(
-        std::string& value,
-        const CodeEditorOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+    TextAreaResponse TextArea(
+        keel::StringRef value,
+        const TextAreaOptions& opts = {},
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TextArea(value, opts, loc);
+        return Run<guikit::TextArea>(keel::Optional<keel::StringSink>{}, value, opts, loc);
     }
 
-    CodeEditorResponse CodeEditor(
-        std::string_view value,
-        const CodeEditorOptions& opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return TextArea(value, opts, loc);
-    }
-
-    template <KeelMutableString S>
+    template <keel::WritableString S>
     CodeEditorResponse CodeEditor(
         S& value,
         const CodeEditorOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return TextArea(value, opts, loc);
     }
 
+    CodeEditorResponse CodeEditor(
+        keel::StringRef value,
+        const CodeEditorOptions& opts = {},
+        keel::SourceLocation loc = keel::SourceLocation::current()
+    ) {
+        return TextArea(value, opts, loc);
+    }
 
     // --- Select (Dropdown) Widget ---
     template <SelectTarget T>
     Response Select(
         T& selected,
-        std::span<const SelectItem> items,
+        keel::ArrayRef<SelectItem> items,
         SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        if constexpr (std::is_same_v<std::decay_t<T>, size_t>) {
-            return Run<guikit::Select>(&selected, nullptr, nullptr, nullptr, items, opts, loc);
-        } else if constexpr (std::is_same_v<std::decay_t<T>, int>) {
-            return Run<guikit::Select>(nullptr, &selected, nullptr, nullptr, items, opts, loc);
+        if constexpr (keel::IsSame<keel::Decay<T>, size_t>) {
+            return Run<guikit::Select>(&selected, nullptr, keel::Optional<keel::StringSink>{}, nullptr, items, opts, loc);
+        } else if constexpr (keel::IsSame<keel::Decay<T>, int>) {
+            return Run<guikit::Select>(nullptr, &selected, keel::Optional<keel::StringSink>{}, nullptr, items, opts, loc);
         } else if constexpr (IndexLike<T>) {
             constexpr bool isSignedIndex = []() constexpr {
-                if constexpr (std::is_enum_v<std::decay_t<T>>) {
-                    return std::is_signed_v<std::underlying_type_t<std::decay_t<T>>>;
+                if constexpr (keel::IsEnum<keel::Decay<T>>) {
+                    return keel::IsSigned<keel::UnderlyingType<keel::Decay<T>>>;
                 } else {
-                    return std::is_signed_v<std::decay_t<T>>;
+                    return keel::IsSigned<keel::Decay<T>>;
                 }
             }();
             if constexpr (isSignedIndex) {
                 int idx = static_cast<int>(selected);
-                Response r = Run<guikit::Select>(nullptr, &idx, nullptr, nullptr, items, opts, loc);
+                Response r = Run<guikit::Select>(nullptr, &idx, keel::Optional<keel::StringSink>{}, nullptr, items, opts, loc);
                 if (r.changed) {
                     selected = static_cast<T>(idx);
                 }
                 return r;
             } else {
                 size_t idx = static_cast<size_t>(selected);
-                Response r = Run<guikit::Select>(&idx, nullptr, nullptr, nullptr, items, opts, loc);
+                Response r = Run<guikit::Select>(&idx, nullptr, keel::Optional<keel::StringSink>{}, nullptr, items, opts, loc);
                 if (r.changed) {
                     selected = static_cast<T>(idx);
                 }
                 return r;
             }
-        } else if constexpr (std::is_same_v<std::decay_t<T>, std::string>) {
-            return Run<guikit::Select>(nullptr, nullptr, &selected, nullptr, items, opts, loc);
-        } else if constexpr (std::is_same_v<std::decay_t<T>, std::string_view>) {
-            return Run<guikit::Select>(nullptr, nullptr, nullptr, &selected, items, opts, loc);
-        } else if constexpr (std::is_same_v<std::decay_t<T>, keel::StringRef>) {
-            std::string_view sv(selected.data(), selected.size());
-            Response r = Run<guikit::Select>(nullptr, nullptr, nullptr, &sv, items, opts, loc);
+        } else if constexpr (keel::WritableString<T>) {
+            return Run<guikit::Select>(nullptr, nullptr, keel::Optional<keel::StringSink>(keel::StringSink(selected)), nullptr, items, opts, loc);
+        } else if constexpr (keel::IsSame<keel::RemoveCvRef<T>, keel::StringRef>) {
+            return Run<guikit::Select>(nullptr, nullptr, keel::Optional<keel::StringSink>{}, &selected, items, opts, loc);
+        } else if constexpr (MutableForeignStringView<T>) {
+            keel::StringRef sr(selected.data(), static_cast<size_t>(selected.size()));
+            Response r = Run<guikit::Select>(nullptr, nullptr, keel::Optional<keel::StringSink>{}, &sr, items, opts, loc);
             if (r.changed) {
-                selected = keel::StringRef(sv.data(), sv.size());
-            }
-            return r;
-        } else if constexpr (KeelMutableString<T>) {
-            const keel::StringRef ref = selected.as_ref();
-            std::string tmp(ref.data(), ref.size());
-            Response r = Run<guikit::Select>(nullptr, nullptr, &tmp, nullptr, items, opts, loc);
-            if (r.changed) {
-                selected.assign(keel::StringRef(tmp.data(), tmp.size()));
+                selected = keel::RemoveCvRef<T>(sr.data(), sr.size());
             }
             return r;
         }
@@ -1205,334 +1102,136 @@ public:
     template <SelectTarget T>
     Response Select(
         T& selected,
-        std::initializer_list<SelectItem> items,
+        keel::ArrayRef<keel::StringRef> items,
         SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return Select(selected, std::span<const SelectItem>(items.begin(), items.size()), opts, loc);
-    }
-
-    template <SelectTarget T>
-    Response Select(
-        T& selected,
-        std::span<const std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        if constexpr (std::is_same_v<std::decay_t<T>, size_t>) {
-            return Run<guikit::Select>(&selected, nullptr, nullptr, nullptr, items, opts, loc);
-        } else if constexpr (std::is_same_v<std::decay_t<T>, int>) {
-            return Run<guikit::Select>(nullptr, &selected, nullptr, nullptr, items, opts, loc);
+        if constexpr (keel::IsSame<keel::Decay<T>, size_t>) {
+            return Run<guikit::Select>(&selected, nullptr, keel::Optional<keel::StringSink>{}, nullptr, items, opts, loc);
+        } else if constexpr (keel::IsSame<keel::Decay<T>, int>) {
+            return Run<guikit::Select>(nullptr, &selected, keel::Optional<keel::StringSink>{}, nullptr, items, opts, loc);
         } else if constexpr (IndexLike<T>) {
             constexpr bool isSignedIndex = []() constexpr {
-                if constexpr (std::is_enum_v<std::decay_t<T>>) {
-                    return std::is_signed_v<std::underlying_type_t<std::decay_t<T>>>;
+                if constexpr (keel::IsEnum<keel::Decay<T>>) {
+                    return keel::IsSigned<keel::UnderlyingType<keel::Decay<T>>>;
                 } else {
-                    return std::is_signed_v<std::decay_t<T>>;
+                    return keel::IsSigned<keel::Decay<T>>;
                 }
             }();
             if constexpr (isSignedIndex) {
                 int idx = static_cast<int>(selected);
-                Response r = Run<guikit::Select>(nullptr, &idx, nullptr, nullptr, items, opts, loc);
+                Response r = Run<guikit::Select>(nullptr, &idx, keel::Optional<keel::StringSink>{}, nullptr, items, opts, loc);
                 if (r.changed) {
                     selected = static_cast<T>(idx);
                 }
                 return r;
             } else {
                 size_t idx = static_cast<size_t>(selected);
-                Response r = Run<guikit::Select>(&idx, nullptr, nullptr, nullptr, items, opts, loc);
+                Response r = Run<guikit::Select>(&idx, nullptr, keel::Optional<keel::StringSink>{}, nullptr, items, opts, loc);
                 if (r.changed) {
                     selected = static_cast<T>(idx);
                 }
                 return r;
             }
-        } else if constexpr (std::is_same_v<std::decay_t<T>, std::string>) {
-            return Run<guikit::Select>(nullptr, nullptr, &selected, nullptr, items, opts, loc);
-        } else if constexpr (std::is_same_v<std::decay_t<T>, std::string_view>) {
-            return Run<guikit::Select>(nullptr, nullptr, nullptr, &selected, items, opts, loc);
-        } else if constexpr (std::is_same_v<std::decay_t<T>, keel::StringRef>) {
-            std::string_view sv(selected.data(), selected.size());
-            Response r = Run<guikit::Select>(nullptr, nullptr, nullptr, &sv, items, opts, loc);
+        } else if constexpr (keel::WritableString<T>) {
+            return Run<guikit::Select>(nullptr, nullptr, keel::Optional<keel::StringSink>(keel::StringSink(selected)), nullptr, items, opts, loc);
+        } else if constexpr (keel::IsSame<keel::RemoveCvRef<T>, keel::StringRef>) {
+            return Run<guikit::Select>(nullptr, nullptr, keel::Optional<keel::StringSink>{}, &selected, items, opts, loc);
+        } else if constexpr (MutableForeignStringView<T>) {
+            keel::StringRef sr(selected.data(), static_cast<size_t>(selected.size()));
+            Response r = Run<guikit::Select>(nullptr, nullptr, keel::Optional<keel::StringSink>{}, &sr, items, opts, loc);
             if (r.changed) {
-                selected = keel::StringRef(sv.data(), sv.size());
-            }
-            return r;
-        } else if constexpr (KeelMutableString<T>) {
-            const keel::StringRef ref = selected.as_ref();
-            std::string tmp(ref.data(), ref.size());
-            Response r = Run<guikit::Select>(nullptr, nullptr, &tmp, nullptr, items, opts, loc);
-            if (r.changed) {
-                selected.assign(keel::StringRef(tmp.data(), tmp.size()));
+                selected = keel::RemoveCvRef<T>(sr.data(), sr.size());
             }
             return r;
         }
-    }
-
-    template <SelectTarget T>
-    Response Select(
-        T& selected,
-        std::initializer_list<std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return Select(selected, std::span<const std::string_view>(items.begin(), items.size()), opts, loc);
     }
 
     // --- ComboBox (Searchable Dropdown) & Autocomplete Widgets ---
     template <SelectTarget T>
     Response ComboBox(
         T& selected,
-        std::span<const SelectItem> items,
+        keel::ArrayRef<SelectItem> items,
         SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         opts.searchable = true;
-        return Select(selected, items, std::move(opts), loc);
+        return Select(selected, items, keel::move(opts), loc);
     }
 
     template <SelectTarget T>
     Response ComboBox(
         T& selected,
-        std::initializer_list<SelectItem> items,
+        keel::ArrayRef<keel::StringRef> items,
         SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         opts.searchable = true;
-        return Select(selected, items, std::move(opts), loc);
+        return Select(selected, items, keel::move(opts), loc);
     }
 
-    template <SelectTarget T>
-    Response ComboBox(
-        T& selected,
-        std::span<const std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        opts.searchable = true;
-        return Select(selected, items, std::move(opts), loc);
-    }
-
-    template <SelectTarget T>
-    Response ComboBox(
-        T& selected,
-        std::initializer_list<std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        opts.searchable = true;
-        return Select(selected, items, std::move(opts), loc);
-    }
-
-    Response Autocomplete(
-        std::string& value,
-        std::span<const SelectItem> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        opts.searchable = true;
-        opts.editable = true;
-        return Select(value, items, std::move(opts), loc);
-    }
-
-    Response Autocomplete(
-        std::string& value,
-        std::initializer_list<SelectItem> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        opts.searchable = true;
-        opts.editable = true;
-        return Select(value, items, std::move(opts), loc);
-    }
-
-    Response Autocomplete(
-        std::string& value,
-        std::span<const std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        opts.searchable = true;
-        opts.editable = true;
-        return Select(value, items, std::move(opts), loc);
-    }
-
-    Response Autocomplete(
-        std::string& value,
-        std::initializer_list<std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        opts.searchable = true;
-        opts.editable = true;
-        return Select(value, items, std::move(opts), loc);
-    }
-
-    template <KeelMutableString S>
+    template <keel::WritableString S>
     Response Autocomplete(
         S& value,
-        std::span<const SelectItem> items,
+        keel::ArrayRef<SelectItem> items,
         SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         opts.searchable = true;
         opts.editable = true;
-        return Select(value, items, std::move(opts), loc);
+        return Select(value, items, keel::move(opts), loc);
     }
 
-    template <KeelMutableString S>
+    template <keel::WritableString S>
     Response Autocomplete(
         S& value,
-        std::initializer_list<SelectItem> items,
+        keel::ArrayRef<keel::StringRef> items,
         SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         opts.searchable = true;
         opts.editable = true;
-        return Select(value, items, std::move(opts), loc);
+        return Select(value, items, keel::move(opts), loc);
     }
 
-    template <KeelMutableString S>
-    Response Autocomplete(
-        S& value,
-        std::span<const std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        opts.searchable = true;
-        opts.editable = true;
-        return Select(value, items, std::move(opts), loc);
-    }
-
-    template <KeelMutableString S>
-    Response Autocomplete(
-        S& value,
-        std::initializer_list<std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        opts.searchable = true;
-        opts.editable = true;
-        return Select(value, items, std::move(opts), loc);
-    }
-
+    template <WritableIndexList Arr>
     Response MultiSelect(
-        std::vector<size_t>& selectedIndices,
-        std::span<const SelectItem> items,
+        Arr& selectedIndices,
+        keel::ArrayRef<SelectItem> items,
         SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         struct ExecGuard {
             Context& c;
             ~ExecGuard() noexcept { c.EndWidgetExecution(); }
         } guard{*this};
         BeginWidgetExecution();
-        return guikit::Select::RunMulti(*this, selectedIndices, items, opts, loc);
+        return guikit::Select::RunMulti(*this, IndexListSink(selectedIndices), items, opts, loc);
     }
 
+    template <WritableIndexList Arr>
     Response MultiSelect(
-        std::vector<size_t>& selectedIndices,
-        std::initializer_list<SelectItem> items,
+        Arr& selectedIndices,
+        keel::ArrayRef<keel::StringRef> items,
         SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return MultiSelect(selectedIndices, std::span<const SelectItem>(items.begin(), items.size()), std::move(opts), loc);
-    }
-
-    Response MultiSelect(
-        std::vector<size_t>& selectedIndices,
-        std::span<const std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         struct ExecGuard {
             Context& c;
             ~ExecGuard() noexcept { c.EndWidgetExecution(); }
         } guard{*this};
         BeginWidgetExecution();
-        return guikit::Select::RunMulti(*this, selectedIndices, items, opts, loc);
-    }
-
-    Response MultiSelect(
-        std::vector<size_t>& selectedIndices,
-        std::initializer_list<std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return MultiSelect(selectedIndices, std::span<const std::string_view>(items.begin(), items.size()), std::move(opts), loc);
-    }
-
-    template <KeelIndexArray Arr>
-    Response MultiSelect(
-        Arr& selectedIndices,
-        std::span<const SelectItem> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        std::vector<size_t> tmp(selectedIndices.data(), selectedIndices.data() + selectedIndices.size());
-        Response r = MultiSelect(tmp, items, std::move(opts), loc);
-        if (r.changed) {
-            selectedIndices.clear();
-            for (size_t idx : tmp) {
-                if constexpr (requires { selectedIndices.try_push_back(idx); }) {
-                    (void)selectedIndices.try_push_back(idx);
-                } else {
-                    selectedIndices.push_back(idx);
-                }
-            }
-        }
-        return r;
-    }
-
-    template <KeelIndexArray Arr>
-    Response MultiSelect(
-        Arr& selectedIndices,
-        std::initializer_list<SelectItem> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return MultiSelect(selectedIndices, std::span<const SelectItem>(items.begin(), items.size()), std::move(opts), loc);
-    }
-
-    template <KeelIndexArray Arr>
-    Response MultiSelect(
-        Arr& selectedIndices,
-        std::span<const std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        std::vector<size_t> tmp(selectedIndices.data(), selectedIndices.data() + selectedIndices.size());
-        Response r = MultiSelect(tmp, items, std::move(opts), loc);
-        if (r.changed) {
-            selectedIndices.clear();
-            for (size_t idx : tmp) {
-                if constexpr (requires { selectedIndices.try_push_back(idx); }) {
-                    (void)selectedIndices.try_push_back(idx);
-                } else {
-                    selectedIndices.push_back(idx);
-                }
-            }
-        }
-        return r;
-    }
-
-    template <KeelIndexArray Arr>
-    Response MultiSelect(
-        Arr& selectedIndices,
-        std::initializer_list<std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return MultiSelect(selectedIndices, std::span<const std::string_view>(items.begin(), items.size()), std::move(opts), loc);
+        return guikit::Select::RunMulti(*this, IndexListSink(selectedIndices), items, opts, loc);
     }
 
     // --- TabBar Component ---
     template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
+        requires (!keel::IsConst<IndexT>)
     TabBarResponse TabBar(
         IndexT& activeIndex,
-        std::span<const TabItem> tabs,
+        keel::ArrayRef<TabItem> tabs,
         TabBarOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         struct ExecGuard {
             Context& c;
@@ -1545,30 +1244,19 @@ public:
         return r;
     }
 
-    template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
-    TabBarResponse TabBar(
-        IndexT& activeIndex,
-        std::initializer_list<TabItem> tabs,
-        TabBarOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return TabBar(activeIndex, std::span<const TabItem>(tabs.begin(), tabs.size()), opts, loc);
-    }
-
     // --- SidebarMenu Component ---
     [[nodiscard]] SidebarMenuScope SidebarMenu(
         SidebarMenuOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
+        requires (!keel::IsConst<IndexT>)
     Response SidebarMenu(
         IndexT& activeIndex,
-        std::span<const SidebarMenuItem> items,
+        keel::ArrayRef<SidebarMenuItem> items,
         SidebarMenuOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         struct ExecGuard {
             Context& c;
@@ -1581,17 +1269,6 @@ public:
         return r;
     }
 
-    template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
-    Response SidebarMenu(
-        IndexT& activeIndex,
-        std::initializer_list<SidebarMenuItem> items,
-        SidebarMenuOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return SidebarMenu(activeIndex, std::span<const SidebarMenuItem>(items.begin(), items.size()), opts, loc);
-    }
-
     // --- Slider, StepSlider, RangeSlider & ProgressBar Widgets ---
     template <SliderNumeric T>
     Response Slider(
@@ -1599,11 +1276,11 @@ public:
         T min,
         T max,
         SliderOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        if constexpr (std::is_same_v<std::decay_t<T>, double>) {
+        if constexpr (keel::IsSame<keel::Decay<T>, double>) {
             return Run<guikit::Slider>(&value, nullptr, nullptr, min, max, opts, loc);
-        } else if constexpr (std::is_same_v<std::decay_t<T>, float>) {
+        } else if constexpr (keel::IsSame<keel::Decay<T>, float>) {
             return Run<guikit::Slider>(nullptr, &value, nullptr, static_cast<double>(min), static_cast<double>(max), opts, loc);
         } else {
             int64_t val64 = static_cast<int64_t>(value);
@@ -1622,11 +1299,11 @@ public:
         T min,
         T max,
         RangeSliderOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        if constexpr (std::is_same_v<std::decay_t<T>, double>) {
+        if constexpr (keel::IsSame<keel::Decay<T>, double>) {
             return Run<guikit::RangeSlider>(&lowValue, &highValue, nullptr, nullptr, nullptr, nullptr, min, max, opts, loc);
-        } else if constexpr (std::is_same_v<std::decay_t<T>, float>) {
+        } else if constexpr (keel::IsSame<keel::Decay<T>, float>) {
             return Run<guikit::RangeSlider>(nullptr, nullptr, &lowValue, &highValue, nullptr, nullptr, static_cast<double>(min), static_cast<double>(max), opts, loc);
         } else {
             int64_t low64 = static_cast<int64_t>(lowValue);
@@ -1645,7 +1322,7 @@ public:
         double min,
         double max,
         ProgressBarOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return Run<guikit::ProgressBar>(value, min, max, opts, loc);
     }
@@ -1653,22 +1330,22 @@ public:
     Response ProgressBar(
         double percent0to100,
         ProgressBarOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return Run<guikit::ProgressBar>(percent0to100, 0.0, 100.0, opts, loc);
     }
 
     template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
+        requires (!keel::IsConst<IndexT>)
     Response StepSlider(
         IndexT& index,
         size_t totalSteps,
         StepSliderOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        if constexpr (std::is_same_v<std::decay_t<IndexT>, size_t>) {
+        if constexpr (keel::IsSame<keel::Decay<IndexT>, size_t>) {
             return Run<guikit::StepSlider>(&index, nullptr, totalSteps, opts, loc);
-        } else if constexpr (std::is_same_v<std::decay_t<IndexT>, int>) {
+        } else if constexpr (keel::IsSame<keel::Decay<IndexT>, int>) {
             return Run<guikit::StepSlider>(nullptr, &index, totalSteps, opts, loc);
         } else {
             int idxInt = static_cast<int>(index);
@@ -1681,38 +1358,27 @@ public:
     }
 
     template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
+        requires (!keel::IsConst<IndexT>)
     Response StepSlider(
         IndexT& index,
-        std::span<const std::string_view> labels,
+        keel::ArrayRef<keel::StringRef> labels,
         StepSliderOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         opts.stepLabels = labels;
         return StepSlider(index, labels.size(), opts, loc);
     }
 
-    template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
-    Response StepSlider(
-        IndexT& index,
-        std::initializer_list<std::string_view> labels,
-        StepSliderOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return StepSlider(index, std::span<const std::string_view>(labels.begin(), labels.size()), opts, loc);
-    }
-
     Response StepSlider(
         UiSize& size,
         StepSliderOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     Response StepSlider(
         UiVariant& variant,
         StepSliderOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     // --- Knob Widget ---
@@ -1722,13 +1388,13 @@ public:
         T min,
         T max,
         KnobOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        if constexpr (std::is_same_v<std::decay_t<T>, double>) {
+        if constexpr (keel::IsSame<keel::Decay<T>, double>) {
             return Run<guikit::Knob>(&value, nullptr, nullptr, min, max, opts, loc);
-        } else if constexpr (std::is_same_v<std::decay_t<T>, float>) {
+        } else if constexpr (keel::IsSame<keel::Decay<T>, float>) {
             return Run<guikit::Knob>(nullptr, &value, nullptr, static_cast<double>(min), static_cast<double>(max), opts, loc);
-        } else if constexpr (std::is_same_v<std::decay_t<T>, int64_t>) {
+        } else if constexpr (keel::IsSame<keel::Decay<T>, int64_t>) {
             return Run<guikit::Knob>(nullptr, nullptr, &value, static_cast<double>(min), static_cast<double>(max), opts, loc);
         } else {
             int64_t valInt = static_cast<int64_t>(value);
@@ -1742,14 +1408,14 @@ public:
 
     // --- Segmented Control Widget ---
     template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
+        requires (!keel::IsConst<IndexT>)
     Response Segmented(
         IndexT& selectedIndex,
-        std::span<const SegmentedItem> items,
+        keel::ArrayRef<SegmentedItem> items,
         SegmentedOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        if constexpr (std::is_same_v<std::decay_t<IndexT>, size_t>) {
+        if constexpr (keel::IsSame<keel::Decay<IndexT>, size_t>) {
             return Run<guikit::Segmented>(&selectedIndex, nullptr, nullptr, items, opts, loc);
         } else {
             int idx = static_cast<int>(selectedIndex);
@@ -1762,25 +1428,14 @@ public:
     }
 
     template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
+        requires (!keel::IsConst<IndexT>)
     Response Segmented(
         IndexT& selectedIndex,
-        std::initializer_list<SegmentedItem> items,
+        keel::ArrayRef<keel::StringRef> items,
         SegmentedOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return Segmented(selectedIndex, std::span<const SegmentedItem>(items.begin(), items.size()), std::move(opts), loc);
-    }
-
-    template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
-    Response Segmented(
-        IndexT& selectedIndex,
-        std::span<const std::string_view> items,
-        SegmentedOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        if constexpr (std::is_same_v<std::decay_t<IndexT>, size_t>) {
+        if constexpr (keel::IsSame<keel::Decay<IndexT>, size_t>) {
             return Run<guikit::Segmented>(&selectedIndex, nullptr, nullptr, items, opts, loc);
         } else {
             int idx = static_cast<int>(selectedIndex);
@@ -1792,58 +1447,29 @@ public:
         }
     }
 
-    template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
-    Response Segmented(
-        IndexT& selectedIndex,
-        std::initializer_list<std::string_view> items,
-        SegmentedOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return Segmented(selectedIndex, std::span<const std::string_view>(items.begin(), items.size()), std::move(opts), loc);
-    }
-
     Response SegmentedMask(
         uint32_t& selectedMask,
-        std::span<const SegmentedItem> items,
+        keel::ArrayRef<SegmentedItem> items,
         SegmentedOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return Run<guikit::Segmented>(nullptr, nullptr, &selectedMask, items, opts, loc);
     }
 
     Response SegmentedMask(
         uint32_t& selectedMask,
-        std::initializer_list<SegmentedItem> items,
+        keel::ArrayRef<keel::StringRef> items,
         SegmentedOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return SegmentedMask(selectedMask, std::span<const SegmentedItem>(items.begin(), items.size()), std::move(opts), loc);
-    }
-
-    Response SegmentedMask(
-        uint32_t& selectedMask,
-        std::span<const std::string_view> items,
-        SegmentedOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return Run<guikit::Segmented>(nullptr, nullptr, &selectedMask, items, opts, loc);
-    }
-
-    Response SegmentedMask(
-        uint32_t& selectedMask,
-        std::initializer_list<std::string_view> items,
-        SegmentedOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return SegmentedMask(selectedMask, std::span<const std::string_view>(items.begin(), items.size()), std::move(opts), loc);
     }
 
     // --- ColorPicker Widget ---
     Response ColorPicker(
         Color& value,
         ColorPickerOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return Run<guikit::ColorPicker>(value, opts, loc);
     }
@@ -1852,7 +1478,7 @@ public:
     Response DatePicker(
         DateTime& value,
         DatePickerOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return Run<guikit::DatePicker>(value, opts, loc);
     }
@@ -1863,104 +1489,50 @@ public:
         double min = -60.0,
         double max = 0.0,
         LevelMeterOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return Run<guikit::LevelMeter>(value, min, max, opts, loc);
     }
 
     Response LevelMeter(
-        std::span<const float> channelValues,
+        keel::ArrayRef<float> channelValues,
         float min = -60.0f,
         float max = 0.0f,
         LevelMeterOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return Run<guikit::LevelMeter>(channelValues, min, max, opts, loc);
     }
 
     // --- TagInput Widget ---
-    Response TagInput(
-        std::vector<std::string>& tags,
-        TagInputOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return Run<guikit::TagInput>(tags, opts, loc);
-    }
-
-    Response TagInput(
-        std::vector<TagItem>& tags,
-        TagInputOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return Run<guikit::TagInput>(tags, opts, loc);
-    }
-
-    template <KeelTagStringArray Arr>
+    template <WritableTagStringList Arr>
     Response TagInput(
         Arr& tags,
         TagInputOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        using ElemT = std::remove_cvref_t<decltype(*tags.data())>;
-        std::vector<std::string> tmp;
-        tmp.reserve(tags.size());
-        for (size_t i = 0; i < tags.size(); ++i) {
-            const keel::StringRef ref = tags[i].as_ref();
-            tmp.emplace_back(ref.data(), ref.size());
-        }
-        Response r = TagInput(tmp, std::move(opts), loc);
-        if (r.changed) {
-            tags.clear();
-            for (const std::string& s : tmp) {
-                const keel::StringRef ref(s.data(), s.size());
-                auto makeElem = [&]() -> ElemT {
-                    if constexpr (requires { tags.allocator(); ElemT(ref, tags.allocator()); }) {
-                        return ElemT(ref, tags.allocator());
-                    } else {
-                        return ElemT(ref);
-                    }
-                };
-                if constexpr (requires { tags.try_push_back(makeElem()); }) {
-                    (void)tags.try_push_back(makeElem());
-                } else {
-                    tags.push_back(makeElem());
-                }
-            }
-        }
-        return r;
+        return Run<guikit::TagInput>(StringTagListSink(tags), opts, loc);
     }
 
-    template <KeelTagItemArray Arr>
+    template <WritableTagItemList Arr>
     Response TagInput(
         Arr& tags,
         TagInputOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        std::vector<TagItem> tmp(tags.data(), tags.data() + tags.size());
-        Response r = TagInput(tmp, std::move(opts), loc);
-        if (r.changed) {
-            tags.clear();
-            for (TagItem& item : tmp) {
-                if constexpr (requires { tags.try_push_back(std::move(item)); }) {
-                    (void)tags.try_push_back(std::move(item));
-                } else {
-                    tags.push_back(std::move(item));
-                }
-            }
-        }
-        return r;
+        return Run<guikit::TagInput>(TagItemListSink(tags), opts, loc);
     }
 
     // --- Breadcrumb & Pagination Navigation Widgets ---
     template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
+        requires (!keel::IsConst<IndexT>)
     Response Breadcrumb(
         IndexT& activeIndex,
-        std::span<const BreadcrumbItem> items,
+        keel::ArrayRef<BreadcrumbItem> items,
         BreadcrumbOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        if constexpr (std::is_same_v<std::decay_t<IndexT>, size_t>) {
+        if constexpr (keel::IsSame<keel::Decay<IndexT>, size_t>) {
             return Run<guikit::Breadcrumb>(activeIndex, items, opts, loc);
         } else {
             int idx = static_cast<int>(activeIndex);
@@ -1971,25 +1543,14 @@ public:
     }
 
     template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
+        requires (!keel::IsConst<IndexT>)
     Response Breadcrumb(
         IndexT& activeIndex,
-        std::initializer_list<BreadcrumbItem> items,
+        keel::ArrayRef<keel::StringRef> items,
         BreadcrumbOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return Breadcrumb(activeIndex, std::span<const BreadcrumbItem>(items.begin(), items.size()), std::move(opts), loc);
-    }
-
-    template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
-    Response Breadcrumb(
-        IndexT& activeIndex,
-        std::span<const std::string_view> items,
-        BreadcrumbOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        if constexpr (std::is_same_v<std::decay_t<IndexT>, size_t>) {
+        if constexpr (keel::IsSame<keel::Decay<IndexT>, size_t>) {
             return Run<guikit::Breadcrumb>(activeIndex, items, opts, loc);
         } else {
             int idx = static_cast<int>(activeIndex);
@@ -1997,28 +1558,17 @@ public:
             if (r.changed && idx >= 0) activeIndex = static_cast<IndexT>(idx);
             return r;
         }
-    }
-
-    template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
-    Response Breadcrumb(
-        IndexT& activeIndex,
-        std::initializer_list<std::string_view> items,
-        BreadcrumbOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return Breadcrumb(activeIndex, std::span<const std::string_view>(items.begin(), items.size()), std::move(opts), loc);
     }
 
     template <IndexLike IndexT, IndexLike CountT>
-        requires (!std::is_const_v<IndexT>)
+        requires (!keel::IsConst<IndexT>)
     Response Pagination(
         IndexT& currentPage,
         CountT totalPages,
         PaginationOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        if constexpr (std::is_same_v<std::decay_t<IndexT>, size_t>) {
+        if constexpr (keel::IsSame<keel::Decay<IndexT>, size_t>) {
             return Run<guikit::Pagination>(currentPage, static_cast<size_t>(totalPages), opts, loc);
         } else {
             int page = static_cast<int>(currentPage);
@@ -2031,38 +1581,29 @@ public:
     // --- CommandPalette Overlay Component ---
     CommandPaletteResponse CommandPalette(
         bool& isOpen,
-        std::span<const CommandPaletteItem> items,
+        keel::ArrayRef<CommandPaletteItem> items,
         const CommandPaletteOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return Run<guikit::CommandPalette>(isOpen, items, opts, loc);
-    }
-
-    CommandPaletteResponse CommandPalette(
-        bool& isOpen,
-        std::initializer_list<CommandPaletteItem> items,
-        const CommandPaletteOptions& opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return CommandPalette(isOpen, std::span<const CommandPaletteItem>(items.begin(), items.size()), opts, loc);
     }
 
     // --- Toolbar Component ---
     [[nodiscard]] ToolbarScope Toolbar(
         ToolbarOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     Response ToolButton(
         ToolButtonOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     // --- Modal Dialog Container ---
     [[nodiscard]] ModalScope Modal(
         bool& open,
         const ModalOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return guikit::Modal::Open(*this, open, opts, loc);
     }
@@ -2070,96 +1611,51 @@ public:
     // --- ContextMenu Popup Component ---
     ContextMenuResponse ContextMenu(
         const Response& triggerTarget,
-        std::span<const ContextMenuItem> items,
+        keel::ArrayRef<ContextMenuItem> items,
         const ContextMenuOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return guikit::ContextMenu::Run(*this, nullptr, std::nullopt, triggerTarget.rect, items, opts, loc);
-    }
-
-    ContextMenuResponse ContextMenu(
-        const Response& triggerTarget,
-        std::initializer_list<ContextMenuItem> items,
-        const ContextMenuOptions& opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return ContextMenu(triggerTarget, std::span<const ContextMenuItem>(items.begin(), items.size()), opts, loc);
+        return guikit::ContextMenu::Run(*this, nullptr, keel::kNullOpt, triggerTarget.rect, items, opts, loc);
     }
 
     ContextMenuResponse ContextMenu(
         Rect triggerRect,
-        std::span<const ContextMenuItem> items,
+        keel::ArrayRef<ContextMenuItem> items,
         const ContextMenuOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return guikit::ContextMenu::Run(*this, nullptr, std::nullopt, triggerRect, items, opts, loc);
+        return guikit::ContextMenu::Run(*this, nullptr, keel::kNullOpt, triggerRect, items, opts, loc);
     }
 
     ContextMenuResponse ContextMenu(
-        Rect triggerRect,
-        std::initializer_list<ContextMenuItem> items,
+        keel::ArrayRef<ContextMenuItem> items,
         const ContextMenuOptions& opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return ContextMenu(triggerRect, std::span<const ContextMenuItem>(items.begin(), items.size()), opts, loc);
-    }
-
-    ContextMenuResponse ContextMenu(
-        std::span<const ContextMenuItem> items,
-        const ContextMenuOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         const Id parentId = m_containerStack.empty() ? Id::Null() : m_containerStack.back()->id;
         const Rect parentRect = GetPrevFrameBounds(parentId);
-        return guikit::ContextMenu::Run(*this, nullptr, std::nullopt, parentRect, items, opts, loc);
-    }
-
-    ContextMenuResponse ContextMenu(
-        std::initializer_list<ContextMenuItem> items,
-        const ContextMenuOptions& opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return ContextMenu(std::span<const ContextMenuItem>(items.begin(), items.size()), opts, loc);
+        return guikit::ContextMenu::Run(*this, nullptr, keel::kNullOpt, parentRect, items, opts, loc);
     }
 
     ContextMenuResponse ContextMenu(
         bool& open,
-        std::span<const ContextMenuItem> items,
+        keel::ArrayRef<ContextMenuItem> items,
         const ContextMenuOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         const Id parentId = m_containerStack.empty() ? Id::Null() : m_containerStack.back()->id;
         const Rect parentRect = GetPrevFrameBounds(parentId);
-        return guikit::ContextMenu::Run(*this, &open, std::nullopt, parentRect, items, opts, loc);
-    }
-
-    ContextMenuResponse ContextMenu(
-        bool& open,
-        std::initializer_list<ContextMenuItem> items,
-        const ContextMenuOptions& opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return ContextMenu(open, std::span<const ContextMenuItem>(items.begin(), items.size()), opts, loc);
+        return guikit::ContextMenu::Run(*this, &open, keel::kNullOpt, parentRect, items, opts, loc);
     }
 
     ContextMenuResponse ContextMenu(
         bool& open,
         Vec2 anchorPos,
-        std::span<const ContextMenuItem> items,
+        keel::ArrayRef<ContextMenuItem> items,
         const ContextMenuOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return guikit::ContextMenu::Run(*this, &open, anchorPos, Rect{}, items, opts, loc);
-    }
-
-    ContextMenuResponse ContextMenu(
-        bool& open,
-        Vec2 anchorPos,
-        std::initializer_list<ContextMenuItem> items,
-        const ContextMenuOptions& opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return ContextMenu(open, anchorPos, std::span<const ContextMenuItem>(items.begin(), items.size()), opts, loc);
     }
 
     // --- Toast Notification System ---
@@ -2167,8 +1663,8 @@ public:
     void DismissToast(uint64_t id) noexcept;
     void ClearToasts() noexcept;
     [[nodiscard]] size_t GetActiveToastCount() const noexcept { return m_toasts.size(); }
-    [[nodiscard]] std::vector<ToastEntry>& GetToastEntries() noexcept { return m_toasts; }
-    [[nodiscard]] const std::vector<ToastEntry>& GetToastEntries() const noexcept { return m_toasts; }
+    [[nodiscard]] keel::Array<ToastEntry>& GetToastEntries() noexcept { return m_toasts; }
+    [[nodiscard]] keel::ArrayRef<ToastEntry> GetToastEntries() const noexcept { return m_toasts; }
     void MarkToastHostVisited() noexcept { m_toastHostVisitedThisFrame = true; }
     void SetToastHostOptions(const ToastHostOptions& opts) noexcept { m_defaultToastHostOpts = opts; }
     [[nodiscard]] const ToastHostOptions& GetToastHostOptions() const noexcept { return m_defaultToastHostOpts; }
@@ -2177,20 +1673,20 @@ public:
     }
 
     // --- String & Formatting Services ---
-    [[nodiscard]] keel::StringRef String(std::string_view text);
-    [[nodiscard]] std::string_view AllocString(std::string_view text);
+    [[nodiscard]] keel::StringRef String(keel::StringRef text);
+    [[nodiscard]] keel::StringRef AllocString(keel::StringRef text);
     [[nodiscard]] UiText AllocText(UiText t) {
         if (!t.text.empty()) {
             t.text = AllocString(t.text);
         }
         if (!t.variants.empty()) {
             const size_t count = t.variants.size();
-            auto* arr = m_arena.alloc_array<std::string_view>(count);
+            auto* arr = m_arena.alloc_array<keel::StringRef>(count);
             size_t i = 0;
-            for (std::string_view v : t.variants) {
-                arr[i++] = v.empty() ? std::string_view{} : AllocString(v);
+            for (keel::StringRef v : t.variants) {
+                arr[i++] = v.empty() ? keel::StringRef{} : AllocString(v);
             }
-            t.variants = std::span<const std::string_view>(arr, count);
+            t.variants = keel::ArrayRef<keel::StringRef>(arr, count);
         }
         return t;
     }
@@ -2209,20 +1705,20 @@ public:
     }
 
     template <typename... Args>
-    [[nodiscard]] keel::StringRef Format(std::string_view fmt, const Args&... args) {
+    [[nodiscard]] keel::StringRef Format(keel::StringRef fmt, const Args&... args) {
         return keel::format_arena(m_arena, fmt, args...);
     }
 
     // --- Core Engine Services for Widgets ---
-    Id MakeChildId(std::source_location loc);
-    Id MakeChildIdForParent(Id parentId, std::source_location loc);
+    Id MakeChildId(keel::SourceLocation loc);
+    Id MakeChildIdForParent(Id parentId, keel::SourceLocation loc);
     Response Interact(Id id);
     Node* CreateNode(NodeType type, Id id);
-    
+
     /// Allocates and constructs arbitrary widget payload data in the per-frame scratch arena.
     template <typename T, typename... Args>
     [[nodiscard]] T* AllocPayload(Args&&... args) {
-        return m_arena.create<T>(std::forward<Args>(args)...);
+        return m_arena.create<T>(keel::forward<Args>(args)...);
     }
 
     [[nodiscard]] keel::Arena& GetArena() noexcept { return m_arena; }
@@ -2264,40 +1760,40 @@ public:
     [[nodiscard]] ICanvas* GetCanvas() const noexcept { return m_lastCanvas; }
 
     // --- Clipboard & Host Services ---
-    using ClipboardGetFn = std::function<std::string()>;
-    using ClipboardSetFn = std::function<void(std::string_view)>;
-    using OpenUrlFn = std::function<void(std::string_view)>;
+    using ClipboardGetFn = keel::Function<keel::String()>;
+    using ClipboardSetFn = keel::Function<void(keel::StringRef)>;
+    using OpenUrlFn = keel::Function<void(keel::StringRef)>;
 
     void SetClipboardCallbacks(ClipboardGetFn getFn, ClipboardSetFn setFn);
-    void SetClipboardText(std::string_view text);
-    [[nodiscard]] std::string GetClipboardText() const;
+    void SetClipboardText(keel::StringRef text);
+    [[nodiscard]] keel::String GetClipboardText() const;
 
-    void SetOpenUrlCallback(OpenUrlFn fn) { m_openUrlFn = std::move(fn); }
-    void OpenUrl(std::string_view url) const {
+    void SetOpenUrlCallback(OpenUrlFn fn) { m_openUrlFn = keel::move(fn); }
+    void OpenUrl(keel::StringRef url) const {
         if (!url.empty() && m_openUrlFn) {
             m_openUrlFn(url);
         }
     }
 
-    std::string_view EnsureTextEdit(
+    keel::StringRef EnsureTextEdit(
         Id id,
-        std::string_view initialText,
+        keel::StringRef initialText,
         bool multiline = false,
         bool readOnly = false
     );
 
-    std::string_view GetOrStartTextEdit(
+    keel::StringRef GetOrStartTextEdit(
         Id id,
-        std::string_view initialText,
+        keel::StringRef initialText,
         size_t& outCursor,
         bool& outChanged,
         bool& outSubmitted,
         bool multiline = false
     );
 
-    std::string_view GetOrStartTextEdit(
+    keel::StringRef GetOrStartTextEdit(
         Id id,
-        std::string_view initialText,
+        keel::StringRef initialText,
         size_t& outCursor,
         size_t& outSelectionAnchor,
         bool& outChanged,
@@ -2306,11 +1802,11 @@ public:
         bool readOnly = false
     );
 
-    void SetTextEditBuffer(Id id, std::string_view text);
+    void SetTextEditBuffer(Id id, keel::StringRef text);
     void SetTextEditCursor(Id id, size_t cursor, size_t selectionAnchor) noexcept;
     void SetTextEditAutoClose(Id id, bool enabled) noexcept;
     void SetTextEditIndentation(Id id, uint8_t tabSize, bool insertSpaces) noexcept;
-    void ApplyTextEditChange(Id id, std::string_view newText, size_t newCursor, size_t newSelectionAnchor);
+    void ApplyTextEditChange(Id id, keel::StringRef newText, size_t newCursor, size_t newSelectionAnchor);
     bool UndoTextEdit(Id id);
     bool RedoTextEdit(Id id);
     void SetSuspendDirectEditInput(bool suspend) noexcept { m_suspendDirectEditInput = suspend; }
@@ -2322,7 +1818,7 @@ public:
     // --- Cursor Configuration & State ---
     void SetCursorConfig(const CursorConfig& config) noexcept { m_cursorConfig = config; }
     [[nodiscard]] const CursorConfig& GetCursorConfig() const noexcept { return m_cursorConfig; }
-    [[nodiscard]] bool IsCursorVisible(std::optional<CursorBlinkMode> modeOverride = std::nullopt) const noexcept;
+    [[nodiscard]] bool IsCursorVisible(keel::Optional<CursorBlinkMode> modeOverride = keel::kNullOpt) const noexcept;
     void ResetCursorBlink() noexcept;
 
 #ifdef GetCurrentTime
@@ -2347,17 +1843,17 @@ public:
     [[nodiscard]] Rect GetOpenPopupRect() const noexcept { return m_openPopupRect; }
     void SetOpenPopupVisualHash(uint64_t hash) noexcept { m_openPopupVisualHash = hash; }
     template <typename F>
-        requires std::invocable<std::decay_t<F>&, ICanvas&>
+        requires requires(keel::Decay<F>& f, ICanvas& c) { f(c); }
     void RegisterOverlay(F&& drawFn) {
-        using Decayed = std::decay_t<F>;
-        if constexpr (std::is_pointer_v<Decayed> || requires(const Decayed& f) { static_cast<bool>(f); }) {
+        using Decayed = keel::Decay<F>;
+        if constexpr (keel::IsPointer<Decayed> || requires(const Decayed& f) { static_cast<bool>(f); }) {
             if (!static_cast<bool>(drawFn)) return;
         }
-        Decayed* stored = m_arena.create<Decayed>(std::forward<F>(drawFn));
+        Decayed* stored = m_arena.create<Decayed>(keel::forward<F>(drawFn));
         m_overlayPasses.push_back(OverlayPass{
             .ctx = stored,
             .invoke = +[](void* p, ICanvas& c) { (*static_cast<Decayed*>(p))(c); },
-            .destroy = std::is_trivially_destructible_v<Decayed>
+            .destroy = keel::IsTriviallyDestructible<Decayed>
                 ? nullptr
                 : +[](void* p) noexcept { static_cast<Decayed*>(p)->~Decayed(); },
             .clipRect = GetPopupViewportRect()
@@ -2366,17 +1862,17 @@ public:
     void MarkModalOverlayActive() noexcept { m_currFrameModalOverlay = true; }
     void RegisterOverlayHitRegion(Id id, Rect rect);
     template <typename F>
-        requires std::invocable<std::decay_t<F>&>
+        requires requires(keel::Decay<F>& f) { f(); }
     void RegisterOverlayHitBuilder(F&& builderFn) {
-        using Decayed = std::decay_t<F>;
-        if constexpr (std::is_pointer_v<Decayed> || requires(const Decayed& f) { static_cast<bool>(f); }) {
+        using Decayed = keel::Decay<F>;
+        if constexpr (keel::IsPointer<Decayed> || requires(const Decayed& f) { static_cast<bool>(f); }) {
             if (!static_cast<bool>(builderFn)) return;
         }
-        Decayed* stored = m_arena.create<Decayed>(std::forward<F>(builderFn));
+        Decayed* stored = m_arena.create<Decayed>(keel::forward<F>(builderFn));
         m_overlayHitBuilders.push_back(OverlayHitBuilder{
             .ctx = stored,
             .invoke = +[](void* p) { (*static_cast<Decayed*>(p))(); },
-            .destroy = std::is_trivially_destructible_v<Decayed>
+            .destroy = keel::IsTriviallyDestructible<Decayed>
                 ? nullptr
                 : +[](void* p) noexcept { static_cast<Decayed*>(p)->~Decayed(); }
         });
@@ -2420,9 +1916,13 @@ public:
 
     void BeginModalScope(Id id, Rect backdropRect) noexcept {
         if (m_modalScopeDepth == 0 && m_focusedId.IsValid()) {
-            const bool focusedBeforeModal = std::find(
-                m_currFocusableIds.begin(), m_currFocusableIds.end(), m_focusedId
-            ) != m_currFocusableIds.end();
+            bool focusedBeforeModal = false;
+            for (const Id& fid : m_currFocusableIds) {
+                if (fid == m_focusedId) {
+                    focusedBeforeModal = true;
+                    break;
+                }
+            }
             if (focusedBeforeModal) {
                 if (!m_savedFocusBeforeModal.IsValid()) {
                     m_savedFocusBeforeModal = m_focusedId;
@@ -2509,19 +2009,19 @@ public:
     }
     bool ConsumeAction(KeyAction action);
 
-    [[nodiscard]] std::vector<std::string> ConsumePendingTextInput();
+    [[nodiscard]] keel::Array<keel::String> ConsumePendingTextInput();
     void ScrollToId(Id id);
 
     // --- Generic Persistent State Storage ---
     /// Typed state storage across frames for widgets by deterministic Id and Type (garbage-collected if unused for 600+ frames).
     template <typename T>
     [[nodiscard]] T& GetOrCreateState(Id id, T defaultVal = T{}) {
-        detail::StateKey key{id, std::type_index(typeid(T))};
+        detail::StateKey key{id, keel::type_id<T>()};
         detail::StoredState* found = m_customStates.get(key);
         if (!found) {
             detail::StoredState& inserted = m_customStates.get_or_insert(
                 key,
-                detail::StoredState::Create<T>(std::move(defaultVal), m_frameIndex, false)
+                detail::StoredState::Create<T>(keel::move(defaultVal), m_frameIndex, false)
             );
             return *static_cast<T*>(inserted.ptr);
         }
@@ -2532,12 +2032,12 @@ public:
     /// Long-lived typed state storage that survives tab switches, collapsed trees, and hidden panels without 600-frame eviction.
     template <typename T>
     [[nodiscard]] T& GetOrCreatePersistentState(Id id, T defaultVal = T{}) {
-        detail::StateKey key{id, std::type_index(typeid(T))};
+        detail::StateKey key{id, keel::type_id<T>()};
         detail::StoredState* found = m_customStates.get(key);
         if (!found) {
             detail::StoredState& inserted = m_customStates.get_or_insert(
                 key,
-                detail::StoredState::Create<T>(std::move(defaultVal), m_frameIndex, true)
+                detail::StoredState::Create<T>(keel::move(defaultVal), m_frameIndex, true)
             );
             return *static_cast<T*>(inserted.ptr);
         }
@@ -2549,7 +2049,7 @@ public:
     /// Finds persistent typed state associated with a unique widget Id, or nullptr if not found.
     template <typename T>
     [[nodiscard]] const T* FindState(Id id) const {
-        detail::StateKey key{id, std::type_index(typeid(T))};
+        detail::StateKey key{id, keel::type_id<T>()};
         const detail::StoredState* found = m_customStates.get(key);
         if (!found) {
             return nullptr;
@@ -2559,7 +2059,7 @@ public:
 
     template <typename T>
     [[nodiscard]] T* FindMutableState(Id id) {
-        detail::StateKey key{id, std::type_index(typeid(T))};
+        detail::StateKey key{id, keel::type_id<T>()};
         detail::StoredState* found = m_customStates.get(key);
         if (!found) {
             return nullptr;
@@ -2601,8 +2101,8 @@ private:
     };
 
     keel::HashMap<Id, WidgetSnapshot> m_prevSnapshots;
-    std::vector<Rect> m_explicitDamageRects;
-    std::vector<Rect> m_dirtyRects;
+    keel::Array<Rect> m_explicitDamageRects;
+    keel::Array<Rect> m_dirtyRects;
     Rect m_dirtyRect{0.0f, 0.0f, 0.0f, 0.0f};
     UiTheme m_theme{UiTheme::Dark()};
     Color m_clearColor{11, 15, 25, 255}; // Tailwind Slate-950 #0B0F19
@@ -2629,7 +2129,7 @@ private:
 
     // Time & Cursor animation state
     CursorConfig m_cursorConfig{};
-    std::chrono::steady_clock::time_point m_startTime{std::chrono::steady_clock::now()};
+    keel::u64 m_startTimeNs{0};
     double m_currentTimeSec{0.0};
     double m_lastInputTimeSec{0.0};
     bool m_manualTime{false};
@@ -2657,7 +2157,7 @@ private:
     ClipboardGetFn m_clipboardGetFn{};
     ClipboardSetFn m_clipboardSetFn{};
     OpenUrlFn m_openUrlFn{};
-    std::string m_clipboardText{};
+    keel::String m_clipboardText{};
 
     Id m_hoveredId{Id::Null()};
     Id m_activeId{Id::Null()};
@@ -2667,18 +2167,18 @@ private:
     // Active text edit state
     struct ActiveEditState {
         struct EditSnapshot {
-            std::string text;
+            keel::String text;
             size_t cursor{0};
             size_t selectionAnchor{0};
         };
 
         Id id{Id::Null()};
-        std::string text;
+        keel::String text;
         size_t cursor{0};
         size_t selectionAnchor{0};
-        std::vector<EditSnapshot> undoStack;
-        std::vector<EditSnapshot> redoStack;
-        std::optional<size_t> preferredColumn;
+        keel::Array<EditSnapshot> undoStack;
+        keel::Array<EditSnapshot> redoStack;
+        keel::Optional<size_t> preferredColumn;
         bool changed{false};
         bool submitted{false};
         bool multiline{false};
@@ -2688,35 +2188,35 @@ private:
         bool insertSpaces{true};
 
         [[nodiscard]] bool HasSelection() const noexcept { return cursor != selectionAnchor; }
-        [[nodiscard]] size_t SelectionStart() const noexcept { return std::min(cursor, selectionAnchor); }
-        [[nodiscard]] size_t SelectionEnd() const noexcept { return std::max(cursor, selectionAnchor); }
+        [[nodiscard]] size_t SelectionStart() const noexcept { return keel::min(cursor, selectionAnchor); }
+        [[nodiscard]] size_t SelectionEnd() const noexcept { return keel::max(cursor, selectionAnchor); }
 
-        [[nodiscard]] std::string_view SelectedText() const noexcept {
+        [[nodiscard]] keel::StringRef SelectedText() const noexcept {
             if (!HasSelection()) return {};
-            const size_t s = std::min(SelectionStart(), text.size());
-            const size_t e = std::min(SelectionEnd(), text.size());
-            return std::string_view(text).substr(s, e - s);
+            const size_t s = keel::min(SelectionStart(), text.size());
+            const size_t e = keel::min(SelectionEnd(), text.size());
+            return text.substr(s, e - s);
         }
 
         void SaveUndo() {
             if (undoStack.empty() || undoStack.back().text != text) {
                 if (undoStack.size() >= 128) {
-                    undoStack.erase(undoStack.begin());
+                    undoStack.remove_at(0);
                 }
-                undoStack.push_back(EditSnapshot{text, cursor, selectionAnchor});
+                undoStack.push_back(EditSnapshot{text.clone(), cursor, selectionAnchor});
                 redoStack.clear();
             }
         }
 
         bool Undo() {
             while (!undoStack.empty()) {
-                EditSnapshot snap = std::move(undoStack.back());
+                EditSnapshot snap = keel::move(undoStack.back());
                 undoStack.pop_back();
                 if (snap.text != text) {
-                    redoStack.push_back(EditSnapshot{text, cursor, selectionAnchor});
-                    text = std::move(snap.text);
-                    cursor = std::min(snap.cursor, text.size());
-                    selectionAnchor = std::min(snap.selectionAnchor, text.size());
+                    redoStack.push_back(EditSnapshot{text.clone(), cursor, selectionAnchor});
+                    text = keel::move(snap.text);
+                    cursor = keel::min(snap.cursor, text.size());
+                    selectionAnchor = keel::min(snap.selectionAnchor, text.size());
                     preferredColumn.reset();
                     changed = true;
                     return true;
@@ -2727,13 +2227,13 @@ private:
 
         bool Redo() {
             while (!redoStack.empty()) {
-                EditSnapshot snap = std::move(redoStack.back());
+                EditSnapshot snap = keel::move(redoStack.back());
                 redoStack.pop_back();
                 if (snap.text != text) {
-                    undoStack.push_back(EditSnapshot{text, cursor, selectionAnchor});
-                    text = std::move(snap.text);
-                    cursor = std::min(snap.cursor, text.size());
-                    selectionAnchor = std::min(snap.selectionAnchor, text.size());
+                    undoStack.push_back(EditSnapshot{text.clone(), cursor, selectionAnchor});
+                    text = keel::move(snap.text);
+                    cursor = keel::min(snap.cursor, text.size());
+                    selectionAnchor = keel::min(snap.selectionAnchor, text.size());
                     preferredColumn.reset();
                     changed = true;
                     return true;
@@ -2749,14 +2249,14 @@ private:
         }
 
         bool DeleteSelection();
-        void Insert(std::string_view utf8Text);
+        void Insert(keel::StringRef utf8Text);
         bool HandleKey(Context& ctx, Key key, KeyModifiers mods, bool& outLostFocus);
     };
     ActiveEditState m_editState;
     struct TextEditHistory {
-        std::string lastText;
-        std::vector<ActiveEditState::EditSnapshot> undoStack;
-        std::vector<ActiveEditState::EditSnapshot> redoStack;
+        keel::String lastText;
+        keel::Array<ActiveEditState::EditSnapshot> undoStack;
+        keel::Array<ActiveEditState::EditSnapshot> redoStack;
     };
     keel::HashMap<Id, TextEditHistory> m_editHistories;
     Id m_savedFocusBeforeModal{Id::Null()};
@@ -2766,8 +2266,8 @@ private:
         Key key;
         KeyModifiers mods;
     };
-    std::vector<std::string> m_pendingTextInput;
-    std::vector<QueuedKeyEvent> m_pendingKeyEvents;
+    keel::Array<keel::String> m_pendingTextInput;
+    keel::Array<QueuedKeyEvent> m_pendingKeyEvents;
 
     // Previous frame widget bounds for instantaneous hit testing
     struct HitNodeRecord {
@@ -2784,23 +2284,23 @@ private:
     keel::HashMap<Id, Rect> m_currFrameBounds;
     keel::HashMap<Id, Rect> m_prevUnclippedBounds;
     keel::HashMap<Id, Rect> m_currUnclippedBounds;
-    std::vector<HitNodeRecord> m_prevHitNodes;
-    std::vector<HitNodeRecord> m_currHitNodes;
+    keel::Array<HitNodeRecord> m_prevHitNodes;
+    keel::Array<HitNodeRecord> m_currHitNodes;
     keel::HashMap<Id, size_t> m_prevHitNodeMap;
     struct OverlayHitBuilder {
         void* ctx{nullptr};
         void (*invoke)(void*){nullptr};
         void (*destroy)(void*) noexcept{nullptr};
     };
-    std::vector<OverlayHitRegion> m_prevOverlayHitRegions;
-    std::vector<OverlayHitRegion> m_currOverlayHitRegions;
+    keel::Array<OverlayHitRegion> m_prevOverlayHitRegions;
+    keel::Array<OverlayHitRegion> m_currOverlayHitRegions;
     keel::SmallArray<OverlayHitBuilder, 8> m_overlayHitBuilders;
     Id m_activeOverlayHitCheckId{Id::Null()};
     int m_widgetExecDepth{0};
-    std::vector<Id> m_prevFocusableIds;
-    std::vector<Id> m_currFocusableIds;
-    std::vector<Id> m_prevModalFocusableIds;
-    std::vector<Id> m_currModalFocusableIds;
+    keel::Array<Id> m_prevFocusableIds;
+    keel::Array<Id> m_currFocusableIds;
+    keel::Array<Id> m_prevModalFocusableIds;
+    keel::Array<Id> m_currModalFocusableIds;
 
     // Floating popup, tooltip, modal & toast overlay state
     Id m_openPopupId{Id::Null()};
@@ -2821,7 +2321,7 @@ private:
     Rect m_activeTooltipViewport{0.0f, 0.0f, 0.0f, 0.0f};
     uint64_t m_prevTooltipHash{0};
     bool m_hadTooltipLastFrame{false};
-    std::vector<ToastEntry> m_toasts;
+    keel::Array<ToastEntry> m_toasts;
     ToastHostOptions m_defaultToastHostOpts{};
     uint64_t m_nextToastId{0};
     bool m_toastHostVisitedThisFrame{false};
@@ -2904,27 +2404,27 @@ public:
     template <typename WidgetT, typename... Args>
         requires WidgetRunnable<WidgetT, Args...>
     decltype(auto) Run(Args&&... args) {
-        return m_ctx->Run<WidgetT>(std::forward<Args>(args)...);
+        return m_ctx->Run<WidgetT>(keel::forward<Args>(args)...);
     }
 
     template <typename ContainerT, typename... Args>
         requires ContainerOpenable<ContainerT, Args...>
     [[nodiscard]] decltype(auto) Open(Args&&... args) {
-        return TransferToContainer(m_ctx->Open<ContainerT>(std::forward<Args>(args)...));
+        return TransferToContainer(m_ctx->Open<ContainerT>(keel::forward<Args>(args)...));
     }
 
     // --- Element (propagates its size to its child Control unless overridden) ---
     ElementScope Element(
         ElementOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->Element(std::move(opts), loc));
+        return TransferToContainer(m_ctx->Element(keel::move(opts), loc));
     }
 
     // --- Accordion (applies size to Accordion header; restores previous size for body children) ---
     [[nodiscard]] AccordionScope Accordion(
         AccordionOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         Context* ctx = m_ctx;
         AccordionScope scope = ctx->Accordion(opts, loc);
@@ -2933,9 +2433,9 @@ public:
     }
 
     [[nodiscard]] AccordionScope Accordion(
-        std::string_view label,
+        keel::StringRef label,
         AccordionOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         Context* ctx = m_ctx;
         AccordionScope scope = ctx->Accordion(label, opts, loc);
@@ -2946,7 +2446,7 @@ public:
     [[nodiscard]] AccordionScope Accordion(
         bool& open,
         AccordionOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         Context* ctx = m_ctx;
         AccordionScope scope = ctx->Accordion(open, opts, loc);
@@ -2955,15 +2455,15 @@ public:
     }
 
     template <typename T, typename U>
-        requires (!std::is_same_v<std::decay_t<T>, bool> && requires(T& a, const U& b) {
-            { a == b } -> std::convertible_to<bool>;
+        requires (!keel::IsSame<keel::Decay<T>, bool> && requires(T& a, const U& b) {
+            static_cast<bool>(a == b);
             a = static_cast<T>(b);
         })
     [[nodiscard]] AccordionScope Accordion(
         T& activeValue,
         const U& sectionValue,
         AccordionOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         Context* ctx = m_ctx;
         AccordionScope scope = ctx->Accordion(activeValue, sectionValue, opts, loc);
@@ -2974,42 +2474,42 @@ public:
     // --- Layout & Panel Containers (children inherit m_size) ---
     [[nodiscard]] ContainerScope Row(
         RowOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->Row(std::move(opts), loc));
+        return TransferToContainer(m_ctx->Row(keel::move(opts), loc));
     }
 
     [[nodiscard]] ContainerScope Column(
         ColumnOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->Column(std::move(opts), loc));
+        return TransferToContainer(m_ctx->Column(keel::move(opts), loc));
     }
 
     [[nodiscard]] ContainerScope Wrap(
         WrapOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->Wrap(std::move(opts), loc));
+        return TransferToContainer(m_ctx->Wrap(keel::move(opts), loc));
     }
 
     [[nodiscard]] GridScope Grid(
         GridOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->Grid(std::move(opts), loc));
+        return TransferToContainer(m_ctx->Grid(keel::move(opts), loc));
     }
 
     void Spacer(
         float flex = 1.0f,
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         m_ctx->Spacer(flex, loc);
     }
 
     void Gap(
         float sizeDp = 8.0f,
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         m_ctx->Gap(sizeDp, loc);
     }
@@ -3017,14 +2517,14 @@ public:
     void Separator(
         float extentRatio = 0.0f,
         Color colorOverride = Color::Transparent(),
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         m_ctx->Separator(extentRatio, colorOverride, loc);
     }
 
     void Separator(
         Color colorOverride,
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         m_ctx->Separator(colorOverride, loc);
     }
@@ -3033,148 +2533,137 @@ public:
         Orientation lineOrientation,
         float extentRatio = 0.0f,
         Color colorOverride = Color::Transparent(),
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         m_ctx->Separator(lineOrientation, extentRatio, colorOverride, loc);
     }
 
     [[nodiscard]] ContainerScope Box(
         BoxOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->Box(std::move(opts), loc));
+        return TransferToContainer(m_ctx->Box(keel::move(opts), loc));
     }
 
     [[nodiscard]] ContainerScope Card(
         CardOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->Card(std::move(opts), loc));
+        return TransferToContainer(m_ctx->Card(keel::move(opts), loc));
     }
 
     [[nodiscard]] ContainerScope ScrollArea(
         ScrollAreaOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->ScrollArea(std::move(opts), loc));
+        return TransferToContainer(m_ctx->ScrollArea(keel::move(opts), loc));
     }
 
     [[nodiscard]] ContainerScope Carousel(
         CarouselOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->Carousel(std::move(opts), loc));
+        return TransferToContainer(m_ctx->Carousel(keel::move(opts), loc));
     }
 
     [[nodiscard]] SidebarScope Sidebar(
         SidebarOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->Sidebar(std::move(opts), loc));
+        return TransferToContainer(m_ctx->Sidebar(keel::move(opts), loc));
     }
 
     [[nodiscard]] SidebarScope Sidebar(
         SidebarMode& mode,
         SidebarOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->Sidebar(mode, std::move(opts), loc));
+        return TransferToContainer(m_ctx->Sidebar(mode, keel::move(opts), loc));
     }
 
     [[nodiscard]] SidebarScope Sidebar(
         bool& open,
         SidebarOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->Sidebar(open, std::move(opts), loc));
+        return TransferToContainer(m_ctx->Sidebar(open, keel::move(opts), loc));
     }
 
     [[nodiscard]] ActivityBarScope ActivityBar(
         ActivityBarOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->ActivityBar(std::move(opts), loc));
+        return TransferToContainer(m_ctx->ActivityBar(keel::move(opts), loc));
     }
 
     [[nodiscard]] ActivityBarScope ActivityBar(
         SidebarMode& linkedSidebarMode,
         ActivityBarOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->ActivityBar(linkedSidebarMode, std::move(opts), loc));
+        return TransferToContainer(m_ctx->ActivityBar(linkedSidebarMode, keel::move(opts), loc));
     }
 
     template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
+        requires (!keel::IsConst<IndexT>)
     Response ActivityBar(
         IndexT& activeIndex,
-        std::span<const ActivityBarItem> items,
+        keel::ArrayRef<ActivityBarItem> items,
         ActivityBarOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->ActivityBar(activeIndex, items, std::move(opts), loc);
-    }
-
-    template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
-    Response ActivityBar(
-        IndexT& activeIndex,
-        std::initializer_list<ActivityBarItem> items,
-        ActivityBarOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->ActivityBar(activeIndex, items, std::move(opts), loc);
+        return m_ctx->ActivityBar(activeIndex, items, keel::move(opts), loc);
     }
 
     [[nodiscard]] BottomPanelScope BottomPanel(
         BottomPanelOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->BottomPanel(std::move(opts), loc));
+        return TransferToContainer(m_ctx->BottomPanel(keel::move(opts), loc));
     }
 
     [[nodiscard]] BottomPanelScope BottomPanel(
         BottomPanelMode& mode,
         BottomPanelOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->BottomPanel(mode, std::move(opts), loc));
+        return TransferToContainer(m_ctx->BottomPanel(mode, keel::move(opts), loc));
     }
 
     [[nodiscard]] BottomPanelScope BottomPanel(
         BottomPanelMode* mode,
         BottomPanelOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->BottomPanel(mode, std::move(opts), loc));
+        return TransferToContainer(m_ctx->BottomPanel(mode, keel::move(opts), loc));
     }
 
     [[nodiscard]] BottomPanelScope BottomPanel(
         bool& open,
         BottomPanelOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->BottomPanel(open, std::move(opts), loc));
+        return TransferToContainer(m_ctx->BottomPanel(open, keel::move(opts), loc));
     }
 
     [[nodiscard]] BottomPanelScope BottomPanel(
         bool* open,
         BottomPanelOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->BottomPanel(open, std::move(opts), loc));
+        return TransferToContainer(m_ctx->BottomPanel(open, keel::move(opts), loc));
     }
 
     [[nodiscard]] StatusBarScope StatusBar(
         StatusBarOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->StatusBar(std::move(opts), loc));
+        return TransferToContainer(m_ctx->StatusBar(keel::move(opts), loc));
     }
 
     [[nodiscard]] SplitViewScope SplitView(
         const SplitViewOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return TransferToContainer(m_ctx->SplitView(opts, loc));
     }
@@ -3182,186 +2671,170 @@ public:
     [[nodiscard]] SplitViewScope SplitView(
         float& ratio,
         const SplitViewOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return TransferToContainer(m_ctx->SplitView(ratio, opts, loc));
     }
 
     [[nodiscard]] SceneScope Scene(
         SceneOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->Scene(std::move(opts), loc));
+        return TransferToContainer(m_ctx->Scene(keel::move(opts), loc));
     }
 
 #if GUIKIT_HAS_SCENES
     [[nodiscard]] MapViewScope MapView(
         MapViewOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->MapView(std::move(opts), loc));
+        return TransferToContainer(m_ctx->MapView(keel::move(opts), loc));
     }
 #endif
 
     [[nodiscard]] TableScope Table(
-        std::span<const TableColumn> columns,
+        keel::ArrayRef<TableColumn> columns,
         const TableOptions& opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return TransferToContainer(m_ctx->Table(columns, opts, loc));
-    }
-
-    [[nodiscard]] TableScope Table(
-        std::initializer_list<TableColumn> columns,
-        const TableOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return TransferToContainer(m_ctx->Table(columns, opts, loc));
     }
 
     [[nodiscard]] ToolbarScope Toolbar(
         ToolbarOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->Toolbar(std::move(opts), loc));
+        return TransferToContainer(m_ctx->Toolbar(keel::move(opts), loc));
     }
 
     [[nodiscard]] SidebarMenuScope SidebarMenu(
         SidebarMenuOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->SidebarMenu(std::move(opts), loc));
+        return TransferToContainer(m_ctx->SidebarMenu(keel::move(opts), loc));
     }
 
     [[nodiscard]] TreeViewScope TreeView(
         TreeViewOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->TreeView(std::move(opts), loc));
+        return TransferToContainer(m_ctx->TreeView(keel::move(opts), loc));
     }
 
     [[nodiscard]] TreeViewScope TreeView(
-        std::span<const TableColumn> columns,
+        keel::ArrayRef<TableColumn> columns,
         TreeViewOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->TreeView(columns, std::move(opts), loc));
-    }
-
-    [[nodiscard]] TreeViewScope TreeView(
-        std::initializer_list<TableColumn> columns,
-        TreeViewOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return TransferToContainer(m_ctx->TreeView(columns, std::move(opts), loc));
+        return TransferToContainer(m_ctx->TreeView(columns, keel::move(opts), loc));
     }
 
     [[nodiscard]] TreeItemScope TreeItem(
         TreeItemOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->TreeItem(std::move(opts), loc));
+        return TransferToContainer(m_ctx->TreeItem(keel::move(opts), loc));
     }
 
     [[nodiscard]] TreeItemScope TreeItem(
-        std::string_view label,
+        keel::StringRef label,
         TreeItemOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->TreeItem(label, std::move(opts), loc));
+        return TransferToContainer(m_ctx->TreeItem(label, keel::move(opts), loc));
     }
 
     [[nodiscard]] TreeItemScope TreeItem(
         bool& open,
         TreeItemOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->TreeItem(open, std::move(opts), loc));
+        return TransferToContainer(m_ctx->TreeItem(open, keel::move(opts), loc));
     }
 
     [[nodiscard]] TreeItemScope TreeItem(
         bool& open,
-        std::string_view label,
+        keel::StringRef label,
         TreeItemOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return TransferToContainer(m_ctx->TreeItem(open, label, std::move(opts), loc));
+        return TransferToContainer(m_ctx->TreeItem(open, label, keel::move(opts), loc));
     }
 
     // --- Leaf Widgets & Controls ---
     Response Heading(
         HeadingOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->Heading(std::move(opts), loc);
+        return m_ctx->Heading(keel::move(opts), loc);
     }
 
     Response Button(
         ButtonOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->Button(std::move(opts), loc);
+        return m_ctx->Button(keel::move(opts), loc);
     }
 
     Response ToolButton(
         ToolButtonOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->ToolButton(std::move(opts), loc);
+        return m_ctx->ToolButton(keel::move(opts), loc);
     }
 
     Response Text(
         UiText label,
         TextOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->Text(std::move(label), std::move(opts), loc);
+        return m_ctx->Text(keel::move(label), keel::move(opts), loc);
     }
 
     Response Image(
-        std::string_view source,
+        keel::StringRef source,
         ImageOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->Image(source, std::move(opts), loc);
+        return m_ctx->Image(source, keel::move(opts), loc);
     }
 
     Response Image(
         ImageOptions opts,
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->Image(std::move(opts), loc);
+        return m_ctx->Image(keel::move(opts), loc);
     }
 
     MarkdownResponse Markdown(
-        std::string_view markdownText,
+        keel::StringRef markdownText,
         const MarkdownOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return m_ctx->Markdown(markdownText, opts, loc);
     }
 
 #if GUIKIT_HAS_SCENES
     SignalViewResponse SignalView(
-        std::span<const float> samples,
+        keel::ArrayRef<float> samples,
         const SignalViewOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return m_ctx->SignalView(samples, opts, loc);
     }
 
     SonarViewResponse SonarView(
-        std::span<const float> polarMatrix,
+        keel::ArrayRef<float> polarMatrix,
         const SonarViewOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return m_ctx->SonarView(polarMatrix, opts, loc);
     }
 
     WaterfallViewResponse WaterfallView(
-        std::span<const float> latestSliceDb,
+        keel::ArrayRef<float> latestSliceDb,
         const WaterfallViewOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return m_ctx->WaterfallView(latestSliceDb, opts, loc);
     }
@@ -3371,7 +2844,7 @@ public:
         const HistogramData& data,
         ChannelTransferParams& transfer,
         const HistogramOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return m_ctx->Histogram(data, transfer, opts, loc);
     }
@@ -3380,7 +2853,7 @@ public:
         const ImageViewData& data,
         ImageViewParams& params,
         const ImageViewOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return m_ctx->ImageView(data, params, opts, loc);
     }
@@ -3388,7 +2861,7 @@ public:
     ImageViewResponse ImageView(
         const ImageViewData& data,
         const ImageViewOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return m_ctx->ImageView(data, opts, loc);
     }
@@ -3396,14 +2869,14 @@ public:
 #if GUIKIT_HAS_SCENES
     AttitudeViewResponse AttitudeView(
         const AttitudeViewOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return m_ctx->AttitudeView(opts, loc);
     }
 
     CarClusterViewResponse CarClusterView(
         const CarClusterViewOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return m_ctx->CarClusterView(opts, loc);
     }
@@ -3411,7 +2884,7 @@ public:
     BpmnEditorResponse BpmnEditor(
         BpmnDiagram& diagram,
         const BpmnEditorOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return m_ctx->BpmnEditor(diagram, opts, loc);
     }
@@ -3420,113 +2893,105 @@ public:
     Response Switch(
         bool& value,
         SwitchOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->Switch(value, std::move(opts), loc);
+        return m_ctx->Switch(value, keel::move(opts), loc);
     }
 
     Response Switch(
         const bool& checked,
         SwitchOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->Switch(checked, std::move(opts), loc);
+        return m_ctx->Switch(checked, keel::move(opts), loc);
     }
 
     Response Checkbox(
         bool& value,
         CheckboxOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->Checkbox(value, std::move(opts), loc);
+        return m_ctx->Checkbox(value, keel::move(opts), loc);
     }
 
     Response Checkbox(
         const bool& checked,
         CheckboxOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->Checkbox(checked, std::move(opts), loc);
+        return m_ctx->Checkbox(checked, keel::move(opts), loc);
     }
 
     template <typename T, typename U = T>
-        requires (std::equality_comparable_with<T, U>)
+        requires requires(const T& a, const U& b) { static_cast<bool>(a == b); }
     Response Radio(
         T& currentValue,
         const U& optionValue,
         RadioOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->Radio(currentValue, optionValue, std::move(opts), loc);
+        return m_ctx->Radio(currentValue, optionValue, keel::move(opts), loc);
     }
 
     Response Radio(
         bool& value,
         RadioOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->Radio(value, std::move(opts), loc);
+        return m_ctx->Radio(value, keel::move(opts), loc);
     }
 
     Response Radio(
         const bool& checked,
         RadioOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->Radio(checked, std::move(opts), loc);
+        return m_ctx->Radio(checked, keel::move(opts), loc);
     }
 
     template <typename T, typename U = T>
-        requires (std::equality_comparable_with<T, U>)
+        requires requires(const T& a, const U& b) { static_cast<bool>(a == b); }
     Response RadioButton(
         T& currentValue,
         const U& optionValue,
         RadioOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->RadioButton(currentValue, optionValue, std::move(opts), loc);
+        return m_ctx->RadioButton(currentValue, optionValue, keel::move(opts), loc);
     }
 
     Response RadioButton(
         bool& checked,
         RadioOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->RadioButton(checked, std::move(opts), loc);
+        return m_ctx->RadioButton(checked, keel::move(opts), loc);
     }
 
-    Response InputField(
-        std::string& value,
-        InputFieldOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->InputField(value, std::move(opts), loc);
-    }
-
-    Response InputField(
-        std::string_view value,
-        InputFieldOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->InputField(value, std::move(opts), loc);
-    }
-
-    template <KeelMutableString S>
+    template <keel::WritableString S>
     Response InputField(
         S& value,
         InputFieldOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->InputField(value, std::move(opts), loc);
+        return m_ctx->InputField(value, keel::move(opts), loc);
+    }
+
+    Response InputField(
+        keel::StringRef value,
+        InputFieldOptions opts = {},
+        keel::SourceLocation loc = keel::SourceLocation::current()
+    ) {
+        return m_ctx->InputField(value, keel::move(opts), loc);
     }
 
     template <SpinBoxNumeric T>
     Response SpinBox(
         T& value,
         SpinBoxOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->SpinBox(value, std::move(opts), loc);
+        return m_ctx->SpinBox(value, keel::move(opts), loc);
     }
 
     template <SpinBoxNumeric T>
@@ -3536,57 +3001,41 @@ public:
         double maxVal,
         double stepVal = 1.0,
         SpinBoxOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->SpinBox(value, minVal, maxVal, stepVal, std::move(opts), loc);
+        return m_ctx->SpinBox(value, minVal, maxVal, stepVal, keel::move(opts), loc);
     }
 
-    TextAreaResponse TextArea(
-        std::string& value,
-        const TextAreaOptions& opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->TextArea(value, opts, loc);
-    }
-
-    TextAreaResponse TextArea(
-        std::string_view value,
-        const TextAreaOptions& opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->TextArea(value, opts, loc);
-    }
-
-    template <KeelMutableString S>
+    template <keel::WritableString S>
     TextAreaResponse TextArea(
         S& value,
         const TextAreaOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return m_ctx->TextArea(value, opts, loc);
     }
 
+    TextAreaResponse TextArea(
+        keel::StringRef value,
+        const TextAreaOptions& opts = {},
+        keel::SourceLocation loc = keel::SourceLocation::current()
+    ) {
+        return m_ctx->TextArea(value, opts, loc);
+    }
+
+    template <keel::WritableString S>
     CodeEditorResponse CodeEditor(
-        std::string& value,
+        S& value,
         const CodeEditorOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return m_ctx->CodeEditor(value, opts, loc);
     }
 
     CodeEditorResponse CodeEditor(
-        std::string_view value,
+        keel::StringRef value,
         const CodeEditorOptions& opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->CodeEditor(value, opts, loc);
-    }
-
-    template <KeelMutableString S>
-    CodeEditorResponse CodeEditor(
-        S& value,
-        const CodeEditorOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return m_ctx->CodeEditor(value, opts, loc);
     }
@@ -3594,277 +3043,103 @@ public:
     template <SelectTarget T>
     Response Select(
         T& selected,
-        std::span<const SelectItem> items,
+        keel::ArrayRef<SelectItem> items,
         SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->Select(selected, items, std::move(opts), loc);
+        return m_ctx->Select(selected, items, keel::move(opts), loc);
     }
 
     template <SelectTarget T>
     Response Select(
         T& selected,
-        std::initializer_list<SelectItem> items,
+        keel::ArrayRef<keel::StringRef> items,
         SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->Select(selected, items, std::move(opts), loc);
-    }
-
-    template <SelectTarget T>
-    Response Select(
-        T& selected,
-        std::span<const std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->Select(selected, items, std::move(opts), loc);
-    }
-
-    template <SelectTarget T>
-    Response Select(
-        T& selected,
-        std::initializer_list<std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->Select(selected, items, std::move(opts), loc);
+        return m_ctx->Select(selected, items, keel::move(opts), loc);
     }
 
     template <SelectTarget T>
     Response ComboBox(
         T& selected,
-        std::span<const SelectItem> items,
+        keel::ArrayRef<SelectItem> items,
         SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->ComboBox(selected, items, std::move(opts), loc);
+        return m_ctx->ComboBox(selected, items, keel::move(opts), loc);
     }
 
     template <SelectTarget T>
     Response ComboBox(
         T& selected,
-        std::initializer_list<SelectItem> items,
+        keel::ArrayRef<keel::StringRef> items,
         SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->ComboBox(selected, items, std::move(opts), loc);
+        return m_ctx->ComboBox(selected, items, keel::move(opts), loc);
     }
 
-    template <SelectTarget T>
-    Response ComboBox(
-        T& selected,
-        std::span<const std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->ComboBox(selected, items, std::move(opts), loc);
-    }
-
-    template <SelectTarget T>
-    Response ComboBox(
-        T& selected,
-        std::initializer_list<std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->ComboBox(selected, items, std::move(opts), loc);
-    }
-
-    Response Autocomplete(
-        std::string& value,
-        std::span<const SelectItem> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->Autocomplete(value, items, std::move(opts), loc);
-    }
-
-    Response Autocomplete(
-        std::string& value,
-        std::initializer_list<SelectItem> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->Autocomplete(value, items, std::move(opts), loc);
-    }
-
-    Response Autocomplete(
-        std::string& value,
-        std::span<const std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->Autocomplete(value, items, std::move(opts), loc);
-    }
-
-    Response Autocomplete(
-        std::string& value,
-        std::initializer_list<std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->Autocomplete(value, items, std::move(opts), loc);
-    }
-
-    template <KeelMutableString S>
+    template <keel::WritableString S>
     Response Autocomplete(
         S& value,
-        std::span<const SelectItem> items,
+        keel::ArrayRef<SelectItem> items,
         SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->Autocomplete(value, items, std::move(opts), loc);
+        return m_ctx->Autocomplete(value, items, keel::move(opts), loc);
     }
 
-    template <KeelMutableString S>
+    template <keel::WritableString S>
     Response Autocomplete(
         S& value,
-        std::initializer_list<SelectItem> items,
+        keel::ArrayRef<keel::StringRef> items,
         SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->Autocomplete(value, items, std::move(opts), loc);
+        return m_ctx->Autocomplete(value, items, keel::move(opts), loc);
     }
 
-    template <KeelMutableString S>
-    Response Autocomplete(
-        S& value,
-        std::span<const std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->Autocomplete(value, items, std::move(opts), loc);
-    }
-
-    template <KeelMutableString S>
-    Response Autocomplete(
-        S& value,
-        std::initializer_list<std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->Autocomplete(value, items, std::move(opts), loc);
-    }
-
-    Response MultiSelect(
-        std::vector<size_t>& selectedIndices,
-        std::span<const SelectItem> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->MultiSelect(selectedIndices, items, std::move(opts), loc);
-    }
-
-    Response MultiSelect(
-        std::vector<size_t>& selectedIndices,
-        std::initializer_list<SelectItem> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->MultiSelect(selectedIndices, items, std::move(opts), loc);
-    }
-
-    Response MultiSelect(
-        std::vector<size_t>& selectedIndices,
-        std::span<const std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->MultiSelect(selectedIndices, items, std::move(opts), loc);
-    }
-
-    Response MultiSelect(
-        std::vector<size_t>& selectedIndices,
-        std::initializer_list<std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->MultiSelect(selectedIndices, items, std::move(opts), loc);
-    }
-
-    template <KeelIndexArray Arr>
+    template <WritableIndexList Arr>
     Response MultiSelect(
         Arr& selectedIndices,
-        std::span<const SelectItem> items,
+        keel::ArrayRef<SelectItem> items,
         SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->MultiSelect(selectedIndices, items, std::move(opts), loc);
+        return m_ctx->MultiSelect(selectedIndices, items, keel::move(opts), loc);
     }
 
-    template <KeelIndexArray Arr>
+    template <WritableIndexList Arr>
     Response MultiSelect(
         Arr& selectedIndices,
-        std::initializer_list<SelectItem> items,
+        keel::ArrayRef<keel::StringRef> items,
         SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->MultiSelect(selectedIndices, items, std::move(opts), loc);
-    }
-
-    template <KeelIndexArray Arr>
-    Response MultiSelect(
-        Arr& selectedIndices,
-        std::span<const std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->MultiSelect(selectedIndices, items, std::move(opts), loc);
-    }
-
-    template <KeelIndexArray Arr>
-    Response MultiSelect(
-        Arr& selectedIndices,
-        std::initializer_list<std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->MultiSelect(selectedIndices, items, std::move(opts), loc);
+        return m_ctx->MultiSelect(selectedIndices, items, keel::move(opts), loc);
     }
 
     template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
+        requires (!keel::IsConst<IndexT>)
     TabBarResponse TabBar(
         IndexT& activeIndex,
-        std::span<const TabItem> tabs,
+        keel::ArrayRef<TabItem> tabs,
         TabBarOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->TabBar(activeIndex, tabs, std::move(opts), loc);
+        return m_ctx->TabBar(activeIndex, tabs, keel::move(opts), loc);
     }
 
     template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
-    TabBarResponse TabBar(
-        IndexT& activeIndex,
-        std::initializer_list<TabItem> tabs,
-        TabBarOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->TabBar(activeIndex, tabs, std::move(opts), loc);
-    }
-
-    template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
+        requires (!keel::IsConst<IndexT>)
     Response SidebarMenu(
         IndexT& activeIndex,
-        std::span<const SidebarMenuItem> items,
+        keel::ArrayRef<SidebarMenuItem> items,
         SidebarMenuOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->SidebarMenu(activeIndex, items, std::move(opts), loc);
-    }
-
-    template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
-    Response SidebarMenu(
-        IndexT& activeIndex,
-        std::initializer_list<SidebarMenuItem> items,
-        SidebarMenuOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->SidebarMenu(activeIndex, items, std::move(opts), loc);
+        return m_ctx->SidebarMenu(activeIndex, items, keel::move(opts), loc);
     }
 
     template <SliderNumeric T>
@@ -3873,9 +3148,9 @@ public:
         T min,
         T max,
         SliderOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->Slider(value, min, max, std::move(opts), loc);
+        return m_ctx->Slider(value, min, max, keel::move(opts), loc);
     }
 
     template <SliderNumeric T>
@@ -3885,9 +3160,9 @@ public:
         T min,
         T max,
         RangeSliderOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->RangeSlider(lowValue, highValue, min, max, std::move(opts), loc);
+        return m_ctx->RangeSlider(lowValue, highValue, min, max, keel::move(opts), loc);
     }
 
     Response ProgressBar(
@@ -3895,66 +3170,55 @@ public:
         double min,
         double max,
         ProgressBarOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->ProgressBar(value, min, max, std::move(opts), loc);
+        return m_ctx->ProgressBar(value, min, max, keel::move(opts), loc);
     }
 
     Response ProgressBar(
         double percent0to100,
         ProgressBarOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->ProgressBar(percent0to100, std::move(opts), loc);
+        return m_ctx->ProgressBar(percent0to100, keel::move(opts), loc);
     }
 
     template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
+        requires (!keel::IsConst<IndexT>)
     Response StepSlider(
         IndexT& index,
         size_t totalSteps,
         StepSliderOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->StepSlider(index, totalSteps, std::move(opts), loc);
+        return m_ctx->StepSlider(index, totalSteps, keel::move(opts), loc);
     }
 
     template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
+        requires (!keel::IsConst<IndexT>)
     Response StepSlider(
         IndexT& index,
-        std::span<const std::string_view> labels,
+        keel::ArrayRef<keel::StringRef> labels,
         StepSliderOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->StepSlider(index, labels, std::move(opts), loc);
-    }
-
-    template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
-    Response StepSlider(
-        IndexT& index,
-        std::initializer_list<std::string_view> labels,
-        StepSliderOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->StepSlider(index, labels, std::move(opts), loc);
+        return m_ctx->StepSlider(index, labels, keel::move(opts), loc);
     }
 
     Response StepSlider(
         UiSize& size,
         StepSliderOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->StepSlider(size, std::move(opts), loc);
+        return m_ctx->StepSlider(size, keel::move(opts), loc);
     }
 
     Response StepSlider(
         UiVariant& variant,
         StepSliderOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->StepSlider(variant, std::move(opts), loc);
+        return m_ctx->StepSlider(variant, keel::move(opts), loc);
     }
 
     template <SliderNumeric T>
@@ -3963,105 +3227,65 @@ public:
         T min,
         T max,
         KnobOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->Knob(value, min, max, std::move(opts), loc);
+        return m_ctx->Knob(value, min, max, keel::move(opts), loc);
     }
 
     template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
+        requires (!keel::IsConst<IndexT>)
     Response Segmented(
         IndexT& selectedIndex,
-        std::span<const SegmentedItem> items,
+        keel::ArrayRef<SegmentedItem> items,
         SegmentedOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->Segmented(selectedIndex, items, std::move(opts), loc);
+        return m_ctx->Segmented(selectedIndex, items, keel::move(opts), loc);
     }
 
     template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
+        requires (!keel::IsConst<IndexT>)
     Response Segmented(
         IndexT& selectedIndex,
-        std::initializer_list<SegmentedItem> items,
+        keel::ArrayRef<keel::StringRef> items,
         SegmentedOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->Segmented(selectedIndex, items, std::move(opts), loc);
-    }
-
-    template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
-    Response Segmented(
-        IndexT& selectedIndex,
-        std::span<const std::string_view> items,
-        SegmentedOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->Segmented(selectedIndex, items, std::move(opts), loc);
-    }
-
-    template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
-    Response Segmented(
-        IndexT& selectedIndex,
-        std::initializer_list<std::string_view> items,
-        SegmentedOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->Segmented(selectedIndex, items, std::move(opts), loc);
+        return m_ctx->Segmented(selectedIndex, items, keel::move(opts), loc);
     }
 
     Response SegmentedMask(
         uint32_t& selectedMask,
-        std::span<const SegmentedItem> items,
+        keel::ArrayRef<SegmentedItem> items,
         SegmentedOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->SegmentedMask(selectedMask, items, std::move(opts), loc);
+        return m_ctx->SegmentedMask(selectedMask, items, keel::move(opts), loc);
     }
 
     Response SegmentedMask(
         uint32_t& selectedMask,
-        std::initializer_list<SegmentedItem> items,
+        keel::ArrayRef<keel::StringRef> items,
         SegmentedOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->SegmentedMask(selectedMask, items, std::move(opts), loc);
-    }
-
-    Response SegmentedMask(
-        uint32_t& selectedMask,
-        std::span<const std::string_view> items,
-        SegmentedOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->SegmentedMask(selectedMask, items, std::move(opts), loc);
-    }
-
-    Response SegmentedMask(
-        uint32_t& selectedMask,
-        std::initializer_list<std::string_view> items,
-        SegmentedOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->SegmentedMask(selectedMask, items, std::move(opts), loc);
+        return m_ctx->SegmentedMask(selectedMask, items, keel::move(opts), loc);
     }
 
     Response ColorPicker(
         Color& value,
         ColorPickerOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->ColorPicker(value, std::move(opts), loc);
+        return m_ctx->ColorPicker(value, keel::move(opts), loc);
     }
 
     Response DatePicker(
         DateTime& value,
         DatePickerOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->DatePicker(value, std::move(opts), loc);
+        return m_ctx->DatePicker(value, keel::move(opts), loc);
     }
 
     Response LevelMeter(
@@ -4069,124 +3293,77 @@ public:
         double min = -60.0,
         double max = 0.0,
         LevelMeterOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->LevelMeter(value, min, max, std::move(opts), loc);
+        return m_ctx->LevelMeter(value, min, max, keel::move(opts), loc);
     }
 
     Response LevelMeter(
-        std::span<const float> channelValues,
+        keel::ArrayRef<float> channelValues,
         float min = -60.0f,
         float max = 0.0f,
         LevelMeterOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->LevelMeter(channelValues, min, max, std::move(opts), loc);
+        return m_ctx->LevelMeter(channelValues, min, max, keel::move(opts), loc);
     }
 
-    Response TagInput(
-        std::vector<std::string>& tags,
-        TagInputOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->TagInput(tags, std::move(opts), loc);
-    }
-
-    Response TagInput(
-        std::vector<TagItem>& tags,
-        TagInputOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->TagInput(tags, std::move(opts), loc);
-    }
-
-    template <KeelTagStringArray Arr>
+    template <WritableTagStringList Arr>
     Response TagInput(
         Arr& tags,
         TagInputOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->TagInput(tags, std::move(opts), loc);
+        return m_ctx->TagInput(tags, keel::move(opts), loc);
     }
 
-    template <KeelTagItemArray Arr>
+    template <WritableTagItemList Arr>
     Response TagInput(
         Arr& tags,
         TagInputOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->TagInput(tags, std::move(opts), loc);
+        return m_ctx->TagInput(tags, keel::move(opts), loc);
     }
 
     template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
+        requires (!keel::IsConst<IndexT>)
     Response Breadcrumb(
         IndexT& activeIndex,
-        std::span<const BreadcrumbItem> items,
+        keel::ArrayRef<BreadcrumbItem> items,
         BreadcrumbOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->Breadcrumb(activeIndex, items, std::move(opts), loc);
+        return m_ctx->Breadcrumb(activeIndex, items, keel::move(opts), loc);
     }
 
     template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
+        requires (!keel::IsConst<IndexT>)
     Response Breadcrumb(
         IndexT& activeIndex,
-        std::initializer_list<BreadcrumbItem> items,
+        keel::ArrayRef<keel::StringRef> items,
         BreadcrumbOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->Breadcrumb(activeIndex, items, std::move(opts), loc);
-    }
-
-    template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
-    Response Breadcrumb(
-        IndexT& activeIndex,
-        std::span<const std::string_view> items,
-        BreadcrumbOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->Breadcrumb(activeIndex, items, std::move(opts), loc);
-    }
-
-    template <IndexLike IndexT>
-        requires (!std::is_const_v<IndexT>)
-    Response Breadcrumb(
-        IndexT& activeIndex,
-        std::initializer_list<std::string_view> items,
-        BreadcrumbOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->Breadcrumb(activeIndex, items, std::move(opts), loc);
+        return m_ctx->Breadcrumb(activeIndex, items, keel::move(opts), loc);
     }
 
     template <IndexLike IndexT, IndexLike CountT>
-        requires (!std::is_const_v<IndexT>)
+        requires (!keel::IsConst<IndexT>)
     Response Pagination(
         IndexT& currentPage,
         CountT totalPages,
         PaginationOptions opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        return m_ctx->Pagination(currentPage, totalPages, std::move(opts), loc);
+        return m_ctx->Pagination(currentPage, totalPages, keel::move(opts), loc);
     }
 
     CommandPaletteResponse CommandPalette(
         bool& isOpen,
-        std::span<const CommandPaletteItem> items,
+        keel::ArrayRef<CommandPaletteItem> items,
         const CommandPaletteOptions& opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->CommandPalette(isOpen, items, opts, loc);
-    }
-
-    CommandPaletteResponse CommandPalette(
-        bool& isOpen,
-        std::initializer_list<CommandPaletteItem> items,
-        const CommandPaletteOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return m_ctx->CommandPalette(isOpen, items, opts, loc);
     }
@@ -4194,77 +3371,42 @@ public:
     [[nodiscard]] ModalScope Modal(
         bool& open,
         const ModalOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return TransferToContainer(m_ctx->Modal(open, opts, loc));
     }
 
     ContextMenuResponse ContextMenu(
         const Response& triggerTarget,
-        std::span<const ContextMenuItem> items,
+        keel::ArrayRef<ContextMenuItem> items,
         const ContextMenuOptions& opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->ContextMenu(triggerTarget, items, opts, loc);
-    }
-
-    ContextMenuResponse ContextMenu(
-        const Response& triggerTarget,
-        std::initializer_list<ContextMenuItem> items,
-        const ContextMenuOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return m_ctx->ContextMenu(triggerTarget, items, opts, loc);
     }
 
     ContextMenuResponse ContextMenu(
         Rect triggerRect,
-        std::span<const ContextMenuItem> items,
+        keel::ArrayRef<ContextMenuItem> items,
         const ContextMenuOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return m_ctx->ContextMenu(triggerRect, items, opts, loc);
     }
 
     ContextMenuResponse ContextMenu(
-        Rect triggerRect,
-        std::initializer_list<ContextMenuItem> items,
+        keel::ArrayRef<ContextMenuItem> items,
         const ContextMenuOptions& opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->ContextMenu(triggerRect, items, opts, loc);
-    }
-
-    ContextMenuResponse ContextMenu(
-        std::span<const ContextMenuItem> items,
-        const ContextMenuOptions& opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->ContextMenu(items, opts, loc);
-    }
-
-    ContextMenuResponse ContextMenu(
-        std::initializer_list<ContextMenuItem> items,
-        const ContextMenuOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return m_ctx->ContextMenu(items, opts, loc);
     }
 
     ContextMenuResponse ContextMenu(
         bool& open,
-        std::span<const ContextMenuItem> items,
+        keel::ArrayRef<ContextMenuItem> items,
         const ContextMenuOptions& opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->ContextMenu(open, items, opts, loc);
-    }
-
-    ContextMenuResponse ContextMenu(
-        bool& open,
-        std::initializer_list<ContextMenuItem> items,
-        const ContextMenuOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return m_ctx->ContextMenu(open, items, opts, loc);
     }
@@ -4272,19 +3414,9 @@ public:
     ContextMenuResponse ContextMenu(
         bool& open,
         Vec2 anchorPos,
-        std::span<const ContextMenuItem> items,
+        keel::ArrayRef<ContextMenuItem> items,
         const ContextMenuOptions& opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return m_ctx->ContextMenu(open, anchorPos, items, opts, loc);
-    }
-
-    ContextMenuResponse ContextMenu(
-        bool& open,
-        Vec2 anchorPos,
-        std::initializer_list<ContextMenuItem> items,
-        const ContextMenuOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return m_ctx->ContextMenu(open, anchorPos, items, opts, loc);
     }
@@ -4296,7 +3428,7 @@ private:
             m_ctx->PopSize();
             m_ctx = nullptr;
         }
-        return std::move(scope);
+        return keel::move(scope);
     }
 
     void RestoreAccordionBodySize(Context* ctx, AccordionScope& scope, const AccordionOptions& opts) noexcept {

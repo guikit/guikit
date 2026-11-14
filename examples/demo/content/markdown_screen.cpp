@@ -1,6 +1,4 @@
 #include "../demo_context.hpp"
-#include <array>
-#include <format>
 
 namespace guikit::demo {
 
@@ -10,7 +8,7 @@ struct MarkdownDemoState {
     float zoom = 1.0f;
     bool enableSelection = true;
     bool interactiveTasks = true;
-    std::string searchQuery{};
+    keel::SmallString<128> searchQuery{};
 
     // Typography
     float bodyFontSize = 13.5f;
@@ -32,7 +30,7 @@ struct MarkdownDemoState {
 
     // Code Block Styling (shared with CodeEditor)
     size_t codeSchemeIdx = 3; // Default to Dracula
-    static constexpr std::array<std::string_view, 8> codeSchemeLabels = {
+    static constexpr keel::StaticArray<keel::StringRef, 8> codeSchemeLabels = {
         "Theme Default",
         "VS Code Dark+",
         "Monokai Pro",
@@ -54,14 +52,14 @@ struct MarkdownDemoState {
     float imageRadius = 8.0f;
 
     // Status feedback
-    std::string lastClickedLink{};
+    keel::String lastClickedLink{};
     int lastToggledTask = -1;
     bool lastToggledChecked = false;
     int searchMatches = 0;
 };
 MarkdownDemoState s_state;
 
-std::optional<guikit::SyntaxPalette> ResolveCodePalette(size_t idx) noexcept {
+keel::Optional<guikit::SyntaxPalette> ResolveCodePalette(size_t idx) noexcept {
     switch (idx) {
         case 1: return guikit::SyntaxPalette::VsCodeDark();
         case 2: return guikit::SyntaxPalette::Monokai();
@@ -70,11 +68,11 @@ std::optional<guikit::SyntaxPalette> ResolveCodePalette(size_t idx) noexcept {
         case 5: return guikit::SyntaxPalette::MatlabClassic();
         case 6: return guikit::SyntaxPalette::Solarized();
         case 7: return guikit::SyntaxPalette::GitHubLight();
-        default: return std::nullopt;
+        default: return keel::kNullOpt;
     }
 }
 
-std::string_view CodePaletteExpr(size_t idx) noexcept {
+keel::StringRef CodePaletteExpr(size_t idx) noexcept {
     switch (idx) {
         case 1: return "guikit::SyntaxPalette::VsCodeDark()";
         case 2: return "guikit::SyntaxPalette::Monokai()";
@@ -83,11 +81,11 @@ std::string_view CodePaletteExpr(size_t idx) noexcept {
         case 5: return "guikit::SyntaxPalette::MatlabClassic()";
         case 6: return "guikit::SyntaxPalette::Solarized()";
         case 7: return "guikit::SyntaxPalette::GitHubLight()";
-        default: return "std::nullopt";
+        default: return "keel::kNullOpt";
     }
 }
 
-constexpr std::string_view kDemoMarkdownDoc =
+constexpr keel::StringRef kDemoMarkdownDoc =
 R"(# GuiKit Rich Markdown Engine
 
 Welcome to **GuiKit's** native vector `ui.Markdown` viewer! Everything is parsed into a lightweight cached AST and rendered at **60+ FPS** via *ThorVG* with crisp typography, **bold**, *italic*, ~~strikethrough~~, `inline code` pills, and interactive links like [https://github.com/guikit](https://github.com/guikit).
@@ -242,7 +240,7 @@ void RenderMarkdownInspector(guikit::Context& ui, DemoContext&) {
     }
 
     if (!s_state.lastClickedLink.empty()) {
-        ui.Text(ui.Format("Clicked link: {}", s_state.lastClickedLink), {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Info});
+        ui.Text(ui.Format("Clicked link: {}", s_state.lastClickedLink.as_ref()), {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Info});
     }
     if (s_state.lastToggledTask >= 0) {
         ui.Text(
@@ -263,7 +261,7 @@ void RenderMarkdownStage(guikit::Context& ui, DemoContext& ctx) {
             .codeFontSize = s_state.codeFontSize,
             .lineHeightScale = s_state.lineHeightScale,
             .documentPadding = s_state.documentPadding,
-            .maxContentWidth = s_state.constrainContentWidth ? std::optional<float>(s_state.maxContentWidth) : std::nullopt,
+            .maxContentWidth = s_state.constrainContentWidth ? keel::Optional<float>(s_state.maxContentWidth) : keel::kNullOpt,
             .blockGap = s_state.blockGap,
             .paragraphIndent = s_state.paragraphIndent,
             .listIndent = s_state.listIndent,
@@ -282,11 +280,11 @@ void RenderMarkdownStage(guikit::Context& ui, DemoContext& ctx) {
             .enableSelection = s_state.enableSelection,
             .enableSearch = true,
             .interactiveTasks = s_state.interactiveTasks,
-            .searchQuery = s_state.searchQuery
+            .searchQuery = s_state.searchQuery.as_ref()
         });
         s_state.searchMatches = mdRes.searchMatchCount;
         if (!mdRes.clickedLink.empty()) {
-            s_state.lastClickedLink = std::string(mdRes.clickedLink);
+            s_state.lastClickedLink = keel::String::from(mdRes.clickedLink);
             ui.OpenUrl(mdRes.clickedLink);
         }
         if (mdRes.toggledTaskIndex >= 0) {
@@ -296,12 +294,12 @@ void RenderMarkdownStage(guikit::Context& ui, DemoContext& ctx) {
     }
 }
 
-std::string GenerateMarkdownCode(const DemoContext& ctx) {
-    const std::string maxColStr = s_state.constrainContentWidth
-        ? std::format("{:.0f}f", s_state.maxContentWidth)
-        : "std::nullopt";
+keel::String GenerateMarkdownCode(const DemoContext& ctx) {
+    const auto maxColStr = s_state.constrainContentWidth
+        ? keel::format_fixed<32>("{:.0f}f", s_state.maxContentWidth)
+        : keel::FixedString<32>("keel::kNullOpt");
 
-    return std::format(
+    return keel::format(
         "if (auto scroll = ui.ScrollArea()) {{\n"
         "    auto res = ui.{}Markdown(markdownSource, {{\n"
         "        .allowZoom = true,\n"
@@ -361,7 +359,7 @@ std::string GenerateMarkdownCode(const DemoContext& ctx) {
         s_state.imageRadius,
         s_state.enableSelection ? "true" : "false",
         s_state.interactiveTasks ? "true" : "false",
-        s_state.searchQuery
+        s_state.searchQuery.as_ref()
     );
 }
 

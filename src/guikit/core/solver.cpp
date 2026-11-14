@@ -1,5 +1,4 @@
 #include "guikit/core/solver.hpp"
-#include <algorithm>
 #include <cmath>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
@@ -117,10 +116,10 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         // Custom autonomous measure delegate (leaves or specialized containers)
         if (node->measureFn) {
             node->intrinsicSize = node->measureFn(node, 0.0f, canvas, activeTheme);
-            if (node->minWidth > 0.0f) node->intrinsicSize.x = std::max(node->intrinsicSize.x, node->minWidth);
-            if (node->maxWidth > 0.0f) node->intrinsicSize.x = std::min(node->intrinsicSize.x, node->maxWidth);
-            if (node->minHeight > 0.0f) node->intrinsicSize.y = std::max(node->intrinsicSize.y, node->minHeight);
-            if (node->maxHeight > 0.0f) node->intrinsicSize.y = std::min(node->intrinsicSize.y, node->maxHeight);
+            if (node->minWidth > 0.0f) node->intrinsicSize.x = keel::max(node->intrinsicSize.x, node->minWidth);
+            if (node->maxWidth > 0.0f) node->intrinsicSize.x = keel::min(node->intrinsicSize.x, node->maxWidth);
+            if (node->minHeight > 0.0f) node->intrinsicSize.y = keel::max(node->intrinsicSize.y, node->minHeight);
+            if (node->maxHeight > 0.0f) node->intrinsicSize.y = keel::min(node->intrinsicSize.y, node->maxHeight);
             return;
         }
 
@@ -131,10 +130,10 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             } else {
                 node->intrinsicSize = {0.0f, 0.0f};
             }
-            if (node->minWidth > 0.0f) node->intrinsicSize.x = std::max(node->intrinsicSize.x, node->minWidth);
-            if (node->maxWidth > 0.0f) node->intrinsicSize.x = std::min(node->intrinsicSize.x, node->maxWidth);
-            if (node->minHeight > 0.0f) node->intrinsicSize.y = std::max(node->intrinsicSize.y, node->minHeight);
-            if (node->maxHeight > 0.0f) node->intrinsicSize.y = std::min(node->intrinsicSize.y, node->maxHeight);
+            if (node->minWidth > 0.0f) node->intrinsicSize.x = keel::max(node->intrinsicSize.x, node->minWidth);
+            if (node->maxWidth > 0.0f) node->intrinsicSize.x = keel::min(node->intrinsicSize.x, node->maxWidth);
+            if (node->minHeight > 0.0f) node->intrinsicSize.y = keel::max(node->intrinsicSize.y, node->minHeight);
+            if (node->maxHeight > 0.0f) node->intrinsicSize.y = keel::min(node->intrinsicSize.y, node->maxHeight);
             return;
         }
 
@@ -153,7 +152,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
                 const float ch = (child->heightMode == SizeMode::Fixed) ? child->fixedHeight : child->intrinsicSize.y;
                 totalHeight += ch;
-                maxWidth = std::max(maxWidth, cw);
+                maxWidth = keel::max(maxWidth, cw);
                 ++activeChildren;
             }
 
@@ -165,13 +164,13 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             if (node->type == NodeType::Sidebar) {
                 float w = (node->widthMode == SizeMode::Fixed) ? node->fixedWidth : contentW;
                 if (node->minWidth > 0.0f) {
-                    w = std::max(w, node->minWidth);
+                    w = keel::max(w, node->minWidth);
                 }
                 node->intrinsicSize = {w, totalHeight};
             } else if (node->type == NodeType::BottomPanel) {
                 float h = (node->heightMode == SizeMode::Fixed) ? node->fixedHeight : totalHeight;
                 if (node->minHeight > 0.0f) {
-                    h = std::max(h, node->minHeight);
+                    h = keel::max(h, node->minHeight);
                 }
                 node->intrinsicSize = {contentW, h};
             } else if (node->heightMode == SizeMode::Fixed) {
@@ -181,7 +180,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 node->intrinsicSize = {w, node->fixedHeight};
             } else if (node->heightMode == SizeMode::Fit) {
                 const float maxH = GetScrollAreaMaxHeight(node);
-                const float h = (maxH > 0.0f) ? std::min(totalHeight, maxH) : totalHeight;
+                const float h = (maxH > 0.0f) ? keel::min(totalHeight, maxH) : totalHeight;
                 const float w = (node->widthMode == SizeMode::Fixed) ? node->fixedWidth : contentW;
                 node->intrinsicSize = {w, h};
             } else {
@@ -206,7 +205,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
                     if (child->type == NodeType::Modal) continue;
                     const float ch = (child->heightMode == SizeMode::Fixed) ? child->fixedHeight : child->intrinsicSize.y;
-                    maxHeight = std::max(maxHeight, ch);
+                    maxHeight = keel::max(maxHeight, ch);
                     ++activeChildren;
 
                     if (child->isSpacer) {
@@ -214,14 +213,14 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                     }
                     const bool isEqualTrack = node->equalWidths && (child->widthMode != SizeMode::Fixed) && (child->type != NodeType::Sidebar);
                     if (isEqualTrack || child->widthMode == SizeMode::Stretch) {
-                        const float fg = isEqualTrack ? 1.0f : std::max(0.01f, child->flexGrow);
-                        const float cw = std::max(child->minWidth, child->intrinsicSize.x);
+                        const float fg = isEqualTrack ? 1.0f : keel::max(0.01f, child->flexGrow);
+                        const float cw = keel::max(child->minWidth, child->intrinsicSize.x);
                         stretchFlexSum += fg;
-                        maxUnitFlexWidth = std::max(maxUnitFlexWidth, cw / fg);
+                        maxUnitFlexWidth = keel::max(maxUnitFlexWidth, cw / fg);
                     } else {
                         const float cw = (child->widthMode == SizeMode::Fixed)
                             ? child->fixedWidth
-                            : std::max(child->minWidth, child->intrinsicSize.x);
+                            : keel::max(child->minWidth, child->intrinsicSize.x);
                         nonStretchSum += cw;
                     }
                 }
@@ -232,7 +231,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                     const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
                     const float ch = (child->heightMode == SizeMode::Fixed) ? child->fixedHeight : child->intrinsicSize.y;
                     totalWidth += cw;
-                    maxHeight = std::max(maxHeight, ch);
+                    maxHeight = keel::max(maxHeight, ch);
                     ++activeChildren;
                 }
             }
@@ -264,7 +263,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                         continue;
                     }
 
-                    const int span = std::clamp<int>(lineEnd->colSpan, 1, totalCols);
+                    const int span = keel::clamp<int>(lineEnd->colSpan, 1, totalCols);
                     if (itemsInLine > 0 && currentSpan + span > totalCols) {
                         break;
                     }
@@ -273,7 +272,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                     const float ch = (lineEnd->heightMode == SizeMode::Fixed) ? lineEnd->fixedHeight : lineEnd->intrinsicSize.y;
 
                     currentLineWidth += cw;
-                    lineMaxH = std::max(lineMaxH, ch);
+                    lineMaxH = keel::max(lineMaxH, ch);
                     currentSpan += span;
                     ++itemsInLine;
                     lineEnd = lineEnd->nextSibling;
@@ -287,7 +286,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                     currentLineWidth += static_cast<float>(itemsInLine - 1) * gap;
                 }
 
-                maxLineWidth = std::max(maxLineWidth, currentLineWidth);
+                maxLineWidth = keel::max(maxLineWidth, currentLineWidth);
 
                 if (hasLines) {
                     totalHeight += runGap;
@@ -312,7 +311,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
                 const float ch = (child->heightMode == SizeMode::Fixed) ? child->fixedHeight : child->intrinsicSize.y;
                 totalHeight += ch;
-                maxWidth = std::max(maxWidth, cw);
+                maxWidth = keel::max(maxWidth, cw);
                 ++activeChildren;
             }
 
@@ -323,16 +322,16 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         }
 
         if (node->minWidth > 0.0f) {
-            node->intrinsicSize.x = std::max(node->intrinsicSize.x, node->minWidth);
+            node->intrinsicSize.x = keel::max(node->intrinsicSize.x, node->minWidth);
         }
         if (node->maxWidth > 0.0f) {
-            node->intrinsicSize.x = std::min(node->intrinsicSize.x, node->maxWidth);
+            node->intrinsicSize.x = keel::min(node->intrinsicSize.x, node->maxWidth);
         }
         if (node->minHeight > 0.0f) {
-            node->intrinsicSize.y = std::max(node->intrinsicSize.y, node->minHeight);
+            node->intrinsicSize.y = keel::max(node->intrinsicSize.y, node->minHeight);
         }
         if (node->maxHeight > 0.0f) {
-            node->intrinsicSize.y = std::min(node->intrinsicSize.y, node->maxHeight);
+            node->intrinsicSize.y = keel::min(node->intrinsicSize.y, node->maxHeight);
         }
     }
 
@@ -342,15 +341,15 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         }
         float childW = availW;
         if (child->widthMode == SizeMode::Fit || (child->widthMode != SizeMode::Stretch && parent->align != Alignment::Stretch)) {
-            childW = std::max(child->intrinsicSize.x, child->minWidth);
+            childW = keel::max(child->intrinsicSize.x, child->minWidth);
         } else if (child->minWidth > 0.0f) {
-            childW = std::max(childW, child->minWidth);
+            childW = keel::max(childW, child->minWidth);
         }
         if (child->maxWidth > 0.0f) {
-            childW = std::min(childW, child->maxWidth);
+            childW = keel::min(childW, child->maxWidth);
         }
         if (availW > 0.0f) {
-            childW = std::min(childW, availW);
+            childW = keel::min(childW, availW);
         }
         return childW;
     }
@@ -366,11 +365,11 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             return 0.0f;
         }
         if (node->widthMode == SizeMode::Fixed && node->fixedWidth > 0.0f) {
-            availableWidth = (availableWidth > 0.0f) ? std::min(availableWidth, node->fixedWidth) : node->fixedWidth;
+            availableWidth = (availableWidth > 0.0f) ? keel::min(availableWidth, node->fixedWidth) : node->fixedWidth;
         }
         const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : theme;
         if ((node->type == NodeType::Element || node->type == NodeType::TreeItem || node->type == NodeType::Scene) && node->measureFn) {
-            return std::max(node->minHeight, node->measureFn(node, availableWidth, canvas, activeTheme).y);
+            return keel::max(node->minHeight, node->measureFn(node, availableWidth, canvas, activeTheme).y);
         }
         if (node->childCount == 0) {
             float h = node->intrinsicSize.y;
@@ -379,7 +378,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             } else if (node->aspectRatio > 0.0f && availableWidth > 0.0f) {
                 h = availableWidth / node->aspectRatio;
             }
-            const float resolvedH = std::max(node->minHeight, h);
+            const float resolvedH = keel::max(node->minHeight, h);
             if (availableWidth > 0.0f) {
                 node->intrinsicSize.y = resolvedH;
             }
@@ -387,7 +386,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         }
 
         if (node->direction == FlexDirection::Wrap) {
-            const float maxLineWidth = std::max(0.0f, availableWidth - node->padding.Horizontal());
+            const float maxLineWidth = keel::max(0.0f, availableWidth - node->padding.Horizontal());
             Node* lineStart = node->firstChild;
             float totalH = 0.0f;
             bool hasLines = false;
@@ -413,7 +412,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                     }
 
                     currentLineWidth += neededWidth;
-                    lineMaxH = std::max(lineMaxH, ch);
+                    lineMaxH = keel::max(lineMaxH, ch);
                     ++itemsInLine;
                     lineEnd = lineEnd->nextSibling;
                 }
@@ -430,15 +429,15 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 lineStart = lineEnd;
             }
 
-            float resolvedH = std::max(node->minHeight, totalH + node->padding.Vertical());
+            float resolvedH = keel::max(node->minHeight, totalH + node->padding.Vertical());
             if (node->maxHeight > 0.0f) {
-                resolvedH = std::min(resolvedH, node->maxHeight);
+                resolvedH = keel::min(resolvedH, node->maxHeight);
             }
             return resolvedH;
         }
 
         if (node->direction == FlexDirection::Row && node->heightMode == SizeMode::Fit) {
-            const float contentW = std::max(0.0f, availableWidth - node->padding.Horizontal());
+            const float contentW = keel::max(0.0f, availableWidth - node->padding.Horizontal());
             uint32_t flowChildCount = 0;
             float baseSum = 0.0f;
             float totalFlexGrow = 0.0f;
@@ -447,7 +446,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 if (child->type == NodeType::Sidebar || child->type == NodeType::Modal) continue;
                 ++flowChildCount;
                 if (child->isSpacer || child->widthMode == SizeMode::Stretch) {
-                    totalFlexGrow += std::max(0.01f, child->flexGrow);
+                    totalFlexGrow += keel::max(0.01f, child->flexGrow);
                 } else if (child->widthMode == SizeMode::Fixed) {
                     baseSum += child->fixedWidth;
                 } else {
@@ -458,7 +457,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             const float totalGap = (flowChildCount > 1)
                 ? static_cast<float>(flowChildCount - 1) * node->gap
                 : 0.0f;
-            const float freeSpace = std::max(0.0f, contentW - totalGap - baseSum);
+            const float freeSpace = keel::max(0.0f, contentW - totalGap - baseSum);
 
             float maxH = 0.0f;
             for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
@@ -466,7 +465,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 float childW = 0.0f;
                 if (child->widthMode == SizeMode::Stretch) {
                     childW = (totalFlexGrow > 0.0f)
-                        ? (freeSpace * (std::max(0.01f, child->flexGrow) / totalFlexGrow))
+                        ? (freeSpace * (keel::max(0.01f, child->flexGrow) / totalFlexGrow))
                         : 0.0f;
                 } else if (child->widthMode == SizeMode::Fixed) {
                     childW = child->fixedWidth;
@@ -474,24 +473,24 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                     childW = child->intrinsicSize.x;
                 }
                 if (child->minWidth > 0.0f) {
-                    childW = std::max(childW, child->minWidth);
+                    childW = keel::max(childW, child->minWidth);
                 }
                 const float ch = ResolveNodeHeight(child, childW, canvas, activeTheme);
-                maxH = std::max(maxH, ch);
+                maxH = keel::max(maxH, ch);
             }
-            float resolvedH = std::max(node->minHeight, maxH + node->padding.Vertical());
+            float resolvedH = keel::max(node->minHeight, maxH + node->padding.Vertical());
             const float maxAllowedH = GetScrollAreaMaxHeight(node);
             if (maxAllowedH > 0.0f) {
-                resolvedH = std::min(resolvedH, maxAllowedH);
+                resolvedH = keel::min(resolvedH, maxAllowedH);
             }
             if (node->maxHeight > 0.0f) {
-                resolvedH = std::min(resolvedH, node->maxHeight);
+                resolvedH = keel::min(resolvedH, node->maxHeight);
             }
             return resolvedH;
         }
 
         if (node->direction == FlexDirection::Column && node->heightMode == SizeMode::Fit) {
-            const float childAvailW = std::max(0.0f, availableWidth - node->padding.Horizontal());
+            const float childAvailW = keel::max(0.0f, availableWidth - node->padding.Horizontal());
             float sumH = node->padding.Vertical();
             uint32_t activeChildren = 0;
 
@@ -507,19 +506,19 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             if (activeChildren > 1) {
                 sumH += static_cast<float>(activeChildren - 1) * node->gap;
             }
-            float resolvedH = std::max(node->minHeight, sumH);
+            float resolvedH = keel::max(node->minHeight, sumH);
             const float maxAllowedH = GetScrollAreaMaxHeight(node);
             if (maxAllowedH > 0.0f) {
-                resolvedH = std::min(resolvedH, maxAllowedH);
+                resolvedH = keel::min(resolvedH, maxAllowedH);
             }
             if (node->maxHeight > 0.0f) {
-                resolvedH = std::min(resolvedH, node->maxHeight);
+                resolvedH = keel::min(resolvedH, node->maxHeight);
             }
             return resolvedH;
         }
 
         if (node->direction == FlexDirection::Grid) {
-            const float availW = std::max(0.0f, availableWidth - node->padding.Horizontal());
+            const float availW = keel::max(0.0f, availableWidth - node->padding.Horizontal());
             const int totalCols = (node->gridColumns > 0) ? node->gridColumns : 12;
             const float gap = node->gap;
             const float runGap = (node->runGap > 0.0f) ? node->runGap : node->gap;
@@ -540,7 +539,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                         continue;
                     }
 
-                    int span = std::clamp<int>(lineEnd->colSpan, 1, totalCols);
+                    int span = keel::clamp<int>(lineEnd->colSpan, 1, totalCols);
                     const float reqMinW = (lineEnd->minWidth > 0.0f) ? lineEnd->minWidth : ((node->minColWidth > 0.0f) ? node->minColWidth : lineEnd->intrinsicSize.x);
 
                     if (itemsInLine > 0) {
@@ -562,10 +561,10 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                         }
                     }
 
-                    const float childW = std::max(0.0f, (static_cast<float>(span) / static_cast<float>(totalCols)) * (availW + gap) - gap);
+                    const float childW = keel::max(0.0f, (static_cast<float>(span) / static_cast<float>(totalCols)) * (availW + gap) - gap);
                     const float childH = ResolveNodeHeight(lineEnd, childW, canvas, activeTheme);
 
-                    lineMaxH = std::max(lineMaxH, childH);
+                    lineMaxH = keel::max(lineMaxH, childH);
                     currentLineSpan += span;
                     ++itemsInLine;
                     lineEnd = lineEnd->nextSibling;
@@ -588,9 +587,9 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 lineStart = lineEnd;
             }
 
-            float resolvedH = std::max(node->minHeight, totalH + node->padding.Vertical());
+            float resolvedH = keel::max(node->minHeight, totalH + node->padding.Vertical());
             if (node->maxHeight > 0.0f) {
-                resolvedH = std::min(resolvedH, node->maxHeight);
+                resolvedH = keel::min(resolvedH, node->maxHeight);
             }
             return resolvedH;
         }
@@ -629,14 +628,14 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         }
 
         if (node->maxWidth > 0.0f) {
-            w = std::min(w, node->maxWidth);
+            w = keel::min(w, node->maxWidth);
         }
         const float maxAllowedH = GetScrollAreaMaxHeight(node);
         if (maxAllowedH > 0.0f) {
-            h = std::min(h, maxAllowedH);
+            h = keel::min(h, maxAllowedH);
         }
         if (node->maxHeight > 0.0f) {
-            h = std::min(h, node->maxHeight);
+            h = keel::min(h, node->maxHeight);
         }
 
         if (node->type == NodeType::Modal) {
@@ -661,8 +660,8 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
         if (node->type == NodeType::ScrollArea || ((node->type == NodeType::Sidebar || node->type == NodeType::BottomPanel) && node->sidebarScrollable)) {
             const ScrollbarMetrics& sm = activeTheme.GetScrollbar(node->uiSize);
-            const float fullW = std::max(0.0f, node->computedRect.w - node->padding.Horizontal());
-            const float fullH = std::max(0.0f, node->computedRect.h - node->padding.Vertical());
+            const float fullW = keel::max(0.0f, node->computedRect.w - node->padding.Horizontal());
+            const float fullH = keel::max(0.0f, node->computedRect.h - node->padding.Vertical());
             const bool allowV = (node->scrollOrientation == Orientation::Vertical || node->scrollOrientation == Orientation::Both);
             const bool allowH = (node->scrollOrientation == Orientation::Horizontal || node->scrollOrientation == Orientation::Both);
 
@@ -691,7 +690,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                         const float cw = (child->widthMode == SizeMode::Fixed)
                             ? child->fixedWidth
                             : (isFullStretchViewport ? child->minWidth : child->intrinsicSize.x);
-                        maxW = std::max(maxW, cw);
+                        maxW = keel::max(maxW, cw);
                     }
                     naturalContentW = maxW;
                 }
@@ -702,20 +701,20 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 (node->scrollbarPolicy == VisibilityPolicy::Auto && naturalContentW > fullW + 0.5f)
             );
             const float gutterY = needScrollbarX ? sm.gutter : 0.0f;
-            const float viewportH = std::max(0.0f, fullH - gutterY);
-            const float totalViewportH = std::max(0.0f, node->computedRect.h - gutterY);
+            const float viewportH = keel::max(0.0f, fullH - gutterY);
+            const float totalViewportH = keel::max(0.0f, node->computedRect.h - gutterY);
 
             // 2. Determine if vertical scrollbar is required
             bool needScrollbarY = allowV && (node->scrollbarPolicy == VisibilityPolicy::Always);
             if (!needScrollbarY && allowV && node->scrollbarPolicy == VisibilityPolicy::Auto) {
-                const float measureW = allowH ? std::max(fullW, naturalContentW) : fullW;
+                const float measureW = allowH ? keel::max(fullW, naturalContentW) : fullW;
                 float testH = 0.0f;
                 uint32_t active = 0;
                 for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
                     if (child->isSpacer || child->type == NodeType::Sidebar || child->type == NodeType::Modal) continue;
                     const bool isFullStretchViewport = (child->widthMode == SizeMode::Stretch && child->heightMode == SizeMode::Stretch && child->clipChildren);
                     testH += isFullStretchViewport
-                        ? std::max(viewportH, child->minHeight)
+                        ? keel::max(viewportH, child->minHeight)
                         : ResolveNodeHeight(child, measureW, canvas, activeTheme);
                     ++active;
                 }
@@ -730,9 +729,9 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
             // 3. Reserve gutter so scrollbar never overlays content
             const float activeGutterX = (needScrollbarY && allowV) ? sm.gutter : 0.0f;
-            const float viewportW = std::max(0.0f, fullW - activeGutterX);
-            const float totalViewportW = std::max(0.0f, node->computedRect.w - activeGutterX);
-            const float effectiveContentW = allowH ? std::max(viewportW, naturalContentW) : viewportW;
+            const float viewportW = keel::max(0.0f, fullW - activeGutterX);
+            const float totalViewportW = keel::max(0.0f, node->computedRect.w - activeGutterX);
+            const float effectiveContentW = allowH ? keel::max(viewportW, naturalContentW) : viewportW;
 
             float contentH = 0.0f;
             uint32_t activeChildren = 0;
@@ -740,10 +739,10 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 if (child->isSpacer || child->type == NodeType::Sidebar || child->type == NodeType::Modal) continue;
                 const bool isFullStretchViewport = (child->widthMode == SizeMode::Stretch && child->heightMode == SizeMode::Stretch && child->clipChildren);
                 const float ch = isFullStretchViewport
-                    ? std::max(viewportH, child->minHeight)
+                    ? keel::max(viewportH, child->minHeight)
                     : ResolveNodeHeight(child, effectiveContentW, canvas, activeTheme);
                 if (node->direction == FlexDirection::Row) {
-                    contentH = std::max(contentH, ch);
+                    contentH = keel::max(contentH, ch);
                 } else {
                     contentH += ch;
                 }
@@ -756,13 +755,13 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
             node->scrollContentSize = {effectiveContentW + node->padding.Horizontal(), contentH};
 
-            const float maxScrollY = allowV ? std::max(0.0f, contentH - totalViewportH) : 0.0f;
-            const float maxScrollX = allowH ? std::max(0.0f, node->scrollContentSize.x - totalViewportW) : 0.0f;
-            node->scrollOffset.y = std::clamp(node->scrollOffset.y, 0.0f, maxScrollY);
-            node->scrollOffset.x = std::clamp(node->scrollOffset.x, 0.0f, maxScrollX);
+            const float maxScrollY = allowV ? keel::max(0.0f, contentH - totalViewportH) : 0.0f;
+            const float maxScrollX = allowH ? keel::max(0.0f, node->scrollContentSize.x - totalViewportW) : 0.0f;
+            node->scrollOffset.y = keel::clamp(node->scrollOffset.y, 0.0f, maxScrollY);
+            node->scrollOffset.x = keel::clamp(node->scrollOffset.x, 0.0f, maxScrollX);
 
             const float effectiveContentH = allowV
-                ? std::max(viewportH, contentH - node->padding.Vertical())
+                ? keel::max(viewportH, contentH - node->padding.Vertical())
                 : viewportH;
             const Rect scrollContentRect(
                 node->computedRect.x + node->padding.left - node->scrollOffset.x,
@@ -784,8 +783,8 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         Rect contentRect(
             node->computedRect.x + node->padding.left,
             node->computedRect.y + node->padding.top,
-            std::max(0.0f, node->computedRect.w - node->padding.Horizontal()),
-            std::max(0.0f, node->computedRect.h - node->padding.Vertical())
+            keel::max(0.0f, node->computedRect.w - node->padding.Horizontal()),
+            keel::max(0.0f, node->computedRect.h - node->padding.Vertical())
         );
 
         // Dock direct NodeType::Sidebar children to Left / Right in call order
@@ -829,14 +828,14 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                     }
                 }
                 if (child->minWidth > 0.0f) {
-                    sbW = std::max(sbW, child->minWidth);
+                    sbW = keel::max(sbW, child->minWidth);
                 }
 
                 if (!child->sidebarRight) {
                     if (leftSidebarCount > 0 && !prevLeftFlush) {
                         leftX += node->gap;
                     }
-                    sbW = std::min(sbW, std::max(0.0f, rightX - leftX));
+                    sbW = keel::min(sbW, keel::max(0.0f, rightX - leftX));
                     ArrangeNode(child, Rect(leftX, topY, sbW, availH), activeTheme, canvas);
                     leftX += sbW;
                     prevLeftFlush = (child->sidebarFlush != 0);
@@ -845,7 +844,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                     if (rightSidebarCount > 0 && !prevRightFlush) {
                         rightX -= node->gap;
                     }
-                    sbW = std::min(sbW, std::max(0.0f, rightX - leftX));
+                    sbW = keel::min(sbW, keel::max(0.0f, rightX - leftX));
                     ArrangeNode(child, Rect(rightX - sbW, topY, sbW, availH), activeTheme, canvas);
                     rightX -= sbW;
                     prevRightFlush = (child->sidebarFlush != 0);
@@ -863,7 +862,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             if (rightSidebarCount > 0) {
                 rightX -= node->gap;
             }
-            contentRect = Rect(leftX, topY, std::max(0.0f, rightX - leftX), availH);
+            contentRect = Rect(leftX, topY, keel::max(0.0f, rightX - leftX), availH);
         }
 
         if (node->direction == FlexDirection::Row) {
@@ -891,7 +890,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 if (child->isSpacer) {
                     ++spacerCount;
                 } else if (child->widthMode != SizeMode::Fixed) {
-                    maxEqualTrackW = std::max(maxEqualTrackW, std::max(child->minWidth, child->intrinsicSize.x));
+                    maxEqualTrackW = keel::max(maxEqualTrackW, keel::max(child->minWidth, child->intrinsicSize.x));
                 }
             }
         }
@@ -905,7 +904,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             ++flowChildCount;
             const bool isEqualTrack = node->equalWidths && !child->isSpacer && (child->widthMode != SizeMode::Fixed);
             if (child->isSpacer || (isEqualTrack && stretchEqualTracks) || (!node->equalWidths && child->widthMode == SizeMode::Stretch)) {
-                const float fg = (isEqualTrack && stretchEqualTracks) ? 1.0f : std::max(0.01f, child->flexGrow);
+                const float fg = (isEqualTrack && stretchEqualTracks) ? 1.0f : keel::max(0.01f, child->flexGrow);
                 totalFlexGrow += fg;
                 ++flexCount;
             } else if (child->widthMode == SizeMode::Fixed) {
@@ -922,7 +921,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             : 0.0f;
 
         const float rawFreeSpace = contentRect.w - totalGap - baseSum;
-        const float freeSpace = std::max(0.0f, rawFreeSpace);
+        const float freeSpace = keel::max(0.0f, rawFreeSpace);
         float currentX = contentRect.x;
 
         // Compute horizontal deficit absorption for Fit Text/Heading nodes in constrained Rows
@@ -936,13 +935,13 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 const bool isEqualTrack = node->equalWidths && (child->widthMode != SizeMode::Fixed);
                 if (!isEqualTrack && child->widthMode == SizeMode::Fit &&
                     (child->type == NodeType::Text || child->type == NodeType::Heading)) {
-                    const float preserveW = std::max(child->minWidth, std::min(child->intrinsicSize.x, shortBadgeThreshold));
-                    totalLongTextExcess += std::max(0.0f, child->intrinsicSize.x - preserveW);
+                    const float preserveW = keel::max(child->minWidth, keel::min(child->intrinsicSize.x, shortBadgeThreshold));
+                    totalLongTextExcess += keel::max(0.0f, child->intrinsicSize.x - preserveW);
                 }
             }
         }
-        const float takeFromLongText = std::min(remDeficit, totalLongTextExcess);
-        const float postStage1Deficit = std::max(0.0f, remDeficit - takeFromLongText);
+        const float takeFromLongText = keel::min(remDeficit, totalLongTextExcess);
+        const float postStage1Deficit = keel::max(0.0f, remDeficit - takeFromLongText);
         float totalRemainingTextW = 0.0f;
         if (postStage1Deficit > 0.0f) {
             for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
@@ -950,12 +949,12 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 const bool isEqualTrack = node->equalWidths && (child->widthMode != SizeMode::Fixed);
                 if (!isEqualTrack && child->widthMode == SizeMode::Fit &&
                     (child->type == NodeType::Text || child->type == NodeType::Heading)) {
-                    const float preserveW = std::max(child->minWidth, std::min(child->intrinsicSize.x, shortBadgeThreshold));
-                    totalRemainingTextW += std::max(0.0f, preserveW - child->minWidth);
+                    const float preserveW = keel::max(child->minWidth, keel::min(child->intrinsicSize.x, shortBadgeThreshold));
+                    totalRemainingTextW += keel::max(0.0f, preserveW - child->minWidth);
                 }
             }
         }
-        const float takeFromShortText = std::min(postStage1Deficit, totalRemainingTextW);
+        const float takeFromShortText = keel::min(postStage1Deficit, totalRemainingTextW);
 
         // Main axis justification when there are no stretch elements
         if (flexCount == 0) {
@@ -984,7 +983,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             float childW = 0.0f;
             const bool isEqualTrack = node->equalWidths && !child->isSpacer && (child->widthMode != SizeMode::Fixed);
             if (child->isSpacer || (isEqualTrack && stretchEqualTracks) || (!node->equalWidths && child->widthMode == SizeMode::Stretch)) {
-                const float fg = (isEqualTrack && stretchEqualTracks) ? 1.0f : std::max(0.01f, child->flexGrow);
+                const float fg = (isEqualTrack && stretchEqualTracks) ? 1.0f : keel::max(0.01f, child->flexGrow);
                 childW = (totalFlexGrow > 0.0f)
                     ? (freeSpace * (fg / totalFlexGrow))
                     : 0.0f;
@@ -995,29 +994,29 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             } else { // SizeMode::Fit
                 childW = child->intrinsicSize.x;
                 if (constrainedRow && flowChildCount == 1) {
-                    childW = std::min(childW, contentRect.w);
+                    childW = keel::min(childW, contentRect.w);
                 } else if (remDeficit > 0.0f && (child->type == NodeType::Text || child->type == NodeType::Heading)) {
-                    const float preserveW = std::max(child->minWidth, std::min(child->intrinsicSize.x, shortBadgeThreshold));
-                    const float excessW = std::max(0.0f, child->intrinsicSize.x - preserveW);
+                    const float preserveW = keel::max(child->minWidth, keel::min(child->intrinsicSize.x, shortBadgeThreshold));
+                    const float excessW = keel::max(0.0f, child->intrinsicSize.x - preserveW);
                     if (takeFromLongText > 0.0f && totalLongTextExcess > 0.0f && excessW > 0.0f) {
                         childW -= takeFromLongText * (excessW / totalLongTextExcess);
                     }
                     if (takeFromShortText > 0.0f && totalRemainingTextW > 0.0f) {
-                        const float remShrinkW = std::max(0.0f, preserveW - child->minWidth);
+                        const float remShrinkW = keel::max(0.0f, preserveW - child->minWidth);
                         childW -= takeFromShortText * (remShrinkW / totalRemainingTextW);
                     }
-                    childW = std::max(child->minWidth, childW);
+                    childW = keel::max(child->minWidth, childW);
                 }
             }
 
             if (child->minWidth > 0.0f) {
-                childW = std::max(childW, child->minWidth);
+                childW = keel::max(childW, child->minWidth);
             }
             if (child->maxWidth > 0.0f) {
-                childW = std::min(childW, child->maxWidth);
+                childW = keel::min(childW, child->maxWidth);
             }
             if (constrainedRow && flowChildCount == 1 && child->widthMode != SizeMode::Fixed) {
-                childW = std::min(childW, contentRect.w);
+                childW = keel::min(childW, contentRect.w);
             }
 
             float childH = contentRect.h;
@@ -1027,13 +1026,13 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 childH = ResolveNodeHeight(child, childW, canvas, theme);
             }
             if (!child->isSpacer && child->minHeight > 0.0f) {
-                childH = std::max(childH, child->minHeight);
+                childH = keel::max(childH, child->minHeight);
             }
             if (child->maxHeight > 0.0f) {
-                childH = std::min(childH, child->maxHeight);
+                childH = keel::min(childH, child->maxHeight);
             }
             if (node->heightMode != SizeMode::Fit && contentRect.h > 0.0f && child->heightMode != SizeMode::Fixed) {
-                childH = std::min(childH, contentRect.h);
+                childH = keel::min(childH, contentRect.h);
             }
 
             float childY = contentRect.y;
@@ -1052,16 +1051,16 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 ? (currentX - contentRect.x - node->gap) + node->padding.Horizontal()
                 : node->padding.Horizontal();
             if (node->minWidth > 0.0f) {
-                node->computedRect.w = std::max(node->computedRect.w, node->minWidth);
+                node->computedRect.w = keel::max(node->computedRect.w, node->minWidth);
             }
             if (node->maxWidth > 0.0f) {
-                node->computedRect.w = std::min(node->computedRect.w, node->maxWidth);
+                node->computedRect.w = keel::min(node->computedRect.w, node->maxWidth);
             }
         }
     }
 
     static void ArrangeWrap(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas) {
-        const float maxLineWidth = std::max(0.0f, contentRect.w);
+        const float maxLineWidth = keel::max(0.0f, contentRect.w);
         Node* lineStart = node->firstChild;
         float currentY = contentRect.y;
         float maxUsedLineW = 0.0f;
@@ -1088,7 +1087,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 }
 
                 currentLineWidth += neededWidth;
-                lineMaxH = std::max(lineMaxH, ch);
+                lineMaxH = keel::max(lineMaxH, ch);
                 ++itemsInLine;
                 lineEnd = lineEnd->nextSibling;
             }
@@ -1104,7 +1103,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             // Main axis justification for this line
             float itemX = contentRect.x;
             float itemGap = node->gap;
-            const float freeLineWidth = std::max(0.0f, maxLineWidth - currentLineWidth);
+            const float freeLineWidth = keel::max(0.0f, maxLineWidth - currentLineWidth);
 
             if (node->justify == Justify::Center) {
                 itemX += freeLineWidth * 0.5f;
@@ -1136,28 +1135,28 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 itemX += cw + itemGap;
             }
 
-            maxUsedLineW = std::max(maxUsedLineW, currentLineWidth);
+            maxUsedLineW = keel::max(maxUsedLineW, currentLineWidth);
             currentY += lineMaxH;
             hasLines = true;
             lineStart = lineEnd;
         }
 
         if (node->widthMode == SizeMode::Fit) {
-            node->computedRect.w = std::max(
+            node->computedRect.w = keel::max(
                 node->minWidth,
                 maxUsedLineW + node->padding.Horizontal()
             );
             if (node->maxWidth > 0.0f) {
-                node->computedRect.w = std::min(node->computedRect.w, node->maxWidth);
+                node->computedRect.w = keel::min(node->computedRect.w, node->maxWidth);
             }
         }
         if (node->heightMode == SizeMode::Fit) {
-            node->computedRect.h = std::max(
+            node->computedRect.h = keel::max(
                 node->minHeight,
                 (currentY - contentRect.y) + node->padding.Vertical()
             );
             if (node->maxHeight > 0.0f) {
-                node->computedRect.h = std::min(node->computedRect.h, node->maxHeight);
+                node->computedRect.h = keel::min(node->computedRect.h, node->maxHeight);
             }
         }
     }
@@ -1183,7 +1182,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             if (child->type == NodeType::BottomPanel && child->sidebarCollapsed) continue;
             ++flowChildCount;
             if (child->isSpacer || isChildStretchHeight(child)) {
-                totalFlexGrow += std::max(0.01f, child->flexGrow);
+                totalFlexGrow += keel::max(0.01f, child->flexGrow);
                 ++flexCount;
             } else if (child->heightMode == SizeMode::Fixed) {
                 baseSum += child->fixedHeight;
@@ -1197,7 +1196,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             ? static_cast<float>(flowChildCount - 1) * node->gap
             : 0.0f;
 
-        const float freeSpace = std::max(0.0f, contentRect.h - totalGap - baseSum);
+        const float freeSpace = keel::max(0.0f, contentRect.h - totalGap - baseSum);
         float currentY = contentRect.y;
 
         // Main axis justification when there are no stretch elements
@@ -1213,7 +1212,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             if (child->type == NodeType::Sidebar || child->type == NodeType::Modal) continue;
             if (child->type == NodeType::BottomPanel && child->sidebarCollapsed) {
                 const float edgeY = (currentY > contentRect.y)
-                    ? std::clamp(currentY - node->gap, contentRect.y, contentRect.Bottom())
+                    ? keel::clamp(currentY - node->gap, contentRect.y, contentRect.Bottom())
                     : contentRect.Bottom();
                 child->computedRect = Rect(contentRect.x, edgeY, contentRect.w, 0.0f);
                 continue;
@@ -1223,10 +1222,10 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             float childH = 0.0f;
             if (child->isSpacer || isChildStretchHeight(child)) {
                 childH = (totalFlexGrow > 0.0f)
-                    ? (freeSpace * (std::max(0.01f, child->flexGrow) / totalFlexGrow))
+                    ? (freeSpace * (keel::max(0.01f, child->flexGrow) / totalFlexGrow))
                     : 0.0f;
                 if (!child->isSpacer && !parentHasDefiniteHeight && child->minHeight > 0.0f) {
-                    childH = std::max(childH, child->minHeight);
+                    childH = keel::max(childH, child->minHeight);
                 }
             } else if (child->heightMode == SizeMode::Fixed) {
                 childH = child->fixedHeight;
@@ -1234,7 +1233,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 childH = ResolveNodeHeight(child, childW, canvas, theme);
             }
             if (child->maxHeight > 0.0f) {
-                childH = std::min(childH, child->maxHeight);
+                childH = keel::min(childH, child->maxHeight);
             }
 
             float childX = contentRect.x;
@@ -1253,10 +1252,10 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 ? (currentY - contentRect.y - node->gap) + node->padding.Vertical()
                 : node->padding.Vertical();
             if (node->minHeight > 0.0f) {
-                node->computedRect.h = std::max(node->computedRect.h, node->minHeight);
+                node->computedRect.h = keel::max(node->computedRect.h, node->minHeight);
             }
             if (node->maxHeight > 0.0f) {
-                node->computedRect.h = std::min(node->computedRect.h, node->maxHeight);
+                node->computedRect.h = keel::min(node->computedRect.h, node->maxHeight);
             }
         }
     }
@@ -1284,7 +1283,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                     continue;
                 }
 
-                int span = std::clamp<int>(lineEnd->colSpan, 1, totalCols);
+                int span = keel::clamp<int>(lineEnd->colSpan, 1, totalCols);
                 const float reqMinW = (lineEnd->minWidth > 0.0f) ? lineEnd->minWidth : ((node->minColWidth > 0.0f) ? node->minColWidth : lineEnd->intrinsicSize.x);
 
                 if (itemsInLine > 0) {
@@ -1306,7 +1305,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                     }
                 }
 
-                const float childW = std::max(0.0f, (static_cast<float>(span) / static_cast<float>(totalCols)) * (availW + gap) - gap);
+                const float childW = keel::max(0.0f, (static_cast<float>(span) / static_cast<float>(totalCols)) * (availW + gap) - gap);
                 float childH = 0.0f;
                 if (lineEnd->heightMode == SizeMode::Fixed) {
                     childH = lineEnd->fixedHeight;
@@ -1314,7 +1313,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                     childH = ResolveNodeHeight(lineEnd, childW, canvas, theme);
                 }
 
-                lineMaxH = std::max(lineMaxH, childH);
+                lineMaxH = keel::max(lineMaxH, childH);
                 currentLineSpan += span;
                 ++itemsInLine;
                 lineEnd = lineEnd->nextSibling;
@@ -1340,13 +1339,13 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             for (Node* child = lineStart; child != lineEnd; child = child->nextSibling) {
                 if (child->isSpacer || child->type == NodeType::Sidebar || child->type == NodeType::Modal) continue;
 
-                int span = std::clamp<int>(child->colSpan, 1, totalCols);
+                int span = keel::clamp<int>(child->colSpan, 1, totalCols);
                 const float reqMinW = (child->minWidth > 0.0f) ? child->minWidth : ((node->minColWidth > 0.0f) ? node->minColWidth : child->intrinsicSize.x);
                 if (itemsInLine == 1 && (lineEnd != nullptr || (reqMinW > 0.0f && ((static_cast<float>(span) / static_cast<float>(totalCols)) * (availW + gap) - gap) < reqMinW))) {
                     span = totalCols;
                 }
 
-                const float childW = std::max(0.0f, (static_cast<float>(span) / static_cast<float>(totalCols)) * (availW + gap) - gap);
+                const float childW = keel::max(0.0f, (static_cast<float>(span) / static_cast<float>(totalCols)) * (availW + gap) - gap);
 
                 float childH = 0.0f;
                 if (child->heightMode == SizeMode::Fixed) {
@@ -1378,10 +1377,10 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 ? (currentY - contentRect.y) + node->padding.Vertical()
                 : node->padding.Vertical();
             if (node->minHeight > 0.0f) {
-                node->computedRect.h = std::max(node->computedRect.h, node->minHeight);
+                node->computedRect.h = keel::max(node->computedRect.h, node->minHeight);
             }
             if (node->maxHeight > 0.0f) {
-                node->computedRect.h = std::min(node->computedRect.h, node->maxHeight);
+                node->computedRect.h = keel::min(node->computedRect.h, node->maxHeight);
             }
         }
     }

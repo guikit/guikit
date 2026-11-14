@@ -1,8 +1,8 @@
 #pragma once
 
-#include <string>
 #include "demo_context.hpp"
 #include "guikit/guikit.hpp"
+#include "keel/keel.h"
 
 namespace guikit::demo {
 
@@ -28,13 +28,13 @@ private:
 
     static void DispatchInspector(guikit::Context& ui, NavCategory cat, DemoContext& ctx);
     static void DispatchSandboxStage(guikit::Context& ui, NavCategory cat, DemoContext& ctx);
-    static std::string DispatchCodeGenerator(NavCategory cat, const DemoContext& ctx);
+    static keel::String DispatchCodeGenerator(NavCategory cat, const DemoContext& ctx);
 
     guikit::SidebarMode m_navSidebarMode = guikit::SidebarMode::Expanded;
     guikit::SidebarMode m_inspectorSidebarMode = guikit::SidebarMode::Expanded;
     NavCategory m_selectedCategory = NavCategory::ElemHeading;
     NavCategory m_cachedCodeCategory = NavCategory::ElemHeading;
-    std::string m_cachedCodeSnippet;
+    keel::String m_cachedCodeSnippet;
     DemoContext m_demoCtx;
 };
 

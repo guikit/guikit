@@ -1,21 +1,44 @@
+#include <cmath>
 #include <cstring>
-#include <iostream>
-#include <thread>
-#include <unordered_set>
+#if defined(_WIN32)
+extern "C" __declspec(dllimport) void __stdcall Sleep(unsigned long dwMilliseconds);
+#elif !defined(__EMSCRIPTEN__)
+#include <ctime>
+#endif
 #include "guikit/core.hpp"
 #include "guikit/geo/map_grid.hpp"
 #include "keel/keel.h"
 
 static int g_failures = 0;
 
-#define CHECK(cond)                                                                  \
-    do {                                                                             \
-        if (!(cond)) {                                                               \
-            std::cerr << "[FAIL] " << #cond << " (" << __FILE__ << ":" << __LINE__   \
-                      << ")\n";                                                      \
-            ++g_failures;                                                            \
-        }                                                                            \
+#define CHECK(cond)                                                         \
+    do {                                                                    \
+        if (!(cond)) {                                                      \
+            keel::eprintln("[FAIL] {} ({}:{})", #cond, __FILE__, __LINE__); \
+            ++g_failures;                                                   \
+        }                                                                   \
     } while (0)
+
+static void SleepMicroseconds(keel::u64 us) noexcept {
+    const keel::u64 targetNs = keel::monotonic_ns() + us * 1000ULL;
+    for (;;) {
+        const keel::u64 nowNs = keel::monotonic_ns();
+        if (nowNs >= targetNs) break;
+        const keel::u64 remNs = targetNs - nowNs;
+#if defined(_WIN32)
+        if (remNs >= 2000000ULL) {
+            Sleep(static_cast<unsigned long>(remNs / 1000000ULL));
+        }
+#elif !defined(__EMSCRIPTEN__)
+        struct timespec ts{};
+        ts.tv_sec = static_cast<time_t>(remNs / 1000000000ULL);
+        ts.tv_nsec = static_cast<long>(remNs % 1000000000ULL);
+        nanosleep(&ts, nullptr);
+#else
+        (void)remNs;
+#endif
+    }
+}
 
 void TestGeometryAndTypes() {
     using namespace guikit;
@@ -69,10 +92,10 @@ void TestGeometryAndTypes() {
     Padding pResolved = theme.ResolvePadding(pToken);
     CHECK(pResolved == theme.GetPadding(UiSize::Sm));
 
-    Padding pEmptyResolved = theme.ResolvePadding(std::nullopt);
+    Padding pEmptyResolved = theme.ResolvePadding(keel::kNullOpt);
     CHECK((pEmptyResolved == Padding{0.0f, 0.0f, 0.0f, 0.0f}));
 
-    Padding pCardResolved = theme.ResolvePadding(std::nullopt, UiSize::Md);
+    Padding pCardResolved = theme.ResolvePadding(keel::kNullOpt, UiSize::Md);
     CHECK(pCardResolved == theme.GetPadding(UiSize::Md));
 
     // Typography line height test
@@ -95,12 +118,12 @@ void TestIdGeneration() {
     // Distinct parents must yield distinct IDs
     Id parentA{100};
     Id parentB{200};
-    Id childA = MakeId(0, std::source_location::current(), parentA);
-    Id childB = MakeId(0, std::source_location::current(), parentB);
+    Id childA = MakeId(0, keel::SourceLocation::current(), parentA);
+    Id childB = MakeId(0, keel::SourceLocation::current(), parentB);
     CHECK(childA != childB);
 
-    // Hash map compatibility
-    std::unordered_set<Id> idSet;
+    // Hash set compatibility
+    keel::HashSet<Id> idSet;
     idSet.insert(id0);
     idSet.insert(id1);
     idSet.insert(id2);
@@ -116,7 +139,7 @@ void TestBumpAllocator() {
     struct SampleData {
         int a;
         double b;
-        std::string_view tag;
+        keel::StringRef tag;
     };
 
     SampleData* obj1 = allocator.create<SampleData>(10, 3.14, "hello");
@@ -156,21 +179,29 @@ void TestBumpAllocator() {
     std::memset(oversizedInChunk1, 0xAB, 4096);
 
     // Non-trivially destructible objects & arrays must invoke ~T() in LIFO order on reset() and ~Arena()
-    std::vector<int> dtorOrder;
+    keel::Array<int> dtorOrder;
     struct TrackedNonTrivial {
-        std::vector<int>* log{nullptr};
+        keel::Array<int>* log{nullptr};
         int id{0};
-        std::vector<int> ownedHeap{1, 2, 3, 4};
+        keel::SmallArray<int, 4> ownedHeap{};
 
-        TrackedNonTrivial() = default;
-        TrackedNonTrivial(std::vector<int>* l, int i) : log(l), id(i) {}
-        ~TrackedNonTrivial() {
+        TrackedNonTrivial() {
+            ownedHeap.push_back(1);
+            ownedHeap.push_back(2);
+            ownedHeap.push_back(3);
+            ownedHeap.push_back(4);
+        }
+        TrackedNonTrivial(keel::Array<int>* l, int i) : TrackedNonTrivial() {
+            log = l;
+            id = i;
+        }
+        ~TrackedNonTrivial() noexcept {
             if (log) {
                 log->push_back(id);
             }
         }
     };
-    static_assert(!std::is_trivially_destructible_v<TrackedNonTrivial>);
+    static_assert(!keel::IsTriviallyDestructible<TrackedNonTrivial>);
 
     {
         keel::Arena scopedAlloc(512);
@@ -187,8 +218,8 @@ void TestBumpAllocator() {
 
         scopedAlloc.reset();
         // LIFO destruction: arr[2] (12), arr[1] (11), arr[0] (10), then n2 (2), then n1 (1)
-        const std::vector<int> expectedAfterReset = {12, 11, 10, 2, 1};
-        CHECK(dtorOrder == expectedAfterReset);
+        static constexpr keel::StaticArray<int, 5> expectedAfterReset = {{12, 11, 10, 2, 1}};
+        CHECK(dtorOrder.as_ref() == expectedAfterReset.as_ref());
 
         dtorOrder.clear();
         auto* n3 = scopedAlloc.create<TrackedNonTrivial>(&dtorOrder, 42);
@@ -221,12 +252,12 @@ void TestFrameMetrics() {
     for (int i = 0; i < 5; ++i) {
         metrics.BeginFrame();
         // Simulate small CPU work
-        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        SleepMicroseconds(2000);
         metrics.MarkCpuDone();
 
         // Simulate small GPU work
         metrics.MarkGpuStart();
-        std::this_thread::sleep_for(std::chrono::microseconds(500));
+        SleepMicroseconds(500);
         metrics.MarkGpuDone();
 
         metrics.EndFrame(60.0f);
@@ -240,18 +271,18 @@ void TestFrameMetrics() {
     CHECK(metrics.GetRamUsageBytes() > 0);
     CHECK(metrics.GetRamUsageMb() > 0.0f);
 
-    std::string_view status = metrics.GetStatusString();
+    keel::StringRef status = metrics.GetStatusString();
     CHECK(!status.empty());
-    CHECK(status.find("FPS") != std::string_view::npos);
-    CHECK(status.find("CPU:") != std::string_view::npos);
-    CHECK(status.find("GPU:") != std::string_view::npos);
-    CHECK(status.find("budget") != std::string_view::npos);
-    CHECK(status.find("RAM:") != std::string_view::npos);
+    CHECK(status.find("FPS") != keel::StringRef::npos);
+    CHECK(status.find("CPU:") != keel::StringRef::npos);
+    CHECK(status.find("GPU:") != keel::StringRef::npos);
+    CHECK(status.find("budget") != keel::StringRef::npos);
+    CHECK(status.find("RAM:") != keel::StringRef::npos);
 
     // Simulate active presented frames followed by >250ms reactive sleep (idle heartbeat)
     for (int i = 0; i < 4; ++i) {
         metrics.BeginFrame();
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        SleepMicroseconds(1000);
         metrics.MarkCpuDone();
         metrics.MarkGpuStart();
         metrics.MarkGpuDone();
@@ -261,7 +292,7 @@ void TestFrameMetrics() {
     CHECK(!metrics.IsIdle());
 
     // Sleep >250ms to simulate reactive idle heartbeat wait
-    std::this_thread::sleep_for(std::chrono::milliseconds(260));
+    SleepMicroseconds(260000);
     metrics.BeginFrame();
     // Immediately at BeginFrame() (before UI StatusBar rendering), metrics must report Idle
     CHECK(metrics.IsIdle());
@@ -285,7 +316,7 @@ void TestNodeFootprint() {
     using namespace guikit;
 
     // Verify Node has been decoupled from widget options and its size is compact
-    std::cout << "[INFO] sizeof(Node) = " << sizeof(Node) << " bytes\n";
+    keel::println("[INFO] sizeof(Node) = {} bytes", sizeof(Node));
     CHECK(sizeof(Node) <= 256); // Compact <=256 bytes with 4 polymorphic delegates + aspect-ratio/minHeight/2D scroll state
 
     // Verify generic payload casting
@@ -516,6 +547,11 @@ void TestMapGridAndProjections() {
     CHECK(std::abs(u3857 - u3395) < 1e-9);
     CHECK(std::abs(v3857 - v3395) > 5e-4);
 
+    const GeoPlanar p3857 = MapGrid::GeoToNormalizedDouble(helgoland, MapCrs::EPSG3857_WebMercator);
+    const GeoPlanar p3395 = MapGrid::GeoToNormalizedDouble(helgoland, MapCrs::EPSG3395_WorldMercator);
+    CHECK(std::abs(p3857.first - p3395.first) < 1e-12);
+    CHECK(std::abs(p3857.second - p3395.second) > 5e-4);
+
     // 3. Tile ID & View State calculation
     MapGridConfig cfg{
         .crs = MapCrs::EPSG3857_WebMercator,
@@ -549,8 +585,8 @@ void TestMapGridAndProjections() {
 
     // 4. Nautical DMM formatting check
     const auto dmmStr = MapGrid::FormatCoord(helgoland, GeoCoordFormat::NauticalDMM);
-    CHECK(std::string_view(dmmStr).find("54") != std::string_view::npos);
-    CHECK(std::string_view(dmmStr).find("007") != std::string_view::npos);
+    CHECK(dmmStr.as_ref().find("54") != keel::StringRef::npos);
+    CHECK(dmmStr.as_ref().find("007") != keel::StringRef::npos);
 }
 
 void TestTextWrapForceSplitLastWord() {
@@ -558,11 +594,11 @@ void TestTextWrapForceSplitLastWord() {
 
     // 1. Single long word at end of string wider than maxWidth
     {
-        const std::string_view text = "StretchMode::Fill.";
+        const keel::StringRef text = "StretchMode::Fill.";
         const auto lines = TextUtil::WrapText(text, 60.0f, 14.0f, nullptr);
         CHECK(lines.size() >= 2);
-        std::string reconstructed;
-        for (std::string_view ln : lines) {
+        keel::String reconstructed;
+        for (keel::StringRef ln : lines) {
             reconstructed.append(ln);
         }
         CHECK(reconstructed == text);
@@ -570,7 +606,7 @@ void TestTextWrapForceSplitLastWord() {
 
     // 2. Multi-word string where the final word requires force-splitting across narrow widths
     {
-        const std::string_view subtitle =
+        const keel::StringRef subtitle =
             "Each button automatically receives exactly 33.3% available width via stretch = StretchMode::Fill.";
         for (float maxW = 4.0f; maxW <= 250.0f; maxW += 7.0f) {
             const auto lines = TextUtil::WrapText(subtitle, maxW, 13.0f, nullptr);
@@ -580,7 +616,7 @@ void TestTextWrapForceSplitLastWord() {
 
     // 3. UTF-8 multi-byte string force-split at the end of string
     {
-        const std::string_view utf8Text = "Короткий текст СверхдлинноеСловоВКонцеСтроки";
+        const keel::StringRef utf8Text = "Короткий текст СверхдлинноеСловоВКонцеСтроки";
         for (float maxW = 5.0f; maxW <= 200.0f; maxW += 11.0f) {
             const auto lines = TextUtil::WrapText(utf8Text, maxW, 14.0f, nullptr);
             CHECK(!lines.empty());
@@ -597,18 +633,18 @@ void TestStandaloneCoreModuleZeroDependencies() {
         void End() override {}
         [[nodiscard]] float GetScale() const noexcept override { return m_scale; }
         void SetScale(float scale) override { m_scale = scale; }
-        [[nodiscard]] std::string_view GetBackendName() const noexcept override { return "NullCanvas (Zero-Dep)"; }
-        void Clear(Color, std::optional<Rect> = std::nullopt) override {}
+        [[nodiscard]] keel::StringRef GetBackendName() const noexcept override { return "NullCanvas (Zero-Dep)"; }
+        void Clear(Color, keel::Optional<Rect> = keel::kNullOpt) override {}
         void PushClip(Rect) override {}
         void PopClip() override {}
         void DrawRect(Rect, Color) override { ++drawCount; }
         void DrawRoundRect(Rect, float, Color, Color = Color(0, 0, 0, 0), float = 0.0f) override { ++drawCount; }
-        Vec2 MeasureText(std::string_view text, float fontSize) override {
+        Vec2 MeasureText(keel::StringRef text, float fontSize) override {
             return {static_cast<float>(text.size()) * fontSize * 0.55f, fontSize * 1.2f};
         }
         [[nodiscard]] float GetLineHeight(float fontSize) override { return fontSize * 1.25f; }
-        void DrawText(std::string_view, Vec2, float, Color) override { ++drawCount; }
-        void DrawTextBox(std::string_view, Rect, float, Color, float = 0.0f, float = 0.5f) override { ++drawCount; }
+        void DrawText(keel::StringRef, Vec2, float, Color) override { ++drawCount; }
+        void DrawTextBox(keel::StringRef, Rect, float, Color, float = 0.0f, float = 0.5f) override { ++drawCount; }
         void DrawLine(Vec2, Vec2, Color, float = 1.0f) override { ++drawCount; }
 
         float m_scale{1.0f};
@@ -622,7 +658,7 @@ void TestStandaloneCoreModuleZeroDependencies() {
     bool switchVal = true;
     int selectedRow = 0;
 
-    static constexpr std::array<TableColumn, 2> cols = {{
+    static constexpr keel::StaticArray<TableColumn, 2> cols = {{
         {.title = "Key",   .width = 120.0f},
         {.title = "Value", .flex = 1.0f}
     }};
@@ -661,6 +697,7 @@ void TestEmbeddedAndRuntimeAssets() {
     CHECK(Assets::Exists("assets/geo/demo_bay.geojson"));
     CHECK(!Assets::Exists("assets/images/architecture.svg"));
     CHECK(!Assets::Exists("assets/images/circuit.svg"));
+    CHECK(!Assets::ListPaths().empty());
 
     const auto demoBay = Assets::Find("assets/geo/demo_bay.geojson");
     CHECK(demoBay.has_value());
@@ -683,7 +720,10 @@ void TestEmbeddedAndRuntimeAssets() {
     }
 
     // 2. Verify runtime asset registration & override cleanup
-    std::vector<uint8_t> customSvg = {'<', 's', 'v', 'g', '/', '>'};
+    keel::SmallArray<uint8_t, 8> customSvg;
+    for (char ch : keel::StringRef("<svg/>")) {
+        customSvg.push_back(static_cast<uint8_t>(ch));
+    }
     Assets::RegisterOwned("assets/runtime/custom.svg", customSvg);
     CHECK(Assets::Exists("assets/runtime/custom.svg"));
     const auto foundCustom = Assets::Find("runtime/custom.svg");
@@ -699,10 +739,10 @@ void TestEmbeddedAndRuntimeAssets() {
 void TestUiVectorAndArenaVector() {
     using namespace guikit;
 
-    static_assert(std::is_trivially_destructible_v<keel::ArenaArray<int>>);
-    static_assert(std::is_trivially_destructible_v<keel::ArenaArray<Rect>>);
-    static_assert(!std::is_trivially_destructible_v<keel::ArenaArray<std::string>>);
-    static_assert(std::is_trivially_destructible_v<ScenePayload>);
+    static_assert(keel::IsTriviallyDestructible<keel::ArenaArray<int>>);
+    static_assert(keel::IsTriviallyDestructible<keel::ArenaArray<Rect>>);
+    static_assert(!keel::IsTriviallyDestructible<keel::ArenaArray<keel::String>>);
+    static_assert(keel::IsTriviallyDestructible<ScenePayload>);
 
     // 1. keel::SmallArray inline SBO storage & no self-referential pointer on clone/move
     {
@@ -734,15 +774,15 @@ void TestUiVectorAndArenaVector() {
 
         // Move from heap-allocated SmallArray steals heap buffer and resets source to inline
         const int* heapPtr = vec.data();
-        keel::SmallArray<int, 4> movedVec = std::move(vec);
+        keel::SmallArray<int, 4> movedVec = keel::move(vec);
         CHECK(!movedVec.is_inline());
         CHECK(movedVec.data() == heapPtr);
         CHECK(movedVec.size() == 5);
         CHECK(vec.empty());
         CHECK(vec.is_inline());
 
-        // Span view
-        auto sumSpan = [](std::span<const int> sp) {
+        // ArrayRef view
+        auto sumSpan = [](keel::ArrayRef<int> sp) {
             int s = 0;
             for (int v : sp) s += v;
             return s;
@@ -857,36 +897,36 @@ void TestMainWindowHeadlessBackend() {
         void End() override {}
         [[nodiscard]] float GetScale() const noexcept override { return m_scale; }
         void SetScale(float scale) override { m_scale = scale; }
-        [[nodiscard]] std::string_view GetBackendName() const noexcept override { return "HeadlessCanvas"; }
-        void Clear(Color, std::optional<Rect> = std::nullopt) override {}
+        [[nodiscard]] keel::StringRef GetBackendName() const noexcept override { return "HeadlessCanvas"; }
+        void Clear(Color, keel::Optional<Rect> = keel::kNullOpt) override {}
         void PushClip(Rect) override {}
         void PopClip() override {}
         void DrawRect(Rect, Color) override { ++drawCount; }
         void DrawRoundRect(Rect, float, Color, Color = Color(0, 0, 0, 0), float = 0.0f) override { ++drawCount; }
-        Vec2 MeasureText(std::string_view text, float fontSize) override {
+        Vec2 MeasureText(keel::StringRef text, float fontSize) override {
             return {static_cast<float>(text.size()) * fontSize * 0.55f, fontSize * 1.2f};
         }
         [[nodiscard]] float GetLineHeight(float fontSize) override { return fontSize * 1.25f; }
-        void DrawText(std::string_view, Vec2, float, Color) override { ++drawCount; }
-        void DrawTextBox(std::string_view, Rect, float, Color, float = 0.0f, float = 0.5f) override { ++drawCount; }
+        void DrawText(keel::StringRef, Vec2, float, Color) override { ++drawCount; }
+        void DrawTextBox(keel::StringRef, Rect, float, Color, float = 0.0f, float = 0.5f) override { ++drawCount; }
         void DrawLine(Vec2, Vec2, Color, float = 1.0f) override { ++drawCount; }
         bool DrawGpuShaderPass(const GpuShaderPassDesc& desc, bool = true) override {
             m_passes.push_back(desc);
             ++drawCount;
             return true;
         }
-        [[nodiscard]] const std::vector<GpuShaderPassDesc>& GetGpuShaderPasses() const noexcept override {
+        [[nodiscard]] keel::ArrayRef<GpuShaderPassDesc> GetGpuShaderPasses() const noexcept override {
             return m_passes;
         }
 
         float m_scale{1.0f};
         size_t drawCount{0};
-        std::vector<GpuShaderPassDesc> m_passes;
+        keel::Array<GpuShaderPassDesc> m_passes;
     };
 
     class MockWindowBackend final : public IWindowBackend {
     public:
-        bool Initialize(const MainWindowConfig& cfg, Context&, const WindowHostCallbacks&) override {
+        bool Initialize(const MainWindowConfig& cfg, Context&, WindowHostCallbacks) override {
             m_cfg = cfg;
             initialized = true;
             return true;
@@ -916,7 +956,7 @@ void TestMainWindowHeadlessBackend() {
         bool IsGpuShadersAvailable() const noexcept override { return true; }
         void SetGpuShadersEnabled(bool enabled) noexcept override { m_gpuShaders = enabled; }
         void UpdateSystemCursor(CursorType cursor) noexcept override { lastCursor = cursor; }
-        void OpenUrl(std::string_view) const noexcept override {}
+        void OpenUrl(keel::StringRef) const noexcept override {}
 
         MainWindowConfig m_cfg{};
         HeadlessCanvas m_canvas{};
@@ -947,7 +987,7 @@ void TestMainWindowHeadlessBackend() {
                 RenderDebugControls(tb);
                 RenderEngineControls(tb);
             }
-            static constexpr std::array<CommandPaletteItem, 1> kCmds = {{
+            static constexpr keel::StaticArray<CommandPaletteItem, 1> kCmds = {{
                 {.label = "Test Cmd", .category = "Test", .shortcut = "Ctrl+T"}
             }};
             if (auto sb = ui.StatusBar()) {
@@ -973,10 +1013,13 @@ void TestMainWindowHeadlessBackend() {
         }
     };
 
-    auto backend = std::make_unique<MockWindowBackend>();
+    auto backend = keel::make_unique<MockWindowBackend>();
     MockWindowBackend* rawBackend = backend.get();
 
-    TestAppWindow app({.title = "Headless Test", .width = 1000, .height = 800, .reactiveMode = false}, std::move(backend));
+    TestAppWindow app(
+        {.title = "Headless Test", .width = 1000, .height = 800, .reactiveMode = false},
+        keel::move(backend)
+    );
     const int exitCode = app.Run();
     CHECK(exitCode == 0);
     CHECK(app.initCalled);
@@ -1023,6 +1066,94 @@ void TestKeelIntegration() {
     keel::ArrayRef<int> aref = uvec;
     CHECK(aref.size() == 4);
     CHECK(aref[2] == 3);
+
+    // 4. IndexListSink with keel::Array<size_t> and keel::SmallArray<size_t, 8>
+    {
+        IndexListSink nullSink = nullptr;
+        CHECK(!nullSink.has_target());
+        CHECK(!bool(nullSink));
+        CHECK(nullSink == nullptr);
+        CHECK(nullSink.empty());
+        CHECK(nullSink.size() == 0);
+        nullSink.push_back(99);
+        nullSink.erase_at(0);
+        nullSink.clear();
+        CHECK(nullSink.empty());
+
+        keel::Array<size_t> dynIndices;
+        IndexListSink arrSink(&dynIndices);
+        CHECK(arrSink.has_target() && arrSink != nullptr);
+        arrSink.push_back(10);
+        arrSink.push_back(20);
+        arrSink.push_back(30);
+        CHECK(arrSink.size() == 3 && dynIndices.size() == 3);
+        CHECK(arrSink[0] == 10 && arrSink[1] == 20 && arrSink[2] == 30);
+        arrSink[1] = 25;
+        CHECK(dynIndices[1] == 25);
+        arrSink.erase_at(0);
+        CHECK(arrSink.size() == 2 && arrSink[0] == 25 && arrSink[1] == 30);
+        arrSink.erase_at(99);
+        CHECK(arrSink.size() == 2);
+        arrSink.clear();
+        CHECK(arrSink.empty() && dynIndices.empty());
+
+        keel::SmallArray<size_t, 8> smallIndices;
+        IndexListSink smallSink(&smallIndices);
+        CHECK(smallSink.has_target());
+        smallSink.push_back(3);
+        smallSink.push_back(7);
+        smallSink.push_back(11);
+        smallSink.push_back(15);
+        CHECK(smallIndices.is_inline());
+        CHECK(smallSink.size() == 4);
+        size_t sum = 0;
+        for (size_t v : smallSink) {
+            sum += v;
+        }
+        CHECK(sum == (3 + 7 + 11 + 15));
+        smallSink.erase_at(2);
+        static constexpr keel::StaticArray<size_t, 3> expectedSmall = {{3, 7, 15}};
+        CHECK(smallSink.as_ref() == expectedSmall.as_ref());
+        smallSink.clear();
+        CHECK(smallSink.empty() && smallIndices.empty());
+    }
+
+    // 5. UiText + TextVariants with keel::StaticArray<keel::StringRef, N>
+    {
+        static constexpr keel::StaticArray<keel::StringRef, 3> kModeVariants = {{
+            "Idle",
+            "Acquiring Telemetry",
+            "Calibrating Sensor"
+        }};
+
+        const TextVariants tv(kModeVariants);
+        CHECK(!tv.empty());
+        CHECK(tv.size() == 3);
+        CHECK(tv.span()[0] == "Idle");
+        CHECK(tv.span()[1] == "Acquiring Telemetry");
+        CHECK(tv.span()[2] == "Calibrating Sensor");
+
+        const UiText txtWithVars("Idle", kModeVariants);
+        CHECK(txtWithVars == "Idle");
+        CHECK(txtWithVars.variants.size() == 3);
+        CHECK(txtWithVars.HasContentOrReserve());
+
+        const float wShort = TextUtil::MeasureWidth("Idle", 14.0f, nullptr);
+        const float wLongest = TextUtil::MeasureWidth("Acquiring Telemetry", 14.0f, nullptr);
+        const float wUiText = TextUtil::MeasureWidth(txtWithVars, 14.0f, nullptr);
+        CHECK(wUiText > wShort);
+        CHECK(std::abs(wUiText - wLongest) < 1e-4f);
+
+        const UiText styledVars("Idle", TextRole::LabelMedium, UiVariant::Success, kModeVariants);
+        CHECK(styledVars == "Idle");
+        CHECK(styledVars.size.role == TextRole::LabelMedium);
+        CHECK(styledVars.variants == tv);
+
+        const UiText reserveOnly(kModeVariants);
+        CHECK(reserveOnly.empty());
+        CHECK(reserveOnly.HasContentOrReserve());
+        CHECK(std::abs(TextUtil::MeasureWidth(reserveOnly, 14.0f, nullptr) - wLongest) < 1e-4f);
+    }
 }
 
 void TestThemeTokensPaddingAndDateTime() {
@@ -1158,7 +1289,7 @@ void TestThemeTokensPaddingAndDateTime() {
 }
 
 int main() {
-    std::cout << "[RUN] Testing GuiKit Core Foundation...\n";
+    keel::println("[RUN] Testing GuiKit Core Foundation...");
 
     TestGeometryAndTypes();
     TestIdGeneration();
@@ -1180,10 +1311,10 @@ int main() {
     TestThemeTokensPaddingAndDateTime();
 
     if (g_failures == 0) {
-        std::cout << "[PASS] All GuiKit Core tests passed successfully!\n";
+        keel::println("[PASS] All GuiKit Core tests passed successfully!");
         return 0;
     } else {
-        std::cerr << "[FAIL] Total failures: " << g_failures << "\n";
+        keel::eprintln("[FAIL] Total failures: {}", g_failures);
         return 1;
     }
 }

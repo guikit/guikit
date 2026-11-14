@@ -1,18 +1,15 @@
 #include "../demo_context.hpp"
 #include "guikit/widgets/tag_input.hpp"
-#include <array>
-#include <format>
-#include <string>
-#include <vector>
 
 namespace guikit::demo {
 
 namespace {
 
 struct TagInputDemoState {
-    std::vector<std::string> tags = {"C++20", "Vulkan", "Immediate-Mode", "Zero-Alloc"};
-    std::string placeholder = "Add tag...";
-    std::string prefix = "";
+    keel::SmallArray<keel::FixedString<64>, 16> tags =
+        keel::SmallArray<keel::FixedString<64>, 16>::from({"C++20", "Vulkan", "Immediate-Mode", "Zero-Alloc"});
+    keel::SmallString<128> placeholder{"Add tag..."};
+    keel::SmallString<64> prefix{""};
     guikit::UiVariant tagVariant = guikit::UiVariant::Primary;
     int maxTags = 8;
     bool allowDuplicates = false;
@@ -26,11 +23,11 @@ struct TagInputDemoState {
 
 TagInputDemoState s_state;
 
-constexpr std::array<std::string_view, 8> kTagVariantLabels = {
+constexpr keel::StaticArray<keel::StringRef, 8> kTagVariantLabels = {
     "Pri", "Sec", "Suc", "Wrn", "Dgr", "Inf", "Gho", "Mut"
 };
 
-constexpr std::array<guikit::UiVariant, 8> kTagVariants = {
+constexpr keel::StaticArray<guikit::UiVariant, 8> kTagVariants = {
     guikit::UiVariant::Primary,
     guikit::UiVariant::Secondary,
     guikit::UiVariant::Success,
@@ -41,7 +38,7 @@ constexpr std::array<guikit::UiVariant, 8> kTagVariants = {
     guikit::UiVariant::Muted
 };
 
-constexpr std::array<std::string_view, 8> kSampleTags = {
+constexpr keel::StaticArray<keel::StringRef, 8> kSampleTags = {
     "SIMD", "WebGPU", "SDF-Fonts", "Flexbox", "Reactive", "Telemetry", "Hot-Reload", "Low-Latency"
 };
 
@@ -114,7 +111,7 @@ void RenderTagInputInspector(guikit::Context& ui, DemoContext&) {
             .stretch = guikit::StretchMode::Fill,
             .background = guikit::StateColor::Secondary()
         }).clicked) {
-            const std::string_view candidate = kSampleTags[s_state.sampleCounter % kSampleTags.size()];
+            const keel::StringRef candidate = kSampleTags[s_state.sampleCounter % kSampleTags.size()];
             ++s_state.sampleCounter;
             if (s_state.maxTags == 0 || s_state.tags.size() < static_cast<size_t>(s_state.maxTags)) {
                 s_state.tags.emplace_back(candidate);
@@ -127,7 +124,7 @@ void RenderTagInputInspector(guikit::Context& ui, DemoContext&) {
             .stretch = guikit::StretchMode::Fill,
             .background = guikit::StateColor::Ghost()
         }).clicked) {
-            s_state.tags = {"C++20", "Vulkan", "Immediate-Mode", "Zero-Alloc"};
+            s_state.tags.assign({"C++20", "Vulkan", "Immediate-Mode", "Zero-Alloc"});
             ui.InvalidateAll();
         }
     }
@@ -147,31 +144,29 @@ void RenderTagInputStage(guikit::Context& ui, DemoContext& ctx) {
         .border = ctx.GetElemBorder(),
         .disabled = ctx.elemDisabled
     })) {
-        if (auto sz = ui.Size(ctx.controlsSize)) {
-            (void)guikit::TagInput::Run(ui, s_state.tags, {
-                .placeholder = s_state.placeholder,
-                .prefix = s_state.prefix,
-                .tagVariant = s_state.tagVariant,
-                .maxTags = static_cast<uint32_t>(s_state.maxTags),
-                .allowDuplicates = s_state.allowDuplicates,
-                .splitOnComma = s_state.splitOnComma,
-                .splitOnSpace = s_state.splitOnSpace,
-                .clearable = s_state.clearable,
-                .showCounter = s_state.showCounter,
-                .readOnly = s_state.readOnly,
-                .stretch = ctx.GetElementStretch(),
-                .width = ctx.GetElementWidth(),
-                .height = ctx.GetElementHeight(),
-                .background = ctx.GetControlBackground(NavCategory::ElemTagInput),
-                .border = ctx.GetCtrlBorder(),
-                .disabled = ctx.elemDisabled
-            });
-        }
+        ui.Size(ctx.controlsSize).TagInput(s_state.tags, {
+            .placeholder = s_state.placeholder,
+            .prefix = s_state.prefix,
+            .tagVariant = s_state.tagVariant,
+            .maxTags = static_cast<uint32_t>(s_state.maxTags),
+            .allowDuplicates = s_state.allowDuplicates,
+            .splitOnComma = s_state.splitOnComma,
+            .splitOnSpace = s_state.splitOnSpace,
+            .clearable = s_state.clearable,
+            .showCounter = s_state.showCounter,
+            .readOnly = s_state.readOnly,
+            .stretch = ctx.GetElementStretch(),
+            .width = ctx.GetElementWidth(),
+            .height = ctx.GetElementHeight(),
+            .background = ctx.GetControlBackground(NavCategory::ElemTagInput),
+            .border = ctx.GetCtrlBorder(),
+            .disabled = ctx.elemDisabled
+        });
     }
 }
 
-std::string GenerateTagInputCode(const DemoContext& ctx) {
-    return std::format(
+keel::String GenerateTagInputCode(const DemoContext& ctx) {
+    return keel::format(
         "if (auto el = ui.{}Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"

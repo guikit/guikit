@@ -1,10 +1,9 @@
 #include "guikit/widgets/spin_box.hpp"
-#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <string>
+#include "keel/string.h"
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
@@ -53,7 +52,7 @@ InlineStepMetrics ComputeInlineStepMetrics(const InputFieldMetrics& m, const UiT
     InlineStepMetrics sm{};
     sm.btnSize = m.iconSize + theme.Scale(4.0f);
     sm.btnGap = theme.Scale(2.0f);
-    sm.padX = std::max(theme.Scale(6.0f), std::round(m.paddingX * 0.55f));
+    sm.padX = keel::max(theme.Scale(6.0f), std::round(m.paddingX * 0.55f));
     sm.sectionWidth = sm.padX * 2.0f + sm.btnSize * 2.0f + sm.btnGap;
     return sm;
 }
@@ -81,9 +80,9 @@ Vec2 MeasureSpinBox(
     } else if (opts.stretch != StretchMode::Fill && hasVariants) {
             const float inputFont = theme.ResolveFontSize(opts.valueFormat, TextRole::LabelMedium, size);
             float contentW = 0.0f;
-            for (std::string_view v : opts.valueFormat.variants) {
+            for (keel::StringRef v : opts.valueFormat.variants) {
                 if (!v.empty()) {
-                    contentW = std::max(contentW, TextUtil::MeasureWidth(v, inputFont, canvas));
+                    contentW = keel::max(contentW, TextUtil::MeasureWidth(v, inputFont, canvas));
                 }
             }
 
@@ -109,11 +108,11 @@ Vec2 MeasureSpinBox(
     }
 
     if (ctrl.minWidth.has_value()) {
-        boxW = std::max(theme.Scale(*ctrl.minWidth), boxW);
+        boxW = keel::max(theme.Scale(*ctrl.minWidth), boxW);
     } else if (hasExplicitDpW || (hasVariants && opts.stretch != StretchMode::Fill)) {
-        boxW = std::max(boxH + extBtnsW, boxW);
+        boxW = keel::max(boxH + extBtnsW, boxW);
     } else {
-        boxW = std::max(m.minWidth + extBtnsW, boxW);
+        boxW = keel::max(m.minWidth + extBtnsW, boxW);
     }
     return {boxW, boxH};
 }
@@ -166,17 +165,17 @@ SpinBoxRects ResolveSpinBoxRects(
 
     if (effStyle == SpinBoxStepStyle::Detached) {
         const float btnH = bounds.h;
-        const float btnW = std::min(btnH, std::max(0.0f, (bounds.w - extGap * 2.0f) * 0.30f));
+        const float btnW = keel::min(btnH, keel::max(0.0f, (bounds.w - extGap * 2.0f) * 0.30f));
         stepPlusRect = Rect(bounds.Right() - btnW, bounds.y, btnW, btnH);
         stepMinusRect = Rect(stepPlusRect.x - extGap - btnW, bounds.y, btnW, btnH);
-        boxRect = Rect(bounds.x, bounds.y, std::max(0.0f, stepMinusRect.x - extGap - bounds.x), bounds.h);
+        boxRect = Rect(bounds.x, bounds.y, keel::max(0.0f, stepMinusRect.x - extGap - bounds.x), bounds.h);
     } else if (effStyle == SpinBoxStepStyle::Split) {
         const float btnH = bounds.h;
-        const float btnW = std::min(btnH, std::max(0.0f, (bounds.w - extGap * 2.0f) * 0.30f));
+        const float btnW = keel::min(btnH, keel::max(0.0f, (bounds.w - extGap * 2.0f) * 0.30f));
         stepMinusRect = Rect(bounds.x, bounds.y, btnW, btnH);
         stepPlusRect = Rect(bounds.Right() - btnW, bounds.y, btnW, btnH);
         const float boxX = stepMinusRect.Right() + extGap;
-        boxRect = Rect(boxX, bounds.y, std::max(0.0f, stepPlusRect.x - extGap - boxX), bounds.h);
+        boxRect = Rect(boxX, bounds.y, keel::max(0.0f, stepPlusRect.x - extGap - boxX), bounds.h);
     }
 
     float leftX = boxRect.x + m.paddingX;
@@ -208,7 +207,7 @@ SpinBoxRects ResolveSpinBoxRects(
         rightX -= theme.Scale(6.0f);
     }
 
-    const float availW = std::max(0.0f, rightX - leftX);
+    const float availW = keel::max(0.0f, rightX - leftX);
     return SpinBoxRects{
         .boxRect = boxRect,
         .prefixRect = prefixRect,
@@ -220,8 +219,8 @@ SpinBoxRects ResolveSpinBoxRects(
     };
 }
 
-size_t SnapToUtf8CodepointBoundary(std::string_view text, size_t idx) noexcept {
-    idx = std::min(idx, text.size());
+size_t SnapToUtf8CodepointBoundary(keel::StringRef text, size_t idx) noexcept {
+    idx = keel::min(idx, text.size());
     while (idx > 0 && idx < text.size() && (static_cast<unsigned char>(text[idx]) & 0xC0) == 0x80) {
         --idx;
     }
@@ -230,10 +229,10 @@ size_t SnapToUtf8CodepointBoundary(std::string_view text, size_t idx) noexcept {
 
 double ClampNumericValue(double val, const SpinBoxOptions& opts) noexcept {
     if (opts.min.has_value()) {
-        val = std::max(val, *opts.min);
+        val = keel::max(val, *opts.min);
     }
     if (opts.max.has_value()) {
-        val = std::min(val, *opts.max);
+        val = keel::min(val, *opts.max);
     }
     return val;
 }
@@ -271,8 +270,8 @@ void FormatNumericValue(
     const SpinBoxOptions& opts
 ) noexcept {
     char fmtBuf[128]{};
-    const std::string_view rawFmt = opts.valueFormat.text;
-    const size_t copyLen = std::min(rawFmt.size(), sizeof(fmtBuf) - 1);
+    const keel::StringRef rawFmt = opts.valueFormat.text;
+    const size_t copyLen = keel::min(rawFmt.size(), sizeof(fmtBuf) - 1);
     if (copyLen > 0) {
         std::memcpy(fmtBuf, rawFmt.data(), copyLen);
     }
@@ -342,7 +341,7 @@ Response SpinBox::Run(
     double* doubleValue,
     int64_t* intValue,
     const SpinBoxOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
     struct ThemePopGuard {
@@ -393,7 +392,7 @@ Response SpinBox::Run(
 
     char valBuf[64]{};
     FormatNumericValue(valBuf, sizeof(valBuf), floatValue, doubleValue, intValue, optsCopy);
-    std::string_view valStr = valBuf;
+    keel::StringRef valStr = valBuf;
 
     auto& state = ctx.GetOrCreateState<SpinBoxState>(id);
     if (!res.pressed && !mouseJustPressed) {
@@ -486,10 +485,10 @@ Response SpinBox::Run(
 
     size_t cursor = 0;
     size_t selAnchor = 0;
-    std::string_view displayText = valStr;
+    keel::StringRef displayText = valStr;
 
     if (isFocused || ctx.HasActiveTextEdit(id)) {
-        std::string_view currentEditText = ctx.EnsureTextEdit(id, valStr, /*multiline=*/false, opts.readOnly);
+        keel::StringRef currentEditText = ctx.EnsureTextEdit(id, valStr, /*multiline=*/false, opts.readOnly);
         const Rect textRect = rects.textRect;
         const float inputFont = theme.ResolveFontSize(optsCopy.valueFormat, TextRole::LabelMedium, activeSize);
 
@@ -564,21 +563,21 @@ Response SpinBox::Run(
         if (changed && !opts.readOnly) {
             if (floatValue != nullptr) {
                 char* end = nullptr;
-                std::string s(displayText);
+                const keel::FixedString<64> s(displayText);
                 const float f = std::strtof(s.c_str(), &end);
                 if (end != s.c_str()) {
                     *floatValue = static_cast<float>(ClampNumericValue(static_cast<double>(f), opts));
                 }
             } else if (doubleValue != nullptr) {
                 char* end = nullptr;
-                std::string s(displayText);
+                const keel::FixedString<64> s(displayText);
                 const double d = std::strtod(s.c_str(), &end);
                 if (end != s.c_str()) {
                     *doubleValue = ClampNumericValue(d, opts);
                 }
             } else if (intValue != nullptr) {
                 char* end = nullptr;
-                std::string s(displayText);
+                const keel::FixedString<64> s(displayText);
                 const long long i = std::strtoll(s.c_str(), &end, 10);
                 if (end != s.c_str()) {
                     const double clamped = ClampNumericValue(static_cast<double>(i), opts);
@@ -601,18 +600,18 @@ Response SpinBox::Run(
         }
 
         if (rects.textRect.w > 0.0f && isFocused) {
-            const size_t safeCursor = std::min(cursor, displayText.size());
+            const size_t safeCursor = keel::min(cursor, displayText.size());
             const float cursorX = TextUtil::MeasureWidth(displayText.substr(0, safeCursor), inputFont, canvas);
             const float fullTextW = TextUtil::MeasureWidth(displayText, inputFont, canvas);
-            const float visibleW = std::max(0.0f, rects.textRect.w - 2.0f);
+            const float visibleW = keel::max(0.0f, rects.textRect.w - 2.0f);
 
             if (cursorX < state.scrollX) {
                 state.scrollX = cursorX;
             } else if (cursorX > state.scrollX + visibleW) {
                 state.scrollX = cursorX - visibleW;
             }
-            const float maxScroll = std::max(0.0f, fullTextW - visibleW);
-            state.scrollX = std::clamp(state.scrollX, 0.0f, maxScroll);
+            const float maxScroll = keel::max(0.0f, fullTextW - visibleW);
+            state.scrollX = keel::clamp(state.scrollX, 0.0f, maxScroll);
         } else if (!isFocused) {
             state.scrollX = 0.0f;
         }
@@ -620,8 +619,8 @@ Response SpinBox::Run(
         state.scrollX = 0.0f;
     }
 
-    const size_t selStart = std::min(cursor, selAnchor);
-    const size_t selEnd = std::max(cursor, selAnchor);
+    const size_t selStart = keel::min(cursor, selAnchor);
+    const size_t selEnd = keel::max(cursor, selAnchor);
 
     bool stepMinusDisabled = false;
     bool stepPlusDisabled = false;
@@ -633,7 +632,7 @@ Response SpinBox::Run(
 
     float fillRatio = 0.0f;
     if (opts.showFillBar && opts.min.has_value() && opts.max.has_value() && (*opts.max > *opts.min)) {
-        fillRatio = static_cast<float>(std::clamp((curNum - *opts.min) / (*opts.max - *opts.min), 0.0, 1.0));
+        fillRatio = static_cast<float>(keel::clamp((curNum - *opts.min) / (*opts.max - *opts.min), 0.0, 1.0));
     }
 
     const ControlSpec ctrl = EffectiveSpinBoxControl(optsCopy, activeSize, theme);
@@ -698,7 +697,7 @@ Response SpinBox::Run(
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<SpinBoxData>();
         return SpinBox::Measure(
-            d ? d->displayText : std::string_view{},
+            d ? d->displayText : keel::StringRef{},
             d ? d->opts : SpinBoxOptions{},
             n->uiSize,
             canvas,
@@ -711,7 +710,7 @@ Response SpinBox::Run(
         SpinBox::Render(
             canvas,
             n->computedRect,
-            d ? d->displayText : std::string_view{},
+            d ? d->displayText : keel::StringRef{},
             d ? d->opts : SpinBoxOptions{},
             n->uiSize,
             n->hovered,
@@ -751,7 +750,7 @@ Response SpinBox::Run(
 }
 
 Vec2 SpinBox::Measure(
-    std::string_view /*displayText*/,
+    keel::StringRef /*displayText*/,
     const SpinBoxOptions& opts,
     UiSize size,
     ICanvas* canvas,
@@ -764,7 +763,7 @@ Vec2 SpinBox::Measure(
 }
 
 Vec2 SpinBox::Measure(
-    std::string_view displayText,
+    keel::StringRef displayText,
     const SpinBoxOptions& opts,
     UiSize size,
     ICanvas* canvas,
@@ -777,7 +776,7 @@ Vec2 SpinBox::Measure(
 void SpinBox::Render(
     ICanvas& canvas,
     Rect bounds,
-    std::string_view displayText,
+    keel::StringRef displayText,
     const SpinBoxOptions& opts,
     UiSize size,
     bool hovered,
@@ -859,10 +858,10 @@ void SpinBox::Render(
 
     // Optional fill bar along the bottom inside the SpinBox input field
     if (opts.showFillBar && fillRatio > 0.001f) {
-        const float barH = std::max(2.0f, theme.Scale(3.0f));
-        const float padX = std::max(2.0f, radius * 0.35f);
-        const float maxBarW = std::max(0.0f, boxRect.w - padX * 2.0f);
-        const float barW = maxBarW * std::clamp(fillRatio, 0.0f, 1.0f);
+        const float barH = keel::max(2.0f, theme.Scale(3.0f));
+        const float padX = keel::max(2.0f, radius * 0.35f);
+        const float maxBarW = keel::max(0.0f, boxRect.w - padX * 2.0f);
+        const float barW = maxBarW * keel::clamp(fillRatio, 0.0f, 1.0f);
         if (barW > 1.0f) {
             const Rect barRect(boxRect.x + padX, boxRect.Bottom() - barH - 1.5f, barW, barH);
             const Color barCol = disabled ? accentCol.WithAlphaF(0.35f) : accentCol.WithAlphaF(0.85f);
@@ -876,7 +875,7 @@ void SpinBox::Render(
     // External square (H x H) stepper buttons for Detached / Split styles
     if (isExternalStepBtns) {
         const float baseStrokeW = (ctrl.border.width > 0.0f) ? theme.Scale(ctrl.border.width) : m.strokeWidth;
-        const float iconSz = std::max(8.0f, m.iconSize);
+        const float iconSz = keel::max(8.0f, m.iconSize);
         auto drawSquareStepBtn = [&](const Rect& btnRect, const Icon& ic, bool btnHov, bool btnPress, bool btnDis) {
             if (btnRect.w <= 0.0f || btnRect.h <= 0.0f) return;
             const bool effDis = disabled || btnDis;
@@ -940,7 +939,7 @@ void SpinBox::Render(
     }
 
     if (effStyle == SpinBoxStepStyle::Inline) {
-        const float iconSz = std::max(theme.Scale(10.0f), m.iconSize);
+        const float iconSz = keel::max(theme.Scale(10.0f), m.iconSize);
         const float btnRadius = theme.Scale(4.0f);
         const float sepInsetY = theme.Scale(5.0f);
 
@@ -994,21 +993,21 @@ void SpinBox::Render(
     canvas.PushClip(textRect);
 
     if (focused && !disabled && selStart != selEnd && !displayText.empty()) {
-        const size_t s0 = std::min({selStart, selEnd, displayText.size()});
-        const size_t s1 = std::min(std::max(selStart, selEnd), displayText.size());
+        const size_t s0 = keel::min(keel::min(selStart, selEnd), displayText.size());
+        const size_t s1 = keel::min(keel::max(selStart, selEnd), displayText.size());
         if (s1 > s0) {
             const float x0 = textRect.x - scrollX + canvas.MeasureText(displayText.substr(0, s0), inputFont).x;
             const float x1 = textRect.x - scrollX + canvas.MeasureText(displayText.substr(0, s1), inputFont).x;
             const float selH = inputFont * 1.25f;
             const float selY = boxRect.y + (boxRect.h - selH) * 0.5f;
-            const Rect selRect(x0, selY, std::max(1.0f, x1 - x0), selH);
+            const Rect selRect(x0, selY, keel::max(1.0f, x1 - x0), selH);
             canvas.DrawRoundRect(selRect, 2.0f, pal.accent.WithAlpha(88), Color::Transparent(), 0.0f);
         }
     }
 
     if (!displayText.empty()) {
         if (focused || scrollX > 0.0f) {
-            const float fullW = std::max(textRect.w, canvas.MeasureText(displayText, inputFont).x + 8.0f);
+            const float fullW = keel::max(textRect.w, canvas.MeasureText(displayText, inputFont).x + 8.0f);
             const Rect scrolledRect(textRect.x - scrollX, textRect.y, fullW, textRect.h);
             canvas.DrawTextBox(displayText, scrolledRect, inputFont, textCol, 0.0f, 0.5f);
         } else {
@@ -1017,8 +1016,8 @@ void SpinBox::Render(
     }
 
     if (focused && !disabled && !opts.readOnly && cursorVisible) {
-        const size_t safeCursor = std::min(cursor, displayText.size());
-        const std::string_view sub = displayText.substr(0, safeCursor);
+        const size_t safeCursor = keel::min(cursor, displayText.size());
+        const keel::StringRef sub = displayText.substr(0, safeCursor);
         const float subW = canvas.MeasureText(sub, inputFont).x;
         const float caretX = textRect.x - scrollX + subW;
         const float caretH = inputFont * 1.15f;

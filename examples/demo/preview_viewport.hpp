@@ -1,10 +1,10 @@
 #pragma once
 
-#include <algorithm>
 #include <cmath>
 #include "demo_context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
+#include "keel/keel.h"
 
 namespace guikit::demo {
 
@@ -21,9 +21,9 @@ inline void RenderDotGridBackdrop(const guikit::Node* n, guikit::ICanvas& canvas
     canvas.DrawRect(r, bg);
 
     // Subtle studio dot-grid pattern
-    const float scale = std::max(1.0f, theme.scale);
+    const float scale = keel::max(1.0f, theme.scale);
     const float step = std::round(18.0f * scale);
-    const float dotSize = std::max(1.5f, std::round(1.5f * scale));
+    const float dotSize = keel::max(1.5f, std::round(1.5f * scale));
     const guikit::Color dotColor = isLight
         ? guikit::Color(100, 116, 139, 46)
         : guikit::Color(148, 163, 184, 30);
@@ -54,13 +54,13 @@ inline void RenderBackdropHudBadge(const guikit::Node* n, guikit::ICanvas& canva
     const guikit::Rect& r = n->computedRect;
     if (r.w <= 160.0f || r.h <= 60.0f) return;
 
-    const float s = std::max(0.75f, theme.scale);
+    const float s = keel::max(0.75f, theme.scale);
     const float fontSize = std::round(11.0f * s);
     const guikit::Vec2 textSz = canvas.MeasureText(n->text, fontSize);
     const float padX = 9.0f * s;
     const float padY = 4.0f * s;
     const float pillW = textSz.x + padX * 2.0f;
-    const float pillH = std::max(fontSize + padY * 2.0f, 20.0f * s);
+    const float pillH = keel::max(fontSize + padY * 2.0f, 20.0f * s);
     const float extraRight = (n->type == guikit::NodeType::ScrollArea && n->scrollContentSize.y > r.h + 0.5f) ? (10.0f * s) : 0.0f;
     const float extraBottom = (n->type == guikit::NodeType::ScrollArea && n->scrollContentSize.x > r.w + 0.5f) ? (10.0f * s) : 0.0f;
     const float pillX = r.Right() - pillW - 10.0f * s - extraRight;
@@ -86,7 +86,7 @@ inline void RenderWindowResizeGrip(const guikit::Node* n, guikit::ICanvas& canva
     if (r.w <= 20.0f || r.h <= 20.0f) return;
 
     // Subtle diagonal resize grip lines in the bottom-right corner of the window frame
-    const float s = std::max(0.5f, theme.scale);
+    const float s = keel::max(0.5f, theme.scale);
     const guikit::Color gripCol = (n->scrollbarActive || n->scrollbarHovered)
         ? theme.GetVariant(guikit::UiVariant::Primary).bg
         : theme.palette.textSecondary.WithAlphaF(0.55f);
@@ -94,7 +94,7 @@ inline void RenderWindowResizeGrip(const guikit::Node* n, guikit::ICanvas& canva
     const float by = r.Bottom() - 4.0f * s;
     for (int i = 0; i < 3; ++i) {
         const float span = (3.5f + static_cast<float>(i) * 3.5f) * s;
-        canvas.DrawLine({bx - span, by}, {bx, by - span}, gripCol, std::max(1.0f, 1.2f * s));
+        canvas.DrawLine({bx - span, by}, {bx, by - span}, gripCol, keel::max(1.0f, 1.2f * s));
     }
 }
 
@@ -102,7 +102,7 @@ inline void RenderWindowTitlebarTrafficLights(const guikit::Node* n, guikit::ICa
     const guikit::Rect& r = n->computedRect;
     if (r.w <= 20.0f || r.h <= 4.0f) return;
 
-    const float s = std::max(0.5f, theme.scale);
+    const float s = keel::max(0.5f, theme.scale);
     const float dotD = 10.0f * s;
     const float dotR = dotD * 0.5f;
     const float gap = 7.0f * s;
@@ -123,20 +123,20 @@ inline void RenderDeviceChassisButtons(const guikit::Node* n, guikit::ICanvas& c
     const guikit::Rect& r = n->computedRect;
     if (r.w <= 40.0f || r.h <= 40.0f) return;
 
-    const float s = std::max(0.35f, theme.scale);
+    const float s = keel::max(0.35f, theme.scale);
     const guikit::Color btnCol(71, 85, 105, 255);
-    const float btnThickness = std::max(1.5f, std::round(2.5f * s));
+    const float btnThickness = keel::max(1.5f, std::round(2.5f * s));
 
     if (r.h >= r.w) {
         // Portrait orientation: volume rockers on left edge, power button on right edge
-        const float yBase = r.y + std::min(r.h * 0.20f, 84.0f * s);
+        const float yBase = r.y + keel::min(r.h * 0.20f, 84.0f * s);
         canvas.DrawRoundRect(guikit::Rect(r.x - btnThickness, yBase, btnThickness, 22.0f * s), 1.5f * s, btnCol);
         canvas.DrawRoundRect(guikit::Rect(r.x - btnThickness, yBase + 32.0f * s, btnThickness, 36.0f * s), 1.5f * s, btnCol);
         canvas.DrawRoundRect(guikit::Rect(r.x - btnThickness, yBase + 74.0f * s, btnThickness, 36.0f * s), 1.5f * s, btnCol);
         canvas.DrawRoundRect(guikit::Rect(r.Right(), yBase + 42.0f * s, btnThickness, 52.0f * s), 1.5f * s, btnCol);
     } else {
         // Landscape orientation: buttons on top edge
-        const float xBase = r.x + std::min(r.w * 0.18f, 90.0f * s);
+        const float xBase = r.x + keel::min(r.w * 0.18f, 90.0f * s);
         canvas.DrawRoundRect(guikit::Rect(xBase, r.y - btnThickness, 34.0f * s, btnThickness), 1.5f * s, btnCol);
         canvas.DrawRoundRect(guikit::Rect(xBase + 42.0f * s, r.y - btnThickness, 34.0f * s, btnThickness), 1.5f * s, btnCol);
     }
@@ -144,8 +144,8 @@ inline void RenderDeviceChassisButtons(const guikit::Node* n, guikit::ICanvas& c
     // Tablet front-facing camera is embedded inside the outer hardware bezel (not inside the LCD screen)
     if constexpr (!IsPhone) {
         const float bezelT = 10.0f * s;
-        const float camD = std::max(3.5f, 5.2f * s);
-        const float coreD = std::max(1.8f, 2.4f * s);
+        const float camD = keel::max(3.5f, 5.2f * s);
+        const float coreD = keel::max(1.8f, 2.4f * s);
         const float cx = r.Center().x;
         const float cy = r.y + bezelT * 0.5f;
         canvas.DrawRoundRect(
@@ -167,7 +167,7 @@ inline void RenderPhoneDynamicIsland(const guikit::Node* n, guikit::ICanvas& can
     const guikit::Rect& r = n->computedRect;
     if (r.w <= 40.0f || r.h <= 40.0f) return;
 
-    const float s = std::max(0.35f, theme.scale);
+    const float s = keel::max(0.35f, theme.scale);
     const guikit::Color pillFill(4, 6, 11, 255);
     const guikit::Color pillStroke(30, 41, 59, 135);
     const guikit::Color lensHousing(13, 18, 28, 255);
@@ -177,7 +177,7 @@ inline void RenderPhoneDynamicIsland(const guikit::Node* n, guikit::ICanvas& can
 
     if (r.h >= r.w) {
         // Portrait: horizontal Dynamic Island at top-center of the screen
-        const float pillW = std::min(r.w * 0.31f, 92.0f * s);
+        const float pillW = keel::min(r.w * 0.31f, 92.0f * s);
         const float pillH = 22.0f * s;
         const float pillX = r.Center().x - pillW * 0.5f;
         const float pillY = r.y + 7.0f * s;
@@ -192,7 +192,7 @@ inline void RenderPhoneDynamicIsland(const guikit::Node* n, guikit::ICanvas& can
         // Right sapphire camera lens + inner glass + tiny specular reflection
         const float lensD = 8.5f * s;
         const float coreD = 4.2f * s;
-        const float glintD = std::max(1.2f, 1.6f * s);
+        const float glintD = keel::max(1.2f, 1.6f * s);
         const float lx = pillX + pillW - 6.5f * s - lensD * 0.5f;
         canvas.DrawRoundRect(guikit::Rect(lx - lensD * 0.5f, cy - lensD * 0.5f, lensD, lensD), lensD * 0.5f, lensHousing);
         canvas.DrawRoundRect(guikit::Rect(lx - coreD * 0.5f, cy - coreD * 0.5f, coreD, coreD), coreD * 0.5f, lensGlass);
@@ -200,7 +200,7 @@ inline void RenderPhoneDynamicIsland(const guikit::Node* n, guikit::ICanvas& can
     } else {
         // Landscape (90 deg CCW): vertical Dynamic Island on the physical left edge of the screen
         const float pillW = 22.0f * s;
-        const float pillH = std::min(r.h * 0.31f, 92.0f * s);
+        const float pillH = keel::min(r.h * 0.31f, 92.0f * s);
         const float pillX = r.x + 7.0f * s;
         const float pillY = r.Center().y - pillH * 0.5f;
         const float cx = pillX + pillW * 0.5f;
@@ -210,7 +210,7 @@ inline void RenderPhoneDynamicIsland(const guikit::Node* n, guikit::ICanvas& can
         // Top sapphire camera lens (rotated 90 deg CCW from right side of portrait island)
         const float lensD = 8.5f * s;
         const float coreD = 4.2f * s;
-        const float glintD = std::max(1.2f, 1.6f * s);
+        const float glintD = keel::max(1.2f, 1.6f * s);
         const float ly = pillY + 6.5f * s + lensD * 0.5f;
         canvas.DrawRoundRect(guikit::Rect(cx - lensD * 0.5f, ly - lensD * 0.5f, lensD, lensD), lensD * 0.5f, lensHousing);
         canvas.DrawRoundRect(guikit::Rect(cx - coreD * 0.5f, ly - coreD * 0.5f, coreD, coreD), coreD * 0.5f, lensGlass);
@@ -227,12 +227,12 @@ inline void RenderDeviceStatusSafeArea(const guikit::Node* n, guikit::ICanvas& c
     const guikit::Rect& r = n->computedRect;
     if (r.w <= 40.0f || r.h <= 6.0f) return;
 
-    const float s = std::max(0.35f, theme.scale);
+    const float s = keel::max(0.35f, theme.scale);
     const guikit::Color fg = theme.palette.textPrimary;
     const guikit::Color fgMuted = theme.palette.textSecondary;
 
     // 1. Left: System Clock ("9:41")
-    const float fontSize = std::max(7.0f, std::round(11.0f * s));
+    const float fontSize = keel::max(7.0f, std::round(11.0f * s));
     const float textY = r.y + (r.h - fontSize) * 0.5f;
     const float edgeInset = IsPhone ? (22.0f * s) : (18.0f * s);
     canvas.DrawText("9:41", {r.x + edgeInset, textY}, fontSize, fg);
@@ -260,9 +260,9 @@ inline void RenderDeviceHomeIndicatorSafeArea(const guikit::Node* n, guikit::ICa
     const guikit::Rect& r = n->computedRect;
     if (r.w <= 20.0f || r.h <= 4.0f) return;
 
-    const float s = std::max(0.35f, theme.scale);
-    const float pillW = std::min(r.w * 0.36f, 114.0f * s);
-    const float pillH = std::max(2.0f, std::round(4.0f * s));
+    const float s = keel::max(0.35f, theme.scale);
+    const float pillW = keel::min(r.w * 0.36f, 114.0f * s);
+    const float pillH = keel::max(2.0f, std::round(4.0f * s));
     const float pillX = r.Center().x - pillW * 0.5f;
     const float pillY = r.Center().y - pillH * 0.5f;
     canvas.DrawRoundRect(
@@ -285,7 +285,7 @@ inline void RenderPreviewViewport(
     ContentFn&& renderClientContent
 ) {
     const PreviewFormFactor formFactor = static_cast<PreviewFormFactor>(
-        std::min<size_t>(demoCtx.previewFormFactorIdx, 3)
+        keel::min<size_t>(demoCtx.previewFormFactorIdx, 3)
     );
     const bool isDeviceMode = (formFactor == PreviewFormFactor::Tablet || formFactor == PreviewFormFactor::Phone);
     const bool isPhone = (formFactor == PreviewFormFactor::Phone);
@@ -311,16 +311,16 @@ inline void RenderPreviewViewport(
         backdropNode->postRenderFn = &detail::RenderBackdropHudBadge;
 
         const guikit::Rect backdropBounds = ui.GetPrevFrameBounds(backdropNode->id);
-        const float shellScale = std::max(0.5f, ui.GetCurrentScale());
+        const float shellScale = keel::max(0.5f, ui.GetCurrentScale());
         const float padPx = 36.0f * shellScale;
-        const float availPxW = (backdropBounds.w > 80.0f) ? std::max(120.0f, backdropBounds.w - padPx) : (860.0f * shellScale);
-        const float availPxH = (backdropBounds.h > 80.0f) ? std::max(120.0f, backdropBounds.h - padPx) : (560.0f * shellScale);
+        const float availPxW = (backdropBounds.w > 80.0f) ? keel::max(120.0f, backdropBounds.w - padPx) : (860.0f * shellScale);
+        const float availPxH = (backdropBounds.h > 80.0f) ? keel::max(120.0f, backdropBounds.h - padPx) : (560.0f * shellScale);
 
         // Hardware device specifications:
         // - Phone (6.3" iPhone 16 Pro class): 375 x 784 dp  |  71.5 x 149.6 mm
         // - Tablet (8.3" iPad mini / Touch Panel class): 540 x 782 dp  |  134.8 x 195.4 mm
         const float rawPxPerMm    = (demoCtx.displayPxPerMm > 0.5f) ? demoCtx.displayPxPerMm : (96.0f / 25.4f);
-        const float dpiScale      = std::max(0.1f, ui.GetDpiScale());
+        const float dpiScale      = keel::max(0.1f, ui.GetDpiScale());
         const float pxPerMm       = rawPxPerMm / dpiScale;
         const float basePortraitW = isPhone ? 375.0f : 540.0f;
         const float basePortraitH = isPhone ? 784.0f : 782.0f;
@@ -330,16 +330,16 @@ inline void RenderPreviewViewport(
         const float targetH       = isDeviceMode ? (demoCtx.previewLandscape ? basePortraitW : basePortraitH) : demoCtx.previewWindowH;
 
         const PreviewZoomMode zoomMode = static_cast<PreviewZoomMode>(
-            std::min<size_t>(demoCtx.previewZoomModeIdx, static_cast<size_t>(PreviewZoomMode::Custom))
+            keel::min<size_t>(demoCtx.previewZoomModeIdx, static_cast<size_t>(PreviewZoomMode::Custom))
         );
 
         float effectiveZoom = 1.0f;
         switch (zoomMode) {
             case PreviewZoomMode::Fit:
                 if (isDeviceMode) {
-                    effectiveZoom = std::clamp(std::min(availPxW / targetW, availPxH / targetH), 0.35f, 2.50f);
+                    effectiveZoom = keel::clamp(keel::min(availPxW / targetW, availPxH / targetH), 0.35f, 2.50f);
                 } else if (isResizableWindow && demoCtx.previewWindowCustomSize) {
-                    effectiveZoom = std::clamp(std::min(1.0f, std::min(availPxW / targetW, availPxH / targetH)), 0.35f, 1.0f);
+                    effectiveZoom = keel::clamp(keel::min(1.0f, keel::min(availPxW / targetW, availPxH / targetH)), 0.35f, 1.0f);
                 } else {
                     effectiveZoom = 1.0f;
                 }
@@ -347,7 +347,7 @@ inline void RenderPreviewViewport(
             case PreviewZoomMode::Real1To1:
                 if (isDeviceMode) {
                     const float devMmW = demoCtx.previewLandscape ? baseMmH : baseMmW;
-                    effectiveZoom = std::clamp((devMmW * pxPerMm) / targetW, 0.35f, 2.50f);
+                    effectiveZoom = keel::clamp((devMmW * pxPerMm) / targetW, 0.35f, 2.50f);
                 } else {
                     effectiveZoom = 1.0f;
                 }
@@ -359,7 +359,7 @@ inline void RenderPreviewViewport(
             case PreviewZoomMode::Zoom175: effectiveZoom = 1.75f; break;
             case PreviewZoomMode::Zoom200: effectiveZoom = 2.00f; break;
             case PreviewZoomMode::Custom:
-                effectiveZoom = std::clamp(demoCtx.previewCustomZoom, 0.35f, 2.50f);
+                effectiveZoom = keel::clamp(demoCtx.previewCustomZoom, 0.35f, 2.50f);
                 break;
         }
 
@@ -375,8 +375,8 @@ inline void RenderPreviewViewport(
             const float wheelY = ui.GetMouseWheel().y;
             if (std::abs(wheelY) > 0.001f) {
                 const float snappedBase = std::round(effectiveZoom * 20.0f) / 20.0f;
-                const float step = (wheelY > 0.0f ? 0.05f : -0.05f) * std::max(1.0f, std::round(std::abs(wheelY)));
-                effectiveZoom = std::clamp(snappedBase + step, 0.35f, 2.50f);
+                const float step = (wheelY > 0.0f ? 0.05f : -0.05f) * keel::max(1.0f, std::round(std::abs(wheelY)));
+                effectiveZoom = keel::clamp(snappedBase + step, 0.35f, 2.50f);
                 demoCtx.previewCustomZoom = effectiveZoom;
                 demoCtx.previewZoomModeIdx = static_cast<size_t>(PreviewZoomMode::Custom);
                 ui.ConsumeMouseWheel();
@@ -387,7 +387,7 @@ inline void RenderPreviewViewport(
 
         const int zoomPct = static_cast<int>(std::lround(effectiveZoom * 100.0f));
         if (useCenteredScrollCanvas) {
-            const std::string_view modeTag = (zoomMode == PreviewZoomMode::Real1To1)
+            const keel::StringRef modeTag = (zoomMode == PreviewZoomMode::Real1To1)
                 ? "1:1 Physical"
                 : (zoomMode == PreviewZoomMode::Fit ? "Fit" : "Zoom");
             backdropNode->text = ui.AllocString(ui.Format(
@@ -462,9 +462,9 @@ inline void RenderPreviewViewport(
 
                     const guikit::Rect brCorner(winBounds.Right() - cornerSpan, winBounds.Bottom() - cornerSpan, cornerSpan + 5.0f, cornerSpan + 5.0f);
                     const guikit::Rect blCorner(winBounds.x - 5.0f, winBounds.Bottom() - cornerSpan, cornerSpan + 5.0f, cornerSpan + 5.0f);
-                    const guikit::Rect rEdge(winBounds.Right() - gripThick, winBounds.y + titleH, gripThick * 2.0f, std::max(0.0f, winBounds.h - titleH - cornerSpan));
-                    const guikit::Rect lEdge(winBounds.x - gripThick, winBounds.y + titleH, gripThick * 2.0f, std::max(0.0f, winBounds.h - titleH - cornerSpan));
-                    const guikit::Rect bEdge(winBounds.x + cornerSpan, winBounds.Bottom() - gripThick, std::max(0.0f, winBounds.w - cornerSpan * 2.0f), gripThick * 2.0f);
+                    const guikit::Rect rEdge(winBounds.Right() - gripThick, winBounds.y + titleH, gripThick * 2.0f, keel::max(0.0f, winBounds.h - titleH - cornerSpan));
+                    const guikit::Rect lEdge(winBounds.x - gripThick, winBounds.y + titleH, gripThick * 2.0f, keel::max(0.0f, winBounds.h - titleH - cornerSpan));
+                    const guikit::Rect bEdge(winBounds.x + cornerSpan, winBounds.Bottom() - gripThick, keel::max(0.0f, winBounds.w - cornerSpan * 2.0f), gripThick * 2.0f);
 
                     // Green traffic-light button & titlebar double-click (Maximize / Restore toggle)
                     const float dotD = 10.0f * winScale;
@@ -500,16 +500,16 @@ inline void RenderPreviewViewport(
                         else if (edge & 4)        ui.SetCursor(guikit::CursorType::ResizeNS);
                     };
 
-                    const float maxFitW = std::max(320.0f, std::floor(availPxW / effectiveZoom));
-                    const float maxFitH = std::max(220.0f, std::floor(availPxH / effectiveZoom));
+                    const float maxFitW = keel::max(320.0f, std::floor(availPxW / effectiveZoom));
+                    const float maxFitH = keel::max(220.0f, std::floor(availPxH / effectiveZoom));
 
                     auto toggleMaximizeRestore = [&]() {
                         if (demoCtx.previewWindowCustomSize) {
                             demoCtx.previewWindowCustomSize = false;
                         } else {
                             demoCtx.previewWindowCustomSize = true;
-                            demoCtx.previewWindowW = std::clamp(std::round(maxFitW * 0.78f), 320.0f, maxFitW);
-                            demoCtx.previewWindowH = std::clamp(std::round(maxFitH * 0.78f), 220.0f, maxFitH);
+                            demoCtx.previewWindowW = keel::clamp(std::round(maxFitW * 0.78f), 320.0f, maxFitW);
+                            demoCtx.previewWindowH = keel::clamp(std::round(maxFitH * 0.78f), 220.0f, maxFitH);
                         }
                         ui.InvalidateAll();
                     };
@@ -526,10 +526,10 @@ inline void RenderPreviewViewport(
                                 demoCtx.previewWindowDragStartMouse = mouse;
                                 demoCtx.previewWindowDragStartW = demoCtx.previewWindowCustomSize
                                     ? demoCtx.previewWindowW
-                                    : std::clamp(std::round(winBounds.w / effectiveZoom), 320.0f, maxFitW);
+                                    : keel::clamp(std::round(winBounds.w / effectiveZoom), 320.0f, maxFitW);
                                 demoCtx.previewWindowDragStartH = demoCtx.previewWindowCustomSize
                                     ? demoCtx.previewWindowH
-                                    : std::clamp(std::round(winBounds.h / effectiveZoom), 220.0f, maxFitH);
+                                    : keel::clamp(std::round(winBounds.h / effectiveZoom), 220.0f, maxFitH);
                                 ui.SetActiveId(winResizeId);
                                 ui.ConsumeMouseClick();
                                 ui.InvalidateAll();
@@ -558,18 +558,18 @@ inline void RenderPreviewViewport(
                                 // Symmetric 2x delta keeps the dragged edge locked 1:1 under the cursor while centered
                                 if (edge & 2) {
                                     const float dx = rawDx * 2.0f / effectiveZoom;
-                                    demoCtx.previewWindowW = std::clamp(std::round(demoCtx.previewWindowDragStartW + dx), 320.0f, maxFitW);
+                                    demoCtx.previewWindowW = keel::clamp(std::round(demoCtx.previewWindowDragStartW + dx), 320.0f, maxFitW);
                                 } else if (edge & 1) {
                                     const float dx = -rawDx * 2.0f / effectiveZoom;
-                                    demoCtx.previewWindowW = std::clamp(std::round(demoCtx.previewWindowDragStartW + dx), 320.0f, maxFitW);
+                                    demoCtx.previewWindowW = keel::clamp(std::round(demoCtx.previewWindowDragStartW + dx), 320.0f, maxFitW);
                                 } else {
-                                    demoCtx.previewWindowW = std::clamp(demoCtx.previewWindowDragStartW, 320.0f, maxFitW);
+                                    demoCtx.previewWindowW = keel::clamp(demoCtx.previewWindowDragStartW, 320.0f, maxFitW);
                                 }
                                 if (edge & 4) {
                                     const float dy = rawDy * 2.0f / effectiveZoom;
-                                    demoCtx.previewWindowH = std::clamp(std::round(demoCtx.previewWindowDragStartH + dy), 220.0f, maxFitH);
+                                    demoCtx.previewWindowH = keel::clamp(std::round(demoCtx.previewWindowDragStartH + dy), 220.0f, maxFitH);
                                 } else {
-                                    demoCtx.previewWindowH = std::clamp(demoCtx.previewWindowDragStartH, 220.0f, maxFitH);
+                                    demoCtx.previewWindowH = keel::clamp(demoCtx.previewWindowDragStartH, 220.0f, maxFitH);
                                 }
                                 ui.InvalidateAll();
                                 ui.RequestRepaint(2);
@@ -622,11 +622,11 @@ inline void RenderPreviewViewport(
                         });
                         ui.Spacer();
                         const int clientW = demoCtx.previewWindowCustomSize
-                            ? std::max(0, static_cast<int>(std::lround(demoCtx.previewWindowW)))
-                            : std::max(0, static_cast<int>(std::round(availPxW / effectiveZoom)));
+                            ? keel::max(0, static_cast<int>(std::lround(demoCtx.previewWindowW)))
+                            : keel::max(0, static_cast<int>(std::round(availPxW / effectiveZoom)));
                         const int clientH = demoCtx.previewWindowCustomSize
-                            ? std::max(0, static_cast<int>(std::lround(demoCtx.previewWindowH - (28.0f * shellScale) / effectiveZoom)))
-                            : std::max(0, static_cast<int>(std::round((availPxH - 28.0f * shellScale) / effectiveZoom)));
+                            ? keel::max(0, static_cast<int>(std::lround(demoCtx.previewWindowH - (28.0f * shellScale) / effectiveZoom)))
+                            : keel::max(0, static_cast<int>(std::round((availPxH - 28.0f * shellScale) / effectiveZoom)));
                         ui.Text(ui.Format("{} x {}", clientW, clientH), {
                             .role = guikit::TextRole::CodeSmall,
                             .variant = guikit::UiVariant::Muted

@@ -2,24 +2,23 @@
 #include "guikit/geo/chart_data_source.hpp"
 #include "guikit/geo/gis_render_engine.hpp"
 
-#include <algorithm>
 #include <atomic>
-#include <chrono>
 #include <cmath>
-#include <limits>
-#include <memory>
 #include <mutex>
+#include "keel/core.h"
 #include "keel/format.h"
 #include "keel/fs.h"
 #include "keel/http.h"
 #include "keel/lru_cache.h"
+#include "keel/smart_ptr.h"
+#include "keel/time.h"
 
 namespace guikit::geo {
 
 bool DecodePngAndScaleToRgba(
-    std::span<const uint8_t> pngBytes,
+    keel::ArrayRef<uint8_t> pngBytes,
     uint32_t targetSizePx,
-    std::vector<uint32_t>& outRgba
+    keel::Array<uint32_t>& outRgba
 ) {
     if (pngBytes.size() < 8 || targetSizePx == 0 || targetSizePx > 4096) {
         return false;
@@ -27,7 +26,7 @@ bool DecodePngAndScaleToRgba(
 
     uint32_t srcW = 0;
     uint32_t srcH = 0;
-    std::vector<uint32_t> srcRgba;
+    keel::Array<uint32_t> srcRgba;
     if (!guikit::DecodeImageFromMemory(pngBytes, srcW, srcH, srcRgba) ||
         srcW == 0 || srcH == 0 || srcRgba.size() != static_cast<size_t>(srcW) * srcH) {
         return false;
@@ -35,7 +34,7 @@ bool DecodePngAndScaleToRgba(
 
     // Fast path: 1:1 native tile resolution (e.g. 256x256 -> 256x256)
     if (srcW == targetSizePx && srcH == targetSizePx) {
-        outRgba = std::move(srcRgba);
+        outRgba = keel::move(srcRgba);
         return true;
     }
 
@@ -80,9 +79,9 @@ bool DecodePngAndScaleToRgba(
 
     for (uint32_t dy = 0; dy < targetSizePx; ++dy) {
         const float srcYf = (static_cast<float>(dy) + 0.5f) * scaleY - 0.5f;
-        const int y0 = std::clamp(static_cast<int>(std::floor(srcYf)), 0, static_cast<int>(srcH) - 1);
-        const int y1 = std::clamp(y0 + 1, 0, static_cast<int>(srcH) - 1);
-        const float fy = std::clamp(srcYf - static_cast<float>(y0), 0.0f, 1.0f);
+        const int y0 = keel::clamp(static_cast<int>(std::floor(srcYf)), 0, static_cast<int>(srcH) - 1);
+        const int y1 = keel::clamp(y0 + 1, 0, static_cast<int>(srcH) - 1);
+        const float fy = keel::clamp(srcYf - static_cast<float>(y0), 0.0f, 1.0f);
         const float invFy = 1.0f - fy;
 
         const uint32_t* row0 = srcRgba.data() + static_cast<size_t>(y0) * srcW;
@@ -91,9 +90,9 @@ bool DecodePngAndScaleToRgba(
 
         for (uint32_t dx = 0; dx < targetSizePx; ++dx) {
             const float srcXf = (static_cast<float>(dx) + 0.5f) * scaleX - 0.5f;
-            const int x0 = std::clamp(static_cast<int>(std::floor(srcXf)), 0, static_cast<int>(srcW) - 1);
-            const int x1 = std::clamp(x0 + 1, 0, static_cast<int>(srcW) - 1);
-            const float fx = std::clamp(srcXf - static_cast<float>(x0), 0.0f, 1.0f);
+            const int x0 = keel::clamp(static_cast<int>(std::floor(srcXf)), 0, static_cast<int>(srcW) - 1);
+            const int x1 = keel::clamp(x0 + 1, 0, static_cast<int>(srcW) - 1);
+            const float fx = keel::clamp(srcXf - static_cast<float>(x0), 0.0f, 1.0f);
             const float invFx = 1.0f - fx;
 
             const float w00 = invFx * invFy;
@@ -111,7 +110,7 @@ bool DecodePngAndScaleToRgba(
                                   w10 * static_cast<float>((p10 >> shift) & 0xFFu) +
                                   w01 * static_cast<float>((p01 >> shift) & 0xFFu) +
                                   w11 * static_cast<float>((p11 >> shift) & 0xFFu);
-                return static_cast<uint32_t>(std::clamp(static_cast<int>(val + 0.5f), 0, 255));
+                return static_cast<uint32_t>(keel::clamp(static_cast<int>(val + 0.5f), 0, 255));
             };
 
             const uint32_t r = sampleChannel(0u);
@@ -130,47 +129,43 @@ namespace {
 
 class OsmRasterTileProvider final : public IRasterTileProvider {
 public:
-    explicit OsmRasterTileProvider(std::string cacheDir)
-        : m_cacheDir(std::move(cacheDir))
-        , m_httpClient("Hackionics-MarineGIS/1.0 (+https://openstreetmap.org)") {
-        if (m_cacheDir.empty()) {
-            m_cacheDir = "cache/osm_tiles";
-        }
-    }
+    explicit OsmRasterTileProvider(keel::StringRef cacheDir)
+        : m_cacheDir(keel::String::from(cacheDir.empty() ? keel::StringRef("cache/osm_tiles") : cacheDir))
+        , m_httpClient("Hackionics-MarineGIS/1.0 (+https://openstreetmap.org)") {}
 
-    [[nodiscard]] std::string_view GetSourceId() const noexcept override {
+    [[nodiscard]] keel::StringRef GetSourceId() const noexcept override {
         return "osm_standard";
     }
 
-    [[nodiscard]] std::string_view GetDisplayName() const noexcept override {
+    [[nodiscard]] keel::StringRef GetDisplayName() const noexcept override {
         return "OpenStreetMap Standard";
     }
 
     [[nodiscard]] int GetMinZoom() const noexcept override { return 0; }
     [[nodiscard]] int GetMaxZoom() const noexcept override { return 19; }
 
-    [[nodiscard]] std::shared_ptr<const RasterTileImage> TryGetCachedTile(
+    [[nodiscard]] keel::Arc<const RasterTileImage> TryGetCachedTile(
         const SlippyTileKey& key
     ) const noexcept override {
         const SlippyTileKey normKey = NormalizeKey(key);
         std::lock_guard<std::mutex> lk(m_mutex);
         CacheEntry* entry = m_ramCache.get(normKey);
         if (!entry || !entry->image) {
-            return nullptr;
+            return {};
         }
 
         // If this entry was synthesized while offline, expire it once the 15s circuit breaker window elapses
         if (entry->isFallback) {
             const int64_t nowMs = NowSteadyMs();
             if ((nowMs - entry->createdAtMs) >= kOfflineRetryIntervalMs) {
-                return nullptr;
+                return {};
             }
         }
 
         return entry->image;
     }
 
-    [[nodiscard]] std::shared_ptr<const RasterTileImage> FetchTileBlocking(
+    [[nodiscard]] keel::Arc<const RasterTileImage> FetchTileBlocking(
         const SlippyTileKey& key
     ) override {
         const SlippyTileKey normKey = NormalizeKey(key);
@@ -182,7 +177,7 @@ public:
         // 1. Try persistent disk cache or cross-platform HTTPS fetch via keel::HttpClient
         keel::Array<keel::u8> pngBytes = LoadOrFetchOsmPng(normKey.z, normKey.x, normKey.y);
 
-        auto tileImg = std::make_shared<RasterTileImage>();
+        auto tileImg = keel::make_arc<RasterTileImage>();
         tileImg->key = normKey;
         tileImg->width = normKey.tileSizePx;
         tileImg->height = normKey.tileSizePx;
@@ -199,17 +194,18 @@ public:
             SynthesizeCartographicFallbackTile(normKey, tileImg->rgbaPixels);
         }
 
+        keel::Arc<const RasterTileImage> constImg = keel::move(tileImg);
         const int64_t nowMs = NowSteadyMs();
         {
             std::lock_guard<std::mutex> lk(m_mutex);
             m_ramCache.put(normKey, CacheEntry{
-                .image = tileImg,
+                .image = constImg,
                 .createdAtMs = nowMs,
                 .isFallback = isFallback
             });
         }
 
-        return tileImg;
+        return constImg;
     }
 
     void ClearCache() noexcept override {
@@ -221,21 +217,20 @@ private:
     static constexpr int64_t kOfflineRetryIntervalMs = 15000;
 
     struct CacheEntry {
-        std::shared_ptr<const RasterTileImage> image{};
+        keel::Arc<const RasterTileImage> image{};
         int64_t createdAtMs{0};
         bool isFallback{false};
     };
 
     [[nodiscard]] static int64_t NowSteadyMs() noexcept {
-        return std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now().time_since_epoch()).count();
+        return static_cast<int64_t>(keel::monotonic_ms()) + 1;
     }
 
     [[nodiscard]] static SlippyTileKey NormalizeKey(const SlippyTileKey& k) noexcept {
-        const int z = std::clamp(k.z, 0, 19);
+        const int z = keel::clamp(k.z, 0, 19);
         const int n = 1 << z;
         const int x = ((k.x % n) + n) % n;
-        const int y = std::clamp(k.y, 0, n - 1);
+        const int y = keel::clamp(k.y, 0, n - 1);
         const uint32_t sz = (k.tileSizePx <= 160u) ? 128u : ((k.tileSizePx >= 384u) ? 512u : 256u);
         return SlippyTileKey{.z = z, .x = x, .y = y, .tileSizePx = sz};
     }
@@ -297,7 +292,7 @@ private:
 
     static void SynthesizeCartographicFallbackTile(
         const SlippyTileKey& key,
-        std::vector<uint32_t>& outRgba
+        keel::Array<uint32_t>& outRgba
     ) {
         const uint32_t sz = key.tileSizePx;
         outRgba.resize(static_cast<size_t>(sz) * sz);
@@ -306,7 +301,7 @@ private:
         const uint8_t baseR = evenChecker ? 236 : 231;
         const uint8_t baseG = evenChecker ? 233 : 228;
         const uint8_t baseB = evenChecker ? 222 : 216;
-        const uint32_t subStep = std::max(16u, sz / 4u);
+        const uint32_t subStep = keel::max(16u, sz / 4u);
 
         for (uint32_t py = 0; py < sz; ++py) {
             for (uint32_t px = 0; px < sz; ++px) {
@@ -328,7 +323,7 @@ private:
         }
     }
 
-    std::string m_cacheDir;
+    keel::String m_cacheDir;
     keel::HttpClient m_httpClient;
     mutable std::mutex m_mutex{};
     mutable keel::LruCache<SlippyTileKey, CacheEntry, 512, SlippyTileKeyHash> m_ramCache{};
@@ -338,8 +333,8 @@ private:
 
 } // namespace
 
-std::shared_ptr<IRasterTileProvider> CreateOsmRasterTileProvider(std::string cacheDir) {
-    auto provider = std::make_shared<OsmRasterTileProvider>(std::move(cacheDir));
+keel::Arc<IRasterTileProvider> CreateOsmRasterTileProvider(keel::StringRef cacheDir) {
+    keel::Arc<IRasterTileProvider> provider = keel::make_arc<OsmRasterTileProvider>(cacheDir);
     if (!GisRenderEngine::GetDefaultBasemapProvider()) {
         GisRenderEngine::SetDefaultBasemapProvider(provider);
     }

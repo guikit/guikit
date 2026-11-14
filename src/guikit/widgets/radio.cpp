@@ -1,5 +1,4 @@
 #include "guikit/widgets/radio.hpp"
-#include <algorithm>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
@@ -35,7 +34,7 @@ Response Radio::Run(
     bool* value,
     bool selectedState,
     const RadioOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
     struct ThemePopGuard {
@@ -220,14 +219,14 @@ void Radio::Render(
         dotColor = dotColor.WithAlphaF(0.40f);
     } else if (focused) {
         ringStroke = pal.focusRing;
-        strokeWidth = std::max(strokeWidth, 2.0f);
+        strokeWidth = keel::max(strokeWidth, 2.0f);
     }
 
     const float outerRadius = boxRect.w * 0.5f;
     canvas.DrawRoundRect(boxRect, outerRadius, ringFill, ringStroke, strokeWidth);
 
     if (selected) {
-        const float dotDia = std::max(4.0f, boxRect.w * 0.44f);
+        const float dotDia = keel::max(4.0f, boxRect.w * 0.44f);
         const Rect dotRect(
             boxRect.x + (boxRect.w - dotDia) * 0.5f,
             boxRect.y + (boxRect.h - dotDia) * 0.5f,

@@ -1,9 +1,7 @@
 #include "guikit/widgets/color_picker.hpp"
-#include <algorithm>
-#include <array>
 #include <cmath>
 #include <cstdio>
-#include <vector>
+#include "keel/static_array.h"
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
@@ -13,7 +11,7 @@ namespace guikit {
 
 namespace {
 
-constexpr std::array<Color, 10> kDefaultPresets = {{
+constexpr keel::StaticArray<Color, 10> kDefaultPresets = {{
     Color(59, 130, 246, 255),   // Primary Blue
     Color(14, 165, 233, 255),   // Sky / Cyan
     Color(16, 185, 129, 255),   // Emerald / Success
@@ -56,8 +54,8 @@ PanelLayout ComputePanelLayout(Rect rect, const ColorPickerOptions& opts, const 
     }
 
     const float innerX = rect.x + pad;
-    const float innerW = std::max(20.0f, rect.w - pad * 2.0f);
-    const float svH = std::max(48.0f, rect.h - pad * 2.0f - bottomSpace);
+    const float innerW = keel::max(20.0f, rect.w - pad * 2.0f);
+    const float svH = keel::max(48.0f, rect.h - pad * 2.0f - bottomSpace);
 
     float curY = rect.y + pad;
     L.svRect = Rect(innerX, curY, innerW, svH);
@@ -75,7 +73,7 @@ PanelLayout ComputePanelLayout(Rect rect, const ColorPickerOptions& opts, const 
     const float prevW = infoH;
     L.previewSwatchRect = Rect(innerX, curY, prevW, infoH);
     const float textStartX = innerX + prevW + gap;
-    const float remW = std::max(0.0f, innerW - prevW - gap);
+    const float remW = keel::max(0.0f, innerW - prevW - gap);
     L.hexTextRect = Rect(textStartX, curY, remW * 0.45f, infoH);
     L.rgbaTextRect = Rect(textStartX + remW * 0.45f, curY, remW * 0.55f, infoH);
     curY += infoH;
@@ -122,7 +120,7 @@ Vec2 MeasureColorPickerBox(const ColorPickerOptions& opts, UiSize size, ICanvas*
         const Vec2 defPanel = DefaultPanelDimensions(opts, theme);
         float w = hasExplicitDpW ? theme.Scale(*opts.width) : defPanel.x;
         if (opts.minWidth.has_value()) {
-            w = std::max(theme.Scale(*opts.minWidth), w);
+            w = keel::max(theme.Scale(*opts.minWidth), w);
         }
         const float h = opts.height.has_value() ? theme.Scale(*opts.height) : defPanel.y;
         return {w, h};
@@ -133,7 +131,7 @@ Vec2 MeasureColorPickerBox(const ColorPickerOptions& opts, UiSize size, ICanvas*
     float naturalW = boxH * 1.45f;
     if (opts.showHex) {
         const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
-        const std::string_view sample = opts.showAlpha ? "#FF8800FF" : "#FF8800";
+        const keel::StringRef sample = opts.showAlpha ? "#FF8800FF" : "#FF8800";
         const float textW = (canvas != nullptr)
             ? canvas->MeasureText(sample, fontSize).x
             : (static_cast<float>(sample.size()) * fontSize * 0.62f);
@@ -141,7 +139,7 @@ Vec2 MeasureColorPickerBox(const ColorPickerOptions& opts, UiSize size, ICanvas*
         naturalW = boxH + textW + alphaExtra + m.paddingX * 2.0f + m.iconSize + theme.Scale(12.0f);
     }
     if (opts.minWidth.has_value()) {
-        naturalW = std::max(theme.Scale(*opts.minWidth), naturalW);
+        naturalW = keel::max(theme.Scale(*opts.minWidth), naturalW);
     }
     if (hasExplicitDpW) {
         naturalW = theme.Scale(*opts.width);
@@ -180,8 +178,8 @@ void ColorPicker::RgbToHsv(Color c, float& outH, float& outS, float& outV) noexc
     const float g = static_cast<float>(c.g) / 255.0f;
     const float b = static_cast<float>(c.b) / 255.0f;
 
-    const float maxC = std::max({r, g, b});
-    const float minC = std::min({r, g, b});
+    const float maxC = keel::max(r, keel::max(g, b));
+    const float minC = keel::min(r, keel::min(g, b));
     const float delta = maxC - minC;
 
     outV = maxC;
@@ -200,13 +198,13 @@ void ColorPicker::RgbToHsv(Color c, float& outH, float& outS, float& outV) noexc
         h = 60.0f * (((r - g) / delta) + 4.0f);
     }
     if (h < 0.0f) h += 360.0f;
-    outH = std::clamp(h, 0.0f, 360.0f);
+    outH = keel::clamp(h, 0.0f, 360.0f);
 }
 
 Color ColorPicker::HsvToRgb(float h, float s, float v, uint8_t a) noexcept {
-    const float clampedH = std::fmod(std::max(0.0f, h), 360.0f);
-    const float clampedS = std::clamp(s, 0.0f, 1.0f);
-    const float clampedV = std::clamp(v, 0.0f, 1.0f);
+    const float clampedH = std::fmod(keel::max(0.0f, h), 360.0f);
+    const float clampedS = keel::clamp(s, 0.0f, 1.0f);
+    const float clampedV = keel::clamp(v, 0.0f, 1.0f);
 
     const float c = clampedV * clampedS;
     const float x = c * (1.0f - std::abs(std::fmod(clampedH / 60.0f, 2.0f) - 1.0f));
@@ -228,9 +226,9 @@ Color ColorPicker::HsvToRgb(float h, float s, float v, uint8_t a) noexcept {
     }
 
     return Color(
-        static_cast<uint8_t>(std::clamp(std::round((r1 + m) * 255.0f), 0.0f, 255.0f)),
-        static_cast<uint8_t>(std::clamp(std::round((g1 + m) * 255.0f), 0.0f, 255.0f)),
-        static_cast<uint8_t>(std::clamp(std::round((b1 + m) * 255.0f), 0.0f, 255.0f)),
+        static_cast<uint8_t>(keel::clamp(std::round((r1 + m) * 255.0f), 0.0f, 255.0f)),
+        static_cast<uint8_t>(keel::clamp(std::round((g1 + m) * 255.0f), 0.0f, 255.0f)),
+        static_cast<uint8_t>(keel::clamp(std::round((b1 + m) * 255.0f), 0.0f, 255.0f)),
         a
     );
 }
@@ -261,7 +259,7 @@ Response ColorPicker::Run(
     Context& ctx,
     Color& value,
     const ColorPickerOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
     struct ThemePopGuard {
@@ -334,10 +332,10 @@ Response ColorPicker::Run(
         Vec2 popDims = DefaultPanelDimensions(optsCopy, theme);
         const Rect vp = ctx.GetPopupViewportRect();
         if (vp.w > 40.0f && popDims.x > vp.w - 8.0f) {
-            popDims.x = std::max(140.0f, vp.w - 8.0f);
+            popDims.x = keel::max(140.0f, vp.w - 8.0f);
         }
         if (vp.h > 80.0f && popDims.y > vp.h - 12.0f) {
-            popDims.y = std::max(120.0f, vp.h - 12.0f);
+            popDims.y = keel::max(120.0f, vp.h - 12.0f);
         }
         float popupX = ctrlRect.x;
         float popupY = ctrlRect.Bottom() + 4.0f;
@@ -367,8 +365,8 @@ Response ColorPicker::Run(
                     popupY = (availUp > availDown) ? upY : downY;
                 }
             }
-            popupX = std::clamp(popupX, vp.x + 4.0f, std::max(vp.x + 4.0f, vp.Right() - popDims.x - 4.0f));
-            popupY = std::clamp(popupY, vp.y + 4.0f, std::max(vp.y + 4.0f, vp.Bottom() - popDims.y - 4.0f));
+            popupX = keel::clamp(popupX, vp.x + 4.0f, keel::max(vp.x + 4.0f, vp.Right() - popDims.x - 4.0f));
+            popupY = keel::clamp(popupY, vp.y + 4.0f, keel::max(vp.y + 4.0f, vp.Bottom() - popDims.y - 4.0f));
         }
         const Rect popRect(popupX, popupY, popDims.x, popDims.y);
         ctx.OpenPopup(id, popRect);
@@ -384,16 +382,16 @@ Response ColorPicker::Run(
         const Rect activePanelRect = optsCopy.inlinePanel ? ctrlRect : ctx.GetOpenPopupRect();
         const PanelLayout L = ComputePanelLayout(activePanelRect, optsCopy, theme);
         const Vec2 mouse = ctx.GetMousePos();
-        const std::span<const Color> customSwatches = !optsCopy.swatches.empty() ? optsCopy.swatches : optsCopy.presets;
-        const std::span<const Color> swatches = customSwatches.empty()
-            ? std::span<const Color>(kDefaultPresets)
+        const keel::ArrayRef<Color> customSwatches = !optsCopy.swatches.empty() ? optsCopy.swatches : optsCopy.presets;
+        const keel::ArrayRef<Color> swatches = customSwatches.empty()
+            ? kDefaultPresets.as_ref()
             : customSwatches;
 
         // Check swatch hover & click
         if (optsCopy.showSwatches && !swatches.empty() && state.dragTarget == 0 && L.swatchesRowRect.Contains(mouse)) {
             const float gap = theme.Scale(5.0f);
             const float countF = static_cast<float>(swatches.size());
-            const float swW = std::max(10.0f, (L.swatchesRowRect.w - gap * (countF - 1.0f)) / countF);
+            const float swW = keel::max(10.0f, (L.swatchesRowRect.w - gap * (countF - 1.0f)) / countF);
             for (size_t i = 0; i < swatches.size(); ++i) {
                 const Rect sr(L.swatchesRowRect.x + static_cast<float>(i) * (swW + gap), L.swatchesRowRect.y, swW, L.swatchesRowRect.h);
                 if (sr.Contains(mouse)) {
@@ -437,8 +435,8 @@ Response ColorPicker::Run(
             if (ctx.IsMouseDown()) {
                 res.pressed = true;
                 if (state.dragTarget == 1 && L.svRect.w > 1.0f && L.svRect.h > 1.0f) {
-                    const float newS = std::clamp((mouse.x - L.svRect.x) / L.svRect.w, 0.0f, 1.0f);
-                    const float newV = std::clamp(1.0f - (mouse.y - L.svRect.y) / L.svRect.h, 0.0f, 1.0f);
+                    const float newS = keel::clamp((mouse.x - L.svRect.x) / L.svRect.w, 0.0f, 1.0f);
+                    const float newV = keel::clamp(1.0f - (mouse.y - L.svRect.y) / L.svRect.h, 0.0f, 1.0f);
                     state.s = newS;
                     state.v = newV;
                     const Color nextCol = HsvToRgb(state.h, state.s, state.v, value.a);
@@ -448,7 +446,7 @@ Response ColorPicker::Run(
                     }
                     state.lastSyncedColor = value;
                 } else if (state.dragTarget == 2 && L.hueRect.w > 1.0f) {
-                    const float newH = std::clamp((mouse.x - L.hueRect.x) / L.hueRect.w, 0.0f, 1.0f) * 359.9f;
+                    const float newH = keel::clamp((mouse.x - L.hueRect.x) / L.hueRect.w, 0.0f, 1.0f) * 359.9f;
                     state.h = newH;
                     const Color nextCol = HsvToRgb(state.h, state.s, state.v, value.a);
                     if (nextCol != value) {
@@ -457,7 +455,7 @@ Response ColorPicker::Run(
                     }
                     state.lastSyncedColor = value;
                 } else if (state.dragTarget == 3 && L.alphaRect.w > 1.0f) {
-                    const float alphaNorm = std::clamp((mouse.x - L.alphaRect.x) / L.alphaRect.w, 0.0f, 1.0f);
+                    const float alphaNorm = keel::clamp((mouse.x - L.alphaRect.x) / L.alphaRect.w, 0.0f, 1.0f);
                     const uint8_t newA = static_cast<uint8_t>(std::round(alphaNorm * 255.0f));
                     if (value.a != newA) {
                         value.a = newA;
@@ -487,7 +485,7 @@ Response ColorPicker::Run(
 
     char hexBuf[16]{};
     FormatHexColor(value, optsCopy.showAlpha, hexBuf, sizeof(hexBuf));
-    const std::string_view hexView = ctx.AllocString(hexBuf);
+    const keel::StringRef hexView = ctx.AllocString(hexBuf);
 
     optsCopy.tooltip = ctx.AllocText(optsCopy.tooltip);
     if (!optsCopy.swatches.empty()) {
@@ -495,14 +493,14 @@ Response ColorPicker::Run(
         for (size_t i = 0; i < optsCopy.swatches.size(); ++i) {
             arenaSwatches[i] = optsCopy.swatches[i];
         }
-        optsCopy.swatches = std::span<const Color>(arenaSwatches, optsCopy.swatches.size());
+        optsCopy.swatches = keel::ArrayRef<Color>(arenaSwatches, optsCopy.swatches.size());
     }
     if (!optsCopy.presets.empty()) {
         Color* arenaPresets = ctx.GetArena().create_array<Color>(optsCopy.presets.size());
         for (size_t i = 0; i < optsCopy.presets.size(); ++i) {
             arenaPresets[i] = optsCopy.presets[i];
         }
-        optsCopy.presets = std::span<const Color>(arenaPresets, optsCopy.presets.size());
+        optsCopy.presets = keel::ArrayRef<Color>(arenaPresets, optsCopy.presets.size());
     }
 
     // Register floating popover overlay if open
@@ -613,7 +611,7 @@ void ColorPicker::Render(
     float h,
     float s,
     float v,
-    std::string_view hexText,
+    keel::StringRef hexText,
     int hoveredSwatch,
     const ColorPickerOptions& opts,
     UiSize size,
@@ -663,9 +661,9 @@ void ColorPicker::Render(
 
     canvas.DrawRoundRect(ctrlRect, radius, boxBg, boxBorder, strokeW);
 
-    const float pad = std::max(4.0f, ctrlRect.h * 0.16f);
-    const float swatchH = std::max(8.0f, ctrlRect.h - pad * 2.0f);
-    const float swatchRadius = std::max(2.0f, radius - pad * 0.6f);
+    const float pad = keel::max(4.0f, ctrlRect.h * 0.16f);
+    const float swatchH = keel::max(8.0f, ctrlRect.h - pad * 2.0f);
+    const float swatchRadius = keel::max(2.0f, radius - pad * 0.6f);
 
     if (!opts.showHex) {
         const Rect fullSwatch = ctrlRect.Inset(pad);
@@ -673,7 +671,7 @@ void ColorPicker::Render(
         return;
     }
 
-    const float swatchW = std::min(ctrlRect.w - pad * 2.0f, std::max(swatchH * 1.25f, theme.Scale(22.0f)));
+    const float swatchW = keel::min(ctrlRect.w - pad * 2.0f, keel::max(swatchH * 1.25f, theme.Scale(22.0f)));
     const Rect swatchRect(ctrlRect.x + pad, ctrlRect.y + pad, swatchW, swatchH);
     DrawCheckerboardSwatch(canvas, swatchRect, disabled ? value.WithAlphaF(0.45f) : value, swatchRadius, pal.borderHover.WithAlpha(150));
 
@@ -682,7 +680,7 @@ void ColorPicker::Render(
     const Color textCol = disabled ? pal.textMuted : pal.textPrimary;
     const float chevronSpace = m.iconSize + m.paddingX;
     const float textStartX = swatchRect.Right() + theme.Scale(8.0f);
-    const float textW = std::max(0.0f, ctrlRect.Right() - chevronSpace - textStartX);
+    const float textW = keel::max(0.0f, ctrlRect.Right() - chevronSpace - textStartX);
     if (textW > 8.0f) {
         const float hexW = canvas.MeasureText(hexText, fontSize).x;
         char alphaBuf[16]{};
@@ -690,7 +688,7 @@ void ColorPicker::Render(
         std::snprintf(alphaBuf, sizeof(alphaBuf), "%d%%", alphaPct);
         const float alphaW = opts.showAlpha ? canvas.MeasureText(alphaBuf, fontSize * 0.9f).x : 0.0f;
         const bool drawAlpha = opts.showAlpha && (textW >= hexW + alphaW + theme.Scale(14.0f));
-        const float hexAvailW = drawAlpha ? std::max(0.0f, textW - alphaW - theme.Scale(10.0f)) : textW;
+        const float hexAvailW = drawAlpha ? keel::max(0.0f, textW - alphaW - theme.Scale(10.0f)) : textW;
 
         const Rect textRect(textStartX, ctrlRect.y, hexAvailW, ctrlRect.h);
         canvas.DrawTextBox(hexText, textRect, fontSize, textCol, 0.0f, 0.5f);
@@ -719,7 +717,7 @@ void ColorPicker::RenderPanel(
     float h,
     float s,
     float v,
-    std::string_view hexText,
+    keel::StringRef hexText,
     int hoveredSwatch,
     const ColorPickerOptions& opts,
     UiSize size,
@@ -756,7 +754,7 @@ void ColorPicker::RenderPanel(
     // 1. Render 2D Saturation-Value (SV) gradient square via DrawPixels (48x36)
     constexpr uint32_t kSvW = 48;
     constexpr uint32_t kSvH = 36;
-    std::array<uint32_t, kSvW * kSvH> svPixels{};
+    keel::StaticArray<uint32_t, kSvW * kSvH> svPixels{};
     for (uint32_t py = 0; py < kSvH; ++py) {
         const float rowV = 1.0f - static_cast<float>(py) / static_cast<float>(kSvH - 1);
         for (uint32_t px = 0; px < kSvW; ++px) {
@@ -769,15 +767,15 @@ void ColorPicker::RenderPanel(
     canvas.DrawRoundRect(L.svRect, 4.0f, Color::Transparent(), pal.borderSubtle, 1.0f);
 
     // SV thumb ring
-    const float svThumbX = L.svRect.x + std::clamp(s, 0.0f, 1.0f) * L.svRect.w;
-    const float svThumbY = L.svRect.y + (1.0f - std::clamp(v, 0.0f, 1.0f)) * L.svRect.h;
+    const float svThumbX = L.svRect.x + keel::clamp(s, 0.0f, 1.0f) * L.svRect.w;
+    const float svThumbY = L.svRect.y + (1.0f - keel::clamp(v, 0.0f, 1.0f)) * L.svRect.h;
     const float svR = theme.Scale(5.5f);
     canvas.DrawRoundRect(Rect(svThumbX - svR - 1.0f, svThumbY - svR - 1.0f, (svR + 1.0f) * 2.0f, (svR + 1.0f) * 2.0f), svR + 1.0f, Color::Transparent(), Color(0, 0, 0, 190), 1.5f);
     canvas.DrawRoundRect(Rect(svThumbX - svR, svThumbY - svR, svR * 2.0f, svR * 2.0f), svR, HsvToRgb(h, s, v, 255), Color(255, 255, 255, 245), 2.0f);
 
     // 2. Render Hue rainbow slider (96x1)
     constexpr uint32_t kHueW = 96;
-    std::array<uint32_t, kHueW> huePixels{};
+    keel::StaticArray<uint32_t, kHueW> huePixels{};
     for (uint32_t px = 0; px < kHueW; ++px) {
         const float deg = (static_cast<float>(px) / static_cast<float>(kHueW - 1)) * 360.0f;
         huePixels[px] = HsvToRgb(deg, 1.0f, 1.0f, 255).ToUint32();
@@ -785,7 +783,7 @@ void ColorPicker::RenderPanel(
     canvas.DrawPixels(huePixels.data(), kHueW, 1, L.hueRect, L.hueRect.h * 0.5f, disabled ? 130 : 255);
     canvas.DrawRoundRect(L.hueRect, L.hueRect.h * 0.5f, Color::Transparent(), pal.borderSubtle, 1.0f);
 
-    const float hueNorm = std::clamp(h / 360.0f, 0.0f, 1.0f);
+    const float hueNorm = keel::clamp(h / 360.0f, 0.0f, 1.0f);
     const float hueThumbX = L.hueRect.x + hueNorm * L.hueRect.w;
     const float barThumbR = L.hueRect.h * 0.58f;
     canvas.DrawRoundRect(
@@ -799,7 +797,7 @@ void ColorPicker::RenderPanel(
     // 3. Render Alpha slider if enabled
     constexpr uint32_t kAlphaW = 64;
     constexpr uint32_t kAlphaH = 8;
-    std::array<uint32_t, kAlphaW * kAlphaH> alphaPixels{};
+    keel::StaticArray<uint32_t, kAlphaW * kAlphaH> alphaPixels{};
     if (opts.showAlpha) {
         const Color solidRgb = HsvToRgb(h, s, v, 255);
         for (uint32_t py = 0; py < kAlphaH; ++py) {
@@ -814,7 +812,7 @@ void ColorPicker::RenderPanel(
         canvas.DrawPixels(alphaPixels.data(), kAlphaW, kAlphaH, L.alphaRect, L.alphaRect.h * 0.5f, disabled ? 130 : 255);
         canvas.DrawRoundRect(L.alphaRect, L.alphaRect.h * 0.5f, Color::Transparent(), pal.borderSubtle, 1.0f);
 
-        const float alphaNorm = std::clamp(static_cast<float>(value.a) / 255.0f, 0.0f, 1.0f);
+        const float alphaNorm = keel::clamp(static_cast<float>(value.a) / 255.0f, 0.0f, 1.0f);
         const float alphaThumbX = L.alphaRect.x + alphaNorm * L.alphaRect.w;
         canvas.DrawRoundRect(
             Rect(alphaThumbX - barThumbR, L.alphaRect.Center().y - barThumbR, barThumbR * 2.0f, barThumbR * 2.0f),
@@ -841,14 +839,14 @@ void ColorPicker::RenderPanel(
 
     // 5. Render Quick Preset Swatches row
     if (opts.showSwatches) {
-        const std::span<const Color> customSwatches = !opts.swatches.empty() ? opts.swatches : opts.presets;
-        const std::span<const Color> swatches = customSwatches.empty()
-            ? std::span<const Color>(kDefaultPresets)
+        const keel::ArrayRef<Color> customSwatches = !opts.swatches.empty() ? opts.swatches : opts.presets;
+        const keel::ArrayRef<Color> swatches = customSwatches.empty()
+            ? kDefaultPresets.as_ref()
             : customSwatches;
         if (!swatches.empty()) {
             const float gap = theme.Scale(5.0f);
             const float countF = static_cast<float>(swatches.size());
-            const float swW = std::max(10.0f, (L.swatchesRowRect.w - gap * (countF - 1.0f)) / countF);
+            const float swW = keel::max(10.0f, (L.swatchesRowRect.w - gap * (countF - 1.0f)) / countF);
             for (size_t i = 0; i < swatches.size(); ++i) {
                 Rect sr(L.swatchesRowRect.x + static_cast<float>(i) * (swW + gap), L.swatchesRowRect.y, swW, L.swatchesRowRect.h);
                 const bool isHovered = !disabled && (hoveredSwatch == static_cast<int>(i));

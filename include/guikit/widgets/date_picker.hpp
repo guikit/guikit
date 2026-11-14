@@ -1,12 +1,10 @@
 #pragma once
 
-#include <algorithm>
 #include <cstdint>
-#include <optional>
-#include <span>
-#include <source_location>
-#include <string>
-#include <string_view>
+#include "keel/core.h"
+#include "keel/optional.h"
+#include "keel/ref.h"
+#include "keel/string.h"
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -46,25 +44,25 @@ struct DatePickerOptions {
     bool showSeconds{false};
     bool showTodayButton{true};
     bool firstDayMonday{true};
-    std::optional<DateTime> minDate{std::nullopt};      ///< Optional lower bound for selectable date/time
-    std::optional<DateTime> maxDate{std::nullopt};      ///< Optional upper bound for selectable date/time
-    std::optional<DateTime> todayOverride{std::nullopt};///< Optional deterministic override for "Today"/"Now" (nullopt = DateTime::Today())
-    std::span<const std::string_view> monthNames{};     ///< Optional 12 localized month names [January .. December]
-    std::span<const std::string_view> weekdayNames{};   ///< Optional 7 localized short weekday labels [Sunday .. Saturday]
+    keel::Optional<DateTime> minDate{keel::kNullOpt};       ///< Optional lower bound for selectable date/time
+    keel::Optional<DateTime> maxDate{keel::kNullOpt};       ///< Optional upper bound for selectable date/time
+    keel::Optional<DateTime> todayOverride{keel::kNullOpt}; ///< Optional deterministic override for "Today"/"Now" (nullopt = DateTime::Today())
+    keel::ArrayRef<keel::StringRef> monthNames{};           ///< Optional 12 localized month names [January .. December]
+    keel::ArrayRef<keel::StringRef> weekdayNames{};         ///< Optional 7 localized short weekday labels [Sunday .. Saturday]
     StateColor color{};
     StretchMode stretch{StretchMode::Compact};
     Align align{Align::Start};
-    std::optional<float> width{std::nullopt};
-    std::optional<float> widthRatio{std::nullopt};
-    std::optional<float> height{std::nullopt};
+    keel::Optional<float> width{keel::kNullOpt};
+    keel::Optional<float> widthRatio{keel::kNullOpt};
+    keel::Optional<float> height{keel::kNullOpt};
     StateColor background{StateColor::Surface()};
     Border border{};
     UiText tooltip{};
     bool disabled{false};
     const UiTheme* theme{nullptr};
-    std::optional<float> scale{std::nullopt};
-    std::optional<bool> debugBounds{std::nullopt};
-    std::optional<bool> inspectMode{std::nullopt};
+    keel::Optional<float> scale{keel::kNullOpt};
+    keel::Optional<bool> debugBounds{keel::kNullOpt};
+    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// Internal runtime state allocated in frame arena for DatePicker nodes.
@@ -84,7 +82,7 @@ public:
         Context& ctx,
         DateTime& value,
         const DatePickerOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Measures intrinsic dimensions for DatePicker control.
@@ -129,7 +127,7 @@ public:
     [[nodiscard]] static constexpr int DayOfWeek(int year, int month, int day) noexcept {
         constexpr int t[] = {0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4};
         int y = year;
-        const int m = std::clamp(month, 1, 12);
+        const int m = keel::clamp(month, 1, 12);
         if (m < 3) {
             y -= 1;
         }
@@ -138,7 +136,7 @@ public:
     }
 
     /// Formats a DateTime value according to mode and seconds visibility.
-    [[nodiscard]] static std::string FormatDateTime(
+    [[nodiscard]] static keel::FixedString<32> FormatDateTime(
         const DateTime& dt,
         DatePickerMode mode,
         bool showSeconds = false

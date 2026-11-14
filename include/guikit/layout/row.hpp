@@ -1,7 +1,5 @@
 #pragma once
 
-#include <optional>
-#include <source_location>
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
@@ -13,25 +11,25 @@ class Context;
 
 /// Options for configuring a horizontal Row layout.
 struct RowOptions {
-    std::optional<float> gap{std::nullopt};
-    std::optional<Padding> padding{std::nullopt};
+    keel::Optional<float> gap{keel::kNullOpt};
+    keel::Optional<Padding> padding{keel::kNullOpt};
     Alignment align{Alignment::Stretch};
     Justify justify{Justify::Start};
-    std::optional<SizeMode> widthMode{std::nullopt};
+    keel::Optional<SizeMode> widthMode{keel::kNullOpt};
     SizeMode heightMode{SizeMode::Fit};
-    std::optional<float> width{std::nullopt};
-    std::optional<float> height{std::nullopt};
-    std::optional<float> minWidth{std::nullopt};
-    std::optional<float> maxWidth{std::nullopt};
-    std::optional<float> minHeight{std::nullopt};
-    std::optional<float> maxHeight{std::nullopt};
+    keel::Optional<float> width{keel::kNullOpt};
+    keel::Optional<float> height{keel::kNullOpt};
+    keel::Optional<float> minWidth{keel::kNullOpt};
+    keel::Optional<float> maxWidth{keel::kNullOpt};
+    keel::Optional<float> minHeight{keel::kNullOpt};
+    keel::Optional<float> maxHeight{keel::kNullOpt};
     float flexGrow{1.0f};
     bool equalWidths{false};
     bool disabled{false};
     const UiTheme* theme{nullptr};
-    std::optional<float> scale{std::nullopt};
-    std::optional<bool> debugBounds{std::nullopt};
-    std::optional<bool> inspectMode{std::nullopt};
+    keel::Optional<float> scale{keel::kNullOpt};
+    keel::Optional<bool> debugBounds{keel::kNullOpt};
+    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// Autonomous immediate mode Row layout entry point.
@@ -40,7 +38,7 @@ public:
     [[nodiscard]] static ContainerScope Open(
         Context& ctx,
         const RowOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 };
 

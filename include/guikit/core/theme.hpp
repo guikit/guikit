@@ -1,8 +1,6 @@
 #pragma once
 
-#include <array>
 #include <cstdint>
-#include <optional>
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
 
@@ -27,34 +25,34 @@ struct UiTheme {
     SyntaxPalette syntax{};
 
     // 2. State colors for semantic variants (UiVariant::Default .. Muted, 9 variants)
-    std::array<VariantColors, 9> variants{};
+    keel::StaticArray<VariantColors, 9> variants{};
 
     // 3. Component metrics per UiSize (None, Xs, Sm, Md, Lg, Xl, 6 sizes)
-    std::array<ComponentMetrics, 6> metrics{};
+    keel::StaticArray<ComponentMetrics, 6> metrics{};
 
     // 4. Typography metrics per TextRole (DisplayLarge .. CodeSmall, 18 roles)
-    std::array<TypographyMetrics, 18> typography{};
+    keel::StaticArray<TypographyMetrics, 18> typography{};
 
     // 5. Scrollbar metrics per UiSize (6 sizes)
-    std::array<ScrollbarMetrics, 6> scrollbars{};
+    keel::StaticArray<ScrollbarMetrics, 6> scrollbars{};
 
     // 5b. Carousel navigation metrics per UiSize (6 sizes)
-    std::array<CarouselMetrics, 6> carousels{};
+    keel::StaticArray<CarouselMetrics, 6> carousels{};
 
     // 6. Spacing scale (gaps) per UiSize (6 sizes)
-    std::array<float, 6> spacing{};
+    keel::StaticArray<float, 6> spacing{};
 
     // 7. Corner radius scale per UiSize (6 sizes)
-    std::array<float, 6> radius{};
+    keel::StaticArray<float, 6> radius{};
 
     // 8. Specific widget metrics per UiSize (6 sizes each)
-    std::array<SwitchMetrics, 6>     switches{};
-    std::array<CheckboxMetrics, 6>   checkboxes{};
-    std::array<InputFieldMetrics, 6> inputs{};
-    std::array<SelectMetrics, 6>     selects{};
-    std::array<HeadingMetrics, 6>    headings{};
-    std::array<HeadingMetrics, 7>    headingLevels{};
-    std::array<SliderMetrics, 6>     sliders{};
+    keel::StaticArray<SwitchMetrics, 6>     switches{};
+    keel::StaticArray<CheckboxMetrics, 6>   checkboxes{};
+    keel::StaticArray<InputFieldMetrics, 6> inputs{};
+    keel::StaticArray<SelectMetrics, 6>     selects{};
+    keel::StaticArray<HeadingMetrics, 6>    headings{};
+    keel::StaticArray<HeadingMetrics, 7>    headingLevels{};
+    keel::StaticArray<SliderMetrics, 6>     sliders{};
 
     // --- Fast Inline Accessors ---
 
@@ -416,7 +414,7 @@ struct UiTheme {
     }
 
     /// Resolves an optional explicit gap (in base dp) or falls back to the theme spacing token for fallbackSize.
-    [[nodiscard]] constexpr float ResolveGap(std::optional<float> explicitGap, UiSize fallbackSize = UiSize::Md) const noexcept {
+    [[nodiscard]] constexpr float ResolveGap(keel::Optional<float> explicitGap, UiSize fallbackSize = UiSize::Md) const noexcept {
         return explicitGap.has_value() ? (*explicitGap * scale) : GetGap(fallbackSize);
     }
 
@@ -426,7 +424,7 @@ struct UiTheme {
     }
 
     /// Resolves an optional explicit corner radius (in base dp) or falls back to the theme radius token for fallbackSize.
-    [[nodiscard]] constexpr float ResolveRadius(std::optional<float> explicitRadius, UiSize fallbackSize = UiSize::Md) const noexcept {
+    [[nodiscard]] constexpr float ResolveRadius(keel::Optional<float> explicitRadius, UiSize fallbackSize = UiSize::Md) const noexcept {
         return explicitRadius.has_value() ? (*explicitRadius * scale) : GetRadius(fallbackSize);
     }
 
@@ -441,7 +439,7 @@ struct UiTheme {
     }
 
     /// Resolves an optional padding (design token or explicit insets in base dp) into scaled layout coordinates.
-    [[nodiscard]] constexpr Padding ResolvePadding(std::optional<Padding> p, UiSize fallbackSize = UiSize::None) const noexcept {
+    [[nodiscard]] constexpr Padding ResolvePadding(keel::Optional<Padding> p, UiSize fallbackSize = UiSize::None) const noexcept {
         if (p.has_value()) {
             if (p->IsToken()) {
                 return GetPadding(p->GetToken());
@@ -537,7 +535,7 @@ struct UiTheme {
         float& lg;
         float& xl;
 
-        explicit SpacingProxy(std::array<float, 6>& a) noexcept
+        explicit SpacingProxy(keel::StaticArray<float, 6>& a) noexcept
             : none(a[0]), xs(a[1]), sm(a[2]), md(a[3]), lg(a[4]), xl(a[5]) {}
     };
 
@@ -549,7 +547,7 @@ struct UiTheme {
         const float lg;
         const float xl;
 
-        explicit ConstSpacingProxy(const std::array<float, 6>& a) noexcept
+        explicit ConstSpacingProxy(const keel::StaticArray<float, 6>& a) noexcept
             : none(a[0]), xs(a[1]), sm(a[2]), md(a[3]), lg(a[4]), xl(a[5]) {}
     };
 

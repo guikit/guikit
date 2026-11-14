@@ -1,10 +1,10 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
-#include <optional>
-#include <source_location>
-#include <string>
-#include <string_view>
+#include "keel/core.h"
+#include "keel/optional.h"
+#include "keel/ref.h"
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -31,18 +31,18 @@ struct SpinBoxOptions {
     UiAffix suffix{};                              ///< Trailing unit/symbol/text and/or icon inside field on right (e.g. "MHz", "mm", "%")
     UiText valueFormat{"%.2f"};                    ///< Format string for numeric values and/or candidate width variants
     Align align{Align::Start};                     ///< Standalone control alignment (Start, Center, End)
-    std::optional<CursorBlinkMode> cursorMode{std::nullopt}; ///< Cursor blink override when editing text
+    keel::Optional<CursorBlinkMode> cursorMode{keel::kNullOpt}; ///< Cursor blink override when editing text
     StateColor color{};                            ///< Per-state accent color for active stepper buttons and optional progress fill bar
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};      ///< SpinBox width in dp (or legacy ratio 0.0..1.0 in Fill)
-    std::optional<float> widthRatio{std::nullopt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
-    std::optional<float> height{std::nullopt};     ///< Explicit SpinBox height in points (nullopt = inherit defaultHeight from UiSize)
-    std::optional<float> minWidth{std::nullopt};   ///< Minimum SpinBox width constraint in points
+    keel::Optional<float> width{keel::kNullOpt};   ///< SpinBox width in dp (or legacy ratio 0.0..1.0 in Fill)
+    keel::Optional<float> widthRatio{keel::kNullOpt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
+    keel::Optional<float> height{keel::kNullOpt};  ///< Explicit SpinBox height in points (nullopt = inherit defaultHeight from UiSize)
+    keel::Optional<float> minWidth{keel::kNullOpt}; ///< Minimum SpinBox width constraint in points
     StateColor background{StateColor::Surface()};  ///< SpinBox surface fill color (Surface/Default = on, None = off, or custom StateColor)
     Border border{};                               ///< SpinBox border stroke & corner radius configuration
-    std::optional<double> min{std::nullopt};       ///< Optional minimum numeric value constraint
-    std::optional<double> max{std::nullopt};       ///< Optional maximum numeric value constraint
-    std::optional<double> step{std::nullopt};      ///< Step increment for +/- buttons, Up/Down keys, and mouse wheel (defaults to 1.0)
+    keel::Optional<double> min{keel::kNullOpt};    ///< Optional minimum numeric value constraint
+    keel::Optional<double> max{keel::kNullOpt};    ///< Optional maximum numeric value constraint
+    keel::Optional<double> step{keel::kNullOpt};   ///< Step increment for +/- buttons, Up/Down keys, and mouse wheel (defaults to 1.0)
     SpinBoxStepStyle stepStyle{SpinBoxStepStyle::Inline}; ///< Layout style for '-' and '+' stepper buttons
     Icon minusIcon{Icon::Minus()};                 ///< Icon rendered inside the decrement ('-') stepper button
     Icon plusIcon{Icon::Plus()};                   ///< Icon rendered inside the increment ('+') stepper button
@@ -51,13 +51,13 @@ struct SpinBoxOptions {
     bool disabled{false};                          ///< Interaction suppression
     bool readOnly{false};                          ///< Non-editable display mode
     const UiTheme* theme{nullptr};                 ///< Optional scoped theme override
-    std::optional<float> scale{std::nullopt};      ///< Optional local UI scale factor override
+    keel::Optional<float> scale{keel::kNullOpt};   ///< Optional local UI scale factor override
 };
 
 /// Internal runtime state allocated in frame arena for SpinBox nodes.
 struct SpinBoxData {
     SpinBoxOptions opts{};
-    std::string_view displayText{};
+    keel::StringRef displayText{};
     float fillRatio{0.0f};
     size_t cursor{0};
     size_t selStart{0};
@@ -84,12 +84,12 @@ public:
         double* doubleValue,
         int64_t* intValue,
         const SpinBoxOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Measures intrinsic dimensions based on content, prefix, suffix, stepper buttons, and sizing mode.
     static Vec2 Measure(
-        std::string_view displayText,
+        keel::StringRef displayText,
         const SpinBoxOptions& opts,
         UiSize size,
         ICanvas* canvas,
@@ -97,7 +97,7 @@ public:
         float availableWidth = 0.0f
     );
     static Vec2 Measure(
-        std::string_view displayText,
+        keel::StringRef displayText,
         const SpinBoxOptions& opts,
         UiSize size,
         ICanvas* canvas = nullptr,
@@ -108,7 +108,7 @@ public:
     static void Render(
         ICanvas& canvas,
         Rect bounds,
-        std::string_view displayText,
+        keel::StringRef displayText,
         const SpinBoxOptions& opts,
         UiSize size,
         bool hovered = false,

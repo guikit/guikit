@@ -1,12 +1,6 @@
 #pragma once
 
-#include <array>
 #include <cstdint>
-#include <functional>
-#include <memory>
-#include <span>
-#include <string>
-#include <string_view>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_window_backend.hpp"
 #include "guikit/core/frame_metrics.hpp"
@@ -18,9 +12,9 @@ namespace guikit {
 /// Delegates low-level windowing and swapchain presentation to an interchangeable `IWindowBackend`.
 class MainWindow {
 public:
-    using RenderCallback = std::function<void(Context& ui)>;
+    using RenderCallback = keel::Function<void(Context& ui)>;
 
-    explicit MainWindow(MainWindowConfig config = {}, std::unique_ptr<IWindowBackend> backend = nullptr);
+    explicit MainWindow(MainWindowConfig config = {}, keel::UniquePtr<IWindowBackend> backend = nullptr);
     virtual ~MainWindow();
 
     MainWindow(const MainWindow&) = delete;
@@ -41,7 +35,7 @@ public:
     void WakeUp() noexcept;
 
     /// Opens an external URL in the user's default system browser via the active `IWindowBackend`.
-    void OpenUrl(std::string_view url) const noexcept;
+    void OpenUrl(keel::StringRef url) const noexcept;
 
     // =========================================================================
     // Subsystems & State Accessors
@@ -105,8 +99,8 @@ public:
     bool RenderSidebarCycleButton(
         ToolbarScope& tb,
         SidebarMode& mode,
-        std::string_view label = "Nav",
-        std::string_view sidebarTitle = "Navigation Sidebar",
+        keel::StringRef label = "Nav",
+        keel::StringRef sidebarTitle = "Navigation Sidebar",
         const Icon& icon = Icon::Folder()
     );
 
@@ -114,8 +108,8 @@ public:
     bool RenderSidebarToggle(
         ToolbarScope& tb,
         SidebarMode& mode,
-        std::string_view label = "Inspector",
-        std::string_view sidebarTitle = "Inspector Sidebar",
+        keel::StringRef label = "Inspector",
+        keel::StringRef sidebarTitle = "Inspector Sidebar",
         const Icon& icon = Icon::Settings()
     );
 
@@ -136,27 +130,27 @@ public:
     /// and renders the modal `CommandPalette` overlay.
     CommandPaletteResponse RenderCommandPalette(
         StatusBarScope& sb,
-        std::span<const CommandPaletteItem> items,
+        keel::ArrayRef<CommandPaletteItem> items,
         UiText placeholder = "Jump to screen or run command..."
     );
 
-    static constexpr std::array<float, 5> kScaleValues = {1.0f, 1.25f, 1.5f, 1.75f, 2.0f};
-    static constexpr std::array<std::string_view, 5> kScaleLabels = {
+    static constexpr keel::StaticArray<float, 5> kScaleValues = {{1.0f, 1.25f, 1.5f, 1.75f, 2.0f}};
+    static constexpr keel::StaticArray<keel::StringRef, 5> kScaleLabels = {{
         "100%",
         "125%",
         "150%",
         "175%",
         "200%"
-    };
+    }};
 
-    static constexpr std::array<int, 5> kHeartbeatMsValues = {-1, 250, 500, 1000, 2000};
-    static constexpr std::array<std::string_view, 5> kHeartbeatLabels = {
+    static constexpr keel::StaticArray<int, 5> kHeartbeatMsValues = {{-1, 250, 500, 1000, 2000}};
+    static constexpr keel::StaticArray<keel::StringRef, 5> kHeartbeatLabels = {{
         "Heartbeat: Off",
         "Heartbeat: 4 Hz",
         "Heartbeat: 2 Hz",
         "Heartbeat: 1 Hz",
         "Heartbeat: 0.5 Hz"
-    };
+    }};
 
 protected:
     /// Called once after the `IWindowBackend` and `guikit::Context` have been initialized.
@@ -182,7 +176,7 @@ private:
     void RenderFrame();
 
     MainWindowConfig m_config;
-    std::unique_ptr<IWindowBackend> m_backend;
+    keel::UniquePtr<IWindowBackend> m_backend;
     RenderCallback m_renderCallback;
 
     Context m_ui;

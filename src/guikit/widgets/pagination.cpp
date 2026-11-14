@@ -1,5 +1,4 @@
 #include "guikit/widgets/pagination.hpp"
-#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include "guikit/context.hpp"
@@ -65,10 +64,10 @@ void BuildPaginationTokens(
     keel::SmallArray<PageToken, 16>& outTokens
 ) {
     outTokens.clear();
-    const size_t safeTotal = std::max<size_t>(1, totalPages);
-    const size_t curr = std::min(currentPage, safeTotal - 1);
+    const size_t safeTotal = keel::max<size_t>(1, totalPages);
+    const size_t curr = keel::min(currentPage, safeTotal - 1);
     const size_t sib = static_cast<size_t>(opts.siblingCount);
-    const size_t jumpStep = std::max<size_t>(5, sib * 2 + 3);
+    const size_t jumpStep = keel::max<size_t>(5, sib * 2 + 3);
     const size_t totalPageSlots = sib * 2 + 5;
 
     if (opts.showFirstLast) {
@@ -97,7 +96,7 @@ void BuildPaginationTokens(
     auto pushEllipsis = [&](bool isLeft) {
         const size_t jumpTarget = isLeft
             ? ((curr > jumpStep) ? (curr - jumpStep) : 0)
-            : std::min(safeTotal - 1, curr + jumpStep);
+            : keel::min(safeTotal - 1, curr + jumpStep);
         outTokens.push_back(PageToken{
             .type = isLeft ? PageTokenType::LeftEllipsis : PageTokenType::RightEllipsis,
             .targetPage = jumpTarget,
@@ -111,7 +110,7 @@ void BuildPaginationTokens(
         }
     } else {
         const size_t leftSibling = (curr > sib) ? (curr - sib) : 0;
-        const size_t rightSibling = std::min(safeTotal - 1, curr + sib);
+        const size_t rightSibling = keel::min(safeTotal - 1, curr + sib);
 
         const bool showLeftEllipsis = (leftSibling > 2);
         const bool showRightEllipsis = (rightSibling < safeTotal - 3);
@@ -171,18 +170,18 @@ float MeasureUniformSlotWidth(
     const float minBtnW = cm.defaultHeight;
 
     char buf[24];
-    std::snprintf(buf, sizeof(buf), "%zu", std::max<size_t>(1, totalPages));
+    std::snprintf(buf, sizeof(buf), "%zu", keel::max<size_t>(1, totalPages));
     const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
     const float textW = TextUtil::MeasureWidth(buf, fontSize, canvas);
-    const float padX = std::max(theme.Scale(8.0f), cm.paddingX * 0.65f);
-    return std::max(minBtnW, std::ceil(textW + padX * 2.0f));
+    const float padX = keel::max(theme.Scale(8.0f), cm.paddingX * 0.65f);
+    return keel::max(minBtnW, std::ceil(textW + padX * 2.0f));
 }
 
-std::string_view FormatPageInfoText(size_t currentPage, size_t totalPages, char (&buf)[64]) noexcept {
-    const size_t safeTotal = std::max<size_t>(1, totalPages);
-    const size_t curr = std::min(currentPage, safeTotal - 1);
+keel::StringRef FormatPageInfoText(size_t currentPage, size_t totalPages, char (&buf)[64]) noexcept {
+    const size_t safeTotal = keel::max<size_t>(1, totalPages);
+    const size_t curr = keel::min(currentPage, safeTotal - 1);
     const int n = std::snprintf(buf, sizeof(buf), "Page %zu of %zu", curr + 1, safeTotal);
-    return (n > 0) ? std::string_view(buf, static_cast<size_t>(std::min<int>(n, static_cast<int>(sizeof(buf) - 1)))) : std::string_view{};
+    return (n > 0) ? keel::StringRef(buf, static_cast<size_t>(keel::min<int>(n, static_cast<int>(sizeof(buf) - 1)))) : keel::StringRef{};
 }
 
 float MeasureReservedPageInfoWidth(
@@ -191,9 +190,9 @@ float MeasureReservedPageInfoWidth(
     ICanvas* canvas,
     const UiTheme& theme
 ) noexcept {
-    const size_t safeTotal = std::max<size_t>(1, totalPages);
+    const size_t safeTotal = keel::max<size_t>(1, totalPages);
     char buf[64];
-    const std::string_view maxInfoStr = FormatPageInfoText(safeTotal - 1, safeTotal, buf);
+    const keel::StringRef maxInfoStr = FormatPageInfoText(safeTotal - 1, safeTotal, buf);
     const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
     return std::ceil(TextUtil::MeasureWidth(maxInfoStr, fontSize, canvas) + theme.Scale(4.0f));
 }
@@ -229,7 +228,7 @@ Vec2 MeasurePaginationNaturalBox(
         ? theme.Scale(*opts.height)
         : cm.defaultHeight;
 
-    return {std::max(cm.defaultHeight, totalW), boxH};
+    return {keel::max(cm.defaultHeight, totalW), boxH};
 }
 
 void ComputePaginationLayout(
@@ -271,7 +270,7 @@ void ComputePaginationLayout(
             infoW = 0.0f;
         }
         if (totalW > innerRect.w + 0.5f && !outTokens.empty()) {
-            const float ratio = innerRect.w / std::max(1.0f, totalW);
+            const float ratio = innerRect.w / keel::max(1.0f, totalW);
             effGap *= ratio;
             for (float& w : widths) {
                 w *= ratio;
@@ -338,7 +337,7 @@ Response Pagination::Run(
     int& currentPage,
     int totalPages,
     const PaginationOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     size_t curr = (currentPage >= 0) ? static_cast<size_t>(currentPage) : 0;
     const size_t total = (totalPages > 0) ? static_cast<size_t>(totalPages) : 1;
@@ -354,7 +353,7 @@ Response Pagination::Run(
     size_t& currentPage,
     size_t totalPages,
     const PaginationOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
     const Id id = ctx.MakeChildId(loc);
@@ -363,8 +362,8 @@ Response Pagination::Run(
     const UiTheme theme = ctx.GetTheme();
     ICanvas* canvas = ctx.GetCanvas();
 
-    const size_t safeTotal = std::max<size_t>(1, totalPages);
-    size_t curr = std::min(currentPage, safeTotal - 1);
+    const size_t safeTotal = keel::max<size_t>(1, totalPages);
+    size_t curr = keel::min(currentPage, safeTotal - 1);
 
     PaginationOptions optsCopy = opts;
     Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
@@ -542,7 +541,7 @@ void Pagination::Render(
     ComputePaginationLayout(innerRect, d->currentPage, d->totalPages, d->opts, size, &canvas, theme, tokens, tokenRects, infoRect);
 
     const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
-    const float pillRadius = std::max(theme.Scale(4.0f), cm.cornerRadius);
+    const float pillRadius = keel::max(theme.Scale(4.0f), cm.cornerRadius);
     const float iconSz = std::round(cm.iconSize * 0.85f);
 
     canvas.PushClip(bounds);
@@ -629,7 +628,7 @@ void Pagination::Render(
 
     if (d->opts.showPageInfo && infoRect.w > 0.0f) {
         char infoBuf[64];
-        const std::string_view infoStr = FormatPageInfoText(d->currentPage, d->totalPages, infoBuf);
+        const keel::StringRef infoStr = FormatPageInfoText(d->currentPage, d->totalPages, infoBuf);
         const Color infoCol = disabled ? pal.textDisabled : pal.textSecondary;
         canvas.DrawTextBox(infoStr, infoRect, fontSize, infoCol, 0.0f, 0.5f);
     }

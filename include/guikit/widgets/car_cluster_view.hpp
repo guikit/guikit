@@ -1,16 +1,15 @@
 #pragma once
 
-#include <array>
 #include <cstdint>
-#include <optional>
-#include <source_location>
-#include <string_view>
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
 #include "guikit/graphics/icon.hpp"
+#include "keel/core.h"
+#include "keel/optional.h"
+#include "keel/static_array.h"
 
 namespace guikit {
 
@@ -125,8 +124,8 @@ struct CarClusterViewOptions {
     float adasLeadDistanceM{44.0f};     ///< Radar distance to lead vehicle in meters (5 .. 120 m)
     float adasLeadSpeedKmh{96.0f};      ///< Lead vehicle speed in km/h
     bool adasLeadDetected{true};        ///< Whether a lead vehicle is locked by front radar
-    std::array<float, 4> tirePressureBar{2.4f, 2.4f, 2.6f, 2.6f}; ///< Tire pressures [FL, FR, RL, RR] in bar
-    std::array<float, 4> tireTempC{44.0f, 45.0f, 48.0f, 48.0f};   ///< Tire temperatures [FL, FR, RL, RR] in °C
+    keel::StaticArray<float, 4> tirePressureBar{2.4f, 2.4f, 2.6f, 2.6f}; ///< Tire pressures [FL, FR, RL, RR] in bar
+    keel::StaticArray<float, 4> tireTempC{44.0f, 45.0f, 48.0f, 48.0f};   ///< Tire temperatures [FL, FR, RL, RR] in °C
 
     // --- Sub-Instrument & Overlay Visibility Toggles ---
     bool showShiftLights{true};         ///< Render top RPM / Power sequential LED shift-light strip
@@ -141,18 +140,18 @@ struct CarClusterViewOptions {
 
     // --- Sizing & Styling ---
     StretchMode stretch{StretchMode::Fill};
-    std::optional<float> width{std::nullopt};
-    std::optional<float> widthRatio{std::nullopt};
-    std::optional<float> height{std::nullopt};
+    keel::Optional<float> width{keel::kNullOpt};
+    keel::Optional<float> widthRatio{keel::kNullOpt};
+    keel::Optional<float> height{keel::kNullOpt};
     SizeMode heightMode{SizeMode::Stretch};
     StateColor background{};
     Border border{};
     bool disabled{false};
     UiText tooltip{};
     const UiTheme* theme{nullptr};
-    std::optional<float> scale{std::nullopt};
-    std::optional<bool> debugBounds{std::nullopt};
-    std::optional<bool> inspectMode{std::nullopt};
+    keel::Optional<float> scale{keel::kNullOpt};
+    keel::Optional<bool> debugBounds{keel::kNullOpt};
+    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// Rich telemetry geometry and interactive mouse-drive state returned by `ui.CarClusterView(...)`.
@@ -177,7 +176,7 @@ public:
     static CarClusterViewResponse Run(
         Context& ctx,
         const CarClusterViewOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] static Vec2 Measure(

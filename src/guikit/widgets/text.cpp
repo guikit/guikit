@@ -1,5 +1,4 @@
 #include "guikit/widgets/text.hpp"
-#include <algorithm>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
@@ -21,7 +20,7 @@ Response Text::Run(
     Context& ctx,
     UiText label,
     const TextOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
     const bool effectiveDisabled = ctx.IsDisabled();
@@ -101,7 +100,7 @@ Vec2 Text::Measure(
     if (label.wrap.rich) {
         w = TextUtil::MeasureUiTextWidth(label, fontSize, canvas);
     } else {
-        auto measureSingleLineW = [&](std::string_view sv) -> float {
+        auto measureSingleLineW = [&](keel::StringRef sv) -> float {
             if (sv.empty()) {
                 return 0.0f;
             }
@@ -112,14 +111,14 @@ Vec2 Text::Measure(
         };
 
         w = measureSingleLineW(label.text);
-        for (std::string_view var : label.variants) {
-            w = std::max(w, measureSingleLineW(var));
+        for (keel::StringRef var : label.variants) {
+            w = keel::max(w, measureSingleLineW(var));
         }
     }
 
     float h = TextUtil::MeasureUiTextHeight(label, availableWidth, fontSize, lineHeight, canvas, &theme);
     if (canvas && !label.text.empty() && !label.wrap.IsWordWrap() && label.wrap.minLines <= 1 && !label.wrap.rich) {
-        h = std::max(h, canvas->MeasureText(label.text, fontSize).y);
+        h = keel::max(h, canvas->MeasureText(label.text, fontSize).y);
     }
     return {w, h};
 }

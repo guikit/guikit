@@ -1,15 +1,13 @@
 #pragma once
 
-#include <initializer_list>
-#include <optional>
-#include <span>
-#include <source_location>
-#include <string_view>
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/types.hpp"
 #include "guikit/graphics/icon.hpp"
+#include "keel/core.h"
+#include "keel/optional.h"
+#include "keel/ref.h"
 
 namespace guikit {
 
@@ -45,13 +43,13 @@ struct ContextMenuItem {
 /// Configuration options for a ContextMenu popup.
 struct ContextMenuOptions {
     ContextMenuTrigger trigger{ContextMenuTrigger::RightClick};
-    std::optional<float> minWidth{188.0f};
-    std::optional<float> width{std::nullopt};
+    keel::Optional<float> minWidth{188.0f};
+    keel::Optional<float> width{keel::kNullOpt};
     StateColor background{};
     Border border{.width = 1.0f, .radius = 8.0f};
     bool disabled{false};
     const UiTheme* theme{nullptr};
-    std::optional<float> scale{std::nullopt};
+    keel::Optional<float> scale{keel::kNullOpt};
 };
 
 /// Extended response returned by `ui.ContextMenu(...)`.
@@ -66,11 +64,11 @@ public:
     static ContextMenuResponse Run(
         Context& ctx,
         bool* externalOpen,
-        std::optional<Vec2> explicitAnchorPos,
+        keel::Optional<Vec2> explicitAnchorPos,
         Rect triggerRect,
-        std::span<const ContextMenuItem> items,
+        keel::ArrayRef<ContextMenuItem> items,
         const ContextMenuOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 };
 

@@ -1,10 +1,9 @@
 #include "../demo_context.hpp"
-#include <format>
 
 namespace guikit::demo {
 
 void RenderHeadingInspector(guikit::Context& ui, DemoContext& ctx) {
-    static constexpr std::array<std::string_view, 7> levelNames = {"Auto", "H1", "H2", "H3", "H4", "H5", "H6"};
+    static constexpr keel::StaticArray<keel::StringRef, 7> levelNames = {"Auto", "H1", "H2", "H3", "H4", "H5", "H6"};
     if (auto el = ui.Element({.label = "Heading Level"})) {
         if (ui.StepSlider(ctx.elemHeadingLevel, levelNames, {
             .showTicks = true,
@@ -24,7 +23,7 @@ void RenderHeadingInspector(guikit::Context& ui, DemoContext& ctx) {
         }
     }
 
-    static constexpr std::array<std::string_view, 3> sepStyles = {"None", "Bottom", "Trailing"};
+    static constexpr keel::StaticArray<keel::StringRef, 3> sepStyles = {"None", "Bottom", "Trailing"};
     if (auto el = ui.Element({.label = "Separator"})) {
         if (ui.StepSlider(ctx.elemSeparator, sepStyles, {
             .showTicks = true,
@@ -73,8 +72,8 @@ void RenderHeadingStage(guikit::Context& ui, DemoContext& ctx) {
     });
 }
 
-std::string GenerateHeadingCode(const DemoContext& ctx) {
-    return std::format(
+keel::String GenerateHeadingCode(const DemoContext& ctx) {
+    return keel::format(
         "ui.{}Heading({{\n"
         "    .label = {},\n"
         "    .description = {},\n"

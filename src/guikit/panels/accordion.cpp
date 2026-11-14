@@ -1,8 +1,7 @@
 #include "guikit/panels/accordion.hpp"
-#include <algorithm>
 #include <cmath>
-#include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
 
@@ -12,7 +11,7 @@ AccordionScope Accordion::Open(
     Context& ctx,
     bool* externalOpen,
     const AccordionOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     const Id idOuter = ctx.MakeChildId(loc);
     const Id idHeader = Id{detail::HashArgs(idOuter, 0xACC0'4EAD'0001ULL)};
@@ -164,11 +163,11 @@ Vec2 Accordion::MeasureHeader(
     const float titleFont = theme.ResolveFontSize(opts.label, TextRole::LabelLarge, size);
     const float descFont = theme.ResolveFontSize(opts.description, TextRole::LabelSmall, size);
     const float badgeFont = theme.ResolveFontSize(opts.badge, TextRole::LabelSmall, size);
-    const float padX = std::max(theme.Scale(8.0f), m.paddingX * 0.70f);
-    const float padY = std::max(theme.Scale(5.0f), m.paddingY * 0.75f);
-    const float itemGap = std::max(theme.Scale(6.0f), hm.gap);
-    const float chevronSize = std::max(theme.Scale(11.0f), titleFont * 0.85f);
-    const float iconSize = std::max(theme.Scale(13.0f), titleFont);
+    const float padX = keel::max(theme.Scale(8.0f), m.paddingX * 0.70f);
+    const float padY = keel::max(theme.Scale(5.0f), m.paddingY * 0.75f);
+    const float itemGap = keel::max(theme.Scale(6.0f), hm.gap);
+    const float chevronSize = keel::max(theme.Scale(11.0f), titleFont * 0.85f);
+    const float iconSize = keel::max(theme.Scale(13.0f), titleFont);
 
     float rowW = padX * 2.0f + chevronSize + itemGap;
     if (opts.icon.IsValid()) {
@@ -178,19 +177,19 @@ Vec2 Accordion::MeasureHeader(
         rowW += TextUtil::MeasureWidth(opts.label, titleFont, canvas);
     }
     if (opts.badge.HasContentOrReserve()) {
-        const float badgePadX = std::max(theme.Scale(5.0f), badgeFont * 0.45f);
+        const float badgePadX = keel::max(theme.Scale(5.0f), badgeFont * 0.45f);
         rowW += itemGap + TextUtil::MeasureWidth(opts.badge, badgeFont, canvas) + badgePadX * 2.0f;
     }
 
-    float titleRowH = std::max(titleFont * 1.30f, chevronSize);
+    float titleRowH = keel::max(titleFont * 1.30f, chevronSize);
     if (opts.icon.IsValid()) {
-        titleRowH = std::max(titleRowH, iconSize);
+        titleRowH = keel::max(titleRowH, iconSize);
     }
 
     float totalH = padY * 2.0f + titleRowH;
     if (opts.description.HasContentOrReserve()) {
         const float descW = padX * 2.0f + chevronSize + itemGap + TextUtil::MeasureWidth(opts.description, descFont, canvas);
-        rowW = std::max(rowW, descW);
+        rowW = keel::max(rowW, descW);
         totalH += hm.lineGap + descFont * 1.25f;
     }
 
@@ -219,14 +218,14 @@ void Accordion::RenderHeader(
     const float titleFont = theme.ResolveFontSize(opts.label, TextRole::LabelLarge, size);
     const float descFont = theme.ResolveFontSize(opts.description, TextRole::LabelSmall, size);
     const float badgeFont = theme.ResolveFontSize(opts.badge, TextRole::LabelSmall, size);
-    const float padX = std::max(theme.Scale(8.0f), m.paddingX * 0.70f);
-    const float padY = std::max(theme.Scale(5.0f), m.paddingY * 0.75f);
-    const float itemGap = std::max(theme.Scale(6.0f), hm.gap);
-    const float chevronSize = std::max(theme.Scale(11.0f), titleFont * 0.85f);
-    const float iconSize = std::max(theme.Scale(13.0f), titleFont);
+    const float padX = keel::max(theme.Scale(8.0f), m.paddingX * 0.70f);
+    const float padY = keel::max(theme.Scale(5.0f), m.paddingY * 0.75f);
+    const float itemGap = keel::max(theme.Scale(6.0f), hm.gap);
+    const float chevronSize = keel::max(theme.Scale(11.0f), titleFont * 0.85f);
+    const float iconSize = keel::max(theme.Scale(13.0f), titleFont);
     const float radius = opts.border.radius.has_value()
         ? theme.Scale(*opts.border.radius)
-        : std::max(theme.Scale(4.0f), theme.GetRadius(size) * 0.75f);
+        : keel::max(theme.Scale(4.0f), theme.GetRadius(size) * 0.75f);
 
     // 1. Header background & border
     Color bgColor = Color::Transparent();
@@ -282,9 +281,9 @@ void Accordion::RenderHeader(
     const Color titleColor = theme.ResolveTextColor(opts.label, UiVariant::Default, disabled, hovered, pressed);
     const Color chevronColor = disabled ? pal.textDisabled : (hovered ? pal.textPrimary : pal.textSecondary);
 
-    float titleRowH = std::max(titleFont * 1.30f, chevronSize);
+    float titleRowH = keel::max(titleFont * 1.30f, chevronSize);
     if (opts.icon.IsValid()) {
-        titleRowH = std::max(titleRowH, iconSize);
+        titleRowH = keel::max(titleRowH, iconSize);
     }
     const float titleRowY = opts.description.empty()
         ? (bounds.y + (bounds.h - titleRowH) * 0.5f)
@@ -323,10 +322,10 @@ void Accordion::RenderHeader(
 
     // 3. Optional trailing pill badge
     if (!opts.badge.empty() && rightX > leftX + theme.Scale(20.0f)) {
-        const float badgePadX = std::max(theme.Scale(5.0f), badgeFont * 0.45f);
+        const float badgePadX = keel::max(theme.Scale(5.0f), badgeFont * 0.45f);
         const float badgeTextW = TextUtil::MeasureWidth(opts.badge, badgeFont, &canvas);
         const float badgeW = badgeTextW + badgePadX * 2.0f;
-        const float badgeH = std::min(titleRowH, badgeFont + theme.Scale(5.0f));
+        const float badgeH = keel::min(titleRowH, badgeFont + theme.Scale(5.0f));
         const Rect badgeRect{
             rightX - badgeW,
             titleCenterY - badgeH * 0.5f,
@@ -351,7 +350,7 @@ void Accordion::RenderHeader(
     }
 
     // 4. Title & optional subtitle
-    const float availTitleW = std::max(0.0f, rightX - leftX);
+    const float availTitleW = keel::max(0.0f, rightX - leftX);
     if (!opts.label.empty() && availTitleW > 1.0f) {
         canvas.DrawTextBox(
             opts.label.text,
@@ -369,7 +368,7 @@ void Accordion::RenderHeader(
         const float descY = titleRowY + titleRowH + hm.lineGap;
         canvas.DrawTextBox(
             opts.description.text,
-            Rect{leftX, descY, std::max(0.0f, bounds.Right() - padX - leftX), descH},
+            Rect{leftX, descY, keel::max(0.0f, bounds.Right() - padX - leftX), descH},
             descFont,
             descColor,
             0.0f,

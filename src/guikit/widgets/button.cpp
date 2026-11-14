@@ -1,7 +1,5 @@
 #include "guikit/widgets/button.hpp"
-#include <algorithm>
 #include <cmath>
-#include <numbers>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
@@ -11,6 +9,8 @@ namespace guikit {
 
 namespace {
 
+constexpr float kButtonPi = 3.14159265358979323846f;
+
 ControlSpec EffectiveButtonControl(const ButtonOptions& opts, UiSize size, const UiTheme& theme) noexcept {
     const ComponentMetrics& m = theme.GetMetrics(size);
     const auto& inputMetrics = theme.GetInputField(size);
@@ -18,7 +18,7 @@ ControlSpec EffectiveButtonControl(const ButtonOptions& opts, UiSize size, const
     c.width = opts.width;
     c.widthRatio = opts.widthRatio;
     c.height = opts.height;
-    c.minWidth = opts.square ? std::nullopt : opts.minWidth;
+    c.minWidth = opts.square ? keel::kNullOpt : opts.minWidth;
     c.align = opts.align;
     c.background = opts.background;
     c.border = opts.border;
@@ -35,9 +35,9 @@ ControlSpec EffectiveButtonControl(const ButtonOptions& opts, UiSize size, const
 
 void DrawButtonSpinner(ICanvas& canvas, Rect r, Color col, float phase) {
     if (r.w <= 1.0f || r.h <= 1.0f || col.a == 0) return;
-    const float diameter = std::min(r.w, r.h);
-    const float strokeW = std::clamp(diameter * 0.14f, 1.5f, 3.0f);
-    const float radius = std::max(1.0f, (diameter - strokeW) * 0.5f);
+    const float diameter = keel::min(r.w, r.h);
+    const float strokeW = keel::clamp(diameter * 0.14f, 1.5f, 3.0f);
+    const float radius = keel::max(1.0f, (diameter - strokeW) * 0.5f);
     const Vec2 center(r.x + r.w * 0.5f, r.y + r.h * 0.5f);
 
     // Subtle background ring
@@ -50,9 +50,9 @@ void DrawButtonSpinner(ICanvas& canvas, Rect r, Color col, float phase) {
     );
 
     // 250-degree rotating arc
-    constexpr float kTwoPi = 2.0f * std::numbers::pi_v<float>;
+    constexpr float kTwoPi = 2.0f * kButtonPi;
     const float startA = phase * kTwoPi;
-    const float sweep = 1.38f * std::numbers::pi_v<float>;
+    const float sweep = 1.38f * kButtonPi;
     constexpr int kSegs = 18;
     VectorPath path;
     path.Reserve(kSegs + 1, kSegs + 1);
@@ -108,10 +108,10 @@ Vec2 MeasureButtonCapsule(
     float contentH = baseH;
     if (hasIcon && maxTextW > 0.0f) {
         if (opts.iconPlacement == Placement::Top || opts.iconPlacement == Placement::Bottom) {
-            contentW = std::max(m.iconSize, maxTextW);
-            contentH = std::max(baseH, m.iconSize + theme.Scale(4.0f) + capFontSize + m.paddingY * 2.0f);
+            contentW = keel::max(m.iconSize, maxTextW);
+            contentH = keel::max(baseH, m.iconSize + theme.Scale(4.0f) + capFontSize + m.paddingY * 2.0f);
         } else {
-            const float gap = std::max(theme.Scale(4.0f), m.paddingX * 0.55f);
+            const float gap = keel::max(theme.Scale(4.0f), m.paddingX * 0.55f);
             contentW = m.iconSize + gap + maxTextW;
         }
     } else if (hasIcon) {
@@ -133,16 +133,16 @@ Vec2 MeasureButtonCapsule(
     if (Control::HasExplicitDpWidth(opts.stretch, ctrl.width, ctrl.widthRatio)) {
         totalW = theme.Scale(*ctrl.width);
     } else if (ctrl.minWidth.has_value()) {
-        totalW = std::max({m.defaultHeight, theme.Scale(*ctrl.minWidth), totalW});
+        totalW = keel::max(m.defaultHeight, keel::max(theme.Scale(*ctrl.minWidth), totalW));
     } else {
-        totalW = std::max(m.defaultHeight, totalW);
+        totalW = keel::max(m.defaultHeight, totalW);
     }
     return {totalW, contentH};
 }
 
 } // namespace
 
-Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_location loc) {
+Response Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocation loc) {
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
     struct ThemePopGuard {
         Context& c;
@@ -189,7 +189,7 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
 
     float loadingPhase = 0.0f;
     if (opts.loading && !effectiveDisabled) {
-        loadingPhase = static_cast<float>(std::fmod(std::max(0.0, ctx.GetCurrentTime()) * 1.35, 1.0));
+        loadingPhase = static_cast<float>(std::fmod(keel::max(0.0, ctx.GetCurrentTime()) * 1.35, 1.0));
         ctx.RequestRepaint(2);
     }
 
@@ -352,7 +352,7 @@ void Button::Render(
         }
         if (!disabled && opts.active) {
             borderCol = colors.text.WithAlphaF(0.35f);
-            borderW = std::max(borderW, 1.0f);
+            borderW = keel::max(borderW, 1.0f);
         }
         if (disabled) {
             bg = bg.WithAlphaF(0.40f);
@@ -400,7 +400,7 @@ void Button::Render(
         if (!ctrl.border.color.active.has_value()) {
             borderCol = theme.palette.focusRing;
         }
-        borderW = std::max(borderW, 2.0f);
+        borderW = keel::max(borderW, 2.0f);
     }
 
     // Clip all button capsule content strictly to capsuleRect to prevent any bleeding
@@ -415,7 +415,7 @@ void Button::Render(
     const Color icoCol = opts.iconColor.has_value()
         ? (disabled ? opts.iconColor->WithAlphaF(0.40f) : *opts.iconColor)
         : textCol;
-    const float padX = opts.square ? std::min(m.paddingX, theme.Scale(2.0f)) : m.paddingX;
+    const float padX = opts.square ? keel::min(m.paddingX, theme.Scale(2.0f)) : m.paddingX;
 
     // Reserve optional trailing badge inside capsule
     const float badgeFontSize = theme.ResolveFontSize(opts.badge, m.fontSize * 0.78f);
@@ -432,11 +432,11 @@ void Button::Render(
     const Rect contentBounds(
         capsuleRect.x,
         capsuleRect.y,
-        std::max(0.0f, capsuleRect.w - (drawBadge ? (badgeW + badgeGap) : 0.0f)),
+        keel::max(0.0f, capsuleRect.w - (drawBadge ? (badgeW + badgeGap) : 0.0f)),
         capsuleRect.h
     );
     if (drawBadge) {
-        const float badgeH = std::min(capsuleRect.h - theme.Scale(4.0f), badgeFontSize + theme.Scale(5.0f));
+        const float badgeH = keel::min(capsuleRect.h - theme.Scale(4.0f), badgeFontSize + theme.Scale(5.0f));
         const Rect badgeRect(
             capsuleRect.Right() - padX - badgeW,
             capsuleRect.y + (capsuleRect.h - badgeH) * 0.5f,
@@ -473,7 +473,7 @@ void Button::Render(
     } else if (!hasIcon && hasCapsuleText) {
         // Label-only with automatic ellipsis
         const float rightPad = drawBadge ? 0.0f : padX;
-        const float availW = std::max(0.0f, contentBounds.w - padX - rightPad);
+        const float availW = keel::max(0.0f, contentBounds.w - padX - rightPad);
         const Rect textRect(contentBounds.x + padX, contentBounds.y, availW, contentBounds.h);
         float alignX = 0.5f;
         if (!opts.square) {
@@ -487,7 +487,7 @@ void Button::Render(
     } else if (hasIcon && hasCapsuleText) {
         // Icon + Label
         const float rightPad = drawBadge ? 0.0f : padX;
-        const float gap = std::max(theme.Scale(4.0f), m.paddingX * 0.55f);
+        const float gap = keel::max(theme.Scale(4.0f), m.paddingX * 0.55f);
         if (opts.iconPlacement == Placement::Top) {
             const float vGap = theme.Scale(4.0f);
             const float textH = canvas.GetLineHeight(capFontSize);
@@ -503,7 +503,7 @@ void Button::Render(
                 alignX = 1.0f;
             }
             DrawButtonGlyph(canvas, opts, Rect(iconX, startY, m.iconSize, m.iconSize), icoCol, loadingPhase);
-            const Rect textRect(contentBounds.x + padX, startY + m.iconSize + vGap, std::max(0.0f, contentBounds.w - padX - rightPad), textH);
+            const Rect textRect(contentBounds.x + padX, startY + m.iconSize + vGap, keel::max(0.0f, contentBounds.w - padX - rightPad), textH);
             canvas.DrawTextBox(effectiveCapsuleText.text, textRect, capFontSize, textCol, alignX, 0.5f);
         } else if (opts.iconPlacement == Placement::Bottom) {
             const float vGap = theme.Scale(4.0f);
@@ -519,18 +519,18 @@ void Button::Render(
                 iconX = contentBounds.x + contentBounds.w - rightPad - m.iconSize;
                 alignX = 1.0f;
             }
-            const Rect textRect(contentBounds.x + padX, startY, std::max(0.0f, contentBounds.w - padX - rightPad), textH);
+            const Rect textRect(contentBounds.x + padX, startY, keel::max(0.0f, contentBounds.w - padX - rightPad), textH);
             canvas.DrawTextBox(effectiveCapsuleText.text, textRect, capFontSize, textCol, alignX, 0.5f);
             DrawButtonGlyph(canvas, opts, Rect(iconX, startY + textH + vGap, m.iconSize, m.iconSize), icoCol, loadingPhase);
         } else if (opts.iconPlacement == Placement::Trailing) {
-            const float availTextW = std::max(0.0f, contentBounds.w - padX - rightPad - m.iconSize - gap);
+            const float availTextW = keel::max(0.0f, contentBounds.w - padX - rightPad - m.iconSize - gap);
             const float iconY = contentBounds.y + (contentBounds.h - m.iconSize) * 0.5f;
             if (availTextW < capFontSize * 1.25f) {
                 DrawButtonGlyph(canvas, opts, Rect(contentBounds.x + (contentBounds.w - m.iconSize) * 0.5f, iconY, m.iconSize, m.iconSize), icoCol, loadingPhase);
             } else {
                 float textW = canvas.MeasureText(effectiveCapsuleText.text, capFontSize).x;
                 keel::FixedString<256> truncatedLabel;
-                std::string_view displayLabel = effectiveCapsuleText.text;
+                keel::StringRef displayLabel = effectiveCapsuleText.text;
                 if (textW > availTextW + kTextSubpixelTolerance && availTextW > 0.0f) {
                     truncatedLabel = TextUtil::TruncateWithEllipsis(effectiveCapsuleText.text, availTextW, capFontSize, &canvas);
                     displayLabel = truncatedLabel;
@@ -553,14 +553,14 @@ void Button::Render(
                 DrawButtonGlyph(canvas, opts, Rect(startX + textW + gap, iconY, m.iconSize, m.iconSize), icoCol, loadingPhase);
             }
         } else { // Leading / default
-            const float availTextW = std::max(0.0f, contentBounds.w - padX - rightPad - m.iconSize - gap);
+            const float availTextW = keel::max(0.0f, contentBounds.w - padX - rightPad - m.iconSize - gap);
             const float iconY = contentBounds.y + (contentBounds.h - m.iconSize) * 0.5f;
             if (availTextW < capFontSize * 1.25f) {
                 DrawButtonGlyph(canvas, opts, Rect(contentBounds.x + (contentBounds.w - m.iconSize) * 0.5f, iconY, m.iconSize, m.iconSize), icoCol, loadingPhase);
             } else {
                 float textW = canvas.MeasureText(effectiveCapsuleText.text, capFontSize).x;
                 keel::FixedString<256> truncatedLabel;
-                std::string_view displayLabel = effectiveCapsuleText.text;
+                keel::StringRef displayLabel = effectiveCapsuleText.text;
                 if (textW > availTextW + kTextSubpixelTolerance && availTextW > 0.0f) {
                     truncatedLabel = TextUtil::TruncateWithEllipsis(effectiveCapsuleText.text, availTextW, capFontSize, &canvas);
                     displayLabel = truncatedLabel;
@@ -579,7 +579,7 @@ void Button::Render(
                     startX = minStartX;
                 }
                 DrawButtonGlyph(canvas, opts, Rect(startX, iconY, m.iconSize, m.iconSize), icoCol, loadingPhase);
-                const float remainingW = std::max(0.0f, (contentBounds.x + contentBounds.w - rightPad) - (startX + m.iconSize + gap));
+                const float remainingW = keel::max(0.0f, (contentBounds.x + contentBounds.w - rightPad) - (startX + m.iconSize + gap));
                 const Rect textRect(startX + m.iconSize + gap, contentBounds.y, remainingW, contentBounds.h);
                 canvas.DrawTextBox(displayLabel, textRect, capFontSize, textCol, 0.0f, 0.5f);
             }

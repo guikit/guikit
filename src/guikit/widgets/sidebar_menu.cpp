@@ -1,5 +1,4 @@
 #include "guikit/widgets/sidebar_menu.hpp"
-#include <algorithm>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
@@ -17,7 +16,7 @@ void SidebarMenuScope::InvalidateContext() noexcept {
 void SidebarMenuScope::Section(
     UiText title,
     bool separator,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     if (!m_ctx || !m_node) return;
 
@@ -47,18 +46,18 @@ void SidebarMenuScope::Section(
 
 Response SidebarMenuScope::Item(
     const SidebarMenuItem& item,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     if (!m_ctx) return Response{};
     return SidebarMenu::Item(*m_ctx, item, m_opts, loc);
 }
 
-void SidebarMenuScope::Separator(std::source_location loc) {
+void SidebarMenuScope::Separator(keel::SourceLocation loc) {
     if (!m_ctx || !m_node) return;
     guikit::Separator::Run(*m_ctx, 0.0f, Color::Transparent(), loc);
 }
 
-void SidebarMenuScope::Spacer(float flex, std::source_location loc) {
+void SidebarMenuScope::Spacer(float flex, keel::SourceLocation loc) {
     if (!m_ctx) return;
     const Id id = m_ctx->MakeChildId(loc);
     Node* spacer = m_ctx->CreateNode(NodeType::Spacer, id);
@@ -74,7 +73,7 @@ void SidebarMenuScope::Spacer(float flex, std::source_location loc) {
 SidebarMenuScope SidebarMenu::Open(
     Context& ctx,
     const SidebarMenuOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
@@ -128,9 +127,9 @@ SidebarMenuScope SidebarMenu::Open(
 Response SidebarMenu::Run(
     Context& ctx,
     int& activeIndex,
-    std::span<const SidebarMenuItem> items,
+    keel::ArrayRef<SidebarMenuItem> items,
     const SidebarMenuOptions& opts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     Response barRes{};
     if (auto scope = Open(ctx, opts, loc)) {
@@ -160,7 +159,7 @@ Response SidebarMenu::Item(
     Context& ctx,
     const SidebarMenuItem& item,
     const SidebarMenuOptions& menuOpts,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
@@ -373,8 +372,8 @@ void SidebarMenu::RenderItem(
 
     if (opts.style == SidebarMenuStyle::Indicator && item.active) {
         const float barW = 3.0f;
-        const float barPadY = std::min(6.0f, bounds.h * 0.22f);
-        const Rect barRect(bounds.x + 2.0f, bounds.y + barPadY, barW, std::max(4.0f, bounds.h - barPadY * 2.0f));
+        const float barPadY = keel::min(6.0f, bounds.h * 0.22f);
+        const Rect barRect(bounds.x + 2.0f, bounds.y + barPadY, barW, keel::max(4.0f, bounds.h - barPadY * 2.0f));
         Color barCol = disabled ? v.bg.WithAlphaF(0.40f) : v.bg;
         canvas.DrawRoundRect(barRect, barW * 0.5f, barCol);
     }
@@ -393,10 +392,10 @@ void SidebarMenu::RenderItem(
             canvas.DrawTextBox(item.text.text.substr(0, 1), bounds, fontSize, textCol, 0.5f, 0.5f);
         }
         if (!item.badge.empty()) {
-            const float badgeFont = std::max(9.0f, theme.ResolveFontSize(item.badge, TextRole::LabelSmall, size) - 1.5f);
+            const float badgeFont = keel::max(9.0f, theme.ResolveFontSize(item.badge, TextRole::LabelSmall, size) - 1.5f);
             const Vec2 badgeDims = canvas.MeasureText(item.badge.text, badgeFont);
-            const float badgeH = std::min(bounds.h * 0.48f, std::max(13.0f, badgeFont + 3.0f));
-            const float badgeW = std::min(bounds.w - 4.0f, std::max(badgeH, badgeDims.x + 6.0f));
+            const float badgeH = keel::min(bounds.h * 0.48f, keel::max(13.0f, badgeFont + 3.0f));
+            const float badgeW = keel::min(bounds.w - 4.0f, keel::max(badgeH, badgeDims.x + 6.0f));
             const Rect badgeRect(
                 bounds.Right() - badgeW - 2.0f,
                 bounds.Bottom() - badgeH - 2.0f,
@@ -435,7 +434,7 @@ void SidebarMenu::RenderItem(
         const float badgeFont = theme.ResolveFontSize(item.badge, TextRole::LabelSmall, size);
         const Vec2 badgeTextDims = canvas.MeasureText(item.badge.text, badgeFont);
         const float badgeW = badgeTextDims.x + 10.0f;
-        const float badgeH = std::min(bounds.h - 6.0f, badgeFont + 6.0f);
+        const float badgeH = keel::min(bounds.h - 6.0f, badgeFont + 6.0f);
         const Rect badgeRect(
             rightX - badgeW,
             bounds.y + (bounds.h - badgeH) * 0.5f,

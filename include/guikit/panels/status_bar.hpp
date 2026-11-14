@@ -1,12 +1,12 @@
 #pragma once
 
-#include <optional>
-#include <source_location>
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
 #include "guikit/graphics/icon.hpp"
+#include "keel/core.h"
+#include "keel/optional.h"
 
 namespace guikit {
 
@@ -24,16 +24,16 @@ enum class StatusBarStyle : uint8_t {
 /// Options for configuring a StatusBar container.
 struct StatusBarOptions {
     StatusBarStyle style{StatusBarStyle::Surface};
-    std::optional<float> height{std::nullopt};          ///< Explicit height in pixels (nullopt = auto compact height from theme, ~26px in Md)
-    std::optional<float> gap{std::nullopt};             ///< Horizontal gap between status items (nullopt = auto compact gap)
-    std::optional<Padding> padding{std::nullopt};       ///< Internal bar padding (nullopt = auto compact padding)
+    keel::Optional<float> height{keel::kNullOpt};          ///< Explicit height in pixels (nullopt = auto compact height from theme, ~26px in Md)
+    keel::Optional<float> gap{keel::kNullOpt};             ///< Horizontal gap between status items (nullopt = auto compact gap)
+    keel::Optional<Padding> padding{keel::kNullOpt};       ///< Internal bar padding (nullopt = auto compact padding)
     StateColor background{};
     Border border{.width = 1.0f};
     bool disabled{false};
     const UiTheme* theme{nullptr};
-    std::optional<float> scale{std::nullopt};
-    std::optional<bool> debugBounds{std::nullopt};
-    std::optional<bool> inspectMode{std::nullopt};
+    keel::Optional<float> scale{keel::kNullOpt};
+    keel::Optional<bool> debugBounds{keel::kNullOpt};
+    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// Configuration for a static or interactive segment inside a StatusBar.
@@ -44,7 +44,7 @@ struct StatusItemOptions {
     StateColor color{};                                 ///< Optional text/icon color override (Default = Secondary)
     UiText badge{};                                     ///< Optional trailing pill badge text
     UiText tooltip{};                                   ///< Optional hover tooltip
-    std::optional<float> minWidth{std::nullopt};        ///< Optional minimum segment width in unscaled points
+    keel::Optional<float> minWidth{keel::kNullOpt};        ///< Optional minimum segment width in unscaled points
     bool active{false};                                 ///< Highlight state for toggleable status actions
     bool disabled{false};
 };
@@ -64,26 +64,26 @@ public:
     /// Renders a non-interactive status segment (optional LED dot, icon, text, badge, and tooltip).
     void Item(
         const StatusItemOptions& opts,
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Renders an interactive clickable status segment with hover/press feedback.
     Response Action(
         const StatusItemOptions& opts,
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Renders a vertical divider line between status segments.
     void Separator(
         float heightRatio = 0.55f,
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Inserts an elastic horizontal spacer to push subsequent items to the right edge.
-    void Spacer(std::source_location loc = std::source_location::current());
+    void Spacer(keel::SourceLocation loc = keel::SourceLocation::current());
 
     /// Inserts a fixed horizontal gap in logical dp.
-    void Gap(float sizeDp = 8.0f, std::source_location loc = std::source_location::current());
+    void Gap(float sizeDp = 8.0f, keel::SourceLocation loc = keel::SourceLocation::current());
 
     [[nodiscard]] const Response* operator->() const noexcept { return &response; }
 
@@ -97,7 +97,7 @@ public:
     [[nodiscard]] static StatusBarScope Open(
         Context& ctx,
         const StatusBarOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     static Response RenderSegment(
@@ -105,7 +105,7 @@ public:
         const StatusItemOptions& opts,
         StatusBarStyle barStyle,
         bool interactive,
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 };
 

@@ -1,17 +1,18 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
-#include <optional>
-#include <source_location>
-#include <string>
-#include <string_view>
-#include <vector>
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
 #include "guikit/graphics/icon.hpp"
+#include "keel/array.h"
+#include "keel/core.h"
+#include "keel/optional.h"
+#include "keel/small_array.h"
+#include "keel/string.h"
 
 namespace guikit {
 
@@ -118,18 +119,20 @@ enum class BpmnThemePreset : uint8_t {
 /// Horizontal Participant Pool / Swimlane band (`BpmnLane`).
 struct BpmnLane {
     uint32_t id{0};
-    std::string poolName{"Order Fulfillment Pool"};
-    std::string name{"Lane"};
+    keel::FixedString<128> poolName{"Order Fulfillment Pool"};
+    keel::FixedString<128> name{"Lane"};
     Rect rect{80.0f, 80.0f, 1260.0f, 210.0f}; ///< World-space bounding rectangle
     Color accentColor{0, 0, 0, 0};            ///< Optional lane header bar accent color (alpha 0 = default)
+
+    [[nodiscard]] BpmnLane clone() const noexcept { return *this; }
 };
 
 /// Individual BPMN 2.0 graphical node (`BpmnNode`).
 struct BpmnNode {
     uint32_t id{0};
     BpmnNodeType type{BpmnNodeType::Task};
-    std::string label{"Task"};
-    std::string documentation{};              ///< Optional SLA / condition / microservice metadata
+    keel::FixedString<256> label{"Task"};
+    keel::FixedString<256> documentation{};   ///< Optional SLA / condition / microservice metadata
     Vec2 pos{0.0f, 0.0f};                     ///< World-space top-left position
     Vec2 size{0.0f, 0.0f};                    ///< World-space dimensions (0,0 = auto-sized by BpmnNodeType)
 
@@ -156,6 +159,8 @@ struct BpmnNode {
     Vec2 labelOffset{0.0f, 0.0f};             ///< World-space offset for draggable external labels (Events/Gateways/Data)
     Color customColor{0, 0, 0, 0};            ///< Optional custom semantic tint (alpha 0 = default)
 
+    [[nodiscard]] BpmnNode clone() const noexcept { return *this; }
+
     [[nodiscard]] Rect Bounds() const noexcept {
         return Rect(pos.x, pos.y, size.x, size.y);
     }
@@ -172,9 +177,23 @@ struct BpmnEdge {
     BpmnPortSide fromPort{BpmnPortSide::Auto};
     BpmnPortSide toPort{BpmnPortSide::Auto};
     BpmnFlowType flowType{BpmnFlowType::SequenceFlow};
-    std::string label{};
+    keel::FixedString<128> label{};
     Vec2 labelOffset{0.0f, 0.0f};             ///< World-space offset for draggable edge label
-    std::vector<Vec2> waypoints{};            ///< Optional intermediate waypoints in world space
+    keel::Array<Vec2> waypoints{};            ///< Optional intermediate waypoints in world space
+
+    [[nodiscard]] BpmnEdge clone() const {
+        BpmnEdge out{};
+        out.id = id;
+        out.fromNodeId = fromNodeId;
+        out.toNodeId = toNodeId;
+        out.fromPort = fromPort;
+        out.toPort = toPort;
+        out.flowType = flowType;
+        out.label = label;
+        out.labelOffset = labelOffset;
+        out.waypoints = waypoints.clone();
+        return out;
+    }
 };
 
 /// Live animated process instance token for `bpmn-js-token-simulation` mode.
@@ -185,16 +204,29 @@ struct BpmnToken {
     float progress{0.0f};                     ///< Normalized progress in [0.0 .. 1.0]
     Color color{16, 185, 129, 255};           ///< Token badge color
     uint32_t instanceId{1};                   ///< Process instance identifier
+
+    [[nodiscard]] BpmnToken clone() const noexcept { return *this; }
 };
 
 /// Complete BPMN 2.0 diagram document model (`BpmnDiagram`).
 struct BpmnDiagram {
-    std::string name{"BPMN 2.0 Process"};
-    std::vector<BpmnLane> lanes{};
-    std::vector<BpmnNode> nodes{};
-    std::vector<BpmnEdge> edges{};
-    std::vector<BpmnToken> tokens{};
+    keel::FixedString<128> name{"BPMN 2.0 Process"};
+    keel::Array<BpmnLane> lanes{};
+    keel::Array<BpmnNode> nodes{};
+    keel::Array<BpmnEdge> edges{};
+    keel::Array<BpmnToken> tokens{};
     uint32_t nextId{1};
+
+    [[nodiscard]] BpmnDiagram clone() const {
+        BpmnDiagram out{};
+        out.name = name;
+        out.lanes = lanes.clone();
+        out.nodes = nodes.clone();
+        out.edges = edges.clone();
+        out.tokens = tokens.clone();
+        out.nextId = nextId;
+        return out;
+    }
 
     [[nodiscard]] uint32_t AllocateId() noexcept {
         for (const auto& l : lanes) if (l.id >= nextId) nextId = l.id + 1;
@@ -275,14 +307,14 @@ struct BpmnDiagram {
         return {120.0f, 80.0f};
     }
 
-    uint32_t AddLane(std::string poolName, std::string laneName, Rect rect, Color accent = Color(0, 0, 0, 0)) {
+    uint32_t AddLane(keel::StringRef poolName, keel::StringRef laneName, Rect rect, Color accent = Color(0, 0, 0, 0)) {
         BpmnLane lane{};
         lane.id = AllocateId();
-        lane.poolName = std::move(poolName);
-        lane.name = std::move(laneName);
+        lane.poolName = poolName;
+        lane.name = laneName;
         lane.rect = rect;
         lane.accentColor = accent;
-        lanes.push_back(std::move(lane));
+        lanes.push_back(keel::move(lane));
         return lanes.back().id;
     }
 
@@ -295,7 +327,7 @@ struct BpmnDiagram {
         if (node.size.x <= 1.0f || node.size.y <= 1.0f) {
             node.size = DefaultNodeSize(node.type);
         }
-        nodes.push_back(std::move(node));
+        nodes.push_back(keel::move(node));
         SyncBoundaryEvents();
         return nodes.back().id;
     }
@@ -304,7 +336,7 @@ struct BpmnDiagram {
         uint32_t fromId,
         uint32_t toId,
         BpmnFlowType type = BpmnFlowType::SequenceFlow,
-        std::string label = {},
+        keel::StringRef label = {},
         BpmnPortSide fromPort = BpmnPortSide::Auto,
         BpmnPortSide toPort = BpmnPortSide::Auto
     ) {
@@ -319,24 +351,25 @@ struct BpmnDiagram {
         edge.fromNodeId = fromId;
         edge.toNodeId = toId;
         edge.flowType = type;
-        edge.label = std::move(label);
+        edge.label = label;
         edge.fromPort = fromPort;
         edge.toPort = toPort;
-        edges.push_back(std::move(edge));
+        edges.push_back(keel::move(edge));
         return edges.back().id;
     }
 
-    bool RemoveEdge(uint32_t edgeId) {
+    bool RemoveEdge(uint32_t edgeId) noexcept {
         if (edgeId == 0) return false;
         const size_t before = edges.size();
-        std::erase_if(edges, [edgeId](const BpmnEdge& e) { return e.id == edgeId; });
-        std::erase_if(tokens, [edgeId](const BpmnToken& t) { return t.edgeId == edgeId; });
+        RemoveMatching(edges, [edgeId](const BpmnEdge& e) { return e.id == edgeId; });
+        RemoveMatching(tokens, [edgeId](const BpmnToken& t) { return t.edgeId == edgeId; });
         return edges.size() != before;
     }
 
-    bool RemoveNode(uint32_t nodeId) {
+    bool RemoveNode(uint32_t nodeId) noexcept {
         if (nodeId == 0) return false;
-        std::vector<uint32_t> toRemove{nodeId};
+        keel::SmallArray<uint32_t, 8> toRemove;
+        toRemove.push_back(nodeId);
         for (const auto& n : nodes) {
             if (n.type == BpmnNodeType::BoundaryEvent && n.attachedToNodeId == nodeId) {
                 toRemove.push_back(n.id);
@@ -344,23 +377,23 @@ struct BpmnDiagram {
         }
         const size_t before = nodes.size();
         for (uint32_t remId : toRemove) {
-            std::erase_if(edges, [remId](const BpmnEdge& e) {
+            RemoveMatching(edges, [remId](const BpmnEdge& e) {
                 return e.fromNodeId == remId || e.toNodeId == remId;
             });
-            std::erase_if(tokens, [remId](const BpmnToken& t) {
+            RemoveMatching(tokens, [remId](const BpmnToken& t) {
                 return t.nodeId == remId;
             });
-            std::erase_if(nodes, [remId](const BpmnNode& n) {
+            RemoveMatching(nodes, [remId](const BpmnNode& n) {
                 return n.id == remId;
             });
         }
         return nodes.size() != before;
     }
 
-    bool RemoveLane(uint32_t laneId) {
+    bool RemoveLane(uint32_t laneId) noexcept {
         if (laneId == 0) return false;
         const size_t before = lanes.size();
-        std::erase_if(lanes, [laneId](const BpmnLane& l) { return l.id == laneId; });
+        RemoveMatching(lanes, [laneId](const BpmnLane& l) { return l.id == laneId; });
         for (auto& n : nodes) {
             if (n.laneId == laneId) n.laneId = 0;
         }
@@ -390,12 +423,29 @@ struct BpmnDiagram {
         }
     }
 
-    void Clear() {
+    void Clear() noexcept {
         lanes.clear();
         nodes.clear();
         edges.clear();
         tokens.clear();
         nextId = 1;
+    }
+
+private:
+    template <typename T, typename Pred>
+    static void RemoveMatching(keel::Array<T>& arr, Pred&& pred) noexcept {
+        size_t writeIdx = 0;
+        for (size_t readIdx = 0; readIdx < arr.size(); ++readIdx) {
+            if (!pred(arr[readIdx])) {
+                if (writeIdx != readIdx) {
+                    arr[writeIdx] = keel::move(arr[readIdx]);
+                }
+                ++writeIdx;
+            }
+        }
+        while (arr.size() > writeIdx) {
+            arr.pop_back();
+        }
     }
 };
 
@@ -432,18 +482,18 @@ struct BpmnEditorOptions {
 
     // --- Sizing & Styling ---
     StretchMode stretch{StretchMode::Fill};
-    std::optional<float> width{std::nullopt};
-    std::optional<float> widthRatio{std::nullopt};
-    std::optional<float> height{std::nullopt};
+    keel::Optional<float> width{keel::kNullOpt};
+    keel::Optional<float> widthRatio{keel::kNullOpt};
+    keel::Optional<float> height{keel::kNullOpt};
     SizeMode heightMode{SizeMode::Stretch};
     StateColor background{};
     Border border{};
     bool disabled{false};
     UiText tooltip{};
     const UiTheme* theme{nullptr};
-    std::optional<float> scale{std::nullopt};
-    std::optional<bool> debugBounds{std::nullopt};
-    std::optional<bool> inspectMode{std::nullopt};
+    keel::Optional<float> scale{keel::kNullOpt};
+    keel::Optional<bool> debugBounds{keel::kNullOpt};
+    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// Rich telemetry and selection state returned by `ui.BpmnEditor(...)`.
@@ -475,7 +525,7 @@ public:
         Context& ctx,
         BpmnDiagram& diagram,
         const BpmnEditorOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] static Vec2 Measure(
@@ -487,10 +537,10 @@ public:
     );
 
     /// Serialize `diagram` into standard BPMN 2.0 XML (`<bpmn:definitions>` + `<bpmndi:BPMNDiagram>`).
-    [[nodiscard]] static std::string ExportBpmnXml(const BpmnDiagram& diagram);
+    [[nodiscard]] static keel::String ExportBpmnXml(const BpmnDiagram& diagram);
 
     /// Parse standard BPMN 2.0 XML (`<bpmn:process>` + `<bpmndi:BPMNDiagram>`) into `outDiagram`.
-    [[nodiscard]] static bool ImportBpmnXml(std::string_view xml, BpmnDiagram& outDiagram);
+    [[nodiscard]] static bool ImportBpmnXml(keel::StringRef xml, BpmnDiagram& outDiagram);
 };
 
 } // namespace guikit

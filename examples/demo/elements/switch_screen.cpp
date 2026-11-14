@@ -1,13 +1,12 @@
 #include "../demo_context.hpp"
-#include <format>
 
 namespace guikit::demo {
 
 namespace {
 struct SwitchState {
     bool state = true;
-    std::string textLeft = "";
-    std::string textRight = "";
+    keel::SmallString<64> textLeft{""};
+    keel::SmallString<64> textRight{""};
     bool symmetric = false;
 };
 SwitchState s_state;
@@ -60,8 +59,8 @@ void RenderSwitchStage(guikit::Context& ui, DemoContext& ctx) {
     }
 }
 
-std::string GenerateSwitchCode(const DemoContext& ctx) {
-    return std::format(
+keel::String GenerateSwitchCode(const DemoContext& ctx) {
+    return keel::format(
         "if (auto el = ui.{}Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"

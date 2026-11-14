@@ -1,7 +1,5 @@
 #pragma once
 
-#include <algorithm>
-#include <optional>
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
@@ -15,10 +13,10 @@ struct Response;
 
 /// Specification for an interactive or visual `Control` (either standalone or inside an `Element`).
 struct ControlSpec {
-    std::optional<float> width{std::nullopt};                ///< Explicit control width in dp (or legacy ratio 0.0..1.0 in Fill mode)
-    std::optional<float> widthRatio{std::nullopt};           ///< Normalized fill ratio 0.0..1.0 of available width in Fill mode
-    std::optional<float> height{std::nullopt};               ///< Explicit control height in points (nullopt = auto from UiSize / aspect)
-    std::optional<float> minWidth{std::nullopt};             ///< Minimum control width in points
+    keel::Optional<float> width{keel::kNullOpt};             ///< Explicit control width in dp (or legacy ratio 0.0..1.0 in Fill mode)
+    keel::Optional<float> widthRatio{keel::kNullOpt};        ///< Normalized fill ratio 0.0..1.0 of available width in Fill mode
+    keel::Optional<float> height{keel::kNullOpt};            ///< Explicit control height in points (nullopt = auto from UiSize / aspect)
+    keel::Optional<float> minWidth{keel::kNullOpt};          ///< Minimum control width in points
     Align align{Align::Center};                              ///< Horizontal alignment of content inside the control slot
     StateColor background{};                                 ///< Per-state control backdrop / well fill color (Default/None/Surface/Primary/etc.)
     Border border{};                                         ///< Border thickness, corner radius, and per-state color for controlRect
@@ -46,8 +44,8 @@ public:
     /// rather than a normalized `0.0..1.0` fill ratio.
     [[nodiscard]] static constexpr bool HasExplicitDpWidth(
         StretchMode stretch,
-        std::optional<float> width,
-        std::optional<float> widthRatio = std::nullopt
+        keel::Optional<float> width,
+        keel::Optional<float> widthRatio = keel::kNullOpt
     ) noexcept {
         if (!width.has_value() || *width <= 0.0f) {
             return false;
@@ -60,18 +58,18 @@ public:
 
     /// Resolves a normalized `0.0..1.0` fill ratio when configured via `widthRatio`
     /// or `width <= 1.0f` in `StretchMode::Fill`.
-    [[nodiscard]] static constexpr std::optional<float> ResolveFillRatio(
+    [[nodiscard]] static constexpr keel::Optional<float> ResolveFillRatio(
         StretchMode stretch,
-        std::optional<float> width,
-        std::optional<float> widthRatio = std::nullopt
+        keel::Optional<float> width,
+        keel::Optional<float> widthRatio = keel::kNullOpt
     ) noexcept {
         if (widthRatio.has_value()) {
-            return std::clamp(*widthRatio, 0.0f, 1.0f);
+            return keel::clamp(*widthRatio, 0.0f, 1.0f);
         }
         if (stretch == StretchMode::Fill && width.has_value() && *width >= 0.0f && *width <= 1.0f) {
-            return std::clamp(*width, 0.0f, 1.0f);
+            return keel::clamp(*width, 0.0f, 1.0f);
         }
-        return std::nullopt;
+        return keel::kNullOpt;
     }
 
     /// Returns true when the control requires an outer well backdrop or border drawn by `Control::RenderFrame`.
@@ -121,14 +119,14 @@ public:
     static void InheritElementSizing(
         Context& ctx,
         StretchMode& ioStretch,
-        std::optional<float>& ioWidth,
+        keel::Optional<float>& ioWidth,
         bool inheritWidth = true
     ) noexcept;
     static void InheritElementSizing(
         Context& ctx,
         StretchMode& ioStretch,
-        std::optional<float>& ioWidth,
-        std::optional<float>& ioWidthRatio,
+        keel::Optional<float>& ioWidth,
+        keel::Optional<float>& ioWidthRatio,
         bool inheritWidth = true
     ) noexcept;
 

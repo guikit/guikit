@@ -1,12 +1,12 @@
 #pragma once
 
-#include <optional>
-#include <source_location>
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/id.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/types.hpp"
+#include "keel/core.h"
 #include "keel/hash_map.h"
+#include "keel/optional.h"
 
 namespace guikit {
 
@@ -16,14 +16,14 @@ struct Node;
 
 /// Configuration options for Carousel horizontal scroll container.
 struct CarouselOptions {
-    std::optional<float> gap{std::nullopt};        ///< Gap between items in the ribbon (nullopt = from theme)
-    std::optional<Padding> padding{std::nullopt};   ///< Viewport content padding (nullopt = zero)
+    keel::Optional<float> gap{keel::kNullOpt};        ///< Gap between items in the ribbon (nullopt = from theme)
+    keel::Optional<Padding> padding{keel::kNullOpt};   ///< Viewport content padding (nullopt = zero)
     Alignment align{Alignment::Center};             ///< Vertical alignment of items
     Justify justify{Justify::Start};                ///< Horizontal item distribution
     bool scrollWheel{true};                         ///< Enable horizontal mouse wheel scrolling
     bool disabled{false};                           ///< Interaction suppression
     const UiTheme* theme{nullptr};                  ///< Optional scoped theme override
-    std::optional<float> scale{std::nullopt};       ///< Optional scoped scale factor override
+    keel::Optional<float> scale{keel::kNullOpt};       ///< Optional scoped scale factor override
 };
 
 /// Internal runtime state allocated in frame arena for Carousel container nodes.
@@ -63,7 +63,7 @@ public:
     [[nodiscard]] static ContainerScope Open(
         Context& ctx,
         const CarouselOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Measures intrinsic dimensions for a Carousel container ribbon.

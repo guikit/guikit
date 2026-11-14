@@ -1,18 +1,17 @@
 #pragma once
 
 #include <cstdint>
-#include <optional>
-#include <source_location>
-#include <span>
-#include <string>
-#include <string_view>
-#include <vector>
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
 #include "guikit/graphics/colormap.hpp"
 #include "guikit/graphics/icon.hpp"
+#include "keel/array.h"
+#include "keel/core.h"
+#include "keel/optional.h"
+#include "keel/ref.h"
+#include "keel/string.h"
 
 namespace guikit {
 
@@ -49,14 +48,28 @@ struct WaterfallTrackPoint {
 /// Tracked DOA target (BTR contact) or spectral emitter trajectory overlaid on the waterfall & top trace.
 struct WaterfallTrack {
     int id{0};
-    std::string callsign{};
+    keel::FixedString<64> callsign{};
     WaterfallTrackStatus status{WaterfallTrackStatus::Tracking};
     float currentX{0.0f};               ///< Current Bearing (deg) or Frequency (Hz) at t = 0s
     float driftRatePerSec{0.0f};        ///< Bearing drift rate d(theta)/dt (deg/s) or Doppler rate df/dt (Hz/s)
     float levelDb{-24.0f};              ///< Peak signal level in dB
     float snrDb{18.0f};                 ///< Signal-to-Noise Ratio above local noise floor in dB
     float gateWidth{8.0f};              ///< Tracking gate / association corridor width in X units (deg or Hz)
-    std::vector<WaterfallTrackPoint> history{}; ///< Trajectory points ordered from newest (0s) to oldest
+    keel::Array<WaterfallTrackPoint> history{}; ///< Trajectory points ordered from newest (0s) to oldest
+
+    [[nodiscard]] WaterfallTrack clone() const {
+        WaterfallTrack out{};
+        out.id = id;
+        out.callsign = callsign;
+        out.status = status;
+        out.currentX = currentX;
+        out.driftRatePerSec = driftRatePerSec;
+        out.levelDb = levelDb;
+        out.snrDb = snrDb;
+        out.gateWidth = gateWidth;
+        out.history = history.clone();
+        return out;
+    }
 };
 
 /// Configuration options for the autonomous WaterfallView (RTSA Spectrum & DOA/BTR Tracker) widget.
@@ -78,7 +91,7 @@ struct WaterfallViewOptions {
 
     // --- Streaming & Snapshot Data Ingestion ---
     uint64_t sliceSequence{0};                      ///< Monotonic counter; when incremented, `latestSliceDb` is pushed as a new row
-    std::span<const float> initialHistoryMatrix{};  ///< Optional [historyRows * numBins] dB matrix (row 0 = newest) for bulk preload
+    keel::ArrayRef<float> initialHistoryMatrix{};   ///< Optional [historyRows * numBins] dB matrix (row 0 = newest) for bulk preload
 
     // --- DSP & Display Conditioning Parameters ---
     float dbFloor{-110.0f};                         ///< Display dynamic range floor in dB (-140 .. -20 dB)
@@ -91,7 +104,7 @@ struct WaterfallViewOptions {
     float peakDecayDbPerSec{1.2f};                  ///< Peak-hold decay rate in dB/sec (0.0 = infinite max hold)
 
     // --- Traces, Target Tracks & Operator Instruments ---
-    std::span<const WaterfallTrack> tracks{};       ///< Active DOA contacts (BTR) or tracked spectral emitters
+    keel::ArrayRef<WaterfallTrack> tracks{};        ///< Active DOA contacts (BTR) or tracked spectral emitters
     bool showLiveTrace{true};                       ///< Render instantaneous live slice in upper trace panel
     bool showPeakHold{true};                        ///< Render peak-hold envelope trace in upper trace panel
     bool showAverageTrace{true};                    ///< Render exponentially averaged trace in upper trace panel
@@ -120,18 +133,18 @@ struct WaterfallViewOptions {
 
     // --- Sizing & Styling ---
     StretchMode stretch{StretchMode::Fill};
-    std::optional<float> width{std::nullopt};
-    std::optional<float> widthRatio{std::nullopt};
-    std::optional<float> height{std::nullopt};
+    keel::Optional<float> width{keel::kNullOpt};
+    keel::Optional<float> widthRatio{keel::kNullOpt};
+    keel::Optional<float> height{keel::kNullOpt};
     SizeMode heightMode{SizeMode::Stretch};
     StateColor background{};
     Border border{};
     bool disabled{false};
     UiText tooltip{};
     const UiTheme* theme{nullptr};
-    std::optional<float> scale{std::nullopt};
-    std::optional<bool> debugBounds{std::nullopt};
-    std::optional<bool> inspectMode{std::nullopt};
+    keel::Optional<float> scale{keel::kNullOpt};
+    keel::Optional<bool> debugBounds{keel::kNullOpt};
+    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// Rich telemetry & operator interaction state returned by `ui.WaterfallView(...)`.
@@ -172,13 +185,13 @@ class WaterfallView {
 public:
     static WaterfallViewResponse Run(
         Context& ctx,
-        std::span<const float> latestSliceDb,
+        keel::ArrayRef<float> latestSliceDb,
         const WaterfallViewOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] static Vec2 Measure(
-        std::span<const float> latestSliceDb,
+        keel::ArrayRef<float> latestSliceDb,
         const WaterfallViewOptions& opts,
         UiSize size,
         ICanvas* canvas = nullptr,

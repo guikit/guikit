@@ -1,17 +1,12 @@
-#include <algorithm>
-#include <array>
 #include <cmath>
 #include <cstdint>
-#include <cstdio>
-#include <numbers>
-#include <string>
-#include <vector>
 #include "../demo_context.hpp"
 
 namespace guikit::demo {
 
 namespace {
 
+constexpr float kPi = 3.14159265358979323846f;
 constexpr uint32_t kDemoImgW = 1024;
 constexpr uint32_t kDemoImgH = 768;
 
@@ -26,8 +21,8 @@ struct ImageViewDemoState {
     bool initialized{false};
     int datasetIndex{0}; // 0 = 16-bit Radiographic/NDT Phantom (1ch), 1 = Multi-Channel Fluorescence/Spectral (3ch RGB)
 
-    std::vector<uint16_t> mono16Pixels{};
-    std::vector<float> rgbFloatPixels{};
+    keel::Array<uint16_t> mono16Pixels{};
+    keel::Array<float> rgbFloatPixels{};
     uint64_t generationCounter{1};
 
     ImageViewParams paramsMono{};
@@ -125,7 +120,7 @@ struct ImageViewDemoState {
 
                 // 6. Sensor quantum noise
                 const float noise = (HashNoise2D(x, y, 1337u) + HashNoise2D(x, y, 7919u) - 1.0f) * 480.0f;
-                const float clamped = std::clamp(std::round(v + noise), 0.0f, 65535.0f);
+                const float clamped = keel::clamp(std::round(v + noise), 0.0f, 65535.0f);
                 mono16Pixels[static_cast<size_t>(y) * kDemoImgW + x] = static_cast<uint16_t>(clamped);
             }
         }
@@ -157,7 +152,7 @@ struct ImageViewDemoState {
 
                 // Green Channel: cellular organelle clusters & top calibration bars
                 for (int k = 0; k < 6; ++k) {
-                    const float a = static_cast<float>(k) * (2.0f * std::numbers::pi_v<float> / 6.0f);
+                    const float a = static_cast<float>(k) * (2.0f * kPi / 6.0f);
                     const float ox = cx + std::cos(a) * 135.0f;
                     const float oy = cy + std::sin(a) * 135.0f;
                     const float od = std::hypot(static_cast<float>(x) - ox, static_cast<float>(y) - oy);
@@ -184,9 +179,9 @@ struct ImageViewDemoState {
                 const float nB = (HashNoise2D(x, y, 303u) - 0.5f) * 75.0f;
 
                 const size_t base = (static_cast<size_t>(y) * kDemoImgW + x) * 3u;
-                rgbFloatPixels[base + 0] = std::clamp(red + nR,   0.0f, 4095.0f);
-                rgbFloatPixels[base + 1] = std::clamp(green + nG, 0.0f, 4095.0f);
-                rgbFloatPixels[base + 2] = std::clamp(blue + nB,  0.0f, 4095.0f);
+                rgbFloatPixels[base + 0] = keel::clamp(red + nR,   0.0f, 4095.0f);
+                rgbFloatPixels[base + 1] = keel::clamp(green + nG, 0.0f, 4095.0f);
+                rgbFloatPixels[base + 2] = keel::clamp(blue + nB,  0.0f, 4095.0f);
             }
         }
     }
@@ -200,7 +195,7 @@ void RenderImageViewInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     s_imgDemo.EnsureGenerated();
 
     ui.Size(UiSize::Xs).Heading({.label = "DATASET & CHANNELS", .separator = HeadingSeparator::Bottom});
-    static constexpr std::array<std::string_view, 2> kDatasetNames = {
+    static constexpr keel::StaticArray<keel::StringRef, 2> kDatasetNames = {
         "16-bit Radiograph Phantom (1ch)",
         "Multispectral Fluorescence (3ch RGB)"
     };
@@ -212,7 +207,7 @@ void RenderImageViewInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
 
     ImageViewParams& activeParams = (s_imgDemo.datasetIndex == 0) ? s_imgDemo.paramsMono : s_imgDemo.paramsRgb;
 
-    static constexpr std::array<std::string_view, 3> kHistScales = {"Sqrt", "Log", "Linear"};
+    static constexpr keel::StaticArray<keel::StringRef, 3> kHistScales = {"Sqrt", "Log", "Linear"};
     int scaleIdx = static_cast<int>(activeParams.histScaleMode);
     if (auto el = ui.Element({.label = "Histogram Scale"})) {
         if (ui.StepSlider(scaleIdx, kHistScales, {.showValue = false}).changed) {
@@ -299,34 +294,30 @@ void RenderImageViewStage(guikit::Context& ui, DemoContext& /*ctx*/) {
     }
 }
 
-std::string GenerateImageViewCode(const DemoContext& /*ctx*/) {
+keel::String GenerateImageViewCode(const DemoContext& /*ctx*/) {
     const ImageViewParams& prm = (s_imgDemo.datasetIndex == 0) ? s_imgDemo.paramsMono : s_imgDemo.paramsRgb;
     const auto& ch = prm.channels[static_cast<size_t>(prm.activeHistChannel)];
 
-    char buf[1024]{};
-    std::snprintf(
-        buf,
-        sizeof(buf),
+    return keel::format(
         "// Single-Channel (16-bit/float) & Multi-Channel (RGB) Scientific ImageView\n"
-        "guikit::ImageViewData img = %s;\n\n"
-        "params.colormap = guikit::Colormap::%.*s;\n"
-        "params.channels[0].window = %.1ff;\n"
-        "params.channels[0].level  = %.1ff;\n"
-        "params.channels[0].gamma  = %.2ff;\n"
-        "params.channels[0].invert = %s;\n\n"
-        "auto resp = ui.ImageView(img, params, {\n"
-        "    .showSidebar = %s,\n"
-        "    .sidebarOnRight = %s,\n"
-        "    .sidebarWidth = %.0ff,\n"
-        "    .showTopToolbar = %s,\n"
-        "    .showStatusBar = %s,\n"
-        "    .enableLineProfile = %s\n"
-        "});",
+        "guikit::ImageViewData img = {};\n\n"
+        "params.colormap = guikit::Colormap::{};\n"
+        "params.channels[0].window = {:.1f}f;\n"
+        "params.channels[0].level  = {:.1f}f;\n"
+        "params.channels[0].gamma  = {:.2f}f;\n"
+        "params.channels[0].invert = {};\n\n"
+        "auto resp = ui.ImageView(img, params, {{\n"
+        "    .showSidebar = {},\n"
+        "    .sidebarOnRight = {},\n"
+        "    .sidebarWidth = {:.0f}f,\n"
+        "    .showTopToolbar = {},\n"
+        "    .showStatusBar = {},\n"
+        "    .enableLineProfile = {}\n"
+        "}});",
         (s_imgDemo.datasetIndex == 0)
             ? "guikit::ImageViewData::FromU16(pixels16, 1024, 768, 1)"
             : "guikit::ImageViewData::FromFloat(pixelsRgb, 1024, 768, 3)",
-        static_cast<int>(GetColormapName(prm.colormap).size()),
-        GetColormapName(prm.colormap).data(),
+        GetColormapName(prm.colormap),
         ch.window,
         ch.level,
         ch.gamma,
@@ -338,7 +329,6 @@ std::string GenerateImageViewCode(const DemoContext& /*ctx*/) {
         s_imgDemo.viewOpts.showStatusBar ? "true" : "false",
         s_imgDemo.viewOpts.enableLineProfile ? "true" : "false"
     );
-    return std::string(buf);
 }
 
 } // namespace guikit::demo

@@ -1,17 +1,17 @@
 #pragma once
 
-#include <array>
-#include <optional>
-#include <span>
-#include <source_location>
-#include <string>
-#include <string_view>
-#include <vector>
+#include <cstddef>
+#include <cstdint>
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/types.hpp"
 #include "guikit/graphics/icon.hpp"
+#include "keel/core.h"
+#include "keel/optional.h"
+#include "keel/ref.h"
+#include "keel/static_array.h"
+#include "keel/string.h"
 
 namespace guikit {
 
@@ -33,22 +33,22 @@ struct SelectOptions {
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
     UiAffix prefix{};                              ///< Optional default leading icon/text inside closed field
     UiAffix suffix{};                              ///< Optional default trailing text/icon inside closed field
-    std::optional<uint32_t> maxVisibleItems{std::nullopt}; ///< Optional limit on visible items count before scrolling
+    keel::Optional<uint32_t> maxVisibleItems{keel::kNullOpt}; ///< Optional limit on visible items count before scrolling
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
     Align align{Align::Start};                     ///< Standalone horizontal control alignment (Start, Center, End)
-    std::optional<float> width{std::nullopt};      ///< Select box width in dp (or legacy ratio 0.0..1.0 in Fill)
-    std::optional<float> widthRatio{std::nullopt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
-    std::optional<float> height{std::nullopt};     ///< Explicit select box height in points (nullopt = inherit defaultHeight from UiSize)
-    std::optional<float> minWidth{std::nullopt};   ///< Minimum select box width constraint in points
+    keel::Optional<float> width{keel::kNullOpt};      ///< Select box width in dp (or legacy ratio 0.0..1.0 in Fill)
+    keel::Optional<float> widthRatio{keel::kNullOpt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
+    keel::Optional<float> height{keel::kNullOpt};     ///< Explicit select box height in points (nullopt = inherit defaultHeight from UiSize)
+    keel::Optional<float> minWidth{keel::kNullOpt};   ///< Minimum select box width constraint in points
     StateColor background{StateColor::Surface()};  ///< Select box surface fill color (Surface/Default = on, None = off, or custom StateColor)
     Border border{};                               ///< Select box border stroke & corner radius configuration
     bool searchable{false};                        ///< Enable live keyboard search/filtering of dropdown items (ComboBox mode)
     bool editable{false};                          ///< Enable free-form text input with dropdown suggestions (Autocomplete mode)
     bool clearable{false};                         ///< Show interactive clear (X) button when a selection or text is present
-    std::optional<CursorBlinkMode> cursorMode{std::nullopt}; ///< Optional override for text cursor blink mode in searchable/editable modes
+    keel::Optional<CursorBlinkMode> cursorMode{keel::kNullOpt}; ///< Optional override for text cursor blink mode in searchable/editable modes
     bool disabled{false};                          ///< Interaction suppression
     const UiTheme* theme{nullptr};                 ///< Optional scoped theme override
-    std::optional<float> scale{std::nullopt};      ///< Optional scoped scale factor override
+    keel::Optional<float> scale{keel::kNullOpt};      ///< Optional scoped scale factor override
 };
 
 /// Visual chip data stored inside frame arena for MultiSelect nodes.
@@ -76,7 +76,7 @@ struct SelectData {
     bool clearHovered{false};
     bool chevronHovered{false};
     bool isMulti{false};
-    std::array<SelectChipVisual, kMaxChips> chips{};
+    keel::StaticArray<SelectChipVisual, kMaxChips> chips{};
     size_t chipCount{0};
     size_t totalSelectedCount{0};
 };
@@ -89,41 +89,41 @@ public:
         Context& ctx,
         size_t* selectedIndex,
         int* selectedIntIndex,
-        std::string* selectedString,
-        std::string_view* selectedStringView,
-        std::span<const SelectItem> items,
+        keel::Optional<keel::StringSink> selectedString,
+        keel::StringRef* selectedStringView,
+        keel::ArrayRef<SelectItem> items,
         const SelectOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
-    /// Convenience immediate mode entry point for Select with plain string_view items.
+    /// Convenience immediate mode entry point for Select with plain StringRef items.
     static Response Run(
         Context& ctx,
         size_t* selectedIndex,
         int* selectedIntIndex,
-        std::string* selectedString,
-        std::string_view* selectedStringView,
-        std::span<const std::string_view> items,
+        keel::Optional<keel::StringSink> selectedString,
+        keel::StringRef* selectedStringView,
+        keel::ArrayRef<keel::StringRef> items,
         const SelectOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
-    /// Multi-selection immediate mode entry point with plain string_view items.
+    /// Multi-selection immediate mode entry point with plain StringRef items.
     [[nodiscard]] static Response RunMulti(
         Context& ctx,
-        std::vector<size_t>& selectedIndices,
-        std::span<const std::string_view> items,
+        IndexListSink selectedIndices,
+        keel::ArrayRef<keel::StringRef> items,
         const SelectOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Multi-selection immediate mode entry point with rich SelectItem elements.
     [[nodiscard]] static Response RunMulti(
         Context& ctx,
-        std::vector<size_t>& selectedIndices,
-        std::span<const SelectItem> items,
+        IndexListSink selectedIndices,
+        keel::ArrayRef<SelectItem> items,
         const SelectOptions& opts = {},
-        std::source_location loc = std::source_location::current()
+        keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     /// Measures intrinsic dimensions based on content, label, and placement.
@@ -178,7 +178,7 @@ public:
     static void RenderPopup(
         ICanvas& canvas,
         Rect popupRect,
-        std::span<const SelectItem> items,
+        keel::ArrayRef<SelectItem> items,
         size_t selectedIndex,
         int hoveredIndex,
         const SelectOptions& opts,
@@ -187,14 +187,14 @@ public:
         float scrollY = 0.0f,
         bool scrollbarHovered = false,
         bool scrollbarActive = false,
-        std::string_view highlightQuery = {}
+        keel::StringRef highlightQuery = {}
     );
 
-    /// Convenience overload rendering popup menu from plain string_view items.
+    /// Convenience overload rendering popup menu from plain StringRef items.
     static void RenderPopup(
         ICanvas& canvas,
         Rect popupRect,
-        std::span<const std::string_view> items,
+        keel::ArrayRef<keel::StringRef> items,
         size_t selectedIndex,
         int hoveredIndex,
         const SelectOptions& opts,
@@ -203,7 +203,7 @@ public:
         float scrollY = 0.0f,
         bool scrollbarHovered = false,
         bool scrollbarActive = false,
-        std::string_view highlightQuery = {}
+        keel::StringRef highlightQuery = {}
     );
 };
 

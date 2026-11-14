@@ -25,13 +25,32 @@
 #include <emscripten/html5.h>
 #endif
 
-#include <algorithm>
 #include <cmath>
-#include <iostream>
+#include "keel/format.h"
+#include "keel/string.h"
+#include "keel/time.h"
 
 namespace guikit {
 
 namespace {
+
+[[nodiscard]] inline uint32_t AtomicExchangeU32(uint32_t& slot, uint32_t val) noexcept {
+#if defined(_MSC_VER) && !defined(__clang__)
+    return static_cast<uint32_t>(_InterlockedExchange(reinterpret_cast<volatile long*>(&slot), static_cast<long>(val)));
+#else
+    return __atomic_exchange_n(&slot, val, __ATOMIC_ACQ_REL);
+#endif
+}
+
+[[nodiscard]] inline uint32_t AtomicLoadAcquireU32(const uint32_t& slot) noexcept {
+#if defined(_MSC_VER) && !defined(__clang__)
+    const uint32_t v = *static_cast<const volatile uint32_t*>(&slot);
+    MemoryBarrier();
+    return v;
+#else
+    return __atomic_load_n(&slot, __ATOMIC_ACQUIRE);
+#endif
+}
 
 #ifndef __EMSCRIPTEN__
 bool SDLCALL LiveResizeEventWatchThunk(void* userdata, SDL_Event* event) {
@@ -122,12 +141,12 @@ float QueryDisplayPixelsPerMm(SDL_Window* window) noexcept {
     return (96.0f * safeScale) / 25.4f;
 }
 
-std::unique_ptr<IWindowBackend> CreateSdlWindowBackend() {
-    return std::make_unique<SdlWindowBackend>();
+keel::UniquePtr<IWindowBackend> CreateSdlWindowBackend() {
+    return keel::make_unique<SdlWindowBackend>();
 }
 
-std::unique_ptr<IWindowBackend> CreateSdlWindowBackend(std::unique_ptr<ICanvas> canvas) {
-    return std::make_unique<SdlWindowBackend>(std::move(canvas));
+keel::UniquePtr<IWindowBackend> CreateSdlWindowBackend(keel::UniquePtr<ICanvas> canvas) {
+    return keel::make_unique<SdlWindowBackend>(keel::move(canvas));
 }
 
 void RegisterSdlWindowBackend() noexcept {
@@ -148,13 +167,13 @@ namespace {
 
 } // namespace
 
-SdlWindowBackend::SdlWindowBackend(std::unique_ptr<ICanvas> canvas)
-    : m_canvas(std::move(canvas))
+SdlWindowBackend::SdlWindowBackend(keel::UniquePtr<ICanvas> canvas)
+    : m_canvas(keel::move(canvas))
     , m_hasExplicitCanvas(m_canvas != nullptr) {
     if (!m_canvas) {
         m_canvas = CreateVectorCanvas();
         if (!m_canvas) {
-            m_canvas = std::make_unique<SdlCanvas>(nullptr);
+            m_canvas = keel::make_unique<SdlCanvas>(nullptr);
             m_usingFallbackCanvas = true;
         }
     }
@@ -186,18 +205,19 @@ void SdlWindowBackend::UpdateDisplayMetrics() noexcept {
 bool SdlWindowBackend::Initialize(
     const MainWindowConfig& config,
     Context& ui,
-    const WindowHostCallbacks& callbacks
+    WindowHostCallbacks callbacks
 ) {
     Shutdown();
 
     m_config = config;
-    m_callbacks = callbacks;
+    m_callbacks = keel::move(callbacks);
     m_boundUi = &ui;
-    m_width = std::max(1, config.width);
-    m_height = std::max(1, config.height);
+    m_width = keel::max(1, config.width);
+    m_height = keel::max(1, config.height);
     m_vsyncEnabled = config.vsync;
     m_shouldExit = false;
     m_minimized = false;
+    (void)AtomicExchangeU32(m_wakePending, 0u);
 
 #if defined(__linux__) && !defined(__ANDROID__)
     // Prefer X11/XWayland by default on Linux desktop so windows always receive native
@@ -207,7 +227,7 @@ bool SdlWindowBackend::Initialize(
 #endif
 
     if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
-        std::cerr << "Failed to initialize SDL3 video subsystem: " << SDL_GetError() << std::endl;
+        keel::eprintln("Failed to initialize SDL3 video subsystem: {}", SDL_GetError());
         return false;
     }
     m_sdlVideoInitialized = true;
@@ -241,12 +261,12 @@ bool SdlWindowBackend::Initialize(
         SDL_SetHint(SDL_HINT_RENDER_DRIVER, nullptr);
         if (!SDL_CreateWindowAndRenderer(m_config.title.c_str(), m_width, m_height,
                                          windowFlags, &m_window, &m_renderer)) {
-            std::cerr << "Failed to create SDL window & renderer: " << SDL_GetError() << std::endl;
+            keel::eprintln("Failed to create SDL window & renderer: {}", SDL_GetError());
             Shutdown();
             return false;
         }
 #else
-        std::cerr << "Failed to create SDL window & renderer: " << SDL_GetError() << std::endl;
+        keel::eprintln("Failed to create SDL window & renderer: {}", SDL_GetError());
         Shutdown();
         return false;
 #endif
@@ -259,20 +279,20 @@ bool SdlWindowBackend::Initialize(
     if (m_config.highDpi) {
         const float rawPd = SDL_GetWindowPixelDensity(m_window);
         const float pd = (rawPd > 0.01f) ? rawPd : 1.0f;
-        winCoordScale = std::max(1.0f, m_dpiScale / pd);
+        winCoordScale = keel::max(1.0f, m_dpiScale / pd);
         if (winCoordScale > 1.01f) {
             SDL_SetWindowSize(
                 m_window,
-                std::max(1, static_cast<int>(std::lround(static_cast<float>(m_config.width) * winCoordScale))),
-                std::max(1, static_cast<int>(std::lround(static_cast<float>(m_config.height) * winCoordScale)))
+                keel::max(1, static_cast<int>(std::lround(static_cast<float>(m_config.width) * winCoordScale))),
+                keel::max(1, static_cast<int>(std::lround(static_cast<float>(m_config.height) * winCoordScale)))
             );
         }
     }
     if (m_config.minWidth > 0 && m_config.minHeight > 0) {
         SDL_SetWindowMinimumSize(
             m_window,
-            std::max(1, static_cast<int>(std::lround(static_cast<float>(m_config.minWidth) * winCoordScale))),
-            std::max(1, static_cast<int>(std::lround(static_cast<float>(m_config.minHeight) * winCoordScale)))
+            keel::max(1, static_cast<int>(std::lround(static_cast<float>(m_config.minWidth) * winCoordScale))),
+            keel::max(1, static_cast<int>(std::lround(static_cast<float>(m_config.minHeight) * winCoordScale)))
         );
     }
     SDL_SetWindowPosition(m_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
@@ -298,12 +318,12 @@ bool SdlWindowBackend::Initialize(
 
     if (!m_hasExplicitCanvas && m_config.canvasFactory != nullptr) {
         if (auto custom = m_config.canvasFactory(true)) {
-            m_canvas = std::move(custom);
+            m_canvas = keel::move(custom);
             m_usingFallbackCanvas = false;
         }
     } else if (m_usingFallbackCanvas && HasDefaultVectorCanvasFactory()) {
         if (auto promoted = CreateVectorCanvas(true)) {
-            m_canvas = std::move(promoted);
+            m_canvas = keel::move(promoted);
             m_usingFallbackCanvas = false;
         }
     }
@@ -333,21 +353,21 @@ bool SdlWindowBackend::Initialize(
     }
 
     ui.SetClipboardCallbacks(
-        []() -> std::string {
+        []() -> keel::String {
             char* clip = SDL_GetClipboardText();
-            if (!clip) return {};
-            std::string res(clip);
+            if (!clip) return keel::String{};
+            keel::String res(clip);
             SDL_free(clip);
             return res;
         },
-        [](std::string_view text) {
-            std::string s(text);
+        [](keel::StringRef text) {
+            const keel::SmallString<256> s(text);
             SDL_SetClipboardText(s.c_str());
         }
     );
 
-    m_lastLiveResizeTime = std::chrono::steady_clock::now();
-    m_lastEmscriptenRenderTime = m_lastLiveResizeTime;
+    m_lastLiveResizeTimeNs = keel::monotonic_ns();
+    m_lastEmscriptenRenderTimeNs = m_lastLiveResizeTimeNs;
 
 #ifndef __EMSCRIPTEN__
     SDL_AddEventWatch(&LiveResizeEventWatchThunk, this);
@@ -407,9 +427,9 @@ bool SdlWindowBackend::UsesMainLoopCallback() const noexcept {
 #endif
 }
 
-void SdlWindowBackend::RunMainLoopCallback(std::function<bool()> stepFn) {
+void SdlWindowBackend::RunMainLoopCallback(keel::Function<bool()> stepFn) {
 #ifdef __EMSCRIPTEN__
-    m_emscriptenStepFn = std::move(stepFn);
+    m_emscriptenStepFn = keel::move(stepFn);
     emscripten_set_main_loop_arg(
         [](void* arg) {
             auto* self = static_cast<SdlWindowBackend*>(arg);
@@ -432,7 +452,7 @@ bool SdlWindowBackend::PumpEvents(Context& ui, bool reactiveMode, int sleepTimeo
         return false;
     }
 
-    if (m_wakePending.exchange(false, std::memory_order_acq_rel)) {
+    if (AtomicExchangeU32(m_wakePending, 0u) != 0u) {
         ui.RequestRepaint(1);
     }
 
@@ -460,17 +480,17 @@ bool SdlWindowBackend::PumpEvents(Context& ui, bool reactiveMode, int sleepTimeo
             m_skipRenderThisStep = true;
             return true;
         }
-        const auto now = std::chrono::steady_clock::now();
-        const double elapsedMs = std::chrono::duration<double, std::milli>(now - m_lastEmscriptenRenderTime).count();
+        const keel::u64 nowNs = keel::monotonic_ns();
+        const double elapsedMs = static_cast<double>(nowNs - m_lastEmscriptenRenderTimeNs) * 1e-6;
         if (elapsedMs < static_cast<double>(sleepTimeoutMs)) {
             m_skipRenderThisStep = true;
             return true;
         }
     }
-    m_lastEmscriptenRenderTime = std::chrono::steady_clock::now();
+    m_lastEmscriptenRenderTimeNs = keel::monotonic_ns();
     return !m_shouldExit;
 #else
-    if ((reactiveMode && !ui.NeedsRepaint() && !m_wakePending.load(std::memory_order_acquire)) || m_minimized) {
+    if ((reactiveMode && !ui.NeedsRepaint() && AtomicLoadAcquireU32(m_wakePending) == 0u) || m_minimized) {
         const int waitMs = m_minimized ? 250 : sleepTimeoutMs;
         SDL_Event event;
         if (SDL_WaitEventTimeout(&event, waitMs)) {
@@ -485,7 +505,7 @@ bool SdlWindowBackend::PumpEvents(Context& ui, bool reactiveMode, int sleepTimeo
             ProcessEvent(event, ui);
         }
     }
-    if (m_wakePending.exchange(false, std::memory_order_acq_rel)) {
+    if (AtomicExchangeU32(m_wakePending, 0u) != 0u) {
         ui.RequestRepaint(1);
     }
     return !m_shouldExit;
@@ -496,7 +516,7 @@ void SdlWindowBackend::WakeUp() noexcept {
     if (!m_sdlVideoInitialized || m_shouldExit) {
         return;
     }
-    if (!m_wakePending.exchange(true, std::memory_order_acq_rel)) {
+    if (AtomicExchangeU32(m_wakePending, 1u) == 0u) {
         SDL_Event ev{};
         ev.type = SDL_EVENT_USER;
         SDL_PushEvent(&ev);
@@ -523,10 +543,10 @@ bool SdlWindowBackend::LiveResizeEventWatch(void* userdata, SDL_Event* event) {
     }
     if (event->type == SDL_EVENT_WINDOW_EXPOSED &&
         (self->m_width != self->m_bufWidth || self->m_height != self->m_bufHeight)) {
-        const auto now = std::chrono::steady_clock::now();
-        const double elapsedMs = std::chrono::duration<double, std::milli>(now - self->m_lastLiveResizeTime).count();
+        const keel::u64 nowNs = keel::monotonic_ns();
+        const double elapsedMs = static_cast<double>(nowNs - self->m_lastLiveResizeTimeNs) * 1e-6;
         if (elapsedMs >= 16.0 && self->m_callbacks.onLiveResizeRender) {
-            self->m_lastLiveResizeTime = now;
+            self->m_lastLiveResizeTimeNs = nowNs;
             self->m_isLiveResizeFrame = true;
             self->m_callbacks.onLiveResizeRender();
             self->m_isLiveResizeFrame = false;
@@ -779,10 +799,10 @@ void SdlWindowBackend::PresentFrame(const Context& ui, FrameMetrics& metrics, bo
             } else {
                 const float dpiScale = ui.GetDpiScale();
                 for (const Rect& dr : ui.GetDirtyRects()) {
-                    const int x1 = std::clamp(static_cast<int>(std::floor(dr.x * dpiScale)), 0, m_width);
-                    const int y1 = std::clamp(static_cast<int>(std::floor(dr.y * dpiScale)), 0, m_height);
-                    const int x2 = std::clamp(static_cast<int>(std::ceil(dr.Right() * dpiScale)), 0, m_width);
-                    const int y2 = std::clamp(static_cast<int>(std::ceil(dr.Bottom() * dpiScale)), 0, m_height);
+                    const int x1 = keel::clamp(static_cast<int>(std::floor(dr.x * dpiScale)), 0, m_width);
+                    const int y1 = keel::clamp(static_cast<int>(std::floor(dr.y * dpiScale)), 0, m_height);
+                    const int x2 = keel::clamp(static_cast<int>(std::ceil(dr.Right() * dpiScale)), 0, m_width);
+                    const int y2 = keel::clamp(static_cast<int>(std::ceil(dr.Bottom() * dpiScale)), 0, m_height);
                     if (x2 > x1 && y2 > y1) {
                         const SDL_Rect sdlR = {x1, y1, x2 - x1, y2 - y1};
                         const uint32_t* src = m_pixelBuffer.data() + static_cast<size_t>(sdlR.y) * m_width + sdlR.x;
@@ -811,11 +831,11 @@ void SdlWindowBackend::PresentFrame(const Context& ui, FrameMetrics& metrics, bo
 
 void SdlWindowBackend::PaceFrame(double elapsedMs, bool presented) noexcept {
 #ifndef __EMSCRIPTEN__
-    const double targetFrameMs = 1000.0 / std::max(1.0, static_cast<double>(m_config.targetFps));
+    const double targetFrameMs = 1000.0 / keel::max(1.0, static_cast<double>(m_config.targetFps));
     if (elapsedMs + 1.0 < targetFrameMs) {
         const double sleepMs = presented
             ? (targetFrameMs - elapsedMs)
-            : std::min(4.0, targetFrameMs - elapsedMs);
+            : keel::min(4.0, targetFrameMs - elapsedMs);
         SDL_Delay(static_cast<uint32_t>(sleepMs));
     }
 #else
@@ -844,7 +864,7 @@ void SdlWindowBackend::UpdateSystemCursor(CursorType cursor) noexcept {
     }
     m_activeCursor = cursor;
 
-    const size_t idx = std::min<size_t>(static_cast<size_t>(cursor), m_cursors.size() - 1);
+    const size_t idx = keel::min<size_t>(static_cast<size_t>(cursor), m_cursors.size() - 1);
     if (m_cursors[idx] == nullptr) {
         SDL_SystemCursor sysId = SDL_SYSTEM_CURSOR_DEFAULT;
         switch (cursor) {
@@ -865,8 +885,8 @@ void SdlWindowBackend::UpdateSystemCursor(CursorType cursor) noexcept {
     }
 }
 
-void SdlWindowBackend::OpenUrl(std::string_view url) const noexcept {
-    std::string urlStr(url);
+void SdlWindowBackend::OpenUrl(keel::StringRef url) const noexcept {
+    const keel::SmallString<256> urlStr(url);
     SDL_OpenURL(urlStr.c_str());
 }
 

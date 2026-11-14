@@ -1,10 +1,10 @@
 #include "guikit/widgets/attitude_view.hpp"
-#include <algorithm>
-#include <array>
 #include <cmath>
-#include <cstdio>
-#include <numbers>
-#include <vector>
+#include "keel/core.h"
+#include "keel/format.h"
+#include "keel/ref.h"
+#include "keel/small_array.h"
+#include "keel/static_array.h"
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/control.hpp"
@@ -14,7 +14,7 @@ namespace guikit {
 
 namespace {
 
-constexpr float kPi = std::numbers::pi_v<float>;
+constexpr float kPi = 3.14159265358979323846f;
 constexpr float kDegToRad = kPi / 180.0f;
 
 struct AttitudeViewState {
@@ -112,12 +112,12 @@ struct AttitudePalette {
 }
 
 /// Clips a convex polygon against the half-plane `(P - planeOrigin) . planeNormal <= 0`.
-[[nodiscard]] std::vector<Vec2> ClipPolygonHalfPlane(
-    const std::vector<Vec2>& poly,
+[[nodiscard]] keel::SmallArray<Vec2, 64> ClipPolygonHalfPlane(
+    keel::ArrayRef<Vec2> poly,
     Vec2 planeOrigin,
     Vec2 planeNormal
 ) {
-    std::vector<Vec2> out;
+    keel::SmallArray<Vec2, 64> out;
     if (poly.empty()) return out;
     out.reserve(poly.size() + 2);
 
@@ -150,7 +150,7 @@ struct AttitudePalette {
     return out;
 }
 
-void DrawConvexPolygonFilled(ICanvas& canvas, const std::vector<Vec2>& poly, Color fill) noexcept {
+void DrawConvexPolygonFilled(ICanvas& canvas, keel::ArrayRef<Vec2> poly, Color fill) noexcept {
     if (poly.size() < 3 || fill.a == 0) return;
     Vec2 center{0.0f, 0.0f};
     for (const Vec2& p : poly) {
@@ -169,17 +169,17 @@ void DrawConvexPolygonFilled(ICanvas& canvas, const std::vector<Vec2>& poly, Col
 }
 
 /// Builds a full-bleed, rounded-dome, or circular convex polygon representing the ADI horizon boundary.
-[[nodiscard]] std::vector<Vec2> BuildAdiBoundaryPolygon(
+[[nodiscard]] keel::SmallArray<Vec2, 64> BuildAdiBoundaryPolygon(
     Rect horizonRect,
     AttitudeViewportMode viewportMode,
     float outerCornerRadius = 0.0f
 ) {
-    std::vector<Vec2> pts;
+    keel::SmallArray<Vec2, 64> pts;
     const Vec2 c = horizonRect.Center();
     if (viewportMode == AttitudeViewportMode::Circular) {
         constexpr int kSteps = 48;
         pts.reserve(kSteps);
-        const float r = std::min(horizonRect.w, horizonRect.h) * 0.5f;
+        const float r = keel::min(horizonRect.w, horizonRect.h) * 0.5f;
         for (int i = 0; i < kSteps; ++i) {
             const float a = (static_cast<float>(i) / kSteps) * 2.0f * kPi;
             pts.push_back({c.x + std::cos(a) * r, c.y + std::sin(a) * r});
@@ -187,9 +187,9 @@ void DrawConvexPolygonFilled(ICanvas& canvas, const std::vector<Vec2>& poly, Col
         return pts;
     }
 
-    const float maxR = std::min(horizonRect.w, horizonRect.h) * 0.5f;
+    const float maxR = keel::min(horizonRect.w, horizonRect.h) * 0.5f;
     const float cornerR = (viewportMode == AttitudeViewportMode::FullBleed)
-        ? std::clamp(outerCornerRadius, 0.0f, maxR)
+        ? keel::clamp(outerCornerRadius, 0.0f, maxR)
         : (maxR * 0.44f);
 
     if (cornerR <= 0.5f) {
@@ -208,15 +208,15 @@ void DrawConvexPolygonFilled(ICanvas& canvas, const std::vector<Vec2>& poly, Col
     constexpr int kArcSteps = 8;
     pts.reserve(kArcSteps * 4 + 4);
 
-    const std::array<Vec2, 4> centers = {
+    const keel::StaticArray<Vec2, 4> centers = {
         Vec2{x1, y0}, // Top-Right
         Vec2{x1, y1}, // Bottom-Right
         Vec2{x0, y1}, // Bottom-Left
         Vec2{x0, y0}  // Top-Left
     };
-    const std::array<float, 4> startAngles = {-0.5f * kPi, 0.0f, 0.5f * kPi, kPi};
+    const keel::StaticArray<float, 4> startAngles = {-0.5f * kPi, 0.0f, 0.5f * kPi, kPi};
 
-    for (int corner = 0; corner < 4; ++corner) {
+    for (size_t corner = 0; corner < 4; ++corner) {
         for (int s = 0; s <= kArcSteps; ++s) {
             const float a = startAngles[corner] + (static_cast<float>(s) / kArcSteps) * (0.5f * kPi);
             pts.push_back({
@@ -244,8 +244,8 @@ void DrawConvexPolygonFilled(ICanvas& canvas, const std::vector<Vec2>& poly, Col
     const float t0 = (-b - disc) / (2.0f * a);
     const float t1 = (-b + disc) / (2.0f * a);
     if (t1 < 0.0f || t0 > 1.0f) return false;
-    const float cl0 = std::clamp(t0, 0.0f, 1.0f);
-    const float cl1 = std::clamp(t1, 0.0f, 1.0f);
+    const float cl0 = keel::clamp(t0, 0.0f, 1.0f);
+    const float cl1 = keel::clamp(t1, 0.0f, 1.0f);
     if (cl1 <= cl0) return false;
     const Vec2 orig0 = p0;
     p0 = {orig0.x + cl0 * d.x, orig0.y + cl0 * d.y};
@@ -372,9 +372,9 @@ void DrawPitchLadder(
         if (isTen) {
             const int absDeg = static_cast<int>(std::round(std::abs(deg)));
             char buf[8];
-            std::snprintf(buf, sizeof(buf), "%d", absDeg);
-            const float fontSize = std::clamp(clipRadius * 0.072f, 9.5f, 12.5f);
-            const Vec2 textSz = canvas.MeasureText(buf, fontSize);
+            const keel::StringRef lbl = keel::format_buf(buf, "%d", absDeg);
+            const float fontSize = keel::clamp(clipRadius * 0.072f, 9.5f, 12.5f);
+            const Vec2 textSz = canvas.MeasureText(lbl, fontSize);
 
             for (int side = -1; side <= 1; side += 2) {
                 const float labelX = static_cast<float>(side) * (outerSpan + textSz.x * 0.7f + 5.0f);
@@ -382,7 +382,7 @@ void DrawPitchLadder(
                 const float dx = pt.x - center.x;
                 const float dy = pt.y - center.y;
                 if (dx * dx + dy * dy <= ladderClipR * ladderClipR) {
-                    canvas.DrawText(buf, {pt.x - textSz.x * 0.5f, pt.y - textSz.y * 0.5f}, fontSize, pal.pitchLadder);
+                    canvas.DrawText(lbl, {pt.x - textSz.x * 0.5f, pt.y - textSz.y * 0.5f}, fontSize, pal.pitchLadder);
                 }
             }
         }
@@ -446,7 +446,7 @@ void DrawBankScale(
     }
 
     // 2. Bank scale radial ticks at +-10, +-20, +-30, +-45, +-60 deg
-    constexpr std::array<int, 10> kTicks = {-60, -45, -30, -20, -10, 10, 20, 30, 45, 60};
+    constexpr keel::StaticArray<int, 10> kTicks = {-60, -45, -30, -20, -10, 10, 20, 30, 45, 60};
     for (int tDeg : kTicks) {
         const float rad = static_cast<float>(tDeg) * kDegToRad;
         const float s = std::sin(rad);
@@ -500,7 +500,7 @@ void DrawBankScale(
     canvas.DrawTriangle(pApex, pBaseL, pBaseR_pt, ptrColor, pal.aircraftStroke, 1.0f);
 
     // Slip/Skid Trapezoid directly beneath the roll pointer base
-    const float slipPx = std::clamp(slipSkid, -1.0f, 1.0f) * (triW * 2.4f);
+    const float slipPx = keel::clamp(slipSkid, -1.0f, 1.0f) * (triW * 2.4f);
     const float trapTopR = pBaseR - 2.5f;
     const float trapBotR = trapTopR - radius * 0.024f;
     const float topW = triW * 0.88f;
@@ -540,10 +540,10 @@ void DrawFlightDirectorAndFpv(
         const float dy = (opts.pitchDeg - fpvPitch) * pxPerDeg; // +aoaDeg shifts bird down when nose is pitched above velocity vector
         const float dx = opts.sideslipDeg * pxPerDeg;
         const Vec2 fpvPos{
-            std::clamp(center.x + dx, center.x - radius * 0.7f, center.x + radius * 0.7f),
-            std::clamp(center.y + dy, center.y - radius * 0.7f, center.y + radius * 0.7f)
+            keel::clamp(center.x + dx, center.x - radius * 0.7f, center.x + radius * 0.7f),
+            keel::clamp(center.y + dy, center.y - radius * 0.7f, center.y + radius * 0.7f)
         };
-        const float r = std::clamp(radius * 0.042f, 5.5f, 9.0f);
+        const float r = keel::clamp(radius * 0.042f, 5.5f, 9.0f);
         DrawCircleOutline(canvas, fpvPos, r, pal.fpvColor, 2.0f, 24);
         // Left & right horizontal wings
         canvas.DrawLine({fpvPos.x - r * 2.5f, fpvPos.y}, {fpvPos.x - r, fpvPos.y}, pal.fpvColor, 2.0f);
@@ -562,7 +562,7 @@ void DrawFlightDirectorAndFpv(
         // Magenta V-Bar command wedges
         const Vec2 apex{
             center.x,
-            std::clamp(center.y + fdDy, center.y - radius * 0.62f, center.y + radius * 0.62f)
+            keel::clamp(center.y + fdDy, center.y - radius * 0.62f, center.y + radius * 0.62f)
         };
         const float rotRad = fdRollDiff * kDegToRad;
         const Vec2 u{std::cos(rotRad), std::sin(rotRad)};
@@ -591,8 +591,8 @@ void DrawFlightDirectorAndFpv(
     } else if (opts.flightDirectorStyle == FlightDirectorStyle::DualCueCrossbars) {
         // Dual-cue horizontal pitch bar & vertical roll bar
         const float barSpan = radius * 0.42f;
-        const float pitchY = std::clamp(center.y + fdDy, center.y - barSpan, center.y + barSpan);
-        const float rollX = std::clamp(center.x + fdRollDiff * pxPerDeg * 0.7f, center.x - barSpan, center.x + barSpan);
+        const float pitchY = keel::clamp(center.y + fdDy, center.y - barSpan, center.y + barSpan);
+        const float rollX = keel::clamp(center.x + fdRollDiff * pxPerDeg * 0.7f, center.x - barSpan, center.x + barSpan);
 
         canvas.DrawLine({center.x - barSpan, pitchY}, {center.x + barSpan, pitchY}, pal.aircraftStroke, 4.4f);
         canvas.DrawLine({center.x - barSpan, pitchY}, {center.x + barSpan, pitchY}, pal.flightDirector, 2.6f);
@@ -628,13 +628,13 @@ void DrawAircraftReferenceSymbol(
 
     if (opts.aircraftSymbol == AircraftSymbolStyle::GullWing) {
         // Center bore-sight square
-        const float sq = std::max(3.5f, radius * 0.025f);
+        const float sq = keel::max(3.5f, radius * 0.025f);
         DrawQuadFilled(canvas, pt(-sq, -sq), pt(sq, -sq), pt(sq, sq), pt(-sq, sq), pal.aircraftFill, pal.aircraftStroke, 1.4f);
 
         // Left & Right L-shaped gull wings
         const float innerX = radius * 0.14f;
         const float outerX = radius * 0.38f;
-        const float barH = std::max(3.2f, radius * 0.022f);
+        const float barH = keel::max(3.2f, radius * 0.022f);
         const float dropH = radius * 0.065f;
 
         for (int side = -1; side <= 1; side += 2) {
@@ -663,7 +663,7 @@ void DrawAircraftReferenceSymbol(
             );
         }
     } else if (opts.aircraftSymbol == AircraftSymbolStyle::ClassicW) {
-        const std::array<Vec2, 7> wPts = {
+        const keel::StaticArray<Vec2, 7> wPts = {
             pt(-radius * 0.36f, 0.0f),
             pt(-radius * 0.16f, 0.0f),
             pt(-radius * 0.08f, radius * 0.07f),
@@ -680,7 +680,7 @@ void DrawAircraftReferenceSymbol(
         }
     } else {
         // Russian KPPI silhouette: wide wings + fuselage ring + vertical tail fin
-        const float rCenter = std::max(5.0f, radius * 0.042f);
+        const float rCenter = keel::max(5.0f, radius * 0.042f);
         const float wingOuter = radius * 0.42f;
         canvas.DrawLine(pt(-wingOuter, 0.0f), pt(-rCenter, 0.0f), pal.aircraftStroke, 5.2f);
         canvas.DrawLine(pt(+rCenter, 0.0f), pt(+wingOuter, 0.0f), pal.aircraftStroke, 5.2f);
@@ -705,7 +705,7 @@ void DrawAirspeedTape(
 
     const float headerH = 22.0f;
     const float footerH = 22.0f;
-    const Rect bodyRect(tapeRect.x, tapeRect.y + headerH, tapeRect.w, std::max(30.0f, tapeRect.h - headerH - footerH));
+    const Rect bodyRect(tapeRect.x, tapeRect.y + headerH, tapeRect.w, keel::max(30.0f, tapeRect.h - headerH - footerH));
     const float midY = bodyRect.y + bodyRect.h * 0.5f;
     const float pxPerKnot = bodyRect.h / 90.0f; // 90 knots visible span (+-45 kt)
 
@@ -713,15 +713,14 @@ void DrawAirspeedTape(
     const Rect topBox(tapeRect.x, tapeRect.y, tapeRect.w, headerH - 2.0f);
     canvas.DrawRoundRect(topBox, 3.0f, Color(9, 13, 24, 235), pal.tapeBorder, 1.0f);
     char bugBuf[24];
-    std::snprintf(bugBuf, sizeof(bugBuf), "%03.0f", std::max(0.0f, opts.targetAirspeedBug));
-    canvas.DrawTextBox(bugBuf, topBox, 11.5f, pal.bugCyan, 0.5f, 0.5f);
+    canvas.DrawTextBox(keel::format_buf(bugBuf, "%03.0f", keel::max(0.0f, opts.targetAirspeedBug)), topBox, 11.5f, pal.bugCyan, 0.5f, 0.5f);
 
     // Main scrolling tape body
     canvas.DrawRoundRect(bodyRect, 2.0f, pal.tapeBg, pal.tapeBorder, 1.0f);
     canvas.PushClip(bodyRect);
 
-    const float curIas = std::max(0.0f, opts.airspeedKnots);
-    const int minKt = std::max(0, static_cast<int>(std::floor((curIas - 55.0f) / 5.0f)) * 5);
+    const float curIas = keel::max(0.0f, opts.airspeedKnots);
+    const int minKt = keel::max(0, static_cast<int>(std::floor((curIas - 55.0f) / 5.0f)) * 5);
     const int maxKt = static_cast<int>(std::ceil((curIas + 55.0f) / 5.0f)) * 5;
 
     // Speed envelope colored strips along right edge of tape (Red stall < 110 kt, Green 135..310 kt, Red Vmo > 330 kt)
@@ -730,20 +729,20 @@ void DrawAirspeedTape(
     };
 
     const float stripX = bodyRect.Right() - 4.5f;
-    const float yStallTop = std::clamp(ktToY(115.0f), bodyRect.y, bodyRect.Bottom());
-    const float yStallBot = std::clamp(ktToY(0.0f), bodyRect.y, bodyRect.Bottom());
+    const float yStallTop = keel::clamp(ktToY(115.0f), bodyRect.y, bodyRect.Bottom());
+    const float yStallBot = keel::clamp(ktToY(0.0f), bodyRect.y, bodyRect.Bottom());
     if (yStallBot > yStallTop) {
         canvas.DrawRect(Rect(stripX, yStallTop, 3.5f, yStallBot - yStallTop), pal.redLimit);
     }
 
-    const float yGreenTop = std::clamp(ktToY(315.0f), bodyRect.y, bodyRect.Bottom());
-    const float yGreenBot = std::clamp(ktToY(135.0f), bodyRect.y, bodyRect.Bottom());
+    const float yGreenTop = keel::clamp(ktToY(315.0f), bodyRect.y, bodyRect.Bottom());
+    const float yGreenBot = keel::clamp(ktToY(135.0f), bodyRect.y, bodyRect.Bottom());
     if (yGreenBot > yGreenTop) {
         canvas.DrawRect(Rect(stripX, yGreenTop, 2.5f, yGreenBot - yGreenTop), pal.greenArc);
     }
 
-    const float yVmoTop = std::clamp(ktToY(999.0f), bodyRect.y, bodyRect.Bottom());
-    const float yVmoBot = std::clamp(ktToY(330.0f), bodyRect.y, bodyRect.Bottom());
+    const float yVmoTop = keel::clamp(ktToY(999.0f), bodyRect.y, bodyRect.Bottom());
+    const float yVmoBot = keel::clamp(ktToY(330.0f), bodyRect.y, bodyRect.Bottom());
     if (yVmoBot > yVmoTop) {
         canvas.DrawRect(Rect(stripX, yVmoTop, 3.5f, yVmoBot - yVmoTop), pal.redLimit);
     }
@@ -759,9 +758,8 @@ void DrawAirspeedTape(
 
         if (isTen) {
             char kBuf[16];
-            std::snprintf(kBuf, sizeof(kBuf), "%d", kt);
             canvas.DrawTextBox(
-                kBuf,
+                keel::format_buf(kBuf, "%d", kt),
                 Rect(bodyRect.x + 3.0f, y - 8.0f, bodyRect.w - tickW - 6.0f, 16.0f),
                 10.5f,
                 pal.tapeTick,
@@ -772,7 +770,7 @@ void DrawAirspeedTape(
     }
 
     // Autopilot Selected Speed Bug on right edge
-    const float bugY = std::clamp(ktToY(opts.targetAirspeedBug), bodyRect.y + 5.0f, bodyRect.Bottom() - 5.0f);
+    const float bugY = keel::clamp(ktToY(opts.targetAirspeedBug), bodyRect.y + 5.0f, bodyRect.Bottom() - 5.0f);
     canvas.DrawTriangle(
         {bodyRect.Right() - 8.0f, bugY},
         {bodyRect.Right(), bugY - 5.5f},
@@ -791,8 +789,7 @@ void DrawAirspeedTape(
         pal.fmaWhite
     );
     char curBuf[16];
-    std::snprintf(curBuf, sizeof(curBuf), "%03.0f", curIas);
-    canvas.DrawTextBox(curBuf, drumRect, 13.0f, pal.fmaWhite, 0.5f, 0.5f);
+    canvas.DrawTextBox(keel::format_buf(curBuf, "%03.0f", curIas), drumRect, 13.0f, pal.fmaWhite, 0.5f, 0.5f);
 
     canvas.PopClip();
 
@@ -800,8 +797,14 @@ void DrawAirspeedTape(
     const Rect botBox(tapeRect.x, bodyRect.Bottom() + 2.0f, tapeRect.w, footerH - 2.0f);
     canvas.DrawRoundRect(botBox, 3.0f, Color(9, 13, 24, 235), pal.tapeBorder, 1.0f);
     char machBuf[24];
-    std::snprintf(machBuf, sizeof(machBuf), "M .%03d", std::clamp(static_cast<int>(std::round(opts.machNumber * 1000.0f)), 0, 999));
-    canvas.DrawTextBox(machBuf, botBox, 10.5f, pal.fmaGreen, 0.5f, 0.5f);
+    canvas.DrawTextBox(
+        keel::format_buf(machBuf, "M .%03d", keel::clamp(static_cast<int>(std::round(opts.machNumber * 1000.0f)), 0, 999)),
+        botBox,
+        10.5f,
+        pal.fmaGreen,
+        0.5f,
+        0.5f
+    );
 }
 
 /// Draws the right Barometric Altitude scrolling tape, Baro box, and Vertical Speed Indicator (VSI) column.
@@ -813,12 +816,12 @@ void DrawAltitudeAndVsiTape(
 ) noexcept {
     if (altGroupRect.w < 32.0f || altGroupRect.h < 60.0f) return;
 
-    const float vsiW = std::clamp(altGroupRect.w * 0.30f, 22.0f, 32.0f);
-    const float altW = std::max(28.0f, altGroupRect.w - vsiW - 3.0f);
+    const float vsiW = keel::clamp(altGroupRect.w * 0.30f, 22.0f, 32.0f);
+    const float altW = keel::max(28.0f, altGroupRect.w - vsiW - 3.0f);
     const float headerH = 22.0f;
     const float footerH = 22.0f;
 
-    const Rect altBody(altGroupRect.x, altGroupRect.y + headerH, altW, std::max(30.0f, altGroupRect.h - headerH - footerH));
+    const Rect altBody(altGroupRect.x, altGroupRect.y + headerH, altW, keel::max(30.0f, altGroupRect.h - headerH - footerH));
     const float midY = altBody.y + altBody.h * 0.5f;
     const float pxPerFoot = altBody.h / 900.0f; // +-450 ft visible span
 
@@ -826,8 +829,7 @@ void DrawAltitudeAndVsiTape(
     const Rect topBox(altGroupRect.x, altGroupRect.y, altGroupRect.w, headerH - 2.0f);
     canvas.DrawRoundRect(topBox, 3.0f, Color(9, 13, 24, 235), pal.tapeBorder, 1.0f);
     char altBugBuf[24];
-    std::snprintf(altBugBuf, sizeof(altBugBuf), "%05.0f", opts.targetAltitudeBug);
-    canvas.DrawTextBox(altBugBuf, topBox, 11.5f, pal.bugCyan, 0.5f, 0.5f);
+    canvas.DrawTextBox(keel::format_buf(altBugBuf, "%05.0f", opts.targetAltitudeBug), topBox, 11.5f, pal.bugCyan, 0.5f, 0.5f);
 
     // 2. Main Scrolling Altitude Tape
     canvas.DrawRoundRect(altBody, 2.0f, pal.tapeBg, pal.tapeBorder, 1.0f);
@@ -851,9 +853,8 @@ void DrawAltitudeAndVsiTape(
 
         if (isHundred) {
             char fBuf[16];
-            std::snprintf(fBuf, sizeof(fBuf), "%d", ft);
             canvas.DrawTextBox(
-                fBuf,
+                keel::format_buf(fBuf, "%d", ft),
                 Rect(altBody.x + tickW + 3.0f, y - 8.0f, altBody.w - tickW - 5.0f, 16.0f),
                 10.0f,
                 pal.tapeTick,
@@ -864,7 +865,7 @@ void DrawAltitudeAndVsiTape(
     }
 
     // Selected Altitude Bug on left edge of altitude tape
-    const float bugY = std::clamp(ftToY(opts.targetAltitudeBug), altBody.y + 5.0f, altBody.Bottom() - 5.0f);
+    const float bugY = keel::clamp(ftToY(opts.targetAltitudeBug), altBody.y + 5.0f, altBody.Bottom() - 5.0f);
     canvas.DrawTriangle(
         {altBody.x + 8.0f, bugY},
         {altBody.x, bugY - 5.5f},
@@ -883,13 +884,12 @@ void DrawAltitudeAndVsiTape(
         pal.fmaWhite
     );
     char curAltBuf[16];
-    std::snprintf(curAltBuf, sizeof(curAltBuf), "%05.0f", curAlt);
-    canvas.DrawTextBox(curAltBuf, drumRect, 12.0f, pal.fmaWhite, 0.5f, 0.5f);
+    canvas.DrawTextBox(keel::format_buf(curAltBuf, "%05.0f", curAlt), drumRect, 12.0f, pal.fmaWhite, 0.5f, 0.5f);
 
     canvas.PopClip();
 
     // 3. Vertical Speed Indicator (VSI) Column on the right
-    const Rect vsiRect(altBody.Right() + 3.0f, altBody.y + 12.0f, vsiW, std::max(24.0f, altBody.h - 24.0f));
+    const Rect vsiRect(altBody.Right() + 3.0f, altBody.y + 12.0f, vsiW, keel::max(24.0f, altBody.h - 24.0f));
     canvas.DrawRoundRect(vsiRect, 2.0f, pal.tapeBg, pal.tapeBorder, 1.0f);
     canvas.PushClip(vsiRect);
 
@@ -898,7 +898,7 @@ void DrawAltitudeAndVsiTape(
 
     // Piecewise non-linear VSI mapping (-4000 .. +4000 fpm)
     auto fpmToY = [&](float fpm) noexcept -> float {
-        const float clamped = std::clamp(fpm, -4000.0f, 4000.0f);
+        const float clamped = keel::clamp(fpm, -4000.0f, 4000.0f);
         const float sign = (clamped >= 0.0f) ? 1.0f : -1.0f;
         const float a = std::abs(clamped);
         float norm = 0.0f;
@@ -912,15 +912,14 @@ void DrawAltitudeAndVsiTape(
         return vsiMidY - sign * norm * vsiHalfH;
     };
 
-    constexpr std::array<int, 7> kVsiMarks = {-4000, -2000, -1000, 0, 1000, 2000, 4000};
+    constexpr keel::StaticArray<int, 7> kVsiMarks = {-4000, -2000, -1000, 0, 1000, 2000, 4000};
     for (int fpm : kVsiMarks) {
         const float y = fpmToY(static_cast<float>(fpm));
         const bool isZero = (fpm == 0);
         canvas.DrawLine({vsiRect.x, y}, {vsiRect.x + (isZero ? 8.0f : 5.0f), y}, pal.tapeTick, isZero ? 1.6f : 1.1f);
         if (fpm != 0) {
             char vBuf[8];
-            std::snprintf(vBuf, sizeof(vBuf), "%d", std::abs(fpm) / 1000);
-            canvas.DrawText(vBuf, {vsiRect.x + 6.5f, y - 5.5f}, 9.0f, pal.tapeTick);
+            canvas.DrawText(keel::format_buf(vBuf, "%d", std::abs(fpm) / 1000), {vsiRect.x + 6.5f, y - 5.5f}, 9.0f, pal.tapeTick);
         }
     }
 
@@ -933,12 +932,10 @@ void DrawAltitudeAndVsiTape(
     const Rect botBox(altGroupRect.x, altBody.Bottom() + 2.0f, altGroupRect.w, footerH - 2.0f);
     canvas.DrawRoundRect(botBox, 3.0f, Color(9, 13, 24, 235), pal.tapeBorder, 1.0f);
     char baroBuf[24];
-    if (opts.baroStd) {
-        std::snprintf(baroBuf, sizeof(baroBuf), "STD BARO");
-    } else {
-        std::snprintf(baroBuf, sizeof(baroBuf), "%.2f IN", opts.baroSettingInHg);
-    }
-    canvas.DrawTextBox(baroBuf, botBox, 10.5f, pal.bugCyan, 0.5f, 0.5f);
+    const keel::StringRef baroRef = opts.baroStd
+        ? keel::StringRef("STD BARO")
+        : keel::format_buf(baroBuf, "%.2f IN", opts.baroSettingInHg);
+    canvas.DrawTextBox(baroRef, botBox, 10.5f, pal.bugCyan, 0.5f, 0.5f);
 }
 
 /// Draws the bottom magnetic compass Heading Tape and Selected Heading Bug.
@@ -973,14 +970,15 @@ void DrawHeadingTape(
 
         if (isTen) {
             char hBuf[12];
-            if (normDeg == 0) std::snprintf(hBuf, sizeof(hBuf), "N");
-            else if (normDeg == 90) std::snprintf(hBuf, sizeof(hBuf), "E");
-            else if (normDeg == 180) std::snprintf(hBuf, sizeof(hBuf), "S");
-            else if (normDeg == 270) std::snprintf(hBuf, sizeof(hBuf), "W");
-            else std::snprintf(hBuf, sizeof(hBuf), "%02d", normDeg / 10);
+            keel::StringRef hRef{};
+            if (normDeg == 0) hRef = "N";
+            else if (normDeg == 90) hRef = "E";
+            else if (normDeg == 180) hRef = "S";
+            else if (normDeg == 270) hRef = "W";
+            else hRef = keel::format_buf(hBuf, "%02d", normDeg / 10);
 
             canvas.DrawTextBox(
-                hBuf,
+                hRef,
                 Rect(x - 14.0f, hdgRect.y + tickH + 1.0f, 28.0f, hdgRect.h - tickH - 2.0f),
                 isCardinal ? 11.0f : 10.0f,
                 isCardinal ? pal.fmaCyan : pal.tapeTick,
@@ -992,7 +990,7 @@ void DrawHeadingTape(
 
     // Selected Heading Bug on top edge
     const float bugDiff = SignedAngleDiffDeg(opts.targetHeadingBug, curHdg);
-    const float bugX = std::clamp(midX + bugDiff * pxPerDeg, hdgRect.x + 6.0f, hdgRect.Right() - 6.0f);
+    const float bugX = keel::clamp(midX + bugDiff * pxPerDeg, hdgRect.x + 6.0f, hdgRect.Right() - 6.0f);
     canvas.DrawTriangle(
         {bugX, hdgRect.y + 8.0f},
         {bugX - 5.5f, hdgRect.y},
@@ -1022,7 +1020,7 @@ void DrawIlsDeviationScales(
 
     // 1. Horizontal Localizer Scale near bottom of ADI
     const float locY = adiRect.Bottom() - 12.0f;
-    const float locHalfW = std::min(88.0f, adiRect.w * 0.34f);
+    const float locHalfW = keel::min(88.0f, adiRect.w * 0.34f);
     const Rect locBar(c.x - locHalfW - 8.0f, locY - 7.0f, (locHalfW + 8.0f) * 2.0f, 14.0f);
     canvas.DrawRoundRect(locBar, 4.0f, Color(9, 13, 24, 195), pal.tapeBorder, 1.0f);
 
@@ -1032,7 +1030,7 @@ void DrawIlsDeviationScales(
         const float dx = (static_cast<float>(dot) / 2.0f) * locHalfW;
         DrawCircleOutline(canvas, {c.x + dx, locY}, 2.4f, pal.tapeTick, 1.2f, 12);
     }
-    const float locX = c.x + (std::clamp(opts.locDeviationDots, -2.2f, 2.2f) / 2.0f) * locHalfW;
+    const float locX = c.x + (keel::clamp(opts.locDeviationDots, -2.2f, 2.2f) / 2.0f) * locHalfW;
     DrawQuadFilled(
         canvas,
         {locX, locY - 5.0f},
@@ -1044,7 +1042,7 @@ void DrawIlsDeviationScales(
 
     // 2. Vertical Glideslope Scale along right edge of ADI
     const float gsX = adiRect.Right() - 12.0f;
-    const float gsHalfH = std::min(88.0f, adiRect.h * 0.34f);
+    const float gsHalfH = keel::min(88.0f, adiRect.h * 0.34f);
     const Rect gsBar(gsX - 7.0f, c.y - gsHalfH - 8.0f, 14.0f, (gsHalfH + 8.0f) * 2.0f);
     canvas.DrawRoundRect(gsBar, 4.0f, Color(9, 13, 24, 195), pal.tapeBorder, 1.0f);
 
@@ -1054,7 +1052,7 @@ void DrawIlsDeviationScales(
         const float dy = (static_cast<float>(dot) / 2.0f) * gsHalfH;
         DrawCircleOutline(canvas, {gsX, c.y + dy}, 2.4f, pal.tapeTick, 1.2f, 12);
     }
-    const float gsY = c.y - (std::clamp(opts.gsDeviationDots, -2.2f, 2.2f) / 2.0f) * gsHalfH;
+    const float gsY = c.y - (keel::clamp(opts.gsDeviationDots, -2.2f, 2.2f) / 2.0f) * gsHalfH;
     DrawQuadFilled(
         canvas,
         {gsX, gsY - 5.5f},
@@ -1136,23 +1134,23 @@ struct AttitudeLayout {
     lay.fmaH = (opts.showFmaBar && !lay.isCompact && r.h > 220.0f) ? 26.0f : 0.0f;
     lay.hdgH = (opts.showHeadingTape && !lay.isCompact && r.h > 220.0f) ? 30.0f : 0.0f;
     lay.leftTapeW = (lay.isFullPfd && opts.showSpeedAndAltTapes && r.w > 300.0f)
-        ? std::clamp(r.w * 0.14f, 56.0f, 76.0f)
+        ? keel::clamp(r.w * 0.14f, 56.0f, 76.0f)
         : 0.0f;
     lay.rightTapeW = (lay.isFullPfd && opts.showSpeedAndAltTapes && r.w > 300.0f)
-        ? std::clamp(r.w * 0.19f, 76.0f, 106.0f)
+        ? keel::clamp(r.w * 0.19f, 76.0f, 106.0f)
         : 0.0f;
 
     const float contentTop = r.y + lay.pad + (lay.fmaH > 0.0f ? (lay.fmaH + 6.0f) : 0.0f);
     const float contentBot = r.Bottom() - lay.pad - (lay.hdgH > 0.0f ? (lay.hdgH + 6.0f) : 0.0f);
-    const float contentH = std::max(40.0f, contentBot - contentTop);
+    const float contentH = keel::max(40.0f, contentBot - contentTop);
 
     const float adiLeft = r.x + lay.pad + (lay.leftTapeW > 0.0f ? (lay.leftTapeW + 8.0f) : 0.0f);
     const float adiRight = r.Right() - lay.pad - (lay.rightTapeW > 0.0f ? (lay.rightTapeW + 8.0f) : 0.0f);
-    const float availAdiW = std::max(40.0f, adiRight - adiLeft);
+    const float availAdiW = keel::max(40.0f, adiRight - adiLeft);
 
     lay.availCenterRect = Rect(adiLeft, contentTop, availAdiW, contentH);
 
-    const float adiSide = std::min(availAdiW, contentH);
+    const float adiSide = keel::min(availAdiW, contentH);
     lay.adiRect = Rect(
         adiLeft + (availAdiW - adiSide) * 0.5f,
         contentTop + (contentH - adiSide) * 0.5f,
@@ -1196,7 +1194,7 @@ void RenderAttitudeViewNode(const Node* node, ICanvas& canvas, const UiTheme& th
     const float horizonRollDeg = (opts.referenceMode == HorizonReferenceMode::WesternMovingHorizon)
         ? opts.rollDeg
         : 0.0f;
-    const float fovPitch = std::clamp(resp.visibleFovPitchDeg, 25.0f, 90.0f);
+    const float fovPitch = keel::clamp(resp.visibleFovPitchDeg, 25.0f, 90.0f);
     const float pxPerDeg = (2.0f * adiRadius) / fovPitch;
 
     const float phi = horizonRollDeg * kDegToRad;
@@ -1209,18 +1207,18 @@ void RenderAttitudeViewNode(const Node* node, ICanvas& canvas, const UiTheme& th
         adiCenter.y + (opts.pitchDeg * pxPerDeg) * nGround.y
     };
 
-    const std::vector<Vec2> boundaryPoly = BuildAdiBoundaryPolygon(lay.horizonRect, lay.viewportMode, radius);
+    const auto boundaryPoly = BuildAdiBoundaryPolygon(lay.horizonRect, lay.viewportMode, radius);
 
     if (!lay.isHud) {
         // Clip boundary polygon into Sky (nGround <= 0) and Ground (nSky <= 0)
-        const std::vector<Vec2> skyPoly = ClipPolygonHalfPlane(boundaryPoly, horizonOrigin, nGround);
-        const std::vector<Vec2> groundPoly = ClipPolygonHalfPlane(boundaryPoly, horizonOrigin, nSky);
+        const auto skyPoly = ClipPolygonHalfPlane(boundaryPoly, horizonOrigin, nGround);
+        const auto groundPoly = ClipPolygonHalfPlane(boundaryPoly, horizonOrigin, nSky);
 
         DrawConvexPolygonFilled(canvas, skyPoly, pal.skyFill);
         DrawConvexPolygonFilled(canvas, groundPoly, pal.groundFill);
 
         // Subtle atmospheric horizon glow bands (+/- 20 px around horizon)
-        const float glowBandPx = std::min(22.0f, adiRadius * 0.16f);
+        const float glowBandPx = keel::min(22.0f, adiRadius * 0.16f);
         const Vec2 skyGlowLimit{
             horizonOrigin.x - glowBandPx * nGround.x,
             horizonOrigin.y - glowBandPx * nGround.y
@@ -1229,8 +1227,8 @@ void RenderAttitudeViewNode(const Node* node, ICanvas& canvas, const UiTheme& th
             horizonOrigin.x + glowBandPx * nGround.x,
             horizonOrigin.y + glowBandPx * nGround.y
         };
-        const std::vector<Vec2> skyGlowPoly = ClipPolygonHalfPlane(skyPoly, skyGlowLimit, nSky);
-        const std::vector<Vec2> groundGlowPoly = ClipPolygonHalfPlane(groundPoly, groundGlowLimit, nGround);
+        const auto skyGlowPoly = ClipPolygonHalfPlane(skyPoly, skyGlowLimit, nSky);
+        const auto groundGlowPoly = ClipPolygonHalfPlane(groundPoly, groundGlowLimit, nGround);
         DrawConvexPolygonFilled(canvas, skyGlowPoly, pal.skyGlow);
         DrawConvexPolygonFilled(canvas, groundGlowPoly, pal.groundGlow);
     }
@@ -1273,9 +1271,8 @@ void RenderAttitudeViewNode(const Node* node, ICanvas& canvas, const UiTheme& th
         const Rect raBox(adiCenter.x - 36.0f, raY - 9.0f, 72.0f, 18.0f);
         canvas.DrawRoundRect(raBox, 3.0f, Color(6, 9, 16, 215), pal.tapeBorder, 1.0f);
         char raBuf[24];
-        std::snprintf(raBuf, sizeof(raBuf), "RA %4.0f", std::max(0.0f, opts.radioAltitudeFeet));
         const Color raCol = (opts.radioAltitudeFeet < 400.0f) ? pal.amberWarn : pal.fmaGreen;
-        canvas.DrawTextBox(raBuf, raBox, 10.5f, raCol, 0.5f, 0.5f);
+        canvas.DrawTextBox(keel::format_buf(raBuf, "RA %4.0f", keel::max(0.0f, opts.radioAltitudeFeet)), raBox, 10.5f, raCol, 0.5f, 0.5f);
     }
 
     // 6. Central Aircraft Reference Symbol
@@ -1332,37 +1329,37 @@ void RenderAttitudeViewNode(const Node* node, ICanvas& canvas, const UiTheme& th
     if (opts.showSpeedAndAltTapes && lay.leftTapeW <= 0.0f) {
         const float topTagY = lay.availCenterRect.y + 2.0f;
         char tlBuf[32];
-        std::snprintf(tlBuf, sizeof(tlBuf), "IAS %3.0f KT", opts.airspeedKnots);
-        const float tlW = canvas.MeasureText(tlBuf, 11.0f).x;
+        const keel::StringRef tlRef = keel::format_buf(tlBuf, "IAS %3.0f KT", opts.airspeedKnots);
+        const float tlW = canvas.MeasureText(tlRef, 11.0f).x;
         if (lay.isFullBleed && !lay.isHud) {
             const Rect tlPill(r.x + 8.0f, topTagY - 2.0f, tlW + 12.0f, 20.0f);
             canvas.DrawRoundRect(tlPill, 3.0f, pal.tapeBg, pal.tapeBorder, 1.0f);
-            canvas.DrawTextBox(tlBuf, tlPill, 11.0f, pal.fmaGreen, 0.5f, 0.5f);
+            canvas.DrawTextBox(tlRef, tlPill, 11.0f, pal.fmaGreen, 0.5f, 0.5f);
         } else {
-            canvas.DrawText(tlBuf, {r.x + 12.0f, topTagY}, 11.0f, pal.fmaGreen);
+            canvas.DrawText(tlRef, {r.x + 12.0f, topTagY}, 11.0f, pal.fmaGreen);
         }
 
         char trBuf[32];
-        std::snprintf(trBuf, sizeof(trBuf), "ALT %5.0f FT", opts.altitudeFeet);
-        const float trW = canvas.MeasureText(trBuf, 11.0f).x;
+        const keel::StringRef trRef = keel::format_buf(trBuf, "ALT %5.0f FT", opts.altitudeFeet);
+        const float trW = canvas.MeasureText(trRef, 11.0f).x;
         if (lay.isFullBleed && !lay.isHud) {
             const Rect trPill(r.Right() - trW - 20.0f, topTagY - 2.0f, trW + 12.0f, 20.0f);
             canvas.DrawRoundRect(trPill, 3.0f, pal.tapeBg, pal.tapeBorder, 1.0f);
-            canvas.DrawTextBox(trBuf, trPill, 11.0f, pal.fmaCyan, 0.5f, 0.5f);
+            canvas.DrawTextBox(trRef, trPill, 11.0f, pal.fmaCyan, 0.5f, 0.5f);
         } else {
-            canvas.DrawText(trBuf, {r.Right() - trW - 12.0f, topTagY}, 11.0f, pal.fmaCyan);
+            canvas.DrawText(trRef, {r.Right() - trW - 12.0f, topTagY}, 11.0f, pal.fmaCyan);
         }
     }
 
     // Bottom corner attitude & G-load summary tags
     {
         char blBuf[48];
-        std::snprintf(blBuf, sizeof(blBuf), "BNK %+05.1f°  PIT %+05.1f°", opts.rollDeg, opts.pitchDeg);
-        const float blW = canvas.MeasureText(blBuf, 10.0f).x;
+        const keel::StringRef blRef = keel::format_buf(blBuf, "BNK %+05.1f°  PIT %+05.1f°", opts.rollDeg, opts.pitchDeg);
+        const float blW = canvas.MeasureText(blRef, 10.0f).x;
 
         char brBuf[48];
-        std::snprintf(brBuf, sizeof(brBuf), "HDG %03.0f°  G %+.1f", NormalizeHeadingDeg(opts.headingDeg), opts.gLoad);
-        const float brW = canvas.MeasureText(brBuf, 10.0f).x;
+        const keel::StringRef brRef = keel::format_buf(brBuf, "HDG %03.0f°  G %+.1f", NormalizeHeadingDeg(opts.headingDeg), opts.gLoad);
+        const float brW = canvas.MeasureText(brRef, 10.0f).x;
 
         if (lay.isFullBleed && !lay.isHud) {
             const float pillH = 20.0f;
@@ -1372,12 +1369,12 @@ void RenderAttitudeViewNode(const Node* node, ICanvas& canvas, const UiTheme& th
             const Rect blPill(r.x + lay.pad, pillY, blW + 12.0f, pillH);
             const Rect brPill(r.Right() - lay.pad - brW - 12.0f, pillY, brW + 12.0f, pillH);
             canvas.DrawRoundRect(blPill, 3.0f, pal.tapeBg, pal.tapeBorder, 1.0f);
-            canvas.DrawTextBox(blBuf, blPill, 10.0f, pal.tapeTick, 0.5f, 0.5f);
+            canvas.DrawTextBox(blRef, blPill, 10.0f, pal.tapeTick, 0.5f, 0.5f);
             canvas.DrawRoundRect(brPill, 3.0f, pal.tapeBg, pal.tapeBorder, 1.0f);
-            canvas.DrawTextBox(brBuf, brPill, 10.0f, pal.tapeTick, 0.5f, 0.5f);
+            canvas.DrawTextBox(brRef, brPill, 10.0f, pal.tapeTick, 0.5f, 0.5f);
         } else {
-            canvas.DrawText(blBuf, {r.x + 12.0f, r.Bottom() - 18.0f}, 10.0f, pal.tapeTick);
-            canvas.DrawText(brBuf, {r.Right() - brW - 12.0f, r.Bottom() - 18.0f}, 10.0f, pal.tapeTick);
+            canvas.DrawText(blRef, {r.x + 12.0f, r.Bottom() - 18.0f}, 10.0f, pal.tapeTick);
+            canvas.DrawText(brRef, {r.Right() - brW - 12.0f, r.Bottom() - 18.0f}, 10.0f, pal.tapeTick);
         }
     }
 
@@ -1412,7 +1409,7 @@ Vec2 AttitudeView::Measure(
 AttitudeViewResponse AttitudeView::Run(
     Context& ctx,
     const AttitudeViewOptions& optsIn,
-    std::source_location loc
+    keel::SourceLocation loc
 ) {
     UiTheme* pushedTheme = ctx.PushScopedTheme(optsIn.theme, optsIn.scale);
     struct ThemePopGuard {
@@ -1442,13 +1439,13 @@ AttitudeViewResponse AttitudeView::Run(
 
     auto& state = ctx.GetOrCreatePersistentState<AttitudeViewState>(id);
     if (!state.initialized) {
-        state.fovPitchDeg = std::clamp(opts.fieldOfViewPitchDeg, 25.0f, 90.0f);
+        state.fovPitchDeg = keel::clamp(opts.fieldOfViewPitchDeg, 25.0f, 90.0f);
         state.initialized = true;
     }
     if (opts.fovPitchDegPtr) {
-        state.fovPitchDeg = std::clamp(*opts.fovPitchDegPtr, 25.0f, 90.0f);
+        state.fovPitchDeg = keel::clamp(*opts.fovPitchDegPtr, 25.0f, 90.0f);
     } else {
-        state.fovPitchDeg = std::clamp(opts.fieldOfViewPitchDeg, 25.0f, 90.0f);
+        state.fovPitchDeg = keel::clamp(opts.fieldOfViewPitchDeg, 25.0f, 90.0f);
     }
 
     // Resolve ADI sub-rectangle for accurate mouse-to-attitude mapping
@@ -1467,7 +1464,7 @@ AttitudeViewResponse AttitudeView::Run(
     if (hovered) {
         const Vec2 wheel = ctx.GetMouseWheel();
         if (std::abs(wheel.y) > 0.01f) {
-            state.fovPitchDeg = std::clamp(state.fovPitchDeg - wheel.y * 4.0f, 25.0f, 90.0f);
+            state.fovPitchDeg = keel::clamp(state.fovPitchDeg - wheel.y * 4.0f, 25.0f, 90.0f);
             if (opts.fovPitchDegPtr) {
                 *opts.fovPitchDegPtr = state.fovPitchDeg;
             }
@@ -1477,8 +1474,8 @@ AttitudeViewResponse AttitudeView::Run(
         }
 
         const float invR = (resp.adiRadius > 1.0f) ? (1.0f / resp.adiRadius) : 0.0f;
-        const float nx = std::clamp((mousePos.x - resp.adiCenter.x) * invR, -1.0f, 1.0f);
-        const float ny = std::clamp((mousePos.y - resp.adiCenter.y) * invR, -1.0f, 1.0f);
+        const float nx = keel::clamp((mousePos.x - resp.adiCenter.x) * invR, -1.0f, 1.0f);
+        const float ny = keel::clamp((mousePos.y - resp.adiCenter.y) * invR, -1.0f, 1.0f);
         resp.cursorNorm = {nx, ny};
         resp.cursorInsideAdi = lay.horizonRect.Contains(mousePos);
         resp.cursorRollDeg = nx * 65.0f;

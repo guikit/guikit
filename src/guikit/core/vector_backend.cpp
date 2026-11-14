@@ -1,49 +1,74 @@
 #include "guikit/backend/vector_backend.hpp"
 
-#include <atomic>
+#if defined(_MSC_VER) && !defined(__clang__)
+extern "C" void _ReadWriteBarrier();
+#pragma intrinsic(_ReadWriteBarrier)
+#endif
 
 namespace guikit {
 
 namespace {
 
-std::atomic<VectorCanvasFactory> g_defaultCanvasFactory{nullptr};
-std::atomic<ImageDecoderFn> g_defaultImageDecoder{nullptr};
+VectorCanvasFactory g_defaultCanvasFactory = nullptr;
+ImageDecoderFn g_defaultImageDecoder = nullptr;
+
+template <typename FnPtr>
+inline void AtomicStorePtr(FnPtr& slot, FnPtr val) noexcept {
+#if defined(_MSC_VER) && !defined(__clang__)
+    _ReadWriteBarrier();
+    *static_cast<volatile FnPtr*>(&slot) = val;
+    _ReadWriteBarrier();
+#else
+    __atomic_store_n(&slot, val, __ATOMIC_RELEASE);
+#endif
+}
+
+template <typename FnPtr>
+[[nodiscard]] inline FnPtr AtomicLoadPtr(const FnPtr& slot) noexcept {
+#if defined(_MSC_VER) && !defined(__clang__)
+    const FnPtr v = *static_cast<const volatile FnPtr*>(&slot);
+    _ReadWriteBarrier();
+    return v;
+#else
+    return __atomic_load_n(&slot, __ATOMIC_ACQUIRE);
+#endif
+}
 
 } // namespace
 
 void RegisterDefaultVectorCanvasFactory(VectorCanvasFactory factory) noexcept {
-    g_defaultCanvasFactory.store(factory, std::memory_order_release);
+    AtomicStorePtr(g_defaultCanvasFactory, factory);
 }
 
 bool HasDefaultVectorCanvasFactory() noexcept {
-    return g_defaultCanvasFactory.load(std::memory_order_acquire) != nullptr;
+    return AtomicLoadPtr(g_defaultCanvasFactory) != nullptr;
 }
 
 void RegisterDefaultImageDecoder(ImageDecoderFn decoder) noexcept {
-    g_defaultImageDecoder.store(decoder, std::memory_order_release);
+    AtomicStorePtr(g_defaultImageDecoder, decoder);
 }
 
-std::unique_ptr<ICanvas> CreateVectorCanvas(bool loadDefaultFonts) {
-    const VectorCanvasFactory factory = g_defaultCanvasFactory.load(std::memory_order_acquire);
+keel::UniquePtr<ICanvas> CreateVectorCanvas(bool loadDefaultFonts) {
+    const VectorCanvasFactory factory = AtomicLoadPtr(g_defaultCanvasFactory);
     if (factory != nullptr) {
         return factory(loadDefaultFonts);
     }
     return nullptr;
 }
 
-std::unique_ptr<ICanvas> CreateOffscreenVectorCanvas() {
+keel::UniquePtr<ICanvas> CreateOffscreenVectorCanvas() {
     return CreateVectorCanvas(/*loadDefaultFonts=*/false);
 }
 
 bool DecodeImageFromMemory(
-    std::span<const uint8_t> encodedBytes,
+    keel::ArrayRef<uint8_t> encodedBytes,
     uint32_t& outWidth,
     uint32_t& outHeight,
-    std::vector<uint32_t>& outRgbaPixels
+    keel::Array<uint32_t>& outRgbaPixels
 ) {
     outWidth = 0;
     outHeight = 0;
-    const ImageDecoderFn decoder = g_defaultImageDecoder.load(std::memory_order_acquire);
+    const ImageDecoderFn decoder = AtomicLoadPtr(g_defaultImageDecoder);
     if (decoder == nullptr) {
         return false;
     }
