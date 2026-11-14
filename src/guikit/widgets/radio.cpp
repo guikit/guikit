@@ -12,6 +12,7 @@ ControlSpec EffectiveRadioControl(const RadioOptions& opts, UiSize size, const U
     const CheckboxMetrics& m = theme.GetCheckbox(size);
     ControlSpec ctrl{};
     ctrl.width = opts.width;
+    ctrl.widthRatio = opts.widthRatio;
     ctrl.height = opts.height;
     ctrl.align = opts.align;
     ctrl.background = opts.background;
@@ -36,6 +37,13 @@ Response Radio::Run(
     const RadioOptions& opts,
     std::source_location loc
 ) {
+    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    struct ThemePopGuard {
+        Context& c;
+        UiTheme* t;
+        ~ThemePopGuard() noexcept { if (t) c.PopTheme(); }
+    } themeGuard{ctx, pushedTheme};
+
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
@@ -74,17 +82,19 @@ Response Radio::Run(
     }
 
     RadioOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);
 
     const ControlSpec ctrl = EffectiveRadioControl(optsCopy, activeSize, ctx.GetTheme());
     Node* node = ctx.CreateNode(NodeType::Radio, id);
+    node->theme = pushedTheme;
     node->SetPayload(ctx.AllocPayload<RadioOptions>(optsCopy));
     node->visualHash = detail::HashArgs(
         optsCopy.color,
         static_cast<uint8_t>(optsCopy.align),
         static_cast<uint8_t>(optsCopy.stretch),
         optsCopy.width.value_or(0.0f),
+        optsCopy.widthRatio.value_or(-1.0f),
         optsCopy.height.value_or(0.0f),
         optsCopy.background,
         optsCopy.border,
@@ -187,13 +197,14 @@ void Radio::Render(
             ringStroke = (v.borderWidth > 0.0f) ? v.border : ringFill;
             strokeWidth = (v.borderWidth > 0.0f) ? v.borderWidth : 1.5f;
             dotColor = pal.controlKnobActive;
-        } else if (opts.color.normal.has_value() && opts.color.normal->a == 0) {
-            ringFill = (hovered && !disabled) ? opts.color.hover.value_or(theme.GetVariant(UiVariant::Ghost).bgHover) : Color::Transparent();
+        } else if (opts.color.token == StateColorToken::Ghost || (opts.color.normal.has_value() && opts.color.normal->a == 0)) {
+            const StateColor resolved = theme.ResolveStateColor(opts.color);
+            ringFill = (hovered && !disabled) ? resolved.hover.value_or(theme.GetVariant(UiVariant::Ghost).bgHover) : Color::Transparent();
             ringStroke = (hovered && !disabled) ? pal.borderHover : pal.border;
             strokeWidth = 1.5f;
             dotColor = pal.textPrimary;
         } else {
-            ringFill = opts.color.Resolve(hovered && !disabled, pressed && !disabled, false, v.bg, v.bgHover, v.bgActive, v.bg);
+            ringFill = theme.ResolveColor(opts.color, hovered && !disabled, pressed && !disabled, false, v.bg, v.bgHover, v.bgActive, v.bg);
             ringStroke = ringFill;
             strokeWidth = 1.5f;
             dotColor = pal.controlKnobActive;

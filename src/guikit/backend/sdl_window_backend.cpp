@@ -1,6 +1,7 @@
 #include "guikit/backend/sdl_window_backend.hpp"
 #include "guikit/backend/sdl_canvas.hpp"
 #include "guikit/context.hpp"
+#include <SDL3/SDL.h>
 
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
@@ -31,6 +32,12 @@
 namespace guikit {
 
 namespace {
+
+#ifndef __EMSCRIPTEN__
+bool SDLCALL LiveResizeEventWatchThunk(void* userdata, SDL_Event* event) {
+    return SdlWindowBackend::LiveResizeEventWatch(userdata, event);
+}
+#endif
 
 #if defined(_WIN32)
 float QueryHdcPixelsPerMm(HDC hdc) noexcept {
@@ -213,6 +220,15 @@ bool SdlWindowBackend::Initialize(
     if (m_config.resizable) {
         windowFlags |= SDL_WINDOW_RESIZABLE;
     }
+    if (m_config.maximized) {
+        windowFlags |= SDL_WINDOW_MAXIMIZED;
+    }
+    if (m_config.fullscreen) {
+        windowFlags |= SDL_WINDOW_FULLSCREEN;
+    }
+    if (m_config.borderless) {
+        windowFlags |= SDL_WINDOW_BORDERLESS;
+    }
     if (m_config.highDpi) {
         windowFlags |= SDL_WINDOW_HIGH_PIXEL_DENSITY;
     }
@@ -334,7 +350,7 @@ bool SdlWindowBackend::Initialize(
     m_lastEmscriptenRenderTime = m_lastLiveResizeTime;
 
 #ifndef __EMSCRIPTEN__
-    SDL_AddEventWatch(&SdlWindowBackend::LiveResizeEventWatch, this);
+    SDL_AddEventWatch(&LiveResizeEventWatchThunk, this);
     m_eventWatchInstalled = true;
 #endif
 
@@ -344,7 +360,7 @@ bool SdlWindowBackend::Initialize(
 void SdlWindowBackend::Shutdown() noexcept {
 #ifndef __EMSCRIPTEN__
     if (m_eventWatchInstalled) {
-        SDL_RemoveEventWatch(&SdlWindowBackend::LiveResizeEventWatch, this);
+        SDL_RemoveEventWatch(&LiveResizeEventWatchThunk, this);
         m_eventWatchInstalled = false;
     }
 #endif
@@ -487,7 +503,7 @@ void SdlWindowBackend::WakeUp() noexcept {
     }
 }
 
-bool SDLCALL SdlWindowBackend::LiveResizeEventWatch(void* userdata, SDL_Event* event) {
+bool SdlWindowBackend::LiveResizeEventWatch(void* userdata, SDL_Event* event) {
     auto* self = static_cast<SdlWindowBackend*>(userdata);
     if (!self || self->m_shouldExit || !self->m_boundUi || !event || !self->m_boundUi->IsLiveResizeEnabled()) {
         return true;
@@ -795,7 +811,7 @@ void SdlWindowBackend::PresentFrame(const Context& ui, FrameMetrics& metrics, bo
 
 void SdlWindowBackend::PaceFrame(double elapsedMs, bool presented) noexcept {
 #ifndef __EMSCRIPTEN__
-    const double targetFrameMs = 1000.0 / 60.0;
+    const double targetFrameMs = 1000.0 / std::max(1.0, static_cast<double>(m_config.targetFps));
     if (elapsedMs + 1.0 < targetFrameMs) {
         const double sleepMs = presented
             ? (targetFrameMs - elapsedMs)
@@ -853,5 +869,11 @@ void SdlWindowBackend::OpenUrl(std::string_view url) const noexcept {
     std::string urlStr(url);
     SDL_OpenURL(urlStr.c_str());
 }
+
+namespace {
+struct SdlBackendModuleRegistrar {
+    SdlBackendModuleRegistrar() noexcept { RegisterSdlWindowBackend(); }
+} const g_sdlBackendModuleRegistrar{};
+} // namespace
 
 } // namespace guikit

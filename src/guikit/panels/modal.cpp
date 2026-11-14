@@ -267,6 +267,7 @@ ModalScope Modal::Open(
         static_cast<uint32_t>(allocatedOpts.variant),
         allocatedOpts.width,
         allocatedOpts.backdropOpacity,
+        allocatedOpts.backdropColor.value_or(Color::Transparent()).ToUint32(),
         closeHovered,
         closePressed
     );
@@ -379,9 +380,15 @@ void Modal::Render(
     const float s = (theme.scale > 0.0f) ? theme.scale : 1.0f;
 
     // 1. Render translucent backdrop overlay
-    const float alpha = std::clamp(opts.backdropOpacity, 0.0f, 0.95f);
-    if (alpha > 0.001f && backdropRect.w > 0.0f && backdropRect.h > 0.0f) {
-        canvas.DrawRect(backdropRect, Color(4, 7, 14, static_cast<uint8_t>(std::round(alpha * 255.0f))));
+    if (opts.backdropColor.has_value()) {
+        if (opts.backdropColor->a > 0 && backdropRect.w > 0.0f && backdropRect.h > 0.0f) {
+            canvas.DrawRect(backdropRect, *opts.backdropColor);
+        }
+    } else {
+        const float alpha = std::clamp(opts.backdropOpacity, 0.0f, 0.95f);
+        if (alpha > 0.001f && backdropRect.w > 0.0f && backdropRect.h > 0.0f) {
+            canvas.DrawRect(backdropRect, Color(4, 7, 14, static_cast<uint8_t>(std::round(alpha * 255.0f))));
+        }
     }
 
     // 2. Render multi-layer ambient drop shadow behind the dialog box

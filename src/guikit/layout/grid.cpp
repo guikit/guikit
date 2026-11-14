@@ -19,6 +19,8 @@ GridScope Grid::Open(
     const UiTheme& theme = ctx.GetTheme();
     Node* node = ctx.CreateNode(NodeType::Grid, id);
     node->theme = pushedTheme;
+    node->debugBoundsOverride = opts.debugBounds;
+    node->inspectModeOverride = opts.inspectMode;
     node->direction = FlexDirection::Grid;
     node->gridColumns = static_cast<uint8_t>(std::clamp(opts.columns, 1, 24));
     node->minColWidth = theme.Scale(opts.minColWidth);
@@ -29,6 +31,27 @@ GridScope Grid::Open(
     node->justify = opts.justify;
     node->widthMode = opts.widthMode;
     node->heightMode = opts.heightMode;
+    if (opts.width.has_value() && *opts.width > 0.0f) {
+        node->widthMode = SizeMode::Fixed;
+        node->fixedWidth = theme.Scale(*opts.width);
+    }
+    if (opts.height.has_value() && *opts.height > 0.0f) {
+        node->heightMode = SizeMode::Fixed;
+        node->fixedHeight = theme.Scale(*opts.height);
+    }
+    if (opts.minWidth.has_value() && *opts.minWidth > 0.0f) {
+        node->minWidth = theme.Scale(*opts.minWidth);
+    }
+    if (opts.maxWidth.has_value() && *opts.maxWidth > 0.0f) {
+        node->maxWidth = theme.Scale(*opts.maxWidth);
+    }
+    if (opts.minHeight.has_value() && *opts.minHeight > 0.0f) {
+        node->minHeight = theme.Scale(*opts.minHeight);
+    }
+    if (opts.maxHeight.has_value() && *opts.maxHeight > 0.0f) {
+        node->maxHeight = theme.Scale(*opts.maxHeight);
+    }
+    node->flexGrow = opts.flexGrow;
     node->uiSize = activeSize;
     node->disabled = activeDisabled;
 
@@ -52,9 +75,14 @@ ContainerScope GridScope::Cell(int span, CellOptions opts, std::source_location 
     const int maxCols = (m_node && m_node->gridColumns > 0) ? static_cast<int>(m_node->gridColumns) : 12;
     Node* node = m_ctx->CreateNode(NodeType::Cell, id);
     node->theme = pushedTheme;
+    node->debugBoundsOverride = opts.debugBounds;
+    node->inspectModeOverride = opts.inspectMode;
     node->direction = FlexDirection::Column;
     node->colSpan = static_cast<uint8_t>(std::clamp(span, 1, maxCols));
     node->minWidth = theme.Scale(opts.minWidth);
+    if (opts.maxWidth.has_value() && *opts.maxWidth > 0.0f) {
+        node->maxWidth = theme.Scale(*opts.maxWidth);
+    }
     node->clipChildren = opts.clipChildren;
     node->gap = theme.ResolveGap(opts.gap, activeSize);
     node->padding = theme.ResolvePadding(opts.padding);
@@ -62,6 +90,16 @@ ContainerScope GridScope::Cell(int span, CellOptions opts, std::source_location 
     node->justify = opts.justify;
     node->widthMode = SizeMode::Stretch;
     node->heightMode = opts.heightMode;
+    if (opts.height.has_value() && *opts.height > 0.0f) {
+        node->heightMode = SizeMode::Fixed;
+        node->fixedHeight = theme.Scale(*opts.height);
+    }
+    if (opts.minHeight.has_value() && *opts.minHeight > 0.0f) {
+        node->minHeight = theme.Scale(*opts.minHeight);
+    }
+    if (opts.maxHeight.has_value() && *opts.maxHeight > 0.0f) {
+        node->maxHeight = theme.Scale(*opts.maxHeight);
+    }
     node->uiSize = activeSize;
     node->disabled = activeDisabled;
 

@@ -372,8 +372,10 @@ void RenderTelltaleBar(
         rx -= gap;
     };
 
-    pushRightPill("PARK", 42.0f * s, tt.parkBrake || opts.gearSelector == GearSelector::Park, pal.dangerRed);
-    pushRightPill("ESC",  36.0f * s, tt.escActive, pal.warningAmber);
+    pushRightPill("PARK",  42.0f * s, tt.parkBrake || opts.gearSelector == GearSelector::Park, pal.dangerRed);
+    pushRightPill("BELT",  40.0f * s, tt.seatbeltWarning, pal.dangerRed);
+    pushRightPill((opts.powertrain == PowertrainMode::IceTurbo) ? "CHECK" : "BATT", 44.0f * s, tt.batteryOrEngineAlert, pal.dangerRed);
+    pushRightPill("ESC",   36.0f * s, tt.escActive, pal.warningAmber);
     if (barRect.w > 540.0f) {
         pushRightPill("ABS",  36.0f * s, tt.absWarning, pal.warningAmber);
         pushRightPill("TPMS", 42.0f * s, tt.tpmsWarning, pal.warningAmber);
@@ -1463,10 +1465,10 @@ Vec2 CarClusterView::Measure(
     float availableWidth
 ) {
     float defaultW = availableWidth > 0.0f ? availableWidth : theme.Scale(760.0f);
-    if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f && opts.width.has_value()) {
-        defaultW = availableWidth * std::clamp(*opts.width, 0.1f, 1.0f);
-    } else if (opts.width.has_value() && *opts.width > 0.0f) {
+    if (Control::HasExplicitDpWidth(opts.stretch, opts.width, opts.widthRatio)) {
         defaultW = theme.Scale(*opts.width);
+    } else if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f) {
+        defaultW = availableWidth * Control::ResolveFillRatio(opts.stretch, opts.width, opts.widthRatio).value_or(1.0f);
     }
     const float defaultH = (opts.height.has_value() && *opts.height > 0.0f)
         ? theme.Scale(*opts.height)
@@ -1479,8 +1481,15 @@ CarClusterViewResponse CarClusterView::Run(
     const CarClusterViewOptions& optsIn,
     std::source_location loc
 ) {
+    UiTheme* pushedTheme = ctx.PushScopedTheme(optsIn.theme, optsIn.scale);
+    struct ThemePopGuard {
+        Context& c;
+        UiTheme* t;
+        ~ThemePopGuard() noexcept { if (t) c.PopTheme(); }
+    } themePop{ctx, pushedTheme};
+
     CarClusterViewOptions opts = optsIn;
-    Control::InheritElementSizing(ctx, opts.stretch, opts.width, opts.height);
+    Control::InheritElementSizing(ctx, opts.stretch, opts.width, opts.widthRatio, opts.height);
 
     const Id id = ctx.MakeChildId(loc);
     const bool isDisabled = opts.disabled || ctx.IsDisabled();
@@ -1566,9 +1575,12 @@ CarClusterViewResponse CarClusterView::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::CarClusterView, id);
+    node->theme = pushedTheme;
+    node->debugBoundsOverride = opts.debugBounds;
+    node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<CarClusterViewPayload>();
     payload->opts = opts;
-    payload->opts.tooltip = ctx.AllocString(opts.tooltip);
+    payload->opts.tooltip = ctx.AllocText(opts.tooltip);
     if (opts.centerMfdPtr) {
         payload->opts.centerMfd = *opts.centerMfdPtr;
     }
@@ -1581,6 +1593,24 @@ CarClusterViewResponse CarClusterView::Run(
     node->text = "CarClusterView";
     node->SetPayload(payload);
 
+    const uint16_t telltaleMask = static_cast<uint16_t>(
+        (payload->opts.telltales.leftTurn             ? (1u << 0)  : 0u) |
+        (payload->opts.telltales.rightTurn            ? (1u << 1)  : 0u) |
+        (payload->opts.telltales.hazard               ? (1u << 2)  : 0u) |
+        (payload->opts.telltales.lowBeam              ? (1u << 3)  : 0u) |
+        (payload->opts.telltales.highBeam             ? (1u << 4)  : 0u) |
+        (payload->opts.telltales.fogLight             ? (1u << 5)  : 0u) |
+        (payload->opts.telltales.seatbeltWarning      ? (1u << 6)  : 0u) |
+        (payload->opts.telltales.parkBrake            ? (1u << 7)  : 0u) |
+        (payload->opts.telltales.absWarning           ? (1u << 8)  : 0u) |
+        (payload->opts.telltales.escActive            ? (1u << 9)  : 0u) |
+        (payload->opts.telltales.tpmsWarning          ? (1u << 10) : 0u) |
+        (payload->opts.telltales.batteryOrEngineAlert ? (1u << 11) : 0u) |
+        (payload->opts.telltales.adasCruiseActive     ? (1u << 12) : 0u) |
+        (payload->opts.telltales.laneKeepActive       ? (1u << 13) : 0u) |
+        (payload->opts.telltales.blinkPhaseOn         ? (1u << 14) : 0u)
+    );
+
     node->visualHash = detail::HashArgs(
         static_cast<uint8_t>(payload->opts.layoutMode),
         static_cast<uint8_t>(payload->opts.powertrain),
@@ -1589,7 +1619,12 @@ CarClusterViewResponse CarClusterView::Run(
         static_cast<uint8_t>(payload->opts.speedUnit),
         static_cast<uint8_t>(payload->opts.gearSelector),
         payload->opts.speedKmh,
+        payload->opts.maxSpeedKmh,
+        payload->opts.cruiseTargetKmh,
+        payload->opts.cruiseSet,
         payload->opts.rpm,
+        payload->opts.redlineRpm,
+        payload->opts.maxRpm,
         payload->opts.currentGear,
         payload->opts.evPowerKw,
         payload->opts.throttlePct,
@@ -1597,14 +1632,27 @@ CarClusterViewResponse CarClusterView::Run(
         payload->opts.steeringAngleDeg,
         payload->opts.boostBar,
         payload->opts.fuelOrSocPct,
+        payload->opts.estimatedRangeKm,
+        payload->opts.coolantOrBattTempC,
+        payload->opts.oilTempC,
+        payload->opts.outsideTempC,
+        payload->opts.odometerKm,
+        payload->opts.tripDistanceKm,
+        payload->opts.avgConsumption,
         payload->opts.latG,
         payload->opts.lonG,
+        payload->opts.peakG,
+        payload->opts.frontTorquePct,
         payload->opts.adasLeadDistanceM,
-        payload->opts.telltales.leftTurn,
-        payload->opts.telltales.rightTurn,
-        payload->opts.telltales.hazard,
-        payload->opts.telltales.highBeam,
-        payload->opts.telltales.blinkPhaseOn,
+        payload->opts.adasLeadSpeedKmh,
+        payload->opts.adasLeadDetected,
+        payload->opts.tirePressureBar,
+        payload->opts.tireTempC,
+        payload->opts.showShiftLights,
+        payload->opts.showTelltaleBar,
+        payload->opts.showBottomTripBar,
+        payload->opts.showMouseDriveOverlay,
+        telltaleMask,
         payload->roadPhase,
         resp.cursorInside,
         resp.cursorNorm.x,
@@ -1632,6 +1680,7 @@ CarClusterViewResponse CarClusterView::Run(
 
     ControlSpec ctrlSpec{};
     ctrlSpec.width = opts.width;
+    ctrlSpec.widthRatio = opts.widthRatio;
     ctrlSpec.height = opts.height;
     Control::SetupNode(ctx, node, ctrlSpec, opts.stretch, opts.align);
     if (!node->parent || node->parent->type != NodeType::Element) {

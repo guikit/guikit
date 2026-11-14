@@ -12,7 +12,7 @@
 #include "guikit/core/types.hpp"
 #include "keel/string.h"
 
-namespace guikit {
+namespace guikit::geo {
 
 /// Coordinate Reference System (CRS) / Map Projection model.
 enum class MapCrs : uint8_t {
@@ -1072,4 +1072,23 @@ public:
     }
 };
 
+} // namespace guikit::geo
+
+namespace guikit {
+using geo::EllipsoidSpec;
+using geo::GeoBBox;
+using geo::GeoBounds;
+using geo::GeoCoord;
+using geo::GeoCoordFormat;
+using geo::GraticuleLine;
+using geo::Helmert7Spec;
+using geo::MapCrs;
+using geo::MapGrid;
+using geo::MapGridConfig;
+using geo::MapScaleBar;
+using geo::MapViewState;
+using geo::OsmTileCell;
+using geo::OsmTileId;
+using geo::TileSourceCallback;
+using geo::TransverseMercatorSpec;
 } // namespace guikit

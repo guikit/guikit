@@ -2889,6 +2889,23 @@ void DrawLoadingTilePlaceholder(
     const geo::GeoFeature& feat,
     const GisRenderConfig& cfg
 ) noexcept {
+    if (!cfg.preferredLanguage.empty()) {
+        const std::string_view lang = cfg.preferredLanguage;
+        if (lang == "ru" && !feat.labelRu.empty()) {
+            return feat.labelRu;
+        }
+        if (lang == "en" && !feat.labelEn.empty()) {
+            return feat.labelEn;
+        }
+        for (const auto& [k, v] : feat.properties) {
+            if (const auto* sv = std::get_if<std::string>(&v.value); sv && !sv->empty()) {
+                if ((k.size() == 5 + lang.size() && k.starts_with("name:") && std::string_view(k).substr(5) == lang) ||
+                    (k.size() == 6 + lang.size() && k.starts_with("label_") && std::string_view(k).substr(6) == lang)) {
+                    return *sv;
+                }
+            }
+        }
+    }
     if (cfg.preferRussianLabels && !feat.labelRu.empty()) {
         return feat.labelRu;
     }
@@ -3019,6 +3036,9 @@ public:
         HashCombineVal(key, tileZoom);
         HashCombineVal(key, crs);
         HashCombineVal(key, cfg.preferRussianLabels);
+        for (char ch : cfg.preferredLanguage) {
+            HashCombineVal(key, static_cast<uint8_t>(ch));
+        }
         HashCombineVal(key, cfg.showSoundings);
         HashCombineVal(key, cfg.showFeatureCallouts);
         HashCombineVal(key, cfg.scaleFiltering);

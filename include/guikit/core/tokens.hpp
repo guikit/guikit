@@ -88,17 +88,39 @@ enum class TextRole : uint8_t {
     CodeSmall       ///< 11px / LH 15px
 };
 
+/// Semantic theme token tag carried by `StateColor` presets so `UiTheme` can resolve Light/Dark palette variants.
+enum class StateColorToken : uint8_t {
+    Custom = 0,
+    Primary,
+    Secondary,
+    Success,
+    Warning,
+    Danger,
+    Info,
+    Ghost,
+    Muted,
+    TextPrimary,
+    TextSecondary,
+    TextMuted,
+    Surface
+};
+
 /// Per-state color specification for frames, borders, backgrounds, controls, and text.
 /// Pure C++20 aggregate supporting designated initializers (`{.normal = ..., .hover = ...}`)
 /// as well as semantic preset constants (`StateColor::Danger()`, `StateColor::Warning()`, etc.).
 struct StateColor {
-    std::optional<Color> normal{std::nullopt};   ///< Idle / resting / unchecked state color
-    std::optional<Color> hover{std::nullopt};    ///< Mouse-hovered state color
-    std::optional<Color> active{std::nullopt};   ///< Pressed / checked / focused / filled state color
-    std::optional<Color> disabled{std::nullopt}; ///< Disabled state color
+    std::optional<Color> normal{std::nullopt};      ///< Idle / resting / unchecked state color
+    std::optional<Color> hover{std::nullopt};       ///< Mouse-hovered state color
+    std::optional<Color> active{std::nullopt};      ///< Pressed / checked / focused / filled state color
+    std::optional<Color> disabled{std::nullopt};    ///< Disabled state color
+    StateColorToken token{StateColorToken::Custom}; ///< Optional semantic theme token resolved via UiTheme
 
     [[nodiscard]] constexpr bool HasAny() const noexcept {
-        return normal.has_value() || hover.has_value() || active.has_value() || disabled.has_value();
+        return token != StateColorToken::Custom
+            || normal.has_value()
+            || hover.has_value()
+            || active.has_value()
+            || disabled.has_value();
     }
 
     [[nodiscard]] static constexpr Color BrightenColor(Color c) noexcept {
@@ -182,7 +204,8 @@ struct StateColor {
             .normal   = Color::Hex(0x3B82F6FF), // Blue-500
             .hover    = Color::Hex(0x60A5FAFF), // Blue-400
             .active   = Color::Hex(0x2563EBFF), // Blue-600
-            .disabled = Color::Hex(0x3B82F666)
+            .disabled = Color::Hex(0x3B82F666),
+            .token    = StateColorToken::Primary
         };
     }
     [[nodiscard]] static constexpr StateColor Secondary() noexcept {
@@ -190,7 +213,8 @@ struct StateColor {
             .normal   = Color::Hex(0x475569FF), // Slate-600
             .hover    = Color::Hex(0x64748BFF), // Slate-500
             .active   = Color::Hex(0x334155FF), // Slate-700
-            .disabled = Color::Hex(0x47556966)
+            .disabled = Color::Hex(0x47556966),
+            .token    = StateColorToken::Secondary
         };
     }
     [[nodiscard]] static constexpr StateColor Success() noexcept {
@@ -198,7 +222,8 @@ struct StateColor {
             .normal   = Color::Hex(0x10B981FF), // Emerald-500
             .hover    = Color::Hex(0x34D399FF), // Emerald-400
             .active   = Color::Hex(0x059669FF), // Emerald-600
-            .disabled = Color::Hex(0x10B98166)
+            .disabled = Color::Hex(0x10B98166),
+            .token    = StateColorToken::Success
         };
     }
     [[nodiscard]] static constexpr StateColor Warning() noexcept {
@@ -206,7 +231,8 @@ struct StateColor {
             .normal   = Color::Hex(0xF59E0BFF), // Amber-500
             .hover    = Color::Hex(0xFBBF24FF), // Amber-400
             .active   = Color::Hex(0xD97706FF), // Amber-600
-            .disabled = Color::Hex(0xF59E0B66)
+            .disabled = Color::Hex(0xF59E0B66),
+            .token    = StateColorToken::Warning
         };
     }
     [[nodiscard]] static constexpr StateColor Danger() noexcept {
@@ -214,7 +240,8 @@ struct StateColor {
             .normal   = Color::Hex(0xEF4444FF), // Red-500
             .hover    = Color::Hex(0xF87171FF), // Red-400
             .active   = Color::Hex(0xDC2626FF), // Red-600
-            .disabled = Color::Hex(0xEF444466)
+            .disabled = Color::Hex(0xEF444466),
+            .token    = StateColorToken::Danger
         };
     }
     [[nodiscard]] static constexpr StateColor Info() noexcept {
@@ -222,7 +249,8 @@ struct StateColor {
             .normal   = Color::Hex(0x06B6D4FF), // Cyan-500
             .hover    = Color::Hex(0x22D3EEFF), // Cyan-400
             .active   = Color::Hex(0x0891B2FF), // Cyan-600
-            .disabled = Color::Hex(0x06B6D466)
+            .disabled = Color::Hex(0x06B6D466),
+            .token    = StateColorToken::Info
         };
     }
     [[nodiscard]] static constexpr StateColor Ghost() noexcept {
@@ -230,7 +258,8 @@ struct StateColor {
             .normal   = Color::Hex(0x00000000),
             .hover    = Color::Hex(0x64748B38),
             .active   = Color::Hex(0x64748B58),
-            .disabled = Color::Hex(0x00000000)
+            .disabled = Color::Hex(0x00000000),
+            .token    = StateColorToken::Ghost
         };
     }
     [[nodiscard]] static constexpr StateColor Muted() noexcept {
@@ -238,7 +267,17 @@ struct StateColor {
             .normal   = Color::Hex(0x64748BFF), // Slate-500
             .hover    = Color::Hex(0x94A3B8FF), // Slate-400
             .active   = Color::Hex(0x475569FF), // Slate-600
-            .disabled = Color::Hex(0x64748B66)
+            .disabled = Color::Hex(0x64748B66),
+            .token    = StateColorToken::Muted
+        };
+    }
+    [[nodiscard]] static constexpr StateColor TextPrimary() noexcept {
+        return {
+            .normal   = Color::Hex(0xF8FAFCFF), // Slate-50
+            .hover    = Color::Hex(0xFFFFFFFF),
+            .active   = Color::Hex(0xE2E8F0FF),
+            .disabled = Color::Hex(0xF8FAFC66),
+            .token    = StateColorToken::TextPrimary
         };
     }
     [[nodiscard]] static constexpr StateColor TextSecondary() noexcept {
@@ -246,7 +285,17 @@ struct StateColor {
             .normal   = Color::Hex(0x94A3B8FF), // Slate-400
             .hover    = Color::Hex(0xCBD5E1FF), // Slate-300
             .active   = Color::Hex(0x64748BFF), // Slate-500
-            .disabled = Color::Hex(0x94A3B866)
+            .disabled = Color::Hex(0x94A3B866),
+            .token    = StateColorToken::TextSecondary
+        };
+    }
+    [[nodiscard]] static constexpr StateColor TextMuted() noexcept {
+        return {
+            .normal   = Color::Hex(0x64748BFF), // Slate-500
+            .hover    = Color::Hex(0x94A3B8FF), // Slate-400
+            .active   = Color::Hex(0x475569FF), // Slate-600
+            .disabled = Color::Hex(0x64748B66),
+            .token    = StateColorToken::TextMuted
         };
     }
     [[nodiscard]] static constexpr StateColor FromVariant(UiVariant v) noexcept {
@@ -273,13 +322,13 @@ struct StateColor {
             case UiVariant::Warning:   return Warning();
             case UiVariant::Danger:    return Danger();
             case UiVariant::Info:      return Info();
-            case UiVariant::Ghost:     return Muted();
+            case UiVariant::Ghost:     return TextMuted();
         }
         return Default();
     }
 
     [[nodiscard]] constexpr bool IsNone() const noexcept {
-        if (!HasAny()) return false;
+        if (!HasAny() || token != StateColorToken::Custom) return false;
         if (normal.has_value() && normal->a > 0) return false;
         if (hover.has_value() && hover->a > 0) return false;
         if (active.has_value() && active->a > 0) return false;
@@ -288,7 +337,7 @@ struct StateColor {
     }
 
     [[nodiscard]] constexpr bool IsSurface() const noexcept {
-        return *this == Surface();
+        return token == StateColorToken::Surface;
     }
 
     /// Resolves whether a background fill is enabled for a widget whose default background state is `defaultEnabled`.
@@ -316,7 +365,8 @@ struct StateColor {
             .normal   = Color::Hex(0x111722FF),
             .hover    = Color::Hex(0x1A2232FF),
             .active   = Color::Hex(0x232E42FF),
-            .disabled = Color::Hex(0x11172266)
+            .disabled = Color::Hex(0x11172266),
+            .token    = StateColorToken::Surface
         };
     }
 

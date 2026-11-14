@@ -34,7 +34,7 @@ Vec2 Control::Measure(
         result.x += wellPad * 2.0f;
         result.y += wellPad * 2.0f;
     }
-    if (!spec.stretchable && spec.width.has_value() && *spec.width > 0.0f && stretch != StretchMode::Fill) {
+    if (!spec.stretchable && !spec.hasIntrinsicBox && HasExplicitDpWidth(stretch, spec.width, spec.widthRatio)) {
         result.x = std::max(result.x, theme.Scale(*spec.width));
     }
     if (spec.height.has_value() && *spec.height > 0.0f) {
@@ -76,7 +76,8 @@ void Control::RenderFrame(
         : cm.cornerRadius;
 
     const auto& pal = theme.palette;
-    const Color resolvedBorderAccent = spec.border.color.Resolve(
+    const Color resolvedBorderAccent = theme.ResolveColor(
+        spec.border.color,
         hovered,
         active,
         disabled,
@@ -89,7 +90,8 @@ void Control::RenderFrame(
     Color bg = Color::Transparent();
     if (spec.HasBackground(false)) {
         if (spec.background.HasAny() && !spec.background.IsSurface()) {
-            bg = spec.background.Resolve(
+            bg = theme.ResolveColor(
+                spec.background,
                 hovered,
                 active,
                 disabled,
@@ -130,6 +132,18 @@ void Control::InheritElementSizing(
     std::optional<float>& ioHeight,
     bool inheritWidth
 ) noexcept {
+    std::optional<float> dummyRatio{std::nullopt};
+    InheritElementSizing(ctx, ioStretch, ioWidth, dummyRatio, ioHeight, inheritWidth);
+}
+
+void Control::InheritElementSizing(
+    Context& ctx,
+    StretchMode& ioStretch,
+    std::optional<float>& ioWidth,
+    std::optional<float>& ioWidthRatio,
+    std::optional<float>& ioHeight,
+    bool inheritWidth
+) noexcept {
     Node* parent = ctx.GetCurrentContainer();
     if (!parent) {
         return;
@@ -159,6 +173,9 @@ void Control::InheritElementSizing(
     }
     if (inheritWidth && !ioWidth.has_value() && ep->opts.width.has_value()) {
         ioWidth = ep->opts.width;
+    }
+    if (inheritWidth && !ioWidthRatio.has_value() && ep->opts.widthRatio.has_value()) {
+        ioWidthRatio = ep->opts.widthRatio;
     }
     if (!ioHeight.has_value() && ep->opts.height.has_value()) {
         ioHeight = ep->opts.height;
@@ -232,6 +249,7 @@ void Control::SetupNode(
                 node->visualHash,
                 static_cast<uint8_t>(effStretch),
                 spec.width.value_or(0.0f),
+                spec.widthRatio.value_or(-1.0f),
                 spec.height.value_or(0.0f),
                 spec.minWidth.value_or(0.0f),
                 static_cast<uint8_t>(spec.defaultLayout),
@@ -277,13 +295,30 @@ void Control::SetupNode(
         return;
     }
 
-    node->widthMode = (stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
+    const bool hasExplicitDpW = HasExplicitDpWidth(stretch, spec.width, spec.widthRatio);
+    const std::optional<float> fillRatioOpt = ResolveFillRatio(stretch, spec.width, spec.widthRatio);
+    const bool inHorizontalFlow = (parent != nullptr) &&
+        (parent->direction == FlexDirection::Row || parent->direction == FlexDirection::Wrap) &&
+        !parent->equalWidths;
+
+    if (stretch == StretchMode::Compact ||
+        (hasExplicitDpW && !fillRatioOpt.has_value() && stretch == StretchMode::Fill && inHorizontalFlow && standaloneAlign == Align::Start)) {
+        node->widthMode = SizeMode::Fit;
+    } else {
+        node->widthMode = SizeMode::Stretch;
+    }
     node->ctrlStretchable = spec.stretchable;
     node->ctrlStretchH = spec.stretchHeightWhenStandalone || (node->heightMode == SizeMode::Stretch);
     node->align = (standaloneAlign == Align::End)
         ? Alignment::End
         : ((standaloneAlign == Align::Center) ? Alignment::Center : Alignment::Start);
-    node->fixedWidth = (stretch == StretchMode::Fill) ? spec.width.value_or(1.0f) : -1.0f;
+    if (fillRatioOpt.has_value()) {
+        node->fixedWidth = *fillRatioOpt;
+    } else if (stretch == StretchMode::Fill && !hasExplicitDpW) {
+        node->fixedWidth = 1.0f;
+    } else {
+        node->fixedWidth = -1.0f;
+    }
     node->arrangeFn = &Control::ArrangeStandaloneNode;
     ctx.AdaptChildToContainer(node);
 }

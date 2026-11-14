@@ -97,5 +97,10 @@ public:
 } // namespace guikit::geo
 
 namespace guikit {
-using namespace geo;
+using geo::CreateCartographicBasemapTileProvider;
+using geo::CreateOsmRasterTileProvider;
+using geo::IRasterTileProvider;
+using geo::RasterTileImage;
+using geo::SlippyTileKey;
+using geo::SlippyTileKeyHash;
 } // namespace guikit

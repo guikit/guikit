@@ -91,6 +91,9 @@ public:
     /// Adds an elastic spacer pushing subsequent tools to the far end of the toolbar.
     void Spacer(std::source_location loc = std::source_location::current());
 
+    /// Adds a fixed non-stretching gap in logical dp along the toolbar's main axis.
+    void Gap(float sizeDp = 8.0f, std::source_location loc = std::source_location::current());
+
     /// Adds a compact tool button with icon and optional label.
     Response ToolButton(
         ToolButtonOptions opts = {},
@@ -190,9 +193,28 @@ public:
         std::source_location loc = std::source_location::current()
     );
 
+    template <IndexLike IndexT>
+        requires(!std::is_same_v<std::remove_cv_t<IndexT>, int>)
     SplitButtonResponse SplitToggle(
         bool& active,
-        int& selectedIndex,
+        IndexT& selectedIndex,
+        std::span<const std::string_view> items,
+        ToolButtonOptions opts = {},
+        ContextMenuOptions menuOpts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        int raw = static_cast<int>(selectedIndex);
+        const SplitButtonResponse r = SplitToggle(active, raw, items, std::move(opts), std::move(menuOpts), loc);
+        if (r.selectionChanged && raw >= 0) {
+            selectedIndex = static_cast<IndexT>(raw);
+        }
+        return r;
+    }
+
+    template <IndexLike IndexT>
+    SplitButtonResponse SplitToggle(
+        bool& active,
+        IndexT& selectedIndex,
         std::initializer_list<std::string_view> items,
         ToolButtonOptions opts = {},
         ContextMenuOptions menuOpts = {},
@@ -218,9 +240,28 @@ public:
         std::source_location loc = std::source_location::current()
     );
 
+    template <IndexLike IndexT>
+        requires(!std::is_same_v<std::remove_cv_t<IndexT>, int>)
     SplitButtonResponse SplitToggle(
         bool& active,
-        int& selectedIndex,
+        IndexT& selectedIndex,
+        std::span<const ContextMenuItem> items,
+        ToolButtonOptions opts = {},
+        ContextMenuOptions menuOpts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        int raw = static_cast<int>(selectedIndex);
+        const SplitButtonResponse r = SplitToggle(active, raw, items, std::move(opts), std::move(menuOpts), loc);
+        if (r.selectionChanged && raw >= 0) {
+            selectedIndex = static_cast<IndexT>(raw);
+        }
+        return r;
+    }
+
+    template <IndexLike IndexT>
+    SplitButtonResponse SplitToggle(
+        bool& active,
+        IndexT& selectedIndex,
         std::initializer_list<ContextMenuItem> items,
         ToolButtonOptions opts = {},
         ContextMenuOptions menuOpts = {},

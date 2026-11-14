@@ -1,5 +1,6 @@
 #include <cmath>
 #include <iostream>
+#include "guikit/core.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/solver.hpp"
 #include "guikit/core/node.hpp"
@@ -1208,6 +1209,113 @@ void TestScrollAreaMaxHeightWrapFitAndDeepTreeGuard() {
     CHECK_NEAR(deepRoot->computedRect.w, 300.0f, 0.001f);
 }
 
+void TestGapDpAndContainerSizingConstraints() {
+    using namespace guikit;
+
+    class LayoutMockCanvas final : public ICanvas {
+    public:
+        void Begin(uint32_t, uint32_t, float s = 1.0f) override { m_scale = s; }
+        void End() override {}
+        [[nodiscard]] float GetScale() const noexcept override { return m_scale; }
+        void SetScale(float s) override { m_scale = s; }
+        [[nodiscard]] std::string_view GetBackendName() const noexcept override { return "LayoutMock"; }
+        void Clear(Color, std::optional<Rect> = std::nullopt) override {}
+        void PushClip(Rect) override {}
+        void PopClip() override {}
+        void DrawRect(Rect, Color) override {}
+        void DrawRoundRect(Rect, float, Color, Color = Color(0, 0, 0, 0), float = 0.0f) override {}
+        Vec2 MeasureText(std::string_view t, float fs) override { return {static_cast<float>(t.size()) * fs * 0.5f, fs}; }
+        [[nodiscard]] float GetLineHeight(float fs) override { return fs * 1.2f; }
+        void DrawText(std::string_view, Vec2, float, Color) override {}
+        void DrawTextBox(std::string_view, Rect, float, Color, float = 0.0f, float = 0.5f) override {}
+        void DrawLine(Vec2, Vec2, Color, float = 1.0f) override {}
+    private:
+        float m_scale{1.0f};
+    };
+
+    Context ui;
+    LayoutMockCanvas canvas;
+
+    Response b1{}, b2{}, b3{};
+    Node* col1Node = nullptr;
+    Node* col2Node = nullptr;
+    Node* constrainedBox = nullptr;
+    Node* constrainedCard = nullptr;
+
+    auto renderFrame = [&]() {
+        ui.BeginFrame({600.0f, 600.0f}, 1.0f);
+        if (auto root = ui.Column({.gap = 0.0f, .padding = Padding::All(0.0f), .widthMode = SizeMode::Stretch, .heightMode = SizeMode::Stretch})) {
+            // 1. ui.Gap(24.0f) fixed pixel offset vs ui.Spacer(1.0f) spring
+            if (auto r = ui.Row({.gap = 0.0f, .padding = Padding::All(0.0f), .widthMode = SizeMode::Stretch})) {
+                b1 = ui.Button({.text = "A", .width = 80.0f});
+                ui.Gap(24.0f);
+                b2 = ui.Button({.text = "B", .width = 80.0f});
+                ui.Spacer(1.0f);
+                b3 = ui.Button({.text = "C", .width = 80.0f});
+            }
+
+            // 2. Weighted flexGrow (1 : 3) across sibling Columns inside a Row
+            if (auto flexRow = ui.Row({.gap = 0.0f, .padding = Padding::All(0.0f), .widthMode = SizeMode::Stretch, .height = 60.0f})) {
+                if (auto c1 = ui.Column({.widthMode = SizeMode::Stretch, .heightMode = SizeMode::Stretch, .flexGrow = 1.0f})) {
+                    col1Node = c1.GetNode();
+                }
+                if (auto c2 = ui.Column({.widthMode = SizeMode::Stretch, .heightMode = SizeMode::Stretch, .flexGrow = 3.0f})) {
+                    col2Node = c2.GetNode();
+                }
+            }
+
+            // 3. Container maxWidth & minHeight on Box, and minWidth & maxHeight on Card
+            if (auto bx = ui.Box({
+                .widthMode = SizeMode::Stretch,
+                .maxWidth = 280.0f,
+                .minHeight = 90.0f,
+                .padding = Padding::All(0.0f)
+            })) {
+                constrainedBox = bx.GetNode();
+            }
+            if (auto cd = ui.Card({
+                .minWidth = 220.0f,
+                .maxHeight = 50.0f,
+                .padding = Padding::All(0.0f),
+                .widthMode = SizeMode::Fit,
+                .heightMode = SizeMode::Fit
+            })) {
+                constrainedCard = cd.GetNode();
+                ui.Button({.text = "Tall", .width = 60.0f, .height = 120.0f});
+            }
+        }
+        ui.EndFrame(canvas);
+    };
+
+    renderFrame();
+    renderFrame();
+
+    CHECK_NEAR(b1.rect.x, 0.0f, 0.01f);
+    CHECK_NEAR(b1.rect.w, 80.0f, 0.01f);
+    CHECK_NEAR(b2.rect.x, 104.0f, 0.01f);
+    CHECK_NEAR(b2.rect.w, 80.0f, 0.01f);
+    CHECK_NEAR(b3.rect.x, 520.0f, 0.01f);
+    CHECK_NEAR(b3.rect.w, 80.0f, 0.01f);
+
+    CHECK(col1Node != nullptr && col2Node != nullptr);
+    if (col1Node && col2Node) {
+        CHECK_NEAR(col1Node->computedRect.w, 150.0f, 0.01f);
+        CHECK_NEAR(col2Node->computedRect.w, 450.0f, 0.01f);
+    }
+
+    CHECK(constrainedBox != nullptr);
+    if (constrainedBox) {
+        CHECK_NEAR(constrainedBox->computedRect.w, 280.0f, 0.01f);
+        CHECK_NEAR(constrainedBox->computedRect.h, 90.0f, 0.01f);
+    }
+
+    CHECK(constrainedCard != nullptr);
+    if (constrainedCard) {
+        CHECK_NEAR(constrainedCard->computedRect.w, 220.0f, 0.01f);
+        CHECK_NEAR(constrainedCard->computedRect.h, 50.0f, 0.01f);
+    }
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Layout Solver...\n";
 
@@ -1228,6 +1336,7 @@ int main() {
     TestRowEqualWidthsFitAndStretch();
     TestRowTextDeficitShrinkAndCenterClamp();
     TestScrollAreaMaxHeightWrapFitAndDeepTreeGuard();
+    TestGapDpAndContainerSizingConstraints();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Layout tests passed successfully!\n";

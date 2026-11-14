@@ -35,7 +35,8 @@ struct SliderOptions {
     std::optional<float> scale{std::nullopt};      ///< Local scale override
     const UiTheme* theme{nullptr};                 ///< Scoped theme override
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = from theme), or ratio of bounds (0.0..1.0) for Fill (nullopt = 1.0)
+    std::optional<float> width{std::nullopt};      ///< Control width in dp (or legacy ratio 0.0..1.0 in Fill)
+    std::optional<float> widthRatio{std::nullopt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
     std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = intrinsic height from UiSize)
     StateColor background{};                       ///< Per-state control well backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                               ///< Control well border stroke & corner radius configuration
@@ -63,7 +64,8 @@ struct StepSliderOptions {
     std::optional<float> scale{std::nullopt};      ///< Local scale override
     const UiTheme* theme{nullptr};                 ///< Scoped theme override
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = from theme), or ratio of bounds (0.0..1.0) for Fill (nullopt = 1.0)
+    std::optional<float> width{std::nullopt};      ///< Control width in dp (or legacy ratio 0.0..1.0 in Fill)
+    std::optional<float> widthRatio{std::nullopt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
     std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = intrinsic height from UiSize)
     StateColor background{};                       ///< Per-state control well backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                               ///< Control well border stroke & corner radius configuration
@@ -89,7 +91,8 @@ struct RangeSliderOptions {
     std::optional<float> scale{std::nullopt};      ///< Local scale override
     const UiTheme* theme{nullptr};                 ///< Scoped theme override
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = from theme), or ratio of bounds (0.0..1.0) for Fill (nullopt = 1.0)
+    std::optional<float> width{std::nullopt};      ///< Control width in dp (or legacy ratio 0.0..1.0 in Fill)
+    std::optional<float> widthRatio{std::nullopt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
     std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = intrinsic height from UiSize)
     StateColor background{};                       ///< Per-state control well backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                               ///< Control well border stroke & corner radius configuration
@@ -98,8 +101,9 @@ struct RangeSliderOptions {
 
 /// Clean configuration options for continuous ProgressBar & Segmented LED / VU LevelMeter widget.
 struct ProgressBarOptions {
-    UiText textLeft{};                             ///< Optional companion text inside control on the left of the track
-    UiText textRight{};                            ///< Optional companion text inside control on the right of the track
+    Orientation orientation{Orientation::Horizontal}; ///< Horizontal (min at left) or Vertical (min at bottom)
+    UiText textLeft{};                             ///< Optional companion text inside control on the left of the track (below when Vertical)
+    UiText textRight{};                            ///< Optional companion text inside control on the right of the track (above when Vertical)
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
     UiText valueFormat{};                          ///< Format string for value (e.g. "%.0f %%", "%.1f dB"; empty = default numeric format)
     std::optional<double> peakHoldValue{std::nullopt}; ///< Optional peak-hold marker value on the track (for VU/dB level meters)
@@ -109,12 +113,14 @@ struct ProgressBarOptions {
     std::optional<float> trackHeight{std::nullopt};///< Optional bar thickness override in points
     Align align{Align::Start};                     ///< Standalone control alignment (Start, Center, End)
     bool showValue{true};                          ///< Whether to display current formatted value text inside control
+    bool indeterminate{false};                     ///< Animated indeterminate shuttle bar when progress duration is unknown
     Placement valuePlacement{Placement::Trailing}; ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
     StateColor color{};                            ///< Per-state accent fill color for active bar (or base zone when multiZoneColor is true)
     std::optional<float> scale{std::nullopt};      ///< Local scale override
     const UiTheme* theme{nullptr};                 ///< Scoped theme override
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = from theme), or ratio of bounds (0.0..1.0) for Fill (nullopt = 1.0)
+    std::optional<float> width{std::nullopt};      ///< Control width in dp (or legacy ratio 0.0..1.0 in Fill)
+    std::optional<float> widthRatio{std::nullopt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
     std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = intrinsic height from UiSize)
     bool multiZoneColor{false};                    ///< Color bar/segments across 3 zones (Variant/Success -> Warning -> Danger)
     StateColor background{};                       ///< Per-state control well backdrop color (Default/None = off, Surface/Primary/etc. = on)
@@ -323,7 +329,8 @@ public:
         UiSize size,
         bool hovered,
         bool disabled,
-        const UiTheme& theme
+        const UiTheme& theme,
+        float animPhase = 0.0f
     );
 };
 

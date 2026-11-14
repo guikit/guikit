@@ -19,10 +19,19 @@ struct RowOptions {
     Justify justify{Justify::Start};
     std::optional<SizeMode> widthMode{std::nullopt};
     SizeMode heightMode{SizeMode::Fit};
+    std::optional<float> width{std::nullopt};
+    std::optional<float> height{std::nullopt};
+    std::optional<float> minWidth{std::nullopt};
+    std::optional<float> maxWidth{std::nullopt};
+    std::optional<float> minHeight{std::nullopt};
+    std::optional<float> maxHeight{std::nullopt};
+    float flexGrow{1.0f};
     bool equalWidths{false};
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};
+    std::optional<bool> debugBounds{std::nullopt};
+    std::optional<bool> inspectMode{std::nullopt};
 };
 
 /// Autonomous immediate mode Row layout entry point.

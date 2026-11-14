@@ -4,6 +4,11 @@
 // GuiKit Scenes Module - Scientific / DSP / GIS 2D Views & Cartography
 // ==============================================================================
 
+#if !defined(GUIKIT_HAS_SCENES)
+#define GUIKIT_HAS_SCENES 1
+#endif
+
+#include "guikit/core.hpp"
 #include "guikit/geo/geo_json_io.hpp"
 #include "guikit/geo/geo_types.hpp"
 #include "guikit/geo/gis_render_engine.hpp"

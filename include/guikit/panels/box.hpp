@@ -16,6 +16,13 @@ struct BoxOptions {
     std::optional<float> gap{std::nullopt};        ///< Gap between stacked children (nullopt = from theme)
     SizeMode widthMode{SizeMode::Stretch};
     SizeMode heightMode{SizeMode::Fit};
+    std::optional<float> width{std::nullopt};
+    std::optional<float> height{std::nullopt};
+    std::optional<float> minWidth{std::nullopt};
+    std::optional<float> maxWidth{std::nullopt};
+    std::optional<float> minHeight{std::nullopt};
+    std::optional<float> maxHeight{std::nullopt};
+    float flexGrow{1.0f};
     float fixedWidth{0.0f};
     float fixedHeight{0.0f};
     std::optional<Padding> padding{std::nullopt};   ///< Container padding (nullopt = zero)

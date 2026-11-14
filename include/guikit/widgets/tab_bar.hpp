@@ -19,7 +19,9 @@ class ICanvas;
 /// Visual presentation style for TabBar.
 enum class TabBarStyle : uint8_t {
     Underline,  ///< Classic desktop/IDE style: transparent tab background with an accent bottom indicator line
-    Pill        ///< Segmented capsule style: active tab has a rounded background fill
+    Pill,       ///< Segmented capsule style: active tab has a rounded background fill
+    Card,       ///< Outlined card tabs docked to baseline (open bottom on active tab)
+    Folder      ///< Browser/editor folder tabs with angled/tapered shoulders and top accent line
 };
 
 /// Definition of an individual tab item.
@@ -29,15 +31,22 @@ struct TabItem {
     UiText badge{};
     UiText tooltip{};
     UiVariant variant{UiVariant::Default};
+    bool closable{false};   ///< Show an interactive close ('X') button on the trailing side of the tab
     bool disabled{false};
+};
+
+/// Response returned by TabBar::Run, extending Response with closed-tab notification.
+struct TabBarResponse : Response {
+    std::optional<size_t> closedIndex{std::nullopt}; ///< Index of the tab whose close ('X') button was clicked this frame
 };
 
 /// Configuration options for TabBar widget.
 struct TabBarOptions {
     TabBarStyle style{TabBarStyle::Underline};
-    bool showSeparator{true};   ///< In Underline style: draws a 1px baseline line under tabs
+    bool showSeparator{true};   ///< In Underline/Card/Folder styles: draws a 1px baseline line under tabs
     bool fullWidth{false};      ///< Stretch tabs equally to fill available container width
     bool scrollable{true};      ///< Enable horizontal scrolling with arrows when tabs overflow
+    bool disabled{false};       ///< Disable interaction across the entire TabBar
     std::optional<float> gap{std::nullopt};   ///< Gap between consecutive tab items (nullopt = from theme)
     std::optional<Padding> padding{std::nullopt};   ///< Container padding around tabs (nullopt = auto based on style)
     StateColor background{};                     ///< Optional background fill color for the tab bar
@@ -51,13 +60,14 @@ struct TabBarOptions {
 struct TabItemData {
     TabItem item{};
     TabBarOptions barOpts{};
+    bool closeHovered{false};
 };
 
 /// Autonomous TabBar widget logic (execution, measuring, and rendering).
 class TabBar {
 public:
     /// Primary immediate mode entry point for TabBar widget.
-    static Response Run(
+    static TabBarResponse Run(
         Context& ctx,
         int& activeIndex,
         std::span<const TabItem> tabs,
@@ -92,7 +102,8 @@ public:
         bool pressed,
         bool disabled,
         const UiTheme& theme = UiTheme::Dark(),
-        bool focused = false
+        bool focused = false,
+        bool closeHovered = false
     );
 };
 

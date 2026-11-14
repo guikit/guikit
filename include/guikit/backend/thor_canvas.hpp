@@ -305,11 +305,4 @@ private:
 /// Registers the ThorVG vector canvas factory and image decoder as the default vector backend.
 void RegisterThorVectorBackend() noexcept;
 
-namespace detail {
-struct ThorVectorBackendAutoRegistrar {
-    ThorVectorBackendAutoRegistrar() noexcept { RegisterThorVectorBackend(); }
-};
-inline const ThorVectorBackendAutoRegistrar g_thorVectorBackendAutoRegistrar{};
-} // namespace detail
-
 } // namespace guikit

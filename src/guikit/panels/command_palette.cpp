@@ -497,9 +497,10 @@ CommandPaletteResponse CommandPalette::Run(
     const std::span<const DrawRowItem> drawRows(arenaRows, drawRowCount);
 
     const std::string_view queryCopy = ctx.AllocString(st.query);
-    const std::string_view placeholderCopy = ctx.AllocString(std::string_view(opts.placeholder));
+    const UiText placeholderCopy = ctx.AllocText(opts.placeholder);
     const bool showFooter = opts.showFooterHints;
     const float backdropOpacity = opts.backdropOpacity;
+    const std::optional<Color> backdropColor = opts.backdropColor;
     const StateColor bgOpt = opts.background;
     const Border borderOpt = opts.border;
     const bool cursorVis = ctx.IsCursorVisible();
@@ -530,6 +531,7 @@ CommandPaletteResponse CommandPalette::Run(
         sbDraggingCopy,
         showFooter,
         backdropOpacity,
+        backdropColor,
         bgOpt,
         borderOpt,
         cursorVis,
@@ -550,9 +552,15 @@ CommandPaletteResponse CommandPalette::Run(
         const Color primaryCol = theme.GetVariant(UiVariant::Primary).bg;
 
         // 1. Dimmed backdrop
-        const float alpha = std::clamp(backdropOpacity, 0.0f, 0.95f);
-        if (alpha > 0.001f && backdropRect.w > 0.0f && backdropRect.h > 0.0f) {
-            c.DrawRect(backdropRect, Color(0, 0, 0, static_cast<uint8_t>(std::round(alpha * 255.0f))));
+        if (backdropColor.has_value()) {
+            if (backdropColor->a > 0 && backdropRect.w > 0.0f && backdropRect.h > 0.0f) {
+                c.DrawRect(backdropRect, *backdropColor);
+            }
+        } else {
+            const float alpha = std::clamp(backdropOpacity, 0.0f, 0.95f);
+            if (alpha > 0.001f && backdropRect.w > 0.0f && backdropRect.h > 0.0f) {
+                c.DrawRect(backdropRect, Color(0, 0, 0, static_cast<uint8_t>(std::round(alpha * 255.0f))));
+            }
         }
 
         // 2. Multi-layer elevated shadow & surface card
@@ -605,13 +613,16 @@ CommandPaletteResponse CommandPalette::Run(
         c.PushClip(queryTextRect);
         if (queryCopy.empty()) {
             const float placeholderOffset = std::round(4.0f * s);
-            c.DrawTextBox(
+            TextUtil::DrawUiText(
+                c,
                 placeholderCopy,
                 Rect(textStartX + placeholderOffset, searchRect.y, std::max(10.0f, queryTextRect.w - placeholderOffset), searchRect.h),
                 searchFont,
+                searchRect.h,
                 pal.textMuted,
                 0.0f,
-                0.5f
+                0.5f,
+                &theme
             );
             if (cursorVis) {
                 const float caretH = std::round(searchFont * 1.15f);

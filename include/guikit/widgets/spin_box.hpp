@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <source_location>
 #include <string>
@@ -33,7 +34,8 @@ struct SpinBoxOptions {
     std::optional<CursorBlinkMode> cursorMode{std::nullopt}; ///< Cursor blink override when editing text
     StateColor color{};                            ///< Per-state accent color for active stepper buttons and optional progress fill bar
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};      ///< SpinBox width: in points for Compact/Space (nullopt = from theme), or ratio of bounds (0.0..1.0) for Fill (nullopt = 1.0)
+    std::optional<float> width{std::nullopt};      ///< SpinBox width in dp (or legacy ratio 0.0..1.0 in Fill)
+    std::optional<float> widthRatio{std::nullopt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
     std::optional<float> height{std::nullopt};     ///< Explicit SpinBox height in points (nullopt = inherit defaultHeight from UiSize)
     std::optional<float> minWidth{std::nullopt};   ///< Minimum SpinBox width constraint in points
     StateColor background{StateColor::Surface()};  ///< SpinBox surface fill color (Surface/Default = on, None = off, or custom StateColor)
@@ -48,6 +50,8 @@ struct SpinBoxOptions {
     bool showFillBar{false};                       ///< Renders an accent progress bar along the bottom edge when min & max are set
     bool disabled{false};                          ///< Interaction suppression
     bool readOnly{false};                          ///< Non-editable display mode
+    const UiTheme* theme{nullptr};                 ///< Optional scoped theme override
+    std::optional<float> scale{std::nullopt};      ///< Optional local UI scale factor override
 };
 
 /// Internal runtime state allocated in frame arena for SpinBox nodes.
@@ -78,7 +82,7 @@ public:
         Context& ctx,
         float* floatValue,
         double* doubleValue,
-        int* intValue,
+        int64_t* intValue,
         const SpinBoxOptions& opts = {},
         std::source_location loc = std::source_location::current()
     );

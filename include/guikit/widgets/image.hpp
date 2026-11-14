@@ -19,13 +19,14 @@ class ICanvas;
 struct ImageOptions {
     std::string_view source{};                          ///< Image file path (.svg, .png, .jpg) or inline <svg>
     UiText alt{};                                       ///< Fallback text when image is missing or fails to load
-    std::string_view tooltip{};                         ///< Optional hover tooltip text
+    UiText tooltip{};                                   ///< Optional hover tooltip text
     ObjectFit fit{ObjectFit::Contain};                  ///< Fitting policy inside the control box
     Align align{Align::Start};                          ///< Standalone horizontal alignment of compact image control
     Align alignX{Align::Center};                        ///< Horizontal alignment of fitted image inside control box
     Align alignY{Align::Center};                        ///< Vertical alignment of fitted image inside control box
     StretchMode stretch{StretchMode::Compact};          ///< Compact (natural/explicit size), Space, or Fill
-    std::optional<float> width{std::nullopt};           ///< Explicit width in px (Compact/Space) or ratio 0.0..1.0 (Fill)
+    std::optional<float> width{std::nullopt};           ///< Explicit width in dp (or legacy ratio 0.0..1.0 in Fill)
+    std::optional<float> widthRatio{std::nullopt};      ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
     std::optional<float> height{std::nullopt};          ///< Explicit height in px (nullopt = auto from aspect ratio)
     std::optional<float> maxHeight{std::nullopt};       ///< Optional maximum height cap in px
     SizeMode heightMode{SizeMode::Fit};                 ///< Fit (auto/fixed) or Stretch (expand to fill parent height)
@@ -34,6 +35,10 @@ struct ImageOptions {
     bool checkerboard{false};                           ///< Render transparency checkerboard pattern behind image
     uint8_t opacity{255};                               ///< Image opacity [0..255]
     bool disabled{false};
+    const UiTheme* theme{nullptr};
+    std::optional<float> scale{std::nullopt};
+    std::optional<bool> debugBounds{std::nullopt};
+    std::optional<bool> inspectMode{std::nullopt};
 };
 
 /// Internal frame-arena payload for Image nodes.

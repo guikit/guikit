@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <string>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
@@ -17,6 +18,7 @@ ControlSpec EffectiveSpinBoxControl(const SpinBoxOptions& opts, UiSize size, con
     const InputFieldMetrics& m = theme.GetInputField(size);
     ControlSpec c{};
     c.width = opts.width;
+    c.widthRatio = opts.widthRatio;
     c.height = opts.height;
     c.minWidth = opts.minWidth;
     c.align = opts.align;
@@ -72,11 +74,11 @@ Vec2 MeasureSpinBox(
         ? (boxH + extGap) * 2.0f
         : 0.0f;
 
+    const bool hasExplicitDpW = Control::HasExplicitDpWidth(opts.stretch, ctrl.width, ctrl.widthRatio);
     float boxW = m.defaultWidth + extBtnsW;
-    if (opts.stretch != StretchMode::Fill) {
-        if (ctrl.width.has_value()) {
-            boxW = theme.Scale(*ctrl.width);
-        } else if (hasVariants) {
+    if (hasExplicitDpW) {
+        boxW = theme.Scale(*ctrl.width);
+    } else if (opts.stretch != StretchMode::Fill && hasVariants) {
             const float inputFont = theme.ResolveFontSize(opts.valueFormat, TextRole::LabelMedium, size);
             float contentW = 0.0f;
             for (std::string_view v : opts.valueFormat.variants) {
@@ -104,12 +106,11 @@ Vec2 MeasureSpinBox(
                 totalW += extBtnsW;
             }
             boxW = totalW;
-        }
     }
 
     if (ctrl.minWidth.has_value()) {
         boxW = std::max(theme.Scale(*ctrl.minWidth), boxW);
-    } else if (hasVariants && opts.stretch != StretchMode::Fill && !ctrl.width.has_value()) {
+    } else if (hasExplicitDpW || (hasVariants && opts.stretch != StretchMode::Fill)) {
         boxW = std::max(boxH + extBtnsW, boxW);
     } else {
         boxW = std::max(m.minWidth + extBtnsW, boxW);
@@ -237,7 +238,7 @@ double ClampNumericValue(double val, const SpinBoxOptions& opts) noexcept {
     return val;
 }
 
-double ReadNumericValue(float* floatValue, double* doubleValue, int* intValue) noexcept {
+double ReadNumericValue(float* floatValue, double* doubleValue, int64_t* intValue) noexcept {
     if (floatValue != nullptr) return static_cast<double>(*floatValue);
     if (doubleValue != nullptr) return *doubleValue;
     if (intValue != nullptr) return static_cast<double>(*intValue);
@@ -248,7 +249,7 @@ void WriteNumericValue(
     double nextVal,
     float* floatValue,
     double* doubleValue,
-    int* intValue,
+    int64_t* intValue,
     const SpinBoxOptions& opts
 ) noexcept {
     const double clamped = ClampNumericValue(nextVal, opts);
@@ -257,7 +258,7 @@ void WriteNumericValue(
     } else if (doubleValue != nullptr) {
         *doubleValue = clamped;
     } else if (intValue != nullptr) {
-        *intValue = static_cast<int>(std::llround(clamped));
+        *intValue = static_cast<int64_t>(std::llround(clamped));
     }
 }
 
@@ -266,20 +267,70 @@ void FormatNumericValue(
     size_t bufSize,
     float* floatValue,
     double* doubleValue,
-    int* intValue,
+    int64_t* intValue,
     const SpinBoxOptions& opts
 ) noexcept {
-    if (floatValue != nullptr) {
-        const char* fmt = opts.valueFormat.empty() ? "%.2f" : opts.valueFormat.text.data();
-        std::snprintf(valBuf, bufSize, fmt, *floatValue);
-    } else if (doubleValue != nullptr) {
-        const char* fmt = opts.valueFormat.empty() ? "%.2f" : opts.valueFormat.text.data();
-        std::snprintf(valBuf, bufSize, fmt, *doubleValue);
+    char fmtBuf[128]{};
+    const std::string_view rawFmt = opts.valueFormat.text;
+    const size_t copyLen = std::min(rawFmt.size(), sizeof(fmtBuf) - 1);
+    if (copyLen > 0) {
+        std::memcpy(fmtBuf, rawFmt.data(), copyLen);
+    }
+    fmtBuf[copyLen] = '\0';
+
+    char convSpec = '\0';
+    bool isLongLong = false;
+    bool isLong = false;
+    for (size_t i = 0; i < copyLen; ++i) {
+        if (fmtBuf[i] == '%') {
+            if (i + 1 < copyLen && fmtBuf[i + 1] == '%') {
+                ++i;
+                continue;
+            }
+            for (size_t j = i + 1; j < copyLen; ++j) {
+                const char c = fmtBuf[j];
+                if (c == 'l') {
+                    if (isLong) isLongLong = true;
+                    else isLong = true;
+                } else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
+                    convSpec = c;
+                    break;
+                }
+            }
+            break;
+        }
+    }
+
+    const bool isIntSpec = (convSpec == 'd' || convSpec == 'i' || convSpec == 'u' ||
+                            convSpec == 'x' || convSpec == 'X' || convSpec == 'o');
+
+    if (floatValue != nullptr || doubleValue != nullptr) {
+        const double dv = (floatValue != nullptr) ? static_cast<double>(*floatValue) : *doubleValue;
+        if (copyLen == 0) {
+            std::snprintf(valBuf, bufSize, "%.2f", dv);
+        } else if (convSpec == '\0') {
+            std::snprintf(valBuf, bufSize, "%s", fmtBuf);
+        } else if (isIntSpec) {
+            const long long iv = static_cast<long long>(std::llround(dv));
+            if (isLongLong) std::snprintf(valBuf, bufSize, fmtBuf, iv);
+            else if (isLong) std::snprintf(valBuf, bufSize, fmtBuf, static_cast<long>(iv));
+            else std::snprintf(valBuf, bufSize, fmtBuf, static_cast<int>(iv));
+        } else {
+            std::snprintf(valBuf, bufSize, fmtBuf, dv);
+        }
     } else if (intValue != nullptr) {
-        const bool customIntFmt = !opts.valueFormat.empty() &&
-                                  opts.valueFormat.text != "%.2f" &&
-                                  opts.valueFormat.text.find('f') == std::string_view::npos;
-        std::snprintf(valBuf, bufSize, customIntFmt ? opts.valueFormat.text.data() : "%d", *intValue);
+        const long long iv = static_cast<long long>(*intValue);
+        if (copyLen == 0 || rawFmt == "%.2f") {
+            std::snprintf(valBuf, bufSize, "%lld", iv);
+        } else if (convSpec == '\0') {
+            std::snprintf(valBuf, bufSize, "%s", fmtBuf);
+        } else if (isIntSpec) {
+            if (isLongLong) std::snprintf(valBuf, bufSize, fmtBuf, iv);
+            else if (isLong) std::snprintf(valBuf, bufSize, fmtBuf, static_cast<long>(iv));
+            else std::snprintf(valBuf, bufSize, fmtBuf, static_cast<int>(iv));
+        } else {
+            std::snprintf(valBuf, bufSize, fmtBuf, static_cast<double>(iv));
+        }
     }
 }
 
@@ -289,10 +340,17 @@ Response SpinBox::Run(
     Context& ctx,
     float* floatValue,
     double* doubleValue,
-    int* intValue,
+    int64_t* intValue,
     const SpinBoxOptions& opts,
     std::source_location loc
 ) {
+    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    struct ThemePopGuard {
+        Context& c;
+        UiTheme* t;
+        ~ThemePopGuard() noexcept { if (t) c.PopTheme(); }
+    } themePop{ctx, pushedTheme};
+
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
@@ -321,7 +379,7 @@ Response SpinBox::Run(
     }
 
     SpinBoxOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);
     optsCopy.prefix = ctx.AllocAffix(opts.prefix);
     optsCopy.suffix = ctx.AllocAffix(opts.suffix);
@@ -521,10 +579,10 @@ Response SpinBox::Run(
             } else if (intValue != nullptr) {
                 char* end = nullptr;
                 std::string s(displayText);
-                const long i = std::strtol(s.c_str(), &end, 10);
+                const long long i = std::strtoll(s.c_str(), &end, 10);
                 if (end != s.c_str()) {
                     const double clamped = ClampNumericValue(static_cast<double>(i), opts);
-                    *intValue = static_cast<int>(std::llround(clamped));
+                    *intValue = static_cast<int64_t>(std::llround(clamped));
                 }
             }
             res.changed = true;
@@ -580,6 +638,7 @@ Response SpinBox::Run(
 
     const ControlSpec ctrl = EffectiveSpinBoxControl(optsCopy, activeSize, theme);
     Node* node = ctx.CreateNode(NodeType::SpinBox, id);
+    node->theme = pushedTheme;
 
     auto* data = ctx.AllocPayload<SpinBoxData>();
     data->opts = optsCopy;
@@ -761,7 +820,7 @@ void SpinBox::Render(
 
     const VariantColors& primaryVar = theme.GetVariant(UiVariant::Primary);
     const Color accentCol = opts.color.HasAny()
-        ? opts.color.Resolve(hovered && !disabled, focused && !disabled, disabled, primaryVar.bg, primaryVar.bgHover, primaryVar.bgActive, primaryVar.bg)
+        ? theme.ResolveColor(opts.color, hovered && !disabled, focused && !disabled, disabled, primaryVar.bg, primaryVar.bgHover, primaryVar.bgActive, primaryVar.bg)
         : primaryVar.bg;
 
     if (focused && !disabled) {
@@ -785,10 +844,10 @@ void SpinBox::Render(
     }
 
     if (ctrl.HasBackground(true) && ctrl.background.HasAny() && !ctrl.background.IsSurface()) {
-        boxBg = ctrl.background.Resolve(inputHovered, focused, disabled, boxBg);
+        boxBg = theme.ResolveColor(ctrl.background, inputHovered, focused, disabled, boxBg);
     }
     if (ctrl.border.color.HasAny()) {
-        boxBorder = ctrl.border.color.Resolve(inputHovered, focused, disabled, boxBorder);
+        boxBorder = theme.ResolveColor(ctrl.border.color, inputHovered, focused, disabled, boxBorder);
     }
 
     const float radius = ctrl.border.radius.has_value() ? theme.Scale(*ctrl.border.radius) : m.cornerRadius;
@@ -819,7 +878,7 @@ void SpinBox::Render(
             const bool effDis = disabled || btnDis;
             Color btnBg = ctrl.HasBackground(true) ? pal.inputBackground : Color::Transparent();
             if (ctrl.HasBackground(true) && ctrl.background.HasAny() && !ctrl.background.IsSurface()) {
-                btnBg = ctrl.background.Resolve(btnHov && !effDis, btnPress && !effDis, effDis, btnBg);
+                btnBg = theme.ResolveColor(ctrl.background, btnHov && !effDis, btnPress && !effDis, effDis, btnBg);
             } else if (!effDis) {
                 if (btnPress) {
                     btnBg = accentCol.WithAlphaF(0.28f);
@@ -837,7 +896,7 @@ void SpinBox::Render(
                 }
             }
             if (ctrl.border.color.HasAny()) {
-                btnBorder = ctrl.border.color.Resolve(btnHov && !effDis, btnPress && !effDis, effDis, btnBorder);
+                btnBorder = theme.ResolveColor(ctrl.border.color, btnHov && !effDis, btnPress && !effDis, effDis, btnBorder);
             }
             if (effDis) {
                 btnBg = btnBg.WithAlphaF(0.40f);

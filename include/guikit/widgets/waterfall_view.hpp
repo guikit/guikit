@@ -121,12 +121,17 @@ struct WaterfallViewOptions {
     // --- Sizing & Styling ---
     StretchMode stretch{StretchMode::Fill};
     std::optional<float> width{std::nullopt};
+    std::optional<float> widthRatio{std::nullopt};
     std::optional<float> height{std::nullopt};
     SizeMode heightMode{SizeMode::Stretch};
     StateColor background{};
     Border border{};
     bool disabled{false};
-    std::string_view tooltip{};
+    UiText tooltip{};
+    const UiTheme* theme{nullptr};
+    std::optional<float> scale{std::nullopt};
+    std::optional<bool> debugBounds{std::nullopt};
+    std::optional<bool> inspectMode{std::nullopt};
 };
 
 /// Rich telemetry & operator interaction state returned by `ui.WaterfallView(...)`.

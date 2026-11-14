@@ -138,20 +138,20 @@ struct Node {
 
     // Layout configuration & ambient state
     NodeType type{NodeType::Container};
-    FlexDirection direction{FlexDirection::Column};
-    SizeMode widthMode{SizeMode::Stretch};
-    SizeMode heightMode{SizeMode::Fit};
     uint8_t gridColumns{12};    ///< Number of columns in Grid layout container
     uint8_t colSpan{12};        ///< Number of grid columns occupied by this item (1..12)
-    Orientation scrollOrientation{Orientation::Vertical};
-    VisibilityPolicy scrollbarPolicy{VisibilityPolicy::Auto};
-    Alignment align{Alignment::Stretch};
-    Justify justify{Justify::Start};
-    UiSize uiSize{UiSize::Md};
     std::optional<bool> debugBoundsOverride{std::nullopt};
     std::optional<bool> inspectModeOverride{std::nullopt};
 
-    // Interaction & container flags (packed 1-bit flags to maintain tight cache footprint)
+    // Packed layout enums & 1-bit interaction/container flags (maintains <= 256B / 4 cache lines)
+    FlexDirection direction : 3 {FlexDirection::Column};
+    SizeMode widthMode : 2 {SizeMode::Stretch};
+    SizeMode heightMode : 2 {SizeMode::Fit};
+    Orientation scrollOrientation : 2 {Orientation::Vertical};
+    VisibilityPolicy scrollbarPolicy : 2 {VisibilityPolicy::Auto};
+    Alignment align : 3 {Alignment::Stretch};
+    Justify justify : 3 {Justify::Start};
+    UiSize uiSize : 3 {UiSize::Md};
     bool isSpacer : 1 {false};
     bool clipChildren : 1 {false};
     bool scrollbarHovered : 1 {false};
@@ -184,6 +184,8 @@ struct Node {
     float runGap{0.0f};         ///< Vertical gap between consecutive wrapped lines
     float minWidth{0.0f};       ///< Minimum width constraint for responsive wrapping
     float minHeight{0.0f};      ///< Minimum height constraint for 2D elements and Stretch fallback
+    float maxWidth{0.0f};       ///< Optional maximum width constraint (> 0 clamps width)
+    float maxHeight{0.0f};      ///< Optional maximum height constraint (> 0 clamps height)
     float aspectRatio{0.0f};    ///< Optional width/height ratio (> 0 enables automatic height from width)
     float minColWidth{0.0f};    ///< Minimum column width constraint for Grid container
     Padding padding{};          ///< Internal padding inside container
@@ -196,16 +198,13 @@ struct Node {
     Vec2 intrinsicSize{0.0f, 0.0f};  ///< Natural content size (bottom-up measure pass)
     Rect computedRect{0.0f, 0.0f, 0.0f, 0.0f}; ///< Final placed coordinates (top-down arrange pass)
 
-    // Visual attributes (rendered by backend)
+    // Visual & text attributes (rendered by backend)
     Color backgroundColor{0, 0, 0, 0};
     Color borderColor{0, 0, 0, 0};
     float borderWidth{0.0f};
     float cornerRadius{0.0f};
-
-    // Text / Content attributes
-    std::string_view text{};
     Color textColor{255, 255, 255, 255};
-    float fontSize{14.0f};
+    std::string_view text{};
 
     // Generic arena-allocated widget payload (ButtonOptions, InputFieldData, CarouselData, user data, etc.)
     void* payload{nullptr};
@@ -289,6 +288,7 @@ struct Node {
             case NodeType::BottomPanel: return "BottomPanel";
             case NodeType::StatusBar:   return "StatusBar";
             case NodeType::Toolbar:     return "Toolbar";
+            case NodeType::SplitView:   return "SplitView";
             case NodeType::Button:      return "Button";
             case NodeType::InputField:  return "InputField";
             case NodeType::Select:      return "Select";
@@ -322,6 +322,12 @@ struct Node {
             case NodeType::Knob:            return "Knob";
             case NodeType::Segmented:       return "Segmented";
             case NodeType::ColorPicker:     return "ColorPicker";
+            case NodeType::DatePicker:      return "DatePicker";
+            case NodeType::Breadcrumb:      return "Breadcrumb";
+            case NodeType::Pagination:      return "Pagination";
+            case NodeType::CommandPalette:  return "CommandPalette";
+            case NodeType::LevelMeter:      return "LevelMeter";
+            case NodeType::TagInput:        return "TagInput";
             default:                       return (static_cast<uint16_t>(type) >= static_cast<uint16_t>(NodeType::User)) ? "UserWidget" : "Unknown";
         }
     }

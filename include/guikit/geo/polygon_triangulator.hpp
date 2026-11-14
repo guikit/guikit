@@ -19,7 +19,3 @@ public:
 };
 
 } // namespace guikit::geo
-
-namespace guikit {
-using namespace geo;
-} // namespace guikit

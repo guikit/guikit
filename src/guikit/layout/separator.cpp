@@ -56,12 +56,15 @@ void Separator::Run(
     Context& ctx,
     float extentRatio,
     Color colorOverride,
-    std::source_location loc
+    std::source_location loc,
+    std::optional<Orientation> lineOrientationOverride
 ) {
     const Id id = ctx.MakeChildId(loc);
     const float scale = ctx.GetCurrentScale();
     Node* parent = ctx.GetCurrentContainer();
-    const bool isHorizontalContainer = (parent != nullptr && parent->direction == FlexDirection::Row);
+    const bool drawVerticalLine = lineOrientationOverride.has_value()
+        ? (*lineOrientationOverride == Orientation::Vertical)
+        : (parent != nullptr && parent->direction == FlexDirection::Row);
 
     Node* sep = ctx.CreateNode(NodeType::Separator, id);
     if (colorOverride.a > 0) {
@@ -71,16 +74,18 @@ void Separator::Run(
     } else {
         sep->borderColor = ctx.GetTheme().palette.borderSubtle;
     }
+    const float clampedExtent = (extentRatio > 0.0f) ? std::clamp(extentRatio, 0.05f, 1.0f) : 0.0f;
+    sep->visualHash = detail::HashArgs(sep->borderColor, drawVerticalLine, clampedExtent);
 
-    if (isHorizontalContainer) {
-        const bool isStatusBar = (parent->type == NodeType::StatusBar);
+    if (drawVerticalLine) {
+        const bool isStatusBar = (parent != nullptr && parent->type == NodeType::StatusBar);
         sep->widthMode = SizeMode::Fixed;
         sep->fixedWidth = (isStatusBar ? 8.0f : 10.0f) * scale;
-        if (parent->fixedHeight > 0.0f || extentRatio > 0.0f || parent->type == NodeType::Toolbar || isStatusBar) {
+        if ((parent != nullptr && (parent->fixedHeight > 0.0f || parent->type == NodeType::Toolbar)) || clampedExtent > 0.0f || isStatusBar) {
             const float minR = isStatusBar ? 0.2f : 0.1f;
             const float maxR = isStatusBar ? 0.9f : 1.0f;
-            const float ratio = (extentRatio > 0.0f) ? std::clamp(extentRatio, minR, maxR) : 0.55f;
-            const float parentH = (parent->fixedHeight > 0.0f)
+            const float ratio = (clampedExtent > 0.0f) ? std::clamp(clampedExtent, minR, maxR) : 0.55f;
+            const float parentH = (parent != nullptr && parent->fixedHeight > 0.0f)
                 ? parent->fixedHeight
                 : ((isStatusBar ? 26.0f : 32.0f) * scale);
             sep->heightMode = SizeMode::Fixed;
@@ -114,6 +119,9 @@ void Separator::Run(
         };
     } else {
         sep->widthMode = SizeMode::Stretch;
+        if (clampedExtent > 0.0f && clampedExtent < 1.0f) {
+            sep->fixedWidth = clampedExtent;
+        }
         sep->heightMode = SizeMode::Fixed;
         sep->fixedHeight = 8.0f * scale;
         sep->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* /*canvas*/, const UiTheme& /*theme*/) noexcept -> Vec2 {
@@ -127,7 +135,9 @@ void Separator::Run(
             const float y = std::floor(n->computedRect.Center().y) + 0.5f;
             const Color stroke = n->borderColor.a > 0 ? n->borderColor : theme.palette.borderSubtle;
             float padX = 2.0f;
-            if (n->parent && n->parent->type == NodeType::Toolbar) {
+            if (n->fixedWidth > 0.0f && n->fixedWidth < 1.0f) {
+                padX = std::max(0.0f, n->computedRect.w * (1.0f - n->fixedWidth) * 0.5f);
+            } else if (n->parent && n->parent->type == NodeType::Toolbar) {
                 padX = std::max(2.0f, n->computedRect.w * 0.18f);
             } else if (n->parent && n->parent->type == NodeType::Sidebar && n->parent->sidebarCompact) {
                 padX = std::min(6.0f, n->computedRect.w * 0.18f);

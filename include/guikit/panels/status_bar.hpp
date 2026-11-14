@@ -82,6 +82,9 @@ public:
     /// Inserts an elastic horizontal spacer to push subsequent items to the right edge.
     void Spacer(std::source_location loc = std::source_location::current());
 
+    /// Inserts a fixed horizontal gap in logical dp.
+    void Gap(float sizeDp = 8.0f, std::source_location loc = std::source_location::current());
+
     [[nodiscard]] const Response* operator->() const noexcept { return &response; }
 
 private:

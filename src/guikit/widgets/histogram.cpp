@@ -224,11 +224,11 @@ Vec2 Histogram::Measure(
     float availableWidth
 ) noexcept {
     float w = 240.0f * theme.Scale(1.0f);
-    if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f) {
-        const float ratio = opts.width.has_value() ? std::clamp(*opts.width, 0.1f, 1.0f) : 1.0f;
-        w = availableWidth * ratio;
-    } else if (opts.width.has_value() && *opts.width > 0.0f) {
+    if (Control::HasExplicitDpWidth(opts.stretch, opts.width, opts.widthRatio)) {
         w = theme.Scale(*opts.width);
+    } else if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f) {
+        const float ratio = Control::ResolveFillRatio(opts.stretch, opts.width, opts.widthRatio).value_or(1.0f);
+        w = availableWidth * ratio;
     }
     const float h = std::max(theme.Scale(opts.minHeight), theme.Scale(opts.height));
     return {w, h};
@@ -241,6 +241,13 @@ HistogramResponse Histogram::Run(
     const HistogramOptions& opts,
     std::source_location loc
 ) {
+    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    struct ThemePopGuard {
+        Context& c;
+        UiTheme* t;
+        ~ThemePopGuard() noexcept { if (t) c.PopTheme(); }
+    } themePop{ctx, pushedTheme};
+
     const Id id = ctx.MakeChildId(loc);
     const UiTheme& theme = ctx.GetTheme();
     const UiSize activeSize = ctx.GetCurrentSize();
@@ -249,7 +256,7 @@ HistogramResponse Histogram::Run(
 
     HistogramOptions optsCopy = opts;
     std::optional<float> inheritedH{};
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, inheritedH);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, inheritedH);
     if (inheritedH.has_value() && *inheritedH > 0.0f) {
         optsCopy.height = *inheritedH;
     }
@@ -398,10 +405,14 @@ HistogramResponse Histogram::Run(
 
     // Create Node & Payload
     Node* node = ctx.CreateNode(NodeType::Histogram, id);
+    node->theme = pushedTheme;
+    node->debugBoundsOverride = opts.debugBounds;
+    node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<HistogramPayload>();
     payload->data = data;
     payload->transfer = transfer;
     payload->opts = optsCopy;
+    payload->opts.tooltip = ctx.AllocText(optsCopy.tooltip);
     payload->opts.activeChannel = res.activeChannel;
     payload->resp = res;
     payload->state = &st;
@@ -417,6 +428,7 @@ HistogramResponse Histogram::Run(
 
     ControlSpec ctrlSpec{};
     ctrlSpec.width = optsCopy.width;
+    ctrlSpec.widthRatio = optsCopy.widthRatio;
     ctrlSpec.height = inheritedH;
     Control::SetupNode(ctx, node, ctrlSpec, optsCopy.stretch, optsCopy.align);
     if (!node->parent || node->parent->type != NodeType::Element) {

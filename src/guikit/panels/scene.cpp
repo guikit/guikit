@@ -1079,7 +1079,7 @@ SceneScope Scene::OpenWithId(
     const SceneOptions& opts
 ) {
     SceneOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
 
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool activeDisabled = optsCopy.disabled || ctx.IsDisabled();
@@ -1116,7 +1116,7 @@ SceneScope Scene::OpenWithId(
 
     node->widthMode = (optsCopy.stretch != StretchMode::Compact) ? SizeMode::Stretch : optsCopy.widthMode;
     node->heightMode = optsCopy.heightMode;
-    if (optsCopy.width.has_value() && optsCopy.stretch != StretchMode::Fill) {
+    if (Control::HasExplicitDpWidth(optsCopy.stretch, optsCopy.width, optsCopy.widthRatio)) {
         node->widthMode = SizeMode::Fixed;
         node->fixedWidth = theme.Scale(*optsCopy.width);
     }
@@ -1133,6 +1133,7 @@ SceneScope Scene::OpenWithId(
             node,
             ControlSpec{
                 .width = optsCopy.width,
+                .widthRatio = optsCopy.widthRatio,
                 .height = optsCopy.height,
                 .defaultLayout = ElementLayout::Stacked,
                 .stretchable = true,

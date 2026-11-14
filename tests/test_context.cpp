@@ -14183,6 +14183,325 @@ int main() {
                         CHECK(!idleUi.HasDirtyDamage());
                         CHECK(!idleUi.IsFullRepaint());
                     }
+
+                    // --- Comprehensive Interface Audit Verification Suite ---
+                    {
+                        Context auditUi;
+                        ThorCanvas auditCanvas;
+                        std::vector<uint32_t> auditPixels(900 * 900, 0);
+                        auditCanvas.SetTarget(auditPixels.data(), 900, 900, 900);
+
+                        // 1. ContainerScope move-assignment & explicit Close()
+                        auditUi.BeginFrame({900.0f, 900.0f}, 1.0f);
+                        {
+                            auto outerScope = auditUi.Column({.gap = 8.0f});
+                            {
+                                auto activeRow = auditUi.Row({.gap = 4.0f});
+                                auditUi.Text("Row A");
+                                // Move-assign a new Row into activeRow: must close Row A first, then adopt Row B!
+                                activeRow = auditUi.Row({.gap = 6.0f});
+                                auditUi.Text("Row B");
+                                activeRow.Close();
+                                // Second Close() must be a safe no-op
+                                activeRow.Close();
+                            }
+                            auditUi.Text("After Rows");
+                            outerScope.Close();
+                        }
+                        auditUi.EndFrame(auditCanvas);
+
+                        // 2. widthRatio, HeadingLevel::H1..H4, Button .badge & .loading, ProgressBar vertical/indeterminate
+                        Response ratioBtn{}, plainBtn{}, badgeBtn{}, loadBtn{};
+                        Response h1Resp{}, h2Resp{}, h3Resp{}, h4Resp{};
+                        Response vProgResp{};
+                        bool loadClicked = false;
+
+                        auto runVisualAudit = [&]() {
+                            auditUi.BeginFrame({800.0f, 800.0f}, 1.0f);
+                            if (auto col = auditUi.Column({.padding = Padding::All(0.0f), .widthMode = SizeMode::Stretch})) {
+                                ratioBtn = auditUi.Button({.text = "Half", .stretch = StretchMode::Fill, .widthRatio = 0.5f});
+                                if (auto r = auditUi.Row({.gap = 8.0f})) {
+                                    plainBtn = auditUi.Button({.text = "Alerts"});
+                                    badgeBtn = auditUi.Button({.text = "Alerts", .badge = "99+"});
+                                    loadBtn  = auditUi.Button({.text = "Saving", .loading = true});
+                                    if (loadBtn.clicked) loadClicked = true;
+                                }
+                                h1Resp = auditUi.Heading({.label = "Level 1", .level = HeadingLevel::H1});
+                                h2Resp = auditUi.Heading({.label = "Level 2", .level = HeadingLevel::H2});
+                                h3Resp = auditUi.Heading({.label = "Level 3", .level = HeadingLevel::H3});
+                                h4Resp = auditUi.Heading({.label = "Level 4", .level = HeadingLevel::H4});
+                                if (auto prRow = auditUi.Row({.gap = 12.0f, .height = 90.0f})) {
+                                    vProgResp = auditUi.ProgressBar(0.65f, {.orientation = Orientation::Vertical, .stretch = StretchMode::Fill});
+                                    auditUi.ProgressBar(0.0f, {.indeterminate = true, .width = 140.0f});
+                                }
+                            }
+                            auditUi.EndFrame(auditCanvas);
+                        };
+                        runVisualAudit();
+                        runVisualAudit();
+
+                        CHECK_NEAR(ratioBtn.rect.w, 400.0f, 0.5f);
+                        CHECK(badgeBtn.rect.w > plainBtn.rect.w + 12.0f);
+                        CHECK(h1Resp.rect.h > h2Resp.rect.h);
+                        CHECK(h2Resp.rect.h > h3Resp.rect.h);
+                        CHECK(h3Resp.rect.h > h4Resp.rect.h);
+                        CHECK(vProgResp.rect.h > vProgResp.rect.w * 2.0f);
+
+                        // Clicking a loading button must be suppressed
+                        auditUi.OnMouseMove(loadBtn.rect.Center());
+                        auditUi.OnMouseDown(1);
+                        runVisualAudit();
+                        auditUi.OnMouseUp(1);
+                        runVisualAudit();
+                        CHECK(!loadClicked);
+
+                        // 3. IndexLike enum bindings + TabBar Card/Folder/closable (`closedIndex`)
+                        enum class FilterStage : uint8_t { LowPass = 0, BandPass = 1, HighPass = 2 };
+                        FilterStage stage = FilterStage::LowPass;
+                        FilterStage tabStage = FilterStage::LowPass;
+                        TabBarResponse tabResp{};
+                        Response segResp{};
+
+                        static constexpr TabItem kClosableTabs[] = {
+                            {.label = "Main",    .closable = true},
+                            {.label = "Metrics", .closable = true},
+                            {.label = "Logs",    .closable = true}
+                        };
+                        static constexpr std::string_view kStageNames[] = {"LP", "BP", "HP"};
+
+                        auto runEnumAndTabs = [&](TabBarStyle style) {
+                            auditUi.BeginFrame({800.0f, 600.0f}, 1.0f);
+                            if (auto col = auditUi.Column({.gap = 8.0f})) {
+                                tabResp = auditUi.TabBar(tabStage, std::span<const TabItem>(kClosableTabs), {.style = style});
+                                segResp = auditUi.Segmented(stage, std::span<const std::string_view>(kStageNames), {.width = 300.0f});
+                                auditUi.Select(stage, std::span<const std::string_view>(kStageNames));
+                                auditUi.StepSlider(stage, std::span<const std::string_view>(kStageNames));
+                            }
+                            auditUi.EndFrame(auditCanvas);
+                        };
+                        runEnumAndTabs(TabBarStyle::Card);
+                        runEnumAndTabs(TabBarStyle::Folder);
+
+                        // Click middle segment ("BP") -> updates strongly-typed enum to BandPass!
+                        auditUi.OnMouseMove(segResp.rect.Center());
+                        auditUi.OnMouseDown(1);
+                        runEnumAndTabs(TabBarStyle::Card);
+                        auditUi.OnMouseUp(1);
+                        runEnumAndTabs(TabBarStyle::Card);
+                        CHECK(stage == FilterStage::BandPass);
+
+                        // Click close ('X') button on the trailing edge of tab 1 ("Metrics") without changing active tab (0 = LowPass)
+                        // First find tab 1's close button near the right edge of tab 1:
+                        // Tab 0 and Tab 1 sit at the left of tabResp.rect; let's measure Tab 0 and Tab 1 directly!
+                        const Vec2 t0Sz = TabBar::MeasureTab(kClosableTabs[0], {.style = TabBarStyle::Card}, UiSize::Md, &auditCanvas, auditUi.GetTheme());
+                        const Vec2 t1Sz = TabBar::MeasureTab(kClosableTabs[1], {.style = TabBarStyle::Card}, UiSize::Md, &auditCanvas, auditUi.GetTheme());
+                        const float gapPx = auditUi.GetTheme().Spacing().xs;
+                        const Vec2 tab1ClosePt{
+                            tabResp.rect.x + t0Sz.x + gapPx + t1Sz.x - 12.0f,
+                            tabResp.rect.Center().y
+                        };
+                        auditUi.OnMouseMove(tab1ClosePt);
+                        auditUi.OnMouseDown(1);
+                        runEnumAndTabs(TabBarStyle::Card);
+                        auditUi.OnMouseUp(1);
+                        runEnumAndTabs(TabBarStyle::Card);
+                        CHECK(tabResp.closedIndex.has_value());
+                        if (tabResp.closedIndex.has_value()) {
+                            CHECK(*tabResp.closedIndex == 1u);
+                        }
+                        CHECK(tabStage == FilterStage::LowPass);
+
+                        // 4. Keel string/array bindings + InputField maxLength / InputFilter / selectAllOnFocus + SpinBox int64_t & non-null-terminated format
+                        keel::FixedString<32> keelShort{"InitVal"};
+                        keel::String keelIntStr{""};
+                        keel::String keelHexStr{""};
+                        std::string maxLenStr{};
+                        keel::SmallArray<size_t, 8> multiIndices;
+                        multiIndices.push_back(1);
+                        keel::SmallArray<keel::FixedString<24>, 8> keelTags;
+                        keelTags.push_back(keel::FixedString<24>("dsp"));
+                        keel::String codeBuf{"int x = 1;"};
+
+                        int64_t bigCounter = 5000000000LL;
+                        float cutoffFreq = 125.0f;
+                        // Non-null-terminated substring view: first 7 chars are "%.1f Hz", followed by garbage "%s%s%n"
+                        const char rawFmtBuf[] = "%.1f Hz%s%s%n_TRAILING";
+                        const std::string_view subFmt(rawFmtBuf, 7);
+
+                        Response selAllIn{}, intIn{}, hexIn{}, maxIn{}, bigSpinResp{}, codeResp{};
+                        static constexpr std::string_view kMultiOpts[] = {"Ch0", "Ch1", "Ch2"};
+
+                        auto runInputsAndKeel = [&]() {
+                            auditUi.BeginFrame({800.0f, 800.0f}, 1.0f);
+                            if (auto col = auditUi.Column({.gap = 8.0f})) {
+                                selAllIn = auditUi.InputField(keelShort, {.selectAllOnFocus = true});
+                                intIn    = auditUi.InputField(keelIntStr, {.filter = InputFilter::Integer});
+                                hexIn    = auditUi.InputField(keelHexStr, {.filter = InputFilter::Hex});
+                                maxIn    = auditUi.InputField(maxLenStr, {.maxLength = 4});
+                                auditUi.MultiSelect(multiIndices, std::span<const std::string_view>(kMultiOpts));
+                                auditUi.TagInput(keelTags);
+                                bigSpinResp = auditUi.SpinBox(bigCounter, int64_t(0), int64_t(9000000000LL), int64_t(1000));
+                                auditUi.SpinBox(cutoffFreq, 20.0f, 20000.0f, 10.0f, {.valueFormat = subFmt});
+                                codeResp = auditUi.CodeEditor(codeBuf, {.rows = 4, .tabSize = 2, .insertSpaces = true});
+                            }
+                            auditUi.EndFrame(auditCanvas);
+                        };
+                        runInputsAndKeel();
+                        runInputsAndKeel();
+
+                        // Focus keelShort (`selectAllOnFocus = true`) and type "New" -> replaces entire "InitVal"!
+                        auditUi.OnMouseMove(selAllIn.rect.Center());
+                        auditUi.OnMouseDown(1);
+                        runInputsAndKeel();
+                        auditUi.OnMouseUp(1);
+                        auditUi.OnTextInput("New");
+                        runInputsAndKeel();
+                        CHECK(keelShort.as_ref() == "New");
+
+                        // Focus intIn (`InputFilter::Integer`) and type "-42a.9" -> "-429"
+                        auditUi.OnMouseMove(intIn.rect.Center());
+                        auditUi.OnMouseDown(1);
+                        runInputsAndKeel();
+                        auditUi.OnMouseUp(1);
+                        auditUi.OnTextInput("-42a.9");
+                        runInputsAndKeel();
+                        CHECK(keelIntStr.as_ref() == "-429");
+
+                        // Focus hexIn (`InputFilter::Hex`) and type "#1fG9z" -> "#1f9"
+                        auditUi.OnMouseMove(hexIn.rect.Center());
+                        auditUi.OnMouseDown(1);
+                        runInputsAndKeel();
+                        auditUi.OnMouseUp(1);
+                        auditUi.OnTextInput("#1fG9z");
+                        runInputsAndKeel();
+                        CHECK(keelHexStr.as_ref() == "#1f9");
+
+                        // Focus maxIn (`maxLength = 4`) and type "ABCDEF" -> "ABCD"
+                        auditUi.OnMouseMove(maxIn.rect.Center());
+                        auditUi.OnMouseDown(1);
+                        runInputsAndKeel();
+                        auditUi.OnMouseUp(1);
+                        auditUi.OnTextInput("ABCDEF");
+                        runInputsAndKeel();
+                        CHECK(maxLenStr == "ABCD");
+
+                        // Click '+' stepper on int64_t SpinBox (> INT32_MAX): right edge minus 10px
+                        auditUi.OnMouseMove({bigSpinResp.rect.Right() - 10.0f, bigSpinResp.rect.Center().y});
+                        auditUi.OnMouseDown(1);
+                        runInputsAndKeel();
+                        auditUi.OnMouseUp(1);
+                        runInputsAndKeel();
+                        CHECK(bigCounter == 5000001000LL);
+
+                        // CodeEditor with rows = 4 has positive height and accepts Tab -> 2 spaces
+                        CHECK(codeResp.rect.h > 50.0f);
+                        auditUi.OnMouseMove({codeResp.rect.x + 60.0f, codeResp.rect.y + 14.0f});
+                        auditUi.OnMouseDown(1);
+                        runInputsAndKeel();
+                        auditUi.OnMouseUp(1);
+                        auditUi.OnKeyDown(Key::Home);
+                        auditUi.OnKeyDown(Key::Tab);
+                        runInputsAndKeel();
+                        CHECK(codeBuf.as_ref() == "  int x = 1;");
+
+                        // 5. DatePicker minDate/maxDate clamping & arena-safe temporary monthNames/weekdayNames + ColorPicker swatches
+                        DateTime pickedDate{.year = 2020, .month = 1, .day = 1};
+                        const DateTime minDt{.year = 2025, .month = 5, .day = 10};
+                        const DateTime maxDt{.year = 2027, .month = 12, .day = 31};
+                        const DateTime overrideToday{.year = 2026, .month = 6, .day = 15};
+                        Color pickedColor = Color(10, 20, 30, 255);
+                        const Color customSwatches[2] = {Color(220, 40, 60, 255), Color(30, 180, 90, 255)};
+
+                        auditUi.BeginFrame({800.0f, 600.0f}, 1.0f);
+                        if (auto col = auditUi.Column({.gap = 8.0f})) {
+                            // Pass stack-local arrays that go out of scope BEFORE EndFrame to verify arena-copy safety!
+                            {
+                                const std::string_view localMonths[12] = {
+                                    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+                                };
+                                const std::string_view localDays[7] = {"Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"};
+                                auditUi.DatePicker(pickedDate, {
+                                    .minDate = minDt,
+                                    .maxDate = maxDt,
+                                    .todayOverride = overrideToday,
+                                    .monthNames = localMonths,
+                                    .weekdayNames = localDays
+                                });
+                            }
+                            auditUi.ColorPicker(pickedColor, {
+                                .swatches = customSwatches
+                            });
+                        }
+                        auditUi.EndFrame(auditCanvas);
+                        // pickedDate (2020-01-01) must be clamped up to minDate (2025-05-10)!
+                        CHECK(pickedDate == minDt);
+
+                        // 6. ButtonOptions::square = true inside Element (StretchMode::Fill + .width = 0.5f) and standalone
+                        Response rWideBtn{}, rSquareElemBtn{}, rSquareTopElem{}, rSquareTopBtn{}, rSquareStandalone{};
+                        auto runSquareBtnFrame = [&]() {
+                            auditUi.BeginFrame({800.0f, 600.0f}, 1.0f);
+                            if (auto col = auditUi.Column({.gap = 8.0f})) {
+                                if (auto el = auditUi.Element({
+                                    .label = "Element Label",
+                                    .description = "Secondary description text",
+                                    .stretch = StretchMode::Fill
+                                })) {
+                                    rWideBtn = auditUi.Button({
+                                        .text = "Click me",
+                                        .icon = Icon::Play(),
+                                        .stretch = StretchMode::Fill,
+                                        .width = 0.5f,
+                                        .square = false
+                                    });
+                                }
+                                if (auto el = auditUi.Element({
+                                    .label = "Element Label",
+                                    .description = "Secondary description text",
+                                    .stretch = StretchMode::Fill
+                                })) {
+                                    rSquareElemBtn = auditUi.Button({
+                                        .text = "Click me",
+                                        .icon = Icon::Play(),
+                                        .stretch = StretchMode::Fill,
+                                        .width = 0.5f,
+                                        .square = true
+                                    });
+                                }
+                                if (auto el = auditUi.Element({
+                                    .label = "Top",
+                                    .stretch = StretchMode::Compact
+                                })) {
+                                    rSquareTopElem = el.response;
+                                    rSquareTopBtn = auditUi.Button({
+                                        .text = "Click me",
+                                        .icon = Icon::Play(),
+                                        .iconPlacement = Placement::Top,
+                                        .width = 180.0f,
+                                        .square = true
+                                    });
+                                }
+                                rSquareStandalone = auditUi.Button({
+                                    .text = "Click me",
+                                    .icon = Icon::Play(),
+                                    .stretch = StretchMode::Fill,
+                                    .width = 0.5f,
+                                    .height = 48.0f,
+                                    .square = true
+                                });
+                            }
+                            auditUi.EndFrame(auditCanvas);
+                        };
+                        runSquareBtnFrame();
+                        runSquareBtnFrame();
+                        CHECK(rWideBtn.rect.w > rWideBtn.rect.h * 2.0f);
+                        CHECK(rSquareElemBtn.rect.w > 0.0f);
+                        CHECK_NEAR(rSquareElemBtn.rect.w, rSquareElemBtn.rect.h, 0.5f);
+                        CHECK_NEAR(rSquareTopElem.rect.w, 180.0f, 0.5f);
+                        CHECK_NEAR(rSquareTopBtn.rect.w, rSquareTopBtn.rect.h, 0.5f);
+                        CHECK_NEAR(rSquareStandalone.rect.w, 48.0f, 0.5f);
+                        CHECK_NEAR(rSquareStandalone.rect.h, 48.0f, 0.5f);
+                    }
                 }
             }
         }

@@ -31,7 +31,8 @@ struct SegmentedOptions {
     StateColor color{};                            ///< Active segment pill fill color (Default/None = elevated surface + accent border, or Primary/Success/etc.)
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
     Align align{Align::Start};                     ///< Standalone horizontal control alignment (Start, Center, End)
-    std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = auto from items), or ratio of bounds (0.0..1.0) for Fill (nullopt = 1.0)
+    std::optional<float> width{std::nullopt};      ///< Control width in dp (or legacy ratio 0.0..1.0 in Fill)
+    std::optional<float> widthRatio{std::nullopt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
     std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = inherit defaultHeight from UiSize)
     std::optional<float> minWidth{std::nullopt};   ///< Minimum control width constraint in points
     StateColor background{StateColor::Surface()};  ///< Outer capsule/track surface fill color
@@ -39,6 +40,8 @@ struct SegmentedOptions {
     bool equalWidth{true};                         ///< Give all segments equal width (true) or size each segment to its content (false)
     bool showDividers{true};                       ///< Render subtle vertical hairlines between unselected adjacent segments
     bool disabled{false};                          ///< Interaction suppression
+    const UiTheme* theme{nullptr};                 ///< Optional scoped theme override
+    std::optional<float> scale{std::nullopt};      ///< Optional scoped scale factor override
 };
 
 /// Internal runtime state allocated in frame arena for Segmented nodes.

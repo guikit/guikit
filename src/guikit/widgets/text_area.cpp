@@ -146,7 +146,8 @@ float MeasureSegmentWidth(
     ICanvas* canvas,
     std::string_view seg,
     float fontSize,
-    FontStyle style
+    FontStyle style,
+    uint8_t tabSize = 4
 ) noexcept {
     if (seg.empty() || fontSize <= 0.0f) return 0.0f;
     const size_t firstTab = seg.find('\t');
@@ -154,7 +155,8 @@ float MeasureSegmentWidth(
         return MeasureChunkNoTabs(canvas, seg, fontSize, style);
     }
 
-    const float tabW = MeasureChunkNoTabs(canvas, " ", fontSize, style) * 4.0f;
+    const float tabCols = static_cast<float>(std::clamp<int>(tabSize, 1, 16));
+    const float tabW = MeasureChunkNoTabs(canvas, " ", fontSize, style) * tabCols;
     float totalW = 0.0f;
     size_t pos = 0;
     while (pos < seg.size()) {
@@ -182,14 +184,15 @@ size_t HitTestColumnInLine(
     std::string_view lineSub,
     float localX,
     float fontSize,
-    FontStyle style
+    FontStyle style,
+    uint8_t tabSize = 4
 ) noexcept {
     if (lineSub.empty() || localX <= 0.0f) return 0;
     size_t pos = 0;
     float prevW = 0.0f;
     while (pos < lineSub.size()) {
         const size_t nextPos = TextUtil::NextCharBoundary(lineSub, pos);
-        const float nextW = MeasureSegmentWidth(canvas, lineSub.substr(0, nextPos), fontSize, style);
+        const float nextW = MeasureSegmentWidth(canvas, lineSub.substr(0, nextPos), fontSize, style, tabSize);
         const float mid = (prevW + nextW) * 0.5f;
         if (localX < mid) {
             return pos;
@@ -392,7 +395,8 @@ void BuildVisualLines(
     ICanvas* canvas,
     std::vector<VisualLine>& outVisual,
     std::span<const FoldRegion> foldRegions = {},
-    std::span<const size_t> foldedLines = {}
+    std::span<const size_t> foldedLines = {},
+    uint8_t tabSize = 4
 ) {
     outVisual.clear();
     outVisual.reserve(logicalLines.size());
@@ -408,7 +412,7 @@ void BuildVisualLines(
             continue;
         }
 
-        const float fullW = MeasureSegmentWidth(canvas, lineStr, fontSize, style);
+        const float fullW = MeasureSegmentWidth(canvas, lineStr, fontSize, style, tabSize);
         if (fullW <= wrapWidth + 0.5f) {
             outVisual.push_back({i, ll.startOffset, 0, ll.length, true});
             continue;
@@ -421,7 +425,7 @@ void BuildVisualLines(
             size_t lastBreak = subStart;
             while (cur < ll.length) {
                 const size_t next = TextUtil::NextCharBoundary(lineStr, cur);
-                const float w = MeasureSegmentWidth(canvas, lineStr.substr(subStart, next - subStart), fontSize, style);
+                const float w = MeasureSegmentWidth(canvas, lineStr.substr(subStart, next - subStart), fontSize, style, tabSize);
                 if (w > wrapWidth && cur > subStart) {
                     break;
                 }
@@ -867,7 +871,8 @@ EditorFontMetrics ResolveEditorFontMetrics(
     const UiTheme& theme,
     float baseFontSize,
     float effZoom,
-    FontStyle style
+    FontStyle style,
+    uint8_t tabSize = 4
 ) noexcept {
     EditorFontMetrics m{};
     const float clampedZoom = std::clamp(effZoom, 0.5f, 3.0f);
@@ -889,7 +894,7 @@ EditorFontMetrics ResolveEditorFontMetrics(
 
     m.lineHeight = std::max(theme.GetLineHeight(m.fontSize), m.glyphBoxH * 1.14f);
     m.textOffsetY = (m.lineHeight - m.glyphBoxH) * 0.5f;
-    m.tabAdvance = m.spaceAdvance * 4.0f;
+    m.tabAdvance = m.spaceAdvance * static_cast<float>(std::clamp<int>(tabSize, 1, 16));
     return m;
 }
 
@@ -946,7 +951,8 @@ Vec2 MeasureEditorBox(
         ++digits;
         n /= 10;
     }
-    const bool hasBpGutter = (opts.breakpoints != nullptr) || opts.enableBreakpoints || (opts.executionLine > 0);
+    const bool hasBpGutter = (opts.breakpoints != nullptr) || opts.enableBreakpoints ||
+        (opts.executionLine > 0) || (opts.executionLinePtr != nullptr && *opts.executionLinePtr > 0);
     const float bpWidth = hasBpGutter ? std::max(theme.Scale(28.0f) * effZoom, fm.spaceAdvance * 3.4f) : 0.0f;
     const float foldWidth = opts.codeFolding ? std::max(theme.Scale(14.0f) * effZoom, fm.spaceAdvance * 1.85f) : 0.0f;
     const float gutterPadX = fm.spaceAdvance * 1.25f;
@@ -955,11 +961,11 @@ Vec2 MeasureEditorBox(
         : (bpWidth + foldWidth);
 
     float boxW = theme.Scale(280.0f);
-    if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f) {
-        const float ratio = opts.width.has_value() ? std::clamp(*opts.width, 0.1f, 1.0f) : 1.0f;
-        boxW = availableWidth * ratio;
-    } else if (opts.stretch != StretchMode::Fill && opts.width.has_value()) {
+    if (Control::HasExplicitDpWidth(opts.stretch, opts.width, opts.widthRatio)) {
         boxW = theme.Scale(*opts.width);
+    } else if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f) {
+        const float ratio = Control::ResolveFillRatio(opts.stretch, opts.width, opts.widthRatio).value_or(1.0f);
+        boxW = availableWidth * ratio;
     } else {
         const float charAdv = MeasureChunkNoTabs(canvas, "M", fontSize, textStyle);
         const float estimatedW = gutterWidth + padX * 2.0f + static_cast<float>(std::min<size_t>(maxLineChars, 80)) * charAdv + theme.Scale(24.0f);
@@ -1058,7 +1064,7 @@ EditorLayoutRects ComputeEditorLayout(
     const float baseFontSize = opts.monospace
         ? theme.GetTypography(TextRole::CodeMedium).fontSize
         : theme.ResolveFontSize(TextRole::BodyMedium, size);
-    L.metrics = ResolveEditorFontMetrics(canvas, theme, baseFontSize, effZoom, textStyle);
+    L.metrics = ResolveEditorFontMetrics(canvas, theme, baseFontSize, effZoom, textStyle, opts.tabSize);
     L.fontSize = L.metrics.fontSize;
     L.glyphBoxH = L.metrics.glyphBoxH;
     L.lineHeight = L.metrics.lineHeight;
@@ -1074,7 +1080,8 @@ EditorLayoutRects ComputeEditorLayout(
         n /= 10;
     }
 
-    const bool hasBpGutter = (opts.breakpoints != nullptr) || opts.enableBreakpoints || (opts.executionLine > 0);
+    const bool hasBpGutter = (opts.breakpoints != nullptr) || opts.enableBreakpoints ||
+        (opts.executionLine > 0) || (opts.executionLinePtr != nullptr && *opts.executionLinePtr > 0);
     L.bpColWidth = hasBpGutter ? std::max(theme.Scale(28.0f) * effZoom, L.metrics.spaceAdvance * 3.4f) : 0.0f;
     L.foldColWidth = opts.codeFolding ? std::max(theme.Scale(14.0f) * effZoom, L.metrics.spaceAdvance * 1.85f) : 0.0f;
     const float gutterPadX = L.metrics.spaceAdvance * 1.25f;
@@ -1083,7 +1090,7 @@ EditorLayoutRects ComputeEditorLayout(
         : (L.bpColWidth + L.foldColWidth);
 
     // Unzoomed (100%) gutter width for zoom-invariant floating toolbar track bounds
-    const EditorFontMetrics baseMetrics = ResolveEditorFontMetrics(canvas, theme, baseFontSize, 1.0f, textStyle);
+    const EditorFontMetrics baseMetrics = ResolveEditorFontMetrics(canvas, theme, baseFontSize, 1.0f, textStyle, opts.tabSize);
     const float baseBpColW = hasBpGutter ? std::max(theme.Scale(28.0f), baseMetrics.spaceAdvance * 3.4f) : 0.0f;
     const float baseFoldColW = opts.codeFolding ? std::max(theme.Scale(14.0f), baseMetrics.spaceAdvance * 1.85f) : 0.0f;
     const float baseGutterPadX = baseMetrics.spaceAdvance * 1.25f;
@@ -1127,7 +1134,7 @@ EditorLayoutRects ComputeEditorLayout(
     L.minimapWidth = L.hasMinimap ? theme.Scale(64.0f) : 0.0f;
 
     float prelimTextW = std::max(0.0f, L.innerBounds.w - L.gutterWidth - L.minimapWidth - padX * 2.0f);
-    BuildVisualLines(text, logicalLines, opts.wordWrap, prelimTextW, L.fontSize, textStyle, canvas, outVisualLines, foldRegions, foldedLines);
+    BuildVisualLines(text, logicalLines, opts.wordWrap, prelimTextW, L.fontSize, textStyle, canvas, outVisualLines, foldRegions, foldedLines, opts.tabSize);
 
     L.totalContentH = static_cast<float>(outVisualLines.size()) * L.lineHeight;
     const float availTextH = std::max(0.0f, L.innerBounds.h - padY * 2.0f);
@@ -1136,7 +1143,7 @@ EditorLayoutRects ComputeEditorLayout(
     const float vBarReserve = L.needVScroll ? (sm.trackWidth + sm.margin * 2.0f) : 0.0f;
     if (L.needVScroll && opts.wordWrap) {
         prelimTextW = std::max(0.0f, L.innerBounds.w - L.gutterWidth - L.minimapWidth - padX * 2.0f - vBarReserve);
-        BuildVisualLines(text, logicalLines, opts.wordWrap, prelimTextW, L.fontSize, textStyle, canvas, outVisualLines, foldRegions, foldedLines);
+        BuildVisualLines(text, logicalLines, opts.wordWrap, prelimTextW, L.fontSize, textStyle, canvas, outVisualLines, foldRegions, foldedLines, opts.tabSize);
         L.totalContentH = static_cast<float>(outVisualLines.size()) * L.lineHeight;
     }
 
@@ -1146,7 +1153,7 @@ EditorLayoutRects ComputeEditorLayout(
             const LogicalLine& ll = logicalLines[li];
             if (ll.length == 0) continue;
             const std::string_view ls = text.substr(ll.startOffset, ll.length);
-            float lineW = MeasureSegmentWidth(canvas, ls, L.fontSize, textStyle);
+            float lineW = MeasureSegmentWidth(canvas, ls, L.fontSize, textStyle, opts.tabSize);
             if (!opts.inlineValues.empty()) {
                 for (const CodeInlineValue& iv : opts.inlineValues) {
                     if (iv.line == li + 1 && !iv.text.empty()) {
@@ -1806,9 +1813,9 @@ TextAreaResponse TextArea::Run(
     }
 
     TextAreaOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
-    optsCopy.placeholder = ctx.AllocString(opts.placeholder);
-    optsCopy.tooltip = ctx.AllocString(opts.tooltip);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
+    optsCopy.placeholder = ctx.AllocText(opts.placeholder);
+    optsCopy.tooltip = ctx.AllocText(opts.tooltip);
 
     const std::string_view callerText = (stringValue != nullptr) ? std::string_view(*stringValue) : displayFallback;
     std::string_view valStr = callerText;
@@ -1904,6 +1911,7 @@ TextAreaResponse TextArea::Run(
     if (isFocused || ctx.HasActiveTextEdit(id)) {
         valStr = ctx.EnsureTextEdit(id, valStr, /*multiline=*/true, opts.readOnly);
         ctx.SetTextEditAutoClose(id, opts.autoCloseBrackets);
+        ctx.SetTextEditIndentation(id, opts.tabSize, opts.insertSpaces);
     }
 
     std::vector<LogicalLine>& logicalLines = state.cachedLogicalLines;
@@ -2051,7 +2059,7 @@ TextAreaResponse TextArea::Run(
 
     auto scrollLogicalLineIntoView = [&](size_t line0Based) {
         ensureLineUnfolded(line0Based);
-        BuildVisualLines(valStr, logicalLines, opts.wordWrap, L.textViewport.w, L.fontSize, textStyle, canvas, visualLines, foldRegions, state.foldedLines);
+        BuildVisualLines(valStr, logicalLines, opts.wordWrap, L.textViewport.w, L.fontSize, textStyle, canvas, visualLines, foldRegions, state.foldedLines, opts.tabSize);
         L.totalContentH = static_cast<float>(visualLines.size()) * L.lineHeight;
         L.maxScrollY = std::max(0.0f, L.totalContentH - L.textViewport.h);
         size_t targetVis = 0;
@@ -2658,7 +2666,7 @@ TextAreaResponse TextArea::Run(
             const size_t visIdx = static_cast<size_t>(std::clamp(rawVisIdx, 0, static_cast<int>(visualLines.size()) - 1));
             const VisualLine& vl = visualLines[visIdx];
             const std::string_view subStr = valStr.substr(vl.startOffset, vl.length);
-            const size_t colInSub = HitTestColumnInLine(canvas, subStr, relX, L.fontSize, textStyle);
+            const size_t colInSub = HitTestColumnInLine(canvas, subStr, relX, L.fontSize, textStyle, opts.tabSize);
             const size_t hitIdx = vl.startOffset + colInSub;
 
             if (mouseJustPressed) {
@@ -2852,7 +2860,7 @@ TextAreaResponse TextArea::Run(
             if (!opts.wordWrap && L.textViewport.w > 0.0f) {
                 const size_t colOffset = (cursor >= cvl.startOffset) ? std::min(cursor - cvl.startOffset, cvl.length) : 0;
                 const std::string_view prefix = displayText.substr(cvl.startOffset, colOffset);
-                const float curX = MeasureSegmentWidth(canvas, prefix, L.fontSize, textStyle);
+                const float curX = MeasureSegmentWidth(canvas, prefix, L.fontSize, textStyle, opts.tabSize);
                 const float margin = theme.Scale(16.0f);
                 if (curX < state.scrollX + margin) {
                     state.scrollX = std::max(0.0f, curX - margin);
@@ -2914,7 +2922,7 @@ TextAreaResponse TextArea::Run(
         if (rawVisIdx >= 0 && rawVisIdx < static_cast<int>(visualLines.size())) {
             const VisualLine& vl = visualLines[static_cast<size_t>(rawVisIdx)];
             const std::string_view subStr = displayText.substr(vl.startOffset, vl.length);
-            const size_t colInSub = HitTestColumnInLine(canvas, subStr, relX, L.fontSize, textStyle);
+            const size_t colInSub = HitTestColumnInLine(canvas, subStr, relX, L.fontSize, textStyle, opts.tabSize);
             const size_t hitOffset = vl.startOffset + colInSub;
             size_t wordStartOff = 0;
             hoveredWord = ExtractWordAtOffset(displayText, hitOffset, &wordStartOff);
@@ -2949,11 +2957,15 @@ TextAreaResponse TextArea::Run(
     res.totalLines = logicalLines.size();
     res.searchMatchCount = state.searchMatchCount;
     res.activeSearchMatch = (state.searchMatchCount > 0) ? (state.activeMatchIdx + 1) : 0;
-    res.hoveredWord = hoveredWord;
+    const std::string_view arenaHoveredWord = ctx.AllocString(hoveredWord);
+    res.hoveredWord = arenaHoveredWord;
 
     const bool cursorVisible = isFocused && ctx.IsCursorVisible(opts.cursorMode);
+    const float cursorWidth = ctx.GetCursorConfig().width;
 
     Node* node = ctx.CreateNode(NodeType::TextArea, id);
+    node->debugBoundsOverride = opts.debugBounds;
+    node->inspectModeOverride = opts.inspectMode;
     auto* data = ctx.AllocPayload<TextAreaData>();
     if (data) {
         data->opts = optsCopy;
@@ -2962,6 +2974,7 @@ TextAreaResponse TextArea::Run(
         data->selectionStart = state.selectionStart;
         data->selectionEnd = state.selectionEnd;
         data->cursorVisible = cursorVisible;
+        data->cursorWidth = cursorWidth;
         data->scrollX = state.scrollX;
         data->scrollY = state.scrollY;
         data->zoom = state.zoom;
@@ -2995,7 +3008,7 @@ TextAreaResponse TextArea::Run(
         data->hoveredGutterLine = hoveredGutterLine;
         data->hoveredFoldLine = hoveredFoldLine;
         data->hoveredDebugBtn = hoveredDebugBtn;
-        data->hoveredWord = ctx.AllocString(hoveredWord);
+        data->hoveredWord = arenaHoveredWord;
         data->hoveredWordLine = hoveredWordLine;
         data->hoveredWordCol = hoveredWordCol;
     }
@@ -3012,6 +3025,10 @@ TextAreaResponse TextArea::Run(
         markersHash = detail::HashArgs(markersHash, bp);
     }
 
+    const SyntaxPalette& effSynPal = optsCopy.syntaxPalette.has_value()
+        ? *optsCopy.syntaxPalette
+        : ((optsCopy.syntax.has_value() && optsCopy.syntax->palette.has_value()) ? *optsCopy.syntax->palette : theme.syntax);
+
     node->visualHash = detail::HashArgs(
         data ? data->text : displayText,
         optsCopy.placeholder,
@@ -3019,11 +3036,14 @@ TextAreaResponse TextArea::Run(
         static_cast<uint8_t>(optsCopy.align),
         static_cast<uint8_t>(optsCopy.stretch),
         optsCopy.width.value_or(-1.0f),
+        optsCopy.widthRatio.value_or(-1.0f),
         optsCopy.readOnly,
         optsCopy.showLineNumbers,
         optsCopy.showCopyButton,
         optsCopy.monospace,
         optsCopy.wordWrap,
+        optsCopy.tabSize,
+        optsCopy.insertSpaces,
         optsCopy.autoHeight,
         optsCopy.rows.value_or(0u),
         optsCopy.height.value_or(-1.0f),
@@ -3031,6 +3051,10 @@ TextAreaResponse TextArea::Run(
         optsCopy.border,
         optsCopy.syntax.has_value() ? optsCopy.syntax->enabled : false,
         optsCopy.syntax.has_value() ? optsCopy.syntax->languageName : std::string_view{},
+        effSynPal.editorBg.ToUint32(),
+        effSynPal.keyword.ToUint32(),
+        effSynPal.string.ToUint32(),
+        effSynPal.comment.ToUint32(),
         optsCopy.showMinimap,
         optsCopy.showStatusBar,
         optsCopy.showIndentGuides,
@@ -3062,6 +3086,7 @@ TextAreaResponse TextArea::Run(
         state.selectionStart,
         state.selectionEnd,
         cursorVisible,
+        cursorWidth,
         state.scrollX,
         state.scrollY,
         state.zoom,
@@ -3118,6 +3143,7 @@ TextAreaResponse TextArea::Run(
 
     ControlSpec ctrlSpec{};
     ctrlSpec.width = optsCopy.width;
+    ctrlSpec.widthRatio = optsCopy.widthRatio;
     ctrlSpec.height = optsCopy.height;
     Control::SetupNode(ctx, node, ctrlSpec, optsCopy.stretch, optsCopy.align);
     if (!node->parent || node->parent->type != NodeType::Element) {
@@ -3242,12 +3268,12 @@ void TextArea::Render(
     // Render editor container frame
     const float r = theme.ResolveRadius(opts.border.radius, size);
     const Color defaultBg = disabled ? editorBgCol.WithAlphaF(0.45f) : editorBgCol;
-    const Color bgCol = opts.background.Resolve(hovered, false, disabled, defaultBg);
+    const Color bgCol = theme.ResolveColor(opts.background, hovered, false, disabled, defaultBg);
     Color defaultBorderCol = pal.inputBorder;
     float defaultStrokeW = theme.Scale(1.0f);
     if (!disabled) {
         if (focused) {
-            defaultBorderCol = opts.color.Resolve(false, false, false, pal.focusRing);
+            defaultBorderCol = theme.ResolveColor(opts.color, false, false, false, pal.focusRing);
             defaultStrokeW = theme.Scale(1.5f);
         } else if (hovered) {
             defaultBorderCol = pal.borderHover;
@@ -3255,7 +3281,7 @@ void TextArea::Render(
     } else {
         defaultBorderCol = defaultBorderCol.WithAlphaF(0.45f);
     }
-    const Color borderCol = opts.border.color.Resolve(hovered, focused, disabled, defaultBorderCol);
+    const Color borderCol = theme.ResolveColor(opts.border.color, hovered, focused, disabled, defaultBorderCol);
     const float strokeW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : defaultStrokeW;
 
     canvas.DrawRoundRect(editorBox, r, bgCol, borderCol, strokeW);
@@ -3311,13 +3337,16 @@ void TextArea::Render(
 
     // 4. Placeholder when empty
     if (text.empty() && !opts.placeholder.empty() && !focused) {
-        canvas.DrawTextBox(
+        TextUtil::DrawUiText(
+            canvas,
             opts.placeholder,
             Rect(textViewport.x, textViewport.y, textViewport.w, L.lineHeight),
             L.fontSize,
+            L.lineHeight,
             editorTextMuted,
             0.0f,
-            0.5f
+            0.5f,
+            &theme
         );
     }
 
@@ -3472,16 +3501,17 @@ void TextArea::Render(
         const std::string_view fullLineStr = text.substr(ll.startOffset, ll.length);
         const std::string_view subLineStr = text.substr(vl.startOffset, vl.length);
 
-        // Indent guides (every 4 spaces)
+        // Indent guides
+        const size_t tabStep = std::clamp<size_t>(opts.tabSize, 1, 16);
         if (opts.showIndentGuides && vl.isFirstSubLine && !fullLineStr.empty()) {
             size_t leadSpaces = 0;
             for (char ch : fullLineStr) {
                 if (ch == ' ') ++leadSpaces;
-                else if (ch == '\t') leadSpaces += 4;
+                else if (ch == '\t') leadSpaces += tabStep;
                 else break;
             }
             const Color guideCol = hasCustomEditorSurface ? editorBorderSubtle : pal.borderSubtle.WithAlphaF(0.42f);
-            for (size_t g = 4; g < leadSpaces; g += 4) {
+            for (size_t g = tabStep; g < leadSpaces; g += tabStep) {
                 const float gx = startX + static_cast<float>(g) * L.metrics.spaceAdvance;
                 if (gx >= textViewport.x && gx <= textViewport.Right()) {
                     canvas.DrawLine({gx, lineY}, {gx, lineY + L.lineHeight}, guideCol, 1.0f);
@@ -3497,8 +3527,8 @@ void TextArea::Render(
                     const bool leftOk = (col == 0) || !IsIdentChar(subLineStr[col - 1]);
                     const bool rightOk = (col + wLen == subLineStr.size()) || !IsIdentChar(subLineStr[col + wLen]);
                     if (leftOk && rightOk) {
-                        const float ox = startX + MeasureSegmentWidth(&canvas, subLineStr.substr(0, col), L.fontSize, textStyle);
-                        const float ow = MeasureSegmentWidth(&canvas, activeWord, L.fontSize, textStyle);
+                        const float ox = startX + MeasureSegmentWidth(&canvas, subLineStr.substr(0, col), L.fontSize, textStyle, opts.tabSize);
+                        const float ow = MeasureSegmentWidth(&canvas, activeWord, L.fontSize, textStyle, opts.tabSize);
                         canvas.DrawRoundRect(
                             Rect(ox - 1.0f, lineY + 1.0f, ow + 2.0f, L.lineHeight - 2.0f),
                             theme.Scale(2.5f),
@@ -3522,8 +3552,8 @@ void TextArea::Render(
                 if (m.endOffset <= vl.startOffset || m.startOffset >= vlEndOffset) continue;
                 const size_t s0 = std::max(m.startOffset, vl.startOffset) - vl.startOffset;
                 const size_t s1 = std::min(m.endOffset, vlEndOffset) - vl.startOffset;
-                const float mx = startX + MeasureSegmentWidth(&canvas, subLineStr.substr(0, s0), L.fontSize, textStyle);
-                const float mw = MeasureSegmentWidth(&canvas, subLineStr.substr(s0, s1 - s0), L.fontSize, textStyle);
+                const float mx = startX + MeasureSegmentWidth(&canvas, subLineStr.substr(0, s0), L.fontSize, textStyle, opts.tabSize);
+                const float mw = MeasureSegmentWidth(&canvas, subLineStr.substr(s0, s1 - s0), L.fontSize, textStyle, opts.tabSize);
                 const bool isActiveMatch = (extData && mi == extData->activeMatchIdx);
                 const Color mFill = isActiveMatch ? Color(245, 158, 11, 120) : Color(245, 158, 11, 58);
                 const Color mStroke = isActiveMatch ? Color(251, 191, 36, 240) : Color(245, 158, 11, 140);
@@ -3538,8 +3568,8 @@ void TextArea::Render(
             if (s1 > s0 || (selStart <= vl.startOffset && selEnd > vlEndOffset)) {
                 const std::string_view preSel = text.substr(vl.startOffset, s0 - vl.startOffset);
                 const std::string_view midSel = text.substr(s0, s1 - s0);
-                const float selX0 = startX + MeasureSegmentWidth(&canvas, preSel, L.fontSize, textStyle);
-                float selW = MeasureSegmentWidth(&canvas, midSel, L.fontSize, textStyle);
+                const float selX0 = startX + MeasureSegmentWidth(&canvas, preSel, L.fontSize, textStyle, opts.tabSize);
+                float selW = MeasureSegmentWidth(&canvas, midSel, L.fontSize, textStyle, opts.tabSize);
                 if (selEnd > vlEndOffset) {
                     selW += L.metrics.spaceAdvance;
                 }
@@ -3554,7 +3584,7 @@ void TextArea::Render(
             for (size_t bOff : {matchBracketOpen, matchBracketClose}) {
                 if (bOff >= vl.startOffset && bOff < vlEndOffset) {
                     const size_t bCol = bOff - vl.startOffset;
-                    const float bx = startX + MeasureSegmentWidth(&canvas, subLineStr.substr(0, bCol), L.fontSize, textStyle);
+                    const float bx = startX + MeasureSegmentWidth(&canvas, subLineStr.substr(0, bCol), L.fontSize, textStyle, opts.tabSize);
                     const float bw = L.metrics.spaceAdvance;
                     canvas.DrawRoundRect(
                         Rect(bx - 1.0f, lineY + 1.5f, bw + 2.0f, L.lineHeight - 3.0f),
@@ -3570,8 +3600,8 @@ void TextArea::Render(
         // Track screen position of hoveredWord for DataTip overlay
         if (extData && !extData->hoveredWord.empty() && vl.logicalLine == extData->hoveredWordLine && vl.isFirstSubLine) {
             const size_t wCol = std::min(extData->hoveredWordCol, subLineStr.size());
-            const float wx = startX + MeasureSegmentWidth(&canvas, subLineStr.substr(0, wCol), L.fontSize, textStyle);
-            const float ww = MeasureSegmentWidth(&canvas, extData->hoveredWord, L.fontSize, textStyle);
+            const float wx = startX + MeasureSegmentWidth(&canvas, subLineStr.substr(0, wCol), L.fontSize, textStyle, opts.tabSize);
+            const float ww = MeasureSegmentWidth(&canvas, extData->hoveredWord, L.fontSize, textStyle, opts.tabSize);
             hoveredWordScreenRect = Rect(wx, lineY, ww, L.lineHeight);
         }
 
@@ -3785,8 +3815,8 @@ void TextArea::Render(
                 if (dEnd <= vl.startCol || dStart >= vl.startCol + vl.length) continue;
                 const size_t s0 = std::max(dStart, vl.startCol) - vl.startCol;
                 const size_t s1 = std::min(dEnd, vl.startCol + vl.length) - vl.startCol;
-                const float x0 = startX + MeasureSegmentWidth(&canvas, subLineStr.substr(0, s0), L.fontSize, textStyle);
-                const float x1 = startX + MeasureSegmentWidth(&canvas, subLineStr.substr(0, s1), L.fontSize, textStyle);
+                const float x0 = startX + MeasureSegmentWidth(&canvas, subLineStr.substr(0, s0), L.fontSize, textStyle, opts.tabSize);
+                const float x1 = startX + MeasureSegmentWidth(&canvas, subLineStr.substr(0, s1), L.fontSize, textStyle, opts.tabSize);
                 const Color sqCol = (diag.severity == DiagnosticSeverity::Error) ? Color(239, 68, 68, 235)
                                   : (diag.severity == DiagnosticSeverity::Warning) ? Color(245, 158, 11, 235)
                                   : Color(56, 189, 248, 220);
@@ -3800,12 +3830,14 @@ void TextArea::Render(
                 ? std::min(safeCursor - vl.startOffset, vl.length)
                 : 0;
             const std::string_view beforeCursor = text.substr(vl.startOffset, colInSub);
-            const float caretX = startX + MeasureSegmentWidth(&canvas, beforeCursor, L.fontSize, textStyle);
+            const float caretX = startX + MeasureSegmentWidth(&canvas, beforeCursor, L.fontSize, textStyle, opts.tabSize);
             if (caretX >= textViewport.x - 2.0f && caretX <= textViewport.Right() + 2.0f) {
                 const float caretH = std::max(L.glyphBoxH, L.lineHeight - theme.Scale(2.0f));
                 const float caretY = lineY + (L.lineHeight - caretH) * 0.5f;
+                const float reqCaretW = extData ? extData->cursorWidth : 1.8f;
+                const float caretW = std::max(1.0f, theme.Scale(reqCaretW));
                 canvas.DrawRect(
-                    Rect(caretX, caretY, std::max(1.5f, theme.Scale(1.8f)), caretH),
+                    Rect(caretX, caretY, caretW, caretH),
                     editorCaret
                 );
             }

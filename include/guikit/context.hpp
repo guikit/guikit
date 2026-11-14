@@ -11,6 +11,7 @@
 #include <typeindex>
 #include <vector>
 #include "keel/arena.h"
+#include "keel/array.h"
 #include "keel/format.h"
 #include "keel/hash_map.h"
 #include "keel/small_array.h"
@@ -39,7 +40,7 @@
 #include "guikit/panels/carousel.hpp"
 #include "guikit/panels/command_palette.hpp"
 #if !defined(GUIKIT_HAS_SCENES)
-#define GUIKIT_HAS_SCENES 1
+#define GUIKIT_HAS_SCENES 0
 #endif
 
 #include "guikit/panels/scroll_area.hpp"
@@ -108,21 +109,72 @@ concept ContainerOpenable = requires(Context& ctx, Args&&... args) {
     { T::Open(ctx, std::forward<Args>(args)...) };
 };
 
+template <typename S>
+concept KeelMutableString =
+    !std::is_const_v<std::remove_reference_t<S>> &&
+    !std::is_same_v<std::remove_cvref_t<S>, std::string> &&
+    !std::is_same_v<std::remove_cvref_t<S>, std::string_view> &&
+    !std::is_same_v<std::remove_cvref_t<S>, keel::StringRef> &&
+    !std::is_pointer_v<std::remove_cvref_t<S>> &&
+    requires(S& s, keel::StringRef ref) {
+        { s.as_ref() } -> std::same_as<keel::StringRef>;
+        s.assign(ref);
+    };
+
+template <typename Arr>
+concept KeelIndexArray =
+    !std::is_const_v<std::remove_reference_t<Arr>> &&
+    !std::is_same_v<std::remove_cvref_t<Arr>, std::vector<size_t>> &&
+    requires(Arr& a) {
+        { a.data() } -> std::convertible_to<const size_t*>;
+        { a.size() } -> std::convertible_to<size_t>;
+        a.clear();
+    } &&
+    (requires(Arr& a, size_t v) { a.try_push_back(v); } ||
+     requires(Arr& a, size_t v) { a.push_back(v); });
+
+template <typename Arr>
+concept KeelTagStringArray =
+    !std::is_const_v<std::remove_reference_t<Arr>> &&
+    !std::is_same_v<std::remove_cvref_t<Arr>, std::vector<std::string>> &&
+    requires(Arr& a) {
+        { a.size() } -> std::convertible_to<size_t>;
+        a.clear();
+        requires KeelMutableString<std::remove_cvref_t<decltype(*a.data())>>;
+    };
+
+template <typename Arr>
+concept KeelTagItemArray =
+    !std::is_const_v<std::remove_reference_t<Arr>> &&
+    !std::is_same_v<std::remove_cvref_t<Arr>, std::vector<TagItem>> &&
+    requires(Arr& a) {
+        { a.data() } -> std::convertible_to<const TagItem*>;
+        { a.size() } -> std::convertible_to<size_t>;
+        a.clear();
+    } &&
+    (requires(Arr& a, TagItem&& item) { a.try_push_back(std::move(item)); } ||
+     requires(Arr& a, TagItem&& item) { a.push_back(std::move(item)); });
+
 template <typename T>
 concept SpinBoxNumeric =
-    std::is_same_v<std::decay_t<T>, float> ||
-    std::is_same_v<std::decay_t<T>, double> ||
-    std::is_same_v<std::decay_t<T>, int>;
+    !std::is_const_v<std::remove_reference_t<T>> &&
+    !std::is_same_v<std::decay_t<T>, bool> &&
+    (std::integral<std::decay_t<T>> || std::floating_point<std::decay_t<T>>);
 
 template <typename T>
 concept SelectTarget =
-    std::is_same_v<std::decay_t<T>, size_t> ||
-    std::is_same_v<std::decay_t<T>, int> ||
-    std::is_same_v<std::decay_t<T>, std::string> ||
-    std::is_same_v<std::decay_t<T>, std::string_view>;
+    !std::is_const_v<std::remove_reference_t<T>> &&
+    (IndexLike<T> ||
+     std::is_same_v<std::remove_cvref_t<T>, std::string> ||
+     std::is_same_v<std::remove_cvref_t<T>, std::string_view> ||
+     std::is_same_v<std::remove_cvref_t<T>, keel::StringRef> ||
+     KeelMutableString<T>);
 
 template <typename T>
-concept SliderNumeric = std::integral<std::decay_t<T>> || std::floating_point<std::decay_t<T>>;
+concept SliderNumeric =
+    !std::is_const_v<std::remove_reference_t<T>> &&
+    !std::is_same_v<std::decay_t<T>, bool> &&
+    (std::integral<std::decay_t<T>> || std::floating_point<std::decay_t<T>>);
 
 namespace detail {
 
@@ -395,8 +447,26 @@ public:
         std::source_location loc = std::source_location::current()
     );
 
+    void Gap(
+        float sizeDp = 8.0f,
+        std::source_location loc = std::source_location::current()
+    );
+
     void Separator(
         float extentRatio = 0.0f,
+        Color colorOverride = Color::Transparent(),
+        std::source_location loc = std::source_location::current()
+    );
+
+    void Separator(
+        Color colorOverride,
+        std::source_location loc = std::source_location::current()
+    );
+
+    void Separator(
+        Orientation lineOrientation,
+        float extentRatio = 0.0f,
+        Color colorOverride = Color::Transparent(),
         std::source_location loc = std::source_location::current()
     );
 
@@ -489,8 +559,10 @@ public:
         return guikit::ActivityBar::Open(*this, linkedSidebarMode, std::move(opts), loc);
     }
 
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response ActivityBar(
-        int& activeIndex,
+        IndexT& activeIndex,
         std::span<const ActivityBarItem> items,
         ActivityBarOptions opts = {},
         std::source_location loc = std::source_location::current()
@@ -500,11 +572,22 @@ public:
             ~ExecGuard() noexcept { c.EndWidgetExecution(); }
         } guard{*this};
         BeginWidgetExecution();
-        return guikit::ActivityBar::Run(*this, activeIndex, items, opts, loc);
+        if constexpr (std::is_same_v<std::decay_t<IndexT>, int>) {
+            return guikit::ActivityBar::Run(*this, activeIndex, items, opts, loc);
+        } else {
+            int idx = static_cast<int>(activeIndex);
+            Response r = guikit::ActivityBar::Run(*this, idx, items, opts, loc);
+            if (r.changed && idx >= 0) {
+                activeIndex = static_cast<IndexT>(idx);
+            }
+            return r;
+        }
     }
 
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response ActivityBar(
-        int& activeIndex,
+        IndexT& activeIndex,
         std::initializer_list<ActivityBarItem> items,
         ActivityBarOptions opts = {},
         std::source_location loc = std::source_location::current()
@@ -928,22 +1011,83 @@ public:
         std::source_location loc = std::source_location::current()
     );
 
+    template <KeelMutableString S>
+    Response InputField(
+        S& value,
+        InputFieldOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        const keel::StringRef ref = value.as_ref();
+        std::string tmp(ref.data(), ref.size());
+        Response r = InputField(tmp, std::move(opts), loc);
+        if (r.changed) {
+            value.assign(keel::StringRef(tmp.data(), tmp.size()));
+        }
+        return r;
+    }
+
     template <SpinBoxNumeric T>
     Response SpinBox(
         T& value,
         SpinBoxOptions opts = {},
         std::source_location loc = std::source_location::current()
     ) {
-        if constexpr (std::is_same_v<std::decay_t<T>, float>) {
+        using Decayed = std::decay_t<T>;
+        if constexpr (std::is_same_v<Decayed, float>) {
             return Run<guikit::SpinBox>(&value, nullptr, nullptr, opts, loc);
-        } else if constexpr (std::is_same_v<std::decay_t<T>, double>) {
+        } else if constexpr (std::is_same_v<Decayed, double>) {
             return Run<guikit::SpinBox>(nullptr, &value, nullptr, opts, loc);
-        } else if constexpr (std::is_same_v<std::decay_t<T>, int>) {
+        } else if constexpr (std::floating_point<Decayed>) {
+            double tmp = static_cast<double>(value);
+            Response r = Run<guikit::SpinBox>(nullptr, &tmp, nullptr, opts, loc);
+            if (r.changed) {
+                value = static_cast<Decayed>(tmp);
+            }
+            return r;
+        } else if constexpr (std::is_same_v<Decayed, int64_t>) {
             return Run<guikit::SpinBox>(nullptr, nullptr, &value, opts, loc);
+        } else {
+            constexpr int64_t kTypeMin = std::unsigned_integral<Decayed>
+                ? int64_t{0}
+                : static_cast<int64_t>(std::numeric_limits<Decayed>::lowest());
+            constexpr int64_t kTypeMax = (static_cast<uint64_t>(std::numeric_limits<Decayed>::max()) >=
+                                          static_cast<uint64_t>(std::numeric_limits<int64_t>::max()))
+                ? std::numeric_limits<int64_t>::max()
+                : static_cast<int64_t>(std::numeric_limits<Decayed>::max());
+            if constexpr (std::unsigned_integral<Decayed>) {
+                if (!opts.min.has_value()) {
+                    opts.min = 0.0;
+                } else {
+                    opts.min = std::max(0.0, *opts.min);
+                }
+            }
+            int64_t tmp = (static_cast<uint64_t>(value) > static_cast<uint64_t>(kTypeMax) && std::unsigned_integral<Decayed>)
+                ? kTypeMax
+                : static_cast<int64_t>(value);
+            Response r = Run<guikit::SpinBox>(nullptr, nullptr, &tmp, opts, loc);
+            if (r.changed) {
+                value = static_cast<Decayed>(std::clamp(tmp, kTypeMin, kTypeMax));
+            }
+            return r;
         }
     }
 
-    // --- TextArea Widget ---
+    template <SpinBoxNumeric T>
+    Response SpinBox(
+        T& value,
+        double minVal,
+        double maxVal,
+        double stepVal = 1.0,
+        SpinBoxOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        if (!opts.min.has_value()) opts.min = minVal;
+        if (!opts.max.has_value()) opts.max = maxVal;
+        if (!opts.step.has_value()) opts.step = stepVal;
+        return SpinBox(value, std::move(opts), loc);
+    }
+
+    // --- TextArea & CodeEditor Widgets ---
     TextAreaResponse TextArea(
         std::string& value,
         const TextAreaOptions& opts = {},
@@ -960,6 +1104,46 @@ public:
         return Run<guikit::TextArea>(nullptr, value, opts, loc);
     }
 
+    template <KeelMutableString S>
+    TextAreaResponse TextArea(
+        S& value,
+        const TextAreaOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        const keel::StringRef ref = value.as_ref();
+        std::string tmp(ref.data(), ref.size());
+        TextAreaResponse r = TextArea(tmp, opts, loc);
+        if (r.changed) {
+            value.assign(keel::StringRef(tmp.data(), tmp.size()));
+        }
+        return r;
+    }
+
+    CodeEditorResponse CodeEditor(
+        std::string& value,
+        const CodeEditorOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TextArea(value, opts, loc);
+    }
+
+    CodeEditorResponse CodeEditor(
+        std::string_view value,
+        const CodeEditorOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TextArea(value, opts, loc);
+    }
+
+    template <KeelMutableString S>
+    CodeEditorResponse CodeEditor(
+        S& value,
+        const CodeEditorOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TextArea(value, opts, loc);
+    }
+
 
     // --- Select (Dropdown) Widget ---
     template <SelectTarget T>
@@ -973,10 +1157,48 @@ public:
             return Run<guikit::Select>(&selected, nullptr, nullptr, nullptr, items, opts, loc);
         } else if constexpr (std::is_same_v<std::decay_t<T>, int>) {
             return Run<guikit::Select>(nullptr, &selected, nullptr, nullptr, items, opts, loc);
+        } else if constexpr (IndexLike<T>) {
+            constexpr bool isSignedIndex = []() constexpr {
+                if constexpr (std::is_enum_v<std::decay_t<T>>) {
+                    return std::is_signed_v<std::underlying_type_t<std::decay_t<T>>>;
+                } else {
+                    return std::is_signed_v<std::decay_t<T>>;
+                }
+            }();
+            if constexpr (isSignedIndex) {
+                int idx = static_cast<int>(selected);
+                Response r = Run<guikit::Select>(nullptr, &idx, nullptr, nullptr, items, opts, loc);
+                if (r.changed) {
+                    selected = static_cast<T>(idx);
+                }
+                return r;
+            } else {
+                size_t idx = static_cast<size_t>(selected);
+                Response r = Run<guikit::Select>(&idx, nullptr, nullptr, nullptr, items, opts, loc);
+                if (r.changed) {
+                    selected = static_cast<T>(idx);
+                }
+                return r;
+            }
         } else if constexpr (std::is_same_v<std::decay_t<T>, std::string>) {
             return Run<guikit::Select>(nullptr, nullptr, &selected, nullptr, items, opts, loc);
         } else if constexpr (std::is_same_v<std::decay_t<T>, std::string_view>) {
             return Run<guikit::Select>(nullptr, nullptr, nullptr, &selected, items, opts, loc);
+        } else if constexpr (std::is_same_v<std::decay_t<T>, keel::StringRef>) {
+            std::string_view sv(selected.data(), selected.size());
+            Response r = Run<guikit::Select>(nullptr, nullptr, nullptr, &sv, items, opts, loc);
+            if (r.changed) {
+                selected = keel::StringRef(sv.data(), sv.size());
+            }
+            return r;
+        } else if constexpr (KeelMutableString<T>) {
+            const keel::StringRef ref = selected.as_ref();
+            std::string tmp(ref.data(), ref.size());
+            Response r = Run<guikit::Select>(nullptr, nullptr, &tmp, nullptr, items, opts, loc);
+            if (r.changed) {
+                selected.assign(keel::StringRef(tmp.data(), tmp.size()));
+            }
+            return r;
         }
     }
 
@@ -1001,10 +1223,48 @@ public:
             return Run<guikit::Select>(&selected, nullptr, nullptr, nullptr, items, opts, loc);
         } else if constexpr (std::is_same_v<std::decay_t<T>, int>) {
             return Run<guikit::Select>(nullptr, &selected, nullptr, nullptr, items, opts, loc);
+        } else if constexpr (IndexLike<T>) {
+            constexpr bool isSignedIndex = []() constexpr {
+                if constexpr (std::is_enum_v<std::decay_t<T>>) {
+                    return std::is_signed_v<std::underlying_type_t<std::decay_t<T>>>;
+                } else {
+                    return std::is_signed_v<std::decay_t<T>>;
+                }
+            }();
+            if constexpr (isSignedIndex) {
+                int idx = static_cast<int>(selected);
+                Response r = Run<guikit::Select>(nullptr, &idx, nullptr, nullptr, items, opts, loc);
+                if (r.changed) {
+                    selected = static_cast<T>(idx);
+                }
+                return r;
+            } else {
+                size_t idx = static_cast<size_t>(selected);
+                Response r = Run<guikit::Select>(&idx, nullptr, nullptr, nullptr, items, opts, loc);
+                if (r.changed) {
+                    selected = static_cast<T>(idx);
+                }
+                return r;
+            }
         } else if constexpr (std::is_same_v<std::decay_t<T>, std::string>) {
             return Run<guikit::Select>(nullptr, nullptr, &selected, nullptr, items, opts, loc);
         } else if constexpr (std::is_same_v<std::decay_t<T>, std::string_view>) {
             return Run<guikit::Select>(nullptr, nullptr, nullptr, &selected, items, opts, loc);
+        } else if constexpr (std::is_same_v<std::decay_t<T>, keel::StringRef>) {
+            std::string_view sv(selected.data(), selected.size());
+            Response r = Run<guikit::Select>(nullptr, nullptr, nullptr, &sv, items, opts, loc);
+            if (r.changed) {
+                selected = keel::StringRef(sv.data(), sv.size());
+            }
+            return r;
+        } else if constexpr (KeelMutableString<T>) {
+            const keel::StringRef ref = selected.as_ref();
+            std::string tmp(ref.data(), ref.size());
+            Response r = Run<guikit::Select>(nullptr, nullptr, &tmp, nullptr, items, opts, loc);
+            if (r.changed) {
+                selected.assign(keel::StringRef(tmp.data(), tmp.size()));
+            }
+            return r;
         }
     }
 
@@ -1107,6 +1367,54 @@ public:
         return Select(value, items, std::move(opts), loc);
     }
 
+    template <KeelMutableString S>
+    Response Autocomplete(
+        S& value,
+        std::span<const SelectItem> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        opts.searchable = true;
+        opts.editable = true;
+        return Select(value, items, std::move(opts), loc);
+    }
+
+    template <KeelMutableString S>
+    Response Autocomplete(
+        S& value,
+        std::initializer_list<SelectItem> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        opts.searchable = true;
+        opts.editable = true;
+        return Select(value, items, std::move(opts), loc);
+    }
+
+    template <KeelMutableString S>
+    Response Autocomplete(
+        S& value,
+        std::span<const std::string_view> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        opts.searchable = true;
+        opts.editable = true;
+        return Select(value, items, std::move(opts), loc);
+    }
+
+    template <KeelMutableString S>
+    Response Autocomplete(
+        S& value,
+        std::initializer_list<std::string_view> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        opts.searchable = true;
+        opts.editable = true;
+        return Select(value, items, std::move(opts), loc);
+    }
+
     Response MultiSelect(
         std::vector<size_t>& selectedIndices,
         std::span<const SelectItem> items,
@@ -1153,32 +1461,98 @@ public:
         return MultiSelect(selectedIndices, std::span<const std::string_view>(items.begin(), items.size()), std::move(opts), loc);
     }
 
+    template <KeelIndexArray Arr>
+    Response MultiSelect(
+        Arr& selectedIndices,
+        std::span<const SelectItem> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        std::vector<size_t> tmp(selectedIndices.data(), selectedIndices.data() + selectedIndices.size());
+        Response r = MultiSelect(tmp, items, std::move(opts), loc);
+        if (r.changed) {
+            selectedIndices.clear();
+            for (size_t idx : tmp) {
+                if constexpr (requires { selectedIndices.try_push_back(idx); }) {
+                    (void)selectedIndices.try_push_back(idx);
+                } else {
+                    selectedIndices.push_back(idx);
+                }
+            }
+        }
+        return r;
+    }
+
+    template <KeelIndexArray Arr>
+    Response MultiSelect(
+        Arr& selectedIndices,
+        std::initializer_list<SelectItem> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return MultiSelect(selectedIndices, std::span<const SelectItem>(items.begin(), items.size()), std::move(opts), loc);
+    }
+
+    template <KeelIndexArray Arr>
+    Response MultiSelect(
+        Arr& selectedIndices,
+        std::span<const std::string_view> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        std::vector<size_t> tmp(selectedIndices.data(), selectedIndices.data() + selectedIndices.size());
+        Response r = MultiSelect(tmp, items, std::move(opts), loc);
+        if (r.changed) {
+            selectedIndices.clear();
+            for (size_t idx : tmp) {
+                if constexpr (requires { selectedIndices.try_push_back(idx); }) {
+                    (void)selectedIndices.try_push_back(idx);
+                } else {
+                    selectedIndices.push_back(idx);
+                }
+            }
+        }
+        return r;
+    }
+
+    template <KeelIndexArray Arr>
+    Response MultiSelect(
+        Arr& selectedIndices,
+        std::initializer_list<std::string_view> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return MultiSelect(selectedIndices, std::span<const std::string_view>(items.begin(), items.size()), std::move(opts), loc);
+    }
+
     // --- TabBar Component ---
-    template <typename IndexT>
-    Response TabBar(
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
+    TabBarResponse TabBar(
         IndexT& activeIndex,
         std::span<const TabItem> tabs,
         TabBarOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT>) {
+    ) {
         struct ExecGuard {
             Context& c;
             ~ExecGuard() noexcept { c.EndWidgetExecution(); }
         } guard{*this};
         BeginWidgetExecution();
         int idx = static_cast<int>(activeIndex);
-        Response r = TabBar::Run(*this, idx, tabs, opts, loc);
+        TabBarResponse r = TabBar::Run(*this, idx, tabs, opts, loc);
         if (r.changed && idx >= 0) activeIndex = static_cast<IndexT>(idx);
         return r;
     }
 
-    template <typename IndexT>
-    Response TabBar(
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
+    TabBarResponse TabBar(
         IndexT& activeIndex,
         std::initializer_list<TabItem> tabs,
         TabBarOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT>) {
+    ) {
         return TabBar(activeIndex, std::span<const TabItem>(tabs.begin(), tabs.size()), opts, loc);
     }
 
@@ -1188,13 +1562,14 @@ public:
         std::source_location loc = std::source_location::current()
     );
 
-    template <typename IndexT>
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response SidebarMenu(
         IndexT& activeIndex,
         std::span<const SidebarMenuItem> items,
         SidebarMenuOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
+    ) {
         struct ExecGuard {
             Context& c;
             ~ExecGuard() noexcept { c.EndWidgetExecution(); }
@@ -1206,13 +1581,14 @@ public:
         return r;
     }
 
-    template <typename IndexT>
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response SidebarMenu(
         IndexT& activeIndex,
         std::initializer_list<SidebarMenuItem> items,
         SidebarMenuOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
+    ) {
         return SidebarMenu(activeIndex, std::span<const SidebarMenuItem>(items.begin(), items.size()), opts, loc);
     }
 
@@ -1282,13 +1658,14 @@ public:
         return Run<guikit::ProgressBar>(percent0to100, 0.0, 100.0, opts, loc);
     }
 
-    template <typename IndexT>
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response StepSlider(
         IndexT& index,
         size_t totalSteps,
         StepSliderOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
+    ) {
         if constexpr (std::is_same_v<std::decay_t<IndexT>, size_t>) {
             return Run<guikit::StepSlider>(&index, nullptr, totalSteps, opts, loc);
         } else if constexpr (std::is_same_v<std::decay_t<IndexT>, int>) {
@@ -1303,24 +1680,26 @@ public:
         }
     }
 
-    template <typename IndexT>
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response StepSlider(
         IndexT& index,
         std::span<const std::string_view> labels,
         StepSliderOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
+    ) {
         opts.stepLabels = labels;
         return StepSlider(index, labels.size(), opts, loc);
     }
 
-    template <typename IndexT>
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response StepSlider(
         IndexT& index,
         std::initializer_list<std::string_view> labels,
         StepSliderOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
+    ) {
         return StepSlider(index, std::span<const std::string_view>(labels.begin(), labels.size()), opts, loc);
     }
 
@@ -1349,8 +1728,10 @@ public:
             return Run<guikit::Knob>(&value, nullptr, nullptr, min, max, opts, loc);
         } else if constexpr (std::is_same_v<std::decay_t<T>, float>) {
             return Run<guikit::Knob>(nullptr, &value, nullptr, static_cast<double>(min), static_cast<double>(max), opts, loc);
+        } else if constexpr (std::is_same_v<std::decay_t<T>, int64_t>) {
+            return Run<guikit::Knob>(nullptr, nullptr, &value, static_cast<double>(min), static_cast<double>(max), opts, loc);
         } else {
-            int valInt = static_cast<int>(value);
+            int64_t valInt = static_cast<int64_t>(value);
             Response res = Run<guikit::Knob>(nullptr, nullptr, &valInt, static_cast<double>(min), static_cast<double>(max), opts, loc);
             if (res.changed) {
                 value = static_cast<T>(valInt);
@@ -1360,13 +1741,14 @@ public:
     }
 
     // --- Segmented Control Widget ---
-    template <typename IndexT>
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response Segmented(
         IndexT& selectedIndex,
         std::span<const SegmentedItem> items,
         SegmentedOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
+    ) {
         if constexpr (std::is_same_v<std::decay_t<IndexT>, size_t>) {
             return Run<guikit::Segmented>(&selectedIndex, nullptr, nullptr, items, opts, loc);
         } else {
@@ -1379,23 +1761,25 @@ public:
         }
     }
 
-    template <typename IndexT>
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response Segmented(
         IndexT& selectedIndex,
         std::initializer_list<SegmentedItem> items,
         SegmentedOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
+    ) {
         return Segmented(selectedIndex, std::span<const SegmentedItem>(items.begin(), items.size()), std::move(opts), loc);
     }
 
-    template <typename IndexT>
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response Segmented(
         IndexT& selectedIndex,
         std::span<const std::string_view> items,
         SegmentedOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
+    ) {
         if constexpr (std::is_same_v<std::decay_t<IndexT>, size_t>) {
             return Run<guikit::Segmented>(&selectedIndex, nullptr, nullptr, items, opts, loc);
         } else {
@@ -1408,13 +1792,14 @@ public:
         }
     }
 
-    template <typename IndexT>
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response Segmented(
         IndexT& selectedIndex,
         std::initializer_list<std::string_view> items,
         SegmentedOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
+    ) {
         return Segmented(selectedIndex, std::span<const std::string_view>(items.begin(), items.size()), std::move(opts), loc);
     }
 
@@ -1510,14 +1895,71 @@ public:
         return Run<guikit::TagInput>(tags, opts, loc);
     }
 
+    template <KeelTagStringArray Arr>
+    Response TagInput(
+        Arr& tags,
+        TagInputOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        using ElemT = std::remove_cvref_t<decltype(*tags.data())>;
+        std::vector<std::string> tmp;
+        tmp.reserve(tags.size());
+        for (size_t i = 0; i < tags.size(); ++i) {
+            const keel::StringRef ref = tags[i].as_ref();
+            tmp.emplace_back(ref.data(), ref.size());
+        }
+        Response r = TagInput(tmp, std::move(opts), loc);
+        if (r.changed) {
+            tags.clear();
+            for (const std::string& s : tmp) {
+                const keel::StringRef ref(s.data(), s.size());
+                auto makeElem = [&]() -> ElemT {
+                    if constexpr (requires { tags.allocator(); ElemT(ref, tags.allocator()); }) {
+                        return ElemT(ref, tags.allocator());
+                    } else {
+                        return ElemT(ref);
+                    }
+                };
+                if constexpr (requires { tags.try_push_back(makeElem()); }) {
+                    (void)tags.try_push_back(makeElem());
+                } else {
+                    tags.push_back(makeElem());
+                }
+            }
+        }
+        return r;
+    }
+
+    template <KeelTagItemArray Arr>
+    Response TagInput(
+        Arr& tags,
+        TagInputOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        std::vector<TagItem> tmp(tags.data(), tags.data() + tags.size());
+        Response r = TagInput(tmp, std::move(opts), loc);
+        if (r.changed) {
+            tags.clear();
+            for (TagItem& item : tmp) {
+                if constexpr (requires { tags.try_push_back(std::move(item)); }) {
+                    (void)tags.try_push_back(std::move(item));
+                } else {
+                    tags.push_back(std::move(item));
+                }
+            }
+        }
+        return r;
+    }
+
     // --- Breadcrumb & Pagination Navigation Widgets ---
-    template <typename IndexT>
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response Breadcrumb(
         IndexT& activeIndex,
         std::span<const BreadcrumbItem> items,
         BreadcrumbOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT>) {
+    ) {
         if constexpr (std::is_same_v<std::decay_t<IndexT>, size_t>) {
             return Run<guikit::Breadcrumb>(activeIndex, items, opts, loc);
         } else {
@@ -1528,23 +1970,25 @@ public:
         }
     }
 
-    template <typename IndexT>
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response Breadcrumb(
         IndexT& activeIndex,
         std::initializer_list<BreadcrumbItem> items,
         BreadcrumbOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT>) {
+    ) {
         return Breadcrumb(activeIndex, std::span<const BreadcrumbItem>(items.begin(), items.size()), std::move(opts), loc);
     }
 
-    template <typename IndexT>
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response Breadcrumb(
         IndexT& activeIndex,
         std::span<const std::string_view> items,
         BreadcrumbOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT>) {
+    ) {
         if constexpr (std::is_same_v<std::decay_t<IndexT>, size_t>) {
             return Run<guikit::Breadcrumb>(activeIndex, items, opts, loc);
         } else {
@@ -1555,23 +1999,25 @@ public:
         }
     }
 
-    template <typename IndexT>
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response Breadcrumb(
         IndexT& activeIndex,
         std::initializer_list<std::string_view> items,
         BreadcrumbOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT>) {
+    ) {
         return Breadcrumb(activeIndex, std::span<const std::string_view>(items.begin(), items.size()), std::move(opts), loc);
     }
 
-    template <typename IndexT, typename CountT>
+    template <IndexLike IndexT, IndexLike CountT>
+        requires (!std::is_const_v<IndexT>)
     Response Pagination(
         IndexT& currentPage,
         CountT totalPages,
         PaginationOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT> && std::is_integral_v<CountT>) {
+    ) {
         if constexpr (std::is_same_v<std::decay_t<IndexT>, size_t>) {
             return Run<guikit::Pagination>(currentPage, static_cast<size_t>(totalPages), opts, loc);
         } else {
@@ -1817,13 +2263,21 @@ public:
     [[nodiscard]] size_t GetCustomStateCount() const noexcept { return m_customStates.size(); }
     [[nodiscard]] ICanvas* GetCanvas() const noexcept { return m_lastCanvas; }
 
-    // --- Clipboard Services ---
+    // --- Clipboard & Host Services ---
     using ClipboardGetFn = std::function<std::string()>;
     using ClipboardSetFn = std::function<void(std::string_view)>;
+    using OpenUrlFn = std::function<void(std::string_view)>;
 
     void SetClipboardCallbacks(ClipboardGetFn getFn, ClipboardSetFn setFn);
     void SetClipboardText(std::string_view text);
     [[nodiscard]] std::string GetClipboardText() const;
+
+    void SetOpenUrlCallback(OpenUrlFn fn) { m_openUrlFn = std::move(fn); }
+    void OpenUrl(std::string_view url) const {
+        if (!url.empty() && m_openUrlFn) {
+            m_openUrlFn(url);
+        }
+    }
 
     std::string_view EnsureTextEdit(
         Id id,
@@ -1855,6 +2309,7 @@ public:
     void SetTextEditBuffer(Id id, std::string_view text);
     void SetTextEditCursor(Id id, size_t cursor, size_t selectionAnchor) noexcept;
     void SetTextEditAutoClose(Id id, bool enabled) noexcept;
+    void SetTextEditIndentation(Id id, uint8_t tabSize, bool insertSpaces) noexcept;
     void ApplyTextEditChange(Id id, std::string_view newText, size_t newCursor, size_t newSelectionAnchor);
     bool UndoTextEdit(Id id);
     bool RedoTextEdit(Id id);
@@ -2198,9 +2653,10 @@ private:
     int m_repaintFrames{3};
     int m_idleHeartbeatMs{500};
 
-    // Clipboard state
+    // Clipboard & host state
     ClipboardGetFn m_clipboardGetFn{};
     ClipboardSetFn m_clipboardSetFn{};
+    OpenUrlFn m_openUrlFn{};
     std::string m_clipboardText{};
 
     Id m_hoveredId{Id::Null()};
@@ -2228,6 +2684,8 @@ private:
         bool multiline{false};
         bool readOnly{false};
         bool autoCloseBrackets{false};
+        uint8_t tabSize{4};
+        bool insertSpaces{true};
 
         [[nodiscard]] bool HasSelection() const noexcept { return cursor != selectionAnchor; }
         [[nodiscard]] size_t SelectionStart() const noexcept { return std::min(cursor, selectionAnchor); }
@@ -2549,11 +3007,35 @@ public:
         m_ctx->Spacer(flex, loc);
     }
 
-    void Separator(
-        float extentRatio = 0.0f,
+    void Gap(
+        float sizeDp = 8.0f,
         std::source_location loc = std::source_location::current()
     ) {
-        m_ctx->Separator(extentRatio, loc);
+        m_ctx->Gap(sizeDp, loc);
+    }
+
+    void Separator(
+        float extentRatio = 0.0f,
+        Color colorOverride = Color::Transparent(),
+        std::source_location loc = std::source_location::current()
+    ) {
+        m_ctx->Separator(extentRatio, colorOverride, loc);
+    }
+
+    void Separator(
+        Color colorOverride,
+        std::source_location loc = std::source_location::current()
+    ) {
+        m_ctx->Separator(colorOverride, loc);
+    }
+
+    void Separator(
+        Orientation lineOrientation,
+        float extentRatio = 0.0f,
+        Color colorOverride = Color::Transparent(),
+        std::source_location loc = std::source_location::current()
+    ) {
+        m_ctx->Separator(lineOrientation, extentRatio, colorOverride, loc);
     }
 
     [[nodiscard]] ContainerScope Box(
@@ -2622,8 +3104,10 @@ public:
         return TransferToContainer(m_ctx->ActivityBar(linkedSidebarMode, std::move(opts), loc));
     }
 
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response ActivityBar(
-        int& activeIndex,
+        IndexT& activeIndex,
         std::span<const ActivityBarItem> items,
         ActivityBarOptions opts = {},
         std::source_location loc = std::source_location::current()
@@ -2631,8 +3115,10 @@ public:
         return m_ctx->ActivityBar(activeIndex, items, std::move(opts), loc);
     }
 
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response ActivityBar(
-        int& activeIndex,
+        IndexT& activeIndex,
         std::initializer_list<ActivityBarItem> items,
         ActivityBarOptions opts = {},
         std::source_location loc = std::source_location::current()
@@ -3025,6 +3511,15 @@ public:
         return m_ctx->InputField(value, std::move(opts), loc);
     }
 
+    template <KeelMutableString S>
+    Response InputField(
+        S& value,
+        InputFieldOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->InputField(value, std::move(opts), loc);
+    }
+
     template <SpinBoxNumeric T>
     Response SpinBox(
         T& value,
@@ -3032,6 +3527,18 @@ public:
         std::source_location loc = std::source_location::current()
     ) {
         return m_ctx->SpinBox(value, std::move(opts), loc);
+    }
+
+    template <SpinBoxNumeric T>
+    Response SpinBox(
+        T& value,
+        double minVal,
+        double maxVal,
+        double stepVal = 1.0,
+        SpinBoxOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->SpinBox(value, minVal, maxVal, stepVal, std::move(opts), loc);
     }
 
     TextAreaResponse TextArea(
@@ -3050,6 +3557,40 @@ public:
         return m_ctx->TextArea(value, opts, loc);
     }
 
+    template <KeelMutableString S>
+    TextAreaResponse TextArea(
+        S& value,
+        const TextAreaOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->TextArea(value, opts, loc);
+    }
+
+    CodeEditorResponse CodeEditor(
+        std::string& value,
+        const CodeEditorOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->CodeEditor(value, opts, loc);
+    }
+
+    CodeEditorResponse CodeEditor(
+        std::string_view value,
+        const CodeEditorOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->CodeEditor(value, opts, loc);
+    }
+
+    template <KeelMutableString S>
+    CodeEditorResponse CodeEditor(
+        S& value,
+        const CodeEditorOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->CodeEditor(value, opts, loc);
+    }
+
     template <SelectTarget T>
     Response Select(
         T& selected,
@@ -3166,6 +3707,46 @@ public:
         return m_ctx->Autocomplete(value, items, std::move(opts), loc);
     }
 
+    template <KeelMutableString S>
+    Response Autocomplete(
+        S& value,
+        std::span<const SelectItem> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->Autocomplete(value, items, std::move(opts), loc);
+    }
+
+    template <KeelMutableString S>
+    Response Autocomplete(
+        S& value,
+        std::initializer_list<SelectItem> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->Autocomplete(value, items, std::move(opts), loc);
+    }
+
+    template <KeelMutableString S>
+    Response Autocomplete(
+        S& value,
+        std::span<const std::string_view> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->Autocomplete(value, items, std::move(opts), loc);
+    }
+
+    template <KeelMutableString S>
+    Response Autocomplete(
+        S& value,
+        std::initializer_list<std::string_view> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->Autocomplete(value, items, std::move(opts), loc);
+    }
+
     Response MultiSelect(
         std::vector<size_t>& selectedIndices,
         std::span<const SelectItem> items,
@@ -3202,43 +3783,87 @@ public:
         return m_ctx->MultiSelect(selectedIndices, items, std::move(opts), loc);
     }
 
-    template <typename IndexT>
-    Response TabBar(
+    template <KeelIndexArray Arr>
+    Response MultiSelect(
+        Arr& selectedIndices,
+        std::span<const SelectItem> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->MultiSelect(selectedIndices, items, std::move(opts), loc);
+    }
+
+    template <KeelIndexArray Arr>
+    Response MultiSelect(
+        Arr& selectedIndices,
+        std::initializer_list<SelectItem> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->MultiSelect(selectedIndices, items, std::move(opts), loc);
+    }
+
+    template <KeelIndexArray Arr>
+    Response MultiSelect(
+        Arr& selectedIndices,
+        std::span<const std::string_view> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->MultiSelect(selectedIndices, items, std::move(opts), loc);
+    }
+
+    template <KeelIndexArray Arr>
+    Response MultiSelect(
+        Arr& selectedIndices,
+        std::initializer_list<std::string_view> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->MultiSelect(selectedIndices, items, std::move(opts), loc);
+    }
+
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
+    TabBarResponse TabBar(
         IndexT& activeIndex,
         std::span<const TabItem> tabs,
         TabBarOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT>) {
+    ) {
         return m_ctx->TabBar(activeIndex, tabs, std::move(opts), loc);
     }
 
-    template <typename IndexT>
-    Response TabBar(
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
+    TabBarResponse TabBar(
         IndexT& activeIndex,
         std::initializer_list<TabItem> tabs,
         TabBarOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT>) {
+    ) {
         return m_ctx->TabBar(activeIndex, tabs, std::move(opts), loc);
     }
 
-    template <typename IndexT>
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response SidebarMenu(
         IndexT& activeIndex,
         std::span<const SidebarMenuItem> items,
         SidebarMenuOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
+    ) {
         return m_ctx->SidebarMenu(activeIndex, items, std::move(opts), loc);
     }
 
-    template <typename IndexT>
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response SidebarMenu(
         IndexT& activeIndex,
         std::initializer_list<SidebarMenuItem> items,
         SidebarMenuOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
+    ) {
         return m_ctx->SidebarMenu(activeIndex, items, std::move(opts), loc);
     }
 
@@ -3283,33 +3908,36 @@ public:
         return m_ctx->ProgressBar(percent0to100, std::move(opts), loc);
     }
 
-    template <typename IndexT>
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response StepSlider(
         IndexT& index,
         size_t totalSteps,
         StepSliderOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT>) {
+    ) {
         return m_ctx->StepSlider(index, totalSteps, std::move(opts), loc);
     }
 
-    template <typename IndexT>
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response StepSlider(
         IndexT& index,
         std::span<const std::string_view> labels,
         StepSliderOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT>) {
+    ) {
         return m_ctx->StepSlider(index, labels, std::move(opts), loc);
     }
 
-    template <typename IndexT>
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response StepSlider(
         IndexT& index,
         std::initializer_list<std::string_view> labels,
         StepSliderOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT>) {
+    ) {
         return m_ctx->StepSlider(index, labels, std::move(opts), loc);
     }
 
@@ -3340,43 +3968,47 @@ public:
         return m_ctx->Knob(value, min, max, std::move(opts), loc);
     }
 
-    template <typename IndexT>
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response Segmented(
         IndexT& selectedIndex,
         std::span<const SegmentedItem> items,
         SegmentedOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
+    ) {
         return m_ctx->Segmented(selectedIndex, items, std::move(opts), loc);
     }
 
-    template <typename IndexT>
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response Segmented(
         IndexT& selectedIndex,
         std::initializer_list<SegmentedItem> items,
         SegmentedOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
+    ) {
         return m_ctx->Segmented(selectedIndex, items, std::move(opts), loc);
     }
 
-    template <typename IndexT>
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response Segmented(
         IndexT& selectedIndex,
         std::span<const std::string_view> items,
         SegmentedOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
+    ) {
         return m_ctx->Segmented(selectedIndex, items, std::move(opts), loc);
     }
 
-    template <typename IndexT>
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response Segmented(
         IndexT& selectedIndex,
         std::initializer_list<std::string_view> items,
         SegmentedOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
+    ) {
         return m_ctx->Segmented(selectedIndex, items, std::move(opts), loc);
     }
 
@@ -3468,53 +4100,76 @@ public:
         return m_ctx->TagInput(tags, std::move(opts), loc);
     }
 
-    template <typename IndexT>
+    template <KeelTagStringArray Arr>
+    Response TagInput(
+        Arr& tags,
+        TagInputOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->TagInput(tags, std::move(opts), loc);
+    }
+
+    template <KeelTagItemArray Arr>
+    Response TagInput(
+        Arr& tags,
+        TagInputOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->TagInput(tags, std::move(opts), loc);
+    }
+
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response Breadcrumb(
         IndexT& activeIndex,
         std::span<const BreadcrumbItem> items,
         BreadcrumbOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT>) {
+    ) {
         return m_ctx->Breadcrumb(activeIndex, items, std::move(opts), loc);
     }
 
-    template <typename IndexT>
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response Breadcrumb(
         IndexT& activeIndex,
         std::initializer_list<BreadcrumbItem> items,
         BreadcrumbOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT>) {
+    ) {
         return m_ctx->Breadcrumb(activeIndex, items, std::move(opts), loc);
     }
 
-    template <typename IndexT>
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response Breadcrumb(
         IndexT& activeIndex,
         std::span<const std::string_view> items,
         BreadcrumbOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT>) {
+    ) {
         return m_ctx->Breadcrumb(activeIndex, items, std::move(opts), loc);
     }
 
-    template <typename IndexT>
+    template <IndexLike IndexT>
+        requires (!std::is_const_v<IndexT>)
     Response Breadcrumb(
         IndexT& activeIndex,
         std::initializer_list<std::string_view> items,
         BreadcrumbOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT>) {
+    ) {
         return m_ctx->Breadcrumb(activeIndex, items, std::move(opts), loc);
     }
 
-    template <typename IndexT, typename CountT>
+    template <IndexLike IndexT, IndexLike CountT>
+        requires (!std::is_const_v<IndexT>)
     Response Pagination(
         IndexT& currentPage,
         CountT totalPages,
         PaginationOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT> && std::is_integral_v<CountT>) {
+    ) {
         return m_ctx->Pagination(currentPage, totalPages, std::move(opts), loc);
     }
 

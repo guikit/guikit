@@ -17,6 +17,7 @@ ControlSpec EffectiveInputControl(const InputFieldOptions& opts, UiSize size, co
     const InputFieldMetrics& m = theme.GetInputField(size);
     ControlSpec c{};
     c.width = opts.width;
+    c.widthRatio = opts.widthRatio;
     c.height = opts.height;
     c.minWidth = opts.minWidth;
     c.align = opts.align;
@@ -43,11 +44,11 @@ Vec2 MeasureInputBox(
     const ControlSpec ctrl = EffectiveInputControl(opts, size, theme);
     const bool hasVariants = !opts.valueFormat.variants.empty();
 
+    const bool hasExplicitDpW = Control::HasExplicitDpWidth(opts.stretch, ctrl.width, ctrl.widthRatio);
     float boxW = m.defaultWidth;
-    if (opts.stretch != StretchMode::Fill) {
-        if (ctrl.width.has_value()) {
-            boxW = theme.Scale(*ctrl.width);
-        } else if (hasVariants) {
+    if (hasExplicitDpW) {
+        boxW = theme.Scale(*ctrl.width);
+    } else if (opts.stretch != StretchMode::Fill && hasVariants) {
             const float inputFont = theme.ResolveFontSize(opts.valueFormat, TextRole::LabelMedium, size);
             float contentW = 0.0f;
             for (std::string_view v : opts.valueFormat.variants) {
@@ -75,12 +76,11 @@ Vec2 MeasureInputBox(
                 totalW += m.iconSize + 8.0f;
             }
             boxW = totalW;
-        }
     }
 
     if (ctrl.minWidth.has_value()) {
         boxW = std::max(theme.Scale(*ctrl.minWidth), boxW);
-    } else if (hasVariants && opts.stretch != StretchMode::Fill && !ctrl.width.has_value()) {
+    } else if (hasExplicitDpW || (hasVariants && opts.stretch != StretchMode::Fill)) {
         boxW = std::max(m.defaultHeight, boxW);
     } else {
         boxW = std::max(m.minWidth, boxW);
@@ -194,6 +194,71 @@ size_t ByteIndexToCodepointOffset(std::string_view text, size_t byteIndex) noexc
     return keel::utf8_codepoint_count(text.substr(0, clamped));
 }
 
+std::string_view SanitizeInputText(
+    Context& ctx,
+    std::string_view raw,
+    InputFilter filter,
+    size_t maxLength
+) noexcept {
+    if (raw.empty()) return raw;
+
+    std::string_view filtered = raw;
+    if (filter != InputFilter::Any) {
+        char* out = ctx.GetArena().alloc_array<char>(raw.size());
+        size_t outLen = 0;
+        bool hasDecimal = false;
+        bool hasExp = false;
+        bool afterExp = false;
+
+        for (size_t i = 0; i < raw.size(); ++i) {
+            const char ch = raw[i];
+            if (filter == InputFilter::Integer) {
+                if ((ch == '-' || ch == '+') && outLen == 0) {
+                    out[outLen++] = ch;
+                } else if (ch >= '0' && ch <= '9') {
+                    out[outLen++] = ch;
+                }
+            } else if (filter == InputFilter::Decimal) {
+                if ((ch == '-' || ch == '+') && (outLen == 0 || afterExp)) {
+                    out[outLen++] = ch;
+                    afterExp = false;
+                } else if (ch >= '0' && ch <= '9') {
+                    out[outLen++] = ch;
+                    afterExp = false;
+                } else if (ch == '.' && !hasDecimal && !hasExp) {
+                    hasDecimal = true;
+                    out[outLen++] = ch;
+                    afterExp = false;
+                } else if ((ch == 'e' || ch == 'E') && !hasExp && outLen > 0 &&
+                           out[outLen - 1] != '-' && out[outLen - 1] != '+') {
+                    hasExp = true;
+                    afterExp = true;
+                    out[outLen++] = ch;
+                }
+            } else if (filter == InputFilter::Hex) {
+                if (ch == '#' && outLen == 0) {
+                    out[outLen++] = ch;
+                } else if ((ch == 'x' || ch == 'X') && outLen == 1 && out[0] == '0') {
+                    out[outLen++] = ch;
+                } else if ((ch >= '0' && ch <= '9') ||
+                           (ch >= 'a' && ch <= 'f') ||
+                           (ch >= 'A' && ch <= 'F')) {
+                    out[outLen++] = ch;
+                }
+            }
+        }
+        filtered = {out, outLen};
+    }
+
+    if (maxLength > 0) {
+        const size_t cutByte = CodepointOffsetToByteIndex(filtered, maxLength);
+        if (cutByte < filtered.size()) {
+            filtered = filtered.substr(0, cutByte);
+        }
+    }
+    return filtered;
+}
+
 } // namespace
 
 Response InputField::Run(
@@ -203,6 +268,13 @@ Response InputField::Run(
     const InputFieldOptions& opts,
     std::source_location loc
 ) {
+    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    struct ThemePopGuard {
+        Context& c;
+        UiTheme* t;
+        ~ThemePopGuard() noexcept { if (t) c.PopTheme(); }
+    } themeGuard{ctx, pushedTheme};
+
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
@@ -231,7 +303,7 @@ Response InputField::Run(
     }
 
     InputFieldOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
     optsCopy.placeholder = ctx.AllocText(opts.placeholder);
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);
     optsCopy.prefix = ctx.AllocAffix(opts.prefix);
@@ -283,9 +355,17 @@ Response InputField::Run(
     size_t cursor = 0;
     size_t selAnchor = 0;
     std::string_view displayText = valStr;
+    const InputFilter effFilter = (opts.filter != InputFilter::Any)
+        ? opts.filter
+        : (opts.numericOnly ? InputFilter::Decimal : InputFilter::Any);
 
     if (isFocused || ctx.HasActiveTextEdit(id)) {
         std::string_view currentEditText = ctx.EnsureTextEdit(id, valStr, /*multiline=*/false, opts.readOnly);
+        const bool justGainedFocus = (!wasFocused && isFocused);
+        if (opts.selectAllOnFocus && justGainedFocus && !state.actionBtnDown) {
+            ctx.SetTextEditCursor(id, currentEditText.size(), 0);
+        }
+
         showClearBtn = opts.clearable && !currentEditText.empty() && !effectiveDisabled && !opts.readOnly;
         rects = ResolveInputBoxRects(refBounds, optsCopy, activeSize, canvas, theme, showClearBtn, showRevealBtn);
         clearHovered = showClearBtn && res.hovered && rects.clearRect.Contains(mousePos);
@@ -304,7 +384,8 @@ Response InputField::Run(
                 : SnapToUtf8CodepointBoundary(currentEditText, idx);
         };
 
-        if ((mouseJustPressed || res.pressed) && !state.actionBtnDown) {
+        if ((mouseJustPressed || res.pressed) && !state.actionBtnDown &&
+            !(opts.selectAllOnFocus && justGainedFocus && mouseJustPressed)) {
             const float localX = (mousePos.x - textRect.x) + state.scrollX;
             const size_t rawHitIdx = TextUtil::HitTestIndex(hitTestText, localX, inputFont, canvas);
             const size_t hitIdx = mapHitToByte(rawHitIdx);
@@ -361,11 +442,28 @@ Response InputField::Run(
                     ctx.SetTextEditCursor(id, hitIdx, anchor);
                 }
             }
+        } else if (opts.selectAllOnFocus && justGainedFocus && mouseJustPressed && !state.actionBtnDown) {
+            state.lastClickTime = ctx.GetCurrentTime();
+            state.lastClickPos = mousePos;
+            state.clickCount = 1;
+            state.draggingWord = false;
         }
 
         bool changed = false;
         bool submitted = false;
         displayText = ctx.GetOrStartTextEdit(id, valStr, cursor, selAnchor, changed, submitted, /*multiline=*/false, opts.readOnly);
+
+        if (changed && !opts.readOnly && (effFilter != InputFilter::Any || opts.maxLength > 0)) {
+            const std::string_view sanitized = SanitizeInputText(ctx, displayText, effFilter, opts.maxLength);
+            if (sanitized != displayText) {
+                ctx.SetTextEditBuffer(id, sanitized);
+                cursor = std::min(cursor, sanitized.size());
+                selAnchor = std::min(selAnchor, sanitized.size());
+                ctx.SetTextEditCursor(id, cursor, selAnchor);
+                displayText = sanitized;
+                changed = (displayText != valStr);
+            }
+        }
 
         if (changed || submitted) {
             state.lastClickTime = -10.0;
@@ -427,6 +525,7 @@ Response InputField::Run(
 
     const ControlSpec ctrl = EffectiveInputControl(optsCopy, activeSize, theme);
     Node* node = ctx.CreateNode(NodeType::InputField, id);
+    node->theme = pushedTheme;
 
     auto* data = ctx.AllocPayload<InputFieldData>();
     data->opts = optsCopy;
@@ -447,9 +546,11 @@ Response InputField::Run(
     node->visualHash = detail::HashArgs(
         static_cast<uint8_t>(optsCopy.align),
         static_cast<uint8_t>(optsCopy.stretch),
+        optsCopy.color,
         optsCopy.background,
         optsCopy.border,
         optsCopy.width.value_or(0.0f),
+        optsCopy.widthRatio.value_or(-1.0f),
         optsCopy.height.value_or(0.0f),
         optsCopy.minWidth.value_or(0.0f),
         optsCopy.readOnly,
@@ -585,7 +686,9 @@ void InputField::Render(
     float strokeW = (ctrl.border.width > 0.0f) ? theme.Scale(ctrl.border.width) : m.strokeWidth;
 
     if (focused && !disabled) {
-        boxBorder = pal.focusRing;
+        boxBorder = opts.color.HasAny()
+            ? theme.ResolveColor(opts.color, hovered, focused, disabled, pal.focusRing)
+            : pal.focusRing;
         if (ctrl.border.width > 0.0f || m.strokeWidth > 0.0f) strokeW += 0.5f;
     } else if (hovered && !disabled) {
         boxBorder = pal.borderHover;
@@ -606,10 +709,10 @@ void InputField::Render(
     }
 
     if (ctrl.HasBackground(true) && ctrl.background.HasAny() && !ctrl.background.IsSurface()) {
-        boxBg = ctrl.background.Resolve(hovered, focused, disabled, boxBg);
+        boxBg = theme.ResolveColor(ctrl.background, hovered, focused, disabled, boxBg);
     }
     if (ctrl.border.color.HasAny()) {
-        boxBorder = ctrl.border.color.Resolve(hovered, focused, disabled, boxBorder);
+        boxBorder = theme.ResolveColor(ctrl.border.color, hovered, focused, disabled, boxBorder);
     }
 
     const float radius = ctrl.border.radius.has_value() ? theme.Scale(*ctrl.border.radius) : m.cornerRadius;

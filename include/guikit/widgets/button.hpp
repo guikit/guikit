@@ -17,21 +17,26 @@ class ICanvas;
 /// Clean configuration options for a Button widget.
 struct ButtonOptions {
     UiText text{};                                 ///< Text inside the button capsule
+    UiText badge{};                                ///< Optional pill badge inside the button capsule
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
     Icon icon{};                                   ///< Icon inside the button capsule
     StateColor color{};                            ///< Per-state capsule fill color (normal, hover, active, disabled)
     Placement iconPlacement{Placement::Leading};
     Align align{Align::Center};                    ///< Content horizontal alignment inside button capsule (Start, Center, End)
     StretchMode stretch{StretchMode::Compact};     ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};      ///< Capsule width: in points for Compact/Space (nullopt = auto), or ratio of bounds (0.0..1.0) for Fill (nullopt = 1.0)
+    std::optional<float> width{std::nullopt};      ///< Capsule width in dp (or legacy ratio 0.0..1.0 in Fill)
+    std::optional<float> widthRatio{std::nullopt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
     std::optional<float> height{std::nullopt};     ///< Explicit capsule height in points (nullopt = inherit defaultHeight from UiSize)
     std::optional<float> minWidth{std::nullopt};   ///< Minimum capsule width constraint in points
     StateColor background{StateColor::Surface()};  ///< Capsule surface fill configuration (Surface/Default = on, None = off, or custom StateColor)
     Border border{};                               ///< Capsule border stroke & corner radius configuration
     bool disabled{false};
     bool active{false};
+    bool loading{false};                           ///< Renders an animated vector spinner and suppresses click activation
     bool square{false};                            ///< Force square (defaultHeight x defaultHeight) button geometry
     std::optional<Color> iconColor{std::nullopt};  ///< Optional custom icon tint override
+    const UiTheme* theme{nullptr};                 ///< Optional scoped theme override
+    std::optional<float> scale{std::nullopt};      ///< Optional local UI scale factor override
 };
 
 /// Type alias for button response.
@@ -61,7 +66,8 @@ public:
         bool pressed,
         bool disabled,
         const UiTheme& theme,
-        bool focused = false
+        bool focused = false,
+        float loadingPhase = 0.0f
     );
 };
 

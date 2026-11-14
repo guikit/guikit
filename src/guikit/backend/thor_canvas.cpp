@@ -1932,4 +1932,10 @@ void RegisterThorVectorBackend() noexcept {
     RegisterDefaultImageDecoder(&DecodeThorImageFromMemory);
 }
 
+namespace {
+struct ThorVectorBackendModuleRegistrar {
+    ThorVectorBackendModuleRegistrar() noexcept { RegisterThorVectorBackend(); }
+} const g_thorVectorBackendModuleRegistrar{};
+} // namespace
+
 } // namespace guikit

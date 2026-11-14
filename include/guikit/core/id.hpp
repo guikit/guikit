@@ -52,10 +52,10 @@ constexpr uint64_t HashInt64(uint64_t val, uint64_t hash = Fnv1aOffsetBasis) noe
 template <typename T>
 constexpr uint64_t HashVal(const T& val, uint64_t hash = Fnv1aOffsetBasis) noexcept {
     using CleanT = std::decay_t<T>;
-    if constexpr (std::is_same_v<CleanT, std::string_view>) {
-        return HashStringView(val, hash);
-    } else if constexpr (std::is_same_v<CleanT, const char*>) {
+    if constexpr (std::is_same_v<CleanT, const char*>) {
         return val ? HashStringView(std::string_view(val), hash) : hash;
+    } else if constexpr (std::is_convertible_v<CleanT, std::string_view>) {
+        return HashStringView(std::string_view(val), hash);
     } else if constexpr (requires { val.text; val.icon; val.iconPlacement; }) {
         hash = HashVal(val.text, hash);
         const uint8_t icType = static_cast<uint8_t>(val.icon.GetType());
@@ -97,6 +97,10 @@ constexpr uint64_t HashVal(const T& val, uint64_t hash = Fnv1aOffsetBasis) noexc
         hashOptCol(val.hover);
         hashOptCol(val.active);
         hashOptCol(val.disabled);
+        if constexpr (requires { val.token; }) {
+            const uint8_t tok = static_cast<uint8_t>(val.token);
+            hash = HashBytes(&tok, sizeof(tok), hash);
+        }
         return hash;
     } else if constexpr (requires { val.width; val.radius; val.color; }) {
         hash = HashBytes(&val.width, sizeof(val.width), hash);

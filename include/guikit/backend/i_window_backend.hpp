@@ -22,6 +22,9 @@ struct MainWindowConfig {
     int minWidth = 320;
     int minHeight = 240;
     bool resizable = true;
+    bool maximized = false;
+    bool fullscreen = false;
+    bool borderless = false;
     bool highDpi = true;
     bool vsync = true;
     bool reactiveMode = true;
@@ -30,8 +33,12 @@ struct MainWindowConfig {
     bool scaleShortcuts = true; ///< Enables Ctrl+Plus / Ctrl+Minus / Ctrl+0 UI shell scaling
     bool autoShellScope = true; ///< Wraps OnRender() in a root Column with shellTheme & shellScale
     int idleHeartbeatMs = 500;  ///< Periodic wakeup interval in reactive mode (-1 to disable)
+    float targetFps = 60.0f;    ///< Target frame rate for telemetry budget and non-VSync frame pacing
+    float initialScale = 1.0f;  ///< Initial shell UI scale factor (0.5 .. 3.0)
     ThemeMode initialThemeMode = ThemeMode::Dark;
+    Density initialDensity = Density::Standard;
     ShellStyle initialShellStyle = ShellStyle::Docked;
+    std::optional<UiTheme> initialTheme = std::nullopt; ///< Optional complete initial theme override
     VectorCanvasFactory canvasFactory = nullptr; ///< Optional per-window custom `ICanvas` factory override
 };
 

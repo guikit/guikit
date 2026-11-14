@@ -40,6 +40,7 @@ struct TagInputOptions {
     StretchMode stretch{StretchMode::Fill};
     Align align{Align::Start};
     std::optional<float> width{std::nullopt};
+    std::optional<float> widthRatio{std::nullopt};
     std::optional<float> height{std::nullopt};
     std::optional<float> minWidth{std::nullopt};
     StateColor background{StateColor::Surface()};

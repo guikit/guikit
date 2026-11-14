@@ -927,10 +927,10 @@ Vec2 WaterfallView::Measure(
     float availableWidth
 ) {
     float defaultW = availableWidth > 0.0f ? availableWidth : theme.Scale(520.0f);
-    if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f && opts.width.has_value()) {
-        defaultW = availableWidth * std::clamp(*opts.width, 0.1f, 1.0f);
-    } else if (opts.width.has_value() && *opts.width > 0.0f) {
+    if (Control::HasExplicitDpWidth(opts.stretch, opts.width, opts.widthRatio)) {
         defaultW = theme.Scale(*opts.width);
+    } else if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f) {
+        defaultW = availableWidth * Control::ResolveFillRatio(opts.stretch, opts.width, opts.widthRatio).value_or(1.0f);
     }
     const float defaultH = (opts.height.has_value() && *opts.height > 0.0f)
         ? theme.Scale(*opts.height)
@@ -944,8 +944,15 @@ WaterfallViewResponse WaterfallView::Run(
     const WaterfallViewOptions& optsIn,
     std::source_location loc
 ) {
+    UiTheme* pushedTheme = ctx.PushScopedTheme(optsIn.theme, optsIn.scale);
+    struct ThemePopGuard {
+        Context& c;
+        UiTheme* t;
+        ~ThemePopGuard() noexcept { if (t) c.PopTheme(); }
+    } themePop{ctx, pushedTheme};
+
     WaterfallViewOptions opts = optsIn;
-    Control::InheritElementSizing(ctx, opts.stretch, opts.width, opts.height);
+    Control::InheritElementSizing(ctx, opts.stretch, opts.width, opts.widthRatio, opts.height);
 
     const Id id = ctx.MakeChildId(loc);
     const UiTheme& theme = ctx.GetTheme();
@@ -953,8 +960,12 @@ WaterfallViewResponse WaterfallView::Run(
     const bool effDisabled = opts.disabled || ctx.IsDisabled();
 
     Node* node = ctx.CreateNode(NodeType::WaterfallView, id);
+    node->theme = pushedTheme;
+    node->debugBoundsOverride = opts.debugBounds;
+    node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<WaterfallViewPayload>();
     payload->opts = opts;
+    payload->opts.tooltip = ctx.AllocText(opts.tooltip);
 
     auto& state = ctx.GetOrCreatePersistentState<WaterfallViewState>(id);
     payload->state = &state;
@@ -1317,10 +1328,7 @@ WaterfallViewResponse WaterfallView::Run(
     }
     mix(static_cast<uint64_t>(resp.selectedTrackId + 2));
     mix(static_cast<uint64_t>(resp.hoveredTrackId + 2));
-    mix(opts.background.normal.value_or(Color{}).ToUint32());
-    mix(opts.border.color.normal.value_or(Color{}).ToUint32());
-    mix(packF(opts.border.width));
-    mix(packF(opts.border.radius.value_or(-1.0f)));
+    mix(detail::HashArgs(opts.background, opts.border));
     node->visualHash = h;
 
     node->text = "WaterfallView";
@@ -1339,6 +1347,7 @@ WaterfallViewResponse WaterfallView::Run(
 
     ControlSpec ctrlSpec{};
     ctrlSpec.width = opts.width;
+    ctrlSpec.widthRatio = opts.widthRatio;
     ctrlSpec.height = opts.height;
     Control::SetupNode(ctx, node, ctrlSpec, opts.stretch, opts.align);
     if (!node->parent || node->parent->type != NodeType::Element) {

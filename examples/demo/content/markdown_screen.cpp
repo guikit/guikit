@@ -1,5 +1,4 @@
 #include "../demo_context.hpp"
-#include <SDL3/SDL.h>
 #include <array>
 #include <format>
 
@@ -288,7 +287,7 @@ void RenderMarkdownStage(guikit::Context& ui, DemoContext& ctx) {
         s_state.searchMatches = mdRes.searchMatchCount;
         if (!mdRes.clickedLink.empty()) {
             s_state.lastClickedLink = std::string(mdRes.clickedLink);
-            SDL_OpenURL(s_state.lastClickedLink.c_str());
+            ui.OpenUrl(mdRes.clickedLink);
         }
         if (mdRes.toggledTaskIndex >= 0) {
             s_state.lastToggledTask = mdRes.toggledTaskIndex;
@@ -334,7 +333,7 @@ std::string GenerateMarkdownCode(const DemoContext& ctx) {
         "        .interactiveTasks = {},\n"
         "        .searchQuery = \"{}\"\n"
         "    }});\n"
-        "    if (!res.clickedLink.empty()) SDL_OpenURL(std::string(res.clickedLink).c_str());\n"
+        "    if (!res.clickedLink.empty()) ui.OpenUrl(res.clickedLink);\n"
         "}}",
         FormatUiSizePrefix(ctx.controlsSize),
         s_state.zoom,

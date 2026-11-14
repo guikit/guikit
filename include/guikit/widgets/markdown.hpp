@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <functional>
 #include <optional>
 #include <source_location>
 #include <string>
@@ -11,6 +10,7 @@
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
 #include "guikit/widgets/text_area.hpp"
+#include "keel/function.h"
 
 namespace guikit {
 
@@ -21,7 +21,8 @@ class ICanvas;
 struct MarkdownOptions {
     Align align{Align::Start};
     StretchMode stretch{StretchMode::Fill};
-    std::optional<float> width{std::nullopt};               ///< Explicit width in px or ratio 0.0..1.0 (in Fill mode)
+    std::optional<float> width{std::nullopt};               ///< Explicit width in dp (or legacy ratio 0.0..1.0 in Fill mode)
+    std::optional<float> widthRatio{std::nullopt};          ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
     std::optional<float> height{std::nullopt};              ///< Optional explicit height override
     StateColor background{};                                ///< Optional background fill color
     Border border{};                                        ///< Optional border configuration (color, width, radius)
@@ -67,10 +68,15 @@ struct MarkdownOptions {
     std::string_view searchQuery{};                         ///< Optional external search query to highlight in document
 
     // --- Callbacks ---
-    std::function<void(std::string_view)> onLinkClick{};    ///< Optional callback invoked when a link [text](url) is clicked
-    std::function<void(int, bool)> onTaskToggle{};          ///< Optional callback invoked when a task checkbox is toggled (taskIndex, checked)
+    keel::SmallFunction<void(std::string_view)> onLinkClick{}; ///< Optional callback invoked when a link [text](url) is clicked
+    keel::SmallFunction<void(int, bool)> onTaskToggle{};       ///< Optional callback invoked when a task checkbox is toggled (taskIndex, checked)
 
+    UiText tooltip{};
     bool disabled{false};
+    const UiTheme* theme{nullptr};
+    std::optional<float> scale{std::nullopt};
+    std::optional<bool> debugBounds{std::nullopt};
+    std::optional<bool> inspectMode{std::nullopt};
 };
 
 /// Extended response returned by `ui.Markdown(...)`.

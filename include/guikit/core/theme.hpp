@@ -157,6 +157,143 @@ struct UiTheme {
         return fallbackFontSize;
     }
 
+    /// Resolves a semantic `StateColor` token against this theme's `variants` and `palette` (controls, surfaces, borders, badges).
+    /// Custom `StateColor` values (`token == StateColorToken::Custom`) are returned unchanged.
+    [[nodiscard]] constexpr StateColor ResolveStateColor(const StateColor& sc) const noexcept {
+        auto fromVar = [this](UiVariant v, StateColorToken tok) constexpr noexcept -> StateColor {
+            const VariantColors& vc = GetVariant(v);
+            return StateColor{
+                .normal   = vc.bg,
+                .hover    = vc.bgHover,
+                .active   = vc.bgActive,
+                .disabled = vc.bg.WithAlphaF(0.40f),
+                .token    = tok
+            };
+        };
+        switch (sc.token) {
+            case StateColorToken::Custom:        return sc;
+            case StateColorToken::Primary:       return fromVar(UiVariant::Primary, sc.token);
+            case StateColorToken::Secondary:     return fromVar(UiVariant::Secondary, sc.token);
+            case StateColorToken::Success:       return fromVar(UiVariant::Success, sc.token);
+            case StateColorToken::Warning:       return fromVar(UiVariant::Warning, sc.token);
+            case StateColorToken::Danger:        return fromVar(UiVariant::Danger, sc.token);
+            case StateColorToken::Info:          return fromVar(UiVariant::Info, sc.token);
+            case StateColorToken::Ghost: {
+                const VariantColors& vc = GetVariant(UiVariant::Ghost);
+                return StateColor{
+                    .normal   = vc.bg,
+                    .hover    = vc.bgHover,
+                    .active   = vc.bgActive,
+                    .disabled = Color::Transparent(),
+                    .token    = sc.token
+                };
+            }
+            case StateColorToken::Muted:
+            case StateColorToken::TextMuted:
+                return StateColor{
+                    .normal   = palette.textMuted,
+                    .hover    = palette.textSecondary,
+                    .active   = palette.textMuted,
+                    .disabled = palette.textDisabled,
+                    .token    = sc.token
+                };
+            case StateColorToken::TextPrimary:
+                return StateColor{
+                    .normal   = palette.textPrimary,
+                    .hover    = palette.textPrimary,
+                    .active   = palette.textPrimary,
+                    .disabled = palette.textDisabled,
+                    .token    = sc.token
+                };
+            case StateColorToken::TextSecondary:
+                return StateColor{
+                    .normal   = palette.textSecondary,
+                    .hover    = palette.textPrimary,
+                    .active   = palette.textSecondary,
+                    .disabled = palette.textDisabled,
+                    .token    = sc.token
+                };
+            case StateColorToken::Surface:
+                return StateColor{
+                    .normal   = palette.surface,
+                    .hover    = palette.surfaceHover,
+                    .active   = palette.surfaceActive,
+                    .disabled = palette.surface.WithAlphaF(0.40f),
+                    .token    = sc.token
+                };
+        }
+        return sc;
+    }
+
+    /// Resolves a semantic `StateColor` token specifically for foreground text against this theme's Light/Dark palette.
+    [[nodiscard]] constexpr StateColor ResolveTextStateColor(const StateColor& sc) const noexcept {
+        switch (sc.token) {
+            case StateColorToken::Custom:
+                return sc;
+            case StateColorToken::TextPrimary:
+                return StateColor{
+                    .normal   = palette.textPrimary,
+                    .hover    = palette.textPrimary,
+                    .active   = palette.textPrimary,
+                    .disabled = palette.textDisabled,
+                    .token    = sc.token
+                };
+            case StateColorToken::Secondary:
+            case StateColorToken::Muted:
+            case StateColorToken::TextSecondary:
+                return StateColor{
+                    .normal   = palette.textSecondary,
+                    .hover    = palette.textPrimary,
+                    .active   = palette.textSecondary,
+                    .disabled = palette.textDisabled,
+                    .token    = sc.token
+                };
+            case StateColorToken::Ghost:
+            case StateColorToken::TextMuted:
+                return StateColor{
+                    .normal   = palette.textMuted,
+                    .hover    = palette.textSecondary,
+                    .active   = palette.textMuted,
+                    .disabled = palette.textDisabled,
+                    .token    = sc.token
+                };
+            default:
+                return ResolveStateColor(sc);
+        }
+    }
+
+    /// Resolves a control/surface/border `StateColor` across interaction states using theme-aware semantic tokens.
+    [[nodiscard]] constexpr Color ResolveColor(
+        const StateColor& sc,
+        bool isHovered,
+        bool isActive,
+        bool isDisabled,
+        Color fallbackNormal,
+        Color fallbackHover,
+        Color fallbackActive,
+        Color fallbackDisabled
+    ) const noexcept {
+        return ResolveStateColor(sc).Resolve(
+            isHovered,
+            isActive,
+            isDisabled,
+            fallbackNormal,
+            fallbackHover,
+            fallbackActive,
+            fallbackDisabled
+        );
+    }
+
+    [[nodiscard]] constexpr Color ResolveColor(
+        const StateColor& sc,
+        bool isHovered,
+        bool isActive,
+        bool isDisabled,
+        Color fallback
+    ) const noexcept {
+        return ResolveStateColor(sc).Resolve(isHovered, isActive, isDisabled, fallback);
+    }
+
     /// Resolves text color for a UiText: uses explicit StateColor if set, or defaultVariant across interaction states.
     [[nodiscard]] constexpr Color ResolveTextColor(
         const UiText& text,
@@ -166,7 +303,7 @@ struct UiTheme {
         bool active = false
     ) const noexcept {
         const Color fallback = GetTextColor(defaultVariant);
-        return text.color.Resolve(hovered, active, disabled, fallback);
+        return ResolveTextStateColor(text.color).Resolve(hovered, active, disabled, fallback);
     }
 
     /// Resolves text color for a UiText with an explicit fallback Color across interaction states.
@@ -177,7 +314,7 @@ struct UiTheme {
         bool hovered = false,
         bool active = false
     ) const noexcept {
-        return text.color.Resolve(hovered, active, disabled, fallbackColor);
+        return ResolveTextStateColor(text.color).Resolve(hovered, active, disabled, fallbackColor);
     }
 
     [[nodiscard]] constexpr const ScrollbarMetrics& GetScrollbar(UiSize size) const noexcept {

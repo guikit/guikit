@@ -28,6 +28,7 @@ ControlSpec EffectiveImageControl(const ImageOptions& opts, UiSize size, const U
     const InputFieldMetrics& inputMetrics = theme.GetInputField(size);
     ControlSpec ctrl{};
     ctrl.width = opts.width;
+    ctrl.widthRatio = opts.widthRatio;
     ctrl.height = opts.height;
     ctrl.align = opts.align;
     ctrl.background = opts.background;
@@ -54,11 +55,11 @@ Vec2 ComputeControlBoxSize(
     const float aspect = natW / natH;
 
     float ctrlW = natW;
-    if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f) {
-        const float ratio = std::clamp(opts.width.value_or(1.0f), 0.01f, 1.0f);
-        ctrlW = availableWidth * ratio;
-    } else if (opts.width.has_value() && *opts.width > 0.0f) {
+    if (Control::HasExplicitDpWidth(opts.stretch, opts.width, opts.widthRatio)) {
         ctrlW = theme.Scale(*opts.width);
+    } else if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f) {
+        const float ratio = Control::ResolveFillRatio(opts.stretch, opts.width, opts.widthRatio).value_or(1.0f);
+        ctrlW = availableWidth * ratio;
     }
     if (availableWidth > 0.0f) {
         ctrlW = std::min(ctrlW, availableWidth);
@@ -88,6 +89,13 @@ Response Image::Run(
     const ImageOptions& opts,
     std::source_location loc
 ) {
+    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    struct ThemePopGuard {
+        Context& c;
+        UiTheme* t;
+        ~ThemePopGuard() noexcept { if (t) c.PopTheme(); }
+    } themePop{ctx, pushedTheme};
+
     const Id id = ctx.MakeChildId(loc);
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const UiSize activeSize = ctx.GetCurrentSize();
@@ -107,15 +115,18 @@ Response Image::Run(
     }
 
     ImageOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
 
     const ControlSpec ctrl = EffectiveImageControl(optsCopy, activeSize, theme);
     Node* node = ctx.CreateNode(NodeType::Image, id);
+    node->theme = pushedTheme;
+    node->debugBoundsOverride = opts.debugBounds;
+    node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<ImagePayload>();
     payload->source = ctx.AllocString(source);
     payload->opts = optsCopy;
     payload->opts.alt = ctx.AllocText(optsCopy.alt);
-    payload->opts.tooltip = ctx.AllocString(optsCopy.tooltip);
+    payload->opts.tooltip = ctx.AllocText(optsCopy.tooltip);
     payload->lastCanvas = ctx.GetCanvas();
     node->text = payload->source;
     node->SetPayload(payload);

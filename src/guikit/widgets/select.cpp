@@ -16,6 +16,7 @@ ControlSpec EffectiveSelectControl(const SelectOptions& opts, UiSize size, const
     const SelectMetrics& m = theme.GetSelect(size);
     ControlSpec c{};
     c.width = opts.width;
+    c.widthRatio = opts.widthRatio;
     c.height = opts.height;
     c.minWidth = opts.minWidth;
     c.align = opts.align;
@@ -35,11 +36,14 @@ ControlSpec EffectiveSelectControl(const SelectOptions& opts, UiSize size, const
 Vec2 MeasureSelectBox(const SelectOptions& opts, UiSize size, const UiTheme& theme) noexcept {
     const SelectMetrics& m = theme.GetSelect(size);
     const ControlSpec ctrl = EffectiveSelectControl(opts, size, theme);
-    float boxW = (opts.stretch != StretchMode::Fill && ctrl.width.has_value()) ? theme.Scale(*ctrl.width) : m.defaultWidth;
+    const bool hasExplicitDpW = Control::HasExplicitDpWidth(opts.stretch, ctrl.width, ctrl.widthRatio);
+    float boxW = hasExplicitDpW ? theme.Scale(*ctrl.width) : m.defaultWidth;
     if (ctrl.minWidth.has_value()) {
         boxW = std::max(theme.Scale(*ctrl.minWidth), boxW);
-    } else {
+    } else if (!hasExplicitDpW) {
         boxW = std::max(m.minWidth, boxW);
+    } else {
+        boxW = std::max(m.defaultHeight, boxW);
     }
     return {boxW, m.defaultHeight};
 }
@@ -148,9 +152,12 @@ Rect Select::GetBoxRect(
     const Vec2 boxDims = Select::Measure(opts, size, canvas, theme, bounds.w);
     const float alignFactor = (opts.align == Align::End) ? 1.0f : ((opts.align == Align::Center) ? 0.5f : 0.0f);
     float ctrlW = std::min(bounds.w, boxDims.x);
-    if (opts.stretch == StretchMode::Fill) {
-        const float ratio = std::clamp(opts.width.value_or(1.0f), 0.0f, 1.0f);
-        ctrlW = bounds.w * ratio;
+    if (!Control::HasExplicitDpWidth(opts.stretch, opts.width, opts.widthRatio)) {
+        if (const auto fillRatio = Control::ResolveFillRatio(opts.stretch, opts.width, opts.widthRatio)) {
+            ctrlW = bounds.w * (*fillRatio);
+        } else if (opts.stretch == StretchMode::Fill) {
+            ctrlW = bounds.w;
+        }
     }
     const float ctrlX = bounds.x + (bounds.w - ctrlW) * alignFactor;
     const float ctrlH = std::min(boxDims.y, bounds.h);
@@ -208,6 +215,13 @@ Response Select::Run(
     const SelectOptions& opts,
     std::source_location loc
 ) {
+    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    struct ThemePopGuard {
+        Context& c;
+        UiTheme* t;
+        ~ThemePopGuard() noexcept { if (t) c.PopTheme(); }
+    } themeGuard{ctx, pushedTheme};
+
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
@@ -262,7 +276,7 @@ Response Select::Run(
     ICanvas* canvas = ctx.GetCanvas();
 
     SelectOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
 
     auto measureRowContentW = [&](const UiText& mainText, const UiAffix& pfx, const UiAffix& sfx) -> float {
         const float mainFont = theme.ResolveFontSize(mainText, TextRole::LabelMedium, activeSize);
@@ -1098,8 +1112,7 @@ Response Select::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::Select, id);
-
-    // When ComboBox popup is open and filterText is empty, show selected item text (or placeholder) as ghost placeholder
+    node->theme = pushedTheme;
     UiText ghostPlaceholder = optsCopy.placeholder;
     if (opts.searchable && !isEditable && isOpen && currentDisplayText.empty() && currIndex < items.size()) {
         ghostPlaceholder = items[currIndex].text;
@@ -1256,10 +1269,10 @@ void Select::Render(
     }
 
     if (ctrl.HasBackground(true) && ctrl.background.HasAny() && !ctrl.background.IsSurface()) {
-        boxBg = ctrl.background.Resolve(hovered, open || focused, disabled, boxBg);
+        boxBg = theme.ResolveColor(ctrl.background, hovered, open || focused, disabled, boxBg);
     }
     if (ctrl.border.color.HasAny()) {
-        boxBorder = ctrl.border.color.Resolve(hovered, open || focused, disabled, boxBorder);
+        boxBorder = theme.ResolveColor(ctrl.border.color, hovered, open || focused, disabled, boxBorder);
     }
 
     // Draw box background and border
@@ -1759,10 +1772,10 @@ void RenderMultiSelectNode(
     }
 
     if (ctrl.HasBackground(true) && ctrl.background.HasAny() && !ctrl.background.IsSurface()) {
-        boxBg = ctrl.background.Resolve(hovered, open || focused, disabled, boxBg);
+        boxBg = theme.ResolveColor(ctrl.background, hovered, open || focused, disabled, boxBg);
     }
     if (ctrl.border.color.HasAny()) {
-        boxBorder = ctrl.border.color.Resolve(hovered, open || focused, disabled, boxBorder);
+        boxBorder = theme.ResolveColor(ctrl.border.color, hovered, open || focused, disabled, boxBorder);
     }
 
     const float radius = ctrl.border.radius.has_value() ? theme.Scale(*ctrl.border.radius) : m.cornerRadius;
@@ -2118,6 +2131,13 @@ Response Select::RunMulti(
     const SelectOptions& opts,
     std::source_location loc
 ) {
+    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    struct ThemePopGuard {
+        Context& c;
+        UiTheme* t;
+        ~ThemePopGuard() noexcept { if (t) c.PopTheme(); }
+    } themeGuard{ctx, pushedTheme};
+
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
@@ -2146,7 +2166,7 @@ Response Select::RunMulti(
     ICanvas* canvas = ctx.GetCanvas();
 
     SelectOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
 
     auto measureRowContentW = [&](const UiText& mainText, const UiAffix& pfx, const UiAffix& sfx) -> float {
         const float mainFont = theme.ResolveFontSize(mainText, TextRole::LabelMedium, activeSize);
@@ -2750,6 +2770,7 @@ Response Select::RunMulti(
     }
 
     Node* node = ctx.CreateNode(NodeType::Select, id);
+    node->theme = pushedTheme;
 
     optsCopy.placeholder = ctx.AllocText(optsCopy.placeholder);
     optsCopy.emptyText = ctx.AllocText(optsCopy.emptyText);

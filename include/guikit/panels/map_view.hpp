@@ -58,6 +58,7 @@ struct MapViewOptions {
     SizeMode widthMode{SizeMode::Stretch};
     SizeMode heightMode{SizeMode::Stretch};
     std::optional<float> width{std::nullopt};
+    std::optional<float> widthRatio{std::nullopt};
     std::optional<float> height{std::nullopt};
     float minHeight{220.0f};
     float minZoom{0.25f};
@@ -71,6 +72,7 @@ struct MapViewOptions {
     bool clampToWorld{true};
     StateColor background{};
     Border border{.width = 1.0f, .radius = 8.0f};
+    UiText tooltip{};
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};

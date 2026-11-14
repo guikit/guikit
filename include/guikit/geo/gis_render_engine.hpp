@@ -68,7 +68,8 @@ struct GisRenderConfig {
     bool showSoundings{true};                ///< Render SOUNDG depth soundings with subscript tenths
     bool showDepthContours{true};            ///< Render DEPCNT isobaths and inline contour labels
     bool showCoverageBounds{false};          ///< Render M_COVR coverage outlines
-    bool preferRussianLabels{true};          ///< Prefer label_ru over label_en when both exist
+    bool preferRussianLabels{true};          ///< Prefer label_ru over label_en when preferredLanguage is empty
+    keel::StringRef preferredLanguage{};     ///< Optional ISO 639-1 language code for localized labels (e.g. "ru", "en", "de", "fr")
     float safetyContourM{2.0f};              ///< Safety depth contour threshold in meters (default 2.0m)
     float shallowContourM{1.0f};             ///< Shallow water danger threshold in meters (default 1.0m)
     float deepContourM{10.0f};               ///< Deep water threshold in meters (default 10.0m)
@@ -149,5 +150,12 @@ public:
 } // namespace guikit::geo
 
 namespace guikit {
-using namespace geo;
+using geo::ChartPalette;
+using geo::ChartPaletteName;
+using geo::GisColorPalette;
+using geo::GisColorPaletteName;
+using geo::GisRenderConfig;
+using geo::GisRenderEngine;
+using geo::GisRenderSettings;
+using geo::GisRenderStats;
 } // namespace guikit

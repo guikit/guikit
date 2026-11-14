@@ -132,6 +132,7 @@ struct HistogramOptions {
 
     // --- Sizing & Geometry ---
     std::optional<float> width{std::nullopt};
+    std::optional<float> widthRatio{std::nullopt};
     float height{136.0f};
     float minHeight{96.0f};
     SizeMode heightMode{SizeMode::Fit};
@@ -153,7 +154,11 @@ struct HistogramOptions {
 
     // --- State & Accessibility ---
     bool disabled{false};
-    std::string_view tooltip{};
+    UiText tooltip{};
+    const UiTheme* theme{nullptr};
+    std::optional<float> scale{std::nullopt};
+    std::optional<bool> debugBounds{std::nullopt};
+    std::optional<bool> inspectMode{std::nullopt};
 };
 
 /// Extended telemetry and interaction response returned by `ui.Histogram`.

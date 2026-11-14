@@ -29,6 +29,7 @@ struct ModalOptions {
     StateColor background{};                       ///< Optional dialog surface background color override
     Border border{.width = 1.0f, .radius = 12.0f}; ///< Dialog border width, corner radius, and color
     float backdropOpacity{0.55f};                  ///< Dimmed backdrop alpha (0.0..1.0)
+    std::optional<Color> backdropColor{std::nullopt}; ///< Optional explicit backdrop tint override
     bool closeOnBackdrop{true};                    ///< Dismiss modal when clicking outside the dialog box
     bool closeOnEscape{true};                      ///< Dismiss modal when pressing Escape
     bool showCloseButton{true};                    ///< Render [X] close button in top-right header

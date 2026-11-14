@@ -46,14 +46,22 @@ endif()
 # 0. Dependencies: keel & keel::http (0BSD C++20 Foundation Libraries)
 # ==============================================================================
 if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/keel/CMakeLists.txt")
-    add_subdirectory(third_party/keel EXCLUDE_FROM_ALL)
+    if (GUIKIT_INSTALL)
+        add_subdirectory(third_party/keel)
+    else()
+        add_subdirectory(third_party/keel EXCLUDE_FROM_ALL)
+    endif()
 else()
     find_package(keel REQUIRED)
 endif()
 
 if (GUIKIT_BUILD_SCENES)
     if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/http/CMakeLists.txt")
-        add_subdirectory(third_party/http EXCLUDE_FROM_ALL)
+        if (GUIKIT_INSTALL)
+            add_subdirectory(third_party/http)
+        else()
+            add_subdirectory(third_party/http EXCLUDE_FROM_ALL)
+        endif()
     else()
         find_package(keel_http REQUIRED)
     endif()
@@ -67,6 +75,7 @@ endif()
 set(GUIKIT_CORE_SOURCES
     src/guikit/context.cpp
     src/guikit/core/container_scope.cpp
+    src/guikit/core/frame_metrics.cpp
     src/guikit/core/main_window.cpp
     src/guikit/core/response.cpp
     src/guikit/core/theme.cpp
@@ -155,14 +164,12 @@ add_library(guikit_core STATIC
     "${GUIKIT_GENERATED_ASSETS_CPP}"
 )
 add_library(guikit::core ALIAS guikit_core)
+set_target_properties(guikit_core PROPERTIES EXPORT_NAME core)
 
 target_compile_features(guikit_core PUBLIC cxx_std_20)
 target_include_directories(guikit_core PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
-)
-target_compile_definitions(guikit_core PUBLIC
-    GUIKIT_HAS_SCENES=$<BOOL:${GUIKIT_BUILD_SCENES}>
 )
 target_link_libraries(guikit_core PUBLIC keel::keel)
 
@@ -188,8 +195,10 @@ if (GUIKIT_BUILD_SCENES)
 
     add_library(guikit_scenes STATIC ${GUIKIT_SCENES_SOURCES})
     add_library(guikit::scenes ALIAS guikit_scenes)
+    set_target_properties(guikit_scenes PROPERTIES EXPORT_NAME scenes)
 
     target_compile_features(guikit_scenes PUBLIC cxx_std_20)
+    target_compile_definitions(guikit_scenes PUBLIC GUIKIT_HAS_SCENES=1)
     target_link_libraries(guikit_scenes PUBLIC guikit::core keel::http)
     if (NOT EMSCRIPTEN)
         target_link_libraries(guikit_scenes PUBLIC Threads::Threads)
@@ -200,8 +209,10 @@ endif()
 # 3. Module: guikit::backend_thorvg
 #    CPU / Headless Vector Rasterizer Backend (ThorCanvas)
 # ==============================================================================
+set(GUIKIT_BUNDLED_THORVG OFF)
 if (GUIKIT_BUILD_BACKEND_THORVG)
     if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/thorvg/inc/thorvg.h")
+        set(GUIKIT_BUNDLED_THORVG ON)
         include(cmake/ThorVG.cmake)
     else()
         find_package(thorvg REQUIRED)
@@ -211,14 +222,16 @@ if (GUIKIT_BUILD_BACKEND_THORVG)
         src/guikit/backend/thor_canvas.cpp
     )
     add_library(guikit::backend_thorvg ALIAS guikit_backend_thorvg)
+    set_target_properties(guikit_backend_thorvg PROPERTIES EXPORT_NAME backend_thorvg)
 
     target_compile_features(guikit_backend_thorvg PUBLIC cxx_std_20)
+    target_compile_definitions(guikit_backend_thorvg PUBLIC GUIKIT_HAS_BACKEND_THORVG=1)
     if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/thorvg/src/loaders/png/tvgLodePng.h")
         target_include_directories(guikit_backend_thorvg PRIVATE
             "${CMAKE_CURRENT_SOURCE_DIR}/third_party/thorvg/src/loaders/png"
         )
     endif()
-    target_link_libraries(guikit_backend_thorvg PUBLIC guikit::core thorvg)
+    target_link_libraries(guikit_backend_thorvg PUBLIC guikit::core PRIVATE thorvg)
     if (NOT EMSCRIPTEN)
         target_link_libraries(guikit_backend_thorvg PUBLIC Threads::Threads)
     endif()
@@ -233,7 +246,9 @@ if (GUIKIT_BUILD_BACKEND_SDL3)
         set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
         set(SDL_TESTS OFF CACHE BOOL "" FORCE)
         set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
-        set(SDL_INSTALL OFF CACHE BOOL "" FORCE)
+        set(SDL_INSTALL ${GUIKIT_INSTALL} CACHE BOOL "" FORCE)
+        set(SDL_INSTALL_CPACK OFF CACHE BOOL "" FORCE)
+        set(SDL_INSTALL_DOCS OFF CACHE BOOL "" FORCE)
         set(SDL_SHARED OFF CACHE BOOL "" FORCE)
         set(SDL_STATIC ON CACHE BOOL "" FORCE)
         set(SDL_AUDIO OFF CACHE BOOL "" FORCE)
@@ -248,7 +263,11 @@ if (GUIKIT_BUILD_BACKEND_SDL3)
         set(SDL_DIALOG OFF CACHE BOOL "" FORCE)
         set(SDL_TRAY OFF CACHE BOOL "" FORCE)
         set(SDL_X11_XTEST OFF CACHE BOOL "" FORCE)
-        add_subdirectory(third_party/SDL EXCLUDE_FROM_ALL)
+        if (GUIKIT_INSTALL)
+            add_subdirectory(third_party/SDL)
+        else()
+            add_subdirectory(third_party/SDL EXCLUDE_FROM_ALL)
+        endif()
     else()
         find_package(SDL3 REQUIRED CONFIG)
     endif()
@@ -259,9 +278,15 @@ if (GUIKIT_BUILD_BACKEND_SDL3)
         src/guikit/backend/sdl_gl_shader_engine.cpp
     )
     add_library(guikit::backend_sdl3 ALIAS guikit_backend_sdl3)
+    set_target_properties(guikit_backend_sdl3 PROPERTIES EXPORT_NAME backend_sdl3)
 
     target_compile_features(guikit_backend_sdl3 PUBLIC cxx_std_20)
-    target_link_libraries(guikit_backend_sdl3 PUBLIC guikit::core SDL3::SDL3-static)
+    target_compile_definitions(guikit_backend_sdl3 PUBLIC GUIKIT_HAS_BACKEND_SDL3=1)
+    if (TARGET SDL3::SDL3-static)
+        target_link_libraries(guikit_backend_sdl3 PUBLIC guikit::core PRIVATE SDL3::SDL3-static)
+    else()
+        target_link_libraries(guikit_backend_sdl3 PUBLIC guikit::core PRIVATE SDL3::SDL3)
+    endif()
 endif()
 
 # ==============================================================================
@@ -356,8 +381,50 @@ endif()
 # --- CMake Install Rules ---
 if (GUIKIT_INSTALL)
     include(GNUInstallDirs)
+    include(CMakePackageConfigHelpers)
+
+    set(_GUIKIT_EXPORT_TARGETS guikit_core guikit)
+    if (TARGET guikit_scenes)
+        list(APPEND _GUIKIT_EXPORT_TARGETS guikit_scenes)
+    endif()
+    if (TARGET guikit_backend_thorvg)
+        list(APPEND _GUIKIT_EXPORT_TARGETS guikit_backend_thorvg)
+        if (GUIKIT_BUNDLED_THORVG AND TARGET thorvg)
+            list(APPEND _GUIKIT_EXPORT_TARGETS thorvg)
+        endif()
+    endif()
+    if (TARGET guikit_backend_sdl3)
+        list(APPEND _GUIKIT_EXPORT_TARGETS guikit_backend_sdl3)
+    endif()
+
+    install(TARGETS ${_GUIKIT_EXPORT_TARGETS}
+        EXPORT guikitTargets
+        ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+        LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+        RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+    )
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/guikit"
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+    )
+    install(EXPORT guikitTargets
+        FILE guikitTargets.cmake
+        NAMESPACE guikit::
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/guikit"
+    )
+    configure_package_config_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/guikitConfig.cmake.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/guikitConfig.cmake"
+        INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/guikit"
+    )
+    write_basic_package_version_file(
+        "${CMAKE_CURRENT_BINARY_DIR}/guikitConfigVersion.cmake"
+        VERSION ${PROJECT_VERSION}
+        COMPATIBILITY SameMajorVersion
+    )
+    install(FILES
+        "${CMAKE_CURRENT_BINARY_DIR}/guikitConfig.cmake"
+        "${CMAKE_CURRENT_BINARY_DIR}/guikitConfigVersion.cmake"
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/guikit"
     )
 endif()
 
@@ -382,5 +449,27 @@ if (GUIKIT_BUILD_TESTS)
         tests/test_context.cpp
     )
     target_link_libraries(test_context PRIVATE guikit::guikit)
+    if (TARGET thorvg)
+        target_link_libraries(test_context PRIVATE thorvg)
+    endif()
+    if (TARGET SDL3::SDL3-static)
+        target_link_libraries(test_context PRIVATE SDL3::SDL3-static)
+    elseif (TARGET SDL3::SDL3)
+        target_link_libraries(test_context PRIVATE SDL3::SDL3)
+    endif()
     add_test(NAME context COMMAND test_context)
+
+    add_executable(test_guikit_header_purity
+        tests/test_header_purity.cpp
+    )
+    target_link_libraries(test_guikit_header_purity PRIVATE guikit::core)
+    if (TARGET guikit::scenes)
+        target_link_libraries(test_guikit_header_purity PRIVATE guikit::scenes)
+    endif()
+    if (MSVC)
+        target_compile_options(test_guikit_header_purity PRIVATE /W4 /WX)
+    else()
+        target_compile_options(test_guikit_header_purity PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME guikit_header_purity COMMAND test_guikit_header_purity)
 endif()

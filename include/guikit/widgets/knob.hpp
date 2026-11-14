@@ -28,11 +28,14 @@ struct KnobOptions {
     StateColor color{};                            ///< Per-state accent fill color for active arc, pointer, and ticks
     StretchMode stretch{StretchMode::Compact};     ///< Sizing behavior: Compact, Space, Fill
     Align align{Align::Center};                    ///< Standalone control alignment (Start, Center, End)
-    std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = auto from UiSize), or ratio 0.0..1.0 for Fill
+    std::optional<float> width{std::nullopt};      ///< Control width in dp (or legacy ratio 0.0..1.0 in Fill)
+    std::optional<float> widthRatio{std::nullopt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
     std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = auto from UiSize)
     StateColor background{};                       ///< Per-state control well backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                               ///< Control well border stroke & corner radius configuration
     bool disabled{false};                          ///< Interaction suppression
+    const UiTheme* theme{nullptr};                 ///< Optional scoped theme override
+    std::optional<float> scale{std::nullopt};      ///< Optional scoped scale factor override
 };
 
 /// Internal runtime state stored per-widget ID for Knob drag interaction.
@@ -58,7 +61,7 @@ public:
         Context& ctx,
         double* doubleVal,
         float* floatVal,
-        int* intVal,
+        int64_t* intVal,
         double minVal,
         double maxVal,
         const KnobOptions& opts = {},

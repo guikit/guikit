@@ -1701,6 +1701,52 @@ struct MarkdownState {
     }
 };
 
+MarkdownOptions CloneMarkdownOptionsWithoutCallbacks(const MarkdownOptions& src) noexcept {
+    MarkdownOptions dst{};
+    dst.align = src.align;
+    dst.stretch = src.stretch;
+    dst.width = src.width;
+    dst.widthRatio = src.widthRatio;
+    dst.height = src.height;
+    dst.background = src.background;
+    dst.border = src.border;
+    dst.allowZoom = src.allowZoom;
+    dst.zoom = src.zoom;
+    dst.bodyFontSize = src.bodyFontSize;
+    dst.headingScale = src.headingScale;
+    dst.inlineCodeFontSize = src.inlineCodeFontSize;
+    dst.codeFontSize = src.codeFontSize;
+    dst.lineHeightScale = src.lineHeightScale;
+    dst.documentPadding = src.documentPadding;
+    dst.maxContentWidth = src.maxContentWidth;
+    dst.blockGap = src.blockGap;
+    dst.paragraphIndent = src.paragraphIndent;
+    dst.listIndent = src.listIndent;
+    dst.blockPadding = src.blockPadding;
+    dst.blockRadius = src.blockRadius;
+    dst.headingDividers = src.headingDividers;
+    dst.codeLineNumbers = src.codeLineNumbers;
+    dst.syntaxHighlight = src.syntaxHighlight;
+    dst.showCopyButton = src.showCopyButton;
+    dst.codeShowWhitespace = src.codeShowWhitespace;
+    dst.codeIndentGuides = src.codeIndentGuides;
+    dst.codePalette = src.codePalette;
+    dst.imageCheckerboard = src.imageCheckerboard;
+    dst.imageMaxHeight = src.imageMaxHeight;
+    dst.imageRadius = src.imageRadius;
+    dst.enableSelection = src.enableSelection;
+    dst.enableSearch = src.enableSearch;
+    dst.interactiveTasks = src.interactiveTasks;
+    dst.searchQuery = src.searchQuery;
+    dst.tooltip = src.tooltip;
+    dst.disabled = src.disabled;
+    dst.theme = src.theme;
+    dst.scale = src.scale;
+    dst.debugBounds = src.debugBounds;
+    dst.inspectMode = src.inspectMode;
+    return dst;
+}
+
 struct MarkdownPayload {
     std::string_view text{};
     MarkdownOptions opts{};
@@ -1730,13 +1776,22 @@ MarkdownResponse Markdown::Run(
     const MarkdownOptions& opts,
     std::source_location loc
 ) {
+    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    struct ThemePopGuard {
+        Context& c;
+        UiTheme* t;
+        ~ThemePopGuard() noexcept { if (t) c.PopTheme(); }
+    } themePop{ctx, pushedTheme};
+
     const Id id = ctx.MakeChildId(loc);
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const UiSize activeSize = ctx.GetCurrentSize();
     const UiTheme& theme = ctx.GetTheme();
 
-    MarkdownOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
+    MarkdownOptions optsCopy = CloneMarkdownOptionsWithoutCallbacks(opts);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
+    optsCopy.searchQuery = ctx.AllocString(opts.searchQuery);
+    optsCopy.tooltip = ctx.AllocText(opts.tooltip);
 
     auto& state = ctx.GetOrCreatePersistentState<MarkdownState>(id);
     const auto doc = GetOrParseMarkdown(markdownText);
@@ -1828,8 +1883,8 @@ MarkdownResponse Markdown::Run(
                 if (baseRes.clicked) {
                     res.clickedLink = hit.hoveredLink;
                     res.changed = true;
-                    if (optsCopy.onLinkClick) {
-                        optsCopy.onLinkClick(hit.hoveredLink);
+                    if (opts.onLinkClick) {
+                        opts.onLinkClick(hit.hoveredLink);
                     }
                 }
             } else if (hit.hoveredCopyBlock >= 0) {
@@ -1846,10 +1901,12 @@ MarkdownResponse Markdown::Run(
                     res.toggledTaskIndex = hit.hoveredTaskIndex;
                     res.toggledTaskChecked = nextChecked;
                     res.changed = true;
-                    if (optsCopy.onTaskToggle) {
-                        optsCopy.onTaskToggle(hit.hoveredTaskIndex, nextChecked);
+                    if (opts.onTaskToggle) {
+                        opts.onTaskToggle(hit.hoveredTaskIndex, nextChecked);
                     }
                 }
+            } else if (!opts.tooltip.empty()) {
+                ctx.SetTooltip(opts.tooltip, baseRes.rect);
             }
         }
 
@@ -2066,9 +2123,12 @@ MarkdownResponse Markdown::Run(
 
     // 6. Create Node & Payload
     Node* node = ctx.CreateNode(NodeType::Markdown, id);
+    node->theme = pushedTheme;
+    node->debugBoundsOverride = opts.debugBounds;
+    node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<MarkdownPayload>();
     payload->text = ctx.AllocString(markdownText);
-    payload->opts = optsCopy;
+    payload->opts = CloneMarkdownOptionsWithoutCallbacks(optsCopy);
     payload->zoom = state.zoom;
     payload->hoveredCopyBlock = hoveredCopyBlock;
     payload->activeCopiedBlock = state.copiedBlockIndex;
@@ -2091,6 +2151,7 @@ MarkdownResponse Markdown::Run(
         doc->sourceHash,
         state.zoom,
         optsCopy.width.value_or(-1.0f),
+        optsCopy.widthRatio.value_or(-1.0f),
         optsCopy.height.value_or(-1.0f),
         optsCopy.background,
         optsCopy.border,
@@ -2139,7 +2200,7 @@ MarkdownResponse Markdown::Run(
         if (canvas) {
             p->lastCanvas = canvas;
         }
-        MarkdownOptions mOpts = p->opts;
+        MarkdownOptions mOpts = CloneMarkdownOptionsWithoutCallbacks(p->opts);
         float z = p->zoom;
         mOpts.zoom = &z;
         return Markdown::Measure(p->text, mOpts, n->uiSize, canvas ? canvas : p->lastCanvas, th, availableWidth);
@@ -2150,9 +2211,9 @@ MarkdownResponse Markdown::Run(
 
         if (p->opts.background.IsBackgroundEnabled(false) || p->opts.border.color.HasAny() || p->opts.border.width > 0.0f) {
             const Color bgCol = p->opts.background.IsBackgroundEnabled(false)
-                ? (p->opts.background.IsSurface() ? th.palette.surface : p->opts.background.Resolve(n->hovered, n->pressed, n->disabled, th.palette.surface))
+                ? (p->opts.background.IsSurface() ? th.palette.surface : th.ResolveColor(p->opts.background, n->hovered, n->pressed, n->disabled, th.palette.surface))
                 : Color::Transparent();
-            const Color bCol = p->opts.border.color.Resolve(n->hovered, n->pressed, n->disabled, th.palette.border);
+            const Color bCol = th.ResolveColor(p->opts.border.color, n->hovered, n->pressed, n->disabled, th.palette.border);
             const float bW = (p->opts.border.width > 0.0f) ? th.Scale(p->opts.border.width) : (p->opts.border.color.HasAny() ? th.Scale(1.0f) : 0.0f);
             const float bR = p->opts.border.radius.has_value() ? th.Scale(*p->opts.border.radius) : 0.0f;
             canvas.DrawRoundRect(n->computedRect, bR, bgCol, bCol, bW);
@@ -2257,6 +2318,7 @@ MarkdownResponse Markdown::Run(
 
     ControlSpec ctrlSpec{};
     ctrlSpec.width = optsCopy.width;
+    ctrlSpec.widthRatio = optsCopy.widthRatio;
     ctrlSpec.height = optsCopy.height;
     Control::SetupNode(ctx, node, ctrlSpec, optsCopy.stretch, optsCopy.align);
     if (!node->parent || node->parent->type != NodeType::Element) {
@@ -2288,11 +2350,11 @@ Vec2 Markdown::Measure(
     const float effZoom = (opts.zoom != nullptr) ? std::clamp(*opts.zoom, 0.5f, 3.0f) : 1.0f;
 
     float ctrlW = (availableWidth > 0.0f) ? availableWidth : theme.Scale(520.0f);
-    if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f && opts.width.has_value()) {
-        const float ratio = std::clamp(*opts.width, 0.1f, 1.0f);
-        ctrlW = availableWidth * ratio;
-    } else if (opts.width.has_value() && *opts.width > 0.0f) {
+    if (Control::HasExplicitDpWidth(opts.stretch, opts.width, opts.widthRatio)) {
         ctrlW = theme.Scale(*opts.width);
+    } else if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f) {
+        const float ratio = Control::ResolveFillRatio(opts.stretch, opts.width, opts.widthRatio).value_or(1.0f);
+        ctrlW = availableWidth * ratio;
     }
 
     const auto layout = GetOrBuildMarkdownLayout(canvas, ctrlW, doc, opts, theme, effZoom);
@@ -2320,9 +2382,9 @@ void Markdown::Render(
 
     if (opts.background.IsBackgroundEnabled(false) || opts.border.color.HasAny() || opts.border.width > 0.0f) {
         const Color bgCol = opts.background.IsBackgroundEnabled(false)
-            ? (opts.background.IsSurface() ? theme.palette.surface : opts.background.Resolve(false, false, disabled, theme.palette.surface))
+            ? (opts.background.IsSurface() ? theme.palette.surface : theme.ResolveColor(opts.background, false, false, disabled, theme.palette.surface))
             : Color::Transparent();
-        const Color bCol = opts.border.color.Resolve(false, false, disabled, theme.palette.border);
+        const Color bCol = theme.ResolveColor(opts.border.color, false, false, disabled, theme.palette.border);
         const float bW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : (opts.border.color.HasAny() ? theme.Scale(1.0f) : 0.0f);
         const float bR = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : 0.0f;
         canvas.DrawRoundRect(bounds, bR, bgCol, bCol, bW);

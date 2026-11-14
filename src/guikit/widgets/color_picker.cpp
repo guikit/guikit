@@ -99,6 +99,7 @@ ControlSpec EffectiveColorPickerControl(const ColorPickerOptions& opts, UiSize s
     const SelectMetrics& m = theme.GetSelect(size);
     ControlSpec c{};
     c.width = opts.width;
+    c.widthRatio = opts.widthRatio;
     c.height = opts.height;
     c.minWidth = opts.minWidth;
     c.align = opts.align;
@@ -116,9 +117,10 @@ ControlSpec EffectiveColorPickerControl(const ColorPickerOptions& opts, UiSize s
 }
 
 Vec2 MeasureColorPickerBox(const ColorPickerOptions& opts, UiSize size, ICanvas* canvas, const UiTheme& theme) noexcept {
+    const bool hasExplicitDpW = Control::HasExplicitDpWidth(opts.stretch, opts.width, opts.widthRatio);
     if (opts.inlinePanel) {
         const Vec2 defPanel = DefaultPanelDimensions(opts, theme);
-        float w = (opts.stretch != StretchMode::Fill && opts.width.has_value()) ? theme.Scale(*opts.width) : defPanel.x;
+        float w = hasExplicitDpW ? theme.Scale(*opts.width) : defPanel.x;
         if (opts.minWidth.has_value()) {
             w = std::max(theme.Scale(*opts.minWidth), w);
         }
@@ -141,7 +143,7 @@ Vec2 MeasureColorPickerBox(const ColorPickerOptions& opts, UiSize size, ICanvas*
     if (opts.minWidth.has_value()) {
         naturalW = std::max(theme.Scale(*opts.minWidth), naturalW);
     }
-    if (opts.stretch != StretchMode::Fill && opts.width.has_value()) {
+    if (hasExplicitDpW) {
         naturalW = theme.Scale(*opts.width);
     }
     return {naturalW, boxH};
@@ -261,6 +263,13 @@ Response ColorPicker::Run(
     const ColorPickerOptions& opts,
     std::source_location loc
 ) {
+    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    struct ThemePopGuard {
+        Context& c;
+        UiTheme* t;
+        ~ThemePopGuard() noexcept { if (t) c.PopTheme(); }
+    } themeGuard{ctx, pushedTheme};
+
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
@@ -268,7 +277,7 @@ Response ColorPicker::Run(
     ICanvas* canvas = ctx.GetCanvas();
 
     ColorPickerOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
 
     const Vec2 naturalDims = MeasureColorPickerBox(optsCopy, activeSize, canvas, theme);
     const float unscaledW = (theme.scale > 0.0f) ? (naturalDims.x / theme.scale) : naturalDims.x;
@@ -375,9 +384,10 @@ Response ColorPicker::Run(
         const Rect activePanelRect = optsCopy.inlinePanel ? ctrlRect : ctx.GetOpenPopupRect();
         const PanelLayout L = ComputePanelLayout(activePanelRect, optsCopy, theme);
         const Vec2 mouse = ctx.GetMousePos();
-        const std::span<const Color> swatches = optsCopy.presets.empty()
+        const std::span<const Color> customSwatches = !optsCopy.swatches.empty() ? optsCopy.swatches : optsCopy.presets;
+        const std::span<const Color> swatches = customSwatches.empty()
             ? std::span<const Color>(kDefaultPresets)
-            : optsCopy.presets;
+            : customSwatches;
 
         // Check swatch hover & click
         if (optsCopy.showSwatches && !swatches.empty() && state.dragTarget == 0 && L.swatchesRowRect.Contains(mouse)) {
@@ -480,6 +490,13 @@ Response ColorPicker::Run(
     const std::string_view hexView = ctx.AllocString(hexBuf);
 
     optsCopy.tooltip = ctx.AllocText(optsCopy.tooltip);
+    if (!optsCopy.swatches.empty()) {
+        Color* arenaSwatches = ctx.GetArena().create_array<Color>(optsCopy.swatches.size());
+        for (size_t i = 0; i < optsCopy.swatches.size(); ++i) {
+            arenaSwatches[i] = optsCopy.swatches[i];
+        }
+        optsCopy.swatches = std::span<const Color>(arenaSwatches, optsCopy.swatches.size());
+    }
     if (!optsCopy.presets.empty()) {
         Color* arenaPresets = ctx.GetArena().create_array<Color>(optsCopy.presets.size());
         for (size_t i = 0; i < optsCopy.presets.size(); ++i) {
@@ -517,6 +534,7 @@ Response ColorPicker::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::ColorPicker, id);
+    node->theme = pushedTheme;
 
     auto* data = ctx.AllocPayload<ColorPickerData>();
     data->opts = optsCopy;
@@ -633,10 +651,10 @@ void ColorPicker::Render(
         boxBorder = boxBorder.WithAlphaF(0.40f);
     }
     if (ctrl.HasBackground(true) && ctrl.background.HasAny() && !ctrl.background.IsSurface()) {
-        boxBg = ctrl.background.Resolve(hovered, open || focused, disabled, boxBg);
+        boxBg = theme.ResolveColor(ctrl.background, hovered, open || focused, disabled, boxBg);
     }
     if (ctrl.border.color.HasAny()) {
-        boxBorder = ctrl.border.color.Resolve(hovered, open || focused, disabled, boxBorder);
+        boxBorder = theme.ResolveColor(ctrl.border.color, hovered, open || focused, disabled, boxBorder);
     }
 
     canvas.DrawRoundRect(ctrlRect, radius, boxBg, boxBorder, strokeW);
@@ -716,10 +734,10 @@ void ColorPicker::RenderPanel(
         const ControlSpec ctrl = EffectiveColorPickerControl(opts, size, theme);
         Color panelBg = ctrl.HasBackground(true) ? pal.surface : Color::Transparent();
         if (ctrl.HasBackground(true) && ctrl.background.HasAny() && !ctrl.background.IsSurface()) {
-            panelBg = ctrl.background.Resolve(false, false, disabled, panelBg);
+            panelBg = theme.ResolveColor(ctrl.background, false, false, disabled, panelBg);
         }
         Color panelBorder = ctrl.border.color.HasAny()
-            ? ctrl.border.color.Resolve(false, false, disabled, pal.inputBorder)
+            ? theme.ResolveColor(ctrl.border.color, false, false, disabled, pal.inputBorder)
             : pal.inputBorder;
         const float strokeW = (ctrl.border.width > 0.0f) ? theme.Scale(ctrl.border.width) : 1.0f;
         canvas.DrawRoundRect(panelRect, radius, panelBg, panelBorder, strokeW);
@@ -815,9 +833,10 @@ void ColorPicker::RenderPanel(
 
     // 5. Render Quick Preset Swatches row
     if (opts.showSwatches) {
-        const std::span<const Color> swatches = opts.presets.empty()
+        const std::span<const Color> customSwatches = !opts.swatches.empty() ? opts.swatches : opts.presets;
+        const std::span<const Color> swatches = customSwatches.empty()
             ? std::span<const Color>(kDefaultPresets)
-            : opts.presets;
+            : customSwatches;
         if (!swatches.empty()) {
             const float gap = theme.Scale(5.0f);
             const float countF = static_cast<float>(swatches.size());

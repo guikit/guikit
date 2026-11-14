@@ -467,6 +467,8 @@ struct LayerStyle {
     bool useCustomColor{false};
 };
 
+using GeoLayerStyle = LayerStyle;
+
 /// Vector GIS layer loaded from a GeoJSON file or a GeoPackage (.gpkg) feature table.
 struct GeoLayer {
     uint64_t uid{0};
@@ -575,5 +577,13 @@ public:
 } // namespace guikit::geo
 
 namespace guikit {
-using namespace geo;
+using geo::ChartFeatureClass;
+using geo::ChartFeatureClassToString;
+using geo::FindFeatureByUid;
+using geo::GeoFeature;
+using geo::GeoLayer;
+using geo::GeoLayerStyle;
+using geo::GeoPolygon;
+using geo::GeoTriangle;
+using geo::SrsTransform;
 } // namespace guikit

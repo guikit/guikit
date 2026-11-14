@@ -1,5 +1,6 @@
 #include "guikit/backend/sdl_canvas.hpp"
 #include "guikit/core/text_util.hpp"
+#include <SDL3/SDL.h>
 #include <algorithm>
 #include <cmath>
 #include <numbers>

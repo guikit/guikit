@@ -8,9 +8,15 @@
 #include <optional>
 #include <span>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 namespace guikit {
+
+/// Concept matching any integral or enum index type except `bool`.
+template <typename T>
+concept IndexLike = (std::is_integral_v<std::remove_cvref_t<T>> || std::is_enum_v<std::remove_cvref_t<T>>) &&
+                    !std::is_same_v<std::remove_cvref_t<T>, bool>;
 
 /// Standard system mouse cursor shapes requested by interactive widgets and resize handles.
 enum class CursorType : uint8_t {
@@ -727,6 +733,8 @@ enum class ObjectFit : uint8_t {
 
 /// Inset margins or internal padding on 4 sides, supporting both explicit pixel insets and semantic design tokens.
 struct Padding {
+    static constexpr float kTokenSentinel = -3.402823466e+38f;
+
     float left{0.0f};
     float top{0.0f};
     float right{0.0f};
@@ -744,7 +752,7 @@ struct Padding {
 
     /// Semantic design token padding dynamically resolved via UiTheme and UI density scale.
     constexpr Padding(UiSize size) noexcept
-        : left(-1.0f), top(static_cast<float>(size)), right(0.0f), bottom(0.0f) {}
+        : left(kTokenSentinel), top(static_cast<float>(size)), right(kTokenSentinel), bottom(kTokenSentinel) {}
 
     [[nodiscard]] static constexpr Padding All(float val) noexcept {
         return Padding(val);
@@ -755,19 +763,19 @@ struct Padding {
     }
 
     [[nodiscard]] constexpr bool IsToken() const noexcept {
-        return left < 0.0f;
+        return left == kTokenSentinel && right == kTokenSentinel && bottom == kTokenSentinel;
     }
 
     [[nodiscard]] constexpr UiSize GetToken() const noexcept {
-        return (left < 0.0f) ? static_cast<UiSize>(top) : UiSize::None;
+        return IsToken() ? static_cast<UiSize>(top) : UiSize::None;
     }
 
     [[nodiscard]] constexpr float Horizontal() const noexcept {
-        return (left < 0.0f) ? 0.0f : (left + right);
+        return IsToken() ? 0.0f : (left + right);
     }
 
     [[nodiscard]] constexpr float Vertical() const noexcept {
-        return (left < 0.0f) ? 0.0f : (top + bottom);
+        return IsToken() ? 0.0f : (top + bottom);
     }
 
     [[nodiscard]] constexpr bool operator==(const Padding& other) const noexcept {

@@ -14,6 +14,12 @@ class Context;
 /// Options for configuring a visual Card surface container.
 struct CardOptions {
     float minWidth{0.0f};                           ///< Minimum card width constraint (0 = auto content intrinsic)
+    std::optional<float> maxWidth{std::nullopt};
+    std::optional<float> width{std::nullopt};
+    std::optional<float> height{std::nullopt};
+    std::optional<float> minHeight{std::nullopt};
+    std::optional<float> maxHeight{std::nullopt};
+    float flexGrow{1.0f};
     std::optional<float> gap{std::nullopt};        ///< Gap between child elements inside card (nullopt = from theme)
     std::optional<Padding> padding{std::nullopt};   ///< Card padding (nullopt = auto from theme)
     StateColor background{};

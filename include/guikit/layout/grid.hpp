@@ -22,14 +22,27 @@ struct GridOptions {
     Justify justify{Justify::Start};
     SizeMode widthMode{SizeMode::Stretch};
     SizeMode heightMode{SizeMode::Fit};
+    std::optional<float> width{std::nullopt};
+    std::optional<float> height{std::nullopt};
+    std::optional<float> minWidth{std::nullopt};
+    std::optional<float> maxWidth{std::nullopt};
+    std::optional<float> minHeight{std::nullopt};
+    std::optional<float> maxHeight{std::nullopt};
+    float flexGrow{1.0f};
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};
+    std::optional<bool> debugBounds{std::nullopt};
+    std::optional<bool> inspectMode{std::nullopt};
 };
 
 /// Options for configuring an individual grid cell slot.
 struct CellOptions {
     float minWidth{0.0f};                           ///< Minimum width constraint (0 = auto content intrinsic)
+    std::optional<float> maxWidth{std::nullopt};
+    std::optional<float> height{std::nullopt};
+    std::optional<float> minHeight{std::nullopt};
+    std::optional<float> maxHeight{std::nullopt};
     std::optional<float> gap{std::nullopt};        ///< Gap between stacked children inside this cell
     std::optional<Padding> padding{std::nullopt};   ///< Internal cell padding (nullopt = zero)
     Alignment align{Alignment::Stretch};
@@ -39,6 +52,8 @@ struct CellOptions {
     bool clipChildren{false};                       ///< Clip cell children to cell boundaries (default: false)
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};
+    std::optional<bool> debugBounds{std::nullopt};
+    std::optional<bool> inspectMode{std::nullopt};
 };
 
 /// Specialized RAII Scope guard for Grid containers providing direct cell slot helpers.

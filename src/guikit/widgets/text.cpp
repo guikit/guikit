@@ -161,7 +161,15 @@ void Text::Render(
     Color color;
     if (label.color.HasAny()) {
         const Color fallback = theme.GetTextColor(opts.variant);
-        color = label.color.Resolve(hovered, false, disabled, fallback, pal.textPrimary, pal.textPrimary, fallback.WithAlphaF(0.40f));
+        color = theme.ResolveTextStateColor(label.color).Resolve(
+            hovered,
+            false,
+            disabled,
+            fallback,
+            pal.textPrimary,
+            pal.textPrimary,
+            fallback.WithAlphaF(0.40f)
+        );
     } else {
         color = theme.GetTextColor(opts.variant);
         if (disabled) {

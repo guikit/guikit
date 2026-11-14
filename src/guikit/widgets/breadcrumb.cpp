@@ -25,6 +25,7 @@ ControlSpec EffectiveBreadcrumbControl(const BreadcrumbOptions& opts, UiSize siz
     const SelectMetrics& sm = theme.GetSelect(size);
     ControlSpec c{};
     c.width = opts.width;
+    c.widthRatio = opts.widthRatio;
     c.height = opts.height;
     c.align = opts.align;
     c.background = opts.background;
@@ -452,7 +453,7 @@ Response Breadcrumb::Run(
     const bool wasOpen = ctx.IsPopupOpen(id);
 
     BreadcrumbOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
 
     ctx.RegisterFocusable(id, effectiveDisabled);
     Response res = ctx.Interact(id);
@@ -734,7 +735,7 @@ Response Breadcrumb::Run(
     }
 
     if (res.hovered && !isOpen && !optsCopy.tooltip.empty()) {
-        ctx.SetTooltip(std::string_view(optsCopy.tooltip), prevBounds);
+        ctx.SetTooltip(optsCopy.tooltip, prevBounds);
     }
 
     ControlSpec ctrl = EffectiveBreadcrumbControl(optsCopy, activeSize, theme);
@@ -748,7 +749,7 @@ Response Breadcrumb::Run(
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
 
-    optsCopy.tooltip = ctx.String(optsCopy.tooltip);
+    optsCopy.tooltip = ctx.AllocText(optsCopy.tooltip);
     BreadcrumbItem* arenaItems = ctx.GetArena().create_array<BreadcrumbItem>(items.size());
     uint64_t itemsHash = 0;
     for (size_t i = 0; i < items.size(); ++i) {

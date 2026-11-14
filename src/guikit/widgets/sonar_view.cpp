@@ -1153,10 +1153,10 @@ Vec2 SonarView::Measure(
     float availableWidth
 ) {
     float defaultW = availableWidth > 0.0f ? availableWidth : theme.Scale(520.0f);
-    if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f && opts.width.has_value()) {
-        defaultW = availableWidth * std::clamp(*opts.width, 0.1f, 1.0f);
-    } else if (opts.width.has_value() && *opts.width > 0.0f) {
+    if (Control::HasExplicitDpWidth(opts.stretch, opts.width, opts.widthRatio)) {
         defaultW = theme.Scale(*opts.width);
+    } else if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f) {
+        defaultW = availableWidth * Control::ResolveFillRatio(opts.stretch, opts.width, opts.widthRatio).value_or(1.0f);
     }
     const float defaultH = (opts.height.has_value() && *opts.height > 0.0f)
         ? theme.Scale(*opts.height)
@@ -1170,8 +1170,15 @@ SonarViewResponse SonarView::Run(
     const SonarViewOptions& optsIn,
     std::source_location loc
 ) {
+    UiTheme* pushedTheme = ctx.PushScopedTheme(optsIn.theme, optsIn.scale);
+    struct ThemePopGuard {
+        Context& c;
+        UiTheme* t;
+        ~ThemePopGuard() noexcept { if (t) c.PopTheme(); }
+    } themePop{ctx, pushedTheme};
+
     SonarViewOptions opts = optsIn;
-    Control::InheritElementSizing(ctx, opts.stretch, opts.width, opts.height);
+    Control::InheritElementSizing(ctx, opts.stretch, opts.width, opts.widthRatio, opts.height);
 
     const Id id = ctx.MakeChildId(loc);
     const bool isDisabled = opts.disabled || ctx.IsDisabled();
@@ -1386,9 +1393,12 @@ SonarViewResponse SonarView::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::SonarView, id);
+    node->theme = pushedTheme;
+    node->debugBoundsOverride = opts.debugBounds;
+    node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<SonarViewPayload>();
     payload->opts = opts;
-    payload->opts.tooltip = ctx.AllocString(opts.tooltip);
+    payload->opts.tooltip = ctx.AllocText(opts.tooltip);
     payload->resp = resp;
     payload->state = &state;
 
@@ -1447,6 +1457,7 @@ SonarViewResponse SonarView::Run(
 
     ControlSpec ctrlSpec{};
     ctrlSpec.width = opts.width;
+    ctrlSpec.widthRatio = opts.widthRatio;
     ctrlSpec.height = opts.height;
     Control::SetupNode(ctx, node, ctrlSpec, opts.stretch, opts.align);
     if (!node->parent || node->parent->type != NodeType::Element) {

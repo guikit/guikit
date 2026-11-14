@@ -28,26 +28,41 @@ ContainerScope Box::Open(
     const auto& pal = theme.palette;
     node->backgroundColor = opts.background.IsBackgroundEnabled(false)
         ? (opts.background.HasAny() && !opts.background.IsSurface()
-            ? opts.background.Resolve(false, false, activeDisabled, pal.surface)
+            ? theme.ResolveColor(opts.background, false, false, activeDisabled, pal.surface)
             : pal.surface)
         : Color::Transparent();
     const float bw = (opts.border.width > 0.0f) ? opts.border.width : (opts.border.color.HasAny() ? 1.0f : 0.0f);
     node->borderWidth = theme.Scale(bw);
-    node->borderColor = (bw > 0.0f) ? opts.border.color.Resolve(false, false, activeDisabled, pal.border) : Color::Transparent();
+    node->borderColor = (bw > 0.0f) ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, pal.border) : Color::Transparent();
     node->explicitRadius = opts.border.radius.has_value() ? 1 : 0;
     node->cornerRadius = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : 0.0f;
     node->clipChildren = opts.clipChildren;
     node->widthMode = opts.widthMode;
     node->heightMode = opts.heightMode;
 
-    if (opts.fixedWidth > 0.0f) {
+    const float explicitW = opts.width.value_or(opts.fixedWidth);
+    const float explicitH = opts.height.value_or(opts.fixedHeight);
+    if (explicitW > 0.0f) {
         node->widthMode = SizeMode::Fixed;
-        node->fixedWidth = theme.Scale(opts.fixedWidth);
+        node->fixedWidth = theme.Scale(explicitW);
     }
-    if (opts.fixedHeight > 0.0f) {
+    if (explicitH > 0.0f) {
         node->heightMode = SizeMode::Fixed;
-        node->fixedHeight = theme.Scale(opts.fixedHeight);
+        node->fixedHeight = theme.Scale(explicitH);
     }
+    if (opts.minWidth.has_value() && *opts.minWidth > 0.0f) {
+        node->minWidth = theme.Scale(*opts.minWidth);
+    }
+    if (opts.maxWidth.has_value() && *opts.maxWidth > 0.0f) {
+        node->maxWidth = theme.Scale(*opts.maxWidth);
+    }
+    if (opts.minHeight.has_value() && *opts.minHeight > 0.0f) {
+        node->minHeight = theme.Scale(*opts.minHeight);
+    }
+    if (opts.maxHeight.has_value() && *opts.maxHeight > 0.0f) {
+        node->maxHeight = theme.Scale(*opts.maxHeight);
+    }
+    node->flexGrow = opts.flexGrow;
 
     node->uiSize = activeSize;
     node->disabled = activeDisabled;

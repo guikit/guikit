@@ -137,7 +137,7 @@ struct TextAreaResponse : Response {
 
 /// Clean configuration options for TextArea / Code Editor widget.
 struct TextAreaOptions {
-    std::string_view placeholder{};                     ///< Placeholder text when empty
+    UiText placeholder{};                               ///< Placeholder text when empty
     std::optional<uint32_t> rows{std::nullopt};         ///< Visible height expressed in rows/lines
     bool autoHeight{false};                             ///< Automatically fit height to content line count
     bool readOnly{false};                               ///< Non-editable display mode (still allows selection & copy)
@@ -145,6 +145,8 @@ struct TextAreaOptions {
     bool showCopyButton{false};                         ///< Optional quick Copy action button in top-right corner
     bool monospace{true};                               ///< Monospace typography (FontStyle::Monospace / CodeMedium)
     bool wordWrap{false};                               ///< Wrap long lines to viewport width (default false for code)
+    uint8_t tabSize{4};                                 ///< Visual tab width and indentation step in spaces (1..16)
+    bool insertSpaces{true};                            ///< Insert spaces instead of '\t' on Tab / smart indent
     bool allowZoom{true};                               ///< Allow interactive Ctrl + Mouse Wheel zoom (50%..300%)
     float zoom{1.0f};                                   ///< Base editor zoom factor (1.0f = 100%)
     std::optional<SyntaxConfig> syntax{std::nullopt};   ///< Configurable rule-based syntax highlighting
@@ -155,15 +157,18 @@ struct TextAreaOptions {
     StateColor color{};                                 ///< Optional focus ring / accent color override
     Align align{Align::Start};                          ///< Horizontal alignment in parent container
     StretchMode stretch{StretchMode::Fill};             ///< Horizontal sizing behavior (Compact, Space, Fill)
-    std::optional<float> width{std::nullopt};           ///< Explicit width (dp in Compact/Space, ratio 0.0..1.0 in Fill)
+    std::optional<float> width{std::nullopt};           ///< Explicit width in dp (or legacy ratio 0.0..1.0 in Fill)
+    std::optional<float> widthRatio{std::nullopt};      ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
     std::optional<float> height{std::nullopt};          ///< Explicit height of the editor box in points/pixels
     SizeMode heightMode{SizeMode::Fit};                 ///< Vertical sizing behavior in layout (Fit or Stretch)
     StateColor background{};                            ///< Optional background fill color override
     Border border{};                                    ///< Optional border configuration (color, width, radius)
     std::optional<float> scale{std::nullopt};           ///< Optional local UI scale factor override
     const UiTheme* theme{nullptr};                      ///< Optional local theme override
-    std::string_view tooltip{};                         ///< Optional hover tooltip text
+    UiText tooltip{};                                   ///< Optional hover tooltip text
     bool disabled{false};                               ///< Interaction suppression
+    std::optional<bool> debugBounds{std::nullopt};
+    std::optional<bool> inspectMode{std::nullopt};
 
     // --- IDE & Code Intelligence Features ---
     bool showMinimap{false};                            ///< Render syntax-colored code overview minimap on the right
@@ -281,6 +286,7 @@ struct TextAreaData {
     size_t selectionStart{0};
     size_t selectionEnd{0};
     bool cursorVisible{true};
+    float cursorWidth{1.8f};
     float scrollX{0.0f};
     float scrollY{0.0f};
     float zoom{1.0f};
@@ -390,5 +396,9 @@ public:
         void* userData = nullptr
     );
 };
+
+using CodeEditor = TextArea;
+using CodeEditorOptions = TextAreaOptions;
+using CodeEditorResponse = TextAreaResponse;
 
 } // namespace guikit

@@ -10,17 +10,35 @@
 #define GUIKIT_VERSION_STRING "1.0.0"
 
 #include "guikit/core.hpp"
-#if !defined(GUIKIT_HAS_SCENES) || GUIKIT_HAS_SCENES
+#if defined(GUIKIT_HAS_SCENES) && GUIKIT_HAS_SCENES
 #include "guikit/scenes.hpp"
-#endif
-#if __has_include("thorvg.h")
-#include "guikit/backend/thor_canvas.hpp"
-#endif
-#if __has_include(<SDL3/SDL.h>)
-#include "guikit/backend/sdl_window_backend.hpp"
 #endif
 
 namespace guikit {
+
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
+void RegisterThorVectorBackend() noexcept;
+#endif
+#if defined(GUIKIT_HAS_BACKEND_SDL3) && GUIKIT_HAS_BACKEND_SDL3
+void RegisterSdlWindowBackend() noexcept;
+#endif
+
+#if (defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG) || \
+    (defined(GUIKIT_HAS_BACKEND_SDL3) && GUIKIT_HAS_BACKEND_SDL3)
+namespace detail {
+struct DefaultBackendsAutoRegistrar {
+    DefaultBackendsAutoRegistrar() noexcept {
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
+        RegisterThorVectorBackend();
+#endif
+#if defined(GUIKIT_HAS_BACKEND_SDL3) && GUIKIT_HAS_BACKEND_SDL3
+        RegisterSdlWindowBackend();
+#endif
+    }
+};
+inline const DefaultBackendsAutoRegistrar g_defaultBackendsAutoRegistrar{};
+} // namespace detail
+#endif
 
 struct Version {
     static constexpr int major = GUIKIT_VERSION_MAJOR;

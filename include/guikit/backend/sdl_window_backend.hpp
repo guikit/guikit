@@ -1,6 +1,5 @@
 #pragma once
 
-#include <SDL3/SDL.h>
 #include <array>
 #include <atomic>
 #include <chrono>
@@ -10,6 +9,12 @@
 #include "guikit/backend/i_window_backend.hpp"
 #include "guikit/backend/sdl_gl_shader_engine.hpp"
 #include "guikit/backend/vector_backend.hpp"
+
+struct SDL_Window;
+struct SDL_Renderer;
+struct SDL_Texture;
+struct SDL_Cursor;
+union SDL_Event;
 
 namespace guikit {
 
@@ -65,6 +70,7 @@ public:
     [[nodiscard]] SDL_Renderer* GetSdlRenderer() const noexcept { return m_renderer; }
     [[nodiscard]] SdlGlShaderEngine& GetShaderEngine() noexcept { return m_gpuShaderEngine; }
     [[nodiscard]] const SdlGlShaderEngine& GetShaderEngine() const noexcept { return m_gpuShaderEngine; }
+    static bool LiveResizeEventWatch(void* userdata, SDL_Event* event);
 
 private:
     void UpdateDisplayMetrics() noexcept;
@@ -72,7 +78,6 @@ private:
         return {x * m_mouseCoordScale, y * m_mouseCoordScale};
     }
     void ProcessEvent(const SDL_Event& event, Context& ui);
-    static bool SDLCALL LiveResizeEventWatch(void* userdata, SDL_Event* event);
 
     MainWindowConfig m_config;
     WindowHostCallbacks m_callbacks;
@@ -123,12 +128,5 @@ private:
 
 /// Registers `CreateSdlWindowBackend` as the default `IWindowBackend` factory for `guikit::MainWindow`.
 void RegisterSdlWindowBackend() noexcept;
-
-namespace detail {
-struct SdlBackendAutoRegistrar {
-    SdlBackendAutoRegistrar() noexcept { RegisterSdlWindowBackend(); }
-};
-inline const SdlBackendAutoRegistrar g_sdlBackendAutoRegistrar{};
-} // namespace detail
 
 } // namespace guikit

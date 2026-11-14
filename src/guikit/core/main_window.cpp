@@ -26,13 +26,21 @@ std::unique_ptr<IWindowBackend> CreateDefaultWindowBackend() {
 MainWindow::MainWindow(MainWindowConfig config, std::unique_ptr<IWindowBackend> backend)
     : m_config(std::move(config))
     , m_backend(backend ? std::move(backend) : CreateDefaultWindowBackend())
-    , m_shellTheme(m_config.initialThemeMode == ThemeMode::Light
-                   ? UiTheme::Light(Density::Standard)
-                   : UiTheme::Dark(Density::Standard))
-    , m_shellLightMode(m_config.initialThemeMode == ThemeMode::Light)
-    , m_shellFloating(m_config.initialShellStyle == ShellStyle::Floating)
+    , m_shellTheme(m_config.initialTheme.has_value()
+                   ? *m_config.initialTheme
+                   : (m_config.initialThemeMode == ThemeMode::Light
+                      ? UiTheme::Light(m_config.initialDensity)
+                      : UiTheme::Dark(m_config.initialDensity)))
+    , m_shellLightMode(m_shellTheme.mode == ThemeMode::Light)
+    , m_shellFloating(m_config.initialTheme.has_value()
+                      ? (m_shellTheme.shellStyle == ShellStyle::Floating)
+                      : (m_config.initialShellStyle == ShellStyle::Floating))
     , m_reactiveMode(m_config.reactiveMode) {
-    m_shellTheme.SetShellStyle(m_config.initialShellStyle);
+    if (!m_config.initialTheme.has_value()) {
+        m_shellTheme.SetShellStyle(m_config.initialShellStyle);
+    }
+    m_ui.SetOpenUrlCallback([this](std::string_view url) { OpenUrl(url); });
+    SetShellScale(m_config.initialScale);
     for (size_t i = 0; i < kHeartbeatMsValues.size(); ++i) {
         if (kHeartbeatMsValues[i] == m_config.idleHeartbeatMs) {
             m_heartbeatIndex = i;
@@ -87,6 +95,19 @@ int MainWindow::Run() {
 
     m_running = true;
     OnInit();
+
+    // Synchronize m_shellTheme if OnInit() customized m_ui.GetTheme() directly
+    const UiTheme& postInitTheme = m_ui.GetTheme();
+    if (postInitTheme.mode != m_shellTheme.mode ||
+        postInitTheme.density != m_shellTheme.density ||
+        postInitTheme.shellStyle != m_shellTheme.shellStyle ||
+        postInitTheme.palette.background != m_shellTheme.palette.background ||
+        postInitTheme.palette.surface != m_shellTheme.palette.surface ||
+        postInitTheme.palette.accent != m_shellTheme.palette.accent) {
+        m_shellTheme = postInitTheme;
+        m_shellLightMode = (m_shellTheme.mode == ThemeMode::Light);
+        m_shellFloating = (m_shellTheme.shellStyle == ShellStyle::Floating);
+    }
 
     if (m_backend->UsesMainLoopCallback()) {
         m_backend->RunMainLoopCallback([this]() -> bool {
@@ -174,6 +195,16 @@ void MainWindow::RenderFrame() {
         } else {
             OnRender(m_ui);
         }
+
+        if (m_config.scaleShortcuts) {
+            if (m_ui.ConsumeAction(KeyAction::ZoomIn)) {
+                SetShellScale(GetShellScale() + 0.25f);
+            } else if (m_ui.ConsumeAction(KeyAction::ZoomOut)) {
+                SetShellScale(GetShellScale() - 0.25f);
+            } else if (m_ui.ConsumeAction(KeyAction::ZoomReset)) {
+                SetShellScale(1.0f);
+            }
+        }
     }
     m_ui.EndFrame(m_backend->GetCanvas());
     m_backend->UpdateSystemCursor(m_ui.GetCursor());
@@ -190,7 +221,7 @@ void MainWindow::RenderFrame() {
         m_backend->PaceFrame(frameElapsedMs, true);
     }
 
-    m_metrics.EndFrame(60.0f);
+    m_metrics.EndFrame(std::max(1.0f, m_config.targetFps));
 
     if (!shouldPresent && m_ui.NeedsRepaint()) {
         const auto frameEnd = std::chrono::steady_clock::now();
@@ -270,6 +301,15 @@ void MainWindow::SetGpuShadersEnabled(bool enabled) noexcept {
     m_ui.RequestRepaint(2);
 }
 
+void MainWindow::SetShellTheme(const UiTheme& theme) noexcept {
+    m_shellTheme = theme;
+    m_shellLightMode = (m_shellTheme.mode == ThemeMode::Light);
+    m_shellFloating = (m_shellTheme.shellStyle == ShellStyle::Floating);
+    m_ui.SetTheme(m_shellTheme);
+    m_ui.SetClearColor(m_shellTheme.palette.background);
+    m_ui.InvalidateAll();
+}
+
 void MainWindow::SetShellLightMode(bool lightMode) noexcept {
     m_shellLightMode = lightMode;
     m_shellTheme.SetMode(m_shellLightMode ? ThemeMode::Light : ThemeMode::Dark);
@@ -285,8 +325,24 @@ void MainWindow::SetShellFloating(bool floating) noexcept {
     m_ui.InvalidateAll();
 }
 
+void MainWindow::SetShellScale(float scale) noexcept {
+    m_shellScale = std::clamp(scale, 0.5f, 3.0f);
+    size_t bestIdx = 0;
+    float bestDiff = 1e9f;
+    for (size_t i = 0; i < kScaleValues.size(); ++i) {
+        const float d = std::abs(kScaleValues[i] - m_shellScale);
+        if (d < bestDiff) {
+            bestDiff = d;
+            bestIdx = i;
+        }
+    }
+    m_shellScaleIndex = bestIdx;
+    m_ui.InvalidateAll();
+}
+
 void MainWindow::SetShellScaleIndex(size_t index) noexcept {
     m_shellScaleIndex = std::min(index, kScaleValues.size() - 1);
+    m_shellScale = kScaleValues[m_shellScaleIndex];
     m_ui.InvalidateAll();
 }
 
@@ -377,7 +433,7 @@ bool MainWindow::RenderSidebarToggle(
 void MainWindow::RenderThemeControls(ToolbarScope& tb) {
     (void)tb;
     if (m_ui.Size(UiSize::Sm).Select(m_shellScaleIndex, kScaleLabels, {.width = 92.0f}).changed) {
-        m_ui.InvalidateAll();
+        SetShellScaleIndex(m_shellScaleIndex);
     }
 
     if (m_ui.Size(UiSize::Md).Switch(m_shellLightMode, {
@@ -528,7 +584,7 @@ void MainWindow::RenderTelemetryStatus(StatusBarScope& sb, bool gpuSceneActive) 
 CommandPaletteResponse MainWindow::RenderCommandPalette(
     StatusBarScope& sb,
     std::span<const CommandPaletteItem> items,
-    std::string_view placeholder
+    UiText placeholder
 ) {
     if (m_ui.ConsumeShortcut(Key::K, true)) {
         m_commandPaletteOpen = !m_commandPaletteOpen;

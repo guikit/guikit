@@ -182,6 +182,11 @@ void ToolbarScope::Spacer(std::source_location loc) {
     };
 }
 
+void ToolbarScope::Gap(float sizeDp, std::source_location loc) {
+    if (!m_ctx) return;
+    guikit::Spacer::Gap(*m_ctx, sizeDp, loc);
+}
+
 Response ToolbarScope::ToolButton(
     ToolButtonOptions opts,
     std::source_location loc

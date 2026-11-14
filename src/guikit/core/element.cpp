@@ -16,6 +16,9 @@ ControlSpec EffectiveControlSpec(const ElementSpec& spec) noexcept {
     if (!c.width.has_value() && spec.width.has_value()) {
         c.width = spec.width;
     }
+    if (!c.widthRatio.has_value() && spec.widthRatio.has_value()) {
+        c.widthRatio = spec.widthRatio;
+    }
     if (!c.height.has_value() && spec.height.has_value()) {
         c.height = spec.height;
     }
@@ -52,8 +55,10 @@ ElementSpec MakeSpecFromPayload(
     ctrl.hasIntrinsicBox = true;
 
     const std::optional<float> effWidth = ctrl.width.has_value() ? ctrl.width : ep.opts.width;
+    const std::optional<float> effWidthRatio = ctrl.widthRatio.has_value() ? ctrl.widthRatio : ep.opts.widthRatio;
     const std::optional<float> effHeight = ctrl.height.has_value() ? ctrl.height : ep.opts.height;
     ctrl.width = effWidth;
+    ctrl.widthRatio = effWidthRatio;
     ctrl.height = effHeight;
 
     return ElementSpec{
@@ -66,6 +71,7 @@ ElementSpec MakeSpecFromPayload(
         .align = ep.opts.align,
         .stretch = ep.opts.stretch.value_or(ep.hasChildControl ? StretchMode::Compact : StretchMode::Fill),
         .width = effWidth,
+        .widthRatio = effWidthRatio,
         .height = effHeight,
         .control = ctrl,
         .background = ep.opts.background,
@@ -180,10 +186,13 @@ float ResolveChildAvailableWidth(
         return availW;
     }
     const ControlSpec ctrl = EffectiveControlSpec(spec);
-    if (spec.stretch == StretchMode::Fill && ctrl.width.has_value()) {
-        return availW;
+    if (Control::HasExplicitDpWidth(spec.stretch, ctrl.width, ctrl.widthRatio)) {
+        return std::min(availW, theme.Scale(*ctrl.width));
     }
-    if (spec.stretch == StretchMode::Fill && !ctrl.width.has_value()) {
+    if (const auto fillRatio = Control::ResolveFillRatio(spec.stretch, ctrl.width, ctrl.widthRatio)) {
+        return availW * (*fillRatio);
+    }
+    if (spec.stretch == StretchMode::Fill) {
         const float descW = hasDesc ? TextUtil::MeasureUiTextWidth(spec.description, descFontSize, canvas) : 0.0f;
         const float textW = std::max(measuredLabelBar.x, descW);
         return std::max(theme.GetMetrics(spec.widgetSize).defaultHeight, availW - textW - spec.inlineGap);
@@ -221,10 +230,11 @@ ElementSpec Element::MakeSpec(
         .icon = opts.icon,
         .badge = opts.badge,
         .layout = opts.layout.value_or(ElementLayout::Stacked),
-        .inlineOrder = opts.inlineOrder.value_or(InlineOrder::ControlFirst),
+        .inlineOrder = opts.inlineOrder.value_or(InlineOrder::LabelFirst),
         .align = opts.align,
         .stretch = opts.stretch.value_or(StretchMode::Fill),
         .width = opts.width,
+        .widthRatio = opts.widthRatio,
         .height = opts.height,
         .background = opts.background,
         .border = opts.border,
@@ -290,12 +300,13 @@ ElementScope Element::Open(
     node->visualHash = detail::HashArgs(
         static_cast<uint8_t>(opts.layout.value_or(ElementLayout::Stacked)),
         opts.layout.has_value(),
-        static_cast<uint8_t>(opts.inlineOrder.value_or(InlineOrder::ControlFirst)),
+        static_cast<uint8_t>(opts.inlineOrder.value_or(InlineOrder::LabelFirst)),
         opts.inlineOrder.has_value(),
         static_cast<uint8_t>(opts.align),
         static_cast<uint8_t>(initStretch),
         opts.stretch.has_value(),
         opts.width.value_or(0.0f),
+        opts.widthRatio.value_or(-1.0f),
         opts.height.value_or(0.0f),
         opts.background,
         opts.border,
@@ -425,9 +436,11 @@ Vec2 Element::Measure(
     }
 
     const bool stretchableCtrl = spec.hasControl ? ctrlSpec.stretchable : false;
+    const bool hasExplicitDpW = Control::HasExplicitDpWidth(spec.stretch, ctrlSpec.width, ctrlSpec.widthRatio);
+    const std::optional<float> fillRatioOpt = Control::ResolveFillRatio(spec.stretch, ctrlSpec.width, ctrlSpec.widthRatio);
 
-    if (!stretchableCtrl && ctrlSpec.width.has_value() && spec.stretch == StretchMode::Fill && availableWidth > 0.0f) {
-        const float ratio = std::clamp(*ctrlSpec.width, 0.0f, 1.0f);
+    if (!stretchableCtrl && fillRatioOpt.has_value() && availableWidth > 0.0f) {
+        const float ratio = *fillRatioOpt;
         const float minBlockW = (!spec.hasControl && spec.description.HasContentOrReserve())
             ? std::max(intrinsicControlSize.x, TextUtil::MeasureUiTextWidth(spec.description, descFontSize, canvas))
             : intrinsicControlSize.x;
@@ -437,7 +450,7 @@ Vec2 Element::Measure(
     }
 
     const auto applyFixedWidthAndOuterPad = [&](Vec2 measured) noexcept -> Vec2 {
-        if (!stretchableCtrl && ctrlSpec.width.has_value() && spec.stretch != StretchMode::Fill) {
+        if (!stretchableCtrl && hasExplicitDpW) {
             measured.x = std::max(measured.x, theme.Scale(*ctrlSpec.width));
         }
         if (outerPad > 0.0f) {
@@ -472,15 +485,15 @@ Vec2 Element::Measure(
     }
 
     float textWrapW = availableWidth;
-    if (!stretchableCtrl && ctrlSpec.width.has_value() && spec.stretch != StretchMode::Fill) {
+    if (!stretchableCtrl && hasExplicitDpW) {
         const float fixedW = theme.Scale(*ctrlSpec.width);
         textWrapW = (availableWidth > 0.0f) ? std::min(availableWidth, fixedW) : fixedW;
     }
     if (spec.layout == ElementLayout::Inline) {
         if (textWrapW > 0.0f) {
             float ctrlW = std::min(textWrapW, intrinsicControlSize.x);
-            if (stretchableCtrl && spec.stretch == StretchMode::Fill && ctrlSpec.width.has_value()) {
-                const float ratio = std::clamp(*ctrlSpec.width, 0.0f, 1.0f);
+            if (stretchableCtrl && fillRatioOpt.has_value()) {
+                const float ratio = *fillRatioOpt;
                 ctrlW = (ratio < 1.0f && ratio > 0.0f)
                     ? std::min(textWrapW, std::max(textWrapW * ratio, intrinsicControlSize.x))
                     : (textWrapW * ratio);
@@ -579,6 +592,8 @@ ElementGeometry Element::Resolve(
 
     const bool stretchableCtrl = spec.hasControl ? ctrlSpec.stretchable : false;
     const bool stretchStandaloneH = spec.hasControl ? ctrlSpec.stretchHeightWhenStandalone : false;
+    const bool hasExplicitDpW = Control::HasExplicitDpWidth(spec.stretch, ctrlSpec.width, ctrlSpec.widthRatio);
+    const std::optional<float> fillRatioOpt = Control::ResolveFillRatio(spec.stretch, ctrlSpec.width, ctrlSpec.widthRatio);
 
     geom.hasLabel = spec.hasControl && HasLabelBar(spec);
     geom.hasDesc = spec.description.HasContentOrReserve();
@@ -586,23 +601,28 @@ ElementGeometry Element::Resolve(
 
     const float alignFactor = (spec.align == Align::End) ? 1.0f : ((spec.align == Align::Center) ? 0.5f : 0.0f);
 
-    if (!stretchableCtrl && !(geom.hasExternal && spec.layout == ElementLayout::Inline) &&
-        spec.stretch == StretchMode::Fill && ctrlSpec.width.has_value()) {
-        const float ratio = std::clamp(*ctrlSpec.width, 0.0f, 1.0f);
-        const float minBlockW = (!spec.hasControl && geom.hasDesc)
-            ? std::max(intrinsicControlSize.x, TextUtil::MeasureUiTextWidth(spec.description, geom.descFontSize, canvas))
-            : intrinsicControlSize.x;
-        const float effW = (ratio > 0.0f)
-            ? std::min(bounds.w, std::max(bounds.w * ratio, minBlockW))
-            : 0.0f;
-        bounds.x += (bounds.w - effW) * alignFactor;
-        bounds.w = effW;
+    if (!stretchableCtrl && !(geom.hasExternal && spec.layout == ElementLayout::Inline)) {
+        if (fillRatioOpt.has_value()) {
+            const float ratio = *fillRatioOpt;
+            const float minBlockW = (!spec.hasControl && geom.hasDesc)
+                ? std::max(intrinsicControlSize.x, TextUtil::MeasureUiTextWidth(spec.description, geom.descFontSize, canvas))
+                : intrinsicControlSize.x;
+            const float effW = (ratio > 0.0f)
+                ? std::min(bounds.w, std::max(bounds.w * ratio, minBlockW))
+                : 0.0f;
+            bounds.x += (bounds.w - effW) * alignFactor;
+            bounds.w = effW;
+        } else if (!spec.hasControl && hasExplicitDpW && spec.stretch == StretchMode::Fill) {
+            const float effW = std::min(bounds.w, theme.Scale(*ctrlSpec.width));
+            bounds.x += (bounds.w - effW) * alignFactor;
+            bounds.w = effW;
+        }
     }
 
     float ctrlW = std::min(bounds.w, intrinsicControlSize.x);
-    if (stretchableCtrl && spec.stretch == StretchMode::Fill) {
-        if (!geom.hasExternal || spec.layout != ElementLayout::Inline || ctrlSpec.width.has_value()) {
-            const float ratio = std::clamp(ctrlSpec.width.value_or(1.0f), 0.0f, 1.0f);
+    if (stretchableCtrl && !hasExplicitDpW && (spec.stretch == StretchMode::Fill || fillRatioOpt.has_value())) {
+        if (!geom.hasExternal || spec.layout != ElementLayout::Inline || fillRatioOpt.has_value()) {
+            const float ratio = fillRatioOpt.value_or(1.0f);
             ctrlW = (ratio < 1.0f && ratio > 0.0f)
                 ? std::min(bounds.w, std::max(bounds.w * ratio, intrinsicControlSize.x))
                 : (bounds.w * ratio);
@@ -730,15 +750,17 @@ ElementGeometry Element::Resolve(
     } else { // ElementLayout::Inline
         const float adjacentTextGap = std::min(spec.descGap, theme.GetHeading(spec.widgetSize).lineGap);
         const float gap = spec.inlineGap;
-        if (stretchableCtrl && spec.stretch == StretchMode::Fill && !ctrlSpec.width.has_value()) {
+        if (stretchableCtrl && spec.stretch == StretchMode::Fill && !hasExplicitDpW && !fillRatioOpt.has_value()) {
             ctrlW = std::max(0.0f, bounds.w - measuredTextW - gap);
         }
         float colW = ctrlW;
-        if (!stretchableCtrl && spec.stretch == StretchMode::Fill && ctrlSpec.width.has_value()) {
-            const float ratio = std::clamp(*ctrlSpec.width, 0.0f, 1.0f);
+        if (!stretchableCtrl && fillRatioOpt.has_value()) {
+            const float ratio = *fillRatioOpt;
             colW = (ratio < 1.0f && ratio > 0.0f)
                 ? std::min(bounds.w, std::max(bounds.w * ratio, ctrlW))
                 : (bounds.w * ratio);
+        } else if (!stretchableCtrl && hasExplicitDpW && spec.stretch == StretchMode::Fill) {
+            colW = std::min(bounds.w, std::max(theme.Scale(*ctrlSpec.width), ctrlW));
         }
         const float availTextW = std::max(0.0f, bounds.w - colW - gap);
         const float textBlockW = (spec.label.wrap.IsWordWrap() || spec.description.wrap.IsWordWrap())
@@ -754,7 +776,10 @@ ElementGeometry Element::Resolve(
         const float startY = bounds.y + (bounds.h - totalTextH) * 0.5f;
         const float ctrlH = stretchStandaloneH ? bounds.h : std::min(intrinsicControlSize.y, bounds.h);
 
-        if (spec.inlineOrder == InlineOrder::LabelFirst) {
+        const bool controlSlotOnRight = spec.hasControl
+            ? (spec.inlineOrder == InlineOrder::LabelFirst)
+            : (spec.inlineOrder == InlineOrder::ControlFirst);
+        if (controlSlotOnRight) {
             float ctrlX = (bounds.x + bounds.w - colW) + (colW - ctrlW) * alignFactor;
             if (compactNaturalBlock) {
                 ctrlX = bounds.x + (textBlockW > 0.0f ? textBlockW + gap : 0.0f);
@@ -813,7 +838,8 @@ void Element::RenderFrame(
         : cm.cornerRadius;
 
     const auto& pal = theme.palette;
-    const Color resolvedBorderAccent = spec.border.color.Resolve(
+    const Color resolvedBorderAccent = theme.ResolveColor(
+        spec.border.color,
         spec.hovered,
         spec.active,
         spec.disabled,
@@ -826,7 +852,8 @@ void Element::RenderFrame(
     Color bg = Color::Transparent();
     if (spec.background.IsBackgroundEnabled(false)) {
         if (spec.background.HasAny() && !spec.background.IsSurface()) {
-            bg = spec.background.Resolve(
+            bg = theme.ResolveColor(
+                spec.background,
                 spec.hovered,
                 spec.active,
                 spec.disabled,
@@ -946,7 +973,7 @@ void Element::RenderText(
             Color badgeBorderCol = Color::Transparent();
             float badgeBorderW = 0.0f;
             if (spec.badge.color.HasAny()) {
-                const Color resolvedBadge = spec.badge.color.Resolve(spec.hovered, spec.active, spec.disabled, pal.textPrimary);
+                const Color resolvedBadge = theme.ResolveColor(spec.badge.color, spec.hovered, spec.active, spec.disabled, pal.textPrimary);
                 badgeBg = resolvedBadge.WithAlphaF(spec.disabled ? 0.12f : 0.22f);
                 badgeTextCol = resolvedBadge;
                 badgeBorderCol = resolvedBadge.WithAlphaF(spec.disabled ? 0.25f : 0.50f);

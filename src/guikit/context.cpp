@@ -479,8 +479,20 @@ void Context::Spacer(float flex, std::source_location loc) {
     Run<guikit::Spacer>(flex, loc);
 }
 
-void Context::Separator(float extentRatio, std::source_location loc) {
-    guikit::Separator::Run(*this, extentRatio, Color::Transparent(), loc);
+void Context::Gap(float sizeDp, std::source_location loc) {
+    guikit::Spacer::Gap(*this, sizeDp, loc);
+}
+
+void Context::Separator(float extentRatio, Color colorOverride, std::source_location loc) {
+    guikit::Separator::Run(*this, extentRatio, colorOverride, loc);
+}
+
+void Context::Separator(Color colorOverride, std::source_location loc) {
+    guikit::Separator::Run(*this, 0.0f, colorOverride, loc);
+}
+
+void Context::Separator(Orientation lineOrientation, float extentRatio, Color colorOverride, std::source_location loc) {
+    guikit::Separator::Run(*this, extentRatio, colorOverride, loc, lineOrientation);
 }
 
 AccordionScope Context::Accordion(AccordionOptions opts, std::source_location loc) {
@@ -1317,6 +1329,9 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
         case KeyAction::Indent:
         case KeyAction::Unindent: {
             if (multiline && !readOnly) {
+                const size_t stepCols = std::clamp<size_t>(tabSize, 1, 16);
+                const std::string indentUnit = insertSpaces ? std::string(stepCols, ' ') : std::string(1, '\t');
+                const size_t unitLen = indentUnit.size();
                 const bool unindent = (action == KeyAction::Unindent);
                 const bool multiLineSel = HasSelection() && (SelectedText().find('\n') != std::string_view::npos);
                 if (unindent || multiLineSel) {
@@ -1338,18 +1353,18 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
                         if (lineEnd == std::string::npos) lineEnd = text.size();
 
                         if (!unindent) {
-                            text.insert(pos, "    ");
-                            if (cursor >= pos) cursor += 4;
-                            if (selectionAnchor >= pos) selectionAnchor += 4;
-                            blockEnd += 4;
-                            lineEnd += 4;
+                            text.insert(pos, indentUnit);
+                            if (cursor >= pos) cursor += unitLen;
+                            if (selectionAnchor >= pos) selectionAnchor += unitLen;
+                            blockEnd += unitLen;
+                            lineEnd += unitLen;
                             anyModified = true;
                         } else {
                             size_t rem = 0;
                             if (pos < lineEnd && text[pos] == '\t') {
                                 rem = 1;
                             } else {
-                                while (rem < 4 && (pos + rem) < lineEnd && text[pos + rem] == ' ') {
+                                while (rem < stepCols && (pos + rem) < lineEnd && text[pos + rem] == ' ') {
                                     ++rem;
                                 }
                             }
@@ -1377,7 +1392,7 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
                     }
                     return true;
                 }
-                Insert("    ");
+                Insert(indentUnit);
                 return true;
             }
             return false;
@@ -1386,6 +1401,8 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
         case KeyAction::Confirm:
             if (multiline) {
                 if (!readOnly) {
+                    const size_t stepCols = std::clamp<size_t>(tabSize, 1, 16);
+                    const std::string indentUnit = insertSpaces ? std::string(stepCols, ' ') : std::string(1, '\t');
                     const size_t safeCur = std::min(cursor, text.size());
                     const size_t prevNl = (safeCur > 0) ? text.rfind('\n', safeCur - 1) : std::string::npos;
                     const size_t curLineStart = (prevNl == std::string::npos) ? 0 : (prevNl + 1);
@@ -1400,7 +1417,7 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
                             (prevC == '[' && nextC == ']') ||
                             (prevC == '(' && nextC == ')')) {
                             SaveUndo();
-                            const std::string mid = "\n" + indent + "    ";
+                            const std::string mid = "\n" + indent + indentUnit;
                             const std::string tail = "\n" + indent;
                             text.insert(safeCur, mid + tail);
                             cursor = safeCur + mid.size();
@@ -1415,7 +1432,7 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
                             --checkPos;
                         }
                         if (checkPos > curLineStart && (text[checkPos - 1] == '{' || text[checkPos - 1] == '[' || text[checkPos - 1] == '(')) {
-                            indent += "    ";
+                            indent += indentUnit;
                         }
                     }
                     Insert("\n" + indent);
@@ -1944,6 +1961,9 @@ std::string_view Context::EnsureTextEdit(
         m_editState.submitted = false;
         m_editState.multiline = multiline;
         m_editState.readOnly = readOnly;
+        m_editState.autoCloseBrackets = false;
+        m_editState.tabSize = 4;
+        m_editState.insertSpaces = true;
     } else {
         m_editState.multiline = multiline;
         m_editState.readOnly = readOnly;
@@ -2042,6 +2062,13 @@ void Context::SetTextEditCursor(Id id, size_t cursor, size_t selectionAnchor) no
 void Context::SetTextEditAutoClose(Id id, bool enabled) noexcept {
     if (m_editState.id == id && id.IsValid()) {
         m_editState.autoCloseBrackets = enabled;
+    }
+}
+
+void Context::SetTextEditIndentation(Id id, uint8_t tabSize, bool insertSpaces) noexcept {
+    if (m_editState.id == id && id.IsValid()) {
+        m_editState.tabSize = static_cast<uint8_t>(std::clamp<int>(tabSize, 1, 16));
+        m_editState.insertSpaces = insertSpaces;
     }
 }
 

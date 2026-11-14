@@ -81,6 +81,7 @@ public:
 
     [[nodiscard]] UiTheme& GetShellTheme() noexcept { return m_shellTheme; }
     [[nodiscard]] const UiTheme& GetShellTheme() const noexcept { return m_shellTheme; }
+    void SetShellTheme(const UiTheme& theme) noexcept;
 
     [[nodiscard]] bool IsShellLightMode() const noexcept { return m_shellLightMode; }
     void SetShellLightMode(bool lightMode) noexcept;
@@ -88,7 +89,8 @@ public:
     [[nodiscard]] bool IsShellFloating() const noexcept { return m_shellFloating; }
     void SetShellFloating(bool floating) noexcept;
 
-    [[nodiscard]] float GetShellScale() const noexcept { return kScaleValues[m_shellScaleIndex]; }
+    [[nodiscard]] float GetShellScale() const noexcept { return m_shellScale; }
+    void SetShellScale(float scale) noexcept;
     [[nodiscard]] size_t GetShellScaleIndex() const noexcept { return m_shellScaleIndex; }
     void SetShellScaleIndex(size_t index) noexcept;
 
@@ -135,7 +137,7 @@ public:
     CommandPaletteResponse RenderCommandPalette(
         StatusBarScope& sb,
         std::span<const CommandPaletteItem> items,
-        std::string_view placeholder = "Jump to screen or run command..."
+        UiText placeholder = "Jump to screen or run command..."
     );
 
     static constexpr std::array<float, 5> kScaleValues = {1.0f, 1.25f, 1.5f, 1.75f, 2.0f};
@@ -189,6 +191,7 @@ private:
     UiTheme m_shellTheme = UiTheme::Dark(Density::Standard);
     bool m_shellLightMode = false;
     bool m_shellFloating = false;
+    float m_shellScale = 1.0f;
     size_t m_shellScaleIndex = 0;
     size_t m_heartbeatIndex = 2;
     bool m_commandPaletteOpen = false;

@@ -42,10 +42,11 @@ struct BreadcrumbOptions {
     StretchMode stretch{StretchMode::Compact};
     Align align{Align::Start};
     std::optional<float> width{std::nullopt};
+    std::optional<float> widthRatio{std::nullopt};
     std::optional<float> height{std::nullopt};
     StateColor background{};
     Border border{};
-    keel::StringRef tooltip{};
+    UiText tooltip{};
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};

@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <numbers>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
@@ -32,6 +33,7 @@ ControlSpec EffectiveKnobControl(const KnobOptions& opts, UiSize size, const UiT
     const SliderMetrics& m = theme.GetSlider(size);
     ControlSpec c{};
     c.width = opts.width;
+    c.widthRatio = opts.widthRatio;
     c.height = opts.height;
     c.align = opts.align;
     c.background = opts.background;
@@ -69,13 +71,24 @@ void FormatKnobValue(
             std::snprintf(buf, bufSize, "%.*s",
                           static_cast<int>(opts.valueFormat.text.size()),
                           opts.valueFormat.text.data());
-        } else if (isInt && opts.valueFormat.text.find('f') == std::string_view::npos) {
-            std::snprintf(buf, bufSize, opts.valueFormat.text.data(), static_cast<int>(std::llround(val)));
         } else {
-            std::snprintf(buf, bufSize, opts.valueFormat.text.data(), val);
+            char fmtBuf[128]{};
+            const size_t copyLen = std::min(opts.valueFormat.text.size(), sizeof(fmtBuf) - 1);
+            std::memcpy(fmtBuf, opts.valueFormat.text.data(), copyLen);
+            fmtBuf[copyLen] = '\0';
+            if (isInt && opts.valueFormat.text.find('f') == std::string_view::npos) {
+                if (opts.valueFormat.text.find("ll") != std::string_view::npos ||
+                    opts.valueFormat.text.find('z') != std::string_view::npos) {
+                    std::snprintf(buf, bufSize, fmtBuf, static_cast<long long>(std::llround(val)));
+                } else {
+                    std::snprintf(buf, bufSize, fmtBuf, static_cast<int>(std::llround(val)));
+                }
+            } else {
+                std::snprintf(buf, bufSize, fmtBuf, val);
+            }
         }
     } else if (isInt) {
-        std::snprintf(buf, bufSize, "%d", static_cast<int>(std::llround(val)));
+        std::snprintf(buf, bufSize, "%lld", static_cast<long long>(std::llround(val)));
     } else {
         const double step = opts.step.value_or(0.0);
         if (step >= 1.0) {
@@ -146,12 +159,19 @@ Response Knob::Run(
     Context& ctx,
     double* doubleVal,
     float* floatVal,
-    int* intVal,
+    int64_t* intVal,
     double minVal,
     double maxVal,
     const KnobOptions& opts,
     std::source_location loc
 ) {
+    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    struct ThemePopGuard {
+        Context& c;
+        UiTheme* t;
+        ~ThemePopGuard() noexcept { if (t) c.PopTheme(); }
+    } themeGuard{ctx, pushedTheme};
+
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
@@ -176,7 +196,7 @@ Response Knob::Run(
         const double q = QuantizeAndClamp(v, minVal, maxVal, effectiveStep);
         if (doubleVal != nullptr) *doubleVal = q;
         if (floatVal != nullptr)  *floatVal = static_cast<float>(q);
-        if (intVal != nullptr)    *intVal = static_cast<int>(std::llround(q));
+        if (intVal != nullptr)    *intVal = static_cast<int64_t>(std::llround(q));
     };
 
     double currentVal = QuantizeAndClamp(readVal(), minVal, maxVal, effectiveStep);
@@ -278,7 +298,7 @@ Response Knob::Run(
     }
 
     KnobOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);
     optsCopy.valueFormat = ctx.AllocText(opts.valueFormat);
 
@@ -314,6 +334,7 @@ Response Knob::Run(
     const UiTheme& theme = ctx.GetTheme();
     const ControlSpec ctrl = EffectiveKnobControl(optsCopy, activeSize, theme);
     Node* node = ctx.CreateNode(NodeType::Knob, id);
+    node->theme = pushedTheme;
 
     auto* data = ctx.AllocPayload<KnobData>();
     data->opts = optsCopy;
@@ -521,7 +542,7 @@ void Knob::Render(
     if (!opts.color.HasAny()) {
         accentCol = active ? primaryVar.bgActive : (hovered ? primaryVar.bgHover : primaryVar.bg);
     } else {
-        accentCol = opts.color.Resolve(hovered && !disabled, active && !disabled, disabled, primaryVar.bg, primaryVar.bgHover, primaryVar.bgActive, primaryVar.bg);
+        accentCol = theme.ResolveColor(opts.color, hovered && !disabled, active && !disabled, disabled, primaryVar.bg, primaryVar.bgHover, primaryVar.bgActive, primaryVar.bg);
     }
 
     Color trackCol = (hovered && !disabled) ? pal.controlTrackHover : pal.controlTrack;

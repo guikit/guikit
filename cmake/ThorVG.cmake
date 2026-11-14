@@ -90,7 +90,7 @@ target_compile_definitions(thorvg PUBLIC
 )
 
 target_include_directories(thorvg PUBLIC
-    ${THORVG_DIR}/inc
+    $<BUILD_INTERFACE:${THORVG_DIR}/inc>
 )
 
 target_include_directories(thorvg PRIVATE

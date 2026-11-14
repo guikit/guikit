@@ -19,7 +19,8 @@ struct ColorPickerOptions {
     UiText tooltip{};                              ///< Optional floating tooltip shown on hover
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
     Align align{Align::Start};                     ///< Standalone horizontal control alignment (Start, Center, End)
-    std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = auto), or ratio of bounds (0.0..1.0) for Fill (nullopt = 1.0)
+    std::optional<float> width{std::nullopt};      ///< Control width in dp (or legacy ratio 0.0..1.0 in Fill)
+    std::optional<float> widthRatio{std::nullopt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
     std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = inherit from UiSize)
     std::optional<float> minWidth{std::nullopt};   ///< Minimum control width constraint in points
     StateColor background{StateColor::Surface()};  ///< Control well surface fill color
@@ -28,8 +29,11 @@ struct ColorPickerOptions {
     bool showAlpha{true};                          ///< Enable alpha channel slider and #RRGGBBAA hex representation
     bool showSwatches{true};                       ///< Display quick preset color swatches inside the picker panel/popover
     bool inlinePanel{false};                       ///< Render the full interactive SV + Hue/Alpha picker inline instead of a closed button + popover
-    std::span<const Color> presets{};              ///< Optional custom preset color swatches (empty = default 10-color palette)
+    std::span<const Color> swatches{};             ///< Optional custom color swatches (preferred name; empty = fallback to presets or default palette)
+    std::span<const Color> presets{};              ///< Legacy alias for swatches (empty = default 10-color palette)
     bool disabled{false};                          ///< Interaction suppression
+    const UiTheme* theme{nullptr};                 ///< Optional scoped theme override
+    std::optional<float> scale{std::nullopt};      ///< Optional scoped scale factor override
 };
 
 /// Internal runtime state stored per-widget ID for ColorPicker HSV continuity and drag tracking.

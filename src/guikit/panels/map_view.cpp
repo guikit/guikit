@@ -538,36 +538,41 @@ MapViewScope MapView::Open(
         mapState.lastCrs = opts.crs;
     }
 
+    MapViewOptions safeOpts = opts;
+    safeOpts.tooltip = ctx.AllocText(opts.tooltip);
+
     const SceneOptions sceneOpts{
         .worldSize = Vec2{worldSize, worldSize},
         .backgroundStyle = SceneBackground::Solid,
-        .align = opts.align,
-        .stretch = opts.stretch,
-        .widthMode = opts.widthMode,
-        .heightMode = opts.heightMode,
-        .width = opts.width,
-        .height = opts.height,
-        .minHeight = opts.minHeight,
-        .minZoom = opts.minZoom,
-        .maxZoom = opts.maxZoom,
-        .zoomStep = opts.zoomStep,
-        .zoomable = opts.zoomable,
-        .pannable = opts.pannable,
-        .selectableItems = opts.selectableItems,
-        .showScrollbars = opts.showScrollbars,
-        .showControls = opts.showControls,
-        .clampToWorld = opts.clampToWorld,
-        .background = opts.background,
-        .border = opts.border,
-        .disabled = opts.disabled,
-        .theme = opts.theme,
-        .scale = opts.scale,
-        .debugBounds = opts.debugBounds,
-        .inspectMode = opts.inspectMode
+        .align = safeOpts.align,
+        .stretch = safeOpts.stretch,
+        .widthMode = safeOpts.widthMode,
+        .heightMode = safeOpts.heightMode,
+        .width = safeOpts.width,
+        .widthRatio = safeOpts.widthRatio,
+        .height = safeOpts.height,
+        .minHeight = safeOpts.minHeight,
+        .minZoom = safeOpts.minZoom,
+        .maxZoom = safeOpts.maxZoom,
+        .zoomStep = safeOpts.zoomStep,
+        .zoomable = safeOpts.zoomable,
+        .pannable = safeOpts.pannable,
+        .selectableItems = safeOpts.selectableItems,
+        .showScrollbars = safeOpts.showScrollbars,
+        .showControls = safeOpts.showControls,
+        .clampToWorld = safeOpts.clampToWorld,
+        .background = safeOpts.background,
+        .border = safeOpts.border,
+        .tooltip = safeOpts.tooltip,
+        .disabled = safeOpts.disabled,
+        .theme = safeOpts.theme,
+        .scale = safeOpts.scale,
+        .debugBounds = safeOpts.debugBounds,
+        .inspectMode = safeOpts.inspectMode
     };
 
     SceneScope scene = Scene::OpenWithId(ctx, id, sceneOpts);
-    const UiTheme& activeTheme = (opts.theme != nullptr) ? *opts.theme : ctx.GetTheme();
+    const UiTheme& activeTheme = (safeOpts.theme != nullptr) ? *safeOpts.theme : ctx.GetTheme();
     const bool lightMode = (activeTheme.mode == ThemeMode::Light);
 
     const float z = std::max(0.0001f, scene.GetZoom());
@@ -583,14 +588,14 @@ MapViewScope MapView::Open(
     }
 
     const MapGridConfig gridCfg{
-        .crs = opts.crs,
+        .crs = safeOpts.crs,
         .worldSize = worldSize,
-        .baseZoom = opts.baseZoom,
-        .minTileZoom = opts.minTileZoom,
-        .maxTileZoom = opts.maxTileZoom,
-        .zoomBias = opts.zoomBias,
-        .tileSource = opts.tileSource,
-        .tileSourceUserData = opts.tileSourceUserData
+        .baseZoom = safeOpts.baseZoom,
+        .minTileZoom = safeOpts.minTileZoom,
+        .maxTileZoom = safeOpts.maxTileZoom,
+        .zoomBias = safeOpts.zoomBias,
+        .tileSource = safeOpts.tileSource,
+        .tileSourceUserData = safeOpts.tileSourceUserData
     };
 
     MapViewState view = MapGrid::ComputeView(visWorld, vp, z, mouseWorld, gridCfg);
@@ -598,9 +603,9 @@ MapViewScope MapView::Open(
         mapState.lastCenterGeo = view.center;
     }
 
-    RenderMapBackgroundLayers(scene, opts, view, lightMode);
+    RenderMapBackgroundLayers(scene, safeOpts, view, lightMode);
 
-    return MapViewScope(std::move(scene), opts, view, lightMode);
+    return MapViewScope(std::move(scene), safeOpts, view, lightMode);
 }
 
 } // namespace guikit

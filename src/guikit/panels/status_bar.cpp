@@ -227,6 +227,11 @@ void StatusBarScope::Spacer(std::source_location loc) {
     };
 }
 
+void StatusBarScope::Gap(float sizeDp, std::source_location loc) {
+    if (!m_ctx) return;
+    guikit::Spacer::Gap(*m_ctx, sizeDp, loc);
+}
+
 StatusBarScope StatusBar::Open(
     Context& ctx,
     const StatusBarOptions& opts,

@@ -895,12 +895,19 @@ ImageViewResponse RunViewportNode(
     res.profileMax = st.profile.maxVal;
     res.profileMean = st.profile.meanVal;
 
+    if (baseRes.hovered && !opts.tooltip.empty()) {
+        ctx.SetTooltip(opts.tooltip, baseRes.rect);
+    }
+
     // 4. Create Scene Graph Node for the Viewport
     Node* node = ctx.CreateNode(NodeType::ImageView, id);
+    node->debugBoundsOverride = opts.debugBounds;
+    node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<ImageViewViewportPayload>();
     payload->data = data;
     payload->params = params;
     payload->opts = opts;
+    payload->opts.tooltip = ctx.AllocText(opts.tooltip);
     payload->resp = res;
     payload->state = &st;
     payload->hoveredToolBtn = hoveredToolBtn;
@@ -921,6 +928,7 @@ ImageViewResponse RunViewportNode(
         node->minHeight = effectiveMinH;
         ControlSpec ctrlSpec{};
         ctrlSpec.width = opts.width;
+        ctrlSpec.widthRatio = opts.widthRatio;
         ctrlSpec.height = inheritedH;
         Control::SetupNode(ctx, node, ctrlSpec, opts.stretch, opts.align);
         if (!node->parent || node->parent->type != NodeType::Element) {
@@ -1323,11 +1331,11 @@ Vec2 ImageView::Measure(
     float availableWidth
 ) noexcept {
     float w = 780.0f * theme.Scale(1.0f);
-    if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f) {
-        const float ratio = opts.width.has_value() ? std::clamp(*opts.width, 0.1f, 1.0f) : 1.0f;
-        w = availableWidth * ratio;
-    } else if (opts.width.has_value() && *opts.width > 0.0f) {
+    if (Control::HasExplicitDpWidth(opts.stretch, opts.width, opts.widthRatio)) {
         w = theme.Scale(*opts.width);
+    } else if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f) {
+        const float ratio = Control::ResolveFillRatio(opts.stretch, opts.width, opts.widthRatio).value_or(1.0f);
+        w = availableWidth * ratio;
     }
     const float h = (opts.heightMode == SizeMode::Stretch)
         ? theme.Scale(opts.minHeight)
@@ -1344,13 +1352,20 @@ ImageViewResponse RunImageViewImpl(
     const ImageViewOptions& opts,
     std::source_location loc
 ) {
+    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    struct ThemePopGuard {
+        Context& c;
+        UiTheme* t;
+        ~ThemePopGuard() noexcept { if (t) c.PopTheme(); }
+    } themePop{ctx, pushedTheme};
+
     const Id rootId = ctx.MakeChildId(loc);
     auto& st = ctx.GetOrCreatePersistentState<ImageViewInternalState>(rootId);
     ImageViewParams& params = externalParams ? *externalParams : st.internalParams;
 
     ImageViewOptions optsCopy = opts;
     std::optional<float> inheritedH{};
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, inheritedH);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, inheritedH);
     if (inheritedH.has_value() && *inheritedH > 0.0f) {
         optsCopy.height = *inheritedH;
     }
@@ -1360,7 +1375,16 @@ ImageViewResponse RunImageViewImpl(
     st.EnsureDisplayPixels(data, params);
 
     if (!optsCopy.showSidebar) {
-        return RunViewportNode(ctx, rootId, data, params, st, optsCopy, true, inheritedH);
+        ImageViewResponse vpRes = RunViewportNode(ctx, rootId, data, params, st, optsCopy, true, inheritedH);
+        if (Node* cNode = ctx.GetCurrentContainer()) {
+            for (Node* ch = cNode->firstChild; ch; ch = ch->nextSibling) {
+                if (ch->id == rootId) {
+                    ch->theme = pushedTheme;
+                    break;
+                }
+            }
+        }
+        return vpRes;
     }
 
     // 2. Integrated Workstation Layout (Sidebar + Interactive Viewport)
@@ -1603,17 +1627,24 @@ ImageViewResponse RunImageViewImpl(
     if (auto outerRow = ctx.Row({
         .gap = 8.0f,
         .align = Alignment::Stretch,
-        .heightMode = optsCopy.heightMode
+        .heightMode = optsCopy.heightMode,
+        .debugBounds = optsCopy.debugBounds,
+        .inspectMode = optsCopy.inspectMode
     })) {
         if (Node* rNode = outerRow.GetNode()) {
+            rNode->theme = pushedTheme;
             const UiTheme& th = ctx.GetTheme();
             if (rNode->parent && rNode->parent->type == NodeType::Element) {
                 rNode->widthMode = SizeMode::Stretch;
                 rNode->heightMode = SizeMode::Stretch;
             } else {
-                if (optsCopy.width.has_value() && *optsCopy.width > 0.0f) {
+                if (Control::HasExplicitDpWidth(optsCopy.stretch, optsCopy.width, optsCopy.widthRatio)) {
                     rNode->widthMode = SizeMode::Fixed;
                     rNode->fixedWidth = th.Scale(*optsCopy.width);
+                } else if (optsCopy.stretch == StretchMode::Compact) {
+                    rNode->widthMode = SizeMode::Fit;
+                } else if (const auto ratioOpt = Control::ResolveFillRatio(optsCopy.stretch, optsCopy.width, optsCopy.widthRatio)) {
+                    rNode->flexGrow = *ratioOpt;
                 }
                 rNode->minHeight = std::max(th.Scale(optsCopy.minHeight), th.Scale(optsCopy.height));
                 if (optsCopy.heightMode == SizeMode::Fixed || inheritedH.has_value()) {

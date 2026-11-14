@@ -955,10 +955,10 @@ Vec2 SignalView::Measure(
     float availableWidth
 ) {
     float defaultW = availableWidth > 0.0f ? availableWidth : theme.Scale(560.0f);
-    if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f && opts.width.has_value()) {
-        defaultW = availableWidth * std::clamp(*opts.width, 0.1f, 1.0f);
-    } else if (opts.width.has_value() && *opts.width > 0.0f) {
+    if (Control::HasExplicitDpWidth(opts.stretch, opts.width, opts.widthRatio)) {
         defaultW = theme.Scale(*opts.width);
+    } else if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f) {
+        defaultW = availableWidth * Control::ResolveFillRatio(opts.stretch, opts.width, opts.widthRatio).value_or(1.0f);
     }
     const float defaultH = (opts.height.has_value() && *opts.height > 0.0f)
         ? theme.Scale(*opts.height)
@@ -972,8 +972,15 @@ SignalViewResponse SignalView::Run(
     const SignalViewOptions& optsIn,
     std::source_location loc
 ) {
+    UiTheme* pushedTheme = ctx.PushScopedTheme(optsIn.theme, optsIn.scale);
+    struct ThemePopGuard {
+        Context& c;
+        UiTheme* t;
+        ~ThemePopGuard() noexcept { if (t) c.PopTheme(); }
+    } themePop{ctx, pushedTheme};
+
     SignalViewOptions opts = optsIn;
-    Control::InheritElementSizing(ctx, opts.stretch, opts.width, opts.height);
+    Control::InheritElementSizing(ctx, opts.stretch, opts.width, opts.widthRatio, opts.height);
 
     const Id id = ctx.MakeChildId(loc);
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
@@ -1607,10 +1614,13 @@ SignalViewResponse SignalView::Run(
 
     // Create Scene Graph Node
     Node* node = ctx.CreateNode(NodeType::SignalView, id);
+    node->theme = pushedTheme;
+    node->debugBoundsOverride = opts.debugBounds;
+    node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<SignalViewPayload>();
     payload->samples = samples;
     payload->opts = opts;
-    payload->opts.tooltip = ctx.AllocString(opts.tooltip);
+    payload->opts.tooltip = ctx.AllocText(opts.tooltip);
     payload->state = &st;
     payload->mousePos = mouse;
     payload->isHovered = baseRes.hovered;
@@ -1685,11 +1695,11 @@ SignalViewResponse SignalView::Run(
         const float rad = o.border.radius.has_value() ? th.Scale(*o.border.radius) : th.GetRadius(n->uiSize);
         const bool isDark = (th.mode == ThemeMode::Dark);
         const Color defaultBgSurface = isDark ? Color(11, 15, 25, 255) : Color(248, 250, 252, 255);
-        const Color bgSurface = o.background.Resolve(n->hovered, n->pressed, n->disabled, defaultBgSurface);
+        const Color bgSurface = th.ResolveColor(o.background, n->hovered, n->pressed, n->disabled, defaultBgSurface);
         const Color rulerBg   = isDark ? Color(17, 24, 39, 255) : Color(238, 242, 247, 255);
         const Color gridCol   = isDark ? Color(51, 65, 85, 95)  : Color(203, 213, 225, 140);
         const Color subGridCol = isDark ? Color(30, 41, 59, 90) : Color(226, 232, 240, 120);
-        const Color borderCol = o.border.color.Resolve(n->hovered, n->pressed, n->disabled, th.palette.borderSubtle);
+        const Color borderCol = th.ResolveColor(o.border.color, n->hovered, n->pressed, n->disabled, th.palette.borderSubtle);
         const float borderW   = (o.border.width > 0.0f) ? th.Scale(o.border.width) : 1.0f;
         const Color textMuted = th.palette.textMuted;
         const Color textSec   = th.palette.textSecondary;
@@ -2315,6 +2325,7 @@ void main() {
 
     ControlSpec ctrlSpec{};
     ctrlSpec.width = opts.width;
+    ctrlSpec.widthRatio = opts.widthRatio;
     ctrlSpec.height = opts.height;
     Control::SetupNode(ctx, node, ctrlSpec, opts.stretch, opts.align);
     if (!node->parent || node->parent->type != NodeType::Element) {

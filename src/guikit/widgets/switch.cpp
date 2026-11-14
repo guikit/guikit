@@ -42,6 +42,7 @@ ControlSpec EffectiveSwitchControl(const SwitchOptions& opts, UiSize size, const
     const SwitchMetrics& m = theme.GetSwitch(size);
     ControlSpec ctrl{};
     ctrl.width = opts.width;
+    ctrl.widthRatio = opts.widthRatio;
     ctrl.height = opts.height;
     ctrl.align = opts.align;
     ctrl.background = opts.background;
@@ -66,6 +67,13 @@ Response Switch::Run(
     const SwitchOptions& opts,
     std::source_location loc
 ) {
+    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    struct ThemePopGuard {
+        Context& c;
+        UiTheme* t;
+        ~ThemePopGuard() noexcept { if (t) c.PopTheme(); }
+    } themeGuard{ctx, pushedTheme};
+
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
@@ -104,13 +112,14 @@ Response Switch::Run(
     }
 
     SwitchOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
     optsCopy.textLeft = ctx.AllocText(opts.textLeft);
     optsCopy.textRight = ctx.AllocText(opts.textRight);
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);
 
     const ControlSpec ctrl = EffectiveSwitchControl(optsCopy, activeSize, ctx.GetTheme());
     Node* node = ctx.CreateNode(NodeType::Switch, id);
+    node->theme = pushedTheme;
     node->text = !optsCopy.textRight.empty() ? optsCopy.textRight.text : optsCopy.textLeft.text;
     node->SetPayload(ctx.AllocPayload<SwitchOptions>(optsCopy));
     node->visualHash = detail::HashArgs(
@@ -119,6 +128,7 @@ Response Switch::Run(
         optsCopy.symmetric,
         static_cast<uint8_t>(optsCopy.stretch),
         optsCopy.width.value_or(0.0f),
+        optsCopy.widthRatio.value_or(-1.0f),
         optsCopy.height.value_or(0.0f),
         optsCopy.background,
         optsCopy.border,
@@ -265,13 +275,14 @@ void Switch::Render(
             trackStroke = (v.borderWidth > 0.0f) ? v.border : Color::Transparent();
             strokeWidth = v.borderWidth;
             knobFill = pal.controlKnobActive;
-        } else if (opts.color.normal.has_value() && opts.color.normal->a == 0) {
-            trackFill = (hovered && !disabled) ? opts.color.hover.value_or(theme.GetVariant(UiVariant::Ghost).bgHover) : Color::Transparent();
+        } else if (opts.color.token == StateColorToken::Ghost || (opts.color.normal.has_value() && opts.color.normal->a == 0)) {
+            const StateColor resolved = theme.ResolveStateColor(opts.color);
+            trackFill = (hovered && !disabled) ? resolved.hover.value_or(theme.GetVariant(UiVariant::Ghost).bgHover) : Color::Transparent();
             trackStroke = (hovered && !disabled) ? pal.borderHover : pal.border;
             strokeWidth = 1.0f;
             knobFill = pal.controlKnobActive;
         } else {
-            trackFill = opts.color.Resolve(hovered && !disabled, pressed && !disabled, false, v.bg, v.bgHover, v.bgActive, v.bg);
+            trackFill = theme.ResolveColor(opts.color, hovered && !disabled, pressed && !disabled, false, v.bg, v.bgHover, v.bgActive, v.bg);
             trackStroke = Color::Transparent();
             strokeWidth = 0.0f;
             knobFill = pal.controlKnobActive;

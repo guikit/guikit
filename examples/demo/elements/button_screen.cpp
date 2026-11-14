@@ -28,8 +28,9 @@ void RenderButtonInspector(guikit::Context& ui, DemoContext&) {
 
     static constexpr std::array<std::string_view, 3> alignNames = {"Start (Left)", "Center", "End (Right)"};
     size_t alignIdx = (s_state.controlAlign == guikit::Align::Start) ? 0 : ((s_state.controlAlign == guikit::Align::End) ? 2 : 1);
-    if (auto el = ui.Element({.label = "Content Alignment"})) {
-        if (ui.StepSlider(alignIdx, alignNames, {.showTicks = true, .showLabels = true}).changed) {
+    const bool alignDisabled = s_state.square;
+    if (auto el = ui.Element({.label = "Content Alignment", .disabled = alignDisabled})) {
+        if (ui.StepSlider(alignIdx, alignNames, {.showTicks = true, .showLabels = true, .disabled = alignDisabled}).changed) {
             s_state.controlAlign = (alignIdx == 0) ? guikit::Align::Start : ((alignIdx == 2) ? guikit::Align::End : guikit::Align::Center);
             ui.InvalidateAll();
         }
@@ -39,8 +40,9 @@ void RenderButtonInspector(guikit::Context& ui, DemoContext&) {
     }
     static constexpr std::array<std::string_view, 4> placeNames = {"Leading", "Trailing", "Top", "Bottom"};
     size_t placeIdx = (s_state.iconPlacement == guikit::Placement::Trailing) ? 1 : ((s_state.iconPlacement == guikit::Placement::Top) ? 2 : ((s_state.iconPlacement == guikit::Placement::Bottom) ? 3 : 0));
-    if (auto el = ui.Element({.label = "Icon Placement", .disabled = !s_state.hasIcon})) {
-        if (ui.StepSlider(placeIdx, placeNames, {.showTicks = true, .showLabels = true, .disabled = !s_state.hasIcon}).changed) {
+    const bool placeDisabled = !s_state.hasIcon || s_state.square;
+    if (auto el = ui.Element({.label = "Icon Placement", .disabled = placeDisabled})) {
+        if (ui.StepSlider(placeIdx, placeNames, {.showTicks = true, .showLabels = true, .disabled = placeDisabled}).changed) {
             s_state.iconPlacement = (placeIdx == 1) ? guikit::Placement::Trailing : ((placeIdx == 2) ? guikit::Placement::Top : ((placeIdx == 3) ? guikit::Placement::Bottom : guikit::Placement::Leading));
             ui.InvalidateAll();
         }

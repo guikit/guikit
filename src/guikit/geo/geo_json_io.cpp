@@ -944,7 +944,7 @@ void AppendRingJson(std::string& out, const std::vector<guikit::GeoCoord>& ring,
 }
 
 bool TryReadTextFromAssetsOrDisk(
-    const std::string& filePath,
+    std::string_view filePath,
     std::string& outContent,
     std::string& outResolvedPath,
     std::string& outError
@@ -964,11 +964,12 @@ bool TryReadTextFromAssetsOrDisk(
     // 2. Check disk (direct path first, then relative parent prefixes for demo working directories)
     const char* prefixes[] = {"", "../", "../../", "../../../"};
     for (const char* prefix : prefixes) {
-        const std::string candidate = std::string(prefix) + filePath;
+        std::string candidate(prefix);
+        candidate.append(filePath);
         auto res = keel::fs_read_text(candidate);
         if (!res.is_ok()) continue;
         outContent.assign(res.value().data(), res.value().size());
-        outResolvedPath = candidate;
+        outResolvedPath = std::move(candidate);
         return true;
     }
 
@@ -1039,7 +1040,7 @@ GeoJsonResult GeoJsonIO::ParseFromString(std::string_view jsonText, std::string_
     return res;
 }
 
-GeoJsonResult GeoJsonIO::LoadFromFile(const std::string& filePath) {
+GeoJsonResult GeoJsonIO::LoadFromFile(std::string_view filePath) {
     GeoJsonResult res;
     std::string content;
     std::string resolvedPath;
@@ -1132,7 +1133,7 @@ GeoJsonLoadResult GeoJsonIO::ParseThematicLayersFromString(
 }
 
 GeoJsonLoadResult GeoJsonIO::LoadThematicLayersFromFile(
-    const std::string& filePath,
+    std::string_view filePath,
     bool splitByThematicClass
 ) {
     GeoJsonLoadResult res{};
@@ -1295,7 +1296,7 @@ std::string GeoJsonIO::SerializeLayer(const GeoLayer& layer, bool prettyPrint) {
     return out;
 }
 
-bool GeoJsonIO::SaveToFile(const GeoLayer& layer, const std::string& filePath, std::string* outError) {
+bool GeoJsonIO::SaveToFile(const GeoLayer& layer, std::string_view filePath, std::string* outError) {
     const std::string json = SerializeLayer(layer, true);
     const keel::Error err = keel::fs_write_text(filePath, json);
     if (err) {

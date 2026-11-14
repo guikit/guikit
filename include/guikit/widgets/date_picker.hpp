@@ -3,8 +3,10 @@
 #include <algorithm>
 #include <cstdint>
 #include <optional>
+#include <span>
 #include <source_location>
 #include <string>
+#include <string_view>
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -25,6 +27,9 @@ struct DateTime {
     int minute{30}; ///< Minute [0..59]
     int second{0};  ///< Second [0..59]
 
+    /// Returns the current local system date and time.
+    [[nodiscard]] static DateTime Today() noexcept;
+
     constexpr bool operator==(const DateTime&) const noexcept = default;
 };
 
@@ -41,10 +46,16 @@ struct DatePickerOptions {
     bool showSeconds{false};
     bool showTodayButton{true};
     bool firstDayMonday{true};
+    std::optional<DateTime> minDate{std::nullopt};      ///< Optional lower bound for selectable date/time
+    std::optional<DateTime> maxDate{std::nullopt};      ///< Optional upper bound for selectable date/time
+    std::optional<DateTime> todayOverride{std::nullopt};///< Optional deterministic override for "Today"/"Now" (nullopt = DateTime::Today())
+    std::span<const std::string_view> monthNames{};     ///< Optional 12 localized month names [January .. December]
+    std::span<const std::string_view> weekdayNames{};   ///< Optional 7 localized short weekday labels [Sunday .. Saturday]
     StateColor color{};
     StretchMode stretch{StretchMode::Compact};
     Align align{Align::Start};
     std::optional<float> width{std::nullopt};
+    std::optional<float> widthRatio{std::nullopt};
     std::optional<float> height{std::nullopt};
     StateColor background{StateColor::Surface()};
     Border border{};

@@ -15,6 +15,14 @@ namespace guikit {
 class Context;
 class ICanvas;
 
+/// Character filter mode for single-line InputField editing.
+enum class InputFilter : uint8_t {
+    Any = 0,  ///< Accept all characters (default)
+    Integer,  ///< Accept optional leading +/- and ASCII digits [0..9]
+    Decimal,  ///< Accept optional leading +/-, digits, decimal '.', and optional 'e'/'E' exponent
+    Hex       ///< Accept optional leading '#' or '0x'/'0X' prefix and hexadecimal digits [0-9a-fA-F]
+};
+
 /// Clean configuration options for text InputField widget.
 struct InputFieldOptions {
     UiText placeholder{};                          ///< Placeholder text when empty (e.g. "Enter value...")
@@ -25,16 +33,24 @@ struct InputFieldOptions {
     Align align{Align::Start};                     ///< Standalone control alignment (Start, Center, End)
     std::optional<CursorBlinkMode> cursorMode{std::nullopt}; ///< Cursor blink override (inherits context config if nullopt)
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};      ///< Input box width: in points for Compact/Space (nullopt = from theme), or ratio of bounds (0.0..1.0) for Fill (nullopt = 1.0)
+    std::optional<float> width{std::nullopt};      ///< Input box width in dp (or legacy ratio 0.0..1.0 in Fill)
+    std::optional<float> widthRatio{std::nullopt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
     std::optional<float> height{std::nullopt};     ///< Explicit input box height in points (nullopt = inherit defaultHeight from UiSize)
     std::optional<float> minWidth{std::nullopt};   ///< Minimum input box width constraint in points
+    StateColor color{};                            ///< Optional focus ring & caret accent color override (e.g. StateColor::Danger() for validation error)
     StateColor background{StateColor::Surface()};  ///< Input box surface fill color (Surface/Default = on, None = off, or custom StateColor)
     Border border{};                               ///< Input box border stroke & corner radius configuration
+    size_t maxLength{0};                           ///< Maximum UTF-8 codepoint count allowed (0 = unlimited)
+    InputFilter filter{InputFilter::Any};          ///< Optional live character filter (Integer, Decimal, Hex)
+    bool numericOnly{false};                       ///< Convenience alias for filter = InputFilter::Decimal when filter == InputFilter::Any
+    bool selectAllOnFocus{false};                  ///< Automatically select the entire text buffer when the field gains focus
     bool password{false};                          ///< Masks input characters with '*'
     bool passwordReveal{true};                     ///< Shows an interactive eye/eye-off toggle button when password is true
     bool clearable{false};                         ///< Shows an interactive clear ('X') button when non-empty and editable
     bool disabled{false};                          ///< Interaction suppression
     bool readOnly{false};                          ///< Non-editable display mode
+    const UiTheme* theme{nullptr};                 ///< Optional scoped theme override
+    std::optional<float> scale{std::nullopt};      ///< Optional scoped scale factor override
 };
 
 /// Internal runtime state allocated in frame arena for InputField nodes.

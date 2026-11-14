@@ -51,7 +51,7 @@ if (auto el = ui.Element({
     .layout = guikit::ElementLayout::Inline,
     .inlineOrder = guikit::InlineOrder::LabelFirst
 })) {
-    ui.SpinBox(cutoffHz, 20.0f, 20000.0f, 10.0f, {.format = "%.0f Hz"});
+    ui.SpinBox(cutoffHz, 20.0f, 20000.0f, 10.0f, {.valueFormat = "%.0f Hz"});
 }
 
 // BAD: Do NOT manually construct Row + Column + Text(label) + Text(description) + Spacer + Control
@@ -174,19 +174,21 @@ When laying out a workspace that shares space with a resizable `BottomPanel` or 
 
 | Container | Usage | Key Options |
 | :--- | :--- | :--- |
-| `ui.Row(opts)` | Horizontal flex container | `.gap`, `.padding`, `.align`, `.justify`, `.widthMode`, `.heightMode` |
-| `ui.Column(opts)` | Vertical flex container | `.gap`, `.padding`, `.align`, `.justify`, `.widthMode`, `.heightMode` |
+| `ui.Row(opts)` | Horizontal flex container | `.gap`, `.padding`, `.align`, `.justify`, `.widthMode`, `.heightMode`, `.minWidth`, `.maxWidth`, `.flexGrow` |
+| `ui.Column(opts)` | Vertical flex container | `.gap`, `.padding`, `.align`, `.justify`, `.widthMode`, `.heightMode`, `.minHeight`, `.maxHeight`, `.flexGrow` |
 | `ui.Wrap(opts)` | Multi-line flow container (chips, tags, cards) | `.gap`, `.runGap`, `.padding`, `.widthMode` |
 | `ui.Grid(opts)` | 12-column responsive CSS-like grid | `.columns = 12`, `.gap`, `.runGap`; children use `grid.Cell(span)` |
-| `ui.Spacer(size)` | Flexible spring (`size = 0`) or fixed gap (`size > 0`) | Pushes subsequent siblings to the right/bottom |
-| `ui.Box(opts)` / `ui.Card(opts)` | Styled container with background, border, radius & shadow | `.background`, `.border`, `.padding`, `.gap` |
-| `ui.ScrollArea(opts)` | Scrollable viewport with automatic scrollbars | `.orientation`, `.scrollbar`, `.maxHeight`, `.heightMode` |
+| `ui.Spacer(flexGrow)` | Flexible spring (`flexGrow = 1.0f`) | Pushes subsequent siblings to the right/bottom proportionally |
+| `ui.Gap(dp)` | Fixed-pixel spacing node (`dp > 0`) | Inserts an exact non-stretching offset along the main axis |
+| `ui.Box(opts)` / `ui.Card(opts)` | Styled container with background, border, radius & shadow | `.background`, `.border`, `.padding`, `.gap`, `.minWidth`, `.maxWidth`, `.flexGrow` |
+| `ui.ScrollArea(opts)` | Scrollable viewport with automatic scrollbars | `.orientation`, `.scrollbar`, `.maxHeight`, `.heightMode`, `.flexGrow` |
 | `ui.SplitView(ratio, opts)` | Resizable horizontal/vertical 2-pane splitter | `if (auto p1 = split.First())`, `if (auto p2 = split.Second())` |
 
-**Sizing Modes (`SizeMode` / `Sizing`):**
-- `SizeMode::Fit`: Shrink-wraps children content.
-- `SizeMode::Stretch`: Expands to fill available parent space along that axis.
-- `SizeMode::Fixed`: Uses explicit `.width` / `.height` (or `.minWidth` / `.maxWidth`).
+**Sizing Modes (`SizeMode` / `StretchMode`):**
+- `SizeMode::Fit`: Shrink-wraps children content (respecting `.minWidth` / `.maxWidth` / `.minHeight` / `.maxHeight`).
+- `SizeMode::Stretch`: Expands to fill available parent space along that axis (weighted by `.flexGrow`).
+- `SizeMode::Fixed`: Uses explicit `.width` / `.height` in `dp`.
+- Leaf controls (`Element`, `Button`, `InputField`, `Select`, `Slider`, etc.) use `.width` for explicit `dp` width and `.widthRatio` (`0.0f..1.0f`) for proportional fill width under `StretchMode::Fill`.
 
 ---
 
@@ -194,14 +196,14 @@ When laying out a workspace that shares space with a resizable `BottomPanel` or 
 
 Before drawing custom shapes on `ICanvas`, check this inventory:
 
-- **Typography & Structure**: `Heading` (H1–H4 + description + icon + separator), `Text` (semantic `TextRole` + `UiVariant` + `UiText::Rich`), `Element` (universal form field decorator), `Image` (PNG/JPG/SVG with `ImageFit::Contain`/`Cover`/`ScaleDown` & corner rounding), procedural vector `Icon::*` library (`Icon::Play()`, `Icon::Settings()`, `Icon::Search()`, etc.).
-- **Buttons & Selection**: `Button` (solid/outline/ghost, icons, badges, loading spinner), `Switch`, `Checkbox` (with `indeterminate` support), `Radio`, `Segmented` (single-select index) & `SegmentedMask` (multi-select bitmask).
-- **Numeric & Metering**: `Slider`, `RangeSlider` (`minVal`, `maxVal`), `StepSlider` — horizontal, or vertical via `.orientation = Orientation::Vertical` (min at the bottom, `stretch = Fill` fills the height, StepSlider labels right of the ticks), `ProgressBar` (smooth, discrete LED segments, indeterminate), `LevelMeter` (single & multi-channel audio/telemetry dB bargraph with 3-zone coloring, peak-hold & clip LED), `Knob` (rotary encoder with bipolar arc & radial ticks), `SpinBox` (numeric stepper with typematic hold-repeat).
-- **Text, Tags & Dropdowns**: `InputField` (text, password, numeric, prefix/suffix icons, clear button, validation), `TagInput` (multi-tag chip editor), `Select` (dropdown), `ComboBox` (searchable select), `Autocomplete` (free-text with suggestions), `MultiSelect` (multi-chip dropdown with checkboxes & "Select All").
-- **Pickers**: `ColorPicker` (2D HSV saturation/value canvas, hue/alpha sliders, HEX input, swatches), `DatePicker` (`Date`, `DateTime`, `Time` modes with calendar popup & leap-year math).
-- **Navigation & Data**: `TabBar` (underline/pill/card/folder styles, closable tabs, overflow scroll), `Breadcrumb` (with interactive `...` collapse menu), `Pagination` (ellipsis windowing), `Toolbar` (`ToolButton` / `Action`, `Toggle`, `Item`, `Dropdown`, `SplitButton`, `SplitToggle`, `Separator`, `Spacer` with `AutoCompact`/`Scroll`/`Wrap`/`Clip` overflow), `Sidebar`, `SidebarMenu`, `ActivityBar`, `BottomPanel`, `StatusBar`, `Accordion`, `Carousel`, `TreeView` (multi-column, filterable hierarchy), `Table` (virtualized 100k+ row data grid with sorting & selection).
+- **Typography & Structure**: `Heading` (`HeadingLevel::H1`–`H4` + description + icon + separator), `Text` (semantic `TextRole` + `UiVariant` + `UiText::Rich`), `Element` (universal form field decorator), `Image` (PNG/JPG/SVG with `ObjectFit::Contain`/`Cover`/`ScaleDown` & corner rounding), procedural vector `Icon::*` library (`Icon::Play()`, `Icon::Settings()`, `Icon::Search()`, etc.).
+- **Buttons & Selection**: `Button` (solid/outline/ghost, icons, `.badge`, `.loading` spinner), `Switch`, `Checkbox` (with `indeterminate` support), `Radio`, `Segmented` (single-select `IndexLike` integer or `enum class`) & `SegmentedMask` (multi-select bitmask).
+- **Numeric & Metering**: `Slider`, `RangeSlider` (`minVal`, `maxVal`), `StepSlider` (`IndexLike` integer or `enum class`) — horizontal, or vertical via `.orientation = Orientation::Vertical` (min at the bottom, `stretch = Fill` fills the height, StepSlider labels right of the ticks), `ProgressBar` (smooth, discrete LED segments, `.indeterminate`, horizontal or vertical), `LevelMeter` (single & multi-channel audio/telemetry dB bargraph with 3-zone coloring, peak-hold & clip LED), `Knob` (rotary encoder with bipolar arc & radial ticks), `SpinBox` (64-bit integer & float numeric stepper with typematic hold-repeat).
+- **Text, Tags & Dropdowns**: `InputField` (supports `std::string`, `keel::FixedString<N>`, `keel::String`; password, `InputFilter::Integer`/`Decimal`/`Hex`, `.maxLength`, `.selectAllOnFocus`, prefix/suffix icons, clear button), `TagInput` (`std::vector` or `keel::SmallArray` / `keel::Array`), `Select` (`IndexLike` integer/`enum`, `std::string`, `keel::FixedString<N>`, `keel::String`), `ComboBox` (searchable select), `Autocomplete` (free-text with suggestions), `MultiSelect` (`std::vector<size_t>` or `keel::SmallArray<size_t, N>` / `keel::Array<size_t>`).
+- **Pickers**: `ColorPicker` (2D HSV saturation/value canvas, hue/alpha sliders, HEX input, custom `.swatches`), `DatePicker` (`Date`, `DateTime`, `Time` modes with `DateTime::Today()`, `minDate`/`maxDate`, localized month/weekday labels & leap-year math).
+- **Navigation & Data**: `TabBar` (underline/pill/card/folder styles, `.closable` tabs returning `TabBarResponse::closedIndex`, `IndexLike` integer/`enum` binding, overflow scroll), `Breadcrumb` (with interactive `...` collapse menu), `Pagination` (ellipsis windowing), `Toolbar` (`ToolButton` / `Action`, `Toggle`, `Item`, `Dropdown`, `SplitButton`, `SplitToggle`, `Separator`, `Spacer` with `AutoCompact`/`Scroll`/`Wrap`/`Clip` overflow), `Sidebar`, `SidebarMenu`, `ActivityBar`, `BottomPanel`, `StatusBar`, `Accordion`, `Carousel`, `TreeView` (multi-column, filterable hierarchy), `Table` (virtualized 100k+ row data grid with sorting & selection).
 - **Overlays**: `Modal` (`if (auto m = ui.Modal(open, opts))`), `ContextMenu`, `CommandPalette` (`Ctrl+K` fuzzy command launcher), `Toast` (`ui.ShowToast(...)` + `ui.ToastHost()`).
-- **Rich Editors & 2D Domain Scenes (`guikit::scenes`)**: `Markdown`, `TextArea` / `CodeEditor` (syntax highlighting, breakpoints, code folding, minimap, find/replace), `Scene` (infinite pan/zoom vector canvas with grid & rulers), `MapView` (S-52/ENC vector marine GIS chart + 7 geodetic projections), `SignalView` (waveform + STFT spectrogram), `SonarView` (PPI 360° / Sector / B-Scan radar), `WaterfallView` (RTSA spectral waterfall), `ImageView` + `Histogram` (16-bit scientific image workstation with Window/Level & pixel loupe), `AttitudeView` (avionics PFD), `CarClusterView` (automotive cockpit), `BpmnEditor` (interactive BPMN 2.0 modeler & token simulator).
+- **Rich Editors & 2D Domain Scenes (`guikit::scenes`)**: `Markdown`, `TextArea` / `CodeEditor` (`ui.CodeEditor(...)`, `keel::String`/`FixedString` support, `.rows`, `.autoHeight`, `.tabSize`, `.insertSpaces`, syntax highlighting, breakpoints, code folding, minimap, find/replace), `Scene` (infinite pan/zoom vector canvas with grid & rulers), `MapView` (S-52/ENC vector marine GIS chart + 7 geodetic projections), `SignalView` (waveform + STFT spectrogram), `SonarView` (PPI 360° / Sector / B-Scan radar), `WaterfallView` (RTSA spectral waterfall), `ImageView` + `Histogram` (16-bit scientific image workstation with Window/Level & pixel loupe), `AttitudeView` (avionics PFD), `CarClusterView` (automotive cockpit), `BpmnEditor` (interactive BPMN 2.0 modeler & token simulator).
 
 ---
 
@@ -211,6 +213,7 @@ When modifying or extending GuiKit itself:
 
 1. **Header & Source File Naming (`snake_case` only)**:
    - Public headers live in `include/guikit/<module>/<file_name>.hpp` and implementation files in `src/guikit/<module>/<file_name>.cpp`.
+   - Public headers must never leak `<windows.h>`, `<SDL3/SDL.h>`, `"thorvg.h"`, or internal `using namespace` directives (`test_guikit_header_purity` enforces this with `-Werror`).
    - Umbrella headers:
      - `#include "guikit/guikit.hpp"` (master umbrella header)
      - `#include "guikit/core.hpp"` (`guikit::core` widgets, panels, layouts)
@@ -218,7 +221,7 @@ When modifying or extending GuiKit itself:
      - `#include "guikit/context.hpp"` (UI context)
 2. **Symbol Naming**:
    - **Namespaces**: `snake_case` (`guikit`, `guikit::geo`, `guikit::detail`).
-   - **Classes, Structs, `enum class`, Enumerators, and Methods**: `PascalCase` (`Context`, `ButtonOpts`, `UiSize::Md`, `DrawParagraph`).
+   - **Classes, Structs, `enum class`, Enumerators, and Methods**: `PascalCase` (`Context`, `ButtonOptions`, `UiSize::Md`, `DrawParagraph`).
    - **Struct Fields, Parameters, Local Variables**: `camelCase` (`fontSize`, `maxWidth`, `borderRadius`).
    - **Private Class Members**: `m_camelCase` (`m_activeId`, `m_hadModalLastFrame`).
    - **Compile-Time Constants**: `kPascalCase` (`kDefaultFontSize`, `kMaxChannels`).
@@ -231,7 +234,7 @@ When modifying or extending GuiKit itself:
 5. **Building & Running Tests**:
    ```powershell
    cmake -B build
-   cmake --build build --target test_core test_layout test_context guikit_demo
+   cmake --build build --target test_core test_layout test_context test_guikit_header_purity guikit_demo
    ctest --test-dir build -C Debug --output-on-failure
    ```
-   Every new widget, layout rule, or dirty-rect fix must include deterministic unit tests in `tests/test_core.cpp`, `tests/test_layout.cpp`, or `tests/test_context.cpp`.
+   Every new widget, layout rule, or dirty-rect fix must include deterministic unit tests in `tests/test_core.cpp`, `tests/test_layout.cpp`, `tests/test_context.cpp`, or `tests/test_header_purity.cpp`.

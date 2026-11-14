@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <source_location>
 #include "guikit/core/theme.hpp"
 #include "guikit/core/types.hpp"
@@ -13,12 +14,15 @@ class ICanvas;
 class Separator {
 public:
     /// Creates a Separator layout node that adapts to the current container orientation
-    /// (horizontal line in vertical containers, vertical line in horizontal containers).
+    /// (horizontal line in vertical containers, vertical line in horizontal containers),
+    /// or uses `lineOrientationOverride` (`Orientation::Horizontal` = horizontal rule,
+    /// `Orientation::Vertical` = vertical rule) when explicitly specified.
     static void Run(
         Context& ctx,
         float extentRatio = 0.0f,
         Color colorOverride = Color::Transparent(),
-        std::source_location loc = std::source_location::current()
+        std::source_location loc = std::source_location::current(),
+        std::optional<Orientation> lineOrientationOverride = std::nullopt
     );
 
     /// Renders a crisp, half-pixel-aligned separator line between `p0` and `p1`.

@@ -22,15 +22,10 @@ public:
         other.m_node = nullptr;
     }
 
-    ContainerScope& operator=(ContainerScope&& other) noexcept {
-        if (this != &other) {
-            m_ctx = other.m_ctx;
-            m_node = other.m_node;
-            other.m_ctx = nullptr;
-            other.m_node = nullptr;
-        }
-        return *this;
-    }
+    ContainerScope& operator=(ContainerScope&& other) noexcept;
+
+    /// Explicitly closes this container scope early (safe and idempotent).
+    void Close() noexcept;
 
     /// Evaluates to true allowing `if (auto row = ui.Row()) { ... }` syntax.
     [[nodiscard]] explicit constexpr operator bool() const noexcept {

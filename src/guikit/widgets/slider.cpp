@@ -58,21 +58,24 @@ void FormatSliderValue(
             }
         }
 
-        std::string fmt(format);
+        char fmt[128]{};
+        const size_t fmtLen = std::min(format.size(), sizeof(fmt) - 1);
+        std::memcpy(fmt, format.data(), fmtLen);
+        fmt[fmtLen] = '\0';
         if (convSpec == 'd' || convSpec == 'i' || convSpec == 'u' ||
             convSpec == 'x' || convSpec == 'X' || convSpec == 'o') {
             const long long intVal = static_cast<long long>(std::round(value));
             if (isLongLong) {
-                std::snprintf(valBuf, bufSize, fmt.c_str(), intVal);
+                std::snprintf(valBuf, bufSize, fmt, intVal);
             } else if (isLong) {
-                std::snprintf(valBuf, bufSize, fmt.c_str(), static_cast<long>(intVal));
+                std::snprintf(valBuf, bufSize, fmt, static_cast<long>(intVal));
             } else {
-                std::snprintf(valBuf, bufSize, fmt.c_str(), static_cast<int>(intVal));
+                std::snprintf(valBuf, bufSize, fmt, static_cast<int>(intVal));
             }
         } else if (convSpec != '\0') {
-            std::snprintf(valBuf, bufSize, fmt.c_str(), value);
+            std::snprintf(valBuf, bufSize, fmt, value);
         } else {
-            std::snprintf(valBuf, bufSize, "%s", fmt.c_str());
+            std::snprintf(valBuf, bufSize, "%s", fmt);
         }
     } else if (isInt) {
         std::snprintf(valBuf, bufSize, "%lld", static_cast<long long>(std::round(value)));
@@ -250,7 +253,7 @@ SliderControlMetrics ComputeSliderControlMetrics(
         cm.bottomValH = 2.0f + cm.valLineH;
     }
 
-    const float trackW = (stretch != StretchMode::Fill && width.has_value()) ? theme.Scale(*width) : m.defaultWidth;
+    const float trackW = Control::HasExplicitDpWidth(stretch, width) ? theme.Scale(*width) : m.defaultWidth;
     cm.intrinsicControlSize = {
         cm.leftGutterW + trackW + m.thumbSize + cm.rightGutterW,
         cm.topValH + cm.trackRowH + cm.extraLabelsH + cm.bottomValH
@@ -502,6 +505,7 @@ ControlSpec EffectiveSliderControl(const Opts& opts, UiSize size, const UiTheme&
     const SliderMetrics& m = theme.GetSlider(size);
     ControlSpec c{};
     c.width = opts.width;
+    c.widthRatio = opts.widthRatio;
     c.height = opts.height;
     c.align = opts.align;
     c.background = opts.background;
@@ -559,7 +563,8 @@ float StepSliderLabelsBand(
     return m.tickGap + widest;
 }
 
-Color ResolveSliderTrackColor(const StateColor& color, bool disabled, const UiTheme& theme) noexcept {
+Color ResolveSliderTrackColor(const StateColor& rawColor, bool disabled, const UiTheme& theme) noexcept {
+    const StateColor color = theme.ResolveStateColor(rawColor);
     const auto& pal = theme.palette;
     const VariantColors& primary = theme.GetVariant(UiVariant::Primary);
     if (!color.HasAny()) {
@@ -572,7 +577,8 @@ Color ResolveSliderTrackColor(const StateColor& color, bool disabled, const UiTh
     return disabled ? color.disabled.value_or(base.WithAlphaF(0.4f)) : base;
 }
 
-Color ResolveSliderActiveThumbColor(const StateColor& color, const UiTheme& theme) noexcept {
+Color ResolveSliderActiveThumbColor(const StateColor& rawColor, const UiTheme& theme) noexcept {
+    const StateColor color = theme.ResolveStateColor(rawColor);
     const VariantColors& primary = theme.GetVariant(UiVariant::Primary);
     if (!color.HasAny()) {
         return primary.bgActive;
@@ -606,7 +612,7 @@ Response Slider::Run(
     const UiTheme& activeTheme = ctx.GetTheme();
 
     SliderOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
 
     const SliderMetrics& m = activeTheme.GetSlider(activeSize);
     const double rangeMin = std::min(min, max);
@@ -949,7 +955,7 @@ Response StepSlider::Run(
     const UiTheme& activeTheme = ctx.GetTheme();
 
     StepSliderOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
 
     const SliderMetrics& m = activeTheme.GetSlider(activeSize);
 
@@ -1378,6 +1384,7 @@ struct ProgressBarData {
     double value{0.0};
     double min{0.0};
     double max{100.0};
+    float animPhase{0.0f};
 };
 
 void FormatRangeSliderPair(
@@ -1443,7 +1450,7 @@ Response RangeSlider::Run(
     const UiTheme& activeTheme = ctx.GetTheme();
 
     RangeSliderOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
 
     const SliderMetrics& m = activeTheme.GetSlider(activeSize);
     const double rangeMin = std::min(min, max);
@@ -1867,7 +1874,7 @@ Response ProgressBar::Run(
     const UiTheme& activeTheme = ctx.GetTheme();
 
     ProgressBarOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
 
     const double rangeMin = std::min(min, max);
     const double rangeMax = std::max(min, max);
@@ -1882,14 +1889,23 @@ Response ProgressBar::Run(
         ctx.SetTooltip(optsCopy.tooltip, ctx.GetPrevFrameBounds(id));
     }
 
+    float animPhase = 0.0f;
+    if (optsCopy.indeterminate && !effectiveDisabled) {
+        animPhase = static_cast<float>(std::fmod(std::max(0.0, ctx.GetCurrentTime()) * 0.85, 1.0));
+        ctx.RequestRepaint(2);
+    }
+
     const ControlSpec ctrl = EffectiveSliderControl(optsCopy, activeSize, activeTheme);
+    const bool vertical = IsVerticalSlider(optsCopy.orientation);
     Node* node = ctx.CreateNode(NodeType::ProgressBar, id);
     node->theme = pushedTheme;
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
-    node->widthMode = (optsCopy.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
-    node->heightMode = SizeMode::Fit;
+    node->widthMode = (!vertical && optsCopy.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
+    node->heightMode = (vertical && optsCopy.stretch == StretchMode::Fill && !optsCopy.height.has_value())
+        ? SizeMode::Stretch
+        : SizeMode::Fit;
 
     auto* data = ctx.AllocPayload<ProgressBarData>();
     data->opts = optsCopy;
@@ -1900,6 +1916,7 @@ Response ProgressBar::Run(
     data->value = clampedVal;
     data->min = rangeMin;
     data->max = rangeMax;
+    data->animPhase = animPhase;
     node->SetPayload(data);
 
     uint64_t valBits = 0;
@@ -1911,6 +1928,9 @@ Response ProgressBar::Run(
     node->visualHash = detail::HashArgs(
         valBits,
         peakBits,
+        static_cast<uint8_t>(data->opts.orientation),
+        data->opts.indeterminate,
+        animPhase,
         data->opts.segments,
         data->opts.multiZoneColor,
         data->opts.warningRatio,
@@ -1923,6 +1943,7 @@ Response ProgressBar::Run(
         data->opts.background,
         data->opts.border,
         data->opts.width.value_or(0.0f),
+        data->opts.widthRatio.value_or(-1.0f),
         data->opts.height.value_or(0.0f),
         data->opts.showValue,
         data->opts.textLeft,
@@ -1946,7 +1967,7 @@ Response ProgressBar::Run(
         if (!d) return;
         ProgressBar::Render(
             canvas, n->computedRect, d->value, d->min, d->max,
-            d->opts, n->uiSize, n->hovered, n->disabled, theme
+            d->opts, n->uiSize, n->hovered, n->disabled, theme, d->animPhase
         );
     };
 
@@ -1970,9 +1991,13 @@ Vec2 ProgressBar::Measure(
 ) {
     const double rangeMin = std::min(min, max);
     const double rangeMax = std::max(min, max);
+    const bool hasStaticLabel = !opts.valueFormat.text.empty() && opts.valueFormat.text.find('%') == std::string_view::npos;
+    const bool effShowVal = opts.showValue && (!opts.indeterminate || hasStaticLabel);
     const std::string_view fmt = opts.valueFormat.text.empty() ? "%.0f %%" : opts.valueFormat.text;
-    char valBuf[64];
-    FormatSliderValue(valBuf, sizeof(valBuf), value, false, fmt);
+    char valBuf[64]{};
+    if (effShowVal) {
+        FormatSliderValue(valBuf, sizeof(valBuf), value, false, fmt);
+    }
 
     UiText fmtText = opts.valueFormat;
     if (fmtText.text.empty()) {
@@ -1982,18 +2007,25 @@ Vec2 ProgressBar::Measure(
     const ControlSpec ctrl = EffectiveSliderControl(opts, size, theme);
     SliderControlMetrics cm = ComputeSliderControlMetrics(
         opts.textLeft, opts.textRight, fmtText, valBuf,
-        opts.showValue, opts.valuePlacement, opts.stretch, ctrl.width,
+        effShowVal, opts.valuePlacement, opts.stretch, ctrl.width,
         0.0f, size, canvas, theme,
-        {}, true, rangeMin, rangeMax, false
+        {}, !opts.indeterminate, rangeMin, rangeMax, false, opts.orientation
     );
     if (opts.trackHeight.has_value()) {
-        const float minRowH = theme.Scale(*opts.trackHeight) + 4.0f;
-        if (minRowH > cm.trackRowH) {
-            cm.intrinsicControlSize.y += (minRowH - cm.trackRowH);
-            cm.trackRowH = minRowH;
+        const float minThick = theme.Scale(*opts.trackHeight) + 4.0f;
+        if (IsVerticalSlider(opts.orientation)) {
+            if (minThick > cm.crossW) {
+                cm.intrinsicControlSize.x += (minThick - cm.crossW);
+                cm.crossW = minThick;
+            }
+        } else {
+            if (minThick > cm.trackRowH) {
+                cm.intrinsicControlSize.y += (minThick - cm.trackRowH);
+                cm.trackRowH = minThick;
+            }
         }
     }
-    return Control::Measure(cm.intrinsicControlSize, ctrl, opts.stretch, size, theme);
+    return Control::Measure(cm.intrinsicControlSize, ctrl, SliderCrossStretch(opts), size, theme);
 }
 
 Vec2 ProgressBar::Measure(
@@ -2019,7 +2051,8 @@ void ProgressBar::Render(
     UiSize size,
     bool hovered,
     bool disabled,
-    const UiTheme& theme
+    const UiTheme& theme,
+    float animPhase
 ) {
     if (bounds.w <= 0.0f || bounds.h <= 0.0f) return;
 
@@ -2027,10 +2060,15 @@ void ProgressBar::Render(
     const auto& pal = theme.palette;
     const double rangeMin = std::min(min, max);
     const double rangeMax = std::max(min, max);
+    const bool vertical = IsVerticalSlider(opts.orientation);
+    const bool hasStaticLabel = !opts.valueFormat.text.empty() && opts.valueFormat.text.find('%') == std::string_view::npos;
+    const bool effShowVal = opts.showValue && (!opts.indeterminate || hasStaticLabel);
     const std::string_view fmt = opts.valueFormat.text.empty() ? "%.0f %%" : opts.valueFormat.text;
 
-    char valBuf[64];
-    FormatSliderValue(valBuf, sizeof(valBuf), value, false, fmt);
+    char valBuf[64]{};
+    if (effShowVal) {
+        FormatSliderValue(valBuf, sizeof(valBuf), value, false, fmt);
+    }
 
     UiText fmtText = opts.valueFormat;
     if (fmtText.text.empty()) {
@@ -2040,37 +2078,28 @@ void ProgressBar::Render(
     const ControlSpec ctrl = EffectiveSliderControl(opts, size, theme);
     SliderControlMetrics cm = ComputeSliderControlMetrics(
         opts.textLeft, opts.textRight, fmtText, valBuf,
-        opts.showValue, opts.valuePlacement, opts.stretch, ctrl.width,
+        effShowVal, opts.valuePlacement, opts.stretch, ctrl.width,
         0.0f, size, &canvas, theme,
-        {}, true, rangeMin, rangeMax, false
+        {}, !opts.indeterminate, rangeMin, rangeMax, false, opts.orientation
     );
-    const float barH = opts.trackHeight.has_value()
+    const float barThick = opts.trackHeight.has_value()
         ? theme.Scale(*opts.trackHeight)
         : std::max(m.trackHeight * 1.55f, 8.0f);
-    if (barH + 4.0f > cm.trackRowH) {
-        cm.intrinsicControlSize.y += ((barH + 4.0f) - cm.trackRowH);
-        cm.trackRowH = barH + 4.0f;
+    if (!vertical && barThick + 4.0f > cm.trackRowH) {
+        cm.intrinsicControlSize.y += ((barThick + 4.0f) - cm.trackRowH);
+        cm.trackRowH = barThick + 4.0f;
+    } else if (vertical && barThick + 4.0f > cm.crossW) {
+        cm.intrinsicControlSize.x += ((barThick + 4.0f) - cm.crossW);
+        cm.crossW = barThick + 4.0f;
     }
 
     Control::RenderFrame(canvas, bounds, ctrl, size, disabled, theme, hovered, false);
     const Rect ctrlRect = Control::ResolveInnerRect(bounds, ctrl, size, theme);
-    const float trackRegionX = ctrlRect.x + cm.leftGutterW;
-    const float trackRegionW = std::max(12.0f, ctrlRect.w - cm.leftGutterW - cm.rightGutterW);
-    const float contentOffsetY = std::max(0.0f, (ctrlRect.h - cm.intrinsicControlSize.y) * 0.5f);
-    const float trackRowY = ctrlRect.y + contentOffsetY + cm.topValH;
-    const float centerY = trackRowY + cm.trackRowH * 0.5f;
 
     const double range = rangeMax - rangeMin;
-    const float ratio = (range > 0.0) ? static_cast<float>(std::clamp((value - rangeMin) / range, 0.0, 1.0)) : 0.0f;
-    const float fillW = ratio * trackRegionW;
-    const float tipX = trackRegionX + fillW;
-
-    // 0. Draw companion textLeft / textRight and value readout
-    RenderSliderCompanionTexts(
-        canvas, ctrlRect, trackRegionX, trackRegionW, trackRowY, tipX,
-        cm, opts.textLeft, opts.textRight, fmtText, valBuf,
-        opts.showValue, opts.valuePlacement, disabled, theme
-    );
+    const float ratio = opts.indeterminate
+        ? 0.0f
+        : ((range > 0.0) ? static_cast<float>(std::clamp((value - rangeMin) / range, 0.0, 1.0)) : 0.0f);
 
     auto resolveZoneColor = [&](float normPos) -> Color {
         if (!opts.multiZoneColor) {
@@ -2081,18 +2110,133 @@ void ProgressBar::Render(
             col = theme.GetVariant(UiVariant::Danger).bg;
         } else if (normPos >= opts.warningRatio) {
             col = theme.GetVariant(UiVariant::Warning).bg;
-        } else if (!opts.color.HasAny() || opts.color == StateColor::Primary()) {
+        } else if (!opts.color.HasAny() || opts.color.token == StateColorToken::Primary) {
             col = theme.GetVariant(UiVariant::Success).bg;
-        } else if (opts.color.normal.has_value() && opts.color.normal->a == 0) {
+        } else if (opts.color.token == StateColorToken::Ghost || (opts.color.normal.has_value() && opts.color.normal->a == 0)) {
             col = pal.borderHover;
         } else {
-            col = opts.color.normal.value_or(theme.GetVariant(UiVariant::Success).bg);
+            const StateColor resolved = theme.ResolveStateColor(opts.color);
+            col = resolved.normal.value_or(theme.GetVariant(UiVariant::Success).bg);
         }
         return disabled ? col.WithAlphaF(0.4f) : col;
     };
 
-    const float barY = std::round(centerY - barH * 0.5f);
-    const float barHInt = std::max(2.0f, std::round(barH));
+    if (vertical) {
+        SliderTrackLayout layout = ComputeSliderTrackLayout(ctrlRect, cm, m, true);
+        const float trackTop = layout.region.y;
+        const float trackH = std::max(12.0f, layout.region.h);
+        const float barWInt = std::max(2.0f, std::round(barThick));
+        const float barX = std::round(layout.cross - barWInt * 0.5f);
+        const float fillH = ratio * trackH;
+        const Vec2 tipCenter(layout.cross, trackTop + trackH - fillH);
+
+        RenderSliderCompanionTextsVertical(
+            canvas, ctrlRect, layout, tipCenter, barWInt,
+            cm, opts.textLeft, opts.textRight, fmtText, valBuf,
+            effShowVal, opts.valuePlacement, disabled, theme
+        );
+
+        if (opts.indeterminate) {
+            const Rect trackBgRect(barX, trackTop, barWInt, trackH);
+            const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(0.4f) : pal.surfaceActive;
+            const Color trackBorder = disabled ? pal.border.WithAlphaF(0.3f) : pal.border;
+            canvas.DrawRoundRect(trackBgRect, barWInt * 0.5f, trackBg, trackBorder, 1.0f);
+
+            const float shuttleH = std::max(barWInt, trackH * 0.32f);
+            const float pingPong = 1.0f - std::abs(std::fmod(animPhase * 2.0f, 2.0f) - 1.0f);
+            const float smoothT = pingPong * pingPong * (3.0f - 2.0f * pingPong);
+            const float shuttleY = trackTop + (1.0f - smoothT) * std::max(0.0f, trackH - shuttleH);
+            canvas.DrawRoundRect(Rect(barX, shuttleY, barWInt, shuttleH), barWInt * 0.5f, ResolveSliderTrackColor(opts.color, disabled, theme));
+            return;
+        }
+
+        if (opts.segments > 1) {
+            const uint32_t segCount = std::min<uint32_t>(opts.segments, 64u);
+            const float gap = (segCount > 28) ? 1.0f : 2.0f;
+            const float totalGaps = gap * static_cast<float>(segCount - 1);
+            const float segH = std::max(2.0f, std::floor((std::round(trackH) - totalGaps) / static_cast<float>(segCount)));
+            const float bottomY = std::round(trackTop + trackH);
+            const bool useRound = (std::min(barWInt, segH) >= 8.0f);
+            const Color unlitBg = disabled ? pal.surfaceActive.WithAlphaF(0.35f) : pal.surfaceActive;
+            const Color unlitBorder = disabled ? pal.border.WithAlphaF(0.25f) : pal.border.WithAlphaF(0.65f);
+
+            int peakSegIdx = -1;
+            if (opts.peakHoldValue.has_value() && range > 0.0) {
+                const float peakRatio = static_cast<float>(std::clamp((*opts.peakHoldValue - rangeMin) / range, 0.0, 1.0));
+                if (peakRatio > 0.001f) {
+                    peakSegIdx = std::clamp(static_cast<int>(std::ceil(peakRatio * static_cast<float>(segCount))) - 1, 0, static_cast<int>(segCount) - 1);
+                }
+            }
+
+            for (uint32_t i = 0; i < segCount; ++i) {
+                const float segY = bottomY - static_cast<float>(i + 1) * segH - static_cast<float>(i) * gap;
+                const float segThreshold = static_cast<float>(i + 1) / static_cast<float>(segCount);
+                const float segMidRatio = (static_cast<float>(i) + 0.5f) / static_cast<float>(segCount);
+                const bool isLit = (ratio >= segThreshold - (0.5f / static_cast<float>(segCount))) && (ratio > 0.001f);
+                const bool isPeakSeg = (static_cast<int>(i) == peakSegIdx);
+                const Rect segRect(barX, segY, barWInt, segH);
+                if (isLit || isPeakSeg) {
+                    const Color segCol = resolveZoneColor(segMidRatio);
+                    if (useRound) canvas.DrawRoundRect(segRect, 1.0f, segCol);
+                    else canvas.DrawRect(segRect, segCol);
+                } else {
+                    if (useRound) canvas.DrawRoundRect(segRect, 1.0f, unlitBg, unlitBorder, 1.0f);
+                    else canvas.DrawRect(segRect, unlitBg);
+                }
+            }
+        } else {
+            const Rect trackBgRect(barX, trackTop, barWInt, trackH);
+            const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(0.4f) : pal.surfaceActive;
+            const Color trackBorder = disabled ? pal.border.WithAlphaF(0.3f) : pal.border;
+            canvas.DrawRoundRect(trackBgRect, barWInt * 0.5f, trackBg, trackBorder, 1.0f);
+
+            if (fillH > 0.5f) {
+                const Rect fillRect(barX, trackTop + trackH - fillH, barWInt, fillH);
+                canvas.DrawRoundRect(fillRect, barWInt * 0.5f, resolveZoneColor(ratio));
+            }
+            if (opts.peakHoldValue.has_value() && range > 0.0) {
+                const float peakRatio = static_cast<float>(std::clamp((*opts.peakHoldValue - rangeMin) / range, 0.0, 1.0));
+                if (peakRatio > 0.001f) {
+                    const float peakY = trackTop + trackH - peakRatio * trackH;
+                    canvas.DrawRoundRect(Rect(barX - 2.0f, peakY - 1.5f, barWInt + 4.0f, 3.0f), 1.5f, resolveZoneColor(peakRatio));
+                }
+            }
+        }
+        return;
+    }
+
+    const float trackRegionX = ctrlRect.x + cm.leftGutterW;
+    const float trackRegionW = std::max(12.0f, ctrlRect.w - cm.leftGutterW - cm.rightGutterW);
+    const float contentOffsetY = std::max(0.0f, (ctrlRect.h - cm.intrinsicControlSize.y) * 0.5f);
+    const float trackRowY = ctrlRect.y + contentOffsetY + cm.topValH;
+    const float centerY = trackRowY + cm.trackRowH * 0.5f;
+
+    const float fillW = ratio * trackRegionW;
+    const float tipX = trackRegionX + fillW;
+
+    // 0. Draw companion textLeft / textRight and value readout
+    RenderSliderCompanionTexts(
+        canvas, ctrlRect, trackRegionX, trackRegionW, trackRowY, tipX,
+        cm, opts.textLeft, opts.textRight, fmtText, valBuf,
+        effShowVal, opts.valuePlacement, disabled, theme
+    );
+
+    const float barY = std::round(centerY - barThick * 0.5f);
+    const float barHInt = std::max(2.0f, std::round(barThick));
+
+    if (opts.indeterminate) {
+        const Rect trackBgRect(trackRegionX, barY, trackRegionW, barThick);
+        const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(0.4f) : pal.surfaceActive;
+        const Color trackBorder = disabled ? pal.border.WithAlphaF(0.3f) : pal.border;
+        canvas.DrawRoundRect(trackBgRect, barThick * 0.5f, trackBg, trackBorder, 1.0f);
+
+        const float shuttleW = std::max(barThick, trackRegionW * 0.32f);
+        const float pingPong = 1.0f - std::abs(std::fmod(animPhase * 2.0f, 2.0f) - 1.0f);
+        const float smoothT = pingPong * pingPong * (3.0f - 2.0f * pingPong);
+        const float shuttleX = trackRegionX + smoothT * std::max(0.0f, trackRegionW - shuttleW);
+        canvas.DrawRoundRect(Rect(shuttleX, barY, shuttleW, barThick), barThick * 0.5f, ResolveSliderTrackColor(opts.color, disabled, theme));
+        return;
+    }
 
     if (opts.segments > 1) {
         // Segmented LED / VU Level Meter (integer pixel-snapped cells & gaps)
@@ -2138,15 +2282,15 @@ void ProgressBar::Render(
         }
     } else {
         // Smooth continuous progress bar
-        const Rect trackBgRect(trackRegionX, barY, trackRegionW, barH);
+        const Rect trackBgRect(trackRegionX, barY, trackRegionW, barThick);
         const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(0.4f) : pal.surfaceActive;
         const Color trackBorder = disabled ? pal.border.WithAlphaF(0.3f) : pal.border;
-        canvas.DrawRoundRect(trackBgRect, barH * 0.5f, trackBg, trackBorder, 1.0f);
+        canvas.DrawRoundRect(trackBgRect, barThick * 0.5f, trackBg, trackBorder, 1.0f);
 
         if (fillW > 0.5f) {
-            const Rect fillRect(trackRegionX, barY, fillW, barH);
+            const Rect fillRect(trackRegionX, barY, fillW, barThick);
             const Color fillCol = resolveZoneColor(ratio);
-            canvas.DrawRoundRect(fillRect, barH * 0.5f, fillCol);
+            canvas.DrawRoundRect(fillRect, barThick * 0.5f, fillCol);
         }
 
         // Optional peak-hold marker tick on smooth bar
@@ -2155,7 +2299,7 @@ void ProgressBar::Render(
             if (peakRatio > 0.001f) {
                 const float peakX = trackRegionX + peakRatio * trackRegionW;
                 const Color peakCol = resolveZoneColor(peakRatio);
-                canvas.DrawRoundRect(Rect(peakX - 1.5f, barY - 2.0f, 3.0f, barH + 4.0f), 1.5f, peakCol);
+                canvas.DrawRoundRect(Rect(peakX - 1.5f, barY - 2.0f, 3.0f, barThick + 4.0f), 1.5f, peakCol);
             }
         }
     }

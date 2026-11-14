@@ -118,7 +118,9 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         if (node->measureFn) {
             node->intrinsicSize = node->measureFn(node, 0.0f, canvas, activeTheme);
             if (node->minWidth > 0.0f) node->intrinsicSize.x = std::max(node->intrinsicSize.x, node->minWidth);
+            if (node->maxWidth > 0.0f) node->intrinsicSize.x = std::min(node->intrinsicSize.x, node->maxWidth);
             if (node->minHeight > 0.0f) node->intrinsicSize.y = std::max(node->intrinsicSize.y, node->minHeight);
+            if (node->maxHeight > 0.0f) node->intrinsicSize.y = std::min(node->intrinsicSize.y, node->maxHeight);
             return;
         }
 
@@ -130,7 +132,9 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 node->intrinsicSize = {0.0f, 0.0f};
             }
             if (node->minWidth > 0.0f) node->intrinsicSize.x = std::max(node->intrinsicSize.x, node->minWidth);
+            if (node->maxWidth > 0.0f) node->intrinsicSize.x = std::min(node->intrinsicSize.x, node->maxWidth);
             if (node->minHeight > 0.0f) node->intrinsicSize.y = std::max(node->intrinsicSize.y, node->minHeight);
+            if (node->maxHeight > 0.0f) node->intrinsicSize.y = std::min(node->intrinsicSize.y, node->maxHeight);
             return;
         }
 
@@ -321,8 +325,14 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         if (node->minWidth > 0.0f) {
             node->intrinsicSize.x = std::max(node->intrinsicSize.x, node->minWidth);
         }
+        if (node->maxWidth > 0.0f) {
+            node->intrinsicSize.x = std::min(node->intrinsicSize.x, node->maxWidth);
+        }
         if (node->minHeight > 0.0f) {
             node->intrinsicSize.y = std::max(node->intrinsicSize.y, node->minHeight);
+        }
+        if (node->maxHeight > 0.0f) {
+            node->intrinsicSize.y = std::min(node->intrinsicSize.y, node->maxHeight);
         }
     }
 
@@ -335,6 +345,9 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             childW = std::max(child->intrinsicSize.x, child->minWidth);
         } else if (child->minWidth > 0.0f) {
             childW = std::max(childW, child->minWidth);
+        }
+        if (child->maxWidth > 0.0f) {
+            childW = std::min(childW, child->maxWidth);
         }
         if (availW > 0.0f) {
             childW = std::min(childW, availW);
@@ -417,7 +430,11 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 lineStart = lineEnd;
             }
 
-            return std::max(node->minHeight, totalH + node->padding.Vertical());
+            float resolvedH = std::max(node->minHeight, totalH + node->padding.Vertical());
+            if (node->maxHeight > 0.0f) {
+                resolvedH = std::min(resolvedH, node->maxHeight);
+            }
+            return resolvedH;
         }
 
         if (node->direction == FlexDirection::Row && node->heightMode == SizeMode::Fit) {
@@ -462,10 +479,13 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 const float ch = ResolveNodeHeight(child, childW, canvas, activeTheme);
                 maxH = std::max(maxH, ch);
             }
-            float resolvedH = maxH + node->padding.Vertical();
+            float resolvedH = std::max(node->minHeight, maxH + node->padding.Vertical());
             const float maxAllowedH = GetScrollAreaMaxHeight(node);
             if (maxAllowedH > 0.0f) {
                 resolvedH = std::min(resolvedH, maxAllowedH);
+            }
+            if (node->maxHeight > 0.0f) {
+                resolvedH = std::min(resolvedH, node->maxHeight);
             }
             return resolvedH;
         }
@@ -491,6 +511,9 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             const float maxAllowedH = GetScrollAreaMaxHeight(node);
             if (maxAllowedH > 0.0f) {
                 resolvedH = std::min(resolvedH, maxAllowedH);
+            }
+            if (node->maxHeight > 0.0f) {
+                resolvedH = std::min(resolvedH, node->maxHeight);
             }
             return resolvedH;
         }
@@ -565,7 +588,11 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 lineStart = lineEnd;
             }
 
-            return std::max(node->minHeight, totalH + node->padding.Vertical());
+            float resolvedH = std::max(node->minHeight, totalH + node->padding.Vertical());
+            if (node->maxHeight > 0.0f) {
+                resolvedH = std::min(resolvedH, node->maxHeight);
+            }
+            return resolvedH;
         }
 
         return node->intrinsicSize.y;
@@ -601,9 +628,15 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             }
         }
 
+        if (node->maxWidth > 0.0f) {
+            w = std::min(w, node->maxWidth);
+        }
         const float maxAllowedH = GetScrollAreaMaxHeight(node);
         if (maxAllowedH > 0.0f) {
             h = std::min(h, maxAllowedH);
+        }
+        if (node->maxHeight > 0.0f) {
+            h = std::min(h, node->maxHeight);
         }
 
         if (node->type == NodeType::Modal) {
@@ -980,6 +1013,9 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             if (child->minWidth > 0.0f) {
                 childW = std::max(childW, child->minWidth);
             }
+            if (child->maxWidth > 0.0f) {
+                childW = std::min(childW, child->maxWidth);
+            }
             if (constrainedRow && flowChildCount == 1 && child->widthMode != SizeMode::Fixed) {
                 childW = std::min(childW, contentRect.w);
             }
@@ -992,6 +1028,9 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             }
             if (!child->isSpacer && child->minHeight > 0.0f) {
                 childH = std::max(childH, child->minHeight);
+            }
+            if (child->maxHeight > 0.0f) {
+                childH = std::min(childH, child->maxHeight);
             }
             if (node->heightMode != SizeMode::Fit && contentRect.h > 0.0f && child->heightMode != SizeMode::Fixed) {
                 childH = std::min(childH, contentRect.h);
@@ -1012,6 +1051,12 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             node->computedRect.w = (currentX > contentRect.x)
                 ? (currentX - contentRect.x - node->gap) + node->padding.Horizontal()
                 : node->padding.Horizontal();
+            if (node->minWidth > 0.0f) {
+                node->computedRect.w = std::max(node->computedRect.w, node->minWidth);
+            }
+            if (node->maxWidth > 0.0f) {
+                node->computedRect.w = std::min(node->computedRect.w, node->maxWidth);
+            }
         }
     }
 
@@ -1102,12 +1147,18 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 node->minWidth,
                 maxUsedLineW + node->padding.Horizontal()
             );
+            if (node->maxWidth > 0.0f) {
+                node->computedRect.w = std::min(node->computedRect.w, node->maxWidth);
+            }
         }
         if (node->heightMode == SizeMode::Fit) {
             node->computedRect.h = std::max(
                 node->minHeight,
                 (currentY - contentRect.y) + node->padding.Vertical()
             );
+            if (node->maxHeight > 0.0f) {
+                node->computedRect.h = std::min(node->computedRect.h, node->maxHeight);
+            }
         }
     }
 
@@ -1182,6 +1233,9 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             } else if (!child->isSpacer) { // SizeMode::Fit or Stretch inside Fit/ScrollArea parent
                 childH = ResolveNodeHeight(child, childW, canvas, theme);
             }
+            if (child->maxHeight > 0.0f) {
+                childH = std::min(childH, child->maxHeight);
+            }
 
             float childX = contentRect.x;
             if (node->align == Alignment::Center) {
@@ -1198,6 +1252,12 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             node->computedRect.h = (currentY > contentRect.y)
                 ? (currentY - contentRect.y - node->gap) + node->padding.Vertical()
                 : node->padding.Vertical();
+            if (node->minHeight > 0.0f) {
+                node->computedRect.h = std::max(node->computedRect.h, node->minHeight);
+            }
+            if (node->maxHeight > 0.0f) {
+                node->computedRect.h = std::min(node->computedRect.h, node->maxHeight);
+            }
         }
     }
 
@@ -1317,6 +1377,12 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             node->computedRect.h = (currentY > contentRect.y)
                 ? (currentY - contentRect.y) + node->padding.Vertical()
                 : node->padding.Vertical();
+            if (node->minHeight > 0.0f) {
+                node->computedRect.h = std::max(node->computedRect.h, node->minHeight);
+            }
+            if (node->maxHeight > 0.0f) {
+                node->computedRect.h = std::min(node->computedRect.h, node->maxHeight);
+            }
         }
     }
 

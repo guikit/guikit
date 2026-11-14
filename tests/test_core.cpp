@@ -1,5 +1,6 @@
 #include <cstring>
 #include <iostream>
+#include <thread>
 #include <unordered_set>
 #include "guikit/core.hpp"
 #include "guikit/geo/map_grid.hpp"
@@ -962,6 +963,86 @@ void TestKeelIntegration() {
     CHECK(aref[2] == 3);
 }
 
+void TestThemeTokensPaddingAndDateTime() {
+    using namespace guikit;
+
+    // 1. Theme-aware StateColor token resolution in Light vs Dark themes
+    const UiTheme dark = UiTheme::Dark();
+    const UiTheme light = UiTheme::Light();
+
+    CHECK(light.ResolveColor(StateColor::Surface(), false, false, false, Color()) == light.palette.surface);
+    CHECK(dark.ResolveColor(StateColor::Surface(), false, false, false, Color()) == dark.palette.surface);
+    CHECK(light.palette.surface != dark.palette.surface);
+
+    CHECK(light.ResolveColor(StateColor::Primary(), false, false, false, Color()) == light.GetVariant(UiVariant::Primary).bg);
+    CHECK(dark.ResolveColor(StateColor::Primary(), false, false, false, Color()) == dark.GetVariant(UiVariant::Primary).bg);
+    CHECK(light.ResolveColor(StateColor::Secondary(), false, false, false, Color()) == light.GetVariant(UiVariant::Secondary).bg);
+    CHECK(dark.ResolveColor(StateColor::Secondary(), false, false, false, Color()) == dark.GetVariant(UiVariant::Secondary).bg);
+    CHECK(light.GetVariant(UiVariant::Secondary).bg != dark.GetVariant(UiVariant::Secondary).bg);
+
+    const StateColor lightTxt = light.ResolveTextStateColor(StateColor::TextPrimary());
+    const StateColor darkTxt = dark.ResolveTextStateColor(StateColor::TextPrimary());
+    CHECK(lightTxt.normal == light.palette.textPrimary);
+    CHECK(darkTxt.normal == dark.palette.textPrimary);
+    CHECK(lightTxt.normal != darkTxt.normal);
+
+    const Color customRgb(17, 89, 203, 255);
+    const StateColor customSc = StateColor::FromColor(customRgb);
+    CHECK(customSc.token == StateColorToken::Custom);
+    CHECK(light.ResolveColor(customSc, false, false, false, Color()) == customRgb);
+    CHECK(dark.ResolveColor(customSc, false, false, false, Color()) == customRgb);
+
+    // 2. Negative Padding must never collide with Padding::IsToken()
+    const Padding neg1 = Padding::All(-1.0f);
+    const Padding neg2 = Padding::All(-2.0f);
+    const Padding neg4 = Padding::All(-4.0f);
+    const Padding asymNeg(-1.0f, 6.0f, -3.0f, 2.0f);
+    CHECK(!neg1.IsToken());
+    CHECK(!neg2.IsToken());
+    CHECK(!neg4.IsToken());
+    CHECK(!asymNeg.IsToken());
+    CHECK(neg1.GetToken() == UiSize::None);
+    CHECK(neg1.Horizontal() == -2.0f);
+    CHECK(neg2.Vertical() == -4.0f);
+    CHECK(asymNeg.Horizontal() == -4.0f);
+    CHECK(asymNeg.Vertical() == 8.0f);
+
+    const Padding tokSm(UiSize::Sm);
+    const Padding tokXl(UiSize::Xl);
+    CHECK(tokSm.IsToken());
+    CHECK(tokXl.IsToken());
+    CHECK(tokSm.GetToken() == UiSize::Sm);
+    CHECK(tokXl.GetToken() == UiSize::Xl);
+    CHECK(tokSm != neg1);
+    CHECK(tokSm != tokXl);
+
+    // 3. DateTime::Today() sanity bounds
+    const DateTime today = DateTime::Today();
+    CHECK(today.year >= 2024 && today.year <= 2200);
+    CHECK(today.month >= 1 && today.month <= 12);
+    CHECK(today.day >= 1 && today.day <= 31);
+    CHECK(today.hour >= 0 && today.hour <= 23);
+    CHECK(today.minute >= 0 && today.minute <= 59);
+    CHECK(today.second >= 0 && today.second <= 60);
+
+    // 4. Node::GetTypeName() completeness for newer widget/panel types
+    Node n{};
+    const NodeType checkTypes[] = {
+        NodeType::Breadcrumb,
+        NodeType::DatePicker,
+        NodeType::LevelMeter,
+        NodeType::Pagination,
+        NodeType::TagInput,
+        NodeType::SplitView,
+        NodeType::CommandPalette
+    };
+    for (NodeType nt : checkTypes) {
+        n.type = nt;
+        CHECK(n.GetTypeName() != "Unknown");
+        CHECK(!n.GetTypeName().empty());
+    }
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Core Foundation...\n";
 
@@ -981,6 +1062,7 @@ int main() {
     TestUiVectorAndArenaVector();
     TestMainWindowHeadlessBackend();
     TestKeelIntegration();
+    TestThemeTokensPaddingAndDateTime();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Core tests passed successfully!\n";

@@ -4,8 +4,9 @@
 #include <optional>
 #include <string_view>
 #include <vector>
-#include <SDL3/SDL.h>
 #include "guikit/backend/i_canvas.hpp"
+
+struct SDL_Renderer;
 
 namespace guikit {
 

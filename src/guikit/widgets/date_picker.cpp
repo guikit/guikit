@@ -1,7 +1,9 @@
 #include "guikit/widgets/date_picker.hpp"
 #include <algorithm>
 #include <array>
+#include <ctime>
 #include <string_view>
+#include <tuple>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
@@ -9,6 +11,24 @@
 #include "guikit/graphics/icon.hpp"
 
 namespace guikit {
+
+DateTime DateTime::Today() noexcept {
+    const std::time_t now = std::time(nullptr);
+    std::tm localTm{};
+#if defined(_WIN32)
+    localtime_s(&localTm, &now);
+#else
+    localtime_r(&now, &localTm);
+#endif
+    return DateTime{
+        .year = localTm.tm_year + 1900,
+        .month = std::clamp(localTm.tm_mon + 1, 1, 12),
+        .day = std::clamp(localTm.tm_mday, 1, 31),
+        .hour = std::clamp(localTm.tm_hour, 0, 23),
+        .minute = std::clamp(localTm.tm_min, 0, 59),
+        .second = std::clamp(localTm.tm_sec, 0, 59)
+    };
+}
 
 namespace {
 
@@ -24,15 +44,77 @@ constexpr Color ResolveThemePrimary(const Pal& pal) noexcept {
 Color ResolveAccentColor(const DatePickerOptions& opts, const UiTheme& theme, bool hovered = false, bool active = false, bool disabled = false) noexcept {
     const Color fallback = ResolveThemePrimary(theme.palette);
     if (opts.color.HasAny()) {
-        return opts.color.Resolve(hovered, active, disabled, fallback);
+        return theme.ResolveColor(opts.color, hovered, active, disabled, fallback);
     }
     return disabled ? fallback.WithAlphaF(0.40f) : fallback;
+}
+
+constexpr int CompareDateOnly(int y1, int m1, int d1, int y2, int m2, int d2) noexcept {
+    const auto a = std::tie(y1, m1, d1);
+    const auto b = std::tie(y2, m2, d2);
+    return (a < b) ? -1 : ((b < a) ? 1 : 0);
+}
+
+constexpr int CompareDateTimeByMode(const DateTime& a, const DateTime& b, DatePickerMode mode) noexcept {
+    if (mode == DatePickerMode::Date) {
+        return CompareDateOnly(a.year, a.month, a.day, b.year, b.month, b.day);
+    }
+    if (mode == DatePickerMode::Time) {
+        const auto ta = std::tie(a.hour, a.minute, a.second);
+        const auto tb = std::tie(b.hour, b.minute, b.second);
+        return (ta < tb) ? -1 : ((tb < ta) ? 1 : 0);
+    }
+    const auto fa = std::tie(a.year, a.month, a.day, a.hour, a.minute, a.second);
+    const auto fb = std::tie(b.year, b.month, b.day, b.hour, b.minute, b.second);
+    return (fa < fb) ? -1 : ((fb < fa) ? 1 : 0);
+}
+
+constexpr bool IsDayCellDisabled(int year, int month, int day, const DatePickerOptions& opts) noexcept {
+    if (opts.minDate.has_value() &&
+        CompareDateOnly(year, month, day, opts.minDate->year, opts.minDate->month, opts.minDate->day) < 0) {
+        return true;
+    }
+    if (opts.maxDate.has_value() &&
+        CompareDateOnly(year, month, day, opts.maxDate->year, opts.maxDate->month, opts.maxDate->day) > 0) {
+        return true;
+    }
+    return false;
+}
+
+void ClampDateTimeToBounds(DateTime& dt, const DatePickerOptions& opts) noexcept {
+    if (opts.minDate.has_value() && CompareDateTimeByMode(dt, *opts.minDate, opts.mode) < 0) {
+        if (opts.mode == DatePickerMode::Date) {
+            dt.year = opts.minDate->year;
+            dt.month = opts.minDate->month;
+            dt.day = opts.minDate->day;
+        } else if (opts.mode == DatePickerMode::Time) {
+            dt.hour = opts.minDate->hour;
+            dt.minute = opts.minDate->minute;
+            dt.second = opts.minDate->second;
+        } else {
+            dt = *opts.minDate;
+        }
+    }
+    if (opts.maxDate.has_value() && CompareDateTimeByMode(dt, *opts.maxDate, opts.mode) > 0) {
+        if (opts.mode == DatePickerMode::Date) {
+            dt.year = opts.maxDate->year;
+            dt.month = opts.maxDate->month;
+            dt.day = opts.maxDate->day;
+        } else if (opts.mode == DatePickerMode::Time) {
+            dt.hour = opts.maxDate->hour;
+            dt.minute = opts.maxDate->minute;
+            dt.second = opts.maxDate->second;
+        } else {
+            dt = *opts.maxDate;
+        }
+    }
 }
 
 ControlSpec EffectiveDatePickerControl(const DatePickerOptions& opts, UiSize size, const UiTheme& theme) noexcept {
     const SelectMetrics& m = theme.GetSelect(size);
     ControlSpec c{};
     c.width = opts.width;
+    c.widthRatio = opts.widthRatio;
     c.height = opts.height;
     c.align = opts.align;
     c.background = opts.background;
@@ -48,7 +130,10 @@ ControlSpec EffectiveDatePickerControl(const DatePickerOptions& opts, UiSize siz
     return c;
 }
 
-constexpr std::string_view MonthName(int month) noexcept {
+constexpr std::string_view MonthName(int month, std::span<const std::string_view> customMonths = {}) noexcept {
+    if (customMonths.size() >= 12 && month >= 1 && month <= 12 && !customMonths[static_cast<size_t>(month - 1)].empty()) {
+        return customMonths[static_cast<size_t>(month - 1)];
+    }
     switch (month) {
         case 1:  return "January";
         case 2:  return "February";
@@ -393,25 +478,29 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
         }
 
         // Month & year title ("October 2026")
-        char titleBuf[64];
-        const auto titleStr = keel::format_buf(titleBuf, "%s %04d", MonthName(d.viewMonth), d.viewYear);
+        char titleBuf[96];
+        const std::string_view mName = MonthName(d.viewMonth, d.opts.monthNames);
+        const auto titleStr = keel::format_buf(titleBuf, "%s %04d", mName, d.viewYear);
         canvas.DrawTextBox(titleStr, d.layout.titleRect, bodyFont, pal.textPrimary, 0.5f, 0.5f);
 
-        // Weekday column headers
-        static constexpr std::array<std::string_view, 7> kWeekdaysMon = {"Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"};
-        static constexpr std::array<std::string_view, 7> kWeekdaysSun = {"Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"};
-        const auto& weekdays = d.opts.firstDayMonday ? kWeekdaysMon : kWeekdaysSun;
+        // Weekday column headers (indexed 0 = Sunday .. 6 = Saturday)
+        static constexpr std::array<std::string_view, 7> kDefaultWeekdaysSun = {"Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"};
         for (int col = 0; col < 7; ++col) {
+            const int dow = (col + (d.opts.firstDayMonday ? 1 : 0)) % 7;
+            const std::string_view wLabel = (d.opts.weekdayNames.size() >= 7 && !d.opts.weekdayNames[static_cast<size_t>(dow)].empty())
+                ? d.opts.weekdayNames[static_cast<size_t>(dow)]
+                : kDefaultWeekdaysSun[static_cast<size_t>(dow)];
             const Rect wRect(
                 d.layout.weekdayRowRect.x + static_cast<float>(col) * d.layout.cellW,
                 d.layout.weekdayRowRect.y,
                 d.layout.cellW,
                 d.layout.weekdayRowRect.h
             );
-            canvas.DrawTextBox(weekdays[static_cast<size_t>(col)], wRect, smallFont, pal.textMuted, 0.5f, 0.5f);
+            canvas.DrawTextBox(wLabel, wRect, smallFont, pal.textMuted, 0.5f, 0.5f);
         }
 
         // 6x7 day grid (42 cells)
+        const DateTime todayRef = d.opts.todayOverride.value_or(DateTime::Today());
         const auto cells = BuildCalendarGrid(d.viewYear, d.viewMonth, d.opts.firstDayMonday);
         for (int idx = 0; idx < 42; ++idx) {
             const int row = idx / 7;
@@ -430,12 +519,13 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
             );
 
             const DayCellEntry& cell = cells[static_cast<size_t>(idx)];
+            const bool cellDisabled = IsDayCellDisabled(cell.year, cell.month, cell.day, d.opts);
             const bool isSelected = (cell.year == d.value.year && cell.month == d.value.month && cell.day == d.value.day);
-            const bool isToday = (cell.year == 2026 && cell.month == 10 && cell.day == 20);
-            const bool isHovered = (d.hoveredDayCell == idx);
+            const bool isToday = (cell.year == todayRef.year && cell.month == todayRef.month && cell.day == todayRef.day);
+            const bool isHovered = !cellDisabled && (d.hoveredDayCell == idx);
 
             if (isSelected) {
-                canvas.DrawRoundRect(pillRect, 5.0f, accentCol);
+                canvas.DrawRoundRect(pillRect, 5.0f, cellDisabled ? accentCol.WithAlphaF(0.45f) : accentCol);
             } else if (isHovered) {
                 canvas.DrawRoundRect(pillRect, 5.0f, pal.surfaceHover);
                 if (isToday) {
@@ -448,6 +538,8 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
             Color dayCol = pal.textPrimary;
             if (isSelected) {
                 dayCol = Color(255, 255, 255, 255);
+            } else if (cellDisabled) {
+                dayCol = pal.textMuted.WithAlphaF(0.32f);
             } else if (!cell.isCurrentMonth) {
                 dayCol = pal.textMuted.WithAlphaF(0.55f);
             } else if (isToday) {
@@ -582,7 +674,7 @@ Vec2 DatePicker::Measure(
     const float minContentW = m.paddingX * 2.0f + m.iconSize * 2.0f + 22.0f + textW;
 
     float boxW = std::max(m.minWidth, minContentW);
-    if (opts.stretch != StretchMode::Fill && ctrl.width.has_value()) {
+    if (Control::HasExplicitDpWidth(opts.stretch, ctrl.width, ctrl.widthRatio)) {
         boxW = theme.Scale(*ctrl.width);
     }
     const float boxH = ctrl.height.has_value() ? theme.Scale(*ctrl.height) : m.defaultHeight;
@@ -605,6 +697,13 @@ Response DatePicker::Run(
     const DatePickerOptions& opts,
     std::source_location loc
 ) {
+    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    struct ThemePopGuard {
+        Context& c;
+        UiTheme* t;
+        ~ThemePopGuard() noexcept { if (t) c.PopTheme(); }
+    } themeGuard{ctx, pushedTheme};
+
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
@@ -628,13 +727,28 @@ Response DatePicker::Run(
     value.hour = std::clamp(value.hour, 0, 23);
     value.minute = std::clamp(value.minute, 0, 59);
     value.second = std::clamp(value.second, 0, 59);
+    ClampDateTimeToBounds(value, opts);
 
-    const UiTheme theme = (opts.theme != nullptr) ? *opts.theme : ctx.GetTheme();
+    const UiTheme theme = ctx.GetTheme();
     const SelectMetrics& m = theme.GetSelect(activeSize);
     ICanvas* canvas = ctx.GetCanvas();
 
     DatePickerOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
+    if (!opts.monthNames.empty()) {
+        auto* arr = ctx.GetArena().alloc_array<std::string_view>(opts.monthNames.size());
+        for (size_t i = 0; i < opts.monthNames.size(); ++i) {
+            arr[i] = ctx.AllocString(opts.monthNames[i]);
+        }
+        optsCopy.monthNames = std::span<const std::string_view>(arr, opts.monthNames.size());
+    }
+    if (!opts.weekdayNames.empty()) {
+        auto* arr = ctx.GetArena().alloc_array<std::string_view>(opts.weekdayNames.size());
+        for (size_t i = 0; i < opts.weekdayNames.size(); ++i) {
+            arr[i] = ctx.AllocString(opts.weekdayNames[i]);
+        }
+        optsCopy.weekdayNames = std::span<const std::string_view>(arr, opts.weekdayNames.size());
+    }
 
     const Vec2 intrinsicDims = DatePicker::Measure(value, optsCopy, activeSize, canvas, theme);
     if (optsCopy.stretch != StretchMode::Fill && !optsCopy.width.has_value()) {
@@ -723,20 +837,29 @@ Response DatePicker::Run(
             if (popLayout.gridRect.Contains(mouse)) {
                 const int col = std::clamp(static_cast<int>((mouse.x - popLayout.gridRect.x) / popLayout.cellW), 0, 6);
                 const int row = std::clamp(static_cast<int>((mouse.y - popLayout.gridRect.y) / popLayout.cellH), 0, 5);
-                hoveredDayCell = row * 7 + col;
+                const int cellIdx = row * 7 + col;
+                const auto cells = BuildCalendarGrid(state.viewYear, state.viewMonth, optsCopy.firstDayMonday);
+                const DayCellEntry& chosen = cells[static_cast<size_t>(cellIdx)];
+                const bool cellDisabled = IsDayCellDisabled(chosen.year, chosen.month, chosen.day, optsCopy);
+                if (!cellDisabled) {
+                    hoveredDayCell = cellIdx;
+                }
                 if (mouseClicked) {
-                    const auto cells = BuildCalendarGrid(state.viewYear, state.viewMonth, optsCopy.firstDayMonday);
-                    const DayCellEntry& chosen = cells[static_cast<size_t>(hoveredDayCell)];
-                    if (value.year != chosen.year || value.month != chosen.month || value.day != chosen.day) {
-                        value.year = chosen.year;
-                        value.month = chosen.month;
-                        value.day = chosen.day;
-                        res.changed = true;
+                    if (!cellDisabled) {
+                        DateTime candidate = value;
+                        candidate.year = chosen.year;
+                        candidate.month = chosen.month;
+                        candidate.day = chosen.day;
+                        ClampDateTimeToBounds(candidate, optsCopy);
+                        if (value != candidate) {
+                            value = candidate;
+                            res.changed = true;
+                        }
+                        state.viewYear = value.year;
+                        state.viewMonth = value.month;
+                        state.syncedYear = value.year;
+                        state.syncedMonth = value.month;
                     }
-                    state.viewYear = chosen.year;
-                    state.viewMonth = chosen.month;
-                    state.syncedYear = chosen.year;
-                    state.syncedMonth = chosen.month;
                     ctx.ConsumeMouseClick();
                 }
             }
@@ -749,29 +872,35 @@ Response DatePicker::Run(
                 if (popLayout.timeMinusRects[su].Contains(mouse)) {
                     hoveredTimeBtn = u * 2;
                     if (mouseClicked) {
+                        const DateTime prev = value;
                         if (u == 0) value.hour = (value.hour + 23) % 24;
                         else if (u == 1) value.minute = (value.minute + 59) % 60;
                         else value.second = (value.second + 59) % 60;
-                        res.changed = true;
+                        ClampDateTimeToBounds(value, optsCopy);
+                        if (value != prev) res.changed = true;
                         ctx.ConsumeMouseClick();
                     }
                 } else if (popLayout.timePlusRects[su].Contains(mouse)) {
                     hoveredTimeBtn = u * 2 + 1;
                     if (mouseClicked) {
+                        const DateTime prev = value;
                         if (u == 0) value.hour = (value.hour + 1) % 24;
                         else if (u == 1) value.minute = (value.minute + 1) % 60;
                         else value.second = (value.second + 1) % 60;
-                        res.changed = true;
+                        ClampDateTimeToBounds(value, optsCopy);
+                        if (value != prev) res.changed = true;
                         ctx.ConsumeMouseClick();
                     }
                 }
 
                 if (wheel.y != 0.0f && popLayout.timeUnitRects[su].Contains(mouse)) {
+                    const DateTime prev = value;
                     const int step = (wheel.y > 0.0f) ? 1 : -1;
                     if (u == 0) value.hour = (value.hour + 24 + step) % 24;
                     else if (u == 1) value.minute = (value.minute + 60 + step) % 60;
                     else value.second = (value.second + 60 + step) % 60;
-                    res.changed = true;
+                    ClampDateTimeToBounds(value, optsCopy);
+                    if (value != prev) res.changed = true;
                     ctx.ConsumeMouseWheel();
                 }
             }
@@ -780,26 +909,23 @@ Response DatePicker::Run(
         if (optsCopy.showTodayButton && popLayout.todayBtnRect.Contains(mouse)) {
             todayHovered = true;
             if (mouseClicked) {
-                const DateTime todayVal{2026, 10, 20, 14, 30, 0};
+                const DateTime todayVal = optsCopy.todayOverride.value_or(DateTime::Today());
+                DateTime candidate = value;
                 if (optsCopy.mode == DatePickerMode::Date) {
-                    if (value.year != todayVal.year || value.month != todayVal.month || value.day != todayVal.day) {
-                        value.year = todayVal.year;
-                        value.month = todayVal.month;
-                        value.day = todayVal.day;
-                        res.changed = true;
-                    }
+                    candidate.year = todayVal.year;
+                    candidate.month = todayVal.month;
+                    candidate.day = todayVal.day;
                 } else if (optsCopy.mode == DatePickerMode::Time) {
-                    if (value.hour != todayVal.hour || value.minute != todayVal.minute || value.second != todayVal.second) {
-                        value.hour = todayVal.hour;
-                        value.minute = todayVal.minute;
-                        value.second = todayVal.second;
-                        res.changed = true;
-                    }
+                    candidate.hour = todayVal.hour;
+                    candidate.minute = todayVal.minute;
+                    candidate.second = todayVal.second;
                 } else {
-                    if (value != todayVal) {
-                        value = todayVal;
-                        res.changed = true;
-                    }
+                    candidate = todayVal;
+                }
+                ClampDateTimeToBounds(candidate, optsCopy);
+                if (value != candidate) {
+                    value = candidate;
+                    res.changed = true;
                 }
                 state.viewYear = value.year;
                 state.viewMonth = value.month;
@@ -894,6 +1020,7 @@ Response DatePicker::Run(
     const std::string formattedStr = FormatDateTime(value, optsCopy.mode, optsCopy.showSeconds);
 
     Node* node = ctx.CreateNode(NodeType::DatePicker, id);
+    node->theme = pushedTheme;
     optsCopy.tooltip = ctx.AllocText(optsCopy.tooltip);
 
     auto* data = ctx.AllocPayload<DatePickerData>();
@@ -905,6 +1032,8 @@ Response DatePicker::Run(
 
     node->text = data->formattedText.text;
     node->SetPayload(data);
+    node->debugBoundsOverride = optsCopy.debugBounds;
+    node->inspectModeOverride = optsCopy.inspectMode;
     node->visualHash = detail::HashArgs(
         static_cast<uint8_t>(optsCopy.mode),
         optsCopy.showSeconds,
@@ -984,10 +1113,10 @@ void DatePicker::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
     }
 
     if (ctrl.HasBackground(true) && ctrl.background.HasAny() && !ctrl.background.IsSurface()) {
-        boxBg = ctrl.background.Resolve(hovered, open || focused, disabled, boxBg);
+        boxBg = theme.ResolveColor(ctrl.background, hovered, open || focused, disabled, boxBg);
     }
     if (ctrl.border.color.HasAny()) {
-        boxBorder = ctrl.border.color.Resolve(hovered, open || focused, disabled, boxBorder);
+        boxBorder = theme.ResolveColor(ctrl.border.color, hovered, open || focused, disabled, boxBorder);
     }
 
     const float radius = ctrl.border.radius.has_value() ? theme.Scale(*ctrl.border.radius) : m.cornerRadius;

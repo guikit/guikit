@@ -71,21 +71,24 @@ void FormatMeterValue(
             }
         }
 
-        std::string fmt(format);
+        char fmt[128]{};
+        const size_t copyLen = std::min(format.size(), sizeof(fmt) - 1);
+        std::memcpy(fmt, format.data(), copyLen);
+        fmt[copyLen] = '\0';
         if (convSpec == 'd' || convSpec == 'i' || convSpec == 'u' ||
             convSpec == 'x' || convSpec == 'X' || convSpec == 'o') {
             const long long intVal = static_cast<long long>(std::round(value));
             if (isLongLong) {
-                std::snprintf(valBuf, bufSize, fmt.c_str(), intVal);
+                std::snprintf(valBuf, bufSize, fmt, intVal);
             } else if (isLong) {
-                std::snprintf(valBuf, bufSize, fmt.c_str(), static_cast<long>(intVal));
+                std::snprintf(valBuf, bufSize, fmt, static_cast<long>(intVal));
             } else {
-                std::snprintf(valBuf, bufSize, fmt.c_str(), static_cast<int>(intVal));
+                std::snprintf(valBuf, bufSize, fmt, static_cast<int>(intVal));
             }
         } else if (convSpec != '\0') {
-            std::snprintf(valBuf, bufSize, fmt.c_str(), value);
+            std::snprintf(valBuf, bufSize, fmt, value);
         } else {
-            std::snprintf(valBuf, bufSize, "%s", fmt.c_str());
+            std::snprintf(valBuf, bufSize, "%s", fmt);
         }
     } else {
         std::snprintf(valBuf, bufSize, "%.1f dB", value);
@@ -135,6 +138,7 @@ ControlSpec EffectiveLevelMeterControl(
     const SliderMetrics& m = theme.GetSlider(size);
     ControlSpec c{};
     c.width = opts.width;
+    c.widthRatio = opts.widthRatio;
     c.height = opts.height;
     c.align = opts.align;
     c.background = opts.background;
@@ -166,14 +170,15 @@ Color ResolveZoneColor(
     const float dangerT = std::clamp(opts.dangerRatio, warnT + 0.01f, 0.995f);
 
     Color col;
+    const StateColor resolvedColor = theme.ResolveStateColor(opts.color);
     if (!opts.multiZoneColor) {
         const VariantColors& primary = theme.GetVariant(UiVariant::Primary);
         if (!opts.color.HasAny()) {
             col = primary.bg;
-        } else if (opts.color.normal.has_value() && opts.color.normal->a == 0) {
+        } else if (resolvedColor.normal.has_value() && resolvedColor.normal->a == 0) {
             col = pal.borderHover;
         } else {
-            col = opts.color.normal.value_or(primary.bg);
+            col = resolvedColor.normal.value_or(primary.bg);
         }
     } else {
         if (normPos >= dangerT) {
@@ -184,10 +189,10 @@ Color ResolveZoneColor(
             const Color defaultSafe = theme.GetVariant(UiVariant::Success).bg;
             if (!opts.color.HasAny() || opts.color == StateColor::Primary()) {
                 col = defaultSafe;
-            } else if (opts.color.normal.has_value() && opts.color.normal->a == 0) {
+            } else if (resolvedColor.normal.has_value() && resolvedColor.normal->a == 0) {
                 col = defaultSafe;
             } else {
-                col = opts.color.normal.value_or(defaultSafe);
+                col = resolvedColor.normal.value_or(defaultSafe);
             }
         }
     }
@@ -646,7 +651,7 @@ Response RunLevelMeterImpl(
     const UiTheme& activeTheme = ctx.GetTheme();
 
     LevelMeterOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
 
     const double rangeMin = std::min(min, max);
     const double rangeMax = std::max(min, max);

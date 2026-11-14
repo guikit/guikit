@@ -18,8 +18,20 @@ ElementSpec Heading::MakeSpec(
     bool isActive
 ) noexcept {
     const HeadingMetrics& m = theme.GetHeading(activeSize);
+    UiText resolvedLabel = opts.label;
+    bool useHeadingMetrics = true;
+    if (opts.level != HeadingLevel::Auto && resolvedLabel.size.IsAuto()) {
+        useHeadingMetrics = false;
+        switch (opts.level) {
+            case HeadingLevel::H1: resolvedLabel.size = TextRole::HeadlineLarge; break;
+            case HeadingLevel::H2: resolvedLabel.size = TextRole::HeadlineSmall; break;
+            case HeadingLevel::H3: resolvedLabel.size = TextRole::TitleLarge; break;
+            case HeadingLevel::H4: resolvedLabel.size = TextRole::TitleMedium; break;
+            case HeadingLevel::Auto: break;
+        }
+    }
     return ElementSpec{
-        .label = opts.label,
+        .label = resolvedLabel,
         .description = opts.description,
         .icon = opts.icon,
         .badge = opts.badge,
@@ -28,6 +40,7 @@ ElementSpec Heading::MakeSpec(
         .align = opts.align,
         .stretch = opts.stretch,
         .width = opts.width,
+        .widthRatio = opts.widthRatio,
         .height = opts.height,
         .background = opts.background,
         .border = opts.border,
@@ -36,7 +49,7 @@ ElementSpec Heading::MakeSpec(
         .descGap = m.lineGap,
         .inlineGap = m.gap * 1.5f,
         .hasControl = false,
-        .headingTypography = true,
+        .headingTypography = useHeadingMetrics,
         .stretchableControl = false,
         .stretchHeightWhenStandalone = false,
         .disabled = isDisabled,
@@ -96,11 +109,13 @@ Response Heading::Run(
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     node->visualHash = detail::HashArgs(
+        static_cast<uint8_t>(opts.level),
         static_cast<uint8_t>(opts.layout),
         static_cast<uint8_t>(opts.inlineOrder),
         static_cast<uint8_t>(opts.align),
         static_cast<uint8_t>(opts.stretch),
         opts.width.value_or(0.0f),
+        opts.widthRatio.value_or(-1.0f),
         opts.height.value_or(0.0f),
         opts.background,
         opts.border,
@@ -194,7 +209,8 @@ void Heading::Render(
     const HeadingMetrics& m = theme.GetHeading(size);
     const float alignFactor = (opts.align == Align::End) ? 1.0f : ((opts.align == Align::Center) ? 0.5f : 0.0f);
 
-    const Color sepColor = opts.border.color.Resolve(
+    const Color sepColor = theme.ResolveColor(
+        opts.border.color,
         hovered,
         active,
         effDisabled,
@@ -208,22 +224,21 @@ void Heading::Render(
     const Rect outer = bounds.Inset(outerPad);
     float spanX = outer.x;
     float spanW = outer.w;
-    if (opts.stretch == StretchMode::Fill && opts.width.has_value()) {
-        const float ratio = std::clamp(*opts.width, 0.0f, 1.0f);
+    if (const auto fillRatio = Control::ResolveFillRatio(opts.stretch, opts.width, opts.widthRatio)) {
         const float maxElemW = std::max({
             geom.controlRect.w,
             geom.hasLabel ? geom.labelRect.w : 0.0f,
             geom.hasDesc ? geom.descRect.w : 0.0f
         });
-        spanW = std::min(outer.w, std::max(outer.w * ratio, maxElemW));
+        spanW = std::min(outer.w, std::max(outer.w * (*fillRatio), maxElemW));
         spanX = outer.x + (outer.w - spanW) * alignFactor;
-    } else if (opts.stretch == StretchMode::Compact) {
+    } else if (opts.stretch == StretchMode::Compact || Control::HasExplicitDpWidth(opts.stretch, opts.width, opts.widthRatio)) {
         const float maxElemW = std::max({
             geom.controlRect.w,
             geom.hasLabel ? geom.labelRect.w : 0.0f,
             geom.hasDesc ? geom.descRect.w : 0.0f
         });
-        const float natSpanW = opts.width.has_value()
+        const float natSpanW = Control::HasExplicitDpWidth(opts.stretch, opts.width, opts.widthRatio)
             ? std::min(outer.w, theme.Scale(*opts.width))
             : std::min(outer.w, maxElemW);
         spanW = natSpanW;

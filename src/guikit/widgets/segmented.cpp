@@ -15,6 +15,7 @@ ControlSpec EffectiveSegmentedControl(const SegmentedOptions& opts, UiSize size,
     const SelectMetrics& sm = theme.GetSelect(size);
     ControlSpec c{};
     c.width = opts.width;
+    c.widthRatio = opts.widthRatio;
     c.height = opts.height;
     c.minWidth = opts.minWidth;
     c.align = opts.align;
@@ -90,7 +91,7 @@ Vec2 MeasureSegmentedBox(
     if (opts.minWidth.has_value()) {
         totalW = std::max(theme.Scale(*opts.minWidth), totalW);
     }
-    if (opts.stretch != StretchMode::Fill && opts.width.has_value()) {
+    if (Control::HasExplicitDpWidth(opts.stretch, opts.width, opts.widthRatio)) {
         totalW = theme.Scale(*opts.width);
     }
 
@@ -207,6 +208,13 @@ Response Segmented::Run(
     const SegmentedOptions& opts,
     std::source_location loc
 ) {
+    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    struct ThemePopGuard {
+        Context& c;
+        UiTheme* t;
+        ~ThemePopGuard() noexcept { if (t) c.PopTheme(); }
+    } themeGuard{ctx, pushedTheme};
+
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
@@ -214,7 +222,7 @@ Response Segmented::Run(
     ICanvas* canvas = ctx.GetCanvas();
 
     SegmentedOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
 
     const Vec2 naturalDims = MeasureSegmentedBox(items, optsCopy, activeSize, canvas, theme);
     const float unscaledW = (theme.scale > 0.0f) ? (naturalDims.x / theme.scale) : naturalDims.x;
@@ -354,6 +362,7 @@ Response Segmented::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::Segmented, id);
+    node->theme = pushedTheme;
 
     optsCopy.tooltip = ctx.AllocText(optsCopy.tooltip);
     SegmentedItem* arenaItems = ctx.GetArena().create_array<SegmentedItem>(items.size());
@@ -468,11 +477,11 @@ void Segmented::Render(
     // 1. Render outer segmented track well
     Color trackBg = ctrl.HasBackground(true) ? pal.inputBackground : Color::Transparent();
     if (ctrl.HasBackground(true) && ctrl.background.HasAny() && !ctrl.background.IsSurface()) {
-        trackBg = ctrl.background.Resolve(hoveredSegment >= 0, pressedSegment >= 0, disabled, trackBg);
+        trackBg = theme.ResolveColor(ctrl.background, hoveredSegment >= 0, pressedSegment >= 0, disabled, trackBg);
     }
     Color trackBorder = focused ? pal.focusRing : pal.inputBorder;
     if (ctrl.border.color.HasAny()) {
-        trackBorder = ctrl.border.color.Resolve(hoveredSegment >= 0, focused, disabled, trackBorder);
+        trackBorder = theme.ResolveColor(ctrl.border.color, hoveredSegment >= 0, focused, disabled, trackBorder);
     }
     float trackStrokeW = (ctrl.border.width > 0.0f) ? theme.Scale(ctrl.border.width) : sm.strokeWidth;
     if (focused && !disabled && trackStrokeW > 0.0f) trackStrokeW += 0.5f;
@@ -531,7 +540,7 @@ void Segmented::Render(
             float pillStrokeW = 0.0f;
 
             if (opts.color.HasAny()) {
-                pillFill = opts.color.Resolve(hovered, pressed, segDisabled, pal.accent);
+                pillFill = theme.ResolveColor(opts.color, hovered, pressed, segDisabled, pal.accent);
                 fgColor = segDisabled ? pal.textMuted : ResolveContrastingTextOnFill(pillFill, pal);
             } else {
                 // Default elevated segment pill with subtle primary accent tint & crisp border
