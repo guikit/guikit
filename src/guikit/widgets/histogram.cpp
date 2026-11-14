@@ -255,11 +255,7 @@ HistogramResponse Histogram::Run(
     const float scale = theme.Scale(1.0f);
 
     HistogramOptions optsCopy = opts;
-    std::optional<float> inheritedH{};
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, inheritedH);
-    if (inheritedH.has_value() && *inheritedH > 0.0f) {
-        optsCopy.height = *inheritedH;
-    }
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
 
     auto& st = ctx.GetOrCreatePersistentState<HistogramInternalState>(id);
     Response baseRes = ctx.Interact(id);
@@ -429,17 +425,12 @@ HistogramResponse Histogram::Run(
     ControlSpec ctrlSpec{};
     ctrlSpec.width = optsCopy.width;
     ctrlSpec.widthRatio = optsCopy.widthRatio;
-    ctrlSpec.height = inheritedH;
     Control::SetupNode(ctx, node, ctrlSpec, optsCopy.stretch, optsCopy.align);
     if (!node->parent || node->parent->type != NodeType::Element) {
         node->heightMode = optsCopy.heightMode;
-        if (inheritedH.has_value() && *inheritedH > 0.0f) {
-            node->heightMode = SizeMode::Fixed;
-            node->fixedHeight = theme.Scale(*inheritedH);
-        }
         node->minHeight = std::max(theme.Scale(optsCopy.minHeight), theme.Scale(optsCopy.height));
         ctx.AdaptChildToContainer(node);
-        if (optsCopy.heightMode == SizeMode::Fit && !inheritedH.has_value() && node->heightMode == SizeMode::Stretch) {
+        if (optsCopy.heightMode == SizeMode::Fit && node->heightMode == SizeMode::Stretch) {
             node->heightMode = SizeMode::Fit;
         }
     }

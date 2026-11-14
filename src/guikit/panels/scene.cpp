@@ -1079,7 +1079,7 @@ SceneScope Scene::OpenWithId(
     const SceneOptions& opts
 ) {
     SceneOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
 
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool activeDisabled = optsCopy.disabled || ctx.IsDisabled();

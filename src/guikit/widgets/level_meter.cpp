@@ -651,7 +651,7 @@ Response RunLevelMeterImpl(
     const UiTheme& activeTheme = ctx.GetTheme();
 
     LevelMeterOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
 
     const double rangeMin = std::min(min, max);
     const double rangeMax = std::max(min, max);

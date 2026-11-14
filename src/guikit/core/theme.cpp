@@ -232,6 +232,16 @@ void PopulateComponentMetrics(UiTheme& theme) {
         HeadingMetrics{ 22.0f, 15.0f, 13.0f, 22.0f, 8.0f, 10.0f, 4.0f }  // Xl
     }};
 
+    theme.headingLevels = {{
+        HeadingMetrics{ 16.0f, 13.0f, 11.0f, 16.0f,  6.0f,  8.0f, 3.0f }, // Auto (Md)
+        HeadingMetrics{ 24.0f, 16.0f, 13.0f, 24.0f, 10.0f, 10.0f, 5.0f }, // H1
+        HeadingMetrics{ 20.0f, 14.0f, 12.0f, 20.0f,  8.0f,  9.0f, 4.0f }, // H2
+        HeadingMetrics{ 18.0f, 13.5f, 11.5f, 18.0f,  7.0f,  8.0f, 3.5f }, // H3
+        HeadingMetrics{ 16.0f, 13.0f, 11.0f, 16.0f,  6.0f,  8.0f, 3.0f }, // H4
+        HeadingMetrics{ 14.0f, 11.5f, 10.0f, 14.0f,  5.0f,  6.0f, 2.5f }, // H5
+        HeadingMetrics{ 12.0f, 10.5f,  9.0f, 12.0f,  4.0f,  6.0f, 2.0f }  // H6
+    }};
+
     theme.sliders = {{
         SliderMetrics{ 26.0f, 5.0f, 18.0f, 9.0f, 4.0f,  6.0f, 5.0f,  6.0f }, // None
         SliderMetrics{ 18.0f, 3.0f, 12.0f, 6.0f, 3.0f,  4.0f, 3.0f,  4.0f }, // Xs
@@ -271,6 +281,23 @@ void ApplyDensity(UiTheme& theme, Density d) {
             SliderMetrics{ 28.0f, 5.0f, 20.0f, 10.0f, 4.0f, 6.0f, 5.0f, 6.0f }, // Lg
             SliderMetrics{ 34.0f, 6.0f, 24.0f, 12.0f, 5.0f, 8.0f, 6.0f, 8.0f }  // Xl
         }};
+        theme.headings = {{
+            HeadingMetrics{ 15.0f, 12.0f, 10.0f, 15.0f, 5.0f, 6.0f, 2.5f }, // None
+            HeadingMetrics{ 12.0f,  9.5f,  8.5f, 11.0f, 3.5f, 5.0f, 1.5f }, // Xs
+            HeadingMetrics{ 13.0f, 10.5f,  9.0f, 13.0f, 4.0f, 5.0f, 2.0f }, // Sm
+            HeadingMetrics{ 15.0f, 12.0f, 10.0f, 15.0f, 5.0f, 6.0f, 2.5f }, // Md
+            HeadingMetrics{ 17.0f, 13.0f, 11.0f, 17.0f, 6.0f, 7.0f, 3.0f }, // Lg
+            HeadingMetrics{ 20.0f, 14.0f, 12.0f, 20.0f, 7.0f, 8.0f, 3.5f }  // Xl
+        }};
+        theme.headingLevels = {{
+            HeadingMetrics{ 15.0f, 12.0f, 10.0f, 15.0f, 5.0f, 6.0f, 2.5f }, // Auto (Md)
+            HeadingMetrics{ 22.0f, 15.0f, 12.0f, 22.0f, 8.0f, 8.0f, 4.0f }, // H1
+            HeadingMetrics{ 18.0f, 13.0f, 11.0f, 18.0f, 7.0f, 7.0f, 3.5f }, // H2
+            HeadingMetrics{ 16.0f, 12.5f, 10.5f, 16.0f, 6.0f, 6.0f, 3.0f }, // H3
+            HeadingMetrics{ 15.0f, 12.0f, 10.0f, 15.0f, 5.0f, 6.0f, 2.5f }, // H4
+            HeadingMetrics{ 13.0f, 11.0f,  9.5f, 13.0f, 4.0f, 5.0f, 2.0f }, // H5
+            HeadingMetrics{ 11.0f, 10.0f,  9.0f, 11.0f, 3.5f, 5.0f, 1.5f }  // H6
+        }};
     } else if (d == Density::Touch) {
         theme.spacing = {0.0f, 6.0f, 12.0f, 16.0f, 24.0f, 32.0f};
         theme.radius  = {0.0f, 4.0f, 6.0f, 8.0f, 12.0f, 16.0f};
@@ -298,6 +325,23 @@ void ApplyDensity(UiTheme& theme, Density d) {
             SliderMetrics{ 44.0f, 8.0f, 32.0f, 16.0f, 7.0f, 10.0f, 8.0f, 10.0f }, // Lg
             SliderMetrics{ 52.0f, 10.0f, 38.0f, 19.0f, 8.0f, 12.0f, 10.0f, 12.0f } // Xl
         }};
+        theme.headings = {{
+            HeadingMetrics{ 18.0f, 14.0f, 12.0f, 18.0f,  8.0f,  8.0f, 3.5f }, // None
+            HeadingMetrics{ 14.0f, 11.0f, 10.0f, 14.0f,  5.0f,  6.0f, 2.5f }, // Xs
+            HeadingMetrics{ 16.0f, 12.5f, 11.0f, 16.0f,  6.0f,  7.0f, 3.0f }, // Sm
+            HeadingMetrics{ 18.0f, 14.0f, 12.0f, 18.0f,  8.0f,  8.0f, 3.5f }, // Md
+            HeadingMetrics{ 21.0f, 15.5f, 13.0f, 21.0f,  9.0f, 10.0f, 4.0f }, // Lg
+            HeadingMetrics{ 25.0f, 17.0f, 14.0f, 25.0f, 10.0f, 12.0f, 5.0f }  // Xl
+        }};
+        theme.headingLevels = {{
+            HeadingMetrics{ 18.0f, 14.0f, 12.0f, 18.0f,  8.0f,  8.0f, 3.5f }, // Auto (Md)
+            HeadingMetrics{ 28.0f, 18.0f, 14.0f, 28.0f, 12.0f, 12.0f, 6.0f }, // H1
+            HeadingMetrics{ 24.0f, 16.0f, 13.0f, 24.0f, 10.0f, 10.0f, 5.0f }, // H2
+            HeadingMetrics{ 20.0f, 15.0f, 12.5f, 20.0f,  8.0f,  9.0f, 4.0f }, // H3
+            HeadingMetrics{ 18.0f, 14.0f, 12.0f, 18.0f,  7.0f,  8.0f, 3.5f }, // H4
+            HeadingMetrics{ 16.0f, 13.0f, 11.0f, 16.0f,  6.0f,  7.0f, 3.0f }, // H5
+            HeadingMetrics{ 14.0f, 11.5f, 10.0f, 14.0f,  5.0f,  6.0f, 2.5f }  // H6
+        }};
     } else { // Density::Standard
         theme.spacing = {0.0f, 4.0f, 8.0f, 12.0f, 16.0f, 24.0f};
         theme.radius  = {0.0f, 2.0f, 4.0f, 6.0f, 8.0f, 12.0f};
@@ -324,6 +368,23 @@ void ApplyDensity(UiTheme& theme, Density d) {
             SliderMetrics{ 26.0f, 5.0f, 18.0f, 9.0f, 4.0f,  6.0f, 5.0f,  6.0f }, // Md
             SliderMetrics{ 32.0f, 6.0f, 22.0f, 11.0f, 5.0f, 8.0f, 6.0f,  8.0f }, // Lg
             SliderMetrics{ 38.0f, 8.0f, 26.0f, 13.0f, 6.0f, 10.0f, 8.0f, 10.0f }  // Xl
+        }};
+        theme.headings = {{
+            HeadingMetrics{ 16.0f, 13.0f, 11.0f, 16.0f, 6.0f, 8.0f, 3.0f }, // None
+            HeadingMetrics{ 13.0f, 10.0f,  9.0f, 12.0f, 4.0f, 6.0f, 2.0f }, // Xs
+            HeadingMetrics{ 14.0f, 11.0f, 10.0f, 14.0f, 5.0f, 6.0f, 2.5f }, // Sm
+            HeadingMetrics{ 16.0f, 13.0f, 11.0f, 16.0f, 6.0f, 8.0f, 3.0f }, // Md
+            HeadingMetrics{ 18.0f, 14.0f, 12.0f, 18.0f, 8.0f, 8.0f, 3.5f }, // Lg
+            HeadingMetrics{ 22.0f, 15.0f, 13.0f, 22.0f, 8.0f, 10.0f, 4.0f }  // Xl
+        }};
+        theme.headingLevels = {{
+            HeadingMetrics{ 16.0f, 13.0f, 11.0f, 16.0f,  6.0f,  8.0f, 3.0f }, // Auto (Md)
+            HeadingMetrics{ 24.0f, 16.0f, 13.0f, 24.0f, 10.0f, 10.0f, 5.0f }, // H1
+            HeadingMetrics{ 20.0f, 14.0f, 12.0f, 20.0f,  8.0f,  9.0f, 4.0f }, // H2
+            HeadingMetrics{ 18.0f, 13.5f, 11.5f, 18.0f,  7.0f,  8.0f, 3.5f }, // H3
+            HeadingMetrics{ 16.0f, 13.0f, 11.0f, 16.0f,  6.0f,  8.0f, 3.0f }, // H4
+            HeadingMetrics{ 14.0f, 11.5f, 10.0f, 14.0f,  5.0f,  6.0f, 2.5f }, // H5
+            HeadingMetrics{ 12.0f, 10.5f,  9.0f, 12.0f,  4.0f,  6.0f, 2.0f }  // H6
         }};
     }
 
@@ -488,6 +549,15 @@ UiTheme UiTheme::Scaled(float factor) const noexcept {
         hd.gap *= factor;
         hd.badgeGap *= factor;
         hd.lineGap *= factor;
+    }
+    for (auto& hl : copy.headingLevels) {
+        hl.titleFontSize *= factor;
+        hl.subtitleFontSize *= factor;
+        hl.badgeFontSize *= factor;
+        hl.iconSize *= factor;
+        hl.gap *= factor;
+        hl.badgeGap *= factor;
+        hl.lineGap *= factor;
     }
     for (auto& sl : copy.sliders) {
         sl.defaultHeight *= factor;

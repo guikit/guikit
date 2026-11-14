@@ -277,7 +277,7 @@ Response ColorPicker::Run(
     ICanvas* canvas = ctx.GetCanvas();
 
     ColorPickerOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
 
     const Vec2 naturalDims = MeasureColorPickerBox(optsCopy, activeSize, canvas, theme);
     const float unscaledW = (theme.scale > 0.0f) ? (naturalDims.x / theme.scale) : naturalDims.x;

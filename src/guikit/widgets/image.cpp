@@ -115,7 +115,7 @@ Response Image::Run(
     }
 
     ImageOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
 
     const ControlSpec ctrl = EffectiveImageControl(optsCopy, activeSize, theme);
     Node* node = ctx.CreateNode(NodeType::Image, id);

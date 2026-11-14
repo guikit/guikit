@@ -734,7 +734,7 @@ Response DatePicker::Run(
     ICanvas* canvas = ctx.GetCanvas();
 
     DatePickerOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
     if (!opts.monthNames.empty()) {
         auto* arr = ctx.GetArena().alloc_array<std::string_view>(opts.monthNames.size());
         for (size_t i = 0; i < opts.monthNames.size(); ++i) {

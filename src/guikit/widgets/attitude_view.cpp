@@ -1422,7 +1422,7 @@ AttitudeViewResponse AttitudeView::Run(
     } themePop{ctx, pushedTheme};
 
     AttitudeViewOptions opts = optsIn;
-    Control::InheritElementSizing(ctx, opts.stretch, opts.width, opts.widthRatio, opts.height);
+    Control::InheritElementSizing(ctx, opts.stretch, opts.width, opts.widthRatio);
 
     const Id id = ctx.MakeChildId(loc);
     const bool isDisabled = opts.disabled || ctx.IsDisabled();

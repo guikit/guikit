@@ -536,7 +536,7 @@ TableScope Table::Open(
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
     const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
     TableOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
 
     UiTheme* pushedTheme = ctx.PushScopedTheme(optsCopy.theme, optsCopy.scale);
     const UiTheme& theme = ctx.GetTheme();

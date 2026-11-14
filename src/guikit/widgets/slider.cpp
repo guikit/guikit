@@ -612,7 +612,7 @@ Response Slider::Run(
     const UiTheme& activeTheme = ctx.GetTheme();
 
     SliderOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
 
     const SliderMetrics& m = activeTheme.GetSlider(activeSize);
     const double rangeMin = std::min(min, max);
@@ -955,7 +955,7 @@ Response StepSlider::Run(
     const UiTheme& activeTheme = ctx.GetTheme();
 
     StepSliderOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
 
     const SliderMetrics& m = activeTheme.GetSlider(activeSize);
 
@@ -1450,7 +1450,7 @@ Response RangeSlider::Run(
     const UiTheme& activeTheme = ctx.GetTheme();
 
     RangeSliderOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
 
     const SliderMetrics& m = activeTheme.GetSlider(activeSize);
     const double rangeMin = std::min(min, max);
@@ -1874,7 +1874,7 @@ Response ProgressBar::Run(
     const UiTheme& activeTheme = ctx.GetTheme();
 
     ProgressBarOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
 
     const double rangeMin = std::min(min, max);
     const double rangeMax = std::max(min, max);

@@ -112,7 +112,7 @@ Response Switch::Run(
     }
 
     SwitchOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
     optsCopy.textLeft = ctx.AllocText(opts.textLeft);
     optsCopy.textRight = ctx.AllocText(opts.textRight);
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);

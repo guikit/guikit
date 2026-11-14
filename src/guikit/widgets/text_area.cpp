@@ -1813,7 +1813,7 @@ TextAreaResponse TextArea::Run(
     }
 
     TextAreaOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
     optsCopy.placeholder = ctx.AllocText(opts.placeholder);
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);
 

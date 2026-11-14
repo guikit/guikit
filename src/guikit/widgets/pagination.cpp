@@ -367,7 +367,7 @@ Response Pagination::Run(
     size_t curr = std::min(currentPage, safeTotal - 1);
 
     PaginationOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
 
     ctx.RegisterFocusable(id, effectiveDisabled);
     Response res = ctx.Interact(id);

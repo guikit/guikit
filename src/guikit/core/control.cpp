@@ -129,11 +129,10 @@ void Control::InheritElementSizing(
     Context& ctx,
     StretchMode& ioStretch,
     std::optional<float>& ioWidth,
-    std::optional<float>& ioHeight,
     bool inheritWidth
 ) noexcept {
     std::optional<float> dummyRatio{std::nullopt};
-    InheritElementSizing(ctx, ioStretch, ioWidth, dummyRatio, ioHeight, inheritWidth);
+    InheritElementSizing(ctx, ioStretch, ioWidth, dummyRatio, inheritWidth);
 }
 
 void Control::InheritElementSizing(
@@ -141,7 +140,6 @@ void Control::InheritElementSizing(
     StretchMode& ioStretch,
     std::optional<float>& ioWidth,
     std::optional<float>& ioWidthRatio,
-    std::optional<float>& ioHeight,
     bool inheritWidth
 ) noexcept {
     Node* parent = ctx.GetCurrentContainer();
@@ -176,9 +174,6 @@ void Control::InheritElementSizing(
     }
     if (inheritWidth && !ioWidthRatio.has_value() && ep->opts.widthRatio.has_value()) {
         ioWidthRatio = ep->opts.widthRatio;
-    }
-    if (!ioHeight.has_value() && ep->opts.height.has_value()) {
-        ioHeight = ep->opts.height;
     }
 }
 

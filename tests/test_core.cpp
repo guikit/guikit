@@ -400,6 +400,68 @@ void TestSliderMetricsTokens() {
     CHECK(scaledMd.trackHeight == 10.0f);
 }
 
+void TestHeadingLevelMetricsTokens() {
+    using namespace guikit;
+
+    UiTheme theme = UiTheme::Dark();
+
+    // 1. Standard metrics across H1..H6 must monotonically decrease
+    const auto& h1 = theme.GetHeading(HeadingLevel::H1);
+    const auto& h2 = theme.GetHeading(HeadingLevel::H2);
+    const auto& h3 = theme.GetHeading(HeadingLevel::H3);
+    const auto& h4 = theme.GetHeading(HeadingLevel::H4);
+    const auto& h5 = theme.GetHeading(HeadingLevel::H5);
+    const auto& h6 = theme.GetHeading(HeadingLevel::H6);
+
+    CHECK(h1.titleFontSize > h2.titleFontSize);
+    CHECK(h2.titleFontSize > h3.titleFontSize);
+    CHECK(h3.titleFontSize > h4.titleFontSize);
+    CHECK(h4.titleFontSize > h5.titleFontSize);
+    CHECK(h5.titleFontSize > h6.titleFontSize);
+
+    CHECK(h1.subtitleFontSize > h6.subtitleFontSize);
+    CHECK(h1.badgeFontSize > h6.badgeFontSize);
+    CHECK(h1.iconSize > h6.iconSize);
+    CHECK(h1.gap > h6.gap);
+
+    // Auto level delegates to active UiSize
+    CHECK(theme.GetHeading(HeadingLevel::Auto, UiSize::Lg).titleFontSize == theme.GetHeading(UiSize::Lg).titleFontSize);
+    CHECK(theme.GetHeading(HeadingLevel::Auto, UiSize::Xs).titleFontSize == theme.GetHeading(UiSize::Xs).titleFontSize);
+
+    // 2. Mutable accessor check
+    theme.GetHeading(HeadingLevel::H1).titleFontSize = 30.0f;
+    CHECK(theme.GetHeading(HeadingLevel::H1).titleFontSize == 30.0f);
+
+    // 3. Density presets (Compact < Standard < Touch)
+    const UiTheme compactTheme = UiTheme::Dark(Density::Compact);
+    const UiTheme stdTheme = UiTheme::Dark(Density::Standard);
+    const UiTheme touchTheme = UiTheme::Dark(Density::Touch);
+    CHECK(compactTheme.GetHeading(HeadingLevel::H1).titleFontSize < stdTheme.GetHeading(HeadingLevel::H1).titleFontSize);
+    CHECK(stdTheme.GetHeading(HeadingLevel::H1).titleFontSize < touchTheme.GetHeading(HeadingLevel::H1).titleFontSize);
+    CHECK(compactTheme.GetHeading(HeadingLevel::H6).titleFontSize < stdTheme.GetHeading(HeadingLevel::H6).titleFontSize);
+    CHECK(stdTheme.GetHeading(HeadingLevel::H6).titleFontSize < touchTheme.GetHeading(HeadingLevel::H6).titleFontSize);
+
+    // 4. Scaling
+    const UiTheme scaledTheme = stdTheme.Scaled(2.0f);
+    CHECK(scaledTheme.GetHeading(HeadingLevel::H1).titleFontSize == stdTheme.GetHeading(HeadingLevel::H1).titleFontSize * 2.0f);
+    CHECK(scaledTheme.GetHeading(HeadingLevel::H6).titleFontSize == stdTheme.GetHeading(HeadingLevel::H6).titleFontSize * 2.0f);
+    CHECK(scaledTheme.GetHeading(HeadingLevel::H1).iconSize == stdTheme.GetHeading(HeadingLevel::H1).iconSize * 2.0f);
+
+    // 5. HeadingDivider value-type semantics & deterministic hashing
+    constexpr HeadingDivider divNone{};
+    constexpr HeadingDivider divBottom = HeadingSeparator::Bottom;
+    constexpr HeadingDivider divCustom = HeadingDivider::Bottom(StateColor::Primary(), 2.0f);
+    constexpr HeadingDivider divTrailing = HeadingDivider::Trailing(StateColor::Warning(), 1.5f);
+    static_assert(!divNone.IsEnabled());
+    static_assert(divBottom.IsEnabled());
+    static_assert(divBottom == HeadingSeparator::Bottom);
+    static_assert(divCustom.IsEnabled());
+    static_assert(divCustom != divBottom);
+    CHECK(detail::HashVal(divNone) != detail::HashVal(divBottom));
+    CHECK(detail::HashVal(divBottom) != detail::HashVal(divCustom));
+    CHECK(detail::HashVal(divCustom) != detail::HashVal(divTrailing));
+}
+
 void TestComputeBoxFit() {
     using namespace guikit;
 
@@ -1054,6 +1116,7 @@ int main() {
     TestNodeFootprint();
     TestCarouselMetricsTokens();
     TestSliderMetricsTokens();
+    TestHeadingLevelMetricsTokens();
     TestComputeBoxFit();
     TestMapGridAndProjections();
     TestTextWrapForceSplitLastWord();

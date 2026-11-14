@@ -385,15 +385,8 @@ constexpr Rect OffsetRect(Rect r, Vec2 delta) noexcept {
 }
 
 float HeadingFontSize(uint8_t level, const MarkdownOptions& opts, const UiTheme& theme, float zoom) noexcept {
-    float base = 0.0f;
-    switch (level) {
-        case 1: base = theme.GetFontSize(TextRole::HeadlineLarge); break;
-        case 2: base = theme.GetFontSize(TextRole::HeadlineSmall); break;
-        case 3: base = theme.GetFontSize(TextRole::TitleLarge); break;
-        case 4: base = theme.GetFontSize(TextRole::TitleMedium); break;
-        case 5: base = theme.GetFontSize(TextRole::LabelLarge); break;
-        default: base = theme.GetFontSize(TextRole::LabelMedium); break;
-    }
+    const HeadingLevel hl = static_cast<HeadingLevel>(std::clamp<uint8_t>(level, 1, 6));
+    const float base = theme.GetHeading(hl).titleFontSize;
     return base * std::clamp(opts.headingScale, 0.5f, 2.5f) * zoom;
 }
 
@@ -1789,7 +1782,7 @@ MarkdownResponse Markdown::Run(
     const UiTheme& theme = ctx.GetTheme();
 
     MarkdownOptions optsCopy = CloneMarkdownOptionsWithoutCallbacks(opts);
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
     optsCopy.searchQuery = ctx.AllocString(opts.searchQuery);
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);
 

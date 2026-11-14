@@ -117,12 +117,11 @@ public:
         bool active = false
     ) noexcept;
 
-    /// Inherits `stretch`, `width`, `widthRatio`, and `height` from an enclosing `NodeType::Element` container when present.
+    /// Inherits `stretch`, `width`, and `widthRatio` from an enclosing `NodeType::Element` container when present.
     static void InheritElementSizing(
         Context& ctx,
         StretchMode& ioStretch,
         std::optional<float>& ioWidth,
-        std::optional<float>& ioHeight,
         bool inheritWidth = true
     ) noexcept;
     static void InheritElementSizing(
@@ -130,7 +129,6 @@ public:
         StretchMode& ioStretch,
         std::optional<float>& ioWidth,
         std::optional<float>& ioWidthRatio,
-        std::optional<float>& ioHeight,
         bool inheritWidth = true
     ) noexcept;
 

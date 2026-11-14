@@ -82,7 +82,7 @@ Response Checkbox::Run(
     }
 
     CheckboxOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);
 
     const ControlSpec ctrl = EffectiveCheckboxControl(optsCopy, activeSize, ctx.GetTheme());

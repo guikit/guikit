@@ -194,7 +194,7 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
     }
 
     ButtonOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
     optsCopy.text = ctx.AllocText(opts.text);
     optsCopy.badge = ctx.AllocText(opts.badge);
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);

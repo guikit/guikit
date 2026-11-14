@@ -6,15 +6,6 @@
 
 namespace guikit {
 
-/// Semantic heading hierarchy level (maps to HeadlineLarge..TitleMedium when label.size is Auto).
-enum class HeadingLevel : uint8_t {
-    Auto = 0, ///< Default HeadingMetrics typography scaled by current UiSize
-    H1   = 1, ///< HeadlineLarge
-    H2   = 2, ///< HeadlineSmall
-    H3   = 3, ///< TitleLarge
-    H4   = 4  ///< TitleMedium
-};
-
 /// Configuration options for a `Heading` element (inherits `Element` layout/styling + built-in `separator` support).
 struct HeadingOptions {
     UiText label{};                                         ///< Primary heading title text
@@ -22,17 +13,16 @@ struct HeadingOptions {
     UiText tooltip{};                                       ///< Optional hover tooltip text
     Icon icon{};                                            ///< Optional vector icon before label
     UiText badge{};                                         ///< Optional pill badge after label (inherited from Element)
-    HeadingLevel level{HeadingLevel::Auto};                 ///< Optional semantic heading hierarchy level (H1..H4)
+    HeadingLevel level{HeadingLevel::Auto};                 ///< Semantic heading hierarchy level (Auto = use active UiSize, or H1..H6 from UiTheme::GetHeading)
     ElementLayout layout{ElementLayout::Stacked};           ///< Subtitle placement relative to title bar (Stacked/Bottom, Top, Inline)
     InlineOrder inlineOrder{InlineOrder::LabelFirst};       ///< Sequencing order in Inline layout (LabelFirst = Label then Description, ControlFirst = Description then Label)
     Align align{Align::Start};                              ///< Horizontal alignment (Start, Center, End)
     StretchMode stretch{StretchMode::Fill};                 ///< Sizing behavior: Compact, Space, Fill
     std::optional<float> width{std::nullopt};               ///< Explicit heading width in dp (or legacy ratio 0.0..1.0 in Fill)
     std::optional<float> widthRatio{std::nullopt};          ///< Normalized fill ratio 0.0..1.0 of available width in Fill mode
-    std::optional<float> height{std::nullopt};              ///< Explicit heading height in points (nullopt = auto from UiSize)
     StateColor background{};                                ///< Per-state outer surface backdrop color (Default/None = off, Surface/Primary/etc. = on)
-    Border border{};                                        ///< Outer border thickness, corner radius, and per-state border/separator color
-    HeadingSeparator separator{HeadingSeparator::None};     ///< Built-in section separator placement (None, Bottom, or Trailing)
+    Border border{};                                        ///< Outer border thickness, corner radius, and per-state border stroke color
+    HeadingDivider separator{};                             ///< Built-in section divider placement, stroke color, and thickness
     bool disabled{false};                                   ///< Whether the heading is rendered in a disabled state
     const UiTheme* theme{nullptr};                          ///< Optional scoped theme override
     std::optional<float> scale{std::nullopt};               ///< Optional local UI scale factor override

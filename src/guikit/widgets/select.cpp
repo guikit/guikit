@@ -276,7 +276,7 @@ Response Select::Run(
     ICanvas* canvas = ctx.GetCanvas();
 
     SelectOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
 
     auto measureRowContentW = [&](const UiText& mainText, const UiAffix& pfx, const UiAffix& sfx) -> float {
         const float mainFont = theme.ResolveFontSize(mainText, TextRole::LabelMedium, activeSize);
@@ -2166,7 +2166,7 @@ Response Select::RunMulti(
     ICanvas* canvas = ctx.GetCanvas();
 
     SelectOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
 
     auto measureRowContentW = [&](const UiText& mainText, const UiAffix& pfx, const UiAffix& sfx) -> float {
         const float mainFont = theme.ResolveFontSize(mainText, TextRole::LabelMedium, activeSize);

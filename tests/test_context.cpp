@@ -3075,6 +3075,98 @@ void TestHeadingWidgetWorkflow() {
     CHECK(sizeXl.x > sizeMd.x);
     CHECK(sizeMd.x > sizeXs.x);
 
+    // Architectural invariants: flow elements do not carry container height / verticalAlign props;
+    // HeadingDivider decouples separator stroke from outer border, and outerBounds matches widthRatio.
+    static_assert(![]<typename T = ElementOptions>() { return requires(T o) { o.height; }; }());
+    static_assert(![]<typename T = HeadingOptions>() { return requires(T o) { o.height; }; }());
+    static_assert(![]<typename T = ElementOptions>() { return requires(T o) { o.verticalAlign; }; }());
+    static_assert(![]<typename T = HeadingOptions>() { return requires(T o) { o.verticalAlign; }; }());
+    {
+        class HeadingStrokeSpyCanvas : public ThorCanvas {
+        public:
+            struct RoundRectRec {
+                Rect rect;
+                Color stroke;
+                float strokeWidth;
+            };
+            struct LineRec {
+                Vec2 p1;
+                Vec2 p2;
+                Color color;
+                float thickness;
+            };
+            void DrawRoundRect(Rect rect, float radius, Color fill, Color stroke = Color(0, 0, 0, 0), float strokeWidth = 0.0f) override {
+                roundRects.push_back({rect, stroke, strokeWidth});
+                ThorCanvas::DrawRoundRect(rect, radius, fill, stroke, strokeWidth);
+            }
+            void DrawLine(Vec2 p1, Vec2 p2, Color color, float thickness = 1.0f) override {
+                lines.push_back({p1, p2, color, thickness});
+                ThorCanvas::DrawLine(p1, p2, color, thickness);
+            }
+            void Clear() {
+                roundRects.clear();
+                lines.clear();
+            }
+            std::vector<RoundRectRec> roundRects;
+            std::vector<LineRec> lines;
+        };
+
+        const UiTheme theme = UiTheme::Dark();
+        std::vector<uint32_t> spyPixels(800 * 200, 0);
+        HeadingStrokeSpyCanvas spyCanvas;
+        spyCanvas.SetTarget(spyPixels.data(), 800, 200, 800);
+
+        // (a) Colored outer border MUST NOT recolor default separator, and widthRatio = 0.40f
+        // shrinks BOTH the outer border box and the inner separator to the same unified box.
+        HeadingOptions optsDecoupled{
+            .label = "Element Label",
+            .description = "Secondary description text",
+            .align = Align::Center,
+            .stretch = StretchMode::Fill,
+            .widthRatio = 0.40f,
+            .border = {.width = 1.5f, .color = StateColor::Warning()},
+            .separator = HeadingSeparator::Bottom
+        };
+        const Vec2 measuredDec = Heading::Measure(optsDecoupled, UiSize::Md, &spyCanvas, theme, 800.0f);
+        Heading::Render(spyCanvas, Rect(0.0f, 0.0f, 800.0f, measuredDec.y), optsDecoupled, UiSize::Md, theme);
+
+        CHECK(spyCanvas.roundRects.size() == 1);
+        CHECK(spyCanvas.lines.size() == 1);
+        if (spyCanvas.roundRects.size() == 1 && spyCanvas.lines.size() == 1) {
+            const Color expectedBorderCol = theme.ResolveColor(StateColor::Warning(), false, false, false, theme.palette.borderSubtle);
+            CHECK(spyCanvas.roundRects[0].stroke == expectedBorderCol);
+            CHECK(spyCanvas.lines[0].color == theme.palette.borderSubtle);
+            CHECK(spyCanvas.lines[0].color != expectedBorderCol);
+
+            // Outer frame width = 800 * 0.40 = 320, centered at x = (800 - 320) * 0.5 = 240
+            CHECK_NEAR(spyCanvas.roundRects[0].rect.w, 320.0f, 0.01f);
+            CHECK_NEAR(spyCanvas.roundRects[0].rect.x, 240.0f, 0.01f);
+
+            const ElementSpec specDec = Heading::MakeSpec(optsDecoupled, UiSize::Md, false, theme);
+            const float outerPad = Element::ComputeOuterPadding(specDec, theme);
+            const Rect expectedInner = spyCanvas.roundRects[0].rect.Inset(outerPad);
+            CHECK_NEAR(spyCanvas.lines[0].p1.x, expectedInner.x, 0.01f);
+            CHECK_NEAR(spyCanvas.lines[0].p2.x, expectedInner.Right(), 0.01f);
+        }
+
+        // (b) Custom HeadingDivider colors and thickens separator independently of outer border
+        spyCanvas.Clear();
+        optsDecoupled.separator = {HeadingSeparator::Bottom, StateColor::Primary(), 2.0f};
+        const Vec2 measuredCustomSep = Heading::Measure(optsDecoupled, UiSize::Md, &spyCanvas, theme, 800.0f);
+        CHECK(measuredCustomSep.y > measuredDec.y);
+        Heading::Render(spyCanvas, Rect(0.0f, 0.0f, 800.0f, measuredCustomSep.y), optsDecoupled, UiSize::Md, theme);
+
+        CHECK(spyCanvas.roundRects.size() == 1);
+        CHECK(spyCanvas.lines.size() == 1);
+        if (spyCanvas.roundRects.size() == 1 && spyCanvas.lines.size() == 1) {
+            const Color expectedBorderCol = theme.ResolveColor(StateColor::Warning(), false, false, false, theme.palette.borderSubtle);
+            const Color expectedSepCol = theme.ResolveColor(StateColor::Primary(), false, false, false, theme.palette.borderSubtle);
+            CHECK(spyCanvas.roundRects[0].stroke == expectedBorderCol);
+            CHECK(spyCanvas.lines[0].color == expectedSepCol);
+            CHECK_NEAR(spyCanvas.lines[0].thickness, 2.0f, 0.01f);
+        }
+    }
+
     // 2. Immediate mode layout & bounds
     Context ui;
     const int width = 800;
@@ -14210,9 +14302,9 @@ int main() {
                         }
                         auditUi.EndFrame(auditCanvas);
 
-                        // 2. widthRatio, HeadingLevel::H1..H4, Button .badge & .loading, ProgressBar vertical/indeterminate
+                        // 2. widthRatio, HeadingLevel::H1..H6, Button .badge & .loading, ProgressBar vertical/indeterminate
                         Response ratioBtn{}, plainBtn{}, badgeBtn{}, loadBtn{};
-                        Response h1Resp{}, h2Resp{}, h3Resp{}, h4Resp{};
+                        Response h1Resp{}, h2Resp{}, h3Resp{}, h4Resp{}, h5Resp{}, h6Resp{};
                         Response vProgResp{};
                         bool loadClicked = false;
 
@@ -14226,10 +14318,12 @@ int main() {
                                     loadBtn  = auditUi.Button({.text = "Saving", .loading = true});
                                     if (loadBtn.clicked) loadClicked = true;
                                 }
-                                h1Resp = auditUi.Heading({.label = "Level 1", .level = HeadingLevel::H1});
-                                h2Resp = auditUi.Heading({.label = "Level 2", .level = HeadingLevel::H2});
-                                h3Resp = auditUi.Heading({.label = "Level 3", .level = HeadingLevel::H3});
-                                h4Resp = auditUi.Heading({.label = "Level 4", .level = HeadingLevel::H4});
+                                h1Resp = auditUi.Heading({.label = "Level 1", .description = "Sub 1", .icon = Icon::Flash(), .badge = "H1", .level = HeadingLevel::H1});
+                                h2Resp = auditUi.Heading({.label = "Level 2", .description = "Sub 2", .icon = Icon::Flash(), .badge = "H2", .level = HeadingLevel::H2});
+                                h3Resp = auditUi.Heading({.label = "Level 3", .description = "Sub 3", .icon = Icon::Flash(), .badge = "H3", .level = HeadingLevel::H3});
+                                h4Resp = auditUi.Heading({.label = "Level 4", .description = "Sub 4", .icon = Icon::Flash(), .badge = "H4", .level = HeadingLevel::H4});
+                                h5Resp = auditUi.Heading({.label = "Level 5", .description = "Sub 5", .icon = Icon::Flash(), .badge = "H5", .level = HeadingLevel::H5});
+                                h6Resp = auditUi.Heading({.label = "Level 6", .description = "Sub 6", .icon = Icon::Flash(), .badge = "H6", .level = HeadingLevel::H6});
                                 if (auto prRow = auditUi.Row({.gap = 12.0f, .height = 90.0f})) {
                                     vProgResp = auditUi.ProgressBar(0.65f, {.orientation = Orientation::Vertical, .stretch = StretchMode::Fill});
                                     auditUi.ProgressBar(0.0f, {.indeterminate = true, .width = 140.0f});
@@ -14245,6 +14339,8 @@ int main() {
                         CHECK(h1Resp.rect.h > h2Resp.rect.h);
                         CHECK(h2Resp.rect.h > h3Resp.rect.h);
                         CHECK(h3Resp.rect.h > h4Resp.rect.h);
+                        CHECK(h4Resp.rect.h > h5Resp.rect.h);
+                        CHECK(h5Resp.rect.h > h6Resp.rect.h);
                         CHECK(vProgResp.rect.h > vProgResp.rect.w * 2.0f);
 
                         // Clicking a loading button must be suppressed

@@ -453,7 +453,7 @@ Response Breadcrumb::Run(
     const bool wasOpen = ctx.IsPopupOpen(id);
 
     BreadcrumbOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
 
     ctx.RegisterFocusable(id, effectiveDisabled);
     Response res = ctx.Interact(id);

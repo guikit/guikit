@@ -980,7 +980,7 @@ SignalViewResponse SignalView::Run(
     } themePop{ctx, pushedTheme};
 
     SignalViewOptions opts = optsIn;
-    Control::InheritElementSizing(ctx, opts.stretch, opts.width, opts.widthRatio, opts.height);
+    Control::InheritElementSizing(ctx, opts.stretch, opts.width, opts.widthRatio);
 
     const Id id = ctx.MakeChildId(loc);
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();

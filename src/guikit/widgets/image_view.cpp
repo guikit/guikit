@@ -638,8 +638,7 @@ ImageViewResponse RunViewportNode(
     ImageViewParams& params,
     ImageViewInternalState& st,
     const ImageViewOptions& opts,
-    bool standaloneElement,
-    std::optional<float> inheritedH = std::nullopt
+    bool standaloneElement
 ) {
     const UiTheme& theme = ctx.GetTheme();
     const UiSize activeSize = ctx.GetCurrentSize();
@@ -929,17 +928,12 @@ ImageViewResponse RunViewportNode(
         ControlSpec ctrlSpec{};
         ctrlSpec.width = opts.width;
         ctrlSpec.widthRatio = opts.widthRatio;
-        ctrlSpec.height = inheritedH;
         Control::SetupNode(ctx, node, ctrlSpec, opts.stretch, opts.align);
         if (!node->parent || node->parent->type != NodeType::Element) {
             node->heightMode = opts.heightMode;
-            if (inheritedH.has_value() && *inheritedH > 0.0f) {
-                node->heightMode = SizeMode::Fixed;
-                node->fixedHeight = theme.Scale(*inheritedH);
-            }
             node->minHeight = effectiveMinH;
             ctx.AdaptChildToContainer(node);
-            if (opts.heightMode == SizeMode::Fit && !inheritedH.has_value() && node->heightMode == SizeMode::Stretch) {
+            if (opts.heightMode == SizeMode::Fit && node->heightMode == SizeMode::Stretch) {
                 node->heightMode = SizeMode::Fit;
             }
         }
@@ -1364,18 +1358,14 @@ ImageViewResponse RunImageViewImpl(
     ImageViewParams& params = externalParams ? *externalParams : st.internalParams;
 
     ImageViewOptions optsCopy = opts;
-    std::optional<float> inheritedH{};
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, inheritedH);
-    if (inheritedH.has_value() && *inheritedH > 0.0f) {
-        optsCopy.height = *inheritedH;
-    }
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
 
     // 1. Update cached statistics, 256-bin histograms, and display pixel buffer
     st.EnsureStatsAndHistogram(data, params);
     st.EnsureDisplayPixels(data, params);
 
     if (!optsCopy.showSidebar) {
-        ImageViewResponse vpRes = RunViewportNode(ctx, rootId, data, params, st, optsCopy, true, inheritedH);
+        ImageViewResponse vpRes = RunViewportNode(ctx, rootId, data, params, st, optsCopy, true);
         if (Node* cNode = ctx.GetCurrentContainer()) {
             for (Node* ch = cNode->firstChild; ch; ch = ch->nextSibling) {
                 if (ch->id == rootId) {
@@ -1647,7 +1637,7 @@ ImageViewResponse RunImageViewImpl(
                     rNode->flexGrow = *ratioOpt;
                 }
                 rNode->minHeight = std::max(th.Scale(optsCopy.minHeight), th.Scale(optsCopy.height));
-                if (optsCopy.heightMode == SizeMode::Fixed || inheritedH.has_value()) {
+                if (optsCopy.heightMode == SizeMode::Fixed) {
                     rNode->heightMode = SizeMode::Fixed;
                     rNode->fixedHeight = std::max(th.Scale(optsCopy.minHeight), th.Scale(optsCopy.height));
                 }
@@ -1660,9 +1650,9 @@ ImageViewResponse RunImageViewImpl(
             if (sidebarChangedParams) {
                 st.EnsureDisplayPixels(data, params);
             }
-            viewportRes = RunViewportNode(ctx, vpId, data, params, st, optsCopy, false, inheritedH);
+            viewportRes = RunViewportNode(ctx, vpId, data, params, st, optsCopy, false);
         } else {
-            viewportRes = RunViewportNode(ctx, vpId, data, params, st, optsCopy, false, inheritedH);
+            viewportRes = RunViewportNode(ctx, vpId, data, params, st, optsCopy, false);
             renderSidebar();
             if (sidebarChangedParams) {
                 st.EnsureDisplayPixels(data, params);

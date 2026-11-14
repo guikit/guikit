@@ -48,6 +48,17 @@ enum class InlineOrder : uint8_t {
     ControlFirst   ///< Control first (left / start), label/text second (right / end)
 };
 
+/// Semantic heading hierarchy level for `Heading` and document typography (`Auto` inherits from active `UiSize`).
+enum class HeadingLevel : uint8_t {
+    Auto = 0, ///< Driven by active `UiSize` (`Xs`..`Xl`) via `UiTheme::GetHeading(UiSize)`
+    H1   = 1, ///< Primary page / document title (`UiTheme::GetHeading(HeadingLevel::H1)`)
+    H2   = 2, ///< Major section heading (`UiTheme::GetHeading(HeadingLevel::H2)`)
+    H3   = 3, ///< Subsection / card heading (`UiTheme::GetHeading(HeadingLevel::H3)`)
+    H4   = 4, ///< Group / panel heading (`UiTheme::GetHeading(HeadingLevel::H4)`)
+    H5   = 5, ///< Sub-group / minor heading (`UiTheme::GetHeading(HeadingLevel::H5)`)
+    H6   = 6  ///< Caption / overline heading (`UiTheme::GetHeading(HeadingLevel::H6)`)
+};
+
 /// Built-in separator placement for Heading.
 enum class HeadingSeparator : uint8_t {
     None = 0,
@@ -406,6 +417,44 @@ struct Border {
     }
 
     [[nodiscard]] constexpr bool operator==(const Border& other) const noexcept = default;
+};
+
+/// Section divider specification for `Heading`.
+/// Supports implicit construction from `HeadingSeparator` (`.separator = HeadingSeparator::Bottom`)
+/// as well as custom stroke color and thickness (`.separator = {HeadingSeparator::Bottom, StateColor::Primary(), 1.5f}`).
+struct HeadingDivider {
+    HeadingSeparator placement{HeadingSeparator::None}; ///< Divider placement (None, Bottom, or Trailing)
+    StateColor color{};                                 ///< Per-state divider stroke color (default = theme borderSubtle)
+    float width{1.0f};                                  ///< Divider stroke thickness in points (<= 0.0f = disabled)
+
+    constexpr HeadingDivider() noexcept = default;
+    constexpr HeadingDivider(
+        HeadingSeparator inPlacement,
+        StateColor inColor = {},
+        float inWidth = 1.0f
+    ) noexcept
+        : placement(inPlacement), color(inColor), width(inWidth) {}
+
+    [[nodiscard]] constexpr bool IsEnabled() const noexcept {
+        return placement != HeadingSeparator::None && width > 0.0f;
+    }
+
+    [[nodiscard]] static constexpr HeadingDivider None() noexcept {
+        return {};
+    }
+
+    [[nodiscard]] static constexpr HeadingDivider Bottom(StateColor col = {}, float w = 1.0f) noexcept {
+        return {HeadingSeparator::Bottom, col, w};
+    }
+
+    [[nodiscard]] static constexpr HeadingDivider Trailing(StateColor col = {}, float w = 1.0f) noexcept {
+        return {HeadingSeparator::Trailing, col, w};
+    }
+
+    [[nodiscard]] constexpr bool operator==(const HeadingDivider& other) const noexcept = default;
+    [[nodiscard]] constexpr bool operator==(HeadingSeparator sep) const noexcept {
+        return placement == sep;
+    }
 };
 
 /// Unified font size specification for UiText.

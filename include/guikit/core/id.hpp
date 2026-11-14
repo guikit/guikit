@@ -108,6 +108,12 @@ constexpr uint64_t HashVal(const T& val, uint64_t hash = Fnv1aOffsetBasis) noexc
         hash = HashBytes(&r, sizeof(r), hash);
         hash = HashVal(val.color, hash);
         return hash;
+    } else if constexpr (requires { val.placement; val.width; val.color; }) {
+        const uint8_t pl = static_cast<uint8_t>(val.placement);
+        hash = HashBytes(&pl, sizeof(pl), hash);
+        hash = HashBytes(&val.width, sizeof(val.width), hash);
+        hash = HashVal(val.color, hash);
+        return hash;
     } else if constexpr (std::is_enum_v<CleanT>) {
         auto underlying = static_cast<std::underlying_type_t<CleanT>>(val);
         return HashBytes(&underlying, sizeof(underlying), hash);

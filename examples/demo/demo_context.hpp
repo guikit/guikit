@@ -370,7 +370,10 @@ struct DemoContext {
     float ctrlBorderWidth = 0.0f;
     guikit::UiVariant ctrlBorderVariant = guikit::UiVariant::Default;
     float ctrlBorderRadius = 6.0f;
+    guikit::HeadingLevel elemHeadingLevel = guikit::HeadingLevel::Auto;
     guikit::HeadingSeparator elemSeparator = guikit::HeadingSeparator::Bottom;
+    guikit::UiVariant elemSeparatorVariant = guikit::UiVariant::Default;
+    float elemSeparatorWidth = 1.0f;
     bool elemDisabled = false;
 
     // Shared assembly & container layout tokens
@@ -518,12 +521,44 @@ struct DemoContext {
         return std::string("{\"") + elemBadge + "\", guikit::StateColor::" + std::string(VariantName(elemBadgeVariant)) + "()}";
     }
 
-    std::string_view FormatSeparatorCode() const noexcept {
-        switch (elemSeparator) {
-            case guikit::HeadingSeparator::Bottom:   return "guikit::HeadingSeparator::Bottom";
-            case guikit::HeadingSeparator::Trailing: return "guikit::HeadingSeparator::Trailing";
-            default:                                 return "guikit::HeadingSeparator::None";
+    std::string_view FormatHeadingLevelCode() const noexcept {
+        switch (elemHeadingLevel) {
+            case guikit::HeadingLevel::H1: return "guikit::HeadingLevel::H1";
+            case guikit::HeadingLevel::H2: return "guikit::HeadingLevel::H2";
+            case guikit::HeadingLevel::H3: return "guikit::HeadingLevel::H3";
+            case guikit::HeadingLevel::H4: return "guikit::HeadingLevel::H4";
+            case guikit::HeadingLevel::H5: return "guikit::HeadingLevel::H5";
+            case guikit::HeadingLevel::H6: return "guikit::HeadingLevel::H6";
+            default:                       return "guikit::HeadingLevel::Auto";
         }
+    }
+
+    guikit::HeadingDivider GetHeadingDivider() const noexcept {
+        return guikit::HeadingDivider{
+            elemSeparator,
+            guikit::StateColor::FromVariant(elemSeparatorVariant),
+            elemSeparatorWidth
+        };
+    }
+
+    std::string FormatSeparatorCode() const {
+        if (elemSeparator == guikit::HeadingSeparator::None) {
+            return "guikit::HeadingSeparator::None";
+        }
+        const std::string_view placeStr = (elemSeparator == guikit::HeadingSeparator::Bottom)
+            ? "guikit::HeadingSeparator::Bottom"
+            : "guikit::HeadingSeparator::Trailing";
+        const bool defaultWidth = std::abs(elemSeparatorWidth - 1.0f) < 0.01f;
+        if (elemSeparatorVariant == guikit::UiVariant::Default && defaultWidth) {
+            return std::string(placeStr);
+        }
+        const std::string colStr = std::string("guikit::StateColor::") + std::string(VariantName(elemSeparatorVariant)) + "()";
+        if (defaultWidth) {
+            return "{" + std::string(placeStr) + ", " + colStr + "}";
+        }
+        char wBuf[32];
+        std::snprintf(wBuf, sizeof(wBuf), "%.1ff", elemSeparatorWidth);
+        return "{" + std::string(placeStr) + ", " + colStr + ", " + std::string(wBuf) + "}";
     }
 
     std::string FormatElementWidthCode() const {
@@ -697,8 +732,9 @@ struct DemoContext {
     }
 
     void RenderElementInspector(guikit::Context& ui, NavCategory cat = NavCategory::ElemHeading) {
-        if (auto el = ui.Element({.label = "Element Size"})) {
-            if (ui.StepSlider(elemSize, {.showTicks = true, .showLabels = true, .includeNone = true}).changed) {
+        const bool sizeOverriddenByHeadingLevel = (cat == NavCategory::ElemHeading && elemHeadingLevel != guikit::HeadingLevel::Auto);
+        if (auto el = ui.Element({.label = "Element Size", .disabled = sizeOverriddenByHeadingLevel})) {
+            if (ui.StepSlider(elemSize, {.showTicks = true, .showLabels = true, .includeNone = true, .disabled = sizeOverriddenByHeadingLevel}).changed) {
                 ui.InvalidateAll();
             }
         }
@@ -773,12 +809,12 @@ struct DemoContext {
                 .step = 0.5f
             }).changed) ui.InvalidateAll();
         }
-        const bool hasElemBorderOrDivider = (elemBorderWidth > 0.0f) || (cat == NavCategory::ElemHeading && elemSeparator != guikit::HeadingSeparator::None);
-        if (auto el = ui.Element({.label = "Element Border Color", .disabled = !hasElemBorderOrDivider})) {
+        const bool hasElemBorder = (elemBorderWidth > 0.0f);
+        if (auto el = ui.Element({.label = "Element Border Color", .disabled = !hasElemBorder})) {
             if (ui.StepSlider(elemBorderVariant, {
                 .showTicks = true,
                 .showLabels = true,
-                .disabled = !hasElemBorderOrDivider
+                .disabled = !hasElemBorder
             }).changed) {
                 ui.InvalidateAll();
             }

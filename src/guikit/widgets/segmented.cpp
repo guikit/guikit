@@ -222,7 +222,7 @@ Response Segmented::Run(
     ICanvas* canvas = ctx.GetCanvas();
 
     SegmentedOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio, optsCopy.height);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
 
     const Vec2 naturalDims = MeasureSegmentedBox(items, optsCopy, activeSize, canvas, theme);
     const float unscaledW = (theme.scale > 0.0f) ? (naturalDims.x / theme.scale) : naturalDims.x;

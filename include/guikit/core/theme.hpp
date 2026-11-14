@@ -53,6 +53,7 @@ struct UiTheme {
     std::array<InputFieldMetrics, 6> inputs{};
     std::array<SelectMetrics, 6>     selects{};
     std::array<HeadingMetrics, 6>    headings{};
+    std::array<HeadingMetrics, 7>    headingLevels{};
     std::array<SliderMetrics, 6>     sliders{};
 
     // --- Fast Inline Accessors ---
@@ -427,6 +428,27 @@ struct UiTheme {
     [[nodiscard]] constexpr HeadingMetrics& GetHeading(UiSize size) noexcept {
         const size_t idx = static_cast<size_t>(size);
         return (idx < headings.size()) ? headings[idx] : headings[static_cast<size_t>(UiSize::Md)];
+    }
+
+    [[nodiscard]] constexpr const HeadingMetrics& GetHeading(
+        HeadingLevel level,
+        UiSize fallbackSize = UiSize::Md
+    ) const noexcept {
+        if (level == HeadingLevel::Auto) {
+            return GetHeading(fallbackSize);
+        }
+        const size_t idx = static_cast<size_t>(level);
+        return (idx < headingLevels.size()) ? headingLevels[idx] : GetHeading(fallbackSize);
+    }
+    [[nodiscard]] constexpr HeadingMetrics& GetHeading(
+        HeadingLevel level,
+        UiSize fallbackSize = UiSize::Md
+    ) noexcept {
+        if (level == HeadingLevel::Auto) {
+            return GetHeading(fallbackSize);
+        }
+        const size_t idx = static_cast<size_t>(level);
+        return (idx < headingLevels.size()) ? headingLevels[idx] : GetHeading(fallbackSize);
     }
 
     [[nodiscard]] constexpr const SliderMetrics& GetSlider(UiSize size) const noexcept {

@@ -30,7 +30,6 @@ struct ElementOptions {
     std::optional<StretchMode> stretch{std::nullopt};         ///< Sizing behavior: Compact, Space, Fill (nullopt = inherit from child control or Fill when standalone)
     std::optional<float> width{std::nullopt};                 ///< Explicit element/control width in dp (or legacy ratio 0.0..1.0 in Fill)
     std::optional<float> widthRatio{std::nullopt};            ///< Normalized fill ratio 0.0..1.0 of available width in Fill mode
-    std::optional<float> height{std::nullopt};                ///< Explicit element/control height in points (nullopt = auto from UiSize)
     StateColor background{};                                  ///< Per-state outer surface backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                                          ///< Outer element border thickness, corner radius, and per-state color
     bool disabled{false};                                     ///< Whether the element and its child control are rendered in a disabled state
@@ -80,11 +79,11 @@ struct ElementSpec {
     StretchMode stretch{StretchMode::Compact};            ///< Sizing behavior: Compact, Space, Fill
     std::optional<float> width{std::nullopt};             ///< Explicit control/element width in dp (or legacy ratio 0.0..1.0 in Fill)
     std::optional<float> widthRatio{std::nullopt};        ///< Normalized fill ratio 0.0..1.0 of available width in Fill mode
-    std::optional<float> height{std::nullopt};            ///< Explicit control/element height in points (nullopt = intrinsic height)
     ControlSpec control{};                                ///< Specification for the inner control slot (`controlRect`)
     StateColor background{};                              ///< Per-state outer surface backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                                      ///< Outer element border thickness, corner radius, and per-state color
     UiSize widgetSize{UiSize::Md};                        ///< Active UiSize token
+    HeadingLevel headingLevel{HeadingLevel::Auto};        ///< Semantic heading hierarchy level (Auto = use widgetSize)
     float labelGap{6.0f};                                 ///< Vertical gap between label bar and control/description
     float descGap{6.0f};                                  ///< Vertical gap between control/label and description
     float inlineGap{10.0f};                               ///< Horizontal gap in Inline layout

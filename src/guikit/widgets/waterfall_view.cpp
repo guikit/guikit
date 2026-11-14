@@ -952,7 +952,7 @@ WaterfallViewResponse WaterfallView::Run(
     } themePop{ctx, pushedTheme};
 
     WaterfallViewOptions opts = optsIn;
-    Control::InheritElementSizing(ctx, opts.stretch, opts.width, opts.widthRatio, opts.height);
+    Control::InheritElementSizing(ctx, opts.stretch, opts.width, opts.widthRatio);
 
     const Id id = ctx.MakeChildId(loc);
     const UiTheme& theme = ctx.GetTheme();
