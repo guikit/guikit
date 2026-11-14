@@ -5,9 +5,6 @@ namespace guikit::demo {
 
 namespace {
 
-constexpr float kPi = 3.14159265358979323846f;
-constexpr float kDegToRad = kPi / 180.0f;
-
 struct AttitudeDemoState {
     bool initialized{false};
     keel::i32 controlModeIndex{0};        // 0 = Mouse Follow (Direct), 1 = Virtual Stick (FBW 360 Roll), 2 = Autopilot Figure-8, 3 = Manual Sliders
@@ -148,23 +145,24 @@ void StepAttitudeSimulation(guikit::Context& ui, AttitudeDemoState& st) {
     const float pitchRate = (st.pitchDeg - prevPitch) / fdt;
 
     // Vertical speed (FPM) driven by pitch angle and airspeed
-    const float targetVsi = std::sin((st.pitchDeg - 2.0f) * kDegToRad) * st.airspeedKnots * 88.0f;
+    const float targetVsi = std::sin(keel::deg_to_rad(st.pitchDeg - 2.0f)) * st.airspeedKnots * 88.0f;
     st.verticalSpeedFpm += (targetVsi - st.verticalSpeedFpm) * keel::clamp(fdt * 6.0f, 0.05f, 1.0f);
     st.altitudeFeet = keel::clamp(st.altitudeFeet + (st.verticalSpeedFpm / 60.0f) * fdt, 0.0f, 50000.0f);
     st.radioAltitudeFeet = keel::clamp(st.altitudeFeet - 10650.0f, 20.0f, 2500.0f);
 
     // Airspeed responds to dive/climb + autothrottle restoring toward targetAirspeedBug
-    const float gravityAccelKtPerSec = -std::sin((st.pitchDeg - 2.0f) * kDegToRad) * 18.0f;
+    const float gravityAccelKtPerSec = -std::sin(keel::deg_to_rad(st.pitchDeg - 2.0f)) * 18.0f;
     const float autoThrottleKtPerSec = (st.targetAirspeedBug - st.airspeedKnots) * 0.45f;
     st.airspeedKnots = keel::clamp(st.airspeedKnots + (gravityAccelKtPerSec + autoThrottleKtPerSec) * fdt, 95.0f, 380.0f);
     st.machNumber = keel::clamp(st.airspeedKnots / 348.0f, 0.15f, 0.99f);
 
     // Coordinated turn rate integrates magnetic heading
-    const float turnRateDegPerSec = keel::clamp(std::tan( keel::clamp(st.rollDeg, -70.0f, 70.0f) * kDegToRad ) * 4.2f, -18.0f, 18.0f);
+    const float turnRateDegPerSec =
+        keel::clamp(std::tan(keel::deg_to_rad(keel::clamp(st.rollDeg, -70.0f, 70.0f))) * 4.2f, -18.0f, 18.0f);
     st.headingDeg = WrapHeadingDeg(st.headingDeg + turnRateDegPerSec * fdt);
 
     // Normal load factor (G) and inclinometer slip/skid ball
-    const float bankCos = keel::max(0.35f, std::cos(keel::clamp(st.rollDeg, -70.0f, 70.0f) * kDegToRad));
+    const float bankCos = keel::max(0.35f, std::cos(keel::deg_to_rad(keel::clamp(st.rollDeg, -70.0f, 70.0f))));
     const float targetG = (1.0f / bankCos) + pitchRate * 0.035f;
     st.gLoad += (keel::clamp(targetG, -2.5f, 6.0f) - st.gLoad) * keel::clamp(fdt * 8.0f, 0.05f, 1.0f);
 

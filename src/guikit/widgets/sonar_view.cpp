@@ -6,15 +6,12 @@
 #include "guikit/core/node.hpp"
 #include "guikit/graphics/colormap.hpp"
 #include "keel/format.h"
+#include "keel/math.h"
 #include "keel/static_array.h"
 
 namespace guikit {
 
 namespace {
-
-constexpr float kPi = 3.14159265358979323846f;
-constexpr float kDegToRad = kPi / 180.0f;
-constexpr float kRadToDeg = 180.0f / kPi;
 
 struct SonarViewState {
     keel::u32 numBeams{0};
@@ -118,8 +115,8 @@ struct SonarPlotGeometry {
             const float topPad = 32.0f;
             const float bottomPad = 26.0f;
             const float sidePad = 32.0f;
-            const float halfAngleRad = (g.sectorApertureDeg * 0.5f) * kDegToRad;
-            const float sinHalf = keel::max(0.25f, std::sin(keel::min(halfAngleRad, kPi * 0.5f)));
+            const float halfAngleRad = keel::deg_to_rad(g.sectorApertureDeg * 0.5f);
+            const float sinHalf = keel::max(0.25f, std::sin(keel::min(halfAngleRad, keel::kHalfPiF)));
             const float cosHalf = keel::min(0.0f, std::cos(halfAngleRad)); // negative if > 180 deg
 
             const float availH = keel::max(40.0f, rect.h - topPad - bottomPad);
@@ -150,12 +147,12 @@ struct SonarPlotGeometry {
     [[nodiscard]] Vec2 PolarToScreen(float rangeMeters, float bearingDeg) const noexcept {
         const float rNorm = keel::clamp(rangeMeters / keel::max(1.0f, visibleMaxRange), 0.0f, 1.5f);
         if (mode == SonarDisplayMode::PPI_360) {
-            const float rad = bearingDeg * kDegToRad;
+            const float rad = keel::deg_to_rad(bearingDeg);
             const float rPx = rNorm * maxRadiusPx;
             return {origin.x + std::sin(rad) * rPx, origin.y - std::cos(rad) * rPx};
         } else if (mode == SonarDisplayMode::SectorWedge) {
             const float relDeg = SignedAngleDiffDeg(bearingDeg, headingDeg);
-            const float rad = relDeg * kDegToRad;
+            const float rad = keel::deg_to_rad(relDeg);
             const float rPx = rNorm * maxRadiusPx;
             return {origin.x + std::sin(rad) * rPx, origin.y - std::cos(rad) * rPx};
         } else {
@@ -177,14 +174,14 @@ struct SonarPlotGeometry {
             const float distPx = std::sqrt(dx * dx + dy * dy);
             if (distPx > maxRadiusPx) return false;
             outRangeMeters = (distPx / maxRadiusPx) * visibleMaxRange;
-            outBearingDeg = NormalizeBearingDeg(std::atan2(dx, dy) * kRadToDeg);
+            outBearingDeg = NormalizeBearingDeg(keel::rad_to_deg(std::atan2(dx, dy)));
             return outRangeMeters >= minRange;
         } else if (mode == SonarDisplayMode::SectorWedge) {
             const float dx = pt.x - origin.x;
             const float dy = origin.y - pt.y;
             const float distPx = std::sqrt(dx * dx + dy * dy);
             if (distPx > maxRadiusPx) return false;
-            const float relDeg = std::atan2(dx, dy) * kRadToDeg;
+            const float relDeg = keel::rad_to_deg(std::atan2(dx, dy));
             if (std::abs(relDeg) > sectorApertureDeg * 0.5f) return false;
             outRangeMeters = (distPx / maxRadiusPx) * visibleMaxRange;
             outBearingDeg = NormalizeBearingDeg(headingDeg + relDeg);
@@ -316,7 +313,7 @@ void DrawArcPolyline(
     for (keel::i32 i = 0; i <= segments; ++i) {
         const float t = static_cast<float>(i) / static_cast<float>(segments);
         const float deg = startScreenDeg + t * (endScreenDeg - startScreenDeg);
-        const float rad = deg * kDegToRad;
+        const float rad = keel::deg_to_rad(deg);
         const Vec2 pt{center.x + std::sin(rad) * radiusPx, center.y - std::cos(rad) * radiusPx};
         if (i > 0) {
             canvas.DrawLine(prev, pt, color, thickness);
@@ -369,9 +366,9 @@ void DrawTargetSymbol(
     // 2. Velocity vector (Course Over Ground / Speed leader line)
     if (target.speedMetersPerSec > 0.05f && geom.mode != SonarDisplayMode::BScan) {
         const float leaderLenPx = keel::clamp(target.speedMetersPerSec * 14.0f, 12.0f, 38.0f);
-        float courseScreenRad = target.courseDeg * kDegToRad;
+        float courseScreenRad = keel::deg_to_rad(target.courseDeg);
         if (geom.mode == SonarDisplayMode::SectorWedge) {
-            courseScreenRad = SignedAngleDiffDeg(target.courseDeg, geom.headingDeg) * kDegToRad;
+            courseScreenRad = keel::deg_to_rad(SignedAngleDiffDeg(target.courseDeg, geom.headingDeg));
         }
         const Vec2 tip{
             pos.x + std::sin(courseScreenRad) * leaderLenPx,
@@ -396,7 +393,7 @@ void DrawTargetSymbol(
     } else if (target.classification == SonarTargetClass::UUV) {
         keel::StaticArray<Vec2, 6> hex{};
         for (keel::usize i = 0; i < 6; ++i) {
-            const float a = (static_cast<float>(i) * 60.0f - 30.0f) * kDegToRad;
+            const float a = keel::deg_to_rad(static_cast<float>(i) * 60.0f - 30.0f);
             hex[i] = {pos.x + std::cos(a) * r, pos.y + std::sin(a) * r};
         }
         Color fill = symColor;
@@ -726,8 +723,8 @@ void main() {
                         460.0f / keel::max(1.0f, plotRect.h)
                     )
                 );
-                const keel::u32 imgW = static_cast<keel::u32>(keel::max(64.0f, std::round(plotRect.w * resScale)));
-                const keel::u32 imgH = static_cast<keel::u32>(keel::max(64.0f, std::round(plotRect.h * resScale)));
+                const keel::u32 imgW = keel::max(64u, keel::round_u32(plotRect.w * resScale));
+                const keel::u32 imgH = keel::max(64u, keel::round_u32(plotRect.h * resScale));
                 state.cachedImgW = imgW;
                 state.cachedImgH = imgH;
                 state.abgrPixels.resize(static_cast<keel::usize>(imgW) * imgH, 0u);
@@ -835,7 +832,7 @@ void main() {
 
             if (opts.showBearingDial) {
                 for (keel::i32 deg = 0; deg < 360; deg += 30) {
-                    const float rad = static_cast<float>(deg) * kDegToRad;
+                    const float rad = keel::deg_to_rad(static_cast<float>(deg));
                     const Vec2 inner{geom.origin.x + std::sin(rad) * (geom.maxRadiusPx * 0.12f),
                                      geom.origin.y - std::cos(rad) * (geom.maxRadiusPx * 0.12f)};
                     const Vec2 outer{geom.origin.x + std::sin(rad) * geom.maxRadiusPx,
@@ -845,7 +842,7 @@ void main() {
                 }
 
                 for (keel::i32 deg = 0; deg < 360; deg += 5) {
-                    const float rad = static_cast<float>(deg) * kDegToRad;
+                    const float rad = keel::deg_to_rad(static_cast<float>(deg));
                     const bool major = (deg % 30 == 0);
                     const bool med = (deg % 10 == 0);
                     const float tickLen = major ? 7.0f : (med ? 4.5f : 2.5f);
@@ -889,7 +886,7 @@ void main() {
                         48
                     );
 
-                    const float rightRad = halfAp * kDegToRad;
+                    const float rightRad = keel::deg_to_rad(halfAp);
                     const Vec2 rp{
                         geom.origin.x + std::sin(rightRad) * rPx + 6.0f,
                         geom.origin.y - std::cos(rightRad) * rPx - 6.0f
@@ -913,7 +910,7 @@ void main() {
                     const bool centerRay = (std::abs(rel) < 0.5f);
                     canvas.DrawLine(geom.origin, pOuter, centerRay ? gridMajorCol : gridLineCol, centerRay ? 1.3f : 0.9f);
 
-                    const float rad = rel * kDegToRad;
+                    const float rad = keel::deg_to_rad(rel);
                     const Vec2 lp{
                         geom.origin.x + std::sin(rad) * (geom.maxRadiusPx + 14.0f) - 12.0f,
                         geom.origin.y - std::cos(rad) * (geom.maxRadiusPx + 14.0f) - 7.0f

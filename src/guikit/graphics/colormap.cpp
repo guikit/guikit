@@ -1,7 +1,7 @@
 #include "guikit/graphics/colormap.hpp"
-#include <cmath>
 #include <cstring>
 #include "guikit/backend/i_canvas.hpp"
+#include "keel/math.h"
 #include "keel/static_array.h"
 
 namespace guikit {
@@ -24,10 +24,18 @@ struct RgbaStop {
         if (t >= stops[i].t && t <= stops[i + 1].t) {
             const float span = keel::max(1e-5f, stops[i + 1].t - stops[i].t);
             const float u = (t - stops[i].t) / span;
+            const RgbaStop& s0 = stops[i];
+            const RgbaStop& s1 = stops[i + 1];
             return Color(
-                static_cast<keel::u8>(keel::clamp(std::round(stops[i].r + u * (stops[i + 1].r - stops[i].r)), 0.0f, 255.0f)),
-                static_cast<keel::u8>(keel::clamp(std::round(stops[i].g + u * (stops[i + 1].g - stops[i].g)), 0.0f, 255.0f)),
-                static_cast<keel::u8>(keel::clamp(std::round(stops[i].b + u * (stops[i + 1].b - stops[i].b)), 0.0f, 255.0f)),
+                static_cast<keel::u8>(keel::clamp(
+                    keel::round_i32(keel::lerp(static_cast<float>(s0.r), static_cast<float>(s1.r), u)), 0, 255
+                )),
+                static_cast<keel::u8>(keel::clamp(
+                    keel::round_i32(keel::lerp(static_cast<float>(s0.g), static_cast<float>(s1.g), u)), 0, 255
+                )),
+                static_cast<keel::u8>(keel::clamp(
+                    keel::round_i32(keel::lerp(static_cast<float>(s0.b), static_cast<float>(s1.b), u)), 0, 255
+                )),
                 255
             );
         }

@@ -11,6 +11,7 @@
 #include "keel/array.h"
 #include "keel/core.h"
 #include "keel/format.h"
+#include "keel/math.h"
 #include "keel/static_array.h"
 #include "keel/string.h"
 
@@ -18,8 +19,6 @@ namespace guikit {
 
 namespace {
 
-constexpr float kPi = 3.14159265358979323846f;
-constexpr float kTwoPi = 2.0f * kPi;
 constexpr float kMinLogFreqHz = 20.0f;
 
 struct PeakBucket {
@@ -205,7 +204,7 @@ void Radix2Fft(keel::Array<float>& re, keel::Array<float>& im) noexcept {
 
     // Butterfly stages
     for (keel::usize len = 2; len <= n; len <<= 1) {
-        const float angle = -kTwoPi / static_cast<float>(len);
+        const float angle = -keel::kTauF / static_cast<float>(len);
         const float wLenRe = std::cos(angle);
         const float wLenIm = std::sin(angle);
         const keel::usize half = len >> 1;
@@ -247,16 +246,16 @@ void BuildFftWindow(keel::u32 n, FftWindowType type, keel::Array<float>& outWin,
         float w = 1.0f;
         switch (type) {
             case FftWindowType::Hann:
-                w = 0.5f * (1.0f - std::cos(kTwoPi * phase));
+                w = 0.5f * (1.0f - std::cos(keel::kTauF * phase));
                 break;
             case FftWindowType::Hamming:
-                w = 0.54f - 0.46f * std::cos(kTwoPi * phase);
+                w = 0.54f - 0.46f * std::cos(keel::kTauF * phase);
                 break;
             case FftWindowType::BlackmanHarris:
                 w = 0.35875f
-                  - 0.48829f * std::cos(kTwoPi * phase)
-                  + 0.14128f * std::cos(2.0f * kTwoPi * phase)
-                  - 0.01168f * std::cos(3.0f * kTwoPi * phase);
+                  - 0.48829f * std::cos(keel::kTauF * phase)
+                  + 0.14128f * std::cos(2.0f * keel::kTauF * phase)
+                  - 0.01168f * std::cos(3.0f * keel::kTauF * phase);
                 break;
             case FftWindowType::Rectangular:
                 w = 1.0f;
@@ -426,7 +425,7 @@ struct SpectrogramCache {
 
             for (keel::u32 x = 0; x < kTexW; ++x) {
                 const double colTimeSec = startSec + (static_cast<double>(x) + 0.5) / static_cast<double>(kTexW) * spanSec;
-                const keel::i64 centerSample = static_cast<keel::i64>(std::llround(colTimeSec * static_cast<double>(sampleRate)));
+                const keel::i64 centerSample = keel::round_i64(colTimeSec * static_cast<double>(sampleRate));
                 const keel::i64 frameStart = centerSample - halfFft;
 
                 for (keel::u32 k = 0; k < effFft; ++k) {
@@ -564,8 +563,12 @@ struct OverviewBitmapCache {
             const auto& pk = pyramid.overview256[binIdx];
             const float yMin = midY - keel::clamp(pk.maxVal, -1.0f, 1.0f) * halfH;
             const float yMax = midY - keel::clamp(pk.minVal, -1.0f, 1.0f) * halfH;
-            const keel::i32 iy0 = keel::clamp(static_cast<keel::i32>(std::floor(yMin)), 0, static_cast<keel::i32>(h) - 1);
-            const keel::i32 iy1 = keel::clamp(static_cast<keel::i32>(std::ceil(keel::max(yMin + 1.0f, yMax))), iy0, static_cast<keel::i32>(h) - 1);
+            const keel::i32 iy0 = keel::clamp(keel::floor_i32(yMin), 0, static_cast<keel::i32>(h) - 1);
+            const keel::i32 iy1 = keel::clamp(
+                keel::ceil_i32(keel::max(yMin + 1.0f, yMax)),
+                iy0,
+                static_cast<keel::i32>(h) - 1
+            );
             for (keel::i32 y = iy0; y <= iy1; ++y) {
                 pixels[static_cast<keel::usize>(y) * w + x] = barPx;
             }
@@ -649,7 +652,7 @@ struct WaveformBitmapCache {
         // 1. Vertical time grid lines
         if (reqShowGrid && majorTimeStep > 1e-9) {
             for (double t = firstMajorTime; t <= endSec + 1e-9; t += majorTimeStep) {
-                const keel::i32 tx = static_cast<keel::i32>(std::lround(((t - startSec) / viewSpan) * static_cast<double>(w)));
+                const keel::i32 tx = keel::round_i32(((t - startSec) / viewSpan) * static_cast<double>(w));
                 if (tx >= 0 && tx < static_cast<keel::i32>(w)) {
                     keel::u32* colPtr = pixels.data() + tx;
                     for (keel::u32 y = 0; y < h; ++y) {
@@ -664,7 +667,11 @@ struct WaveformBitmapCache {
         static constexpr keel::StaticArray<float, 5> kNormLevels = {0.9f, 0.5f, 0.0f, -0.5f, -0.9f};
         for (float lv : kNormLevels) {
             if (!reqShowGrid && lv != 0.0f) continue;
-            const keel::i32 gy = keel::clamp(static_cast<keel::i32>(std::lround((0.5f - 0.5f * lv) * static_cast<float>(h))), 0, static_cast<keel::i32>(h) - 1);
+            const keel::i32 gy = keel::clamp(
+                keel::round_i32((0.5f - 0.5f * lv) * static_cast<float>(h)),
+                0,
+                static_cast<keel::i32>(h) - 1
+            );
             keel::fill(keel::MutArrayRef<keel::u32>(pixels.data() + static_cast<keel::usize>(gy) * w, w),
                        (lv == 0.0f) ? zeroLinePx : subGridPx);
         }
@@ -680,7 +687,7 @@ struct WaveformBitmapCache {
 
         const float hf = static_cast<float>(h);
         float prevMidY = hf * 0.5f;
-        const keel::i32 clipTickH = keel::max(1, static_cast<keel::i32>(std::lround(3.0f * uiScale)));
+        const keel::i32 clipTickH = keel::max(1, keel::round_i32(3.0f * uiScale));
 
         for (keel::u32 col = 0; col < w; ++col) {
             const double t0 = startSec + (static_cast<double>(col) / static_cast<double>(w)) * viewSpan;
@@ -700,8 +707,8 @@ struct WaveformBitmapCache {
                 prevMidY = 0.5f * (yTop + yBot);
             }
 
-            const keel::i32 iy0 = keel::clamp(static_cast<keel::i32>(std::floor(yTop)), 0, static_cast<keel::i32>(h) - 1);
-            const keel::i32 iy1 = keel::clamp(static_cast<keel::i32>(std::ceil(yBot)), iy0, static_cast<keel::i32>(h) - 1);
+            const keel::i32 iy0 = keel::clamp(keel::floor_i32(yTop), 0, static_cast<keel::i32>(h) - 1);
+            const keel::i32 iy1 = keel::clamp(keel::ceil_i32(yBot), iy0, static_cast<keel::i32>(h) - 1);
             for (keel::i32 y = iy0; y <= iy1; ++y) {
                 pixels[static_cast<keel::usize>(y) * w + col] = peakPx;
             }
@@ -710,8 +717,8 @@ struct WaveformBitmapCache {
                 const float rmsTop = AmplitudeToNormY(pk.rmsVal, gain, reqScale) * hf;
                 const float rmsBot = AmplitudeToNormY(-pk.rmsVal, gain, reqScale) * hf;
                 if (rmsBot > rmsTop + 1.0f) {
-                    const keel::i32 ir0 = keel::clamp(static_cast<keel::i32>(std::floor(rmsTop)), 0, static_cast<keel::i32>(h) - 1);
-                    const keel::i32 ir1 = keel::clamp(static_cast<keel::i32>(std::ceil(rmsBot)), ir0, static_cast<keel::i32>(h) - 1);
+                    const keel::i32 ir0 = keel::clamp(keel::floor_i32(rmsTop), 0, static_cast<keel::i32>(h) - 1);
+                    const keel::i32 ir1 = keel::clamp(keel::ceil_i32(rmsBot), ir0, static_cast<keel::i32>(h) - 1);
                     for (keel::i32 y = ir0; y <= ir1; ++y) {
                         pixels[static_cast<keel::usize>(y) * w + col] = rmsPx;
                     }
@@ -933,7 +940,7 @@ struct SignalViewGeometry {
         "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
     };
     const float midi = 69.0f + 12.0f * std::log2(freqHz / 440.0f);
-    const keel::i32 midiInt = static_cast<keel::i32>(std::lround(midi));
+    const keel::i32 midiInt = keel::round_i32(midi);
     if (midiInt < 12 || midiInt > 127) return {};
     const keel::i32 noteIdx = ((midiInt % 12) + 12) % 12;
     const keel::i32 octave = (midiInt / 12) - 1;
@@ -1609,7 +1616,7 @@ SignalViewResponse SignalView::Run(
         if (!samples.empty()) {
             res.cursorSampleIndex = keel::min(
                 samples.size() - 1,
-                static_cast<keel::usize>(keel::max(0.0, std::round(res.cursorTimeSec * static_cast<double>(sampleRate))))
+                static_cast<keel::usize>(keel::round_u64(res.cursorTimeSec * static_cast<double>(sampleRate)))
             );
             res.cursorAmplitude = samples[res.cursorSampleIndex];
             res.cursorDbFs = 20.0f * std::log10(keel::max(1e-6f, std::abs(res.cursorAmplitude)));
@@ -1875,8 +1882,8 @@ void main() {
                               smallFs * 0.85f, textMuted, 0.0f, 0.5f);
 
                 const Rect ov = g.overviewRect;
-                const keel::u32 ovW = keel::max(1u, static_cast<keel::u32>(std::lround(ov.w)));
-                const keel::u32 ovH = keel::max(1u, static_cast<keel::u32>(std::lround(ov.h)));
+                const keel::u32 ovW = keel::max(1u, keel::round_u32(ov.w));
+                const keel::u32 ovH = keel::max(1u, keel::round_u32(ov.h));
                 s.overviewCache.EnsureValid(s.pyramid, s.lastSignalFp, ovW, ovH, isDark, th.palette.accent);
                 if (!s.overviewCache.pixels.empty()) {
                     c.DrawPixels(s.overviewCache.pixels.data(), s.overviewCache.width, s.overviewCache.height, ov);
@@ -1975,9 +1982,14 @@ void main() {
 
                     const Color peakCol = isDark ? Color(56, 189, 248, 215) : Color(2, 132, 199, 220);
                     const Color rmsCol  = isDark ? Color(14, 165, 233, 255) : Color(3, 105, 161, 255);
-                    const keel::i64 idxStart = keel::max<keel::i64>(0, static_cast<keel::i64>(std::floor(s.viewStartSec * sampleRate)) - 1);
-                    const keel::i64 idxEnd   = keel::min<keel::i64>(static_cast<keel::i64>(p->samples.size()) - 1,
-                                                                static_cast<keel::i64>(std::ceil(s.viewEndSec * sampleRate)) + 1);
+                    const keel::i64 idxStart = keel::max<keel::i64>(
+                        0,
+                        keel::floor_i64(s.viewStartSec * sampleRate) - 1
+                    );
+                    const keel::i64 idxEnd = keel::min<keel::i64>(
+                        static_cast<keel::i64>(p->samples.size()) - 1,
+                        keel::ceil_i64(s.viewEndSec * sampleRate) + 1
+                    );
                     Vec2 prevPt{};
                     bool hasPrev = false;
                     for (keel::i64 idx = idxStart; idx <= idxEnd; ++idx) {
@@ -1995,8 +2007,8 @@ void main() {
                         hasPrev = true;
                     }
                 } else {
-                    const keel::u32 wpW = keel::max(1u, static_cast<keel::u32>(std::lround(wp.w)));
-                    const keel::u32 wpH = keel::max(1u, static_cast<keel::u32>(std::lround(wp.h)));
+                    const keel::u32 wpW = keel::max(1u, keel::round_u32(wp.w));
+                    const keel::u32 wpH = keel::max(1u, keel::round_u32(wp.h));
                     s.waveCache.EnsureValid(
                         p->samples,
                         s.pyramid,
@@ -2092,7 +2104,7 @@ void main() {
                     }
                 }
 
-                const keel::i32 numFreqTicks = keel::max(2, static_cast<keel::i32>(std::floor(sp.h / (32.0f * scale))));
+                const keel::i32 numFreqTicks = keel::max(2, keel::floor_i32(sp.h / (32.0f * scale)));
                 for (keel::i32 i = 0; i <= numFreqTicks; ++i) {
                     const float normFromBottom = static_cast<float>(i) / static_cast<float>(numFreqTicks);
                     const float gy = sp.Bottom() - normFromBottom * sp.h;
@@ -2131,7 +2143,7 @@ void main() {
                     const Rect barStrip(cb.x + 5.0f * scale, cb.y + 6.0f * scale, 8.0f * scale, keel::max(8.0f, cb.h - 12.0f * scale));
                     DrawColormapBar(c, barStrip, o.colormap, true, false, 2.0f * scale, borderCol);
 
-                    const keel::i32 dbTicks = keel::max(2, static_cast<keel::i32>(std::floor(barStrip.h / (28.0f * scale))));
+                    const keel::i32 dbTicks = keel::max(2, keel::floor_i32(barStrip.h / (28.0f * scale)));
                     for (keel::i32 i = 0; i <= dbTicks; ++i) {
                         const float frac = static_cast<float>(i) / static_cast<float>(dbTicks);
                         const float dbVal = o.dbCeil - frac * (o.dbCeil - effFloor);
@@ -2296,7 +2308,7 @@ void main() {
                 const float normX = keel::clamp((p->mousePos.x - activePlot.x) / keel::max(1.0f, activePlot.w), 0.0f, 1.0f);
                 const double curT = s.viewStartSec + static_cast<double>(normX) * viewSpan;
                 const keel::usize sampleIdx = !p->samples.empty()
-                    ? keel::min(p->samples.size() - 1, static_cast<keel::usize>(keel::max(0.0, std::round(curT * sampleRate))))
+                    ? keel::min(p->samples.size() - 1, static_cast<keel::usize>(keel::round_u64(curT * sampleRate)))
                     : 0;
                 const float amp = !p->samples.empty() ? p->samples[sampleIdx] : 0.0f;
                 const float ampDb = 20.0f * std::log10(keel::max(1e-6f, std::abs(amp)));

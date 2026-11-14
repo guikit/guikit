@@ -1,6 +1,7 @@
 #include "guikit/backend/sdl_canvas.hpp"
 #include "guikit/core/text_util.hpp"
 #include "guikit/core/tokens.hpp"
+#include "keel/math.h"
 #include "keel/small_array.h"
 #include "keel/string.h"
 #include <SDL3/SDL.h>
@@ -9,8 +10,6 @@
 namespace guikit {
 
 namespace {
-
-constexpr float kPi = 3.14159265358979323846f;
 
 [[nodiscard]] constexpr SDL_FColor ToSdlFColor(Color c) noexcept {
     return SDL_FColor{
@@ -94,10 +93,10 @@ void SdlCanvas::ApplyActiveClip() {
     } else {
         const Rect& cr = m_clipStack.back();
         const SDL_Rect sdlR{
-            static_cast<keel::i32>(std::floor(cr.x)),
-            static_cast<keel::i32>(std::floor(cr.y)),
-            static_cast<keel::i32>(std::ceil(cr.w)),
-            static_cast<keel::i32>(std::ceil(cr.h))
+            keel::floor_i32(cr.x),
+            keel::floor_i32(cr.y),
+            keel::ceil_i32(cr.w),
+            keel::ceil_i32(cr.h)
         };
         SDL_SetRenderClipRect(m_renderer, &sdlR);
     }
@@ -155,13 +154,13 @@ void SdlCanvas::DrawRoundRect(
     };
 
     // 1. Top-left corner (PI to 3*PI/2)
-    addArc(rect.x + r, rect.y + r, kPi, 1.5f * kPi);
+    addArc(rect.x + r, rect.y + r, keel::kPiF, keel::kPiF + keel::kHalfPiF);
     // 2. Top-right corner (3*PI/2 to 2*PI)
-    addArc(rect.Right() - r, rect.y + r, 1.5f * kPi, 2.0f * kPi);
+    addArc(rect.Right() - r, rect.y + r, keel::kPiF + keel::kHalfPiF, keel::kTauF);
     // 3. Bottom-right corner (0 to PI/2)
-    addArc(rect.Right() - r, rect.Bottom() - r, 0.0f, 0.5f * kPi);
+    addArc(rect.Right() - r, rect.Bottom() - r, 0.0f, keel::kHalfPiF);
     // 4. Bottom-left corner (PI/2 to PI)
-    addArc(rect.x + r, rect.Bottom() - r, 0.5f * kPi, kPi);
+    addArc(rect.x + r, rect.Bottom() - r, keel::kHalfPiF, keel::kPiF);
 
     if (fill.a > 0) {
         SDL_SetRenderDrawBlendMode(m_renderer, SDL_BLENDMODE_BLEND);

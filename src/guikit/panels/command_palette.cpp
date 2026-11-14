@@ -7,6 +7,7 @@
 #include "keel/array.h"
 #include "keel/core.h"
 #include "keel/format.h"
+#include "keel/math.h"
 #include "keel/small_array.h"
 #include "keel/static_array.h"
 #include "keel/string.h"
@@ -556,7 +557,10 @@ CommandPaletteResponse CommandPalette::Run(
         } else {
             const float alpha = keel::clamp(backdropOpacity, 0.0f, 0.95f);
             if (alpha > 0.001f && backdropRect.w > 0.0f && backdropRect.h > 0.0f) {
-                c.DrawRect(backdropRect, Color(0, 0, 0, static_cast<keel::u8>(std::round(alpha * 255.0f))));
+                c.DrawRect(
+                    backdropRect,
+                    Color(0, 0, 0, static_cast<keel::u8>(keel::clamp(keel::round_i32(alpha * 255.0f), 0, 255)))
+                );
             }
         }
 

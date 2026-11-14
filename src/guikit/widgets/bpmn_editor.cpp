@@ -1,5 +1,4 @@
 #include "guikit/widgets/bpmn_editor.hpp"
-
 #include <cmath>
 #include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
@@ -7,6 +6,7 @@
 #include "keel/array.h"
 #include "keel/format.h"
 #include "keel/hash_map.h"
+#include "keel/math.h"
 #include "keel/number.h"
 #include "keel/small_array.h"
 #include "keel/static_array.h"
@@ -15,8 +15,6 @@
 namespace guikit {
 
 namespace {
-
-constexpr float kPi = 3.14159265358979323846f;
 
 struct BpmnPalette {
     Color canvasBg{};
@@ -1178,8 +1176,8 @@ void DrawDashedLine(ICanvas& canvas, Vec2 a, Vec2 b, Color col, float width, flo
 
 void DrawDashedCircle(ICanvas& canvas, Vec2 center, float r, Color stroke, float strokeWidth, keel::i32 segments = 16) {
     for (keel::i32 i = 0; i < segments; ++i) {
-        const float a0 = (static_cast<float>(i) * 2.0f * kPi) / static_cast<float>(segments);
-        const float a1 = ((static_cast<float>(i) + 0.58f) * 2.0f * kPi) / static_cast<float>(segments);
+        const float a0 = (static_cast<float>(i) * keel::kTauF) / static_cast<float>(segments);
+        const float a1 = ((static_cast<float>(i) + 0.58f) * keel::kTauF) / static_cast<float>(segments);
         canvas.DrawLine(
             {center.x + std::cos(a0) * r, center.y + std::sin(a0) * r},
             {center.x + std::cos(a1) * r, center.y + std::sin(a1) * r},
@@ -1247,7 +1245,7 @@ void DrawEventDefinitionSymbol(
                 sw
             );
             for (keel::i32 i = 0; i < 4; ++i) {
-                const float ang = static_cast<float>(i) * (kPi * 0.5f);
+                const float ang = static_cast<float>(i) * keel::kHalfPiF;
                 canvas.DrawLine(
                     {center.x + std::cos(ang) * (cr * 0.72f), center.y + std::sin(ang) * (cr * 0.72f)},
                     {center.x + std::cos(ang) * cr, center.y + std::sin(ang) * cr},
@@ -1309,7 +1307,7 @@ void DrawEventDefinitionSymbol(
 
 void DrawCogwheel(ICanvas& canvas, Vec2 c, float r, Color col, Color bgCol, float sw) {
     for (keel::i32 i = 0; i < 4; ++i) {
-        const float ang = static_cast<float>(i) * (kPi * 0.25f);
+        const float ang = static_cast<float>(i) * (keel::kPiF * 0.25f);
         canvas.DrawLine(
             {c.x - std::cos(ang) * r, c.y - std::sin(ang) * r},
             {c.x + std::cos(ang) * r, c.y + std::sin(ang) * r},
@@ -1425,8 +1423,8 @@ void DrawGatewayMarker(ICanvas& canvas, Vec2 center, float halfSize, BpmnGateway
             canvas.DrawRoundRect(Rect(center.x - r2, center.y - r2, r2 * 2.0f, r2 * 2.0f), r2, Color(0, 0, 0, 0), col, swThin);
             const float pr = halfSize * 0.24f;
             for (keel::i32 i = 0; i < 5; ++i) {
-                const float a0 = -kPi * 0.5f + static_cast<float>(i) * (2.0f * kPi / 5.0f);
-                const float a1 = -kPi * 0.5f + static_cast<float>((i + 1) % 5) * (2.0f * kPi / 5.0f);
+                const float a0 = -keel::kHalfPiF + static_cast<float>(i) * (keel::kTauF / 5.0f);
+                const float a1 = -keel::kHalfPiF + static_cast<float>((i + 1) % 5) * (keel::kTauF / 5.0f);
                 canvas.DrawLine(
                     {center.x + std::cos(a0) * pr, center.y + std::sin(a0) * pr},
                     {center.x + std::cos(a1) * pr, center.y + std::sin(a1) * pr},
@@ -1601,7 +1599,7 @@ void DrawNodeVisual(
 
     // Active Token simulation pulse
     if (node.activeTokensInside > 0) {
-        const float pad = (4.0f + 2.5f * std::sin(animPhase * 2.0f * kPi)) * zs;
+        const float pad = (4.0f + 2.5f * std::sin(animPhase * keel::kTauF)) * zs;
         const float rad = (node.type == BpmnNodeType::StartEvent || node.type == BpmnNodeType::IntermediateEvent ||
                            node.type == BpmnNodeType::BoundaryEvent || node.type == BpmnNodeType::EndEvent)
             ? (sr.w * 0.5f + pad)
@@ -1728,7 +1726,7 @@ void DrawNodeVisual(
             if (node.activeTokensInside > 0) {
                 const Rect progBg(sr.x + 12.0f * zs, sr.Bottom() - 10.0f * zs, sr.w - 24.0f * zs, 4.0f * zs);
                 canvas.DrawRoundRect(progBg, 2.0f * zs, pal.simActiveGreen.WithAlpha(55));
-                const float fillW = progBg.w * (0.25f + 0.75f * std::abs(std::sin(animPhase * kPi)));
+                const float fillW = progBg.w * (0.25f + 0.75f * std::abs(std::sin(animPhase * keel::kPiF)));
                 canvas.DrawRoundRect(Rect(progBg.x, progBg.y, fillW, progBg.h), 2.0f * zs, pal.simActiveGreen);
             } else if (showSlaHeatmap && !node.documentation.empty() && zoom >= 0.55f && node.type == BpmnNodeType::Task && !node.parallelMultiInstance && !node.loopMarker) {
                 const float subFs = keel::clamp(9.0f * zs, 7.5f * s, 10.5f * s);

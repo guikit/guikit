@@ -3,6 +3,7 @@
 #include "keel/algo.h"
 #include "keel/array.h"
 #include "keel/core.h"
+#include "keel/math.h"
 #include "keel/small_array.h"
 
 namespace guikit::geo {
@@ -69,7 +70,7 @@ void BridgeHoleIntoContour(
     const guikit::GeoCoord M = hole[holeMaxIdx];
 
     // 2. Cast ray M + t * (1, 0) (eastward along constant latitude M.lat) against all contour edges
-    double bestIntersectLon = HUGE_VAL;
+    double bestIntersectLon = keel::Limits<double>::infinity();
     keel::usize bestEdgeEndpointIdx = keel::kInvalidIndex;
     guikit::GeoCoord I{};
 
@@ -105,7 +106,7 @@ void BridgeHoleIntoContour(
 
     // Fallback: if ray missed due to numerical edge cases, connect to closest contour vertex
     if (bestEdgeEndpointIdx == keel::kInvalidIndex) {
-        double minDistSq = HUGE_VAL;
+        double minDistSq = keel::Limits<double>::infinity();
         bestEdgeEndpointIdx = 0;
         for (keel::usize i = 0; i < n; ++i) {
             const double dx = contour[i].lon - M.lon;
@@ -128,7 +129,7 @@ void BridgeHoleIntoContour(
             }
 
             double minAngleCos = -2.0; // We want smallest angle with +X axis (i.e. largest cos)
-            double minDistSq = HUGE_VAL;
+            double minDistSq = keel::Limits<double>::infinity();
             keel::usize visibleIdx = bestEdgeEndpointIdx;
 
             for (keel::usize i = 0; i < n; ++i) {
@@ -219,7 +220,7 @@ void PolygonTriangulator::TriangulatePolygon(GeoPolygon& poly) {
     if (!poly.interiorRings.empty()) {
         struct PreparedHole {
             keel::Array<guikit::GeoCoord> ring{};
-            double maxLon{-HUGE_VAL};
+            double maxLon{-keel::Limits<double>::infinity()};
         };
         keel::Array<PreparedHole> holes;
         holes.reserve(poly.interiorRings.size());

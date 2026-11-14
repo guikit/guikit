@@ -1,4 +1,3 @@
-#include <cmath>
 #include "../demo_context.hpp"
 
 namespace guikit::demo {
@@ -97,9 +96,7 @@ void RenderImageInspector(guikit::Context& ui, DemoContext&) {
 }
 
 void RenderImageStage(guikit::Context& ui, DemoContext& ctx) {
-    const keel::u8 alpha = static_cast<keel::u8>(
-        keel::clamp(static_cast<keel::i32>(std::round(s_state.opacityPct * 2.55f)), 0, 255)
-    );
+    const keel::u8 alpha = static_cast<keel::u8>(keel::clamp(keel::round_i32(s_state.opacityPct * 2.55f), 0, 255));
     if (auto el = ui.Size(ctx.elemSize).Element({
         .label = ctx.GetElementLabel(),
         .description = ctx.GetElementDescription(),
@@ -131,7 +128,7 @@ void RenderImageStage(guikit::Context& ui, DemoContext& ctx) {
 }
 
 keel::String GenerateImageCode(const DemoContext& ctx) {
-    const keel::i32 alpha = keel::clamp(static_cast<keel::i32>(std::round(s_state.opacityPct * 2.55f)), 0, 255);
+    const keel::i32 alpha = keel::clamp(keel::round_i32(s_state.opacityPct * 2.55f), 0, 255);
 
     return keel::format(
         "if (auto el = ui.{}Element({{\n"

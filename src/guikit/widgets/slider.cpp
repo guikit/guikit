@@ -6,6 +6,7 @@
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
 #include "keel/format.h"
+#include "keel/math.h"
 
 namespace guikit {
 
@@ -35,12 +36,12 @@ void FormatSliderValue(
 ) noexcept {
     if (!format.empty()) {
         if (isInt) {
-            keel::format_buf(valBuf, bufSize, format, static_cast<keel::i64>(std::round(value)));
+            keel::format_buf(valBuf, bufSize, format, keel::round_i64(value));
         } else {
             keel::format_buf(valBuf, bufSize, format, value);
         }
     } else if (isInt) {
-        keel::format_buf(valBuf, bufSize, "{}", static_cast<keel::i64>(std::round(value)));
+        keel::format_buf(valBuf, bufSize, "{}", keel::round_i64(value));
     } else if (std::abs(value - std::round(value)) < 0.0001) {
         keel::format_buf(valBuf, bufSize, "{:.0f}", value);
     } else {
@@ -687,7 +688,7 @@ Response Slider::Run(
     // Write back updated value
     if (valDouble != nullptr) *valDouble = currentVal;
     if (valFloat != nullptr)  *valFloat = static_cast<float>(currentVal);
-    if (valInt != nullptr)    *valInt = static_cast<keel::i64>(std::round(currentVal));
+    if (valInt != nullptr)    *valInt = keel::round_i64(currentVal);
 
     // Format current value string
     char valBuf[64];
@@ -972,7 +973,11 @@ Response StepSlider::Run(
                 res.pressed = true;
                 const float t = layout.RatioAt(ctx.GetMousePos());
                 const keel::usize newIdx = (totalSteps > 1)
-                    ? keel::clamp(static_cast<keel::usize>(std::round(t * static_cast<float>(totalSteps - 1))), keel::usize{0}, totalSteps - 1)
+                    ? keel::clamp(
+                          static_cast<keel::usize>(keel::round_u64(t * static_cast<float>(totalSteps - 1))),
+                          keel::usize{0},
+                          totalSteps - 1
+                      )
                     : 0;
 
                 if (newIdx != curIdx) {
@@ -1379,8 +1384,8 @@ void FormatRangeSliderPair(
                 outBuf,
                 bufSize,
                 format,
-                static_cast<keel::i64>(std::round(lowVal)),
-                static_cast<keel::i64>(std::round(highVal))
+                keel::round_i64(lowVal),
+                keel::round_i64(highVal)
             );
         } else {
             keel::format_buf(outBuf, bufSize, format, lowVal, highVal);
@@ -1594,8 +1599,8 @@ Response RangeSlider::Run(
     if (highDouble != nullptr) *highDouble = curHigh;
     if (lowFloat != nullptr)   *lowFloat = static_cast<float>(curLow);
     if (highFloat != nullptr)  *highFloat = static_cast<float>(curHigh);
-    if (lowInt != nullptr)     *lowInt = static_cast<keel::i64>(std::round(curLow));
-    if (highInt != nullptr)    *highInt = static_cast<keel::i64>(std::round(curHigh));
+    if (lowInt != nullptr)     *lowInt = keel::round_i64(curLow);
+    if (highInt != nullptr)    *highInt = keel::round_i64(curHigh);
 
     Node* node = ctx.CreateNode(NodeType::RangeSlider, id);
     node->theme = pushedTheme;
@@ -2131,7 +2136,11 @@ void ProgressBar::Render(
             if (opts.peakHoldValue.has_value() && range > 0.0) {
                 const float peakRatio = static_cast<float>(keel::clamp((*opts.peakHoldValue - rangeMin) / range, 0.0, 1.0));
                 if (peakRatio > 0.001f) {
-                    peakSegIdx = keel::clamp(static_cast<keel::i32>(std::ceil(peakRatio * static_cast<float>(segCount))) - 1, 0, static_cast<keel::i32>(segCount) - 1);
+                    peakSegIdx = keel::clamp(
+                        keel::ceil_i32(peakRatio * static_cast<float>(segCount)) - 1,
+                        0,
+                        static_cast<keel::i32>(segCount) - 1
+                    );
                 }
             }
 
@@ -2220,7 +2229,11 @@ void ProgressBar::Render(
         if (opts.peakHoldValue.has_value() && range > 0.0) {
             const float peakRatio = static_cast<float>(keel::clamp((*opts.peakHoldValue - rangeMin) / range, 0.0, 1.0));
             if (peakRatio > 0.001f) {
-                peakSegIdx = keel::clamp(static_cast<keel::i32>( std::ceil(peakRatio * static_cast<float>(segCount)) ) - 1, 0, static_cast<keel::i32>(segCount) - 1);
+                peakSegIdx = keel::clamp(
+                    keel::ceil_i32(peakRatio * static_cast<float>(segCount)) - 1,
+                    0,
+                    static_cast<keel::i32>(segCount) - 1
+                );
             }
         }
 

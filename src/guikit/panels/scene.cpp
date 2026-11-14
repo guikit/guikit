@@ -8,6 +8,7 @@
 #include "guikit/widgets/image.hpp"
 #include "keel/core.h"
 #include "keel/format.h"
+#include "keel/math.h"
 #include "keel/string.h"
 
 namespace guikit {
@@ -702,9 +703,8 @@ void SceneScope::DrawArc(
     keel::i32 segments
 ) {
     if (!m_payload || worldRadius <= 0.0f || segments < 2 || std::abs(sweepAngleDeg) < 0.01f) return;
-    constexpr float kDegToRad = 3.14159265358979323846f / 180.0f;
-    const float startRad = startAngleDeg * kDegToRad;
-    const float stepRad = (sweepAngleDeg * kDegToRad) / static_cast<float>(segments);
+    const float startRad = keel::deg_to_rad(startAngleDeg);
+    const float stepRad = keel::deg_to_rad(sweepAngleDeg) / static_cast<float>(segments);
 
     Vec2 prev{
         worldCenter.x + std::cos(startRad) * worldRadius,
@@ -1606,9 +1606,9 @@ void Scene::RenderBackgroundAndWorld(
     auto blendColor = [](Color c, Color target, float t) noexcept -> Color {
         if (c.a == 0) return c;
         return Color(
-            static_cast<keel::u8>(std::round(c.r + (target.r - c.r) * t)),
-            static_cast<keel::u8>(std::round(c.g + (target.g - c.g) * t)),
-            static_cast<keel::u8>(std::round(c.b + (target.b - c.b) * t)),
+            static_cast<keel::u8>(keel::clamp(keel::round_i32(c.r + (target.r - c.r) * t), 0, 255)),
+            static_cast<keel::u8>(keel::clamp(keel::round_i32(c.g + (target.g - c.g) * t), 0, 255)),
+            static_cast<keel::u8>(keel::clamp(keel::round_i32(c.b + (target.b - c.b) * t), 0, 255)),
             c.a
         );
     };

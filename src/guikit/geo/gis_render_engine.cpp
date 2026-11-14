@@ -1,6 +1,6 @@
 #include "guikit/geo/gis_render_engine.hpp"
-#include "guikit/geo/polygon_triangulator.hpp"
 #include "guikit/backend/vector_backend.hpp"
+#include "guikit/geo/polygon_triangulator.hpp"
 #include "keel/algo.h"
 #include "keel/array.h"
 #include "keel/core.h"
@@ -9,6 +9,7 @@
 #include "keel/hash.h"
 #include "keel/hash_map.h"
 #include "keel/hash_set.h"
+#include "keel/math.h"
 #include "keel/smart_ptr.h"
 #include "keel/string.h"
 #include "keel/time.h"
@@ -83,7 +84,7 @@ constexpr float kTileGuardBandPx = 8.0f;
 
 [[nodiscard]] guikit::Color WithAlpha(guikit::Color c, float alphaFactor) noexcept {
     const float a = keel::clamp(alphaFactor * 255.0f, 0.0f, 255.0f);
-    return guikit::Color(c.r, c.g, c.b, static_cast<keel::u8>(std::lround(a)));
+    return guikit::Color(c.r, c.g, c.b, static_cast<keel::u8>(keel::round_i32(a)));
 }
 
 [[nodiscard]] guikit::Color BrightenColor(guikit::Color c, keel::i32 delta) noexcept {
@@ -98,10 +99,18 @@ constexpr float kTileGuardBandPx = 8.0f;
 [[nodiscard]] guikit::Color LerpColor(guikit::Color a, guikit::Color b, float t) noexcept {
     const float ct = keel::clamp(t, 0.0f, 1.0f);
     return guikit::Color(
-        static_cast<keel::u8>(std::lround(static_cast<float>(a.r) + (static_cast<float>(b.r) - static_cast<float>(a.r)) * ct)),
-        static_cast<keel::u8>(std::lround(static_cast<float>(a.g) + (static_cast<float>(b.g) - static_cast<float>(a.g)) * ct)),
-        static_cast<keel::u8>(std::lround(static_cast<float>(a.b) + (static_cast<float>(b.b) - static_cast<float>(a.b)) * ct)),
-        static_cast<keel::u8>(std::lround(static_cast<float>(a.a) + (static_cast<float>(b.a) - static_cast<float>(a.a)) * ct))
+        static_cast<keel::u8>(
+            keel::clamp(keel::round_i32(keel::lerp(static_cast<float>(a.r), static_cast<float>(b.r), ct)), 0, 255)
+        ),
+        static_cast<keel::u8>(
+            keel::clamp(keel::round_i32(keel::lerp(static_cast<float>(a.g), static_cast<float>(b.g), ct)), 0, 255)
+        ),
+        static_cast<keel::u8>(
+            keel::clamp(keel::round_i32(keel::lerp(static_cast<float>(a.b), static_cast<float>(b.b), ct)), 0, 255)
+        ),
+        static_cast<keel::u8>(
+            keel::clamp(keel::round_i32(keel::lerp(static_cast<float>(a.a), static_cast<float>(b.a), ct)), 0, 255)
+        )
     );
 }
 
@@ -594,8 +603,8 @@ struct CellNorm3857Bounds {
     }
 
     const double tileN = static_cast<double>(1 << keel::clamp(cell.id.z, 0, 22));
-    const double n = guikit::MapGrid::kPi * (1.0 - 2.0 * static_cast<double>(normPt3857.y));
-    const double latDeg = std::atan(std::sinh(n)) * (180.0 / guikit::MapGrid::kPi);
+    const double n = keel::kPi * (1.0 - 2.0 * static_cast<double>(normPt3857.y));
+    const double latDeg = keel::rad_to_deg(std::atan(std::sinh(n)));
 
     if (guikit::MapGrid::IsCylindricalCrs(crs)) {
         const auto [uCrs, vCrs] = guikit::MapGrid::GeoToNormalizedDouble({latDeg, 0.0}, crs);
@@ -3781,10 +3790,10 @@ private:
     }
 
     [[nodiscard]] bool TryReserveWorldBox(float wx, float wy, float w, float h) noexcept {
-        const keel::i32 c0 = static_cast<keel::i32>(std::floor(wx * 0.125f));
-        const keel::i32 c1 = static_cast<keel::i32>(std::floor((wx + w) * 0.125f));
-        const keel::i32 r0 = static_cast<keel::i32>(std::floor(wy * 0.125f));
-        const keel::i32 r1 = static_cast<keel::i32>(std::floor((wy + h) * 0.125f));
+        const keel::i32 c0 = keel::floor_i32(wx * 0.125f);
+        const keel::i32 c1 = keel::floor_i32((wx + w) * 0.125f);
+        const keel::i32 r0 = keel::floor_i32(wy * 0.125f);
+        const keel::i32 r1 = keel::floor_i32((wy + h) * 0.125f);
 
         for (keel::i32 r = r0; r <= r1; ++r) {
             for (keel::i32 c = c0; c <= c1; ++c) {
@@ -4473,7 +4482,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
         : keel::StringRef{};
     const keel::u8 basemapOpacityByte = activeBasemapProvider
         ? static_cast<keel::u8>(
-              keel::clamp(static_cast<keel::i32>(std::round(keel::clamp(cfg.basemapOpacity, 0.0f, 1.0f) * 255.0f)), 0, 255)
+              keel::clamp(keel::round_i32(keel::clamp(cfg.basemapOpacity, 0.0f, 1.0f) * 255.0f), 0, 255)
           )
         : 0u;
     const bool useBasemapOverlay = (activeBasemapProvider != nullptr && basemapOpacityByte > 0);
@@ -4756,7 +4765,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
                 }
             }
             const keel::u8 layerOpacityByte = static_cast<keel::u8>(
-                keel::clamp(static_cast<keel::i32>(std::round(effectiveOpacity * 255.0f)), 0, 255)
+                keel::clamp(keel::round_i32(effectiveOpacity * 255.0f), 0, 255)
             );
             if (layerOpacityByte == 0) continue;
 
@@ -5403,8 +5412,8 @@ GisRenderStats GisRenderEngine::RenderLayers(
 
             const guikit::GeoCoord pt = feat.points[0];
             const float d = keel::max(0.0f, feat.depthMeters);
-            const keel::i32 wholeM = static_cast<keel::i32>(std::floor(d + 0.04f));
-            const keel::i32 tenths = static_cast<keel::i32>(std::lround((d - static_cast<float>(wholeM)) * 10.0f));
+            const keel::i32 wholeM = keel::floor_i32(d + 0.04f);
+            const keel::i32 tenths = keel::round_i32((d - static_cast<float>(wholeM)) * 10.0f);
             const guikit::Color sndCol = (d <= cfg.safetyContourM) ? shallowSndCol : deepSndCol;
 
             char wholeBuf[16]{};

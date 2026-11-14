@@ -1,8 +1,10 @@
 #include "guikit/context.hpp"
 #include "guikit/core/text_util.hpp"
+#include "keel/math.h"
 #include "keel/static_array.h"
 #include "keel/time.h"
 #include "keel/utf8.h"
+#include <cmath>
 #if defined(__GLIBC__)
 #include <malloc.h>
 #endif
@@ -3052,7 +3054,7 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
                 }
             }
             if (outerBg.a > 0) {
-                const keel::i32 steps = static_cast<keel::i32>(std::ceil(rad));
+                const keel::i32 steps = keel::ceil_i32(rad);
                 for (keel::i32 i = 0; i < steps; ++i) {
                     const float dy = static_cast<float>(i);
                     const float rem = keel::max(0.0f, rad - dy - 0.35f);

@@ -1,11 +1,11 @@
 #pragma once
 
-#include <cmath>
 #include "guikit/core/types.hpp"
 #include "guikit/geo/chart_data_source.hpp"
 #include "guikit/geo/map_grid.hpp"
 #include "keel/array.h"
 #include "keel/core.h"
+#include "keel/math.h"
 #include "keel/ref.h"
 #include "keel/rtree.h"
 #include "keel/smart_ptr.h"
@@ -415,9 +415,9 @@ struct GeoFeature {
     keel::String featureCode{}; ///< Uppercase S-57 / OGC feature code (e.g. "DEPARE", "SOUNDG", "BOYLAT")
     ChartFeatureClass chartClass{ChartFeatureClass::Generic};
     bool hasLight{false};       ///< True when feature is a light ("LIGHTS") or carries S-57 LITCHR/SIGGRP/VALNMR
-    float depthMeters{NAN};
-    float minDepthMeters{NAN};
-    float maxDepthMeters{NAN};
+    float depthMeters{keel::Limits<float>::quiet_nan()};
+    float minDepthMeters{keel::Limits<float>::quiet_nan()};
+    float maxDepthMeters{keel::Limits<float>::quiet_nan()};
     keel::String lightOrColor{};///< IHO S-57 COLOUR or IALA light descriptor
     keel::String labelRu{};
     keel::String labelEn{};
@@ -454,8 +454,10 @@ struct GeoFeature {
 
     [[nodiscard]] GeoFeature clone() const;
 
-    [[nodiscard]] bool HasDepth() const noexcept { return !std::isnan(depthMeters); }
-    [[nodiscard]] bool HasDepthRange() const noexcept { return !std::isnan(minDepthMeters) || !std::isnan(maxDepthMeters); }
+    [[nodiscard]] bool HasDepth() const noexcept { return !keel::is_nan(depthMeters); }
+    [[nodiscard]] bool HasDepthRange() const noexcept {
+        return !keel::is_nan(minDepthMeters) || !keel::is_nan(maxDepthMeters);
+    }
 
     /// Returns true if this feature has polygonal geometry (whether currently resident in RAM or paged out on disk).
     [[nodiscard]] bool HasPolygons() const noexcept {

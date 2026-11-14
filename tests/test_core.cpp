@@ -1132,6 +1132,20 @@ void TestKeelIntegration() {
         CHECK(reserveOnly.HasContentOrReserve());
         CHECK(std::abs(TextUtil::MeasureWidth(reserveOnly, 14.0f, nullptr) - wLongest) < 1e-4f);
     }
+
+    // 6. keel/math.h constants, numeric limits, and UB-free integer rounding
+    {
+        static_assert(keel::round_i32(2.5f) == 3);
+        static_assert(keel::round_i32(-2.5f) == -3);
+        static_assert(keel::round_i32(keel::Limits<float>::quiet_nan()) == 0);
+        static_assert(keel::round_i32(keel::Limits<float>::infinity()) == keel::Limits<keel::i32>::kMax);
+        static_assert(keel::floor_i32(-1.2f) == -2);
+        static_assert(keel::ceil_i32(1.2f) == 2);
+        static_assert(keel::approx_eq(keel::deg_to_rad(180.0f), keel::kPiF));
+        CHECK(keel::is_nan(keel::Limits<float>::quiet_nan()));
+        CHECK(keel::is_inf(keel::Limits<double>::infinity()));
+        CHECK(keel::round_u32(254.6f) == 255u);
+    }
 }
 
 void TestThemeTokensPaddingAndDateTime() {

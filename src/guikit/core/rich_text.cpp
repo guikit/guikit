@@ -3,6 +3,7 @@
 #include "guikit/core/id.hpp"
 #include "guikit/core/text_util.hpp"
 #include "keel/lru_cache.h"
+#include "keel/math.h"
 #include "keel/small_array.h"
 #include "keel/static_array.h"
 
@@ -253,9 +254,9 @@ FloatPair GetOrMeasureRichTextIntrinsicWidths(
     }
 
     thread_local keel::LruCache<keel::u64, FloatPair, 256> s_widthCache;
-    const keel::i32 qBodyFs = static_cast<keel::i32>(std::round(bodyFs * 10.0f));
-    const keel::i32 qCodeFs = static_cast<keel::i32>(std::round(inlineCodeFs * 10.0f));
-    const keel::i32 qScale = static_cast<keel::i32>(std::round(scale * 100.0f));
+    const keel::i32 qBodyFs = keel::round_i32(bodyFs * 10.0f);
+    const keel::i32 qCodeFs = keel::round_i32(inlineCodeFs * 10.0f);
+    const keel::i32 qScale = keel::round_i32(scale * 100.0f);
 
     const keel::u64 key = detail::HashArgs(
         richMarkup,
@@ -917,12 +918,12 @@ keel::Arc<const InlineFlowLayout> GetOrBuildRichTextFlow(
 ) {
     thread_local keel::LruCache<keel::u64, keel::Arc<const InlineFlowLayout>, 64> s_flowCache;
 
-    const keel::i32 qWidth = static_cast<keel::i32>(std::round(keel::max(0.0f, maxWidth) * 2.0f));
-    const keel::i32 qBaseFs = static_cast<keel::i32>(std::round(baseFontSize * 10.0f));
-    const keel::i32 qCodeFs = static_cast<keel::i32>(std::round(codeBaseFontSize * 10.0f));
-    const keel::i32 qLhScale = static_cast<keel::i32>(std::round(lineHeightScale * 100.0f));
-    const keel::i32 qZoom = static_cast<keel::i32>(std::round(zoom * 100.0f));
-    const keel::i32 qThemeScale = static_cast<keel::i32>(std::round(theme.scale * 100.0f));
+    const keel::i32 qWidth = keel::round_i32(keel::max(0.0f, maxWidth) * 2.0f);
+    const keel::i32 qBaseFs = keel::round_i32(baseFontSize * 10.0f);
+    const keel::i32 qCodeFs = keel::round_i32(codeBaseFontSize * 10.0f);
+    const keel::i32 qLhScale = keel::round_i32(lineHeightScale * 100.0f);
+    const keel::i32 qZoom = keel::round_i32(zoom * 100.0f);
+    const keel::i32 qThemeScale = keel::round_i32(theme.scale * 100.0f);
 
     const keel::u64 key = detail::HashArgs(
         richMarkup,

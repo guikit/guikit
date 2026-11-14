@@ -5,6 +5,7 @@
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
 #include "keel/format.h"
+#include "keel/math.h"
 #include "keel/static_array.h"
 
 namespace guikit {
@@ -332,7 +333,7 @@ void DrawChannelBarHorizontal(
         keel::i32 peakSegIdx = -1;
         if (ch.peakRatio > 0.005f) {
             peakSegIdx = keel::clamp(
-                static_cast<keel::i32>(std::ceil(ch.peakRatio * static_cast<float>(segCount))) - 1,
+                keel::ceil_i32(ch.peakRatio * static_cast<float>(segCount)) - 1,
                 0,
                 static_cast<keel::i32>(segCount) - 1
             );
@@ -479,7 +480,7 @@ void DrawChannelBarVertical(
         keel::i32 peakSegIdx = -1;
         if (ch.peakRatio > 0.005f) {
             peakSegIdx = keel::clamp(
-                static_cast<keel::i32>(std::ceil(ch.peakRatio * static_cast<float>(segCount))) - 1,
+                keel::ceil_i32(ch.peakRatio * static_cast<float>(segCount)) - 1,
                 0,
                 static_cast<keel::i32>(segCount) - 1
             );

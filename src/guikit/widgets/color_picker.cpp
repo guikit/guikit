@@ -1,11 +1,12 @@
 #include "guikit/widgets/color_picker.hpp"
 #include <cmath>
 #include <cstdio>
-#include "keel/static_array.h"
-#include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
+#include "keel/math.h"
+#include "keel/static_array.h"
 
 namespace guikit {
 
@@ -226,9 +227,9 @@ Color ColorPicker::HsvToRgb(float h, float s, float v, keel::u8 a) noexcept {
     }
 
     return Color(
-        static_cast<keel::u8>(keel::clamp(std::round((r1 + m) * 255.0f), 0.0f, 255.0f)),
-        static_cast<keel::u8>(keel::clamp(std::round((g1 + m) * 255.0f), 0.0f, 255.0f)),
-        static_cast<keel::u8>(keel::clamp(std::round((b1 + m) * 255.0f), 0.0f, 255.0f)),
+        static_cast<keel::u8>(keel::clamp(keel::round_i32((r1 + m) * 255.0f), 0, 255)),
+        static_cast<keel::u8>(keel::clamp(keel::round_i32((g1 + m) * 255.0f), 0, 255)),
+        static_cast<keel::u8>(keel::clamp(keel::round_i32((b1 + m) * 255.0f), 0, 255)),
         a
     );
 }
@@ -456,7 +457,9 @@ Response ColorPicker::Run(
                     state.lastSyncedColor = value;
                 } else if (state.dragTarget == 3 && L.alphaRect.w > 1.0f) {
                     const float alphaNorm = keel::clamp((mouse.x - L.alphaRect.x) / L.alphaRect.w, 0.0f, 1.0f);
-                    const keel::u8 newA = static_cast<keel::u8>(std::round(alphaNorm * 255.0f));
+                    const keel::u8 newA = static_cast<keel::u8>(
+                        keel::clamp(keel::round_i32(alphaNorm * 255.0f), 0, 255)
+                    );
                     if (value.a != newA) {
                         value.a = newA;
                         state.lastSyncedColor = value;
@@ -684,7 +687,7 @@ void ColorPicker::Render(
     if (textW > 8.0f) {
         const float hexW = canvas.MeasureText(hexText, fontSize).x;
         char alphaBuf[16]{};
-        const keel::i32 alphaPct = static_cast<keel::i32>(std::round((static_cast<float>(value.a) / 255.0f) * 100.0f));
+        const keel::i32 alphaPct = keel::round_i32((static_cast<float>(value.a) / 255.0f) * 100.0f);
         std::snprintf(alphaBuf, sizeof(alphaBuf), "%d%%", alphaPct);
         const float alphaW = opts.showAlpha ? canvas.MeasureText(alphaBuf, fontSize * 0.9f).x : 0.0f;
         const bool drawAlpha = opts.showAlpha && (textW >= hexW + alphaW + theme.Scale(14.0f));

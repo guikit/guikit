@@ -1,12 +1,9 @@
-#include "../demo_context.hpp"
 #include <cmath>
+#include "../demo_context.hpp"
 
 namespace guikit::demo {
 
 namespace {
-
-constexpr float kPi = 3.14159265358979323846f;
-constexpr float kTwoPi = 2.0f * kPi;
 
 struct SignalDemoState {
     keel::usize presetIdx = 0;
@@ -111,11 +108,11 @@ void BuildSignalPreset(SignalDemoState& st, keel::usize preset) {
             float v = 0.002f * WhiteNoise(rng);
 
             if (t < 0.55f) {
-                const float env = std::sin(kPi * (t / 0.55f));
-                const float f0 = 220.0f + 45.0f * std::sin(kTwoPi * 3.2f * t);
-                phaseF0 += static_cast<double>(kTwoPi * f0 / st.sampleRate);
+                const float env = std::sin(keel::kPiF * (t / 0.55f));
+                const float f0 = 220.0f + 45.0f * std::sin(keel::kTauF * 3.2f * t);
+                phaseF0 += static_cast<double>(keel::kTauF * f0 / st.sampleRate);
                 const float f1Center = 900.0f + 700.0f * (t / 0.55f);
-                const float f2Center = 2400.0f + 1600.0f * std::sin(kPi * (t / 0.55f));
+                const float f2Center = 2400.0f + 1600.0f * std::sin(keel::kPiF * (t / 0.55f));
                 float sum = 0.0f;
                 for (keel::i32 h = 1; h <= 28; ++h) {
                     const float fh = f0 * static_cast<float>(h);
@@ -130,27 +127,27 @@ void BuildSignalPreset(SignalDemoState& st, keel::usize preset) {
                 v += 0.48f * env * sum;
             } else if (t < 0.85f) {
                 const float localT = (t - 0.55f) / 0.30f;
-                const float env = std::sin(kPi * localT);
-                const float carrier = std::sin(kTwoPi * 6800.0f * t + 4.5f * std::sin(kTwoPi * 1100.0f * t));
-                const float sub = std::sin(kTwoPi * 1250.0f * t) * std::exp(-localT * 4.0f);
-                v += env * (0.35f * WhiteNoise(rng) * std::sin(kTwoPi * 9500.0f * t) + 0.45f * carrier + 0.30f * sub);
+                const float env = std::sin(keel::kPiF * localT);
+                const float carrier = std::sin(keel::kTauF * 6800.0f * t + 4.5f * std::sin(keel::kTauF * 1100.0f * t));
+                const float sub = std::sin(keel::kTauF * 1250.0f * t) * std::exp(-localT * 4.0f);
+                v += env * (0.35f * WhiteNoise(rng) * std::sin(keel::kTauF * 9500.0f * t) + 0.45f * carrier + 0.30f * sub);
             } else if (t < 1.48f) {
                 const float localT = (t - 0.85f) / 0.63f;
-                const float env = std::sin(kPi * localT);
+                const float env = std::sin(keel::kPiF * localT);
                 const float instFreq = 350.0f + 9200.0f * localT * localT;
-                phaseChirp += static_cast<double>(kTwoPi * instFreq / st.sampleRate);
+                phaseChirp += static_cast<double>(keel::kTauF * instFreq / st.sampleRate);
                 v += env * (0.58f * std::sin(static_cast<float>(phaseChirp)) +
                             0.26f * std::sin(static_cast<float>(phaseChirp * 2.0)) +
                             0.12f * std::sin(static_cast<float>(phaseChirp * 3.0)));
             } else {
                 const float localT = (t - 1.48f) / 0.52f;
                 const float env = std::exp(-localT * 3.6f) * keel::min(1.0f, localT * 25.0f);
-                const float vib = 1.0f + 0.015f * std::sin(kTwoPi * 6.5f * t);
-                const float c1 = std::sin(kTwoPi * 523.25f * vib * t);
-                const float c2 = std::sin(kTwoPi * 659.25f * vib * t);
-                const float c3 = std::sin(kTwoPi * 783.99f * vib * t);
-                const float c4 = std::sin(kTwoPi * 1567.98f * vib * t);
-                const float c5 = std::sin(kTwoPi * 3135.96f * vib * t);
+                const float vib = 1.0f + 0.015f * std::sin(keel::kTauF * 6.5f * t);
+                const float c1 = std::sin(keel::kTauF * 523.25f * vib * t);
+                const float c2 = std::sin(keel::kTauF * 659.25f * vib * t);
+                const float c3 = std::sin(keel::kTauF * 783.99f * vib * t);
+                const float c4 = std::sin(keel::kTauF * 1567.98f * vib * t);
+                const float c5 = std::sin(keel::kTauF * 3135.96f * vib * t);
                 v += 0.85f * env * (0.32f * c1 + 0.25f * c2 + 0.20f * c3 + 0.14f * c4 + 0.09f * c5);
             }
             st.samples[i] = keel::clamp(v, -0.98f, 0.98f);
@@ -181,32 +178,32 @@ void BuildSignalPreset(SignalDemoState& st, keel::usize preset) {
             const float t = static_cast<float>(i) / st.sampleRate;
             float v = 0.008f * WhiteNoise(rng);
             // Continuous pilot beacon at 1.0 kHz
-            v += 0.07f * std::sin(kTwoPi * 1000.0f * t);
+            v += 0.07f * std::sin(keel::kTauF * 1000.0f * t);
 
             if (t >= 0.06f && t < 0.46f) {
                 // Up-Chirp 1.5 kHz -> 20 kHz
                 const float u = (t - 0.06f) / 0.40f;
-                const float win = std::sin(kPi * u);
+                const float win = std::sin(keel::kPiF * u);
                 const float f = 1500.0f + 18500.0f * u;
-                phase += static_cast<double>(kTwoPi * f / st.sampleRate);
+                phase += static_cast<double>(keel::kTauF * f / st.sampleRate);
                 v += 0.78f * win * std::sin(static_cast<float>(phase));
             } else if (t >= 0.54f && t < 0.94f) {
                 // Down-Chirp 21 kHz -> 2 kHz + Simultaneous Counter-Chirp
                 const float u = (t - 0.54f) / 0.40f;
-                const float win = std::sin(kPi * u);
+                const float win = std::sin(keel::kPiF * u);
                 const float fDown = 21000.0f - 19000.0f * u;
                 const float fUp = 2000.0f + 14000.0f * u;
-                phase += static_cast<double>(kTwoPi * fDown / st.sampleRate);
+                phase += static_cast<double>(keel::kTauF * fDown / st.sampleRate);
                 v += win * (0.52f * std::sin(static_cast<float>(phase)) +
-                            0.34f * std::sin(kTwoPi * fUp * t));
+                            0.34f * std::sin(keel::kTauF * fUp * t));
             } else if (t >= 1.02f && t < 1.94f) {
                 // Stepped FHSS Telemetry Hops
                 const float hopDur = (1.94f - 1.02f) / static_cast<float>(hopFreqs.size());
                 const keel::usize hopIdx = keel::min(hopFreqs.size() - 1, static_cast<keel::usize>((t - 1.02f) / hopDur));
                 const float hopLocal = std::fmod(t - 1.02f, hopDur) / hopDur;
-                const float env = std::sin(kPi * hopLocal);
+                const float env = std::sin(keel::kPiF * hopLocal);
                 const float f = hopFreqs[hopIdx];
-                v += 0.72f * env * (std::sin(kTwoPi * f * t) + 0.25f * std::sin(kTwoPi * (f + 950.0f) * t));
+                v += 0.72f * env * (std::sin(keel::kTauF * f * t) + 0.25f * std::sin(keel::kTauF * (f + 950.0f) * t));
             }
             st.samples[i] = keel::clamp(v, -0.98f, 0.98f);
         }
@@ -237,10 +234,10 @@ void BuildSignalPreset(SignalDemoState& st, keel::usize preset) {
                     const float pitchDrop = 140.0f + 580.0f * std::exp(-dt * 42.0f);
                     const float bodyEnv = std::exp(-dt * 14.0f);
                     const float clickEnv = std::exp(-dt * 140.0f);
-                    const float body = std::sin(kTwoPi * pitchDrop * dt);
+                    const float body = std::sin(keel::kTauF * pitchDrop * dt);
                     const float snare = (h % 2 == 1) ? (WhiteNoise(rng) * std::exp(-dt * 28.0f) * 0.65f) : 0.0f;
-                    const float metallic = std::sin(kTwoPi * (3400.0f + 900.0f * static_cast<float>(h)) * dt) *
-                                           std::sin(kTwoPi * 5120.0f * dt) * std::exp(-dt * 22.0f);
+                    const float metallic = std::sin(keel::kTauF * (3400.0f + 900.0f * static_cast<float>(h)) * dt) *
+                                           std::sin(keel::kTauF * 5120.0f * dt) * std::exp(-dt * 22.0f);
                     float raw = 0.85f * bodyEnv * body + 0.55f * clickEnv * WhiteNoise(rng) + snare + 0.35f * metallic;
                     // Intentional warm soft-clipping on 4th & 6th hits
                     if (h == 3 || h == 5) {
@@ -272,14 +269,14 @@ void BuildSignalPreset(SignalDemoState& st, keel::usize preset) {
         double phase = 0.0;
         for (keel::usize i = 0; i < N; ++i) {
             const float t = static_cast<float>(i) / st.sampleRate;
-            const float macroEnv = 0.55f + 0.40f * std::sin(kTwoPi * 0.18f * t);
-            const float sweepFreq = 400.0f + 8500.0f * (0.5f + 0.5f * std::sin(kTwoPi * 0.12f * t));
-            phase += static_cast<double>(kTwoPi * sweepFreq / st.sampleRate);
+            const float macroEnv = 0.55f + 0.40f * std::sin(keel::kTauF * 0.18f * t);
+            const float sweepFreq = 400.0f + 8500.0f * (0.5f + 0.5f * std::sin(keel::kTauF * 0.12f * t));
+            phase += static_cast<double>(keel::kTauF * sweepFreq / st.sampleRate);
 
-            const float pulseMod = keel::max(0.0f, std::sin(kTwoPi * 1.5f * t));
+            const float pulseMod = keel::max(0.0f, std::sin(keel::kTauF * 1.5f * t));
             const float harmonic1 = std::sin(static_cast<float>(phase));
             const float harmonic2 = 0.45f * std::sin(static_cast<float>(phase * 2.0));
-            const float carrierHi = 0.28f * pulseMod * std::sin(kTwoPi * (12000.0f + 4000.0f * std::cos(kTwoPi * 0.4f * t)) * t);
+            const float carrierHi = 0.28f * pulseMod * std::sin(keel::kTauF * (12000.0f + 4000.0f * std::cos(keel::kTauF * 0.4f * t)) * t);
             const float noise = 0.015f * WhiteNoise(rng);
 
             const float v = macroEnv * (0.55f * harmonic1 + harmonic2) + carrierHi + noise;

@@ -3,7 +3,6 @@
 #include "guikit/geo/gis_render_engine.hpp"
 
 #include <atomic>
-#include <cmath>
 #if defined(__GLIBC__)
 #include <malloc.h>
 #endif
@@ -13,6 +12,7 @@
 #include "keel/fs.h"
 #include "keel/http.h"
 #include "keel/lru_cache.h"
+#include "keel/math.h"
 #include "keel/smart_ptr.h"
 #include "keel/time.h"
 
@@ -82,7 +82,7 @@ bool DecodePngAndScaleToRgba(
 
     for (keel::u32 dy = 0; dy < targetSizePx; ++dy) {
         const float srcYf = (static_cast<float>(dy) + 0.5f) * scaleY - 0.5f;
-        const keel::i32 y0 = keel::clamp(static_cast<keel::i32>(std::floor(srcYf)), 0, static_cast<keel::i32>(srcH) - 1);
+        const keel::i32 y0 = keel::clamp(keel::floor_i32(srcYf), 0, static_cast<keel::i32>(srcH) - 1);
         const keel::i32 y1 = keel::clamp(y0 + 1, 0, static_cast<keel::i32>(srcH) - 1);
         const float fy = keel::clamp(srcYf - static_cast<float>(y0), 0.0f, 1.0f);
         const float invFy = 1.0f - fy;
@@ -93,7 +93,7 @@ bool DecodePngAndScaleToRgba(
 
         for (keel::u32 dx = 0; dx < targetSizePx; ++dx) {
             const float srcXf = (static_cast<float>(dx) + 0.5f) * scaleX - 0.5f;
-            const keel::i32 x0 = keel::clamp(static_cast<keel::i32>(std::floor(srcXf)), 0, static_cast<keel::i32>(srcW) - 1);
+            const keel::i32 x0 = keel::clamp(keel::floor_i32(srcXf), 0, static_cast<keel::i32>(srcW) - 1);
             const keel::i32 x1 = keel::clamp(x0 + 1, 0, static_cast<keel::i32>(srcW) - 1);
             const float fx = keel::clamp(srcXf - static_cast<float>(x0), 0.0f, 1.0f);
             const float invFx = 1.0f - fx;

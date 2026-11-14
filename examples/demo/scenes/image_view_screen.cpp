@@ -5,7 +5,6 @@ namespace guikit::demo {
 
 namespace {
 
-constexpr float kPi = 3.14159265358979323846f;
 constexpr keel::u32 kDemoImgW = 1024;
 constexpr keel::u32 kDemoImgH = 768;
 
@@ -161,7 +160,7 @@ struct ImageViewDemoState {
 
                 // Green Channel: cellular organelle clusters & top calibration bars
                 for (keel::i32 k = 0; k < 6; ++k) {
-                    const float a = static_cast<float>(k) * (2.0f * kPi / 6.0f);
+                    const float a = static_cast<float>(k) * (keel::kTauF / 6.0f);
                     const float ox = cx + std::cos(a) * 135.0f;
                     const float oy = cy + std::sin(a) * 135.0f;
                     const float od = std::hypot(static_cast<float>(x) - ox, static_cast<float>(y) - oy);

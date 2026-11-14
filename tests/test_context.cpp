@@ -7835,8 +7835,8 @@ void TestSignalViewWidgetWorkflow() {
     keel::Array<float> samples(numSamples, 0.0f);
     for (keel::usize i = 0; i < numSamples; ++i) {
         const float t = static_cast<float>(i) / sampleRate;
-        samples[i] = 0.6f * std::sin(2.0f * 3.14159265f * 2000.0f * t) +
-                     0.25f * std::sin(2.0f * 3.14159265f * 8000.0f * t);
+        samples[i] = 0.6f * std::sin(keel::kTauF * 2000.0f * t) +
+                     0.25f * std::sin(keel::kTauF * 8000.0f * t);
     }
 
     float splitRatio = 0.50f;

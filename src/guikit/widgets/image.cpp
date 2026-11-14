@@ -1,9 +1,10 @@
 #include "guikit/widgets/image.hpp"
 #include <cmath>
-#include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
+#include "keel/math.h"
 
 namespace guikit {
 
@@ -227,8 +228,8 @@ void Image::DrawCheckerboard(
     canvas.PushClip(rect.Inset(keel::max(1.0f, radius * 0.25f)));
 
     const float step = keel::max(4.0f, theme.Scale(cellSize));
-    const keel::i32 cols = static_cast<keel::i32>(std::ceil(rect.w / step));
-    const keel::i32 rows = static_cast<keel::i32>(std::ceil(rect.h / step));
+    const keel::i32 cols = keel::ceil_i32(rect.w / step);
+    const keel::i32 rows = keel::ceil_i32(rect.h / step);
 
     for (keel::i32 r = 0; r < rows; ++r) {
         for (keel::i32 c = (r & 1); c < cols; c += 2) {

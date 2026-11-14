@@ -4,6 +4,7 @@
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
+#include "keel/math.h"
 
 namespace guikit {
 
@@ -386,7 +387,10 @@ void Modal::Render(
     } else {
         const float alpha = keel::clamp(opts.backdropOpacity, 0.0f, 0.95f);
         if (alpha > 0.001f && backdropRect.w > 0.0f && backdropRect.h > 0.0f) {
-            canvas.DrawRect(backdropRect, Color(4, 7, 14, static_cast<keel::u8>(std::round(alpha * 255.0f))));
+            canvas.DrawRect(
+                backdropRect,
+                Color(4, 7, 14, static_cast<keel::u8>(keel::clamp(keel::round_i32(alpha * 255.0f), 0, 255)))
+            );
         }
     }
 

@@ -2,8 +2,8 @@
 #include <cctype>
 #include <cmath>
 #include <cstdio>
-#include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/rich_text.hpp"
@@ -16,6 +16,7 @@
 #include "keel/format.h"
 #include "keel/hash_map.h"
 #include "keel/lru_cache.h"
+#include "keel/math.h"
 #include "keel/ref.h"
 #include "keel/smart_ptr.h"
 #include "keel/string.h"
@@ -522,8 +523,8 @@ keel::u64 ComputeMarkdownLayoutKey(
     const UiTheme& theme,
     bool hasCanvasMetrics
 ) noexcept {
-    const keel::i32 qWidth = static_cast<keel::i32>(std::round(outerWidth * 2.0f));
-    const keel::i32 qZoom = static_cast<keel::i32>(std::round(effZoom * 1000.0f));
+    const keel::i32 qWidth = keel::round_i32(outerWidth * 2.0f);
+    const keel::i32 qZoom = keel::round_i32(effZoom * 1000.0f);
     return detail::HashArgs(
         docSourceHash,
         qWidth,

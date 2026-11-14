@@ -5,10 +5,6 @@ namespace guikit::demo {
 
 namespace {
 
-constexpr float kPi = 3.14159265358979323846f;
-constexpr float kDegToRad = kPi / 180.0f;
-constexpr float kRadToDeg = 180.0f / kPi;
-
 struct DynamicContact {
     keel::i32 id{0};
     keel::FixedString<64> callsign{};
@@ -109,7 +105,7 @@ void BuildStaticBathymetry(SonarDemoState& st) {
             const float rng = rNorm * st.maxRangeMeters;
 
             // Base seabed reverberation + gentle shoal ridges
-            const float ridge1 = 0.07f * std::pow(keel::max(0.0f, std::sin(rNorm * 14.0f + std::cos(brg * kDegToRad * 3.0f))), 2.0f);
+            const float ridge1 = 0.07f * std::pow(keel::max(0.0f, std::sin(rNorm * 14.0f + std::cos(keel::deg_to_rad(brg) * 3.0f))), 2.0f);
             const float noise = 0.06f * FastHashNoise(b, r, 42u);
             float val = 0.04f + ridge1 + noise;
 
@@ -131,7 +127,7 @@ void BuildStaticBathymetry(SonarDemoState& st) {
                 const float pierR = 175.0f + (brg - 62.0f) * 1.8f;
                 const float distToPier = std::abs(rng - pierR);
                 if (distToPier < 10.0f) {
-                    const float pilingMod = 0.5f + 0.5f * std::cos((brg - 62.0f) * kDegToRad * 45.0f);
+                    const float pilingMod = 0.5f + 0.5f * std::cos(keel::deg_to_rad(brg - 62.0f) * 45.0f);
                     val += 0.72f * pilingMod * std::exp(-(distToPier * distToPier) / (2.0f * 3.8f * 3.8f));
                 }
             }
@@ -322,7 +318,7 @@ void StepSonarSimulation(SonarDemoState& st) {
 
             if (recordTrail) {
                 const float rMeters = std::sqrt(c.x * c.x + c.y * c.y);
-                const float brgDeg = NormalizeDeg(std::atan2(c.x, c.y) * kRadToDeg);
+                const float brgDeg = NormalizeDeg(keel::rad_to_deg(std::atan2(c.x, c.y)));
                 c.trail.push_back(PolarPoint{rMeters, brgDeg});
                 if (c.trail.size() > 18) {
                     c.trail.erase(0);
@@ -351,9 +347,9 @@ void StepSonarSimulation(SonarDemoState& st) {
     // Inject moving target acoustic blooms & wakes into `polarMatrix`
     for (const auto& c : st.contacts) {
         const float rMeters = std::sqrt(c.x * c.x + c.y * c.y);
-        const float brgDeg = NormalizeDeg(std::atan2(c.x, c.y) * kRadToDeg);
+        const float brgDeg = NormalizeDeg(keel::rad_to_deg(std::atan2(c.x, c.y)));
         const float speed = std::sqrt(c.vx * c.vx + c.vy * c.vy);
-        const float courseDeg = NormalizeDeg(std::atan2(c.vx, c.vy) * kRadToDeg);
+        const float courseDeg = NormalizeDeg(keel::rad_to_deg(std::atan2(c.vx, c.vy)));
 
         st.targetViews.push_back(SonarTarget{
             .id = c.id,

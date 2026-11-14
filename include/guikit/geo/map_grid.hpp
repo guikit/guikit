@@ -5,6 +5,7 @@
 #include "keel/array.h"
 #include "keel/core.h"
 #include "keel/format.h"
+#include "keel/math.h"
 #include "keel/static_array.h"
 #include "keel/string.h"
 
@@ -235,7 +236,7 @@ struct MapViewState {
 /// GOST 32453-2017 Helmert datum transformations, OSM [z/x/y] tile grids, and OpenSeaMap nautical graticules.
 class MapGrid {
 public:
-    static constexpr double kPi = 3.14159265358979323846264338327950288;
+    static constexpr double kPi = keel::kPi;
     static constexpr double kEarthRadiusMeters = 6378137.0;
     static constexpr double kEarthCircumferenceMeters = 2.0 * kPi * kEarthRadiusMeters; // 40075016.6856 m
     static constexpr double kWgs84Eccentricity = 0.08181919084262149; // WGS84 ellipsoid eccentricity e
@@ -290,12 +291,10 @@ public:
             return geo;
         }
 
-        constexpr double kDegToRad = kPi / 180.0;
-        constexpr double kRadToDeg = 180.0 / kPi;
-        constexpr double kArcSecToRad = kPi / (180.0 * 3600.0);
+        constexpr double kArcSecToRad = keel::kPi / (180.0 * 3600.0);
 
-        const double phi = keel::clamp(geo.lat, -89.999999, 89.999999) * kDegToRad;
-        const double lam = geo.lon * kDegToRad;
+        const double phi = keel::deg_to_rad(keel::clamp(geo.lat, -89.999999, 89.999999));
+        const double lam = keel::deg_to_rad(geo.lon);
         const double sinPhi = std::sin(phi);
         const double cosPhi = std::cos(phi);
         const double sinLam = std::sin(lam);
@@ -343,8 +342,8 @@ public:
         const double lam2 = std::atan2(y2, x2);
 
         return {
-            keel::clamp(phi2 * kRadToDeg, -89.999999, 89.999999),
-            ClampLon(lam2 * kRadToDeg)
+            keel::clamp(keel::rad_to_deg(phi2), -89.999999, 89.999999),
+            ClampLon(keel::rad_to_deg(lam2))
         };
     }
 
@@ -354,7 +353,6 @@ public:
         GeoCoord wgs84,
         const TransverseMercatorSpec& spec
     ) noexcept {
-        constexpr double kDegToRad = kPi / 180.0;
         const GeoCoord localGeo = TransformDatumHelmert(
             wgs84, EllipsoidSpec::Wgs84(), spec.ellipsoid, spec.datumToWgs84, /*inverse=*/true
         );
@@ -372,11 +370,11 @@ public:
         const double alpha3 = (61.0 / 240.0) * n3 - (103.0 / 140.0) * n4;
         const double alpha4 = (49561.0 / 161280.0) * n4;
 
-        const double phi = keel::clamp(localGeo.lat, -89.9999, 89.9999) * kDegToRad;
+        const double phi = keel::deg_to_rad(keel::clamp(localGeo.lat, -89.9999, 89.9999));
         double dLonDeg = localGeo.lon - spec.centralMeridianDeg;
         while (dLonDeg > 180.0) dLonDeg -= 360.0;
         while (dLonDeg < -180.0) dLonDeg += 360.0;
-        const double dLam = keel::clamp(dLonDeg, -75.0, 75.0) * kDegToRad;
+        const double dLam = keel::deg_to_rad(keel::clamp(dLonDeg, -75.0, 75.0));
 
         const double sinPhi = std::sin(phi);
         const double Q = std::asinh(std::tan(phi)) - e * std::atanh(e * sinPhi);
@@ -410,7 +408,6 @@ public:
         double northing,
         const TransverseMercatorSpec& spec
     ) noexcept {
-        constexpr double kRadToDeg = 180.0 / kPi;
         const double f = spec.ellipsoid.f;
         const double n = f / (2.0 - f);
         const double n2 = n * n;
@@ -460,12 +457,12 @@ public:
             if (std::abs(dTau) < 1e-13) break;
         }
 
-        double lonDeg = spec.centralMeridianDeg + dLam * kRadToDeg;
+        double lonDeg = spec.centralMeridianDeg + keel::rad_to_deg(dLam);
         while (lonDeg > 180.0) lonDeg -= 360.0;
         while (lonDeg < -180.0) lonDeg += 360.0;
 
         const GeoCoord localGeo{
-            keel::clamp(std::atan(tau) * kRadToDeg, -89.999999, 89.999999),
+            keel::clamp(keel::rad_to_deg(std::atan(tau)), -89.999999, 89.999999),
             ClampLon(lonDeg)
         };
         return TransformDatumHelmert(
@@ -479,11 +476,10 @@ public:
         GeoCoord wgs84,
         bool northPole = true
     ) noexcept {
-        constexpr double kDegToRad = kPi / 180.0;
         constexpr double a = kEarthRadiusMeters;
         constexpr double e = kWgs84Eccentricity;
         constexpr double eSq = e * e;
-        constexpr double phiC = 71.0 * kDegToRad;
+        constexpr double phiC = keel::deg_to_rad(71.0);
 
         const double sinPhiC = std::sin(phiC);
         const double mC = std::cos(phiC) / std::sqrt(1.0 - eSq * sinPhiC * sinPhiC);
@@ -491,8 +487,8 @@ public:
                           std::pow((1.0 - e * sinPhiC) / (1.0 + e * sinPhiC), 0.5 * e);
 
         const double sign = northPole ? 1.0 : -1.0;
-        const double phi = keel::clamp(sign * wgs84.lat, -30.0, 89.999999) * kDegToRad;
-        const double lam = sign * wgs84.lon * kDegToRad;
+        const double phi = keel::deg_to_rad(keel::clamp(sign * wgs84.lat, -30.0, 89.999999));
+        const double lam = keel::deg_to_rad(sign * wgs84.lon);
 
         const double sinPhi = std::sin(phi);
         const double t = std::tan(0.25 * kPi - 0.5 * phi) /
@@ -511,12 +507,10 @@ public:
         double y,
         bool northPole = true
     ) noexcept {
-        constexpr double kDegToRad = kPi / 180.0;
-        constexpr double kRadToDeg = 180.0 / kPi;
         constexpr double a = kEarthRadiusMeters;
         constexpr double e = kWgs84Eccentricity;
         constexpr double eSq = e * e;
-        constexpr double phiC = 71.0 * kDegToRad;
+        constexpr double phiC = keel::deg_to_rad(71.0);
 
         const double sinPhiC = std::sin(phiC);
         const double mC = std::cos(phiC) / std::sqrt(1.0 - eSq * sinPhiC * sinPhiC);
@@ -539,8 +533,8 @@ public:
             phi = 0.5 * kPi - 2.0 * std::atan(t * cf);
         }
 
-        const double lat = sign * (phi * kRadToDeg);
-        const double lon = sign * (std::atan2(sx, sy) * kRadToDeg);
+        const double lat = sign * keel::rad_to_deg(phi);
+        const double lon = sign * keel::rad_to_deg(std::atan2(sx, sy));
         return {keel::clamp(lat, -89.999999, 89.999999), ClampLon(lon)};
     }
 
@@ -606,13 +600,13 @@ public:
         if (crs == MapCrs::EPSG4326_PlateCarree) {
             y = (90.0 - lat) / 180.0;
         } else if (crs == MapCrs::EPSG3395_WorldMercator) {
-            const double phi = lat * (kPi / 180.0);
+            const double phi = keel::deg_to_rad(lat);
             const double eSin = kWgs84Eccentricity * std::sin(phi);
             const double conformalFactor = std::pow((1.0 - eSin) / (1.0 + eSin), 0.5 * kWgs84Eccentricity);
             const double mercY = std::log(std::tan(0.25 * kPi + 0.5 * phi) * conformalFactor);
             y = (1.0 - mercY / kPi) * 0.5;
         } else {
-            const double phi = lat * (kPi / 180.0);
+            const double phi = keel::deg_to_rad(lat);
             const double mercY = std::log(std::tan(0.25 * kPi + 0.5 * phi));
             y = (1.0 - mercY / kPi) * 0.5;
         }
@@ -660,10 +654,10 @@ public:
                 const double cf = std::pow((1.0 - eSin) / (1.0 + eSin), 0.5 * kWgs84Eccentricity);
                 phi = 0.5 * kPi - 2.0 * std::atan(t * cf);
             }
-            lat = phi * (180.0 / kPi);
+            lat = keel::rad_to_deg(phi);
         } else {
             const double n = kPi * (1.0 - 2.0 * ny);
-            lat = std::atan(std::sinh(n)) * (180.0 / kPi);
+            lat = keel::rad_to_deg(std::atan(std::sinh(n)));
         }
 
         return {ClampLat(lat, crs), ClampLon(lon)};
@@ -694,8 +688,8 @@ public:
         const keel::i32 clampedZ = keel::clamp(z, 0, 22);
         const keel::i32 n = 1 << clampedZ;
         const Vec2 f = GeoToTileFraction(geo, clampedZ, crs);
-        const keel::i32 tx = keel::clamp(static_cast<keel::i32>(std::floor(f.x)), 0, n - 1);
-        const keel::i32 ty = keel::clamp(static_cast<keel::i32>(std::floor(f.y)), 0, n - 1);
+        const keel::i32 tx = keel::clamp(keel::floor_i32(f.x), 0, n - 1);
+        const keel::i32 ty = keel::clamp(keel::floor_i32(f.y), 0, n - 1);
         return {clampedZ, tx, ty};
     }
 
@@ -753,7 +747,7 @@ public:
         if (!IsCylindricalCrs(crs)) {
             return keel::max(0.0001, kEarthCircumferenceMeters / worldPixels);
         }
-        const double cosLat = std::cos(ClampLat(latDeg) * (kPi / 180.0));
+        const double cosLat = std::cos(keel::deg_to_rad(ClampLat(latDeg)));
         return keel::max(0.0001, (kEarthCircumferenceMeters * cosLat) / worldPixels);
     }
 
@@ -875,7 +869,7 @@ public:
         // 1. Continuous and integer tile pyramid zoom level
         out.continuousZoom = static_cast<float>(cfg.baseZoom) + std::log2(safeZoom) + cfg.zoomBias;
         out.tileZoom = keel::clamp(
-            static_cast<keel::i32>(std::floor(out.continuousZoom + 0.5f)),
+            keel::floor_i32(out.continuousZoom + 0.5f),
             cfg.minTileZoom,
             cfg.maxTileZoom
         );
@@ -911,10 +905,14 @@ public:
         const float nF = static_cast<float>(out.totalTilesPerAxis);
         const float tileWorldW = safeWorld / nF;
 
-        out.minTileX = keel::clamp(static_cast<keel::i32>(std::floor(vx0 / tileWorldW)), 0, out.totalTilesPerAxis - 1);
-        out.maxTileX = keel::clamp(static_cast<keel::i32>(std::floor(keel::max(vx0, vx1 - 1e-4f) / tileWorldW)), 0, out.totalTilesPerAxis - 1);
-        out.minTileY = keel::clamp(static_cast<keel::i32>(std::floor(vy0 / tileWorldW)), 0, out.totalTilesPerAxis - 1);
-        out.maxTileY = keel::clamp(static_cast<keel::i32>(std::floor(keel::max(vy0, vy1 - 1e-4f) / tileWorldW)), 0, out.totalTilesPerAxis - 1);
+        out.minTileX = keel::clamp(keel::floor_i32(vx0 / tileWorldW), 0, out.totalTilesPerAxis - 1);
+        out.maxTileX = keel::clamp(
+            keel::floor_i32(keel::max(vx0, vx1 - 1e-4f) / tileWorldW), 0, out.totalTilesPerAxis - 1
+        );
+        out.minTileY = keel::clamp(keel::floor_i32(vy0 / tileWorldW), 0, out.totalTilesPerAxis - 1);
+        out.maxTileY = keel::clamp(
+            keel::floor_i32(keel::max(vy0, vy1 - 1e-4f) / tileWorldW), 0, out.totalTilesPerAxis - 1
+        );
 
         const keel::i32 countX = keel::max(0, out.maxTileX - out.minTileX + 1);
         const keel::i32 countY = keel::max(0, out.maxTileY - out.minTileY + 1);
@@ -956,8 +954,8 @@ public:
 
         if (stepDeg > 0.0) {
             // Meridians (West -> East), padded by 1 step so border ruler zebra bars clip smoothly at edges
-            const keel::i32 iLonStart = static_cast<keel::i32>(std::floor(out.visibleBounds.nw.lon / stepDeg)) - 1;
-            const keel::i32 iLonEnd   = static_cast<keel::i32>(std::ceil(out.visibleBounds.se.lon / stepDeg)) + 1;
+            const keel::i32 iLonStart = keel::floor_i32(out.visibleBounds.nw.lon / stepDeg) - 1;
+            const keel::i32 iLonEnd   = keel::ceil_i32(out.visibleBounds.se.lon / stepDeg) + 1;
             for (keel::i32 idx = iLonStart; idx <= iLonEnd; ++idx) {
                 const double lon = static_cast<double>(idx) * stepDeg;
                 if (lon < -180.0 - 1e-6 || lon > 180.0 + 1e-6) continue;
@@ -974,8 +972,8 @@ public:
             }
 
             // Parallels (South -> North), padded by 1 step so border ruler zebra bars clip smoothly at edges
-            const keel::i32 iLatStart = static_cast<keel::i32>(std::floor(out.visibleBounds.se.lat / stepDeg)) - 1;
-            const keel::i32 iLatEnd   = static_cast<keel::i32>(std::ceil(out.visibleBounds.nw.lat / stepDeg)) + 1;
+            const keel::i32 iLatStart = keel::floor_i32(out.visibleBounds.se.lat / stepDeg) - 1;
+            const keel::i32 iLatEnd   = keel::ceil_i32(out.visibleBounds.nw.lat / stepDeg) + 1;
             for (keel::i32 idx = iLatStart; idx <= iLatEnd; ++idx) {
                 const double lat = static_cast<double>(idx) * stepDeg;
                 const double maxL = IsCylindricalCrs(cfg.crs)
@@ -1007,16 +1005,16 @@ public:
             return keel::format_fixed<48>(isLat ? "%07.4f° %c" : "%08.4f° %c", absDeg, hemi);
         }
         if (fmt == GeoCoordFormat::DMS) {
-            keel::i32 d = static_cast<keel::i32>(std::floor(absDeg));
+            keel::i32 d = keel::floor_i32(absDeg);
             double remMin = (absDeg - static_cast<double>(d)) * 60.0;
-            keel::i32 m = static_cast<keel::i32>(std::floor(remMin));
+            keel::i32 m = keel::floor_i32(remMin);
             double s = (remMin - static_cast<double>(m)) * 60.0;
             if (s >= 59.95) { s = 0.0; ++m; }
             if (m >= 60) { m = 0; ++d; }
             return keel::format_fixed<48>(isLat ? "%02d° %02d' %04.1f\" %c" : "%03d° %02d' %04.1f\" %c", d, m, s, hemi);
         }
         // Standard OpenSeaMap / Marine GPS Degrees & Decimal Minutes (DD° MM.mm')
-        keel::i32 d = static_cast<keel::i32>(std::floor(absDeg));
+        keel::i32 d = keel::floor_i32(absDeg);
         double m = (absDeg - static_cast<double>(d)) * 60.0;
         if (m >= 59.995) { m = 0.0; ++d; }
         return keel::format_fixed<48>(isLat ? "%02d° %05.2f' %c" : "%03d° %05.2f' %c", d, m, hemi);
@@ -1030,12 +1028,12 @@ public:
             return keel::format_fixed<32>("%.0f° %c", absDeg, hemi);
         }
         if (stepArcMin >= 1.0) {
-            keel::i32 d = static_cast<keel::i32>(std::floor(absDeg + 1e-7));
+            keel::i32 d = keel::floor_i32(absDeg + 1e-7);
             double m = (absDeg - static_cast<double>(d)) * 60.0;
             if (m >= 59.95) { m = 0.0; ++d; }
             return keel::format_fixed<32>("%d° %02.0f' %c", d, m, hemi);
         }
-        keel::i32 d = static_cast<keel::i32>(std::floor(absDeg + 1e-7));
+        keel::i32 d = keel::floor_i32(absDeg + 1e-7);
         double m = (absDeg - static_cast<double>(d)) * 60.0;
         if (m >= 59.995) { m = 0.0; ++d; }
         return keel::format_fixed<32>("%d° %04.1f' %c", d, m, hemi);
@@ -1050,7 +1048,7 @@ public:
         if (fmt == GeoCoordFormat::UTM_Meters) {
             const keel::i32 zone = (activeCrs == MapCrs::EPSG32636_Utm36N)
                 ? 36
-                : keel::clamp(static_cast<keel::i32>(std::floor((ClampLon(c.lon) + 180.0) / 6.0)) + 1, 1, 60);
+                : keel::clamp(keel::floor_i32((ClampLon(c.lon) + 180.0) / 6.0) + 1, 1, 60);
             const bool north = (c.lat >= 0.0);
             const TransverseMercatorSpec spec{
                 .ellipsoid = EllipsoidSpec::Wgs84(),
@@ -1069,7 +1067,7 @@ public:
             if (posLon < 0.0) posLon += 360.0;
             const keel::i32 zone = (activeCrs == MapCrs::EPSG20906_Gsk2011Zone6 || activeCrs == MapCrs::EPSG28406_Pulkovo42Zone6)
                 ? 6
-                : keel::clamp(static_cast<keel::i32>(std::floor(posLon / 6.0)) + 1, 1, 60);
+                : keel::clamp(keel::floor_i32(posLon / 6.0) + 1, 1, 60);
             const bool useSk42 = (activeCrs == MapCrs::EPSG28406_Pulkovo42Zone6);
             const TransverseMercatorSpec spec{
                 .ellipsoid = useSk42 ? EllipsoidSpec::Krassowsky1940() : EllipsoidSpec::Gsk2011(),

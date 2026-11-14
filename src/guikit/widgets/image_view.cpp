@@ -19,6 +19,7 @@
 #include "guikit/widgets/text.hpp"
 #include "keel/array.h"
 #include "keel/core.h"
+#include "keel/math.h"
 #include "keel/static_array.h"
 #include "keel/string.h"
 
@@ -213,7 +214,7 @@ struct ProfileCrossSection {
         const float dx = endSrc.x - startSrc.x;
         const float dy = endSrc.y - startSrc.y;
         const float dist = std::hypot(dx, dy);
-        const keel::i32 n = keel::clamp(static_cast<keel::i32>(std::round(dist)) + 1, 2, 2048);
+        const keel::i32 n = keel::clamp(keel::round_i32(dist) + 1, 2, 2048);
 
         samplesLum.resize(static_cast<keel::usize>(n));
         if (data.channels >= 3) {
@@ -477,7 +478,7 @@ struct ImageViewInternalState {
                     const float masterVal = minV + t * spanV;
                     t = params.channels[0].Evaluate(masterVal);
                 }
-                const keel::usize cIdx = static_cast<keel::usize>(keel::clamp(std::round(t * 255.0f), 0.0f, 255.0f));
+                const keel::usize cIdx = static_cast<keel::usize>(keel::clamp(keel::round_i32(t * 255.0f), 0, 255));
                 toneAbgrLut[i] = cmapLut[cIdx];
             }
 
@@ -514,9 +515,9 @@ struct ImageViewInternalState {
                 const float tr = params.channels[0].Evaluate(minV + params.channels[1].Evaluate(val) * spanV);
                 const float tg = params.channels[0].Evaluate(minV + params.channels[2].Evaluate(val) * spanV);
                 const float tb = params.channels[0].Evaluate(minV + params.channels[3].Evaluate(val) * spanV);
-                lutR[i] = static_cast<keel::u8>(keel::clamp(std::round(tr * 255.0f), 0.0f, 255.0f));
-                lutG[i] = static_cast<keel::u8>(keel::clamp(std::round(tg * 255.0f), 0.0f, 255.0f));
-                lutB[i] = static_cast<keel::u8>(keel::clamp(std::round(tb * 255.0f), 0.0f, 255.0f));
+                lutR[i] = static_cast<keel::u8>(keel::clamp(keel::round_i32(tr * 255.0f), 0, 255));
+                lutG[i] = static_cast<keel::u8>(keel::clamp(keel::round_i32(tg * 255.0f), 0, 255));
+                lutB[i] = static_cast<keel::u8>(keel::clamp(keel::round_i32(tb * 255.0f), 0, 255));
             }
 
             const float maxIdxF = static_cast<float>(kToneLutSize - 1);

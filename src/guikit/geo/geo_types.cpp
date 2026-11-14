@@ -5,6 +5,7 @@
 #include "keel/core.h"
 #include "keel/format.h"
 #include "keel/lru_cache.h"
+#include "keel/math.h"
 #include "keel/number.h"
 #include "keel/static_array.h"
 
@@ -717,7 +718,7 @@ float GeoFeature::GetPropertyFloat(keel::StringRef key) const noexcept {
             if (v.is_double() || v.is_int()) return static_cast<float>(v.as_double());
         }
     }
-    return NAN;
+    return keel::Limits<float>::quiet_nan();
 }
 
 keel::usize GeoFeature::VertexCount() const noexcept {
@@ -1027,8 +1028,6 @@ keel::usize GeoLayer::EvictAllPagedPayloads() const noexcept {
 }
 
 guikit::GeoCoord SrsTransform::ToWgs84(double x, double y, keel::i32 srsId) noexcept {
-    constexpr double kPi = guikit::MapGrid::kPi;
-
     // 1. WGS84 / UTM Northern Hemisphere (EPSG:32601 .. EPSG:32660)
     if (srsId >= 32601 && srsId <= 32660) {
         const keel::i32 zone = srsId - 32600;
@@ -1138,8 +1137,8 @@ guikit::GeoCoord SrsTransform::ToWgs84(double x, double y, keel::i32 srsId) noex
 
     if (srsId == 3857 || srsId == 900913 || ((srsId == 4326 || srsId == 7683) && looksLikeMeters)) {
         constexpr double R = guikit::MapGrid::kEarthRadiusMeters;
-        const double lon = (x / R) * (180.0 / kPi);
-        const double lat = (2.0 * std::atan(std::exp(y / R)) - 0.5 * kPi) * (180.0 / kPi);
+        const double lon = keel::rad_to_deg(x / R);
+        const double lat = keel::rad_to_deg(2.0 * std::atan(std::exp(y / R)) - keel::kHalfPi);
         return {
             guikit::MapGrid::ClampLat(lat, guikit::MapCrs::EPSG4326_PlateCarree),
             guikit::MapGrid::ClampLon(lon)
@@ -1149,15 +1148,15 @@ guikit::GeoCoord SrsTransform::ToWgs84(double x, double y, keel::i32 srsId) noex
     if (srsId == 3395) {
         constexpr double R = guikit::MapGrid::kEarthRadiusMeters;
         constexpr double e = guikit::MapGrid::kWgs84Eccentricity;
-        const double lon = (x / R) * (180.0 / kPi);
+        const double lon = keel::rad_to_deg(x / R);
         const double ts = std::exp(-y / R);
-        double phi = 0.5 * kPi - 2.0 * std::atan(ts);
+        double phi = keel::kHalfPi - 2.0 * std::atan(ts);
         for (keel::i32 iter = 0; iter < 6; ++iter) {
             const double esin = e * std::sin(phi);
             const double con = std::pow((1.0 - esin) / (1.0 + esin), 0.5 * e);
-            phi = 0.5 * kPi - 2.0 * std::atan(ts * con);
+            phi = keel::kHalfPi - 2.0 * std::atan(ts * con);
         }
-        const double lat = phi * (180.0 / kPi);
+        const double lat = keel::rad_to_deg(phi);
         return {
             guikit::MapGrid::ClampLat(lat, guikit::MapCrs::EPSG4326_PlateCarree),
             guikit::MapGrid::ClampLon(lon)
@@ -1171,8 +1170,6 @@ guikit::GeoCoord SrsTransform::ToWgs84(double x, double y, keel::i32 srsId) noex
 }
 
 guikit::GeoPlanar SrsTransform::FromWgs84(guikit::GeoCoord coord, keel::i32 srsId) noexcept {
-    constexpr double kPi = guikit::MapGrid::kPi;
-
     if (srsId == 4326 || srsId == 7683) {
         return {
             guikit::MapGrid::ClampLon(coord.lon),
@@ -1185,13 +1182,15 @@ guikit::GeoPlanar SrsTransform::FromWgs84(guikit::GeoCoord coord, keel::i32 srsI
     if (srsId == 3395) {
         constexpr double R = guikit::MapGrid::kEarthRadiusMeters;
         constexpr double e = guikit::MapGrid::kWgs84Eccentricity;
-        const double lonRad = guikit::MapGrid::ClampLon(coord.lon) * (kPi / 180.0);
-        const double phi = guikit::MapGrid::ClampLat(coord.lat, guikit::MapCrs::EPSG3395_WorldMercator) * (kPi / 180.0);
+        const double lonRad = keel::deg_to_rad(guikit::MapGrid::ClampLon(coord.lon));
+        const double phi = keel::deg_to_rad(
+            guikit::MapGrid::ClampLat(coord.lat, guikit::MapCrs::EPSG3395_WorldMercator)
+        );
         const double eSin = e * std::sin(phi);
         const double cf = std::pow((1.0 - eSin) / (1.0 + eSin), 0.5 * e);
         return {
             R * lonRad,
-            R * std::log(std::tan(0.25 * kPi + 0.5 * phi) * cf)
+            R * std::log(std::tan(0.25 * keel::kPi + 0.5 * phi) * cf)
         };
     }
     if (srsId >= 32601 && srsId <= 32660) {
@@ -1287,12 +1286,13 @@ guikit::GeoPlanar SrsTransform::FromWgs84(guikit::GeoCoord coord, keel::i32 srsI
 }
 
 guikit::GeoPlanar SrsTransform::Wgs84ToWebMercatorMeters(guikit::GeoCoord coord) noexcept {
-    constexpr double kPi = guikit::MapGrid::kPi;
     constexpr double R = guikit::MapGrid::kEarthRadiusMeters;
-    const double lonRad = guikit::MapGrid::ClampLon(coord.lon) * (kPi / 180.0);
-    const double latRad = guikit::MapGrid::ClampLat(coord.lat, guikit::MapCrs::EPSG3857_WebMercator) * (kPi / 180.0);
+    const double lonRad = keel::deg_to_rad(guikit::MapGrid::ClampLon(coord.lon));
+    const double latRad = keel::deg_to_rad(
+        guikit::MapGrid::ClampLat(coord.lat, guikit::MapCrs::EPSG3857_WebMercator)
+    );
     const double x = R * lonRad;
-    const double y = R * std::log(std::tan(0.25 * kPi + 0.5 * latRad));
+    const double y = R * std::log(std::tan(0.25 * keel::kPi + 0.5 * latRad));
     return {x, y};
 }
 

@@ -5,14 +5,14 @@
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
 #include "keel/format.h"
+#include "keel/math.h"
 
 namespace guikit {
 
 namespace {
 
-constexpr float kPi = 3.14159265358979323846f;
-constexpr float kMinAngleRad = -1.25f * kPi; // -225 deg (7:30 o'clock)
-constexpr float kMaxAngleRad =  0.25f * kPi; //  +45 deg (4:30 o'clock)
+constexpr float kMinAngleRad = -1.25f * keel::kPiF; // -225 deg (7:30 o'clock)
+constexpr float kMaxAngleRad =  0.25f * keel::kPiF; //  +45 deg (4:30 o'clock)
 constexpr float kSweepRad    = kMaxAngleRad - kMinAngleRad; // 270 deg (1.5 * pi)
 
 float GetDefaultKnobDiameter(UiSize size, const UiTheme& theme) noexcept {
@@ -65,12 +65,12 @@ void FormatKnobValue(
 ) noexcept {
     if (!opts.valueFormat.empty()) {
         if (isInt) {
-            keel::format_buf(buf, bufSize, opts.valueFormat.text, static_cast<keel::i64>(std::round(val)));
+            keel::format_buf(buf, bufSize, opts.valueFormat.text, keel::round_i64(val));
         } else {
             keel::format_buf(buf, bufSize, opts.valueFormat.text, val);
         }
     } else if (isInt) {
-        keel::format_buf(buf, bufSize, "{}", static_cast<keel::i64>(std::round(val)));
+        keel::format_buf(buf, bufSize, "{}", keel::round_i64(val));
     } else {
         const double step = opts.step.value_or(0.0);
         const keel::StringRef fmt = (step >= 1.0) ? "{:.0f}" : ((step >= 0.1) ? "{:.1f}" : "{:.2f}");
@@ -98,7 +98,7 @@ void DrawAnnularArc(
     const float rOuter = radius + halfT;
     const float rInner = keel::max(0.5f, radius - halfT);
     const float span = endAngleRad - startAngleRad;
-    const keel::i32 segs = keel::clamp(static_cast<keel::i32>(std::ceil(span / (kPi / 24.0f))), 6, 64);
+    const keel::i32 segs = keel::clamp(keel::ceil_i32(span / (keel::kPiF / 24.0f)), 6, 64);
 
     VectorPath path;
     path.Reserve(static_cast<keel::usize>(segs * 2 + 4), static_cast<keel::usize>(segs * 2 + 4));
@@ -173,7 +173,7 @@ Response Knob::Run(
         const double q = QuantizeAndClamp(v, minVal, maxVal, effectiveStep);
         if (doubleVal != nullptr) *doubleVal = q;
         if (floatVal != nullptr)  *floatVal = static_cast<float>(q);
-        if (intVal != nullptr)    *intVal = static_cast<keel::i64>(std::round(q));
+        if (intVal != nullptr)    *intVal = keel::round_i64(q);
     };
 
     double currentVal = QuantizeAndClamp(readVal(), minVal, maxVal, effectiveStep);

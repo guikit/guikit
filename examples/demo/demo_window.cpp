@@ -251,7 +251,7 @@ void DemoWindow::RenderPreviewToolbar(guikit::Context& ui) {
 
         previewTb.Separator();
 
-        const keel::i32 effZoomPct = static_cast<keel::i32>(std::lround(m_demoCtx.previewEffectiveZoom * 100.0f));
+        const keel::i32 effZoomPct = keel::round_i32(m_demoCtx.previewEffectiveZoom * 100.0f);
         guikit::SelectOptions zoomSelectOpts{
             .tooltip = "Preview Zoom / Scale (Fit, Real 1:1 physical mm, or Ctrl + MouseWheel)",
             .width = 116.0f

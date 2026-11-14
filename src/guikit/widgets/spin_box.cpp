@@ -5,6 +5,7 @@
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
 #include "keel/format.h"
+#include "keel/math.h"
 #include "keel/number.h"
 #include "keel/string.h"
 
@@ -256,7 +257,7 @@ void WriteNumericValue(
     } else if (doubleValue != nullptr) {
         *doubleValue = clamped;
     } else if (intValue != nullptr) {
-        *intValue = static_cast<keel::i64>(std::round(clamped));
+        *intValue = keel::round_i64(clamped);
     }
 }
 
@@ -555,7 +556,7 @@ Response SpinBox::Run(
             } else if (intValue != nullptr) {
                 if (const auto i = keel::parse_i64(ExtractNumericPrefix(displayText, false), 10)) {
                     const double clamped = ClampNumericValue(static_cast<double>(*i), opts);
-                    *intValue = static_cast<keel::i64>(std::round(clamped));
+                    *intValue = keel::round_i64(clamped);
                 }
             }
             res.changed = true;

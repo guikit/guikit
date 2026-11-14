@@ -8,6 +8,7 @@
 #include "guikit/graphics/colormap.hpp"
 #include "keel/algo.h"
 #include "keel/format.h"
+#include "keel/math.h"
 #include "keel/small_array.h"
 
 namespace guikit {
@@ -232,10 +233,16 @@ struct WaterfallGeometry {
     }
     const float domainSpan = keel::max(1e-5f, opts.maxX - opts.minX);
     const float uNorm = keel::clamp((xVal - opts.minX) / domainSpan, 0.0f, 1.0f);
-    const keel::u32 binIdx = keel::min(state.numBins - 1, static_cast<keel::u32>(std::lround(uNorm * static_cast<float>(state.numBins - 1))));
+    const keel::u32 binIdx = keel::min(
+        state.numBins - 1,
+        keel::round_u32(uNorm * static_cast<float>(state.numBins - 1))
+    );
 
     const float ageNorm = keel::clamp(timeAgoSec / keel::max(0.1f, opts.historyDurationSec), 0.0f, 1.0f);
-    const keel::u32 ageRows = keel::min(state.validRows - 1, static_cast<keel::u32>(std::lround(ageNorm * static_cast<float>(state.historyRows - 1))));
+    const keel::u32 ageRows = keel::min(
+        state.validRows - 1,
+        keel::round_u32(ageNorm * static_cast<float>(state.historyRows - 1))
+    );
     const keel::u32 rowIdx = (state.headRow + state.historyRows - (ageRows % state.historyRows)) % state.historyRows;
 
     return state.ringBufferDb[static_cast<keel::usize>(rowIdx) * state.numBins + binIdx] + opts.gainDb;
@@ -503,7 +510,7 @@ void main() {
                     for (keel::u32 py = 0; py < fbH; ++py) {
                         const float v = static_cast<float>(py) / static_cast<float>(keel::max(1u, fbH - 1));
                         const float timeUv = opts.invertTimeAxis ? (1.0f - v) : v;
-                        const keel::u32 ageRow = static_cast<keel::u32>(std::lround(timeUv * static_cast<float>(state.historyRows - 1)));
+                        const keel::u32 ageRow = keel::round_u32(timeUv * static_cast<float>(state.historyRows - 1));
                         if (ageRow >= state.validRows) {
                             keel::fill(
                                 keel::MutArrayRef<keel::u32>(state.cpuFallbackPixels.data() + static_cast<keel::usize>(py) * fbW, fbW),
@@ -516,7 +523,10 @@ void main() {
                         keel::u32* dstRow = state.cpuFallbackPixels.data() + static_cast<keel::usize>(py) * fbW;
                         for (keel::u32 px = 0; px < fbW; ++px) {
                             const float u = xMinNorm + (static_cast<float>(px) / static_cast<float>(keel::max(1u, fbW - 1))) * (xMaxNorm - xMinNorm);
-                            const keel::u32 bin = keel::min(state.numBins - 1, static_cast<keel::u32>(std::lround(u * static_cast<float>(state.numBins - 1))));
+                            const keel::u32 bin = keel::min(
+                                state.numBins - 1,
+                                keel::round_u32(u * static_cast<float>(state.numBins - 1))
+                            );
                             const float dbVal = rowPtr[bin] + opts.gainDb;
                             float norm = keel::clamp((dbVal - geom.dbFloor) / dbSpan, 0.0f, 1.0f);
                             if (opts.gateSuppression > 0.001f && dbVal < state.thresholdGateDb) {

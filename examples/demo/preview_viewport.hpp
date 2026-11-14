@@ -385,15 +385,15 @@ inline void RenderPreviewViewport(
         }
         demoCtx.previewEffectiveZoom = effectiveZoom;
 
-        const keel::i32 zoomPct = static_cast<keel::i32>(std::lround(effectiveZoom * 100.0f));
+        const keel::i32 zoomPct = keel::round_i32(effectiveZoom * 100.0f);
         if (useCenteredScrollCanvas) {
             const keel::StringRef modeTag = (zoomMode == PreviewZoomMode::Real1To1)
                 ? "1:1 Physical"
                 : (zoomMode == PreviewZoomMode::Fit ? "Fit" : "Zoom");
             backdropNode->text = ui.AllocString(ui.Format(
                 "{}x{} dp  |  {:.1f}x{:.1f} mm  |  {} ({}%)",
-                static_cast<keel::i32>(std::lround(targetW)),
-                static_cast<keel::i32>(std::lround(targetH)),
+                keel::round_i32(targetW),
+                keel::round_i32(targetH),
                 realMmW,
                 realMmH,
                 modeTag,
@@ -622,11 +622,11 @@ inline void RenderPreviewViewport(
                         });
                         ui.Spacer();
                         const keel::i32 clientW = demoCtx.previewWindowCustomSize
-                            ? keel::max(0, static_cast<keel::i32>(std::lround(demoCtx.previewWindowW)))
-                            : keel::max(0, static_cast<keel::i32>(std::round(availPxW / effectiveZoom)));
+                            ? keel::max(0, keel::round_i32(demoCtx.previewWindowW))
+                            : keel::max(0, keel::round_i32(availPxW / effectiveZoom));
                         const keel::i32 clientH = demoCtx.previewWindowCustomSize
-                            ? keel::max(0, static_cast<keel::i32>(std::lround(demoCtx.previewWindowH - (28.0f * shellScale) / effectiveZoom)))
-                            : keel::max(0, static_cast<keel::i32>(std::round((availPxH - 28.0f * shellScale) / effectiveZoom)));
+                            ? keel::max(0, keel::round_i32(demoCtx.previewWindowH - (28.0f * shellScale) / effectiveZoom))
+                            : keel::max(0, keel::round_i32((availPxH - 28.0f * shellScale) / effectiveZoom));
                         ui.Text(ui.Format("{} x {}", clientW, clientH), {
                             .role = guikit::TextRole::CodeSmall,
                             .variant = guikit::UiVariant::Muted

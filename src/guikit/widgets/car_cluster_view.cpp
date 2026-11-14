@@ -1,18 +1,16 @@
 #include "guikit/widgets/car_cluster_view.hpp"
-
 #include <cmath>
-#include "keel/core.h"
-#include "keel/format.h"
-#include "keel/ref.h"
 #include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
+#include "keel/core.h"
+#include "keel/format.h"
+#include "keel/math.h"
+#include "keel/ref.h"
 
 namespace guikit {
 
 namespace {
 
-constexpr float kPi = 3.14159265358979323846f;
-constexpr float kDegToRad = kPi / 180.0f;
 constexpr float kKmhToMph = 0.62137119f;
 constexpr float kBarToPsi = 14.5037738f;
 
@@ -160,14 +158,14 @@ void DrawCircularArc(
     if (radius <= 1.0f || std::abs(endDeg - startDeg) < 0.2f || segments < 2) return;
     const float step = (endDeg - startDeg) / static_cast<float>(segments);
     Vec2 prev{
-        center.x + std::cos(startDeg * kDegToRad) * radius,
-        center.y + std::sin(startDeg * kDegToRad) * radius
+        center.x + std::cos(keel::deg_to_rad(startDeg)) * radius,
+        center.y + std::sin(keel::deg_to_rad(startDeg)) * radius
     };
     for (keel::i32 i = 1; i <= segments; ++i) {
         const float deg = startDeg + step * static_cast<float>(i);
         const Vec2 cur{
-            center.x + std::cos(deg * kDegToRad) * radius,
-            center.y + std::sin(deg * kDegToRad) * radius
+            center.x + std::cos(keel::deg_to_rad(deg)) * radius,
+            center.y + std::sin(keel::deg_to_rad(deg)) * radius
         };
         canvas.DrawLine(prev, cur, color, thickness);
         prev = cur;
@@ -186,7 +184,7 @@ void DrawGaugeNeedle(
     Color glowColor,
     float s
 ) noexcept {
-    const float rad = angleDeg * kDegToRad;
+    const float rad = keel::deg_to_rad(angleDeg);
     const Vec2 dir{std::cos(rad), std::sin(rad)};
     const Vec2 nrm{-dir.y, dir.x};
 
@@ -264,7 +262,7 @@ void RenderShiftLightStrip(
     const float y = stripRect.y + (stripRect.h - ledH) * 0.5f;
 
     const bool shiftFlash = (loadNorm >= 0.97f);
-    const keel::i32 litCount = static_cast<keel::i32>(std::round(keel::clamp(loadNorm, 0.0f, 1.0f) * static_cast<float>(kNumLeds)));
+    const keel::i32 litCount = keel::round_i32(keel::clamp(loadNorm, 0.0f, 1.0f) * static_cast<float>(kNumLeds));
 
     for (keel::i32 i = 0; i < kNumLeds; ++i) {
         const float x = stripRect.x + padX + static_cast<float>(i) * (ledW + gap);
@@ -442,25 +440,29 @@ void RenderSpeedometerDial(
     if (opts.cruiseSet && opts.telltales.adasCruiseActive) {
         const float cruiseDisp = keel::clamp(DisplaySpeed(opts.cruiseTargetKmh, opts.speedUnit), 0.0f, maxSpdDisp);
         const float cruiseDeg = kStartDeg + (cruiseDisp / maxSpdDisp) * kSweepDeg;
-        const float cRad = cruiseDeg * kDegToRad;
+        const float cRad = keel::deg_to_rad(cruiseDeg);
         const Vec2 bugTip{center.x + std::cos(cRad) * (arcR - 4.0f * s), center.y + std::sin(cRad) * (arcR - 4.0f * s)};
-        const Vec2 bugL{center.x + std::cos((cruiseDeg - 3.2f) * kDegToRad) * (arcR + 6.0f * s),
-                        center.y + std::sin((cruiseDeg - 3.2f) * kDegToRad) * (arcR + 6.0f * s)};
-        const Vec2 bugR{center.x + std::cos((cruiseDeg + 3.2f) * kDegToRad) * (arcR + 6.0f * s),
-                        center.y + std::sin((cruiseDeg + 3.2f) * kDegToRad) * (arcR + 6.0f * s)};
+        const Vec2 bugL{
+            center.x + std::cos(keel::deg_to_rad(cruiseDeg - 3.2f)) * (arcR + 6.0f * s),
+            center.y + std::sin(keel::deg_to_rad(cruiseDeg - 3.2f)) * (arcR + 6.0f * s)
+        };
+        const Vec2 bugR{
+            center.x + std::cos(keel::deg_to_rad(cruiseDeg + 3.2f)) * (arcR + 6.0f * s),
+            center.y + std::sin(keel::deg_to_rad(cruiseDeg + 3.2f)) * (arcR + 6.0f * s)
+        };
         canvas.DrawTriangle(bugTip, bugL, bugR, pal.ecoGreen);
     }
 
     // Major & Minor Speed Ticks + Numeric Labels
     const keel::i32 majorStep = (opts.speedUnit == SpeedUnit::Mph) ? 20 : 30;
     const keel::i32 minorStep = (opts.speedUnit == SpeedUnit::Mph) ? 5 : 10;
-    const keel::i32 maxTick = static_cast<keel::i32>(std::round(maxSpdDisp));
+    const keel::i32 maxTick = keel::round_i32(maxSpdDisp);
 
     for (keel::i32 v = 0; v <= maxTick; v += minorStep) {
         const float frac = static_cast<float>(v) / maxSpdDisp;
         if (frac > 1.001f) break;
         const float deg = kStartDeg + frac * kSweepDeg;
-        const float rad = deg * kDegToRad;
+        const float rad = keel::deg_to_rad(deg);
         const bool isMajor = (v % majorStep == 0);
         const float rOuter = radius * 0.89f;
         const float rInner = radius * (isMajor ? 0.78f : 0.835f);
@@ -582,14 +584,14 @@ void RenderTachOrPowerDial(
         }
 
         // Ticks: 0..8 (or 9) x1000 RPM
-        const keel::i32 maxK = static_cast<keel::i32>(std::ceil(maxRpm / 1000.0f));
+        const keel::i32 maxK = keel::ceil_i32(maxRpm / 1000.0f);
         const keel::i32 totalSubTicks = maxK * 5;
         for (keel::i32 t = 0; t <= totalSubTicks; ++t) {
             const float rpmVal = static_cast<float>(t) * 200.0f;
             if (rpmVal > maxRpm + 10.0f) break;
             const float frac = rpmVal / maxRpm;
             const float deg = kStartDeg + frac * kSweepDeg;
-            const float rad = deg * kDegToRad;
+            const float rad = keel::deg_to_rad(deg);
             const bool isMajor = (t % 5 == 0);
             const bool inRed = (rpmVal >= redlineRpm - 10.0f);
 
@@ -652,7 +654,7 @@ void RenderTachOrPowerDial(
         };
         for (const auto& et : kEvTicks) {
             const float deg = kStartDeg + et.frac * kSweepDeg;
-            const float rad = deg * kDegToRad;
+            const float rad = keel::deg_to_rad(deg);
             const Vec2 p0{center.x + std::cos(rad) * (radius * 0.78f), center.y + std::sin(rad) * (radius * 0.78f)};
             const Vec2 p1{center.x + std::cos(rad) * (radius * 0.89f), center.y + std::sin(rad) * (radius * 0.89f)};
             canvas.DrawLine(p0, p1, et.col, 2.0f * s);

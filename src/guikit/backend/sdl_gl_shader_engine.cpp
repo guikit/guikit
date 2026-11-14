@@ -1,9 +1,9 @@
 #include "guikit/backend/sdl_gl_shader_engine.hpp"
+#include "keel/math.h"
 #include "keel/small_array.h"
 #include "keel/time.h"
 
 #include <SDL3/SDL.h>
-#include <cmath>
 #include <cstring>
 #if defined(__GLIBC__)
 #include <malloc.h>
@@ -247,7 +247,7 @@ void main() {
 
 [[nodiscard]] inline keel::u32 PackRG16Norm(float normVal) noexcept {
     const float clamped = keel::clamp(normVal, 0.0f, 1.0f);
-    const keel::u32 q = static_cast<keel::u32>(std::lround(clamped * 65535.0f));
+    const keel::u32 q = keel::round_u32(clamped * 65535.0f);
     const keel::u32 hi = (q >> 8) & 0xFFu;
     const keel::u32 lo = q & 0xFFu;
     return hi | (lo << 8) | 0xFF000000u;
@@ -585,10 +585,10 @@ void SdlGlShaderEngine::RenderPass(
     }
 
     // 3. Configure Scissor Box (converting top-left UI coords to bottom-left GL coords)
-    const keel::i32 scX = keel::max(0, static_cast<keel::i32>(std::floor(pass.clipRect.x)));
-    const keel::i32 scTop = keel::max(0, static_cast<keel::i32>(std::floor(pass.clipRect.y)));
-    const keel::i32 scRight = keel::min(static_cast<keel::i32>(viewportW), static_cast<keel::i32>(std::ceil(pass.clipRect.Right())));
-    const keel::i32 scBottom = keel::min(static_cast<keel::i32>(viewportH), static_cast<keel::i32>(std::ceil(pass.clipRect.Bottom())));
+    const keel::i32 scX = keel::max(0, keel::floor_i32(pass.clipRect.x));
+    const keel::i32 scTop = keel::max(0, keel::floor_i32(pass.clipRect.y));
+    const keel::i32 scRight = keel::min(static_cast<keel::i32>(viewportW), keel::ceil_i32(pass.clipRect.Right()));
+    const keel::i32 scBottom = keel::min(static_cast<keel::i32>(viewportH), keel::ceil_i32(pass.clipRect.Bottom()));
     const keel::i32 scW = scRight - scX;
     const keel::i32 scH = scBottom - scTop;
     if (scW <= 0 || scH <= 0) return;

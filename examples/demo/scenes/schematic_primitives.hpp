@@ -510,8 +510,7 @@ public:
                 .category = isZener ? "Zener Reference" : "Diode"
             }));
         }
-        constexpr float kDegToRad = 3.14159265358979323846f / 180.0f;
-        const float rad = dirDeg * kDegToRad;
+        const float rad = keel::deg_to_rad(dirDeg);
         const Vec2 dir{std::cos(rad), std::sin(rad)};
         const Vec2 nrm{-dir.y, dir.x};
 
@@ -823,7 +822,7 @@ public:
             });
             m_scene.DrawCircle(selCenter, 20.0f, Color::Transparent(), m_pal.inkBold, m_pal.symbolWidth);
             for (keel::i32 p = 0; p < 6; ++p) {
-                const float ang = (static_cast<float>(p) * 60.0f - 90.0f) * (3.14159265f / 180.0f);
+                const float ang = keel::deg_to_rad(static_cast<float>(p) * 60.0f - 90.0f);
                 pads[p] = {selCenter.x + std::cos(ang) * 13.0f, selCenter.y + std::sin(ang) * 13.0f};
                 SolderPad(pads[p], 2.3f);
             }

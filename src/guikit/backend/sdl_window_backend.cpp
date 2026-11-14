@@ -25,8 +25,8 @@
 #include <emscripten/html5.h>
 #endif
 
-#include <cmath>
 #include "keel/format.h"
+#include "keel/math.h"
 #include "keel/string.h"
 #include "keel/time.h"
 
@@ -89,8 +89,8 @@ bool GetEmscriptenCanvasPhysicalSize(keel::i32& outW, keel::i32& outH, bool high
         if (dpr <= 0.0) {
             dpr = 1.0;
         }
-        outW = static_cast<keel::i32>(std::lround(cssW * dpr));
-        outH = static_cast<keel::i32>(std::lround(cssH * dpr));
+        outW = keel::round_i32(cssW * dpr);
+        outH = keel::round_i32(cssH * dpr);
         return true;
     }
     return false;
@@ -283,16 +283,16 @@ bool SdlWindowBackend::Initialize(
         if (winCoordScale > 1.01f) {
             SDL_SetWindowSize(
                 m_window,
-                keel::max(1, static_cast<keel::i32>(std::lround(static_cast<float>(m_config.width) * winCoordScale))),
-                keel::max(1, static_cast<keel::i32>(std::lround(static_cast<float>(m_config.height) * winCoordScale)))
+                keel::max(1, keel::round_i32(static_cast<float>(m_config.width) * winCoordScale)),
+                keel::max(1, keel::round_i32(static_cast<float>(m_config.height) * winCoordScale))
             );
         }
     }
     if (m_config.minWidth > 0 && m_config.minHeight > 0) {
         SDL_SetWindowMinimumSize(
             m_window,
-            keel::max(1, static_cast<keel::i32>(std::lround(static_cast<float>(m_config.minWidth) * winCoordScale))),
-            keel::max(1, static_cast<keel::i32>(std::lround(static_cast<float>(m_config.minHeight) * winCoordScale)))
+            keel::max(1, keel::round_i32(static_cast<float>(m_config.minWidth) * winCoordScale)),
+            keel::max(1, keel::round_i32(static_cast<float>(m_config.minHeight) * winCoordScale))
         );
     }
     SDL_SetWindowPosition(m_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
@@ -803,10 +803,10 @@ void SdlWindowBackend::PresentFrame(const Context& ui, FrameMetrics& metrics, bo
             } else {
                 const float dpiScale = ui.GetDpiScale();
                 for (const Rect& dr : ui.GetDirtyRects()) {
-                    const keel::i32 x1 = keel::clamp(static_cast<keel::i32>(std::floor(dr.x * dpiScale)), 0, m_width);
-                    const keel::i32 y1 = keel::clamp(static_cast<keel::i32>(std::floor(dr.y * dpiScale)), 0, m_height);
-                    const keel::i32 x2 = keel::clamp(static_cast<keel::i32>(std::ceil(dr.Right() * dpiScale)), 0, m_width);
-                    const keel::i32 y2 = keel::clamp(static_cast<keel::i32>(std::ceil(dr.Bottom() * dpiScale)), 0, m_height);
+                    const keel::i32 x1 = keel::clamp(keel::floor_i32(dr.x * dpiScale), 0, m_width);
+                    const keel::i32 y1 = keel::clamp(keel::floor_i32(dr.y * dpiScale), 0, m_height);
+                    const keel::i32 x2 = keel::clamp(keel::ceil_i32(dr.Right() * dpiScale), 0, m_width);
+                    const keel::i32 y2 = keel::clamp(keel::ceil_i32(dr.Bottom() * dpiScale), 0, m_height);
                     if (x2 > x1 && y2 > y1) {
                         const SDL_Rect sdlR = {x1, y1, x2 - x1, y2 - y1};
                         const keel::u32* src = m_pixelBuffer.data() + static_cast<keel::usize>(sdlR.y) * m_width + sdlR.x;

@@ -6,6 +6,7 @@
 #include "keel/arena.h"
 #include "keel/format.h"
 #include "keel/fs.h"
+#include "keel/math.h"
 #include "keel/number.h"
 #include "keel/small_array.h"
 
@@ -795,7 +796,7 @@ bool ParseGeometryObject(const JsonValue& geomObj, keel::i32 srsId, GeoFeature& 
     if (gType == "Point") {
         if (isTopLevel) feat.type = GeometryType::Point;
         guikit::GeoCoord pt{};
-        double optZ = static_cast<double>(NAN);
+        double optZ = keel::Limits<double>::quiet_nan();
         if (reader.ReadCoordPair(pt, &optZ)) {
             feat.points.push_back(pt);
             if (!std::isnan(optZ) && std::isnan(feat.depthMeters)) {

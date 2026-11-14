@@ -2,8 +2,8 @@
 #include <cctype>
 #include <cmath>
 #include <cstdio>
-#include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
@@ -12,6 +12,7 @@
 #include "keel/array.h"
 #include "keel/core.h"
 #include "keel/format.h"
+#include "keel/math.h"
 #include "keel/memory.h"
 #include "keel/number.h"
 #include "keel/small_array.h"
@@ -1318,7 +1319,7 @@ EditorLayoutRects ComputeEditorLayout(
         if (opts.allowZoom && std::abs(effZoom - 1.0f) > 0.01f && L.innerBounds.w > tbCm.defaultWidth * 1.75f) {
             char zBuf[16]{};
             ButtonOptions zoomOpts{};
-            zoomOpts.text = keel::format_buf(zBuf, "{}%", static_cast<keel::i32>(std::round(effZoom * 100.0f)));
+            zoomOpts.text = keel::format_buf(zBuf, "{}%", keel::round_i32(effZoom * 100.0f));
             const Vec2 zSz = Button::Measure(zoomOpts, L.toolbarSize, canvas, theme);
             L.zoomBtnRect = Rect(rightCursor - zSz.x, overlayTop, zSz.x, zSz.y);
             rightCursor -= (zSz.x + tbGap * 0.75f);
@@ -2561,7 +2562,7 @@ TextAreaResponse TextArea::Run(
     keel::i32 hoveredFoldLine = -1;
     if (res.hovered && L.gutterRect.w > 0.0f && L.gutterRect.Contains(mousePos)) {
         const float relY = (mousePos.y - L.textViewport.y) + state.scrollY;
-        const keel::i32 rawVisIdx = static_cast<keel::i32>(std::floor(relY / keel::max(1.0f, L.lineHeight)));
+        const keel::i32 rawVisIdx = keel::floor_i32(relY / keel::max(1.0f, L.lineHeight));
         if (rawVisIdx >= 0 && rawVisIdx < static_cast<keel::i32>(visualLines.size())) {
             const VisualLine& vl = visualLines[static_cast<keel::usize>(rawVisIdx)];
             if (vl.isFirstSubLine) {
@@ -2787,7 +2788,7 @@ TextAreaResponse TextArea::Run(
             const float relY = (mousePos.y - L.textViewport.y) + state.scrollY;
             const float relX = (mousePos.x - L.textViewport.x) + state.scrollX;
 
-            const keel::i32 rawVisIdx = static_cast<keel::i32>(std::floor(relY / keel::max(1.0f, L.lineHeight)));
+            const keel::i32 rawVisIdx = keel::floor_i32(relY / keel::max(1.0f, L.lineHeight));
             const keel::usize visIdx = static_cast<keel::usize>(keel::clamp(rawVisIdx, 0, static_cast<keel::i32>(visualLines.size()) - 1));
             const VisualLine& vl = visualLines[visIdx];
             const keel::StringRef subStr = valStr.substr(vl.startOffset, vl.length);
@@ -3077,7 +3078,7 @@ TextAreaResponse TextArea::Run(
     if (res.hovered && L.textViewport.Contains(mousePos) && hoveredOverlayBtn < 0 && hoveredDebugBtn < 0) {
         const float relY = (mousePos.y - L.textViewport.y) + state.scrollY;
         const float relX = (mousePos.x - L.textViewport.x) + state.scrollX;
-        const keel::i32 rawVisIdx = static_cast<keel::i32>(std::floor(relY / keel::max(1.0f, L.lineHeight)));
+        const keel::i32 rawVisIdx = keel::floor_i32(relY / keel::max(1.0f, L.lineHeight));
         if (rawVisIdx >= 0 && rawVisIdx < static_cast<keel::i32>(visualLines.size())) {
             const VisualLine& vl = visualLines[static_cast<keel::usize>(rawVisIdx)];
             const keel::StringRef subStr = displayText.substr(vl.startOffset, vl.length);
@@ -4372,7 +4373,7 @@ void TextArea::Render(
         const bool zHov = extData && extData->zoomBadgeHovered;
         char zBuf[16]{};
         ButtonOptions zoomOpts{};
-        zoomOpts.text = keel::format_buf(zBuf, "{}%", static_cast<keel::i32>(std::round(effZoom * 100.0f)));
+        zoomOpts.text = keel::format_buf(zBuf, "{}%", keel::round_i32(effZoom * 100.0f));
         zoomOpts.color = StateColor::Secondary();
         zoomOpts.stretch = StretchMode::Fill;
         Button::Render(canvas, L.zoomBtnRect, zoomOpts, tbSize, zHov, false, disabled, theme, false);
@@ -4464,7 +4465,7 @@ void TextArea::Render(
             : "Plain Text";
         char rightStatus[96]{};
         std::snprintf(rightStatus, sizeof(rightStatus), "Spaces: 4  |  UTF-8  |  %d%%  |  %.*s",
-                      static_cast<keel::i32>(std::lround(effZoom * 100.0f)),
+                      keel::round_i32(effZoom * 100.0f),
                       static_cast<keel::i32>(langName.size()), langName.data());
         canvas.DrawTextBox(
             rightStatus,

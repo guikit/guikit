@@ -1,15 +1,14 @@
 #include "guikit/widgets/button.hpp"
 #include <cmath>
-#include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
+#include "keel/math.h"
 
 namespace guikit {
 
 namespace {
-
-constexpr float kButtonPi = 3.14159265358979323846f;
 
 ControlSpec EffectiveButtonControl(const ButtonOptions& opts, UiSize size, const UiTheme& theme) noexcept {
     const ComponentMetrics& m = theme.GetMetrics(size);
@@ -50,9 +49,8 @@ void DrawButtonSpinner(ICanvas& canvas, Rect r, Color col, float phase) {
     );
 
     // 250-degree rotating arc
-    constexpr float kTwoPi = 2.0f * kButtonPi;
-    const float startA = phase * kTwoPi;
-    const float sweep = 1.38f * kButtonPi;
+    const float startA = phase * keel::kTauF;
+    const float sweep = 1.38f * keel::kPiF;
     constexpr keel::i32 kSegs = 18;
     VectorPath path;
     path.Reserve(kSegs + 1, kSegs + 1);

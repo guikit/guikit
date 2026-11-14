@@ -203,7 +203,7 @@ void StepCarSimulation(guikit::Context& ui, CarDashboardDemoState& st) {
             targetSpd = 280.0f - brkPhase * 185.0f;
             st.throttlePct = 0.0f;
             st.brakePct = 88.0f;
-            st.steeringAngleDeg = -28.0f * std::sin(brkPhase * 3.14159f);
+            st.steeringAngleDeg = -28.0f * std::sin(brkPhase * keel::kPiF);
         } else {
             // Corner exit acceleration
             const float exitPhase = (lapPhase - 11.8f) / 2.2f;
