@@ -19,10 +19,8 @@ SchematicState s_state;
 } // namespace
 
 void RenderSchematicInspector(guikit::Context& ui, DemoContext&) {
-    keel::usize bgIdx = static_cast<keel::usize>(s_state.bg);
     if (auto el = ui.Element({.label = "Canvas Backdrop"})) {
-        if (ui.StepSlider(bgIdx, SchematicState::bgNames, {.showTicks = true, .showLabels = true}).changed) {
-            s_state.bg = static_cast<guikit::SceneBackground>(bgIdx);
+        if (ui.Segmented(s_state.bg, SchematicState::bgNames).changed) {
             ui.InvalidateAll();
         }
     }

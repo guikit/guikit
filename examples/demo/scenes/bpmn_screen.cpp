@@ -608,19 +608,15 @@ void RenderBpmnInspector(guikit::Context& ui, DemoContext&) {
     // --- Canvas & Modeler Appearance ---
     ui.Heading({.label = "MODELER & CANVAS UX", .level = guikit::HeadingLevel::H6, .separator = guikit::HeadingSeparator::Bottom});
     static constexpr keel::StaticArray<keel::StringRef, 4> kThemeNames = {"Auto", "bpmn.io", "Camunda", "Blueprint"};
-    keel::usize thIdx = static_cast<keel::usize>(s_bpmn.themePreset);
     if (auto el = ui.Element({.label = "Color Theme"})) {
-        if (ui.StepSlider(thIdx, kThemeNames, {.showTicks = true, .showLabels = true}).changed) {
-            s_bpmn.themePreset = static_cast<guikit::BpmnThemePreset>(thIdx);
+        if (ui.Segmented(s_bpmn.themePreset, kThemeNames).changed) {
             ui.InvalidateAll();
         }
     }
 
-    static constexpr keel::StaticArray<keel::StringRef, 2> kRouteNames = {"Orthogonal (Manhattan)", "Cubic Bezier"};
-    keel::usize rtIdx = static_cast<keel::usize>(s_bpmn.routingMode);
+    static constexpr keel::StaticArray<keel::StringRef, 2> kRouteNames = {"Orthogonal", "Bezier"};
     if (auto el = ui.Element({.label = "Edge Routing"})) {
-        if (ui.StepSlider(rtIdx, kRouteNames, {.showTicks = true, .showLabels = true}).changed) {
-            s_bpmn.routingMode = static_cast<guikit::BpmnRoutingMode>(rtIdx);
+        if (ui.Segmented(s_bpmn.routingMode, kRouteNames).changed) {
             ui.InvalidateAll();
         }
     }

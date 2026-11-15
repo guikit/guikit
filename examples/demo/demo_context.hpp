@@ -184,7 +184,19 @@ constexpr keel::StringRef CategoryControlName(NavCategory cat) noexcept {
     }
 }
 
-inline constexpr keel::StaticArray<keel::StringRef, 3> kLabelAlignNames = {"Start (Left)", "Center", "End (Right)"};
+inline constexpr keel::StaticArray<keel::StringRef, 3> kLabelAlignNames = {"Start", "Center", "End"};
+
+inline constexpr keel::StaticArray<keel::StringRef, 8> kUiVariantNames = {
+    "Default", "Primary", "Secondary", "Success", "Warning", "Danger", "Info", "Ghost"
+};
+
+inline constexpr keel::StaticArray<keel::StringRef, 4> kAxisModeNames = {
+    "Auto", "Fit", "Stretch", "Fixed"
+};
+
+inline constexpr keel::StaticArray<keel::StringRef, 6> kElemLayoutNames = {
+    "Auto", "Stacked", "Top", "Bottom", "Leading", "Trailing"
+};
 
 constexpr keel::StringRef SizeModeEnumName(guikit::SizeMode m) noexcept {
     switch (m) {
@@ -295,8 +307,8 @@ inline keel::String FormatDesc(bool show, keel::StringRef text, guikit::UiVarian
     return keel::format("{{\"{}\", guikit::StateColor::{}()}}", text, VariantName(v));
 }
 
-inline constexpr keel::StaticArray<keel::StringRef, 9> kBgPresetShort = {
-    "Off", "Srf", "Pri", "Sec", "Suc", "Wrn", "Dgr", "Inf", "Gho"
+inline constexpr keel::StaticArray<keel::StringRef, 9> kBgPresetNames = {
+    "None / Off", "Surface", "Primary", "Secondary", "Success", "Warning", "Danger", "Info", "Ghost"
 };
 
 constexpr guikit::StateColor BgPresetToStateColor(
@@ -773,18 +785,15 @@ struct DemoContext {
 
     void RenderVariantPicker(guikit::Context& ui) {
         if (auto el = ui.Element({.label = "Semantic Variant"})) {
-            if (ui.StepSlider(btnVariant, {
-                .showTicks = true,
-                .showLabels = true
-            }).changed) {
+            if (ui.Select(btnVariant, kUiVariantNames).changed) {
                 ui.InvalidateAll();
             }
         }
     }
 
     void RenderDescVariantPicker(guikit::Context& ui, guikit::UiVariant& descVar, bool enabled) {
-        static constexpr keel::StaticArray<keel::StringRef, 7> descVarShort = {
-            "Mut", "Def", "Pri", "Suc", "Wrn", "Dgr", "Inf"
+        static constexpr keel::StaticArray<keel::StringRef, 7> descVarNames = {
+            "Muted", "Default", "Primary", "Success", "Warning", "Danger", "Info"
         };
         static constexpr keel::StaticArray<guikit::UiVariant, 7> descVars = {
             guikit::UiVariant::Muted, guikit::UiVariant::Default, guikit::UiVariant::Primary,
@@ -798,12 +807,7 @@ struct DemoContext {
             }
         }
         if (auto el = ui.Element({.label = "Description Color", .disabled = !enabled})) {
-            if (ui.StepSlider(descVarIdx, descVarShort, {
-                .showTicks = true,
-                .showLabels = true,
-                .color = guikit::StateColor::FromVariant(
-                    (descVar == guikit::UiVariant::Muted) ? guikit::UiVariant::Secondary : descVar
-                ),
+            if (ui.Select(descVarIdx, descVarNames, {
                 .disabled = !enabled
             }).changed) {
                 descVar = descVars[descVarIdx];
@@ -829,9 +833,7 @@ struct DemoContext {
         }
         const bool labelDisabled = (elemLabel.empty() && !elemShowIcon);
         if (auto el = ui.Element({.label = "Label Color", .disabled = labelDisabled})) {
-            if (ui.StepSlider(elemLabelVariant, {
-                .showTicks = true,
-                .showLabels = true,
+            if (ui.Select(elemLabelVariant, kUiVariantNames, {
                 .disabled = labelDisabled
             }).changed) {
                 ui.InvalidateAll();
@@ -868,9 +870,7 @@ struct DemoContext {
             }
         }
         if (auto el = ui.Element({.label = "Badge Variant", .disabled = elemBadge.empty()})) {
-            if (ui.StepSlider(elemBadgeVariant, {
-                .showTicks = true,
-                .showLabels = true,
+            if (ui.Select(elemBadgeVariant, kUiVariantNames, {
                 .disabled = elemBadge.empty()
             }).changed) {
                 ui.InvalidateAll();
@@ -885,11 +885,6 @@ struct DemoContext {
     }
 
     void RenderElementLayoutSection(guikit::Context& ui, NavCategory cat) {
-        static constexpr keel::StaticArray<keel::StringRef, 4> kAxisModes = {"Auto", "Fit", "Stretch", "Fixed"};
-        static constexpr keel::StaticArray<keel::StringRef, 6> kElemLayouts = {
-            "Auto", "Stack", "Top", "Btm", "Lead", "Trail"
-        };
-
         const bool hasExternal = HasElementExternal();
         const auto explicitLayout = ResolveElemLayout();
         const guikit::ElementLayout effLayout = explicitLayout.value_or(DefaultElemLayout(cat));
@@ -901,9 +896,7 @@ struct DemoContext {
             },
             .disabled = !hasExternal
         })) {
-            if (ui.StepSlider(elemLayoutIdx, kElemLayouts, {
-                .showTicks = true,
-                .showLabels = true,
+            if (ui.Select(elemLayoutIdx, kElemLayoutNames, {
                 .disabled = !hasExternal
             }).changed) {
                 ui.InvalidateAll();
@@ -912,20 +905,14 @@ struct DemoContext {
 
         keel::usize elemAlignIdx = static_cast<keel::usize>(elemAlign);
         if (auto el = ui.Element({.label = "Alignment"})) {
-            if (ui.StepSlider(elemAlignIdx, kLabelAlignNames, {
-                .showTicks = true,
-                .showLabels = true
-            }).changed) {
+            if (ui.Segmented(elemAlignIdx, kLabelAlignNames).changed) {
                 elemAlign = static_cast<guikit::Align>(elemAlignIdx);
                 ui.InvalidateAll();
             }
         }
 
         if (auto el = ui.Element({.label = "Width"})) {
-            if (ui.StepSlider(elemWidthModeIdx, kAxisModes, {
-                .showTicks = true,
-                .showLabels = true
-            }).changed) {
+            if (ui.Segmented(elemWidthModeIdx, kAxisModeNames).changed) {
                 ui.InvalidateAll();
             }
         }
@@ -971,8 +958,6 @@ struct DemoContext {
             return;
         }
 
-        static constexpr keel::StaticArray<keel::StringRef, 4> kAxisModes = {"Auto", "Fit", "Stretch", "Fixed"};
-
         const auto ctrlWidth = ResolveCtrlWidth();
         const keel::StringRef ctrlWidthBadge = ctrlWidth.IsAuto()
             ? SizeModeEnumName(DefaultCtrlWidthMode(cat))
@@ -984,10 +969,7 @@ struct DemoContext {
                 ctrlWidth.IsAuto() ? guikit::UiVariant::Secondary : guikit::UiVariant::Primary
             }
         })) {
-            if (ui.StepSlider(ctrlWidthModeIdx, kAxisModes, {
-                .showTicks = true,
-                .showLabels = true
-            }).changed) {
+            if (ui.Segmented(ctrlWidthModeIdx, kAxisModeNames).changed) {
                 ui.InvalidateAll();
             }
         }
@@ -1014,10 +996,7 @@ struct DemoContext {
                 ctrlHeight.IsAuto() ? guikit::UiVariant::Secondary : guikit::UiVariant::Primary
             }
         })) {
-            if (ui.StepSlider(ctrlHeightModeIdx, kAxisModes, {
-                .showTicks = true,
-                .showLabels = true
-            }).changed) {
+            if (ui.Segmented(ctrlHeightModeIdx, kAxisModeNames).changed) {
                 ui.InvalidateAll();
             }
         }
@@ -1039,10 +1018,7 @@ struct DemoContext {
                 ? 0
                 : ((targetAlign == guikit::Align::End) ? 2 : 1);
             if (auto el = ui.Element({.label = "Alignment"})) {
-                if (ui.StepSlider(alignIdx, kLabelAlignNames, {
-                    .showTicks = true,
-                    .showLabels = true
-                }).changed) {
+                if (ui.Segmented(alignIdx, kLabelAlignNames).changed) {
                     targetAlign = (alignIdx == 0)
                         ? guikit::Align::Start
                         : ((alignIdx == 2) ? guikit::Align::End : guikit::Align::Center);
@@ -1073,10 +1049,7 @@ struct DemoContext {
         );
         if (hasControlVariant) {
             if (auto el = ui.Element({.label = "Color"})) {
-                if (ui.StepSlider(btnVariant, {
-                    .showTicks = true,
-                    .showLabels = true
-                }).changed) {
+                if (ui.Select(btnVariant, kUiVariantNames).changed) {
                     ui.InvalidateAll();
                 }
             }
@@ -1085,11 +1058,7 @@ struct DemoContext {
         if (IsCtrlBoxedCategory(cat)) {
             keel::usize& ctrlBgIdx = ctrlBgIdxByCat[static_cast<keel::usize>(cat)];
             if (auto el = ui.Element({.label = "Background"})) {
-                if (ui.StepSlider(ctrlBgIdx, kBgPresetShort, {
-                    .showTicks = true,
-                    .showLabels = true,
-                    .color = BgPresetToTrackColor(ctrlBgIdx)
-                }).changed) {
+                if (ui.Select(ctrlBgIdx, kBgPresetNames).changed) {
                     ui.InvalidateAll();
                 }
             }
@@ -1139,9 +1108,7 @@ struct DemoContext {
                 (cat == NavCategory::ElemButton &&
                     (btnVariant == guikit::UiVariant::Default || btnVariant == guikit::UiVariant::Secondary));
             if (auto el = ui.Element({.label = "Border Color", .disabled = !hasVisibleCtrlBorder})) {
-                if (ui.StepSlider(ctrlBorderVariant, {
-                    .showTicks = true,
-                    .showLabels = true,
+                if (ui.Select(ctrlBorderVariant, kUiVariantNames, {
                     .disabled = !hasVisibleCtrlBorder
                 }).changed) {
                     ui.InvalidateAll();

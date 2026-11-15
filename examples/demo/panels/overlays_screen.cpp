@@ -57,10 +57,6 @@ constexpr keel::StaticArray<keel::StringRef, 6> kToastPlacementNames = {
     "BottomRight", "TopRight", "BottomLeft", "TopLeft", "TopCenter", "BottomCenter"
 };
 
-constexpr keel::StaticArray<keel::StringRef, 6> kToastPlacementShort = {
-    "BR", "TR", "BL", "TL", "TC", "BC"
-};
-
 } // namespace
 
 void RenderOverlaysInspector(guikit::Context& ui, DemoContext& ctx) {
@@ -117,11 +113,7 @@ void RenderOverlaysInspector(guikit::Context& ui, DemoContext& ctx) {
         }
     } else if (s_ov.activeOverlay == 2) {
         if (auto el = ui.Element({.label = "Stack Placement"})) {
-            if (ui.StepSlider(s_ov.toastPlacementIdx, kToastPlacementShort, {
-                .showTicks = true,
-                .showLabels = true,
-                .valueText = {kToastPlacementNames[s_ov.toastPlacementIdx], kToastPlacementNames}
-            }).changed) {
+            if (ui.Select(s_ov.toastPlacementIdx, kToastPlacementNames).changed) {
                 ui.InvalidateAll();
             }
         }

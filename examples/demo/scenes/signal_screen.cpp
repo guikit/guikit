@@ -62,7 +62,7 @@ struct SignalDemoState {
     };
 
     static constexpr keel::StaticArray<keel::StringRef, 4> windowNames = {
-        "Hann", "Hamming", "Blackman", "Rect"
+        "Hann", "Hamming", "Blackman-Harris", "Rectangular"
     };
 
     static constexpr keel::StaticArray<keel::StringRef, 4> fftSizeNames = {
@@ -349,14 +349,8 @@ void RenderSignalInspector(guikit::Context& ui, DemoContext&) {
         }
     }
 
-    keel::usize orderIdx = static_cast<keel::usize>(s_sig.panelOrder);
     if (auto el = ui.Element({.label = "Panel Stack Order"})) {
-        if (ui.StepSlider(orderIdx, SignalDemoState::panelOrderNames, {
-            .showTicks = true,
-            .showLabels = true
-        }).changed) {
-            s_sig.panelOrder = static_cast<guikit::SignalPanelOrder>(orderIdx);
-        }
+        ui.Segmented(s_sig.panelOrder, SignalDemoState::panelOrderNames);
     }
 
     float splitPct = s_sig.splitRatio * 100.0f;
@@ -369,24 +363,12 @@ void RenderSignalInspector(guikit::Context& ui, DemoContext&) {
         }
     }
 
-    keel::usize ampIdx = static_cast<keel::usize>(s_sig.amplitudeScale);
     if (auto el = ui.Element({.label = "Waveform Amplitude Scale"})) {
-        if (ui.StepSlider(ampIdx, SignalDemoState::ampScaleNames, {
-            .showTicks = true,
-            .showLabels = true
-        }).changed) {
-            s_sig.amplitudeScale = static_cast<guikit::AmplitudeScale>(ampIdx);
-        }
+        ui.Segmented(s_sig.amplitudeScale, SignalDemoState::ampScaleNames);
     }
 
-    keel::usize freqIdx = static_cast<keel::usize>(s_sig.frequencyScale);
     if (auto el = ui.Element({.label = "Spectrogram Frequency Scale"})) {
-        if (ui.StepSlider(freqIdx, SignalDemoState::freqScaleNames, {
-            .showTicks = true,
-            .showLabels = true
-        }).changed) {
-            s_sig.frequencyScale = static_cast<guikit::FrequencyScale>(freqIdx);
-        }
+        ui.Segmented(s_sig.frequencyScale, SignalDemoState::freqScaleNames);
     }
 
     keel::usize cmapIdx = static_cast<keel::usize>(s_sig.colormap);
@@ -403,14 +385,8 @@ void RenderSignalInspector(guikit::Context& ui, DemoContext&) {
         });
     }
 
-    keel::usize winIdx = static_cast<keel::usize>(s_sig.fftWindow);
     if (auto el = ui.Element({.label = "FFT Window Function"})) {
-        if (ui.StepSlider(winIdx, SignalDemoState::windowNames, {
-            .showTicks = true,
-            .showLabels = true
-        }).changed) {
-            s_sig.fftWindow = static_cast<guikit::FftWindowType>(winIdx);
-        }
+        ui.Select(s_sig.fftWindow, SignalDemoState::windowNames);
     }
 
     if (auto el = ui.Element({.label = "Spectrogram Noise Floor"})) {

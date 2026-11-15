@@ -111,9 +111,7 @@ void RenderHeadingInspector(guikit::Context& ui, DemoContext& ctx) {
 
     const bool titleColorDisabled = (s_state.title.empty() && !s_state.showIcon);
     if (auto el = ui.Element({.label = "Title Color", .disabled = titleColorDisabled})) {
-        if (ui.StepSlider(s_state.titleVariant, {
-            .showTicks = true,
-            .showLabels = true,
+        if (ui.Select(s_state.titleVariant, kUiVariantNames, {
             .disabled = titleColorDisabled
         }).changed) {
             ui.InvalidateAll();
@@ -151,9 +149,7 @@ void RenderHeadingInspector(guikit::Context& ui, DemoContext& ctx) {
         }
     }
     if (auto el = ui.Element({.label = "Badge Variant", .disabled = s_state.badge.empty()})) {
-        if (ui.StepSlider(s_state.badgeVariant, {
-            .showTicks = true,
-            .showLabels = true,
+        if (ui.Select(s_state.badgeVariant, kUiVariantNames, {
             .disabled = s_state.badge.empty()
         }).changed) {
             ui.InvalidateAll();
@@ -163,31 +159,21 @@ void RenderHeadingInspector(guikit::Context& ui, DemoContext& ctx) {
     static constexpr keel::StaticArray<keel::StringRef, 3> kHeadingLayouts = {
         "Stacked", "Overline", "Inline"
     };
-    keel::usize layoutIdx = static_cast<keel::usize>(s_state.layout);
     if (auto el = ui.Element({.label = "Heading Layout"})) {
-        if (ui.StepSlider(layoutIdx, kHeadingLayouts, {
-            .showTicks = true,
-            .showLabels = true
-        }).changed) {
-            s_state.layout = static_cast<guikit::HeadingLayout>(layoutIdx);
+        if (ui.Segmented(s_state.layout, kHeadingLayouts).changed) {
             ui.InvalidateAll();
         }
     }
 
     static constexpr keel::StaticArray<keel::StringRef, 3> kSepStyles = {"None", "Bottom", "Trailing"};
     if (auto el = ui.Element({.label = "Separator"})) {
-        if (ui.StepSlider(s_state.separator, kSepStyles, {
-            .showTicks = true,
-            .showLabels = true
-        }).changed) {
+        if (ui.Segmented(s_state.separator, kSepStyles).changed) {
             ui.InvalidateAll();
         }
     }
     const bool sepDisabled = (s_state.separator == guikit::HeadingSeparator::None);
     if (auto el = ui.Element({.label = "Separator Color", .disabled = sepDisabled})) {
-        if (ui.StepSlider(s_state.separatorVariant, {
-            .showTicks = true,
-            .showLabels = true,
+        if (ui.Select(s_state.separatorVariant, kUiVariantNames, {
             .disabled = sepDisabled
         }).changed) {
             ui.InvalidateAll();
@@ -205,24 +191,17 @@ void RenderHeadingInspector(guikit::Context& ui, DemoContext& ctx) {
 
     keel::usize alignIdx = static_cast<keel::usize>(s_state.align);
     if (auto el = ui.Element({.label = "Alignment"})) {
-        if (ui.StepSlider(alignIdx, kLabelAlignNames, {
-            .showTicks = true,
-            .showLabels = true
-        }).changed) {
+        if (ui.Segmented(alignIdx, kLabelAlignNames).changed) {
             s_state.align = static_cast<guikit::Align>(alignIdx);
             ui.InvalidateAll();
         }
     }
 
-    static constexpr keel::StaticArray<keel::StringRef, 4> kWidthModes = {"Auto", "Fit", "Stretch", "Fixed"};
     if (auto el = ui.Element({
         .label = "Heading Width",
         .badge = {"Stretch", guikit::UiVariant::Secondary}
     })) {
-        if (ui.StepSlider(s_state.widthModeIdx, kWidthModes, {
-            .showTicks = true,
-            .showLabels = true
-        }).changed) {
+        if (ui.Segmented(s_state.widthModeIdx, kAxisModeNames).changed) {
             ui.InvalidateAll();
         }
     }

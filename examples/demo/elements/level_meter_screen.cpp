@@ -33,20 +33,14 @@ void RenderLevelMeterInspector(guikit::Context& ui, DemoContext&) {
         .label = "Channel Configuration",
         .description = "Single-channel dBFS vs Stereo L/R pair"
     })) {
-        if (ui.StepSlider(s_state.channelModeIdx, channelModes, {
-            .showTicks = true,
-            .showLabels = true
-        }).changed) {
+        if (ui.Segmented(s_state.channelModeIdx, channelModes).changed) {
             ui.InvalidateAll();
         }
     }
 
     static constexpr keel::StaticArray<keel::StringRef, 2> orientNames = {"Horizontal", "Vertical"};
     if (auto el = ui.Element({.label = "Orientation"})) {
-        if (ui.StepSlider(s_state.orientationIdx, orientNames, {
-            .showTicks = true,
-            .showLabels = true
-        }).changed) {
+        if (ui.Segmented(s_state.orientationIdx, orientNames).changed) {
             ui.InvalidateAll();
         }
     }

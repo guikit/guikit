@@ -429,10 +429,7 @@ CodeEditorState s_state;
 
 void RenderCodeEditorInspector(guikit::Context& ui, DemoContext&) {
     if (auto el = ui.Element({.label = "Language Preset"})) {
-        if (ui.StepSlider(s_state.syntaxMode, CodeEditorState::syntaxLabels, {
-            .showTicks = true,
-            .showLabels = true
-        }).changed) {
+        if (ui.Select(s_state.syntaxMode, CodeEditorState::syntaxLabels).changed) {
             s_state.LoadPreset(s_state.syntaxMode);
             ui.InvalidateAll();
         }
@@ -464,10 +461,7 @@ void RenderCodeEditorInspector(guikit::Context& ui, DemoContext&) {
     }
     if (s_state.showDebugToolbar) {
         if (auto el = ui.Element({.label = "Debug Toolbar Position"})) {
-            if (ui.StepSlider(s_state.debugToolbarAlignIdx, CodeEditorState::debugToolbarAlignLabels, {
-                .showTicks = true,
-                .showLabels = true
-            }).changed) {
+            if (ui.Segmented(s_state.debugToolbarAlignIdx, CodeEditorState::debugToolbarAlignLabels).changed) {
                 ui.InvalidateAll();
             }
         }

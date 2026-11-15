@@ -105,10 +105,7 @@ void RenderTableInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         .label = "Table Mode",
         .description = "Switch between Rich Widget DataGrid (48 targets) and 100,000-row O(1) virtualized log"
     })) {
-        if (ui.StepSlider(g_tableDemo.datasetMode, kModeLabels, {
-            .showTicks = true,
-            .showLabels = true
-        }).changed) {
+        if (ui.Segmented(g_tableDemo.datasetMode, kModeLabels).changed) {
             ui.InvalidateAll();
         }
     }

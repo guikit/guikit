@@ -41,10 +41,7 @@ void RenderSliderInspector(guikit::Context& ui, DemoContext&) {
         .label = "Track Control Mode",
         .description = "Slider / StepSlider / RangeSlider / ProgressBar"
     })) {
-        if (ui.StepSlider(s_state.modeIdx, modeNames, {
-            .showTicks = true,
-            .showLabels = true
-        }).changed) {
+        if (ui.Segmented(s_state.modeIdx, modeNames).changed) {
             ui.InvalidateAll();
         }
     }
@@ -74,12 +71,12 @@ void RenderSliderInspector(guikit::Context& ui, DemoContext&) {
     if (auto el = ui.Element({.label = "Show Value Tag"})) {
         if (ui.Switch(s_state.showValue).changed) ui.InvalidateAll();
     }
-    static constexpr keel::StaticArray<keel::StringRef, 5> valPlaceNames = {"Lead", "Trail", "Top", "Btm", "Thumb"};
+    static constexpr keel::StaticArray<keel::StringRef, 5> valPlaceNames = {
+        "Leading", "Trailing", "Top", "Bottom", "Thumb"
+    };
     keel::usize valPlaceIdx = static_cast<keel::usize>(s_state.valuePlacement);
     if (auto el = ui.Element({.label = "Value Placement", .disabled = !s_state.showValue})) {
-        if (ui.StepSlider(valPlaceIdx, valPlaceNames, {
-            .showTicks = true,
-            .showLabels = true,
+        if (ui.Select(valPlaceIdx, valPlaceNames, {
             .disabled = !s_state.showValue
         }).changed) {
             s_state.valuePlacement = static_cast<guikit::Placement>(valPlaceIdx);

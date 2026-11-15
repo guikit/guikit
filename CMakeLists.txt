@@ -486,10 +486,7 @@ if (GUIKIT_BUILD_TESTS)
     add_executable(test_guikit_header_purity
         tests/test_header_purity.cpp
     )
-    target_link_libraries(test_guikit_header_purity PRIVATE guikit::core)
-    if (TARGET guikit::scenes)
-        target_link_libraries(test_guikit_header_purity PRIVATE guikit::scenes)
-    endif()
+    target_link_libraries(test_guikit_header_purity PRIVATE guikit::guikit)
     keel_enforce_guidelines(test_guikit_header_purity WARNINGS_AS_ERRORS ON)
     add_test(NAME guikit_header_purity COMMAND test_guikit_header_purity)
 

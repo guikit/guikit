@@ -1301,12 +1301,12 @@ void TestElementHeadingSpecAndSeparatorSpace() {
 
     // Compile-time purity checks: ElementOptions and HeadingOptions have zero panel surface/border fields,
     // and ElementOptions has zero heading-hierarchy or divider fields.
-    static_assert(![]<typename T = ElementOptions>() { return requires(T o) { o.background; }; }());
-    static_assert(![]<typename T = ElementOptions>() { return requires(T o) { o.border; }; }());
-    static_assert(![]<typename T = ElementOptions>() { return requires(T o) { o.level; }; }());
-    static_assert(![]<typename T = ElementOptions>() { return requires(T o) { o.separator; }; }());
-    static_assert(![]<typename T = HeadingOptions>() { return requires(T o) { o.background; }; }());
-    static_assert(![]<typename T = HeadingOptions>() { return requires(T o) { o.border; }; }());
+    static_assert(![]<typename T = guikit::ElementOptions>() { return requires(T o) { o.background; }; }());
+    static_assert(![]<typename T = guikit::ElementOptions>() { return requires(T o) { o.border; }; }());
+    static_assert(![]<typename T = guikit::ElementOptions>() { return requires(T o) { o.level; }; }());
+    static_assert(![]<typename T = guikit::ElementOptions>() { return requires(T o) { o.separator; }; }());
+    static_assert(![]<typename T = guikit::HeadingOptions>() { return requires(T o) { o.background; }; }());
+    static_assert(![]<typename T = guikit::HeadingOptions>() { return requires(T o) { o.border; }; }());
 
     const UiTheme theme = UiTheme::Dark();
 

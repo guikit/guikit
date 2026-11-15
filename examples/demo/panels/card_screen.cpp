@@ -7,44 +7,28 @@ namespace {
 struct CardDemoState {
     bool fullWidth = false;
     float minWidth = 280.0f;
-    keel::usize bgIdx = 0;     // 0=Surface, 1=None, 2=Primary, 3=Secondary, 4=Success, 5=Warning, 6=Danger, 7=Info
-    keel::usize borderIdx = 0; // 0=Default, 1=Primary, 2=Secondary, 3=Success, 4=Warning, 5=Danger, 6=Info
+    keel::usize bgIdx = 1;     // 0=None/Off, 1=Surface, 2=Primary, 3=Secondary, 4=Success, 5=Warning, 6=Danger, 7=Info, 8=Ghost
+    keel::usize borderIdx = 0; // 0=Default, 1=Primary, 2=Secondary, 3=Success, 4=Warning, 5=Danger, 6=Info, 7=Ghost
     bool showHeader = true;
     bool showDivider = true;
 };
 
 CardDemoState s_card;
 
-constexpr keel::StaticArray<keel::StringRef, 8> kBgShort = {
-    "Surf", "None", "Pri", "Sec", "Suc", "Wrn", "Dgr", "Inf"
-};
-
-constexpr keel::StaticArray<keel::StringRef, 7> kBorderShort = {
-    "Def", "Pri", "Sec", "Suc", "Wrn", "Dgr", "Inf"
-};
-
 guikit::StateColor ResolveCardBg() noexcept {
-    switch (s_card.bgIdx) {
-        case 1: return guikit::StateColor::None();
-        case 2: return guikit::StateColor::Primary();
-        case 3: return guikit::StateColor::Secondary();
-        case 4: return guikit::StateColor::Success();
-        case 5: return guikit::StateColor::Warning();
-        case 6: return guikit::StateColor::Danger();
-        case 7: return guikit::StateColor::Info();
-        default: return guikit::StateColor::Surface();
-    }
+    return BgPresetToStateColor(s_card.bgIdx, true);
 }
 
 keel::StringRef CardBgCodeName() noexcept {
     switch (s_card.bgIdx) {
-        case 1: return "guikit::StateColor::None()";
+        case 0: return "guikit::StateColor::None()";
         case 2: return "guikit::StateColor::Primary()";
         case 3: return "guikit::StateColor::Secondary()";
         case 4: return "guikit::StateColor::Success()";
         case 5: return "guikit::StateColor::Warning()";
         case 6: return "guikit::StateColor::Danger()";
         case 7: return "guikit::StateColor::Info()";
+        case 8: return "guikit::StateColor::Ghost()";
         default: return "guikit::StateColor::Surface()";
     }
 }
@@ -57,6 +41,7 @@ guikit::StateColor ResolveCardBorderColor() noexcept {
         case 4: return guikit::StateColor::Warning();
         case 5: return guikit::StateColor::Danger();
         case 6: return guikit::StateColor::Info();
+        case 7: return guikit::StateColor::Ghost();
         default: return guikit::StateColor{};
     }
 }
@@ -69,6 +54,7 @@ keel::StringRef CardBorderCodeName() noexcept {
         case 4: return "guikit::StateColor::Warning()";
         case 5: return "guikit::StateColor::Danger()";
         case 6: return "guikit::StateColor::Info()";
+        case 7: return "guikit::StateColor::Ghost()";
         default: return "guikit::StateColor{}";
     }
 }
@@ -97,7 +83,7 @@ void RenderCardInspector(guikit::Context& ui, DemoContext& ctx) {
         }
     }
     if (auto el = ui.Element({.label = "Background"})) {
-        if (ui.StepSlider(s_card.bgIdx, kBgShort, {.showTicks = true, .showLabels = true}).changed) {
+        if (ui.Select(s_card.bgIdx, kBgPresetNames).changed) {
             ui.InvalidateAll();
         }
     }
@@ -108,7 +94,7 @@ void RenderCardInspector(guikit::Context& ui, DemoContext& ctx) {
     }
     const bool hasBorder = (ctx.cardBorderWidth > 0.0f);
     if (auto el = ui.Element({.label = "Border Color", .disabled = !hasBorder})) {
-        if (ui.StepSlider(s_card.borderIdx, kBorderShort, {.showTicks = true, .showLabels = true, .disabled = !hasBorder}).changed) {
+        if (ui.Select(s_card.borderIdx, kUiVariantNames, {.disabled = !hasBorder}).changed) {
             ui.InvalidateAll();
         }
     }

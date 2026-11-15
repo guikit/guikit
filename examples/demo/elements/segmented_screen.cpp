@@ -46,9 +46,7 @@ void RenderSegmentedInspector(guikit::Context& ui, DemoContext&) {
         .label = "Icon Placement",
         .disabled = !(s_state.showIcons && s_state.showText)
     })) {
-        if (ui.StepSlider(placeIdx, placeNames, {
-            .showTicks = true,
-            .showLabels = true,
+        if (ui.Segmented(placeIdx, placeNames, {
             .disabled = !(s_state.showIcons && s_state.showText)
         }).changed) {
             s_state.iconPlacement = static_cast<guikit::Placement>(placeIdx);

@@ -24,11 +24,9 @@ void RenderTabBarInspector(guikit::Context& ui, DemoContext& ctx) {
             ui.InvalidateAll();
         }
     }
-    static constexpr keel::StaticArray<keel::StringRef, 2> styleNames = {"Underline", "Pill"};
-    keel::usize styleIdx = (s_state.style == guikit::TabBarStyle::Pill) ? 1 : 0;
+    static constexpr keel::StaticArray<keel::StringRef, 4> styleNames = {"Underline", "Pill", "Card", "Folder"};
     if (auto el = ui.Element({.label = "TabBar Style"})) {
-        if (ui.StepSlider(styleIdx, styleNames, {.showTicks = true, .showLabels = true}).changed) {
-            s_state.style = (styleIdx == 1) ? guikit::TabBarStyle::Pill : guikit::TabBarStyle::Underline;
+        if (ui.Segmented(s_state.style, styleNames).changed) {
             ui.InvalidateAll();
         }
     }
@@ -82,6 +80,8 @@ void RenderTabBarStage(guikit::Context& ui, DemoContext& ctx) {
 }
 
 keel::String GenerateTabBarCode(const DemoContext& ctx) {
+    static constexpr keel::StaticArray<keel::StringRef, 4> kStyleCodeNames = {"Underline", "Pill", "Card", "Folder"};
+    const keel::usize styleIdx = keel::min<keel::usize>(static_cast<keel::usize>(s_state.style), 3);
     return keel::format(
         "ui.{}TabBar(activeTab, tabItems, {{\n"
         "    .style = guikit::TabBarStyle::{},\n"
@@ -97,7 +97,7 @@ keel::String GenerateTabBarCode(const DemoContext& ctx) {
         "    .scale = keel::kNullOpt\n"
         "}});",
         FormatUiSizePrefix(ctx.controlsSize),
-        s_state.style == guikit::TabBarStyle::Pill ? "Pill" : "Underline",
+        kStyleCodeNames[styleIdx],
         s_state.showSep ? "true" : "false",
         s_state.fullWidth ? "true" : "false",
         s_state.scrollable ? "true" : "false",

@@ -42,8 +42,11 @@ keel::StaticArray<guikit::SelectItem, 8> BuildRichSelectItems() {
 } // namespace
 
 void RenderSelectInspector(guikit::Context& ui, DemoContext&) {
+    static constexpr keel::StaticArray<keel::StringRef, 4> kControlModes = {
+        "Select", "ComboBox", "Autocomplete", "MultiSelect"
+    };
     if (auto el = ui.Element({.label = "Control Mode"})) {
-        if (ui.Segmented(s_state.mode, {"Select", "ComboBox", "Autocomplete", "MultiSelect"}).changed) {
+        if (ui.Select(s_state.mode, kControlModes).changed) {
             if (s_state.mode == 2 && s_state.customText.empty() && s_state.idx < kPlainItems.size()) {
                 s_state.customText.assign(kPlainItems[s_state.idx]);
             }

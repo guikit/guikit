@@ -27,7 +27,7 @@ void RenderPaginationInspector(guikit::Context& ui, DemoContext& ctx) {
     }
 
     if (auto el = ui.Element({.label = "Semantic Variant"})) {
-        if (ui.StepSlider(ctx.btnVariant, {.showTicks = true, .showLabels = true}).changed) {
+        if (ui.Select(ctx.btnVariant, kUiVariantNames).changed) {
             ui.InvalidateAll();
         }
     }

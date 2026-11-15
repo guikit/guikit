@@ -21,10 +21,10 @@ void RenderRadioInspector(guikit::Context& ui, DemoContext&) {
         }
     }
     if (s_state.groupDemo) {
-        static constexpr keel::StaticArray<keel::StringRef, 3> optNames = {"Opt A", "Opt B", "Opt C"};
+        static constexpr keel::StaticArray<keel::StringRef, 3> optNames = {"Option A", "Option B", "Option C"};
         keel::usize idx = static_cast<keel::usize>(keel::clamp(s_state.selectedIdx, 0, 2));
         if (auto el = ui.Element({.label = "Active Selection"})) {
-            if (ui.StepSlider(idx, optNames, {.showTicks = true, .showLabels = true}).changed) {
+            if (ui.Segmented(idx, optNames).changed) {
                 s_state.selectedIdx = static_cast<keel::i32>(idx);
                 ui.InvalidateAll();
             }

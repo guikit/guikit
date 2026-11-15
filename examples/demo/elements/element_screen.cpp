@@ -274,9 +274,7 @@ void RenderElementInspector(guikit::Context& ui, DemoContext& ctx) {
 
         const bool labelColorDisabled = (!s_state.allLayoutsSpecimen && s_state.label.empty() && !s_state.showIcon);
         if (auto el = ui.Element({.label = "Label Color", .disabled = labelColorDisabled})) {
-            if (ui.StepSlider(s_state.labelVariant, {
-                .showTicks = true,
-                .showLabels = true,
+            if (ui.Select(s_state.labelVariant, kUiVariantNames, {
                 .disabled = labelColorDisabled
             }).changed) {
                 ui.InvalidateAll();
@@ -323,9 +321,7 @@ void RenderElementInspector(guikit::Context& ui, DemoContext& ctx) {
             .label = "Badge Variant",
             .disabled = (!s_state.allLayoutsSpecimen && s_state.badge.empty())
         })) {
-            if (ui.StepSlider(s_state.badgeVariant, {
-                .showTicks = true,
-                .showLabels = true,
+            if (ui.Select(s_state.badgeVariant, kUiVariantNames, {
                 .disabled = (!s_state.allLayoutsSpecimen && s_state.badge.empty())
             }).changed) {
                 ui.InvalidateAll();
@@ -345,9 +341,6 @@ void RenderElementInspector(guikit::Context& ui, DemoContext& ctx) {
     })) {
         const auto explicitLayout = ResolveExplicitLayout();
         const guikit::ElementLayout effLayout = explicitLayout.value_or(DefaultSlotLayout(s_state.slotPreset));
-        static constexpr keel::StaticArray<keel::StringRef, 6> kLayoutShort = {
-            "Auto", "Stack", "Top", "Btm", "Lead", "Trail"
-        };
         if (auto el = ui.Element({
             .label = "Layout",
             .badge = {
@@ -356,9 +349,7 @@ void RenderElementInspector(guikit::Context& ui, DemoContext& ctx) {
             },
             .disabled = s_state.allLayoutsSpecimen
         })) {
-            if (ui.StepSlider(s_state.layoutIdx, kLayoutShort, {
-                .showTicks = true,
-                .showLabels = true,
+            if (ui.Select(s_state.layoutIdx, kElemLayoutNames, {
                 .disabled = s_state.allLayoutsSpecimen
             }).changed) {
                 ui.InvalidateAll();
@@ -367,21 +358,14 @@ void RenderElementInspector(guikit::Context& ui, DemoContext& ctx) {
 
         keel::usize alignIdx = static_cast<keel::usize>(s_state.align);
         if (auto el = ui.Element({.label = "Alignment"})) {
-            if (ui.StepSlider(alignIdx, kLabelAlignNames, {
-                .showTicks = true,
-                .showLabels = true
-            }).changed) {
+            if (ui.Segmented(alignIdx, kLabelAlignNames).changed) {
                 s_state.align = static_cast<guikit::Align>(alignIdx);
                 ui.InvalidateAll();
             }
         }
 
-        static constexpr keel::StaticArray<keel::StringRef, 4> kWidthModes = {"Auto", "Fit", "Stretch", "Fixed"};
         if (auto el = ui.Element({.label = "Width"})) {
-            if (ui.StepSlider(s_state.widthModeIdx, kWidthModes, {
-                .showTicks = true,
-                .showLabels = true
-            }).changed) {
+            if (ui.Segmented(s_state.widthModeIdx, kAxisModeNames).changed) {
                 ui.InvalidateAll();
             }
         }

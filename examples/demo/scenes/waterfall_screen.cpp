@@ -441,15 +441,15 @@ void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     }
 
     static constexpr keel::StaticArray<keel::StringRef, 3> kLayouts = {
-        "Split (Trace + Waterfall)",
-        "Waterfall Only",
-        "Live Trace Only"
+        "Split",
+        "Waterfall",
+        "Trace"
     };
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({
         .label = "Viewport Layout",
         .layout = guikit::ElementLayout::Top
     })) {
-        ui.Size(guikit::UiSize::Sm).Select(s_wf.layoutIndex, kLayouts);
+        ui.Size(guikit::UiSize::Sm).Segmented(s_wf.layoutIndex, kLayouts);
     }
 
     keel::i32 cmapIdx = static_cast<keel::i32>(s_wf.colormap);
@@ -530,28 +530,28 @@ void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     ui.Heading({.label = "Traces & Tracking Overlays", .level = guikit::HeadingLevel::H6, .separator = guikit::HeadingSeparator::Bottom});
 
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Live Instantaneous Trace"})) {
-        ui.Size(guikit::UiSize::Sm).Checkbox(s_wf.showLiveTrace);
+        ui.Size(guikit::UiSize::Sm).Switch(s_wf.showLiveTrace);
     }
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Peak Hold Envelope"})) {
-        ui.Size(guikit::UiSize::Sm).Checkbox(s_wf.showPeakHold);
+        ui.Size(guikit::UiSize::Sm).Switch(s_wf.showPeakHold);
     }
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "RMS Exponential Average"})) {
-        ui.Size(guikit::UiSize::Sm).Checkbox(s_wf.showAverageTrace);
+        ui.Size(guikit::UiSize::Sm).Switch(s_wf.showAverageTrace);
     }
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Auto Peak / DOA Callouts"})) {
-        ui.Size(guikit::UiSize::Sm).Checkbox(s_wf.showPeakMarkers);
+        ui.Size(guikit::UiSize::Sm).Switch(s_wf.showPeakMarkers);
     }
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "DOA / Emitter Target Tracks"})) {
-        ui.Size(guikit::UiSize::Sm).Checkbox(s_wf.showTracks);
+        ui.Size(guikit::UiSize::Sm).Switch(s_wf.showTracks);
     }
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Track Association Gates"})) {
-        ui.Size(guikit::UiSize::Sm).Checkbox(s_wf.showTrackGates);
+        ui.Size(guikit::UiSize::Sm).Switch(s_wf.showTrackGates);
     }
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Harmonic Comb (f0..6f0)"})) {
-        ui.Size(guikit::UiSize::Sm).Checkbox(s_wf.showHarmonicComb);
+        ui.Size(guikit::UiSize::Sm).Switch(s_wf.showHarmonicComb);
     }
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Invert Time Flow (Bottom-Up)"})) {
-        ui.Size(guikit::UiSize::Sm).Checkbox(s_wf.invertTimeAxis);
+        ui.Size(guikit::UiSize::Sm).Switch(s_wf.invertTimeAxis);
     }
 
     if (auto btnRow = ui.Row({.gap = 8.0f})) {

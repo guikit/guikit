@@ -37,9 +37,7 @@ void RenderButtonInspector(guikit::Context& ui, DemoContext&) {
             : ((s_state.iconPlacement == guikit::Placement::Bottom) ? 3 : 0));
     const bool placeDisabled = !s_state.hasIcon || s_state.square;
     if (auto el = ui.Element({.label = "Icon Placement", .disabled = placeDisabled})) {
-        if (ui.StepSlider(placeIdx, placeNames, {
-            .showTicks = true,
-            .showLabels = true,
+        if (ui.Segmented(placeIdx, placeNames, {
             .disabled = placeDisabled
         }).changed) {
             s_state.iconPlacement = (placeIdx == 1)

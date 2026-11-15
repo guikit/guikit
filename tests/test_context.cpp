@@ -3070,15 +3070,15 @@ void TestHeadingWidgetWorkflow() {
 
     // Architectural invariants: Element and Heading are pure semantic widgets without height/verticalAlign/background/border,
     // and ui.Size(...) does not expose .Heading(...) because Heading is governed by HeadingLevel, not UiSize.
-    static_assert(![]<typename T = Context>() { return requires(T& c) { c.Size(UiSize::Sm).Heading(HeadingOptions{}); }; }());
-    static_assert(![]<typename T = ElementOptions>() { return requires(T o) { o.height; }; }());
-    static_assert(![]<typename T = HeadingOptions>() { return requires(T o) { o.height; }; }());
-    static_assert(![]<typename T = ElementOptions>() { return requires(T o) { o.verticalAlign; }; }());
-    static_assert(![]<typename T = HeadingOptions>() { return requires(T o) { o.verticalAlign; }; }());
-    static_assert(![]<typename T = ElementOptions>() { return requires(T o) { o.background; }; }());
-    static_assert(![]<typename T = ElementOptions>() { return requires(T o) { o.border; }; }());
-    static_assert(![]<typename T = HeadingOptions>() { return requires(T o) { o.background; }; }());
-    static_assert(![]<typename T = HeadingOptions>() { return requires(T o) { o.border; }; }());
+    static_assert(![]<typename T = guikit::Context>() { return requires(T& c) { c.Size(UiSize::Sm).Heading(HeadingOptions{}); }; }());
+    static_assert(![]<typename T = guikit::ElementOptions>() { return requires(T o) { o.height; }; }());
+    static_assert(![]<typename T = guikit::HeadingOptions>() { return requires(T o) { o.height; }; }());
+    static_assert(![]<typename T = guikit::ElementOptions>() { return requires(T o) { o.verticalAlign; }; }());
+    static_assert(![]<typename T = guikit::HeadingOptions>() { return requires(T o) { o.verticalAlign; }; }());
+    static_assert(![]<typename T = guikit::ElementOptions>() { return requires(T o) { o.background; }; }());
+    static_assert(![]<typename T = guikit::ElementOptions>() { return requires(T o) { o.border; }; }());
+    static_assert(![]<typename T = guikit::HeadingOptions>() { return requires(T o) { o.background; }; }());
+    static_assert(![]<typename T = guikit::HeadingOptions>() { return requires(T o) { o.border; }; }());
     {
         class HeadingStrokeSpyCanvas : public ThorCanvas {
         public:

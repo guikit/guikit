@@ -401,12 +401,12 @@ void StepSonarSimulation(SonarDemoState& st) {
 void RenderSonarInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     static constexpr keel::StaticArray<keel::StringRef, 3> kDisplayModeItems = {
         "PPI 360°",
-        "Sector Wedge",
+        "Sector",
         "B-Scan"
     };
     static constexpr keel::StaticArray<keel::StringRef, 2> kScanModeItems = {
         "Multibeam",
-        "Rotating Sweep"
+        "Sweep"
     };
 
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({
@@ -419,14 +419,14 @@ void RenderSonarInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         .label = "Display Geometry",
         .layout = guikit::ElementLayout::Top
     })) {
-        ui.Size(guikit::UiSize::Sm).Select(s_sonar.displayModeIndex, kDisplayModeItems);
+        ui.Size(guikit::UiSize::Sm).Segmented(s_sonar.displayModeIndex, kDisplayModeItems);
     }
 
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({
         .label = "Scan Mode",
         .layout = guikit::ElementLayout::Top
     })) {
-        ui.Size(guikit::UiSize::Sm).Select(s_sonar.scanModeIndex, kScanModeItems);
+        ui.Size(guikit::UiSize::Sm).Segmented(s_sonar.scanModeIndex, kScanModeItems);
     }
 
     keel::i32 cmapIdx = static_cast<keel::i32>(s_sonar.colormap);
@@ -491,25 +491,25 @@ void RenderSonarInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     ui.Heading({.label = "Overlays", .level = guikit::HeadingLevel::H6, .separator = guikit::HeadingSeparator::Bottom});
 
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Guard Zone"})) {
-        ui.Size(guikit::UiSize::Sm).Checkbox(s_sonar.guardZoneEnabled);
+        ui.Size(guikit::UiSize::Sm).Switch(s_sonar.guardZoneEnabled);
     }
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Targets"})) {
-        ui.Size(guikit::UiSize::Sm).Checkbox(s_sonar.showTargets);
+        ui.Size(guikit::UiSize::Sm).Switch(s_sonar.showTargets);
     }
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Target Labels"})) {
-        ui.Size(guikit::UiSize::Sm).Checkbox(s_sonar.showTargetLabels);
+        ui.Size(guikit::UiSize::Sm).Switch(s_sonar.showTargetLabels);
     }
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Range Rings"})) {
-        ui.Size(guikit::UiSize::Sm).Checkbox(s_sonar.showRangeRings);
+        ui.Size(guikit::UiSize::Sm).Switch(s_sonar.showRangeRings);
     }
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Bearing Dial"})) {
-        ui.Size(guikit::UiSize::Sm).Checkbox(s_sonar.showBearingDial);
+        ui.Size(guikit::UiSize::Sm).Switch(s_sonar.showBearingDial);
     }
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "EBL / VRM"})) {
-        ui.Size(guikit::UiSize::Sm).Checkbox(s_sonar.showEblVrm);
+        ui.Size(guikit::UiSize::Sm).Switch(s_sonar.showEblVrm);
     }
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Colorbar"})) {
-        ui.Size(guikit::UiSize::Sm).Checkbox(s_sonar.showColorbar);
+        ui.Size(guikit::UiSize::Sm).Switch(s_sonar.showColorbar);
     }
 
     if (ui.Size(guikit::UiSize::Sm).Button({

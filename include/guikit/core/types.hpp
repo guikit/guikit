@@ -591,7 +591,7 @@ struct Dp {
     }
 };
 
-#if defined(__clang__) || defined(_MSC_VER)
+#if defined(__clang__) || defined(_PREFAST_)
 #define GUIKIT_LIFETIME_POINTER [[gsl::Pointer]]
 #else
 #define GUIKIT_LIFETIME_POINTER

@@ -216,10 +216,8 @@ void RenderImageViewInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     ImageViewParams& activeParams = (s_imgDemo.datasetIndex == 0) ? s_imgDemo.paramsMono : s_imgDemo.paramsRgb;
 
     static constexpr keel::StaticArray<keel::StringRef, 3> kHistScales = {"Sqrt", "Log", "Linear"};
-    keel::i32 scaleIdx = static_cast<keel::i32>(activeParams.histScaleMode);
     if (auto el = ui.Element({.label = "Histogram Scale"})) {
-        if (ui.StepSlider(scaleIdx, kHistScales, {.showValue = false}).changed) {
-            activeParams.histScaleMode = static_cast<HistogramScaleMode>(scaleIdx);
+        if (ui.Segmented(activeParams.histScaleMode, kHistScales).changed) {
             ui.InvalidateAll();
         }
     }
@@ -228,13 +226,16 @@ void RenderImageViewInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     if (auto el = ui.Element({.label = "Show Built-in Sidebar"})) {
         if (ui.Switch(s_imgDemo.viewOpts.showSidebar).changed) ui.InvalidateAll();
     }
+    static constexpr keel::StaticArray<keel::StringRef, 2> kSidebarSides = {"Left", "Right"};
+    keel::usize sideIdx = s_imgDemo.viewOpts.sidebarOnRight ? 1u : 0u;
     if (auto el = ui.Element({
-        .label = "Sidebar on Right",
+        .label = "Sidebar Side",
         .disabled = !s_imgDemo.viewOpts.showSidebar
     })) {
-        if (ui.Switch(s_imgDemo.viewOpts.sidebarOnRight, {
+        if (ui.Segmented(sideIdx, kSidebarSides, {
             .disabled = !s_imgDemo.viewOpts.showSidebar
         }).changed) {
+            s_imgDemo.viewOpts.sidebarOnRight = (sideIdx == 1u);
             ui.InvalidateAll();
         }
     }

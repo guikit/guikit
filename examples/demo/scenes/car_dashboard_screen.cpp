@@ -264,8 +264,8 @@ void RenderCarDashboardInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         "Modern Wide (Panoramic EV/ADAS)"
     };
     static constexpr keel::StaticArray<keel::StringRef, 2> kPowertrains = {
-        "ICE Twin-Turbo (8-Speed DCT)",
-        "EV Dual-Motor AWD (Power/Regen)"
+        "ICE Turbo",
+        "EV Dual-Motor"
     };
     static constexpr keel::StaticArray<keel::StringRef, 4> kDriveThemes = {
         "Comfort (Cyan / Slate)",
@@ -279,8 +279,8 @@ void RenderCarDashboardInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         "G-Force & Powertrain Dynamics"
     };
     static constexpr keel::StaticArray<keel::StringRef, 2> kSpeedUnits = {
-        "Metric (km/h, bar, °C)",
-        "Imperial (mph, psi, °F)"
+        "km/h (°C)",
+        "mph (°F)"
     };
     static constexpr keel::StaticArray<keel::StringRef, 6> kGearSelectors = {
         "P (Park)", "R (Reverse)", "N (Neutral)", "D (Drive)", "S (Sport)", "M (Manual)"
@@ -306,7 +306,7 @@ void RenderCarDashboardInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
 
     keel::usize ptIdx = static_cast<keel::usize>(keel::clamp(s_car.powertrainIndex, 0, 1));
     if (auto el = ui.Element({.label = "Powertrain Mode"})) {
-        if (ui.Select(ptIdx, kPowertrains).changed) {
+        if (ui.Segmented(ptIdx, kPowertrains).changed) {
             s_car.powertrainIndex = static_cast<keel::i32>(ptIdx);
             s_car.avgConsumption = (s_car.powertrainIndex == 1) ? 18.4f : 9.2f;
             s_car.coolantOrBattTempC = (s_car.powertrainIndex == 1) ? 31.0f : 90.0f;
@@ -329,7 +329,7 @@ void RenderCarDashboardInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
 
     keel::usize unitIdx = static_cast<keel::usize>(keel::clamp(s_car.speedUnitIndex, 0, 1));
     if (auto el = ui.Element({.label = "Measurement Units"})) {
-        if (ui.Select(unitIdx, kSpeedUnits).changed) {
+        if (ui.Segmented(unitIdx, kSpeedUnits).changed) {
             s_car.speedUnitIndex = static_cast<keel::i32>(unitIdx);
         }
     }
@@ -379,31 +379,31 @@ void RenderCarDashboardInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
 
     ui.Heading({.label = "TELLTALES & OVERLAYS", .level = guikit::HeadingLevel::H6, .separator = guikit::HeadingSeparator::Bottom});
     if (auto el = ui.Element({.label = "Top Shift-Lights LED Bar"})) {
-        ui.Checkbox(s_car.showShiftLights);
+        ui.Switch(s_car.showShiftLights);
     }
     if (auto el = ui.Element({.label = "ISO Telltale Status Ribbon"})) {
-        ui.Checkbox(s_car.showTelltaleBar);
+        ui.Switch(s_car.showTelltaleBar);
     }
     if (auto el = ui.Element({.label = "Bottom PRNDSM & Trip Bar"})) {
-        ui.Checkbox(s_car.showBottomTripBar);
+        ui.Switch(s_car.showBottomTripBar);
     }
     if (auto el = ui.Element({.label = "Interactive Mouse Drive Reticle"})) {
-        ui.Checkbox(s_car.showMouseDriveOverlay);
+        ui.Switch(s_car.showMouseDriveOverlay);
     }
     if (auto el = ui.Element({.label = "Left Turn Signal"})) {
-        ui.Checkbox(s_car.ttLeftTurn);
+        ui.Switch(s_car.ttLeftTurn);
     }
     if (auto el = ui.Element({.label = "Right Turn Signal"})) {
-        ui.Checkbox(s_car.ttRightTurn);
+        ui.Switch(s_car.ttRightTurn);
     }
     if (auto el = ui.Element({.label = "Hazard Warning Flashers"})) {
-        ui.Checkbox(s_car.ttHazard);
+        ui.Switch(s_car.ttHazard);
     }
     if (auto el = ui.Element({.label = "High Beam Headlights"})) {
-        ui.Checkbox(s_car.ttHighBeam);
+        ui.Switch(s_car.ttHighBeam);
     }
     if (auto el = ui.Element({.label = "TPMS Tire Alert"})) {
-        ui.Checkbox(s_car.ttTpmsWarning);
+        ui.Switch(s_car.ttTpmsWarning);
     }
 
     if (ui.Size(guikit::UiSize::Sm).Button({

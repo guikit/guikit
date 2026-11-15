@@ -68,7 +68,7 @@ void RenderTreeViewInspector(guikit::Context& ui, DemoContext& ctx) {
     static constexpr keel::StaticArray<keel::StringRef, 2> kSelStyleNames = {"Pill", "Indicator"};
     keel::usize selStyleIdx = (s_tree.selectionStyle == guikit::TreeSelectionStyle::Indicator) ? 1 : 0;
     if (auto el = ui.Element({.label = "Selection Style"})) {
-        if (ui.StepSlider(selStyleIdx, kSelStyleNames, {.showTicks = true, .showLabels = true}).changed) {
+        if (ui.Segmented(selStyleIdx, kSelStyleNames).changed) {
             s_tree.selectionStyle = (selStyleIdx == 1)
                 ? guikit::TreeSelectionStyle::Indicator
                 : guikit::TreeSelectionStyle::Pill;
@@ -79,7 +79,7 @@ void RenderTreeViewInspector(guikit::Context& ui, DemoContext& ctx) {
     static constexpr keel::StaticArray<keel::StringRef, 3> kGuideNames = {"None", "Vertical", "Connected"};
     keel::usize guideIdx = static_cast<keel::usize>(s_tree.guides);
     if (auto el = ui.Element({.label = "Hierarchy Guides"})) {
-        if (ui.StepSlider(guideIdx, kGuideNames, {.showTicks = true, .showLabels = true}).changed) {
+        if (ui.Segmented(guideIdx, kGuideNames).changed) {
             s_tree.guides = static_cast<guikit::TreeGuides>(guideIdx);
             ui.InvalidateAll();
         }

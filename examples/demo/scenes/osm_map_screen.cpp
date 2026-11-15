@@ -67,9 +67,9 @@ struct GisScreenState {
     };
 
     static constexpr keel::StaticArray<keel::StringRef, 3> tileSizeNames = {
-        "128 px (Ultra-Fast Low Latency)",
-        "256 px (Standard Slippy Tile)",
-        "512 px (High-Density Retina)"
+        "128 px",
+        "256 px",
+        "512 px"
     };
 
     void EnsureLoaded() {
@@ -165,7 +165,7 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
     keel::usize tileSizeIdx = (s_state.renderConfig.tileSizePx <= 128u) ? 0u
                        : ((s_state.renderConfig.tileSizePx >= 512u) ? 2u : 1u);
     if (auto el = ui.Element({.label = "Tile Resolution [z/x/y]"})) {
-        if (ui.Select(tileSizeIdx, GisScreenState::tileSizeNames).changed) {
+        if (ui.StepSlider(tileSizeIdx, GisScreenState::tileSizeNames, {.showTicks = true, .showLabels = true}).changed) {
             s_state.renderConfig.tileSizePx = (tileSizeIdx == 0u) ? 128u : ((tileSizeIdx == 2u) ? 512u : 256u);
             ui.InvalidateAll();
         }
@@ -214,7 +214,7 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
             if (auto el = ui.Size(guikit::UiSize::Sm).Element({
                 .label = ui.Format("{} ({})", layer.name.as_ref(), layer.features.size())
             })) {
-                if (ui.Size(guikit::UiSize::Sm).Checkbox(layer.visible).changed) {
+                if (ui.Size(guikit::UiSize::Sm).Switch(layer.visible).changed) {
                     ui.InvalidateAll();
                 }
             }

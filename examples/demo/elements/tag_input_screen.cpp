@@ -24,7 +24,7 @@ struct TagInputDemoState {
 TagInputDemoState s_state;
 
 constexpr keel::StaticArray<keel::StringRef, 8> kTagVariantLabels = {
-    "Pri", "Sec", "Suc", "Wrn", "Dgr", "Inf", "Gho", "Mut"
+    "Primary", "Secondary", "Success", "Warning", "Danger", "Info", "Ghost", "Muted"
 };
 
 constexpr keel::StaticArray<guikit::UiVariant, 8> kTagVariants = {
@@ -53,11 +53,7 @@ void RenderTagInputInspector(guikit::Context& ui, DemoContext&) {
         }
     }
     if (auto el = ui.Element({.label = "Tag Variant"})) {
-        if (ui.StepSlider(varIdx, kTagVariantLabels, {
-            .showTicks = true,
-            .showLabels = true,
-            .color = guikit::StateColor::FromVariant(s_state.tagVariant)
-        }).changed) {
+        if (ui.Select(varIdx, kTagVariantLabels).changed) {
             s_state.tagVariant = kTagVariants[varIdx];
             ui.InvalidateAll();
         }

@@ -60,7 +60,7 @@ void RenderSidebarInspector(guikit::Context& ui, DemoContext& ctx) {
     static constexpr keel::StaticArray<keel::StringRef, 2> sbMenuStyleNames = {"Pill", "Indicator"};
     keel::usize sbStyleIdx = (s_state.menuStyle == guikit::SidebarMenuStyle::Indicator) ? 1 : 0;
     if (auto el = ui.Element({.label = "Menu Style"})) {
-        if (ui.StepSlider(sbStyleIdx, sbMenuStyleNames, {.showTicks = true, .showLabels = true}).changed) {
+        if (ui.Segmented(sbStyleIdx, sbMenuStyleNames).changed) {
             s_state.menuStyle = (sbStyleIdx == 1) ? guikit::SidebarMenuStyle::Indicator : guikit::SidebarMenuStyle::Pill;
             ui.InvalidateAll();
         }
@@ -69,7 +69,7 @@ void RenderSidebarInspector(guikit::Context& ui, DemoContext& ctx) {
     static constexpr keel::StaticArray<keel::StringRef, 2> sbSideNames = {"Left", "Right"};
     keel::usize sbSideIdx = (s_state.side == guikit::SidebarSide::Right) ? 1 : 0;
     if (auto el = ui.Element({.label = "Dock Side"})) {
-        if (ui.StepSlider(sbSideIdx, sbSideNames, {.showTicks = true, .showLabels = true}).changed) {
+        if (ui.Segmented(sbSideIdx, sbSideNames).changed) {
             s_state.side = (sbSideIdx == 1) ? guikit::SidebarSide::Right : guikit::SidebarSide::Left;
             ui.InvalidateAll();
         }
@@ -130,7 +130,7 @@ void RenderSidebarInspector(guikit::Context& ui, DemoContext& ctx) {
         static constexpr keel::StaticArray<keel::StringRef, 2> abStyleNames = {"Indicator", "Pill"};
         keel::usize abStyleIdx = (s_state.activityStyle == guikit::ActivityBarStyle::Pill) ? 1 : 0;
         if (auto el = ui.Element({.label = "ActivityBar Style"})) {
-            if (ui.StepSlider(abStyleIdx, abStyleNames, {.showTicks = true, .showLabels = true}).changed) {
+            if (ui.Segmented(abStyleIdx, abStyleNames).changed) {
                 s_state.activityStyle = (abStyleIdx == 1) ? guikit::ActivityBarStyle::Pill : guikit::ActivityBarStyle::Indicator;
                 ui.InvalidateAll();
             }
