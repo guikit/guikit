@@ -329,6 +329,7 @@ if (GUIKIT_BUILD_DEMO)
             examples/demo/main.cpp
             examples/demo/demo_window.cpp
             examples/demo/elements/heading_screen.cpp
+            examples/demo/elements/element_screen.cpp
             examples/demo/elements/button_screen.cpp
             examples/demo/elements/slider_screen.cpp
             examples/demo/elements/knob_screen.cpp

@@ -137,6 +137,7 @@ void RenderCardInspector(guikit::Context& ui, DemoContext& ctx) {
 void RenderCardStage(guikit::Context& ui, DemoContext& ctx) {
     if (auto card = ui.Size(ctx.controlsSize).Card({
         .minWidth = s_card.fullWidth ? 0.0f : s_card.minWidth,
+        .width = s_card.fullWidth ? guikit::SizeMode::Stretch : guikit::SizeMode::Fit,
         .gap = ctx.cardGap,
         .padding = guikit::Padding::All(ctx.cardPadding),
         .background = ResolveCardBg(),
@@ -144,8 +145,7 @@ void RenderCardStage(guikit::Context& ui, DemoContext& ctx) {
             .width = ctx.cardBorderWidth,
             .radius = ctx.cardRadius,
             .color = ResolveCardBorderColor()
-        },
-        .widthMode = s_card.fullWidth ? guikit::SizeMode::Stretch : guikit::SizeMode::Fit
+        }
     })) {
         if (s_card.showHeader) {
             ui.Heading({
@@ -172,11 +172,11 @@ keel::String GenerateCardCode(const DemoContext& ctx) {
     return keel::format(
         "if (auto card = ui.{}Card({{\n"
         "    .minWidth = {:.1f}f,\n"
+        "    .width = guikit::SizeMode::{},\n"
         "    .gap = {:.1f}f,\n"
         "    .padding = guikit::Padding::All({:.1f}f),\n"
         "    .background = {},\n"
-        "    .border = {{.width = {:.1f}f, .radius = {:.1f}f, .color = {}}},\n"
-        "    .widthMode = guikit::SizeMode::{}\n"
+        "    .border = {{.width = {:.1f}f, .radius = {:.1f}f, .color = {}}}\n"
         "}})) {{\n"
         "    ui.Heading({{\n"
         "        .label = \"Card Container\",\n"
@@ -188,13 +188,13 @@ keel::String GenerateCardCode(const DemoContext& ctx) {
         "}}",
         FormatUiSizePrefix(ctx.controlsSize),
         s_card.fullWidth ? 0.0f : s_card.minWidth,
+        s_card.fullWidth ? "Stretch" : "Fit",
         ctx.cardGap,
         ctx.cardPadding,
         CardBgCodeName(),
         ctx.cardBorderWidth,
         ctx.cardRadius,
         CardBorderCodeName(),
-        s_card.fullWidth ? "Stretch" : "Fit",
         s_card.showDivider ? "guikit::HeadingSeparator::Bottom" : "guikit::HeadingSeparator::None"
     );
 }

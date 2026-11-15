@@ -47,20 +47,14 @@ ControlSpec EffectiveTagInputControl(const TagInputOptions& opts, UiSize size, c
     const InputFieldMetrics& m = theme.GetInputField(size);
     ControlSpec c{};
     c.width = opts.width;
-    c.widthRatio = opts.widthRatio;
     c.height = opts.height;
+    c.defaultWidthMode = SizeMode::Stretch;
+    c.defaultHeightMode = SizeMode::Fit;
     c.minWidth = opts.minWidth;
-    c.align = opts.align;
-    c.background = opts.background;
-    c.border = opts.border;
     c.defaultLayout = ElementLayout::Stacked;
-    c.defaultInlineOrder = InlineOrder::LabelFirst;
     c.labelGap = m.labelGap;
     c.descGap = m.descGap;
     c.inlineGap = m.paddingX;
-    c.stretchable = true;
-    c.stretchHeightWhenStandalone = false;
-    c.hasIntrinsicBox = true;
     return c;
 }
 
@@ -394,7 +388,10 @@ Response RunTagInputImpl(
     }
 
     TagInputOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
+    const SizeMode effW = Control::ResolveWidthMode(ctx, opts.width, SizeMode::Stretch);
+    if (!optsCopy.width.IsFixed()) {
+        optsCopy.width = effW;
+    }
     optsCopy.placeholder = ctx.AllocText(opts.placeholder);
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);
     optsCopy.prefix = ctx.AllocAffix(opts.prefix);
@@ -654,8 +651,6 @@ Response RunTagInputImpl(
     node->visualHash = detail::HashArgs(
         chipsHash,
         static_cast<keel::u8>(optsCopy.tagVariant),
-        static_cast<keel::u8>(optsCopy.align),
-        static_cast<keel::u8>(optsCopy.stretch),
         optsCopy.maxTags,
         optsCopy.clearable,
         optsCopy.showCounter,
@@ -663,8 +658,8 @@ Response RunTagInputImpl(
         optsCopy.color,
         optsCopy.background,
         optsCopy.border,
-        optsCopy.width.value_or(0.0f),
-        optsCopy.height.value_or(0.0f),
+        optsCopy.width,
+        optsCopy.height,
         optsCopy.minWidth.value_or(0.0f),
         optsCopy.placeholder,
         optsCopy.prefix,
@@ -684,43 +679,41 @@ Response RunTagInputImpl(
         const InputFieldMetrics& m = t.GetInputField(n->uiSize);
         const ControlSpec spec = EffectiveTagInputControl(d->opts, n->uiSize, t);
         float boxW = m.defaultWidth;
-        if (d->opts.stretch != StretchMode::Fill) {
-            if (spec.width.has_value()) {
-                boxW = t.Scale(*spec.width);
-            } else {
-                const float chipFont = t.ResolveFontSize(TextRole::LabelSmall, n->uiSize);
-                const float chipIconSz = keel::max(10.0f, m.iconSize - 2.0f);
-                const bool showRemove = !d->opts.readOnly && !n->disabled;
-                float contentW = m.paddingX * 2.0f;
-                for (keel::usize i = 0; i < d->chips.size(); ++i) {
-                    contentW += MeasureChipWidth(d->chips[i], chipFont, chipIconSz, showRemove, c) + 4.0f;
-                }
-                if (!d->opts.readOnly) {
-                    const float inputFont = t.ResolveFontSize(d->opts.placeholder, TextRole::LabelMedium, n->uiSize);
-                    const float phW = d->chips.empty()
-                        ? TextUtil::MeasureWidth(d->opts.placeholder.text, inputFont, c)
-                        : 56.0f;
-                    contentW += keel::max(48.0f, phW + 8.0f);
-                }
-                if (d->opts.prefix.HasContentOrReserve()) {
-                    const float pFont = t.ResolveFontSize(d->opts.prefix.text, TextRole::LabelMedium, n->uiSize);
-                    contentW += TextUtil::MeasureAffixWidth(d->opts.prefix, pFont, m.iconSize, 4.0f, c) + 6.0f;
-                }
-                if (d->opts.clearable && !d->opts.readOnly) {
-                    contentW += m.iconSize + 8.0f;
-                }
-                if (d->opts.showCounter || d->opts.maxTags > 0) {
-                    contentW += 36.0f;
-                }
-                boxW = keel::max(m.defaultWidth, contentW);
+        if (spec.width.IsFixed()) {
+            boxW = t.Scale(spec.width.Dp());
+        } else if (d->opts.width.ResolveMode(SizeMode::Stretch) != SizeMode::Stretch) {
+            const float chipFont = t.ResolveFontSize(TextRole::LabelSmall, n->uiSize);
+            const float chipIconSz = keel::max(10.0f, m.iconSize - 2.0f);
+            const bool showRemove = !d->opts.readOnly && !n->disabled;
+            float contentW = m.paddingX * 2.0f;
+            for (keel::usize i = 0; i < d->chips.size(); ++i) {
+                contentW += MeasureChipWidth(d->chips[i], chipFont, chipIconSz, showRemove, c) + 4.0f;
             }
+            if (!d->opts.readOnly) {
+                const float inputFont = t.ResolveFontSize(d->opts.placeholder, TextRole::LabelMedium, n->uiSize);
+                const float phW = d->chips.empty()
+                    ? TextUtil::MeasureWidth(d->opts.placeholder.text, inputFont, c)
+                    : 56.0f;
+                contentW += keel::max(48.0f, phW + 8.0f);
+            }
+            if (d->opts.prefix.HasContentOrReserve()) {
+                const float pFont = t.ResolveFontSize(d->opts.prefix.text, TextRole::LabelMedium, n->uiSize);
+                contentW += TextUtil::MeasureAffixWidth(d->opts.prefix, pFont, m.iconSize, 4.0f, c) + 6.0f;
+            }
+            if (d->opts.clearable && !d->opts.readOnly) {
+                contentW += m.iconSize + 8.0f;
+            }
+            if (d->opts.showCounter || d->opts.maxTags > 0) {
+                contentW += 36.0f;
+            }
+            boxW = keel::max(m.defaultWidth, contentW);
         }
         if (spec.minWidth.has_value()) {
             boxW = keel::max(t.Scale(*spec.minWidth), boxW);
         } else {
             boxW = keel::max(m.minWidth, boxW);
         }
-        return Control::Measure({boxW, m.defaultHeight}, spec, d->opts.stretch, n->uiSize, t);
+        return Control::Measure({boxW, m.defaultHeight}, spec, t);
     };
 
     node->renderFn = &TagInput::Render;
@@ -729,11 +722,8 @@ Response RunTagInputImpl(
     node->hovered = res.hovered;
     node->focused = isFocused;
     node->pressed = res.pressed;
-    node->widthMode = (optsCopy.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
-    node->heightMode = SizeMode::Fit;
 
-    Control::SetupNode(ctx, node, ctrl, optsCopy.stretch, optsCopy.align);
-    ctx.AdaptChildToContainer(node);
+    Control::SetupNode(ctx, node, ctrl);
 
     return res;
 }
@@ -805,37 +795,35 @@ Vec2 TagInput::Measure(
     const ControlSpec ctrl = EffectiveTagInputControl(opts, size, theme);
 
     float boxW = m.defaultWidth;
-    if (Control::HasExplicitDpWidth(opts.stretch, ctrl.width, ctrl.widthRatio)) {
-        boxW = theme.Scale(*ctrl.width);
-    } else if (opts.stretch != StretchMode::Fill) {
-        {
-            const float chipFont = theme.ResolveFontSize(TextRole::LabelSmall, size);
-            const float chipIconSz = keel::max(10.0f, m.iconSize - 2.0f);
-            const bool showRemove = !opts.readOnly && !opts.disabled;
-            float contentW = m.paddingX * 2.0f;
-            for (keel::StringRef tag : tags) {
-                const TagChipView v{.text = tag, .variant = opts.tagVariant};
-                contentW += MeasureChipWidth(v, chipFont, chipIconSz, showRemove, canvas) + 4.0f;
-            }
-            if (!opts.readOnly) {
-                const float inputFont = theme.ResolveFontSize(opts.placeholder, TextRole::LabelMedium, size);
-                const float phW = tags.empty()
-                    ? TextUtil::MeasureWidth(opts.placeholder.text, inputFont, canvas)
-                    : 56.0f;
-                contentW += keel::max(48.0f, phW + 8.0f);
-            }
-            if (opts.prefix.HasContentOrReserve()) {
-                const float pFont = theme.ResolveFontSize(opts.prefix.text, TextRole::LabelMedium, size);
-                contentW += TextUtil::MeasureAffixWidth(opts.prefix, pFont, m.iconSize, 4.0f, canvas) + 6.0f;
-            }
-            if (opts.clearable && !opts.readOnly) {
-                contentW += m.iconSize + 8.0f;
-            }
-            if (opts.showCounter || opts.maxTags > 0) {
-                contentW += 36.0f;
-            }
-            boxW = keel::max(m.defaultWidth, contentW);
+    if (ctrl.width.IsFixed()) {
+        boxW = theme.Scale(ctrl.width.Dp());
+    } else if (opts.width.ResolveMode(SizeMode::Stretch) != SizeMode::Stretch) {
+        const float chipFont = theme.ResolveFontSize(TextRole::LabelSmall, size);
+        const float chipIconSz = keel::max(10.0f, m.iconSize - 2.0f);
+        const bool showRemove = !opts.readOnly && !opts.disabled;
+        float contentW = m.paddingX * 2.0f;
+        for (keel::StringRef tag : tags) {
+            const TagChipView v{.text = tag, .variant = opts.tagVariant};
+            contentW += MeasureChipWidth(v, chipFont, chipIconSz, showRemove, canvas) + 4.0f;
         }
+        if (!opts.readOnly) {
+            const float inputFont = theme.ResolveFontSize(opts.placeholder, TextRole::LabelMedium, size);
+            const float phW = tags.empty()
+                ? TextUtil::MeasureWidth(opts.placeholder.text, inputFont, canvas)
+                : 56.0f;
+            contentW += keel::max(48.0f, phW + 8.0f);
+        }
+        if (opts.prefix.HasContentOrReserve()) {
+            const float pFont = theme.ResolveFontSize(opts.prefix.text, TextRole::LabelMedium, size);
+            contentW += TextUtil::MeasureAffixWidth(opts.prefix, pFont, m.iconSize, 4.0f, canvas) + 6.0f;
+        }
+        if (opts.clearable && !opts.readOnly) {
+            contentW += m.iconSize + 8.0f;
+        }
+        if (opts.showCounter || opts.maxTags > 0) {
+            contentW += 36.0f;
+        }
+        boxW = keel::max(m.defaultWidth, contentW);
     }
 
     if (ctrl.minWidth.has_value()) {
@@ -844,7 +832,7 @@ Vec2 TagInput::Measure(
         boxW = keel::max(m.minWidth, boxW);
     }
 
-    return Control::Measure({boxW, m.defaultHeight}, ctrl, opts.stretch, size, theme);
+    return Control::Measure({boxW, m.defaultHeight}, ctrl, theme);
 }
 
 void TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
@@ -861,20 +849,20 @@ void TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
     const bool disabled = node->disabled;
 
     const InputFieldMetrics& m = theme.GetInputField(size);
-    const ControlSpec ctrl = EffectiveTagInputControl(opts, size, theme);
     const auto& pal = theme.palette;
 
-    Color boxBg = ctrl.HasBackground(true)
+    const bool hasBg = opts.background.IsBackgroundEnabled(true);
+    Color boxBg = hasBg
         ? ((hovered && !disabled) ? pal.surface : pal.inputBackground)
         : Color::Transparent();
     Color boxBorder;
-    float strokeW = (ctrl.border.width > 0.0f) ? theme.Scale(ctrl.border.width) : m.strokeWidth;
+    float strokeW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : m.strokeWidth;
 
     if (focused && !disabled) {
         boxBorder = opts.color.HasAny()
             ? theme.ResolveColor(opts.color, hovered, focused, disabled, pal.focusRing)
             : pal.focusRing;
-        if (ctrl.border.width > 0.0f || m.strokeWidth > 0.0f) {
+        if (opts.border.width > 0.0f || m.strokeWidth > 0.0f) {
             strokeW += 0.5f;
         }
     } else if (hovered && !disabled) {
@@ -892,18 +880,18 @@ void TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
         boxBorder = boxBorder.WithAlphaF(0.40f);
     }
 
-    if (ctrl.HasBackground(true) && ctrl.background.HasAny()) {
-        if (!ctrl.background.IsSurface()) {
-            boxBg = theme.ResolveColor(ctrl.background, hovered, focused, disabled, boxBg);
-        } else if (ctrl.background.HasAlphaScale()) {
-            boxBg = boxBg.ScaleAlpha(ctrl.background.alphaScale);
+    if (hasBg && opts.background.HasAny()) {
+        if (!opts.background.IsSurface()) {
+            boxBg = theme.ResolveColor(opts.background, hovered, focused, disabled, boxBg);
+        } else if (opts.background.HasAlphaScale()) {
+            boxBg = boxBg.ScaleAlpha(opts.background.alphaScale);
         }
     }
-    if (ctrl.border.color.HasAny()) {
-        boxBorder = theme.ResolveColor(ctrl.border.color, hovered, focused, disabled, boxBorder);
+    if (opts.border.color.HasAny()) {
+        boxBorder = theme.ResolveColor(opts.border.color, hovered, focused, disabled, boxBorder);
     }
 
-    const float radius = ctrl.border.radius.has_value() ? theme.Scale(*ctrl.border.radius) : m.cornerRadius;
+    const float radius = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : m.cornerRadius;
     canvas.DrawRoundRect(boxRect, radius, boxBg, boxBorder, strokeW);
 
     if (opts.prefix.HasContentOrReserve()) {

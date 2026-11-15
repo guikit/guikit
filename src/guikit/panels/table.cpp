@@ -534,8 +534,7 @@ TableScope Table::Open(
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
     const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
-    TableOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
+    const TableOptions& optsCopy = opts;
 
     UiTheme* pushedTheme = ctx.PushScopedTheme(optsCopy.theme, optsCopy.scale);
     const UiTheme& theme = ctx.GetTheme();
@@ -551,18 +550,16 @@ TableScope Table::Open(
     node->uiSize = activeSize;
     node->disabled = activeDisabled;
 
-    if (Control::HasExplicitDpWidth(optsCopy.stretch, optsCopy.width, optsCopy.widthRatio)) {
+    node->widthMode = Control::ResolveWidthMode(ctx, optsCopy.width, SizeMode::Stretch);
+    if (optsCopy.width.IsFixed()) {
         node->widthMode = SizeMode::Fixed;
-        node->fixedWidth = theme.Scale(*optsCopy.width);
-    } else {
-        node->widthMode = (optsCopy.stretch == StretchMode::Fill) ? SizeMode::Stretch : SizeMode::Fit;
+        node->fixedWidth = theme.Scale(optsCopy.width.Dp());
     }
 
-    if (optsCopy.height.has_value()) {
-        node->heightMode = SizeMode::Fixed;
-        node->fixedHeight = theme.Scale(*optsCopy.height);
-    } else {
-        node->heightMode = SizeMode::Stretch;
+    node->heightMode = Control::ResolveHeightMode(optsCopy.height, SizeMode::Stretch);
+    if (optsCopy.height.IsFixed()) {
+        node->fixedHeight = theme.Scale(optsCopy.height.Dp());
+    } else if (node->heightMode == SizeMode::Stretch) {
         node->flexGrow = 1.0f;
     }
 
@@ -611,7 +608,12 @@ TableScope Table::Open(
     }
     const Rect estBounds = (prevBounds.w > 0.0f && prevBounds.h > 0.0f)
         ? prevBounds
-        : Rect(0.0f, 0.0f, optsCopy.width.value_or(640.0f), optsCopy.height.value_or(320.0f));
+        : Rect(
+              0.0f,
+              0.0f,
+              optsCopy.width.IsFixed() ? theme.Scale(optsCopy.width.Dp()) : 640.0f,
+              optsCopy.height.IsFixed() ? theme.Scale(optsCopy.height.Dp()) : 320.0f
+          );
 
     ComputeTableRegions(node, *data, estBounds, theme);
     ResolveColumnWidths(*data, data->frameRect.w, theme);
@@ -924,6 +926,8 @@ TableScope Table::Open(
         optsCopy.gridLines,
         optsCopy.background,
         optsCopy.border,
+        optsCopy.width,
+        optsCopy.height,
         optsCopy.stickyHeader,
         optsCopy.showRowNumbers,
         optsCopy.showFooter,
@@ -943,16 +947,19 @@ TableScope Table::Open(
             ControlSpec{
                 .width = optsCopy.width,
                 .height = optsCopy.height,
-                .defaultLayout = ElementLayout::Top,
-                .stretchable = true,
-                .stretchHeightWhenStandalone = !optsCopy.height.has_value(),
-                .hasIntrinsicBox = true
-            },
-            optsCopy.stretch,
-            Align::Start
+                .defaultWidthMode = SizeMode::Stretch,
+                .defaultHeightMode = SizeMode::Stretch,
+                .defaultLayout = ElementLayout::Top
+            }
         );
     } else {
         ctx.AdaptChildToContainer(node);
+        if (optsCopy.height.ResolveMode(SizeMode::Stretch) == SizeMode::Fit) {
+            node->heightMode = SizeMode::Fit;
+            if (!node->parent || node->parent->direction == FlexDirection::Column) {
+                node->flexGrow = 0.0f;
+            }
+        }
     }
 
     ctx.PushScale(activeScale);
@@ -1000,15 +1007,15 @@ Vec2 Table::Measure(
             : theme.Scale(keel::max(80.0f, data->columns[i].minWidth));
         naturalW += colW;
     }
-    if (data->opts.width.has_value() && data->opts.stretch != StretchMode::Fill && *data->opts.width > 0.0f) {
-        naturalW = theme.Scale(*data->opts.width);
-    } else if (availableWidth > 0.0f && data->opts.stretch == StretchMode::Fill) {
+    if (data->opts.width.IsFixed()) {
+        naturalW = theme.Scale(data->opts.width.Dp());
+    } else if (availableWidth > 0.0f && data->opts.width.ResolveMode(SizeMode::Stretch) == SizeMode::Stretch) {
         naturalW = keel::max(naturalW, availableWidth);
     }
 
     const keel::usize fitRows = keel::clamp<keel::usize>(totalRows, 3, 12);
-    const float naturalTableH = data->opts.height.has_value()
-        ? theme.Scale(*data->opts.height)
+    const float naturalTableH = data->opts.height.IsFixed()
+        ? theme.Scale(data->opts.height.Dp())
         : (headerH + static_cast<float>(fitRows) * rowH + footerH);
 
     return {naturalW, naturalTableH};
@@ -1069,7 +1076,10 @@ void Table::Arrange(
                     ? gc->measureFn(gc, inner.w, data->lastCanvas, gcTheme)
                     : Vec2(gc->fixedWidth, gc->fixedHeight);
                 gc->intrinsicSize = m;
-                totalChildrenW += (gc->widthMode == SizeMode::Stretch) ? inner.w : m.x;
+                const float gcW = (gc->widthMode == SizeMode::Fixed && gc->fixedWidth > 0.0f)
+                    ? gc->fixedWidth
+                    : m.x;
+                totalChildrenW += (gc->widthMode == SizeMode::Stretch) ? inner.w : gcW;
                 ++numGrandChildren;
             }
             if (numGrandChildren > 1) {
@@ -1085,12 +1095,18 @@ void Table::Arrange(
 
             for (Node* gc = child->firstChild; gc != nullptr; gc = gc->nextSibling) {
                 const UiTheme& gcTheme = gc->theme ? *gc->theme : theme;
+                const float gcTargetW = (gc->widthMode == SizeMode::Fixed && gc->fixedWidth > 0.0f)
+                    ? gc->fixedWidth
+                    : gc->intrinsicSize.x;
                 const float w = (gc->widthMode == SizeMode::Stretch)
                     ? keel::max(0.0f, inner.Right() - curX)
-                    : keel::min(gc->intrinsicSize.x, keel::max(0.0f, inner.Right() - curX));
+                    : keel::min(gcTargetW, keel::max(0.0f, inner.Right() - curX));
+                const float gcTargetH = (gc->heightMode == SizeMode::Fixed && gc->fixedHeight > 0.0f)
+                    ? gc->fixedHeight
+                    : gc->intrinsicSize.y;
                 const float h = (gc->heightMode == SizeMode::Stretch)
                     ? inner.h
-                    : keel::min(gc->intrinsicSize.y, inner.h);
+                    : keel::min(gcTargetH, inner.h);
                 const float y = inner.y + (inner.h - h) * 0.5f;
                 gc->computedRect = Rect(curX, y, w, h);
                 if (gc->arrangeFn) {
@@ -1129,17 +1145,20 @@ void Table::Arrange(
             float w = m.x;
             if (isTextOrBadge) {
                 w = keel::min(inner.w, m.x);
-            } else if (child->fixedWidth > 0.0f && !child->ctrlStretchable) {
+            } else if (child->widthMode == SizeMode::Fixed && child->fixedWidth > 0.0f) {
                 w = keel::min(inner.w, child->fixedWidth);
-            } else if (child->widthMode == SizeMode::Stretch || child->ctrlStretchable) {
+            } else if (child->widthMode == SizeMode::Stretch) {
                 w = inner.w;
             } else {
                 w = keel::min(inner.w, m.x);
             }
 
+            const float targetH = (child->heightMode == SizeMode::Fixed && child->fixedHeight > 0.0f)
+                ? child->fixedHeight
+                : m.y;
             const float h = (child->heightMode == SizeMode::Stretch)
                 ? inner.h
-                : keel::min(m.y, inner.h);
+                : keel::min(targetH, inner.h);
             const float x = inner.x + (inner.w - w) * AlignToFactor(effAlign);
             const float y = inner.y + (inner.h - h) * 0.5f;
             child->computedRect = Rect(x, y, w, h);

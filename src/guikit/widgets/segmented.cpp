@@ -14,20 +14,14 @@ ControlSpec EffectiveSegmentedControl(const SegmentedOptions& opts, UiSize size,
     const SelectMetrics& sm = theme.GetSelect(size);
     ControlSpec c{};
     c.width = opts.width;
-    c.widthRatio = opts.widthRatio;
     c.height = opts.height;
+    c.defaultWidthMode = SizeMode::Stretch;
+    c.defaultHeightMode = SizeMode::Fit;
     c.minWidth = opts.minWidth;
-    c.align = opts.align;
-    c.background = opts.background;
-    c.border = opts.border;
     c.defaultLayout = ElementLayout::Stacked;
-    c.defaultInlineOrder = InlineOrder::LabelFirst;
     c.labelGap = sm.labelGap;
     c.descGap = sm.descGap;
     c.inlineGap = sm.paddingX;
-    c.stretchable = true;
-    c.stretchHeightWhenStandalone = false;
-    c.hasIntrinsicBox = true;
     return c;
 }
 
@@ -90,8 +84,8 @@ Vec2 MeasureSegmentedBox(
     if (opts.minWidth.has_value()) {
         totalW = keel::max(theme.Scale(*opts.minWidth), totalW);
     }
-    if (Control::HasExplicitDpWidth(opts.stretch, opts.width, opts.widthRatio)) {
-        totalW = theme.Scale(*opts.width);
+    if (opts.width.IsFixed()) {
+        totalW = theme.Scale(opts.width.Dp());
     }
 
     float defaultH = cm.defaultHeight;
@@ -99,7 +93,7 @@ Vec2 MeasureSegmentedBox(
         const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
         defaultH = keel::max(defaultH, cm.iconSize + fontSize + 14.0f);
     }
-    const float boxH = opts.height.has_value() ? theme.Scale(*opts.height) : defaultH;
+    const float boxH = opts.height.IsFixed() ? theme.Scale(opts.height.Dp()) : defaultH;
     return {totalW, boxH};
 }
 
@@ -167,7 +161,7 @@ Vec2 Segmented::Measure(
 ) {
     const Vec2 boxDims = MeasureSegmentedBox(items, opts, size, canvas, theme);
     const ControlSpec ctrl = EffectiveSegmentedControl(opts, size, theme);
-    return Control::Measure(boxDims, ctrl, opts.stretch, size, theme);
+    return Control::Measure(boxDims, ctrl, theme);
 }
 
 Vec2 Segmented::Measure(
@@ -221,12 +215,9 @@ Response Segmented::Run(
     ICanvas* canvas = ctx.GetCanvas();
 
     SegmentedOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
-
-    const Vec2 naturalDims = MeasureSegmentedBox(items, optsCopy, activeSize, canvas, theme);
-    const float unscaledW = (theme.scale > 0.0f) ? (naturalDims.x / theme.scale) : naturalDims.x;
-    if (optsCopy.stretch != StretchMode::Fill && !optsCopy.width.has_value()) {
-        optsCopy.width = unscaledW;
+    const SizeMode effW = Control::ResolveWidthMode(ctx, opts.width, SizeMode::Stretch);
+    if (!optsCopy.width.IsFixed()) {
+        optsCopy.width = effW;
     }
 
     ctx.RegisterFocusable(id, effectiveDisabled);
@@ -397,10 +388,8 @@ Response Segmented::Run(
         multiSelect,
         hoveredSegment,
         pressedSegment,
-        static_cast<keel::u8>(optsCopy.stretch),
-        static_cast<keel::u8>(optsCopy.align),
-        optsCopy.width.value_or(0.0f),
-        optsCopy.height.value_or(0.0f),
+        optsCopy.width,
+        optsCopy.height,
         optsCopy.minWidth.value_or(0.0f),
         optsCopy.color,
         optsCopy.background,
@@ -440,8 +429,7 @@ Response Segmented::Run(
     node->focused = ctx.IsFocused(id);
 
     const ControlSpec ctrl = EffectiveSegmentedControl(optsCopy, activeSize, theme);
-    Control::SetupNode(ctx, node, ctrl, optsCopy.stretch, optsCopy.align);
-    ctx.AdaptChildToContainer(node);
+    Control::SetupNode(ctx, node, ctrl);
 
     return res;
 }
@@ -466,27 +454,27 @@ void Segmented::Render(
     const ComponentMetrics& cm = theme.GetMetrics(size);
     const SelectMetrics& sm = theme.GetSelect(size);
     const auto& pal = theme.palette;
-    const ControlSpec ctrl = EffectiveSegmentedControl(opts, size, theme);
     const Rect trackRect = bounds;
     const float inset = (size <= UiSize::Sm) ? 2.0f : 3.0f;
-    const float trackRadius = ctrl.border.radius.has_value()
-        ? theme.Scale(*ctrl.border.radius)
+    const float trackRadius = opts.border.radius.has_value()
+        ? theme.Scale(*opts.border.radius)
         : cm.cornerRadius;
 
     // 1. Render outer segmented track well
-    Color trackBg = ctrl.HasBackground(true) ? pal.inputBackground : Color::Transparent();
-    if (ctrl.HasBackground(true) && ctrl.background.HasAny()) {
-        if (!ctrl.background.IsSurface()) {
-            trackBg = theme.ResolveColor(ctrl.background, hoveredSegment >= 0, pressedSegment >= 0, disabled, trackBg);
-        } else if (ctrl.background.HasAlphaScale()) {
-            trackBg = trackBg.ScaleAlpha(ctrl.background.alphaScale);
+    const bool hasBg = opts.background.IsBackgroundEnabled(true);
+    Color trackBg = hasBg ? pal.inputBackground : Color::Transparent();
+    if (hasBg && opts.background.HasAny()) {
+        if (!opts.background.IsSurface()) {
+            trackBg = theme.ResolveColor(opts.background, hoveredSegment >= 0, pressedSegment >= 0, disabled, trackBg);
+        } else if (opts.background.HasAlphaScale()) {
+            trackBg = trackBg.ScaleAlpha(opts.background.alphaScale);
         }
     }
     Color trackBorder = focused ? pal.focusRing : pal.inputBorder;
-    if (ctrl.border.color.HasAny()) {
-        trackBorder = theme.ResolveColor(ctrl.border.color, hoveredSegment >= 0, focused, disabled, trackBorder);
+    if (opts.border.color.HasAny()) {
+        trackBorder = theme.ResolveColor(opts.border.color, hoveredSegment >= 0, focused, disabled, trackBorder);
     }
-    float trackStrokeW = (ctrl.border.width > 0.0f) ? theme.Scale(ctrl.border.width) : sm.strokeWidth;
+    float trackStrokeW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : sm.strokeWidth;
     if (focused && !disabled && trackStrokeW > 0.0f) trackStrokeW += 0.5f;
     if (disabled) {
         trackBg = trackBg.WithAlphaF(0.40f);

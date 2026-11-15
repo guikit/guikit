@@ -37,13 +37,8 @@ struct BreadcrumbOptions {
     BreadcrumbSeparator separator{BreadcrumbSeparator::Chevron};
     keel::u32 maxVisibleItems{0}; ///< 0 = show all (auto-collapses if viewport is narrower than trail); >= 2 collapses middle items into an interactive "..." dropdown menu when items.size() > maxVisibleItems
     StateColor color{};
-    StretchMode stretch{StretchMode::Compact};
-    Align align{Align::Start};
-    keel::Optional<float> width{keel::kNullOpt};
-    keel::Optional<float> widthRatio{keel::kNullOpt};
-    keel::Optional<float> height{keel::kNullOpt};
-    StateColor background{};
-    Border border{};
+    AxisSize width{};  ///< Horizontal sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
+    AxisSize height{}; ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
     UiText tooltip{};
     bool disabled{false};
     const UiTheme* theme{nullptr};

@@ -118,6 +118,12 @@ constexpr keel::u64 HashVal(const T& val, keel::u64 hash = Fnv1aOffsetBasis) noe
         hash = HashBytes(&val.width, sizeof(val.width), hash);
         hash = HashVal(val.color, hash);
         return hash;
+    } else if constexpr (requires { val.GetKind(); val.Dp(); }) {
+        const keel::u8 k = static_cast<keel::u8>(val.GetKind());
+        const float dp = val.Dp();
+        hash = HashBytes(&k, sizeof(k), hash);
+        hash = HashBytes(&dp, sizeof(dp), hash);
+        return hash;
     } else if constexpr (keel::IsEnum<CleanT>) {
         auto underlying = static_cast<keel::UnderlyingType<CleanT>>(val);
         return HashBytes(&underlying, sizeof(underlying), hash);

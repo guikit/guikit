@@ -40,9 +40,8 @@ struct ToolButtonOptions {
     StateColor color{StateColor::Ghost()};
     Placement iconPlacement{Placement::Leading};
     Align align{Align::Center};                 ///< Content horizontal alignment (Start = left, Center, End = right)
-    StretchMode stretch{StretchMode::Compact};  ///< Sizing behavior: Compact, Space, Fill
-    keel::Optional<float> width{keel::kNullOpt};   ///< Explicit capsule width in pixels
-    keel::Optional<float> minWidth{keel::kNullOpt};///< Minimum capsule width in pixels
+    AxisSize width{SizeMode::Fit};              ///< Horizontal sizing policy (`Fit`, `Stretch`, or explicit `dp`)
+    keel::Optional<float> minWidth{keel::kNullOpt};///< Minimum capsule width in logical dp
     bool disabled{false};
     bool active{false};                         ///< Toggle active/selected highlight state
     bool square{false};                         ///< Force square (defaultHeight x defaultHeight) button geometry

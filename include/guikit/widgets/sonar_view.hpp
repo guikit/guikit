@@ -85,8 +85,6 @@ struct SonarGuardZone {
 
 /// Configuration options for the autonomous SonarView (Polar Heatmap / Diver Detection Sonar / PPI Radar) widget.
 struct SonarViewOptions {
-    Align align{Align::Start};
-
     // --- Polar Matrix Dimensions & Geometry ---
     keel::u32 numBeams{180};                         ///< Number of angular beams (rows) in `polarMatrix`
     keel::u32 numRangeBins{256};                     ///< Number of range bins (columns) per beam in `polarMatrix`
@@ -132,11 +130,8 @@ struct SonarViewOptions {
     bool requestClearPersistence{false};
 
     // --- Sizing & Styling ---
-    StretchMode stretch{StretchMode::Fill};
-    keel::Optional<float> width{keel::kNullOpt};
-    keel::Optional<float> widthRatio{keel::kNullOpt};
-    keel::Optional<float> height{keel::kNullOpt};
-    SizeMode heightMode{SizeMode::Stretch};
+    AxisSize width{};                     ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or `Fixed(dp)`)
+    AxisSize height{SizeMode::Stretch};   ///< Vertical sizing policy (`Stretch` default, `Fit`, or `Fixed(dp)`)
     StateColor background{};
     Border border{};
     bool disabled{false};

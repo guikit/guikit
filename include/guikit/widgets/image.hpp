@@ -20,15 +20,11 @@ struct ImageOptions {
     UiText alt{};                                       ///< Fallback text when image is missing or fails to load
     UiText tooltip{};                                   ///< Optional hover tooltip text
     ObjectFit fit{ObjectFit::Contain};                  ///< Fitting policy inside the control box
-    Align align{Align::Start};                          ///< Standalone horizontal alignment of compact image control
     Align alignX{Align::Center};                        ///< Horizontal alignment of fitted image inside control box
     Align alignY{Align::Center};                        ///< Vertical alignment of fitted image inside control box
-    StretchMode stretch{StretchMode::Compact};          ///< Compact (natural/explicit size), Space, or Fill
-    keel::Optional<float> width{keel::kNullOpt};        ///< Explicit width in dp (or legacy ratio 0.0..1.0 in Fill)
-    keel::Optional<float> widthRatio{keel::kNullOpt};   ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
-    keel::Optional<float> height{keel::kNullOpt};       ///< Explicit height in px (nullopt = auto from aspect ratio)
+    AxisSize width{};                                   ///< Horizontal sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
+    AxisSize height{SizeMode::Fit};                     ///< Vertical sizing policy (`Auto`/`Fit` = aspect ratio, `Stretch`, or `Fixed(dp)`)
     keel::Optional<float> maxHeight{keel::kNullOpt};    ///< Optional maximum height cap in px
-    SizeMode heightMode{SizeMode::Fit};                 ///< Fit (auto/fixed) or Stretch (expand to fill parent height)
     StateColor background{};                            ///< Per-state image control box backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                                    ///< Image control box border stroke & corner radius configuration
     bool checkerboard{false};                           ///< Render transparency checkerboard pattern behind image

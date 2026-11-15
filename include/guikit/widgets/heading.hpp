@@ -1,28 +1,37 @@
 #pragma once
 
-#include "guikit/core/element.hpp"
+#include "guikit/core/response.hpp"
+#include "guikit/core/theme.hpp"
+#include "guikit/core/tokens.hpp"
+#include "guikit/core/types.hpp"
+#include "guikit/graphics/icon.hpp"
 #include "keel/core.h"
 #include "keel/optional.h"
 
 namespace guikit {
 
-/// Configuration options for a `Heading` element (inherits `Element` layout/styling + built-in `separator` support).
+class Context;
+class ICanvas;
+
+/// Subtitle / description placement relative to the primary heading title bar.
+enum class HeadingLayout : keel::u8 {
+    Stacked = 0, ///< Title bar on top, subtitle/description stacked underneath (default)
+    Overline,    ///< Subtitle/overline above the primary title bar
+    Inline       ///< Title bar on the left, subtitle/description inline on the right
+};
+
+/// Configuration options for a standalone section `Heading` leaf widget.
 struct HeadingOptions {
     UiText label{};                                         ///< Primary heading title text
-    UiText description{};                                   ///< Optional secondary subtitle text
+    UiText description{};                                   ///< Optional secondary subtitle or overline text
     UiText tooltip{};                                       ///< Optional hover tooltip text
-    Icon icon{};                                            ///< Optional vector icon before label
-    UiText badge{};                                         ///< Optional pill badge after label (inherited from Element)
-    HeadingLevel level{HeadingLevel::Auto};                 ///< Semantic heading hierarchy level (Auto = use active UiSize, or H1..H6 from UiTheme::GetHeading)
-    ElementLayout layout{ElementLayout::Stacked};           ///< Subtitle placement relative to title bar (Stacked/Bottom, Top, Inline)
-    InlineOrder inlineOrder{InlineOrder::LabelFirst};       ///< Sequencing order in Inline layout (LabelFirst = Label then Description, ControlFirst = Description then Label)
+    Icon icon{};                                            ///< Optional leading vector icon before title
+    UiText badge{};                                         ///< Optional trailing pill badge after title
+    HeadingLevel level{HeadingLevel::H3};                   ///< Semantic heading hierarchy level (`H1`–`H6`, default `H3`; independent of `UiSize`)
+    HeadingLayout layout{HeadingLayout::Stacked};           ///< Subtitle placement relative to title bar (Stacked, Overline, Inline)
     Align align{Align::Start};                              ///< Horizontal alignment (Start, Center, End)
-    StretchMode stretch{StretchMode::Fill};                 ///< Sizing behavior: Compact, Space, Fill
-    keel::Optional<float> width{keel::kNullOpt};            ///< Explicit heading width in dp (or legacy ratio 0.0..1.0 in Fill)
-    keel::Optional<float> widthRatio{keel::kNullOpt};       ///< Normalized fill ratio 0.0..1.0 of available width in Fill mode
-    StateColor background{};                                ///< Per-state outer surface backdrop color (Default/None = off, Surface/Primary/etc. = on)
-    Border border{};                                        ///< Outer border thickness, corner radius, and per-state border stroke color
-    HeadingDivider separator{};                             ///< Built-in section divider placement, stroke color, and thickness
+    AxisSize width{};                                       ///< Horizontal sizing policy: `Auto` (`Stretch`, or `Fit` in `Toolbar`), `Fit`, `Stretch`, or `Fixed(dp)`
+    HeadingDivider separator{};                             ///< Built-in section divider placement (None, Bottom, Trailing), stroke color, and thickness
     bool disabled{false};                                   ///< Whether the heading is rendered in a disabled state
     const UiTheme* theme{nullptr};                          ///< Optional scoped theme override
     keel::Optional<float> scale{keel::kNullOpt};            ///< Optional local UI scale factor override
@@ -30,25 +39,11 @@ struct HeadingOptions {
     keel::Optional<bool> inspectMode{keel::kNullOpt};       ///< Scoped interactive DevTools inspector override
 };
 
-/// `Heading` inherits from `Element`, uses `HeadingMetrics` typography (`headingTypography = true`),
-/// and renders an optional section `separator`.
-class Heading : public Element {
+/// Standalone section heading leaf widget with `HeadingMetrics` typography (`H1`–`H6`, default `H3`) and built-in dividers.
+class Heading {
 public:
-    using Element::Measure;
-    using Element::Render;
-
-    [[nodiscard]] static ElementSpec MakeSpec(
-        const HeadingOptions& opts,
-        UiSize activeSize,
-        bool isDisabled,
-        const UiTheme& theme,
-        bool isHovered = false,
-        bool isActive = false
-    ) noexcept;
-
     [[nodiscard]] static float ComputeBottomSeparatorSpace(
         const HeadingOptions& opts,
-        UiSize size,
         const UiTheme& theme
     ) noexcept;
 
@@ -60,7 +55,6 @@ public:
 
     static Vec2 Measure(
         const HeadingOptions& opts,
-        UiSize size,
         ICanvas* canvas,
         const UiTheme& theme,
         float availableWidth = 0.0f
@@ -68,38 +62,34 @@ public:
 
     static Vec2 Measure(
         const HeadingOptions& opts,
-        UiSize size,
         float availableWidth,
         ICanvas* canvas,
         const UiTheme& theme
     ) noexcept {
-        return Measure(opts, size, canvas, theme, availableWidth);
+        return Measure(opts, canvas, theme, availableWidth);
     }
 
     static Vec2 Measure(
         const HeadingOptions& opts,
-        UiSize size,
         float availableWidth = 0.0f,
         ICanvas* canvas = nullptr
     ) noexcept {
-        return Measure(opts, size, canvas, UiTheme::Dark(), availableWidth);
+        return Measure(opts, canvas, UiTheme::Dark(), availableWidth);
     }
 
     static float ResolveHeight(
         const HeadingOptions& opts,
-        UiSize size,
         float availableWidth,
         ICanvas* canvas,
         const UiTheme& theme
     ) noexcept {
-        return Measure(opts, size, canvas, theme, availableWidth).y;
+        return Measure(opts, canvas, theme, availableWidth).y;
     }
 
     static void Render(
         ICanvas& canvas,
         Rect bounds,
         const HeadingOptions& opts,
-        UiSize size,
         const UiTheme& theme,
         bool disabled = false,
         bool hovered = false,

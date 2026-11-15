@@ -124,15 +124,10 @@ struct HistogramData {
 
 /// Configuration options for the interactive `ui.Histogram` widget.
 struct HistogramOptions {
-    Align align{Align::Start};
-    StretchMode stretch{StretchMode::Fill};
-
     // --- Sizing & Geometry ---
-    keel::Optional<float> width{keel::kNullOpt};
-    keel::Optional<float> widthRatio{keel::kNullOpt};
-    float height{136.0f};
+    AxisSize width{};                     ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or `Fixed(dp)`)
+    AxisSize height{SizeMode::Fit};       ///< Vertical sizing policy (`Fit` -> 136 dp default, `Stretch`, or `Fixed(dp)`)
     float minHeight{96.0f};
-    SizeMode heightMode{SizeMode::Fit};
     StateColor background{};
     Border border{};
 

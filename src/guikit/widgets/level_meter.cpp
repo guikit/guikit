@@ -77,36 +77,22 @@ float GetDefaultBarThickness(UiSize size, const UiTheme& theme) noexcept {
     return orientation == Orientation::Vertical;
 }
 
-[[nodiscard]] constexpr StretchMode LevelMeterCrossStretch(const LevelMeterOptions& opts) noexcept {
-    return IsVerticalMeter(opts.orientation) ? StretchMode::Compact : opts.stretch;
-}
-
 ControlSpec EffectiveLevelMeterControl(
     const LevelMeterOptions& opts,
     UiSize size,
     const UiTheme& theme
 ) noexcept {
     const SliderMetrics& m = theme.GetSlider(size);
+    const bool isVert = IsVerticalMeter(opts.orientation);
     ControlSpec c{};
     c.width = opts.width;
-    c.widthRatio = opts.widthRatio;
     c.height = opts.height;
-    c.align = opts.align;
-    c.background = opts.background;
-    c.border = opts.border;
+    c.defaultWidthMode = isVert ? SizeMode::Fit : SizeMode::Stretch;
+    c.defaultHeightMode = isVert ? SizeMode::Stretch : SizeMode::Fit;
     c.defaultLayout = ElementLayout::Stacked;
-    c.defaultInlineOrder = InlineOrder::LabelFirst;
     c.labelGap = m.labelGap;
     c.descGap = m.descGap;
     c.inlineGap = 12.0f;
-    c.stretchable = true;
-    c.stretchHeightWhenStandalone = false;
-    c.hasIntrinsicBox = false;
-    if (IsVerticalMeter(opts.orientation)) {
-        // Vertical meter: compact across width; Fill stretches along the main (vertical) axis unless explicit height is set
-        c.stretchable = false;
-        c.stretchHeightWhenStandalone = (opts.stretch == StretchMode::Fill && !opts.height.has_value());
-    }
     return c;
 }
 
@@ -249,8 +235,8 @@ LevelMeterMetrics ComputeLevelMeterMetrics(
             : (opts.showValue ? keel::max(mm.barThick, mm.valLineH * 0.85f) : mm.barThick);
         const float barsTotalH = static_cast<float>(numCh) * rowH + static_cast<float>(numCh - 1) * mm.channelGap;
 
-        const float defaultTrackW = (opts.stretch != StretchMode::Fill && opts.width.has_value())
-            ? theme.Scale(*opts.width)
+        const float defaultTrackW = opts.width.IsFixed()
+            ? theme.Scale(opts.width.Dp())
             : sm.defaultWidth;
         const float leftW = (mm.labelReserveW > 0.0f) ? (mm.labelReserveW + theme.Scale(6.0f)) : 0.0f;
         const float clipW = opts.showClipLed ? (mm.clipGap + mm.clipLedLen) : 0.0f;
@@ -602,7 +588,6 @@ Response RunLevelMeterImpl(
     const UiTheme& activeTheme = ctx.GetTheme();
 
     LevelMeterOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
 
     const double rangeMin = keel::min(min, max);
     const double rangeMax = keel::max(min, max);
@@ -708,13 +693,6 @@ Response RunLevelMeterImpl(
     node->pressed = res.pressed;
     node->debugBoundsOverride = optsCopy.debugBounds;
     node->inspectModeOverride = optsCopy.inspectMode;
-    const bool vertical = IsVerticalMeter(optsCopy.orientation);
-    node->widthMode = (!vertical && optsCopy.stretch != StretchMode::Compact)
-        ? SizeMode::Stretch
-        : SizeMode::Fit;
-    node->heightMode = (vertical && optsCopy.stretch == StretchMode::Fill && !optsCopy.height.has_value())
-        ? SizeMode::Stretch
-        : SizeMode::Fit;
     node->text = data->channels[0].formattedValue;
     node->SetPayload(data);
 
@@ -747,12 +725,8 @@ Response RunLevelMeterImpl(
         data->opts.showValue,
         data->opts.barThickness.value_or(0.0f),
         data->opts.color,
-        static_cast<keel::u8>(data->opts.stretch),
-        static_cast<keel::u8>(data->opts.align),
-        data->opts.background,
-        data->opts.border,
-        data->opts.width.value_or(0.0f),
-        data->opts.height.value_or(0.0f),
+        data->opts.width,
+        data->opts.height,
         data->opts.valueFormat
     );
 
@@ -775,8 +749,7 @@ Response RunLevelMeterImpl(
 
     node->renderFn = &LevelMeter::Render;
 
-    Control::SetupNode(ctx, node, ctrl, LevelMeterCrossStretch(data->opts), data->opts.align);
-    ctx.AdaptChildToContainer(node);
+    Control::SetupNode(ctx, node, ctrl);
     if (pushedTheme) {
         ctx.PopTheme();
     }
@@ -830,7 +803,7 @@ Vec2 LevelMeter::Measure(
 ) {
     const ControlSpec ctrl = EffectiveLevelMeterControl(opts, size, theme);
     const LevelMeterMetrics mm = ComputeLevelMeterMetrics(channelCount, min, max, opts, size, canvas, theme);
-    return Control::Measure(mm.intrinsicSize, ctrl, LevelMeterCrossStretch(opts), size, theme);
+    return Control::Measure(mm.intrinsicSize, ctrl, theme);
 }
 
 void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
@@ -844,12 +817,9 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
     const LevelMeterOptions& opts = d->opts;
     const UiSize size = node->uiSize;
     const bool disabled = node->disabled;
-    const bool hovered = node->hovered;
     const keel::usize numCh = keel::clamp<keel::usize>(d->channelCount, 1, kMaxLevelMeterChannels);
 
-    const ControlSpec ctrl = EffectiveLevelMeterControl(opts, size, theme);
-    Control::RenderFrame(canvas, bounds, ctrl, size, disabled, theme, hovered, node->pressed);
-    const Rect ctrlRect = Control::ResolveInnerRect(bounds, ctrl, size, theme);
+    const Rect ctrlRect = bounds;
     if (ctrlRect.w <= 2.0f || ctrlRect.h <= 2.0f) return;
 
     const auto& pal = theme.palette;

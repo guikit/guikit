@@ -41,8 +41,9 @@ void RenderBreadcrumbInspector(guikit::Context& ui, DemoContext& ctx) {
         }
     }
 
-    ui.Size(guikit::UiSize::Xs).Heading({
+    ui.Heading({
         .label = "Breadcrumb Options",
+        .level = guikit::HeadingLevel::H6,
         .separator = guikit::HeadingSeparator::Bottom
     });
 
@@ -93,34 +94,77 @@ void RenderBreadcrumbStage(guikit::Context& ui, DemoContext& ctx) {
         {.label = "LiveStream", .icon = s_bc.showCrumbIcons ? guikit::Icon::Play()     : guikit::Icon{}}
     }};
 
-    ui.Size(ctx.controlsSize).Breadcrumb(s_bc.crumbIdx, crumbs, {
-        .separator = s_bc.separator,
-        .maxVisibleItems = maxVis,
-        .color = activeCol,
-        .background = s_bc.showSurfaceBox ? guikit::StateColor::Surface() : guikit::StateColor::None(),
-        .border = s_bc.showSurfaceBox ? guikit::Border{.width = 1.0f, .radius = 8.0f} : guikit::Border::None(),
-        .disabled = ctx.elemDisabled
-    });
+    auto renderTrail = [&]() {
+        ui.Size(ctx.controlsSize).Breadcrumb(s_bc.crumbIdx, crumbs, {
+            .separator = s_bc.separator,
+            .maxVisibleItems = maxVis,
+            .color = activeCol,
+            .disabled = ctx.elemDisabled
+        });
+    };
+
+    if (s_bc.showSurfaceBox) {
+        if (auto well = ui.Box({
+            .width = guikit::SizeMode::Fit,
+            .padding = guikit::Padding::Symmetric(10.0f, 6.0f),
+            .background = guikit::StateColor::Surface(),
+            .border = {.width = 1.0f, .radius = 8.0f}
+        })) {
+            renderTrail();
+        }
+    } else {
+        renderTrail();
+    }
 }
 
 keel::String GenerateBreadcrumbCode(const DemoContext& ctx) {
     const auto sizePrefix = FormatUiSizePrefix(ctx.controlsSize);
     const keel::u32 maxVis = (s_bc.maxVisibleItems >= 2) ? static_cast<keel::u32>(s_bc.maxVisibleItems) : 0u;
 
+    const keel::String crumbsDecl = keel::String::from(
+        "static const keel::StaticArray<guikit::BreadcrumbItem, 5> crumbs = {{\n"
+        "    {.label = \"Workspace\",  .icon = guikit::Icon::Folder()},\n"
+        "    {.label = \"Clusters\",   .icon = guikit::Icon::Settings(), .badge = \"EU\"},\n"
+        "    {.label = \"Production\", .icon = guikit::Icon::Flash()},\n"
+        "    {.label = \"Telemetry\",  .icon = guikit::Icon::Search(),   .badge = \"v2.4\"},\n"
+        "    {.label = \"LiveStream\", .icon = guikit::Icon::Play()}\n"
+        "}};\n"
+    );
+
+    if (s_bc.showSurfaceBox) {
+        return keel::format(
+            "{}"
+            "if (auto well = ui.Box({{\n"
+            "    .width = guikit::SizeMode::Fit,\n"
+            "    .padding = guikit::Padding::Symmetric(10.0f, 6.0f),\n"
+            "    .background = guikit::StateColor::Surface(),\n"
+            "    .border = {{.width = 1.0f, .radius = 8.0f}}\n"
+            "}})) {{\n"
+            "    ui.{}Breadcrumb(activeCrumb, crumbs, {{\n"
+            "        .separator = guikit::BreadcrumbSeparator::{},\n"
+            "        .maxVisibleItems = {},\n"
+            "        .color = guikit::StateColor::{}(),\n"
+            "        .disabled = {}\n"
+            "    }});\n"
+            "}}",
+            crumbsDecl,
+            sizePrefix,
+            SeparatorEnumName(s_bc.separator),
+            maxVis,
+            VariantName(ctx.btnVariant),
+            ctx.elemDisabled ? "true" : "false"
+        );
+    }
+
     return keel::format(
-        "static const keel::StaticArray<guikit::BreadcrumbItem, 5> crumbs = {{{{\n"
-        "    {{.label = \"Workspace\",  .icon = guikit::Icon::Folder()}},\n"
-        "    {{.label = \"Clusters\",   .icon = guikit::Icon::Settings(), .badge = \"EU\"}},\n"
-        "    {{.label = \"Production\", .icon = guikit::Icon::Flash()}},\n"
-        "    {{.label = \"Telemetry\",  .icon = guikit::Icon::Search(),   .badge = \"v2.4\"}},\n"
-        "    {{.label = \"LiveStream\", .icon = guikit::Icon::Play()}}\n"
-        "}}}};\n"
+        "{}"
         "ui.{}Breadcrumb(activeCrumb, crumbs, {{\n"
         "    .separator = guikit::BreadcrumbSeparator::{},\n"
         "    .maxVisibleItems = {},\n"
         "    .color = guikit::StateColor::{}(),\n"
         "    .disabled = {}\n"
         "}});",
+        crumbsDecl,
         sizePrefix,
         SeparatorEnumName(s_bc.separator),
         maxVis,

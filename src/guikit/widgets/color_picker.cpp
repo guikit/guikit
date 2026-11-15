@@ -98,37 +98,31 @@ ControlSpec EffectiveColorPickerControl(const ColorPickerOptions& opts, UiSize s
     const SelectMetrics& m = theme.GetSelect(size);
     ControlSpec c{};
     c.width = opts.width;
-    c.widthRatio = opts.widthRatio;
     c.height = opts.height;
+    c.defaultWidthMode = SizeMode::Stretch;
+    c.defaultHeightMode = SizeMode::Fit;
     c.minWidth = opts.minWidth;
-    c.align = opts.align;
-    c.background = opts.background;
-    c.border = opts.border;
     c.defaultLayout = ElementLayout::Stacked;
-    c.defaultInlineOrder = InlineOrder::LabelFirst;
     c.labelGap = m.labelGap;
     c.descGap = m.descGap;
     c.inlineGap = m.paddingX;
-    c.stretchable = true;
-    c.stretchHeightWhenStandalone = false;
-    c.hasIntrinsicBox = true;
     return c;
 }
 
 Vec2 MeasureColorPickerBox(const ColorPickerOptions& opts, UiSize size, ICanvas* canvas, const UiTheme& theme) noexcept {
-    const bool hasExplicitDpW = Control::HasExplicitDpWidth(opts.stretch, opts.width, opts.widthRatio);
+    const bool hasExplicitDpW = opts.width.IsFixed();
     if (opts.inlinePanel) {
         const Vec2 defPanel = DefaultPanelDimensions(opts, theme);
-        float w = hasExplicitDpW ? theme.Scale(*opts.width) : defPanel.x;
+        float w = hasExplicitDpW ? theme.Scale(opts.width.Dp()) : defPanel.x;
         if (opts.minWidth.has_value()) {
             w = keel::max(theme.Scale(*opts.minWidth), w);
         }
-        const float h = opts.height.has_value() ? theme.Scale(*opts.height) : defPanel.y;
+        const float h = opts.height.IsFixed() ? theme.Scale(opts.height.Dp()) : defPanel.y;
         return {w, h};
     }
 
     const SelectMetrics& m = theme.GetSelect(size);
-    const float boxH = opts.height.has_value() ? theme.Scale(*opts.height) : m.defaultHeight;
+    const float boxH = opts.height.IsFixed() ? theme.Scale(opts.height.Dp()) : m.defaultHeight;
     float naturalW = boxH * 1.45f;
     if (opts.showHex) {
         const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
@@ -143,7 +137,7 @@ Vec2 MeasureColorPickerBox(const ColorPickerOptions& opts, UiSize size, ICanvas*
         naturalW = keel::max(theme.Scale(*opts.minWidth), naturalW);
     }
     if (hasExplicitDpW) {
-        naturalW = theme.Scale(*opts.width);
+        naturalW = theme.Scale(opts.width.Dp());
     }
     return {naturalW, boxH};
 }
@@ -243,7 +237,7 @@ Vec2 ColorPicker::Measure(
 ) {
     const Vec2 boxDims = MeasureColorPickerBox(opts, size, canvas, theme);
     const ControlSpec ctrl = EffectiveColorPickerControl(opts, size, theme);
-    return Control::Measure(boxDims, ctrl, opts.stretch, size, theme);
+    return Control::Measure(boxDims, ctrl, theme);
 }
 
 Vec2 ColorPicker::Measure(
@@ -273,15 +267,11 @@ Response ColorPicker::Run(
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const UiTheme theme = ctx.GetTheme();
-    ICanvas* canvas = ctx.GetCanvas();
 
     ColorPickerOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
-
-    const Vec2 naturalDims = MeasureColorPickerBox(optsCopy, activeSize, canvas, theme);
-    const float unscaledW = (theme.scale > 0.0f) ? (naturalDims.x / theme.scale) : naturalDims.x;
-    if (optsCopy.stretch != StretchMode::Fill && !optsCopy.width.has_value()) {
-        optsCopy.width = unscaledW;
+    const SizeMode effW = Control::ResolveWidthMode(ctx, opts.width, SizeMode::Stretch);
+    if (!optsCopy.width.IsFixed()) {
+        optsCopy.width = effW;
     }
 
     auto& state = ctx.GetOrCreatePersistentState<ColorPickerState>(id);
@@ -556,10 +546,8 @@ Response ColorPicker::Run(
         state.v,
         state.hoveredSwatch,
         isOpen,
-        static_cast<keel::u8>(optsCopy.stretch),
-        static_cast<keel::u8>(optsCopy.align),
-        optsCopy.width.value_or(0.0f),
-        optsCopy.height.value_or(0.0f),
+        optsCopy.width,
+        optsCopy.height,
         optsCopy.minWidth.value_or(0.0f),
         optsCopy.background,
         optsCopy.border,
@@ -601,8 +589,7 @@ Response ColorPicker::Run(
     node->focused = isOpen || ctx.IsFocused(id);
 
     const ControlSpec ctrl = EffectiveColorPickerControl(optsCopy, activeSize, theme);
-    Control::SetupNode(ctx, node, ctrl, optsCopy.stretch, optsCopy.align);
-    ctx.AdaptChildToContainer(node);
+    Control::SetupNode(ctx, node, ctrl);
 
     return res;
 }
@@ -634,32 +621,32 @@ void ColorPicker::Render(
 
     const SelectMetrics& m = theme.GetSelect(size);
     const auto& pal = theme.palette;
-    const ControlSpec ctrl = EffectiveColorPickerControl(opts, size, theme);
-    const float radius = ctrl.border.radius.has_value() ? theme.Scale(*ctrl.border.radius) : m.cornerRadius;
+    const float radius = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : m.cornerRadius;
 
-    Color boxBg = ctrl.HasBackground(true)
+    const bool hasBg = opts.background.IsBackgroundEnabled(true);
+    Color boxBg = hasBg
         ? ((hovered && !disabled) ? pal.surface : pal.inputBackground)
         : Color::Transparent();
     Color boxBorder = ((open || focused) && !disabled)
         ? pal.focusRing
         : ((hovered && !disabled) ? pal.borderHover : pal.inputBorder);
-    float strokeW = (ctrl.border.width > 0.0f) ? theme.Scale(ctrl.border.width) : m.strokeWidth;
-    if ((open || focused) && !disabled && (ctrl.border.width > 0.0f || m.strokeWidth > 0.0f)) {
+    float strokeW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : m.strokeWidth;
+    if ((open || focused) && !disabled && (opts.border.width > 0.0f || m.strokeWidth > 0.0f)) {
         strokeW += 0.5f;
     }
     if (disabled) {
         boxBg = boxBg.WithAlphaF(0.40f);
         boxBorder = boxBorder.WithAlphaF(0.40f);
     }
-    if (ctrl.HasBackground(true) && ctrl.background.HasAny()) {
-        if (!ctrl.background.IsSurface()) {
-            boxBg = theme.ResolveColor(ctrl.background, hovered, open || focused, disabled, boxBg);
-        } else if (ctrl.background.HasAlphaScale()) {
-            boxBg = boxBg.ScaleAlpha(ctrl.background.alphaScale);
+    if (hasBg && opts.background.HasAny()) {
+        if (!opts.background.IsSurface()) {
+            boxBg = theme.ResolveColor(opts.background, hovered, open || focused, disabled, boxBg);
+        } else if (opts.background.HasAlphaScale()) {
+            boxBg = boxBg.ScaleAlpha(opts.background.alphaScale);
         }
     }
-    if (ctrl.border.color.HasAny()) {
-        boxBorder = theme.ResolveColor(ctrl.border.color, hovered, open || focused, disabled, boxBorder);
+    if (opts.border.color.HasAny()) {
+        boxBorder = theme.ResolveColor(opts.border.color, hovered, open || focused, disabled, boxBorder);
     }
 
     canvas.DrawRoundRect(ctrlRect, radius, boxBg, boxBorder, strokeW);
@@ -736,19 +723,20 @@ void ColorPicker::RenderPanel(
         canvas.DrawRoundRect(Rect(panelRect.x, panelRect.y + 3.0f, panelRect.w, panelRect.h), radius + 1.0f, Color(0, 0, 0, 95));
         canvas.DrawRoundRect(panelRect, radius, pal.surface, pal.borderHover, 1.0f);
     } else {
-        const ControlSpec ctrl = EffectiveColorPickerControl(opts, size, theme);
-        Color panelBg = ctrl.HasBackground(true) ? pal.surface : Color::Transparent();
-        if (ctrl.HasBackground(true) && ctrl.background.HasAny()) {
-            if (!ctrl.background.IsSurface()) {
-                panelBg = theme.ResolveColor(ctrl.background, false, false, disabled, panelBg);
-            } else if (ctrl.background.HasAlphaScale()) {
-                panelBg = panelBg.ScaleAlpha(ctrl.background.alphaScale);
+        (void)size;
+        const bool hasBg = opts.background.IsBackgroundEnabled(true);
+        Color panelBg = hasBg ? pal.surface : Color::Transparent();
+        if (hasBg && opts.background.HasAny()) {
+            if (!opts.background.IsSurface()) {
+                panelBg = theme.ResolveColor(opts.background, false, false, disabled, panelBg);
+            } else if (opts.background.HasAlphaScale()) {
+                panelBg = panelBg.ScaleAlpha(opts.background.alphaScale);
             }
         }
-        Color panelBorder = ctrl.border.color.HasAny()
-            ? theme.ResolveColor(ctrl.border.color, false, false, disabled, pal.inputBorder)
+        Color panelBorder = opts.border.color.HasAny()
+            ? theme.ResolveColor(opts.border.color, false, false, disabled, pal.inputBorder)
             : pal.inputBorder;
-        const float strokeW = (ctrl.border.width > 0.0f) ? theme.Scale(ctrl.border.width) : 1.0f;
+        const float strokeW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : 1.0f;
         canvas.DrawRoundRect(panelRect, radius, panelBg, panelBorder, strokeW);
     }
 

@@ -3096,14 +3096,14 @@ Vec2 BpmnEditor::Measure(
     const UiTheme& theme,
     float availableWidth
 ) {
-    float defaultW = availableWidth > 0.0f ? availableWidth : theme.Scale(880.0f);
-    if (Control::HasExplicitDpWidth(opts.stretch, opts.width, opts.widthRatio)) {
-        defaultW = theme.Scale(*opts.width);
-    } else if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f) {
-        defaultW = availableWidth * Control::ResolveFillRatio(opts.stretch, opts.width, opts.widthRatio).value_or(1.0f);
+    float defaultW = theme.Scale(880.0f);
+    if (opts.width.IsFixed()) {
+        defaultW = theme.Scale(opts.width.Dp());
+    } else if (opts.width.ResolveMode(SizeMode::Stretch) == SizeMode::Stretch && availableWidth > 0.0f) {
+        defaultW = availableWidth;
     }
-    const float defaultH = (opts.height.has_value() && *opts.height > 0.0f)
-        ? theme.Scale(*opts.height)
+    const float defaultH = opts.height.IsFixed()
+        ? theme.Scale(opts.height.Dp())
         : theme.Scale(520.0f);
     return {defaultW, defaultH};
 }
@@ -3111,18 +3111,15 @@ Vec2 BpmnEditor::Measure(
 BpmnEditorResponse BpmnEditor::Run(
     Context& ctx,
     BpmnDiagram& diagram,
-    const BpmnEditorOptions& optsIn,
+    const BpmnEditorOptions& opts,
     keel::SourceLocation loc
 ) {
-    UiTheme* pushedTheme = ctx.PushScopedTheme(optsIn.theme, optsIn.scale);
+    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
     struct ThemePopGuard {
         Context& c;
         UiTheme* t;
         ~ThemePopGuard() noexcept { if (t) c.PopTheme(); }
     } themePop{ctx, pushedTheme};
-
-    BpmnEditorOptions opts = optsIn;
-    Control::InheritElementSizing(ctx, opts.stretch, opts.width, opts.widthRatio);
 
     const Id id = ctx.MakeChildId(loc);
     const bool isDisabled = opts.disabled || ctx.IsDisabled();
@@ -4786,7 +4783,11 @@ BpmnEditorResponse BpmnEditor::Run(
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* c, const UiTheme& th) noexcept -> Vec2 {
         const auto* p = n->As<BpmnEditorPayload>();
         if (!p) return {0.0f, 0.0f};
-        return BpmnEditor::Measure(p->opts, n->uiSize, c, th, availableWidth);
+        BpmnEditorOptions effOpts = p->opts;
+        if (n->widthMode == SizeMode::Stretch && !effOpts.width.IsFixed()) {
+            effOpts.width = SizeMode::Stretch;
+        }
+        return BpmnEditor::Measure(effOpts, n->uiSize, c, th, availableWidth);
     };
     node->renderFn = &RenderBpmnEditorNode;
 
@@ -4794,25 +4795,14 @@ BpmnEditorResponse BpmnEditor::Run(
     node->disabled = isDisabled;
     node->hovered = resp.hovered;
     node->pressed = baseRes.pressed;
-    node->heightMode = opts.heightMode;
 
     ControlSpec ctrlSpec{};
     ctrlSpec.width = opts.width;
-    ctrlSpec.widthRatio = opts.widthRatio;
     ctrlSpec.height = opts.height;
-    Control::SetupNode(ctx, node, ctrlSpec, opts.stretch, opts.align);
-    if (!node->parent || node->parent->type != NodeType::Element) {
-        node->heightMode = opts.heightMode;
-        if (opts.height.has_value() && *opts.height > 0.0f) {
-            node->heightMode = SizeMode::Fixed;
-            node->fixedHeight = theme.Scale(*opts.height);
-        }
-        node->minHeight = (opts.height.has_value() && *opts.height > 0.0f) ? theme.Scale(*opts.height) : theme.Scale(320.0f);
-        ctx.AdaptChildToContainer(node);
-        if (opts.heightMode == SizeMode::Fit && !opts.height.has_value() && node->heightMode == SizeMode::Stretch) {
-            node->heightMode = SizeMode::Fit;
-        }
-    }
+    ctrlSpec.defaultWidthMode = SizeMode::Stretch;
+    ctrlSpec.defaultHeightMode = SizeMode::Stretch;
+    ctrlSpec.minHeight = opts.height.IsFixed() ? opts.height.Dp() : 320.0f;
+    Control::SetupNode(ctx, node, ctrlSpec);
 
     return resp;
 }

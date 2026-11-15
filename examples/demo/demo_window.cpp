@@ -116,6 +116,7 @@ void DemoWindow::RenderCatalogSidebar(guikit::Context& ui) {
         if (auto menu = ui.Size(guikit::UiSize::Sm).SidebarMenu()) {
             menu.Section("ELEMENTS");
             menu.Item(m_selectedCategory, NavCategory::ElemHeading,       {.text = "Heading",      .icon = guikit::Icon::Edit()});
+            menu.Item(m_selectedCategory, NavCategory::ElemElement,       {.text = "Element",      .icon = guikit::Icon::Settings()});
             menu.Item(m_selectedCategory, NavCategory::ElemButton,        {.text = "Button",       .icon = guikit::Icon::Play()});
             menu.Item(m_selectedCategory, NavCategory::ElemSlider,        {.text = "Slider",       .icon = guikit::Icon::Settings()});
             menu.Item(m_selectedCategory, NavCategory::ElemLevelMeter,    {.text = "LevelMeter",   .icon = guikit::Icon::Play()});
@@ -175,38 +176,67 @@ void DemoWindow::RenderInspectorSidebar(guikit::Context& ui) {
         .gap = 8.0f,
         .padding = guikit::Padding::All(12.0f)
     })) {
-        ui.Size(guikit::UiSize::Xs).Heading({
+        ui.Heading({
             .label = "INSPECTOR",
+            .level = guikit::HeadingLevel::H6,
             .separator = guikit::HeadingSeparator::Bottom
         });
 
-        if (IsElementCategory(m_selectedCategory)) {
-            if (auto elemAcc = ui.Size(guikit::UiSize::Sm).Accordion({
-                .label = "ELEMENT",
-                .defaultOpen = false
+        if (m_selectedCategory == NavCategory::ElemHeading || m_selectedCategory == NavCategory::ElemElement) {
+            DispatchInspector(ui, m_selectedCategory, m_demoCtx);
+        } else if (IsElementCategory(m_selectedCategory)) {
+            if (auto el = ui.Element({
+                .label = "Wrap in ui.Element",
+                .description = "Semantic Label + Control + Description"
             })) {
-                m_demoCtx.RenderElementInspector(ui, m_selectedCategory);
+                if (ui.Switch(m_demoCtx.useElement).changed) {
+                    ui.InvalidateAll();
+                }
             }
 
-            if (m_selectedCategory == NavCategory::ElemHeading) {
-                bool ctrlOpen = false;
-                if (auto ctrlAcc = ui.Size(guikit::UiSize::Sm).Accordion(ctrlOpen, {
-                    .label = "CONTROL",
-                    .badge = {"N/A", guikit::StateColor::Muted()},
-                    .disabled = true
-                })) {
-                }
-            } else {
-                if (auto ctrlAcc = ui.Size(guikit::UiSize::Sm).Accordion({
-                    .label = "CONTROL",
+            if (m_demoCtx.useElement) {
+                if (auto elemAcc = ui.Size(guikit::UiSize::Sm).Accordion({
+                    .label = "ELEMENT",
                     .defaultOpen = false
                 })) {
-                    m_demoCtx.RenderControlInspector(ui, m_selectedCategory);
+                    m_demoCtx.RenderElementSection(ui);
                 }
+
+                if (auto elemLayoutAcc = ui.Size(guikit::UiSize::Sm).Accordion({
+                    .label = "ELEMENT LAYOUT",
+                    .defaultOpen = false
+                })) {
+                    m_demoCtx.RenderElementLayoutSection(ui, m_selectedCategory);
+                }
+            }
+
+            const bool hasCtrlLayout = DemoContext::HasCtrlLayoutCategory(m_selectedCategory);
+            bool collapsedOpen = false;
+            guikit::AccordionOptions ctrlLayoutAccOpts{
+                .label = "CONTROL LAYOUT",
+                .defaultOpen = false,
+                .disabled = !hasCtrlLayout
+            };
+            if (!hasCtrlLayout) {
+                ctrlLayoutAccOpts.badge = {"Fit", guikit::UiVariant::Secondary};
+            }
+            if (auto ctrlLayoutAcc = ui.Size(guikit::UiSize::Sm).Accordion(
+                hasCtrlLayout ? m_demoCtx.ctrlLayoutOpen : collapsedOpen,
+                ctrlLayoutAccOpts
+            )) {
+                m_demoCtx.RenderControlLayoutSection(ui, m_selectedCategory);
+            }
+
+            if (auto ctrlStyleAcc = ui.Size(guikit::UiSize::Sm).Accordion({
+                .label = "CONTROL STYLE",
+                .defaultOpen = false
+            })) {
+                m_demoCtx.RenderControlStyleSection(ui, m_selectedCategory);
             }
 
             if (auto specAcc = ui.Size(guikit::UiSize::Sm).Accordion({
-                .label = "SPECIFIC",
+                .label = "CONTROL SPECIFIC",
+                .badge = {CategoryControlName(m_selectedCategory), guikit::UiVariant::Secondary},
                 .defaultOpen = true
             })) {
                 DispatchInspector(ui, m_selectedCategory, m_demoCtx);
@@ -357,20 +387,20 @@ void DemoWindow::RenderCodePanel(guikit::Context& ui) {
             .monospace = true,
             .allowZoom = true,
             .syntax = guikit::SyntaxConfig::Cpp(),
-            .heightMode = guikit::SizeMode::Stretch,
+            .height = guikit::SizeMode::Stretch,
             .border = {.radius = 0.0f}
         });
     }
 }
 
 void DemoWindow::RenderWorkspace(guikit::Context& ui) {
-    if (auto workspaceRow = ui.Row({.heightMode = guikit::SizeMode::Stretch})) {
+    if (auto workspaceRow = ui.Row({.height = guikit::SizeMode::Stretch})) {
         RenderCatalogSidebar(ui);
         RenderInspectorSidebar(ui);
 
         if (auto contentCol = ui.Column({
-            .widthMode = guikit::SizeMode::Stretch,
-            .heightMode = guikit::SizeMode::Stretch
+            .width = guikit::SizeMode::Stretch,
+            .height = guikit::SizeMode::Stretch
         })) {
             RenderPreviewToolbar(ui);
 
@@ -393,7 +423,8 @@ void DemoWindow::RenderBottomStatusBar(guikit::Context& ui) {
 
         sb.Spacer();
 
-        static const keel::StaticArray<guikit::CommandPaletteItem, 17> kGlobalCommands = {{
+        static const keel::StaticArray<guikit::CommandPaletteItem, 18> kGlobalCommands = {{
+            {.label = "Go to Element Form-Field Wrapper",      .category = "Elements",  .description = "5 ElementLayout modes & composite slots", .icon = guikit::Icon::Settings()},
             {.label = "Go to LevelMeter / Segmented VU Meter", .category = "Elements",  .description = "LED dB meters, peak-hold & clip LED", .icon = guikit::Icon::Play()},
             {.label = "Go to TagInput Editable Chips",         .category = "Elements",  .description = "Editable tag pills & delimiter split",.icon = guikit::Icon::Edit()},
             {.label = "Go to Select / MultiSelect / ComboBox", .category = "Elements",  .description = "Dropdown, live filter & tag chips",   .icon = guikit::Icon::Plus()},
@@ -429,31 +460,32 @@ void DemoWindow::RenderBottomStatusBar(guikit::Context& ui) {
 
         if (cmdResp.changed && cmdResp.selectedIndex >= 0) {
             switch (cmdResp.selectedIndex) {
-                case 0:  m_selectedCategory = NavCategory::ElemLevelMeter; break;
-                case 1:  m_selectedCategory = NavCategory::ElemTagInput; break;
-                case 2:  m_selectedCategory = NavCategory::ElemSelect; break;
-                case 3:  m_selectedCategory = NavCategory::ElemDatePicker; break;
-                case 4:  m_selectedCategory = NavCategory::ElemSpinBox; break;
-                case 5:  m_selectedCategory = NavCategory::ElemColorPicker; break;
-                case 6:  m_selectedCategory = NavCategory::PanelSplitView; break;
-                case 7:  m_selectedCategory = NavCategory::PanelBreadcrumb; break;
-                case 8:  m_selectedCategory = NavCategory::PanelPagination; break;
-                case 9:  m_selectedCategory = NavCategory::PanelOverlays; break;
-                case 10: m_selectedCategory = NavCategory::PanelTable; break;
-                case 11: m_selectedCategory = NavCategory::SceneSignalView; break;
-                case 12: m_selectedCategory = NavCategory::SceneSonarView; break;
-                case 13: m_selectedCategory = NavCategory::SceneBpmnEditor; break;
-                case 14:
+                case 0:  m_selectedCategory = NavCategory::ElemElement; break;
+                case 1:  m_selectedCategory = NavCategory::ElemLevelMeter; break;
+                case 2:  m_selectedCategory = NavCategory::ElemTagInput; break;
+                case 3:  m_selectedCategory = NavCategory::ElemSelect; break;
+                case 4:  m_selectedCategory = NavCategory::ElemDatePicker; break;
+                case 5:  m_selectedCategory = NavCategory::ElemSpinBox; break;
+                case 6:  m_selectedCategory = NavCategory::ElemColorPicker; break;
+                case 7:  m_selectedCategory = NavCategory::PanelSplitView; break;
+                case 8:  m_selectedCategory = NavCategory::PanelBreadcrumb; break;
+                case 9:  m_selectedCategory = NavCategory::PanelPagination; break;
+                case 10: m_selectedCategory = NavCategory::PanelOverlays; break;
+                case 11: m_selectedCategory = NavCategory::PanelTable; break;
+                case 12: m_selectedCategory = NavCategory::SceneSignalView; break;
+                case 13: m_selectedCategory = NavCategory::SceneSonarView; break;
+                case 14: m_selectedCategory = NavCategory::SceneBpmnEditor; break;
+                case 15:
                     m_demoCtx.previewLightMode = !m_demoCtx.previewLightMode;
                     m_demoCtx.previewDarkMode = !m_demoCtx.previewLightMode;
                     m_demoCtx.previewTheme.SetMode(m_demoCtx.previewDarkMode
                         ? guikit::ThemeMode::Dark
                         : guikit::ThemeMode::Light);
                     break;
-                case 15:
+                case 16:
                     m_demoCtx.previewShowCode = !m_demoCtx.previewShowCode;
                     break;
-                case 16:
+                case 17:
                     SetShellFloating(!IsShellFloating());
                     break;
                 default: break;
@@ -465,9 +497,10 @@ void DemoWindow::RenderBottomStatusBar(guikit::Context& ui) {
 
 void DemoWindow::DispatchInspector(guikit::Context& ui, NavCategory cat, DemoContext& ctx) {
     using InspectorFn = void (*)(guikit::Context&, DemoContext&);
-    static constexpr keel::StaticArray<InspectorFn, 37> kInspectors = {
+    static constexpr keel::StaticArray<InspectorFn, 38> kInspectors = {
         // 1. ELEMENTS
         &RenderHeadingInspector,
+        &RenderElementInspector,
         &RenderButtonInspector,
         &RenderSliderInspector,
         &RenderLevelMeterInspector,
@@ -521,9 +554,10 @@ void DemoWindow::DispatchInspector(guikit::Context& ui, NavCategory cat, DemoCon
 
 void DemoWindow::DispatchSandboxStage(guikit::Context& ui, NavCategory cat, DemoContext& ctx) {
     using StageFn = void (*)(guikit::Context&, DemoContext&);
-    static constexpr keel::StaticArray<StageFn, 37> kStages = {
+    static constexpr keel::StaticArray<StageFn, 38> kStages = {
         // 1. ELEMENTS
         &RenderHeadingStage,
+        &RenderElementStage,
         &RenderButtonStage,
         &RenderSliderStage,
         &RenderLevelMeterStage,
@@ -577,9 +611,10 @@ void DemoWindow::DispatchSandboxStage(guikit::Context& ui, NavCategory cat, Demo
 
 keel::String DemoWindow::DispatchCodeGenerator(NavCategory cat, const DemoContext& ctx) {
     using CodeGenFn = keel::String (*)(const DemoContext&);
-    static constexpr keel::StaticArray<CodeGenFn, 37> kGenerators = {
+    static constexpr keel::StaticArray<CodeGenFn, 38> kGenerators = {
         // 1. ELEMENTS
         &GenerateHeadingCode,
+        &GenerateElementCode,
         &GenerateButtonCode,
         &GenerateSliderCode,
         &GenerateLevelMeterCode,

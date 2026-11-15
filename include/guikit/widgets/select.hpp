@@ -32,11 +32,9 @@ struct SelectOptions {
     UiAffix prefix{};                              ///< Optional default leading icon/text inside closed field
     UiAffix suffix{};                              ///< Optional default trailing text/icon inside closed field
     keel::Optional<keel::u32> maxVisibleItems{keel::kNullOpt}; ///< Optional limit on visible items count before scrolling
-    StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
-    Align align{Align::Start};                     ///< Standalone horizontal control alignment (Start, Center, End)
-    keel::Optional<float> width{keel::kNullOpt};      ///< Select box width in dp (or legacy ratio 0.0..1.0 in Fill)
-    keel::Optional<float> widthRatio{keel::kNullOpt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
-    keel::Optional<float> height{keel::kNullOpt};     ///< Explicit select box height in points (nullopt = inherit defaultHeight from UiSize)
+    Align align{Align::Start};                     ///< Content horizontal alignment inside closed select box (Start, Center, End)
+    AxisSize width{};                              ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit` in `Toolbar`, or `Fixed(dp)`)
+    AxisSize height{};                             ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
     keel::Optional<float> minWidth{keel::kNullOpt};   ///< Minimum select box width constraint in points
     StateColor background{StateColor::Surface()};  ///< Select box surface fill color (Surface/Default = on, None = off, or custom StateColor)
     Border border{};                               ///< Select box border stroke & corner radius configuration
@@ -68,6 +66,7 @@ struct SelectData {
     keel::usize selEnd{0};
     float scrollX{0.0f};
     float cursorWidth{1.5f};
+    float naturalWidth{0.0f};
     bool isEditing{false};
     bool cursorVisible{false};
     bool showClearBtn{false};

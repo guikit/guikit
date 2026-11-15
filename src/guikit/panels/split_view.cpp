@@ -454,14 +454,10 @@ SplitViewScope SplitView::Open(
     outerNode->debugBoundsOverride = opts.debugBounds;
     outerNode->inspectModeOverride = opts.inspectMode;
     outerNode->direction = isHoriz ? FlexDirection::Row : FlexDirection::Column;
-    outerNode->widthMode = opts.width.has_value() ? SizeMode::Fixed : opts.widthMode;
-    outerNode->heightMode = opts.height.has_value() ? SizeMode::Fixed : opts.heightMode;
-    if (opts.width.has_value() && *opts.width > 0.0f) {
-        outerNode->fixedWidth = theme.Scale(*opts.width);
-    }
-    if (opts.height.has_value() && *opts.height > 0.0f) {
-        outerNode->fixedHeight = theme.Scale(*opts.height);
-    }
+    outerNode->widthMode = opts.width.ResolveMode(SizeMode::Stretch);
+    outerNode->fixedWidth = opts.width.IsFixed() ? theme.Scale(opts.width.Dp()) : 0.0f;
+    outerNode->heightMode = opts.height.ResolveMode(SizeMode::Stretch);
+    outerNode->fixedHeight = opts.height.IsFixed() ? theme.Scale(opts.height.Dp()) : 0.0f;
     outerNode->padding = theme.ResolvePadding(opts.padding, activeSize);
 
     const auto& pal = theme.palette;

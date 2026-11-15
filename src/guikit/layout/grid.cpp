@@ -28,16 +28,10 @@ GridScope Grid::Open(
     node->padding = theme.ResolvePadding(opts.padding);
     node->align = opts.align;
     node->justify = opts.justify;
-    node->widthMode = opts.widthMode;
-    node->heightMode = opts.heightMode;
-    if (opts.width.has_value() && *opts.width > 0.0f) {
-        node->widthMode = SizeMode::Fixed;
-        node->fixedWidth = theme.Scale(*opts.width);
-    }
-    if (opts.height.has_value() && *opts.height > 0.0f) {
-        node->heightMode = SizeMode::Fixed;
-        node->fixedHeight = theme.Scale(*opts.height);
-    }
+    node->widthMode = opts.width.ResolveMode(SizeMode::Stretch);
+    node->fixedWidth = opts.width.IsFixed() ? theme.Scale(opts.width.Dp()) : 0.0f;
+    node->heightMode = opts.height.ResolveMode(SizeMode::Fit);
+    node->fixedHeight = opts.height.IsFixed() ? theme.Scale(opts.height.Dp()) : 0.0f;
     if (opts.minWidth.has_value() && *opts.minWidth > 0.0f) {
         node->minWidth = theme.Scale(*opts.minWidth);
     }
@@ -88,11 +82,8 @@ ContainerScope GridScope::Cell(keel::i32 span, CellOptions opts, keel::SourceLoc
     node->align = opts.align;
     node->justify = opts.justify;
     node->widthMode = SizeMode::Stretch;
-    node->heightMode = opts.heightMode;
-    if (opts.height.has_value() && *opts.height > 0.0f) {
-        node->heightMode = SizeMode::Fixed;
-        node->fixedHeight = theme.Scale(*opts.height);
-    }
+    node->heightMode = opts.height.ResolveMode(SizeMode::Fit);
+    node->fixedHeight = opts.height.IsFixed() ? theme.Scale(opts.height.Dp()) : 0.0f;
     if (opts.minHeight.has_value() && *opts.minHeight > 0.0f) {
         node->minHeight = theme.Scale(*opts.minHeight);
     }

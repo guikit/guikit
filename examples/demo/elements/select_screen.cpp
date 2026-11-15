@@ -43,9 +43,7 @@ keel::StaticArray<guikit::SelectItem, 8> BuildRichSelectItems() {
 
 void RenderSelectInspector(guikit::Context& ui, DemoContext&) {
     if (auto el = ui.Element({.label = "Control Mode"})) {
-        if (ui.Segmented(s_state.mode, {"Select", "ComboBox", "Autocomplete", "MultiSelect"}, {
-            .stretch = guikit::StretchMode::Fill
-        }).changed) {
+        if (ui.Segmented(s_state.mode, {"Select", "ComboBox", "Autocomplete", "MultiSelect"}).changed) {
             if (s_state.mode == 2 && s_state.customText.empty() && s_state.idx < kPlainItems.size()) {
                 s_state.customText.assign(kPlainItems[s_state.idx]);
             }
@@ -77,31 +75,18 @@ void RenderSelectInspector(guikit::Context& ui, DemoContext&) {
 }
 
 void RenderSelectStage(guikit::Context& ui, DemoContext& ctx) {
-    if (auto el = ui.Size(ctx.elemSize).Element({
-        .label = ctx.GetElementLabel(),
-        .description = ctx.GetElementDescription(),
-        .icon = ctx.GetElementIcon(),
-        .badge = ctx.GetElementBadge(),
-        .layout = ctx.elemLayout,
-        .inlineOrder = ctx.elemInlineOrder,
-        .align = ctx.elemAlign,
-        .stretch = ctx.GetElementStretch(),
-        .background = ctx.elemBackground,
-        .border = ctx.GetElemBorder(),
-        .disabled = ctx.elemDisabled
-    })) {
-        guikit::SelectOptions opts{
-            .placeholder = s_state.placeholder,
-            .prefix = s_state.hasPrefix ? guikit::Icon::Search() : guikit::Icon{},
-            .maxVisibleItems = s_state.maxItems,
-            .stretch = ctx.GetElementStretch(),
-            .width = ctx.GetElementWidth(),
-            .height = ctx.GetElementHeight(),
-            .background = ctx.GetControlBackground(NavCategory::ElemSelect),
-            .border = ctx.GetCtrlBorder(),
-            .clearable = s_state.clearable,
-            .disabled = ctx.elemDisabled
-        };
+    ctx.RunElementStage(ui, [&]() {
+        guikit::SelectOptions opts{};
+        opts.placeholder = s_state.placeholder;
+        opts.prefix = s_state.hasPrefix ? guikit::Icon::Search() : guikit::Icon{};
+        opts.maxVisibleItems = s_state.maxItems;
+        opts.align = ctx.GetCtrlAlign(NavCategory::ElemSelect);
+        opts.width = ctx.ResolveCtrlWidth();
+        opts.height = ctx.ResolveCtrlHeight();
+        opts.background = ctx.GetControlBackground(NavCategory::ElemSelect);
+        opts.border = ctx.GetCtrlBorder();
+        opts.clearable = s_state.clearable;
+        opts.disabled = ctx.elemDisabled;
 
         const auto richList = BuildRichSelectItems();
         if (s_state.mode == 0) {
@@ -130,7 +115,7 @@ void RenderSelectStage(guikit::Context& ui, DemoContext& ctx) {
                 ui.Size(ctx.controlsSize).MultiSelect(s_state.multiSelected, kPlainItems, opts);
             }
         }
-    }
+    });
 }
 
 keel::String GenerateSelectCode(const DemoContext& ctx) {
@@ -139,58 +124,35 @@ keel::String GenerateSelectCode(const DemoContext& ctx) {
         : ((s_state.mode == 1)
             ? "ComboBox(presetIndex"
             : ((s_state.mode == 2) ? "Autocomplete(customText" : "MultiSelect(selectedIndices"));
-    return keel::format(
-        "if (auto el = ui.{}Element({{\n"
-        "    .label = {},\n"
-        "    .description = {},\n"
-        "    .icon = {},\n"
-        "    .badge = {},\n"
-        "    .layout = guikit::ElementLayout::{},\n"
-        "    .inlineOrder = guikit::InlineOrder::{},\n"
+    const guikit::Align ctrlAlign = ctx.GetCtrlAlign(NavCategory::ElemSelect);
+
+    const keel::String ctrl = keel::format(
+        "ui.{}{}, itemsList, {{\n"
+        "    .placeholder = \"{}\",\n"
+        "    .prefix = {},\n"
+        "    .maxVisibleItems = {},\n"
         "    .align = guikit::Align::{},\n"
-        "    .stretch = guikit::StretchMode::{},\n"
+        "    .width = {},\n"
+        "    .height = {},\n"
         "    .background = {},\n"
         "    .border = {},\n"
+        "    .clearable = {},\n"
         "    .disabled = {}\n"
-        "}})) {{\n"
-        "    ui.{}{}, itemsList, {{\n"
-        "        .placeholder = \"{}\",\n"
-        "        .prefix = {},\n"
-        "        .maxVisibleItems = {},\n"
-        "        .stretch = guikit::StretchMode::{},\n"
-        "        .width = {},\n"
-        "        .height = {},\n"
-        "        .background = {},\n"
-        "        .border = {},\n"
-        "        .clearable = {},\n"
-        "        .disabled = {}\n"
-        "    }});\n"
-        "}}",
-        FormatUiSizePrefix(ctx.elemSize),
-        ctx.FormatElementLabelCode(),
-        ctx.FormatElementDescCode(),
-        ctx.FormatElementIconCode(),
-        ctx.FormatElementBadgeCode(),
-        ElementLayoutEnumName(ctx.elemLayout),
-        InlineOrderEnumName(ctx.elemInlineOrder),
-        LabelAlignEnumName(ctx.elemAlign),
-        StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElemBackgroundCode(),
-        ctx.FormatElemBorderCode(),
-        ctx.elemDisabled ? "true" : "false",
+        "}});",
         FormatUiSizePrefix(ctx.controlsSize),
         widgetCall,
         s_state.placeholder,
         s_state.hasPrefix ? "guikit::Icon::Search()" : "{}",
         s_state.maxItems,
-        StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElementWidthCode(),
-        ctx.FormatElementHeightCode(),
+        AlignName(ctrlAlign),
+        ctx.FormatCtrlWidthCode(),
+        ctx.FormatCtrlHeightCode(),
         ctx.FormatControlBackgroundCode(NavCategory::ElemSelect),
         ctx.FormatCtrlBorderCode(),
         s_state.clearable ? "true" : "false",
         ctx.elemDisabled ? "true" : "false"
     );
+    return ctx.WrapInElementCode(ctrl);
 }
 
 } // namespace guikit::demo

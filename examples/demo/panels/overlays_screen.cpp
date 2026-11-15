@@ -126,10 +126,11 @@ void RenderOverlaysInspector(guikit::Context& ui, DemoContext& ctx) {
             }
         }
         if (auto el = ui.Element({.label = "Auto-Dismiss Timer"})) {
+            static constexpr keel::StaticArray<keel::StringRef, 2> kTimerVariants = {{"Sticky", "%.1f s"}};
             if (ui.Slider(s_ov.toastDuration, 0.0f, 10.0f, {
                 .valueFormat = (s_ov.toastDuration <= 0.0f)
-                    ? guikit::UiText{"Sticky", {"Sticky", "%.1f s"}}
-                    : guikit::UiText{"%.1f s", {"Sticky", "%.1f s"}},
+                    ? guikit::UiText{"Sticky", kTimerVariants}
+                    : guikit::UiText{"%.1f s", kTimerVariants},
                 .step = 0.5f
             }).changed) {
                 ui.InvalidateAll();

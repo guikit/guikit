@@ -395,7 +395,7 @@ constexpr Rect OffsetRect(Rect r, Vec2 delta) noexcept {
 }
 
 float HeadingFontSize(keel::u8 level, const MarkdownOptions& opts, const UiTheme& theme, float zoom) noexcept {
-    const HeadingLevel hl = static_cast<HeadingLevel>(keel::clamp<keel::u8>(level, 1, 6));
+    const HeadingLevel hl = static_cast<HeadingLevel>(keel::clamp<keel::u8>(level, 1, 6) - 1);
     const float base = theme.GetHeading(hl).titleFontSize;
     return base * keel::clamp(opts.headingScale, 0.5f, 2.5f) * zoom;
 }
@@ -535,6 +535,7 @@ keel::u64 ComputeMarkdownLayoutKey(
         theme.Scale(100.0f),
         theme.palette.textPrimary.ToUint32(),
         theme.palette.accent.ToUint32(),
+        static_cast<keel::u8>(opts.align),
         opts.bodyFontSize.value_or(-1.0f),
         opts.headingScale,
         opts.inlineCodeFontSize.value_or(-1.0f),
@@ -675,7 +676,8 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                     paraIndent,
                     theme,
                     effZoom,
-                    FontStyle::Regular
+                    FontStyle::Regular,
+                    opts.align
                 );
                 CommitInlineFlowToDocument(bl.flow, bl.flowLocalOrigin, out.textMap, out.linkRegions);
                 curY += bl.flow.height;
@@ -1732,9 +1734,7 @@ struct MarkdownState {
 MarkdownOptions CloneMarkdownOptionsWithoutCallbacks(const MarkdownOptions& src) noexcept {
     MarkdownOptions dst{};
     dst.align = src.align;
-    dst.stretch = src.stretch;
     dst.width = src.width;
-    dst.widthRatio = src.widthRatio;
     dst.height = src.height;
     dst.background = src.background;
     dst.border = src.border;
@@ -1817,7 +1817,10 @@ MarkdownResponse Markdown::Run(
     const UiTheme& theme = ctx.GetTheme();
 
     MarkdownOptions optsCopy = CloneMarkdownOptionsWithoutCallbacks(opts);
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
+    const SizeMode effW = Control::ResolveWidthMode(ctx, opts.width, SizeMode::Stretch);
+    if (!optsCopy.width.IsFixed()) {
+        optsCopy.width = effW;
+    }
     optsCopy.searchQuery = ctx.AllocString(opts.searchQuery);
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);
 
@@ -2179,9 +2182,9 @@ MarkdownResponse Markdown::Run(
     node->visualHash = detail::HashArgs(
         doc->sourceHash,
         state.zoom,
-        optsCopy.width.value_or(-1.0f),
-        optsCopy.widthRatio.value_or(-1.0f),
-        optsCopy.height.value_or(-1.0f),
+        static_cast<keel::u8>(optsCopy.align),
+        optsCopy.width,
+        optsCopy.height,
         optsCopy.background,
         optsCopy.border,
         optsCopy.bodyFontSize.value_or(-1.0f),
@@ -2230,12 +2233,15 @@ MarkdownResponse Markdown::Run(
             p->lastCanvas = canvas;
         }
         if (availableWidth <= 0.0f && p->layout != nullptr) {
-            const float finalH = (p->opts.height.has_value() && *p->opts.height > 0.0f)
-                ? th.Scale(*p->opts.height)
+            const float finalH = p->opts.height.IsFixed()
+                ? th.Scale(p->opts.height.Dp())
                 : p->layout->totalHeight;
             return {keel::max(p->layout->outerWidth, p->layout->totalWidth), finalH};
         }
         MarkdownOptions mOpts = CloneMarkdownOptionsWithoutCallbacks(p->opts);
+        if (n->widthMode == SizeMode::Stretch && !mOpts.width.IsFixed()) {
+            mOpts.width = SizeMode::Stretch;
+        }
         float z = p->zoom;
         mOpts.zoom = &z;
         return Markdown::Measure(p->text, mOpts, n->uiSize, canvas ? canvas : p->lastCanvas, th, availableWidth);
@@ -2350,24 +2356,17 @@ MarkdownResponse Markdown::Run(
     node->hovered = baseRes.hovered;
     node->pressed = baseRes.pressed;
     node->focused = isFocused;
-    node->heightMode = SizeMode::Fit;
 
     ControlSpec ctrlSpec{};
     ctrlSpec.width = optsCopy.width;
-    ctrlSpec.widthRatio = optsCopy.widthRatio;
     ctrlSpec.height = optsCopy.height;
-    Control::SetupNode(ctx, node, ctrlSpec, optsCopy.stretch, optsCopy.align);
-    if (!node->parent || node->parent->type != NodeType::Element) {
-        if (optsCopy.height.has_value() && *optsCopy.height > 0.0f) {
-            node->heightMode = SizeMode::Fixed;
-            node->fixedHeight = theme.Scale(*optsCopy.height);
-        } else {
-            node->heightMode = SizeMode::Fit;
-        }
-        ctx.AdaptChildToContainer(node);
-        if (!optsCopy.height.has_value() && node->heightMode == SizeMode::Stretch) {
-            node->heightMode = SizeMode::Fit;
-        }
+    ctrlSpec.defaultWidthMode = SizeMode::Stretch;
+    ctrlSpec.defaultHeightMode = SizeMode::Fit;
+    Control::SetupNode(ctx, node, ctrlSpec);
+    if ((!node->parent || node->parent->type != NodeType::Element) &&
+        optsCopy.height.ResolveMode(SizeMode::Fit) == SizeMode::Fit &&
+        node->heightMode == SizeMode::Stretch) {
+        node->heightMode = SizeMode::Fit;
     }
 
     return res;
@@ -2386,17 +2385,16 @@ Vec2 Markdown::Measure(
     const float effZoom = (opts.zoom != nullptr) ? keel::clamp(*opts.zoom, 0.5f, 3.0f) : 1.0f;
 
     float ctrlW = (availableWidth > 0.0f) ? availableWidth : theme.Scale(520.0f);
-    if (Control::HasExplicitDpWidth(opts.stretch, opts.width, opts.widthRatio)) {
-        ctrlW = theme.Scale(*opts.width);
-    } else if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f) {
-        const float ratio = Control::ResolveFillRatio(opts.stretch, opts.width, opts.widthRatio).value_or(1.0f);
-        ctrlW = availableWidth * ratio;
+    if (opts.width.IsFixed()) {
+        ctrlW = theme.Scale(opts.width.Dp());
+    } else if (opts.width.ResolveMode(SizeMode::Stretch) == SizeMode::Stretch && availableWidth > 0.0f) {
+        ctrlW = availableWidth;
     }
 
     const auto layout = GetOrBuildMarkdownLayout(canvas, ctrlW, doc, opts, theme, effZoom);
 
-    const float finalH = (opts.height.has_value() && *opts.height > 0.0f)
-        ? theme.Scale(*opts.height)
+    const float finalH = opts.height.IsFixed()
+        ? theme.Scale(opts.height.Dp())
         : layout->totalHeight;
     return { keel::max(ctrlW, layout->totalWidth), finalH };
 }

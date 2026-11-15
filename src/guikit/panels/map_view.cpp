@@ -568,12 +568,7 @@ MapViewScope MapView::Open(
     const SceneOptions sceneOpts{
         .worldSize = Vec2{worldSize, worldSize},
         .backgroundStyle = SceneBackground::Solid,
-        .align = safeOpts.align,
-        .stretch = safeOpts.stretch,
-        .widthMode = safeOpts.widthMode,
-        .heightMode = safeOpts.heightMode,
         .width = safeOpts.width,
-        .widthRatio = safeOpts.widthRatio,
         .height = safeOpts.height,
         .minHeight = safeOpts.minHeight,
         .minZoom = safeOpts.minZoom,

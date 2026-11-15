@@ -23,13 +23,14 @@ struct SliderDemoState {
     bool showLabels = true;
     bool showValue = true;
     guikit::Orientation orientation = guikit::Orientation::Horizontal;
+    bool compactVertical = false;
     guikit::Placement valuePlacement = guikit::Placement::Trailing;
     keel::SmallString<64> textLeft{""};
     keel::SmallString<64> textRight{""};
 };
 SliderDemoState s_state;
 
-constexpr const char* OrientationEnumName(guikit::Orientation o) noexcept {
+constexpr keel::StringRef OrientationEnumName(guikit::Orientation o) noexcept {
     return (o == guikit::Orientation::Vertical) ? "Vertical" : "Horizontal";
 }
 } // namespace
@@ -48,14 +49,23 @@ void RenderSliderInspector(guikit::Context& ui, DemoContext&) {
         }
     }
 
-    if (s_state.modeIdx != 3) {
-        keel::i32 orientIdx = (s_state.orientation == guikit::Orientation::Vertical) ? 1 : 0;
-        static constexpr keel::StaticArray<keel::StringRef, 2> orientNames = {"Horizontal", "Vertical (Fader)"};
-        if (auto el = ui.Element({.label = "Orientation"})) {
-            if (ui.Segmented(orientIdx, orientNames).changed) {
-                s_state.orientation = (orientIdx == 1)
-                    ? guikit::Orientation::Vertical
-                    : guikit::Orientation::Horizontal;
+    keel::i32 orientIdx = (s_state.orientation == guikit::Orientation::Vertical) ? 1 : 0;
+    static constexpr keel::StaticArray<keel::StringRef, 2> orientNames = {"Horizontal", "Vertical (Fader)"};
+    if (auto el = ui.Element({.label = "Orientation"})) {
+        if (ui.Segmented(orientIdx, orientNames).changed) {
+            s_state.orientation = (orientIdx == 1)
+                ? guikit::Orientation::Vertical
+                : guikit::Orientation::Horizontal;
+            ui.InvalidateAll();
+        }
+    }
+
+    if (s_state.orientation == guikit::Orientation::Vertical) {
+        if (auto el = ui.Element({
+            .label = "Compact Vertical Height (Fit)",
+            .description = "Pass .height = SizeMode::Fit instead of stretching"
+        })) {
+            if (ui.Switch(s_state.compactVertical).changed) {
                 ui.InvalidateAll();
             }
         }
@@ -137,7 +147,7 @@ void RenderSliderInspector(guikit::Context& ui, DemoContext&) {
         }
         if (auto el = ui.Element({.label = "Bar Thickness"})) {
             if (ui.Slider(s_state.progressBarHeight, 4.0f, 20.0f, {
-                .valueFormat = "%.0f px",
+                .valueFormat = "%.0f dp",
                 .step = 1.0f
             }).changed) ui.InvalidateAll();
         }
@@ -159,140 +169,102 @@ void RenderSliderInspector(guikit::Context& ui, DemoContext&) {
 
 void RenderSliderStage(guikit::Context& ui, DemoContext& ctx) {
     const keel::Optional<double> stepOpt = s_state.quantizeStep ? keel::Optional<double>(5.0) : keel::kNullOpt;
-    if (auto el = ui.Size(ctx.elemSize).Element({
-        .label = ctx.GetElementLabel(),
-        .description = ctx.GetElementDescription(),
-        .icon = ctx.GetElementIcon(),
-        .badge = ctx.GetElementBadge(),
-        .layout = ctx.elemLayout,
-        .inlineOrder = ctx.elemInlineOrder,
-        .align = ctx.elemAlign,
-        .stretch = ctx.GetElementStretch(),
-        .background = ctx.elemBackground,
-        .border = ctx.GetElemBorder(),
-        .disabled = ctx.elemDisabled
-    })) {
+    const guikit::AxisSize wSize = ctx.ResolveCtrlWidth();
+    const guikit::AxisSize hSize =
+        (s_state.orientation == guikit::Orientation::Vertical && s_state.compactVertical && ctx.ResolveCtrlHeight().IsAuto())
+            ? guikit::AxisSize(guikit::SizeMode::Fit)
+            : ctx.ResolveCtrlHeight();
+
+    ctx.RunElementStage(ui, [&]() {
         if (s_state.modeIdx == 0) {
-            ui.Size(ctx.controlsSize).Slider(s_state.val, 0.0f, 100.0f, {
-                .orientation = s_state.orientation,
-                .textLeft = s_state.textLeft,
-                .textRight = s_state.textRight,
-                .valueFormat = "%.1f %%",
-                .step = stepOpt,
-                .showValue = s_state.showValue,
-                .valuePlacement = s_state.valuePlacement,
-                .color = ctx.GetControlColor(),
-                .stretch = ctx.GetElementStretch(),
-                .width = ctx.GetElementWidth(),
-                .height = ctx.GetElementHeight(),
-                .background = ctx.GetControlBackground(NavCategory::ElemSlider),
-                .border = ctx.GetCtrlBorder(),
-                .disabled = ctx.elemDisabled
-            });
+            guikit::SliderOptions opts{};
+            opts.orientation = s_state.orientation;
+            opts.textLeft = s_state.textLeft;
+            opts.textRight = s_state.textRight;
+            opts.valueFormat = "%.1f %%";
+            opts.step = stepOpt;
+            opts.showValue = s_state.showValue;
+            opts.valuePlacement = s_state.valuePlacement;
+            opts.color = ctx.GetControlColor();
+            opts.width = wSize;
+            opts.height = hSize;
+            opts.disabled = ctx.elemDisabled;
+            ui.Size(ctx.controlsSize).Slider(s_state.val, 0.0f, 100.0f, opts);
         } else if (s_state.modeIdx == 1) {
             static constexpr keel::StaticArray<keel::StringRef, 5> stepItems = {"Off", "Low", "Mid", "High", "Max"};
-            ui.Size(ctx.controlsSize).StepSlider(s_state.stepIdx, stepItems, {
-                .orientation = s_state.orientation,
-                .textLeft = s_state.textLeft,
-                .textRight = s_state.textRight,
-                .showTicks = s_state.showTicks,
-                .showLabels = s_state.showLabels,
-                .showValue = s_state.showValue,
-                .valuePlacement = s_state.valuePlacement,
-                .color = ctx.GetControlColor(),
-                .stretch = ctx.GetElementStretch(),
-                .width = ctx.GetElementWidth(),
-                .height = ctx.GetElementHeight(),
-                .background = ctx.GetControlBackground(NavCategory::ElemSlider),
-                .border = ctx.GetCtrlBorder(),
-                .disabled = ctx.elemDisabled
-            });
+            guikit::StepSliderOptions opts{};
+            opts.orientation = s_state.orientation;
+            opts.textLeft = s_state.textLeft;
+            opts.textRight = s_state.textRight;
+            opts.showTicks = s_state.showTicks;
+            opts.showLabels = s_state.showLabels;
+            opts.showValue = s_state.showValue;
+            opts.valuePlacement = s_state.valuePlacement;
+            opts.color = ctx.GetControlColor();
+            opts.width = wSize;
+            opts.height = hSize;
+            opts.disabled = ctx.elemDisabled;
+            ui.Size(ctx.controlsSize).StepSlider(s_state.stepIdx, stepItems, opts);
         } else if (s_state.modeIdx == 2) {
-            ui.Size(ctx.controlsSize).RangeSlider(s_state.rangeLow, s_state.rangeHigh, 0.0f, 100.0f, {
-                .orientation = s_state.orientation,
-                .textLeft = s_state.textLeft,
-                .textRight = s_state.textRight,
-                .valueFormat = "%.0f %%",
-                .step = stepOpt,
-                .minSpan = static_cast<double>(s_state.rangeMinSpan),
-                .showValue = s_state.showValue,
-                .valuePlacement = s_state.valuePlacement,
-                .color = ctx.GetControlColor(),
-                .stretch = ctx.GetElementStretch(),
-                .width = ctx.GetElementWidth(),
-                .height = ctx.GetElementHeight(),
-                .background = ctx.GetControlBackground(NavCategory::ElemSlider),
-                .border = ctx.GetCtrlBorder(),
-                .disabled = ctx.elemDisabled
-            });
+            guikit::RangeSliderOptions opts{};
+            opts.orientation = s_state.orientation;
+            opts.textLeft = s_state.textLeft;
+            opts.textRight = s_state.textRight;
+            opts.valueFormat = "%.0f %%";
+            opts.step = stepOpt;
+            opts.minSpan = static_cast<double>(s_state.rangeMinSpan);
+            opts.showValue = s_state.showValue;
+            opts.valuePlacement = s_state.valuePlacement;
+            opts.color = ctx.GetControlColor();
+            opts.width = wSize;
+            opts.height = hSize;
+            opts.disabled = ctx.elemDisabled;
+            ui.Size(ctx.controlsSize).RangeSlider(s_state.rangeLow, s_state.rangeHigh, 0.0f, 100.0f, opts);
         } else {
-            ui.Size(ctx.controlsSize).ProgressBar(s_state.val, 0.0, 100.0, {
-                .textLeft = s_state.textLeft,
-                .textRight = s_state.textRight,
-                .valueFormat = "%.1f %%",
-                .peakHoldValue = s_state.progressShowPeak ? keel::Optional<double>(s_state.progressPeakVal) : keel::kNullOpt,
-                .segments = s_state.progressSegmented ? s_state.progressSegments : 0u,
-                .trackHeight = s_state.progressBarHeight,
-                .showValue = s_state.showValue,
-                .valuePlacement = s_state.valuePlacement,
-                .color = ctx.GetControlColor(),
-                .stretch = ctx.GetElementStretch(),
-                .width = ctx.GetElementWidth(),
-                .height = ctx.GetElementHeight(),
-                .multiZoneColor = s_state.progressMultiZone,
-                .background = ctx.GetControlBackground(NavCategory::ElemSlider),
-                .border = ctx.GetCtrlBorder(),
-                .disabled = ctx.elemDisabled
-            });
+            guikit::ProgressBarOptions opts{};
+            opts.orientation = s_state.orientation;
+            opts.textLeft = s_state.textLeft;
+            opts.textRight = s_state.textRight;
+            opts.valueFormat = "%.1f %%";
+            opts.peakHoldValue = s_state.progressShowPeak
+                ? keel::Optional<double>(s_state.progressPeakVal)
+                : keel::kNullOpt;
+            opts.segments = s_state.progressSegmented ? s_state.progressSegments : 0u;
+            opts.trackHeight = s_state.progressBarHeight;
+            opts.showValue = s_state.showValue;
+            opts.valuePlacement = s_state.valuePlacement;
+            opts.color = ctx.GetControlColor();
+            opts.width = wSize;
+            opts.height = hSize;
+            opts.multiZoneColor = s_state.progressMultiZone;
+            opts.disabled = ctx.elemDisabled;
+            ui.Size(ctx.controlsSize).ProgressBar(s_state.val, 0.0, 100.0, opts);
         }
-    }
+    });
 }
 
 keel::String GenerateSliderCode(const DemoContext& ctx) {
+    const guikit::AxisSize ctrlH =
+        (s_state.orientation == guikit::Orientation::Vertical && s_state.compactVertical && ctx.ResolveCtrlHeight().IsAuto())
+            ? guikit::AxisSize(guikit::SizeMode::Fit)
+            : ctx.ResolveCtrlHeight();
+    const keel::FixedString<48> heightCode = DemoContext::FormatAxisSizeCode(ctrlH);
+
     if (s_state.modeIdx == 0) {
-        return keel::format(
-            "if (auto el = ui.{}Element({{\n"
-            "    .label = {},\n"
-            "    .description = {},\n"
-            "    .icon = {},\n"
-            "    .badge = {},\n"
-            "    .layout = guikit::ElementLayout::{},\n"
-            "    .inlineOrder = guikit::InlineOrder::{},\n"
-            "    .align = guikit::Align::{},\n"
-            "    .stretch = guikit::StretchMode::{},\n"
-            "    .background = {},\n"
-            "    .border = {},\n"
+        const keel::String ctrl = keel::format(
+            "ui.{}Slider(gainValue, 0.0f, 100.0f, {{\n"
+            "    .orientation = guikit::Orientation::{},\n"
+            "    .textLeft = \"{}\",\n"
+            "    .textRight = \"{}\",\n"
+            "    .valueFormat = \"%.1f %%\",\n"
+            "    .step = {},\n"
+            "    .showValue = {},\n"
+            "    .valuePlacement = guikit::Placement::{},\n"
+            "    .color = {},\n"
+            "    .width = {},\n"
+            "    .height = {},\n"
             "    .disabled = {}\n"
-            "}})) {{\n"
-            "    ui.{}Slider(gainValue, 0.0f, 100.0f, {{\n"
-            "        .orientation = guikit::Orientation::{},\n"
-            "        .textLeft = \"{}\",\n"
-            "        .textRight = \"{}\",\n"
-            "        .valueFormat = \"%.1f %%\",\n"
-            "        .step = {},\n"
-            "        .showValue = {},\n"
-            "        .valuePlacement = guikit::Placement::{},\n"
-            "        .color = {},\n"
-            "        .stretch = guikit::StretchMode::{},\n"
-            "        .width = {},\n"
-            "        .height = {},\n"
-            "        .background = {},\n"
-            "        .border = {},\n"
-            "        .disabled = {}\n"
-            "    }});\n"
-            "}}",
-            FormatUiSizePrefix(ctx.elemSize),
-            ctx.FormatElementLabelCode(),
-            ctx.FormatElementDescCode(),
-            ctx.FormatElementIconCode(),
-            ctx.FormatElementBadgeCode(),
-            ElementLayoutEnumName(ctx.elemLayout),
-            InlineOrderEnumName(ctx.elemInlineOrder),
-            LabelAlignEnumName(ctx.elemAlign),
-            StretchModeEnumName(ctx.GetElementStretch()),
-            ctx.FormatElemBackgroundCode(),
-            ctx.FormatElemBorderCode(),
-            ctx.elemDisabled ? "true" : "false",
+            "}});",
             FormatUiSizePrefix(ctx.controlsSize),
             OrientationEnumName(s_state.orientation),
             s_state.textLeft,
@@ -301,59 +273,27 @@ keel::String GenerateSliderCode(const DemoContext& ctx) {
             s_state.showValue ? "true" : "false",
             PlacementName(s_state.valuePlacement),
             ctx.FormatControlColorCode(),
-            StretchModeEnumName(ctx.GetElementStretch()),
-            ctx.FormatElementWidthCode(),
-            ctx.FormatElementHeightCode(),
-            ctx.FormatControlBackgroundCode(NavCategory::ElemSlider),
-            ctx.FormatCtrlBorderCode(),
+            ctx.FormatCtrlWidthCode(),
+            heightCode,
             ctx.elemDisabled ? "true" : "false"
         );
+        return ctx.WrapInElementCode(ctrl);
     }
     if (s_state.modeIdx == 1) {
-        return keel::format(
-            "static constexpr keel::StaticArray<keel::StringRef, 5> stepItems = {{\"Off\", \"Low\", \"Mid\", \"High\", \"Max\"}};\n"
-            "if (auto el = ui.{}Element({{\n"
-            "    .label = {},\n"
-            "    .description = {},\n"
-            "    .icon = {},\n"
-            "    .badge = {},\n"
-            "    .layout = guikit::ElementLayout::{},\n"
-            "    .inlineOrder = guikit::InlineOrder::{},\n"
-            "    .align = guikit::Align::{},\n"
-            "    .stretch = guikit::StretchMode::{},\n"
-            "    .background = {},\n"
-            "    .border = {},\n"
+        const keel::String ctrl = keel::format(
+            "ui.{}StepSlider(presetIndex, stepItems, {{\n"
+            "    .orientation = guikit::Orientation::{},\n"
+            "    .textLeft = \"{}\",\n"
+            "    .textRight = \"{}\",\n"
+            "    .showTicks = {},\n"
+            "    .showLabels = {},\n"
+            "    .showValue = {},\n"
+            "    .valuePlacement = guikit::Placement::{},\n"
+            "    .color = {},\n"
+            "    .width = {},\n"
+            "    .height = {},\n"
             "    .disabled = {}\n"
-            "}})) {{\n"
-            "    ui.{}StepSlider(presetIndex, stepItems, {{\n"
-            "        .orientation = guikit::Orientation::{},\n"
-            "        .textLeft = \"{}\",\n"
-            "        .textRight = \"{}\",\n"
-            "        .showTicks = {},\n"
-            "        .showLabels = {},\n"
-            "        .showValue = {},\n"
-            "        .valuePlacement = guikit::Placement::{},\n"
-            "        .color = {},\n"
-            "        .stretch = guikit::StretchMode::{},\n"
-            "        .width = {},\n"
-            "        .height = {},\n"
-            "        .background = {},\n"
-            "        .border = {},\n"
-            "        .disabled = {}\n"
-            "    }});\n"
-            "}}",
-            FormatUiSizePrefix(ctx.elemSize),
-            ctx.FormatElementLabelCode(),
-            ctx.FormatElementDescCode(),
-            ctx.FormatElementIconCode(),
-            ctx.FormatElementBadgeCode(),
-            ElementLayoutEnumName(ctx.elemLayout),
-            InlineOrderEnumName(ctx.elemInlineOrder),
-            LabelAlignEnumName(ctx.elemAlign),
-            StretchModeEnumName(ctx.GetElementStretch()),
-            ctx.FormatElemBackgroundCode(),
-            ctx.FormatElemBorderCode(),
-            ctx.elemDisabled ? "true" : "false",
+            "}});",
             FormatUiSizePrefix(ctx.controlsSize),
             OrientationEnumName(s_state.orientation),
             s_state.textLeft,
@@ -363,59 +303,33 @@ keel::String GenerateSliderCode(const DemoContext& ctx) {
             s_state.showValue ? "true" : "false",
             PlacementName(s_state.valuePlacement),
             ctx.FormatControlColorCode(),
-            StretchModeEnumName(ctx.GetElementStretch()),
-            ctx.FormatElementWidthCode(),
-            ctx.FormatElementHeightCode(),
-            ctx.FormatControlBackgroundCode(NavCategory::ElemSlider),
-            ctx.FormatCtrlBorderCode(),
+            ctx.FormatCtrlWidthCode(),
+            heightCode,
             ctx.elemDisabled ? "true" : "false"
         );
+        keel::String out = keel::String::from(
+            "static constexpr keel::StaticArray<keel::StringRef, 5> stepItems = "
+            "{\"Off\", \"Low\", \"Mid\", \"High\", \"Max\"};\n"
+        );
+        out.append(ctx.WrapInElementCode(ctrl));
+        return out;
     }
     if (s_state.modeIdx == 2) {
-        return keel::format(
-            "if (auto el = ui.{}Element({{\n"
-            "    .label = {},\n"
-            "    .description = {},\n"
-            "    .icon = {},\n"
-            "    .badge = {},\n"
-            "    .layout = guikit::ElementLayout::{},\n"
-            "    .inlineOrder = guikit::InlineOrder::{},\n"
-            "    .align = guikit::Align::{},\n"
-            "    .stretch = guikit::StretchMode::{},\n"
-            "    .background = {},\n"
-            "    .border = {},\n"
+        const keel::String ctrl = keel::format(
+            "ui.{}RangeSlider(bandLow, bandHigh, 0.0f, 100.0f, {{\n"
+            "    .orientation = guikit::Orientation::{},\n"
+            "    .textLeft = \"{}\",\n"
+            "    .textRight = \"{}\",\n"
+            "    .valueFormat = \"%.0f %%\",\n"
+            "    .step = {},\n"
+            "    .minSpan = {:.1f},\n"
+            "    .showValue = {},\n"
+            "    .valuePlacement = guikit::Placement::{},\n"
+            "    .color = {},\n"
+            "    .width = {},\n"
+            "    .height = {},\n"
             "    .disabled = {}\n"
-            "}})) {{\n"
-            "    ui.{}RangeSlider(bandLow, bandHigh, 0.0f, 100.0f, {{\n"
-            "        .orientation = guikit::Orientation::{},\n"
-            "        .textLeft = \"{}\",\n"
-            "        .textRight = \"{}\",\n"
-            "        .valueFormat = \"%.0f %%\",\n"
-            "        .step = {},\n"
-            "        .minSpan = {:.1f},\n"
-            "        .showValue = {},\n"
-            "        .valuePlacement = guikit::Placement::{},\n"
-            "        .color = {},\n"
-            "        .stretch = guikit::StretchMode::{},\n"
-            "        .width = {},\n"
-            "        .height = {},\n"
-            "        .background = {},\n"
-            "        .border = {},\n"
-            "        .disabled = {}\n"
-            "    }});\n"
-            "}}",
-            FormatUiSizePrefix(ctx.elemSize),
-            ctx.FormatElementLabelCode(),
-            ctx.FormatElementDescCode(),
-            ctx.FormatElementIconCode(),
-            ctx.FormatElementBadgeCode(),
-            ElementLayoutEnumName(ctx.elemLayout),
-            InlineOrderEnumName(ctx.elemInlineOrder),
-            LabelAlignEnumName(ctx.elemAlign),
-            StretchModeEnumName(ctx.GetElementStretch()),
-            ctx.FormatElemBackgroundCode(),
-            ctx.FormatElemBorderCode(),
-            ctx.elemDisabled ? "true" : "false",
+            "}});",
             FormatUiSizePrefix(ctx.controlsSize),
             OrientationEnumName(s_state.orientation),
             s_state.textLeft,
@@ -425,76 +339,48 @@ keel::String GenerateSliderCode(const DemoContext& ctx) {
             s_state.showValue ? "true" : "false",
             PlacementName(s_state.valuePlacement),
             ctx.FormatControlColorCode(),
-            StretchModeEnumName(ctx.GetElementStretch()),
-            ctx.FormatElementWidthCode(),
-            ctx.FormatElementHeightCode(),
-            ctx.FormatControlBackgroundCode(NavCategory::ElemSlider),
-            ctx.FormatCtrlBorderCode(),
+            ctx.FormatCtrlWidthCode(),
+            heightCode,
             ctx.elemDisabled ? "true" : "false"
         );
+        return ctx.WrapInElementCode(ctrl);
     }
-    return keel::format(
-        "if (auto el = ui.{}Element({{\n"
-        "    .label = {},\n"
-        "    .description = {},\n"
-        "    .icon = {},\n"
-        "    .badge = {},\n"
-        "    .layout = guikit::ElementLayout::{},\n"
-        "    .inlineOrder = guikit::InlineOrder::{},\n"
-        "    .align = guikit::Align::{},\n"
-        "    .stretch = guikit::StretchMode::{},\n"
-        "    .background = {},\n"
-        "    .border = {},\n"
+
+    const keel::String ctrl = keel::format(
+        "ui.{}ProgressBar(signalLevel, 0.0, 100.0, {{\n"
+        "    .orientation = guikit::Orientation::{},\n"
+        "    .textLeft = \"{}\",\n"
+        "    .textRight = \"{}\",\n"
+        "    .valueFormat = \"%.1f %%\",\n"
+        "    .peakHoldValue = {},\n"
+        "    .segments = {},\n"
+        "    .trackHeight = {:.1f}f,\n"
+        "    .showValue = {},\n"
+        "    .valuePlacement = guikit::Placement::{},\n"
+        "    .color = {},\n"
+        "    .width = {},\n"
+        "    .height = {},\n"
+        "    .multiZoneColor = {},\n"
         "    .disabled = {}\n"
-        "}})) {{\n"
-        "    ui.{}ProgressBar(signalLevel, 0.0, 100.0, {{\n"
-        "        .textLeft = \"{}\",\n"
-        "        .textRight = \"{}\",\n"
-        "        .valueFormat = \"%.1f %%\",\n"
-        "        .peakHoldValue = {},\n"
-        "        .segments = {},\n"
-        "        .trackHeight = {:.1f}f,\n"
-        "        .showValue = {},\n"
-        "        .valuePlacement = guikit::Placement::{},\n"
-        "        .color = {},\n"
-        "        .stretch = guikit::StretchMode::{},\n"
-        "        .width = {},\n"
-        "        .height = {},\n"
-        "        .multiZoneColor = {},\n"
-        "        .background = {},\n"
-        "        .border = {},\n"
-        "        .disabled = {}\n"
-        "    }});\n"
-        "}}",
-        FormatUiSizePrefix(ctx.elemSize),
-        ctx.FormatElementLabelCode(),
-        ctx.FormatElementDescCode(),
-        ctx.FormatElementIconCode(),
-        ctx.FormatElementBadgeCode(),
-        ElementLayoutEnumName(ctx.elemLayout),
-        InlineOrderEnumName(ctx.elemInlineOrder),
-        LabelAlignEnumName(ctx.elemAlign),
-        StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElemBackgroundCode(),
-        ctx.FormatElemBorderCode(),
-        ctx.elemDisabled ? "true" : "false",
+        "}});",
         FormatUiSizePrefix(ctx.controlsSize),
+        OrientationEnumName(s_state.orientation),
         s_state.textLeft,
         s_state.textRight,
-        s_state.progressShowPeak ? keel::format_fixed<32>("{:.1f}", s_state.progressPeakVal) : keel::FixedString<32>("keel::kNullOpt"),
+        s_state.progressShowPeak
+            ? keel::format_fixed<32>("{:.1f}", s_state.progressPeakVal)
+            : keel::FixedString<32>("keel::kNullOpt"),
         s_state.progressSegmented ? s_state.progressSegments : 0u,
         s_state.progressBarHeight,
         s_state.showValue ? "true" : "false",
         PlacementName(s_state.valuePlacement),
         ctx.FormatControlColorCode(),
-        StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElementWidthCode(),
-        ctx.FormatElementHeightCode(),
+        ctx.FormatCtrlWidthCode(),
+        heightCode,
         s_state.progressMultiZone ? "true" : "false",
-        ctx.FormatControlBackgroundCode(NavCategory::ElemSlider),
-        ctx.FormatCtrlBorderCode(),
         ctx.elemDisabled ? "true" : "false"
     );
+    return ctx.WrapInElementCode(ctrl);
 }
 
 } // namespace guikit::demo

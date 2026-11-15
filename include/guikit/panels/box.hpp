@@ -14,17 +14,13 @@ class Context;
 /// Options for configuring a visual Box container.
 struct BoxOptions {
     keel::Optional<float> gap{keel::kNullOpt};        ///< Gap between stacked children (nullopt = from theme)
-    SizeMode widthMode{SizeMode::Stretch};
-    SizeMode heightMode{SizeMode::Fit};
-    keel::Optional<float> width{keel::kNullOpt};
-    keel::Optional<float> height{keel::kNullOpt};
+    AxisSize width{SizeMode::Stretch};
+    AxisSize height{SizeMode::Fit};
     keel::Optional<float> minWidth{keel::kNullOpt};
     keel::Optional<float> maxWidth{keel::kNullOpt};
     keel::Optional<float> minHeight{keel::kNullOpt};
     keel::Optional<float> maxHeight{keel::kNullOpt};
     float flexGrow{1.0f};
-    float fixedWidth{0.0f};
-    float fixedHeight{0.0f};
     keel::Optional<Padding> padding{keel::kNullOpt};   ///< Container padding (nullopt = zero)
     StateColor background{};
     Border border{};

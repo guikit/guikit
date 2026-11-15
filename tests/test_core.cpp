@@ -433,9 +433,11 @@ void TestHeadingLevelMetricsTokens() {
     CHECK(h1.iconSize > h6.iconSize);
     CHECK(h1.gap > h6.gap);
 
-    // Auto level delegates to active UiSize
-    CHECK(theme.GetHeading(HeadingLevel::Auto, UiSize::Lg).titleFontSize == theme.GetHeading(UiSize::Lg).titleFontSize);
-    CHECK(theme.GetHeading(HeadingLevel::Auto, UiSize::Xs).titleFontSize == theme.GetHeading(UiSize::Xs).titleFontSize);
+    // Default HeadingOptions::level is H3, and ComponentMetrics carries UiSize badge/gap tokens
+    constexpr HeadingOptions defaultHeadOpts{};
+    static_assert(defaultHeadOpts.level == HeadingLevel::H3);
+    CHECK(theme.GetMetrics(UiSize::Xl).badgeFontSize > theme.GetMetrics(UiSize::Xs).badgeFontSize);
+    CHECK(theme.GetMetrics(UiSize::Xl).itemGap > theme.GetMetrics(UiSize::Xs).itemGap);
 
     // 2. Mutable accessor check
     theme.GetHeading(HeadingLevel::H1).titleFontSize = 30.0f;
@@ -572,7 +574,7 @@ void TestTextWrapForceSplitLastWord() {
 
     // 1. Single long word at end of string wider than maxWidth
     {
-        const keel::StringRef text = "StretchMode::Fill.";
+        const keel::StringRef text = "SizeMode::Stretch.";
         const auto lines = TextUtil::WrapText(text, 60.0f, 14.0f, nullptr);
         CHECK(lines.size() >= 2);
         keel::String reconstructed;
@@ -585,7 +587,7 @@ void TestTextWrapForceSplitLastWord() {
     // 2. Multi-word string where the final word requires force-splitting across narrow widths
     {
         const keel::StringRef subtitle =
-            "Each button automatically receives exactly 33.3% available width via stretch = StretchMode::Fill.";
+            "Each button automatically receives equal available width via widthMode = SizeMode::Stretch.";
         for (float maxW = 4.0f; maxW <= 250.0f; maxW += 7.0f) {
             const auto lines = TextUtil::WrapText(subtitle, maxW, 13.0f, nullptr);
             CHECK(!lines.empty());
@@ -653,7 +655,7 @@ void TestStandaloneCoreModuleZeroDependencies() {
             for (keel::usize r = table.FirstVisibleRow(); r < table.EndVisibleRow(); ++r) {
                 if (auto row = table.Row(r)) {
                     ui.Text(ui.Format("K-{:02}", r));
-                    ui.Element({.badge = {"OK", UiVariant::Success}, .stretch = StretchMode::Compact});
+                    ui.Element({.badge = {"OK", UiVariant::Success}, .width = SizeMode::Fit});
                 }
             }
         }
@@ -1293,6 +1295,111 @@ void TestThemeTokensPaddingAndDateTime() {
 #endif
 }
 
+void TestElementHeadingSpecAndSeparatorSpace() {
+    keel::println("  -> TestElementHeadingSpecAndSeparatorSpace...");
+    using namespace guikit;
+
+    // Compile-time purity checks: ElementOptions and HeadingOptions have zero panel surface/border fields,
+    // and ElementOptions has zero heading-hierarchy or divider fields.
+    static_assert(![]<typename T = ElementOptions>() { return requires(T o) { o.background; }; }());
+    static_assert(![]<typename T = ElementOptions>() { return requires(T o) { o.border; }; }());
+    static_assert(![]<typename T = ElementOptions>() { return requires(T o) { o.level; }; }());
+    static_assert(![]<typename T = ElementOptions>() { return requires(T o) { o.separator; }; }());
+    static_assert(![]<typename T = HeadingOptions>() { return requires(T o) { o.background; }; }());
+    static_assert(![]<typename T = HeadingOptions>() { return requires(T o) { o.border; }; }());
+
+    const UiTheme theme = UiTheme::Dark();
+
+    // 0. Compile-time & constexpr invariants for unified AxisSize policy value type
+    static_assert(sizeof(AxisSize) == 8);
+    static_assert(!keel::IsConstructible<AxisSize, bool>);
+    static_assert(!keel::IsConstructible<AxisSize, char>);
+    static_assert(AxisSize{}.IsAuto());
+    static_assert(AxisSize(SizeMode::Fit).IsFit());
+    static_assert(AxisSize(SizeMode::Stretch).IsStretch());
+    static_assert(AxisSize(SizeMode::Fixed).IsFit()); // Bare Fixed without dp safely falls back to Fit
+    static_assert(AxisSize(180.0f).IsFixed() && AxisSize(180.0f).Dp() == 180.0f);
+    static_assert(AxisSize(200).IsFixed() && AxisSize(200).Dp() == 200.0f);
+    static_assert(AxisSize(0.0f).IsAuto() && AxisSize(-5.0f).IsAuto());
+    static_assert(AxisSize::Auto().ResolveMode(SizeMode::Stretch) == SizeMode::Stretch);
+    static_assert(AxisSize::Fit().ResolveMode(SizeMode::Stretch) == SizeMode::Fit);
+    static_assert(AxisSize::Fixed(120.0f).ResolveMode(SizeMode::Fit) == SizeMode::Fixed);
+
+    // 1. Control-less ElementOptions uses compact form-field typography and AxisSize::Fixed when explicit dp width > 0
+    const ElementOptions elemOpts{
+        .label = "Channel Gain",
+        .description = "Preamp stage",
+        .width = 240.0f
+    };
+    const ElementSpec elemSpec = Element::MakeSpec(elemOpts, UiSize::Md, false, theme);
+    CHECK(!elemSpec.hasControl);
+    CHECK(elemSpec.width.IsFixed());
+    CHECK(elemSpec.width == SizeMode::Fixed);
+    CHECK(keel::abs(elemSpec.width.Dp() - 240.0f) < 0.001f);
+
+    const ElementSpec fitSpec = Element::MakeSpec(
+        ElementOptions{.label = "Compact Tag", .width = SizeMode::Fit}, UiSize::Md, false, theme);
+    CHECK(fitSpec.width.IsFit());
+    CHECK(fitSpec.width == SizeMode::Fit);
+
+    // 2. Standalone Heading::Measure & ComputeBottomSeparatorSpace across HeadingLevel and HeadingLayout
+    const HeadingOptions h2BottomOpts{
+        .label = "Audio Bus",
+        .description = "Master routing",
+        .level = HeadingLevel::H2,
+        .layout = HeadingLayout::Stacked,
+        .separator = {HeadingSeparator::Bottom, StateColor::Primary(), 2.0f}
+    };
+    const HeadingOptions h2NoneOpts{
+        .label = "Audio Bus",
+        .description = "Master routing",
+        .level = HeadingLevel::H2,
+        .layout = HeadingLayout::Stacked,
+        .separator = HeadingSeparator::None
+    };
+    const float sepSpace = Heading::ComputeBottomSeparatorSpace(h2BottomOpts, theme);
+    CHECK(sepSpace > 6.0f);
+    CHECK(keel::abs(Heading::ComputeBottomSeparatorSpace(h2NoneOpts, theme)) < 0.001f);
+
+    const Vec2 mBottom = Heading::Measure(h2BottomOpts, nullptr, theme, 600.0f);
+    const Vec2 mNone = Heading::Measure(h2NoneOpts, nullptr, theme, 600.0f);
+    CHECK(keel::abs((mBottom.y - mNone.y) - sepSpace) < 0.05f);
+
+    // 3. Overline matches Stacked intrinsic height, while Inline places title + subtitle on one horizontal row
+    const HeadingOptions overlineOpts{
+        .label = "Audio Bus",
+        .description = "Master routing",
+        .level = HeadingLevel::H3,
+        .layout = HeadingLayout::Overline
+    };
+    const HeadingOptions stackedH3Opts{
+        .label = "Audio Bus",
+        .description = "Master routing",
+        .level = HeadingLevel::H3,
+        .layout = HeadingLayout::Stacked
+    };
+    const HeadingOptions inlineH3Opts{
+        .label = "Audio Bus",
+        .description = "Master routing",
+        .level = HeadingLevel::H3,
+        .layout = HeadingLayout::Inline
+    };
+    const Vec2 mOver = Heading::Measure(overlineOpts, nullptr, theme, 600.0f);
+    const Vec2 mStack = Heading::Measure(stackedH3Opts, nullptr, theme, 600.0f);
+    const Vec2 mInline = Heading::Measure(inlineH3Opts, nullptr, theme, 600.0f);
+    CHECK(keel::abs(mOver.y - mStack.y) < 0.05f);
+    CHECK(mInline.x > mStack.x);
+    CHECK(mInline.y < mStack.y);
+
+    // 4. Trailing separator adds zero vertical bottom space
+    const HeadingOptions trailingOpts{
+        .label = "Inline Section",
+        .level = HeadingLevel::H4,
+        .separator = HeadingSeparator::Trailing
+    };
+    CHECK(keel::abs(Heading::ComputeBottomSeparatorSpace(trailingOpts, theme)) < 0.001f);
+}
+
 int main() {
     keel::println("[RUN] Testing GuiKit Core Foundation...");
 
@@ -1314,6 +1421,7 @@ int main() {
     TestMainWindowHeadlessBackend();
     TestKeelIntegration();
     TestThemeTokensPaddingAndDateTime();
+    TestElementHeadingSpecAndSeparatorSpace();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Core tests passed successfully!");

@@ -38,18 +38,21 @@ int main(int, char*[]) {
 }
 ```
 
-### Rule 2: Wrap Form Controls in `ui.Element(...)` — Do NOT Build Manual Label/Row Scaffolding
-Never manually nest `Column` + `Row` + `Text` just to attach a label, description, icon, badge, or validation frame to a control. `ui.Element` handles stacked (`Stacked`, `Top`, `Bottom`) and horizontal (`Inline` with `InlineOrder::LabelFirst` / `ControlFirst`) label placement automatically:
+### Rule 2: Wrap Form Controls in `ui.Element(...)` & Use `ui.Heading(...)` for Section Headers — Do NOT Build Manual Label/Row Scaffolding
+Never manually nest `Column` + `Row` + `Text` just to attach a label, description, icon, or badge to one or more controls:
+- **`ui.Element(...)`** is a pure semantic single-slot form-field wrapper (`Label + [Control Slot] + Description`) with 5 self-contained `ElementLayout` placements (`Stacked`, `Top`, `Bottom`, `Leading`, `Trailing`) and automatic `AxisSize` / `SizeMode` resolution. For composite multi-control slots, place a `ui.Row(...)` / `ui.Column(...)` / `ui.Wrap(...)` inside `ui.Element(...)`.
+- **`ui.Heading(...)`** is a standalone section header leaf widget (`HeadingLevel::H1`–`H6`, default `H3`, independent of `UiSize`, with `HeadingLayout::Stacked` / `Overline` / `Inline` and `HeadingSeparator::None` / `Bottom` / `Trailing`).
+- **Surfaces & Borders** (`.background`, `.border`) belong solely to `Panels` (`ui.Card(...)`, `ui.Box(...)`, `Modal`, `Table`, `Scene`, etc.) and intrinsic-box controls (`Button`, `InputField`, `Select`, `SpinBox`, etc.) — never on `Element`, `Heading`, or frameless controls (`Switch`, `Checkbox`, `Radio`, `Slider`, `Knob`).
 
 ```cpp
-// GOOD: Declarative Element wrapper
+// GOOD: Section Heading + declarative Element form-field wrapper (use ui.Row inside Element for multi-control slots)
+ui.Heading({.label = "Filter Stage", .level = guikit::HeadingLevel::H3, .separator = guikit::HeadingSeparator::Bottom});
 if (auto el = ui.Element({
     .label = "Cutoff Frequency",
     .description = "Low-pass filter corner (-3 dB)",
     .icon = guikit::Icon::Flash(),
     .badge = "Hz",
-    .layout = guikit::ElementLayout::Inline,
-    .inlineOrder = guikit::InlineOrder::LabelFirst
+    .layout = guikit::ElementLayout::Leading
 })) {
     ui.SpinBox(cutoffHz, 20.0f, 20000.0f, 10.0f, {.valueFormat = "%.0f Hz"});
 }
@@ -159,14 +162,14 @@ if (auto it = sc.Item({.id = ui.Format("pt{}", row), .hitRect = Rect{p.x - 7, p.
 ```
 
 ### Rule 10: Let `SizeMode::Stretch` Viewports Fill `BottomPanel` / `SplitView` — Do NOT Subtract Magic Toolbar Heights
-Inside a `BottomPanel`, `Sidebar`, or `SplitView`, any child with `.heightMode = SizeMode::Stretch` (`Scene`, `SignalView`, `SonarView`, `WaterfallView`, `MapView`, `ImageView`, `Table`) automatically stretches and shrinks to fit the exact remaining space after sibling `Toolbar`s or headers:
+Inside a `BottomPanel`, `Sidebar`, or `SplitView`, any child with `.height = SizeMode::Stretch` (`Scene`, `SignalView`, `SonarView`, `WaterfallView`, `MapView`, `ImageView`, `Table`) automatically stretches and shrinks to fit the exact remaining space after sibling `Toolbar`s or headers:
 - Never pass external panel heights with magic offsets like `bottomPanel.Height() - 42.0f` into scene rendering functions.
 - If you draw in screen-proportional coordinates inside `Scene`, read `const Rect vp = sc.GetViewportRect();` directly.
 
 ### Rule 11: Adaptive `SizeMode::Stretch` Views (No `ScrollArea`) vs Fixed-Height `SizeMode::Fit` Forms (Wrap in `ScrollArea`)
 When laying out a workspace that shares space with a resizable `BottomPanel` or `SplitView`:
-- **Graphs, diagrams, images, scenes, and tables that must adapt to available size (`SizeMode::Stretch`)**: Place them directly inside a `ui.Column({.heightMode = SizeMode::Stretch})` **WITHOUT** a `ScrollArea`. Wrapping a `Stretch` viewport in a `ScrollArea` prevents it from shrinking when `BottomPanel` expands.
-- **Multi-row forms and settings cards (`SizeMode::Fit`)**: Form controls (`ui.Element`, `SpinBox`, `Select`) have a fixed minimum row height and cannot compress vertically; wrap long settings forms in `ui.ScrollArea({.heightMode = SizeMode::Stretch})` so they scroll cleanly when `BottomPanel` is opened.
+- **Graphs, diagrams, images, scenes, and tables that must adapt to available size (`SizeMode::Stretch`)**: Place them directly inside a `ui.Column({.height = SizeMode::Stretch})` **WITHOUT** a `ScrollArea`. Wrapping a `Stretch` viewport in a `ScrollArea` prevents it from shrinking when `BottomPanel` expands.
+- **Multi-row forms and settings cards (`SizeMode::Fit`)**: Form controls (`ui.Element`, `SpinBox`, `Select`) have a fixed minimum row height and cannot compress vertically; wrap long settings forms in `ui.ScrollArea({.height = SizeMode::Stretch})` so they scroll cleanly when `BottomPanel` is opened.
 
 ---
 
@@ -174,21 +177,22 @@ When laying out a workspace that shares space with a resizable `BottomPanel` or 
 
 | Container | Usage | Key Options |
 | :--- | :--- | :--- |
-| `ui.Row(opts)` | Horizontal flex container | `.gap`, `.padding`, `.align`, `.justify`, `.widthMode`, `.heightMode`, `.minWidth`, `.maxWidth`, `.flexGrow` |
-| `ui.Column(opts)` | Vertical flex container | `.gap`, `.padding`, `.align`, `.justify`, `.widthMode`, `.heightMode`, `.minHeight`, `.maxHeight`, `.flexGrow` |
-| `ui.Wrap(opts)` | Multi-line flow container (chips, tags, cards) | `.gap`, `.runGap`, `.padding`, `.widthMode` |
+| `ui.Row(opts)` | Horizontal flex container | `.gap`, `.padding`, `.align`, `.justify`, `.width`, `.height`, `.minWidth`, `.maxWidth`, `.flexGrow` |
+| `ui.Column(opts)` | Vertical flex container | `.gap`, `.padding`, `.align`, `.justify`, `.width`, `.height`, `.minHeight`, `.maxHeight`, `.flexGrow` |
+| `ui.Wrap(opts)` | Multi-line flow container (chips, tags, cards) | `.gap`, `.runGap`, `.padding`, `.width`, `.height` |
 | `ui.Grid(opts)` | 12-column responsive CSS-like grid | `.columns = 12`, `.gap`, `.runGap`; children use `grid.Cell(span)` |
 | `ui.Spacer(flexGrow)` | Flexible spring (`flexGrow = 1.0f`) | Pushes subsequent siblings to the right/bottom proportionally |
 | `ui.Gap(dp)` | Fixed-pixel spacing node (`dp > 0`) | Inserts an exact non-stretching offset along the main axis |
-| `ui.Box(opts)` / `ui.Card(opts)` | Styled container with background, border, radius & shadow | `.background`, `.border`, `.padding`, `.gap`, `.minWidth`, `.maxWidth`, `.flexGrow` |
-| `ui.ScrollArea(opts)` | Scrollable viewport with automatic scrollbars | `.orientation`, `.scrollbar`, `.maxHeight`, `.heightMode`, `.flexGrow` |
-| `ui.SplitView(ratio, opts)` | Resizable horizontal/vertical 2-pane splitter | `if (auto p1 = split.First())`, `if (auto p2 = split.Second())` |
+| `ui.Box(opts)` / `ui.Card(opts)` | Styled container with background, border, radius & shadow | `.background`, `.border`, `.padding`, `.gap`, `.width`, `.height`, `.minWidth`, `.maxWidth`, `.flexGrow` |
+| `ui.ScrollArea(opts)` | Scrollable viewport with automatic scrollbars | `.orientation`, `.scrollbar`, `.width`, `.height`, `.maxHeight`, `.flexGrow` |
+| `ui.SplitView(ratio, opts)` | Resizable horizontal/vertical 2-pane splitter | `if (auto p1 = split.First())`, `if (auto p2 = split.Second())`; `.width`, `.height` |
 
-**Sizing Modes (`SizeMode` / `StretchMode`):**
-- `SizeMode::Fit`: Shrink-wraps children content (respecting `.minWidth` / `.maxWidth` / `.minHeight` / `.maxHeight`).
-- `SizeMode::Stretch`: Expands to fill available parent space along that axis (weighted by `.flexGrow`).
-- `SizeMode::Fixed`: Uses explicit `.width` / `.height` in `dp`.
-- Leaf controls (`Element`, `Button`, `InputField`, `Select`, `Slider`, etc.) use `.width` for explicit `dp` width and `.widthRatio` (`0.0f..1.0f`) for proportional fill width under `StretchMode::Fill`.
+**Unified Sizing Policy (`AxisSize` & `SizeMode`):**
+Containers, panels, and resizable box/track/viewport controls expose unified `.width` and `.height` options (`Element` and `Heading` expose `.width`) of type `guikit::AxisSize`; intrinsic fixed-glyph indicators (`Switch`, `Checkbox`, `Radio`) are always `SizeMode::Fit` (scaled via `ui.Size(...)`), and rotary `Knob` exposes scalar `.diameter` (`keel::Optional<float>`):
+- `AxisSize::Auto()` (default `{}`): Resolves to the widget or container's contextual default (`SizeMode::Fit` or `SizeMode::Stretch`).
+- `SizeMode::Fit` / `AxisSize::Fit()`: Shrink-wraps intrinsic content (respecting `.minWidth` / `.maxWidth` / `.minHeight` / `.maxHeight`). Default for compact controls (`Button`, `Image`, `Breadcrumb`, `Pagination`).
+- `SizeMode::Stretch` / `AxisSize::Stretch()`: Expands to fill available parent space along that axis (weighted by `.flexGrow` on flex containers). Default for full-width form inputs, pickers, tracks, panels, `Heading`, and 2D domain views (`InputField`, `Select`, `ColorPicker`, `DatePicker`, `Slider`, `SpinBox`, `Table`, `Scene`, etc.).
+- `float dp` / `AxisSize::Fixed(dp)`: Uses an explicit logical dimension in `dp` (e.g. `.width = 240.0f`; values `<= 0.0f` resolve to `Auto`).
 
 ---
 
@@ -196,9 +200,9 @@ When laying out a workspace that shares space with a resizable `BottomPanel` or 
 
 Before drawing custom shapes on `ICanvas`, check this inventory:
 
-- **Typography & Structure**: `Heading` (`HeadingLevel::H1`–`H6` + description + icon + separator), `Text` (semantic `TextRole` + `UiVariant` + `UiText::Rich`), `Element` (universal form field decorator), `Image` (PNG/JPG/SVG with `ObjectFit::Contain`/`Cover`/`ScaleDown` & corner rounding), procedural vector `Icon::*` library (`Icon::Play()`, `Icon::Settings()`, `Icon::Search()`, etc.).
+- **Typography & Structure**: `Heading` (standalone `HeadingLevel::H1`–`H6` with default `H3`, `HeadingLayout::Stacked`/`Overline`/`Inline`, description, icon, badge & `HeadingSeparator`), `Text` (semantic `TextRole` + `UiVariant` + `UiText::Rich`), `Element` (pure semantic `Label + [Control Slot] + Description` form-field wrapper with `ElementLayout::Stacked`/`Top`/`Bottom`/`Leading`/`Trailing`; compose `ui.Row`/`ui.Column` in the slot for multiple controls), `Image` (PNG/JPG/SVG with `ObjectFit::Contain`/`Cover`/`ScaleDown` & corner rounding), procedural vector `Icon::*` library (`Icon::Play()`, `Icon::Settings()`, `Icon::Search()`, etc.).
 - **Buttons & Selection**: `Button` (solid/outline/ghost, icons, `.badge`, `.loading` spinner), `Switch`, `Checkbox` (with `indeterminate` support), `Radio`, `Segmented` (single-select `IndexLike` integer or `enum class`) & `SegmentedMask` (multi-select bitmask).
-- **Numeric & Metering**: `Slider`, `RangeSlider` (`minVal`, `maxVal`), `StepSlider` (`IndexLike` integer or `enum class`) — horizontal, or vertical via `.orientation = Orientation::Vertical` (min at the bottom, `stretch = Fill` fills the height, StepSlider labels right of the ticks), `ProgressBar` (smooth, discrete LED segments, `.indeterminate`, horizontal or vertical), `LevelMeter` (single & multi-channel audio/telemetry dB bargraph with 3-zone coloring, peak-hold & clip LED), `Knob` (rotary encoder with bipolar arc & radial ticks), `SpinBox` (64-bit integer & float numeric stepper with typematic hold-repeat).
+- **Numeric & Metering**: `Slider`, `RangeSlider` (`minVal`, `maxVal`), `StepSlider` (`IndexLike` integer or `enum class`) — horizontal, or vertical via `.orientation = Orientation::Vertical` (min at the bottom, `.height = SizeMode::Stretch` fills height by default, StepSlider labels right of the ticks), `ProgressBar` (smooth, discrete LED segments, `.indeterminate`, horizontal or vertical), `LevelMeter` (single & multi-channel audio/telemetry dB bargraph with 3-zone coloring, peak-hold & clip LED), `Knob` (rotary encoder with bipolar arc & radial ticks), `SpinBox` (64-bit integer & float numeric stepper with typematic hold-repeat).
 - **Text, Tags & Dropdowns**: `InputField` (in-place zero-copy editing of `keel::FixedString<N>`, `keel::SmallString<N>`, `keel::String`, plus duck-typed `WritableString` interop; password, `InputFilter::Integer`/`Decimal`/`Hex`, `.maxLength`, `.selectAllOnFocus`, prefix/suffix icons, clear button), `TagInput` (`keel::SmallArray` / `keel::Array` of strings or `TagItem`, plus duck-typed list interop), `Select` (`IndexLike` integer/`enum`, `keel::FixedString<N>`, `keel::SmallString<N>`, `keel::String`), `ComboBox` (searchable select), `Autocomplete` (free-text with suggestions), `MultiSelect` (`keel::SmallArray<keel::usize, N>` / `keel::Array<keel::usize>`, plus duck-typed index list interop).
 - **Pickers**: `ColorPicker` (2D HSV saturation/value canvas, hue/alpha sliders, HEX input, custom `.swatches`), `DatePicker` (`Date`, `DateTime`, `Time` modes with `DateTime::Today()`, `minDate`/`maxDate`, localized month/weekday labels & leap-year math).
 - **Navigation & Data**: `TabBar` (underline/pill/card/folder styles, `.closable` tabs returning `TabBarResponse::closedIndex`, `IndexLike` integer/`enum` binding, overflow scroll), `Breadcrumb` (with interactive `...` collapse menu), `Pagination` (ellipsis windowing), `Toolbar` (`ToolButton` / `Action`, `Toggle`, `Item`, `Dropdown`, `SplitButton`, `SplitToggle`, `Separator`, `Spacer` with `AutoCompact`/`Scroll`/`Wrap`/`Clip` overflow), `Sidebar`, `SidebarMenu`, `ActivityBar`, `BottomPanel`, `StatusBar`, `Accordion`, `Carousel`, `TreeView` (multi-column, filterable hierarchy), `Table` (virtualized 100k+ row data grid with sorting & selection).

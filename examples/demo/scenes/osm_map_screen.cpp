@@ -111,7 +111,7 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
             .text = "Fit Chart Bounds",
             .icon = guikit::Icon::Search(),
             .color = guikit::StateColor::Primary(),
-            .stretch = guikit::StretchMode::Fill
+            .width = guikit::SizeMode::Stretch
         }).clicked) {
             s_state.pendingCenterGeo = s_state.initialCenter;
             s_state.pendingTileZoom = s_state.initialTileZoom;
@@ -172,7 +172,7 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
     }
 
     // 4. S-52 Vector Display & Tile Engine Filters
-    ui.Size(guikit::UiSize::Xs).Heading({.label = "S-52 & TILE ENGINE FILTERS", .separator = guikit::HeadingSeparator::Bottom});
+    ui.Heading({.label = "S-52 & TILE ENGINE FILTERS", .level = guikit::HeadingLevel::H6, .separator = guikit::HeadingSeparator::Bottom});
     if (auto el = ui.Element({.label = "Vector Tile Cache [z/x/y]"})) {
         if (ui.Switch(s_state.renderConfig.useVectorTileCache).changed) ui.InvalidateAll();
     }
@@ -193,7 +193,7 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
     }
 
     // 5. Cartographic Grid & HUD Overlays
-    ui.Size(guikit::UiSize::Xs).Heading({.label = "CARTOGRAPHIC OVERLAYS", .separator = guikit::HeadingSeparator::Bottom});
+    ui.Heading({.label = "CARTOGRAPHIC OVERLAYS", .level = guikit::HeadingLevel::H6, .separator = guikit::HeadingSeparator::Bottom});
     if (auto el = ui.Element({.label = "Nautical Graticule (1' = 1 NM)"})) {
         if (ui.Switch(s_state.showNauticalGraticule).changed) ui.InvalidateAll();
     }
@@ -209,7 +209,7 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
 
     // 6. Thematic Layers from demo_bay.geojson
     if (!s_state.layers.empty()) {
-        ui.Size(guikit::UiSize::Xs).Heading({.label = "THEMATIC ENC LAYERS", .separator = guikit::HeadingSeparator::Bottom});
+        ui.Heading({.label = "THEMATIC ENC LAYERS", .level = guikit::HeadingLevel::H6, .separator = guikit::HeadingSeparator::Bottom});
         for (auto& layer : s_state.layers) {
             if (auto el = ui.Size(guikit::UiSize::Sm).Element({
                 .label = ui.Format("{} ({})", layer.name.as_ref(), layer.features.size())
@@ -240,7 +240,7 @@ void RenderOsmMapStage(guikit::Context& ui, DemoContext& ctx) {
         .showNauticalGraticule = s_state.showNauticalGraticule,
         .showBorderRulers = s_state.showBorderRulers,
         .showScaleBarOverlay = s_state.showScaleBarOverlay,
-        .heightMode = guikit::SizeMode::Stretch,
+        .height = guikit::SizeMode::Stretch,
         .selectableItems = true,
         .showScrollbars = s_state.showScrollbars,
         .showControls = s_state.showControls,

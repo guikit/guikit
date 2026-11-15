@@ -16,14 +16,14 @@ int main(int /*argc*/, char* /*argv*/[]) {
             .padding = guikit::Padding::All(24.0f),
             .align = guikit::Alignment::Center,
             .justify = guikit::Justify::Center,
-            .widthMode = guikit::SizeMode::Stretch,
-            .heightMode = guikit::SizeMode::Stretch
+            .width = guikit::SizeMode::Stretch,
+            .height = guikit::SizeMode::Stretch
         })) {
             if (auto card = ui.Card({
                 .minWidth = 420.0f,
+                .width = guikit::SizeMode::Fit,
                 .gap = 12.0f,
-                .padding = guikit::Padding::All(20.0f),
-                .widthMode = guikit::SizeMode::Fit
+                .padding = guikit::Padding::All(20.0f)
             })) {
                 ui.Heading({
                     .label = "Mission Control",

@@ -27,10 +27,8 @@ struct SplitViewOptions {
     float sashSize{6.0f};                             ///< Thickness of interactive splitter sash in logical dp
     bool showGrip{true};                              ///< Draw grip handle pill/dots in center of sash
     bool collapsible{false};                          ///< Snap pane to 0% / 100% when dragged near edge
-    SizeMode widthMode{SizeMode::Stretch};
-    SizeMode heightMode{SizeMode::Stretch};
-    keel::Optional<float> width{keel::kNullOpt};
-    keel::Optional<float> height{keel::kNullOpt};
+    AxisSize width{SizeMode::Stretch};
+    AxisSize height{SizeMode::Stretch};
     Padding padding{};
     StateColor background{};
     Border border{};
@@ -72,12 +70,12 @@ public:
     }
 
     [[nodiscard]] BoxScope First(
-        const BoxOptions& opts = {.widthMode = SizeMode::Stretch, .heightMode = SizeMode::Stretch, .clipChildren = true},
+        const BoxOptions& opts = {.width = SizeMode::Stretch, .height = SizeMode::Stretch, .clipChildren = true},
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     [[nodiscard]] BoxScope Second(
-        const BoxOptions& opts = {.widthMode = SizeMode::Stretch, .heightMode = SizeMode::Stretch, .clipChildren = true},
+        const BoxOptions& opts = {.width = SizeMode::Stretch, .height = SizeMode::Stretch, .clipChildren = true},
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 

@@ -29,12 +29,9 @@ struct InputFieldOptions {
     UiAffix prefix{};                              ///< Leading icon and/or symbol/text inside field on left (e.g. "$", Icon::Search(), {Icon::Search(), "https://"})
     UiAffix suffix{};                              ///< Trailing symbol/text and/or icon inside field on right (e.g. ":443", {"UTF-8", Icon::Check()})
     UiText valueFormat{};                          ///< Optional text styling and/or candidate width variants
-    Align align{Align::Start};                     ///< Standalone control alignment (Start, Center, End)
     keel::Optional<CursorBlinkMode> cursorMode{keel::kNullOpt}; ///< Cursor blink override (inherits context config if nullopt)
-    StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
-    keel::Optional<float> width{keel::kNullOpt};      ///< Input box width in dp (or legacy ratio 0.0..1.0 in Fill)
-    keel::Optional<float> widthRatio{keel::kNullOpt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
-    keel::Optional<float> height{keel::kNullOpt};     ///< Explicit input box height in points (nullopt = inherit defaultHeight from UiSize)
+    AxisSize width{};                              ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit` in `Toolbar`, or `Fixed(dp)`)
+    AxisSize height{};                             ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
     keel::Optional<float> minWidth{keel::kNullOpt};   ///< Minimum input box width constraint in points
     StateColor color{};                            ///< Optional focus ring & caret accent color override (e.g. StateColor::Danger() for validation error)
     StateColor background{StateColor::Surface()};  ///< Input box surface fill color (Surface/Default = on, None = off, or custom StateColor)

@@ -9,6 +9,7 @@ namespace {
 struct LevelMeterDemoState {
     keel::usize channelModeIdx = 1; // 0 = Single-Channel (Mono dBFS), 1 = Stereo Dual-Channel (L / R)
     keel::usize orientationIdx = 0; // 0 = Horizontal, 1 = Vertical
+    bool compactVertical = false;
     float levelDb = -8.5f;
     float stereoSpreadDb = 3.5f;
     bool simulateLive = false;
@@ -47,6 +48,17 @@ void RenderLevelMeterInspector(guikit::Context& ui, DemoContext&) {
             .showLabels = true
         }).changed) {
             ui.InvalidateAll();
+        }
+    }
+
+    if (s_state.orientationIdx == 1) {
+        if (auto el = ui.Element({
+            .label = "Compact Vertical Height (Fit)",
+            .description = "Pass .height = SizeMode::Fit instead of stretching"
+        })) {
+            if (ui.Switch(s_state.compactVertical).changed) {
+                ui.InvalidateAll();
+            }
         }
     }
 
@@ -104,7 +116,7 @@ void RenderLevelMeterInspector(guikit::Context& ui, DemoContext&) {
 
     if (auto el = ui.Element({.label = "Bar Thickness"})) {
         if (ui.Slider(s_state.barThickness, 6.0f, 24.0f, {
-            .valueFormat = "%.0f px",
+            .valueFormat = "%.0f dp",
             .step = 1.0f
         }).changed) {
             ui.InvalidateAll();
@@ -160,43 +172,28 @@ void RenderLevelMeterStage(guikit::Context& ui, DemoContext& ctx) {
     static constexpr keel::StaticArray<keel::StringRef, 2> kStereoLabels = {"L", "R"};
     static constexpr keel::StaticArray<keel::StringRef, 1> kMonoLabels = {"IN"};
 
-    guikit::LevelMeterOptions opts{
-        .orientation = orient,
-        .segments = s_state.segmented ? s_state.segments : 0u,
-        .multiZoneColor = s_state.multiZoneColor,
-        .autoPeakHold = s_state.autoPeakHold,
-        .showClipLed = s_state.showClipLed,
-        .showScale = s_state.showScale,
-        .showValue = s_state.showValue,
-        .valueFormat = "%.1f dB",
-        .channelLabels = (s_state.channelModeIdx == 1)
-            ? keel::ArrayRef<keel::StringRef>(kStereoLabels)
-            : keel::ArrayRef<keel::StringRef>(kMonoLabels),
-        .barThickness = s_state.barThickness,
-        .color = ctx.GetControlColor(),
-        .stretch = ctx.GetElementStretch(),
-        .align = ctx.elemAlign,
-        .width = ctx.GetElementWidth(),
-        .height = ctx.GetElementHeight(),
-        .background = ctx.GetControlBackground(NavCategory::ElemLevelMeter),
-        .border = ctx.GetCtrlBorder(),
-        .tooltip = "Click meter to reset Peak-Hold & Clip latch",
-        .disabled = ctx.elemDisabled
-    };
+    guikit::LevelMeterOptions opts{};
+    opts.orientation = orient;
+    opts.segments = s_state.segmented ? s_state.segments : 0u;
+    opts.multiZoneColor = s_state.multiZoneColor;
+    opts.autoPeakHold = s_state.autoPeakHold;
+    opts.showClipLed = s_state.showClipLed;
+    opts.showScale = s_state.showScale;
+    opts.showValue = s_state.showValue;
+    opts.valueFormat = "%.1f dB";
+    opts.channelLabels = (s_state.channelModeIdx == 1)
+        ? keel::ArrayRef<keel::StringRef>(kStereoLabels)
+        : keel::ArrayRef<keel::StringRef>(kMonoLabels);
+    opts.barThickness = s_state.barThickness;
+    opts.color = ctx.GetControlColor();
+    opts.width = ctx.ResolveCtrlWidth();
+    opts.height = (orient == guikit::Orientation::Vertical && s_state.compactVertical && ctx.ResolveCtrlHeight().IsAuto())
+        ? guikit::AxisSize(guikit::SizeMode::Fit)
+        : ctx.ResolveCtrlHeight();
+    opts.tooltip = "Click meter to reset Peak-Hold & Clip latch";
+    opts.disabled = ctx.elemDisabled;
 
-    if (auto el = ui.Size(ctx.elemSize).Element({
-        .label = ctx.GetElementLabel(),
-        .description = ctx.GetElementDescription(),
-        .icon = ctx.GetElementIcon(),
-        .badge = ctx.GetElementBadge(),
-        .layout = ctx.elemLayout,
-        .inlineOrder = ctx.elemInlineOrder,
-        .align = ctx.elemAlign,
-        .stretch = ctx.GetElementStretch(),
-        .background = ctx.elemBackground,
-        .border = ctx.GetElemBorder(),
-        .disabled = ctx.elemDisabled
-    })) {
+    ctx.RunElementStage(ui, [&]() {
         if (auto sz = ui.Size(ctx.controlsSize)) {
             if (s_state.channelModeIdx == 1) {
                 const keel::StaticArray<float, 2> stereoVals = {chLeft, chRight};
@@ -205,64 +202,36 @@ void RenderLevelMeterStage(guikit::Context& ui, DemoContext& ctx) {
                 guikit::LevelMeter::Run(ui, static_cast<double>(chLeft), -60.0, 0.0, opts);
             }
         }
-    }
+    });
 }
 
 keel::String GenerateLevelMeterCode(const DemoContext& ctx) {
     const keel::StringRef orientName = (s_state.orientationIdx == 0) ? "Horizontal" : "Vertical";
+    const guikit::AxisSize ctrlH =
+        (s_state.orientationIdx == 1 && s_state.compactVertical && ctx.ResolveCtrlHeight().IsAuto())
+            ? guikit::AxisSize(guikit::SizeMode::Fit)
+            : ctx.ResolveCtrlHeight();
+    const keel::FixedString<48> heightCode = DemoContext::FormatAxisSizeCode(ctrlH);
     const keel::u32 segVal = s_state.segmented ? s_state.segments : 0u;
 
     if (s_state.channelModeIdx == 1) {
-        return keel::format(
-            "static constexpr keel::StaticArray<keel::StringRef, 2> kChannels = {{\"L\", \"R\"}};\n"
-            "const keel::StaticArray<float, 2> levelsDb = {{{:.1f}f, {:.1f}f}};\n"
-            "if (auto el = ui.{}Element({{\n"
-            "    .label = {},\n"
-            "    .description = {},\n"
-            "    .icon = {},\n"
-            "    .badge = {},\n"
-            "    .layout = guikit::ElementLayout::{},\n"
-            "    .inlineOrder = guikit::InlineOrder::{},\n"
-            "    .align = guikit::Align::{},\n"
-            "    .stretch = guikit::StretchMode::{},\n"
-            "    .background = {},\n"
-            "    .border = {},\n"
+        const keel::String ctrl = keel::format(
+            "ui.{}LevelMeter(levelsDb, -60.0f, 0.0f, {{\n"
+            "    .orientation = guikit::Orientation::{},\n"
+            "    .segments = {}u,\n"
+            "    .multiZoneColor = {},\n"
+            "    .autoPeakHold = {},\n"
+            "    .showClipLed = {},\n"
+            "    .showScale = {},\n"
+            "    .showValue = {},\n"
+            "    .valueFormat = \"%.1f dB\",\n"
+            "    .channelLabels = kChannels,\n"
+            "    .barThickness = {:.1f}f,\n"
+            "    .color = {},\n"
+            "    .width = {},\n"
+            "    .height = {},\n"
             "    .disabled = {}\n"
-            "}})) {{\n"
-            "    ui.{}LevelMeter(levelsDb, -60.0f, 0.0f, {{\n"
-            "        .orientation = guikit::Orientation::{},\n"
-            "        .segments = {}u,\n"
-            "        .multiZoneColor = {},\n"
-            "        .autoPeakHold = {},\n"
-            "        .showClipLed = {},\n"
-            "        .showScale = {},\n"
-            "        .showValue = {},\n"
-            "        .valueFormat = \"%.1f dB\",\n"
-            "        .channelLabels = kChannels,\n"
-            "        .barThickness = {:.1f}f,\n"
-            "        .color = {},\n"
-            "        .stretch = guikit::StretchMode::{},\n"
-            "        .width = {},\n"
-            "        .height = {},\n"
-            "        .background = {},\n"
-            "        .border = {},\n"
-            "        .disabled = {}\n"
-            "    }});\n"
-            "}}",
-            s_state.levelDb,
-            keel::clamp(s_state.levelDb - s_state.stereoSpreadDb, -60.0f, 0.0f),
-            FormatUiSizePrefix(ctx.elemSize),
-            ctx.FormatElementLabelCode(),
-            ctx.FormatElementDescCode(),
-            ctx.FormatElementIconCode(),
-            ctx.FormatElementBadgeCode(),
-            ElementLayoutEnumName(ctx.elemLayout),
-            InlineOrderEnumName(ctx.elemInlineOrder),
-            LabelAlignEnumName(ctx.elemAlign),
-            StretchModeEnumName(ctx.GetElementStretch()),
-            ctx.FormatElemBackgroundCode(),
-            ctx.FormatElemBorderCode(),
-            ctx.elemDisabled ? "true" : "false",
+            "}});",
             FormatUiSizePrefix(ctx.controlsSize),
             orientName,
             segVal,
@@ -273,60 +242,36 @@ keel::String GenerateLevelMeterCode(const DemoContext& ctx) {
             s_state.showValue ? "true" : "false",
             s_state.barThickness,
             ctx.FormatControlColorCode(),
-            StretchModeEnumName(ctx.GetElementStretch()),
-            ctx.FormatElementWidthCode(),
-            ctx.FormatElementHeightCode(),
-            ctx.FormatControlBackgroundCode(NavCategory::ElemLevelMeter),
-            ctx.FormatCtrlBorderCode(),
+            ctx.FormatCtrlWidthCode(),
+            heightCode,
             ctx.elemDisabled ? "true" : "false"
         );
+        keel::String out = keel::format(
+            "static constexpr keel::StaticArray<keel::StringRef, 2> kChannels = {{\"L\", \"R\"}};\n"
+            "const keel::StaticArray<float, 2> levelsDb = {{{:.1f}f, {:.1f}f}};\n",
+            s_state.levelDb,
+            keel::clamp(s_state.levelDb - s_state.stereoSpreadDb, -60.0f, 0.0f)
+        );
+        out.append(ctx.WrapInElementCode(ctrl));
+        return out;
     }
 
-    return keel::format(
-        "if (auto el = ui.{}Element({{\n"
-        "    .label = {},\n"
-        "    .description = {},\n"
-        "    .icon = {},\n"
-        "    .badge = {},\n"
-        "    .layout = guikit::ElementLayout::{},\n"
-        "    .inlineOrder = guikit::InlineOrder::{},\n"
-        "    .align = guikit::Align::{},\n"
-        "    .stretch = guikit::StretchMode::{},\n"
-        "    .background = {},\n"
-        "    .border = {},\n"
+    const keel::String ctrl = keel::format(
+        "ui.{}LevelMeter(signalDb, -60.0, 0.0, {{\n"
+        "    .orientation = guikit::Orientation::{},\n"
+        "    .segments = {}u,\n"
+        "    .multiZoneColor = {},\n"
+        "    .autoPeakHold = {},\n"
+        "    .showClipLed = {},\n"
+        "    .showScale = {},\n"
+        "    .showValue = {},\n"
+        "    .valueFormat = \"%.1f dB\",\n"
+        "    .barThickness = {:.1f}f,\n"
+        "    .color = {},\n"
+        "    .width = {},\n"
+        "    .height = {},\n"
         "    .disabled = {}\n"
-        "}})) {{\n"
-        "    ui.{}LevelMeter(signalDb, -60.0, 0.0, {{\n"
-        "        .orientation = guikit::Orientation::{},\n"
-        "        .segments = {}u,\n"
-        "        .multiZoneColor = {},\n"
-        "        .autoPeakHold = {},\n"
-        "        .showClipLed = {},\n"
-        "        .showScale = {},\n"
-        "        .showValue = {},\n"
-        "        .valueFormat = \"%.1f dB\",\n"
-        "        .barThickness = {:.1f}f,\n"
-        "        .color = {},\n"
-        "        .stretch = guikit::StretchMode::{},\n"
-        "        .width = {},\n"
-        "        .height = {},\n"
-        "        .background = {},\n"
-        "        .border = {},\n"
-        "        .disabled = {}\n"
-        "    }});\n"
-        "}}",
-        FormatUiSizePrefix(ctx.elemSize),
-        ctx.FormatElementLabelCode(),
-        ctx.FormatElementDescCode(),
-        ctx.FormatElementIconCode(),
-        ctx.FormatElementBadgeCode(),
-        ElementLayoutEnumName(ctx.elemLayout),
-        InlineOrderEnumName(ctx.elemInlineOrder),
-        LabelAlignEnumName(ctx.elemAlign),
-        StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElemBackgroundCode(),
-        ctx.FormatElemBorderCode(),
-        ctx.elemDisabled ? "true" : "false",
+        "}});",
         FormatUiSizePrefix(ctx.controlsSize),
         orientName,
         segVal,
@@ -337,13 +282,11 @@ keel::String GenerateLevelMeterCode(const DemoContext& ctx) {
         s_state.showValue ? "true" : "false",
         s_state.barThickness,
         ctx.FormatControlColorCode(),
-        StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElementWidthCode(),
-        ctx.FormatElementHeightCode(),
-        ctx.FormatControlBackgroundCode(NavCategory::ElemLevelMeter),
-        ctx.FormatCtrlBorderCode(),
+        ctx.FormatCtrlWidthCode(),
+        heightCode,
         ctx.elemDisabled ? "true" : "false"
     );
+    return ctx.WrapInElementCode(ctrl);
 }
 
 } // namespace guikit::demo

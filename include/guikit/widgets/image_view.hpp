@@ -146,15 +146,10 @@ struct ImageViewParams {
 
 /// Configuration options for the `ui.ImageView` widget.
 struct ImageViewOptions {
-    Align align{Align::Start};
-    StretchMode stretch{StretchMode::Fill};
-
     // --- Sizing & Geometry ---
-    keel::Optional<float> width{keel::kNullOpt};
-    keel::Optional<float> widthRatio{keel::kNullOpt};
-    float height{620.0f};
+    AxisSize width{};                     ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or `Fixed(dp)`)
+    AxisSize height{SizeMode::Fit};       ///< Vertical sizing policy (`Fit` -> 620 dp default, `Stretch`, or `Fixed(dp)`)
     float minHeight{360.0f};
-    SizeMode heightMode{SizeMode::Fit};
     StateColor background{};
     Border border{};
 

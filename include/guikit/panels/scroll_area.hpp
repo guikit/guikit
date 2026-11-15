@@ -40,11 +40,9 @@ struct ScrollAreaOptions {
     Justify justify{Justify::Start};                ///< Main-axis justification when content is smaller than viewport
     keel::Optional<float> gap{keel::kNullOpt};        ///< Gap between consecutive scroll items (nullopt = zero)
     keel::Optional<Padding> padding{keel::kNullOpt};   ///< Viewport content padding (nullopt = zero)
-    keel::Optional<float> width{keel::kNullOpt};       ///< Explicit fixed width in dp
-    keel::Optional<float> height{keel::kNullOpt};      ///< Explicit fixed height in dp
+    AxisSize width{SizeMode::Stretch};                ///< Horizontal sizing policy (`Stretch`, `Fit`, or fixed `dp`)
+    AxisSize height{SizeMode::Stretch};               ///< Vertical sizing policy (`Stretch`, `Fit`, or fixed `dp`)
     keel::Optional<float> maxHeight{keel::kNullOpt};   ///< Maximum viewport height in dp (shrink-wraps content up to maxHeight)
-    SizeMode widthMode{SizeMode::Stretch};
-    SizeMode heightMode{SizeMode::Stretch};
     StateColor background{};
     Border border{};
     bool disabled{false};

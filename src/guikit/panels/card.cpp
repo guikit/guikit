@@ -24,16 +24,10 @@ ContainerScope Card::Open(
     outerNode->direction = FlexDirection::Column;
     outerNode->gap = theme.ResolveGap(opts.gap, activeSize);
     outerNode->minWidth = theme.Scale(opts.minWidth);
-    outerNode->widthMode = opts.widthMode;
-    outerNode->heightMode = opts.heightMode;
-    if (opts.width.has_value() && *opts.width > 0.0f) {
-        outerNode->widthMode = SizeMode::Fixed;
-        outerNode->fixedWidth = theme.Scale(*opts.width);
-    }
-    if (opts.height.has_value() && *opts.height > 0.0f) {
-        outerNode->heightMode = SizeMode::Fixed;
-        outerNode->fixedHeight = theme.Scale(*opts.height);
-    }
+    outerNode->widthMode = opts.width.ResolveMode(SizeMode::Stretch);
+    outerNode->fixedWidth = opts.width.IsFixed() ? theme.Scale(opts.width.Dp()) : 0.0f;
+    outerNode->heightMode = opts.height.ResolveMode(SizeMode::Fit);
+    outerNode->fixedHeight = opts.height.IsFixed() ? theme.Scale(opts.height.Dp()) : 0.0f;
     if (opts.maxWidth.has_value() && *opts.maxWidth > 0.0f) {
         outerNode->maxWidth = theme.Scale(*opts.maxWidth);
     }

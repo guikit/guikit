@@ -32,8 +32,9 @@ void RenderPaginationInspector(guikit::Context& ui, DemoContext& ctx) {
         }
     }
 
-    ui.Size(guikit::UiSize::Xs).Heading({
+    ui.Heading({
         .label = "Pagination Options",
+        .level = guikit::HeadingLevel::H6,
         .separator = guikit::HeadingSeparator::Bottom
     });
 
@@ -86,21 +87,64 @@ void RenderPaginationStage(guikit::Context& ui, DemoContext& ctx) {
         s_pg.currentPage = totalPages - 1;
     }
 
-    ui.Size(ctx.controlsSize).Pagination(s_pg.currentPage, totalPages, {
-        .siblingCount = static_cast<keel::u32>(keel::max(0, s_pg.siblingCount)),
-        .showFirstLast = s_pg.showFirstLast,
-        .showPrevNext = s_pg.showPrevNext,
-        .showPageInfo = s_pg.showPageInfo,
-        .interactiveEllipsis = s_pg.interactiveEllipsis,
-        .color = activeCol,
-        .background = s_pg.showSurfaceBox ? guikit::StateColor::Surface() : guikit::StateColor::None(),
-        .border = s_pg.showSurfaceBox ? guikit::Border{.width = 1.0f, .radius = 8.0f} : guikit::Border::None(),
-        .disabled = ctx.elemDisabled
-    });
+    auto renderPager = [&]() {
+        ui.Size(ctx.controlsSize).Pagination(s_pg.currentPage, totalPages, {
+            .siblingCount = static_cast<keel::u32>(keel::max(0, s_pg.siblingCount)),
+            .showFirstLast = s_pg.showFirstLast,
+            .showPrevNext = s_pg.showPrevNext,
+            .showPageInfo = s_pg.showPageInfo,
+            .interactiveEllipsis = s_pg.interactiveEllipsis,
+            .color = activeCol,
+            .disabled = ctx.elemDisabled
+        });
+    };
+
+    if (s_pg.showSurfaceBox) {
+        if (auto well = ui.Box({
+            .width = guikit::SizeMode::Fit,
+            .padding = guikit::Padding::Symmetric(10.0f, 6.0f),
+            .background = guikit::StateColor::Surface(),
+            .border = {.width = 1.0f, .radius = 8.0f}
+        })) {
+            renderPager();
+        }
+    } else {
+        renderPager();
+    }
 }
 
 keel::String GeneratePaginationCode(const DemoContext& ctx) {
     const auto sizePrefix = FormatUiSizePrefix(ctx.controlsSize);
+
+    if (s_pg.showSurfaceBox) {
+        return keel::format(
+            "if (auto well = ui.Box({{\n"
+            "    .width = guikit::SizeMode::Fit,\n"
+            "    .padding = guikit::Padding::Symmetric(10.0f, 6.0f),\n"
+            "    .background = guikit::StateColor::Surface(),\n"
+            "    .border = {{.width = 1.0f, .radius = 8.0f}}\n"
+            "}})) {{\n"
+            "    ui.{}Pagination(currentPage, {}, {{\n"
+            "        .siblingCount = {},\n"
+            "        .showFirstLast = {},\n"
+            "        .showPrevNext = {},\n"
+            "        .showPageInfo = {},\n"
+            "        .interactiveEllipsis = {},\n"
+            "        .color = guikit::StateColor::{}(),\n"
+            "        .disabled = {}\n"
+            "    }});\n"
+            "}}",
+            sizePrefix,
+            s_pg.totalPages,
+            s_pg.siblingCount,
+            s_pg.showFirstLast ? "true" : "false",
+            s_pg.showPrevNext ? "true" : "false",
+            s_pg.showPageInfo ? "true" : "false",
+            s_pg.interactiveEllipsis ? "true" : "false",
+            VariantName(ctx.btnVariant),
+            ctx.elemDisabled ? "true" : "false"
+        );
+    }
 
     return keel::format(
         "ui.{}Pagination(currentPage, {}, {{\n"

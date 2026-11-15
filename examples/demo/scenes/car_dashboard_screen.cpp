@@ -341,7 +341,7 @@ void RenderCarDashboardInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         }
     }
 
-    ui.Size(guikit::UiSize::Xs).Heading({.label = "VEHICLE TELEMETRY", .separator = guikit::HeadingSeparator::Bottom});
+    ui.Heading({.label = "VEHICLE TELEMETRY", .level = guikit::HeadingLevel::H6, .separator = guikit::HeadingSeparator::Bottom});
 
     if (auto el = ui.Element({.label = "Ground Speed"})) {
         if (ui.Slider(s_car.speedKmh, 0.0f, s_car.maxSpeedKmh, {.valueFormat = "%.0f km/h"}).changed) {
@@ -377,7 +377,7 @@ void RenderCarDashboardInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         ui.Slider(s_car.adasLeadDistanceM, 8.0f, 100.0f, {.valueFormat = "%.0f m"});
     }
 
-    ui.Size(guikit::UiSize::Xs).Heading({.label = "TELLTALES & OVERLAYS", .separator = guikit::HeadingSeparator::Bottom});
+    ui.Heading({.label = "TELLTALES & OVERLAYS", .level = guikit::HeadingLevel::H6, .separator = guikit::HeadingSeparator::Bottom});
     if (auto el = ui.Element({.label = "Top Shift-Lights LED Bar"})) {
         ui.Checkbox(s_car.showShiftLights);
     }
@@ -410,7 +410,7 @@ void RenderCarDashboardInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         .text = "Reset Peak G",
         .icon = guikit::Icon::Refresh(),
         .color = guikit::StateColor::Secondary(),
-        .stretch = guikit::StretchMode::Fill
+        .width = guikit::SizeMode::Stretch
     })) {
         s_car.peakG = 0.0f;
     }
@@ -481,7 +481,7 @@ void RenderCarDashboardStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         },
         .manualGearPtr = &s_car.currentGear,
         .centerMfdPtr = &s_car.centerMfd,
-        .heightMode = guikit::SizeMode::Stretch
+        .height = guikit::SizeMode::Stretch
     });
 }
 
@@ -526,7 +526,7 @@ keel::String GenerateCarDashboardCode(const DemoContext& /*ctx*/) {
         "    .lonG             = {:+.2f}f,\n"
         "    .manualGearPtr    = &currentGear,\n"
         "    .centerMfdPtr     = &centerMfd,\n"
-        "    .heightMode       = guikit::SizeMode::Stretch\n"
+        "    .height           = guikit::SizeMode::Stretch\n"
         "}});\n",
         kLayoutEnums[static_cast<keel::usize>(keel::clamp(s_car.layoutModeIndex, 0, 2))],
         kPtEnums[static_cast<keel::usize>(keel::clamp(s_car.powertrainIndex, 0, 1))],

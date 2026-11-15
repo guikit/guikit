@@ -51,13 +51,8 @@ struct MapViewOptions {
     bool showScaleBarOverlay{true};             ///< Render dual Nautical (NM / cab) + Metric (km / m) scale bars
 
     // --- Layout & Viewport Controls ---
-    Align align{Align::Start};
-    StretchMode stretch{StretchMode::Fill};
-    SizeMode widthMode{SizeMode::Stretch};
-    SizeMode heightMode{SizeMode::Stretch};
-    keel::Optional<float> width{keel::kNullOpt};
-    keel::Optional<float> widthRatio{keel::kNullOpt};
-    keel::Optional<float> height{keel::kNullOpt};
+    AxisSize width{};
+    AxisSize height{SizeMode::Stretch};
     float minHeight{220.0f};
     float minZoom{0.25f};
     float maxZoom{4096.0f};

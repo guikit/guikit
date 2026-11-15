@@ -35,19 +35,10 @@ ContainerScope Box::Open(
     node->explicitRadius = opts.border.radius.has_value() ? 1 : 0;
     node->cornerRadius = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : 0.0f;
     node->clipChildren = opts.clipChildren;
-    node->widthMode = opts.widthMode;
-    node->heightMode = opts.heightMode;
-
-    const float explicitW = opts.width.value_or(opts.fixedWidth);
-    const float explicitH = opts.height.value_or(opts.fixedHeight);
-    if (explicitW > 0.0f) {
-        node->widthMode = SizeMode::Fixed;
-        node->fixedWidth = theme.Scale(explicitW);
-    }
-    if (explicitH > 0.0f) {
-        node->heightMode = SizeMode::Fixed;
-        node->fixedHeight = theme.Scale(explicitH);
-    }
+    node->widthMode = opts.width.ResolveMode(SizeMode::Stretch);
+    node->fixedWidth = opts.width.IsFixed() ? theme.Scale(opts.width.Dp()) : 0.0f;
+    node->heightMode = opts.height.ResolveMode(SizeMode::Fit);
+    node->fixedHeight = opts.height.IsFixed() ? theme.Scale(opts.height.Dp()) : 0.0f;
     if (opts.minWidth.has_value() && *opts.minWidth > 0.0f) {
         node->minWidth = theme.Scale(*opts.minWidth);
     }

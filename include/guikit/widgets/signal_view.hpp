@@ -81,8 +81,6 @@ struct SignalSelection {
 
 /// Configuration options for the autonomous SignalView (Waveform + Spectrogram DAW analyzer) widget.
 struct SignalViewOptions {
-    Align align{Align::Start};
-
     // --- Signal & DSP Parameters ---
     float sampleRate{48000.0f};
     SignalPanelOrder panelOrder{SignalPanelOrder::WaveformTop};
@@ -122,11 +120,8 @@ struct SignalViewOptions {
     bool requestResetView{false};
 
     // --- Sizing & Styling ---
-    StretchMode stretch{StretchMode::Fill};
-    keel::Optional<float> width{keel::kNullOpt};
-    keel::Optional<float> widthRatio{keel::kNullOpt};
-    keel::Optional<float> height{keel::kNullOpt};
-    SizeMode heightMode{SizeMode::Stretch};
+    AxisSize width{};                     ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or `Fixed(dp)`)
+    AxisSize height{SizeMode::Stretch};   ///< Vertical sizing policy (`Stretch` default, `Fit`, or `Fixed(dp)`)
     StateColor background{};
     Border border{};
     bool disabled{false};

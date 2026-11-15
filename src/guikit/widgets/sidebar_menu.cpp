@@ -36,12 +36,11 @@ void SidebarMenuScope::Section(
         return;
     }
 
-    m_ctx->PushSize(UiSize::Xs);
     Heading::Run(*m_ctx, HeadingOptions{
         .label = title,
+        .level = HeadingLevel::H6,
         .separator = separator ? HeadingSeparator::Bottom : HeadingSeparator::None
     }, loc);
-    m_ctx->PopSize();
 }
 
 Response SidebarMenuScope::Item(

@@ -81,20 +81,29 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
     const keel::Optional<double> stepOpt = s_state.quantizeStep ? keel::Optional<double>(5.0) : keel::kNullOpt;
 
     if (s_state.rackDemo) {
-        if (auto card = ui.Card({.gap = 16.0f, .padding = guikit::Padding::All(18.0f), .border = {.width = 1.0f, .radius = 10.0f}})) {
-            ui.Size(guikit::UiSize::Sm).Heading({
+        if (auto card = ui.Card({
+            .gap = 16.0f,
+            .padding = guikit::Padding::All(18.0f),
+            .border = {.width = 1.0f, .radius = 10.0f}
+        })) {
+            ui.Heading({
                 .label = "PARAMETRIC CHANNEL STRIP — VFO / EQ",
                 .description = "Drag vertically/horizontally (Shift = fine, Wheel = step, Double-Click = reset)",
                 .badge = {"DSP", guikit::StateColor::Primary()},
+                .level = guikit::HeadingLevel::H5,
                 .separator = guikit::HeadingSeparator::Bottom
             });
-            if (auto row = ui.Row({.gap = 24.0f, .align = guikit::Alignment::Center, .justify = guikit::Justify::SpaceBetween})) {
+            if (auto row = ui.Row({
+                .gap = 24.0f,
+                .align = guikit::Alignment::Center,
+                .justify = guikit::Justify::SpaceBetween
+            })) {
                 if (auto el = ui.Size(ctx.elemSize).Element({
                     .label = "Input Gain",
                     .description = "Preamp trim",
                     .layout = guikit::ElementLayout::Top,
                     .align = guikit::Align::Center,
-                    .stretch = guikit::StretchMode::Compact,
+                    .width = guikit::SizeMode::Fit,
                     .disabled = ctx.elemDisabled
                 })) {
                     ui.Size(ctx.controlsSize).Knob(s_state.rackGainDb, -24.0f, 24.0f, {
@@ -108,6 +117,7 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
                         .bipolar = true,
                         .valuePlacement = s_state.valuePlacement,
                         .color = guikit::StateColor::Primary(),
+                        .diameter = ctx.ResolveKnobDiameter(),
                         .disabled = ctx.elemDisabled
                     });
                 }
@@ -116,7 +126,7 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
                     .description = "Low-pass filter",
                     .layout = guikit::ElementLayout::Top,
                     .align = guikit::Align::Center,
-                    .stretch = guikit::StretchMode::Compact,
+                    .width = guikit::SizeMode::Fit,
                     .disabled = ctx.elemDisabled
                 })) {
                     ui.Size(ctx.controlsSize).Knob(s_state.rackFreqHz, 80.0f, 8000.0f, {
@@ -130,6 +140,7 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
                         .bipolar = false,
                         .valuePlacement = s_state.valuePlacement,
                         .color = guikit::StateColor::Info(),
+                        .diameter = ctx.ResolveKnobDiameter(),
                         .disabled = ctx.elemDisabled
                     });
                 }
@@ -138,7 +149,7 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
                     .description = "Filter peak",
                     .layout = guikit::ElementLayout::Top,
                     .align = guikit::Align::Center,
-                    .stretch = guikit::StretchMode::Compact,
+                    .width = guikit::SizeMode::Fit,
                     .disabled = ctx.elemDisabled
                 })) {
                     ui.Size(ctx.controlsSize).Knob(s_state.rackResQ, 0.5f, 12.0f, {
@@ -152,6 +163,7 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
                         .bipolar = false,
                         .valuePlacement = s_state.valuePlacement,
                         .color = guikit::StateColor::Success(),
+                        .diameter = ctx.ResolveKnobDiameter(),
                         .disabled = ctx.elemDisabled
                     });
                 }
@@ -160,7 +172,7 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
                     .description = "L / R balance",
                     .layout = guikit::ElementLayout::Top,
                     .align = guikit::Align::Center,
-                    .stretch = guikit::StretchMode::Compact,
+                    .width = guikit::SizeMode::Fit,
                     .disabled = ctx.elemDisabled
                 })) {
                     ui.Size(ctx.controlsSize).Knob(s_state.rackPan, -50.0f, 50.0f, {
@@ -174,6 +186,7 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
                         .bipolar = true,
                         .valuePlacement = s_state.valuePlacement,
                         .color = guikit::StateColor::Warning(),
+                        .diameter = ctx.ResolveKnobDiameter(),
                         .disabled = ctx.elemDisabled
                     });
                 }
@@ -182,107 +195,47 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
         return;
     }
 
-    if (auto el = ui.Size(ctx.elemSize).Element({
-        .label = ctx.GetElementLabel(),
-        .description = ctx.GetElementDescription(),
-        .icon = ctx.GetElementIcon(),
-        .badge = ctx.GetElementBadge(),
-        .layout = ctx.elemLayout,
-        .inlineOrder = ctx.elemInlineOrder,
-        .align = ctx.elemAlign,
-        .stretch = ctx.GetElementStretch(),
-        .background = ctx.elemBackground,
-        .border = ctx.GetElemBorder(),
-        .disabled = ctx.elemDisabled
-    })) {
+    ctx.RunElementStage(ui, [&]() {
+        guikit::KnobOptions opts{};
+        opts.step = stepOpt;
+        opts.tickCount = s_state.tickCount;
+        opts.showValue = s_state.showValue;
+        opts.showTicks = s_state.showTicks;
+        opts.showArc = s_state.showArc;
+        opts.bipolar = s_state.bipolar;
+        opts.valuePlacement = s_state.valuePlacement;
+        opts.color = ctx.GetControlColor();
+        opts.diameter = ctx.ResolveKnobDiameter();
+        opts.disabled = ctx.elemDisabled;
+
         if (s_state.bipolar) {
-            ui.Size(ctx.controlsSize).Knob(s_state.bipolarVal, -50.0f, 50.0f, {
-                .valueFormat = "%+.1f %%",
-                .step = stepOpt,
-                .defaultValue = 0.0,
-                .tickCount = s_state.tickCount,
-                .showValue = s_state.showValue,
-                .showTicks = s_state.showTicks,
-                .showArc = s_state.showArc,
-                .bipolar = true,
-                .valuePlacement = s_state.valuePlacement,
-                .color = ctx.GetControlColor(),
-                .stretch = ctx.GetElementStretch(),
-                .width = ctx.GetElementWidth(),
-                .height = ctx.GetElementHeight(),
-                .background = ctx.GetControlBackground(NavCategory::ElemKnob),
-                .border = ctx.GetCtrlBorder(),
-                .disabled = ctx.elemDisabled
-            });
+            opts.valueFormat = "%+.1f %%";
+            opts.defaultValue = 0.0;
+            ui.Size(ctx.controlsSize).Knob(s_state.bipolarVal, -50.0f, 50.0f, opts);
         } else {
-            ui.Size(ctx.controlsSize).Knob(s_state.val, 0.0f, 100.0f, {
-                .valueFormat = "%.1f %%",
-                .step = stepOpt,
-                .defaultValue = 50.0,
-                .tickCount = s_state.tickCount,
-                .showValue = s_state.showValue,
-                .showTicks = s_state.showTicks,
-                .showArc = s_state.showArc,
-                .bipolar = false,
-                .valuePlacement = s_state.valuePlacement,
-                .color = ctx.GetControlColor(),
-                .stretch = ctx.GetElementStretch(),
-                .width = ctx.GetElementWidth(),
-                .height = ctx.GetElementHeight(),
-                .background = ctx.GetControlBackground(NavCategory::ElemKnob),
-                .border = ctx.GetCtrlBorder(),
-                .disabled = ctx.elemDisabled
-            });
+            opts.valueFormat = "%.1f %%";
+            opts.defaultValue = 50.0;
+            ui.Size(ctx.controlsSize).Knob(s_state.val, 0.0f, 100.0f, opts);
         }
-    }
+    });
 }
 
 keel::String GenerateKnobCode(const DemoContext& ctx) {
-    return keel::format(
-        "if (auto el = ui.{}Element({{\n"
-        "    .label = {},\n"
-        "    .description = {},\n"
-        "    .icon = {},\n"
-        "    .badge = {},\n"
-        "    .layout = guikit::ElementLayout::{},\n"
-        "    .inlineOrder = guikit::InlineOrder::{},\n"
-        "    .align = guikit::Align::{},\n"
-        "    .stretch = guikit::StretchMode::{},\n"
-        "    .background = {},\n"
-        "    .border = {},\n"
+    const keel::String ctrl = keel::format(
+        "ui.{}Knob(rotaryGain, {}, {}, {{\n"
+        "    .valueFormat = \"{}\",\n"
+        "    .step = {},\n"
+        "    .defaultValue = {},\n"
+        "    .tickCount = {},\n"
+        "    .showValue = {},\n"
+        "    .showTicks = {},\n"
+        "    .showArc = {},\n"
+        "    .bipolar = {},\n"
+        "    .valuePlacement = guikit::Placement::{},\n"
+        "    .color = {},\n"
+        "    .diameter = {},\n"
         "    .disabled = {}\n"
-        "}})) {{\n"
-        "    ui.{}Knob(rotaryGain, {}, {}, {{\n"
-        "        .valueFormat = \"{}\",\n"
-        "        .step = {},\n"
-        "        .defaultValue = {},\n"
-        "        .tickCount = {},\n"
-        "        .showValue = {},\n"
-        "        .showTicks = {},\n"
-        "        .showArc = {},\n"
-        "        .bipolar = {},\n"
-        "        .valuePlacement = guikit::Placement::{},\n"
-        "        .color = {},\n"
-        "        .stretch = guikit::StretchMode::{},\n"
-        "        .width = {},\n"
-        "        .height = {},\n"
-        "        .background = {},\n"
-        "        .border = {},\n"
-        "        .disabled = {}\n"
-        "    }});\n"
-        "}}",
-        FormatUiSizePrefix(ctx.elemSize),
-        ctx.FormatElementLabelCode(),
-        ctx.FormatElementDescCode(),
-        ctx.FormatElementIconCode(),
-        ctx.FormatElementBadgeCode(),
-        ElementLayoutEnumName(ctx.elemLayout),
-        InlineOrderEnumName(ctx.elemInlineOrder),
-        LabelAlignEnumName(ctx.elemAlign),
-        StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElemBackgroundCode(),
-        ctx.FormatElemBorderCode(),
-        ctx.elemDisabled ? "true" : "false",
+        "}});",
         FormatUiSizePrefix(ctx.controlsSize),
         s_state.bipolar ? "-50.0f" : "0.0f",
         s_state.bipolar ? "50.0f" : "100.0f",
@@ -296,13 +249,10 @@ keel::String GenerateKnobCode(const DemoContext& ctx) {
         s_state.bipolar ? "true" : "false",
         PlacementName(s_state.valuePlacement),
         ctx.FormatControlColorCode(),
-        StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElementWidthCode(),
-        ctx.FormatElementHeightCode(),
-        ctx.FormatControlBackgroundCode(NavCategory::ElemKnob),
-        ctx.FormatCtrlBorderCode(),
+        ctx.FormatKnobDiameterCode(),
         ctx.elemDisabled ? "true" : "false"
     );
+    return ctx.WrapInElementCode(ctrl);
 }
 
 } // namespace guikit::demo

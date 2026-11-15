@@ -137,13 +137,8 @@ struct SceneOptions {
     ObjectFit initialFit{ObjectFit::Contain};           ///< Initial camera framing when worldSize / worldBounds is set
     SceneBackground backgroundStyle{SceneBackground::Checkerboard};
     float gridStep{32.0f};                              ///< Base world-space step in units for GridDots / GridLines
-    Align align{Align::Start};
-    StretchMode stretch{StretchMode::Fill};
-    SizeMode widthMode{SizeMode::Stretch};
-    SizeMode heightMode{SizeMode::Stretch};
-    keel::Optional<float> width{keel::kNullOpt};        ///< Explicit width in dp (or legacy ratio 0.0..1.0 in Fill mode)
-    keel::Optional<float> widthRatio{keel::kNullOpt};   ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
-    keel::Optional<float> height{keel::kNullOpt};       ///< Explicit height in px
+    AxisSize width{};                                   ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or fixed `dp`)
+    AxisSize height{SizeMode::Stretch};                 ///< Vertical sizing policy (`Stretch`, `Fit`, or fixed `dp`)
     float minHeight{220.0f};                            ///< Minimum fallback height when placed inside a Fit/ScrollArea container
     float minZoom{0.1f};
     float maxZoom{16.0f};

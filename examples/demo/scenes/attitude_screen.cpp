@@ -271,7 +271,7 @@ void RenderAttitudeInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         ui.Size(guikit::UiSize::Sm).Select(s_att.aircraftSymbolIndex, kAircraftSymbols);
     }
 
-    ui.Size(guikit::UiSize::Xs).Heading({.label = "Attitude & Air Data", .separator = guikit::HeadingSeparator::Bottom});
+    ui.Heading({.label = "Attitude & Air Data", .level = guikit::HeadingLevel::H6, .separator = guikit::HeadingSeparator::Bottom});
 
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({
         .label = "Roll / Bank Angle",
@@ -331,7 +331,7 @@ void RenderAttitudeInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         });
     }
 
-    ui.Size(guikit::UiSize::Xs).Heading({.label = "Symbology & Tapes", .separator = guikit::HeadingSeparator::Bottom});
+    ui.Heading({.label = "Symbology & Tapes", .level = guikit::HeadingLevel::H6, .separator = guikit::HeadingSeparator::Bottom});
 
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Pitch Ladder & Chevrons"})) {
         ui.Size(guikit::UiSize::Sm).Checkbox(s_att.showPitchLadder);
@@ -362,7 +362,7 @@ void RenderAttitudeInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         .text = "Level Wings",
         .icon = guikit::Icon::Refresh(),
         .color = guikit::StateColor::Secondary(),
-        .stretch = guikit::StretchMode::Fill
+        .width = guikit::SizeMode::Stretch
     })) {
         s_att.rollDeg = 0.0f;
         s_att.pitchDeg = 2.0f;
@@ -416,7 +416,7 @@ void RenderAttitudeStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         .showMouseStickOverlay = s_att.showMouseStickOverlay && (s_att.controlModeIndex <= 1),
         .fieldOfViewPitchDeg = s_att.fovPitchDeg,
         .fovPitchDegPtr = &s_att.fovPitchDeg,
-        .heightMode = guikit::SizeMode::Stretch
+        .height = guikit::SizeMode::Stretch
     });
 }
 
@@ -467,7 +467,7 @@ keel::String GenerateAttitudeCode(const DemoContext& /*ctx*/) {
         "    .showFlightPathVector = {},\n"
         "    .showIlsDiamonds      = {},\n"
         "    .fovPitchDegPtr       = &fovPitchDeg,\n"
-        "    .heightMode           = guikit::SizeMode::Stretch\n"
+        "    .height               = guikit::SizeMode::Stretch\n"
         "}});\n"
         "if (resp.cursorInsideAdi) {{\n"
         "    // Mouse stick telemetry: roll = {:.1f} deg, pitch = {:.1f} deg\n"

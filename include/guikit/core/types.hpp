@@ -591,12 +591,18 @@ struct Dp {
     }
 };
 
+#if defined(__clang__) || defined(_MSC_VER)
+#define GUIKIT_LIFETIME_POINTER [[gsl::Pointer]]
+#else
+#define GUIKIT_LIFETIME_POINTER
+#endif
+
 /// Non-allocating 16-byte view wrapper for candidate text strings used in dynamic layout sizing.
-class TextVariants {
+class GUIKIT_LIFETIME_POINTER TextVariants {
 public:
     constexpr TextVariants() noexcept = default;
 
-    constexpr TextVariants(std::initializer_list<keel::StringRef> list) noexcept
+    constexpr TextVariants(std::initializer_list<keel::StringRef> list KEEL_LIFETIMEBOUND) noexcept
         : m_span(list) {}
 
     constexpr TextVariants(keel::ArrayRef<keel::StringRef> s) noexcept
@@ -761,12 +767,77 @@ enum class SizeMode : keel::u8 {
     Fixed       ///< Explicit dimension in points
 };
 
-/// Stretch layout behavior for composite widgets containing labels and interactive controls.
-enum class StretchMode : keel::u8 {
-    Compact, ///< Compact intrinsic size based on content (no row stretching)
-    Space,   ///< Row stretches full width; control stays compact and extra space becomes air/gap
-    Fill     ///< Row stretches full width; control stretches to fill all remaining available space
+/// Unified layout sizing policy along a single axis (`width` or `height`).
+///
+/// Combines symbolic sizing modes (`Auto`, `Fit`, `Stretch`) and explicit dimensions in logical `dp` (`Fixed`)
+/// into a single 8-byte value type so mutually exclusive policies cannot conflict:
+/// - `AxisSize::Auto()` / `{}`: contextual default resolved by the widget or container
+/// - `SizeMode::Fit` / `AxisSize::Fit()`: shrink-wraps intrinsic content
+/// - `SizeMode::Stretch` / `AxisSize::Stretch()`: expands to fill available parent space
+/// - `180.0f` / `AxisSize::Fixed(180.0f)`: exact dimension in logical `dp` (`> 0.0f`)
+struct AxisSize {
+    enum class Kind : keel::u8 {
+        Auto = 0,
+        Stretch,
+        Fit,
+        Fixed
+    };
+
+private:
+    float m_dp{0.0f};
+    Kind m_kind{Kind::Auto};
+
+    constexpr AxisSize(Kind kind, float dp) noexcept : m_dp(dp), m_kind(kind) {}
+
+public:
+    constexpr AxisSize() noexcept = default;
+
+    constexpr AxisSize(SizeMode mode) noexcept
+        : m_dp(0.0f),
+          m_kind(mode == SizeMode::Stretch ? Kind::Stretch : Kind::Fit) {}
+
+    template <typename T>
+        requires ((keel::IsFloatingPoint<keel::RemoveCvRef<T>> || keel::IsIntegral<keel::RemoveCvRef<T>>) &&
+                  !keel::IsSame<keel::RemoveCvRef<T>, bool> &&
+                  !keel::IsSame<keel::RemoveCvRef<T>, char>)
+    constexpr AxisSize(T dp) noexcept
+        : m_dp(dp > static_cast<T>(0) ? static_cast<float>(dp) : 0.0f),
+          m_kind(dp > static_cast<T>(0) ? Kind::Fixed : Kind::Auto) {}
+
+    [[nodiscard]] static constexpr AxisSize Auto() noexcept { return {}; }
+    [[nodiscard]] static constexpr AxisSize Fit() noexcept { return AxisSize(Kind::Fit, 0.0f); }
+    [[nodiscard]] static constexpr AxisSize Stretch() noexcept { return AxisSize(Kind::Stretch, 0.0f); }
+    [[nodiscard]] static constexpr AxisSize Fixed(float dp) noexcept {
+        return (dp > 0.0f) ? AxisSize(Kind::Fixed, dp) : AxisSize{};
+    }
+
+    [[nodiscard]] constexpr Kind GetKind() const noexcept { return m_kind; }
+    [[nodiscard]] constexpr bool IsAuto() const noexcept { return m_kind == Kind::Auto; }
+    [[nodiscard]] constexpr bool IsFit() const noexcept { return m_kind == Kind::Fit; }
+    [[nodiscard]] constexpr bool IsStretch() const noexcept { return m_kind == Kind::Stretch; }
+    [[nodiscard]] constexpr bool IsFixed() const noexcept { return m_kind == Kind::Fixed; }
+    [[nodiscard]] constexpr float Dp() const noexcept { return m_dp; }
+
+    [[nodiscard]] constexpr SizeMode ResolveMode(SizeMode autoDefault) const noexcept {
+        switch (m_kind) {
+            case Kind::Auto:    return autoDefault;
+            case Kind::Stretch: return SizeMode::Stretch;
+            case Kind::Fit:     return SizeMode::Fit;
+            case Kind::Fixed:   return SizeMode::Fixed;
+        }
+        return autoDefault;
+    }
+
+    [[nodiscard]] constexpr bool operator==(const AxisSize& other) const noexcept {
+        return m_kind == other.m_kind && m_dp == other.m_dp;
+    }
+    [[nodiscard]] constexpr bool operator==(SizeMode mode) const noexcept {
+        if (mode == SizeMode::Stretch) return m_kind == Kind::Stretch;
+        if (mode == SizeMode::Fit) return m_kind == Kind::Fit;
+        return m_kind == Kind::Fixed;
+    }
 };
+static_assert(sizeof(AxisSize) == 8, "AxisSize must remain compact (8 bytes)");
 
 /// Alignment along the cross axis (perpendicular to FlexDirection).
 enum class Alignment : keel::u8 {

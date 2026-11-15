@@ -21,6 +21,7 @@
 #include "guikit/core/solver.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/container_scope.hpp"
+#include "guikit/core/element.hpp"
 #include "guikit/layout/row.hpp"
 #include "guikit/layout/column.hpp"
 #include "guikit/layout/wrap.hpp"
@@ -2786,13 +2787,6 @@ public:
     }
 
     // --- Leaf Widgets & Controls ---
-    Response Heading(
-        HeadingOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->Heading(keel::move(opts), loc);
-    }
-
     Response Button(
         ButtonOptions opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()

@@ -462,7 +462,7 @@ void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         }
     }
 
-    ui.Size(guikit::UiSize::Xs).Heading({.label = "GPU Ring-Buffer & Conditioning", .separator = guikit::HeadingSeparator::Bottom});
+    ui.Heading({.label = "GPU Ring-Buffer & Conditioning", .level = guikit::HeadingLevel::H6, .separator = guikit::HeadingSeparator::Bottom});
 
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({
         .label = "Digital Gain",
@@ -527,7 +527,7 @@ void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         });
     }
 
-    ui.Size(guikit::UiSize::Xs).Heading({.label = "Traces & Tracking Overlays", .separator = guikit::HeadingSeparator::Bottom});
+    ui.Heading({.label = "Traces & Tracking Overlays", .level = guikit::HeadingLevel::H6, .separator = guikit::HeadingSeparator::Bottom});
 
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Live Instantaneous Trace"})) {
         ui.Size(guikit::UiSize::Sm).Checkbox(s_wf.showLiveTrace);
@@ -559,7 +559,7 @@ void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
             .text = "Clear Peak",
             .icon = guikit::Icon::Refresh(),
             .color = guikit::StateColor::Secondary(),
-            .stretch = guikit::StretchMode::Fill
+            .width = guikit::SizeMode::Stretch
         })) {
             s_wf.requestResetPeakHold = true;
         }
@@ -567,7 +567,7 @@ void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
             .text = "Reset Zoom",
             .icon = guikit::Icon::Search(),
             .color = guikit::StateColor::Secondary(),
-            .stretch = guikit::StretchMode::Fill
+            .width = guikit::SizeMode::Stretch
         })) {
             s_wf.requestResetZoom = true;
         }
@@ -620,7 +620,7 @@ void RenderWaterfallStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         .requestResetZoom = s_wf.requestResetZoom,
         .requestResetPeakHold = s_wf.requestResetPeakHold,
         .requestClearHistory = s_wf.requestClearHistory,
-        .heightMode = guikit::SizeMode::Stretch
+        .height = guikit::SizeMode::Stretch
     });
 
     s_wf.requestResetZoom = false;
@@ -667,7 +667,7 @@ keel::String GenerateWaterfallCode(const DemoContext& /*ctx*/) {
         "    .showHarmonicComb   = {},\n"
         "    .selectedTrackId    = &selectedTrackId,\n"
         "    .thresholdGateDbPtr = &thresholdGateDb,\n"
-        "    .heightMode         = guikit::SizeMode::Stretch\n"
+        "    .height             = guikit::SizeMode::Stretch\n"
         "}});\n",
         kModeEnums[static_cast<keel::usize>(keel::clamp(s_wf.modeIndex, 0, 1))],
         kLayoutEnums[static_cast<keel::usize>(keel::clamp(s_wf.layoutIndex, 0, 2))],

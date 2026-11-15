@@ -39,175 +39,60 @@ void RenderRadioInspector(guikit::Context& ui, DemoContext&) {
 }
 
 void RenderRadioStage(guikit::Context& ui, DemoContext& ctx) {
-    const guikit::RadioOptions ctrlOpts{
-        .color = ctx.GetControlColor(),
-        .stretch = ctx.GetElementStretch(),
-        .width = ctx.GetElementWidth(),
-        .height = ctx.GetElementHeight(),
-        .background = ctx.GetControlBackground(NavCategory::ElemRadio),
-        .border = ctx.GetCtrlBorder(),
-        .disabled = ctx.elemDisabled
-    };
+    guikit::RadioOptions ctrlOpts{};
+    ctrlOpts.color = ctx.GetControlColor();
+    ctrlOpts.disabled = ctx.elemDisabled;
+
     if (s_state.groupDemo) {
         if (auto col = ui.Column({.gap = 14.0f})) {
-            if (auto el = ui.Size(ctx.elemSize).Element({
-                .label = guikit::UiText{ctx.elemLabel.empty() ? keel::StringRef("Option A — Automatic Gain (AGC)") : ctx.elemLabel.as_ref(), ctx.elemLabelVariant},
-                .description = ctx.GetElementDescription(),
-                .icon = ctx.GetElementIcon(),
-                .badge = ctx.GetElementBadge(),
-                .layout = ctx.elemLayout,
-                .inlineOrder = ctx.elemInlineOrder,
-                .align = ctx.elemAlign,
-                .stretch = ctx.GetElementStretch(),
-                .background = ctx.elemBackground,
-                .border = ctx.GetElemBorder(),
-                .disabled = ctx.elemDisabled
-            })) {
+            if (ctx.useElement) {
+                const guikit::UiText lblA{
+                    ctx.elemLabel.empty()
+                        ? keel::StringRef("Option A — Automatic Gain (AGC)")
+                        : ctx.elemLabel.as_ref(),
+                    ctx.elemLabelVariant
+                };
+                if (auto el = ui.Size(ctx.elemSize).Element(ctx.MakeElementOptions(lblA))) {
+                    ui.Size(ctx.controlsSize).Radio(s_state.selectedIdx, 0, ctrlOpts);
+                }
+                if (auto el = ui.Size(ctx.elemSize).Element(ctx.MakeElementOptions(
+                    guikit::UiText{"Option B — Manual Fixed Gain", ctx.elemLabelVariant}
+                ))) {
+                    ui.Size(ctx.controlsSize).Radio(s_state.selectedIdx, 1, ctrlOpts);
+                }
+                if (auto el = ui.Size(ctx.elemSize).Element(ctx.MakeElementOptions(
+                    guikit::UiText{"Option C — External Hardware Trigger", ctx.elemLabelVariant}
+                ))) {
+                    ui.Size(ctx.controlsSize).Radio(s_state.selectedIdx, 2, ctrlOpts);
+                }
+            } else {
                 ui.Size(ctx.controlsSize).Radio(s_state.selectedIdx, 0, ctrlOpts);
-            }
-            if (auto el = ui.Size(ctx.elemSize).Element({
-                .label = guikit::UiText{"Option B — Manual Fixed Gain", ctx.elemLabelVariant},
-                .description = ctx.GetElementDescription(),
-                .icon = ctx.GetElementIcon(),
-                .badge = ctx.GetElementBadge(),
-                .layout = ctx.elemLayout,
-                .inlineOrder = ctx.elemInlineOrder,
-                .align = ctx.elemAlign,
-                .stretch = ctx.GetElementStretch(),
-                .background = ctx.elemBackground,
-                .border = ctx.GetElemBorder(),
-                .disabled = ctx.elemDisabled
-            })) {
                 ui.Size(ctx.controlsSize).Radio(s_state.selectedIdx, 1, ctrlOpts);
-            }
-            if (auto el = ui.Size(ctx.elemSize).Element({
-                .label = guikit::UiText{"Option C — External Hardware Trigger", ctx.elemLabelVariant},
-                .description = ctx.GetElementDescription(),
-                .icon = ctx.GetElementIcon(),
-                .badge = ctx.GetElementBadge(),
-                .layout = ctx.elemLayout,
-                .inlineOrder = ctx.elemInlineOrder,
-                .align = ctx.elemAlign,
-                .stretch = ctx.GetElementStretch(),
-                .background = ctx.elemBackground,
-                .border = ctx.GetElemBorder(),
-                .disabled = ctx.elemDisabled
-            })) {
                 ui.Size(ctx.controlsSize).Radio(s_state.selectedIdx, 2, ctrlOpts);
             }
         }
     } else {
-        if (auto el = ui.Size(ctx.elemSize).Element({
-            .label = ctx.GetElementLabel(),
-            .description = ctx.GetElementDescription(),
-            .icon = ctx.GetElementIcon(),
-            .badge = ctx.GetElementBadge(),
-            .layout = ctx.elemLayout,
-            .inlineOrder = ctx.elemInlineOrder,
-            .align = ctx.elemAlign,
-            .stretch = ctx.GetElementStretch(),
-            .background = ctx.elemBackground,
-            .border = ctx.GetElemBorder(),
-            .disabled = ctx.elemDisabled
-        })) {
+        ctx.RunElementStage(ui, [&]() {
             ui.Size(ctx.controlsSize).Radio(s_state.singleChecked, ctrlOpts);
-        }
+        });
     }
 }
 
 keel::String GenerateRadioCode(const DemoContext& ctx) {
-    if (s_state.groupDemo) {
-        return keel::format(
-            "if (auto el = ui.{}Element({{\n"
-            "    .label = {},\n"
-            "    .description = {},\n"
-            "    .icon = {},\n"
-            "    .badge = {},\n"
-            "    .layout = guikit::ElementLayout::{},\n"
-            "    .inlineOrder = guikit::InlineOrder::{},\n"
-            "    .align = guikit::Align::{},\n"
-            "    .stretch = guikit::StretchMode::{},\n"
-            "    .background = {},\n"
-            "    .border = {},\n"
-            "    .disabled = {}\n"
-            "}})) {{\n"
-            "    ui.{}Radio(selectedMode, 0, {{\n"
-            "        .color = {},\n"
-            "        .stretch = guikit::StretchMode::{},\n"
-            "        .width = {},\n"
-            "        .height = {},\n"
-            "        .background = {},\n"
-            "        .border = {},\n"
-            "        .disabled = {}\n"
-            "    }});\n"
-            "}}",
-            FormatUiSizePrefix(ctx.elemSize),
-            ctx.FormatElementLabelCode(),
-            ctx.FormatElementDescCode(),
-            ctx.FormatElementIconCode(),
-            ctx.FormatElementBadgeCode(),
-            ElementLayoutEnumName(ctx.elemLayout),
-            InlineOrderEnumName(ctx.elemInlineOrder),
-            LabelAlignEnumName(ctx.elemAlign),
-            StretchModeEnumName(ctx.GetElementStretch()),
-            ctx.FormatElemBackgroundCode(),
-            ctx.FormatElemBorderCode(),
-            ctx.elemDisabled ? "true" : "false",
-            FormatUiSizePrefix(ctx.controlsSize),
-            ctx.FormatControlColorCode(),
-            StretchModeEnumName(ctx.GetElementStretch()),
-            ctx.FormatElementWidthCode(),
-            ctx.FormatElementHeightCode(),
-            ctx.FormatControlBackgroundCode(NavCategory::ElemRadio),
-            ctx.FormatCtrlBorderCode(),
-            ctx.elemDisabled ? "true" : "false"
-        );
-    }
-    return keel::format(
-        "if (auto el = ui.{}Element({{\n"
-        "    .label = {},\n"
-        "    .description = {},\n"
-        "    .icon = {},\n"
-        "    .badge = {},\n"
-        "    .layout = guikit::ElementLayout::{},\n"
-        "    .inlineOrder = guikit::InlineOrder::{},\n"
-        "    .align = guikit::Align::{},\n"
-        "    .stretch = guikit::StretchMode::{},\n"
-        "    .background = {},\n"
-        "    .border = {},\n"
+    const keel::StringRef callHead = s_state.groupDemo
+        ? "Radio(selectedMode, 0"
+        : "Radio(radioSelected";
+    const keel::String ctrl = keel::format(
+        "ui.{}{}, {{\n"
+        "    .color = {},\n"
         "    .disabled = {}\n"
-        "}})) {{\n"
-        "    ui.{}Radio(radioSelected, {{\n"
-        "        .color = {},\n"
-        "        .stretch = guikit::StretchMode::{},\n"
-        "        .width = {},\n"
-        "        .height = {},\n"
-        "        .background = {},\n"
-        "        .border = {},\n"
-        "        .disabled = {}\n"
-        "    }});\n"
-        "}}",
-        FormatUiSizePrefix(ctx.elemSize),
-        ctx.FormatElementLabelCode(),
-        ctx.FormatElementDescCode(),
-        ctx.FormatElementIconCode(),
-        ctx.FormatElementBadgeCode(),
-        ElementLayoutEnumName(ctx.elemLayout),
-        InlineOrderEnumName(ctx.elemInlineOrder),
-        LabelAlignEnumName(ctx.elemAlign),
-        StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElemBackgroundCode(),
-        ctx.FormatElemBorderCode(),
-        ctx.elemDisabled ? "true" : "false",
+        "}});",
         FormatUiSizePrefix(ctx.controlsSize),
+        callHead,
         ctx.FormatControlColorCode(),
-        StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElementWidthCode(),
-        ctx.FormatElementHeightCode(),
-        ctx.FormatControlBackgroundCode(NavCategory::ElemRadio),
-        ctx.FormatCtrlBorderCode(),
         ctx.elemDisabled ? "true" : "false"
     );
+    return ctx.WrapInElementCode(ctrl);
 }
 
 } // namespace guikit::demo

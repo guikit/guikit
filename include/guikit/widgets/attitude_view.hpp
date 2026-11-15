@@ -58,8 +58,6 @@ enum class AircraftSymbolStyle : keel::u8 {
 
 /// Configuration options for the autonomous AttitudeView (Artificial Horizon / PFD) widget.
 struct AttitudeViewOptions {
-    Align align{Align::Start};
-
     // --- Display Mode, Viewport Shape, Reference Frame & Visual Theme ---
     AttitudeDisplayMode displayMode{AttitudeDisplayMode::FullPFD};
     AttitudeViewportMode viewportMode{AttitudeViewportMode::Auto};
@@ -110,11 +108,8 @@ struct AttitudeViewOptions {
     float* fovPitchDegPtr{nullptr};     ///< Optional external two-way binding for mouse-wheel pitch FOV zoom
 
     // --- Sizing & Styling ---
-    StretchMode stretch{StretchMode::Fill};
-    keel::Optional<float> width{keel::kNullOpt};
-    keel::Optional<float> widthRatio{keel::kNullOpt};
-    keel::Optional<float> height{keel::kNullOpt};
-    SizeMode heightMode{SizeMode::Stretch};
+    AxisSize width{};                     ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or `Fixed(dp)`)
+    AxisSize height{SizeMode::Stretch};   ///< Vertical sizing policy (`Stretch` default, `Fit`, or `Fixed(dp)`)
     StateColor background{};
     Border border{};
     bool disabled{false};

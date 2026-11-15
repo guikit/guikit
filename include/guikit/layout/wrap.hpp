@@ -17,10 +17,8 @@ struct WrapOptions {
     keel::Optional<Padding> padding{keel::kNullOpt};
     Alignment align{Alignment::Center};
     Justify justify{Justify::Start};
-    SizeMode widthMode{SizeMode::Stretch};
-    SizeMode heightMode{SizeMode::Fit};
-    keel::Optional<float> width{keel::kNullOpt};
-    keel::Optional<float> height{keel::kNullOpt};
+    AxisSize width{SizeMode::Stretch};
+    AxisSize height{SizeMode::Fit};
     keel::Optional<float> minWidth{keel::kNullOpt};
     keel::Optional<float> maxWidth{keel::kNullOpt};
     keel::Optional<float> minHeight{keel::kNullOpt};

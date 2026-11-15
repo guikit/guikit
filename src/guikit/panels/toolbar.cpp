@@ -506,7 +506,6 @@ Response Toolbar::ToolButton(
     payload->btn.color = opts.color.HasAny() ? opts.color : StateColor::Ghost();
     payload->btn.iconPlacement = opts.iconPlacement;
     payload->btn.align = opts.align;
-    payload->btn.stretch = opts.stretch;
     payload->btn.width = opts.width;
     payload->btn.minWidth = opts.minWidth;
     payload->btn.disabled = effectiveDisabled;
@@ -525,7 +524,8 @@ Response Toolbar::ToolButton(
         opts.active,
         opts.square,
         opts.iconColor.value_or(Color::Transparent()),
-        static_cast<keel::u8>(opts.stretch),
+        opts.width,
+        opts.minWidth.value_or(0.0f),
         activeSize,
         static_cast<keel::u8>(payload->btn.icon.GetType()),
         static_cast<keel::u8>(payload->btn.icon.GetId()),
@@ -554,7 +554,12 @@ Response Toolbar::ToolButton(
     node->hovered = res.hovered;
     node->pressed = res.pressed;
     node->focused = ctx.IsFocused(id);
-    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
+    const UiTheme& theme = ctx.GetTheme();
+    node->widthMode = opts.width.ResolveMode(SizeMode::Fit);
+    node->fixedWidth = opts.width.IsFixed() ? theme.Scale(opts.width.Dp()) : 0.0f;
+    if (opts.minWidth.has_value() && *opts.minWidth > 0.0f) {
+        node->minWidth = theme.Scale(*opts.minWidth);
+    }
     node->heightMode = SizeMode::Fit;
 
     ctx.AdaptChildToContainer(node);
@@ -627,7 +632,6 @@ SplitButtonResponse Toolbar::SplitButton(
     payload->btn.color = opts.color.HasAny() ? opts.color : StateColor::Ghost();
     payload->btn.iconPlacement = opts.iconPlacement;
     payload->btn.align = opts.align;
-    payload->btn.stretch = opts.stretch;
     payload->btn.width = opts.width;
     payload->btn.minWidth = opts.minWidth;
     payload->btn.disabled = effectiveDisabled;
@@ -674,7 +678,8 @@ SplitButtonResponse Toolbar::SplitButton(
         opts.active,
         opts.square,
         opts.iconColor.value_or(Color::Transparent()),
-        static_cast<keel::u8>(opts.stretch),
+        opts.width,
+        opts.minWidth.value_or(0.0f),
         activeSize,
         static_cast<keel::u8>(payload->btn.icon.GetType()),
         static_cast<keel::u8>(payload->btn.icon.GetId()),
@@ -705,7 +710,16 @@ SplitButtonResponse Toolbar::SplitButton(
     node->hovered = baseRes.hovered;
     node->pressed = baseRes.pressed;
     node->focused = ctx.IsFocused(id);
-    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
+    if (opts.width.IsFixed()) {
+        node->widthMode = SizeMode::Fixed;
+        node->fixedWidth = theme.Scale(opts.width.Dp()) + chevW;
+    } else {
+        node->widthMode = opts.width.ResolveMode(SizeMode::Fit);
+        node->fixedWidth = 0.0f;
+    }
+    if (opts.minWidth.has_value() && *opts.minWidth > 0.0f) {
+        node->minWidth = theme.Scale(*opts.minWidth) + chevW;
+    }
     node->heightMode = SizeMode::Fit;
 
     ctx.AdaptChildToContainer(node);

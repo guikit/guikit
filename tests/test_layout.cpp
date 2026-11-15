@@ -1242,9 +1242,9 @@ void TestGapDpAndContainerSizingConstraints() {
 
     auto renderFrame = [&]() {
         ui.BeginFrame({600.0f, 600.0f}, 1.0f);
-        if (auto root = ui.Column({.gap = 0.0f, .padding = Padding::All(0.0f), .widthMode = SizeMode::Stretch, .heightMode = SizeMode::Stretch})) {
+        if (auto root = ui.Column({.gap = 0.0f, .padding = Padding::All(0.0f), .width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
             // 1. ui.Gap(24.0f) fixed pixel offset vs ui.Spacer(1.0f) spring
-            if (auto r = ui.Row({.gap = 0.0f, .padding = Padding::All(0.0f), .widthMode = SizeMode::Stretch})) {
+            if (auto r = ui.Row({.gap = 0.0f, .padding = Padding::All(0.0f), .width = SizeMode::Stretch})) {
                 b1 = ui.Button({.text = "A", .width = 80.0f});
                 ui.Gap(24.0f);
                 b2 = ui.Button({.text = "B", .width = 80.0f});
@@ -1253,18 +1253,18 @@ void TestGapDpAndContainerSizingConstraints() {
             }
 
             // 2. Weighted flexGrow (1 : 3) across sibling Columns inside a Row
-            if (auto flexRow = ui.Row({.gap = 0.0f, .padding = Padding::All(0.0f), .widthMode = SizeMode::Stretch, .height = 60.0f})) {
-                if (auto c1 = ui.Column({.widthMode = SizeMode::Stretch, .heightMode = SizeMode::Stretch, .flexGrow = 1.0f})) {
+            if (auto flexRow = ui.Row({.gap = 0.0f, .padding = Padding::All(0.0f), .width = SizeMode::Stretch, .height = 60.0f})) {
+                if (auto c1 = ui.Column({.width = SizeMode::Stretch, .height = SizeMode::Stretch, .flexGrow = 1.0f})) {
                     col1Node = c1.GetNode();
                 }
-                if (auto c2 = ui.Column({.widthMode = SizeMode::Stretch, .heightMode = SizeMode::Stretch, .flexGrow = 3.0f})) {
+                if (auto c2 = ui.Column({.width = SizeMode::Stretch, .height = SizeMode::Stretch, .flexGrow = 3.0f})) {
                     col2Node = c2.GetNode();
                 }
             }
 
             // 3. Container maxWidth & minHeight on Box, and minWidth & maxHeight on Card
             if (auto bx = ui.Box({
-                .widthMode = SizeMode::Stretch,
+                .width = SizeMode::Stretch,
                 .maxWidth = 280.0f,
                 .minHeight = 90.0f,
                 .padding = Padding::All(0.0f)
@@ -1273,10 +1273,10 @@ void TestGapDpAndContainerSizingConstraints() {
             }
             if (auto cd = ui.Card({
                 .minWidth = 220.0f,
+                .width = SizeMode::Fit,
+                .height = SizeMode::Fit,
                 .maxHeight = 50.0f,
-                .padding = Padding::All(0.0f),
-                .widthMode = SizeMode::Fit,
-                .heightMode = SizeMode::Fit
+                .padding = Padding::All(0.0f)
             })) {
                 constrainedCard = cd.GetNode();
                 ui.Button({.text = "Tall", .width = 60.0f, .height = 120.0f});

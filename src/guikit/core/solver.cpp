@@ -1397,6 +1397,10 @@ void Solver::Measure(Node* root, ICanvas* canvas) {
     Measure(root, canvas, defaultTheme);
 }
 
+float Solver::ResolveHeight(Node* node, float availableWidth, ICanvas* canvas, const UiTheme& theme) {
+    return ResolveNodeHeight(node, availableWidth, canvas, theme);
+}
+
 void Solver::Arrange(Node* root, Rect availableRect, const UiTheme& theme, ICanvas* canvas) {
     if (!root) return;
     ArrangeNode(root, availableRect, theme, canvas);

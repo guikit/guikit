@@ -30,80 +30,28 @@ void RenderCheckboxInspector(guikit::Context& ui, DemoContext&) {
 }
 
 void RenderCheckboxStage(guikit::Context& ui, DemoContext& ctx) {
-    if (auto el = ui.Size(ctx.elemSize).Element({
-        .label = ctx.GetElementLabel(),
-        .description = ctx.GetElementDescription(),
-        .icon = ctx.GetElementIcon(),
-        .badge = ctx.GetElementBadge(),
-        .layout = ctx.elemLayout,
-        .inlineOrder = ctx.elemInlineOrder,
-        .align = ctx.elemAlign,
-        .stretch = ctx.GetElementStretch(),
-        .background = ctx.elemBackground,
-        .border = ctx.GetElemBorder(),
-        .disabled = ctx.elemDisabled
-    })) {
-        ui.Size(ctx.controlsSize).Checkbox(s_state.state, {
-            .color = ctx.GetControlColor(),
-            .stretch = ctx.GetElementStretch(),
-            .width = ctx.GetElementWidth(),
-            .height = ctx.GetElementHeight(),
-            .background = ctx.GetControlBackground(NavCategory::ElemCheckbox),
-            .border = ctx.GetCtrlBorder(),
-            .disabled = ctx.elemDisabled,
-            .indeterminate = s_state.indet
-        });
-    }
+    ctx.RunElementStage(ui, [&]() {
+        guikit::CheckboxOptions opts{};
+        opts.color = ctx.GetControlColor();
+        opts.disabled = ctx.elemDisabled;
+        opts.indeterminate = s_state.indet;
+        ui.Size(ctx.controlsSize).Checkbox(s_state.state, opts);
+    });
 }
 
 keel::String GenerateCheckboxCode(const DemoContext& ctx) {
-    return keel::format(
-        "if (auto el = ui.{}Element({{\n"
-        "    .label = {},\n"
-        "    .description = {},\n"
-        "    .icon = {},\n"
-        "    .badge = {},\n"
-        "    .layout = guikit::ElementLayout::{},\n"
-        "    .inlineOrder = guikit::InlineOrder::{},\n"
-        "    .align = guikit::Align::{},\n"
-        "    .stretch = guikit::StretchMode::{},\n"
-        "    .background = {},\n"
-        "    .border = {},\n"
-        "    .disabled = {}\n"
-        "}})) {{\n"
-        "    ui.{}Checkbox(checkState, {{\n"
-        "        .color = {},\n"
-        "        .stretch = guikit::StretchMode::{},\n"
-        "        .width = {},\n"
-        "        .height = {},\n"
-        "        .background = {},\n"
-        "        .border = {},\n"
-        "        .disabled = {},\n"
-        "        .indeterminate = {}\n"
-        "    }});\n"
-        "}}",
-        FormatUiSizePrefix(ctx.elemSize),
-        ctx.FormatElementLabelCode(),
-        ctx.FormatElementDescCode(),
-        ctx.FormatElementIconCode(),
-        ctx.FormatElementBadgeCode(),
-        ElementLayoutEnumName(ctx.elemLayout),
-        InlineOrderEnumName(ctx.elemInlineOrder),
-        LabelAlignEnumName(ctx.elemAlign),
-        StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElemBackgroundCode(),
-        ctx.FormatElemBorderCode(),
-        ctx.elemDisabled ? "true" : "false",
+    const keel::String ctrl = keel::format(
+        "ui.{}Checkbox(checkState, {{\n"
+        "    .color = {},\n"
+        "    .disabled = {},\n"
+        "    .indeterminate = {}\n"
+        "}});",
         FormatUiSizePrefix(ctx.controlsSize),
         ctx.FormatControlColorCode(),
-        StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElementWidthCode(),
-        ctx.FormatElementHeightCode(),
-        ctx.FormatControlBackgroundCode(NavCategory::ElemCheckbox),
-        ctx.FormatCtrlBorderCode(),
         ctx.elemDisabled ? "true" : "false",
         s_state.indet ? "true" : "false"
     );
+    return ctx.WrapInElementCode(ctrl);
 }
 
 } // namespace guikit::demo

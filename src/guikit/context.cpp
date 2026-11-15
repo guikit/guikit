@@ -366,7 +366,7 @@ void Context::AdaptChildToContainer(Node* node) {
         if (node->widthMode != SizeMode::Fit && node->widthMode != SizeMode::Fixed) {
             node->widthMode = SizeMode::Stretch;
         }
-        if (parent->heightMode == SizeMode::Fixed) {
+        if (parent->heightMode == SizeMode::Fixed && node->heightMode != SizeMode::Fixed) {
             node->heightMode = SizeMode::Stretch;
         }
     }
@@ -476,6 +476,9 @@ void Context::PushContainer(Node* node) {
 void Context::PopContainer(Node* node) {
     if (!m_containerStack.empty() && m_containerStack.back() == node) {
         m_containerStack.pop_back();
+        if (node->type == NodeType::Element) {
+            Element::SyncWithChildren(*this, node);
+        }
         if (node->theme != nullptr) {
             PopTheme();
         }
@@ -2311,6 +2314,7 @@ static bool DoesNodeBlockHit(const Node* node) noexcept {
         case NodeType::Spacer:
         case NodeType::Text:
         case NodeType::Heading:
+        case NodeType::Element:
         case NodeType::Separator:
             return false;
         case NodeType::Sidebar:
@@ -2336,7 +2340,6 @@ static bool DoesNodeBlockHit(const Node* node) noexcept {
         case NodeType::Container:
         case NodeType::Box:
         case NodeType::ScrollArea:
-        case NodeType::Element:
         case NodeType::TreeBranch:
             return (node->backgroundColor.a > 0) ||
                    (node->borderWidth > 0.0f && node->borderColor.a > 0);

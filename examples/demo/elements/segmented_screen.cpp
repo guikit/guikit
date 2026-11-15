@@ -101,37 +101,23 @@ void RenderSegmentedStage(guikit::Context& ui, DemoContext& ctx) {
         }
     }};
 
-    const guikit::SegmentedOptions segOpts{
-        .color = (ctx.btnVariant == guikit::UiVariant::Default) ? guikit::StateColor{} : ctx.GetControlColor(),
-        .stretch = ctx.GetElementStretch(),
-        .width = ctx.GetElementWidth(),
-        .height = ctx.GetElementHeight(),
-        .background = ctx.GetControlBackground(NavCategory::ElemSegmented),
-        .border = ctx.GetCtrlBorder(),
-        .equalWidth = s_state.equalWidth,
-        .showDividers = s_state.showDividers,
-        .disabled = ctx.elemDisabled
-    };
+    guikit::SegmentedOptions segOpts{};
+    segOpts.color = (ctx.btnVariant == guikit::UiVariant::Default) ? guikit::StateColor{} : ctx.GetControlColor();
+    segOpts.width = ctx.ResolveCtrlWidth();
+    segOpts.height = ctx.ResolveCtrlHeight();
+    segOpts.background = ctx.GetControlBackground(NavCategory::ElemSegmented);
+    segOpts.border = ctx.GetCtrlBorder();
+    segOpts.equalWidth = s_state.equalWidth;
+    segOpts.showDividers = s_state.showDividers;
+    segOpts.disabled = ctx.elemDisabled;
 
-    if (auto el = ui.Size(ctx.elemSize).Element({
-        .label = ctx.GetElementLabel(),
-        .description = ctx.GetElementDescription(),
-        .icon = ctx.GetElementIcon(),
-        .badge = ctx.GetElementBadge(),
-        .layout = ctx.elemLayout,
-        .inlineOrder = ctx.elemInlineOrder,
-        .align = ctx.elemAlign,
-        .stretch = ctx.GetElementStretch(),
-        .background = ctx.elemBackground,
-        .border = ctx.GetElemBorder(),
-        .disabled = ctx.elemDisabled
-    })) {
+    ctx.RunElementStage(ui, [&]() {
         if (s_state.multiSelect) {
             ui.Size(ctx.controlsSize).SegmentedMask(s_state.selectedMask, items, segOpts);
         } else {
             ui.Size(ctx.controlsSize).Segmented(s_state.selectedIdx, items, segOpts);
         }
-    }
+    });
 }
 
 keel::String GenerateSegmentedCode(const DemoContext& ctx) {
@@ -141,63 +127,36 @@ keel::String GenerateSegmentedCode(const DemoContext& ctx) {
         ? keel::FixedString<64>("guikit::StateColor::Default()")
         : ctx.FormatControlColorCode();
 
-    return keel::format(
-        "if (auto el = ui.{}Element({{\n"
-        "    .label = {},\n"
-        "    .description = {},\n"
-        "    .icon = {},\n"
-        "    .badge = {},\n"
-        "    .layout = guikit::ElementLayout::{},\n"
-        "    .inlineOrder = guikit::InlineOrder::{},\n"
-        "    .align = guikit::Align::{},\n"
-        "    .stretch = guikit::StretchMode::{},\n"
+    const keel::String ctrl = keel::format(
+        "ui.{}{}({}, {{\n"
+        "    {{.text = \"Sine\", .icon = guikit::Icon::Refresh()}},\n"
+        "    {{.text = \"Square\", .icon = guikit::Icon::Settings()}},\n"
+        "    {{.text = \"Sawtooth\", .icon = guikit::Icon::Play()}},\n"
+        "    {{.text = \"Noise\", .icon = guikit::Icon::Warning(), .disabled = {}}}\n"
+        "}}, {{\n"
+        "    .color = {},\n"
+        "    .width = {},\n"
+        "    .height = {},\n"
         "    .background = {},\n"
         "    .border = {},\n"
+        "    .equalWidth = {},\n"
+        "    .showDividers = {},\n"
         "    .disabled = {}\n"
-        "}})) {{\n"
-        "    ui.{}{}({}, {{\n"
-        "        {{.text = \"Sine\", .icon = guikit::Icon::Refresh()}},\n"
-        "        {{.text = \"Square\", .icon = guikit::Icon::Settings()}},\n"
-        "        {{.text = \"Sawtooth\", .icon = guikit::Icon::Play()}},\n"
-        "        {{.text = \"Noise\", .icon = guikit::Icon::Warning(), .disabled = {}}}\n"
-        "    }}, {{\n"
-        "        .color = {},\n"
-        "        .stretch = guikit::StretchMode::{},\n"
-        "        .width = {},\n"
-        "        .height = {},\n"
-        "        .background = {},\n"
-        "        .border = {},\n"
-        "        .equalWidth = {},\n"
-        "        .showDividers = {},\n"
-        "        .disabled = {}\n"
-        "    }});\n"
-        "}}",
-        FormatUiSizePrefix(ctx.elemSize),
-        ctx.FormatElementLabelCode(),
-        ctx.FormatElementDescCode(),
-        ctx.FormatElementIconCode(),
-        ctx.FormatElementBadgeCode(),
-        ElementLayoutEnumName(ctx.elemLayout),
-        InlineOrderEnumName(ctx.elemInlineOrder),
-        LabelAlignEnumName(ctx.elemAlign),
-        StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElemBackgroundCode(),
-        ctx.FormatElemBorderCode(),
-        ctx.elemDisabled ? "true" : "false",
+        "}});",
         FormatUiSizePrefix(ctx.controlsSize),
         fnName,
         varName,
         s_state.disableLastSegment ? "true" : "false",
         colorCode,
-        StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElementWidthCode(),
-        ctx.FormatElementHeightCode(),
+        ctx.FormatCtrlWidthCode(),
+        ctx.FormatCtrlHeightCode(),
         ctx.FormatControlBackgroundCode(NavCategory::ElemSegmented),
         ctx.FormatCtrlBorderCode(),
         s_state.equalWidth ? "true" : "false",
         s_state.showDividers ? "true" : "false",
         ctx.elemDisabled ? "true" : "false"
     );
+    return ctx.WrapInElementCode(ctrl);
 }
 
 } // namespace guikit::demo

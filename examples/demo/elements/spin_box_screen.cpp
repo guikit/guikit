@@ -63,14 +63,20 @@ void RenderSpinBoxInspector(guikit::Context& ui, DemoContext&) {
         if (ui.InputField(s_state.prefix, {.placeholder = "e.g. Fc =", .clearable = true}).changed) ui.InvalidateAll();
     }
     if (auto el = ui.Element({.label = "Unit Suffix"})) {
-        if (ui.InputField(s_state.suffix, {.placeholder = "e.g. MHz / dB / %", .clearable = true}).changed) ui.InvalidateAll();
+        if (ui.InputField(s_state.suffix, {.placeholder = "e.g. MHz / dB / %", .clearable = true}).changed) {
+            ui.InvalidateAll();
+        }
     }
 
     static constexpr keel::StaticArray<keel::StringRef, 3> cursorModes = {"Blinking", "Solid", "Hidden"};
-    keel::usize curIdx = (s_state.cursorMode == guikit::CursorBlinkMode::Solid) ? 1 : ((s_state.cursorMode == guikit::CursorBlinkMode::Hidden) ? 2 : 0);
+    keel::usize curIdx = (s_state.cursorMode == guikit::CursorBlinkMode::Solid)
+        ? 1
+        : ((s_state.cursorMode == guikit::CursorBlinkMode::Hidden) ? 2 : 0);
     if (auto el = ui.Element({.label = "Cursor Blink Mode"})) {
         if (ui.StepSlider(curIdx, cursorModes, {.showTicks = true, .showLabels = true}).changed) {
-            s_state.cursorMode = (curIdx == 1) ? guikit::CursorBlinkMode::Solid : ((curIdx == 2) ? guikit::CursorBlinkMode::Hidden : guikit::CursorBlinkMode::Blinking);
+            s_state.cursorMode = (curIdx == 1)
+                ? guikit::CursorBlinkMode::Solid
+                : ((curIdx == 2) ? guikit::CursorBlinkMode::Hidden : guikit::CursorBlinkMode::Blinking);
             ui.InvalidateAll();
         }
     }
@@ -87,41 +93,29 @@ void RenderSpinBoxStage(guikit::Context& ui, DemoContext& ctx) {
         ? guikit::Icon::ChevronUp()
         : ((s_state.iconStyleIdx == 2) ? guikit::Icon::ArrowRight() : guikit::Icon::Plus());
 
-    if (auto el = ui.Size(ctx.elemSize).Element({
-        .label = ctx.GetElementLabel(),
-        .description = ctx.GetElementDescription(),
-        .icon = ctx.GetElementIcon(),
-        .badge = ctx.GetElementBadge(),
-        .layout = ctx.elemLayout,
-        .inlineOrder = ctx.elemInlineOrder,
-        .align = ctx.elemAlign,
-        .stretch = ctx.GetElementStretch(),
-        .background = ctx.elemBackground,
-        .border = ctx.GetElemBorder(),
-        .disabled = ctx.elemDisabled
-    })) {
-        ui.Size(ctx.controlsSize).SpinBox(s_state.val, {
-            .prefix = s_state.prefix,
-            .suffix = s_state.suffix,
-            .valueFormat = {"%.1f", {"0.0", "500.0"}},
-            .cursorMode = s_state.cursorMode,
-            .color = ctx.GetControlColor(),
-            .stretch = ctx.GetElementStretch(),
-            .width = ctx.GetElementWidth(),
-            .height = ctx.GetElementHeight(),
-            .background = ctx.GetControlBackground(NavCategory::ElemSpinBox),
-            .border = ctx.GetCtrlBorder(),
-            .min = static_cast<double>(s_state.minVal),
-            .max = static_cast<double>(s_state.maxVal),
-            .step = static_cast<double>(s_state.step),
-            .stepStyle = s_state.stepStyle,
-            .minusIcon = minusIc,
-            .plusIcon = plusIc,
-            .showFillBar = s_state.showFillBar,
-            .disabled = ctx.elemDisabled,
-            .readOnly = s_state.readOnly
-        });
-    }
+    ctx.RunElementStage(ui, [&]() {
+        static constexpr keel::StaticArray<keel::StringRef, 2> kValVariants = {{"0.0", "500.0"}};
+        guikit::SpinBoxOptions opts{};
+        opts.prefix = s_state.prefix;
+        opts.suffix = s_state.suffix;
+        opts.valueFormat = {"%.1f", kValVariants};
+        opts.cursorMode = s_state.cursorMode;
+        opts.color = ctx.GetControlColor();
+        opts.width = ctx.ResolveCtrlWidth();
+        opts.height = ctx.ResolveCtrlHeight();
+        opts.background = ctx.GetControlBackground(NavCategory::ElemSpinBox);
+        opts.border = ctx.GetCtrlBorder();
+        opts.min = static_cast<double>(s_state.minVal);
+        opts.max = static_cast<double>(s_state.maxVal);
+        opts.step = static_cast<double>(s_state.step);
+        opts.stepStyle = s_state.stepStyle;
+        opts.minusIcon = minusIc;
+        opts.plusIcon = plusIc;
+        opts.showFillBar = s_state.showFillBar;
+        opts.disabled = ctx.elemDisabled;
+        opts.readOnly = s_state.readOnly;
+        ui.Size(ctx.controlsSize).SpinBox(s_state.val, opts);
+    });
 }
 
 keel::String GenerateSpinBoxCode(const DemoContext& ctx) {
@@ -132,62 +126,34 @@ keel::String GenerateSpinBoxCode(const DemoContext& ctx) {
         ? "guikit::Icon::ChevronUp()"
         : ((s_state.iconStyleIdx == 2) ? "guikit::Icon::ArrowRight()" : "guikit::Icon::Plus()");
 
-    return keel::format(
-        "if (auto el = ui.{}Element({{\n"
-        "    .label = {},\n"
-        "    .description = {},\n"
-        "    .icon = {},\n"
-        "    .badge = {},\n"
-        "    .layout = guikit::ElementLayout::{},\n"
-        "    .inlineOrder = guikit::InlineOrder::{},\n"
-        "    .align = guikit::Align::{},\n"
-        "    .stretch = guikit::StretchMode::{},\n"
+    const keel::String ctrl = keel::format(
+        "ui.{}SpinBox(centerFreqMhz, {{\n"
+        "    .prefix = \"{}\",\n"
+        "    .suffix = \"{}\",\n"
+        "    .valueFormat = \"%.1f\",\n"
+        "    .cursorMode = guikit::CursorBlinkMode::{},\n"
+        "    .color = {},\n"
+        "    .width = {},\n"
+        "    .height = {},\n"
         "    .background = {},\n"
         "    .border = {},\n"
-        "    .disabled = {}\n"
-        "}})) {{\n"
-        "    ui.{}SpinBox(centerFreqMhz, {{\n"
-        "        .prefix = \"{}\",\n"
-        "        .suffix = \"{}\",\n"
-        "        .valueFormat = \"%.1f\",\n"
-        "        .cursorMode = guikit::CursorBlinkMode::{},\n"
-        "        .color = {},\n"
-        "        .stretch = guikit::StretchMode::{},\n"
-        "        .width = {},\n"
-        "        .height = {},\n"
-        "        .background = {},\n"
-        "        .border = {},\n"
-        "        .min = {:.1f},\n"
-        "        .max = {:.1f},\n"
-        "        .step = {:.1f},\n"
-        "        .stepStyle = guikit::SpinBoxStepStyle::{},\n"
-        "        .minusIcon = {},\n"
-        "        .plusIcon = {},\n"
-        "        .showFillBar = {},\n"
-        "        .disabled = {},\n"
-        "        .readOnly = {}\n"
-        "    }});\n"
-        "}}",
-        FormatUiSizePrefix(ctx.elemSize),
-        ctx.FormatElementLabelCode(),
-        ctx.FormatElementDescCode(),
-        ctx.FormatElementIconCode(),
-        ctx.FormatElementBadgeCode(),
-        ElementLayoutEnumName(ctx.elemLayout),
-        InlineOrderEnumName(ctx.elemInlineOrder),
-        LabelAlignEnumName(ctx.elemAlign),
-        StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElemBackgroundCode(),
-        ctx.FormatElemBorderCode(),
-        ctx.elemDisabled ? "true" : "false",
+        "    .min = {:.1f},\n"
+        "    .max = {:.1f},\n"
+        "    .step = {:.1f},\n"
+        "    .stepStyle = guikit::SpinBoxStepStyle::{},\n"
+        "    .minusIcon = {},\n"
+        "    .plusIcon = {},\n"
+        "    .showFillBar = {},\n"
+        "    .disabled = {},\n"
+        "    .readOnly = {}\n"
+        "}});",
         FormatUiSizePrefix(ctx.controlsSize),
         s_state.prefix,
         s_state.suffix,
         CursorModeName(s_state.cursorMode),
         ctx.FormatControlColorCode(),
-        StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElementWidthCode(),
-        ctx.FormatElementHeightCode(),
+        ctx.FormatControlWidthCode(),
+        ctx.FormatControlHeightCode(),
         ctx.FormatControlBackgroundCode(NavCategory::ElemSpinBox),
         ctx.FormatCtrlBorderCode(),
         s_state.minVal,
@@ -200,6 +166,7 @@ keel::String GenerateSpinBoxCode(const DemoContext& ctx) {
         ctx.elemDisabled ? "true" : "false",
         s_state.readOnly ? "true" : "false"
     );
+    return ctx.WrapInElementCode(ctrl);
 }
 
 } // namespace guikit::demo

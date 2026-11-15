@@ -86,9 +86,8 @@ struct TreeViewOptions {
     keel::i32* selectedIndex{nullptr};                                    ///< Optional bound 0-based index of the selected item (-1 = none)
     Id* selectedId{nullptr};                                        ///< Optional bound Id of the selected item
     VisibilityPolicy scrollbar{VisibilityPolicy::Auto};             ///< Scrollbar visibility policy
-    StretchMode stretch{StretchMode::Fill};                         ///< Horizontal sizing mode
-    keel::Optional<float> width{keel::kNullOpt};                    ///< Optional explicit width (px in Compact/Space, ratio 0.0..1.0 in Fill)
-    keel::Optional<float> height{keel::kNullOpt};                   ///< Optional explicit height in points
+    AxisSize width{};                                               ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or fixed `dp`)
+    AxisSize height{SizeMode::Stretch};                             ///< Vertical sizing policy (`Stretch` in flex parent, `Fit` items, or fixed `dp`)
     StateColor background{};                                        ///< Panel background color (Default = surface, None = transparent)
     Border border{.width = 1.0f};                                   ///< Outer frame border stroke & corner radius
     bool disabled{false};                                           ///< Disable the entire TreeView and all nested items

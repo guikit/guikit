@@ -1,29 +1,60 @@
 #include "guikit/core/element.hpp"
-#include <cmath>
-#include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
+#include "guikit/core/solver.hpp"
 #include "guikit/core/text_util.hpp"
 
 namespace guikit {
 
 namespace {
 
-ControlSpec EffectiveControlSpec(const ElementSpec& spec) noexcept {
-    ControlSpec c = spec.control;
-    if (!c.width.has_value() && spec.width.has_value()) {
-        c.width = spec.width;
-    }
-    if (!c.widthRatio.has_value() && spec.widthRatio.has_value()) {
-        c.widthRatio = spec.widthRatio;
-    }
-    c.stretchable = spec.stretchableControl;
-    c.stretchHeightWhenStandalone = spec.stretchHeightWhenStandalone;
-    return c;
-}
-
 bool HasLabelBar(const ElementSpec& spec) noexcept {
     return spec.icon.IsValid() || spec.label.HasContentOrReserve() || spec.badge.HasContentOrReserve();
+}
+
+Node* FirstFlowChild(Node* elNode) noexcept {
+    for (Node* c = elNode ? elNode->firstChild : nullptr; c != nullptr; c = c->nextSibling) {
+        if (c->type == NodeType::Modal) continue;
+        return c;
+    }
+    return nullptr;
+}
+
+const Node* FirstFlowChild(const Node* elNode) noexcept {
+    for (const Node* c = elNode ? elNode->firstChild : nullptr; c != nullptr; c = c->nextSibling) {
+        if (c->type == NodeType::Modal) continue;
+        return c;
+    }
+    return nullptr;
+}
+
+void AccumulateSlotSubtree(
+    const Node* sub,
+    bool& ioHovered,
+    bool& ioPressed,
+    bool& ioActive,
+    keel::u64& ioHash,
+    keel::u32 depth = 0
+) noexcept {
+    if (!sub || depth > 8) return;
+    if (sub->hovered) ioHovered = true;
+    if (sub->pressed) ioPressed = true;
+    if (sub->focused || sub->active) ioActive = true;
+    ioHash = detail::HashArgs(
+        ioHash,
+        static_cast<keel::u8>(sub->type),
+        sub->visualHash,
+        static_cast<keel::u8>(sub->widthMode),
+        static_cast<keel::u8>(sub->heightMode),
+        sub->fixedWidth,
+        sub->fixedHeight,
+        sub->gap
+    );
+    for (const Node* c = sub->firstChild; c != nullptr; c = c->nextSibling) {
+        if (c->type == NodeType::Modal) continue;
+        AccumulateSlotSubtree(c, ioHovered, ioPressed, ioActive, ioHash, depth + 1);
+    }
 }
 
 ElementSpec MakeSpecFromPayload(
@@ -33,26 +64,44 @@ ElementSpec MakeSpecFromPayload(
 ) noexcept {
     const bool isHovered = n->hovered;
     const bool isActive = n->pressed || n->focused || n->active;
-    if (!ep.hasChildControl && n->firstChild == nullptr) {
-        return Element::MakeSpec(ep.opts, n->uiSize, n->disabled, theme, isHovered, isActive);
+    const Node* slotChild = FirstFlowChild(n);
+    if (slotChild == nullptr) {
+        ElementSpec s = Element::MakeSpec(ep.opts, n->uiSize, n->disabled, theme, isHovered, isActive);
+        if (!s.width.IsFixed()) {
+            s.width = n->widthMode;
+        }
+        return s;
     }
 
     const ComponentMetrics& cm = theme.GetMetrics(n->uiSize);
     const InputFieldMetrics& im = theme.GetInputField(n->uiSize);
-    ControlSpec ctrl = ep.hasChildControl
-        ? ep.childControlSpec
-        : ControlSpec{
-            .stretchable = true,
-            .stretchHeightWhenStandalone = (n->firstChild->heightMode == SizeMode::Stretch),
-            .hasIntrinsicBox = true
-        };
-    // The child Control node already measures and renders its own well frame via Control::Measure / Control::RenderFrame.
-    ctrl.hasIntrinsicBox = true;
 
-    const keel::Optional<float> effWidth = ctrl.width.has_value() ? ctrl.width : ep.opts.width;
-    const keel::Optional<float> effWidthRatio = ctrl.widthRatio.has_value() ? ctrl.widthRatio : ep.opts.widthRatio;
-    ctrl.width = effWidth;
-    ctrl.widthRatio = effWidthRatio;
+    ControlSpec ctrl{};
+    if (ep.controlChildCount == 1) {
+        ctrl = ep.firstChildSpec;
+    } else {
+        ctrl.defaultLayout = ElementLayout::Stacked;
+    }
+    const bool slotStretchW = slotChild->isSpacer || slotChild->widthMode == SizeMode::Stretch;
+    const bool slotStretchH = (!slotChild->isSpacer && slotChild->heightMode == SizeMode::Stretch) ||
+                              (n->heightMode == SizeMode::Stretch);
+    const float invScale = (theme.scale > 0.0f) ? (1.0f / theme.scale) : 1.0f;
+    if (slotChild->widthMode == SizeMode::Fixed && slotChild->fixedWidth > 0.0f) {
+        ctrl.width = AxisSize::Fixed(slotChild->fixedWidth * invScale);
+    } else {
+        ctrl.width = slotStretchW ? AxisSize::Stretch() : AxisSize::Fit();
+    }
+    if (slotChild->heightMode == SizeMode::Fixed && slotChild->fixedHeight > 0.0f) {
+        ctrl.height = AxisSize::Fixed(slotChild->fixedHeight * invScale);
+    } else {
+        ctrl.height = slotStretchH ? AxisSize::Stretch() : AxisSize::Fit();
+    }
+    ctrl.minWidth = keel::kNullOpt;
+    ctrl.minHeight = keel::kNullOpt;
+
+    const float baseLabelGap = (ctrl.labelGap > 0.0f) ? ctrl.labelGap : im.labelGap;
+    const float baseDescGap = (ctrl.descGap > 0.0f) ? ctrl.descGap : im.descGap;
+    const float baseInlineGap = (ctrl.inlineGap > 0.0f) ? ctrl.inlineGap : cm.paddingX;
 
     return ElementSpec{
         .label = ep.opts.label,
@@ -60,59 +109,134 @@ ElementSpec MakeSpecFromPayload(
         .icon = ep.opts.icon,
         .badge = ep.opts.badge,
         .layout = ep.opts.layout.value_or(ctrl.defaultLayout),
-        .inlineOrder = ep.opts.inlineOrder.value_or(ctrl.defaultInlineOrder),
         .align = ep.opts.align,
-        .stretch = ep.opts.stretch.value_or(ep.hasChildControl ? StretchMode::Compact : StretchMode::Fill),
-        .width = effWidth,
-        .widthRatio = effWidthRatio,
+        .width = ep.opts.width.IsFixed() ? ep.opts.width : AxisSize(n->widthMode),
         .control = ctrl,
-        .background = ep.opts.background,
-        .border = ep.opts.border,
         .widgetSize = n->uiSize,
-        .labelGap = (ctrl.labelGap > 0.0f) ? ctrl.labelGap : im.labelGap,
-        .descGap = (ctrl.descGap > 0.0f) ? ctrl.descGap : im.descGap,
-        .inlineGap = (ctrl.inlineGap > 0.0f) ? ctrl.inlineGap : cm.paddingX,
+        .labelGap = baseLabelGap,
+        .descGap = baseDescGap,
+        .inlineGap = baseInlineGap,
         .hasControl = true,
-        .headingTypography = false,
-        .stretchableControl = ctrl.stretchable,
-        .stretchHeightWhenStandalone = (ctrl.stretchHeightWhenStandalone || n->heightMode == SizeMode::Stretch) && !ep.opts.background.IsBackgroundEnabled(false) && ep.opts.border.width <= 0.0f,
         .disabled = n->disabled,
         .hovered = isHovered,
         .active = isActive
     };
 }
 
+float ResolveSlotAvailableWidth(
+    const ElementSpec& spec,
+    float availableWidth,
+    ICanvas* canvas,
+    const UiTheme& theme,
+    float descFontSize,
+    Vec2 measuredLabelBar
+) noexcept {
+    if (spec.width.IsFixed()) {
+        const float fixedOuterW = theme.Scale(spec.width.Dp());
+        availableWidth = (availableWidth > 0.0f) ? keel::min(availableWidth, fixedOuterW) : fixedOuterW;
+    }
+    if (availableWidth <= 0.0f) {
+        return 0.0f;
+    }
+    if (!IsInlineElementLayout(spec.layout)) {
+        return availableWidth;
+    }
+    const bool hasLabel = HasLabelBar(spec);
+    const bool hasDesc = spec.description.HasContentOrReserve();
+    if (!hasLabel && !hasDesc) {
+        return availableWidth;
+    }
+    if (spec.control.width.IsFixed()) {
+        return keel::min(availableWidth, theme.Scale(spec.control.width.Dp()));
+    }
+    if (spec.control.width.ResolveMode(spec.control.defaultWidthMode) == SizeMode::Stretch) {
+        const float descW = hasDesc ? TextUtil::MeasureUiTextWidth(spec.description, descFontSize, canvas) : 0.0f;
+        const float textW = keel::max(measuredLabelBar.x, descW);
+        return keel::max(theme.GetMetrics(spec.widgetSize).defaultHeight, availableWidth - textW - spec.inlineGap);
+    }
+    return availableWidth;
+}
+
+Vec2 MeasureSingleChildNode(
+    const Node* child,
+    float availW,
+    ICanvas* canvas,
+    const UiTheme& parentTheme
+) noexcept {
+    const UiTheme& childTheme = (child->theme != nullptr) ? *child->theme : parentTheme;
+    const float childQueryW = (child->widthMode == SizeMode::Fixed && child->fixedWidth > 0.0f)
+        ? ((availW > 0.0f) ? keel::min(availW, child->fixedWidth) : child->fixedWidth)
+        : availW;
+    Vec2 intr = child->measureFn
+        ? child->measureFn(child, childQueryW, canvas, childTheme)
+        : child->intrinsicSize;
+    if (!child->measureFn && child->childCount > 0 && childQueryW > 0.0f) {
+        intr.y = Solver::ResolveHeight(const_cast<Node*>(child), childQueryW, canvas, childTheme);
+    }
+    if (child->widthMode == SizeMode::Fixed && child->fixedWidth > 0.0f) {
+        intr.x = child->fixedWidth;
+    } else if (child->minWidth > 0.0f) {
+        intr.x = keel::max(intr.x, child->minWidth);
+    }
+    if (child->maxWidth > 0.0f) {
+        intr.x = keel::min(intr.x, child->maxWidth);
+    }
+    if (child->heightMode == SizeMode::Fixed && child->fixedHeight > 0.0f) {
+        intr.y = child->fixedHeight;
+    } else if (child->minHeight > 0.0f) {
+        intr.y = keel::max(intr.y, child->minHeight);
+    }
+    if (child->maxHeight > 0.0f) {
+        intr.y = keel::min(intr.y, child->maxHeight);
+    }
+    return intr;
+}
+
+Vec2 MeasureControlSlot(
+    const Node* elNode,
+    float slotAvailW,
+    ICanvas* canvas,
+    const UiTheme& theme
+) noexcept {
+    const Node* slotChild = FirstFlowChild(elNode);
+    if (slotChild == nullptr) {
+        return {0.0f, 0.0f};
+    }
+    return MeasureSingleChildNode(slotChild, slotAvailW, canvas, theme);
+}
+
+void PlaceControlChild(Node* child, const Rect& rect, ICanvas* canvas, const UiTheme& parentTheme) noexcept {
+    const UiTheme& childTheme = (child->theme != nullptr) ? *child->theme : parentTheme;
+    if (child->childCount > 0 || child->arrangeFn != nullptr) {
+        Solver::Arrange(child, rect, childTheme, canvas);
+    } else {
+        child->computedRect = rect;
+    }
+}
+
+void ArrangeControlSlot(
+    Node* elNode,
+    const Rect& controlRect,
+    ICanvas* canvas,
+    const UiTheme& theme
+) noexcept {
+    for (Node* c = elNode->firstChild; c != nullptr; c = c->nextSibling) {
+        if (c->type == NodeType::Modal) {
+            PlaceControlChild(c, elNode->computedRect, canvas, theme);
+        }
+    }
+    if (Node* slotChild = FirstFlowChild(elNode)) {
+        PlaceControlChild(slotChild, controlRect, canvas, theme);
+    }
+}
+
 } // namespace
 
 float Element::ResolveLabelFontSize(const ElementSpec& spec, const UiTheme& theme) noexcept {
-    if (spec.label.size.px > 0.0f) {
-        return spec.label.size.px;
-    }
-    if (spec.label.size.role.has_value()) {
-        return theme.GetTypography(*spec.label.size.role).fontSize;
-    }
-    if (spec.headingTypography) {
-        if (spec.label.size.preset != UiSize::None) {
-            return theme.GetHeading(spec.label.size.preset).titleFontSize;
-        }
-        return theme.GetHeading(spec.headingLevel, spec.widgetSize).titleFontSize;
-    }
     return theme.ResolveFontSize(spec.label, TextRole::LabelLarge, spec.widgetSize);
 }
 
 float Element::ResolveDescFontSize(const ElementSpec& spec, const UiTheme& theme) noexcept {
-    if (spec.description.size.px > 0.0f) {
-        return spec.description.size.px;
-    }
-    if (spec.description.size.role.has_value()) {
-        return theme.GetTypography(*spec.description.size.role).fontSize;
-    }
-    if (spec.headingTypography) {
-        if (spec.description.size.preset != UiSize::None) {
-            return theme.GetHeading(spec.description.size.preset).subtitleFontSize;
-        }
-        return theme.GetHeading(spec.headingLevel, spec.widgetSize).subtitleFontSize;
-    }
     return theme.ResolveFontSize(spec.description, TextRole::LabelSmall, spec.widgetSize);
 }
 
@@ -122,15 +246,14 @@ Vec2 Element::MeasureLabelBar(
     ICanvas* canvas,
     const UiTheme& theme
 ) noexcept {
-    const HeadingMetrics& m = spec.headingTypography
-        ? theme.GetHeading(spec.headingLevel, spec.widgetSize)
-        : theme.GetHeading(spec.widgetSize);
+    const UiSize effSize = (spec.widgetSize == UiSize::None) ? UiSize::Md : spec.widgetSize;
+    const ComponentMetrics& m = theme.GetMetrics(effSize);
     const float badgeFont = (spec.badge.size.px > 0.0f)
         ? spec.badge.size.px
         : (spec.badge.size.role.has_value()
             ? theme.GetTypography(*spec.badge.size.role).fontSize
             : (spec.badge.size.preset != UiSize::None
-                ? theme.GetHeading(spec.badge.size.preset).badgeFontSize
+                ? theme.GetMetrics(spec.badge.size.preset).badgeFontSize
                 : m.badgeFontSize));
 
     float barW = 0.0f;
@@ -142,7 +265,7 @@ Vec2 Element::MeasureLabelBar(
     }
 
     if (spec.label.HasContentOrReserve()) {
-        if (barW > 0.0f) barW += m.gap;
+        if (barW > 0.0f) barW += m.itemGap;
         const float textW = TextUtil::MeasureUiTextWidth(spec.label, labelFontSize, canvas);
         barW += textW;
         const float lineH = canvas ? canvas->GetLineHeight(labelFontSize) : theme.GetLineHeight(labelFontSize);
@@ -160,59 +283,6 @@ Vec2 Element::MeasureLabelBar(
     return {barW, barH};
 }
 
-namespace {
-
-float ResolveChildAvailableWidth(
-    const ElementSpec& spec,
-    float availableWidth,
-    ICanvas* canvas,
-    const UiTheme& theme,
-    float descFontSize,
-    Vec2 measuredLabelBar
-) noexcept {
-    if (availableWidth <= 0.0f) {
-        return 0.0f;
-    }
-    const float outerPad = Element::ComputeOuterPadding(spec, theme);
-    float availW = keel::max(0.0f, availableWidth - outerPad * 2.0f);
-    if (spec.layout != ElementLayout::Inline) {
-        return availW;
-    }
-    const bool hasLabel = HasLabelBar(spec);
-    const bool hasDesc = spec.description.HasContentOrReserve();
-    if (!hasLabel && !hasDesc) {
-        return availW;
-    }
-    const ControlSpec ctrl = EffectiveControlSpec(spec);
-    if (Control::HasExplicitDpWidth(spec.stretch, ctrl.width, ctrl.widthRatio)) {
-        return keel::min(availW, theme.Scale(*ctrl.width));
-    }
-    if (const auto fillRatio = Control::ResolveFillRatio(spec.stretch, ctrl.width, ctrl.widthRatio)) {
-        return availW * (*fillRatio);
-    }
-    if (spec.stretch == StretchMode::Fill) {
-        const float descW = hasDesc ? TextUtil::MeasureUiTextWidth(spec.description, descFontSize, canvas) : 0.0f;
-        const float textW = keel::max(measuredLabelBar.x, descW);
-        return keel::max(theme.GetMetrics(spec.widgetSize).defaultHeight, availW - textW - spec.inlineGap);
-    }
-    return availW;
-}
-
-} // namespace
-
-float Element::ComputeOuterPadding(
-    const ElementSpec& spec,
-    const UiTheme& theme
-) noexcept {
-    if (!HasOuterFrame(spec)) {
-        return 0.0f;
-    }
-    const ComponentMetrics& cm = theme.GetMetrics(spec.widgetSize);
-    const float basePad = keel::max(theme.Scale(8.0f), cm.paddingX * 0.75f);
-    const float strokePad = (spec.border.width > 0.0f) ? theme.Scale(spec.border.width) : 0.0f;
-    return basePad + strokePad;
-}
-
 ElementSpec Element::MakeSpec(
     const ElementOptions& opts,
     UiSize activeSize,
@@ -221,32 +291,125 @@ ElementSpec Element::MakeSpec(
     bool isHovered,
     bool isActive
 ) noexcept {
-    const HeadingMetrics& m = theme.GetHeading(activeSize);
+    const ComponentMetrics& m = theme.GetMetrics(activeSize);
+    const AxisSize resolvedWidth = opts.width.IsAuto()
+        ? AxisSize::Stretch()
+        : opts.width;
     return ElementSpec{
         .label = opts.label,
         .description = opts.description,
         .icon = opts.icon,
         .badge = opts.badge,
         .layout = opts.layout.value_or(ElementLayout::Stacked),
-        .inlineOrder = opts.inlineOrder.value_or(InlineOrder::LabelFirst),
         .align = opts.align,
-        .stretch = opts.stretch.value_or(StretchMode::Fill),
-        .width = opts.width,
-        .widthRatio = opts.widthRatio,
-        .background = opts.background,
-        .border = opts.border,
+        .width = resolvedWidth,
+        .control = ControlSpec{.width = SizeMode::Fit, .height = SizeMode::Fit},
         .widgetSize = activeSize,
         .labelGap = m.lineGap,
         .descGap = m.lineGap,
-        .inlineGap = m.gap * 1.5f,
+        .inlineGap = m.itemGap * 1.5f,
         .hasControl = false,
-        .headingTypography = false,
-        .stretchableControl = false,
-        .stretchHeightWhenStandalone = false,
         .disabled = isDisabled,
         .hovered = isHovered,
         .active = isActive
     };
+}
+
+void Element::SyncWithChildren(Context& ctx, Node* elNode) noexcept {
+    if (!elNode) return;
+    auto* ep = elNode->As<ElementPayload>();
+    if (!ep) return;
+
+    const UiTheme& elTheme = (elNode->theme != nullptr) ? *elNode->theme : ctx.GetTheme();
+    const Node* outerParent = elNode->parent;
+    const bool inToolbarRow = (outerParent != nullptr) &&
+        (outerParent->type == NodeType::Toolbar && outerParent->direction == FlexDirection::Row);
+    const bool inHorizontalFlow = (outerParent != nullptr) &&
+        (outerParent->direction == FlexDirection::Row || outerParent->direction == FlexDirection::Wrap) &&
+        !outerParent->equalWidths;
+
+    const Node* slotChild = FirstFlowChild(elNode);
+    bool anyStretchW = false;
+    bool anyStretchH = false;
+    keel::u64 childrenHash = 0;
+
+    elNode->minWidth = 0.0f;
+    elNode->minHeight = 0.0f;
+
+    if (slotChild != nullptr) {
+        anyStretchW = slotChild->isSpacer || slotChild->widthMode == SizeMode::Stretch;
+        anyStretchH = !slotChild->isSpacer && slotChild->heightMode == SizeMode::Stretch;
+        bool subHovered = false;
+        bool subPressed = false;
+        bool subActive = false;
+        AccumulateSlotSubtree(slotChild, subHovered, subPressed, subActive, childrenHash);
+        if (subHovered) elNode->hovered = true;
+        if (subPressed) elNode->pressed = true;
+        if (subActive) elNode->active = true;
+
+        if (!ep->opts.width.IsFixed()) {
+            const float childMinW = (slotChild->widthMode == SizeMode::Fixed && slotChild->fixedWidth > 0.0f)
+                ? slotChild->fixedWidth
+                : slotChild->minWidth;
+            if (childMinW > 0.0f) {
+                elNode->minWidth = childMinW;
+            }
+        }
+        if (slotChild->minHeight > 0.0f) {
+            elNode->minHeight = slotChild->minHeight;
+        }
+    }
+
+    ep->anyChildStretchesW = anyStretchW;
+    ep->anyChildStretchesH = anyStretchH;
+
+    if (ep->opts.width.IsFixed()) {
+        elNode->widthMode = SizeMode::Fixed;
+        elNode->fixedWidth = elTheme.Scale(ep->opts.width.Dp());
+    } else if (!ep->opts.width.IsAuto()) {
+        elNode->widthMode = ep->opts.width.ResolveMode(SizeMode::Stretch);
+        elNode->fixedWidth = 0.0f;
+    } else if (inToolbarRow) {
+        elNode->widthMode = SizeMode::Fit;
+        elNode->fixedWidth = 0.0f;
+    } else if (slotChild == nullptr) {
+        elNode->widthMode = SizeMode::Stretch;
+        elNode->fixedWidth = 0.0f;
+    } else {
+        const ElementLayout effLayout = ep->opts.layout.value_or(
+            (ep->controlChildCount == 1) ? ep->firstChildSpec.defaultLayout : ElementLayout::Stacked
+        );
+        if (anyStretchW) {
+            elNode->widthMode = SizeMode::Stretch;
+        } else if (inHorizontalFlow) {
+            elNode->widthMode = SizeMode::Fit;
+        } else if (effLayout == ElementLayout::Trailing && ep->opts.align == Align::Start) {
+            elNode->widthMode = SizeMode::Fit;
+        } else {
+            elNode->widthMode = SizeMode::Stretch;
+        }
+        elNode->fixedWidth = 0.0f;
+    }
+
+    elNode->heightMode = anyStretchH ? SizeMode::Stretch : SizeMode::Fit;
+
+    elNode->visualHash = detail::HashArgs(
+        static_cast<keel::u8>(ep->opts.layout.value_or(ElementLayout::Stacked)),
+        ep->opts.layout.has_value(),
+        static_cast<keel::u8>(ep->opts.align),
+        static_cast<keel::u8>(elNode->widthMode),
+        static_cast<keel::u8>(elNode->heightMode),
+        ep->opts.width,
+        ep->opts.label,
+        ep->opts.description,
+        ep->opts.badge,
+        elNode->disabled,
+        static_cast<keel::u8>(ep->opts.icon.GetType()),
+        static_cast<keel::u8>(ep->opts.icon.GetId()),
+        ep->opts.icon.GetPath(),
+        slotChild != nullptr,
+        childrenHash
+    );
 }
 
 ElementScope Element::Open(
@@ -292,47 +455,27 @@ ElementScope Element::Open(
     node->SetPayload(payload);
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
+    node->uiSize = activeSize;
+    node->disabled = effectiveDisabled;
+    node->hovered = res.hovered;
+    node->pressed = res.pressed;
 
-    const StretchMode initStretch = opts.stretch.value_or(StretchMode::Fill);
-    node->visualHash = detail::HashArgs(
-        static_cast<keel::u8>(opts.layout.value_or(ElementLayout::Stacked)),
-        opts.layout.has_value(),
-        static_cast<keel::u8>(opts.inlineOrder.value_or(InlineOrder::LabelFirst)),
-        opts.inlineOrder.has_value(),
-        static_cast<keel::u8>(opts.align),
-        static_cast<keel::u8>(initStretch),
-        opts.stretch.has_value(),
-        opts.width.value_or(0.0f),
-        opts.widthRatio.value_or(-1.0f),
-        opts.background,
-        opts.border,
-        payload->opts.label,
-        payload->opts.description,
-        payload->opts.badge,
-        effectiveDisabled,
-        static_cast<keel::u8>(opts.icon.GetType()),
-        static_cast<keel::u8>(opts.icon.GetId()),
-        payload->opts.icon.GetPath()
-    );
+    SyncWithChildren(ctx, node);
 
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* ep = n->As<ElementPayload>();
         if (!ep) return {0.0f, 0.0f};
         ep->lastCanvas = canvas;
         const ElementSpec spec = MakeSpecFromPayload(n, *ep, theme);
-        Vec2 childIntrinsic{0.0f, 0.0f};
-        if ((ep->hasChildControl || n->firstChild != nullptr) && n->firstChild != nullptr) {
-            const Node* child = n->firstChild;
-            const UiTheme& childTheme = (child->theme != nullptr) ? *child->theme : theme;
+        Vec2 slotIntrinsic{0.0f, 0.0f};
+        if (spec.hasControl) {
             const float labelFs = ResolveLabelFontSize(spec, theme);
             const float descFs = ResolveDescFontSize(spec, theme);
             const Vec2 rawBar = HasLabelBar(spec) ? MeasureLabelBar(spec, labelFs, canvas, theme) : Vec2{0.0f, 0.0f};
-            const float childAvailW = ResolveChildAvailableWidth(spec, availableWidth, canvas, theme, descFs, rawBar);
-            childIntrinsic = child->measureFn
-                ? child->measureFn(child, childAvailW, canvas, childTheme)
-                : child->intrinsicSize;
+            const float slotAvailW = ResolveSlotAvailableWidth(spec, availableWidth, canvas, theme, descFs, rawBar);
+            slotIntrinsic = MeasureControlSlot(n, slotAvailW, canvas, theme);
         }
-        return Element::Measure(childIntrinsic, spec, canvas, theme, availableWidth);
+        return Element::Measure(slotIntrinsic, spec, canvas, theme, availableWidth);
     };
 
     node->arrangeFn = &Element::Arrange;
@@ -341,33 +484,20 @@ ElementScope Element::Open(
         const auto* ep = n->As<ElementPayload>();
         if (!ep) return;
         const ElementSpec spec = MakeSpecFromPayload(n, *ep, theme);
-        if ((!ep->hasChildControl && n->firstChild == nullptr) || !n->firstChild) {
+        if (!spec.hasControl) {
             Element::Render(canvas, n->computedRect, spec, theme);
             return;
         }
-        const Node* child = n->firstChild;
-        const UiTheme& childTheme = (child->theme != nullptr) ? *child->theme : theme;
         const float labelFs = ResolveLabelFontSize(spec, theme);
         const float descFs = ResolveDescFontSize(spec, theme);
         const Vec2 rawBar = HasLabelBar(spec) ? MeasureLabelBar(spec, labelFs, &canvas, theme) : Vec2{0.0f, 0.0f};
-        const float childAvailW = ResolveChildAvailableWidth(spec, n->computedRect.w, &canvas, theme, descFs, rawBar);
-        const Vec2 childIntrinsic = child->measureFn
-            ? child->measureFn(child, childAvailW, &canvas, childTheme)
-            : child->intrinsicSize;
-        const ElementGeometry geom = Element::Resolve(n->computedRect, childIntrinsic, spec, &canvas, theme);
+        const float slotAvailW = ResolveSlotAvailableWidth(spec, n->computedRect.w, &canvas, theme, descFs, rawBar);
+        const Vec2 slotIntrinsic = MeasureControlSlot(n, slotAvailW, &canvas, theme);
+        const ElementGeometry geom = Element::Resolve(n->computedRect, slotIntrinsic, spec, &canvas, theme);
         Element::RenderText(canvas, geom, spec, theme);
     };
 
-    node->uiSize = activeSize;
-    node->disabled = effectiveDisabled;
-    node->hovered = res.hovered;
-    node->pressed = res.pressed;
-    node->widthMode = (initStretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
-    node->heightMode = SizeMode::Fit;
-
-    ctx.AdaptChildToContainer(node);
     ctx.PushContainer(node);
-
     return ElementScope(&ctx, node, res);
 }
 
@@ -380,30 +510,26 @@ void Element::Arrange(
     Rect bounds = availableRect;
     if (node->parent == nullptr) {
         if (node->widthMode == SizeMode::Fit) bounds.w = node->intrinsicSize.x;
+        else if (node->widthMode == SizeMode::Fixed && node->fixedWidth > 0.0f) bounds.w = node->fixedWidth;
         if (node->heightMode == SizeMode::Fit) bounds.h = node->intrinsicSize.y;
+        else if (node->heightMode == SizeMode::Fixed && node->fixedHeight > 0.0f) bounds.h = node->fixedHeight;
     }
     node->computedRect = bounds;
 
     const auto* ep = node->As<ElementPayload>();
-    if (!ep || (!ep->hasChildControl && node->firstChild == nullptr) || !node->firstChild) {
+    if (!ep) return;
+    const ElementSpec spec = MakeSpecFromPayload(node, *ep, theme);
+    if (!spec.hasControl) {
         return;
     }
 
-    Node* child = node->firstChild;
-    const UiTheme& childTheme = (child->theme != nullptr) ? *child->theme : theme;
-    const ElementSpec spec = MakeSpecFromPayload(node, *ep, theme);
     const float labelFs = ResolveLabelFontSize(spec, theme);
     const float descFs = ResolveDescFontSize(spec, theme);
     const Vec2 rawBar = HasLabelBar(spec) ? MeasureLabelBar(spec, labelFs, ep->lastCanvas, theme) : Vec2{0.0f, 0.0f};
-    const float childAvailW = ResolveChildAvailableWidth(spec, bounds.w, ep->lastCanvas, theme, descFs, rawBar);
-    const Vec2 childIntrinsic = child->measureFn
-        ? child->measureFn(child, childAvailW, ep->lastCanvas, childTheme)
-        : child->intrinsicSize;
-    const ElementGeometry geom = Element::Resolve(bounds, childIntrinsic, spec, ep->lastCanvas, theme);
-    child->computedRect = geom.controlRect;
-    if (child->arrangeFn) {
-        child->arrangeFn(child, geom.controlRect, childTheme);
-    }
+    const float slotAvailW = ResolveSlotAvailableWidth(spec, bounds.w, ep->lastCanvas, theme, descFs, rawBar);
+    const Vec2 slotIntrinsic = MeasureControlSlot(node, slotAvailW, ep->lastCanvas, theme);
+    const ElementGeometry geom = Element::Resolve(bounds, slotIntrinsic, spec, ep->lastCanvas, theme);
+    ArrangeControlSlot(node, geom.controlRect, ep->lastCanvas, theme);
 }
 
 Vec2 Element::Measure(
@@ -415,120 +541,87 @@ Vec2 Element::Measure(
 ) noexcept {
     const float labelFontSize = ResolveLabelFontSize(spec, theme);
     const float descFontSize = ResolveDescFontSize(spec, theme);
-    const float outerPad = ComputeOuterPadding(spec, theme);
 
-    const ControlSpec ctrlSpec = EffectiveControlSpec(spec);
     if (!spec.hasControl) {
         intrinsicControlSize = MeasureLabelBar(spec, labelFontSize, canvas, theme);
     } else {
-        intrinsicControlSize = Control::Measure(intrinsicControlSize, ctrlSpec, spec.stretch, spec.widgetSize, theme);
+        intrinsicControlSize = Control::Measure(intrinsicControlSize, spec.control, theme);
     }
 
-    const bool stretchableCtrl = spec.hasControl ? ctrlSpec.stretchable : false;
-    const bool hasExplicitDpW = Control::HasExplicitDpWidth(spec.stretch, ctrlSpec.width, ctrlSpec.widthRatio);
-    const keel::Optional<float> fillRatioOpt = Control::ResolveFillRatio(spec.stretch, ctrlSpec.width, ctrlSpec.widthRatio);
+    const bool hasOuterDpW = spec.width.IsFixed();
+    const bool outerIsFit = spec.width.IsFit();
+    const bool ctrlStretchesW = spec.hasControl &&
+        (spec.control.width.ResolveMode(spec.control.defaultWidthMode) == SizeMode::Stretch);
 
     const bool hasLabel = spec.hasControl && HasLabelBar(spec);
     const bool hasDesc = spec.description.HasContentOrReserve();
     const bool hasExternal = hasLabel || hasDesc;
     const float rawDescW = hasDesc ? TextUtil::MeasureUiTextWidth(spec.description, descFontSize, canvas) : 0.0f;
 
-    float minNoCtrlInnerW = intrinsicControlSize.x;
+    float minNoCtrlW = intrinsicControlSize.x;
     if (!spec.hasControl) {
-        const float natInnerW = (spec.layout == ElementLayout::Inline)
+        const float natW = IsInlineElementLayout(spec.layout)
             ? (intrinsicControlSize.x + (hasDesc && rawDescW > 0.0f ? spec.inlineGap + rawDescW : 0.0f))
             : keel::max(intrinsicControlSize.x, rawDescW);
-        minNoCtrlInnerW = (hasDesc && !spec.description.wrap.IsWordWrap()) ? natInnerW : intrinsicControlSize.x;
-        if (availableWidth > 0.0f) {
-            const float minOuterW = minNoCtrlInnerW + outerPad * 2.0f;
-            if (fillRatioOpt.has_value()) {
-                const float ratio = *fillRatioOpt;
-                const float effOuterW = (ratio > 0.0f)
-                    ? keel::min(availableWidth, keel::max(availableWidth * ratio, minOuterW))
-                    : 0.0f;
-                availableWidth = keel::max(0.0f, effOuterW - outerPad * 2.0f);
-            } else if (hasExplicitDpW) {
-                const float effOuterW = keel::min(availableWidth, keel::max(minOuterW, theme.Scale(*ctrlSpec.width)));
-                availableWidth = keel::max(0.0f, effOuterW - outerPad * 2.0f);
-            } else if (outerPad > 0.0f) {
-                availableWidth = keel::max(0.0f, availableWidth - outerPad * 2.0f);
-            }
-        }
-    } else {
-        if (availableWidth > 0.0f && outerPad > 0.0f) {
-            availableWidth = keel::max(0.0f, availableWidth - outerPad * 2.0f);
-        }
-        if (!stretchableCtrl && fillRatioOpt.has_value() && availableWidth > 0.0f) {
-            const float ratio = *fillRatioOpt;
-            availableWidth = (ratio > 0.0f)
-                ? keel::min(availableWidth, keel::max(availableWidth * ratio, intrinsicControlSize.x))
-                : 0.0f;
-        }
+        minNoCtrlW = (hasDesc && !spec.description.wrap.IsWordWrap()) ? natW : intrinsicControlSize.x;
     }
 
-    const auto applyFixedWidthAndOuterPad = [&](Vec2 measured) noexcept -> Vec2 {
-        if (spec.hasControl && !stretchableCtrl && hasExplicitDpW) {
-            measured.x = keel::max(measured.x, theme.Scale(*ctrlSpec.width));
-        }
-        if (outerPad > 0.0f) {
-            measured.x += outerPad * 2.0f;
-            measured.y += outerPad * 2.0f;
-        }
-        if (!spec.hasControl && hasExplicitDpW) {
-            measured.x = keel::max(measured.x, theme.Scale(*ctrlSpec.width));
+    if (hasOuterDpW) {
+        const float targetW = spec.hasControl
+            ? theme.Scale(spec.width.Dp())
+            : keel::max(minNoCtrlW, theme.Scale(spec.width.Dp()));
+        availableWidth = (availableWidth > 0.0f) ? keel::min(availableWidth, targetW) : targetW;
+    }
+
+    const auto applyOuterFixedWidth = [&](Vec2 measured) noexcept -> Vec2 {
+        if (hasOuterDpW) {
+            measured.x = spec.hasControl
+                ? theme.Scale(spec.width.Dp())
+                : keel::max(measured.x, theme.Scale(spec.width.Dp()));
         }
         return measured;
     };
 
     if (!hasExternal) {
-        return applyFixedWidthAndOuterPad(intrinsicControlSize);
+        return applyOuterFixedWidth(intrinsicControlSize);
     }
 
     const Vec2 rawLabelBar = hasLabel ? MeasureLabelBar(spec, labelFontSize, canvas, theme) : Vec2{0.0f, 0.0f};
-    const float rawLabelW = rawLabelBar.x;
-
-    float effLabelW = rawLabelW;
+    float effLabelW = rawLabelBar.x;
     float effDescW = rawDescW;
-    if (spec.layout != ElementLayout::Inline && spec.stretch == StretchMode::Compact && stretchableCtrl) {
+
+    if (!IsInlineElementLayout(spec.layout) && outerIsFit && ctrlStretchesW) {
         if (spec.label.wrap.IsWordWrap()) {
-            effLabelW = keel::min(rawLabelW, intrinsicControlSize.x);
+            effLabelW = keel::min(effLabelW, intrinsicControlSize.x);
         }
         const float baseW = keel::max(intrinsicControlSize.x, effLabelW);
         if (spec.description.wrap.IsWordWrap()) {
-            effDescW = keel::min(rawDescW, baseW);
+            effDescW = keel::min(effDescW, baseW);
         }
-    } else if (!spec.hasControl && hasExplicitDpW && spec.description.wrap.IsWordWrap()) {
-        const float targetInnerW = keel::max(minNoCtrlInnerW, theme.Scale(*ctrlSpec.width) - outerPad * 2.0f);
-        const float maxDescW = (spec.layout == ElementLayout::Inline)
-            ? keel::max(0.0f, targetInnerW - intrinsicControlSize.x - spec.inlineGap)
-            : targetInnerW;
+    } else if (!spec.hasControl && hasOuterDpW && spec.description.wrap.IsWordWrap()) {
+        const float targetW = keel::max(minNoCtrlW, theme.Scale(spec.width.Dp()));
+        const float maxDescW = IsInlineElementLayout(spec.layout)
+            ? keel::max(0.0f, targetW - intrinsicControlSize.x - spec.inlineGap)
+            : targetW;
         effDescW = keel::min(rawDescW, maxDescW);
     }
 
     float textWrapW = availableWidth;
-    if (!stretchableCtrl && hasExplicitDpW) {
-        const float fixedW = spec.hasControl
-            ? theme.Scale(*ctrlSpec.width)
-            : keel::max(minNoCtrlInnerW, theme.Scale(*ctrlSpec.width) - outerPad * 2.0f);
-        textWrapW = (availableWidth > 0.0f) ? keel::min(availableWidth, fixedW) : fixedW;
+    if (spec.hasControl && spec.control.width.IsFixed() && outerIsFit) {
+        const float fixedCtrlW = theme.Scale(spec.control.width.Dp());
+        textWrapW = (availableWidth > 0.0f) ? keel::min(availableWidth, fixedCtrlW) : fixedCtrlW;
     }
-    if (spec.layout == ElementLayout::Inline) {
+    if (IsInlineElementLayout(spec.layout)) {
         if (textWrapW > 0.0f) {
-            float ctrlW = keel::min(textWrapW, intrinsicControlSize.x);
-            if (stretchableCtrl && fillRatioOpt.has_value()) {
-                const float ratio = *fillRatioOpt;
-                ctrlW = (ratio < 1.0f && ratio > 0.0f)
-                    ? keel::min(textWrapW, keel::max(textWrapW * ratio, intrinsicControlSize.x))
-                    : (textWrapW * ratio);
-            }
+            const float ctrlW = keel::min(textWrapW, intrinsicControlSize.x);
             textWrapW = keel::max(0.0f, textWrapW - ctrlW - spec.inlineGap);
         }
-    } else if (spec.stretch == StretchMode::Compact && stretchableCtrl) {
+    } else if (outerIsFit && ctrlStretchesW) {
         const float compactBlockW = keel::max(intrinsicControlSize.x, keel::max(effLabelW, effDescW));
         textWrapW = (availableWidth > 0.0f) ? keel::min(availableWidth, compactBlockW) : compactBlockW;
     }
 
-    Vec2 labelDims = {0.0f, 0.0f};
+    Vec2 labelDims{0.0f, 0.0f};
     if (hasLabel) {
         const float lineH = canvas ? canvas->GetLineHeight(labelFontSize) : theme.GetLineHeight(labelFontSize);
         const float wrappedH = spec.label.HasContentOrReserve()
@@ -537,7 +630,7 @@ Vec2 Element::Measure(
         labelDims = {effLabelW, keel::max(rawLabelBar.y, wrappedH)};
     }
 
-    Vec2 descDims = {0.0f, 0.0f};
+    Vec2 descDims{0.0f, 0.0f};
     if (hasDesc) {
         const float lineH = canvas ? canvas->GetLineHeight(descFontSize) : theme.GetLineHeight(descFontSize);
         const float h = TextUtil::MeasureUiTextHeight(spec.description, textWrapW, descFontSize, lineH, canvas, &theme);
@@ -549,20 +642,18 @@ Vec2 Element::Measure(
         float totalH = intrinsicControlSize.y;
         if (hasLabel) totalH += labelDims.y + spec.labelGap;
         if (hasDesc)  totalH += spec.descGap + descDims.y;
-        return applyFixedWidthAndOuterPad({totalW, totalH});
+        return applyOuterFixedWidth({totalW, totalH});
     }
 
-    const HeadingMetrics& hm = spec.headingTypography
-        ? theme.GetHeading(spec.headingLevel, spec.widgetSize)
-        : theme.GetHeading(spec.widgetSize);
-    const float adjacentTextGap = keel::min(spec.descGap, hm.lineGap);
+    const ComponentMetrics& cm = theme.GetMetrics(spec.widgetSize);
+    const float adjacentTextGap = keel::min(spec.descGap, cm.lineGap);
 
     if (spec.layout == ElementLayout::Top) {
         const float totalW = keel::max(intrinsicControlSize.x, keel::max(labelDims.x, descDims.x));
         float textH = 0.0f;
         if (hasLabel) textH += labelDims.y;
         if (hasDesc)  textH += (hasLabel ? adjacentTextGap : 0.0f) + descDims.y;
-        return applyFixedWidthAndOuterPad({totalW, textH + spec.labelGap + intrinsicControlSize.y});
+        return applyOuterFixedWidth({totalW, textH + spec.labelGap + intrinsicControlSize.y});
     }
 
     if (spec.layout == ElementLayout::Bottom) {
@@ -570,10 +661,10 @@ Vec2 Element::Measure(
         float textH = 0.0f;
         if (hasLabel) textH += labelDims.y;
         if (hasDesc)  textH += (hasLabel ? adjacentTextGap : 0.0f) + descDims.y;
-        return applyFixedWidthAndOuterPad({totalW, intrinsicControlSize.y + spec.descGap + textH});
+        return applyOuterFixedWidth({totalW, intrinsicControlSize.y + spec.descGap + textH});
     }
 
-    // ElementLayout::Inline
+    // ElementLayout::Leading / ElementLayout::Trailing
     const float textW = keel::max(labelDims.x, descDims.x);
     const bool hasAnyText = (textW > 0.0f) || hasLabel || hasDesc;
     float textH = 0.0f;
@@ -586,7 +677,7 @@ Vec2 Element::Measure(
     }
     const float totalW = intrinsicControlSize.x + (hasAnyText && textW > 0.0f ? spec.inlineGap + textW : 0.0f);
     const float totalH = keel::max(intrinsicControlSize.y, textH);
-    return applyFixedWidthAndOuterPad({totalW, totalH});
+    return applyOuterFixedWidth({totalW, totalH});
 }
 
 ElementGeometry Element::Resolve(
@@ -597,23 +688,22 @@ ElementGeometry Element::Resolve(
     const UiTheme& theme
 ) noexcept {
     ElementGeometry geom{};
-    geom.outerBounds = bounds;
+    geom.bounds = bounds;
     geom.labelFontSize = ResolveLabelFontSize(spec, theme);
     geom.descFontSize = ResolveDescFontSize(spec, theme);
 
-    const float outerPad = ComputeOuterPadding(spec, theme);
-
-    const ControlSpec ctrlSpec = EffectiveControlSpec(spec);
     if (!spec.hasControl) {
         intrinsicControlSize = MeasureLabelBar(spec, geom.labelFontSize, canvas, theme);
     } else {
-        intrinsicControlSize = Control::Measure(intrinsicControlSize, ctrlSpec, spec.stretch, spec.widgetSize, theme);
+        intrinsicControlSize = Control::Measure(intrinsicControlSize, spec.control, theme);
     }
 
-    const bool stretchableCtrl = spec.hasControl ? ctrlSpec.stretchable : false;
-    const bool stretchStandaloneH = spec.hasControl ? ctrlSpec.stretchHeightWhenStandalone : false;
-    const bool hasExplicitDpW = Control::HasExplicitDpWidth(spec.stretch, ctrlSpec.width, ctrlSpec.widthRatio);
-    const keel::Optional<float> fillRatioOpt = Control::ResolveFillRatio(spec.stretch, ctrlSpec.width, ctrlSpec.widthRatio);
+    const bool hasOuterDpW = spec.width.IsFixed();
+    const bool outerIsFit = spec.width.IsFit();
+    const bool ctrlStretchesW = spec.hasControl &&
+        (spec.control.width.ResolveMode(spec.control.defaultWidthMode) == SizeMode::Stretch);
+    const bool ctrlStretchesH = spec.hasControl &&
+        (spec.control.height.ResolveMode(spec.control.defaultHeightMode) == SizeMode::Stretch);
 
     geom.hasLabel = spec.hasControl && HasLabelBar(spec);
     geom.hasDesc = spec.description.HasContentOrReserve();
@@ -625,64 +715,33 @@ ElementGeometry Element::Resolve(
         const float rawDescW = geom.hasDesc
             ? TextUtil::MeasureUiTextWidth(spec.description, geom.descFontSize, canvas)
             : 0.0f;
-        const float natInnerW = (spec.layout == ElementLayout::Inline)
+        const float natW = IsInlineElementLayout(spec.layout)
             ? (intrinsicControlSize.x + (geom.hasDesc && rawDescW > 0.0f ? spec.inlineGap + rawDescW : 0.0f))
             : keel::max(intrinsicControlSize.x, rawDescW);
-        const float minInnerW = (geom.hasDesc && !spec.description.wrap.IsWordWrap())
-            ? natInnerW
-            : intrinsicControlSize.x;
-        const float minOuterW = minInnerW + outerPad * 2.0f;
-        const float natOuterW = natInnerW + outerPad * 2.0f;
+        const float minW = (geom.hasDesc && !spec.description.wrap.IsWordWrap()) ? natW : intrinsicControlSize.x;
 
-        if (fillRatioOpt.has_value()) {
-            const float ratio = *fillRatioOpt;
-            const float effOuterW = (ratio > 0.0f)
-                ? keel::min(geom.outerBounds.w, keel::max(geom.outerBounds.w * ratio, minOuterW))
-                : 0.0f;
-            geom.outerBounds.x += (geom.outerBounds.w - effOuterW) * alignFactor;
-            geom.outerBounds.w = effOuterW;
-        } else if (hasExplicitDpW) {
-            const float effOuterW = keel::min(geom.outerBounds.w, keel::max(minOuterW, theme.Scale(*ctrlSpec.width)));
-            geom.outerBounds.x += (geom.outerBounds.w - effOuterW) * alignFactor;
-            geom.outerBounds.w = effOuterW;
-        } else if (spec.stretch == StretchMode::Compact) {
-            const float effOuterW = keel::min(geom.outerBounds.w, natOuterW);
-            geom.outerBounds.x += (geom.outerBounds.w - effOuterW) * alignFactor;
-            geom.outerBounds.w = effOuterW;
+        if (hasOuterDpW) {
+            geom.bounds.w = keel::min(geom.bounds.w, keel::max(minW, theme.Scale(spec.width.Dp())));
+        } else if (outerIsFit) {
+            geom.bounds.w = keel::min(geom.bounds.w, natW);
         }
+    } else if (hasOuterDpW) {
+        geom.bounds.w = keel::min(geom.bounds.w, theme.Scale(spec.width.Dp()));
     }
 
-    bounds = (outerPad > 0.0f) ? geom.outerBounds.Inset(outerPad) : geom.outerBounds;
-
-    if (spec.hasControl && !stretchableCtrl && !(geom.hasExternal && spec.layout == ElementLayout::Inline)) {
-        if (fillRatioOpt.has_value()) {
-            const float ratio = *fillRatioOpt;
-            const float effW = (ratio > 0.0f)
-                ? keel::min(bounds.w, keel::max(bounds.w * ratio, intrinsicControlSize.x))
-                : 0.0f;
-            bounds.x += (bounds.w - effW) * alignFactor;
-            bounds.w = effW;
-        }
-    }
+    bounds = geom.bounds;
+    const bool compactOuter = outerIsFit;
 
     float ctrlW = keel::min(bounds.w, intrinsicControlSize.x);
-    if (stretchableCtrl && !hasExplicitDpW && (spec.stretch == StretchMode::Fill || fillRatioOpt.has_value())) {
-        if (!geom.hasExternal || spec.layout != ElementLayout::Inline || fillRatioOpt.has_value()) {
-            const float ratio = fillRatioOpt.value_or(1.0f);
-            ctrlW = (ratio < 1.0f && ratio > 0.0f)
-                ? keel::min(bounds.w, keel::max(bounds.w * ratio, intrinsicControlSize.x))
-                : (bounds.w * ratio);
-        }
+    if (ctrlStretchesW && (!geom.hasExternal || !IsInlineElementLayout(spec.layout))) {
+        ctrlW = compactOuter ? keel::min(bounds.w, intrinsicControlSize.x) : bounds.w;
     }
 
     if (!geom.hasExternal) {
         const float ctrlX = bounds.x + (bounds.w - ctrlW) * alignFactor;
-        const float ctrlH = stretchStandaloneH ? bounds.h : keel::min(intrinsicControlSize.y, bounds.h);
-        const float ctrlY = stretchStandaloneH ? bounds.y : (bounds.y + (bounds.h - ctrlH) * 0.5f);
+        const float ctrlH = ctrlStretchesH ? bounds.h : keel::min(intrinsicControlSize.y, bounds.h);
+        const float ctrlY = ctrlStretchesH ? bounds.y : (bounds.y + (bounds.h - ctrlH) * 0.5f);
         geom.controlRect = Rect(ctrlX, ctrlY, ctrlW, ctrlH);
-        geom.innerControlRect = spec.hasControl
-            ? Control::ResolveInnerRect(geom.controlRect, ctrlSpec, spec.widgetSize, theme)
-            : geom.controlRect;
         return geom;
     }
 
@@ -697,14 +756,13 @@ ElementGeometry Element::Resolve(
     if (geom.hasLabel) {
         geom.measuredLabelW = rawLabelBar.x;
     }
-
     if (geom.hasDesc) {
         geom.measuredDescW = TextUtil::MeasureUiTextWidth(spec.description, geom.descFontSize, canvas);
     }
 
     float effLabelW = geom.measuredLabelW;
     float effDescW = geom.measuredDescW;
-    if (spec.layout != ElementLayout::Inline && spec.stretch == StretchMode::Compact && stretchableCtrl) {
+    if (!IsInlineElementLayout(spec.layout) && compactOuter && ctrlStretchesW) {
         if (spec.label.wrap.IsWordWrap()) {
             effLabelW = keel::min(effLabelW, ctrlW);
         }
@@ -715,7 +773,8 @@ ElementGeometry Element::Resolve(
     }
 
     const float measuredTextW = keel::max(effLabelW, effDescW);
-    const bool compactNaturalBlock = (spec.stretch == StretchMode::Compact) && (stretchableCtrl || !ctrlSpec.width.has_value());
+    const ComponentMetrics& cm = theme.GetMetrics(spec.widgetSize);
+    const float adjacentTextGap = keel::min(spec.descGap, cm.lineGap);
 
     const auto resolveLabelH = [&](float availW) noexcept -> float {
         if (!geom.hasLabel) return 0.0f;
@@ -726,14 +785,17 @@ ElementGeometry Element::Resolve(
     };
 
     if (spec.layout == ElementLayout::Stacked) {
-        const float blockW = compactNaturalBlock ? keel::min(bounds.w, keel::max(ctrlW, measuredTextW)) : bounds.w;
+        const float blockW = compactOuter ? keel::min(bounds.w, keel::max(ctrlW, measuredTextW)) : bounds.w;
+        if (compactOuter && ctrlStretchesW) {
+            ctrlW = blockW;
+        }
         const float labelH = resolveLabelH(blockW);
         const float descH = geom.hasDesc
             ? TextUtil::MeasureUiTextHeight(spec.description, blockW, geom.descFontSize, descLineH, canvas, &theme)
             : 0.0f;
         const float nonCtrlH = (geom.hasLabel ? labelH + spec.labelGap : 0.0f) + (geom.hasDesc ? descH + spec.descGap : 0.0f);
         const float availCtrlH = keel::max(0.0f, bounds.h - nonCtrlH);
-        const float ctrlH = stretchStandaloneH ? availCtrlH : keel::min(intrinsicControlSize.y, availCtrlH);
+        const float ctrlH = ctrlStretchesH ? availCtrlH : keel::min(intrinsicControlSize.y, availCtrlH);
         const float blockX = bounds.x;
         const float ctrlX = blockX + (blockW - ctrlW) * alignFactor;
 
@@ -748,18 +810,17 @@ ElementGeometry Element::Resolve(
             geom.descRect = Rect(blockX, curY, blockW, descH);
         }
     } else if (spec.layout == ElementLayout::Top) {
-        const HeadingMetrics& hm = spec.headingTypography
-            ? theme.GetHeading(spec.headingLevel, spec.widgetSize)
-            : theme.GetHeading(spec.widgetSize);
-        const float adjacentTextGap = keel::min(spec.descGap, hm.lineGap);
-        const float blockW = compactNaturalBlock ? keel::min(bounds.w, keel::max(ctrlW, measuredTextW)) : bounds.w;
+        const float blockW = compactOuter ? keel::min(bounds.w, keel::max(ctrlW, measuredTextW)) : bounds.w;
+        if (compactOuter && ctrlStretchesW) {
+            ctrlW = blockW;
+        }
         const float labelH = resolveLabelH(blockW);
         const float descH = geom.hasDesc
             ? TextUtil::MeasureUiTextHeight(spec.description, blockW, geom.descFontSize, descLineH, canvas, &theme)
             : 0.0f;
         const float textTotalH = (geom.hasLabel ? labelH : 0.0f) + (geom.hasDesc ? (geom.hasLabel ? adjacentTextGap : 0.0f) + descH : 0.0f) + spec.labelGap;
         const float availCtrlH = keel::max(0.0f, bounds.h - textTotalH);
-        const float ctrlH = stretchStandaloneH ? availCtrlH : keel::min(intrinsicControlSize.y, availCtrlH);
+        const float ctrlH = ctrlStretchesH ? availCtrlH : keel::min(intrinsicControlSize.y, availCtrlH);
         const float blockX = bounds.x;
         const float ctrlX = blockX + (blockW - ctrlW) * alignFactor;
 
@@ -775,18 +836,17 @@ ElementGeometry Element::Resolve(
         curY += spec.labelGap;
         geom.controlRect = Rect(ctrlX, curY, ctrlW, ctrlH);
     } else if (spec.layout == ElementLayout::Bottom) {
-        const HeadingMetrics& hm = spec.headingTypography
-            ? theme.GetHeading(spec.headingLevel, spec.widgetSize)
-            : theme.GetHeading(spec.widgetSize);
-        const float adjacentTextGap = keel::min(spec.descGap, hm.lineGap);
-        const float blockW = compactNaturalBlock ? keel::min(bounds.w, keel::max(ctrlW, measuredTextW)) : bounds.w;
+        const float blockW = compactOuter ? keel::min(bounds.w, keel::max(ctrlW, measuredTextW)) : bounds.w;
+        if (compactOuter && ctrlStretchesW) {
+            ctrlW = blockW;
+        }
         const float labelH = resolveLabelH(blockW);
         const float descH = geom.hasDesc
             ? TextUtil::MeasureUiTextHeight(spec.description, blockW, geom.descFontSize, descLineH, canvas, &theme)
             : 0.0f;
         const float textTotalH = spec.descGap + (geom.hasLabel ? labelH : 0.0f) + (geom.hasDesc ? (geom.hasLabel ? adjacentTextGap : 0.0f) + descH : 0.0f);
         const float availCtrlH = keel::max(0.0f, bounds.h - textTotalH);
-        const float ctrlH = stretchStandaloneH ? availCtrlH : keel::min(intrinsicControlSize.y, availCtrlH);
+        const float ctrlH = ctrlStretchesH ? availCtrlH : keel::min(intrinsicControlSize.y, availCtrlH);
         const float blockX = bounds.x;
         const float ctrlX = blockX + (blockW - ctrlW) * alignFactor;
 
@@ -800,27 +860,14 @@ ElementGeometry Element::Resolve(
         if (geom.hasDesc) {
             geom.descRect = Rect(blockX, curY, blockW, descH);
         }
-    } else { // ElementLayout::Inline
-        const HeadingMetrics& hm = spec.headingTypography
-            ? theme.GetHeading(spec.headingLevel, spec.widgetSize)
-            : theme.GetHeading(spec.widgetSize);
-        const float adjacentTextGap = keel::min(spec.descGap, hm.lineGap);
+    } else { // ElementLayout::Leading / ElementLayout::Trailing
         const float gap = spec.inlineGap;
-        if (stretchableCtrl && spec.stretch == StretchMode::Fill && !hasExplicitDpW && !fillRatioOpt.has_value()) {
+        if (ctrlStretchesW && !compactOuter) {
             ctrlW = keel::max(0.0f, bounds.w - measuredTextW - gap);
         }
-        float colW = ctrlW;
-        if (spec.hasControl && !stretchableCtrl && fillRatioOpt.has_value()) {
-            const float ratio = *fillRatioOpt;
-            colW = (ratio < 1.0f && ratio > 0.0f)
-                ? keel::min(bounds.w, keel::max(bounds.w * ratio, ctrlW))
-                : (bounds.w * ratio);
-        } else if (spec.hasControl && !stretchableCtrl && hasExplicitDpW && spec.stretch == StretchMode::Fill) {
-            colW = keel::min(bounds.w, keel::max(theme.Scale(*ctrlSpec.width), ctrlW));
-        }
-        const float availTextW = keel::max(0.0f, bounds.w - colW - gap);
+        const float availTextW = keel::max(0.0f, bounds.w - ctrlW - gap);
         const float textBlockW = (spec.label.wrap.IsWordWrap() || spec.description.wrap.IsWordWrap())
-            ? (compactNaturalBlock ? keel::min(measuredTextW, availTextW) : availTextW)
+            ? (compactOuter ? keel::min(measuredTextW, availTextW) : availTextW)
             : keel::min(measuredTextW, availTextW);
 
         const float labelH = resolveLabelH(textBlockW);
@@ -830,16 +877,15 @@ ElementGeometry Element::Resolve(
 
         const float totalTextH = (geom.hasLabel && geom.hasDesc) ? (labelH + adjacentTextGap + descH) : (geom.hasLabel ? labelH : descH);
         const float startY = bounds.y + (bounds.h - totalTextH) * 0.5f;
-        const float ctrlH = stretchStandaloneH ? bounds.h : keel::min(intrinsicControlSize.y, bounds.h);
+        const float ctrlH = ctrlStretchesH ? bounds.h : keel::min(intrinsicControlSize.y, bounds.h);
 
         const bool controlSlotOnRight = spec.hasControl
-            ? (spec.inlineOrder == InlineOrder::LabelFirst)
-            : (spec.inlineOrder == InlineOrder::ControlFirst);
+            ? (spec.layout == ElementLayout::Leading)
+            : (spec.layout == ElementLayout::Trailing);
         if (controlSlotOnRight) {
-            float ctrlX = (bounds.x + bounds.w - colW) + (colW - ctrlW) * alignFactor;
-            if (compactNaturalBlock) {
-                ctrlX = bounds.x + (textBlockW > 0.0f ? textBlockW + gap : 0.0f);
-            }
+            const float ctrlX = compactOuter
+                ? (bounds.x + (textBlockW > 0.0f ? textBlockW + gap : 0.0f))
+                : (bounds.Right() - ctrlW);
             geom.controlRect = Rect(ctrlX, bounds.y + (bounds.h - ctrlH) * 0.5f, ctrlW, ctrlH);
 
             float textY = startY;
@@ -851,16 +897,14 @@ ElementGeometry Element::Resolve(
                 geom.descRect = Rect(bounds.x, textY, textBlockW, descH);
             }
         } else {
-            // InlineOrder::ControlFirst
-            const float ctrlX = compactNaturalBlock
+            // ElementLayout::Trailing ([Control] Label)
+            const float contentW = ctrlW + (textBlockW > 0.0f ? gap + textBlockW : 0.0f);
+            const float groupStartX = compactOuter
                 ? bounds.x
-                : (bounds.x + (colW - ctrlW) * alignFactor);
-            geom.controlRect = Rect(ctrlX, bounds.y + (bounds.h - ctrlH) * 0.5f, ctrlW, ctrlH);
+                : (bounds.x + keel::max(0.0f, bounds.w - contentW) * alignFactor);
+            geom.controlRect = Rect(groupStartX, bounds.y + (bounds.h - ctrlH) * 0.5f, ctrlW, ctrlH);
 
-            float textX = bounds.x + colW + gap;
-            if (!compactNaturalBlock) {
-                textX = keel::max(bounds.x + colW + gap, bounds.x + bounds.w - textBlockW);
-            }
+            const float textX = groupStartX + ctrlW + gap;
             float textY = startY;
             if (geom.hasLabel) {
                 geom.labelRect = Rect(textX, textY, textBlockW, labelH);
@@ -872,61 +916,7 @@ ElementGeometry Element::Resolve(
         }
     }
 
-    geom.innerControlRect = spec.hasControl
-        ? Control::ResolveInnerRect(geom.controlRect, ctrlSpec, spec.widgetSize, theme)
-        : geom.controlRect;
     return geom;
-}
-
-void Element::RenderFrame(
-    ICanvas& canvas,
-    const ElementGeometry& geom,
-    const ElementSpec& spec,
-    const UiTheme& theme
-) noexcept {
-    if (!HasOuterFrame(spec) || geom.outerBounds.w <= 0.0f || geom.outerBounds.h <= 0.0f) {
-        return;
-    }
-
-    const ComponentMetrics& cm = theme.GetMetrics(spec.widgetSize);
-    const float radius = spec.border.radius.has_value()
-        ? theme.Scale(*spec.border.radius)
-        : cm.cornerRadius;
-
-    const auto& pal = theme.palette;
-    const Color resolvedBorderAccent = theme.ResolveColor(
-        spec.border.color,
-        spec.hovered,
-        spec.active,
-        spec.disabled,
-        pal.borderSubtle,
-        pal.borderHover,
-        pal.focusRing,
-        pal.borderSubtle.WithAlphaF(0.40f)
-    );
-
-    Color bg = Color::Transparent();
-    if (spec.background.IsBackgroundEnabled(false)) {
-        const bool interactiveBg = !spec.background.IsSurface();
-        bg = theme.ResolveColor(
-            spec.background,
-            interactiveBg && spec.hovered,
-            interactiveBg && spec.active,
-            spec.disabled,
-            pal.surface,
-            pal.surfaceHover,
-            pal.surfaceActive,
-            pal.surface.WithAlphaF(0.40f)
-        );
-    }
-
-    const float strokeW = (spec.border.width > 0.0f) ? theme.Scale(spec.border.width) : 0.0f;
-    Color borderCol = Color::Transparent();
-    if (strokeW > 0.0f) {
-        borderCol = resolvedBorderAccent;
-    }
-
-    canvas.DrawRoundRect(geom.outerBounds, radius, bg, borderCol, strokeW);
 }
 
 void Element::RenderText(
@@ -935,24 +925,18 @@ void Element::RenderText(
     const ElementSpec& spec,
     const UiTheme& theme
 ) noexcept {
-    RenderFrame(canvas, geom, spec, theme);
-
     const float alignFactor = (spec.align == Align::End) ? 1.0f : ((spec.align == Align::Center) ? 0.5f : 0.0f);
-    const UiVariant defaultLabelVar = UiVariant::Default;
-    const UiVariant defaultDescVar = spec.headingTypography ? UiVariant::Secondary : UiVariant::Muted;
-
-    const Color labelCol = theme.ResolveTextColor(spec.label, defaultLabelVar, spec.disabled, spec.hovered, spec.active);
-    const Color descCol = theme.ResolveTextColor(spec.description, defaultDescVar, spec.disabled, spec.hovered, spec.active);
-    const HeadingMetrics& m = spec.headingTypography
-        ? theme.GetHeading(spec.headingLevel, spec.widgetSize)
-        : theme.GetHeading(spec.widgetSize);
+    const Color labelCol = theme.ResolveTextColor(spec.label, UiVariant::Default, spec.disabled, spec.hovered, spec.active);
+    const Color descCol = theme.ResolveTextColor(spec.description, UiVariant::Muted, spec.disabled, spec.hovered, spec.active);
+    const UiSize effSize = (spec.widgetSize == UiSize::None) ? UiSize::Md : spec.widgetSize;
+    const ComponentMetrics& m = theme.GetMetrics(effSize);
     const auto& pal = theme.palette;
     const float badgeFont = (spec.badge.size.px > 0.0f)
         ? spec.badge.size.px
         : (spec.badge.size.role.has_value()
             ? theme.GetTypography(*spec.badge.size.role).fontSize
             : (spec.badge.size.preset != UiSize::None
-                ? theme.GetHeading(spec.badge.size.preset).badgeFontSize
+                ? theme.GetMetrics(spec.badge.size.preset).badgeFontSize
                 : m.badgeFontSize));
 
     const bool hasDecoratedLabelBar = !spec.hasControl || spec.icon.IsValid() || !spec.badge.empty();
@@ -974,7 +958,7 @@ void Element::RenderText(
         if (spec.icon.IsValid()) {
             const float iconY = topY + (titleLineH - m.iconSize) * 0.5f;
             spec.icon.Draw(canvas, Rect(curX, iconY, m.iconSize, m.iconSize), labelCol);
-            curX += m.iconSize + ((spec.label.HasContentOrReserve() || !spec.badge.empty()) ? m.gap : 0.0f);
+            curX += m.iconSize + ((spec.label.HasContentOrReserve() || !spec.badge.empty()) ? m.itemGap : 0.0f);
         }
 
         if (!spec.label.empty()) {

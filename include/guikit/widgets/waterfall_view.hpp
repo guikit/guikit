@@ -73,8 +73,6 @@ struct WaterfallTrack {
 
 /// Configuration options for the autonomous WaterfallView (RTSA Spectrum & DOA/BTR Tracker) widget.
 struct WaterfallViewOptions {
-    Align align{Align::Start};
-
     // --- Domain Mode, Layout & Ring-Buffer Geometry ---
     WaterfallMode mode{WaterfallMode::SpectrumRtsa};
     WaterfallLayout viewLayout{WaterfallLayout::SplitTraceAndWaterfall};
@@ -131,11 +129,8 @@ struct WaterfallViewOptions {
     bool requestClearHistory{false};
 
     // --- Sizing & Styling ---
-    StretchMode stretch{StretchMode::Fill};
-    keel::Optional<float> width{keel::kNullOpt};
-    keel::Optional<float> widthRatio{keel::kNullOpt};
-    keel::Optional<float> height{keel::kNullOpt};
-    SizeMode heightMode{SizeMode::Stretch};
+    AxisSize width{};                     ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or `Fixed(dp)`)
+    AxisSize height{SizeMode::Stretch};   ///< Vertical sizing policy (`Stretch` default, `Fit`, or `Fixed(dp)`)
     StateColor background{};
     Border border{};
     bool disabled{false};

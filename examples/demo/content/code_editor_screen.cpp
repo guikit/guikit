@@ -563,7 +563,7 @@ void RenderCodeEditorStage(guikit::Context& ui, DemoContext& ctx) {
             .zoom = s_state.zoom,
             .syntax = synCfg,
             .syntaxPalette = synPalette,
-            .heightMode = guikit::SizeMode::Stretch,
+            .height = guikit::SizeMode::Stretch,
             .showMinimap = s_state.showMinimap,
             .showStatusBar = s_state.showStatusBar,
             .showIndentGuides = s_state.showIndentGuides,
@@ -633,7 +633,7 @@ keel::String GenerateCodeEditorCode(const DemoContext& ctx) {
         "    .debugVariables = debugVariables,\n"
         "    .syntax = {},\n"
         "    .syntaxPalette = {},\n"
-        "    .heightMode = guikit::SizeMode::Stretch\n"
+        "    .height = guikit::SizeMode::Stretch\n"
         "}});\n"
         "if (resp.debugAction == guikit::CodeDebugAction::StepOver) {{\n"
         "    StepDebugger();\n"

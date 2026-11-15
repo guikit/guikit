@@ -64,6 +64,11 @@ function(guikit_enforce_guidelines TARGET_NAME)
         FORBID_HEADERS ${_MERGED_FORBID}
         ALLOWED_INCLUDE_ROOTS ${_MERGED_INC_ROOTS}
     )
+
+    get_target_property(_GK_TARGET_TYPE "${TARGET_NAME}" TYPE)
+    if(NOT _GK_TARGET_TYPE STREQUAL "INTERFACE_LIBRARY" AND CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT MSVC)
+        target_compile_options("${TARGET_NAME}" PRIVATE -Werror=dangling)
+    endif()
 endfunction()
 
 function(guikit_embed_assets TARGET_NAME)

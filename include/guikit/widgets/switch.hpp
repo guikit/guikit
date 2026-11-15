@@ -18,14 +18,7 @@ struct SwitchOptions {
     UiText textRight{};                            ///< Optional companion text inside control to the right of the switch track (on state)
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
     StateColor color{};                            ///< Per-state accent fill color when switched ON
-    Align align{Align::Start};                     ///< Standalone control alignment (Start, Center, End)
     bool symmetric{false};                         ///< Neutral/symmetric track style (highlights active side label)
-    StretchMode stretch{StretchMode::Compact};     ///< Sizing behavior: Compact, Space, Fill
-    keel::Optional<float> width{keel::kNullOpt};      ///< Control width in dp (or legacy ratio 0.0..1.0 in Fill)
-    keel::Optional<float> widthRatio{keel::kNullOpt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
-    keel::Optional<float> height{keel::kNullOpt};     ///< Explicit control height in points (nullopt = auto from UiSize)
-    StateColor background{};                       ///< Per-state control well backdrop color (Default/None = off, Surface/Primary/etc. = on)
-    Border border{};                               ///< Control well border stroke & corner radius configuration
     bool disabled{false};                          ///< Interaction suppression
     const UiTheme* theme{nullptr};                 ///< Optional scoped theme override
     keel::Optional<float> scale{keel::kNullOpt};      ///< Optional scoped scale factor override

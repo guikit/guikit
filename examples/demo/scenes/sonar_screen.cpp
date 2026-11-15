@@ -439,7 +439,7 @@ void RenderSonarInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         }
     }
 
-    ui.Size(guikit::UiSize::Xs).Heading({.label = "Processing", .separator = guikit::HeadingSeparator::Bottom});
+    ui.Heading({.label = "Processing", .level = guikit::HeadingLevel::H6, .separator = guikit::HeadingSeparator::Bottom});
 
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({
         .label = "Gain",
@@ -488,7 +488,7 @@ void RenderSonarInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         }
     }
 
-    ui.Size(guikit::UiSize::Xs).Heading({.label = "Overlays", .separator = guikit::HeadingSeparator::Bottom});
+    ui.Heading({.label = "Overlays", .level = guikit::HeadingLevel::H6, .separator = guikit::HeadingSeparator::Bottom});
 
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Guard Zone"})) {
         ui.Size(guikit::UiSize::Sm).Checkbox(s_sonar.guardZoneEnabled);
@@ -516,7 +516,7 @@ void RenderSonarInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         .text = "Reset Zoom",
         .icon = guikit::Icon::Refresh(),
         .color = guikit::StateColor::Secondary(),
-        .stretch = guikit::StretchMode::Fill
+        .width = guikit::SizeMode::Stretch
     })) {
         s_sonar.requestResetView = true;
     }
@@ -564,7 +564,7 @@ void RenderSonarStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         .viewRangeZoom = &s_sonar.rangeZoom,
         .requestResetView = s_sonar.requestResetView,
         .requestClearPersistence = s_sonar.requestClearPersistence,
-        .heightMode = guikit::SizeMode::Stretch
+        .height = guikit::SizeMode::Stretch
     });
 
     s_sonar.requestResetView = false;
@@ -609,7 +609,7 @@ keel::String GenerateSonarCode(const DemoContext& /*ctx*/) {
         "    .selectedTargetId = &selectedTargetId,\n"
         "    .eblBearingDeg    = &eblBearingDeg,\n"
         "    .vrmRangeMeters   = &vrmRangeMeters,\n"
-        "    .heightMode       = guikit::SizeMode::Stretch\n"
+        "    .height           = guikit::SizeMode::Stretch\n"
         "}});\n"
         "if (resp.guardZoneAlarm) {{\n"
         "    // Handle perimeter intrusion ({} active diver/UUV contacts in guard sector)\n"

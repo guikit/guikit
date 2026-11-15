@@ -28,11 +28,8 @@ struct SegmentedItem {
 struct SegmentedOptions {
     UiText tooltip{};                              ///< Optional control-level floating tooltip on hover
     StateColor color{};                            ///< Active segment pill fill color (Default/None = elevated surface + accent border, or Primary/Success/etc.)
-    StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
-    Align align{Align::Start};                     ///< Standalone horizontal control alignment (Start, Center, End)
-    keel::Optional<float> width{keel::kNullOpt};      ///< Control width in dp (or legacy ratio 0.0..1.0 in Fill)
-    keel::Optional<float> widthRatio{keel::kNullOpt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
-    keel::Optional<float> height{keel::kNullOpt};     ///< Explicit control height in points (nullopt = inherit defaultHeight from UiSize)
+    AxisSize width{};                              ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit` in `Toolbar`, or `Fixed(dp)`)
+    AxisSize height{};                             ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
     keel::Optional<float> minWidth{keel::kNullOpt};   ///< Minimum control width constraint in points
     StateColor background{StateColor::Surface()};  ///< Outer capsule/track surface fill color
     Border border{};                               ///< Outer capsule/track border stroke & corner radius

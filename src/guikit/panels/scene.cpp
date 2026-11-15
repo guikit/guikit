@@ -53,17 +53,16 @@ Vec2 ComputeSceneControlSize(
     const float aspect = (defH > 0.0f) ? (defW / defH) : (16.0f / 9.0f);
 
     float ctrlW = defW;
-    if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f) {
-        const float ratio = keel::clamp(opts.width.value_or(1.0f), 0.01f, 1.0f);
-        ctrlW = availableWidth * ratio;
-    } else if (opts.width.has_value() && *opts.width > 0.0f) {
-        ctrlW = theme.Scale(*opts.width);
+    if (opts.width.IsFixed()) {
+        ctrlW = theme.Scale(opts.width.Dp());
+    } else if (opts.width.ResolveMode(SizeMode::Stretch) == SizeMode::Stretch && availableWidth > 0.0f) {
+        ctrlW = availableWidth;
     }
 
     float ctrlH = theme.Scale(opts.minHeight);
-    if (opts.height.has_value() && *opts.height > 0.0f) {
-        ctrlH = theme.Scale(*opts.height);
-    } else if (opts.heightMode == SizeMode::Fit && wb.has_value() && aspect > 0.0f) {
+    if (opts.height.IsFixed()) {
+        ctrlH = theme.Scale(opts.height.Dp());
+    } else if (opts.height.ResolveMode(SizeMode::Stretch) == SizeMode::Fit && wb.has_value() && aspect > 0.0f) {
         ctrlH = keel::max(theme.Scale(opts.minHeight), ctrlW / aspect);
     }
 
@@ -1124,8 +1123,7 @@ SceneScope Scene::OpenWithId(
     Id id,
     const SceneOptions& opts
 ) {
-    SceneOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
+    const SceneOptions& optsCopy = opts;
 
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool activeDisabled = optsCopy.disabled || ctx.IsDisabled();
@@ -1160,35 +1158,33 @@ SceneScope Scene::OpenWithId(
     node->renderFn = &Scene::RenderBackgroundAndWorld;
     node->postRenderFn = &Scene::RenderOverlays;
 
-    node->widthMode = (optsCopy.stretch != StretchMode::Compact) ? SizeMode::Stretch : optsCopy.widthMode;
-    node->heightMode = optsCopy.heightMode;
-    if (Control::HasExplicitDpWidth(optsCopy.stretch, optsCopy.width, optsCopy.widthRatio)) {
-        node->widthMode = SizeMode::Fixed;
-        node->fixedWidth = theme.Scale(*optsCopy.width);
-    }
-    if (optsCopy.height.has_value() && *optsCopy.height > 0.0f) {
-        node->heightMode = SizeMode::Fixed;
-        node->fixedHeight = theme.Scale(*optsCopy.height);
-    }
-    node->minHeight = optsCopy.height.has_value() ? theme.Scale(*optsCopy.height) : theme.Scale(optsCopy.minHeight);
-
+    const float effMinHeightDp = optsCopy.height.IsFixed()
+        ? optsCopy.height.Dp()
+        : optsCopy.minHeight;
     if (node->parent && node->parent->type == NodeType::Element) {
-        const bool stretchH = (optsCopy.heightMode == SizeMode::Stretch) && !optsCopy.height.has_value();
         Control::SetupNode(
             ctx,
             node,
             ControlSpec{
                 .width = optsCopy.width,
-                .widthRatio = optsCopy.widthRatio,
                 .height = optsCopy.height,
-                .defaultLayout = ElementLayout::Stacked,
-                .stretchable = true,
-                .stretchHeightWhenStandalone = stretchH,
-                .hasIntrinsicBox = true
-            },
-            optsCopy.stretch,
-            optsCopy.align
+                .defaultWidthMode = SizeMode::Stretch,
+                .defaultHeightMode = SizeMode::Stretch,
+                .minHeight = effMinHeightDp,
+                .defaultLayout = ElementLayout::Top
+            }
         );
+    } else {
+        node->widthMode = Control::ResolveWidthMode(ctx, optsCopy.width, SizeMode::Stretch);
+        if (optsCopy.width.IsFixed()) {
+            node->widthMode = SizeMode::Fixed;
+            node->fixedWidth = theme.Scale(optsCopy.width.Dp());
+        }
+        node->heightMode = Control::ResolveHeightMode(optsCopy.height, SizeMode::Stretch);
+        if (optsCopy.height.IsFixed()) {
+            node->fixedHeight = theme.Scale(optsCopy.height.Dp());
+        }
+        node->minHeight = theme.Scale(effMinHeightDp);
     }
 
     bool inScrollableAncestor = false;
@@ -1237,10 +1233,8 @@ SceneScope Scene::OpenWithId(
         optsCopy.gridStep,
         optsCopy.background,
         optsCopy.border,
-        static_cast<keel::u8>(optsCopy.stretch),
-        static_cast<keel::u8>(optsCopy.heightMode),
-        optsCopy.width.value_or(0.0f),
-        optsCopy.height.value_or(0.0f),
+        optsCopy.width,
+        optsCopy.height,
         optsCopy.showScrollbars,
         optsCopy.showControls,
         state.zoom,

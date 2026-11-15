@@ -29,13 +29,8 @@ struct LevelMeterOptions {
     keel::ArrayRef<keel::StringRef> channelLabels{};  ///< Optional per-channel labels (e.g. {"L", "R"} or {"CH1", "CH2"})
     keel::Optional<float> barThickness{keel::kNullOpt}; ///< Thickness of each channel bar in logical dp (nullopt = auto from UiSize)
     StateColor color{};                               ///< Base zone color override (defaults to Success when multiZoneColor is true, or Primary when false)
-    StretchMode stretch{StretchMode::Fill};
-    Align align{Align::Start};
-    keel::Optional<float> width{keel::kNullOpt};
-    keel::Optional<float> widthRatio{keel::kNullOpt};
-    keel::Optional<float> height{keel::kNullOpt};
-    StateColor background{};
-    Border border{};
+    AxisSize width{};                                 ///< Horizontal sizing policy (`Auto`: `Stretch` when Horizontal, `Fit` when Vertical; or `Fit`/`Stretch`/`Fixed(dp)`)
+    AxisSize height{};                                ///< Vertical sizing policy (`Auto`: `Fit` when Horizontal, `Stretch` when Vertical; or `Fit`/`Stretch`/`Fixed(dp)`)
     UiText tooltip{};
     bool disabled{false};
     const UiTheme* theme{nullptr};

@@ -45,13 +45,12 @@ struct UiTheme {
     // 7. Corner radius scale per UiSize (6 sizes)
     keel::StaticArray<float, 6> radius{};
 
-    // 8. Specific widget metrics per UiSize (6 sizes each)
+    // 8. Specific widget metrics per UiSize (6 sizes each), plus section HeadingMetrics per HeadingLevel (H1..H6)
     keel::StaticArray<SwitchMetrics, 6>     switches{};
     keel::StaticArray<CheckboxMetrics, 6>   checkboxes{};
     keel::StaticArray<InputFieldMetrics, 6> inputs{};
     keel::StaticArray<SelectMetrics, 6>     selects{};
     keel::StaticArray<HeadingMetrics, 6>    headings{};
-    keel::StaticArray<HeadingMetrics, 7>    headingLevels{};
     keel::StaticArray<SliderMetrics, 6>     sliders{};
 
     // --- Fast Inline Accessors ---
@@ -488,34 +487,13 @@ struct UiTheme {
         return (idx < selects.size()) ? selects[idx] : selects[static_cast<keel::usize>(UiSize::Md)];
     }
 
-    [[nodiscard]] constexpr const HeadingMetrics& GetHeading(UiSize size) const noexcept {
-        const keel::usize idx = static_cast<keel::usize>(size);
-        return (idx < headings.size()) ? headings[idx] : headings[static_cast<keel::usize>(UiSize::Md)];
-    }
-    [[nodiscard]] constexpr HeadingMetrics& GetHeading(UiSize size) noexcept {
-        const keel::usize idx = static_cast<keel::usize>(size);
-        return (idx < headings.size()) ? headings[idx] : headings[static_cast<keel::usize>(UiSize::Md)];
-    }
-
-    [[nodiscard]] constexpr const HeadingMetrics& GetHeading(
-        HeadingLevel level,
-        UiSize fallbackSize = UiSize::Md
-    ) const noexcept {
-        if (level == HeadingLevel::Auto) {
-            return GetHeading(fallbackSize);
-        }
+    [[nodiscard]] constexpr const HeadingMetrics& GetHeading(HeadingLevel level) const noexcept {
         const keel::usize idx = static_cast<keel::usize>(level);
-        return (idx < headingLevels.size()) ? headingLevels[idx] : GetHeading(fallbackSize);
+        return (idx < headings.size()) ? headings[idx] : headings[static_cast<keel::usize>(HeadingLevel::H3)];
     }
-    [[nodiscard]] constexpr HeadingMetrics& GetHeading(
-        HeadingLevel level,
-        UiSize fallbackSize = UiSize::Md
-    ) noexcept {
-        if (level == HeadingLevel::Auto) {
-            return GetHeading(fallbackSize);
-        }
+    [[nodiscard]] constexpr HeadingMetrics& GetHeading(HeadingLevel level) noexcept {
         const keel::usize idx = static_cast<keel::usize>(level);
-        return (idx < headingLevels.size()) ? headingLevels[idx] : GetHeading(fallbackSize);
+        return (idx < headings.size()) ? headings[idx] : headings[static_cast<keel::usize>(HeadingLevel::H3)];
     }
 
     [[nodiscard]] constexpr const SliderMetrics& GetSlider(UiSize size) const noexcept {

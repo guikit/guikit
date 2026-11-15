@@ -31,86 +31,34 @@ void RenderSwitchInspector(guikit::Context& ui, DemoContext&) {
 }
 
 void RenderSwitchStage(guikit::Context& ui, DemoContext& ctx) {
-    if (auto el = ui.Size(ctx.elemSize).Element({
-        .label = ctx.GetElementLabel(),
-        .description = ctx.GetElementDescription(),
-        .icon = ctx.GetElementIcon(),
-        .badge = ctx.GetElementBadge(),
-        .layout = ctx.elemLayout,
-        .inlineOrder = ctx.elemInlineOrder,
-        .align = ctx.elemAlign,
-        .stretch = ctx.GetElementStretch(),
-        .background = ctx.elemBackground,
-        .border = ctx.GetElemBorder(),
-        .disabled = ctx.elemDisabled
-    })) {
-        ui.Size(ctx.controlsSize).Switch(s_state.state, {
-            .textLeft = s_state.textLeft,
-            .textRight = s_state.textRight,
-            .color = ctx.GetControlColor(),
-            .symmetric = s_state.symmetric,
-            .stretch = ctx.GetElementStretch(),
-            .width = ctx.GetElementWidth(),
-            .height = ctx.GetElementHeight(),
-            .background = ctx.GetControlBackground(NavCategory::ElemSwitch),
-            .border = ctx.GetCtrlBorder(),
-            .disabled = ctx.elemDisabled
-        });
-    }
+    ctx.RunElementStage(ui, [&]() {
+        guikit::SwitchOptions opts{};
+        opts.textLeft = s_state.textLeft;
+        opts.textRight = s_state.textRight;
+        opts.color = ctx.GetControlColor();
+        opts.symmetric = s_state.symmetric;
+        opts.disabled = ctx.elemDisabled;
+        ui.Size(ctx.controlsSize).Switch(s_state.state, opts);
+    });
 }
 
 keel::String GenerateSwitchCode(const DemoContext& ctx) {
-    return keel::format(
-        "if (auto el = ui.{}Element({{\n"
-        "    .label = {},\n"
-        "    .description = {},\n"
-        "    .icon = {},\n"
-        "    .badge = {},\n"
-        "    .layout = guikit::ElementLayout::{},\n"
-        "    .inlineOrder = guikit::InlineOrder::{},\n"
-        "    .align = guikit::Align::{},\n"
-        "    .stretch = guikit::StretchMode::{},\n"
-        "    .background = {},\n"
-        "    .border = {},\n"
+    const keel::String ctrl = keel::format(
+        "ui.{}Switch(switchState, {{\n"
+        "    .textLeft = \"{}\",\n"
+        "    .textRight = \"{}\",\n"
+        "    .color = {},\n"
+        "    .symmetric = {},\n"
         "    .disabled = {}\n"
-        "}})) {{\n"
-        "    ui.{}Switch(switchState, {{\n"
-        "        .textLeft = \"{}\",\n"
-        "        .textRight = \"{}\",\n"
-        "        .color = {},\n"
-        "        .symmetric = {},\n"
-        "        .stretch = guikit::StretchMode::{},\n"
-        "        .width = {},\n"
-        "        .height = {},\n"
-        "        .background = {},\n"
-        "        .border = {},\n"
-        "        .disabled = {}\n"
-        "    }});\n"
-        "}}",
-        FormatUiSizePrefix(ctx.elemSize),
-        ctx.FormatElementLabelCode(),
-        ctx.FormatElementDescCode(),
-        ctx.FormatElementIconCode(),
-        ctx.FormatElementBadgeCode(),
-        ElementLayoutEnumName(ctx.elemLayout),
-        InlineOrderEnumName(ctx.elemInlineOrder),
-        LabelAlignEnumName(ctx.elemAlign),
-        StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElemBackgroundCode(),
-        ctx.FormatElemBorderCode(),
-        ctx.elemDisabled ? "true" : "false",
+        "}});",
         FormatUiSizePrefix(ctx.controlsSize),
         s_state.textLeft,
         s_state.textRight,
         ctx.FormatControlColorCode(),
         s_state.symmetric ? "true" : "false",
-        StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElementWidthCode(),
-        ctx.FormatElementHeightCode(),
-        ctx.FormatControlBackgroundCode(NavCategory::ElemSwitch),
-        ctx.FormatCtrlBorderCode(),
         ctx.elemDisabled ? "true" : "false"
     );
+    return ctx.WrapInElementCode(ctrl);
 }
 
 } // namespace guikit::demo

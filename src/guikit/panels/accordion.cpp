@@ -158,14 +158,13 @@ Vec2 Accordion::MeasureHeader(
     const UiTheme& theme
 ) noexcept {
     const ComponentMetrics& m = theme.GetMetrics(size);
-    const HeadingMetrics& hm = theme.GetHeading(size);
 
     const float titleFont = theme.ResolveFontSize(opts.label, TextRole::LabelLarge, size);
     const float descFont = theme.ResolveFontSize(opts.description, TextRole::LabelSmall, size);
     const float badgeFont = theme.ResolveFontSize(opts.badge, TextRole::LabelSmall, size);
     const float padX = keel::max(theme.Scale(8.0f), m.paddingX * 0.70f);
     const float padY = keel::max(theme.Scale(5.0f), m.paddingY * 0.75f);
-    const float itemGap = keel::max(theme.Scale(6.0f), hm.gap);
+    const float itemGap = keel::max(theme.Scale(6.0f), m.itemGap);
     const float chevronSize = keel::max(theme.Scale(11.0f), titleFont * 0.85f);
     const float iconSize = keel::max(theme.Scale(13.0f), titleFont);
 
@@ -190,7 +189,7 @@ Vec2 Accordion::MeasureHeader(
     if (opts.description.HasContentOrReserve()) {
         const float descW = padX * 2.0f + chevronSize + itemGap + TextUtil::MeasureWidth(opts.description, descFont, canvas);
         rowW = keel::max(rowW, descW);
-        totalH += hm.lineGap + descFont * 1.25f;
+        totalH += m.lineGap + descFont * 1.25f;
     }
 
     return Vec2{rowW, totalH};
@@ -213,14 +212,13 @@ void Accordion::RenderHeader(
 
     const auto& pal = theme.palette;
     const ComponentMetrics& m = theme.GetMetrics(size);
-    const HeadingMetrics& hm = theme.GetHeading(size);
 
     const float titleFont = theme.ResolveFontSize(opts.label, TextRole::LabelLarge, size);
     const float descFont = theme.ResolveFontSize(opts.description, TextRole::LabelSmall, size);
     const float badgeFont = theme.ResolveFontSize(opts.badge, TextRole::LabelSmall, size);
     const float padX = keel::max(theme.Scale(8.0f), m.paddingX * 0.70f);
     const float padY = keel::max(theme.Scale(5.0f), m.paddingY * 0.75f);
-    const float itemGap = keel::max(theme.Scale(6.0f), hm.gap);
+    const float itemGap = keel::max(theme.Scale(6.0f), m.itemGap);
     const float chevronSize = keel::max(theme.Scale(11.0f), titleFont * 0.85f);
     const float iconSize = keel::max(theme.Scale(13.0f), titleFont);
     const float radius = opts.border.radius.has_value()
@@ -365,7 +363,7 @@ void Accordion::RenderHeader(
     if (!opts.description.empty() && availTitleW > 1.0f) {
         const Color descColor = theme.ResolveTextColor(opts.description, UiVariant::Muted, disabled, hovered, pressed);
         const float descH = descFont * 1.25f;
-        const float descY = titleRowY + titleRowH + hm.lineGap;
+        const float descY = titleRowY + titleRowH + m.lineGap;
         canvas.DrawTextBox(
             opts.description.text,
             Rect{leftX, descY, keel::max(0.0f, bounds.Right() - padX - leftX), descH},

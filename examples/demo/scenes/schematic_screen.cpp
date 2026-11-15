@@ -51,7 +51,7 @@ void RenderSchematicStage(guikit::Context& ui, DemoContext& ctx) {
         .worldSize = guikit::Vec2{2200.0f, 920.0f},
         .backgroundStyle = s_state.bg,
         .gridStep = s_state.gridStep,
-        .heightMode = guikit::SizeMode::Stretch,
+        .height = guikit::SizeMode::Stretch,
         .selectableItems = s_state.selectableItems,
         .showScrollbars = s_state.showScrollbars,
         .showControls = s_state.showControls,
@@ -67,7 +67,7 @@ keel::String GenerateSchematicCode(const DemoContext& ctx) {
         "    .worldSize = guikit::Vec2{{2200.0f, 920.0f}},\n"
         "    .backgroundStyle = guikit::SceneBackground::{},\n"
         "    .gridStep = {:.1f}f,\n"
-        "    .heightMode = guikit::SizeMode::Stretch,\n"
+        "    .height = guikit::SizeMode::Stretch,\n"
         "    .selectableItems = {},\n"
         "    .showScrollbars = {},\n"
         "    .showControls = {},\n"

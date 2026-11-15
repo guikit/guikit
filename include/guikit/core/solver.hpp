@@ -17,6 +17,9 @@ public:
     /// Measures intrinsic content sizes bottom-up with default dark theme.
     static void Measure(Node* root, ICanvas* canvas = nullptr);
 
+    /// Resolves constrained height for a node given an explicit available width.
+    static float ResolveHeight(Node* node, float availableWidth, ICanvas* canvas, const UiTheme& theme);
+
     /// Computes final coordinates and dimensions top-down based on parent constraints.
     static void Arrange(Node* root, Rect availableRect, const UiTheme& theme, ICanvas* canvas = nullptr);
 

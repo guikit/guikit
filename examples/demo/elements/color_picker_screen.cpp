@@ -45,78 +45,37 @@ void RenderColorPickerInspector(guikit::Context& ui, DemoContext&) {
 }
 
 void RenderColorPickerStage(guikit::Context& ui, DemoContext& ctx) {
-    if (auto el = ui.Size(ctx.elemSize).Element({
-        .label = ctx.GetElementLabel(),
-        .description = ctx.GetElementDescription(),
-        .icon = ctx.GetElementIcon(),
-        .badge = ctx.GetElementBadge(),
-        .layout = ctx.elemLayout,
-        .inlineOrder = ctx.elemInlineOrder,
-        .align = ctx.elemAlign,
-        .stretch = ctx.GetElementStretch(),
-        .background = ctx.elemBackground,
-        .border = ctx.GetElemBorder(),
-        .disabled = ctx.elemDisabled
-    })) {
-        ui.Size(ctx.controlsSize).ColorPicker(s_state.color, {
-            .stretch = ctx.GetElementStretch(),
-            .width = ctx.GetElementWidth(),
-            .height = ctx.GetElementHeight(),
-            .background = ctx.GetControlBackground(NavCategory::ElemColorPicker),
-            .border = ctx.GetCtrlBorder(),
-            .showHex = s_state.showHex,
-            .showAlpha = s_state.showAlpha,
-            .showSwatches = s_state.showSwatches,
-            .inlinePanel = s_state.inlinePanel,
-            .disabled = ctx.elemDisabled
-        });
-    }
+    ctx.RunElementStage(ui, [&]() {
+        guikit::ColorPickerOptions opts{};
+        opts.width = ctx.ResolveCtrlWidth();
+        opts.height = ctx.ResolveCtrlHeight();
+        opts.background = ctx.GetControlBackground(NavCategory::ElemColorPicker);
+        opts.border = ctx.GetCtrlBorder();
+        opts.showHex = s_state.showHex;
+        opts.showAlpha = s_state.showAlpha;
+        opts.showSwatches = s_state.showSwatches;
+        opts.inlinePanel = s_state.inlinePanel;
+        opts.disabled = ctx.elemDisabled;
+        ui.Size(ctx.controlsSize).ColorPicker(s_state.color, opts);
+    });
 }
 
 keel::String GenerateColorPickerCode(const DemoContext& ctx) {
-    return keel::format(
-        "if (auto el = ui.{}Element({{\n"
-        "    .label = {},\n"
-        "    .description = {},\n"
-        "    .icon = {},\n"
-        "    .badge = {},\n"
-        "    .layout = guikit::ElementLayout::{},\n"
-        "    .inlineOrder = guikit::InlineOrder::{},\n"
-        "    .align = guikit::Align::{},\n"
-        "    .stretch = guikit::StretchMode::{},\n"
+    const keel::String ctrl = keel::format(
+        "ui.{}ColorPicker(traceColor, {{\n"
+        "    .width = {},\n"
+        "    .height = {},\n"
         "    .background = {},\n"
         "    .border = {},\n"
+        "    .showHex = {},\n"
+        "    .showAlpha = {},\n"
+        "    .showSwatches = {},\n"
+        "    .inlinePanel = {},\n"
         "    .disabled = {}\n"
-        "}})) {{\n"
-        "    ui.{}ColorPicker(traceColor, {{\n"
-        "        .stretch = guikit::StretchMode::{},\n"
-        "        .width = {},\n"
-        "        .height = {},\n"
-        "        .background = {},\n"
-        "        .border = {},\n"
-        "        .showHex = {},\n"
-        "        .showAlpha = {},\n"
-        "        .showSwatches = {},\n"
-        "        .inlinePanel = {},\n"
-        "        .disabled = {}\n"
-        "    }});\n"
-        "}}",
-        FormatUiSizePrefix(ctx.elemSize),
-        ctx.FormatElementLabelCode(),
-        ctx.FormatElementDescCode(),
-        ctx.FormatElementIconCode(),
-        ctx.FormatElementBadgeCode(),
-        ElementLayoutEnumName(ctx.elemLayout),
-        InlineOrderEnumName(ctx.elemInlineOrder),
-        LabelAlignEnumName(ctx.elemAlign),
-        StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElemBackgroundCode(),
-        ctx.FormatElemBorderCode(),
-        ctx.elemDisabled ? "true" : "false",
+        "}});",
         FormatUiSizePrefix(ctx.controlsSize),
-        StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElementWidthCode(),
-        ctx.FormatElementHeightCode(),
+        ctx.FormatCtrlWidthCode(),
+        ctx.FormatCtrlHeightCode(),
         ctx.FormatControlBackgroundCode(NavCategory::ElemColorPicker),
         ctx.FormatCtrlBorderCode(),
         s_state.showHex ? "true" : "false",
@@ -125,6 +84,7 @@ keel::String GenerateColorPickerCode(const DemoContext& ctx) {
         s_state.inlinePanel ? "true" : "false",
         ctx.elemDisabled ? "true" : "false"
     );
+    return ctx.WrapInElementCode(ctrl);
 }
 
 } // namespace guikit::demo

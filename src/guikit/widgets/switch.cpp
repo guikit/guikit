@@ -37,23 +37,17 @@ Vec2 MeasureSwitchControl(
     return {ctrlW, ctrlH};
 }
 
-ControlSpec EffectiveSwitchControl(const SwitchOptions& opts, UiSize size, const UiTheme& theme) noexcept {
+ControlSpec EffectiveSwitchControl(UiSize size, const UiTheme& theme) noexcept {
     const SwitchMetrics& m = theme.GetSwitch(size);
     ControlSpec ctrl{};
-    ctrl.width = opts.width;
-    ctrl.widthRatio = opts.widthRatio;
-    ctrl.height = opts.height;
-    ctrl.align = opts.align;
-    ctrl.background = opts.background;
-    ctrl.border = opts.border;
-    ctrl.defaultLayout = ElementLayout::Inline;
-    ctrl.defaultInlineOrder = InlineOrder::ControlFirst;
+    ctrl.width = AxisSize::Fit();
+    ctrl.height = AxisSize::Fit();
+    ctrl.defaultWidthMode = SizeMode::Fit;
+    ctrl.defaultHeightMode = SizeMode::Fit;
+    ctrl.defaultLayout = ElementLayout::Trailing;
     ctrl.labelGap = m.labelGap;
     ctrl.descGap = m.descGap;
     ctrl.inlineGap = m.gap;
-    ctrl.stretchable = false;
-    ctrl.stretchHeightWhenStandalone = false;
-    ctrl.hasIntrinsicBox = false;
     return ctrl;
 }
 
@@ -111,26 +105,18 @@ Response Switch::Run(
     }
 
     SwitchOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
     optsCopy.textLeft = ctx.AllocText(opts.textLeft);
     optsCopy.textRight = ctx.AllocText(opts.textRight);
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);
 
-    const ControlSpec ctrl = EffectiveSwitchControl(optsCopy, activeSize, ctx.GetTheme());
+    const ControlSpec ctrl = EffectiveSwitchControl(activeSize, ctx.GetTheme());
     Node* node = ctx.CreateNode(NodeType::Switch, id);
     node->theme = pushedTheme;
     node->text = !optsCopy.textRight.empty() ? optsCopy.textRight.text : optsCopy.textLeft.text;
     node->SetPayload(ctx.AllocPayload<SwitchOptions>(optsCopy));
     node->visualHash = detail::HashArgs(
         optsCopy.color,
-        static_cast<keel::u8>(optsCopy.align),
         optsCopy.symmetric,
-        static_cast<keel::u8>(optsCopy.stretch),
-        optsCopy.width.value_or(0.0f),
-        optsCopy.widthRatio.value_or(-1.0f),
-        optsCopy.height.value_or(0.0f),
-        optsCopy.background,
-        optsCopy.border,
         currentChecked,
         optsCopy.textLeft,
         optsCopy.textRight
@@ -160,11 +146,8 @@ Response Switch::Run(
     node->hovered = res.hovered;
     node->pressed = res.pressed;
     node->focused = ctx.IsFocused(id);
-    node->widthMode = (optsCopy.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
-    node->heightMode = SizeMode::Fit;
 
-    Control::SetupNode(ctx, node, ctrl, optsCopy.stretch, optsCopy.align);
-    ctx.AdaptChildToContainer(node);
+    Control::SetupNode(ctx, node, ctrl);
 
     return res;
 }
@@ -177,8 +160,8 @@ Vec2 Switch::Measure(
     float /*availableWidth*/
 ) {
     const Vec2 ctrlDims = MeasureSwitchControl(opts, size, canvas, theme);
-    const ControlSpec ctrl = EffectiveSwitchControl(opts, size, theme);
-    return Control::Measure(ctrlDims, ctrl, opts.stretch, size, theme);
+    const ControlSpec ctrl = EffectiveSwitchControl(size, theme);
+    return Control::Measure(ctrlDims, ctrl, theme);
 }
 
 Vec2 Switch::Measure(
@@ -211,10 +194,7 @@ void Switch::Render(
     const auto& pal = theme.palette;
 
     const Vec2 ctrlDims = MeasureSwitchControl(opts, size, &canvas, theme);
-    const ControlSpec ctrl = EffectiveSwitchControl(opts, size, theme);
-    Control::RenderFrame(canvas, bounds, ctrl, size, disabled, theme, hovered, pressed || focused);
-
-    const Rect ctrlRect = Control::ResolveInnerRect(bounds, ctrl, size, theme);
+    const Rect ctrlRect = bounds;
     float curX = ctrlRect.x + keel::max(0.0f, (ctrlRect.w - ctrlDims.x) * 0.5f);
     if (!opts.textLeft.empty() || !opts.textLeft.variants.empty()) {
         const float leftFont = theme.ResolveFontSize(opts.textLeft, TextRole::LabelMedium, size);

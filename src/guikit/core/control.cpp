@@ -1,165 +1,44 @@
 #include "guikit/core/control.hpp"
 #include "guikit/context.hpp"
-#include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/element.hpp"
 #include "guikit/core/node.hpp"
 
 namespace guikit {
 
-float Control::ComputeWellPadding(
-    const ControlSpec& spec,
-    UiSize size,
-    const UiTheme& theme
+SizeMode Control::ResolveWidthMode(
+    const Context& ctx,
+    AxisSize width,
+    SizeMode defaultMode
 ) noexcept {
-    if (!HasWellFrame(spec)) {
-        return 0.0f;
+    if (!width.IsAuto()) {
+        return width.ResolveMode(defaultMode);
     }
-    const ComponentMetrics& cm = theme.GetMetrics(size);
-    const float basePad = keel::max(theme.Scale(4.0f), cm.paddingX * 0.5f);
-    const float strokePad = (spec.border.width > 0.0f) ? theme.Scale(spec.border.width) : 0.0f;
-    return basePad + strokePad;
+    const Node* parent = ctx.GetCurrentContainer();
+    if (parent != nullptr && parent->type == NodeType::Toolbar && parent->direction == FlexDirection::Row) {
+        return SizeMode::Fit;
+    }
+    return defaultMode;
 }
 
 Vec2 Control::Measure(
     Vec2 intrinsicSize,
     const ControlSpec& spec,
-    StretchMode stretch,
-    UiSize size,
     const UiTheme& theme
 ) noexcept {
     Vec2 result = intrinsicSize;
-    const float wellPad = ComputeWellPadding(spec, size, theme);
-    if (wellPad > 0.0f) {
-        result.x += wellPad * 2.0f;
-        result.y += wellPad * 2.0f;
+    if (spec.minWidth.has_value() && *spec.minWidth > 0.0f) {
+        result.x = keel::max(result.x, theme.Scale(*spec.minWidth));
     }
-    if (!spec.stretchable && !spec.hasIntrinsicBox && HasExplicitDpWidth(stretch, spec.width, spec.widthRatio)) {
-        result.x = keel::max(result.x, theme.Scale(*spec.width));
+    if (spec.minHeight.has_value() && *spec.minHeight > 0.0f) {
+        result.y = keel::max(result.y, theme.Scale(*spec.minHeight));
     }
-    if (spec.height.has_value() && *spec.height > 0.0f) {
-        result.y = theme.Scale(*spec.height);
+    if (spec.width.IsFixed()) {
+        result.x = theme.Scale(spec.width.Dp());
+    }
+    if (spec.height.IsFixed()) {
+        result.y = theme.Scale(spec.height.Dp());
     }
     return result;
-}
-
-Rect Control::ResolveInnerRect(
-    Rect controlRect,
-    const ControlSpec& spec,
-    UiSize size,
-    const UiTheme& theme
-) noexcept {
-    const float wellPad = ComputeWellPadding(spec, size, theme);
-    if (wellPad <= 0.0f) {
-        return controlRect;
-    }
-    return controlRect.Inset(wellPad);
-}
-
-void Control::RenderFrame(
-    ICanvas& canvas,
-    Rect controlRect,
-    const ControlSpec& spec,
-    UiSize size,
-    bool disabled,
-    const UiTheme& theme,
-    bool hovered,
-    bool active
-) noexcept {
-    if (!HasWellFrame(spec) || controlRect.w <= 0.0f || controlRect.h <= 0.0f) {
-        return;
-    }
-
-    const ComponentMetrics& cm = theme.GetMetrics(size);
-    const float radius = spec.border.radius.has_value()
-        ? theme.Scale(*spec.border.radius)
-        : cm.cornerRadius;
-
-    const auto& pal = theme.palette;
-    const Color resolvedBorderAccent = theme.ResolveColor(
-        spec.border.color,
-        hovered,
-        active,
-        disabled,
-        pal.border,
-        pal.borderHover,
-        pal.focusRing,
-        pal.border.WithAlphaF(0.40f)
-    );
-
-    Color bg = Color::Transparent();
-    if (spec.HasBackground(false)) {
-        const bool interactiveBg = !spec.background.IsSurface();
-        bg = theme.ResolveColor(
-            spec.background,
-            interactiveBg && hovered,
-            interactiveBg && active,
-            disabled,
-            pal.surface,
-            pal.surfaceHover,
-            pal.surfaceActive,
-            pal.surface.WithAlphaF(0.40f)
-        );
-    }
-
-    const float strokeW = (spec.border.width > 0.0f) ? theme.Scale(spec.border.width) : 0.0f;
-    Color borderCol = Color::Transparent();
-    if (strokeW > 0.0f) {
-        borderCol = resolvedBorderAccent;
-    }
-
-    canvas.DrawRoundRect(controlRect, radius, bg, borderCol, strokeW);
-}
-
-void Control::InheritElementSizing(
-    Context& ctx,
-    StretchMode& ioStretch,
-    keel::Optional<float>& ioWidth,
-    bool inheritWidth
-) noexcept {
-    keel::Optional<float> dummyRatio{keel::kNullOpt};
-    InheritElementSizing(ctx, ioStretch, ioWidth, dummyRatio, inheritWidth);
-}
-
-void Control::InheritElementSizing(
-    Context& ctx,
-    StretchMode& ioStretch,
-    keel::Optional<float>& ioWidth,
-    keel::Optional<float>& ioWidthRatio,
-    bool inheritWidth
-) noexcept {
-    Node* parent = ctx.GetCurrentContainer();
-    if (!parent) {
-        return;
-    }
-    if (parent->type == NodeType::Toolbar && parent->direction == FlexDirection::Row) {
-        ioStretch = StretchMode::Compact;
-        return;
-    }
-    if (parent->type == NodeType::TreeItem ||
-        (parent->parent && parent->parent->type == NodeType::TreeItem)) {
-        if (ioWidth.has_value()) {
-            ioStretch = StretchMode::Compact;
-        }
-        return;
-    }
-    if (parent->type != NodeType::Element) {
-        return;
-    }
-    auto* ep = parent->As<ElementPayload>();
-    if (!ep) {
-        return;
-    }
-    if (ep->opts.stretch.has_value()) {
-        ioStretch = *ep->opts.stretch;
-    } else {
-        ep->opts.stretch = ioStretch;
-    }
-    if (inheritWidth && !ioWidth.has_value() && ep->opts.width.has_value()) {
-        ioWidth = ep->opts.width;
-    }
-    if (inheritWidth && !ioWidthRatio.has_value() && ep->opts.widthRatio.has_value()) {
-        ioWidthRatio = ep->opts.widthRatio;
-    }
 }
 
 void Control::ForwardParentElementInteraction(
@@ -192,82 +71,63 @@ void Control::ForwardParentElementInteraction(
 void Control::SetupNode(
     Context& ctx,
     Node* node,
-    const ControlSpec& spec,
-    StretchMode stretch,
-    Align standaloneAlign
+    const ControlSpec& spec
 ) noexcept {
     if (!node) {
         return;
     }
+
+    const UiTheme& nodeTheme = (node->theme != nullptr) ? *node->theme : ctx.GetTheme();
+    if (spec.minWidth.has_value() && *spec.minWidth > 0.0f) {
+        node->minWidth = keel::max(node->minWidth, nodeTheme.Scale(*spec.minWidth));
+    }
+    if (spec.minHeight.has_value() && *spec.minHeight > 0.0f) {
+        node->minHeight = keel::max(node->minHeight, nodeTheme.Scale(*spec.minHeight));
+    }
+
+    if (spec.width.IsFixed()) {
+        node->widthMode = SizeMode::Fixed;
+        node->fixedWidth = nodeTheme.Scale(spec.width.Dp());
+    } else {
+        node->widthMode = ResolveWidthMode(ctx, spec.width, spec.defaultWidthMode);
+        node->fixedWidth = 0.0f;
+    }
+
+    if (spec.height.IsFixed()) {
+        node->heightMode = SizeMode::Fixed;
+        node->fixedHeight = nodeTheme.Scale(spec.height.Dp());
+    } else {
+        node->heightMode = ResolveHeightMode(spec.height, spec.defaultHeightMode);
+        node->fixedHeight = 0.0f;
+    }
+
     Node* parent = node->parent;
     if (parent && parent->type == NodeType::Element) {
-        const bool childWantsStretchH = (node->heightMode == SizeMode::Stretch);
-        node->widthMode = SizeMode::Fit;
-        node->heightMode = SizeMode::Fit;
-        if (node->arrangeFn == &Control::ArrangeStandaloneNode) {
-            node->arrangeFn = nullptr;
-        }
         if (auto* ep = parent->As<ElementPayload>()) {
-            ep->hasChildControl = true;
-            ep->childControlSpec = spec;
-            if (!ep->opts.stretch.has_value()) {
-                const bool inEqualRow = (parent->parent != nullptr &&
-                                         parent->parent->direction == FlexDirection::Row &&
-                                         parent->parent->equalWidths);
-                ep->opts.stretch = (inEqualRow && spec.stretchable) ? StretchMode::Fill : stretch;
+            if (ep->controlChildCount == 0) {
+                ep->firstChildSpec = spec;
             }
-            const StretchMode effStretch = ep->opts.stretch.value_or(stretch);
-            parent->widthMode = (effStretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
-            parent->heightMode = childWantsStretchH ? SizeMode::Stretch : SizeMode::Fit;
-            ctx.AdaptChildToContainer(parent);
-            if (!childWantsStretchH && parent->heightMode == SizeMode::Stretch &&
-                (!parent->parent || parent->parent->heightMode != SizeMode::Fixed)) {
-                parent->heightMode = SizeMode::Fit;
+            ++ep->controlChildCount;
+            if (node->widthMode == SizeMode::Stretch) {
+                ep->anyChildStretchesW = true;
             }
-            parent->visualHash = detail::HashArgs(
-                parent->visualHash,
-                node->visualHash,
-                static_cast<keel::u8>(effStretch),
-                spec.width.value_or(0.0f),
-                spec.widthRatio.value_or(-1.0f),
-                spec.height.value_or(0.0f),
-                spec.minWidth.value_or(0.0f),
-                static_cast<keel::u8>(spec.defaultLayout),
-                static_cast<keel::u8>(spec.defaultInlineOrder),
-                spec.stretchable,
-                spec.stretchHeightWhenStandalone
-            );
-        }
-        if (node->hovered) parent->hovered = true;
-        if (node->pressed) parent->pressed = true;
-        if (node->focused || node->active) parent->active = true;
-        if (node->minWidth > 0.0f) {
-            parent->minWidth = keel::max(parent->minWidth, node->minWidth);
-        }
-        if (node->minHeight > 0.0f) {
-            parent->minHeight = keel::max(parent->minHeight, node->minHeight);
+            if (node->heightMode == SizeMode::Stretch) {
+                ep->anyChildStretchesH = true;
+            }
+            Element::SyncWithChildren(ctx, parent);
         }
         return;
     }
 
     if (parent && (parent->type == NodeType::TreeItem ||
                    (parent->parent && parent->parent->type == NodeType::TreeItem))) {
-        node->widthMode = SizeMode::Fit;
-        node->heightMode = SizeMode::Fit;
-        node->arrangeFn = nullptr;
-        node->ctrlStretchable = spec.stretchable;
-        node->ctrlStretchH = spec.stretchHeightWhenStandalone;
-        node->fixedWidth = spec.width.value_or(0.0f);
-        node->fixedHeight = spec.height.value_or(0.0f);
-        node->align = (standaloneAlign == Align::End)
-            ? Alignment::End
-            : ((standaloneAlign == Align::Center) ? Alignment::Center : Alignment::Start);
         parent->visualHash = detail::HashArgs(
             parent->visualHash,
             node->visualHash,
-            spec.width.value_or(0.0f),
-            spec.height.value_or(0.0f),
-            spec.stretchable
+            static_cast<keel::u8>(node->widthMode),
+            static_cast<keel::u8>(node->heightMode),
+            node->fixedWidth,
+            node->fixedHeight
         );
         if (parent->parent && parent->parent->type == NodeType::TreeItem) {
             parent->parent->visualHash = detail::HashArgs(parent->parent->visualHash, parent->visualHash);
@@ -275,94 +135,10 @@ void Control::SetupNode(
         return;
     }
 
-    const bool hasExplicitDpW = HasExplicitDpWidth(stretch, spec.width, spec.widthRatio);
-    const keel::Optional<float> fillRatioOpt = ResolveFillRatio(stretch, spec.width, spec.widthRatio);
-    const bool inHorizontalFlow = (parent != nullptr) &&
-        (parent->direction == FlexDirection::Row || parent->direction == FlexDirection::Wrap) &&
-        !parent->equalWidths;
-
-    if (stretch == StretchMode::Compact ||
-        (hasExplicitDpW && !fillRatioOpt.has_value() && stretch == StretchMode::Fill && inHorizontalFlow && standaloneAlign == Align::Start)) {
-        node->widthMode = SizeMode::Fit;
-    } else {
-        node->widthMode = SizeMode::Stretch;
-    }
-    node->ctrlStretchable = spec.stretchable;
-    node->ctrlStretchH = spec.stretchHeightWhenStandalone || (node->heightMode == SizeMode::Stretch);
-    node->align = (standaloneAlign == Align::End)
-        ? Alignment::End
-        : ((standaloneAlign == Align::Center) ? Alignment::Center : Alignment::Start);
-    if (fillRatioOpt.has_value()) {
-        node->fixedWidth = *fillRatioOpt;
-    } else if (stretch == StretchMode::Fill && !hasExplicitDpW) {
-        node->fixedWidth = 1.0f;
-    } else {
-        node->fixedWidth = -1.0f;
-    }
-    node->arrangeFn = &Control::ArrangeStandaloneNode;
     ctx.AdaptChildToContainer(node);
-}
-
-void Control::ArrangeStandaloneNode(
-    Node* node,
-    const Rect& availableRect,
-    const UiTheme& theme
-) noexcept {
-    if (!node) {
-        return;
+    if (spec.height.IsFit()) {
+        node->heightMode = SizeMode::Fit;
     }
-    Rect bounds = availableRect;
-    Vec2 intrinsic = node->intrinsicSize;
-    if ((node->type == NodeType::Image ||
-         node->type == NodeType::Markdown ||
-         node->type == NodeType::TextArea) &&
-        node->measureFn && bounds.w > 0.0f) {
-        const Vec2 measured = node->measureFn(node, bounds.w, nullptr, theme);
-        if (node->type == NodeType::Image || node->type == NodeType::Markdown) {
-            intrinsic = measured;
-        } else {
-            intrinsic.y = keel::max(node->minHeight, measured.y);
-        }
-    }
-
-    if (node->parent == nullptr) {
-        if (node->widthMode == SizeMode::Fit) {
-            bounds.w = intrinsic.x;
-        }
-        if (node->heightMode == SizeMode::Fit) {
-            bounds.h = intrinsic.y;
-        }
-    }
-
-    const bool inEqualRow = (node->parent != nullptr &&
-                             node->parent->direction == FlexDirection::Row &&
-                             node->parent->equalWidths);
-    const bool isFill = (node->widthMode == SizeMode::Stretch && node->fixedWidth >= 0.0f) || inEqualRow;
-    const float fillRatio = (node->fixedWidth >= 0.0f) ? keel::clamp(node->fixedWidth, 0.0f, 1.0f) : 1.0f;
-    const float alignFactor = (node->align == Alignment::End)
-        ? 1.0f
-        : ((node->align == Alignment::Center) ? 0.5f : 0.0f);
-
-    if (!node->ctrlStretchable && isFill && fillRatio < 1.0f) {
-        const float effW = (fillRatio > 0.0f)
-            ? keel::min(bounds.w, keel::max(bounds.w * fillRatio, intrinsic.x))
-            : 0.0f;
-        bounds.x += (bounds.w - effW) * alignFactor;
-        bounds.w = effW;
-    }
-
-    float ctrlW = keel::min(bounds.w, intrinsic.x);
-    if (node->ctrlStretchable && isFill) {
-        ctrlW = (fillRatio < 1.0f && fillRatio > 0.0f)
-            ? keel::min(bounds.w, keel::max(bounds.w * fillRatio, intrinsic.x))
-            : (bounds.w * fillRatio);
-    }
-
-    const bool stretchH = node->ctrlStretchH || (node->heightMode == SizeMode::Stretch);
-    const float ctrlX = bounds.x + (bounds.w - ctrlW) * alignFactor;
-    const float ctrlH = stretchH ? bounds.h : keel::min(intrinsic.y, bounds.h);
-    const float ctrlY = stretchH ? bounds.y : (bounds.y + (bounds.h - ctrlH) * 0.5f);
-    node->computedRect = Rect(ctrlX, ctrlY, ctrlW, ctrlH);
 }
 
 } // namespace guikit

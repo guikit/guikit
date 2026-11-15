@@ -18,10 +18,8 @@ class ICanvas;
 /// Configuration options for the Markdown document viewer widget.
 struct MarkdownOptions {
     Align align{Align::Start};
-    StretchMode stretch{StretchMode::Fill};
-    keel::Optional<float> width{keel::kNullOpt};               ///< Explicit width in dp (or legacy ratio 0.0..1.0 in Fill mode)
-    keel::Optional<float> widthRatio{keel::kNullOpt};          ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
-    keel::Optional<float> height{keel::kNullOpt};              ///< Optional explicit height override
+    AxisSize width{};                                          ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or `Fixed(dp)`)
+    AxisSize height{SizeMode::Fit};                            ///< Vertical sizing policy (`Auto`/`Fit`, `Stretch`, or `Fixed(dp)`)
     StateColor background{};                                   ///< Optional background fill color
     Border border{};                                           ///< Optional border configuration (color, width, radius)
 

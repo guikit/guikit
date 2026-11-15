@@ -214,6 +214,18 @@ struct HistogramPayload {
     HistogramInternalState* state{nullptr};
 };
 
+constexpr float kDefaultHistogramHeightDp = 136.0f;
+
+[[nodiscard]] constexpr float ResolveEffectiveMinHeightDp(const HistogramOptions& opts) noexcept {
+    if (opts.height.IsStretch()) {
+        return opts.minHeight;
+    }
+    if (opts.height.IsFixed()) {
+        return keel::max(opts.minHeight, opts.height.Dp());
+    }
+    return keel::max(opts.minHeight, kDefaultHistogramHeightDp);
+}
+
 } // namespace
 
 Vec2 Histogram::Measure(
@@ -225,13 +237,12 @@ Vec2 Histogram::Measure(
     float availableWidth
 ) noexcept {
     float w = 240.0f * theme.Scale(1.0f);
-    if (Control::HasExplicitDpWidth(opts.stretch, opts.width, opts.widthRatio)) {
-        w = theme.Scale(*opts.width);
-    } else if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f) {
-        const float ratio = Control::ResolveFillRatio(opts.stretch, opts.width, opts.widthRatio).value_or(1.0f);
-        w = availableWidth * ratio;
+    if (opts.width.IsFixed()) {
+        w = theme.Scale(opts.width.Dp());
+    } else if (opts.width.ResolveMode(SizeMode::Stretch) == SizeMode::Stretch && availableWidth > 0.0f) {
+        w = availableWidth;
     }
-    const float h = keel::max(theme.Scale(opts.minHeight), theme.Scale(opts.height));
+    const float h = theme.Scale(ResolveEffectiveMinHeightDp(opts));
     return {w, h};
 }
 
@@ -256,7 +267,6 @@ HistogramResponse Histogram::Run(
     const float scale = theme.Scale(1.0f);
 
     HistogramOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
 
     auto& st = ctx.GetOrCreatePersistentState<HistogramInternalState>(id);
     Response baseRes = ctx.Interact(id);
@@ -420,21 +430,21 @@ HistogramResponse Histogram::Run(
     node->hovered = baseRes.hovered;
     node->active = res.pressed;
     node->focused = baseRes.focused;
-    node->heightMode = optsCopy.heightMode;
-    node->minHeight = keel::max(theme.Scale(optsCopy.minHeight), theme.Scale(optsCopy.height));
 
+    const float effectiveMinHDp = ResolveEffectiveMinHeightDp(optsCopy);
     ControlSpec ctrlSpec{};
     ctrlSpec.width = optsCopy.width;
-    ctrlSpec.widthRatio = optsCopy.widthRatio;
-    Control::SetupNode(ctx, node, ctrlSpec, optsCopy.stretch, optsCopy.align);
-    if (!node->parent || node->parent->type != NodeType::Element) {
-        node->heightMode = optsCopy.heightMode;
-        node->minHeight = keel::max(theme.Scale(optsCopy.minHeight), theme.Scale(optsCopy.height));
-        ctx.AdaptChildToContainer(node);
-        if (optsCopy.heightMode == SizeMode::Fit && node->heightMode == SizeMode::Stretch) {
-            node->heightMode = SizeMode::Fit;
-        }
+    ctrlSpec.defaultWidthMode = SizeMode::Stretch;
+    ctrlSpec.defaultHeightMode = SizeMode::Fit;
+    if (optsCopy.height.IsFixed()) {
+        ctrlSpec.height = effectiveMinHDp;
+    } else if (optsCopy.height.IsStretch()) {
+        ctrlSpec.height = SizeMode::Stretch;
+    } else {
+        ctrlSpec.height = SizeMode::Fit;
     }
+    ctrlSpec.minHeight = effectiveMinHDp;
+    Control::SetupNode(ctx, node, ctrlSpec);
 
     // Visual hash for damage tracking
     keel::u64 binsFp = data.binsLum.size();
@@ -480,7 +490,11 @@ HistogramResponse Histogram::Run(
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* c, const UiTheme& th) noexcept -> Vec2 {
         const auto* p = n->As<HistogramPayload>();
         if (!p) return {0.0f, 0.0f};
-        return Histogram::Measure(p->data, p->opts, n->uiSize, c, th, availableWidth);
+        HistogramOptions effOpts = p->opts;
+        if (n->widthMode == SizeMode::Stretch && !effOpts.width.IsFixed()) {
+            effOpts.width = SizeMode::Stretch;
+        }
+        return Histogram::Measure(p->data, effOpts, n->uiSize, c, th, availableWidth);
     };
 
     node->renderFn = [](const Node* n, ICanvas& c, const UiTheme& th) noexcept {

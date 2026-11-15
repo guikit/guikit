@@ -97,95 +97,54 @@ void RenderImageInspector(guikit::Context& ui, DemoContext&) {
 
 void RenderImageStage(guikit::Context& ui, DemoContext& ctx) {
     const keel::u8 alpha = static_cast<keel::u8>(keel::clamp(keel::round_i32(s_state.opacityPct * 2.55f), 0, 255));
-    if (auto el = ui.Size(ctx.elemSize).Element({
-        .label = ctx.GetElementLabel(),
-        .description = ctx.GetElementDescription(),
-        .icon = ctx.GetElementIcon(),
-        .badge = ctx.GetElementBadge(),
-        .layout = ctx.elemLayout,
-        .inlineOrder = ctx.elemInlineOrder,
-        .align = ctx.elemAlign,
-        .stretch = ctx.GetElementStretch(),
-        .background = ctx.elemBackground,
-        .border = ctx.GetElemBorder(),
-        .disabled = ctx.elemDisabled
-    })) {
-        ui.Size(ctx.controlsSize).Image(ImageState::sources[s_state.sourceIdx % ImageState::sources.size()], {
-            .alt = s_state.altText,
-            .fit = s_state.fit,
-            .alignX = s_state.alignX,
-            .alignY = s_state.alignY,
-            .stretch = ctx.GetElementStretch(),
-            .width = ctx.GetElementWidth(),
-            .height = ctx.GetElementHeight(),
-            .background = ctx.GetControlBackground(NavCategory::ElemImage),
-            .border = ctx.GetCtrlBorder(),
-            .checkerboard = s_state.checkerboard,
-            .opacity = alpha,
-            .disabled = ctx.elemDisabled
-        });
-    }
+    ctx.RunElementStage(ui, [&]() {
+        guikit::ImageOptions opts{};
+        opts.alt = s_state.altText;
+        opts.fit = s_state.fit;
+        opts.alignX = s_state.alignX;
+        opts.alignY = s_state.alignY;
+        opts.width = ctx.ResolveCtrlWidth();
+        opts.height = ctx.ResolveCtrlHeight();
+        opts.background = ctx.GetControlBackground(NavCategory::ElemImage);
+        opts.border = ctx.GetCtrlBorder();
+        opts.checkerboard = s_state.checkerboard;
+        opts.opacity = alpha;
+        opts.disabled = ctx.elemDisabled;
+        ui.Size(ctx.controlsSize).Image(ImageState::sources[s_state.sourceIdx % ImageState::sources.size()], opts);
+    });
 }
 
 keel::String GenerateImageCode(const DemoContext& ctx) {
     const keel::i32 alpha = keel::clamp(keel::round_i32(s_state.opacityPct * 2.55f), 0, 255);
-
-    return keel::format(
-        "if (auto el = ui.{}Element({{\n"
-        "    .label = {},\n"
-        "    .description = {},\n"
-        "    .icon = {},\n"
-        "    .badge = {},\n"
-        "    .layout = guikit::ElementLayout::{},\n"
-        "    .inlineOrder = guikit::InlineOrder::{},\n"
-        "    .align = guikit::Align::{},\n"
-        "    .stretch = guikit::StretchMode::{},\n"
+    const keel::String ctrl = keel::format(
+        "ui.{}Image(\"{}\", {{\n"
+        "    .alt = \"{}\",\n"
+        "    .fit = guikit::ObjectFit::{},\n"
+        "    .alignX = guikit::Align::{},\n"
+        "    .alignY = guikit::Align::{},\n"
+        "    .width = {},\n"
+        "    .height = {},\n"
         "    .background = {},\n"
         "    .border = {},\n"
+        "    .checkerboard = {},\n"
+        "    .opacity = {},\n"
         "    .disabled = {}\n"
-        "}})) {{\n"
-        "    ui.{}Image(\"{}\", {{\n"
-        "        .alt = \"{}\",\n"
-        "        .fit = guikit::ObjectFit::{},\n"
-        "        .alignX = guikit::Align::{},\n"
-        "        .alignY = guikit::Align::{},\n"
-        "        .stretch = guikit::StretchMode::{},\n"
-        "        .width = {},\n"
-        "        .height = {},\n"
-        "        .background = {},\n"
-        "        .border = {},\n"
-        "        .checkerboard = {},\n"
-        "        .opacity = {},\n"
-        "        .disabled = {}\n"
-        "    }});\n"
-        "}}",
-        FormatUiSizePrefix(ctx.elemSize),
-        ctx.FormatElementLabelCode(),
-        ctx.FormatElementDescCode(),
-        ctx.FormatElementIconCode(),
-        ctx.FormatElementBadgeCode(),
-        ElementLayoutEnumName(ctx.elemLayout),
-        InlineOrderEnumName(ctx.elemInlineOrder),
-        LabelAlignEnumName(ctx.elemAlign),
-        StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElemBackgroundCode(),
-        ctx.FormatElemBorderCode(),
-        ctx.elemDisabled ? "true" : "false",
+        "}});",
         FormatUiSizePrefix(ctx.controlsSize),
         ImageState::sources[s_state.sourceIdx % ImageState::sources.size()],
         s_state.altText,
         ImageState::fitModeNames[static_cast<keel::usize>(s_state.fit)],
         AlignName(s_state.alignX),
         AlignName(s_state.alignY),
-        StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElementWidthCode(),
-        ctx.FormatElementHeightCode(),
+        ctx.FormatCtrlWidthCode(),
+        ctx.FormatCtrlHeightCode(),
         ctx.FormatControlBackgroundCode(NavCategory::ElemImage),
         ctx.FormatCtrlBorderCode(),
         s_state.checkerboard ? "true" : "false",
         alpha,
         ctx.elemDisabled ? "true" : "false"
     );
+    return ctx.WrapInElementCode(ctrl);
 }
 
 } // namespace guikit::demo

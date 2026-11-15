@@ -420,7 +420,7 @@ inline void RenderPreviewViewport(
             } else if (auto centerRow = ui.Row({
                 .align = guikit::Alignment::Center,
                 .justify = guikit::Justify::Center,
-                .heightMode = guikit::SizeMode::Stretch
+                .height = guikit::SizeMode::Stretch
             })) {
                 renderClientContent();
             }
@@ -437,10 +437,12 @@ inline void RenderPreviewViewport(
 
             if (auto windowFrame = ui.Box({
                 .gap = 0.0f,
-                .widthMode = demoCtx.previewWindowCustomSize ? guikit::SizeMode::Fixed : guikit::SizeMode::Stretch,
-                .heightMode = demoCtx.previewWindowCustomSize ? guikit::SizeMode::Fixed : guikit::SizeMode::Stretch,
-                .fixedWidth = demoCtx.previewWindowCustomSize ? (demoCtx.previewWindowW * effectiveZoom / shellScale) : 0.0f,
-                .fixedHeight = demoCtx.previewWindowCustomSize ? (demoCtx.previewWindowH * effectiveZoom / shellScale) : 0.0f,
+                .width = demoCtx.previewWindowCustomSize
+                    ? guikit::AxisSize::Fixed(demoCtx.previewWindowW * effectiveZoom / shellScale)
+                    : guikit::AxisSize::Stretch(),
+                .height = demoCtx.previewWindowCustomSize
+                    ? guikit::AxisSize::Fixed(demoCtx.previewWindowH * effectiveZoom / shellScale)
+                    : guikit::AxisSize::Stretch(),
                 .padding = guikit::Padding::All(0.0f),
                 .background = {demoCtx.previewTheme.palette.surface},
                 .border = {.width = resizeActiveOrHovered ? 2.0f : 1.5f, .radius = 10.0f, .color = {winBorderCol}},
@@ -594,9 +596,8 @@ inline void RenderPreviewViewport(
                     ? guikit::Color(241, 245, 249, 255)
                     : guikit::Color(15, 23, 42, 255);
                 if (auto titlebar = ui.Box({
-                    .widthMode = guikit::SizeMode::Stretch,
-                    .heightMode = guikit::SizeMode::Fixed,
-                    .fixedHeight = 28.0f,
+                    .width = guikit::SizeMode::Stretch,
+                    .height = 28.0f,
                     .padding = guikit::Padding::Symmetric(12.0f, 0.0f),
                     .background = {titlebarBg},
                     .border = {.width = 0.0f, .radius = 0.0f}
@@ -605,15 +606,14 @@ inline void RenderPreviewViewport(
                     if (auto titleRow = ui.Row({
                         .gap = 8.0f,
                         .align = guikit::Alignment::Center,
-                        .heightMode = guikit::SizeMode::Stretch,
+                        .height = guikit::SizeMode::Stretch,
                         .theme = &demoCtx.previewTheme,
                         .scale = shellScale
                     })) {
                         // Left slot reserved for Traffic Lights (3 dots * 10px + 2 * 7px gaps = 44px + 8px breathing room)
                         if (auto tlSlot = ui.Box({
-                            .widthMode = guikit::SizeMode::Fixed,
-                            .heightMode = guikit::SizeMode::Stretch,
-                            .fixedWidth = 52.0f
+                            .width = 52.0f,
+                            .height = guikit::SizeMode::Stretch
                         })) {}
                         ui.Spacer();
                         ui.Text(CategoryDisplayTitle(selectedCategory), {
@@ -635,8 +635,8 @@ inline void RenderPreviewViewport(
                 }
 
                 if (auto clientBox = ui.Box({
-                    .widthMode = guikit::SizeMode::Stretch,
-                    .heightMode = guikit::SizeMode::Stretch,
+                    .width = guikit::SizeMode::Stretch,
+                    .height = guikit::SizeMode::Stretch,
                     .padding = guikit::Padding::All(clientPad),
                     .clipChildren = true,
                     .theme = &demoCtx.previewTheme,
@@ -653,10 +653,8 @@ inline void RenderPreviewViewport(
 
             if (auto chassisBox = ui.Box({
                 .gap = 0.0f,
-                .widthMode = guikit::SizeMode::Fixed,
-                .heightMode = guikit::SizeMode::Fixed,
-                .fixedWidth = targetW,
-                .fixedHeight = targetH,
+                .width = targetW,
+                .height = targetH,
                 .padding = guikit::Padding::All(10.0f),
                 .background = {guikit::Color(15, 20, 28, 255)},
                 .border = {
@@ -672,8 +670,8 @@ inline void RenderPreviewViewport(
 
                 if (auto screenBox = ui.Box({
                     .gap = 0.0f,
-                    .widthMode = guikit::SizeMode::Stretch,
-                    .heightMode = guikit::SizeMode::Stretch,
+                    .width = guikit::SizeMode::Stretch,
+                    .height = guikit::SizeMode::Stretch,
                     .padding = guikit::Padding::All(0.0f),
                     .background = {demoCtx.previewTheme.palette.surface},
                     .border = {
@@ -689,9 +687,8 @@ inline void RenderPreviewViewport(
 
                     // 1. Top Safe Area (9:41 Clock + Signal/Battery)
                     if (auto safeTop = ui.Box({
-                        .widthMode = guikit::SizeMode::Stretch,
-                        .heightMode = guikit::SizeMode::Fixed,
-                        .fixedHeight = (isPhone && !demoCtx.previewLandscape) ? 36.0f : 24.0f,
+                        .width = guikit::SizeMode::Stretch,
+                        .height = (isPhone && !demoCtx.previewLandscape) ? 36.0f : 24.0f,
                         .theme = &demoCtx.previewTheme
                     })) {
                         safeTop.GetNode()->postRenderFn = isPhone
@@ -704,8 +701,8 @@ inline void RenderPreviewViewport(
                         ? guikit::Padding{devicePad + 26.0f, devicePad, devicePad, devicePad}
                         : guikit::Padding::All(devicePad);
                     if (auto clientBox = ui.Box({
-                        .widthMode = guikit::SizeMode::Stretch,
-                        .heightMode = guikit::SizeMode::Stretch,
+                        .width = guikit::SizeMode::Stretch,
+                        .height = guikit::SizeMode::Stretch,
                         .padding = clientSafePad,
                         .clipChildren = true,
                         .theme = &demoCtx.previewTheme,
@@ -718,9 +715,8 @@ inline void RenderPreviewViewport(
 
                     // 3. Bottom Safe Area (Home Indicator Bar)
                     if (auto safeBottom = ui.Box({
-                        .widthMode = guikit::SizeMode::Stretch,
-                        .heightMode = guikit::SizeMode::Fixed,
-                        .fixedHeight = 16.0f,
+                        .width = guikit::SizeMode::Stretch,
+                        .height = 16.0f,
                         .theme = &demoCtx.previewTheme
                     })) {
                         safeBottom.GetNode()->postRenderFn = &detail::RenderDeviceHomeIndicatorSafeArea;
@@ -730,8 +726,8 @@ inline void RenderPreviewViewport(
         } else {
             // Full Artboard Mode (clean bordered surface on the recessed backdrop)
             if (auto fullBox = ui.Box({
-                .widthMode = guikit::SizeMode::Stretch,
-                .heightMode = guikit::SizeMode::Stretch,
+                .width = guikit::SizeMode::Stretch,
+                .height = guikit::SizeMode::Stretch,
                 .padding = guikit::Padding::All(clientPad),
                 .background = {demoCtx.previewTheme.palette.surface},
                 .border = {

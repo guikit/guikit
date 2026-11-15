@@ -7,23 +7,17 @@ namespace guikit {
 
 namespace {
 
-ControlSpec EffectiveCheckboxControl(const CheckboxOptions& opts, UiSize size, const UiTheme& theme) noexcept {
+ControlSpec EffectiveCheckboxControl(UiSize size, const UiTheme& theme) noexcept {
     const CheckboxMetrics& m = theme.GetCheckbox(size);
     ControlSpec ctrl{};
-    ctrl.width = opts.width;
-    ctrl.widthRatio = opts.widthRatio;
-    ctrl.height = opts.height;
-    ctrl.align = opts.align;
-    ctrl.background = opts.background;
-    ctrl.border = opts.border;
-    ctrl.defaultLayout = ElementLayout::Inline;
-    ctrl.defaultInlineOrder = InlineOrder::ControlFirst;
+    ctrl.width = AxisSize::Fit();
+    ctrl.height = AxisSize::Fit();
+    ctrl.defaultWidthMode = SizeMode::Fit;
+    ctrl.defaultHeightMode = SizeMode::Fit;
+    ctrl.defaultLayout = ElementLayout::Trailing;
     ctrl.labelGap = m.labelGap;
     ctrl.descGap = m.descGap;
     ctrl.inlineGap = m.gap;
-    ctrl.stretchable = false;
-    ctrl.stretchHeightWhenStandalone = false;
-    ctrl.hasIntrinsicBox = false;
     return ctrl;
 }
 
@@ -81,23 +75,15 @@ Response Checkbox::Run(
     }
 
     CheckboxOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);
 
-    const ControlSpec ctrl = EffectiveCheckboxControl(optsCopy, activeSize, ctx.GetTheme());
+    const ControlSpec ctrl = EffectiveCheckboxControl(activeSize, ctx.GetTheme());
     Node* node = ctx.CreateNode(NodeType::Checkbox, id);
     node->theme = pushedTheme;
     node->SetPayload(ctx.AllocPayload<CheckboxOptions>(optsCopy));
     node->visualHash = detail::HashArgs(
         optsCopy.color,
-        static_cast<keel::u8>(optsCopy.align),
         optsCopy.indeterminate,
-        static_cast<keel::u8>(optsCopy.stretch),
-        optsCopy.width.value_or(0.0f),
-        optsCopy.widthRatio.value_or(-1.0f),
-        optsCopy.height.value_or(0.0f),
-        optsCopy.background,
-        optsCopy.border,
         currentChecked
     );
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
@@ -125,11 +111,8 @@ Response Checkbox::Run(
     node->hovered = res.hovered;
     node->pressed = res.pressed;
     node->focused = ctx.IsFocused(id);
-    node->widthMode = (optsCopy.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
-    node->heightMode = SizeMode::Fit;
 
-    Control::SetupNode(ctx, node, ctrl, optsCopy.stretch, optsCopy.align);
-    ctx.AdaptChildToContainer(node);
+    Control::SetupNode(ctx, node, ctrl);
 
     return res;
 }
@@ -141,10 +124,11 @@ Vec2 Checkbox::Measure(
     const UiTheme& theme,
     float /*availableWidth*/
 ) {
+    (void)opts;
     (void)canvas;
     const CheckboxMetrics& m = theme.GetCheckbox(size);
-    const ControlSpec ctrl = EffectiveCheckboxControl(opts, size, theme);
-    return Control::Measure({m.boxSize, m.boxSize}, ctrl, opts.stretch, size, theme);
+    const ControlSpec ctrl = EffectiveCheckboxControl(size, theme);
+    return Control::Measure({m.boxSize, m.boxSize}, ctrl, theme);
 }
 
 Vec2 Checkbox::Measure(
@@ -174,9 +158,7 @@ void Checkbox::Render(
     }
 
     const CheckboxMetrics& m = theme.GetCheckbox(size);
-    const ControlSpec ctrl = EffectiveCheckboxControl(opts, size, theme);
-    Control::RenderFrame(canvas, bounds, ctrl, size, disabled, theme, hovered, pressed || focused);
-    const Rect ctrlRect = Control::ResolveInnerRect(bounds, ctrl, size, theme);
+    const Rect ctrlRect = bounds;
     const Rect boxRect(
         ctrlRect.x + (ctrlRect.w - m.boxSize) * 0.5f,
         ctrlRect.y + (ctrlRect.h - m.boxSize) * 0.5f,

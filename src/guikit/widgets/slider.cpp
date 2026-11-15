@@ -89,8 +89,7 @@ SliderControlMetrics ComputeSliderControlMetrics(
     keel::StringRef effectiveValStr,
     bool showValue,
     Placement valuePlacement,
-    StretchMode stretch,
-    keel::Optional<float> width,
+    AxisSize width,
     float extraLabelsBand,
     UiSize size,
     ICanvas* canvas,
@@ -214,7 +213,7 @@ SliderControlMetrics ComputeSliderControlMetrics(
         cm.bottomValH = 2.0f + cm.valLineH;
     }
 
-    const float trackW = Control::HasExplicitDpWidth(stretch, width) ? theme.Scale(*width) : m.defaultWidth;
+    const float trackW = width.IsFixed() ? theme.Scale(width.Dp()) : m.defaultWidth;
     cm.intrinsicControlSize = {
         cm.leftGutterW + trackW + m.thumbSize + cm.rightGutterW,
         cm.topValH + cm.trackRowH + cm.extraLabelsH + cm.bottomValH
@@ -464,41 +463,17 @@ void RenderSliderCompanionTexts(
 template <typename Opts>
 ControlSpec EffectiveSliderControl(const Opts& opts, UiSize size, const UiTheme& theme) noexcept {
     const SliderMetrics& m = theme.GetSlider(size);
+    const bool isVert = IsVerticalSlider(opts.orientation);
     ControlSpec c{};
     c.width = opts.width;
-    c.widthRatio = opts.widthRatio;
     c.height = opts.height;
-    c.align = opts.align;
-    c.background = opts.background;
-    c.border = opts.border;
+    c.defaultWidthMode = isVert ? SizeMode::Fit : SizeMode::Stretch;
+    c.defaultHeightMode = isVert ? SizeMode::Stretch : SizeMode::Fit;
     c.defaultLayout = ElementLayout::Stacked;
-    c.defaultInlineOrder = InlineOrder::LabelFirst;
     c.labelGap = m.labelGap;
     c.descGap = m.descGap;
     c.inlineGap = 12.0f;
-    c.stretchable = true;
-    c.stretchHeightWhenStandalone = false;
-    c.hasIntrinsicBox = false;
-    if constexpr (requires { opts.orientation; }) {
-        if (IsVerticalSlider(opts.orientation)) {
-            // Fader: never stretches across; Fill stretches along the main (vertical) axis unless explicit height is set
-            c.stretchable = false;
-            c.stretchHeightWhenStandalone = (opts.stretch == StretchMode::Fill && !opts.height.has_value());
-        }
-    }
     return c;
-}
-
-/// Stretch along the horizontal axis for `Control::Measure` / `Control::SetupNode`: a vertical slider
-/// is Compact across (its `stretch` applies to the height).
-template <typename Opts>
-[[nodiscard]] StretchMode SliderCrossStretch(const Opts& opts) noexcept {
-    if constexpr (requires { opts.orientation; }) {
-        if (IsVerticalSlider(opts.orientation)) {
-            return StretchMode::Compact;
-        }
-    }
-    return opts.stretch;
 }
 
 /// StepSlider labels band across the track: a row below it (height) when horizontal, a column right of
@@ -572,8 +547,7 @@ Response Slider::Run(
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
     const UiTheme& activeTheme = ctx.GetTheme();
 
-    SliderOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
+    const SliderOptions& optsCopy = opts;
 
     const SliderMetrics& m = activeTheme.GetSlider(activeSize);
     const double rangeMin = keel::min(min, max);
@@ -606,11 +580,11 @@ Response Slider::Run(
     } else {
         const SliderControlMetrics cm = ComputeSliderControlMetrics(
             optsCopy.textLeft, optsCopy.textRight, optsCopy.valueFormat, initValBuf,
-            optsCopy.showValue, optsCopy.valuePlacement, optsCopy.stretch, ctrl.width,
+            optsCopy.showValue, optsCopy.valuePlacement, ctrl.width,
             0.0f, activeSize, nullptr, activeTheme,
             {}, true, rangeMin, rangeMax, valInt != nullptr, optsCopy.orientation
         );
-        const Rect ctrlRect = Control::ResolveInnerRect(prevBounds, ctrl, activeSize, activeTheme);
+        const Rect ctrlRect = prevBounds;
         const SliderTrackLayout layout =
             ComputeSliderTrackLayout(ctrlRect, cm, m, IsVerticalSlider(optsCopy.orientation));
 
@@ -702,11 +676,6 @@ Response Slider::Run(
     node->hovered = res.hovered;
     node->pressed = res.pressed || state.dragging;
     node->focused = ctx.IsFocused(id);
-    const bool vertical = IsVerticalSlider(optsCopy.orientation);
-    node->widthMode = (!vertical && optsCopy.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
-    node->heightMode = (vertical && optsCopy.stretch == StretchMode::Fill && !optsCopy.height.has_value())
-        ? SizeMode::Stretch
-        : SizeMode::Fit;
 
     auto* data = ctx.AllocPayload<SliderData>();
     data->opts = optsCopy;
@@ -728,13 +697,9 @@ Response Slider::Run(
         valBits,
         static_cast<keel::u8>(data->opts.orientation),
         data->opts.color,
-        static_cast<keel::u8>(data->opts.stretch),
-        static_cast<keel::u8>(data->opts.align),
         static_cast<keel::u8>(data->opts.valuePlacement),
-        data->opts.background,
-        data->opts.border,
-        data->opts.width.value_or(0.0f),
-        data->opts.height.value_or(0.0f),
+        data->opts.width,
+        data->opts.height,
         data->opts.showValue,
         data->opts.textLeft,
         data->opts.textRight,
@@ -758,8 +723,7 @@ Response Slider::Run(
                        d->opts, n->uiSize, n->hovered, n->pressed, n->disabled, theme, n->focused);
     };
 
-    Control::SetupNode(ctx, node, ctrl, SliderCrossStretch(data->opts), data->opts.align);
-    ctx.AdaptChildToContainer(node);
+    Control::SetupNode(ctx, node, ctrl);
     if (pushedTheme) {
         ctx.PopTheme();
     }
@@ -786,11 +750,11 @@ Vec2 Slider::Measure(
     const ControlSpec ctrl = EffectiveSliderControl(opts, size, theme);
     const SliderControlMetrics cm = ComputeSliderControlMetrics(
         opts.textLeft, opts.textRight, opts.valueFormat, valBuf,
-        opts.showValue, opts.valuePlacement, opts.stretch, ctrl.width,
+        opts.showValue, opts.valuePlacement, ctrl.width,
         0.0f, size, canvas, theme,
         {}, true, rangeMin, rangeMax, isIntStep, opts.orientation
     );
-    return Control::Measure(cm.intrinsicControlSize, ctrl, SliderCrossStretch(opts), size, theme);
+    return Control::Measure(cm.intrinsicControlSize, ctrl, theme);
 }
 
 Vec2 Slider::Measure(
@@ -836,13 +800,12 @@ void Slider::Render(
     const ControlSpec ctrl = EffectiveSliderControl(opts, size, theme);
     const SliderControlMetrics cm = ComputeSliderControlMetrics(
         opts.textLeft, opts.textRight, opts.valueFormat, valBuf,
-        opts.showValue, opts.valuePlacement, opts.stretch, ctrl.width,
+        opts.showValue, opts.valuePlacement, ctrl.width,
         0.0f, size, &canvas, theme,
         {}, true, rangeMin, rangeMax, isIntStep, opts.orientation
     );
-    Control::RenderFrame(canvas, bounds, ctrl, size, disabled, theme, hovered, active || focused);
 
-    const Rect ctrlRect = Control::ResolveInnerRect(bounds, ctrl, size, theme);
+    const Rect ctrlRect = bounds;
     const bool vertical = IsVerticalSlider(opts.orientation);
     const SliderTrackLayout layout = ComputeSliderTrackLayout(ctrlRect, cm, m, vertical);
     const float halfThumb = m.thumbSize * 0.5f;
@@ -915,8 +878,7 @@ Response StepSlider::Run(
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
     const UiTheme& activeTheme = ctx.GetTheme();
 
-    StepSliderOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
+    const StepSliderOptions& optsCopy = opts;
 
     const SliderMetrics& m = activeTheme.GetSlider(activeSize);
 
@@ -949,11 +911,11 @@ Response StepSlider::Run(
     } else {
         const SliderControlMetrics cm = ComputeSliderControlMetrics(
             optsCopy.textLeft, optsCopy.textRight, optsCopy.valueText, initStepStr,
-            optsCopy.showValue, optsCopy.valuePlacement, optsCopy.stretch, ctrl.width,
+            optsCopy.showValue, optsCopy.valuePlacement, ctrl.width,
             labelsBand, activeSize, nullptr, activeTheme,
             optsCopy.stepLabels, false, 0.0, 1.0, false, optsCopy.orientation
         );
-        const Rect ctrlRect = Control::ResolveInnerRect(prevBounds, ctrl, activeSize, activeTheme);
+        const Rect ctrlRect = prevBounds;
         const SliderTrackLayout layout =
             ComputeSliderTrackLayout(ctrlRect, cm, m, IsVerticalSlider(optsCopy.orientation));
 
@@ -1037,11 +999,6 @@ Response StepSlider::Run(
     node->hovered = res.hovered;
     node->pressed = res.pressed || state.dragging;
     node->focused = ctx.IsFocused(id);
-    const bool vertical = IsVerticalSlider(optsCopy.orientation);
-    node->widthMode = (!vertical && optsCopy.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
-    node->heightMode = (vertical && optsCopy.stretch == StretchMode::Fill && !optsCopy.height.has_value())
-        ? SizeMode::Stretch
-        : SizeMode::Fit;
 
     auto* data = ctx.AllocPayload<StepSliderData>();
     data->opts = optsCopy;
@@ -1059,13 +1016,9 @@ Response StepSlider::Run(
         totalSteps,
         static_cast<keel::u8>(data->opts.orientation),
         data->opts.color,
-        static_cast<keel::u8>(data->opts.stretch),
-        static_cast<keel::u8>(data->opts.align),
         static_cast<keel::u8>(data->opts.valuePlacement),
-        data->opts.background,
-        data->opts.border,
-        data->opts.width.value_or(0.0f),
-        data->opts.height.value_or(0.0f),
+        data->opts.width,
+        data->opts.height,
         data->opts.showTicks,
         data->opts.showLabels,
         data->opts.showValue,
@@ -1089,8 +1042,7 @@ Response StepSlider::Run(
                            d->opts, n->uiSize, n->hovered, n->pressed, n->disabled, theme, n->focused);
     };
 
-    Control::SetupNode(ctx, node, ctrl, SliderCrossStretch(data->opts), data->opts.align);
-    ctx.AdaptChildToContainer(node);
+    Control::SetupNode(ctx, node, ctrl);
     if (pushedTheme) {
         ctx.PopTheme();
     }
@@ -1118,11 +1070,11 @@ Vec2 StepSlider::Measure(
     const ControlSpec ctrl = EffectiveSliderControl(opts, size, theme);
     const SliderControlMetrics cm = ComputeSliderControlMetrics(
         opts.textLeft, opts.textRight, opts.valueText, stepStr,
-        opts.showValue, opts.valuePlacement, opts.stretch, ctrl.width,
+        opts.showValue, opts.valuePlacement, ctrl.width,
         labelsBand, size, canvas, theme,
         opts.stepLabels, false, 0.0, 1.0, false, opts.orientation
     );
-    return Control::Measure(cm.intrinsicControlSize, ctrl, SliderCrossStretch(opts), size, theme);
+    return Control::Measure(cm.intrinsicControlSize, ctrl, theme);
 }
 
 Vec2 StepSlider::Measure(
@@ -1164,13 +1116,12 @@ void StepSlider::Render(
     const ControlSpec ctrl = EffectiveSliderControl(opts, size, theme);
     const SliderControlMetrics cm = ComputeSliderControlMetrics(
         opts.textLeft, opts.textRight, opts.valueText, stepStr,
-        opts.showValue, opts.valuePlacement, opts.stretch, ctrl.width,
+        opts.showValue, opts.valuePlacement, ctrl.width,
         labelsBand, size, &canvas, theme,
         opts.stepLabels, false, 0.0, 1.0, false, opts.orientation
     );
-    Control::RenderFrame(canvas, bounds, ctrl, size, disabled, theme, hovered, active || focused);
 
-    const Rect ctrlRect = Control::ResolveInnerRect(bounds, ctrl, size, theme);
+    const Rect ctrlRect = bounds;
     const bool vertical = IsVerticalSlider(opts.orientation);
     const SliderTrackLayout layout = ComputeSliderTrackLayout(ctrlRect, cm, m, vertical);
     const float halfThumb = m.thumbSize * 0.5f;
@@ -1421,8 +1372,7 @@ Response RangeSlider::Run(
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
     const UiTheme& activeTheme = ctx.GetTheme();
 
-    RangeSliderOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
+    const RangeSliderOptions& optsCopy = opts;
 
     const SliderMetrics& m = activeTheme.GetSlider(activeSize);
     const double rangeMin = keel::min(min, max);
@@ -1467,11 +1417,11 @@ Response RangeSlider::Run(
         const float halfThumb = m.thumbSize * 0.5f;
         const SliderControlMetrics cm = ComputeSliderControlMetrics(
             optsCopy.textLeft, optsCopy.textRight, optsCopy.valueFormat, initValBuf,
-            optsCopy.showValue, optsCopy.valuePlacement, optsCopy.stretch, ctrl.width,
+            optsCopy.showValue, optsCopy.valuePlacement, ctrl.width,
             0.0f, activeSize, nullptr, activeTheme,
             keel::ArrayRef<keel::StringRef>(&maxSpanView, 1), false, 0.0, 1.0, false, optsCopy.orientation
         );
-        const Rect ctrlRect = Control::ResolveInnerRect(prevBounds, ctrl, activeSize, activeTheme);
+        const Rect ctrlRect = prevBounds;
         const SliderTrackLayout layout =
             ComputeSliderTrackLayout(ctrlRect, cm, m, IsVerticalSlider(optsCopy.orientation));
         const float trackLen = keel::max(1.0f, layout.length);
@@ -1609,11 +1559,6 @@ Response RangeSlider::Run(
     node->hovered = res.hovered;
     node->pressed = res.pressed || (state.dragMode != RangeDragMode::None);
     node->focused = ctx.IsFocused(id);
-    const bool vertical = IsVerticalSlider(optsCopy.orientation);
-    node->widthMode = (!vertical && optsCopy.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
-    node->heightMode = (vertical && optsCopy.stretch == StretchMode::Fill && !optsCopy.height.has_value())
-        ? SizeMode::Stretch
-        : SizeMode::Fit;
 
     auto* data = ctx.AllocPayload<RangeSliderData>();
     data->opts = optsCopy;
@@ -1638,13 +1583,9 @@ Response RangeSlider::Run(
         state.activeThumb,
         static_cast<keel::u8>(data->opts.orientation),
         data->opts.color,
-        static_cast<keel::u8>(data->opts.stretch),
-        static_cast<keel::u8>(data->opts.align),
         static_cast<keel::u8>(data->opts.valuePlacement),
-        data->opts.background,
-        data->opts.border,
-        data->opts.width.value_or(0.0f),
-        data->opts.height.value_or(0.0f),
+        data->opts.width,
+        data->opts.height,
         data->opts.showValue,
         data->opts.textLeft,
         data->opts.textRight,
@@ -1672,8 +1613,7 @@ Response RangeSlider::Run(
         );
     };
 
-    Control::SetupNode(ctx, node, ctrl, SliderCrossStretch(data->opts), data->opts.align);
-    ctx.AdaptChildToContainer(node);
+    Control::SetupNode(ctx, node, ctrl);
     if (pushedTheme) {
         ctx.PopTheme();
     }
@@ -1704,11 +1644,11 @@ Vec2 RangeSlider::Measure(
     const ControlSpec ctrl = EffectiveSliderControl(opts, size, theme);
     const SliderControlMetrics cm = ComputeSliderControlMetrics(
         opts.textLeft, opts.textRight, opts.valueFormat, valBuf,
-        opts.showValue, opts.valuePlacement, opts.stretch, ctrl.width,
+        opts.showValue, opts.valuePlacement, ctrl.width,
         0.0f, size, canvas, theme,
         keel::ArrayRef<keel::StringRef>(&maxSpanView, 1), false, 0.0, 1.0, false, opts.orientation
     );
-    return Control::Measure(cm.intrinsicControlSize, ctrl, SliderCrossStretch(opts), size, theme);
+    return Control::Measure(cm.intrinsicControlSize, ctrl, theme);
 }
 
 Vec2 RangeSlider::Measure(
@@ -1759,13 +1699,12 @@ void RangeSlider::Render(
     const ControlSpec ctrl = EffectiveSliderControl(opts, size, theme);
     const SliderControlMetrics cm = ComputeSliderControlMetrics(
         opts.textLeft, opts.textRight, opts.valueFormat, valBuf,
-        opts.showValue, opts.valuePlacement, opts.stretch, ctrl.width,
+        opts.showValue, opts.valuePlacement, ctrl.width,
         0.0f, size, &canvas, theme,
         keel::ArrayRef<keel::StringRef>(&maxSpanView, 1), false, 0.0, 1.0, false, opts.orientation
     );
-    Control::RenderFrame(canvas, bounds, ctrl, size, disabled, theme, hovered, active || focused);
 
-    const Rect ctrlRect = Control::ResolveInnerRect(bounds, ctrl, size, theme);
+    const Rect ctrlRect = bounds;
     const bool vertical = IsVerticalSlider(opts.orientation);
     const SliderTrackLayout layout = ComputeSliderTrackLayout(ctrlRect, cm, m, vertical);
     const float halfThumb = m.thumbSize * 0.5f;
@@ -1845,8 +1784,7 @@ Response ProgressBar::Run(
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
     const UiTheme& activeTheme = ctx.GetTheme();
 
-    ProgressBarOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
+    const ProgressBarOptions& optsCopy = opts;
 
     const double rangeMin = keel::min(min, max);
     const double rangeMax = keel::max(min, max);
@@ -1868,16 +1806,11 @@ Response ProgressBar::Run(
     }
 
     const ControlSpec ctrl = EffectiveSliderControl(optsCopy, activeSize, activeTheme);
-    const bool vertical = IsVerticalSlider(optsCopy.orientation);
     Node* node = ctx.CreateNode(NodeType::ProgressBar, id);
     node->theme = pushedTheme;
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
-    node->widthMode = (!vertical && optsCopy.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
-    node->heightMode = (vertical && optsCopy.stretch == StretchMode::Fill && !optsCopy.height.has_value())
-        ? SizeMode::Stretch
-        : SizeMode::Fit;
 
     auto* data = ctx.AllocPayload<ProgressBarData>();
     data->opts = optsCopy;
@@ -1909,14 +1842,9 @@ Response ProgressBar::Run(
         data->opts.dangerRatio,
         data->opts.trackHeight.value_or(0.0f),
         data->opts.color,
-        static_cast<keel::u8>(data->opts.stretch),
-        static_cast<keel::u8>(data->opts.align),
         static_cast<keel::u8>(data->opts.valuePlacement),
-        data->opts.background,
-        data->opts.border,
-        data->opts.width.value_or(0.0f),
-        data->opts.widthRatio.value_or(-1.0f),
-        data->opts.height.value_or(0.0f),
+        data->opts.width,
+        data->opts.height,
         data->opts.showValue,
         data->opts.textLeft,
         data->opts.textRight,
@@ -1943,8 +1871,7 @@ Response ProgressBar::Run(
         );
     };
 
-    Control::SetupNode(ctx, node, ctrl, SliderCrossStretch(data->opts), data->opts.align);
-    ctx.AdaptChildToContainer(node);
+    Control::SetupNode(ctx, node, ctrl);
     if (pushedTheme) {
         ctx.PopTheme();
     }
@@ -1979,7 +1906,7 @@ Vec2 ProgressBar::Measure(
     const ControlSpec ctrl = EffectiveSliderControl(opts, size, theme);
     SliderControlMetrics cm = ComputeSliderControlMetrics(
         opts.textLeft, opts.textRight, fmtText, valBuf,
-        effShowVal, opts.valuePlacement, opts.stretch, ctrl.width,
+        effShowVal, opts.valuePlacement, ctrl.width,
         0.0f, size, canvas, theme,
         {}, !opts.indeterminate, rangeMin, rangeMax, false, opts.orientation
     );
@@ -1997,7 +1924,7 @@ Vec2 ProgressBar::Measure(
             }
         }
     }
-    return Control::Measure(cm.intrinsicControlSize, ctrl, SliderCrossStretch(opts), size, theme);
+    return Control::Measure(cm.intrinsicControlSize, ctrl, theme);
 }
 
 Vec2 ProgressBar::Measure(
@@ -2047,10 +1974,11 @@ void ProgressBar::Render(
         fmtText.text = fmt;
     }
 
+    (void)hovered;
     const ControlSpec ctrl = EffectiveSliderControl(opts, size, theme);
     SliderControlMetrics cm = ComputeSliderControlMetrics(
         opts.textLeft, opts.textRight, fmtText, valBuf,
-        effShowVal, opts.valuePlacement, opts.stretch, ctrl.width,
+        effShowVal, opts.valuePlacement, ctrl.width,
         0.0f, size, &canvas, theme,
         {}, !opts.indeterminate, rangeMin, rangeMax, false, opts.orientation
     );
@@ -2065,8 +1993,7 @@ void ProgressBar::Render(
         cm.crossW = barThick + 4.0f;
     }
 
-    Control::RenderFrame(canvas, bounds, ctrl, size, disabled, theme, hovered, false);
-    const Rect ctrlRect = Control::ResolveInnerRect(bounds, ctrl, size, theme);
+    const Rect ctrlRect = bounds;
 
     const double range = rangeMax - rangeMin;
     const float ratio = opts.indeterminate

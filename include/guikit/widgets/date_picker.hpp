@@ -49,11 +49,9 @@ struct DatePickerOptions {
     keel::ArrayRef<keel::StringRef> monthNames{};           ///< Optional 12 localized month names [January .. December]
     keel::ArrayRef<keel::StringRef> weekdayNames{};         ///< Optional 7 localized short weekday labels [Sunday .. Saturday]
     StateColor color{};
-    StretchMode stretch{StretchMode::Compact};
-    Align align{Align::Start};
-    keel::Optional<float> width{keel::kNullOpt};
-    keel::Optional<float> widthRatio{keel::kNullOpt};
-    keel::Optional<float> height{keel::kNullOpt};
+    AxisSize width{};                                       ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit` in `Toolbar`, or `Fixed(dp)`)
+    AxisSize height{};                                      ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
+    keel::Optional<float> minWidth{keel::kNullOpt};         ///< Minimum control width constraint in points
     StateColor background{StateColor::Surface()};
     Border border{};
     UiText tooltip{};

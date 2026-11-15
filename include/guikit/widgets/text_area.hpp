@@ -153,12 +153,8 @@ struct TextAreaOptions {
     void* highlighterUserData{nullptr};                 ///< User data passed to syntaxHighlighter
     keel::Optional<CursorBlinkMode> cursorMode{keel::kNullOpt}; ///< Caret visibility and blinking behavior
     StateColor color{};                                 ///< Optional focus ring / accent color override
-    Align align{Align::Start};                          ///< Horizontal alignment in parent container
-    StretchMode stretch{StretchMode::Fill};             ///< Horizontal sizing behavior (Compact, Space, Fill)
-    keel::Optional<float> width{keel::kNullOpt};        ///< Explicit width in dp (or legacy ratio 0.0..1.0 in Fill)
-    keel::Optional<float> widthRatio{keel::kNullOpt};   ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
-    keel::Optional<float> height{keel::kNullOpt};       ///< Explicit height of the editor box in points/pixels
-    SizeMode heightMode{SizeMode::Fit};                 ///< Vertical sizing behavior in layout (Fit or Stretch)
+    AxisSize width{};                                   ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or `Fixed(dp)`)
+    AxisSize height{SizeMode::Fit};                     ///< Vertical sizing policy (`Auto`/`Fit`, `Stretch`, or `Fixed(dp)`)
     StateColor background{};                            ///< Optional background fill color override
     Border border{};                                    ///< Optional border configuration (color, width, radius)
     keel::Optional<float> scale{keel::kNullOpt};        ///< Optional local UI scale factor override

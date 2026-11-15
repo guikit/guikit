@@ -28,29 +28,28 @@ enum class Placement : keel::u8 {
     Thumb       ///< Placed dynamically above the interactive thumb/handle (e.g. Slider)
 };
 
-/// Compound layout structure for UI elements with external labels/descriptions.
+/// Placement of an `Element`'s label and description relative to its control slot.
 enum class ElementLayout : keel::u8 {
-    Stacked,  ///< Label on top, control in middle, Description on bottom
-    Top,      ///< Label and Description above control
-    Bottom,   ///< Label and Description below control
-    Inline    ///< Horizontal inline row: Label and control side-by-side
+    Stacked,   ///< Label on top, control slot in middle, Description on bottom
+    Top,       ///< Label and Description stacked above control slot
+    Bottom,    ///< Label and Description stacked below control slot
+    Leading,   ///< Label and Description leading (left of) control slot (`Label ... [Control]`)
+    Trailing   ///< Label and Description trailing (right of) control slot (`[Control] Label`)
 };
 
-/// Sequencing order between external label and interactive control in Inline layout.
-enum class InlineOrder : keel::u8 {
-    LabelFirst,    ///< Label/text first (left / start), control second (right / end)
-    ControlFirst   ///< Control first (left / start), label/text second (right / end)
-};
+/// Returns true if `layout` arranges text and control horizontally side-by-side (`Leading` or `Trailing`).
+[[nodiscard]] constexpr bool IsInlineElementLayout(ElementLayout layout) noexcept {
+    return layout == ElementLayout::Leading || layout == ElementLayout::Trailing;
+}
 
-/// Semantic heading hierarchy level for `Heading` and document typography (`Auto` inherits from active `UiSize`).
+/// Semantic heading hierarchy level for `Heading` and document typography (`H1`–`H6`, independent of `UiSize`).
 enum class HeadingLevel : keel::u8 {
-    Auto = 0, ///< Driven by active `UiSize` (`Xs`..`Xl`) via `UiTheme::GetHeading(UiSize)`
-    H1   = 1, ///< Primary page / document title (`UiTheme::GetHeading(HeadingLevel::H1)`)
-    H2   = 2, ///< Major section heading (`UiTheme::GetHeading(HeadingLevel::H2)`)
-    H3   = 3, ///< Subsection / card heading (`UiTheme::GetHeading(HeadingLevel::H3)`)
-    H4   = 4, ///< Group / panel heading (`UiTheme::GetHeading(HeadingLevel::H4)`)
-    H5   = 5, ///< Sub-group / minor heading (`UiTheme::GetHeading(HeadingLevel::H5)`)
-    H6   = 6  ///< Caption / overline heading (`UiTheme::GetHeading(HeadingLevel::H6)`)
+    H1 = 0, ///< Primary page / document title (`UiTheme::GetHeading(HeadingLevel::H1)`)
+    H2 = 1, ///< Major section heading (`UiTheme::GetHeading(HeadingLevel::H2)`)
+    H3 = 2, ///< Subsection / card heading (`UiTheme::GetHeading(HeadingLevel::H3)`, default)
+    H4 = 3, ///< Group / panel heading (`UiTheme::GetHeading(HeadingLevel::H4)`)
+    H5 = 4, ///< Sub-group / minor heading (`UiTheme::GetHeading(HeadingLevel::H5)`)
+    H6 = 5  ///< Caption / overline heading (`UiTheme::GetHeading(HeadingLevel::H6)`)
 };
 
 /// Built-in separator placement for Heading.
@@ -596,6 +595,16 @@ concept UiStringLike =
     !keel::IsSame<keel::Decay<S>, TextVariants>;
 
 template <typename S>
+concept UiStringViewLike =
+    keel::IsSame<keel::Decay<S>, keel::StringRef> ||
+    keel::IsConvertible<const S&, const char*> ||
+    (keel::IsTriviallyCopyable<keel::Decay<S>> &&
+     requires(const char* d, keel::usize n) {
+         typename keel::Decay<S>::traits_type;
+         keel::Decay<S>(d, n);
+     });
+
+template <typename S>
     requires UiStringLike<S>
 [[nodiscard]] constexpr keel::StringRef ToUiStringView(const S& s) noexcept {
     if constexpr (keel::IsConvertible<const S&, const char*>) {
@@ -624,7 +633,7 @@ concept UiTextModifier =
 /// Styled text wrapper combining text content with font size (`TextSize`), per-state color (`StateColor`),
 /// wrapping/line reservation policy (`TextWrap`), and candidate width/height variants (`TextVariants`).
 /// Implicitly constructible from string literals, `keel::StringRef`, `keel::String` (`ui.Format`), and external string types.
-struct UiText {
+struct GUIKIT_LIFETIME_POINTER UiText {
     keel::StringRef text{};
     TextSize size{};
     StateColor color{};
@@ -665,8 +674,12 @@ struct UiText {
     constexpr UiText(const char* s) noexcept : text(s ? s : "") {}
 
     template <typename S>
-        requires (detail::UiStringLike<S> && !keel::IsConvertible<const S&, const char*>)
+        requires (detail::UiStringLike<S> && !keel::IsConvertible<const S&, const char*> && detail::UiStringViewLike<S>)
     constexpr UiText(const S& s) noexcept : text(keel::StringRef(s)) {}
+
+    template <typename S>
+        requires (detail::UiStringLike<S> && !keel::IsConvertible<const S&, const char*> && !detail::UiStringViewLike<S>)
+    constexpr UiText(const S& s KEEL_LIFETIMEBOUND) noexcept : text(keel::StringRef(s)) {}
 
     template <detail::UiTextModifier... Mods>
         requires (sizeof...(Mods) >= 1)
@@ -675,33 +688,39 @@ struct UiText {
     }
 
     template <typename S, detail::UiTextModifier... Mods>
-        requires (detail::UiStringLike<S> && sizeof...(Mods) >= 1)
+        requires (detail::UiStringLike<S> && detail::UiStringViewLike<S> && sizeof...(Mods) >= 1)
     constexpr UiText(const S& s, const Mods&... mods) noexcept : text(detail::ToUiStringView(s)) {
         (ApplyModifier(mods), ...);
     }
 
-    // Explicit TextVariants constructors for braced-initializer-list deduction (e.g. {"text", {"A", "B"}})
-    constexpr UiText(TextVariants vars) noexcept : variants(vars) {}
-    constexpr UiText(UiVariant v, TextVariants vars) noexcept : color(StateColor::FromTextVariant(v)), variants(vars) {}
-    constexpr UiText(StateColor c, TextVariants vars) noexcept : color(c), variants(vars) {}
-    constexpr UiText(TextSize s, TextVariants vars) noexcept : size(s), variants(vars) {}
-    constexpr UiText(TextRole r, TextVariants vars) noexcept : size(r), variants(vars) {}
-    constexpr UiText(TextRole r, UiVariant v, TextVariants vars) noexcept : size(r), color(StateColor::FromTextVariant(v)), variants(vars) {}
-    constexpr UiText(UiVariant v, TextRole r, TextVariants vars) noexcept : size(r), color(StateColor::FromTextVariant(v)), variants(vars) {}
-    constexpr UiText(TextWrap w, TextVariants vars) noexcept : wrap(w), variants(vars) {}
-    constexpr UiText(UiVariant v, TextWrap w, TextVariants vars) noexcept : color(StateColor::FromTextVariant(v)), wrap(w), variants(vars) {}
+    template <typename S, detail::UiTextModifier... Mods>
+        requires (detail::UiStringLike<S> && !detail::UiStringViewLike<S> && sizeof...(Mods) >= 1)
+    constexpr UiText(const S& s KEEL_LIFETIMEBOUND, const Mods&... mods) noexcept : text(detail::ToUiStringView(s)) {
+        (ApplyModifier(mods), ...);
+    }
 
-    constexpr UiText(keel::StringRef s, TextVariants vars) noexcept : text(s), variants(vars) {}
-    constexpr UiText(keel::StringRef s, UiVariant v, TextVariants vars) noexcept : text(s), color(StateColor::FromTextVariant(v)), variants(vars) {}
-    constexpr UiText(keel::StringRef s, StateColor c, TextVariants vars) noexcept : text(s), color(c), variants(vars) {}
-    constexpr UiText(keel::StringRef s, TextVariants vars, UiVariant v) noexcept : text(s), color(StateColor::FromTextVariant(v)), variants(vars) {}
-    constexpr UiText(keel::StringRef s, TextSize sz, TextVariants vars) noexcept : text(s), size(sz), variants(vars) {}
-    constexpr UiText(keel::StringRef s, TextRole r, TextVariants vars) noexcept : text(s), size(r), variants(vars) {}
-    constexpr UiText(keel::StringRef s, TextVariants vars, TextRole r) noexcept : text(s), size(r), variants(vars) {}
-    constexpr UiText(keel::StringRef s, TextRole r, UiVariant v, TextVariants vars) noexcept : text(s), size(r), color(StateColor::FromTextVariant(v)), variants(vars) {}
-    constexpr UiText(keel::StringRef s, UiVariant v, TextRole r, TextVariants vars) noexcept : text(s), size(r), color(StateColor::FromTextVariant(v)), variants(vars) {}
-    constexpr UiText(keel::StringRef s, TextWrap w, TextVariants vars) noexcept : text(s), wrap(w), variants(vars) {}
-    constexpr UiText(keel::StringRef s, UiVariant v, TextWrap w, TextVariants vars) noexcept : text(s), color(StateColor::FromTextVariant(v)), wrap(w), variants(vars) {}
+    // Explicit TextVariants constructors for braced-initializer-list deduction (e.g. {"text", {"A", "B"}})
+    constexpr UiText(TextVariants vars KEEL_LIFETIMEBOUND) noexcept : variants(vars) {}
+    constexpr UiText(UiVariant v, TextVariants vars KEEL_LIFETIMEBOUND) noexcept : color(StateColor::FromTextVariant(v)), variants(vars) {}
+    constexpr UiText(StateColor c, TextVariants vars KEEL_LIFETIMEBOUND) noexcept : color(c), variants(vars) {}
+    constexpr UiText(TextSize s, TextVariants vars KEEL_LIFETIMEBOUND) noexcept : size(s), variants(vars) {}
+    constexpr UiText(TextRole r, TextVariants vars KEEL_LIFETIMEBOUND) noexcept : size(r), variants(vars) {}
+    constexpr UiText(TextRole r, UiVariant v, TextVariants vars KEEL_LIFETIMEBOUND) noexcept : size(r), color(StateColor::FromTextVariant(v)), variants(vars) {}
+    constexpr UiText(UiVariant v, TextRole r, TextVariants vars KEEL_LIFETIMEBOUND) noexcept : size(r), color(StateColor::FromTextVariant(v)), variants(vars) {}
+    constexpr UiText(TextWrap w, TextVariants vars KEEL_LIFETIMEBOUND) noexcept : wrap(w), variants(vars) {}
+    constexpr UiText(UiVariant v, TextWrap w, TextVariants vars KEEL_LIFETIMEBOUND) noexcept : color(StateColor::FromTextVariant(v)), wrap(w), variants(vars) {}
+
+    constexpr UiText(keel::StringRef s, TextVariants vars KEEL_LIFETIMEBOUND) noexcept : text(s), variants(vars) {}
+    constexpr UiText(keel::StringRef s, UiVariant v, TextVariants vars KEEL_LIFETIMEBOUND) noexcept : text(s), color(StateColor::FromTextVariant(v)), variants(vars) {}
+    constexpr UiText(keel::StringRef s, StateColor c, TextVariants vars KEEL_LIFETIMEBOUND) noexcept : text(s), color(c), variants(vars) {}
+    constexpr UiText(keel::StringRef s, TextVariants vars KEEL_LIFETIMEBOUND, UiVariant v) noexcept : text(s), color(StateColor::FromTextVariant(v)), variants(vars) {}
+    constexpr UiText(keel::StringRef s, TextSize sz, TextVariants vars KEEL_LIFETIMEBOUND) noexcept : text(s), size(sz), variants(vars) {}
+    constexpr UiText(keel::StringRef s, TextRole r, TextVariants vars KEEL_LIFETIMEBOUND) noexcept : text(s), size(r), variants(vars) {}
+    constexpr UiText(keel::StringRef s, TextVariants vars KEEL_LIFETIMEBOUND, TextRole r) noexcept : text(s), size(r), variants(vars) {}
+    constexpr UiText(keel::StringRef s, TextRole r, UiVariant v, TextVariants vars KEEL_LIFETIMEBOUND) noexcept : text(s), size(r), color(StateColor::FromTextVariant(v)), variants(vars) {}
+    constexpr UiText(keel::StringRef s, UiVariant v, TextRole r, TextVariants vars KEEL_LIFETIMEBOUND) noexcept : text(s), size(r), color(StateColor::FromTextVariant(v)), variants(vars) {}
+    constexpr UiText(keel::StringRef s, TextWrap w, TextVariants vars KEEL_LIFETIMEBOUND) noexcept : text(s), wrap(w), variants(vars) {}
+    constexpr UiText(keel::StringRef s, UiVariant v, TextWrap w, TextVariants vars KEEL_LIFETIMEBOUND) noexcept : text(s), color(StateColor::FromTextVariant(v)), wrap(w), variants(vars) {}
 
     [[nodiscard]] constexpr UiText WithSize(TextSize s) const noexcept {
         UiText copy = *this;
@@ -770,7 +789,7 @@ struct UiText {
 static_assert(sizeof(UiText) <= 80, "UiText must remain compact (<= 80 bytes)");
 
 /// Unified value token for leading/trailing affixes (.prefix and .suffix) supporting text, icon, or both.
-struct UiAffix {
+struct GUIKIT_LIFETIME_POINTER UiAffix {
     UiText text{};
     Icon icon{};
     Placement iconPlacement{Placement::Leading}; ///< Leading: [Icon][Text], Trailing: [Text][Icon]
@@ -779,8 +798,12 @@ struct UiAffix {
     constexpr UiAffix(const char* s) noexcept : text(s) {}
 
     template <typename S>
-        requires (detail::UiStringLike<S> && !keel::IsConvertible<const S&, const char*>)
+        requires (detail::UiStringLike<S> && !keel::IsConvertible<const S&, const char*> && detail::UiStringViewLike<S>)
     constexpr UiAffix(const S& s) noexcept : text(s) {}
+
+    template <typename S>
+        requires (detail::UiStringLike<S> && !keel::IsConvertible<const S&, const char*> && !detail::UiStringViewLike<S>)
+    constexpr UiAffix(const S& s KEEL_LIFETIMEBOUND) noexcept : text(s) {}
 
     constexpr UiAffix(UiText t) noexcept : text(t) {}
     constexpr UiAffix(Icon ic) noexcept : icon(ic) {}
@@ -818,9 +841,9 @@ struct UiAffix {
         : text(t), icon(ic), iconPlacement(placement) {}
 
     // TextVariants support
-    constexpr UiAffix(TextVariants vars) noexcept : text(vars) {}
-    constexpr UiAffix(keel::StringRef s, TextVariants vars) noexcept : text(s, vars) {}
-    constexpr UiAffix(Icon ic, TextVariants vars) noexcept : text(vars), icon(ic), iconPlacement(Placement::Leading) {}
+    constexpr UiAffix(TextVariants vars KEEL_LIFETIMEBOUND) noexcept : text(vars) {}
+    constexpr UiAffix(keel::StringRef s, TextVariants vars KEEL_LIFETIMEBOUND) noexcept : text(s, vars) {}
+    constexpr UiAffix(Icon ic, TextVariants vars KEEL_LIFETIMEBOUND) noexcept : text(vars), icon(ic), iconPlacement(Placement::Leading) {}
 
     [[nodiscard]] constexpr UiAffix WithIcon(Icon ic, Placement placement = Placement::Leading) const noexcept {
         UiAffix copy = *this;
@@ -907,15 +930,19 @@ struct TypographyMetrics {
 /// Standardized component metrics associated with each UiSize.
 struct ComponentMetrics {
     float defaultHeight;
-    float fontSize;          ///< Primary label / control text size (LabelLarge level)
-    float companionFontSize; ///< Companion / inner control text size (LabelMedium level)
-    float descFontSize;      ///< Helper description / caption text size (LabelSmall level)
+    float fontSize;             ///< Primary label / control text size (LabelLarge level)
+    float companionFontSize;    ///< Companion / inner control text size (LabelMedium level)
+    float descFontSize;         ///< Helper description / caption text size (LabelSmall level)
     float paddingX;
     float paddingY;
     float cornerRadius;
     float iconSize;
     float minWidth{64.0f};
     float defaultWidth{80.0f};
+    float badgeFontSize{11.0f}; ///< Pill badge text size inside controls and form labels
+    float itemGap{6.0f};        ///< Horizontal gap between leading icon, label, and inline items
+    float badgeGap{8.0f};       ///< Horizontal gap before trailing pill badge
+    float lineGap{3.0f};        ///< Vertical gap between stacked label and description lines
 };
 
 /// Standardized metrics for scrollbars derived from UiSize tokens.
@@ -999,7 +1026,7 @@ struct SelectMetrics {
     float minWidth{80.0f};
 };
 
-/// Standardized metrics for Heading widget according to UiSize.
+/// Standardized metrics for section `Heading` typography according to `HeadingLevel` (`H1`–`H6`).
 struct HeadingMetrics {
     float titleFontSize;
     float subtitleFontSize;

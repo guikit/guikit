@@ -15,8 +15,8 @@ class Context;
 struct CardOptions {
     float minWidth{0.0f};                           ///< Minimum card width constraint (0 = auto content intrinsic)
     keel::Optional<float> maxWidth{keel::kNullOpt};
-    keel::Optional<float> width{keel::kNullOpt};
-    keel::Optional<float> height{keel::kNullOpt};
+    AxisSize width{SizeMode::Stretch};
+    AxisSize height{SizeMode::Fit};
     keel::Optional<float> minHeight{keel::kNullOpt};
     keel::Optional<float> maxHeight{keel::kNullOpt};
     float flexGrow{1.0f};
@@ -25,8 +25,6 @@ struct CardOptions {
     StateColor background{};
     Border border{.width = 1.0f};
     bool clipChildren{true};                        ///< Clip children to prevent content bleeding outside rounded card
-    SizeMode widthMode{SizeMode::Stretch};
-    SizeMode heightMode{SizeMode::Fit};
     bool disabled{false};
     const UiTheme* theme{nullptr};
     keel::Optional<float> scale{keel::kNullOpt};

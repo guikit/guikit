@@ -190,7 +190,7 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
             }
             if (useCols) {
                 ui.Text("Viewport", {.variant = guikit::UiVariant::Secondary});
-                ui.Element({.badge = {"5 nodes", guikit::UiVariant::Primary}, .stretch = guikit::StretchMode::Compact});
+                ui.Element({.badge = {"5 nodes", guikit::UiVariant::Primary}, .width = guikit::SizeMode::Fit});
             }
             if (s_tree.showEmbeddedControls) {
                 ui.Switch(s_tree.sceneActive);
@@ -210,12 +210,12 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
                 }
                 if (useCols) {
                     ui.Text("PBR Group", {.variant = guikit::UiVariant::Secondary});
-                    ui.Element({.badge = {"2 passes", guikit::UiVariant::Info}, .stretch = guikit::StretchMode::Compact});
+                    ui.Element({.badge = {"2 passes", guikit::UiVariant::Info}, .width = guikit::SizeMode::Fit});
                 }
                 if (s_tree.showEmbeddedControls) {
                     ui.Slider(s_tree.envExposure, 0.0f, 2.5f, {
                         .valueFormat = "%.2f EV",
-                        .width = useCols ? keel::Optional<float>{} : keel::Optional<float>{128.0f}
+                        .width = useCols ? guikit::AxisSize::Auto() : guikit::AxisSize::Fixed(128.0f)
                     });
                 }
 
@@ -229,7 +229,7 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
                 })) {
                     if (useCols) {
                         ui.Text("6500K", {.variant = guikit::UiVariant::Secondary});
-                        ui.Element({.badge = {"HDR", guikit::UiVariant::Warning}, .stretch = guikit::StretchMode::Compact});
+                        ui.Element({.badge = {"HDR", guikit::UiVariant::Warning}, .width = guikit::SizeMode::Fit});
                     }
                     if (s_tree.showEmbeddedControls) {
                         ui.Switch(s_tree.sunEnabled);
@@ -245,12 +245,12 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
                 })) {
                     if (useCols) {
                         ui.Text("Raymarched", {.variant = guikit::UiVariant::Secondary});
-                        ui.Element({.badge = {"Froxel", guikit::UiVariant::Default}, .stretch = guikit::StretchMode::Compact});
+                        ui.Element({.badge = {"Froxel", guikit::UiVariant::Default}, .width = guikit::SizeMode::Fit});
                     }
                     if (s_tree.showEmbeddedControls) {
                         ui.Slider(s_tree.fogDensity, 0.0f, 100.0f, {
                             .valueFormat = "%.0f%%",
-                            .width = useCols ? keel::Optional<float>{} : keel::Optional<float>{110.0f}
+                            .width = useCols ? guikit::AxisSize::Auto() : guikit::AxisSize::Fixed(110.0f)
                         });
                     }
                 }
@@ -271,7 +271,7 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
                 }
                 if (useCols) {
                     ui.Text("DSP Bus", {.variant = guikit::UiVariant::Secondary});
-                    ui.Element({.badge = {"3 ch", guikit::UiVariant::Info}, .stretch = guikit::StretchMode::Compact});
+                    ui.Element({.badge = {"3 ch", guikit::UiVariant::Info}, .width = guikit::SizeMode::Fit});
                 }
 
                 static constexpr keel::StaticArray<keel::StringRef, 3> kSonarModes = {"Active", "Passive", "CW"};
@@ -284,11 +284,11 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
                 })) {
                     if (useCols) {
                         ui.Text("750 kHz", {.variant = guikit::UiVariant::Secondary});
-                        ui.Element({.badge = {"128-Beam", guikit::UiVariant::Primary}, .stretch = guikit::StretchMode::Compact});
+                        ui.Element({.badge = {"128-Beam", guikit::UiVariant::Primary}, .width = guikit::SizeMode::Fit});
                     }
                     if (s_tree.showEmbeddedControls) {
                         ui.Select(s_tree.sonarModeIdx, kSonarModes, {
-                            .width = useCols ? keel::Optional<float>{} : keel::Optional<float>{100.0f}
+                            .width = useCols ? guikit::AxisSize::Auto() : guikit::AxisSize::Fixed(100.0f)
                         });
                     }
                 }
@@ -303,7 +303,7 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
                 })) {
                     if (useCols) {
                         ui.Text("2.4 GHz", {.variant = guikit::UiVariant::Secondary});
-                        ui.Element({.badge = {"LIVE", guikit::UiVariant::Success}, .stretch = guikit::StretchMode::Compact});
+                        ui.Element({.badge = {"LIVE", guikit::UiVariant::Success}, .width = guikit::SizeMode::Fit});
                     }
                     if (s_tree.showEmbeddedControls) {
                         // Multi-widget cell: Switch + Button grouped inside a single column cell
@@ -328,7 +328,7 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
                 })) {
                     if (useCols) {
                         ui.Text("400 Hz", {.variant = guikit::UiVariant::Secondary});
-                        ui.Element({.badge = {"6-DOF", guikit::UiVariant::Default}, .stretch = guikit::StretchMode::Compact});
+                        ui.Element({.badge = {"6-DOF", guikit::UiVariant::Default}, .width = guikit::SizeMode::Fit});
                     }
                     if (s_tree.showEmbeddedControls) {
                         ui.Switch(s_tree.imuEnabled);
@@ -352,7 +352,7 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
             }
             if (useCols) {
                 ui.Text("14.2 MB", {.variant = guikit::UiVariant::Secondary});
-                ui.Element({.badge = {"Bundle", guikit::UiVariant::Default}, .stretch = guikit::StretchMode::Compact});
+                ui.Element({.badge = {"Bundle", guikit::UiVariant::Default}, .width = guikit::SizeMode::Fit});
             }
 
             if (auto shadersItem = ui.TreeItem({
@@ -369,7 +369,7 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
                 }
                 if (useCols) {
                     ui.Text("GLSL 330", {.variant = guikit::UiVariant::Secondary});
-                    ui.Element({.badge = {"2 files", guikit::UiVariant::Secondary}, .stretch = guikit::StretchMode::Compact});
+                    ui.Element({.badge = {"2 files", guikit::UiVariant::Secondary}, .width = guikit::SizeMode::Fit});
                 }
 
                 if (auto s1 = ui.TreeItem({
@@ -381,7 +381,7 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
                 })) {
                     if (useCols) {
                         ui.Text("4.8 KB", {.variant = guikit::UiVariant::Secondary});
-                        ui.Element({.badge = {"OK", guikit::UiVariant::Success}, .stretch = guikit::StretchMode::Compact});
+                        ui.Element({.badge = {"OK", guikit::UiVariant::Success}, .width = guikit::SizeMode::Fit});
                     }
                 }
 
@@ -394,7 +394,7 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
                 })) {
                     if (useCols) {
                         ui.Text("6.1 KB", {.variant = guikit::UiVariant::Secondary});
-                        ui.Element({.badge = {"OK", guikit::UiVariant::Success}, .stretch = guikit::StretchMode::Compact});
+                        ui.Element({.badge = {"OK", guikit::UiVariant::Success}, .width = guikit::SizeMode::Fit});
                     }
                 }
             }
@@ -408,7 +408,7 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
             })) {
                 if (useCols) {
                     ui.Text("2.1 KB", {.variant = guikit::UiVariant::Secondary});
-                    ui.Element({.badge = {"JSON", guikit::UiVariant::Info}, .stretch = guikit::StretchMode::Compact});
+                    ui.Element({.badge = {"JSON", guikit::UiVariant::Info}, .width = guikit::SizeMode::Fit});
                 }
             }
         }
@@ -519,7 +519,7 @@ keel::String GenerateTreeViewCode(const DemoContext& ctx) {
     }
     if (useCols) {
         out.append("        ui.Text(\"Viewport\", {.variant = guikit::UiVariant::Secondary});\n"
-                   "        ui.Element({.badge = {\"5 nodes\", guikit::UiVariant::Primary}, .stretch = guikit::StretchMode::Compact});\n");
+                   "        ui.Element({.badge = {\"5 nodes\", guikit::UiVariant::Primary}, .width = guikit::SizeMode::Fit});\n");
     }
     if (s_tree.showEmbeddedControls) {
         out.append("        ui.Switch(sceneActive);\n");
@@ -539,7 +539,7 @@ keel::String GenerateTreeViewCode(const DemoContext& ctx) {
     }
     if (useCols) {
         out.append("            ui.Text(\"PBR Group\", {.variant = guikit::UiVariant::Secondary});\n"
-                   "            ui.Element({.badge = {\"2 passes\", guikit::UiVariant::Info}, .stretch = guikit::StretchMode::Compact});\n");
+                   "            ui.Element({.badge = {\"2 passes\", guikit::UiVariant::Info}, .width = guikit::SizeMode::Fit});\n");
     }
     if (s_tree.showEmbeddedControls) {
         out.append(useCols
@@ -556,7 +556,7 @@ keel::String GenerateTreeViewCode(const DemoContext& ctx) {
     );
     if (useCols) {
         out.append("                ui.Text(\"6500K\", {.variant = guikit::UiVariant::Secondary});\n"
-                   "                ui.Element({.badge = {\"HDR\", guikit::UiVariant::Warning}, .stretch = guikit::StretchMode::Compact});\n");
+                   "                ui.Element({.badge = {\"HDR\", guikit::UiVariant::Warning}, .width = guikit::SizeMode::Fit});\n");
     }
     if (s_tree.showEmbeddedControls) {
         out.append("                ui.Switch(sunEnabled);\n");
@@ -570,7 +570,7 @@ keel::String GenerateTreeViewCode(const DemoContext& ctx) {
     );
     if (useCols) {
         out.append("                ui.Text(\"Raymarched\", {.variant = guikit::UiVariant::Secondary});\n"
-                   "                ui.Element({.badge = {\"Froxel\", guikit::UiVariant::Default}, .stretch = guikit::StretchMode::Compact});\n");
+                   "                ui.Element({.badge = {\"Froxel\", guikit::UiVariant::Default}, .width = guikit::SizeMode::Fit});\n");
     }
     if (s_tree.showEmbeddedControls) {
         out.append(useCols
@@ -594,7 +594,7 @@ keel::String GenerateTreeViewCode(const DemoContext& ctx) {
     }
     if (useCols) {
         out.append("            ui.Text(\"DSP Bus\", {.variant = guikit::UiVariant::Secondary});\n"
-                   "            ui.Element({.badge = {\"3 ch\", guikit::UiVariant::Info}, .stretch = guikit::StretchMode::Compact});\n");
+                   "            ui.Element({.badge = {\"3 ch\", guikit::UiVariant::Info}, .width = guikit::SizeMode::Fit});\n");
     }
 
     appendItemOpts(
@@ -604,7 +604,7 @@ keel::String GenerateTreeViewCode(const DemoContext& ctx) {
     );
     if (useCols) {
         out.append("                ui.Text(\"750 kHz\", {.variant = guikit::UiVariant::Secondary});\n"
-                   "                ui.Element({.badge = {\"128-Beam\", guikit::UiVariant::Primary}, .stretch = guikit::StretchMode::Compact});\n");
+                   "                ui.Element({.badge = {\"128-Beam\", guikit::UiVariant::Primary}, .width = guikit::SizeMode::Fit});\n");
     }
     if (s_tree.showEmbeddedControls) {
         out.append(useCols
@@ -621,7 +621,7 @@ keel::String GenerateTreeViewCode(const DemoContext& ctx) {
     );
     if (useCols) {
         out.append("                ui.Text(\"2.4 GHz\", {.variant = guikit::UiVariant::Secondary});\n"
-                   "                ui.Element({.badge = {\"LIVE\", guikit::UiVariant::Success}, .stretch = guikit::StretchMode::Compact});\n");
+                   "                ui.Element({.badge = {\"LIVE\", guikit::UiVariant::Success}, .width = guikit::SizeMode::Fit});\n");
     }
     if (s_tree.showEmbeddedControls) {
         out.append("                // Multi-widget cell: Switch + Button inside a single column cell\n"
@@ -641,7 +641,7 @@ keel::String GenerateTreeViewCode(const DemoContext& ctx) {
     );
     if (useCols) {
         out.append("                ui.Text(\"400 Hz\", {.variant = guikit::UiVariant::Secondary});\n"
-                   "                ui.Element({.badge = {\"6-DOF\", guikit::UiVariant::Default}, .stretch = guikit::StretchMode::Compact});\n");
+                   "                ui.Element({.badge = {\"6-DOF\", guikit::UiVariant::Default}, .width = guikit::SizeMode::Fit});\n");
     }
     if (s_tree.showEmbeddedControls) {
         out.append("                ui.Switch(imuEnabled);\n");
@@ -663,7 +663,7 @@ keel::String GenerateTreeViewCode(const DemoContext& ctx) {
     }
     if (useCols) {
         out.append("        ui.Text(\"14.2 MB\", {.variant = guikit::UiVariant::Secondary});\n"
-                   "        ui.Element({.badge = {\"Bundle\", guikit::UiVariant::Default}, .stretch = guikit::StretchMode::Compact});\n");
+                   "        ui.Element({.badge = {\"Bundle\", guikit::UiVariant::Default}, .width = guikit::SizeMode::Fit});\n");
     }
 
     appendItemOpts(
@@ -679,7 +679,7 @@ keel::String GenerateTreeViewCode(const DemoContext& ctx) {
     }
     if (useCols) {
         out.append("            ui.Text(\"GLSL 330\", {.variant = guikit::UiVariant::Secondary});\n"
-                   "            ui.Element({.badge = {\"2 files\", guikit::UiVariant::Secondary}, .stretch = guikit::StretchMode::Compact});\n");
+                   "            ui.Element({.badge = {\"2 files\", guikit::UiVariant::Secondary}, .width = guikit::SizeMode::Fit});\n");
     }
 
     appendItemOpts(
@@ -689,7 +689,7 @@ keel::String GenerateTreeViewCode(const DemoContext& ctx) {
     );
     if (useCols) {
         out.append("                ui.Text(\"4.8 KB\", {.variant = guikit::UiVariant::Secondary});\n"
-                   "                ui.Element({.badge = {\"OK\", guikit::UiVariant::Success}, .stretch = guikit::StretchMode::Compact});\n");
+                   "                ui.Element({.badge = {\"OK\", guikit::UiVariant::Success}, .width = guikit::SizeMode::Fit});\n");
     }
     out.append("            }\n\n");
 
@@ -700,7 +700,7 @@ keel::String GenerateTreeViewCode(const DemoContext& ctx) {
     );
     if (useCols) {
         out.append("                ui.Text(\"6.1 KB\", {.variant = guikit::UiVariant::Secondary});\n"
-                   "                ui.Element({.badge = {\"OK\", guikit::UiVariant::Success}, .stretch = guikit::StretchMode::Compact});\n");
+                   "                ui.Element({.badge = {\"OK\", guikit::UiVariant::Success}, .width = guikit::SizeMode::Fit});\n");
     }
     out.append("            }\n");
     out.append("        }\n\n");
@@ -712,7 +712,7 @@ keel::String GenerateTreeViewCode(const DemoContext& ctx) {
     );
     if (useCols) {
         out.append("            ui.Text(\"2.1 KB\", {.variant = guikit::UiVariant::Secondary});\n"
-                   "            ui.Element({.badge = {\"JSON\", guikit::UiVariant::Info}, .stretch = guikit::StretchMode::Compact});\n");
+                   "            ui.Element({.badge = {\"JSON\", guikit::UiVariant::Info}, .width = guikit::SizeMode::Fit});\n");
     }
     out.append("        }\n");
     out.append("    }\n");

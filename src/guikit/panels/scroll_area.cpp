@@ -25,22 +25,17 @@ ContainerScope ScrollArea::Open(
     node->align = opts.align;
     node->justify = opts.justify;
     node->clipChildren = true;
-    node->widthMode = opts.widthMode;
-    node->heightMode = opts.heightMode;
-    node->flexGrow = 1.0f;
     const UiTheme& theme = ctx.GetTheme();
-    if (opts.width.has_value() && *opts.width > 0.0f) {
-        node->widthMode = SizeMode::Fixed;
-        node->fixedWidth = theme.Scale(*opts.width);
-    }
-    if (opts.height.has_value() && *opts.height > 0.0f) {
-        node->heightMode = SizeMode::Fixed;
-        node->fixedHeight = theme.Scale(*opts.height);
-    } else if (opts.maxHeight.has_value() && *opts.maxHeight > 0.0f) {
+    node->widthMode = opts.width.ResolveMode(SizeMode::Stretch);
+    node->fixedWidth = opts.width.IsFixed() ? theme.Scale(opts.width.Dp()) : 0.0f;
+    node->heightMode = opts.height.ResolveMode(SizeMode::Stretch);
+    node->fixedHeight = opts.height.IsFixed() ? theme.Scale(opts.height.Dp()) : 0.0f;
+    node->flexGrow = 1.0f;
+    if (!opts.height.IsFixed() && opts.maxHeight.has_value() && *opts.maxHeight > 0.0f) {
         auto* layoutData = ctx.AllocPayload<ScrollAreaLayoutData>();
         layoutData->maxHeight = theme.Scale(*opts.maxHeight);
         node->SetPayload(layoutData);
-        if (opts.heightMode == SizeMode::Stretch) {
+        if (node->heightMode == SizeMode::Stretch) {
             node->heightMode = SizeMode::Fit;
         }
     }

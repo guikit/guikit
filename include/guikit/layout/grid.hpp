@@ -19,10 +19,8 @@ struct GridOptions {
     keel::Optional<Padding> padding{keel::kNullOpt};  ///< Container padding (nullopt = zero)
     Alignment align{Alignment::Stretch};
     Justify justify{Justify::Start};
-    SizeMode widthMode{SizeMode::Stretch};
-    SizeMode heightMode{SizeMode::Fit};
-    keel::Optional<float> width{keel::kNullOpt};
-    keel::Optional<float> height{keel::kNullOpt};
+    AxisSize width{SizeMode::Stretch};
+    AxisSize height{SizeMode::Fit};
     keel::Optional<float> minWidth{keel::kNullOpt};
     keel::Optional<float> maxWidth{keel::kNullOpt};
     keel::Optional<float> minHeight{keel::kNullOpt};
@@ -39,14 +37,13 @@ struct GridOptions {
 struct CellOptions {
     float minWidth{0.0f};                             ///< Minimum width constraint (0 = auto content intrinsic)
     keel::Optional<float> maxWidth{keel::kNullOpt};
-    keel::Optional<float> height{keel::kNullOpt};
+    AxisSize height{SizeMode::Fit};
     keel::Optional<float> minHeight{keel::kNullOpt};
     keel::Optional<float> maxHeight{keel::kNullOpt};
     keel::Optional<float> gap{keel::kNullOpt};        ///< Gap between stacked children inside this cell
     keel::Optional<Padding> padding{keel::kNullOpt};  ///< Internal cell padding (nullopt = zero)
     Alignment align{Alignment::Stretch};
     Justify justify{Justify::Start};
-    SizeMode heightMode{SizeMode::Fit};
     bool disabled{false};
     bool clipChildren{false};                         ///< Clip cell children to cell boundaries (default: false)
     const UiTheme* theme{nullptr};

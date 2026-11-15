@@ -14,21 +14,15 @@ ControlSpec EffectiveButtonControl(const ButtonOptions& opts, UiSize size, const
     const ComponentMetrics& m = theme.GetMetrics(size);
     const auto& inputMetrics = theme.GetInputField(size);
     ControlSpec c{};
-    c.width = opts.width;
-    c.widthRatio = opts.widthRatio;
+    c.width = opts.square ? AxisSize::Fit() : opts.width;
     c.height = opts.height;
+    c.defaultWidthMode = SizeMode::Fit;
+    c.defaultHeightMode = SizeMode::Fit;
     c.minWidth = opts.square ? keel::kNullOpt : opts.minWidth;
-    c.align = opts.align;
-    c.background = opts.background;
-    c.border = opts.border;
     c.defaultLayout = ElementLayout::Stacked;
-    c.defaultInlineOrder = InlineOrder::LabelFirst;
     c.labelGap = inputMetrics.labelGap;
     c.descGap = inputMetrics.descGap;
     c.inlineGap = m.paddingX;
-    c.stretchable = !opts.square;
-    c.stretchHeightWhenStandalone = !opts.square;
-    c.hasIntrinsicBox = true;
     return c;
 }
 
@@ -89,14 +83,14 @@ Vec2 MeasureButtonCapsule(
     const bool hasIcon = opts.loading || opts.icon.IsValid();
     const bool hasCapsuleText = !opts.text.empty();
     const bool hasBadge = opts.badge.HasContentOrReserve();
-    const float baseH = (ctrl.height.has_value() && *ctrl.height > 0.0f) ? theme.Scale(*ctrl.height) : m.defaultHeight;
+    const float baseH = ctrl.height.IsFixed() ? theme.Scale(ctrl.height.Dp()) : m.defaultHeight;
 
     // Explicit square button or icon-only button with no text variants or badge defaults to square
     if (opts.square) {
         return {baseH, baseH};
     }
     if (hasIcon && !hasCapsuleText && opts.text.variants.empty() && !hasBadge) {
-        const float w = Control::HasExplicitDpWidth(opts.stretch, ctrl.width, ctrl.widthRatio) ? theme.Scale(*ctrl.width) : baseH;
+        const float w = ctrl.width.IsFixed() ? theme.Scale(ctrl.width.Dp()) : baseH;
         return {w, baseH};
     }
 
@@ -128,8 +122,8 @@ Vec2 MeasureButtonCapsule(
     }
 
     float totalW = contentW + m.paddingX * 2.0f;
-    if (Control::HasExplicitDpWidth(opts.stretch, ctrl.width, ctrl.widthRatio)) {
-        totalW = theme.Scale(*ctrl.width);
+    if (ctrl.width.IsFixed()) {
+        totalW = theme.Scale(ctrl.width.Dp());
     } else if (ctrl.minWidth.has_value()) {
         totalW = keel::max(m.defaultHeight, keel::max(theme.Scale(*ctrl.minWidth), totalW));
     } else {
@@ -192,7 +186,6 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocati
     }
 
     ButtonOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
     optsCopy.text = ctx.AllocText(opts.text);
     optsCopy.badge = ctx.AllocText(opts.badge);
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);
@@ -217,10 +210,8 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocati
         loadingPhase,
         bOpts->square,
         bOpts->iconColor.value_or(Color::Transparent()),
-        static_cast<keel::u8>(bOpts->stretch),
-        bOpts->width.value_or(0.0f),
-        bOpts->widthRatio.value_or(-1.0f),
-        bOpts->height.value_or(0.0f),
+        bOpts->width,
+        bOpts->height,
         bOpts->minWidth.value_or(0.0f),
         activeSize,
         bOpts->background,
@@ -255,14 +246,18 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocati
     node->hovered = res.hovered;
     node->pressed = res.pressed;
     node->focused = ctx.IsFocused(id);
-    node->widthMode = (bOpts->stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
-    node->heightMode = SizeMode::Fit;
-    node->minWidth = (bOpts->square && bOpts->height.has_value() && *bOpts->height > 0.0f)
-        ? ctx.GetTheme().Scale(*bOpts->height)
-        : ctx.GetTheme().GetMetrics(activeSize).defaultHeight;
 
-    Control::SetupNode(ctx, node, ctrl, bOpts->stretch, bOpts->square ? bOpts->align : Align::Start);
-    ctx.AdaptChildToContainer(node);
+    Control::SetupNode(ctx, node, ctrl);
+    if (!ctrl.width.IsFixed()) {
+        const float defaultMinW = (bOpts->square && bOpts->height.IsFixed())
+            ? ctx.GetTheme().Scale(bOpts->height.Dp())
+            : ctx.GetTheme().GetMetrics(activeSize).defaultHeight;
+        node->minWidth = keel::max(node->minWidth, defaultMinW);
+    }
+    if (bOpts->square && (!node->parent || node->parent->type != NodeType::Element) &&
+        !bOpts->height.IsFixed() && !bOpts->height.IsStretch()) {
+        node->heightMode = SizeMode::Fit;
+    }
 
     return res;
 }
@@ -270,7 +265,7 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocati
 Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, const UiTheme& theme, float /*availableWidth*/) {
     const ControlSpec ctrl = EffectiveButtonControl(opts, size, theme);
     const Vec2 capsuleDims = MeasureButtonCapsule(opts, ctrl, size, canvas, theme);
-    return Control::Measure(capsuleDims, ctrl, opts.stretch, size, theme);
+    return Control::Measure(capsuleDims, ctrl, theme);
 }
 
 Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, float availableWidth) {
@@ -298,27 +293,26 @@ void Button::Render(
     const UiText& effectiveCapsuleText = opts.text;
     const float capFontSize = theme.ResolveFontSize(effectiveCapsuleText, TextRole::LabelLarge, size);
 
-    const ControlSpec ctrl = EffectiveButtonControl(opts, size, theme);
     const Rect capsuleRect = bounds;
 
-    const bool hasCtrlBg = ctrl.HasBackground(true);
-    const bool overrideBg = ctrl.background.HasAny() && !ctrl.background.IsSurface() && !ctrl.background.IsNone();
-    StateColor rawEffColor = overrideBg ? ctrl.background : opts.color;
-    if (!overrideBg && ctrl.background.IsSurface() && ctrl.background.HasAlphaScale()) {
-        rawEffColor = rawEffColor.WithAlpha(ctrl.background.alphaScale);
+    const bool hasCtrlBg = opts.background.IsBackgroundEnabled(true);
+    const bool overrideBg = opts.background.HasAny() && !opts.background.IsSurface() && !opts.background.IsNone();
+    StateColor rawEffColor = overrideBg ? opts.background : opts.color;
+    if (!overrideBg && opts.background.IsSurface() && opts.background.HasAlphaScale()) {
+        rawEffColor = rawEffColor.WithAlpha(opts.background.alphaScale);
     }
     const StateColor effColor = theme.ResolveStateColor(rawEffColor);
 
     Color bg = Color::Transparent();
     Color defaultText = theme.palette.textPrimary;
     Color borderCol = Color::Transparent();
-    float borderW = (ctrl.border.width > 0.0f) ? theme.Scale(ctrl.border.width) : 0.0f;
+    float borderW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : 0.0f;
 
     if (!effColor.HasAny() || effColor.token == StateColorToken::Secondary) {
         const VariantColors& colors = theme.GetVariant(UiVariant::Secondary);
         defaultText = colors.text;
         borderCol = colors.border;
-        if (ctrl.border.width <= 0.0f) borderW = colors.borderWidth;
+        if (opts.border.width <= 0.0f) borderW = colors.borderWidth;
         if (hasCtrlBg) {
             if (disabled) {
                 bg = effColor.disabled.value_or(colors.bg.WithAlphaF(0.40f));
@@ -341,7 +335,7 @@ void Button::Render(
     } else if (effColor.token == StateColorToken::Ghost || (effColor.normal.has_value() && effColor.normal->a == 0)) {
         const VariantColors& colors = theme.GetVariant(UiVariant::Ghost);
         defaultText = colors.text;
-        borderCol = (ctrl.border.width > 0.0f) ? theme.palette.border : colors.border;
+        borderCol = (opts.border.width > 0.0f) ? theme.palette.border : colors.border;
         if (hasCtrlBg) {
             if (pressed) bg = effColor.active.value_or(colors.bgActive);
             else if (opts.active) bg = hovered ? effColor.hover.value_or(colors.bgHover) : effColor.active.value_or(colors.bgActive);
@@ -380,7 +374,7 @@ void Button::Render(
                 bg = effColor.Resolve(hovered, pressed || opts.active, disabled, fallback.bg, fallback.bgHover, fallback.bgActive, fallback.bg.WithAlphaF(0.40f));
             }
         }
-        if (ctrl.border.width > 0.0f) {
+        if (opts.border.width > 0.0f) {
             borderCol = defaultText.WithAlphaF(0.65f);
             if (disabled) borderCol = borderCol.WithAlphaF(0.40f);
         }
@@ -390,12 +384,12 @@ void Button::Render(
         ? theme.ResolveTextStateColor(effectiveCapsuleText.color).Resolve(hovered, pressed || opts.active, disabled, defaultText)
         : (disabled ? defaultText.WithAlphaF(0.40f) : defaultText);
 
-    if (ctrl.border.color.HasAny()) {
-        borderCol = theme.ResolveColor(ctrl.border.color, hovered, pressed || opts.active || focused, disabled, borderCol);
+    if (opts.border.color.HasAny()) {
+        borderCol = theme.ResolveColor(opts.border.color, hovered, pressed || opts.active || focused, disabled, borderCol);
     }
 
     if (focused && !disabled) {
-        if (!ctrl.border.color.active.has_value()) {
+        if (!opts.border.color.active.has_value()) {
             borderCol = theme.palette.focusRing;
         }
         borderW = keel::max(borderW, 2.0f);
@@ -405,7 +399,7 @@ void Button::Render(
     canvas.PushClip(capsuleRect);
 
     // Background & border
-    const float radius = ctrl.border.radius.has_value() ? theme.Scale(*ctrl.border.radius) : m.cornerRadius;
+    const float radius = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : m.cornerRadius;
     canvas.DrawRoundRect(capsuleRect, radius, bg, borderCol, borderW);
 
     const bool hasIcon = opts.loading || opts.icon.IsValid();
@@ -456,9 +450,9 @@ void Button::Render(
         const float isz = m.iconSize;
         float iconX = contentBounds.x + (contentBounds.w - isz) * 0.5f;
         if (!opts.square) {
-            if (ctrl.align == Align::Start) {
+            if (opts.align == Align::Start) {
                 iconX = contentBounds.x + padX;
-            } else if (ctrl.align == Align::End) {
+            } else if (opts.align == Align::End) {
                 iconX = contentBounds.x + contentBounds.w - padX - isz;
             }
         }
@@ -475,9 +469,9 @@ void Button::Render(
         const Rect textRect(contentBounds.x + padX, contentBounds.y, availW, contentBounds.h);
         float alignX = 0.5f;
         if (!opts.square) {
-            if (ctrl.align == Align::Start) {
+            if (opts.align == Align::Start) {
                 alignX = 0.0f;
-            } else if (ctrl.align == Align::End) {
+            } else if (opts.align == Align::End) {
                 alignX = 1.0f;
             }
         }
@@ -493,10 +487,10 @@ void Button::Render(
             const float startY = contentBounds.y + (contentBounds.h - totalContentH) * 0.5f;
             float iconX = contentBounds.x + (contentBounds.w - m.iconSize) * 0.5f;
             float alignX = 0.5f;
-            if (ctrl.align == Align::Start) {
+            if (opts.align == Align::Start) {
                 iconX = contentBounds.x + padX;
                 alignX = 0.0f;
-            } else if (ctrl.align == Align::End) {
+            } else if (opts.align == Align::End) {
                 iconX = contentBounds.x + contentBounds.w - rightPad - m.iconSize;
                 alignX = 1.0f;
             }
@@ -510,10 +504,10 @@ void Button::Render(
             const float startY = contentBounds.y + (contentBounds.h - totalContentH) * 0.5f;
             float iconX = contentBounds.x + (contentBounds.w - m.iconSize) * 0.5f;
             float alignX = 0.5f;
-            if (ctrl.align == Align::Start) {
+            if (opts.align == Align::Start) {
                 iconX = contentBounds.x + padX;
                 alignX = 0.0f;
-            } else if (ctrl.align == Align::End) {
+            } else if (opts.align == Align::End) {
                 iconX = contentBounds.x + contentBounds.w - rightPad - m.iconSize;
                 alignX = 1.0f;
             }
@@ -539,9 +533,9 @@ void Button::Render(
                 const float minStartX = contentBounds.x + padX;
                 const float maxStartX = contentBounds.x + contentBounds.w - rightPad - totalContentW;
                 float startX = centeredStartX;
-                if (ctrl.align == Align::Start) {
+                if (opts.align == Align::Start) {
                     startX = minStartX;
-                } else if (ctrl.align == Align::End) {
+                } else if (opts.align == Align::End) {
                     startX = maxStartX;
                 } else if (!effectiveCapsuleText.variants.empty() || contentBounds.w < totalContentW + padX + rightPad) {
                     startX = minStartX;
@@ -569,9 +563,9 @@ void Button::Render(
                 const float minStartX = contentBounds.x + padX;
                 const float maxStartX = contentBounds.x + contentBounds.w - rightPad - totalContentW;
                 float startX = centeredStartX;
-                if (ctrl.align == Align::Start) {
+                if (opts.align == Align::Start) {
                     startX = minStartX;
-                } else if (ctrl.align == Align::End) {
+                } else if (opts.align == Align::End) {
                     startX = maxStartX;
                 } else if (!effectiveCapsuleText.variants.empty() || contentBounds.w < totalContentW + padX + rightPad) {
                     startX = minStartX;

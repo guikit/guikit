@@ -24,19 +24,13 @@ ControlSpec EffectiveBreadcrumbControl(const BreadcrumbOptions& opts, UiSize siz
     const SelectMetrics& sm = theme.GetSelect(size);
     ControlSpec c{};
     c.width = opts.width;
-    c.widthRatio = opts.widthRatio;
     c.height = opts.height;
-    c.align = opts.align;
-    c.background = opts.background;
-    c.border = opts.border;
+    c.defaultWidthMode = SizeMode::Fit;
+    c.defaultHeightMode = SizeMode::Fit;
     c.defaultLayout = ElementLayout::Stacked;
-    c.defaultInlineOrder = InlineOrder::LabelFirst;
     c.labelGap = sm.labelGap;
     c.descGap = sm.descGap;
     c.inlineGap = sm.paddingX;
-    c.stretchable = true;
-    c.stretchHeightWhenStandalone = false;
-    c.hasIntrinsicBox = false;
     return c;
 }
 
@@ -136,12 +130,12 @@ Vec2 MeasureBreadcrumbNaturalBox(
         totalW += MeasureTokenNaturalWidth(items, tokens[i], size, canvas, theme);
     }
 
-    if (opts.stretch != StretchMode::Fill && opts.width.has_value() && *opts.width > 0.0f) {
-        totalW = theme.Scale(*opts.width);
+    if (opts.width.IsFixed()) {
+        totalW = theme.Scale(opts.width.Dp());
     }
 
-    const float boxH = (opts.height.has_value() && *opts.height > 0.0f)
-        ? theme.Scale(*opts.height)
+    const float boxH = opts.height.IsFixed()
+        ? theme.Scale(opts.height.Dp())
         : cm.defaultHeight;
 
     return {keel::max(theme.Scale(24.0f), totalW), boxH};
@@ -221,16 +215,7 @@ void ComputeBreadcrumbLayout(
         totalW = innerRect.w;
     }
 
-    float startX = innerRect.x;
-    if (opts.stretch == StretchMode::Fill && innerRect.w > totalW) {
-        if (opts.align == Align::Center) {
-            startX += (innerRect.w - totalW) * 0.5f;
-        } else if (opts.align == Align::End) {
-            startX += (innerRect.w - totalW);
-        }
-    }
-
-    float curX = startX;
+    float curX = innerRect.x;
     for (keel::usize i = 0; i < outTokens.size(); ++i) {
         if (i > 0) {
             outSepRects.emplace_back(curX, innerRect.y, effSepW, innerRect.h);
@@ -393,7 +378,7 @@ Vec2 Breadcrumb::Measure(
 ) {
     const Vec2 boxDims = MeasureBreadcrumbNaturalBox(items, opts, size, canvas, theme);
     const ControlSpec ctrl = EffectiveBreadcrumbControl(opts, size, theme);
-    return Control::Measure(boxDims, ctrl, opts.stretch, size, theme);
+    return Control::Measure(boxDims, ctrl, theme);
 }
 
 Response Breadcrumb::Run(
@@ -458,16 +443,14 @@ Response Breadcrumb::Run(
     const bool wasOpen = ctx.IsPopupOpen(id);
 
     BreadcrumbOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
 
     ctx.RegisterFocusable(id, effectiveDisabled);
     Response res = ctx.Interact(id);
 
     keel::usize currIndex = items.empty() ? 0 : keel::min(activeIndex, items.size() - 1);
 
-    const ControlSpec prevCtrl = EffectiveBreadcrumbControl(optsCopy, activeSize, theme);
     const Rect prevBounds = ctx.GetPrevFrameBounds(id);
-    const Rect innerBounds = Control::ResolveInnerRect(prevBounds, prevCtrl, activeSize, theme);
+    const Rect innerBounds = prevBounds;
 
     keel::SmallArray<BreadcrumbToken, 16> tokens;
     keel::SmallArray<Rect, 16> tokenRects;
@@ -743,11 +726,7 @@ Response Breadcrumb::Run(
         ctx.SetTooltip(optsCopy.tooltip, prevBounds);
     }
 
-    ControlSpec ctrl = EffectiveBreadcrumbControl(optsCopy, activeSize, theme);
-    if (optsCopy.stretch != StretchMode::Fill && !ctrl.width.has_value()) {
-        const Vec2 naturalDims = MeasureBreadcrumbNaturalBox(items, optsCopy, activeSize, canvas, theme);
-        ctrl.width = (theme.scale > 0.0f) ? (naturalDims.x / theme.scale) : naturalDims.x;
-    }
+    const ControlSpec ctrl = EffectiveBreadcrumbControl(optsCopy, activeSize, theme);
 
     Node* node = ctx.CreateNode(NodeType::Breadcrumb, id);
     node->theme = pushedTheme;
@@ -832,13 +811,9 @@ Response Breadcrumb::Run(
         pressedToken,
         static_cast<keel::u8>(optsCopy.separator),
         optsCopy.maxVisibleItems,
-        static_cast<keel::u8>(optsCopy.stretch),
-        static_cast<keel::u8>(optsCopy.align),
-        optsCopy.width.value_or(0.0f),
-        optsCopy.height.value_or(0.0f),
-        optsCopy.color,
-        optsCopy.background,
-        optsCopy.border
+        optsCopy.width,
+        optsCopy.height,
+        optsCopy.color
     );
 
     node->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* c, const UiTheme& t) noexcept -> Vec2 {
@@ -853,7 +828,7 @@ Response Breadcrumb::Run(
     node->active = res.pressed;
     node->focused = ctx.IsFocused(id);
 
-    Control::SetupNode(ctx, node, ctrl, optsCopy.stretch, optsCopy.align);
+    Control::SetupNode(ctx, node, ctrl);
 
     if (pushedTheme) {
         ctx.PopTheme();
@@ -880,9 +855,7 @@ void Breadcrumb::Render(
     const ComponentMetrics& cm = theme.GetMetrics(size);
     const auto& pal = theme.palette;
 
-    const ControlSpec ctrl = EffectiveBreadcrumbControl(d->opts, size, theme);
-    Control::RenderFrame(canvas, bounds, ctrl, size, disabled, theme, d->hoveredToken >= 0, d->pressedToken >= 0 || focused || d->popupOpen);
-    const Rect innerRect = Control::ResolveInnerRect(bounds, ctrl, size, theme);
+    const Rect innerRect = bounds;
 
     if (d->items.empty()) return;
 

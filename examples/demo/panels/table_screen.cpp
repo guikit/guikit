@@ -163,15 +163,15 @@ void RenderTableInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
             }
         }
     } else {
-        ui.Size(UiSize::Xs).Heading({.label = "VIRTUAL JUMP (100,000 ROWS)", .separator = HeadingSeparator::Bottom});
+        ui.Heading({.label = "VIRTUAL JUMP (100,000 ROWS)", .level = HeadingLevel::H6, .separator = HeadingSeparator::Bottom});
         if (auto row = ui.Row({.gap = 6.0f})) {
-            if (ui.Size(UiSize::Sm).Button({.text = "Top (#1)", .color = StateColor::Secondary(), .stretch = StretchMode::Fill})) {
+            if (ui.Size(UiSize::Sm).Button({.text = "Top (#1)", .color = StateColor::Secondary(), .width = SizeMode::Stretch})) {
                 g_tableDemo.pendingJumpRow = 0;
             }
-            if (ui.Size(UiSize::Sm).Button({.text = "Mid (#50k)", .color = StateColor::Secondary(), .stretch = StretchMode::Fill})) {
+            if (ui.Size(UiSize::Sm).Button({.text = "Mid (#50k)", .color = StateColor::Secondary(), .width = SizeMode::Stretch})) {
                 g_tableDemo.pendingJumpRow = 49999;
             }
-            if (ui.Size(UiSize::Sm).Button({.text = "End (#100k)", .color = StateColor::Primary(), .stretch = StretchMode::Fill})) {
+            if (ui.Size(UiSize::Sm).Button({.text = "End (#100k)", .color = StateColor::Primary(), .width = SizeMode::Stretch})) {
                 g_tableDemo.pendingJumpRow = 99999;
             }
         }
@@ -267,10 +267,10 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
                     ui.Text(ui.Format("T-{:04d}", item.id), {.variant = UiVariant::Secondary});
 
                     // Col 2: Callsign with leading icon
-                    ui.Element({.label = item.callsign.as_ref(), .icon = Icon::Play(), .stretch = StretchMode::Compact});
+                    ui.Element({.label = item.callsign.as_ref(), .icon = Icon::Play(), .width = SizeMode::Fit});
 
                     // Col 3: Modulation badge
-                    ui.Element({.badge = {item.modulation.as_ref(), UiVariant::Info}, .stretch = StretchMode::Compact});
+                    ui.Element({.badge = {item.modulation.as_ref(), UiVariant::Info}, .width = SizeMode::Fit});
 
                     // Col 4: Frequency
                     ui.Text(ui.Format("{:.3f} MHz", item.freqMhz));
@@ -294,7 +294,7 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
                         UiVariant::Success, UiVariant::Primary, UiVariant::Warning, UiVariant::Danger
                     };
                     const keel::usize stIdx = static_cast<keel::usize>(keel::clamp(item.status, 0, 3));
-                    ui.Element({.badge = {kStatusLabels[stIdx], kStatusVars[stIdx]}, .stretch = StretchMode::Compact});
+                    ui.Element({.badge = {kStatusLabels[stIdx], kStatusVars[stIdx]}, .width = SizeMode::Fit});
                 }
             }
         }
@@ -372,7 +372,7 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
                     const bool crcOk = (logicalIdx % 19 != 0);
                     ui.Element({
                         .badge = {crcOk ? "CRC OK" : "RETRANSMIT", crcOk ? UiVariant::Success : UiVariant::Warning},
-                        .stretch = StretchMode::Compact
+                        .width = SizeMode::Fit
                     });
                 }
             }
@@ -407,7 +407,7 @@ keel::String GenerateTableCode(const DemoContext& /*ctx*/) {
         "            ui.Text(rows[r].callsign);\n"
         "            ui.Text(ui.Format(\"{{:.3f}} MHz\", rows[r].freqMhz));\n"
         "            ui.ProgressBar(rows[r].snrDb, 0.0f, 40.0f, {{.segments = 12, .multiZoneColor = true}});\n"
-        "            ui.Element({{.badge = {{\"LOCKED\", guikit::UiVariant::Success}}, .stretch = guikit::StretchMode::Compact}});\n"
+        "            ui.Element({{.badge = {{\"LOCKED\", guikit::UiVariant::Success}}, .width = guikit::SizeMode::Fit}});\n"
         "        }}\n"
         "    }}\n"
         "}}",

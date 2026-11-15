@@ -15,13 +15,10 @@ class ICanvas;
 
 /// Clean configuration options for ColorPicker control widget.
 struct ColorPickerOptions {
-    UiText tooltip{};                              ///< Optional floating tooltip shown on hover
-    StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
-    Align align{Align::Start};                     ///< Standalone horizontal control alignment (Start, Center, End)
-    keel::Optional<float> width{keel::kNullOpt};   ///< Control width in dp (or legacy ratio 0.0..1.0 in Fill)
-    keel::Optional<float> widthRatio{keel::kNullOpt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
-    keel::Optional<float> height{keel::kNullOpt};  ///< Explicit control height in points (nullopt = inherit from UiSize)
-    keel::Optional<float> minWidth{keel::kNullOpt}; ///< Minimum control width constraint in points
+    UiText tooltip{};                                ///< Optional floating tooltip shown on hover
+    AxisSize width{};                                ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit` in `Toolbar`, or `Fixed(dp)`)
+    AxisSize height{};                               ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
+    keel::Optional<float> minWidth{keel::kNullOpt};  ///< Minimum control width constraint in points
     StateColor background{StateColor::Surface()};  ///< Control well surface fill color
     Border border{};                               ///< Control well border stroke & corner radius
     bool showHex{true};                            ///< Display formatted #RRGGBB / #RRGGBBAA text inside the closed swatch button

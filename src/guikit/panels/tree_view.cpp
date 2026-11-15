@@ -2,6 +2,7 @@
 #include <cmath>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
+#include "guikit/core/control.hpp"
 #include "guikit/core/element.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
@@ -168,7 +169,6 @@ RowMetrics ComputeRowMetrics(
     const UiTheme& theme
 ) noexcept {
     const ComponentMetrics& cm = theme.GetMetrics(size);
-    const HeadingMetrics& hm = theme.GetHeading(size);
 
     RowMetrics rm{};
     rm.labelFont = theme.ResolveFontSize(p.opts.label, TextRole::LabelLarge, size);
@@ -177,7 +177,7 @@ RowMetrics ComputeRowMetrics(
     rm.badgeFont = theme.ResolveFontSize(p.opts.badge, TextRole::LabelSmall, size);
     rm.padX = keel::max(theme.Scale(6.0f), std::round(cm.paddingX * 0.65f));
     rm.padY = keel::max(theme.Scale(3.0f), std::round(cm.paddingY * 0.55f));
-    rm.gap = keel::max(theme.Scale(5.0f), std::round(hm.gap * 0.85f));
+    rm.gap = keel::max(theme.Scale(5.0f), std::round(cm.itemGap * 0.85f));
     rm.indentStep = ResolveIndentStep(p.tree, size, theme);
     rm.indentWidth = static_cast<float>(p.depth) * rm.indentStep;
     rm.chevronSize = keel::max(theme.Scale(10.0f), std::round(rm.labelFont * 0.82f));
@@ -232,20 +232,20 @@ Vec2 MeasureEmbeddedChild(
     Vec2 intr = child->measureFn
         ? child->measureFn(child, 0.0f, canvas, childTheme)
         : child->intrinsicSize;
-    if (child->fixedWidth > 0.0f && !child->ctrlStretchable) {
-        intr.x = keel::max(intr.x, childTheme.Scale(child->fixedWidth));
+    if (child->widthMode == SizeMode::Fixed && child->fixedWidth > 0.0f) {
+        intr.x = child->fixedWidth;
     }
-    if (child->fixedHeight > 0.0f) {
-        intr.y = childTheme.Scale(child->fixedHeight);
+    if (child->heightMode == SizeMode::Fixed && child->fixedHeight > 0.0f) {
+        intr.y = child->fixedHeight;
     }
 
     const bool isPlainOrBadgeElement = (child->type == NodeType::Element && child->firstChild == nullptr);
     float cw = intr.x;
     if (rowControlWidth.has_value() && *rowControlWidth > 0.0f && singleChildInRow) {
         cw = theme.Scale(*rowControlWidth);
-    } else if (child->fixedWidth > 0.0f) {
-        cw = childTheme.Scale(child->fixedWidth);
-    } else if (child->ctrlStretchable && !isPlainOrBadgeElement) {
+    } else if (child->widthMode == SizeMode::Fixed && child->fixedWidth > 0.0f) {
+        cw = child->fixedWidth;
+    } else if (child->widthMode == SizeMode::Stretch && !isPlainOrBadgeElement) {
         cw = keel::max(intr.x, theme.Scale(130.0f));
         if (availRowWidth > 0.0f) {
             cw = keel::min(cw, availRowWidth * 0.42f);
@@ -375,11 +375,11 @@ ContainerScope TreeItemScope::Cell(
     const bool activeDisabled = m_ctx->IsDisabled();
     const float activeScale = m_ctx->GetCurrentScale();
     const UiTheme& theme = m_ctx->GetTheme();
-    const HeadingMetrics& hm = theme.GetHeading(activeSize);
+    const ComponentMetrics& cm = theme.GetMetrics(activeSize);
 
     Node* cellNode = m_ctx->CreateNode(NodeType::Cell, cellId);
     cellNode->direction = FlexDirection::Row;
-    cellNode->gap = keel::max(theme.Scale(4.0f), std::round(hm.gap * 0.85f));
+    cellNode->gap = keel::max(theme.Scale(4.0f), std::round(cm.itemGap * 0.85f));
     cellNode->align = Alignment::Center;
     cellNode->widthMode = SizeMode::Fit;
     cellNode->heightMode = SizeMode::Fit;
@@ -582,25 +582,36 @@ TreeViewScope TreeView::Open(
     outerNode->debugBoundsOverride = opts.debugBounds;
     outerNode->inspectModeOverride = opts.inspectMode;
 
-    if (opts.width.has_value() && *opts.width > 0.0f) {
-        if (opts.stretch == StretchMode::Fill && *opts.width <= 1.0f) {
-            outerNode->widthMode = SizeMode::Stretch;
-        } else {
-            outerNode->widthMode = SizeMode::Fixed;
-            outerNode->fixedWidth = theme.Scale(*opts.width);
-        }
-    } else {
-        outerNode->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
+    outerNode->widthMode = Control::ResolveWidthMode(ctx, opts.width, SizeMode::Stretch);
+    if (opts.width.IsFixed()) {
+        outerNode->widthMode = SizeMode::Fixed;
+        outerNode->fixedWidth = theme.Scale(opts.width.Dp());
     }
 
-    if (opts.height.has_value() && *opts.height > 0.0f) {
+    if (opts.height.IsFixed()) {
         outerNode->heightMode = SizeMode::Fixed;
-        outerNode->fixedHeight = theme.Scale(*opts.height);
+        outerNode->fixedHeight = theme.Scale(opts.height.Dp());
+    } else if (opts.height.ResolveMode(SizeMode::Stretch) == SizeMode::Fit) {
+        outerNode->heightMode = SizeMode::Fit;
     } else if (outerNode->parent &&
                (outerNode->parent->heightMode == SizeMode::Stretch || outerNode->parent->heightMode == SizeMode::Fixed)) {
         outerNode->heightMode = SizeMode::Stretch;
     } else {
         outerNode->heightMode = SizeMode::Fit;
+    }
+
+    if (outerNode->parent && outerNode->parent->type == NodeType::Element) {
+        Control::SetupNode(
+            ctx,
+            outerNode,
+            ControlSpec{
+                .width = opts.width,
+                .height = opts.height.IsFixed() ? opts.height : AxisSize(outerNode->heightMode),
+                .defaultWidthMode = SizeMode::Stretch,
+                .defaultHeightMode = SizeMode::Stretch,
+                .defaultLayout = ElementLayout::Top
+            }
+        );
     }
 
     outerNode->cornerRadius = opts.border.radius.has_value()
@@ -747,10 +758,9 @@ TreeViewScope TreeView::Open(
 
     if (!opts.title.empty() || opts.searchable || opts.showToolbar) {
         const ComponentMetrics& cm = theme.GetMetrics(activeSize);
-        const HeadingMetrics& hm = theme.GetHeading(activeSize);
         const float unscaledScale = keel::max(0.01f, theme.scale);
         const float barPad = keel::max(4.0f, std::round((cm.paddingY * 0.85f) / unscaledScale));
-        const float barGap = keel::max(4.0f, std::round((hm.gap * 0.85f) / unscaledScale));
+        const float barGap = keel::max(4.0f, std::round((cm.itemGap * 0.85f) / unscaledScale));
         if (auto bar = ctx.Row({
             .gap = barGap,
             .padding = Padding(barPad, barPad, barPad, barPad),
@@ -772,7 +782,7 @@ TreeViewScope TreeView::Open(
                 if (ctx.InputField(st.filterText, {
                     .placeholder = opts.searchPlaceholder,
                     .prefix = Icon::Search(),
-                    .stretch = StretchMode::Fill,
+                    .width = SizeMode::Stretch,
                     .clearable = true,
                     .disabled = activeDisabled
                 }).changed) {
@@ -791,7 +801,7 @@ TreeViewScope TreeView::Open(
                     .tooltip = "Expand all tree branches",
                     .icon = Icon::ChevronDown(),
                     .color = StateColor::Ghost(),
-                    .stretch = StretchMode::Compact,
+                    .width = SizeMode::Fit,
                     .disabled = activeDisabled
                 })) {
                     st.bulkToggleGen++;
@@ -803,7 +813,7 @@ TreeViewScope TreeView::Open(
                     .tooltip = "Collapse all tree branches",
                     .icon = Icon::ChevronRight(),
                     .color = StateColor::Ghost(),
-                    .stretch = StretchMode::Compact,
+                    .width = SizeMode::Fit,
                     .disabled = activeDisabled
                 })) {
                     st.bulkToggleGen++;
@@ -813,9 +823,8 @@ TreeViewScope TreeView::Open(
             }
         }
         if (auto sep = ctx.Box({
-            .widthMode = SizeMode::Stretch,
-            .heightMode = SizeMode::Fixed,
-            .fixedHeight = 1.0f,
+            .width = SizeMode::Stretch,
+            .height = 1.0f,
             .background = {pal.borderSubtle}
         })) {}
     }
@@ -844,6 +853,12 @@ TreeViewScope TreeView::Open(
 
     Node* scrollNode = ctx.CreateNode(NodeType::ScrollArea, idScroll);
     ctx.PopContainer(outerNode);
+    if (opts.height.ResolveMode(SizeMode::Stretch) == SizeMode::Fit) {
+        outerNode->heightMode = SizeMode::Fit;
+        if (!outerNode->parent || outerNode->parent->direction == FlexDirection::Column) {
+            outerNode->flexGrow = 0.0f;
+        }
+    }
 
     scrollNode->theme = pushedTheme;
     scrollNode->direction = FlexDirection::Column;
@@ -1287,17 +1302,17 @@ void ArrangeEmbeddedContainerChildren(
         Vec2 intr = gc->measureFn
             ? gc->measureFn(gc, inner.w, canvas, gcTheme)
             : gc->intrinsicSize;
-        if (gc->fixedWidth > 0.0f && !gc->ctrlStretchable) {
-            intr.x = keel::max(intr.x, gcTheme.Scale(gc->fixedWidth));
+        if (gc->widthMode == SizeMode::Fixed && gc->fixedWidth > 0.0f) {
+            intr.x = gc->fixedWidth;
         }
-        if (gc->fixedHeight > 0.0f) {
-            intr.y = gcTheme.Scale(gc->fixedHeight);
+        if (gc->heightMode == SizeMode::Fixed && gc->fixedHeight > 0.0f) {
+            intr.y = gc->fixedHeight;
         }
         gc->intrinsicSize = intr;
 
-        if (gc->fixedWidth > 0.0f) {
-            totalW += gcTheme.Scale(gc->fixedWidth);
-        } else if (gc->ctrlStretchable) {
+        if (gc->widthMode == SizeMode::Fixed && gc->fixedWidth > 0.0f) {
+            totalW += gc->fixedWidth;
+        } else if (gc->widthMode == SizeMode::Stretch) {
             ++stretchCount;
         } else {
             totalW += intr.x;
@@ -1321,9 +1336,9 @@ void ArrangeEmbeddedContainerChildren(
         const Vec2 intr = gc->intrinsicSize;
 
         float cw = intr.x;
-        if (gc->fixedWidth > 0.0f) {
-            cw = gcTheme.Scale(gc->fixedWidth);
-        } else if (gc->ctrlStretchable) {
+        if (gc->widthMode == SizeMode::Fixed && gc->fixedWidth > 0.0f) {
+            cw = gc->fixedWidth;
+        } else if (gc->widthMode == SizeMode::Stretch) {
             cw = keel::max(intr.x, stretchShare);
         }
         cw = keel::min(cw, keel::max(0.0f, inner.Right() - curX));
@@ -1433,11 +1448,11 @@ void TreeView::ArrangeRow(
             Vec2 intr = child->measureFn
                 ? child->measureFn(child, innerRect.w, p->lastCanvas, childTheme)
                 : child->intrinsicSize;
-            if (child->fixedWidth > 0.0f && !child->ctrlStretchable) {
-                intr.x = keel::max(intr.x, childTheme.Scale(child->fixedWidth));
+            if (child->widthMode == SizeMode::Fixed && child->fixedWidth > 0.0f) {
+                intr.x = child->fixedWidth;
             }
-            if (child->fixedHeight > 0.0f) {
-                intr.y = childTheme.Scale(child->fixedHeight);
+            if (child->heightMode == SizeMode::Fixed && child->fixedHeight > 0.0f) {
+                intr.y = child->fixedHeight;
             }
 
             // Non-interactive Text or standalone Element (icon+label / pill badge) inside a column
@@ -1466,9 +1481,9 @@ void TreeView::ArrangeRow(
 
             // Interactive Control widget inside a column
             float cw = intr.x;
-            if (child->fixedWidth > 0.0f) {
-                cw = keel::min(innerRect.w, childTheme.Scale(child->fixedWidth));
-            } else if (child->ctrlStretchable) {
+            if (child->widthMode == SizeMode::Fixed && child->fixedWidth > 0.0f) {
+                cw = keel::min(innerRect.w, child->fixedWidth);
+            } else if (child->widthMode == SizeMode::Stretch) {
                 cw = innerRect.w;
             } else {
                 cw = keel::min(innerRect.w, intr.x);

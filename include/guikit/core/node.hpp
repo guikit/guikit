@@ -62,7 +62,7 @@ enum class NodeType : keel::u16 {
     Sidebar     = 105,  ///< Dockable vertical sidebar container (Left or Right)
     Scene       = 106,  ///< Interactive 2D world camera & pan/zoom viewport
     Table       = 107,  ///< Virtualized data grid / table container with sticky header and columns
-    Element     = 108,  ///< Outer label/description/frame wrapper around a Control (or standalone)
+    Element     = 108,  ///< Semantic form-field wrapper (Label + [Control Slot] + Description)
     Accordion   = 109,  ///< Collapsible accordion section container
     TreeView    = 110,  ///< Hierarchical tree view container
     TreeItem    = 111,  ///< Individual interactive tree item row container (hosts optional trailing controls)
@@ -163,8 +163,6 @@ struct Node {
     bool active : 1 {false};
     bool sidebarRight : 1 {false};
     bool sidebarScrollable : 1 {true};
-    bool ctrlStretchable : 1 {true};
-    bool ctrlStretchH : 1 {false};
     keel::u16 equalWidths : 1 {0};
     keel::u16 sidebarCompact : 1 {0};
     keel::u16 sidebarCollapsed : 1 {0};

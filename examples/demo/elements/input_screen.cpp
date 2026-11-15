@@ -12,11 +12,22 @@ struct InputState {
     bool password = false;
     bool clearable = true;
     bool readOnly = false;
+    bool companionButton = false;
+    keel::i32 connectCount = 0;
 };
 InputState s_state;
 } // namespace
 
-void RenderInputInspector(guikit::Context& ui, DemoContext&) {
+void RenderInputInspector(guikit::Context& ui, DemoContext& ctx) {
+    if (auto el = ui.Element({
+        .label = "Multi-Control Slot (Input + Button)",
+        .description = "Place InputField + Button inside a single ui.Element",
+        .disabled = !ctx.useElement
+    })) {
+        if (ui.Switch(s_state.companionButton, {.disabled = !ctx.useElement}).changed) {
+            ui.InvalidateAll();
+        }
+    }
     if (auto el = ui.Element({.label = "Placeholder"})) {
         if (ui.InputField(s_state.placeholder, {
             .placeholder = "No placeholder...",
@@ -43,10 +54,14 @@ void RenderInputInspector(guikit::Context& ui, DemoContext&) {
     }
 
     static constexpr keel::StaticArray<keel::StringRef, 3> cursorModes = {"Blinking", "Solid", "Hidden"};
-    keel::usize curIdx = (s_state.cursorMode == guikit::CursorBlinkMode::Solid) ? 1 : ((s_state.cursorMode == guikit::CursorBlinkMode::Hidden) ? 2 : 0);
+    keel::usize curIdx = (s_state.cursorMode == guikit::CursorBlinkMode::Solid)
+        ? 1
+        : ((s_state.cursorMode == guikit::CursorBlinkMode::Hidden) ? 2 : 0);
     if (auto el = ui.Element({.label = "Cursor Blink Mode"})) {
         if (ui.StepSlider(curIdx, cursorModes, {.showTicks = true, .showLabels = true}).changed) {
-            s_state.cursorMode = (curIdx == 1) ? guikit::CursorBlinkMode::Solid : ((curIdx == 2) ? guikit::CursorBlinkMode::Hidden : guikit::CursorBlinkMode::Blinking);
+            s_state.cursorMode = (curIdx == 1)
+                ? guikit::CursorBlinkMode::Solid
+                : ((curIdx == 2) ? guikit::CursorBlinkMode::Hidden : guikit::CursorBlinkMode::Blinking);
             ui.InvalidateAll();
         }
     }
@@ -56,90 +71,66 @@ void RenderInputInspector(guikit::Context& ui, DemoContext&) {
 }
 
 void RenderInputStage(guikit::Context& ui, DemoContext& ctx) {
-    if (auto el = ui.Size(ctx.elemSize).Element({
-        .label = ctx.GetElementLabel(),
-        .description = ctx.GetElementDescription(),
-        .icon = ctx.GetElementIcon(),
-        .badge = ctx.GetElementBadge(),
-        .layout = ctx.elemLayout,
-        .inlineOrder = ctx.elemInlineOrder,
-        .align = ctx.elemAlign,
-        .stretch = ctx.GetElementStretch(),
-        .background = ctx.elemBackground,
-        .border = ctx.GetElemBorder(),
-        .disabled = ctx.elemDisabled
-    })) {
-        ui.Size(ctx.controlsSize).InputField(s_state.text, {
-            .placeholder = s_state.placeholder,
-            .prefix = s_state.prefix,
-            .suffix = s_state.suffix,
-            .valueFormat = {{"guikit.dev", "api.guikit.dev"}},
-            .cursorMode = s_state.cursorMode,
-            .stretch = ctx.GetElementStretch(),
-            .width = ctx.GetElementWidth(),
-            .height = ctx.GetElementHeight(),
-            .background = ctx.GetControlBackground(NavCategory::ElemInputField),
-            .border = ctx.GetCtrlBorder(),
-            .password = s_state.password,
-            .clearable = s_state.clearable,
-            .disabled = ctx.elemDisabled,
-            .readOnly = s_state.readOnly
-        });
-    }
+    ctx.RunElementStage(ui, [&]() {
+        static constexpr keel::StaticArray<keel::StringRef, 2> kHostVariants = {{"guikit.dev", "api.guikit.dev"}};
+        guikit::InputFieldOptions opts{};
+        opts.placeholder = s_state.placeholder;
+        opts.prefix = s_state.prefix;
+        opts.suffix = s_state.suffix;
+        opts.valueFormat = {kHostVariants};
+        opts.cursorMode = s_state.cursorMode;
+        opts.width = ctx.ResolveCtrlWidth();
+        opts.height = ctx.ResolveCtrlHeight();
+        opts.background = ctx.GetControlBackground(NavCategory::ElemInputField);
+        opts.border = ctx.GetCtrlBorder();
+        opts.password = s_state.password;
+        opts.clearable = s_state.clearable;
+        opts.disabled = ctx.elemDisabled;
+        opts.readOnly = s_state.readOnly;
+        ui.Size(ctx.controlsSize).InputField(s_state.text, opts);
+
+        if (ctx.useElement && s_state.companionButton) {
+            const keel::StringRef btnLbl = (s_state.connectCount > 0)
+                ? ui.Format("Connect ({})", s_state.connectCount)
+                : keel::StringRef("Connect");
+            if (ui.Size(ctx.controlsSize).Button({
+                .text = btnLbl,
+                .icon = guikit::Icon::Play(),
+                .color = ctx.GetControlColor(),
+                .height = ctx.ResolveCtrlHeight(),
+                .disabled = ctx.elemDisabled
+            })) {
+                ++s_state.connectCount;
+                ui.InvalidateAll();
+            }
+        }
+    });
 }
 
 keel::String GenerateInputCode(const DemoContext& ctx) {
-    return keel::format(
-        "if (auto el = ui.{}Element({{\n"
-        "    .label = {},\n"
-        "    .description = {},\n"
-        "    .icon = {},\n"
-        "    .badge = {},\n"
-        "    .layout = guikit::ElementLayout::{},\n"
-        "    .inlineOrder = guikit::InlineOrder::{},\n"
-        "    .align = guikit::Align::{},\n"
-        "    .stretch = guikit::StretchMode::{},\n"
+    keel::String ctrl = keel::format(
+        "ui.{}InputField(serverEndpoint, {{\n"
+        "    .placeholder = \"{}\",\n"
+        "    .prefix = \"{}\",\n"
+        "    .suffix = \"{}\",\n"
+        "    .valueFormat = {{{{\"guikit.dev\", \"api.guikit.dev\"}}}},\n"
+        "    .cursorMode = guikit::CursorBlinkMode::{},\n"
+        "    .width = {},\n"
+        "    .height = {},\n"
         "    .background = {},\n"
         "    .border = {},\n"
-        "    .disabled = {}\n"
-        "}})) {{\n"
-        "    ui.{}InputField(serverEndpoint, {{\n"
-        "        .placeholder = \"{}\",\n"
-        "        .prefix = \"{}\",\n"
-        "        .suffix = \"{}\",\n"
-        "        .valueFormat = {{{{\"guikit.dev\", \"api.guikit.dev\"}}}},\n"
-        "        .cursorMode = guikit::CursorBlinkMode::{},\n"
-        "        .stretch = guikit::StretchMode::{},\n"
-        "        .width = {},\n"
-        "        .height = {},\n"
-        "        .background = {},\n"
-        "        .border = {},\n"
-        "        .password = {},\n"
-        "        .clearable = {},\n"
-        "        .disabled = {},\n"
-        "        .readOnly = {}\n"
-        "    }});\n"
-        "}}",
-        FormatUiSizePrefix(ctx.elemSize),
-        ctx.FormatElementLabelCode(),
-        ctx.FormatElementDescCode(),
-        ctx.FormatElementIconCode(),
-        ctx.FormatElementBadgeCode(),
-        ElementLayoutEnumName(ctx.elemLayout),
-        InlineOrderEnumName(ctx.elemInlineOrder),
-        LabelAlignEnumName(ctx.elemAlign),
-        StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElemBackgroundCode(),
-        ctx.FormatElemBorderCode(),
-        ctx.elemDisabled ? "true" : "false",
+        "    .password = {},\n"
+        "    .clearable = {},\n"
+        "    .disabled = {},\n"
+        "    .readOnly = {}\n"
+        "}});",
         FormatUiSizePrefix(ctx.controlsSize),
         s_state.placeholder,
         s_state.prefix,
         s_state.suffix,
         CursorModeName(s_state.cursorMode),
-        StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElementWidthCode(),
-        ctx.FormatElementHeightCode(),
+        ctx.FormatCtrlWidthCode(),
+        ctx.FormatCtrlHeightCode(),
         ctx.FormatControlBackgroundCode(NavCategory::ElemInputField),
         ctx.FormatCtrlBorderCode(),
         s_state.password ? "true" : "false",
@@ -147,6 +138,19 @@ keel::String GenerateInputCode(const DemoContext& ctx) {
         ctx.elemDisabled ? "true" : "false",
         s_state.readOnly ? "true" : "false"
     );
+
+    if (ctx.useElement && s_state.companionButton) {
+        keel::format_into(
+            ctrl,
+            "\nif (ui.{}Button({{.text = \"Connect\", .icon = guikit::Icon::Play(), .color = {}}})) {{\n"
+            "    // Trigger endpoint action\n"
+            "}}",
+            FormatUiSizePrefix(ctx.controlsSize),
+            ctx.FormatControlColorCode()
+        );
+    }
+
+    return ctx.WrapInElementCode(ctrl);
 }
 
 } // namespace guikit::demo

@@ -26,23 +26,24 @@ float GetDefaultKnobDiameter(UiSize size, const UiTheme& theme) noexcept {
     }
 }
 
-ControlSpec EffectiveKnobControl(const KnobOptions& opts, UiSize size, const UiTheme& theme) noexcept {
+float ResolveKnobDiameter(const KnobOptions& opts, UiSize size, const UiTheme& theme) noexcept {
+    if (opts.diameter.has_value() && *opts.diameter > 0.0f) {
+        return theme.Scale(*opts.diameter);
+    }
+    return GetDefaultKnobDiameter(size, theme);
+}
+
+ControlSpec EffectiveKnobControl(UiSize size, const UiTheme& theme) noexcept {
     const SliderMetrics& m = theme.GetSlider(size);
     ControlSpec c{};
-    c.width = opts.width;
-    c.widthRatio = opts.widthRatio;
-    c.height = opts.height;
-    c.align = opts.align;
-    c.background = opts.background;
-    c.border = opts.border;
-    c.defaultLayout = ElementLayout::Inline;
-    c.defaultInlineOrder = InlineOrder::LabelFirst;
+    c.width = AxisSize::Fit();
+    c.height = AxisSize::Fit();
+    c.defaultWidthMode = SizeMode::Fit;
+    c.defaultHeightMode = SizeMode::Fit;
+    c.defaultLayout = ElementLayout::Leading;
     c.labelGap = m.labelGap;
     c.descGap = m.descGap;
     c.inlineGap = m.labelGap;
-    c.stretchable = false;
-    c.stretchHeightWhenStandalone = false;
-    c.hasIntrinsicBox = false;
     return c;
 }
 
@@ -275,7 +276,6 @@ Response Knob::Run(
     }
 
     KnobOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);
     optsCopy.valueFormat = ctx.AllocText(opts.valueFormat);
 
@@ -309,7 +309,7 @@ Response Knob::Run(
     }
 
     const UiTheme& theme = ctx.GetTheme();
-    const ControlSpec ctrl = EffectiveKnobControl(optsCopy, activeSize, theme);
+    const ControlSpec ctrl = EffectiveKnobControl(activeSize, theme);
     Node* node = ctx.CreateNode(NodeType::Knob, id);
     node->theme = pushedTheme;
 
@@ -323,18 +323,14 @@ Response Knob::Run(
     node->text = data->valueText;
     node->visualHash = detail::HashArgs(
         optsCopy.color,
-        static_cast<keel::u8>(optsCopy.align),
-        static_cast<keel::u8>(optsCopy.stretch),
         optsCopy.showValue,
         static_cast<keel::u8>(optsCopy.valuePlacement),
         optsCopy.bipolar,
         optsCopy.showTicks,
         optsCopy.tickCount,
         optsCopy.showArc,
-        optsCopy.width.value_or(0.0f),
-        optsCopy.height.value_or(0.0f),
-        optsCopy.background,
-        optsCopy.border,
+        optsCopy.diameter.has_value(),
+        optsCopy.diameter.value_or(0.0f),
         data->normalizedValue,
         data->normalizedOrigin,
         data->valueText,
@@ -374,11 +370,8 @@ Response Knob::Run(
     node->hovered = res.hovered;
     node->pressed = data->active;
     node->focused = ctx.IsFocused(id);
-    node->widthMode = (optsCopy.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
-    node->heightMode = SizeMode::Fit;
 
-    Control::SetupNode(ctx, node, ctrl, optsCopy.stretch, optsCopy.align);
-    ctx.AdaptChildToContainer(node);
+    Control::SetupNode(ctx, node, ctrl);
 
     return res;
 }
@@ -391,8 +384,8 @@ Vec2 Knob::Measure(
     const UiTheme& theme,
     float /*availableWidth*/
 ) {
-    const float dialDia = GetDefaultKnobDiameter(size, theme);
-    const ControlSpec ctrl = EffectiveKnobControl(opts, size, theme);
+    const float dialDia = ResolveKnobDiameter(opts, size, theme);
+    const ControlSpec ctrl = EffectiveKnobControl(size, theme);
 
     float w = dialDia;
     float h = dialDia;
@@ -425,7 +418,7 @@ Vec2 Knob::Measure(
         }
     }
 
-    return Control::Measure({w, h}, ctrl, opts.stretch, size, theme);
+    return Control::Measure({w, h}, ctrl, theme);
 }
 
 Vec2 Knob::Measure(
@@ -457,9 +450,7 @@ void Knob::Render(
         return;
     }
 
-    const ControlSpec ctrl = EffectiveKnobControl(opts, size, theme);
-    Control::RenderFrame(canvas, bounds, ctrl, size, disabled, theme, hovered, active || focused);
-    const Rect innerRect = Control::ResolveInnerRect(bounds, ctrl, size, theme);
+    const Rect innerRect = bounds;
     if (innerRect.w <= 2.0f || innerRect.h <= 2.0f) {
         return;
     }
@@ -503,10 +494,8 @@ void Knob::Render(
         }
     }
 
-    const float defaultDia = GetDefaultKnobDiameter(size, theme);
-    const float dialDiameter = (opts.width.has_value() || opts.height.has_value())
-        ? keel::min(dialArea.w, dialArea.h)
-        : keel::min(keel::min(dialArea.w, dialArea.h), defaultDia);
+    const float targetDia = ResolveKnobDiameter(opts, size, theme);
+    const float dialDiameter = keel::min(keel::min(dialArea.w, dialArea.h), targetDia);
     const Vec2 center(
         dialArea.x + dialArea.w * 0.5f,
         dialArea.y + dialArea.h * 0.5f

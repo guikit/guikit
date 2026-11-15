@@ -76,10 +76,8 @@ struct TableOptions {
 
     // --- Sizing & Theme ---
     VisibilityPolicy scrollbar{VisibilityPolicy::Auto};
-    keel::Optional<float> width{keel::kNullOpt};
-    keel::Optional<float> widthRatio{keel::kNullOpt};
-    keel::Optional<float> height{keel::kNullOpt};       ///< Explicit height in points (nullopt = Stretch in flex parent or fit rows)
-    StretchMode stretch{StretchMode::Fill};
+    AxisSize width{};                                   ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or fixed `dp`)
+    AxisSize height{SizeMode::Stretch};                 ///< Vertical sizing policy (`Stretch` in flex parent, `Fit` rows, or fixed `dp`)
     bool disabled{false};
     const UiTheme* theme{nullptr};
     keel::Optional<float> scale{keel::kNullOpt};

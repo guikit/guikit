@@ -15,22 +15,17 @@ class Context;
 class ICanvas;
 struct Node;
 
-/// Configuration options for an `Element` wrapper (or standalone control-less `Element`).
+/// Configuration options for a semantic `Element` form-field wrapper (`Label + [Control Slot] + Description`).
 struct ElementOptions {
-    UiText label{};                                           ///< Primary label text
-    UiText description{};                                     ///< Optional secondary description text
+    UiText label{};                                           ///< Primary form-field label text
+    UiText description{};                                     ///< Optional secondary description / helper text
     UiText tooltip{};                                         ///< Optional hover tooltip text
-    Icon icon{};                                              ///< Optional vector icon before label
-    UiText badge{};                                           ///< Optional pill badge after label (supports independent StateColor)
-    keel::Optional<ElementLayout> layout{keel::kNullOpt};     ///< Text placement relative to control: Stacked, Top, Bottom, Inline (nullopt = control default)
-    keel::Optional<InlineOrder> inlineOrder{keel::kNullOpt};  ///< Sequencing order in Inline layout (nullopt = control default)
+    Icon icon{};                                              ///< Optional leading vector icon before label
+    UiText badge{};                                           ///< Optional trailing pill badge after label (supports independent StateColor)
+    keel::Optional<ElementLayout> layout{keel::kNullOpt};     ///< Text placement relative to control slot: Stacked, Top, Bottom, Leading, Trailing (nullopt = control default)
     Align align{Align::Start};                                ///< Horizontal alignment (Start, Center, End)
-    keel::Optional<StretchMode> stretch{keel::kNullOpt};      ///< Sizing behavior: Compact, Space, Fill (nullopt = inherit from child control or Fill when standalone)
-    keel::Optional<float> width{keel::kNullOpt};              ///< Explicit element/control width in dp (or legacy ratio 0.0..1.0 in Fill)
-    keel::Optional<float> widthRatio{keel::kNullOpt};         ///< Normalized fill ratio 0.0..1.0 of available width in Fill mode
-    StateColor background{};                                  ///< Per-state outer surface backdrop color (Default/None = off, Surface/Primary/etc. = on)
-    Border border{};                                          ///< Outer element border thickness, corner radius, and per-state color
-    bool disabled{false};                                     ///< Whether the element and its child control are rendered in a disabled state
+    AxisSize width{};                                         ///< Outer width sizing policy: `Auto` (from child control & layout), `Fit`, `Stretch`, or `Fixed(dp)`
+    bool disabled{false};                                     ///< Whether the element and its child control(s) are rendered in a disabled state
     const UiTheme* theme{nullptr};                            ///< Optional scoped theme override
     keel::Optional<float> scale{keel::kNullOpt};              ///< Optional local UI scale factor override
     keel::Optional<bool> debugBounds{keel::kNullOpt};         ///< Scoped debug bounding box overlay override
@@ -38,8 +33,8 @@ struct ElementOptions {
 };
 
 /// RAII scope returned by `ui.Element(...)`.
-/// Supports both scoped wrapping (`if (auto el = ui.Element({...})) { ui.Slider(...); }`)
-/// and standalone invocation (`ui.Element({...});` or `Response r = ui.Element({...});`).
+/// Supports scoped wrapping of a control or layout container (`if (auto el = ui.Element({...})) { ui.Slider(...); }`)
+/// as well as standalone invocation (`ui.Element({...});`).
 class ElementScope : public ContainerScope {
 public:
     Response response{};
@@ -59,46 +54,38 @@ public:
 /// Internal per-frame arena payload for `NodeType::Element`.
 struct ElementPayload {
     ElementOptions opts{};
-    ControlSpec childControlSpec{};
+    ControlSpec firstChildSpec{};
     Response interactionRes{};
     mutable ICanvas* lastCanvas{nullptr};
-    bool hasChildControl{false};
+    keel::u32 controlChildCount{0};
+    bool anyChildStretchesW{false};
+    bool anyChildStretchesH{false};
 };
 
-/// Low-level layout, typography, and decoration specification for `Element`.
+/// Low-level layout and typography specification for `Element`.
 struct ElementSpec {
-    UiText label{};                                       ///< Primary label or heading title
-    UiText description{};                                 ///< Optional secondary description or subtitle
-    Icon icon{};                                          ///< Optional vector icon before label
+    UiText label{};                                       ///< Primary form-field label
+    UiText description{};                                 ///< Optional secondary description / helper text
+    Icon icon{};                                          ///< Optional leading vector icon before label
     UiText badge{};                                       ///< Optional trailing pill badge after label (supports independent StateColor)
-    ElementLayout layout{ElementLayout::Stacked};         ///< Placement of text relative to control (or description relative to label bar)
-    InlineOrder inlineOrder{InlineOrder::LabelFirst};     ///< Sequencing order in Inline layout
+    ElementLayout layout{ElementLayout::Stacked};         ///< Placement of text relative to control slot
     Align align{Align::Start};                            ///< Horizontal alignment (Start, Center, End)
-    StretchMode stretch{StretchMode::Compact};            ///< Sizing behavior: Compact, Space, Fill
-    keel::Optional<float> width{keel::kNullOpt};          ///< Explicit control/element width in dp (or legacy ratio 0.0..1.0 in Fill)
-    keel::Optional<float> widthRatio{keel::kNullOpt};     ///< Normalized fill ratio 0.0..1.0 of available width in Fill mode
-    ControlSpec control{};                                ///< Specification for the inner control slot (`controlRect`)
-    StateColor background{};                              ///< Per-state outer surface backdrop color (Default/None = off, Surface/Primary/etc. = on)
-    Border border{};                                      ///< Outer element border thickness, corner radius, and per-state color
+    AxisSize width{SizeMode::Stretch};                    ///< Resolved outer horizontal sizing policy (`Stretch`, `Fit`, or `Fixed(dp)`)
+    ControlSpec control{};                                ///< Combined specification for the inner control slot
     UiSize widgetSize{UiSize::Md};                        ///< Active UiSize token
-    HeadingLevel headingLevel{HeadingLevel::Auto};        ///< Semantic heading hierarchy level (Auto = use widgetSize)
     float labelGap{6.0f};                                 ///< Vertical gap between label bar and control/description
     float descGap{6.0f};                                  ///< Vertical gap between control/label and description
     float inlineGap{10.0f};                               ///< Horizontal gap in Inline layout
-    bool hasControl{true};                                ///< False for control-less elements (Element / Heading); true when a widget control is present
-    bool headingTypography{false};                        ///< True to use HeadingMetrics typography scale; false for standard control LabelLarge/LabelSmall
-    bool stretchableControl{true};                        ///< True for Button/InputField/Select/Slider/Image; false for fixed-size controls
-    bool stretchHeightWhenStandalone{false};              ///< True to stretch control height when standalone
+    bool hasControl{true};                                ///< False for control-less Element; true when 1+ child controls are present
     bool disabled{false};                                 ///< Whether the element is disabled (dims text, icon, and badge)
     bool hovered{false};                                  ///< Whether the element is currently hovered
     bool active{false};                                   ///< Whether the element/control is currently active (pressed or focused)
 };
 
-/// Resolved bounding rectangles for a composite UI element.
+/// Resolved bounding rectangles for an `Element` (`Label + [Control Slot] + Description`).
 struct ElementGeometry {
-    Rect outerBounds{};
+    Rect bounds{};
     Rect controlRect{};
-    Rect innerControlRect{};
     Rect labelRect{};
     Rect descRect{};
     float measuredLabelW{0.0f};
@@ -110,22 +97,9 @@ struct ElementGeometry {
     bool hasExternal{false};
 };
 
-/// Foundational UI Element class.
-/// Serves as an outer wrapper over any `Control` (or as a standalone label/description element when empty),
-/// and as the base class for `Heading`.
+/// Semantic Form-Field `Element` (`Label + [Control Slot] + Description`).
 class Element {
 public:
-    /// Returns true when the outer `Element` envelope (`outerBounds`) has a visible background or border.
-    [[nodiscard]] static constexpr bool HasOuterFrame(const ElementSpec& spec) noexcept {
-        return spec.background.IsBackgroundEnabled(false) || spec.border.width > 0.0f;
-    }
-
-    /// Computes internal padding inside `outerBounds` when `HasOuterFrame(spec)` is true.
-    [[nodiscard]] static float ComputeOuterPadding(
-        const ElementSpec& spec,
-        const UiTheme& theme
-    ) noexcept;
-
     /// Converts `ElementOptions` into a control-less `ElementSpec` for standalone measurement and rendering.
     [[nodiscard]] static ElementSpec MakeSpec(
         const ElementOptions& opts,
@@ -136,7 +110,11 @@ public:
         bool isActive = false
     ) noexcept;
 
-    /// Opens an `Element` scope that can wrap a child `Control` or act as a standalone element.
+    /// Synchronizes an `Element` container node's `widthMode`, `heightMode`, `minWidth`, `minHeight`,
+    /// interaction states, and `visualHash` with its attached child controls.
+    static void SyncWithChildren(Context& ctx, Node* elNode) noexcept;
+
+    /// Opens an `Element` scope that can wrap one or more child controls or act as a standalone label/badge element.
     static ElementScope Open(
         Context& ctx,
         const ElementOptions& opts = {},
@@ -189,7 +167,7 @@ public:
         return Measure({0.0f, 0.0f}, MakeSpec(opts, size, opts.disabled, theme), canvas, theme, availableWidth);
     }
 
-    /// Resolves bounding boxes for the control (or primary label bar), external label, and description within `bounds`.
+    /// Resolves bounding boxes for the control slot (or primary label bar), external label, and description within `bounds`.
     static ElementGeometry Resolve(
         Rect bounds,
         Vec2 intrinsicControlSize,
@@ -208,15 +186,7 @@ public:
         return Resolve(bounds, {0.0f, 0.0f}, spec, canvas, theme);
     }
 
-    /// Renders the outer `Element` frame (`outerBounds`) background and border when enabled.
-    static void RenderFrame(
-        ICanvas& canvas,
-        const ElementGeometry& geom,
-        const ElementSpec& spec,
-        const UiTheme& theme
-    ) noexcept;
-
-    /// Renders the element's outer frame, text, icon, and badge according to resolved geometry.
+    /// Renders the element's label, icon, badge, and description according to resolved geometry.
     static void RenderText(
         ICanvas& canvas,
         const ElementGeometry& geom,

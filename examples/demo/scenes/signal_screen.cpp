@@ -457,7 +457,7 @@ void RenderSignalInspector(guikit::Context& ui, DemoContext&) {
             .text = "Zoom Selection",
             .icon = guikit::Icon::Search(),
             .color = guikit::StateColor::Primary(),
-            .stretch = guikit::StretchMode::Fill,
+            .width = guikit::SizeMode::Stretch,
             .disabled = !s_sig.selection.active || s_sig.selection.DurationSec() <= 1e-5
         })) {
             s_sig.requestViewStartSec = s_sig.selection.MinTimeSec();
@@ -470,7 +470,7 @@ void RenderSignalInspector(guikit::Context& ui, DemoContext&) {
             .text = "Reset View",
             .icon = guikit::Icon::Refresh(),
             .color = guikit::StateColor::Secondary(),
-            .stretch = guikit::StretchMode::Fill
+            .width = guikit::SizeMode::Stretch
         })) {
             s_sig.requestResetView = true;
             s_sig.waveformGain = 1.0f;
@@ -552,7 +552,7 @@ void RenderSignalStage(guikit::Context& ui, DemoContext&) {
         .requestViewEndSec = s_sig.requestViewEndSec,
         .requestFreqRangeHz = s_sig.requestFreqRangeHz,
         .requestResetView = s_sig.requestResetView,
-        .heightMode = guikit::SizeMode::Stretch
+        .height = guikit::SizeMode::Stretch
     });
 
     s_sig.requestResetView = false;
@@ -599,7 +599,7 @@ keel::String GenerateSignalCode(const DemoContext&) {
         "    .playheadTimeSec = &playheadSec,\n"
         "    .selection = &selection,\n"
         "    .markers = &cueMarkers,\n"
-        "    .heightMode = guikit::SizeMode::Stretch\n"
+        "    .height = guikit::SizeMode::Stretch\n"
         "}});\n",
         s_sig.sampleRate,
         orderEnums[static_cast<keel::usize>(s_sig.panelOrder)],

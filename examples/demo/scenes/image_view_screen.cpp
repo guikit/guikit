@@ -26,7 +26,7 @@ struct ImageViewDemoState {
     ImageViewParams paramsMono{};
     ImageViewParams paramsRgb{};
     ImageViewOptions viewOpts{
-        .heightMode = SizeMode::Stretch,
+        .height = SizeMode::Stretch,
         .showSidebar = true,
         .sidebarOnRight = false,
         .sidebarWidth = 300.0f,
@@ -202,7 +202,7 @@ ImageViewDemoState s_imgDemo{};
 void RenderImageViewInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     s_imgDemo.EnsureGenerated();
 
-    ui.Size(UiSize::Xs).Heading({.label = "DATASET & CHANNELS", .separator = HeadingSeparator::Bottom});
+    ui.Heading({.label = "DATASET & CHANNELS", .level = HeadingLevel::H6, .separator = HeadingSeparator::Bottom});
     static constexpr keel::StaticArray<keel::StringRef, 2> kDatasetNames = {
         "16-bit Radiograph Phantom (1ch)",
         "Multispectral Fluorescence (3ch RGB)"
@@ -224,7 +224,7 @@ void RenderImageViewInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         }
     }
 
-    ui.Size(UiSize::Xs).Heading({.label = "WORKSTATION LAYOUT", .separator = HeadingSeparator::Bottom});
+    ui.Heading({.label = "WORKSTATION LAYOUT", .level = HeadingLevel::H6, .separator = HeadingSeparator::Bottom});
     if (auto el = ui.Element({.label = "Show Built-in Sidebar"})) {
         if (ui.Switch(s_imgDemo.viewOpts.showSidebar).changed) ui.InvalidateAll();
     }

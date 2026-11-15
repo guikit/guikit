@@ -16,28 +16,22 @@ ControlSpec EffectiveSelectControl(const SelectOptions& opts, UiSize size, const
     const SelectMetrics& m = theme.GetSelect(size);
     ControlSpec c{};
     c.width = opts.width;
-    c.widthRatio = opts.widthRatio;
     c.height = opts.height;
+    c.defaultWidthMode = SizeMode::Stretch;
+    c.defaultHeightMode = SizeMode::Fit;
     c.minWidth = opts.minWidth;
-    c.align = opts.align;
-    c.background = opts.background;
-    c.border = opts.border;
     c.defaultLayout = ElementLayout::Stacked;
-    c.defaultInlineOrder = InlineOrder::LabelFirst;
     c.labelGap = m.labelGap;
     c.descGap = m.descGap;
     c.inlineGap = m.paddingX;
-    c.stretchable = true;
-    c.stretchHeightWhenStandalone = false;
-    c.hasIntrinsicBox = true;
     return c;
 }
 
 Vec2 MeasureSelectBox(const SelectOptions& opts, UiSize size, const UiTheme& theme) noexcept {
     const SelectMetrics& m = theme.GetSelect(size);
     const ControlSpec ctrl = EffectiveSelectControl(opts, size, theme);
-    const bool hasExplicitDpW = Control::HasExplicitDpWidth(opts.stretch, ctrl.width, ctrl.widthRatio);
-    float boxW = hasExplicitDpW ? theme.Scale(*ctrl.width) : m.defaultWidth;
+    const bool hasExplicitDpW = ctrl.width.IsFixed();
+    float boxW = hasExplicitDpW ? theme.Scale(ctrl.width.Dp()) : m.defaultWidth;
     if (ctrl.minWidth.has_value()) {
         boxW = keel::max(theme.Scale(*ctrl.minWidth), boxW);
     } else if (!hasExplicitDpW) {
@@ -152,12 +146,8 @@ Rect Select::GetBoxRect(
     const Vec2 boxDims = Select::Measure(opts, size, canvas, theme, bounds.w);
     const float alignFactor = (opts.align == Align::End) ? 1.0f : ((opts.align == Align::Center) ? 0.5f : 0.0f);
     float ctrlW = keel::min(bounds.w, boxDims.x);
-    if (!Control::HasExplicitDpWidth(opts.stretch, opts.width, opts.widthRatio)) {
-        if (const auto fillRatio = Control::ResolveFillRatio(opts.stretch, opts.width, opts.widthRatio)) {
-            ctrlW = bounds.w * (*fillRatio);
-        } else if (opts.stretch == StretchMode::Fill) {
-            ctrlW = bounds.w;
-        }
+    if (opts.width.ResolveMode(SizeMode::Stretch) == SizeMode::Stretch) {
+        ctrlW = bounds.w;
     }
     const float ctrlX = bounds.x + (bounds.w - ctrlW) * alignFactor;
     const float ctrlH = keel::min(boxDims.y, bounds.h);
@@ -174,7 +164,7 @@ Vec2 Select::Measure(
 ) {
     const Vec2 boxDims = MeasureSelectBox(opts, size, theme);
     const ControlSpec ctrl = EffectiveSelectControl(opts, size, theme);
-    return Control::Measure(boxDims, ctrl, opts.stretch, size, theme);
+    return Control::Measure(boxDims, ctrl, theme);
 }
 
 Vec2 Select::Measure(
@@ -276,7 +266,10 @@ Response Select::Run(
     ICanvas* canvas = ctx.GetCanvas();
 
     SelectOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
+    const SizeMode effWidthMode = Control::ResolveWidthMode(ctx, opts.width, SizeMode::Stretch);
+    if (!optsCopy.width.IsFixed()) {
+        optsCopy.width = effWidthMode;
+    }
 
     auto measureRowContentW = [&](const UiText& mainText, const UiAffix& pfx, const UiAffix& sfx) -> float {
         const float mainFont = theme.ResolveFontSize(mainText, TextRole::LabelMedium, activeSize);
@@ -315,20 +308,19 @@ Response Select::Run(
     } else {
         intrinsicW = keel::max(m.minWidth, intrinsicW);
     }
-    if (optsCopy.stretch != StretchMode::Fill && optsCopy.width.has_value()) {
-        intrinsicW = theme.Scale(*optsCopy.width);
-    }
-
-    const float unscaledIntrinsicW = (theme.scale > 0.0f) ? (intrinsicW / theme.scale) : intrinsicW;
-    if (optsCopy.stretch != StretchMode::Fill && !optsCopy.width.has_value()) {
-        optsCopy.width = unscaledIntrinsicW;
+    if (optsCopy.width.IsFixed()) {
+        intrinsicW = theme.Scale(optsCopy.width.Dp());
     }
 
     const ControlSpec ctrl = EffectiveSelectControl(optsCopy, activeSize, theme);
     const Rect prevBounds = ctx.GetPrevFrameBounds(id);
+    Vec2 fallbackDims = Select::Measure(optsCopy, activeSize, canvas, theme);
+    if (effWidthMode == SizeMode::Fit && !optsCopy.width.IsFixed()) {
+        fallbackDims.x = intrinsicW;
+    }
     const Rect boxRect = (prevBounds.w > 0.0f && prevBounds.h > 0.0f)
         ? prevBounds
-        : Rect({0.0f, 0.0f}, Select::Measure(optsCopy, activeSize, canvas, theme));
+        : Rect({0.0f, 0.0f}, fallbackDims);
 
     struct SelectPopupState {
         float scrollY{0.0f};
@@ -1148,6 +1140,9 @@ Response Select::Run(
     data->scrollX = popupState.scrollX;
     data->cursorVisible = isEditingText && finalFocused && !effectiveDisabled && ctx.IsCursorVisible(optsCopy.cursorMode);
     data->cursorWidth = ctx.GetCursorConfig().width;
+    data->naturalWidth = (effWidthMode == SizeMode::Fit && !optsCopy.width.IsFixed())
+        ? intrinsicW
+        : 0.0f;
     data->showClearBtn = showClearBtn;
     data->clearHovered = clearHovered;
     data->chevronHovered = chevronHovered;
@@ -1155,10 +1150,9 @@ Response Select::Run(
     node->text = data->displayText.empty() ? optsCopy.placeholder.text : data->displayText.text;
     node->SetPayload(data);
     node->visualHash = detail::HashArgs(
-        static_cast<keel::u8>(optsCopy.stretch),
         static_cast<keel::u8>(optsCopy.align),
-        optsCopy.width.value_or(0.0f),
-        optsCopy.height.value_or(0.0f),
+        optsCopy.width,
+        optsCopy.height,
         optsCopy.minWidth.value_or(0.0f),
         optsCopy.searchable,
         optsCopy.editable,
@@ -1180,7 +1174,11 @@ Response Select::Run(
     );
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<SelectData>();
-        return Select::Measure(d ? d->opts : SelectOptions{}, n->uiSize, canvas, theme, availableWidth);
+        Vec2 sz = Select::Measure(d ? d->opts : SelectOptions{}, n->uiSize, canvas, theme, availableWidth);
+        if (d && d->naturalWidth > 0.0f && !d->opts.width.IsFixed()) {
+            sz.x = d->naturalWidth;
+        }
+        return sz;
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* d = n->As<SelectData>();
@@ -1214,8 +1212,7 @@ Response Select::Run(
     node->focused = finalFocused;
     res.focused = finalFocused;
 
-    Control::SetupNode(ctx, node, ctrl, optsCopy.stretch, optsCopy.align);
-    ctx.AdaptChildToContainer(node);
+    Control::SetupNode(ctx, node, ctrl);
 
     return res;
 }
@@ -1247,20 +1244,20 @@ void Select::Render(
     }
 
     const SelectMetrics& m = theme.GetSelect(size);
-    const ControlSpec ctrl = EffectiveSelectControl(opts, size, theme);
     const Rect boxRect = bounds;
 
     // Determine colors
     const auto& pal = theme.palette;
-    Color boxBg = ctrl.HasBackground(true)
+    const bool hasBg = opts.background.IsBackgroundEnabled(true);
+    Color boxBg = hasBg
         ? ((hovered && !disabled) ? pal.surface : pal.inputBackground)
         : Color::Transparent();
     Color boxBorder;
-    float strokeW = (ctrl.border.width > 0.0f) ? theme.Scale(ctrl.border.width) : m.strokeWidth;
+    float strokeW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : m.strokeWidth;
 
     if ((open || focused) && !disabled) {
         boxBorder = pal.focusRing;
-        if (ctrl.border.width > 0.0f || m.strokeWidth > 0.0f) strokeW += 0.5f;
+        if (opts.border.width > 0.0f || m.strokeWidth > 0.0f) strokeW += 0.5f;
     } else if (hovered && !disabled) {
         boxBorder = pal.borderHover;
     } else {
@@ -1278,19 +1275,19 @@ void Select::Render(
         unitCol = unitCol.WithAlphaF(0.40f);
     }
 
-    if (ctrl.HasBackground(true) && ctrl.background.HasAny()) {
-        if (!ctrl.background.IsSurface()) {
-            boxBg = theme.ResolveColor(ctrl.background, hovered, open || focused, disabled, boxBg);
-        } else if (ctrl.background.HasAlphaScale()) {
-            boxBg = boxBg.ScaleAlpha(ctrl.background.alphaScale);
+    if (hasBg && opts.background.HasAny()) {
+        if (!opts.background.IsSurface()) {
+            boxBg = theme.ResolveColor(opts.background, hovered, open || focused, disabled, boxBg);
+        } else if (opts.background.HasAlphaScale()) {
+            boxBg = boxBg.ScaleAlpha(opts.background.alphaScale);
         }
     }
-    if (ctrl.border.color.HasAny()) {
-        boxBorder = theme.ResolveColor(ctrl.border.color, hovered, open || focused, disabled, boxBorder);
+    if (opts.border.color.HasAny()) {
+        boxBorder = theme.ResolveColor(opts.border.color, hovered, open || focused, disabled, boxBorder);
     }
 
     // Draw box background and border
-    const float radius = ctrl.border.radius.has_value() ? theme.Scale(*ctrl.border.radius) : m.cornerRadius;
+    const float radius = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : m.cornerRadius;
     canvas.DrawRoundRect(boxRect, radius, boxBg, boxBorder, strokeW);
 
     // Left elements (prefix icon and/or text)
@@ -1395,7 +1392,8 @@ void Select::Render(
         const Color mainCol = isPlaceholder
             ? placeholderCol
             : theme.ResolveTextColor(currentText, UiVariant::Default, disabled, hovered, open || focused);
-        TextUtil::DrawUiText(canvas, currentText, textRect, selFont, boxRect.h, mainCol, 0.0f, 0.5f, &theme);
+        const float alignX = (opts.align == Align::End) ? 1.0f : ((opts.align == Align::Center) ? 0.5f : 0.0f);
+        TextUtil::DrawUiText(canvas, currentText, textRect, selFont, boxRect.h, mainCol, alignX, 0.5f, &theme);
     }
 
     canvas.PopClip();
@@ -1757,21 +1755,21 @@ void RenderMultiSelectNode(
 
     const SelectOptions& opts = data.opts;
     const SelectMetrics& m = theme.GetSelect(size);
-    const ControlSpec ctrl = EffectiveSelectControl(opts, size, theme);
     const Rect boxRect = bounds;
 
     const auto& pal = theme.palette;
     const Color primaryCol = ResolvePrimaryColor(pal);
 
-    Color boxBg = ctrl.HasBackground(true)
+    const bool hasBg = opts.background.IsBackgroundEnabled(true);
+    Color boxBg = hasBg
         ? ((hovered && !disabled) ? pal.surface : pal.inputBackground)
         : Color::Transparent();
     Color boxBorder;
-    float strokeW = (ctrl.border.width > 0.0f) ? theme.Scale(ctrl.border.width) : m.strokeWidth;
+    float strokeW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : m.strokeWidth;
 
     if ((open || focused) && !disabled) {
         boxBorder = pal.focusRing;
-        if (ctrl.border.width > 0.0f || m.strokeWidth > 0.0f) strokeW += 0.5f;
+        if (opts.border.width > 0.0f || m.strokeWidth > 0.0f) strokeW += 0.5f;
     } else if (hovered && !disabled) {
         boxBorder = pal.borderHover;
     } else {
@@ -1789,18 +1787,18 @@ void RenderMultiSelectNode(
         unitCol = unitCol.WithAlphaF(0.40f);
     }
 
-    if (ctrl.HasBackground(true) && ctrl.background.HasAny()) {
-        if (!ctrl.background.IsSurface()) {
-            boxBg = theme.ResolveColor(ctrl.background, hovered, open || focused, disabled, boxBg);
-        } else if (ctrl.background.HasAlphaScale()) {
-            boxBg = boxBg.ScaleAlpha(ctrl.background.alphaScale);
+    if (hasBg && opts.background.HasAny()) {
+        if (!opts.background.IsSurface()) {
+            boxBg = theme.ResolveColor(opts.background, hovered, open || focused, disabled, boxBg);
+        } else if (opts.background.HasAlphaScale()) {
+            boxBg = boxBg.ScaleAlpha(opts.background.alphaScale);
         }
     }
-    if (ctrl.border.color.HasAny()) {
-        boxBorder = theme.ResolveColor(ctrl.border.color, hovered, open || focused, disabled, boxBorder);
+    if (opts.border.color.HasAny()) {
+        boxBorder = theme.ResolveColor(opts.border.color, hovered, open || focused, disabled, boxBorder);
     }
 
-    const float radius = ctrl.border.radius.has_value() ? theme.Scale(*ctrl.border.radius) : m.cornerRadius;
+    const float radius = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : m.cornerRadius;
     canvas.DrawRoundRect(boxRect, radius, boxBg, boxBorder, strokeW);
 
     // Left prefix
@@ -1955,7 +1953,8 @@ void RenderMultiSelectNode(
         }
     } else if (data.totalSelectedCount == 0 && !opts.placeholder.empty()) {
         const float phFont = theme.ResolveFontSize(opts.placeholder, TextRole::LabelMedium, size);
-        TextUtil::DrawUiText(canvas, opts.placeholder, textRect, phFont, boxRect.h, placeholderCol, 0.0f, 0.5f, &theme);
+        const float alignX = (opts.align == Align::End) ? 1.0f : ((opts.align == Align::Center) ? 0.5f : 0.0f);
+        TextUtil::DrawUiText(canvas, opts.placeholder, textRect, phFont, boxRect.h, placeholderCol, alignX, 0.5f, &theme);
     }
 
     canvas.PopClip();
@@ -2187,7 +2186,10 @@ Response Select::RunMulti(
     ICanvas* canvas = ctx.GetCanvas();
 
     SelectOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
+    const SizeMode effWidthMode = Control::ResolveWidthMode(ctx, opts.width, SizeMode::Stretch);
+    if (!optsCopy.width.IsFixed()) {
+        optsCopy.width = effWidthMode;
+    }
 
     auto measureRowContentW = [&](const UiText& mainText, const UiAffix& pfx, const UiAffix& sfx) -> float {
         const float mainFont = theme.ResolveFontSize(mainText, TextRole::LabelMedium, activeSize);
@@ -2222,20 +2224,19 @@ Response Select::RunMulti(
     } else {
         intrinsicW = keel::max(m.minWidth, intrinsicW);
     }
-    if (optsCopy.stretch != StretchMode::Fill && optsCopy.width.has_value()) {
-        intrinsicW = theme.Scale(*optsCopy.width);
-    }
-
-    const float unscaledIntrinsicW = (theme.scale > 0.0f) ? (intrinsicW / theme.scale) : intrinsicW;
-    if (optsCopy.stretch != StretchMode::Fill && !optsCopy.width.has_value()) {
-        optsCopy.width = unscaledIntrinsicW;
+    if (optsCopy.width.IsFixed()) {
+        intrinsicW = theme.Scale(optsCopy.width.Dp());
     }
 
     const ControlSpec ctrl = EffectiveSelectControl(optsCopy, activeSize, theme);
     const Rect prevBounds = ctx.GetPrevFrameBounds(id);
+    Vec2 fallbackDims = Select::Measure(optsCopy, activeSize, canvas, theme);
+    if (effWidthMode == SizeMode::Fit && !optsCopy.width.IsFixed()) {
+        fallbackDims.x = intrinsicW;
+    }
     const Rect boxRect = (prevBounds.w > 0.0f && prevBounds.h > 0.0f)
         ? prevBounds
-        : Rect({0.0f, 0.0f}, Select::Measure(optsCopy, activeSize, canvas, theme));
+        : Rect({0.0f, 0.0f}, fallbackDims);
 
     struct MultiSelectPopupState {
         float scrollY{0.0f};
@@ -2819,6 +2820,9 @@ Response Select::RunMulti(
     data->scrollX = popupState.scrollX;
     data->cursorVisible = isEditingText && finalFocused && !effectiveDisabled && ctx.IsCursorVisible(optsCopy.cursorMode);
     data->cursorWidth = ctx.GetCursorConfig().width;
+    data->naturalWidth = (effWidthMode == SizeMode::Fit && !optsCopy.width.IsFixed())
+        ? intrinsicW
+        : 0.0f;
     data->showClearBtn = showClearBtn;
     data->clearHovered = clearHovered;
     data->chevronHovered = chevronHovered;
@@ -2842,10 +2846,9 @@ Response Select::RunMulti(
     node->text = optsCopy.placeholder.text;
     node->SetPayload(data);
     node->visualHash = detail::HashArgs(
-        static_cast<keel::u8>(optsCopy.stretch),
         static_cast<keel::u8>(optsCopy.align),
-        optsCopy.width.value_or(0.0f),
-        optsCopy.height.value_or(0.0f),
+        optsCopy.width,
+        optsCopy.height,
         optsCopy.minWidth.value_or(0.0f),
         optsCopy.searchable,
         optsCopy.clearable,
@@ -2864,7 +2867,11 @@ Response Select::RunMulti(
     );
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<SelectData>();
-        return Select::Measure(d ? d->opts : SelectOptions{}, n->uiSize, canvas, theme, availableWidth);
+        Vec2 sz = Select::Measure(d ? d->opts : SelectOptions{}, n->uiSize, canvas, theme, availableWidth);
+        if (d && d->naturalWidth > 0.0f && !d->opts.width.IsFixed()) {
+            sz.x = d->naturalWidth;
+        }
+        return sz;
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* d = n->As<SelectData>();
@@ -2888,8 +2895,7 @@ Response Select::RunMulti(
     node->focused = finalFocused;
     res.focused = finalFocused;
 
-    Control::SetupNode(ctx, node, ctrl, optsCopy.stretch, optsCopy.align);
-    ctx.AdaptChildToContainer(node);
+    Control::SetupNode(ctx, node, ctrl);
 
     return res;
 }

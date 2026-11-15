@@ -116,19 +116,14 @@ ControlSpec EffectiveDatePickerControl(const DatePickerOptions& opts, UiSize siz
     const SelectMetrics& m = theme.GetSelect(size);
     ControlSpec c{};
     c.width = opts.width;
-    c.widthRatio = opts.widthRatio;
     c.height = opts.height;
-    c.align = opts.align;
-    c.background = opts.background;
-    c.border = opts.border;
+    c.defaultWidthMode = SizeMode::Stretch;
+    c.defaultHeightMode = SizeMode::Fit;
+    c.minWidth = opts.minWidth;
     c.defaultLayout = ElementLayout::Stacked;
-    c.defaultInlineOrder = InlineOrder::LabelFirst;
     c.labelGap = m.labelGap;
     c.descGap = m.descGap;
     c.inlineGap = m.paddingX;
-    c.stretchable = true;
-    c.stretchHeightWhenStandalone = false;
-    c.hasIntrinsicBox = true;
     return c;
 }
 
@@ -676,11 +671,14 @@ Vec2 DatePicker::Measure(
     const float minContentW = m.paddingX * 2.0f + m.iconSize * 2.0f + 22.0f + textW;
 
     float boxW = keel::max(m.minWidth, minContentW);
-    if (Control::HasExplicitDpWidth(opts.stretch, ctrl.width, ctrl.widthRatio)) {
-        boxW = theme.Scale(*ctrl.width);
+    if (opts.minWidth.has_value()) {
+        boxW = keel::max(theme.Scale(*opts.minWidth), boxW);
     }
-    const float boxH = ctrl.height.has_value() ? theme.Scale(*ctrl.height) : m.defaultHeight;
-    return Control::Measure({boxW, boxH}, ctrl, opts.stretch, size, theme);
+    if (ctrl.width.IsFixed()) {
+        boxW = theme.Scale(ctrl.width.Dp());
+    }
+    const float boxH = ctrl.height.IsFixed() ? theme.Scale(ctrl.height.Dp()) : m.defaultHeight;
+    return Control::Measure({boxW, boxH}, ctrl, theme);
 }
 
 Vec2 DatePicker::Measure(
@@ -736,7 +734,9 @@ Response DatePicker::Run(
     ICanvas* canvas = ctx.GetCanvas();
 
     DatePickerOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
+    if (!optsCopy.width.IsFixed()) {
+        optsCopy.width = AxisSize(Control::ResolveWidthMode(ctx, optsCopy.width, SizeMode::Stretch));
+    }
     if (!opts.monthNames.empty()) {
         auto* arr = ctx.GetArena().alloc_array<keel::StringRef>(opts.monthNames.size());
         for (keel::usize i = 0; i < opts.monthNames.size(); ++i) {
@@ -753,9 +753,6 @@ Response DatePicker::Run(
     }
 
     const Vec2 intrinsicDims = DatePicker::Measure(value, optsCopy, activeSize, canvas, theme);
-    if (optsCopy.stretch != StretchMode::Fill && !optsCopy.width.has_value()) {
-        optsCopy.width = (theme.scale > 0.0f) ? (intrinsicDims.x / theme.scale) : intrinsicDims.x;
-    }
 
     const ControlSpec ctrl = EffectiveDatePickerControl(optsCopy, activeSize, theme);
     const Rect prevBounds = ctx.GetPrevFrameBounds(id);
@@ -1041,10 +1038,9 @@ Response DatePicker::Run(
         optsCopy.showSeconds,
         optsCopy.showTodayButton,
         optsCopy.firstDayMonday,
-        static_cast<keel::u8>(optsCopy.stretch),
-        static_cast<keel::u8>(optsCopy.align),
-        optsCopy.width.value_or(0.0f),
-        optsCopy.height.value_or(0.0f),
+        optsCopy.width,
+        optsCopy.height,
+        optsCopy.minWidth,
         optsCopy.color,
         optsCopy.background,
         optsCopy.border,
@@ -1066,8 +1062,7 @@ Response DatePicker::Run(
     node->focused = finalFocused;
     res.focused = finalFocused;
 
-    Control::SetupNode(ctx, node, ctrl, optsCopy.stretch, optsCopy.align);
-    ctx.AdaptChildToContainer(node);
+    Control::SetupNode(ctx, node, ctrl);
 
     return res;
 }
@@ -1086,19 +1081,19 @@ void DatePicker::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
     const bool focused = node->focused;
 
     const SelectMetrics& m = theme.GetSelect(size);
-    const ControlSpec ctrl = EffectiveDatePickerControl(opts, size, theme);
     const auto& pal = theme.palette;
     const Color accentCol = ResolveAccentColor(opts, theme, hovered, open || focused, disabled);
 
-    Color boxBg = ctrl.HasBackground(true)
+    const bool hasBg = opts.background.IsBackgroundEnabled(true);
+    Color boxBg = hasBg
         ? ((hovered && !disabled) ? pal.surface : pal.inputBackground)
         : Color::Transparent();
     Color boxBorder;
-    float strokeW = (ctrl.border.width > 0.0f) ? theme.Scale(ctrl.border.width) : m.strokeWidth;
+    float strokeW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : m.strokeWidth;
 
     if ((open || focused) && !disabled) {
         boxBorder = opts.color.HasAny() ? accentCol : pal.focusRing;
-        if (ctrl.border.width > 0.0f || m.strokeWidth > 0.0f) strokeW += 0.5f;
+        if (opts.border.width > 0.0f || m.strokeWidth > 0.0f) strokeW += 0.5f;
     } else if (hovered && !disabled) {
         boxBorder = pal.borderHover;
     } else {
@@ -1114,18 +1109,18 @@ void DatePicker::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
         chevronCol = chevronCol.WithAlphaF(0.40f);
     }
 
-    if (ctrl.HasBackground(true) && ctrl.background.HasAny()) {
-        if (!ctrl.background.IsSurface()) {
-            boxBg = theme.ResolveColor(ctrl.background, hovered, open || focused, disabled, boxBg);
-        } else if (ctrl.background.HasAlphaScale()) {
-            boxBg = boxBg.ScaleAlpha(ctrl.background.alphaScale);
+    if (hasBg && opts.background.HasAny()) {
+        if (!opts.background.IsSurface()) {
+            boxBg = theme.ResolveColor(opts.background, hovered, open || focused, disabled, boxBg);
+        } else if (opts.background.HasAlphaScale()) {
+            boxBg = boxBg.ScaleAlpha(opts.background.alphaScale);
         }
     }
-    if (ctrl.border.color.HasAny()) {
-        boxBorder = theme.ResolveColor(ctrl.border.color, hovered, open || focused, disabled, boxBorder);
+    if (opts.border.color.HasAny()) {
+        boxBorder = theme.ResolveColor(opts.border.color, hovered, open || focused, disabled, boxBorder);
     }
 
-    const float radius = ctrl.border.radius.has_value() ? theme.Scale(*ctrl.border.radius) : m.cornerRadius;
+    const float radius = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : m.cornerRadius;
     canvas.DrawRoundRect(bounds, radius, boxBg, boxBorder, strokeW);
 
     // Left vector calendar / clock icon

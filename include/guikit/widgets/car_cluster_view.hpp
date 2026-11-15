@@ -80,8 +80,6 @@ struct CarTelltaleFlags {
 
 /// Declarative configuration options for the autonomous `CarClusterView` widget.
 struct CarClusterViewOptions {
-    Align align{Align::Start};
-
     // --- Cluster Architecture, Powertrain & Visual Theme ---
     ClusterLayoutMode layoutMode{ClusterLayoutMode::DualDial};
     PowertrainMode powertrain{PowertrainMode::IceTurbo};
@@ -138,11 +136,8 @@ struct CarClusterViewOptions {
     ClusterCenterMfd* centerMfdPtr{nullptr}; ///< Optional binding: clicking MFD page dots cycles MFD screen
 
     // --- Sizing & Styling ---
-    StretchMode stretch{StretchMode::Fill};
-    keel::Optional<float> width{keel::kNullOpt};
-    keel::Optional<float> widthRatio{keel::kNullOpt};
-    keel::Optional<float> height{keel::kNullOpt};
-    SizeMode heightMode{SizeMode::Stretch};
+    AxisSize width{};                     ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or `Fixed(dp)`)
+    AxisSize height{SizeMode::Stretch};   ///< Vertical sizing policy (`Stretch` default, `Fit`, or `Fixed(dp)`)
     StateColor background{};
     Border border{};
     bool disabled{false};

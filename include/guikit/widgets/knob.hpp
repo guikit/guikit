@@ -26,13 +26,7 @@ struct KnobOptions {
     bool bipolar{false};                           ///< Sweep active arc from center/zero instead of minimum
     Placement valuePlacement{Placement::Bottom};   ///< Value position relative to dial: Bottom, Top, Thumb (inside center), Leading, Trailing
     StateColor color{};                            ///< Per-state accent fill color for active arc, pointer, and ticks
-    StretchMode stretch{StretchMode::Compact};     ///< Sizing behavior: Compact, Space, Fill
-    Align align{Align::Center};                    ///< Standalone control alignment (Start, Center, End)
-    keel::Optional<float> width{keel::kNullOpt};   ///< Control width in dp (or legacy ratio 0.0..1.0 in Fill)
-    keel::Optional<float> widthRatio{keel::kNullOpt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
-    keel::Optional<float> height{keel::kNullOpt};  ///< Explicit control height in points (nullopt = auto from UiSize)
-    StateColor background{};                       ///< Per-state control well backdrop color (Default/None = off, Surface/Primary/etc. = on)
-    Border border{};                               ///< Control well border stroke & corner radius configuration
+    keel::Optional<float> diameter{keel::kNullOpt}; ///< Optional explicit dial diameter in logical dp (nullopt = auto from UiSize)
     bool disabled{false};                          ///< Interaction suppression
     const UiTheme* theme{nullptr};                 ///< Optional scoped theme override
     keel::Optional<float> scale{keel::kNullOpt};   ///< Optional scoped scale factor override

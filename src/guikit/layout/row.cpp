@@ -31,19 +31,13 @@ ContainerScope Row::Open(
     node->padding = theme.ResolvePadding(opts.padding);
     node->align = opts.align;
     node->justify = opts.justify;
-    node->heightMode = opts.heightMode;
     const bool inHorizontalParent = (node->parent != nullptr) &&
         (node->parent->type == NodeType::Toolbar ||
          (opts.equalWidths && node->parent->direction == FlexDirection::Row));
-    node->widthMode = opts.widthMode.value_or(inHorizontalParent ? SizeMode::Fit : SizeMode::Stretch);
-    if (opts.width.has_value() && *opts.width > 0.0f) {
-        node->widthMode = SizeMode::Fixed;
-        node->fixedWidth = theme.Scale(*opts.width);
-    }
-    if (opts.height.has_value() && *opts.height > 0.0f) {
-        node->heightMode = SizeMode::Fixed;
-        node->fixedHeight = theme.Scale(*opts.height);
-    }
+    node->widthMode = opts.width.ResolveMode(inHorizontalParent ? SizeMode::Fit : SizeMode::Stretch);
+    node->fixedWidth = opts.width.IsFixed() ? theme.Scale(opts.width.Dp()) : 0.0f;
+    node->heightMode = opts.height.ResolveMode(SizeMode::Fit);
+    node->fixedHeight = opts.height.IsFixed() ? theme.Scale(opts.height.Dp()) : 0.0f;
     if (opts.minWidth.has_value() && *opts.minWidth > 0.0f) {
         node->minWidth = theme.Scale(*opts.minWidth);
     }

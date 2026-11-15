@@ -449,8 +449,6 @@ private:
 
 /// Declarative configuration options for the autonomous `BpmnEditor` widget (`ui.BpmnEditor(...)`).
 struct BpmnEditorOptions {
-    Align align{Align::Start};
-
     // --- BPMN Modeler UX & Visual Configuration ---
     BpmnRoutingMode routingMode{BpmnRoutingMode::Orthogonal};
     BpmnThemePreset themePreset{BpmnThemePreset::Auto};
@@ -479,11 +477,8 @@ struct BpmnEditorOptions {
     keel::u32* selectedLaneIdPtr{nullptr};       ///< Optional binding to observe/drive primary selected lane ID
 
     // --- Sizing & Styling ---
-    StretchMode stretch{StretchMode::Fill};
-    keel::Optional<float> width{keel::kNullOpt};
-    keel::Optional<float> widthRatio{keel::kNullOpt};
-    keel::Optional<float> height{keel::kNullOpt};
-    SizeMode heightMode{SizeMode::Stretch};
+    AxisSize width{};                     ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or `Fixed(dp)`)
+    AxisSize height{SizeMode::Stretch};   ///< Vertical sizing policy (`Stretch` default, `Fit`, or `Fixed(dp)`)
     StateColor background{};
     Border border{};
     bool disabled{false};

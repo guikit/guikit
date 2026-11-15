@@ -16,10 +16,8 @@ struct RowOptions {
     keel::Optional<Padding> padding{keel::kNullOpt};
     Alignment align{Alignment::Stretch};
     Justify justify{Justify::Start};
-    keel::Optional<SizeMode> widthMode{keel::kNullOpt};
-    SizeMode heightMode{SizeMode::Fit};
-    keel::Optional<float> width{keel::kNullOpt};
-    keel::Optional<float> height{keel::kNullOpt};
+    AxisSize width{};
+    AxisSize height{SizeMode::Fit};
     keel::Optional<float> minWidth{keel::kNullOpt};
     keel::Optional<float> maxWidth{keel::kNullOpt};
     keel::Optional<float> minHeight{keel::kNullOpt};

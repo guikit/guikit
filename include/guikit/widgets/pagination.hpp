@@ -23,13 +23,8 @@ struct PaginationOptions {
     bool showPageInfo{false};        ///< Show trailing "Page X of Y" summary label
     bool interactiveEllipsis{false}; ///< false = static "..." separator (MUI/Shadcn); true = fast-jump button on "..." (Ant Design)
     StateColor color{};
-    StretchMode stretch{StretchMode::Compact};
-    Align align{Align::Start};
-    keel::Optional<float> width{keel::kNullOpt};
-    keel::Optional<float> widthRatio{keel::kNullOpt};
-    keel::Optional<float> height{keel::kNullOpt};
-    StateColor background{};
-    Border border{};
+    AxisSize width{};                ///< Horizontal sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
+    AxisSize height{};               ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
     UiText tooltip{};
     bool disabled{false};
     const UiTheme* theme{nullptr};

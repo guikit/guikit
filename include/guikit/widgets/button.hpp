@@ -22,10 +22,8 @@ struct ButtonOptions {
     StateColor color{};                            ///< Per-state capsule fill color (normal, hover, active, disabled)
     Placement iconPlacement{Placement::Leading};
     Align align{Align::Center};                    ///< Content horizontal alignment inside button capsule (Start, Center, End)
-    StretchMode stretch{StretchMode::Compact};     ///< Sizing behavior: Compact, Space, Fill
-    keel::Optional<float> width{keel::kNullOpt};      ///< Capsule width in dp (or legacy ratio 0.0..1.0 in Fill)
-    keel::Optional<float> widthRatio{keel::kNullOpt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
-    keel::Optional<float> height{keel::kNullOpt};     ///< Explicit capsule height in points (nullopt = inherit defaultHeight from UiSize)
+    AxisSize width{};                              ///< Horizontal sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
+    AxisSize height{};                             ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
     keel::Optional<float> minWidth{keel::kNullOpt};   ///< Minimum capsule width constraint in points
     StateColor background{StateColor::Surface()};  ///< Capsule surface fill configuration (Surface/Default = on, None = off, or custom StateColor)
     Border border{};                               ///< Capsule border stroke & corner radius configuration

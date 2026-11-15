@@ -39,7 +39,7 @@ static constexpr keel::StaticArray<keel::StringRef, 67> kCppKeywords = {
     "virtual", "volatile", "while", "import"
 };
 
-static constexpr keel::StaticArray<keel::StringRef, 86> kCppTypes = {
+static constexpr keel::StaticArray<keel::StringRef, 87> kCppTypes = {
     "bool", "char", "char8_t", "char16_t", "char32_t", "wchar_t", "short", "int",
     "long", "signed", "unsigned", "float", "double", "void", "size_t", "ptrdiff_t",
     "int8_t", "int16_t", "int32_t", "int64_t", "uint8_t", "uint16_t", "uint32_t",
@@ -49,11 +49,11 @@ static constexpr keel::StaticArray<keel::StringRef, 86> kCppTypes = {
     "UiTheme", "UiStyle", "UiSize", "UiVariant", "UiText", "TextRole", "TextWrap",
     "TextLines", "TextVariants", "FontStyle", "Density", "ThemeMode", "Color",
     "Rect", "Vec2", "Padding", "Icon", "IconId", "Align", "Alignment", "Justify",
-    "SizeMode", "StretchMode", "Orientation", "ElementLayout", "InlineOrder",
-    "HeadingSeparator", "CursorMode", "TabBarStyle", "SyntaxConfig", "SyntaxPalette",
-    "TextSpan", "Element", "Button", "Slider", "StepSlider", "InputField",
-    "Select", "Switch", "Checkbox", "Heading", "Text", "TextArea", "TabBar",
-    "Toolbar"
+    "SizeMode", "AxisSize", "Orientation", "ElementLayout", "HeadingLevel",
+    "HeadingLayout", "HeadingSeparator", "CursorMode", "TabBarStyle", "SyntaxConfig",
+    "SyntaxPalette", "TextSpan", "Element", "Button", "Slider", "StepSlider",
+    "InputField", "Select", "Switch", "Checkbox", "Heading", "Text", "TextArea",
+    "TabBar", "Toolbar"
 };
 
 static constexpr keel::StaticArray<keel::StringRef, 24> kMatlabKeywords = {
@@ -1001,8 +1001,8 @@ Vec2 MeasureEditorBox(
     maxLineChars = keel::max(maxLineChars, curChars);
 
     float boxH = 0.0f;
-    if (opts.height.has_value()) {
-        boxH = theme.Scale(*opts.height);
+    if (opts.height.IsFixed()) {
+        boxH = theme.Scale(opts.height.Dp());
     } else if (opts.autoHeight) {
         boxH = static_cast<float>(lineCount) * lineHeight + padY * 2.0f + statusH;
     } else if (opts.rows.has_value()) {
@@ -1028,11 +1028,10 @@ Vec2 MeasureEditorBox(
         : (bpWidth + foldWidth);
 
     float boxW = theme.Scale(280.0f);
-    if (Control::HasExplicitDpWidth(opts.stretch, opts.width, opts.widthRatio)) {
-        boxW = theme.Scale(*opts.width);
-    } else if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f) {
-        const float ratio = Control::ResolveFillRatio(opts.stretch, opts.width, opts.widthRatio).value_or(1.0f);
-        boxW = availableWidth * ratio;
+    if (opts.width.IsFixed()) {
+        boxW = theme.Scale(opts.width.Dp());
+    } else if (opts.width.ResolveMode(SizeMode::Stretch) == SizeMode::Stretch && availableWidth > 0.0f) {
+        boxW = availableWidth;
     } else {
         const float charAdv = MeasureChunkNoTabs(canvas, "M", fontSize, textStyle);
         const float estimatedW = gutterWidth + padX * 2.0f + static_cast<float>(keel::min<keel::usize>(maxLineChars, 80)) * charAdv + theme.Scale(24.0f);
@@ -1885,7 +1884,10 @@ TextAreaResponse TextArea::Run(
     }
 
     TextAreaOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
+    const SizeMode effW = Control::ResolveWidthMode(ctx, opts.width, SizeMode::Stretch);
+    if (!optsCopy.width.IsFixed()) {
+        optsCopy.width = effW;
+    }
     optsCopy.placeholder = ctx.AllocText(opts.placeholder);
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);
     if (optsCopy.syntax.has_value()) {
@@ -3209,10 +3211,8 @@ TextAreaResponse TextArea::Run(
         data ? data->text : displayText,
         optsCopy.placeholder,
         optsCopy.color,
-        static_cast<keel::u8>(optsCopy.align),
-        static_cast<keel::u8>(optsCopy.stretch),
-        optsCopy.width.value_or(-1.0f),
-        optsCopy.widthRatio.value_or(-1.0f),
+        optsCopy.width,
+        optsCopy.height,
         optsCopy.readOnly,
         optsCopy.showLineNumbers,
         optsCopy.showCopyButton,
@@ -3222,7 +3222,6 @@ TextAreaResponse TextArea::Run(
         optsCopy.insertSpaces,
         optsCopy.autoHeight,
         optsCopy.rows.value_or(0u),
-        optsCopy.height.value_or(-1.0f),
         optsCopy.background,
         optsCopy.border,
         optsCopy.syntax.has_value() ? optsCopy.syntax->enabled : false,
@@ -3285,6 +3284,9 @@ TextAreaResponse TextArea::Run(
         const auto* d = n->As<TextAreaData>();
         if (!d) return {0.0f, 0.0f};
         TextAreaOptions mOpts = d->opts;
+        if (n->widthMode == SizeMode::Stretch && !mOpts.width.IsFixed()) {
+            mOpts.width = SizeMode::Stretch;
+        }
         mOpts.zoom = d->zoom;
         return TextArea::Measure(d->text, mOpts, n->uiSize, c, t, availableWidth);
     };
@@ -3315,23 +3317,17 @@ TextAreaResponse TextArea::Run(
     node->pressed = res.pressed;
     node->focused = isFocused;
     node->theme = scopedTheme;
-    node->heightMode = optsCopy.autoHeight ? SizeMode::Fit : optsCopy.heightMode;
 
     ControlSpec ctrlSpec{};
     ctrlSpec.width = optsCopy.width;
-    ctrlSpec.widthRatio = optsCopy.widthRatio;
-    ctrlSpec.height = optsCopy.height;
-    Control::SetupNode(ctx, node, ctrlSpec, optsCopy.stretch, optsCopy.align);
-    if (!node->parent || node->parent->type != NodeType::Element) {
-        node->heightMode = optsCopy.autoHeight ? SizeMode::Fit : optsCopy.heightMode;
-        if (optsCopy.height.has_value() && *optsCopy.height > 0.0f) {
-            node->heightMode = SizeMode::Fixed;
-            node->fixedHeight = theme.Scale(*optsCopy.height);
-        }
-        ctx.AdaptChildToContainer(node);
-        if ((optsCopy.autoHeight || optsCopy.heightMode == SizeMode::Fit) && !optsCopy.height.has_value() && node->heightMode == SizeMode::Stretch) {
-            node->heightMode = SizeMode::Fit;
-        }
+    ctrlSpec.height = (optsCopy.autoHeight && !optsCopy.height.IsFixed()) ? AxisSize(SizeMode::Fit) : optsCopy.height;
+    ctrlSpec.defaultWidthMode = SizeMode::Stretch;
+    ctrlSpec.defaultHeightMode = SizeMode::Fit;
+    Control::SetupNode(ctx, node, ctrlSpec);
+    if ((!node->parent || node->parent->type != NodeType::Element) &&
+        ctrlSpec.height.ResolveMode(SizeMode::Fit) == SizeMode::Fit &&
+        node->heightMode == SizeMode::Stretch) {
+        node->heightMode = SizeMode::Fit;
     }
     if (scopedTheme != nullptr) {
         ctx.PopTheme();
@@ -4218,7 +4214,7 @@ void TextArea::Render(
             bOpts.square = true;
             bOpts.color = StateColor::Ghost();
             bOpts.iconColor = bHov ? baseCol : baseCol.WithAlphaF(0.95f);
-            bOpts.stretch = StretchMode::Fill;
+            bOpts.width = SizeMode::Stretch;
             Button::Render(canvas, br, bOpts, tbSize, bHov, false, disabled, theme, false);
         }
     }
@@ -4236,7 +4232,7 @@ void TextArea::Render(
             bOpts.square = true;
             bOpts.color = activeToggle ? StateColor::Primary() : StateColor::Ghost();
             bOpts.active = activeToggle;
-            bOpts.stretch = StretchMode::Fill;
+            bOpts.width = SizeMode::Stretch;
             Button::Render(canvas, rBtn, bOpts, tbSize, hovBtn == btnIdx, false, disabled, theme, false);
         };
 
@@ -4267,7 +4263,7 @@ void TextArea::Render(
                 caseOpts.square = true;
                 caseOpts.color = extData->matchCase ? StateColor::Primary() : StateColor::Ghost();
                 caseOpts.active = extData->matchCase;
-                caseOpts.stretch = StretchMode::Fill;
+                caseOpts.width = SizeMode::Stretch;
                 Button::Render(canvas, S.caseBtnRect, caseOpts, tbSize, hovBtn == 1, false, disabled, theme, false);
             }
             // Match Whole Word ("ab" with bottom bracket underline) square toggle button
@@ -4277,7 +4273,7 @@ void TextArea::Render(
                 wordOpts.square = true;
                 wordOpts.color = extData->wholeWord ? StateColor::Primary() : StateColor::Ghost();
                 wordOpts.active = extData->wholeWord;
-                wordOpts.stretch = StretchMode::Fill;
+                wordOpts.width = SizeMode::Stretch;
                 Button::Render(canvas, S.wordBtnRect, wordOpts, tbSize, hovBtn == 2, false, disabled, theme, false);
 
                 const Color fg = extData->wholeWord ? theme.GetVariant(UiVariant::Primary).text : ((hovBtn == 2) ? pal.textPrimary : pal.textSecondary);
@@ -4329,7 +4325,7 @@ void TextArea::Render(
                     rep1Opts.text = "1";
                     rep1Opts.icon = Icon::Replace();
                     rep1Opts.color = StateColor::Ghost();
-                    rep1Opts.stretch = StretchMode::Fill;
+                    rep1Opts.width = SizeMode::Stretch;
                     Button::Render(canvas, S.replaceOneBtnRect, rep1Opts, tbSize, hovBtn == 6, false, disabled, theme, false);
                 }
                 {
@@ -4337,7 +4333,7 @@ void TextArea::Render(
                     repAllOpts.text = "All";
                     repAllOpts.icon = Icon::ReplaceAll();
                     repAllOpts.color = StateColor::Ghost();
-                    repAllOpts.stretch = StretchMode::Fill;
+                    repAllOpts.width = SizeMode::Stretch;
                     Button::Render(canvas, S.replaceAllBtnRect, repAllOpts, tbSize, hovBtn == 7, false, disabled, theme, false);
                 }
             }
@@ -4365,7 +4361,7 @@ void TextArea::Render(
         copyOpts.icon = copied ? Icon::Check() : Icon::Copy();
         copyOpts.color = copied ? StateColor::Success() : StateColor::Secondary();
         copyOpts.active = copied;
-        copyOpts.stretch = StretchMode::Fill;
+        copyOpts.width = SizeMode::Stretch;
         Button::Render(canvas, L.copyBtnRect, copyOpts, tbSize, copyHov, false, disabled, theme, false);
     }
 
@@ -4375,7 +4371,7 @@ void TextArea::Render(
         ButtonOptions zoomOpts{};
         zoomOpts.text = keel::format_buf(zBuf, "{}%", keel::round_i32(effZoom * 100.0f));
         zoomOpts.color = StateColor::Secondary();
-        zoomOpts.stretch = StretchMode::Fill;
+        zoomOpts.width = SizeMode::Stretch;
         Button::Render(canvas, L.zoomBtnRect, zoomOpts, tbSize, zHov, false, disabled, theme, false);
     }
 

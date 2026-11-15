@@ -28,13 +28,10 @@ struct SpinBoxOptions {
     UiAffix prefix{};                              ///< Leading icon and/or symbol/text inside field on left (e.g. "$", "X:")
     UiAffix suffix{};                              ///< Trailing unit/symbol/text and/or icon inside field on right (e.g. "MHz", "mm", "%")
     UiText valueFormat{"%.2f"};                    ///< Format string for numeric values and/or candidate width variants
-    Align align{Align::Start};                     ///< Standalone control alignment (Start, Center, End)
     keel::Optional<CursorBlinkMode> cursorMode{keel::kNullOpt}; ///< Cursor blink override when editing text
     StateColor color{};                            ///< Per-state accent color for active stepper buttons and optional progress fill bar
-    StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
-    keel::Optional<float> width{keel::kNullOpt};   ///< SpinBox width in dp (or legacy ratio 0.0..1.0 in Fill)
-    keel::Optional<float> widthRatio{keel::kNullOpt}; ///< Normalized fill ratio 0.0..1.0 of bounds in Fill mode
-    keel::Optional<float> height{keel::kNullOpt};  ///< Explicit SpinBox height in points (nullopt = inherit defaultHeight from UiSize)
+    AxisSize width{};                              ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit` in `Toolbar`, or `Fixed(dp)`)
+    AxisSize height{};                             ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
     keel::Optional<float> minWidth{keel::kNullOpt}; ///< Minimum SpinBox width constraint in points
     StateColor background{StateColor::Surface()};  ///< SpinBox surface fill color (Surface/Default = on, None = off, or custom StateColor)
     Border border{};                               ///< SpinBox border stroke & corner radius configuration

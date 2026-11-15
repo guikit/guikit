@@ -29,6 +29,17 @@ namespace {
 
 constexpr keel::usize kHistBins = 256;
 constexpr keel::usize kToneLutSize = 4096;
+constexpr float kDefaultImageViewHeightDp = 620.0f;
+
+[[nodiscard]] constexpr float ResolveEffectiveMinHeightDp(const ImageViewOptions& opts) noexcept {
+    if (opts.height.IsStretch()) {
+        return opts.minHeight;
+    }
+    if (opts.height.IsFixed()) {
+        return keel::max(opts.minHeight, opts.height.Dp());
+    }
+    return keel::max(opts.minHeight, kDefaultImageViewHeightDp);
+}
 
 [[nodiscard]] float ReadSampleAsFloat(const ImageViewData& data, keel::usize index) noexcept {
     if (!data.rawPixels || index >= data.sampleCount) {
@@ -927,25 +938,23 @@ ImageViewResponse RunViewportNode(
     node->active = res.pressed;
     node->focused = baseRes.focused;
 
-    const float effectiveMinH = (opts.heightMode == SizeMode::Stretch)
-        ? theme.Scale(opts.minHeight)
-        : keel::max(theme.Scale(opts.minHeight), theme.Scale(opts.height));
+    const float effectiveMinHDp = ResolveEffectiveMinHeightDp(opts);
+    const float effectiveMinH = theme.Scale(effectiveMinHDp);
 
     if (standaloneElement) {
-        node->heightMode = opts.heightMode;
-        node->minHeight = effectiveMinH;
         ControlSpec ctrlSpec{};
         ctrlSpec.width = opts.width;
-        ctrlSpec.widthRatio = opts.widthRatio;
-        Control::SetupNode(ctx, node, ctrlSpec, opts.stretch, opts.align);
-        if (!node->parent || node->parent->type != NodeType::Element) {
-            node->heightMode = opts.heightMode;
-            node->minHeight = effectiveMinH;
-            ctx.AdaptChildToContainer(node);
-            if (opts.heightMode == SizeMode::Fit && node->heightMode == SizeMode::Stretch) {
-                node->heightMode = SizeMode::Fit;
-            }
+        ctrlSpec.defaultWidthMode = SizeMode::Stretch;
+        ctrlSpec.defaultHeightMode = SizeMode::Fit;
+        if (opts.height.IsFixed()) {
+            ctrlSpec.height = effectiveMinHDp;
+        } else if (opts.height.IsStretch()) {
+            ctrlSpec.height = SizeMode::Stretch;
+        } else {
+            ctrlSpec.height = SizeMode::Fit;
         }
+        ctrlSpec.minHeight = effectiveMinHDp;
+        Control::SetupNode(ctx, node, ctrlSpec);
     } else {
         node->widthMode = SizeMode::Stretch;
         node->flexGrow = 1.0f;
@@ -981,7 +990,11 @@ ImageViewResponse RunViewportNode(
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* c, const UiTheme& th) noexcept -> Vec2 {
         const auto* p = n->As<ImageViewViewportPayload>();
         if (!p) return {0.0f, 0.0f};
-        return ImageView::Measure(p->data, p->opts, n->uiSize, c, th, availableWidth);
+        ImageViewOptions effOpts = p->opts;
+        if (n->widthMode == SizeMode::Stretch && !effOpts.width.IsFixed()) {
+            effOpts.width = SizeMode::Stretch;
+        }
+        return ImageView::Measure(p->data, effOpts, n->uiSize, c, th, availableWidth);
     };
 
     node->renderFn = [](const Node* n, ICanvas& c, const UiTheme& th) noexcept {
@@ -1050,7 +1063,7 @@ ImageViewResponse RunViewportNode(
                 }
                 bOpts.color = activeToggle ? StateColor::Primary() : StateColor::Secondary();
                 bOpts.active = activeToggle;
-                bOpts.stretch = StretchMode::Fill;
+                bOpts.width = SizeMode::Stretch;
                 Button::Render(c, br, bOpts, vg.toolbarSize, isHovered, false, n->disabled, th, false);
             }
 
@@ -1334,15 +1347,12 @@ Vec2 ImageView::Measure(
     float availableWidth
 ) noexcept {
     float w = 780.0f * theme.Scale(1.0f);
-    if (Control::HasExplicitDpWidth(opts.stretch, opts.width, opts.widthRatio)) {
-        w = theme.Scale(*opts.width);
-    } else if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f) {
-        const float ratio = Control::ResolveFillRatio(opts.stretch, opts.width, opts.widthRatio).value_or(1.0f);
-        w = availableWidth * ratio;
+    if (opts.width.IsFixed()) {
+        w = theme.Scale(opts.width.Dp());
+    } else if (opts.width.ResolveMode(SizeMode::Stretch) == SizeMode::Stretch && availableWidth > 0.0f) {
+        w = availableWidth;
     }
-    const float h = (opts.heightMode == SizeMode::Stretch)
-        ? theme.Scale(opts.minHeight)
-        : keel::max(theme.Scale(opts.minHeight), theme.Scale(opts.height));
+    const float h = theme.Scale(ResolveEffectiveMinHeightDp(opts));
     return {w, h};
 }
 
@@ -1367,7 +1377,6 @@ ImageViewResponse RunImageViewImpl(
     ImageViewParams& params = externalParams ? *externalParams : st.internalParams;
 
     ImageViewOptions optsCopy = opts;
-    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
 
     // 1. Update cached statistics, 256-bin histograms, and display pixel buffer
     st.EnsureStatsAndHistogram(data, params);
@@ -1546,7 +1555,7 @@ ImageViewResponse RunImageViewImpl(
                     if (ctx.Button({
                         .text = kStrengthNames[i],
                         .color = isSel ? StateColor::Primary() : StateColor::Secondary(),
-                        .stretch = StretchMode::Fill
+                        .width = SizeMode::Stretch
                     }).clicked) {
                         params.autoStrength = sMode;
                         keel::ArrayRef<keel::u32> targetBins = st.binsLum;
@@ -1565,7 +1574,7 @@ ImageViewResponse RunImageViewImpl(
                 if (ctx.Button({
                     .text = "Auto White Balance (Per-Channel R/G/B)",
                     .color = StateColor::Secondary(),
-                    .stretch = StretchMode::Fill
+                    .width = SizeMode::Stretch
                 }).clicked) {
                     params.channels[0].ResetToRange(st.dataMin, st.dataMax);
                     const AutoWindowStrength effStr = (params.autoStrength == AutoWindowStrength::Off)
@@ -1581,10 +1590,10 @@ ImageViewResponse RunImageViewImpl(
             // --- Section 4: Transform & View ---
             ctx.Text("Transform & View", {.role = TextRole::LabelLarge});
             if (auto zRow = ctx.Row({.gap = 6.0f, .align = Alignment::Center})) {
-                if (ctx.Button({.text = "Fit", .color = StateColor::Secondary(), .stretch = StretchMode::Fill}).clicked) {
+                if (ctx.Button({.text = "Fit", .color = StateColor::Secondary(), .width = SizeMode::Stretch}).clicked) {
                     st.fitPending = true;
                 }
-                if (ctx.Button({.text = "100%", .color = StateColor::Secondary(), .stretch = StretchMode::Fill}).clicked) {
+                if (ctx.Button({.text = "100%", .color = StateColor::Secondary(), .width = SizeMode::Stretch}).clicked) {
                     st.zoom = 1.0f;
                     st.fitPending = false;
                 }
@@ -1604,7 +1613,7 @@ ImageViewResponse RunImageViewImpl(
                 if (ctx.Button({
                     .text = "Flip H",
                     .color = params.flipHorizontal ? StateColor::Primary() : StateColor::Secondary(),
-                    .stretch = StretchMode::Fill
+                    .width = SizeMode::Stretch
                 }).clicked) {
                     params.flipHorizontal = !params.flipHorizontal;
                     sidebarChangedParams = true;
@@ -1612,7 +1621,7 @@ ImageViewResponse RunImageViewImpl(
                 if (ctx.Button({
                     .text = "Flip V",
                     .color = params.flipVertical ? StateColor::Primary() : StateColor::Secondary(),
-                    .stretch = StretchMode::Fill
+                    .width = SizeMode::Stretch
                 }).clicked) {
                     params.flipVertical = !params.flipVertical;
                     sidebarChangedParams = true;
@@ -1623,10 +1632,19 @@ ImageViewResponse RunImageViewImpl(
         }
     };
 
+    const float effectiveMinHDp = ResolveEffectiveMinHeightDp(optsCopy);
+    const SizeMode resolvedOuterW = Control::ResolveWidthMode(ctx, optsCopy.width, SizeMode::Stretch);
+    const AxisSize outerWidth = optsCopy.width.IsFixed() ? optsCopy.width : AxisSize(resolvedOuterW);
+    const AxisSize outerHeight = optsCopy.height.IsFixed()
+        ? AxisSize::Fixed(effectiveMinHDp)
+        : (optsCopy.height.IsStretch() ? AxisSize::Stretch() : AxisSize::Fit());
+
     if (auto outerRow = ctx.Row({
         .gap = 8.0f,
         .align = Alignment::Stretch,
-        .heightMode = optsCopy.heightMode,
+        .width = outerWidth,
+        .height = outerHeight,
+        .minHeight = effectiveMinHDp,
         .debugBounds = optsCopy.debugBounds,
         .inspectMode = optsCopy.inspectMode
     })) {
@@ -1637,18 +1655,24 @@ ImageViewResponse RunImageViewImpl(
                 rNode->widthMode = SizeMode::Stretch;
                 rNode->heightMode = SizeMode::Stretch;
             } else {
-                if (Control::HasExplicitDpWidth(optsCopy.stretch, optsCopy.width, optsCopy.widthRatio)) {
+                if (optsCopy.width.IsFixed()) {
                     rNode->widthMode = SizeMode::Fixed;
-                    rNode->fixedWidth = th.Scale(*optsCopy.width);
-                } else if (optsCopy.stretch == StretchMode::Compact) {
-                    rNode->widthMode = SizeMode::Fit;
-                } else if (const auto ratioOpt = Control::ResolveFillRatio(optsCopy.stretch, optsCopy.width, optsCopy.widthRatio)) {
-                    rNode->flexGrow = *ratioOpt;
+                    rNode->fixedWidth = th.Scale(optsCopy.width.Dp());
+                } else {
+                    rNode->widthMode = resolvedOuterW;
+                    rNode->fixedWidth = 0.0f;
                 }
-                rNode->minHeight = keel::max(th.Scale(optsCopy.minHeight), th.Scale(optsCopy.height));
-                if (optsCopy.heightMode == SizeMode::Fixed) {
+                const float scaledMinH = th.Scale(effectiveMinHDp);
+                rNode->minHeight = scaledMinH;
+                if (optsCopy.height.IsFixed()) {
                     rNode->heightMode = SizeMode::Fixed;
-                    rNode->fixedHeight = keel::max(th.Scale(optsCopy.minHeight), th.Scale(optsCopy.height));
+                    rNode->fixedHeight = scaledMinH;
+                } else if (optsCopy.height.IsStretch()) {
+                    rNode->heightMode = SizeMode::Stretch;
+                    rNode->fixedHeight = 0.0f;
+                } else {
+                    rNode->heightMode = SizeMode::Fit;
+                    rNode->fixedHeight = 0.0f;
                 }
             }
         }

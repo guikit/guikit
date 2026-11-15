@@ -78,10 +78,11 @@ void RenderTagInputInspector(guikit::Context& ui, DemoContext&) {
     }
 
     if (auto el = ui.Element({.label = "Max Tags (0 = Unlimited)"})) {
+        static constexpr keel::StaticArray<keel::StringRef, 2> kMaxTagVariants = {{"Unlimited", "%d tags"}};
         if (ui.Slider(s_state.maxTags, 0, 12, {
             .valueFormat = (s_state.maxTags == 0)
-                ? guikit::UiText{"Unlimited", {"Unlimited", "%d tags"}}
-                : guikit::UiText{"%d tags", {"Unlimited", "%d tags"}}
+                ? guikit::UiText{"Unlimited", kMaxTagVariants}
+                : guikit::UiText{"%d tags", kMaxTagVariants}
         }).changed) ui.InvalidateAll();
     }
 
@@ -108,7 +109,7 @@ void RenderTagInputInspector(guikit::Context& ui, DemoContext&) {
         if (ui.Button({
             .text = "Add Sample Tag",
             .icon = guikit::Icon::Plus(),
-            .stretch = guikit::StretchMode::Fill,
+            .width = guikit::SizeMode::Stretch,
             .background = guikit::StateColor::Secondary()
         }).clicked) {
             const keel::StringRef candidate = kSampleTags[s_state.sampleCounter % kSampleTags.size()];
@@ -121,7 +122,7 @@ void RenderTagInputInspector(guikit::Context& ui, DemoContext&) {
         if (ui.Button({
             .text = "Reset Default Tags",
             .icon = guikit::Icon::Refresh(),
-            .stretch = guikit::StretchMode::Fill,
+            .width = guikit::SizeMode::Stretch,
             .background = guikit::StateColor::Ghost()
         }).clicked) {
             s_state.tags.assign({"C++20", "Vulkan", "Immediate-Mode", "Zero-Alloc"});
@@ -131,86 +132,46 @@ void RenderTagInputInspector(guikit::Context& ui, DemoContext&) {
 }
 
 void RenderTagInputStage(guikit::Context& ui, DemoContext& ctx) {
-    if (auto el = ui.Size(ctx.elemSize).Element({
-        .label = ctx.GetElementLabel(),
-        .description = ctx.GetElementDescription(),
-        .icon = ctx.GetElementIcon(),
-        .badge = ctx.GetElementBadge(),
-        .layout = ctx.elemLayout,
-        .inlineOrder = ctx.elemInlineOrder,
-        .align = ctx.elemAlign,
-        .stretch = ctx.GetElementStretch(),
-        .background = ctx.elemBackground,
-        .border = ctx.GetElemBorder(),
-        .disabled = ctx.elemDisabled
-    })) {
-        ui.Size(ctx.controlsSize).TagInput(s_state.tags, {
-            .placeholder = s_state.placeholder,
-            .prefix = s_state.prefix,
-            .tagVariant = s_state.tagVariant,
-            .maxTags = static_cast<keel::u32>(s_state.maxTags),
-            .allowDuplicates = s_state.allowDuplicates,
-            .splitOnComma = s_state.splitOnComma,
-            .splitOnSpace = s_state.splitOnSpace,
-            .clearable = s_state.clearable,
-            .showCounter = s_state.showCounter,
-            .readOnly = s_state.readOnly,
-            .stretch = ctx.GetElementStretch(),
-            .width = ctx.GetElementWidth(),
-            .height = ctx.GetElementHeight(),
-            .background = ctx.GetControlBackground(NavCategory::ElemTagInput),
-            .border = ctx.GetCtrlBorder(),
-            .disabled = ctx.elemDisabled
-        });
-    }
+    ctx.RunElementStage(ui, [&]() {
+        guikit::TagInputOptions opts{};
+        opts.placeholder = s_state.placeholder;
+        opts.prefix = s_state.prefix;
+        opts.tagVariant = s_state.tagVariant;
+        opts.maxTags = static_cast<keel::u32>(s_state.maxTags);
+        opts.allowDuplicates = s_state.allowDuplicates;
+        opts.splitOnComma = s_state.splitOnComma;
+        opts.splitOnSpace = s_state.splitOnSpace;
+        opts.clearable = s_state.clearable;
+        opts.showCounter = s_state.showCounter;
+        opts.readOnly = s_state.readOnly;
+        opts.width = ctx.ResolveCtrlWidth();
+        opts.height = ctx.ResolveCtrlHeight();
+        opts.background = ctx.GetControlBackground(NavCategory::ElemTagInput);
+        opts.border = ctx.GetCtrlBorder();
+        opts.disabled = ctx.elemDisabled;
+        ui.Size(ctx.controlsSize).TagInput(s_state.tags, opts);
+    });
 }
 
 keel::String GenerateTagInputCode(const DemoContext& ctx) {
-    return keel::format(
-        "if (auto el = ui.{}Element({{\n"
-        "    .label = {},\n"
-        "    .description = {},\n"
-        "    .icon = {},\n"
-        "    .badge = {},\n"
-        "    .layout = guikit::ElementLayout::{},\n"
-        "    .inlineOrder = guikit::InlineOrder::{},\n"
-        "    .align = guikit::Align::{},\n"
-        "    .stretch = guikit::StretchMode::{},\n"
+    const keel::String ctrl = keel::format(
+        "ui.{}TagInput(tags, {{\n"
+        "    .placeholder = \"{}\",\n"
+        "    .prefix = \"{}\",\n"
+        "    .tagVariant = guikit::UiVariant::{},\n"
+        "    .maxTags = {},\n"
+        "    .allowDuplicates = {},\n"
+        "    .splitOnComma = {},\n"
+        "    .splitOnSpace = {},\n"
+        "    .clearable = {},\n"
+        "    .showCounter = {},\n"
+        "    .readOnly = {},\n"
+        "    .width = {},\n"
+        "    .height = {},\n"
         "    .background = {},\n"
         "    .border = {},\n"
         "    .disabled = {}\n"
-        "}})) {{\n"
-        "    ui.{}TagInput(tags, {{\n"
-        "        .placeholder = \"{}\",\n"
-        "        .prefix = \"{}\",\n"
-        "        .tagVariant = guikit::UiVariant::{},\n"
-        "        .maxTags = {},\n"
-        "        .allowDuplicates = {},\n"
-        "        .splitOnComma = {},\n"
-        "        .splitOnSpace = {},\n"
-        "        .clearable = {},\n"
-        "        .showCounter = {},\n"
-        "        .readOnly = {},\n"
-        "        .stretch = guikit::StretchMode::{},\n"
-        "        .width = {},\n"
-        "        .height = {},\n"
-        "        .background = {},\n"
-        "        .border = {},\n"
-        "        .disabled = {}\n"
-        "    }});\n"
-        "}}",
-        FormatUiSizePrefix(ctx.elemSize),
-        ctx.FormatElementLabelCode(),
-        ctx.FormatElementDescCode(),
-        ctx.FormatElementIconCode(),
-        ctx.FormatElementBadgeCode(),
-        ElementLayoutEnumName(ctx.elemLayout),
-        InlineOrderEnumName(ctx.elemInlineOrder),
-        LabelAlignEnumName(ctx.elemAlign),
-        StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElemBackgroundCode(),
-        ctx.FormatElemBorderCode(),
-        ctx.elemDisabled ? "true" : "false",
+        "}});",
         FormatUiSizePrefix(ctx.controlsSize),
         s_state.placeholder,
         s_state.prefix,
@@ -222,13 +183,13 @@ keel::String GenerateTagInputCode(const DemoContext& ctx) {
         s_state.clearable ? "true" : "false",
         s_state.showCounter ? "true" : "false",
         s_state.readOnly ? "true" : "false",
-        StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElementWidthCode(),
-        ctx.FormatElementHeightCode(),
+        ctx.FormatCtrlWidthCode(),
+        ctx.FormatCtrlHeightCode(),
         ctx.FormatControlBackgroundCode(NavCategory::ElemTagInput),
         ctx.FormatCtrlBorderCode(),
         ctx.elemDisabled ? "true" : "false"
     );
+    return ctx.WrapInElementCode(ctrl);
 }
 
 } // namespace guikit::demo

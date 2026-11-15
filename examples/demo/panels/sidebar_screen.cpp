@@ -18,7 +18,7 @@ struct SidebarState {
     bool showBadges = true;
     bool showSections = true;
     bool autoWidth = false;
-    float fixedWidth = 210.0f;
+    float sidebarWidth = 210.0f;
 
     // Optional Workbench shell companions
     bool showBottomPanel = false;
@@ -104,12 +104,12 @@ void RenderSidebarInspector(guikit::Context& ui, DemoContext& ctx) {
         if (ui.Switch(s_state.autoWidth, {.disabled = notExpanded}).changed) ui.InvalidateAll();
     }
     if (auto el = ui.Element({.label = "Default Width", .disabled = notExpanded || s_state.autoWidth})) {
-        if (ui.Slider(s_state.fixedWidth, 140.0f, 320.0f, {.valueFormat = "%.0f px", .disabled = notExpanded || s_state.autoWidth}).changed) {
+        if (ui.Slider(s_state.sidebarWidth, 140.0f, 320.0f, {.valueFormat = "%.0f px", .disabled = notExpanded || s_state.autoWidth}).changed) {
             ui.InvalidateAll();
         }
     }
 
-    ui.Size(guikit::UiSize::Xs).Heading({.label = "SHELL COMPANIONS", .separator = guikit::HeadingSeparator::Bottom});
+    ui.Heading({.label = "SHELL COMPANIONS", .level = guikit::HeadingLevel::H6, .separator = guikit::HeadingSeparator::Bottom});
 
     keel::usize frameIdx = s_state.floatingFrame ? 1 : 0;
     if (auto el = ui.Element({.label = "Shell Frame", .layout = guikit::ElementLayout::Stacked})) {
@@ -167,13 +167,13 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
     stageTheme.SetShellStyle(isFloating ? guikit::ShellStyle::Floating : guikit::ShellStyle::Docked);
 
     if (auto workbenchShell = ui.Column({
-        .widthMode = guikit::SizeMode::Stretch,
-        .heightMode = guikit::SizeMode::Stretch,
+        .width = guikit::SizeMode::Stretch,
+        .height = guikit::SizeMode::Stretch,
         .theme = &stageTheme
     })) {
         if (auto demoWorkspace = ui.Box({
-            .widthMode = guikit::SizeMode::Stretch,
-            .heightMode = guikit::SizeMode::Stretch
+            .width = guikit::SizeMode::Stretch,
+            .height = guikit::SizeMode::Stretch
         })) {
             // 1. Optional VS Code style ActivityBar docked on the outer edge, linked to s_state.mode
             if (s_state.showActivityBar) {
@@ -244,7 +244,7 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
             // 2. Primary Sidebar docked flush next to ActivityBar (or on outer edge when standalone)
             if (auto sb = ui.Sidebar(s_state.mode, {
                 .side = s_state.side,
-                .width = s_state.autoWidth ? keel::kNullOpt : keel::Optional<float>(s_state.fixedWidth),
+                .width = s_state.autoWidth ? keel::kNullOpt : keel::Optional<float>(s_state.sidebarWidth),
                 .resizable = s_state.resizable,
                 .allowCompact = s_state.allowCompact,
                 .allowCollapse = s_state.allowCollapse,
@@ -298,16 +298,17 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
                 .padding = guikit::Padding::All(24.0f),
                 .align = guikit::Alignment::Center,
                 .justify = guikit::Justify::Center,
-                .widthMode = guikit::SizeMode::Stretch,
-                .heightMode = guikit::SizeMode::Stretch
+                .width = guikit::SizeMode::Stretch,
+                .height = guikit::SizeMode::Stretch
             })) {
                 static constexpr keel::StaticArray<keel::StringRef, 4> pageTitles = {
                     "Overview", "Analytics", "Deployments", "Settings"
                 };
-                ui.Size(guikit::UiSize::Sm).Heading({
+                ui.Heading({
                     .label = pageTitles[static_cast<keel::usize>(keel::clamp(s_state.menuIdx, 0, 3))],
                     .description = "Drag the Sidebar border sash to resize or snap between Expanded, Compact, and Collapsed modes.",
-                    .badge = {ModeEnumName(s_state.mode), ctx.ResolveControlColor()}
+                    .badge = {ModeEnumName(s_state.mode), ctx.ResolveControlColor()},
+                    .level = guikit::HeadingLevel::H5
                 });
             }
 
@@ -345,8 +346,8 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
 
                 if (auto bpBody = ui.Box({
                     .gap = 6.0f,
-                    .widthMode = guikit::SizeMode::Stretch,
-                    .heightMode = guikit::SizeMode::Stretch,
+                    .width = guikit::SizeMode::Stretch,
+                    .height = guikit::SizeMode::Stretch,
                     .padding = guikit::Padding::All(10.0f)
                 })) {
                     static constexpr keel::StaticArray<keel::StringRef, 3> tabContents = {
@@ -429,7 +430,7 @@ keel::String GenerateSidebarCode(const DemoContext& ctx) {
 
     const auto widthExpr = s_state.autoWidth
         ? keel::FixedString<32>("keel::kNullOpt")
-        : keel::format_fixed<32>("{:.1f}f", s_state.fixedWidth);
+        : keel::format_fixed<32>("{:.1f}f", s_state.sidebarWidth);
 
     keel::format_into(
         out,

@@ -39,14 +39,14 @@ void RenderPanePlaceholder(
         .gap = 6.0f,
         .align = guikit::Alignment::Center,
         .justify = guikit::Justify::Center,
-        .widthMode = guikit::SizeMode::Stretch,
-        .heightMode = guikit::SizeMode::Stretch
+        .width = guikit::SizeMode::Stretch,
+        .height = guikit::SizeMode::Stretch
     })) {
         ui.Heading({
             .label = title,
             .badge = {ui.Format("{:.0f}%", ratioPct), guikit::StateColor::FromVariant(badgeVariant)},
             .align = guikit::Align::Center,
-            .stretch = guikit::StretchMode::Compact
+            .width = guikit::SizeMode::Fit
         });
         ui.Text("Drag sash to resize • Double-click sash to reset", {
             .role = guikit::TextRole::LabelSmall,
@@ -124,7 +124,7 @@ void RenderSplitViewInspector(guikit::Context& ui, DemoContext& ctx) {
         .text = "Reset Ratios",
         .icon = guikit::Icon::Refresh(),
         .color = guikit::StateColor::Secondary(),
-        .stretch = guikit::StretchMode::Fill
+        .width = guikit::SizeMode::Stretch
     }).clicked) {
         s_split.primaryRatio = 0.35f;
         s_split.secondaryRatio = 0.55f;
@@ -153,8 +153,8 @@ void RenderSplitViewStage(guikit::Context& ui, DemoContext& ctx) {
         .sashSize = s_split.sashSize,
         .showGrip = s_split.showGrip,
         .collapsible = s_split.collapsible,
-        .widthMode = guikit::SizeMode::Stretch,
-        .heightMode = guikit::SizeMode::Stretch,
+        .width = guikit::SizeMode::Stretch,
+        .height = guikit::SizeMode::Stretch,
         .background = {pal.surface},
         .border = s_split.showOuterBorder
             ? guikit::Border{.width = 1.0f, .radius = 8.0f, .color = {pal.borderSubtle}}
@@ -164,8 +164,8 @@ void RenderSplitViewStage(guikit::Context& ui, DemoContext& ctx) {
 
     if (auto outerSplit = guikit::SplitView::Open(ui, s_split.primaryRatio, primaryOpts)) {
         if (auto pane1 = outerSplit.First({
-            .widthMode = guikit::SizeMode::Stretch,
-            .heightMode = guikit::SizeMode::Stretch,
+            .width = guikit::SizeMode::Stretch,
+            .height = guikit::SizeMode::Stretch,
             .padding = guikit::Padding::All(16.0f),
             .background = {pal.surface},
             .clipChildren = true
@@ -174,8 +174,8 @@ void RenderSplitViewStage(guikit::Context& ui, DemoContext& ctx) {
         }
 
         if (auto pane2 = outerSplit.Second({
-            .widthMode = guikit::SizeMode::Stretch,
-            .heightMode = guikit::SizeMode::Stretch,
+            .width = guikit::SizeMode::Stretch,
+            .height = guikit::SizeMode::Stretch,
             .clipChildren = true
         })) {
             if (s_split.layoutModeIdx == 0) {
@@ -189,15 +189,15 @@ void RenderSplitViewStage(guikit::Context& ui, DemoContext& ctx) {
                     .sashSize = s_split.sashSize,
                     .showGrip = s_split.showGrip,
                     .collapsible = s_split.collapsible,
-                    .widthMode = guikit::SizeMode::Stretch,
-                    .heightMode = guikit::SizeMode::Stretch,
+                    .width = guikit::SizeMode::Stretch,
+                    .height = guikit::SizeMode::Stretch,
                     .clipChildren = true
                 };
 
                 if (auto innerSplit = guikit::SplitView::Open(ui, s_split.secondaryRatio, nestedOpts)) {
                     if (auto topPane = innerSplit.First({
-                        .widthMode = guikit::SizeMode::Stretch,
-                        .heightMode = guikit::SizeMode::Stretch,
+                        .width = guikit::SizeMode::Stretch,
+                        .height = guikit::SizeMode::Stretch,
                         .padding = guikit::Padding::All(16.0f),
                         .background = {pal.background.WithAlphaF(0.55f)},
                         .clipChildren = true
@@ -206,8 +206,8 @@ void RenderSplitViewStage(guikit::Context& ui, DemoContext& ctx) {
                     }
 
                     if (auto bottomPane = innerSplit.Second({
-                        .widthMode = guikit::SizeMode::Stretch,
-                        .heightMode = guikit::SizeMode::Stretch,
+                        .width = guikit::SizeMode::Stretch,
+                        .height = guikit::SizeMode::Stretch,
                         .padding = guikit::Padding::All(16.0f),
                         .background = {pal.surface},
                         .clipChildren = true
@@ -217,8 +217,8 @@ void RenderSplitViewStage(guikit::Context& ui, DemoContext& ctx) {
                 }
             } else {
                 if (auto singleRight = ui.Box({
-                    .widthMode = guikit::SizeMode::Stretch,
-                    .heightMode = guikit::SizeMode::Stretch,
+                    .width = guikit::SizeMode::Stretch,
+                    .height = guikit::SizeMode::Stretch,
                     .padding = guikit::Padding::All(16.0f),
                     .background = {pal.background.WithAlphaF(0.55f)},
                     .clipChildren = true

@@ -262,11 +262,8 @@ struct TagInputOptions {
     bool showCounter{false};                       ///< Show tag count badge on the right (e.g. "3" or "3/8")
     bool readOnly{false};                          ///< Non-editable display mode (hides inline input and '×' buttons)
     StateColor color{};                            ///< Optional accent color override for active focus / chips
-    StretchMode stretch{StretchMode::Fill};
-    Align align{Align::Start};
-    keel::Optional<float> width{keel::kNullOpt};
-    keel::Optional<float> widthRatio{keel::kNullOpt};
-    keel::Optional<float> height{keel::kNullOpt};
+    AxisSize width{};                              ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit` in `Toolbar`, or `Fixed(dp)`)
+    AxisSize height{};                             ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
     keel::Optional<float> minWidth{keel::kNullOpt};
     StateColor background{StateColor::Surface()};
     Border border{};
