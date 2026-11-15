@@ -167,187 +167,187 @@ void PopulateTypography(UiTheme& theme) {
 void PopulateScrollbars(UiTheme& theme) {
     theme.scrollbars = {{
         ScrollbarMetrics{  0.0f,  0.0f, 0.0f,  0.0f, 0.0f,  0.0f }, // None
-        ScrollbarMetrics{  4.0f, 16.0f, 2.0f, 24.0f, 2.0f,  8.0f }, // Xs
-        ScrollbarMetrics{  6.0f, 20.0f, 3.0f, 32.0f, 3.0f, 12.0f }, // Sm
-        ScrollbarMetrics{  8.0f, 28.0f, 4.0f, 40.0f, 3.0f, 14.0f }, // Md
-        ScrollbarMetrics{ 10.0f, 36.0f, 5.0f, 48.0f, 4.0f, 18.0f }, // Lg
-        ScrollbarMetrics{ 12.0f, 44.0f, 6.0f, 56.0f, 4.0f, 20.0f }  // Xl
+        ScrollbarMetrics{  3.0f, 12.0f, 1.5f, 18.0f, 1.5f,  6.0f }, // Xs
+        ScrollbarMetrics{  4.5f, 15.0f, 2.25f, 24.0f, 2.25f, 9.0f }, // Sm
+        ScrollbarMetrics{  6.0f, 21.0f, 3.0f, 30.0f, 2.25f, 10.5f }, // Md
+        ScrollbarMetrics{ 7.5f, 27.0f, 3.75f, 36.0f, 3.0f, 13.5f }, // Lg
+        ScrollbarMetrics{ 9.0f, 33.0f, 4.5f, 42.0f, 3.0f, 15.0f }  // Xl
     }};
 }
 
 void PopulateCarousels(UiTheme& theme) {
     theme.carousels = {{
-        CarouselMetrics{ 26.0f, 14.0f,  6.0f, 4.0f, 6.0f, 36.0f, 110.0f }, // None
-        CarouselMetrics{ 18.0f, 10.0f,  3.0f, 2.0f, 4.0f, 24.0f,  60.0f }, // Xs
-        CarouselMetrics{ 22.0f, 12.0f,  4.0f, 3.0f, 5.0f, 30.0f,  80.0f }, // Sm
-        CarouselMetrics{ 26.0f, 14.0f,  6.0f, 4.0f, 6.0f, 36.0f, 110.0f }, // Md
-        CarouselMetrics{ 32.0f, 16.0f,  8.0f, 5.0f, 8.0f, 45.0f, 140.0f }, // Lg
-        CarouselMetrics{ 40.0f, 20.0f, 10.0f, 6.0f, 10.0f, 56.0f, 180.0f }  // Xl
+        CarouselMetrics{ 19.5f, 10.5f,  4.5f, 3.0f, 4.5f, 27.0f, 82.5f }, // None
+        CarouselMetrics{ 13.5f, 7.5f,  2.25f, 1.5f, 3.0f, 18.0f,  45.0f }, // Xs
+        CarouselMetrics{ 16.5f, 9.0f,  3.0f, 2.25f, 3.75f, 22.5f,  60.0f }, // Sm
+        CarouselMetrics{ 19.5f, 10.5f,  4.5f, 3.0f, 4.5f, 27.0f, 82.5f }, // Md
+        CarouselMetrics{ 24.0f, 12.0f,  6.0f, 3.75f, 6.0f, 33.75f, 105.0f }, // Lg
+        CarouselMetrics{ 30.0f, 15.0f, 7.5f, 4.5f, 7.5f, 42.0f, 135.0f }  // Xl
     }};
 }
 
 void PopulateComponentMetrics(UiTheme& theme) {
     theme.switches = {{
-        SwitchMetrics{ {36.0f, 20.0f}, 16.0f, 2.0f, 10.0f,  6.0f,  6.0f }, // None
-        SwitchMetrics{ {24.0f, 14.0f}, 10.0f, 2.0f,  6.0f,  4.0f,  4.0f }, // Xs
-        SwitchMetrics{ {28.0f, 16.0f}, 12.0f, 2.0f,  8.0f,  5.0f,  5.0f }, // Sm
-        SwitchMetrics{ {36.0f, 20.0f}, 16.0f, 2.0f, 10.0f,  6.0f,  6.0f }, // Md
-        SwitchMetrics{ {44.0f, 24.0f}, 20.0f, 2.0f, 12.0f,  8.0f,  8.0f }, // Lg
-        SwitchMetrics{ {52.0f, 28.0f}, 24.0f, 2.0f, 14.0f, 10.0f, 10.0f }  // Xl
+        SwitchMetrics{ {27.0f, 15.0f}, 12.0f, 1.5f, 7.5f,  4.5f,  4.5f }, // None
+        SwitchMetrics{ {18.0f, 10.5f}, 7.5f, 1.5f,  4.5f,  3.0f,  3.0f }, // Xs
+        SwitchMetrics{ {21.0f, 12.0f}, 9.0f, 1.5f,  6.0f,  3.75f,  3.75f }, // Sm
+        SwitchMetrics{ {27.0f, 15.0f}, 12.0f, 1.5f, 7.5f,  4.5f,  4.5f }, // Md
+        SwitchMetrics{ {33.0f, 18.0f}, 15.0f, 1.5f, 9.0f,  6.0f,  6.0f }, // Lg
+        SwitchMetrics{ {39.0f, 21.0f}, 18.0f, 1.5f, 10.5f, 7.5f, 7.5f }  // Xl
     }};
 
     theme.checkboxes = {{
-        CheckboxMetrics{ 18.0f, 4.0f, 10.0f,  6.0f,  6.0f, 2.0f }, // None
-        CheckboxMetrics{ 12.0f, 2.5f,  6.0f,  4.0f,  4.0f, 1.5f }, // Xs
-        CheckboxMetrics{ 14.0f, 3.0f,  8.0f,  5.0f,  5.0f, 1.8f }, // Sm
-        CheckboxMetrics{ 18.0f, 4.0f, 10.0f,  6.0f,  6.0f, 2.0f }, // Md
-        CheckboxMetrics{ 22.0f, 5.0f, 12.0f,  8.0f,  8.0f, 2.4f }, // Lg
-        CheckboxMetrics{ 26.0f, 6.0f, 14.0f, 10.0f, 10.0f, 2.8f }  // Xl
+        CheckboxMetrics{ 13.5f, 3.0f, 7.5f,  4.5f,  4.5f, 1.5f }, // None
+        CheckboxMetrics{ 9.0f, 2.0f,  4.5f,  3.0f,  3.0f, 1.25f }, // Xs
+        CheckboxMetrics{ 10.5f, 2.25f,  6.0f,  3.75f,  3.75f, 1.25f }, // Sm
+        CheckboxMetrics{ 13.5f, 3.0f, 7.5f,  4.5f,  4.5f, 1.5f }, // Md
+        CheckboxMetrics{ 16.5f, 3.75f, 9.0f,  6.0f,  6.0f, 1.75f }, // Lg
+        CheckboxMetrics{ 19.5f, 4.5f, 10.5f, 7.5f, 7.5f, 2.0f }  // Xl
     }};
 
     theme.inputs = {{
-        InputFieldMetrics{ 36.0f,  6.0f, 12.0f,  6.0f,  6.0f, 1.0f, 16.0f }, // None
-        InputFieldMetrics{ 24.0f,  4.0f,  8.0f,  4.0f,  4.0f, 1.0f, 12.0f }, // Xs
-        InputFieldMetrics{ 28.0f,  5.0f, 10.0f,  5.0f,  5.0f, 1.0f, 14.0f }, // Sm
-        InputFieldMetrics{ 36.0f,  6.0f, 12.0f,  6.0f,  6.0f, 1.0f, 16.0f }, // Md
-        InputFieldMetrics{ 44.0f,  8.0f, 16.0f,  8.0f,  8.0f, 1.5f, 18.0f }, // Lg
-        InputFieldMetrics{ 52.0f, 10.0f, 20.0f, 10.0f, 10.0f, 1.5f, 22.0f }  // Xl
+        InputFieldMetrics{ 27.0f,  4.5f, 9.0f,  4.5f,  4.5f, 1.0f, 12.0f }, // None
+        InputFieldMetrics{ 18.0f,  3.0f,  6.0f,  3.0f,  3.0f, 1.0f, 9.0f }, // Xs
+        InputFieldMetrics{ 21.0f,  3.75f, 7.5f,  3.75f,  3.75f, 1.0f, 10.5f }, // Sm
+        InputFieldMetrics{ 27.0f,  4.5f, 9.0f,  4.5f,  4.5f, 1.0f, 12.0f }, // Md
+        InputFieldMetrics{ 33.0f,  6.0f, 12.0f,  6.0f,  6.0f, 1.5f, 13.5f }, // Lg
+        InputFieldMetrics{ 39.0f, 7.5f, 15.0f, 7.5f, 7.5f, 1.5f, 16.5f }  // Xl
     }};
 
     theme.selects = {{
-        SelectMetrics{ 36.0f,  6.0f, 12.0f,  6.0f,  6.0f, 1.0f, 16.0f, 32.0f }, // None
-        SelectMetrics{ 24.0f,  4.0f,  8.0f,  4.0f,  4.0f, 1.0f, 12.0f, 22.0f }, // Xs
-        SelectMetrics{ 28.0f,  5.0f, 10.0f,  5.0f,  5.0f, 1.0f, 14.0f, 26.0f }, // Sm
-        SelectMetrics{ 36.0f,  6.0f, 12.0f,  6.0f,  6.0f, 1.0f, 16.0f, 32.0f }, // Md
-        SelectMetrics{ 44.0f,  8.0f, 16.0f,  8.0f,  8.0f, 1.5f, 18.0f, 38.0f }, // Lg
-        SelectMetrics{ 52.0f, 10.0f, 20.0f, 10.0f, 10.0f, 1.5f, 22.0f, 44.0f }  // Xl
+        SelectMetrics{ 27.0f,  4.5f, 9.0f,  4.5f,  4.5f, 1.0f, 12.0f, 24.0f }, // None
+        SelectMetrics{ 18.0f,  3.0f,  6.0f,  3.0f,  3.0f, 1.0f, 9.0f, 16.5f }, // Xs
+        SelectMetrics{ 21.0f,  3.75f, 7.5f,  3.75f,  3.75f, 1.0f, 10.5f, 19.5f }, // Sm
+        SelectMetrics{ 27.0f,  4.5f, 9.0f,  4.5f,  4.5f, 1.0f, 12.0f, 24.0f }, // Md
+        SelectMetrics{ 33.0f,  6.0f, 12.0f,  6.0f,  6.0f, 1.5f, 13.5f, 28.5f }, // Lg
+        SelectMetrics{ 39.0f, 7.5f, 15.0f, 7.5f, 7.5f, 1.5f, 16.5f, 33.0f }  // Xl
     }};
 
     theme.headings = {{
-        HeadingMetrics{ 24.0f, 16.0f, 13.0f, 24.0f, 10.0f, 10.0f, 5.0f }, // H1
-        HeadingMetrics{ 20.0f, 14.0f, 12.0f, 20.0f,  8.0f,  9.0f, 4.0f }, // H2
-        HeadingMetrics{ 18.0f, 13.5f, 11.5f, 18.0f,  7.0f,  8.0f, 3.5f }, // H3
-        HeadingMetrics{ 16.0f, 13.0f, 11.0f, 16.0f,  6.0f,  8.0f, 3.0f }, // H4
-        HeadingMetrics{ 14.0f, 11.5f, 10.0f, 14.0f,  5.0f,  6.0f, 2.5f }, // H5
-        HeadingMetrics{ 12.0f, 10.5f,  9.0f, 12.0f,  4.0f,  6.0f, 2.0f }  // H6
+        HeadingMetrics{ 24.0f, 16.0f, 13.0f, 18.0f, 7.5f, 7.5f, 3.75f }, // H1
+        HeadingMetrics{ 20.0f, 14.0f, 12.0f, 15.0f,  6.0f,  6.75f, 3.0f }, // H2
+        HeadingMetrics{ 18.0f, 13.5f, 11.5f, 13.5f,  5.25f,  6.0f, 2.75f }, // H3
+        HeadingMetrics{ 16.0f, 13.0f, 11.0f, 12.0f,  4.5f,  6.0f, 2.25f }, // H4
+        HeadingMetrics{ 14.0f, 11.5f, 10.0f, 10.5f,  3.75f,  4.5f, 2.0f }, // H5
+        HeadingMetrics{ 12.0f, 10.5f,  9.0f, 9.0f,  3.0f,  4.5f, 1.5f }  // H6
     }};
 
     theme.sliders = {{
-        SliderMetrics{ 26.0f, 5.0f, 18.0f, 9.0f, 4.0f,  6.0f, 5.0f,  6.0f }, // None
-        SliderMetrics{ 18.0f, 3.0f, 12.0f, 6.0f, 3.0f,  4.0f, 3.0f,  4.0f }, // Xs
-        SliderMetrics{ 22.0f, 4.0f, 14.0f, 7.0f, 3.5f,  5.0f, 4.0f,  5.0f }, // Sm
-        SliderMetrics{ 26.0f, 5.0f, 18.0f, 9.0f, 4.0f,  6.0f, 5.0f,  6.0f }, // Md
-        SliderMetrics{ 32.0f, 6.0f, 22.0f, 11.0f, 5.0f, 8.0f, 6.0f,  8.0f }, // Lg
-        SliderMetrics{ 38.0f, 8.0f, 26.0f, 13.0f, 6.0f, 10.0f, 8.0f, 10.0f }  // Xl
+        SliderMetrics{ 19.5f, 3.75f, 13.5f, 6.75f, 3.0f,  4.5f, 3.75f,  4.5f }, // None
+        SliderMetrics{ 13.5f, 2.25f, 9.0f, 4.5f, 2.25f,  3.0f, 2.25f,  3.0f }, // Xs
+        SliderMetrics{ 16.5f, 3.0f, 10.5f, 5.25f, 2.75f,  3.75f, 3.0f,  3.75f }, // Sm
+        SliderMetrics{ 19.5f, 3.75f, 13.5f, 6.75f, 3.0f,  4.5f, 3.75f,  4.5f }, // Md
+        SliderMetrics{ 24.0f, 4.5f, 16.5f, 8.25f, 3.75f, 6.0f, 4.5f,  6.0f }, // Lg
+        SliderMetrics{ 28.5f, 6.0f, 19.5f, 9.75f, 4.5f, 7.5f, 6.0f, 7.5f }  // Xl
     }};
 }
 
 void ApplyDensity(UiTheme& theme, Density d) {
     theme.density = d;
     if (d == Density::Compact) {
-        theme.spacing = {0.0f, 2.0f, 4.0f, 8.0f, 12.0f, 16.0f};
-        theme.radius  = {0.0f, 2.0f, 3.0f, 4.0f, 6.0f, 8.0f};
+        theme.spacing = {0.0f, 1.5f, 3.0f, 6.0f, 9.0f, 12.0f};
+        theme.radius  = {0.0f, 1.5f, 2.25f, 3.0f, 4.5f, 6.0f};
         theme.metrics = {{
-            ComponentMetrics{  0.0f, 13.0f, 11.0f, 10.0f,  0.0f,  0.0f, 0.0f,  0.0f, 64.0f, 80.0f, 10.0f, 5.0f, 6.0f, 2.5f }, // None
-            ComponentMetrics{ 20.0f, 10.0f,  9.0f,  8.0f,  6.0f,  2.0f, 2.0f, 10.0f, 64.0f, 80.0f,  8.5f, 3.5f, 5.0f, 1.5f }, // Xs
-            ComponentMetrics{ 26.0f, 12.0f, 10.0f,  9.0f, 10.0f,  4.0f, 3.0f, 13.0f, 64.0f, 80.0f,  9.0f, 4.0f, 5.0f, 2.0f }, // Sm
-            ComponentMetrics{ 32.0f, 13.0f, 11.0f, 10.0f, 12.0f,  5.0f, 4.0f, 15.0f, 64.0f, 80.0f, 10.0f, 5.0f, 6.0f, 2.5f }, // Md
-            ComponentMetrics{ 40.0f, 15.0f, 13.0f, 11.0f, 16.0f,  8.0f, 6.0f, 18.0f, 64.0f, 80.0f, 11.0f, 6.0f, 7.0f, 3.0f }, // Lg
-            ComponentMetrics{ 48.0f, 18.0f, 15.0f, 13.0f, 20.0f, 10.0f, 8.0f, 22.0f, 64.0f, 80.0f, 12.0f, 7.0f, 8.0f, 3.5f }  // Xl
+            ComponentMetrics{  0.0f, 13.0f, 11.0f, 10.0f,  0.0f,  0.0f, 0.0f,  0.0f, 48.0f, 60.0f, 10.0f, 3.75f, 4.5f, 2.0f }, // None
+            ComponentMetrics{ 15.0f, 10.0f,  9.0f,  8.0f,  4.5f,  1.5f, 1.5f, 7.5f, 48.0f, 60.0f,  8.5f, 2.75f, 3.75f, 1.25f }, // Xs
+            ComponentMetrics{ 19.5f, 12.0f, 10.0f,  9.0f, 7.5f,  3.0f, 2.25f, 9.75f, 48.0f, 60.0f,  9.0f, 3.0f, 3.75f, 1.5f }, // Sm
+            ComponentMetrics{ 24.0f, 13.0f, 11.0f, 10.0f, 9.0f,  3.75f, 3.0f, 11.25f, 48.0f, 60.0f, 10.0f, 3.75f, 4.5f, 2.0f }, // Md
+            ComponentMetrics{ 30.0f, 15.0f, 13.0f, 11.0f, 12.0f,  6.0f, 4.5f, 13.5f, 48.0f, 60.0f, 11.0f, 4.5f, 5.25f, 2.25f }, // Lg
+            ComponentMetrics{ 36.0f, 18.0f, 15.0f, 13.0f, 15.0f, 7.5f, 6.0f, 16.5f, 48.0f, 60.0f, 12.0f, 5.25f, 6.0f, 2.75f }  // Xl
         }};
         theme.carousels = {{
-            CarouselMetrics{ 24.0f, 13.0f, 4.0f, 3.0f, 5.0f, 32.0f,  95.0f }, // None
-            CarouselMetrics{ 16.0f,  9.0f, 2.0f, 2.0f, 3.0f, 21.0f,  50.0f }, // Xs
-            CarouselMetrics{ 20.0f, 11.0f, 3.0f, 2.0f, 4.0f, 26.0f,  70.0f }, // Sm
-            CarouselMetrics{ 24.0f, 13.0f, 4.0f, 3.0f, 5.0f, 32.0f,  95.0f }, // Md
-            CarouselMetrics{ 30.0f, 15.0f, 6.0f, 4.0f, 6.0f, 40.0f, 120.0f }, // Lg
-            CarouselMetrics{ 36.0f, 18.0f, 8.0f, 5.0f, 8.0f, 49.0f, 150.0f }  // Xl
+            CarouselMetrics{ 18.0f, 9.75f, 3.0f, 2.25f, 3.75f, 24.0f,  71.25f }, // None
+            CarouselMetrics{ 12.0f,  6.75f, 1.5f, 1.5f, 2.25f, 15.75f,  37.5f }, // Xs
+            CarouselMetrics{ 15.0f, 8.25f, 2.25f, 1.5f, 3.0f, 19.5f,  52.5f }, // Sm
+            CarouselMetrics{ 18.0f, 9.75f, 3.0f, 2.25f, 3.75f, 24.0f,  71.25f }, // Md
+            CarouselMetrics{ 22.5f, 11.25f, 4.5f, 3.0f, 4.5f, 30.0f, 90.0f }, // Lg
+            CarouselMetrics{ 27.0f, 13.5f, 6.0f, 3.75f, 6.0f, 36.75f, 112.5f }  // Xl
         }};
         theme.sliders = {{
-            SliderMetrics{ 22.0f, 4.0f, 16.0f, 8.0f, 3.5f, 5.0f, 4.0f, 5.0f }, // None
-            SliderMetrics{ 16.0f, 2.5f, 10.0f, 5.0f, 2.5f, 3.0f, 2.0f, 3.0f }, // Xs
-            SliderMetrics{ 20.0f, 3.0f, 12.0f, 6.0f, 3.0f, 4.0f, 3.0f, 4.0f }, // Sm
-            SliderMetrics{ 22.0f, 4.0f, 16.0f, 8.0f, 3.5f, 5.0f, 4.0f, 5.0f }, // Md
-            SliderMetrics{ 28.0f, 5.0f, 20.0f, 10.0f, 4.0f, 6.0f, 5.0f, 6.0f }, // Lg
-            SliderMetrics{ 34.0f, 6.0f, 24.0f, 12.0f, 5.0f, 8.0f, 6.0f, 8.0f }  // Xl
+            SliderMetrics{ 16.5f, 3.0f, 12.0f, 6.0f, 2.75f, 3.75f, 3.0f, 3.75f }, // None
+            SliderMetrics{ 12.0f, 2.0f, 7.5f, 3.75f, 2.0f, 2.25f, 1.5f, 2.25f }, // Xs
+            SliderMetrics{ 15.0f, 2.25f, 9.0f, 4.5f, 2.25f, 3.0f, 2.25f, 3.0f }, // Sm
+            SliderMetrics{ 16.5f, 3.0f, 12.0f, 6.0f, 2.75f, 3.75f, 3.0f, 3.75f }, // Md
+            SliderMetrics{ 21.0f, 3.75f, 15.0f, 7.5f, 3.0f, 4.5f, 3.75f, 4.5f }, // Lg
+            SliderMetrics{ 25.5f, 4.5f, 18.0f, 9.0f, 3.75f, 6.0f, 4.5f, 6.0f }  // Xl
         }};
         theme.headings = {{
-            HeadingMetrics{ 22.0f, 15.0f, 12.0f, 22.0f, 8.0f, 8.0f, 4.0f }, // H1
-            HeadingMetrics{ 18.0f, 13.0f, 11.0f, 18.0f, 7.0f, 7.0f, 3.5f }, // H2
-            HeadingMetrics{ 16.0f, 12.5f, 10.5f, 16.0f, 6.0f, 6.0f, 3.0f }, // H3
-            HeadingMetrics{ 15.0f, 12.0f, 10.0f, 15.0f, 5.0f, 6.0f, 2.5f }, // H4
-            HeadingMetrics{ 13.0f, 11.0f,  9.5f, 13.0f, 4.0f, 5.0f, 2.0f }, // H5
-            HeadingMetrics{ 11.0f, 10.0f,  9.0f, 11.0f, 3.5f, 5.0f, 1.5f }  // H6
+            HeadingMetrics{ 22.0f, 15.0f, 12.0f, 16.5f, 6.0f, 6.0f, 3.0f }, // H1
+            HeadingMetrics{ 18.0f, 13.0f, 11.0f, 13.5f, 5.25f, 5.25f, 2.75f }, // H2
+            HeadingMetrics{ 16.0f, 12.5f, 10.5f, 12.0f, 4.5f, 4.5f, 2.25f }, // H3
+            HeadingMetrics{ 15.0f, 12.0f, 10.0f, 11.25f, 3.75f, 4.5f, 2.0f }, // H4
+            HeadingMetrics{ 13.0f, 11.0f,  9.5f, 9.75f, 3.0f, 3.75f, 1.5f }, // H5
+            HeadingMetrics{ 11.0f, 10.0f,  9.0f, 8.25f, 2.75f, 3.75f, 1.25f }  // H6
         }};
     } else if (d == Density::Touch) {
-        theme.spacing = {0.0f, 6.0f, 12.0f, 16.0f, 24.0f, 32.0f};
-        theme.radius  = {0.0f, 4.0f, 6.0f, 8.0f, 12.0f, 16.0f};
+        theme.spacing = {0.0f, 4.5f, 9.0f, 12.0f, 18.0f, 24.0f};
+        theme.radius  = {0.0f, 3.0f, 4.5f, 6.0f, 9.0f, 12.0f};
         theme.metrics = {{
-            ComponentMetrics{  0.0f, 16.0f, 14.0f, 12.0f,  0.0f,  0.0f,  0.0f,  0.0f, 64.0f, 80.0f, 12.0f,  8.0f,  8.0f, 3.5f }, // None
-            ComponentMetrics{ 28.0f, 12.0f, 10.0f,  9.0f, 10.0f,  4.0f,  4.0f, 14.0f, 64.0f, 80.0f, 10.0f,  5.0f,  6.0f, 2.5f }, // Xs
-            ComponentMetrics{ 36.0f, 14.0f, 12.0f, 11.0f, 14.0f,  6.0f,  6.0f, 16.0f, 64.0f, 80.0f, 11.0f,  6.0f,  7.0f, 3.0f }, // Sm
-            ComponentMetrics{ 48.0f, 16.0f, 14.0f, 12.0f, 20.0f, 10.0f,  8.0f, 22.0f, 64.0f, 80.0f, 12.0f,  8.0f,  8.0f, 3.5f }, // Md
-            ComponentMetrics{ 56.0f, 18.0f, 16.0f, 14.0f, 24.0f, 12.0f, 10.0f, 26.0f, 64.0f, 80.0f, 13.0f,  9.0f, 10.0f, 4.0f }, // Lg
-            ComponentMetrics{ 64.0f, 22.0f, 18.0f, 16.0f, 28.0f, 14.0f, 12.0f, 30.0f, 64.0f, 80.0f, 14.0f, 10.0f, 12.0f, 5.0f }  // Xl
+            ComponentMetrics{  0.0f, 16.0f, 14.0f, 12.0f,  0.0f,  0.0f,  0.0f,  0.0f, 48.0f, 60.0f, 12.0f,  6.0f,  6.0f, 2.75f }, // None
+            ComponentMetrics{ 21.0f, 12.0f, 10.0f,  9.0f, 7.5f,  3.0f,  3.0f, 10.5f, 48.0f, 60.0f, 10.0f,  3.75f,  4.5f, 2.0f }, // Xs
+            ComponentMetrics{ 27.0f, 14.0f, 12.0f, 11.0f, 10.5f,  4.5f,  4.5f, 12.0f, 48.0f, 60.0f, 11.0f,  4.5f,  5.25f, 2.25f }, // Sm
+            ComponentMetrics{ 36.0f, 16.0f, 14.0f, 12.0f, 15.0f, 7.5f,  6.0f, 16.5f, 48.0f, 60.0f, 12.0f,  6.0f,  6.0f, 2.75f }, // Md
+            ComponentMetrics{ 42.0f, 18.0f, 16.0f, 14.0f, 18.0f, 9.0f, 7.5f, 19.5f, 48.0f, 60.0f, 13.0f,  6.75f, 7.5f, 3.0f }, // Lg
+            ComponentMetrics{ 48.0f, 22.0f, 18.0f, 16.0f, 21.0f, 10.5f, 9.0f, 22.5f, 48.0f, 60.0f, 14.0f, 7.5f, 9.0f, 3.75f }  // Xl
         }};
         theme.carousels = {{
-            CarouselMetrics{ 36.0f, 18.0f,  8.0f, 5.0f,  8.0f, 49.0f, 130.0f }, // None
-            CarouselMetrics{ 22.0f, 12.0f,  4.0f, 3.0f,  5.0f, 30.0f,  70.0f }, // Xs
-            CarouselMetrics{ 28.0f, 15.0f,  6.0f, 4.0f,  6.0f, 38.0f,  90.0f }, // Sm
-            CarouselMetrics{ 36.0f, 18.0f,  8.0f, 5.0f,  8.0f, 49.0f, 130.0f }, // Md
-            CarouselMetrics{ 42.0f, 22.0f, 10.0f, 6.0f, 10.0f, 58.0f, 160.0f }, // Lg
-            CarouselMetrics{ 48.0f, 26.0f, 12.0f, 8.0f, 12.0f, 68.0f, 200.0f }  // Xl
+            CarouselMetrics{ 27.0f, 13.5f,  6.0f, 3.75f,  6.0f, 36.75f, 97.5f }, // None
+            CarouselMetrics{ 16.5f, 9.0f,  3.0f, 2.25f,  3.75f, 22.5f,  52.5f }, // Xs
+            CarouselMetrics{ 21.0f, 11.25f,  4.5f, 3.0f,  4.5f, 28.5f,  67.5f }, // Sm
+            CarouselMetrics{ 27.0f, 13.5f,  6.0f, 3.75f,  6.0f, 36.75f, 97.5f }, // Md
+            CarouselMetrics{ 31.5f, 16.5f, 7.5f, 4.5f, 7.5f, 43.5f, 120.0f }, // Lg
+            CarouselMetrics{ 36.0f, 19.5f, 9.0f, 6.0f, 9.0f, 51.0f, 150.0f }  // Xl
         }};
         theme.sliders = {{
-            SliderMetrics{ 36.0f, 6.0f, 26.0f, 13.0f, 6.0f,  8.0f, 6.0f,  8.0f }, // None
-            SliderMetrics{ 24.0f, 4.0f, 16.0f,  8.0f, 4.0f,  5.0f, 4.0f,  5.0f }, // Xs
-            SliderMetrics{ 30.0f, 5.0f, 20.0f, 10.0f, 5.0f,  6.0f, 5.0f,  6.0f }, // Sm
-            SliderMetrics{ 36.0f, 6.0f, 26.0f, 13.0f, 6.0f,  8.0f, 6.0f,  8.0f }, // Md
-            SliderMetrics{ 44.0f, 8.0f, 32.0f, 16.0f, 7.0f, 10.0f, 8.0f, 10.0f }, // Lg
-            SliderMetrics{ 52.0f, 10.0f, 38.0f, 19.0f, 8.0f, 12.0f, 10.0f, 12.0f } // Xl
+            SliderMetrics{ 27.0f, 4.5f, 19.5f, 9.75f, 4.5f,  6.0f, 4.5f,  6.0f }, // None
+            SliderMetrics{ 18.0f, 3.0f, 12.0f,  6.0f, 3.0f,  3.75f, 3.0f,  3.75f }, // Xs
+            SliderMetrics{ 22.5f, 3.75f, 15.0f, 7.5f, 3.75f,  4.5f, 3.75f,  4.5f }, // Sm
+            SliderMetrics{ 27.0f, 4.5f, 19.5f, 9.75f, 4.5f,  6.0f, 4.5f,  6.0f }, // Md
+            SliderMetrics{ 33.0f, 6.0f, 24.0f, 12.0f, 5.25f, 7.5f, 6.0f, 7.5f }, // Lg
+            SliderMetrics{ 39.0f, 7.5f, 28.5f, 14.25f, 6.0f, 9.0f, 7.5f, 9.0f } // Xl
         }};
         theme.headings = {{
-            HeadingMetrics{ 28.0f, 18.0f, 14.0f, 28.0f, 12.0f, 12.0f, 6.0f }, // H1
-            HeadingMetrics{ 24.0f, 16.0f, 13.0f, 24.0f, 10.0f, 10.0f, 5.0f }, // H2
-            HeadingMetrics{ 20.0f, 15.0f, 12.5f, 20.0f,  8.0f,  9.0f, 4.0f }, // H3
-            HeadingMetrics{ 18.0f, 14.0f, 12.0f, 18.0f,  7.0f,  8.0f, 3.5f }, // H4
-            HeadingMetrics{ 16.0f, 13.0f, 11.0f, 16.0f,  6.0f,  7.0f, 3.0f }, // H5
-            HeadingMetrics{ 14.0f, 11.5f, 10.0f, 14.0f,  5.0f,  6.0f, 2.5f }  // H6
+            HeadingMetrics{ 28.0f, 18.0f, 14.0f, 21.0f, 9.0f, 9.0f, 4.5f }, // H1
+            HeadingMetrics{ 24.0f, 16.0f, 13.0f, 18.0f, 7.5f, 7.5f, 3.75f }, // H2
+            HeadingMetrics{ 20.0f, 15.0f, 12.5f, 15.0f,  6.0f,  6.75f, 3.0f }, // H3
+            HeadingMetrics{ 18.0f, 14.0f, 12.0f, 13.5f,  5.25f,  6.0f, 2.75f }, // H4
+            HeadingMetrics{ 16.0f, 13.0f, 11.0f, 12.0f,  4.5f,  5.25f, 2.25f }, // H5
+            HeadingMetrics{ 14.0f, 11.5f, 10.0f, 10.5f,  3.75f,  4.5f, 2.0f }  // H6
         }};
     } else { // Density::Standard
-        theme.spacing = {0.0f, 4.0f, 8.0f, 12.0f, 16.0f, 24.0f};
-        theme.radius  = {0.0f, 2.0f, 4.0f, 6.0f, 8.0f, 12.0f};
+        theme.spacing = {0.0f, 3.0f, 6.0f, 9.0f, 12.0f, 18.0f};
+        theme.radius  = {0.0f, 1.5f, 3.0f, 4.5f, 6.0f, 9.0f};
         theme.metrics = {{
-            ComponentMetrics{  0.0f, 14.0f, 12.0f, 11.0f,  0.0f,  0.0f,  0.0f,  0.0f, 64.0f, 80.0f, 11.0f, 6.0f,  8.0f, 3.0f }, // None
-            ComponentMetrics{ 24.0f, 11.0f, 10.0f,  9.0f,  8.0f,  3.0f,  3.0f, 12.0f, 64.0f, 80.0f,  9.0f, 4.0f,  6.0f, 2.0f }, // Xs
-            ComponentMetrics{ 32.0f, 13.0f, 11.0f, 10.0f, 12.0f,  5.0f,  4.0f, 15.0f, 64.0f, 80.0f, 10.0f, 5.0f,  6.0f, 2.5f }, // Sm
-            ComponentMetrics{ 40.0f, 14.0f, 12.0f, 11.0f, 16.0f,  8.0f,  6.0f, 18.0f, 64.0f, 80.0f, 11.0f, 6.0f,  8.0f, 3.0f }, // Md
-            ComponentMetrics{ 48.0f, 16.0f, 14.0f, 12.0f, 20.0f, 10.0f,  8.0f, 22.0f, 64.0f, 80.0f, 12.0f, 8.0f,  8.0f, 3.5f }, // Lg
-            ComponentMetrics{ 56.0f, 18.0f, 16.0f, 14.0f, 24.0f, 12.0f, 10.0f, 26.0f, 64.0f, 80.0f, 13.0f, 8.0f, 10.0f, 4.0f }  // Xl
+            ComponentMetrics{  0.0f, 14.0f, 12.0f, 11.0f,  0.0f,  0.0f,  0.0f,  0.0f, 48.0f, 60.0f, 11.0f, 4.5f,  6.0f, 2.25f }, // None
+            ComponentMetrics{ 18.0f, 11.0f, 10.0f,  9.0f,  6.0f,  2.25f,  2.25f, 9.0f, 48.0f, 60.0f,  9.0f, 3.0f,  4.5f, 1.5f }, // Xs
+            ComponentMetrics{ 24.0f, 13.0f, 11.0f, 10.0f, 9.0f,  3.75f,  3.0f, 11.25f, 48.0f, 60.0f, 10.0f, 3.75f,  4.5f, 2.0f }, // Sm
+            ComponentMetrics{ 30.0f, 14.0f, 12.0f, 11.0f, 12.0f,  6.0f,  4.5f, 13.5f, 48.0f, 60.0f, 11.0f, 4.5f,  6.0f, 2.25f }, // Md
+            ComponentMetrics{ 36.0f, 16.0f, 14.0f, 12.0f, 15.0f, 7.5f,  6.0f, 16.5f, 48.0f, 60.0f, 12.0f, 6.0f,  6.0f, 2.75f }, // Lg
+            ComponentMetrics{ 42.0f, 18.0f, 16.0f, 14.0f, 18.0f, 9.0f, 7.5f, 19.5f, 48.0f, 60.0f, 13.0f, 6.0f, 7.5f, 3.0f }  // Xl
         }};
         theme.carousels = {{
-            CarouselMetrics{ 26.0f, 14.0f,  6.0f, 4.0f,  6.0f, 36.0f, 110.0f }, // None
-            CarouselMetrics{ 18.0f, 10.0f,  3.0f, 2.0f,  4.0f, 24.0f,  60.0f }, // Xs
-            CarouselMetrics{ 22.0f, 12.0f,  4.0f, 3.0f,  5.0f, 30.0f,  80.0f }, // Sm
-            CarouselMetrics{ 26.0f, 14.0f,  6.0f, 4.0f,  6.0f, 36.0f, 110.0f }, // Md
-            CarouselMetrics{ 32.0f, 16.0f,  8.0f, 5.0f,  8.0f, 45.0f, 140.0f }, // Lg
-            CarouselMetrics{ 40.0f, 20.0f, 10.0f, 6.0f, 10.0f, 56.0f, 180.0f }  // Xl
+            CarouselMetrics{ 19.5f, 10.5f,  4.5f, 3.0f,  4.5f, 27.0f, 82.5f }, // None
+            CarouselMetrics{ 13.5f, 7.5f,  2.25f, 1.5f,  3.0f, 18.0f,  45.0f }, // Xs
+            CarouselMetrics{ 16.5f, 9.0f,  3.0f, 2.25f,  3.75f, 22.5f,  60.0f }, // Sm
+            CarouselMetrics{ 19.5f, 10.5f,  4.5f, 3.0f,  4.5f, 27.0f, 82.5f }, // Md
+            CarouselMetrics{ 24.0f, 12.0f,  6.0f, 3.75f,  6.0f, 33.75f, 105.0f }, // Lg
+            CarouselMetrics{ 30.0f, 15.0f, 7.5f, 4.5f, 7.5f, 42.0f, 135.0f }  // Xl
         }};
         theme.sliders = {{
-            SliderMetrics{ 26.0f, 5.0f, 18.0f, 9.0f, 4.0f,  6.0f, 5.0f,  6.0f }, // None
-            SliderMetrics{ 18.0f, 3.0f, 12.0f, 6.0f, 3.0f,  4.0f, 3.0f,  4.0f }, // Xs
-            SliderMetrics{ 22.0f, 4.0f, 14.0f, 7.0f, 3.5f,  5.0f, 4.0f,  5.0f }, // Sm
-            SliderMetrics{ 26.0f, 5.0f, 18.0f, 9.0f, 4.0f,  6.0f, 5.0f,  6.0f }, // Md
-            SliderMetrics{ 32.0f, 6.0f, 22.0f, 11.0f, 5.0f, 8.0f, 6.0f,  8.0f }, // Lg
-            SliderMetrics{ 38.0f, 8.0f, 26.0f, 13.0f, 6.0f, 10.0f, 8.0f, 10.0f }  // Xl
+            SliderMetrics{ 19.5f, 3.75f, 13.5f, 6.75f, 3.0f,  4.5f, 3.75f,  4.5f }, // None
+            SliderMetrics{ 13.5f, 2.25f, 9.0f, 4.5f, 2.25f,  3.0f, 2.25f,  3.0f }, // Xs
+            SliderMetrics{ 16.5f, 3.0f, 10.5f, 5.25f, 2.75f,  3.75f, 3.0f,  3.75f }, // Sm
+            SliderMetrics{ 19.5f, 3.75f, 13.5f, 6.75f, 3.0f,  4.5f, 3.75f,  4.5f }, // Md
+            SliderMetrics{ 24.0f, 4.5f, 16.5f, 8.25f, 3.75f, 6.0f, 4.5f,  6.0f }, // Lg
+            SliderMetrics{ 28.5f, 6.0f, 19.5f, 9.75f, 4.5f, 7.5f, 6.0f, 7.5f }  // Xl
         }};
         theme.headings = {{
-            HeadingMetrics{ 24.0f, 16.0f, 13.0f, 24.0f, 10.0f, 10.0f, 5.0f }, // H1
-            HeadingMetrics{ 20.0f, 14.0f, 12.0f, 20.0f,  8.0f,  9.0f, 4.0f }, // H2
-            HeadingMetrics{ 18.0f, 13.5f, 11.5f, 18.0f,  7.0f,  8.0f, 3.5f }, // H3
-            HeadingMetrics{ 16.0f, 13.0f, 11.0f, 16.0f,  6.0f,  8.0f, 3.0f }, // H4
-            HeadingMetrics{ 14.0f, 11.5f, 10.0f, 14.0f,  5.0f,  6.0f, 2.5f }, // H5
-            HeadingMetrics{ 12.0f, 10.5f,  9.0f, 12.0f,  4.0f,  6.0f, 2.0f }  // H6
+            HeadingMetrics{ 24.0f, 16.0f, 13.0f, 18.0f, 7.5f, 7.5f, 3.75f }, // H1
+            HeadingMetrics{ 20.0f, 14.0f, 12.0f, 15.0f,  6.0f,  6.75f, 3.0f }, // H2
+            HeadingMetrics{ 18.0f, 13.5f, 11.5f, 13.5f,  5.25f,  6.0f, 2.75f }, // H3
+            HeadingMetrics{ 16.0f, 13.0f, 11.0f, 12.0f,  4.5f,  6.0f, 2.25f }, // H4
+            HeadingMetrics{ 14.0f, 11.5f, 10.0f, 10.5f,  3.75f,  4.5f, 2.0f }, // H5
+            HeadingMetrics{ 12.0f, 10.5f,  9.0f, 9.0f,  3.0f,  4.5f, 1.5f }  // H6
         }};
     }
 

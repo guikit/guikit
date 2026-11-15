@@ -147,11 +147,12 @@ void TestHeaderRowTextMetricsAndNoOverlap() {
     canvas.SetTarget(pixels.data(), width, height, width);
 
     // Accurate text advance verification
+    // Roboto at true pixel size: ~118.7 dp and ~203 dp (fallback 0.6 em/char estimate would be lower)
     Vec2 titleMetrics = canvas.MeasureText("GUIKIT GUI", 24.0f);
-    CHECK(titleMetrics.x > 150.0f);
+    CHECK(titleMetrics.x > 110.0f);
 
     Vec2 subMetrics = canvas.MeasureText("| Autonomous Vector GUI Engine", 14.0f);
-    CHECK(subMetrics.x > 250.0f);
+    CHECK(subMetrics.x > 185.0f);
 
     WidgetResponse bOverview;
     WidgetResponse bFlex;
@@ -356,8 +357,8 @@ void TestUiTokensAndIconFactories() {
     CHECK(mMd.defaultHeight < mLg.defaultHeight);
     CHECK(mLg.defaultHeight < mXl.defaultHeight);
 
-    CHECK_NEAR(mMd.defaultHeight, 40.0f, 0.001f);
-    CHECK_NEAR(mLg.defaultHeight, 48.0f, 0.001f);
+    CHECK_NEAR(mMd.defaultHeight, 30.0f, 0.001f);
+    CHECK_NEAR(mLg.defaultHeight, 36.0f, 0.001f);
 
     // Verify Icon value object
     const Icon icPlay = Icon::Play();
@@ -482,12 +483,12 @@ void TestBoxSlotWithUiSizeToken() {
     ui.EndFrame(canvas);
 
     // Large button must fill the 48px slot allocated by UiSize::Lg
-    CHECK_NEAR(btnLarge.rect.h, 48.0f, 0.001f);
+    CHECK_NEAR(btnLarge.rect.h, 36.0f, 0.001f);
     CHECK_NEAR(btnLarge.rect.w, 400.0f, 0.001f); // Stretches across column
 
     // Square icon button in 32x32 slot
-    CHECK_NEAR(btnSquareIcon.rect.w, 32.0f, 0.001f);
-    CHECK_NEAR(btnSquareIcon.rect.h, 32.0f, 0.001f);
+    CHECK_NEAR(btnSquareIcon.rect.w, 24.0f, 0.001f);
+    CHECK_NEAR(btnSquareIcon.rect.h, 24.0f, 0.001f);
 }
 
 void TestButtonWidgetRunAndResponseChaining() {
@@ -1199,8 +1200,9 @@ void TestInputFieldWidget() {
     ui.EndFrame(canvas);
     CHECK(sampleName == "ID:Specimen-A-X");
 
-    // 4c. LMB drag selection: press at start (x + 12) and drag to right (x + 200) to select all, then replace
-    ui.OnMouseMove({rName.rect.x + 12.0f, rName.rect.y + 18.0f});
+    // 4c. LMB drag selection: press inside the left padding (before the first glyph) and drag to the right
+    // (x + 200) to select all, then replace
+    ui.OnMouseMove({rName.rect.x + 2.0f, rName.rect.y + rName.rect.h * 0.5f});
     ui.OnMouseDown(1);
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderUI();
@@ -1381,8 +1383,9 @@ void TestSelectWidget() {
     CHECK(popupRect.h > 0.0f);
 
     // 2. Hover over item 3 ("115200") in the popup and click it
-    // Item 3 rect is at popupRect.y + 4.0f + 3 * itemHeight (32px)
-    const float item3Y = popupRect.y + 4.0f + 3.0f * 32.0f + 10.0f;
+    // Item 3 rect is at popupRect.y + 4.0f + 3 * itemHeight (theme token)
+    const float selectItemH = ui.GetTheme().selects[static_cast<keel::usize>(UiSize::Md)].itemHeight;
+    const float item3Y = popupRect.y + 4.0f + 3.0f * selectItemH + selectItemH * 0.5f;
     ui.OnMouseMove({popupRect.x + 30.0f, item3Y});
     ui.OnMouseDown(1);
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
@@ -1510,7 +1513,7 @@ void TestSelectWidget() {
 
     popupRect = ui.GetOpenPopupRect();
     // Item 3 in Profile is "Extreme" (index 3)
-    const float extremeY = popupRect.y + 4.0f + 3.0f * 32.0f + 10.0f;
+    const float extremeY = popupRect.y + 4.0f + 3.0f * selectItemH + selectItemH * 0.5f;
     ui.OnMouseMove({popupRect.x + 30.0f, extremeY});
     ui.OnMouseDown(1);
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
@@ -1575,8 +1578,9 @@ void TestSelectWidget() {
 
     CHECK(ui.IsPopupOpen(rLim.id));
     const Rect limPopupRect = ui.GetOpenPopupRect();
-    // 2 visible items: 2 * 32.0f + 8.0f = 72.0f
-    CHECK_NEAR(limPopupRect.h, 72.0f, 0.5f);
+    // 2 visible items: 2 * itemHeight (theme token) + 8.0f popup padding
+    const float limItemH = ui.GetTheme().selects[static_cast<keel::usize>(UiSize::Md)].itemHeight;
+    CHECK_NEAR(limPopupRect.h, 2.0f * limItemH + 8.0f, 0.5f);
 }
 
 void TestCursorBlinkModesAndPhaseReset() {
@@ -1713,12 +1717,12 @@ void TestGridAndCardLayout() {
     CHECK_NEAR(bInp1.w, 800.0f, 1.0f);
 
     // Inside Card:
-    // Card has padding 16 on all sides. Content width = 800 - 32 = 768.
-    // Inner grid has default gap 12.
-    // Cell 1 (span 6): W(6) = (6/12)*(768 + 12) - 12 = 0.5 * 780 - 12 = 390 - 12 = 378.
-    // Input 2 should start at 16, width 378!
-    CHECK_NEAR(bInp2.x, 16.0f, 1.0f);
-    CHECK_NEAR(bInp2.w, 378.0f, 1.0f);
+    // Card has the default padding token (12) on all sides. Content width = 800 - 24 = 776.
+    // Inner grid has the default gap token (9).
+    // Cell 1 (span 6): W(6) = (6/12)*(776 + 9) - 9 = 392.5 - 9 = 383.5.
+    // Input 2 should start at 12, width 383.5!
+    CHECK_NEAR(bInp2.x, 12.0f, 1.0f);
+    CHECK_NEAR(bInp2.w, 383.5f, 1.0f);
 
     // Frame 3: Mouse down on Switch inside Cell6
     ui.OnMouseMove({bSw1.x + 10.0f, bSw1.y + 10.0f});
@@ -1781,9 +1785,9 @@ void TestScrollAreaImmediateMode() {
     // Button 3 was placed at y = 400, which is outside the viewport (0..400) -> its clipped interaction bounds have h = 0
     CHECK(bBtn3.h <= 0.0f);
 
-    // Frame 2: Mouse wheel down by 5 ticks -> 5 * 40 = 200px scroll
+    // Frame 2: Mouse wheel down far enough to reach the 200px maximum scroll (ticks * scrollStep token >= 200)
     ui.OnMouseMove({100.0f, 100.0f});
-    ui.OnMouseWheel(0.0f, -5.0f);
+    ui.OnMouseWheel(0.0f, -std::ceil(200.0f / sm.scrollStep));
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderUI();
     ui.EndFrame(canvas);
@@ -2253,9 +2257,10 @@ void TestDirtyRectDamageTracking() {
 
     // Frame 8: Slider dragging produces dirty damage while dragging
     float sliderVal = 10.0f;
+    Response sliderRes;
     auto renderSlider = [&]() {
         if (auto b = ui.Box({.width = 300.0f})) {
-            ui.Slider(sliderVal, 0.0f, 100.0f);
+            sliderRes = ui.Slider(sliderVal, 0.0f, 100.0f);
         }
     };
 
@@ -2268,7 +2273,8 @@ void TestDirtyRectDamageTracking() {
     CHECK(!ui.HasDirtyDamage());
 
     // Mouse down on slider produces dirty damage
-    ui.OnMouseMove({150.0f, 20.0f});
+    const float sliderMidY = sliderRes.rect.Center().y;
+    ui.OnMouseMove({sliderRes.rect.x + sliderRes.rect.w * 0.5f, sliderMidY});
     ui.OnMouseDown(1);
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderSlider();
@@ -2277,7 +2283,7 @@ void TestDirtyRectDamageTracking() {
     CHECK(!ui.IsFullRepaint());
 
     // Moving mouse while dragging MUST produce dirty damage on every frame!
-    ui.OnMouseMove({220.0f, 20.0f});
+    ui.OnMouseMove({sliderRes.rect.x + sliderRes.rect.w * 0.73f, sliderMidY});
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderSlider();
     ui.EndFrame(canvas);
@@ -2830,21 +2836,21 @@ void TestUiStyleAndDensityScaling() {
     const auto stdStyle = UiStyle::Standard();
     CHECK(stdStyle.GetDensity() == Density::Standard);
     CHECK(stdStyle.GetGap(UiSize::None) == 0.0f);
-    CHECK(stdStyle.GetGap(UiSize::Xs) == 4.0f);
-    CHECK(stdStyle.GetGap(UiSize::Sm) == 8.0f);
-    CHECK(stdStyle.GetGap(UiSize::Md) == 12.0f);
-    CHECK(stdStyle.GetGap(UiSize::Lg) == 16.0f);
-    CHECK(stdStyle.GetGap(UiSize::Xl) == 24.0f);
+    CHECK(stdStyle.GetGap(UiSize::Xs) == 3.0f);
+    CHECK(stdStyle.GetGap(UiSize::Sm) == 6.0f);
+    CHECK(stdStyle.GetGap(UiSize::Md) == 9.0f);
+    CHECK(stdStyle.GetGap(UiSize::Lg) == 12.0f);
+    CHECK(stdStyle.GetGap(UiSize::Xl) == 18.0f);
 
     const auto compactStyle = UiStyle::Compact();
     CHECK(compactStyle.GetDensity() == Density::Compact);
-    CHECK(compactStyle.GetGap(UiSize::Md) == 8.0f);
-    CHECK(compactStyle.GetRadius(UiSize::Md) == 4.0f);
+    CHECK(compactStyle.GetGap(UiSize::Md) == 6.0f);
+    CHECK(compactStyle.GetRadius(UiSize::Md) == 3.0f);
 
     const auto touchStyle = UiStyle::Touch();
     CHECK(touchStyle.GetDensity() == Density::Touch);
-    CHECK(touchStyle.GetGap(UiSize::Md) == 16.0f);
-    CHECK(touchStyle.GetRadius(UiSize::Md) == 8.0f);
+    CHECK(touchStyle.GetGap(UiSize::Md) == 12.0f);
+    CHECK(touchStyle.GetRadius(UiSize::Md) == 6.0f);
 
     // 2. Context dynamic style switching
     Context ui;
@@ -2872,7 +2878,7 @@ void TestUiStyleAndDensityScaling() {
     render();
     ui.EndFrame(canvas);
 
-    CHECK_NEAR(b2.rect.y, b1.rect.Bottom() + 12.0f, 0.01f);
+    CHECK_NEAR(b2.rect.y, b1.rect.Bottom() + 9.0f, 0.01f);
 
     // Frame 2: Switch to Compact density (Md gap = 8px)
     ui.SetDensity(Density::Compact);
@@ -2884,7 +2890,7 @@ void TestUiStyleAndDensityScaling() {
     render();
     ui.EndFrame(canvas);
 
-    CHECK_NEAR(b2.rect.y, b1.rect.Bottom() + 8.0f, 0.01f);
+    CHECK_NEAR(b2.rect.y, b1.rect.Bottom() + 6.0f, 0.01f);
 
     // Frame 3: Switch to Touch density (Md gap = 16px)
     ui.SetDensity(Density::Touch);
@@ -2896,7 +2902,7 @@ void TestUiStyleAndDensityScaling() {
     render();
     ui.EndFrame(canvas);
 
-    CHECK_NEAR(b2.rect.y, b1.rect.Bottom() + 16.0f, 0.01f);
+    CHECK_NEAR(b2.rect.y, b1.rect.Bottom() + 12.0f, 0.01f);
 
     // Frame 4: Custom spacing scale override
     ui.GetTheme().Spacing().md = 25.0f;
@@ -3373,6 +3379,128 @@ void TestSdlMouseCoordsMapToLogicalDp() {
         renderUI();
         ui.EndFrame(canvas);
         CHECK(btn.hovered);
+    }
+}
+
+// The frame's pixels-per-dp factor (OS display scale x user zoom) is the only dp -> pixel conversion:
+// the dp layout of a tree must not depend on it, so every widget is exactly N times larger in pixels
+// at factor N, and the pointer must stay under the on-screen cursor when the factor changes.
+void TestFrameScaleIsUniformAndKeepsPointer() {
+    using namespace guikit;
+
+    struct Layout {
+        Rect heading, toggle, slider, button, input, text;
+    };
+    auto layoutAt = [](float pixelsPerDp) {
+        const keel::u32 w = keel::round_u32(800.0f * pixelsPerDp);
+        const keel::u32 h = keel::round_u32(600.0f * pixelsPerDp);
+        Context ui;
+        ThorCanvas canvas;
+        keel::Array<keel::u32> pixels(w * h);
+        canvas.SetTarget(pixels.data(), w, h, w);
+
+        bool enabled = true;
+        float gain = -6.0f;
+        keel::FixedString<32> name("Channel A");
+        Layout out{};
+        for (keel::i32 frame = 0; frame < 2; ++frame) {
+            ui.BeginFrame({static_cast<float>(w), static_cast<float>(h)}, pixelsPerDp);
+            if (auto card = ui.Card({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
+                out.heading = ui.Heading({.label = "Audio Channel", .separator = HeadingSeparator::Bottom}).rect;
+                if (auto el = ui.Element({.label = "Enable Stage"})) {
+                    out.toggle = ui.Switch(enabled).rect;
+                }
+                if (auto el = ui.Element({.label = "Gain", .badge = "dB"})) {
+                    out.slider = ui.Slider(gain, -60.0f, 12.0f, {.valueFormat = "%.1f dB"}).rect;
+                }
+                out.input = ui.InputField(name).rect;
+                out.button = ui.Button({.text = "Apply"}).rect;
+                out.text = ui.Text("Status: Online").rect;
+            }
+            ui.EndFrame(canvas);
+        }
+        return out;
+    };
+
+    const Layout base = layoutAt(1.0f);
+    CHECK(base.button.w > 0.0f && base.slider.w > 0.0f && base.heading.w > 0.0f);
+
+    static constexpr float kFactors[] = {0.75f, 1.25f, 1.5f, 1.875f, 2.0f};
+    for (float factor : kFactors) {
+        const Layout scaled = layoutAt(factor);
+        const Rect* a[] = {&base.heading, &base.toggle, &base.slider, &base.button, &base.input, &base.text};
+        const Rect* b[] = {&scaled.heading, &scaled.toggle, &scaled.slider, &scaled.button, &scaled.input, &scaled.text};
+        static constexpr const char* kNames[] = {"heading", "switch", "slider", "button", "input", "text"};
+        for (keel::usize i = 0; i < 6; ++i) {
+            const bool same = std::abs(a[i]->x - b[i]->x) < 0.01f && std::abs(a[i]->y - b[i]->y) < 0.01f &&
+                              std::abs(a[i]->w - b[i]->w) < 0.01f && std::abs(a[i]->h - b[i]->h) < 0.01f;
+            if (!same) {
+                keel::eprintln("[FAIL] {} dp rect differs at pixelsPerDp {}: ({}, {}, {}, {}) vs ({}, {}, {}, {})",
+                               kNames[i], factor, b[i]->x, b[i]->y, b[i]->w, b[i]->h, a[i]->x, a[i]->y, a[i]->w, a[i]->h);
+                ++g_failures;
+            }
+        }
+    }
+
+    // Zooming without moving the mouse: the cursor stays at the same physical pixel, so its dp position changes
+    {
+        Context ui;
+        ui.BeginFrame({1200.0f, 900.0f}, 1.0f);
+        ui.OnMouseMove({300.0f, 150.0f});
+        CHECK_NEAR(ui.GetMousePos().x, 300.0f, 0.01f);
+        ui.BeginFrame({1200.0f, 900.0f}, 1.5f);
+        CHECK_NEAR(ui.GetMousePos().x, 200.0f, 0.01f);
+        CHECK_NEAR(ui.GetMousePos().y, 100.0f, 0.01f);
+        ui.BeginFrame({1200.0f, 900.0f}, 0.75f);
+        CHECK_NEAR(ui.GetMousePos().x, 400.0f, 0.01f);
+        CHECK_NEAR(ui.GetMousePos().y, 200.0f, 0.01f);
+    }
+}
+
+// Regression: ThorVG's Text::size() takes points and scales by 96/72 internally, so passing a dp
+// font size straight through rendered all text ~33% larger than the theme's typography tokens.
+// The text box height must match the embedded font's hhea (ascender - descender) / unitsPerEm.
+void TestThorCanvasFontSizeIsInPixels() {
+    using namespace guikit;
+
+    const keel::Optional<AssetView> font = Assets::Find("assets/fonts/Roboto-Regular.ttf");
+    CHECK(font.has_value() && !font->Empty());
+    if (!font.has_value() || font->Empty()) {
+        return;
+    }
+
+    // Minimal sfnt table lookup (big-endian) for 'head'.unitsPerEm and 'hhea'.ascender/descender
+    const keel::u8* d = font->data;
+    auto be16 = [&](keel::usize off) { return static_cast<keel::u16>((d[off] << 8) | d[off + 1]); };
+    auto be32 = [&](keel::usize off) {
+        return (static_cast<keel::u32>(d[off]) << 24) | (static_cast<keel::u32>(d[off + 1]) << 16) |
+               (static_cast<keel::u32>(d[off + 2]) << 8) | static_cast<keel::u32>(d[off + 3]);
+    };
+    keel::usize headOff = 0;
+    keel::usize hheaOff = 0;
+    const keel::u16 numTables = be16(4);
+    for (keel::u16 i = 0; i < numTables; ++i) {
+        const keel::usize rec = 12 + static_cast<keel::usize>(i) * 16;
+        if (std::memcmp(d + rec, "head", 4) == 0) headOff = be32(rec + 8);
+        if (std::memcmp(d + rec, "hhea", 4) == 0) hheaOff = be32(rec + 8);
+    }
+    CHECK(headOff != 0 && hheaOff != 0);
+    if (headOff == 0 || hheaOff == 0) {
+        return;
+    }
+    const float unitsPerEm = static_cast<float>(be16(headOff + 18));
+    const float ascender = static_cast<float>(static_cast<keel::i16>(be16(hheaOff + 4)));
+    const float descender = static_cast<float>(static_cast<keel::i16>(be16(hheaOff + 6)));
+    const float emBoxRatio = (ascender - descender) / unitsPerEm;
+
+    ThorCanvas canvas;
+    CHECK(canvas.LoadFontMemory("RobotoTest", font->Bytes(), FontStyle::Regular));
+    constexpr float kFontSize = 100.0f;
+    const Vec2 box = canvas.MeasureText("Hg", kFontSize);
+    if (std::abs(box.y - kFontSize * emBoxRatio) > kFontSize * 0.02f) {
+        keel::eprintln("[FAIL] ThorCanvas text box {} dp for {} dp font, expected {} dp (ratio {:.3f} vs {:.3f})",
+                       box.y, kFontSize, kFontSize * emBoxRatio, box.y / kFontSize, emBoxRatio);
+        ++g_failures;
     }
 }
 
@@ -4780,8 +4908,8 @@ void TestPixelGeometryAndWidgetUiSizeDecoupling() {
     render();
     ui.EndFrame(canvas);
 
-    CHECK_NEAR(btnLg.rect.h, 48.0f, 0.001f);
-    CHECK_NEAR(btnSm.rect.h, 32.0f, 0.001f);
+    CHECK_NEAR(btnLg.rect.h, 36.0f, 0.001f);
+    CHECK_NEAR(btnSm.rect.h, 24.0f, 0.001f);
 }
 
 void TestTextWrappingAndBackendIndependence() {
@@ -5025,7 +5153,8 @@ void TestTextAreaWidgetWorkflow() {
     // 4. Verify glyph metric box height and precise mouse coordinate hit-testing per line & column
     const float codeFontSize = theme.GetTypography(TextRole::CodeMedium).fontSize;
     const float glyphBoxH = canvas.MeasureTextStyled("Mg", codeFontSize, FontStyle::Monospace).y;
-    CHECK(glyphBoxH > codeFontSize * 1.35f);
+    // JetBrains Mono hhea (ascender - descender) / unitsPerEm = 1.32
+    CHECK(std::abs(glyphBoxH - codeFontSize * 1.32f) < codeFontSize * 0.03f);
 
     keel::String coordText("AAAA\nBBBB\nCCCC");
     Response coordRes;
@@ -8540,9 +8669,9 @@ void TestRangeSliderProgressBarSpinBoxAndRadioButton() {
     CHECK(radioMode == 2);
 
     // 2. Test SpinBox [+] button (located at right end of rSpin input box)
-    const float spinBoxBottomY = rSpin.rect.y + rSpin.rect.h - 16.0f;
-    const float plusBtnX = rSpin.rect.x + rSpin.rect.w - 14.0f;
-    const float minusBtnX = rSpin.rect.x + rSpin.rect.w - 42.0f;
+    const float spinBoxBottomY = rSpin.rect.y + rSpin.rect.h * 0.5f;
+    const float plusBtnX = rSpin.rect.x + rSpin.rect.w - 10.5f;  // centre of the trailing [+] stepper
+    const float minusBtnX = rSpin.rect.x + rSpin.rect.w - 31.5f; // centre of the [-] stepper to its left
 
     ui.OnMouseMove({plusBtnX, spinBoxBottomY});
     ui.OnMouseDown(1);
@@ -9091,9 +9220,9 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
     renderIdeAligned();
     ui.EndFrame(canvas);
 
-    // The centered debug toolbar's left grip is near the horizontal center minus half the toolbar width (~95px)
-    const float gripX = lastResp.rect.x + lastResp.rect.w * 0.5f - 88.0f;
-    const float gripY = lastResp.rect.y + 18.0f;
+    // The centered debug toolbar's left grip is near the horizontal center minus half the toolbar width (~71 dp)
+    const float gripX = lastResp.rect.x + lastResp.rect.w * 0.5f - 66.0f;
+    const float gripY = lastResp.rect.y + 14.0f;
     ui.OnMouseMove({gripX, gripY});
     ui.OnMouseDown(1);
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
@@ -10129,11 +10258,11 @@ void TestSizeScopeChainingAndIsolation() {
     renderUI();
     ui.EndFrame(canvas);
 
-    CHECK_NEAR(btnInheritedInsideXlElement.rect.h, 56.0f, 0.5f);
-    CHECK_NEAR(btnNoneInsideXlElement.rect.h, 56.0f, 0.5f);
-    CHECK_NEAR(btnSmInsideXlElement.rect.h, 32.0f, 0.5f);
-    CHECK_NEAR(btnInsideSmScope.rect.h, 32.0f, 0.5f);
-    CHECK_NEAR(btnAfterSmScope.rect.h, 40.0f, 0.5f);
+    CHECK_NEAR(btnInheritedInsideXlElement.rect.h, 42.0f, 0.5f);
+    CHECK_NEAR(btnNoneInsideXlElement.rect.h, 42.0f, 0.5f);
+    CHECK_NEAR(btnSmInsideXlElement.rect.h, 24.0f, 0.5f);
+    CHECK_NEAR(btnInsideSmScope.rect.h, 24.0f, 0.5f);
+    CHECK_NEAR(btnAfterSmScope.rect.h, 30.0f, 0.5f);
 }
 
 void TestTreeViewAndTreeItemWorkflow() {
@@ -10480,8 +10609,8 @@ void TestKnobSpinBoxAndRadioElements() {
     CHECK(rKnobGain.rect.h >= 60.0f);
     CHECK(rKnobPan.rect.w >= 48.0f);
     CHECK(rSpinFreq.rect.w >= 100.0f);
-    CHECK(rRadio0.rect.w >= 14.0f);
-    CHECK(rRadio1.rect.w >= 14.0f);
+    CHECK(rRadio0.rect.w >= 10.0f);
+    CHECK(rRadio1.rect.w >= 10.0f);
 
     // 1. Test Knob vertical drag: press at center, drag upward by 45px -> value increases
     const Vec2 knobCenter = {rKnobGain.rect.x + rKnobGain.rect.w * 0.5f, rKnobGain.rect.y + 24.0f};
@@ -11955,6 +12084,8 @@ int main() {
     TestHeadingWidgetWorkflow();
     TestDpiScalingAndBackendMetadata();
     TestSdlMouseCoordsMapToLogicalDp();
+    TestThorCanvasFontSizeIsInPixels();
+    TestFrameScaleIsUniformAndKeepsPointer();
     TestSdlCanvasBackendInterface();
     TestDebugBoundsAndInspectMode();
     TestPostRenderDelegateWorkflow();
@@ -12099,7 +12230,7 @@ int main() {
         // In Detached mode, the '+' square button (H x H) is at the right edge of rDetached.rect,
         // and the '-' square button (H x H) is immediately to its left (offset by 4px gap + H)
         const float h = rDetached.rect.h;
-        CHECK(h >= 32.0f);
+        CHECK(h >= 24.0f);
         const guikit::Vec2 plusPt{rDetached.rect.Right() - h * 0.5f, rDetached.rect.Center().y};
         const guikit::Vec2 minusPt{rDetached.rect.Right() - h - 4.0f - h * 0.5f, rDetached.rect.Center().y};
 

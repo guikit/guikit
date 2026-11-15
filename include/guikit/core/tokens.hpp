@@ -937,12 +937,12 @@ struct ComponentMetrics {
     float paddingY;
     float cornerRadius;
     float iconSize;
-    float minWidth{64.0f};
-    float defaultWidth{80.0f};
+    float minWidth{48.0f};
+    float defaultWidth{60.0f};
     float badgeFontSize{11.0f}; ///< Pill badge text size inside controls and form labels
-    float itemGap{6.0f};        ///< Horizontal gap between leading icon, label, and inline items
-    float badgeGap{8.0f};       ///< Horizontal gap before trailing pill badge
-    float lineGap{3.0f};        ///< Vertical gap between stacked label and description lines
+    float itemGap{4.5f};        ///< Horizontal gap between leading icon, label, and inline items
+    float badgeGap{6.0f};       ///< Horizontal gap before trailing pill badge
+    float lineGap{2.25f};       ///< Vertical gap between stacked label and description lines
 };
 
 /// Standardized metrics for scrollbars derived from UiSize tokens.
@@ -976,7 +976,7 @@ struct SliderMetrics {
     float labelGap;       ///< Vertical gap between header label and track
     float tickGap;        ///< Vertical gap between track and step labels
     float descGap;        ///< Vertical gap between slider and description
-    float defaultWidth{180.0f}; ///< Default track length in points
+    float defaultWidth{135.0f}; ///< Default track length in points
 };
 
 /// Standardized metrics for Switch widget according to UiSize.
@@ -1008,8 +1008,8 @@ struct InputFieldMetrics {
     float descGap;
     float strokeWidth;
     float iconSize;
-    float defaultWidth{160.0f};
-    float minWidth{80.0f};
+    float defaultWidth{120.0f};
+    float minWidth{60.0f};
 };
 
 /// Standardized metrics for Select widget according to UiSize.
@@ -1022,8 +1022,8 @@ struct SelectMetrics {
     float strokeWidth;
     float iconSize;
     float itemHeight;
-    float defaultWidth{160.0f};
-    float minWidth{80.0f};
+    float defaultWidth{120.0f};
+    float minWidth{60.0f};
 };
 
 /// Standardized metrics for section `Heading` typography according to `HeadingLevel` (`H1`–`H6`).

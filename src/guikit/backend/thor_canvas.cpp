@@ -20,6 +20,15 @@ namespace guikit {
 
 namespace {
 
+/// ThorVG's `Text::size()` takes points and scales them by 96/72 internally (`FontLoader::DPI`).
+/// GuiKit font sizes are dp (pixels at canvas scale 1), so they are converted to points here;
+/// otherwise every glyph renders 33% larger than the theme's typography tokens.
+constexpr float kTvgPointsPerPixel = 72.0f / 96.0f;
+
+[[nodiscard]] constexpr float ToTvgFontSize(float px) noexcept {
+    return px * kTvgPointsPerPixel;
+}
+
 keel::String ExtractFontName(keel::StringRef path) {
     keel::usize lastSep = keel::StringRef::npos;
     for (keel::usize i = 0; i < path.size(); ++i) {
@@ -603,7 +612,7 @@ Vec2 ThorCanvas::MeasureTextStyled(keel::StringRef text, float fontSize, FontSty
     }
     ApplyFont(m_measureText, style);
 
-    m_measureText->size(fontSize);
+    m_measureText->size(ToTvgFontSize(fontSize));
     const ScopedCStr textStr(text);
     m_measureText->text(textStr.c_str());
 
@@ -709,7 +718,7 @@ const ThorCanvas::TextStampEntry& ThorCanvas::ResolveTextStamp(
         auto* txt = tvg::Text::gen();
         txt->text(textStr.c_str());
         ApplyFont(txt, style);
-        txt->size(qFontSize);
+        txt->size(ToTvgFontSize(qFontSize));
         if (isItalic) {
             txt->italic(0.18f);
         }
@@ -979,7 +988,7 @@ void ThorCanvas::DrawTextStyled(
 
         ApplyFont(txt, style);
 
-        txt->size(fontSize * m_scale);
+        txt->size(ToTvgFontSize(fontSize * m_scale));
         if (isItalic) {
             txt->italic(0.18f);
         }
@@ -1073,7 +1082,7 @@ void ThorCanvas::DrawTextBoxStyled(
 
         ApplyFont(txt, style);
 
-        txt->size(fontSize * m_scale);
+        txt->size(ToTvgFontSize(fontSize * m_scale));
         if (isItalic) {
             txt->italic(0.18f);
         }

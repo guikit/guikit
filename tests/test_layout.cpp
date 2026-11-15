@@ -807,7 +807,7 @@ void TestCarouselArrowScaling() {
     const float h1 = d1->rightArrowRect.h;
     const float w1 = d1->rightArrowRect.w;
     CHECK_NEAR(h1, w1, 0.001f); // Square button
-    CHECK(h1 >= 25.0f && h1 <= 30.0f);
+    CHECK(h1 >= 18.0f && h1 <= 23.0f); // Md arrow button token is 19.5 dp
 
     // 2. Arrange at 2.0x scale (scaled theme, defaultHeight 72px)
     Node* c2 = arena.create<Node>();
@@ -838,7 +838,7 @@ void TestCarouselArrowScaling() {
     CHECK_NEAR(h2, w2, 0.001f); // Square button
     // The 2.0x arrow button must be approximately double the 1.0x arrow button height (not capped at 26px!)
     CHECK_NEAR(h2, h1 * 2.0f, 2.0f);
-    CHECK(h2 > 50.0f);
+    CHECK(h2 > 37.0f);
 }
 
 void TestAspectRatioMinHeightAndStretchFallback() {

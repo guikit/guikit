@@ -3,6 +3,7 @@
 #include <cmath>
 #include "keel/core.h"
 #include "keel/format.h"
+#include "keel/math.h"
 #include "keel/time.h"
 
 namespace guikit {
@@ -178,7 +179,10 @@ void MainWindow::RenderFrame() {
     const keel::u64 frameWorkStartNs = keel::monotonic_ns();
     m_metrics.BeginFrame();
 
-    m_ui.BeginFrame({static_cast<float>(winW), static_cast<float>(winH)}, GetDpiScale());
+    // One dp -> pixel factor for the whole frame: OS display scale x user shell zoom. The canvas applies
+    // it uniformly, so the shell zoom behaves exactly like a different monitor DPI and nothing in the
+    // tree needs to be scaled by hand.
+    m_ui.BeginFrame({static_cast<float>(winW), static_cast<float>(winH)}, GetDpiScale() * GetShellScale());
     {
         const ShellStyle activeShellStyle = m_shellFloating ? ShellStyle::Floating : ShellStyle::Docked;
         if (m_shellTheme.GetShellStyle() != activeShellStyle) {
@@ -187,10 +191,7 @@ void MainWindow::RenderFrame() {
         }
 
         if (m_config.autoShellScope) {
-            if (auto mainCol = m_ui.Column({
-                .theme = &m_shellTheme,
-                .scale = GetShellScale()
-            })) {
+            if (auto mainCol = m_ui.Column({.theme = &m_shellTheme})) {
                 OnRender(m_ui);
             }
         } else {
@@ -199,9 +200,9 @@ void MainWindow::RenderFrame() {
 
         if (m_config.scaleShortcuts) {
             if (m_ui.ConsumeAction(KeyAction::ZoomIn)) {
-                SetShellScale(GetShellScale() + 0.25f);
+                StepShellScale(+1);
             } else if (m_ui.ConsumeAction(KeyAction::ZoomOut)) {
-                SetShellScale(GetShellScale() - 0.25f);
+                StepShellScale(-1);
             } else if (m_ui.ConsumeAction(KeyAction::ZoomReset)) {
                 SetShellScale(1.0f);
             }
@@ -331,24 +332,28 @@ void MainWindow::SetShellFloating(bool floating) noexcept {
 }
 
 void MainWindow::SetShellScale(float scale) noexcept {
-    m_shellScale = keel::clamp(scale, 0.5f, 3.0f);
     keel::usize bestIdx = 0;
-    float bestDiff = 1e9f;
+    float bestDiff = keel::Limits<float>::kMax;
     for (keel::usize i = 0; i < kScaleValues.size(); ++i) {
-        const float d = std::abs(kScaleValues[i] - m_shellScale);
+        const float d = std::abs(kScaleValues[i] - scale);
         if (d < bestDiff) {
             bestDiff = d;
             bestIdx = i;
         }
     }
-    m_shellScaleIndex = bestIdx;
-    m_ui.InvalidateAll();
+    SetShellScaleIndex(bestIdx);
 }
 
 void MainWindow::SetShellScaleIndex(keel::usize index) noexcept {
     m_shellScaleIndex = keel::min(index, kScaleValues.size() - 1);
     m_shellScale = kScaleValues[m_shellScaleIndex];
     m_ui.InvalidateAll();
+}
+
+void MainWindow::StepShellScale(keel::i32 steps) noexcept {
+    const keel::i64 maxIdx = static_cast<keel::i64>(kScaleValues.size()) - 1;
+    const keel::i64 target = keel::clamp(static_cast<keel::i64>(m_shellScaleIndex) + steps, keel::i64{0}, maxIdx);
+    SetShellScaleIndex(static_cast<keel::usize>(target));
 }
 
 void MainWindow::SetCommandPaletteOpen(bool open) noexcept {

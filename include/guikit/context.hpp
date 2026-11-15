@@ -243,12 +243,17 @@ public:
     Context& operator=(const Context&) = delete;
 
     // --- Frame Lifecycle ---
-    void BeginFrame(Vec2 viewportSize, float dpiScale = 1.0f);
+    /// Starts a frame. `viewportSize` is in physical framebuffer pixels and `pixelsPerDp` is the single
+    /// dp -> pixel factor for the whole frame: OS display scale multiplied by any user UI zoom.
+    /// Layout, hit-testing and widget code work in dp; the canvas applies this factor uniformly, so
+    /// text, strokes, spacing and input always scale together.
+    void BeginFrame(Vec2 viewportSize, float pixelsPerDp = 1.0f);
     void EndFrame(ICanvas& canvas);
 
     // --- Input Handling ---
     /// `pos` is in physical framebuffer pixels (same space as `BeginFrame`'s `viewportSize`);
-    /// it is divided by the DPI scale to produce the logical-dp mouse position.
+    /// it is divided by the frame's pixels-per-dp factor to produce the dp mouse position, and is
+    /// re-derived when that factor changes so the pointer stays under the cursor after a zoom.
     void OnMouseMove(Vec2 pos);
     void OnMouseDown(keel::i32 button);
     void OnMouseUp(keel::i32 button);
@@ -365,7 +370,7 @@ public:
         return Rect(x1, y1, keel::max(0.0f, x2 - x1), keel::max(0.0f, y2 - y1));
     }
 
-    /// Returns the active DPI / UI scale factor.
+    /// Returns the frame's pixels-per-dp factor (OS display scale x user UI zoom), as passed to `BeginFrame`.
     [[nodiscard]] float GetDpiScale() const noexcept { return m_dpiScale; }
 
     /// Returns the current logical viewport size used for layout.
@@ -2159,7 +2164,8 @@ private:
     bool m_manualTime{false};
 
     // Input state
-    Vec2 m_mousePos{-10000.0f, -10000.0f};
+    Vec2 m_mousePos{-10000.0f, -10000.0f};   ///< dp
+    Vec2 m_mousePosPx{-10000.0f, -10000.0f}; ///< physical pixels, source of truth across scale changes
     bool m_mouseDown{false};
     bool m_mouseClicked{false};
     bool m_mouseReleased{false};

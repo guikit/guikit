@@ -83,10 +83,15 @@ public:
     [[nodiscard]] bool IsShellFloating() const noexcept { return m_shellFloating; }
     void SetShellFloating(bool floating) noexcept;
 
+    /// Shell UI scale is always one of `kScaleValues`, so the toolbar selector shows the real scale.
     [[nodiscard]] float GetShellScale() const noexcept { return m_shellScale; }
+    /// Snaps `scale` to the nearest `kScaleValues` preset.
     void SetShellScale(float scale) noexcept;
     [[nodiscard]] keel::usize GetShellScaleIndex() const noexcept { return m_shellScaleIndex; }
     void SetShellScaleIndex(keel::usize index) noexcept;
+    /// Moves `steps` presets up (positive) or down (negative), clamped to the preset range.
+    /// Used by the `Ctrl+Plus` / `Ctrl+Minus` shortcuts.
+    void StepShellScale(keel::i32 steps) noexcept;
 
     [[nodiscard]] bool IsCommandPaletteOpen() const noexcept { return m_commandPaletteOpen; }
     void SetCommandPaletteOpen(bool open) noexcept;
@@ -113,7 +118,7 @@ public:
         const Icon& icon = Icon::Settings()
     );
 
-    /// Renders the UI scale selector (`100%..200%`), `Dark/Light` theme switch, and `Dock/Float` shell switch.
+    /// Renders the UI scale selector (`75%..200%`), `Dark/Light` theme switch, and `Dock/Float` shell switch.
     void RenderThemeControls(ToolbarScope& tb);
 
     /// Renders the `Bounds` (`Ctrl+B`) and `Inspect` (`Ctrl+I`) debug overlay toggles.
@@ -134,8 +139,10 @@ public:
         UiText placeholder = "Jump to screen or run command..."
     );
 
-    static constexpr keel::StaticArray<float, 5> kScaleValues = {{1.0f, 1.25f, 1.5f, 1.75f, 2.0f}};
-    static constexpr keel::StaticArray<keel::StringRef, 5> kScaleLabels = {{
+    static constexpr keel::StaticArray<float, 7> kScaleValues = {{0.75f, 0.9f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f}};
+    static constexpr keel::StaticArray<keel::StringRef, 7> kScaleLabels = {{
+        "75%",
+        "90%",
         "100%",
         "125%",
         "150%",
@@ -186,7 +193,7 @@ private:
     bool m_shellLightMode = false;
     bool m_shellFloating = false;
     float m_shellScale = 1.0f;
-    keel::usize m_shellScaleIndex = 0;
+    keel::usize m_shellScaleIndex = 2; // kScaleValues[2] == 1.0f
     keel::usize m_heartbeatIndex = 2;
     bool m_commandPaletteOpen = false;
 

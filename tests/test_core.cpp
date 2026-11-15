@@ -51,9 +51,9 @@ void TestGeometryAndTypes() {
 
     // Spacing and DP literals
     const auto theme = UiTheme::Dark();
-    CHECK(theme.GetGap(UiSize::Sm) == 8.0f);
-    CHECK(theme.GetGap(UiSize::Lg) == 16.0f);
-    CHECK(theme.GetRadius(UiSize::Md) == 6.0f);
+    CHECK(theme.GetGap(UiSize::Sm) == 6.0f);
+    CHECK(theme.GetGap(UiSize::Lg) == 12.0f);
+    CHECK(theme.GetRadius(UiSize::Md) == 4.5f);
     Dp dpVal = 16.0_dp;
     CHECK(dpVal.ToPixels(2.0f) == 32.0f);
 
@@ -314,35 +314,35 @@ void TestCarouselMetricsTokens() {
 
     // 1. Standard metrics baseline checks
     const auto& md = theme.GetCarousel(UiSize::Md);
-    CHECK(md.arrowButtonSize == 26.0f);
-    CHECK(md.iconSize == 14.0f);
-    CHECK(md.cornerRadius == 6.0f);
-    CHECK(md.margin == 4.0f);
-    CHECK(md.gap == 6.0f);
-    CHECK(md.gutter == 36.0f);
+    CHECK(md.arrowButtonSize == 19.5f);
+    CHECK(md.iconSize == 10.5f);
+    CHECK(md.cornerRadius == 4.5f);
+    CHECK(md.margin == 3.0f);
+    CHECK(md.gap == 4.5f);
+    CHECK(md.gutter == 27.0f);
     CHECK(md.gutter == md.margin + md.arrowButtonSize + md.gap);
-    CHECK(md.scrollStep == 110.0f);
+    CHECK(md.scrollStep == 82.5f);
 
     const auto& xs = theme.GetCarousel(UiSize::Xs);
-    CHECK(xs.arrowButtonSize == 18.0f);
-    CHECK(xs.iconSize == 10.0f);
-    CHECK(xs.gutter == 24.0f);
+    CHECK(xs.arrowButtonSize == 13.5f);
+    CHECK(xs.iconSize == 7.5f);
+    CHECK(xs.gutter == 18.0f);
     CHECK(xs.gutter == xs.margin + xs.arrowButtonSize + xs.gap);
 
     const auto& sm = theme.GetCarousel(UiSize::Sm);
-    CHECK(sm.arrowButtonSize == 22.0f);
-    CHECK(sm.iconSize == 12.0f);
-    CHECK(sm.gutter == 30.0f);
+    CHECK(sm.arrowButtonSize == 16.5f);
+    CHECK(sm.iconSize == 9.0f);
+    CHECK(sm.gutter == 22.5f);
 
     const auto& lg = theme.GetCarousel(UiSize::Lg);
-    CHECK(lg.arrowButtonSize == 32.0f);
-    CHECK(lg.iconSize == 16.0f);
-    CHECK(lg.gutter == 45.0f);
+    CHECK(lg.arrowButtonSize == 24.0f);
+    CHECK(lg.iconSize == 12.0f);
+    CHECK(lg.gutter == 33.75f);
 
     const auto& xl = theme.GetCarousel(UiSize::Xl);
-    CHECK(xl.arrowButtonSize == 40.0f);
-    CHECK(xl.iconSize == 20.0f);
-    CHECK(xl.gutter == 56.0f);
+    CHECK(xl.arrowButtonSize == 30.0f);
+    CHECK(xl.iconSize == 15.0f);
+    CHECK(xl.gutter == 42.0f);
 
     // Fallback to Md on None
     const auto& noneSize = theme.GetCarousel(UiSize::None);
@@ -354,23 +354,23 @@ void TestCarouselMetricsTokens() {
 
     // 3. Density presets
     UiTheme compactTheme = UiTheme::Dark(Density::Compact);
-    CHECK(compactTheme.GetCarousel(UiSize::Md).arrowButtonSize == 24.0f);
-    CHECK(compactTheme.GetCarousel(UiSize::Md).iconSize == 13.0f);
+    CHECK(compactTheme.GetCarousel(UiSize::Md).arrowButtonSize == 18.0f);
+    CHECK(compactTheme.GetCarousel(UiSize::Md).iconSize == 9.75f);
 
     UiTheme touchTheme = UiTheme::Dark(Density::Touch);
-    CHECK(touchTheme.GetCarousel(UiSize::Md).arrowButtonSize == 36.0f);
-    CHECK(touchTheme.GetCarousel(UiSize::Md).iconSize == 18.0f);
+    CHECK(touchTheme.GetCarousel(UiSize::Md).arrowButtonSize == 27.0f);
+    CHECK(touchTheme.GetCarousel(UiSize::Md).iconSize == 13.5f);
 
     // 4. Scaling
     UiTheme scaledTheme = UiTheme::Dark().Scaled(2.0f);
     const auto& scaledMd = scaledTheme.GetCarousel(UiSize::Md);
-    CHECK(scaledMd.arrowButtonSize == 52.0f);
-    CHECK(scaledMd.iconSize == 28.0f);
-    CHECK(scaledMd.cornerRadius == 12.0f);
-    CHECK(scaledMd.margin == 8.0f);
-    CHECK(scaledMd.gap == 12.0f);
-    CHECK(scaledMd.gutter == 72.0f);
-    CHECK(scaledMd.scrollStep == 220.0f);
+    CHECK(scaledMd.arrowButtonSize == 39.0f);
+    CHECK(scaledMd.iconSize == 21.0f);
+    CHECK(scaledMd.cornerRadius == 9.0f);
+    CHECK(scaledMd.margin == 6.0f);
+    CHECK(scaledMd.gap == 9.0f);
+    CHECK(scaledMd.gutter == 54.0f);
+    CHECK(scaledMd.scrollStep == 165.0f);
 }
 
 void TestSliderMetricsTokens() {
@@ -380,15 +380,15 @@ void TestSliderMetricsTokens() {
 
     // 1. Standard metrics baseline checks
     const auto& md = theme.GetSlider(UiSize::Md);
-    CHECK(md.defaultHeight == 26.0f);
-    CHECK(md.trackHeight == 5.0f);
-    CHECK(md.thumbSize == 18.0f);
-    CHECK(md.cornerRadius == 9.0f);
-    CHECK(md.tickSize == 4.0f);
+    CHECK(md.defaultHeight == 19.5f);
+    CHECK(md.trackHeight == 3.75f);
+    CHECK(md.thumbSize == 13.5f);
+    CHECK(md.cornerRadius == 6.75f);
+    CHECK(md.tickSize == 3.0f);
 
     const auto& xs = theme.GetSlider(UiSize::Xs);
-    CHECK(xs.defaultHeight == 18.0f);
-    CHECK(xs.thumbSize == 12.0f);
+    CHECK(xs.defaultHeight == 13.5f);
+    CHECK(xs.thumbSize == 9.0f);
 
     // 2. Mutable accessor check
     theme.GetSlider(UiSize::Md).trackHeight = 7.0f;
@@ -396,17 +396,17 @@ void TestSliderMetricsTokens() {
 
     // 3. Density presets
     UiTheme compactTheme = UiTheme::Dark(Density::Compact);
-    CHECK(compactTheme.GetSlider(UiSize::Md).thumbSize == 16.0f);
+    CHECK(compactTheme.GetSlider(UiSize::Md).thumbSize == 12.0f);
 
     UiTheme touchTheme = UiTheme::Dark(Density::Touch);
-    CHECK(touchTheme.GetSlider(UiSize::Md).thumbSize == 26.0f);
+    CHECK(touchTheme.GetSlider(UiSize::Md).thumbSize == 19.5f);
 
     // 4. Scaling
     UiTheme scaledTheme = UiTheme::Dark().Scaled(2.0f);
     const auto& scaledMd = scaledTheme.GetSlider(UiSize::Md);
-    CHECK(scaledMd.defaultHeight == 52.0f);
-    CHECK(scaledMd.thumbSize == 36.0f);
-    CHECK(scaledMd.trackHeight == 10.0f);
+    CHECK(scaledMd.defaultHeight == 39.0f);
+    CHECK(scaledMd.thumbSize == 27.0f);
+    CHECK(scaledMd.trackHeight == 7.5f);
 }
 
 void TestHeadingLevelMetricsTokens() {
@@ -927,6 +927,7 @@ void TestMainWindowHeadlessBackend() {
         }
         keel::i32 GetWidth() const noexcept override { return m_cfg.width; }
         keel::i32 GetHeight() const noexcept override { return m_cfg.height; }
+        float GetDpiScale() const noexcept override { return m_dpi; }
         float GetDisplayPixelsPerMm() const noexcept override { return 4.0f; }
         bool IsMinimized() const noexcept override { return false; }
         bool IsLiveResizeFrame() const noexcept override { return false; }
@@ -940,6 +941,7 @@ void TestMainWindowHeadlessBackend() {
 
         MainWindowConfig m_cfg{};
         HeadlessCanvas m_canvas{};
+        float m_dpi{1.0f};
         bool m_vsync{true};
         bool m_gpuShaders{true};
         CursorType lastCursor{CursorType::Default};
@@ -955,6 +957,10 @@ void TestMainWindowHeadlessBackend() {
         bool initCalled{false};
         bool shutdownCalled{false};
         keel::i32 guiCount{0};
+        float framePixelsPerDp{0.0f};
+        float rootScale{0.0f};
+        float rootThemeScale{0.0f};
+        Vec2 logicalViewport{};
 
     protected:
         void OnInit() override {
@@ -962,6 +968,10 @@ void TestMainWindowHeadlessBackend() {
         }
         void OnRender(Context& ui) override {
             ++guiCount;
+            framePixelsPerDp = ui.GetDpiScale();
+            rootScale = ui.GetCurrentScale();
+            rootThemeScale = ui.GetTheme().scale;
+            logicalViewport = ui.GetLogicalViewport();
             if (auto tb = ui.Toolbar()) {
                 RenderThemeControls(tb);
                 RenderDebugControls(tb);
@@ -1011,6 +1021,70 @@ void TestMainWindowHeadlessBackend() {
     CHECK(rawBackend->m_canvas.drawCount > 0);
     CHECK(rawBackend->m_canvas.GetGpuShaderPasses().size() == 1);
     CHECK(rawBackend->m_canvas.GetGpuShaderPasses()[0].shader.shaderId == "test.custom_shader");
+
+    // Default density: MainWindow shells use Standard unless overridden in the config
+    CHECK(app.GetShellTheme().GetDensity() == Density::Standard);
+    {
+        TestAppWindow touchApp({.initialDensity = Density::Touch}, keel::make_unique<MockWindowBackend>());
+        CHECK(touchApp.GetShellTheme().GetDensity() == Density::Touch);
+    }
+
+    // Shell scale is always a toolbar preset, so the selector label matches the applied scale
+    {
+        TestAppWindow scaleApp({}, keel::make_unique<MockWindowBackend>());
+        auto label = [&]() { return MainWindow::kScaleLabels[scaleApp.GetShellScaleIndex()]; };
+        auto scale = [&]() { return scaleApp.GetShellScale(); };
+
+        CHECK(std::abs(scale() - 1.0f) < 1e-6f);
+        CHECK(label() == "100%");
+
+        scaleApp.StepShellScale(-1);
+        CHECK(std::abs(scale() - 0.9f) < 1e-6f);
+        CHECK(label() == "90%");
+        scaleApp.StepShellScale(-1);
+        CHECK(std::abs(scale() - 0.75f) < 1e-6f);
+        CHECK(label() == "75%");
+        scaleApp.StepShellScale(-1); // clamped at the smallest preset (Ctrl+Minus cannot go below the selector)
+        CHECK(std::abs(scale() - 0.75f) < 1e-6f);
+        CHECK(label() == "75%");
+
+        scaleApp.StepShellScale(+100); // clamped at the largest preset
+        CHECK(std::abs(scale() - 2.0f) < 1e-6f);
+        CHECK(label() == "200%");
+
+        // Programmatic values snap to the nearest preset instead of drifting out of the selector's range
+        scaleApp.SetShellScale(0.5f);
+        CHECK(std::abs(scale() - 0.75f) < 1e-6f);
+        CHECK(label() == "75%");
+        scaleApp.SetShellScale(1.3f);
+        CHECK(std::abs(scale() - 1.25f) < 1e-6f);
+        CHECK(label() == "125%");
+        scaleApp.SetShellScale(3.0f);
+        CHECK(std::abs(scale() - 2.0f) < 1e-6f);
+        CHECK(label() == "200%");
+
+        TestAppWindow initApp({.initialScale = 0.8f}, keel::make_unique<MockWindowBackend>());
+        CHECK(std::abs(initApp.GetShellScale() - 0.75f) < 1e-6f);
+    }
+
+    // Shell zoom is a frame-wide factor: pixelsPerDp = OS display scale x shell zoom, applied once by the
+    // canvas. The widget tree itself stays at scale 1, so nothing can be left unscaled by a missed multiply.
+    {
+        auto zoomBackend = keel::make_unique<MockWindowBackend>();
+        MockWindowBackend* rawZoomBackend = zoomBackend.get();
+        rawZoomBackend->m_dpi = 1.5f;
+        TestAppWindow zoomApp(
+            {.width = 1500, .height = 900, .reactiveMode = false, .initialScale = 1.25f},
+            keel::move(zoomBackend)
+        );
+        CHECK(zoomApp.Run() == 0);
+        CHECK(std::abs(zoomApp.framePixelsPerDp - 1.875f) < 1e-5f);
+        CHECK(std::abs(rawZoomBackend->m_canvas.GetScale() - 1.875f) < 1e-5f);
+        CHECK(std::abs(zoomApp.rootScale - 1.0f) < 1e-6f);
+        CHECK(std::abs(zoomApp.rootThemeScale - 1.0f) < 1e-6f);
+        CHECK(std::abs(zoomApp.logicalViewport.x - 800.0f) < 0.01f);
+        CHECK(std::abs(zoomApp.logicalViewport.y - 480.0f) < 0.01f);
+    }
 }
 
 void TestKeelIntegration() {

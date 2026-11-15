@@ -132,11 +132,15 @@ void Context::ClearOverlayHitBuilders() noexcept {
     m_overlayHitBuilders.clear();
 }
 
-void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
+void Context::BeginFrame(Vec2 viewportSize, float pixelsPerDp) {
     ++m_frameIndex;
-    const float effScale = (dpiScale > 0.0f) ? dpiScale : 1.0f;
+    const float effScale = (pixelsPerDp > 0.0f) ? pixelsPerDp : 1.0f;
     if (m_viewportSize != viewportSize || m_dpiScale != effScale) {
         InvalidateAll();
+    }
+    if (m_dpiScale != effScale) {
+        // The cursor did not move on screen; only its dp coordinate changed
+        m_mousePos = m_mousePosPx / effScale;
     }
     m_viewportSize = viewportSize;
     m_dpiScale = effScale;
@@ -1620,6 +1624,7 @@ keel::i32 Context::GetRecommendedSleepTimeoutMs() const noexcept {
 void Context::OnMouseMove(Vec2 pos) {
     const float scale = (m_dpiScale > 0.0f) ? m_dpiScale : 1.0f;
     const Vec2 newPos = pos / scale;
+    m_mousePosPx = pos;
     if (std::abs(newPos.x - m_mousePos.x) < 0.25f && std::abs(newPos.y - m_mousePos.y) < 0.25f) {
         return;
     }
