@@ -247,6 +247,8 @@ public:
     void EndFrame(ICanvas& canvas);
 
     // --- Input Handling ---
+    /// `pos` is in physical framebuffer pixels (same space as `BeginFrame`'s `viewportSize`);
+    /// it is divided by the DPI scale to produce the logical-dp mouse position.
     void OnMouseMove(Vec2 pos);
     void OnMouseDown(keel::i32 button);
     void OnMouseUp(keel::i32 button);

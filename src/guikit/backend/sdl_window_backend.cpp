@@ -199,7 +199,7 @@ void SdlWindowBackend::UpdateDisplayMetrics() noexcept {
     } else {
         m_dpiScale = 1.0f;
     }
-    m_mouseCoordScale = pixelDensity / m_dpiScale;
+    m_windowPixelDensity = pixelDensity;
 }
 
 bool SdlWindowBackend::Initialize(
@@ -621,11 +621,11 @@ void SdlWindowBackend::ProcessEvent(const SDL_Event& event, Context& ui) {
             break;
 
         case SDL_EVENT_MOUSE_MOTION:
-            ui.OnMouseMove(ToLogicalMousePos(event.motion.x, event.motion.y));
+            ui.OnMouseMove(ToPhysicalMousePos(event.motion.x, event.motion.y));
             break;
 
         case SDL_EVENT_MOUSE_BUTTON_DOWN: {
-            ui.OnMouseMove(ToLogicalMousePos(event.button.x, event.button.y));
+            ui.OnMouseMove(ToPhysicalMousePos(event.button.x, event.button.y));
             const SDL_Keymod mod = SDL_GetModState();
             ui.SetKeyModifiers({
                 .ctrl  = (mod & SDL_KMOD_CTRL) != 0,
@@ -641,7 +641,7 @@ void SdlWindowBackend::ProcessEvent(const SDL_Event& event, Context& ui) {
         }
 
         case SDL_EVENT_MOUSE_BUTTON_UP:
-            ui.OnMouseMove(ToLogicalMousePos(event.button.x, event.button.y));
+            ui.OnMouseMove(ToPhysicalMousePos(event.button.x, event.button.y));
             if (event.button.button >= 1 && event.button.button <= 8) {
                 m_pressedMouseMask &= ~(1u << event.button.button);
                 if (m_pressedMouseMask == 0) {
@@ -652,7 +652,7 @@ void SdlWindowBackend::ProcessEvent(const SDL_Event& event, Context& ui) {
             break;
 
         case SDL_EVENT_MOUSE_WHEEL: {
-            ui.OnMouseMove(ToLogicalMousePos(event.wheel.mouse_x, event.wheel.mouse_y));
+            ui.OnMouseMove(ToPhysicalMousePos(event.wheel.mouse_x, event.wheel.mouse_y));
             const SDL_Keymod mod = SDL_GetModState();
             ui.SetKeyModifiers({
                 .ctrl  = (mod & SDL_KMOD_CTRL) != 0,

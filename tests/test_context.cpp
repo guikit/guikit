@@ -3305,6 +3305,77 @@ void TestDpiScalingAndBackendMetadata() {
     CHECK(physicalDirty.h >= logicalDirty.h * 1.5f - 0.5f);
 }
 
+// Regression: the SDL backend once converted mouse coords to logical dp itself, and
+// Context::OnMouseMove divided by the DPI scale a second time (hover landed at 1/dpi of the cursor).
+// Exercises the full chain SDL window coords -> SdlWindowToPhysicalPixels -> OnMouseMove -> logical dp.
+void TestSdlMouseCoordsMapToLogicalDp() {
+    using namespace guikit;
+
+    struct Case {
+        const char* name;
+        float pixelDensity; // SDL_GetWindowPixelDensity()
+        float dpiScale;     // SDL_GetWindowDisplayScale() / devicePixelRatio
+        Vec2 windowPos;     // SDL event coordinates
+        Vec2 expectedLogical;
+    };
+    static constexpr Case kCases[] = {
+        {"Windows 100%",       1.0f, 1.0f,  {300.0f, 120.0f}, {300.0f, 120.0f}},
+        {"Windows 150%",       1.0f, 1.5f,  {300.0f, 120.0f}, {200.0f, 80.0f}},
+        {"Windows 125%",       1.0f, 1.25f, {250.0f, 100.0f}, {200.0f, 80.0f}},
+        {"macOS Retina",       2.0f, 2.0f,  {300.0f, 120.0f}, {300.0f, 120.0f}},
+        {"Emscripten dpr 2",   1.0f, 2.0f,  {600.0f, 240.0f}, {300.0f, 120.0f}},
+        {"Invalid density",    0.0f, 1.5f,  {300.0f, 120.0f}, {200.0f, 80.0f}},
+    };
+
+    for (const Case& c : kCases) {
+        Context ui;
+        ui.BeginFrame({1600.0f, 1000.0f}, c.dpiScale);
+        ui.OnMouseMove(SdlWindowToPhysicalPixels(c.windowPos, c.pixelDensity));
+        const Vec2 mouse = ui.GetMousePos();
+        if (std::abs(mouse.x - c.expectedLogical.x) > 0.01f || std::abs(mouse.y - c.expectedLogical.y) > 0.01f) {
+            keel::eprintln("[FAIL] {}: logical mouse ({}, {}) != expected ({}, {})",
+                           c.name, mouse.x, mouse.y, c.expectedLogical.x, c.expectedLogical.y);
+            ++g_failures;
+        }
+    }
+
+    // End-to-end hover at Windows 150%: pointing the OS cursor at the button's on-screen centre must hover it.
+    {
+        constexpr float kDpi = 1.5f;
+        constexpr float kPixelDensity = 1.0f;
+        constexpr keel::u32 kW = 1200;
+        constexpr keel::u32 kH = 900;
+        Context ui;
+        ThorCanvas canvas;
+        keel::Array<keel::u32> pixels(kW * kH);
+        canvas.SetTarget(pixels.data(), kW, kH, kW);
+
+        WidgetResponse btn;
+        auto renderUI = [&]() {
+            if (auto col = ui.Column({.padding = Padding::All(200.0f)})) {
+                btn = ui.Button({.text = "HiDPI Target"});
+            }
+        };
+
+        // Two frames: widget rects are resolved from the previous frame's layout
+        for (keel::i32 i = 0; i < 2; ++i) {
+            ui.BeginFrame({static_cast<float>(kW), static_cast<float>(kH)}, kDpi);
+            renderUI();
+            ui.EndFrame(canvas);
+        }
+        CHECK(!btn.hovered);
+        CHECK(btn.rect.w > 0.0f);
+
+        // On-screen centre in SDL window coords = logical centre * dpi / pixelDensity
+        const Vec2 windowCenter = btn.rect.Center() * (kDpi / kPixelDensity);
+        ui.OnMouseMove(SdlWindowToPhysicalPixels(windowCenter, kPixelDensity));
+        ui.BeginFrame({static_cast<float>(kW), static_cast<float>(kH)}, kDpi);
+        renderUI();
+        ui.EndFrame(canvas);
+        CHECK(btn.hovered);
+    }
+}
+
 void TestSdlCanvasBackendInterface() {
     using namespace guikit;
 
@@ -11883,6 +11954,7 @@ int main() {
     TestLeafWidgetSizeOverrides();
     TestHeadingWidgetWorkflow();
     TestDpiScalingAndBackendMetadata();
+    TestSdlMouseCoordsMapToLogicalDp();
     TestSdlCanvasBackendInterface();
     TestDebugBoundsAndInspectMode();
     TestPostRenderDelegateWorkflow();

@@ -19,6 +19,15 @@ namespace guikit {
 /// - Linux / macOS / Fallback: Uses `SDL_GetWindowDisplayScale(window)` relative to 96 DPI.
 [[nodiscard]] float QueryDisplayPixelsPerMm(SDL_Window* window = nullptr) noexcept;
 
+/// Converts an SDL window-coordinate mouse position to physical framebuffer pixels, the space
+/// `Context::OnMouseMove` expects (it divides by the DPI scale itself to reach logical dp).
+/// `pixelDensity` is `SDL_GetWindowPixelDensity()`: 1 on Windows and Emscripten (window coords are
+/// already pixels), 2 on macOS Retina (window coords are points). Non-positive values are treated as 1.
+[[nodiscard]] inline Vec2 SdlWindowToPhysicalPixels(Vec2 windowPos, float pixelDensity) noexcept {
+    const float pd = (pixelDensity > 0.01f) ? pixelDensity : 1.0f;
+    return {windowPos.x * pd, windowPos.y * pd};
+}
+
 /// SDL3 + OpenGL ES3 / WebGL2 implementation of `guikit::IWindowBackend` with interchangeable `ICanvas`.
 class SdlWindowBackend final : public IWindowBackend {
 public:
@@ -69,8 +78,8 @@ public:
 
 private:
     void UpdateDisplayMetrics() noexcept;
-    [[nodiscard]] Vec2 ToLogicalMousePos(float x, float y) const noexcept {
-        return {x * m_mouseCoordScale, y * m_mouseCoordScale};
+    [[nodiscard]] Vec2 ToPhysicalMousePos(float x, float y) const noexcept {
+        return SdlWindowToPhysicalPixels({x, y}, m_windowPixelDensity);
     }
     void ProcessEvent(const SDL_Event& event, Context& ui);
 
@@ -104,7 +113,7 @@ private:
     bool m_isLiveResizeFrame = false;
     keel::u32 m_pressedMouseMask = 0;
     float m_dpiScale = 1.0f;
-    float m_mouseCoordScale = 1.0f;
+    float m_windowPixelDensity = 1.0f;
     float m_displayPxPerMm = 96.0f / 25.4f;
 
     keel::u64 m_lastLiveResizeTimeNs{0};
