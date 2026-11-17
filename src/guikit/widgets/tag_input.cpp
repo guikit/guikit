@@ -611,7 +611,6 @@ Response RunTagInputImpl(
 
     const ControlSpec ctrl = EffectiveTagInputControl(optsCopy, activeSize, theme);
     Node* node = ctx.CreateNode(NodeType::TagInput, id);
-    node->theme = zoneScope.GetTheme();
     node->debugBoundsOverride = optsCopy.debugBounds;
     node->inspectModeOverride = optsCopy.inspectMode;
 

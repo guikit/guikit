@@ -106,7 +106,6 @@ Response Switch::Run(
 
     const ControlSpec ctrl = EffectiveSwitchControl(activeSize, ctx.GetTheme());
     Node* node = ctx.CreateNode(NodeType::Switch, id);
-    node->theme = zoneScope.GetTheme();
     node->text = !optsCopy.textRight.empty() ? optsCopy.textRight.text : optsCopy.textLeft.text;
     node->SetPayload(ctx.AllocPayload<SwitchOptions>(optsCopy));
     node->visualHash = detail::HashArgs(

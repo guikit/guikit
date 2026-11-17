@@ -434,8 +434,8 @@ ElementScope Element::Open(
         ctx.SetTooltip(opts.tooltip, res.rect);
     }
 
+    ZoneScope zone = ctx.Zone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
     Node* node = ctx.CreateNode(NodeType::Element, id);
-    node->theme = ctx.PushZone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
 
     auto* payload = ctx.AllocPayload<ElementPayload>();
     payload->opts = opts;
@@ -494,7 +494,7 @@ ElementScope Element::Open(
         Element::RenderText(canvas, geom, spec, theme);
     };
 
-    ctx.PushContainerInZone(node);
+    ctx.PushContainer(node, keel::move(zone));
     return ElementScope(&ctx, node, res);
 }
 

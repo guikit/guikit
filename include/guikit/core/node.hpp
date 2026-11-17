@@ -125,6 +125,9 @@ struct Node {
     Node* firstChild{nullptr};
     Node* lastChild{nullptr};
     Node* nextSibling{nullptr};
+    /// Theme of the zone the node was built in (set by `Context::CreateNode`), so layout and rendering use the
+    /// same theme and scale as the code that built the node. Only hand-built nodes (tests) leave it null, in
+    /// which case the solver falls back to the theme it is given.
     const UiTheme* theme{nullptr};
 
     keel::u32 childIndex{0};     ///< Index of this node within its parent container

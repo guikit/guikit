@@ -1629,7 +1629,6 @@ SignalViewResponse SignalView::Run(
 
     // Create Scene Graph Node
     Node* node = ctx.CreateNode(NodeType::SignalView, id);
-    node->theme = zoneScope.GetTheme();
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<SignalViewPayload>();

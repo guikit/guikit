@@ -729,7 +729,6 @@ Response Breadcrumb::Run(
     const ControlSpec ctrl = EffectiveBreadcrumbControl(optsCopy, activeSize, theme);
 
     Node* node = ctx.CreateNode(NodeType::Breadcrumb, id);
-    node->theme = zoneScope.GetTheme();
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
 

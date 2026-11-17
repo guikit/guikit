@@ -20,8 +20,8 @@ AccordionScope Accordion::Open(
     const UiSize parentSize = ctx.GetCurrentSize();
     const UiSize headerSize = parentSize;
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    UiTheme* zoneTheme = ctx.PushZone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
-    const ZoneState zone = ctx.GetZone(); // the header container leaves it again; the body container re-enters it
+    ZoneScope headerZone = ctx.Zone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
+    const ZoneState zoneState = ctx.GetZone(); // the header container leaves it; the body container re-enters it
     const UiTheme& theme = ctx.GetTheme();
 
     bool isOpen = opts.defaultOpen;
@@ -64,7 +64,7 @@ AccordionScope Accordion::Open(
     outerNode->debugBoundsOverride = opts.debugBounds;
     outerNode->inspectModeOverride = opts.inspectMode;
 
-    ctx.PushContainerInZone(outerNode);
+    ctx.PushContainer(outerNode, keel::move(headerZone));
 
     Node* headerNode = ctx.CreateNode(NodeType::AccordionHeader, idHeader);
     auto* hData = ctx.AllocPayload<AccordionHeaderData>();
@@ -123,7 +123,6 @@ AccordionScope Accordion::Open(
         Node* bodyNode = ctx.CreateNode(NodeType::Column, idBody);
         ctx.PopContainer(outerNode);
 
-        bodyNode->theme = zoneTheme;
         bodyNode->direction = FlexDirection::Column;
         bodyNode->widthMode = SizeMode::Stretch;
         bodyNode->heightMode = SizeMode::Fit;
@@ -136,12 +135,10 @@ AccordionScope Accordion::Open(
         bodyNode->debugBoundsOverride = opts.debugBounds;
         bodyNode->inspectModeOverride = opts.inspectMode;
 
-        ctx.PushZoneState(zone);
-        ctx.PushContainerInZone(bodyNode);
+        ctx.PushContainer(bodyNode, ctx.ReenterZone(zoneState));
         return AccordionScope(&ctx, bodyNode, res, true);
     }
 
-    outerNode->theme = zoneTheme;
     ctx.PopContainer(outerNode);
     return AccordionScope(nullptr, nullptr, res, false);
 }

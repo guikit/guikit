@@ -224,7 +224,6 @@ Response Heading::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::Heading, id);
-    node->theme = zoneScope.GetTheme();
     auto* hOpts = ctx.AllocPayload<HeadingOptions>(opts);
     hOpts->label = ctx.AllocText(opts.label);
     hOpts->description = ctx.AllocText(opts.description);

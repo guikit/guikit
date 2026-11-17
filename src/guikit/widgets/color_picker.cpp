@@ -520,7 +520,6 @@ Response ColorPicker::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::ColorPicker, id);
-    node->theme = zoneScope.GetTheme();
 
     auto* data = ctx.AllocPayload<ColorPickerData>();
     data->opts = optsCopy;

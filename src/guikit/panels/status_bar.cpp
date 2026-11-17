@@ -239,7 +239,7 @@ StatusBarScope StatusBar::Open(
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    UiTheme* zoneTheme = ctx.PushZone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
+    ZoneScope zone = ctx.Zone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
     const float activeScale = ctx.GetCurrentScale();
 
     const UiTheme& theme = ctx.GetTheme();
@@ -253,7 +253,6 @@ StatusBarScope StatusBar::Open(
     res.ctx = &ctx;
 
     Node* node = ctx.CreateNode(NodeType::StatusBar, id);
-    node->theme = zoneTheme;
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     node->direction = FlexDirection::Row;
@@ -301,7 +300,7 @@ StatusBarScope StatusBar::Open(
         opts.border
     );
 
-    ctx.PushContainerInZone(node);
+    ctx.PushContainer(node, keel::move(zone));
 
     return StatusBarScope(&ctx, node, res, opts);
 }

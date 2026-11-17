@@ -420,7 +420,6 @@ TableRowScope TableScope::Row(keel::usize rowIndex, const TableRowOptions& opts)
     if (m_node) {
         m_node->childCount = static_cast<keel::u32>(rowIndex * 64);
     }
-    m_ctx->PushZone({.disabled = opts.disabled}); // row zone, left again in EndActiveRow()
 
     m_data->state->visibleRows.push_back(TableRowRecord{
         .rowIndex = rowIndex,
@@ -433,14 +432,11 @@ TableRowScope TableScope::Row(keel::usize rowIndex, const TableRowOptions& opts)
     const bool clicked = (m_data->clickedRow == iRow) && !opts.disabled;
     const bool dblClicked = (m_data->doubleClickedRow == iRow) && !opts.disabled;
 
-    return TableRowScope(this, rowIndex, true, selected, hovered, clicked, dblClicked);
+    return TableRowScope(this, rowIndex, true, selected, hovered, clicked, dblClicked, m_ctx->Zone({.disabled = opts.disabled}));
 }
 
 void TableScope::EndActiveRow() noexcept {
     if (!m_data || !m_data->hasActiveRow) return;
-    if (m_ctx) {
-        m_ctx->PopZone();
-    }
     if (m_node) {
         Node* startChild = m_data->activeRowPrevLastChild
             ? m_data->activeRowPrevLastChild->nextSibling
@@ -532,11 +528,10 @@ TableScope Table::Open(
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
     const TableOptions& optsCopy = opts;
 
-    UiTheme* zoneTheme = ctx.PushZone({.theme = optsCopy.theme, .scale = optsCopy.scale, .disabled = optsCopy.disabled});
+    ZoneScope zone = ctx.Zone({.theme = optsCopy.theme, .scale = optsCopy.scale, .disabled = optsCopy.disabled});
     const UiTheme& theme = ctx.GetTheme();
 
     Node* node = ctx.CreateNode(NodeType::Table, id);
-    node->theme = zoneTheme;
     node->debugBoundsOverride = optsCopy.debugBounds;
     node->inspectModeOverride = optsCopy.inspectMode;
     node->direction = FlexDirection::Column;
@@ -958,7 +953,7 @@ TableScope Table::Open(
         }
     }
 
-    ctx.PushContainerInZone(node);
+    ctx.PushContainer(node, keel::move(zone));
 
     return TableScope(&ctx, node, data);
 }

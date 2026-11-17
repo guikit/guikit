@@ -970,7 +970,6 @@ WaterfallViewResponse WaterfallView::Run(
     const bool effDisabled = opts.disabled || ctx.IsDisabled();
 
     Node* node = ctx.CreateNode(NodeType::WaterfallView, id);
-    node->theme = zoneScope.GetTheme();
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<WaterfallViewPayload>();

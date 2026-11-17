@@ -320,7 +320,7 @@ ToolbarScope Toolbar::Open(
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    UiTheme* zoneTheme = ctx.PushZone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
+    ZoneScope zone = ctx.Zone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
     const float activeScale = ctx.GetCurrentScale();
 
     const UiTheme& theme = ctx.GetTheme();
@@ -334,7 +334,6 @@ ToolbarScope Toolbar::Open(
     res.ctx = &ctx;
 
     Node* node = ctx.CreateNode(NodeType::Toolbar, id);
-    node->theme = zoneTheme;
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     node->direction = isVertical
@@ -450,7 +449,7 @@ ToolbarScope Toolbar::Open(
         tbCar ? tbCar->rightArrowPressed : false
     );
 
-    ctx.PushContainerInZone(node);
+    ctx.PushContainer(node, keel::move(zone));
 
     return ToolbarScope(&ctx, node, res, opts);
 }

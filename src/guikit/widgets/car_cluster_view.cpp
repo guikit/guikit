@@ -1555,7 +1555,6 @@ CarClusterViewResponse CarClusterView::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::CarClusterView, id);
-    node->theme = zoneScope.GetTheme();
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<CarClusterViewPayload>();

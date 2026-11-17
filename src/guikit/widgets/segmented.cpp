@@ -347,7 +347,6 @@ Response Segmented::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::Segmented, id);
-    node->theme = zoneScope.GetTheme();
 
     optsCopy.tooltip = ctx.AllocText(optsCopy.tooltip);
     SegmentedItem* arenaItems = ctx.GetArena().create_array<SegmentedItem>(items.size());

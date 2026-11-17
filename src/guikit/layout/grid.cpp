@@ -12,11 +12,10 @@ GridScope Grid::Open(
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    UiTheme* zoneTheme = ctx.PushZone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
+    ZoneScope zone = ctx.Zone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
 
     const UiTheme& theme = ctx.GetTheme();
     Node* node = ctx.CreateNode(NodeType::Grid, id);
-    node->theme = zoneTheme;
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     node->direction = FlexDirection::Grid;
@@ -47,7 +46,7 @@ GridScope Grid::Open(
     node->uiSize = activeSize;
     node->disabled = activeDisabled;
 
-    ctx.PushContainerInZone(node);
+    ctx.PushContainer(node, keel::move(zone));
     return GridScope(&ctx, node);
 }
 
@@ -57,12 +56,11 @@ ContainerScope GridScope::Cell(keel::i32 span, CellOptions opts, keel::SourceLoc
     const Id id = m_ctx->MakeChildId(loc);
     const UiSize activeSize = m_ctx->GetCurrentSize();
     const bool activeDisabled = opts.disabled || m_ctx->IsDisabled();
-    UiTheme* zoneTheme = m_ctx->PushZone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
+    ZoneScope zone = m_ctx->Zone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
 
     const UiTheme& theme = m_ctx->GetTheme();
     const keel::i32 maxCols = (m_node && m_node->gridColumns > 0) ? static_cast<keel::i32>(m_node->gridColumns) : 12;
     Node* node = m_ctx->CreateNode(NodeType::Cell, id);
-    node->theme = zoneTheme;
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     node->direction = FlexDirection::Column;
@@ -88,7 +86,7 @@ ContainerScope GridScope::Cell(keel::i32 span, CellOptions opts, keel::SourceLoc
     node->uiSize = activeSize;
     node->disabled = activeDisabled;
 
-    m_ctx->PushContainerInZone(node);
+    m_ctx->PushContainer(node, keel::move(zone));
     return ContainerScope(m_ctx, node);
 }
 

@@ -4667,7 +4667,6 @@ BpmnEditorResponse BpmnEditor::Run(
     state.renderSnapshot = diagram.clone();
 
     Node* node = ctx.CreateNode(NodeType::BpmnEditor, id);
-    node->theme = zoneScope.GetTheme();
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<BpmnEditorPayload>();

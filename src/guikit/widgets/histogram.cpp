@@ -407,7 +407,6 @@ HistogramResponse Histogram::Run(
 
     // Create Node & Payload
     Node* node = ctx.CreateNode(NodeType::Histogram, id);
-    node->theme = zoneScope.GetTheme();
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<HistogramPayload>();

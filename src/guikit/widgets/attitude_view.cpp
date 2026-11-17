@@ -1478,7 +1478,6 @@ AttitudeViewResponse AttitudeView::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::AttitudeView, id);
-    node->theme = zoneScope.GetTheme();
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<AttitudeViewPayload>();

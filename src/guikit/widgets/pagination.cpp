@@ -438,7 +438,6 @@ Response Pagination::Run(
     const ControlSpec ctrl = EffectivePaginationControl(optsCopy, activeSize, theme);
 
     Node* node = ctx.CreateNode(NodeType::Pagination, id);
-    node->theme = zoneScope.GetTheme();
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
 

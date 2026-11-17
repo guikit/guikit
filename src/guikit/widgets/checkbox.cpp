@@ -74,7 +74,6 @@ Response Checkbox::Run(
 
     const ControlSpec ctrl = EffectiveCheckboxControl(activeSize, ctx.GetTheme());
     Node* node = ctx.CreateNode(NodeType::Checkbox, id);
-    node->theme = zoneScope.GetTheme();
     node->SetPayload(ctx.AllocPayload<CheckboxOptions>(optsCopy));
     node->visualHash = detail::HashArgs(
         optsCopy.color,

@@ -112,7 +112,7 @@ SidebarScope Sidebar::Open(
     const Id sashId(detail::HashArgs(id.value, keel::u64(0x53425F53415348ull)));
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    UiTheme* zoneTheme = ctx.PushZone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
+    ZoneScope zone = ctx.Zone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
     const float activeScale = ctx.GetCurrentScale();
 
     const UiTheme& theme = ctx.GetTheme();
@@ -375,7 +375,6 @@ SidebarScope Sidebar::Open(
     }
 
     Node* node = ctx.CreateNode(NodeType::Sidebar, id);
-    node->theme = zoneTheme;
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     node->direction = FlexDirection::Column;
@@ -461,7 +460,7 @@ SidebarScope Sidebar::Open(
         opts.border
     );
 
-    ctx.PushContainerInZone(node);
+    ctx.PushContainer(node, keel::move(zone));
 
     if (node->sidebarScrollable) {
         node->postRenderFn = &ScrollArea::RenderScrollbar;

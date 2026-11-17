@@ -189,7 +189,6 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocati
     }
 
     Node* node = ctx.CreateNode(NodeType::Button, id);
-    node->theme = zoneScope.GetTheme();
     node->scrollOffset.x = loadingPhase;
     auto* bOpts = ctx.AllocPayload<ButtonOptions>(optsCopy);
     node->text = bOpts->text.text;

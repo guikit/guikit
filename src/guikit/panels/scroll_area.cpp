@@ -14,10 +14,9 @@ ContainerScope ScrollArea::Open(
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    UiTheme* zoneTheme = ctx.PushZone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
+    ZoneScope zone = ctx.Zone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
 
     Node* node = ctx.CreateNode(NodeType::ScrollArea, id);
-    node->theme = zoneTheme;
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     node->direction = (opts.orientation == Orientation::Horizontal) ? FlexDirection::Row : FlexDirection::Column;
@@ -59,7 +58,7 @@ ContainerScope ScrollArea::Open(
     auto& state = ctx.GetOrCreatePersistentState<ScrollState>(id);
     node->scrollOffset = state.offset;
 
-    ctx.PushContainerInZone(node);
+    ctx.PushContainer(node, keel::move(zone));
     return ContainerScope(&ctx, node);
 }
 

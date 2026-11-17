@@ -1014,7 +1014,6 @@ Response DatePicker::Run(
     const keel::FixedString<32> formattedStr = FormatDateTime(value, optsCopy.mode, optsCopy.showSeconds);
 
     Node* node = ctx.CreateNode(NodeType::DatePicker, id);
-    node->theme = zoneScope.GetTheme();
     optsCopy.tooltip = ctx.AllocText(optsCopy.tooltip);
 
     auto* data = ctx.AllocPayload<DatePickerData>();

@@ -6,6 +6,7 @@
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
+#include "guikit/core/zone.hpp"
 #include "keel/core.h"
 #include "keel/optional.h"
 #include "keel/ref.h"
@@ -91,14 +92,16 @@ class TableScope;
 class TableRowScope {
 public:
     TableRowScope() noexcept = default;
-    TableRowScope(TableScope* table, keel::usize rowIndex, bool visible, bool selected, bool hovered, bool clicked, bool doubleClicked) noexcept
+    /// `zone` is the row's own zone (e.g. its disabled state); it is left when the row scope ends.
+    TableRowScope(TableScope* table, keel::usize rowIndex, bool visible, bool selected, bool hovered, bool clicked, bool doubleClicked, ZoneScope zone) noexcept
         : m_table(table)
         , m_rowIndex(rowIndex)
         , m_visible(visible)
         , m_selected(selected)
         , m_hovered(hovered)
         , m_clicked(clicked)
-        , m_doubleClicked(doubleClicked) {}
+        , m_doubleClicked(doubleClicked)
+        , m_zone(keel::move(zone)) {}
 
     ~TableRowScope() noexcept;
 
@@ -112,7 +115,8 @@ public:
         , m_selected(other.m_selected)
         , m_hovered(other.m_hovered)
         , m_clicked(other.m_clicked)
-        , m_doubleClicked(other.m_doubleClicked) {
+        , m_doubleClicked(other.m_doubleClicked)
+        , m_zone(keel::move(other.m_zone)) {
         other.m_table = nullptr;
         other.m_visible = false;
     }
@@ -132,6 +136,7 @@ private:
     bool m_hovered{false};
     bool m_clicked{false};
     bool m_doubleClicked{false};
+    ZoneScope m_zone; ///< Declared last: left after the row has been ended
 };
 
 /// RAII scope returned by `ui.Table(...)` providing row virtualization and cell emission methods.

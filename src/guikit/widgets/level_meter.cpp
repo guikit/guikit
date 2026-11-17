@@ -686,7 +686,6 @@ Response RunLevelMeterImpl(
 
     const ControlSpec ctrl = EffectiveLevelMeterControl(optsCopy, activeSize, activeTheme);
     Node* node = ctx.CreateNode(NodeType::LevelMeter, id);
-    node->theme = zoneScope.GetTheme();
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;

@@ -670,7 +670,6 @@ Response Slider::Run(
     const keel::StringRef formattedStr = ctx.AllocString(valBuf);
 
     Node* node = ctx.CreateNode(NodeType::Slider, id);
-    node->theme = zoneScope.GetTheme();
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
@@ -990,7 +989,6 @@ Response StepSlider::Run(
     if (indexInt != nullptr)   *indexInt = static_cast<keel::i32>(curIdx);
 
     Node* node = ctx.CreateNode(NodeType::StepSlider, id);
-    node->theme = zoneScope.GetTheme();
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
@@ -1547,7 +1545,6 @@ Response RangeSlider::Run(
     if (highInt != nullptr)    *highInt = keel::round_i64(curHigh);
 
     Node* node = ctx.CreateNode(NodeType::RangeSlider, id);
-    node->theme = zoneScope.GetTheme();
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
@@ -1798,7 +1795,6 @@ Response ProgressBar::Run(
 
     const ControlSpec ctrl = EffectiveSliderControl(optsCopy, activeSize, activeTheme);
     Node* node = ctx.CreateNode(NodeType::ProgressBar, id);
-    node->theme = zoneScope.GetTheme();
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;

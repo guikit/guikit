@@ -111,7 +111,6 @@ Response Image::Run(
 
     const ControlSpec ctrl = EffectiveImageControl(optsCopy, activeSize, theme);
     Node* node = ctx.CreateNode(NodeType::Image, id);
-    node->theme = zoneScope.GetTheme();
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<ImagePayload>();

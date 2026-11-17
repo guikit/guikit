@@ -605,7 +605,6 @@ Response SpinBox::Run(
 
     const ControlSpec ctrl = EffectiveSpinBoxControl(optsCopy, activeSize, theme);
     Node* node = ctx.CreateNode(NodeType::SpinBox, id);
-    node->theme = zoneScope.GetTheme();
 
     auto* data = ctx.AllocPayload<SpinBoxData>();
     data->opts = optsCopy;

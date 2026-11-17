@@ -706,26 +706,15 @@ public:
     );
 
     // --- Zones (ambient theme / scale / size / disabled state) ---
-    /// Enters a child zone: anything `opts` leaves unset is inherited from the current zone.
-    /// Returns the arena-owned theme when the zone replaced or rescaled it (`nullptr` when inherited), which
-    /// nodes store as `Node::theme`. Must be paired with `PopZone()`; prefer `Zone(...)` / `ZoneScope`.
-    UiTheme* PushZone(const ZoneOptions& opts);
-
-    /// Re-enters an already resolved zone state (no allocation), e.g. for a second container of the same widget.
-    void PushZoneState(const ZoneState& state);
-
-    /// Leaves the innermost zone. The root zone can never be popped.
-    void PopZone() noexcept;
+    /// The innermost zone's state.
+    [[nodiscard]] const ZoneState& GetZone() const noexcept { return m_zoneStack.back(); }
 
     /// Number of zones on the stack, including the root zone.
     [[nodiscard]] keel::usize GetZoneDepth() const noexcept { return m_zoneStack.size(); }
 
-    /// Removes the zone that was entered when the stack had `depth` elements, keeping the zones above it.
-    /// Used by `ZoneScope::Detach()`; the root zone can never be removed.
-    void ReleaseZone(keel::usize depth) noexcept;
-
-    /// The innermost zone's state.
-    [[nodiscard]] const ZoneState& GetZone() const noexcept { return m_zoneStack.back(); }
+    /// The scale (in layout units) a zone with these options will have: its explicit `scale`, the scale that
+    /// `zoom` converts to, or the current zone's scale. The single place that rule lives.
+    [[nodiscard]] float ResolveScale(const ZoneOptions& opts) const noexcept;
 
     /// The theme a zone with these options would use, without entering it (for popups and overlays that
     /// only need the resolved theme values).
@@ -733,6 +722,9 @@ public:
 
     /// RAII child zone: `if (auto zone = ui.Zone({.theme = &t, .zoom = 1.0f})) { ... }`.
     [[nodiscard]] ZoneScope Zone(const ZoneOptions& opts = {}) { return ZoneScope(*this, opts); }
+
+    /// Re-enters a zone whose state was captured with `GetZone()` (no theme copy).
+    [[nodiscard]] ZoneScope ReenterZone(const ZoneState& state) { return ZoneScope(*this, state); }
 
     /// Replaces the control size of the innermost zone in place (used when a scope hands its zone to a container).
     void ReplaceTopSize(UiSize size) noexcept { m_zoneStack.back().size = size; }
@@ -747,13 +739,13 @@ public:
 
     template <typename Fn>
     void Size(UiSize size, Fn&& fn) {
-        const ZoneScope zone(*this, {.size = size});
+        const ZoneScope zone(*this, ZoneOptions{.size = size});
         fn();
     }
 
     template <typename Fn>
     void Disabled(bool disabled, Fn&& fn) {
-        const ZoneScope zone(*this, {.disabled = disabled});
+        const ZoneScope zone(*this, ZoneOptions{.disabled = disabled});
         fn();
     }
 
@@ -1666,7 +1658,7 @@ public:
         const ContextMenuOptions& opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        const Id parentId = m_containerStack.empty() ? Id::Null() : m_containerStack.back()->id;
+        const Id parentId = m_containerStack.empty() ? Id::Null() : m_containerStack.back().node->id;
         const Rect parentRect = GetPrevFrameBounds(parentId);
         return guikit::ContextMenu::Run(*this, nullptr, keel::kNullOpt, parentRect, items, opts, loc);
     }
@@ -1677,7 +1669,7 @@ public:
         const ContextMenuOptions& opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        const Id parentId = m_containerStack.empty() ? Id::Null() : m_containerStack.back()->id;
+        const Id parentId = m_containerStack.empty() ? Id::Null() : m_containerStack.back().node->id;
         const Rect parentRect = GetPrevFrameBounds(parentId);
         return guikit::ContextMenu::Run(*this, &open, keel::kNullOpt, parentRect, items, opts, loc);
     }
@@ -1767,13 +1759,21 @@ public:
     /// again: this overload enters a fresh zone that inherits everything (for custom containers).
     void PushContainer(Node* node);
 
-    /// Like `PushContainer()`, but the container adopts the zone the caller entered for it with `PushZone()` /
-    /// `PushZoneState()` (built-in containers do this to build their node with the zone's theme).
-    void PushContainerInZone(Node* node);
+    /// Makes `node` the innermost container and hands it the zone the caller entered for it (built-in
+    /// containers enter their zone first so that they build the node with the zone's theme).
+    void PushContainer(Node* node, ZoneScope zone);
 
     void PopContainer(Node* node);
+
+    /// Number of open containers, including the frame's root container.
+    [[nodiscard]] keel::usize GetContainerDepth() const noexcept { return m_containerStack.size(); }
+
+    /// Lets the container opened at `frameIndex` own `zone` as well, leaving it right after its own zone. This is
+    /// how `ui.Size(...).Row(...)` keeps its size beyond the temporary scope. Returns `false` and leaves `zone`
+    /// untouched when no container was opened at that index.
+    bool AdoptZone(keel::usize frameIndex, ZoneScope& zone) noexcept;
     [[nodiscard]] Node* GetCurrentContainer() const noexcept {
-        return m_containerStack.empty() ? nullptr : m_containerStack.back();
+        return m_containerStack.empty() ? nullptr : m_containerStack.back().node;
     }
 
     // Imperative actions requested from Response
@@ -2116,6 +2116,13 @@ public:
     }
 
 private:
+    friend class ZoneScope;
+
+    // Zone stack mutators: reachable only through `ZoneScope`, so a zone is always left again
+    void PushZone(const ZoneOptions& opts);
+    void PushZoneState(const ZoneState& state);
+    void PopZone() noexcept;
+
     void FlushActiveEditHistory() noexcept;
     [[nodiscard]] bool IsDirectEditAllowed() const noexcept;
     void RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirtyRect, const UiTheme& parentTheme);
@@ -2163,7 +2170,14 @@ private:
     bool m_anyScopedInspectActive{false};
 
     keel::Arena m_arena;
-    keel::SmallArray<Node*, 16> m_containerStack;
+    /// An open container and the zones it owns. Members are destroyed in reverse order, so `zone` is left first
+    /// and `outer` (a zone handed over by an enclosing scope, see `AdoptZone`) right after it.
+    struct ContainerFrame {
+        Node* node{nullptr};
+        ZoneScope outer;
+        ZoneScope zone;
+    };
+    keel::SmallArray<ContainerFrame, 16> m_containerStack;
     keel::SmallArray<ZoneState, 16> m_zoneStack; ///< Never empty: element 0 is the frame's root zone
     Node* m_root{nullptr};
     ICanvas* m_lastCanvas{nullptr};
@@ -2410,6 +2424,7 @@ public:
 
     SizeScope(Context* ctx, UiSize size) noexcept
         : m_ctx(ctx)
+        , m_containerDepth(ctx ? ctx->GetContainerDepth() : 0)
         , m_prevSize(ctx ? ctx->GetCurrentSize() : UiSize::Md)
         , m_size(size) {
         if (m_ctx) {
@@ -2423,6 +2438,7 @@ public:
     SizeScope(SizeScope&& other) noexcept
         : m_ctx(other.m_ctx)
         , m_zone(keel::move(other.m_zone))
+        , m_containerDepth(other.m_containerDepth)
         , m_prevSize(other.m_prevSize)
         , m_size(other.m_size) {
         other.m_ctx = nullptr;
@@ -2432,6 +2448,7 @@ public:
         if (this != &other) {
             m_ctx = other.m_ctx;
             m_zone = keel::move(other.m_zone);
+            m_containerDepth = other.m_containerDepth;
             m_prevSize = other.m_prevSize;
             m_size = other.m_size;
             other.m_ctx = nullptr;
@@ -3458,19 +3475,25 @@ public:
     }
 
 private:
-    /// The container just opened inside this scope entered its own zone, which already carries this size;
-    /// drop the now redundant zone beneath it (or, if the container opened nothing, simply leave it).
+    /// This scope is usually a temporary that ends with the full expression, while the container opened inside it
+    /// lives on: hand the size zone to that container, which then leaves it after its own zone. If the call
+    /// opened no container, the zone simply stays with this scope.
+    void HandZoneToContainer() noexcept {
+        if (m_ctx) {
+            m_ctx->AdoptZone(m_containerDepth, m_zone);
+            m_ctx = nullptr;
+        }
+    }
+
     template <typename ScopeT>
     ScopeT TransferToContainer(ScopeT&& scope) noexcept {
-        m_zone.Detach();
-        m_ctx = nullptr;
+        HandZoneToContainer();
         return keel::move(scope);
     }
 
     void RestoreAccordionBodySize(Context* ctx, AccordionScope& scope, const AccordionOptions& opts) noexcept {
         if (ctx) {
-            m_zone.Detach();
-            m_ctx = nullptr;
+            HandZoneToContainer();
             if (Node* bodyNode = scope.GetNode()) {
                 ctx->ReplaceTopSize(m_prevSize);
                 bodyNode->uiSize = m_prevSize;
@@ -3484,6 +3507,7 @@ private:
 
     Context* m_ctx{nullptr};
     ZoneScope m_zone;
+    keel::usize m_containerDepth{0}; ///< Containers open when this scope was created: the first new one adopts the zone
     UiSize m_prevSize{UiSize::Md};
     UiSize m_size{UiSize::Md};
 };

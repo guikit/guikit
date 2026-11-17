@@ -46,7 +46,7 @@ ActivityBarScope ActivityBar::Open(
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    UiTheme* zoneTheme = ctx.PushZone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
+    ZoneScope zone = ctx.Zone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
     const float activeScale = ctx.GetCurrentScale();
 
     const UiTheme& theme = ctx.GetTheme();
@@ -58,7 +58,6 @@ ActivityBarScope ActivityBar::Open(
     res.ctx = &ctx;
 
     Node* node = ctx.CreateNode(NodeType::Sidebar, id);
-    node->theme = zoneTheme;
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     node->direction = FlexDirection::Column;
@@ -107,7 +106,7 @@ ActivityBarScope ActivityBar::Open(
         opts.border
     );
 
-    ctx.PushContainerInZone(node);
+    ctx.PushContainer(node, keel::move(zone));
 
     return ActivityBarScope(&ctx, node, res, opts);
 }

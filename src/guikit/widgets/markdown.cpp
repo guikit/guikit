@@ -2150,7 +2150,6 @@ MarkdownResponse Markdown::Run(
 
     // 6. Create Node & Payload
     Node* node = ctx.CreateNode(NodeType::Markdown, id);
-    node->theme = zoneScope.GetTheme();
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<MarkdownPayload>();

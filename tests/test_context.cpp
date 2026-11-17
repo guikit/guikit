@@ -3493,7 +3493,6 @@ void TestZonesInheritanceZoomIndependenceAndBalance() {
         CHECK(ui.GetZoneDepth() == 2);
         CHECK(ui.GetCurrentSize() == UiSize::Sm);
         CHECK(&ui.GetTheme() == rootTheme);       // theme inherited, not copied
-        CHECK(sized.GetTheme() == nullptr);       // nothing overridden -> nodes keep inheriting at layout time
         CHECK(!ui.IsDisabled());
 
         {
@@ -3516,7 +3515,7 @@ void TestZonesInheritanceZoomIndependenceAndBalance() {
         const UiTheme light = UiTheme::Light();
         auto themed = ui.Zone({.theme = &light});
         CHECK(ui.GetTheme().mode == ThemeMode::Light);
-        CHECK(themed.GetTheme() != nullptr && themed.GetTheme() != &light);
+        CHECK(&ui.GetTheme() != &light);          // the zone owns a frame-lifetime copy
         CHECK(&ui.GetTheme() != rootTheme);
         CHECK_NEAR(ui.GetCurrentScale(), 1.0f, 1e-6f);
     }
@@ -3589,13 +3588,13 @@ void TestZonesInheritanceZoomIndependenceAndBalance() {
         ctx.BeginFrame(viewport, 1.0f);
         const keel::usize rootDepth = ctx.GetZoneDepth();
 
-        // ui.Size(...).Row(...) hands the size to the row: one zone, not two
+        // ui.Size(...).Row(...): the temporary size scope hands its zone to the row, which leaves it with its own
         {
             auto row = ctx.Size(UiSize::Sm).Row();
-            CHECK(ctx.GetZoneDepth() == rootDepth + 1);
+            CHECK(ctx.GetZoneDepth() == rootDepth + 2);
             CHECK(ctx.GetCurrentSize() == UiSize::Sm);
             if (auto col = ctx.Column({.disabled = true})) {
-                CHECK(ctx.GetZoneDepth() == rootDepth + 2);
+                CHECK(ctx.GetZoneDepth() == rootDepth + 3);
                 CHECK(ctx.IsDisabled());
                 CHECK(ctx.GetCurrentSize() == UiSize::Sm);
             }
@@ -3618,7 +3617,7 @@ void TestZonesInheritanceZoomIndependenceAndBalance() {
             bool open = true;
             auto acc = ctx.Size(UiSize::Sm).Accordion(open, {.label = "Open"});
             CHECK(acc);
-            CHECK(ctx.GetZoneDepth() == rootDepth + 1);
+            CHECK(ctx.GetZoneDepth() == rootDepth + 2);
             CHECK(ctx.GetCurrentSize() == UiSize::Md);
         }
         CHECK(ctx.GetZoneDepth() == rootDepth);
@@ -3626,8 +3625,75 @@ void TestZonesInheritanceZoomIndependenceAndBalance() {
         // Widgets with a theme / scale override enter and leave their own zone
         ctx.Button({.text = "Scaled", .scale = 1.5f});
         CHECK(ctx.GetZoneDepth() == rootDepth);
+
+        // A table row is a zone of its own that lives exactly as long as its row scope
+        {
+            static const keel::StaticArray<TableColumn, 1> kColumns = {{{.title = "A", .flex = 1.0f}}};
+            bool rowDisabled[3] = {};
+            keel::usize rowsSeen = 0;
+            for (keel::i32 frame = 0; frame < 3; ++frame) {
+                rowsSeen = 0;
+                ctx.BeginFrame(viewport, 1.0f);
+                if (auto table = ctx.Table(kColumns, {.totalRows = 3, .height = 200.0f})) {
+                    for (keel::usize r = table.FirstVisibleRow(); r < table.EndVisibleRow() && r < 3; ++r) {
+                        if (auto row = table.Row(r, {.disabled = (r == 1)})) {
+                            rowDisabled[r] = ctx.IsDisabled();
+                            ++rowsSeen;
+                        }
+                        CHECK(!ctx.IsDisabled());
+                    }
+                }
+                CHECK(ctx.GetZoneDepth() == rootDepth);
+                ctx.EndFrame(canvas);
+            }
+            CHECK(rowsSeen == 3);
+            CHECK(!rowDisabled[0] && rowDisabled[1] && !rowDisabled[2]);
+        }
         ctx.EndFrame(canvas);
     }
+}
+
+// A zone's theme must reach every node built inside it, not only the node that entered the zone: widgets
+// created in a bare `ui.Zone(...)` are measured and rendered with the zone's theme and scale.
+void TestZoneThemeReachesNodesBuiltInside() {
+    using namespace guikit;
+
+    ThorCanvas canvas;
+    constexpr keel::u32 kW = 800;
+    constexpr keel::u32 kH = 600;
+    keel::Array<keel::u32> pixels(kW * kH);
+    canvas.SetTarget(pixels.data(), kW, kH, kW);
+    const Vec2 viewport{static_cast<float>(kW), static_cast<float>(kH)};
+    const UiTheme touch = UiTheme::Dark(Density::Touch);
+
+    Context ui;
+    Response plain;
+    Response scaled;
+    Response themed;
+    Response nested;
+    for (keel::i32 frame = 0; frame < 3; ++frame) {
+        ui.BeginFrame(viewport, 1.0f);
+        if (auto col = ui.Column()) {
+            plain = ui.Button({.text = "Button"});
+            if (auto zone = ui.Zone({.scale = 2.0f})) {
+                scaled = ui.Button({.text = "Button"});
+            }
+            if (auto zone = ui.Zone({.theme = &touch})) {
+                themed = ui.Button({.text = "Button"});
+                if (auto inner = ui.Zone({.scale = 2.0f})) {
+                    nested = ui.Button({.text = "Button"});
+                }
+            }
+        }
+        ui.EndFrame(canvas);
+    }
+    const float mdStandard = UiTheme::Dark(Density::Standard).GetMetrics(UiSize::Md).defaultHeight;
+    const float mdTouch = touch.GetMetrics(UiSize::Md).defaultHeight;
+    CHECK_NEAR(plain.rect.h, mdStandard, 0.01f);
+    CHECK_NEAR(scaled.rect.h, mdStandard * 2.0f, 0.01f);          // zone scale reaches the widget
+    CHECK_NEAR(themed.rect.h, mdTouch, 0.01f);                    // zone theme reaches the widget
+    CHECK_NEAR(nested.rect.h, mdTouch * 2.0f, 0.01f);             // and composes with a nested zone
+    CHECK(scaled.rect.w > plain.rect.w * 1.9f);                   // text is measured at the zone's scale as well
 }
 
 // Regression: ThorVG's Text::size() takes points and scales by 96/72 internally, so passing a dp
@@ -12260,6 +12326,7 @@ int main() {
     TestThorCanvasFontSizeIsInPixels();
     TestFrameScaleIsUniformAndKeepsPointer();
     TestZonesInheritanceZoomIndependenceAndBalance();
+    TestZoneThemeReachesNodesBuiltInside();
     TestSdlCanvasBackendInterface();
     TestDebugBoundsAndInspectMode();
     TestPostRenderDelegateWorkflow();

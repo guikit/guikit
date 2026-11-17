@@ -271,16 +271,17 @@ void Context::BeginFrame(Vec2 viewportSize, float displayScale, float rootZoom) 
     m_root->uiSize = UiSize::Md;
     m_root->disabled = false;
 
-    m_containerStack.push_back(m_root);
+    m_containerStack.push_back(ContainerFrame{.node = m_root});
 }
 
 Node* Context::CreateNode(NodeType type, Id id) {
     Node* node = m_arena.create<Node>();
     node->type = type;
     node->id = id;
+    node->theme = m_zoneStack.back().theme; // the theme of the zone the node is built in, whoever entered it
 
     if (!m_containerStack.empty()) {
-        m_containerStack.back()->AddChild(node);
+        m_containerStack.back().node->AddChild(node);
     }
     return node;
 }
@@ -304,7 +305,7 @@ Id Context::MakeChildIdForParent(Id parentId, keel::SourceLocation loc) {
 }
 
 Id Context::MakeChildId(keel::SourceLocation loc) {
-    const Id parentId = m_containerStack.empty() ? Id::Null() : m_containerStack.back()->id;
+    const Id parentId = m_containerStack.empty() ? Id::Null() : m_containerStack.back().node->id;
     return MakeChildIdForParent(parentId, loc);
 }
 
@@ -364,7 +365,7 @@ Response Context::Interact(Id id) {
 
 void Context::AdaptChildToContainer(Node* node) {
     if (!node) return;
-    Node* parent = node->parent ? node->parent : (m_containerStack.empty() ? nullptr : m_containerStack.back());
+    Node* parent = node->parent ? node->parent : (m_containerStack.empty() ? nullptr : m_containerStack.back().node);
     if (!parent) return;
     if (parent->direction == FlexDirection::Column || parent->direction == FlexDirection::Grid) {
         if (node->widthMode != SizeMode::Fit && node->widthMode != SizeMode::Fixed) {
@@ -394,7 +395,7 @@ Rect Context::GetParentPrevFrameBounds() const {
     keel::i32 startIdx = -1;
     Rect r{};
     for (keel::i32 i = static_cast<keel::i32>(m_containerStack.size()) - 1; i >= 0; --i) {
-        const Node* parent = m_containerStack[static_cast<keel::usize>(i)];
+        const Node* parent = m_containerStack[static_cast<keel::usize>(i)].node;
         if (!parent || !parent->id.IsValid()) continue;
         const Rect* found = m_prevFrameBounds.get(parent->id);
         if (found != nullptr && found->w > 1.0f && found->h > 1.0f) {
@@ -409,7 +410,7 @@ Rect Context::GetParentPrevFrameBounds() const {
 
     const keel::i32 stackSize = static_cast<keel::i32>(m_containerStack.size());
     for (keel::i32 i = startIdx; i < stackSize; ++i) {
-        const Node* c = m_containerStack[static_cast<keel::usize>(i)];
+        const Node* c = m_containerStack[static_cast<keel::usize>(i)].node;
         if (!c) continue;
 
         if (i > startIdx) {
@@ -436,7 +437,7 @@ Rect Context::GetParentPrevFrameBounds() const {
         if (c->direction == FlexDirection::Column &&
             (i + 1 < stackSize || c->type == NodeType::BottomPanel || c->type == NodeType::Sidebar)) {
             const Node* stopChild = (i + 1 < stackSize)
-                ? m_containerStack[static_cast<keel::usize>(i + 1)]
+                ? m_containerStack[static_cast<keel::usize>(i + 1)].node
                 : c->lastChild;
             for (const Node* ch = c->firstChild; ch != nullptr && ch != stopChild; ch = ch->nextSibling) {
                 if (ch->heightMode == SizeMode::Fixed && ch->fixedHeight > 0.0f && !ch->sidebarCollapsed) {
@@ -454,7 +455,8 @@ Rect Context::GetParentPrevFrameBounds() const {
 Rect Context::GetPopupViewportRect() const noexcept {
     const Vec2 logical = GetLogicalViewport();
     Rect vp(0.0f, 0.0f, logical.x, logical.y);
-    for (const Node* n : m_containerStack) {
+    for (const ContainerFrame& frame : m_containerStack) {
+        const Node* n = frame.node;
         if (!n || !n->id.IsValid()) continue;
         if (n->type == NodeType::Box && n->clipChildren) {
             const Rect* found = m_prevFrameBounds.get(n->id);
@@ -474,43 +476,52 @@ Rect Context::GetPopupViewportRect() const noexcept {
 }
 
 void Context::PushContainer(Node* node) {
-    PushZone({});
-    PushContainerInZone(node);
+    PushContainer(node, Zone({}));
 }
 
-void Context::PushContainerInZone(Node* node) {
-    m_containerStack.push_back(node);
+void Context::PushContainer(Node* node, ZoneScope zone) {
+    m_containerStack.push_back(ContainerFrame{.node = node, .zone = keel::move(zone)});
 }
 
 void Context::PopContainer(Node* node) {
-    if (!m_containerStack.empty() && m_containerStack.back() == node) {
+    if (!m_containerStack.empty() && m_containerStack.back().node == node) {
+        // The frame (and with it the container's zones) is left when `frame` goes out of scope, after the sync
+        ContainerFrame frame = keel::move(m_containerStack.back());
         m_containerStack.pop_back();
         if (node->type == NodeType::Element) {
             Element::SyncWithChildren(*this, node);
         }
-        // Every container enters exactly one zone right before it is pushed; it leaves it here
-        PopZone();
     }
 }
 
-UiTheme* Context::PushZone(const ZoneOptions& opts) {
-    assert(!(opts.scale.has_value() && opts.zoom.has_value()) && "ZoneOptions: scale and zoom are mutually exclusive");
+bool Context::AdoptZone(keel::usize frameIndex, ZoneScope& zone) noexcept {
+    if (frameIndex >= m_containerStack.size()) {
+        return false;
+    }
+    m_containerStack[frameIndex].outer = keel::move(zone);
+    return true;
+}
 
+float Context::ResolveScale(const ZoneOptions& opts) const noexcept {
+    assert(!(opts.scale.has_value() && opts.zoom.has_value()) && "ZoneOptions: scale and zoom are mutually exclusive");
+    const float requested = opts.zoom.has_value() ? ScaleForZoom(*opts.zoom) : opts.scale.value_or(0.0f);
+    if (requested > 0.0f) {
+        return requested;
+    }
+    const float inherited = GetCurrentScale();
+    return (inherited > 0.0f) ? inherited : 1.0f;
+}
+
+void Context::PushZone(const ZoneOptions& opts) {
     const ZoneState& parent = m_zoneStack.back();
     ZoneState next = parent;
 
-    // The zone's scale lives on its theme: an explicit scale/zoom wins, otherwise the parent's scale is kept
-    keel::Optional<float> requestedScale = opts.zoom.has_value() ? keel::Optional<float>{ScaleForZoom(*opts.zoom)} : opts.scale;
-    UiTheme* overridden = nullptr;
-    if (opts.theme != nullptr || requestedScale.has_value()) {
+    // The zone's scale lives on its theme: replace and/or rescale the theme only when asked to
+    if (opts.theme != nullptr || opts.scale.has_value() || opts.zoom.has_value()) {
         const UiTheme& base = (opts.theme != nullptr) ? *opts.theme : *parent.theme;
         const float baseScale = (base.scale > 0.0f) ? base.scale : 1.0f;
-        const float targetScale = (requestedScale.has_value() && *requestedScale > 0.0f)
-            ? *requestedScale
-            : ((parent.theme->scale > 0.0f) ? parent.theme->scale : 1.0f);
-        // `Scaled` is a plain copy for a factor of 1, so the zone always owns an arena copy it can hand to nodes
-        overridden = m_arena.create<UiTheme>(base.Scaled(targetScale / baseScale));
-        next.theme = overridden;
+        // `Scaled` is a plain copy for a factor of 1; the zone owns an arena copy that outlives the explicit theme
+        next.theme = m_arena.create<UiTheme>(base.Scaled(ResolveScale(opts) / baseScale));
     }
 
     if (opts.size.has_value() && *opts.size != UiSize::None) {
@@ -519,7 +530,6 @@ UiTheme* Context::PushZone(const ZoneOptions& opts) {
     next.disabled = parent.disabled || opts.disabled;
 
     m_zoneStack.push_back(next);
-    return overridden;
 }
 
 UiTheme Context::ResolveTheme(const ZoneOptions& opts) {
@@ -535,13 +545,6 @@ void Context::PopZone() noexcept {
     assert(m_zoneStack.size() > 1 && "PopZone: unbalanced zone stack");
     if (m_zoneStack.size() > 1) {
         m_zoneStack.pop_back();
-    }
-}
-
-void Context::ReleaseZone(keel::usize depth) noexcept {
-    assert(depth >= 2 && depth <= m_zoneStack.size() && "ReleaseZone: invalid zone depth");
-    if (depth >= 2 && depth <= m_zoneStack.size()) {
-        m_zoneStack.remove_at(depth - 1);
     }
 }
 
@@ -1808,7 +1811,7 @@ bool Context::IsMouseOccluded(Id id, Vec2 pos) const noexcept {
     } else {
         // Sub-part ID (e.g. AccordionHeader / TreeItemRow): check against innermost container on stack
         for (keel::usize sIdx = m_containerStack.size(); sIdx > 0; --sIdx) {
-            const Node* cNode = m_containerStack[sIdx - 1];
+            const Node* cNode = m_containerStack[sIdx - 1].node;
             if (!cNode || !cNode->id.IsValid()) continue;
             const keel::usize* idxC = m_prevHitNodeMap.get(cNode->id);
             if (idxC != nullptr) {
@@ -1902,7 +1905,8 @@ bool Context::IsMouseBlockedForCurrentScope() const noexcept {
 
     // Determine current scope Z-layer from container stack
     keel::u8 currentZLayer = (m_modalScopeDepth > 0) ? 2 : 0;
-    for (const Node* n : m_containerStack) {
+    for (const ContainerFrame& frame : m_containerStack) {
+        const Node* n = frame.node;
         if (!n) continue;
         if (n->type == NodeType::Modal) {
             currentZLayer = keel::max<keel::u8>(currentZLayer, 2);
@@ -1926,7 +1930,7 @@ bool Context::IsMouseBlockedForCurrentScope() const noexcept {
     // If user code is executing directly inside a Scene / MapView scope (not inside a child container or widget Run()),
     // gate mouse queries to unoccluded points inside the Scene viewport (and not over Scene HUD/scrollbars)
     if (m_widgetExecDepth == 0 && !m_containerStack.empty()) {
-        const Node* topContainer = m_containerStack.back();
+        const Node* topContainer = m_containerStack.back().node;
         if (topContainer && topContainer->type == NodeType::Scene && topContainer->id.IsValid()) {
             const Id sceneId = topContainer->id;
             if (hasActiveCapture && m_activeId != sceneId) {
@@ -2427,7 +2431,7 @@ bool Context::UpdateScrollAreasRecursive(Node* node) {
 
     const bool pushedToStack = (node != m_root);
     if (pushedToStack) {
-        m_containerStack.push_back(node);
+        m_containerStack.push_back(ContainerFrame{.node = node});
     }
 
     bool scrollChanged = false;
@@ -2462,7 +2466,7 @@ bool Context::UpdateScrollAreasRecursive(Node* node) {
         --m_widgetExecDepth;
     }
 
-    if (pushedToStack && !m_containerStack.empty() && m_containerStack.back() == node) {
+    if (pushedToStack && !m_containerStack.empty() && m_containerStack.back().node == node) {
         m_containerStack.pop_back();
     }
     if (isModal && m_modalScopeDepth > 0) {
@@ -2503,10 +2507,9 @@ void Context::ScrollToId(Id id) {
 void Context::EndFrame(ICanvas& canvas) {
     m_lastCanvas = &canvas;
 
-    // Balance any unclosed container scopes; each owns the zone it entered
+    // Balance any unclosed container scopes; popping a frame leaves the zones it owns
     while (m_containerStack.size() > 1) {
         m_containerStack.pop_back();
-        PopZone();
     }
     assert(m_zoneStack.size() == 1 && "EndFrame: a Zone / Size scope or themed widget scope outlived its frame");
     m_modalScopeDepth = 0;

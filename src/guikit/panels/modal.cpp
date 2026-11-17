@@ -126,7 +126,7 @@ ModalScope Modal::Open(
     const Id closeBtnId(detail::HashArgs(id.value, keel::u64(0x4D4F44414C5F58ull)));
     const UiSize activeSize = ctx.GetCurrentSize();
     // The scale the modal's zone will have; needed before the zone is entered (previous-frame hit testing)
-    const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
+    const float activeScale = ctx.ResolveScale({.scale = opts.scale});
 
     Rect backdropRect = ctx.GetPopupViewportRect();
     if (opts.confineToParent) {
@@ -205,7 +205,7 @@ ModalScope Modal::Open(
         return ModalScope(&ctx, nullptr, &open, res, true);
     }
 
-    UiTheme* zoneTheme = ctx.PushZone({.theme = opts.theme, .scale = opts.scale});
+    ZoneScope zone = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
     const UiTheme& theme = ctx.GetTheme();
     ICanvas* canvas = ctx.GetCanvas();
 
@@ -223,7 +223,6 @@ ModalScope Modal::Open(
         : Padding::All(defaultPad);
 
     Node* node = ctx.CreateNode(NodeType::Modal, id);
-    node->theme = zoneTheme;
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     node->direction = FlexDirection::Column;
@@ -273,7 +272,7 @@ ModalScope Modal::Open(
         closePressed
     );
 
-    ctx.PushContainerInZone(node);
+    ctx.PushContainer(node, keel::move(zone));
     ctx.BeginModalScope(id, backdropRect);
 
     return ModalScope(&ctx, node, &open, res, false);

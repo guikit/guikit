@@ -1423,7 +1423,6 @@ SonarViewResponse SonarView::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::SonarView, id);
-    node->theme = zoneScope.GetTheme();
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<SonarViewPayload>();

@@ -1109,7 +1109,6 @@ Response Select::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::Select, id);
-    node->theme = zoneScope.GetTheme();
     UiText ghostPlaceholder = optsCopy.placeholder;
     if (opts.searchable && !isEditable && isOpen && currentDisplayText.empty() && currIndex < items.size()) {
         ghostPlaceholder = items[currIndex].text;
@@ -2790,7 +2789,6 @@ Response Select::RunMulti(
     }
 
     Node* node = ctx.CreateNode(NodeType::Select, id);
-    node->theme = zoneScope.GetTheme();
 
     optsCopy.placeholder = ctx.AllocText(optsCopy.placeholder);
     optsCopy.emptyText = ctx.AllocText(optsCopy.emptyText);

@@ -528,7 +528,6 @@ Response InputField::Run(
 
     const ControlSpec ctrl = EffectiveInputControl(optsCopy, activeSize, theme);
     Node* node = ctx.CreateNode(NodeType::InputField, id);
-    node->theme = zoneScope.GetTheme();
 
     auto* data = ctx.AllocPayload<InputFieldData>();
     data->opts = optsCopy;

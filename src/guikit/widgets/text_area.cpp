@@ -3316,7 +3316,6 @@ TextAreaResponse TextArea::Run(
     node->hovered = res.hovered;
     node->pressed = res.pressed;
     node->focused = isFocused;
-    node->theme = zoneScope.GetTheme();
 
     ControlSpec ctrlSpec{};
     ctrlSpec.width = optsCopy.width;

@@ -1382,7 +1382,6 @@ ImageViewResponse RunImageViewImpl(
         if (Node* cNode = ctx.GetCurrentContainer()) {
             for (Node* ch = cNode->firstChild; ch; ch = ch->nextSibling) {
                 if (ch->id == rootId) {
-                    ch->theme = zoneScope.GetTheme();
                     break;
                 }
             }
@@ -1643,7 +1642,6 @@ ImageViewResponse RunImageViewImpl(
         .inspectMode = optsCopy.inspectMode
     })) {
         if (Node* rNode = outerRow.GetNode()) {
-            rNode->theme = zoneScope.GetTheme();
             const UiTheme& th = ctx.GetTheme();
             if (rNode->parent && rNode->parent->type == NodeType::Element) {
                 rNode->widthMode = SizeMode::Stretch;

@@ -13,7 +13,8 @@ class Context;
 ///
 /// A `Context` frame starts in a *root zone* (the context theme, `UiSize::Md`, enabled). Containers, widgets
 /// with a `.theme` / `.scale` override, `ui.Size(...)` and `ui.Zone(...)` each enter a child zone on a
-/// per-frame stack and leave it again when their scope ends. Nothing is allocated on the heap.
+/// per-frame stack and leave it again when their scope ends. Every node is built with the theme of the zone it is
+/// created in, so a zone's theme and scale reach all widgets inside it. Nothing is allocated on the heap.
 struct ZoneState {
     UiTheme* theme{nullptr};     ///< Active theme; `theme->scale` is the zone's scale in layout units
     UiSize size{UiSize::Md};     ///< Active semantic control size
@@ -38,7 +39,9 @@ struct ZoneOptions {
     bool disabled{false};                        ///< ORed with the inherited disabled flag
 };
 
-/// RAII guard that enters a child zone and leaves it on destruction.
+/// RAII guard that enters a child zone and leaves it on destruction. A zone is only ever entered through a
+/// `ZoneScope` (`ui.Zone(...)`, `ui.Size(...)`, a widget's own scope, or a container frame that owns one),
+/// so entering and leaving can never get out of step.
 ///
 /// ```cpp
 /// if (auto zone = ui.Zone({.theme = &previewTheme, .zoom = 1.25f})) {
@@ -49,15 +52,18 @@ class [[nodiscard]] ZoneScope {
 public:
     ZoneScope() noexcept = default;
     ZoneScope(Context& ctx, const ZoneOptions& opts);
+
+    /// Re-enters an already resolved zone state (no allocation). Used when one widget opens several containers
+    /// in the same zone, e.g. the header and the body of an accordion.
+    ZoneScope(Context& ctx, const ZoneState& state);
     ~ZoneScope();
 
     ZoneScope(const ZoneScope&) = delete;
     ZoneScope& operator=(const ZoneScope&) = delete;
 
     ZoneScope(ZoneScope&& other) noexcept
-        : m_ctx(other.m_ctx), m_theme(other.m_theme), m_depth(other.m_depth) {
+        : m_ctx(other.m_ctx) {
         other.m_ctx = nullptr;
-        other.m_theme = nullptr;
     }
 
     ZoneScope& operator=(ZoneScope&& other) noexcept;
@@ -65,19 +71,8 @@ public:
     /// Evaluates to true so `if (auto zone = ui.Zone(...)) { ... }` reads like the other scopes.
     [[nodiscard]] explicit constexpr operator bool() const noexcept { return m_ctx != nullptr; }
 
-    /// The arena-owned theme this zone created, or `nullptr` when it inherited its parent's theme.
-    /// Nodes store this as `Node::theme` so layout and rendering see the zone's theme.
-    [[nodiscard]] UiTheme* GetTheme() const noexcept { return m_theme; }
-
-    /// Removes this zone from the stack without leaving the zones entered after it and disarms the guard.
-    /// Zones hold a full copy of their parent's state, so a container opened inside this zone can take over
-    /// its role (this is how `ui.Size(...).Row(...)` hands the size to the row instead of nesting twice).
-    void Detach() noexcept;
-
 private:
     Context* m_ctx{nullptr};
-    UiTheme* m_theme{nullptr};
-    keel::usize m_depth{0}; ///< Zone stack size right after this zone was entered
 };
 
 } // namespace guikit

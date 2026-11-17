@@ -306,7 +306,6 @@ Response Knob::Run(
     const UiTheme& theme = ctx.GetTheme();
     const ControlSpec ctrl = EffectiveKnobControl(activeSize, theme);
     Node* node = ctx.CreateNode(NodeType::Knob, id);
-    node->theme = zoneScope.GetTheme();
 
     auto* data = ctx.AllocPayload<KnobData>();
     data->opts = optsCopy;

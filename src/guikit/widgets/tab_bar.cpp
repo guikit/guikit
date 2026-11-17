@@ -45,17 +45,16 @@ TabBarResponse TabBar::Run(
         carouselScope.emplace(ctx.Carousel(cOpts, loc));
         barNode = carouselScope->GetNode();
     } else {
-        UiTheme* zoneTheme = ctx.PushZone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
+        ZoneScope zone = ctx.Zone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
         const Id barId = ctx.MakeChildId(loc);
         barNode = ctx.CreateNode(NodeType::Container, barId);
-        barNode->theme = zoneTheme;
         barNode->direction = FlexDirection::Row;
         barNode->align = Alignment::Center;
         barNode->uiSize = activeSize;
         barNode->disabled = activeDisabled;
         barNode->widthMode = opts.fullWidth ? SizeMode::Stretch : SizeMode::Fit;
 
-        ctx.PushContainerInZone(barNode);
+        ctx.PushContainer(barNode, keel::move(zone));
     }
 
     const UiTheme& theme = ctx.GetTheme();
