@@ -407,7 +407,6 @@ struct DemoContext {
     guikit::UiTheme previewTheme = guikit::UiTheme::Dark(guikit::Density::Standard);
 
     // Semantic Element form-field wrapper state (shared across ELEMENTS screens, excluding ElemHeading)
-    bool useElement = true;
     guikit::UiSize elemSize = guikit::UiSize::None;
     keel::SmallString<128> elemLabel{"Element Label"};
     guikit::UiVariant elemLabelVariant = guikit::UiVariant::Default;
@@ -645,11 +644,7 @@ struct DemoContext {
 
     template <typename Fn>
     void RunElementStage(guikit::Context& ui, Fn&& renderControls) const {
-        if (useElement) {
-            if (auto el = ui.Size(elemSize).Element(MakeElementOptions())) {
-                renderControls();
-            }
-        } else {
+        if (auto el = ui.Size(elemSize).Element(MakeElementOptions())) {
             renderControls();
         }
     }
@@ -741,9 +736,6 @@ struct DemoContext {
         keel::StringRef controlCode,
         keel::Optional<keel::StringRef> customLabelOverride = keel::kNullOpt
     ) const {
-        if (!useElement) {
-            return keel::String::from(controlCode);
-        }
         keel::String out = FormatElementOpenCode(customLabelOverride);
         out.push_back('\n');
 
@@ -1120,14 +1112,6 @@ struct DemoContext {
                     .valueFormat = "%.0f dp",
                     .step = 1.0f
                 }).changed) {
-                    ui.InvalidateAll();
-                }
-            }
-        }
-
-        if (!useElement) {
-            if (auto el = ui.Element({.label = "Disabled"})) {
-                if (ui.Switch(elemDisabled).changed) {
                     ui.InvalidateAll();
                 }
             }

@@ -18,13 +18,12 @@ struct InputState {
 InputState s_state;
 } // namespace
 
-void RenderInputInspector(guikit::Context& ui, DemoContext& ctx) {
+void RenderInputInspector(guikit::Context& ui, DemoContext&) {
     if (auto el = ui.Element({
         .label = "Multi-Control Slot (Input + Button)",
-        .description = "Place InputField + Button inside a single ui.Element",
-        .disabled = !ctx.useElement
+        .description = "Place InputField + Button inside a single ui.Element"
     })) {
-        if (ui.Switch(s_state.companionButton, {.disabled = !ctx.useElement}).changed) {
+        if (ui.Switch(s_state.companionButton).changed) {
             ui.InvalidateAll();
         }
     }
@@ -83,7 +82,7 @@ void RenderInputStage(guikit::Context& ui, DemoContext& ctx) {
         opts.readOnly = s_state.readOnly;
         ui.Size(ctx.controlsSize).InputField(s_state.text, opts);
 
-        if (ctx.useElement && s_state.companionButton) {
+        if (s_state.companionButton) {
             const keel::StringRef btnLbl = (s_state.connectCount > 0)
                 ? ui.Format("Connect ({})", s_state.connectCount)
                 : keel::StringRef("Connect");
@@ -133,7 +132,7 @@ keel::String GenerateInputCode(const DemoContext& ctx) {
         s_state.readOnly ? "true" : "false"
     );
 
-    if (ctx.useElement && s_state.companionButton) {
+    if (s_state.companionButton) {
         keel::format_into(
             ctrl,
             "\nif (ui.{}Button({{.text = \"Connect\", .icon = guikit::Icon::Play(), .color = {}}})) {{\n"

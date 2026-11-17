@@ -185,29 +185,18 @@ void DemoWindow::RenderInspectorSidebar(guikit::Context& ui) {
         if (m_selectedCategory == NavCategory::ElemHeading || m_selectedCategory == NavCategory::ElemElement) {
             DispatchInspector(ui, m_selectedCategory, m_demoCtx);
         } else if (IsElementCategory(m_selectedCategory)) {
-            if (auto el = ui.Element({
-                .label = "Wrap in ui.Element",
-                .description = "Semantic Label + Control + Description"
+            if (auto elemAcc = ui.Size(guikit::UiSize::Sm).Accordion({
+                .label = "ELEMENT",
+                .defaultOpen = false
             })) {
-                if (ui.Switch(m_demoCtx.useElement).changed) {
-                    ui.InvalidateAll();
-                }
+                m_demoCtx.RenderElementSection(ui);
             }
 
-            if (m_demoCtx.useElement) {
-                if (auto elemAcc = ui.Size(guikit::UiSize::Sm).Accordion({
-                    .label = "ELEMENT",
-                    .defaultOpen = false
-                })) {
-                    m_demoCtx.RenderElementSection(ui);
-                }
-
-                if (auto elemLayoutAcc = ui.Size(guikit::UiSize::Sm).Accordion({
-                    .label = "ELEMENT LAYOUT",
-                    .defaultOpen = false
-                })) {
-                    m_demoCtx.RenderElementLayoutSection(ui, m_selectedCategory);
-                }
+            if (auto elemLayoutAcc = ui.Size(guikit::UiSize::Sm).Accordion({
+                .label = "ELEMENT LAYOUT",
+                .defaultOpen = false
+            })) {
+                m_demoCtx.RenderElementLayoutSection(ui, m_selectedCategory);
             }
 
             const bool hasCtrlLayout = DemoContext::HasCtrlLayoutCategory(m_selectedCategory);

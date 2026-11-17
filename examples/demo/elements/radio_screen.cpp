@@ -45,29 +45,23 @@ void RenderRadioStage(guikit::Context& ui, DemoContext& ctx) {
 
     if (s_state.groupDemo) {
         if (auto col = ui.Column({.gap = 14.0f})) {
-            if (ctx.useElement) {
-                const guikit::UiText lblA{
-                    ctx.elemLabel.empty()
-                        ? keel::StringRef("Option A — Automatic Gain (AGC)")
-                        : ctx.elemLabel.as_ref(),
-                    ctx.elemLabelVariant
-                };
-                if (auto el = ui.Size(ctx.elemSize).Element(ctx.MakeElementOptions(lblA))) {
-                    ui.Size(ctx.controlsSize).Radio(s_state.selectedIdx, 0, ctrlOpts);
-                }
-                if (auto el = ui.Size(ctx.elemSize).Element(ctx.MakeElementOptions(
-                    guikit::UiText{"Option B — Manual Fixed Gain", ctx.elemLabelVariant}
-                ))) {
-                    ui.Size(ctx.controlsSize).Radio(s_state.selectedIdx, 1, ctrlOpts);
-                }
-                if (auto el = ui.Size(ctx.elemSize).Element(ctx.MakeElementOptions(
-                    guikit::UiText{"Option C — External Hardware Trigger", ctx.elemLabelVariant}
-                ))) {
-                    ui.Size(ctx.controlsSize).Radio(s_state.selectedIdx, 2, ctrlOpts);
-                }
-            } else {
+            const guikit::UiText lblA{
+                ctx.elemLabel.empty()
+                    ? keel::StringRef("Option A — Automatic Gain (AGC)")
+                    : ctx.elemLabel.as_ref(),
+                ctx.elemLabelVariant
+            };
+            if (auto el = ui.Size(ctx.elemSize).Element(ctx.MakeElementOptions(lblA))) {
                 ui.Size(ctx.controlsSize).Radio(s_state.selectedIdx, 0, ctrlOpts);
+            }
+            if (auto el = ui.Size(ctx.elemSize).Element(ctx.MakeElementOptions(
+                guikit::UiText{"Option B — Manual Fixed Gain", ctx.elemLabelVariant}
+            ))) {
                 ui.Size(ctx.controlsSize).Radio(s_state.selectedIdx, 1, ctrlOpts);
+            }
+            if (auto el = ui.Size(ctx.elemSize).Element(ctx.MakeElementOptions(
+                guikit::UiText{"Option C — External Hardware Trigger", ctx.elemLabelVariant}
+            ))) {
                 ui.Size(ctx.controlsSize).Radio(s_state.selectedIdx, 2, ctrlOpts);
             }
         }
