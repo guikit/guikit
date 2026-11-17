@@ -77,12 +77,12 @@ SidebarMenuScope SidebarMenu::Open(
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    UiTheme* zoneTheme = ctx.PushZone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
+    const float activeScale = ctx.GetCurrentScale();
 
     const UiTheme& theme = ctx.GetTheme();
     Node* node = ctx.CreateNode(NodeType::Column, id);
-    node->theme = pushedTheme;
+    node->theme = zoneTheme;
     node->direction = FlexDirection::Column;
     node->align = Alignment::Stretch;
     node->justify = Justify::Start;
@@ -115,10 +115,7 @@ SidebarMenuScope SidebarMenu::Open(
     node->uiSize = activeSize;
     node->disabled = activeDisabled;
 
-    ctx.PushScale(activeScale);
-    ctx.PushSize(activeSize);
-    ctx.PushDisabled(activeDisabled);
-    ctx.PushContainer(node);
+    ctx.PushContainerInZone(node);
 
     return SidebarMenuScope(&ctx, node, effectiveOpts);
 }

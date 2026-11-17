@@ -31,14 +31,9 @@ void Toast::RunHost(
         return;
     }
 
-    const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
-    const UiTheme theme = ctx.GetTheme();
-    if (pushedTheme != nullptr) {
-        ctx.PopTheme();
-    }
+    const UiTheme theme = ctx.ResolveTheme({.theme = opts.theme, .scale = opts.scale});
 
-    const float s = (theme.scale > 0.0f) ? theme.scale : activeScale;
+    const float s = theme.scale;
     Rect hostBounds = ctx.GetPopupViewportRect();
     if (opts.confineToParent) {
         const Rect parentBounds = ctx.GetParentPrevFrameBounds();

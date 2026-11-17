@@ -12,12 +12,11 @@ ContainerScope Box::Open(
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    UiTheme* zoneTheme = ctx.PushZone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
 
     const UiTheme& theme = ctx.GetTheme();
     Node* node = ctx.CreateNode(NodeType::Box, id);
-    node->theme = pushedTheme;
+    node->theme = zoneTheme;
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     node->direction = FlexDirection::Column;
@@ -57,10 +56,7 @@ ContainerScope Box::Open(
     node->disabled = activeDisabled;
     node->visualHash = detail::HashArgs(opts.background, opts.border);
 
-    ctx.PushScale(activeScale);
-    ctx.PushSize(activeSize);
-    ctx.PushDisabled(activeDisabled);
-    ctx.PushContainer(node);
+    ctx.PushContainerInZone(node);
     return ContainerScope(&ctx, node);
 }
 

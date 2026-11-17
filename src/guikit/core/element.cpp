@@ -435,10 +435,7 @@ ElementScope Element::Open(
     }
 
     Node* node = ctx.CreateNode(NodeType::Element, id);
-    node->theme = ctx.PushScopedTheme(opts.theme, opts.scale);
-    ctx.PushScale(opts.scale.value_or(ctx.GetCurrentScale()));
-    ctx.PushSize(activeSize);
-    ctx.PushDisabled(effectiveDisabled);
+    node->theme = ctx.PushZone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
 
     auto* payload = ctx.AllocPayload<ElementPayload>();
     payload->opts = opts;
@@ -497,7 +494,7 @@ ElementScope Element::Open(
         Element::RenderText(canvas, geom, spec, theme);
     };
 
-    ctx.PushContainer(node);
+    ctx.PushContainerInZone(node);
     return ElementScope(&ctx, node, res);
 }
 

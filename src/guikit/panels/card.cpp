@@ -12,13 +12,12 @@ ContainerScope Card::Open(
     const Id idOuter = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    UiTheme* zoneTheme = ctx.PushZone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
 
     // Outer styled surface frame
     const UiTheme& theme = ctx.GetTheme();
     Node* outerNode = ctx.CreateNode(NodeType::Card, idOuter);
-    outerNode->theme = pushedTheme;
+    outerNode->theme = zoneTheme;
     outerNode->debugBoundsOverride = opts.debugBounds;
     outerNode->inspectModeOverride = opts.inspectMode;
     outerNode->direction = FlexDirection::Column;
@@ -55,10 +54,7 @@ ContainerScope Card::Open(
         : Color::Transparent();
     outerNode->visualHash = detail::HashArgs(opts.background, opts.border);
 
-    ctx.PushScale(activeScale);
-    ctx.PushSize(activeSize);
-    ctx.PushDisabled(activeDisabled);
-    ctx.PushContainer(outerNode);
+    ctx.PushContainerInZone(outerNode);
     return ContainerScope(&ctx, outerNode);
 }
 

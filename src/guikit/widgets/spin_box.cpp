@@ -322,12 +322,7 @@ Response SpinBox::Run(
     const SpinBoxOptions& opts,
     keel::SourceLocation loc
 ) {
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
-    struct ThemePopGuard {
-        Context& c;
-        UiTheme* t;
-        ~ThemePopGuard() noexcept { if (t) c.PopTheme(); }
-    } themePop{ctx, pushedTheme};
+    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
@@ -610,7 +605,7 @@ Response SpinBox::Run(
 
     const ControlSpec ctrl = EffectiveSpinBoxControl(optsCopy, activeSize, theme);
     Node* node = ctx.CreateNode(NodeType::SpinBox, id);
-    node->theme = pushedTheme;
+    node->theme = zoneScope.GetTheme();
 
     auto* data = ctx.AllocPayload<SpinBoxData>();
     data->opts = optsCopy;

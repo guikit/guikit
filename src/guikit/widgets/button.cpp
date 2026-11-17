@@ -135,12 +135,7 @@ Vec2 MeasureButtonCapsule(
 } // namespace
 
 Response Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocation loc) {
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
-    struct ThemePopGuard {
-        Context& c;
-        UiTheme* t;
-        ~ThemePopGuard() noexcept { if (t) c.PopTheme(); }
-    } themePop{ctx, pushedTheme};
+    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const Id id = ctx.MakeChildId(loc);
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
@@ -194,7 +189,7 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocati
     }
 
     Node* node = ctx.CreateNode(NodeType::Button, id);
-    node->theme = pushedTheme;
+    node->theme = zoneScope.GetTheme();
     node->scrollOffset.x = loadingPhase;
     auto* bOpts = ctx.AllocPayload<ButtonOptions>(optsCopy);
     node->text = bOpts->text.text;

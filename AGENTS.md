@@ -75,6 +75,17 @@ if (ui.Size(guikit::UiSize::Sm).Button({.text = "Compact Action"})) { /* ... */ 
 }
 ```
 
+### Rule 3b: Use `ui.Zone(...)` for Regions With Their Own Theme or Zoom — Do NOT Divide by the Shell Zoom by Hand
+A frame has one dp → pixel factor: `displayScale × rootZoom` (`MainWindow` passes the OS scale and the user's shell zoom to `BeginFrame` separately). Everything inherits the ambient state of its *zone* — theme, scale, `UiSize` and `disabled` — and anything a child zone does not set is inherited. For an area that must keep its own pixel scale (a live preview, an artboard, a document canvas), enter a zone whose `.zoom` is relative to the **display** scale, so it does not follow the shell zoom:
+
+```cpp
+if (auto zone = ui.Zone({.theme = &previewTheme, .zoom = 1.25f})) {   // 125% of the display scale, always
+    ui.Button({.text = "Rendered at a fixed pixel size"});
+    if (auto inner = ui.Zone({.zoom = 2.0f})) { /* zoom is absolute: 200%, not 250% */ }
+}
+```
+A zone draws nothing and has no size of its own: compose it with `ui.Box(...)` for a background, border or clipping. Use `ui.ScaleForZoom(zoom)` when chrome outside the zone has to be sized from it, and `ui.GetDisplayScale()` / `ui.GetRootZoom()` / `ui.GetPixelsPerDp()` to read the frame factor. `.scale` on containers and widgets is the same mechanism expressed in layout units; `ui.Size(...)` and `ui.Disabled(...)` are zones that only set one value.
+
 ### Rule 4: Use `ui.Format(...)` & `ui.String(...)` for Per-Frame Strings — Use `keel` Containers for State
 `ui.Format(fmt, args...)` and `ui.String(text)` allocate directly into the per-frame `keel::Arena` (`ctx.GetArena()`) and return a zero-heap-allocation `keel::StringRef` (implicitly convertible to `UiText`) valid for the entire frame. For persistent widget state, prefer `keel::FixedString<N>`, `keel::SmallString<N>`, `keel::String`, `keel::SmallArray<T, N>`, and `keel::Array<T>` (external STL containers also bind seamlessly via zero-header duck-typed `keel` concepts):
 

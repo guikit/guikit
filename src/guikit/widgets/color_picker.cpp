@@ -256,12 +256,7 @@ Response ColorPicker::Run(
     const ColorPickerOptions& opts,
     keel::SourceLocation loc
 ) {
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
-    struct ThemePopGuard {
-        Context& c;
-        UiTheme* t;
-        ~ThemePopGuard() noexcept { if (t) c.PopTheme(); }
-    } themeGuard{ctx, pushedTheme};
+    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
@@ -525,7 +520,7 @@ Response ColorPicker::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::ColorPicker, id);
-    node->theme = pushedTheme;
+    node->theme = zoneScope.GetTheme();
 
     auto* data = ctx.AllocPayload<ColorPickerData>();
     data->opts = optsCopy;

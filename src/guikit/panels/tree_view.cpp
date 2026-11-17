@@ -373,7 +373,6 @@ ContainerScope TreeItemScope::Cell(
     const Id cellId = m_ctx->MakeChildId(loc);
     const UiSize activeSize = m_ctx->GetCurrentSize();
     const bool activeDisabled = m_ctx->IsDisabled();
-    const float activeScale = m_ctx->GetCurrentScale();
     const UiTheme& theme = m_ctx->GetTheme();
     const ComponentMetrics& cm = theme.GetMetrics(activeSize);
 
@@ -390,9 +389,6 @@ ContainerScope TreeItemScope::Cell(
     cp->opts = opts;
     cellNode->SetPayload(cp);
 
-    m_ctx->PushScale(activeScale);
-    m_ctx->PushSize(activeSize);
-    m_ctx->PushDisabled(activeDisabled);
     m_ctx->PushContainer(cellNode);
     return ContainerScope(m_ctx, cellNode);
 }
@@ -478,8 +474,8 @@ TreeViewScope TreeView::Open(
     const Id idScroll = Id{detail::HashArgs(idTree, 0x72EE'5C80'0001ULL)};
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    UiTheme* zoneTheme = ctx.PushZone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
+    const ZoneState zone = ctx.GetZone(); // the outer container leaves it again; the scroll container re-enters it
     const UiTheme& theme = ctx.GetTheme();
     const auto& pal = theme.palette;
 
@@ -751,10 +747,7 @@ TreeViewScope TreeView::Open(
     outerNode->SetPayload(payload);
     outerNode->postRenderFn = &TreeView::RenderOverlay;
 
-    ctx.PushScale(activeScale);
-    ctx.PushSize(activeSize);
-    ctx.PushDisabled(activeDisabled);
-    ctx.PushContainer(outerNode);
+    ctx.PushContainerInZone(outerNode);
 
     if (!opts.title.empty() || opts.searchable || opts.showToolbar) {
         const ComponentMetrics& cm = theme.GetMetrics(activeSize);
@@ -832,7 +825,7 @@ TreeViewScope TreeView::Open(
     if (colCount > 0 && opts.stickyHeader) {
         const Id idHeader = Id{detail::HashArgs(idTree, 0x72EE'4EAD'0001ULL)};
         Node* headerNode = ctx.CreateNode(NodeType::Box, idHeader);
-        headerNode->theme = pushedTheme;
+        headerNode->theme = zoneTheme;
         headerNode->widthMode = SizeMode::Stretch;
         headerNode->heightMode = SizeMode::Fixed;
         headerNode->fixedHeight = ResolveTreeHeaderHeight(activeSize, theme);
@@ -860,7 +853,7 @@ TreeViewScope TreeView::Open(
         }
     }
 
-    scrollNode->theme = pushedTheme;
+    scrollNode->theme = zoneTheme;
     scrollNode->direction = FlexDirection::Column;
     scrollNode->clipChildren = true;
     scrollNode->widthMode = SizeMode::Stretch;
@@ -892,10 +885,8 @@ TreeViewScope TreeView::Open(
     scrollNode->scrollOffset = scrollState.offset;
     payload->scrollNode = scrollNode;
 
-    ctx.PushScale(activeScale);
-    ctx.PushSize(activeSize);
-    ctx.PushDisabled(activeDisabled);
-    ctx.PushContainer(scrollNode);
+    ctx.PushZoneState(zone);
+    ctx.PushContainerInZone(scrollNode);
 
     return TreeViewScope(&ctx, scrollNode, payload);
 }
@@ -928,8 +919,7 @@ TreeItemScope TreeView::OpenItem(
 
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    UiTheme* zoneTheme = ctx.PushZone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
     const UiTheme& theme = ctx.GetTheme();
 
     TreeItemState& st = ctx.GetOrCreatePersistentState<TreeItemState>(idOuter, TreeItemState{.open = opts.defaultOpen});
@@ -1076,7 +1066,7 @@ TreeItemScope TreeView::OpenItem(
     Node* rowNode = ctx.AllocPayload<Node>();
     rowNode->type = NodeType::TreeItem;
     rowNode->id = idRow;
-    rowNode->theme = pushedTheme;
+    rowNode->theme = zoneTheme;
     rowNode->uiSize = activeSize;
     rowNode->disabled = activeDisabled;
     rowNode->hovered = res.hovered;
@@ -1176,10 +1166,7 @@ TreeItemScope TreeView::OpenItem(
     st.checkboxRect = Rect{};
     st.controlsRect = Rect{};
 
-    ctx.PushScale(activeScale);
-    ctx.PushSize(activeSize);
-    ctx.PushDisabled(activeDisabled);
-    ctx.PushContainer(rowNode);
+    ctx.PushContainerInZone(rowNode);
 
     res.focused = rowNode->focused;
     return TreeItemScope(&ctx, rowNode, payload, res, isOpen, wasToggled, isSelected, wasCheckChanged);

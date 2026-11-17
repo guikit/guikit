@@ -432,7 +432,7 @@ Response Breadcrumb::Run(
     const BreadcrumbOptions& opts,
     keel::SourceLocation loc
 ) {
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
@@ -729,7 +729,7 @@ Response Breadcrumb::Run(
     const ControlSpec ctrl = EffectiveBreadcrumbControl(optsCopy, activeSize, theme);
 
     Node* node = ctx.CreateNode(NodeType::Breadcrumb, id);
-    node->theme = pushedTheme;
+    node->theme = zoneScope.GetTheme();
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
 
@@ -830,9 +830,6 @@ Response Breadcrumb::Run(
 
     Control::SetupNode(ctx, node, ctrl);
 
-    if (pushedTheme) {
-        ctx.PopTheme();
-    }
 
     return res;
 }

@@ -801,7 +801,7 @@ void SdlWindowBackend::PresentFrame(const Context& ui, FrameMetrics& metrics, bo
             if (ui.IsFullRepaint()) {
                 SDL_UpdateTexture(m_screenTexture, nullptr, m_pixelBuffer.data(), m_width * sizeof(keel::u32));
             } else {
-                const float dpiScale = ui.GetDpiScale();
+                const float dpiScale = ui.GetPixelsPerDp();
                 for (const Rect& dr : ui.GetDirtyRects()) {
                     const keel::i32 x1 = keel::clamp(keel::floor_i32(dr.x * dpiScale), 0, m_width);
                     const keel::i32 y1 = keel::clamp(keel::floor_i32(dr.y * dpiScale), 0, m_height);

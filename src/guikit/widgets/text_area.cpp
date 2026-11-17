@@ -1853,7 +1853,7 @@ TextAreaResponse TextArea::Run(
     const TextAreaOptions& opts,
     keel::SourceLocation loc
 ) {
-    const auto scopedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
@@ -3316,7 +3316,7 @@ TextAreaResponse TextArea::Run(
     node->hovered = res.hovered;
     node->pressed = res.pressed;
     node->focused = isFocused;
-    node->theme = scopedTheme;
+    node->theme = zoneScope.GetTheme();
 
     ControlSpec ctrlSpec{};
     ctrlSpec.width = optsCopy.width;
@@ -3329,10 +3329,6 @@ TextAreaResponse TextArea::Run(
         node->heightMode == SizeMode::Stretch) {
         node->heightMode = SizeMode::Fit;
     }
-    if (scopedTheme != nullptr) {
-        ctx.PopTheme();
-    }
-
     return res;
 }
 

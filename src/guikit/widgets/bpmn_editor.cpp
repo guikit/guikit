@@ -3114,12 +3114,7 @@ BpmnEditorResponse BpmnEditor::Run(
     const BpmnEditorOptions& opts,
     keel::SourceLocation loc
 ) {
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
-    struct ThemePopGuard {
-        Context& c;
-        UiTheme* t;
-        ~ThemePopGuard() noexcept { if (t) c.PopTheme(); }
-    } themePop{ctx, pushedTheme};
+    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const Id id = ctx.MakeChildId(loc);
     const bool isDisabled = opts.disabled || ctx.IsDisabled();
@@ -4672,7 +4667,7 @@ BpmnEditorResponse BpmnEditor::Run(
     state.renderSnapshot = diagram.clone();
 
     Node* node = ctx.CreateNode(NodeType::BpmnEditor, id);
-    node->theme = pushedTheme;
+    node->theme = zoneScope.GetTheme();
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<BpmnEditorPayload>();

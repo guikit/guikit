@@ -996,12 +996,7 @@ SignalViewResponse SignalView::Run(
     const SignalViewOptions& opts,
     keel::SourceLocation loc
 ) {
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
-    struct ThemePopGuard {
-        Context& c;
-        UiTheme* t;
-        ~ThemePopGuard() noexcept { if (t) c.PopTheme(); }
-    } themePop{ctx, pushedTheme};
+    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const Id id = ctx.MakeChildId(loc);
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
@@ -1634,7 +1629,7 @@ SignalViewResponse SignalView::Run(
 
     // Create Scene Graph Node
     Node* node = ctx.CreateNode(NodeType::SignalView, id);
-    node->theme = pushedTheme;
+    node->theme = zoneScope.GetTheme();
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<SignalViewPayload>();

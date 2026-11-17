@@ -3280,7 +3280,7 @@ void TestDpiScalingAndBackendMetadata() {
     ui.BeginFrame({static_cast<float>(winWidth), static_cast<float>(winHeight)}, 1.0f);
     CHECK_NEAR(ui.GetLogicalViewport().x, 1200.0f, 0.01f);
     CHECK_NEAR(ui.GetLogicalViewport().y, 900.0f, 0.01f);
-    CHECK_NEAR(ui.GetDpiScale(), 1.0f, 0.01f);
+    CHECK_NEAR(ui.GetDisplayScale(), 1.0f, 0.01f);
     ui.Button({.text = "TestBtn"});
     ui.EndFrame(canvas);
     CHECK_NEAR(canvas.GetScale(), 1.0f, 0.01f);
@@ -3289,7 +3289,7 @@ void TestDpiScalingAndBackendMetadata() {
     ui.BeginFrame({static_cast<float>(winWidth), static_cast<float>(winHeight)}, 1.5f);
     CHECK_NEAR(ui.GetLogicalViewport().x, 800.0f, 0.01f);
     CHECK_NEAR(ui.GetLogicalViewport().y, 600.0f, 0.01f);
-    CHECK_NEAR(ui.GetDpiScale(), 1.5f, 0.01f);
+    CHECK_NEAR(ui.GetDisplayScale(), 1.5f, 0.01f);
 
     // Mouse movement in physical window pixels: x=150, y=30
     // Under 1.5x scale, logical mouse coordinates should be x=100, y=20
@@ -3454,6 +3454,179 @@ void TestFrameScaleIsUniformAndKeepsPointer() {
         ui.BeginFrame({1200.0f, 900.0f}, 0.75f);
         CHECK_NEAR(ui.GetMousePos().x, 400.0f, 0.01f);
         CHECK_NEAR(ui.GetMousePos().y, 200.0f, 0.01f);
+    }
+}
+
+// Zones: the root zone is created by BeginFrame, child zones inherit whatever they do not set, a zone's
+// `.zoom` is relative to the display scale (independent of the root zoom), and every scope leaves the zone
+// stack exactly as it found it.
+void TestZonesInheritanceZoomIndependenceAndBalance() {
+    using namespace guikit;
+
+    Context ui;
+    ThorCanvas canvas;
+    constexpr keel::u32 kW = 1200;
+    constexpr keel::u32 kH = 900;
+    keel::Array<keel::u32> pixels(kW * kH);
+    canvas.SetTarget(pixels.data(), kW, kH, kW);
+    const Vec2 viewport{static_cast<float>(kW), static_cast<float>(kH)};
+
+    // --- Frame factor decomposition ---
+    ui.BeginFrame(viewport, 1.5f, 1.25f);
+    CHECK_NEAR(ui.GetDisplayScale(), 1.5f, 1e-6f);
+    CHECK_NEAR(ui.GetRootZoom(), 1.25f, 1e-6f);
+    CHECK_NEAR(ui.GetPixelsPerDp(), 1.875f, 1e-6f);
+    CHECK_NEAR(ui.ScaleForZoom(2.5f), 2.0f, 1e-6f);
+    CHECK_NEAR(ui.GetLogicalViewport().x, 640.0f, 1e-3f);
+
+    // --- Root zone ---
+    CHECK(ui.GetZoneDepth() == 1);
+    CHECK(ui.GetZone().size == UiSize::Md);
+    CHECK(!ui.GetZone().disabled);
+    CHECK_NEAR(ui.GetCurrentScale(), 1.0f, 1e-6f);
+    const UiTheme* rootTheme = &ui.GetTheme();
+
+    // --- A child zone inherits everything it does not set, and restores the parent on exit ---
+    {
+        auto sized = ui.Zone({.size = UiSize::Sm});
+        CHECK(sized);
+        CHECK(ui.GetZoneDepth() == 2);
+        CHECK(ui.GetCurrentSize() == UiSize::Sm);
+        CHECK(&ui.GetTheme() == rootTheme);       // theme inherited, not copied
+        CHECK(sized.GetTheme() == nullptr);       // nothing overridden -> nodes keep inheriting at layout time
+        CHECK(!ui.IsDisabled());
+
+        {
+            auto disabled = ui.Zone({.disabled = true});
+            CHECK(ui.GetCurrentSize() == UiSize::Sm);  // size inherited from the parent zone
+            CHECK(ui.IsDisabled());
+            {
+                auto reenabled = ui.Zone({.disabled = false});
+                CHECK(ui.IsDisabled());                // a disabled zone cannot be re-enabled by a child
+            }
+        }
+        CHECK(!ui.IsDisabled());
+        CHECK(ui.GetCurrentSize() == UiSize::Sm);
+    }
+    CHECK(ui.GetZoneDepth() == 1);
+    CHECK(ui.GetCurrentSize() == UiSize::Md);
+
+    // --- Theme override: replaced for the zone, owned by the frame arena, rescaled to the zone's scale ---
+    {
+        const UiTheme light = UiTheme::Light();
+        auto themed = ui.Zone({.theme = &light});
+        CHECK(ui.GetTheme().mode == ThemeMode::Light);
+        CHECK(themed.GetTheme() != nullptr && themed.GetTheme() != &light);
+        CHECK(&ui.GetTheme() != rootTheme);
+        CHECK_NEAR(ui.GetCurrentScale(), 1.0f, 1e-6f);
+    }
+    CHECK(&ui.GetTheme() == rootTheme);
+    CHECK(ui.GetTheme().mode == ThemeMode::Dark);
+
+    // --- `.scale` rescales the zone's theme in layout units; the scale lives on the theme ---
+    {
+        const float baseH = ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight;
+        auto doubled = ui.Zone({.scale = 2.0f});
+        CHECK_NEAR(ui.GetCurrentScale(), 2.0f, 1e-6f);
+        CHECK_NEAR(ui.GetTheme().scale, 2.0f, 1e-6f);
+        CHECK_NEAR(ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight, baseH * 2.0f, 1e-3f);
+        {
+            auto inherited = ui.Zone({.size = UiSize::Lg});
+            CHECK_NEAR(ui.GetCurrentScale(), 2.0f, 1e-6f);  // unset scale is inherited
+        }
+    }
+    CHECK_NEAR(ui.GetCurrentScale(), 1.0f, 1e-6f);
+
+    // --- ResolveTheme does not leave a zone behind ---
+    {
+        const UiTheme resolved = ui.ResolveTheme({.scale = 3.0f});
+        CHECK_NEAR(resolved.scale, 3.0f, 1e-6f);
+        CHECK(ui.GetZoneDepth() == 1);
+    }
+
+    // --- Zoom is relative to the display scale, so a zone keeps its pixel size whatever the root zoom is ---
+    CHECK_NEAR(ui.ScaleForZoom(1.0f), 0.8f, 1e-6f);
+    {
+        auto zone = ui.Zone({.zoom = 1.25f});
+        CHECK_NEAR(ui.GetCurrentScale() * ui.GetPixelsPerDp(), 1.25f * 1.5f, 1e-5f);
+        {
+            // Nested zoom is absolute as well: it does not multiply with the parent zone's zoom
+            auto inner = ui.Zone({.zoom = 2.0f});
+            CHECK_NEAR(ui.GetCurrentScale() * ui.GetPixelsPerDp(), 2.0f * 1.5f, 1e-5f);
+        }
+        CHECK_NEAR(ui.GetCurrentScale() * ui.GetPixelsPerDp(), 1.25f * 1.5f, 1e-5f);
+    }
+    ui.EndFrame(canvas);
+
+    // The same zone content has the same pixel size at every root zoom, while the surrounding UI follows it
+    static constexpr float kRootZooms[] = {0.75f, 1.0f, 1.25f, 1.5f, 2.0f};
+    for (float rootZoom : kRootZooms) {
+        Context ctx;
+        Id insideId = Id::Null();
+        Id outsideId = Id::Null();
+        for (keel::i32 frame = 0; frame < 2; ++frame) {
+            ctx.BeginFrame(viewport, 1.5f, rootZoom);
+            if (auto outside = ctx.Box({.width = 100.0f, .height = 20.0f})) {
+                outsideId = outside.GetNode()->id;
+            }
+            if (auto zone = ctx.Zone({.zoom = 1.25f})) {
+                if (auto inside = ctx.Box({.width = 100.0f, .height = 20.0f})) {
+                    insideId = inside.GetNode()->id;
+                }
+            }
+            CHECK(ctx.GetZoneDepth() == 1);
+            ctx.EndFrame(canvas);
+        }
+        const Rect inside = ctx.GetPrevFrameBounds(insideId);
+        const Rect outside = ctx.GetPrevFrameBounds(outsideId);
+        CHECK_NEAR(inside.w * ctx.GetPixelsPerDp(), 100.0f * 1.25f * 1.5f, 0.05f);   // zone: 125% of the display scale
+        CHECK_NEAR(outside.w * ctx.GetPixelsPerDp(), 100.0f * rootZoom * 1.5f, 0.05f); // outside: follows the root zoom
+    }
+
+    // --- Scopes leave the stack balanced; a container owns the zone it entered ---
+    {
+        Context ctx;
+        ctx.BeginFrame(viewport, 1.0f);
+        const keel::usize rootDepth = ctx.GetZoneDepth();
+
+        // ui.Size(...).Row(...) hands the size to the row: one zone, not two
+        {
+            auto row = ctx.Size(UiSize::Sm).Row();
+            CHECK(ctx.GetZoneDepth() == rootDepth + 1);
+            CHECK(ctx.GetCurrentSize() == UiSize::Sm);
+            if (auto col = ctx.Column({.disabled = true})) {
+                CHECK(ctx.GetZoneDepth() == rootDepth + 2);
+                CHECK(ctx.IsDisabled());
+                CHECK(ctx.GetCurrentSize() == UiSize::Sm);
+            }
+            CHECK(!ctx.IsDisabled());
+        }
+        CHECK(ctx.GetZoneDepth() == rootDepth);
+        CHECK(ctx.GetCurrentSize() == UiSize::Md);
+
+        // A size scope that opens no container (closed accordion) is simply left again
+        {
+            bool open = false;
+            auto acc = ctx.Size(UiSize::Sm).Accordion(open, {.label = "Closed"});
+            CHECK(!acc);
+            CHECK(ctx.GetZoneDepth() == rootDepth);
+            CHECK(ctx.GetCurrentSize() == UiSize::Md);
+        }
+
+        // An open accordion shows its header at the scoped size and its body at the original size
+        {
+            bool open = true;
+            auto acc = ctx.Size(UiSize::Sm).Accordion(open, {.label = "Open"});
+            CHECK(acc);
+            CHECK(ctx.GetZoneDepth() == rootDepth + 1);
+            CHECK(ctx.GetCurrentSize() == UiSize::Md);
+        }
+        CHECK(ctx.GetZoneDepth() == rootDepth);
+
+        // Widgets with a theme / scale override enter and leave their own zone
+        ctx.Button({.text = "Scaled", .scale = 1.5f});
+        CHECK(ctx.GetZoneDepth() == rootDepth);
+        ctx.EndFrame(canvas);
     }
 }
 
@@ -12086,6 +12259,7 @@ int main() {
     TestSdlMouseCoordsMapToLogicalDp();
     TestThorCanvasFontSizeIsInPixels();
     TestFrameScaleIsUniformAndKeepsPointer();
+    TestZonesInheritanceZoomIndependenceAndBalance();
     TestSdlCanvasBackendInterface();
     TestDebugBoundsAndInspectMode();
     TestPostRenderDelegateWorkflow();

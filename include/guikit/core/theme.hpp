@@ -13,7 +13,7 @@ struct UiTheme {
     Density density{Density::Standard};
     ShellStyle shellStyle{ShellStyle::Docked};
     float lineHeightMultiplier{kDefaultLineHeightMultiplier};
-    float scale{1.0f};
+    float scale{1.0f}; ///< Scale of this theme instance in layout units, relative to the frame's pixels-per-dp; the active zone's scale
 
     // 0. Application shell framing tokens (resolved from shellStyle + density + scale)
     ShellMetrics shell{};

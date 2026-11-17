@@ -20,8 +20,8 @@ AccordionScope Accordion::Open(
     const UiSize parentSize = ctx.GetCurrentSize();
     const UiSize headerSize = parentSize;
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    UiTheme* zoneTheme = ctx.PushZone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
+    const ZoneState zone = ctx.GetZone(); // the header container leaves it again; the body container re-enters it
     const UiTheme& theme = ctx.GetTheme();
 
     bool isOpen = opts.defaultOpen;
@@ -64,10 +64,7 @@ AccordionScope Accordion::Open(
     outerNode->debugBoundsOverride = opts.debugBounds;
     outerNode->inspectModeOverride = opts.inspectMode;
 
-    ctx.PushScale(activeScale);
-    ctx.PushSize(headerSize);
-    ctx.PushDisabled(activeDisabled);
-    ctx.PushContainer(outerNode);
+    ctx.PushContainerInZone(outerNode);
 
     Node* headerNode = ctx.CreateNode(NodeType::AccordionHeader, idHeader);
     auto* hData = ctx.AllocPayload<AccordionHeaderData>();
@@ -126,7 +123,7 @@ AccordionScope Accordion::Open(
         Node* bodyNode = ctx.CreateNode(NodeType::Column, idBody);
         ctx.PopContainer(outerNode);
 
-        bodyNode->theme = pushedTheme;
+        bodyNode->theme = zoneTheme;
         bodyNode->direction = FlexDirection::Column;
         bodyNode->widthMode = SizeMode::Stretch;
         bodyNode->heightMode = SizeMode::Fit;
@@ -139,14 +136,12 @@ AccordionScope Accordion::Open(
         bodyNode->debugBoundsOverride = opts.debugBounds;
         bodyNode->inspectModeOverride = opts.inspectMode;
 
-        ctx.PushScale(activeScale);
-        ctx.PushSize(parentSize);
-        ctx.PushDisabled(activeDisabled);
-        ctx.PushContainer(bodyNode);
+        ctx.PushZoneState(zone);
+        ctx.PushContainerInZone(bodyNode);
         return AccordionScope(&ctx, bodyNode, res, true);
     }
 
-    outerNode->theme = pushedTheme;
+    outerNode->theme = zoneTheme;
     ctx.PopContainer(outerNode);
     return AccordionScope(nullptr, nullptr, res, false);
 }

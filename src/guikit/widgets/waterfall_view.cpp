@@ -963,19 +963,14 @@ WaterfallViewResponse WaterfallView::Run(
     const WaterfallViewOptions& opts,
     keel::SourceLocation loc
 ) {
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
-    struct ThemePopGuard {
-        Context& c;
-        UiTheme* t;
-        ~ThemePopGuard() noexcept { if (t) c.PopTheme(); }
-    } themePop{ctx, pushedTheme};
+    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const Id id = ctx.MakeChildId(loc);
     const UiSize size = ctx.GetCurrentSize();
     const bool effDisabled = opts.disabled || ctx.IsDisabled();
 
     Node* node = ctx.CreateNode(NodeType::WaterfallView, id);
-    node->theme = pushedTheme;
+    node->theme = zoneScope.GetTheme();
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<WaterfallViewPayload>();

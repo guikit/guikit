@@ -968,7 +968,7 @@ void TestMainWindowHeadlessBackend() {
         }
         void OnRender(Context& ui) override {
             ++guiCount;
-            framePixelsPerDp = ui.GetDpiScale();
+            framePixelsPerDp = ui.GetPixelsPerDp();
             rootScale = ui.GetCurrentScale();
             rootThemeScale = ui.GetTheme().scale;
             logicalViewport = ui.GetLogicalViewport();

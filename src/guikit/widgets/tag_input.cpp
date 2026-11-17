@@ -358,17 +358,8 @@ Response RunTagInputImpl(
     GetChipFn&& getChip,
     PushTokenFn&& pushToken
 ) {
-    struct ThemeScopeGuard {
-        Context& c;
-        bool pushed{false};
-        ~ThemeScopeGuard() noexcept {
-            if (pushed) c.PopTheme();
-        }
-    };
-
     const Id id = ctx.MakeChildId(loc);
-    UiTheme* scopedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
-    ThemeScopeGuard themeGuard{ctx, scopedTheme != nullptr};
+    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
@@ -620,7 +611,7 @@ Response RunTagInputImpl(
 
     const ControlSpec ctrl = EffectiveTagInputControl(optsCopy, activeSize, theme);
     Node* node = ctx.CreateNode(NodeType::TagInput, id);
-    node->theme = scopedTheme;
+    node->theme = zoneScope.GetTheme();
     node->debugBoundsOverride = optsCopy.debugBounds;
     node->inspectModeOverride = optsCopy.inspectMode;
 

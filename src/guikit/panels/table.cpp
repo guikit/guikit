@@ -420,7 +420,7 @@ TableRowScope TableScope::Row(keel::usize rowIndex, const TableRowOptions& opts)
     if (m_node) {
         m_node->childCount = static_cast<keel::u32>(rowIndex * 64);
     }
-    m_ctx->PushDisabled(opts.disabled || m_ctx->IsDisabled());
+    m_ctx->PushZone({.disabled = opts.disabled}); // row zone, left again in EndActiveRow()
 
     m_data->state->visibleRows.push_back(TableRowRecord{
         .rowIndex = rowIndex,
@@ -439,7 +439,7 @@ TableRowScope TableScope::Row(keel::usize rowIndex, const TableRowOptions& opts)
 void TableScope::EndActiveRow() noexcept {
     if (!m_data || !m_data->hasActiveRow) return;
     if (m_ctx) {
-        m_ctx->PopDisabled();
+        m_ctx->PopZone();
     }
     if (m_node) {
         Node* startChild = m_data->activeRowPrevLastChild
@@ -482,9 +482,6 @@ ContainerScope TableScope::Cell(const TableCellOptions& opts) {
     cellNode->colSpan = static_cast<keel::u8>(colIdx);
     cellNode->childIndex = static_cast<keel::u32>(m_data->activeRowIndex);
 
-    m_ctx->PushScale(m_ctx->GetCurrentScale());
-    m_ctx->PushSize(m_ctx->GetCurrentSize());
-    m_ctx->PushDisabled(m_ctx->IsDisabled());
     m_ctx->PushContainer(cellNode);
     return ContainerScope(m_ctx, cellNode);
 }
@@ -533,14 +530,13 @@ TableScope Table::Open(
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
     const TableOptions& optsCopy = opts;
 
-    UiTheme* pushedTheme = ctx.PushScopedTheme(optsCopy.theme, optsCopy.scale);
+    UiTheme* zoneTheme = ctx.PushZone({.theme = optsCopy.theme, .scale = optsCopy.scale, .disabled = optsCopy.disabled});
     const UiTheme& theme = ctx.GetTheme();
 
     Node* node = ctx.CreateNode(NodeType::Table, id);
-    node->theme = pushedTheme;
+    node->theme = zoneTheme;
     node->debugBoundsOverride = optsCopy.debugBounds;
     node->inspectModeOverride = optsCopy.inspectMode;
     node->direction = FlexDirection::Column;
@@ -962,10 +958,7 @@ TableScope Table::Open(
         }
     }
 
-    ctx.PushScale(activeScale);
-    ctx.PushSize(activeSize);
-    ctx.PushDisabled(activeDisabled);
-    ctx.PushContainer(node);
+    ctx.PushContainerInZone(node);
 
     return TableScope(&ctx, node, data);
 }

@@ -19,6 +19,7 @@
 #include "guikit/core/types.hpp"
 #include "guikit/graphics/icon.hpp"
 #include "guikit/core/solver.hpp"
+#include "guikit/core/zone.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/element.hpp"
@@ -243,11 +244,14 @@ public:
     Context& operator=(const Context&) = delete;
 
     // --- Frame Lifecycle ---
-    /// Starts a frame. `viewportSize` is in physical framebuffer pixels and `pixelsPerDp` is the single
-    /// dp -> pixel factor for the whole frame: OS display scale multiplied by any user UI zoom.
-    /// Layout, hit-testing and widget code work in dp; the canvas applies this factor uniformly, so
-    /// text, strokes, spacing and input always scale together.
-    void BeginFrame(Vec2 viewportSize, float pixelsPerDp = 1.0f);
+    /// Starts a frame and enters its root zone.
+    ///
+    /// `viewportSize` is in physical framebuffer pixels. The frame's single dp -> pixel factor is
+    /// `displayScale * rootZoom`: `displayScale` is the OS / monitor scale and `rootZoom` is the user's UI zoom
+    /// (the shell zoom). Layout, hit-testing and widget code work in dp and the canvas applies the factor
+    /// uniformly, so text, strokes, spacing and input always scale together. A child `ui.Zone({.zoom = ...})`
+    /// is relative to `displayScale` only and therefore does not follow `rootZoom`.
+    void BeginFrame(Vec2 viewportSize, float displayScale = 1.0f, float rootZoom = 1.0f);
     void EndFrame(ICanvas& canvas);
 
     // --- Input Handling ---
@@ -320,12 +324,12 @@ public:
         InvalidateAll();
     }
 
-    /// Returns the active UI theme (or top of theme scope stack if scoped).
+    /// Returns the active UI theme: the root theme, or the theme of the innermost zone that replaced or rescaled it.
     [[nodiscard]] const UiTheme& GetTheme() const noexcept {
-        return m_themeStack.empty() ? m_theme : *m_themeStack.back();
+        return *m_zoneStack.back().theme;
     }
     [[nodiscard]] UiTheme& GetTheme() noexcept {
-        return m_themeStack.empty() ? m_theme : *m_themeStack.back();
+        return *m_zoneStack.back().theme;
     }
 
     /// Sets the clear color used by EndFrame when clearing dirty damage regions.
@@ -363,19 +367,29 @@ public:
 
     /// Returns the active bounding rectangle of the dirty damage region in physical pixels for GPU blitting.
     [[nodiscard]] Rect GetPhysicalDirtyRect() const noexcept {
-        const float x1 = std::floor(m_dirtyRect.x * m_dpiScale);
-        const float y1 = std::floor(m_dirtyRect.y * m_dpiScale);
-        const float x2 = std::ceil(m_dirtyRect.Right() * m_dpiScale);
-        const float y2 = std::ceil(m_dirtyRect.Bottom() * m_dpiScale);
+        const float x1 = std::floor(m_dirtyRect.x * m_pixelsPerDp);
+        const float y1 = std::floor(m_dirtyRect.y * m_pixelsPerDp);
+        const float x2 = std::ceil(m_dirtyRect.Right() * m_pixelsPerDp);
+        const float y2 = std::ceil(m_dirtyRect.Bottom() * m_pixelsPerDp);
         return Rect(x1, y1, keel::max(0.0f, x2 - x1), keel::max(0.0f, y2 - y1));
     }
 
-    /// Returns the frame's pixels-per-dp factor (OS display scale x user UI zoom), as passed to `BeginFrame`.
-    [[nodiscard]] float GetDpiScale() const noexcept { return m_dpiScale; }
+    /// OS / monitor scale of this frame (100% = 1.0), as passed to `BeginFrame`.
+    [[nodiscard]] float GetDisplayScale() const noexcept { return m_displayScale; }
+
+    /// User UI zoom of the frame's root zone (the shell zoom), as passed to `BeginFrame`.
+    [[nodiscard]] float GetRootZoom() const noexcept { return m_rootZoom; }
+
+    /// The frame's single dp -> pixel factor: `GetDisplayScale() * GetRootZoom()`.
+    [[nodiscard]] float GetPixelsPerDp() const noexcept { return m_pixelsPerDp; }
+
+    /// Converts a zoom relative to the display scale (see `ZoneOptions::zoom`) into the zone scale, in layout
+    /// units, that produces it. The inverse of the compensation a zone applies for the root zoom.
+    [[nodiscard]] float ScaleForZoom(float zoom) const noexcept { return zoom / m_rootZoom; }
 
     /// Returns the current logical viewport size used for layout.
     [[nodiscard]] Vec2 GetLogicalViewport() const noexcept {
-        return m_viewportSize / (m_dpiScale > 0.0f ? m_dpiScale : 1.0f);
+        return m_viewportSize / m_pixelsPerDp;
     }
 
     /// Returns the active popup/overlay viewport rectangle, intersected with any enclosing clipping Box container.
@@ -691,59 +705,56 @@ public:
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
-    // --- Scale & State Scopes ---
-    void PushSize(UiSize size);
-    void PopSize();
-    void ReplaceTopSize(UiSize size) noexcept {
-        if (!m_sizeStack.empty()) {
-            m_sizeStack.back() = size;
-        }
-    }
-    [[nodiscard]] UiSize GetCurrentSize() const;
+    // --- Zones (ambient theme / scale / size / disabled state) ---
+    /// Enters a child zone: anything `opts` leaves unset is inherited from the current zone.
+    /// Returns the arena-owned theme when the zone replaced or rescaled it (`nullptr` when inherited), which
+    /// nodes store as `Node::theme`. Must be paired with `PopZone()`; prefer `Zone(...)` / `ZoneScope`.
+    UiTheme* PushZone(const ZoneOptions& opts);
+
+    /// Re-enters an already resolved zone state (no allocation), e.g. for a second container of the same widget.
+    void PushZoneState(const ZoneState& state);
+
+    /// Leaves the innermost zone. The root zone can never be popped.
+    void PopZone() noexcept;
+
+    /// Number of zones on the stack, including the root zone.
+    [[nodiscard]] keel::usize GetZoneDepth() const noexcept { return m_zoneStack.size(); }
+
+    /// Removes the zone that was entered when the stack had `depth` elements, keeping the zones above it.
+    /// Used by `ZoneScope::Detach()`; the root zone can never be removed.
+    void ReleaseZone(keel::usize depth) noexcept;
+
+    /// The innermost zone's state.
+    [[nodiscard]] const ZoneState& GetZone() const noexcept { return m_zoneStack.back(); }
+
+    /// The theme a zone with these options would use, without entering it (for popups and overlays that
+    /// only need the resolved theme values).
+    [[nodiscard]] UiTheme ResolveTheme(const ZoneOptions& opts);
+
+    /// RAII child zone: `if (auto zone = ui.Zone({.theme = &t, .zoom = 1.0f})) { ... }`.
+    [[nodiscard]] ZoneScope Zone(const ZoneOptions& opts = {}) { return ZoneScope(*this, opts); }
+
+    /// Replaces the control size of the innermost zone in place (used when a scope hands its zone to a container).
+    void ReplaceTopSize(UiSize size) noexcept { m_zoneStack.back().size = size; }
+
+    [[nodiscard]] UiSize GetCurrentSize() const noexcept { return m_zoneStack.back().size; }
+    [[nodiscard]] bool IsDisabled() const noexcept { return m_zoneStack.back().disabled; }
+
+    /// Scale of the current zone in layout units (the active theme's scale).
+    [[nodiscard]] float GetCurrentScale() const noexcept { return m_zoneStack.back().theme->scale; }
 
     [[nodiscard]] SizeScope Size(UiSize size) noexcept;
 
     template <typename Fn>
     void Size(UiSize size, Fn&& fn) {
-        PushSize(size);
+        const ZoneScope zone(*this, {.size = size});
         fn();
-        PopSize();
     }
-
-    void PushDisabled(bool disabled = true);
-    void PopDisabled();
-    [[nodiscard]] bool IsDisabled() const;
 
     template <typename Fn>
     void Disabled(bool disabled, Fn&& fn) {
-        PushDisabled(disabled);
+        const ZoneScope zone(*this, {.disabled = disabled});
         fn();
-        PopDisabled();
-    }
-
-    // --- Theme & Scale Scopes ---
-    UiTheme* PushTheme(const UiTheme& theme);
-    UiTheme* PushScopedTheme(const UiTheme* explicitTheme, keel::Optional<float> explicitScale);
-    void PopTheme();
-
-    void PushScale(float scale);
-    void PopScale();
-    [[nodiscard]] float GetCurrentScale() const noexcept {
-        return m_scaleStack.empty() ? 1.0f : m_scaleStack.back();
-    }
-
-    template <typename Fn>
-    void Theme(const UiTheme& theme, Fn&& fn) {
-        PushTheme(theme);
-        fn();
-        PopTheme();
-    }
-
-    template <typename Fn>
-    void Scale(float scale, Fn&& fn) {
-        PushScale(scale);
-        fn();
-        PopScale();
     }
 
     // --- Widgets ---
@@ -1752,7 +1763,14 @@ public:
     [[nodiscard]] Rect GetParentPrevFrameBounds() const;
 
     // --- Internal Hierarchy & Scope Management ---
+    /// Makes `node` the innermost container. A container owns exactly one zone, which `PopContainer()` leaves
+    /// again: this overload enters a fresh zone that inherits everything (for custom containers).
     void PushContainer(Node* node);
+
+    /// Like `PushContainer()`, but the container adopts the zone the caller entered for it with `PushZone()` /
+    /// `PushZoneState()` (built-in containers do this to build their node with the zone's theme).
+    void PushContainerInZone(Node* node);
+
     void PopContainer(Node* node);
     [[nodiscard]] Node* GetCurrentContainer() const noexcept {
         return m_containerStack.empty() ? nullptr : m_containerStack.back();
@@ -2146,15 +2164,14 @@ private:
 
     keel::Arena m_arena;
     keel::SmallArray<Node*, 16> m_containerStack;
-    keel::SmallArray<UiSize, 16> m_sizeStack;
-    keel::SmallArray<bool, 16> m_disabledStack;
-    keel::SmallArray<UiTheme*, 8> m_themeStack;
-    keel::SmallArray<float, 8> m_scaleStack;
+    keel::SmallArray<ZoneState, 16> m_zoneStack; ///< Never empty: element 0 is the frame's root zone
     Node* m_root{nullptr};
     ICanvas* m_lastCanvas{nullptr};
 
     Vec2 m_viewportSize{800.0f, 600.0f};
-    float m_dpiScale{1.0f};
+    float m_displayScale{1.0f};
+    float m_rootZoom{1.0f};
+    float m_pixelsPerDp{1.0f}; ///< m_displayScale * m_rootZoom
 
     // Time & Cursor animation state
     CursorConfig m_cursorConfig{};
@@ -2396,13 +2413,7 @@ public:
         , m_prevSize(ctx ? ctx->GetCurrentSize() : UiSize::Md)
         , m_size(size) {
         if (m_ctx) {
-            m_ctx->PushSize(m_size);
-        }
-    }
-
-    ~SizeScope() noexcept {
-        if (m_ctx) {
-            m_ctx->PopSize();
+            m_zone = ZoneScope(*m_ctx, ZoneOptions{.size = m_size});
         }
     }
 
@@ -2411,6 +2422,7 @@ public:
 
     SizeScope(SizeScope&& other) noexcept
         : m_ctx(other.m_ctx)
+        , m_zone(keel::move(other.m_zone))
         , m_prevSize(other.m_prevSize)
         , m_size(other.m_size) {
         other.m_ctx = nullptr;
@@ -2418,10 +2430,8 @@ public:
 
     SizeScope& operator=(SizeScope&& other) noexcept {
         if (this != &other) {
-            if (m_ctx) {
-                m_ctx->PopSize();
-            }
             m_ctx = other.m_ctx;
+            m_zone = keel::move(other.m_zone);
             m_prevSize = other.m_prevSize;
             m_size = other.m_size;
             other.m_ctx = nullptr;
@@ -3448,18 +3458,18 @@ public:
     }
 
 private:
+    /// The container just opened inside this scope entered its own zone, which already carries this size;
+    /// drop the now redundant zone beneath it (or, if the container opened nothing, simply leave it).
     template <typename ScopeT>
     ScopeT TransferToContainer(ScopeT&& scope) noexcept {
-        if (m_ctx) {
-            m_ctx->PopSize();
-            m_ctx = nullptr;
-        }
+        m_zone.Detach();
+        m_ctx = nullptr;
         return keel::move(scope);
     }
 
     void RestoreAccordionBodySize(Context* ctx, AccordionScope& scope, const AccordionOptions& opts) noexcept {
         if (ctx) {
-            ctx->PopSize();
+            m_zone.Detach();
             m_ctx = nullptr;
             if (Node* bodyNode = scope.GetNode()) {
                 ctx->ReplaceTopSize(m_prevSize);
@@ -3473,6 +3483,7 @@ private:
     }
 
     Context* m_ctx{nullptr};
+    ZoneScope m_zone;
     UiSize m_prevSize{UiSize::Md};
     UiSize m_size{UiSize::Md};
 };

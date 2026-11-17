@@ -584,7 +584,7 @@ Response RunLevelMeterImpl(
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
     const UiTheme& activeTheme = ctx.GetTheme();
 
     LevelMeterOptions optsCopy = opts;
@@ -686,7 +686,7 @@ Response RunLevelMeterImpl(
 
     const ControlSpec ctrl = EffectiveLevelMeterControl(optsCopy, activeSize, activeTheme);
     Node* node = ctx.CreateNode(NodeType::LevelMeter, id);
-    node->theme = pushedTheme;
+    node->theme = zoneScope.GetTheme();
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
@@ -750,9 +750,6 @@ Response RunLevelMeterImpl(
     node->renderFn = &LevelMeter::Render;
 
     Control::SetupNode(ctx, node, ctrl);
-    if (pushedTheme) {
-        ctx.PopTheme();
-    }
     return res;
 }
 

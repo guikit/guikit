@@ -1127,14 +1127,13 @@ SceneScope Scene::OpenWithId(
 
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool activeDisabled = optsCopy.disabled || ctx.IsDisabled();
-    const float activeScale = optsCopy.scale.value_or(ctx.GetCurrentScale());
-    UiTheme* pushedTheme = ctx.PushScopedTheme(optsCopy.theme, optsCopy.scale);
+    UiTheme* zoneTheme = ctx.PushZone({.theme = optsCopy.theme, .scale = optsCopy.scale, .disabled = optsCopy.disabled});
 
     const UiTheme& theme = ctx.GetTheme();
     auto& state = ctx.GetOrCreatePersistentState<SceneState>(id);
 
     Node* node = ctx.CreateNode(NodeType::Scene, id);
-    node->theme = pushedTheme;
+    node->theme = zoneTheme;
     node->debugBoundsOverride = optsCopy.debugBounds;
     node->inspectModeOverride = optsCopy.inspectMode;
     node->direction = FlexDirection::Column;
@@ -1250,10 +1249,7 @@ SceneScope Scene::OpenWithId(
         activeDisabled
     );
 
-    ctx.PushScale(activeScale);
-    ctx.PushSize(activeSize);
-    ctx.PushDisabled(activeDisabled);
-    ctx.PushContainer(node);
+    ctx.PushContainerInZone(node);
     return SceneScope(&ctx, node, payload, prevVp);
 }
 

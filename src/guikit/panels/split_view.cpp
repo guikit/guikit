@@ -317,9 +317,9 @@ SplitViewScope SplitView::Open(
 
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
+    UiTheme* zoneTheme = ctx.PushZone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
+    const float activeScale = ctx.GetCurrentScale();
     const float safeScale = (activeScale > 0.0f) ? activeScale : 1.0f;
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
     const UiTheme& theme = ctx.GetTheme();
 
     auto& st = ctx.GetOrCreatePersistentState<SplitViewPersistState>(id);
@@ -450,7 +450,7 @@ SplitViewScope SplitView::Open(
     }
 
     Node* outerNode = ctx.CreateNode(NodeType::SplitView, id);
-    outerNode->theme = pushedTheme;
+    outerNode->theme = zoneTheme;
     outerNode->debugBoundsOverride = opts.debugBounds;
     outerNode->inspectModeOverride = opts.inspectMode;
     outerNode->direction = isHoriz ? FlexDirection::Row : FlexDirection::Column;
@@ -512,10 +512,7 @@ SplitViewScope SplitView::Open(
         });
     }
 
-    ctx.PushScale(activeScale);
-    ctx.PushSize(activeSize);
-    ctx.PushDisabled(activeDisabled);
-    ctx.PushContainer(outerNode);
+    ctx.PushContainerInZone(outerNode);
 
     return SplitViewScope(&ctx, outerNode, res, st.ratio, st.dragging);
 }

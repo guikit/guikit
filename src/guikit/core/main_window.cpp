@@ -179,10 +179,10 @@ void MainWindow::RenderFrame() {
     const keel::u64 frameWorkStartNs = keel::monotonic_ns();
     m_metrics.BeginFrame();
 
-    // One dp -> pixel factor for the whole frame: OS display scale x user shell zoom. The canvas applies
+    // One dp -> pixel factor for the whole frame: OS display scale x root zoom (the shell zoom). The canvas applies
     // it uniformly, so the shell zoom behaves exactly like a different monitor DPI and nothing in the
     // tree needs to be scaled by hand.
-    m_ui.BeginFrame({static_cast<float>(winW), static_cast<float>(winH)}, GetDpiScale() * GetShellScale());
+    m_ui.BeginFrame({static_cast<float>(winW), static_cast<float>(winH)}, GetDpiScale(), GetShellScale());
     {
         const ShellStyle activeShellStyle = m_shellFloating ? ShellStyle::Floating : ShellStyle::Docked;
         if (m_shellTheme.GetShellStyle() != activeShellStyle) {

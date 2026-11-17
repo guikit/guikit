@@ -31,7 +31,6 @@ TabBarResponse TabBar::Run(
 
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
 
     keel::Optional<ContainerScope> carouselScope;
     Node* barNode = nullptr;
@@ -46,20 +45,17 @@ TabBarResponse TabBar::Run(
         carouselScope.emplace(ctx.Carousel(cOpts, loc));
         barNode = carouselScope->GetNode();
     } else {
-        UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+        UiTheme* zoneTheme = ctx.PushZone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
         const Id barId = ctx.MakeChildId(loc);
         barNode = ctx.CreateNode(NodeType::Container, barId);
-        barNode->theme = pushedTheme;
+        barNode->theme = zoneTheme;
         barNode->direction = FlexDirection::Row;
         barNode->align = Alignment::Center;
         barNode->uiSize = activeSize;
         barNode->disabled = activeDisabled;
         barNode->widthMode = opts.fullWidth ? SizeMode::Stretch : SizeMode::Fit;
 
-        ctx.PushScale(activeScale);
-        ctx.PushSize(activeSize);
-        ctx.PushDisabled(activeDisabled);
-        ctx.PushContainer(barNode);
+        ctx.PushContainerInZone(barNode);
     }
 
     const UiTheme& theme = ctx.GetTheme();
@@ -83,7 +79,7 @@ TabBarResponse TabBar::Run(
     if (opts.padding.has_value()) {
         resolvedPadding = theme.ResolvePadding(opts.padding);
     } else if (opts.style == TabBarStyle::Pill && hasCustomBgOrBorder) {
-        const float defaultPad = ((activeSize <= UiSize::Sm) ? 2.0f : 3.0f) * activeScale;
+        const float defaultPad = ((activeSize <= UiSize::Sm) ? 2.0f : 3.0f) * theme.scale;
         resolvedPadding = Padding{defaultPad, defaultPad, defaultPad, defaultPad};
     }
 
@@ -91,7 +87,7 @@ TabBarResponse TabBar::Run(
     if (opts.border.radius.has_value()) {
         resolvedRadius = theme.Scale(*opts.border.radius);
     } else if (opts.style == TabBarStyle::Pill && hasCustomBgOrBorder) {
-        resolvedRadius = m.cornerRadius + 2.0f * activeScale;
+        resolvedRadius = m.cornerRadius + 2.0f * theme.scale;
     }
 
     const float effectiveBorderWidth = (opts.border.width > 0.0f)

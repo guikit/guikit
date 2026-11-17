@@ -1365,12 +1365,7 @@ ImageViewResponse RunImageViewImpl(
     const ImageViewOptions& opts,
     keel::SourceLocation loc
 ) {
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
-    struct ThemePopGuard {
-        Context& c;
-        UiTheme* t;
-        ~ThemePopGuard() noexcept { if (t) c.PopTheme(); }
-    } themePop{ctx, pushedTheme};
+    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const Id rootId = ctx.MakeChildId(loc);
     auto& st = ctx.GetOrCreatePersistentState<ImageViewInternalState>(rootId);
@@ -1387,7 +1382,7 @@ ImageViewResponse RunImageViewImpl(
         if (Node* cNode = ctx.GetCurrentContainer()) {
             for (Node* ch = cNode->firstChild; ch; ch = ch->nextSibling) {
                 if (ch->id == rootId) {
-                    ch->theme = pushedTheme;
+                    ch->theme = zoneScope.GetTheme();
                     break;
                 }
             }
@@ -1408,7 +1403,7 @@ ImageViewResponse RunImageViewImpl(
             .padding = Padding::All(10.0f),
             .border = {.radius = 6.0f}
         })) {
-            ctx.PushSize(UiSize::Sm);
+            const ZoneScope compactControls = ctx.Zone({.size = UiSize::Sm});
 
             // --- Section 1: Histogram & Interactive Window/Level ---
             ctx.Text("Histogram & Window/Level", {.role = TextRole::LabelLarge});
@@ -1628,7 +1623,6 @@ ImageViewResponse RunImageViewImpl(
                 }
             }
 
-            ctx.PopSize();
         }
     };
 
@@ -1649,7 +1643,7 @@ ImageViewResponse RunImageViewImpl(
         .inspectMode = optsCopy.inspectMode
     })) {
         if (Node* rNode = outerRow.GetNode()) {
-            rNode->theme = pushedTheme;
+            rNode->theme = zoneScope.GetTheme();
             const UiTheme& th = ctx.GetTheme();
             if (rNode->parent && rNode->parent->type == NodeType::Element) {
                 rNode->widthMode = SizeMode::Stretch;

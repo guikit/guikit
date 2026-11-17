@@ -93,6 +93,7 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/core/control.cpp
     src/guikit/core/element.cpp
     src/guikit/core/solver.cpp
+    src/guikit/core/zone.cpp
     src/guikit/graphics/colormap.cpp
     src/guikit/graphics/icon.cpp
     src/guikit/layout/row.cpp

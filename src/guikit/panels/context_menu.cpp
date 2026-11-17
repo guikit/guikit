@@ -30,12 +30,7 @@ ContextMenuResponse ContextMenu::Run(
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
-    const UiTheme theme = ctx.GetTheme();
-    if (pushedTheme != nullptr) {
-        ctx.PopTheme();
-    }
+    const UiTheme theme = ctx.ResolveTheme({.theme = opts.theme, .scale = opts.scale});
 
     auto& state = ctx.GetOrCreateState<ContextMenuPersistState>(id);
     if (triggerRect.w > 0.0f || triggerRect.h > 0.0f) {
@@ -65,7 +60,7 @@ ContextMenuResponse ContextMenu::Run(
 
     // Measure menu geometry
     ICanvas* canvas = ctx.GetCanvas();
-    const float s = (theme.scale > 0.0f) ? theme.scale : activeScale;
+    const float s = theme.scale;
     const ComponentMetrics& cm = theme.GetMetrics(activeSize);
     const float rowH = std::round(keel::max(32.0f * s, cm.defaultHeight * 0.9f));
     const float sepH = std::round(9.0f * s);

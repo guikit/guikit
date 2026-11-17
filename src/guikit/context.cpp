@@ -4,6 +4,7 @@
 #include "keel/static_array.h"
 #include "keel/time.h"
 #include "keel/utf8.h"
+#include <cassert>
 #include <cmath>
 #if defined(__GLIBC__)
 #include <malloc.h>
@@ -105,8 +106,7 @@ void ArrayEraseIf(keel::Array<T>& arr, Pred&& pred) noexcept {
 
 Context::Context()
     : m_startTimeNs(keel::monotonic_ns()) {
-    m_sizeStack.push_back(UiSize::Md);
-    m_disabledStack.push_back(false);
+    m_zoneStack.push_back(ZoneState{&m_theme, UiSize::Md, false});
 }
 
 Context::~Context() {
@@ -132,18 +132,22 @@ void Context::ClearOverlayHitBuilders() noexcept {
     m_overlayHitBuilders.clear();
 }
 
-void Context::BeginFrame(Vec2 viewportSize, float pixelsPerDp) {
+void Context::BeginFrame(Vec2 viewportSize, float displayScale, float rootZoom) {
     ++m_frameIndex;
-    const float effScale = (pixelsPerDp > 0.0f) ? pixelsPerDp : 1.0f;
-    if (m_viewportSize != viewportSize || m_dpiScale != effScale) {
+    const float effDisplay = (displayScale > 0.0f) ? displayScale : 1.0f;
+    const float effZoom = (rootZoom > 0.0f) ? rootZoom : 1.0f;
+    const float effScale = effDisplay * effZoom;
+    if (m_viewportSize != viewportSize || m_pixelsPerDp != effScale) {
         InvalidateAll();
     }
-    if (m_dpiScale != effScale) {
+    if (m_pixelsPerDp != effScale) {
         // The cursor did not move on screen; only its dp coordinate changed
         m_mousePos = m_mousePosPx / effScale;
     }
     m_viewportSize = viewportSize;
-    m_dpiScale = effScale;
+    m_displayScale = effDisplay;
+    m_rootZoom = effZoom;
+    m_pixelsPerDp = effScale;
 
     if (!m_manualTime) {
         const keel::u64 nowNs = keel::monotonic_ns();
@@ -244,10 +248,7 @@ void Context::BeginFrame(Vec2 viewportSize, float pixelsPerDp) {
     m_arena.reset();
     m_childIdCounts.clear();
     m_containerStack.clear();
-    m_sizeStack.clear();
-    m_disabledStack.clear();
-    m_themeStack.clear();
-    m_scaleStack.clear();
+    m_zoneStack.clear();
     m_currFrameBounds.clear();
     m_currUnclippedBounds.clear();
     m_currHitNodes.clear();
@@ -255,12 +256,11 @@ void Context::BeginFrame(Vec2 viewportSize, float pixelsPerDp) {
     m_activeOverlayHitCheckId = Id::Null();
     m_widgetExecDepth = 0;
 
-    m_sizeStack.push_back(UiSize::Md);
-    m_disabledStack.push_back(false);
-    m_scaleStack.push_back(1.0f);
+    // Root zone of the frame: the context theme at scale 1 (the frame factor carries display scale and root zoom)
+    m_zoneStack.push_back(ZoneState{&m_theme, UiSize::Md, false});
 
     // Create root container spanning the entire logical viewport
-    const Vec2 logicalSize = m_viewportSize / m_dpiScale;
+    const Vec2 logicalSize = m_viewportSize / m_pixelsPerDp;
     m_root = m_arena.create<Node>();
     m_root->type = NodeType::Column;
     m_root->direction = FlexDirection::Column;
@@ -474,6 +474,11 @@ Rect Context::GetPopupViewportRect() const noexcept {
 }
 
 void Context::PushContainer(Node* node) {
+    PushZone({});
+    PushContainerInZone(node);
+}
+
+void Context::PushContainerInZone(Node* node) {
     m_containerStack.push_back(node);
 }
 
@@ -483,86 +488,61 @@ void Context::PopContainer(Node* node) {
         if (node->type == NodeType::Element) {
             Element::SyncWithChildren(*this, node);
         }
-        if (node->theme != nullptr) {
-            PopTheme();
-        }
-        PopScale();
-        PopSize();
-        PopDisabled();
+        // Every container enters exactly one zone right before it is pushed; it leaves it here
+        PopZone();
     }
 }
 
-UiTheme* Context::PushTheme(const UiTheme& theme) {
-    UiTheme* arenaTheme = m_arena.create<UiTheme>(theme);
-    m_themeStack.push_back(arenaTheme);
-    return arenaTheme;
-}
+UiTheme* Context::PushZone(const ZoneOptions& opts) {
+    assert(!(opts.scale.has_value() && opts.zoom.has_value()) && "ZoneOptions: scale and zoom are mutually exclusive");
 
-UiTheme* Context::PushScopedTheme(const UiTheme* explicitTheme, keel::Optional<float> explicitScale) {
-    if (explicitTheme == nullptr && !explicitScale.has_value()) {
-        return nullptr;
+    const ZoneState& parent = m_zoneStack.back();
+    ZoneState next = parent;
+
+    // The zone's scale lives on its theme: an explicit scale/zoom wins, otherwise the parent's scale is kept
+    keel::Optional<float> requestedScale = opts.zoom.has_value() ? keel::Optional<float>{ScaleForZoom(*opts.zoom)} : opts.scale;
+    UiTheme* overridden = nullptr;
+    if (opts.theme != nullptr || requestedScale.has_value()) {
+        const UiTheme& base = (opts.theme != nullptr) ? *opts.theme : *parent.theme;
+        const float baseScale = (base.scale > 0.0f) ? base.scale : 1.0f;
+        const float targetScale = (requestedScale.has_value() && *requestedScale > 0.0f)
+            ? *requestedScale
+            : ((parent.theme->scale > 0.0f) ? parent.theme->scale : 1.0f);
+        // `Scaled` is a plain copy for a factor of 1, so the zone always owns an arena copy it can hand to nodes
+        overridden = m_arena.create<UiTheme>(base.Scaled(targetScale / baseScale));
+        next.theme = overridden;
     }
-    const float prevScale = GetCurrentScale();
-    const float activeScale = explicitScale.value_or(prevScale);
-    UiTheme scopedTheme = (explicitTheme != nullptr) ? *explicitTheme : GetTheme();
-    if (explicitTheme != nullptr) {
-        const float baseScale = (explicitTheme->scale > 0.0f) ? explicitTheme->scale : 1.0f;
-        const float relFactor = (activeScale > 0.0f) ? (activeScale / baseScale) : 1.0f;
-        if (std::abs(relFactor - 1.0f) > 0.0001f) {
-            scopedTheme = scopedTheme.Scaled(relFactor);
-        }
-    } else if (explicitScale.has_value() && *explicitScale > 0.0f) {
-        const float relFactor = (prevScale > 0.0f) ? (*explicitScale / prevScale) : *explicitScale;
-        if (relFactor != 1.0f) {
-            scopedTheme = scopedTheme.Scaled(relFactor);
-        }
+
+    if (opts.size.has_value() && *opts.size != UiSize::None) {
+        next.size = *opts.size;
     }
-    return PushTheme(scopedTheme);
+    next.disabled = parent.disabled || opts.disabled;
+
+    m_zoneStack.push_back(next);
+    return overridden;
 }
 
-void Context::PopTheme() {
-    if (!m_themeStack.empty()) {
-        m_themeStack.pop_back();
-    }
+UiTheme Context::ResolveTheme(const ZoneOptions& opts) {
+    const ZoneScope zone(*this, opts);
+    return GetTheme();
 }
 
-void Context::PushScale(float scale) {
-    m_scaleStack.push_back((scale > 0.0f) ? scale : 1.0f);
+void Context::PushZoneState(const ZoneState& state) {
+    m_zoneStack.push_back(state);
 }
 
-void Context::PopScale() {
-    if (m_scaleStack.size() > 1) {
-        m_scaleStack.pop_back();
-    }
-}
-
-void Context::PushSize(UiSize size) {
-    m_sizeStack.push_back(size == UiSize::None ? GetCurrentSize() : size);
-}
-
-void Context::PopSize() {
-    if (m_sizeStack.size() > 1) {
-        m_sizeStack.pop_back();
+void Context::PopZone() noexcept {
+    assert(m_zoneStack.size() > 1 && "PopZone: unbalanced zone stack");
+    if (m_zoneStack.size() > 1) {
+        m_zoneStack.pop_back();
     }
 }
 
-UiSize Context::GetCurrentSize() const {
-    return m_sizeStack.empty() ? UiSize::Md : m_sizeStack.back();
-}
-
-void Context::PushDisabled(bool disabled) {
-    const bool current = IsDisabled();
-    m_disabledStack.push_back(current || disabled);
-}
-
-void Context::PopDisabled() {
-    if (m_disabledStack.size() > 1) {
-        m_disabledStack.pop_back();
+void Context::ReleaseZone(keel::usize depth) noexcept {
+    assert(depth >= 2 && depth <= m_zoneStack.size() && "ReleaseZone: invalid zone depth");
+    if (depth >= 2 && depth <= m_zoneStack.size()) {
+        m_zoneStack.remove_at(depth - 1);
     }
-}
-
-bool Context::IsDisabled() const {
-    return !m_disabledStack.empty() && m_disabledStack.back();
 }
 
 ContainerScope Context::Row(RowOptions opts, keel::SourceLocation loc) {
@@ -1622,7 +1602,7 @@ keel::i32 Context::GetRecommendedSleepTimeoutMs() const noexcept {
 }
 
 void Context::OnMouseMove(Vec2 pos) {
-    const float scale = (m_dpiScale > 0.0f) ? m_dpiScale : 1.0f;
+    const float scale = m_pixelsPerDp;
     const Vec2 newPos = pos / scale;
     m_mousePosPx = pos;
     if (std::abs(newPos.x - m_mousePos.x) < 0.25f && std::abs(newPos.y - m_mousePos.y) < 0.25f) {
@@ -2523,13 +2503,15 @@ void Context::ScrollToId(Id id) {
 void Context::EndFrame(ICanvas& canvas) {
     m_lastCanvas = &canvas;
 
-    // Balance any unclosed container scopes
+    // Balance any unclosed container scopes; each owns the zone it entered
     while (m_containerStack.size() > 1) {
         m_containerStack.pop_back();
+        PopZone();
     }
+    assert(m_zoneStack.size() == 1 && "EndFrame: a Zone / Size scope or themed widget scope outlived its frame");
     m_modalScopeDepth = 0;
 
-    const Vec2 logicalSize = m_viewportSize / ((m_dpiScale > 0.0f) ? m_dpiScale : 1.0f);
+    const Vec2 logicalSize = m_viewportSize / m_pixelsPerDp;
 
     // Resolve geometry using canvas font metrics
     Solver::Measure(m_root, &canvas, m_theme);
@@ -2855,7 +2837,7 @@ void Context::EndFrame(ICanvas& canvas) {
 
     // If damage exists, clear target buffer and rasterize scene graph
     if (m_hasDirtyDamage) {
-        canvas.Begin(static_cast<keel::u32>(m_viewportSize.x), static_cast<keel::u32>(m_viewportSize.y), m_dpiScale);
+        canvas.Begin(static_cast<keel::u32>(m_viewportSize.x), static_cast<keel::u32>(m_viewportSize.y), m_pixelsPerDp);
 
         if (m_isFullRepaint) {
             canvas.PushClip(m_dirtyRect);

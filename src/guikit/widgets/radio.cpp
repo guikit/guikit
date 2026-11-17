@@ -30,12 +30,7 @@ Response Radio::Run(
     const RadioOptions& opts,
     keel::SourceLocation loc
 ) {
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
-    struct ThemePopGuard {
-        Context& c;
-        UiTheme* t;
-        ~ThemePopGuard() noexcept { if (t) c.PopTheme(); }
-    } themeGuard{ctx, pushedTheme};
+    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
@@ -79,7 +74,7 @@ Response Radio::Run(
 
     const ControlSpec ctrl = EffectiveRadioControl(activeSize, ctx.GetTheme());
     Node* node = ctx.CreateNode(NodeType::Radio, id);
-    node->theme = pushedTheme;
+    node->theme = zoneScope.GetTheme();
     node->SetPayload(ctx.AllocPayload<RadioOptions>(optsCopy));
     node->visualHash = detail::HashArgs(
         optsCopy.color,

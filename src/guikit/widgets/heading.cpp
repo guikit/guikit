@@ -207,7 +207,7 @@ Response Heading::Run(
 ) {
     const Id id = ctx.MakeChildId(loc);
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
     const UiTheme& activeTheme = ctx.GetTheme();
 
     Response res = ctx.Interact(id);
@@ -224,7 +224,7 @@ Response Heading::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::Heading, id);
-    node->theme = pushedTheme;
+    node->theme = zoneScope.GetTheme();
     auto* hOpts = ctx.AllocPayload<HeadingOptions>(opts);
     hOpts->label = ctx.AllocText(opts.label);
     hOpts->description = ctx.AllocText(opts.description);
@@ -283,9 +283,6 @@ Response Heading::Run(
         );
     };
 
-    if (pushedTheme) {
-        ctx.PopTheme();
-    }
 
     return res;
 }

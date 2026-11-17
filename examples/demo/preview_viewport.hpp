@@ -311,17 +311,19 @@ inline void RenderPreviewViewport(
         backdropNode->postRenderFn = &detail::RenderBackdropHudBadge;
 
         const guikit::Rect backdropBounds = ui.GetPrevFrameBounds(backdropNode->id);
-        const float shellScale = keel::max(0.5f, ui.GetCurrentScale());
-        const float padPx = 36.0f * shellScale;
-        const float availPxW = (backdropBounds.w > 80.0f) ? keel::max(120.0f, backdropBounds.w - padPx) : (860.0f * shellScale);
-        const float availPxH = (backdropBounds.h > 80.0f) ? keel::max(120.0f, backdropBounds.h - padPx) : (560.0f * shellScale);
+        // Layout units of the studio chrome. The user's shell zoom is part of the frame factor (the root zoom), so
+        // this is 1 here; the preview below is a zone relative to the *display* scale and does not follow it.
+        const float chromeScale = keel::max(0.5f, ui.GetCurrentScale());
+        const float rootZoom = ui.GetRootZoom();
+        const float padPx = 36.0f * chromeScale;
+        const float availPxW = (backdropBounds.w > 80.0f) ? keel::max(120.0f, backdropBounds.w - padPx) : (860.0f * chromeScale);
+        const float availPxH = (backdropBounds.h > 80.0f) ? keel::max(120.0f, backdropBounds.h - padPx) : (560.0f * chromeScale);
 
         // Hardware device specifications:
         // - Phone (6.3" iPhone 16 Pro class): 375 x 784 dp  |  71.5 x 149.6 mm
         // - Tablet (8.3" iPad mini / Touch Panel class): 540 x 782 dp  |  134.8 x 195.4 mm
         const float rawPxPerMm    = (demoCtx.displayPxPerMm > 0.5f) ? demoCtx.displayPxPerMm : (96.0f / 25.4f);
-        const float dpiScale      = keel::max(0.1f, ui.GetDpiScale());
-        const float pxPerMm       = rawPxPerMm / dpiScale;
+        const float pxPerMm       = rawPxPerMm / keel::max(0.1f, ui.GetDisplayScale());
         const float basePortraitW = isPhone ? 375.0f : 540.0f;
         const float basePortraitH = isPhone ? 784.0f : 782.0f;
         const float baseMmW       = isPhone ? 71.5f  : 134.8f;
@@ -337,9 +339,9 @@ inline void RenderPreviewViewport(
         switch (zoomMode) {
             case PreviewZoomMode::Fit:
                 if (isDeviceMode) {
-                    effectiveZoom = keel::clamp(keel::min(availPxW / targetW, availPxH / targetH), 0.35f, 2.50f);
+                    effectiveZoom = keel::clamp(keel::min(availPxW / targetW, availPxH / targetH) * rootZoom, 0.35f, 2.50f);
                 } else if (isResizableWindow && demoCtx.previewWindowCustomSize) {
-                    effectiveZoom = keel::clamp(keel::min(1.0f, keel::min(availPxW / targetW, availPxH / targetH)), 0.35f, 1.0f);
+                    effectiveZoom = keel::clamp(keel::min(1.0f, keel::min(availPxW / targetW, availPxH / targetH) * rootZoom), 0.35f, 1.0f);
                 } else {
                     effectiveZoom = 1.0f;
                 }
@@ -384,6 +386,7 @@ inline void RenderPreviewViewport(
             }
         }
         demoCtx.previewEffectiveZoom = effectiveZoom;
+        const float relScale = ui.ScaleForZoom(effectiveZoom); // one preview dp, in the chrome's layout units
 
         const keel::i32 zoomPct = keel::round_i32(effectiveZoom * 100.0f);
         if (useCenteredScrollCanvas) {
@@ -438,10 +441,10 @@ inline void RenderPreviewViewport(
             if (auto windowFrame = ui.Box({
                 .gap = 0.0f,
                 .width = demoCtx.previewWindowCustomSize
-                    ? guikit::AxisSize::Fixed(demoCtx.previewWindowW * effectiveZoom / shellScale)
+                    ? guikit::AxisSize::Fixed(demoCtx.previewWindowW * relScale / chromeScale)
                     : guikit::AxisSize::Stretch(),
                 .height = demoCtx.previewWindowCustomSize
-                    ? guikit::AxisSize::Fixed(demoCtx.previewWindowH * effectiveZoom / shellScale)
+                    ? guikit::AxisSize::Fixed(demoCtx.previewWindowH * relScale / chromeScale)
                     : guikit::AxisSize::Stretch(),
                 .padding = guikit::Padding::All(0.0f),
                 .background = {demoCtx.previewTheme.palette.surface},
@@ -457,10 +460,10 @@ inline void RenderPreviewViewport(
 
                 if (winBounds.w > 40.0f && winBounds.h > 40.0f) {
                     const guikit::Vec2 mouse = ui.GetMousePos();
-                    const float winScale = shellScale;
+                    const float winScale = chromeScale;
                     const float titleH = 28.0f * winScale;
-                    const float gripThick = 7.0f * shellScale;
-                    const float cornerSpan = 16.0f * shellScale;
+                    const float gripThick = 7.0f * chromeScale;
+                    const float cornerSpan = 16.0f * chromeScale;
 
                     const guikit::Rect brCorner(winBounds.Right() - cornerSpan, winBounds.Bottom() - cornerSpan, cornerSpan + 5.0f, cornerSpan + 5.0f);
                     const guikit::Rect blCorner(winBounds.x - 5.0f, winBounds.Bottom() - cornerSpan, cornerSpan + 5.0f, cornerSpan + 5.0f);
@@ -502,8 +505,8 @@ inline void RenderPreviewViewport(
                         else if (edge & 4)        ui.SetCursor(guikit::CursorType::ResizeNS);
                     };
 
-                    const float maxFitW = keel::max(320.0f, std::floor(availPxW / effectiveZoom));
-                    const float maxFitH = keel::max(220.0f, std::floor(availPxH / effectiveZoom));
+                    const float maxFitW = keel::max(320.0f, std::floor(availPxW / relScale));
+                    const float maxFitH = keel::max(220.0f, std::floor(availPxH / relScale));
 
                     auto toggleMaximizeRestore = [&]() {
                         if (demoCtx.previewWindowCustomSize) {
@@ -528,10 +531,10 @@ inline void RenderPreviewViewport(
                                 demoCtx.previewWindowDragStartMouse = mouse;
                                 demoCtx.previewWindowDragStartW = demoCtx.previewWindowCustomSize
                                     ? demoCtx.previewWindowW
-                                    : keel::clamp(std::round(winBounds.w / effectiveZoom), 320.0f, maxFitW);
+                                    : keel::clamp(std::round(winBounds.w / relScale), 320.0f, maxFitW);
                                 demoCtx.previewWindowDragStartH = demoCtx.previewWindowCustomSize
                                     ? demoCtx.previewWindowH
-                                    : keel::clamp(std::round(winBounds.h / effectiveZoom), 220.0f, maxFitH);
+                                    : keel::clamp(std::round(winBounds.h / relScale), 220.0f, maxFitH);
                                 ui.SetActiveId(winResizeId);
                                 ui.ConsumeMouseClick();
                                 ui.InvalidateAll();
@@ -559,16 +562,16 @@ inline void RenderPreviewViewport(
                                 demoCtx.previewWindowCustomSize = true;
                                 // Symmetric 2x delta keeps the dragged edge locked 1:1 under the cursor while centered
                                 if (edge & 2) {
-                                    const float dx = rawDx * 2.0f / effectiveZoom;
+                                    const float dx = rawDx * 2.0f / relScale;
                                     demoCtx.previewWindowW = keel::clamp(std::round(demoCtx.previewWindowDragStartW + dx), 320.0f, maxFitW);
                                 } else if (edge & 1) {
-                                    const float dx = -rawDx * 2.0f / effectiveZoom;
+                                    const float dx = -rawDx * 2.0f / relScale;
                                     demoCtx.previewWindowW = keel::clamp(std::round(demoCtx.previewWindowDragStartW + dx), 320.0f, maxFitW);
                                 } else {
                                     demoCtx.previewWindowW = keel::clamp(demoCtx.previewWindowDragStartW, 320.0f, maxFitW);
                                 }
                                 if (edge & 4) {
-                                    const float dy = rawDy * 2.0f / effectiveZoom;
+                                    const float dy = rawDy * 2.0f / relScale;
                                     demoCtx.previewWindowH = keel::clamp(std::round(demoCtx.previewWindowDragStartH + dy), 220.0f, maxFitH);
                                 } else {
                                     demoCtx.previewWindowH = keel::clamp(demoCtx.previewWindowDragStartH, 220.0f, maxFitH);
@@ -607,8 +610,7 @@ inline void RenderPreviewViewport(
                         .gap = 8.0f,
                         .align = guikit::Alignment::Center,
                         .height = guikit::SizeMode::Stretch,
-                        .theme = &demoCtx.previewTheme,
-                        .scale = shellScale
+                        .theme = &demoCtx.previewTheme
                     })) {
                         // Left slot reserved for Traffic Lights (3 dots * 10px + 2 * 7px gaps = 44px + 8px breathing room)
                         if (auto tlSlot = ui.Box({
@@ -623,10 +625,10 @@ inline void RenderPreviewViewport(
                         ui.Spacer();
                         const keel::i32 clientW = demoCtx.previewWindowCustomSize
                             ? keel::max(0, keel::round_i32(demoCtx.previewWindowW))
-                            : keel::max(0, keel::round_i32(availPxW / effectiveZoom));
+                            : keel::max(0, keel::round_i32(availPxW / relScale));
                         const keel::i32 clientH = demoCtx.previewWindowCustomSize
-                            ? keel::max(0, keel::round_i32(demoCtx.previewWindowH - (28.0f * shellScale) / effectiveZoom))
-                            : keel::max(0, keel::round_i32((availPxH - 28.0f * shellScale) / effectiveZoom));
+                            ? keel::max(0, keel::round_i32(demoCtx.previewWindowH - (28.0f * chromeScale) / relScale))
+                            : keel::max(0, keel::round_i32((availPxH - 28.0f * chromeScale) / relScale));
                         ui.Text(ui.Format("{} x {}", clientW, clientH), {
                             .role = guikit::TextRole::CodeSmall,
                             .variant = guikit::UiVariant::Muted
@@ -634,13 +636,13 @@ inline void RenderPreviewViewport(
                     }
                 }
 
+                const guikit::ZoneScope previewZone = ui.Zone({.zoom = effectiveZoom});
                 if (auto clientBox = ui.Box({
                     .width = guikit::SizeMode::Stretch,
                     .height = guikit::SizeMode::Stretch,
                     .padding = guikit::Padding::All(clientPad),
                     .clipChildren = true,
                     .theme = &demoCtx.previewTheme,
-                    .scale = effectiveZoom,
                     .debugBounds = demoCtx.previewBounds,
                     .inspectMode = demoCtx.previewInspect
                 })) {
@@ -651,6 +653,7 @@ inline void RenderPreviewViewport(
             // Hardware Device Chassis (Tablet or Smartphone with Safe-Area Top & Bottom Bars)
             const float devicePad = isShellScreen ? 0.0f : (isFullStage ? 6.0f : 16.0f);
 
+            const guikit::ZoneScope previewZone = ui.Zone({.zoom = effectiveZoom});
             if (auto chassisBox = ui.Box({
                 .gap = 0.0f,
                 .width = targetW,
@@ -661,8 +664,7 @@ inline void RenderPreviewViewport(
                     .width = 2.0f,
                     .radius = isPhone ? 38.0f : 24.0f,
                     .color = {guikit::Color(100, 116, 139, 255)}
-                },
-                .scale = effectiveZoom
+                }
             })) {
                 chassisBox.GetNode()->postRenderFn = isPhone
                     ? &detail::RenderDeviceChassisButtons<true>
@@ -706,7 +708,6 @@ inline void RenderPreviewViewport(
                         .padding = clientSafePad,
                         .clipChildren = true,
                         .theme = &demoCtx.previewTheme,
-                        .scale = effectiveZoom,
                         .debugBounds = demoCtx.previewBounds,
                         .inspectMode = demoCtx.previewInspect
                     })) {
@@ -725,6 +726,7 @@ inline void RenderPreviewViewport(
             }
         } else {
             // Full Artboard Mode (clean bordered surface on the recessed backdrop)
+            const guikit::ZoneScope previewZone = ui.Zone({.zoom = effectiveZoom});
             if (auto fullBox = ui.Box({
                 .width = guikit::SizeMode::Stretch,
                 .height = guikit::SizeMode::Stretch,
@@ -737,7 +739,6 @@ inline void RenderPreviewViewport(
                 },
                 .clipChildren = true,
                 .theme = &demoCtx.previewTheme,
-                .scale = effectiveZoom,
                 .debugBounds = demoCtx.previewBounds,
                 .inspectMode = demoCtx.previewInspect
             })) {

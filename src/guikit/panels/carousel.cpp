@@ -16,11 +16,10 @@ ContainerScope Carousel::Open(
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    UiTheme* zoneTheme = ctx.PushZone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
 
     Node* node = ctx.CreateNode(NodeType::Carousel, id);
-    node->theme = pushedTheme;
+    node->theme = zoneTheme;
     node->direction = FlexDirection::Row;
     node->align = opts.align;
     node->justify = opts.justify;
@@ -48,10 +47,7 @@ ContainerScope Carousel::Open(
         cData->rightArrowPressed
     );
 
-    ctx.PushScale(activeScale);
-    ctx.PushSize(activeSize);
-    ctx.PushDisabled(activeDisabled);
-    ctx.PushContainer(node);
+    ctx.PushContainerInZone(node);
     return ContainerScope(&ctx, node);
 }
 

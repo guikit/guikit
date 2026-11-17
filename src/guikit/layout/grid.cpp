@@ -12,12 +12,11 @@ GridScope Grid::Open(
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    UiTheme* zoneTheme = ctx.PushZone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
 
     const UiTheme& theme = ctx.GetTheme();
     Node* node = ctx.CreateNode(NodeType::Grid, id);
-    node->theme = pushedTheme;
+    node->theme = zoneTheme;
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     node->direction = FlexDirection::Grid;
@@ -48,10 +47,7 @@ GridScope Grid::Open(
     node->uiSize = activeSize;
     node->disabled = activeDisabled;
 
-    ctx.PushScale(activeScale);
-    ctx.PushSize(activeSize);
-    ctx.PushDisabled(activeDisabled);
-    ctx.PushContainer(node);
+    ctx.PushContainerInZone(node);
     return GridScope(&ctx, node);
 }
 
@@ -61,13 +57,12 @@ ContainerScope GridScope::Cell(keel::i32 span, CellOptions opts, keel::SourceLoc
     const Id id = m_ctx->MakeChildId(loc);
     const UiSize activeSize = m_ctx->GetCurrentSize();
     const bool activeDisabled = opts.disabled || m_ctx->IsDisabled();
-    const float activeScale = opts.scale.value_or(m_ctx->GetCurrentScale());
-    UiTheme* pushedTheme = m_ctx->PushScopedTheme(opts.theme, opts.scale);
+    UiTheme* zoneTheme = m_ctx->PushZone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
 
     const UiTheme& theme = m_ctx->GetTheme();
     const keel::i32 maxCols = (m_node && m_node->gridColumns > 0) ? static_cast<keel::i32>(m_node->gridColumns) : 12;
     Node* node = m_ctx->CreateNode(NodeType::Cell, id);
-    node->theme = pushedTheme;
+    node->theme = zoneTheme;
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     node->direction = FlexDirection::Column;
@@ -93,10 +88,7 @@ ContainerScope GridScope::Cell(keel::i32 span, CellOptions opts, keel::SourceLoc
     node->uiSize = activeSize;
     node->disabled = activeDisabled;
 
-    m_ctx->PushScale(activeScale);
-    m_ctx->PushSize(activeSize);
-    m_ctx->PushDisabled(activeDisabled);
-    m_ctx->PushContainer(node);
+    m_ctx->PushContainerInZone(node);
     return ContainerScope(m_ctx, node);
 }
 

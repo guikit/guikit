@@ -106,12 +106,7 @@ CommandPaletteResponse CommandPalette::Run(
     }
 
     const UiSize activeSize = ctx.GetCurrentSize();
-    const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
-    const UiTheme theme = ctx.GetTheme();
-    if (pushedTheme != nullptr) {
-        ctx.PopTheme();
-    }
+    const UiTheme theme = ctx.ResolveTheme({.theme = opts.theme, .scale = opts.scale});
 
     // Ensure no underlying InputField captures text input while the CommandPalette is open
     ctx.ClearFocus();
@@ -171,7 +166,7 @@ CommandPaletteResponse CommandPalette::Run(
     }
 
     // 3. Compute geometry from UiSize + Density tokens and content-aware natural row widths
-    const float s = (theme.scale > 0.0f) ? theme.scale : ((activeScale > 0.0f) ? activeScale : 1.0f);
+    const float s = theme.scale;
     ICanvas* measureCanvas = ctx.GetCanvas();
 
     const ComponentMetrics& cm = theme.GetMetrics(activeSize);

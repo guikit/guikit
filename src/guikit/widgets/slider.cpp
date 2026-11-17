@@ -544,7 +544,7 @@ Response Slider::Run(
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
     const UiTheme& activeTheme = ctx.GetTheme();
 
     const SliderOptions& optsCopy = opts;
@@ -670,7 +670,7 @@ Response Slider::Run(
     const keel::StringRef formattedStr = ctx.AllocString(valBuf);
 
     Node* node = ctx.CreateNode(NodeType::Slider, id);
-    node->theme = pushedTheme;
+    node->theme = zoneScope.GetTheme();
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
@@ -724,9 +724,6 @@ Response Slider::Run(
     };
 
     Control::SetupNode(ctx, node, ctrl);
-    if (pushedTheme) {
-        ctx.PopTheme();
-    }
     return res;
 }
 
@@ -875,7 +872,7 @@ Response StepSlider::Run(
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
     const UiTheme& activeTheme = ctx.GetTheme();
 
     const StepSliderOptions& optsCopy = opts;
@@ -993,7 +990,7 @@ Response StepSlider::Run(
     if (indexInt != nullptr)   *indexInt = static_cast<keel::i32>(curIdx);
 
     Node* node = ctx.CreateNode(NodeType::StepSlider, id);
-    node->theme = pushedTheme;
+    node->theme = zoneScope.GetTheme();
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
@@ -1043,9 +1040,6 @@ Response StepSlider::Run(
     };
 
     Control::SetupNode(ctx, node, ctrl);
-    if (pushedTheme) {
-        ctx.PopTheme();
-    }
     return res;
 }
 
@@ -1369,7 +1363,7 @@ Response RangeSlider::Run(
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
     const UiTheme& activeTheme = ctx.GetTheme();
 
     const RangeSliderOptions& optsCopy = opts;
@@ -1553,7 +1547,7 @@ Response RangeSlider::Run(
     if (highInt != nullptr)    *highInt = keel::round_i64(curHigh);
 
     Node* node = ctx.CreateNode(NodeType::RangeSlider, id);
-    node->theme = pushedTheme;
+    node->theme = zoneScope.GetTheme();
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
@@ -1614,9 +1608,6 @@ Response RangeSlider::Run(
     };
 
     Control::SetupNode(ctx, node, ctrl);
-    if (pushedTheme) {
-        ctx.PopTheme();
-    }
     return res;
 }
 
@@ -1781,7 +1772,7 @@ Response ProgressBar::Run(
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
     const UiTheme& activeTheme = ctx.GetTheme();
 
     const ProgressBarOptions& optsCopy = opts;
@@ -1807,7 +1798,7 @@ Response ProgressBar::Run(
 
     const ControlSpec ctrl = EffectiveSliderControl(optsCopy, activeSize, activeTheme);
     Node* node = ctx.CreateNode(NodeType::ProgressBar, id);
-    node->theme = pushedTheme;
+    node->theme = zoneScope.GetTheme();
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
@@ -1872,9 +1863,6 @@ Response ProgressBar::Run(
     };
 
     Control::SetupNode(ctx, node, ctrl);
-    if (pushedTheme) {
-        ctx.PopTheme();
-    }
     return res;
 }
 
