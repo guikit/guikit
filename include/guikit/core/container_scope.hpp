@@ -45,8 +45,9 @@ public:
     /// Returns true if the pointer hovers over the container without being occluded by overlays.
     [[nodiscard]] bool IsHovered() const noexcept;
 
-    /// Passively checks whether `trigger` fired on this container without capturing active child focus.
-    [[nodiscard]] bool IsTriggered(InteractionTrigger trigger) const noexcept;
+    /// Returns a passive `Response` snapshot for this container (`rect`, `hovered`, `clicked`, `rightClicked`, `doubleClicked`).
+    /// Safe to query after child widgets without overwriting child active/hover state.
+    [[nodiscard]] Response GetResponse() const noexcept;
 
 protected:
     Context* m_ctx{nullptr};

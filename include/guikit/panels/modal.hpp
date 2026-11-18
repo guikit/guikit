@@ -76,6 +76,9 @@ public:
         return *this;
     }
 
+    /// Returns the portal interaction response snapshot for this modal frame.
+    [[nodiscard]] const Response& GetResponse() const noexcept { return response; }
+
     /// Imperatively closes the modal from inside its scope (e.g. when a Confirm/Cancel button is clicked).
     void Close() noexcept;
 

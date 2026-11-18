@@ -84,6 +84,9 @@ public:
         return *this;
     }
 
+    /// Returns the portal interaction response snapshot for this popover frame.
+    [[nodiscard]] const Response& GetResponse() const noexcept { return response; }
+
     /// Imperatively closes the popover from inside its scope (e.g. when a confirmation action is clicked).
     void Close() noexcept;
 

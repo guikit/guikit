@@ -377,7 +377,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                             : "Left-Click inside this target zone",
                         {.role = guikit::TextRole::LabelMedium}
                     );
-                    if (zone.IsTriggered(zoneTrigger)) {
+                    if (zone.GetResponse().IsTriggered(zoneTrigger)) {
                         s_ov.zoneMenuOpen = true;
                         s_ov.zoneMenuPos = ui.GetMousePos();
                     }
@@ -765,7 +765,7 @@ keel::String GenerateOverlaysCode(const DemoContext& ctx) {
             "    {{.label = \"Delete Node\",     .shortcut = \"Del\",    .icon = guikit::Icon::Trash(), .variant = guikit::UiVariant::Danger}}\n"
             "}}}};\n\n"
             "if (auto zone = ui.Box({{.padding = guikit::Padding::Symmetric(28.0f, 20.0f)}})) {{\n"
-            "    if (zone.IsTriggered(guikit::InteractionTrigger::{})) {{\n"
+            "    if (zone.GetResponse().IsTriggered(guikit::InteractionTrigger::{})) {{\n"
             "        zoneMenuOpen = true;\n"
             "        zoneMenuPos = ui.GetMousePos();\n"
             "    }}\n"

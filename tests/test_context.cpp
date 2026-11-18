@@ -16645,7 +16645,7 @@ void TestApiPolish() {
     CHECK(overlayLayerCalls > 0);
 #endif
 
-    // 4. ContainerScope::IsTriggered + ContextMenu(bool&) cursor re-anchoring & child button isolation
+    // 4. ContainerScope::GetResponse + ContextMenu(bool&) cursor re-anchoring & child button isolation
     {
         bool zoneOpen = false;
         Vec2 zoneMenuPos{};
@@ -16665,13 +16665,14 @@ void TestApiPolish() {
                     .height = 140.0f,
                     .padding = Padding::All(16.0f)
                 })) {
-                    zoneRect = zone.GetBounds();
                     (void)ui.Button({.text = "Inner Btn"});
                     childBtnRect = ui.Button({.text = "Child"}).rect;
-                    if (zone.IsTriggered(InteractionTrigger::Click)) {
+                    const Response zoneRes = zone.GetResponse();
+                    zoneRect = zoneRes.rect;
+                    if (zoneRes.IsTriggered(InteractionTrigger::Click)) {
                         ++zoneClickCount;
                     }
-                    if (zone.IsTriggered(InteractionTrigger::RightClick)) {
+                    if (zoneRes.IsTriggered(InteractionTrigger::RightClick)) {
                         zoneOpen = true;
                         zoneMenuPos = ui.GetMousePos();
                     }

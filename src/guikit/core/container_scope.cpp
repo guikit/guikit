@@ -39,17 +39,24 @@ bool ContainerScope::IsHovered() const noexcept {
     return m_ctx->IsRectHovered(m_node->id, bounds);
 }
 
-bool ContainerScope::IsTriggered(InteractionTrigger trigger) const noexcept {
-    if (!IsHovered()) return false;
-    switch (trigger) {
-        case InteractionTrigger::Click:
-            return !m_ctx->GetActiveId().IsValid() && m_ctx->IsMouseClicked();
-        case InteractionTrigger::RightClick:
-            return m_ctx->IsRightMouseClicked();
-        case InteractionTrigger::DoubleClick:
-            return !m_ctx->GetActiveId().IsValid() && m_ctx->IsMouseDoubleClicked();
+Response ContainerScope::GetResponse() const noexcept {
+    Response res{};
+    if (!m_ctx || !m_node) return res;
+    res.id = m_node->id;
+    res.ctx = m_ctx;
+    res.rect = GetBounds();
+    if (m_node->disabled || res.rect.w <= 0.0f || res.rect.h <= 0.0f) {
+        return res;
     }
-    return false;
+    res.hovered = m_ctx->IsRectHovered(m_node->id, res.rect);
+    if (res.hovered) {
+        const bool childActive = m_ctx->GetActiveId().IsValid() && m_ctx->GetActiveId() != m_node->id;
+        res.clicked = !childActive && m_ctx->IsMouseClicked();
+        res.doubleClicked = !childActive && m_ctx->IsMouseDoubleClicked();
+        res.rightClicked = m_ctx->IsRightMouseClicked();
+        res.pressed = !childActive && m_ctx->IsMouseDown();
+    }
+    return res;
 }
 
 } // namespace guikit
