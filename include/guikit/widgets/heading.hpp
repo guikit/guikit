@@ -24,7 +24,6 @@ enum class HeadingLayout : keel::u8 {
 struct HeadingOptions {
     UiText label{};                                         ///< Primary heading title text
     UiText description{};                                   ///< Optional secondary subtitle or overline text
-    UiText tooltip{};                                       ///< Optional hover tooltip text
     Icon icon{};                                            ///< Optional leading vector icon before title
     UiText badge{};                                         ///< Optional trailing pill badge after title
     HeadingLevel level{HeadingLevel::H3};                   ///< Semantic heading hierarchy level (`H1`–`H6`, default `H3`; independent of `UiSize`)
@@ -32,6 +31,7 @@ struct HeadingOptions {
     Align align{Align::Start};                              ///< Horizontal alignment (Start, Center, End)
     AxisSize width{};                                       ///< Horizontal sizing policy: `Auto` (`Stretch`, or `Fit` in `Toolbar`), `Fit`, `Stretch`, or `Fixed(dp)`
     HeadingDivider separator{};                             ///< Built-in section divider placement (None, Bottom, Trailing), stroke color, and thickness
+    UiText tooltip{};                                       ///< Optional hover tooltip text
     bool disabled{false};                                   ///< Whether the heading is rendered in a disabled state
 };
 

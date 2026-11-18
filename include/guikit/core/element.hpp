@@ -19,13 +19,13 @@ struct Node;
 struct ElementOptions {
     UiText label{};                                           ///< Primary form-field label text
     UiText description{};                                     ///< Optional secondary description / helper text
-    UiText tooltip{};                                         ///< Optional hover tooltip text
     Icon icon{};                                              ///< Optional leading vector icon before label
     UiText badge{};                                           ///< Optional trailing pill badge after label (supports independent StateColor)
     keel::Optional<ElementLayout> layout{keel::kNullOpt};     ///< Text placement relative to control slot: Stacked, Top, Bottom, Leading, Trailing (nullopt = control default)
     Align align{Align::Start};                                ///< Horizontal alignment (Start, Center, End)
     AxisSize width{};                                         ///< Outer width sizing policy: `Auto` (from child control & layout), `Fit`, `Stretch`, or `Fixed(dp)`
     UiSize size{UiSize::Md};                                  ///< Own form-field typography/icon size
+    UiText tooltip{};                                         ///< Optional hover tooltip text
     bool disabled{false};                                     ///< Whether the element and its child control(s) are rendered in a disabled state
 };
 

@@ -5,47 +5,37 @@ namespace guikit::demo {
 namespace {
 
 enum class ElementSlotPreset : keel::u8 {
-    Switch = 0,
-    Slider,
-    SpinBox,
-    InputField,
-    Button,
+    InputField = 0,
+    Switch,
     CompositeRow,
     Standalone
 };
 
 struct ElementStudioState {
-    bool allLayoutsSpecimen = false;
-    bool wrapInCard = true;
-    ElementSlotPreset slotPreset = ElementSlotPreset::Switch;
-    guikit::UiSize elemSize = guikit::UiSize::Md;
-    guikit::UiSize slotSize = guikit::UiSize::Md;
-    keel::SmallString<128> label{"Adaptive Low-Pass Filter"};
-    guikit::UiVariant labelVariant = guikit::UiVariant::Default;
-    keel::SmallString<160> description{"Attenuates high-frequency carrier harmonics above cutoff (-24 dB/oct)"};
-    guikit::UiVariant descVariant = guikit::UiVariant::Muted;
-    bool wordWrap = true;
-    bool showIcon = true;
-    keel::SmallString<64> badge{"DSP"};
-    guikit::UiVariant badgeVariant = guikit::UiVariant::Primary;
+    ElementSlotPreset slotPreset = ElementSlotPreset::InputField;
     keel::usize layoutIdx = 0; // 0 = Auto, 1 = Stacked, 2 = Top, 3 = Bottom, 4 = Leading, 5 = Trailing
+    guikit::UiSize elemSize = guikit::UiSize::Md;
     guikit::Align align = guikit::Align::Start;
     keel::usize widthModeIdx = 0; // 0 = Auto, 1 = Fit, 2 = Stretch, 3 = Fixed
     float widthDp = 380.0f;
+    bool showDescription = true;
+    bool showIconAndBadge = true;
+    bool wrapInCard = true;
     bool disabled = false;
 
-    // Interactive slot values
-    bool singleToggle = true;
-    keel::StaticArray<bool, 5> specimenToggles = {true, false, true, true, false};
-    float sliderGainDb = -6.0f;
-    keel::StaticArray<float, 5> specimenGains = {-3.0f, -6.0f, -9.0f, -4.5f, -12.0f};
-    float cutoffHz = 2400.0f;
+    // Interactive slot state
     keel::SmallString<128> endpointHost{"192.168.10.42:5005"};
+    bool switchEnabled = true;
     keel::SmallString<128> searchQuery{"fft_window_kaiser"};
     keel::u32 triggerCount = 0;
 };
 
 ElementStudioState s_state;
+
+constexpr keel::StringRef kSampleLabel = "Signal Processing Stage";
+constexpr keel::StringRef kSampleDesc =
+    "Attenuates high-frequency carrier harmonics above cutoff (-24 dB/oct)";
+constexpr keel::StringRef kSampleBadge = "DSP";
 
 constexpr guikit::ElementLayout DefaultSlotLayout(ElementSlotPreset preset) noexcept {
     if (preset == ElementSlotPreset::Switch) {
@@ -69,28 +59,17 @@ guikit::AxisSize ActiveElementWidth() noexcept {
     return DemoContext::ResolveAxisSize(s_state.widthModeIdx, s_state.widthDp);
 }
 
-guikit::ElementOptions BuildElementOptions(
-    keel::StringRef customLabel,
-    keel::StringRef customDesc,
-    keel::StringRef customBadge,
-    keel::Optional<guikit::ElementLayout> layoutOverride
-) noexcept {
+guikit::ElementOptions BuildElementOptions() noexcept {
     return guikit::ElementOptions{
-        .label = customLabel.empty()
-            ? guikit::UiText{}
-            : guikit::UiText{customLabel, s_state.labelVariant},
-        .description = customDesc.empty()
-            ? guikit::UiText{}
-            : guikit::UiText{
-                customDesc,
-                s_state.descVariant,
-                s_state.wordWrap ? guikit::TextWrap::Word() : guikit::TextWrap::SingleLine()
-            },
-        .icon = s_state.showIcon ? guikit::Icon::Flash() : guikit::Icon{},
-        .badge = customBadge.empty()
-            ? guikit::UiText{}
-            : guikit::UiText{customBadge, s_state.badgeVariant},
-        .layout = layoutOverride,
+        .label = kSampleLabel,
+        .description = s_state.showDescription
+            ? guikit::UiText{kSampleDesc, guikit::UiVariant::Muted, guikit::TextWrap::Word()}
+            : guikit::UiText{},
+        .icon = s_state.showIconAndBadge ? guikit::Icon::Flash() : guikit::Icon{},
+        .badge = s_state.showIconAndBadge
+            ? guikit::UiText{kSampleBadge, guikit::UiVariant::Primary}
+            : guikit::UiText{},
+        .layout = ResolveExplicitLayout(),
         .align = s_state.align,
         .width = ActiveElementWidth(),
         .size = s_state.elemSize,
@@ -98,46 +77,17 @@ guikit::ElementOptions BuildElementOptions(
     };
 }
 
-void RenderSlotControl(guikit::Context& ui, ElementSlotPreset preset, keel::usize specimenIdx) {
+void RenderSlotControl(guikit::Context& ui, ElementSlotPreset preset) {
     switch (preset) {
-        case ElementSlotPreset::Switch: {
-            bool& flag = (specimenIdx < s_state.specimenToggles.size())
-                ? s_state.specimenToggles[specimenIdx]
-                : s_state.singleToggle;
-            ui.Switch(flag, {.style = {.size = s_state.slotSize}});
-            break;
-        }
-        case ElementSlotPreset::Slider: {
-            float& val = (specimenIdx < s_state.specimenGains.size())
-                ? s_state.specimenGains[specimenIdx]
-                : s_state.sliderGainDb;
-            ui.Slider(val, -48.0f, 12.0f, {.valueFormat = "%.1f dB", .style = {.size = s_state.slotSize}});
-            break;
-        }
-        case ElementSlotPreset::SpinBox: {
-            ui.SpinBox(s_state.cutoffHz, 20.0f, 20000.0f, 50.0f, {
-                .suffix = {"Hz"},
-                .valueFormat = "%.0f",
-                .style = {.size = s_state.slotSize}
-            });
-            break;
-        }
         case ElementSlotPreset::InputField: {
             ui.InputField(s_state.endpointHost, {
                 .placeholder = "host:port",
-                .clearable = true,
-                .style = {.size = s_state.slotSize}
+                .clearable = true
             });
             break;
         }
-        case ElementSlotPreset::Button: {
-            if (ui.Button({
-                .text = "Calibrate Stage",
-                .icon = guikit::Icon::Play(),
-                .style = {.size = s_state.slotSize, .color = guikit::StateColor::Primary()}
-            })) {
-                ++s_state.triggerCount;
-            }
+        case ElementSlotPreset::Switch: {
+            ui.Switch(s_state.switchEnabled);
             break;
         }
         case ElementSlotPreset::CompositeRow: {
@@ -145,12 +95,11 @@ void RenderSlotControl(guikit::Context& ui, ElementSlotPreset preset, keel::usiz
                 ui.InputField(s_state.searchQuery, {
                     .placeholder = "Filter symbol...",
                     .prefix = {guikit::Icon::Search()},
-                    .clearable = true,
-                    .style = {.size = s_state.slotSize}
+                    .clearable = true
                 });
                 if (ui.Button({
                     .text = "Apply",
-                    .style = {.size = s_state.slotSize, .color = guikit::StateColor::Primary()}
+                    .style = {.color = guikit::StateColor::Primary()}
                 })) {
                     ++s_state.triggerCount;
                 }
@@ -163,43 +112,19 @@ void RenderSlotControl(guikit::Context& ui, ElementSlotPreset preset, keel::usiz
 }
 
 keel::String FormatSlotControlCode(ElementSlotPreset preset) {
-    const bool hasSlotSize = (s_state.slotSize != guikit::UiSize::None && s_state.slotSize != guikit::UiSize::Md);
-    const keel::FixedString<64> styleInline = hasSlotSize
-        ? keel::format_fixed<64>(", .style = {{.size = guikit::UiSize::{}}}", SizeName(s_state.slotSize))
-        : keel::FixedString<64>{};
-    const keel::FixedString<64> sizeField = hasSlotSize
-        ? keel::format_fixed<64>(".size = guikit::UiSize::{}, ", SizeName(s_state.slotSize))
-        : keel::FixedString<64>{};
     switch (preset) {
-        case ElementSlotPreset::Switch:
-            return hasSlotSize
-                ? keel::format("ui.Switch(enabled, {{.style = {{.size = guikit::UiSize::{}}}}});", SizeName(s_state.slotSize))
-                : keel::String::from("ui.Switch(enabled);");
-        case ElementSlotPreset::Slider:
-            return keel::format("ui.Slider(gainDb, -48.0f, 12.0f, {{.valueFormat = \"%.1f dB\"{}}});", styleInline);
-        case ElementSlotPreset::SpinBox:
-            return keel::format(
-                "ui.SpinBox(cutoffHz, 20.0f, 20000.0f, 50.0f, {{.suffix = {{\"Hz\"}}, .valueFormat = \"%.0f\"{}}});",
-                styleInline
-            );
         case ElementSlotPreset::InputField:
-            return keel::format(
-                "ui.InputField(endpointHost, {{.placeholder = \"host:port\", .clearable = true{}}});",
-                styleInline
+            return keel::String::from(
+                "ui.InputField(endpointHost, {.placeholder = \"host:port\", .clearable = true});"
             );
-        case ElementSlotPreset::Button:
-            return keel::format(
-                "ui.Button({{.text = \"Calibrate Stage\", .icon = guikit::Icon::Play(), .style = {{{}.color = guikit::StateColor::Primary()}}}});",
-                sizeField
-            );
+        case ElementSlotPreset::Switch:
+            return keel::String::from("ui.Switch(enabled);");
         case ElementSlotPreset::CompositeRow:
-            return keel::format(
-                "if (auto row = ui.Row({{.gap = 8.0f, .align = guikit::Alignment::Center}})) {{\n"
-                "    ui.InputField(searchQuery, {{.placeholder = \"Filter symbol...\", .prefix = {{guikit::Icon::Search()}}, .clearable = true{}}});\n"
-                "    ui.Button({{.text = \"Apply\", .style = {{{}.color = guikit::StateColor::Primary()}}}});\n"
-                "}}",
-                styleInline,
-                sizeField
+            return keel::String::from(
+                "if (auto row = ui.Row({.gap = 8.0f, .align = guikit::Alignment::Center})) {\n"
+                "    ui.InputField(searchQuery, {.placeholder = \"Filter symbol...\", .prefix = {guikit::Icon::Search()}, .clearable = true});\n"
+                "    ui.Button({.text = \"Apply\", .style = {.color = guikit::StateColor::Primary()}});\n"
+                "}"
             );
         case ElementSlotPreset::Standalone:
             return {};
@@ -229,29 +154,74 @@ void AppendIndentedLines(keel::String& out, keel::StringRef block, keel::StringR
 
 } // namespace
 
-void RenderElementInspector(guikit::Context& ui, DemoContext& ctx) {
-    if (auto el = ui.Element({
-        .label = "All 5 Layouts Specimen",
-        .description = "Compare Stacked, Top, Bottom, Leading & Trailing side-by-side"
-    })) {
-        if (ui.Switch(s_state.allLayoutsSpecimen).changed) {
+void RenderElementInspector(guikit::Context& ui, DemoContext&) {
+    static constexpr keel::StaticArray<keel::StringRef, 4> kSlotNames = {
+        "InputField (Stretch)",
+        "Switch (Compact)",
+        "Composite ui.Row",
+        "Standalone (No Slot)"
+    };
+    keel::usize presetIdx = static_cast<keel::usize>(s_state.slotPreset);
+    if (auto el = ui.Element({.label = "Control Slot"})) {
+        if (ui.Select(presetIdx, kSlotNames).changed) {
+            s_state.slotPreset = static_cast<ElementSlotPreset>(presetIdx);
             ui.InvalidateAll();
         }
     }
 
-    static constexpr keel::StaticArray<keel::StringRef, 7> kSlotNames = {
-        "Switch (Trailing default)",
-        "Slider (Stacked default)",
-        "SpinBox (Numeric Stepper)",
-        "InputField (Text Input)",
-        "Button (Compact Fit)",
-        "Composite ui.Row (Input + Button)",
-        "Standalone (No Control Slot)"
-    };
-    keel::usize presetIdx = static_cast<keel::usize>(s_state.slotPreset);
-    if (auto el = ui.Element({.label = "Control Slot Content"})) {
-        if (ui.Select(presetIdx, kSlotNames).changed) {
-            s_state.slotPreset = static_cast<ElementSlotPreset>(presetIdx);
+    const auto explicitLayout = ResolveExplicitLayout();
+    const guikit::ElementLayout effLayout = explicitLayout.value_or(DefaultSlotLayout(s_state.slotPreset));
+    if (auto el = ui.Element({
+        .label = "Layout",
+        .badge = {
+            ElementLayoutEnumName(effLayout),
+            explicitLayout.has_value() ? guikit::UiVariant::Primary : guikit::UiVariant::Secondary
+        }
+    })) {
+        if (ui.Select(s_state.layoutIdx, kElemLayoutNames).changed) {
+            ui.InvalidateAll();
+        }
+    }
+
+    if (auto el = ui.Element({.label = "Size"})) {
+        if (ui.StepSlider(s_state.elemSize, {.showTicks = true, .showLabels = true}).changed) {
+            ui.InvalidateAll();
+        }
+    }
+
+    keel::usize alignIdx = static_cast<keel::usize>(s_state.align);
+    if (auto el = ui.Element({.label = "Alignment"})) {
+        if (ui.Segmented(alignIdx, kLabelAlignNames).changed) {
+            s_state.align = static_cast<guikit::Align>(alignIdx);
+            ui.InvalidateAll();
+        }
+    }
+
+    if (auto el = ui.Element({.label = "Width"})) {
+        if (ui.Segmented(s_state.widthModeIdx, kAxisModeNames).changed) {
+            ui.InvalidateAll();
+        }
+    }
+
+    const bool fixedWidth = (s_state.widthModeIdx == 3);
+    if (auto el = ui.Element({.label = "Width (dp)", .disabled = !fixedWidth})) {
+        if (ui.Slider(s_state.widthDp, 160.0f, 560.0f, {
+            .valueFormat = "%.0f dp",
+            .step = 10.0f,
+            .disabled = !fixedWidth
+        }).changed) {
+            ui.InvalidateAll();
+        }
+    }
+
+    if (auto el = ui.Element({.label = "Show Description"})) {
+        if (ui.Switch(s_state.showDescription).changed) {
+            ui.InvalidateAll();
+        }
+    }
+
+    if (auto el = ui.Element({.label = "Icon & Badge"})) {
+        if (ui.Switch(s_state.showIconAndBadge).changed) {
             ui.InvalidateAll();
         }
     }
@@ -262,228 +232,20 @@ void RenderElementInspector(guikit::Context& ui, DemoContext& ctx) {
         }
     }
 
-    if (auto elemAcc = ui.Accordion({
-        .label = "ELEMENT",
-        .defaultOpen = true,
-        .size = guikit::UiSize::Sm
-    })) {
-        if (auto el = ui.Element({.label = "Size"})) {
-            if (ui.StepSlider(s_state.elemSize, {.showTicks = true, .showLabels = true}).changed) {
-                ui.InvalidateAll();
-            }
-        }
-
-        if (auto el = ui.Element({.label = "Label", .disabled = s_state.allLayoutsSpecimen})) {
-            if (ui.InputField(s_state.label, {
-                .placeholder = "No label...",
-                .clearable = true,
-                .disabled = s_state.allLayoutsSpecimen
-            }).changed) {
-                ui.InvalidateAll();
-            }
-        }
-
-        const bool labelColorDisabled = (!s_state.allLayoutsSpecimen && s_state.label.empty() && !s_state.showIcon);
-        if (auto el = ui.Element({.label = "Label Color", .disabled = labelColorDisabled})) {
-            if (ui.Select(s_state.labelVariant, kUiVariantNames, {
-                .disabled = labelColorDisabled
-            }).changed) {
-                ui.InvalidateAll();
-            }
-        }
-
-        if (auto el = ui.Element({.label = "Description", .disabled = s_state.allLayoutsSpecimen})) {
-            if (ui.InputField(s_state.description, {
-                .placeholder = "Optional helper description...",
-                .clearable = true,
-                .disabled = s_state.allLayoutsSpecimen
-            }).changed) {
-                ui.InvalidateAll();
-            }
-        }
-        ctx.RenderDescVariantPicker(ui, s_state.descVariant, s_state.allLayoutsSpecimen || !s_state.description.empty());
-        if (auto el = ui.Element({
-            .label = "Word Wrap",
-            .disabled = (!s_state.allLayoutsSpecimen && s_state.description.empty())
-        })) {
-            if (ui.Switch(s_state.wordWrap, {
-                .disabled = (!s_state.allLayoutsSpecimen && s_state.description.empty())
-            }).changed) {
-                ui.InvalidateAll();
-            }
-        }
-
-        if (auto el = ui.Element({.label = "Leading Icon"})) {
-            if (ui.Switch(s_state.showIcon).changed) {
-                ui.InvalidateAll();
-            }
-        }
-
-        if (auto el = ui.Element({.label = "Badge", .disabled = s_state.allLayoutsSpecimen})) {
-            if (ui.InputField(s_state.badge, {
-                .placeholder = "No badge (e.g. DSP, dB)...",
-                .clearable = true,
-                .disabled = s_state.allLayoutsSpecimen
-            }).changed) {
-                ui.InvalidateAll();
-            }
-        }
-        if (auto el = ui.Element({
-            .label = "Badge Variant",
-            .disabled = (!s_state.allLayoutsSpecimen && s_state.badge.empty())
-        })) {
-            if (ui.Select(s_state.badgeVariant, kUiVariantNames, {
-                .disabled = (!s_state.allLayoutsSpecimen && s_state.badge.empty())
-            }).changed) {
-                ui.InvalidateAll();
-            }
-        }
-
-        if (auto el = ui.Element({.label = "Disabled"})) {
-            if (ui.Switch(s_state.disabled).changed) {
-                ui.InvalidateAll();
-            }
-        }
-    }
-
-    if (auto elemLayoutAcc = ui.Accordion({
-        .label = "ELEMENT LAYOUT",
-        .defaultOpen = true,
-        .size = guikit::UiSize::Sm
-    })) {
-        const auto explicitLayout = ResolveExplicitLayout();
-        const guikit::ElementLayout effLayout = explicitLayout.value_or(DefaultSlotLayout(s_state.slotPreset));
-        if (auto el = ui.Element({
-            .label = "Layout",
-            .badge = {
-                ElementLayoutEnumName(effLayout),
-                explicitLayout.has_value() ? guikit::UiVariant::Primary : guikit::UiVariant::Secondary
-            },
-            .disabled = s_state.allLayoutsSpecimen
-        })) {
-            if (ui.Select(s_state.layoutIdx, kElemLayoutNames, {
-                .disabled = s_state.allLayoutsSpecimen
-            }).changed) {
-                ui.InvalidateAll();
-            }
-        }
-
-        keel::usize alignIdx = static_cast<keel::usize>(s_state.align);
-        if (auto el = ui.Element({.label = "Alignment"})) {
-            if (ui.Segmented(alignIdx, kLabelAlignNames).changed) {
-                s_state.align = static_cast<guikit::Align>(alignIdx);
-                ui.InvalidateAll();
-            }
-        }
-
-        if (auto el = ui.Element({.label = "Width"})) {
-            if (ui.Segmented(s_state.widthModeIdx, kAxisModeNames).changed) {
-                ui.InvalidateAll();
-            }
-        }
-
-        const bool fixedWidth = (s_state.widthModeIdx == 3);
-        if (auto el = ui.Element({.label = "Width (dp)", .disabled = !fixedWidth})) {
-            if (ui.Slider(s_state.widthDp, 160.0f, 560.0f, {
-                .valueFormat = "%.0f dp",
-                .step = 10.0f,
-                .disabled = !fixedWidth
-            }).changed) {
-                ui.InvalidateAll();
-            }
-        }
-    }
-
-    const bool hasControl = (s_state.slotPreset != ElementSlotPreset::Standalone);
-    if (auto slotStyleAcc = ui.Accordion({
-        .label = "CONTROL STYLE",
-        .defaultOpen = false,
-        .size = guikit::UiSize::Sm,
-        .disabled = !hasControl
-    })) {
-        if (auto el = ui.Element({.label = "Size", .disabled = !hasControl})) {
-            if (ui.StepSlider(s_state.slotSize, {
-                .showTicks = true,
-                .showLabels = true,
-                .disabled = !hasControl
-            }).changed) {
-                ui.InvalidateAll();
-            }
+    if (auto el = ui.Element({.label = "Disabled"})) {
+        if (ui.Switch(s_state.disabled).changed) {
+            ui.InvalidateAll();
         }
     }
 }
 
 void RenderElementStage(guikit::Context& ui, DemoContext&) {
     auto renderContent = [&]() {
-        if (s_state.allLayoutsSpecimen) {
-            struct LayoutSpecimen {
-                guikit::ElementLayout layout;
-                keel::StringRef badge;
-                keel::StringRef title;
-                keel::StringRef desc;
-            };
-            static constexpr keel::StaticArray<LayoutSpecimen, 5> kSpecimens = {{
-                {
-                    guikit::ElementLayout::Stacked,
-                    "Stacked",
-                    "Label Above, Description Below",
-                    "Classic vertical form-field sandwich: Label -> [Slot] -> Description"
-                },
-                {
-                    guikit::ElementLayout::Top,
-                    "Top",
-                    "Header Block Above Slot",
-                    "Both Label and Description grouped together above the control slot"
-                },
-                {
-                    guikit::ElementLayout::Bottom,
-                    "Bottom",
-                    "Caption Block Below Slot",
-                    "Control slot placed first with Label and Description underneath"
-                },
-                {
-                    guikit::ElementLayout::Leading,
-                    "Leading",
-                    "Leading Text + Trailing Slot",
-                    "Settings row: Label & Description on the left, control anchored right"
-                },
-                {
-                    guikit::ElementLayout::Trailing,
-                    "Trailing",
-                    "Leading Slot + Trailing Text",
-                    "Toggle / Checkbox idiom: control on the left, Label & Description on the right"
-                }
-            }};
-
-            if (auto col = ui.Column({.gap = 16.0f})) {
-                for (keel::usize i = 0; i < kSpecimens.size(); ++i) {
-                    const auto& item = kSpecimens[i];
-                    const guikit::ElementOptions opts = BuildElementOptions(
-                        item.title,
-                        item.desc,
-                        item.badge,
-                        item.layout
-                    );
-                    if (s_state.slotPreset == ElementSlotPreset::Standalone) {
-                        ui.Element(opts);
-                    } else if (auto el = ui.Element(opts)) {
-                        RenderSlotControl(ui, s_state.slotPreset, i);
-                    }
-                }
-            }
-            return;
-        }
-
-        const guikit::ElementOptions opts = BuildElementOptions(
-            s_state.label.as_ref(),
-            s_state.description.as_ref(),
-            s_state.badge.as_ref(),
-            ResolveExplicitLayout()
-        );
+        const guikit::ElementOptions opts = BuildElementOptions();
         if (s_state.slotPreset == ElementSlotPreset::Standalone) {
             ui.Element(opts);
         } else if (auto el = ui.Element(opts)) {
-            RenderSlotControl(ui, s_state.slotPreset, 99);
+            RenderSlotControl(ui, s_state.slotPreset);
         }
     };
 
@@ -502,35 +264,22 @@ void RenderElementStage(guikit::Context& ui, DemoContext&) {
 }
 
 keel::String GenerateElementCode(const DemoContext&) {
-    const keel::String labelCode = s_state.label.empty()
-        ? keel::String::from("\"\"")
-        : ((s_state.labelVariant == guikit::UiVariant::Default)
-            ? keel::format("\"{}\"", s_state.label)
-            : keel::format("{{\"{}\", guikit::StateColor::{}()}}", s_state.label, VariantName(s_state.labelVariant)));
-
     keel::String elemOpen = keel::format(
         "{}ui.Element({{\n"
-        "    .label = {}",
+        "    .label = \"{}\"",
         (s_state.slotPreset == ElementSlotPreset::Standalone) ? "" : "if (auto el = ",
-        labelCode
+        kSampleLabel
     );
 
-    if (!s_state.description.empty()) {
-        keel::format_into(
-            elemOpen,
-            ",\n    .description = {}",
-            FormatDesc(true, s_state.description, s_state.descVariant)
-        );
+    if (s_state.showDescription) {
+        keel::format_into(elemOpen, ",\n    .description = \"{}\"", kSampleDesc);
     }
-    if (s_state.showIcon) {
+    if (s_state.showIconAndBadge) {
         elemOpen.append(",\n    .icon = guikit::Icon::Flash()");
-    }
-    if (!s_state.badge.empty()) {
         keel::format_into(
             elemOpen,
-            ",\n    .badge = {{\"{}\", guikit::StateColor::{}()}}",
-            s_state.badge,
-            VariantName(s_state.badgeVariant)
+            ",\n    .badge = {{\"{}\", guikit::StateColor::Primary()}}",
+            kSampleBadge
         );
     }
     if (const auto layoutOpt = ResolveExplicitLayout(); layoutOpt.has_value()) {

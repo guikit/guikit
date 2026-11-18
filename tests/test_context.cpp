@@ -12482,6 +12482,7 @@ void TestElementHeadingCompositionAndIndependentSizing();
 void TestPopoverComponent();
 void TestApiPolish();
 void TestControlLayoutAndSharedStylePresets();
+void TestSceneWorldSizeInsideScrollAreaDoesNotOverflow();
 
 int main() {
     keel::println("[RUN] Testing GuiKit Context & Immediate Mode API...");
@@ -15232,6 +15233,7 @@ int main() {
     TestPopoverComponent();
     TestApiPolish();
     TestControlLayoutAndSharedStylePresets();
+    TestSceneWorldSizeInsideScrollAreaDoesNotOverflow();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Context tests passed successfully!");
@@ -17004,6 +17006,61 @@ void TestControlLayoutAndSharedStylePresets() {
     }
 
     keel::println("  [PASS] TestControlLayoutAndSharedStylePresets completed");
+}
+
+void TestSceneWorldSizeInsideScrollAreaDoesNotOverflow() {
+    using namespace guikit;
+    keel::println("  -> TestSceneWorldSizeInsideScrollAreaDoesNotOverflow...");
+
+    ThorCanvas canvas;
+    keel::Array<keel::u32> fb(800u * 500u, 0u);
+    canvas.SetTarget(fb.data(), 800, 500, 800);
+
+    Context ui;
+    Rect sceneVp{};
+    Vec2 topLeftScreen{};
+    Vec2 botRightScreen{};
+    float fittedZoom = 0.0f;
+
+    auto renderFrame = [&]() {
+        ui.BeginFrame({800.0f, 500.0f});
+        if (auto backdrop = ui.ScrollArea({
+            .orientation = Orientation::Both,
+            .scrollbar = VisibilityPolicy::Never,
+            .padding = Padding::All(18.0f)
+        })) {
+            if (auto windowSlot = ui.Box({
+                .width = SizeMode::Stretch,
+                .height = SizeMode::Stretch
+            })) {
+                if (auto sc = ui.Scene({
+                    .worldSize = Vec2{2200.0f, 920.0f},
+                    .height = SizeMode::Stretch
+                })) {
+                    sceneVp = sc.GetViewportRect();
+                    topLeftScreen = sc.WorldToScreen({0.0f, 0.0f});
+                    botRightScreen = sc.WorldToScreen({2200.0f, 920.0f});
+                    fittedZoom = sc.GetZoom();
+                }
+            }
+        }
+        ui.EndFrame(canvas);
+    };
+
+    renderFrame();
+    renderFrame();
+
+    const float expectedW = 800.0f - 36.0f;
+    const float expectedH = 500.0f - 36.0f;
+    CHECK(sceneVp.w > 100.0f && sceneVp.w <= expectedW + 0.5f);
+    CHECK(sceneVp.h > 100.0f && sceneVp.h <= expectedH + 0.5f);
+    CHECK(fittedZoom > 0.25f && fittedZoom < 0.5f);
+    CHECK(topLeftScreen.x >= sceneVp.x - 1.0f && topLeftScreen.x <= sceneVp.x + 2.0f);
+    CHECK(botRightScreen.x >= sceneVp.Right() - 2.0f && botRightScreen.x <= sceneVp.Right() + 1.0f);
+    CHECK(topLeftScreen.y >= sceneVp.y - 1.0f);
+    CHECK(botRightScreen.y <= sceneVp.Bottom() + 1.0f);
+
+    keel::println("  [PASS] TestSceneWorldSizeInsideScrollAreaDoesNotOverflow completed");
 }
 
 

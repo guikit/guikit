@@ -49,21 +49,21 @@ Vec2 ComputeSceneControlSize(
     float availableWidth
 ) noexcept {
     const keel::Optional<Rect> wb = ResolveWorldBounds(opts);
-    const float defW = wb.has_value() ? wb->w : 360.0f;
-    const float defH = wb.has_value() ? wb->h : opts.minHeight;
-    const float aspect = (defH > 0.0f) ? (defW / defH) : (16.0f / 9.0f);
+    const SizeMode widthMode = opts.width.ResolveMode(SizeMode::Stretch);
+    const SizeMode heightMode = opts.height.ResolveMode(SizeMode::Stretch);
+    const float aspect = (wb.has_value() && wb->h > 0.0f) ? (wb->w / wb->h) : (16.0f / 9.0f);
 
-    float ctrlW = defW;
+    float ctrlW = (widthMode == SizeMode::Fit && wb.has_value()) ? wb->w : 240.0f;
     if (opts.width.IsFixed()) {
         ctrlW = opts.width.Dp();
-    } else if (opts.width.ResolveMode(SizeMode::Stretch) == SizeMode::Stretch && availableWidth > 0.0f) {
+    } else if (widthMode == SizeMode::Stretch && availableWidth > 0.0f) {
         ctrlW = availableWidth;
     }
 
     float ctrlH = opts.minHeight;
     if (opts.height.IsFixed()) {
         ctrlH = opts.height.Dp();
-    } else if (opts.height.ResolveMode(SizeMode::Stretch) == SizeMode::Fit && wb.has_value() && aspect > 0.0f) {
+    } else if (heightMode == SizeMode::Fit && wb.has_value() && aspect > 0.0f) {
         ctrlH = keel::max(opts.minHeight, ctrlW / aspect);
     }
 

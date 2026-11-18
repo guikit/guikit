@@ -54,8 +54,8 @@ enum class NavCategory : keel::u8 {
     SceneBpmnEditor
 };
 
-constexpr bool IsElementCategory(NavCategory cat) noexcept {
-    return cat <= NavCategory::ElemImage;
+constexpr bool IsControlCategory(NavCategory cat) noexcept {
+    return cat >= NavCategory::ElemButton && cat <= NavCategory::ElemImage;
 }
 
 constexpr bool IsSandboxCategory(NavCategory cat) noexcept {

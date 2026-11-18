@@ -114,9 +114,11 @@ void DemoWindow::RenderCatalogSidebar(guikit::Context& ui) {
     })) {
         const NavCategory prevCat = m_selectedCategory;
         if (auto menu = ui.SidebarMenu({.size = guikit::UiSize::Sm})) {
-            menu.Section("ELEMENTS");
+            menu.Section("STRUCTURE");
             menu.Item(m_selectedCategory, NavCategory::ElemHeading,       {.text = "Heading",      .icon = guikit::Icon::Edit()});
             menu.Item(m_selectedCategory, NavCategory::ElemElement,       {.text = "Element",      .icon = guikit::Icon::Settings()});
+
+            menu.Section("CONTROLS");
             menu.Item(m_selectedCategory, NavCategory::ElemButton,        {.text = "Button",       .icon = guikit::Icon::Play()});
             menu.Item(m_selectedCategory, NavCategory::ElemSlider,        {.text = "Slider",       .icon = guikit::Icon::Settings()});
             menu.Item(m_selectedCategory, NavCategory::ElemLevelMeter,    {.text = "LevelMeter",   .icon = guikit::Icon::Play()});
@@ -133,19 +135,23 @@ void DemoWindow::RenderCatalogSidebar(guikit::Context& ui) {
             menu.Item(m_selectedCategory, NavCategory::ElemRadio,         {.text = "Radio",        .icon = guikit::Icon::Check()});
             menu.Item(m_selectedCategory, NavCategory::ElemImage,         {.text = "Image",        .icon = guikit::Icon::Eye()});
 
-            menu.Section("PANELS & NAV");
+            menu.Section("CONTAINERS & SHELL");
             menu.Item(m_selectedCategory, NavCategory::PanelCard,         {.text = "Card",         .icon = guikit::Icon::Copy()});
             menu.Item(m_selectedCategory, NavCategory::PanelSplitView,    {.text = "SplitView",    .icon = guikit::Icon::Copy()});
+            menu.Item(m_selectedCategory, NavCategory::PanelSidebar,      {.text = "Sidebar",      .icon = guikit::Icon::Folder()});
+            menu.Item(m_selectedCategory, NavCategory::PanelOverlays,     {.text = "Overlays",     .icon = guikit::Icon::Flash()});
+
+            menu.Section("NAVIGATION");
             menu.Item(m_selectedCategory, NavCategory::PanelTabBar,       {.text = "TabBar",       .icon = guikit::Icon::Folder()});
             menu.Item(m_selectedCategory, NavCategory::PanelBreadcrumb,   {.text = "Breadcrumb",   .icon = guikit::Icon::Folder()});
             menu.Item(m_selectedCategory, NavCategory::PanelPagination,   {.text = "Pagination",   .icon = guikit::Icon::ArrowRight()});
             menu.Item(m_selectedCategory, NavCategory::PanelToolbar,      {.text = "Toolbar",      .icon = guikit::Icon::Settings()});
-            menu.Item(m_selectedCategory, NavCategory::PanelSidebar,      {.text = "Sidebar",      .icon = guikit::Icon::Folder()});
+
+            menu.Section("DATA");
             menu.Item(m_selectedCategory, NavCategory::PanelTreeView,     {.text = "TreeView",     .icon = guikit::Icon::Folder()});
             menu.Item(m_selectedCategory, NavCategory::PanelTable,        {.text = "Table / Grid", .icon = guikit::Icon::Copy()});
-            menu.Item(m_selectedCategory, NavCategory::PanelOverlays,     {.text = "Overlays",     .icon = guikit::Icon::Flash()});
 
-            menu.Section("CONTENT & MEDIA");
+            menu.Section("CONTENT");
             menu.Item(m_selectedCategory, NavCategory::ContentMarkdown,   {.text = "Markdown",     .icon = guikit::Icon::Edit()});
             menu.Item(m_selectedCategory, NavCategory::ContentCodeEditor, {.text = "Code Editor",  .icon = guikit::Icon::Edit()});
 
@@ -182,9 +188,7 @@ void DemoWindow::RenderInspectorSidebar(guikit::Context& ui) {
             .separator = guikit::HeadingSeparator::Bottom
         });
 
-        if (m_selectedCategory == NavCategory::ElemHeading || m_selectedCategory == NavCategory::ElemElement) {
-            DispatchInspector(ui, m_selectedCategory, m_demoCtx);
-        } else if (IsElementCategory(m_selectedCategory)) {
+        if (IsControlCategory(m_selectedCategory)) {
             if (auto elemAcc = ui.Accordion({
                 .label = "ELEMENT",
                 .defaultOpen = false,
@@ -420,24 +424,24 @@ void DemoWindow::RenderBottomStatusBar(guikit::Context& ui) {
         sb.Spacer();
 
         static const keel::StaticArray<guikit::CommandPaletteItem, 18> kGlobalCommands = {{
-            {.label = "Go to Element Form-Field Wrapper",      .category = "Elements",  .description = "5 ElementLayout modes & composite slots", .icon = guikit::Icon::Settings()},
-            {.label = "Go to LevelMeter / Segmented VU Meter", .category = "Elements",  .description = "LED dB meters, peak-hold & clip LED", .icon = guikit::Icon::Play()},
-            {.label = "Go to TagInput Editable Chips",         .category = "Elements",  .description = "Editable tag pills & delimiter split",.icon = guikit::Icon::Edit()},
-            {.label = "Go to Select / MultiSelect / ComboBox", .category = "Elements",  .description = "Dropdown, live filter & tag chips",   .icon = guikit::Icon::Plus()},
-            {.label = "Go to DatePicker & TimePicker",         .category = "Elements",  .description = "Calendar grid & time stepper",        .icon = guikit::Icon::Edit()},
-            {.label = "Go to SpinBox Numeric Stepper",         .category = "Elements",  .description = "Inline, Detached & Split steppers",   .icon = guikit::Icon::Plus()},
-            {.label = "Go to ColorPicker HSV/HEX",             .category = "Elements",  .description = "2D SV canvas, hue & alpha sliders",   .icon = guikit::Icon::Eye()},
-            {.label = "Go to SplitView Resizable Panes",       .category = "Panels",    .description = "Horizontal & Vertical splitters",     .icon = guikit::Icon::Copy()},
-            {.label = "Go to Breadcrumb Path Navigation",      .category = "Panels",    .description = "Hierarchical path trail & collapse",  .icon = guikit::Icon::Folder()},
-            {.label = "Go to Pagination Control",              .category = "Panels",    .description = "Page numbers & smart ellipsis jump",  .icon = guikit::Icon::ArrowRight()},
-            {.label = "Go to Overlays (Modal / Toast / Cmd)",  .category = "Panels",    .description = "Modals, context menus & palettes",    .icon = guikit::Icon::Flash()},
-            {.label = "Go to Table / Virtualized Grid",        .category = "Panels",    .description = "100,000 rows virtualized data grid",  .icon = guikit::Icon::Copy()},
-            {.label = "Go to Signal View (DSP)",               .category = "2D Scenes", .description = "Waveform & spectrogram analyzer",     .icon = guikit::Icon::Play()},
-            {.label = "Go to Sonar Radar (DDS)",               .category = "2D Scenes", .description = "Polar heatmap & target tracker",      .icon = guikit::Icon::Search()},
-            {.label = "Go to BPMN 2.0 Modeler",                .category = "2D Scenes", .description = "Interactive workflow graph & XML",    .icon = guikit::Icon::Edit()},
-            {.label = "Toggle Preview Dark / Light Theme",     .category = "Theme",     .description = "Switch stage palette mode",           .icon = guikit::Icon::Refresh()},
-            {.label = "Toggle Generated C++20 Code Panel",     .category = "View",      .description = "Show or hide bottom code generator",  .icon = guikit::Icon::Eye()},
-            {.label = "Toggle Docked / Floating Island Shell", .category = "View",      .description = "Switch between flush IDE & floating island frame", .icon = guikit::Icon::Copy()}
+            {.label = "Go to Element Form-Field Wrapper",      .category = "Structure",  .description = "5 ElementLayout modes & composite slots", .icon = guikit::Icon::Settings()},
+            {.label = "Go to LevelMeter / Segmented VU Meter", .category = "Controls",   .description = "LED dB meters, peak-hold & clip LED", .icon = guikit::Icon::Play()},
+            {.label = "Go to TagInput Editable Chips",         .category = "Controls",   .description = "Editable tag pills & delimiter split",.icon = guikit::Icon::Edit()},
+            {.label = "Go to Select / MultiSelect / ComboBox", .category = "Controls",   .description = "Dropdown, live filter & tag chips",   .icon = guikit::Icon::Plus()},
+            {.label = "Go to DatePicker & TimePicker",         .category = "Controls",   .description = "Calendar grid & time stepper",        .icon = guikit::Icon::Edit()},
+            {.label = "Go to SpinBox Numeric Stepper",         .category = "Controls",   .description = "Inline, Detached & Split steppers",   .icon = guikit::Icon::Plus()},
+            {.label = "Go to ColorPicker HSV/HEX",             .category = "Controls",   .description = "2D SV canvas, hue & alpha sliders",   .icon = guikit::Icon::Eye()},
+            {.label = "Go to SplitView Resizable Panes",       .category = "Containers", .description = "Horizontal & Vertical splitters",     .icon = guikit::Icon::Copy()},
+            {.label = "Go to Breadcrumb Path Navigation",      .category = "Navigation", .description = "Hierarchical path trail & collapse",  .icon = guikit::Icon::Folder()},
+            {.label = "Go to Pagination Control",              .category = "Navigation", .description = "Page numbers & smart ellipsis jump",  .icon = guikit::Icon::ArrowRight()},
+            {.label = "Go to Overlays (Modal / Toast / Cmd)",  .category = "Containers", .description = "Modals, context menus & palettes",    .icon = guikit::Icon::Flash()},
+            {.label = "Go to Table / Virtualized Grid",        .category = "Data",       .description = "100,000 rows virtualized data grid",  .icon = guikit::Icon::Copy()},
+            {.label = "Go to Signal View (DSP)",               .category = "2D Scenes",  .description = "Waveform & spectrogram analyzer",     .icon = guikit::Icon::Play()},
+            {.label = "Go to Sonar Radar (DDS)",               .category = "2D Scenes",  .description = "Polar heatmap & target tracker",      .icon = guikit::Icon::Search()},
+            {.label = "Go to BPMN 2.0 Modeler",                .category = "2D Scenes",  .description = "Interactive workflow graph & XML",    .icon = guikit::Icon::Edit()},
+            {.label = "Toggle Preview Dark / Light Theme",     .category = "Theme",      .description = "Switch stage palette mode",           .icon = guikit::Icon::Refresh()},
+            {.label = "Toggle Generated C++20 Code Panel",     .category = "View",       .description = "Show or hide bottom code generator",  .icon = guikit::Icon::Eye()},
+            {.label = "Toggle Docked / Floating Island Shell", .category = "View",       .description = "Switch between flush IDE & floating island frame", .icon = guikit::Icon::Copy()}
         }};
 
         const auto cmdResp = RenderCommandPalette(sb, kGlobalCommands);
