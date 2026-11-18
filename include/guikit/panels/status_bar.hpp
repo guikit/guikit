@@ -4,7 +4,6 @@
 #include "guikit/core/response.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
-#include "guikit/core/zone.hpp"
 #include "guikit/graphics/icon.hpp"
 #include "keel/core.h"
 #include "keel/optional.h"
@@ -32,7 +31,6 @@ struct StatusBarOptions {
     Border border{.width = 1.0f};
     UiSize size{UiSize::Md};
     bool disabled{false};
-    ZoneOptions zone{};
 };
 
 /// Configuration for a static or interactive segment inside a StatusBar.

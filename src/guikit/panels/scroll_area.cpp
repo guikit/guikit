@@ -12,7 +12,7 @@ ContainerScope ScrollArea::Open(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    Node* node = ctx.CreateNode(NodeType::ScrollArea, id, opts.zone, opts.disabled);
+    Node* node = ctx.CreateNode(NodeType::ScrollArea, id, opts.disabled);
     const UiTheme& theme = node->GetTheme(ctx.GetTheme());
     const float density = node->GetDensity();
     const bool activeDisabled = node->disabled;

@@ -4,7 +4,6 @@
 #include "guikit/core/id.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/types.hpp"
-#include "guikit/core/zone.hpp"
 #include "keel/core.h"
 #include "keel/hash_map.h"
 #include "keel/optional.h"
@@ -24,7 +23,6 @@ struct CarouselOptions {
     bool scrollWheel{true};                         ///< Enable horizontal mouse wheel scrolling
     UiSize size{UiSize::Md};                        ///< Navigation arrow & scrollbar size
     bool disabled{false};                           ///< Interaction suppression
-    ZoneOptions zone{};                             ///< Subtree environment (theme, scale, density, disabled, debug/inspect)
 };
 
 /// Internal runtime state allocated in frame arena for Carousel container nodes.

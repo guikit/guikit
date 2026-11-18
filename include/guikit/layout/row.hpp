@@ -3,7 +3,6 @@
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
-#include "guikit/core/zone.hpp"
 #include "keel/core.h"
 
 namespace guikit {
@@ -26,7 +25,6 @@ struct RowOptions {
     float flexGrow{1.0f};
     bool equalWidths{false};
     bool disabled{false};
-    ZoneOptions zone{}; ///< Subtree environment (theme, scale, density, debug/inspect)
 };
 
 /// Autonomous immediate mode Row layout entry point.

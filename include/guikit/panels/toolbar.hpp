@@ -5,7 +5,6 @@
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
-#include "guikit/core/zone.hpp"
 #include "guikit/graphics/icon.hpp"
 #include "guikit/panels/context_menu.hpp"
 #include "keel/core.h"
@@ -70,7 +69,6 @@ struct ToolbarOptions {
     Border border{};
     UiSize size{UiSize::Md};
     bool disabled{false};
-    ZoneOptions zone{};
 };
 
 /// RAII scope for Toolbar container.

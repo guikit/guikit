@@ -475,7 +475,7 @@ TreeViewScope TreeView::Open(
     const Id idScroll = Id{detail::HashArgs(idTree, 0x72EE'5C80'0001ULL)};
 
     const UiSize activeSize = opts.size;
-    Node* outerNode = ctx.CreateNode(NodeType::TreeView, idTree, opts.zone, opts.disabled);
+    Node* outerNode = ctx.CreateNode(NodeType::TreeView, idTree, opts.disabled);
     const UiTheme& theme = outerNode->GetTheme(ctx.GetTheme());
     const auto& pal = theme.palette;
     const float density = outerNode->GetDensity();
@@ -911,7 +911,7 @@ TreeItemScope TreeView::OpenItem(
 
     const UiSize activeSize = opts.size;
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    const UiTheme& theme = opts.zone.theme ? *opts.zone.theme : ctx.GetTheme();
+    const UiTheme& theme = ctx.GetTheme();
 
     TreeItemState& st = ctx.GetOrCreatePersistentState<TreeItemState>(idOuter, TreeItemState{.open = opts.defaultOpen});
     if (treePayload && treePayload->state && st.seenBulkToggleGen != treePayload->state->bulkToggleGen) {
@@ -1042,10 +1042,7 @@ TreeItemScope TreeView::OpenItem(
     Node* branchNode = ctx.AllocPayload<Node>();
     branchNode->type = NodeType::TreeBranch;
     branchNode->id = idOuter;
-    const Zone* parentZone = (targetParent != nullptr && targetParent->zone != nullptr)
-        ? targetParent->zone
-        : ctx.GetZone();
-    branchNode->zone = ResolveZone(parentZone, opts.zone, ctx.GetArena());
+    branchNode->zone = ctx.GetZone();
     const float itemDensity = branchNode->GetDensity();
     branchNode->direction = FlexDirection::Column;
     branchNode->widthMode = SizeMode::Stretch;

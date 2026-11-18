@@ -14,7 +14,7 @@ ContainerScope Carousel::Open(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    Node* node = ctx.CreateNode(NodeType::Carousel, id, opts.zone, opts.disabled);
+    Node* node = ctx.CreateNode(NodeType::Carousel, id, opts.disabled);
     const UiTheme& theme = node->GetTheme(ctx.GetTheme());
     const float density = node->GetDensity();
     const UiSize activeSize = opts.size;
@@ -180,7 +180,7 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
     float totalChildrenW = 0.0f;
     keel::u32 activeChildren = 0;
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-        if (child->type == NodeType::Modal) continue;
+        if (child->IsOutOfFlow()) continue;
         const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
         totalChildrenW += cw;
         ++activeChildren;
@@ -209,7 +209,7 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
         // Arrange children in a standard row
         float curX = startX;
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-            if (child->type == NodeType::Modal) continue;
+            if (child->IsOutOfFlow()) continue;
             float childW = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
             float childH = (child->heightMode == SizeMode::Fixed) ? child->fixedHeight :
                            (child->heightMode == SizeMode::Stretch ? fullH : child->intrinsicSize.y);
@@ -253,7 +253,7 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
             float rRight = -1.0f;
             float relX = 0.0f;
             for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-                if (child->type == NodeType::Modal) continue;
+                if (child->IsOutOfFlow()) continue;
                 const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
                 const bool isSep = (child->type == NodeType::Separator || cw <= 4.0f);
                 if (!isSep && (relX + cw > visRight + 1.0f)) {
@@ -273,7 +273,7 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
                 bool foundSnap = false;
                 relX = 0.0f;
                 for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-                    if (child->type == NodeType::Modal) continue;
+                    if (child->IsOutOfFlow()) continue;
                     const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
                     if (relX > rX + 0.5f) break;
                     const bool isSep = (child->type == NodeType::Separator || cw <= 4.0f);
@@ -299,7 +299,7 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
             float lRight = -1.0f;
             float relX = 0.0f;
             for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-                if (child->type == NodeType::Modal) continue;
+                if (child->IsOutOfFlow()) continue;
                 const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
                 const bool isSep = (child->type == NodeType::Separator || cw <= 4.0f);
                 if (!isSep && (relX < visLeft - 1.0f)) {
@@ -318,7 +318,7 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
                 bool foundSnap = false;
                 relX = 0.0f;
                 for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-                    if (child->type == NodeType::Modal) continue;
+                    if (child->IsOutOfFlow()) continue;
                     const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
                     if (relX > lX + 0.5f) break;
                     const bool isSep = (child->type == NodeType::Separator || cw <= 4.0f);
@@ -353,7 +353,7 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
         const float visRight = baseX + fullW - ((baseX < maxScrollX - 1.0f) ? btnGutter : 0.0f);
         float relX = 0.0f;
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-            if (child->type == NodeType::Modal) continue;
+            if (child->IsOutOfFlow()) continue;
             const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
             if (child->active) {
                 float newTarget = baseX;
@@ -405,7 +405,7 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
     // Arrange children smoothly relative to startX so toggling leftGutter never causes a position jump
     float curX = startX - node->scrollOffset.x;
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-        if (child->type == NodeType::Modal) continue;
+        if (child->IsOutOfFlow()) continue;
         float childW = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
         float childH = (child->heightMode == SizeMode::Fixed) ? child->fixedHeight :
                        (child->heightMode == SizeMode::Stretch ? fullH : child->intrinsicSize.y);

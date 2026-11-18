@@ -62,7 +62,7 @@ BottomPanelScope BottomPanel::Open(
     const Id id = ctx.MakeChildId(loc);
     const Id sashId(detail::HashArgs(id.value, keel::u64(0x42505F53415348ull)));
 
-    Node* node = ctx.CreateNode(NodeType::BottomPanel, id, opts.zone, opts.disabled);
+    Node* node = ctx.CreateNode(NodeType::BottomPanel, id, opts.disabled);
     const UiTheme& theme = node->GetTheme(ctx.GetTheme());
     const UiSize activeSize = opts.size;
     const bool activeDisabled = node->disabled;

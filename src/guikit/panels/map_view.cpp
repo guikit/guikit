@@ -41,13 +41,13 @@ void RenderMapBackgroundLayers(
         const Color cellFill = isCheckerOdd ? tileOddFill : tileEvenFill;
 
         bool drewBaseTile = false;
-        if (opts.tileSource != nullptr) {
-            const keel::StringRef baseUri = opts.tileSource(cell.id, 0, opts.tileSourceUserData);
+        if (opts.tileSource) {
+            const keel::StringRef baseUri = opts.tileSource(cell.id, 0);
             if (!baseUri.empty()) {
                 scene.DrawImage(baseUri, r);
                 drewBaseTile = true;
             }
-            const keel::StringRef overlayUri = opts.tileSource(cell.id, 1, opts.tileSourceUserData);
+            const keel::StringRef overlayUri = opts.tileSource(cell.id, 1);
             if (!overlayUri.empty()) {
                 scene.DrawImage(overlayUri, r);
             }
@@ -584,8 +584,7 @@ MapViewScope MapView::Open(
         .border = safeOpts.border,
         .tooltip = safeOpts.tooltip,
         .size = safeOpts.size,
-        .disabled = safeOpts.disabled,
-        .zone = safeOpts.zone
+        .disabled = safeOpts.disabled
     };
 
     SceneScope scene = Scene::OpenWithId(ctx, id, sceneOpts);
@@ -611,8 +610,7 @@ MapViewScope MapView::Open(
         .minTileZoom = safeOpts.minTileZoom,
         .maxTileZoom = safeOpts.maxTileZoom,
         .zoomBias = safeOpts.zoomBias,
-        .tileSource = safeOpts.tileSource,
-        .tileSourceUserData = safeOpts.tileSourceUserData
+        .tileSource = safeOpts.tileSource
     };
 
     MapViewState view = MapGrid::ComputeView(visWorld, vp, z, mouseWorld, gridCfg);
@@ -621,6 +619,7 @@ MapViewScope MapView::Open(
     }
 
     RenderMapBackgroundLayers(scene, safeOpts, view, lightMode);
+    safeOpts.tileSource = nullptr;
 
     return MapViewScope(keel::move(scene), safeOpts, keel::move(view), lightMode);
 }

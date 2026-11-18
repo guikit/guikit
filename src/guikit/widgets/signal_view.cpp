@@ -1834,21 +1834,19 @@ void main() {
             };
             gpuDesc.plotRect = g.specPlotRect;
             gpuDesc.bgColor = Color(8, 6, 22, 255);
-            gpuDesc.dataFloats = s.specCache.dbGrid.data();
-            gpuDesc.texWidth = SpectrogramCache::kTexW;
-            gpuDesc.texHeight = SpectrogramCache::kTexH;
+            gpuDesc.dataField = {s.specCache.dbGrid, SpectrogramCache::kTexH, SpectrogramCache::kTexW};
             gpuDesc.fullGeneration = s.specCache.dbGridGeneration;
             gpuDesc.dataNormOffset = -140.0f;
             gpuDesc.dataNormScale = 160.0f;
             gpuDesc.colormapId = static_cast<keel::u8>(o.colormap);
-            gpuDesc.lutAbgr256 = GetColormapLutAbgr(o.colormap).data();
+            gpuDesc.lutAbgr256 = GetColormapLutAbgr(o.colormap);
             gpuDesc.params[0] = {s.specCache.dbFloor, s.specCache.dbCeil, 0.0f, 0.0f};
             return gpuDesc;
         };
 
         bool restoredFromCache = false;
         if (s.baseLayerCache.valid && s.baseLayerCache.cacheKey == staticKey) {
-            if (c.RestoreRegion(box, s.baseLayerCache.pixels, s.baseLayerCache.width, s.baseLayerCache.height)) {
+            if (c.RestoreRegion(box, {s.baseLayerCache.pixels, s.baseLayerCache.width, s.baseLayerCache.height})) {
                 restoredFromCache = true;
                 if (g.specPlotRect.w > 0.0f && g.specPlotRect.h > 2.0f && !s.specCache.dbGrid.empty()) {
                     c.PushClip(g.specPlotRect);
@@ -1878,7 +1876,7 @@ void main() {
                 const keel::u32 ovH = keel::max(1u, keel::round_u32(ov.h));
                 s.overviewCache.EnsureValid(s.pyramid, s.lastSignalFp, ovW, ovH, isDark, th.palette.accent);
                 if (!s.overviewCache.pixels.empty()) {
-                    c.DrawPixels(s.overviewCache.pixels.data(), s.overviewCache.width, s.overviewCache.height, ov);
+                    c.DrawPixels({s.overviewCache.pixels, s.overviewCache.width, s.overviewCache.height}, ov);
                 } else {
                     c.DrawRect(ov, isDark ? Color(8, 12, 20, 255) : Color(230, 236, 244, 255));
                 }
@@ -2023,7 +2021,7 @@ void main() {
                         wpH
                     );
                     if (!s.waveCache.pixels.empty()) {
-                        c.DrawPixels(s.waveCache.pixels.data(), s.waveCache.width, s.waveCache.height, wp);
+                        c.DrawPixels({s.waveCache.pixels, s.waveCache.width, s.waveCache.height}, wp);
                     }
                 }
 
@@ -2080,7 +2078,7 @@ void main() {
                     const auto gpuDesc = makeSpecGpuDesc();
                     if (!c.DrawGpuShaderPass(gpuDesc, true)) {
                         if (!s.specCache.pixels.empty()) {
-                            c.DrawPixels(s.specCache.pixels.data(), SpectrogramCache::kTexW, SpectrogramCache::kTexH, sp);
+                            c.DrawPixels({s.specCache.pixels, SpectrogramCache::kTexW, SpectrogramCache::kTexH}, sp);
                         } else {
                             c.DrawRect(sp, Color(8, 6, 22, 255));
                         }

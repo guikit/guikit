@@ -431,7 +431,7 @@ inline void RenderPreviewViewport(
         // Each simulated window/device/artboard carries the preview theme, zoom scale and layout density in its `.zone`;
         // `clientBox` adds `inspectOpts` so inspection only covers client content.
         const guikit::ZoneOptions previewZone{
-            .theme = &demoCtx.previewTheme,
+            .theme = demoCtx.previewTheme,
             .scale = relScale,
             .density = demoCtx.previewDensity
         };
@@ -595,69 +595,71 @@ inline void RenderPreviewViewport(
                         }
                     }
 
-                    if (auto windowFrame = ui.Box({
-                        .gap = 0.0f,
-                        .width = guikit::SizeMode::Stretch,
-                        .height = guikit::SizeMode::Stretch,
-                        .padding = guikit::Padding::All(0.0f),
-                        .background = {demoCtx.previewTheme.palette.surface},
-                        .border = {.width = resizeActiveOrHovered ? 2.0f : 1.5f, .radius = 10.0f, .color = {winBorderCol}},
-                        .clipChildren = true,
-                        .zone = previewZone
-                    })) {
-                        guikit::Node* winNode = windowFrame.GetNode();
-                        winNode->postRenderFn = &detail::RenderWindowResizeGrip;
-                        winNode->scrollbarHovered = (demoCtx.previewWindowHoverEdge != 0);
-                        winNode->scrollbarActive = (demoCtx.previewWindowResizeEdge != 0);
-
-                        const guikit::Color titlebarBg = (ui.GetTheme().mode == guikit::ThemeMode::Light)
-                            ? guikit::Color(241, 245, 249, 255)
-                            : guikit::Color(15, 23, 42, 255);
-                        if (auto titlebar = ui.Box({
-                            .width = guikit::SizeMode::Stretch,
-                            .height = 28.0f,
-                            .padding = guikit::Padding::Symmetric(12.0f, 0.0f),
-                            .background = {titlebarBg},
-                            .border = {.width = 0.0f, .radius = 0.0f}
-                        })) {
-                            titlebar.GetNode()->postRenderFn = &detail::RenderWindowTitlebarTrafficLights;
-                            if (auto titleRow = ui.Row({
-                                .gap = 8.0f,
-                                .align = guikit::Alignment::Center,
-                                .height = guikit::SizeMode::Stretch
-                            })) {
-                                // Left slot reserved for Traffic Lights (3 dots * 10px + 2 * 7px gaps = 44px + 8px breathing room)
-                                if (auto tlSlot = ui.Box({
-                                    .width = 52.0f,
-                                    .height = guikit::SizeMode::Stretch
-                                })) {}
-                                ui.Spacer();
-                                ui.Text(CategoryDisplayTitle(selectedCategory), {
-                                    .role = guikit::TextRole::LabelSmall,
-                                    .variant = guikit::UiVariant::Secondary
-                                });
-                                ui.Spacer();
-                                const keel::i32 clientW = demoCtx.previewWindowCustomSize
-                                    ? keel::max(0, keel::round_i32(demoCtx.previewWindowW))
-                                    : keel::max(0, keel::round_i32(availPxW / relScale));
-                                const keel::i32 clientH = demoCtx.previewWindowCustomSize
-                                    ? keel::max(0, keel::round_i32(demoCtx.previewWindowH - 28.0f))
-                                    : keel::max(0, keel::round_i32(availPxH / relScale - 28.0f));
-                                ui.Text(ui.Format("{} x {}", clientW, clientH), {
-                                    .role = guikit::TextRole::CodeSmall,
-                                    .variant = guikit::UiVariant::Muted
-                                });
-                            }
-                        }
-
-                        if (auto clientBox = ui.Box({
+                    if (auto previewZoneScope = ui.Zone(previewZone)) {
+                        if (auto windowFrame = ui.Box({
+                            .gap = 0.0f,
                             .width = guikit::SizeMode::Stretch,
                             .height = guikit::SizeMode::Stretch,
-                            .padding = guikit::Padding::All(clientPad),
-                            .clipChildren = true,
-                            .zone = inspectOpts
+                            .padding = guikit::Padding::All(0.0f),
+                            .background = {demoCtx.previewTheme.palette.surface},
+                            .border = {.width = resizeActiveOrHovered ? 2.0f : 1.5f, .radius = 10.0f, .color = {winBorderCol}},
+                            .clipChildren = true
                         })) {
-                            invokeStageInsideClient();
+                            guikit::Node* winNode = windowFrame.GetNode();
+                            winNode->postRenderFn = &detail::RenderWindowResizeGrip;
+                            winNode->scrollbarHovered = (demoCtx.previewWindowHoverEdge != 0);
+                            winNode->scrollbarActive = (demoCtx.previewWindowResizeEdge != 0);
+
+                            const guikit::Color titlebarBg = (ui.GetTheme().mode == guikit::ThemeMode::Light)
+                                ? guikit::Color(241, 245, 249, 255)
+                                : guikit::Color(15, 23, 42, 255);
+                            if (auto titlebar = ui.Box({
+                                .width = guikit::SizeMode::Stretch,
+                                .height = 28.0f,
+                                .padding = guikit::Padding::Symmetric(12.0f, 0.0f),
+                                .background = {titlebarBg},
+                                .border = {.width = 0.0f, .radius = 0.0f}
+                            })) {
+                                titlebar.GetNode()->postRenderFn = &detail::RenderWindowTitlebarTrafficLights;
+                                if (auto titleRow = ui.Row({
+                                    .gap = 8.0f,
+                                    .align = guikit::Alignment::Center,
+                                    .height = guikit::SizeMode::Stretch
+                                })) {
+                                    // Left slot reserved for Traffic Lights (3 dots * 10px + 2 * 7px gaps = 44px + 8px breathing room)
+                                    if (auto tlSlot = ui.Box({
+                                        .width = 52.0f,
+                                        .height = guikit::SizeMode::Stretch
+                                    })) {}
+                                    ui.Spacer();
+                                    ui.Text(CategoryDisplayTitle(selectedCategory), {
+                                        .role = guikit::TextRole::LabelSmall,
+                                        .variant = guikit::UiVariant::Secondary
+                                    });
+                                    ui.Spacer();
+                                    const keel::i32 clientW = demoCtx.previewWindowCustomSize
+                                        ? keel::max(0, keel::round_i32(demoCtx.previewWindowW))
+                                        : keel::max(0, keel::round_i32(availPxW / relScale));
+                                    const keel::i32 clientH = demoCtx.previewWindowCustomSize
+                                        ? keel::max(0, keel::round_i32(demoCtx.previewWindowH - 28.0f))
+                                        : keel::max(0, keel::round_i32(availPxH / relScale - 28.0f));
+                                    ui.Text(ui.Format("{} x {}", clientW, clientH), {
+                                        .role = guikit::TextRole::CodeSmall,
+                                        .variant = guikit::UiVariant::Muted
+                                    });
+                                }
+                            }
+
+                            if (auto inspectZoneScope = ui.Zone(inspectOpts)) {
+                                if (auto clientBox = ui.Box({
+                                    .width = guikit::SizeMode::Stretch,
+                                    .height = guikit::SizeMode::Stretch,
+                                    .padding = guikit::Padding::All(clientPad),
+                                    .clipChildren = true
+                                })) {
+                                    invokeStageInsideClient();
+                                }
+                            }
                         }
                     }
                 }
@@ -665,94 +667,98 @@ inline void RenderPreviewViewport(
                 // Hardware Device Chassis (Tablet or Smartphone with Safe-Area Top & Bottom Bars)
                 const float devicePad = isShellScreen ? 0.0f : (isFullStage ? 6.0f : 16.0f);
 
-                if (auto chassisBox = ui.Box({
-                    .gap = 0.0f,
-                    .width = targetW,
-                    .height = targetH,
-                    .padding = guikit::Padding::All(10.0f),
-                    .background = {guikit::Color(15, 20, 28, 255)},
-                    .border = {
-                        .width = 2.0f,
-                        .radius = isPhone ? 38.0f : 24.0f,
-                        .color = {guikit::Color(100, 116, 139, 255)}
-                    },
-                    .zone = previewZone
-                })) {
-                    chassisBox.GetNode()->postRenderFn = isPhone
-                        ? &detail::RenderDeviceChassisButtons<true>
-                        : &detail::RenderDeviceChassisButtons<false>;
-
-                    if (auto screenBox = ui.Box({
+                if (auto previewZoneScope = ui.Zone(previewZone)) {
+                    if (auto chassisBox = ui.Box({
                         .gap = 0.0f,
-                        .width = guikit::SizeMode::Stretch,
-                        .height = guikit::SizeMode::Stretch,
-                        .padding = guikit::Padding::All(0.0f),
-                        .background = {ui.GetThemePalette().surface},
+                        .width = targetW,
+                        .height = targetH,
+                        .padding = guikit::Padding::All(10.0f),
+                        .background = {guikit::Color(15, 20, 28, 255)},
                         .border = {
-                            .width = 1.0f,
-                            .radius = isPhone ? 28.0f : 14.0f,
-                            .color = {guikit::Color(51, 65, 85, 190)}
-                        },
-                        .clipChildren = true
+                            .width = 2.0f,
+                            .radius = isPhone ? 38.0f : 24.0f,
+                            .color = {guikit::Color(100, 116, 139, 255)}
+                        }
                     })) {
-                        if (isPhone) {
-                            screenBox.GetNode()->postRenderFn = &detail::RenderPhoneDynamicIsland;
-                        }
+                        chassisBox.GetNode()->postRenderFn = isPhone
+                            ? &detail::RenderDeviceChassisButtons<true>
+                            : &detail::RenderDeviceChassisButtons<false>;
 
-                        // 1. Top Safe Area (9:41 Clock + Signal/Battery)
-                        if (auto safeTop = ui.Box({
-                            .width = guikit::SizeMode::Stretch,
-                            .height = (isPhone && !demoCtx.previewLandscape) ? 36.0f : 24.0f
-                        })) {
-                            safeTop.GetNode()->postRenderFn = isPhone
-                                ? &detail::RenderDeviceStatusSafeArea<true>
-                                : &detail::RenderDeviceStatusSafeArea<false>;
-                        }
-
-                        // 2. Isolated Application Client Area (includes left safe-area clearance in Phone Landscape)
-                        const guikit::Padding clientSafePad = (isPhone && demoCtx.previewLandscape)
-                            ? guikit::Padding{devicePad + 26.0f, devicePad, devicePad, devicePad}
-                            : guikit::Padding::All(devicePad);
-                        if (auto clientBox = ui.Box({
+                        if (auto screenBox = ui.Box({
+                            .gap = 0.0f,
                             .width = guikit::SizeMode::Stretch,
                             .height = guikit::SizeMode::Stretch,
-                            .padding = clientSafePad,
-                            .clipChildren = true,
-                            .zone = inspectOpts
+                            .padding = guikit::Padding::All(0.0f),
+                            .background = {ui.GetThemePalette().surface},
+                            .border = {
+                                .width = 1.0f,
+                                .radius = isPhone ? 28.0f : 14.0f,
+                                .color = {guikit::Color(51, 65, 85, 190)}
+                            },
+                            .clipChildren = true
                         })) {
-                            invokeStageInsideClient();
-                        }
+                            if (isPhone) {
+                                screenBox.GetNode()->postRenderFn = &detail::RenderPhoneDynamicIsland;
+                            }
 
-                        // 3. Bottom Safe Area (Home Indicator Bar)
-                        if (auto safeBottom = ui.Box({
-                            .width = guikit::SizeMode::Stretch,
-                            .height = 16.0f
-                        })) {
-                            safeBottom.GetNode()->postRenderFn = &detail::RenderDeviceHomeIndicatorSafeArea;
+                            // 1. Top Safe Area (9:41 Clock + Signal/Battery)
+                            if (auto safeTop = ui.Box({
+                                .width = guikit::SizeMode::Stretch,
+                                .height = (isPhone && !demoCtx.previewLandscape) ? 36.0f : 24.0f
+                            })) {
+                                safeTop.GetNode()->postRenderFn = isPhone
+                                    ? &detail::RenderDeviceStatusSafeArea<true>
+                                    : &detail::RenderDeviceStatusSafeArea<false>;
+                            }
+
+                            // 2. Isolated Application Client Area (includes left safe-area clearance in Phone Landscape)
+                            const guikit::Padding clientSafePad = (isPhone && demoCtx.previewLandscape)
+                                ? guikit::Padding{devicePad + 26.0f, devicePad, devicePad, devicePad}
+                                : guikit::Padding::All(devicePad);
+                            if (auto inspectZoneScope = ui.Zone(inspectOpts)) {
+                                if (auto clientBox = ui.Box({
+                                    .width = guikit::SizeMode::Stretch,
+                                    .height = guikit::SizeMode::Stretch,
+                                    .padding = clientSafePad,
+                                    .clipChildren = true
+                                })) {
+                                    invokeStageInsideClient();
+                                }
+                            }
+
+                            // 3. Bottom Safe Area (Home Indicator Bar)
+                            if (auto safeBottom = ui.Box({
+                                .width = guikit::SizeMode::Stretch,
+                                .height = 16.0f
+                            })) {
+                                safeBottom.GetNode()->postRenderFn = &detail::RenderDeviceHomeIndicatorSafeArea;
+                            }
                         }
                     }
                 }
             } else {
                 // Full Artboard Mode (clean bordered surface on the recessed backdrop)
-                if (auto artboard = ui.Box({
-                    .width = guikit::SizeMode::Stretch,
-                    .height = guikit::SizeMode::Stretch,
-                    .background = {demoCtx.previewTheme.palette.surface},
-                    .border = {
-                        .width = 1.0f,
-                        .radius = 8.0f,
-                        .color = {demoCtx.previewTheme.palette.border}
-                    },
-                    .clipChildren = true,
-                    .zone = previewZone
-                })) {
-                    if (auto clientBox = ui.Box({
+                if (auto previewZoneScope = ui.Zone(previewZone)) {
+                    if (auto artboard = ui.Box({
                         .width = guikit::SizeMode::Stretch,
                         .height = guikit::SizeMode::Stretch,
-                        .padding = guikit::Padding::All(clientPad),
-                        .zone = inspectOpts
+                        .background = {demoCtx.previewTheme.palette.surface},
+                        .border = {
+                            .width = 1.0f,
+                            .radius = 8.0f,
+                            .color = {demoCtx.previewTheme.palette.border}
+                        },
+                        .clipChildren = true
                     })) {
-                        invokeStageInsideClient();
+                        if (auto inspectZoneScope = ui.Zone(inspectOpts)) {
+                            if (auto clientBox = ui.Box({
+                                .width = guikit::SizeMode::Stretch,
+                                .height = guikit::SizeMode::Stretch,
+                                .padding = guikit::Padding::All(clientPad)
+                            })) {
+                                invokeStageInsideClient();
+                            }
+                        }
                     }
                 }
             }

@@ -15,7 +15,7 @@ const Zone* ResolveZone(
         return base;
     }
     Zone* resolved = arena.create<Zone>(*base);
-    if (opts.theme != nullptr) {
+    if (opts.theme.has_value()) {
         resolved->theme = arena.create<UiTheme>(*opts.theme);
     }
     if (opts.scale.has_value() && *opts.scale > 0.0f) {

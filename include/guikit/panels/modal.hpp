@@ -2,10 +2,7 @@
 
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/response.hpp"
-#include "guikit/core/theme.hpp"
 #include "guikit/core/types.hpp"
-#include "guikit/core/zone.hpp"
-#include "guikit/graphics/icon.hpp"
 #include "keel/core.h"
 #include "keel/optional.h"
 
@@ -14,37 +11,26 @@ namespace guikit {
 class Context;
 class ICanvas;
 struct Node;
+struct UiTheme;
 
-/// Configuration options for the Modal dialog container.
+/// Configuration options for the out-of-flow `Modal` overlay portal (backdrop, input/focus isolation, placement).
+/// Modal does not render a surface card or style children; place a `ui.Card(...)`, `ui.Box(...)`, or widget inside it.
 struct ModalOptions {
-    UiText title{};                                ///< Dialog header title
-    UiText subtitle{};                             ///< Optional secondary description in header
-    Icon icon{};                                   ///< Optional leading header icon (auto-resolved from variant if empty and variant != Default)
-    UiVariant variant{UiVariant::Default};         ///< Semantic accent variant for header badge and accent bar
-    float width{440.0f};                           ///< Dialog box width in logical pixels
-    keel::Optional<float> height{keel::kNullOpt};     ///< Explicit dialog height in logical pixels (nullopt = fit content)
-    float maxHeightRatio{0.88f};                   ///< Maximum height as fraction of backdrop height
-    keel::Optional<float> gap{keel::kNullOpt};        ///< Vertical gap between body child widgets
-    keel::Optional<Padding> padding{keel::kNullOpt};  ///< Body padding (nullopt = standard spacious dialog padding)
-    StateColor background{};                       ///< Optional dialog surface background color override
-    Border border{.width = 1.0f, .radius = 12.0f}; ///< Dialog border width, corner radius, and color
-    float backdropOpacity{0.55f};                  ///< Dimmed backdrop alpha (0.0..1.0)
-    keel::Optional<Color> backdropColor{keel::kNullOpt}; ///< Optional explicit backdrop tint override
-    bool closeOnBackdrop{true};                    ///< Dismiss modal when clicking outside the dialog box
-    bool closeOnEscape{true};                      ///< Dismiss modal when pressing Escape
-    bool showCloseButton{true};                    ///< Render [X] close button in top-right header
-    bool showHeaderDivider{true};                  ///< Render 1px divider below header when title/subtitle is present
-    bool confineToParent{false};                   ///< Center and clip backdrop inside current parent container instead of full viewport
-    UiSize size{UiSize::Md};                       ///< Dialog header/close-button size
-    bool disabled{false};
-    ZoneOptions zone{};                            ///< Subtree environment (theme, scale, density, debug/inspect)
+    float backdropOpacity{0.55f};                        ///< Dimmed backdrop alpha (0.0..1.0) when `backdropColor` is unset
+    keel::Optional<Color> backdropColor{keel::kNullOpt}; ///< Explicit backdrop fill override
+    bool closeOnBackdrop{true};                          ///< Dismiss modal when clicking backdrop outside modal content
+    bool closeOnEscape{true};                            ///< Dismiss modal when pressing Escape
+    bool confineToParent{false};                         ///< Anchor and clip backdrop inside current parent container instead of full viewport
+    Padding padding{};                                   ///< Explicit inset between backdrop bounds and modal content
+    Alignment align{Alignment::Center};                  ///< Horizontal placement of child content within padded backdrop bounds
+    Alignment verticalAlign{Alignment::Center};          ///< Vertical placement of child content within padded backdrop bounds
 };
 
 /// RAII scope guard returned by `ui.Modal(...)`.
 class [[nodiscard]] ModalScope : public ContainerScope {
 public:
     Response response{};
-    bool closedByUser{false}; ///< True on the frame the modal was dismissed via [X], backdrop click, or Escape
+    bool closedByUser{false}; ///< True on the frame the modal was dismissed via backdrop click or Escape
 
     ModalScope() noexcept : ContainerScope(nullptr, nullptr) {}
 
@@ -100,7 +86,7 @@ private:
     bool m_activeModal{false};
 };
 
-/// Out-of-flow floating Modal dialog container with backdrop dimming and focus/input isolation.
+/// Out-of-flow modal overlay host with backdrop dimming and focus/input isolation.
 class Modal {
 public:
     [[nodiscard]] static ModalScope Open(
@@ -129,21 +115,7 @@ public:
         const UiTheme& theme
     );
 
-    [[nodiscard]] static float ComputeHeaderHeight(
-        const ModalOptions& opts,
-        UiSize size,
-        const UiTheme& theme,
-        ICanvas* canvas = nullptr
-    ) noexcept;
-
-    [[nodiscard]] static Rect ResolveDialogRect(
-        const Node* node,
-        float resolvedHeight,
-        const Rect& fallbackBackdrop
-    ) noexcept;
-
-    [[nodiscard]] static Rect GetBodyClipRect(const Node* node) noexcept;
-
+    /// Returns the backdrop rectangle in the modal's local coordinate space.
     [[nodiscard]] static Rect GetBackdropRect(const Node* node) noexcept;
 };
 

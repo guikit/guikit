@@ -480,10 +480,13 @@ void SdlGlShaderEngine::RenderPass(
     keel::u32 viewportW,
     keel::u32 viewportH
 ) {
-    if (pass.clipRect.w <= 0.5f || pass.clipRect.h <= 0.5f ||
-        pass.texWidth == 0 || pass.texHeight == 0 || !pass.dataFloats) {
+    if (pass.clipRect.w <= 0.5f || pass.clipRect.h <= 0.5f || pass.dataField.empty()) {
         return;
     }
+
+    const keel::u32 texW = static_cast<keel::u32>(pass.dataField.extent(1));
+    const keel::u32 texH = static_cast<keel::u32>(pass.dataField.extent(0));
+    const keel::ArrayRef<float> flatData = pass.dataField.flat();
 
     const CompiledProgram* prog = GetOrCompileProgram(pass.shader);
     if (!prog) {
@@ -495,7 +498,7 @@ void SdlGlShaderEngine::RenderPass(
     cache.lastUsedTimeNs = keel::monotonic_ns();
 
     // 1. Ensure 256x1 Colormap LUT texture is created & up to date
-    if (pass.lutAbgr256 != nullptr) {
+    if (pass.lutAbgr256.size() >= 256u) {
         g_gl.ActiveTexture(kGL_TEXTURE1);
         if (!cache.lutTex) {
             g_gl.GenTextures(1, &cache.lutTex);
@@ -504,26 +507,26 @@ void SdlGlShaderEngine::RenderPass(
             g_gl.TexParameteri(kGL_TEXTURE_2D, kGL_TEXTURE_MAG_FILTER, static_cast<keel::i32>(kGL_LINEAR));
             g_gl.TexParameteri(kGL_TEXTURE_2D, kGL_TEXTURE_WRAP_S, static_cast<keel::i32>(kGL_CLAMP_TO_EDGE));
             g_gl.TexParameteri(kGL_TEXTURE_2D, kGL_TEXTURE_WRAP_T, static_cast<keel::i32>(kGL_CLAMP_TO_EDGE));
-            g_gl.TexImage2D(kGL_TEXTURE_2D, 0, static_cast<keel::i32>(kGL_RGBA), 256, 1, 0, kGL_RGBA, kGL_UNSIGNED_BYTE, pass.lutAbgr256);
+            g_gl.TexImage2D(kGL_TEXTURE_2D, 0, static_cast<keel::i32>(kGL_RGBA), 256, 1, 0, kGL_RGBA, kGL_UNSIGNED_BYTE, pass.lutAbgr256.data());
             cache.uploadedColormapId = pass.colormapId;
         } else {
             g_gl.BindTexture(kGL_TEXTURE_2D, cache.lutTex);
             if (cache.uploadedColormapId != pass.colormapId) {
-                g_gl.TexSubImage2D(kGL_TEXTURE_2D, 0, 0, 0, 256, 1, kGL_RGBA, kGL_UNSIGNED_BYTE, pass.lutAbgr256);
+                g_gl.TexSubImage2D(kGL_TEXTURE_2D, 0, 0, 0, 256, 1, kGL_RGBA, kGL_UNSIGNED_BYTE, pass.lutAbgr256.data());
                 cache.uploadedColormapId = pass.colormapId;
             }
         }
     }
 
-    // 2. Ensure 2D Data Texture (texWidth x texHeight) is up to date (supports full upload & O(1) ring-buffer row upload)
+    // 2. Ensure 2D Data Texture (texW x texH) is up to date (supports full upload & O(1) ring-buffer row upload)
     g_gl.ActiveTexture(kGL_TEXTURE0);
-    const bool dimsChanged = (!cache.dataTex || cache.width != pass.texWidth || cache.height != pass.texHeight);
+    const bool dimsChanged = (!cache.dataTex || cache.width != texW || cache.height != texH);
     if (dimsChanged) {
         if (!cache.dataTex) {
             g_gl.GenTextures(1, &cache.dataTex);
         }
-        cache.width = pass.texWidth;
-        cache.height = pass.texHeight;
+        cache.width = texW;
+        cache.height = texH;
         cache.uploadedFullGen = 0;
         cache.uploadedSliceGen = 0;
 
@@ -542,20 +545,20 @@ void SdlGlShaderEngine::RenderPass(
         ? (pass.sliceGeneration - cache.uploadedSliceGen)
         : 0;
 
-    if (needFullUpload || (pass.sliceGeneration > 0 && (pass.sliceGeneration < cache.uploadedSliceGen || deltaSlices >= pass.texHeight))) {
-        const keel::usize total = static_cast<keel::usize>(pass.texWidth) * pass.texHeight;
+    if (needFullUpload || (pass.sliceGeneration > 0 && (pass.sliceGeneration < cache.uploadedSliceGen || deltaSlices >= texH))) {
+        const keel::usize total = flatData.size();
         m_uploadScratch.resize(total);
         for (keel::usize i = 0; i < total; ++i) {
-            const float normVal = (pass.dataFloats[i] - pass.dataNormOffset) * invNormScale;
+            const float normVal = (flatData[i] - pass.dataNormOffset) * invNormScale;
             m_uploadScratch[i] = PackRG16Norm(normVal);
         }
         if (dimsChanged) {
             g_gl.TexImage2D(kGL_TEXTURE_2D, 0, static_cast<keel::i32>(kGL_RGBA),
-                            static_cast<keel::i32>(pass.texWidth), static_cast<keel::i32>(pass.texHeight),
+                            static_cast<keel::i32>(texW), static_cast<keel::i32>(texH),
                             0, kGL_RGBA, kGL_UNSIGNED_BYTE, m_uploadScratch.data());
         } else {
             g_gl.TexSubImage2D(kGL_TEXTURE_2D, 0, 0, 0,
-                               static_cast<keel::i32>(pass.texWidth), static_cast<keel::i32>(pass.texHeight),
+                               static_cast<keel::i32>(texW), static_cast<keel::i32>(texH),
                                kGL_RGBA, kGL_UNSIGNED_BYTE, m_uploadScratch.data());
         }
         cache.uploadedFullGen = pass.fullGeneration;
@@ -566,18 +569,18 @@ void SdlGlShaderEngine::RenderPass(
         }
     } else if (deltaSlices > 0) {
         // O(1) Circular Ring-Buffer Update: upload only the newly written row(s) via glTexSubImage2D
-        m_uploadScratch.resize(pass.texWidth);
+        m_uploadScratch.resize(texW);
         for (keel::u64 s = 0; s < deltaSlices; ++s) {
             const keel::u32 rowIdx = static_cast<keel::u32>(
-                (static_cast<keel::u64>(pass.headRow) + static_cast<keel::u64>(pass.texHeight) * 4ULL - s) % pass.texHeight
+                (static_cast<keel::u64>(pass.headRow) + static_cast<keel::u64>(texH) * 4ULL - s) % texH
             );
-            const float* rowSrc = pass.dataFloats + static_cast<keel::usize>(rowIdx) * pass.texWidth;
-            for (keel::u32 x = 0; x < pass.texWidth; ++x) {
+            const keel::ArrayRef<float> rowSrc = pass.dataField.row(rowIdx);
+            for (keel::u32 x = 0; x < texW; ++x) {
                 const float normVal = (rowSrc[x] - pass.dataNormOffset) * invNormScale;
                 m_uploadScratch[x] = PackRG16Norm(normVal);
             }
             g_gl.TexSubImage2D(kGL_TEXTURE_2D, 0, 0, static_cast<keel::i32>(rowIdx),
-                               static_cast<keel::i32>(pass.texWidth), 1,
+                               static_cast<keel::i32>(texW), 1,
                                kGL_RGBA, kGL_UNSIGNED_BYTE, m_uploadScratch.data());
         }
         cache.uploadedSliceGen = pass.sliceGeneration;
@@ -605,7 +608,7 @@ void SdlGlShaderEngine::RenderPass(
         g_gl.Uniform4f(prog->uPlotRect, pass.plotRect.x, pass.plotRect.y, pass.plotRect.w, pass.plotRect.h);
     }
     if (prog->uGridDims >= 0) {
-        g_gl.Uniform2f(prog->uGridDims, static_cast<float>(pass.texWidth), static_cast<float>(pass.texHeight));
+        g_gl.Uniform2f(prog->uGridDims, static_cast<float>(texW), static_cast<float>(texH));
     }
     if (prog->uBgColor >= 0) {
         g_gl.Uniform3f(prog->uBgColor,

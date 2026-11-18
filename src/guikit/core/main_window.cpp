@@ -486,66 +486,108 @@ void MainWindow::RenderDebugControls(ToolbarScope& tb) {
 }
 
 void MainWindow::RenderEngineControls(ToolbarScope& tb) {
-    if (auto engineGroup = m_ui.Row({.equalWidths = true})) {
-        bool gpuEnabled = IsGpuShadersEnabled();
-        if (tb.Toggle(gpuEnabled, {
-            .text = "GPU",
-            .tooltip = "Toggle Hardware GPU Shader Acceleration",
-            .icon = Icon::Flash(),
-            .color = StateColor::Success(),
-            .disabled = !IsGpuShadersAvailable()
-        }).changed) {
-            SetGpuShadersEnabled(gpuEnabled);
-        }
+    static constexpr keel::StaticArray<keel::StringRef, 5> kHeartbeatShortLabels = {{
+        "Off",
+        "4 Hz (250 ms)",
+        "2 Hz (500 ms)",
+        "1 Hz (1000 ms)",
+        "0.5 Hz (2000 ms)"
+    }};
 
-        bool vsync = IsVsyncEnabled();
-        if (tb.Toggle(vsync, {
-            .text = "VSync",
-            .tooltip = "Toggle Vertical Sync",
-            .color = StateColor::Info()
-        }).changed) {
-            SetVsyncEnabled(vsync);
-        }
+    const Response engineBtn = tb.Toggle(m_enginePopoverOpen, {
+        .text = "Engine",
+        .tooltip = "Engine & Render Pipeline Settings",
+        .icon = Icon::ChevronDown(),
+        .iconPlacement = Placement::Trailing
+    });
 
-        if (tb.Toggle(m_reactiveMode, {
-            .text = "React",
-            .tooltip = "Toggle Event-Driven Reactive Sleep Loop",
-            .color = StateColor::Primary()
-        }).changed) {
-            SetReactiveMode(m_reactiveMode);
-        }
+    if (auto pop = m_ui.Popover(m_enginePopoverOpen, {
+        .anchorRect = engineBtn.rect
+    })) {
+        if (auto card = m_ui.Card({
+            .width = 296.0f,
+            .gap = 8.0f,
+            .padding = Padding::All(14.0f),
+            .elevated = true
+        })) {
+            m_ui.Heading({
+                .label = "Engine Pipeline",
+                .level = HeadingLevel::H5,
+                .separator = HeadingSeparator::Bottom
+            });
 
-        bool dirtyActive = m_ui.IsDirtyRectEnabled();
-        if (tb.Toggle(dirtyActive, {
-            .text = "Dirty",
-            .tooltip = "Toggle Disjoint Dirty-Rect Partial Rasterization",
-            .color = StateColor::Success()
-        }).changed) {
-            m_ui.SetDirtyRectEnabled(dirtyActive);
-            if (!dirtyActive) {
-                m_ui.InvalidateAll();
+            bool gpuEnabled = IsGpuShadersEnabled();
+            if (auto el = m_ui.Element({
+                .label = "GPU Shaders",
+                .description = "Hardware shader underlays",
+                .layout = ElementLayout::Leading,
+                .disabled = !IsGpuShadersAvailable()
+            })) {
+                if (m_ui.Switch(gpuEnabled, {.size = UiSize::Sm})) {
+                    SetGpuShadersEnabled(gpuEnabled);
+                }
+            }
+
+            bool vsync = IsVsyncEnabled();
+            if (auto el = m_ui.Element({
+                .label = "VSync",
+                .description = "Synchronize swap interval",
+                .layout = ElementLayout::Leading
+            })) {
+                if (m_ui.Switch(vsync, {.size = UiSize::Sm})) {
+                    SetVsyncEnabled(vsync);
+                }
+            }
+
+            if (auto el = m_ui.Element({
+                .label = "Reactive Loop",
+                .description = "Idle sleep at 0% CPU",
+                .layout = ElementLayout::Leading
+            })) {
+                if (m_ui.Switch(m_reactiveMode, {.size = UiSize::Sm})) {
+                    SetReactiveMode(m_reactiveMode);
+                }
+            }
+
+            bool dirtyActive = m_ui.IsDirtyRectEnabled();
+            if (auto el = m_ui.Element({
+                .label = "Dirty-Rect Raster",
+                .description = "Disjoint partial redraws",
+                .layout = ElementLayout::Leading
+            })) {
+                if (m_ui.Switch(dirtyActive, {.size = UiSize::Sm})) {
+                    m_ui.SetDirtyRectEnabled(dirtyActive);
+                    if (!dirtyActive) {
+                        m_ui.InvalidateAll();
+                    }
+                }
+            }
+
+            bool liveResizeActive = m_ui.IsLiveResizeEnabled();
+            if (auto el = m_ui.Element({
+                .label = "Live Window Resize",
+                .description = "Reflow while dragging edge",
+                .layout = ElementLayout::Leading
+            })) {
+                if (m_ui.Switch(liveResizeActive, {.size = UiSize::Sm})) {
+                    m_ui.SetLiveResize(liveResizeActive);
+                }
+            }
+
+            m_ui.Separator();
+
+            if (auto el = m_ui.Element({
+                .label = "Idle Heartbeat",
+                .layout = ElementLayout::Leading,
+                .disabled = !m_reactiveMode
+            })) {
+                keel::usize hbIdx = m_heartbeatIndex;
+                if (m_ui.Select(hbIdx, kHeartbeatShortLabels, {.width = 128.0f, .size = UiSize::Sm})) {
+                    m_heartbeatIndex = hbIdx % kHeartbeatMsValues.size();
+                    m_ui.SetIdleHeartbeatMs(kHeartbeatMsValues[m_heartbeatIndex]);
+                }
             }
         }
-
-        bool liveResizeActive = m_ui.IsLiveResizeEnabled();
-        if (tb.Toggle(liveResizeActive, {
-            .text = "Live",
-            .tooltip = liveResizeActive
-                ? "Live Window Resize: Smooth 60 FPS reflow while dragging window border"
-                : "Deferred Window Resize: Reflow after window resize step completes",
-            .color = StateColor::Info()
-        }).changed) {
-            m_ui.SetLiveResize(liveResizeActive);
-        }
-    }
-
-    if (tb.Action({
-        .text = {kHeartbeatLabels[m_heartbeatIndex], kHeartbeatLabels},
-        .icon = Icon::Refresh(),
-        .disabled = !m_reactiveMode
-    })) {
-        m_heartbeatIndex = (m_heartbeatIndex + 1) % kHeartbeatLabels.size();
-        m_ui.SetIdleHeartbeatMs(kHeartbeatMsValues[m_heartbeatIndex]);
     }
 }
 

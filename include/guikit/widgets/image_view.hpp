@@ -66,8 +66,14 @@ struct ImageViewData {
     keel::u64 dataGeneration{0};                 ///< Optional generation counter; 0 = auto-hash
 
     [[nodiscard]] bool Empty() const noexcept {
-        return !rawPixels || width == 0 || height == 0 || channels == 0 ||
-               sampleCount < static_cast<keel::usize>(width) * height * channels;
+        keel::usize px = 0;
+        keel::usize required = 0;
+        if (!rawPixels || width == 0 || height == 0 || channels == 0 ||
+            !keel::detail::checked_mul_usize(width, height, px) ||
+            !keel::detail::checked_mul_usize(px, channels, required)) {
+            return true;
+        }
+        return sampleCount < required;
     }
 
     [[nodiscard]] static ImageViewData FromFloat(
@@ -88,6 +94,26 @@ struct ImageViewData {
         };
     }
 
+    [[nodiscard]] static ImageViewData FromFloat(keel::MdRef<float, 2> pixels, keel::u64 gen = 0) noexcept {
+        return FromFloat(
+            pixels.flat(),
+            static_cast<keel::u32>(pixels.extent(1)),
+            static_cast<keel::u32>(pixels.extent(0)),
+            1u,
+            gen
+        );
+    }
+
+    [[nodiscard]] static ImageViewData FromFloat(keel::MdRef<float, 3> pixels, keel::u64 gen = 0) noexcept {
+        return FromFloat(
+            pixels.flat(),
+            static_cast<keel::u32>(pixels.extent(1)),
+            static_cast<keel::u32>(pixels.extent(0)),
+            static_cast<keel::u32>(pixels.extent(2)),
+            gen
+        );
+    }
+
     [[nodiscard]] static ImageViewData FromU16(
         keel::ArrayRef<keel::u16> pixels,
         keel::u32 w,
@@ -106,6 +132,26 @@ struct ImageViewData {
         };
     }
 
+    [[nodiscard]] static ImageViewData FromU16(keel::MdRef<keel::u16, 2> pixels, keel::u64 gen = 0) noexcept {
+        return FromU16(
+            pixels.flat(),
+            static_cast<keel::u32>(pixels.extent(1)),
+            static_cast<keel::u32>(pixels.extent(0)),
+            1u,
+            gen
+        );
+    }
+
+    [[nodiscard]] static ImageViewData FromU16(keel::MdRef<keel::u16, 3> pixels, keel::u64 gen = 0) noexcept {
+        return FromU16(
+            pixels.flat(),
+            static_cast<keel::u32>(pixels.extent(1)),
+            static_cast<keel::u32>(pixels.extent(0)),
+            static_cast<keel::u32>(pixels.extent(2)),
+            gen
+        );
+    }
+
     [[nodiscard]] static ImageViewData FromU8(
         keel::ArrayRef<keel::u8> pixels,
         keel::u32 w,
@@ -122,6 +168,26 @@ struct ImageViewData {
             .format = ImageSampleFormat::UInt8,
             .dataGeneration = gen
         };
+    }
+
+    [[nodiscard]] static ImageViewData FromU8(keel::MdRef<keel::u8, 2> pixels, keel::u64 gen = 0) noexcept {
+        return FromU8(
+            pixels.flat(),
+            static_cast<keel::u32>(pixels.extent(1)),
+            static_cast<keel::u32>(pixels.extent(0)),
+            1u,
+            gen
+        );
+    }
+
+    [[nodiscard]] static ImageViewData FromU8(keel::MdRef<keel::u8, 3> pixels, keel::u64 gen = 0) noexcept {
+        return FromU8(
+            pixels.flat(),
+            static_cast<keel::u32>(pixels.extent(1)),
+            static_cast<keel::u32>(pixels.extent(0)),
+            static_cast<keel::u32>(pixels.extent(2)),
+            gen
+        );
     }
 };
 

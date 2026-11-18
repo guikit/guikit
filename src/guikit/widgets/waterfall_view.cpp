@@ -414,16 +414,14 @@ void main() {
         desc.plotRect = geom.wfRect;
         desc.clipRect = geom.wfRect;
         desc.bgColor = bgPanel;
-        desc.dataFloats = state.ringBufferDb.data();
-        desc.texWidth = state.numBins;
-        desc.texHeight = state.historyRows;
+        desc.dataField = {state.ringBufferDb, state.historyRows, state.numBins};
         desc.fullGeneration = state.fullGeneration;
         desc.sliceGeneration = state.sliceGeneration;
         desc.headRow = state.headRow;
         desc.dataNormOffset = -140.0f;
         desc.dataNormScale = 160.0f;
         desc.colormapId = static_cast<keel::u8>(opts.colormap);
-        desc.lutAbgr256 = GetColormapLutAbgr(opts.colormap).data();
+        desc.lutAbgr256 = GetColormapLutAbgr(opts.colormap);
 
         desc.params[0] = {geom.dbFloor, geom.dbCeil, xMinNorm, xMaxNorm};
         desc.params[1] = {opts.gainDb, state.thresholdGateDb, opts.gateSuppression, opts.gamma};
@@ -438,7 +436,7 @@ void main() {
 
     bool restoredBase = false;
     if (canvas.SupportsGpuShaders() && state.baseLayerValid && state.baseLayerKey == staticKey) {
-        if (canvas.RestoreRegion(r, state.baseLayerPixels.as_ref(), state.baseLayerW, state.baseLayerH)) {
+        if (canvas.RestoreRegion(r, {state.baseLayerPixels.as_ref(), state.baseLayerW, state.baseLayerH})) {
             if (geom.hasWaterfall && !state.ringBufferDb.empty()) {
                 canvas.PushClip(geom.wfRect);
                 const auto gpuDesc = buildGpuDesc();
@@ -538,7 +536,7 @@ void main() {
                             dstRow[px] = lutAbgr[lutIdx];
                         }
                     }
-                    canvas.DrawPixels(state.cpuFallbackPixels.data(), fbW, fbH, geom.wfRect);
+                    canvas.DrawPixels({state.cpuFallbackPixels, fbW, fbH}, geom.wfRect);
                 }
             }
 

@@ -3,7 +3,6 @@
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
-#include "guikit/core/zone.hpp"
 #include "keel/core.h"
 
 namespace guikit {
@@ -28,7 +27,6 @@ struct GridOptions {
     keel::Optional<float> maxHeight{keel::kNullOpt};
     float flexGrow{1.0f};
     bool disabled{false};
-    ZoneOptions zone{}; ///< Subtree environment (theme, scale, density, debug/inspect)
 };
 
 /// Options for configuring an individual grid cell slot.
@@ -44,7 +42,6 @@ struct CellOptions {
     Justify justify{Justify::Start};
     bool clipChildren{false};                         ///< Clip cell children to cell boundaries (default: false)
     bool disabled{false};
-    ZoneOptions zone{};                               ///< Subtree environment (theme, scale, density, debug/inspect)
 };
 
 /// Specialized RAII Scope guard for Grid containers providing direct cell slot helpers.

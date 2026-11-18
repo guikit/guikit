@@ -6,7 +6,6 @@
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
-#include "guikit/core/zone.hpp"
 #include "keel/arena.h"
 #include "keel/array.h"
 #include "keel/core.h"
@@ -156,7 +155,6 @@ struct SceneOptions {
     UiText tooltip{};                                   ///< Floating tooltip while the scene is hovered and no item with its own tooltip is under the pointer
     UiSize size{UiSize::Md};                            ///< Scrollbar and HUD size
     bool disabled{false};
-    ZoneOptions zone{};                                 ///< Subtree environment (theme, scale, density, disabled, debug/inspect)
 };
 
 /// Recorded world-space drawing command executed during Scene rendering.
@@ -173,9 +171,7 @@ struct SceneDrawCmd {
     Type type{Type::Rect};
     keel::i32 itemIndex{-1};      ///< Owning SceneItemInfo index in ScenePayload::items (-1 if unowned)
     keel::StringRef textOrSource{};
-    const keel::u32* pixels{nullptr};
-    keel::u32 pixelW{0};
-    keel::u32 pixelH{0};
+    PixelRef pixels{};
     Rect rect{};
     Vec2 p1{};
     Vec2 p2{};
@@ -322,24 +318,11 @@ public:
         keel::u8 opacity = 255
     );
 
-    /// Queues an in-memory ABGR8888 pixel buffer in World Coordinates.
+    /// Queues an in-memory ABGR8888 2D raster view in World Coordinates.
     /// The buffer content takes part in damage tracking: it is hashed every frame unless
     /// `contentVersion` (non-zero, changed whenever the pixels change) is given.
     void DrawPixels(
-        const keel::u32* pixels,
-        keel::u32 width,
-        keel::u32 height,
-        Rect worldRect,
-        float radius = 0.0f,
-        keel::u8 opacity = 255,
-        keel::u64 contentVersion = 0
-    );
-
-    /// Queues an in-memory ABGR8888 pixel slice in World Coordinates.
-    void DrawPixels(
-        keel::ArrayRef<keel::u32> pixels,
-        keel::u32 width,
-        keel::u32 height,
+        PixelRef pixels,
         Rect worldRect,
         float radius = 0.0f,
         keel::u8 opacity = 255,

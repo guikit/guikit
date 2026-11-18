@@ -27,8 +27,7 @@ using SyntaxHighlighter = void (*)(
     keel::StringRef lineText,
     keel::usize lineIndex,
     keel::Array<TextSpan>& outSpans,
-    const UiTheme& theme,
-    void* userData
+    const UiTheme& theme
 );
 
 /// Configurable syntax highlighting rules and token dictionary.
@@ -150,7 +149,6 @@ struct TextAreaOptions {
     keel::Optional<SyntaxConfig> syntax{keel::kNullOpt};      ///< Configurable rule-based syntax highlighting
     keel::Optional<SyntaxPalette> syntaxPalette{keel::kNullOpt}; ///< Optional syntax color palette override
     SyntaxHighlighter syntaxHighlighter{nullptr};       ///< Optional custom syntax highlighting callback
-    void* highlighterUserData{nullptr};                 ///< User data passed to syntaxHighlighter
     keel::Optional<CursorBlinkMode> cursorMode{keel::kNullOpt}; ///< Caret visibility and blinking behavior
     StateColor color{};                                 ///< Optional focus ring / accent color override
     AxisSize width{};                                   ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or `Fixed(dp)`)
@@ -398,8 +396,7 @@ public:
         keel::StringRef lineText,
         keel::usize lineIndex,
         keel::Array<TextSpan>& outSpans,
-        const UiTheme& theme,
-        void* userData = nullptr
+        const UiTheme& theme
     );
 };
 

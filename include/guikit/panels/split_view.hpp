@@ -5,7 +5,6 @@
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
-#include "guikit/core/zone.hpp"
 #include "guikit/panels/box.hpp"
 #include "keel/core.h"
 #include "keel/optional.h"
@@ -35,7 +34,6 @@ struct SplitViewOptions {
     Border border{};
     bool clipChildren{true};
     bool disabled{false};
-    ZoneOptions zone{};
 };
 
 class [[nodiscard]] SplitViewScope : public ContainerScope {

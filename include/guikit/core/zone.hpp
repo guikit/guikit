@@ -7,9 +7,10 @@ namespace keel { class Arena; }
 
 namespace guikit {
 
+class Context;
 struct UiTheme;
 
-/// Resolved subtree environment inherited down container nodes (`Context::GetZone()` / `Node::zone`).
+/// Resolved subtree environment inherited down UI nodes (`Context::GetZone()` / `Node::zone`).
 struct Zone {
     UiTheme* theme{nullptr};                          ///< Active theme (context theme or arena copy)
     float scale{1.0f};                                ///< Accumulated geometric scale (relative to root)
@@ -21,22 +22,54 @@ struct Zone {
 /// Default fallback zone used when constructing standalone nodes outside a `Context`.
 inline constexpr Zone kDefaultZone{};
 
-/// Subtree environment options attached to containers via `.zone = {...}`.
-/// Anything left unset inherits from the enclosing container; `scale` and `density` compose multiplicatively.
+/// Subtree environment options passed to `ui.Zone({...})`.
+/// Anything left unset inherits from the enclosing zone; `scale` and `density` compose multiplicatively.
 struct ZoneOptions {
-    const UiTheme* theme{nullptr};                    ///< Replaces inherited theme (copied into the frame arena)
-    keel::Optional<float> scale{keel::kNullOpt};      ///< Geometric subtree multiplier (layout, text, strokes, input)
-    keel::Optional<float> density{keel::kNullOpt};    ///< Spacing/gap/padding multiplier for container layouts
-    keel::Optional<bool> debugBounds{keel::kNullOpt}; ///< Shows (or hides) debug bounding boxes inside the subtree
-    keel::Optional<bool> inspectMode{keel::kNullOpt}; ///< Enables (or disables) the DevTools inspector inside the subtree
+    keel::Optional<const UiTheme&> theme{keel::kNullOpt}; ///< Replaces inherited theme (copied into the frame arena)
+    keel::Optional<float> scale{keel::kNullOpt};          ///< Geometric subtree multiplier (layout, text, strokes, input)
+    keel::Optional<float> density{keel::kNullOpt};        ///< Spacing/gap/padding multiplier for container layouts
+    keel::Optional<bool> debugBounds{keel::kNullOpt};     ///< Shows (or hides) debug bounding boxes inside the subtree
+    keel::Optional<bool> inspectMode{keel::kNullOpt};     ///< Enables (or disables) the DevTools inspector inside the subtree
 
     [[nodiscard]] constexpr bool IsEmpty() const noexcept {
-        return theme == nullptr
+        return !theme.has_value()
             && !scale.has_value()
             && !density.has_value()
             && !debugBounds.has_value()
             && !inspectMode.has_value();
     }
+};
+
+/// Transparent RAII scope guard returned by `ui.Zone(...)` that applies environment overrides
+/// (`theme`, `scale`, `density`, `debugBounds`, `inspectMode`) to widgets and containers in its lexical block
+/// without creating a layout node.
+class [[nodiscard]] ZoneScope {
+public:
+    ZoneScope() noexcept = default;
+    explicit ZoneScope(Context* ctx) noexcept : m_ctx(ctx) {}
+    ~ZoneScope() noexcept;
+
+    ZoneScope(const ZoneScope&) = delete;
+    ZoneScope& operator=(const ZoneScope&) = delete;
+
+    ZoneScope(ZoneScope&& other) noexcept : m_ctx(other.m_ctx) {
+        other.m_ctx = nullptr;
+    }
+
+    ZoneScope& operator=(ZoneScope&& other) noexcept {
+        if (this != &other) {
+            PopIfNeeded();
+            m_ctx = other.m_ctx;
+            other.m_ctx = nullptr;
+        }
+        return *this;
+    }
+
+    explicit operator bool() const noexcept { return m_ctx != nullptr; }
+
+private:
+    void PopIfNeeded() noexcept;
+    Context* m_ctx{nullptr};
 };
 
 /// Resolves child zone state from `parent` + `opts` into `arena` (returns `parent` unchanged when `opts.IsEmpty()`).

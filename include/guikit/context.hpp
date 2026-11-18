@@ -47,6 +47,7 @@
 #endif
 #include "guikit/panels/context_menu.hpp"
 #include "guikit/panels/modal.hpp"
+#include "guikit/panels/popover.hpp"
 #include "guikit/panels/sidebar.hpp"
 #include "guikit/panels/split_view.hpp"
 #include "guikit/panels/status_bar.hpp"
@@ -307,13 +308,13 @@ public:
     /// Sets the active color theme mode (Dark or Light) and adapts clear color & palette.
     void SetThemeMode(ThemeMode mode) noexcept;
 
-    /// Returns the active theme mode (respects container `.zone.theme` overrides).
+    /// Returns the active theme mode (respects active `ui.Zone(...)` theme overrides).
     [[nodiscard]] ThemeMode GetThemeMode() const noexcept { return GetTheme().mode; }
 
     /// Returns true if dark mode is active in the current zone.
     [[nodiscard]] bool IsDarkMode() const noexcept { return GetTheme().mode == ThemeMode::Dark; }
 
-    /// Returns the active theme palette tokens (respects container `.zone.theme` overrides).
+    /// Returns the active theme palette tokens (respects active `ui.Zone(...)` theme overrides).
     [[nodiscard]] const ThemePalette& GetThemePalette() const noexcept { return GetTheme().palette; }
 
     /// Sets the full UI theme (palette, variants, metrics, typography, etc.).
@@ -722,8 +723,17 @@ public:
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
-    // --- Container Environment (theme / scale / density / debug overrides inherited down containers) ---
-    [[nodiscard]] const Zone* GetZone() const noexcept {
+    // --- Environment Zone Wrapper & Queries ---
+    /// Opens a transparent environment scope overriding `theme`, `scale`, `density`, `debugBounds`, or `inspectMode`.
+    [[nodiscard]] ZoneScope Zone(const ZoneOptions& opts = {});
+
+    void PushZone(const ZoneOptions& opts);
+    void PopZone() noexcept;
+
+    [[nodiscard]] const guikit::Zone* GetZone() const noexcept {
+        if (!m_zoneStack.empty() && m_zoneStack.back() != nullptr) {
+            return m_zoneStack.back();
+        }
         if (!m_containerStack.empty() && m_containerStack.back() != nullptr) {
             return m_containerStack.back()->zone;
         }
@@ -1619,6 +1629,15 @@ public:
         return guikit::Modal::Open(*this, open, opts, loc);
     }
 
+    // --- Floating Popover Container ---
+    [[nodiscard]] PopoverScope Popover(
+        bool& open,
+        const PopoverOptions& opts = {},
+        keel::SourceLocation loc = keel::SourceLocation::current()
+    ) {
+        return guikit::Popover::Open(*this, open, opts, loc);
+    }
+
     // --- ContextMenu Popup Component ---
     ContextMenuResponse ContextMenu(
         const Response& triggerTarget,
@@ -1724,8 +1743,7 @@ public:
     Id MakeChildId(keel::SourceLocation loc);
     Id MakeChildIdForParent(Id parentId, keel::SourceLocation loc);
     Response Interact(Id id);
-    Node* CreateNode(NodeType type, Id id);
-    Node* CreateNode(NodeType type, Id id, const ZoneOptions& zone, bool disabled = false);
+    Node* CreateNode(NodeType type, Id id, bool disabled = false);
 
     /// Allocates and constructs arbitrary widget payload data in the per-frame scratch arena.
     template <typename T, typename... Args>
@@ -2173,7 +2191,8 @@ private:
     bool m_anyScopedInspectActive{false};
 
     keel::Arena m_arena;
-    Zone m_rootZone{&m_theme, 1.0f, 1.0f};
+    guikit::Zone m_rootZone{&m_theme, 1.0f, 1.0f};
+    keel::SmallArray<const guikit::Zone*, 16> m_zoneStack;
     keel::SmallArray<Node*, 16> m_containerStack;
     float m_rootDensity{1.0f};
     bool m_rowDisabled{false};

@@ -5,7 +5,6 @@
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
-#include "guikit/core/zone.hpp"
 #include "guikit/graphics/icon.hpp"
 #include "guikit/panels/sidebar.hpp"
 #include "keel/core.h"
@@ -49,7 +48,6 @@ struct ActivityBarOptions {
     Border border{.width = 1.0f};
     UiSize size{UiSize::Md};
     bool disabled{false};
-    ZoneOptions zone{};
 };
 
 /// Internal runtime payload allocated in frame arena for ActivityBar item nodes.

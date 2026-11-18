@@ -667,7 +667,7 @@ HistogramResponse Histogram::Run(
                         chLut[i] = PackAbgr(Color(static_cast<keel::u8>(v / 8), static_cast<keel::u8>(v / 6), v, 255));
                     }
                 }
-                c.DrawPixels(chLut.data(), 256, 1, g.colorbarRect, 2.0f * scale, 255);
+                c.DrawPixels({chLut, 256, 1}, g.colorbarRect, 2.0f * scale, 255);
                 c.DrawRoundRect(g.colorbarRect, 2.0f * scale, Color::Transparent(), borderCol, 1.0f);
             }
         }

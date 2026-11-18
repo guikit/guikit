@@ -342,25 +342,26 @@ public:
         return false;
     }
 
-    /// Draws an in-memory 32-bit ABGR8888 pixel buffer (`(a << 24) | (b << 16) | (g << 8) | r`) stretched to `destRect`.
+    /// Draws an in-memory 32-bit ABGR8888 2D raster view (`width x height`) stretched to `destRect`.
     virtual bool DrawPixels(
-        const keel::u32* pixels,
-        keel::u32 width,
-        keel::u32 height,
+        PixelRef pixels,
         Rect destRect,
         float cornerRadius = 0.0f,
         keel::u8 opacity = 255
     ) {
         (void)cornerRadius;
-        if (!pixels || width == 0 || height == 0 || opacity == 0 || destRect.w <= 0.0f || destRect.h <= 0.0f) {
+        if (pixels.Empty() || opacity == 0 || destRect.w <= 0.0f || destRect.h <= 0.0f) {
             return false;
         }
+        const keel::u32 width = pixels.Width();
+        const keel::u32 height = pixels.Height();
         const float cw = destRect.w / static_cast<float>(width);
         const float ch = destRect.h / static_cast<float>(height);
         for (keel::u32 y = 0; y < height; ++y) {
             const float ry = destRect.y + static_cast<float>(y) * ch;
+            const auto row = pixels.Row(y);
             for (keel::u32 x = 0; x < width; ++x) {
-                const keel::u32 px = pixels[y * width + x];
+                const keel::u32 px = row[x];
                 const keel::u8 r = static_cast<keel::u8>(px & 0xFFu);
                 const keel::u8 g = static_cast<keel::u8>((px >> 8) & 0xFFu);
                 const keel::u8 b = static_cast<keel::u8>((px >> 16) & 0xFFu);
@@ -406,18 +407,16 @@ public:
         Color bgColor{0, 0, 0, 255};
 
         // 2D Data Texture (Slot 0: `u_DataTex`)
-        const float* dataFloats{nullptr};    ///< Row-major [texHeight * texWidth] float field
-        keel::u32 texWidth{0};
-        keel::u32 texHeight{0};
+        keel::MdRef<float, 2> dataField{};    ///< Contiguous row-major [rows (texHeight) x cols (texWidth)] float field
         keel::u64 fullGeneration{0};          ///< Incremented when the full 2D grid changes
         keel::u64 sliceGeneration{0};         ///< Optional: incremented when a single row is written in a circular ring buffer
-        keel::u32 headRow{0};                 ///< Optional: ring-buffer head row index [0 .. texHeight-1] for O(1) sub-row upload
+        keel::u32 headRow{0};                 ///< Optional: ring-buffer head row index [0 .. rows-1] for O(1) sub-row upload
         float dataNormOffset{0.0f};          ///< Value mapped to 0.0 in RG16 upload (0.0 for [0..1] data, -140.0 for dB data)
         float dataNormScale{1.0f};           ///< Span mapped to [0..1] in RG16 upload (1.0 for [0..1] data, 160.0 for dB data)
 
         // 1D Colormap LUT Texture (Slot 1: `u_LutTex`, 256 x 1 ABGR8888)
         keel::u8 colormapId{0};
-        const keel::u32* lutAbgr256{nullptr}; ///< Pointer to persistent 256-entry ABGR8888 LUT (zero-copy)
+        keel::ArrayRef<keel::u32> lutAbgr256{}; ///< Persistent 256-entry ABGR8888 LUT slice (zero-copy)
 
         // Standard 8 x float4 (128-byte std140) uniform parameter bank (`uniform vec4 u_Params[8]`)
         keel::StaticArray<GpuFloat4, 8> params{};
@@ -447,7 +446,7 @@ public:
     }
 
     /// Flushes pending draw commands and blits a previously captured pixel snapshot directly into the target surface.
-    virtual bool RestoreRegion(Rect /*rect*/, keel::ArrayRef<keel::u32> /*inPixels*/, keel::u32 /*inW*/, keel::u32 /*inH*/) {
+    virtual bool RestoreRegion(Rect /*rect*/, PixelRef /*pixels*/) {
         return false;
     }
 

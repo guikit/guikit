@@ -2856,14 +2856,18 @@ void TestUiStyleAndDensityScaling() {
             b1 = ui.Button({.text = "First"});
             b2 = ui.Button({.text = "Second"});
         }
-        if (auto explicitCol = ui.Column({.gap = 12.0f, .zone = {.density = 0.5f}})) {
-            bExplicit1 = ui.Button({.text = "Explicit 1"});
-            bExplicit2 = ui.Button({.text = "Explicit 2"});
+        if (auto densityZ = ui.Zone({.density = 0.5f})) {
+            if (auto explicitCol = ui.Column({.gap = 12.0f})) {
+                bExplicit1 = ui.Button({.text = "Explicit 1"});
+                bExplicit2 = ui.Button({.text = "Explicit 2"});
+            }
         }
-        if (auto gapRow = ui.Row({.gap = 0.0f, .zone = {.density = 2.0f}})) {
-            bGap1 = ui.Button({.text = "Gap 1"});
-            ui.Gap(10.0f);
-            bGap2 = ui.Button({.text = "Gap 2"});
+        if (auto gapZ = ui.Zone({.density = 2.0f})) {
+            if (auto gapRow = ui.Row({.gap = 0.0f})) {
+                bGap1 = ui.Button({.text = "Gap 1"});
+                ui.Gap(10.0f);
+                bGap2 = ui.Button({.text = "Gap 2"});
+            }
         }
     };
 
@@ -3490,40 +3494,46 @@ void TestZonesInheritanceZoomIndependenceAndBalance() {
     CHECK_NEAR(ui.GetDensity(), 1.0f, 1e-6f);
     const UiTheme* rootTheme = &ui.GetTheme();
 
-    // --- Container .zone inherits everything it does not set, and restores parent on exit ---
-    if (auto denseCol = ui.Column({.zone = {.density = 0.5f}})) {
-        CHECK_NEAR(ui.GetDensity(), 0.5f, 1e-6f);
-        CHECK(&ui.GetTheme() == rootTheme);       // theme inherited, not copied
-        CHECK(!ui.IsDisabled());
+    // --- ui.Zone wrapper inherits everything it does not set, and restores parent on exit ---
+    if (auto denseZ = ui.Zone({.density = 0.5f})) {
+        if (auto denseCol = ui.Column()) {
+            CHECK_NEAR(ui.GetDensity(), 0.5f, 1e-6f);
+            CHECK(&ui.GetTheme() == rootTheme);       // theme inherited, not copied
+            CHECK(!ui.IsDisabled());
 
-        if (auto disabledBox = ui.Box({.disabled = true, .zone = {.density = 1.5f}})) {
-            CHECK_NEAR(ui.GetDensity(), 0.75f, 1e-6f);  // density composes multiplicatively
-            CHECK(ui.IsDisabled());
-            if (auto reenabled = ui.Box({.disabled = false})) {
-                CHECK(ui.IsDisabled());                 // a disabled parent cannot be re-enabled by a child
+            if (auto nestedZ = ui.Zone({.density = 1.5f})) {
+                if (auto disabledBox = ui.Box({.disabled = true})) {
+                    CHECK_NEAR(ui.GetDensity(), 0.75f, 1e-6f);  // density composes multiplicatively
+                    CHECK(ui.IsDisabled());
+                    if (auto reenabled = ui.Box({.disabled = false})) {
+                        CHECK(ui.IsDisabled());                 // a disabled parent cannot be re-enabled by a child
+                    }
+                }
             }
+            CHECK(!ui.IsDisabled());
+            CHECK_NEAR(ui.GetDensity(), 0.5f, 1e-6f);
         }
-        CHECK(!ui.IsDisabled());
-        CHECK_NEAR(ui.GetDensity(), 0.5f, 1e-6f);
     }
     CHECK_NEAR(ui.GetDensity(), 1.0f, 1e-6f);
 
-    // --- Theme override: replaced for the container's zone and owned by the frame arena ---
+    // --- Theme override: replaced for the zone wrapper and owned by the frame arena ---
     {
         const UiTheme light = UiTheme::Light();
-        if (auto themed = ui.Box({.zone = {.theme = &light}})) {
-            CHECK(ui.GetTheme().mode == ThemeMode::Light);
-            CHECK(ui.GetThemeMode() == ThemeMode::Light);
-            CHECK(!ui.IsDarkMode());
-            CHECK(ui.GetThemePalette().surface == light.palette.surface);
-            CHECK(&ui.GetTheme() != &light);          // the zone owns a frame-lifetime copy
-            CHECK(&ui.GetTheme() != rootTheme);
-
-            // Nested containers inherit the theme from the parent zone
-            if (auto inner = ui.Box({.background = {ui.GetThemePalette().surface}})) {
-                CHECK(inner.GetNode()->GetThemePtr() == &ui.GetTheme());
+        if (auto themeZ = ui.Zone({.theme = light})) {
+            if (auto themed = ui.Box()) {
                 CHECK(ui.GetTheme().mode == ThemeMode::Light);
-                CHECK(inner.GetNode()->backgroundColor == light.palette.surface);
+                CHECK(ui.GetThemeMode() == ThemeMode::Light);
+                CHECK(!ui.IsDarkMode());
+                CHECK(ui.GetThemePalette().surface == light.palette.surface);
+                CHECK(&ui.GetTheme() != &light);          // the zone owns a frame-lifetime copy
+                CHECK(&ui.GetTheme() != rootTheme);
+
+                // Nested containers inherit the theme from the parent zone
+                if (auto inner = ui.Box({.background = {ui.GetThemePalette().surface}})) {
+                    CHECK(inner.GetNode()->GetThemePtr() == &ui.GetTheme());
+                    CHECK(ui.GetTheme().mode == ThemeMode::Light);
+                    CHECK(inner.GetNode()->backgroundColor == light.palette.surface);
+                }
             }
         }
     }
@@ -3546,9 +3556,11 @@ void TestZonesInheritanceZoomIndependenceAndBalance() {
             if (auto outside = ctx.Box({.width = 100.0f, .height = 20.0f})) {
                 outsideId = outside.GetNode()->id;
             }
-            if (auto preview = ctx.Box({.zone = {.scale = ctx.ScaleForZoom(1.25f)}})) {
-                if (auto inside = ctx.Box({.width = 100.0f, .height = 20.0f})) {
-                    insideId = inside.GetNode()->id;
+            if (auto scaleZ = ctx.Zone({.scale = ctx.ScaleForZoom(1.25f)})) {
+                if (auto preview = ctx.Box()) {
+                    if (auto inside = ctx.Box({.width = 100.0f, .height = 20.0f})) {
+                        insideId = inside.GetNode()->id;
+                    }
                 }
             }
             CHECK(ctx.GetContainerDepth() == 1);
@@ -3651,13 +3663,19 @@ void TestZoneThemeReachesNodesBuiltInside() {
         ui.BeginFrame(viewport, 1.0f);
         if (auto col = ui.Column()) {
             plain = ui.Button({.text = "Button"});
-            if (auto box = ui.Box({.zone = {.scale = 2.0f}})) {
-                scaled = ui.Button({.text = "Button"});
+            if (auto zScale = ui.Zone({.scale = 2.0f})) {
+                if (auto box = ui.Box()) {
+                    scaled = ui.Button({.text = "Button"});
+                }
             }
-            if (auto themedBox = ui.Box({.zone = {.theme = &tallTheme}})) {
-                themed = ui.Button({.text = "Button"});
-                if (auto box = ui.Box({.zone = {.scale = 2.0f}})) {
-                    nested = ui.Button({.text = "Button"});
+            if (auto zTheme = ui.Zone({.theme = tallTheme})) {
+                if (auto themedBox = ui.Box()) {
+                    themed = ui.Button({.text = "Button"});
+                    if (auto zNested = ui.Zone({.scale = 2.0f})) {
+                        if (auto box = ui.Box()) {
+                            nested = ui.Button({.text = "Button"});
+                        }
+                    }
                 }
             }
         }
@@ -3760,10 +3778,10 @@ void TestCanvasTransformMatchesMappedGeometry() {
 // hit testing and damage happen in frame space, and rendering lands where the frame-space rect says.
 namespace {
 struct ScaledTestPanel {
-    static guikit::ContainerScope Open(guikit::Context& ctx, float scale, keel::SourceLocation loc = keel::SourceLocation::current()) {
+    static guikit::ContainerScope Open(guikit::Context& ctx, keel::SourceLocation loc = keel::SourceLocation::current()) {
         using namespace guikit;
         const Id id = ctx.MakeChildId(loc);
-        Node* node = ctx.CreateNode(NodeType::Container, id, {.scale = scale});
+        Node* node = ctx.CreateNode(NodeType::Container, id);
         node->direction = FlexDirection::Column;
         node->widthMode = SizeMode::Fit;
         node->heightMode = SizeMode::Fit;
@@ -3790,10 +3808,12 @@ void TestScaledContainerSpaces() {
     auto frame = [&]() {
         ui.BeginFrame(viewport, 1.0f);
         if (auto col = ui.Column({.padding = Padding::All(40.0f)})) {
-            if (auto panel = ui.Open<ScaledTestPanel>(2.0f)) {
-                panelId = panel.GetNode()->id;
-                btn = ui.Button({.text = "Scaled"});
-                mouseInside = ui.GetMousePos();
+            if (auto z = ui.Zone({.scale = 2.0f})) {
+                if (auto panel = ui.Open<ScaledTestPanel>()) {
+                    panelId = panel.GetNode()->id;
+                    btn = ui.Button({.text = "Scaled"});
+                    mouseInside = ui.GetMousePos();
+                }
             }
         }
         ui.EndFrame(canvas);
@@ -4623,33 +4643,41 @@ void TestScopedThemeAndScaleOverrides() {
 
     const float baseBtnHeight = ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight;
 
-    // 1. Container zone theme override
-    if (auto box = ui.Box({.zone = {.theme = &customTheme}})) {
-        CHECK(ui.GetTheme().palette.surface == Color(123, 234, 45, 255));
+    // 1. Zone theme override (even without wrapping in an extra Box)
+    if (auto zCustom = ui.Zone({.theme = customTheme})) {
+        if (auto box = ui.Box()) {
+            CHECK(ui.GetTheme().palette.surface == Color(123, 234, 45, 255));
+        }
     }
     CHECK(ui.GetTheme().palette.surface != Color(123, 234, 45, 255));
 
     // 2. A scaled container does not touch theme tokens; a nested theme zone works inside it
-    if (auto col = ui.Column({.zone = {.scale = 2.0f}})) {
-        CHECK_NEAR(col.GetNode()->GetScale(), 2.0f, 0.001f);
-        CHECK_NEAR(col.GetNode()->GetRelativeScale(), 2.0f, 0.001f);
-        CHECK_NEAR(ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight, baseBtnHeight, 0.001f);
-        if (auto innerCard = ui.Card({.zone = {.theme = &customTheme}})) {
-            CHECK(ui.GetTheme().palette.surface == Color(123, 234, 45, 255));
-            CHECK_NEAR(innerCard.GetNode()->GetScale(), 2.0f, 0.001f);          // accumulated zone scale is 2.0x
-            CHECK_NEAR(innerCard.GetNode()->GetRelativeScale(), 1.0f, 0.001f);  // relative scale delta is 1.0x (no double-scaling)
+    if (auto zColScale = ui.Zone({.scale = 2.0f})) {
+        if (auto col = ui.Column()) {
+            CHECK_NEAR(col.GetNode()->GetScale(), 2.0f, 0.001f);
+            CHECK_NEAR(col.GetNode()->GetRelativeScale(), 2.0f, 0.001f);
+            CHECK_NEAR(ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight, baseBtnHeight, 0.001f);
+            if (auto zInner = ui.Zone({.theme = customTheme})) {
+                if (auto innerCard = ui.Card()) {
+                    CHECK(ui.GetTheme().palette.surface == Color(123, 234, 45, 255));
+                    CHECK_NEAR(innerCard.GetNode()->GetScale(), 2.0f, 0.001f);          // accumulated zone scale is 2.0x
+                    CHECK_NEAR(innerCard.GetNode()->GetRelativeScale(), 1.0f, 0.001f);  // relative scale delta is 1.0x (no double-scaling)
+                }
+            }
+            CHECK(ui.GetTheme().palette.surface != Color(123, 234, 45, 255));
         }
-        CHECK(ui.GetTheme().palette.surface != Color(123, 234, 45, 255));
     }
     CHECK(ui.GetContainerDepth() == 1);
 
     // 3. A toolbar inside a scaled container leaves the container stack balanced
-    if (auto shellCol = ui.Column({.zone = {.scale = 1.5f}})) {
-        const keel::usize depth = ui.GetContainerDepth();
-        if (auto tb = ui.Toolbar()) {
-            tb.ToolButton({.text = "Action"});
+    if (auto zShell = ui.Zone({.scale = 1.5f})) {
+        if (auto shellCol = ui.Column()) {
+            const keel::usize depth = ui.GetContainerDepth();
+            if (auto tb = ui.Toolbar()) {
+                tb.ToolButton({.text = "Action"});
+            }
+            CHECK(ui.GetContainerDepth() == depth);
         }
-        CHECK(ui.GetContainerDepth() == depth);
     }
     CHECK(ui.GetContainerDepth() == 1);
 
@@ -4657,50 +4685,58 @@ void TestScopedThemeAndScaleOverrides() {
     //    the zone records, and nodes outside follow the context setting
     if (auto row = ui.Row()) {
         CHECK(!row.GetNode()->GetDebugBoundsOverride().has_value());
-        if (auto sidebar = ui.Box({.zone = {.theme = &inspectorTheme, .debugBounds = false, .inspectMode = false}})) {
-            CHECK(ui.GetTheme().palette.surface == Color(10, 20, 30, 255));
-            CHECK(sidebar.GetNode()->GetDebugBoundsOverride().has_value());
-            CHECK(*sidebar.GetNode()->GetDebugBoundsOverride() == false);
-            CHECK(sidebar.GetNode()->GetInspectModeOverride().has_value());
-            CHECK(*sidebar.GetNode()->GetInspectModeOverride() == false);
+        if (auto zSidebar = ui.Zone({.theme = inspectorTheme, .debugBounds = false, .inspectMode = false})) {
+            if (auto sidebar = ui.Box()) {
+                CHECK(ui.GetTheme().palette.surface == Color(10, 20, 30, 255));
+                CHECK(sidebar.GetNode()->GetDebugBoundsOverride().has_value());
+                CHECK(*sidebar.GetNode()->GetDebugBoundsOverride() == false);
+                CHECK(sidebar.GetNode()->GetInspectModeOverride().has_value());
+                CHECK(*sidebar.GetNode()->GetInspectModeOverride() == false);
+            }
         }
 
-        if (auto content = ui.Card({.zone = {.scale = 1.5f, .debugBounds = true, .inspectMode = true}})) {
-            CHECK_NEAR(ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight, baseBtnHeight, 0.001f);
-            CHECK(*content.GetNode()->GetDebugBoundsOverride() == true);
-            CHECK(*content.GetNode()->GetInspectModeOverride() == true);
-            if (auto inner = ui.Box()) {
-                CHECK(*inner.GetNode()->GetDebugBoundsOverride() == true);   // inherited by nested nodes
-                if (auto hidden = ui.Box({.zone = {.debugBounds = false}})) {
-                    CHECK(*hidden.GetNode()->GetDebugBoundsOverride() == false); // a child zone can turn it off
-                    CHECK(*hidden.GetNode()->GetInspectModeOverride() == true);  // and inherits the rest
+        if (auto zContent = ui.Zone({.scale = 1.5f, .debugBounds = true, .inspectMode = true})) {
+            if (auto content = ui.Card()) {
+                CHECK_NEAR(ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight, baseBtnHeight, 0.001f);
+                CHECK(*content.GetNode()->GetDebugBoundsOverride() == true);
+                CHECK(*content.GetNode()->GetInspectModeOverride() == true);
+                if (auto inner = ui.Box()) {
+                    CHECK(*inner.GetNode()->GetDebugBoundsOverride() == true);   // inherited by nested nodes
+                    if (auto zHidden = ui.Zone({.debugBounds = false})) {
+                        if (auto hidden = ui.Box()) {
+                            CHECK(*hidden.GetNode()->GetDebugBoundsOverride() == false); // a child zone can turn it off
+                            CHECK(*hidden.GetNode()->GetInspectModeOverride() == true);  // and inherits the rest
+                        }
+                    }
                 }
             }
         }
     }
 
     // 5. Only the scaled container's outer sizing is converted into parent units; everything inside is local
-    if (auto scaledCol = ui.Column({.gap = 10.0f, .padding = Padding::All(12.0f), .width = 150.0f, .zone = {.scale = 2.0f}})) {
-        const Node* colNode = scaledCol.GetNode();
-        CHECK(colNode != nullptr);
-        CHECK_NEAR(colNode->fixedWidth, 300.0f, 0.001f);   // outer size: parent units
-        CHECK_NEAR(colNode->gap, 10.0f, 0.001f);           // inner spacing: local units
-        CHECK_NEAR(colNode->padding.left, 12.0f, 0.001f);
+    if (auto zScaledCol = ui.Zone({.scale = 2.0f})) {
+        if (auto scaledCol = ui.Column({.gap = 10.0f, .padding = Padding::All(12.0f), .width = 150.0f})) {
+            const Node* colNode = scaledCol.GetNode();
+            CHECK(colNode != nullptr);
+            CHECK_NEAR(colNode->fixedWidth, 300.0f, 0.001f);   // outer size: parent units
+            CHECK_NEAR(colNode->gap, 10.0f, 0.001f);           // inner spacing: local units
+            CHECK_NEAR(colNode->padding.left, 12.0f, 0.001f);
 
-        if (auto fixedBox = ui.Box({.width = 100.0f, .height = 40.0f, .border = {.width = 2.0f, .radius = 6.0f}})) {
-            const Node* boxNode = fixedBox.GetNode();
-            CHECK_NEAR(boxNode->fixedWidth, 100.0f, 0.001f);
-            CHECK_NEAR(boxNode->fixedHeight, 40.0f, 0.001f);
-            CHECK_NEAR(boxNode->borderWidth, 2.0f, 0.001f);
-            CHECK_NEAR(boxNode->cornerRadius, 6.0f, 0.001f);
+            if (auto fixedBox = ui.Box({.width = 100.0f, .height = 40.0f, .border = {.width = 2.0f, .radius = 6.0f}})) {
+                const Node* boxNode = fixedBox.GetNode();
+                CHECK_NEAR(boxNode->fixedWidth, 100.0f, 0.001f);
+                CHECK_NEAR(boxNode->fixedHeight, 40.0f, 0.001f);
+                CHECK_NEAR(boxNode->borderWidth, 2.0f, 0.001f);
+                CHECK_NEAR(boxNode->cornerRadius, 6.0f, 0.001f);
+            }
+
+            const Vec2 btnCompact = Button::Measure(ButtonOptions{.text = "OK", .width = 120.0f}, UiSize::Md, &canvas, ui.GetTheme());
+            CHECK_NEAR(btnCompact.x, 120.0f, 0.001f);
+
+            // SizeMode::Stretch fills the available width
+            const Rect fillBox = Select::GetBoxRect(Rect(0.0f, 0.0f, 400.0f, 60.0f), SelectOptions{.width = SizeMode::Stretch}, UiSize::Md, &canvas, ui.GetTheme());
+            CHECK_NEAR(fillBox.w, 400.0f, 0.01f);
         }
-
-        const Vec2 btnCompact = Button::Measure(ButtonOptions{.text = "OK", .width = 120.0f}, UiSize::Md, &canvas, ui.GetTheme());
-        CHECK_NEAR(btnCompact.x, 120.0f, 0.001f);
-
-        // SizeMode::Stretch fills the available width
-        const Rect fillBox = Select::GetBoxRect(Rect(0.0f, 0.0f, 400.0f, 60.0f), SelectOptions{.width = SizeMode::Stretch}, UiSize::Md, &canvas, ui.GetTheme());
-        CHECK_NEAR(fillBox.w, 400.0f, 0.01f);
     }
     CHECK(ui.GetContainerDepth() == 1);
 
@@ -4951,7 +4987,7 @@ void TestSceneContentDamageAndItemDrag() {
             vp = sc.GetViewportRect();
             worldScale = sc.GetWorldScale();
             sc.DrawRect({rectX, 20.0f, 30.0f, 30.0f}, Color(255, 0, 0));
-            sc.DrawPixels(img.data(), 16, 16, {300.0f, 20.0f, 32.0f, 32.0f});
+            sc.DrawPixels({img, 16, 16}, {300.0f, 20.0f, 32.0f, 32.0f});
             if (auto it = sc.Item({
                 .id = "handle",
                 .hitRect = Rect{handle.x - 6.0f, handle.y - 6.0f, 12.0f, 12.0f},
@@ -8655,8 +8691,8 @@ void TestSonarAndSignalGpuShaderPipeline() {
 
     const auto& sonarPass = canvas.GetGpuShaderPasses()[0];
     CHECK(sonarPass.shader.shaderId == "guikit.sonar.v1");
-    CHECK(sonarPass.texHeight == 90);
-    CHECK(sonarPass.texWidth == 128);
+    CHECK(sonarPass.dataField.extent(0) == 90);
+    CHECK(sonarPass.dataField.extent(1) == 128);
     CHECK(sonarPass.plotRect.w > 100.0f);
     CHECK(sonarPass.clipRect.w > 100.0f);
 
@@ -11398,22 +11434,24 @@ void TestModalContextMenuAndToastWorkflow() {
             });
 
             if (auto modal = ui.Modal(modalOpen, {
-                .title = "Confirm Reset",
-                .subtitle = "Reset all DSP channels",
-                .icon = Icon::Warning(),
-                .variant = UiVariant::Warning,
-                .width = 360.0f,
                 .closeOnBackdrop = true,
                 .closeOnEscape = true
             })) {
-                modalBodyExecuted = true;
-                modalDialogRect = modal.response.rect;
-                ui.Text("Are you sure you want to reset?");
-                auto confirmBtn = ui.Button({.text = "Confirm", .color = StateColor::Primary()});
-                modalConfirmRect = confirmBtn.rect;
-                if (confirmBtn.clicked) {
-                    modalConfirmClicked = true;
-                    modalOpen = false;
+                if (auto card = ui.Card({
+                    .width = 360.0f,
+                    .gap = 10.0f,
+                    .padding = Padding::All(16.0f),
+                    .elevated = true
+                })) {
+                    modalBodyExecuted = true;
+                    modalDialogRect = modal.response.rect;
+                    ui.Text("Are you sure you want to reset?");
+                    auto confirmBtn = ui.Button({.text = "Confirm", .color = StateColor::Primary()});
+                    modalConfirmRect = confirmBtn.rect;
+                    if (confirmBtn.clicked) {
+                        modalConfirmClicked = true;
+                        modalOpen = false;
+                    }
                 }
             }
         }
@@ -12281,9 +12319,11 @@ void TestReviewP0AndP1Regressions() {
             if (auto col = ui.Column({.padding = Padding::All(16.0f)})) {
                 bgId = ui.InputField(bgText).id;
             }
-            if (auto m = ui.Modal(modalOpen, {.title = "Confirm Action"})) {
-                ui.Text("Modal body");
-                ui.Button({.text = "OK"});
+            if (auto m = ui.Modal(modalOpen)) {
+                if (auto box = ui.Box({.width = 320.0f, .padding = Padding::All(12.0f)})) {
+                    ui.Text("Modal body");
+                    ui.Button({.text = "OK"});
+                }
             }
             ui.EndFrame(canvas);
         };
@@ -12406,6 +12446,8 @@ void TestKeelZeroCopyWidgetBindings();
 void TestExternalStlDuckTypedInterop();
 void TestBoundedCachesAndInactiveStateTrimming();
 void TestElementHeadingCompositionAndIndependentSizing();
+void TestPopoverComponent();
+void TestApiPolish();
 
 int main() {
     keel::println("[RUN] Testing GuiKit Context & Immediate Mode API...");
@@ -13704,21 +13746,22 @@ int main() {
 
         auto renderSimulatedPhoneLandscape = [&](float previewZoom = 1.0f) {
             if (auto outer = ui.Column({.padding = Padding::All(40.0f), .align = Alignment::Center, .justify = Justify::Center})) {
-                if (auto screenBox = ui.Box({
-                    .width = 784.0f,   // local units: the container's scale maps them to the parent
-                    .height = 375.0f,
-                    .padding = Padding(40.0f, 32.0f, 18.0f, 20.0f),
-                    .border = {.width = 1.0f, .radius = 28.0f},
-                    .clipChildren = true,
-                    .zone = {.scale = previewZoom}
-                })) {
-                    screenBoxId = screenBox.GetNode()->id;
-                    capturedPopupVp = ui.GetPopupViewportRect();
-                    ui.Spacer(1.0f);
-                    datePickerId = ui.DatePicker(dt, {.width = SizeMode::Stretch}).id;
-                    colorPickerId = ui.ColorPicker(col, {.width = SizeMode::Stretch}).id;
-                    selectId = ui.Select(selIdx, {"Option 1", "Option 2", "Option 3", "Option 4", "Option 5", "Option 6", "Option 7", "Option 8"}, {.width = SizeMode::Stretch}).id;
-                    ui.Spacer(1.0f);
+                if (auto phoneZ = ui.Zone({.scale = previewZoom})) {
+                    if (auto screenBox = ui.Box({
+                        .width = 784.0f,   // local units: the zone scale maps them to the parent
+                        .height = 375.0f,
+                        .padding = Padding(40.0f, 32.0f, 18.0f, 20.0f),
+                        .border = {.width = 1.0f, .radius = 28.0f},
+                        .clipChildren = true
+                    })) {
+                        screenBoxId = screenBox.GetNode()->id;
+                        capturedPopupVp = ui.GetPopupViewportRect();
+                        ui.Spacer(1.0f);
+                        datePickerId = ui.DatePicker(dt, {.width = SizeMode::Stretch}).id;
+                        colorPickerId = ui.ColorPicker(col, {.width = SizeMode::Stretch}).id;
+                        selectId = ui.Select(selIdx, {"Option 1", "Option 2", "Option 3", "Option 4", "Option 5", "Option 6", "Option 7", "Option 8"}, {.width = SizeMode::Stretch}).id;
+                        ui.Spacer(1.0f);
+                    }
                 }
             }
         };
@@ -14510,17 +14553,23 @@ int main() {
                             }
 
                             if (auto modal = modalUi.Modal(modalOpen, {
-                                .title = "Configure Station Endpoint",
-                                .subtitle = "Edit connection parameters",
-                                .width = 360.0f,
                                 .backdropOpacity = 0.55f,
-                                .confineToParent = true
+                                .confineToParent = true,
+                                .padding = Padding::All(16.0f)
                             })) {
-                                modalDialogRect = modal.response.rect;
-                                cancelBtnRes = modalUi.Button({.text = "Cancel"});
-                                if (cancelBtnRes.clicked) {
-                                    statusText.assign("Cancelled Modal");
-                                    modal.Close();
+                                if (auto card = modalUi.Card({
+                                    .width = 360.0f,
+                                    .gap = 10.0f,
+                                    .padding = Padding::All(16.0f),
+                                    .elevated = true
+                                })) {
+                                    modalDialogRect = modal.response.rect;
+                                    modalUi.Heading({.label = "Configure Station Endpoint", .description = "Edit connection parameters", .level = HeadingLevel::H4});
+                                    cancelBtnRes = modalUi.Button({.text = "Cancel"});
+                                    if (cancelBtnRes.clicked) {
+                                        statusText.assign("Cancelled Modal");
+                                        modal.Close();
+                                    }
                                 }
                             }
                         }
@@ -15139,6 +15188,8 @@ int main() {
     TestExternalStlDuckTypedInterop();
     TestBoundedCachesAndInactiveStateTrimming();
     TestElementHeadingCompositionAndIndependentSizing();
+    TestPopoverComponent();
+    TestApiPolish();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Context tests passed successfully!");
@@ -15497,14 +15548,17 @@ void TestExternalStlDuckTypedInterop() {
 
     auto renderStlFrame = [&]() {
         ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)}, 1.0f);
-        if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(12.0f), .width = SizeMode::Stretch, .zone = {.scale = optAutoScale}})) {
-            rTextStr = ui.Text(stdLabel);
-            rTextSv  = ui.Text(stdBtnText);
-            rBtn     = ui.Button({.text = stdBtnText, .tooltip = stdLabel, .width = 240.0f});
-            rInput   = ui.InputField(stdInput, {.width = AxisSize::Auto()});
-            if (auto scaledBox = ui.Box({.zone = {.scale = optScale}})) {
-                (void)scaledBox;
-            }
+        if (auto colZ = ui.Zone({.scale = optAutoScale})) {
+            if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(12.0f), .width = SizeMode::Stretch})) {
+                rTextStr = ui.Text(stdLabel);
+                rTextSv  = ui.Text(stdBtnText);
+                rBtn     = ui.Button({.text = stdBtnText, .tooltip = stdLabel, .width = 240.0f});
+                rInput   = ui.InputField(stdInput, {.width = AxisSize::Auto()});
+                if (auto boxZ = ui.Zone({.scale = optScale})) {
+                    if (auto scaledBox = ui.Box()) {
+                        (void)scaledBox;
+                    }
+                }
             rCode    = ui.CodeEditor(stdCode, {
                 .rows = 4,
                 .showLineNumbers = true,
@@ -15521,6 +15575,7 @@ void TestExternalStlDuckTypedInterop() {
                 rRichTags = ui.TagInput(stdRichTags, {.width = 260.0f});
                 rMeter    = ui.LevelMeter(stdLevelsSpan, -60.0f, 0.0f, {.width = 160.0f});
             }
+        }
         }
         ui.EndFrame(canvas);
     };
@@ -16265,6 +16320,303 @@ void TestElementHeadingCompositionAndIndependentSizing() {
     }
 
     keel::println("  [PASS] TestElementHeadingCompositionAndIndependentSizing completed");
+}
+
+void TestPopoverComponent() {
+    keel::println("  -> TestPopoverComponent...");
+    keel::Array<keel::u32> pixels(800u * 600u, 0u);
+    ThorCanvas canvas;
+    canvas.SetTarget(pixels.data(), 800, 600, 800);
+
+    Context ui;
+    bool open = false;
+    bool flagA = true;
+    bool flagB = false;
+    keel::usize modeIdx = 1;
+    const keel::StaticArray<keel::StringRef, 3> modeLabels = {{"Off", "2 Hz", "4 Hz"}};
+    bool triggerImperativeClose = false;
+
+    Response triggerRes{};
+    Response switchARes{};
+    Response switchBRes{};
+    Response selectRes{};
+    Response popRes{};
+    Rect behindBtnRect{};
+
+    auto renderFrame = [&](Vec2 vp = {800.0f, 600.0f}) {
+        ui.BeginFrame(vp);
+        if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(0.0f)})) {
+            if (auto tb = ui.Toolbar({})) {
+                tb.Spacer();
+                triggerRes = tb.Toggle(open, {
+                    .text = "Engine",
+                    .icon = Icon::ChevronDown(),
+                    .iconPlacement = Placement::Trailing
+                });
+                if (auto pop = ui.Popover(open, {
+                    .anchorRect = triggerRes.rect
+                })) {
+                    popRes = pop.response;
+                    if (auto card = ui.Card({
+                        .width = 280.0f,
+                        .gap = 8.0f,
+                        .padding = Padding::All(12.0f),
+                        .elevated = true
+                    })) {
+                        if (auto el = ui.Element({.label = "GPU Shaders", .layout = ElementLayout::Leading})) {
+                            switchARes = ui.Switch(flagA);
+                        }
+                        if (auto el = ui.Element({.label = "Reactive Loop", .layout = ElementLayout::Leading})) {
+                            switchBRes = ui.Switch(flagB);
+                        }
+                        if (auto el = ui.Element({.label = "Heartbeat", .layout = ElementLayout::Leading})) {
+                            selectRes = ui.Select(modeIdx, modeLabels, {.width = 110.0f});
+                        }
+                        if (triggerImperativeClose) {
+                            triggerImperativeClose = false;
+                            pop.Close();
+                        }
+                    }
+                }
+            }
+            behindBtnRect = ui.Button({.text = "Workspace Button"}).rect;
+        }
+        ui.EndFrame(canvas);
+    };
+
+    // Frame 0-1: measure trigger on far right of toolbar and popover closed
+    renderFrame();
+    renderFrame();
+    CHECK(!open);
+    CHECK(triggerRes.rect.w > 40.0f);
+    CHECK(triggerRes.rect.x > 600.0f);
+
+    // Click trigger button -> opens popover on same frame without immediately self-dismissing
+    const Vec2 trigCenter = triggerRes.rect.Center();
+    ui.OnMouseMove(trigCenter);
+    ui.OnMouseDown(1);
+    renderFrame();
+    ui.OnMouseUp(1);
+    renderFrame();
+    CHECK(open);
+
+    // Next frame has resolved popRes.rect anchored cleanly below trigger and clamped inside viewport
+    renderFrame();
+    CHECK(open);
+    CHECK_NEAR(popRes.rect.w, 280.0f, 1.0f);
+    CHECK(popRes.rect.y >= triggerRes.rect.Bottom());
+    CHECK(popRes.rect.Right() <= 800.0f - 8.0f + 0.5f);
+    CHECK(switchARes.rect.w > 20.0f);
+    CHECK(popRes.rect.Contains(switchARes.rect.Center()));
+
+    // Clicking switches inside popover toggles state AND keeps popover open
+    const Vec2 swACenter = switchARes.rect.Center();
+    ui.OnMouseMove(swACenter);
+    ui.OnMouseDown(1);
+    renderFrame();
+    ui.OnMouseUp(1);
+    renderFrame();
+    CHECK(open);
+    CHECK(!flagA);
+
+    const Vec2 swBCenter = switchBRes.rect.Center();
+    ui.OnMouseMove(swBCenter);
+    ui.OnMouseDown(1);
+    renderFrame();
+    ui.OnMouseUp(1);
+    renderFrame();
+    CHECK(open);
+    CHECK(flagB);
+
+    // Opening Select dropdown inside Popover and pressing Escape closes Select first, keeping Popover open!
+    const Vec2 selCenter = selectRes.rect.Center();
+    ui.OnMouseMove(selCenter);
+    ui.OnMouseDown(1);
+    renderFrame();
+    ui.OnMouseUp(1);
+    renderFrame();
+    CHECK(open);
+    CHECK(ui.GetOpenPopupId().IsValid());
+
+    ui.OnKeyDown(Key::Escape);
+    renderFrame();
+    CHECK(!ui.GetOpenPopupId().IsValid());
+    CHECK(open);
+
+    // Second Escape closes the Popover itself
+    ui.OnKeyDown(Key::Escape);
+    renderFrame();
+    CHECK(!open);
+
+    // Re-open by clicking trigger, then click trigger again to close
+    ui.OnMouseMove(trigCenter);
+    ui.OnMouseDown(1);
+    renderFrame();
+    ui.OnMouseUp(1);
+    renderFrame();
+    CHECK(open);
+
+    ui.OnMouseMove(trigCenter);
+    ui.OnMouseDown(1);
+    renderFrame();
+    ui.OnMouseUp(1);
+    renderFrame();
+    CHECK(!open);
+
+    // Re-open, then click outside popover (and outside anchor) -> closes popover
+    ui.OnMouseMove(trigCenter);
+    ui.OnMouseDown(1);
+    renderFrame();
+    ui.OnMouseUp(1);
+    renderFrame();
+    CHECK(open);
+
+    const Vec2 outsidePos{24.0f, 360.0f};
+    ui.OnMouseMove(outsidePos);
+    ui.OnMouseDown(1);
+    renderFrame();
+    ui.OnMouseUp(1);
+    renderFrame();
+    CHECK(!open);
+
+    // Imperative pop.Close() closes cleanly
+    open = true;
+    renderFrame();
+    CHECK(open);
+    triggerImperativeClose = true;
+    renderFrame();
+    CHECK(!open);
+
+    // Transparent ui.Zone wrapper does not create a layout node or break sibling Row flow
+    {
+        UiTheme light = UiTheme::Light();
+        Response r1{}, r2{};
+        ThemeMode capturedInsideMode = ThemeMode::Dark;
+        for (keel::i32 f = 0; f < 2; ++f) {
+            ui.BeginFrame({800.0f, 600.0f});
+            if (auto row = ui.Row({.gap = 8.0f})) {
+                r1 = ui.Button({.text = "Normal"});
+                if (auto z = ui.Zone({.theme = light})) {
+                    capturedInsideMode = ui.GetThemeMode();
+                    r2 = ui.Button({.text = "Themed"});
+                }
+            }
+            ui.EndFrame(canvas);
+        }
+        CHECK(capturedInsideMode == ThemeMode::Light);
+        CHECK(ui.GetThemeMode() == ThemeMode::Dark);
+        CHECK(r2.rect.x > r1.rect.Right());
+        CHECK_NEAR(r1.rect.y, r2.rect.y, 0.5f);
+    }
+
+    // Pure explicit Modal with custom align / verticalAlign / padding around raw Box
+    {
+        bool mOpen = true;
+        Response boxRes{};
+        for (keel::i32 f = 0; f < 2; ++f) {
+            ui.BeginFrame({800.0f, 600.0f});
+            if (auto modal = ui.Modal(mOpen, {
+                .padding = Padding::All(20.0f),
+                .align = Alignment::End,
+                .verticalAlign = Alignment::Start
+            })) {
+                if (auto b = ui.Box({.width = 200.0f, .height = 100.0f})) {
+                    boxRes = ui.Button({.text = "Inside", .width = SizeMode::Stretch});
+                }
+            }
+            ui.EndFrame(canvas);
+        }
+        CHECK_NEAR(boxRes.rect.Right(), 800.0f - 20.0f, 1.0f);
+        CHECK_NEAR(boxRes.rect.y, 20.0f, 1.0f);
+    }
+
+    keel::println("  [PASS] TestPopoverComponent completed");
+}
+
+void TestApiPolish() {
+    keel::println("  -> TestApiPolish...");
+    keel::Array<keel::u32> pixels(800u * 600u, 0u);
+    ThorCanvas canvas;
+    canvas.SetTarget(pixels.data(), 800, 600, 800);
+    canvas.SetGpuShadersEnabled(true);
+
+    // 1. ThorCanvas::DrawPixels bounds check via PixelRef
+    {
+        keel::StaticArray<keel::u32, 3> tooSmall = {{0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu}};
+        CHECK(!canvas.DrawPixels({tooSmall, 2, 2}, {0.0f, 0.0f, 10.0f, 10.0f}));
+
+        keel::StaticArray<keel::u32, 4> exactFit = {{0xFFFFFFFFu, 0xFF00FF00u, 0xFFFF0000u, 0xFF0000FFu}};
+        CHECK(canvas.DrawPixels({exactFit, 2, 2}, {0.0f, 0.0f, 10.0f, 10.0f}));
+    }
+
+    // 2. GpuShaderPassDesc validates dataField (MdRef<float, 2>) & lutAbgr256 sizes
+    {
+        keel::StaticArray<float, 3> smallFloats = {{0.1f, 0.2f, 0.3f}};
+        keel::StaticArray<float, 4> okFloats = {{0.1f, 0.2f, 0.3f, 0.4f}};
+        keel::StaticArray<keel::u32, 256> lut{};
+        lut[0] = 0xFF000000u;
+        lut[255] = 0xFFFFFFFFu;
+
+        ICanvas::GpuShaderPassDesc badPass{};
+        badPass.widgetId = 101;
+        badPass.shader = {.shaderId = "test.polish.v1", .glslEs2 = "void main() {}"};
+        badPass.plotRect = {10.0f, 10.0f, 100.0f, 100.0f};
+        badPass.dataField = {smallFloats, 2, 2};
+        badPass.lutAbgr256 = lut;
+        CHECK(badPass.dataField.empty());
+        CHECK(!canvas.DrawGpuShaderPass(badPass, false));
+
+        ICanvas::GpuShaderPassDesc okPass = badPass;
+        okPass.dataField = {okFloats, 2, 2};
+        CHECK(canvas.DrawGpuShaderPass(okPass, false));
+        CHECK(canvas.GetGpuShaderPasses().size() == 1);
+        CHECK(canvas.GetGpuShaderPasses()[0].dataField.size() == 4);
+        CHECK(canvas.GetGpuShaderPasses()[0].lutAbgr256.size() == 256);
+    }
+
+    // 3. TextAreaOptions::syntaxHighlighter without void* userData & MapViewOptions::tileSource FunctionRef lambda
+    Context ui;
+    keel::i32 baseLayerCalls = 0;
+    keel::i32 overlayLayerCalls = 0;
+    keel::String code("int value = 42;\nreturn value;");
+
+    for (keel::i32 f = 0; f < 2; ++f) {
+        ui.BeginFrame({800.0f, 600.0f});
+        if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(8.0f)})) {
+            ui.CodeEditor(code, {
+                .rows = 3,
+                .syntaxHighlighter = [](keel::StringRef lineText, keel::usize /*lineIndex*/, keel::Array<TextSpan>& outSpans, const UiTheme& theme) {
+                    if (!lineText.empty()) {
+                        outSpans.push_back(TextSpan{0u, static_cast<keel::u32>(lineText.size()), theme.palette.accent});
+                    }
+                }
+            });
+            ui.CodeEditor("auto x = 1;", {
+                .rows = 2,
+                .readOnly = true,
+                .syntaxHighlighter = &TextArea::CppHighlighter
+            });
+#if GUIKIT_HAS_SCENES
+            if (auto map = ui.MapView({
+                .tileSource = [&](OsmTileId /*tile*/, keel::i32 layerIndex) -> keel::StringRef {
+                    if (layerIndex == 0) ++baseLayerCalls;
+                    if (layerIndex == 1) ++overlayLayerCalls;
+                    return {};
+                },
+                .height = 240.0f
+            })) {
+            }
+#endif
+        }
+        ui.EndFrame(canvas);
+    }
+
+#if GUIKIT_HAS_SCENES
+    CHECK(baseLayerCalls > 0);
+    CHECK(overlayLayerCalls > 0);
+#endif
+
+    keel::println("  [PASS] TestApiPolish completed");
 }
 
 

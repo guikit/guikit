@@ -73,6 +73,7 @@ enum class NodeType : keel::u16 {
     StatusBar   = 115,  ///< Compact single-line status bar container docked at the bottom edge
     Toolbar     = 116,  ///< Horizontal or vertical command toolbar container
     SplitView   = 117,  ///< Resizable two-pane split container with draggable sash
+    Popover     = 118,  ///< Out-of-flow non-modal floating popover anchored to a trigger rect
 
     // --- Leaf Widgets (200..999): Self-rendering elements ---
     Button      = 200,
@@ -304,6 +305,11 @@ struct Node {
         return cat == NodeCategory::Widget || cat == NodeCategory::Spacer;
     }
 
+    /// Returns true if this container floats out of normal flow at the overlay z-layer (Modal or Popover).
+    [[nodiscard]] constexpr bool IsOutOfFlow() const noexcept {
+        return type == NodeType::Modal || type == NodeType::Popover;
+    }
+
     /// Returns the canonical human-readable element type name for inspector and debug tooling.
     [[nodiscard]] constexpr keel::StringRef GetTypeName() const noexcept {
         switch (type) {
@@ -330,6 +336,7 @@ struct Node {
             case NodeType::StatusBar:   return "StatusBar";
             case NodeType::Toolbar:     return "Toolbar";
             case NodeType::SplitView:   return "SplitView";
+            case NodeType::Popover:     return "Popover";
             case NodeType::Button:      return "Button";
             case NodeType::InputField:  return "InputField";
             case NodeType::Select:      return "Select";

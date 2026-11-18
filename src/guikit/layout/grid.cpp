@@ -10,7 +10,7 @@ GridScope Grid::Open(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    Node* node = ctx.CreateNode(NodeType::Grid, id, opts.zone, opts.disabled);
+    Node* node = ctx.CreateNode(NodeType::Grid, id, opts.disabled);
     const UiTheme& theme = node->GetTheme(ctx.GetTheme());
     const float density = node->GetDensity();
     node->direction = FlexDirection::Grid;
@@ -49,7 +49,7 @@ ContainerScope GridScope::Cell(keel::i32 span, CellOptions opts, keel::SourceLoc
 
     const Id id = m_ctx->MakeChildId(loc);
     const keel::i32 maxCols = (m_node && m_node->gridColumns > 0) ? static_cast<keel::i32>(m_node->gridColumns) : 12;
-    Node* node = m_ctx->CreateNode(NodeType::Cell, id, opts.zone, opts.disabled);
+    Node* node = m_ctx->CreateNode(NodeType::Cell, id, opts.disabled);
     const UiTheme& theme = node->GetTheme(m_ctx->GetTheme());
     const float density = node->GetDensity();
     node->direction = FlexDirection::Column;

@@ -6,7 +6,6 @@
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
-#include "guikit/core/zone.hpp"
 #include "guikit/graphics/icon.hpp"
 #include "keel/core.h"
 
@@ -28,7 +27,6 @@ struct ElementOptions {
     AxisSize width{};                                         ///< Outer width sizing policy: `Auto` (from child control & layout), `Fit`, `Stretch`, or `Fixed(dp)`
     UiSize size{UiSize::Md};                                  ///< Own form-field typography/icon size
     bool disabled{false};                                     ///< Whether the element and its child control(s) are rendered in a disabled state
-    ZoneOptions zone{};                                       ///< Subtree environment (theme, scale, density, disabled, debug/inspect)
 };
 
 /// RAII scope returned by `ui.Element(...)`.

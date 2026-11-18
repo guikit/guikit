@@ -5,7 +5,6 @@
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
-#include "guikit/core/zone.hpp"
 #include "guikit/graphics/icon.hpp"
 #include "keel/core.h"
 #include "keel/optional.h"
@@ -31,7 +30,6 @@ struct AccordionOptions {
     Border border{};                                ///< Header border stroke & corner radius
     UiSize size{UiSize::Md};                        ///< Header height and typography size
     bool disabled{false};                           ///< Whether the accordion header and its children are disabled
-    ZoneOptions zone{};                             ///< Subtree environment (theme, scale, density, disabled, debug/inspect)
 };
 
 /// Persistent per-accordion open/collapsed state stored in Context.

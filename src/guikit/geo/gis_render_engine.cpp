@@ -5098,9 +5098,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
             const bool isComplete = (hasPixels && comp->isComplete);
             if (hasPixels) {
                 scene.DrawPixels(
-                    comp->pixels.data(),
-                    tileSizePx,
-                    tileSizePx,
+                    {comp->pixels, tileSizePx, tileSizePx},
                     cell.worldRect,
                     0.0f,
                     255

@@ -124,7 +124,8 @@ public:
     /// Renders the `Bounds` (`Ctrl+B`) and `Inspect` (`Ctrl+I`) debug overlay toggles.
     void RenderDebugControls(ToolbarScope& tb);
 
-    /// Renders the engine pipeline toggles (`GPU`, `VSync`, `React`, `Dirty`, `Live`) and `Heartbeat` cycler.
+    /// Renders the compact `Engine` popover trigger and its floating pipeline settings menu
+    /// (`GPU Shaders`, `VSync`, `Reactive Loop`, `Dirty-Rect Raster`, `Live Window Resize`, and `Idle Heartbeat`).
     void RenderEngineControls(ToolbarScope& tb);
 
     /// Renders the GPU shader status indicator (`Ready` / `Active` / `CPU Fallback`) and non-jumping
@@ -195,6 +196,7 @@ private:
     float m_shellScale = 1.0f;
     keel::usize m_shellScaleIndex = 2; // kScaleValues[2] == 1.0f
     keel::usize m_heartbeatIndex = 2;
+    bool m_enginePopoverOpen = false;
     bool m_commandPaletteOpen = false;
 
     bool m_running = false;

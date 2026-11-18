@@ -17,15 +17,16 @@ namespace {
 
 // Fast fingerprint of a pixel buffer for damage tracking (two pixels per multiply-xorshift step;
 // byte-wise FNV is too slow for megapixel images every frame)
-keel::u64 HashPixelBuffer(const keel::u32* px, keel::usize count, keel::u64 hash) noexcept {
+keel::u64 HashPixelBuffer(keel::ArrayRef<keel::u32> px, keel::usize count, keel::u64 hash) noexcept {
     constexpr keel::u64 kMul = 0x9E3779B97F4A7C15ull;
+    const keel::usize n = keel::min(count, px.size());
     keel::usize i = 0;
-    for (; i + 1 < count; i += 2) {
+    for (; i + 1 < n; i += 2) {
         const keel::u64 w = static_cast<keel::u64>(px[i]) | (static_cast<keel::u64>(px[i + 1]) << 32);
         hash = (hash ^ w) * kMul;
         hash ^= hash >> 29;
     }
-    if (i < count) {
+    if (i < n) {
         hash = (hash ^ px[i]) * kMul;
         hash ^= hash >> 29;
     }
@@ -597,42 +598,24 @@ void SceneScope::DrawImage(
 }
 
 void SceneScope::DrawPixels(
-    const keel::u32* pixels,
-    keel::u32 width,
-    keel::u32 height,
+    PixelRef pixels,
     Rect worldRect,
     float radius,
     keel::u8 opacity,
     keel::u64 contentVersion
 ) {
-    if (!m_payload || !pixels || width == 0 || height == 0) return;
+    if (!m_payload || pixels.Empty()) return;
     m_payload->contentHash = contentVersion != 0
         ? detail::HashInt64(contentVersion, m_payload->contentHash)
-        : HashPixelBuffer(pixels, static_cast<keel::usize>(width) * height, m_payload->contentHash);
+        : HashPixelBuffer(pixels.Flat(), pixels.Size(), m_payload->contentHash);
     SceneDrawCmd cmd{};
     cmd.type = SceneDrawCmd::Type::Pixels;
     cmd.itemIndex = m_payload->activeItemIndex;
     cmd.pixels = pixels;
-    cmd.pixelW = width;
-    cmd.pixelH = height;
     cmd.rect = worldRect;
     cmd.radius = radius;
     cmd.opacity = opacity;
     PushCmd(cmd);
-}
-
-void SceneScope::DrawPixels(
-    keel::ArrayRef<keel::u32> pixels,
-    keel::u32 width,
-    keel::u32 height,
-    Rect worldRect,
-    float radius,
-    keel::u8 opacity,
-    keel::u64 contentVersion
-) {
-    if (pixels.empty() || width == 0 || height == 0) return;
-    if (pixels.size() < static_cast<keel::usize>(width) * height) return;
-    DrawPixels(pixels.data(), width, height, worldRect, radius, opacity, contentVersion);
 }
 
 void SceneScope::DrawRect(
@@ -1127,7 +1110,7 @@ SceneScope Scene::OpenWithId(
     const UiSize activeSize = optsCopy.size;
     auto& state = ctx.GetOrCreatePersistentState<SceneState>(id);
 
-    Node* node = ctx.CreateNode(NodeType::Scene, id, optsCopy.zone, optsCopy.disabled);
+    Node* node = ctx.CreateNode(NodeType::Scene, id, optsCopy.disabled);
     node->direction = FlexDirection::Column;
     node->clipChildren = true;
     node->uiSize = activeSize;
@@ -1625,8 +1608,8 @@ void Scene::RenderBackgroundAndWorld(
             }
             case SceneDrawCmd::Type::Pixels: {
                 const Rect dst = (cmd.radius <= 0.0f) ? worldRectToSnappedScreen(cmd.rect) : worldRectToScreen(cmd.rect);
-                if (dst.Intersects(vp) && cmd.pixels && cmd.pixelW > 0 && cmd.pixelH > 0) {
-                    canvas.DrawPixels(cmd.pixels, cmd.pixelW, cmd.pixelH, dst, cmd.radius * state.zoom, cmd.opacity);
+                if (dst.Intersects(vp) && !cmd.pixels.Empty()) {
+                    canvas.DrawPixels(cmd.pixels, dst, cmd.radius * state.zoom, cmd.opacity);
                 }
                 break;
             }

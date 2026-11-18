@@ -1102,7 +1102,7 @@ ImageViewResponse RunViewportNode(
                 static_cast<float>(s.displayH) * s.zoom
             );
 
-            c.DrawPixels(s.displayAbgr.data(), s.displayW, s.displayH, destRect);
+            c.DrawPixels({s.displayAbgr, s.displayW, s.displayH}, destRect);
             c.DrawRect(Rect(destRect.x - 1.0f, destRect.y - 1.0f, destRect.w + 2.0f, 1.0f), Color(100, 116, 139, 130));
             c.DrawRect(Rect(destRect.x - 1.0f, destRect.Bottom(), destRect.w + 2.0f, 1.0f), Color(100, 116, 139, 130));
             c.DrawRect(Rect(destRect.x - 1.0f, destRect.y, 1.0f, destRect.h), Color(100, 116, 139, 130));

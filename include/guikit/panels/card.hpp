@@ -3,7 +3,6 @@
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
-#include "guikit/core/zone.hpp"
 #include "keel/core.h"
 #include "keel/optional.h"
 
@@ -25,9 +24,9 @@ struct CardOptions {
     keel::Optional<Padding> padding{keel::kNullOpt};   ///< Card padding (nullopt = auto from theme)
     StateColor background{};
     Border border{.width = 1.0f};
+    bool elevated{false};                           ///< Renders elevated surface background with soft ambient drop shadow
     bool clipChildren{true};                        ///< Clip children to prevent content bleeding outside rounded card
     bool disabled{false};
-    ZoneOptions zone{};                             ///< Subtree environment (theme, scale, density, debug/inspect)
 };
 
 /// Autonomous immediate mode Card surface container entry point.

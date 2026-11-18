@@ -1840,8 +1840,7 @@ void TextArea::CppHighlighter(
     keel::StringRef lineText,
     keel::usize lineIndex,
     keel::Array<TextSpan>& outSpans,
-    const UiTheme& theme,
-    void* /*userData*/
+    const UiTheme& theme
 ) {
     HighlightLine(lineText, lineIndex, SyntaxConfig::Cpp(), outSpans, theme, nullptr, nullptr);
 }
@@ -3862,7 +3861,7 @@ void TextArea::Render(
                 if (cachedLogicalLine != vl.logicalLine) {
                     syntaxSpans.clear();
                     if (useCallbackSyntax) {
-                        opts.syntaxHighlighter(fullLineStr, vl.logicalLine, syntaxSpans, theme, opts.highlighterUserData);
+                        opts.syntaxHighlighter(fullLineStr, vl.logicalLine, syntaxSpans, theme);
                     } else if (useConfigSyntax) {
                         HighlightLine(
                             fullLineStr,

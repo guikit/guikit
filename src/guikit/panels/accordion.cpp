@@ -18,7 +18,7 @@ AccordionScope Accordion::Open(
     const Id idBody = Id{detail::HashArgs(idOuter, 0xACC0'B0D1'0002ULL)};
 
     const UiSize headerSize = opts.size;
-    Node* outerNode = ctx.CreateNode(NodeType::Accordion, idOuter, opts.zone, opts.disabled);
+    Node* outerNode = ctx.CreateNode(NodeType::Accordion, idOuter, opts.disabled);
     const UiTheme& theme = outerNode->GetTheme(ctx.GetTheme());
     const bool activeDisabled = outerNode->disabled;
 

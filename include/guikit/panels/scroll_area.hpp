@@ -5,7 +5,6 @@
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
-#include "guikit/core/zone.hpp"
 #include "keel/core.h"
 #include "keel/optional.h"
 
@@ -48,7 +47,6 @@ struct ScrollAreaOptions {
     Border border{};
     UiSize size{UiSize::Md};                          ///< Scrollbar thickness/gutter size
     bool disabled{false};
-    ZoneOptions zone{};                               ///< Subtree environment (theme, scale, density, disabled, debug/inspect)
 };
 
 /// ScrollArea container logic and shared 1D/2D scrollbar primitives.

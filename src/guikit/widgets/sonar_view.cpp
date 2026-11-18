@@ -639,14 +639,12 @@ void main() {
         };
         gpuDesc.plotRect = plotRect;
         gpuDesc.bgColor = bgConsole;
-        gpuDesc.dataFloats = state.persistentGrid.data();
-        gpuDesc.texWidth = state.numRangeBins;
-        gpuDesc.texHeight = state.numBeams;
+        gpuDesc.dataField = {state.persistentGrid, state.numBeams, state.numRangeBins};
         gpuDesc.fullGeneration = state.gridGeneration;
         gpuDesc.dataNormOffset = 0.0f;
         gpuDesc.dataNormScale = 1.0f;
         gpuDesc.colormapId = static_cast<keel::u8>(opts.colormap);
-        gpuDesc.lutAbgr256 = GetColormapLutAbgr(opts.colormap).data();
+        gpuDesc.lutAbgr256 = GetColormapLutAbgr(opts.colormap);
 
         gpuDesc.params[0] = {geom.origin.x * s, geom.origin.y * s, geom.maxRadiusPx * s, 0.0f};
         gpuDesc.params[1] = {geom.minRange, geom.visibleMaxRange, opts.maxRangeMeters, static_cast<float>(geom.mode)};
@@ -691,7 +689,7 @@ void main() {
     if (payload->state && canvas.SupportsGpuShaders()) {
         SonarViewState& state = *payload->state;
         if (state.baseLayerValid && state.baseLayerKey == staticKey) {
-            if (canvas.RestoreRegion(r, state.baseLayerPixels.as_ref(), state.baseLayerW, state.baseLayerH)) {
+            if (canvas.RestoreRegion(r, {state.baseLayerPixels.as_ref(), state.baseLayerW, state.baseLayerH})) {
                 restoredFromCache = true;
                 canvas.PushClip(plotRect);
                 const auto gpuDesc = makeSonarGpuDesc(state);
@@ -750,12 +748,7 @@ void main() {
                     }
                 }
 
-                canvas.DrawPixels(
-                    state.abgrPixels.data(),
-                    imgW,
-                    imgH,
-                    plotRect
-                );
+                canvas.DrawPixels({state.abgrPixels, imgW, imgH}, plotRect);
             }
         }
 

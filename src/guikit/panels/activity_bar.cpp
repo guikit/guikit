@@ -50,7 +50,7 @@ ActivityBarScope ActivityBar::Open(
     res.rect = ctx.GetPrevUnclippedBounds(id);
     res.ctx = &ctx;
 
-    Node* node = ctx.CreateNode(NodeType::Sidebar, id, opts.zone, opts.disabled);
+    Node* node = ctx.CreateNode(NodeType::Sidebar, id, opts.disabled);
     const UiTheme& theme = node->GetTheme(ctx.GetTheme());
     const auto& pal = theme.palette;
     const float density = node->GetDensity();

@@ -318,7 +318,7 @@ SplitViewScope SplitView::Open(
     const UiSize activeSize = UiSize::Md;
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
     const float safeScale = 1.0f;
-    const UiTheme& theme = opts.zone.theme ? *opts.zone.theme : ctx.GetTheme();
+    const UiTheme& theme = ctx.GetTheme();
 
     auto& st = ctx.GetOrCreatePersistentState<SplitViewPersistState>(id);
     if (!st.initialized) {
@@ -447,7 +447,7 @@ SplitViewScope SplitView::Open(
         ctx.InvalidateAll();
     }
 
-    Node* outerNode = ctx.CreateNode(NodeType::SplitView, id, opts.zone, opts.disabled);
+    Node* outerNode = ctx.CreateNode(NodeType::SplitView, id, opts.disabled);
     const float density = outerNode->GetDensity();
     outerNode->direction = isHoriz ? FlexDirection::Row : FlexDirection::Column;
     outerNode->widthMode = opts.width.ResolveMode(SizeMode::Stretch);

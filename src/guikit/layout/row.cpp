@@ -10,15 +10,16 @@ ContainerScope Row::Open(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    Node* node = ctx.CreateNode(NodeType::Row, id, opts.zone, opts.disabled);
+    Node* node = ctx.CreateNode(NodeType::Row, id, opts.disabled);
     const UiTheme& theme = node->GetTheme(ctx.GetTheme());
     const float density = node->GetDensity();
     node->direction = FlexDirection::Row;
     node->explicitGap = opts.gap.has_value() ? 1 : 0;
     node->explicitPadding = opts.padding.has_value() ? 1 : 0;
     if (!opts.gap.has_value() && node->parent != nullptr && node->parent->type == NodeType::Toolbar) {
-        const float localDensity = (opts.zone.density.has_value() && *opts.zone.density > 0.0f) ? *opts.zone.density : 1.0f;
-        node->gap = node->parent->gap * localDensity;
+        const float parentDensity = node->parent->GetDensity();
+        const float relDensity = (parentDensity > 0.0f) ? (density / parentDensity) : density;
+        node->gap = node->parent->gap * relDensity;
     } else {
         node->gap = theme.ResolveGap(opts.gap, UiSize::Md, density);
     }

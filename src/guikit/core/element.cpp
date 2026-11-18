@@ -15,7 +15,7 @@ bool HasLabelBar(const ElementSpec& spec) noexcept {
 
 Node* FirstFlowChild(Node* elNode) noexcept {
     for (Node* c = elNode ? elNode->firstChild : nullptr; c != nullptr; c = c->nextSibling) {
-        if (c->type == NodeType::Modal) continue;
+        if (c->IsOutOfFlow()) continue;
         return c;
     }
     return nullptr;
@@ -23,7 +23,7 @@ Node* FirstFlowChild(Node* elNode) noexcept {
 
 const Node* FirstFlowChild(const Node* elNode) noexcept {
     for (const Node* c = elNode ? elNode->firstChild : nullptr; c != nullptr; c = c->nextSibling) {
-        if (c->type == NodeType::Modal) continue;
+        if (c->IsOutOfFlow()) continue;
         return c;
     }
     return nullptr;
@@ -52,7 +52,7 @@ void AccumulateSlotSubtree(
         sub->gap
     );
     for (const Node* c = sub->firstChild; c != nullptr; c = c->nextSibling) {
-        if (c->type == NodeType::Modal) continue;
+        if (c->IsOutOfFlow()) continue;
         AccumulateSlotSubtree(c, ioHovered, ioPressed, ioActive, ioHash, depth + 1);
     }
 }
@@ -225,7 +225,7 @@ void ArrangeControlSlot(
     const UiTheme& theme
 ) noexcept {
     for (Node* c = elNode->firstChild; c != nullptr; c = c->nextSibling) {
-        if (c->type == NodeType::Modal) {
+        if (c->IsOutOfFlow()) {
             PlaceControlChild(c, elNode->computedRect, canvas, theme);
         }
     }
@@ -421,7 +421,7 @@ ElementScope Element::Open(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    Node* node = ctx.CreateNode(NodeType::Element, id, opts.zone, opts.disabled);
+    Node* node = ctx.CreateNode(NodeType::Element, id, opts.disabled);
     const bool effectiveDisabled = node->disabled;
 
     Response res = ctx.Interact(id);

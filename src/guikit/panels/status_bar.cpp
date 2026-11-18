@@ -240,7 +240,7 @@ StatusBarScope StatusBar::Open(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    Node* node = ctx.CreateNode(NodeType::StatusBar, id, opts.zone, opts.disabled);
+    Node* node = ctx.CreateNode(NodeType::StatusBar, id, opts.disabled);
     const UiTheme& theme = node->GetTheme(ctx.GetTheme());
     const float density = node->GetDensity();
     const UiSize activeSize = opts.size;

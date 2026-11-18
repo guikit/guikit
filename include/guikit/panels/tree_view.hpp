@@ -92,7 +92,6 @@ struct TreeViewOptions {
     Border border{.width = 1.0f};                                   ///< Outer frame border stroke & corner radius
     UiSize size{UiSize::Md};                                        ///< Tree row/header sizing token
     bool disabled{false};                                           ///< Disable the entire TreeView and all nested items
-    ZoneOptions zone{};                                             ///< Subtree environment (theme, scale, density, disabled, debug/inspect)
 };
 
 /// Configuration options for an individual TreeItem (branch or leaf) inside a TreeView or container.
@@ -115,7 +114,6 @@ struct TreeItemOptions {
     Border border{};                                ///< Optional custom row border override
     UiSize size{UiSize::Md};                        ///< Item row size
     bool disabled{false};                           ///< Disable this item and its children
-    ZoneOptions zone{};                             ///< Subtree environment (theme, scale, density, disabled, debug/inspect)
 };
 
 /// Persistent per-TreeItem state stored in Context.

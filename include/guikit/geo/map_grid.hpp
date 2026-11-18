@@ -5,6 +5,7 @@
 #include "keel/array.h"
 #include "keel/core.h"
 #include "keel/format.h"
+#include "keel/function_ref.h"
 #include "keel/math.h"
 #include "keel/static_array.h"
 #include "keel/string.h"
@@ -156,7 +157,7 @@ struct MapScaleBar {
 
 /// Universal callback for resolving a tile image source (file path, URI, or cached PNG/SVG asset).
 /// `layerIndex == 0` is the base map (e.g. OSM), `layerIndex == 1` is an overlay (e.g. OpenSeaMap seamark).
-using TileSourceCallback = keel::StringRef (*)(OsmTileId tile, keel::i32 layerIndex, void* userData);
+using TileSourceCallback = keel::FunctionRef<keel::StringRef(OsmTileId tile, keel::i32 layerIndex)>;
 
 /// Configuration for map projection, tile pyramid, and nautical graticule calculation.
 struct MapGridConfig {
@@ -166,8 +167,7 @@ struct MapGridConfig {
     keel::i32 minTileZoom{1};
     keel::i32 maxTileZoom{18};
     float zoomBias{0.0f};       ///< Optional LOD offset applied before selecting integer tile level z
-    TileSourceCallback tileSource{nullptr};
-    void* tileSourceUserData{nullptr};
+    TileSourceCallback tileSource{};
 };
 
 /// Complete per-frame calculated state of the map view, visible tile pyramid, and nautical graticule.

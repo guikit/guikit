@@ -541,7 +541,7 @@ TableScope Table::Open(
     const UiSize activeSize = opts.size;
     const TableOptions& optsCopy = opts;
 
-    Node* node = ctx.CreateNode(NodeType::Table, id, optsCopy.zone, optsCopy.disabled);
+    Node* node = ctx.CreateNode(NodeType::Table, id, optsCopy.disabled);
     const UiTheme& theme = node->GetTheme(ctx.GetTheme());
     const bool activeDisabled = node->disabled;
     node->direction = FlexDirection::Column;

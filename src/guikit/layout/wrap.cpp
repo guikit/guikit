@@ -10,7 +10,7 @@ ContainerScope Wrap::Open(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    Node* node = ctx.CreateNode(NodeType::Wrap, id, opts.zone, opts.disabled);
+    Node* node = ctx.CreateNode(NodeType::Wrap, id, opts.disabled);
     const UiTheme& theme = node->GetTheme(ctx.GetTheme());
     const float density = node->GetDensity();
     node->direction = FlexDirection::Wrap;

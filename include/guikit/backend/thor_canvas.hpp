@@ -113,9 +113,7 @@ public:
         keel::u8 opacity = 255
     ) override;
     bool DrawPixels(
-        const keel::u32* pixels,
-        keel::u32 width,
-        keel::u32 height,
+        PixelRef pixels,
         Rect destRect,
         float cornerRadius = 0.0f,
         keel::u8 opacity = 255
@@ -130,7 +128,7 @@ public:
     [[nodiscard]] bool SupportsGpuShaders() const noexcept override { return m_gpuShadersEnabled; }
     bool DrawGpuShaderPass(const GpuShaderPassDesc& pass, bool punchHole = true) override;
     bool CaptureRegion(Rect rect, keel::Array<keel::u32>& outPixels, keel::u32& outW, keel::u32& outH) override;
-    bool RestoreRegion(Rect rect, keel::ArrayRef<keel::u32> inPixels, keel::u32 inW, keel::u32 inH) override;
+    bool RestoreRegion(Rect rect, PixelRef pixels) override;
     void TrimCaches() noexcept override;
 
     [[nodiscard]] keel::ArrayRef<GpuShaderPassDesc> GetGpuShaderPasses() const noexcept override { return m_gpuPasses; }

@@ -747,7 +747,7 @@ void ColorPicker::RenderPanel(
             svPixels[py * kSvW + px] = c.ToUint32();
         }
     }
-    canvas.DrawPixels(svPixels.data(), kSvW, kSvH, L.svRect, 4.0f, disabled ? 130 : 255);
+    canvas.DrawPixels({svPixels, kSvW, kSvH}, L.svRect, 4.0f, disabled ? 130 : 255);
     canvas.DrawRoundRect(L.svRect, 4.0f, Color::Transparent(), pal.borderSubtle, 1.0f);
 
     // SV thumb ring
@@ -764,7 +764,7 @@ void ColorPicker::RenderPanel(
         const float deg = (static_cast<float>(px) / static_cast<float>(kHueW - 1)) * 360.0f;
         huePixels[px] = HsvToRgb(deg, 1.0f, 1.0f, 255).ToUint32();
     }
-    canvas.DrawPixels(huePixels.data(), kHueW, 1, L.hueRect, L.hueRect.h * 0.5f, disabled ? 130 : 255);
+    canvas.DrawPixels({huePixels, kHueW, 1}, L.hueRect, L.hueRect.h * 0.5f, disabled ? 130 : 255);
     canvas.DrawRoundRect(L.hueRect, L.hueRect.h * 0.5f, Color::Transparent(), pal.borderSubtle, 1.0f);
 
     const float hueNorm = keel::clamp(h / 360.0f, 0.0f, 1.0f);
@@ -793,7 +793,7 @@ void ColorPicker::RenderPanel(
                 alphaPixels[py * kAlphaW + px] = blended.ToUint32();
             }
         }
-        canvas.DrawPixels(alphaPixels.data(), kAlphaW, kAlphaH, L.alphaRect, L.alphaRect.h * 0.5f, disabled ? 130 : 255);
+        canvas.DrawPixels({alphaPixels, kAlphaW, kAlphaH}, L.alphaRect, L.alphaRect.h * 0.5f, disabled ? 130 : 255);
         canvas.DrawRoundRect(L.alphaRect, L.alphaRect.h * 0.5f, Color::Transparent(), pal.borderSubtle, 1.0f);
 
         const float alphaNorm = keel::clamp(static_cast<float>(value.a) / 255.0f, 0.0f, 1.0f);

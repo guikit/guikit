@@ -1507,7 +1507,7 @@ bool ThorCanvas::DrawImage(
             }
         }
         if (sRad <= 0.0f && m_targetBuffer) {
-            return DrawPixels(entry.cachedPixels.data(), cacheW, cacheH, destRect, 0.0f, opacity);
+            return DrawPixels({entry.cachedPixels, cacheW, cacheH}, destRect, 0.0f, opacity);
         }
         auto* pic = tvg::Picture::gen();
         if (pic->load(entry.cachedPixels.data(), cacheW, cacheH, tvg::ColorSpace::ABGR8888, false) != tvg::Result::Success) {
@@ -1602,16 +1602,17 @@ bool ThorCanvas::DrawImage(
 }
 
 bool ThorCanvas::DrawPixels(
-    const keel::u32* pixels,
-    keel::u32 width,
-    keel::u32 height,
+    PixelRef pixels,
     Rect destRect,
     float cornerRadius,
     keel::u8 opacity
 ) {
-    if (!pixels || width == 0 || height == 0 || opacity == 0 || destRect.w <= 0.0f || destRect.h <= 0.0f || !m_canvas) {
+    if (pixels.Empty() || opacity == 0 || destRect.w <= 0.0f || destRect.h <= 0.0f || !m_canvas) {
         return false;
     }
+
+    const keel::u32 width = pixels.Width();
+    const keel::u32 height = pixels.Height();
 
     const float sRad = keel::max(0.0f, cornerRadius * m_scale);
     Rect sBounds(Px(destRect));
@@ -1649,7 +1650,7 @@ bool ThorCanvas::DrawPixels(
             if (dstW == static_cast<keel::i32>(width) && dstH == static_cast<keel::i32>(height)) {
                 const keel::i32 srcOffX = clipX0 - dstX0;
                 for (keel::i32 y = clipY0; y < clipY1; ++y) {
-                    const keel::u32* srcRow = pixels + static_cast<keel::usize>(y - dstY0) * width + srcOffX;
+                    const keel::u32* srcRow = pixels.Row(static_cast<keel::u32>(y - dstY0)).data() + srcOffX;
                     keel::u32* dstRow = m_targetBuffer + static_cast<keel::usize>(y) * m_stride + clipX0;
                     if (opacity == 255) {
                         for (keel::i32 x = 0; x < spanW; ++x) {
@@ -1678,7 +1679,7 @@ bool ThorCanvas::DrawPixels(
 
                 for (keel::i32 y = clipY0; y < clipY1; ++y, curV += stepY) {
                     const keel::u32 sy = keel::min(height - 1u, curV >> 16);
-                    const keel::u32* srcRow = pixels + static_cast<keel::usize>(sy) * width;
+                    const keel::u32* srcRow = pixels.Row(sy).data();
                     keel::u32* dstRow = m_targetBuffer + static_cast<keel::usize>(y) * m_stride + clipX0;
                     keel::u32 curU = startU;
                     if (opacity == 255) {
@@ -1713,7 +1714,7 @@ bool ThorCanvas::DrawPixels(
     }
 
     auto* pic = tvg::Picture::gen();
-    if (pic->load(pixels, width, height, tvg::ColorSpace::ABGR8888S, true) != tvg::Result::Success) {
+    if (pic->load(pixels.Data(), width, height, tvg::ColorSpace::ABGR8888S, true) != tvg::Result::Success) {
         delete pic;
         return false;
     }
@@ -1780,8 +1781,7 @@ void ThorCanvas::PunchHole(Rect rect) {
 
 bool ThorCanvas::DrawGpuShaderPass(const GpuShaderPassDesc& pass, bool punchHole) {
     if (!m_gpuShadersEnabled || pass.shader.shaderId.empty() || pass.shader.glslEs2.empty() ||
-        !pass.dataFloats || pass.texWidth == 0 || pass.texHeight == 0 ||
-        pass.plotRect.w <= 0.0f || pass.plotRect.h <= 0.0f) {
+        pass.dataField.empty() || pass.plotRect.w <= 0.0f || pass.plotRect.h <= 0.0f) {
         return false;
     }
 
@@ -1856,11 +1856,13 @@ bool ThorCanvas::CaptureRegion(Rect rect, keel::Array<keel::u32>& outPixels, kee
     return true;
 }
 
-bool ThorCanvas::RestoreRegion(Rect rect, keel::ArrayRef<keel::u32> inPixels, keel::u32 inW, keel::u32 inH) {
-    if (!m_targetBuffer || m_width == 0 || m_height == 0 || inW == 0 || inH == 0 ||
-        inPixels.size() < static_cast<keel::usize>(inW) * static_cast<keel::usize>(inH)) {
+bool ThorCanvas::RestoreRegion(Rect rect, PixelRef pixels) {
+    if (!m_targetBuffer || m_width == 0 || m_height == 0 || pixels.Empty()) {
         return false;
     }
+
+    const keel::u32 inW = pixels.Width();
+    const keel::u32 inH = pixels.Height();
 
     const Rect sRect(Px(rect));
     const Rect visRect = m_gpuClipStack.empty() ? sRect : sRect.Intersect(m_gpuClipStack.back());
@@ -1897,7 +1899,7 @@ bool ThorCanvas::RestoreRegion(Rect rect, keel::ArrayRef<keel::u32> inPixels, ke
         const keel::i32 srcRow = y - y0;
         std::memcpy(
             m_targetBuffer + static_cast<keel::usize>(y) * m_stride + clipX0,
-            inPixels.data() + static_cast<keel::usize>(srcRow) * inW + srcOffX,
+            pixels.Row(static_cast<keel::u32>(srcRow)).data() + srcOffX,
             static_cast<keel::usize>(copyW) * sizeof(keel::u32)
         );
     }

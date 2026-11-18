@@ -165,11 +165,11 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
     guikit::UiTheme stageTheme = ui.GetTheme(); // the zone keeps its own copy for the frame
     stageTheme.SetShellStyle(isFloating ? guikit::ShellStyle::Floating : guikit::ShellStyle::Docked);
 
-    if (auto workbenchShell = ui.Column({
-        .width = guikit::SizeMode::Stretch,
-        .height = guikit::SizeMode::Stretch,
-        .zone = {.theme = &stageTheme}
-    })) {
+    if (auto stageZone = ui.Zone({.theme = stageTheme})) {
+        if (auto workbenchShell = ui.Column({
+            .width = guikit::SizeMode::Stretch,
+            .height = guikit::SizeMode::Stretch
+        })) {
             if (auto demoWorkspace = ui.Box({
                 .width = guikit::SizeMode::Stretch,
                 .height = guikit::SizeMode::Stretch
@@ -395,6 +395,7 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
                 }
             }
         }
+    }
 }
 
 keel::String GenerateSidebarCode(const DemoContext& ctx) {

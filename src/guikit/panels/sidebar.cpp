@@ -115,7 +115,7 @@ SidebarScope Sidebar::Open(
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
     const float activeScale = 1.0f;
 
-    const UiTheme& theme = opts.zone.theme ? *opts.zone.theme : ctx.GetTheme();
+    const UiTheme& theme = ctx.GetTheme();
     const float safeScale = 1.0f;
     const ComponentMetrics& m = theme.GetMetrics(activeSize);
     const float metricMinW = m.defaultHeight * 3.8f;
@@ -374,7 +374,7 @@ SidebarScope Sidebar::Open(
         ctx.InvalidateAll();
     }
 
-    Node* node = ctx.CreateNode(NodeType::Sidebar, id, opts.zone, opts.disabled);
+    Node* node = ctx.CreateNode(NodeType::Sidebar, id, opts.disabled);
     const float density = node->GetDensity();
     node->direction = FlexDirection::Column;
     node->sidebarRight = (opts.side == SidebarSide::Right);

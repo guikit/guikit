@@ -3,6 +3,7 @@
 #include <cmath>
 #include <initializer_list>
 #include "keel/core.h"
+#include "keel/md_ref.h"
 #include "keel/ref.h"
 #include "keel/static_array.h"
 
@@ -1123,5 +1124,184 @@ struct Padding {
 };
 
 static_assert(sizeof(Padding) == 16, "Padding must remain exactly 16 bytes for cache line layout");
+
+struct StridedPixelRef;
+struct MutStridedPixelRef;
+
+/// Non-owning contiguous 32-bit ABGR8888 2D raster view (`width x height`, row-major top-to-bottom).
+struct PixelRef {
+    keel::MdRef<keel::u32, 2> md{};
+
+    constexpr PixelRef() noexcept = default;
+    constexpr PixelRef(decltype(nullptr)) noexcept {}
+    constexpr PixelRef(keel::ArrayRef<keel::u32> pixels, keel::u32 width, keel::u32 height) noexcept
+        : md(pixels, height, width) {}
+    explicit constexpr PixelRef(keel::MdRef<keel::u32, 2> matrix) noexcept : md(matrix) {}
+
+    [[nodiscard]] constexpr bool Empty() const noexcept { return md.empty(); }
+    [[nodiscard]] constexpr explicit operator bool() const noexcept { return !md.empty(); }
+    [[nodiscard]] constexpr keel::u32 Width() const noexcept { return static_cast<keel::u32>(md.extent(1)); }
+    [[nodiscard]] constexpr keel::u32 Height() const noexcept { return static_cast<keel::u32>(md.extent(0)); }
+    [[nodiscard]] constexpr keel::u32 RowStride() const noexcept { return Width(); }
+    [[nodiscard]] constexpr keel::usize Size() const noexcept { return md.size(); }
+    [[nodiscard]] constexpr keel::ArrayRef<keel::u32> Flat() const noexcept { return md.flat(); }
+    [[nodiscard]] constexpr const keel::u32* Data() const noexcept { return md.data(); }
+    [[nodiscard]] constexpr keel::ArrayRef<keel::u32> Row(keel::u32 y) const noexcept { return md.row(y); }
+    [[nodiscard]] constexpr keel::u32 At(keel::u32 x, keel::u32 y) const noexcept { return md(y, x); }
+    [[nodiscard]] constexpr keel::StridedMdRef<keel::u32, 2> Strided() const noexcept { return md.strided(); }
+    [[nodiscard]] constexpr StridedPixelRef Subrect(
+        keel::u32 x,
+        keel::u32 y,
+        keel::u32 w,
+        keel::u32 h
+    ) const noexcept;
+};
+
+/// Mutable non-owning contiguous 32-bit ABGR8888 2D raster view (`width x height`, row-major top-to-bottom).
+struct MutPixelRef {
+    keel::MutMdRef<keel::u32, 2> md{};
+
+    constexpr MutPixelRef() noexcept = default;
+    constexpr MutPixelRef(decltype(nullptr)) noexcept {}
+    constexpr MutPixelRef(keel::MutArrayRef<keel::u32> pixels, keel::u32 width, keel::u32 height) noexcept
+        : md(pixels, height, width) {}
+    explicit constexpr MutPixelRef(keel::MutMdRef<keel::u32, 2> matrix) noexcept : md(matrix) {}
+
+    [[nodiscard]] constexpr operator PixelRef() const noexcept { return PixelRef(md.as_ref()); }
+    [[nodiscard]] constexpr bool Empty() const noexcept { return md.empty(); }
+    [[nodiscard]] constexpr explicit operator bool() const noexcept { return !md.empty(); }
+    [[nodiscard]] constexpr keel::u32 Width() const noexcept { return static_cast<keel::u32>(md.extent(1)); }
+    [[nodiscard]] constexpr keel::u32 Height() const noexcept { return static_cast<keel::u32>(md.extent(0)); }
+    [[nodiscard]] constexpr keel::u32 RowStride() const noexcept { return Width(); }
+    [[nodiscard]] constexpr keel::usize Size() const noexcept { return md.size(); }
+    [[nodiscard]] constexpr keel::MutArrayRef<keel::u32> Flat() const noexcept { return md.flat(); }
+    [[nodiscard]] constexpr keel::u32* Data() const noexcept { return md.data(); }
+    [[nodiscard]] constexpr keel::MutArrayRef<keel::u32> Row(keel::u32 y) const noexcept { return md.row(y); }
+    [[nodiscard]] constexpr keel::u32& At(keel::u32 x, keel::u32 y) const noexcept { return md(y, x); }
+    [[nodiscard]] constexpr keel::MutStridedMdRef<keel::u32, 2> Strided() const noexcept { return md.strided(); }
+    [[nodiscard]] constexpr MutStridedPixelRef Subrect(
+        keel::u32 x,
+        keel::u32 y,
+        keel::u32 w,
+        keel::u32 h
+    ) const noexcept;
+    constexpr void Fill(keel::u32 color) const noexcept { md.fill(color); }
+};
+
+/// Non-owning 32-bit ABGR8888 2D raster view with explicit row pitch (`rowStride >= width`, contiguous rows).
+struct StridedPixelRef {
+    keel::StridedMdRef<keel::u32, 2> md{};
+
+    constexpr StridedPixelRef() noexcept = default;
+    constexpr StridedPixelRef(decltype(nullptr)) noexcept {}
+    constexpr StridedPixelRef(PixelRef contiguous) noexcept : md(contiguous.md) {}
+    constexpr StridedPixelRef(
+        keel::ArrayRef<keel::u32> pixels,
+        keel::u32 width,
+        keel::u32 height,
+        keel::u32 rowStride
+    ) noexcept {
+        if (rowStride >= width) {
+            md = keel::StridedMdRef<keel::u32, 2>(pixels, {height, width}, {rowStride, 1});
+        }
+    }
+    explicit constexpr StridedPixelRef(keel::StridedMdRef<keel::u32, 2> matrix) noexcept {
+        if (!matrix.empty() && matrix.stride(1) == 1 && matrix.stride(0) >= matrix.extent(1)) {
+            md = matrix;
+        }
+    }
+
+    [[nodiscard]] constexpr bool Empty() const noexcept { return md.empty(); }
+    [[nodiscard]] constexpr explicit operator bool() const noexcept { return !md.empty(); }
+    [[nodiscard]] constexpr keel::u32 Width() const noexcept { return static_cast<keel::u32>(md.extent(1)); }
+    [[nodiscard]] constexpr keel::u32 Height() const noexcept { return static_cast<keel::u32>(md.extent(0)); }
+    [[nodiscard]] constexpr keel::u32 RowStride() const noexcept { return static_cast<keel::u32>(md.stride(0)); }
+    [[nodiscard]] constexpr keel::usize Size() const noexcept { return md.size(); }
+    [[nodiscard]] constexpr const keel::u32* Data() const noexcept { return md.data(); }
+    [[nodiscard]] constexpr bool IsContiguous() const noexcept { return md.is_contiguous(); }
+    [[nodiscard]] constexpr PixelRef AsContiguous() const noexcept { return PixelRef(md.as_contiguous()); }
+    [[nodiscard]] constexpr keel::ArrayRef<keel::u32> Row(keel::u32 y) const noexcept {
+        KEEL_BOUNDS_ASSERT(!Empty() && y < Height());
+        return keel::ArrayRef<keel::u32>(md.data() + static_cast<keel::usize>(y) * md.stride(0), Width());
+    }
+    [[nodiscard]] constexpr keel::u32 At(keel::u32 x, keel::u32 y) const noexcept { return md(y, x); }
+    [[nodiscard]] constexpr keel::StridedMdRef<keel::u32, 2> Strided() const noexcept { return md; }
+    [[nodiscard]] constexpr StridedPixelRef Subrect(
+        keel::u32 x,
+        keel::u32 y,
+        keel::u32 w,
+        keel::u32 h
+    ) const noexcept {
+        return StridedPixelRef(md.slice_axis(0, y, h).slice_axis(1, x, w));
+    }
+};
+
+/// Mutable non-owning 32-bit ABGR8888 2D raster view with explicit row pitch (`rowStride >= width`, contiguous rows).
+struct MutStridedPixelRef {
+    keel::MutStridedMdRef<keel::u32, 2> md{};
+
+    constexpr MutStridedPixelRef() noexcept = default;
+    constexpr MutStridedPixelRef(decltype(nullptr)) noexcept {}
+    constexpr MutStridedPixelRef(MutPixelRef contiguous) noexcept : md(contiguous.md) {}
+    constexpr MutStridedPixelRef(
+        keel::MutArrayRef<keel::u32> pixels,
+        keel::u32 width,
+        keel::u32 height,
+        keel::u32 rowStride
+    ) noexcept {
+        if (rowStride >= width) {
+            md = keel::MutStridedMdRef<keel::u32, 2>(pixels, {height, width}, {rowStride, 1});
+        }
+    }
+    explicit constexpr MutStridedPixelRef(keel::MutStridedMdRef<keel::u32, 2> matrix) noexcept {
+        if (!matrix.empty() && matrix.stride(1) == 1 && matrix.stride(0) >= matrix.extent(1)) {
+            md = matrix;
+        }
+    }
+
+    [[nodiscard]] constexpr operator StridedPixelRef() const noexcept { return StridedPixelRef(md.as_ref()); }
+    [[nodiscard]] constexpr bool Empty() const noexcept { return md.empty(); }
+    [[nodiscard]] constexpr explicit operator bool() const noexcept { return !md.empty(); }
+    [[nodiscard]] constexpr keel::u32 Width() const noexcept { return static_cast<keel::u32>(md.extent(1)); }
+    [[nodiscard]] constexpr keel::u32 Height() const noexcept { return static_cast<keel::u32>(md.extent(0)); }
+    [[nodiscard]] constexpr keel::u32 RowStride() const noexcept { return static_cast<keel::u32>(md.stride(0)); }
+    [[nodiscard]] constexpr keel::usize Size() const noexcept { return md.size(); }
+    [[nodiscard]] constexpr keel::u32* Data() const noexcept { return md.data(); }
+    [[nodiscard]] constexpr bool IsContiguous() const noexcept { return md.is_contiguous(); }
+    [[nodiscard]] constexpr MutPixelRef AsContiguous() const noexcept { return MutPixelRef(md.as_contiguous()); }
+    [[nodiscard]] constexpr keel::MutArrayRef<keel::u32> Row(keel::u32 y) const noexcept {
+        KEEL_BOUNDS_ASSERT(!Empty() && y < Height());
+        return keel::MutArrayRef<keel::u32>(md.data() + static_cast<keel::usize>(y) * md.stride(0), Width());
+    }
+    [[nodiscard]] constexpr keel::u32& At(keel::u32 x, keel::u32 y) const noexcept { return md(y, x); }
+    [[nodiscard]] constexpr keel::MutStridedMdRef<keel::u32, 2> Strided() const noexcept { return md; }
+    [[nodiscard]] constexpr MutStridedPixelRef Subrect(
+        keel::u32 x,
+        keel::u32 y,
+        keel::u32 w,
+        keel::u32 h
+    ) const noexcept {
+        return MutStridedPixelRef(md.slice_axis(0, y, h).slice_axis(1, x, w));
+    }
+    constexpr void Fill(keel::u32 color) const noexcept { md.fill(color); }
+};
+
+constexpr StridedPixelRef PixelRef::Subrect(
+    keel::u32 x,
+    keel::u32 y,
+    keel::u32 w,
+    keel::u32 h
+) const noexcept {
+    return StridedPixelRef(md.strided().slice_axis(0, y, h).slice_axis(1, x, w));
+}
+
+constexpr MutStridedPixelRef MutPixelRef::Subrect(
+    keel::u32 x,
+    keel::u32 y,
+    keel::u32 w,
+    keel::u32 h
+) const noexcept {
+    return MutStridedPixelRef(md.strided().slice_axis(0, y, h).slice_axis(1, x, w));
+}
 
 } // namespace guikit

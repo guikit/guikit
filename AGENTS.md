@@ -68,26 +68,27 @@ if (ui.Button({.text = "Compact Action", .size = guikit::UiSize::Sm})) { /* ... 
 if (ui.Button({.text = "Custom Height", .size = guikit::UiSize::Dp(34.0f)})) { /* ... */ }
 ```
 
-### Rule 3b: Containers Own Both `.zone` Appearance and Geometry — Do NOT Pass Themes or Divide by the Shell Zoom by Hand
-Ambient state flows through `container.zone` (`ZoneOptions`: `.theme`, `.scale`, `.density`, `.debugBounds`, `.inspectMode`). Every container (`Box`, `Card`, `Row`, `Column`, `Wrap`, `Grid`, `ScrollArea`, `Sidebar`, `BottomPanel`, `SplitView`, `Toolbar`, `Table`, `TreeView`, `Scene`, `MapView`, etc.) takes `.zone` and inherits unset fields from `ui.GetZone()` (`const Zone*`):
-- **`.zone.scale`** scales the subtree's geometry, text, strokes, and hit-testing proportionally (`displayScale × rootZoom × zoneScale`). Use `ui.ScaleForZoom(zoom)` for live previews, artboards, or canvases that must keep a fixed scale relative to the display DPI.
-- **`.zone.density`** (`float`, composed multiplicatively `parent × child`, default `1.0f`) scales ALL container `gap`, `runGap`, `padding`, and `ui.Gap(...)` spacing inside the subtree without scaling control metrics (`UiSize`), border widths, or typography. Explicit `.gap = 12.0f` / `.padding = 16.0f` are defined at `density = 1.0f` and scale with active density.
-- **`.zone.debugBounds`**, **`.zone.inspectMode`** override debug tooling in the subtree; **`.disabled`** lives directly on containers and widgets (inheriting down from disabled containers to their children).
+### Rule 3b: Wrap Subtrees in `ui.Zone(...)` for Ambient Environment & Geometry — Do NOT Pass Themes or Divide by the Shell Zoom by Hand
+Ambient state flows through the transparent RAII scope wrapper `ui.Zone(ZoneOptions)` (`.theme`, `.scale`, `.density`, `.debugBounds`, `.inspectMode`). `ui.Zone(...)` creates no layout node and composes cleanly around containers or widget groups, inheriting unset fields from `ui.GetZone()` (`const guikit::Zone*`):
+- **`.scale`** scales the subtree's geometry, text, strokes, and hit-testing proportionally (`displayScale × rootZoom × zoneScale`). Use `ui.ScaleForZoom(zoom)` for live previews, artboards, or canvases that must keep a fixed scale relative to the display DPI.
+- **`.density`** (`float`, composed multiplicatively `parent × child`, default `1.0f`) scales ALL container `gap`, `runGap`, `padding`, and `ui.Gap(...)` spacing inside the subtree without scaling control metrics (`UiSize`), border widths, or typography. Explicit `.gap = 12.0f` / `.padding = 16.0f` are defined at `density = 1.0f` and scale with active density.
+- **`.debugBounds`**, **`.inspectMode`** override debug tooling in the subtree; **`.disabled`** lives directly on containers and widgets (inheriting down from disabled containers to their children).
 
 ```cpp
-if (auto device = ui.Box({
-    .width = 375.0f,
-    .height = 784.0f,
-    .background = {ui.GetThemePalette().surface},
-    .clipChildren = true,
-    .zone = {
-        .theme = &previewTheme,
-        .scale = ui.ScaleForZoom(1.25f),
-        .density = previewDensity,
-        .debugBounds = showBounds
-    }
+if (auto zone = ui.Zone({
+    .theme = previewTheme,
+    .scale = ui.ScaleForZoom(1.25f),
+    .density = previewDensity,
+    .debugBounds = showBounds
 })) {
-    ui.Button({.text = "Preview theme, fixed pixel size", .size = guikit::UiSize::Sm});
+    if (auto device = ui.Box({
+        .width = 375.0f,
+        .height = 784.0f,
+        .background = {ui.GetThemePalette().surface},
+        .clipChildren = true
+    })) {
+        ui.Button({.text = "Preview theme, fixed pixel size", .size = guikit::UiSize::Sm});
+    }
 }
 ```
 Responses, `GetMousePos()` and `GetPrevFrameBounds()` are reported in the units of the container they are called from. Use `ui.GetDisplayScale()` / `ui.GetRootZoom()` / `ui.GetPixelsPerDp()` / `ui.GetDensity()` to read frame factors.
@@ -223,7 +224,7 @@ Before drawing custom shapes on `ICanvas`, check this inventory:
 - **Text, Tags & Dropdowns**: `InputField` (in-place zero-copy editing of `keel::FixedString<N>`, `keel::SmallString<N>`, `keel::String`, plus duck-typed `WritableString` interop; password, `InputFilter::Integer`/`Decimal`/`Hex`, `.maxLength`, `.selectAllOnFocus`, prefix/suffix icons, clear button), `TagInput` (`keel::SmallArray` / `keel::Array` of strings or `TagItem`, plus duck-typed list interop), `Select` (`IndexLike` integer/`enum`, `keel::FixedString<N>`, `keel::SmallString<N>`, `keel::String`), `ComboBox` (searchable select), `Autocomplete` (free-text with suggestions), `MultiSelect` (`keel::SmallArray<keel::usize, N>` / `keel::Array<keel::usize>`, plus duck-typed index list interop).
 - **Pickers**: `ColorPicker` (2D HSV saturation/value canvas, hue/alpha sliders, HEX input, custom `.swatches`), `DatePicker` (`Date`, `DateTime`, `Time` modes with `DateTime::Today()`, `minDate`/`maxDate`, localized month/weekday labels & leap-year math).
 - **Navigation & Data**: `TabBar` (underline/pill/card/folder styles, `.closable` tabs returning `TabBarResponse::closedIndex`, `IndexLike` integer/`enum` binding, overflow scroll), `Breadcrumb` (with interactive `...` collapse menu), `Pagination` (ellipsis windowing), `Toolbar` (`ToolButton` / `Action`, `Toggle`, `Item`, `Dropdown`, `SplitButton`, `SplitToggle`, `Separator`, `Spacer` with `AutoCompact`/`Scroll`/`Wrap`/`Clip` overflow), `Sidebar`, `SidebarMenu`, `ActivityBar`, `BottomPanel`, `StatusBar`, `Accordion`, `Carousel`, `TreeView` (multi-column, filterable hierarchy), `Table` (virtualized 100k+ row data grid with sorting & selection).
-- **Overlays**: `Modal` (`if (auto m = ui.Modal(open, opts))`), `ContextMenu`, `CommandPalette` (`Ctrl+K` fuzzy command launcher), `Toast` (`ui.ShowToast(...)` + `ui.ToastHost()`).
+- **Overlays**: `Modal` (`if (auto m = ui.Modal(open, opts))` — pure backdrop & input/focus trap portal around `Card`/`Box`/widgets), `Popover` (`if (auto p = ui.Popover(open, opts))` — non-modal anchored portal around `Card`/`Box`/widgets), `ContextMenu`, `CommandPalette` (`Ctrl+K` fuzzy command launcher), `Toast` (`ui.ShowToast(...)` + `ui.ToastHost()`).
 - **Rich Editors & 2D Domain Scenes (`guikit::scenes`)**: `Markdown`, `TextArea` / `CodeEditor` (`ui.CodeEditor(...)`, `keel::String`/`FixedString` support, `.rows`, `.autoHeight`, `.tabSize`, `.insertSpaces`, syntax highlighting, breakpoints, code folding, minimap, find/replace), `Scene` (infinite pan/zoom vector canvas with grid & rulers), `MapView` (S-52/ENC vector marine GIS chart + 7 geodetic projections), `SignalView` (waveform + STFT spectrogram), `SonarView` (PPI 360° / Sector / B-Scan radar), `WaterfallView` (RTSA spectral waterfall), `ImageView` + `Histogram` (16-bit scientific image workstation with Window/Level & pixel loupe), `AttitudeView` (avionics PFD), `CarClusterView` (automotive cockpit), `BpmnEditor` (interactive BPMN 2.0 modeler & token simulator).
 
 ---

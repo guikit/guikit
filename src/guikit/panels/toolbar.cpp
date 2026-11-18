@@ -318,7 +318,7 @@ ToolbarScope Toolbar::Open(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    Node* node = ctx.CreateNode(NodeType::Toolbar, id, opts.zone, opts.disabled);
+    Node* node = ctx.CreateNode(NodeType::Toolbar, id, opts.disabled);
     const UiTheme& theme = node->GetTheme(ctx.GetTheme());
     const float density = node->GetDensity();
     const UiSize activeSize = opts.size;
@@ -799,7 +799,7 @@ void Toolbar::Arrange(
         float totalFlexGrow = 0.0f;
         keel::u32 flowCount = 0;
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-            if (child->type == NodeType::Modal) continue;
+            if (child->IsOutOfFlow()) continue;
             ++flowCount;
             if (child->isSpacer || child->widthMode == SizeMode::Stretch) {
                 totalFlexGrow += keel::max(0.01f, child->flexGrow);
@@ -816,7 +816,7 @@ void Toolbar::Arrange(
 
         float curX = sX;
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-            if (child->type == NodeType::Modal) continue;
+            if (child->IsOutOfFlow()) continue;
             float childW = 0.0f;
             if (child->isSpacer || child->widthMode == SizeMode::Stretch) {
                 childW = (totalFlexGrow > 0.0f)
@@ -846,7 +846,7 @@ void Toolbar::Arrange(
     keel::u32 flowCount = 0;
 
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-        if (child->type == NodeType::Modal) continue;
+        if (child->IsOutOfFlow()) continue;
         if (child->type == NodeType::Button) {
             if (auto* p = child->As<ToolButtonPayload>()) {
                 p->btn.square = p->origSquare;
@@ -876,7 +876,7 @@ void Toolbar::Arrange(
     if (cData && cData->autoCompact) {
         float compactTotalW = 0.0f;
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-            if (child->type == NodeType::Modal) continue;
+            if (child->IsOutOfFlow()) continue;
             if (child->type == NodeType::Button) {
                 if (auto* p = child->As<ToolButtonPayload>()) {
                     if (!p->origSquare && p->btn.icon.IsValid() && !p->origText.empty() &&

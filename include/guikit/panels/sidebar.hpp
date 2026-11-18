@@ -4,7 +4,6 @@
 #include "guikit/core/response.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
-#include "guikit/core/zone.hpp"
 #include "keel/core.h"
 #include "keel/optional.h"
 
@@ -48,7 +47,6 @@ struct SidebarOptions {
     bool clipChildren{true};
     UiSize size{UiSize::Md};
     bool disabled{false};
-    ZoneOptions zone{};
 };
 
 /// Persistent state stored per Sidebar in Context.

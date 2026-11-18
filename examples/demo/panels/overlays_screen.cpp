@@ -6,7 +6,7 @@ namespace guikit::demo {
 namespace {
 
 struct OverlaysDemoState {
-    keel::usize activeOverlay = 0; // 0 = Modal, 1 = ContextMenu, 2 = Toast, 3 = CommandPalette
+    keel::usize activeOverlay = 0; // 0 = Modal, 1 = Popover, 2 = Menu, 3 = Toast, 4 = Palette
 
     // Modal settings & state
     bool customModalOpen = false;
@@ -22,6 +22,18 @@ struct OverlaysDemoState {
     bool autoReconnect = true;
     keel::FixedString<128> lastModalStatus = "Ready";
 
+    // Popover settings & state
+    bool popoverOpen = false;
+    keel::usize popoverPlacementIdx = 0; // Auto, BottomStart, BottomEnd, TopStart, TopEnd
+    float popoverWidth = 280.0f;
+    float popoverOffset = 6.0f;
+    bool popoverCloseOutside = true;
+    bool popoverCloseEscape = true;
+    bool filterShowPeaks = true;
+    bool filterAutoScale = true;
+    float filterGainDb = 12.0f;
+    keel::FixedString<128> lastPopoverStatus = "Click \"Stream Filters\" to open Popover";
+
     // ContextMenu settings & state
     keel::usize triggerModeIdx = 0; // 0 = RightClick, 1 = LeftClick
     float menuMinWidth = 200.0f;
@@ -29,7 +41,6 @@ struct OverlaysDemoState {
     bool itemLocked = false;
     bool itemGridSnap = true;
     keel::FixedString<128> lastMenuAction = "No item clicked yet";
-    keel::i32 duplicateCount = 0;
 
     // Toast settings & state
     keel::usize toastPlacementIdx = 0; // BottomRight, TopRight, BottomLeft, TopLeft, TopCenter, BottomCenter
@@ -53,6 +64,10 @@ struct OverlaysDemoState {
 
 OverlaysDemoState s_ov;
 
+constexpr keel::StaticArray<keel::StringRef, 5> kPopoverPlacementNames = {
+    "Auto", "BottomStart", "BottomEnd", "TopStart", "TopEnd"
+};
+
 constexpr keel::StaticArray<keel::StringRef, 6> kToastPlacementNames = {
     "BottomRight", "TopRight", "BottomLeft", "TopLeft", "TopCenter", "BottomCenter"
 };
@@ -60,8 +75,8 @@ constexpr keel::StaticArray<keel::StringRef, 6> kToastPlacementNames = {
 } // namespace
 
 void RenderOverlaysInspector(guikit::Context& ui, DemoContext& ctx) {
-    static constexpr keel::StaticArray<keel::StringRef, 4> kOverlayModes = {
-        "Modal", "Menu", "Toast", "Palette"
+    static constexpr keel::StaticArray<keel::StringRef, 5> kOverlayModes = {
+        "Modal", "Popover", "Menu", "Toast", "Palette"
     };
     if (auto el = ui.Element({.label = "Overlay Component", .layout = guikit::ElementLayout::Stacked})) {
         if (ui.Segmented(s_ov.activeOverlay, kOverlayModes).changed) {
@@ -69,12 +84,13 @@ void RenderOverlaysInspector(guikit::Context& ui, DemoContext& ctx) {
         }
     }
 
-    if (auto el = ui.Element({.label = "Control Size"})) {
-        if (ui.StepSlider(ctx.controlsSize, {.showTicks = true, .showLabels = true, .includeNone = true}).changed) {
-            ui.InvalidateAll();
+    if (s_ov.activeOverlay == 2 || s_ov.activeOverlay == 4) {
+        if (auto el = ui.Element({.label = "Control Size"})) {
+            if (ui.StepSlider(ctx.controlsSize, {.showTicks = true, .showLabels = true, .includeNone = true}).changed) {
+                ui.InvalidateAll();
+            }
         }
     }
-    ctx.RenderVariantPicker(ui);
 
     if (s_ov.activeOverlay == 0) {
         if (auto el = ui.Element({.label = "Dialog Width"})) {
@@ -100,6 +116,28 @@ void RenderOverlaysInspector(guikit::Context& ui, DemoContext& ctx) {
             if (ui.Switch(s_ov.confineModalToStage).changed) ui.InvalidateAll();
         }
     } else if (s_ov.activeOverlay == 1) {
+        if (auto el = ui.Element({.label = "Placement"})) {
+            if (ui.Select(s_ov.popoverPlacementIdx, kPopoverPlacementNames).changed) {
+                ui.InvalidateAll();
+            }
+        }
+        if (auto el = ui.Element({.label = "Card Width"})) {
+            if (ui.Slider(s_ov.popoverWidth, 220.0f, 360.0f, {.valueFormat = "%.0f px", .step = 10.0f}).changed) {
+                ui.InvalidateAll();
+            }
+        }
+        if (auto el = ui.Element({.label = "Anchor Offset"})) {
+            if (ui.Slider(s_ov.popoverOffset, 0.0f, 16.0f, {.valueFormat = "%.0f px", .step = 2.0f}).changed) {
+                ui.InvalidateAll();
+            }
+        }
+        if (auto el = ui.Element({.label = "Close on Click Outside"})) {
+            if (ui.Switch(s_ov.popoverCloseOutside).changed) ui.InvalidateAll();
+        }
+        if (auto el = ui.Element({.label = "Close on Escape Key"})) {
+            if (ui.Switch(s_ov.popoverCloseEscape).changed) ui.InvalidateAll();
+        }
+    } else if (s_ov.activeOverlay == 2) {
         static constexpr keel::StaticArray<keel::StringRef, 2> kTriggerLabels = {"RightClick", "LeftClick"};
         if (auto el = ui.Element({.label = "Trigger Mode", .layout = guikit::ElementLayout::Stacked})) {
             if (ui.Segmented(s_ov.triggerModeIdx, kTriggerLabels).changed) {
@@ -111,7 +149,7 @@ void RenderOverlaysInspector(guikit::Context& ui, DemoContext& ctx) {
                 ui.InvalidateAll();
             }
         }
-    } else if (s_ov.activeOverlay == 2) {
+    } else if (s_ov.activeOverlay == 3) {
         if (auto el = ui.Element({.label = "Stack Placement"})) {
             if (ui.Select(s_ov.toastPlacementIdx, kToastPlacementNames).changed) {
                 ui.InvalidateAll();
@@ -193,8 +231,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                 if (ui.Button({
                     .text = "Open Modal Dialog...",
                     .icon = guikit::Icon::Settings(),
-                    .color = guikit::StateColor::FromVariant(ctx.btnVariant),
-                    .size = ctx.controlsSize
+                    .color = guikit::StateColor::Primary()
                 }).clicked) {
                     s_ov.customModalOpen = true;
                 }
@@ -202,8 +239,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                 if (ui.Button({
                     .text = "Confirm Delete Modal...",
                     .icon = guikit::Icon::Trash(),
-                    .color = guikit::StateColor::Danger(),
-                    .size = ctx.controlsSize
+                    .color = guikit::StateColor::Danger()
                 }).clicked) {
                     s_ov.confirmDeleteModalOpen = true;
                 }
@@ -213,6 +249,82 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                 .variant = guikit::UiVariant::Secondary
             });
         } else if (s_ov.activeOverlay == 1) {
+            const auto popBtn = ui.Button({
+                .text = "Stream Filters",
+                .icon = guikit::Icon::ChevronDown(),
+                .color = guikit::StateColor::Secondary(),
+                .iconPlacement = guikit::Placement::Trailing,
+                .active = s_ov.popoverOpen
+            });
+            if (popBtn.clicked) {
+                s_ov.popoverOpen = !s_ov.popoverOpen;
+            }
+
+            if (auto pop = ui.Popover(s_ov.popoverOpen, {
+                .anchorRect = popBtn.rect,
+                .placement = static_cast<guikit::PopoverPlacement>(s_ov.popoverPlacementIdx),
+                .offset = s_ov.popoverOffset,
+                .closeOnClickOutside = s_ov.popoverCloseOutside,
+                .closeOnEscape = s_ov.popoverCloseEscape
+            })) {
+                if (auto card = ui.Card({
+                    .width = s_ov.popoverWidth,
+                    .gap = 10.0f,
+                    .padding = guikit::Padding::All(14.0f),
+                    .elevated = true
+                })) {
+                    ui.Heading({
+                        .label = "Stream Filters",
+                        .level = guikit::HeadingLevel::H5,
+                        .separator = guikit::HeadingSeparator::Bottom
+                    });
+                    if (auto el = ui.Element({.label = "Show Peak Markers"})) {
+                        ui.Switch(s_ov.filterShowPeaks, {.size = guikit::UiSize::Sm});
+                    }
+                    if (auto el = ui.Element({.label = "Auto-Scale Y Axis"})) {
+                        ui.Switch(s_ov.filterAutoScale, {.size = guikit::UiSize::Sm});
+                    }
+                    if (auto el = ui.Element({.label = "Gain Offset"})) {
+                        ui.Slider(s_ov.filterGainDb, -12.0f, 24.0f, {
+                            .valueFormat = "%.1f dB",
+                            .step = 0.5f,
+                            .size = guikit::UiSize::Sm
+                        });
+                    }
+                    if (auto footer = ui.Row({.gap = 8.0f, .justify = guikit::Justify::End})) {
+                        if (ui.Button({
+                            .text = "Reset",
+                            .color = guikit::StateColor::Ghost(),
+                            .size = guikit::UiSize::Sm
+                        }).clicked) {
+                            s_ov.filterShowPeaks = true;
+                            s_ov.filterAutoScale = true;
+                            s_ov.filterGainDb = 12.0f;
+                        }
+                        if (ui.Button({
+                            .text = "Done",
+                            .color = guikit::StateColor::Primary(),
+                            .size = guikit::UiSize::Sm
+                        }).clicked) {
+                            s_ov.lastPopoverStatus = keel::format_fixed<128>(
+                                "Peaks={} | AutoScale={} | Gain={:.1f} dB",
+                                s_ov.filterShowPeaks ? "On" : "Off",
+                                s_ov.filterAutoScale ? "On" : "Off",
+                                s_ov.filterGainDb
+                            );
+                            pop.Close();
+                        }
+                    }
+                }
+            } else if (pop.closedByUser) {
+                s_ov.lastPopoverStatus = "Dismissed via Outside Click / Esc";
+            }
+
+            ui.Text(s_ov.lastPopoverStatus.as_ref(), {
+                .role = guikit::TextRole::BodySmall,
+                .variant = guikit::UiVariant::Secondary
+            });
+        } else if (s_ov.activeOverlay == 2) {
             const keel::StaticArray<guikit::ContextMenuItem, 6> menuItems = {{
                 {.label = "Edit Properties",  .shortcut = "Enter",  .icon = guikit::Icon::Edit()},
                 {.label = "Copy Config",      .shortcut = "Ctrl+C", .icon = guikit::Icon::Copy(), .separatorAfter = true},
@@ -272,8 +384,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                     .text = "Quick Actions",
                     .icon = guikit::Icon::ChevronDown(),
                     .color = guikit::StateColor::Secondary(),
-                    .iconPlacement = guikit::Placement::Trailing,
-                    .size = ctx.controlsSize
+                    .iconPlacement = guikit::Placement::Trailing
                 });
                 auto btnMenu = ui.ContextMenu(actionBtn, menuItems, {
                     .trigger = guikit::ContextMenuTrigger::LeftClick,
@@ -286,13 +397,12 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                 .role = guikit::TextRole::BodySmall,
                 .variant = guikit::UiVariant::Secondary
             });
-        } else if (s_ov.activeOverlay == 2) {
+        } else if (s_ov.activeOverlay == 3) {
             if (auto btnWrap = ui.Row({.gap = 8.0f, .align = guikit::Alignment::Center})) {
                 if (ui.Button({
                     .text = "Info",
                     .icon = guikit::Icon::Info(),
-                    .color = guikit::StateColor::Info(),
-                    .size = ctx.controlsSize
+                    .color = guikit::StateColor::Info()
                 }).clicked) {
                     ++s_ov.toastCounter;
                     ui.ShowToast({
@@ -308,8 +418,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                 if (ui.Button({
                     .text = "Success",
                     .icon = guikit::Icon::Check(),
-                    .color = guikit::StateColor::Success(),
-                    .size = ctx.controlsSize
+                    .color = guikit::StateColor::Success()
                 }).clicked) {
                     ++s_ov.toastCounter;
                     ui.ShowToast({
@@ -325,8 +434,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                 if (ui.Button({
                     .text = "Warning",
                     .icon = guikit::Icon::Warning(),
-                    .color = guikit::StateColor::Warning(),
-                    .size = ctx.controlsSize
+                    .color = guikit::StateColor::Warning()
                 }).clicked) {
                     ++s_ov.toastCounter;
                     ui.ShowToast({
@@ -342,8 +450,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                 if (ui.Button({
                     .text = "Danger",
                     .icon = guikit::Icon::Error(),
-                    .color = guikit::StateColor::Danger(),
-                    .size = ctx.controlsSize
+                    .color = guikit::StateColor::Danger()
                 }).clicked) {
                     ++s_ov.toastCounter;
                     ui.ShowToast({
@@ -360,8 +467,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                     .text = "Clear",
                     .icon = guikit::Icon::Trash(),
                     .color = guikit::StateColor::Secondary(),
-                    .disabled = (ui.GetActiveToastCount() == 0),
-                    .size = ctx.controlsSize
+                    .disabled = (ui.GetActiveToastCount() == 0)
                 }).clicked) {
                     ui.ClearToasts();
                 }
@@ -374,8 +480,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
             if (ui.Button({
                 .text = "Open Command Palette (Ctrl+K)...",
                 .icon = guikit::Icon::Search(),
-                .color = guikit::StateColor::FromVariant(ctx.btnVariant),
-                .size = ctx.controlsSize
+                .color = guikit::StateColor::Primary()
             }).clicked) {
                 s_ov.commandPaletteOpen = true;
             }
@@ -418,74 +523,102 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
 
     // Active Modal instances
     if (auto modal = ui.Modal(s_ov.customModalOpen, {
-        .title = "Configure Station Endpoint",
-        .subtitle = "Edit connection parameters for the active station.",
-        .variant = ctx.btnVariant,
-        .width = s_ov.modalWidth,
         .backdropOpacity = s_ov.backdropOpacity,
         .closeOnBackdrop = s_ov.closeOnBackdrop,
         .closeOnEscape = s_ov.closeOnEscape,
-        .showCloseButton = s_ov.showCloseButton,
-        .showHeaderDivider = s_ov.showHeaderDivider,
         .confineToParent = s_ov.confineModalToStage,
-        .size = ctx.controlsSize
+        .padding = guikit::Padding::All(16.0f)
     })) {
-        if (auto el = ui.Element({.label = "Profile Name", .layout = guikit::ElementLayout::Top})) {
-            ui.InputField(s_ov.profileName, {.placeholder = "Enter profile name...", .clearable = true});
-        }
-        if (auto el = ui.Element({.label = "Auto-Reconnect on Drop"})) {
-            ui.Switch(s_ov.autoReconnect);
-        }
-        if (auto footer = ui.Row({
-            .gap = 10.0f,
-            .align = guikit::Alignment::Center,
-            .justify = guikit::Justify::End
+        if (auto card = ui.Card({
+            .width = s_ov.modalWidth,
+            .gap = 12.0f,
+            .padding = guikit::Padding::All(18.0f),
+            .elevated = true
         })) {
-            if (ui.Button({.text = "Cancel", .color = guikit::StateColor::Secondary()}).clicked) {
-                s_ov.lastModalStatus = "Cancelled Modal";
-                modal.Close();
+            if (auto hdr = ui.Row({.gap = 8.0f, .align = guikit::Alignment::Center})) {
+                ui.Heading({
+                    .label = "Configure Station Endpoint",
+                    .description = "Edit connection parameters for the active station.",
+                    .level = guikit::HeadingLevel::H4,
+                    .separator = s_ov.showHeaderDivider ? guikit::HeadingSeparator::Bottom : guikit::HeadingSeparator::None
+                });
+                if (s_ov.showCloseButton) {
+                    if (ui.Button({
+                        .icon = guikit::Icon::Close(),
+                        .color = guikit::StateColor::Ghost(),
+                        .square = true
+                    }).clicked) {
+                        s_ov.lastModalStatus = "Closed via [X]";
+                        modal.Close();
+                    }
+                }
             }
-            if (ui.Button({
-                .text = "Save",
-                .icon = guikit::Icon::Check(),
-                .color = guikit::StateColor::FromVariant(ctx.btnVariant)
-            }).clicked) {
-                s_ov.lastModalStatus = keel::format_fixed<128>("Saved '{}'", s_ov.profileName.as_ref());
-                modal.Close();
+            if (auto el = ui.Element({.label = "Profile Name", .layout = guikit::ElementLayout::Top})) {
+                ui.InputField(s_ov.profileName, {.placeholder = "Enter profile name...", .clearable = true});
+            }
+            if (auto el = ui.Element({.label = "Auto-Reconnect on Drop"})) {
+                ui.Switch(s_ov.autoReconnect);
+            }
+            if (auto footer = ui.Row({
+                .gap = 10.0f,
+                .align = guikit::Alignment::Center,
+                .justify = guikit::Justify::End
+            })) {
+                if (ui.Button({.text = "Cancel", .color = guikit::StateColor::Secondary()}).clicked) {
+                    s_ov.lastModalStatus = "Cancelled Modal";
+                    modal.Close();
+                }
+                if (ui.Button({
+                    .text = "Save",
+                    .icon = guikit::Icon::Check(),
+                    .color = guikit::StateColor::Primary()
+                }).clicked) {
+                    s_ov.lastModalStatus = keel::format_fixed<128>("Saved '{}'", s_ov.profileName.as_ref());
+                    modal.Close();
+                }
             }
         }
     } else if (modal.closedByUser) {
-        s_ov.lastModalStatus = "Dismissed via [X] / Backdrop / Esc";
+        s_ov.lastModalStatus = "Dismissed via Backdrop / Esc";
     }
 
     if (auto modal = ui.Modal(s_ov.confirmDeleteModalOpen, {
-        .title = "Delete Station Node?",
-        .subtitle = "This action permanently removes the node.",
-        .variant = guikit::UiVariant::Danger,
-        .width = 380.0f,
         .backdropOpacity = s_ov.backdropOpacity,
         .closeOnBackdrop = s_ov.closeOnBackdrop,
         .closeOnEscape = s_ov.closeOnEscape,
-        .showCloseButton = s_ov.showCloseButton,
         .confineToParent = s_ov.confineModalToStage,
-        .size = ctx.controlsSize
+        .padding = guikit::Padding::All(16.0f)
     })) {
-        if (auto footer = ui.Row({
-            .gap = 10.0f,
-            .align = guikit::Alignment::Center,
-            .justify = guikit::Justify::End
+        if (auto card = ui.Card({
+            .width = 380.0f,
+            .gap = 12.0f,
+            .padding = guikit::Padding::All(18.0f),
+            .elevated = true
         })) {
-            if (ui.Button({.text = "Cancel", .color = guikit::StateColor::Secondary()}).clicked) {
-                s_ov.lastModalStatus = "Cancelled Delete";
-                modal.Close();
-            }
-            if (ui.Button({
-                .text = "Delete",
-                .icon = guikit::Icon::Trash(),
-                .color = guikit::StateColor::Danger()
-            }).clicked) {
-                s_ov.lastModalStatus = "Confirmed Delete";
-                modal.Close();
+            ui.Heading({
+                .label = "Delete Station Node?",
+                .description = "This action permanently removes the node.",
+                .icon = guikit::Icon::Warning(),
+                .level = guikit::HeadingLevel::H4,
+                .separator = s_ov.showHeaderDivider ? guikit::HeadingSeparator::Bottom : guikit::HeadingSeparator::None
+            });
+            if (auto footer = ui.Row({
+                .gap = 10.0f,
+                .align = guikit::Alignment::Center,
+                .justify = guikit::Justify::End
+            })) {
+                if (ui.Button({.text = "Cancel", .color = guikit::StateColor::Secondary()}).clicked) {
+                    s_ov.lastModalStatus = "Cancelled Delete";
+                    modal.Close();
+                }
+                if (ui.Button({
+                    .text = "Delete",
+                    .icon = guikit::Icon::Trash(),
+                    .color = guikit::StateColor::Danger()
+                }).clicked) {
+                    s_ov.lastModalStatus = "Confirmed Delete";
+                    modal.Close();
+                }
             }
         }
     }
@@ -503,84 +636,201 @@ keel::String GenerateOverlaysCode(const DemoContext& ctx) {
     const auto szPrefix = FormatUiSizePrefix(ctx.controlsSize);
 
     if (s_ov.activeOverlay == 0) {
+        const keel::String closeBtnSnippet = s_ov.showCloseButton
+            ? keel::String::from(
+                "            if (ui.Button({.icon = guikit::Icon::Close(), .color = guikit::StateColor::Ghost(), .square = true}).clicked) {\n"
+                "                modal.Close();\n"
+                "            }\n"
+            )
+            : keel::String{};
         return keel::format(
+            "if (ui.Button({{\n"
+            "    .text = \"Open Modal Dialog...\",\n"
+            "    .icon = guikit::Icon::Settings(),\n"
+            "    .color = guikit::StateColor::Primary()\n"
+            "}}).clicked) {{\n"
+            "    isModalOpen = true;\n"
+            "}}\n\n"
             "if (auto modal = ui.Modal(isModalOpen, {{\n"
-            "    .title = \"Configure Station Endpoint\",\n"
-            "    .subtitle = \"Edit connection parameters for the active station.\",\n"
-            "    .variant = guikit::UiVariant::{},\n"
-            "    .width = {:.1f}f,\n"
             "    .backdropOpacity = {:.2f}f,\n"
             "    .closeOnBackdrop = {},\n"
             "    .closeOnEscape = {},\n"
-            "    .showCloseButton = {}{}\n"
+            "    .confineToParent = {},\n"
+            "    .padding = guikit::Padding::All(16.0f)\n"
             "}})) {{\n"
-            "    if (ui.Button({{.text = \"Save\"}}).clicked) {{\n"
-            "        modal.Close();\n"
+            "    if (auto card = ui.Card({{\n"
+            "        .width = {:.1f}f,\n"
+            "        .gap = 12.0f,\n"
+            "        .padding = guikit::Padding::All(18.0f),\n"
+            "        .elevated = true\n"
+            "    }})) {{\n"
+            "        if (auto hdr = ui.Row({{.gap = 8.0f, .align = guikit::Alignment::Center}})) {{\n"
+            "            ui.Heading({{\n"
+            "                .label = \"Configure Station Endpoint\",\n"
+            "                .description = \"Edit connection parameters for the active station.\",\n"
+            "                .level = guikit::HeadingLevel::H4\n"
+            "            }});\n"
+            "{}"
+            "        }}\n"
+            "        if (auto el = ui.Element({{.label = \"Profile Name\", .layout = guikit::ElementLayout::Top}})) {{\n"
+            "            ui.InputField(profileName, {{.placeholder = \"Enter profile name...\", .clearable = true}});\n"
+            "        }}\n"
+            "        if (auto el = ui.Element({{.label = \"Auto-Reconnect on Drop\"}})) {{\n"
+            "            ui.Switch(autoReconnect);\n"
+            "        }}\n"
+            "        if (auto footer = ui.Row({{.gap = 10.0f, .justify = guikit::Justify::End}})) {{\n"
+            "            if (ui.Button({{.text = \"Cancel\", .color = guikit::StateColor::Secondary()}}).clicked) {{\n"
+            "                modal.Close();\n"
+            "            }}\n"
+            "            if (ui.Button({{.text = \"Save\", .icon = guikit::Icon::Check(), .color = guikit::StateColor::Primary()}}).clicked) {{\n"
+            "                modal.Close();\n"
+            "            }}\n"
+            "        }}\n"
             "    }}\n"
             "}}",
-            VariantName(ctx.btnVariant),
-            s_ov.modalWidth,
             s_ov.backdropOpacity,
             s_ov.closeOnBackdrop ? "true" : "false",
             s_ov.closeOnEscape ? "true" : "false",
-            s_ov.showCloseButton ? "true" : "false",
-            szPrefix
+            s_ov.confineModalToStage ? "true" : "false",
+            s_ov.modalWidth,
+            closeBtnSnippet
         );
     }
 
     if (s_ov.activeOverlay == 1) {
+        const keel::StringRef placeName = kPopoverPlacementNames[s_ov.popoverPlacementIdx];
+        return keel::format(
+            "const auto popBtn = ui.Button({{\n"
+            "    .text = \"Stream Filters\",\n"
+            "    .icon = guikit::Icon::ChevronDown(),\n"
+            "    .color = guikit::StateColor::Secondary(),\n"
+            "    .iconPlacement = guikit::Placement::Trailing,\n"
+            "    .active = popoverOpen\n"
+            "}});\n"
+            "if (popBtn.clicked) {{\n"
+            "    popoverOpen = !popoverOpen;\n"
+            "}}\n\n"
+            "if (auto pop = ui.Popover(popoverOpen, {{\n"
+            "    .anchorRect = popBtn.rect,\n"
+            "    .placement = guikit::PopoverPlacement::{},\n"
+            "    .offset = {:.1f}f,\n"
+            "    .closeOnClickOutside = {},\n"
+            "    .closeOnEscape = {}\n"
+            "}})) {{\n"
+            "    if (auto card = ui.Card({{\n"
+            "        .width = {:.1f}f,\n"
+            "        .gap = 10.0f,\n"
+            "        .padding = guikit::Padding::All(14.0f),\n"
+            "        .elevated = true\n"
+            "    }})) {{\n"
+            "        ui.Heading({{.label = \"Stream Filters\", .level = guikit::HeadingLevel::H5, .separator = guikit::HeadingSeparator::Bottom}});\n"
+            "        if (auto el = ui.Element({{.label = \"Show Peak Markers\"}})) {{ ui.Switch(showPeaks, {{.size = guikit::UiSize::Sm}}); }}\n"
+            "        if (auto el = ui.Element({{.label = \"Auto-Scale Y Axis\"}})) {{ ui.Switch(autoScale, {{.size = guikit::UiSize::Sm}}); }}\n"
+            "        if (auto el = ui.Element({{.label = \"Gain Offset\"}})) {{ ui.Slider(gainDb, -12.0f, 24.0f, {{.valueFormat = \"%.1f dB\", .size = guikit::UiSize::Sm}}); }}\n"
+            "        if (ui.Button({{.text = \"Done\", .color = guikit::StateColor::Primary(), .size = guikit::UiSize::Sm}}).clicked) {{\n"
+            "            pop.Close();\n"
+            "        }}\n"
+            "    }}\n"
+            "}}",
+            placeName,
+            s_ov.popoverOffset,
+            s_ov.popoverCloseOutside ? "true" : "false",
+            s_ov.popoverCloseEscape ? "true" : "false",
+            s_ov.popoverWidth
+        );
+    }
+
+    if (s_ov.activeOverlay == 2) {
         const keel::StringRef trigName = (s_ov.triggerModeIdx == 0) ? "RightClick" : "LeftClick";
         return keel::format(
-            "auto menuRes = ui.ContextMenu(targetResponse, {{\n"
+            "const keel::StaticArray<guikit::ContextMenuItem, 6> menuItems = {{{{\n"
             "    {{.label = \"Edit Properties\", .shortcut = \"Enter\",  .icon = guikit::Icon::Edit()}},\n"
             "    {{.label = \"Copy Config\",     .shortcut = \"Ctrl+C\", .icon = guikit::Icon::Copy(), .separatorAfter = true}},\n"
-            "    {{.label = \"Bookmark Target\", .shortcut = \"Ctrl+B\", .checked = isBookmarked, .hasCheck = true}},\n"
+            "    {{.label = \"Bookmark Target\", .shortcut = \"Ctrl+B\", .checked = itemBookmarked, .hasCheck = true}},\n"
+            "    {{.label = \"Snap to Grid\",    .shortcut = \"Ctrl+G\", .checked = itemGridSnap,   .hasCheck = true}},\n"
+            "    {{.label = \"Lock Transform\",  .shortcut = \"Ctrl+L\", .separatorAfter = true, .checked = itemLocked, .hasCheck = true}},\n"
             "    {{.label = \"Delete Node\",     .shortcut = \"Del\",    .icon = guikit::Icon::Trash(), .variant = guikit::UiVariant::Danger}}\n"
-            "}}, {{\n"
-            "    .trigger = guikit::ContextMenuTrigger::{},\n"
+            "}}}};\n\n"
+            "if (auto zone = ui.Box({{.padding = guikit::Padding::Symmetric(28.0f, 20.0f)}})) {{\n"
+            "    auto zoneMenu = ui.ContextMenu(menuItems, {{\n"
+            "        .trigger = guikit::ContextMenuTrigger::{},\n"
+            "        .minWidth = {:.1f}f{}\n"
+            "    }});\n"
+            "}}\n\n"
+            "auto actionBtn = ui.Button({{\n"
+            "    .text = \"Quick Actions\",\n"
+            "    .icon = guikit::Icon::ChevronDown(),\n"
+            "    .color = guikit::StateColor::Secondary(),\n"
+            "    .iconPlacement = guikit::Placement::Trailing\n"
+            "}});\n"
+            "auto btnMenu = ui.ContextMenu(actionBtn, menuItems, {{\n"
+            "    .trigger = guikit::ContextMenuTrigger::LeftClick,\n"
             "    .minWidth = {:.1f}f{}\n"
             "}});",
             trigName,
+            s_ov.menuMinWidth,
+            szPrefix,
             s_ov.menuMinWidth,
             szPrefix
         );
     }
 
-    if (s_ov.activeOverlay == 2) {
+    if (s_ov.activeOverlay == 3) {
         const keel::StringRef placementName = kToastPlacementNames[s_ov.toastPlacementIdx];
         return keel::format(
-            "ui.ShowToast({{\n"
-            "    .title = \"Configuration Saved\",\n"
-            "    .message = \"Profile committed to flash.\",\n"
-            "    .variant = guikit::UiVariant::Success,\n"
-            "    .duration = {:.1f}f,\n"
-            "    .showProgress = {}\n"
-            "}});\n\n"
+            "if (ui.Button({{.text = \"Success\", .icon = guikit::Icon::Check(), .color = guikit::StateColor::Success()}}).clicked) {{\n"
+            "    ui.ShowToast({{\n"
+            "        .title = \"Configuration Saved\",\n"
+            "        .message = \"Profile committed to flash.\",\n"
+            "        .variant = guikit::UiVariant::Success,\n"
+            "        .duration = {:.1f}f,\n"
+            "        .showProgress = {},\n"
+            "        .closable = {}\n"
+            "    }});\n"
+            "}}\n\n"
             "ui.ToastHost({{\n"
             "    .placement = guikit::ToastPlacement::{},\n"
             "    .width = {:.1f}f,\n"
             "    .maxVisible = {},\n"
-            "    .pauseOnHover = {}\n"
+            "    .pauseOnHover = {},\n"
+            "    .confineToParent = {}\n"
             "}});",
             s_ov.toastDuration,
             s_ov.toastShowProgress ? "true" : "false",
+            s_ov.toastClosable ? "true" : "false",
             placementName,
             s_ov.toastWidth,
             s_ov.toastMaxVisible,
-            s_ov.toastPauseOnHover ? "true" : "false"
+            s_ov.toastPauseOnHover ? "true" : "false",
+            s_ov.confineToastToStage ? "true" : "false"
         );
     }
 
+    const keel::String widthLine = s_ov.paletteAutoWidth
+        ? keel::String::from("    .width = keel::kNullOpt,\n")
+        : keel::format("    .width = {:.1f}f,\n", s_ov.paletteWidth);
     return keel::format(
-        "auto cpRes = ui.CommandPalette(isPaletteOpen, commands, {{\n"
+        "if (ui.ConsumeShortcut(guikit::Key::K, true) ||\n"
+        "    ui.Button({{.text = \"Open Command Palette (Ctrl+K)...\", .icon = guikit::Icon::Search()}}).clicked) {{\n"
+        "    commandPaletteOpen = !commandPaletteOpen;\n"
+        "}}\n\n"
+        "auto cpRes = ui.CommandPalette(commandPaletteOpen, kPaletteCommands, {{\n"
         "    .placeholder = \"Type a command or search...\",\n"
-        "    .width = {:.1f}f,\n"
+        "{}"
         "    .maxVisibleItems = {},\n"
-        "    .showFooterHints = {}{}\n"
+        "    .backdropOpacity = {:.2f}f,\n"
+        "    .closeOnBackdropClick = {},\n"
+        "    .closeOnEscape = {},\n"
+        "    .showFooterHints = {},\n"
+        "    .confineToParent = {}{}\n"
         "}});",
-        s_ov.paletteWidth,
-        s_ov.paletteMaxVisible,
+        widthLine,
+        keel::max(1, s_ov.paletteMaxVisible),
+        s_ov.backdropOpacity,
+        s_ov.closeOnBackdrop ? "true" : "false",
+        s_ov.closeOnEscape ? "true" : "false",
         s_ov.paletteShowFooter ? "true" : "false",
+        s_ov.confineModalToStage ? "true" : "false",
         szPrefix
     );
 }

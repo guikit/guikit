@@ -1062,6 +1062,139 @@ void TestMainWindowHeadlessBackend() {
         CHECK(std::abs(zoomApp.logicalViewport.x - 800.0f) < 0.01f);
         CHECK(std::abs(zoomApp.logicalViewport.y - 480.0f) < 0.01f);
     }
+
+    // Engine toolbar button opens Popover with working Switches & Heartbeat Select while staying open
+    {
+        struct EnginePumpBackend final : public IWindowBackend {
+            bool Initialize(const MainWindowConfig& cfg, Context&, WindowHostCallbacks) override {
+                m_cfg = cfg;
+                return true;
+            }
+            void Shutdown() noexcept override {}
+            bool PumpEvents(Context& ui, bool, keel::i32) override {
+                switch (step) {
+                    case 0:
+                        if (hasClickTarget) {
+                            ui.OnMouseMove(nextClickPos);
+                            ui.OnMouseDown(1);
+                            step = 1;
+                        }
+                        break;
+                    case 1:
+                        ui.OnMouseMove(nextClickPos);
+                        ui.OnMouseUp(1);
+                        step = 2;
+                        break;
+                    case 2:
+                        if (hasSwitchTarget) {
+                            ui.OnMouseMove(nextSwitchPos);
+                            ui.OnMouseDown(1);
+                            step = 3;
+                        }
+                        break;
+                    case 3:
+                        ui.OnMouseMove(nextSwitchPos);
+                        ui.OnMouseUp(1);
+                        step = 4;
+                        break;
+                    default:
+                        break;
+                }
+                return true;
+            }
+            ICanvas& GetCanvas() noexcept override { return m_canvas; }
+            const ICanvas& GetCanvas() const noexcept override { return m_canvas; }
+            void PrepareFrameTarget(Context&) override {}
+            void PresentFrame(const Context&, FrameMetrics&, bool) override {}
+            keel::i32 GetWidth() const noexcept override { return m_cfg.width; }
+            keel::i32 GetHeight() const noexcept override { return m_cfg.height; }
+            float GetDpiScale() const noexcept override { return 1.0f; }
+            float GetDisplayPixelsPerMm() const noexcept override { return 4.0f; }
+            bool IsMinimized() const noexcept override { return false; }
+            bool IsLiveResizeFrame() const noexcept override { return false; }
+            bool IsVsyncEnabled() const noexcept override { return vsync; }
+            void SetVsyncEnabled(bool enabled) noexcept override { vsync = enabled; }
+            bool IsGpuShadersEnabled() const noexcept override { return gpu; }
+            bool IsGpuShadersAvailable() const noexcept override { return true; }
+            void SetGpuShadersEnabled(bool enabled) noexcept override { gpu = enabled; }
+            void UpdateSystemCursor(CursorType) noexcept override {}
+            void OpenUrl(keel::StringRef) const noexcept override {}
+
+            MainWindowConfig m_cfg{};
+            HeadlessCanvas m_canvas{};
+            keel::i32 step{0};
+            bool vsync{true};
+            bool gpu{true};
+            bool hasClickTarget{false};
+            Vec2 nextClickPos{};
+            bool hasSwitchTarget{false};
+            Vec2 nextSwitchPos{};
+        };
+
+        class EnginePopoverApp final : public MainWindow {
+        public:
+            EnginePopoverApp(EnginePumpBackend* b, keel::UniquePtr<IWindowBackend> owned)
+                : MainWindow({.width = 1000, .height = 700, .reactiveMode = false}, keel::move(owned))
+                , m_b(b) {}
+
+            bool sawPopover{false};
+            keel::i32 switchCount{0};
+
+        protected:
+            void OnRender(Context& ui) override {
+                if (auto tb = ui.Toolbar({})) {
+                    tb.Spacer();
+                    RenderEngineControls(tb);
+                    if (Node* tbNode = tb.GetNode()) {
+                        for (Node* c = tbNode->firstChild; c != nullptr; c = c->nextSibling) {
+                            if (c->type == NodeType::Button && c->text == "Engine") {
+                                const Rect r = ui.GetPrevFrameBounds(c->id);
+                                if (r.w > 1.0f && !m_b->hasClickTarget) {
+                                    m_b->nextClickPos = r.Center();
+                                    m_b->hasClickTarget = true;
+                                }
+                            } else if (c->type == NodeType::Popover) {
+                                sawPopover = true;
+                                Node* contentRoot = (c->firstChild && c->firstChild->type == NodeType::Card)
+                                    ? c->firstChild
+                                    : c;
+                                keel::i32 idx = 0;
+                                for (Node* pChild = contentRoot->firstChild; pChild != nullptr; pChild = pChild->nextSibling) {
+                                    if (pChild->type == NodeType::Element && pChild->firstChild &&
+                                        pChild->firstChild->type == NodeType::Switch) {
+                                        if (idx == 1) { // VSync switch
+                                            const Rect sr = ui.GetPrevUnclippedBounds(pChild->firstChild->id);
+                                            if (sr.w > 1.0f && !m_b->hasSwitchTarget) {
+                                                m_b->nextSwitchPos = sr.Center();
+                                                m_b->hasSwitchTarget = true;
+                                            }
+                                        }
+                                        ++idx;
+                                    }
+                                }
+                                switchCount = idx;
+                            }
+                        }
+                    }
+                }
+                if ((m_b->step >= 4 && postDoneFrames++ >= 1) || safetyFrames++ >= 20) {
+                    Close();
+                }
+            }
+
+            EnginePumpBackend* m_b{nullptr};
+            keel::i32 postDoneFrames{0};
+            keel::i32 safetyFrames{0};
+        };
+
+        auto engBackend = keel::make_unique<EnginePumpBackend>();
+        EnginePumpBackend* rawB = engBackend.get();
+        EnginePopoverApp engApp(rawB, keel::move(engBackend));
+        CHECK(engApp.Run() == 0);
+        CHECK(engApp.sawPopover);
+        CHECK(engApp.switchCount == 5);
+        CHECK(!rawB->vsync); // VSync toggled off via Engine popover Switch
+    }
 }
 
 void TestKeelIntegration() {
@@ -1076,6 +1209,30 @@ void TestKeelIntegration() {
     CHECK(boundsMap.size() == 2);
     const Rect* r1 = boundsMap.get(id1);
     CHECK(r1 != nullptr && *r1 == Rect(10.0f, 20.0f, 100.0f, 40.0f));
+
+    // 1b. keel::Optional<T&> non-owning reference specialization & ZoneOptions::theme safety
+    {
+        static_assert(sizeof(keel::Optional<keel::i32&>) == sizeof(keel::i32*));
+        static_assert(sizeof(keel::Optional<const UiTheme&>) == sizeof(const UiTheme*));
+        static_assert(keel::IsTriviallyCopyable<keel::Optional<const UiTheme&>>);
+        static_assert(!keel::IsConstructible<keel::Optional<const UiTheme&>, UiTheme&&>);
+
+        keel::i32 a = 10;
+        keel::i32 b = 20;
+        keel::Optional<keel::i32&> refOpt;
+        CHECK(!refOpt.has_value());
+        CHECK(refOpt.value_or(77) == 77);
+        refOpt = a;
+        CHECK(refOpt.has_value() && &(*refOpt) == &a);
+        *refOpt = 15;
+        CHECK(a == 15);
+        refOpt = b; // rebinds reference without overwriting a
+        CHECK(a == 15 && &(*refOpt) == &b);
+        keel::Optional<const keel::i32&> crefOpt = refOpt;
+        CHECK(crefOpt.has_value() && &(*crefOpt) == &b);
+        crefOpt.reset();
+        CHECK(!crefOpt.has_value());
+    }
 
     // 2. keel::Arena::allocator() arena bridge
     keel::Arena frameArena(4096);
@@ -1451,6 +1608,134 @@ void TestElementHeadingSpecAndSeparatorSpace() {
     CHECK(keel::abs(Heading::ComputeBottomSeparatorSpace(trailingOpts, theme)) < 0.001f);
 }
 
+void TestMdRefAndPixelRef() {
+    using namespace guikit;
+    keel::println("  -> TestMdRefAndPixelRef...");
+
+    // 1. Valid 2D MutMdRef / MdRef indexing, row slicing, outer slice, and reshape
+    keel::StaticArray<float, 6> storage = {{1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}};
+    keel::MutMdRef<float, 2> mutMat(storage, 2, 3);
+    CHECK(!mutMat.empty());
+    CHECK(mutMat.rank() == 2);
+    CHECK(mutMat.extent(0) == 2);
+    CHECK(mutMat.extent(1) == 3);
+    CHECK(mutMat.size() == 6);
+    CHECK(mutMat.stride(0) == 3);
+    CHECK(mutMat.stride(1) == 1);
+    CHECK(mutMat(1, 2) == 6.0f);
+    mutMat(1, 2) = 42.0f;
+
+    const keel::MdRef<float, 2> mat = mutMat;
+    CHECK(mat(1, 2) == 42.0f);
+    CHECK(mat.row(0).size() == 3);
+    CHECK(mat.row(1)[2] == 42.0f);
+    CHECK(mat.subview(1)(2) == 42.0f);
+
+    const keel::MdRef<float, 2> tailRow = mat.slice(1, 1);
+    CHECK(tailRow.extent(0) == 1);
+    CHECK(tailRow.extent(1) == 3);
+    CHECK(tailRow(0, 2) == 42.0f);
+
+    const keel::MdRef<float, 3> vol = mat.reshape(1, 3, 2);
+    CHECK(!vol.empty());
+    CHECK(vol(0, 2, 1) == 42.0f);
+    CHECK(mat.reshape(2, 2).empty()); // Mismatched total element count rejected
+
+    // 2. Undersized, zero-extent, negative-signed, and overflowed shapes normalize to empty()
+    CHECK((keel::MdRef<float, 2>(storage, 3, 3).empty()));
+    CHECK((keel::MdRef<float, 2>(storage, 0, 3).empty()));
+    CHECK((keel::MdRef<float, 2>(storage, -2, 3).empty()));
+    CHECK((keel::MdRef<float, 2>(storage, keel::kInvalidIndex / 2, 4).empty()));
+
+    // 3. Graphics PixelRef & MutPixelRef preserve (width, height) contract over MdRef<u32, 2>
+    keel::StaticArray<keel::u32, 6> pxBuf{};
+    MutPixelRef mutPx(pxBuf, 3, 2);
+    CHECK(!mutPx.Empty());
+    CHECK(mutPx.Width() == 3);
+    CHECK(mutPx.Height() == 2);
+    mutPx.Fill(0xFF112233u);
+    mutPx.At(2, 1) = 0xFFAABBCCu;
+
+    const PixelRef px = mutPx;
+    CHECK(px.At(0, 0) == 0xFF112233u);
+    CHECK(px.At(2, 1) == 0xFFAABBCCu);
+    CHECK(px.Row(1)[2] == 0xFFAABBCCu);
+    CHECK(PixelRef(pxBuf, 4, 2).Empty()); // undersized rejected
+
+    // 4. StridedMdRef / MutStridedMdRef: column slicing, decimation, transpose, RGB channel extraction & PixelRef ROI
+    {
+        // 4a. Spectrogram-like 2D matrix (4 time frames x 3 freq bins): extract column (bin 1) & decimate frames
+        keel::StaticArray<float, 12> specBuf = {{
+            1.0f,  2.0f,  3.0f,
+            4.0f,  5.0f,  6.0f,
+            7.0f,  8.0f,  9.0f,
+            10.0f, 11.0f, 12.0f
+        }};
+        keel::MutMdRef<float, 2> specMut(specBuf, 4, 3);
+        const keel::StridedMdRef<float, 2> spec = specMut.as_ref();
+        CHECK(spec.is_contiguous());
+        CHECK(!spec.as_contiguous().empty());
+
+        const keel::StridedMdRef<float, 1> bin1 = spec.col(1);
+        CHECK(bin1.extent(0) == 4);
+        CHECK(bin1.stride(0) == 3);
+        CHECK(!bin1.is_contiguous());
+        CHECK(bin1.as_contiguous().empty());
+        CHECK(bin1(0) == 2.0f);
+        CHECK(bin1(3) == 11.0f);
+
+        const keel::StridedMdRef<float, 1> decimated = bin1.slice_axis(0, 1, keel::kInvalidIndex, 2);
+        CHECK(decimated.extent(0) == 2);
+        CHECK(decimated.stride(0) == 6);
+        CHECK(decimated(0) == 5.0f);
+        CHECK(decimated(1) == 11.0f);
+
+        const keel::StridedMdRef<float, 2> specT = spec.transpose();
+        CHECK(specT.extent(0) == 3 && specT.extent(1) == 4);
+        CHECK(specT(2, 3) == 12.0f);
+
+        // 4b. Interleaved 3D RGB image (2 x 2 x 3) -> 2D Green channel slice & mutable ROI fill
+        keel::StaticArray<keel::u8, 12> rgbBuf = {{
+            10, 20, 30,   40, 50, 60,
+            70, 80, 90,   100, 110, 120
+        }};
+        const keel::MdRef<keel::u8, 3> rgb(rgbBuf, 2, 2, 3);
+        const keel::StridedMdRef<keel::u8, 2> greenPlane = rgb.strided().subview(2, 1);
+        CHECK(greenPlane.extent(0) == 2 && greenPlane.extent(1) == 2);
+        CHECK(greenPlane(0, 0) == 20 && greenPlane(0, 1) == 50);
+        CHECK(greenPlane(1, 0) == 80 && greenPlane(1, 1) == 110);
+
+        // 4c. StridedPixelRef / MutStridedPixelRef ROI crop keeps (x, y) & (Width, Height) semantics
+        mutPx.Fill(0x00000000u);
+        MutStridedPixelRef roiMut = mutPx.Subrect(1, 0, 2, 2);
+        CHECK(!roiMut.Empty());
+        CHECK(roiMut.Width() == 2);
+        CHECK(roiMut.Height() == 2);
+        CHECK(roiMut.RowStride() == 3);
+        CHECK(!roiMut.IsContiguous());
+        roiMut.Fill(0xFFDEADBEu);
+        roiMut.At(1, 1) = 0xFFCAFE00u;
+
+        const StridedPixelRef roi = px.Subrect(1, 0, 2, 2);
+        CHECK(roi.At(0, 0) == 0xFFDEADBEu);
+        CHECK(roi.At(1, 1) == 0xFFCAFE00u);
+        CHECK(roi.Row(1)[0] == 0xFFDEADBEu);
+        CHECK(roi.Subrect(1, 1, 1, 1).At(0, 0) == 0xFFCAFE00u);
+        CHECK(px.At(0, 0) == 0x00000000u);
+        CHECK(px.At(0, 1) == 0x00000000u);
+        CHECK(px.At(1, 0) == 0xFFDEADBEu);
+        CHECK(px.At(2, 1) == 0xFFCAFE00u);
+        CHECK(StridedPixelRef(pxBuf, 3, 2, 2).Empty()); // rowStride < width rejected
+        CHECK(StridedPixelRef(px).IsContiguous());
+        CHECK(StridedPixelRef(px).AsContiguous().Width() == 3);
+
+        // 4d. Out-of-bounds strided buffer & overflow rejection
+        CHECK((keel::StridedMdRef<float, 2>(specBuf, {4, 3}, {4, 1}).empty())); // (3*4 + 2*1 = 14) >= 12
+        CHECK((keel::StridedMdRef<float, 2>(specBuf, {2, 2}, {keel::kInvalidIndex, 1}).empty()));
+        CHECK(spec.slice_axis(0, 4, 1).empty());
+    }
+}
+
 int main() {
     keel::println("[RUN] Testing GuiKit Core Foundation...");
 
@@ -1473,6 +1758,7 @@ int main() {
     TestKeelIntegration();
     TestThemeTokensPaddingAndDateTime();
     TestElementHeadingSpecAndSeparatorSpace();
+    TestMdRefAndPixelRef();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Core tests passed successfully!");

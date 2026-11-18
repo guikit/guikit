@@ -6,7 +6,6 @@
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
-#include "guikit/core/zone.hpp"
 #include "keel/core.h"
 #include "keel/optional.h"
 #include "keel/ref.h"
@@ -81,7 +80,6 @@ struct TableOptions {
     AxisSize height{SizeMode::Stretch};                 ///< Vertical sizing policy (`Stretch` in flex parent, `Fit` rows, or fixed `dp`)
     UiSize size{UiSize::Md};                            ///< Row/header density & typography size
     bool disabled{false};
-    ZoneOptions zone{};                                 ///< Subtree environment (theme, scale, density, disabled, debug/inspect)
 };
 
 class TableScope;

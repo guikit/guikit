@@ -33,8 +33,7 @@ struct MapViewOptions {
     keel::i32 minTileZoom{1};
     keel::i32 maxTileZoom{18};
     float zoomBias{0.0f};
-    TileSourceCallback tileSource{nullptr};     ///< Optional callback resolving tile [z/x/y] to SVG/PNG/JPG path
-    void* tileSourceUserData{nullptr};
+    TileSourceCallback tileSource{};            ///< Optional callback resolving tile [z/x/y] to SVG/PNG/JPG path
 
     // --- Initial & Programmatic Camera Framing ---
     GeoCoord initialCenter{54.1825, 7.8853};    ///< Default initial center (Helgoland / German Bight)
@@ -68,7 +67,6 @@ struct MapViewOptions {
     UiText tooltip{};
     UiSize size{UiSize::Md};
     bool disabled{false};
-    ZoneOptions zone{};
 };
 
 /// RAII scope for `ui.MapView(...)` providing geographic (Lat/Lon) drawing, hit-testing, and telemetry.
