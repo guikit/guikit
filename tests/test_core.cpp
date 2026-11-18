@@ -295,7 +295,7 @@ void TestNodeFootprint() {
 
     // Verify Node has been decoupled from widget options and its size is compact
     keel::println("[INFO] sizeof(Node) = {} bytes", sizeof(Node));
-    CHECK(sizeof(Node) <= 256); // Compact <=256 bytes with 4 polymorphic delegates + aspect-ratio/minHeight/2D scroll state
+    static_assert(sizeof(Node) <= 256); // Compact <=256 bytes with 4 polymorphic delegates + aspect-ratio/minHeight/2D scroll state
 
     // Verify generic payload casting
     Node n;

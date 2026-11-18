@@ -319,7 +319,7 @@ ElementSpec Element::MakeSpec(
     };
 }
 
-void Element::SyncWithChildren(Context& ctx, Node* elNode) noexcept {
+void Element::SyncWithChildren(Context& /*ctx*/, Node* elNode) noexcept {
     if (!elNode) return;
     auto* ep = elNode->As<ElementPayload>();
     if (!ep) return;

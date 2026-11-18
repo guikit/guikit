@@ -255,7 +255,6 @@ HistogramResponse Histogram::Run(
 ) {
 
     const Id id = ctx.MakeChildId(loc);
-    const UiTheme& theme = ctx.GetTheme();
     const UiSize activeSize = opts.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     constexpr float scale = 1.0f;

@@ -132,26 +132,6 @@ keel::String FormatSlotControlCode(ElementSlotPreset preset) {
     return {};
 }
 
-void AppendIndentedLines(keel::String& out, keel::StringRef block, keel::StringRef indent) {
-    keel::usize start = 0;
-    while (start <= block.size()) {
-        keel::usize end = start;
-        while (end < block.size() && block[end] != '\n') {
-            ++end;
-        }
-        const keel::StringRef line = block.substr(start, end - start);
-        if (!line.empty()) {
-            out.append(indent);
-            out.append(line);
-        }
-        out.push_back('\n');
-        if (end == block.size()) {
-            break;
-        }
-        start = end + 1;
-    }
-}
-
 } // namespace
 
 void RenderElementInspector(guikit::Context& ui, DemoContext&) {

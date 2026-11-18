@@ -3118,7 +3118,6 @@ BpmnEditorResponse BpmnEditor::Run(
     const Id id = ctx.MakeChildId(loc);
     const bool isDisabled = opts.disabled || ctx.IsDisabled();
     const UiSize effectiveSize = opts.size;
-    const UiTheme& theme = ctx.GetTheme();
     constexpr float s = 1.0f;
     ICanvas* canvas = ctx.GetCanvas();
 

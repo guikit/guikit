@@ -911,7 +911,6 @@ TreeItemScope TreeView::OpenItem(
 
     const UiSize activeSize = opts.size;
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    const UiTheme& theme = ctx.GetTheme();
 
     TreeItemState& st = ctx.GetOrCreatePersistentState<TreeItemState>(idOuter, TreeItemState{.open = opts.defaultOpen});
     if (treePayload && treePayload->state && st.seenBulkToggleGen != treePayload->state->bulkToggleGen) {

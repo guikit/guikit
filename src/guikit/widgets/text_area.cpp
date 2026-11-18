@@ -3916,12 +3916,12 @@ void TextArea::Render(
             const float eolTop = wsCenterY - L.lineHeight * 0.18f;
             const float eolBot = wsCenterY + L.lineHeight * 0.12f;
             const float headSz = keel::min(L.lineHeight * 0.14f, L.metrics.spaceAdvance * 0.30f);
-            const float strokeW = keel::max(1.0f, 1.1f * effZoom);
+            const float eolStrokeW = keel::max(1.0f, 1.1f * effZoom);
             if (eolX + eolW >= textViewport.x - 2.0f && eolX <= textViewport.Right() + 2.0f) {
-                canvas.DrawLine({eolX + eolW, eolTop}, {eolX + eolW, eolBot}, wsCol, strokeW);
-                canvas.DrawLine({eolX + eolW, eolBot}, {eolX, eolBot}, wsCol, strokeW);
-                canvas.DrawLine({eolX + headSz, eolBot - headSz}, {eolX, eolBot}, wsCol, strokeW);
-                canvas.DrawLine({eolX + headSz, eolBot + headSz}, {eolX, eolBot}, wsCol, strokeW);
+                canvas.DrawLine({eolX + eolW, eolTop}, {eolX + eolW, eolBot}, wsCol, eolStrokeW);
+                canvas.DrawLine({eolX + eolW, eolBot}, {eolX, eolBot}, wsCol, eolStrokeW);
+                canvas.DrawLine({eolX + headSz, eolBot - headSz}, {eolX, eolBot}, wsCol, eolStrokeW);
+                canvas.DrawLine({eolX + headSz, eolBot + headSz}, {eolX, eolBot}, wsCol, eolStrokeW);
             }
         }
 
@@ -4167,8 +4167,8 @@ void TextArea::Render(
         const float gripX = DT.panelRect.x + (gripSlotW - dotStepX - dotSz) * 0.5f;
         const float gripCy = DT.panelRect.y + DT.panelRect.h * 0.5f;
         const Color gripCol = gripDragging ? pal.focusRing : (gripHovered ? pal.textPrimary : pal.textMuted.WithAlphaF(0.75f));
-        for (keel::i32 r = -1; r <= 1; ++r) {
-            const float dy = gripCy + static_cast<float>(r) * dotStepY - dotSz * 0.5f;
+        for (keel::i32 rowIdx = -1; rowIdx <= 1; ++rowIdx) {
+            const float dy = gripCy + static_cast<float>(rowIdx) * dotStepY - dotSz * 0.5f;
             canvas.DrawRoundRect(Rect(gripX, dy, dotSz, dotSz), dotSz * 0.5f, gripCol);
             canvas.DrawRoundRect(Rect(gripX + dotStepX, dy, dotSz, dotSz), dotSz * 0.5f, gripCol);
         }

@@ -44,7 +44,6 @@ ControlSpec EffectiveImageControl(const ImageOptions& opts, UiSize size, const U
 Vec2 ComputeControlBoxSize(
     Vec2 naturalSize,
     const ImageOptions& opts,
-    const UiTheme& theme,
     float availableWidth
 ) noexcept {
     const float natW = keel::max(1.0f, naturalSize.x);
@@ -188,7 +187,7 @@ Vec2 Image::Measure(
     float availableWidth
 ) {
     const Vec2 naturalSize = ResolveNaturalImageSize(source, canvas);
-    const Vec2 ctrlSize = ComputeControlBoxSize(naturalSize, opts, theme, availableWidth);
+    const Vec2 ctrlSize = ComputeControlBoxSize(naturalSize, opts, availableWidth);
     const ControlSpec ctrl = EffectiveImageControl(opts, size, theme);
     return Control::Measure(ctrlSize, ctrl, theme);
 }

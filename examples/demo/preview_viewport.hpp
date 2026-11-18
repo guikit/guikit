@@ -119,7 +119,7 @@ inline void RenderWindowTitlebarTrafficLights(const guikit::Node* n, guikit::ICa
 }
 
 template <bool IsPhone>
-inline void RenderDeviceChassisButtons(const guikit::Node* n, guikit::ICanvas& canvas, const guikit::UiTheme& theme) noexcept {
+inline void RenderDeviceChassisButtons(const guikit::Node* n, guikit::ICanvas& canvas, const guikit::UiTheme& /*theme*/) noexcept {
     const guikit::Rect& r = n->computedRect;
     if (r.w <= 40.0f || r.h <= 40.0f) return;
 
@@ -163,7 +163,7 @@ inline void RenderDeviceChassisButtons(const guikit::Node* n, guikit::ICanvas& c
     }
 }
 
-inline void RenderPhoneDynamicIsland(const guikit::Node* n, guikit::ICanvas& canvas, const guikit::UiTheme& theme) noexcept {
+inline void RenderPhoneDynamicIsland(const guikit::Node* n, guikit::ICanvas& canvas, const guikit::UiTheme& /*theme*/) noexcept {
     const guikit::Rect& r = n->computedRect;
     if (r.w <= 40.0f || r.h <= 40.0f) return;
 

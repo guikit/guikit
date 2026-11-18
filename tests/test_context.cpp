@@ -9900,9 +9900,6 @@ void TestUnifiedColormapHistogramAndImageView() {
     keel::Array<keel::u16> mono16(imgW * imgH);
     keel::Array<float> rgbFloat(imgW * imgH * 3, 0.0f);
     for (keel::u32 y = 0; y < imgH; ++y) {
-        for (keel::u32 x = 0; x < imgW; ++y) {
-            break;
-        }
         for (keel::u32 x = 0; x < imgW; ++x) {
             mono16[y * imgW + x] = static_cast<keel::u16>((x * 1000 + y * 500) % 65536);
             const keel::usize base = (y * imgW + x) * 3;
@@ -15129,7 +15126,7 @@ int main() {
                         const Color customSwatches[2] = {Color(220, 40, 60, 255), Color(30, 180, 90, 255)};
 
                         auditUi.BeginFrame({800.0f, 600.0f}, 1.0f);
-                        if (auto col = auditUi.Column({.gap = 8.0f})) {
+                        if (auto pickerCol = auditUi.Column({.gap = 8.0f})) {
                             // Pass stack-local arrays that go out of scope BEFORE EndFrame to verify arena-copy safety!
                             {
                                 const keel::StringRef localMonths[12] = {

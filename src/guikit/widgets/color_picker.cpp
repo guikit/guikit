@@ -37,7 +37,7 @@ struct PanelLayout {
     Rect swatchesRowRect{};
 };
 
-PanelLayout ComputePanelLayout(Rect rect, const ColorPickerOptions& opts, const UiTheme& theme) noexcept {
+PanelLayout ComputePanelLayout(Rect rect, const ColorPickerOptions& opts) noexcept {
     PanelLayout L{};
     L.panelRect = rect;
     const float pad = 10.0f;
@@ -363,7 +363,7 @@ Response ColorPicker::Run(
     if (panelActive) {
         auto hitScope = ctx.ScopedOverlayHitCheck(optsCopy.inlinePanel ? Id::Null() : id);
         const Rect activePanelRect = optsCopy.inlinePanel ? ctrlRect : ctx.GetOpenPopupRect();
-        const PanelLayout L = ComputePanelLayout(activePanelRect, optsCopy, theme);
+        const PanelLayout L = ComputePanelLayout(activePanelRect, optsCopy);
         const Vec2 mouse = ctx.GetMousePos();
         const keel::ArrayRef<Color> customSwatches = !optsCopy.swatches.empty() ? optsCopy.swatches : optsCopy.presets;
         const keel::ArrayRef<Color> swatches = customSwatches.empty()
@@ -735,7 +735,7 @@ void ColorPicker::RenderPanel(
         canvas.DrawRoundRect(panelRect, radius, panelBg, panelBorder, strokeW);
     }
 
-    const PanelLayout L = ComputePanelLayout(panelRect, opts, theme);
+    const PanelLayout L = ComputePanelLayout(panelRect, opts);
 
     // 1. Render 2D Saturation-Value (SV) gradient square via DrawPixels (48x36)
     constexpr keel::u32 kSvW = 48;

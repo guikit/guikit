@@ -207,7 +207,6 @@ Response Heading::Run(
 ) {
     const Id id = ctx.MakeChildId(loc);
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    const UiTheme& activeTheme = ctx.GetTheme();
 
     Response res = ctx.Interact(id);
     if (effectiveDisabled) {

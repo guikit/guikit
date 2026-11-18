@@ -1356,7 +1356,7 @@ void ResolveClusterStageRects(
     }
 }
 
-void RenderCarClusterViewNode(const Node* node, ICanvas& canvas, const UiTheme& theme) noexcept {
+void RenderCarClusterViewNode(const Node* node, ICanvas& canvas, const UiTheme& /*theme*/) noexcept {
     const auto* payload = node->As<CarClusterViewPayload>();
     if (!payload) return;
 
@@ -1473,7 +1473,6 @@ CarClusterViewResponse CarClusterView::Run(
     const Id id = ctx.MakeChildId(loc);
     const bool isDisabled = opts.disabled || ctx.IsDisabled();
     const UiSize effectiveSize = opts.size;
-    const UiTheme& theme = ctx.GetTheme();
     constexpr float s = 1.0f;
 
     Response baseRes = ctx.Interact(id);

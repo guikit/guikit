@@ -848,8 +848,7 @@ struct SignalViewGeometry {
 [[nodiscard]] SignalViewGeometry ComputeSignalGeometry(
     Rect ctrlBox,
     const SignalViewOptions& opts,
-    float splitRatio,
-    const UiTheme& theme
+    float splitRatio
 ) noexcept {
     SignalViewGeometry g{};
     g.controlRect = ctrlBox;
@@ -1000,7 +999,6 @@ SignalViewResponse SignalView::Run(
     const Id id = ctx.MakeChildId(loc);
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const UiSize activeSize = opts.size;
-    const UiTheme& theme = ctx.GetTheme();
     ICanvas* canvas = ctx.GetCanvas();
 
     auto& st = ctx.GetOrCreatePersistentState<SignalViewInternalState>(id);
@@ -1088,7 +1086,7 @@ SignalViewResponse SignalView::Run(
     static_cast<Response&>(res) = baseRes;
 
     const Rect prevBounds = baseRes.rect;
-    const SignalViewGeometry geom = ComputeSignalGeometry(prevBounds, opts, st.splitRatio, theme);
+    const SignalViewGeometry geom = ComputeSignalGeometry(prevBounds, opts, st.splitRatio);
 
     const Vec2 mouse = ctx.GetMousePos();
     const bool mouseDown = ctx.IsMouseDown();
@@ -1719,7 +1717,7 @@ SignalViewResponse SignalView::Run(
         const Color textMuted = th.palette.textMuted;
         const Color textSec   = th.palette.textSecondary;
 
-        const SignalViewGeometry g = ComputeSignalGeometry(box, o, s.splitRatio, th);
+        const SignalViewGeometry g = ComputeSignalGeometry(box, o, s.splitRatio);
         const float sampleRate = keel::max(1.0f, o.sampleRate);
         const double totalDur = !p->samples.empty()
             ? (static_cast<double>(p->samples.size()) / static_cast<double>(sampleRate))

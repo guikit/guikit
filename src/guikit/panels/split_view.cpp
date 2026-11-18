@@ -73,7 +73,7 @@ Vec2 MeasureSplitView(
     const Node* node,
     float /*availableWidth*/,
     ICanvas* /*canvas*/,
-    const UiTheme& theme
+    const UiTheme& /*theme*/
 ) noexcept {
     if (!node) return {0.0f, 0.0f};
     const auto* payload = node->As<SplitViewPayload>();
