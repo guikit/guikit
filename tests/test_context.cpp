@@ -15123,12 +15123,20 @@ int main() {
                                     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
                                 };
                                 const keel::StringRef localDays[7] = {"Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"};
+                                const keel::StringRef localTime[3] = {"ч", "м", "с"};
                                 auditUi.DatePicker(pickedDate, {
+                                    .mode = DatePickerMode::DateTime,
                                     .minDate = minDt,
                                     .maxDate = maxDt,
                                     .todayOverride = overrideToday,
-                                    .monthNames = localMonths,
-                                    .weekdayNames = localDays
+                                    .labels = {
+                                        .monthNames = localMonths,
+                                        .weekdayNames = localDays,
+                                        .timeSuffixes = localTime,
+                                        .today = "Сегодня",
+                                        .now = "Сейчас",
+                                        .done = "Применить"
+                                    }
                                 });
                             }
                             auditUi.ColorPicker(pickedColor, {
@@ -16725,6 +16733,40 @@ void TestApiPolish() {
         renderZone();
         CHECK(zoneOpen == false);
         CHECK(zoneMenuRes.isOpen == false);
+    }
+
+    // 5. DatePickerLabels adapts Time/Date popover width to localized button captions without clipping
+    {
+        DateTime picked{.year = 2026, .month = 11, .day = 18, .hour = 12, .minute = 0, .second = 0};
+        Response dpRes{};
+        const keel::StringRef ruTimeSuffixes[3] = {"ч", "м", "с"};
+        auto renderDp = [&]() {
+            ui.BeginFrame({800.0f, 600.0f});
+            if (auto col = ui.Column({.padding = Padding::All(20.0f)})) {
+                dpRes = ui.DatePicker(picked, {
+                    .mode = DatePickerMode::Time,
+                    .showSeconds = false,
+                    .labels = {
+                        .timeSuffixes = ruTimeSuffixes,
+                        .now = "Текущее время",
+                        .done = "Применить выбор"
+                    },
+                    .width = 220.0f
+                });
+            }
+            ui.EndFrame(canvas);
+        };
+        renderDp();
+        renderDp();
+        ui.OnMouseMove(dpRes.rect.Center());
+        ui.OnMouseDown(1);
+        renderDp();
+        ui.OnMouseUp(1);
+        renderDp();
+        CHECK(ui.GetOpenPopupId() == dpRes.id);
+        CHECK(ui.GetOpenPopupRect().w > 220.0f);
+        ui.OnKeyDown(Key::Escape);
+        renderDp();
     }
 
     keel::println("  [PASS] TestApiPolish completed");

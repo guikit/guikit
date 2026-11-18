@@ -148,6 +148,29 @@ constexpr keel::StringRef MonthName(keel::i32 month, keel::ArrayRef<keel::String
     }
 }
 
+constexpr keel::StringRef ResolveTodayLabel(const DatePickerOptions& opts) noexcept {
+    if (opts.mode == DatePickerMode::Date) {
+        return opts.labels.today.empty() ? keel::StringRef("Today") : opts.labels.today;
+    }
+    return opts.labels.now.empty() ? keel::StringRef("Now") : opts.labels.now;
+}
+
+constexpr keel::StringRef ResolveDoneLabel(const DatePickerOptions& opts) noexcept {
+    return opts.labels.done.empty() ? keel::StringRef("Done") : opts.labels.done;
+}
+
+constexpr keel::StringRef ResolveTimeSuffix(keel::usize unitIdx, const DatePickerOptions& opts) noexcept {
+    if (unitIdx < opts.labels.timeSuffixes.size() && !opts.labels.timeSuffixes[unitIdx].empty()) {
+        return opts.labels.timeSuffixes[unitIdx];
+    }
+    switch (unitIdx) {
+        case 0:  return "h";
+        case 1:  return "m";
+        case 2:  return "s";
+        default: return {};
+    }
+}
+
 void StepMonth(keel::i32& ioYear, keel::i32& ioMonth, keel::i32 deltaMonths) noexcept {
     keel::i32 total = (ioYear * 12 + (ioMonth - 1)) + deltaMonths;
     ioYear = total / 12;
@@ -284,7 +307,8 @@ DatePickerPopoverLayout ComputePopoverLayout(
     Rect boxRect,
     const DatePickerOptions& opts,
     const UiTheme& theme,
-    Rect vpRect
+    Rect vpRect,
+    ICanvas* canvas
 ) noexcept {
     DatePickerPopoverLayout l{};
     l.hasCalendar = (opts.mode != DatePickerMode::Time);
@@ -299,9 +323,20 @@ DatePickerPopoverLayout ComputePopoverLayout(
     float headerGap = 4.0f;
     float sectionGap = 6.0f;
 
+    const float smallFont = theme.ResolveFontSize(UiText{}, TextRole::LabelSmall, opts.size);
+    const keel::StringRef todayLabel = ResolveTodayLabel(opts);
+    const keel::StringRef doneLabel = ResolveDoneLabel(opts);
+    constexpr float kFooterBtnPadX = 12.0f;
+    float todayW = opts.showTodayButton
+        ? keel::max(64.0f, std::ceil(TextUtil::MeasureWidth(todayLabel, smallFont, canvas)) + kFooterBtnPadX * 2.0f)
+        : 0.0f;
+    float doneW = keel::max(62.0f, std::ceil(TextUtil::MeasureWidth(doneLabel, smallFont, canvas)) + kFooterBtnPadX * 2.0f);
+    const float footerMinInnerW = opts.showTodayButton ? (todayW + 8.0f + doneW) : doneW;
+
     float popupW = l.hasCalendar
         ? 264.0f
         : (opts.showSeconds ? 258.0f : 196.0f);
+    popupW = keel::max(popupW, footerMinInnerW + pad * 2.0f);
     if (vpRect.w > 40.0f && popupW > vpRect.w - 8.0f) {
         popupW = keel::max(140.0f, vpRect.w - 8.0f);
     }
@@ -418,9 +453,16 @@ DatePickerPopoverLayout ComputePopoverLayout(
     const float btnH = keel::min(keel::max(16.0f, footerH - 2.0f), 26.0f);
     const float btnY = l.footerRect.y + (footerH - btnH) * 0.5f + 1.0f;
     if (opts.showTodayButton) {
-        l.todayBtnRect = Rect(innerX, btnY, 64.0f, btnH);
+        const float maxButtonsW = keel::max(0.0f, innerW - 6.0f);
+        if (todayW + doneW > maxButtonsW && maxButtonsW > 0.0f) {
+            const float ratio = maxButtonsW / (todayW + doneW);
+            todayW = std::floor(todayW * ratio);
+            doneW = keel::max(24.0f, maxButtonsW - todayW);
+        }
+        l.todayBtnRect = Rect(innerX, btnY, todayW, btnH);
+    } else {
+        doneW = keel::min(doneW, innerW);
     }
-    const float doneW = 62.0f;
     l.doneBtnRect = Rect(innerX + innerW - doneW, btnY, doneW, btnH);
 
     return l;
@@ -476,7 +518,7 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
 
         // Month & year title ("October 2026")
         char titleBuf[96];
-        const keel::StringRef mName = MonthName(d.viewMonth, d.opts.monthNames);
+        const keel::StringRef mName = MonthName(d.viewMonth, d.opts.labels.monthNames);
         const auto titleStr = keel::format_buf(titleBuf, "%s %04d", mName, d.viewYear);
         canvas.DrawTextBox(titleStr, d.layout.titleRect, bodyFont, pal.textPrimary, 0.5f, 0.5f);
 
@@ -484,8 +526,8 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
         static constexpr keel::StaticArray<keel::StringRef, 7> kDefaultWeekdaysSun = {"Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"};
         for (keel::i32 col = 0; col < 7; ++col) {
             const keel::i32 dow = (col + (d.opts.firstDayMonday ? 1 : 0)) % 7;
-            const keel::StringRef wLabel = (d.opts.weekdayNames.size() >= 7 && !d.opts.weekdayNames[static_cast<keel::usize>(dow)].empty())
-                ? d.opts.weekdayNames[static_cast<keel::usize>(dow)]
+            const keel::StringRef wLabel = (d.opts.labels.weekdayNames.size() >= 7 && !d.opts.labels.weekdayNames[static_cast<keel::usize>(dow)].empty())
+                ? d.opts.labels.weekdayNames[static_cast<keel::usize>(dow)]
                 : kDefaultWeekdaysSun[static_cast<keel::usize>(dow)];
             const Rect wRect(
                 d.layout.weekdayRowRect.x + static_cast<float>(col) * d.layout.cellW,
@@ -565,7 +607,11 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
             keel::clamp(d.value.minute, 0, 59),
             keel::clamp(d.value.second, 0, 59)
         };
-        const keel::StaticArray<keel::StringRef, 3> suffixes = {"h", "m", "s"};
+        const keel::StaticArray<keel::StringRef, 3> suffixes = {
+            ResolveTimeSuffix(0, d.opts),
+            ResolveTimeSuffix(1, d.opts),
+            ResolveTimeSuffix(2, d.opts)
+        };
 
         for (keel::i32 u = 0; u < d.layout.timeUnitCount; ++u) {
             const keel::usize su = static_cast<keel::usize>(u);
@@ -612,13 +658,12 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
         const Color todayBg = d.todayHovered ? accentCol.WithAlphaF(0.20f) : accentCol.WithAlphaF(0.10f);
         const Color todayBorder = accentCol.WithAlphaF(0.35f);
         canvas.DrawRoundRect(d.layout.todayBtnRect, 4.0f, todayBg, todayBorder, 1.0f);
-        const keel::StringRef todayLabel = (d.opts.mode == DatePickerMode::Date) ? "Today" : "Now";
-        canvas.DrawTextBox(todayLabel, d.layout.todayBtnRect, smallFont, accentCol, 0.5f, 0.5f);
+        canvas.DrawTextBox(ResolveTodayLabel(d.opts), d.layout.todayBtnRect, smallFont, accentCol, 0.5f, 0.5f);
     }
 
     const Color doneBg = d.doneHovered ? accentCol.WithAlphaF(0.88f) : accentCol;
     canvas.DrawRoundRect(d.layout.doneBtnRect, 4.0f, doneBg);
-    canvas.DrawTextBox("Done", d.layout.doneBtnRect, smallFont, Color(255, 255, 255, 255), 0.5f, 0.5f);
+    canvas.DrawTextBox(ResolveDoneLabel(d.opts), d.layout.doneBtnRect, smallFont, Color(255, 255, 255, 255), 0.5f, 0.5f);
 }
 
 } // namespace
@@ -731,20 +776,20 @@ Response DatePicker::Run(
     if (!optsCopy.width.IsFixed()) {
         optsCopy.width = AxisSize(Control::ResolveWidthMode(ctx, optsCopy.width, SizeMode::Stretch));
     }
-    if (!opts.monthNames.empty()) {
-        auto* arr = ctx.GetArena().alloc_array<keel::StringRef>(opts.monthNames.size());
-        for (keel::usize i = 0; i < opts.monthNames.size(); ++i) {
-            arr[i] = ctx.AllocString(opts.monthNames[i]);
+    auto copyLabelList = [&](keel::ArrayRef<keel::StringRef> src) -> keel::ArrayRef<keel::StringRef> {
+        if (src.empty()) return {};
+        auto* arr = ctx.GetArena().alloc_array<keel::StringRef>(src.size());
+        for (keel::usize i = 0; i < src.size(); ++i) {
+            arr[i] = ctx.AllocString(src[i]);
         }
-        optsCopy.monthNames = keel::ArrayRef<keel::StringRef>(arr, opts.monthNames.size());
-    }
-    if (!opts.weekdayNames.empty()) {
-        auto* arr = ctx.GetArena().alloc_array<keel::StringRef>(opts.weekdayNames.size());
-        for (keel::usize i = 0; i < opts.weekdayNames.size(); ++i) {
-            arr[i] = ctx.AllocString(opts.weekdayNames[i]);
-        }
-        optsCopy.weekdayNames = keel::ArrayRef<keel::StringRef>(arr, opts.weekdayNames.size());
-    }
+        return keel::ArrayRef<keel::StringRef>(arr, src.size());
+    };
+    optsCopy.labels.monthNames = copyLabelList(opts.labels.monthNames);
+    optsCopy.labels.weekdayNames = copyLabelList(opts.labels.weekdayNames);
+    optsCopy.labels.timeSuffixes = copyLabelList(opts.labels.timeSuffixes);
+    optsCopy.labels.today = ctx.AllocString(opts.labels.today);
+    optsCopy.labels.now = ctx.AllocString(opts.labels.now);
+    optsCopy.labels.done = ctx.AllocString(opts.labels.done);
 
     const Vec2 intrinsicDims = DatePicker::Measure(value, optsCopy, activeSize, canvas, theme);
 
@@ -789,7 +834,7 @@ Response DatePicker::Run(
         }
     }
 
-    const DatePickerPopoverLayout popLayout = ComputePopoverLayout(boxRect, optsCopy, theme, ctx.GetPopupViewportRect());
+    const DatePickerPopoverLayout popLayout = ComputePopoverLayout(boxRect, optsCopy, theme, ctx.GetPopupViewportRect(), canvas);
     if (isOpen) {
         ctx.OpenPopup(id, popLayout.popupRect);
         ctx.RegisterOverlayHitRegion(id, popLayout.popupRect);
@@ -988,7 +1033,8 @@ Response DatePicker::Run(
             hoveredDayCell,
             hoveredTimeBtn,
             todayHovered,
-            doneHovered
+            doneHovered,
+            detail::HashArgs(ResolveTodayLabel(optsCopy), ResolveDoneLabel(optsCopy))
         ));
 
         ctx.RegisterOverlay([renderData](ICanvas& overlayCanvas) {

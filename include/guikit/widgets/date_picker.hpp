@@ -37,6 +37,16 @@ enum class DatePickerMode : keel::u8 {
     Time      ///< HH:MM(:SS)
 };
 
+/// Localized text labels for DatePicker calendar headers, time units, and footer buttons.
+struct DatePickerLabels {
+    keel::ArrayRef<keel::StringRef> monthNames{};   ///< Optional 12 localized month names [January .. December]
+    keel::ArrayRef<keel::StringRef> weekdayNames{}; ///< Optional 7 localized short weekday labels [Sunday .. Saturday]
+    keel::ArrayRef<keel::StringRef> timeSuffixes{}; ///< Optional 3 localized time unit suffixes [h, m, s]
+    keel::StringRef today{"Today"};                 ///< Footer button label in `DatePickerMode::Date`
+    keel::StringRef now{"Now"};                     ///< Footer button label in `DateTime` / `Time` modes
+    keel::StringRef done{"Done"};                   ///< Footer confirmation button label
+};
+
 /// Configuration options for DatePicker control widget.
 struct DatePickerOptions {
     DatePickerMode mode{DatePickerMode::Date};
@@ -46,8 +56,7 @@ struct DatePickerOptions {
     keel::Optional<DateTime> minDate{keel::kNullOpt};       ///< Optional lower bound for selectable date/time
     keel::Optional<DateTime> maxDate{keel::kNullOpt};       ///< Optional upper bound for selectable date/time
     keel::Optional<DateTime> todayOverride{keel::kNullOpt}; ///< Optional deterministic override for "Today"/"Now" (nullopt = DateTime::Today())
-    keel::ArrayRef<keel::StringRef> monthNames{};           ///< Optional 12 localized month names [January .. December]
-    keel::ArrayRef<keel::StringRef> weekdayNames{};         ///< Optional 7 localized short weekday labels [Sunday .. Saturday]
+    DatePickerLabels labels{};                              ///< Optional localized calendar, time-unit, and button labels
     StateColor color{};
     AxisSize width{};                                       ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit` in `Toolbar`, or `Fixed(dp)`)
     AxisSize height{};                                      ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
