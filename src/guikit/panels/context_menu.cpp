@@ -11,18 +11,17 @@ namespace {
 
 struct ContextMenuPersistState {
     Vec2 anchorPos{0.0f, 0.0f};
-    Rect triggerRect{0.0f, 0.0f, 0.0f, 0.0f};
+    keel::Optional<Vec2> lastCallerAnchorPos{keel::kNullOpt};
+    Rect anchorRect{0.0f, 0.0f, 0.0f, 0.0f};
     keel::i32 keyboardIndex{-1};
-    bool wasExternalOpen{false};
+    bool wasOpen{false};
 };
 
 } // namespace
 
 ContextMenuResponse ContextMenu::Run(
     Context& ctx,
-    bool* externalOpen,
-    keel::Optional<Vec2> explicitAnchorPos,
-    Rect triggerRect,
+    bool& open,
     keel::ArrayRef<ContextMenuItem> items,
     const ContextMenuOptions& opts,
     keel::SourceLocation loc
@@ -33,16 +32,17 @@ ContextMenuResponse ContextMenu::Run(
     const UiTheme theme = ctx.GetTheme();
 
     auto& state = ctx.GetOrCreateState<ContextMenuPersistState>(id);
-    if (triggerRect.w > 0.0f || triggerRect.h > 0.0f) {
-        state.triggerRect = triggerRect;
-    } else if (state.triggerRect.w > 0.0f || state.triggerRect.h > 0.0f) {
-        triggerRect = state.triggerRect;
+    Rect anchorRect = opts.anchorRect;
+    if (anchorRect.w > 0.0f || anchorRect.h > 0.0f) {
+        state.anchorRect = anchorRect;
+    } else if (!opts.anchorPos.has_value() && (state.anchorRect.w > 0.0f || state.anchorRect.h > 0.0f)) {
+        anchorRect = state.anchorRect;
     }
     const bool wasPopupOpen = ctx.IsPopupOpen(id);
 
     ContextMenuResponse res{};
     res.id = id;
-    res.rect = triggerRect;
+    res.rect = anchorRect;
     res.ctx = &ctx;
     res.clickedIndex = -1;
 
@@ -50,10 +50,28 @@ ContextMenuResponse ContextMenu::Run(
         if (wasPopupOpen) {
             ctx.ClosePopup();
         }
-        if (externalOpen) {
-            *externalOpen = false;
+        open = false;
+        state.wasOpen = false;
+        state.lastCallerAnchorPos.reset();
+        res.isOpen = false;
+        return res;
+    }
+
+    if (!open) {
+        if (wasPopupOpen) {
+            ctx.ClosePopup();
         }
-        state.wasExternalOpen = false;
+        state.wasOpen = false;
+        state.lastCallerAnchorPos.reset();
+        res.isOpen = false;
+        return res;
+    }
+
+    if (!wasPopupOpen && state.wasOpen) {
+        // Popup was dismissed by clicking outside in BeginFrame
+        open = false;
+        state.wasOpen = false;
+        state.lastCallerAnchorPos.reset();
         res.isOpen = false;
         return res;
     }
@@ -113,12 +131,12 @@ ContextMenuResponse ContextMenu::Run(
     const float menuH = totalH;
 
     const Rect vp = ctx.GetPopupViewportRect();
-    auto clampMenuRect = [&](Vec2 anchor, bool fromTriggerBox) -> Rect {
+    auto clampMenuRect = [&](Vec2 anchor, bool fromAnchorRect) -> Rect {
         float x = anchor.x;
         float y = anchor.y;
         if (vp.w > 0.0f && x + menuW > vp.Right() - 6.0f) {
-            if (fromTriggerBox && triggerRect.w > 0.0f) {
-                x = triggerRect.Right() - menuW;
+            if (fromAnchorRect && anchorRect.w > 0.0f) {
+                x = anchorRect.Right() - menuW;
             } else {
                 x = anchor.x - menuW;
             }
@@ -127,8 +145,8 @@ ContextMenuResponse ContextMenu::Run(
             x = keel::clamp(x, vp.x + 6.0f, keel::max(vp.x + 6.0f, vp.Right() - menuW - 6.0f));
         }
         if (vp.h > 0.0f && y + menuH > vp.Bottom() - 6.0f) {
-            if (fromTriggerBox && triggerRect.h > 0.0f && triggerRect.y - menuH - 4.0f >= vp.y + 6.0f) {
-                y = triggerRect.y - menuH - 4.0f;
+            if (fromAnchorRect && anchorRect.h > 0.0f && anchorRect.y - menuH - 4.0f >= vp.y + 6.0f) {
+                y = anchorRect.y - menuH - 4.0f;
             } else {
                 y = vp.Bottom() - menuH - 6.0f;
             }
@@ -140,74 +158,31 @@ ContextMenuResponse ContextMenu::Run(
     };
 
     const Vec2 mouse = ctx.GetMousePos();
-    bool isOpen = wasPopupOpen;
+    const bool fromAnchorRect = !opts.anchorPos.has_value() && anchorRect.h > 0.0f;
+    bool callerMovedAnchor = false;
 
-    // Synchronize if externalOpen was closed by BeginFrame outside click
-    if (externalOpen != nullptr) {
-        if (*externalOpen && !wasPopupOpen && !state.wasExternalOpen) {
-            state.anchorPos = explicitAnchorPos.value_or(
-                (triggerRect.w > 0.0f || triggerRect.h > 0.0f)
-                    ? Vec2{triggerRect.x, triggerRect.Bottom() + 4.0f}
-                    : mouse
-            );
-            const Rect popupRect = clampMenuRect(state.anchorPos, explicitAnchorPos == keel::kNullOpt && triggerRect.h > 0.0f);
-            ctx.OpenPopup(id, popupRect);
-            state.keyboardIndex = -1;
-            isOpen = true;
-        } else if (!*externalOpen && wasPopupOpen) {
-            ctx.ClosePopup();
-            isOpen = false;
-        } else if (*externalOpen && !wasPopupOpen && state.wasExternalOpen) {
-            // Popup was dismissed by clicking outside in BeginFrame
-            *externalOpen = false;
-            isOpen = false;
-        }
+    if (!wasPopupOpen) {
+        // Fresh open: latch anchor coordinates for the lifetime of this popup
+        state.anchorPos = opts.anchorPos.value_or(
+            (anchorRect.w > 0.0f || anchorRect.h > 0.0f)
+                ? Vec2{anchorRect.x, anchorRect.Bottom() + 4.0f}
+                : mouse
+        );
+        state.lastCallerAnchorPos = opts.anchorPos;
+        state.keyboardIndex = -1;
+    } else if (opts.anchorPos.has_value() &&
+               state.lastCallerAnchorPos.has_value() &&
+               *opts.anchorPos != *state.lastCallerAnchorPos) {
+        // Caller explicitly moved anchorPos (e.g. re-triggered RightClick at a new coordinate)
+        state.anchorPos = *opts.anchorPos;
+        state.lastCallerAnchorPos = opts.anchorPos;
+        state.keyboardIndex = -1;
+        callerMovedAnchor = true;
     }
 
-    // Check trigger interaction
-    const bool overTrigger = (triggerRect.w > 0.0f && triggerRect.h > 0.0f) && triggerRect.Contains(mouse);
-    const bool occludedByOtherPopup = ctx.GetOpenPopupId().IsValid() && ctx.GetOpenPopupId() != id && ctx.GetOpenPopupRect().Contains(mouse);
-    const bool occludedByModal = ctx.IsModalBlocking(mouse);
-
-    if (!occludedByOtherPopup && !occludedByModal) {
-        if (opts.trigger == ContextMenuTrigger::RightClick && overTrigger && ctx.IsRightMouseClicked()) {
-            state.anchorPos = explicitAnchorPos.value_or(mouse);
-            const Rect popupRect = clampMenuRect(state.anchorPos, false);
-            ctx.OpenPopup(id, popupRect);
-            state.keyboardIndex = -1;
-            isOpen = true;
-            if (externalOpen) *externalOpen = true;
-            ctx.ConsumeMouseClick();
-            ctx.InvalidateAll();
-        } else if (opts.trigger == ContextMenuTrigger::LeftClick && overTrigger && ctx.IsMouseClicked()) {
-            if (wasPopupOpen) {
-                ctx.ClosePopup();
-                isOpen = false;
-                if (externalOpen) *externalOpen = false;
-            } else {
-                state.anchorPos = explicitAnchorPos.value_or(Vec2{triggerRect.x, triggerRect.Bottom() + 4.0f});
-                const Rect popupRect = clampMenuRect(state.anchorPos, !explicitAnchorPos.has_value());
-                ctx.OpenPopup(id, popupRect);
-                state.keyboardIndex = -1;
-                isOpen = true;
-                if (externalOpen) *externalOpen = true;
-            }
-            ctx.ConsumeMouseClick();
-            ctx.InvalidateAll();
-        }
-    }
-
-    if (!isOpen) {
-        state.wasExternalOpen = (externalOpen != nullptr) ? *externalOpen : false;
-        res.isOpen = false;
-        return res;
-    }
-
-    const Rect popupRect = clampMenuRect(
-        state.anchorPos,
-        opts.trigger == ContextMenuTrigger::LeftClick && !explicitAnchorPos.has_value()
-    );
-    ctx.OpenPopup(id, popupRect);
+    const Rect popupRect = clampMenuRect(state.anchorPos, fromAnchorRect);
+    ctx.OpenPopup(id, popupRect, opts.anchorRect);
+    bool isOpen = true;
     res.rect = popupRect;
 
     // Build item rects & process hover / click / keyboard navigation
@@ -280,9 +255,9 @@ ContextMenuResponse ContextMenu::Run(
         stepSelectable(-1);
     } else if (ctx.ConsumeKey(Key::Escape)) {
         ctx.ClosePopup();
-        isOpen = false;
-        if (externalOpen) *externalOpen = false;
-        state.wasExternalOpen = false;
+        open = false;
+        state.wasOpen = false;
+        state.lastCallerAnchorPos.reset();
         res.isOpen = false;
         ctx.InvalidateAll();
         return res;
@@ -294,9 +269,9 @@ ContextMenuResponse ContextMenu::Run(
                 res.clicked = true;
                 res.changed = true;
                 ctx.ClosePopup();
-                isOpen = false;
-                if (externalOpen) *externalOpen = false;
-                state.wasExternalOpen = false;
+                open = false;
+                state.wasOpen = false;
+                state.lastCallerAnchorPos.reset();
                 res.isOpen = false;
                 ctx.InvalidateAll();
                 return res;
@@ -316,8 +291,11 @@ ContextMenuResponse ContextMenu::Run(
     // Mouse click handling when already open
     {
         auto hitScope = ctx.ScopedOverlayHitCheck(wasPopupOpen ? id : Id::Null());
-        if (wasPopupOpen && (ctx.IsMouseClicked() || ctx.IsRightMouseClicked())) {
-            if (popupRect.Contains(mouse)) {
+        if (wasPopupOpen && !callerMovedAnchor && (ctx.IsMouseClicked() || ctx.IsRightMouseClicked())) {
+            const bool insidePopup = popupRect.Contains(mouse);
+            const bool insideAnchor = (opts.anchorRect.w > 0.0f && opts.anchorRect.h > 0.0f) &&
+                                      opts.anchorRect.Contains(mouse);
+            if (insidePopup) {
                 if (ctx.IsMouseClicked() && hoveredIdx >= 0 && static_cast<keel::usize>(hoveredIdx) < items.size()) {
                     const auto& clickedItem = items[static_cast<keel::usize>(hoveredIdx)];
                     if (!clickedItem.isSeparatorOnly && !clickedItem.disabled) {
@@ -326,29 +304,30 @@ ContextMenuResponse ContextMenu::Run(
                         res.changed = true;
                         ctx.ClosePopup();
                         isOpen = false;
-                        if (externalOpen) *externalOpen = false;
+                        open = false;
                     }
                 }
                 ctx.ConsumeMouseClick();
                 ctx.InvalidateAll();
-            } else if (ctx.IsRightMouseClicked() && overTrigger && opts.trigger == ContextMenuTrigger::RightClick) {
-                // Reposition context menu to new right-click coordinates inside trigger
-                state.anchorPos = explicitAnchorPos.value_or(mouse);
-                const Rect newRect = clampMenuRect(state.anchorPos, false);
-                ctx.OpenPopup(id, newRect);
-                ctx.ConsumeMouseClick();
-                ctx.InvalidateAll();
+            } else if (ctx.IsMouseClicked() && insideAnchor) {
+                // Allow the anchor button's own click handler to toggle `open = false` cleanly on release.
             } else {
                 ctx.ClosePopup();
                 isOpen = false;
-                if (externalOpen) *externalOpen = false;
+                open = false;
                 ctx.ConsumeMouseClick();
                 ctx.InvalidateAll();
             }
+        } else if (callerMovedAnchor && (ctx.IsMouseClicked() || ctx.IsRightMouseClicked())) {
+            ctx.ConsumeMouseClick();
+            ctx.InvalidateAll();
         }
     }
 
-    state.wasExternalOpen = isOpen && (externalOpen != nullptr ? *externalOpen : true);
+    state.wasOpen = isOpen;
+    if (!isOpen) {
+        state.lastCallerAnchorPos.reset();
+    }
     res.isOpen = isOpen;
 
     if (!isOpen) {

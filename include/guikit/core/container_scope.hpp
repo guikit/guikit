@@ -1,5 +1,8 @@
 #pragma once
 
+#include "guikit/core/response.hpp"
+#include "guikit/core/types.hpp"
+
 namespace guikit {
 
 class Context;
@@ -35,6 +38,15 @@ public:
     [[nodiscard]] Node* GetNode() const noexcept {
         return m_node;
     }
+
+    /// Returns the container's previous-frame layout bounds in current container coordinates.
+    [[nodiscard]] Rect GetBounds() const noexcept;
+
+    /// Returns true if the pointer hovers over the container without being occluded by overlays.
+    [[nodiscard]] bool IsHovered() const noexcept;
+
+    /// Passively checks whether `trigger` fired on this container without capturing active child focus.
+    [[nodiscard]] bool IsTriggered(InteractionTrigger trigger) const noexcept;
 
 protected:
     Context* m_ctx{nullptr};

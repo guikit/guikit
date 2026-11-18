@@ -226,9 +226,16 @@ ContextMenuResponse ToolbarScope::Dropdown(
         opts.icon = Icon::ChevronDown();
         opts.iconPlacement = Placement::Trailing;
     }
+    struct DropdownMenuState {
+        bool open{false};
+    };
     const Response btnRes = Toolbar::ToolButton(*m_ctx, opts, loc);
-    menuOpts.trigger = ContextMenuTrigger::LeftClick;
-    return ContextMenu::Run(*m_ctx, nullptr, keel::kNullOpt, btnRes.rect, menuItems, menuOpts, loc);
+    auto& state = m_ctx->GetOrCreateState<DropdownMenuState>(btnRes.id);
+    if (btnRes.clicked) {
+        state.open = !state.open;
+    }
+    menuOpts.anchorRect = btnRes.rect;
+    return ContextMenu::Run(*m_ctx, state.open, menuItems, menuOpts, loc);
 }
 
 SplitButtonResponse ToolbarScope::SplitButton(
@@ -637,18 +644,26 @@ SplitButtonResponse Toolbar::SplitButton(
     payload->splitChevronWidth = chevW;
     payload->chevronHovered = !effectiveDisabled && inChevron;
 
-    menuOpts.trigger = ContextMenuTrigger::LeftClick;
+    struct SplitDropdownState {
+        bool open{false};
+    };
+    auto& dropState = ctx.GetOrCreateState<SplitDropdownState>(id);
+    if (!effectiveDisabled && inChevron && ctx.IsMouseClicked()) {
+        dropState.open = !dropState.open;
+        ctx.ConsumeMouseClick();
+        ctx.InvalidateAll();
+    }
+
     menuOpts.disabled = effectiveDisabled;
     menuOpts.size = activeSize;
+    menuOpts.anchorRect = chevRect;
     if (!menuOpts.minWidth.has_value()) {
         menuOpts.minWidth = keel::max(160.0f, prevRect.w);
     }
-    const keel::Optional<Vec2> anchorPos = (prevRect.w > 0.0f && prevRect.h > 0.0f)
-        ? keel::Optional<Vec2>(Vec2{prevRect.x, prevRect.Bottom() + 4.0f})
-        : keel::kNullOpt;
-    const ContextMenuResponse menuRes = ContextMenu::Run(
-        ctx, nullptr, anchorPos, chevRect, menuItems, menuOpts, loc
-    );
+    if (!menuOpts.anchorPos.has_value() && prevRect.w > 0.0f && prevRect.h > 0.0f) {
+        menuOpts.anchorPos = Vec2{prevRect.x, prevRect.Bottom() + 4.0f};
+    }
+    const ContextMenuResponse menuRes = ContextMenu::Run(ctx, dropState.open, menuItems, menuOpts, loc);
     payload->chevronOpen = menuRes.isOpen;
     payload->chevronPressed = !effectiveDisabled && inChevron && (ctx.IsMouseClicked() || menuRes.isOpen);
 

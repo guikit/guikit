@@ -231,8 +231,10 @@ void Context::BeginFrame(Vec2 viewportSize, float displayScale, float rootZoom) 
     if (m_mouseClicked && m_openPopupId.IsValid()) {
         const Rect* selectBounds = m_prevFrameBounds.get(m_openPopupId);
         const bool overSelect = (selectBounds != nullptr) && selectBounds->Contains(m_mousePos);
+        const bool overAnchor = (m_openPopupAnchorRect.w > 0.0f && m_openPopupAnchorRect.h > 0.0f) &&
+                                m_openPopupAnchorRect.Contains(m_mousePos);
         const bool overPopup = m_openPopupRect.Contains(m_mousePos);
-        if (!overSelect && !overPopup) {
+        if (!overSelect && !overAnchor && !overPopup) {
             ClosePopup();
             ConsumeMouseClick();
         }
@@ -1737,14 +1739,18 @@ static Rect ExpandPopupDamageRect(Rect r) noexcept {
     return Rect(r.x - 12.0f, r.y - 12.0f, r.w + 24.0f, r.h + 32.0f);
 }
 
-void Context::OpenPopup(Id id, Rect bounds) {
+void Context::OpenPopup(Id id, Rect bounds, Rect anchorRect) {
     const Rect frameBounds = CurrentSpace().Apply(bounds);
-    if (m_openPopupId != id || m_openPopupRect != frameBounds) {
+    const Rect anchorFrameBounds = (anchorRect.w > 0.0f && anchorRect.h > 0.0f)
+        ? CurrentSpace().Apply(anchorRect)
+        : Rect{};
+    if (m_openPopupId != id || m_openPopupRect != frameBounds || m_openPopupAnchorRect != anchorFrameBounds) {
         if (m_openPopupId.IsValid() && m_openPopupRect.w > 0.0f && m_openPopupRect.h > 0.0f) {
             InvalidateFrameRect(ExpandPopupDamageRect(m_openPopupRect));
         }
         m_openPopupId = id;
         m_openPopupRect = frameBounds;
+        m_openPopupAnchorRect = anchorFrameBounds;
         InvalidateFrameRect(ExpandPopupDamageRect(m_openPopupRect));
     }
 }
@@ -1757,6 +1763,7 @@ void Context::ClosePopup() {
         }
         m_openPopupId = Id::Null();
         m_openPopupRect = Rect{};
+        m_openPopupAnchorRect = Rect{};
         m_openPopupVisualHash = 0;
         ArrayEraseIf(m_prevOverlayHitRegions, [closedId](const OverlayHitRegion& r) { return r.id == closedId; });
         ArrayEraseIf(m_currOverlayHitRegions, [closedId](const OverlayHitRegion& r) { return r.id == closedId; });

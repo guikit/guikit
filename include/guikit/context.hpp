@@ -1640,52 +1640,12 @@ public:
 
     // --- ContextMenu Popup Component ---
     ContextMenuResponse ContextMenu(
-        const Response& triggerTarget,
-        keel::ArrayRef<ContextMenuItem> items,
-        const ContextMenuOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return guikit::ContextMenu::Run(*this, nullptr, keel::kNullOpt, triggerTarget.rect, items, opts, loc);
-    }
-
-    ContextMenuResponse ContextMenu(
-        Rect triggerRect,
-        keel::ArrayRef<ContextMenuItem> items,
-        const ContextMenuOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return guikit::ContextMenu::Run(*this, nullptr, keel::kNullOpt, triggerRect, items, opts, loc);
-    }
-
-    ContextMenuResponse ContextMenu(
-        keel::ArrayRef<ContextMenuItem> items,
-        const ContextMenuOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        const Id parentId = m_containerStack.empty() ? Id::Null() : m_containerStack.back()->id;
-        const Rect parentRect = GetPrevFrameBounds(parentId);
-        return guikit::ContextMenu::Run(*this, nullptr, keel::kNullOpt, parentRect, items, opts, loc);
-    }
-
-    ContextMenuResponse ContextMenu(
         bool& open,
         keel::ArrayRef<ContextMenuItem> items,
         const ContextMenuOptions& opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        const Id parentId = m_containerStack.empty() ? Id::Null() : m_containerStack.back()->id;
-        const Rect parentRect = GetPrevFrameBounds(parentId);
-        return guikit::ContextMenu::Run(*this, &open, keel::kNullOpt, parentRect, items, opts, loc);
-    }
-
-    ContextMenuResponse ContextMenu(
-        bool& open,
-        Vec2 anchorPos,
-        keel::ArrayRef<ContextMenuItem> items,
-        const ContextMenuOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return guikit::ContextMenu::Run(*this, &open, anchorPos, Rect{}, items, opts, loc);
+        return guikit::ContextMenu::Run(*this, open, items, opts, loc);
     }
 
     // --- Toast Notification System ---
@@ -1881,7 +1841,7 @@ public:
         Rect rect{};
     };
 
-    void OpenPopup(Id id, Rect bounds);
+    void OpenPopup(Id id, Rect bounds, Rect anchorRect = Rect{});
     void ClosePopup();
     [[nodiscard]] bool IsPopupOpen(Id id) const noexcept { return m_openPopupId == id && id.IsValid(); }
     [[nodiscard]] Id GetOpenPopupId() const noexcept { return m_openPopupId; }
@@ -2387,6 +2347,7 @@ private:
     // Floating popup, tooltip, modal & toast overlay state
     Id m_openPopupId{Id::Null()};
     Rect m_openPopupRect{0.0f, 0.0f, 0.0f, 0.0f};
+    Rect m_openPopupAnchorRect{0.0f, 0.0f, 0.0f, 0.0f};
     keel::u64 m_openPopupVisualHash{0};
     Id m_prevOpenPopupId{Id::Null()};
     Rect m_prevOpenPopupRect{0.0f, 0.0f, 0.0f, 0.0f};

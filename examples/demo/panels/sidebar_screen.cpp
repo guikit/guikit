@@ -21,6 +21,7 @@ struct SidebarState {
     float sidebarWidth = 210.0f;
 
     // Optional Workbench shell companions
+    bool gearMenuOpen = false;
     bool showBottomPanel = false;
     keel::i32 bottomTabIdx = 0;
     bool showStatusBar = false;
@@ -212,15 +213,19 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
                         const guikit::Response gearBtn = bar.Action({
                             .icon = guikit::Icon::Settings(),
                             .label = "Settings",
-                            .tooltip = "Settings & Quick Actions"
+                            .tooltip = "Settings & Quick Actions",
+                            .active = s_state.gearMenuOpen
                         });
-                        const auto gearMenu = ui.ContextMenu(gearBtn, {
+                        if (gearBtn.clicked) {
+                            s_state.gearMenuOpen = !s_state.gearMenuOpen;
+                        }
+                        const auto gearMenu = ui.ContextMenu(s_state.gearMenuOpen, {
                             {.label = "Command Palette...", .shortcut = "Ctrl+Shift+P", .icon = guikit::Icon::Search()},
                             {.label = "Settings",           .shortcut = "Ctrl+,",       .icon = guikit::Icon::Settings(), .separatorAfter = true},
                             {.label = "Toggle Sidebar",     .shortcut = "Ctrl+B",       .icon = guikit::Icon::ChevronLeft()},
                             {.label = "Toggle BottomPanel", .shortcut = "Ctrl+J",       .icon = guikit::Icon::ChevronUp()}
                         }, {
-                            .trigger = guikit::ContextMenuTrigger::LeftClick,
+                            .anchorRect = gearBtn.rect,
                             .minWidth = 220.0f
                         });
                         if (gearMenu.clickedIndex == 1) {

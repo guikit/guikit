@@ -14,13 +14,6 @@ namespace guikit {
 class Context;
 class ICanvas;
 
-/// Trigger mode for opening a ContextMenu popup.
-enum class ContextMenuTrigger : keel::u8 {
-    RightClick = 0, ///< Opens on right mouse click within the trigger rect (positioned at cursor)
-    LeftClick,      ///< Opens on left mouse click within the trigger rect (anchored below/above rect)
-    Manual          ///< Controlled programmatically via external `bool& open`
-};
-
 /// Single entry inside a ContextMenu popup.
 struct ContextMenuItem {
     UiText label{};
@@ -40,9 +33,10 @@ struct ContextMenuItem {
     }
 };
 
-/// Configuration options for a ContextMenu popup.
+/// Configuration options for a `ContextMenu` popup.
 struct ContextMenuOptions {
-    ContextMenuTrigger trigger{ContextMenuTrigger::RightClick};
+    Rect anchorRect{};                                  ///< Anchor bounds (e.g. `actionBtn.rect`) for dropdown placement below/above
+    keel::Optional<Vec2> anchorPos{keel::kNullOpt};     ///< Explicit anchor coordinate (e.g. cursor position on RightClick)
     keel::Optional<float> minWidth{188.0f};
     keel::Optional<float> width{keel::kNullOpt};
     StateColor background{};
@@ -54,7 +48,7 @@ struct ContextMenuOptions {
 /// Extended response returned by `ui.ContextMenu(...)`.
 struct ContextMenuResponse : public Response {
     keel::i32 clickedIndex{-1}; ///< Index of the menu item activated this frame (-1 if none)
-    bool isOpen{false};   ///< True while the context menu popup is open
+    bool isOpen{false};         ///< True while the context menu popup is open
 };
 
 /// Floating ContextMenu / Dropdown action menu component.
@@ -62,9 +56,7 @@ class ContextMenu {
 public:
     static ContextMenuResponse Run(
         Context& ctx,
-        bool* externalOpen,
-        keel::Optional<Vec2> explicitAnchorPos,
-        Rect triggerRect,
+        bool& open,
         keel::ArrayRef<ContextMenuItem> items,
         const ContextMenuOptions& opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()

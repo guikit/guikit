@@ -7,6 +7,13 @@ namespace guikit {
 
 class Context;
 
+/// Unified interaction trigger selector for widgets and containers.
+enum class InteractionTrigger : keel::u8 {
+    Click = 0,   ///< Left click (or keyboard activation on focused controls)
+    RightClick,  ///< Right mouse button click
+    DoubleClick  ///< Double-click with primary mouse button
+};
+
 /// Represents interaction feedback and computed layout bounds for any widget.
 struct Response {
     Id id{Id::Null()};
@@ -28,6 +35,16 @@ struct Response {
     /// Implicit conversion to bool for idiomatic `if (ui.Button(...))` usage.
     [[nodiscard]] constexpr operator bool() const noexcept {
         return clicked || changed || submitted;
+    }
+
+    /// Returns true if the specified interaction trigger fired on this frame.
+    [[nodiscard]] constexpr bool IsTriggered(InteractionTrigger trigger) const noexcept {
+        switch (trigger) {
+            case InteractionTrigger::Click:       return clicked;
+            case InteractionTrigger::RightClick:  return rightClicked;
+            case InteractionTrigger::DoubleClick: return doubleClicked;
+        }
+        return false;
     }
 
     /// Imperatively requests keyboard focus for this widget.

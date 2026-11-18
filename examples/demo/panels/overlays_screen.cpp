@@ -35,7 +35,10 @@ struct OverlaysDemoState {
     keel::FixedString<128> lastPopoverStatus = "Click \"Stream Filters\" to open Popover";
 
     // ContextMenu settings & state
-    keel::usize triggerModeIdx = 0; // 0 = RightClick, 1 = LeftClick
+    bool zoneMenuOpen = false;
+    guikit::Vec2 zoneMenuPos{};
+    bool btnMenuOpen = false;
+    keel::usize triggerModeIdx = 0; // 0 = RightClick, 1 = Click
     float menuMinWidth = 200.0f;
     bool itemBookmarked = true;
     bool itemLocked = false;
@@ -138,7 +141,7 @@ void RenderOverlaysInspector(guikit::Context& ui, DemoContext& ctx) {
             if (ui.Switch(s_ov.popoverCloseEscape).changed) ui.InvalidateAll();
         }
     } else if (s_ov.activeOverlay == 2) {
-        static constexpr keel::StaticArray<keel::StringRef, 2> kTriggerLabels = {"RightClick", "LeftClick"};
+        static constexpr keel::StaticArray<keel::StringRef, 2> kTriggerLabels = {"RightClick", "Click"};
         if (auto el = ui.Element({.label = "Trigger Mode", .layout = guikit::ElementLayout::Stacked})) {
             if (ui.Segmented(s_ov.triggerModeIdx, kTriggerLabels).changed) {
                 ui.InvalidateAll();
@@ -357,6 +360,10 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                 }
             };
 
+            const auto zoneTrigger = (s_ov.triggerModeIdx == 0)
+                ? guikit::InteractionTrigger::RightClick
+                : guikit::InteractionTrigger::Click;
+
             if (auto row = ui.Row({.gap = 12.0f, .align = guikit::Alignment::Center})) {
                 if (auto zone = ui.Box({
                     .gap = 4.0f,
@@ -370,10 +377,12 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                             : "Left-Click inside this target zone",
                         {.role = guikit::TextRole::LabelMedium}
                     );
-                    auto zoneMenu = ui.ContextMenu(menuItems, {
-                        .trigger = (s_ov.triggerModeIdx == 0)
-                            ? guikit::ContextMenuTrigger::RightClick
-                            : guikit::ContextMenuTrigger::LeftClick,
+                    if (zone.IsTriggered(zoneTrigger)) {
+                        s_ov.zoneMenuOpen = true;
+                        s_ov.zoneMenuPos = ui.GetMousePos();
+                    }
+                    auto zoneMenu = ui.ContextMenu(s_ov.zoneMenuOpen, menuItems, {
+                        .anchorPos = s_ov.zoneMenuPos,
                         .minWidth = s_ov.menuMinWidth,
                         .size = ctx.controlsSize
                     });
@@ -384,10 +393,14 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                     .text = "Quick Actions",
                     .icon = guikit::Icon::ChevronDown(),
                     .color = guikit::StateColor::Secondary(),
-                    .iconPlacement = guikit::Placement::Trailing
+                    .iconPlacement = guikit::Placement::Trailing,
+                    .active = s_ov.btnMenuOpen
                 });
-                auto btnMenu = ui.ContextMenu(actionBtn, menuItems, {
-                    .trigger = guikit::ContextMenuTrigger::LeftClick,
+                if (actionBtn.clicked) {
+                    s_ov.btnMenuOpen = !s_ov.btnMenuOpen;
+                }
+                auto btnMenu = ui.ContextMenu(s_ov.btnMenuOpen, menuItems, {
+                    .anchorRect = actionBtn.rect,
                     .minWidth = s_ov.menuMinWidth,
                     .size = ctx.controlsSize
                 });
@@ -741,7 +754,7 @@ keel::String GenerateOverlaysCode(const DemoContext& ctx) {
     }
 
     if (s_ov.activeOverlay == 2) {
-        const keel::StringRef trigName = (s_ov.triggerModeIdx == 0) ? "RightClick" : "LeftClick";
+        const keel::StringRef trigName = (s_ov.triggerModeIdx == 0) ? "RightClick" : "Click";
         return keel::format(
             "const keel::StaticArray<guikit::ContextMenuItem, 6> menuItems = {{{{\n"
             "    {{.label = \"Edit Properties\", .shortcut = \"Enter\",  .icon = guikit::Icon::Edit()}},\n"
@@ -752,8 +765,12 @@ keel::String GenerateOverlaysCode(const DemoContext& ctx) {
             "    {{.label = \"Delete Node\",     .shortcut = \"Del\",    .icon = guikit::Icon::Trash(), .variant = guikit::UiVariant::Danger}}\n"
             "}}}};\n\n"
             "if (auto zone = ui.Box({{.padding = guikit::Padding::Symmetric(28.0f, 20.0f)}})) {{\n"
-            "    auto zoneMenu = ui.ContextMenu(menuItems, {{\n"
-            "        .trigger = guikit::ContextMenuTrigger::{},\n"
+            "    if (zone.IsTriggered(guikit::InteractionTrigger::{})) {{\n"
+            "        zoneMenuOpen = true;\n"
+            "        zoneMenuPos = ui.GetMousePos();\n"
+            "    }}\n"
+            "    auto zoneMenu = ui.ContextMenu(zoneMenuOpen, menuItems, {{\n"
+            "        .anchorPos = zoneMenuPos,\n"
             "        .minWidth = {:.1f}f{}\n"
             "    }});\n"
             "}}\n\n"
@@ -761,10 +778,14 @@ keel::String GenerateOverlaysCode(const DemoContext& ctx) {
             "    .text = \"Quick Actions\",\n"
             "    .icon = guikit::Icon::ChevronDown(),\n"
             "    .color = guikit::StateColor::Secondary(),\n"
-            "    .iconPlacement = guikit::Placement::Trailing\n"
+            "    .iconPlacement = guikit::Placement::Trailing,\n"
+            "    .active = btnMenuOpen\n"
             "}});\n"
-            "auto btnMenu = ui.ContextMenu(actionBtn, menuItems, {{\n"
-            "    .trigger = guikit::ContextMenuTrigger::LeftClick,\n"
+            "if (actionBtn.clicked) {{\n"
+            "    btnMenuOpen = !btnMenuOpen;\n"
+            "}}\n"
+            "auto btnMenu = ui.ContextMenu(btnMenuOpen, menuItems, {{\n"
+            "    .anchorRect = actionBtn.rect,\n"
             "    .minWidth = {:.1f}f{}\n"
             "}});",
             trigName,

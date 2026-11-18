@@ -11405,6 +11405,8 @@ void TestModalContextMenuAndToastWorkflow() {
     bool modalConfirmClicked = false;
     bool modalBodyExecuted = false;
     Rect bgBtnRect{};
+    bool ctxOpen = false;
+    Vec2 ctxPos{};
     Rect modalConfirmRect{};
     Rect modalDialogRect{};
     ContextMenuResponse ctxResp{};
@@ -11429,8 +11431,12 @@ void TestModalContextMenuAndToastWorkflow() {
                 bgClicked = true;
             }
 
-            ctxResp = ui.ContextMenu(bgBtn.rect, menuItems, {
-                .trigger = ContextMenuTrigger::RightClick
+            if (bgBtn.IsTriggered(InteractionTrigger::RightClick)) {
+                ctxOpen = true;
+                ctxPos = ui.GetMousePos();
+            }
+            ctxResp = ui.ContextMenu(ctxOpen, menuItems, {
+                .anchorPos = ctxPos
             });
 
             if (auto modal = ui.Modal(modalOpen, {
@@ -11848,6 +11854,7 @@ void TestBottomPanelAndStatusBarWorkflow() {
 
     // 5. Right-edge LeftClick ContextMenu stability when hovering inside popup (no X-position oscillation)
     Rect btnRect{};
+    bool menuOpen = false;
     ContextMenuResponse menuResp{};
     const ContextMenuItem items[] = {
         { .label = "Action One", .shortcut = "Ctrl+1" },
@@ -11857,10 +11864,13 @@ void TestBottomPanelAndStatusBarWorkflow() {
         ui.BeginFrame({800.0f, 600.0f});
         if (auto row = ui.Row({ .padding = 12.0f })) {
             ui.Spacer();
-            auto btn = ui.Button({ .text = "Quick Actions" });
+            auto btn = ui.Button({ .text = "Quick Actions", .active = menuOpen });
             btnRect = btn.rect;
-            menuResp = ui.ContextMenu(btn, items, {
-                .trigger = ContextMenuTrigger::LeftClick,
+            if (btn.clicked) {
+                menuOpen = !menuOpen;
+            }
+            menuResp = ui.ContextMenu(menuOpen, items, {
+                .anchorRect = btn.rect,
                 .minWidth = 220.0f
             });
         }
@@ -11877,7 +11887,9 @@ void TestBottomPanelAndStatusBarWorkflow() {
     ui.OnMouseDown(1);
     renderRightMenu();
     ui.OnMouseUp(1);
+    renderRightMenu();
     CHECK(menuResp.isOpen == true);
+    CHECK(menuOpen == true);
     const Rect openRectFrame1 = menuResp.rect;
     CHECK(openRectFrame1.w >= 220.0f);
 
@@ -11890,6 +11902,15 @@ void TestBottomPanelAndStatusBarWorkflow() {
         CHECK(std::abs(menuResp.rect.y - openRectFrame1.y) < 0.5f);
         CHECK(std::abs(btnRect.w) > 50.0f);
     }
+
+    // Re-click the anchor button -> must toggle menuOpen cleanly back to false without reopening
+    ui.OnMouseMove(btnRect.Center());
+    ui.OnMouseDown(1);
+    renderRightMenu();
+    ui.OnMouseUp(1);
+    renderRightMenu();
+    CHECK(menuOpen == false);
+    CHECK(menuResp.isOpen == false);
 
     keel::println("  [PASS] TestBottomPanelAndStatusBarWorkflow completed");
 }
@@ -16615,6 +16636,96 @@ void TestApiPolish() {
     CHECK(baseLayerCalls > 0);
     CHECK(overlayLayerCalls > 0);
 #endif
+
+    // 4. ContainerScope::IsTriggered + ContextMenu(bool&) cursor re-anchoring & child button isolation
+    {
+        bool zoneOpen = false;
+        Vec2 zoneMenuPos{};
+        Rect zoneRect{};
+        Rect childBtnRect{};
+        ContextMenuResponse zoneMenuRes{};
+        keel::i32 zoneClickCount = 0;
+        const ContextMenuItem zItems[] = {
+            {.label = "Item A"},
+            {.label = "Item B"}
+        };
+        auto renderZone = [&]() {
+            ui.BeginFrame({800.0f, 600.0f});
+            if (auto root = ui.Column({.padding = Padding::All(20.0f)})) {
+                if (auto zone = ui.Box({
+                    .width = 240.0f,
+                    .height = 140.0f,
+                    .padding = Padding::All(16.0f)
+                })) {
+                    zoneRect = zone.GetBounds();
+                    (void)ui.Button({.text = "Inner Btn"});
+                    childBtnRect = ui.Button({.text = "Child"}).rect;
+                    if (zone.IsTriggered(InteractionTrigger::Click)) {
+                        ++zoneClickCount;
+                    }
+                    if (zone.IsTriggered(InteractionTrigger::RightClick)) {
+                        zoneOpen = true;
+                        zoneMenuPos = ui.GetMousePos();
+                    }
+                    zoneMenuRes = ui.ContextMenu(zoneOpen, zItems, {
+                        .anchorPos = zoneMenuPos
+                    });
+                }
+            }
+            ui.EndFrame(canvas);
+        };
+
+        renderZone();
+        renderZone();
+        CHECK(zoneRect.w >= 239.0f && zoneRect.h >= 139.0f);
+
+        // Clicking inside a child button must NOT trigger the parent container's Click
+        ui.OnMouseMove(childBtnRect.Center());
+        ui.OnMouseDown(1);
+        renderZone();
+        ui.OnMouseUp(1);
+        renderZone();
+        CHECK(zoneClickCount == 0);
+
+        // Clicking empty background of the container DOES trigger InteractionTrigger::Click
+        const Vec2 emptySpot{zoneRect.x + 12.0f, zoneRect.Bottom() - 12.0f};
+        ui.OnMouseMove(emptySpot);
+        ui.OnMouseDown(1);
+        renderZone();
+        ui.OnMouseUp(1);
+        renderZone();
+        CHECK(zoneClickCount == 1);
+
+        // Right-clicking at spot A opens menu near spot A; right-clicking at spot B moves it to spot B
+        const Vec2 spotA{zoneRect.x + 20.0f, zoneRect.Bottom() - 15.0f};
+        const Vec2 spotB{zoneRect.Right() - 25.0f, zoneRect.Bottom() - 15.0f};
+        ui.OnMouseMove(spotA);
+        ui.OnMouseDown(3);
+        renderZone();
+        ui.OnMouseUp(3);
+        renderZone();
+        CHECK(zoneOpen == true);
+        CHECK(zoneMenuRes.isOpen == true);
+        const Rect rectAtA = zoneMenuRes.rect;
+
+        ui.OnMouseMove(spotB);
+        ui.OnMouseDown(3);
+        renderZone();
+        ui.OnMouseUp(3);
+        renderZone();
+        CHECK(zoneOpen == true);
+        CHECK(zoneMenuRes.isOpen == true);
+        CHECK(zoneMenuRes.rect.x != rectAtA.x);
+
+        // Right-clicking completely outside the zone closes the menu cleanly
+        ui.OnMouseMove({750.0f, 550.0f});
+        ui.OnMouseDown(3);
+        renderZone();
+        ui.OnMouseUp(3);
+        renderZone();
+        CHECK(zoneOpen == false);
+        CHECK(zoneMenuRes.isOpen == false);
+    }
 
     keel::println("  [PASS] TestApiPolish completed");
 }
