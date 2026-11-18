@@ -3513,18 +3513,25 @@ void TestZonesInheritanceZoomIndependenceAndBalance() {
         const UiTheme light = UiTheme::Light();
         if (auto themed = ui.Box({.zone = {.theme = &light}})) {
             CHECK(ui.GetTheme().mode == ThemeMode::Light);
+            CHECK(ui.GetThemeMode() == ThemeMode::Light);
+            CHECK(!ui.IsDarkMode());
+            CHECK(ui.GetThemePalette().surface == light.palette.surface);
             CHECK(&ui.GetTheme() != &light);          // the zone owns a frame-lifetime copy
             CHECK(&ui.GetTheme() != rootTheme);
 
             // Nested containers inherit the theme from the parent zone
-            if (auto inner = ui.Box()) {
+            if (auto inner = ui.Box({.background = {ui.GetThemePalette().surface}})) {
                 CHECK(inner.GetNode()->GetThemePtr() == &ui.GetTheme());
                 CHECK(ui.GetTheme().mode == ThemeMode::Light);
+                CHECK(inner.GetNode()->backgroundColor == light.palette.surface);
             }
         }
     }
     CHECK(&ui.GetTheme() == rootTheme);
     CHECK(ui.GetTheme().mode == ThemeMode::Dark);
+    CHECK(ui.GetThemeMode() == ThemeMode::Dark);
+    CHECK(ui.IsDarkMode());
+    CHECK(ui.GetThemePalette().surface == rootTheme->palette.surface);
     ui.EndFrame(canvas);
 
     // A container scaled with ScaleForZoom has the same pixel size at every root zoom, while the surrounding UI

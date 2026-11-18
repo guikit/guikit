@@ -307,14 +307,14 @@ public:
     /// Sets the active color theme mode (Dark or Light) and adapts clear color & palette.
     void SetThemeMode(ThemeMode mode) noexcept;
 
-    /// Returns the current theme mode.
-    [[nodiscard]] ThemeMode GetThemeMode() const noexcept { return m_theme.mode; }
+    /// Returns the active theme mode (respects container `.zone.theme` overrides).
+    [[nodiscard]] ThemeMode GetThemeMode() const noexcept { return GetTheme().mode; }
 
-    /// Returns true if dark mode is active.
-    [[nodiscard]] bool IsDarkMode() const noexcept { return m_theme.mode == ThemeMode::Dark; }
+    /// Returns true if dark mode is active in the current zone.
+    [[nodiscard]] bool IsDarkMode() const noexcept { return GetTheme().mode == ThemeMode::Dark; }
 
-    /// Returns the active theme palette tokens.
-    [[nodiscard]] const ThemePalette& GetThemePalette() const noexcept { return m_theme.palette; }
+    /// Returns the active theme palette tokens (respects container `.zone.theme` overrides).
+    [[nodiscard]] const ThemePalette& GetThemePalette() const noexcept { return GetTheme().palette; }
 
     /// Sets the full UI theme (palette, variants, metrics, typography, etc.).
     void SetTheme(const UiTheme& theme) noexcept {
