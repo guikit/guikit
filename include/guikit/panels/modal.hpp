@@ -4,6 +4,7 @@
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/types.hpp"
+#include "guikit/core/zone.hpp"
 #include "guikit/graphics/icon.hpp"
 #include "keel/core.h"
 #include "keel/optional.h"
@@ -34,10 +35,9 @@ struct ModalOptions {
     bool showCloseButton{true};                    ///< Render [X] close button in top-right header
     bool showHeaderDivider{true};                  ///< Render 1px divider below header when title/subtitle is present
     bool confineToParent{false};                   ///< Center and clip backdrop inside current parent container instead of full viewport
-    const UiTheme* theme{nullptr};
-    keel::Optional<float> scale{keel::kNullOpt};
-    keel::Optional<bool> debugBounds{keel::kNullOpt};
-    keel::Optional<bool> inspectMode{keel::kNullOpt};
+    UiSize size{UiSize::Md};                       ///< Dialog header/close-button size
+    bool disabled{false};
+    ZoneOptions zone{};                            ///< Subtree environment (theme, scale, density, debug/inspect)
 };
 
 /// RAII scope guard returned by `ui.Modal(...)`.

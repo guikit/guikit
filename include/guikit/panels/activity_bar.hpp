@@ -5,6 +5,7 @@
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
+#include "guikit/core/zone.hpp"
 #include "guikit/graphics/icon.hpp"
 #include "guikit/panels/sidebar.hpp"
 #include "keel/core.h"
@@ -46,11 +47,9 @@ struct ActivityBarOptions {
     keel::Optional<Padding> padding{keel::kNullOpt};       ///< Internal rail padding (nullopt = compact symmetric padding)
     StateColor background{};
     Border border{.width = 1.0f};
+    UiSize size{UiSize::Md};
     bool disabled{false};
-    const UiTheme* theme{nullptr};
-    keel::Optional<float> scale{keel::kNullOpt};
-    keel::Optional<bool> debugBounds{keel::kNullOpt};
-    keel::Optional<bool> inspectMode{keel::kNullOpt};
+    ZoneOptions zone{};
 };
 
 /// Internal runtime payload allocated in frame arena for ActivityBar item nodes.

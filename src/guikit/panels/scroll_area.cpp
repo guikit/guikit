@@ -12,45 +12,42 @@ ContainerScope ScrollArea::Open(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = ctx.GetCurrentSize();
-    const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    ZoneScope zone = ctx.Zone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
+    Node* node = ctx.CreateNode(NodeType::ScrollArea, id, opts.zone, opts.disabled);
+    const UiTheme& theme = node->GetTheme(ctx.GetTheme());
+    const float density = node->GetDensity();
+    const bool activeDisabled = node->disabled;
+    const UiSize activeSize = opts.size;
 
-    Node* node = ctx.CreateNode(NodeType::ScrollArea, id);
-    node->debugBoundsOverride = opts.debugBounds;
-    node->inspectModeOverride = opts.inspectMode;
     node->direction = (opts.orientation == Orientation::Horizontal) ? FlexDirection::Row : FlexDirection::Column;
     node->align = opts.align;
     node->justify = opts.justify;
     node->clipChildren = true;
-    const UiTheme& theme = ctx.GetTheme();
     node->widthMode = opts.width.ResolveMode(SizeMode::Stretch);
-    node->fixedWidth = opts.width.IsFixed() ? theme.Scale(opts.width.Dp()) : 0.0f;
+    node->fixedWidth = opts.width.IsFixed() ? opts.width.Dp() : 0.0f;
     node->heightMode = opts.height.ResolveMode(SizeMode::Stretch);
-    node->fixedHeight = opts.height.IsFixed() ? theme.Scale(opts.height.Dp()) : 0.0f;
+    node->fixedHeight = opts.height.IsFixed() ? opts.height.Dp() : 0.0f;
     node->flexGrow = 1.0f;
     if (!opts.height.IsFixed() && opts.maxHeight.has_value() && *opts.maxHeight > 0.0f) {
         auto* layoutData = ctx.AllocPayload<ScrollAreaLayoutData>();
-        layoutData->maxHeight = theme.Scale(*opts.maxHeight);
+        layoutData->maxHeight = *opts.maxHeight;
         node->SetPayload(layoutData);
         if (node->heightMode == SizeMode::Stretch) {
             node->heightMode = SizeMode::Fit;
         }
     }
     const auto& pal = theme.palette;
-    node->gap = opts.gap.has_value() ? theme.Scale(*opts.gap) : 0.0f;
-    node->padding = theme.ResolvePadding(opts.padding);
+    node->gap = (opts.gap.has_value() ? *opts.gap : 0.0f) * density;
+    node->padding = theme.ResolvePadding(opts.padding, UiSize::None, density);
     node->backgroundColor = opts.background.IsBackgroundEnabled(false)
         ? theme.ResolveColor(opts.background, false, false, activeDisabled, pal.surface)
         : Color::Transparent();
     const float bw = (opts.border.width > 0.0f) ? opts.border.width : (opts.border.color.HasAny() ? 1.0f : 0.0f);
-    node->borderWidth = theme.Scale(bw);
+    node->borderWidth = bw;
     node->borderColor = (bw > 0.0f) ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, pal.border) : Color::Transparent();
-    node->cornerRadius = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : 0.0f;
+    node->cornerRadius = opts.border.radius.has_value() ? *opts.border.radius : 0.0f;
     node->scrollOrientation = opts.orientation;
     node->scrollbarPolicy = opts.scrollbar;
     node->uiSize = activeSize;
-    node->disabled = activeDisabled;
     node->visualHash = detail::HashArgs(opts.background, opts.border);
     node->postRenderFn = &ScrollArea::RenderScrollbar;
 
@@ -58,7 +55,7 @@ ContainerScope ScrollArea::Open(
     auto& state = ctx.GetOrCreatePersistentState<ScrollState>(id);
     node->scrollOffset = state.offset;
 
-    ctx.PushContainer(node, keel::move(zone));
+    ctx.FinishContainer(node);
     return ContainerScope(&ctx, node);
 }
 
@@ -309,13 +306,7 @@ void ScrollArea::Update(Context& ctx, Node* node) {
         return;
     }
 
-    const UiTheme* resolvedTheme = &ctx.GetTheme();
-    for (const Node* curr = node; curr != nullptr; curr = curr->parent) {
-        if (curr->theme != nullptr) {
-            resolvedTheme = curr->theme;
-            break;
-        }
-    }
+    const UiTheme* resolvedTheme = &node->GetTheme(ctx.GetTheme());
 
     const bool allowV = (node->scrollOrientation == Orientation::Vertical || node->scrollOrientation == Orientation::Both);
     const bool allowH = (node->scrollOrientation == Orientation::Horizontal || node->scrollOrientation == Orientation::Both);

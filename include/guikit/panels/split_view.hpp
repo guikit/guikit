@@ -5,6 +5,7 @@
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
+#include "guikit/core/zone.hpp"
 #include "guikit/panels/box.hpp"
 #include "keel/core.h"
 #include "keel/optional.h"
@@ -34,10 +35,7 @@ struct SplitViewOptions {
     Border border{};
     bool clipChildren{true};
     bool disabled{false};
-    const UiTheme* theme{nullptr};
-    keel::Optional<float> scale{keel::kNullOpt};
-    keel::Optional<bool> debugBounds{keel::kNullOpt};
-    keel::Optional<bool> inspectMode{keel::kNullOpt};
+    ZoneOptions zone{};
 };
 
 class [[nodiscard]] SplitViewScope : public ContainerScope {

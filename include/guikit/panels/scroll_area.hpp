@@ -5,6 +5,7 @@
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
+#include "guikit/core/zone.hpp"
 #include "keel/core.h"
 #include "keel/optional.h"
 
@@ -45,11 +46,9 @@ struct ScrollAreaOptions {
     keel::Optional<float> maxHeight{keel::kNullOpt};   ///< Maximum viewport height in dp (shrink-wraps content up to maxHeight)
     StateColor background{};
     Border border{};
+    UiSize size{UiSize::Md};                          ///< Scrollbar thickness/gutter size
     bool disabled{false};
-    const UiTheme* theme{nullptr};
-    keel::Optional<float> scale{keel::kNullOpt};
-    keel::Optional<bool> debugBounds{keel::kNullOpt};
-    keel::Optional<bool> inspectMode{keel::kNullOpt};
+    ZoneOptions zone{};                               ///< Subtree environment (theme, scale, density, disabled, debug/inspect)
 };
 
 /// ScrollArea container logic and shared 1D/2D scrollbar primitives.

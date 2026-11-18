@@ -162,236 +162,239 @@ void RenderSidebarInspector(guikit::Context& ui, DemoContext& ctx) {
 
 void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
     const bool isFloating = s_state.floatingFrame;
-    static guikit::UiTheme stageTheme;
-    stageTheme = ui.GetTheme();
+    guikit::UiTheme stageTheme = ui.GetTheme(); // the zone keeps its own copy for the frame
     stageTheme.SetShellStyle(isFloating ? guikit::ShellStyle::Floating : guikit::ShellStyle::Docked);
 
     if (auto workbenchShell = ui.Column({
         .width = guikit::SizeMode::Stretch,
         .height = guikit::SizeMode::Stretch,
-        .theme = &stageTheme
+        .zone = {.theme = &stageTheme}
     })) {
-        if (auto demoWorkspace = ui.Box({
-            .width = guikit::SizeMode::Stretch,
-            .height = guikit::SizeMode::Stretch
-        })) {
-            // 1. Optional VS Code style ActivityBar docked on the outer edge, linked to s_state.mode
-            if (s_state.showActivityBar) {
-                if (auto bar = ui.Size(ctx.controlsSize).ActivityBar(s_state.mode, {
+            if (auto demoWorkspace = ui.Box({
+                .width = guikit::SizeMode::Stretch,
+                .height = guikit::SizeMode::Stretch
+            })) {
+                // 1. Optional VS Code style ActivityBar docked on the outer edge, linked to s_state.mode
+                if (s_state.showActivityBar) {
+                    if (auto bar = ui.ActivityBar(s_state.mode, {
+                        .side = s_state.side,
+                        .style = s_state.activityStyle,
+                        .color = ctx.ResolveControlColor(),
+                        .size = ctx.controlsSize
+                    })) {
+                        if (bar.Item(s_state.activityIdx, 0, {
+                            .icon = guikit::Icon::Folder(),
+                            .label = "Explorer",
+                            .tooltip = "Explorer (Click active icon to toggle Sidebar)"
+                        }).changed) {
+                            s_state.menuIdx = 0;
+                        }
+                        if (bar.Item(s_state.activityIdx, 1, {
+                            .icon = guikit::Icon::Search(),
+                            .label = "Analytics",
+                            .tooltip = "Search & Real-Time Analytics",
+                            .badge = s_state.showBadges ? "2" : ""
+                        }).changed) {
+                            s_state.menuIdx = 1;
+                        }
+                        if (bar.Item(s_state.activityIdx, 2, {
+                            .icon = guikit::Icon::Play(),
+                            .label = "Deployments",
+                            .tooltip = "Deployments & CI/CD Pipelines",
+                            .badge = s_state.showBadges ? "3" : ""
+                        }).changed) {
+                            s_state.menuIdx = 2;
+                        }
+
+                        bar.Spacer();
+                        bar.Separator();
+
+                        const guikit::Response gearBtn = bar.Action({
+                            .icon = guikit::Icon::Settings(),
+                            .label = "Settings",
+                            .tooltip = "Settings & Quick Actions"
+                        });
+                        const auto gearMenu = ui.ContextMenu(gearBtn, {
+                            {.label = "Command Palette...", .shortcut = "Ctrl+Shift+P", .icon = guikit::Icon::Search()},
+                            {.label = "Settings",           .shortcut = "Ctrl+,",       .icon = guikit::Icon::Settings(), .separatorAfter = true},
+                            {.label = "Toggle Sidebar",     .shortcut = "Ctrl+B",       .icon = guikit::Icon::ChevronLeft()},
+                            {.label = "Toggle BottomPanel", .shortcut = "Ctrl+J",       .icon = guikit::Icon::ChevronUp()}
+                        }, {
+                            .trigger = guikit::ContextMenuTrigger::LeftClick,
+                            .minWidth = 220.0f
+                        });
+                        if (gearMenu.clickedIndex == 1) {
+                            s_state.menuIdx = 3;
+                            if (s_state.mode == guikit::SidebarMode::Collapsed) {
+                                s_state.mode = guikit::SidebarMode::Expanded;
+                            }
+                            ui.InvalidateAll();
+                        } else if (gearMenu.clickedIndex == 2) {
+                            s_state.mode = (s_state.mode == guikit::SidebarMode::Collapsed)
+                                ? guikit::SidebarMode::Expanded
+                                : guikit::SidebarMode::Collapsed;
+                            ui.InvalidateAll();
+                        } else if (gearMenu.clickedIndex == 3) {
+                            s_state.showBottomPanel = !s_state.showBottomPanel;
+                            ui.InvalidateAll();
+                        }
+                    }
+                }
+
+                // 2. Primary Sidebar docked flush next to ActivityBar (or on outer edge when standalone)
+                if (auto sb = ui.Sidebar(s_state.mode, {
                     .side = s_state.side,
-                    .style = s_state.activityStyle,
-                    .color = ctx.ResolveControlColor()
+                    .width = s_state.autoWidth ? keel::kNullOpt : keel::Optional<float>(s_state.sidebarWidth),
+                    .resizable = s_state.resizable,
+                    .allowCompact = s_state.allowCompact,
+                    .allowCollapse = s_state.allowCollapse,
+                    .scrollable = true
                 })) {
-                    if (bar.Item(s_state.activityIdx, 0, {
-                        .icon = guikit::Icon::Folder(),
-                        .label = "Explorer",
-                        .tooltip = "Explorer (Click active icon to toggle Sidebar)"
-                    }).changed) {
-                        s_state.menuIdx = 0;
+                    const keel::i32 prevIdx = s_state.menuIdx;
+                    if (auto menu = ui.SidebarMenu({
+                        .style = s_state.menuStyle,
+                        .color = ctx.ResolveControlColor(),
+                        .size = ctx.controlsSize
+                    })) {
+                        static constexpr keel::StaticArray<keel::StringRef, 3> actHeaders = {
+                            "EXPLORER", "ANALYTICS", "PIPELINES"
+                        };
+                        if (s_state.showSections) {
+                            menu.Section(s_state.showActivityBar
+                                ? actHeaders[static_cast<keel::usize>(keel::clamp(s_state.activityIdx, 0, 2))]
+                                : keel::StringRef("WORKSPACE"));
+                        }
+                        menu.Item(s_state.menuIdx, 0, {
+                            .text = "Overview",
+                            .icon = guikit::Icon::Folder(),
+                            .badge = s_state.showBadges ? "3" : ""
+                        });
+                        menu.Item(s_state.menuIdx, 1, {
+                            .text = "Analytics",
+                            .icon = guikit::Icon::Search(),
+                            .badge = s_state.showBadges ? "New" : ""
+                        });
+                        menu.Item(s_state.menuIdx, 2, {
+                            .text = "Deployments",
+                            .icon = guikit::Icon::Play()
+                        });
+                        if (s_state.showSections) {
+                            menu.Section("SYSTEM");
+                        }
+                        menu.Item(s_state.menuIdx, 3, {
+                            .text = "Settings",
+                            .icon = guikit::Icon::Settings()
+                        });
                     }
-                    if (bar.Item(s_state.activityIdx, 1, {
-                        .icon = guikit::Icon::Search(),
-                        .label = "Analytics",
-                        .tooltip = "Search & Real-Time Analytics",
-                        .badge = s_state.showBadges ? "2" : ""
-                    }).changed) {
-                        s_state.menuIdx = 1;
-                    }
-                    if (bar.Item(s_state.activityIdx, 2, {
-                        .icon = guikit::Icon::Play(),
-                        .label = "Deployments",
-                        .tooltip = "Deployments & CI/CD Pipelines",
-                        .badge = s_state.showBadges ? "3" : ""
-                    }).changed) {
-                        s_state.menuIdx = 2;
-                    }
-
-                    bar.Spacer();
-                    bar.Separator();
-
-                    const guikit::Response gearBtn = bar.Action({
-                        .icon = guikit::Icon::Settings(),
-                        .label = "Settings",
-                        .tooltip = "Settings & Quick Actions"
-                    });
-                    const auto gearMenu = ui.ContextMenu(gearBtn, {
-                        {.label = "Command Palette...", .shortcut = "Ctrl+Shift+P", .icon = guikit::Icon::Search()},
-                        {.label = "Settings",           .shortcut = "Ctrl+,",       .icon = guikit::Icon::Settings(), .separatorAfter = true},
-                        {.label = "Toggle Sidebar",     .shortcut = "Ctrl+B",       .icon = guikit::Icon::ChevronLeft()},
-                        {.label = "Toggle BottomPanel", .shortcut = "Ctrl+J",       .icon = guikit::Icon::ChevronUp()}
-                    }, {
-                        .trigger = guikit::ContextMenuTrigger::LeftClick,
-                        .minWidth = 220.0f
-                    });
-                    if (gearMenu.clickedIndex == 1) {
-                        s_state.menuIdx = 3;
-                        if (s_state.mode == guikit::SidebarMode::Collapsed) {
-                            s_state.mode = guikit::SidebarMode::Expanded;
+                    if (s_state.menuIdx != prevIdx) {
+                        if (s_state.menuIdx <= 2) {
+                            s_state.activityIdx = s_state.menuIdx;
                         }
                         ui.InvalidateAll();
-                    } else if (gearMenu.clickedIndex == 2) {
-                        s_state.mode = (s_state.mode == guikit::SidebarMode::Collapsed)
-                            ? guikit::SidebarMode::Expanded
-                            : guikit::SidebarMode::Collapsed;
-                        ui.InvalidateAll();
-                    } else if (gearMenu.clickedIndex == 3) {
+                    }
+                }
+
+                // 3. Minimal Center Area (keeps visual focus on the Sidebar)
+                if (auto mainPane = ui.Column({
+                    .padding = guikit::Padding::All(24.0f),
+                    .align = guikit::Alignment::Center,
+                    .justify = guikit::Justify::Center,
+                    .width = guikit::SizeMode::Stretch,
+                    .height = guikit::SizeMode::Stretch
+                })) {
+                    static constexpr keel::StaticArray<keel::StringRef, 4> pageTitles = {
+                        "Overview", "Analytics", "Deployments", "Settings"
+                    };
+                    ui.Heading({
+                        .label = pageTitles[static_cast<keel::usize>(keel::clamp(s_state.menuIdx, 0, 3))],
+                        .description = "Drag the Sidebar border sash to resize or snap between Expanded, Compact, and Collapsed modes.",
+                        .badge = {ModeEnumName(s_state.mode), ctx.ResolveControlColor()},
+                        .level = guikit::HeadingLevel::H5
+                    });
+                }
+
+                // 4. Resizable & Collapsible BottomPanel (docked below Main Pane)
+                if (auto bp = ui.BottomPanel(s_state.showBottomPanel, {
+                    .height = 145.0f,
+                    .resizable = s_state.resizable,
+                    .allowCollapse = s_state.allowCollapse
+                })) {
+                    if (auto bpTb = ui.Toolbar({
+                        .style = guikit::ToolbarStyle::Header,
+                        .size = guikit::UiSize::Sm
+                    })) {
+                        bpTb.Item(s_state.bottomTabIdx, 0, {.text = "Output", .icon = guikit::Icon::Play()});
+                        bpTb.Item(s_state.bottomTabIdx, 1, {
+                            .text = "Diagnostics",
+                            .icon = guikit::Icon::Warning(),
+                            .badge = s_state.showBadges ? "2" : ""
+                        });
+                        bpTb.Item(s_state.bottomTabIdx, 2, {.text = "Cross-Section 2D", .icon = guikit::Icon::Eye()});
+                        bpTb.Spacer();
+                        ui.Text(ui.Format("H: {:.0f}px", bp.Height()), {
+                            .role = guikit::TextRole::LabelSmall,
+                            .variant = guikit::UiVariant::Muted
+                        });
+                        if (bpTb.Action({
+                            .text = "Close",
+                            .tooltip = "Collapse BottomPanel",
+                            .icon = guikit::Icon::Close(),
+                            .square = true
+                        }).clicked) {
+                            s_state.showBottomPanel = false;
+                            ui.InvalidateAll();
+                        }
+                    }
+
+                    if (auto bpBody = ui.Box({
+                        .gap = 6.0f,
+                        .width = guikit::SizeMode::Stretch,
+                        .height = guikit::SizeMode::Stretch,
+                        .padding = guikit::Padding::All(10.0f)
+                    })) {
+                        static constexpr keel::StaticArray<keel::StringRef, 3> tabContents = {
+                            "[CUDA Solver] Completed 2D acoustic ray trace (0.99 km, depth 24.5 m) in 14.2 ms.",
+                            "[Warn] 2 boundary reflections attenuated below -65 dB threshold.",
+                            "[Slice 2D] Drag the top border of this BottomPanel up/down to resize the cross-section viewport."
+                        };
+                        ui.Text(tabContents[static_cast<keel::usize>(keel::clamp(s_state.bottomTabIdx, 0, 2))], {
+                            .role = guikit::TextRole::BodySmall,
+                            .variant = guikit::UiVariant::Secondary
+                        });
+                    }
+                }
+            }
+
+            // 5. Optional Bottom StatusBar spanning the full workbench width
+            if (s_state.showStatusBar) {
+                if (auto sb = ui.StatusBar({
+                    .style = s_state.statusBarStyle,
+                    .size = ctx.controlsSize
+                })) {
+                    sb.Item({
+                        .text = "Workbench Ready",
+                        .dotColor = ctx.previewTheme.GetVariant(guikit::UiVariant::Success).bg,
+                        .color = guikit::StateColor::Success(),
+                        .badge = s_state.showBadges ? "GPU" : ""
+                    });
+                    sb.Separator();
+                    sb.Item({
+                        .text = ui.Format("Sidebar: {}", ModeEnumName(s_state.mode)),
+                        .icon = guikit::Icon::Folder()
+                    });
+                    sb.Spacer();
+                    if (sb.Action({
+                        .text = s_state.showBottomPanel ? "Hide Panel" : "Show Panel",
+                        .icon = s_state.showBottomPanel ? guikit::Icon::ChevronDown() : guikit::Icon::ChevronUp(),
+                        .tooltip = "Toggle BottomPanel (Ctrl+J)",
+                        .active = s_state.showBottomPanel
+                    }).clicked) {
                         s_state.showBottomPanel = !s_state.showBottomPanel;
                         ui.InvalidateAll();
                     }
                 }
             }
-
-            // 2. Primary Sidebar docked flush next to ActivityBar (or on outer edge when standalone)
-            if (auto sb = ui.Sidebar(s_state.mode, {
-                .side = s_state.side,
-                .width = s_state.autoWidth ? keel::kNullOpt : keel::Optional<float>(s_state.sidebarWidth),
-                .resizable = s_state.resizable,
-                .allowCompact = s_state.allowCompact,
-                .allowCollapse = s_state.allowCollapse,
-                .scrollable = true
-            })) {
-                const keel::i32 prevIdx = s_state.menuIdx;
-                if (auto menu = ui.Size(ctx.controlsSize).SidebarMenu({
-                    .style = s_state.menuStyle,
-                    .color = ctx.ResolveControlColor()
-                })) {
-                    static constexpr keel::StaticArray<keel::StringRef, 3> actHeaders = {
-                        "EXPLORER", "ANALYTICS", "PIPELINES"
-                    };
-                    if (s_state.showSections) {
-                        menu.Section(s_state.showActivityBar
-                            ? actHeaders[static_cast<keel::usize>(keel::clamp(s_state.activityIdx, 0, 2))]
-                            : keel::StringRef("WORKSPACE"));
-                    }
-                    menu.Item(s_state.menuIdx, 0, {
-                        .text = "Overview",
-                        .icon = guikit::Icon::Folder(),
-                        .badge = s_state.showBadges ? "3" : ""
-                    });
-                    menu.Item(s_state.menuIdx, 1, {
-                        .text = "Analytics",
-                        .icon = guikit::Icon::Search(),
-                        .badge = s_state.showBadges ? "New" : ""
-                    });
-                    menu.Item(s_state.menuIdx, 2, {
-                        .text = "Deployments",
-                        .icon = guikit::Icon::Play()
-                    });
-                    if (s_state.showSections) {
-                        menu.Section("SYSTEM");
-                    }
-                    menu.Item(s_state.menuIdx, 3, {
-                        .text = "Settings",
-                        .icon = guikit::Icon::Settings()
-                    });
-                }
-                if (s_state.menuIdx != prevIdx) {
-                    if (s_state.menuIdx <= 2) {
-                        s_state.activityIdx = s_state.menuIdx;
-                    }
-                    ui.InvalidateAll();
-                }
-            }
-
-            // 3. Minimal Center Area (keeps visual focus on the Sidebar)
-            if (auto mainPane = ui.Column({
-                .padding = guikit::Padding::All(24.0f),
-                .align = guikit::Alignment::Center,
-                .justify = guikit::Justify::Center,
-                .width = guikit::SizeMode::Stretch,
-                .height = guikit::SizeMode::Stretch
-            })) {
-                static constexpr keel::StaticArray<keel::StringRef, 4> pageTitles = {
-                    "Overview", "Analytics", "Deployments", "Settings"
-                };
-                ui.Heading({
-                    .label = pageTitles[static_cast<keel::usize>(keel::clamp(s_state.menuIdx, 0, 3))],
-                    .description = "Drag the Sidebar border sash to resize or snap between Expanded, Compact, and Collapsed modes.",
-                    .badge = {ModeEnumName(s_state.mode), ctx.ResolveControlColor()},
-                    .level = guikit::HeadingLevel::H5
-                });
-            }
-
-            // 4. Resizable & Collapsible BottomPanel (docked below Main Pane)
-            if (auto bp = ui.BottomPanel(s_state.showBottomPanel, {
-                .height = 145.0f,
-                .resizable = s_state.resizable,
-                .allowCollapse = s_state.allowCollapse
-            })) {
-                if (auto bpTb = ui.Size(guikit::UiSize::Sm).Toolbar({
-                    .style = guikit::ToolbarStyle::Header
-                })) {
-                    bpTb.Item(s_state.bottomTabIdx, 0, {.text = "Output", .icon = guikit::Icon::Play()});
-                    bpTb.Item(s_state.bottomTabIdx, 1, {
-                        .text = "Diagnostics",
-                        .icon = guikit::Icon::Warning(),
-                        .badge = s_state.showBadges ? "2" : ""
-                    });
-                    bpTb.Item(s_state.bottomTabIdx, 2, {.text = "Cross-Section 2D", .icon = guikit::Icon::Eye()});
-                    bpTb.Spacer();
-                    ui.Text(ui.Format("H: {:.0f}px", bp.Height()), {
-                        .role = guikit::TextRole::LabelSmall,
-                        .variant = guikit::UiVariant::Muted
-                    });
-                    if (bpTb.Action({
-                        .text = "Close",
-                        .tooltip = "Collapse BottomPanel",
-                        .icon = guikit::Icon::Close(),
-                        .square = true
-                    }).clicked) {
-                        s_state.showBottomPanel = false;
-                        ui.InvalidateAll();
-                    }
-                }
-
-                if (auto bpBody = ui.Box({
-                    .gap = 6.0f,
-                    .width = guikit::SizeMode::Stretch,
-                    .height = guikit::SizeMode::Stretch,
-                    .padding = guikit::Padding::All(10.0f)
-                })) {
-                    static constexpr keel::StaticArray<keel::StringRef, 3> tabContents = {
-                        "[CUDA Solver] Completed 2D acoustic ray trace (0.99 km, depth 24.5 m) in 14.2 ms.",
-                        "[Warn] 2 boundary reflections attenuated below -65 dB threshold.",
-                        "[Slice 2D] Drag the top border of this BottomPanel up/down to resize the cross-section viewport."
-                    };
-                    ui.Text(tabContents[static_cast<keel::usize>(keel::clamp(s_state.bottomTabIdx, 0, 2))], {
-                        .role = guikit::TextRole::BodySmall,
-                        .variant = guikit::UiVariant::Secondary
-                    });
-                }
-            }
         }
-
-        // 5. Optional Bottom StatusBar spanning the full workbench width
-        if (s_state.showStatusBar) {
-            if (auto sb = ui.Size(ctx.controlsSize).StatusBar({
-                .style = s_state.statusBarStyle
-            })) {
-                sb.Item({
-                    .text = "Workbench Ready",
-                    .dotColor = ctx.previewTheme.GetVariant(guikit::UiVariant::Success).bg,
-                    .color = guikit::StateColor::Success(),
-                    .badge = s_state.showBadges ? "GPU" : ""
-                });
-                sb.Separator();
-                sb.Item({
-                    .text = ui.Format("Sidebar: {}", ModeEnumName(s_state.mode)),
-                    .icon = guikit::Icon::Folder()
-                });
-                sb.Spacer();
-                if (sb.Action({
-                    .text = s_state.showBottomPanel ? "Hide Panel" : "Show Panel",
-                    .icon = s_state.showBottomPanel ? guikit::Icon::ChevronDown() : guikit::Icon::ChevronUp(),
-                    .tooltip = "Toggle BottomPanel (Ctrl+J)",
-                    .active = s_state.showBottomPanel
-                }).clicked) {
-                    s_state.showBottomPanel = !s_state.showBottomPanel;
-                    ui.InvalidateAll();
-                }
-            }
-        }
-    }
 }
 
 keel::String GenerateSidebarCode(const DemoContext& ctx) {
@@ -409,10 +412,10 @@ keel::String GenerateSidebarCode(const DemoContext& ctx) {
     if (s_state.showActivityBar) {
         keel::format_into(
             out,
-            "if (auto bar = ui.Size(guikit::UiSize::{}).ActivityBar(sidebarMode, {{\n"
+            "if (auto bar = ui.ActivityBar(sidebarMode, {{\n"
             "    .side = guikit::SidebarSide::{},\n"
             "    .style = guikit::ActivityBarStyle::{},\n"
-            "    .color = guikit::StateColor::{}()\n"
+            "    .color = guikit::StateColor::{}(){}\n"
             "}})) {{\n"
             "    bar.Item(activeTool, 0, {{.icon = guikit::Icon::Folder(), .tooltip = \"Explorer\"}});\n"
             "    bar.Item(activeTool, 1, {{.icon = guikit::Icon::Search(), .tooltip = \"Analytics\"{}}});\n"
@@ -420,10 +423,10 @@ keel::String GenerateSidebarCode(const DemoContext& ctx) {
             "    bar.Separator();\n"
             "    auto gear = bar.Action({{.icon = guikit::Icon::Settings(), .tooltip = \"Settings\"}});\n"
             "}}\n\n",
-            SizeName(ctx.controlsSize),
             sideStr,
             s_state.activityStyle == guikit::ActivityBarStyle::Pill ? "Pill" : "Indicator",
             VariantName(ctx.btnVariant),
+            FormatUiSizePrefix(ctx.controlsSize),
             s_state.showBadges ? ", .badge = \"2\"" : ""
         );
     }
@@ -442,9 +445,9 @@ keel::String GenerateSidebarCode(const DemoContext& ctx) {
         "    .allowCollapse = {},\n"
         "    .scrollable = true\n"
         "}})) {{\n"
-        "    if (auto menu = ui.Size(guikit::UiSize::{}).SidebarMenu({{\n"
+        "    if (auto menu = ui.SidebarMenu({{\n"
         "        .style = guikit::SidebarMenuStyle::{},\n"
-        "        .color = guikit::StateColor::{}()\n"
+        "        .color = guikit::StateColor::{}(){}\n"
         "    }})) {{\n"
         "        menu.Section(\"WORKSPACE\");\n"
         "        menu.Item(selected, 0, {{.text = \"Overview\", .icon = guikit::Icon::Folder(){}}});\n"
@@ -456,9 +459,9 @@ keel::String GenerateSidebarCode(const DemoContext& ctx) {
         s_state.resizable ? "true" : "false",
         s_state.allowCompact ? "true" : "false",
         s_state.allowCollapse ? "true" : "false",
-        SizeName(ctx.controlsSize),
         s_state.menuStyle == guikit::SidebarMenuStyle::Indicator ? "Indicator" : "Pill",
         VariantName(ctx.btnVariant),
+        FormatUiSizePrefix(ctx.controlsSize),
         s_state.showBadges ? ", .badge = \"3\"" : "",
         s_state.showBadges ? ", .badge = \"New\"" : ""
     );

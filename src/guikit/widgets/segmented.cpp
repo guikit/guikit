@@ -61,7 +61,7 @@ Vec2 MeasureSegmentedBox(
     const UiTheme& theme
 ) noexcept {
     const ComponentMetrics& cm = theme.GetMetrics(size);
-    const float inset = (size <= UiSize::Sm) ? 2.0f : 3.0f;
+    const float inset = (theme.SizeFactor(size) < 0.90f) ? 2.0f : 3.0f;
 
     bool hasStackedIconText = false;
     float maxSegW = 28.0f;
@@ -82,10 +82,10 @@ Vec2 MeasureSegmentedBox(
         : (sumSegW + inset * 2.0f);
 
     if (opts.minWidth.has_value()) {
-        totalW = keel::max(theme.Scale(*opts.minWidth), totalW);
+        totalW = keel::max(*opts.minWidth, totalW);
     }
     if (opts.width.IsFixed()) {
-        totalW = theme.Scale(opts.width.Dp());
+        totalW = opts.width.Dp();
     }
 
     float defaultH = cm.defaultHeight;
@@ -93,7 +93,7 @@ Vec2 MeasureSegmentedBox(
         const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
         defaultH = keel::max(defaultH, cm.iconSize + fontSize + 14.0f);
     }
-    const float boxH = opts.height.IsFixed() ? theme.Scale(opts.height.Dp()) : defaultH;
+    const float boxH = opts.height.IsFixed() ? opts.height.Dp() : defaultH;
     return {totalW, boxH};
 }
 
@@ -110,7 +110,7 @@ void ComputeSegmentRects(
     if (items.empty()) return;
     outRects.reserve(items.size());
 
-    const float inset = (size <= UiSize::Sm) ? 2.0f : 3.0f;
+    const float inset = (theme.SizeFactor(size) < 0.90f) ? 2.0f : 3.0f;
     const Rect inner = trackRect.Inset(inset);
     if (inner.w <= 0.0f || inner.h <= 0.0f) {
         for (keel::usize i = 0; i < items.size(); ++i) {
@@ -201,10 +201,9 @@ Response Segmented::Run(
     const SegmentedOptions& opts,
     keel::SourceLocation loc
 ) {
-    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const UiSize activeSize = opts.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const UiTheme theme = ctx.GetTheme();
     ICanvas* canvas = ctx.GetCanvas();
@@ -449,9 +448,9 @@ void Segmented::Render(
     const SelectMetrics& sm = theme.GetSelect(size);
     const auto& pal = theme.palette;
     const Rect trackRect = bounds;
-    const float inset = (size <= UiSize::Sm) ? 2.0f : 3.0f;
+    const float inset = (theme.SizeFactor(size) < 0.90f) ? 2.0f : 3.0f;
     const float trackRadius = opts.border.radius.has_value()
-        ? theme.Scale(*opts.border.radius)
+        ? *opts.border.radius
         : cm.cornerRadius;
 
     // 1. Render outer segmented track well
@@ -468,7 +467,7 @@ void Segmented::Render(
     if (opts.border.color.HasAny()) {
         trackBorder = theme.ResolveColor(opts.border.color, hoveredSegment >= 0, focused, disabled, trackBorder);
     }
-    float trackStrokeW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : sm.strokeWidth;
+    float trackStrokeW = (opts.border.width > 0.0f) ? opts.border.width : sm.strokeWidth;
     if (focused && !disabled && trackStrokeW > 0.0f) trackStrokeW += 0.5f;
     if (disabled) {
         trackBg = trackBg.WithAlphaF(0.40f);
@@ -556,7 +555,7 @@ void Segmented::Render(
 
         if (hasIcon && hasText) {
             if (item.iconPlacement == Placement::Top || item.iconPlacement == Placement::Bottom) {
-                const float padX = keel::min(theme.Scale(3.0f), sr.w * 0.10f);
+                const float padX = keel::min(3.0f, sr.w * 0.10f);
                 const float availW = keel::max(0.0f, sr.w - padX * 2.0f);
                 const float gapY = 2.0f;
                 const float totalH = iconSz + gapY + fontSize;
@@ -578,8 +577,8 @@ void Segmented::Render(
                     }
                 }
             } else {
-                const float padX = keel::min(theme.Scale(4.0f), sr.w * 0.12f);
-                const float gapX = keel::min(theme.Scale(5.0f), keel::max(2.0f, sr.w * 0.08f));
+                const float padX = keel::min(4.0f, sr.w * 0.12f);
+                const float gapX = keel::min(5.0f, keel::max(2.0f, sr.w * 0.08f));
                 const float availW = keel::max(0.0f, sr.w - padX * 2.0f);
                 const float availTextW = availW - iconSz - gapX;
 
@@ -616,7 +615,7 @@ void Segmented::Render(
             const Rect iconRect(sr.x + (sr.w - iconSz) * 0.5f, sr.y + (sr.h - iconSz) * 0.5f, iconSz, iconSz);
             item.icon.Draw(canvas, iconRect, fgColor);
         } else if (hasText) {
-            const float padX = keel::min(theme.Scale(4.0f), sr.w * 0.12f);
+            const float padX = keel::min(4.0f, sr.w * 0.12f);
             canvas.DrawTextBox(item.text.text, sr.Inset(padX, 0.0f), fontSize, fgColor, 0.5f, 0.5f);
         }
 

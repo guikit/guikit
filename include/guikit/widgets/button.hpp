@@ -31,9 +31,8 @@ struct ButtonOptions {
     bool active{false};
     bool loading{false};                           ///< Renders an animated vector spinner and suppresses click activation
     bool square{false};                            ///< Force square (defaultHeight x defaultHeight) button geometry
+    UiSize size{UiSize::Md};                       ///< Component size scale (preset, dp target height, or factor)
     keel::Optional<Color> iconColor{keel::kNullOpt};  ///< Optional custom icon tint override
-    const UiTheme* theme{nullptr};                 ///< Optional scoped theme override
-    keel::Optional<float> scale{keel::kNullOpt};      ///< Optional local UI scale factor override
 };
 
 /// Type alias for button response.

@@ -402,9 +402,9 @@ void TestTwoLevelDisabledWorkflow() {
             btnEnabled = ui.Button({.text = "Active"});
             btnDirectDisabled = ui.Button({.text = "Local Disabled", .disabled = true});
 
-            ui.Disabled(true, [&] {
+            if (auto disabledCol = ui.Column({.disabled = true})) {
                 btnScopedDisabled = ui.Button({.text = "Scope Disabled"});
-            });
+            }
         }
     };
 
@@ -465,11 +465,11 @@ void TestBoxSlotWithUiSizeToken() {
 
     auto renderUI = [&]() {
         if (auto col = ui.Column({.gap = 12.0f})) {
-            if (auto slotLg = ui.Size(UiSize::Lg).Box()) {
-                btnLarge = ui.Button({.text = "Large Action", .color = StateColor::Primary(), .width = SizeMode::Stretch});
+            if (auto slotLg = ui.Box()) {
+                btnLarge = ui.Button({.text = "Large Action", .color = StateColor::Primary(), .width = SizeMode::Stretch, .size = UiSize::Lg});
             }
-            if (auto slotSquare = ui.Size(UiSize::Sm).Box({.width = 32.0f})) {
-                btnSquareIcon = ui.Button({.icon = Icon::Close()});
+            if (auto slotSquare = ui.Box({.width = 32.0f})) {
+                btnSquareIcon = ui.Button({.icon = Icon::Close(), .size = UiSize::Sm});
             }
         }
     };
@@ -1384,7 +1384,7 @@ void TestSelectWidget() {
 
     // 2. Hover over item 3 ("115200") in the popup and click it
     // Item 3 rect is at popupRect.y + 4.0f + 3 * itemHeight (theme token)
-    const float selectItemH = ui.GetTheme().selects[static_cast<keel::usize>(UiSize::Md)].itemHeight;
+    const float selectItemH = ui.GetTheme().selects[UiSize::Md.TableIndex()].itemHeight;
     const float item3Y = popupRect.y + 4.0f + 3.0f * selectItemH + selectItemH * 0.5f;
     ui.OnMouseMove({popupRect.x + 30.0f, item3Y});
     ui.OnMouseDown(1);
@@ -1579,7 +1579,7 @@ void TestSelectWidget() {
     CHECK(ui.IsPopupOpen(rLim.id));
     const Rect limPopupRect = ui.GetOpenPopupRect();
     // 2 visible items: 2 * itemHeight (theme token) + 8.0f popup padding
-    const float limItemH = ui.GetTheme().selects[static_cast<keel::usize>(UiSize::Md)].itemHeight;
+    const float limItemH = ui.GetTheme().selects[UiSize::Md.TableIndex()].itemHeight;
     CHECK_NEAR(limPopupRect.h, 2.0f * limItemH + 8.0f, 0.5f);
 }
 
@@ -2468,7 +2468,7 @@ void TestToolbarWidgetWorkflow() {
     bool toolSettingsActive = false;
 
     auto renderToolbar = [&]() {
-        if (auto tb = ui.Size(UiSize::Md).Toolbar({.padding = UiSize::Sm})) {
+        if (auto tb = ui.Toolbar({.padding = UiSize::Sm, .size = UiSize::Md})) {
             btnNew = tb.ToolButton({.text = "New", .icon = Icon::Plus()});
             btnSave = tb.ToolButton({.text = "Save", .icon = Icon::Check(), .disabled = true});
             tb.Separator();
@@ -2749,19 +2749,19 @@ void TestContainerSizeInheritanceAndWidgetStretch() {
     Response swLg, swSm, cbLg, cbSm, inLg, inSm, selLg, selSm;
 
     auto renderSizeTest = [&](UiSize sz, bool isLarge) {
-        if (auto col = ui.Size(sz).Column()) {
+        if (auto col = ui.Column()) {
             if (isLarge) {
-                btnLg = ui.Button({.text = "Large Action"});
-                swLg = ui.Switch(switchVal);
-                cbLg = ui.Checkbox(checkVal);
-                inLg = ui.InputField(inputVal);
-                selLg = ui.Select(selectIdx, {"One", "Two"});
+                btnLg = ui.Button({.text = "Large Action", .size = sz});
+                swLg = ui.Switch(switchVal, {.size = sz});
+                cbLg = ui.Checkbox(checkVal, {.size = sz});
+                inLg = ui.InputField(inputVal, {.size = sz});
+                selLg = ui.Select(selectIdx, {"One", "Two"}, {.size = sz});
             } else {
-                btnSm = ui.Button({.text = "Small Action"});
-                swSm = ui.Switch(switchVal);
-                cbSm = ui.Checkbox(checkVal);
-                inSm = ui.InputField(inputVal);
-                selSm = ui.Select(selectIdx, {"One", "Two"});
+                btnSm = ui.Button({.text = "Small Action", .size = sz});
+                swSm = ui.Switch(switchVal, {.size = sz});
+                cbSm = ui.Checkbox(checkVal, {.size = sz});
+                inSm = ui.InputField(inputVal, {.size = sz});
+                selSm = ui.Select(selectIdx, {"One", "Two"}, {.size = sz});
             }
         }
     };
@@ -2832,9 +2832,8 @@ void TestContainerSizeInheritanceAndWidgetStretch() {
 void TestUiStyleAndDensityScaling() {
     using namespace guikit;
 
-    // 1. SpacingScale and RadiusScale defaults and presets
+    // 1. SpacingScale defaults
     const auto stdStyle = UiStyle::Standard();
-    CHECK(stdStyle.GetDensity() == Density::Standard);
     CHECK(stdStyle.GetGap(UiSize::None) == 0.0f);
     CHECK(stdStyle.GetGap(UiSize::Xs) == 3.0f);
     CHECK(stdStyle.GetGap(UiSize::Sm) == 6.0f);
@@ -2842,17 +2841,7 @@ void TestUiStyleAndDensityScaling() {
     CHECK(stdStyle.GetGap(UiSize::Lg) == 12.0f);
     CHECK(stdStyle.GetGap(UiSize::Xl) == 18.0f);
 
-    const auto compactStyle = UiStyle::Compact();
-    CHECK(compactStyle.GetDensity() == Density::Compact);
-    CHECK(compactStyle.GetGap(UiSize::Md) == 6.0f);
-    CHECK(compactStyle.GetRadius(UiSize::Md) == 3.0f);
-
-    const auto touchStyle = UiStyle::Touch();
-    CHECK(touchStyle.GetDensity() == Density::Touch);
-    CHECK(touchStyle.GetGap(UiSize::Md) == 12.0f);
-    CHECK(touchStyle.GetRadius(UiSize::Md) == 6.0f);
-
-    // 2. Context dynamic style switching
+    // 2. Context dynamic float density switching (Variant B: density scales ALL container gaps/padding + ui.Gap)
     Context ui;
     ThorCanvas canvas;
     const keel::u32 width = 400;
@@ -2860,16 +2849,25 @@ void TestUiStyleAndDensityScaling() {
     keel::Array<keel::u32> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
-    WidgetResponse b1, b2;
+    WidgetResponse b1, b2, bExplicit1, bExplicit2, bGap1, bGap2;
 
     auto render = [&]() {
         if (auto col = ui.Column()) {
             b1 = ui.Button({.text = "First"});
             b2 = ui.Button({.text = "Second"});
         }
+        if (auto explicitCol = ui.Column({.gap = 12.0f, .zone = {.density = 0.5f}})) {
+            bExplicit1 = ui.Button({.text = "Explicit 1"});
+            bExplicit2 = ui.Button({.text = "Explicit 2"});
+        }
+        if (auto gapRow = ui.Row({.gap = 0.0f, .zone = {.density = 2.0f}})) {
+            bGap1 = ui.Button({.text = "Gap 1"});
+            ui.Gap(10.0f);
+            bGap2 = ui.Button({.text = "Gap 2"});
+        }
     };
 
-    // Frame 1: Standard density (default Md gap = 12px)
+    // Frame 1: Standard density (1.0f -> default Md gap = 9px)
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     render();
     ui.EndFrame(canvas);
@@ -2879,9 +2877,13 @@ void TestUiStyleAndDensityScaling() {
     ui.EndFrame(canvas);
 
     CHECK_NEAR(b2.rect.y, b1.rect.Bottom() + 9.0f, 0.01f);
+    // Explicit .gap = 12.0f is defined at density = 1.0f, so zone.density = 0.5f scales it to 6.0f
+    CHECK_NEAR(bExplicit2.rect.y, bExplicit1.rect.Bottom() + 6.0f, 0.01f);
+    // ui.Gap(10.0f) inside zone.density = 2.0f scales to 20.0f
+    CHECK_NEAR(bGap2.rect.x, bGap1.rect.Right() + 20.0f, 0.01f);
 
-    // Frame 2: Switch to Compact density (Md gap = 8px)
-    ui.SetDensity(Density::Compact);
+    // Frame 2: Switch root density to 0.5f (Md gap = 4.5px; nested zones compose multiplicatively)
+    ui.SetDensity(0.5f);
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     render();
     ui.EndFrame(canvas);
@@ -2890,10 +2892,12 @@ void TestUiStyleAndDensityScaling() {
     render();
     ui.EndFrame(canvas);
 
-    CHECK_NEAR(b2.rect.y, b1.rect.Bottom() + 6.0f, 0.01f);
+    CHECK_NEAR(b2.rect.y, b1.rect.Bottom() + 4.5f, 0.01f);
+    CHECK_NEAR(bExplicit2.rect.y, bExplicit1.rect.Bottom() + 3.0f, 0.01f);
+    CHECK_NEAR(bGap2.rect.x, bGap1.rect.Right() + 10.0f, 0.01f);
 
-    // Frame 3: Switch to Touch density (Md gap = 16px)
-    ui.SetDensity(Density::Touch);
+    // Frame 3: Switch root density to 2.0f (Md gap = 18px)
+    ui.SetDensity(2.0f);
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     render();
     ui.EndFrame(canvas);
@@ -2902,9 +2906,10 @@ void TestUiStyleAndDensityScaling() {
     render();
     ui.EndFrame(canvas);
 
-    CHECK_NEAR(b2.rect.y, b1.rect.Bottom() + 12.0f, 0.01f);
+    CHECK_NEAR(b2.rect.y, b1.rect.Bottom() + 18.0f, 0.01f);
 
-    // Frame 4: Custom spacing scale override
+    // Frame 4: Custom spacing scale override at density = 1.0f
+    ui.SetDensity(1.0f);
     ui.GetTheme().Spacing().md = 25.0f;
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     render();
@@ -2941,48 +2946,47 @@ void TestLeafWidgetSizeOverrides() {
     static constexpr keel::StaticArray<keel::StringRef, 2> selItems = {"Option 1", "Option 2"};
 
     auto render = [&]() {
-        // Container has default ambient size (UiSize::Md)
         if (auto col = ui.Column()) {
-            // Buttons: Inherited (Md), Local override Xl, Local override Xs
+            // Buttons: Default (Md), Local override Xl, Local override Xs
             if (auto r1 = ui.Row()) {
                 btnInherit = ui.Button({.text = "Inherit"});
-                btnXl = ui.Size(UiSize::Xl).Button({.text = "Large"});
-                btnXs = ui.Size(UiSize::Xs).Button({.text = "Small"});
+                btnXl = ui.Button({.text = "Large", .size = UiSize::Xl});
+                btnXs = ui.Button({.text = "Small", .size = UiSize::Xs});
             }
 
-            // Switches: Inherited (Md), Local override Xl, Local override Xs
+            // Switches: Default (Md), Local override Xl, Local override Xs
             if (auto r2 = ui.Row()) {
                 swInherit = ui.Switch(swVal);
-                swXl = ui.Size(UiSize::Xl).Switch(swVal);
-                swXs = ui.Size(UiSize::Xs).Switch(swVal);
+                swXl = ui.Switch(swVal, {.size = UiSize::Xl});
+                swXs = ui.Switch(swVal, {.size = UiSize::Xs});
             }
 
-            // Checkboxes: Inherited (Md), Local override Xl, Local override Xs
+            // Checkboxes: Default (Md), Local override Xl, Local override Xs
             if (auto r3 = ui.Row()) {
                 cbInherit = ui.Checkbox(cbVal);
-                cbXl = ui.Size(UiSize::Xl).Checkbox(cbVal);
-                cbXs = ui.Size(UiSize::Xs).Checkbox(cbVal);
+                cbXl = ui.Checkbox(cbVal, {.size = UiSize::Xl});
+                cbXs = ui.Checkbox(cbVal, {.size = UiSize::Xs});
             }
 
-            // InputFields: Inherited (Md), Local override Xl, Local override Xs
+            // InputFields: Default (Md), Local override Xl, Local override Xs
             if (auto r4 = ui.Row()) {
                 inInherit = ui.InputField(inVal);
-                inXl = ui.Size(UiSize::Xl).InputField(inVal);
-                inXs = ui.Size(UiSize::Xs).InputField(inVal);
+                inXl = ui.InputField(inVal, {.size = UiSize::Xl});
+                inXs = ui.InputField(inVal, {.size = UiSize::Xs});
             }
 
-            // Selects: Inherited (Md), Local override Xl, Local override Xs
+            // Selects: Default (Md), Local override Xl, Local override Xs
             if (auto r5 = ui.Row()) {
                 selInherit = ui.Select(selIdx, selItems);
-                selXl = ui.Size(UiSize::Xl).Select(selIdx, selItems);
-                selXs = ui.Size(UiSize::Xs).Select(selIdx, selItems);
+                selXl = ui.Select(selIdx, selItems, {.size = UiSize::Xl});
+                selXs = ui.Select(selIdx, selItems, {.size = UiSize::Xs});
             }
 
             // Toolbar ToolButtons: Inherited (Md), Local override Xl, Local override Xs
             if (auto tb = ui.Toolbar()) {
                 toolInherit = tb.ToolButton({.text = "Inherit", .icon = Icon::Play()});
-                toolXl = ui.Size(UiSize::Xl).ToolButton({.text = "Large", .icon = Icon::Play()});
-                toolXs = ui.Size(UiSize::Xs).ToolButton({.text = "Small", .icon = Icon::Play()});
+                toolXl = tb.ToolButton({.text = "Large", .icon = Icon::Play(), .size = UiSize::Xl});
+                toolXs = tb.ToolButton({.text = "Small", .icon = Icon::Play(), .size = UiSize::Xs});
             }
         }
     };
@@ -3075,8 +3079,8 @@ void TestHeadingWidgetWorkflow() {
     CHECK(sizeH3.x > sizeH6.x);
 
     // Architectural invariants: Element and Heading are pure semantic widgets without height/verticalAlign/background/border,
-    // and ui.Size(...) does not expose .Heading(...) because Heading is governed by HeadingLevel, not UiSize.
-    static_assert(![]<typename T = guikit::Context>() { return requires(T& c) { c.Size(UiSize::Sm).Heading(HeadingOptions{}); }; }());
+    // and HeadingOptions does not expose .size because Heading is governed by HeadingLevel, not UiSize.
+    static_assert(![]<typename T = guikit::HeadingOptions>() { return requires(T o) { o.size; }; }());
     static_assert(![]<typename T = guikit::ElementOptions>() { return requires(T o) { o.height; }; }());
     static_assert(![]<typename T = guikit::HeadingOptions>() { return requires(T o) { o.height; }; }());
     static_assert(![]<typename T = guikit::ElementOptions>() { return requires(T o) { o.verticalAlign; }; }());
@@ -3457,9 +3461,10 @@ void TestFrameScaleIsUniformAndKeepsPointer() {
     }
 }
 
-// Zones: the root zone is created by BeginFrame, child zones inherit whatever they do not set, a zone's
-// `.zoom` is relative to the display scale (independent of the root zoom), and every scope leaves the zone
-// stack exactly as it found it.
+// Zones: the root zone is created by BeginFrame, child zones inherit whatever they do not set, a container's
+// children inherit the container's own state (entered by the context, not by the component), a container scaled
+// with `ui.ScaleForZoom(z)` keeps its pixel size whatever the root zoom is, and every scope leaves the zone stack
+// exactly as it found it.
 void TestZonesInheritanceZoomIndependenceAndBalance() {
     using namespace guikit;
 
@@ -3477,87 +3482,53 @@ void TestZonesInheritanceZoomIndependenceAndBalance() {
     CHECK_NEAR(ui.GetRootZoom(), 1.25f, 1e-6f);
     CHECK_NEAR(ui.GetPixelsPerDp(), 1.875f, 1e-6f);
     CHECK_NEAR(ui.ScaleForZoom(2.5f), 2.0f, 1e-6f);
+    CHECK_NEAR(ui.ScaleForZoom(1.0f), 0.8f, 1e-6f);
     CHECK_NEAR(ui.GetLogicalViewport().x, 640.0f, 1e-3f);
 
-    // --- Root zone ---
-    CHECK(ui.GetZoneDepth() == 1);
-    CHECK(ui.GetZone().size == UiSize::Md);
-    CHECK(!ui.GetZone().disabled);
-    CHECK_NEAR(ui.GetCurrentScale(), 1.0f, 1e-6f);
+    // --- Root zone & density ---
+    CHECK(!ui.IsDisabled());
+    CHECK_NEAR(ui.GetDensity(), 1.0f, 1e-6f);
     const UiTheme* rootTheme = &ui.GetTheme();
 
-    // --- A child zone inherits everything it does not set, and restores the parent on exit ---
-    {
-        auto sized = ui.Zone({.size = UiSize::Sm});
-        CHECK(sized);
-        CHECK(ui.GetZoneDepth() == 2);
-        CHECK(ui.GetCurrentSize() == UiSize::Sm);
+    // --- Container .zone inherits everything it does not set, and restores parent on exit ---
+    if (auto denseCol = ui.Column({.zone = {.density = 0.5f}})) {
+        CHECK_NEAR(ui.GetDensity(), 0.5f, 1e-6f);
         CHECK(&ui.GetTheme() == rootTheme);       // theme inherited, not copied
         CHECK(!ui.IsDisabled());
 
-        {
-            auto disabled = ui.Zone({.disabled = true});
-            CHECK(ui.GetCurrentSize() == UiSize::Sm);  // size inherited from the parent zone
+        if (auto disabledBox = ui.Box({.disabled = true, .zone = {.density = 1.5f}})) {
+            CHECK_NEAR(ui.GetDensity(), 0.75f, 1e-6f);  // density composes multiplicatively
             CHECK(ui.IsDisabled());
-            {
-                auto reenabled = ui.Zone({.disabled = false});
-                CHECK(ui.IsDisabled());                // a disabled zone cannot be re-enabled by a child
+            if (auto reenabled = ui.Box({.disabled = false})) {
+                CHECK(ui.IsDisabled());                 // a disabled parent cannot be re-enabled by a child
             }
         }
         CHECK(!ui.IsDisabled());
-        CHECK(ui.GetCurrentSize() == UiSize::Sm);
+        CHECK_NEAR(ui.GetDensity(), 0.5f, 1e-6f);
     }
-    CHECK(ui.GetZoneDepth() == 1);
-    CHECK(ui.GetCurrentSize() == UiSize::Md);
+    CHECK_NEAR(ui.GetDensity(), 1.0f, 1e-6f);
 
-    // --- Theme override: replaced for the zone, owned by the frame arena, rescaled to the zone's scale ---
+    // --- Theme override: replaced for the container's zone and owned by the frame arena ---
     {
         const UiTheme light = UiTheme::Light();
-        auto themed = ui.Zone({.theme = &light});
-        CHECK(ui.GetTheme().mode == ThemeMode::Light);
-        CHECK(&ui.GetTheme() != &light);          // the zone owns a frame-lifetime copy
-        CHECK(&ui.GetTheme() != rootTheme);
-        CHECK_NEAR(ui.GetCurrentScale(), 1.0f, 1e-6f);
+        if (auto themed = ui.Box({.zone = {.theme = &light}})) {
+            CHECK(ui.GetTheme().mode == ThemeMode::Light);
+            CHECK(&ui.GetTheme() != &light);          // the zone owns a frame-lifetime copy
+            CHECK(&ui.GetTheme() != rootTheme);
+
+            // Nested containers inherit the theme from the parent zone
+            if (auto inner = ui.Box()) {
+                CHECK(inner.GetNode()->GetThemePtr() == &ui.GetTheme());
+                CHECK(ui.GetTheme().mode == ThemeMode::Light);
+            }
+        }
     }
     CHECK(&ui.GetTheme() == rootTheme);
     CHECK(ui.GetTheme().mode == ThemeMode::Dark);
-
-    // --- `.scale` rescales the zone's theme in layout units; the scale lives on the theme ---
-    {
-        const float baseH = ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight;
-        auto doubled = ui.Zone({.scale = 2.0f});
-        CHECK_NEAR(ui.GetCurrentScale(), 2.0f, 1e-6f);
-        CHECK_NEAR(ui.GetTheme().scale, 2.0f, 1e-6f);
-        CHECK_NEAR(ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight, baseH * 2.0f, 1e-3f);
-        {
-            auto inherited = ui.Zone({.size = UiSize::Lg});
-            CHECK_NEAR(ui.GetCurrentScale(), 2.0f, 1e-6f);  // unset scale is inherited
-        }
-    }
-    CHECK_NEAR(ui.GetCurrentScale(), 1.0f, 1e-6f);
-
-    // --- ResolveTheme does not leave a zone behind ---
-    {
-        const UiTheme resolved = ui.ResolveTheme({.scale = 3.0f});
-        CHECK_NEAR(resolved.scale, 3.0f, 1e-6f);
-        CHECK(ui.GetZoneDepth() == 1);
-    }
-
-    // --- Zoom is relative to the display scale, so a zone keeps its pixel size whatever the root zoom is ---
-    CHECK_NEAR(ui.ScaleForZoom(1.0f), 0.8f, 1e-6f);
-    {
-        auto zone = ui.Zone({.zoom = 1.25f});
-        CHECK_NEAR(ui.GetCurrentScale() * ui.GetPixelsPerDp(), 1.25f * 1.5f, 1e-5f);
-        {
-            // Nested zoom is absolute as well: it does not multiply with the parent zone's zoom
-            auto inner = ui.Zone({.zoom = 2.0f});
-            CHECK_NEAR(ui.GetCurrentScale() * ui.GetPixelsPerDp(), 2.0f * 1.5f, 1e-5f);
-        }
-        CHECK_NEAR(ui.GetCurrentScale() * ui.GetPixelsPerDp(), 1.25f * 1.5f, 1e-5f);
-    }
     ui.EndFrame(canvas);
 
-    // The same zone content has the same pixel size at every root zoom, while the surrounding UI follows it
+    // A container scaled with ScaleForZoom has the same pixel size at every root zoom, while the surrounding UI
+    // follows the root zoom
     static constexpr float kRootZooms[] = {0.75f, 1.0f, 1.25f, 1.5f, 2.0f};
     for (float rootZoom : kRootZooms) {
         Context ctx;
@@ -3568,63 +3539,60 @@ void TestZonesInheritanceZoomIndependenceAndBalance() {
             if (auto outside = ctx.Box({.width = 100.0f, .height = 20.0f})) {
                 outsideId = outside.GetNode()->id;
             }
-            if (auto zone = ctx.Zone({.zoom = 1.25f})) {
+            if (auto preview = ctx.Box({.zone = {.scale = ctx.ScaleForZoom(1.25f)}})) {
                 if (auto inside = ctx.Box({.width = 100.0f, .height = 20.0f})) {
                     insideId = inside.GetNode()->id;
                 }
             }
-            CHECK(ctx.GetZoneDepth() == 1);
+            CHECK(ctx.GetContainerDepth() == 1);
             ctx.EndFrame(canvas);
         }
         const Rect inside = ctx.GetPrevFrameBounds(insideId);
         const Rect outside = ctx.GetPrevFrameBounds(outsideId);
-        CHECK_NEAR(inside.w * ctx.GetPixelsPerDp(), 100.0f * 1.25f * 1.5f, 0.05f);   // zone: 125% of the display scale
-        CHECK_NEAR(outside.w * ctx.GetPixelsPerDp(), 100.0f * rootZoom * 1.5f, 0.05f); // outside: follows the root zoom
+        CHECK_NEAR(inside.w * ctx.GetPixelsPerDp(), 100.0f * 1.25f * 1.5f, 0.05f);   // 125% of the display scale
+        CHECK_NEAR(outside.w * ctx.GetPixelsPerDp(), 100.0f * rootZoom * 1.5f, 0.05f); // follows the root zoom
     }
 
-    // --- Scopes leave the stack balanced; a container owns the zone it entered ---
+    // --- Scopes leave the container/zone stack balanced ---
     {
         Context ctx;
         ctx.BeginFrame(viewport, 1.0f);
-        const keel::usize rootDepth = ctx.GetZoneDepth();
+        const keel::usize rootDepth = ctx.GetContainerDepth();
+        CHECK(rootDepth == 1);
 
-        // ui.Size(...).Row(...): the temporary size scope hands its zone to the row, which leaves it with its own
         {
-            auto row = ctx.Size(UiSize::Sm).Row();
-            CHECK(ctx.GetZoneDepth() == rootDepth + 2);
-            CHECK(ctx.GetCurrentSize() == UiSize::Sm);
+            auto row = ctx.Row();
+            CHECK(ctx.GetContainerDepth() == rootDepth + 1);
             if (auto col = ctx.Column({.disabled = true})) {
-                CHECK(ctx.GetZoneDepth() == rootDepth + 3);
-                CHECK(ctx.IsDisabled());
-                CHECK(ctx.GetCurrentSize() == UiSize::Sm);
+                CHECK(ctx.GetContainerDepth() == rootDepth + 2);
+                CHECK(col.GetNode()->disabled);      // the container is disabled...
+                CHECK(ctx.IsDisabled());             // ...and propagates disabled state to its children
             }
             CHECK(!ctx.IsDisabled());
         }
-        CHECK(ctx.GetZoneDepth() == rootDepth);
-        CHECK(ctx.GetCurrentSize() == UiSize::Md);
+        CHECK(ctx.GetContainerDepth() == rootDepth);
 
-        // A size scope that opens no container (closed accordion) is simply left again
+        // Closed accordion leaves container stack untouched
         {
             bool open = false;
-            auto acc = ctx.Size(UiSize::Sm).Accordion(open, {.label = "Closed"});
+            auto acc = ctx.Accordion(open, {.label = "Closed", .size = UiSize::Sm});
             CHECK(!acc);
-            CHECK(ctx.GetZoneDepth() == rootDepth);
-            CHECK(ctx.GetCurrentSize() == UiSize::Md);
+            CHECK(ctx.GetContainerDepth() == rootDepth);
         }
 
-        // An open accordion shows its header at the scoped size and its body at the original size
+        // Open accordion enters and leaves container cleanly
         {
             bool open = true;
-            auto acc = ctx.Size(UiSize::Sm).Accordion(open, {.label = "Open"});
+            auto acc = ctx.Accordion(open, {.label = "Open", .size = UiSize::Sm});
             CHECK(acc);
-            CHECK(ctx.GetZoneDepth() == rootDepth + 2);
-            CHECK(ctx.GetCurrentSize() == UiSize::Md);
+            CHECK(ctx.GetContainerDepth() == rootDepth + 1);
         }
-        CHECK(ctx.GetZoneDepth() == rootDepth);
+        CHECK(ctx.GetContainerDepth() == rootDepth);
 
-        // Widgets with a theme / scale override enter and leave their own zone
-        ctx.Button({.text = "Scaled", .scale = 1.5f});
-        CHECK(ctx.GetZoneDepth() == rootDepth);
+        // Leaf widgets never enter zones: a disabled button only disables itself
+        ctx.Button({.text = "Leaf", .disabled = true});
+        CHECK(ctx.GetContainerDepth() == rootDepth);
+        CHECK(!ctx.IsDisabled());
 
         // A table row is a zone of its own that lives exactly as long as its row scope
         {
@@ -3643,7 +3611,7 @@ void TestZonesInheritanceZoomIndependenceAndBalance() {
                         CHECK(!ctx.IsDisabled());
                     }
                 }
-                CHECK(ctx.GetZoneDepth() == rootDepth);
+                CHECK(ctx.GetContainerDepth() == rootDepth);
                 ctx.EndFrame(canvas);
             }
             CHECK(rowsSeen == 3);
@@ -3653,8 +3621,8 @@ void TestZonesInheritanceZoomIndependenceAndBalance() {
     }
 }
 
-// A zone's theme must reach every node built inside it, not only the node that entered the zone: widgets
-// created in a bare `ui.Zone(...)` are measured and rendered with the zone's theme and scale.
+// A container zone's theme must reach every node built inside it, and it composes with `.zone.scale`:
+// the theme decides the size in local units, the container's scale maps them.
 void TestZoneThemeReachesNodesBuiltInside() {
     using namespace guikit;
 
@@ -3664,7 +3632,8 @@ void TestZoneThemeReachesNodesBuiltInside() {
     keel::Array<keel::u32> pixels(kW * kH);
     canvas.SetTarget(pixels.data(), kW, kH, kW);
     const Vec2 viewport{static_cast<float>(kW), static_cast<float>(kH)};
-    const UiTheme touch = UiTheme::Dark(Density::Touch);
+    UiTheme tallTheme = UiTheme::Dark();
+    tallTheme.MutableMetrics(UiSize::Md).defaultHeight = 40.0f;
 
     Context ui;
     Response plain;
@@ -3675,25 +3644,196 @@ void TestZoneThemeReachesNodesBuiltInside() {
         ui.BeginFrame(viewport, 1.0f);
         if (auto col = ui.Column()) {
             plain = ui.Button({.text = "Button"});
-            if (auto zone = ui.Zone({.scale = 2.0f})) {
+            if (auto box = ui.Box({.zone = {.scale = 2.0f}})) {
                 scaled = ui.Button({.text = "Button"});
             }
-            if (auto zone = ui.Zone({.theme = &touch})) {
+            if (auto themedBox = ui.Box({.zone = {.theme = &tallTheme}})) {
                 themed = ui.Button({.text = "Button"});
-                if (auto inner = ui.Zone({.scale = 2.0f})) {
+                if (auto box = ui.Box({.zone = {.scale = 2.0f}})) {
                     nested = ui.Button({.text = "Button"});
                 }
             }
         }
         ui.EndFrame(canvas);
     }
-    const float mdStandard = UiTheme::Dark(Density::Standard).GetMetrics(UiSize::Md).defaultHeight;
-    const float mdTouch = touch.GetMetrics(UiSize::Md).defaultHeight;
-    CHECK_NEAR(plain.rect.h, mdStandard, 0.01f);
-    CHECK_NEAR(scaled.rect.h, mdStandard * 2.0f, 0.01f);          // zone scale reaches the widget
-    CHECK_NEAR(themed.rect.h, mdTouch, 0.01f);                    // zone theme reaches the widget
-    CHECK_NEAR(nested.rect.h, mdTouch * 2.0f, 0.01f);             // and composes with a nested zone
-    CHECK(scaled.rect.w > plain.rect.w * 1.9f);                   // text is measured at the zone's scale as well
+    const float mdStandard = UiTheme::Dark().GetMetrics(UiSize::Md).defaultHeight;
+    const float mdTall = tallTheme.GetMetrics(UiSize::Md).defaultHeight;
+    // Frame bounds (in frame dp, read outside any container)
+    const Rect plainB = ui.GetPrevFrameBounds(plain.id);
+    const Rect scaledB = ui.GetPrevFrameBounds(scaled.id);
+    const Rect themedB = ui.GetPrevFrameBounds(themed.id);
+    const Rect nestedB = ui.GetPrevFrameBounds(nested.id);
+    CHECK_NEAR(plainB.h, mdStandard, 0.01f);
+    CHECK_NEAR(scaledB.h, mdStandard * 2.0f, 0.01f);            // the container's scale reaches the widget
+    CHECK_NEAR(themedB.h, mdTall, 0.01f);                       // the zone's theme reaches the widget
+    CHECK_NEAR(nestedB.h, mdTall * 2.0f, 0.01f);                // and composes with a scaled container
+    CHECK(scaledB.w > plainB.w * 1.9f);                         // text scales with the subtree as well
+    // The response of a widget in a scaled container is in that container's local units
+    CHECK_NEAR(scaled.rect.h, mdStandard, 0.01f);
+}
+
+// Canvas transforms: drawing in a pushed transform must produce exactly the pixels of the same geometry mapped
+// by hand (origin + (p - origin) * s), including text, strokes, rounded rects and clipping, and PopTransform
+// must restore the previous mapping.
+void TestCanvasTransformMatchesMappedGeometry() {
+    using namespace guikit;
+
+    constexpr keel::u32 kW = 260;
+    constexpr keel::u32 kH = 180;
+    constexpr float kFrameScale = 1.5f;
+    const Vec2 origin{10.0f, 10.0f};
+    constexpr float s = 2.0f;
+    auto map = [&](Vec2 v) { return Vec2{origin.x + (v.x - origin.x) * s, origin.y + (v.y - origin.y) * s}; };
+    auto mapRect = [&](Rect r) {
+        const Vec2 o = map({r.x, r.y});
+        return Rect(o.x, o.y, r.w * s, r.h * s);
+    };
+    const Color red(220, 40, 40);
+    const Color blue(40, 90, 220);
+    const Color white(255, 255, 255);
+
+    auto draw = [&](ThorCanvas& c, bool useTransform) {
+        auto R = [&](Rect r) { return useTransform ? r : mapRect(r); };
+        auto P = [&](Vec2 v) { return useTransform ? v : map(v); };
+        auto L = [&](float v) { return useTransform ? v : v * s; };
+        c.Begin(kW, kH, kFrameScale);
+        c.Clear(Color(10, 12, 16));
+        if (useTransform) {
+            c.PushTransform(Transform2D::ScaleAbout(origin, s));
+            CHECK_NEAR(c.GetScale(), kFrameScale * s, 1e-6f);
+        }
+        c.DrawRect(R(Rect(12.0f, 12.0f, 20.0f, 9.0f)), red);
+        c.DrawRoundRect(R(Rect(14.0f, 24.0f, 30.0f, 12.0f)), L(3.0f), blue, white, L(1.0f));
+        c.DrawRoundRect(R(Rect(50.0f, 12.0f, 14.0f, 14.0f)), 0.0f, Color::Transparent(), white, L(1.0f));
+        c.DrawLine(P({12.0f, 42.0f}), P({60.0f, 50.0f}), white, L(1.5f));
+        c.PushClip(R(Rect(12.0f, 52.0f, 40.0f, 8.0f)));
+        c.DrawRect(R(Rect(10.0f, 50.0f, 60.0f, 20.0f)), blue);
+        c.PopClip();
+        c.DrawText("Zone", P({40.0f, 30.0f}), L(11.0f), white);
+        if (useTransform) {
+            c.PopTransform();
+            CHECK_NEAR(c.GetScale(), kFrameScale, 1e-6f);
+        }
+        // After PopTransform the mapping is the frame's again
+        c.DrawRect(Rect(150.0f, 100.0f, 12.0f, 8.0f), red);
+        c.End();
+    };
+
+    keel::Array<keel::u32> a(kW * kH);
+    keel::Array<keel::u32> b(kW * kH);
+    ThorCanvas ca;
+    ThorCanvas cb;
+    ca.SetTarget(a.data(), kW, kH, kW);
+    cb.SetTarget(b.data(), kW, kH, kW);
+    draw(ca, true);
+    draw(cb, false);
+
+    keel::usize differing = 0;
+    keel::i32 maxDelta = 0;
+    keel::usize lit = 0;
+    for (keel::usize i = 0; i < a.size(); ++i) {
+        if (a[i] != 0xFF100C0Au) ++lit;
+        if (a[i] == b[i]) continue;
+        ++differing;
+        for (keel::i32 shift = 0; shift < 32; shift += 8) {
+            const keel::i32 ca8 = static_cast<keel::i32>((a[i] >> shift) & 0xFFu);
+            const keel::i32 cb8 = static_cast<keel::i32>((b[i] >> shift) & 0xFFu);
+            maxDelta = keel::max(maxDelta, keel::abs(ca8 - cb8));
+        }
+    }
+    CHECK(lit > 2000);                 // something was actually drawn
+    if (differing != 0) {
+        keel::eprintln("[INFO] canvas transform: {} differing pixels, max channel delta {}", differing, maxDelta);
+    }
+    CHECK(maxDelta <= 2);              // float rounding of p * S + offset vs (mapped p) * S only
+    CHECK(differing < a.size() / 500); // < 0.2% of the surface
+}
+
+// A container with a scale is a transform root: widgets inside see local coordinates (their rect, the mouse),
+// hit testing and damage happen in frame space, and rendering lands where the frame-space rect says.
+namespace {
+struct ScaledTestPanel {
+    static guikit::ContainerScope Open(guikit::Context& ctx, float scale, keel::SourceLocation loc = keel::SourceLocation::current()) {
+        using namespace guikit;
+        const Id id = ctx.MakeChildId(loc);
+        Node* node = ctx.CreateNode(NodeType::Container, id, {.scale = scale});
+        node->direction = FlexDirection::Column;
+        node->widthMode = SizeMode::Fit;
+        node->heightMode = SizeMode::Fit;
+        ctx.FinishContainer(node);
+        return ContainerScope(&ctx, node);
+    }
+};
+} // namespace
+
+void TestScaledContainerSpaces() {
+    using namespace guikit;
+
+    constexpr keel::u32 kW = 600;
+    constexpr keel::u32 kH = 400;
+    Context ui;
+    ThorCanvas canvas;
+    keel::Array<keel::u32> pixels(kW * kH);
+    canvas.SetTarget(pixels.data(), kW, kH, kW);
+    const Vec2 viewport{static_cast<float>(kW), static_cast<float>(kH)};
+
+    Response btn;
+    Vec2 mouseInside{};
+    Id panelId = Id::Null();
+    auto frame = [&]() {
+        ui.BeginFrame(viewport, 1.0f);
+        if (auto col = ui.Column({.padding = Padding::All(40.0f)})) {
+            if (auto panel = ui.Open<ScaledTestPanel>(2.0f)) {
+                panelId = panel.GetNode()->id;
+                btn = ui.Button({.text = "Scaled"});
+                mouseInside = ui.GetMousePos();
+            }
+        }
+        ui.EndFrame(canvas);
+    };
+    frame();
+    frame();
+
+    // The widget sees its rect in local units: origin shared with the panel at (40, 40), size unscaled
+    const float bw = btn.rect.w;
+    const float bh = btn.rect.h;
+    CHECK_NEAR(btn.rect.x, 40.0f, 0.01f);
+    CHECK_NEAR(btn.rect.y, 40.0f, 0.01f);
+    CHECK_NEAR(bh, UiTheme::Dark().GetMetrics(UiSize::Md).defaultHeight, 0.01f);
+    CHECK(bw > 20.0f);
+
+    // In frame space the button is twice as large about the panel's corner
+    const Transform2D space = ui.GetNodeSpace(btn.id);
+    CHECK_NEAR(space.scale, 2.0f, 1e-6f);
+    const Rect frameRect = space.Apply(btn.rect);
+    CHECK_NEAR(frameRect.x, 40.0f, 0.01f);
+    CHECK_NEAR(frameRect.w, bw * 2.0f, 0.01f);
+    CHECK_NEAR(frameRect.h, bh * 2.0f, 0.01f);
+    CHECK(ui.GetNodeSpace(panelId).scale == 2.0f);
+
+    // A point inside the frame-space rect but below the local rect's numbers hovers the button
+    const Vec2 target{40.0f + bw * 1.5f, 40.0f + bh * 2.0f - 5.0f};
+    ui.OnMouseMove(target);
+    frame();
+    CHECK(btn.hovered);
+    CHECK_NEAR(mouseInside.x, 40.0f + bw * 0.75f, 0.01f); // the mouse in the panel's local space
+    CHECK_NEAR(mouseInside.y, 40.0f + bh - 2.5f, 0.01f);
+    // The hover change damaged the frame-space area of the button
+    CHECK(ui.GetDirtyRect().Intersects(Rect(frameRect.Right() - 4.0f, frameRect.Bottom() - 4.0f, 2.0f, 2.0f)));
+
+    ui.OnMouseMove({frameRect.Right() + 8.0f, frameRect.y + 4.0f});
+    frame();
+    CHECK(!btn.hovered);
+
+    // Rendering: the button's surface reaches the frame-space corner, and stops there
+    ui.InvalidateAll();
+    frame();
+    auto px = [&](float x, float y) { return pixels[static_cast<keel::usize>(y) * kW + static_cast<keel::usize>(x)]; };
+    const keel::u32 nearTopLeft = px(frameRect.x + 6.0f, frameRect.y + 6.0f);
+    const keel::u32 nearBottomRight = px(frameRect.Right() - 6.0f, frameRect.Bottom() - 6.0f);
+    const keel::u32 outside = px(frameRect.Right() + 6.0f, frameRect.Bottom() - 6.0f);
+    CHECK(nearTopLeft == nearBottomRight);
+    CHECK(nearBottomRight != outside);
 }
 
 // Regression: ThorVG's Text::size() takes points and scales by 96/72 internally, so passing a dp
@@ -4307,7 +4447,6 @@ struct MyCustomBadge {
         const Id id = ctx.MakeChildId(loc);
         Node* node = ctx.CreateNode(NodeType::Custom, id);
         node->text = ctx.AllocString(text);
-        node->textColor = ctx.GetTheme().palette.textPrimary;
         node->widthMode = SizeMode::Fit;
         node->heightMode = SizeMode::Fit;
         ctx.AdaptChildToContainer(node);
@@ -4454,6 +4593,8 @@ void TestContextCleanArchitectureAndStateGC() {
     CHECK(ui.FindState<TemporaryWidgetState>(activeId)->value == 999);
 }
 
+// Themes are scoped by zones and scale by containers: a scaled container leaves theme tokens and its children's
+// sizes untouched (they are local units) and converts only its own outer sizing fields into the parent's units.
 void TestScopedThemeAndScaleOverrides() {
     using namespace guikit;
 
@@ -4474,113 +4615,87 @@ void TestScopedThemeAndScaleOverrides() {
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)}, 1.0f);
 
     const float baseBtnHeight = ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight;
-    CHECK_NEAR(ui.GetCurrentScale(), 1.0f, 0.001f);
 
-    // 1. Scoped theme override
-    if (auto box = ui.Box({.theme = &customTheme})) {
+    // 1. Container zone theme override
+    if (auto box = ui.Box({.zone = {.theme = &customTheme}})) {
         CHECK(ui.GetTheme().palette.surface == Color(123, 234, 45, 255));
-        CHECK_NEAR(ui.GetCurrentScale(), 1.0f, 0.001f);
     }
-    // Should restore after box closes
     CHECK(ui.GetTheme().palette.surface != Color(123, 234, 45, 255));
 
-    // 2. Scoped scale override + nested theme override inheriting parent scale
-    if (auto col = ui.Column({.scale = 2.0f})) {
-        CHECK_NEAR(ui.GetCurrentScale(), 2.0f, 0.001f);
-        const float scaledBtnHeight = ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight;
-        CHECK_NEAR(scaledBtnHeight, baseBtnHeight * 2.0f, 0.001f);
-
-        // Nested container overriding only .theme must inherit parent scale (2.0f)
-        if (auto innerCard = ui.Card({.theme = &customTheme})) {
+    // 2. A scaled container does not touch theme tokens; a nested theme zone works inside it
+    if (auto col = ui.Column({.zone = {.scale = 2.0f}})) {
+        CHECK_NEAR(col.GetNode()->GetScale(), 2.0f, 0.001f);
+        CHECK_NEAR(col.GetNode()->GetRelativeScale(), 2.0f, 0.001f);
+        CHECK_NEAR(ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight, baseBtnHeight, 0.001f);
+        if (auto innerCard = ui.Card({.zone = {.theme = &customTheme}})) {
             CHECK(ui.GetTheme().palette.surface == Color(123, 234, 45, 255));
-            CHECK_NEAR(ui.GetCurrentScale(), 2.0f, 0.001f);
-            CHECK_NEAR(ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight, baseBtnHeight * 2.0f, 0.001f);
+            CHECK_NEAR(innerCard.GetNode()->GetScale(), 2.0f, 0.001f);          // accumulated zone scale is 2.0x
+            CHECK_NEAR(innerCard.GetNode()->GetRelativeScale(), 1.0f, 0.001f);  // relative scale delta is 1.0x (no double-scaling)
         }
-        // After innerCard closes, parent scale and theme remain 2.0f
-        CHECK_NEAR(ui.GetCurrentScale(), 2.0f, 0.001f);
-        CHECK_NEAR(ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight, baseBtnHeight * 2.0f, 0.001f);
+        CHECK(ui.GetTheme().palette.surface != Color(123, 234, 45, 255));
     }
-    // Should restore after col closes
-    CHECK_NEAR(ui.GetCurrentScale(), 1.0f, 0.001f);
-    CHECK_NEAR(ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight, baseBtnHeight, 0.001f);
+    CHECK(ui.GetContainerDepth() == 1);
 
-    // 3. Toolbar inside a scaled container must preserve parent scale after closing
-    if (auto shellCol = ui.Column({.scale = 1.5f})) {
-        CHECK_NEAR(ui.GetCurrentScale(), 1.5f, 0.001f);
+    // 3. A toolbar inside a scaled container leaves the container stack balanced
+    if (auto shellCol = ui.Column({.zone = {.scale = 1.5f}})) {
+        const keel::usize depth = ui.GetContainerDepth();
         if (auto tb = ui.Toolbar()) {
             tb.ToolButton({.text = "Action"});
         }
-        // Scale must still be 1.5f after ToolbarScope destructor runs
-        CHECK_NEAR(ui.GetCurrentScale(), 1.5f, 0.001f);
-        CHECK_NEAR(ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight, baseBtnHeight * 1.5f, 0.001f);
+        CHECK(ui.GetContainerDepth() == depth);
     }
-    CHECK_NEAR(ui.GetCurrentScale(), 1.0f, 0.001f);
+    CHECK(ui.GetContainerDepth() == 1);
 
-    // 4. Isolated sidebar vs scaled content in row + scoped debugBounds / inspectMode
+    // 4. Themed sidebar next to scaled content; debugBounds / inspectMode are zone state that every node built in
+    //    the zone records, and nodes outside follow the context setting
     if (auto row = ui.Row()) {
-        if (auto sidebar = ui.Box({.theme = &inspectorTheme, .scale = 1.0f, .debugBounds = false, .inspectMode = false})) {
+        CHECK(!row.GetNode()->GetDebugBoundsOverride().has_value());
+        if (auto sidebar = ui.Box({.zone = {.theme = &inspectorTheme, .debugBounds = false, .inspectMode = false}})) {
             CHECK(ui.GetTheme().palette.surface == Color(10, 20, 30, 255));
-            CHECK_NEAR(ui.GetCurrentScale(), 1.0f, 0.001f);
-            CHECK_NEAR(ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight, baseBtnHeight, 0.001f);
-            CHECK(sidebar.GetNode()->debugBoundsOverride.has_value());
-            CHECK(*sidebar.GetNode()->debugBoundsOverride == false);
-            CHECK(sidebar.GetNode()->inspectModeOverride.has_value());
-            CHECK(*sidebar.GetNode()->inspectModeOverride == false);
+            CHECK(sidebar.GetNode()->GetDebugBoundsOverride().has_value());
+            CHECK(*sidebar.GetNode()->GetDebugBoundsOverride() == false);
+            CHECK(sidebar.GetNode()->GetInspectModeOverride().has_value());
+            CHECK(*sidebar.GetNode()->GetInspectModeOverride() == false);
         }
 
-        if (auto content = ui.Card({.scale = 1.5f, .debugBounds = true, .inspectMode = true})) {
-            CHECK_NEAR(ui.GetCurrentScale(), 1.5f, 0.001f);
-            CHECK_NEAR(ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight, baseBtnHeight * 1.5f, 0.001f);
-            CHECK(content.GetNode()->debugBoundsOverride.has_value());
-            CHECK(*content.GetNode()->debugBoundsOverride == true);
-            CHECK(content.GetNode()->inspectModeOverride.has_value());
-            CHECK(*content.GetNode()->inspectModeOverride == true);
+        if (auto content = ui.Card({.zone = {.scale = 1.5f, .debugBounds = true, .inspectMode = true}})) {
+            CHECK_NEAR(ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight, baseBtnHeight, 0.001f);
+            CHECK(*content.GetNode()->GetDebugBoundsOverride() == true);
+            CHECK(*content.GetNode()->GetInspectModeOverride() == true);
+            if (auto inner = ui.Box()) {
+                CHECK(*inner.GetNode()->GetDebugBoundsOverride() == true);   // inherited by nested nodes
+                if (auto hidden = ui.Box({.zone = {.debugBounds = false}})) {
+                    CHECK(*hidden.GetNode()->GetDebugBoundsOverride() == false); // a child zone can turn it off
+                    CHECK(*hidden.GetNode()->GetInspectModeOverride() == true);  // and inherits the rest
+                }
+            }
         }
     }
 
-    // 5. Explicit linear dimensions (dp) scale proportionally with .scale, while Fill % width stays unscaled
-    if (auto scaledCol = ui.Column({.gap = 10.0f, .padding = Padding::All(12.0f), .scale = 2.0f})) {
+    // 5. Only the scaled container's outer sizing is converted into parent units; everything inside is local
+    if (auto scaledCol = ui.Column({.gap = 10.0f, .padding = Padding::All(12.0f), .width = 150.0f, .zone = {.scale = 2.0f}})) {
         const Node* colNode = scaledCol.GetNode();
         CHECK(colNode != nullptr);
-        CHECK_NEAR(ui.GetTheme().scale, 2.0f, 0.001f);
-        CHECK_NEAR(colNode->gap, 20.0f, 0.001f);
-        CHECK_NEAR(colNode->padding.left, 24.0f, 0.001f);
-        CHECK_NEAR(colNode->padding.top, 24.0f, 0.001f);
-
-        // Token-based padding must not be double-scaled
-        const Padding tokenPad = ui.GetTheme().ResolvePadding(Padding(UiSize::Sm));
-        CHECK_NEAR(tokenPad.left, ui.GetTheme().GetPadding(UiSize::Sm).left, 0.001f);
+        CHECK_NEAR(colNode->fixedWidth, 300.0f, 0.001f);   // outer size: parent units
+        CHECK_NEAR(colNode->gap, 10.0f, 0.001f);           // inner spacing: local units
+        CHECK_NEAR(colNode->padding.left, 12.0f, 0.001f);
 
         if (auto fixedBox = ui.Box({.width = 100.0f, .height = 40.0f, .border = {.width = 2.0f, .radius = 6.0f}})) {
             const Node* boxNode = fixedBox.GetNode();
-            CHECK_NEAR(boxNode->fixedWidth, 200.0f, 0.001f);
-            CHECK_NEAR(boxNode->fixedHeight, 80.0f, 0.001f);
-            CHECK_NEAR(boxNode->borderWidth, 4.0f, 0.001f);
-            CHECK_NEAR(boxNode->cornerRadius, 12.0f, 0.001f);
-        }
-
-        if (auto sb = ui.Sidebar({.width = 160.0f, .minWidth = 80.0f, .gap = 8.0f})) {
-            const Node* sbNode = sb.GetNode();
-            CHECK_NEAR(sbNode->fixedWidth, 320.0f, 0.001f);
-            CHECK_NEAR(sbNode->minWidth, 160.0f, 0.001f);
-            CHECK_NEAR(sbNode->gap, 16.0f, 0.001f);
+            CHECK_NEAR(boxNode->fixedWidth, 100.0f, 0.001f);
+            CHECK_NEAR(boxNode->fixedHeight, 40.0f, 0.001f);
+            CHECK_NEAR(boxNode->borderWidth, 2.0f, 0.001f);
+            CHECK_NEAR(boxNode->cornerRadius, 6.0f, 0.001f);
         }
 
         const Vec2 btnCompact = Button::Measure(ButtonOptions{.text = "OK", .width = 120.0f}, UiSize::Md, &canvas, ui.GetTheme());
-        CHECK_NEAR(btnCompact.x, 240.0f, 0.001f);
+        CHECK_NEAR(btnCompact.x, 120.0f, 0.001f);
 
-        const Vec2 inpCompact = InputField::Measure("12", InputFieldOptions{.width = 90.0f}, UiSize::Md, &canvas, ui.GetTheme());
-        CHECK_NEAR(inpCompact.x, 180.0f, 0.001f);
-
-        const Vec2 selCompact = Select::Measure(SelectOptions{.width = 110.0f}, UiSize::Md, &canvas, ui.GetTheme());
-        CHECK_NEAR(selCompact.x, 220.0f, 0.001f);
-
-        // SizeMode::Stretch fills available width without multiplying bounds.w by scale again
+        // SizeMode::Stretch fills the available width
         const Rect fillBox = Select::GetBoxRect(Rect(0.0f, 0.0f, 400.0f, 60.0f), SelectOptions{.width = SizeMode::Stretch}, UiSize::Md, &canvas, ui.GetTheme());
         CHECK_NEAR(fillBox.w, 400.0f, 0.01f);
     }
-
-    CHECK_NEAR(ui.GetCurrentScale(), 1.0f, 0.001f);
+    CHECK(ui.GetContainerDepth() == 1);
 
     ui.EndFrame(canvas);
 }
@@ -4726,7 +4841,7 @@ void TestVerticalSlider() {
         const SliderOptions vH{.orientation = Orientation::Vertical, .showValue = false,
                                .height = 300.0f};
         const Vec2 vHSize = Slider::Measure(vH, 50.0, 0.0, 100.0, UiSize::Md, &canvas, theme);
-        CHECK_NEAR(vHSize.y, theme.Scale(300.0f), 0.5f);
+        CHECK_NEAR(vHSize.y, 300.0f, 0.5f);
     }
 
     double gain = 20.0;
@@ -5122,18 +5237,18 @@ void TestPixelGeometryAndWidgetUiSizeDecoupling() {
         }
 
         // 3. Fallback to theme defaults when gap / radius are omitted (nullopt)
-        if (auto defaultCard = ui.Size(UiSize::Lg).Card()) {
+        if (auto defaultCard = ui.Card()) {
             Node* n = defaultCard.GetNode();
             CHECK(n != nullptr);
-            CHECK_NEAR(n->gap, ui.GetTheme().GetGap(UiSize::Lg), 0.001f);
-            CHECK_NEAR(n->cornerRadius, ui.GetTheme().GetRadius(UiSize::Lg), 0.001f);
-            CHECK_NEAR(n->padding.left, ui.GetTheme().GetPadding(UiSize::Lg).left, 0.001f);
+            CHECK_NEAR(n->gap, ui.GetTheme().GetGap(UiSize::Md), 0.001f);
+            CHECK_NEAR(n->cornerRadius, ui.GetTheme().GetRadius(UiSize::Md), 0.001f);
+            CHECK_NEAR(n->padding.left, ui.GetTheme().GetPadding(UiSize::Md).left, 0.001f);
 
-            // Child inherits UiSize::Lg height (48px)
-            btnLg = ui.Button({.text = "Inherited Lg"});
+            // Explicit UiSize::Lg height (36px)
+            btnLg = ui.Button({.text = "Explicit Lg", .size = UiSize::Lg});
 
-            // Explicit override to UiSize::Sm height (32px)
-            btnSm = ui.Size(UiSize::Sm).Button({.text = "Explicit Sm"});
+            // Explicit UiSize::Sm height (24px)
+            btnSm = ui.Button({.text = "Explicit Sm", .size = UiSize::Sm});
         }
     };
 
@@ -5414,8 +5529,8 @@ void TestTextAreaWidgetWorkflow() {
     // Compute exact linear line height and gutter width for Md size
     const auto& cm = theme.GetMetrics(UiSize::Md);
     const float lineH = keel::max(theme.GetLineHeight(codeFontSize), glyphBoxH * 1.14f);
-    const float padY = keel::max(theme.Scale(8.0f), cm.paddingY);
-    const float padX = keel::max(theme.Scale(10.0f), cm.paddingX);
+    const float padY = keel::max(8.0f, cm.paddingY);
+    const float padX = keel::max(10.0f, cm.paddingX);
     const float charW = canvas.MeasureTextStyled("B", codeFontSize, FontStyle::Monospace).x;
     const float digitW = canvas.MeasureTextStyled("8", codeFontSize, FontStyle::Monospace).x;
     const float gutterW = 2.0f * digitW + charW * 1.25f * 2.0f;
@@ -6704,7 +6819,7 @@ void TestSidebarAndSidebarMenuWorkflow() {
 
     // 1. Verify unified typography resolution (Single Source of Truth)
     {
-        const UiTheme darkTheme = UiTheme::Dark(Density::Standard);
+        const UiTheme darkTheme = UiTheme::Dark();
         const UiText defaultText{"Action"};
         // Primary control text (LabelLarge default role) -> ComponentMetrics::fontSize
         CHECK_NEAR(darkTheme.ResolveFontSize(defaultText, TextRole::LabelLarge, UiSize::Xs), 11.0f, 0.01f);
@@ -6800,9 +6915,10 @@ void TestSidebarAndSidebarMenuWorkflow() {
         if (auto workspace = ui.Row({.gap = 8.0f, .height = SizeMode::Stretch})) {
             if (auto sb = ui.Sidebar({.side = SidebarSide::Left})) {
                 fitSidebarId = sb.GetNode()->id;
-                if (auto menu = ui.Size(UiSize::Sm).SidebarMenu({
+                if (auto menu = ui.SidebarMenu({
                     .style = SidebarMenuStyle::Indicator,
-                    .collapsed = menuCollapsed
+                    .collapsed = menuCollapsed,
+                    .size = UiSize::Sm
                 })) {
                     menu.Section("NAVIGATION");
                     item0Res = menu.Item(activeMenuVal, 0, {.text = "Dashboard", .icon = Icon::Settings(), .badge = "4"});
@@ -9023,15 +9139,15 @@ void TestTableVirtualizedDataGridWorkflow() {
                 for (keel::usize r = visStart; r < visEnd; ++r) {
                     if (auto row = table.Row(r)) {
                         if (r == 0) {
-                            auto rChk = ui.Size(UiSize::Sm).Checkbox(row0Checked);
+                            auto rChk = ui.Checkbox(row0Checked, {.size = UiSize::Sm});
                             row0CheckRect = rChk.rect;
                         } else {
                             bool dummy = (r % 2 == 0);
-                            ui.Size(UiSize::Sm).Checkbox(dummy);
+                            ui.Checkbox(dummy, {.size = UiSize::Sm});
                         }
                         ui.Text(ui.Format("ID-{:06}", r));
                         ui.Text("OFDM-64 Carrier");
-                        auto rProg = ui.Size(UiSize::Xs).ProgressBar(-65.0f, -100.0f, -30.0f);
+                        auto rProg = ui.ProgressBar(-65.0f, -100.0f, -30.0f, {.size = UiSize::Xs});
                         if (r == 50000) {
                             firstProgressRect = rProg.rect;
                         }
@@ -10463,29 +10579,27 @@ void TestSizeScopeChainingAndIsolation() {
 
     auto renderUI = [&]() {
         if (auto col = ui.Column({.gap = 8.0f})) {
-            // 1. Element with Xl size propagates Xl (56px) to its child Control when no explicit size is given
-            if (auto el = ui.Size(UiSize::Xl).Element({.label = "XL Element Header"})) {
-                btnInheritedInsideXlElement = ui.Button({.text = "Inherits Xl (56px)"});
+            // 1. Element with Xl size does NOT override explicit or default child widget sizes (pure widget property)
+            if (auto el = ui.Element({.label = "XL Element Header", .size = UiSize::Xl})) {
+                btnInheritedInsideXlElement = ui.Button({.text = "Explicit Xl (42px)", .size = UiSize::Xl});
             }
 
-            // 2. Element with Xl size + Control with UiSize::None also inherits Xl (56px)
-            if (auto el = ui.Size(UiSize::Xl).Element({.label = "XL Element + None Control"})) {
-                btnNoneInsideXlElement = ui.Size(UiSize::None).Button({.text = "None Inherits Xl (56px)"});
+            // 2. Element with Xl size + Control with default/None resolves control to Md (30px)
+            if (auto el = ui.Element({.label = "XL Element + Default Control", .size = UiSize::Xl})) {
+                btnNoneInsideXlElement = ui.Button({.text = "Default Md (30px)"});
             }
 
-            // 3. Element with Xl size + Control with explicit Sm size overrides to Sm (32px)
-            if (auto el = ui.Size(UiSize::Xl).Element({.label = "XL Element + SM Control"})) {
-                btnSmInsideXlElement = ui.Size(UiSize::Sm).Button({.text = "Explicit Sm (32px)"});
+            // 3. Element with Xl size + Control with explicit Sm size resolves to Sm (24px)
+            if (auto el = ui.Element({.label = "XL Element + SM Control", .size = UiSize::Xl})) {
+                btnSmInsideXlElement = ui.Button({.text = "Explicit Sm (24px)", .size = UiSize::Sm});
             }
 
-            // 4. Block RAII SizeScope applies Sm to everything inside, then restores Md outside
-            if (auto s = ui.Size(UiSize::Sm)) {
-                if (auto el = ui.Element({.label = "Element in Sm Scope"})) {
-                    btnInsideSmScope = ui.Button({.text = "Sm Scope Button"});
-                }
+            // 4. Custom Factor / Dp sizing on individual controls
+            if (auto el = ui.Element({.label = "Element with Dp button"})) {
+                btnInsideSmScope = ui.Button({.text = "Sm Button (24px)", .size = UiSize::Dp(24.0f)});
             }
 
-            btnAfterSmScope = ui.Button({.text = "Restored Md Button"});
+            btnAfterSmScope = ui.Button({.text = "Default Md Button"});
         }
     };
 
@@ -10498,7 +10612,7 @@ void TestSizeScopeChainingAndIsolation() {
     ui.EndFrame(canvas);
 
     CHECK_NEAR(btnInheritedInsideXlElement.rect.h, 42.0f, 0.5f);
-    CHECK_NEAR(btnNoneInsideXlElement.rect.h, 42.0f, 0.5f);
+    CHECK_NEAR(btnNoneInsideXlElement.rect.h, 30.0f, 0.5f);
     CHECK_NEAR(btnSmInsideXlElement.rect.h, 24.0f, 0.5f);
     CHECK_NEAR(btnInsideSmScope.rect.h, 24.0f, 0.5f);
     CHECK_NEAR(btnAfterSmScope.rect.h, 30.0f, 0.5f);
@@ -12327,6 +12441,8 @@ int main() {
     TestFrameScaleIsUniformAndKeepsPointer();
     TestZonesInheritanceZoomIndependenceAndBalance();
     TestZoneThemeReachesNodesBuiltInside();
+    TestCanvasTransformMatchesMappedGeometry();
+    TestScaledContainerSpaces();
     TestSdlCanvasBackendInterface();
     TestDebugBoundsAndInspectMode();
     TestPostRenderDelegateWorkflow();
@@ -12802,8 +12918,8 @@ int main() {
             const auto rShort = cpUi.CommandPalette(openShort, kShortCmds);
             const auto rLong = cpUi.CommandPalette(openLong, kLongCmds);
             const auto rExplicit = cpUi.CommandPalette(openExplicit, kLongCmds, {.width = 500.0f});
-            const auto rXs = cpUi.Size(guikit::UiSize::Xs).CommandPalette(openXs, kShortCmds);
-            const auto rXl = cpUi.Size(guikit::UiSize::Xl).CommandPalette(openXl, kShortCmds);
+            const auto rXs = cpUi.CommandPalette(openXs, kShortCmds, {.size = guikit::UiSize::Xs});
+            const auto rXl = cpUi.CommandPalette(openXl, kShortCmds, {.size = guikit::UiSize::Xl});
             cpUi.EndFrame(canvas);
 
             CHECK(rShort.rect.w >= 480.0f);
@@ -13572,27 +13688,29 @@ int main() {
         Color col(59, 130, 246, 235);
         keel::usize selIdx = 0;
         Id screenBoxId = Id::Null();
-        Rect datePickerBounds{};
-        Rect colorPickerBounds{};
-        Rect selectBounds{};
+        Id datePickerId = Id::Null();
+        Id colorPickerId = Id::Null();
+        Id selectId = Id::Null();
         Rect capturedPopupVp{};
+        // Widget bounds in frame dp (read between frames, outside the scaled preview): where the mouse has to go
+        auto frameCenter = [&](Id id) { return ui.GetPrevFrameBounds(id).Center(); };
 
         auto renderSimulatedPhoneLandscape = [&](float previewZoom = 1.0f) {
             if (auto outer = ui.Column({.padding = Padding::All(40.0f), .align = Alignment::Center, .justify = Justify::Center})) {
                 if (auto screenBox = ui.Box({
-                    .width = 784.0f * previewZoom,
-                    .height = 375.0f * previewZoom,
+                    .width = 784.0f,   // local units: the container's scale maps them to the parent
+                    .height = 375.0f,
                     .padding = Padding(40.0f, 32.0f, 18.0f, 20.0f),
                     .border = {.width = 1.0f, .radius = 28.0f},
                     .clipChildren = true,
-                    .scale = previewZoom
+                    .zone = {.scale = previewZoom}
                 })) {
                     screenBoxId = screenBox.GetNode()->id;
                     capturedPopupVp = ui.GetPopupViewportRect();
                     ui.Spacer(1.0f);
-                    datePickerBounds = ui.DatePicker(dt, {.width = SizeMode::Stretch}).rect;
-                    colorPickerBounds = ui.ColorPicker(col, {.width = SizeMode::Stretch}).rect;
-                    selectBounds = ui.Select(selIdx, {"Option 1", "Option 2", "Option 3", "Option 4", "Option 5", "Option 6", "Option 7", "Option 8"}, {.width = SizeMode::Stretch}).rect;
+                    datePickerId = ui.DatePicker(dt, {.width = SizeMode::Stretch}).id;
+                    colorPickerId = ui.ColorPicker(col, {.width = SizeMode::Stretch}).id;
+                    selectId = ui.Select(selIdx, {"Option 1", "Option 2", "Option 3", "Option 4", "Option 5", "Option 6", "Option 7", "Option 8"}, {.width = SizeMode::Stretch}).id;
                     ui.Spacer(1.0f);
                 }
             }
@@ -13614,7 +13732,7 @@ int main() {
         CHECK(capturedPopupVp.Bottom() <= boxPrev.Bottom());
 
         // Click DatePicker to open its calendar popover
-        ui.OnMouseMove(datePickerBounds.Center());
+        ui.OnMouseMove(frameCenter(datePickerId));
         ui.OnMouseDown(1);
         ui.OnMouseUp(1);
         ui.BeginFrame({1400.0f, 900.0f}, 1.0f);
@@ -13631,7 +13749,7 @@ int main() {
 
         // Click ColorPicker to open its color popover
         ui.ClosePopup();
-        ui.OnMouseMove(colorPickerBounds.Center());
+        ui.OnMouseMove(frameCenter(colorPickerId));
         ui.OnMouseDown(1);
         ui.OnMouseUp(1);
         ui.BeginFrame({1400.0f, 900.0f}, 1.0f);
@@ -13648,7 +13766,7 @@ int main() {
 
         // Click Select to open its dropdown list
         ui.ClosePopup();
-        ui.OnMouseMove(selectBounds.Center());
+        ui.OnMouseMove(frameCenter(selectId));
         ui.OnMouseDown(1);
         ui.OnMouseUp(1);
         ui.BeginFrame({1400.0f, 900.0f}, 1.0f);
@@ -13677,7 +13795,7 @@ int main() {
                 ui.EndFrame(thorCanvas);
             }
             // Open ColorPicker at previewZoom = 2.49f
-            ui.OnMouseMove(colorPickerBounds.Center());
+            ui.OnMouseMove(frameCenter(colorPickerId));
             ui.OnMouseDown(1);
             ui.OnMouseUp(1);
             ui.BeginFrame({2400.0f, 1400.0f}, 1.0f);
@@ -13688,7 +13806,7 @@ int main() {
             CHECK(cpPopupHiDpi.w > 400.0f);
 
             // Hover trigger button on the left (triggers partial dirty rect clipping out bottom of popup)
-            ui.OnMouseMove({colorPickerBounds.x + 10.0f, colorPickerBounds.Center().y});
+            ui.OnMouseMove({ui.GetPrevFrameBounds(colorPickerId).x + 10.0f, frameCenter(colorPickerId).y});
             ui.BeginFrame({2400.0f, 1400.0f}, 1.0f);
             renderSimulatedPhoneLandscape(2.49f);
             ui.EndFrame(thorCanvas);
@@ -14516,7 +14634,7 @@ int main() {
                                     .minHeight = 140.0f,
                                     .padding = Padding::All(0.0f)
                                 })) {
-                                    if (auto tb = sceneBpUi.Size(UiSize::Sm).Toolbar({})) {
+                                    if (auto tb = sceneBpUi.Toolbar({.size = UiSize::Sm})) {
                                         sceneBpUi.Text("Prism Schema");
                                     }
                                     if (auto sc = sceneBpUi.Scene({
@@ -15372,12 +15490,12 @@ void TestExternalStlDuckTypedInterop() {
 
     auto renderStlFrame = [&]() {
         ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)}, 1.0f);
-        if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(12.0f), .width = SizeMode::Stretch, .scale = optAutoScale})) {
+        if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(12.0f), .width = SizeMode::Stretch, .zone = {.scale = optAutoScale}})) {
             rTextStr = ui.Text(stdLabel);
             rTextSv  = ui.Text(stdBtnText);
             rBtn     = ui.Button({.text = stdBtnText, .tooltip = stdLabel, .width = 240.0f});
             rInput   = ui.InputField(stdInput, {.width = AxisSize::Auto()});
-            if (auto scaledBox = ui.Box({.scale = optScale})) {
+            if (auto scaledBox = ui.Box({.zone = {.scale = optScale}})) {
                 (void)scaledBox;
             }
             rCode    = ui.CodeEditor(stdCode, {
@@ -15880,20 +15998,18 @@ void TestElementHeadingCompositionAndIndependentSizing() {
                 });
 
                 {
-                    auto szXs = ui.Size(UiSize::Xs);
                     rDefaultH3InXs = ui.Heading({
                         .label = "Default H3 Heading",
-                        .description = "Unaffected by active UiSize::Xs"
+                        .description = "Independent heading typography"
                     });
-                    rXsBtn = ui.Button({.text = "Action"});
+                    rXsBtn = ui.Button({.text = "Action", .size = UiSize::Xs});
                 }
                 {
-                    auto szXl = ui.Size(UiSize::Xl);
                     rDefaultH3InXl = ui.Heading({
                         .label = "Default H3 Heading",
-                        .description = "Unaffected by active UiSize::Xs"
+                        .description = "Independent heading typography"
                     });
-                    rXlBtn = ui.Button({.text = "Action"});
+                    rXlBtn = ui.Button({.text = "Action", .size = UiSize::Xl});
                 }
 
                 rH2Head = ui.Heading({

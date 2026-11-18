@@ -10,12 +10,10 @@ namespace guikit {
 /// Flat, contiguous in memory, and fast to look up with zero dynamic allocation.
 struct UiTheme {
     ThemeMode mode{ThemeMode::Dark};
-    Density density{Density::Standard};
     ShellStyle shellStyle{ShellStyle::Docked};
     float lineHeightMultiplier{kDefaultLineHeightMultiplier};
-    float scale{1.0f}; ///< Scale of this theme instance in layout units, relative to the frame's pixels-per-dp; the active zone's scale
 
-    // 0. Application shell framing tokens (resolved from shellStyle + density + scale)
+    // 0. Application shell framing tokens (resolved from shellStyle)
     ShellMetrics shell{};
 
     // 1. Semantic color palette
@@ -55,13 +53,43 @@ struct UiTheme {
 
     // --- Fast Inline Accessors ---
 
-    [[nodiscard]] constexpr const ComponentMetrics& GetMetrics(UiSize size) const noexcept {
-        const keel::usize idx = static_cast<keel::usize>(size);
-        return (idx < metrics.size()) ? metrics[idx] : metrics[static_cast<keel::usize>(UiSize::Md)];
+    [[nodiscard]] constexpr float SizeFactor(UiSize size) const noexcept {
+        return size.ResolveFactor(metrics[UiSize::Md.TableIndex()].defaultHeight);
     }
-    [[nodiscard]] constexpr ComponentMetrics& GetMetrics(UiSize size) noexcept {
-        const keel::usize idx = static_cast<keel::usize>(size);
-        return (idx < metrics.size()) ? metrics[idx] : metrics[static_cast<keel::usize>(UiSize::Md)];
+
+    [[nodiscard]] constexpr float ScaleBySize(float mdValue, UiSize size) const noexcept {
+        if (size.IsPreset()) {
+            const float mdH = metrics[UiSize::Md.TableIndex()].defaultHeight;
+            const float curH = metrics[size.TableIndex()].defaultHeight;
+            return (mdH > 0.0f && curH > 0.0f) ? (mdValue * (curH / mdH)) : mdValue;
+        }
+        return mdValue * SizeFactor(size);
+    }
+
+    [[nodiscard]] constexpr ComponentMetrics GetMetrics(UiSize size) const noexcept {
+        if (size.IsPreset()) {
+            return metrics[size.TableIndex()];
+        }
+        ComponentMetrics m = metrics[UiSize::Md.TableIndex()];
+        const float f = SizeFactor(size);
+        m.defaultHeight *= f;
+        m.fontSize *= f;
+        m.companionFontSize *= f;
+        m.descFontSize *= f;
+        m.paddingX *= f;
+        m.paddingY *= f;
+        m.cornerRadius *= f;
+        m.iconSize *= f;
+        m.minWidth *= f;
+        m.defaultWidth *= f;
+        m.badgeFontSize *= f;
+        m.itemGap *= f;
+        m.badgeGap *= f;
+        m.lineGap *= f;
+        return m;
+    }
+    [[nodiscard]] constexpr ComponentMetrics& MutableMetrics(UiSize size) noexcept {
+        return metrics[size.TableIndex()];
     }
 
     [[nodiscard]] constexpr const VariantColors& GetVariant(UiVariant variant) const noexcept {
@@ -97,10 +125,10 @@ struct UiTheme {
         TextRole role,
         UiSize widgetSize = UiSize::Md
     ) const noexcept {
-        if ((widgetSize == UiSize::Md || widgetSize == UiSize::None) && density == Density::Standard) {
+        if (widgetSize == UiSize::Md || widgetSize.IsNone()) {
             return GetTypography(role).fontSize;
         }
-        const ComponentMetrics& cm = GetMetrics(widgetSize);
+        const ComponentMetrics cm = GetMetrics(widgetSize);
         switch (role) {
             case TextRole::LabelLarge:
             case TextRole::BodyMedium:
@@ -111,7 +139,7 @@ struct UiTheme {
             case TextRole::LabelSmall:
                 return cm.descFontSize;
             default:
-                return GetTypography(role).fontSize;
+                return GetTypography(role).fontSize * (widgetSize.IsCustom() ? SizeFactor(widgetSize) : 1.0f);
         }
     }
 
@@ -131,9 +159,10 @@ struct UiTheme {
         if (text.size.px > 0.0f) {
             return text.size.px;
         }
-        const UiSize effectiveSize = (text.size.preset != UiSize::None) ? text.size.preset : widgetSize;
+        const UiSize effectiveSize = !text.size.preset.IsNone() ? text.size.preset : widgetSize;
         if (text.size.role.has_value()) {
-            return GetTypography(*text.size.role).fontSize;
+            const float f = effectiveSize.IsCustom() ? SizeFactor(effectiveSize) : 1.0f;
+            return GetTypography(*text.size.role).fontSize * f;
         }
         return ResolveFontSize(defaultRole, effectiveSize);
     }
@@ -384,107 +413,176 @@ struct UiTheme {
         return ResolveTextStateColor(text.color).Resolve(hovered, active, disabled, fallbackColor);
     }
 
-    [[nodiscard]] constexpr const ScrollbarMetrics& GetScrollbar(UiSize size) const noexcept {
-        const keel::usize idx = static_cast<keel::usize>(size);
-        return (idx < scrollbars.size()) ? scrollbars[idx] : scrollbars[static_cast<keel::usize>(UiSize::Md)];
+    [[nodiscard]] constexpr ScrollbarMetrics GetScrollbar(UiSize size) const noexcept {
+        if (size.IsPreset()) {
+            return scrollbars[size.TableIndex()];
+        }
+        ScrollbarMetrics m = scrollbars[UiSize::Md.TableIndex()];
+        const float f = SizeFactor(size);
+        m.trackWidth *= f;
+        m.minThumbLength *= f;
+        m.cornerRadius *= f;
+        m.scrollStep *= f;
+        m.margin *= f;
+        m.gutter *= f;
+        return m;
     }
-    [[nodiscard]] constexpr ScrollbarMetrics& GetScrollbar(UiSize size) noexcept {
-        const keel::usize idx = static_cast<keel::usize>(size);
-        return (idx < scrollbars.size()) ? scrollbars[idx] : scrollbars[static_cast<keel::usize>(UiSize::Md)];
+    [[nodiscard]] constexpr ScrollbarMetrics& MutableScrollbar(UiSize size) noexcept {
+        return scrollbars[size.TableIndex()];
     }
 
-    [[nodiscard]] constexpr const CarouselMetrics& GetCarousel(UiSize size) const noexcept {
-        const keel::usize idx = static_cast<keel::usize>(size);
-        return (idx < carousels.size()) ? carousels[idx] : carousels[static_cast<keel::usize>(UiSize::Md)];
+    [[nodiscard]] constexpr CarouselMetrics GetCarousel(UiSize size) const noexcept {
+        if (size.IsPreset()) {
+            return carousels[size.TableIndex()];
+        }
+        CarouselMetrics m = carousels[UiSize::Md.TableIndex()];
+        const float f = SizeFactor(size);
+        m.arrowButtonSize *= f;
+        m.iconSize *= f;
+        m.cornerRadius *= f;
+        m.margin *= f;
+        m.gap *= f;
+        m.gutter *= f;
+        m.scrollStep *= f;
+        return m;
     }
-    [[nodiscard]] constexpr CarouselMetrics& GetCarousel(UiSize size) noexcept {
-        const keel::usize idx = static_cast<keel::usize>(size);
-        return (idx < carousels.size()) ? carousels[idx] : carousels[static_cast<keel::usize>(UiSize::Md)];
-    }
-
-    /// Scales an explicit logical dimension (dp at 100% scale) by the active theme scale factor.
-    [[nodiscard]] constexpr float Scale(float v) const noexcept {
-        return v * scale;
+    [[nodiscard]] constexpr CarouselMetrics& MutableCarousel(UiSize size) noexcept {
+        return carousels[size.TableIndex()];
     }
 
     [[nodiscard]] constexpr float GetGap(UiSize size) const noexcept {
-        const keel::usize idx = static_cast<keel::usize>(size);
-        return (idx < spacing.size()) ? spacing[idx] : spacing[static_cast<keel::usize>(UiSize::Md)];
+        if (size.IsPreset()) {
+            return spacing[size.TableIndex()];
+        }
+        return spacing[UiSize::Md.TableIndex()] * SizeFactor(size);
     }
 
-    /// Resolves an optional explicit gap (in base dp) or falls back to the theme spacing token for fallbackSize.
-    [[nodiscard]] constexpr float ResolveGap(keel::Optional<float> explicitGap, UiSize fallbackSize = UiSize::Md) const noexcept {
-        return explicitGap.has_value() ? (*explicitGap * scale) : GetGap(fallbackSize);
+    /// Resolves an optional explicit gap or falls back to the theme spacing token for fallbackSize, scaled by container density.
+    [[nodiscard]] constexpr float ResolveGap(
+        keel::Optional<float> explicitGap,
+        UiSize fallbackSize = UiSize::Md,
+        float density = 1.0f
+    ) const noexcept {
+        const float base = explicitGap.has_value() ? *explicitGap : GetGap(fallbackSize);
+        return base * density;
     }
 
     [[nodiscard]] constexpr float GetRadius(UiSize size) const noexcept {
-        const keel::usize idx = static_cast<keel::usize>(size);
-        return (idx < radius.size()) ? radius[idx] : radius[static_cast<keel::usize>(UiSize::Md)];
+        if (size.IsPreset()) {
+            return radius[size.TableIndex()];
+        }
+        return radius[UiSize::Md.TableIndex()] * SizeFactor(size);
     }
 
-    /// Resolves an optional explicit corner radius (in base dp) or falls back to the theme radius token for fallbackSize.
+    /// Resolves an optional explicit corner radius or falls back to the theme radius token for fallbackSize.
     [[nodiscard]] constexpr float ResolveRadius(keel::Optional<float> explicitRadius, UiSize fallbackSize = UiSize::Md) const noexcept {
-        return explicitRadius.has_value() ? (*explicitRadius * scale) : GetRadius(fallbackSize);
+        return explicitRadius.has_value() ? *explicitRadius : GetRadius(fallbackSize);
     }
 
     [[nodiscard]] constexpr Padding GetPadding(UiSize size) const noexcept {
-        if (size == UiSize::None) return Padding{};
-        const float val = (size == UiSize::Xs) ? spacing[static_cast<keel::usize>(UiSize::Sm)] :
-                          (size == UiSize::Sm) ? spacing[static_cast<keel::usize>(UiSize::Md)] :
-                          (size == UiSize::Md) ? spacing[static_cast<keel::usize>(UiSize::Lg)] :
-                          (size == UiSize::Lg) ? spacing[static_cast<keel::usize>(UiSize::Xl)] :
-                          (spacing[static_cast<keel::usize>(UiSize::Xl)] * 1.5f);
+        if (size.IsNone()) return Padding{};
+        const float val = (size == UiSize::Xs) ? spacing[UiSize::Sm.TableIndex()] :
+                          (size == UiSize::Sm) ? spacing[UiSize::Md.TableIndex()] :
+                          (size == UiSize::Md) ? spacing[UiSize::Lg.TableIndex()] :
+                          (size == UiSize::Lg) ? spacing[UiSize::Xl.TableIndex()] :
+                          (size == UiSize::Xl) ? (spacing[UiSize::Xl.TableIndex()] * 1.5f) :
+                          (spacing[UiSize::Lg.TableIndex()] * SizeFactor(size));
         return Padding::All(val);
     }
 
-    /// Resolves an optional padding (design token or explicit insets in base dp) into scaled layout coordinates.
-    [[nodiscard]] constexpr Padding ResolvePadding(keel::Optional<Padding> p, UiSize fallbackSize = UiSize::None) const noexcept {
+    /// Resolves an optional padding (design token or explicit insets), scaled by container density.
+    [[nodiscard]] constexpr Padding ResolvePadding(
+        keel::Optional<Padding> p,
+        UiSize fallbackSize = UiSize::None,
+        float density = 1.0f
+    ) const noexcept {
+        Padding result{};
         if (p.has_value()) {
-            if (p->IsToken()) {
-                return GetPadding(p->GetToken());
-            }
-            return Padding(p->left * scale, p->top * scale, p->right * scale, p->bottom * scale);
+            result = p->IsToken() ? GetPadding(p->GetToken()) : *p;
+        } else if (!fallbackSize.IsNone()) {
+            result = GetPadding(fallbackSize);
         }
-        if (fallbackSize != UiSize::None) {
-            return GetPadding(fallbackSize);
+        return result.ScaledBy(density);
+    }
+
+    [[nodiscard]] constexpr SwitchMetrics GetSwitch(UiSize size) const noexcept {
+        if (size.IsPreset()) {
+            return switches[size.TableIndex()];
         }
-        return Padding{};
+        SwitchMetrics m = switches[UiSize::Md.TableIndex()];
+        const float f = SizeFactor(size);
+        m.trackSize.x *= f;
+        m.trackSize.y *= f;
+        m.knobDiameter *= f;
+        m.knobPadding *= f;
+        m.gap *= f;
+        m.labelGap *= f;
+        m.descGap *= f;
+        return m;
+    }
+    [[nodiscard]] constexpr SwitchMetrics& MutableSwitch(UiSize size) noexcept {
+        return switches[size.TableIndex()];
     }
 
-    [[nodiscard]] constexpr const SwitchMetrics& GetSwitch(UiSize size) const noexcept {
-        const keel::usize idx = static_cast<keel::usize>(size);
-        return (idx < switches.size()) ? switches[idx] : switches[static_cast<keel::usize>(UiSize::Md)];
+    [[nodiscard]] constexpr CheckboxMetrics GetCheckbox(UiSize size) const noexcept {
+        if (size.IsPreset()) {
+            return checkboxes[size.TableIndex()];
+        }
+        CheckboxMetrics m = checkboxes[UiSize::Md.TableIndex()];
+        const float f = SizeFactor(size);
+        m.boxSize *= f;
+        m.cornerRadius *= f;
+        m.gap *= f;
+        m.labelGap *= f;
+        m.descGap *= f;
+        m.strokeWidth *= f;
+        return m;
     }
-    [[nodiscard]] constexpr SwitchMetrics& GetSwitch(UiSize size) noexcept {
-        const keel::usize idx = static_cast<keel::usize>(size);
-        return (idx < switches.size()) ? switches[idx] : switches[static_cast<keel::usize>(UiSize::Md)];
-    }
-
-    [[nodiscard]] constexpr const CheckboxMetrics& GetCheckbox(UiSize size) const noexcept {
-        const keel::usize idx = static_cast<keel::usize>(size);
-        return (idx < checkboxes.size()) ? checkboxes[idx] : checkboxes[static_cast<keel::usize>(UiSize::Md)];
-    }
-    [[nodiscard]] constexpr CheckboxMetrics& GetCheckbox(UiSize size) noexcept {
-        const keel::usize idx = static_cast<keel::usize>(size);
-        return (idx < checkboxes.size()) ? checkboxes[idx] : checkboxes[static_cast<keel::usize>(UiSize::Md)];
-    }
-
-    [[nodiscard]] constexpr const InputFieldMetrics& GetInputField(UiSize size) const noexcept {
-        const keel::usize idx = static_cast<keel::usize>(size);
-        return (idx < inputs.size()) ? inputs[idx] : inputs[static_cast<keel::usize>(UiSize::Md)];
-    }
-    [[nodiscard]] constexpr InputFieldMetrics& GetInputField(UiSize size) noexcept {
-        const keel::usize idx = static_cast<keel::usize>(size);
-        return (idx < inputs.size()) ? inputs[idx] : inputs[static_cast<keel::usize>(UiSize::Md)];
+    [[nodiscard]] constexpr CheckboxMetrics& MutableCheckbox(UiSize size) noexcept {
+        return checkboxes[size.TableIndex()];
     }
 
-    [[nodiscard]] constexpr const SelectMetrics& GetSelect(UiSize size) const noexcept {
-        const keel::usize idx = static_cast<keel::usize>(size);
-        return (idx < selects.size()) ? selects[idx] : selects[static_cast<keel::usize>(UiSize::Md)];
+    [[nodiscard]] constexpr InputFieldMetrics GetInputField(UiSize size) const noexcept {
+        if (size.IsPreset()) {
+            return inputs[size.TableIndex()];
+        }
+        InputFieldMetrics m = inputs[UiSize::Md.TableIndex()];
+        const float f = SizeFactor(size);
+        m.defaultHeight *= f;
+        m.cornerRadius *= f;
+        m.paddingX *= f;
+        m.labelGap *= f;
+        m.descGap *= f;
+        m.strokeWidth *= f;
+        m.iconSize *= f;
+        m.defaultWidth *= f;
+        m.minWidth *= f;
+        return m;
     }
-    [[nodiscard]] constexpr SelectMetrics& GetSelect(UiSize size) noexcept {
-        const keel::usize idx = static_cast<keel::usize>(size);
-        return (idx < selects.size()) ? selects[idx] : selects[static_cast<keel::usize>(UiSize::Md)];
+    [[nodiscard]] constexpr InputFieldMetrics& MutableInputField(UiSize size) noexcept {
+        return inputs[size.TableIndex()];
+    }
+
+    [[nodiscard]] constexpr SelectMetrics GetSelect(UiSize size) const noexcept {
+        if (size.IsPreset()) {
+            return selects[size.TableIndex()];
+        }
+        SelectMetrics m = selects[UiSize::Md.TableIndex()];
+        const float f = SizeFactor(size);
+        m.defaultHeight *= f;
+        m.cornerRadius *= f;
+        m.paddingX *= f;
+        m.labelGap *= f;
+        m.descGap *= f;
+        m.strokeWidth *= f;
+        m.iconSize *= f;
+        m.defaultWidth *= f;
+        m.minWidth *= f;
+        m.itemHeight *= f;
+        return m;
+    }
+    [[nodiscard]] constexpr SelectMetrics& MutableSelect(UiSize size) noexcept {
+        return selects[size.TableIndex()];
     }
 
     [[nodiscard]] constexpr const HeadingMetrics& GetHeading(HeadingLevel level) const noexcept {
@@ -496,13 +594,25 @@ struct UiTheme {
         return (idx < headings.size()) ? headings[idx] : headings[static_cast<keel::usize>(HeadingLevel::H3)];
     }
 
-    [[nodiscard]] constexpr const SliderMetrics& GetSlider(UiSize size) const noexcept {
-        const keel::usize idx = static_cast<keel::usize>(size);
-        return (idx < sliders.size()) ? sliders[idx] : sliders[static_cast<keel::usize>(UiSize::Md)];
+    [[nodiscard]] constexpr SliderMetrics GetSlider(UiSize size) const noexcept {
+        if (size.IsPreset()) {
+            return sliders[size.TableIndex()];
+        }
+        SliderMetrics m = sliders[UiSize::Md.TableIndex()];
+        const float f = SizeFactor(size);
+        m.defaultHeight *= f;
+        m.trackHeight *= f;
+        m.thumbSize *= f;
+        m.cornerRadius *= f;
+        m.tickSize *= f;
+        m.labelGap *= f;
+        m.tickGap *= f;
+        m.descGap *= f;
+        m.defaultWidth *= f;
+        return m;
     }
-    [[nodiscard]] constexpr SliderMetrics& GetSlider(UiSize size) noexcept {
-        const keel::usize idx = static_cast<keel::usize>(size);
-        return (idx < sliders.size()) ? sliders[idx] : sliders[static_cast<keel::usize>(UiSize::Md)];
+    [[nodiscard]] constexpr SliderMetrics& MutableSlider(UiSize size) noexcept {
+        return sliders[size.TableIndex()];
     }
 
     struct SpacingProxy {
@@ -532,29 +642,20 @@ struct UiTheme {
     [[nodiscard]] SpacingProxy Spacing() noexcept { return SpacingProxy(spacing); }
     [[nodiscard]] ConstSpacingProxy Spacing() const noexcept { return ConstSpacingProxy(spacing); }
 
-    [[nodiscard]] constexpr Density GetDensity() const noexcept { return density; }
     [[nodiscard]] constexpr ShellStyle GetShellStyle() const noexcept { return shellStyle; }
-    [[nodiscard]] constexpr const ComponentMetrics& GetComponentMetrics(UiSize size) const noexcept { return GetMetrics(size); }
+    [[nodiscard]] constexpr ComponentMetrics GetComponentMetrics(UiSize size) const noexcept { return GetMetrics(size); }
     [[nodiscard]] constexpr float GetLineHeight(float fontSize) const noexcept { return fontSize * lineHeightMultiplier; }
 
     // --- Standard Theme Factories ---
-    [[nodiscard]] static UiTheme Dark(Density d = Density::Standard) noexcept;
-    [[nodiscard]] static UiTheme Light(Density d = Density::Standard) noexcept;
-    [[nodiscard]] static UiTheme Standard() noexcept { return Dark(Density::Standard); }
-    [[nodiscard]] static UiTheme Compact() noexcept { return Dark(Density::Compact); }
-    [[nodiscard]] static UiTheme Touch() noexcept { return Dark(Density::Touch); }
+    [[nodiscard]] static UiTheme Dark() noexcept;
+    [[nodiscard]] static UiTheme Light() noexcept;
+    [[nodiscard]] static UiTheme Standard() noexcept { return Dark(); }
 
-    /// Updates color palette, syntax palette, and semantic variants to Dark or Light mode while preserving density, shell style, and scale.
+    /// Updates color palette, syntax palette, and semantic variants to Dark or Light mode while preserving shell style.
     void SetMode(ThemeMode m) noexcept;
-
-    /// Updates metrics, spacing, and radius to the requested density scale.
-    void SetDensity(Density d) noexcept;
 
     /// Updates application shell framing metrics (windowPadding, panelGap, panelRadius, panelBorderWidth) for Docked or Floating style.
     void SetShellStyle(ShellStyle style) noexcept;
-
-    /// Returns a new theme with all metrics, typography, spacing, and radius scaled by factor.
-    [[nodiscard]] UiTheme Scaled(float factor) const noexcept;
 };
 
 /// Backward-compatible alias for UiTheme.

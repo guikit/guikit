@@ -45,13 +45,13 @@ Vec2 ComputeControlBoxSize(
     const UiTheme& theme,
     float availableWidth
 ) noexcept {
-    const float natW = keel::max(1.0f, theme.Scale(naturalSize.x));
-    const float natH = keel::max(1.0f, theme.Scale(naturalSize.y));
+    const float natW = keel::max(1.0f, naturalSize.x);
+    const float natH = keel::max(1.0f, naturalSize.y);
     const float aspect = natW / natH;
 
     float ctrlW = natW;
     if (opts.width.IsFixed()) {
-        ctrlW = theme.Scale(opts.width.Dp());
+        ctrlW = opts.width.Dp();
     } else if (opts.width.ResolveMode(SizeMode::Fit) == SizeMode::Stretch && availableWidth > 0.0f) {
         ctrlW = availableWidth;
     }
@@ -61,7 +61,7 @@ Vec2 ComputeControlBoxSize(
 
     float ctrlH = natH;
     if (opts.height.IsFixed()) {
-        ctrlH = theme.Scale(opts.height.Dp());
+        ctrlH = opts.height.Dp();
     } else if (opts.fit == ObjectFit::Original) {
         ctrlH = natH;
     } else if (aspect > 0.0f) {
@@ -69,7 +69,7 @@ Vec2 ComputeControlBoxSize(
     }
 
     if (opts.maxHeight.has_value() && *opts.maxHeight > 0.0f) {
-        ctrlH = keel::min(ctrlH, theme.Scale(*opts.maxHeight));
+        ctrlH = keel::min(ctrlH, *opts.maxHeight);
     }
 
     return { keel::max(1.0f, ctrlW), keel::max(1.0f, ctrlH) };
@@ -83,11 +83,10 @@ Response Image::Run(
     const ImageOptions& opts,
     keel::SourceLocation loc
 ) {
-    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const Id id = ctx.MakeChildId(loc);
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const UiSize activeSize = opts.size;
     const UiTheme& theme = ctx.GetTheme();
 
     Response res = ctx.Interact(id);
@@ -111,8 +110,6 @@ Response Image::Run(
 
     const ControlSpec ctrl = EffectiveImageControl(optsCopy, activeSize, theme);
     Node* node = ctx.CreateNode(NodeType::Image, id);
-    node->debugBoundsOverride = opts.debugBounds;
-    node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<ImagePayload>();
     payload->source = ctx.AllocString(source);
     payload->opts = optsCopy;
@@ -165,7 +162,7 @@ Response Image::Run(
     Control::SetupNode(ctx, node, ctrl);
     node->minHeight = keel::max(
         node->minHeight,
-        ctrl.height.IsFixed() ? theme.Scale(ctrl.height.Dp()) : theme.GetMetrics(activeSize).defaultHeight
+        ctrl.height.IsFixed() ? ctrl.height.Dp() : theme.GetMetrics(activeSize).defaultHeight
     );
     if ((!node->parent || node->parent->type != NodeType::Element) &&
         optsCopy.height.ResolveMode(SizeMode::Fit) == SizeMode::Fit &&
@@ -217,7 +214,7 @@ void Image::DrawCheckerboard(
     canvas.DrawRoundRect(rect, radius, c1);
     canvas.PushClip(rect.Inset(keel::max(1.0f, radius * 0.25f)));
 
-    const float step = keel::max(4.0f, theme.Scale(cellSize));
+    const float step = keel::max(4.0f, cellSize);
     const keel::i32 cols = keel::ceil_i32(rect.w / step);
     const keel::i32 rows = keel::ceil_i32(rect.h / step);
 
@@ -254,7 +251,7 @@ void Image::Render(
     const Rect box = bounds;
     if (box.w <= 0.0f || box.h <= 0.0f) return;
 
-    const float rad = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : cm.cornerRadius;
+    const float rad = opts.border.radius.has_value() ? *opts.border.radius : cm.cornerRadius;
     if (opts.checkerboard) {
         DrawCheckerboard(canvas, box, rad, theme);
     } else if (opts.background.IsBackgroundEnabled(false)) {
@@ -269,7 +266,7 @@ void Image::Render(
 
     const float ax = (opts.alignX == Align::End) ? 1.0f : ((opts.alignX == Align::Center) ? 0.5f : 0.0f);
     const float ay = (opts.alignY == Align::End) ? 1.0f : ((opts.alignY == Align::Center) ? 0.5f : 0.0f);
-    const Vec2 scaledNat = { theme.Scale(naturalSize.x), theme.Scale(naturalSize.y) };
+    const Vec2 scaledNat = naturalSize;
     const Rect fitted = ComputeBoxFit(opts.fit, scaledNat, box, ax, ay);
 
     const bool needsClip = (opts.fit == ObjectFit::Cover || opts.fit == ObjectFit::Original ||
@@ -307,7 +304,7 @@ void Image::Render(
         if (opts.border.color.HasAny()) {
             bCol = theme.ResolveColor(opts.border.color, hovered, false, disabled, bCol);
         }
-        canvas.DrawRoundRect(box, rad, Color::Transparent(), bCol, theme.Scale(opts.border.width));
+        canvas.DrawRoundRect(box, rad, Color::Transparent(), bCol, opts.border.width);
     }
 }
 

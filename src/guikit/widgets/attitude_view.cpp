@@ -1174,11 +1174,11 @@ void RenderAttitudeViewNode(const Node* node, ICanvas& canvas, const UiTheme& th
 
     const AttitudePalette pal = BuildPalette(opts.colorScheme, opts.displayMode);
     const float radius = opts.border.radius.has_value()
-        ? theme.Scale(*opts.border.radius)
+        ? *opts.border.radius
         : theme.GetRadius(node->uiSize);
     const Color bgConsole = opts.background.Resolve(node->hovered, node->pressed, node->disabled, pal.bgConsole);
     const Color borderCol = opts.border.color.Resolve(node->hovered, node->pressed, node->disabled, theme.palette.borderSubtle);
-    const float borderW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : 1.0f;
+    const float borderW = (opts.border.width > 0.0f) ? opts.border.width : 1.0f;
 
     canvas.DrawRoundRect(r, radius, bgConsole, borderCol, borderW);
     canvas.PushClip(r);
@@ -1389,18 +1389,18 @@ Vec2 AttitudeView::Measure(
     const AttitudeViewOptions& opts,
     UiSize /*size*/,
     ICanvas* /*canvas*/,
-    const UiTheme& theme,
+    const UiTheme& /*theme*/,
     float availableWidth
 ) {
-    float defaultW = theme.Scale(520.0f);
+    float defaultW = 520.0f;
     if (opts.width.IsFixed()) {
-        defaultW = theme.Scale(opts.width.Dp());
+        defaultW = opts.width.Dp();
     } else if (opts.width.ResolveMode(SizeMode::Stretch) == SizeMode::Stretch && availableWidth > 0.0f) {
         defaultW = availableWidth;
     }
     const float defaultH = opts.height.IsFixed()
-        ? theme.Scale(opts.height.Dp())
-        : theme.Scale(420.0f);
+        ? opts.height.Dp()
+        : 420.0f;
     return {defaultW, defaultH};
 }
 
@@ -1409,11 +1409,10 @@ AttitudeViewResponse AttitudeView::Run(
     const AttitudeViewOptions& opts,
     keel::SourceLocation loc
 ) {
-    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const Id id = ctx.MakeChildId(loc);
     const bool isDisabled = opts.disabled || ctx.IsDisabled();
-    const UiSize effectiveSize = ctx.GetCurrentSize();
+    const UiSize effectiveSize = opts.size;
 
     Response baseRes = ctx.Interact(id);
     AttitudeViewResponse resp{};
@@ -1478,8 +1477,6 @@ AttitudeViewResponse AttitudeView::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::AttitudeView, id);
-    node->debugBoundsOverride = opts.debugBounds;
-    node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<AttitudeViewPayload>();
     payload->opts = opts;
     payload->opts.tooltip = ctx.AllocText(opts.tooltip);

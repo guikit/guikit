@@ -159,7 +159,7 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
     const bool useCols = s_tree.showColumns;
     const bool inlineDecor = !useCols && s_tree.showBadgesAndDetails;
 
-    if (auto tree = ui.Size(ctx.controlsSize).TreeView({
+    if (auto tree = ui.TreeView({
         .title = "SCENE & ASSET HIERARCHY",
         .columns = useCols ? keel::ArrayRef<guikit::TableColumn>(kTreeCols) : keel::ArrayRef<guikit::TableColumn>{},
         .gridLines = useCols && s_tree.gridLines,
@@ -173,7 +173,8 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
         .filterText = &s_tree.filterQuery,
         .showToolbar = s_tree.showToolbar,
         .selectedIndex = &s_tree.selectedIndex,
-        .selectedId = &s_tree.selectedId
+        .selectedId = &s_tree.selectedId,
+        .size = ctx.controlsSize
     })) {
         // 1. Root Branch: Scene Hierarchy
         if (auto sceneItem = ui.TreeItem({
@@ -433,9 +434,8 @@ keel::String GenerateTreeViewCode(const DemoContext& ctx) {
 
     keel::format_into(
         out,
-        "if (auto tree = ui.{}TreeView({{\n"
-        "    .title = \"SCENE & ASSET HIERARCHY\",\n",
-        sizePrefix
+        "if (auto tree = ui.TreeView({{\n"
+        "    .title = \"SCENE & ASSET HIERARCHY\",\n"
     );
     if (useCols) {
         keel::format_into(
@@ -457,7 +457,7 @@ keel::String GenerateTreeViewCode(const DemoContext& ctx) {
         "    .filterText = &filterQuery,\n"
         "    .showToolbar = {},\n"
         "    .selectedIndex = &selectedIndex,\n"
-        "    .selectedId = &selectedId\n"
+        "    .selectedId = &selectedId{}\n"
         "}})) {{\n",
         GuidesEnumName(s_tree.guides),
         s_tree.selectionStyle == guikit::TreeSelectionStyle::Indicator ? "Indicator" : "Pill",
@@ -466,7 +466,8 @@ keel::String GenerateTreeViewCode(const DemoContext& ctx) {
         s_tree.striped ? "true" : "false",
         s_tree.expandOnSelect ? "true" : "false",
         s_tree.searchable ? "true" : "false",
-        s_tree.showToolbar ? "true" : "false"
+        s_tree.showToolbar ? "true" : "false",
+        sizePrefix
     );
 
     const bool inlineDecor = !useCols && s_tree.showBadgesAndDetails;

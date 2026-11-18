@@ -290,18 +290,18 @@ DatePickerPopoverLayout ComputePopoverLayout(
     l.hasCalendar = (opts.mode != DatePickerMode::Time);
     l.hasTime = (opts.mode == DatePickerMode::DateTime || opts.mode == DatePickerMode::Time);
 
-    float pad = theme.Scale(10.0f);
-    float headerH = l.hasCalendar ? theme.Scale(30.0f) : 0.0f;
-    float weekdayH = l.hasCalendar ? theme.Scale(22.0f) : 0.0f;
-    float cellH = l.hasCalendar ? theme.Scale(28.0f) : 0.0f;
-    float timeH = l.hasTime ? theme.Scale(42.0f) : 0.0f;
-    float footerH = theme.Scale(36.0f);
-    float headerGap = theme.Scale(4.0f);
-    float sectionGap = theme.Scale(6.0f);
+    float pad = 10.0f;
+    float headerH = l.hasCalendar ? 30.0f : 0.0f;
+    float weekdayH = l.hasCalendar ? 22.0f : 0.0f;
+    float cellH = l.hasCalendar ? 28.0f : 0.0f;
+    float timeH = l.hasTime ? 42.0f : 0.0f;
+    float footerH = 36.0f;
+    float headerGap = 4.0f;
+    float sectionGap = 6.0f;
 
     float popupW = l.hasCalendar
-        ? theme.Scale(264.0f)
-        : theme.Scale(opts.showSeconds ? 258.0f : 196.0f);
+        ? 264.0f
+        : (opts.showSeconds ? 258.0f : 196.0f);
     if (vpRect.w > 40.0f && popupW > vpRect.w - 8.0f) {
         popupW = keel::max(140.0f, vpRect.w - 8.0f);
     }
@@ -375,7 +375,7 @@ DatePickerPopoverLayout ComputePopoverLayout(
     const float innerW = popupW - pad * 2.0f;
 
     if (l.hasCalendar) {
-        const float navBtnSz = keel::min(headerH, theme.Scale(26.0f));
+        const float navBtnSz = keel::min(headerH, 26.0f);
         const float navY = curY + (headerH - navBtnSz) * 0.5f;
         l.prevYearRect = Rect(innerX, navY, navBtnSz, navBtnSz);
         l.prevMonthRect = Rect(innerX + navBtnSz + 2.0f, navY, navBtnSz, navBtnSz);
@@ -397,12 +397,12 @@ DatePickerPopoverLayout ComputePopoverLayout(
     if (l.hasTime) {
         l.timeBarRect = Rect(innerX, curY, innerW, timeH);
         l.timeUnitCount = opts.showSeconds ? 3 : 2;
-        const float unitGap = theme.Scale(8.0f);
-        const float unitH = keel::min(keel::max(16.0f, timeH - 2.0f), theme.Scale(28.0f));
+        const float unitGap = 8.0f;
+        const float unitH = keel::min(keel::max(16.0f, timeH - 2.0f), 28.0f);
         const float unitY = curY + (timeH - unitH) * 0.5f;
         const float totalGap = unitGap * static_cast<float>(l.timeUnitCount - 1);
         const float unitW = (innerW - totalGap) / static_cast<float>(l.timeUnitCount);
-        const float stepBtnW = theme.Scale(22.0f);
+        const float stepBtnW = 22.0f;
 
         for (keel::i32 u = 0; u < l.timeUnitCount; ++u) {
             const float ux = innerX + static_cast<float>(u) * (unitW + unitGap);
@@ -415,12 +415,12 @@ DatePickerPopoverLayout ComputePopoverLayout(
     }
 
     l.footerRect = Rect(innerX, popupY + totalH - pad - footerH, innerW, footerH);
-    const float btnH = keel::min(keel::max(16.0f, footerH - 2.0f), theme.Scale(26.0f));
+    const float btnH = keel::min(keel::max(16.0f, footerH - 2.0f), 26.0f);
     const float btnY = l.footerRect.y + (footerH - btnH) * 0.5f + 1.0f;
     if (opts.showTodayButton) {
-        l.todayBtnRect = Rect(innerX, btnY, theme.Scale(64.0f), btnH);
+        l.todayBtnRect = Rect(innerX, btnY, 64.0f, btnH);
     }
-    const float doneW = theme.Scale(62.0f);
+    const float doneW = 62.0f;
     l.doneBtnRect = Rect(innerX + innerW - doneW, btnY, doneW, btnH);
 
     return l;
@@ -551,7 +551,7 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
 
     if (d.layout.hasTime) {
         if (d.layout.hasCalendar) {
-            const float sepY = d.layout.timeBarRect.y - d.theme.Scale(2.0f);
+            const float sepY = d.layout.timeBarRect.y - 2.0f;
             canvas.DrawLine(
                 {d.layout.timeBarRect.x, sepY},
                 {d.layout.timeBarRect.Right(), sepY},
@@ -672,12 +672,12 @@ Vec2 DatePicker::Measure(
 
     float boxW = keel::max(m.minWidth, minContentW);
     if (opts.minWidth.has_value()) {
-        boxW = keel::max(theme.Scale(*opts.minWidth), boxW);
+        boxW = keel::max(*opts.minWidth, boxW);
     }
     if (ctrl.width.IsFixed()) {
-        boxW = theme.Scale(ctrl.width.Dp());
+        boxW = ctrl.width.Dp();
     }
-    const float boxH = ctrl.height.IsFixed() ? theme.Scale(ctrl.height.Dp()) : m.defaultHeight;
+    const float boxH = ctrl.height.IsFixed() ? ctrl.height.Dp() : m.defaultHeight;
     return Control::Measure({boxW, boxH}, ctrl, theme);
 }
 
@@ -697,10 +697,9 @@ Response DatePicker::Run(
     const DatePickerOptions& opts,
     keel::SourceLocation loc
 ) {
-    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const UiSize activeSize = opts.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const bool wasOpen = ctx.IsPopupOpen(id);
 
@@ -1025,8 +1024,6 @@ Response DatePicker::Run(
 
     node->text = data->formattedText.text;
     node->SetPayload(data);
-    node->debugBoundsOverride = optsCopy.debugBounds;
-    node->inspectModeOverride = optsCopy.inspectMode;
     node->visualHash = detail::HashArgs(
         static_cast<keel::u8>(optsCopy.mode),
         optsCopy.showSeconds,
@@ -1083,7 +1080,7 @@ void DatePicker::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
         ? ((hovered && !disabled) ? pal.surface : pal.inputBackground)
         : Color::Transparent();
     Color boxBorder;
-    float strokeW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : m.strokeWidth;
+    float strokeW = (opts.border.width > 0.0f) ? opts.border.width : m.strokeWidth;
 
     if ((open || focused) && !disabled) {
         boxBorder = opts.color.HasAny() ? accentCol : pal.focusRing;
@@ -1114,7 +1111,7 @@ void DatePicker::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
         boxBorder = theme.ResolveColor(opts.border.color, hovered, open || focused, disabled, boxBorder);
     }
 
-    const float radius = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : m.cornerRadius;
+    const float radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
     canvas.DrawRoundRect(bounds, radius, boxBg, boxBorder, strokeW);
 
     // Left vector calendar / clock icon

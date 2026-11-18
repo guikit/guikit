@@ -4,6 +4,7 @@
 #include "guikit/core/id.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
+#include "guikit/core/zone.hpp"
 #include "keel/core.h"
 
 namespace guikit {
@@ -125,10 +126,8 @@ struct Node {
     Node* firstChild{nullptr};
     Node* lastChild{nullptr};
     Node* nextSibling{nullptr};
-    /// Theme of the zone the node was built in (set by `Context::CreateNode`), so layout and rendering use the
-    /// same theme and scale as the code that built the node. Only hand-built nodes (tests) leave it null, in
-    /// which case the solver falls back to the theme it is given.
-    const UiTheme* theme{nullptr};
+    /// Resolved zone of the subtree the node was built in (never null: defaults to `kDefaultZone` for standalone nodes).
+    const Zone* zone{&kDefaultZone};
 
     keel::u32 childIndex{0};     ///< Index of this node within its parent container
     keel::u32 childCount{0};     ///< Total number of direct children
@@ -138,22 +137,18 @@ struct Node {
 
     // Layout configuration & ambient state
     NodeType type{NodeType::Container};
-    keel::u8 gridColumns{12};    ///< Number of columns in Grid layout container
-    keel::u8 colSpan{12};        ///< Number of grid columns occupied by this item (1..12)
-    keel::Optional<bool> debugBoundsOverride{keel::kNullOpt};
-    keel::Optional<bool> inspectModeOverride{keel::kNullOpt};
-
-    // Packed layout enums & 1-bit interaction/container flags (maintains <= 256B / 4 cache lines)
+    UiSize uiSize{UiSize::Md};         ///< Control size token or custom size (does not inherit across containers)
+    keel::u8 gridColumns : 6 {12};     ///< Number of columns in Grid layout container
+    keel::u8 colSpan : 6 {12};         ///< Number of grid columns occupied by this item (1..12)
     FlexDirection direction : 3 {FlexDirection::Column};
     SizeMode widthMode : 2 {SizeMode::Stretch};
     SizeMode heightMode : 2 {SizeMode::Fit};
+    bool isSpacer : 1 {false};
     Orientation scrollOrientation : 2 {Orientation::Vertical};
     VisibilityPolicy scrollbarPolicy : 2 {VisibilityPolicy::Auto};
     Alignment align : 3 {Alignment::Stretch};
-    Justify justify : 3 {Justify::Start};
-    UiSize uiSize : 3 {UiSize::Md};
-    bool isSpacer : 1 {false};
     bool clipChildren : 1 {false};
+    Justify justify : 3 {Justify::Start};
     bool scrollbarHovered : 1 {false};
     bool scrollbarActive : 1 {false};
     bool scrollbarHoveredX : 1 {false};
@@ -173,7 +168,7 @@ struct Node {
     keel::u16 explicitGap : 1 {0};
     keel::u16 explicitPadding : 1 {0};
     keel::u16 explicitRadius : 1 {0};
-    keel::u16 payloadTypeId : 9 {0}; ///< Runtime type tag for safe Node::As<T>() casting
+    keel::u16 payloadTypeId : 9 {0};   ///< Runtime type tag for safe Node::As<T>() casting
 
     float fixedWidth{0.0f};
     float fixedHeight{0.0f};
@@ -201,7 +196,6 @@ struct Node {
     Color borderColor{0, 0, 0, 0};
     float borderWidth{0.0f};
     float cornerRadius{0.0f};
-    Color textColor{255, 255, 255, 255};
     keel::StringRef text{};
 
     // Generic arena-allocated widget payload (ButtonOptions, InputFieldData, CarouselData, user data, etc.)
@@ -212,6 +206,55 @@ struct Node {
     ArrangeFunc arrangeFn{nullptr};
     RenderFunc renderFn{nullptr};
     RenderFunc postRenderFn{nullptr};
+
+    [[nodiscard]] constexpr const UiTheme& GetTheme(const UiTheme& fallback) const noexcept {
+        return (zone->theme != nullptr) ? *zone->theme : fallback;
+    }
+
+    [[nodiscard]] constexpr const UiTheme* GetThemePtr() const noexcept {
+        return zone->theme;
+    }
+
+    [[nodiscard]] constexpr float GetScale() const noexcept {
+        return (zone->scale > 0.0f) ? zone->scale : 1.0f;
+    }
+
+    /// Relative scale jump from `parent` to this node (1.0f when both share the same scale).
+    [[nodiscard]] constexpr float GetRelativeScale() const noexcept {
+        const Zone* parentZone = (parent != nullptr) ? parent->zone : &kDefaultZone;
+        if (zone == parentZone || zone->scale == parentZone->scale) {
+            return 1.0f;
+        }
+        const float self = GetScale();
+        const float parentScale = parentZone->scale;
+        return (parentScale > 0.0f) ? (self / parentScale) : 1.0f;
+    }
+
+    [[nodiscard]] constexpr float GetDensity() const noexcept {
+        return (zone->density > 0.0f) ? zone->density : 1.0f;
+    }
+
+    [[nodiscard]] constexpr keel::Optional<bool> GetDebugBoundsOverride() const noexcept {
+        return zone->debugBounds;
+    }
+
+    [[nodiscard]] constexpr keel::Optional<bool> GetInspectModeOverride() const noexcept {
+        return zone->inspectMode;
+    }
+
+    /// Converts outer sizing fields (fixed / min / max) from this node's local units into its parent's units.
+    /// Call once after setting outer sizing fields on a scaled container node.
+    constexpr void SetOuterScale(float s) noexcept {
+        if (!(s > 0.0f) || s == 1.0f) {
+            return;
+        }
+        fixedWidth *= s;
+        fixedHeight *= s;
+        minWidth *= s;
+        maxWidth *= s;
+        minHeight *= s;
+        maxHeight *= s;
+    }
 
     /// Attaches a typed arena-allocated payload to this node with runtime type verification.
     template <typename T>

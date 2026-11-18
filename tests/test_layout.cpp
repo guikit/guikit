@@ -809,9 +809,10 @@ void TestCarouselArrowScaling() {
     CHECK_NEAR(h1, w1, 0.001f); // Square button
     CHECK(h1 >= 18.0f && h1 <= 23.0f); // Md arrow button token is 19.5 dp
 
-    // 2. Arrange at 2.0x scale (scaled theme, defaultHeight 72px)
+    // 2. Arrange at 2.0x UI size factor (UiSize::Factor(2.0f), height 72px)
     Node* c2 = arena.create<Node>();
     c2->type = NodeType::Carousel;
+    c2->uiSize = UiSize::Factor(2.0f);
     c2->direction = FlexDirection::Row;
     c2->widthMode = SizeMode::Stretch;
     c2->heightMode = SizeMode::Fixed;
@@ -828,7 +829,7 @@ void TestCarouselArrowScaling() {
         c2->AddChild(tab);
     }
 
-    UiTheme theme2 = UiTheme::Dark().Scaled(2.0f);
+    UiTheme theme2 = UiTheme::Dark();
     Solver::Measure(c2, nullptr, theme2);
     Solver::Arrange(c2, Rect(0.0f, 0.0f, 300.0f, 72.0f), theme2);
 
@@ -1214,6 +1215,8 @@ void TestGapDpAndContainerSizingConstraints() {
         void End() override {}
         [[nodiscard]] float GetScale() const noexcept override { return m_scale; }
         void SetScale(float s) override { m_scale = s; }
+        void PushTransform(const Transform2D&) override {}
+        void PopTransform() override {}
         [[nodiscard]] keel::StringRef GetBackendName() const noexcept override { return "LayoutMock"; }
         void Clear(Color, keel::Optional<Rect> = keel::kNullOpt) override {}
         void PushClip(Rect) override {}
@@ -1314,10 +1317,88 @@ void TestGapDpAndContainerSizingConstraints() {
     }
 }
 
+// A node with its own scale lays its subtree out in local units: the parent sees its outer size in parent
+// units (local size x scale), the node keeps the top-left corner the parent gives it, and its computedRect and
+// children are in local units. Measuring twice must not compound the conversion.
+void TestScaledNodeLaysOutInLocalUnits() {
+    using namespace guikit;
+
+    keel::Arena arena;
+    Node* col = arena.create<Node>();
+    col->direction = FlexDirection::Column;
+    col->widthMode = SizeMode::Stretch;
+    col->heightMode = SizeMode::Stretch;
+    col->align = Alignment::Start;
+    col->gap = 10.0f;
+
+    // Fit-sized box at 2x containing a 50 x 20 leaf, padding 5 (all local)
+    Node* fitBox = arena.create<Node>();
+    fitBox->direction = FlexDirection::Column;
+    fitBox->widthMode = SizeMode::Fit;
+    fitBox->heightMode = SizeMode::Fit;
+    fitBox->padding = Padding::All(5.0f);
+    Zone fitZone{.scale = 2.0f};
+    fitBox->zone = &fitZone;
+    col->AddChild(fitBox);
+
+    Node* leaf = arena.create<Node>();
+    leaf->zone = fitBox->zone;
+    leaf->widthMode = SizeMode::Fixed;
+    leaf->heightMode = SizeMode::Fixed;
+    leaf->fixedWidth = 50.0f;
+    leaf->fixedHeight = 20.0f;
+    fitBox->AddChild(leaf);
+
+    // Stretch-width box at 0.5x: 400 parent units wide = 800 local units
+    Node* wideBox = arena.create<Node>();
+    wideBox->direction = FlexDirection::Column;
+    wideBox->widthMode = SizeMode::Stretch;
+    wideBox->heightMode = SizeMode::Fixed;
+    wideBox->fixedHeight = 40.0f; // parent units
+    Zone wideZone{.scale = 0.5f};
+    wideBox->zone = &wideZone;
+    col->AddChild(wideBox);
+
+    Node* after = arena.create<Node>();
+    after->widthMode = SizeMode::Fixed;
+    after->heightMode = SizeMode::Fixed;
+    after->fixedWidth = 30.0f;
+    after->fixedHeight = 30.0f;
+    col->AddChild(after);
+
+    for (keel::i32 pass = 0; pass < 2; ++pass) {
+        Solver::Measure(col);
+        Solver::Arrange(col, Rect(0.0f, 0.0f, 400.0f, 300.0f));
+
+        // Outer size in parent units: (50 + 10) x (20 + 10) local -> 120 x 60
+        CHECK_NEAR(fitBox->intrinsicSize.x, 120.0f, 0.001f);
+        CHECK_NEAR(fitBox->intrinsicSize.y, 60.0f, 0.001f);
+        // Own rect in local units, top-left shared with the parent
+        CHECK_NEAR(fitBox->computedRect.x, 0.0f, 0.001f);
+        CHECK_NEAR(fitBox->computedRect.y, 0.0f, 0.001f);
+        CHECK_NEAR(fitBox->computedRect.w, 60.0f, 0.001f);
+        CHECK_NEAR(fitBox->computedRect.h, 30.0f, 0.001f);
+        CHECK_NEAR(leaf->computedRect.x, 5.0f, 0.001f);
+        CHECK_NEAR(leaf->computedRect.y, 5.0f, 0.001f);
+        CHECK_NEAR(leaf->computedRect.w, 50.0f, 0.001f);
+        CHECK_NEAR(leaf->computedRect.h, 20.0f, 0.001f);
+
+        // Stretch at 0.5x: 400 parent units -> 800 local, fixed 40 parent units -> 80 local; starts after 60 + 10
+        CHECK_NEAR(wideBox->computedRect.y, 70.0f, 0.001f);
+        CHECK_NEAR(wideBox->computedRect.w, 800.0f, 0.001f);
+        CHECK_NEAR(wideBox->computedRect.h, 80.0f, 0.001f);
+        CHECK_NEAR(wideBox->fixedHeight, 40.0f, 0.001f); // outer field restored in parent units
+
+        // The column advances by each child's outer height
+        CHECK_NEAR(after->computedRect.y, 70.0f + 40.0f + 10.0f, 0.001f);
+    }
+}
+
 int main() {
     keel::println("[RUN] Testing GuiKit Layout Solver...");
 
     TestRowEqualStretch();
+    TestScaledNodeLaysOutInLocalUnits();
     TestRowWithSpacer();
     TestColumnStickyFooter();
     TestNestedHierarchy();

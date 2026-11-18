@@ -27,9 +27,8 @@ struct ColorPickerOptions {
     bool inlinePanel{false};                       ///< Render the full interactive SV + Hue/Alpha picker inline instead of a closed button + popover
     keel::ArrayRef<Color> swatches{};              ///< Optional custom color swatches (preferred name; empty = fallback to presets or default palette)
     keel::ArrayRef<Color> presets{};               ///< Legacy alias for swatches (empty = default 10-color palette)
+    UiSize size{UiSize::Md};                       ///< Component size scale
     bool disabled{false};                          ///< Interaction suppression
-    const UiTheme* theme{nullptr};                 ///< Optional scoped theme override
-    keel::Optional<float> scale{keel::kNullOpt};   ///< Optional scoped scale factor override
 };
 
 /// Internal runtime state stored per-widget ID for ColorPicker HSV continuity and drag tracking.

@@ -349,28 +349,17 @@ void TestCarouselMetricsTokens() {
     CHECK(noneSize.arrowButtonSize == md.arrowButtonSize);
 
     // 2. Mutable accessor check
-    theme.GetCarousel(UiSize::Md).scrollStep = 150.0f;
+    theme.MutableCarousel(UiSize::Md).scrollStep = 150.0f;
     CHECK(theme.GetCarousel(UiSize::Md).scrollStep == 150.0f);
 
-    // 3. Density presets
-    UiTheme compactTheme = UiTheme::Dark(Density::Compact);
-    CHECK(compactTheme.GetCarousel(UiSize::Md).arrowButtonSize == 18.0f);
-    CHECK(compactTheme.GetCarousel(UiSize::Md).iconSize == 9.75f);
-
-    UiTheme touchTheme = UiTheme::Dark(Density::Touch);
-    CHECK(touchTheme.GetCarousel(UiSize::Md).arrowButtonSize == 27.0f);
-    CHECK(touchTheme.GetCarousel(UiSize::Md).iconSize == 13.5f);
-
-    // 4. Scaling
-    UiTheme scaledTheme = UiTheme::Dark().Scaled(2.0f);
-    const auto& scaledMd = scaledTheme.GetCarousel(UiSize::Md);
-    CHECK(scaledMd.arrowButtonSize == 39.0f);
-    CHECK(scaledMd.iconSize == 21.0f);
-    CHECK(scaledMd.cornerRadius == 9.0f);
-    CHECK(scaledMd.margin == 6.0f);
-    CHECK(scaledMd.gap == 9.0f);
-    CHECK(scaledMd.gutter == 54.0f);
-    CHECK(scaledMd.scrollStep == 165.0f);
+    // 3. Custom UiSize (Dp & Factor) scaling for Carousel metrics
+    const CarouselMetrics mdAfter = theme.GetCarousel(UiSize::Md);
+    const CarouselMetrics customDp = theme.GetCarousel(UiSize::Dp(45.0f));
+    CHECK(customDp.arrowButtonSize > mdAfter.arrowButtonSize);
+    CHECK(customDp.scrollStep > mdAfter.scrollStep);
+    const CarouselMetrics customFactor = theme.GetCarousel(UiSize::Factor(2.0f));
+    CHECK(std::abs(customFactor.arrowButtonSize - mdAfter.arrowButtonSize * 2.0f) < 0.01f);
+    CHECK(std::abs(customFactor.scrollStep - mdAfter.scrollStep * 2.0f) < 0.01f);
 }
 
 void TestSliderMetricsTokens() {
@@ -391,22 +380,18 @@ void TestSliderMetricsTokens() {
     CHECK(xs.thumbSize == 9.0f);
 
     // 2. Mutable accessor check
-    theme.GetSlider(UiSize::Md).trackHeight = 7.0f;
+    theme.MutableSlider(UiSize::Md).trackHeight = 7.0f;
     CHECK(theme.GetSlider(UiSize::Md).trackHeight == 7.0f);
 
-    // 3. Density presets
-    UiTheme compactTheme = UiTheme::Dark(Density::Compact);
-    CHECK(compactTheme.GetSlider(UiSize::Md).thumbSize == 12.0f);
-
-    UiTheme touchTheme = UiTheme::Dark(Density::Touch);
-    CHECK(touchTheme.GetSlider(UiSize::Md).thumbSize == 19.5f);
-
-    // 4. Scaling
-    UiTheme scaledTheme = UiTheme::Dark().Scaled(2.0f);
-    const auto& scaledMd = scaledTheme.GetSlider(UiSize::Md);
-    CHECK(scaledMd.defaultHeight == 39.0f);
-    CHECK(scaledMd.thumbSize == 27.0f);
-    CHECK(scaledMd.trackHeight == 7.5f);
+    // 3. Custom UiSize (Dp & Factor) scaling for Slider metrics
+    static_assert(sizeof(UiSize) == 4, "UiSize must stay 4 bytes");
+    const UiSize implicitDp = 45.0f;
+    CHECK(implicitDp.IsCustom());
+    const SliderMetrics mdAfter = theme.GetSlider(UiSize::Md);
+    const SliderMetrics factor2 = theme.GetSlider(UiSize::Factor(2.0f));
+    CHECK(std::abs(factor2.defaultHeight - mdAfter.defaultHeight * 2.0f) < 0.01f);
+    CHECK(std::abs(factor2.thumbSize - mdAfter.thumbSize * 2.0f) < 0.01f);
+    CHECK(std::abs(factor2.trackHeight - mdAfter.trackHeight * 2.0f) < 0.01f);
 }
 
 void TestHeadingLevelMetricsTokens() {
@@ -443,22 +428,7 @@ void TestHeadingLevelMetricsTokens() {
     theme.GetHeading(HeadingLevel::H1).titleFontSize = 30.0f;
     CHECK(theme.GetHeading(HeadingLevel::H1).titleFontSize == 30.0f);
 
-    // 3. Density presets (Compact < Standard < Touch)
-    const UiTheme compactTheme = UiTheme::Dark(Density::Compact);
-    const UiTheme stdTheme = UiTheme::Dark(Density::Standard);
-    const UiTheme touchTheme = UiTheme::Dark(Density::Touch);
-    CHECK(compactTheme.GetHeading(HeadingLevel::H1).titleFontSize < stdTheme.GetHeading(HeadingLevel::H1).titleFontSize);
-    CHECK(stdTheme.GetHeading(HeadingLevel::H1).titleFontSize < touchTheme.GetHeading(HeadingLevel::H1).titleFontSize);
-    CHECK(compactTheme.GetHeading(HeadingLevel::H6).titleFontSize < stdTheme.GetHeading(HeadingLevel::H6).titleFontSize);
-    CHECK(stdTheme.GetHeading(HeadingLevel::H6).titleFontSize < touchTheme.GetHeading(HeadingLevel::H6).titleFontSize);
-
-    // 4. Scaling
-    const UiTheme scaledTheme = stdTheme.Scaled(2.0f);
-    CHECK(scaledTheme.GetHeading(HeadingLevel::H1).titleFontSize == stdTheme.GetHeading(HeadingLevel::H1).titleFontSize * 2.0f);
-    CHECK(scaledTheme.GetHeading(HeadingLevel::H6).titleFontSize == stdTheme.GetHeading(HeadingLevel::H6).titleFontSize * 2.0f);
-    CHECK(scaledTheme.GetHeading(HeadingLevel::H1).iconSize == stdTheme.GetHeading(HeadingLevel::H1).iconSize * 2.0f);
-
-    // 5. HeadingDivider value-type semantics & deterministic hashing
+    // 3. HeadingDivider value-type semantics & deterministic hashing
     constexpr HeadingDivider divNone{};
     constexpr HeadingDivider divBottom = HeadingSeparator::Bottom;
     constexpr HeadingDivider divCustom = HeadingDivider::Bottom(StateColor::Primary(), 2.0f);
@@ -613,6 +583,8 @@ void TestStandaloneCoreModuleZeroDependencies() {
         void End() override {}
         [[nodiscard]] float GetScale() const noexcept override { return m_scale; }
         void SetScale(float scale) override { m_scale = scale; }
+        void PushTransform(const Transform2D&) override {}
+        void PopTransform() override {}
         [[nodiscard]] keel::StringRef GetBackendName() const noexcept override { return "NullCanvas (Zero-Dep)"; }
         void Clear(Color, keel::Optional<Rect> = keel::kNullOpt) override {}
         void PushClip(Rect) override {}
@@ -877,6 +849,8 @@ void TestMainWindowHeadlessBackend() {
         void End() override {}
         [[nodiscard]] float GetScale() const noexcept override { return m_scale; }
         void SetScale(float scale) override { m_scale = scale; }
+        void PushTransform(const Transform2D&) override {}
+        void PopTransform() override {}
         [[nodiscard]] keel::StringRef GetBackendName() const noexcept override { return "HeadlessCanvas"; }
         void Clear(Color, keel::Optional<Rect> = keel::kNullOpt) override {}
         void PushClip(Rect) override {}
@@ -958,8 +932,9 @@ void TestMainWindowHeadlessBackend() {
         bool shutdownCalled{false};
         keel::i32 guiCount{0};
         float framePixelsPerDp{0.0f};
-        float rootScale{0.0f};
-        float rootThemeScale{0.0f};
+        float frameDisplayScale{0.0f};
+        float frameRootZoom{0.0f};
+        float rootDensity{0.0f};
         Vec2 logicalViewport{};
 
     protected:
@@ -969,8 +944,9 @@ void TestMainWindowHeadlessBackend() {
         void OnRender(Context& ui) override {
             ++guiCount;
             framePixelsPerDp = ui.GetPixelsPerDp();
-            rootScale = ui.GetCurrentScale();
-            rootThemeScale = ui.GetTheme().scale;
+            frameDisplayScale = ui.GetDisplayScale();
+            frameRootZoom = ui.GetRootZoom();
+            rootDensity = ui.GetDensity();
             logicalViewport = ui.GetLogicalViewport();
             if (auto tb = ui.Toolbar()) {
                 RenderThemeControls(tb);
@@ -1022,11 +998,12 @@ void TestMainWindowHeadlessBackend() {
     CHECK(rawBackend->m_canvas.GetGpuShaderPasses().size() == 1);
     CHECK(rawBackend->m_canvas.GetGpuShaderPasses()[0].shader.shaderId == "test.custom_shader");
 
-    // Default density: MainWindow shells use Standard unless overridden in the config
-    CHECK(app.GetShellTheme().GetDensity() == Density::Standard);
+    // Default density: MainWindow starts at density 1.0f unless overridden in the config
+    CHECK(std::abs(app.rootDensity - 1.0f) < 1e-6f);
     {
-        TestAppWindow touchApp({.initialDensity = Density::Touch}, keel::make_unique<MockWindowBackend>());
-        CHECK(touchApp.GetShellTheme().GetDensity() == Density::Touch);
+        TestAppWindow touchApp({.reactiveMode = false, .initialDensity = 1.35f}, keel::make_unique<MockWindowBackend>());
+        (void)touchApp.Run();
+        CHECK(std::abs(touchApp.rootDensity - 1.35f) < 1e-6f);
     }
 
     // Shell scale is always a toolbar preset, so the selector label matches the applied scale
@@ -1080,8 +1057,8 @@ void TestMainWindowHeadlessBackend() {
         CHECK(zoomApp.Run() == 0);
         CHECK(std::abs(zoomApp.framePixelsPerDp - 1.875f) < 1e-5f);
         CHECK(std::abs(rawZoomBackend->m_canvas.GetScale() - 1.875f) < 1e-5f);
-        CHECK(std::abs(zoomApp.rootScale - 1.0f) < 1e-6f);
-        CHECK(std::abs(zoomApp.rootThemeScale - 1.0f) < 1e-6f);
+        CHECK(std::abs(zoomApp.frameDisplayScale - 1.5f) < 1e-6f);
+        CHECK(std::abs(zoomApp.frameRootZoom - 1.25f) < 1e-6f);
         CHECK(std::abs(zoomApp.logicalViewport.x - 800.0f) < 0.01f);
         CHECK(std::abs(zoomApp.logicalViewport.y - 480.0f) < 0.01f);
     }

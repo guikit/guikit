@@ -113,7 +113,7 @@ void DemoWindow::RenderCatalogSidebar(guikit::Context& ui) {
         .allowCollapse = true
     })) {
         const NavCategory prevCat = m_selectedCategory;
-        if (auto menu = ui.Size(guikit::UiSize::Sm).SidebarMenu()) {
+        if (auto menu = ui.SidebarMenu({.size = guikit::UiSize::Sm})) {
             menu.Section("ELEMENTS");
             menu.Item(m_selectedCategory, NavCategory::ElemHeading,       {.text = "Heading",      .icon = guikit::Icon::Edit()});
             menu.Item(m_selectedCategory, NavCategory::ElemElement,       {.text = "Element",      .icon = guikit::Icon::Settings()});
@@ -185,16 +185,18 @@ void DemoWindow::RenderInspectorSidebar(guikit::Context& ui) {
         if (m_selectedCategory == NavCategory::ElemHeading || m_selectedCategory == NavCategory::ElemElement) {
             DispatchInspector(ui, m_selectedCategory, m_demoCtx);
         } else if (IsElementCategory(m_selectedCategory)) {
-            if (auto elemAcc = ui.Size(guikit::UiSize::Sm).Accordion({
+            if (auto elemAcc = ui.Accordion({
                 .label = "ELEMENT",
-                .defaultOpen = false
+                .defaultOpen = false,
+                .size = guikit::UiSize::Sm
             })) {
                 m_demoCtx.RenderElementSection(ui);
             }
 
-            if (auto elemLayoutAcc = ui.Size(guikit::UiSize::Sm).Accordion({
+            if (auto elemLayoutAcc = ui.Accordion({
                 .label = "ELEMENT LAYOUT",
-                .defaultOpen = false
+                .defaultOpen = false,
+                .size = guikit::UiSize::Sm
             })) {
                 m_demoCtx.RenderElementLayoutSection(ui, m_selectedCategory);
             }
@@ -204,29 +206,32 @@ void DemoWindow::RenderInspectorSidebar(guikit::Context& ui) {
             guikit::AccordionOptions ctrlLayoutAccOpts{
                 .label = "CONTROL LAYOUT",
                 .defaultOpen = false,
+                .size = guikit::UiSize::Sm,
                 .disabled = !hasCtrlLayout
             };
             if (!hasCtrlLayout) {
                 ctrlLayoutAccOpts.badge = {"Fit", guikit::UiVariant::Secondary};
             }
-            if (auto ctrlLayoutAcc = ui.Size(guikit::UiSize::Sm).Accordion(
+            if (auto ctrlLayoutAcc = ui.Accordion(
                 hasCtrlLayout ? m_demoCtx.ctrlLayoutOpen : collapsedOpen,
                 ctrlLayoutAccOpts
             )) {
                 m_demoCtx.RenderControlLayoutSection(ui, m_selectedCategory);
             }
 
-            if (auto ctrlStyleAcc = ui.Size(guikit::UiSize::Sm).Accordion({
+            if (auto ctrlStyleAcc = ui.Accordion({
                 .label = "CONTROL STYLE",
-                .defaultOpen = false
+                .defaultOpen = false,
+                .size = guikit::UiSize::Sm
             })) {
                 m_demoCtx.RenderControlStyleSection(ui, m_selectedCategory);
             }
 
-            if (auto specAcc = ui.Size(guikit::UiSize::Sm).Accordion({
+            if (auto specAcc = ui.Accordion({
                 .label = "CONTROL SPECIFIC",
                 .badge = {CategoryControlName(m_selectedCategory), guikit::UiVariant::Secondary},
-                .defaultOpen = true
+                .defaultOpen = true,
+                .size = guikit::UiSize::Sm
             })) {
                 DispatchInspector(ui, m_selectedCategory, m_demoCtx);
             }
@@ -241,7 +246,7 @@ void DemoWindow::RenderPreviewToolbar(guikit::Context& ui) {
         ui.Text("PREVIEW", {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Muted});
         previewTb.Separator();
 
-        if (ui.Size(guikit::UiSize::Sm).Select(m_demoCtx.previewFormFactorIdx, kPreviewFormFactorNames, {.width = 96.0f}).changed) {
+        if (ui.Select(m_demoCtx.previewFormFactorIdx, kPreviewFormFactorNames, {.width = 96.0f, .size = guikit::UiSize::Sm}).changed) {
             if (m_demoCtx.previewFormFactorIdx == 1) {
                 m_demoCtx.previewLandscape = true;  // Tablet defaults to Landscape
                 if (m_demoCtx.previewZoomModeIdx == static_cast<keel::usize>(PreviewZoomMode::Zoom100)) {
@@ -273,7 +278,8 @@ void DemoWindow::RenderPreviewToolbar(guikit::Context& ui) {
         const keel::i32 effZoomPct = keel::round_i32(m_demoCtx.previewEffectiveZoom * 100.0f);
         guikit::SelectOptions zoomSelectOpts{
             .tooltip = "Preview Zoom / Scale (Fit, Real 1:1 physical mm, or Ctrl + MouseWheel)",
-            .width = 116.0f
+            .width = 116.0f,
+            .size = guikit::UiSize::Sm
         };
         if (m_demoCtx.previewZoomModeIdx == static_cast<keel::usize>(PreviewZoomMode::Fit) ||
             m_demoCtx.previewZoomModeIdx == static_cast<keel::usize>(PreviewZoomMode::Real1To1)) {
@@ -294,17 +300,18 @@ void DemoWindow::RenderPreviewToolbar(guikit::Context& ui) {
                 kPreviewZoomPresetNames[7],
                 customLabel
             };
-            zoomChanged = ui.Size(guikit::UiSize::Sm).Select(m_demoCtx.previewZoomModeIdx, zoomItemsWithCustom, zoomSelectOpts).changed;
+            zoomChanged = ui.Select(m_demoCtx.previewZoomModeIdx, zoomItemsWithCustom, zoomSelectOpts).changed;
         } else {
-            zoomChanged = ui.Size(guikit::UiSize::Sm).Select(m_demoCtx.previewZoomModeIdx, kPreviewZoomPresetNames, zoomSelectOpts).changed;
+            zoomChanged = ui.Select(m_demoCtx.previewZoomModeIdx, kPreviewZoomPresetNames, zoomSelectOpts).changed;
         }
         if (zoomChanged) {
             ui.InvalidateAll();
         }
 
-        if (ui.Size(guikit::UiSize::Md).Switch(m_demoCtx.previewLightMode, {
+        if (ui.Switch(m_demoCtx.previewLightMode, {
             .textLeft = "Dark",
             .textRight = "Light",
+            .size = guikit::UiSize::Md,
             .symmetric = true
         }).changed) {
             m_demoCtx.previewDarkMode = !m_demoCtx.previewLightMode;
@@ -342,11 +349,11 @@ void DemoWindow::RenderCodePanel(guikit::Context& ui) {
     if (auto codePanel = ui.BottomPanel(m_demoCtx.previewShowCode, {
         .height = 240.0f,
         .resizable = true,
-        .allowCollapse = true,
-        .theme = &GetShellTheme()
+        .allowCollapse = true
     })) {
-        if (auto codeTb = ui.Size(guikit::UiSize::Sm).Toolbar({
-            .style = guikit::ToolbarStyle::Header
+        if (auto codeTb = ui.Toolbar({
+            .style = guikit::ToolbarStyle::Header,
+            .size = guikit::UiSize::Sm
         })) {
             ui.Text("GENERATED C++20 CODE", {
                 .role = guikit::TextRole::LabelSmall,

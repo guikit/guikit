@@ -982,9 +982,9 @@ Vec2 MeasureEditorBox(
     const EditorFontMetrics fm = ResolveEditorFontMetrics(canvas, theme, baseFontSize, effZoom, textStyle);
     const float fontSize = fm.fontSize;
     const float lineHeight = fm.lineHeight;
-    const float padY = keel::max(theme.Scale(8.0f), cm.paddingY);
-    const float padX = keel::max(theme.Scale(10.0f), cm.paddingX);
-    const float statusH = opts.showStatusBar ? theme.Scale(22.0f) : 0.0f;
+    const float padY = keel::max(8.0f, cm.paddingY);
+    const float padX = keel::max(10.0f, cm.paddingX);
+    const float statusH = opts.showStatusBar ? 22.0f : 0.0f;
 
     keel::usize lineCount = 1;
     keel::usize maxLineChars = 0;
@@ -1002,7 +1002,7 @@ Vec2 MeasureEditorBox(
 
     float boxH = 0.0f;
     if (opts.height.IsFixed()) {
-        boxH = theme.Scale(opts.height.Dp());
+        boxH = opts.height.Dp();
     } else if (opts.autoHeight) {
         boxH = static_cast<float>(lineCount) * lineHeight + padY * 2.0f + statusH;
     } else if (opts.rows.has_value()) {
@@ -1020,21 +1020,21 @@ Vec2 MeasureEditorBox(
     }
     const bool hasBpGutter = opts.breakpoints.has_target() || opts.enableBreakpoints ||
         (opts.executionLine > 0) || (opts.executionLinePtr != nullptr && *opts.executionLinePtr > 0);
-    const float bpWidth = hasBpGutter ? keel::max(theme.Scale(28.0f) * effZoom, fm.spaceAdvance * 3.4f) : 0.0f;
-    const float foldWidth = opts.codeFolding ? keel::max(theme.Scale(14.0f) * effZoom, fm.spaceAdvance * 1.85f) : 0.0f;
+    const float bpWidth = hasBpGutter ? keel::max(28.0f * effZoom, fm.spaceAdvance * 3.4f) : 0.0f;
+    const float foldWidth = opts.codeFolding ? keel::max(14.0f * effZoom, fm.spaceAdvance * 1.85f) : 0.0f;
     const float gutterPadX = fm.spaceAdvance * 1.25f;
     const float gutterWidth = opts.showLineNumbers
         ? (bpWidth + static_cast<float>(digits) * fm.digitAdvance + gutterPadX * 2.0f + foldWidth)
         : (bpWidth + foldWidth);
 
-    float boxW = theme.Scale(280.0f);
+    float boxW = 280.0f;
     if (opts.width.IsFixed()) {
-        boxW = theme.Scale(opts.width.Dp());
+        boxW = opts.width.Dp();
     } else if (opts.width.ResolveMode(SizeMode::Stretch) == SizeMode::Stretch && availableWidth > 0.0f) {
         boxW = availableWidth;
     } else {
         const float charAdv = MeasureChunkNoTabs(canvas, "M", fontSize, textStyle);
-        const float estimatedW = gutterWidth + padX * 2.0f + static_cast<float>(keel::min<keel::usize>(maxLineChars, 80)) * charAdv + theme.Scale(24.0f);
+        const float estimatedW = gutterWidth + padX * 2.0f + static_cast<float>(keel::min<keel::usize>(maxLineChars, 80)) * charAdv + 24.0f;
         boxW = keel::max(boxW, estimatedW);
     }
 
@@ -1136,8 +1136,8 @@ EditorLayoutRects ComputeEditorLayout(
     L.lineHeight = L.metrics.lineHeight;
     L.editorBox = bounds;
 
-    const float padY = keel::max(theme.Scale(8.0f), cm.paddingY);
-    const float padX = keel::max(theme.Scale(10.0f), cm.paddingX);
+    const float padY = keel::max(8.0f, cm.paddingY);
+    const float padX = keel::max(10.0f, cm.paddingX);
 
     keel::usize digits = 2;
     keel::usize n = keel::max<keel::usize>(1, logicalLines.size());
@@ -1148,8 +1148,8 @@ EditorLayoutRects ComputeEditorLayout(
 
     const bool hasBpGutter = opts.breakpoints.has_target() || opts.enableBreakpoints ||
         (opts.executionLine > 0) || (opts.executionLinePtr != nullptr && *opts.executionLinePtr > 0);
-    L.bpColWidth = hasBpGutter ? keel::max(theme.Scale(28.0f) * effZoom, L.metrics.spaceAdvance * 3.4f) : 0.0f;
-    L.foldColWidth = opts.codeFolding ? keel::max(theme.Scale(14.0f) * effZoom, L.metrics.spaceAdvance * 1.85f) : 0.0f;
+    L.bpColWidth = hasBpGutter ? keel::max(28.0f * effZoom, L.metrics.spaceAdvance * 3.4f) : 0.0f;
+    L.foldColWidth = opts.codeFolding ? keel::max(14.0f * effZoom, L.metrics.spaceAdvance * 1.85f) : 0.0f;
     const float gutterPadX = L.metrics.spaceAdvance * 1.25f;
     L.gutterWidth = opts.showLineNumbers
         ? (L.bpColWidth + static_cast<float>(digits) * L.metrics.digitAdvance + gutterPadX * 2.0f + L.foldColWidth)
@@ -1157,8 +1157,8 @@ EditorLayoutRects ComputeEditorLayout(
 
     // Unzoomed (100%) gutter width for zoom-invariant floating toolbar track bounds
     const EditorFontMetrics baseMetrics = ResolveEditorFontMetrics(canvas, theme, baseFontSize, 1.0f, textStyle, opts.tabSize);
-    const float baseBpColW = hasBpGutter ? keel::max(theme.Scale(28.0f), baseMetrics.spaceAdvance * 3.4f) : 0.0f;
-    const float baseFoldColW = opts.codeFolding ? keel::max(theme.Scale(14.0f), baseMetrics.spaceAdvance * 1.85f) : 0.0f;
+    const float baseBpColW = hasBpGutter ? keel::max(28.0f, baseMetrics.spaceAdvance * 3.4f) : 0.0f;
+    const float baseFoldColW = opts.codeFolding ? keel::max(14.0f, baseMetrics.spaceAdvance * 1.85f) : 0.0f;
     const float baseGutterPadX = baseMetrics.spaceAdvance * 1.25f;
     const float baseGutterW = opts.showLineNumbers
         ? (baseBpColW + static_cast<float>(digits) * baseMetrics.digitAdvance + baseGutterPadX * 2.0f + baseFoldColW)
@@ -1171,7 +1171,7 @@ EditorLayoutRects ComputeEditorLayout(
         keel::max(0.0f, L.editorBox.h - 2.0f)
     );
 
-    L.statusBarHeight = (opts.showStatusBar && fullInner.h > theme.Scale(60.0f)) ? theme.Scale(22.0f) : 0.0f;
+    L.statusBarHeight = (opts.showStatusBar && fullInner.h > 60.0f) ? 22.0f : 0.0f;
     L.innerBounds = Rect(
         fullInner.x,
         fullInner.y,
@@ -1196,8 +1196,8 @@ EditorLayoutRects ComputeEditorLayout(
         );
     }
 
-    L.hasMinimap = opts.showMinimap && (L.innerBounds.w > theme.Scale(280.0f)) && (L.innerBounds.h > theme.Scale(60.0f));
-    L.minimapWidth = L.hasMinimap ? theme.Scale(64.0f) : 0.0f;
+    L.hasMinimap = opts.showMinimap && (L.innerBounds.w > 280.0f) && (L.innerBounds.h > 60.0f);
+    L.minimapWidth = L.hasMinimap ? 64.0f : 0.0f;
 
     float prelimTextW = keel::max(0.0f, L.innerBounds.w - L.gutterWidth - L.minimapWidth - padX * 2.0f);
     BuildVisualLines(text, logicalLines, opts.wordWrap, prelimTextW, L.fontSize, textStyle, canvas, outVisualLines, foldRegions, foldedLines, opts.tabSize);
@@ -1224,7 +1224,7 @@ EditorLayoutRects ComputeEditorLayout(
                 for (const CodeInlineValue& iv : opts.inlineValues) {
                     if (iv.line == li + 1 && !iv.text.empty()) {
                         const float ivFs = L.fontSize * 0.88f;
-                        lineW += L.metrics.spaceAdvance * 2.2f + MeasureChunkNoTabs(canvas, iv.text, ivFs, FontStyle::Monospace) + theme.Scale(12.0f);
+                        lineW += L.metrics.spaceAdvance * 2.2f + MeasureChunkNoTabs(canvas, iv.text, ivFs, FontStyle::Monospace) + 12.0f;
                     }
                 }
             }
@@ -1257,7 +1257,7 @@ EditorLayoutRects ComputeEditorLayout(
     );
 
     L.maxScrollY = keel::max(0.0f, L.totalContentH - L.textViewport.h);
-    L.maxScrollX = opts.wordWrap ? 0.0f : keel::max(0.0f, L.maxLineW + theme.Scale(24.0f) - L.textViewport.w);
+    L.maxScrollX = opts.wordWrap ? 0.0f : keel::max(0.0f, L.maxLineW + 24.0f - L.textViewport.w);
 
     const float clampedScrollY = keel::clamp(scrollY, 0.0f, L.maxScrollY);
     const float clampedScrollX = keel::clamp(scrollX, 0.0f, L.maxScrollX);
@@ -1281,7 +1281,7 @@ EditorLayoutRects ComputeEditorLayout(
         const float trackY = L.innerBounds.Bottom() - sm.trackWidth - sm.margin;
         const float trackW = keel::max(0.0f, L.innerBounds.w - L.gutterWidth - L.minimapWidth - sm.margin * 2.0f - (L.needVScroll ? (sm.trackWidth + sm.margin) : 0.0f));
         L.hTrackRect = Rect(trackX, trackY, trackW, sm.trackWidth);
-        const float totalW = L.maxLineW + theme.Scale(24.0f);
+        const float totalW = L.maxLineW + 24.0f;
         if (trackW > 0.0f && totalW > 0.0f) {
             const float visibleRatio = keel::clamp(L.textViewport.w / totalW, 0.05f, 1.0f);
             const float thumbW = keel::min(trackW, keel::max(sm.minThumbLength, trackW * visibleRatio));
@@ -1291,8 +1291,8 @@ EditorLayoutRects ComputeEditorLayout(
         }
     }
 
-    // Top-right quick buttons (Copy, Search, Zoom %) when Search overlay is closed — sized via UiSize & Button::Measure
-    const float overlayMargin = keel::max(theme.Scale(4.0f), tbGap * 0.75f);
+    // Top-right quick buttons (Copy, Search, Zoom %) when Search overlay is closed â€” sized via UiSize & Button::Measure
+    const float overlayMargin = keel::max(4.0f, tbGap * 0.75f);
     const float overlayRight = L.innerBounds.Right() - finalVBarReserve - L.minimapWidth - overlayMargin;
     const float overlayTop = L.innerBounds.y + overlayMargin;
     float rightCursor = overlayRight;
@@ -1325,7 +1325,7 @@ EditorLayoutRects ComputeEditorLayout(
         }
     }
 
-    // Search & Replace / GoToLine floating overlay geometry — sized via UiSize & Button::Measure
+    // Search & Replace / GoToLine floating overlay geometry â€” sized via UiSize & Button::Measure
     if ((searchOpen || gotoOpen) && L.innerBounds.w > tbCm.defaultHeight * 6.0f) {
         ButtonOptions sqOpts{};
         sqOpts.icon = Icon::Close();
@@ -1333,8 +1333,8 @@ EditorLayoutRects ComputeEditorLayout(
         const Vec2 sqSz = Button::Measure(sqOpts, L.toolbarSize, canvas, theme);
         const float rowH = sqSz.y;
         const float sqBtn = sqSz.x;
-        const float pad = keel::max(theme.Scale(4.0f), tbGap * 0.65f);
-        const float gap = keel::max(theme.Scale(3.0f), tbGap * 0.50f);
+        const float pad = keel::max(4.0f, tbGap * 0.65f);
+        const float gap = keel::max(3.0f, tbGap * 0.50f);
         const bool showRep = searchOpen && replaceOpen && !opts.readOnly;
         const float countW = tbCm.defaultHeight * 2.0f;
         const float maxPanelW = tbCm.defaultHeight * 13.5f;
@@ -1361,8 +1361,8 @@ EditorLayoutRects ComputeEditorLayout(
         S.findInputRect = Rect(x, y1, findTotalW, rowH);
 
         if (searchOpen) {
-            const float inset = keel::max(theme.Scale(2.0f), pad * 0.45f);
-            const float toggleSz = keel::max(theme.Scale(16.0f), rowH - inset * 2.0f);
+            const float inset = keel::max(2.0f, pad * 0.45f);
+            const float toggleSz = keel::max(16.0f, rowH - inset * 2.0f);
             S.wordBtnRect = Rect(S.findInputRect.Right() - toggleSz - inset, y1 + inset, toggleSz, toggleSz);
             S.caseBtnRect = Rect(S.wordBtnRect.x - toggleSz - inset * 0.75f, y1 + inset, toggleSz, toggleSz);
 
@@ -1400,7 +1400,7 @@ EditorLayoutRects ComputeEditorLayout(
         }
     }
 
-    // Floating Debug Toolbar at top of editor — zoom-invariant horizontal track with Left/Center/Right & grip drag
+    // Floating Debug Toolbar at top of editor â€” zoom-invariant horizontal track with Left/Center/Right & grip drag
     if (opts.showDebugToolbar && L.innerBounds.w > tbCm.defaultHeight * 6.5f) {
         ButtonOptions dbgBtnOpts{};
         dbgBtnOpts.icon = Icon::DebugContinue();
@@ -1409,8 +1409,8 @@ EditorLayoutRects ComputeEditorLayout(
         const Vec2 btnSz = Button::Measure(dbgBtnOpts, L.toolbarSize, canvas, theme);
         const float btnW = btnSz.x;
         const float btnH2 = btnSz.y;
-        const float gap = keel::max(theme.Scale(2.0f), tbGap * 0.50f);
-        const float pad = keel::max(theme.Scale(4.0f), tbGap * 0.65f);
+        const float gap = keel::max(2.0f, tbGap * 0.50f);
+        const float pad = keel::max(4.0f, tbGap * 0.65f);
         const float gripW = tbCm.iconSize * 1.15f;
         const float sepExtra = tbGap; // Group separator slot before Restart & Stop
         const float barW = gripW + 6.0f * btnW + 5.0f * gap + sepExtra + pad * 2.0f;
@@ -1431,7 +1431,7 @@ EditorLayoutRects ComputeEditorLayout(
         } else if (opts.debugToolbarAlign == Align::End) {
             barX = maxBarX;
         } else {
-            // Align::Center — centered within zoom-invariant track [minBarX, maxBarX]
+            // Align::Center â€” centered within zoom-invariant track [minBarX, maxBarX]
             barX = keel::clamp(L.innerBounds.x + (L.innerBounds.w - barW) * 0.5f, minBarX, maxBarX);
         }
 
@@ -1853,10 +1853,9 @@ TextAreaResponse TextArea::Run(
     const TextAreaOptions& opts,
     keel::SourceLocation loc
 ) {
-    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const UiSize activeSize = opts.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const bool wasFocused = ctx.IsFocused(id) && !effectiveDisabled;
 
@@ -2760,7 +2759,7 @@ TextAreaResponse TextArea::Run(
         }
     }
     if (state.draggingMinimap && ctx.IsMouseDown() && L.hasMinimap && L.minimapRect.h > 0.0f) {
-        const float microStep = theme.Scale(3.0f);
+        const float microStep = 3.0f;
         const float totalMiniH = keel::max(1.0f, static_cast<float>(visualLines.size()) * microStep);
         const float effMiniH = keel::min(L.minimapRect.h, totalMiniH);
         const float t = keel::clamp((mousePos.y - L.minimapRect.y) / keel::max(1.0f, effMiniH), 0.0f, 1.0f);
@@ -3023,7 +3022,7 @@ TextAreaResponse TextArea::Run(
                 const keel::usize colOffset = (cursor >= cvl.startOffset) ? keel::min(cursor - cvl.startOffset, cvl.length) : 0;
                 const keel::StringRef prefix = displayText.substr(cvl.startOffset, colOffset);
                 const float curX = MeasureSegmentWidth(canvas, prefix, L.fontSize, textStyle, opts.tabSize);
-                const float margin = theme.Scale(16.0f);
+                const float margin = 16.0f;
                 if (curX < state.scrollX + margin) {
                     state.scrollX = keel::max(0.0f, curX - margin);
                 } else if (curX > state.scrollX + L.textViewport.w - margin) {
@@ -3142,8 +3141,6 @@ TextAreaResponse TextArea::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::TextArea, id);
-    node->debugBoundsOverride = opts.debugBounds;
-    node->inspectModeOverride = opts.inspectMode;
     auto* data = ctx.AllocPayload<TextAreaData>();
     if (data) {
         data->opts = optsCopy;
@@ -3436,11 +3433,11 @@ void TextArea::Render(
     const Color defaultBg = disabled ? editorBgCol.WithAlphaF(0.45f) : editorBgCol;
     const Color bgCol = theme.ResolveColor(opts.background, hovered, false, disabled, defaultBg);
     Color defaultBorderCol = pal.inputBorder;
-    float defaultStrokeW = theme.Scale(1.0f);
+    float defaultStrokeW = 1.0f;
     if (!disabled) {
         if (focused) {
             defaultBorderCol = theme.ResolveColor(opts.color, false, false, false, pal.focusRing);
-            defaultStrokeW = theme.Scale(1.5f);
+            defaultStrokeW = 1.5f;
         } else if (hovered) {
             defaultBorderCol = pal.borderHover;
         }
@@ -3448,7 +3445,7 @@ void TextArea::Render(
         defaultBorderCol = defaultBorderCol.WithAlphaF(0.45f);
     }
     const Color borderCol = theme.ResolveColor(opts.border.color, hovered, focused, disabled, defaultBorderCol);
-    const float strokeW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : defaultStrokeW;
+    const float strokeW = (opts.border.width > 0.0f) ? opts.border.width : defaultStrokeW;
 
     canvas.DrawRoundRect(editorBox, r, bgCol, borderCol, strokeW);
 
@@ -3580,7 +3577,7 @@ void TextArea::Render(
                 Color(245, 158, 11, 42)
             );
             canvas.DrawRect(
-                Rect(innerBounds.x + L.gutterWidth, lineY, theme.Scale(2.5f), L.lineHeight),
+                Rect(innerBounds.x + L.gutterWidth, lineY, 2.5f, L.lineHeight),
                 Color(245, 158, 11, 230)
             );
         } else if (focused && !disabled && vIdx == activeVisRow && !hasSelection) {
@@ -3600,17 +3597,17 @@ void TextArea::Render(
             const bool hasBp = ContainsSizeT(breakpoints, vl.logicalLine + 1);
             const bool hovBp = extData && (extData->hoveredGutterLine == static_cast<keel::i32>(vl.logicalLine));
             if (hasBp || hovBp) {
-                const float bpR = keel::min(L.lineHeight * 0.28f, theme.Scale(5.0f) * effZoom);
-                const float bpX = innerBounds.x + keel::max(bpR + theme.Scale(3.5f), L.bpColWidth * 0.25f);
+                const float bpR = keel::min(L.lineHeight * 0.28f, 5.0f * effZoom);
+                const float bpX = innerBounds.x + keel::max(bpR + 3.5f, L.bpColWidth * 0.25f);
                 const Color bpCol = hasBp ? Color(239, 68, 68, 245) : Color(239, 68, 68, 105);
                 canvas.DrawRoundRect(Rect(bpX - bpR, centerY - bpR, bpR * 2.0f, bpR * 2.0f), bpR, bpCol, hasBp ? Color(254, 202, 202, 180) : Color(0, 0, 0, 0), 1.0f);
             }
 
-            // Debugger execution arrow (▶) (right lane of bpColWidth, never overlapping breakpoint)
+            // Debugger execution arrow (â–¶) (right lane of bpColWidth, never overlapping breakpoint)
             if (isExecLine) {
-                const float ax = innerBounds.x + keel::max(theme.Scale(14.5f) * effZoom, L.bpColWidth * 0.56f);
-                const float aw = theme.Scale(7.5f) * effZoom;
-                const float ah = theme.Scale(5.0f) * effZoom;
+                const float ax = innerBounds.x + keel::max(14.5f * effZoom, L.bpColWidth * 0.56f);
+                const float aw = 7.5f * effZoom;
+                const float ah = 5.0f * effZoom;
                 const Color arrowFill(251, 191, 36, 255);
                 const Color arrowStroke(180, 83, 9, 255);
                 canvas.DrawTriangle(
@@ -3619,7 +3616,7 @@ void TextArea::Render(
                     {ax + aw, centerY},
                     arrowFill,
                     arrowStroke,
-                    theme.Scale(1.0f)
+                    1.0f
                 );
             }
 
@@ -3640,17 +3637,17 @@ void TextArea::Render(
                 }
             }
 
-            // Code folding chevron (▾ / ▸)
+            // Code folding chevron (â–¾ / â–¸)
             if (opts.codeFolding) {
                 if (FindFoldRegionStartingAt(foldRegions, vl.logicalLine) != nullptr) {
                     const bool isFolded = IsLineFoldedStart(foldedLines, vl.logicalLine);
                     const bool hovFold = extData && (extData->hoveredFoldLine == static_cast<keel::i32>(vl.logicalLine));
                     const Color chevCol = hovFold ? editorTextPrimary : editorTextSecondary;
                     const float cx = L.gutterRect.Right() - L.foldColWidth * 0.5f;
-                    const float icoSz = keel::min(L.foldColWidth * 0.85f, theme.Scale(11.0f));
+                    const float icoSz = keel::min(L.foldColWidth * 0.85f, 11.0f);
                     const Rect chevRect(cx - icoSz * 0.5f, centerY - icoSz * 0.5f, icoSz, icoSz);
                     if (hovFold) {
-                        canvas.DrawRoundRect(chevRect, theme.Scale(2.5f), editorBorderSubtle);
+                        canvas.DrawRoundRect(chevRect, 2.5f, editorBorderSubtle);
                     }
                     const Icon chevIco = isFolded ? Icon::ChevronRight() : Icon::ChevronDown();
                     chevIco.Draw(canvas, chevRect, chevCol);
@@ -3697,7 +3694,7 @@ void TextArea::Render(
                         const float ow = MeasureSegmentWidth(&canvas, activeWord, L.fontSize, textStyle, opts.tabSize);
                         canvas.DrawRoundRect(
                             Rect(ox - 1.0f, lineY + 1.0f, ow + 2.0f, L.lineHeight - 2.0f),
-                            theme.Scale(2.5f),
+                            2.5f,
                             pal.focusRing.WithAlphaF(0.14f),
                             pal.focusRing.WithAlphaF(0.38f),
                             1.0f
@@ -3723,7 +3720,7 @@ void TextArea::Render(
                 const bool isActiveMatch = (extData && mi == extData->activeMatchIdx);
                 const Color mFill = isActiveMatch ? Color(245, 158, 11, 120) : Color(245, 158, 11, 58);
                 const Color mStroke = isActiveMatch ? Color(251, 191, 36, 240) : Color(245, 158, 11, 140);
-                canvas.DrawRoundRect(Rect(mx, lineY + 1.0f, mw, L.lineHeight - 2.0f), theme.Scale(2.5f), mFill, mStroke, 1.0f);
+                canvas.DrawRoundRect(Rect(mx, lineY + 1.0f, mw, L.lineHeight - 2.0f), 2.5f, mFill, mStroke, 1.0f);
             }
         }
 
@@ -3755,7 +3752,7 @@ void TextArea::Render(
                     const float bw = L.metrics.spaceAdvance;
                     canvas.DrawRoundRect(
                         Rect(bx - 1.0f, lineY + 1.5f, bw + 2.0f, L.lineHeight - 3.0f),
-                        theme.Scale(2.0f),
+                        2.0f,
                         pal.focusRing.WithAlphaF(0.18f),
                         pal.focusRing.WithAlphaF(0.75f),
                         1.0f
@@ -3775,7 +3772,7 @@ void TextArea::Render(
         // Render text or syntax spans
         const Color wsCol = editorTextMuted.WithAlphaF(0.55f);
         const float wsCenterY = lineY + L.lineHeight * 0.52f;
-        const float wsDotR = keel::max(1.1f, theme.Scale(1.35f) * effZoom);
+        const float wsDotR = keel::max(1.1f, 1.35f * effZoom);
         auto drawSpaceDots = [&](float baseX, keel::usize count) {
             if (!opts.showWhitespace || count == 0) return;
             for (keel::usize i = 0; i < count; ++i) {
@@ -3787,7 +3784,7 @@ void TextArea::Render(
         };
         auto drawTabArrows = [&](float baseX, keel::usize count) {
             if (!opts.showWhitespace || count == 0) return;
-            const float strokeW = keel::max(1.0f, theme.Scale(1.15f) * effZoom);
+            const float strokeW = keel::max(1.0f, 1.15f * effZoom);
             const float headSz = keel::min(L.lineHeight * 0.20f, L.metrics.spaceAdvance * 0.45f);
             for (keel::usize i = 0; i < count; ++i) {
                 const float tx0 = baseX + static_cast<float>(i) * L.metrics.tabAdvance + L.metrics.spaceAdvance * 0.35f;
@@ -3910,14 +3907,14 @@ void TextArea::Render(
             }
         }
 
-        // Visible EOL return marker (↵) when showWhitespace is enabled and this is the end of the logical line
+        // Visible EOL return marker (â†µ) when showWhitespace is enabled and this is the end of the logical line
         if (opts.showWhitespace && (vl.startCol + vl.length == ll.length) && (vl.logicalLine + 1 < logicalLines.size())) {
             const float eolX = curX + L.metrics.spaceAdvance * 0.25f;
             const float eolW = L.metrics.spaceAdvance * 0.62f;
             const float eolTop = wsCenterY - L.lineHeight * 0.18f;
             const float eolBot = wsCenterY + L.lineHeight * 0.12f;
             const float headSz = keel::min(L.lineHeight * 0.14f, L.metrics.spaceAdvance * 0.30f);
-            const float strokeW = keel::max(1.0f, theme.Scale(1.1f) * effZoom);
+            const float strokeW = keel::max(1.0f, 1.1f * effZoom);
             if (eolX + eolW >= textViewport.x - 2.0f && eolX <= textViewport.Right() + 2.0f) {
                 canvas.DrawLine({eolX + eolW, eolTop}, {eolX + eolW, eolBot}, wsCol, strokeW);
                 canvas.DrawLine({eolX + eolW, eolBot}, {eolX, eolBot}, wsCol, strokeW);
@@ -3931,9 +3928,9 @@ void TextArea::Render(
         if (isFoldedStart) {
             const float pillX = curX + L.metrics.spaceAdvance * 0.8f;
             const float pillW = L.metrics.spaceAdvance * 4.2f;
-            const float pillH = L.lineHeight - theme.Scale(4.0f);
-            const Rect pillRect(pillX, lineY + theme.Scale(2.0f), pillW, pillH);
-            canvas.DrawRoundRect(pillRect, theme.Scale(3.0f), editorGutterBg, editorBorderSubtle, 1.0f);
+            const float pillH = L.lineHeight - 4.0f;
+            const Rect pillRect(pillX, lineY + 2.0f, pillW, pillH);
+            canvas.DrawRoundRect(pillRect, 3.0f, editorGutterBg, editorBorderSubtle, 1.0f);
             canvas.DrawTextBox("...", pillRect, L.fontSize * 0.9f, editorTextSecondary, 0.5f, 0.45f);
             curX = pillRect.Right();
         }
@@ -3949,21 +3946,21 @@ void TextArea::Render(
                 for (const CodeInlineValue& iv : opts.inlineValues) {
                     if (iv.line == vl.logicalLine + 1 && !iv.text.empty()) {
                         const float ivFs = L.fontSize * 0.88f;
-                        const float ivW = MeasureChunkNoTabs(&canvas, iv.text, ivFs, FontStyle::Monospace) + theme.Scale(12.0f);
+                        const float ivW = MeasureChunkNoTabs(&canvas, iv.text, ivFs, FontStyle::Monospace) + 12.0f;
                         float ivX = curX + L.metrics.spaceAdvance * 2.2f;
                         bool clampedRight = false;
-                        if (opts.wordWrap && ivX + ivW > textViewport.Right() - theme.Scale(4.0f)) {
-                            ivX = keel::max(textViewport.x + theme.Scale(4.0f), textViewport.Right() - theme.Scale(4.0f) - ivW);
+                        if (opts.wordWrap && ivX + ivW > textViewport.Right() - 4.0f) {
+                            ivX = keel::max(textViewport.x + 4.0f, textViewport.Right() - 4.0f - ivW);
                             clampedRight = true;
                         }
-                        const float ivH = L.lineHeight - theme.Scale(3.0f);
-                        const Rect ivRect(ivX, lineY + theme.Scale(1.5f), ivW, ivH);
+                        const float ivH = L.lineHeight - 3.0f;
+                        const Rect ivRect(ivX, lineY + 1.5f, ivW, ivH);
                         const Color accent = theme.GetTextColor(iv.variant);
                         if (clampedRight) {
-                            canvas.DrawRoundRect(ivRect, theme.Scale(3.5f), editorBgCol.WithAlphaF(0.92f), Color::Transparent(), 0.0f);
+                            canvas.DrawRoundRect(ivRect, 3.5f, editorBgCol.WithAlphaF(0.92f), Color::Transparent(), 0.0f);
                         }
-                        canvas.DrawRoundRect(ivRect, theme.Scale(3.5f), accent.WithAlphaF(0.14f), accent.WithAlphaF(0.34f), 1.0f);
-                        canvas.DrawTextStyled(iv.text, Vec2{ivX + theme.Scale(6.0f), textY + theme.Scale(0.8f)}, ivFs, accent.WithAlphaF(0.94f), FontStyle::Monospace);
+                        canvas.DrawRoundRect(ivRect, 3.5f, accent.WithAlphaF(0.14f), accent.WithAlphaF(0.34f), 1.0f);
+                        canvas.DrawTextStyled(iv.text, Vec2{ivX + 6.0f, textY + 0.8f}, ivFs, accent.WithAlphaF(0.94f), FontStyle::Monospace);
                         curX = ivRect.Right();
                     }
                 }
@@ -3987,7 +3984,7 @@ void TextArea::Render(
                 const Color sqCol = (diag.severity == DiagnosticSeverity::Error) ? Color(239, 68, 68, 235)
                                   : (diag.severity == DiagnosticSeverity::Warning) ? Color(245, 158, 11, 235)
                                   : Color(56, 189, 248, 220);
-                DrawWavyUnderline(canvas, x0, keel::max(x0 + L.metrics.spaceAdvance, x1), lineY + L.lineHeight - theme.Scale(2.0f), sqCol, effZoom);
+                DrawWavyUnderline(canvas, x0, keel::max(x0 + L.metrics.spaceAdvance, x1), lineY + L.lineHeight - 2.0f, sqCol, effZoom);
             }
         }
 
@@ -3999,10 +3996,10 @@ void TextArea::Render(
             const keel::StringRef beforeCursor = text.substr(vl.startOffset, colInSub);
             const float caretX = startX + MeasureSegmentWidth(&canvas, beforeCursor, L.fontSize, textStyle, opts.tabSize);
             if (caretX >= textViewport.x - 2.0f && caretX <= textViewport.Right() + 2.0f) {
-                const float caretH = keel::max(L.glyphBoxH, L.lineHeight - theme.Scale(2.0f));
+                const float caretH = keel::max(L.glyphBoxH, L.lineHeight - 2.0f);
                 const float caretY = lineY + (L.lineHeight - caretH) * 0.5f;
                 const float reqCaretW = extData ? extData->cursorWidth : 1.8f;
-                const float caretW = keel::max(1.0f, theme.Scale(reqCaretW));
+                const float caretW = keel::max(1.0f, reqCaretW);
                 canvas.DrawRect(
                     Rect(caretX, caretY, caretW, caretH),
                     editorCaret
@@ -4026,8 +4023,8 @@ void TextArea::Render(
             1.0f
         );
 
-        const float microStep = theme.Scale(3.0f);
-        const float microH = theme.Scale(1.6f);
+        const float microStep = 3.0f;
+        const float microH = 1.6f;
         const keel::usize maxMiniLines = static_cast<keel::usize>(keel::max(1.0f, L.minimapRect.h / microStep));
         const keel::usize startVis = (visualLines.size() > maxMiniLines && L.maxScrollY > 0.0f)
             ? static_cast<keel::usize>((clampedScrollY / L.maxScrollY) * static_cast<float>(visualLines.size() - maxMiniLines))
@@ -4040,14 +4037,14 @@ void TextArea::Render(
         const float vpH = keel::min(L.minimapRect.Bottom() - vpTopY, visCountF * microStep);
         const bool miniActive = extData && (extData->minimapHovered || extData->minimapDragging);
         canvas.DrawRect(
-            Rect(L.minimapRect.x + 1.0f, vpTopY, L.minimapRect.w - 1.0f, keel::max(theme.Scale(10.0f), vpH)),
+            Rect(L.minimapRect.x + 1.0f, vpTopY, L.minimapRect.w - 1.0f, keel::max(10.0f, vpH)),
             pal.focusRing.WithAlphaF(miniActive ? 0.22f : 0.12f)
         );
 
-        const float charScale = (L.minimapRect.w - theme.Scale(8.0f)) / 90.0f;
+        const float charScale = (L.minimapRect.w - 8.0f) / 90.0f;
         for (keel::usize mv = startVis; mv < endVis; ++mv) {
             const VisualLine& vl = visualLines[mv];
-            const float my = L.minimapRect.y + static_cast<float>(mv - startVis) * microStep + theme.Scale(2.0f);
+            const float my = L.minimapRect.y + static_cast<float>(mv - startVis) * microStep + 2.0f;
             const keel::StringRef ls = text.substr(vl.startOffset, vl.length);
 
             // Execution line marker on minimap
@@ -4056,7 +4053,7 @@ void TextArea::Render(
             }
             // Breakpoint dot on minimap
             if (ContainsSizeT(breakpoints, vl.logicalLine + 1)) {
-                canvas.DrawRect(Rect(L.minimapRect.x + 2.0f, my, theme.Scale(3.5f), microStep), Color(239, 68, 68, 230));
+                canvas.DrawRect(Rect(L.minimapRect.x + 2.0f, my, 3.5f, microStep), Color(239, 68, 68, 230));
             }
 
             // Draw micro-tokens
@@ -4079,7 +4076,7 @@ void TextArea::Render(
                         mCol = synPal.string.WithAlphaF(0.70f);
                     }
                 }
-                const float mx = L.minimapRect.x + theme.Scale(4.0f) + static_cast<float>(tokStart) * charScale;
+                const float mx = L.minimapRect.x + 4.0f + static_cast<float>(tokStart) * charScale;
                 const float mw = keel::max(1.5f, static_cast<float>(cIdx - tokStart) * charScale);
                 canvas.DrawRect(Rect(mx, my, mw, microH), mCol);
             }
@@ -4097,19 +4094,19 @@ void TextArea::Render(
         const float totalLinesF = static_cast<float>(keel::max<keel::usize>(1, logicalLines.size()));
         for (const SearchMatch& m : searchMatches) {
             const float ty = L.vTrackRect.y + (static_cast<float>(m.logicalLine) / totalLinesF) * L.vTrackRect.h;
-            canvas.DrawRect(Rect(L.vTrackRect.x, ty, L.vTrackRect.w, theme.Scale(2.0f)), Color(245, 158, 11, 210));
+            canvas.DrawRect(Rect(L.vTrackRect.x, ty, L.vTrackRect.w, 2.0f), Color(245, 158, 11, 210));
         }
         for (keel::usize bp : breakpoints) {
             if (bp >= 1 && bp <= logicalLines.size()) {
                 const float ty = L.vTrackRect.y + (static_cast<float>(bp - 1) / totalLinesF) * L.vTrackRect.h;
-                canvas.DrawRect(Rect(L.vTrackRect.x, ty, L.vTrackRect.w, theme.Scale(2.5f)), Color(239, 68, 68, 230));
+                canvas.DrawRect(Rect(L.vTrackRect.x, ty, L.vTrackRect.w, 2.5f), Color(239, 68, 68, 230));
             }
         }
         for (const CodeDiagnostic& d : opts.diagnostics) {
             if (d.line >= 1 && d.line <= logicalLines.size()) {
                 const float ty = L.vTrackRect.y + (static_cast<float>(d.line - 1) / totalLinesF) * L.vTrackRect.h;
                 const Color dc = (d.severity == DiagnosticSeverity::Error) ? Color(239, 68, 68, 230) : Color(245, 158, 11, 220);
-                canvas.DrawRect(Rect(L.vTrackRect.x, ty, L.vTrackRect.w, theme.Scale(2.5f)), dc);
+                canvas.DrawRect(Rect(L.vTrackRect.x, ty, L.vTrackRect.w, 2.5f), dc);
             }
         }
     }
@@ -4132,23 +4129,23 @@ void TextArea::Render(
                     : keel::format_buf(headerBuf, "%s : %s", dv.name, dv.type);
                 const float w1 = MeasureChunkNoTabs(&canvas, headerStr, tipFs, FontStyle::Monospace);
                 const float w2 = MeasureChunkNoTabs(&canvas, dv.value, tipFs, FontStyle::Monospace);
-                const float cardW = keel::max(w1, w2) + theme.Scale(18.0f);
-                const float cardH = theme.Scale(38.0f);
+                const float cardW = keel::max(w1, w2) + 18.0f;
+                const float cardH = 38.0f;
                 float cardX = keel::clamp(hoveredWordScreenRect.x, textViewport.x + 4.0f, keel::max(textViewport.x + 4.0f, textViewport.Right() - cardW - 4.0f));
-                float cardY = hoveredWordScreenRect.y - cardH - theme.Scale(4.0f);
+                float cardY = hoveredWordScreenRect.y - cardH - 4.0f;
                 if (cardY < innerBounds.y + 4.0f) {
-                    cardY = hoveredWordScreenRect.Bottom() + theme.Scale(4.0f);
+                    cardY = hoveredWordScreenRect.Bottom() + 4.0f;
                 }
                 const Rect cardRect(cardX, cardY, cardW, cardH);
-                canvas.DrawRoundRect(cardRect, theme.Scale(5.0f), pal.surfaceElevated, pal.focusRing, theme.Scale(1.2f));
-                canvas.DrawTextStyled(headerStr, {cardX + theme.Scale(8.0f), cardY + theme.Scale(4.0f)}, tipFs, synPal.type, FontStyle::Monospace);
-                canvas.DrawTextStyled(dv.value, {cardX + theme.Scale(8.0f), cardY + theme.Scale(20.0f)}, tipFs, pal.textPrimary, FontStyle::Monospace);
+                canvas.DrawRoundRect(cardRect, 5.0f, pal.surfaceElevated, pal.focusRing, 1.2f);
+                canvas.DrawTextStyled(headerStr, {cardX + 8.0f, cardY + 4.0f}, tipFs, synPal.type, FontStyle::Monospace);
+                canvas.DrawTextStyled(dv.value, {cardX + 8.0f, cardY + 20.0f}, tipFs, pal.textPrimary, FontStyle::Monospace);
                 break;
             }
         }
     }
 
-    // 9. Render Floating Debug Toolbar (Continue, Step Over, Step Into, Step Out, Restart, Stop) — via UiSize & Button::Render
+    // 9. Render Floating Debug Toolbar (Continue, Step Over, Step Into, Step Out, Restart, Stop) â€” via UiSize & Button::Render
     const UiSize tbSize = L.toolbarSize;
     const ComponentMetrics& tbCm = theme.GetMetrics(tbSize);
     const float badgeFs = tbCm.companionFontSize;
@@ -4158,7 +4155,7 @@ void TextArea::Render(
         const bool gripDragging = extData && extData->debugToolbarDragging;
         const bool gripHovered = extData && (extData->hoveredDebugBtn == 98 || gripDragging);
         const Color dtBorderCol = gripDragging ? pal.focusRing : (gripHovered ? pal.textSecondary : pal.borderHover);
-        canvas.DrawRoundRect(DT.panelRect, btnRad + theme.Scale(3.0f), pal.surfaceElevated.WithAlphaF(0.97f), dtBorderCol, theme.Scale(gripDragging ? 1.5f : 1.2f));
+        canvas.DrawRoundRect(DT.panelRect, btnRad + 3.0f, pal.surfaceElevated.WithAlphaF(0.97f), dtBorderCol, gripDragging ? 1.5f : 1.2f);
 
         // Draw VS Code-style 6-dot drag grip on the left side of the floating debug toolbar
         const float gripSlotW = DT.btnRects[0].x - DT.panelRect.x;
@@ -4214,10 +4211,10 @@ void TextArea::Render(
         }
     }
 
-    // 10. Render Floating Find & Replace / Go to Line Overlay — via UiSize & Button::Render
+    // 10. Render Floating Find & Replace / Go to Line Overlay â€” via UiSize & Button::Render
     if ((searchOpen || gotoOpen) && L.searchOverlay.panelRect.w > 0.0f && extData) {
         const auto& S = L.searchOverlay;
-        canvas.DrawRoundRect(S.panelRect, btnRad + theme.Scale(2.0f), pal.surfaceElevated.WithAlphaF(0.97f), pal.borderHover, 1.0f);
+        canvas.DrawRoundRect(S.panelRect, btnRad + 2.0f, pal.surfaceElevated.WithAlphaF(0.97f), pal.borderHover, 1.0f);
 
         const keel::i32 hovBtn = extData->hoveredOverlayBtn;
         auto renderSquareToolBtn = [&](Rect rBtn, IconId iconId, bool activeToggle, keel::i32 btnIdx) {
@@ -4231,7 +4228,7 @@ void TextArea::Render(
             Button::Render(canvas, rBtn, bOpts, tbSize, hovBtn == btnIdx, false, disabled, theme, false);
         };
 
-        const float inputPadX = keel::max(theme.Scale(6.0f), tbCm.paddingX * 0.55f);
+        const float inputPadX = keel::max(6.0f, tbCm.paddingX * 0.55f);
 
         if (searchOpen) {
             renderSquareToolBtn(S.toggleReplaceBtn, replaceOpen ? IconId::ChevronDown : IconId::ChevronRight, replaceOpen, 0);
@@ -4347,7 +4344,7 @@ void TextArea::Render(
         }
     }
 
-    // 11. Render top-right quick overlays: Copy button & Zoom % reset button — via UiSize & Button::Render
+    // 11. Render top-right quick overlays: Copy button & Zoom % reset button â€” via UiSize & Button::Render
     if (L.copyBtnRect.w > 0.0f) {
         const bool copyHov = extData && extData->copyHovered;
         const bool copied = extData && extData->copyFeedbackActive;
@@ -4399,40 +4396,40 @@ void TextArea::Render(
             else if (d.severity == DiagnosticSeverity::Warning) ++warnCnt;
         }
 
-        float sbX = L.statusBarRect.x + theme.Scale(8.0f);
+        float sbX = L.statusBarRect.x + 8.0f;
         const float sbCy = L.statusBarRect.y + L.statusBarRect.h * 0.5f;
-        const float sbIcoSz = theme.Scale(11.0f);
+        const float sbIcoSz = 11.0f;
 
         // Debugger status indicator icon + label
         if (opts.executionLine > 0) {
             const Color pauseCol(251, 191, 36);
             Icon::Pause().Draw(canvas, Rect(sbX, sbCy - sbIcoSz * 0.5f, sbIcoSz, sbIcoSz), pauseCol);
-            sbX += sbIcoSz + theme.Scale(4.0f);
+            sbX += sbIcoSz + 4.0f;
             char dbgBuf[48]{};
             std::snprintf(dbgBuf, sizeof(dbgBuf), "PAUSED Ln %zu  |", opts.executionLine);
             const float dw = TextUtil::MeasureWidth(dbgBuf, sbFs, &canvas);
             canvas.DrawTextBox(dbgBuf, Rect(sbX, L.statusBarRect.y, dw + 6.0f, L.statusBarRect.h), sbFs, pauseCol, 0.0f, 0.5f);
-            sbX += dw + theme.Scale(8.0f);
+            sbX += dw + 8.0f;
         }
 
         // Error & Warning icons + counts
         const Color errCol = (errCnt > 0) ? Color(239, 68, 68) : editorTextSecondary;
         Icon::Error().Draw(canvas, Rect(sbX, sbCy - sbIcoSz * 0.5f, sbIcoSz, sbIcoSz), errCol);
-        sbX += sbIcoSz + theme.Scale(3.0f);
+        sbX += sbIcoSz + 3.0f;
         char errBuf[16]{};
         std::snprintf(errBuf, sizeof(errBuf), "%zu", errCnt);
         const float ew = TextUtil::MeasureWidth(errBuf, sbFs, &canvas);
         canvas.DrawTextBox(errBuf, Rect(sbX, L.statusBarRect.y, ew + 4.0f, L.statusBarRect.h), sbFs, errCol, 0.0f, 0.5f);
-        sbX += ew + theme.Scale(8.0f);
+        sbX += ew + 8.0f;
 
         const Color warnCol = (warnCnt > 0) ? Color(245, 158, 11) : editorTextSecondary;
         Icon::Warning().Draw(canvas, Rect(sbX, sbCy - sbIcoSz * 0.5f, sbIcoSz, sbIcoSz), warnCol);
-        sbX += sbIcoSz + theme.Scale(3.0f);
+        sbX += sbIcoSz + 3.0f;
         char warnBuf[16]{};
         std::snprintf(warnBuf, sizeof(warnBuf), "%zu", warnCnt);
         const float ww = TextUtil::MeasureWidth(warnBuf, sbFs, &canvas);
         canvas.DrawTextBox(warnBuf, Rect(sbX, L.statusBarRect.y, ww + 4.0f, L.statusBarRect.h), sbFs, warnCol, 0.0f, 0.5f);
-        sbX += ww + theme.Scale(10.0f);
+        sbX += ww + 10.0f;
 
         char leftStatus[128]{};
         if (hasSelection) {
@@ -4460,7 +4457,7 @@ void TextArea::Render(
                       static_cast<keel::i32>(langName.size()), langName.data());
         canvas.DrawTextBox(
             rightStatus,
-            Rect(L.statusBarRect.x + L.statusBarRect.w * 0.45f, L.statusBarRect.y, L.statusBarRect.w * 0.55f - theme.Scale(10.0f), L.statusBarRect.h),
+            Rect(L.statusBarRect.x + L.statusBarRect.w * 0.45f, L.statusBarRect.y, L.statusBarRect.w * 0.55f - 10.0f, L.statusBarRect.h),
             sbFs,
             editorTextSecondary,
             1.0f,

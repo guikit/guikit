@@ -70,6 +70,10 @@ ElementSpec MakeSpecFromPayload(
         if (!s.width.IsFixed()) {
             s.width = n->widthMode;
         }
+        const float d = n->GetDensity();
+        s.labelGap *= d;
+        s.descGap *= d;
+        s.inlineGap *= d;
         return s;
     }
 
@@ -85,23 +89,23 @@ ElementSpec MakeSpecFromPayload(
     const bool slotStretchW = slotChild->isSpacer || slotChild->widthMode == SizeMode::Stretch;
     const bool slotStretchH = (!slotChild->isSpacer && slotChild->heightMode == SizeMode::Stretch) ||
                               (n->heightMode == SizeMode::Stretch);
-    const float invScale = (theme.scale > 0.0f) ? (1.0f / theme.scale) : 1.0f;
     if (slotChild->widthMode == SizeMode::Fixed && slotChild->fixedWidth > 0.0f) {
-        ctrl.width = AxisSize::Fixed(slotChild->fixedWidth * invScale);
+        ctrl.width = AxisSize::Fixed(slotChild->fixedWidth);
     } else {
         ctrl.width = slotStretchW ? AxisSize::Stretch() : AxisSize::Fit();
     }
     if (slotChild->heightMode == SizeMode::Fixed && slotChild->fixedHeight > 0.0f) {
-        ctrl.height = AxisSize::Fixed(slotChild->fixedHeight * invScale);
+        ctrl.height = AxisSize::Fixed(slotChild->fixedHeight);
     } else {
         ctrl.height = slotStretchH ? AxisSize::Stretch() : AxisSize::Fit();
     }
     ctrl.minWidth = keel::kNullOpt;
     ctrl.minHeight = keel::kNullOpt;
 
-    const float baseLabelGap = (ctrl.labelGap > 0.0f) ? ctrl.labelGap : im.labelGap;
-    const float baseDescGap = (ctrl.descGap > 0.0f) ? ctrl.descGap : im.descGap;
-    const float baseInlineGap = (ctrl.inlineGap > 0.0f) ? ctrl.inlineGap : cm.paddingX;
+    const float d = n->GetDensity();
+    const float baseLabelGap = ((ctrl.labelGap > 0.0f) ? ctrl.labelGap : im.labelGap) * d;
+    const float baseDescGap = ((ctrl.descGap > 0.0f) ? ctrl.descGap : im.descGap) * d;
+    const float baseInlineGap = ((ctrl.inlineGap > 0.0f) ? ctrl.inlineGap : cm.paddingX) * d;
 
     return ElementSpec{
         .label = ep.opts.label,
@@ -132,7 +136,7 @@ float ResolveSlotAvailableWidth(
     Vec2 measuredLabelBar
 ) noexcept {
     if (spec.width.IsFixed()) {
-        const float fixedOuterW = theme.Scale(spec.width.Dp());
+        const float fixedOuterW = spec.width.Dp();
         availableWidth = (availableWidth > 0.0f) ? keel::min(availableWidth, fixedOuterW) : fixedOuterW;
     }
     if (availableWidth <= 0.0f) {
@@ -147,7 +151,7 @@ float ResolveSlotAvailableWidth(
         return availableWidth;
     }
     if (spec.control.width.IsFixed()) {
-        return keel::min(availableWidth, theme.Scale(spec.control.width.Dp()));
+        return keel::min(availableWidth, spec.control.width.Dp());
     }
     if (spec.control.width.ResolveMode(spec.control.defaultWidthMode) == SizeMode::Stretch) {
         const float descW = hasDesc ? TextUtil::MeasureUiTextWidth(spec.description, descFontSize, canvas) : 0.0f;
@@ -163,7 +167,7 @@ Vec2 MeasureSingleChildNode(
     ICanvas* canvas,
     const UiTheme& parentTheme
 ) noexcept {
-    const UiTheme& childTheme = (child->theme != nullptr) ? *child->theme : parentTheme;
+    const UiTheme& childTheme = child->GetTheme(parentTheme);
     const float childQueryW = (child->widthMode == SizeMode::Fixed && child->fixedWidth > 0.0f)
         ? ((availW > 0.0f) ? keel::min(availW, child->fixedWidth) : child->fixedWidth)
         : availW;
@@ -206,7 +210,7 @@ Vec2 MeasureControlSlot(
 }
 
 void PlaceControlChild(Node* child, const Rect& rect, ICanvas* canvas, const UiTheme& parentTheme) noexcept {
-    const UiTheme& childTheme = (child->theme != nullptr) ? *child->theme : parentTheme;
+    const UiTheme& childTheme = child->GetTheme(parentTheme);
     if (child->childCount > 0 || child->arrangeFn != nullptr) {
         Solver::Arrange(child, rect, childTheme, canvas);
     } else {
@@ -320,7 +324,6 @@ void Element::SyncWithChildren(Context& ctx, Node* elNode) noexcept {
     auto* ep = elNode->As<ElementPayload>();
     if (!ep) return;
 
-    const UiTheme& elTheme = (elNode->theme != nullptr) ? *elNode->theme : ctx.GetTheme();
     const Node* outerParent = elNode->parent;
     const bool inToolbarRow = (outerParent != nullptr) &&
         (outerParent->type == NodeType::Toolbar && outerParent->direction == FlexDirection::Row);
@@ -365,7 +368,7 @@ void Element::SyncWithChildren(Context& ctx, Node* elNode) noexcept {
 
     if (ep->opts.width.IsFixed()) {
         elNode->widthMode = SizeMode::Fixed;
-        elNode->fixedWidth = elTheme.Scale(ep->opts.width.Dp());
+        elNode->fixedWidth = ep->opts.width.Dp();
     } else if (!ep->opts.width.IsAuto()) {
         elNode->widthMode = ep->opts.width.ResolveMode(SizeMode::Stretch);
         elNode->fixedWidth = 0.0f;
@@ -418,8 +421,8 @@ ElementScope Element::Open(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = ctx.GetCurrentSize();
-    const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
+    Node* node = ctx.CreateNode(NodeType::Element, id, opts.zone, opts.disabled);
+    const bool effectiveDisabled = node->disabled;
 
     Response res = ctx.Interact(id);
     if (effectiveDisabled) {
@@ -434,9 +437,6 @@ ElementScope Element::Open(
         ctx.SetTooltip(opts.tooltip, res.rect);
     }
 
-    ZoneScope zone = ctx.Zone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
-    Node* node = ctx.CreateNode(NodeType::Element, id);
-
     auto* payload = ctx.AllocPayload<ElementPayload>();
     payload->opts = opts;
     payload->opts.label = ctx.AllocText(opts.label);
@@ -450,10 +450,7 @@ ElementScope Element::Open(
 
     node->text = payload->opts.label.text;
     node->SetPayload(payload);
-    node->debugBoundsOverride = opts.debugBounds;
-    node->inspectModeOverride = opts.inspectMode;
-    node->uiSize = activeSize;
-    node->disabled = effectiveDisabled;
+    node->uiSize = opts.size;
     node->hovered = res.hovered;
     node->pressed = res.pressed;
 
@@ -494,7 +491,7 @@ ElementScope Element::Open(
         Element::RenderText(canvas, geom, spec, theme);
     };
 
-    ctx.PushContainer(node, keel::move(zone));
+    ctx.FinishContainer(node);
     return ElementScope(&ctx, node, res);
 }
 
@@ -565,16 +562,16 @@ Vec2 Element::Measure(
 
     if (hasOuterDpW) {
         const float targetW = spec.hasControl
-            ? theme.Scale(spec.width.Dp())
-            : keel::max(minNoCtrlW, theme.Scale(spec.width.Dp()));
+            ? spec.width.Dp()
+            : keel::max(minNoCtrlW, spec.width.Dp());
         availableWidth = (availableWidth > 0.0f) ? keel::min(availableWidth, targetW) : targetW;
     }
 
     const auto applyOuterFixedWidth = [&](Vec2 measured) noexcept -> Vec2 {
         if (hasOuterDpW) {
             measured.x = spec.hasControl
-                ? theme.Scale(spec.width.Dp())
-                : keel::max(measured.x, theme.Scale(spec.width.Dp()));
+                ? spec.width.Dp()
+                : keel::max(measured.x, spec.width.Dp());
         }
         return measured;
     };
@@ -596,7 +593,7 @@ Vec2 Element::Measure(
             effDescW = keel::min(effDescW, baseW);
         }
     } else if (!spec.hasControl && hasOuterDpW && spec.description.wrap.IsWordWrap()) {
-        const float targetW = keel::max(minNoCtrlW, theme.Scale(spec.width.Dp()));
+        const float targetW = keel::max(minNoCtrlW, spec.width.Dp());
         const float maxDescW = IsInlineElementLayout(spec.layout)
             ? keel::max(0.0f, targetW - intrinsicControlSize.x - spec.inlineGap)
             : targetW;
@@ -605,7 +602,7 @@ Vec2 Element::Measure(
 
     float textWrapW = availableWidth;
     if (spec.hasControl && spec.control.width.IsFixed() && outerIsFit) {
-        const float fixedCtrlW = theme.Scale(spec.control.width.Dp());
+        const float fixedCtrlW = spec.control.width.Dp();
         textWrapW = (availableWidth > 0.0f) ? keel::min(availableWidth, fixedCtrlW) : fixedCtrlW;
     }
     if (IsInlineElementLayout(spec.layout)) {
@@ -718,12 +715,12 @@ ElementGeometry Element::Resolve(
         const float minW = (geom.hasDesc && !spec.description.wrap.IsWordWrap()) ? natW : intrinsicControlSize.x;
 
         if (hasOuterDpW) {
-            geom.bounds.w = keel::min(geom.bounds.w, keel::max(minW, theme.Scale(spec.width.Dp())));
+            geom.bounds.w = keel::min(geom.bounds.w, keel::max(minW, spec.width.Dp()));
         } else if (outerIsFit) {
             geom.bounds.w = keel::min(geom.bounds.w, natW);
         }
     } else if (hasOuterDpW) {
-        geom.bounds.w = keel::min(geom.bounds.w, theme.Scale(spec.width.Dp()));
+        geom.bounds.w = keel::min(geom.bounds.w, spec.width.Dp());
     }
 
     bounds = geom.bounds;

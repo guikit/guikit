@@ -33,11 +33,10 @@ struct SegmentedOptions {
     keel::Optional<float> minWidth{keel::kNullOpt};   ///< Minimum control width constraint in points
     StateColor background{StateColor::Surface()};  ///< Outer capsule/track surface fill color
     Border border{};                               ///< Outer capsule/track border stroke & corner radius
+    UiSize size{UiSize::Md};                       ///< Component size scale
     bool equalWidth{true};                         ///< Give all segments equal width (true) or size each segment to its content (false)
     bool showDividers{true};                       ///< Render subtle vertical hairlines between unselected adjacent segments
     bool disabled{false};                          ///< Interaction suppression
-    const UiTheme* theme{nullptr};                 ///< Optional scoped theme override
-    keel::Optional<float> scale{keel::kNullOpt};      ///< Optional scoped scale factor override
 };
 
 /// Internal runtime state allocated in frame arena for Segmented nodes.

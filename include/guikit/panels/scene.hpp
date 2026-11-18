@@ -6,6 +6,7 @@
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
+#include "guikit/core/zone.hpp"
 #include "keel/arena.h"
 #include "keel/array.h"
 #include "keel/core.h"
@@ -153,11 +154,9 @@ struct SceneOptions {
     StateColor background{};
     Border border{.width = 1.0f, .radius = 6.0f};
     UiText tooltip{};                                   ///< Floating tooltip while the scene is hovered and no item with its own tooltip is under the pointer
+    UiSize size{UiSize::Md};                            ///< Scrollbar and HUD size
     bool disabled{false};
-    const UiTheme* theme{nullptr};
-    keel::Optional<float> scale{keel::kNullOpt};
-    keel::Optional<bool> debugBounds{keel::kNullOpt};
-    keel::Optional<bool> inspectMode{keel::kNullOpt};
+    ZoneOptions zone{};                                 ///< Subtree environment (theme, scale, density, disabled, debug/inspect)
 };
 
 /// Recorded world-space drawing command executed during Scene rendering.

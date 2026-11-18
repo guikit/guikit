@@ -57,35 +57,44 @@ struct TableState {
 };
 
 float ResolveDefaultRowHeight(UiSize size, const UiTheme& theme) noexcept {
-    switch (size) {
-        case UiSize::Xs: return theme.Scale(24.0f);
-        case UiSize::Sm: return theme.Scale(28.0f);
-        case UiSize::Md: return theme.Scale(32.0f);
-        case UiSize::Lg: return theme.Scale(38.0f);
-        case UiSize::Xl: return theme.Scale(44.0f);
-        default:         return theme.Scale(32.0f);
+    switch (size.GetPreset()) {
+        case UiSize::Preset::Xs: return 24.0f;
+        case UiSize::Preset::Sm: return 28.0f;
+        case UiSize::Preset::Lg: return 38.0f;
+        case UiSize::Preset::Xl: return 44.0f;
+        case UiSize::Preset::Md:
+        case UiSize::Preset::None:
+            return 32.0f;
+        default:
+            return 32.0f * theme.SizeFactor(size);
     }
 }
 
 float ResolveDefaultHeaderHeight(UiSize size, const UiTheme& theme) noexcept {
-    switch (size) {
-        case UiSize::Xs: return theme.Scale(26.0f);
-        case UiSize::Sm: return theme.Scale(30.0f);
-        case UiSize::Md: return theme.Scale(34.0f);
-        case UiSize::Lg: return theme.Scale(40.0f);
-        case UiSize::Xl: return theme.Scale(46.0f);
-        default:         return theme.Scale(34.0f);
+    switch (size.GetPreset()) {
+        case UiSize::Preset::Xs: return 26.0f;
+        case UiSize::Preset::Sm: return 30.0f;
+        case UiSize::Preset::Lg: return 40.0f;
+        case UiSize::Preset::Xl: return 46.0f;
+        case UiSize::Preset::Md:
+        case UiSize::Preset::None:
+            return 34.0f;
+        default:
+            return 34.0f * theme.SizeFactor(size);
     }
 }
 
 float ResolveDefaultFooterHeight(UiSize size, const UiTheme& theme) noexcept {
-    switch (size) {
-        case UiSize::Xs: return theme.Scale(22.0f);
-        case UiSize::Sm: return theme.Scale(24.0f);
-        case UiSize::Md: return theme.Scale(26.0f);
-        case UiSize::Lg: return theme.Scale(30.0f);
-        case UiSize::Xl: return theme.Scale(34.0f);
-        default:         return theme.Scale(26.0f);
+    switch (size.GetPreset()) {
+        case UiSize::Preset::Xs: return 22.0f;
+        case UiSize::Preset::Sm: return 24.0f;
+        case UiSize::Preset::Lg: return 30.0f;
+        case UiSize::Preset::Xl: return 34.0f;
+        case UiSize::Preset::Md:
+        case UiSize::Preset::None:
+            return 26.0f;
+        default:
+            return 26.0f * theme.SizeFactor(size);
     }
 }
 
@@ -147,8 +156,8 @@ struct TableData {
 
 namespace {
 
-void ResolveColumnWidths(TableData& data, float viewportW, const UiTheme& theme) noexcept {
-    const float scale = (theme.scale > 0.0f) ? theme.scale : 1.0f;
+void ResolveColumnWidths(TableData& data, float viewportW, const UiTheme& /*theme*/) noexcept {
+    const float scale = 1.0f;
     data.rowNumberColW = data.opts.showRowNumbers ? std::round(44.0f * scale) : 0.0f;
     const float availForCols = keel::max(0.0f, viewportW - data.rowNumberColW);
 
@@ -211,11 +220,11 @@ void ComputeTableRegions(
     data.frameRect = outerBounds;
     data.headerHeight = data.opts.stickyHeader
         ? (data.opts.headerHeight.has_value()
-            ? theme.Scale(*data.opts.headerHeight)
+            ? *data.opts.headerHeight
             : ResolveDefaultHeaderHeight(node->uiSize, theme))
         : 0.0f;
     data.rowHeight = data.opts.rowHeight.has_value()
-        ? keel::max(18.0f, theme.Scale(*data.opts.rowHeight))
+        ? keel::max(18.0f, *data.opts.rowHeight)
         : ResolveDefaultRowHeight(node->uiSize, theme);
     data.footerHeight = (data.opts.showFooter || !data.opts.footerText.empty())
         ? ResolveDefaultFooterHeight(node->uiSize, theme)
@@ -258,6 +267,9 @@ void UpdateVisibleRowRange(TableData& data) noexcept {
 TableRowScope::~TableRowScope() noexcept {
     if (m_table && m_visible) {
         m_table->EndActiveRow();
+    }
+    if (m_ctx && m_visible) {
+        m_ctx->PopRowDisabled(m_prevDisabled);
     }
 }
 
@@ -432,7 +444,8 @@ TableRowScope TableScope::Row(keel::usize rowIndex, const TableRowOptions& opts)
     const bool clicked = (m_data->clickedRow == iRow) && !opts.disabled;
     const bool dblClicked = (m_data->doubleClickedRow == iRow) && !opts.disabled;
 
-    return TableRowScope(this, rowIndex, true, selected, hovered, clicked, dblClicked, m_ctx->Zone({.disabled = opts.disabled}));
+    const bool prevDisabled = m_ctx->PushRowDisabled(opts.disabled);
+    return TableRowScope(this, m_ctx, rowIndex, true, selected, hovered, clicked, dblClicked, prevDisabled);
 }
 
 void TableScope::EndActiveRow() noexcept {
@@ -472,8 +485,9 @@ ContainerScope TableScope::Cell(const TableCellOptions& opts) {
     cellNode->justify = (effectiveAlign == Align::Center)
         ? Justify::Center
         : ((effectiveAlign == Align::End) ? Justify::End : Justify::Start);
-    cellNode->padding = Padding::Symmetric(m_ctx->GetTheme().Scale(6.0f), m_ctx->GetTheme().Scale(2.0f));
-    cellNode->gap = m_ctx->GetTheme().Scale(4.0f);
+    const float cellDensity = m_ctx->GetDensity();
+    cellNode->padding = Padding::Symmetric(6.0f * cellDensity, 2.0f * cellDensity);
+    cellNode->gap = 4.0f * cellDensity;
     cellNode->clipChildren = true;
     cellNode->colSpan = static_cast<keel::u8>(colIdx);
     cellNode->childIndex = static_cast<keel::u32>(m_data->activeRowIndex);
@@ -524,32 +538,27 @@ TableScope Table::Open(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = ctx.GetCurrentSize();
-    const bool activeDisabled = opts.disabled || ctx.IsDisabled();
+    const UiSize activeSize = opts.size;
     const TableOptions& optsCopy = opts;
 
-    ZoneScope zone = ctx.Zone({.theme = optsCopy.theme, .scale = optsCopy.scale, .disabled = optsCopy.disabled});
-    const UiTheme& theme = ctx.GetTheme();
-
-    Node* node = ctx.CreateNode(NodeType::Table, id);
-    node->debugBoundsOverride = optsCopy.debugBounds;
-    node->inspectModeOverride = optsCopy.inspectMode;
+    Node* node = ctx.CreateNode(NodeType::Table, id, optsCopy.zone, optsCopy.disabled);
+    const UiTheme& theme = node->GetTheme(ctx.GetTheme());
+    const bool activeDisabled = node->disabled;
     node->direction = FlexDirection::Column;
     node->clipChildren = true;
     node->scrollOrientation = Orientation::Both;
     node->scrollbarPolicy = optsCopy.scrollbar;
     node->uiSize = activeSize;
-    node->disabled = activeDisabled;
 
     node->widthMode = Control::ResolveWidthMode(ctx, optsCopy.width, SizeMode::Stretch);
     if (optsCopy.width.IsFixed()) {
         node->widthMode = SizeMode::Fixed;
-        node->fixedWidth = theme.Scale(optsCopy.width.Dp());
+        node->fixedWidth = optsCopy.width.Dp();
     }
 
     node->heightMode = Control::ResolveHeightMode(optsCopy.height, SizeMode::Stretch);
     if (optsCopy.height.IsFixed()) {
-        node->fixedHeight = theme.Scale(optsCopy.height.Dp());
+        node->fixedHeight = optsCopy.height.Dp();
     } else if (node->heightMode == SizeMode::Stretch) {
         node->flexGrow = 1.0f;
     }
@@ -602,8 +611,8 @@ TableScope Table::Open(
         : Rect(
               0.0f,
               0.0f,
-              optsCopy.width.IsFixed() ? theme.Scale(optsCopy.width.Dp()) : 640.0f,
-              optsCopy.height.IsFixed() ? theme.Scale(optsCopy.height.Dp()) : 320.0f
+              optsCopy.width.IsFixed() ? optsCopy.width.Dp() : 640.0f,
+              optsCopy.height.IsFixed() ? optsCopy.height.Dp() : 320.0f
           );
 
     ComputeTableRegions(node, *data, estBounds, theme);
@@ -705,7 +714,7 @@ TableScope Table::Open(
         state.scrollOffset.x = keel::clamp(state.scrollOffset.x, 0.0f, maxScrollX);
 
         // 2. Column resize drag or header sort click
-        const float scale = (theme.scale > 0.0f) ? theme.scale : 1.0f;
+        const float scale = 1.0f;
         const float gripHalfW = 6.0f * scale;
         const Rect headerHitRect(
             data->headerRect.x - gripHalfW,
@@ -953,7 +962,7 @@ TableScope Table::Open(
         }
     }
 
-    ctx.PushContainer(node, keel::move(zone));
+    ctx.FinishContainer(node);
 
     return TableScope(&ctx, node, data);
 }
@@ -974,11 +983,11 @@ Vec2 Table::Measure(
 
     const float headerH = data->opts.stickyHeader
         ? (data->opts.headerHeight.has_value()
-            ? theme.Scale(*data->opts.headerHeight)
+            ? *data->opts.headerHeight
             : ResolveDefaultHeaderHeight(node->uiSize, theme))
         : 0.0f;
     const float rowH = data->opts.rowHeight.has_value()
-        ? keel::max(18.0f, theme.Scale(*data->opts.rowHeight))
+        ? keel::max(18.0f, *data->opts.rowHeight)
         : ResolveDefaultRowHeight(node->uiSize, theme);
     const float footerH = (data->opts.showFooter || !data->opts.footerText.empty())
         ? ResolveDefaultFooterHeight(node->uiSize, theme)
@@ -988,22 +997,22 @@ Vec2 Table::Measure(
         ? data->opts.totalRows
         : data->emittedRowCount;
 
-    float naturalW = data->opts.showRowNumbers ? theme.Scale(44.0f) : 0.0f;
+    float naturalW = data->opts.showRowNumbers ? 44.0f : 0.0f;
     for (keel::u16 i = 0; i < data->columnCount; ++i) {
         const float colW = (data->columns[i].width > 0.0f)
-            ? theme.Scale(data->columns[i].width)
-            : theme.Scale(keel::max(80.0f, data->columns[i].minWidth));
+            ? data->columns[i].width
+            : keel::max(80.0f, data->columns[i].minWidth);
         naturalW += colW;
     }
     if (data->opts.width.IsFixed()) {
-        naturalW = theme.Scale(data->opts.width.Dp());
+        naturalW = data->opts.width.Dp();
     } else if (availableWidth > 0.0f && data->opts.width.ResolveMode(SizeMode::Stretch) == SizeMode::Stretch) {
         naturalW = keel::max(naturalW, availableWidth);
     }
 
     const keel::usize fitRows = keel::clamp<keel::usize>(totalRows, 3, 12);
     const float naturalTableH = data->opts.height.IsFixed()
-        ? theme.Scale(data->opts.height.Dp())
+        ? data->opts.height.Dp()
         : (headerH + static_cast<float>(fitRows) * rowH + footerH);
 
     return {naturalW, naturalTableH};
@@ -1059,7 +1068,7 @@ void Table::Arrange(
             float totalChildrenW = 0.0f;
             keel::u32 numGrandChildren = 0;
             for (Node* gc = child->firstChild; gc != nullptr; gc = gc->nextSibling) {
-                const UiTheme& gcTheme = gc->theme ? *gc->theme : theme;
+                const UiTheme& gcTheme = gc->GetTheme(theme);
                 const Vec2 m = gc->measureFn
                     ? gc->measureFn(gc, inner.w, data->lastCanvas, gcTheme)
                     : Vec2(gc->fixedWidth, gc->fixedHeight);
@@ -1082,7 +1091,7 @@ void Table::Arrange(
             }
 
             for (Node* gc = child->firstChild; gc != nullptr; gc = gc->nextSibling) {
-                const UiTheme& gcTheme = gc->theme ? *gc->theme : theme;
+                const UiTheme& gcTheme = gc->GetTheme(theme);
                 const float gcTargetW = (gc->widthMode == SizeMode::Fixed && gc->fixedWidth > 0.0f)
                     ? gc->fixedWidth
                     : gc->intrinsicSize.x;
@@ -1104,11 +1113,11 @@ void Table::Arrange(
             }
         } else {
             // Direct widget cell (Text, Element, Checkbox, ProgressBar, Button, InputField, Select, etc.)
-            const UiTheme& childTheme = child->theme ? *child->theme : theme;
+            const UiTheme& childTheme = child->GetTheme(theme);
             const bool isPlainOrBadgeElement = (child->type == NodeType::Element && child->firstChild == nullptr);
             const bool isTextOrBadge = (child->type == NodeType::Text) || isPlainOrBadgeElement;
-            const float padX = theme.Scale(isTextOrBadge ? 8.0f : 6.0f);
-            const float padY = theme.Scale(isTextOrBadge ? 0.0f : 2.0f);
+            const float padX = isTextOrBadge ? 8.0f : 6.0f;
+            const float padY = isTextOrBadge ? 0.0f : 2.0f;
             const Rect inner(
                 cellX + padX,
                 cellY + padY,
@@ -1180,7 +1189,7 @@ void Table::Update(
     auto* data = node->As<TableData>();
     if (!data || !data->state) return;
 
-    const UiTheme& theme = node->theme ? *node->theme : ctx.GetTheme();
+    const UiTheme& theme = node->GetTheme(ctx.GetTheme());
     ComputeTableRegions(node, *data, node->computedRect, theme);
     ResolveColumnWidths(*data, data->frameRect.w, theme);
 
@@ -1212,9 +1221,9 @@ void Table::RenderBody(
     if (!data || !data->state) return;
 
     const auto& pal = theme.palette;
-    const float scale = theme.scale;
+    const float scale = 1.0f;
     const float radius = data->opts.border.radius.has_value()
-        ? theme.Scale(*data->opts.border.radius)
+        ? *data->opts.border.radius
         : theme.GetRadius(node->uiSize);
 
     // 1. Draw outer table surface background
@@ -1352,9 +1361,9 @@ void Table::RenderChromeAndScrollbars(
     if (!data || !data->state) return;
 
     const auto& pal = theme.palette;
-    const float scale = theme.scale;
+    const float scale = 1.0f;
     const float radius = data->opts.border.radius.has_value()
-        ? theme.Scale(*data->opts.border.radius)
+        ? *data->opts.border.radius
         : theme.GetRadius(node->uiSize);
     const float cellPadX = 8.0f * scale;
 
@@ -1585,7 +1594,7 @@ void Table::RenderChromeAndScrollbars(
     }
 
     // 4. Outer rounded frame border
-    const float bw = (data->opts.border.width > 0.0f) ? theme.Scale(data->opts.border.width) : 0.0f;
+    const float bw = (data->opts.border.width > 0.0f) ? data->opts.border.width : 0.0f;
     if (bw > 0.0f) {
         const Color borderCol = (data->state->resizingCol >= 0)
             ? pal.accent

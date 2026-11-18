@@ -36,8 +36,7 @@ struct CommandPaletteOptions {
     bool confineToParent{false};
     StateColor background{};
     Border border{.width = 1.0f, .radius = 10.0f};
-    const UiTheme* theme{nullptr};
-    keel::Optional<float> scale{keel::kNullOpt};
+    UiSize size{UiSize::Md};
 };
 
 struct CommandPaletteResponse : public Response {

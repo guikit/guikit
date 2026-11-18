@@ -25,8 +25,10 @@ public:
     [[nodiscard]] bool UsesCpuFramebuffer() const noexcept override { return false; }
     void Begin(keel::u32 width, keel::u32 height, float scale = 1.0f) override;
     void End() override;
-    [[nodiscard]] float GetScale() const noexcept override { return m_scale; }
+    [[nodiscard]] float GetScale() const noexcept override { return m_scale * m_xfScale; }
     void SetScale(float scale) override;
+    void PushTransform(const Transform2D& transform) override;
+    void PopTransform() override;
     [[nodiscard]] keel::StringRef GetBackendName() const noexcept override { return "SDL3 (Direct GPU)"; }
 
     void Clear(Color color, keel::Optional<Rect> rect = keel::kNullOpt) override;
@@ -65,11 +67,25 @@ public:
 
 private:
     void ApplyActiveClip();
+    void FillRectBase(Rect rect, Color fill);
+
+    // Local -> base logical units (SDL applies the base scale itself): p * m_xfScale + m_xfOffset
+    [[nodiscard]] Vec2 Map(Vec2 p) const noexcept { return {p.x * m_xfScale + m_xfOffset.x, p.y * m_xfScale + m_xfOffset.y}; }
+    [[nodiscard]] Rect Map(Rect r) const noexcept {
+        return Rect(r.x * m_xfScale + m_xfOffset.x, r.y * m_xfScale + m_xfOffset.y, r.w * m_xfScale, r.h * m_xfScale);
+    }
 
     SDL_Renderer* m_renderer{nullptr};
     keel::u32 m_width{0};
     keel::u32 m_height{0};
     float m_scale{1.0f};
+    float m_xfScale{1.0f};
+    Vec2 m_xfOffset{0.0f, 0.0f};
+    struct TransformState {
+        float scale;
+        Vec2 offset;
+    };
+    keel::Array<TransformState> m_transformStack;
     keel::Array<Rect> m_clipStack;
 };
 

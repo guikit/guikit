@@ -2465,7 +2465,7 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
     const BpmnEditorOptions& opts = payload->opts;
     const BpmnDiagram& diagram = *payload->diagramSnapshot;
     const BpmnEditorState& state = *payload->stateSnapshot;
-    const float s = theme.Scale(1.0f);
+    constexpr float s = 1.0f;
 
     const Rect viewRect = node->computedRect;
     if (viewRect.w <= 2.0f || viewRect.h <= 2.0f) return;
@@ -3093,18 +3093,18 @@ Vec2 BpmnEditor::Measure(
     const BpmnEditorOptions& opts,
     UiSize /*size*/,
     ICanvas* /*canvas*/,
-    const UiTheme& theme,
+    const UiTheme& /*theme*/,
     float availableWidth
 ) {
-    float defaultW = theme.Scale(880.0f);
+    float defaultW = 880.0f;
     if (opts.width.IsFixed()) {
-        defaultW = theme.Scale(opts.width.Dp());
+        defaultW = opts.width.Dp();
     } else if (opts.width.ResolveMode(SizeMode::Stretch) == SizeMode::Stretch && availableWidth > 0.0f) {
         defaultW = availableWidth;
     }
     const float defaultH = opts.height.IsFixed()
-        ? theme.Scale(opts.height.Dp())
-        : theme.Scale(520.0f);
+        ? opts.height.Dp()
+        : 520.0f;
     return {defaultW, defaultH};
 }
 
@@ -3114,13 +3114,12 @@ BpmnEditorResponse BpmnEditor::Run(
     const BpmnEditorOptions& opts,
     keel::SourceLocation loc
 ) {
-    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const Id id = ctx.MakeChildId(loc);
     const bool isDisabled = opts.disabled || ctx.IsDisabled();
-    const UiSize effectiveSize = ctx.GetCurrentSize();
+    const UiSize effectiveSize = opts.size;
     const UiTheme& theme = ctx.GetTheme();
-    const float s = theme.Scale(1.0f);
+    constexpr float s = 1.0f;
     ICanvas* canvas = ctx.GetCanvas();
 
     diagram.SyncBoundaryEvents();
@@ -4667,8 +4666,6 @@ BpmnEditorResponse BpmnEditor::Run(
     state.renderSnapshot = diagram.clone();
 
     Node* node = ctx.CreateNode(NodeType::BpmnEditor, id);
-    node->debugBoundsOverride = opts.debugBounds;
-    node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<BpmnEditorPayload>();
     payload->opts = effOpts;
     payload->opts.tooltip = ctx.AllocText(opts.tooltip);

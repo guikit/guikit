@@ -242,115 +242,17 @@ void PopulateComponentMetrics(UiTheme& theme) {
     }};
 }
 
-void ApplyDensity(UiTheme& theme, Density d) {
-    theme.density = d;
-    if (d == Density::Compact) {
-        theme.spacing = {0.0f, 1.5f, 3.0f, 6.0f, 9.0f, 12.0f};
-        theme.radius  = {0.0f, 1.5f, 2.25f, 3.0f, 4.5f, 6.0f};
-        theme.metrics = {{
-            ComponentMetrics{  0.0f, 13.0f, 11.0f, 10.0f,  0.0f,  0.0f, 0.0f,  0.0f, 48.0f, 60.0f, 10.0f, 3.75f, 4.5f, 2.0f }, // None
-            ComponentMetrics{ 15.0f, 10.0f,  9.0f,  8.0f,  4.5f,  1.5f, 1.5f, 7.5f, 48.0f, 60.0f,  8.5f, 2.75f, 3.75f, 1.25f }, // Xs
-            ComponentMetrics{ 19.5f, 12.0f, 10.0f,  9.0f, 7.5f,  3.0f, 2.25f, 9.75f, 48.0f, 60.0f,  9.0f, 3.0f, 3.75f, 1.5f }, // Sm
-            ComponentMetrics{ 24.0f, 13.0f, 11.0f, 10.0f, 9.0f,  3.75f, 3.0f, 11.25f, 48.0f, 60.0f, 10.0f, 3.75f, 4.5f, 2.0f }, // Md
-            ComponentMetrics{ 30.0f, 15.0f, 13.0f, 11.0f, 12.0f,  6.0f, 4.5f, 13.5f, 48.0f, 60.0f, 11.0f, 4.5f, 5.25f, 2.25f }, // Lg
-            ComponentMetrics{ 36.0f, 18.0f, 15.0f, 13.0f, 15.0f, 7.5f, 6.0f, 16.5f, 48.0f, 60.0f, 12.0f, 5.25f, 6.0f, 2.75f }  // Xl
-        }};
-        theme.carousels = {{
-            CarouselMetrics{ 18.0f, 9.75f, 3.0f, 2.25f, 3.75f, 24.0f,  71.25f }, // None
-            CarouselMetrics{ 12.0f,  6.75f, 1.5f, 1.5f, 2.25f, 15.75f,  37.5f }, // Xs
-            CarouselMetrics{ 15.0f, 8.25f, 2.25f, 1.5f, 3.0f, 19.5f,  52.5f }, // Sm
-            CarouselMetrics{ 18.0f, 9.75f, 3.0f, 2.25f, 3.75f, 24.0f,  71.25f }, // Md
-            CarouselMetrics{ 22.5f, 11.25f, 4.5f, 3.0f, 4.5f, 30.0f, 90.0f }, // Lg
-            CarouselMetrics{ 27.0f, 13.5f, 6.0f, 3.75f, 6.0f, 36.75f, 112.5f }  // Xl
-        }};
-        theme.sliders = {{
-            SliderMetrics{ 16.5f, 3.0f, 12.0f, 6.0f, 2.75f, 3.75f, 3.0f, 3.75f }, // None
-            SliderMetrics{ 12.0f, 2.0f, 7.5f, 3.75f, 2.0f, 2.25f, 1.5f, 2.25f }, // Xs
-            SliderMetrics{ 15.0f, 2.25f, 9.0f, 4.5f, 2.25f, 3.0f, 2.25f, 3.0f }, // Sm
-            SliderMetrics{ 16.5f, 3.0f, 12.0f, 6.0f, 2.75f, 3.75f, 3.0f, 3.75f }, // Md
-            SliderMetrics{ 21.0f, 3.75f, 15.0f, 7.5f, 3.0f, 4.5f, 3.75f, 4.5f }, // Lg
-            SliderMetrics{ 25.5f, 4.5f, 18.0f, 9.0f, 3.75f, 6.0f, 4.5f, 6.0f }  // Xl
-        }};
-        theme.headings = {{
-            HeadingMetrics{ 22.0f, 15.0f, 12.0f, 16.5f, 6.0f, 6.0f, 3.0f }, // H1
-            HeadingMetrics{ 18.0f, 13.0f, 11.0f, 13.5f, 5.25f, 5.25f, 2.75f }, // H2
-            HeadingMetrics{ 16.0f, 12.5f, 10.5f, 12.0f, 4.5f, 4.5f, 2.25f }, // H3
-            HeadingMetrics{ 15.0f, 12.0f, 10.0f, 11.25f, 3.75f, 4.5f, 2.0f }, // H4
-            HeadingMetrics{ 13.0f, 11.0f,  9.5f, 9.75f, 3.0f, 3.75f, 1.5f }, // H5
-            HeadingMetrics{ 11.0f, 10.0f,  9.0f, 8.25f, 2.75f, 3.75f, 1.25f }  // H6
-        }};
-    } else if (d == Density::Touch) {
-        theme.spacing = {0.0f, 4.5f, 9.0f, 12.0f, 18.0f, 24.0f};
-        theme.radius  = {0.0f, 3.0f, 4.5f, 6.0f, 9.0f, 12.0f};
-        theme.metrics = {{
-            ComponentMetrics{  0.0f, 16.0f, 14.0f, 12.0f,  0.0f,  0.0f,  0.0f,  0.0f, 48.0f, 60.0f, 12.0f,  6.0f,  6.0f, 2.75f }, // None
-            ComponentMetrics{ 21.0f, 12.0f, 10.0f,  9.0f, 7.5f,  3.0f,  3.0f, 10.5f, 48.0f, 60.0f, 10.0f,  3.75f,  4.5f, 2.0f }, // Xs
-            ComponentMetrics{ 27.0f, 14.0f, 12.0f, 11.0f, 10.5f,  4.5f,  4.5f, 12.0f, 48.0f, 60.0f, 11.0f,  4.5f,  5.25f, 2.25f }, // Sm
-            ComponentMetrics{ 36.0f, 16.0f, 14.0f, 12.0f, 15.0f, 7.5f,  6.0f, 16.5f, 48.0f, 60.0f, 12.0f,  6.0f,  6.0f, 2.75f }, // Md
-            ComponentMetrics{ 42.0f, 18.0f, 16.0f, 14.0f, 18.0f, 9.0f, 7.5f, 19.5f, 48.0f, 60.0f, 13.0f,  6.75f, 7.5f, 3.0f }, // Lg
-            ComponentMetrics{ 48.0f, 22.0f, 18.0f, 16.0f, 21.0f, 10.5f, 9.0f, 22.5f, 48.0f, 60.0f, 14.0f, 7.5f, 9.0f, 3.75f }  // Xl
-        }};
-        theme.carousels = {{
-            CarouselMetrics{ 27.0f, 13.5f,  6.0f, 3.75f,  6.0f, 36.75f, 97.5f }, // None
-            CarouselMetrics{ 16.5f, 9.0f,  3.0f, 2.25f,  3.75f, 22.5f,  52.5f }, // Xs
-            CarouselMetrics{ 21.0f, 11.25f,  4.5f, 3.0f,  4.5f, 28.5f,  67.5f }, // Sm
-            CarouselMetrics{ 27.0f, 13.5f,  6.0f, 3.75f,  6.0f, 36.75f, 97.5f }, // Md
-            CarouselMetrics{ 31.5f, 16.5f, 7.5f, 4.5f, 7.5f, 43.5f, 120.0f }, // Lg
-            CarouselMetrics{ 36.0f, 19.5f, 9.0f, 6.0f, 9.0f, 51.0f, 150.0f }  // Xl
-        }};
-        theme.sliders = {{
-            SliderMetrics{ 27.0f, 4.5f, 19.5f, 9.75f, 4.5f,  6.0f, 4.5f,  6.0f }, // None
-            SliderMetrics{ 18.0f, 3.0f, 12.0f,  6.0f, 3.0f,  3.75f, 3.0f,  3.75f }, // Xs
-            SliderMetrics{ 22.5f, 3.75f, 15.0f, 7.5f, 3.75f,  4.5f, 3.75f,  4.5f }, // Sm
-            SliderMetrics{ 27.0f, 4.5f, 19.5f, 9.75f, 4.5f,  6.0f, 4.5f,  6.0f }, // Md
-            SliderMetrics{ 33.0f, 6.0f, 24.0f, 12.0f, 5.25f, 7.5f, 6.0f, 7.5f }, // Lg
-            SliderMetrics{ 39.0f, 7.5f, 28.5f, 14.25f, 6.0f, 9.0f, 7.5f, 9.0f } // Xl
-        }};
-        theme.headings = {{
-            HeadingMetrics{ 28.0f, 18.0f, 14.0f, 21.0f, 9.0f, 9.0f, 4.5f }, // H1
-            HeadingMetrics{ 24.0f, 16.0f, 13.0f, 18.0f, 7.5f, 7.5f, 3.75f }, // H2
-            HeadingMetrics{ 20.0f, 15.0f, 12.5f, 15.0f,  6.0f,  6.75f, 3.0f }, // H3
-            HeadingMetrics{ 18.0f, 14.0f, 12.0f, 13.5f,  5.25f,  6.0f, 2.75f }, // H4
-            HeadingMetrics{ 16.0f, 13.0f, 11.0f, 12.0f,  4.5f,  5.25f, 2.25f }, // H5
-            HeadingMetrics{ 14.0f, 11.5f, 10.0f, 10.5f,  3.75f,  4.5f, 2.0f }  // H6
-        }};
-    } else { // Density::Standard
-        theme.spacing = {0.0f, 3.0f, 6.0f, 9.0f, 12.0f, 18.0f};
-        theme.radius  = {0.0f, 1.5f, 3.0f, 4.5f, 6.0f, 9.0f};
-        theme.metrics = {{
-            ComponentMetrics{  0.0f, 14.0f, 12.0f, 11.0f,  0.0f,  0.0f,  0.0f,  0.0f, 48.0f, 60.0f, 11.0f, 4.5f,  6.0f, 2.25f }, // None
-            ComponentMetrics{ 18.0f, 11.0f, 10.0f,  9.0f,  6.0f,  2.25f,  2.25f, 9.0f, 48.0f, 60.0f,  9.0f, 3.0f,  4.5f, 1.5f }, // Xs
-            ComponentMetrics{ 24.0f, 13.0f, 11.0f, 10.0f, 9.0f,  3.75f,  3.0f, 11.25f, 48.0f, 60.0f, 10.0f, 3.75f,  4.5f, 2.0f }, // Sm
-            ComponentMetrics{ 30.0f, 14.0f, 12.0f, 11.0f, 12.0f,  6.0f,  4.5f, 13.5f, 48.0f, 60.0f, 11.0f, 4.5f,  6.0f, 2.25f }, // Md
-            ComponentMetrics{ 36.0f, 16.0f, 14.0f, 12.0f, 15.0f, 7.5f,  6.0f, 16.5f, 48.0f, 60.0f, 12.0f, 6.0f,  6.0f, 2.75f }, // Lg
-            ComponentMetrics{ 42.0f, 18.0f, 16.0f, 14.0f, 18.0f, 9.0f, 7.5f, 19.5f, 48.0f, 60.0f, 13.0f, 6.0f, 7.5f, 3.0f }  // Xl
-        }};
-        theme.carousels = {{
-            CarouselMetrics{ 19.5f, 10.5f,  4.5f, 3.0f,  4.5f, 27.0f, 82.5f }, // None
-            CarouselMetrics{ 13.5f, 7.5f,  2.25f, 1.5f,  3.0f, 18.0f,  45.0f }, // Xs
-            CarouselMetrics{ 16.5f, 9.0f,  3.0f, 2.25f,  3.75f, 22.5f,  60.0f }, // Sm
-            CarouselMetrics{ 19.5f, 10.5f,  4.5f, 3.0f,  4.5f, 27.0f, 82.5f }, // Md
-            CarouselMetrics{ 24.0f, 12.0f,  6.0f, 3.75f,  6.0f, 33.75f, 105.0f }, // Lg
-            CarouselMetrics{ 30.0f, 15.0f, 7.5f, 4.5f, 7.5f, 42.0f, 135.0f }  // Xl
-        }};
-        theme.sliders = {{
-            SliderMetrics{ 19.5f, 3.75f, 13.5f, 6.75f, 3.0f,  4.5f, 3.75f,  4.5f }, // None
-            SliderMetrics{ 13.5f, 2.25f, 9.0f, 4.5f, 2.25f,  3.0f, 2.25f,  3.0f }, // Xs
-            SliderMetrics{ 16.5f, 3.0f, 10.5f, 5.25f, 2.75f,  3.75f, 3.0f,  3.75f }, // Sm
-            SliderMetrics{ 19.5f, 3.75f, 13.5f, 6.75f, 3.0f,  4.5f, 3.75f,  4.5f }, // Md
-            SliderMetrics{ 24.0f, 4.5f, 16.5f, 8.25f, 3.75f, 6.0f, 4.5f,  6.0f }, // Lg
-            SliderMetrics{ 28.5f, 6.0f, 19.5f, 9.75f, 4.5f, 7.5f, 6.0f, 7.5f }  // Xl
-        }};
-        theme.headings = {{
-            HeadingMetrics{ 24.0f, 16.0f, 13.0f, 18.0f, 7.5f, 7.5f, 3.75f }, // H1
-            HeadingMetrics{ 20.0f, 14.0f, 12.0f, 15.0f,  6.0f,  6.75f, 3.0f }, // H2
-            HeadingMetrics{ 18.0f, 13.5f, 11.5f, 13.5f,  5.25f,  6.0f, 2.75f }, // H3
-            HeadingMetrics{ 16.0f, 13.0f, 11.0f, 12.0f,  4.5f,  6.0f, 2.25f }, // H4
-            HeadingMetrics{ 14.0f, 11.5f, 10.0f, 10.5f,  3.75f,  4.5f, 2.0f }, // H5
-            HeadingMetrics{ 12.0f, 10.5f,  9.0f, 9.0f,  3.0f,  4.5f, 1.5f }  // H6
-        }};
-    }
-
+void PopulateBaseMetrics(UiTheme& theme) {
+    theme.spacing = {0.0f, 3.0f, 6.0f, 9.0f, 12.0f, 18.0f};
+    theme.radius  = {0.0f, 1.5f, 3.0f, 4.5f, 6.0f, 9.0f};
+    theme.metrics = {{
+        ComponentMetrics{  0.0f, 14.0f, 12.0f, 11.0f,  0.0f,  0.0f,  0.0f,  0.0f, 48.0f, 60.0f, 11.0f, 4.5f,  6.0f, 2.25f }, // None
+        ComponentMetrics{ 18.0f, 11.0f, 10.0f,  9.0f,  6.0f,  2.25f, 2.25f, 9.0f, 48.0f, 60.0f,  9.0f, 3.0f,  4.5f, 1.5f }, // Xs
+        ComponentMetrics{ 24.0f, 13.0f, 11.0f, 10.0f,  9.0f,  3.75f, 3.0f, 11.25f, 48.0f, 60.0f, 10.0f, 3.75f, 4.5f, 2.0f }, // Sm
+        ComponentMetrics{ 30.0f, 14.0f, 12.0f, 11.0f, 12.0f,  6.0f,  4.5f, 13.5f, 48.0f, 60.0f, 11.0f, 4.5f,  6.0f, 2.25f }, // Md
+        ComponentMetrics{ 36.0f, 16.0f, 14.0f, 12.0f, 15.0f,  7.5f,  6.0f, 16.5f, 48.0f, 60.0f, 12.0f, 6.0f,  6.0f, 2.75f }, // Lg
+        ComponentMetrics{ 42.0f, 18.0f, 16.0f, 14.0f, 18.0f,  9.0f,  7.5f, 19.5f, 48.0f, 60.0f, 13.0f, 6.0f,  7.5f, 3.0f }  // Xl
+    }};
     theme.SetShellStyle(theme.shellStyle);
 }
 
@@ -361,15 +263,6 @@ void UiTheme::SetMode(ThemeMode m) noexcept {
     PopulatePalette(*this, m);
     PopulateSyntaxPalette(*this, m);
     PopulateVariants(*this, m);
-    if (scale > 0.0f && std::abs(scale - 1.0f) > 0.0001f) {
-        for (auto& v : variants) {
-            v.borderWidth *= scale;
-        }
-    }
-}
-
-void UiTheme::SetDensity(Density d) noexcept {
-    ApplyDensity(*this, d);
 }
 
 void UiTheme::SetShellStyle(ShellStyle style) noexcept {
@@ -378,17 +271,17 @@ void UiTheme::SetShellStyle(ShellStyle style) noexcept {
         shell.windowPadding    = Padding::All(0.0f);
         shell.panelGap         = 0.0f;
         shell.panelRadius      = 0.0f;
-        shell.panelBorderWidth = 1.0f * scale;
+        shell.panelBorderWidth = 1.0f;
     } else {
         const float gap = GetGap(UiSize::Sm);
         shell.windowPadding    = Padding::All(gap);
         shell.panelGap         = gap;
         shell.panelRadius      = GetRadius(UiSize::Md);
-        shell.panelBorderWidth = 1.0f * scale;
+        shell.panelBorderWidth = 1.0f;
     }
 }
 
-UiTheme UiTheme::Dark(Density d) noexcept {
+UiTheme UiTheme::Dark() noexcept {
     UiTheme theme;
     theme.mode = ThemeMode::Dark;
     PopulatePalette(theme, ThemeMode::Dark);
@@ -398,11 +291,11 @@ UiTheme UiTheme::Dark(Density d) noexcept {
     PopulateScrollbars(theme);
     PopulateCarousels(theme);
     PopulateComponentMetrics(theme);
-    ApplyDensity(theme, d);
+    PopulateBaseMetrics(theme);
     return theme;
 }
 
-UiTheme UiTheme::Light(Density d) noexcept {
+UiTheme UiTheme::Light() noexcept {
     UiTheme theme;
     theme.mode = ThemeMode::Light;
     PopulatePalette(theme, ThemeMode::Light);
@@ -412,126 +305,8 @@ UiTheme UiTheme::Light(Density d) noexcept {
     PopulateScrollbars(theme);
     PopulateCarousels(theme);
     PopulateComponentMetrics(theme);
-    ApplyDensity(theme, d);
+    PopulateBaseMetrics(theme);
     return theme;
-}
-
-UiTheme UiTheme::Scaled(float factor) const noexcept {
-    UiTheme copy = *this;
-    if (factor <= 0.0f || std::abs(factor - 1.0f) < 0.0001f) {
-        return copy;
-    }
-    copy.scale *= factor;
-    copy.shell.windowPadding.left *= factor;
-    copy.shell.windowPadding.top *= factor;
-    copy.shell.windowPadding.right *= factor;
-    copy.shell.windowPadding.bottom *= factor;
-    copy.shell.panelGap *= factor;
-    copy.shell.panelRadius *= factor;
-    copy.shell.panelBorderWidth *= factor;
-    for (auto& s : copy.spacing) s *= factor;
-    for (auto& r : copy.radius) r *= factor;
-    for (auto& m : copy.metrics) {
-        m.defaultHeight *= factor;
-        m.fontSize *= factor;
-        m.companionFontSize *= factor;
-        m.descFontSize *= factor;
-        m.paddingX *= factor;
-        m.paddingY *= factor;
-        m.cornerRadius *= factor;
-        m.iconSize *= factor;
-        m.minWidth *= factor;
-        m.defaultWidth *= factor;
-        m.badgeFontSize *= factor;
-        m.itemGap *= factor;
-        m.badgeGap *= factor;
-        m.lineGap *= factor;
-    }
-    for (auto& t : copy.typography) {
-        t.fontSize *= factor;
-        t.lineHeight *= factor;
-    }
-    for (auto& sb : copy.scrollbars) {
-        sb.trackWidth *= factor;
-        sb.minThumbLength *= factor;
-        sb.cornerRadius *= factor;
-        sb.scrollStep *= factor;
-        sb.margin *= factor;
-        sb.gutter *= factor;
-    }
-    for (auto& cm : copy.carousels) {
-        cm.arrowButtonSize *= factor;
-        cm.iconSize *= factor;
-        cm.cornerRadius *= factor;
-        cm.margin *= factor;
-        cm.gap *= factor;
-        cm.gutter *= factor;
-        cm.scrollStep *= factor;
-    }
-    for (auto& sw : copy.switches) {
-        sw.trackSize.x *= factor;
-        sw.trackSize.y *= factor;
-        sw.knobDiameter *= factor;
-        sw.knobPadding *= factor;
-        sw.gap *= factor;
-        sw.labelGap *= factor;
-        sw.descGap *= factor;
-    }
-    for (auto& cb : copy.checkboxes) {
-        cb.boxSize *= factor;
-        cb.cornerRadius *= factor;
-        cb.gap *= factor;
-        cb.labelGap *= factor;
-        cb.descGap *= factor;
-        cb.strokeWidth *= factor;
-    }
-    for (auto& in : copy.inputs) {
-        in.defaultHeight *= factor;
-        in.cornerRadius *= factor;
-        in.paddingX *= factor;
-        in.labelGap *= factor;
-        in.descGap *= factor;
-        in.strokeWidth *= factor;
-        in.iconSize *= factor;
-        in.defaultWidth *= factor;
-        in.minWidth *= factor;
-    }
-    for (auto& sl : copy.selects) {
-        sl.defaultHeight *= factor;
-        sl.cornerRadius *= factor;
-        sl.paddingX *= factor;
-        sl.labelGap *= factor;
-        sl.descGap *= factor;
-        sl.strokeWidth *= factor;
-        sl.iconSize *= factor;
-        sl.itemHeight *= factor;
-        sl.defaultWidth *= factor;
-        sl.minWidth *= factor;
-    }
-    for (auto& hd : copy.headings) {
-        hd.titleFontSize *= factor;
-        hd.subtitleFontSize *= factor;
-        hd.badgeFontSize *= factor;
-        hd.iconSize *= factor;
-        hd.gap *= factor;
-        hd.badgeGap *= factor;
-        hd.lineGap *= factor;
-    }
-    for (auto& sl : copy.sliders) {
-        sl.defaultHeight *= factor;
-        sl.trackHeight *= factor;
-        sl.thumbSize *= factor;
-        sl.cornerRadius *= factor;
-        sl.tickSize *= factor;
-        sl.labelGap *= factor;
-        sl.tickGap *= factor;
-        sl.descGap *= factor;
-        sl.defaultWidth *= factor;
-    }
-    for (auto& v : copy.variants) {
-        v.borderWidth *= factor;
-    }
-    return copy;
 }
 
 } // namespace guikit

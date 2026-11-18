@@ -98,15 +98,16 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
                 .align = guikit::Alignment::Center,
                 .justify = guikit::Justify::SpaceBetween
             })) {
-                if (auto el = ui.Size(ctx.elemSize).Element({
+                if (auto el = ui.Element({
                     .label = "Input Gain",
                     .description = "Preamp trim",
                     .layout = guikit::ElementLayout::Top,
                     .align = guikit::Align::Center,
                     .width = guikit::SizeMode::Fit,
+                    .size = ctx.elemSize,
                     .disabled = ctx.elemDisabled
                 })) {
-                    ui.Size(ctx.controlsSize).Knob(s_state.rackGainDb, -24.0f, 24.0f, {
+                    ui.Knob(s_state.rackGainDb, -24.0f, 24.0f, {
                         .valueFormat = "%+.1f dB",
                         .step = 0.5,
                         .defaultValue = 0.0,
@@ -118,18 +119,20 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
                         .valuePlacement = s_state.valuePlacement,
                         .color = guikit::StateColor::Primary(),
                         .diameter = ctx.ResolveKnobDiameter(),
+                        .size = ctx.controlsSize,
                         .disabled = ctx.elemDisabled
                     });
                 }
-                if (auto el = ui.Size(ctx.elemSize).Element({
+                if (auto el = ui.Element({
                     .label = "Cutoff Freq",
                     .description = "Low-pass filter",
                     .layout = guikit::ElementLayout::Top,
                     .align = guikit::Align::Center,
                     .width = guikit::SizeMode::Fit,
+                    .size = ctx.elemSize,
                     .disabled = ctx.elemDisabled
                 })) {
-                    ui.Size(ctx.controlsSize).Knob(s_state.rackFreqHz, 80.0f, 8000.0f, {
+                    ui.Knob(s_state.rackFreqHz, 80.0f, 8000.0f, {
                         .valueFormat = "%.0f Hz",
                         .step = 20.0,
                         .defaultValue = 1000.0,
@@ -141,18 +144,20 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
                         .valuePlacement = s_state.valuePlacement,
                         .color = guikit::StateColor::Info(),
                         .diameter = ctx.ResolveKnobDiameter(),
+                        .size = ctx.controlsSize,
                         .disabled = ctx.elemDisabled
                     });
                 }
-                if (auto el = ui.Size(ctx.elemSize).Element({
+                if (auto el = ui.Element({
                     .label = "Resonance (Q)",
                     .description = "Filter peak",
                     .layout = guikit::ElementLayout::Top,
                     .align = guikit::Align::Center,
                     .width = guikit::SizeMode::Fit,
+                    .size = ctx.elemSize,
                     .disabled = ctx.elemDisabled
                 })) {
-                    ui.Size(ctx.controlsSize).Knob(s_state.rackResQ, 0.5f, 12.0f, {
+                    ui.Knob(s_state.rackResQ, 0.5f, 12.0f, {
                         .valueFormat = "%.1f Q",
                         .step = 0.1,
                         .defaultValue = 1.0,
@@ -164,18 +169,20 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
                         .valuePlacement = s_state.valuePlacement,
                         .color = guikit::StateColor::Success(),
                         .diameter = ctx.ResolveKnobDiameter(),
+                        .size = ctx.controlsSize,
                         .disabled = ctx.elemDisabled
                     });
                 }
-                if (auto el = ui.Size(ctx.elemSize).Element({
+                if (auto el = ui.Element({
                     .label = "Azimuth Pan",
                     .description = "L / R balance",
                     .layout = guikit::ElementLayout::Top,
                     .align = guikit::Align::Center,
                     .width = guikit::SizeMode::Fit,
+                    .size = ctx.elemSize,
                     .disabled = ctx.elemDisabled
                 })) {
-                    ui.Size(ctx.controlsSize).Knob(s_state.rackPan, -50.0f, 50.0f, {
+                    ui.Knob(s_state.rackPan, -50.0f, 50.0f, {
                         .valueFormat = "%+.0f %%",
                         .step = 1.0,
                         .defaultValue = 0.0,
@@ -187,6 +194,7 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
                         .valuePlacement = s_state.valuePlacement,
                         .color = guikit::StateColor::Warning(),
                         .diameter = ctx.ResolveKnobDiameter(),
+                        .size = ctx.controlsSize,
                         .disabled = ctx.elemDisabled
                     });
                 }
@@ -206,23 +214,24 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
         opts.valuePlacement = s_state.valuePlacement;
         opts.color = ctx.GetControlColor();
         opts.diameter = ctx.ResolveKnobDiameter();
+        opts.size = ctx.controlsSize;
         opts.disabled = ctx.elemDisabled;
 
         if (s_state.bipolar) {
             opts.valueFormat = "%+.1f %%";
             opts.defaultValue = 0.0;
-            ui.Size(ctx.controlsSize).Knob(s_state.bipolarVal, -50.0f, 50.0f, opts);
+            ui.Knob(s_state.bipolarVal, -50.0f, 50.0f, opts);
         } else {
             opts.valueFormat = "%.1f %%";
             opts.defaultValue = 50.0;
-            ui.Size(ctx.controlsSize).Knob(s_state.val, 0.0f, 100.0f, opts);
+            ui.Knob(s_state.val, 0.0f, 100.0f, opts);
         }
     });
 }
 
 keel::String GenerateKnobCode(const DemoContext& ctx) {
     const keel::String ctrl = keel::format(
-        "ui.{}Knob(rotaryGain, {}, {}, {{\n"
+        "ui.Knob(rotaryGain, {}, {}, {{\n"
         "    .valueFormat = \"{}\",\n"
         "    .step = {},\n"
         "    .defaultValue = {},\n"
@@ -233,10 +242,9 @@ keel::String GenerateKnobCode(const DemoContext& ctx) {
         "    .bipolar = {},\n"
         "    .valuePlacement = guikit::Placement::{},\n"
         "    .color = {},\n"
-        "    .diameter = {},\n"
+        "    .diameter = {}{},\n"
         "    .disabled = {}\n"
         "}});",
-        FormatUiSizePrefix(ctx.controlsSize),
         s_state.bipolar ? "-50.0f" : "0.0f",
         s_state.bipolar ? "50.0f" : "100.0f",
         s_state.bipolar ? "%+.1f %%" : "%.1f %%",
@@ -250,6 +258,7 @@ keel::String GenerateKnobCode(const DemoContext& ctx) {
         PlacementName(s_state.valuePlacement),
         ctx.FormatControlColorCode(),
         ctx.FormatKnobDiameterCode(),
+        FormatUiSizePrefix(ctx.controlsSize),
         ctx.elemDisabled ? "true" : "false"
     );
     return ctx.WrapInElementCode(ctrl);

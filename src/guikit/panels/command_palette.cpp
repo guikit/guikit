@@ -105,8 +105,8 @@ CommandPaletteResponse CommandPalette::Run(
         return res;
     }
 
-    const UiSize activeSize = ctx.GetCurrentSize();
-    const UiTheme theme = ctx.ResolveTheme({.theme = opts.theme, .scale = opts.scale});
+    const UiSize activeSize = opts.size;
+    const UiTheme theme = ctx.GetTheme();
 
     // Ensure no underlying InputField captures text input while the CommandPalette is open
     ctx.ClearFocus();
@@ -166,7 +166,7 @@ CommandPaletteResponse CommandPalette::Run(
     }
 
     // 3. Compute geometry from UiSize + Density tokens and content-aware natural row widths
-    const float s = theme.scale;
+    const float s = 1.0f;
     ICanvas* measureCanvas = ctx.GetCanvas();
 
     const ComponentMetrics& cm = theme.GetMetrics(activeSize);
@@ -234,10 +234,10 @@ CommandPaletteResponse CommandPalette::Run(
         }
     }
 
-    const float minW = theme.Scale(keel::max(260.0f, opts.minWidth));
-    const float maxW = keel::max(minW, theme.Scale(opts.maxWidth));
+    const float minW = keel::max(260.0f, opts.minWidth);
+    const float maxW = keel::max(minW, opts.maxWidth);
     const float targetW = (opts.width.has_value() && *opts.width > 0.0f)
-        ? theme.Scale(keel::max(260.0f, *opts.width))
+        ? keel::max(260.0f, *opts.width)
         : keel::clamp(std::ceil(maxNaturalW), minW, maxW);
     const float cardW = std::round(keel::min(keel::max(200.0f * s, backdropRect.w - 24.0f * s), targetW));
     const keel::u32 maxVis = keel::max<keel::u32>(1u, opts.maxVisibleItems);
@@ -561,9 +561,9 @@ CommandPaletteResponse CommandPalette::Run(
 
         // 2. Multi-layer elevated shadow & surface card
         const float radius = borderOpt.radius.has_value()
-            ? theme.Scale(*borderOpt.radius)
+            ? *borderOpt.radius
             : (10.0f * s);
-        const float borderW = (borderOpt.width > 0.0f) ? theme.Scale(borderOpt.width) : 1.0f;
+        const float borderW = (borderOpt.width > 0.0f) ? borderOpt.width : 1.0f;
 
         c.DrawRoundRect(
             Rect(cardRect.x - 2.0f * s, cardRect.y + 8.0f * s, cardRect.w + 4.0f * s, cardRect.h + 10.0f * s),

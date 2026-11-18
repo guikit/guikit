@@ -42,9 +42,8 @@ struct SelectOptions {
     bool editable{false};                          ///< Enable free-form text input with dropdown suggestions (Autocomplete mode)
     bool clearable{false};                         ///< Show interactive clear (X) button when a selection or text is present
     keel::Optional<CursorBlinkMode> cursorMode{keel::kNullOpt}; ///< Optional override for text cursor blink mode in searchable/editable modes
+    UiSize size{UiSize::Md};                       ///< Component size scale
     bool disabled{false};                          ///< Interaction suppression
-    const UiTheme* theme{nullptr};                 ///< Optional scoped theme override
-    keel::Optional<float> scale{keel::kNullOpt};      ///< Optional scoped scale factor override
 };
 
 /// Visual chip data stored inside frame arena for MultiSelect nodes.

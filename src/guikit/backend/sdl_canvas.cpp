@@ -31,6 +31,9 @@ void SdlCanvas::Begin(keel::u32 width, keel::u32 height, float scale) {
     m_width = width;
     m_height = height;
     m_scale = (scale > 0.0f) ? scale : 1.0f;
+    m_xfScale = 1.0f;
+    m_xfOffset = {0.0f, 0.0f};
+    m_transformStack.clear();
     m_clipStack.clear();
 
     if (m_renderer) {
@@ -52,6 +55,23 @@ void SdlCanvas::SetScale(float scale) {
     }
 }
 
+void SdlCanvas::PushTransform(const Transform2D& transform) {
+    m_transformStack.push_back(TransformState{m_xfScale, m_xfOffset});
+    const Transform2D combined = Transform2D{m_xfScale, m_xfOffset}.Then(transform);
+    m_xfScale = combined.scale;
+    m_xfOffset = combined.offset;
+}
+
+void SdlCanvas::PopTransform() {
+    if (m_transformStack.empty()) {
+        return;
+    }
+    const TransformState prev = m_transformStack.back();
+    m_transformStack.pop_back();
+    m_xfScale = prev.scale;
+    m_xfOffset = prev.offset;
+}
+
 void SdlCanvas::Clear(Color color, keel::Optional<Rect> rect) {
     if (!m_renderer) return;
 
@@ -59,12 +79,14 @@ void SdlCanvas::Clear(Color color, keel::Optional<Rect> rect) {
     if (!rect.has_value()) {
         SDL_RenderClear(m_renderer);
     } else {
-        const SDL_FRect r{rect->x, rect->y, rect->w, rect->h};
+        const Rect m = Map(*rect);
+        const SDL_FRect r{m.x, m.y, m.w, m.h};
         SDL_RenderFillRect(m_renderer, &r);
     }
 }
 
 void SdlCanvas::PushClip(Rect clipRect) {
+    clipRect = Map(clipRect);
     if (!m_clipStack.empty()) {
         const Rect& parent = m_clipStack.back();
         const float x1 = keel::max(parent.x, clipRect.x);
@@ -103,6 +125,10 @@ void SdlCanvas::ApplyActiveClip() {
 }
 
 void SdlCanvas::DrawRect(Rect rect, Color fill) {
+    FillRectBase(Map(rect), fill);
+}
+
+void SdlCanvas::FillRectBase(Rect rect, Color fill) {
     if (!m_renderer || fill.a == 0 || rect.w <= 0.0f || rect.h <= 0.0f) return;
 
     SDL_SetRenderDrawBlendMode(m_renderer, SDL_BLENDMODE_BLEND);
@@ -119,13 +145,16 @@ void SdlCanvas::DrawRoundRect(
     float strokeWidth
 ) {
     if (!m_renderer || rect.w <= 0.0f || rect.h <= 0.0f) return;
+    rect = Map(rect);
+    radius *= m_xfScale;
+    strokeWidth *= m_xfScale;
 
     const float maxRadius = keel::min(rect.w, rect.h) * 0.5f;
     const float r = keel::clamp(radius, 0.0f, maxRadius);
 
     if (r <= 1.0f) {
         if (fill.a > 0) {
-            DrawRect(rect, fill);
+            FillRectBase(rect, fill);
         }
         if (stroke.a > 0 && strokeWidth > 0.0f) {
             SDL_SetRenderDrawBlendMode(m_renderer, SDL_BLENDMODE_BLEND);
@@ -220,7 +249,8 @@ void SdlCanvas::DrawText(keel::StringRef text, Vec2 pos, float fontSize, Color c
     SDL_SetRenderDrawBlendMode(m_renderer, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(m_renderer, color.r, color.g, color.b, color.a);
     const keel::SmallString<256> textStr(text);
-    SDL_RenderDebugText(m_renderer, pos.x, pos.y, textStr.c_str());
+    const Vec2 p = Map(pos);
+    SDL_RenderDebugText(m_renderer, p.x, p.y, textStr.c_str());
 }
 
 void SdlCanvas::DrawTextBox(
@@ -251,6 +281,9 @@ void SdlCanvas::DrawTextBox(
 
 void SdlCanvas::DrawLine(Vec2 p1, Vec2 p2, Color color, float strokeWidth) {
     if (!m_renderer || color.a == 0 || strokeWidth <= 0.0f) return;
+    p1 = Map(p1);
+    p2 = Map(p2);
+    strokeWidth *= m_xfScale;
 
     SDL_SetRenderDrawBlendMode(m_renderer, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(m_renderer, color.r, color.g, color.b, color.a);
@@ -290,7 +323,8 @@ void SdlCanvas::DrawTexture(
     SDL_SetTextureColorMod(tex, tint.r, tint.g, tint.b);
     SDL_SetTextureAlphaMod(tex, tint.a);
 
-    const SDL_FRect dst{destRect.x, destRect.y, destRect.w, destRect.h};
+    const Rect mapped = Map(destRect);
+    const SDL_FRect dst{mapped.x, mapped.y, mapped.w, mapped.h};
     if (srcRect.has_value()) {
         const SDL_FRect src{srcRect->x, srcRect->y, srcRect->w, srcRect->h};
         SDL_RenderTexture(m_renderer, tex, &src, &dst);

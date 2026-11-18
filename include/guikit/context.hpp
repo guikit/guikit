@@ -92,7 +92,6 @@
 namespace guikit {
 
 class Context;
-class SizeScope;
 
 /// C++20 concept for any autonomous widget providing a static Run method.
 template <typename T, typename... Args>
@@ -249,8 +248,8 @@ public:
     /// `viewportSize` is in physical framebuffer pixels. The frame's single dp -> pixel factor is
     /// `displayScale * rootZoom`: `displayScale` is the OS / monitor scale and `rootZoom` is the user's UI zoom
     /// (the shell zoom). Layout, hit-testing and widget code work in dp and the canvas applies the factor
-    /// uniformly, so text, strokes, spacing and input always scale together. A child `ui.Zone({.zoom = ...})`
-    /// is relative to `displayScale` only and therefore does not follow `rootZoom`.
+    /// uniformly, so text, strokes, spacing and input always scale together. A container with
+    /// `.scale = ui.ScaleForZoom(z)` renders at `z` of `displayScale` and therefore does not follow `rootZoom`.
     void BeginFrame(Vec2 viewportSize, float displayScale = 1.0f, float rootZoom = 1.0f);
     void EndFrame(ICanvas& canvas);
 
@@ -324,12 +323,14 @@ public:
         InvalidateAll();
     }
 
-    /// Returns the active UI theme: the root theme, or the theme of the innermost zone that replaced or rescaled it.
+    /// Returns the active UI theme: the root theme, or the theme of the innermost container zone that replaced it.
     [[nodiscard]] const UiTheme& GetTheme() const noexcept {
-        return *m_zoneStack.back().theme;
+        const UiTheme* zt = GetZone()->theme;
+        return (zt != nullptr) ? *zt : m_theme;
     }
     [[nodiscard]] UiTheme& GetTheme() noexcept {
-        return *m_zoneStack.back().theme;
+        UiTheme* zt = GetZone()->theme;
+        return (zt != nullptr) ? *zt : m_theme;
     }
 
     /// Sets the clear color used by EndFrame when clearing dirty damage regions.
@@ -338,11 +339,17 @@ public:
     /// Returns the current clear color.
     [[nodiscard]] Color GetClearColor() const noexcept { return m_clearColor; }
 
-    /// Sets the UI density preset (Standard, Compact, Touch).
-    void SetDensity(Density density) noexcept { m_theme.SetDensity(density); InvalidateAll(); }
+    /// Sets the root layout spacing/padding density multiplier (1.0f = standard).
+    void SetDensity(float density) noexcept {
+        m_rootDensity = (density > 0.0f) ? density : 1.0f;
+        m_rootZone.density = m_rootDensity;
+        InvalidateAll();
+    }
 
-    /// Returns the current UI density preset.
-    [[nodiscard]] Density GetDensity() const noexcept { return m_theme.density; }
+    /// Returns the active spacing/padding density multiplier in the current container zone.
+    [[nodiscard]] float GetDensity() const noexcept {
+        return GetZone()->density;
+    }
 
     // --- Developer Debug & Inspector Tools ---
     /// Sets whether 1px color-coded debug bounding boxes and padding overlays are rendered.
@@ -383,9 +390,19 @@ public:
     /// The frame's single dp -> pixel factor: `GetDisplayScale() * GetRootZoom()`.
     [[nodiscard]] float GetPixelsPerDp() const noexcept { return m_pixelsPerDp; }
 
-    /// Converts a zoom relative to the display scale (see `ZoneOptions::zoom`) into the zone scale, in layout
-    /// units, that produces it. The inverse of the compensation a zone applies for the root zoom.
-    [[nodiscard]] float ScaleForZoom(float zoom) const noexcept { return zoom / m_rootZoom; }
+    /// The `.scale` a container opened in the current space needs so that its content renders at `zoom` relative
+    /// to the display scale, independent of the root (shell) zoom and of any scaled ancestor.
+    [[nodiscard]] float ScaleForZoom(float zoom) const noexcept { return zoom / (m_rootZoom * GetZone()->scale); }
+
+    /// Coordinate spaces: a container with a scale gives its subtree a local coordinate system. Layout, widget code
+    /// and every coordinate this API takes or returns (mouse position, previous-frame bounds, tooltip anchors, popup
+    /// and overlay rects, damage rects) are in the space of the innermost open container; hit testing and damage
+    /// tracking happen in frame space. This is the transform from the current space to frame space.
+    [[nodiscard]] Transform2D CurrentSpace() const noexcept;
+
+    /// The transform from the space a node was laid out in (its own local space) to frame space, as of the
+    /// previous frame. Identity for nodes outside any scaled container.
+    [[nodiscard]] Transform2D GetNodeSpace(Id id) const noexcept;
 
     /// Returns the current logical viewport size used for layout.
     [[nodiscard]] Vec2 GetLogicalViewport() const noexcept {
@@ -705,48 +722,16 @@ public:
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
-    // --- Zones (ambient theme / scale / size / disabled state) ---
-    /// The innermost zone's state.
-    [[nodiscard]] const ZoneState& GetZone() const noexcept { return m_zoneStack.back(); }
-
-    /// Number of zones on the stack, including the root zone.
-    [[nodiscard]] keel::usize GetZoneDepth() const noexcept { return m_zoneStack.size(); }
-
-    /// The scale (in layout units) a zone with these options will have: its explicit `scale`, the scale that
-    /// `zoom` converts to, or the current zone's scale. The single place that rule lives.
-    [[nodiscard]] float ResolveScale(const ZoneOptions& opts) const noexcept;
-
-    /// The theme a zone with these options would use, without entering it (for popups and overlays that
-    /// only need the resolved theme values).
-    [[nodiscard]] UiTheme ResolveTheme(const ZoneOptions& opts);
-
-    /// RAII child zone: `if (auto zone = ui.Zone({.theme = &t, .zoom = 1.0f})) { ... }`.
-    [[nodiscard]] ZoneScope Zone(const ZoneOptions& opts = {}) { return ZoneScope(*this, opts); }
-
-    /// Re-enters a zone whose state was captured with `GetZone()` (no theme copy).
-    [[nodiscard]] ZoneScope ReenterZone(const ZoneState& state) { return ZoneScope(*this, state); }
-
-    /// Replaces the control size of the innermost zone in place (used when a scope hands its zone to a container).
-    void ReplaceTopSize(UiSize size) noexcept { m_zoneStack.back().size = size; }
-
-    [[nodiscard]] UiSize GetCurrentSize() const noexcept { return m_zoneStack.back().size; }
-    [[nodiscard]] bool IsDisabled() const noexcept { return m_zoneStack.back().disabled; }
-
-    /// Scale of the current zone in layout units (the active theme's scale).
-    [[nodiscard]] float GetCurrentScale() const noexcept { return m_zoneStack.back().theme->scale; }
-
-    [[nodiscard]] SizeScope Size(UiSize size) noexcept;
-
-    template <typename Fn>
-    void Size(UiSize size, Fn&& fn) {
-        const ZoneScope zone(*this, ZoneOptions{.size = size});
-        fn();
+    // --- Container Environment (theme / scale / density / debug overrides inherited down containers) ---
+    [[nodiscard]] const Zone* GetZone() const noexcept {
+        if (!m_containerStack.empty() && m_containerStack.back() != nullptr) {
+            return m_containerStack.back()->zone;
+        }
+        return &m_rootZone;
     }
 
-    template <typename Fn>
-    void Disabled(bool disabled, Fn&& fn) {
-        const ZoneScope zone(*this, ZoneOptions{.disabled = disabled});
-        fn();
+    [[nodiscard]] bool IsDisabled() const noexcept {
+        return (!m_containerStack.empty() && m_containerStack.back() != nullptr && m_containerStack.back()->disabled) || m_rowDisabled;
     }
 
     // --- Widgets ---
@@ -1658,7 +1643,7 @@ public:
         const ContextMenuOptions& opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        const Id parentId = m_containerStack.empty() ? Id::Null() : m_containerStack.back().node->id;
+        const Id parentId = m_containerStack.empty() ? Id::Null() : m_containerStack.back()->id;
         const Rect parentRect = GetPrevFrameBounds(parentId);
         return guikit::ContextMenu::Run(*this, nullptr, keel::kNullOpt, parentRect, items, opts, loc);
     }
@@ -1669,7 +1654,7 @@ public:
         const ContextMenuOptions& opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        const Id parentId = m_containerStack.empty() ? Id::Null() : m_containerStack.back().node->id;
+        const Id parentId = m_containerStack.empty() ? Id::Null() : m_containerStack.back()->id;
         const Rect parentRect = GetPrevFrameBounds(parentId);
         return guikit::ContextMenu::Run(*this, &open, keel::kNullOpt, parentRect, items, opts, loc);
     }
@@ -1740,6 +1725,7 @@ public:
     Id MakeChildIdForParent(Id parentId, keel::SourceLocation loc);
     Response Interact(Id id);
     Node* CreateNode(NodeType type, Id id);
+    Node* CreateNode(NodeType type, Id id, const ZoneOptions& zone, bool disabled = false);
 
     /// Allocates and constructs arbitrary widget payload data in the per-frame scratch arena.
     template <typename T, typename... Args>
@@ -1755,25 +1741,25 @@ public:
     [[nodiscard]] Rect GetParentPrevFrameBounds() const;
 
     // --- Internal Hierarchy & Scope Management ---
-    /// Makes `node` the innermost container. A container owns exactly one zone, which `PopContainer()` leaves
-    /// again: this overload enters a fresh zone that inherits everything (for custom containers).
+    /// Makes `node` the innermost container. Its children inherit its resolved zone and disabled state,
+    /// and `PopContainer()` restores the enclosing container.
     void PushContainer(Node* node);
-
-    /// Makes `node` the innermost container and hands it the zone the caller entered for it (built-in
-    /// containers enter their zone first so that they build the node with the zone's theme).
-    void PushContainer(Node* node, ZoneScope zone);
 
     void PopContainer(Node* node);
 
     /// Number of open containers, including the frame's root container.
     [[nodiscard]] keel::usize GetContainerDepth() const noexcept { return m_containerStack.size(); }
 
-    /// Lets the container opened at `frameIndex` own `zone` as well, leaving it right after its own zone. This is
-    /// how `ui.Size(...).Row(...)` keeps its size beyond the temporary scope. Returns `false` and leaves `zone`
-    /// untouched when no container was opened at that index.
-    bool AdoptZone(keel::usize frameIndex, ZoneScope& zone) noexcept;
+    /// Converts scaled outer sizing fields into parent units and pushes `node` onto the container stack.
+    void FinishContainer(Node* node) {
+        if (node != nullptr) {
+            node->SetOuterScale(node->GetRelativeScale());
+        }
+        PushContainer(node);
+    }
+
     [[nodiscard]] Node* GetCurrentContainer() const noexcept {
-        return m_containerStack.empty() ? nullptr : m_containerStack.back().node;
+        return m_containerStack.empty() ? nullptr : m_containerStack.back();
     }
 
     // Imperative actions requested from Response
@@ -1881,7 +1867,7 @@ public:
     void ClosePopup();
     [[nodiscard]] bool IsPopupOpen(Id id) const noexcept { return m_openPopupId == id && id.IsValid(); }
     [[nodiscard]] Id GetOpenPopupId() const noexcept { return m_openPopupId; }
-    [[nodiscard]] Rect GetOpenPopupRect() const noexcept { return m_openPopupRect; }
+    [[nodiscard]] Rect GetOpenPopupRect() const noexcept { return CurrentSpace().Invert(m_openPopupRect); }
     void SetOpenPopupVisualHash(keel::u64 hash) noexcept { m_openPopupVisualHash = hash; }
     template <typename F>
         requires requires(keel::Decay<F>& f, ICanvas& c) { f(c); }
@@ -1897,7 +1883,8 @@ public:
             .destroy = keel::IsTriviallyDestructible<Decayed>
                 ? nullptr
                 : +[](void* p) noexcept { static_cast<Decayed*>(p)->~Decayed(); },
-            .clipRect = GetPopupViewportRect()
+            .clipRect = PopupViewportInFrame(),
+            .space = CurrentSpace()
         });
     }
     void MarkModalOverlayActive() noexcept { m_currFrameModalOverlay = true; }
@@ -1915,7 +1902,8 @@ public:
             .invoke = +[](void* p) { (*static_cast<Decayed*>(p))(); },
             .destroy = keel::IsTriviallyDestructible<Decayed>
                 ? nullptr
-                : +[](void* p) noexcept { static_cast<Decayed*>(p)->~Decayed(); }
+                : +[](void* p) noexcept { static_cast<Decayed*>(p)->~Decayed(); },
+            .space = CurrentSpace()
         });
     }
     /// RAII scope guard that enters an overlay's hit-testing context and restores the previous overlay ID on exit.
@@ -1979,7 +1967,7 @@ public:
         }
         ++m_modalScopeDepth;
         m_currFrameModalId = id;
-        m_currFrameModalBackdropRect = backdropRect;
+        m_currFrameModalBackdropRect = CurrentSpace().Apply(backdropRect);
     }
 
     void EndModalScope(bool stillOpen = true) noexcept {
@@ -2004,7 +1992,11 @@ public:
     [[nodiscard]] bool IsInModalScope() const noexcept { return m_modalScopeDepth > 0; }
     [[nodiscard]] Id GetPrevFrameModalId() const noexcept { return m_prevFrameModalId; }
 
-    [[nodiscard]] bool IsModalBlocking(Vec2 pos) const noexcept {
+    /// `pos` is in the current space.
+    [[nodiscard]] bool IsModalBlocking(Vec2 pos) const noexcept { return IsModalBlockingInFrame(CurrentSpace().Apply(pos)); }
+
+    /// Frame-space variant used by the context's own hit testing.
+    [[nodiscard]] bool IsModalBlockingInFrame(Vec2 pos) const noexcept {
         if (m_modalScopeDepth > 0) return false;
         if (m_currFrameModalId.IsValid() && m_currFrameModalBackdropRect.Contains(pos)) return true;
         if (m_prevFrameModalId.IsValid() && m_prevFrameModalBackdropRect.Contains(pos)) return true;
@@ -2012,7 +2004,8 @@ public:
     }
 
     // --- Input Queries & Consumption ---
-    [[nodiscard]] Vec2 GetMousePos() const noexcept { return m_mousePos; }
+    /// Mouse position in the current space (see `CurrentSpace()`).
+    [[nodiscard]] Vec2 GetMousePos() const noexcept { return CurrentSpace().Invert(m_mousePos); }
     [[nodiscard]] bool IsMouseDown() const noexcept { return m_mouseDown && !IsMouseBlockedForCurrentScope(); }
     [[nodiscard]] bool IsMouseClicked() const noexcept { return m_mouseClicked && !IsMouseBlockedForCurrentScope(); }
     [[nodiscard]] bool IsMouseReleased() const noexcept { return m_mouseReleased; }
@@ -2116,12 +2109,22 @@ public:
     }
 
 private:
-    friend class ZoneScope;
+    friend class TableScope;
+    friend class TableRowScope;
 
-    // Zone stack mutators: reachable only through `ZoneScope`, so a zone is always left again
-    void PushZone(const ZoneOptions& opts);
-    void PushZoneState(const ZoneState& state);
-    void PopZone() noexcept;
+    // Frame-space variants used by the context's own hit testing and damage tracking
+    [[nodiscard]] bool IsMouseOccludedInFrame(Id id, Vec2 framePos) const noexcept;
+    [[nodiscard]] Rect PopupViewportInFrame() const noexcept;
+    void InvalidateFrameRect(Rect frameRect) noexcept;
+
+    [[nodiscard]] bool PushRowDisabled(bool disabled) noexcept {
+        const bool prev = m_rowDisabled;
+        m_rowDisabled = prev || disabled;
+        return prev;
+    }
+    void PopRowDisabled(bool prevDisabled) noexcept {
+        m_rowDisabled = prevDisabled;
+    }
 
     void FlushActiveEditHistory() noexcept;
     [[nodiscard]] bool IsDirectEditAllowed() const noexcept;
@@ -2170,15 +2173,10 @@ private:
     bool m_anyScopedInspectActive{false};
 
     keel::Arena m_arena;
-    /// An open container and the zones it owns. Members are destroyed in reverse order, so `zone` is left first
-    /// and `outer` (a zone handed over by an enclosing scope, see `AdoptZone`) right after it.
-    struct ContainerFrame {
-        Node* node{nullptr};
-        ZoneScope outer;
-        ZoneScope zone;
-    };
-    keel::SmallArray<ContainerFrame, 16> m_containerStack;
-    keel::SmallArray<ZoneState, 16> m_zoneStack; ///< Never empty: element 0 is the frame's root zone
+    Zone m_rootZone{&m_theme, 1.0f, 1.0f};
+    keel::SmallArray<Node*, 16> m_containerStack;
+    float m_rootDensity{1.0f};
+    bool m_rowDisabled{false};
     Node* m_root{nullptr};
     ICanvas* m_lastCanvas{nullptr};
 
@@ -2345,6 +2343,9 @@ private:
     keel::HashMap<Id, Rect> m_currFrameBounds;
     keel::HashMap<Id, Rect> m_prevUnclippedBounds;
     keel::HashMap<Id, Rect> m_currUnclippedBounds;
+    keel::HashMap<Id, Transform2D> m_prevNodeSpaces; ///< Only nodes inside a scaled container (others: identity)
+    keel::HashMap<Id, Transform2D> m_currNodeSpaces;
+    const Transform2D* m_spaceOverride{nullptr};     ///< Space of the overlay hit builder that is running
     keel::Array<HitNodeRecord> m_prevHitNodes;
     keel::Array<HitNodeRecord> m_currHitNodes;
     keel::HashMap<Id, keel::usize> m_prevHitNodeMap;
@@ -2352,6 +2353,7 @@ private:
         void* ctx{nullptr};
         void (*invoke)(void*){nullptr};
         void (*destroy)(void*) noexcept{nullptr};
+        Transform2D space{}; ///< Space the builder was registered from; current while it runs
     };
     keel::Array<OverlayHitRegion> m_prevOverlayHitRegions;
     keel::Array<OverlayHitRegion> m_currOverlayHitRegions;
@@ -2391,7 +2393,8 @@ private:
         void* ctx{nullptr};
         void (*invoke)(void*, ICanvas&){nullptr};
         void (*destroy)(void*) noexcept{nullptr};
-        Rect clipRect{};
+        Rect clipRect{};     ///< Frame space
+        Transform2D space{}; ///< Space the overlay was registered from; it draws in that space
     };
     keel::SmallArray<OverlayPass, 8> m_overlayPasses;
     void ClearOverlayPasses() noexcept;
@@ -2414,1106 +2417,5 @@ private:
     Node* FindDeepestNodeAt(Node* root, Vec2 pos, Rect clipRect);
     void RenderInspectOverlay(Node* root, ICanvas& canvas, Vec2 logicalSize);
 };
-
-/// Scoped UI size modifier returned by `ui.Size(...)`.
-/// Supports both single-call chaining (`ui.Size(UiSize::Lg).Element({...})`, `ui.Size(UiSize::Sm).Button({...})`)
-/// and RAII block scoping (`if (auto s = ui.Size(UiSize::Sm)) { ... }`).
-class SizeScope {
-public:
-    SizeScope() noexcept = default;
-
-    SizeScope(Context* ctx, UiSize size) noexcept
-        : m_ctx(ctx)
-        , m_containerDepth(ctx ? ctx->GetContainerDepth() : 0)
-        , m_prevSize(ctx ? ctx->GetCurrentSize() : UiSize::Md)
-        , m_size(size) {
-        if (m_ctx) {
-            m_zone = ZoneScope(*m_ctx, ZoneOptions{.size = m_size});
-        }
-    }
-
-    SizeScope(const SizeScope&) = delete;
-    SizeScope& operator=(const SizeScope&) = delete;
-
-    SizeScope(SizeScope&& other) noexcept
-        : m_ctx(other.m_ctx)
-        , m_zone(keel::move(other.m_zone))
-        , m_containerDepth(other.m_containerDepth)
-        , m_prevSize(other.m_prevSize)
-        , m_size(other.m_size) {
-        other.m_ctx = nullptr;
-    }
-
-    SizeScope& operator=(SizeScope&& other) noexcept {
-        if (this != &other) {
-            m_ctx = other.m_ctx;
-            m_zone = keel::move(other.m_zone);
-            m_containerDepth = other.m_containerDepth;
-            m_prevSize = other.m_prevSize;
-            m_size = other.m_size;
-            other.m_ctx = nullptr;
-        }
-        return *this;
-    }
-
-    [[nodiscard]] explicit constexpr operator bool() const noexcept {
-        return m_ctx != nullptr;
-    }
-
-    // --- Generic Autonomous Widget & Container Dispatch ---
-    template <typename WidgetT, typename... Args>
-        requires WidgetRunnable<WidgetT, Args...>
-    decltype(auto) Run(Args&&... args) {
-        return m_ctx->Run<WidgetT>(keel::forward<Args>(args)...);
-    }
-
-    template <typename ContainerT, typename... Args>
-        requires ContainerOpenable<ContainerT, Args...>
-    [[nodiscard]] decltype(auto) Open(Args&&... args) {
-        return TransferToContainer(m_ctx->Open<ContainerT>(keel::forward<Args>(args)...));
-    }
-
-    // --- Element (propagates its size to its child Control unless overridden) ---
-    ElementScope Element(
-        ElementOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->Element(keel::move(opts), loc));
-    }
-
-    // --- Accordion (applies size to Accordion header; restores previous size for body children) ---
-    [[nodiscard]] AccordionScope Accordion(
-        AccordionOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        Context* ctx = m_ctx;
-        AccordionScope scope = ctx->Accordion(opts, loc);
-        RestoreAccordionBodySize(ctx, scope, opts);
-        return scope;
-    }
-
-    [[nodiscard]] AccordionScope Accordion(
-        keel::StringRef label,
-        AccordionOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        Context* ctx = m_ctx;
-        AccordionScope scope = ctx->Accordion(label, opts, loc);
-        RestoreAccordionBodySize(ctx, scope, opts);
-        return scope;
-    }
-
-    [[nodiscard]] AccordionScope Accordion(
-        bool& open,
-        AccordionOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        Context* ctx = m_ctx;
-        AccordionScope scope = ctx->Accordion(open, opts, loc);
-        RestoreAccordionBodySize(ctx, scope, opts);
-        return scope;
-    }
-
-    template <typename T, typename U>
-        requires (!keel::IsSame<keel::Decay<T>, bool> && requires(T& a, const U& b) {
-            static_cast<bool>(a == b);
-            a = static_cast<T>(b);
-        })
-    [[nodiscard]] AccordionScope Accordion(
-        T& activeValue,
-        const U& sectionValue,
-        AccordionOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        Context* ctx = m_ctx;
-        AccordionScope scope = ctx->Accordion(activeValue, sectionValue, opts, loc);
-        RestoreAccordionBodySize(ctx, scope, opts);
-        return scope;
-    }
-
-    // --- Layout & Panel Containers (children inherit m_size) ---
-    [[nodiscard]] ContainerScope Row(
-        RowOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->Row(keel::move(opts), loc));
-    }
-
-    [[nodiscard]] ContainerScope Column(
-        ColumnOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->Column(keel::move(opts), loc));
-    }
-
-    [[nodiscard]] ContainerScope Wrap(
-        WrapOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->Wrap(keel::move(opts), loc));
-    }
-
-    [[nodiscard]] GridScope Grid(
-        GridOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->Grid(keel::move(opts), loc));
-    }
-
-    void Spacer(
-        float flex = 1.0f,
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        m_ctx->Spacer(flex, loc);
-    }
-
-    void Gap(
-        float sizeDp = 8.0f,
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        m_ctx->Gap(sizeDp, loc);
-    }
-
-    void Separator(
-        float extentRatio = 0.0f,
-        Color colorOverride = Color::Transparent(),
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        m_ctx->Separator(extentRatio, colorOverride, loc);
-    }
-
-    void Separator(
-        Color colorOverride,
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        m_ctx->Separator(colorOverride, loc);
-    }
-
-    void Separator(
-        Orientation lineOrientation,
-        float extentRatio = 0.0f,
-        Color colorOverride = Color::Transparent(),
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        m_ctx->Separator(lineOrientation, extentRatio, colorOverride, loc);
-    }
-
-    [[nodiscard]] ContainerScope Box(
-        BoxOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->Box(keel::move(opts), loc));
-    }
-
-    [[nodiscard]] ContainerScope Card(
-        CardOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->Card(keel::move(opts), loc));
-    }
-
-    [[nodiscard]] ContainerScope ScrollArea(
-        ScrollAreaOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->ScrollArea(keel::move(opts), loc));
-    }
-
-    [[nodiscard]] ContainerScope Carousel(
-        CarouselOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->Carousel(keel::move(opts), loc));
-    }
-
-    [[nodiscard]] SidebarScope Sidebar(
-        SidebarOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->Sidebar(keel::move(opts), loc));
-    }
-
-    [[nodiscard]] SidebarScope Sidebar(
-        SidebarMode& mode,
-        SidebarOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->Sidebar(mode, keel::move(opts), loc));
-    }
-
-    [[nodiscard]] SidebarScope Sidebar(
-        bool& open,
-        SidebarOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->Sidebar(open, keel::move(opts), loc));
-    }
-
-    [[nodiscard]] ActivityBarScope ActivityBar(
-        ActivityBarOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->ActivityBar(keel::move(opts), loc));
-    }
-
-    [[nodiscard]] ActivityBarScope ActivityBar(
-        SidebarMode& linkedSidebarMode,
-        ActivityBarOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->ActivityBar(linkedSidebarMode, keel::move(opts), loc));
-    }
-
-    template <IndexLike IndexT>
-        requires (!keel::IsConst<IndexT>)
-    Response ActivityBar(
-        IndexT& activeIndex,
-        keel::ArrayRef<ActivityBarItem> items,
-        ActivityBarOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->ActivityBar(activeIndex, items, keel::move(opts), loc);
-    }
-
-    [[nodiscard]] BottomPanelScope BottomPanel(
-        BottomPanelOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->BottomPanel(keel::move(opts), loc));
-    }
-
-    [[nodiscard]] BottomPanelScope BottomPanel(
-        BottomPanelMode& mode,
-        BottomPanelOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->BottomPanel(mode, keel::move(opts), loc));
-    }
-
-    [[nodiscard]] BottomPanelScope BottomPanel(
-        BottomPanelMode* mode,
-        BottomPanelOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->BottomPanel(mode, keel::move(opts), loc));
-    }
-
-    [[nodiscard]] BottomPanelScope BottomPanel(
-        bool& open,
-        BottomPanelOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->BottomPanel(open, keel::move(opts), loc));
-    }
-
-    [[nodiscard]] BottomPanelScope BottomPanel(
-        bool* open,
-        BottomPanelOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->BottomPanel(open, keel::move(opts), loc));
-    }
-
-    [[nodiscard]] StatusBarScope StatusBar(
-        StatusBarOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->StatusBar(keel::move(opts), loc));
-    }
-
-    [[nodiscard]] SplitViewScope SplitView(
-        const SplitViewOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->SplitView(opts, loc));
-    }
-
-    [[nodiscard]] SplitViewScope SplitView(
-        float& ratio,
-        const SplitViewOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->SplitView(ratio, opts, loc));
-    }
-
-    [[nodiscard]] SceneScope Scene(
-        SceneOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->Scene(keel::move(opts), loc));
-    }
-
-#if GUIKIT_HAS_SCENES
-    [[nodiscard]] MapViewScope MapView(
-        MapViewOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->MapView(keel::move(opts), loc));
-    }
-#endif
-
-    [[nodiscard]] TableScope Table(
-        keel::ArrayRef<TableColumn> columns,
-        const TableOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->Table(columns, opts, loc));
-    }
-
-    [[nodiscard]] ToolbarScope Toolbar(
-        ToolbarOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->Toolbar(keel::move(opts), loc));
-    }
-
-    [[nodiscard]] SidebarMenuScope SidebarMenu(
-        SidebarMenuOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->SidebarMenu(keel::move(opts), loc));
-    }
-
-    [[nodiscard]] TreeViewScope TreeView(
-        TreeViewOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->TreeView(keel::move(opts), loc));
-    }
-
-    [[nodiscard]] TreeViewScope TreeView(
-        keel::ArrayRef<TableColumn> columns,
-        TreeViewOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->TreeView(columns, keel::move(opts), loc));
-    }
-
-    [[nodiscard]] TreeItemScope TreeItem(
-        TreeItemOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->TreeItem(keel::move(opts), loc));
-    }
-
-    [[nodiscard]] TreeItemScope TreeItem(
-        keel::StringRef label,
-        TreeItemOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->TreeItem(label, keel::move(opts), loc));
-    }
-
-    [[nodiscard]] TreeItemScope TreeItem(
-        bool& open,
-        TreeItemOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->TreeItem(open, keel::move(opts), loc));
-    }
-
-    [[nodiscard]] TreeItemScope TreeItem(
-        bool& open,
-        keel::StringRef label,
-        TreeItemOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->TreeItem(open, label, keel::move(opts), loc));
-    }
-
-    // --- Leaf Widgets & Controls ---
-    Response Button(
-        ButtonOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->Button(keel::move(opts), loc);
-    }
-
-    Response ToolButton(
-        ToolButtonOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->ToolButton(keel::move(opts), loc);
-    }
-
-    Response Text(
-        UiText label,
-        TextOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->Text(keel::move(label), keel::move(opts), loc);
-    }
-
-    Response Image(
-        keel::StringRef source,
-        ImageOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->Image(source, keel::move(opts), loc);
-    }
-
-    Response Image(
-        ImageOptions opts,
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->Image(keel::move(opts), loc);
-    }
-
-    MarkdownResponse Markdown(
-        keel::StringRef markdownText,
-        const MarkdownOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->Markdown(markdownText, opts, loc);
-    }
-
-#if GUIKIT_HAS_SCENES
-    SignalViewResponse SignalView(
-        keel::ArrayRef<float> samples,
-        const SignalViewOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->SignalView(samples, opts, loc);
-    }
-
-    SonarViewResponse SonarView(
-        keel::ArrayRef<float> polarMatrix,
-        const SonarViewOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->SonarView(polarMatrix, opts, loc);
-    }
-
-    WaterfallViewResponse WaterfallView(
-        keel::ArrayRef<float> latestSliceDb,
-        const WaterfallViewOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->WaterfallView(latestSliceDb, opts, loc);
-    }
-#endif
-
-    HistogramResponse Histogram(
-        const HistogramData& data,
-        ChannelTransferParams& transfer,
-        const HistogramOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->Histogram(data, transfer, opts, loc);
-    }
-
-    ImageViewResponse ImageView(
-        const ImageViewData& data,
-        ImageViewParams& params,
-        const ImageViewOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->ImageView(data, params, opts, loc);
-    }
-
-    ImageViewResponse ImageView(
-        const ImageViewData& data,
-        const ImageViewOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->ImageView(data, opts, loc);
-    }
-
-#if GUIKIT_HAS_SCENES
-    AttitudeViewResponse AttitudeView(
-        const AttitudeViewOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->AttitudeView(opts, loc);
-    }
-
-    CarClusterViewResponse CarClusterView(
-        const CarClusterViewOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->CarClusterView(opts, loc);
-    }
-
-    BpmnEditorResponse BpmnEditor(
-        BpmnDiagram& diagram,
-        const BpmnEditorOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->BpmnEditor(diagram, opts, loc);
-    }
-#endif
-
-    Response Switch(
-        bool& value,
-        SwitchOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->Switch(value, keel::move(opts), loc);
-    }
-
-    Response Switch(
-        const bool& checked,
-        SwitchOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->Switch(checked, keel::move(opts), loc);
-    }
-
-    Response Checkbox(
-        bool& value,
-        CheckboxOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->Checkbox(value, keel::move(opts), loc);
-    }
-
-    Response Checkbox(
-        const bool& checked,
-        CheckboxOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->Checkbox(checked, keel::move(opts), loc);
-    }
-
-    template <typename T, typename U = T>
-        requires requires(const T& a, const U& b) { static_cast<bool>(a == b); }
-    Response Radio(
-        T& currentValue,
-        const U& optionValue,
-        RadioOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->Radio(currentValue, optionValue, keel::move(opts), loc);
-    }
-
-    Response Radio(
-        bool& value,
-        RadioOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->Radio(value, keel::move(opts), loc);
-    }
-
-    Response Radio(
-        const bool& checked,
-        RadioOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->Radio(checked, keel::move(opts), loc);
-    }
-
-    template <typename T, typename U = T>
-        requires requires(const T& a, const U& b) { static_cast<bool>(a == b); }
-    Response RadioButton(
-        T& currentValue,
-        const U& optionValue,
-        RadioOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->RadioButton(currentValue, optionValue, keel::move(opts), loc);
-    }
-
-    Response RadioButton(
-        bool& checked,
-        RadioOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->RadioButton(checked, keel::move(opts), loc);
-    }
-
-    template <keel::WritableString S>
-    Response InputField(
-        S& value,
-        InputFieldOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->InputField(value, keel::move(opts), loc);
-    }
-
-    Response InputField(
-        keel::StringRef value,
-        InputFieldOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->InputField(value, keel::move(opts), loc);
-    }
-
-    template <SpinBoxNumeric T>
-    Response SpinBox(
-        T& value,
-        SpinBoxOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->SpinBox(value, keel::move(opts), loc);
-    }
-
-    template <SpinBoxNumeric T>
-    Response SpinBox(
-        T& value,
-        double minVal,
-        double maxVal,
-        double stepVal = 1.0,
-        SpinBoxOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->SpinBox(value, minVal, maxVal, stepVal, keel::move(opts), loc);
-    }
-
-    template <keel::WritableString S>
-    TextAreaResponse TextArea(
-        S& value,
-        const TextAreaOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->TextArea(value, opts, loc);
-    }
-
-    TextAreaResponse TextArea(
-        keel::StringRef value,
-        const TextAreaOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->TextArea(value, opts, loc);
-    }
-
-    template <keel::WritableString S>
-    CodeEditorResponse CodeEditor(
-        S& value,
-        const CodeEditorOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->CodeEditor(value, opts, loc);
-    }
-
-    CodeEditorResponse CodeEditor(
-        keel::StringRef value,
-        const CodeEditorOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->CodeEditor(value, opts, loc);
-    }
-
-    template <SelectTarget T>
-    Response Select(
-        T& selected,
-        keel::ArrayRef<SelectItem> items,
-        SelectOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->Select(selected, items, keel::move(opts), loc);
-    }
-
-    template <SelectTarget T>
-    Response Select(
-        T& selected,
-        keel::ArrayRef<keel::StringRef> items,
-        SelectOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->Select(selected, items, keel::move(opts), loc);
-    }
-
-    template <SelectTarget T>
-    Response ComboBox(
-        T& selected,
-        keel::ArrayRef<SelectItem> items,
-        SelectOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->ComboBox(selected, items, keel::move(opts), loc);
-    }
-
-    template <SelectTarget T>
-    Response ComboBox(
-        T& selected,
-        keel::ArrayRef<keel::StringRef> items,
-        SelectOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->ComboBox(selected, items, keel::move(opts), loc);
-    }
-
-    template <keel::WritableString S>
-    Response Autocomplete(
-        S& value,
-        keel::ArrayRef<SelectItem> items,
-        SelectOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->Autocomplete(value, items, keel::move(opts), loc);
-    }
-
-    template <keel::WritableString S>
-    Response Autocomplete(
-        S& value,
-        keel::ArrayRef<keel::StringRef> items,
-        SelectOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->Autocomplete(value, items, keel::move(opts), loc);
-    }
-
-    template <WritableIndexList Arr>
-    Response MultiSelect(
-        Arr& selectedIndices,
-        keel::ArrayRef<SelectItem> items,
-        SelectOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->MultiSelect(selectedIndices, items, keel::move(opts), loc);
-    }
-
-    template <WritableIndexList Arr>
-    Response MultiSelect(
-        Arr& selectedIndices,
-        keel::ArrayRef<keel::StringRef> items,
-        SelectOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->MultiSelect(selectedIndices, items, keel::move(opts), loc);
-    }
-
-    template <IndexLike IndexT>
-        requires (!keel::IsConst<IndexT>)
-    TabBarResponse TabBar(
-        IndexT& activeIndex,
-        keel::ArrayRef<TabItem> tabs,
-        TabBarOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->TabBar(activeIndex, tabs, keel::move(opts), loc);
-    }
-
-    template <IndexLike IndexT>
-        requires (!keel::IsConst<IndexT>)
-    Response SidebarMenu(
-        IndexT& activeIndex,
-        keel::ArrayRef<SidebarMenuItem> items,
-        SidebarMenuOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->SidebarMenu(activeIndex, items, keel::move(opts), loc);
-    }
-
-    template <SliderNumeric T>
-    Response Slider(
-        T& value,
-        T min,
-        T max,
-        SliderOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->Slider(value, min, max, keel::move(opts), loc);
-    }
-
-    template <SliderNumeric T>
-    Response RangeSlider(
-        T& lowValue,
-        T& highValue,
-        T min,
-        T max,
-        RangeSliderOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->RangeSlider(lowValue, highValue, min, max, keel::move(opts), loc);
-    }
-
-    Response ProgressBar(
-        double value,
-        double min,
-        double max,
-        ProgressBarOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->ProgressBar(value, min, max, keel::move(opts), loc);
-    }
-
-    Response ProgressBar(
-        double percent0to100,
-        ProgressBarOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->ProgressBar(percent0to100, keel::move(opts), loc);
-    }
-
-    template <IndexLike IndexT>
-        requires (!keel::IsConst<IndexT>)
-    Response StepSlider(
-        IndexT& index,
-        keel::usize totalSteps,
-        StepSliderOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->StepSlider(index, totalSteps, keel::move(opts), loc);
-    }
-
-    template <IndexLike IndexT>
-        requires (!keel::IsConst<IndexT>)
-    Response StepSlider(
-        IndexT& index,
-        keel::ArrayRef<keel::StringRef> labels,
-        StepSliderOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->StepSlider(index, labels, keel::move(opts), loc);
-    }
-
-    Response StepSlider(
-        UiSize& size,
-        StepSliderOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->StepSlider(size, keel::move(opts), loc);
-    }
-
-    Response StepSlider(
-        UiVariant& variant,
-        StepSliderOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->StepSlider(variant, keel::move(opts), loc);
-    }
-
-    template <SliderNumeric T>
-    Response Knob(
-        T& value,
-        T min,
-        T max,
-        KnobOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->Knob(value, min, max, keel::move(opts), loc);
-    }
-
-    template <IndexLike IndexT>
-        requires (!keel::IsConst<IndexT>)
-    Response Segmented(
-        IndexT& selectedIndex,
-        keel::ArrayRef<SegmentedItem> items,
-        SegmentedOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->Segmented(selectedIndex, items, keel::move(opts), loc);
-    }
-
-    template <IndexLike IndexT>
-        requires (!keel::IsConst<IndexT>)
-    Response Segmented(
-        IndexT& selectedIndex,
-        keel::ArrayRef<keel::StringRef> items,
-        SegmentedOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->Segmented(selectedIndex, items, keel::move(opts), loc);
-    }
-
-    Response SegmentedMask(
-        keel::u32& selectedMask,
-        keel::ArrayRef<SegmentedItem> items,
-        SegmentedOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->SegmentedMask(selectedMask, items, keel::move(opts), loc);
-    }
-
-    Response SegmentedMask(
-        keel::u32& selectedMask,
-        keel::ArrayRef<keel::StringRef> items,
-        SegmentedOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->SegmentedMask(selectedMask, items, keel::move(opts), loc);
-    }
-
-    Response ColorPicker(
-        Color& value,
-        ColorPickerOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->ColorPicker(value, keel::move(opts), loc);
-    }
-
-    Response DatePicker(
-        DateTime& value,
-        DatePickerOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->DatePicker(value, keel::move(opts), loc);
-    }
-
-    Response LevelMeter(
-        double value,
-        double min = -60.0,
-        double max = 0.0,
-        LevelMeterOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->LevelMeter(value, min, max, keel::move(opts), loc);
-    }
-
-    Response LevelMeter(
-        keel::ArrayRef<float> channelValues,
-        float min = -60.0f,
-        float max = 0.0f,
-        LevelMeterOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->LevelMeter(channelValues, min, max, keel::move(opts), loc);
-    }
-
-    template <WritableTagStringList Arr>
-    Response TagInput(
-        Arr& tags,
-        TagInputOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->TagInput(tags, keel::move(opts), loc);
-    }
-
-    template <WritableTagItemList Arr>
-    Response TagInput(
-        Arr& tags,
-        TagInputOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->TagInput(tags, keel::move(opts), loc);
-    }
-
-    template <IndexLike IndexT>
-        requires (!keel::IsConst<IndexT>)
-    Response Breadcrumb(
-        IndexT& activeIndex,
-        keel::ArrayRef<BreadcrumbItem> items,
-        BreadcrumbOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->Breadcrumb(activeIndex, items, keel::move(opts), loc);
-    }
-
-    template <IndexLike IndexT>
-        requires (!keel::IsConst<IndexT>)
-    Response Breadcrumb(
-        IndexT& activeIndex,
-        keel::ArrayRef<keel::StringRef> items,
-        BreadcrumbOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->Breadcrumb(activeIndex, items, keel::move(opts), loc);
-    }
-
-    template <IndexLike IndexT, IndexLike CountT>
-        requires (!keel::IsConst<IndexT>)
-    Response Pagination(
-        IndexT& currentPage,
-        CountT totalPages,
-        PaginationOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->Pagination(currentPage, totalPages, keel::move(opts), loc);
-    }
-
-    CommandPaletteResponse CommandPalette(
-        bool& isOpen,
-        keel::ArrayRef<CommandPaletteItem> items,
-        const CommandPaletteOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->CommandPalette(isOpen, items, opts, loc);
-    }
-
-    [[nodiscard]] ModalScope Modal(
-        bool& open,
-        const ModalOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return TransferToContainer(m_ctx->Modal(open, opts, loc));
-    }
-
-    ContextMenuResponse ContextMenu(
-        const Response& triggerTarget,
-        keel::ArrayRef<ContextMenuItem> items,
-        const ContextMenuOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->ContextMenu(triggerTarget, items, opts, loc);
-    }
-
-    ContextMenuResponse ContextMenu(
-        Rect triggerRect,
-        keel::ArrayRef<ContextMenuItem> items,
-        const ContextMenuOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->ContextMenu(triggerRect, items, opts, loc);
-    }
-
-    ContextMenuResponse ContextMenu(
-        keel::ArrayRef<ContextMenuItem> items,
-        const ContextMenuOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->ContextMenu(items, opts, loc);
-    }
-
-    ContextMenuResponse ContextMenu(
-        bool& open,
-        keel::ArrayRef<ContextMenuItem> items,
-        const ContextMenuOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->ContextMenu(open, items, opts, loc);
-    }
-
-    ContextMenuResponse ContextMenu(
-        bool& open,
-        Vec2 anchorPos,
-        keel::ArrayRef<ContextMenuItem> items,
-        const ContextMenuOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return m_ctx->ContextMenu(open, anchorPos, items, opts, loc);
-    }
-
-private:
-    /// This scope is usually a temporary that ends with the full expression, while the container opened inside it
-    /// lives on: hand the size zone to that container, which then leaves it after its own zone. If the call
-    /// opened no container, the zone simply stays with this scope.
-    void HandZoneToContainer() noexcept {
-        if (m_ctx) {
-            m_ctx->AdoptZone(m_containerDepth, m_zone);
-            m_ctx = nullptr;
-        }
-    }
-
-    template <typename ScopeT>
-    ScopeT TransferToContainer(ScopeT&& scope) noexcept {
-        HandZoneToContainer();
-        return keel::move(scope);
-    }
-
-    void RestoreAccordionBodySize(Context* ctx, AccordionScope& scope, const AccordionOptions& opts) noexcept {
-        if (ctx) {
-            HandZoneToContainer();
-            if (Node* bodyNode = scope.GetNode()) {
-                ctx->ReplaceTopSize(m_prevSize);
-                bodyNode->uiSize = m_prevSize;
-                bodyNode->gap = ctx->GetTheme().ResolveGap(opts.gap, m_prevSize);
-                if (opts.padding.has_value()) {
-                    bodyNode->padding = ctx->GetTheme().ResolvePadding(*opts.padding, m_prevSize);
-                }
-            }
-        }
-    }
-
-    Context* m_ctx{nullptr};
-    ZoneScope m_zone;
-    keel::usize m_containerDepth{0}; ///< Containers open when this scope was created: the first new one adopts the zone
-    UiSize m_prevSize{UiSize::Md};
-    UiSize m_size{UiSize::Md};
-};
-
-inline SizeScope Context::Size(UiSize size) noexcept {
-    return SizeScope(this, size);
-}
 
 } // namespace guikit

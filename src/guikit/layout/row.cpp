@@ -10,50 +10,45 @@ ContainerScope Row::Open(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = ctx.GetCurrentSize();
-    const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    ZoneScope zone = ctx.Zone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
-
-    Node* node = ctx.CreateNode(NodeType::Row, id);
-    const UiTheme& theme = ctx.GetTheme();
-    node->debugBoundsOverride = opts.debugBounds;
-    node->inspectModeOverride = opts.inspectMode;
+    Node* node = ctx.CreateNode(NodeType::Row, id, opts.zone, opts.disabled);
+    const UiTheme& theme = node->GetTheme(ctx.GetTheme());
+    const float density = node->GetDensity();
     node->direction = FlexDirection::Row;
     node->explicitGap = opts.gap.has_value() ? 1 : 0;
     node->explicitPadding = opts.padding.has_value() ? 1 : 0;
     if (!opts.gap.has_value() && node->parent != nullptr && node->parent->type == NodeType::Toolbar) {
-        node->gap = node->parent->gap;
+        const float localDensity = (opts.zone.density.has_value() && *opts.zone.density > 0.0f) ? *opts.zone.density : 1.0f;
+        node->gap = node->parent->gap * localDensity;
     } else {
-        node->gap = theme.ResolveGap(opts.gap, activeSize);
+        node->gap = theme.ResolveGap(opts.gap, UiSize::Md, density);
     }
-    node->padding = theme.ResolvePadding(opts.padding);
+    node->padding = theme.ResolvePadding(opts.padding, UiSize::None, density);
     node->align = opts.align;
     node->justify = opts.justify;
     const bool inHorizontalParent = (node->parent != nullptr) &&
         (node->parent->type == NodeType::Toolbar ||
          (opts.equalWidths && node->parent->direction == FlexDirection::Row));
     node->widthMode = opts.width.ResolveMode(inHorizontalParent ? SizeMode::Fit : SizeMode::Stretch);
-    node->fixedWidth = opts.width.IsFixed() ? theme.Scale(opts.width.Dp()) : 0.0f;
+    node->fixedWidth = opts.width.IsFixed() ? opts.width.Dp() : 0.0f;
     node->heightMode = opts.height.ResolveMode(SizeMode::Fit);
-    node->fixedHeight = opts.height.IsFixed() ? theme.Scale(opts.height.Dp()) : 0.0f;
+    node->fixedHeight = opts.height.IsFixed() ? opts.height.Dp() : 0.0f;
     if (opts.minWidth.has_value() && *opts.minWidth > 0.0f) {
-        node->minWidth = theme.Scale(*opts.minWidth);
+        node->minWidth = *opts.minWidth;
     }
     if (opts.maxWidth.has_value() && *opts.maxWidth > 0.0f) {
-        node->maxWidth = theme.Scale(*opts.maxWidth);
+        node->maxWidth = *opts.maxWidth;
     }
     if (opts.minHeight.has_value() && *opts.minHeight > 0.0f) {
-        node->minHeight = theme.Scale(*opts.minHeight);
+        node->minHeight = *opts.minHeight;
     }
     if (opts.maxHeight.has_value() && *opts.maxHeight > 0.0f) {
-        node->maxHeight = theme.Scale(*opts.maxHeight);
+        node->maxHeight = *opts.maxHeight;
     }
     node->flexGrow = opts.flexGrow;
     node->equalWidths = opts.equalWidths;
-    node->uiSize = activeSize;
-    node->disabled = activeDisabled;
+    node->uiSize = UiSize::Md;
 
-    ctx.PushContainer(node, keel::move(zone));
+    ctx.FinishContainer(node);
     return ContainerScope(&ctx, node);
 }
 

@@ -268,11 +268,8 @@ struct TagInputOptions {
     StateColor background{StateColor::Surface()};
     Border border{};
     UiText tooltip{};
+    UiSize size{UiSize::Md};
     bool disabled{false};
-    const UiTheme* theme{nullptr};
-    keel::Optional<float> scale{keel::kNullOpt};
-    keel::Optional<bool> debugBounds{keel::kNullOpt};
-    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 class TagInput {

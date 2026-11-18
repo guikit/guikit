@@ -3,6 +3,7 @@
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
+#include "guikit/core/zone.hpp"
 #include "keel/core.h"
 #include "keel/optional.h"
 
@@ -26,10 +27,7 @@ struct CardOptions {
     Border border{.width = 1.0f};
     bool clipChildren{true};                        ///< Clip children to prevent content bleeding outside rounded card
     bool disabled{false};
-    const UiTheme* theme{nullptr};
-    keel::Optional<float> scale{keel::kNullOpt};
-    keel::Optional<bool> debugBounds{keel::kNullOpt};
-    keel::Optional<bool> inspectMode{keel::kNullOpt};
+    ZoneOptions zone{};                             ///< Subtree environment (theme, scale, density, debug/inspect)
 };
 
 /// Autonomous immediate mode Card surface container entry point.

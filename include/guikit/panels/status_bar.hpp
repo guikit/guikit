@@ -4,6 +4,7 @@
 #include "guikit/core/response.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
+#include "guikit/core/zone.hpp"
 #include "guikit/graphics/icon.hpp"
 #include "keel/core.h"
 #include "keel/optional.h"
@@ -29,11 +30,9 @@ struct StatusBarOptions {
     keel::Optional<Padding> padding{keel::kNullOpt};       ///< Internal bar padding (nullopt = auto compact padding)
     StateColor background{};
     Border border{.width = 1.0f};
+    UiSize size{UiSize::Md};
     bool disabled{false};
-    const UiTheme* theme{nullptr};
-    keel::Optional<float> scale{keel::kNullOpt};
-    keel::Optional<bool> debugBounds{keel::kNullOpt};
-    keel::Optional<bool> inspectMode{keel::kNullOpt};
+    ZoneOptions zone{};
 };
 
 /// Configuration for a static or interactive segment inside a StatusBar.

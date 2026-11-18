@@ -252,7 +252,7 @@ void RenderMarkdownInspector(guikit::Context& ui, DemoContext&) {
 
 void RenderMarkdownStage(guikit::Context& ui, DemoContext& ctx) {
     if (auto mdScroll = ui.ScrollArea()) {
-        const auto mdRes = ui.Size(ctx.controlsSize).Markdown(kDemoMarkdownDoc, {
+        const auto mdRes = ui.Markdown(kDemoMarkdownDoc, {
             .allowZoom = true,
             .zoom = &s_state.zoom,
             .bodyFontSize = s_state.bodyFontSize,
@@ -280,7 +280,8 @@ void RenderMarkdownStage(guikit::Context& ui, DemoContext& ctx) {
             .enableSelection = s_state.enableSelection,
             .enableSearch = true,
             .interactiveTasks = s_state.interactiveTasks,
-            .searchQuery = s_state.searchQuery.as_ref()
+            .searchQuery = s_state.searchQuery.as_ref(),
+            .size = ctx.controlsSize
         });
         s_state.searchMatches = mdRes.searchMatchCount;
         if (!mdRes.clickedLink.empty()) {
@@ -301,7 +302,7 @@ keel::String GenerateMarkdownCode(const DemoContext& ctx) {
 
     return keel::format(
         "if (auto scroll = ui.ScrollArea()) {{\n"
-        "    auto res = ui.{}Markdown(markdownSource, {{\n"
+        "    auto res = ui.Markdown(markdownSource, {{\n"
         "        .allowZoom = true,\n"
         "        .zoom = &zoomFactor, // {:.2f}x\n"
         "        .bodyFontSize = {:.1f}f,\n"
@@ -329,11 +330,10 @@ keel::String GenerateMarkdownCode(const DemoContext& ctx) {
         "        .enableSelection = {},\n"
         "        .enableSearch = true,\n"
         "        .interactiveTasks = {},\n"
-        "        .searchQuery = \"{}\"\n"
+        "        .searchQuery = \"{}\"{}\n"
         "    }});\n"
         "    if (!res.clickedLink.empty()) ui.OpenUrl(res.clickedLink);\n"
         "}}",
-        FormatUiSizePrefix(ctx.controlsSize),
         s_state.zoom,
         s_state.bodyFontSize,
         s_state.headingScale,
@@ -359,7 +359,8 @@ keel::String GenerateMarkdownCode(const DemoContext& ctx) {
         s_state.imageRadius,
         s_state.enableSelection ? "true" : "false",
         s_state.interactiveTasks ? "true" : "false",
-        s_state.searchQuery.as_ref()
+        s_state.searchQuery.as_ref(),
+        FormatUiSizePrefix(ctx.controlsSize)
     );
 }
 

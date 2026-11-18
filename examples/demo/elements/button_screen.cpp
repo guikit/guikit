@@ -77,8 +77,9 @@ void RenderButtonStage(guikit::Context& ui, DemoContext& ctx) {
         opts.disabled = ctx.elemDisabled;
         opts.loading = s_state.loading;
         opts.square = s_state.square;
+        opts.size = ctx.controlsSize;
 
-        if (ui.Size(ctx.controlsSize).Button(opts)) {
+        if (ui.Button(opts)) {
             ++s_state.clicks;
             ui.InvalidateAll();
         }
@@ -88,7 +89,7 @@ void RenderButtonStage(guikit::Context& ui, DemoContext& ctx) {
 keel::String GenerateButtonCode(const DemoContext& ctx) {
     const guikit::Align ctrlAlign = ctx.GetCtrlAlign(NavCategory::ElemButton);
     const keel::String ctrlCode = keel::format(
-        "if (ui.{}Button({{\n"
+        "if (ui.Button({{\n"
         "    .text = \"{}\",\n"
         "    .icon = {},\n"
         "    .color = {},\n"
@@ -100,11 +101,10 @@ keel::String GenerateButtonCode(const DemoContext& ctx) {
         "    .border = {},\n"
         "    .disabled = {},\n"
         "    .loading = {},\n"
-        "    .square = {}\n"
+        "    .square = {}{}\n"
         "}})) {{\n"
         "    // On click handler\n"
         "}}",
-        FormatUiSizePrefix(ctx.controlsSize),
         s_state.text,
         s_state.hasIcon ? "guikit::Icon::Play()" : "{}",
         ctx.FormatControlColorCode(),
@@ -116,7 +116,8 @@ keel::String GenerateButtonCode(const DemoContext& ctx) {
         ctx.FormatCtrlBorderCode(),
         ctx.elemDisabled ? "true" : "false",
         s_state.loading ? "true" : "false",
-        s_state.square ? "true" : "false"
+        s_state.square ? "true" : "false",
+        FormatUiSizePrefix(ctx.controlsSize)
     );
     return ctx.WrapInElementCode(ctrlCode);
 }

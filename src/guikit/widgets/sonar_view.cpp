@@ -445,11 +445,11 @@ void RenderSonarViewNode(const Node* node, ICanvas& canvas, const UiTheme& theme
     if (r.w <= 8.0f || r.h <= 8.0f) return;
 
     const float radius = opts.border.radius.has_value()
-        ? theme.Scale(*opts.border.radius)
+        ? *opts.border.radius
         : theme.GetRadius(node->uiSize);
     const Color bgConsole = opts.background.Resolve(node->hovered, node->pressed, node->disabled, Color{6, 10, 18, 255});
     const Color borderCol = opts.border.color.Resolve(node->hovered, node->pressed, node->disabled, theme.palette.borderSubtle);
-    const float borderW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : 1.0f;
+    const float borderW = (opts.border.width > 0.0f) ? opts.border.width : 1.0f;
     const Color gridLineCol{56, 189, 248, 48};
     const Color gridMajorCol{56, 189, 248, 95};
     const Color labelTextCol{148, 163, 184, 225};
@@ -1170,18 +1170,18 @@ Vec2 SonarView::Measure(
     const SonarViewOptions& opts,
     UiSize /*size*/,
     ICanvas* /*canvas*/,
-    const UiTheme& theme,
+    const UiTheme& /*theme*/,
     float availableWidth
 ) {
-    float defaultW = theme.Scale(520.0f);
+    float defaultW = 520.0f;
     if (opts.width.IsFixed()) {
-        defaultW = theme.Scale(opts.width.Dp());
+        defaultW = opts.width.Dp();
     } else if (opts.width.ResolveMode(SizeMode::Stretch) == SizeMode::Stretch && availableWidth > 0.0f) {
         defaultW = availableWidth;
     }
     const float defaultH = opts.height.IsFixed()
-        ? theme.Scale(opts.height.Dp())
-        : theme.Scale(420.0f);
+        ? opts.height.Dp()
+        : 420.0f;
     return {defaultW, defaultH};
 }
 
@@ -1191,11 +1191,10 @@ SonarViewResponse SonarView::Run(
     const SonarViewOptions& opts,
     keel::SourceLocation loc
 ) {
-    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const Id id = ctx.MakeChildId(loc);
     const bool isDisabled = opts.disabled || ctx.IsDisabled();
-    const UiSize effectiveSize = ctx.GetCurrentSize();
+    const UiSize effectiveSize = opts.size;
     ICanvas* canvas = ctx.GetCanvas();
 
     Response baseRes = ctx.Interact(id);
@@ -1423,8 +1422,6 @@ SonarViewResponse SonarView::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::SonarView, id);
-    node->debugBoundsOverride = opts.debugBounds;
-    node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<SonarViewPayload>();
     payload->opts = opts;
     payload->opts.targets = state.renderedTargets.as_ref();

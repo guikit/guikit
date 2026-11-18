@@ -572,7 +572,7 @@ struct ViewportLayoutGeom {
         ViewportLayoutGeom g{};
         g.outerRect = box;
         g.toolbarSize = opts.toolbarSize.value_or(widgetSize);
-        const float scale = theme.Scale(1.0f);
+        constexpr float scale = 1.0f;
         const ComponentMetrics& cm = theme.GetMetrics(g.toolbarSize);
         const float gap = theme.GetGap(g.toolbarSize);
 
@@ -661,9 +661,9 @@ ImageViewResponse RunViewportNode(
     bool standaloneElement
 ) {
     const UiTheme& theme = ctx.GetTheme();
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const UiSize activeSize = opts.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    const float scale = theme.Scale(1.0f);
+    constexpr float scale = 1.0f;
 
     Response baseRes = ctx.Interact(id);
     ImageViewResponse res{};
@@ -920,8 +920,6 @@ ImageViewResponse RunViewportNode(
 
     // 4. Create Scene Graph Node for the Viewport
     Node* node = ctx.CreateNode(NodeType::ImageView, id);
-    node->debugBoundsOverride = opts.debugBounds;
-    node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<ImageViewViewportPayload>();
     payload->data = data;
     payload->params = params;
@@ -939,7 +937,7 @@ ImageViewResponse RunViewportNode(
     node->focused = baseRes.focused;
 
     const float effectiveMinHDp = ResolveEffectiveMinHeightDp(opts);
-    const float effectiveMinH = theme.Scale(effectiveMinHDp);
+    const float effectiveMinH = effectiveMinHDp;
 
     if (standaloneElement) {
         ControlSpec ctrlSpec{};
@@ -1006,19 +1004,19 @@ ImageViewResponse RunViewportNode(
         const ImageViewOptions& o = p->opts;
         const ImageViewResponse& resp = p->resp;
         ImageViewInternalState& s = *p->state;
-        const float scale = th.Scale(1.0f);
+        constexpr float scale = 1.0f;
 
         const Rect box = n->computedRect;
         if (box.w <= 8.0f || box.h <= 8.0f) return;
 
         const bool isDark = (th.mode == ThemeMode::Dark);
-        const float rad = o.border.radius.has_value() ? th.Scale(*o.border.radius) : th.GetRadius(n->uiSize);
+        const float rad = o.border.radius.has_value() ? *o.border.radius : th.GetRadius(n->uiSize);
         const Color defaultBgOuter = isDark ? Color(12, 16, 24, 255) : Color(241, 245, 249, 255);
         const Color bgOuter   = o.background.Resolve(n->hovered, n->active, n->disabled, defaultBgOuter);
         const Color bgCanvas  = isDark ? Color(8, 10, 16, 255)  : Color(226, 232, 240, 255);
         const Color barBg     = isDark ? Color(17, 24, 39, 255) : Color(248, 250, 252, 255);
         const Color borderCol = o.border.color.Resolve(n->hovered, n->active, n->disabled, th.palette.borderSubtle);
-        const float borderW   = (o.border.width > 0.0f) ? th.Scale(o.border.width) : 1.0f;
+        const float borderW   = (o.border.width > 0.0f) ? o.border.width : 1.0f;
         const float smallFs = th.GetFontSize(TextRole::LabelSmall) * 0.92f;
 
         c.DrawRoundRect(box, rad, bgOuter, borderCol, borderW);
@@ -1343,16 +1341,16 @@ Vec2 ImageView::Measure(
     const ImageViewOptions& opts,
     UiSize /*size*/,
     ICanvas* /*canvas*/,
-    const UiTheme& theme,
+    const UiTheme& /*theme*/,
     float availableWidth
 ) noexcept {
-    float w = 780.0f * theme.Scale(1.0f);
+    float w = 780.0f;
     if (opts.width.IsFixed()) {
-        w = theme.Scale(opts.width.Dp());
+        w = opts.width.Dp();
     } else if (opts.width.ResolveMode(SizeMode::Stretch) == SizeMode::Stretch && availableWidth > 0.0f) {
         w = availableWidth;
     }
-    const float h = theme.Scale(ResolveEffectiveMinHeightDp(opts));
+    const float h = ResolveEffectiveMinHeightDp(opts);
     return {w, h};
 }
 
@@ -1365,7 +1363,6 @@ ImageViewResponse RunImageViewImpl(
     const ImageViewOptions& opts,
     keel::SourceLocation loc
 ) {
-    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const Id rootId = ctx.MakeChildId(loc);
     auto& st = ctx.GetOrCreatePersistentState<ImageViewInternalState>(rootId);
@@ -1402,8 +1399,6 @@ ImageViewResponse RunImageViewImpl(
             .padding = Padding::All(10.0f),
             .border = {.radius = 6.0f}
         })) {
-            const ZoneScope compactControls = ctx.Zone({.size = UiSize::Sm});
-
             // --- Section 1: Histogram & Interactive Window/Level ---
             ctx.Text("Histogram & Window/Level", {.role = TextRole::LabelLarge});
 
@@ -1423,6 +1418,7 @@ ImageViewResponse RunImageViewImpl(
             histOpts.colormap = params.colormap;
             histOpts.showChannelPills = (data.channels >= 3);
             histOpts.multiChannelParams = params.channels;
+            histOpts.size = UiSize::Sm;
             histOpts.tooltip = "Drag left/right markers for black/white points, center band for level, double-click to reset";
 
             const HistogramResponse hRes = ctx.Run<Histogram>(histData, activeTp, histOpts);
@@ -1444,8 +1440,8 @@ ImageViewResponse RunImageViewImpl(
                     "Isolate Luminance"
                 };
                 keel::i32 dispChIdx = static_cast<keel::i32>(params.displayChannel);
-                if (auto el = ctx.Element({.label = "View Mode"})) {
-                    if (ctx.Select(dispChIdx, kDispChNames).changed) {
+                if (auto el = ctx.Element({.label = "View Mode", .size = UiSize::Sm})) {
+                    if (ctx.Select(dispChIdx, kDispChNames, {.size = UiSize::Sm}).changed) {
                         params.displayChannel = static_cast<ImageDisplayChannel>(dispChIdx);
                         if (params.displayChannel == ImageDisplayChannel::RedOnly) params.activeHistChannel = HistogramChannel::Red;
                         else if (params.displayChannel == ImageDisplayChannel::GreenOnly) params.activeHistChannel = HistogramChannel::Green;
@@ -1462,44 +1458,47 @@ ImageViewResponse RunImageViewImpl(
             ChannelTransferParams& curTp = params.channels[static_cast<keel::usize>((data.channels >= 3) ? params.activeHistChannel : HistogramChannel::Master)];
             const keel::StringRef wlFmt = (span >= 50.0f) ? "%.0f" : "%.2f";
 
-            if (auto el = ctx.Element({.label = "W (Window)"})) {
+            if (auto el = ctx.Element({.label = "W (Window)", .size = UiSize::Sm})) {
                 if (ctx.Slider(curTp.window, minW, span * 1.5f, {
                     .valueFormat = wlFmt,
-                    .showValue = true
+                    .showValue = true,
+                    .size = UiSize::Sm
                 }).changed) {
                     params.autoStrength = AutoWindowStrength::Off;
                     sidebarChangedParams = true;
                 }
             }
 
-            if (auto el = ctx.Element({.label = "L (Level)"})) {
+            if (auto el = ctx.Element({.label = "L (Level)", .size = UiSize::Sm})) {
                 if (ctx.Slider(curTp.level, st.dataMin, st.dataMax, {
                     .valueFormat = wlFmt,
-                    .showValue = true
+                    .showValue = true,
+                    .size = UiSize::Sm
                 }).changed) {
                     params.autoStrength = AutoWindowStrength::Off;
                     sidebarChangedParams = true;
                 }
             }
 
-            if (auto el = ctx.Element({.label = "Gamma"})) {
+            if (auto el = ctx.Element({.label = "Gamma", .size = UiSize::Sm})) {
                 if (ctx.Slider(curTp.gamma, 0.15f, 4.0f, {
                     .valueFormat = "%.2f",
                     .step = 0.05,
-                    .showValue = true
+                    .showValue = true,
+                    .size = UiSize::Sm
                 }).changed) {
                     sidebarChangedParams = true;
                 }
             }
 
             if (auto invRow = ctx.Row({.gap = 8.0f, .align = Alignment::Center})) {
-                if (auto el = ctx.Element({.label = "Invert"})) {
-                    if (ctx.Checkbox(curTp.invert).changed) {
+                if (auto el = ctx.Element({.label = "Invert", .size = UiSize::Sm})) {
+                    if (ctx.Checkbox(curTp.invert, {.size = UiSize::Sm}).changed) {
                         sidebarChangedParams = true;
                     }
                 }
                 ctx.Spacer();
-                if (ctx.Button({.text = "Reset W/L", .color = StateColor::Secondary()}).clicked) {
+                if (ctx.Button({.text = "Reset W/L", .color = StateColor::Secondary(), .size = UiSize::Sm}).clicked) {
                     for (auto& ch : params.channels) {
                         ch.ResetToRange(st.dataMin, st.dataMax);
                     }
@@ -1510,24 +1509,26 @@ ImageViewResponse RunImageViewImpl(
 
             // --- Section 2: Colormap (for 1-channel or isolated channel) ---
             const bool canUseColormap = (data.channels == 1) || (params.displayChannel != ImageDisplayChannel::CompositeRgb);
-            ctx.Disabled(!canUseColormap, [&]() {
+            {
                 keel::i32 cmapIdx = static_cast<keel::i32>(params.colormap);
                 if (auto el = ctx.Element({
                     .label = "Colormap",
-                    .description = canUseColormap ? keel::StringRef{} : "Select an isolated channel to apply Colormap"
+                    .description = canUseColormap ? keel::StringRef{} : "Select an isolated channel to apply Colormap",
+                    .size = UiSize::Sm,
+                    .disabled = !canUseColormap
                 })) {
-                    if (ctx.Select(cmapIdx, GetAllColormapNames()).changed) {
+                    if (ctx.Select(cmapIdx, GetAllColormapNames(), {.size = UiSize::Sm}).changed) {
                         params.colormap = static_cast<Colormap>(cmapIdx);
                         sidebarChangedParams = true;
                     }
                 }
-            });
+            }
 
             // --- Section 3: Auto Window (Quantile Clipping) ---
             ctx.Text("Auto Window", {.role = TextRole::LabelLarge});
             static constexpr keel::StaticArray<keel::StringRef, 3> kAutoTargets = {"Black", "White", "All"};
             keel::i32 targetIdx = static_cast<keel::i32>(params.autoTarget);
-            if (ctx.StepSlider(targetIdx, kAutoTargets, {.showValue = false}).changed) {
+            if (ctx.StepSlider(targetIdx, kAutoTargets, {.showValue = false, .size = UiSize::Sm}).changed) {
                 params.autoTarget = static_cast<AutoWindowTarget>(targetIdx);
                 if (params.autoStrength != AutoWindowStrength::Off) {
                     keel::ArrayRef<keel::u32> targetBins = st.binsLum;
@@ -1549,7 +1550,8 @@ ImageViewResponse RunImageViewImpl(
                     if (ctx.Button({
                         .text = kStrengthNames[i],
                         .color = isSel ? StateColor::Primary() : StateColor::Secondary(),
-                        .width = SizeMode::Stretch
+                        .width = SizeMode::Stretch,
+                        .size = UiSize::Sm
                     }).clicked) {
                         params.autoStrength = sMode;
                         keel::ArrayRef<keel::u32> targetBins = st.binsLum;
@@ -1568,7 +1570,8 @@ ImageViewResponse RunImageViewImpl(
                 if (ctx.Button({
                     .text = "Auto White Balance (Per-Channel R/G/B)",
                     .color = StateColor::Secondary(),
-                    .width = SizeMode::Stretch
+                    .width = SizeMode::Stretch,
+                    .size = UiSize::Sm
                 }).clicked) {
                     params.channels[0].ResetToRange(st.dataMin, st.dataMax);
                     const AutoWindowStrength effStr = (params.autoStrength == AutoWindowStrength::Off)
@@ -1584,10 +1587,10 @@ ImageViewResponse RunImageViewImpl(
             // --- Section 4: Transform & View ---
             ctx.Text("Transform & View", {.role = TextRole::LabelLarge});
             if (auto zRow = ctx.Row({.gap = 6.0f, .align = Alignment::Center})) {
-                if (ctx.Button({.text = "Fit", .color = StateColor::Secondary(), .width = SizeMode::Stretch}).clicked) {
+                if (ctx.Button({.text = "Fit", .color = StateColor::Secondary(), .width = SizeMode::Stretch, .size = UiSize::Sm}).clicked) {
                     st.fitPending = true;
                 }
-                if (ctx.Button({.text = "100%", .color = StateColor::Secondary(), .width = SizeMode::Stretch}).clicked) {
+                if (ctx.Button({.text = "100%", .color = StateColor::Secondary(), .width = SizeMode::Stretch, .size = UiSize::Sm}).clicked) {
                     st.zoom = 1.0f;
                     st.fitPending = false;
                 }
@@ -1595,8 +1598,8 @@ ImageViewResponse RunImageViewImpl(
 
             static constexpr keel::StaticArray<keel::StringRef, 4> kRotLabels = {"0\xC2\xB0", "90\xC2\xB0", "180\xC2\xB0", "270\xC2\xB0"};
             keel::i32 rotIdx = static_cast<keel::i32>(params.rotation);
-            if (auto el = ctx.Element({.label = "Rotate"})) {
-                if (ctx.StepSlider(rotIdx, kRotLabels, {.showValue = false}).changed) {
+            if (auto el = ctx.Element({.label = "Rotate", .size = UiSize::Sm})) {
+                if (ctx.StepSlider(rotIdx, kRotLabels, {.showValue = false, .size = UiSize::Sm}).changed) {
                     params.rotation = static_cast<ImageRotation>(rotIdx);
                     st.fitPending = true;
                     sidebarChangedParams = true;
@@ -1607,7 +1610,8 @@ ImageViewResponse RunImageViewImpl(
                 if (ctx.Button({
                     .text = "Flip H",
                     .color = params.flipHorizontal ? StateColor::Primary() : StateColor::Secondary(),
-                    .width = SizeMode::Stretch
+                    .width = SizeMode::Stretch,
+                    .size = UiSize::Sm
                 }).clicked) {
                     params.flipHorizontal = !params.flipHorizontal;
                     sidebarChangedParams = true;
@@ -1615,13 +1619,13 @@ ImageViewResponse RunImageViewImpl(
                 if (ctx.Button({
                     .text = "Flip V",
                     .color = params.flipVertical ? StateColor::Primary() : StateColor::Secondary(),
-                    .width = SizeMode::Stretch
+                    .width = SizeMode::Stretch,
+                    .size = UiSize::Sm
                 }).clicked) {
                     params.flipVertical = !params.flipVertical;
                     sidebarChangedParams = true;
                 }
             }
-
         }
     };
 
@@ -1637,24 +1641,21 @@ ImageViewResponse RunImageViewImpl(
         .align = Alignment::Stretch,
         .width = outerWidth,
         .height = outerHeight,
-        .minHeight = effectiveMinHDp,
-        .debugBounds = optsCopy.debugBounds,
-        .inspectMode = optsCopy.inspectMode
+        .minHeight = effectiveMinHDp
     })) {
         if (Node* rNode = outerRow.GetNode()) {
-            const UiTheme& th = ctx.GetTheme();
             if (rNode->parent && rNode->parent->type == NodeType::Element) {
                 rNode->widthMode = SizeMode::Stretch;
                 rNode->heightMode = SizeMode::Stretch;
             } else {
                 if (optsCopy.width.IsFixed()) {
                     rNode->widthMode = SizeMode::Fixed;
-                    rNode->fixedWidth = th.Scale(optsCopy.width.Dp());
+                    rNode->fixedWidth = optsCopy.width.Dp();
                 } else {
                     rNode->widthMode = resolvedOuterW;
                     rNode->fixedWidth = 0.0f;
                 }
-                const float scaledMinH = th.Scale(effectiveMinHDp);
+                const float scaledMinH = effectiveMinHDp;
                 rNode->minHeight = scaledMinH;
                 if (optsCopy.height.IsFixed()) {
                     rNode->heightMode = SizeMode::Fixed;

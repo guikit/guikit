@@ -83,14 +83,14 @@ Vec2 MeasureButtonCapsule(
     const bool hasIcon = opts.loading || opts.icon.IsValid();
     const bool hasCapsuleText = !opts.text.empty();
     const bool hasBadge = opts.badge.HasContentOrReserve();
-    const float baseH = ctrl.height.IsFixed() ? theme.Scale(ctrl.height.Dp()) : m.defaultHeight;
+    const float baseH = ctrl.height.IsFixed() ? ctrl.height.Dp() : m.defaultHeight;
 
     // Explicit square button or icon-only button with no text variants or badge defaults to square
     if (opts.square) {
         return {baseH, baseH};
     }
     if (hasIcon && !hasCapsuleText && opts.text.variants.empty() && !hasBadge) {
-        const float w = ctrl.width.IsFixed() ? theme.Scale(ctrl.width.Dp()) : baseH;
+        const float w = ctrl.width.IsFixed() ? ctrl.width.Dp() : baseH;
         return {w, baseH};
     }
 
@@ -101,9 +101,9 @@ Vec2 MeasureButtonCapsule(
     if (hasIcon && maxTextW > 0.0f) {
         if (opts.iconPlacement == Placement::Top || opts.iconPlacement == Placement::Bottom) {
             contentW = keel::max(m.iconSize, maxTextW);
-            contentH = keel::max(baseH, m.iconSize + theme.Scale(4.0f) + capFontSize + m.paddingY * 2.0f);
+            contentH = keel::max(baseH, m.iconSize + 4.0f + capFontSize + m.paddingY * 2.0f);
         } else {
-            const float gap = keel::max(theme.Scale(4.0f), m.paddingX * 0.55f);
+            const float gap = keel::max(4.0f, m.paddingX * 0.55f);
             contentW = m.iconSize + gap + maxTextW;
         }
     } else if (hasIcon) {
@@ -114,18 +114,18 @@ Vec2 MeasureButtonCapsule(
 
     if (hasBadge) {
         const float badgeTextW = TextUtil::MeasureWidth(opts.badge, badgeFontSize, canvas);
-        const float badgeW = badgeTextW + theme.Scale(10.0f);
+        const float badgeW = badgeTextW + 10.0f;
         if (contentW > 0.0f) {
-            contentW += theme.Scale(6.0f);
+            contentW += 6.0f;
         }
         contentW += badgeW;
     }
 
     float totalW = contentW + m.paddingX * 2.0f;
     if (ctrl.width.IsFixed()) {
-        totalW = theme.Scale(ctrl.width.Dp());
+        totalW = ctrl.width.Dp();
     } else if (ctrl.minWidth.has_value()) {
-        totalW = keel::max(m.defaultHeight, keel::max(theme.Scale(*ctrl.minWidth), totalW));
+        totalW = keel::max(m.defaultHeight, keel::max(*ctrl.minWidth, totalW));
     } else {
         totalW = keel::max(m.defaultHeight, totalW);
     }
@@ -135,12 +135,11 @@ Vec2 MeasureButtonCapsule(
 } // namespace
 
 Response Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocation loc) {
-    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const Id id = ctx.MakeChildId(loc);
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const bool interactionBlocked = effectiveDisabled || opts.loading;
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const UiSize activeSize = opts.size;
 
     ctx.RegisterFocusable(id, interactionBlocked);
 
@@ -244,7 +243,7 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocati
     Control::SetupNode(ctx, node, ctrl);
     if (!ctrl.width.IsFixed()) {
         const float defaultMinW = (bOpts->square && bOpts->height.IsFixed())
-            ? ctx.GetTheme().Scale(bOpts->height.Dp())
+            ? bOpts->height.Dp()
             : ctx.GetTheme().GetMetrics(activeSize).defaultHeight;
         node->minWidth = keel::max(node->minWidth, defaultMinW);
     }
@@ -300,7 +299,7 @@ void Button::Render(
     Color bg = Color::Transparent();
     Color defaultText = theme.palette.textPrimary;
     Color borderCol = Color::Transparent();
-    float borderW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : 0.0f;
+    float borderW = (opts.border.width > 0.0f) ? opts.border.width : 0.0f;
 
     if (!effColor.HasAny() || effColor.token == StateColorToken::Secondary) {
         const VariantColors& colors = theme.GetVariant(UiVariant::Secondary);
@@ -393,7 +392,7 @@ void Button::Render(
     canvas.PushClip(capsuleRect);
 
     // Background & border
-    const float radius = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : m.cornerRadius;
+    const float radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
     canvas.DrawRoundRect(capsuleRect, radius, bg, borderCol, borderW);
 
     const bool hasIcon = opts.loading || opts.icon.IsValid();
@@ -401,7 +400,7 @@ void Button::Render(
     const Color icoCol = opts.iconColor.has_value()
         ? (disabled ? opts.iconColor->WithAlphaF(0.40f) : *opts.iconColor)
         : textCol;
-    const float padX = opts.square ? keel::min(m.paddingX, theme.Scale(2.0f)) : m.paddingX;
+    const float padX = opts.square ? keel::min(m.paddingX, 2.0f) : m.paddingX;
 
     // Reserve optional trailing badge inside capsule
     const float badgeFontSize = theme.ResolveFontSize(opts.badge, m.fontSize * 0.78f);
@@ -409,8 +408,8 @@ void Button::Render(
     float badgeGap = 0.0f;
     bool drawBadge = false;
     if (!opts.badge.empty() && !opts.square) {
-        badgeW = TextUtil::MeasureWidth(opts.badge, badgeFontSize, &canvas) + theme.Scale(10.0f);
-        badgeGap = (hasIcon || hasCapsuleText) ? theme.Scale(6.0f) : 0.0f;
+        badgeW = TextUtil::MeasureWidth(opts.badge, badgeFontSize, &canvas) + 10.0f;
+        badgeGap = (hasIcon || hasCapsuleText) ? 6.0f : 0.0f;
         if (capsuleRect.w >= padX * 2.0f + badgeW + badgeGap + (hasCapsuleText ? capFontSize * 1.5f : (hasIcon ? m.iconSize : 0.0f))) {
             drawBadge = true;
         }
@@ -422,7 +421,7 @@ void Button::Render(
         capsuleRect.h
     );
     if (drawBadge) {
-        const float badgeH = keel::min(capsuleRect.h - theme.Scale(4.0f), badgeFontSize + theme.Scale(5.0f));
+        const float badgeH = keel::min(capsuleRect.h - 4.0f, badgeFontSize + 5.0f);
         const Rect badgeRect(
             capsuleRect.Right() - padX - badgeW,
             capsuleRect.y + (capsuleRect.h - badgeH) * 0.5f,
@@ -473,9 +472,9 @@ void Button::Render(
     } else if (hasIcon && hasCapsuleText) {
         // Icon + Label
         const float rightPad = drawBadge ? 0.0f : padX;
-        const float gap = keel::max(theme.Scale(4.0f), m.paddingX * 0.55f);
+        const float gap = keel::max(4.0f, m.paddingX * 0.55f);
         if (opts.iconPlacement == Placement::Top) {
-            const float vGap = theme.Scale(4.0f);
+            const float vGap = 4.0f;
             const float textH = canvas.GetLineHeight(capFontSize);
             const float totalContentH = m.iconSize + vGap + textH;
             const float startY = contentBounds.y + (contentBounds.h - totalContentH) * 0.5f;
@@ -492,7 +491,7 @@ void Button::Render(
             const Rect textRect(contentBounds.x + padX, startY + m.iconSize + vGap, keel::max(0.0f, contentBounds.w - padX - rightPad), textH);
             canvas.DrawTextBox(effectiveCapsuleText.text, textRect, capFontSize, textCol, alignX, 0.5f);
         } else if (opts.iconPlacement == Placement::Bottom) {
-            const float vGap = theme.Scale(4.0f);
+            const float vGap = 4.0f;
             const float textH = canvas.GetLineHeight(capFontSize);
             const float totalContentH = m.iconSize + vGap + textH;
             const float startY = contentBounds.y + (contentBounds.h - totalContentH) * 0.5f;

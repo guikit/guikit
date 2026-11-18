@@ -4,6 +4,7 @@
 #include "guikit/core/response.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
+#include "guikit/core/zone.hpp"
 #include "keel/core.h"
 #include "keel/optional.h"
 
@@ -45,11 +46,9 @@ struct SidebarOptions {
     StateColor background{};
     Border border{.width = 1.0f};
     bool clipChildren{true};
+    UiSize size{UiSize::Md};
     bool disabled{false};
-    const UiTheme* theme{nullptr};
-    keel::Optional<float> scale{keel::kNullOpt};
-    keel::Optional<bool> debugBounds{keel::kNullOpt};
-    keel::Optional<bool> inspectMode{keel::kNullOpt};
+    ZoneOptions zone{};
 };
 
 /// Persistent state stored per Sidebar in Context.

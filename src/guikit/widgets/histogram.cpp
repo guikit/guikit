@@ -233,16 +233,16 @@ Vec2 Histogram::Measure(
     const HistogramOptions& opts,
     UiSize /*size*/,
     ICanvas* /*canvas*/,
-    const UiTheme& theme,
+    const UiTheme& /*theme*/,
     float availableWidth
 ) noexcept {
-    float w = 240.0f * theme.Scale(1.0f);
+    float w = 240.0f;
     if (opts.width.IsFixed()) {
-        w = theme.Scale(opts.width.Dp());
+        w = opts.width.Dp();
     } else if (opts.width.ResolveMode(SizeMode::Stretch) == SizeMode::Stretch && availableWidth > 0.0f) {
         w = availableWidth;
     }
-    const float h = theme.Scale(ResolveEffectiveMinHeightDp(opts));
+    const float h = ResolveEffectiveMinHeightDp(opts);
     return {w, h};
 }
 
@@ -253,13 +253,12 @@ HistogramResponse Histogram::Run(
     const HistogramOptions& opts,
     keel::SourceLocation loc
 ) {
-    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const Id id = ctx.MakeChildId(loc);
     const UiTheme& theme = ctx.GetTheme();
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const UiSize activeSize = opts.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    const float scale = theme.Scale(1.0f);
+    constexpr float scale = 1.0f;
 
     HistogramOptions optsCopy = opts;
 
@@ -407,8 +406,6 @@ HistogramResponse Histogram::Run(
 
     // Create Node & Payload
     Node* node = ctx.CreateNode(NodeType::Histogram, id);
-    node->debugBoundsOverride = opts.debugBounds;
-    node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<HistogramPayload>();
     payload->data = data;
     payload->transfer = transfer;
@@ -499,18 +496,18 @@ HistogramResponse Histogram::Run(
         const ChannelTransferParams& tp = p->transfer;
         const HistogramOptions& o = p->opts;
         const HistogramResponse& resp = p->resp;
-        const float scale = th.Scale(1.0f);
+        constexpr float scale = 1.0f;
 
         const Rect box = n->computedRect;
         if (box.w <= 8.0f || box.h <= 8.0f) return;
 
         const bool isDark = (th.mode == ThemeMode::Dark);
-        const float rad = o.border.radius.has_value() ? th.Scale(*o.border.radius) : th.GetRadius(n->uiSize);
+        const float rad = o.border.radius.has_value() ? *o.border.radius : th.GetRadius(n->uiSize);
         const Color defaultBgSurface = isDark ? Color(15, 20, 30, 255) : Color(245, 248, 252, 255);
         const Color bgSurface = o.background.Resolve(n->hovered, n->active, n->disabled, defaultBgSurface);
         const Color plotBg    = isDark ? Color(10, 14, 22, 255) : Color(255, 255, 255, 255);
         const Color borderCol = o.border.color.Resolve(n->hovered, n->active, n->disabled, th.palette.borderSubtle);
-        const float borderW   = (o.border.width > 0.0f) ? th.Scale(o.border.width) : 1.0f;
+        const float borderW   = (o.border.width > 0.0f) ? o.border.width : 1.0f;
         const Color gridCol   = isDark ? Color(51, 65, 85, 70) : Color(203, 213, 225, 110);
 
         c.DrawRoundRect(box, rad, bgSurface, borderCol, borderW);

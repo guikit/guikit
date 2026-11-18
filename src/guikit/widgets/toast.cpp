@@ -31,9 +31,9 @@ void Toast::RunHost(
         return;
     }
 
-    const UiTheme theme = ctx.ResolveTheme({.theme = opts.theme, .scale = opts.scale});
+    const UiTheme theme = ctx.GetTheme();
 
-    const float s = theme.scale;
+    constexpr float s = 1.0f;
     Rect hostBounds = ctx.GetPopupViewportRect();
     if (opts.confineToParent) {
         const Rect parentBounds = ctx.GetParentPrevFrameBounds();
@@ -43,9 +43,9 @@ void Toast::RunHost(
     }
 
     ICanvas* canvas = ctx.GetCanvas();
-    const float cardW = keel::min(keel::max(160.0f, hostBounds.w - 24.0f * s), theme.Scale(opts.width));
-    const float gap = theme.Scale(opts.gap);
-    const float margin = theme.Scale(opts.margin);
+    const float cardW = keel::min(keel::max(160.0f, hostBounds.w - 24.0f * s), opts.width);
+    const float gap = opts.gap;
+    const float margin = opts.margin;
     const float padX = 14.0f * s;
     const float padY = 12.0f * s;
     const float iconBoxSz = 26.0f * s;

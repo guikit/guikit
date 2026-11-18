@@ -149,11 +149,19 @@ public:
     /// Finalizes and commits all recorded rendering commands.
     virtual void End() = 0;
 
-    /// Returns the current canvas scale factor.
+    /// Returns the current number of physical pixels per logical unit, including any pushed transforms.
     [[nodiscard]] virtual float GetScale() const noexcept = 0;
 
     /// Sets or overrides the current canvas scale factor.
     virtual void SetScale(float scale) = 0;
+
+    /// Enters a local coordinate system: a point `p` drawn after this call lands where `transform.Apply(p)` would
+    /// land before it. Transforms nest; text and strokes are rasterized at the resulting pixel scale, so scaled
+    /// content stays crisp. Must be balanced by `PopTransform()`.
+    virtual void PushTransform(const Transform2D& transform) = 0;
+
+    /// Leaves the innermost transform pushed with `PushTransform()`.
+    virtual void PopTransform() = 0;
 
     /// Human-readable backend identifier name (e.g. "ThorVG (Vector Software)", "Blend2D (JIT SIMD)", "SDL3 (Direct GPU)").
     [[nodiscard]] virtual keel::StringRef GetBackendName() const noexcept = 0;

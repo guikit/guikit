@@ -4,6 +4,7 @@
 #include "guikit/core/id.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/types.hpp"
+#include "guikit/core/zone.hpp"
 #include "keel/core.h"
 #include "keel/hash_map.h"
 #include "keel/optional.h"
@@ -21,9 +22,9 @@ struct CarouselOptions {
     Alignment align{Alignment::Center};             ///< Vertical alignment of items
     Justify justify{Justify::Start};                ///< Horizontal item distribution
     bool scrollWheel{true};                         ///< Enable horizontal mouse wheel scrolling
+    UiSize size{UiSize::Md};                        ///< Navigation arrow & scrollbar size
     bool disabled{false};                           ///< Interaction suppression
-    const UiTheme* theme{nullptr};                  ///< Optional scoped theme override
-    keel::Optional<float> scale{keel::kNullOpt};       ///< Optional scoped scale factor override
+    ZoneOptions zone{};                             ///< Subtree environment (theme, scale, density, disabled, debug/inspect)
 };
 
 /// Internal runtime state allocated in frame arena for Carousel container nodes.
@@ -96,7 +97,8 @@ public:
     static void CollectBounds(
         const Node* node,
         keel::HashMap<Id, Rect>& outBounds,
-        Rect parentClip
+        Rect parentClip,
+        const Transform2D& space
     );
 
     /// Renders navigation arrow buttons for an overflowing Carousel container (RenderFunc signature).

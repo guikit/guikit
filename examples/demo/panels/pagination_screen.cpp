@@ -88,13 +88,14 @@ void RenderPaginationStage(guikit::Context& ui, DemoContext& ctx) {
     }
 
     auto renderPager = [&]() {
-        ui.Size(ctx.controlsSize).Pagination(s_pg.currentPage, totalPages, {
+        ui.Pagination(s_pg.currentPage, totalPages, {
             .siblingCount = static_cast<keel::u32>(keel::max(0, s_pg.siblingCount)),
             .showFirstLast = s_pg.showFirstLast,
             .showPrevNext = s_pg.showPrevNext,
             .showPageInfo = s_pg.showPageInfo,
             .interactiveEllipsis = s_pg.interactiveEllipsis,
             .color = activeCol,
+            .size = ctx.controlsSize,
             .disabled = ctx.elemDisabled
         });
     };
@@ -124,17 +125,16 @@ keel::String GeneratePaginationCode(const DemoContext& ctx) {
             "    .background = guikit::StateColor::Surface(),\n"
             "    .border = {{.width = 1.0f, .radius = 8.0f}}\n"
             "}})) {{\n"
-            "    ui.{}Pagination(currentPage, {}, {{\n"
+            "    ui.Pagination(currentPage, {}, {{\n"
             "        .siblingCount = {},\n"
             "        .showFirstLast = {},\n"
             "        .showPrevNext = {},\n"
             "        .showPageInfo = {},\n"
             "        .interactiveEllipsis = {},\n"
-            "        .color = guikit::StateColor::{}(),\n"
+            "        .color = guikit::StateColor::{}(){},\n"
             "        .disabled = {}\n"
             "    }});\n"
             "}}",
-            sizePrefix,
             s_pg.totalPages,
             s_pg.siblingCount,
             s_pg.showFirstLast ? "true" : "false",
@@ -142,21 +142,21 @@ keel::String GeneratePaginationCode(const DemoContext& ctx) {
             s_pg.showPageInfo ? "true" : "false",
             s_pg.interactiveEllipsis ? "true" : "false",
             VariantName(ctx.btnVariant),
+            sizePrefix,
             ctx.elemDisabled ? "true" : "false"
         );
     }
 
     return keel::format(
-        "ui.{}Pagination(currentPage, {}, {{\n"
+        "ui.Pagination(currentPage, {}, {{\n"
         "    .siblingCount = {},\n"
         "    .showFirstLast = {},\n"
         "    .showPrevNext = {},\n"
         "    .showPageInfo = {},\n"
         "    .interactiveEllipsis = {},\n"
-        "    .color = guikit::StateColor::{}(),\n"
+        "    .color = guikit::StateColor::{}(){},\n"
         "    .disabled = {}\n"
         "}});",
-        sizePrefix,
         s_pg.totalPages,
         s_pg.siblingCount,
         s_pg.showFirstLast ? "true" : "false",
@@ -164,6 +164,7 @@ keel::String GeneratePaginationCode(const DemoContext& ctx) {
         s_pg.showPageInfo ? "true" : "false",
         s_pg.interactiveEllipsis ? "true" : "false",
         VariantName(ctx.btnVariant),
+        sizePrefix,
         ctx.elemDisabled ? "true" : "false"
     );
 }

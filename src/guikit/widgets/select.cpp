@@ -31,9 +31,9 @@ Vec2 MeasureSelectBox(const SelectOptions& opts, UiSize size, const UiTheme& the
     const SelectMetrics& m = theme.GetSelect(size);
     const ControlSpec ctrl = EffectiveSelectControl(opts, size, theme);
     const bool hasExplicitDpW = ctrl.width.IsFixed();
-    float boxW = hasExplicitDpW ? theme.Scale(ctrl.width.Dp()) : m.defaultWidth;
+    float boxW = hasExplicitDpW ? ctrl.width.Dp() : m.defaultWidth;
     if (ctrl.minWidth.has_value()) {
-        boxW = keel::max(theme.Scale(*ctrl.minWidth), boxW);
+        boxW = keel::max(*ctrl.minWidth, boxW);
     } else if (!hasExplicitDpW) {
         boxW = keel::max(m.minWidth, boxW);
     } else {
@@ -205,10 +205,9 @@ Response Select::Run(
     const SelectOptions& opts,
     keel::SourceLocation loc
 ) {
-    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const UiSize activeSize = opts.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const bool isEditable = opts.editable;
     const bool isSearchable = opts.searchable || isEditable;
@@ -299,12 +298,12 @@ Response Select::Run(
     const float clearExtraW = optsCopy.clearable ? (m.iconSize + 8.0f) : 0.0f;
     float intrinsicW = maxRowW + m.paddingX * 2.0f + m.iconSize + 8.0f + clearExtraW + (exceedsVisibleItems ? sm.gutter : 0.0f);
     if (optsCopy.minWidth.has_value()) {
-        intrinsicW = keel::max(theme.Scale(*optsCopy.minWidth), intrinsicW);
+        intrinsicW = keel::max(*optsCopy.minWidth, intrinsicW);
     } else {
         intrinsicW = keel::max(m.minWidth, intrinsicW);
     }
     if (optsCopy.width.IsFixed()) {
-        intrinsicW = theme.Scale(optsCopy.width.Dp());
+        intrinsicW = optsCopy.width.Dp();
     }
 
     const ControlSpec ctrl = EffectiveSelectControl(optsCopy, activeSize, theme);
@@ -1247,7 +1246,7 @@ void Select::Render(
         ? ((hovered && !disabled) ? pal.surface : pal.inputBackground)
         : Color::Transparent();
     Color boxBorder;
-    float strokeW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : m.strokeWidth;
+    float strokeW = (opts.border.width > 0.0f) ? opts.border.width : m.strokeWidth;
 
     if ((open || focused) && !disabled) {
         boxBorder = pal.focusRing;
@@ -1281,7 +1280,7 @@ void Select::Render(
     }
 
     // Draw box background and border
-    const float radius = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : m.cornerRadius;
+    const float radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
     canvas.DrawRoundRect(boxRect, radius, boxBg, boxBorder, strokeW);
 
     // Left elements (prefix icon and/or text)
@@ -1759,7 +1758,7 @@ void RenderMultiSelectNode(
         ? ((hovered && !disabled) ? pal.surface : pal.inputBackground)
         : Color::Transparent();
     Color boxBorder;
-    float strokeW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : m.strokeWidth;
+    float strokeW = (opts.border.width > 0.0f) ? opts.border.width : m.strokeWidth;
 
     if ((open || focused) && !disabled) {
         boxBorder = pal.focusRing;
@@ -1792,7 +1791,7 @@ void RenderMultiSelectNode(
         boxBorder = theme.ResolveColor(opts.border.color, hovered, open || focused, disabled, boxBorder);
     }
 
-    const float radius = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : m.cornerRadius;
+    const float radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
     canvas.DrawRoundRect(boxRect, radius, boxBg, boxBorder, strokeW);
 
     // Left prefix
@@ -2146,10 +2145,9 @@ Response Select::RunMulti(
     const SelectOptions& opts,
     keel::SourceLocation loc
 ) {
-    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const UiSize activeSize = opts.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const bool isSearchable = opts.searchable;
 
@@ -2209,12 +2207,12 @@ Response Select::RunMulti(
     const float clearExtraW = optsCopy.clearable ? (m.iconSize + 8.0f) : 0.0f;
     float intrinsicW = maxRowW + m.paddingX * 2.0f + m.iconSize + 8.0f + clearExtraW + (exceedsVisibleItems ? sm.gutter : 0.0f);
     if (optsCopy.minWidth.has_value()) {
-        intrinsicW = keel::max(theme.Scale(*optsCopy.minWidth), intrinsicW);
+        intrinsicW = keel::max(*optsCopy.minWidth, intrinsicW);
     } else {
         intrinsicW = keel::max(m.minWidth, intrinsicW);
     }
     if (optsCopy.width.IsFixed()) {
-        intrinsicW = theme.Scale(optsCopy.width.Dp());
+        intrinsicW = optsCopy.width.Dp();
     }
 
     const ControlSpec ctrl = EffectiveSelectControl(optsCopy, activeSize, theme);

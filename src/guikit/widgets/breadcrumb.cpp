@@ -73,11 +73,11 @@ float MeasureTokenNaturalWidth(
 ) noexcept {
     const ComponentMetrics& cm = theme.GetMetrics(size);
     const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
-    const float padX = keel::max(theme.Scale(6.0f), cm.paddingX * 0.65f);
+    const float padX = keel::max(6.0f, cm.paddingX * 0.65f);
 
     if (token.isEllipsis) {
         const float dotsW = TextUtil::MeasureWidth("...", fontSize, canvas);
-        return keel::max(theme.Scale(26.0f), dotsW + padX * 1.8f);
+        return keel::max(26.0f, dotsW + padX * 1.8f);
     }
 
     if (token.itemIndex >= items.size()) {
@@ -85,8 +85,8 @@ float MeasureTokenNaturalWidth(
     }
 
     const BreadcrumbItem& item = items[token.itemIndex];
-    const float iconGap = theme.Scale(5.0f);
-    const float badgeGap = theme.Scale(5.0f);
+    const float iconGap = 5.0f;
+    const float badgeGap = 5.0f;
     const float badgeFontSize = fontSize * 0.82f;
 
     float contentW = 0.0f;
@@ -99,7 +99,7 @@ float MeasureTokenNaturalWidth(
     }
     if (!item.badge.empty()) {
         if (contentW > 0.0f) contentW += badgeGap;
-        contentW += TextUtil::MeasureWidth(item.badge, badgeFontSize, canvas) + theme.Scale(10.0f);
+        contentW += TextUtil::MeasureWidth(item.badge, badgeFontSize, canvas) + 10.0f;
     }
 
     return keel::max(cm.defaultHeight * 0.75f, contentW + padX * 2.0f);
@@ -107,7 +107,7 @@ float MeasureTokenNaturalWidth(
 
 float MeasureSeparatorSlotWidth(UiSize size, const UiTheme& theme) noexcept {
     const ComponentMetrics& cm = theme.GetMetrics(size);
-    return keel::max(theme.Scale(14.0f), cm.iconSize * 1.05f);
+    return keel::max(14.0f, cm.iconSize * 1.05f);
 }
 
 Vec2 MeasureBreadcrumbNaturalBox(
@@ -131,14 +131,14 @@ Vec2 MeasureBreadcrumbNaturalBox(
     }
 
     if (opts.width.IsFixed()) {
-        totalW = theme.Scale(opts.width.Dp());
+        totalW = opts.width.Dp();
     }
 
     const float boxH = opts.height.IsFixed()
-        ? theme.Scale(opts.height.Dp())
+        ? opts.height.Dp()
         : cm.defaultHeight;
 
-    return {keel::max(theme.Scale(24.0f), totalW), boxH};
+    return {keel::max(24.0f, totalW), boxH};
 }
 
 void ComputeBreadcrumbLayout(
@@ -199,7 +199,7 @@ void ComputeBreadcrumbLayout(
     if (innerRect.w > 1.0f && totalW > innerRect.w + 0.5f && !outTokens.empty()) {
         const float totalSepW = (outTokens.size() > 1) ? (static_cast<float>(outTokens.size() - 1) * sepW) : 0.0f;
         const float sumTokW = keel::max(1.0f, totalW - totalSepW);
-        if (innerRect.w > totalSepW + static_cast<float>(outTokens.size()) * theme.Scale(18.0f)) {
+        if (innerRect.w > totalSepW + static_cast<float>(outTokens.size()) * 18.0f) {
             const float availTokW = innerRect.w - totalSepW;
             const float ratio = availTokW / sumTokW;
             for (float& w : widths) {
@@ -255,7 +255,7 @@ void DrawSeparatorGlyph(
             break;
         }
         case BreadcrumbSeparator::Dot: {
-            const float r = keel::max(1.8f, theme.Scale(2.2f));
+            const float r = 2.2f;
             canvas.DrawRoundRect(Rect(center.x - r, center.y - r, r * 2.0f, r * 2.0f), r, color);
             break;
         }
@@ -294,8 +294,8 @@ void RenderBreadcrumbPopup(
 
     const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
     const float badgeFontSize = fontSize * 0.82f;
-    const float iconGap = theme.Scale(6.0f);
-    const float badgeGap = theme.Scale(8.0f);
+    const float iconGap = 6.0f;
+    const float badgeGap = 8.0f;
 
     canvas.PushClip(itemsClipRect);
 
@@ -319,9 +319,9 @@ void RenderBreadcrumbPopup(
 
         if (isSelected) {
             const Color selFill = accentColor.WithAlphaF(isHovered ? 0.22f : 0.14f);
-            canvas.DrawRoundRect(itemRect, theme.Scale(4.0f), selFill);
+            canvas.DrawRoundRect(itemRect, 4.0f, selFill);
         } else if (isHovered) {
-            canvas.DrawRoundRect(itemRect, theme.Scale(4.0f), pal.surfaceHover);
+            canvas.DrawRoundRect(itemRect, 4.0f, pal.surfaceHover);
         }
 
         const Color fgColor = isSelected
@@ -337,17 +337,17 @@ void RenderBreadcrumbPopup(
             rightX -= checkSz;
             const Rect checkRect(rightX, centerY - checkSz * 0.5f, checkSz, checkSz);
             Icon::Check().Draw(canvas, checkRect, accentColor);
-            rightX -= theme.Scale(6.0f);
+            rightX -= 6.0f;
         }
 
         if (!item.badge.empty()) {
-            const float badgeW = canvas.MeasureText(item.badge, badgeFontSize).x + theme.Scale(10.0f);
-            const float badgeH = badgeFontSize + theme.Scale(5.0f);
+            const float badgeW = canvas.MeasureText(item.badge, badgeFontSize).x + 10.0f;
+            const float badgeH = badgeFontSize + 5.0f;
             rightX -= badgeW;
             const Rect badgeR(rightX, centerY - badgeH * 0.5f, badgeW, badgeH);
             const Color badgeBg = isSelected ? accentColor.WithAlphaF(0.25f) : pal.surfaceHover;
             const Color badgeFg = isSelected ? accentColor : pal.textSecondary;
-            canvas.DrawRoundRect(badgeR, theme.Scale(4.0f), badgeBg);
+            canvas.DrawRoundRect(badgeR, 4.0f, badgeBg);
             canvas.DrawTextBox(item.badge, badgeR, badgeFontSize, badgeFg, 0.5f, 0.5f);
             rightX -= badgeGap;
         }
@@ -432,9 +432,8 @@ Response Breadcrumb::Run(
     const BreadcrumbOptions& opts,
     keel::SourceLocation loc
 ) {
-    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const UiSize activeSize = opts.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const UiTheme theme = ctx.GetTheme();
     ICanvas* canvas = ctx.GetCanvas();
@@ -551,11 +550,11 @@ Response Breadcrumb::Run(
     const ComponentMetrics& cm = theme.GetMetrics(activeSize);
     const float fontSize = theme.GetFontSize(TextRole::LabelMedium, activeSize);
     const float badgeFontSize = fontSize * 0.82f;
-    const float iconGap = theme.Scale(6.0f);
-    const float badgeGap = theme.Scale(8.0f);
+    const float iconGap = 6.0f;
+    const float badgeGap = 8.0f;
 
     if (isOpen && !collapsedIndices.empty()) {
-        float maxRowW = theme.Scale(140.0f);
+        float maxRowW = 140.0f;
         for (keel::usize origIdx : collapsedIndices) {
             const BreadcrumbItem& item = items[origIdx];
             float w = sm.paddingX * 2.0f;
@@ -566,15 +565,15 @@ Response Breadcrumb::Run(
                 w += TextUtil::MeasureWidth(item.label, fontSize, canvas);
             }
             if (!item.badge.empty()) {
-                w += badgeGap + TextUtil::MeasureWidth(item.badge, badgeFontSize, canvas) + theme.Scale(10.0f);
+                w += badgeGap + TextUtil::MeasureWidth(item.badge, badgeFontSize, canvas) + 10.0f;
             }
             if (origIdx == currIndex) {
-                w += cm.iconSize + theme.Scale(8.0f);
+                w += cm.iconSize + 8.0f;
             }
             maxRowW = keel::max(maxRowW, w);
         }
 
-        const float popupW = maxRowW + theme.Scale(8.0f);
+        const float popupW = maxRowW + 8.0f;
         const keel::usize visibleRows = keel::min<keel::usize>(collapsedIndices.size(), 8);
         float popupH = static_cast<float>(visibleRows) * sm.itemHeight + 8.0f;
         const Rect anchorRect = (ellipsisTokenIdx >= 0 && static_cast<keel::usize>(ellipsisTokenIdx) < tokenRects.size())
@@ -729,8 +728,6 @@ Response Breadcrumb::Run(
     const ControlSpec ctrl = EffectiveBreadcrumbControl(optsCopy, activeSize, theme);
 
     Node* node = ctx.CreateNode(NodeType::Breadcrumb, id);
-    node->debugBoundsOverride = opts.debugBounds;
-    node->inspectModeOverride = opts.inspectMode;
 
     optsCopy.tooltip = ctx.AllocText(optsCopy.tooltip);
     BreadcrumbItem* arenaItems = ctx.GetArena().create_array<BreadcrumbItem>(items.size());
@@ -871,8 +868,8 @@ void Breadcrumb::Render(
     // 2. Render tokens (items & interactive "..." dropdown trigger pill)
     const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
     const float badgeFontSize = fontSize * 0.82f;
-    const float pillRadius = keel::max(theme.Scale(4.0f), cm.cornerRadius * 0.85f);
-    const float pillInsetY = keel::max(theme.Scale(2.0f), innerRect.h * 0.10f);
+    const float pillRadius = keel::max(4.0f, cm.cornerRadius * 0.85f);
+    const float pillInsetY = keel::max(2.0f, innerRect.h * 0.10f);
 
     for (keel::usize i = 0; i < tokens.size(); ++i) {
         const BreadcrumbToken& tok = tokens[i];
@@ -927,15 +924,15 @@ void Breadcrumb::Render(
                 ? (d->opts.color.HasAny() ? accentColor : pal.textPrimary)
                 : (isHovered ? pal.textPrimary : pal.textSecondary));
 
-        const float iconGap = theme.Scale(5.0f);
-        const float badgeGap = theme.Scale(5.0f);
-        const float padX = keel::min(keel::max(theme.Scale(4.0f), cm.paddingX * 0.55f), tr.w * 0.14f);
+        const float iconGap = 5.0f;
+        const float badgeGap = 5.0f;
+        const float padX = keel::min(keel::max(4.0f, cm.paddingX * 0.55f), tr.w * 0.14f);
         const float availW = keel::max(0.0f, tr.w - padX * 2.0f);
 
         const bool hasIcon = item.icon.IsValid() && (availW >= cm.iconSize * 0.85f);
         float badgeW = 0.0f;
         if (!item.badge.empty()) {
-            badgeW = canvas.MeasureText(item.badge, badgeFontSize).x + theme.Scale(10.0f);
+            badgeW = canvas.MeasureText(item.badge, badgeFontSize).x + 10.0f;
         }
         const bool showBadge = !item.badge.empty() &&
             (availW >= (hasIcon ? cm.iconSize + iconGap : 0.0f) + badgeW + (!item.label.empty() ? fontSize * 1.8f + badgeGap : 0.0f));
@@ -987,11 +984,11 @@ void Breadcrumb::Render(
 
         if (showBadge) {
             if (hasIcon || showLabel) curX += badgeGap;
-            const float badgeH = badgeFontSize + theme.Scale(5.0f);
+            const float badgeH = badgeFontSize + 5.0f;
             const Rect badgeR(curX, centerY - badgeH * 0.5f, badgeW, badgeH);
             const Color badgeBg = isActiveItem ? accentColor.WithAlphaF(0.25f) : pal.surfaceHover;
             const Color badgeFg = isActiveItem ? accentColor : pal.textSecondary;
-            canvas.DrawRoundRect(badgeR, theme.Scale(4.0f), badgeBg);
+            canvas.DrawRoundRect(badgeR, 4.0f, badgeBg);
             canvas.DrawTextBox(item.badge, badgeR, badgeFontSize, badgeFg, 0.5f, 0.5f);
         }
     }

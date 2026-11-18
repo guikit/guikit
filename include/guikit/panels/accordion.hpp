@@ -5,6 +5,7 @@
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
+#include "guikit/core/zone.hpp"
 #include "guikit/graphics/icon.hpp"
 #include "keel/core.h"
 #include "keel/optional.h"
@@ -28,11 +29,9 @@ struct AccordionOptions {
     keel::Optional<Padding> padding{keel::kNullOpt};   ///< Padding around expanded body children (nullopt = default top/bottom spacing)
     StateColor background{};                        ///< Per-state header backdrop color (Default = subtle surface bar, None = transparent, Surface/Primary/... = custom)
     Border border{};                                ///< Header border stroke & corner radius
+    UiSize size{UiSize::Md};                        ///< Header height and typography size
     bool disabled{false};                           ///< Whether the accordion header and its children are disabled
-    const UiTheme* theme{nullptr};                  ///< Optional scoped theme override
-    keel::Optional<float> scale{keel::kNullOpt};       ///< Optional local UI scale factor override
-    keel::Optional<bool> debugBounds{keel::kNullOpt};  ///< Scoped debug bounding box overlay override
-    keel::Optional<bool> inspectMode{keel::kNullOpt};  ///< Scoped interactive DevTools inspector override
+    ZoneOptions zone{};                             ///< Subtree environment (theme, scale, density, disabled, debug/inspect)
 };
 
 /// Persistent per-accordion open/collapsed state stored in Context.

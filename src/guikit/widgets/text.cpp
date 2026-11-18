@@ -64,7 +64,7 @@ Response Text::Run(
     node->hovered = res.hovered;
     node->pressed = res.pressed;
     node->align = opts.align;
-    node->uiSize = ctx.GetCurrentSize();
+    node->uiSize = UiSize::Md;
     node->widthMode = (opts.align != Alignment::Start || label.wrap.IsWordWrap())
         ? SizeMode::Stretch
         : SizeMode::Fit;

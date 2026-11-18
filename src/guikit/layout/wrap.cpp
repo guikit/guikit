@@ -10,41 +10,35 @@ ContainerScope Wrap::Open(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = ctx.GetCurrentSize();
-    const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    ZoneScope zone = ctx.Zone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
-
-    Node* node = ctx.CreateNode(NodeType::Wrap, id);
-    node->debugBoundsOverride = opts.debugBounds;
-    node->inspectModeOverride = opts.inspectMode;
-    const UiTheme& theme = ctx.GetTheme();
+    Node* node = ctx.CreateNode(NodeType::Wrap, id, opts.zone, opts.disabled);
+    const UiTheme& theme = node->GetTheme(ctx.GetTheme());
+    const float density = node->GetDensity();
     node->direction = FlexDirection::Wrap;
-    node->gap = theme.ResolveGap(opts.gap, activeSize);
-    node->runGap = opts.runGap.has_value() ? theme.Scale(*opts.runGap) : node->gap;
-    node->padding = theme.ResolvePadding(opts.padding);
+    node->gap = theme.ResolveGap(opts.gap, UiSize::Md, density);
+    node->runGap = opts.runGap.has_value() ? (*opts.runGap * density) : node->gap;
+    node->padding = theme.ResolvePadding(opts.padding, UiSize::None, density);
     node->align = opts.align;
     node->justify = opts.justify;
     node->widthMode = opts.width.ResolveMode(SizeMode::Stretch);
-    node->fixedWidth = opts.width.IsFixed() ? theme.Scale(opts.width.Dp()) : 0.0f;
+    node->fixedWidth = opts.width.IsFixed() ? opts.width.Dp() : 0.0f;
     node->heightMode = opts.height.ResolveMode(SizeMode::Fit);
-    node->fixedHeight = opts.height.IsFixed() ? theme.Scale(opts.height.Dp()) : 0.0f;
+    node->fixedHeight = opts.height.IsFixed() ? opts.height.Dp() : 0.0f;
     if (opts.minWidth.has_value() && *opts.minWidth > 0.0f) {
-        node->minWidth = theme.Scale(*opts.minWidth);
+        node->minWidth = *opts.minWidth;
     }
     if (opts.maxWidth.has_value() && *opts.maxWidth > 0.0f) {
-        node->maxWidth = theme.Scale(*opts.maxWidth);
+        node->maxWidth = *opts.maxWidth;
     }
     if (opts.minHeight.has_value() && *opts.minHeight > 0.0f) {
-        node->minHeight = theme.Scale(*opts.minHeight);
+        node->minHeight = *opts.minHeight;
     }
     if (opts.maxHeight.has_value() && *opts.maxHeight > 0.0f) {
-        node->maxHeight = theme.Scale(*opts.maxHeight);
+        node->maxHeight = *opts.maxHeight;
     }
     node->flexGrow = opts.flexGrow;
-    node->uiSize = activeSize;
-    node->disabled = activeDisabled;
+    node->uiSize = UiSize::Md;
 
-    ctx.PushContainer(node, keel::move(zone));
+    ctx.FinishContainer(node);
     return ContainerScope(&ctx, node);
 }
 

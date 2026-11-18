@@ -41,7 +41,7 @@ Vec2 MeasureInputBox(
     const bool hasExplicitDpW = ctrl.width.IsFixed();
     float boxW = m.defaultWidth;
     if (hasExplicitDpW) {
-        boxW = theme.Scale(ctrl.width.Dp());
+        boxW = ctrl.width.Dp();
     } else if (effWMode != SizeMode::Stretch && hasVariants) {
             const float inputFont = theme.ResolveFontSize(opts.valueFormat, TextRole::LabelMedium, size);
             float contentW = 0.0f;
@@ -73,7 +73,7 @@ Vec2 MeasureInputBox(
     }
 
     if (ctrl.minWidth.has_value()) {
-        boxW = keel::max(theme.Scale(*ctrl.minWidth), boxW);
+        boxW = keel::max(*ctrl.minWidth, boxW);
     } else if (hasExplicitDpW || (hasVariants && effWMode != SizeMode::Stretch)) {
         boxW = keel::max(m.defaultHeight, boxW);
     } else {
@@ -262,10 +262,9 @@ Response InputField::Run(
     const InputFieldOptions& opts,
     keel::SourceLocation loc
 ) {
-    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const UiSize activeSize = opts.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const bool wasFocused = ctx.IsFocused(id) && !effectiveDisabled;
 
@@ -678,7 +677,7 @@ void InputField::Render(
         ? ((hovered && !disabled) ? pal.surface : pal.inputBackground)
         : Color::Transparent();
     Color boxBorder;
-    float strokeW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : m.strokeWidth;
+    float strokeW = (opts.border.width > 0.0f) ? opts.border.width : m.strokeWidth;
 
     if (focused && !disabled) {
         boxBorder = opts.color.HasAny()
@@ -714,7 +713,7 @@ void InputField::Render(
         boxBorder = theme.ResolveColor(opts.border.color, hovered, focused, disabled, boxBorder);
     }
 
-    const float radius = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : m.cornerRadius;
+    const float radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
     canvas.DrawRoundRect(boxRect, radius, boxBg, boxBorder, strokeW);
 
     const float inputFont = theme.ResolveFontSize(opts.valueFormat, TextRole::LabelMedium, size);

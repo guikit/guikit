@@ -30,10 +30,9 @@ struct SliderOptions {
     bool showValue{true};                          ///< Whether to display current formatted value text inside control
     Placement valuePlacement{Placement::Trailing}; ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
     StateColor color{};                            ///< Per-state accent fill color for active track and thumb
-    keel::Optional<float> scale{keel::kNullOpt};   ///< Local scale override
-    const UiTheme* theme{nullptr};                 ///< Scoped theme override
     AxisSize width{};                              ///< Horizontal sizing policy (`Auto`: `Stretch` when Horizontal, `Fit` when Vertical; or `Fit`/`Stretch`/`Fixed(dp)`)
     AxisSize height{};                             ///< Vertical sizing policy (`Auto`: `Fit` when Horizontal, `Stretch` when Vertical; or `Fit`/`Stretch`/`Fixed(dp)`)
+    UiSize size{UiSize::Md};                       ///< Component size scale
     bool disabled{false};                          ///< Interaction suppression
 };
 
@@ -54,10 +53,9 @@ struct StepSliderOptions {
     UiText valueText{};                            ///< Optional custom display text/style for current value
     bool includeNone{false};                       ///< For UiSize overload: if true, range includes UiSize::None (None..Xl)
     StateColor color{};                            ///< Per-state accent fill color for active track and thumb
-    keel::Optional<float> scale{keel::kNullOpt};   ///< Local scale override
-    const UiTheme* theme{nullptr};                 ///< Scoped theme override
     AxisSize width{};                              ///< Horizontal sizing policy (`Auto`: `Stretch` when Horizontal, `Fit` when Vertical; or `Fit`/`Stretch`/`Fixed(dp)`)
     AxisSize height{};                             ///< Vertical sizing policy (`Auto`: `Fit` when Horizontal, `Stretch` when Vertical; or `Fit`/`Stretch`/`Fixed(dp)`)
+    UiSize size{UiSize::Md};                       ///< Component size scale
     bool disabled{false};                          ///< Interaction suppression
 };
 
@@ -76,10 +74,9 @@ struct RangeSliderOptions {
     bool showValue{true};                          ///< Whether to display current formatted range text inside control
     Placement valuePlacement{Placement::Trailing}; ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
     StateColor color{};                            ///< Per-state accent fill color for active interval and thumbs
-    keel::Optional<float> scale{keel::kNullOpt};   ///< Local scale override
-    const UiTheme* theme{nullptr};                 ///< Scoped theme override
     AxisSize width{};                              ///< Horizontal sizing policy (`Auto`: `Stretch` when Horizontal, `Fit` when Vertical; or `Fit`/`Stretch`/`Fixed(dp)`)
     AxisSize height{};                             ///< Vertical sizing policy (`Auto`: `Fit` when Horizontal, `Stretch` when Vertical; or `Fit`/`Stretch`/`Fixed(dp)`)
+    UiSize size{UiSize::Md};                       ///< Component size scale
     bool disabled{false};                          ///< Interaction suppression
 };
 
@@ -99,10 +96,9 @@ struct ProgressBarOptions {
     bool indeterminate{false};                     ///< Animated indeterminate shuttle bar when progress duration is unknown
     Placement valuePlacement{Placement::Trailing}; ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
     StateColor color{};                            ///< Per-state accent fill color for active bar (or base zone when multiZoneColor is true)
-    keel::Optional<float> scale{keel::kNullOpt};   ///< Local scale override
-    const UiTheme* theme{nullptr};                 ///< Scoped theme override
     AxisSize width{};                              ///< Horizontal sizing policy (`Auto`: `Stretch` when Horizontal, `Fit` when Vertical; or `Fit`/`Stretch`/`Fixed(dp)`)
     AxisSize height{};                             ///< Vertical sizing policy (`Auto`: `Fit` when Horizontal, `Stretch` when Vertical; or `Fit`/`Stretch`/`Fixed(dp)`)
+    UiSize size{UiSize::Md};                       ///< Component size scale
     bool multiZoneColor{false};                    ///< Color bar/segments across 3 zones (Variant/Success -> Warning -> Danger)
     bool disabled{false};                          ///< Dimmed disabled state
 };

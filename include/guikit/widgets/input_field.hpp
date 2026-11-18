@@ -43,10 +43,9 @@ struct InputFieldOptions {
     bool password{false};                          ///< Masks input characters with '*'
     bool passwordReveal{true};                     ///< Shows an interactive eye/eye-off toggle button when password is true
     bool clearable{false};                         ///< Shows an interactive clear ('X') button when non-empty and editable
+    UiSize size{UiSize::Md};                       ///< Component size scale
     bool disabled{false};                          ///< Interaction suppression
     bool readOnly{false};                          ///< Non-editable display mode
-    const UiTheme* theme{nullptr};                 ///< Optional scoped theme override
-    keel::Optional<float> scale{keel::kNullOpt};      ///< Optional scoped scale factor override
 };
 
 /// Internal runtime state allocated in frame arena for InputField nodes.

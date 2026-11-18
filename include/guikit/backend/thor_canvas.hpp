@@ -48,6 +48,8 @@ public:
     void End() override;
     [[nodiscard]] float GetScale() const noexcept override { return m_scale; }
     void SetScale(float scale) override { m_scale = (scale > 0.0f) ? scale : 1.0f; }
+    void PushTransform(const Transform2D& transform) override;
+    void PopTransform() override;
     [[nodiscard]] keel::StringRef GetBackendName() const noexcept override { return "ThorVG (Vector Software)"; }
     void Clear(Color color, keel::Optional<Rect> rect = keel::kNullOpt) override;
 
@@ -163,6 +165,14 @@ private:
     [[nodiscard]] bool NeedsSyntheticItalic(FontStyle style) const noexcept;
     void ApplyClip(tvg::Paint* paint, keel::Optional<Rect> bounds = keel::kNullOpt);
     void ApplyFont(tvg::Text* txt, FontStyle style) const;
+
+    // Logical -> physical pixel mapping: p * m_scale + m_offset (scale and translation only)
+    [[nodiscard]] float PxX(float x) const noexcept { return x * m_scale + m_offset.x; }
+    [[nodiscard]] float PxY(float y) const noexcept { return y * m_scale + m_offset.y; }
+    [[nodiscard]] Vec2 Px(Vec2 p) const noexcept { return {PxX(p.x), PxY(p.y)}; }
+    [[nodiscard]] Rect Px(Rect r) const noexcept { return Rect(PxX(r.x), PxY(r.y), r.w * m_scale, r.h * m_scale); }
+    [[nodiscard]] float FromPxX(float px) const noexcept { return (px - m_offset.x) / m_scale; }
+    [[nodiscard]] float FromPxY(float px) const noexcept { return (px - m_offset.y) / m_scale; }
     void PunchHole(Rect rect);
     void FlushCanvas();
     void SyncViewportClip();
@@ -176,6 +186,12 @@ private:
     keel::u32 m_height{0};
     keel::u32 m_stride{0};
     float m_scale{1.0f};
+    Vec2 m_offset{0.0f, 0.0f};
+    struct TransformState {
+        float scale;
+        Vec2 offset;
+    };
+    keel::Array<TransformState> m_transformStack;
     bool m_gpuShadersEnabled{false};
     bool m_hasPendingPaints{false};
 

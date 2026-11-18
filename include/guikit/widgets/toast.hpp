@@ -41,8 +41,6 @@ struct ToastHostOptions {
     keel::usize maxVisible{5};
     bool pauseOnHover{true};
     bool confineToParent{false}; ///< Anchor inside current container bounds instead of full viewport
-    const UiTheme* theme{nullptr};
-    keel::Optional<float> scale{keel::kNullOpt};
 };
 
 /// Active runtime state of a single queued Toast notification.

@@ -165,12 +165,9 @@ struct ImageViewOptions {
     bool enableCtrlWlDrag{true};        ///< Enable Ctrl + LMB drag on viewport for direct Window/Level adjustment
 
     // --- State & Accessibility ---
+    UiSize size{UiSize::Md};
     bool disabled{false};
     UiText tooltip{};
-    const UiTheme* theme{nullptr};
-    keel::Optional<float> scale{keel::kNullOpt};
-    keel::Optional<bool> debugBounds{keel::kNullOpt};
-    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// Telemetry and interaction response returned by `ui.ImageView`.

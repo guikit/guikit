@@ -107,20 +107,22 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
 
     // 1. Camera & Dataset Header Actions
     if (auto row = ui.Row({.gap = 6.0f})) {
-        if (ui.Size(guikit::UiSize::Sm).Button({
+        if (ui.Button({
             .text = "Fit Chart Bounds",
             .icon = guikit::Icon::Search(),
             .color = guikit::StateColor::Primary(),
-            .width = guikit::SizeMode::Stretch
+            .width = guikit::SizeMode::Stretch,
+            .size = guikit::UiSize::Sm
         }).clicked) {
             s_state.pendingCenterGeo = s_state.initialCenter;
             s_state.pendingTileZoom = s_state.initialTileZoom;
             ui.InvalidateAll();
         }
-        if (ui.Size(guikit::UiSize::Sm).Button({
+        if (ui.Button({
             .text = "Clear Sel",
             .color = guikit::StateColor::Secondary(),
-            .disabled = (s_state.selectedFeatureUid == 0)
+            .disabled = (s_state.selectedFeatureUid == 0),
+            .size = guikit::UiSize::Sm
         }).clicked) {
             s_state.selectedFeatureUid = 0;
             ui.InvalidateAll();
@@ -211,10 +213,11 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
     if (!s_state.layers.empty()) {
         ui.Heading({.label = "THEMATIC ENC LAYERS", .level = guikit::HeadingLevel::H6, .separator = guikit::HeadingSeparator::Bottom});
         for (auto& layer : s_state.layers) {
-            if (auto el = ui.Size(guikit::UiSize::Sm).Element({
-                .label = ui.Format("{} ({})", layer.name.as_ref(), layer.features.size())
+            if (auto el = ui.Element({
+                .label = ui.Format("{} ({})", layer.name.as_ref(), layer.features.size()),
+                .size = guikit::UiSize::Sm
             })) {
-                if (ui.Size(guikit::UiSize::Sm).Switch(layer.visible).changed) {
+                if (ui.Switch(layer.visible, {.size = guikit::UiSize::Sm}).changed) {
                     ui.InvalidateAll();
                 }
             }

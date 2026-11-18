@@ -3,6 +3,7 @@
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
+#include "guikit/core/zone.hpp"
 #include "keel/core.h"
 
 namespace guikit {
@@ -24,10 +25,7 @@ struct ColumnOptions {
     keel::Optional<float> maxHeight{keel::kNullOpt};
     float flexGrow{1.0f};
     bool disabled{false};
-    const UiTheme* theme{nullptr};
-    keel::Optional<float> scale{keel::kNullOpt};
-    keel::Optional<bool> debugBounds{keel::kNullOpt};
-    keel::Optional<bool> inspectMode{keel::kNullOpt};
+    ZoneOptions zone{}; ///< Subtree environment (theme, scale, density, debug/inspect)
 };
 
 /// Autonomous immediate mode Column layout entry point.

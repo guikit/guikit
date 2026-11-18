@@ -27,9 +27,8 @@ struct KnobOptions {
     Placement valuePlacement{Placement::Bottom};   ///< Value position relative to dial: Bottom, Top, Thumb (inside center), Leading, Trailing
     StateColor color{};                            ///< Per-state accent fill color for active arc, pointer, and ticks
     keel::Optional<float> diameter{keel::kNullOpt}; ///< Optional explicit dial diameter in logical dp (nullopt = auto from UiSize)
+    UiSize size{UiSize::Md};                        ///< Component size scale
     bool disabled{false};                          ///< Interaction suppression
-    const UiTheme* theme{nullptr};                 ///< Optional scoped theme override
-    keel::Optional<float> scale{keel::kNullOpt};   ///< Optional scoped scale factor override
 };
 
 /// Internal runtime state stored per-widget ID for Knob drag interaction.

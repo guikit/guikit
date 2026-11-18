@@ -542,11 +542,12 @@ void RenderCodeEditorStage(guikit::Context& ui, DemoContext& ctx) {
         : ((s_state.debugToolbarAlignIdx == 2) ? guikit::Align::End : guikit::Align::Center);
 
     guikit::TextAreaResponse resp{};
-    if (auto el = ui.Size(ctx.elemSize).Element({
+    if (auto el = ui.Element({
         .label = s_state.showLabel ? "Code Editor & Debugger" : "",
-        .description = s_state.showDesc ? s_state.lastDebugEvent.as_ref() : keel::StringRef{}
+        .description = s_state.showDesc ? s_state.lastDebugEvent.as_ref() : keel::StringRef{},
+        .size = ctx.elemSize
     })) {
-        resp = ui.Size(ctx.controlsSize).TextArea(s_state.editorBuffer, {
+        resp = ui.TextArea(s_state.editorBuffer, {
             .autoHeight = false,
             .readOnly = s_state.readOnly,
             .showLineNumbers = s_state.lineNumbers,
@@ -558,6 +559,7 @@ void RenderCodeEditorStage(guikit::Context& ui, DemoContext& ctx) {
             .syntax = synCfg,
             .syntaxPalette = synPalette,
             .height = guikit::SizeMode::Stretch,
+            .size = ctx.controlsSize,
             .showMinimap = s_state.showMinimap,
             .showStatusBar = s_state.showStatusBar,
             .showIndentGuides = s_state.showIndentGuides,
@@ -611,7 +613,7 @@ keel::String GenerateCodeEditorCode(const DemoContext& ctx) {
         : ((s_state.debugToolbarAlignIdx == 2) ? "guikit::Align::End" : "guikit::Align::Center");
 
     return keel::format(
-        "auto resp = ui.{}TextArea(sourceBuffer, {{\n"
+        "auto resp = ui.TextArea(sourceBuffer, {{\n"
         "    .showLineNumbers = {},\n"
         "    .showWhitespace = {},\n"
         "    .showMinimap = {},\n"
@@ -627,12 +629,11 @@ keel::String GenerateCodeEditorCode(const DemoContext& ctx) {
         "    .debugVariables = debugVariables,\n"
         "    .syntax = {},\n"
         "    .syntaxPalette = {},\n"
-        "    .height = guikit::SizeMode::Stretch\n"
+        "    .height = guikit::SizeMode::Stretch{}\n"
         "}});\n"
         "if (resp.debugAction == guikit::CodeDebugAction::StepOver) {{\n"
         "    StepDebugger();\n"
         "}}",
-        FormatUiSizePrefix(ctx.controlsSize),
         s_state.lineNumbers ? "true" : "false",
         s_state.showWhitespace ? "true" : "false",
         s_state.showMinimap ? "true" : "false",
@@ -642,7 +643,8 @@ keel::String GenerateCodeEditorCode(const DemoContext& ctx) {
         s_state.showDebugToolbar ? "true" : "false",
         dbgAlignStr,
         synLine,
-        palLine
+        palLine,
+        FormatUiSizePrefix(ctx.controlsSize)
     );
 }
 

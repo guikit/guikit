@@ -66,11 +66,9 @@ struct MapViewOptions {
     StateColor background{};
     Border border{.width = 1.0f, .radius = 8.0f};
     UiText tooltip{};
+    UiSize size{UiSize::Md};
     bool disabled{false};
-    const UiTheme* theme{nullptr};
-    keel::Optional<float> scale{keel::kNullOpt};
-    keel::Optional<bool> debugBounds{keel::kNullOpt};
-    keel::Optional<bool> inspectMode{keel::kNullOpt};
+    ZoneOptions zone{};
 };
 
 /// RAII scope for `ui.MapView(...)` providing geographic (Lat/Lon) drawing, hit-testing, and telemetry.

@@ -105,15 +105,16 @@ void RenderSegmentedStage(guikit::Context& ui, DemoContext& ctx) {
     segOpts.height = ctx.ResolveCtrlHeight();
     segOpts.background = ctx.GetControlBackground(NavCategory::ElemSegmented);
     segOpts.border = ctx.GetCtrlBorder();
+    segOpts.size = ctx.controlsSize;
     segOpts.equalWidth = s_state.equalWidth;
     segOpts.showDividers = s_state.showDividers;
     segOpts.disabled = ctx.elemDisabled;
 
     ctx.RunElementStage(ui, [&]() {
         if (s_state.multiSelect) {
-            ui.Size(ctx.controlsSize).SegmentedMask(s_state.selectedMask, items, segOpts);
+            ui.SegmentedMask(s_state.selectedMask, items, segOpts);
         } else {
-            ui.Size(ctx.controlsSize).Segmented(s_state.selectedIdx, items, segOpts);
+            ui.Segmented(s_state.selectedIdx, items, segOpts);
         }
     });
 }
@@ -126,7 +127,7 @@ keel::String GenerateSegmentedCode(const DemoContext& ctx) {
         : ctx.FormatControlColorCode();
 
     const keel::String ctrl = keel::format(
-        "ui.{}{}({}, {{\n"
+        "ui.{}({}, {{\n"
         "    {{.text = \"Sine\", .icon = guikit::Icon::Refresh()}},\n"
         "    {{.text = \"Square\", .icon = guikit::Icon::Settings()}},\n"
         "    {{.text = \"Sawtooth\", .icon = guikit::Icon::Play()}},\n"
@@ -136,12 +137,11 @@ keel::String GenerateSegmentedCode(const DemoContext& ctx) {
         "    .width = {},\n"
         "    .height = {},\n"
         "    .background = {},\n"
-        "    .border = {},\n"
+        "    .border = {}{},\n"
         "    .equalWidth = {},\n"
         "    .showDividers = {},\n"
         "    .disabled = {}\n"
         "}});",
-        FormatUiSizePrefix(ctx.controlsSize),
         fnName,
         varName,
         s_state.disableLastSegment ? "true" : "false",
@@ -150,6 +150,7 @@ keel::String GenerateSegmentedCode(const DemoContext& ctx) {
         ctx.FormatCtrlHeightCode(),
         ctx.FormatControlBackgroundCode(NavCategory::ElemSegmented),
         ctx.FormatCtrlBorderCode(),
+        FormatUiSizePrefix(ctx.controlsSize),
         s_state.equalWidth ? "true" : "false",
         s_state.showDividers ? "true" : "false",
         ctx.elemDisabled ? "true" : "false"

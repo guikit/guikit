@@ -216,32 +216,36 @@ void RenderAttitudeInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         "Russian KPPI Silhouette"
     };
 
-    if (auto el = ui.Size(guikit::UiSize::Sm).Element({
+    if (auto el = ui.Element({
         .label = "Flight Control Mode",
-        .layout = guikit::ElementLayout::Top
+        .layout = guikit::ElementLayout::Top,
+        .size = guikit::UiSize::Sm
     })) {
-        ui.Size(guikit::UiSize::Sm).Select(s_att.controlModeIndex, kControlModes);
+        ui.Select(s_att.controlModeIndex, kControlModes, {.size = guikit::UiSize::Sm});
     }
 
-    if (auto el = ui.Size(guikit::UiSize::Sm).Element({
+    if (auto el = ui.Element({
         .label = "Display Mode",
-        .layout = guikit::ElementLayout::Top
+        .layout = guikit::ElementLayout::Top,
+        .size = guikit::UiSize::Sm
     })) {
-        ui.Size(guikit::UiSize::Sm).Select(s_att.displayModeIndex, kDisplayModes);
+        ui.Select(s_att.displayModeIndex, kDisplayModes, {.size = guikit::UiSize::Sm});
     }
 
-    if (auto el = ui.Size(guikit::UiSize::Sm).Element({
+    if (auto el = ui.Element({
         .label = "Horizon Viewport",
-        .layout = guikit::ElementLayout::Top
+        .layout = guikit::ElementLayout::Top,
+        .size = guikit::UiSize::Sm
     })) {
-        ui.Size(guikit::UiSize::Sm).Select(s_att.viewportModeIndex, kViewportModes);
+        ui.Select(s_att.viewportModeIndex, kViewportModes, {.size = guikit::UiSize::Sm});
     }
 
-    if (auto el = ui.Size(guikit::UiSize::Sm).Element({
+    if (auto el = ui.Element({
         .label = "Horizon Reference Frame",
-        .layout = guikit::ElementLayout::Top
+        .layout = guikit::ElementLayout::Top,
+        .size = guikit::UiSize::Sm
     })) {
-        if (ui.Size(guikit::UiSize::Sm).Segmented(s_att.referenceModeIndex, kRefModes).changed) {
+        if (ui.Segmented(s_att.referenceModeIndex, kRefModes, {.size = guikit::UiSize::Sm}).changed) {
             if (s_att.referenceModeIndex == 1) {
                 s_att.aircraftSymbolIndex = 2; // Russian KPPI silhouette
             } else if (s_att.aircraftSymbolIndex == 2) {
@@ -250,119 +254,135 @@ void RenderAttitudeInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         }
     }
 
-    if (auto el = ui.Size(guikit::UiSize::Sm).Element({
+    if (auto el = ui.Element({
         .label = "Color Scheme",
-        .layout = guikit::ElementLayout::Top
+        .layout = guikit::ElementLayout::Top,
+        .size = guikit::UiSize::Sm
     })) {
-        ui.Size(guikit::UiSize::Sm).Select(s_att.colorSchemeIndex, kColorSchemes);
+        ui.Select(s_att.colorSchemeIndex, kColorSchemes, {.size = guikit::UiSize::Sm});
     }
 
-    if (auto el = ui.Size(guikit::UiSize::Sm).Element({
+    if (auto el = ui.Element({
         .label = "Flight Director (FD)",
-        .layout = guikit::ElementLayout::Top
+        .layout = guikit::ElementLayout::Top,
+        .size = guikit::UiSize::Sm
     })) {
-        ui.Size(guikit::UiSize::Sm).Segmented(s_att.fdStyleIndex, kFdStyles);
+        ui.Segmented(s_att.fdStyleIndex, kFdStyles, {.size = guikit::UiSize::Sm});
     }
 
-    if (auto el = ui.Size(guikit::UiSize::Sm).Element({
+    if (auto el = ui.Element({
         .label = "Aircraft Reference Symbol",
-        .layout = guikit::ElementLayout::Top
+        .layout = guikit::ElementLayout::Top,
+        .size = guikit::UiSize::Sm
     })) {
-        ui.Size(guikit::UiSize::Sm).Select(s_att.aircraftSymbolIndex, kAircraftSymbols);
+        ui.Select(s_att.aircraftSymbolIndex, kAircraftSymbols, {.size = guikit::UiSize::Sm});
     }
 
     ui.Heading({.label = "Attitude & Air Data", .level = guikit::HeadingLevel::H6, .separator = guikit::HeadingSeparator::Bottom});
 
-    if (auto el = ui.Size(guikit::UiSize::Sm).Element({
+    if (auto el = ui.Element({
         .label = "Roll / Bank Angle",
-        .layout = guikit::ElementLayout::Top
+        .layout = guikit::ElementLayout::Top,
+        .size = guikit::UiSize::Sm
     })) {
-        if (ui.Size(guikit::UiSize::Sm).Slider(s_att.rollDeg, -180.0f, 180.0f, {
-            .valueFormat = "%+.1f deg"
+        if (ui.Slider(s_att.rollDeg, -180.0f, 180.0f, {
+            .valueFormat = "%+.1f deg",
+            .size = guikit::UiSize::Sm
         }).changed) {
             s_att.controlModeIndex = 3;
         }
     }
 
-    if (auto el = ui.Size(guikit::UiSize::Sm).Element({
+    if (auto el = ui.Element({
         .label = "Pitch Angle",
-        .layout = guikit::ElementLayout::Top
+        .layout = guikit::ElementLayout::Top,
+        .size = guikit::UiSize::Sm
     })) {
-        if (ui.Size(guikit::UiSize::Sm).Slider(s_att.pitchDeg, -85.0f, 85.0f, {
-            .valueFormat = "%+.1f deg"
+        if (ui.Slider(s_att.pitchDeg, -85.0f, 85.0f, {
+            .valueFormat = "%+.1f deg",
+            .size = guikit::UiSize::Sm
         }).changed) {
             s_att.controlModeIndex = 3;
         }
     }
 
-    if (auto el = ui.Size(guikit::UiSize::Sm).Element({
+    if (auto el = ui.Element({
         .label = "Magnetic Heading",
-        .layout = guikit::ElementLayout::Top
+        .layout = guikit::ElementLayout::Top,
+        .size = guikit::UiSize::Sm
     })) {
-        ui.Size(guikit::UiSize::Sm).Slider(s_att.headingDeg, 0.0f, 359.0f, {
-            .valueFormat = "%03.0f deg"
+        ui.Slider(s_att.headingDeg, 0.0f, 359.0f, {
+            .valueFormat = "%03.0f deg",
+            .size = guikit::UiSize::Sm
         });
     }
 
-    if (auto el = ui.Size(guikit::UiSize::Sm).Element({
+    if (auto el = ui.Element({
         .label = "Airspeed (IAS)",
-        .layout = guikit::ElementLayout::Top
+        .layout = guikit::ElementLayout::Top,
+        .size = guikit::UiSize::Sm
     })) {
-        ui.Size(guikit::UiSize::Sm).Slider(s_att.airspeedKnots, 80.0f, 380.0f, {
-            .valueFormat = "%.0f kt"
+        ui.Slider(s_att.airspeedKnots, 80.0f, 380.0f, {
+            .valueFormat = "%.0f kt",
+            .size = guikit::UiSize::Sm
         });
     }
 
-    if (auto el = ui.Size(guikit::UiSize::Sm).Element({
+    if (auto el = ui.Element({
         .label = "Altitude",
-        .layout = guikit::ElementLayout::Top
+        .layout = guikit::ElementLayout::Top,
+        .size = guikit::UiSize::Sm
     })) {
-        ui.Size(guikit::UiSize::Sm).Slider(s_att.altitudeFeet, 0.0f, 42000.0f, {
-            .valueFormat = "%.0f ft"
+        ui.Slider(s_att.altitudeFeet, 0.0f, 42000.0f, {
+            .valueFormat = "%.0f ft",
+            .size = guikit::UiSize::Sm
         });
     }
 
-    if (auto el = ui.Size(guikit::UiSize::Sm).Element({
+    if (auto el = ui.Element({
         .label = "Pitch Field of View",
-        .layout = guikit::ElementLayout::Top
+        .layout = guikit::ElementLayout::Top,
+        .size = guikit::UiSize::Sm
     })) {
-        ui.Size(guikit::UiSize::Sm).Slider(s_att.fovPitchDeg, 30.0f, 80.0f, {
-            .valueFormat = "%.0f deg"
+        ui.Slider(s_att.fovPitchDeg, 30.0f, 80.0f, {
+            .valueFormat = "%.0f deg",
+            .size = guikit::UiSize::Sm
         });
     }
 
     ui.Heading({.label = "Symbology & Tapes", .level = guikit::HeadingLevel::H6, .separator = guikit::HeadingSeparator::Bottom});
 
-    if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Pitch Ladder & Chevrons"})) {
-        ui.Size(guikit::UiSize::Sm).Switch(s_att.showPitchLadder);
+    if (auto el = ui.Element({.label = "Pitch Ladder & Chevrons", .size = guikit::UiSize::Sm})) {
+        ui.Switch(s_att.showPitchLadder, {.size = guikit::UiSize::Sm});
     }
-    if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Bank Arc & Slip/Skid Ball"})) {
-        ui.Size(guikit::UiSize::Sm).Switch(s_att.showBankScale);
+    if (auto el = ui.Element({.label = "Bank Arc & Slip/Skid Ball", .size = guikit::UiSize::Sm})) {
+        ui.Switch(s_att.showBankScale, {.size = guikit::UiSize::Sm});
     }
-    if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Flight Path Vector (FPV)"})) {
-        ui.Size(guikit::UiSize::Sm).Switch(s_att.showFlightPathVector);
+    if (auto el = ui.Element({.label = "Flight Path Vector (FPV)", .size = guikit::UiSize::Sm})) {
+        ui.Switch(s_att.showFlightPathVector, {.size = guikit::UiSize::Sm});
     }
-    if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "ILS Localizer & Glideslope"})) {
-        ui.Size(guikit::UiSize::Sm).Switch(s_att.showIlsDiamonds);
+    if (auto el = ui.Element({.label = "ILS Localizer & Glideslope", .size = guikit::UiSize::Sm})) {
+        ui.Switch(s_att.showIlsDiamonds, {.size = guikit::UiSize::Sm});
     }
-    if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Speed & Altitude Tapes"})) {
-        ui.Size(guikit::UiSize::Sm).Switch(s_att.showSpeedAndAltTapes);
+    if (auto el = ui.Element({.label = "Speed & Altitude Tapes", .size = guikit::UiSize::Sm})) {
+        ui.Switch(s_att.showSpeedAndAltTapes, {.size = guikit::UiSize::Sm});
     }
-    if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Compass Heading Tape"})) {
-        ui.Size(guikit::UiSize::Sm).Switch(s_att.showHeadingTape);
+    if (auto el = ui.Element({.label = "Compass Heading Tape", .size = guikit::UiSize::Sm})) {
+        ui.Switch(s_att.showHeadingTape, {.size = guikit::UiSize::Sm});
     }
-    if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Flight Mode Annunciator (FMA)"})) {
-        ui.Size(guikit::UiSize::Sm).Switch(s_att.showFmaBar);
+    if (auto el = ui.Element({.label = "Flight Mode Annunciator (FMA)", .size = guikit::UiSize::Sm})) {
+        ui.Switch(s_att.showFmaBar, {.size = guikit::UiSize::Sm});
     }
-    if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Mouse Stick Vector Overlay"})) {
-        ui.Size(guikit::UiSize::Sm).Switch(s_att.showMouseStickOverlay);
+    if (auto el = ui.Element({.label = "Mouse Stick Vector Overlay", .size = guikit::UiSize::Sm})) {
+        ui.Switch(s_att.showMouseStickOverlay, {.size = guikit::UiSize::Sm});
     }
 
-    if (ui.Size(guikit::UiSize::Sm).Button({
+    if (ui.Button({
         .text = "Level Wings",
         .icon = guikit::Icon::Refresh(),
         .color = guikit::StateColor::Secondary(),
-        .width = guikit::SizeMode::Stretch
+        .width = guikit::SizeMode::Stretch,
+        .size = guikit::UiSize::Sm
     })) {
         s_att.rollDeg = 0.0f;
         s_att.pitchDeg = 2.0f;

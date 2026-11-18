@@ -19,6 +19,64 @@ struct LayoutDepthGuard {
     ~LayoutDepthGuard() noexcept { --depth; }
 };
 
+/// While a node with its own scale processes itself, its outer sizing fields (kept in the parent's units) are
+/// viewed in the node's local units, so the layout code below works in one unit system. The originals are
+/// restored exactly on exit; in `Measure` mode the freshly measured intrinsic size is published in parent units.
+class LocalUnitsView {
+public:
+    enum class Mode : keel::u8 { Measure, Use };
+
+    LocalUnitsView(Node* node, Mode mode) noexcept
+        : m_node(node), m_mode(mode), m_scale(node != nullptr ? node->GetRelativeScale() : 1.0f) {
+        m_active = node != nullptr && m_scale > 0.0f && std::abs(m_scale - 1.0f) > 1e-6f;
+        if (!m_active) {
+            return;
+        }
+        m_fixedW = node->fixedWidth;
+        m_fixedH = node->fixedHeight;
+        m_minW = node->minWidth;
+        m_maxW = node->maxWidth;
+        m_minH = node->minHeight;
+        m_maxH = node->maxHeight;
+        m_intrinsic = node->intrinsicSize;
+        const float inv = 1.0f / m_scale;
+        node->fixedWidth *= inv;
+        node->fixedHeight *= inv;
+        node->minWidth *= inv;
+        node->maxWidth *= inv;
+        node->minHeight *= inv;
+        node->maxHeight *= inv;
+        node->intrinsicSize = node->intrinsicSize * inv;
+    }
+
+    ~LocalUnitsView() noexcept {
+        if (!m_active) {
+            return;
+        }
+        m_node->fixedWidth = m_fixedW;
+        m_node->fixedHeight = m_fixedH;
+        m_node->minWidth = m_minW;
+        m_node->maxWidth = m_maxW;
+        m_node->minHeight = m_minH;
+        m_node->maxHeight = m_maxH;
+        m_node->intrinsicSize = (m_mode == Mode::Measure) ? (m_node->intrinsicSize * m_scale) : m_intrinsic;
+    }
+
+    LocalUnitsView(const LocalUnitsView&) = delete;
+    LocalUnitsView& operator=(const LocalUnitsView&) = delete;
+
+    [[nodiscard]] bool Active() const noexcept { return m_active; }
+    [[nodiscard]] float Scale() const noexcept { return m_active ? m_scale : 1.0f; }
+
+private:
+    Node* m_node{nullptr};
+    Mode m_mode{Mode::Use};
+    float m_scale{1.0f};
+    bool m_active{false};
+    float m_fixedW{0.0f}, m_fixedH{0.0f}, m_minW{0.0f}, m_maxW{0.0f}, m_minH{0.0f}, m_maxH{0.0f};
+    Vec2 m_intrinsic{0.0f, 0.0f};
+};
+
 static float GetScrollAreaMaxHeight(const Node* node) noexcept {
     if (!node || node->type != NodeType::ScrollArea) {
         return 0.0f;
@@ -75,18 +133,27 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         return false;
     }
 
+    static void MeasureNodeLocal(Node* node, ICanvas* canvas, const UiTheme& theme);
+
+    /// Measures `node` and leaves its intrinsic size in its parent's units.
     static void MeasureNode(Node* node, ICanvas* canvas, const UiTheme& theme) {
+        const LocalUnitsView local(node, LocalUnitsView::Mode::Measure);
+        MeasureNodeLocal(node, canvas, theme);
+    }
+
+    static void MeasureNodeLocal(Node* node, ICanvas* canvas, const UiTheme& theme) {
         if (!node || g_layoutDepth >= kMaxLayoutDepth) return;
         const LayoutDepthGuard depthGuard(g_layoutDepth);
-        const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : theme;
+        const UiTheme& activeTheme = node->GetTheme(theme);
 
         if (IsShellContainer(node)) {
+            const float d = node->GetDensity();
             if (!node->explicitGap) {
-                node->gap = activeTheme.shell.panelGap;
+                node->gap = activeTheme.shell.panelGap * d;
             }
             const bool isTopLevelShell = !IsShellContainer(node->parent);
             if (isTopLevelShell && !node->explicitPadding) {
-                node->padding = activeTheme.shell.windowPadding;
+                node->padding = activeTheme.shell.windowPadding.ScaledBy(d);
             }
             for (Node* c = node->firstChild; c != nullptr; c = c->nextSibling) {
                 if (c->type == NodeType::Toolbar && !c->explicitRadius && c->widthMode == SizeMode::Stretch) {
@@ -101,7 +168,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                         c->borderWidth = 0.0f;
                     } else if (c->borderWidth <= 0.0f) {
                         c->borderWidth = activeTheme.shell.panelBorderWidth;
-                        const UiTheme& ct = (c->theme != nullptr) ? *c->theme : activeTheme;
+                        const UiTheme& ct = c->GetTheme(activeTheme);
                         c->borderColor = ct.palette.borderSubtle;
                     }
                 }
@@ -354,8 +421,16 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         return childW;
     }
 
-    /// Resolves actual vertical dimension for a node given constrained available width.
+    static float ResolveNodeHeightLocal(Node* node, float availableWidth, ICanvas* canvas, const UiTheme& theme);
+
+    /// Resolves a node's height for an available width, both in its parent's units.
     static float ResolveNodeHeight(Node* node, float availableWidth, ICanvas* canvas, const UiTheme& theme) {
+        const LocalUnitsView local(node, LocalUnitsView::Mode::Use);
+        const float s = local.Scale();
+        return ResolveNodeHeightLocal(node, availableWidth / s, canvas, theme) * s;
+    }
+
+    static float ResolveNodeHeightLocal(Node* node, float availableWidth, ICanvas* canvas, const UiTheme& theme) {
         if (!node || g_layoutDepth >= kMaxLayoutDepth) return 0.0f;
         const LayoutDepthGuard depthGuard(g_layoutDepth);
         if (node->heightMode == SizeMode::Fixed) {
@@ -367,7 +442,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         if (node->widthMode == SizeMode::Fixed && node->fixedWidth > 0.0f) {
             availableWidth = (availableWidth > 0.0f) ? keel::min(availableWidth, node->fixedWidth) : node->fixedWidth;
         }
-        const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : theme;
+        const UiTheme& activeTheme = node->GetTheme(theme);
         if ((node->type == NodeType::Element || node->type == NodeType::TreeItem || node->type == NodeType::Scene) && node->measureFn) {
             return keel::max(node->minHeight, node->measureFn(node, availableWidth, canvas, activeTheme).y);
         }
@@ -597,11 +672,21 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         return node->intrinsicSize.y;
     }
 
+    static void ArrangeNodeLocal(Node* node, Rect availableRect, const UiTheme& theme, ICanvas* canvas);
+
+    /// Arranges `node` into `availableRect` (parent units). A scaled node keeps the rect's top-left corner and
+    /// lays itself and its subtree out in its local units, so `computedRect` ends up in local units.
     static void ArrangeNode(Node* node, Rect availableRect, const UiTheme& theme, ICanvas* canvas) {
+        const LocalUnitsView local(node, LocalUnitsView::Mode::Use);
+        const float s = local.Scale();
+        ArrangeNodeLocal(node, Rect(availableRect.x, availableRect.y, availableRect.w / s, availableRect.h / s), theme, canvas);
+    }
+
+    static void ArrangeNodeLocal(Node* node, Rect availableRect, const UiTheme& theme, ICanvas* canvas) {
         if (!node || g_layoutDepth >= kMaxLayoutDepth) return;
         const LayoutDepthGuard depthGuard(g_layoutDepth);
 
-        const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : theme;
+        const UiTheme& activeTheme = node->GetTheme(theme);
 
         // Custom autonomous arrangement delegate (e.g. Carousel, custom containers)
         if (node->arrangeFn) {
@@ -621,7 +706,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             }
 
             if (node->heightMode == SizeMode::Fit) {
-                h = ResolveNodeHeight(node, w, canvas, activeTheme);
+                h = ResolveNodeHeightLocal(node, w, canvas, activeTheme);
             } else if (node->heightMode == SizeMode::Fixed) {
                 h = node->fixedHeight;
             }
@@ -642,7 +727,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             const float targetW = node->fixedWidth > 0.0f ? node->fixedWidth : node->intrinsicSize.x;
             const float resolvedH = (node->heightMode == SizeMode::Fixed)
                 ? node->fixedHeight
-                : ResolveNodeHeight(node, targetW, canvas, activeTheme);
+                : ResolveNodeHeightLocal(node, targetW, canvas, activeTheme);
             node->computedRect = Modal::ResolveDialogRect(node, resolvedH, availableRect);
         } else {
             node->computedRect = Rect(availableRect.x, availableRect.y, w, h);
@@ -818,7 +903,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                     continue;
                 }
 
-                const UiTheme& childTheme = (child->theme != nullptr) ? *child->theme : activeTheme;
+                const UiTheme& childTheme = child->GetTheme(activeTheme);
                 float sbW = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
                 if (child->widthMode != SizeMode::Fixed && child->sidebarScrollable) {
                     const bool needSb = (child->scrollbarPolicy == VisibilityPolicy::Always) ||
@@ -928,7 +1013,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         const bool constrainedRow = (node->widthMode != SizeMode::Fit && contentRect.w > 0.0f);
         float remDeficit = (constrainedRow && rawFreeSpace < 0.0f && flowChildCount > 1) ? -rawFreeSpace : 0.0f;
         float totalLongTextExcess = 0.0f;
-        const float shortBadgeThreshold = theme.Scale(68.0f);
+        const float shortBadgeThreshold = 68.0f;
         if (remDeficit > 0.0f) {
             for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
                 if (child->type == NodeType::Sidebar || child->type == NodeType::Modal || child->isSpacer) continue;
@@ -1244,7 +1329,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             }
 
             ArrangeNode(child, Rect(childX, currentY, childW, childH), theme, canvas);
-            currentY += child->computedRect.h + node->gap;
+            currentY += child->computedRect.h * child->GetRelativeScale() + node->gap;
         }
 
         if (node->heightMode == SizeMode::Fit && node->type != NodeType::Modal && node->type != NodeType::ScrollArea) {

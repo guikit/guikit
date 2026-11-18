@@ -36,25 +36,26 @@ void RenderSwitchStage(guikit::Context& ui, DemoContext& ctx) {
         opts.textLeft = s_state.textLeft;
         opts.textRight = s_state.textRight;
         opts.color = ctx.GetControlColor();
+        opts.size = ctx.controlsSize;
         opts.symmetric = s_state.symmetric;
         opts.disabled = ctx.elemDisabled;
-        ui.Size(ctx.controlsSize).Switch(s_state.state, opts);
+        ui.Switch(s_state.state, opts);
     });
 }
 
 keel::String GenerateSwitchCode(const DemoContext& ctx) {
     const keel::String ctrl = keel::format(
-        "ui.{}Switch(switchState, {{\n"
+        "ui.Switch(switchState, {{\n"
         "    .textLeft = \"{}\",\n"
         "    .textRight = \"{}\",\n"
-        "    .color = {},\n"
+        "    .color = {}{},\n"
         "    .symmetric = {},\n"
         "    .disabled = {}\n"
         "}});",
-        FormatUiSizePrefix(ctx.controlsSize),
         s_state.textLeft,
         s_state.textRight,
         ctx.FormatControlColorCode(),
+        FormatUiSizePrefix(ctx.controlsSize),
         s_state.symmetric ? "true" : "false",
         ctx.elemDisabled ? "true" : "false"
     );

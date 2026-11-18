@@ -143,10 +143,11 @@ void RenderTableInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
             .label = "Filter Rows",
             .layout = ElementLayout::Top
         })) {
-            if (ui.Size(UiSize::Sm).InputField(g_tableDemo.filterQuery, {
+            if (ui.InputField(g_tableDemo.filterQuery, {
                 .placeholder = "Callsign or modulation...",
                 .prefix = Icon::Search(),
-                .clearable = true
+                .clearable = true,
+                .size = UiSize::Sm
             }).changed) {
                 g_tableDemo.selectedRow = 0;
             }
@@ -162,13 +163,13 @@ void RenderTableInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     } else {
         ui.Heading({.label = "VIRTUAL JUMP (100,000 ROWS)", .level = HeadingLevel::H6, .separator = HeadingSeparator::Bottom});
         if (auto row = ui.Row({.gap = 6.0f})) {
-            if (ui.Size(UiSize::Sm).Button({.text = "Top (#1)", .color = StateColor::Secondary(), .width = SizeMode::Stretch})) {
+            if (ui.Button({.text = "Top (#1)", .color = StateColor::Secondary(), .width = SizeMode::Stretch, .size = UiSize::Sm})) {
                 g_tableDemo.pendingJumpRow = 0;
             }
-            if (ui.Size(UiSize::Sm).Button({.text = "Mid (#50k)", .color = StateColor::Secondary(), .width = SizeMode::Stretch})) {
+            if (ui.Button({.text = "Mid (#50k)", .color = StateColor::Secondary(), .width = SizeMode::Stretch, .size = UiSize::Sm})) {
                 g_tableDemo.pendingJumpRow = 49999;
             }
-            if (ui.Size(UiSize::Sm).Button({.text = "End (#100k)", .color = StateColor::Primary(), .width = SizeMode::Stretch})) {
+            if (ui.Button({.text = "End (#100k)", .color = StateColor::Primary(), .width = SizeMode::Stretch, .size = UiSize::Sm})) {
                 g_tableDemo.pendingJumpRow = 99999;
             }
         }
@@ -230,7 +231,7 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
             selCallsign
         );
 
-        if (auto table = ui.Size(g_tableDemo.tableSize).Table(kSignalCols, {
+        if (auto table = ui.Table(kSignalCols, {
             .totalRows = filteredIndices.size(),
             .selectedRow = &g_tableDemo.selectedRow,
             .sortColumn = &g_tableDemo.sortCol,
@@ -241,7 +242,8 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
             .resizableColumns = g_tableDemo.resizableColumns,
             .showRowNumbers = g_tableDemo.showRowNumbers,
             .showFooter = g_tableDemo.showFooter,
-            .footerText = footerBuf
+            .footerText = footerBuf,
+            .size = g_tableDemo.tableSize
         })) {
             if (table.SortChanged()) {
                 g_tableDemo.SortRows();
@@ -258,7 +260,7 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
 
                 if (auto row = table.Row(visRow, rowOpts)) {
                     // Col 0: Embedded Checkbox widget
-                    ui.Size(UiSize::Sm).Checkbox(item.tracked, {.color = StateColor::Primary()});
+                    ui.Checkbox(item.tracked, {.color = StateColor::Primary(), .size = UiSize::Sm});
 
                     // Col 1: Target ID
                     ui.Text(ui.Format("T-{:04d}", item.id), {.variant = UiVariant::Secondary});
@@ -279,9 +281,10 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
                     );
 
                     // Col 6: Embedded Segmented VU ProgressBar widget
-                    ui.Size(UiSize::Sm).ProgressBar(item.snrDb, 0.0f, 40.0f, {
+                    ui.ProgressBar(item.snrDb, 0.0f, 40.0f, {
                         .valueFormat = "%.1f dB",
                         .segments = 12,
+                        .size = UiSize::Sm,
                         .multiZoneColor = true
                     });
 
@@ -315,7 +318,7 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
             g_tableDemo.lastVisibleCount
         );
 
-        if (auto table = ui.Size(g_tableDemo.tableSize).Table(kVirtualCols, {
+        if (auto table = ui.Table(kVirtualCols, {
             .totalRows = kTotalVirtualRows,
             .selectedRow = &g_tableDemo.virtualSelectedRow,
             .sortColumn = &g_tableDemo.virtualSortCol,
@@ -326,7 +329,8 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
             .resizableColumns = g_tableDemo.resizableColumns,
             .showRowNumbers = g_tableDemo.showRowNumbers,
             .showFooter = g_tableDemo.showFooter,
-            .footerText = ftrBuf
+            .footerText = ftrBuf,
+            .size = g_tableDemo.tableSize
         })) {
             if (g_tableDemo.pendingJumpRow >= 0) {
                 g_tableDemo.virtualSelectedRow = g_tableDemo.pendingJumpRow;
@@ -360,9 +364,10 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
                     ui.Text(ui.Format("{:.3f} MHz", freq));
 
                     const float rssi = -95.0f + static_cast<float>((logicalIdx * 17) % 65);
-                    ui.Size(UiSize::Xs).ProgressBar(rssi, -100.0f, -30.0f, {
+                    ui.ProgressBar(rssi, -100.0f, -30.0f, {
                         .valueFormat = "%.0f dBm",
                         .segments = 10,
+                        .size = UiSize::Xs,
                         .multiZoneColor = true
                     });
 
@@ -386,7 +391,7 @@ keel::String GenerateTableCode(const DemoContext& /*ctx*/) {
         "    {{.title = \"SNR Level\", .flex = 1.4f,    .sortable = true}},\n"
         "    {{.title = \"Status\",    .width = 100.0f, .align = guikit::Align::Center, .sortable = true}}\n"
         "}}}};\n\n"
-        "if (auto table = ui.Size(guikit::UiSize::{}).Table(cols, {{\n"
+        "if (auto table = ui.Table(cols, {{\n"
         "    .totalRows = rows.size(),\n"
         "    .selectedRow = &selectedRow,\n"
         "    .sortColumn = &sortCol,\n"
@@ -396,7 +401,7 @@ keel::String GenerateTableCode(const DemoContext& /*ctx*/) {
         "    .gridLines = {},\n"
         "    .resizableColumns = {},\n"
         "    .showRowNumbers = {},\n"
-        "    .showFooter = {}\n"
+        "    .showFooter = {}{}\n"
         "}})) {{\n"
         "    for (size_t r = table.FirstVisibleRow(); r < table.EndVisibleRow(); ++r) {{\n"
         "        if (auto row = table.Row(r)) {{\n"
@@ -408,13 +413,13 @@ keel::String GenerateTableCode(const DemoContext& /*ctx*/) {
         "        }}\n"
         "    }}\n"
         "}}",
-        SizeName(g_tableDemo.tableSize),
         g_tableDemo.stickyHeader ? "true" : "false",
         g_tableDemo.striped ? "true" : "false",
         g_tableDemo.gridLines ? "true" : "false",
         g_tableDemo.resizableColumns ? "true" : "false",
         g_tableDemo.showRowNumbers ? "true" : "false",
-        g_tableDemo.showFooter ? "true" : "false"
+        g_tableDemo.showFooter ? "true" : "false",
+        FormatUiSizePrefix(g_tableDemo.tableSize)
     );
 }
 

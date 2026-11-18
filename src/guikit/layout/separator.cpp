@@ -59,7 +59,6 @@ void Separator::Run(
     keel::Optional<Orientation> lineOrientationOverride
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const float scale = ctx.GetCurrentScale();
     Node* parent = ctx.GetCurrentContainer();
     const bool drawVerticalLine = lineOrientationOverride.has_value()
         ? (*lineOrientationOverride == Orientation::Vertical)
@@ -79,14 +78,14 @@ void Separator::Run(
     if (drawVerticalLine) {
         const bool isStatusBar = (parent != nullptr && parent->type == NodeType::StatusBar);
         sep->widthMode = SizeMode::Fixed;
-        sep->fixedWidth = (isStatusBar ? 8.0f : 10.0f) * scale;
+        sep->fixedWidth = isStatusBar ? 8.0f : 10.0f;
         if ((parent != nullptr && (parent->fixedHeight > 0.0f || parent->type == NodeType::Toolbar)) || clampedExtent > 0.0f || isStatusBar) {
             const float minR = isStatusBar ? 0.2f : 0.1f;
             const float maxR = isStatusBar ? 0.9f : 1.0f;
             const float ratio = (clampedExtent > 0.0f) ? keel::clamp(clampedExtent, minR, maxR) : 0.55f;
             const float parentH = (parent != nullptr && parent->fixedHeight > 0.0f)
                 ? parent->fixedHeight
-                : ((isStatusBar ? 26.0f : 32.0f) * scale);
+                : (isStatusBar ? 26.0f : 32.0f);
             sep->heightMode = SizeMode::Fixed;
             sep->fixedHeight = parentH * ratio;
         } else {
@@ -122,7 +121,7 @@ void Separator::Run(
             sep->fixedWidth = clampedExtent;
         }
         sep->heightMode = SizeMode::Fixed;
-        sep->fixedHeight = 8.0f * scale;
+        sep->fixedHeight = 8.0f;
         sep->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* /*canvas*/, const UiTheme& /*theme*/) noexcept -> Vec2 {
             const bool inToolbar = (n->parent != nullptr && n->parent->type == NodeType::Toolbar);
             return {

@@ -189,7 +189,7 @@ private:
     Context m_ui;
     FrameMetrics m_metrics;
 
-    UiTheme m_shellTheme = UiTheme::Dark(Density::Standard);
+    UiTheme m_shellTheme = UiTheme::Dark();
     bool m_shellLightMode = false;
     bool m_shellFloating = false;
     float m_shellScale = 1.0f;

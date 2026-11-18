@@ -38,7 +38,7 @@ void Spacer::Gap(
     Node* node = ctx.CreateNode(NodeType::Spacer, id);
     node->isSpacer = false;
     node->flexGrow = 0.0f;
-    const float scaled = keel::max(0.0f, ctx.GetTheme().Scale(sizeDp));
+    const float scaled = keel::max(0.0f, sizeDp * ctx.GetDensity());
     const bool horizontalParent = node->parent != nullptr &&
         (node->parent->direction == FlexDirection::Row || node->parent->direction == FlexDirection::Wrap);
     node->widthMode = SizeMode::Fixed;

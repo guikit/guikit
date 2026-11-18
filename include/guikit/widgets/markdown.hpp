@@ -68,11 +68,8 @@ struct MarkdownOptions {
     keel::SmallFunction<void(keel::i32, bool)> onTaskToggle{};       ///< Optional callback invoked when a task checkbox is toggled (taskIndex, checked)
 
     UiText tooltip{};
+    UiSize size{UiSize::Md};
     bool disabled{false};
-    const UiTheme* theme{nullptr};
-    keel::Optional<float> scale{keel::kNullOpt};
-    keel::Optional<bool> debugBounds{keel::kNullOpt};
-    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// Extended response returned by `ui.Markdown(...)`.

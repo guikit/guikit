@@ -167,7 +167,7 @@ float MeasureUniformSlotWidth(
     std::snprintf(buf, sizeof(buf), "%zu", keel::max<keel::usize>(1, totalPages));
     const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
     const float textW = TextUtil::MeasureWidth(buf, fontSize, canvas);
-    const float padX = keel::max(theme.Scale(8.0f), cm.paddingX * 0.65f);
+    const float padX = keel::max(8.0f, cm.paddingX * 0.65f);
     return keel::max(minBtnW, std::ceil(textW + padX * 2.0f));
 }
 
@@ -188,7 +188,7 @@ float MeasureReservedPageInfoWidth(
     char buf[64];
     const keel::StringRef maxInfoStr = FormatPageInfoText(safeTotal - 1, safeTotal, buf);
     const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
-    return std::ceil(TextUtil::MeasureWidth(maxInfoStr, fontSize, canvas) + theme.Scale(4.0f));
+    return std::ceil(TextUtil::MeasureWidth(maxInfoStr, fontSize, canvas) + 4.0f);
 }
 
 Vec2 MeasurePaginationNaturalBox(
@@ -203,7 +203,7 @@ Vec2 MeasurePaginationNaturalBox(
     keel::SmallArray<PageToken, 16> tokens;
     BuildPaginationTokens(currentPage, totalPages, opts, tokens);
 
-    const float gap = theme.Scale(4.0f);
+    const float gap = 4.0f;
     const float slotW = MeasureUniformSlotWidth(totalPages, size, canvas, theme);
     float totalW = 0.0f;
     if (!tokens.empty()) {
@@ -211,15 +211,15 @@ Vec2 MeasurePaginationNaturalBox(
     }
 
     if (opts.showPageInfo) {
-        totalW += theme.Scale(10.0f) + MeasureReservedPageInfoWidth(totalPages, size, canvas, theme);
+        totalW += 10.0f + MeasureReservedPageInfoWidth(totalPages, size, canvas, theme);
     }
 
     if (opts.width.IsFixed()) {
-        totalW = theme.Scale(opts.width.Dp());
+        totalW = opts.width.Dp();
     }
 
     const float boxH = opts.height.IsFixed()
-        ? theme.Scale(opts.height.Dp())
+        ? opts.height.Dp()
         : cm.defaultHeight;
 
     return {keel::max(cm.defaultHeight, totalW), boxH};
@@ -243,13 +243,13 @@ void ComputePaginationLayout(
     if (outTokens.empty()) return;
 
     outTokenRects.reserve(outTokens.size());
-    const float gap = theme.Scale(4.0f);
+    const float gap = 4.0f;
     const float slotW = MeasureUniformSlotWidth(totalPages, size, canvas, theme);
     keel::SmallArray<float, 16> widths(outTokens.size(), slotW);
     float totalW = static_cast<float>(outTokens.size()) * slotW + static_cast<float>(outTokens.size() - 1) * gap;
 
     float infoW = 0.0f;
-    const float infoGap = theme.Scale(10.0f);
+    const float infoGap = 10.0f;
     if (opts.showPageInfo) {
         infoW = MeasureReservedPageInfoWidth(totalPages, size, canvas, theme);
         totalW += infoGap + infoW;
@@ -340,9 +340,8 @@ Response Pagination::Run(
     const PaginationOptions& opts,
     keel::SourceLocation loc
 ) {
-    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const UiSize activeSize = opts.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const UiTheme theme = ctx.GetTheme();
     ICanvas* canvas = ctx.GetCanvas();
@@ -438,8 +437,6 @@ Response Pagination::Run(
     const ControlSpec ctrl = EffectivePaginationControl(optsCopy, activeSize, theme);
 
     Node* node = ctx.CreateNode(NodeType::Pagination, id);
-    node->debugBoundsOverride = opts.debugBounds;
-    node->inspectModeOverride = opts.inspectMode;
 
     optsCopy.tooltip = ctx.AllocText(optsCopy.tooltip);
 
@@ -510,7 +507,7 @@ void Pagination::Render(
     ComputePaginationLayout(innerRect, d->currentPage, d->totalPages, d->opts, size, &canvas, theme, tokens, tokenRects, infoRect);
 
     const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
-    const float pillRadius = keel::max(theme.Scale(4.0f), cm.cornerRadius);
+    const float pillRadius = keel::max(4.0f, cm.cornerRadius);
     const float iconSz = std::round(cm.iconSize * 0.85f);
 
     canvas.PushClip(bounds);

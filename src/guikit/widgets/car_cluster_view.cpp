@@ -1366,14 +1366,14 @@ void RenderCarClusterViewNode(const Node* node, ICanvas& canvas, const UiTheme& 
     const Rect ctrlRect = node->computedRect;
     if (ctrlRect.w <= 16.0f || ctrlRect.h <= 16.0f) return;
 
-    const float s = theme.Scale(1.0f);
+    constexpr float s = 1.0f;
     const ClusterPalette pal = ResolveClusterPalette(opts.driveTheme);
     const float outerRadius = opts.border.radius.has_value()
-        ? theme.Scale(*opts.border.radius)
-        : (14.0f * s);
+        ? *opts.border.radius
+        : 14.0f;
     const Color binnacleBg = opts.background.Resolve(node->hovered, node->pressed, node->disabled, pal.binnacleBg);
     const Color binnacleBorder = opts.border.color.Resolve(node->hovered, node->pressed, node->disabled, pal.binnacleBorder);
-    const float borderW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : (1.5f * s);
+    const float borderW = (opts.border.width > 0.0f) ? opts.border.width : 1.5f;
 
     // Outer automotive binnacle frame
     canvas.DrawRoundRect(ctrlRect, outerRadius, binnacleBg, binnacleBorder, borderW);
@@ -1449,18 +1449,18 @@ Vec2 CarClusterView::Measure(
     const CarClusterViewOptions& opts,
     UiSize /*size*/,
     ICanvas* /*canvas*/,
-    const UiTheme& theme,
+    const UiTheme& /*theme*/,
     float availableWidth
 ) {
-    float defaultW = theme.Scale(760.0f);
+    float defaultW = 760.0f;
     if (opts.width.IsFixed()) {
-        defaultW = theme.Scale(opts.width.Dp());
+        defaultW = opts.width.Dp();
     } else if (opts.width.ResolveMode(SizeMode::Stretch) == SizeMode::Stretch && availableWidth > 0.0f) {
         defaultW = availableWidth;
     }
     const float defaultH = opts.height.IsFixed()
-        ? theme.Scale(opts.height.Dp())
-        : theme.Scale(340.0f);
+        ? opts.height.Dp()
+        : 340.0f;
     return {defaultW, defaultH};
 }
 
@@ -1469,13 +1469,12 @@ CarClusterViewResponse CarClusterView::Run(
     const CarClusterViewOptions& opts,
     keel::SourceLocation loc
 ) {
-    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const Id id = ctx.MakeChildId(loc);
     const bool isDisabled = opts.disabled || ctx.IsDisabled();
-    const UiSize effectiveSize = ctx.GetCurrentSize();
+    const UiSize effectiveSize = opts.size;
     const UiTheme& theme = ctx.GetTheme();
-    const float s = theme.Scale(1.0f);
+    constexpr float s = 1.0f;
 
     Response baseRes = ctx.Interact(id);
     CarClusterViewResponse resp{};
@@ -1555,8 +1554,6 @@ CarClusterViewResponse CarClusterView::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::CarClusterView, id);
-    node->debugBoundsOverride = opts.debugBounds;
-    node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<CarClusterViewPayload>();
     payload->opts = opts;
     payload->opts.tooltip = ctx.AllocText(opts.tooltip);

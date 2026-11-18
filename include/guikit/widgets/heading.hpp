@@ -33,10 +33,6 @@ struct HeadingOptions {
     AxisSize width{};                                       ///< Horizontal sizing policy: `Auto` (`Stretch`, or `Fit` in `Toolbar`), `Fit`, `Stretch`, or `Fixed(dp)`
     HeadingDivider separator{};                             ///< Built-in section divider placement (None, Bottom, Trailing), stroke color, and thickness
     bool disabled{false};                                   ///< Whether the heading is rendered in a disabled state
-    const UiTheme* theme{nullptr};                          ///< Optional scoped theme override
-    keel::Optional<float> scale{keel::kNullOpt};            ///< Optional local UI scale factor override
-    keel::Optional<bool> debugBounds{keel::kNullOpt};       ///< Scoped debug bounding box overlay override
-    keel::Optional<bool> inspectMode{keel::kNullOpt};       ///< Scoped interactive DevTools inspector override
 };
 
 /// Standalone section heading leaf widget with `HeadingMetrics` typography (`H1`–`H6`, default `H3`) and built-in dividers.

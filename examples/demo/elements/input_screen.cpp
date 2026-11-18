@@ -78,20 +78,22 @@ void RenderInputStage(guikit::Context& ui, DemoContext& ctx) {
         opts.border = ctx.GetCtrlBorder();
         opts.password = s_state.password;
         opts.clearable = s_state.clearable;
+        opts.size = ctx.controlsSize;
         opts.disabled = ctx.elemDisabled;
         opts.readOnly = s_state.readOnly;
-        ui.Size(ctx.controlsSize).InputField(s_state.text, opts);
+        ui.InputField(s_state.text, opts);
 
         if (s_state.companionButton) {
             const keel::StringRef btnLbl = (s_state.connectCount > 0)
                 ? ui.Format("Connect ({})", s_state.connectCount)
                 : keel::StringRef("Connect");
-            if (ui.Size(ctx.controlsSize).Button({
+            if (ui.Button({
                 .text = btnLbl,
                 .icon = guikit::Icon::Play(),
                 .color = ctx.GetControlColor(),
                 .height = ctx.ResolveCtrlHeight(),
-                .disabled = ctx.elemDisabled
+                .disabled = ctx.elemDisabled,
+                .size = ctx.controlsSize
             })) {
                 ++s_state.connectCount;
                 ui.InvalidateAll();
@@ -102,7 +104,7 @@ void RenderInputStage(guikit::Context& ui, DemoContext& ctx) {
 
 keel::String GenerateInputCode(const DemoContext& ctx) {
     keel::String ctrl = keel::format(
-        "ui.{}InputField(serverEndpoint, {{\n"
+        "ui.InputField(serverEndpoint, {{\n"
         "    .placeholder = \"{}\",\n"
         "    .prefix = \"{}\",\n"
         "    .suffix = \"{}\",\n"
@@ -113,11 +115,10 @@ keel::String GenerateInputCode(const DemoContext& ctx) {
         "    .background = {},\n"
         "    .border = {},\n"
         "    .password = {},\n"
-        "    .clearable = {},\n"
+        "    .clearable = {}{},\n"
         "    .disabled = {},\n"
         "    .readOnly = {}\n"
         "}});",
-        FormatUiSizePrefix(ctx.controlsSize),
         s_state.placeholder,
         s_state.prefix,
         s_state.suffix,
@@ -128,6 +129,7 @@ keel::String GenerateInputCode(const DemoContext& ctx) {
         ctx.FormatCtrlBorderCode(),
         s_state.password ? "true" : "false",
         s_state.clearable ? "true" : "false",
+        FormatUiSizePrefix(ctx.controlsSize),
         ctx.elemDisabled ? "true" : "false",
         s_state.readOnly ? "true" : "false"
     );
@@ -135,11 +137,11 @@ keel::String GenerateInputCode(const DemoContext& ctx) {
     if (s_state.companionButton) {
         keel::format_into(
             ctrl,
-            "\nif (ui.{}Button({{.text = \"Connect\", .icon = guikit::Icon::Play(), .color = {}}})) {{\n"
+            "\nif (ui.Button({{.text = \"Connect\", .icon = guikit::Icon::Play(), .color = {}{}}})) {{\n"
             "    // Trigger endpoint action\n"
             "}}",
-            FormatUiSizePrefix(ctx.controlsSize),
-            ctx.FormatControlColorCode()
+            ctx.FormatControlColorCode(),
+            FormatUiSizePrefix(ctx.controlsSize)
         );
     }
 

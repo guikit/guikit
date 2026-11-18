@@ -34,9 +34,7 @@ struct MainWindowConfig {
     float targetFps = 60.0f;    ///< Target frame rate for telemetry budget and non-VSync frame pacing
     float initialScale = 1.0f;  ///< Initial shell UI scale, snapped to the nearest `MainWindow::kScaleValues` preset
     ThemeMode initialThemeMode = ThemeMode::Dark;
-    /// `Standard` is desktop-native (30 dp controls, 14 dp labels); `Compact` is IDE-dense (24 dp / 13 dp);
-    /// `Touch` enlarges controls and spacing for finger input.
-    Density initialDensity = Density::Standard;
+    float initialDensity = 1.0f; ///< Initial layout gap/padding density multiplier (1.0f = standard)
     ShellStyle initialShellStyle = ShellStyle::Docked;
     keel::Optional<UiTheme> initialTheme = keel::kNullOpt; ///< Optional complete initial theme override
     VectorCanvasFactory canvasFactory = nullptr; ///< Optional per-window custom `ICanvas` factory override

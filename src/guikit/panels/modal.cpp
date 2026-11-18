@@ -86,7 +86,7 @@ float Modal::ComputeHeaderHeight(
         return 0.0f;
     }
 
-    const float s = (theme.scale > 0.0f) ? theme.scale : 1.0f;
+    const float s = 1.0f;
     const float titleFont = theme.ResolveFontSize(opts.title, TextRole::TitleMedium, size);
     const float subFont = theme.ResolveFontSize(opts.subtitle, TextRole::BodySmall, size);
     const float titleLineH = canvas ? canvas->GetLineHeight(titleFont) : (titleFont * 1.3f);
@@ -124,9 +124,8 @@ ModalScope Modal::Open(
     }
 
     const Id closeBtnId(detail::HashArgs(id.value, keel::u64(0x4D4F44414C5F58ull)));
-    const UiSize activeSize = ctx.GetCurrentSize();
-    // The scale the modal's zone will have; needed before the zone is entered (previous-frame hit testing)
-    const float activeScale = ctx.ResolveScale({.scale = opts.scale});
+    const UiSize activeSize = opts.size;
+    const float activeScale = 1.0f;
 
     Rect backdropRect = ctx.GetPopupViewportRect();
     if (opts.confineToParent) {
@@ -205,8 +204,9 @@ ModalScope Modal::Open(
         return ModalScope(&ctx, nullptr, &open, res, true);
     }
 
-    ZoneScope zone = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
-    const UiTheme& theme = ctx.GetTheme();
+    Node* node = ctx.CreateNode(NodeType::Modal, id, opts.zone, opts.disabled);
+    const UiTheme& theme = node->GetTheme(ctx.GetTheme());
+    const float density = node->GetDensity();
     ICanvas* canvas = ctx.GetCanvas();
 
     ModalOptions allocatedOpts = opts;
@@ -217,24 +217,21 @@ ModalScope Modal::Open(
     }
 
     const float headerH = ComputeHeaderHeight(allocatedOpts, activeSize, theme, canvas);
-    const float defaultPad = theme.Scale(18.0f);
+    const float defaultPad = 18.0f * density;
     const Padding bodyPad = opts.padding.has_value()
-        ? theme.ResolvePadding(*opts.padding, activeSize)
+        ? theme.ResolvePadding(*opts.padding, activeSize, density)
         : Padding::All(defaultPad);
 
-    Node* node = ctx.CreateNode(NodeType::Modal, id);
-    node->debugBoundsOverride = opts.debugBounds;
-    node->inspectModeOverride = opts.inspectMode;
     node->direction = FlexDirection::Column;
     node->widthMode = SizeMode::Fixed;
-    node->fixedWidth = theme.Scale(keel::max(180.0f, opts.width));
+    node->fixedWidth = keel::max(180.0f, opts.width);
     if (opts.height.has_value() && *opts.height > 0.0f) {
         node->heightMode = SizeMode::Fixed;
-        node->fixedHeight = theme.Scale(*opts.height);
+        node->fixedHeight = *opts.height;
     } else {
         node->heightMode = SizeMode::Fit;
     }
-    node->gap = opts.gap.has_value() ? theme.Scale(*opts.gap) : theme.Scale(12.0f);
+    node->gap = (opts.gap.has_value() ? *opts.gap : 12.0f) * density;
     node->padding = Padding(
         bodyPad.left,
         headerH + bodyPad.top,
@@ -242,11 +239,10 @@ ModalScope Modal::Open(
         bodyPad.bottom
     );
     node->cornerRadius = opts.border.radius.has_value()
-        ? theme.Scale(*opts.border.radius)
+        ? *opts.border.radius
         : theme.ResolveRadius(keel::kNullOpt, activeSize);
     node->clipChildren = true;
     node->uiSize = activeSize;
-    node->disabled = ctx.IsDisabled();
     node->hovered = closeHovered;
     node->pressed = closePressed;
 
@@ -272,8 +268,8 @@ ModalScope Modal::Open(
         closePressed
     );
 
-    ctx.PushContainer(node, keel::move(zone));
     ctx.BeginModalScope(id, backdropRect);
+    ctx.FinishContainer(node);
 
     return ModalScope(&ctx, node, &open, res, false);
 }
@@ -374,7 +370,7 @@ void Modal::Render(
     const Rect& backdropRect = payload->backdropRect;
     const Rect& dialogRect = node->computedRect;
     const auto& pal = theme.palette;
-    const float s = (theme.scale > 0.0f) ? theme.scale : 1.0f;
+    const float s = 1.0f;
 
     // 1. Render translucent backdrop overlay
     if (opts.backdropColor.has_value()) {
@@ -419,7 +415,7 @@ void Modal::Render(
                 ? defaultSurfaceBg.ScaleAlpha(opts.background.alphaScale)
                 : theme.ResolveColor(opts.background, false, false, false, defaultSurfaceBg)))
         : Color::Transparent();
-    const float borderW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : 0.0f;
+    const float borderW = (opts.border.width > 0.0f) ? opts.border.width : 0.0f;
     const Color borderCol = (borderW > 0.0f)
         ? theme.ResolveColor(opts.border.color, false, false, false, pal.borderHover)
         : Color::Transparent();

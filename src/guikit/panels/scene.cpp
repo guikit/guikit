@@ -44,26 +44,26 @@ keel::Optional<Rect> ResolveWorldBounds(const SceneOptions& opts) noexcept {
 
 Vec2 ComputeSceneControlSize(
     const SceneOptions& opts,
-    const UiTheme& theme,
+    const UiTheme& /*theme*/,
     float availableWidth
 ) noexcept {
     const keel::Optional<Rect> wb = ResolveWorldBounds(opts);
-    const float defW = wb.has_value() ? theme.Scale(wb->w) : theme.Scale(360.0f);
-    const float defH = wb.has_value() ? theme.Scale(wb->h) : theme.Scale(opts.minHeight);
+    const float defW = wb.has_value() ? wb->w : 360.0f;
+    const float defH = wb.has_value() ? wb->h : opts.minHeight;
     const float aspect = (defH > 0.0f) ? (defW / defH) : (16.0f / 9.0f);
 
     float ctrlW = defW;
     if (opts.width.IsFixed()) {
-        ctrlW = theme.Scale(opts.width.Dp());
+        ctrlW = opts.width.Dp();
     } else if (opts.width.ResolveMode(SizeMode::Stretch) == SizeMode::Stretch && availableWidth > 0.0f) {
         ctrlW = availableWidth;
     }
 
-    float ctrlH = theme.Scale(opts.minHeight);
+    float ctrlH = opts.minHeight;
     if (opts.height.IsFixed()) {
-        ctrlH = theme.Scale(opts.height.Dp());
+        ctrlH = opts.height.Dp();
     } else if (opts.height.ResolveMode(SizeMode::Stretch) == SizeMode::Fit && wb.has_value() && aspect > 0.0f) {
-        ctrlH = keel::max(theme.Scale(opts.minHeight), ctrlW / aspect);
+        ctrlH = keel::max(opts.minHeight, ctrlW / aspect);
     }
 
     return { keel::max(40.0f, ctrlW), keel::max(40.0f, ctrlH) };
@@ -88,7 +88,7 @@ void ApplyInitialFit(
         return;
     }
 
-    const float s = keel::max(0.0001f, theme.Scale(1.0f));
+    const float s = 1.0f;
     const Padding pad = theme.ResolvePadding(opts.fitPadding, UiSize::Md);
     const Rect availBox(
         pad.left,
@@ -121,7 +121,7 @@ void ClampCameraToWorld(
     if (!opts.clampToWorld || !wb.has_value() || vp.w <= 0.0f || vp.h <= 0.0f) {
         return;
     }
-    const float s = theme.Scale(1.0f);
+    const float s = 1.0f;
     const float ws = s * state.zoom;
     const Padding pad = theme.ResolvePadding(opts.fitPadding, UiSize::Md);
     const Rect availBox(
@@ -161,7 +161,7 @@ struct HudLayout {
 
 HudLayout ComputeHudLayout(Rect vp, const UiTheme& theme, bool hasHScroll, bool hasVScroll, UiSize size) noexcept {
     HudLayout hud{};
-    const float s = theme.Scale(1.0f);
+    const float s = 1.0f;
     const ScrollbarMetrics& sm = theme.GetScrollbar(size);
     const float marginX = 10.0f * s + (hasVScroll ? (sm.trackWidth + sm.margin) : 0.0f);
     const float marginY = 10.0f * s + (hasHScroll ? (sm.trackWidth + sm.margin) : 0.0f);
@@ -456,7 +456,7 @@ float SceneScope::GetZoom() const noexcept {
 
 float SceneScope::GetWorldScale() const noexcept {
     if (!m_ctx || !m_payload || !m_payload->state) return 1.0f;
-    return keel::max(0.0001f, m_ctx->GetTheme().Scale(1.0f) * m_payload->state->zoom);
+    return keel::max(0.0001f, m_payload->state->zoom);
 }
 
 void SceneScope::SetZoom(float zoom) noexcept {
@@ -481,7 +481,7 @@ void SceneScope::CenterOn(Vec2 worldPoint, keel::Optional<float> zoom) noexcept 
     }
     if (m_ctx && m_viewport.w > 1.0f && m_viewport.h > 1.0f) {
         const UiTheme& theme = m_ctx->GetTheme();
-        const float s = theme.Scale(1.0f) * st.zoom;
+        const float s = st.zoom;
         st.pan.x = m_viewport.w * 0.5f - worldPoint.x * s;
         st.pan.y = m_viewport.h * 0.5f - worldPoint.y * s;
         ClampCameraToWorld(st, m_payload->opts, m_viewport, theme);
@@ -523,7 +523,7 @@ bool SceneScope::WasCameraModified() const noexcept {
 
 Vec2 SceneScope::WorldToScreen(Vec2 worldPt) const noexcept {
     if (!m_ctx || !m_payload || !m_payload->state) return worldPt;
-    const float s = m_ctx->GetTheme().Scale(1.0f) * m_payload->state->zoom;
+    const float s = m_payload->state->zoom;
     return {
         m_viewport.x + m_payload->state->pan.x + worldPt.x * s,
         m_viewport.y + m_payload->state->pan.y + worldPt.y * s
@@ -532,7 +532,7 @@ Vec2 SceneScope::WorldToScreen(Vec2 worldPt) const noexcept {
 
 Vec2 SceneScope::ScreenToWorld(Vec2 screenPt) const noexcept {
     if (!m_ctx || !m_payload || !m_payload->state) return screenPt;
-    const float s = keel::max(0.0001f, m_ctx->GetTheme().Scale(1.0f) * m_payload->state->zoom);
+    const float s = keel::max(0.0001f, m_payload->state->zoom);
     return {
         (screenPt.x - m_viewport.x - m_payload->state->pan.x) / s,
         (screenPt.y - m_viewport.y - m_payload->state->pan.y) / s
@@ -542,7 +542,7 @@ Vec2 SceneScope::ScreenToWorld(Vec2 screenPt) const noexcept {
 Rect SceneScope::WorldToScreen(Rect worldRect) const noexcept {
     const Vec2 tl = WorldToScreen(worldRect.Pos());
     const float s = (m_ctx && m_payload && m_payload->state)
-        ? (m_ctx->GetTheme().Scale(1.0f) * m_payload->state->zoom)
+        ? m_payload->state->zoom
         : 1.0f;
     return { tl.x, tl.y, worldRect.w * s, worldRect.h * s };
 }
@@ -869,7 +869,7 @@ void UpdateSceneCameraTransform(
         if (state.pendingCenterZoom.has_value()) {
             state.zoom = keel::clamp(*state.pendingCenterZoom, opts.minZoom, opts.maxZoom);
         }
-        const float s = theme.Scale(1.0f) * state.zoom;
+        const float s = state.zoom;
         state.pan.x = vp.w * 0.5f - state.pendingCenterWorld->x * s;
         state.pan.y = vp.h * 0.5f - state.pendingCenterWorld->y * s;
         ClampCameraToWorld(state, opts, vp, theme);
@@ -889,7 +889,7 @@ void UpdateSceneCameraTransform(
     const float preInputZoom = state.zoom;
     const Vec2 preInputPan = state.pan;
 
-    const float s = theme.Scale(1.0f);
+    const float s = 1.0f;
     const float worldScale = keel::max(0.0001f, state.zoom * s);
     const Vec2 mousePos = ctx.GetMousePos();
     const bool notOccluded = !ctx.IsMouseOccluded(node->id, mousePos);
@@ -1124,21 +1124,13 @@ SceneScope Scene::OpenWithId(
     const SceneOptions& opts
 ) {
     const SceneOptions& optsCopy = opts;
-
-    const UiSize activeSize = ctx.GetCurrentSize();
-    const bool activeDisabled = optsCopy.disabled || ctx.IsDisabled();
-    ZoneScope zone = ctx.Zone({.theme = optsCopy.theme, .scale = optsCopy.scale, .disabled = optsCopy.disabled});
-
-    const UiTheme& theme = ctx.GetTheme();
+    const UiSize activeSize = optsCopy.size;
     auto& state = ctx.GetOrCreatePersistentState<SceneState>(id);
 
-    Node* node = ctx.CreateNode(NodeType::Scene, id);
-    node->debugBoundsOverride = optsCopy.debugBounds;
-    node->inspectModeOverride = optsCopy.inspectMode;
+    Node* node = ctx.CreateNode(NodeType::Scene, id, optsCopy.zone, optsCopy.disabled);
     node->direction = FlexDirection::Column;
     node->clipChildren = true;
     node->uiSize = activeSize;
-    node->disabled = activeDisabled;
 
     auto* payload = ctx.AllocPayload<ScenePayload>();
     payload->opts = optsCopy;
@@ -1176,13 +1168,13 @@ SceneScope Scene::OpenWithId(
         node->widthMode = Control::ResolveWidthMode(ctx, optsCopy.width, SizeMode::Stretch);
         if (optsCopy.width.IsFixed()) {
             node->widthMode = SizeMode::Fixed;
-            node->fixedWidth = theme.Scale(optsCopy.width.Dp());
+            node->fixedWidth = optsCopy.width.Dp();
         }
         node->heightMode = Control::ResolveHeightMode(optsCopy.height, SizeMode::Stretch);
         if (optsCopy.height.IsFixed()) {
-            node->fixedHeight = theme.Scale(optsCopy.height.Dp());
+            node->fixedHeight = optsCopy.height.Dp();
         }
-        node->minHeight = theme.Scale(effMinHeightDp);
+        node->minHeight = effMinHeightDp;
     }
 
     bool inScrollableAncestor = false;
@@ -1211,7 +1203,7 @@ SceneScope Scene::OpenWithId(
     // Eagerly update camera pan & zoom before SceneScope body runs so GetVisibleWorldRect() and GetZoom() have zero 1-frame lag!
     state.preUpdatedCamera = false;
     if (prevVp.w > 1.0f && prevVp.h > 1.0f) {
-        UpdateSceneCameraTransform(ctx, node, payload, prevVp, theme);
+        UpdateSceneCameraTransform(ctx, node, payload, prevVp, ctx.GetTheme());
         state.preUpdatedCamera = true;
     }
 
@@ -1245,10 +1237,10 @@ SceneScope Scene::OpenWithId(
         state.boxSelectCurrentWorld.x,
         state.boxSelectCurrentWorld.y,
         activeSize,
-        activeDisabled
+        node->disabled
     );
 
-    ctx.PushContainer(node, keel::move(zone));
+    ctx.FinishContainer(node);
     return SceneScope(&ctx, node, payload, prevVp);
 }
 
@@ -1276,14 +1268,7 @@ void Scene::Update(Context& ctx, Node* node) {
     const SceneOptions& opts = payload->opts;
     state.clickedItemKey = 0;
 
-    const UiTheme* resolvedTheme = &ctx.GetTheme();
-    for (const Node* curr = node; curr != nullptr; curr = curr->parent) {
-        if (curr->theme != nullptr) {
-            resolvedTheme = curr->theme;
-            break;
-        }
-    }
-    const UiTheme& theme = *resolvedTheme;
+    const UiTheme& theme = node->GetTheme(ctx.GetTheme());
     const Rect vp = GetViewportRect(node, nullptr, theme);
     if (vp.w <= 1.0f || vp.h <= 1.0f) return;
 
@@ -1305,7 +1290,7 @@ void Scene::Update(Context& ctx, Node* node) {
 
     if (node->disabled) return;
 
-    const float s = theme.Scale(1.0f);
+    const float s = 1.0f;
     const Vec2 mousePos = ctx.GetMousePos();
     const bool notOccluded = !ctx.IsMouseOccluded(node->id, mousePos);
     const bool insideVp = ctx.IsRectHovered(node->id, vp);
@@ -1503,7 +1488,7 @@ void Scene::RenderBackgroundAndWorld(
     const Rect vp = node->computedRect;
     if (vp.w <= 0.0f || vp.h <= 0.0f) return;
 
-    const float rad = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : 0.0f;
+    const float rad = opts.border.radius.has_value() ? *opts.border.radius : 0.0f;
     const Color bgCol = opts.background.IsBackgroundEnabled(true)
         ? theme.ResolveColor(opts.background, false, false, node->disabled, theme.palette.surface)
         : Color::Transparent();
@@ -1517,7 +1502,7 @@ void Scene::RenderBackgroundAndWorld(
 
     canvas.PushClip(vp.Inset(1.0f));
 
-    const float s = theme.Scale(1.0f);
+    const float s = 1.0f;
     const float worldScale = state.zoom * s;
 
     // Adaptive world-space coordinate grid (GridDots or GridLines)
@@ -1705,7 +1690,7 @@ void Scene::RenderBackgroundAndWorld(
                 };
                 const float fs = cmd.scaleFontWithZoom
                     ? (cmd.fontSize * worldScale)
-                    : theme.Scale(cmd.fontSize);
+                    : cmd.fontSize;
                 if (fs >= 2.2f) {
                     const Color col = (tintFactor > 0.0f) ? blendColor(cmd.fill, accentCol, tintFactor) : cmd.fill;
                     if (cmd.alignX != 0.0f || cmd.alignY != 0.0f) {
@@ -1723,7 +1708,7 @@ void Scene::RenderBackgroundAndWorld(
                 if (dst.Intersects(vp)) {
                     const float fs = cmd.scaleFontWithZoom
                         ? (cmd.fontSize * worldScale)
-                        : theme.Scale(cmd.fontSize);
+                        : cmd.fontSize;
                     if (fs >= 2.2f) {
                         const Color col = (tintFactor > 0.0f) ? blendColor(cmd.fill, accentCol, tintFactor) : cmd.fill;
                         if (std::abs(cmd.angleDeg) <= 0.01f) {
@@ -1810,7 +1795,7 @@ void Scene::RenderOverlays(
     const Rect vp = GetViewportRect(node, &canvas, theme);
     if (vp.w <= 0.0f || vp.h <= 0.0f) return;
 
-    const float s = theme.Scale(1.0f);
+    const float s = 1.0f;
     const bool hasWorld = opts.worldSize.has_value() && opts.worldSize->x > 0.0f && opts.worldSize->y > 0.0f;
     const float worldScreenW = hasWorld ? (opts.worldSize->x * s * state.zoom) : 0.0f;
     const float worldScreenH = hasWorld ? (opts.worldSize->y * s * state.zoom) : 0.0f;
@@ -1933,10 +1918,10 @@ void Scene::RenderOverlays(
 
     // 3. Render Viewport Frame Border
     if (opts.border.width > 0.0f) {
-        const float rad = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : 0.0f;
+        const float rad = opts.border.radius.has_value() ? *opts.border.radius : 0.0f;
         const Color bCol = opts.border.color.Resolve(false, false, node->disabled, theme.palette.borderSubtle);
         if (bCol.a > 0) {
-            canvas.DrawRoundRect(vp, rad, Color::Transparent(), bCol, theme.Scale(opts.border.width));
+            canvas.DrawRoundRect(vp, rad, Color::Transparent(), bCol, opts.border.width);
         }
     }
 }

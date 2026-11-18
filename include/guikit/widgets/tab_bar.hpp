@@ -50,8 +50,7 @@ struct TabBarOptions {
     StateColor background{};                     ///< Optional background fill color for the tab bar
     Border border{};                             ///< Optional border configuration (color, width, radius)
     Color activeColor{Color::Transparent()}; ///< Optional custom accent color override
-    const UiTheme* theme{nullptr};            ///< Optional scoped theme override
-    keel::Optional<float> scale{keel::kNullOpt}; ///< Optional scoped scale factor override
+    UiSize size{UiSize::Md};                     ///< Component size scale
 };
 
 /// Internal runtime state allocated in frame arena for TabItem nodes.

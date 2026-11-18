@@ -61,15 +61,14 @@ BottomPanelScope BottomPanel::Open(
 ) {
     const Id id = ctx.MakeChildId(loc);
     const Id sashId(detail::HashArgs(id.value, keel::u64(0x42505F53415348ull)));
-    const UiSize activeSize = ctx.GetCurrentSize();
-    const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    ZoneScope zone = ctx.Zone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
-    const float activeScale = ctx.GetCurrentScale();
 
-    const UiTheme& theme = ctx.GetTheme();
-    const float safeScale = (activeScale > 0.0f) ? activeScale : 1.0f;
+    Node* node = ctx.CreateNode(NodeType::BottomPanel, id, opts.zone, opts.disabled);
+    const UiTheme& theme = node->GetTheme(ctx.GetTheme());
+    const UiSize activeSize = opts.size;
+    const bool activeDisabled = node->disabled;
+    const float activeScale = 1.0f;
     const ComponentMetrics& m = theme.GetMetrics(activeSize);
-    const float metricMinH = (m.defaultHeight / safeScale) * 2.5f;
+    const float metricMinH = m.defaultHeight * 2.5f;
     const Rect parentBounds = ctx.GetParentPrevFrameBounds();
     const float clampedRatio = keel::clamp(opts.maxRatio, 0.15f, 0.95f);
 
@@ -91,7 +90,7 @@ BottomPanelScope BottomPanel::Open(
         ? *opts.minHeight
         : (opts.resizable ? keel::min(baseH, metricMinH) : 0.0f);
     const float parentMaxH = (parentBounds.h > 1.0f)
-        ? keel::max(effMinH, (parentBounds.h / safeScale) * clampedRatio)
+        ? keel::max(effMinH, parentBounds.h * clampedRatio)
         : keel::max(effMinH, 560.0f);
     const float effMaxH = (opts.maxHeight.has_value() && *opts.maxHeight > 0.0f)
         ? keel::max(effMinH, (parentBounds.h > 1.0f) ? keel::min(*opts.maxHeight, parentMaxH) : *opts.maxHeight)
@@ -100,7 +99,7 @@ BottomPanelScope BottomPanel::Open(
     const Rect prevBounds = ctx.GetPrevUnclippedBounds(id);
     const bool hasPrevGeometry = (prevBounds.w > 1.0f);
     if (hasPrevGeometry && state.mode == BottomPanelMode::Expanded && prevBounds.h > 1.0f && !state.draggingSash && !state.togglePressed) {
-        state.lastExpandedHeight = prevBounds.h / safeScale;
+        state.lastExpandedHeight = prevBounds.h;
     }
     if (externalMode != nullptr) {
         state.mode = *externalMode;
@@ -233,7 +232,7 @@ BottomPanelScope BottomPanel::Open(
                 res.pressed = true;
                 // Moving mouse UP (smaller mouse.y) increases the BottomPanel height
                 const float deltaY = state.dragStartMouseY - mouse.y;
-                const float rawLogicalH = state.dragStartHeight + (deltaY / safeScale);
+                const float rawLogicalH = state.dragStartHeight + deltaY;
 
                 const float collapseSnapH = (state.dragStartMode == BottomPanelMode::Collapsed)
                     ? 12.0f
@@ -295,22 +294,19 @@ BottomPanelScope BottomPanel::Open(
         ctx.InvalidateAll();
     }
 
-    Node* node = ctx.CreateNode(NodeType::BottomPanel, id);
-    node->debugBoundsOverride = opts.debugBounds;
-    node->inspectModeOverride = opts.inspectMode;
+    const float density = node->GetDensity();
     node->direction = FlexDirection::Column;
     node->sidebarCollapsed = (state.mode == BottomPanelMode::Collapsed);
     node->sidebarScrollable = opts.scrollable && !node->sidebarCollapsed;
-    node->gap = theme.ResolveGap(opts.gap, activeSize);
+    node->gap = theme.ResolveGap(opts.gap, activeSize, density);
     node->widthMode = SizeMode::Stretch;
     node->cornerRadius = opts.border.radius.has_value()
-        ? theme.Scale(*opts.border.radius)
+        ? *opts.border.radius
         : theme.shell.panelRadius;
     node->clipChildren = opts.clipChildren;
     node->scrollOrientation = Orientation::Vertical;
     node->scrollbarPolicy = opts.scrollbar;
     node->uiSize = activeSize;
-    node->disabled = activeDisabled;
 
     const auto& pal = theme.palette;
     float reportedLogicalH = 0.0f;
@@ -325,30 +321,30 @@ BottomPanelScope BottomPanel::Open(
         node->borderWidth = 0.0f;
         reportedLogicalH = 0.0f;
     } else {
-        node->minHeight = theme.Scale(effMinH);
+        node->minHeight = effMinH;
         if (state.customHeight > 0.0f) {
             const float effH = (parentBounds.h > 1.0f)
                 ? keel::clamp(state.customHeight, effMinH, effMaxH)
                 : state.customHeight;
             node->heightMode = SizeMode::Fixed;
-            node->fixedHeight = theme.Scale(effH);
+            node->fixedHeight = effH;
             reportedLogicalH = effH;
         } else if (opts.height.has_value()) {
             const float effH = (parentBounds.h > 1.0f)
                 ? keel::clamp(*opts.height, effMinH, effMaxH)
                 : *opts.height;
             node->heightMode = SizeMode::Fixed;
-            node->fixedHeight = theme.Scale(effH);
+            node->fixedHeight = effH;
             reportedLogicalH = effH;
         } else {
             node->heightMode = SizeMode::Fit;
             reportedLogicalH = state.lastExpandedHeight;
         }
-        node->padding = theme.ResolvePadding(opts.padding, activeSize);
+        node->padding = theme.ResolvePadding(opts.padding, activeSize, density);
         node->backgroundColor = opts.background.IsBackgroundEnabled(true)
             ? theme.ResolveColor(opts.background, false, false, activeDisabled, pal.surface)
             : Color::Transparent();
-        node->borderWidth = (opts.border.width == 1.0f) ? theme.shell.panelBorderWidth : theme.Scale(opts.border.width);
+        node->borderWidth = (opts.border.width == 1.0f) ? theme.shell.panelBorderWidth : opts.border.width;
         node->borderColor = (opts.border.width > 0.0f)
             ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, pal.border)
             : Color::Transparent();
@@ -365,7 +361,7 @@ BottomPanelScope BottomPanel::Open(
         opts.border
     );
 
-    ctx.PushContainer(node, keel::move(zone));
+    ctx.FinishContainer(node);
 
     if (node->sidebarScrollable) {
         node->postRenderFn = &ScrollArea::RenderScrollbar;

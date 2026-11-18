@@ -347,6 +347,8 @@ void ThorCanvas::ApplyFont(tvg::Text* txt, FontStyle style) const {
 
 void ThorCanvas::Begin(keel::u32 width, keel::u32 height, float scale) {
     m_scale = (scale > 0.0f) ? scale : 1.0f;
+    m_offset = {0.0f, 0.0f};
+    m_transformStack.clear();
     m_clipStack.clear();
     m_gpuClipStack.clear();
     if (m_width != width || m_height != height) {
@@ -359,6 +361,25 @@ void ThorCanvas::Begin(keel::u32 width, keel::u32 height, float scale) {
     } else {
         SyncViewportClip();
     }
+}
+
+void ThorCanvas::PushTransform(const Transform2D& transform) {
+    m_transformStack.push_back(TransformState{m_scale, m_offset});
+    // transform.Apply(p), then the current mapping p * m_scale + m_offset
+    const Transform2D current{m_scale, m_offset};
+    const Transform2D combined = current.Then(transform);
+    m_scale = combined.scale;
+    m_offset = combined.offset;
+}
+
+void ThorCanvas::PopTransform() {
+    if (m_transformStack.empty()) {
+        return;
+    }
+    const TransformState prev = m_transformStack.back();
+    m_transformStack.pop_back();
+    m_scale = prev.scale;
+    m_offset = prev.offset;
 }
 
 void ThorCanvas::End() {
@@ -377,7 +398,7 @@ void ThorCanvas::Clear(Color color, keel::Optional<Rect> rect) {
             keel::fill(keel::MutArrayRef<keel::u32>(m_targetBuffer + y * m_stride, m_width), rawColor);
         }
     } else {
-        const Rect sClear(rect->x * m_scale, rect->y * m_scale, rect->w * m_scale, rect->h * m_scale);
+        const Rect sClear(Px(*rect));
         auto isCoveredByClear = [&](const Rect& clipR) noexcept {
             if (clipR.w <= 0.5f || clipR.h <= 0.5f) return true;
             return sClear.x <= clipR.x + 1.0f &&
@@ -413,10 +434,10 @@ void ThorCanvas::Clear(Color color, keel::Optional<Rect> rect) {
 }
 
 void ThorCanvas::PushClip(Rect clipRect) {
-    const float sx1 = std::floor(clipRect.x * m_scale);
-    const float sy1 = std::floor(clipRect.y * m_scale);
-    const float sx2 = std::ceil(clipRect.Right() * m_scale);
-    const float sy2 = std::ceil(clipRect.Bottom() * m_scale);
+    const float sx1 = std::floor(PxX(clipRect.x));
+    const float sy1 = std::floor(PxY(clipRect.y));
+    const float sx2 = std::ceil(PxX(clipRect.Right()));
+    const float sy2 = std::ceil(PxY(clipRect.Bottom()));
     const Rect sClip(sx1, sy1, keel::max(0.0f, sx2 - sx1), keel::max(0.0f, sy2 - sy1));
     if (!m_clipStack.empty()) {
         const Rect& parent = m_clipStack.back();
@@ -459,7 +480,7 @@ void ThorCanvas::ApplyClip(tvg::Paint* paint, keel::Optional<Rect> bounds) {
 
 void ThorCanvas::DrawRect(Rect rect, Color fill) {
     if (fill.a == 0 || rect.w <= 0.0f || rect.h <= 0.0f || !m_canvas) return;
-    Rect sRect(rect.x * m_scale, rect.y * m_scale, rect.w * m_scale, rect.h * m_scale);
+    Rect sRect(Px(rect));
     if (!m_clipStack.empty()) {
         const Rect& cr = m_clipStack.back();
         if (cr.w <= 0.0f || cr.h <= 0.0f) return;
@@ -525,20 +546,20 @@ void ThorCanvas::DrawRoundRect(
         if (fill.a > 0) {
             DrawRect(rect, fill);
         }
-        const float invScale = 1.0f / keel::max(0.0001f, m_scale);
-        const float rx0 = std::round(rect.x * m_scale) * invScale;
-        const float ry0 = std::round(rect.y * m_scale) * invScale;
-        const float rx1 = std::round(rect.Right() * m_scale) * invScale;
-        const float ry1 = std::round(rect.Bottom() * m_scale) * invScale;
+        // Snap to the pixel grid in logical units (through the current transform)
+        const float rx0 = FromPxX(std::round(PxX(rect.x)));
+        const float ry0 = FromPxY(std::round(PxY(rect.y)));
+        const float rx1 = FromPxX(std::round(PxX(rect.Right())));
+        const float ry1 = FromPxY(std::round(PxY(rect.Bottom())));
         const float hw = strokeWidth * 0.5f;
         const float maxRight = (m_width > 0)
-            ? (static_cast<float>(m_width) * invScale - strokeWidth)
+            ? (FromPxX(static_cast<float>(m_width)) - strokeWidth)
             : (rx1 - hw);
         const float maxBottom = (m_height > 0)
-            ? (static_cast<float>(m_height) * invScale - strokeWidth)
+            ? (FromPxY(static_cast<float>(m_height)) - strokeWidth)
             : (ry1 - hw);
-        const float x0 = (m_width > 0) ? keel::max(0.0f, rx0 - hw) : (rx0 - hw);
-        const float y0 = (m_height > 0) ? keel::max(0.0f, ry0 - hw) : (ry0 - hw);
+        const float x0 = (m_width > 0) ? keel::max(FromPxX(0.0f), rx0 - hw) : (rx0 - hw);
+        const float y0 = (m_height > 0) ? keel::max(FromPxY(0.0f), ry0 - hw) : (ry0 - hw);
         const float xR = keel::min(rx1 - hw, maxRight);
         const float yB = keel::min(ry1 - hw, maxBottom);
         const float w = keel::max(strokeWidth, (xR - x0) + strokeWidth);
@@ -552,7 +573,7 @@ void ThorCanvas::DrawRoundRect(
         return;
     }
 
-    const Rect sRect(rect.x * m_scale, rect.y * m_scale, rect.w * m_scale, rect.h * m_scale);
+    const Rect sRect(Px(rect));
     const float sStrokeW = (stroke.a > 0 && strokeWidth > 0.0f) ? (strokeWidth * m_scale) : 0.0f;
     const float pad = (sStrokeW > 0.0f) ? (sStrokeW * 0.5f + 1.0f) : 1.0f;
     const Rect outerBounds(sRect.x - pad, sRect.y - pad, sRect.w + pad * 2.0f, sRect.h + pad * 2.0f);
@@ -960,16 +981,16 @@ void ThorCanvas::DrawTextStyled(
         const keel::StringRef stampText = ClampUtf8Prefix(text, 512);
         const Vec2 m = MeasureTextStyled(stampText, fontSize, style);
         const Rect approxBounds(
-            (pos.x - 2.0f) * m_scale,
-            (pos.y - fontSize * 0.25f) * m_scale,
+            PxX(pos.x - 2.0f),
+            PxY(pos.y - fontSize * 0.25f),
             (m.x + 6.0f) * m_scale,
             (m.y + fontSize * 0.5f) * m_scale
         );
         if (!m_clipStack.empty() && !approxBounds.Intersects(m_clipStack.back())) {
             return;
         }
-        const keel::i32 dstX = keel::round_i32(pos.x * m_scale);
-        const keel::i32 dstY = keel::round_i32(pos.y * m_scale);
+        const keel::i32 dstX = keel::round_i32(PxX(pos.x));
+        const keel::i32 dstY = keel::round_i32(PxY(pos.y));
         const TextStampEntry& stamp = ResolveTextStamp(stampText, fontSize * m_scale, color, style);
         BlitTextStamp(stamp, dstX, dstY);
         return;
@@ -998,7 +1019,7 @@ void ThorCanvas::DrawTextStyled(
         if (hasRot) {
             txt->rotate(angleDeg);
         }
-        txt->translate((pos.x + offset * cosA) * m_scale, (pos.y + offset * sinA) * m_scale);
+        txt->translate(PxX(pos.x + offset * cosA), PxY(pos.y + offset * sinA));
 
         m_canvas->add(txt);
         m_hasPendingPaints = true;
@@ -1031,7 +1052,7 @@ void ThorCanvas::DrawTextBoxStyled(
     float alignY
 ) {
     if (text.empty() || color.a == 0 || bounds.w <= 0.0f || bounds.h <= 0.0f || !m_canvas) return;
-    const Rect sBounds(bounds.x * m_scale, bounds.y * m_scale, bounds.w * m_scale, bounds.h * m_scale);
+    const Rect sBounds(Px(bounds));
     if (!m_clipStack.empty()) {
         const Rect& cr = m_clipStack.back();
         if (cr.w <= 0.0f || cr.h <= 0.0f || !sBounds.Intersects(cr)) return;
@@ -1063,7 +1084,7 @@ void ThorCanvas::DrawTextBoxStyled(
             tx = sBounds.x + (sBounds.w - static_cast<float>(stamp.width)) * alignX - static_cast<float>(stamp.offsetX);
         } else if (alignX > 0.01f) {
             const Vec2 m = MeasureTextStyled(stampText, fontSize, style);
-            tx = (bounds.x + (bounds.w - m.x) * alignX) * m_scale;
+            tx = PxX(bounds.x + (bounds.w - m.x) * alignX);
         }
         const float ty = sBounds.y + (sBounds.h - static_cast<float>(capH)) * alignY - static_cast<float>(capOffY);
         const keel::i32 dstX = keel::round_i32(tx);
@@ -1119,8 +1140,8 @@ void ThorCanvas::DrawLine(Vec2 p1, Vec2 p2, Color color, float strokeWidth) {
             return;
         }
     }
-    Vec2 sp1(p1.x * m_scale, p1.y * m_scale);
-    Vec2 sp2(p2.x * m_scale, p2.y * m_scale);
+    Vec2 sp1(Px(p1));
+    Vec2 sp2(Px(p2));
     if (!std::isfinite(sp1.x) || !std::isfinite(sp1.y) || !std::isfinite(sp2.x) || !std::isfinite(sp2.y)) {
         return;
     }
@@ -1189,9 +1210,9 @@ void ThorCanvas::DrawTriangle(
     float strokeWidth
 ) {
     if ((fill.a == 0 && (stroke.a == 0 || strokeWidth <= 0.0f)) || !m_canvas) return;
-    const Vec2 sp1(p1.x * m_scale, p1.y * m_scale);
-    const Vec2 sp2(p2.x * m_scale, p2.y * m_scale);
-    const Vec2 sp3(p3.x * m_scale, p3.y * m_scale);
+    const Vec2 sp1(Px(p1));
+    const Vec2 sp2(Px(p2));
+    const Vec2 sp3(Px(p3));
     const float pad = strokeWidth * m_scale + 1.0f;
     const float minX = keel::min(sp1.x, keel::min(sp2.x, sp3.x)) - pad;
     const float minY = keel::min(sp1.y, keel::min(sp2.y, sp3.y)) - pad;
@@ -1239,7 +1260,7 @@ void ThorCanvas::DrawPath(const VectorPath& path, const PathPaint& paint) {
     auto* shape = tvg::Shape::gen();
     const float s = m_scale;
 
-    if (s == 1.0f) {
+    if (s == 1.0f && m_offset.x == 0.0f && m_offset.y == 0.0f) {
         shape->appendPath(
             reinterpret_cast<const tvg::PathCommand*>(path.verbs.data()),
             static_cast<keel::u32>(path.verbs.size()),
@@ -1254,13 +1275,13 @@ void ThorCanvas::DrawPath(const VectorPath& path, const PathPaint& paint) {
                 case PathVerb::MoveTo:
                     if (ptIdx < numPts) {
                         const Vec2& p = path.points[ptIdx++];
-                        shape->moveTo(p.x * s, p.y * s);
+                        shape->moveTo(PxX(p.x), PxY(p.y));
                     }
                     break;
                 case PathVerb::LineTo:
                     if (ptIdx < numPts) {
                         const Vec2& p = path.points[ptIdx++];
-                        shape->lineTo(p.x * s, p.y * s);
+                        shape->lineTo(PxX(p.x), PxY(p.y));
                     }
                     break;
                 case PathVerb::CubicTo:
@@ -1269,7 +1290,7 @@ void ThorCanvas::DrawPath(const VectorPath& path, const PathPaint& paint) {
                         const Vec2& c2 = path.points[ptIdx + 1];
                         const Vec2& p  = path.points[ptIdx + 2];
                         ptIdx += 3;
-                        shape->cubicTo(c1.x * s, c1.y * s, c2.x * s, c2.y * s, p.x * s, p.y * s);
+                        shape->cubicTo(PxX(c1.x), PxY(c1.y), PxX(c2.x), PxY(c2.y), PxX(p.x), PxY(p.y));
                     }
                     break;
                 case PathVerb::Close:
@@ -1390,7 +1411,7 @@ bool ThorCanvas::DrawImage(
         return false;
     }
 
-    const Rect sBounds(destRect.x * m_scale, destRect.y * m_scale, destRect.w * m_scale, destRect.h * m_scale);
+    const Rect sBounds(Px(destRect));
     if (!m_clipStack.empty()) {
         const Rect& cr = m_clipStack.back();
         if (cr.w <= 0.0f || cr.h <= 0.0f || !sBounds.Intersects(cr)) {
@@ -1593,7 +1614,7 @@ bool ThorCanvas::DrawPixels(
     }
 
     const float sRad = keel::max(0.0f, cornerRadius * m_scale);
-    Rect sBounds(destRect.x * m_scale, destRect.y * m_scale, destRect.w * m_scale, destRect.h * m_scale);
+    Rect sBounds(Px(destRect));
     if (sRad <= 0.0f) {
         const keel::i32 dstX0 = keel::round_i32(sBounds.x);
         const keel::i32 dstY0 = keel::round_i32(sBounds.y);
@@ -1736,7 +1757,7 @@ void ThorCanvas::PunchHole(Rect rect) {
     // Flush all background shapes queued prior to this GPU underlay window
     FlushCanvas();
 
-    Rect sRect(rect.x * m_scale, rect.y * m_scale, rect.w * m_scale, rect.h * m_scale);
+    Rect sRect(Px(rect));
     if (!m_clipStack.empty()) {
         sRect = sRect.Intersect(m_clipStack.back());
     }
@@ -1769,8 +1790,7 @@ bool ThorCanvas::DrawGpuShaderPass(const GpuShaderPassDesc& pass, bool punchHole
     }
 
     GpuShaderPassDesc scaled = pass;
-    scaled.plotRect = Rect(pass.plotRect.x * m_scale, pass.plotRect.y * m_scale,
-                           pass.plotRect.w * m_scale, pass.plotRect.h * m_scale);
+    scaled.plotRect = Px(pass.plotRect);
     scaled.clipRect = m_gpuClipStack.empty() ? scaled.plotRect : scaled.plotRect.Intersect(m_gpuClipStack.back());
     if (scaled.clipRect.w <= 0.5f || scaled.clipRect.h <= 0.5f) {
         keel::usize writeIdx = 0;
@@ -1801,7 +1821,7 @@ bool ThorCanvas::CaptureRegion(Rect rect, keel::Array<keel::u32>& outPixels, kee
         return false;
     }
 
-    const Rect sRect(rect.x * m_scale, rect.y * m_scale, rect.w * m_scale, rect.h * m_scale);
+    const Rect sRect(Px(rect));
     const Rect visRect = m_gpuClipStack.empty() ? sRect : sRect.Intersect(m_gpuClipStack.back());
     const keel::i32 x0 = keel::clamp(keel::round_i32(visRect.x), 0, static_cast<keel::i32>(m_width));
     const keel::i32 y0 = keel::clamp(keel::round_i32(visRect.y), 0, static_cast<keel::i32>(m_height));
@@ -1842,7 +1862,7 @@ bool ThorCanvas::RestoreRegion(Rect rect, keel::ArrayRef<keel::u32> inPixels, ke
         return false;
     }
 
-    const Rect sRect(rect.x * m_scale, rect.y * m_scale, rect.w * m_scale, rect.h * m_scale);
+    const Rect sRect(Px(rect));
     const Rect visRect = m_gpuClipStack.empty() ? sRect : sRect.Intersect(m_gpuClipStack.back());
     const keel::i32 x0 = keel::clamp(keel::round_i32(visRect.x), 0, static_cast<keel::i32>(m_width));
     const keel::i32 y0 = keel::clamp(keel::round_i32(visRect.y), 0, static_cast<keel::i32>(m_height));

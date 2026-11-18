@@ -97,15 +97,16 @@ void RenderImageStage(guikit::Context& ui, DemoContext& ctx) {
         opts.border = ctx.GetCtrlBorder();
         opts.checkerboard = s_state.checkerboard;
         opts.opacity = alpha;
+        opts.size = ctx.controlsSize;
         opts.disabled = ctx.elemDisabled;
-        ui.Size(ctx.controlsSize).Image(ImageState::sources[s_state.sourceIdx % ImageState::sources.size()], opts);
+        ui.Image(ImageState::sources[s_state.sourceIdx % ImageState::sources.size()], opts);
     });
 }
 
 keel::String GenerateImageCode(const DemoContext& ctx) {
     const keel::i32 alpha = keel::clamp(keel::round_i32(s_state.opacityPct * 2.55f), 0, 255);
     const keel::String ctrl = keel::format(
-        "ui.{}Image(\"{}\", {{\n"
+        "ui.Image(\"{}\", {{\n"
         "    .alt = \"{}\",\n"
         "    .fit = guikit::ObjectFit::{},\n"
         "    .alignX = guikit::Align::{},\n"
@@ -115,10 +116,9 @@ keel::String GenerateImageCode(const DemoContext& ctx) {
         "    .background = {},\n"
         "    .border = {},\n"
         "    .checkerboard = {},\n"
-        "    .opacity = {},\n"
+        "    .opacity = {}{},\n"
         "    .disabled = {}\n"
         "}});",
-        FormatUiSizePrefix(ctx.controlsSize),
         ImageState::sources[s_state.sourceIdx % ImageState::sources.size()],
         s_state.altText,
         ImageState::fitModeNames[static_cast<keel::usize>(s_state.fit)],
@@ -130,6 +130,7 @@ keel::String GenerateImageCode(const DemoContext& ctx) {
         ctx.FormatCtrlBorderCode(),
         s_state.checkerboard ? "true" : "false",
         alpha,
+        FormatUiSizePrefix(ctx.controlsSize),
         ctx.elemDisabled ? "true" : "false"
     );
     return ctx.WrapInElementCode(ctrl);

@@ -40,11 +40,8 @@ struct BreadcrumbOptions {
     AxisSize width{};  ///< Horizontal sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
     AxisSize height{}; ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
     UiText tooltip{};
+    UiSize size{UiSize::Md};
     bool disabled{false};
-    const UiTheme* theme{nullptr};
-    keel::Optional<float> scale{keel::kNullOpt};
-    keel::Optional<bool> debugBounds{keel::kNullOpt};
-    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// Internal runtime payload allocated in frame arena for Breadcrumb nodes.

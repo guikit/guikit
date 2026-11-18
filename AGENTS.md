@@ -60,31 +60,37 @@ if (auto el = ui.Element({
 // BAD: Do NOT manually construct Row + Column + Text(label) + Text(description) + Spacer + Control
 ```
 
-### Rule 3: Use `ui.Size(...)` Scopes — Do NOT Hardcode Pixel Heights or Font Sizes
-GuiKit provides 5 semantic component sizes (`UiSize::Xs`, `Sm`, `Md`, `Lg`, `Xl`). Apply sizes via a RAII scope or single-call method chaining:
+### Rule 3: Use Widget `.size` (`UiSize`) — Do NOT Hardcode Pixel Heights or Font Sizes
+GuiKit provides `UiSize` (`UiSize::Xs`, `Sm`, `Md`, `Lg`, `Xl`, or custom `UiSize::Dp(dp)` / `UiSize::Factor(f)`). Size is a property of the control itself (`Md` by default), NOT an ambient zone property inherited by children:
 
 ```cpp
-// Single widget chaining:
-if (ui.Size(guikit::UiSize::Sm).Button({.text = "Compact Action"})) { /* ... */ }
-
-// Block RAII scope (all widgets inside inherit UiSize::Sm):
-{
-    auto sz = ui.Size(guikit::UiSize::Sm);
-    ui.Button({.text = "One"});
-    ui.Button({.text = "Two"});
-}
+if (ui.Button({.text = "Compact Action", .size = guikit::UiSize::Sm})) { /* ... */ }
+if (ui.Button({.text = "Custom Height", .size = guikit::UiSize::Dp(34.0f)})) { /* ... */ }
 ```
 
-### Rule 3b: Use `ui.Zone(...)` for Regions With Their Own Theme or Zoom — Do NOT Divide by the Shell Zoom by Hand
-A frame has one dp → pixel factor: `displayScale × rootZoom` (`MainWindow` passes the OS scale and the user's shell zoom to `BeginFrame` separately). Everything inherits the ambient state of its *zone* — theme, scale, `UiSize` and `disabled` — and anything a child zone does not set is inherited. For an area that must keep its own pixel scale (a live preview, an artboard, a document canvas), enter a zone whose `.zoom` is relative to the **display** scale, so it does not follow the shell zoom:
+### Rule 3b: Containers Own Both `.zone` Appearance and Geometry — Do NOT Pass Themes or Divide by the Shell Zoom by Hand
+Ambient state flows through `container.zone` (`ZoneOptions`: `.theme`, `.scale`, `.density`, `.debugBounds`, `.inspectMode`). Every container (`Box`, `Card`, `Row`, `Column`, `Wrap`, `Grid`, `ScrollArea`, `Sidebar`, `BottomPanel`, `SplitView`, `Toolbar`, `Table`, `TreeView`, `Scene`, `MapView`, etc.) takes `.zone` and inherits unset fields from `ui.GetZone()` (`const Zone*`):
+- **`.zone.scale`** scales the subtree's geometry, text, strokes, and hit-testing proportionally (`displayScale × rootZoom × zoneScale`). Use `ui.ScaleForZoom(zoom)` for live previews, artboards, or canvases that must keep a fixed scale relative to the display DPI.
+- **`.zone.density`** (`float`, composed multiplicatively `parent × child`, default `1.0f`) scales ALL container `gap`, `runGap`, `padding`, and `ui.Gap(...)` spacing inside the subtree without scaling control metrics (`UiSize`), border widths, or typography. Explicit `.gap = 12.0f` / `.padding = 16.0f` are defined at `density = 1.0f` and scale with active density.
+- **`.zone.debugBounds`**, **`.zone.inspectMode`** override debug tooling in the subtree; **`.disabled`** lives directly on containers and widgets (inheriting down from disabled containers to their children).
 
 ```cpp
-if (auto zone = ui.Zone({.theme = &previewTheme, .zoom = 1.25f})) {   // 125% of the display scale, always
-    ui.Button({.text = "Rendered at a fixed pixel size"});
-    if (auto inner = ui.Zone({.zoom = 2.0f})) { /* zoom is absolute: 200%, not 250% */ }
+if (auto device = ui.Box({
+    .width = 375.0f,
+    .height = 784.0f,
+    .background = {ui.GetThemePalette().surface},
+    .clipChildren = true,
+    .zone = {
+        .theme = &previewTheme,
+        .scale = ui.ScaleForZoom(1.25f),
+        .density = previewDensity,
+        .debugBounds = showBounds
+    }
+})) {
+    ui.Button({.text = "Preview theme, fixed pixel size", .size = guikit::UiSize::Sm});
 }
 ```
-Everything built inside a zone, containers and plain widgets alike, is measured and rendered with the zone's theme and scale. A zone draws nothing and has no size of its own: compose it with `ui.Box(...)` for a background, border or clipping. Use `ui.ScaleForZoom(zoom)` when chrome outside the zone has to be sized from it, and `ui.GetDisplayScale()` / `ui.GetRootZoom()` / `ui.GetPixelsPerDp()` to read the frame factor. `.scale` on containers and widgets is the same mechanism expressed in layout units; `ui.Size(...)` and `ui.Disabled(...)` are zones that only set one value.
+Responses, `GetMousePos()` and `GetPrevFrameBounds()` are reported in the units of the container they are called from. Use `ui.GetDisplayScale()` / `ui.GetRootZoom()` / `ui.GetPixelsPerDp()` / `ui.GetDensity()` to read frame factors.
 
 ### Rule 4: Use `ui.Format(...)` & `ui.String(...)` for Per-Frame Strings — Use `keel` Containers for State
 `ui.Format(fmt, args...)` and `ui.String(text)` allocate directly into the per-frame `keel::Arena` (`ctx.GetArena()`) and return a zero-heap-allocation `keel::StringRef` (implicitly convertible to `UiText`) valid for the entire frame. For persistent widget state, prefer `keel::FixedString<N>`, `keel::SmallString<N>`, `keel::String`, `keel::SmallArray<T, N>`, and `keel::Array<T>` (external STL containers also bind seamlessly via zero-header duck-typed `keel` concepts):
@@ -109,7 +115,7 @@ For multi-block documents (GFM tables, alerts `[!NOTE]`, task lists, fenced code
 ### Rule 6: Use Semantic Theme Tokens & `StateColor` — Do NOT Hardcode RGB Colors
 Hardcoded colors break Dark/Light theme switching and hover/active states.
 - For interactive widgets (`Button`, `Switch`, `Slider`, etc.), use `StateColor::Primary()`, `StateColor::Success()`, `StateColor::Warning()`, `StateColor::Danger()`, `StateColor::Ghost()`.
-- For surfaces and custom drawing, read tokens from `const auto& pal = ui.GetThemePalette();` (`pal.background`, `pal.surface`, `pal.surfaceElevated`, `pal.border`, `pal.textPrimary`, `pal.textSecondary`, `pal.accent`) and scale pixel distances via `ui.GetTheme().Scale(px)`.
+- For surfaces and custom drawing, read tokens from `const auto& pal = ui.GetThemePalette();` (`pal.background`, `pal.surface`, `pal.surfaceElevated`, `pal.border`, `pal.textPrimary`, `pal.textSecondary`, `pal.accent`).
 
 ### Rule 7: Automatic Loop ID Disambiguation (`MakeChildId`) & Stable Scene Item IDs
 Immediate-mode widgets (`Button`, `Switch`, `Slider`, `Element`, etc.) automatically derive their state ID via `ctx.MakeChildId(loc)`, which hashes `(childIndex, keel::SourceLocation, parentId)`. Widgets rendered in a `for` loop inside a container (`Column`, `Row`, `Card`, `Toolbar`) are automatically disambiguated by `childIndex` without passing manual `.id` fields:

@@ -16,9 +16,8 @@ class ICanvas;
 struct RadioOptions {
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
     StateColor color{};                            ///< Per-state accent fill color when selected
+    UiSize size{UiSize::Md};                       ///< Component size scale
     bool disabled{false};                          ///< Interaction suppression
-    const UiTheme* theme{nullptr};                 ///< Optional scoped theme override
-    keel::Optional<float> scale{keel::kNullOpt};      ///< Optional scoped scale factor override
 };
 static_assert(sizeof(RadioOptions) <= 384, "RadioOptions must stay compact");
 

@@ -106,9 +106,10 @@ void RenderSpinBoxStage(guikit::Context& ui, DemoContext& ctx) {
         opts.minusIcon = minusIc;
         opts.plusIcon = plusIc;
         opts.showFillBar = s_state.showFillBar;
+        opts.size = ctx.controlsSize;
         opts.disabled = ctx.elemDisabled;
         opts.readOnly = s_state.readOnly;
-        ui.Size(ctx.controlsSize).SpinBox(s_state.val, opts);
+        ui.SpinBox(s_state.val, opts);
     });
 }
 
@@ -121,7 +122,7 @@ keel::String GenerateSpinBoxCode(const DemoContext& ctx) {
         : ((s_state.iconStyleIdx == 2) ? "guikit::Icon::ArrowRight()" : "guikit::Icon::Plus()");
 
     const keel::String ctrl = keel::format(
-        "ui.{}SpinBox(centerFreqMhz, {{\n"
+        "ui.SpinBox(centerFreqMhz, {{\n"
         "    .prefix = \"{}\",\n"
         "    .suffix = \"{}\",\n"
         "    .valueFormat = \"%.1f\",\n"
@@ -137,11 +138,10 @@ keel::String GenerateSpinBoxCode(const DemoContext& ctx) {
         "    .stepStyle = guikit::SpinBoxStepStyle::{},\n"
         "    .minusIcon = {},\n"
         "    .plusIcon = {},\n"
-        "    .showFillBar = {},\n"
+        "    .showFillBar = {}{},\n"
         "    .disabled = {},\n"
         "    .readOnly = {}\n"
         "}});",
-        FormatUiSizePrefix(ctx.controlsSize),
         s_state.prefix,
         s_state.suffix,
         CursorModeName(s_state.cursorMode),
@@ -157,6 +157,7 @@ keel::String GenerateSpinBoxCode(const DemoContext& ctx) {
         minusIconCode,
         plusIconCode,
         s_state.showFillBar ? "true" : "false",
+        FormatUiSizePrefix(ctx.controlsSize),
         ctx.elemDisabled ? "true" : "false",
         s_state.readOnly ? "true" : "false"
     );

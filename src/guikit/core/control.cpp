@@ -23,20 +23,20 @@ SizeMode Control::ResolveWidthMode(
 Vec2 Control::Measure(
     Vec2 intrinsicSize,
     const ControlSpec& spec,
-    const UiTheme& theme
+    const UiTheme& /*theme*/
 ) noexcept {
     Vec2 result = intrinsicSize;
     if (spec.minWidth.has_value() && *spec.minWidth > 0.0f) {
-        result.x = keel::max(result.x, theme.Scale(*spec.minWidth));
+        result.x = keel::max(result.x, *spec.minWidth);
     }
     if (spec.minHeight.has_value() && *spec.minHeight > 0.0f) {
-        result.y = keel::max(result.y, theme.Scale(*spec.minHeight));
+        result.y = keel::max(result.y, *spec.minHeight);
     }
     if (spec.width.IsFixed()) {
-        result.x = theme.Scale(spec.width.Dp());
+        result.x = spec.width.Dp();
     }
     if (spec.height.IsFixed()) {
-        result.y = theme.Scale(spec.height.Dp());
+        result.y = spec.height.Dp();
     }
     return result;
 }
@@ -77,17 +77,16 @@ void Control::SetupNode(
         return;
     }
 
-    const UiTheme& nodeTheme = (node->theme != nullptr) ? *node->theme : ctx.GetTheme();
     if (spec.minWidth.has_value() && *spec.minWidth > 0.0f) {
-        node->minWidth = keel::max(node->minWidth, nodeTheme.Scale(*spec.minWidth));
+        node->minWidth = keel::max(node->minWidth, *spec.minWidth);
     }
     if (spec.minHeight.has_value() && *spec.minHeight > 0.0f) {
-        node->minHeight = keel::max(node->minHeight, nodeTheme.Scale(*spec.minHeight));
+        node->minHeight = keel::max(node->minHeight, *spec.minHeight);
     }
 
     if (spec.width.IsFixed()) {
         node->widthMode = SizeMode::Fixed;
-        node->fixedWidth = nodeTheme.Scale(spec.width.Dp());
+        node->fixedWidth = spec.width.Dp();
     } else {
         node->widthMode = ResolveWidthMode(ctx, spec.width, spec.defaultWidthMode);
         node->fixedWidth = 0.0f;
@@ -95,7 +94,7 @@ void Control::SetupNode(
 
     if (spec.height.IsFixed()) {
         node->heightMode = SizeMode::Fixed;
-        node->fixedHeight = nodeTheme.Scale(spec.height.Dp());
+        node->fixedHeight = spec.height.Dp();
     } else {
         node->heightMode = ResolveHeightMode(spec.height, spec.defaultHeightMode);
         node->fixedHeight = 0.0f;

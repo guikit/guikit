@@ -79,11 +79,9 @@ struct TableOptions {
     VisibilityPolicy scrollbar{VisibilityPolicy::Auto};
     AxisSize width{};                                   ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or fixed `dp`)
     AxisSize height{SizeMode::Stretch};                 ///< Vertical sizing policy (`Stretch` in flex parent, `Fit` rows, or fixed `dp`)
+    UiSize size{UiSize::Md};                            ///< Row/header density & typography size
     bool disabled{false};
-    const UiTheme* theme{nullptr};
-    keel::Optional<float> scale{keel::kNullOpt};
-    keel::Optional<bool> debugBounds{keel::kNullOpt};
-    keel::Optional<bool> inspectMode{keel::kNullOpt};
+    ZoneOptions zone{};                                 ///< Subtree environment (theme, scale, density, disabled, debug/inspect)
 };
 
 class TableScope;
@@ -92,16 +90,26 @@ class TableScope;
 class TableRowScope {
 public:
     TableRowScope() noexcept = default;
-    /// `zone` is the row's own zone (e.g. its disabled state); it is left when the row scope ends.
-    TableRowScope(TableScope* table, keel::usize rowIndex, bool visible, bool selected, bool hovered, bool clicked, bool doubleClicked, ZoneScope zone) noexcept
+    TableRowScope(
+        TableScope* table,
+        Context* ctx,
+        keel::usize rowIndex,
+        bool visible,
+        bool selected,
+        bool hovered,
+        bool clicked,
+        bool doubleClicked,
+        bool prevDisabled
+    ) noexcept
         : m_table(table)
+        , m_ctx(ctx)
         , m_rowIndex(rowIndex)
         , m_visible(visible)
         , m_selected(selected)
         , m_hovered(hovered)
         , m_clicked(clicked)
         , m_doubleClicked(doubleClicked)
-        , m_zone(keel::move(zone)) {}
+        , m_prevDisabled(prevDisabled) {}
 
     ~TableRowScope() noexcept;
 
@@ -110,14 +118,16 @@ public:
 
     TableRowScope(TableRowScope&& other) noexcept
         : m_table(other.m_table)
+        , m_ctx(other.m_ctx)
         , m_rowIndex(other.m_rowIndex)
         , m_visible(other.m_visible)
         , m_selected(other.m_selected)
         , m_hovered(other.m_hovered)
         , m_clicked(other.m_clicked)
         , m_doubleClicked(other.m_doubleClicked)
-        , m_zone(keel::move(other.m_zone)) {
+        , m_prevDisabled(other.m_prevDisabled) {
         other.m_table = nullptr;
+        other.m_ctx = nullptr;
         other.m_visible = false;
     }
 
@@ -130,13 +140,14 @@ public:
 
 private:
     TableScope* m_table{nullptr};
+    Context* m_ctx{nullptr};
     keel::usize m_rowIndex{0};
     bool m_visible{false};
     bool m_selected{false};
     bool m_hovered{false};
     bool m_clicked{false};
     bool m_doubleClicked{false};
-    ZoneScope m_zone; ///< Declared last: left after the row has been ended
+    bool m_prevDisabled{false};
 };
 
 /// RAII scope returned by `ui.Table(...)` providing row virtualization and cell emission methods.

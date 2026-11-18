@@ -213,7 +213,7 @@ SliderControlMetrics ComputeSliderControlMetrics(
         cm.bottomValH = 2.0f + cm.valLineH;
     }
 
-    const float trackW = width.IsFixed() ? theme.Scale(width.Dp()) : m.defaultWidth;
+    const float trackW = width.IsFixed() ? width.Dp() : m.defaultWidth;
     cm.intrinsicControlSize = {
         cm.leftGutterW + trackW + m.thumbSize + cm.rightGutterW,
         cm.topValH + cm.trackRowH + cm.extraLabelsH + cm.bottomValH
@@ -542,9 +542,8 @@ Response Slider::Run(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const UiSize activeSize = opts.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
     const UiTheme& activeTheme = ctx.GetTheme();
 
     const SliderOptions& optsCopy = opts;
@@ -869,9 +868,8 @@ Response StepSlider::Run(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const UiSize activeSize = opts.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
     const UiTheme& activeTheme = ctx.GetTheme();
 
     const StepSliderOptions& optsCopy = opts;
@@ -1183,7 +1181,7 @@ void StepSlider::Render(
     //    when horizontal, a column right of the ticks when vertical
     if (opts.showLabels && !opts.stepLabels.empty() && totalSteps > 1) {
         const keel::usize nLabels = keel::min(totalSteps, opts.stepLabels.size());
-        const float minGap = theme.Scale(4.0f);
+        const float minGap = 4.0f;
         auto labelColor = [&](keel::usize i) {
             return (i == index) ? pal.accent : (disabled ? pal.textDisabled : pal.textSecondary);
         };
@@ -1359,9 +1357,8 @@ Response RangeSlider::Run(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const UiSize activeSize = opts.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
     const UiTheme& activeTheme = ctx.GetTheme();
 
     const RangeSliderOptions& optsCopy = opts;
@@ -1767,9 +1764,8 @@ Response ProgressBar::Run(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const UiSize activeSize = opts.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
     const UiTheme& activeTheme = ctx.GetTheme();
 
     const ProgressBarOptions& optsCopy = opts;
@@ -1895,7 +1891,7 @@ Vec2 ProgressBar::Measure(
         {}, !opts.indeterminate, rangeMin, rangeMax, false, opts.orientation
     );
     if (opts.trackHeight.has_value()) {
-        const float minThick = theme.Scale(*opts.trackHeight) + 4.0f;
+        const float minThick = *opts.trackHeight + 4.0f;
         if (IsVerticalSlider(opts.orientation)) {
             if (minThick > cm.crossW) {
                 cm.intrinsicControlSize.x += (minThick - cm.crossW);
@@ -1967,7 +1963,7 @@ void ProgressBar::Render(
         {}, !opts.indeterminate, rangeMin, rangeMax, false, opts.orientation
     );
     const float barThick = opts.trackHeight.has_value()
-        ? theme.Scale(*opts.trackHeight)
+        ? *opts.trackHeight
         : keel::max(m.trackHeight * 1.55f, 8.0f);
     if (!vertical && barThick + 4.0f > cm.trackRowH) {
         cm.intrinsicControlSize.y += ((barThick + 4.0f) - cm.trackRowH);

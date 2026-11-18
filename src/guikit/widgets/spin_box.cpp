@@ -42,11 +42,11 @@ struct InlineStepMetrics {
     float sectionWidth{0.0f};
 };
 
-InlineStepMetrics ComputeInlineStepMetrics(const InputFieldMetrics& m, const UiTheme& theme) noexcept {
+InlineStepMetrics ComputeInlineStepMetrics(const InputFieldMetrics& m, const UiTheme& /*theme*/) noexcept {
     InlineStepMetrics sm{};
-    sm.btnSize = m.iconSize + theme.Scale(4.0f);
-    sm.btnGap = theme.Scale(2.0f);
-    sm.padX = keel::max(theme.Scale(6.0f), std::round(m.paddingX * 0.55f));
+    sm.btnSize = m.iconSize + 4.0f;
+    sm.btnGap = 2.0f;
+    sm.padX = keel::max(6.0f, std::round(m.paddingX * 0.55f));
     sm.sectionWidth = sm.padX * 2.0f + sm.btnSize * 2.0f + sm.btnGap;
     return sm;
 }
@@ -62,8 +62,8 @@ Vec2 MeasureSpinBox(
     const bool hasVariants = !opts.valueFormat.variants.empty();
     const SizeMode effWMode = opts.width.ResolveMode(SizeMode::Stretch);
     const SpinBoxStepStyle effStyle = ResolveEffectiveStepStyle(opts);
-    const float boxH = ctrl.height.IsFixed() ? theme.Scale(ctrl.height.Dp()) : m.defaultHeight;
-    const float extGap = theme.Scale(4.0f);
+    const float boxH = ctrl.height.IsFixed() ? ctrl.height.Dp() : m.defaultHeight;
+    const float extGap = 4.0f;
     const float extBtnsW = (effStyle == SpinBoxStepStyle::Detached || effStyle == SpinBoxStepStyle::Split)
         ? (boxH + extGap) * 2.0f
         : 0.0f;
@@ -71,7 +71,7 @@ Vec2 MeasureSpinBox(
     const bool hasExplicitDpW = ctrl.width.IsFixed();
     float boxW = m.defaultWidth + extBtnsW;
     if (hasExplicitDpW) {
-        boxW = theme.Scale(ctrl.width.Dp());
+        boxW = ctrl.width.Dp();
     } else if (effWMode != SizeMode::Stretch && hasVariants) {
             const float inputFont = theme.ResolveFontSize(opts.valueFormat, TextRole::LabelMedium, size);
             float contentW = 0.0f;
@@ -81,18 +81,18 @@ Vec2 MeasureSpinBox(
                 }
             }
 
-            const float affixInnerGap = theme.Scale(4.0f);
+            const float affixInnerGap = 4.0f;
             float totalW = m.paddingX * 2.0f + contentW + affixInnerGap;
             if (opts.prefix.HasContentOrReserve()) {
                 const float pFont = theme.ResolveFontSize(opts.prefix.text, TextRole::LabelMedium, size);
                 const float pW = TextUtil::MeasureAffixWidth(opts.prefix, pFont, m.iconSize, affixInnerGap, canvas);
-                const float pGap = theme.Scale((opts.prefix.HasIcon() && !opts.prefix.HasText()) ? 6.0f : 4.0f);
+                const float pGap = (opts.prefix.HasIcon() && !opts.prefix.HasText()) ? 6.0f : 4.0f;
                 totalW += pW + pGap;
             }
             if (opts.suffix.HasContentOrReserve()) {
                 const float sFont = theme.ResolveFontSize(opts.suffix.text, TextRole::LabelMedium, size);
                 const float sW = TextUtil::MeasureAffixWidth(opts.suffix, sFont, m.iconSize, affixInnerGap, canvas);
-                totalW += sW + theme.Scale(6.0f);
+                totalW += sW + 6.0f;
             }
             if (effStyle == SpinBoxStepStyle::Inline) {
                 totalW += ComputeInlineStepMetrics(m, theme).sectionWidth;
@@ -103,7 +103,7 @@ Vec2 MeasureSpinBox(
     }
 
     if (ctrl.minWidth.has_value()) {
-        boxW = keel::max(theme.Scale(*ctrl.minWidth), boxW);
+        boxW = keel::max(*ctrl.minWidth, boxW);
     } else if (hasExplicitDpW || (hasVariants && effWMode != SizeMode::Stretch)) {
         boxW = keel::max(boxH + extBtnsW, boxW);
     } else {
@@ -148,8 +148,8 @@ SpinBoxRects ResolveSpinBoxRects(
 ) noexcept {
     const InputFieldMetrics& m = theme.GetInputField(size);
     const SpinBoxStepStyle effStyle = showStepBtns ? ResolveEffectiveStepStyle(opts) : SpinBoxStepStyle::None;
-    const float extGap = theme.Scale(4.0f);
-    const float affixInnerGap = theme.Scale(4.0f);
+    const float extGap = 4.0f;
+    const float affixInnerGap = 4.0f;
 
     Rect boxRect = bounds;
     Rect prefixRect{};
@@ -178,7 +178,7 @@ SpinBoxRects ResolveSpinBoxRects(
         const float pFont = theme.ResolveFontSize(opts.prefix.text, TextRole::LabelMedium, size);
         const float pW = TextUtil::MeasureAffixWidth(opts.prefix, pFont, m.iconSize, affixInnerGap, canvas);
         prefixRect = Rect(leftX, boxRect.y, pW, boxRect.h);
-        const float pGap = theme.Scale((opts.prefix.HasIcon() && !opts.prefix.HasText()) ? 6.0f : 4.0f);
+        const float pGap = (opts.prefix.HasIcon() && !opts.prefix.HasText()) ? 6.0f : 4.0f;
         leftX += pW + pGap;
     }
 
@@ -199,7 +199,7 @@ SpinBoxRects ResolveSpinBoxRects(
         const float sW = TextUtil::MeasureAffixWidth(opts.suffix, sFont, m.iconSize, affixInnerGap, canvas);
         rightX -= sW;
         suffixRect = Rect(rightX, boxRect.y, sW, boxRect.h);
-        rightX -= theme.Scale(6.0f);
+        rightX -= 6.0f;
     }
 
     const float availW = keel::max(0.0f, rightX - leftX);
@@ -322,10 +322,9 @@ Response SpinBox::Run(
     const SpinBoxOptions& opts,
     keel::SourceLocation loc
 ) {
-    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const UiSize activeSize = opts.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const bool wasFocused = ctx.IsFocused(id) && !effectiveDisabled;
 
@@ -776,7 +775,7 @@ void SpinBox::Render(
         ? ((inputHovered && !disabled) ? pal.surface : pal.inputBackground)
         : Color::Transparent();
     Color boxBorder;
-    float strokeW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : m.strokeWidth;
+    float strokeW = (opts.border.width > 0.0f) ? opts.border.width : m.strokeWidth;
 
     const VariantColors& primaryVar = theme.GetVariant(UiVariant::Primary);
     const Color accentCol = opts.color.HasAny()
@@ -814,12 +813,12 @@ void SpinBox::Render(
         boxBorder = theme.ResolveColor(opts.border.color, inputHovered, focused, disabled, boxBorder);
     }
 
-    const float radius = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : m.cornerRadius;
+    const float radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
     canvas.DrawRoundRect(boxRect, radius, boxBg, boxBorder, strokeW);
 
     // Optional fill bar along the bottom inside the SpinBox input field
     if (opts.showFillBar && fillRatio > 0.001f) {
-        const float barH = keel::max(2.0f, theme.Scale(3.0f));
+        const float barH = 3.0f;
         const float padX = keel::max(2.0f, radius * 0.35f);
         const float maxBarW = keel::max(0.0f, boxRect.w - padX * 2.0f);
         const float barW = maxBarW * keel::clamp(fillRatio, 0.0f, 1.0f);
@@ -835,7 +834,7 @@ void SpinBox::Render(
 
     // External square (H x H) stepper buttons for Detached / Split styles
     if (isExternalStepBtns) {
-        const float baseStrokeW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : m.strokeWidth;
+        const float baseStrokeW = (opts.border.width > 0.0f) ? opts.border.width : m.strokeWidth;
         const float iconSz = keel::max(8.0f, m.iconSize);
         auto drawSquareStepBtn = [&](const Rect& btnRect, const Icon& ic, bool btnHov, bool btnPress, bool btnDis) {
             if (btnRect.w <= 0.0f || btnRect.h <= 0.0f) return;
@@ -890,7 +889,7 @@ void SpinBox::Render(
     }
 
     const float inputFont = theme.ResolveFontSize(opts.valueFormat, TextRole::LabelMedium, size);
-    const float affixInnerGap = theme.Scale(4.0f);
+    const float affixInnerGap = 4.0f;
 
     if (opts.prefix.HasContentOrReserve() && rects.prefixRect.w > 0.0f) {
         const float pFont = theme.ResolveFontSize(opts.prefix.text, TextRole::LabelMedium, size);
@@ -900,9 +899,9 @@ void SpinBox::Render(
     }
 
     if (effStyle == SpinBoxStepStyle::Inline) {
-        const float iconSz = keel::max(theme.Scale(10.0f), m.iconSize);
-        const float btnRadius = theme.Scale(4.0f);
-        const float sepInsetY = theme.Scale(5.0f);
+        const float iconSz = keel::max(10.0f, m.iconSize);
+        const float btnRadius = 4.0f;
+        const float sepInsetY = 5.0f;
 
         auto drawInlineStepBtn = [&](const Rect& btnRect, const Icon& ic, bool btnHov, bool btnPress, bool btnDis) {
             if (btnRect.w <= 0.0f || btnRect.h <= 0.0f) return;

@@ -44,22 +44,17 @@ ActivityBarScope ActivityBar::Open(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = ctx.GetCurrentSize();
-    const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    ZoneScope zone = ctx.Zone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
-    const float activeScale = ctx.GetCurrentScale();
-
-    const UiTheme& theme = ctx.GetTheme();
-    const auto& pal = theme.palette;
-
+    const UiSize activeSize = opts.size;
     Response res{};
     res.id = id;
     res.rect = ctx.GetPrevUnclippedBounds(id);
     res.ctx = &ctx;
 
-    Node* node = ctx.CreateNode(NodeType::Sidebar, id);
-    node->debugBoundsOverride = opts.debugBounds;
-    node->inspectModeOverride = opts.inspectMode;
+    Node* node = ctx.CreateNode(NodeType::Sidebar, id, opts.zone, opts.disabled);
+    const UiTheme& theme = node->GetTheme(ctx.GetTheme());
+    const auto& pal = theme.palette;
+    const float density = node->GetDensity();
+    const bool activeDisabled = node->disabled;
     node->direction = FlexDirection::Column;
     node->align = Alignment::Center;
     node->justify = Justify::Start;
@@ -69,33 +64,32 @@ ActivityBarScope ActivityBar::Open(
     node->sidebarCollapsed = 0;
     node->sidebarScrollable = false;
     node->sidebarFlush = effectiveFlush ? 1 : 0;
-    node->gap = opts.gap.has_value() ? theme.Scale(*opts.gap) : (4.0f * activeScale);
+    node->gap = (opts.gap.has_value() ? *opts.gap : 4.0f) * density;
     node->heightMode = SizeMode::Stretch;
 
     if (opts.width.has_value() && *opts.width > 0.0f) {
         node->widthMode = SizeMode::Fixed;
-        node->fixedWidth = theme.Scale(*opts.width);
+        node->fixedWidth = *opts.width;
     } else {
         node->widthMode = SizeMode::Fit;
         node->fixedWidth = 0.0f;
     }
     node->minWidth = 0.0f;
     node->padding = opts.padding.has_value()
-        ? theme.ResolvePadding(opts.padding, activeSize)
-        : theme.GetPadding(UiSize::Sm);
+        ? theme.ResolvePadding(opts.padding, activeSize, density)
+        : theme.GetPadding(UiSize::Sm).ScaledBy(density);
     node->backgroundColor = opts.background.IsBackgroundEnabled(true)
         ? theme.ResolveColor(opts.background, false, false, activeDisabled, pal.surface)
         : Color::Transparent();
-    node->borderWidth = (opts.border.width == 1.0f) ? theme.shell.panelBorderWidth : theme.Scale(opts.border.width);
+    node->borderWidth = (opts.border.width == 1.0f) ? theme.shell.panelBorderWidth : opts.border.width;
     node->borderColor = (opts.border.width > 0.0f)
         ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, pal.border)
         : Color::Transparent();
     node->cornerRadius = opts.border.radius.has_value()
-        ? theme.Scale(*opts.border.radius)
+        ? *opts.border.radius
         : (effectiveFlush ? 0.0f : theme.shell.panelRadius);
     node->clipChildren = true;
     node->uiSize = activeSize;
-    node->disabled = activeDisabled;
 
     node->visualHash = detail::HashArgs(
         static_cast<keel::u8>(opts.side),
@@ -106,7 +100,7 @@ ActivityBarScope ActivityBar::Open(
         opts.border
     );
 
-    ctx.PushContainer(node, keel::move(zone));
+    ctx.FinishContainer(node);
 
     return ActivityBarScope(&ctx, node, res, opts);
 }
@@ -144,7 +138,7 @@ Response ActivityBar::Item(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const UiSize activeSize = barOpts.size;
     const bool effectiveDisabled = item.disabled || barOpts.disabled || ctx.IsDisabled();
 
     ctx.RegisterFocusable(id, effectiveDisabled);

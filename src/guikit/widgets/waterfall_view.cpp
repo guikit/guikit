@@ -276,13 +276,13 @@ void DrawWaterfallViewNode(const Node* node, ICanvas& canvas, const UiTheme& the
 
     const WaterfallGeometry geom = ComputeWaterfallGeometry(r, opts, resp.visibleMinX, resp.visibleMaxX);
     const float radius = opts.border.radius.has_value()
-        ? theme.Scale(*opts.border.radius)
+        ? *opts.border.radius
         : theme.GetRadius(node->uiSize);
 
     const Color bgOuter = opts.background.Resolve(node->hovered, node->pressed, node->disabled, Color{7, 10, 19, 255});
     const Color bgPanel{5, 8, 16, 255};
     const Color borderCol = opts.border.color.Resolve(node->hovered, node->pressed, node->disabled, Color{30, 41, 59, 255});
-    const float borderW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : 1.2f;
+    const float borderW = (opts.border.width > 0.0f) ? opts.border.width : 1.2f;
     const Color gridLineCol{56, 189, 248, 34};
     const Color gridMajorCol{56, 189, 248, 72};
     const Color labelTextCol{148, 163, 184, 225};
@@ -942,18 +942,18 @@ Vec2 WaterfallView::Measure(
     const WaterfallViewOptions& opts,
     UiSize /*size*/,
     ICanvas* /*canvas*/,
-    const UiTheme& theme,
+    const UiTheme& /*theme*/,
     float availableWidth
 ) {
-    float defaultW = theme.Scale(520.0f);
+    float defaultW = 520.0f;
     if (opts.width.IsFixed()) {
-        defaultW = theme.Scale(opts.width.Dp());
+        defaultW = opts.width.Dp();
     } else if (opts.width.ResolveMode(SizeMode::Stretch) == SizeMode::Stretch && availableWidth > 0.0f) {
         defaultW = availableWidth;
     }
     const float defaultH = opts.height.IsFixed()
-        ? theme.Scale(opts.height.Dp())
-        : theme.Scale(420.0f);
+        ? opts.height.Dp()
+        : 420.0f;
     return {defaultW, defaultH};
 }
 
@@ -963,15 +963,12 @@ WaterfallViewResponse WaterfallView::Run(
     const WaterfallViewOptions& opts,
     keel::SourceLocation loc
 ) {
-    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const Id id = ctx.MakeChildId(loc);
-    const UiSize size = ctx.GetCurrentSize();
+    const UiSize size = opts.size;
     const bool effDisabled = opts.disabled || ctx.IsDisabled();
 
     Node* node = ctx.CreateNode(NodeType::WaterfallView, id);
-    node->debugBoundsOverride = opts.debugBounds;
-    node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<WaterfallViewPayload>();
     payload->opts = opts;
     payload->opts.tooltip = ctx.AllocText(opts.tooltip);

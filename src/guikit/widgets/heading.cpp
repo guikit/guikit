@@ -123,7 +123,7 @@ HeadingLayoutGeometry ResolveHeadingGeometry(
     const float minW = (g.hasDesc && !opts.description.wrap.IsWordWrap()) ? natW : rawBar.x;
 
     if (opts.width.IsFixed()) {
-        const float effW = keel::min(bounds.w, keel::max(minW, theme.Scale(opts.width.Dp())));
+        const float effW = keel::min(bounds.w, keel::max(minW, opts.width.Dp()));
         bounds.x += (bounds.w - effW) * alignFactor;
         bounds.w = effW;
     } else if (opts.width.IsFit()) {
@@ -194,7 +194,7 @@ float Heading::ComputeBottomSeparatorSpace(
     if (opts.separator.IsEnabled() && opts.separator.placement == HeadingSeparator::Bottom) {
         const HeadingMetrics& m = theme.GetHeading(opts.level);
         const float divPad = keel::max(4.0f, m.gap * 0.75f);
-        const float strokeW = theme.Scale(opts.separator.width);
+        const float strokeW = opts.separator.width;
         return divPad + strokeW + divPad * 0.5f;
     }
     return 0.0f;
@@ -207,7 +207,6 @@ Response Heading::Run(
 ) {
     const Id id = ctx.MakeChildId(loc);
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
     const UiTheme& activeTheme = ctx.GetTheme();
 
     Response res = ctx.Interact(id);
@@ -234,8 +233,6 @@ Response Heading::Run(
     }
     node->text = hOpts->label.text;
     node->SetPayload(hOpts);
-    node->debugBoundsOverride = opts.debugBounds;
-    node->inspectModeOverride = opts.inspectMode;
     node->uiSize = UiSize::None;
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
@@ -243,7 +240,7 @@ Response Heading::Run(
 
     if (opts.width.IsFixed()) {
         node->widthMode = SizeMode::Fixed;
-        node->fixedWidth = activeTheme.Scale(opts.width.Dp());
+        node->fixedWidth = opts.width.Dp();
     } else {
         node->widthMode = Control::ResolveWidthMode(ctx, opts.width, SizeMode::Stretch);
     }
@@ -313,13 +310,13 @@ Vec2 Heading::Measure(
             ? (rawBar.x + (hasTitleBar && hasDesc && rawDescW > 0.0f ? inlineGap + rawDescW : rawDescW))
             : keel::max(rawBar.x, rawDescW);
         const float minW = (hasDesc && !opts.description.wrap.IsWordWrap()) ? natW : rawBar.x;
-        const float targetW = keel::max(minW, theme.Scale(fixedDpW));
+        const float targetW = keel::max(minW, fixedDpW);
         availableWidth = (availableWidth > 0.0f) ? keel::min(availableWidth, targetW) : targetW;
     }
 
     if (!hasDesc) {
         float w = rawBar.x;
-        if (hasExplicitDpW) w = keel::max(w, theme.Scale(fixedDpW));
+        if (hasExplicitDpW) w = keel::max(w, fixedDpW);
         return {w, rawBar.y + bottomSep};
     }
 
@@ -327,9 +324,9 @@ Vec2 Heading::Measure(
     if (!hasTitleBar) {
         const float descH = TextUtil::MeasureUiTextHeight(opts.description, availableWidth, descFs, descLineH, canvas, &theme);
         float w = (hasExplicitDpW && opts.description.wrap.IsWordWrap())
-            ? keel::min(rawDescW, theme.Scale(fixedDpW))
+            ? keel::min(rawDescW, fixedDpW)
             : rawDescW;
-        if (hasExplicitDpW) w = keel::max(w, theme.Scale(fixedDpW));
+        if (hasExplicitDpW) w = keel::max(w, fixedDpW);
         return {w, descH + bottomSep};
     }
 
@@ -342,7 +339,7 @@ Vec2 Heading::Measure(
             ? keel::min(rawDescW, descWrapW)
             : rawDescW;
         float totalW = rawBar.x + (effDescW > 0.0f ? inlineGap + effDescW : 0.0f);
-        if (hasExplicitDpW) totalW = keel::max(totalW, theme.Scale(fixedDpW));
+        if (hasExplicitDpW) totalW = keel::max(totalW, fixedDpW);
         return {totalW, keel::max(rawBar.y, descH) + bottomSep};
     }
 
@@ -351,7 +348,7 @@ Vec2 Heading::Measure(
         ? keel::min(rawDescW, availableWidth)
         : rawDescW;
     float totalW = keel::max(rawBar.x, effDescW);
-    if (hasExplicitDpW) totalW = keel::max(totalW, theme.Scale(fixedDpW));
+    if (hasExplicitDpW) totalW = keel::max(totalW, fixedDpW);
     return {totalW, rawBar.y + m.lineGap + descH + bottomSep};
 }
 
@@ -476,7 +473,7 @@ void Heading::Render(
         pal.focusRing,
         pal.borderSubtle.WithAlphaF(0.40f)
     );
-    const float sepStrokeW = theme.Scale(opts.separator.width);
+    const float sepStrokeW = opts.separator.width;
 
     if (opts.separator.placement == HeadingSeparator::Bottom) {
         const float sepPad = keel::max(4.0f, m.gap * 0.75f);

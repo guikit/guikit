@@ -145,12 +145,9 @@ struct HistogramOptions {
     keel::Optional<keel::StaticArray<ChannelTransferParams, 4>> multiChannelParams{keel::kNullOpt};
 
     // --- State & Accessibility ---
+    UiSize size{UiSize::Md};
     bool disabled{false};
     UiText tooltip{};
-    const UiTheme* theme{nullptr};
-    keel::Optional<float> scale{keel::kNullOpt};
-    keel::Optional<bool> debugBounds{keel::kNullOpt};
-    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// Extended telemetry and interaction response returned by `ui.Histogram`.

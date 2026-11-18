@@ -20,13 +20,12 @@ void SidebarMenuScope::Section(
 ) {
     if (!m_ctx || !m_node) return;
 
-    const float scale = m_ctx->GetCurrentScale();
     if (m_node->childCount > 0 && m_opts.sectionGap > 0.0f) {
         const Id gapId = m_ctx->MakeChildId(loc);
         Node* gapNode = m_ctx->CreateNode(NodeType::Box, gapId);
         gapNode->widthMode = SizeMode::Stretch;
         gapNode->heightMode = SizeMode::Fixed;
-        gapNode->fixedHeight = m_opts.sectionGap * scale;
+        gapNode->fixedHeight = m_opts.sectionGap * m_node->GetDensity();
     }
 
     if (m_opts.collapsed) {
@@ -75,17 +74,14 @@ SidebarMenuScope SidebarMenu::Open(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const UiSize activeSize = opts.size;
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    ZoneScope zone = ctx.Zone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
-    const float activeScale = ctx.GetCurrentScale();
 
-    const UiTheme& theme = ctx.GetTheme();
     Node* node = ctx.CreateNode(NodeType::Column, id);
     node->direction = FlexDirection::Column;
     node->align = Alignment::Stretch;
     node->justify = Justify::Start;
-    node->gap = opts.gap.has_value() ? theme.Scale(*opts.gap) : (4.0f * activeScale);
+    node->gap = (opts.gap.has_value() ? *opts.gap : 4.0f) * node->GetDensity();
 
     SidebarMenuOptions effectiveOpts = opts;
     for (Node* p = node->parent; p != nullptr; p = p->parent) {
@@ -106,7 +102,7 @@ SidebarMenuScope SidebarMenu::Open(
         }
     } else if (effectiveOpts.width.has_value()) {
         node->widthMode = SizeMode::Fixed;
-        node->fixedWidth = theme.Scale(*effectiveOpts.width);
+        node->fixedWidth = *effectiveOpts.width;
     } else {
         node->widthMode = SizeMode::Stretch;
     }
@@ -114,7 +110,7 @@ SidebarMenuScope SidebarMenu::Open(
     node->uiSize = activeSize;
     node->disabled = activeDisabled;
 
-    ctx.PushContainer(node, keel::move(zone));
+    ctx.PushContainer(node);
 
     return SidebarMenuScope(&ctx, node, effectiveOpts);
 }
@@ -157,7 +153,7 @@ Response SidebarMenu::Item(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const UiSize activeSize = menuOpts.size;
     const bool effectiveDisabled = item.disabled || menuOpts.disabled || ctx.IsDisabled();
 
     ctx.RegisterFocusable(id, effectiveDisabled);

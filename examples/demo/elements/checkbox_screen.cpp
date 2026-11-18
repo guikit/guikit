@@ -33,21 +33,22 @@ void RenderCheckboxStage(guikit::Context& ui, DemoContext& ctx) {
     ctx.RunElementStage(ui, [&]() {
         guikit::CheckboxOptions opts{};
         opts.color = ctx.GetControlColor();
+        opts.size = ctx.controlsSize;
         opts.disabled = ctx.elemDisabled;
         opts.indeterminate = s_state.indet;
-        ui.Size(ctx.controlsSize).Checkbox(s_state.state, opts);
+        ui.Checkbox(s_state.state, opts);
     });
 }
 
 keel::String GenerateCheckboxCode(const DemoContext& ctx) {
     const keel::String ctrl = keel::format(
-        "ui.{}Checkbox(checkState, {{\n"
-        "    .color = {},\n"
+        "ui.Checkbox(checkState, {{\n"
+        "    .color = {}{},\n"
         "    .disabled = {},\n"
         "    .indeterminate = {}\n"
         "}});",
-        FormatUiSizePrefix(ctx.controlsSize),
         ctx.FormatControlColorCode(),
+        FormatUiSizePrefix(ctx.controlsSize),
         ctx.elemDisabled ? "true" : "false",
         s_state.indet ? "true" : "false"
     );

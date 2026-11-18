@@ -5,6 +5,7 @@
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
+#include "guikit/core/zone.hpp"
 #include "guikit/graphics/icon.hpp"
 #include "guikit/panels/context_menu.hpp"
 #include "keel/core.h"
@@ -47,6 +48,7 @@ struct ToolButtonOptions {
     bool square{false};                         ///< Force square (defaultHeight x defaultHeight) button geometry
     keel::Optional<Color> iconColor{keel::kNullOpt}; ///< Optional custom icon tint override
     UiText badge{};                             ///< Optional compact corner/trailing badge counter
+    keel::Optional<UiSize> size{keel::kNullOpt};///< Optional per-button size override (nullopt = inherit ToolbarOptions::size)
 };
 
 /// Extended response returned by Toolbar SplitButton and SplitToggle controls.
@@ -66,11 +68,9 @@ struct ToolbarOptions {
     keel::Optional<Padding> padding{keel::kNullOpt};       ///< Internal toolbar padding token or explicit insets
     StateColor background{};
     Border border{};
+    UiSize size{UiSize::Md};
     bool disabled{false};
-    const UiTheme* theme{nullptr};
-    keel::Optional<float> scale{keel::kNullOpt};
-    keel::Optional<bool> debugBounds{keel::kNullOpt};
-    keel::Optional<bool> inspectMode{keel::kNullOpt};
+    ZoneOptions zone{};
 };
 
 /// RAII scope for Toolbar container.

@@ -44,9 +44,8 @@ struct SidebarMenuOptions {
     float sectionGap{8.0f};                         ///< Extra top spacing before a non-first Section header
     keel::Optional<float> width{keel::kNullOpt};    ///< Optional explicit menu width (nullopt = Fit/Stretch to container)
     Border border{};                                ///< Optional item border / corner rounding radius override
+    UiSize size{UiSize::Md};                        ///< Component size scale
     bool disabled{false};
-    const UiTheme* theme{nullptr};
-    keel::Optional<float> scale{keel::kNullOpt};
 };
 
 /// Internal runtime payload allocated in frame arena for SidebarItem leaf nodes.

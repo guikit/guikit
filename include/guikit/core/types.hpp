@@ -159,6 +159,46 @@ struct Rect {
     }
 };
 
+/// Uniform scale followed by a translation: `p -> p * scale + offset`. Maps a local coordinate space into its
+/// parent's (or, composed along a branch, into the frame's). There is no rotation or shear by design: every
+/// layout transform in the engine scales about a point.
+struct Transform2D {
+    float scale{1.0f};
+    Vec2 offset{0.0f, 0.0f};
+
+    /// Scales by `s` about `origin`, which stays fixed: `origin + (p - origin) * s`.
+    [[nodiscard]] static constexpr Transform2D ScaleAbout(Vec2 origin, float s) noexcept {
+        return Transform2D{s, Vec2{origin.x * (1.0f - s), origin.y * (1.0f - s)}};
+    }
+
+    [[nodiscard]] constexpr bool IsIdentity() const noexcept {
+        return scale == 1.0f && offset.x == 0.0f && offset.y == 0.0f;
+    }
+
+    [[nodiscard]] constexpr Vec2 Apply(Vec2 p) const noexcept {
+        return Vec2{p.x * scale + offset.x, p.y * scale + offset.y};
+    }
+    [[nodiscard]] constexpr Rect Apply(const Rect& r) const noexcept {
+        return Rect(r.x * scale + offset.x, r.y * scale + offset.y, r.w * scale, r.h * scale);
+    }
+    [[nodiscard]] constexpr Vec2 Invert(Vec2 p) const noexcept {
+        return Vec2{(p.x - offset.x) / scale, (p.y - offset.y) / scale};
+    }
+    [[nodiscard]] constexpr Rect Invert(const Rect& r) const noexcept {
+        return Rect((r.x - offset.x) / scale, (r.y - offset.y) / scale, r.w / scale, r.h / scale);
+    }
+
+    /// The transform that applies `inner` first and then this one (inner space -> this transform's target).
+    [[nodiscard]] constexpr Transform2D Then(const Transform2D& inner) const noexcept {
+        return Transform2D{scale * inner.scale, Vec2{inner.offset.x * scale + offset.x, inner.offset.y * scale + offset.y}};
+    }
+
+    /// The transform that maps this transform's target space back into its source space.
+    [[nodiscard]] constexpr Transform2D Inverse() const noexcept {
+        return Transform2D{1.0f / scale, Vec2{-offset.x / scale, -offset.y / scale}};
+    }
+};
+
 /// 32-bit RGBA color with linear blending utilities.
 struct Color {
     keel::u8 r{0};
@@ -742,15 +782,113 @@ namespace literals {
     }
 } // namespace literals
 
-/// Universal design token scale for density, typography, spacing, and component dimensions.
-enum class UiSize : keel::u8 {
-    None = 0, ///< Zero / unpadded / no gap / square corners
-    Xs,       ///< Extra Small (compact toolbars, inline badges, dense data tables)
-    Sm,       ///< Small (secondary panels, compact forms)
-    Md,       ///< Medium (standard default controls across the engine)
-    Lg,       ///< Large (prominent action bars, touch-friendly interfaces)
-    Xl        ///< Extra Large (hero actions, emergency stops, kiosk displays)
+namespace detail {
+using DpValue = Dp;
+} // namespace detail
+
+/// Universal control size token (`None`, `Xs`, `Sm`, `Md`, `Lg`, `Xl`), explicit target height in `dp`,
+/// or factor relative to the theme's `Md` baseline (`UiSize::Factor(1.25f)`).
+struct UiSize {
+    enum class Preset : keel::u8 {
+        None = 0, ///< Zero / unpadded / no gap / square corners
+        Xs,       ///< Extra Small (compact toolbars, inline badges, dense data tables)
+        Sm,       ///< Small (secondary panels, compact forms)
+        Md,       ///< Medium (standard default controls across the engine)
+        Lg,       ///< Large (prominent action bars, touch-friendly interfaces)
+        Xl,       ///< Extra Large (hero actions, emergency stops, kiosk displays)
+        Dp,       ///< Custom target baseline height in logical dp
+        Factor    ///< Custom multiplier relative to the theme's `Md` baseline
+    };
+
+private:
+    static constexpr keel::i32 kPresetCount = 6;
+    static constexpr float kFixedScale = 1024.0f;
+    static constexpr float kMaxCustomVal = 1000000.0f;
+
+    keel::i32 m_encoded{static_cast<keel::i32>(Preset::Md)};
+
+    constexpr explicit UiSize(keel::i32 encoded) noexcept : m_encoded(encoded) {}
+
+    [[nodiscard]] static constexpr keel::i32 EncodeDp(float dp) noexcept {
+        if (!(dp > 0.0f)) return static_cast<keel::i32>(Preset::None);
+        const float clamped = (dp > kMaxCustomVal) ? kMaxCustomVal : dp;
+        return kPresetCount + static_cast<keel::i32>(clamped * kFixedScale + 0.5f);
+    }
+
+    [[nodiscard]] static constexpr keel::i32 EncodeFactor(float factor) noexcept {
+        if (!(factor > 0.0f)) return static_cast<keel::i32>(Preset::Md);
+        const float clamped = (factor > kMaxCustomVal) ? kMaxCustomVal : factor;
+        const keel::i32 q = static_cast<keel::i32>(clamped * kFixedScale + 0.5f);
+        return -keel::max<keel::i32>(1, q);
+    }
+
+public:
+    constexpr UiSize() noexcept = default;
+
+    constexpr UiSize(float dp) noexcept : m_encoded(EncodeDp(dp)) {}
+    constexpr UiSize(detail::DpValue dp) noexcept : m_encoded(EncodeDp(dp.value)) {}
+
+    [[nodiscard]] static constexpr UiSize Dp(float dp) noexcept { return UiSize(EncodeDp(dp)); }
+    [[nodiscard]] static constexpr UiSize Factor(float factor) noexcept { return UiSize(EncodeFactor(factor)); }
+
+    static const UiSize None;
+    static const UiSize Xs;
+    static const UiSize Sm;
+    static const UiSize Md;
+    static const UiSize Lg;
+    static const UiSize Xl;
+
+    [[nodiscard]] constexpr Preset GetPreset() const noexcept {
+        if (m_encoded >= 0 && m_encoded < kPresetCount) {
+            return static_cast<Preset>(m_encoded);
+        }
+        return (m_encoded < 0) ? Preset::Factor : Preset::Dp;
+    }
+
+    [[nodiscard]] constexpr bool IsNone() const noexcept { return m_encoded == static_cast<keel::i32>(Preset::None); }
+    [[nodiscard]] constexpr bool IsPreset() const noexcept { return m_encoded >= 0 && m_encoded < kPresetCount; }
+    [[nodiscard]] constexpr bool IsDp() const noexcept { return m_encoded >= kPresetCount; }
+    [[nodiscard]] constexpr bool IsFactor() const noexcept { return m_encoded < 0; }
+    [[nodiscard]] constexpr bool IsCustom() const noexcept { return !IsPreset(); }
+
+    [[nodiscard]] constexpr float CustomValue() const noexcept {
+        if (m_encoded >= kPresetCount) {
+            return static_cast<float>(m_encoded - kPresetCount) / kFixedScale;
+        }
+        if (m_encoded < 0) {
+            return static_cast<float>(-m_encoded) / kFixedScale;
+        }
+        return 0.0f;
+    }
+
+    [[nodiscard]] constexpr keel::usize TableIndex() const noexcept {
+        return IsPreset() ? static_cast<keel::usize>(m_encoded) : static_cast<keel::usize>(Preset::Md);
+    }
+
+    [[nodiscard]] constexpr float ResolveFactor(float mdHeightDp) const noexcept {
+        if (m_encoded >= kPresetCount) {
+            const float targetDp = static_cast<float>(m_encoded - kPresetCount) / kFixedScale;
+            return (mdHeightDp > 0.0f) ? (targetDp / mdHeightDp) : 1.0f;
+        }
+        if (m_encoded < 0) {
+            return static_cast<float>(-m_encoded) / kFixedScale;
+        }
+        return 1.0f;
+    }
+
+    [[nodiscard]] constexpr keel::i32 Encoded() const noexcept { return m_encoded; }
+    [[nodiscard]] static constexpr UiSize FromEncoded(keel::i32 raw) noexcept { return UiSize(raw); }
+
+    [[nodiscard]] constexpr bool operator==(const UiSize& other) const noexcept = default;
 };
+
+inline constexpr UiSize UiSize::None{static_cast<keel::i32>(UiSize::Preset::None)};
+inline constexpr UiSize UiSize::Xs{static_cast<keel::i32>(UiSize::Preset::Xs)};
+inline constexpr UiSize UiSize::Sm{static_cast<keel::i32>(UiSize::Preset::Sm)};
+inline constexpr UiSize UiSize::Md{static_cast<keel::i32>(UiSize::Preset::Md)};
+inline constexpr UiSize UiSize::Lg{static_cast<keel::i32>(UiSize::Preset::Lg)};
+inline constexpr UiSize UiSize::Xl{static_cast<keel::i32>(UiSize::Preset::Xl)};
+static_assert(sizeof(UiSize) == 4, "UiSize must remain 4 bytes");
 
 /// Direction of primary layout axis.
 enum class FlexDirection : keel::u8 {
@@ -931,7 +1069,10 @@ struct Padding {
 
     /// Semantic design token padding dynamically resolved via UiTheme and UI density scale.
     constexpr Padding(UiSize size) noexcept
-        : left(kTokenSentinel), top(static_cast<float>(size)), right(kTokenSentinel), bottom(kTokenSentinel) {}
+        : left(kTokenSentinel)
+        , top(static_cast<float>(static_cast<keel::u8>(size.GetPreset())))
+        , right(size.IsCustom() ? size.CustomValue() : kTokenSentinel)
+        , bottom(kTokenSentinel) {}
 
     [[nodiscard]] static constexpr Padding All(float val) noexcept {
         return Padding(val);
@@ -941,12 +1082,28 @@ struct Padding {
         return Padding(horizontal, vertical, horizontal, vertical);
     }
 
+    [[nodiscard]] constexpr Padding ScaledBy(float factor) const noexcept {
+        return IsToken() ? *this : Padding(left * factor, top * factor, right * factor, bottom * factor);
+    }
+
     [[nodiscard]] constexpr bool IsToken() const noexcept {
-        return left == kTokenSentinel && right == kTokenSentinel && bottom == kTokenSentinel;
+        return left == kTokenSentinel && bottom == kTokenSentinel;
     }
 
     [[nodiscard]] constexpr UiSize GetToken() const noexcept {
-        return IsToken() ? static_cast<UiSize>(top) : UiSize::None;
+        if (!IsToken()) return UiSize::None;
+        const auto preset = static_cast<UiSize::Preset>(static_cast<keel::u8>(top));
+        switch (preset) {
+            case UiSize::Preset::None:   return UiSize::None;
+            case UiSize::Preset::Xs:     return UiSize::Xs;
+            case UiSize::Preset::Sm:     return UiSize::Sm;
+            case UiSize::Preset::Md:     return UiSize::Md;
+            case UiSize::Preset::Lg:     return UiSize::Lg;
+            case UiSize::Preset::Xl:     return UiSize::Xl;
+            case UiSize::Preset::Dp:     return UiSize::Dp(right);
+            case UiSize::Preset::Factor: return UiSize::Factor(right);
+        }
+        return UiSize::None;
     }
 
     [[nodiscard]] constexpr float Horizontal() const noexcept {

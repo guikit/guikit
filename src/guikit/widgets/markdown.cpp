@@ -531,8 +531,6 @@ keel::u64 ComputeMarkdownLayoutKey(
         qZoom,
         hasCanvasMetrics,
         theme.mode,
-        theme.density,
-        theme.Scale(100.0f),
         theme.palette.textPrimary.ToUint32(),
         theme.palette.accent.ToUint32(),
         static_cast<keel::u8>(opts.align),
@@ -575,7 +573,7 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
     const ParsedMarkdownDoc& doc = *docPtr;
 
     const float effZoom = keel::clamp(zoom, 0.5f, 3.0f);
-    const float s = theme.Scale(1.0f) * effZoom;
+    const float s = effZoom;
     const float docPad = keel::max(0.0f, opts.documentPadding) * s;
 
     out.effZoom = effZoom;
@@ -594,10 +592,10 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
     const Rect contentBounds(startX, docPad, availW, 0.0f);
     out.contentLocalBounds = contentBounds;
 
-    const float bodyFs = (opts.bodyFontSize.has_value() ? theme.Scale(*opts.bodyFontSize) : theme.GetFontSize(TextRole::BodyMedium)) * effZoom;
-    const float codeFs = (opts.codeFontSize.has_value() ? theme.Scale(*opts.codeFontSize) : theme.GetFontSize(TextRole::CodeMedium)) * effZoom;
+    const float bodyFs = (opts.bodyFontSize.has_value() ? *opts.bodyFontSize : theme.GetFontSize(TextRole::BodyMedium)) * effZoom;
+    const float codeFs = (opts.codeFontSize.has_value() ? *opts.codeFontSize : theme.GetFontSize(TextRole::CodeMedium)) * effZoom;
     const float inlineCodeFs = opts.inlineCodeFontSize.has_value()
-        ? (theme.Scale(*opts.inlineCodeFontSize) * effZoom)
+        ? (*opts.inlineCodeFontSize * effZoom)
         : (bodyFs * 0.92f);
     const float lhScale = keel::clamp(opts.lineHeightScale, 0.8f, 2.5f);
     const float codeLineH = (canvas ? canvas->GetLineHeight(codeFs) : theme.GetLineHeight(codeFs)) * lhScale;
@@ -1301,7 +1299,7 @@ void RenderMarkdownDocumentLayout(
     const Vec2 localMouse = screenMousePos - docOrigin;
     const float effZoom = layout.effZoom;
     const float s = layout.scale;
-    const float bodyFs = (opts.bodyFontSize.has_value() ? theme.Scale(*opts.bodyFontSize) : theme.GetFontSize(TextRole::BodyMedium)) * effZoom;
+    const float bodyFs = (opts.bodyFontSize.has_value() ? *opts.bodyFontSize : theme.GetFontSize(TextRole::BodyMedium)) * effZoom;
 
     for (const BlockLayout& bl : layout.blocks) {
         if (bl.astBlockIndex >= doc.blocks.size()) continue;
@@ -1768,10 +1766,6 @@ MarkdownOptions CloneMarkdownOptionsWithoutCallbacks(const MarkdownOptions& src)
     dst.searchQuery = src.searchQuery;
     dst.tooltip = src.tooltip;
     dst.disabled = src.disabled;
-    dst.theme = src.theme;
-    dst.scale = src.scale;
-    dst.debugBounds = src.debugBounds;
-    dst.inspectMode = src.inspectMode;
     return dst;
 }
 
@@ -1804,11 +1798,10 @@ MarkdownResponse Markdown::Run(
     const MarkdownOptions& opts,
     keel::SourceLocation loc
 ) {
-    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const Id id = ctx.MakeChildId(loc);
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const UiSize activeSize = opts.size;
     const UiTheme& theme = ctx.GetTheme();
 
     MarkdownOptions optsCopy = CloneMarkdownOptionsWithoutCallbacks(opts);
@@ -1877,7 +1870,7 @@ MarkdownResponse Markdown::Run(
     ICanvas* hitCanvas = ctx.GetCanvas();
     Rect hitBounds = ctx.GetPrevUnclippedBounds(id);
     if (hitBounds.w <= 0.0f) {
-        hitBounds = Rect(0.0f, 0.0f, theme.Scale(520.0f), theme.Scale(400.0f));
+        hitBounds = Rect(0.0f, 0.0f, 520.0f, 400.0f);
     }
     const Rect ctrlRect = hitBounds;
 
@@ -2150,8 +2143,6 @@ MarkdownResponse Markdown::Run(
 
     // 6. Create Node & Payload
     Node* node = ctx.CreateNode(NodeType::Markdown, id);
-    node->debugBoundsOverride = opts.debugBounds;
-    node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<MarkdownPayload>();
     payload->text = ctx.AllocString(markdownText);
     payload->opts = CloneMarkdownOptionsWithoutCallbacks(optsCopy);
@@ -2228,7 +2219,7 @@ MarkdownResponse Markdown::Run(
         }
         if (availableWidth <= 0.0f && p->layout != nullptr) {
             const float finalH = p->opts.height.IsFixed()
-                ? th.Scale(p->opts.height.Dp())
+                ? p->opts.height.Dp()
                 : p->layout->totalHeight;
             return {keel::max(p->layout->outerWidth, p->layout->totalWidth), finalH};
         }
@@ -2250,8 +2241,8 @@ MarkdownResponse Markdown::Run(
                 ? th.ResolveColor(p->opts.background, interactiveBg && n->hovered, interactiveBg && n->pressed, n->disabled, th.palette.surface)
                 : Color::Transparent();
             const Color bCol = th.ResolveColor(p->opts.border.color, n->hovered, n->pressed, n->disabled, th.palette.border);
-            const float bW = (p->opts.border.width > 0.0f) ? th.Scale(p->opts.border.width) : (p->opts.border.color.HasAny() ? th.Scale(1.0f) : 0.0f);
-            const float bR = p->opts.border.radius.has_value() ? th.Scale(*p->opts.border.radius) : 0.0f;
+            const float bW = (p->opts.border.width > 0.0f) ? p->opts.border.width : (p->opts.border.color.HasAny() ? 1.0f : 0.0f);
+            const float bR = p->opts.border.radius.has_value() ? *p->opts.border.radius : 0.0f;
             canvas.DrawRoundRect(n->computedRect, bR, bgCol, bCol, bW);
         }
 
@@ -2304,7 +2295,7 @@ MarkdownResponse Markdown::Run(
 
         // Render floating in-document Search bar if open (pinned to visible viewport top-right)
         if (p->searchBarOpen) {
-            const float s = th.Scale(1.0f);
+            constexpr float s = 1.0f;
             const float barW = 240.0f * s;
             const float barH = 30.0f * s;
             const float anchorTop = (visibleRect.h > 0.0f) ? visibleRect.y : ctrlRect.y;
@@ -2378,9 +2369,9 @@ Vec2 Markdown::Measure(
     const auto doc = GetOrParseMarkdown(markdownText);
     const float effZoom = (opts.zoom != nullptr) ? keel::clamp(*opts.zoom, 0.5f, 3.0f) : 1.0f;
 
-    float ctrlW = (availableWidth > 0.0f) ? availableWidth : theme.Scale(520.0f);
+    float ctrlW = (availableWidth > 0.0f) ? availableWidth : 520.0f;
     if (opts.width.IsFixed()) {
-        ctrlW = theme.Scale(opts.width.Dp());
+        ctrlW = opts.width.Dp();
     } else if (opts.width.ResolveMode(SizeMode::Stretch) == SizeMode::Stretch && availableWidth > 0.0f) {
         ctrlW = availableWidth;
     }
@@ -2388,7 +2379,7 @@ Vec2 Markdown::Measure(
     const auto layout = GetOrBuildMarkdownLayout(canvas, ctrlW, doc, opts, theme, effZoom);
 
     const float finalH = opts.height.IsFixed()
-        ? theme.Scale(opts.height.Dp())
+        ? opts.height.Dp()
         : layout->totalHeight;
     return { keel::max(ctrlW, layout->totalWidth), finalH };
 }
@@ -2413,8 +2404,8 @@ void Markdown::Render(
             ? theme.ResolveColor(opts.background, false, false, disabled, theme.palette.surface)
             : Color::Transparent();
         const Color bCol = theme.ResolveColor(opts.border.color, false, false, disabled, theme.palette.border);
-        const float bW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : (opts.border.color.HasAny() ? theme.Scale(1.0f) : 0.0f);
-        const float bR = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : 0.0f;
+        const float bW = (opts.border.width > 0.0f) ? opts.border.width : (opts.border.color.HasAny() ? 1.0f : 0.0f);
+        const float bR = opts.border.radius.has_value() ? *opts.border.radius : 0.0f;
         canvas.DrawRoundRect(bounds, bR, bgCol, bCol, bW);
     }
 

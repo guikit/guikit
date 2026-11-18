@@ -29,7 +29,7 @@ TabBarResponse TabBar::Run(
     TabBarResponse res;
     if (tabs.empty()) return res;
 
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const UiSize activeSize = opts.size;
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
 
     keel::Optional<ContainerScope> carouselScope;
@@ -38,14 +38,12 @@ TabBarResponse TabBar::Run(
     if (opts.scrollable && !opts.fullWidth) {
         CarouselOptions cOpts;
         cOpts.scrollWheel = true;
+        cOpts.size = activeSize;
         cOpts.disabled = activeDisabled;
-        cOpts.theme = opts.theme;
-        cOpts.scale = opts.scale;
 
         carouselScope.emplace(ctx.Carousel(cOpts, loc));
         barNode = carouselScope->GetNode();
     } else {
-        ZoneScope zone = ctx.Zone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
         const Id barId = ctx.MakeChildId(loc);
         barNode = ctx.CreateNode(NodeType::Container, barId);
         barNode->direction = FlexDirection::Row;
@@ -54,15 +52,16 @@ TabBarResponse TabBar::Run(
         barNode->disabled = activeDisabled;
         barNode->widthMode = opts.fullWidth ? SizeMode::Stretch : SizeMode::Fit;
 
-        ctx.PushContainer(barNode, keel::move(zone));
+        ctx.PushContainer(barNode);
     }
 
     const UiTheme& theme = ctx.GetTheme();
     const ComponentMetrics& m = theme.GetMetrics(activeSize);
+    const float barDensity = barNode->GetDensity();
     const float defaultTabGap = (opts.style == TabBarStyle::Card || opts.style == TabBarStyle::Folder)
-        ? theme.Scale(2.0f)
-        : ((activeSize <= UiSize::Sm) ? theme.GetGap(UiSize::Xs) : theme.GetGap(UiSize::Sm));
-    const float activeTabGap = opts.gap.has_value() ? theme.Scale(*opts.gap) : defaultTabGap;
+        ? 2.0f
+        : ((theme.SizeFactor(activeSize) < 0.90f) ? theme.GetGap(UiSize::Xs) : theme.GetGap(UiSize::Sm));
+    const float activeTabGap = (opts.gap.has_value() ? *opts.gap : defaultTabGap) * barDensity;
 
     const Color resolvedBg = opts.background.IsBackgroundEnabled(false)
         ? (opts.background.IsSurface()
@@ -76,22 +75,22 @@ TabBarResponse TabBar::Run(
 
     Padding resolvedPadding{};
     if (opts.padding.has_value()) {
-        resolvedPadding = theme.ResolvePadding(opts.padding);
+        resolvedPadding = theme.ResolvePadding(opts.padding, UiSize::Md, barDensity);
     } else if (opts.style == TabBarStyle::Pill && hasCustomBgOrBorder) {
-        const float defaultPad = ((activeSize <= UiSize::Sm) ? 2.0f : 3.0f) * theme.scale;
+        const float defaultPad = ((theme.SizeFactor(activeSize) < 0.90f) ? 2.0f : 3.0f) * barDensity;
         resolvedPadding = Padding{defaultPad, defaultPad, defaultPad, defaultPad};
     }
 
     float resolvedRadius = 0.0f;
     if (opts.border.radius.has_value()) {
-        resolvedRadius = theme.Scale(*opts.border.radius);
+        resolvedRadius = *opts.border.radius;
     } else if (opts.style == TabBarStyle::Pill && hasCustomBgOrBorder) {
-        resolvedRadius = m.cornerRadius + 2.0f * theme.scale;
+        resolvedRadius = m.cornerRadius + 2.0f;
     }
 
     const float effectiveBorderWidth = (opts.border.width > 0.0f)
-        ? theme.Scale(opts.border.width)
-        : (resolvedBorderCol.a > 0 ? theme.Scale(1.0f) : 0.0f);
+        ? opts.border.width
+        : (resolvedBorderCol.a > 0 ? 1.0f : 0.0f);
 
     barNode->gap = activeTabGap;
     barNode->padding = resolvedPadding;
@@ -299,7 +298,7 @@ Vec2 TabBar::MeasureTab(
         contentW += (contentW > 0.0f ? 6.0f : 0.0f) + closeBtnSz;
     }
 
-    const float padX = m.paddingX + (opts.style == TabBarStyle::Folder ? theme.Scale(4.0f) : 0.0f);
+    const float padX = m.paddingX + (opts.style == TabBarStyle::Folder ? 4.0f : 0.0f);
     const float totalW = contentW + padX * 2.0f;
 
     return {keel::max(m.defaultHeight, totalW), m.defaultHeight};
@@ -365,7 +364,7 @@ void TabBar::RenderTab(
             canvas.DrawRoundRect(Rect(bounds.x + 1.0f, bounds.y + 2.0f, keel::max(0.0f, bounds.w - 2.0f), keel::max(0.0f, bounds.h - 4.0f)), m.cornerRadius, Color::Transparent(), pal.focusRing, 1.5f);
         }
     } else if (opts.style == TabBarStyle::Card) {
-        const float r = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : m.cornerRadius;
+        const float r = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
         const Rect cardR(bounds.x, bounds.y + 2.0f, bounds.w, bounds.h + r);
         if (active) {
             canvas.DrawRoundRect(cardR, r, pal.surface, pal.border, 1.0f);
@@ -384,7 +383,7 @@ void TabBar::RenderTab(
             canvas.DrawRoundRect(Rect(bounds.x + 1.0f, bounds.y + 3.0f, keel::max(0.0f, bounds.w - 2.0f), keel::max(0.0f, bounds.h - 4.0f)), keel::max(0.0f, r - 1.0f), Color::Transparent(), pal.focusRing, 1.5f);
         }
     } else if (opts.style == TabBarStyle::Folder) {
-        const float slope = keel::min(theme.Scale(6.0f), bounds.w * 0.14f);
+        const float slope = keel::min(6.0f, bounds.w * 0.14f);
         const float topY = bounds.y + (active ? 1.5f : 4.0f);
         const float botY = bounds.Bottom();
         VectorPath folderPath;
@@ -419,7 +418,7 @@ void TabBar::RenderTab(
         if (opts.padding.has_value()) {
             padTop = opts.padding->top;
         } else if (opts.style == TabBarStyle::Pill && hasCustomBgOrBorder) {
-            padTop = (size <= UiSize::Sm) ? 2.0f : 3.0f;
+            padTop = (theme.SizeFactor(size) < 0.90f) ? 2.0f : 3.0f;
         }
 
         float pillRadius = m.cornerRadius;

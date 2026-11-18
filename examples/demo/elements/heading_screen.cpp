@@ -252,10 +252,9 @@ void RenderHeadingStage(guikit::Context& ui, DemoContext&) {
             }};
 
             const auto& th = ui.GetTheme();
-            const float invScale = (th.scale > 0.0f) ? (1.0f / th.scale) : 1.0f;
             if (auto col = ui.Column({.gap = 16.0f})) {
                 for (const auto& item : kSamples) {
-                    const float baseSp = th.GetHeading(item.level).titleFontSize * invScale;
+                    const float baseSp = th.GetHeading(item.level).titleFontSize;
                     ui.Heading({
                         .label = {item.title, s_state.titleVariant},
                         .description = s_state.subtitle.empty()

@@ -144,14 +144,15 @@ void RenderTagInputStage(guikit::Context& ui, DemoContext& ctx) {
         opts.height = ctx.ResolveCtrlHeight();
         opts.background = ctx.GetControlBackground(NavCategory::ElemTagInput);
         opts.border = ctx.GetCtrlBorder();
+        opts.size = ctx.controlsSize;
         opts.disabled = ctx.elemDisabled;
-        ui.Size(ctx.controlsSize).TagInput(s_state.tags, opts);
+        ui.TagInput(s_state.tags, opts);
     });
 }
 
 keel::String GenerateTagInputCode(const DemoContext& ctx) {
     const keel::String ctrl = keel::format(
-        "ui.{}TagInput(tags, {{\n"
+        "ui.TagInput(tags, {{\n"
         "    .placeholder = \"{}\",\n"
         "    .prefix = \"{}\",\n"
         "    .tagVariant = guikit::UiVariant::{},\n"
@@ -165,10 +166,9 @@ keel::String GenerateTagInputCode(const DemoContext& ctx) {
         "    .width = {},\n"
         "    .height = {},\n"
         "    .background = {},\n"
-        "    .border = {},\n"
+        "    .border = {}{},\n"
         "    .disabled = {}\n"
         "}});",
-        FormatUiSizePrefix(ctx.controlsSize),
         s_state.placeholder,
         s_state.prefix,
         VariantName(s_state.tagVariant),
@@ -183,6 +183,7 @@ keel::String GenerateTagInputCode(const DemoContext& ctx) {
         ctx.FormatCtrlHeightCode(),
         ctx.FormatControlBackgroundCode(NavCategory::ElemTagInput),
         ctx.FormatCtrlBorderCode(),
+        FormatUiSizePrefix(ctx.controlsSize),
         ctx.elemDisabled ? "true" : "false"
     );
     return ctx.WrapInElementCode(ctrl);

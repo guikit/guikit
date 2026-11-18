@@ -110,15 +110,15 @@ SidebarScope Sidebar::Open(
 
     const Id id = ctx.MakeChildId(loc);
     const Id sashId(detail::HashArgs(id.value, keel::u64(0x53425F53415348ull)));
-    const UiSize activeSize = ctx.GetCurrentSize();
-    const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    ZoneScope zone = ctx.Zone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
-    const float activeScale = ctx.GetCurrentScale();
 
-    const UiTheme& theme = ctx.GetTheme();
-    const float safeScale = (activeScale > 0.0f) ? activeScale : 1.0f;
+    const UiSize activeSize = opts.size;
+    const bool activeDisabled = opts.disabled || ctx.IsDisabled();
+    const float activeScale = 1.0f;
+
+    const UiTheme& theme = opts.zone.theme ? *opts.zone.theme : ctx.GetTheme();
+    const float safeScale = 1.0f;
     const ComponentMetrics& m = theme.GetMetrics(activeSize);
-    const float metricMinW = (m.defaultHeight / safeScale) * 3.8f;
+    const float metricMinW = m.defaultHeight * 3.8f;
     const Rect parentBounds = ctx.GetParentPrevFrameBounds();
     const float clampedRatio = keel::clamp(opts.maxRatio, 0.15f, 0.90f);
 
@@ -374,24 +374,22 @@ SidebarScope Sidebar::Open(
         ctx.InvalidateAll();
     }
 
-    Node* node = ctx.CreateNode(NodeType::Sidebar, id);
-    node->debugBoundsOverride = opts.debugBounds;
-    node->inspectModeOverride = opts.inspectMode;
+    Node* node = ctx.CreateNode(NodeType::Sidebar, id, opts.zone, opts.disabled);
+    const float density = node->GetDensity();
     node->direction = FlexDirection::Column;
     node->sidebarRight = (opts.side == SidebarSide::Right);
     node->sidebarCompact = (state.mode == SidebarMode::Compact);
     node->sidebarCollapsed = (state.mode == SidebarMode::Collapsed);
     node->sidebarScrollable = opts.scrollable && !node->sidebarCollapsed;
-    node->gap = theme.ResolveGap(opts.gap, activeSize);
+    node->gap = theme.ResolveGap(opts.gap, activeSize, density);
     node->heightMode = SizeMode::Stretch;
     node->cornerRadius = opts.border.radius.has_value()
-        ? theme.Scale(*opts.border.radius)
+        ? *opts.border.radius
         : (hasFlushSibling ? 0.0f : theme.shell.panelRadius);
     node->clipChildren = opts.clipChildren;
     node->scrollOrientation = Orientation::Vertical;
     node->scrollbarPolicy = opts.scrollbar;
     node->uiSize = activeSize;
-    node->disabled = activeDisabled;
 
     const auto& pal = theme.palette;
     const Color resolvedBg = opts.background.IsBackgroundEnabled(true)
@@ -400,7 +398,7 @@ SidebarScope Sidebar::Open(
     const Color resolvedBorderCol = (opts.border.width > 0.0f)
         ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, pal.border)
         : Color::Transparent();
-    const float resolvedBorderW = (opts.border.width == 1.0f) ? theme.shell.panelBorderWidth : theme.Scale(opts.border.width);
+    const float resolvedBorderW = (opts.border.width == 1.0f) ? theme.shell.panelBorderWidth : opts.border.width;
     float reportedLogicalW = 0.0f;
 
     if (node->sidebarCollapsed) {
@@ -417,33 +415,33 @@ SidebarScope Sidebar::Open(
         node->fixedWidth = 0.0f;
         node->minWidth = 0.0f;
         node->padding = opts.padding.has_value()
-            ? theme.ResolvePadding(opts.padding, activeSize)
-            : theme.GetPadding(UiSize::Sm);
+            ? theme.ResolvePadding(opts.padding, activeSize, density)
+            : theme.GetPadding(UiSize::Sm).ScaledBy(density);
         node->backgroundColor = resolvedBg;
         node->borderColor = resolvedBorderCol;
         node->borderWidth = resolvedBorderW;
-        reportedLogicalW = (prevBounds.w > 0.0f) ? (prevBounds.w / safeScale) : 52.0f;
+        reportedLogicalW = (prevBounds.w > 0.0f) ? prevBounds.w : 52.0f;
     } else {
-        node->minWidth = theme.Scale(effMinW);
+        node->minWidth = effMinW;
         if (state.customWidth > 0.0f) {
             const float effW = (parentBounds.w > 1.0f)
                 ? keel::clamp(state.customWidth, effMinW, effMaxW)
                 : state.customWidth;
             node->widthMode = SizeMode::Fixed;
-            node->fixedWidth = theme.Scale(effW);
+            node->fixedWidth = effW;
             reportedLogicalW = effW;
         } else if (opts.width.has_value()) {
             const float effW = (parentBounds.w > 1.0f)
                 ? keel::clamp(*opts.width, effMinW, effMaxW)
                 : *opts.width;
             node->widthMode = SizeMode::Fixed;
-            node->fixedWidth = theme.Scale(effW);
+            node->fixedWidth = effW;
             reportedLogicalW = effW;
         } else {
             node->widthMode = SizeMode::Fit;
             reportedLogicalW = state.lastExpandedWidth;
         }
-        node->padding = theme.ResolvePadding(opts.padding, activeSize);
+        node->padding = theme.ResolvePadding(opts.padding, activeSize, density);
         node->backgroundColor = resolvedBg;
         node->borderColor = resolvedBorderCol;
         node->borderWidth = resolvedBorderW;
@@ -460,7 +458,7 @@ SidebarScope Sidebar::Open(
         opts.border
     );
 
-    ctx.PushContainer(node, keel::move(zone));
+    ctx.FinishContainer(node);
 
     if (node->sidebarScrollable) {
         node->postRenderFn = &ScrollArea::RenderScrollbar;

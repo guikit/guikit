@@ -429,12 +429,13 @@ void RenderSignalInspector(guikit::Context& ui, DemoContext&) {
     }
 
     if (auto btnRow = ui.Row({.gap = 8.0f})) {
-        if (ui.Size(guikit::UiSize::Sm).Button({
+        if (ui.Button({
             .text = "Zoom Selection",
             .icon = guikit::Icon::Search(),
             .color = guikit::StateColor::Primary(),
             .width = guikit::SizeMode::Stretch,
-            .disabled = !s_sig.selection.active || s_sig.selection.DurationSec() <= 1e-5
+            .disabled = !s_sig.selection.active || s_sig.selection.DurationSec() <= 1e-5,
+            .size = guikit::UiSize::Sm
         })) {
             s_sig.requestViewStartSec = s_sig.selection.MinTimeSec();
             s_sig.requestViewEndSec = s_sig.selection.MaxTimeSec();
@@ -442,11 +443,12 @@ void RenderSignalInspector(guikit::Context& ui, DemoContext&) {
                 s_sig.requestFreqRangeHz = guikit::Vec2{s_sig.selection.MinFreqHz(), s_sig.selection.MaxFreqHz()};
             }
         }
-        if (ui.Size(guikit::UiSize::Sm).Button({
+        if (ui.Button({
             .text = "Reset View",
             .icon = guikit::Icon::Refresh(),
             .color = guikit::StateColor::Secondary(),
-            .width = guikit::SizeMode::Stretch
+            .width = guikit::SizeMode::Stretch,
+            .size = guikit::UiSize::Sm
         })) {
             s_sig.requestResetView = true;
             s_sig.waveformGain = 1.0f;

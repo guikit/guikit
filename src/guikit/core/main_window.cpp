@@ -31,8 +31,8 @@ MainWindow::MainWindow(MainWindowConfig config, keel::UniquePtr<IWindowBackend> 
     , m_shellTheme(m_config.initialTheme.has_value()
                    ? *m_config.initialTheme
                    : (m_config.initialThemeMode == ThemeMode::Light
-                      ? UiTheme::Light(m_config.initialDensity)
-                      : UiTheme::Dark(m_config.initialDensity)))
+                      ? UiTheme::Light()
+                      : UiTheme::Dark()))
     , m_shellLightMode(m_shellTheme.mode == ThemeMode::Light)
     , m_shellFloating(m_config.initialTheme.has_value()
                       ? (m_shellTheme.shellStyle == ShellStyle::Floating)
@@ -41,6 +41,7 @@ MainWindow::MainWindow(MainWindowConfig config, keel::UniquePtr<IWindowBackend> 
     if (!m_config.initialTheme.has_value()) {
         m_shellTheme.SetShellStyle(m_config.initialShellStyle);
     }
+    m_ui.SetDensity(m_config.initialDensity);
     m_ui.SetOpenUrlCallback([this](keel::StringRef url) { OpenUrl(url); });
     SetShellScale(m_config.initialScale);
     for (keel::usize i = 0; i < kHeartbeatMsValues.size(); ++i) {
@@ -101,7 +102,6 @@ keel::i32 MainWindow::Run() {
     // Synchronize m_shellTheme if OnInit() customized m_ui.GetTheme() directly
     const UiTheme& postInitTheme = m_ui.GetTheme();
     if (postInitTheme.mode != m_shellTheme.mode ||
-        postInitTheme.density != m_shellTheme.density ||
         postInitTheme.shellStyle != m_shellTheme.shellStyle ||
         postInitTheme.palette.background != m_shellTheme.palette.background ||
         postInitTheme.palette.surface != m_shellTheme.palette.surface ||
@@ -191,7 +191,7 @@ void MainWindow::RenderFrame() {
         }
 
         if (m_config.autoShellScope) {
-            if (auto mainCol = m_ui.Column({.theme = &m_shellTheme})) {
+            if (auto mainCol = m_ui.Column({})) {
                 OnRender(m_ui);
             }
         } else {
@@ -442,11 +442,11 @@ bool MainWindow::RenderSidebarToggle(
 
 void MainWindow::RenderThemeControls(ToolbarScope& tb) {
     (void)tb;
-    if (m_ui.Size(UiSize::Sm).Select(m_shellScaleIndex, kScaleLabels, {.width = 92.0f}).changed) {
+    if (m_ui.Select(m_shellScaleIndex, kScaleLabels, {.width = 92.0f, .size = UiSize::Sm}).changed) {
         SetShellScaleIndex(m_shellScaleIndex);
     }
 
-    if (m_ui.Size(UiSize::Md).Switch(m_shellLightMode, {
+    if (m_ui.Switch(m_shellLightMode, {
         .textLeft = "Dark",
         .textRight = "Light",
         .symmetric = true
@@ -454,7 +454,7 @@ void MainWindow::RenderThemeControls(ToolbarScope& tb) {
         SetShellLightMode(m_shellLightMode);
     }
 
-    if (m_ui.Size(UiSize::Md).Switch(m_shellFloating, {
+    if (m_ui.Switch(m_shellFloating, {
         .textLeft = "Dock",
         .textRight = "Float",
         .symmetric = true

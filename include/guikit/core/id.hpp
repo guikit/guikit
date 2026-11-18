@@ -69,7 +69,7 @@ constexpr keel::u64 HashVal(const T& val, keel::u64 hash = Fnv1aOffsetBasis) noe
     } else if constexpr (requires { val.text; val.size; val.color; val.wrap; }) {
         hash = HashStringView(val.text, hash);
         hash = HashBytes(&val.size.px, sizeof(val.size.px), hash);
-        const keel::u8 presetVal = static_cast<keel::u8>(val.size.preset);
+        const keel::i32 presetVal = val.size.preset.Encoded();
         const keel::u8 hasRole = val.size.role.has_value() ? 1u : 0u;
         const keel::u8 roleVal = val.size.role.has_value() ? static_cast<keel::u8>(*val.size.role) : 0u;
         hash = HashBytes(&presetVal, sizeof(presetVal), hash);

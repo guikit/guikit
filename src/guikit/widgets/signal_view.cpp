@@ -853,7 +853,7 @@ struct SignalViewGeometry {
 ) noexcept {
     SignalViewGeometry g{};
     g.controlRect = ctrlBox;
-    const float s = theme.Scale(1.0f);
+    constexpr float s = 1.0f;
 
     const float overviewH = opts.showOverviewBar ? std::round(26.0f * s) : 0.0f;
     const float timeRulerH = opts.showTimeRuler ? std::round(22.0f * s) : 0.0f;
@@ -975,18 +975,18 @@ Vec2 SignalView::Measure(
     const SignalViewOptions& opts,
     UiSize /*size*/,
     ICanvas* /*canvas*/,
-    const UiTheme& theme,
+    const UiTheme& /*theme*/,
     float availableWidth
 ) {
-    float defaultW = theme.Scale(560.0f);
+    float defaultW = 560.0f;
     if (opts.width.IsFixed()) {
-        defaultW = theme.Scale(opts.width.Dp());
+        defaultW = opts.width.Dp();
     } else if (opts.width.ResolveMode(SizeMode::Stretch) == SizeMode::Stretch && availableWidth > 0.0f) {
         defaultW = availableWidth;
     }
     const float defaultH = opts.height.IsFixed()
-        ? theme.Scale(opts.height.Dp())
-        : theme.Scale(340.0f);
+        ? opts.height.Dp()
+        : 340.0f;
     return {defaultW, defaultH};
 }
 
@@ -996,11 +996,10 @@ SignalViewResponse SignalView::Run(
     const SignalViewOptions& opts,
     keel::SourceLocation loc
 ) {
-    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const Id id = ctx.MakeChildId(loc);
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const UiSize activeSize = opts.size;
     const UiTheme& theme = ctx.GetTheme();
     ICanvas* canvas = ctx.GetCanvas();
 
@@ -1108,7 +1107,7 @@ SignalViewResponse SignalView::Run(
         for (keel::usize i = 0; i < markerList.size(); ++i) {
             const float mx = geom.timeRulerRect.x +
                 static_cast<float>((markerList[i].timeSec - st.viewStartSec) / viewSpan) * geom.timeRulerRect.w;
-            if (std::abs(mouse.x - mx) <= theme.Scale(7.0f)) {
+            if (std::abs(mouse.x - mx) <= 7.0f) {
                 hoveredMarker = static_cast<keel::i32>(i);
                 break;
             }
@@ -1197,7 +1196,7 @@ SignalViewResponse SignalView::Run(
             } else if (geom.overviewRect.Contains(mouse)) {
                 const float x0 = geom.overviewRect.x + static_cast<float>(st.viewStartSec / totalDurationSec) * geom.overviewRect.w;
                 const float x1 = geom.overviewRect.x + static_cast<float>(st.viewEndSec / totalDurationSec) * geom.overviewRect.w;
-                const float handleTol = theme.Scale(6.0f);
+                const float handleTol = 6.0f;
                 if (std::abs(mouse.x - x0) <= handleTol) {
                     st.dragMode = DragMode::OverviewResizeLeft;
                 } else if (std::abs(mouse.x - x1) <= handleTol) {
@@ -1290,7 +1289,7 @@ SignalViewResponse SignalView::Run(
                     st.dragMode = DragMode::PlotPan;
                 } else {
                     // Check if grabbing selection edges or interior
-                    const float edgeTol = theme.Scale(6.0f);
+                    const float edgeTol = 6.0f;
                     bool grabbedHandle = false;
                     if (st.selection.active && st.selection.DurationSec() > 1e-6) {
                         const float selX0 = activePlot.x + static_cast<float>((st.selection.MinTimeSec() - st.viewStartSec) / viewSpan) * activePlot.w;
@@ -1417,7 +1416,7 @@ SignalViewResponse SignalView::Run(
                         break;
                     }
                     case DragMode::AmplitudeGain: {
-                        const float factor = std::pow(2.0f, -dy / theme.Scale(45.0f));
+                        const float factor = std::pow(2.0f, -dy / 45.0f);
                         st.waveformGain = keel::clamp(st.dragStartGain * factor, 0.1f, 64.0f);
                         if (opts.waveformGainBinding) *opts.waveformGainBinding = st.waveformGain;
                         res.changed = true;
@@ -1629,8 +1628,6 @@ SignalViewResponse SignalView::Run(
 
     // Create Scene Graph Node
     Node* node = ctx.CreateNode(NodeType::SignalView, id);
-    node->debugBoundsOverride = opts.debugBounds;
-    node->inspectModeOverride = opts.inspectMode;
     auto* payload = ctx.AllocPayload<SignalViewPayload>();
     payload->samples = samples;
     payload->opts = opts;
@@ -1705,12 +1702,12 @@ SignalViewResponse SignalView::Run(
 
         const SignalViewOptions& o = p->opts;
         SignalViewInternalState& s = *p->state;
-        const float scale = th.Scale(1.0f);
+        constexpr float scale = 1.0f;
 
         const Rect box = n->computedRect;
         if (box.w <= 4.0f || box.h <= 4.0f) return;
 
-        const float rad = o.border.radius.has_value() ? th.Scale(*o.border.radius) : th.GetRadius(n->uiSize);
+        const float rad = o.border.radius.has_value() ? *o.border.radius : th.GetRadius(n->uiSize);
         const bool isDark = (th.mode == ThemeMode::Dark);
         const Color defaultBgSurface = isDark ? Color(11, 15, 25, 255) : Color(248, 250, 252, 255);
         const Color bgSurface = th.ResolveColor(o.background, n->hovered, n->pressed, n->disabled, defaultBgSurface);
@@ -1718,7 +1715,7 @@ SignalViewResponse SignalView::Run(
         const Color gridCol   = isDark ? Color(51, 65, 85, 95)  : Color(203, 213, 225, 140);
         const Color subGridCol = isDark ? Color(30, 41, 59, 90) : Color(226, 232, 240, 120);
         const Color borderCol = th.ResolveColor(o.border.color, n->hovered, n->pressed, n->disabled, th.palette.borderSubtle);
-        const float borderW   = (o.border.width > 0.0f) ? th.Scale(o.border.width) : 1.0f;
+        const float borderW   = (o.border.width > 0.0f) ? o.border.width : 1.0f;
         const Color textMuted = th.palette.textMuted;
         const Color textSec   = th.palette.textSecondary;
 

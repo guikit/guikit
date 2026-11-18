@@ -18,10 +18,9 @@ struct SwitchOptions {
     UiText textRight{};                            ///< Optional companion text inside control to the right of the switch track (on state)
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
     StateColor color{};                            ///< Per-state accent fill color when switched ON
+    UiSize size{UiSize::Md};                       ///< Component size scale
     bool symmetric{false};                         ///< Neutral/symmetric track style (highlights active side label)
     bool disabled{false};                          ///< Interaction suppression
-    const UiTheme* theme{nullptr};                 ///< Optional scoped theme override
-    keel::Optional<float> scale{keel::kNullOpt};      ///< Optional scoped scale factor override
 };
 static_assert(sizeof(SwitchOptions) <= 512, "SwitchOptions must stay compact");
 

@@ -190,18 +190,20 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
     })) {
         if (s_ov.activeOverlay == 0) {
             if (auto btnRow = ui.Row({.gap = 10.0f, .align = guikit::Alignment::Center})) {
-                if (ui.Size(ctx.controlsSize).Button({
+                if (ui.Button({
                     .text = "Open Modal Dialog...",
                     .icon = guikit::Icon::Settings(),
-                    .color = guikit::StateColor::FromVariant(ctx.btnVariant)
+                    .color = guikit::StateColor::FromVariant(ctx.btnVariant),
+                    .size = ctx.controlsSize
                 }).clicked) {
                     s_ov.customModalOpen = true;
                 }
 
-                if (ui.Size(ctx.controlsSize).Button({
+                if (ui.Button({
                     .text = "Confirm Delete Modal...",
                     .icon = guikit::Icon::Trash(),
-                    .color = guikit::StateColor::Danger()
+                    .color = guikit::StateColor::Danger(),
+                    .size = ctx.controlsSize
                 }).clicked) {
                     s_ov.confirmDeleteModalOpen = true;
                 }
@@ -256,24 +258,27 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                             : "Left-Click inside this target zone",
                         {.role = guikit::TextRole::LabelMedium}
                     );
-                    auto zoneMenu = ui.Size(ctx.controlsSize).ContextMenu(menuItems, {
+                    auto zoneMenu = ui.ContextMenu(menuItems, {
                         .trigger = (s_ov.triggerModeIdx == 0)
                             ? guikit::ContextMenuTrigger::RightClick
                             : guikit::ContextMenuTrigger::LeftClick,
-                        .minWidth = s_ov.menuMinWidth
+                        .minWidth = s_ov.menuMinWidth,
+                        .size = ctx.controlsSize
                     });
                     handleMenuResult(zoneMenu);
                 }
 
-                auto actionBtn = ui.Size(ctx.controlsSize).Button({
+                auto actionBtn = ui.Button({
                     .text = "Quick Actions",
                     .icon = guikit::Icon::ChevronDown(),
                     .color = guikit::StateColor::Secondary(),
-                    .iconPlacement = guikit::Placement::Trailing
+                    .iconPlacement = guikit::Placement::Trailing,
+                    .size = ctx.controlsSize
                 });
-                auto btnMenu = ui.Size(ctx.controlsSize).ContextMenu(actionBtn, menuItems, {
+                auto btnMenu = ui.ContextMenu(actionBtn, menuItems, {
                     .trigger = guikit::ContextMenuTrigger::LeftClick,
-                    .minWidth = s_ov.menuMinWidth
+                    .minWidth = s_ov.menuMinWidth,
+                    .size = ctx.controlsSize
                 });
                 handleMenuResult(btnMenu);
             }
@@ -283,10 +288,11 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
             });
         } else if (s_ov.activeOverlay == 2) {
             if (auto btnWrap = ui.Row({.gap = 8.0f, .align = guikit::Alignment::Center})) {
-                if (ui.Size(ctx.controlsSize).Button({
+                if (ui.Button({
                     .text = "Info",
                     .icon = guikit::Icon::Info(),
-                    .color = guikit::StateColor::Info()
+                    .color = guikit::StateColor::Info(),
+                    .size = ctx.controlsSize
                 }).clicked) {
                     ++s_ov.toastCounter;
                     ui.ShowToast({
@@ -299,10 +305,11 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                     });
                 }
 
-                if (ui.Size(ctx.controlsSize).Button({
+                if (ui.Button({
                     .text = "Success",
                     .icon = guikit::Icon::Check(),
-                    .color = guikit::StateColor::Success()
+                    .color = guikit::StateColor::Success(),
+                    .size = ctx.controlsSize
                 }).clicked) {
                     ++s_ov.toastCounter;
                     ui.ShowToast({
@@ -315,10 +322,11 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                     });
                 }
 
-                if (ui.Size(ctx.controlsSize).Button({
+                if (ui.Button({
                     .text = "Warning",
                     .icon = guikit::Icon::Warning(),
-                    .color = guikit::StateColor::Warning()
+                    .color = guikit::StateColor::Warning(),
+                    .size = ctx.controlsSize
                 }).clicked) {
                     ++s_ov.toastCounter;
                     ui.ShowToast({
@@ -331,10 +339,11 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                     });
                 }
 
-                if (ui.Size(ctx.controlsSize).Button({
+                if (ui.Button({
                     .text = "Danger",
                     .icon = guikit::Icon::Error(),
-                    .color = guikit::StateColor::Danger()
+                    .color = guikit::StateColor::Danger(),
+                    .size = ctx.controlsSize
                 }).clicked) {
                     ++s_ov.toastCounter;
                     ui.ShowToast({
@@ -347,11 +356,12 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                     });
                 }
 
-                if (ui.Size(ctx.controlsSize).Button({
+                if (ui.Button({
                     .text = "Clear",
                     .icon = guikit::Icon::Trash(),
                     .color = guikit::StateColor::Secondary(),
-                    .disabled = (ui.GetActiveToastCount() == 0)
+                    .disabled = (ui.GetActiveToastCount() == 0),
+                    .size = ctx.controlsSize
                 }).clicked) {
                     ui.ClearToasts();
                 }
@@ -361,10 +371,11 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                 .variant = guikit::UiVariant::Secondary
             });
         } else {
-            if (ui.Size(ctx.controlsSize).Button({
+            if (ui.Button({
                 .text = "Open Command Palette (Ctrl+K)...",
                 .icon = guikit::Icon::Search(),
-                .color = guikit::StateColor::FromVariant(ctx.btnVariant)
+                .color = guikit::StateColor::FromVariant(ctx.btnVariant),
+                .size = ctx.controlsSize
             }).clicked) {
                 s_ov.commandPaletteOpen = true;
             }
@@ -385,7 +396,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
         {.label = "Delete Station Node...",       .category = "Danger",    .description = "Permanently purge active node",       .shortcut = "Del",    .icon = guikit::Icon::Trash()}
     }};
 
-    auto cpRes = ui.Size(ctx.controlsSize).CommandPalette(s_ov.commandPaletteOpen, kPaletteCommands, {
+    auto cpRes = ui.CommandPalette(s_ov.commandPaletteOpen, kPaletteCommands, {
         .placeholder = "Type a command or search...",
         .width = s_ov.paletteAutoWidth ? keel::kNullOpt : keel::Optional<float>(s_ov.paletteWidth),
         .maxVisibleItems = static_cast<keel::u32>(keel::max(1, s_ov.paletteMaxVisible)),
@@ -393,7 +404,8 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
         .closeOnBackdropClick = s_ov.closeOnBackdrop,
         .closeOnEscape = s_ov.closeOnEscape,
         .showFooterHints = s_ov.paletteShowFooter,
-        .confineToParent = s_ov.confineModalToStage
+        .confineToParent = s_ov.confineModalToStage,
+        .size = ctx.controlsSize
     });
 
     if (cpRes.changed && cpRes.selectedIndex >= 0 && static_cast<keel::usize>(cpRes.selectedIndex) < kPaletteCommands.size()) {
@@ -405,7 +417,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
     }
 
     // Active Modal instances
-    if (auto modal = ui.Size(ctx.controlsSize).Modal(s_ov.customModalOpen, {
+    if (auto modal = ui.Modal(s_ov.customModalOpen, {
         .title = "Configure Station Endpoint",
         .subtitle = "Edit connection parameters for the active station.",
         .variant = ctx.btnVariant,
@@ -415,7 +427,8 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
         .closeOnEscape = s_ov.closeOnEscape,
         .showCloseButton = s_ov.showCloseButton,
         .showHeaderDivider = s_ov.showHeaderDivider,
-        .confineToParent = s_ov.confineModalToStage
+        .confineToParent = s_ov.confineModalToStage,
+        .size = ctx.controlsSize
     })) {
         if (auto el = ui.Element({.label = "Profile Name", .layout = guikit::ElementLayout::Top})) {
             ui.InputField(s_ov.profileName, {.placeholder = "Enter profile name...", .clearable = true});
@@ -445,7 +458,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
         s_ov.lastModalStatus = "Dismissed via [X] / Backdrop / Esc";
     }
 
-    if (auto modal = ui.Size(ctx.controlsSize).Modal(s_ov.confirmDeleteModalOpen, {
+    if (auto modal = ui.Modal(s_ov.confirmDeleteModalOpen, {
         .title = "Delete Station Node?",
         .subtitle = "This action permanently removes the node.",
         .variant = guikit::UiVariant::Danger,
@@ -454,7 +467,8 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
         .closeOnBackdrop = s_ov.closeOnBackdrop,
         .closeOnEscape = s_ov.closeOnEscape,
         .showCloseButton = s_ov.showCloseButton,
-        .confineToParent = s_ov.confineModalToStage
+        .confineToParent = s_ov.confineModalToStage,
+        .size = ctx.controlsSize
     })) {
         if (auto footer = ui.Row({
             .gap = 10.0f,
@@ -490,7 +504,7 @@ keel::String GenerateOverlaysCode(const DemoContext& ctx) {
 
     if (s_ov.activeOverlay == 0) {
         return keel::format(
-            "if (auto modal = ui.{}Modal(isModalOpen, {{\n"
+            "if (auto modal = ui.Modal(isModalOpen, {{\n"
             "    .title = \"Configure Station Endpoint\",\n"
             "    .subtitle = \"Edit connection parameters for the active station.\",\n"
             "    .variant = guikit::UiVariant::{},\n"
@@ -498,37 +512,37 @@ keel::String GenerateOverlaysCode(const DemoContext& ctx) {
             "    .backdropOpacity = {:.2f}f,\n"
             "    .closeOnBackdrop = {},\n"
             "    .closeOnEscape = {},\n"
-            "    .showCloseButton = {}\n"
+            "    .showCloseButton = {}{}\n"
             "}})) {{\n"
             "    if (ui.Button({{.text = \"Save\"}}).clicked) {{\n"
             "        modal.Close();\n"
             "    }}\n"
             "}}",
-            szPrefix,
             VariantName(ctx.btnVariant),
             s_ov.modalWidth,
             s_ov.backdropOpacity,
             s_ov.closeOnBackdrop ? "true" : "false",
             s_ov.closeOnEscape ? "true" : "false",
-            s_ov.showCloseButton ? "true" : "false"
+            s_ov.showCloseButton ? "true" : "false",
+            szPrefix
         );
     }
 
     if (s_ov.activeOverlay == 1) {
         const keel::StringRef trigName = (s_ov.triggerModeIdx == 0) ? "RightClick" : "LeftClick";
         return keel::format(
-            "auto menuRes = ui.{}ContextMenu(targetResponse, {{\n"
+            "auto menuRes = ui.ContextMenu(targetResponse, {{\n"
             "    {{.label = \"Edit Properties\", .shortcut = \"Enter\",  .icon = guikit::Icon::Edit()}},\n"
             "    {{.label = \"Copy Config\",     .shortcut = \"Ctrl+C\", .icon = guikit::Icon::Copy(), .separatorAfter = true}},\n"
             "    {{.label = \"Bookmark Target\", .shortcut = \"Ctrl+B\", .checked = isBookmarked, .hasCheck = true}},\n"
             "    {{.label = \"Delete Node\",     .shortcut = \"Del\",    .icon = guikit::Icon::Trash(), .variant = guikit::UiVariant::Danger}}\n"
             "}}, {{\n"
             "    .trigger = guikit::ContextMenuTrigger::{},\n"
-            "    .minWidth = {:.1f}f\n"
+            "    .minWidth = {:.1f}f{}\n"
             "}});",
-            szPrefix,
             trigName,
-            s_ov.menuMinWidth
+            s_ov.menuMinWidth,
+            szPrefix
         );
     }
 
@@ -562,11 +576,12 @@ keel::String GenerateOverlaysCode(const DemoContext& ctx) {
         "    .placeholder = \"Type a command or search...\",\n"
         "    .width = {:.1f}f,\n"
         "    .maxVisibleItems = {},\n"
-        "    .showFooterHints = {}\n"
+        "    .showFooterHints = {}{}\n"
         "}});",
         s_ov.paletteWidth,
         s_ov.paletteMaxVisible,
-        s_ov.paletteShowFooter ? "true" : "false"
+        s_ov.paletteShowFooter ? "true" : "false",
+        szPrefix
     );
 }
 

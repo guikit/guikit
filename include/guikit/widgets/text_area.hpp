@@ -157,12 +157,9 @@ struct TextAreaOptions {
     AxisSize height{SizeMode::Fit};                     ///< Vertical sizing policy (`Auto`/`Fit`, `Stretch`, or `Fixed(dp)`)
     StateColor background{};                            ///< Optional background fill color override
     Border border{};                                    ///< Optional border configuration (color, width, radius)
-    keel::Optional<float> scale{keel::kNullOpt};        ///< Optional local UI scale factor override
-    const UiTheme* theme{nullptr};                      ///< Optional local theme override
     UiText tooltip{};                                   ///< Optional hover tooltip text
+    UiSize size{UiSize::Md};                            ///< Component size scale
     bool disabled{false};                               ///< Interaction suppression
-    keel::Optional<bool> debugBounds{keel::kNullOpt};
-    keel::Optional<bool> inspectMode{keel::kNullOpt};
 
     // --- IDE & Code Intelligence Features ---
     bool showMinimap{false};                            ///< Render syntax-colored code overview minimap on the right

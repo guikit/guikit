@@ -90,10 +90,11 @@ void RenderToolbarStage(guikit::Context& ui, DemoContext& ctx) {
     const bool isVert = (s_tb.orientation == guikit::Orientation::Vertical);
     const bool isSq = s_tb.squareIcons || isVert;
 
-    if (auto tb = ui.Size(ctx.controlsSize).Toolbar({
+    if (auto tb = ui.Toolbar({
         .style = s_tb.style,
         .orientation = s_tb.orientation,
-        .overflow = s_tb.overflow
+        .overflow = s_tb.overflow,
+        .size = ctx.controlsSize
     })) {
         tb.Item(s_tb.activeTool, 0, {
             .text = "Select",
@@ -163,10 +164,10 @@ void RenderToolbarStage(guikit::Context& ui, DemoContext& ctx) {
 
 keel::String GenerateToolbarCode(const DemoContext& ctx) {
     return keel::format(
-        "if (auto tb = ui.{}Toolbar({{\n"
+        "if (auto tb = ui.Toolbar({{\n"
         "    .style = guikit::ToolbarStyle::{},\n"
         "    .orientation = guikit::Orientation::{},\n"
-        "    .overflow = guikit::ToolbarOverflow::{}\n"
+        "    .overflow = guikit::ToolbarOverflow::{}{}\n"
         "}})) {{\n"
         "    tb.Item(activeTool, 0, {{.text = \"Select\",  .icon = guikit::Icon::Check(),  .color = guikit::StateColor::{}(), .square = {}}});\n"
         "    tb.Item(activeTool, 1, {{.text = \"Pan\",     .icon = guikit::Icon::Folder(), .color = guikit::StateColor::{}(), .square = {}}});\n"
@@ -183,10 +184,10 @@ keel::String GenerateToolbarCode(const DemoContext& ctx) {
         "        {{.label = \"Copy Summary\",         .shortcut = \"Ctrl+C\", .icon = guikit::Icon::Check()}}\n"
         "    }});\n"
         "}}",
-        FormatUiSizePrefix(ctx.controlsSize),
         StyleEnumName(s_tb.style),
         s_tb.orientation == guikit::Orientation::Vertical ? "Vertical" : "Horizontal",
         OverflowEnumName(s_tb.overflow),
+        FormatUiSizePrefix(ctx.controlsSize),
         VariantName(ctx.btnVariant),
         s_tb.squareIcons ? "true" : "false",
         VariantName(ctx.btnVariant),

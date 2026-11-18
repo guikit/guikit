@@ -6,6 +6,7 @@
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
+#include "guikit/core/zone.hpp"
 #include "guikit/graphics/icon.hpp"
 #include "keel/core.h"
 
@@ -25,11 +26,9 @@ struct ElementOptions {
     keel::Optional<ElementLayout> layout{keel::kNullOpt};     ///< Text placement relative to control slot: Stacked, Top, Bottom, Leading, Trailing (nullopt = control default)
     Align align{Align::Start};                                ///< Horizontal alignment (Start, Center, End)
     AxisSize width{};                                         ///< Outer width sizing policy: `Auto` (from child control & layout), `Fit`, `Stretch`, or `Fixed(dp)`
+    UiSize size{UiSize::Md};                                  ///< Own form-field typography/icon size
     bool disabled{false};                                     ///< Whether the element and its child control(s) are rendered in a disabled state
-    const UiTheme* theme{nullptr};                            ///< Optional scoped theme override
-    keel::Optional<float> scale{keel::kNullOpt};              ///< Optional local UI scale factor override
-    keel::Optional<bool> debugBounds{keel::kNullOpt};         ///< Scoped debug bounding box overlay override
-    keel::Optional<bool> inspectMode{keel::kNullOpt};         ///< Scoped interactive DevTools inspector override
+    ZoneOptions zone{};                                       ///< Subtree environment (theme, scale, density, disabled, debug/inspect)
 };
 
 /// RAII scope returned by `ui.Element(...)`.

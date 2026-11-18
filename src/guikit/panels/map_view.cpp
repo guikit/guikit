@@ -583,15 +583,13 @@ MapViewScope MapView::Open(
         .background = safeOpts.background,
         .border = safeOpts.border,
         .tooltip = safeOpts.tooltip,
+        .size = safeOpts.size,
         .disabled = safeOpts.disabled,
-        .theme = safeOpts.theme,
-        .scale = safeOpts.scale,
-        .debugBounds = safeOpts.debugBounds,
-        .inspectMode = safeOpts.inspectMode
+        .zone = safeOpts.zone
     };
 
     SceneScope scene = Scene::OpenWithId(ctx, id, sceneOpts);
-    const UiTheme& activeTheme = (safeOpts.theme != nullptr) ? *safeOpts.theme : ctx.GetTheme();
+    const UiTheme& activeTheme = ctx.GetTheme();
     const bool lightMode = (activeTheme.mode == ThemeMode::Light);
 
     const float z = keel::max(0.0001f, scene.GetZoom());

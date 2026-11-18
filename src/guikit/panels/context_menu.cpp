@@ -28,9 +28,9 @@ ContextMenuResponse ContextMenu::Run(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const UiSize activeSize = opts.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    const UiTheme theme = ctx.ResolveTheme({.theme = opts.theme, .scale = opts.scale});
+    const UiTheme theme = ctx.GetTheme();
 
     auto& state = ctx.GetOrCreateState<ContextMenuPersistState>(id);
     if (triggerRect.w > 0.0f || triggerRect.h > 0.0f) {
@@ -60,7 +60,7 @@ ContextMenuResponse ContextMenu::Run(
 
     // Measure menu geometry
     ICanvas* canvas = ctx.GetCanvas();
-    const float s = theme.scale;
+    const float s = 1.0f;
     const ComponentMetrics& cm = theme.GetMetrics(activeSize);
     const float rowH = std::round(keel::max(32.0f * s, cm.defaultHeight * 0.9f));
     const float sepH = std::round(9.0f * s);
@@ -105,10 +105,10 @@ ContextMenuResponse ContextMenu::Run(
 
     float menuW = maxContentW + padX * 2.0f + 8.0f * s;
     if (opts.minWidth.has_value()) {
-        menuW = keel::max(menuW, theme.Scale(*opts.minWidth));
+        menuW = keel::max(menuW, *opts.minWidth);
     }
     if (opts.width.has_value() && *opts.width > 0.0f) {
-        menuW = theme.Scale(*opts.width);
+        menuW = *opts.width;
     }
     const float menuH = totalH;
 
@@ -392,7 +392,7 @@ ContextMenuResponse ContextMenu::Run(
     const keel::ArrayRef<OverlayItemData> drawItems(arenaDrawItems, rows.size());
 
     const float radius = opts.border.radius.has_value()
-        ? theme.Scale(*opts.border.radius)
+        ? *opts.border.radius
         : theme.ResolveRadius(keel::kNullOpt, activeSize);
 
     ctx.SetOpenPopupVisualHash(detail::HashArgs(
@@ -428,7 +428,7 @@ ContextMenuResponse ContextMenu::Run(
                     ? defaultSurfaceBg.ScaleAlpha(opts.background.alphaScale)
                     : theme.ResolveColor(opts.background, false, false, false, defaultSurfaceBg)))
             : Color::Transparent();
-        const float borderW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : 0.0f;
+        const float borderW = (opts.border.width > 0.0f) ? opts.border.width : 0.0f;
         const Color borderCol = (borderW > 0.0f)
             ? theme.ResolveColor(opts.border.color, false, false, false, pal.borderHover)
             : Color::Transparent();

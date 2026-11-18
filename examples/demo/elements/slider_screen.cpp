@@ -185,8 +185,9 @@ void RenderSliderStage(guikit::Context& ui, DemoContext& ctx) {
             opts.color = ctx.GetControlColor();
             opts.width = wSize;
             opts.height = hSize;
+            opts.size = ctx.controlsSize;
             opts.disabled = ctx.elemDisabled;
-            ui.Size(ctx.controlsSize).Slider(s_state.val, 0.0f, 100.0f, opts);
+            ui.Slider(s_state.val, 0.0f, 100.0f, opts);
         } else if (s_state.modeIdx == 1) {
             static constexpr keel::StaticArray<keel::StringRef, 5> stepItems = {"Off", "Low", "Mid", "High", "Max"};
             guikit::StepSliderOptions opts{};
@@ -200,8 +201,9 @@ void RenderSliderStage(guikit::Context& ui, DemoContext& ctx) {
             opts.color = ctx.GetControlColor();
             opts.width = wSize;
             opts.height = hSize;
+            opts.size = ctx.controlsSize;
             opts.disabled = ctx.elemDisabled;
-            ui.Size(ctx.controlsSize).StepSlider(s_state.stepIdx, stepItems, opts);
+            ui.StepSlider(s_state.stepIdx, stepItems, opts);
         } else if (s_state.modeIdx == 2) {
             guikit::RangeSliderOptions opts{};
             opts.orientation = s_state.orientation;
@@ -215,8 +217,9 @@ void RenderSliderStage(guikit::Context& ui, DemoContext& ctx) {
             opts.color = ctx.GetControlColor();
             opts.width = wSize;
             opts.height = hSize;
+            opts.size = ctx.controlsSize;
             opts.disabled = ctx.elemDisabled;
-            ui.Size(ctx.controlsSize).RangeSlider(s_state.rangeLow, s_state.rangeHigh, 0.0f, 100.0f, opts);
+            ui.RangeSlider(s_state.rangeLow, s_state.rangeHigh, 0.0f, 100.0f, opts);
         } else {
             guikit::ProgressBarOptions opts{};
             opts.orientation = s_state.orientation;
@@ -233,9 +236,10 @@ void RenderSliderStage(guikit::Context& ui, DemoContext& ctx) {
             opts.color = ctx.GetControlColor();
             opts.width = wSize;
             opts.height = hSize;
+            opts.size = ctx.controlsSize;
             opts.multiZoneColor = s_state.progressMultiZone;
             opts.disabled = ctx.elemDisabled;
-            ui.Size(ctx.controlsSize).ProgressBar(s_state.val, 0.0, 100.0, opts);
+            ui.ProgressBar(s_state.val, 0.0, 100.0, opts);
         }
     });
 }
@@ -249,7 +253,7 @@ keel::String GenerateSliderCode(const DemoContext& ctx) {
 
     if (s_state.modeIdx == 0) {
         const keel::String ctrl = keel::format(
-            "ui.{}Slider(gainValue, 0.0f, 100.0f, {{\n"
+            "ui.Slider(gainValue, 0.0f, 100.0f, {{\n"
             "    .orientation = guikit::Orientation::{},\n"
             "    .textLeft = \"{}\",\n"
             "    .textRight = \"{}\",\n"
@@ -259,10 +263,9 @@ keel::String GenerateSliderCode(const DemoContext& ctx) {
             "    .valuePlacement = guikit::Placement::{},\n"
             "    .color = {},\n"
             "    .width = {},\n"
-            "    .height = {},\n"
+            "    .height = {}{},\n"
             "    .disabled = {}\n"
             "}});",
-            FormatUiSizePrefix(ctx.controlsSize),
             OrientationEnumName(s_state.orientation),
             s_state.textLeft,
             s_state.textRight,
@@ -272,13 +275,14 @@ keel::String GenerateSliderCode(const DemoContext& ctx) {
             ctx.FormatControlColorCode(),
             ctx.FormatCtrlWidthCode(),
             heightCode,
+            FormatUiSizePrefix(ctx.controlsSize),
             ctx.elemDisabled ? "true" : "false"
         );
         return ctx.WrapInElementCode(ctrl);
     }
     if (s_state.modeIdx == 1) {
         const keel::String ctrl = keel::format(
-            "ui.{}StepSlider(presetIndex, stepItems, {{\n"
+            "ui.StepSlider(presetIndex, stepItems, {{\n"
             "    .orientation = guikit::Orientation::{},\n"
             "    .textLeft = \"{}\",\n"
             "    .textRight = \"{}\",\n"
@@ -288,10 +292,9 @@ keel::String GenerateSliderCode(const DemoContext& ctx) {
             "    .valuePlacement = guikit::Placement::{},\n"
             "    .color = {},\n"
             "    .width = {},\n"
-            "    .height = {},\n"
+            "    .height = {}{},\n"
             "    .disabled = {}\n"
             "}});",
-            FormatUiSizePrefix(ctx.controlsSize),
             OrientationEnumName(s_state.orientation),
             s_state.textLeft,
             s_state.textRight,
@@ -302,6 +305,7 @@ keel::String GenerateSliderCode(const DemoContext& ctx) {
             ctx.FormatControlColorCode(),
             ctx.FormatCtrlWidthCode(),
             heightCode,
+            FormatUiSizePrefix(ctx.controlsSize),
             ctx.elemDisabled ? "true" : "false"
         );
         keel::String out = keel::String::from(
@@ -313,7 +317,7 @@ keel::String GenerateSliderCode(const DemoContext& ctx) {
     }
     if (s_state.modeIdx == 2) {
         const keel::String ctrl = keel::format(
-            "ui.{}RangeSlider(bandLow, bandHigh, 0.0f, 100.0f, {{\n"
+            "ui.RangeSlider(bandLow, bandHigh, 0.0f, 100.0f, {{\n"
             "    .orientation = guikit::Orientation::{},\n"
             "    .textLeft = \"{}\",\n"
             "    .textRight = \"{}\",\n"
@@ -324,10 +328,9 @@ keel::String GenerateSliderCode(const DemoContext& ctx) {
             "    .valuePlacement = guikit::Placement::{},\n"
             "    .color = {},\n"
             "    .width = {},\n"
-            "    .height = {},\n"
+            "    .height = {}{},\n"
             "    .disabled = {}\n"
             "}});",
-            FormatUiSizePrefix(ctx.controlsSize),
             OrientationEnumName(s_state.orientation),
             s_state.textLeft,
             s_state.textRight,
@@ -338,13 +341,14 @@ keel::String GenerateSliderCode(const DemoContext& ctx) {
             ctx.FormatControlColorCode(),
             ctx.FormatCtrlWidthCode(),
             heightCode,
+            FormatUiSizePrefix(ctx.controlsSize),
             ctx.elemDisabled ? "true" : "false"
         );
         return ctx.WrapInElementCode(ctrl);
     }
 
     const keel::String ctrl = keel::format(
-        "ui.{}ProgressBar(signalLevel, 0.0, 100.0, {{\n"
+        "ui.ProgressBar(signalLevel, 0.0, 100.0, {{\n"
         "    .orientation = guikit::Orientation::{},\n"
         "    .textLeft = \"{}\",\n"
         "    .textRight = \"{}\",\n"
@@ -356,11 +360,10 @@ keel::String GenerateSliderCode(const DemoContext& ctx) {
         "    .valuePlacement = guikit::Placement::{},\n"
         "    .color = {},\n"
         "    .width = {},\n"
-        "    .height = {},\n"
+        "    .height = {}{},\n"
         "    .multiZoneColor = {},\n"
         "    .disabled = {}\n"
         "}});",
-        FormatUiSizePrefix(ctx.controlsSize),
         OrientationEnumName(s_state.orientation),
         s_state.textLeft,
         s_state.textRight,
@@ -374,6 +377,7 @@ keel::String GenerateSliderCode(const DemoContext& ctx) {
         ctx.FormatControlColorCode(),
         ctx.FormatCtrlWidthCode(),
         heightCode,
+        FormatUiSizePrefix(ctx.controlsSize),
         s_state.progressMultiZone ? "true" : "false",
         ctx.elemDisabled ? "true" : "false"
     );

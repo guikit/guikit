@@ -79,7 +79,7 @@ Vec2 MeasureSplitView(
     const auto* payload = node->As<SplitViewPayload>();
     const SplitViewOptions opts = payload ? payload->opts : SplitViewOptions{};
     const bool isHoriz = (opts.orientation == Orientation::Horizontal);
-    const float sashPx = keel::max(2.0f, std::round(theme.Scale(opts.sashSize)));
+    const float sashPx = keel::max(2.0f, std::round(opts.sashSize));
     const float bw = node->borderWidth;
 
     const Node* firstChild = node->firstChild;
@@ -150,8 +150,8 @@ void ArrangeSplitView(
     );
 
     const bool isHoriz = (opts.orientation == Orientation::Horizontal);
-    const float s = (theme.scale > 0.0f) ? theme.scale : 1.0f;
-    const float sashPx = keel::max(2.0f, std::round(theme.Scale(opts.sashSize)));
+    const float s = 1.0f;
+    const float sashPx = keel::max(2.0f, std::round(opts.sashSize));
     const float availSpan = keel::max(0.0f, (isHoriz ? innerRect.w : innerRect.h) - sashPx);
 
     const float rawRatio = payload ? payload->ratio : opts.defaultRatio;
@@ -227,7 +227,7 @@ void RenderSplitView(
     }
 
     const auto& pal = theme.palette;
-    const float s = (theme.scale > 0.0f) ? theme.scale : 1.0f;
+    const float s = 1.0f;
     const bool isHoriz = (payload->opts.orientation == Orientation::Horizontal);
     const bool active = payload->sashHovered || payload->dragging;
     const Color primaryCol = theme.GetVariant(UiVariant::Primary).bg;
@@ -315,12 +315,10 @@ SplitViewScope SplitView::Open(
     const Id id = ctx.MakeChildId(loc);
     const Id idSash(detail::HashArgs(id.value, keel::u64(0x53504C545F535348ull)));
 
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const UiSize activeSize = UiSize::Md;
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    ZoneScope zone = ctx.Zone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
-    const float activeScale = ctx.GetCurrentScale();
-    const float safeScale = (activeScale > 0.0f) ? activeScale : 1.0f;
-    const UiTheme& theme = ctx.GetTheme();
+    const float safeScale = 1.0f;
+    const UiTheme& theme = opts.zone.theme ? *opts.zone.theme : ctx.GetTheme();
 
     auto& st = ctx.GetOrCreatePersistentState<SplitViewPersistState>(id);
     if (!st.initialized) {
@@ -389,7 +387,7 @@ SplitViewScope SplitView::Open(
         if (st.dragging) {
             if (ctx.IsMouseDown()) {
                 res.pressed = true;
-                const float sashPx = keel::max(2.0f, std::round(theme.Scale(opts.sashSize)));
+                const float sashPx = keel::max(2.0f, std::round(opts.sashSize));
                 const float containerSpan = isHoriz ? st.prevContainerRect.w : st.prevContainerRect.h;
                 const float availSpan = keel::max(1.0f, containerSpan - sashPx);
                 const float delta = isHoriz
@@ -449,26 +447,25 @@ SplitViewScope SplitView::Open(
         ctx.InvalidateAll();
     }
 
-    Node* outerNode = ctx.CreateNode(NodeType::SplitView, id);
-    outerNode->debugBoundsOverride = opts.debugBounds;
-    outerNode->inspectModeOverride = opts.inspectMode;
+    Node* outerNode = ctx.CreateNode(NodeType::SplitView, id, opts.zone, opts.disabled);
+    const float density = outerNode->GetDensity();
     outerNode->direction = isHoriz ? FlexDirection::Row : FlexDirection::Column;
     outerNode->widthMode = opts.width.ResolveMode(SizeMode::Stretch);
-    outerNode->fixedWidth = opts.width.IsFixed() ? theme.Scale(opts.width.Dp()) : 0.0f;
+    outerNode->fixedWidth = opts.width.IsFixed() ? opts.width.Dp() : 0.0f;
     outerNode->heightMode = opts.height.ResolveMode(SizeMode::Stretch);
-    outerNode->fixedHeight = opts.height.IsFixed() ? theme.Scale(opts.height.Dp()) : 0.0f;
-    outerNode->padding = theme.ResolvePadding(opts.padding, activeSize);
+    outerNode->fixedHeight = opts.height.IsFixed() ? opts.height.Dp() : 0.0f;
+    outerNode->padding = theme.ResolvePadding(opts.padding, UiSize::None, density);
 
     const auto& pal = theme.palette;
     outerNode->backgroundColor = opts.background.IsBackgroundEnabled(false)
         ? theme.ResolveColor(opts.background, false, false, activeDisabled, pal.surface)
         : Color::Transparent();
     const float bw = (opts.border.width > 0.0f) ? opts.border.width : (opts.border.color.HasAny() ? 1.0f : 0.0f);
-    outerNode->borderWidth = theme.Scale(bw);
+    outerNode->borderWidth = bw;
     outerNode->borderColor = (bw > 0.0f)
         ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, pal.border)
         : Color::Transparent();
-    outerNode->cornerRadius = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : 0.0f;
+    outerNode->cornerRadius = opts.border.radius.has_value() ? *opts.border.radius : 0.0f;
     outerNode->clipChildren = opts.clipChildren;
     outerNode->uiSize = activeSize;
     outerNode->disabled = activeDisabled;
@@ -511,7 +508,7 @@ SplitViewScope SplitView::Open(
         });
     }
 
-    ctx.PushContainer(outerNode, keel::move(zone));
+    ctx.FinishContainer(outerNode);
 
     return SplitViewScope(&ctx, outerNode, res, st.ratio, st.dragging);
 }

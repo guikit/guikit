@@ -43,10 +43,9 @@ struct SpinBoxOptions {
     Icon plusIcon{Icon::Plus()};                   ///< Icon rendered inside the increment ('+') stepper button
     bool stepButtons{true};                        ///< Shows interactive '-' and '+' stepper buttons (false forces SpinBoxStepStyle::None)
     bool showFillBar{false};                       ///< Renders an accent progress bar along the bottom edge when min & max are set
+    UiSize size{UiSize::Md};                       ///< Component size scale
     bool disabled{false};                          ///< Interaction suppression
     bool readOnly{false};                          ///< Non-editable display mode
-    const UiTheme* theme{nullptr};                 ///< Optional scoped theme override
-    keel::Optional<float> scale{keel::kNullOpt};   ///< Optional local UI scale factor override
 };
 
 /// Internal runtime state allocated in frame arena for SpinBox nodes.

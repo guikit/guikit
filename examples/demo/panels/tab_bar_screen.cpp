@@ -63,7 +63,7 @@ void RenderTabBarStage(guikit::Context& ui, DemoContext& ctx) {
         {.label = "Third", .icon = guikit::Icon::Play()}
     }};
     auto& th = ctx.previewTheme;
-    ui.Size(ctx.controlsSize).TabBar(s_state.idx, demoTabs, {
+    ui.TabBar(s_state.idx, demoTabs, {
         .style = s_state.style,
         .showSeparator = s_state.showSep,
         .fullWidth = s_state.fullWidth,
@@ -75,7 +75,8 @@ void RenderTabBarStage(guikit::Context& ui, DemoContext& ctx) {
             .width = s_state.hasBg ? s_state.borderWidth : 0.0f,
             .radius = s_state.hasBg ? s_state.radius : 0.0f,
             .color = s_state.hasBg ? guikit::StateColor{th.palette.borderSubtle} : guikit::StateColor{}
-        }
+        },
+        .size = ctx.controlsSize
     });
 }
 
@@ -83,7 +84,7 @@ keel::String GenerateTabBarCode(const DemoContext& ctx) {
     static constexpr keel::StaticArray<keel::StringRef, 4> kStyleCodeNames = {"Underline", "Pill", "Card", "Folder"};
     const keel::usize styleIdx = keel::min<keel::usize>(static_cast<keel::usize>(s_state.style), 3);
     return keel::format(
-        "ui.{}TabBar(activeTab, tabItems, {{\n"
+        "ui.TabBar(activeTab, tabItems, {{\n"
         "    .style = guikit::TabBarStyle::{},\n"
         "    .showSeparator = {},\n"
         "    .fullWidth = {},\n"
@@ -92,11 +93,8 @@ keel::String GenerateTabBarCode(const DemoContext& ctx) {
         "    .padding = guikit::Padding::All({:.1f}f),\n"
         "    .background = {},\n"
         "    .border = {{.width = {:.1f}f, .radius = {:.1f}f, .color = {}}},\n"
-        "    .activeColor = guikit::Color::Transparent(),\n"
-        "    .theme = nullptr,\n"
-        "    .scale = keel::kNullOpt\n"
+        "    .activeColor = guikit::Color::Transparent(){}\n"
         "}});",
-        FormatUiSizePrefix(ctx.controlsSize),
         kStyleCodeNames[styleIdx],
         s_state.showSep ? "true" : "false",
         s_state.fullWidth ? "true" : "false",
@@ -106,7 +104,8 @@ keel::String GenerateTabBarCode(const DemoContext& ctx) {
         s_state.hasBg ? "guikit::StateColor{theme.palette.surfaceElevated}" : "guikit::StateColor::None()",
         s_state.hasBg ? s_state.borderWidth : 0.0f,
         s_state.hasBg ? s_state.radius : 0.0f,
-        s_state.hasBg ? "guikit::StateColor{theme.palette.borderSubtle}" : "guikit::StateColor{}"
+        s_state.hasBg ? "guikit::StateColor{theme.palette.borderSubtle}" : "guikit::StateColor{}",
+        FormatUiSizePrefix(ctx.controlsSize)
     );
 }
 

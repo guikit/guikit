@@ -29,11 +29,8 @@ struct ImageOptions {
     Border border{};                                    ///< Image control box border stroke & corner radius configuration
     bool checkerboard{false};                           ///< Render transparency checkerboard pattern behind image
     keel::u8 opacity{255};                               ///< Image opacity [0..255]
+    UiSize size{UiSize::Md};
     bool disabled{false};
-    const UiTheme* theme{nullptr};
-    keel::Optional<float> scale{keel::kNullOpt};
-    keel::Optional<bool> debugBounds{keel::kNullOpt};
-    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// Internal frame-arena payload for Image nodes.

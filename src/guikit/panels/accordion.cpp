@@ -17,12 +17,10 @@ AccordionScope Accordion::Open(
     const Id idHeader = Id{detail::HashArgs(idOuter, 0xACC0'4EAD'0001ULL)};
     const Id idBody = Id{detail::HashArgs(idOuter, 0xACC0'B0D1'0002ULL)};
 
-    const UiSize parentSize = ctx.GetCurrentSize();
-    const UiSize headerSize = parentSize;
-    const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    ZoneScope headerZone = ctx.Zone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
-    const ZoneState zoneState = ctx.GetZone(); // the header container leaves it; the body container re-enters it
-    const UiTheme& theme = ctx.GetTheme();
+    const UiSize headerSize = opts.size;
+    Node* outerNode = ctx.CreateNode(NodeType::Accordion, idOuter, opts.zone, opts.disabled);
+    const UiTheme& theme = outerNode->GetTheme(ctx.GetTheme());
+    const bool activeDisabled = outerNode->disabled;
 
     bool isOpen = opts.defaultOpen;
     if (externalOpen != nullptr) {
@@ -54,17 +52,13 @@ AccordionScope Accordion::Open(
         ctx.SetTooltip(opts.tooltip, res.rect);
     }
 
-    Node* outerNode = ctx.CreateNode(NodeType::Accordion, idOuter);
     outerNode->direction = FlexDirection::Column;
     outerNode->widthMode = SizeMode::Stretch;
     outerNode->heightMode = SizeMode::Fit;
     outerNode->gap = 0.0f;
     outerNode->uiSize = headerSize;
-    outerNode->disabled = activeDisabled;
-    outerNode->debugBoundsOverride = opts.debugBounds;
-    outerNode->inspectModeOverride = opts.inspectMode;
 
-    ctx.PushContainer(outerNode, keel::move(headerZone));
+    ctx.FinishContainer(outerNode);
 
     Node* headerNode = ctx.CreateNode(NodeType::AccordionHeader, idHeader);
     auto* hData = ctx.AllocPayload<AccordionHeaderData>();
@@ -123,19 +117,18 @@ AccordionScope Accordion::Open(
         Node* bodyNode = ctx.CreateNode(NodeType::Column, idBody);
         ctx.PopContainer(outerNode);
 
+        const float bodyDensity = bodyNode->GetDensity();
         bodyNode->direction = FlexDirection::Column;
         bodyNode->widthMode = SizeMode::Stretch;
         bodyNode->heightMode = SizeMode::Fit;
-        bodyNode->gap = theme.ResolveGap(opts.gap, parentSize);
+        bodyNode->gap = theme.ResolveGap(opts.gap, UiSize::Md, bodyDensity);
         bodyNode->padding = opts.padding.has_value()
-            ? theme.ResolvePadding(*opts.padding, parentSize)
-            : Padding(0.0f, theme.Scale(8.0f), 0.0f, theme.Scale(6.0f));
-        bodyNode->uiSize = parentSize;
+            ? theme.ResolvePadding(*opts.padding, UiSize::Md, bodyDensity)
+            : Padding(0.0f, 8.0f * bodyDensity, 0.0f, 6.0f * bodyDensity);
+        bodyNode->uiSize = UiSize::Md;
         bodyNode->disabled = activeDisabled;
-        bodyNode->debugBoundsOverride = opts.debugBounds;
-        bodyNode->inspectModeOverride = opts.inspectMode;
 
-        ctx.PushContainer(bodyNode, ctx.ReenterZone(zoneState));
+        ctx.PushContainer(bodyNode);
         return AccordionScope(&ctx, bodyNode, res, true);
     }
 
@@ -154,11 +147,11 @@ Vec2 Accordion::MeasureHeader(
     const float titleFont = theme.ResolveFontSize(opts.label, TextRole::LabelLarge, size);
     const float descFont = theme.ResolveFontSize(opts.description, TextRole::LabelSmall, size);
     const float badgeFont = theme.ResolveFontSize(opts.badge, TextRole::LabelSmall, size);
-    const float padX = keel::max(theme.Scale(8.0f), m.paddingX * 0.70f);
-    const float padY = keel::max(theme.Scale(5.0f), m.paddingY * 0.75f);
-    const float itemGap = keel::max(theme.Scale(6.0f), m.itemGap);
-    const float chevronSize = keel::max(theme.Scale(11.0f), titleFont * 0.85f);
-    const float iconSize = keel::max(theme.Scale(13.0f), titleFont);
+    const float padX = keel::max(8.0f, m.paddingX * 0.70f);
+    const float padY = keel::max(5.0f, m.paddingY * 0.75f);
+    const float itemGap = keel::max(6.0f, m.itemGap);
+    const float chevronSize = keel::max(11.0f, titleFont * 0.85f);
+    const float iconSize = keel::max(13.0f, titleFont);
 
     float rowW = padX * 2.0f + chevronSize + itemGap;
     if (opts.icon.IsValid()) {
@@ -168,7 +161,7 @@ Vec2 Accordion::MeasureHeader(
         rowW += TextUtil::MeasureWidth(opts.label, titleFont, canvas);
     }
     if (opts.badge.HasContentOrReserve()) {
-        const float badgePadX = keel::max(theme.Scale(5.0f), badgeFont * 0.45f);
+        const float badgePadX = keel::max(5.0f, badgeFont * 0.45f);
         rowW += itemGap + TextUtil::MeasureWidth(opts.badge, badgeFont, canvas) + badgePadX * 2.0f;
     }
 
@@ -208,14 +201,14 @@ void Accordion::RenderHeader(
     const float titleFont = theme.ResolveFontSize(opts.label, TextRole::LabelLarge, size);
     const float descFont = theme.ResolveFontSize(opts.description, TextRole::LabelSmall, size);
     const float badgeFont = theme.ResolveFontSize(opts.badge, TextRole::LabelSmall, size);
-    const float padX = keel::max(theme.Scale(8.0f), m.paddingX * 0.70f);
-    const float padY = keel::max(theme.Scale(5.0f), m.paddingY * 0.75f);
-    const float itemGap = keel::max(theme.Scale(6.0f), m.itemGap);
-    const float chevronSize = keel::max(theme.Scale(11.0f), titleFont * 0.85f);
-    const float iconSize = keel::max(theme.Scale(13.0f), titleFont);
+    const float padX = keel::max(8.0f, m.paddingX * 0.70f);
+    const float padY = keel::max(5.0f, m.paddingY * 0.75f);
+    const float itemGap = keel::max(6.0f, m.itemGap);
+    const float chevronSize = keel::max(11.0f, titleFont * 0.85f);
+    const float iconSize = keel::max(13.0f, titleFont);
     const float radius = opts.border.radius.has_value()
-        ? theme.Scale(*opts.border.radius)
-        : keel::max(theme.Scale(4.0f), theme.GetRadius(size) * 0.75f);
+        ? *opts.border.radius
+        : keel::max(4.0f, theme.GetRadius(size) * 0.75f);
 
     // 1. Header background & border
     Color bgColor = Color::Transparent();
@@ -249,7 +242,7 @@ void Accordion::RenderHeader(
         );
     }
 
-    const float strokeW = opts.border.HasStroke() ? theme.Scale(opts.border.width) : 0.0f;
+    const float strokeW = opts.border.HasStroke() ? opts.border.width : 0.0f;
     Color borderCol = Color::Transparent();
     if (strokeW > 0.0f) {
         borderCol = opts.border.color.Resolve(
@@ -311,11 +304,11 @@ void Accordion::RenderHeader(
     }
 
     // 3. Optional trailing pill badge
-    if (!opts.badge.empty() && rightX > leftX + theme.Scale(20.0f)) {
-        const float badgePadX = keel::max(theme.Scale(5.0f), badgeFont * 0.45f);
+    if (!opts.badge.empty() && rightX > leftX + 20.0f) {
+        const float badgePadX = keel::max(5.0f, badgeFont * 0.45f);
         const float badgeTextW = TextUtil::MeasureWidth(opts.badge, badgeFont, &canvas);
         const float badgeW = badgeTextW + badgePadX * 2.0f;
-        const float badgeH = keel::min(titleRowH, badgeFont + theme.Scale(5.0f));
+        const float badgeH = keel::min(titleRowH, badgeFont + 5.0f);
         const Rect badgeRect{
             rightX - badgeW,
             titleCenterY - badgeH * 0.5f,

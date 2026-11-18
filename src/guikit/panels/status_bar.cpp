@@ -16,14 +16,17 @@ struct StatusSegmentPayload {
     bool interactive{false};
 };
 
-float ResolveStatusBarHeight(const UiTheme& /*theme*/, UiSize size, float scale) noexcept {
-    switch (size) {
-        case UiSize::Xs: return 20.0f * scale;
-        case UiSize::Sm: return 22.0f * scale;
-        case UiSize::Lg: return 30.0f * scale;
-        case UiSize::Xl: return 34.0f * scale;
-        case UiSize::Md:
-        default:         return 26.0f * scale;
+float ResolveStatusBarHeight(const UiTheme& theme, UiSize size, float scale) noexcept {
+    switch (size.GetPreset()) {
+        case UiSize::Preset::Xs: return 20.0f * scale;
+        case UiSize::Preset::Sm: return 22.0f * scale;
+        case UiSize::Preset::Lg: return 30.0f * scale;
+        case UiSize::Preset::Xl: return 34.0f * scale;
+        case UiSize::Preset::Md:
+        case UiSize::Preset::None:
+            return 26.0f * scale;
+        default:
+            return 26.0f * theme.SizeFactor(size) * scale;
     }
 }
 
@@ -55,7 +58,7 @@ Vec2 MeasureStatusSegment(
     const auto* payload = node->As<StatusSegmentPayload>();
     if (!payload) return {0.0f, 0.0f};
     const StatusItemOptions& o = payload->opts;
-    const float scale = theme.Scale(1.0f);
+    const float scale = 1.0f;
     const float fontSize = theme.ResolveFontSize(o.text, TextRole::LabelSmall, node->uiSize);
     const float padX = (payload->interactive ? 6.0f : 4.0f) * scale;
     const float itemGap = 5.0f * scale;
@@ -104,7 +107,7 @@ void RenderStatusSegment(
     const Rect& r = node->computedRect;
     if (r.w <= 0.5f || r.h <= 0.5f) return;
 
-    const float scale = theme.Scale(1.0f);
+    const float scale = 1.0f;
     const auto& p = theme.palette;
     const float alphaMul = node->disabled ? 0.45f : 1.0f;
 
@@ -237,34 +240,30 @@ StatusBarScope StatusBar::Open(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = ctx.GetCurrentSize();
-    const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    ZoneScope zone = ctx.Zone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
-    const float activeScale = ctx.GetCurrentScale();
-
-    const UiTheme& theme = ctx.GetTheme();
+    Node* node = ctx.CreateNode(NodeType::StatusBar, id, opts.zone, opts.disabled);
+    const UiTheme& theme = node->GetTheme(ctx.GetTheme());
+    const float density = node->GetDensity();
+    const UiSize activeSize = opts.size;
+    const bool effectiveDisabled = node->disabled;
     const float barH = opts.height.has_value()
-        ? theme.Scale(*opts.height)
-        : ResolveStatusBarHeight(theme, activeSize, activeScale);
+        ? *opts.height
+        : ResolveStatusBarHeight(theme, activeSize, 1.0f);
 
     Response res{};
     res.id = id;
     res.rect = ctx.GetPrevUnclippedBounds(id);
     res.ctx = &ctx;
 
-    Node* node = ctx.CreateNode(NodeType::StatusBar, id);
-    node->debugBoundsOverride = opts.debugBounds;
-    node->inspectModeOverride = opts.inspectMode;
     node->direction = FlexDirection::Row;
     node->align = Alignment::Center;
     node->gap = opts.gap.has_value()
-        ? theme.ResolveGap(opts.gap, activeSize)
-        : (6.0f * activeScale);
+        ? theme.ResolveGap(opts.gap, activeSize, density)
+        : (6.0f * density);
 
     if (opts.padding.has_value()) {
-        node->padding = theme.ResolvePadding(opts.padding, activeSize);
+        node->padding = theme.ResolvePadding(opts.padding, activeSize, density);
     } else {
-        node->padding = Padding::Symmetric(8.0f * activeScale, 2.0f * activeScale);
+        node->padding = Padding::Symmetric(8.0f * density, 2.0f * density);
     }
 
     node->widthMode = SizeMode::Stretch;
@@ -286,13 +285,12 @@ StatusBarScope StatusBar::Open(
     node->borderColor = theme.ResolveColor(opts.border.color, false, false, effectiveDisabled, pal.border);
     node->borderWidth = (opts.style == StatusBarStyle::Accent && !opts.border.color.HasAny())
         ? 0.0f
-        : ((opts.border.width == 1.0f) ? theme.shell.panelBorderWidth : theme.Scale(opts.border.width));
+        : ((opts.border.width == 1.0f) ? theme.shell.panelBorderWidth : opts.border.width);
     node->cornerRadius = opts.border.radius.has_value()
-        ? theme.Scale(*opts.border.radius)
+        ? *opts.border.radius
         : theme.shell.panelRadius;
 
     node->uiSize = activeSize;
-    node->disabled = effectiveDisabled;
     node->visualHash = detail::HashArgs(
         static_cast<keel::u8>(opts.style),
         node->fixedHeight,
@@ -300,7 +298,7 @@ StatusBarScope StatusBar::Open(
         opts.border
     );
 
-    ctx.PushContainer(node, keel::move(zone));
+    ctx.FinishContainer(node);
 
     return StatusBarScope(&ctx, node, res, opts);
 }
@@ -314,7 +312,8 @@ Response StatusBar::RenderSegment(
 ) {
     const Id id = ctx.MakeChildId(loc);
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const Node* parent = ctx.GetCurrentContainer();
+    const UiSize activeSize = (parent != nullptr) ? parent->uiSize : UiSize::Md;
 
     if (interactive) {
         ctx.RegisterFocusable(id, effectiveDisabled);

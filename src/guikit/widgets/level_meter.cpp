@@ -63,13 +63,13 @@ void FormatScaleTickLabel(
 }
 
 float GetDefaultBarThickness(UiSize size, const UiTheme& theme) noexcept {
-    switch (size) {
-        case UiSize::Xs: return theme.Scale(8.0f);
-        case UiSize::Sm: return theme.Scale(10.0f);
-        case UiSize::Lg: return theme.Scale(16.0f);
-        case UiSize::Xl: return theme.Scale(20.0f);
-        case UiSize::Md:
-        default:         return theme.Scale(12.0f);
+    switch (size.GetPreset()) {
+        case UiSize::Preset::Xs: return 8.0f;
+        case UiSize::Preset::Sm: return 10.0f;
+        case UiSize::Preset::Lg: return 16.0f;
+        case UiSize::Preset::Xl: return 20.0f;
+        case UiSize::Preset::Md: return 12.0f;
+        default:                 return std::round(12.0f * theme.SizeFactor(size));
     }
 }
 
@@ -172,9 +172,9 @@ LevelMeterMetrics ComputeLevelMeterMetrics(
 
     LevelMeterMetrics mm{};
     mm.barThick = opts.barThickness.has_value()
-        ? theme.Scale(keel::max(4.0f, *opts.barThickness))
+        ? keel::max(4.0f, *opts.barThickness)
         : GetDefaultBarThickness(size, theme);
-    mm.channelGap = (numCh > 1) ? theme.Scale(4.0f) : 0.0f;
+    mm.channelGap = (numCh > 1) ? 4.0f : 0.0f;
 
     mm.labelFont = theme.ResolveFontSize(TextRole::LabelSmall, size);
     mm.labelLineH = canvas ? canvas->GetLineHeight(mm.labelFont) : theme.GetLineHeight(mm.labelFont);
@@ -189,7 +189,7 @@ LevelMeterMetrics ComputeLevelMeterMetrics(
             }
         }
         if (mm.labelReserveW > 0.0f) {
-            mm.labelReserveW = keel::max(mm.labelReserveW + theme.Scale(2.0f), theme.Scale(16.0f));
+            mm.labelReserveW = keel::max(mm.labelReserveW + 2.0f, 16.0f);
         }
     }
 
@@ -211,16 +211,16 @@ LevelMeterMetrics ComputeLevelMeterMetrics(
                 mm.valReserveW = keel::max(mm.valReserveW, TextUtil::MeasureWidth(var, mm.valFont, canvas));
             }
         }
-        mm.valReserveW += theme.Scale(4.0f);
+        mm.valReserveW += 4.0f;
     }
 
     mm.scaleFont = keel::max(8.5f, theme.ResolveFontSize(TextRole::LabelSmall, size) * 0.90f);
     mm.scaleLineH = canvas ? canvas->GetLineHeight(mm.scaleFont) : theme.GetLineHeight(mm.scaleFont);
-    mm.scaleTickLen = theme.Scale(4.0f);
+    mm.scaleTickLen = 4.0f;
 
     if (opts.showClipLed) {
-        mm.clipLedLen = keel::clamp(mm.barThick * 0.62f, theme.Scale(6.0f), theme.Scale(12.0f));
-        mm.clipGap = theme.Scale(3.0f);
+        mm.clipLedLen = keel::clamp(mm.barThick * 0.62f, 6.0f, 12.0f);
+        mm.clipGap = 3.0f;
     } else {
         mm.clipLedLen = 0.0f;
         mm.clipGap = 0.0f;
@@ -228,7 +228,7 @@ LevelMeterMetrics ComputeLevelMeterMetrics(
 
     if (opts.orientation == Orientation::Horizontal) {
         if (opts.showScale) {
-            mm.scaleRegionH = theme.Scale(3.0f) + mm.scaleTickLen + theme.Scale(1.0f) + mm.scaleLineH;
+            mm.scaleRegionH = 3.0f + mm.scaleTickLen + 1.0f + mm.scaleLineH;
         }
         const float rowH = (numCh == 1 && opts.showValue)
             ? keel::max(mm.barThick, mm.valLineH)
@@ -236,11 +236,11 @@ LevelMeterMetrics ComputeLevelMeterMetrics(
         const float barsTotalH = static_cast<float>(numCh) * rowH + static_cast<float>(numCh - 1) * mm.channelGap;
 
         const float defaultTrackW = opts.width.IsFixed()
-            ? theme.Scale(opts.width.Dp())
+            ? opts.width.Dp()
             : sm.defaultWidth;
-        const float leftW = (mm.labelReserveW > 0.0f) ? (mm.labelReserveW + theme.Scale(6.0f)) : 0.0f;
+        const float leftW = (mm.labelReserveW > 0.0f) ? (mm.labelReserveW + 6.0f) : 0.0f;
         const float clipW = opts.showClipLed ? (mm.clipGap + mm.clipLedLen) : 0.0f;
-        const float rightW = opts.showValue ? (theme.Scale(8.0f) + mm.valReserveW) : 0.0f;
+        const float rightW = opts.showValue ? (8.0f + mm.valReserveW) : 0.0f;
 
         mm.intrinsicSize = {
             leftW + defaultTrackW + clipW + rightW,
@@ -256,16 +256,16 @@ LevelMeterMetrics ComputeLevelMeterMetrics(
                 FormatScaleTickLabel(sbuf, sizeof(sbuf), rangeMin + t * span, span);
                 maxScaleLblW = keel::max(maxScaleLblW, TextUtil::MeasureWidth(keel::StringRef(sbuf), mm.scaleFont, canvas));
             }
-            mm.scaleRegionW = maxScaleLblW + theme.Scale(4.0f) + mm.scaleTickLen + theme.Scale(4.0f);
+            mm.scaleRegionW = maxScaleLblW + 4.0f + mm.scaleTickLen + 4.0f;
         }
 
         const float barsW = static_cast<float>(numCh) * mm.barThick + static_cast<float>(numCh - 1) * mm.channelGap;
         const float topClipH = opts.showClipLed ? (mm.clipLedLen + mm.clipGap) : 0.0f;
-        const float bottomLabelH = (mm.labelReserveW > 0.0f) ? (theme.Scale(4.0f) + mm.labelLineH) : 0.0f;
-        const float bottomValH = opts.showValue ? (theme.Scale(4.0f) + mm.valLineH) : 0.0f;
+        const float bottomLabelH = (mm.labelReserveW > 0.0f) ? (4.0f + mm.labelLineH) : 0.0f;
+        const float bottomValH = opts.showValue ? (4.0f + mm.valLineH) : 0.0f;
         const float defaultTrackH = std::round(sm.defaultWidth);
 
-        const float totalW = keel::max(mm.scaleRegionW + barsW, opts.showValue ? mm.valReserveW : 0.0f) + theme.Scale(8.0f);
+        const float totalW = keel::max(mm.scaleRegionW + barsW, opts.showValue ? mm.valReserveW : 0.0f) + 8.0f;
         const float totalH = topClipH + defaultTrackH + bottomLabelH + bottomValH;
         mm.intrinsicSize = {totalW, totalH};
     }
@@ -582,9 +582,8 @@ Response RunLevelMeterImpl(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const UiSize activeSize = opts.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
     const UiTheme& activeTheme = ctx.GetTheme();
 
     LevelMeterOptions optsCopy = opts;
@@ -690,8 +689,6 @@ Response RunLevelMeterImpl(
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
     node->pressed = res.pressed;
-    node->debugBoundsOverride = optsCopy.debugBounds;
-    node->inspectModeOverride = optsCopy.inspectMode;
     node->text = data->channels[0].formattedValue;
     node->SetPayload(data);
 
@@ -828,14 +825,14 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
     const Color scaleTextCol = disabled ? pal.textMuted.WithAlphaF(0.35f) : pal.textMuted;
 
     if (opts.orientation == Orientation::Horizontal) {
-        float leftW = (mm.labelReserveW > 0.0f) ? (mm.labelReserveW + theme.Scale(6.0f)) : 0.0f;
+        float leftW = (mm.labelReserveW > 0.0f) ? (mm.labelReserveW + 6.0f) : 0.0f;
         const float clipTotalW = opts.showClipLed ? (mm.clipGap + mm.clipLedLen) : 0.0f;
-        float rightW = opts.showValue ? (theme.Scale(8.0f) + mm.valReserveW) : 0.0f;
-        const bool showRightValue = opts.showValue && (ctrlRect.w >= leftW + clipTotalW + rightW + theme.Scale(42.0f));
+        float rightW = opts.showValue ? (8.0f + mm.valReserveW) : 0.0f;
+        const bool showRightValue = opts.showValue && (ctrlRect.w >= leftW + clipTotalW + rightW + 42.0f);
         if (!showRightValue) {
             rightW = 0.0f;
         }
-        const bool showLeftLabel = (mm.labelReserveW > 0.0f) && (ctrlRect.w >= leftW + clipTotalW + theme.Scale(32.0f));
+        const bool showLeftLabel = (mm.labelReserveW > 0.0f) && (ctrlRect.w >= leftW + clipTotalW + 32.0f);
         if (!showLeftLabel) {
             leftW = 0.0f;
         }
@@ -879,7 +876,7 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
 
             // 3. Value readout on the right
             if (showRightValue && !cd.formattedValue.empty()) {
-                const float valX = trackX + trackW + clipTotalW + theme.Scale(8.0f);
+                const float valX = trackX + trackW + clipTotalW + 8.0f;
                 canvas.DrawTextBox(
                     cd.formattedValue,
                     Rect(valX, rowY, mm.valReserveW, rowH),
@@ -892,11 +889,11 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
         }
 
         // 4. Calibrated horizontal scale ticks & labels below bars (with collision culling)
-        if (opts.showScale && trackW >= theme.Scale(28.0f)) {
-            const float tickTopY = std::round(startY + barsTotalH + theme.Scale(3.0f));
-            const float labelTopY = tickTopY + mm.scaleTickLen + theme.Scale(1.0f);
+        if (opts.showScale && trackW >= 28.0f) {
+            const float tickTopY = std::round(startY + barsTotalH + 3.0f);
+            const float labelTopY = tickTopY + mm.scaleTickLen + 1.0f;
             constexpr keel::i32 kMajorTicks = 5; // 6 major positions: 0%, 20%, 40%, 60%, 80%, 100%
-            const bool showMinorTicks = (trackW >= theme.Scale(80.0f));
+            const bool showMinorTicks = (trackW >= 80.0f);
 
             for (keel::i32 i = 0; i <= kMajorTicks * 2; ++i) {
                 const bool isMajor = (i % 2 == 0);
@@ -923,7 +920,7 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
                 auto& ml = majorLabels[static_cast<keel::usize>(m)];
                 ml.tx = tx;
                 FormatScaleTickLabel(ml.text, sizeof(ml.text), d->min + static_cast<double>(t) * span, span);
-                ml.tw = keel::max(theme.Scale(10.0f), TextUtil::MeasureWidth(keel::StringRef(ml.text), mm.scaleFont, &canvas));
+                ml.tw = keel::max(10.0f, TextUtil::MeasureWidth(keel::StringRef(ml.text), mm.scaleFont, &canvas));
                 if (m == 0) {
                     ml.leftX = tx;
                     ml.rightX = tx + ml.tw;
@@ -939,7 +936,7 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
                 }
             }
 
-            const float minGap = theme.Scale(6.0f);
+            const float minGap = 6.0f;
             bool allFit = true;
             for (keel::i32 m = 0; m < kMajorTicks; ++m) {
                 if (majorLabels[static_cast<keel::usize>(m)].rightX + minGap > majorLabels[static_cast<keel::usize>(m + 1)].leftX) {
@@ -965,7 +962,7 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
             for (keel::i32 m = 0; m <= kMajorTicks; ++m) {
                 const auto& ml = majorLabels[static_cast<keel::usize>(m)];
                 if (!ml.visible) continue;
-                const float boxW = keel::max(ml.tw + theme.Scale(4.0f), theme.Scale(28.0f));
+                const float boxW = keel::max(ml.tw + 4.0f, 28.0f);
                 float boxX = ml.tx - boxW * 0.5f;
                 if (m == 0) boxX = ml.tx;
                 else if (m == kMajorTicks) boxX = ml.tx - boxW;
@@ -988,19 +985,19 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
         const float assemblyStartX = ctrlRect.x + keel::max(0.0f, (ctrlRect.w - assemblyW) * 0.5f);
 
         const float topClipH = opts.showClipLed ? (mm.clipLedLen + mm.clipGap) : 0.0f;
-        const float bottomLabelH = (mm.labelReserveW > 0.0f) ? (theme.Scale(4.0f) + mm.labelLineH) : 0.0f;
-        const float bottomValH = opts.showValue ? (theme.Scale(4.0f) + mm.valLineH) : 0.0f;
+        const float bottomLabelH = (mm.labelReserveW > 0.0f) ? (4.0f + mm.labelLineH) : 0.0f;
+        const float bottomValH = opts.showValue ? (4.0f + mm.valLineH) : 0.0f;
         const float trackY = std::round(ctrlRect.y + topClipH);
         const float trackH = keel::max(24.0f, std::round(ctrlRect.h - topClipH - bottomLabelH - bottomValH));
         const float barsStartX = std::round(assemblyStartX + mm.scaleRegionW);
 
         // 1. Calibrated vertical scale on the left of the bars (with vertical collision culling)
-        if (opts.showScale && trackH >= theme.Scale(28.0f)) {
-            const float tickRightX = std::round(barsStartX - theme.Scale(4.0f));
-            const float labelRightX = tickRightX - mm.scaleTickLen - theme.Scale(3.0f);
+        if (opts.showScale && trackH >= 28.0f) {
+            const float tickRightX = std::round(barsStartX - 4.0f);
+            const float labelRightX = tickRightX - mm.scaleTickLen - 3.0f;
             const float labelW = keel::max(8.0f, labelRightX - assemblyStartX);
             constexpr keel::i32 kMajorTicks = 5;
-            const bool showMinorTicks = (trackH >= theme.Scale(70.0f));
+            const bool showMinorTicks = (trackH >= 70.0f);
             float lastDrawnY = 1e9f;
             const float minGapY = mm.scaleLineH * 0.95f;
             const float topMostY = trackY;
@@ -1053,7 +1050,7 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
             );
 
             if (mm.labelReserveW > 0.0f && !cd.label.empty()) {
-                const float lblY = trackY + trackH + theme.Scale(4.0f);
+                const float lblY = trackY + trackH + 4.0f;
                 const float lblBoxW = keel::max(barThickInt, mm.labelReserveW);
                 canvas.DrawTextBox(
                     cd.label,
@@ -1070,7 +1067,7 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
         if (opts.showValue) {
             const keel::StringRef valStr = d->channels[maxChannelIdx].formattedValue;
             if (!valStr.empty()) {
-                const float valY = trackY + trackH + bottomLabelH + theme.Scale(4.0f);
+                const float valY = trackY + trackH + bottomLabelH + 4.0f;
                 canvas.DrawTextBox(
                     valStr,
                     Rect(ctrlRect.x, valY, ctrlRect.w, mm.valLineH),

@@ -102,11 +102,28 @@ void ArrayEraseIf(keel::Array<T>& arr, Pred&& pred) noexcept {
     arr.resize(writeIdx);
 }
 
+/// The transform a scaled node adds on top of its parent's space: it scales about its own top-left corner.
+[[nodiscard]] Transform2D NodeLocalTransform(const Node* node) noexcept {
+    if (node == nullptr) {
+        return Transform2D{};
+    }
+    const float relScale = node->GetRelativeScale();
+    if (relScale == 1.0f || !(relScale > 0.0f)) {
+        return Transform2D{};
+    }
+    return Transform2D::ScaleAbout(Vec2{node->computedRect.x, node->computedRect.y}, relScale);
+}
+
+/// The transform from a node's own coordinates to frame space, given its parent's.
+[[nodiscard]] Transform2D NodeSpace(const Node* node, const Transform2D& parentSpace) noexcept {
+    const Transform2D local = NodeLocalTransform(node);
+    return local.IsIdentity() ? parentSpace : parentSpace.Then(local);
+}
+
 } // namespace
 
 Context::Context()
     : m_startTimeNs(keel::monotonic_ns()) {
-    m_zoneStack.push_back(ZoneState{&m_theme, UiSize::Md, false});
 }
 
 Context::~Context() {
@@ -248,16 +265,22 @@ void Context::BeginFrame(Vec2 viewportSize, float displayScale, float rootZoom) 
     m_arena.reset();
     m_childIdCounts.clear();
     m_containerStack.clear();
-    m_zoneStack.clear();
     m_currFrameBounds.clear();
     m_currUnclippedBounds.clear();
+    m_currNodeSpaces.clear();
     m_currHitNodes.clear();
     m_currOverlayHitRegions.clear();
     m_activeOverlayHitCheckId = Id::Null();
     m_widgetExecDepth = 0;
+    m_rowDisabled = false;
 
-    // Root zone of the frame: the context theme at scale 1 (the frame factor carries display scale and root zoom)
-    m_zoneStack.push_back(ZoneState{&m_theme, UiSize::Md, false});
+    m_rootZone = Zone{
+        .theme = &m_theme,
+        .scale = 1.0f,
+        .density = m_rootDensity,
+        .debugBounds = keel::kNullOpt,
+        .inspectMode = keel::kNullOpt
+    };
 
     // Create root container spanning the entire logical viewport
     const Vec2 logicalSize = m_viewportSize / m_pixelsPerDp;
@@ -268,20 +291,26 @@ void Context::BeginFrame(Vec2 viewportSize, float displayScale, float rootZoom) 
     m_root->heightMode = SizeMode::Stretch;
     m_root->computedRect = Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y);
     m_root->id = Id{0xFFFF'FFFF'FFFF'FFFF};
+    m_root->zone = &m_rootZone;
     m_root->uiSize = UiSize::Md;
     m_root->disabled = false;
 
-    m_containerStack.push_back(ContainerFrame{.node = m_root});
+    m_containerStack.push_back(m_root);
 }
 
 Node* Context::CreateNode(NodeType type, Id id) {
+    return CreateNode(type, id, ZoneOptions{}, false);
+}
+
+Node* Context::CreateNode(NodeType type, Id id, const ZoneOptions& zone, bool disabled) {
     Node* node = m_arena.create<Node>();
     node->type = type;
     node->id = id;
-    node->theme = m_zoneStack.back().theme; // the theme of the zone the node is built in, whoever entered it
+    node->zone = ResolveZone(GetZone(), zone, m_arena);
+    node->disabled = IsDisabled() || disabled;
 
     if (!m_containerStack.empty()) {
-        m_containerStack.back().node->AddChild(node);
+        m_containerStack.back()->AddChild(node);
     }
     return node;
 }
@@ -305,7 +334,7 @@ Id Context::MakeChildIdForParent(Id parentId, keel::SourceLocation loc) {
 }
 
 Id Context::MakeChildId(keel::SourceLocation loc) {
-    const Id parentId = m_containerStack.empty() ? Id::Null() : m_containerStack.back().node->id;
+    const Id parentId = m_containerStack.empty() ? Id::Null() : m_containerStack.back()->id;
     return MakeChildIdForParent(parentId, loc);
 }
 
@@ -317,13 +346,13 @@ Response Context::Interact(Id id) {
     const Rect* pUnclipped = m_prevUnclippedBounds.get(id);
     const Rect* pClipped = m_prevFrameBounds.get(id);
     if (pUnclipped != nullptr) {
-        res.rect = *pUnclipped;
+        res.rect = CurrentSpace().Invert(*pUnclipped);
     } else if (pClipped != nullptr) {
-        res.rect = *pClipped;
+        res.rect = CurrentSpace().Invert(*pClipped);
     }
 
     // Suppress interaction on background widgets occluded by floating popups, modals, splitter sashes, or higher Z-layer panels
-    if (IsMouseOccluded(id, m_mousePos)) {
+    if (IsMouseOccludedInFrame(id, m_mousePos)) {
         if (m_mouseReleased && m_activeId == id) {
             m_activeId = Id::Null();
         }
@@ -365,7 +394,7 @@ Response Context::Interact(Id id) {
 
 void Context::AdaptChildToContainer(Node* node) {
     if (!node) return;
-    Node* parent = node->parent ? node->parent : (m_containerStack.empty() ? nullptr : m_containerStack.back().node);
+    Node* parent = node->parent ? node->parent : (m_containerStack.empty() ? nullptr : m_containerStack.back());
     if (!parent) return;
     if (parent->direction == FlexDirection::Column || parent->direction == FlexDirection::Grid) {
         if (node->widthMode != SizeMode::Fit && node->widthMode != SizeMode::Fixed) {
@@ -377,16 +406,36 @@ void Context::AdaptChildToContainer(Node* node) {
     }
 }
 
+Transform2D Context::GetNodeSpace(Id id) const noexcept {
+    if (const Transform2D* t = m_prevNodeSpaces.get(id)) {
+        return *t;
+    }
+    return Transform2D{};
+}
+
+Transform2D Context::CurrentSpace() const noexcept {
+    if (m_spaceOverride != nullptr) {
+        return *m_spaceOverride;
+    }
+    if (!m_containerStack.empty()) {
+        const Node* top = m_containerStack.back();
+        if (top != nullptr && top->id.IsValid()) {
+            return GetNodeSpace(top->id);
+        }
+    }
+    return Transform2D{};
+}
+
 Rect Context::GetPrevFrameBounds(Id id) const {
     if (const Rect* r = m_prevFrameBounds.get(id)) {
-        return *r;
+        return CurrentSpace().Invert(*r);
     }
     return Rect{};
 }
 
 Rect Context::GetPrevUnclippedBounds(Id id) const {
     if (const Rect* r = m_prevUnclippedBounds.get(id)) {
-        return *r;
+        return CurrentSpace().Invert(*r);
     }
     return GetPrevFrameBounds(id);
 }
@@ -395,7 +444,7 @@ Rect Context::GetParentPrevFrameBounds() const {
     keel::i32 startIdx = -1;
     Rect r{};
     for (keel::i32 i = static_cast<keel::i32>(m_containerStack.size()) - 1; i >= 0; --i) {
-        const Node* parent = m_containerStack[static_cast<keel::usize>(i)].node;
+        const Node* parent = m_containerStack[static_cast<keel::usize>(i)];
         if (!parent || !parent->id.IsValid()) continue;
         const Rect* found = m_prevFrameBounds.get(parent->id);
         if (found != nullptr && found->w > 1.0f && found->h > 1.0f) {
@@ -410,38 +459,40 @@ Rect Context::GetParentPrevFrameBounds() const {
 
     const keel::i32 stackSize = static_cast<keel::i32>(m_containerStack.size());
     for (keel::i32 i = startIdx; i < stackSize; ++i) {
-        const Node* c = m_containerStack[static_cast<keel::usize>(i)].node;
+        const Node* c = m_containerStack[static_cast<keel::usize>(i)];
         if (!c) continue;
 
+        const float localToFrame = GetNodeSpace(c->id).scale;                        // c's own units
+        const float outerToFrame = localToFrame / c->GetRelativeScale();             // c's parent's units
         if (i > startIdx) {
             if (c->heightMode == SizeMode::Fixed && c->fixedHeight > 0.0f) {
-                const float h = keel::min(r.h, c->fixedHeight);
+                const float h = keel::min(r.h, c->fixedHeight * outerToFrame);
                 if (c->type == NodeType::BottomPanel) {
                     r.y = r.Bottom() - h;
                 }
                 r.h = h;
             }
             if (c->widthMode == SizeMode::Fixed && c->fixedWidth > 0.0f) {
-                r.w = keel::min(r.w, c->fixedWidth);
+                r.w = keel::min(r.w, c->fixedWidth * outerToFrame);
             }
         } else if ((c->type == NodeType::BottomPanel || c->type == NodeType::Sidebar) &&
                    c->heightMode == SizeMode::Fixed && c->fixedHeight > 0.0f) {
-            r.h = c->fixedHeight;
+            r.h = c->fixedHeight * outerToFrame;
         }
 
-        r.x += c->padding.left;
-        r.y += c->padding.top;
-        r.w = keel::max(0.0f, r.w - (c->padding.left + c->padding.right));
-        r.h = keel::max(0.0f, r.h - (c->padding.top + c->padding.bottom));
+        r.x += c->padding.left * localToFrame;
+        r.y += c->padding.top * localToFrame;
+        r.w = keel::max(0.0f, r.w - (c->padding.left + c->padding.right) * localToFrame);
+        r.h = keel::max(0.0f, r.h - (c->padding.top + c->padding.bottom) * localToFrame);
 
         if (c->direction == FlexDirection::Column &&
             (i + 1 < stackSize || c->type == NodeType::BottomPanel || c->type == NodeType::Sidebar)) {
             const Node* stopChild = (i + 1 < stackSize)
-                ? m_containerStack[static_cast<keel::usize>(i + 1)].node
+                ? m_containerStack[static_cast<keel::usize>(i + 1)]
                 : c->lastChild;
             for (const Node* ch = c->firstChild; ch != nullptr && ch != stopChild; ch = ch->nextSibling) {
                 if (ch->heightMode == SizeMode::Fixed && ch->fixedHeight > 0.0f && !ch->sidebarCollapsed) {
-                    const float consumeH = ch->fixedHeight + c->gap;
+                    const float consumeH = (ch->fixedHeight + c->gap) * localToFrame;
                     r.y += consumeH;
                     r.h = keel::max(0.0f, r.h - consumeH);
                 }
@@ -449,21 +500,25 @@ Rect Context::GetParentPrevFrameBounds() const {
         }
     }
 
-    return (r.w > 1.0f && r.h > 1.0f) ? r : Rect{};
+    return (r.w > 1.0f && r.h > 1.0f) ? CurrentSpace().Invert(r) : Rect{};
 }
 
 Rect Context::GetPopupViewportRect() const noexcept {
+    return CurrentSpace().Invert(PopupViewportInFrame());
+}
+
+Rect Context::PopupViewportInFrame() const noexcept {
     const Vec2 logical = GetLogicalViewport();
     Rect vp(0.0f, 0.0f, logical.x, logical.y);
-    for (const ContainerFrame& frame : m_containerStack) {
-        const Node* n = frame.node;
+    for (const Node* n : m_containerStack) {
         if (!n || !n->id.IsValid()) continue;
         if (n->type == NodeType::Box && n->clipChildren) {
             const Rect* found = m_prevFrameBounds.get(n->id);
             if (found != nullptr && found->w > 1.0f && found->h > 1.0f) {
                 Rect boxRect = *found;
-                if (n->borderWidth > 0.0f && boxRect.w > n->borderWidth * 2.0f && boxRect.h > n->borderWidth * 2.0f) {
-                    boxRect = boxRect.Inset(n->borderWidth);
+                const float border = n->borderWidth * GetNodeSpace(n->id).scale;
+                if (border > 0.0f && boxRect.w > border * 2.0f && boxRect.h > border * 2.0f) {
+                    boxRect = boxRect.Inset(border);
                 }
                 const Rect intersected = vp.Intersect(boxRect);
                 if (intersected.w > 1.0f && intersected.h > 1.0f) {
@@ -476,75 +531,15 @@ Rect Context::GetPopupViewportRect() const noexcept {
 }
 
 void Context::PushContainer(Node* node) {
-    PushContainer(node, Zone({}));
-}
-
-void Context::PushContainer(Node* node, ZoneScope zone) {
-    m_containerStack.push_back(ContainerFrame{.node = node, .zone = keel::move(zone)});
+    m_containerStack.push_back(node);
 }
 
 void Context::PopContainer(Node* node) {
-    if (!m_containerStack.empty() && m_containerStack.back().node == node) {
-        // The frame (and with it the container's zones) is left when `frame` goes out of scope, after the sync
-        ContainerFrame frame = keel::move(m_containerStack.back());
+    if (!m_containerStack.empty() && m_containerStack.back() == node) {
         m_containerStack.pop_back();
         if (node->type == NodeType::Element) {
             Element::SyncWithChildren(*this, node);
         }
-    }
-}
-
-bool Context::AdoptZone(keel::usize frameIndex, ZoneScope& zone) noexcept {
-    if (frameIndex >= m_containerStack.size()) {
-        return false;
-    }
-    m_containerStack[frameIndex].outer = keel::move(zone);
-    return true;
-}
-
-float Context::ResolveScale(const ZoneOptions& opts) const noexcept {
-    assert(!(opts.scale.has_value() && opts.zoom.has_value()) && "ZoneOptions: scale and zoom are mutually exclusive");
-    const float requested = opts.zoom.has_value() ? ScaleForZoom(*opts.zoom) : opts.scale.value_or(0.0f);
-    if (requested > 0.0f) {
-        return requested;
-    }
-    const float inherited = GetCurrentScale();
-    return (inherited > 0.0f) ? inherited : 1.0f;
-}
-
-void Context::PushZone(const ZoneOptions& opts) {
-    const ZoneState& parent = m_zoneStack.back();
-    ZoneState next = parent;
-
-    // The zone's scale lives on its theme: replace and/or rescale the theme only when asked to
-    if (opts.theme != nullptr || opts.scale.has_value() || opts.zoom.has_value()) {
-        const UiTheme& base = (opts.theme != nullptr) ? *opts.theme : *parent.theme;
-        const float baseScale = (base.scale > 0.0f) ? base.scale : 1.0f;
-        // `Scaled` is a plain copy for a factor of 1; the zone owns an arena copy that outlives the explicit theme
-        next.theme = m_arena.create<UiTheme>(base.Scaled(ResolveScale(opts) / baseScale));
-    }
-
-    if (opts.size.has_value() && *opts.size != UiSize::None) {
-        next.size = *opts.size;
-    }
-    next.disabled = parent.disabled || opts.disabled;
-
-    m_zoneStack.push_back(next);
-}
-
-UiTheme Context::ResolveTheme(const ZoneOptions& opts) {
-    const ZoneScope zone(*this, opts);
-    return GetTheme();
-}
-
-void Context::PushZoneState(const ZoneState& state) {
-    m_zoneStack.push_back(state);
-}
-
-void Context::PopZone() noexcept {
-    assert(m_zoneStack.size() > 1 && "PopZone: unbalanced zone stack");
-    if (m_zoneStack.size() > 1) {
-        m_zoneStack.pop_back();
     }
 }
 
@@ -1718,13 +1713,14 @@ static Rect ExpandPopupDamageRect(Rect r) noexcept {
 }
 
 void Context::OpenPopup(Id id, Rect bounds) {
-    if (m_openPopupId != id || m_openPopupRect != bounds) {
+    const Rect frameBounds = CurrentSpace().Apply(bounds);
+    if (m_openPopupId != id || m_openPopupRect != frameBounds) {
         if (m_openPopupId.IsValid() && m_openPopupRect.w > 0.0f && m_openPopupRect.h > 0.0f) {
-            InvalidateRect(ExpandPopupDamageRect(m_openPopupRect));
+            InvalidateFrameRect(ExpandPopupDamageRect(m_openPopupRect));
         }
         m_openPopupId = id;
-        m_openPopupRect = bounds;
-        InvalidateRect(ExpandPopupDamageRect(m_openPopupRect));
+        m_openPopupRect = frameBounds;
+        InvalidateFrameRect(ExpandPopupDamageRect(m_openPopupRect));
     }
 }
 
@@ -1732,7 +1728,7 @@ void Context::ClosePopup() {
     if (m_openPopupId.IsValid()) {
         const Id closedId = m_openPopupId;
         if (m_openPopupRect.w > 0.0f && m_openPopupRect.h > 0.0f) {
-            InvalidateRect(ExpandPopupDamageRect(m_openPopupRect));
+            InvalidateFrameRect(ExpandPopupDamageRect(m_openPopupRect));
         }
         m_openPopupId = Id::Null();
         m_openPopupRect = Rect{};
@@ -1749,23 +1745,31 @@ void Context::InvalidateAll() noexcept {
 }
 
 void Context::InvalidateRect(Rect rect) noexcept {
-    if (rect.w > 0.0f && rect.h > 0.0f) {
-        m_explicitDamageRects.push_back(rect);
+    InvalidateFrameRect(CurrentSpace().Apply(rect));
+}
+
+void Context::InvalidateFrameRect(Rect frameRect) noexcept {
+    if (frameRect.w > 0.0f && frameRect.h > 0.0f) {
+        m_explicitDamageRects.push_back(frameRect);
         RequestRepaint(2);
     }
 }
 
 void Context::RegisterOverlayHitRegion(Id id, Rect rect) {
     if (id.IsValid() && rect.w > 0.0f && rect.h > 0.0f) {
-        m_currOverlayHitRegions.push_back(OverlayHitRegion{id, rect});
+        m_currOverlayHitRegions.push_back(OverlayHitRegion{id, CurrentSpace().Apply(rect)});
     }
 }
 
 bool Context::IsMouseOccluded(Id id, Vec2 pos) const noexcept {
+    return IsMouseOccludedInFrame(id, CurrentSpace().Apply(pos));
+}
+
+bool Context::IsMouseOccludedInFrame(Id id, Vec2 pos) const noexcept {
     if (m_openPopupId.IsValid() && id != m_openPopupId && m_openPopupRect.Contains(pos)) {
         return true;
     }
-    if (IsModalBlocking(pos)) {
+    if (IsModalBlockingInFrame(pos)) {
         return true;
     }
     if (m_activeId.IsValid() && m_activeId == id) {
@@ -1811,7 +1815,7 @@ bool Context::IsMouseOccluded(Id id, Vec2 pos) const noexcept {
     } else {
         // Sub-part ID (e.g. AccordionHeader / TreeItemRow): check against innermost container on stack
         for (keel::usize sIdx = m_containerStack.size(); sIdx > 0; --sIdx) {
-            const Node* cNode = m_containerStack[sIdx - 1].node;
+            const Node* cNode = m_containerStack[sIdx - 1];
             if (!cNode || !cNode->id.IsValid()) continue;
             const keel::usize* idxC = m_prevHitNodeMap.get(cNode->id);
             if (idxC != nullptr) {
@@ -1846,7 +1850,7 @@ bool Context::IsMouseOccluded(Id id, Vec2 pos) const noexcept {
 }
 
 bool Context::IsRectHovered(Id id, const Rect& rect) const noexcept {
-    if (!rect.Contains(m_mousePos)) {
+    if (!CurrentSpace().Apply(rect).Contains(m_mousePos)) {
         return false;
     }
     if (id.IsValid()) {
@@ -1855,7 +1859,7 @@ bool Context::IsRectHovered(Id id, const Rect& rect) const noexcept {
             return false;
         }
     }
-    if (IsMouseOccluded(id, m_mousePos)) {
+    if (IsMouseOccludedInFrame(id, m_mousePos)) {
         return false;
     }
     return true;
@@ -1868,7 +1872,7 @@ bool Context::IsMouseBlockedForCurrentScope() const noexcept {
         }
         if (m_activeOverlayHitCheckId != m_prevFrameModalId &&
             m_activeOverlayHitCheckId != m_currFrameModalId &&
-            IsModalBlocking(m_mousePos)) {
+            IsModalBlockingInFrame(m_mousePos)) {
             return true;
         }
         return false;
@@ -1877,7 +1881,7 @@ bool Context::IsMouseBlockedForCurrentScope() const noexcept {
     if (m_openPopupId.IsValid() && m_openPopupRect.Contains(m_mousePos)) {
         return true;
     }
-    if (IsModalBlocking(m_mousePos)) {
+    if (IsModalBlockingInFrame(m_mousePos)) {
         return true;
     }
 
@@ -1905,8 +1909,7 @@ bool Context::IsMouseBlockedForCurrentScope() const noexcept {
 
     // Determine current scope Z-layer from container stack
     keel::u8 currentZLayer = (m_modalScopeDepth > 0) ? 2 : 0;
-    for (const ContainerFrame& frame : m_containerStack) {
-        const Node* n = frame.node;
+    for (const Node* n : m_containerStack) {
         if (!n) continue;
         if (n->type == NodeType::Modal) {
             currentZLayer = keel::max<keel::u8>(currentZLayer, 2);
@@ -1930,13 +1933,13 @@ bool Context::IsMouseBlockedForCurrentScope() const noexcept {
     // If user code is executing directly inside a Scene / MapView scope (not inside a child container or widget Run()),
     // gate mouse queries to unoccluded points inside the Scene viewport (and not over Scene HUD/scrollbars)
     if (m_widgetExecDepth == 0 && !m_containerStack.empty()) {
-        const Node* topContainer = m_containerStack.back().node;
+        const Node* topContainer = m_containerStack.back();
         if (topContainer && topContainer->type == NodeType::Scene && topContainer->id.IsValid()) {
             const Id sceneId = topContainer->id;
             if (hasActiveCapture && m_activeId != sceneId) {
                 return true;
             }
-            if (IsMouseOccluded(sceneId, m_mousePos)) {
+            if (IsMouseOccludedInFrame(sceneId, m_mousePos)) {
                 return true;
             }
             if (topContainer->scrollbarActive || topContainer->scrollbarActiveX) {
@@ -1958,12 +1961,12 @@ bool Context::IsMouseBlockedForCurrentScope() const noexcept {
 }
 
 void Context::SetTooltip(UiText tooltip, Rect anchorRect) {
-    if (tooltip.empty() || m_openPopupId.IsValid() || IsModalBlocking(m_mousePos)) {
+    if (tooltip.empty() || m_openPopupId.IsValid() || IsModalBlockingInFrame(m_mousePos)) {
         return;
     }
     m_activeTooltip = AllocText(tooltip);
-    m_activeTooltipAnchor = anchorRect;
-    m_activeTooltipViewport = GetPopupViewportRect();
+    m_activeTooltipAnchor = CurrentSpace().Apply(anchorRect);
+    m_activeTooltipViewport = PopupViewportInFrame();
 }
 
 void Context::RegisterFocusable(Id id, bool disabled) {
@@ -2347,16 +2350,25 @@ static void CollectBoundsRecursive(
     keel::u32& ioOrderCounter,
     keel::u8 inheritedZLayer,
     Rect parentClip,
-    const UiTheme& theme
+    const UiTheme& theme,
+    const Transform2D& parentSpace,
+    keel::HashMap<Id, Transform2D>& outSpaces
 ) {
     if (!node) return;
 
-    const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : theme;
+    const UiTheme& activeTheme = node->GetTheme(theme);
+
+    // Bounds and hit records are kept in frame space; the node's own coordinates are in its local space
+    const Transform2D space = NodeSpace(node, parentSpace);
+    if (!space.IsIdentity() && node->id.IsValid()) {
+        outSpaces.put(node->id, space);
+    }
+    const Rect frameRect = space.Apply(node->computedRect);
 
     // Out-of-flow modals are rendered at top level above ancestor ScrollAreas/clips
     keel::u8 curZLayer = inheritedZLayer;
     if (node->type == NodeType::Modal) {
-        parentClip = node->computedRect;
+        parentClip = frameRect;
         curZLayer = 2;
     } else if ((node->type == NodeType::Sidebar || node->type == NodeType::BottomPanel) && !node->sidebarCollapsed) {
         curZLayer = keel::max<keel::u8>(curZLayer, 1);
@@ -2368,11 +2380,11 @@ static void CollectBoundsRecursive(
     keel::usize hitRecordIdx = keel::usize(-1);
 
     if (node->id.IsValid()) {
-        if ((node->computedRect.w > 0.0f || node->type == NodeType::Sidebar) &&
-            (node->computedRect.h > 0.0f || node->type == NodeType::BottomPanel)) {
-            outUnclippedBounds.put(node->id, node->computedRect);
+        if ((frameRect.w > 0.0f || node->type == NodeType::Sidebar) &&
+            (frameRect.h > 0.0f || node->type == NodeType::BottomPanel)) {
+            outUnclippedBounds.put(node->id, frameRect);
         }
-        const Rect clipped = node->computedRect.Intersect(parentClip);
+        const Rect clipped = frameRect.Intersect(parentClip);
         if ((clipped.w > 0.0f || node->type == NodeType::Sidebar) &&
             (clipped.h > 0.0f || node->type == NodeType::BottomPanel)) {
             outBounds.put(node->id, clipped);
@@ -2393,13 +2405,13 @@ static void CollectBoundsRecursive(
         }
 
         if (node->type == NodeType::Carousel || node->type == NodeType::Toolbar) {
-            Carousel::CollectBounds(node, outBounds, parentClip);
+            Carousel::CollectBounds(node, outBounds, parentClip, space);
         }
     }
 
     Rect effectiveClip = parentClip;
     if (node->clipChildren) {
-        effectiveClip = parentClip.Intersect(GetNodeContentClipRect(node, activeTheme));
+        effectiveClip = parentClip.Intersect(space.Apply(GetNodeContentClipRect(node, activeTheme)));
     }
 
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
@@ -2412,7 +2424,9 @@ static void CollectBoundsRecursive(
             ioOrderCounter,
             curZLayer,
             effectiveClip,
-            activeTheme
+            activeTheme,
+            space,
+            outSpaces
         );
     }
 
@@ -2431,7 +2445,7 @@ bool Context::UpdateScrollAreasRecursive(Node* node) {
 
     const bool pushedToStack = (node != m_root);
     if (pushedToStack) {
-        m_containerStack.push_back(ContainerFrame{.node = node});
+        m_containerStack.push_back(node);
     }
 
     bool scrollChanged = false;
@@ -2466,7 +2480,7 @@ bool Context::UpdateScrollAreasRecursive(Node* node) {
         --m_widgetExecDepth;
     }
 
-    if (pushedToStack && !m_containerStack.empty() && m_containerStack.back().node == node) {
+    if (pushedToStack && !m_containerStack.empty() && m_containerStack.back() == node) {
         m_containerStack.pop_back();
     }
     if (isModal && m_modalScopeDepth > 0) {
@@ -2507,11 +2521,10 @@ void Context::ScrollToId(Id id) {
 void Context::EndFrame(ICanvas& canvas) {
     m_lastCanvas = &canvas;
 
-    // Balance any unclosed container scopes; popping a frame leaves the zones it owns
+    // Balance any unclosed container scopes
     while (m_containerStack.size() > 1) {
         m_containerStack.pop_back();
     }
-    assert(m_zoneStack.size() == 1 && "EndFrame: a Zone / Size scope or themed widget scope outlived its frame");
     m_modalScopeDepth = 0;
 
     const Vec2 logicalSize = m_viewportSize / m_pixelsPerDp;
@@ -2541,11 +2554,15 @@ void Context::EndFrame(ICanvas& canvas) {
         hitOrderCounter,
         0,
         Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y),
-        m_theme
+        m_theme,
+        Transform2D{},
+        m_currNodeSpaces
     );
     for (const auto& builder : m_overlayHitBuilders) {
         if (builder.invoke) {
+            m_spaceOverride = &builder.space; // regions are given in the space the builder was registered from
             builder.invoke(builder.ctx);
+            m_spaceOverride = nullptr;
         }
     }
     ClearOverlayHitBuilders();
@@ -2561,6 +2578,8 @@ void Context::EndFrame(ICanvas& canvas) {
 
     m_prevFrameBounds = keel::move(m_currFrameBounds);
     m_prevUnclippedBounds = keel::move(m_currUnclippedBounds);
+    m_prevNodeSpaces = keel::move(m_currNodeSpaces);
+    m_currNodeSpaces.clear();
     m_prevFocusableIds = keel::move(m_currFocusableIds);
     m_prevModalFocusableIds = keel::move(m_currModalFocusableIds);
 
@@ -2618,26 +2637,28 @@ void Context::EndFrame(ICanvas& canvas) {
     bool anyDebugBounds = m_debugBoundsEnabled;
     bool anyInspectMode = m_inspectModeEnabled;
 
-    auto collectSnapshots = [&](auto& self, Node* n, Rect parentClip, const UiTheme& parentTheme) -> void {
+    auto collectSnapshots = [&](auto& self, Node* n, Rect parentClip, const UiTheme& parentTheme, const Transform2D& parentSpace) -> void {
         if (!n) return;
-        const UiTheme& activeTheme = (n->theme != nullptr) ? *n->theme : parentTheme;
+        const UiTheme& activeTheme = n->GetTheme(parentTheme);
+        const Transform2D space = NodeSpace(n, parentSpace);
+        const Rect frameRect = space.Apply(n->computedRect);
         if (n->type == NodeType::Modal) {
             parentClip = Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y);
         }
-        if (n->debugBoundsOverride.value_or(false)) {
+        if (n->GetDebugBoundsOverride().value_or(false)) {
             anyDebugBounds = true;
         }
-        if (n->inspectModeOverride.value_or(false)) {
+        if (n->GetInspectModeOverride().value_or(false)) {
             anyInspectMode = true;
         }
         if (n->id.IsValid()) {
             WidgetSnapshot snap;
-            Rect paddedNodeRect = n->IsLeaf() ? n->computedRect.Inset(-2.0f) : n->computedRect;
+            Rect paddedNodeRect = n->IsLeaf() ? frameRect.Inset(-2.0f) : frameRect;
             if (n->type == NodeType::Sidebar || n->type == NodeType::BottomPanel) {
-                paddedNodeRect = n->computedRect.Inset(-16.0f);
+                paddedNodeRect = frameRect.Inset(-16.0f);
             } else if (n->type == NodeType::Modal) {
-                paddedNodeRect = n->computedRect.Inset(-16.0f);
-                const Rect bd = Modal::GetBackdropRect(n);
+                paddedNodeRect = frameRect.Inset(-16.0f);
+                const Rect bd = parentSpace.Apply(Modal::GetBackdropRect(n));
                 if (bd.w > 0.0f && bd.h > 0.0f) {
                     paddedNodeRect = paddedNodeRect.Union(bd);
                 }
@@ -2698,15 +2719,15 @@ void Context::EndFrame(ICanvas& canvas) {
         Rect effectiveClip = parentClip;
         if (n->clipChildren || n->type == NodeType::StatusBar || n->type == NodeType::Toolbar ||
             n->type == NodeType::Sidebar || n->type == NodeType::BottomPanel) {
-            effectiveClip = parentClip.Intersect(GetNodeContentClipRect(n, activeTheme));
+            effectiveClip = parentClip.Intersect(space.Apply(GetNodeContentClipRect(n, activeTheme)));
         }
 
         for (Node* c = n->firstChild; c != nullptr; c = c->nextSibling) {
-            self(self, c, effectiveClip, activeTheme);
+            self(self, c, effectiveClip, activeTheme, space);
         }
     };
 
-    collectSnapshots(collectSnapshots, m_root, Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y), m_theme);
+    collectSnapshots(collectSnapshots, m_root, Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y), m_theme, Transform2D{});
     m_anyScopedInspectActive = anyInspectMode;
 
     // Detect removed widgets
@@ -2838,6 +2859,20 @@ void Context::EndFrame(ICanvas& canvas) {
     m_prevFrameModalBackdropRect = m_currFrameModalBackdropRect;
     m_prevSnapshots = keel::move(currSnapshots);
 
+    // Overlays draw (and query the context) in the space they were registered from
+    auto invokeOverlay = [&](const OverlayPass& pass) {
+        const bool transformed = !pass.space.IsIdentity();
+        if (transformed) {
+            canvas.PushTransform(pass.space);
+        }
+        m_spaceOverride = &pass.space;
+        pass.invoke(pass.ctx, canvas);
+        m_spaceOverride = nullptr;
+        if (transformed) {
+            canvas.PopTransform();
+        }
+    };
+
     // If damage exists, clear target buffer and rasterize scene graph
     if (m_hasDirtyDamage) {
         canvas.Begin(static_cast<keel::u32>(m_viewportSize.x), static_cast<keel::u32>(m_viewportSize.y), m_pixelsPerDp);
@@ -2852,10 +2887,10 @@ void Context::EndFrame(ICanvas& canvas) {
                 if (pass.clipRect.w > 0.0f && pass.clipRect.h > 0.0f) {
                     if (!pass.clipRect.Intersects(m_dirtyRect)) continue;
                     canvas.PushClip(pass.clipRect);
-                    pass.invoke(pass.ctx, canvas);
+                    invokeOverlay(pass);
                     canvas.PopClip();
                 } else {
-                    pass.invoke(pass.ctx, canvas);
+                    invokeOverlay(pass);
                 }
             }
             if (hasTooltip) {
@@ -2881,10 +2916,10 @@ void Context::EndFrame(ICanvas& canvas) {
                         const Rect clip = pass.clipRect.Intersect(dr);
                         if (clip.w <= 0.0f || clip.h <= 0.0f) continue;
                         canvas.PushClip(clip);
-                        pass.invoke(pass.ctx, canvas);
+                        invokeOverlay(pass);
                         canvas.PopClip();
                     } else {
-                        pass.invoke(pass.ctx, canvas);
+                        invokeOverlay(pass);
                     }
                 }
                 canvas.PopClip();
@@ -2988,9 +3023,16 @@ void Context::EndFrame(ICanvas& canvas) {
 void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirtyRect, const UiTheme& parentTheme) {
     if (!node) return;
     if (node->computedRect.w <= 0.0f || node->computedRect.h <= 0.0f) return;
-    if (node->type != NodeType::Modal && !node->computedRect.Intersects(dirtyRect)) return;
+    // A scaled node draws itself and its subtree in its local space; `dirtyRect` arrives in the parent's
+    const Transform2D local = NodeLocalTransform(node);
+    if (node->type != NodeType::Modal && !local.Apply(node->computedRect).Intersects(dirtyRect)) return;
+    const bool transformed = !local.IsIdentity();
+    if (transformed) {
+        canvas.PushTransform(local);
+    }
+    const Rect nodeDirty = transformed ? local.Invert(dirtyRect) : dirtyRect;
 
-    const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : parentTheme;
+    const UiTheme& activeTheme = node->GetTheme(parentTheme);
 
     // 1. Render container background fill before children (skip for self-rendering leaf widgets and Modal)
     const bool isContainerSurface = (!node->IsLeaf() && node->type != NodeType::Modal);
@@ -3014,11 +3056,11 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
         node->renderFn(node, canvas, activeTheme);
     }
 
-    Rect childDirtyRect = dirtyRect;
+    Rect childDirtyRect = nodeDirty;
     if (node->clipChildren) {
         const Rect clipRect = GetNodeContentClipRect(node, activeTheme);
         canvas.PushClip(clipRect);
-        childDirtyRect = dirtyRect.Intersect(clipRect);
+        childDirtyRect = nodeDirty.Intersect(clipRect);
     }
 
     // Recurse on children (skip NodeType::Modal during normal tree walk; modals render in RenderModalsRecursive)
@@ -3095,11 +3137,15 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
     if (node->postRenderFn) {
         node->postRenderFn(node, canvas, activeTheme);
     }
+
+    if (transformed) {
+        canvas.PopTransform();
+    }
 }
 
 void Context::RenderModalsRecursive(Node* node, ICanvas& canvas, const Rect& dirtyRect, const UiTheme& parentTheme) {
     if (!node) return;
-    const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : parentTheme;
+    const UiTheme& activeTheme = node->GetTheme(parentTheme);
 
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
         if (child->type == NodeType::Modal) {
@@ -3112,7 +3158,15 @@ void Context::RenderModalsRecursive(Node* node, ICanvas& canvas, const Rect& dir
                 RenderNodeRecursive(child, canvas, dirtyRect, activeTheme);
             }
         }
-        RenderModalsRecursive(child, canvas, dirtyRect, activeTheme);
+        // Modals nested in a scaled subtree render in that subtree's space
+        const Transform2D childLocal = NodeLocalTransform(child);
+        if (childLocal.IsIdentity()) {
+            RenderModalsRecursive(child, canvas, dirtyRect, activeTheme);
+        } else {
+            canvas.PushTransform(childLocal);
+            RenderModalsRecursive(child, canvas, childLocal.Invert(dirtyRect), activeTheme);
+            canvas.PopTransform();
+        }
     }
 }
 
@@ -3142,7 +3196,12 @@ void Context::RenderDebugBoundsRecursive(Node* node, ICanvas& canvas, bool inher
     if (!node) return;
     if (node->computedRect.w <= 0.0f || node->computedRect.h <= 0.0f) return;
 
-    const bool activeDebug = node->debugBoundsOverride.value_or(inheritedDebugBounds);
+    const bool activeDebug = node->GetDebugBoundsOverride().value_or(inheritedDebugBounds);
+    const Transform2D local = NodeLocalTransform(node);
+    const bool transformed = !local.IsIdentity();
+    if (transformed) {
+        canvas.PushTransform(local);
+    }
 
     if (node != m_root && activeDebug) {
         const NodeCategory cat = node->GetCategory();
@@ -3209,14 +3268,7 @@ void Context::RenderDebugBoundsRecursive(Node* node, ICanvas& canvas, bool inher
     }
 
     if (node->clipChildren) {
-        const UiTheme* resolvedTheme = &m_theme;
-        for (const Node* curr = node; curr != nullptr; curr = curr->parent) {
-            if (curr->theme != nullptr) {
-                resolvedTheme = curr->theme;
-                break;
-            }
-        }
-        canvas.PushClip(GetNodeContentClipRect(node, *resolvedTheme));
+        canvas.PushClip(GetNodeContentClipRect(node, node->GetTheme(m_theme)));
     }
 
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
@@ -3226,10 +3278,20 @@ void Context::RenderDebugBoundsRecursive(Node* node, ICanvas& canvas, bool inher
     if (node->clipChildren) {
         canvas.PopClip();
     }
+
+    if (transformed) {
+        canvas.PopTransform();
+    }
 }
 
 Node* Context::FindDeepestNodeAt(Node* root, Vec2 pos, Rect clipRect) {
     if (!root) return nullptr;
+    // `pos` and `clipRect` arrive in the parent's space; a scaled node is tested in its own
+    const Transform2D local = NodeLocalTransform(root);
+    if (!local.IsIdentity()) {
+        pos = local.Invert(pos);
+        clipRect = local.Invert(clipRect);
+    }
     if (root->computedRect.w <= 0.0f || root->computedRect.h <= 0.0f) return nullptr;
 
     const Rect visibleRect = root->computedRect.Intersect(clipRect);
@@ -3239,14 +3301,7 @@ Node* Context::FindDeepestNodeAt(Node* root, Vec2 pos, Rect clipRect) {
 
     Rect effectiveClip = clipRect;
     if (root->clipChildren) {
-        const UiTheme* resolvedTheme = &m_theme;
-        for (const Node* curr = root; curr != nullptr; curr = curr->parent) {
-            if (curr->theme != nullptr) {
-                resolvedTheme = curr->theme;
-                break;
-            }
-        }
-        effectiveClip = clipRect.Intersect(GetNodeContentClipRect(root, *resolvedTheme));
+        effectiveClip = clipRect.Intersect(GetNodeContentClipRect(root, root->GetTheme(m_theme)));
     }
 
     Node* bestHit = nullptr;
@@ -3266,30 +3321,19 @@ void Context::RenderInspectOverlay(Node* root, ICanvas& canvas, Vec2 logicalSize
     Node* target = FindDeepestNodeAt(root, m_mousePos, Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y));
     if (!target || target == m_root) return;
 
-    bool inspectActive = m_inspectModeEnabled;
-    for (const Node* curr = target; curr != nullptr; curr = curr->parent) {
-        if (curr->inspectModeOverride.has_value()) {
-            inspectActive = *curr->inspectModeOverride;
-            break;
-        }
-    }
-    if (!inspectActive) return;
+    if (!target->GetInspectModeOverride().value_or(m_inspectModeEnabled)) return;
 
     // Intersect ancestor clipChildren rects so inspected scrolled children don't bleed outside ScrollArea
     Rect ancestorClip(0.0f, 0.0f, logicalSize.x, logicalSize.y);
     for (const Node* p = target->parent; p != nullptr; p = p->parent) {
         if (p->clipChildren) {
-            const UiTheme* resolvedTheme = &m_theme;
-            for (const Node* curr = p; curr != nullptr; curr = curr->parent) {
-                if (curr->theme != nullptr) {
-                    resolvedTheme = curr->theme;
-                    break;
-                }
-            }
-            ancestorClip = ancestorClip.Intersect(GetNodeContentClipRect(p, *resolvedTheme));
+            ancestorClip = ancestorClip.Intersect(GetNodeSpace(p->id).Apply(GetNodeContentClipRect(p, p->GetTheme(m_theme))));
         }
     }
     canvas.PushClip(ancestorClip);
+    // The highlight is drawn in the target's own space (the clip above is in frame space)
+    const Transform2D targetSpace = GetNodeSpace(target->id);
+    canvas.PushTransform(targetSpace);
 
     // 1. Highlight inspected target with Chrome DevTools Box Model styling
     // Content box: translucent blue (#6FA8DC, ~40% opacity)
@@ -3331,6 +3375,7 @@ void Context::RenderInspectOverlay(Node* root, ICanvas& canvas, Vec2 logicalSize
 
     // Outer 2px solid cyan boundary
     canvas.DrawRoundRect(target->computedRect, 0.0f, Color(0, 0, 0, 0), Color(56, 189, 248, 255), 2.0f);
+    canvas.PopTransform();
     canvas.PopClip();
 
     // 2. Build DevTools floating info badge

@@ -262,21 +262,21 @@ constexpr keel::StringRef VariantName(guikit::UiVariant v) noexcept {
 }
 
 constexpr keel::StringRef SizeName(guikit::UiSize s) noexcept {
-    switch (s) {
-        case guikit::UiSize::Xs: return "Xs";
-        case guikit::UiSize::Sm: return "Sm";
-        case guikit::UiSize::Md: return "Md";
-        case guikit::UiSize::Lg: return "Lg";
-        case guikit::UiSize::Xl: return "Xl";
-        default:                 return "Md";
+    switch (s.GetPreset()) {
+        case guikit::UiSize::Preset::Xs: return "Xs";
+        case guikit::UiSize::Preset::Sm: return "Sm";
+        case guikit::UiSize::Preset::Md: return "Md";
+        case guikit::UiSize::Preset::Lg: return "Lg";
+        case guikit::UiSize::Preset::Xl: return "Xl";
+        default:                         return "Md";
     }
 }
 
 inline keel::FixedString<48> FormatUiSizePrefix(guikit::UiSize s) noexcept {
-    if (s == guikit::UiSize::None) {
+    if (s == guikit::UiSize::None || s == guikit::UiSize::Md) {
         return {};
     }
-    return keel::format_fixed<48>("Size(guikit::UiSize::{}).", SizeName(s));
+    return keel::format_fixed<48>(",\n    .size = guikit::UiSize::{}", SizeName(s));
 }
 
 constexpr keel::StringRef PlacementName(guikit::Placement p) noexcept {
@@ -403,11 +403,12 @@ struct DemoContext {
     float previewWindowDragStartW = 0.0f;
     float previewWindowDragStartH = 0.0f;
 
-    guikit::UiTheme shellTheme = guikit::UiTheme::Dark(guikit::Density::Standard);
-    guikit::UiTheme previewTheme = guikit::UiTheme::Dark(guikit::Density::Standard);
+    guikit::UiTheme shellTheme = guikit::UiTheme::Dark();
+    guikit::UiTheme previewTheme = guikit::UiTheme::Dark();
+    float previewDensity = 1.0f;
 
     // Semantic Element form-field wrapper state (shared across ELEMENTS screens, excluding ElemHeading)
-    guikit::UiSize elemSize = guikit::UiSize::None;
+    guikit::UiSize elemSize = guikit::UiSize::Md;
     keel::SmallString<128> elemLabel{"Element Label"};
     guikit::UiVariant elemLabelVariant = guikit::UiVariant::Default;
     keel::SmallString<128> elemDesc{"Secondary description text"};
@@ -424,7 +425,7 @@ struct DemoContext {
 
     // Shared Control state
     bool ctrlLayoutOpen = false;
-    guikit::UiSize controlsSize = guikit::UiSize::None;
+    guikit::UiSize controlsSize = guikit::UiSize::Md;
     guikit::UiVariant btnVariant = guikit::UiVariant::Primary;
     keel::usize ctrlWidthModeIdx = 0;   // 0 = Auto, 1 = Fit, 2 = Stretch, 3 = Fixed
     float ctrlWidthDp = 220.0f;         // 80..480 dp
@@ -634,6 +635,7 @@ struct DemoContext {
             .layout = ResolveElemLayout(),
             .align = elemAlign,
             .width = ResolveElemWidth(),
+            .size = elemSize,
             .disabled = elemDisabled
         };
     }
@@ -644,7 +646,7 @@ struct DemoContext {
 
     template <typename Fn>
     void RunElementStage(guikit::Context& ui, Fn&& renderControls) const {
-        if (auto el = ui.Size(elemSize).Element(MakeElementOptions())) {
+        if (auto el = ui.Element(MakeElementOptions())) {
             renderControls();
         }
     }
@@ -697,9 +699,8 @@ struct DemoContext {
 
     keel::String FormatElementOpenCode(keel::Optional<keel::StringRef> customLabelOverride = keel::kNullOpt) const {
         keel::String out = keel::format(
-            "if (auto el = ui.{}Element({{\n"
+            "if (auto el = ui.Element({{\n"
             "    .label = {}",
-            FormatUiSizePrefix(elemSize),
             FormatElementLabelCode(customLabelOverride)
         );
         if (!elemDesc.empty()) {
@@ -724,6 +725,9 @@ struct DemoContext {
         }
         if (const guikit::AxisSize elemW = ResolveElemWidth(); !elemW.IsAuto()) {
             keel::format_into(out, ",\n    .width = {}", FormatAxisSizeCode(elemW));
+        }
+        if (elemSize != guikit::UiSize::None && elemSize != guikit::UiSize::Md) {
+            keel::format_into(out, ",\n    .size = guikit::UiSize::{}", SizeName(elemSize));
         }
         if (elemDisabled) {
             out.append(",\n    .disabled = true");
@@ -810,7 +814,7 @@ struct DemoContext {
 
     void RenderElementSection(guikit::Context& ui) {
         if (auto el = ui.Element({.label = "Size"})) {
-            if (ui.StepSlider(elemSize, {.showTicks = true, .showLabels = true, .includeNone = true}).changed) {
+            if (ui.StepSlider(elemSize, {.showTicks = true, .showLabels = true}).changed) {
                 ui.InvalidateAll();
             }
         }
@@ -1022,7 +1026,7 @@ struct DemoContext {
 
     void RenderControlStyleSection(guikit::Context& ui, NavCategory cat) {
         if (auto el = ui.Element({.label = "Size"})) {
-            if (ui.StepSlider(controlsSize, {.showTicks = true, .showLabels = true, .includeNone = true}).changed) {
+            if (ui.StepSlider(controlsSize, {.showTicks = true, .showLabels = true}).changed) {
                 ui.InvalidateAll();
             }
         }
@@ -1126,8 +1130,8 @@ struct DemoContext {
             if (ui.Switch(previewDarkMode).changed) {
                 previewLightMode = !previewDarkMode;
                 const auto defTheme = previewDarkMode
-                    ? guikit::UiTheme::Dark(previewTheme.density)
-                    : guikit::UiTheme::Light(previewTheme.density);
+                    ? guikit::UiTheme::Dark()
+                    : guikit::UiTheme::Light();
                 previewTheme.palette = defTheme.palette;
                 previewTheme.variants = defTheme.variants;
                 previewTheme.syntax = defTheme.syntax;
@@ -1136,16 +1140,11 @@ struct DemoContext {
             }
         }
 
-        static constexpr keel::StaticArray<keel::StringRef, 3> asmDensityLabels = {"Compact", "Standard", "Touch"};
-        keel::usize dIdx = (previewTheme.density == guikit::Density::Compact)
-            ? 0
-            : ((previewTheme.density == guikit::Density::Touch) ? 2 : 1);
         if (auto el = ui.Element({.label = "Layout Density"})) {
-            if (ui.StepSlider(dIdx, asmDensityLabels, {.showTicks = true, .showLabels = true}).changed) {
-                previewTheme.density = (dIdx == 0)
-                    ? guikit::Density::Compact
-                    : ((dIdx == 2) ? guikit::Density::Touch : guikit::Density::Standard);
-                previewTheme.SetDensity(previewTheme.density);
+            if (ui.Slider(previewDensity, 0.5f, 2.0f, {
+                .valueFormat = "%.2fx",
+                .step = 0.05
+            }).changed) {
                 ui.InvalidateAll();
             }
         }

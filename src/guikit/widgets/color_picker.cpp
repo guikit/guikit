@@ -40,11 +40,11 @@ struct PanelLayout {
 PanelLayout ComputePanelLayout(Rect rect, const ColorPickerOptions& opts, const UiTheme& theme) noexcept {
     PanelLayout L{};
     L.panelRect = rect;
-    const float pad = theme.Scale(10.0f);
-    const float gap = theme.Scale(8.0f);
-    const float barH = theme.Scale(12.0f);
-    const float infoH = theme.Scale(24.0f);
-    const float swatchRowH = opts.showSwatches ? theme.Scale(22.0f) : 0.0f;
+    const float pad = 10.0f;
+    const float gap = 8.0f;
+    const float barH = 12.0f;
+    const float infoH = 24.0f;
+    const float swatchRowH = opts.showSwatches ? 22.0f : 0.0f;
 
     float bottomSpace = barH + gap + infoH;
     if (opts.showAlpha) {
@@ -87,11 +87,11 @@ PanelLayout ComputePanelLayout(Rect rect, const ColorPickerOptions& opts, const 
     return L;
 }
 
-Vec2 DefaultPanelDimensions(const ColorPickerOptions& opts, const UiTheme& theme) noexcept {
+Vec2 DefaultPanelDimensions(const ColorPickerOptions& opts, const UiTheme& /*theme*/) noexcept {
     float h = 196.0f;
     if (opts.showAlpha) h += 20.0f;
     if (opts.showSwatches) h += 30.0f;
-    return {theme.Scale(254.0f), theme.Scale(h)};
+    return {254.0f, h};
 }
 
 ControlSpec EffectiveColorPickerControl(const ColorPickerOptions& opts, UiSize size, const UiTheme& theme) noexcept {
@@ -113,16 +113,16 @@ Vec2 MeasureColorPickerBox(const ColorPickerOptions& opts, UiSize size, ICanvas*
     const bool hasExplicitDpW = opts.width.IsFixed();
     if (opts.inlinePanel) {
         const Vec2 defPanel = DefaultPanelDimensions(opts, theme);
-        float w = hasExplicitDpW ? theme.Scale(opts.width.Dp()) : defPanel.x;
+        float w = hasExplicitDpW ? opts.width.Dp() : defPanel.x;
         if (opts.minWidth.has_value()) {
-            w = keel::max(theme.Scale(*opts.minWidth), w);
+            w = keel::max(*opts.minWidth, w);
         }
-        const float h = opts.height.IsFixed() ? theme.Scale(opts.height.Dp()) : defPanel.y;
+        const float h = opts.height.IsFixed() ? opts.height.Dp() : defPanel.y;
         return {w, h};
     }
 
     const SelectMetrics& m = theme.GetSelect(size);
-    const float boxH = opts.height.IsFixed() ? theme.Scale(opts.height.Dp()) : m.defaultHeight;
+    const float boxH = opts.height.IsFixed() ? opts.height.Dp() : m.defaultHeight;
     float naturalW = boxH * 1.45f;
     if (opts.showHex) {
         const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
@@ -130,14 +130,14 @@ Vec2 MeasureColorPickerBox(const ColorPickerOptions& opts, UiSize size, ICanvas*
         const float textW = (canvas != nullptr)
             ? canvas->MeasureText(sample, fontSize).x
             : (static_cast<float>(sample.size()) * fontSize * 0.62f);
-        const float alphaExtra = opts.showAlpha ? theme.Scale(38.0f) : 0.0f;
-        naturalW = boxH + textW + alphaExtra + m.paddingX * 2.0f + m.iconSize + theme.Scale(12.0f);
+        const float alphaExtra = opts.showAlpha ? 38.0f : 0.0f;
+        naturalW = boxH + textW + alphaExtra + m.paddingX * 2.0f + m.iconSize + 12.0f;
     }
     if (opts.minWidth.has_value()) {
-        naturalW = keel::max(theme.Scale(*opts.minWidth), naturalW);
+        naturalW = keel::max(*opts.minWidth, naturalW);
     }
     if (hasExplicitDpW) {
-        naturalW = theme.Scale(opts.width.Dp());
+        naturalW = opts.width.Dp();
     }
     return {naturalW, boxH};
 }
@@ -256,10 +256,9 @@ Response ColorPicker::Run(
     const ColorPickerOptions& opts,
     keel::SourceLocation loc
 ) {
-    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const UiSize activeSize = opts.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const UiTheme theme = ctx.GetTheme();
 
@@ -375,7 +374,7 @@ Response ColorPicker::Run(
 
         // Check swatch hover & click
         if (optsCopy.showSwatches && !swatches.empty() && state.dragTarget == 0 && L.swatchesRowRect.Contains(mouse)) {
-            const float gap = theme.Scale(5.0f);
+            const float gap = 5.0f;
             const float countF = static_cast<float>(swatches.size());
             const float swW = keel::max(10.0f, (L.swatchesRowRect.w - gap * (countF - 1.0f)) / countF);
             for (keel::usize i = 0; i < swatches.size(); ++i) {
@@ -615,7 +614,7 @@ void ColorPicker::Render(
 
     const SelectMetrics& m = theme.GetSelect(size);
     const auto& pal = theme.palette;
-    const float radius = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : m.cornerRadius;
+    const float radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
 
     const bool hasBg = opts.background.IsBackgroundEnabled(true);
     Color boxBg = hasBg
@@ -624,7 +623,7 @@ void ColorPicker::Render(
     Color boxBorder = ((open || focused) && !disabled)
         ? pal.focusRing
         : ((hovered && !disabled) ? pal.borderHover : pal.inputBorder);
-    float strokeW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : m.strokeWidth;
+    float strokeW = (opts.border.width > 0.0f) ? opts.border.width : m.strokeWidth;
     if ((open || focused) && !disabled && (opts.border.width > 0.0f || m.strokeWidth > 0.0f)) {
         strokeW += 0.5f;
     }
@@ -655,7 +654,7 @@ void ColorPicker::Render(
         return;
     }
 
-    const float swatchW = keel::min(ctrlRect.w - pad * 2.0f, keel::max(swatchH * 1.25f, theme.Scale(22.0f)));
+    const float swatchW = keel::min(ctrlRect.w - pad * 2.0f, keel::max(swatchH * 1.25f, 22.0f));
     const Rect swatchRect(ctrlRect.x + pad, ctrlRect.y + pad, swatchW, swatchH);
     DrawCheckerboardSwatch(canvas, swatchRect, disabled ? value.WithAlphaF(0.45f) : value, swatchRadius, pal.borderHover.WithAlpha(150));
 
@@ -663,7 +662,7 @@ void ColorPicker::Render(
     const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
     const Color textCol = disabled ? pal.textMuted : pal.textPrimary;
     const float chevronSpace = m.iconSize + m.paddingX;
-    const float textStartX = swatchRect.Right() + theme.Scale(8.0f);
+    const float textStartX = swatchRect.Right() + 8.0f;
     const float textW = keel::max(0.0f, ctrlRect.Right() - chevronSpace - textStartX);
     if (textW > 8.0f) {
         const float hexW = canvas.MeasureText(hexText, fontSize).x;
@@ -671,15 +670,15 @@ void ColorPicker::Render(
         const keel::i32 alphaPct = keel::round_i32((static_cast<float>(value.a) / 255.0f) * 100.0f);
         std::snprintf(alphaBuf, sizeof(alphaBuf), "%d%%", alphaPct);
         const float alphaW = opts.showAlpha ? canvas.MeasureText(alphaBuf, fontSize * 0.9f).x : 0.0f;
-        const bool drawAlpha = opts.showAlpha && (textW >= hexW + alphaW + theme.Scale(14.0f));
-        const float hexAvailW = drawAlpha ? keel::max(0.0f, textW - alphaW - theme.Scale(10.0f)) : textW;
+        const bool drawAlpha = opts.showAlpha && (textW >= hexW + alphaW + 14.0f);
+        const float hexAvailW = drawAlpha ? keel::max(0.0f, textW - alphaW - 10.0f) : textW;
 
         const Rect textRect(textStartX, ctrlRect.y, hexAvailW, ctrlRect.h);
         canvas.DrawTextBox(hexText, textRect, fontSize, textCol, 0.0f, 0.5f);
 
         if (drawAlpha) {
             const Rect alphaRect(textStartX, ctrlRect.y, textW, ctrlRect.h);
-            canvas.DrawTextBox(alphaBuf, alphaRect.Inset(theme.Scale(4.0f), 0.0f), fontSize * 0.9f, pal.textSecondary, 1.0f, 0.5f);
+            canvas.DrawTextBox(alphaBuf, alphaRect.Inset(4.0f, 0.0f), fontSize * 0.9f, pal.textSecondary, 1.0f, 0.5f);
         }
     }
 
@@ -712,7 +711,7 @@ void ColorPicker::RenderPanel(
     if (panelRect.w <= 10.0f || panelRect.h <= 10.0f) return;
 
     const auto& pal = theme.palette;
-    const float radius = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : theme.Scale(8.0f);
+    const float radius = opts.border.radius.has_value() ? *opts.border.radius : 8.0f;
     if (isFloatingPopup) {
         canvas.DrawRoundRect(Rect(panelRect.x, panelRect.y + 3.0f, panelRect.w, panelRect.h), radius + 1.0f, Color(0, 0, 0, 95));
         canvas.DrawRoundRect(panelRect, radius, pal.surface, pal.borderHover, 1.0f);
@@ -730,7 +729,7 @@ void ColorPicker::RenderPanel(
         Color panelBorder = opts.border.color.HasAny()
             ? theme.ResolveColor(opts.border.color, false, false, disabled, pal.inputBorder)
             : pal.inputBorder;
-        const float strokeW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : 1.0f;
+        const float strokeW = (opts.border.width > 0.0f) ? opts.border.width : 1.0f;
         canvas.DrawRoundRect(panelRect, radius, panelBg, panelBorder, strokeW);
     }
 
@@ -754,7 +753,7 @@ void ColorPicker::RenderPanel(
     // SV thumb ring
     const float svThumbX = L.svRect.x + keel::clamp(s, 0.0f, 1.0f) * L.svRect.w;
     const float svThumbY = L.svRect.y + (1.0f - keel::clamp(v, 0.0f, 1.0f)) * L.svRect.h;
-    const float svR = theme.Scale(5.5f);
+    const float svR = 5.5f;
     canvas.DrawRoundRect(Rect(svThumbX - svR - 1.0f, svThumbY - svR - 1.0f, (svR + 1.0f) * 2.0f, (svR + 1.0f) * 2.0f), svR + 1.0f, Color::Transparent(), Color(0, 0, 0, 190), 1.5f);
     canvas.DrawRoundRect(Rect(svThumbX - svR, svThumbY - svR, svR * 2.0f, svR * 2.0f), svR, HsvToRgb(h, s, v, 255), Color(255, 255, 255, 245), 2.0f);
 
@@ -829,7 +828,7 @@ void ColorPicker::RenderPanel(
             ? kDefaultPresets.as_ref()
             : customSwatches;
         if (!swatches.empty()) {
-            const float gap = theme.Scale(5.0f);
+            const float gap = 5.0f;
             const float countF = static_cast<float>(swatches.size());
             const float swW = keel::max(10.0f, (L.swatchesRowRect.w - gap * (countF - 1.0f)) / countF);
             for (keel::usize i = 0; i < swatches.size(); ++i) {

@@ -47,9 +47,8 @@ struct ContextMenuOptions {
     keel::Optional<float> width{keel::kNullOpt};
     StateColor background{};
     Border border{.width = 1.0f, .radius = 8.0f};
+    UiSize size{UiSize::Md};
     bool disabled{false};
-    const UiTheme* theme{nullptr};
-    keel::Optional<float> scale{keel::kNullOpt};
 };
 
 /// Extended response returned by `ui.ContextMenu(...)`.

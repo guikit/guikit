@@ -18,8 +18,8 @@ struct ElementStudioState {
     bool allLayoutsSpecimen = false;
     bool wrapInCard = true;
     ElementSlotPreset slotPreset = ElementSlotPreset::Switch;
-    guikit::UiSize elemSize = guikit::UiSize::None;
-    guikit::UiSize slotSize = guikit::UiSize::None;
+    guikit::UiSize elemSize = guikit::UiSize::Md;
+    guikit::UiSize slotSize = guikit::UiSize::Md;
     keel::SmallString<128> label{"Adaptive Low-Pass Filter"};
     guikit::UiVariant labelVariant = guikit::UiVariant::Default;
     keel::SmallString<160> description{"Attenuates high-frequency carrier harmonics above cutoff (-24 dB/oct)"};
@@ -93,40 +93,40 @@ guikit::ElementOptions BuildElementOptions(
         .layout = layoutOverride,
         .align = s_state.align,
         .width = ActiveElementWidth(),
+        .size = s_state.elemSize,
         .disabled = s_state.disabled
     };
 }
 
 void RenderSlotControl(guikit::Context& ui, ElementSlotPreset preset, keel::usize specimenIdx) {
-    auto szScope = ui.Size(s_state.slotSize);
-    (void)szScope;
-
     switch (preset) {
         case ElementSlotPreset::Switch: {
             bool& flag = (specimenIdx < s_state.specimenToggles.size())
                 ? s_state.specimenToggles[specimenIdx]
                 : s_state.singleToggle;
-            ui.Switch(flag);
+            ui.Switch(flag, {.size = s_state.slotSize});
             break;
         }
         case ElementSlotPreset::Slider: {
             float& val = (specimenIdx < s_state.specimenGains.size())
                 ? s_state.specimenGains[specimenIdx]
                 : s_state.sliderGainDb;
-            ui.Slider(val, -48.0f, 12.0f, {.valueFormat = "%.1f dB"});
+            ui.Slider(val, -48.0f, 12.0f, {.valueFormat = "%.1f dB", .size = s_state.slotSize});
             break;
         }
         case ElementSlotPreset::SpinBox: {
             ui.SpinBox(s_state.cutoffHz, 20.0f, 20000.0f, 50.0f, {
                 .suffix = {"Hz"},
-                .valueFormat = "%.0f"
+                .valueFormat = "%.0f",
+                .size = s_state.slotSize
             });
             break;
         }
         case ElementSlotPreset::InputField: {
             ui.InputField(s_state.endpointHost, {
                 .placeholder = "host:port",
-                .clearable = true
+                .clearable = true,
+                .size = s_state.slotSize
             });
             break;
         }
@@ -134,7 +134,8 @@ void RenderSlotControl(guikit::Context& ui, ElementSlotPreset preset, keel::usiz
             if (ui.Button({
                 .text = "Calibrate Stage",
                 .icon = guikit::Icon::Play(),
-                .color = guikit::StateColor::Primary()
+                .color = guikit::StateColor::Primary(),
+                .size = s_state.slotSize
             })) {
                 ++s_state.triggerCount;
             }
@@ -145,11 +146,13 @@ void RenderSlotControl(guikit::Context& ui, ElementSlotPreset preset, keel::usiz
                 ui.InputField(s_state.searchQuery, {
                     .placeholder = "Filter symbol...",
                     .prefix = {guikit::Icon::Search()},
-                    .clearable = true
+                    .clearable = true,
+                    .size = s_state.slotSize
                 });
                 if (ui.Button({
                     .text = "Apply",
-                    .color = guikit::StateColor::Primary()
+                    .color = guikit::StateColor::Primary(),
+                    .size = s_state.slotSize
                 })) {
                     ++s_state.triggerCount;
                 }
@@ -162,34 +165,40 @@ void RenderSlotControl(guikit::Context& ui, ElementSlotPreset preset, keel::usiz
 }
 
 keel::String FormatSlotControlCode(ElementSlotPreset preset) {
-    const keel::FixedString<48> szPrefix = FormatUiSizePrefix(s_state.slotSize);
+    const bool hasSlotSize = (s_state.slotSize != guikit::UiSize::None && s_state.slotSize != guikit::UiSize::Md);
+    const keel::FixedString<48> szInline = hasSlotSize
+        ? keel::format_fixed<48>(", .size = guikit::UiSize::{}", SizeName(s_state.slotSize))
+        : keel::FixedString<48>{};
     switch (preset) {
         case ElementSlotPreset::Switch:
-            return keel::format("ui.{}Switch(enabled);", szPrefix);
+            return hasSlotSize
+                ? keel::format("ui.Switch(enabled, {{.size = guikit::UiSize::{}}});", SizeName(s_state.slotSize))
+                : keel::String::from("ui.Switch(enabled);");
         case ElementSlotPreset::Slider:
-            return keel::format("ui.{}Slider(gainDb, -48.0f, 12.0f, {{.valueFormat = \"%.1f dB\"}});", szPrefix);
+            return keel::format("ui.Slider(gainDb, -48.0f, 12.0f, {{.valueFormat = \"%.1f dB\"{}}});", szInline);
         case ElementSlotPreset::SpinBox:
             return keel::format(
-                "ui.{}SpinBox(cutoffHz, 20.0f, 20000.0f, 50.0f, {{.suffix = {{\"Hz\"}}, .valueFormat = \"%.0f\"}});",
-                szPrefix
+                "ui.SpinBox(cutoffHz, 20.0f, 20000.0f, 50.0f, {{.suffix = {{\"Hz\"}}, .valueFormat = \"%.0f\"{}}});",
+                szInline
             );
         case ElementSlotPreset::InputField:
             return keel::format(
-                "ui.{}InputField(endpointHost, {{.placeholder = \"host:port\", .clearable = true}});",
-                szPrefix
+                "ui.InputField(endpointHost, {{.placeholder = \"host:port\", .clearable = true{}}});",
+                szInline
             );
         case ElementSlotPreset::Button:
             return keel::format(
-                "ui.{}Button({{.text = \"Calibrate Stage\", .icon = guikit::Icon::Play(), .color = guikit::StateColor::Primary()}});",
-                szPrefix
+                "ui.Button({{.text = \"Calibrate Stage\", .icon = guikit::Icon::Play(), .color = guikit::StateColor::Primary(){}}});",
+                szInline
             );
         case ElementSlotPreset::CompositeRow:
             return keel::format(
-                "if (auto row = ui.{}Row({{.gap = 8.0f, .align = guikit::Alignment::Center}})) {{\n"
-                "    ui.InputField(searchQuery, {{.placeholder = \"Filter symbol...\", .prefix = {{guikit::Icon::Search()}}, .clearable = true}});\n"
-                "    ui.Button({{.text = \"Apply\", .color = guikit::StateColor::Primary()}});\n"
+                "if (auto row = ui.Row({{.gap = 8.0f, .align = guikit::Alignment::Center}})) {{\n"
+                "    ui.InputField(searchQuery, {{.placeholder = \"Filter symbol...\", .prefix = {{guikit::Icon::Search()}}, .clearable = true{}}});\n"
+                "    ui.Button({{.text = \"Apply\", .color = guikit::StateColor::Primary(){}}});\n"
                 "}}",
-                szPrefix
+                szInline,
+                szInline
             );
         case ElementSlotPreset::Standalone:
             return {};
@@ -252,12 +261,13 @@ void RenderElementInspector(guikit::Context& ui, DemoContext& ctx) {
         }
     }
 
-    if (auto elemAcc = ui.Size(guikit::UiSize::Sm).Accordion({
+    if (auto elemAcc = ui.Accordion({
         .label = "ELEMENT",
-        .defaultOpen = true
+        .defaultOpen = true,
+        .size = guikit::UiSize::Sm
     })) {
         if (auto el = ui.Element({.label = "Size"})) {
-            if (ui.StepSlider(s_state.elemSize, {.showTicks = true, .showLabels = true, .includeNone = true}).changed) {
+            if (ui.StepSlider(s_state.elemSize, {.showTicks = true, .showLabels = true}).changed) {
                 ui.InvalidateAll();
             }
         }
@@ -335,9 +345,10 @@ void RenderElementInspector(guikit::Context& ui, DemoContext& ctx) {
         }
     }
 
-    if (auto elemLayoutAcc = ui.Size(guikit::UiSize::Sm).Accordion({
+    if (auto elemLayoutAcc = ui.Accordion({
         .label = "ELEMENT LAYOUT",
-        .defaultOpen = true
+        .defaultOpen = true,
+        .size = guikit::UiSize::Sm
     })) {
         const auto explicitLayout = ResolveExplicitLayout();
         const guikit::ElementLayout effLayout = explicitLayout.value_or(DefaultSlotLayout(s_state.slotPreset));
@@ -383,16 +394,16 @@ void RenderElementInspector(guikit::Context& ui, DemoContext& ctx) {
     }
 
     const bool hasControl = (s_state.slotPreset != ElementSlotPreset::Standalone);
-    if (auto slotStyleAcc = ui.Size(guikit::UiSize::Sm).Accordion({
+    if (auto slotStyleAcc = ui.Accordion({
         .label = "CONTROL STYLE",
         .defaultOpen = false,
+        .size = guikit::UiSize::Sm,
         .disabled = !hasControl
     })) {
         if (auto el = ui.Element({.label = "Size", .disabled = !hasControl})) {
             if (ui.StepSlider(s_state.slotSize, {
                 .showTicks = true,
                 .showLabels = true,
-                .includeNone = true,
                 .disabled = !hasControl
             }).changed) {
                 ui.InvalidateAll();
@@ -453,8 +464,8 @@ void RenderElementStage(guikit::Context& ui, DemoContext&) {
                         item.layout
                     );
                     if (s_state.slotPreset == ElementSlotPreset::Standalone) {
-                        ui.Size(s_state.elemSize).Element(opts);
-                    } else if (auto el = ui.Size(s_state.elemSize).Element(opts)) {
+                        ui.Element(opts);
+                    } else if (auto el = ui.Element(opts)) {
                         RenderSlotControl(ui, s_state.slotPreset, i);
                     }
                 }
@@ -469,8 +480,8 @@ void RenderElementStage(guikit::Context& ui, DemoContext&) {
             ResolveExplicitLayout()
         );
         if (s_state.slotPreset == ElementSlotPreset::Standalone) {
-            ui.Size(s_state.elemSize).Element(opts);
-        } else if (auto el = ui.Size(s_state.elemSize).Element(opts)) {
+            ui.Element(opts);
+        } else if (auto el = ui.Element(opts)) {
             RenderSlotControl(ui, s_state.slotPreset, 99);
         }
     };
@@ -497,10 +508,9 @@ keel::String GenerateElementCode(const DemoContext&) {
             : keel::format("{{\"{}\", guikit::StateColor::{}()}}", s_state.label, VariantName(s_state.labelVariant)));
 
     keel::String elemOpen = keel::format(
-        "{}ui.{}Element({{\n"
+        "{}ui.Element({{\n"
         "    .label = {}",
         (s_state.slotPreset == ElementSlotPreset::Standalone) ? "" : "if (auto el = ",
-        FormatUiSizePrefix(s_state.elemSize),
         labelCode
     );
 
@@ -534,6 +544,9 @@ keel::String GenerateElementCode(const DemoContext&) {
     }
     if (const guikit::AxisSize elemW = ActiveElementWidth(); !elemW.IsAuto()) {
         keel::format_into(elemOpen, ",\n    .width = {}", DemoContext::FormatAxisSizeCode(elemW));
+    }
+    if (s_state.elemSize != guikit::UiSize::None && s_state.elemSize != guikit::UiSize::Md) {
+        keel::format_into(elemOpen, ",\n    .size = guikit::UiSize::{}", SizeName(s_state.elemSize));
     }
     if (s_state.disabled) {
         elemOpen.append(",\n    .disabled = true");

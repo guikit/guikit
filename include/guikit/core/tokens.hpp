@@ -1037,13 +1037,6 @@ struct HeadingMetrics {
     float lineGap;
 };
 
-/// Density scale for component metrics and touch targets.
-enum class Density : keel::u8 {
-    Standard,  ///< Standard desktop productivity scale
-    Compact,   ///< High-density engineering data / dense tabular workflows
-    Touch      ///< Touch-friendly enlarged targets and generous spacing
-};
-
 /// Universal color theme modes.
 enum class ThemeMode : keel::u8 {
     Dark,

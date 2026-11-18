@@ -318,14 +318,13 @@ ToolbarScope Toolbar::Open(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = ctx.GetCurrentSize();
-    const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    ZoneScope zone = ctx.Zone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
-    const float activeScale = ctx.GetCurrentScale();
-
-    const UiTheme& theme = ctx.GetTheme();
+    Node* node = ctx.CreateNode(NodeType::Toolbar, id, opts.zone, opts.disabled);
+    const UiTheme& theme = node->GetTheme(ctx.GetTheme());
+    const float density = node->GetDensity();
+    const UiSize activeSize = opts.size;
+    const bool effectiveDisabled = node->disabled;
     const ComponentMetrics& m = theme.GetMetrics(activeSize);
-    const float barExtent = m.defaultHeight + 8.0f * activeScale;
+    const float barExtent = m.defaultHeight + 8.0f;
     const bool isVertical = (opts.orientation == Orientation::Vertical);
 
     Response res{};
@@ -333,16 +332,13 @@ ToolbarScope Toolbar::Open(
     res.rect = ctx.GetPrevUnclippedBounds(id);
     res.ctx = &ctx;
 
-    Node* node = ctx.CreateNode(NodeType::Toolbar, id);
-    node->debugBoundsOverride = opts.debugBounds;
-    node->inspectModeOverride = opts.inspectMode;
     node->direction = isVertical
         ? FlexDirection::Column
         : (opts.overflow == ToolbarOverflow::Wrap ? FlexDirection::Wrap : FlexDirection::Row);
     node->align = Alignment::Center;
-    const float defaultGap = keel::max(4.0f * activeScale, std::round(theme.GetGap(activeSize) * 0.5f));
-    const float crossPad = 4.0f * activeScale;
-    node->gap = opts.gap.has_value() ? theme.ResolveGap(opts.gap, activeSize) : defaultGap;
+    const float defaultGap = keel::max(4.0f, std::round(theme.GetGap(activeSize) * 0.5f)) * density;
+    const float crossPad = 4.0f * density;
+    node->gap = opts.gap.has_value() ? theme.ResolveGap(opts.gap, activeSize, density) : defaultGap;
     node->runGap = node->gap;
     node->clipChildren = true;
 
@@ -350,16 +346,16 @@ ToolbarScope Toolbar::Open(
     if (opts.padding.has_value()) {
         if (opts.padding->IsToken()) {
             const UiSize t = opts.padding->GetToken();
-            if (t == UiSize::None) {
+            if (t.IsNone()) {
                 toolbarPadding = Padding{};
             } else {
-                const float g = keel::max(4.0f * activeScale, std::round(theme.GetGap(t) * 0.5f));
+                const float g = keel::max(4.0f, std::round(theme.GetGap(t) * 0.5f)) * density;
                 toolbarPadding = isVertical
                     ? Padding::Symmetric(crossPad, g)
                     : Padding::Symmetric(g, crossPad);
             }
         } else {
-            toolbarPadding = theme.ResolvePadding(opts.padding);
+            toolbarPadding = theme.ResolvePadding(opts.padding, UiSize::None, density);
         }
     } else {
         toolbarPadding = isVertical
@@ -415,7 +411,7 @@ ToolbarScope Toolbar::Open(
     node->explicitRadius = (opts.border.radius.has_value() || opts.style != ToolbarStyle::Surface) ? 1 : 0;
     node->borderColor = theme.ResolveColor(opts.border.color, false, false, effectiveDisabled, pal.border);
     if (opts.border.width > 0.0f) {
-        node->borderWidth = theme.Scale(opts.border.width);
+        node->borderWidth = opts.border.width;
     } else if (opts.border.color.HasAny() || opts.style == ToolbarStyle::Header || opts.style == ToolbarStyle::Floating) {
         node->borderWidth = theme.shell.panelBorderWidth;
     } else {
@@ -423,18 +419,17 @@ ToolbarScope Toolbar::Open(
     }
 
     if (opts.border.radius.has_value()) {
-        node->cornerRadius = theme.Scale(*opts.border.radius);
+        node->cornerRadius = *opts.border.radius;
     } else if (opts.style == ToolbarStyle::Header) {
         node->cornerRadius = 0.0f;
     } else if (opts.style == ToolbarStyle::Floating) {
-        node->cornerRadius = theme.ResolveRadius(keel::kNullOpt, activeSize) + 2.0f * activeScale;
+        node->cornerRadius = theme.ResolveRadius(keel::kNullOpt, activeSize) + 2.0f;
     } else {
         node->cornerRadius = theme.ResolveRadius(keel::kNullOpt, activeSize);
     }
 
     const auto* tbCar = node->As<CarouselData>();
     node->uiSize = activeSize;
-    node->disabled = effectiveDisabled;
     node->visualHash = detail::HashArgs(
         static_cast<keel::u8>(opts.style),
         static_cast<keel::u8>(opts.orientation),
@@ -449,7 +444,7 @@ ToolbarScope Toolbar::Open(
         tbCar ? tbCar->rightArrowPressed : false
     );
 
-    ctx.PushContainer(node, keel::move(zone));
+    ctx.FinishContainer(node);
 
     return ToolbarScope(&ctx, node, res, opts);
 }
@@ -461,7 +456,8 @@ Response Toolbar::ToolButton(
 ) {
     const Id id = ctx.MakeChildId(loc);
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const Node* parent = ctx.GetCurrentContainer();
+    const UiSize activeSize = opts.size.value_or((parent != nullptr) ? parent->uiSize : UiSize::Md);
 
     ctx.RegisterFocusable(id, effectiveDisabled);
 
@@ -550,11 +546,10 @@ Response Toolbar::ToolButton(
     node->hovered = res.hovered;
     node->pressed = res.pressed;
     node->focused = ctx.IsFocused(id);
-    const UiTheme& theme = ctx.GetTheme();
     node->widthMode = opts.width.ResolveMode(SizeMode::Fit);
-    node->fixedWidth = opts.width.IsFixed() ? theme.Scale(opts.width.Dp()) : 0.0f;
+    node->fixedWidth = opts.width.IsFixed() ? opts.width.Dp() : 0.0f;
     if (opts.minWidth.has_value() && *opts.minWidth > 0.0f) {
-        node->minWidth = theme.Scale(*opts.minWidth);
+        node->minWidth = *opts.minWidth;
     }
     node->heightMode = SizeMode::Fit;
 
@@ -572,9 +567,9 @@ SplitButtonResponse Toolbar::SplitButton(
 ) {
     const Id id = ctx.MakeChildId(loc);
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    const UiSize activeSize = ctx.GetCurrentSize();
-    const UiTheme& theme = ctx.GetTheme();
-    const float chevW = std::round(theme.Scale(20.0f));
+    const Node* parent = ctx.GetCurrentContainer();
+    const UiSize activeSize = opts.size.value_or((parent != nullptr) ? parent->uiSize : UiSize::Md);
+    const float chevW = 20.0f;
 
     const Rect prevUnclipped = ctx.GetPrevUnclippedBounds(id);
     const Rect prevClipped = ctx.GetPrevFrameBounds(id);
@@ -644,8 +639,9 @@ SplitButtonResponse Toolbar::SplitButton(
 
     menuOpts.trigger = ContextMenuTrigger::LeftClick;
     menuOpts.disabled = effectiveDisabled;
+    menuOpts.size = activeSize;
     if (!menuOpts.minWidth.has_value()) {
-        menuOpts.minWidth = keel::max(160.0f, prevRect.w / keel::max(0.1f, theme.scale));
+        menuOpts.minWidth = keel::max(160.0f, prevRect.w);
     }
     const keel::Optional<Vec2> anchorPos = (prevRect.w > 0.0f && prevRect.h > 0.0f)
         ? keel::Optional<Vec2>(Vec2{prevRect.x, prevRect.Bottom() + 4.0f})
@@ -708,13 +704,13 @@ SplitButtonResponse Toolbar::SplitButton(
     node->focused = ctx.IsFocused(id);
     if (opts.width.IsFixed()) {
         node->widthMode = SizeMode::Fixed;
-        node->fixedWidth = theme.Scale(opts.width.Dp()) + chevW;
+        node->fixedWidth = opts.width.Dp() + chevW;
     } else {
         node->widthMode = opts.width.ResolveMode(SizeMode::Fit);
         node->fixedWidth = 0.0f;
     }
     if (opts.minWidth.has_value() && *opts.minWidth > 0.0f) {
-        node->minWidth = theme.Scale(*opts.minWidth) + chevW;
+        node->minWidth = *opts.minWidth + chevW;
     }
     node->heightMode = SizeMode::Fit;
 

@@ -64,8 +64,9 @@ void RenderDatePickerStage(guikit::Context& ui, DemoContext& ctx) {
         opts.height = ctx.ResolveCtrlHeight();
         opts.background = ctx.GetControlBackground(navCat);
         opts.border = ctx.GetCtrlBorder();
+        opts.size = ctx.controlsSize;
         opts.disabled = ctx.elemDisabled;
-        (void)ui.Size(ctx.controlsSize).DatePicker(s_state.value, opts);
+        (void)ui.DatePicker(s_state.value, opts);
     });
 }
 
@@ -73,7 +74,7 @@ keel::String GenerateDatePickerCode(const DemoContext& ctx) {
     const NavCategory navCat = NavCategory::ElemDatePicker;
     const guikit::DatePickerMode mode = ActiveMode();
     const keel::String ctrl = keel::format(
-        "ui.{}DatePicker(dateTimeValue, {{\n"
+        "ui.DatePicker(dateTimeValue, {{\n"
         "    .mode = guikit::DatePickerMode::{},\n"
         "    .showSeconds = {},\n"
         "    .showTodayButton = {},\n"
@@ -82,10 +83,9 @@ keel::String GenerateDatePickerCode(const DemoContext& ctx) {
         "    .width = {},\n"
         "    .height = {},\n"
         "    .background = {},\n"
-        "    .border = {},\n"
+        "    .border = {}{},\n"
         "    .disabled = {}\n"
         "}});",
-        FormatUiSizePrefix(ctx.controlsSize),
         ModeEnumName(mode),
         s_state.showSeconds ? "true" : "false",
         s_state.showTodayButton ? "true" : "false",
@@ -95,6 +95,7 @@ keel::String GenerateDatePickerCode(const DemoContext& ctx) {
         ctx.FormatCtrlHeightCode(),
         ctx.FormatControlBackgroundCode(navCat),
         ctx.FormatCtrlBorderCode(),
+        FormatUiSizePrefix(ctx.controlsSize),
         ctx.elemDisabled ? "true" : "false"
     );
     return ctx.WrapInElementCode(ctrl);

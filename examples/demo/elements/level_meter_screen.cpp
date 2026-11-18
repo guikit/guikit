@@ -184,17 +184,16 @@ void RenderLevelMeterStage(guikit::Context& ui, DemoContext& ctx) {
     opts.height = (orient == guikit::Orientation::Vertical && s_state.compactVertical && ctx.ResolveCtrlHeight().IsAuto())
         ? guikit::AxisSize(guikit::SizeMode::Fit)
         : ctx.ResolveCtrlHeight();
+    opts.size = ctx.controlsSize;
     opts.tooltip = "Click meter to reset Peak-Hold & Clip latch";
     opts.disabled = ctx.elemDisabled;
 
     ctx.RunElementStage(ui, [&]() {
-        if (auto sz = ui.Size(ctx.controlsSize)) {
-            if (s_state.channelModeIdx == 1) {
-                const keel::StaticArray<float, 2> stereoVals = {chLeft, chRight};
-                guikit::LevelMeter::Run(ui, stereoVals, -60.0f, 0.0f, opts);
-            } else {
-                guikit::LevelMeter::Run(ui, static_cast<double>(chLeft), -60.0, 0.0, opts);
-            }
+        if (s_state.channelModeIdx == 1) {
+            const keel::StaticArray<float, 2> stereoVals = {chLeft, chRight};
+            guikit::LevelMeter::Run(ui, stereoVals, -60.0f, 0.0f, opts);
+        } else {
+            guikit::LevelMeter::Run(ui, static_cast<double>(chLeft), -60.0, 0.0, opts);
         }
     });
 }
@@ -210,7 +209,7 @@ keel::String GenerateLevelMeterCode(const DemoContext& ctx) {
 
     if (s_state.channelModeIdx == 1) {
         const keel::String ctrl = keel::format(
-            "ui.{}LevelMeter(levelsDb, -60.0f, 0.0f, {{\n"
+            "ui.LevelMeter(levelsDb, -60.0f, 0.0f, {{\n"
             "    .orientation = guikit::Orientation::{},\n"
             "    .segments = {}u,\n"
             "    .multiZoneColor = {},\n"
@@ -223,10 +222,9 @@ keel::String GenerateLevelMeterCode(const DemoContext& ctx) {
             "    .barThickness = {:.1f}f,\n"
             "    .color = {},\n"
             "    .width = {},\n"
-            "    .height = {},\n"
+            "    .height = {}{},\n"
             "    .disabled = {}\n"
             "}});",
-            FormatUiSizePrefix(ctx.controlsSize),
             orientName,
             segVal,
             s_state.multiZoneColor ? "true" : "false",
@@ -238,6 +236,7 @@ keel::String GenerateLevelMeterCode(const DemoContext& ctx) {
             ctx.FormatControlColorCode(),
             ctx.FormatCtrlWidthCode(),
             heightCode,
+            FormatUiSizePrefix(ctx.controlsSize),
             ctx.elemDisabled ? "true" : "false"
         );
         keel::String out = keel::format(
@@ -251,7 +250,7 @@ keel::String GenerateLevelMeterCode(const DemoContext& ctx) {
     }
 
     const keel::String ctrl = keel::format(
-        "ui.{}LevelMeter(signalDb, -60.0, 0.0, {{\n"
+        "ui.LevelMeter(signalDb, -60.0, 0.0, {{\n"
         "    .orientation = guikit::Orientation::{},\n"
         "    .segments = {}u,\n"
         "    .multiZoneColor = {},\n"
@@ -263,10 +262,9 @@ keel::String GenerateLevelMeterCode(const DemoContext& ctx) {
         "    .barThickness = {:.1f}f,\n"
         "    .color = {},\n"
         "    .width = {},\n"
-        "    .height = {},\n"
+        "    .height = {}{},\n"
         "    .disabled = {}\n"
         "}});",
-        FormatUiSizePrefix(ctx.controlsSize),
         orientName,
         segVal,
         s_state.multiZoneColor ? "true" : "false",
@@ -278,6 +276,7 @@ keel::String GenerateLevelMeterCode(const DemoContext& ctx) {
         ctx.FormatControlColorCode(),
         ctx.FormatCtrlWidthCode(),
         heightCode,
+        FormatUiSizePrefix(ctx.controlsSize),
         ctx.elemDisabled ? "true" : "false"
     );
     return ctx.WrapInElementCode(ctrl);

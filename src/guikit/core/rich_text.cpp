@@ -557,7 +557,7 @@ InlineFlowLayout BuildInlineFlowLayout(
     InlineFlowLayout res{};
     if (spans.empty()) return res;
 
-    const float s = theme.Scale(1.0f) * zoom;
+    const float s = zoom;
     const float rawLineH = canvas ? canvas->GetLineHeight(baseFontSize) : theme.GetLineHeight(baseFontSize);
     const float lineH = rawLineH * keel::clamp(lineHeightScale, 0.8f, 2.5f);
     const float maxW = (maxWidth > 0.0f) ? maxWidth : 10000.0f;
@@ -923,7 +923,6 @@ keel::Arc<const InlineFlowLayout> GetOrBuildRichTextFlow(
     const keel::i32 qCodeFs = keel::round_i32(codeBaseFontSize * 10.0f);
     const keel::i32 qLhScale = keel::round_i32(lineHeightScale * 100.0f);
     const keel::i32 qZoom = keel::round_i32(zoom * 100.0f);
-    const keel::i32 qThemeScale = keel::round_i32(theme.scale * 100.0f);
 
     const keel::u64 key = detail::HashArgs(
         richMarkup,
@@ -933,7 +932,6 @@ keel::Arc<const InlineFlowLayout> GetOrBuildRichTextFlow(
         qCodeFs,
         qLhScale,
         qZoom,
-        qThemeScale,
         static_cast<keel::u8>(overrideStyle),
         static_cast<keel::u8>(horizontalAlign),
         static_cast<keel::u8>(theme.mode),

@@ -55,14 +55,15 @@ void RenderColorPickerStage(guikit::Context& ui, DemoContext& ctx) {
         opts.showAlpha = s_state.showAlpha;
         opts.showSwatches = s_state.showSwatches;
         opts.inlinePanel = s_state.inlinePanel;
+        opts.size = ctx.controlsSize;
         opts.disabled = ctx.elemDisabled;
-        ui.Size(ctx.controlsSize).ColorPicker(s_state.color, opts);
+        ui.ColorPicker(s_state.color, opts);
     });
 }
 
 keel::String GenerateColorPickerCode(const DemoContext& ctx) {
     const keel::String ctrl = keel::format(
-        "ui.{}ColorPicker(traceColor, {{\n"
+        "ui.ColorPicker(traceColor, {{\n"
         "    .width = {},\n"
         "    .height = {},\n"
         "    .background = {},\n"
@@ -70,10 +71,9 @@ keel::String GenerateColorPickerCode(const DemoContext& ctx) {
         "    .showHex = {},\n"
         "    .showAlpha = {},\n"
         "    .showSwatches = {},\n"
-        "    .inlinePanel = {},\n"
+        "    .inlinePanel = {}{},\n"
         "    .disabled = {}\n"
         "}});",
-        FormatUiSizePrefix(ctx.controlsSize),
         ctx.FormatCtrlWidthCode(),
         ctx.FormatCtrlHeightCode(),
         ctx.FormatControlBackgroundCode(NavCategory::ElemColorPicker),
@@ -82,6 +82,7 @@ keel::String GenerateColorPickerCode(const DemoContext& ctx) {
         s_state.showAlpha ? "true" : "false",
         s_state.showSwatches ? "true" : "false",
         s_state.inlinePanel ? "true" : "false",
+        FormatUiSizePrefix(ctx.controlsSize),
         ctx.elemDisabled ? "true" : "false"
     );
     return ctx.WrapInElementCode(ctrl);

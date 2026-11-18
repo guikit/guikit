@@ -89,33 +89,34 @@ void RenderSelectStage(guikit::Context& ui, DemoContext& ctx) {
         opts.background = ctx.GetControlBackground(NavCategory::ElemSelect);
         opts.border = ctx.GetCtrlBorder();
         opts.clearable = s_state.clearable;
+        opts.size = ctx.controlsSize;
         opts.disabled = ctx.elemDisabled;
 
         const auto richList = BuildRichSelectItems();
         if (s_state.mode == 0) {
             if (s_state.richItems) {
-                ui.Size(ctx.controlsSize).Select(s_state.idx, richList, opts);
+                ui.Select(s_state.idx, richList, opts);
             } else {
-                ui.Size(ctx.controlsSize).Select(s_state.idx, kPlainItems, opts);
+                ui.Select(s_state.idx, kPlainItems, opts);
             }
         } else if (s_state.mode == 1) {
             if (s_state.richItems) {
-                ui.Size(ctx.controlsSize).ComboBox(s_state.idx, richList, opts);
+                ui.ComboBox(s_state.idx, richList, opts);
             } else {
-                ui.Size(ctx.controlsSize).ComboBox(s_state.idx, kPlainItems, opts);
+                ui.ComboBox(s_state.idx, kPlainItems, opts);
             }
         } else if (s_state.mode == 2) {
             if (s_state.richItems) {
-                ui.Size(ctx.controlsSize).Autocomplete(s_state.customText, richList, opts);
+                ui.Autocomplete(s_state.customText, richList, opts);
             } else {
-                ui.Size(ctx.controlsSize).Autocomplete(s_state.customText, kPlainItems, opts);
+                ui.Autocomplete(s_state.customText, kPlainItems, opts);
             }
         } else {
             opts.searchable = true;
             if (s_state.richItems) {
-                ui.Size(ctx.controlsSize).MultiSelect(s_state.multiSelected, richList, opts);
+                ui.MultiSelect(s_state.multiSelected, richList, opts);
             } else {
-                ui.Size(ctx.controlsSize).MultiSelect(s_state.multiSelected, kPlainItems, opts);
+                ui.MultiSelect(s_state.multiSelected, kPlainItems, opts);
             }
         }
     });
@@ -130,7 +131,7 @@ keel::String GenerateSelectCode(const DemoContext& ctx) {
     const guikit::Align ctrlAlign = ctx.GetCtrlAlign(NavCategory::ElemSelect);
 
     const keel::String ctrl = keel::format(
-        "ui.{}{}, itemsList, {{\n"
+        "ui.{}, itemsList, {{\n"
         "    .placeholder = \"{}\",\n"
         "    .prefix = {},\n"
         "    .maxVisibleItems = {},\n"
@@ -139,10 +140,9 @@ keel::String GenerateSelectCode(const DemoContext& ctx) {
         "    .height = {},\n"
         "    .background = {},\n"
         "    .border = {},\n"
-        "    .clearable = {},\n"
+        "    .clearable = {}{},\n"
         "    .disabled = {}\n"
         "}});",
-        FormatUiSizePrefix(ctx.controlsSize),
         widgetCall,
         s_state.placeholder,
         s_state.hasPrefix ? "guikit::Icon::Search()" : "{}",
@@ -153,6 +153,7 @@ keel::String GenerateSelectCode(const DemoContext& ctx) {
         ctx.FormatControlBackgroundCode(NavCategory::ElemSelect),
         ctx.FormatCtrlBorderCode(),
         s_state.clearable ? "true" : "false",
+        FormatUiSizePrefix(ctx.controlsSize),
         ctx.elemDisabled ? "true" : "false"
     );
     return ctx.WrapInElementCode(ctrl);

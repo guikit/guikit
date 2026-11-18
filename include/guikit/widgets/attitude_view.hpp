@@ -112,12 +112,9 @@ struct AttitudeViewOptions {
     AxisSize height{SizeMode::Stretch};   ///< Vertical sizing policy (`Stretch` default, `Fit`, or `Fixed(dp)`)
     StateColor background{};
     Border border{};
+    UiSize size{UiSize::Md};
     bool disabled{false};
     UiText tooltip{};
-    const UiTheme* theme{nullptr};
-    keel::Optional<float> scale{keel::kNullOpt};
-    keel::Optional<bool> debugBounds{keel::kNullOpt};
-    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 /// Rich telemetry and cursor interaction state returned by `ui.AttitudeView(...)`.

@@ -14,21 +14,20 @@ ContainerScope Carousel::Open(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = ctx.GetCurrentSize();
-    const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    ZoneScope zone = ctx.Zone({.theme = opts.theme, .scale = opts.scale, .disabled = opts.disabled});
-
-    Node* node = ctx.CreateNode(NodeType::Carousel, id);
+    Node* node = ctx.CreateNode(NodeType::Carousel, id, opts.zone, opts.disabled);
+    const UiTheme& theme = node->GetTheme(ctx.GetTheme());
+    const float density = node->GetDensity();
+    const UiSize activeSize = opts.size;
+    const bool activeDisabled = node->disabled;
     node->direction = FlexDirection::Row;
     node->align = opts.align;
     node->justify = opts.justify;
     node->clipChildren = true;
     node->widthMode = SizeMode::Stretch;
     node->heightMode = SizeMode::Fit;
-    node->gap = ctx.GetTheme().ResolveGap(opts.gap, activeSize);
-    node->padding = ctx.GetTheme().ResolvePadding(opts.padding);
+    node->gap = theme.ResolveGap(opts.gap, activeSize, density);
+    node->padding = theme.ResolvePadding(opts.padding, UiSize::None, density);
     node->uiSize = activeSize;
-    node->disabled = activeDisabled;
 
     node->measureFn = &Carousel::Measure;
     node->arrangeFn = &Carousel::Arrange;
@@ -46,7 +45,7 @@ ContainerScope Carousel::Open(
         cData->rightArrowPressed
     );
 
-    ctx.PushContainer(node, keel::move(zone));
+    ctx.FinishContainer(node);
     return ContainerScope(&ctx, node);
 }
 
@@ -583,20 +582,21 @@ void Carousel::ScrollToChild(Context& ctx, Node* carouselNode, const Node* targe
 void Carousel::CollectBounds(
     const Node* node,
     keel::HashMap<Id, Rect>& outBounds,
-    Rect parentClip
+    Rect parentClip,
+    const Transform2D& space
 ) {
     if (!node || (node->type != NodeType::Carousel && node->type != NodeType::Toolbar)) return;
     const auto* cData = node->As<CarouselData>();
     if (!cData) return;
 
     if (cData->showLeftArrow && cData->leftArrowRect.w > 0.0f) {
-        const Rect clippedLeft = cData->leftArrowRect.Intersect(parentClip);
+        const Rect clippedLeft = space.Apply(cData->leftArrowRect).Intersect(parentClip);
         if (clippedLeft.w > 0.0f && clippedLeft.h > 0.0f) {
             outBounds.put(GetCarouselLeftArrowId(node->id), clippedLeft);
         }
     }
     if (cData->showRightArrow && cData->rightArrowRect.w > 0.0f) {
-        const Rect clippedRight = cData->rightArrowRect.Intersect(parentClip);
+        const Rect clippedRight = space.Apply(cData->rightArrowRect).Intersect(parentClip);
         if (clippedRight.w > 0.0f && clippedRight.h > 0.0f) {
             outBounds.put(GetCarouselRightArrowId(node->id), clippedRight);
         }

@@ -359,9 +359,8 @@ Response RunTagInputImpl(
     PushTokenFn&& pushToken
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const ZoneScope zoneScope = ctx.Zone({.theme = opts.theme, .scale = opts.scale});
 
-    const UiSize activeSize = ctx.GetCurrentSize();
+    const UiSize activeSize = opts.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
 
     ctx.RegisterFocusable(id, effectiveDisabled || opts.readOnly);
@@ -611,8 +610,6 @@ Response RunTagInputImpl(
 
     const ControlSpec ctrl = EffectiveTagInputControl(optsCopy, activeSize, theme);
     Node* node = ctx.CreateNode(NodeType::TagInput, id);
-    node->debugBoundsOverride = optsCopy.debugBounds;
-    node->inspectModeOverride = optsCopy.inspectMode;
 
     auto* data = ctx.AllocPayload<TagInputNodeData>();
     data->opts = optsCopy;
@@ -670,7 +667,7 @@ Response RunTagInputImpl(
         const ControlSpec spec = EffectiveTagInputControl(d->opts, n->uiSize, t);
         float boxW = m.defaultWidth;
         if (spec.width.IsFixed()) {
-            boxW = t.Scale(spec.width.Dp());
+            boxW = spec.width.Dp();
         } else if (d->opts.width.ResolveMode(SizeMode::Stretch) != SizeMode::Stretch) {
             const float chipFont = t.ResolveFontSize(TextRole::LabelSmall, n->uiSize);
             const float chipIconSz = keel::max(10.0f, m.iconSize - 2.0f);
@@ -699,7 +696,7 @@ Response RunTagInputImpl(
             boxW = keel::max(m.defaultWidth, contentW);
         }
         if (spec.minWidth.has_value()) {
-            boxW = keel::max(t.Scale(*spec.minWidth), boxW);
+            boxW = keel::max(*spec.minWidth, boxW);
         } else {
             boxW = keel::max(m.minWidth, boxW);
         }
@@ -786,7 +783,7 @@ Vec2 TagInput::Measure(
 
     float boxW = m.defaultWidth;
     if (ctrl.width.IsFixed()) {
-        boxW = theme.Scale(ctrl.width.Dp());
+        boxW = ctrl.width.Dp();
     } else if (opts.width.ResolveMode(SizeMode::Stretch) != SizeMode::Stretch) {
         const float chipFont = theme.ResolveFontSize(TextRole::LabelSmall, size);
         const float chipIconSz = keel::max(10.0f, m.iconSize - 2.0f);
@@ -817,7 +814,7 @@ Vec2 TagInput::Measure(
     }
 
     if (ctrl.minWidth.has_value()) {
-        boxW = keel::max(theme.Scale(*ctrl.minWidth), boxW);
+        boxW = keel::max(*ctrl.minWidth, boxW);
     } else {
         boxW = keel::max(m.minWidth, boxW);
     }
@@ -846,7 +843,7 @@ void TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
         ? ((hovered && !disabled) ? pal.surface : pal.inputBackground)
         : Color::Transparent();
     Color boxBorder;
-    float strokeW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : m.strokeWidth;
+    float strokeW = (opts.border.width > 0.0f) ? opts.border.width : m.strokeWidth;
 
     if (focused && !disabled) {
         boxBorder = opts.color.HasAny()
@@ -881,7 +878,7 @@ void TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
         boxBorder = theme.ResolveColor(opts.border.color, hovered, focused, disabled, boxBorder);
     }
 
-    const float radius = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : m.cornerRadius;
+    const float radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
     canvas.DrawRoundRect(boxRect, radius, boxBg, boxBorder, strokeW);
 
     if (opts.prefix.HasContentOrReserve()) {

@@ -16,10 +16,9 @@ class ICanvas;
 struct CheckboxOptions {
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
     StateColor color{};                            ///< Per-state accent fill color when checked
+    UiSize size{UiSize::Md};                       ///< Component size scale
     bool disabled{false};                          ///< Interaction suppression
     bool indeterminate{false};                     ///< Tri-state / partial check (horizontal dash)
-    const UiTheme* theme{nullptr};                 ///< Optional scoped theme override
-    keel::Optional<float> scale{keel::kNullOpt};      ///< Optional scoped scale factor override
 };
 static_assert(sizeof(CheckboxOptions) <= 384, "CheckboxOptions must stay compact");
 

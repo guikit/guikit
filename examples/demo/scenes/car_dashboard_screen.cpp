@@ -406,11 +406,12 @@ void RenderCarDashboardInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         ui.Switch(s_car.ttTpmsWarning);
     }
 
-    if (ui.Size(guikit::UiSize::Sm).Button({
+    if (ui.Button({
         .text = "Reset Peak G",
         .icon = guikit::Icon::Refresh(),
         .color = guikit::StateColor::Secondary(),
-        .width = guikit::SizeMode::Stretch
+        .width = guikit::SizeMode::Stretch,
+        .size = guikit::UiSize::Sm
     })) {
         s_car.peakG = 0.0f;
     }

@@ -31,12 +31,9 @@ struct LevelMeterOptions {
     StateColor color{};                               ///< Base zone color override (defaults to Success when multiZoneColor is true, or Primary when false)
     AxisSize width{};                                 ///< Horizontal sizing policy (`Auto`: `Stretch` when Horizontal, `Fit` when Vertical; or `Fit`/`Stretch`/`Fixed(dp)`)
     AxisSize height{};                                ///< Vertical sizing policy (`Auto`: `Fit` when Horizontal, `Stretch` when Vertical; or `Fit`/`Stretch`/`Fixed(dp)`)
+    UiSize size{UiSize::Md};                          ///< Component size scale
     UiText tooltip{};
     bool disabled{false};
-    const UiTheme* theme{nullptr};
-    keel::Optional<float> scale{keel::kNullOpt};
-    keel::Optional<bool> debugBounds{keel::kNullOpt};
-    keel::Optional<bool> inspectMode{keel::kNullOpt};
 };
 
 class LevelMeter {

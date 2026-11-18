@@ -62,11 +62,6 @@ keel::StringRef CardBorderCodeName() noexcept {
 } // namespace
 
 void RenderCardInspector(guikit::Context& ui, DemoContext& ctx) {
-    if (auto el = ui.Element({.label = "Card Size"})) {
-        if (ui.StepSlider(ctx.controlsSize, {.showTicks = true, .showLabels = true, .includeNone = true}).changed) {
-            ui.InvalidateAll();
-        }
-    }
     if (auto el = ui.Element({.label = "Corner Radius"})) {
         if (ui.Slider(ctx.cardRadius, 0.0f, 24.0f, {.valueFormat = "%.0f px"}).changed) {
             ui.InvalidateAll();
@@ -121,7 +116,7 @@ void RenderCardInspector(guikit::Context& ui, DemoContext& ctx) {
 }
 
 void RenderCardStage(guikit::Context& ui, DemoContext& ctx) {
-    if (auto card = ui.Size(ctx.controlsSize).Card({
+    if (auto card = ui.Card({
         .minWidth = s_card.fullWidth ? 0.0f : s_card.minWidth,
         .width = s_card.fullWidth ? guikit::SizeMode::Stretch : guikit::SizeMode::Fit,
         .gap = ctx.cardGap,
@@ -156,7 +151,7 @@ void RenderCardStage(guikit::Context& ui, DemoContext& ctx) {
 
 keel::String GenerateCardCode(const DemoContext& ctx) {
     return keel::format(
-        "if (auto card = ui.{}Card({{\n"
+        "if (auto card = ui.Card({{\n"
         "    .minWidth = {:.1f}f,\n"
         "    .width = guikit::SizeMode::{},\n"
         "    .gap = {:.1f}f,\n"
@@ -172,7 +167,6 @@ keel::String GenerateCardCode(const DemoContext& ctx) {
         "    ui.Text(\"First content row inside the card container.\");\n"
         "    ui.Text(\"Second content row spaced by the card's gap property.\");\n"
         "}}",
-        FormatUiSizePrefix(ctx.controlsSize),
         s_card.fullWidth ? 0.0f : s_card.minWidth,
         s_card.fullWidth ? "Stretch" : "Fit",
         ctx.cardGap,
