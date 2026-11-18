@@ -409,9 +409,8 @@ void RenderCarDashboardInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     if (ui.Button({
         .text = "Reset Peak G",
         .icon = guikit::Icon::Refresh(),
-        .color = guikit::StateColor::Secondary(),
-        .width = guikit::SizeMode::Stretch,
-        .size = guikit::UiSize::Sm
+        .layout = {.width = guikit::SizeMode::Stretch},
+        .style = {.size = guikit::UiSize::Sm, .color = guikit::StateColor::Secondary()}
     })) {
         s_car.peakG = 0.0f;
     }

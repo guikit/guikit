@@ -251,25 +251,20 @@ private:
 };
 
 struct TagInputOptions {
-    UiText placeholder{"Add tag..."};              ///< Placeholder text shown when empty or in trailing inline input
-    UiAffix prefix{};                              ///< Optional leading icon/text inside field on left
-    UiVariant tagVariant{UiVariant::Primary};      ///< Default visual variant for tag pills
-    keel::u32 maxTags{0};                           ///< Maximum allowed tags (0 = unlimited)
-    bool allowDuplicates{false};                   ///< Whether duplicate tag strings are permitted
-    bool splitOnComma{true};                       ///< Commit tag(s) when typing ',' or ';'
-    bool splitOnSpace{false};                      ///< Commit tag when typing space ' '
-    bool clearable{true};                          ///< Show trailing '×' button to clear all tags
-    bool showCounter{false};                       ///< Show tag count badge on the right (e.g. "3" or "3/8")
-    bool readOnly{false};                          ///< Non-editable display mode (hides inline input and '×' buttons)
-    StateColor color{};                            ///< Optional accent color override for active focus / chips
-    AxisSize width{};                              ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit` in `Toolbar`, or `Fixed(dp)`)
-    AxisSize height{};                             ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
-    keel::Optional<float> minWidth{keel::kNullOpt};
-    StateColor background{StateColor::Surface()};
-    Border border{};
-    UiText tooltip{};
-    UiSize size{UiSize::Md};
-    bool disabled{false};
+    UiText placeholder{"Add tag..."};         ///< Placeholder text shown when empty or in trailing inline input
+    UiAffix prefix{};                         ///< Optional leading icon/text inside field on left
+    UiVariant tagVariant{UiVariant::Primary}; ///< Default visual variant for tag pills
+    keel::u32 maxTags{0};                     ///< Maximum allowed tags (0 = unlimited)
+    bool allowDuplicates{false};              ///< Whether duplicate tag strings are permitted
+    bool splitOnComma{true};                  ///< Commit tag(s) when typing ',' or ';'
+    bool splitOnSpace{false};                 ///< Commit tag when typing space ' '
+    bool clearable{true};                     ///< Show trailing '×' button to clear all tags
+    bool showCounter{false};                  ///< Show tag count badge on the right (e.g. "3" or "3/8")
+    bool readOnly{false};                     ///< Non-editable display mode (hides inline input and '×' buttons)
+    UiText tooltip{};                         ///< Optional floating tooltip text on hover
+    bool disabled{false};                     ///< Interaction suppression
+    ControlLayout layout{};                   ///< Sizing policy (`Stretch` width / `Fit` height default) and min/max constraints
+    SurfaceStyle style{};                     ///< Control size, active focus/chip accent color, background surface, and border
 };
 
 class TagInput {

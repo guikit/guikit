@@ -22,18 +22,16 @@ class ICanvas;
 /// above the track, a Leading/Bottom value and `textLeft` (min end) below it, a Thumb value right of the thumb.
 struct SliderOptions {
     Orientation orientation{Orientation::Horizontal}; ///< Horizontal (min at left) or Vertical (min at bottom); Both = Horizontal
-    UiText textLeft{};                             ///< Optional companion text inside control on the left of the track (below it when Vertical)
-    UiText textRight{};                            ///< Optional companion text inside control on the right of the track (above it when Vertical)
-    UiText tooltip{};                              ///< Optional floating tooltip text on hover
-    UiText valueFormat{};                          ///< Format string and style for value (e.g. "%.1f %%", {"%.1f dB", StateColor::Info()}, or static text; empty text = default numeric format)
-    keel::Optional<double> step{keel::kNullOpt};   ///< Step quantization (defaults to 1.0 for integers, continuous for float)
-    bool showValue{true};                          ///< Whether to display current formatted value text inside control
-    Placement valuePlacement{Placement::Trailing}; ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
-    StateColor color{};                            ///< Per-state accent fill color for active track and thumb
-    AxisSize width{};                              ///< Horizontal sizing policy (`Auto`: `Stretch` when Horizontal, `Fit` when Vertical; or `Fit`/`Stretch`/`Fixed(dp)`)
-    AxisSize height{};                             ///< Vertical sizing policy (`Auto`: `Fit` when Horizontal, `Stretch` when Vertical; or `Fit`/`Stretch`/`Fixed(dp)`)
-    UiSize size{UiSize::Md};                       ///< Component size scale
-    bool disabled{false};                          ///< Interaction suppression
+    UiText textLeft{};                                ///< Optional companion text inside control on the left of the track (below it when Vertical)
+    UiText textRight{};                               ///< Optional companion text inside control on the right of the track (above it when Vertical)
+    UiText valueFormat{};                             ///< Format string and style for value (e.g. "%.1f %%", {"%.1f dB", StateColor::Info()}, or static text; empty text = default numeric format)
+    keel::Optional<double> step{keel::kNullOpt};      ///< Step quantization (defaults to 1.0 for integers, continuous for float)
+    bool showValue{true};                             ///< Whether to display current formatted value text inside control
+    Placement valuePlacement{Placement::Trailing};    ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
+    UiText tooltip{};                                 ///< Optional floating tooltip text on hover
+    bool disabled{false};                             ///< Interaction suppression
+    ControlLayout layout{};                           ///< Sizing policy (`Stretch` main axis / `Fit` cross axis by default) and min/max constraints
+    ControlStyle style{};                             ///< Component size scale and accent color for active track and thumb
 };
 
 /// Clean configuration options for discrete N-position StepSlider widget.
@@ -42,21 +40,19 @@ struct SliderOptions {
 /// right of the ticks. Sizing and companion texts follow the vertical `SliderOptions` rules.
 struct StepSliderOptions {
     Orientation orientation{Orientation::Horizontal}; ///< Horizontal (first step at left) or Vertical (first step at bottom); Both = Horizontal
-    UiText textLeft{};                             ///< Optional companion text inside control on the left of the track (below it when Vertical)
-    UiText textRight{};                            ///< Optional companion text inside control on the right of the track (above it when Vertical)
-    UiText tooltip{};                              ///< Optional floating tooltip text on hover
-    keel::ArrayRef<keel::StringRef> stepLabels{};  ///< Optional text labels for each discrete step
-    bool showTicks{true};                          ///< Whether to render tick marks at each step
-    bool showLabels{true};                         ///< Whether to render stepLabels below ticks (right of them when Vertical)
-    bool showValue{false};                         ///< Whether to display currently selected label/value inside control
-    Placement valuePlacement{Placement::Trailing}; ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
-    UiText valueText{};                            ///< Optional custom display text/style for current value
-    bool includeNone{false};                       ///< For UiSize overload: if true, range includes UiSize::None (None..Xl)
-    StateColor color{};                            ///< Per-state accent fill color for active track and thumb
-    AxisSize width{};                              ///< Horizontal sizing policy (`Auto`: `Stretch` when Horizontal, `Fit` when Vertical; or `Fit`/`Stretch`/`Fixed(dp)`)
-    AxisSize height{};                             ///< Vertical sizing policy (`Auto`: `Fit` when Horizontal, `Stretch` when Vertical; or `Fit`/`Stretch`/`Fixed(dp)`)
-    UiSize size{UiSize::Md};                       ///< Component size scale
-    bool disabled{false};                          ///< Interaction suppression
+    UiText textLeft{};                                ///< Optional companion text inside control on the left of the track (below it when Vertical)
+    UiText textRight{};                               ///< Optional companion text inside control on the right of the track (above it when Vertical)
+    keel::ArrayRef<keel::StringRef> stepLabels{};     ///< Optional text labels for each discrete step
+    bool showTicks{true};                             ///< Whether to render tick marks at each step
+    bool showLabels{true};                            ///< Whether to render stepLabels below ticks (right of them when Vertical)
+    bool showValue{false};                            ///< Whether to display currently selected label/value inside control
+    Placement valuePlacement{Placement::Trailing};    ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
+    UiText valueText{};                               ///< Optional custom display text/style for current value
+    bool includeNone{false};                          ///< For UiSize overload: if true, range includes UiSize::None (None..Xl)
+    UiText tooltip{};                                 ///< Optional floating tooltip text on hover
+    bool disabled{false};                             ///< Interaction suppression
+    ControlLayout layout{};                           ///< Sizing policy (`Stretch` main axis / `Fit` cross axis by default) and min/max constraints
+    ControlStyle style{};                             ///< Component size scale and accent color for active track and thumb
 };
 
 /// Clean configuration options for two-thumb continuous/stepped RangeSlider widget.
@@ -65,42 +61,38 @@ struct StepSliderOptions {
 /// follow the vertical `SliderOptions` rules; a Thumb value sits right of the interval middle.
 struct RangeSliderOptions {
     Orientation orientation{Orientation::Horizontal}; ///< Horizontal (min at left) or Vertical (min at bottom); Both = Horizontal
-    UiText textLeft{};                             ///< Optional companion text inside control on the left of the track (below it when Vertical)
-    UiText textRight{};                            ///< Optional companion text inside control on the right of the track (above it when Vertical)
-    UiText tooltip{};                              ///< Optional floating tooltip text on hover
-    UiText valueFormat{};                          ///< Format string for range values (e.g. "%.0f .. %.0f Hz" or "%.1f %%")
-    keel::Optional<double> step{keel::kNullOpt};   ///< Step quantization (defaults to 1.0 for integers, continuous for float)
-    double minSpan{0.0};                           ///< Minimum separation between low and high values
-    bool showValue{true};                          ///< Whether to display current formatted range text inside control
-    Placement valuePlacement{Placement::Trailing}; ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
-    StateColor color{};                            ///< Per-state accent fill color for active interval and thumbs
-    AxisSize width{};                              ///< Horizontal sizing policy (`Auto`: `Stretch` when Horizontal, `Fit` when Vertical; or `Fit`/`Stretch`/`Fixed(dp)`)
-    AxisSize height{};                             ///< Vertical sizing policy (`Auto`: `Fit` when Horizontal, `Stretch` when Vertical; or `Fit`/`Stretch`/`Fixed(dp)`)
-    UiSize size{UiSize::Md};                       ///< Component size scale
-    bool disabled{false};                          ///< Interaction suppression
+    UiText textLeft{};                                ///< Optional companion text inside control on the left of the track (below it when Vertical)
+    UiText textRight{};                               ///< Optional companion text inside control on the right of the track (above it when Vertical)
+    UiText valueFormat{};                             ///< Format string for range values (e.g. "%.0f .. %.0f Hz" or "%.1f %%")
+    keel::Optional<double> step{keel::kNullOpt};      ///< Step quantization (defaults to 1.0 for integers, continuous for float)
+    double minSpan{0.0};                              ///< Minimum separation between low and high values
+    bool showValue{true};                             ///< Whether to display current formatted range text inside control
+    Placement valuePlacement{Placement::Trailing};    ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
+    UiText tooltip{};                                 ///< Optional floating tooltip text on hover
+    bool disabled{false};                             ///< Interaction suppression
+    ControlLayout layout{};                           ///< Sizing policy (`Stretch` main axis / `Fit` cross axis by default) and min/max constraints
+    ControlStyle style{};                             ///< Component size scale and accent color for active interval and thumbs
 };
 
 /// Clean configuration options for continuous ProgressBar & Segmented LED / VU LevelMeter widget.
 struct ProgressBarOptions {
     Orientation orientation{Orientation::Horizontal}; ///< Horizontal (min at left) or Vertical (min at bottom)
-    UiText textLeft{};                             ///< Optional companion text inside control on the left of the track (below when Vertical)
-    UiText textRight{};                            ///< Optional companion text inside control on the right of the track (above when Vertical)
-    UiText tooltip{};                              ///< Optional floating tooltip text on hover
-    UiText valueFormat{};                          ///< Format string for value (e.g. "%.0f %%", "%.1f dB"; empty = default numeric format)
+    UiText textLeft{};                                ///< Optional companion text inside control on the left of the track (below when Vertical)
+    UiText textRight{};                               ///< Optional companion text inside control on the right of the track (above when Vertical)
+    UiText valueFormat{};                             ///< Format string for value (e.g. "%.0f %%", "%.1f dB"; empty = default numeric format)
     keel::Optional<double> peakHoldValue{keel::kNullOpt}; ///< Optional peak-hold marker value on the track (for VU/dB level meters)
-    keel::u32 segments{0};                          ///< 0 = smooth continuous bar; >0 = segmented LED/VU level meter (e.g. 20 segments)
-    float warningRatio{0.70f};                     ///< Normalized threshold [0..1] for Warning zone when multiZoneColor is true
-    float dangerRatio{0.90f};                      ///< Normalized threshold [0..1] for Danger zone when multiZoneColor is true
-    keel::Optional<float> trackHeight{keel::kNullOpt}; ///< Optional bar thickness override in points
-    bool showValue{true};                          ///< Whether to display current formatted value text inside control
-    bool indeterminate{false};                     ///< Animated indeterminate shuttle bar when progress duration is unknown
-    Placement valuePlacement{Placement::Trailing}; ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
-    StateColor color{};                            ///< Per-state accent fill color for active bar (or base zone when multiZoneColor is true)
-    AxisSize width{};                              ///< Horizontal sizing policy (`Auto`: `Stretch` when Horizontal, `Fit` when Vertical; or `Fit`/`Stretch`/`Fixed(dp)`)
-    AxisSize height{};                             ///< Vertical sizing policy (`Auto`: `Fit` when Horizontal, `Stretch` when Vertical; or `Fit`/`Stretch`/`Fixed(dp)`)
-    UiSize size{UiSize::Md};                       ///< Component size scale
-    bool multiZoneColor{false};                    ///< Color bar/segments across 3 zones (Variant/Success -> Warning -> Danger)
-    bool disabled{false};                          ///< Dimmed disabled state
+    keel::u32 segments{0};                            ///< 0 = smooth continuous bar; >0 = segmented LED/VU level meter (e.g. 20 segments)
+    float warningRatio{0.70f};                        ///< Normalized threshold [0..1] for Warning zone when multiZoneColor is true
+    float dangerRatio{0.90f};                         ///< Normalized threshold [0..1] for Danger zone when multiZoneColor is true
+    keel::Optional<float> trackHeight{keel::kNullOpt};///< Optional bar thickness override in points
+    bool showValue{true};                             ///< Whether to display current formatted value text inside control
+    bool indeterminate{false};                        ///< Animated indeterminate shuttle bar when progress duration is unknown
+    Placement valuePlacement{Placement::Trailing};    ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
+    bool multiZoneColor{false};                       ///< Color bar/segments across 3 zones (Variant/Success -> Warning -> Danger)
+    UiText tooltip{};                                 ///< Optional floating tooltip text on hover
+    bool disabled{false};                             ///< Dimmed disabled state
+    ControlLayout layout{};                           ///< Sizing policy (`Stretch` main axis / `Fit` cross axis by default) and min/max constraints
+    ControlStyle style{};                             ///< Component size scale and accent color for active bar (or base zone when multiZoneColor is true)
 };
 
 /// Internal runtime interaction state stored per-widget ID.

@@ -422,7 +422,7 @@ void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         .label = "Live Signal Stream",
         .size = guikit::UiSize::Sm
     })) {
-        ui.Switch(s_wf.liveStream, {.size = guikit::UiSize::Sm});
+        ui.Switch(s_wf.liveStream, {.style = {.size = guikit::UiSize::Sm}});
     }
 
     static constexpr keel::StaticArray<keel::StringRef, 4> kScenarios = {
@@ -437,7 +437,7 @@ void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         .layout = guikit::ElementLayout::Top,
         .size = guikit::UiSize::Sm
     })) {
-        if (ui.Select(scenIdx, kScenarios, {.size = guikit::UiSize::Sm}).changed) {
+        if (ui.Select(scenIdx, kScenarios, {.style = {.size = guikit::UiSize::Sm}}).changed) {
             LoadWaterfallScenario(s_wf, scenIdx);
         }
     }
@@ -452,7 +452,7 @@ void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         .layout = guikit::ElementLayout::Top,
         .size = guikit::UiSize::Sm
     })) {
-        ui.Segmented(s_wf.layoutIndex, kLayouts, {.size = guikit::UiSize::Sm});
+        ui.Segmented(s_wf.layoutIndex, kLayouts, {.style = {.size = guikit::UiSize::Sm}});
     }
 
     keel::i32 cmapIdx = static_cast<keel::i32>(s_wf.colormap);
@@ -461,7 +461,7 @@ void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         .layout = guikit::ElementLayout::Top,
         .size = guikit::UiSize::Sm
     })) {
-        if (ui.Select(cmapIdx, guikit::GetAllColormapNames(), {.size = guikit::UiSize::Sm}).changed) {
+        if (ui.Select(cmapIdx, guikit::GetAllColormapNames(), {.style = {.size = guikit::UiSize::Sm}}).changed) {
             s_wf.colormap = static_cast<guikit::Colormap>(cmapIdx);
         }
     }
@@ -475,7 +475,7 @@ void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     })) {
         ui.Slider(s_wf.gainDb, -20.0f, 20.0f, {
             .valueFormat = "%+.1f dB",
-            .size = guikit::UiSize::Sm
+            .style = {.size = guikit::UiSize::Sm}
         });
     }
 
@@ -486,7 +486,7 @@ void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     })) {
         ui.Slider(s_wf.dbFloor, -130.0f, -45.0f, {
             .valueFormat = "%.0f dB",
-            .size = guikit::UiSize::Sm
+            .style = {.size = guikit::UiSize::Sm}
         });
     }
 
@@ -497,7 +497,7 @@ void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     })) {
         ui.Slider(s_wf.dbCeil, -40.0f, 10.0f, {
             .valueFormat = "%.0f dB",
-            .size = guikit::UiSize::Sm
+            .style = {.size = guikit::UiSize::Sm}
         });
     }
 
@@ -508,7 +508,7 @@ void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     })) {
         ui.Slider(s_wf.thresholdGateDb, s_wf.dbFloor + 5.0f, s_wf.dbCeil - 5.0f, {
             .valueFormat = "%+.0f dB",
-            .size = guikit::UiSize::Sm
+            .style = {.size = guikit::UiSize::Sm}
         });
     }
 
@@ -519,7 +519,7 @@ void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     })) {
         ui.Slider(s_wf.gateSuppression, 0.0f, 1.0f, {
             .valueFormat = "%.2f",
-            .size = guikit::UiSize::Sm
+            .style = {.size = guikit::UiSize::Sm}
         });
     }
 
@@ -530,7 +530,7 @@ void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     })) {
         ui.Slider(s_wf.gamma, 0.45f, 2.0f, {
             .valueFormat = "%.2f",
-            .size = guikit::UiSize::Sm
+            .style = {.size = guikit::UiSize::Sm}
         });
     }
 
@@ -541,53 +541,51 @@ void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     })) {
         ui.Slider(s_wf.updateRateHz, 5.0f, 60.0f, {
             .valueFormat = "%.0f Hz",
-            .size = guikit::UiSize::Sm
+            .style = {.size = guikit::UiSize::Sm}
         });
     }
 
     ui.Heading({.label = "Traces & Tracking Overlays", .level = guikit::HeadingLevel::H6, .separator = guikit::HeadingSeparator::Bottom});
 
     if (auto el = ui.Element({.label = "Live Instantaneous Trace", .size = guikit::UiSize::Sm})) {
-        ui.Switch(s_wf.showLiveTrace, {.size = guikit::UiSize::Sm});
+        ui.Switch(s_wf.showLiveTrace, {.style = {.size = guikit::UiSize::Sm}});
     }
     if (auto el = ui.Element({.label = "Peak Hold Envelope", .size = guikit::UiSize::Sm})) {
-        ui.Switch(s_wf.showPeakHold, {.size = guikit::UiSize::Sm});
+        ui.Switch(s_wf.showPeakHold, {.style = {.size = guikit::UiSize::Sm}});
     }
     if (auto el = ui.Element({.label = "RMS Exponential Average", .size = guikit::UiSize::Sm})) {
-        ui.Switch(s_wf.showAverageTrace, {.size = guikit::UiSize::Sm});
+        ui.Switch(s_wf.showAverageTrace, {.style = {.size = guikit::UiSize::Sm}});
     }
     if (auto el = ui.Element({.label = "Auto Peak / DOA Callouts", .size = guikit::UiSize::Sm})) {
-        ui.Switch(s_wf.showPeakMarkers, {.size = guikit::UiSize::Sm});
+        ui.Switch(s_wf.showPeakMarkers, {.style = {.size = guikit::UiSize::Sm}});
     }
     if (auto el = ui.Element({.label = "DOA / Emitter Target Tracks", .size = guikit::UiSize::Sm})) {
-        ui.Switch(s_wf.showTracks, {.size = guikit::UiSize::Sm});
+        ui.Switch(s_wf.showTracks, {.style = {.size = guikit::UiSize::Sm}});
     }
     if (auto el = ui.Element({.label = "Track Association Gates", .size = guikit::UiSize::Sm})) {
-        ui.Switch(s_wf.showTrackGates, {.size = guikit::UiSize::Sm});
+        ui.Switch(s_wf.showTrackGates, {.style = {.size = guikit::UiSize::Sm}});
     }
     if (auto el = ui.Element({.label = "Harmonic Comb (f0..6f0)", .size = guikit::UiSize::Sm})) {
-        ui.Switch(s_wf.showHarmonicComb, {.size = guikit::UiSize::Sm});
+        ui.Switch(s_wf.showHarmonicComb, {.style = {.size = guikit::UiSize::Sm}});
     }
     if (auto el = ui.Element({.label = "Invert Time Flow (Bottom-Up)", .size = guikit::UiSize::Sm})) {
-        ui.Switch(s_wf.invertTimeAxis, {.size = guikit::UiSize::Sm});
+        ui.Switch(s_wf.invertTimeAxis, {.style = {.size = guikit::UiSize::Sm}});
     }
 
     if (auto btnRow = ui.Row({.gap = 8.0f})) {
         if (ui.Button({
             .text = "Clear Peak",
             .icon = guikit::Icon::Refresh(),
-            .color = guikit::StateColor::Secondary(),
-            .width = guikit::SizeMode::Stretch,
-            .size = guikit::UiSize::Sm
+            .layout = {.width = guikit::SizeMode::Stretch},
+            .style = {.size = guikit::UiSize::Sm, .color = guikit::StateColor::Secondary()}
         })) {
             s_wf.requestResetPeakHold = true;
         }
         if (ui.Button({
             .text = "Reset Zoom",
             .icon = guikit::Icon::Search(),
-            .color = guikit::StateColor::Secondary(),
-            .width = guikit::SizeMode::Stretch,
-            .size = guikit::UiSize::Sm
+            .layout = {.width = guikit::SizeMode::Stretch},
+            .style = {.size = guikit::UiSize::Sm, .color = guikit::StateColor::Secondary()}
         })) {
             s_wf.requestResetZoom = true;
         }

@@ -47,7 +47,7 @@ int main(int /*argc*/, char* /*argv*/[]) {
                     if (ui.Button({
                         .text = "Trigger Telemetry Pulse",
                         .icon = guikit::Icon::Flash(),
-                        .color = guikit::StateColor::Primary()
+                        .style = {.color = guikit::StateColor::Primary()}
                     })) {
                         ++pulseCount;
                     }

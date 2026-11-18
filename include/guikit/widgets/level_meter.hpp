@@ -14,26 +14,24 @@ class Context;
 class ICanvas;
 
 struct LevelMeterOptions {
-    Orientation orientation{Orientation::Horizontal}; ///< Horizontal or Vertical meter bar(s)
+    Orientation orientation{Orientation::Horizontal};  ///< Horizontal or Vertical meter bar(s)
     keel::u32 segments{24};                            ///< 0 = smooth continuous bar; >0 = discrete LED cells (e.g. 16, 24, 32)
-    bool multiZoneColor{true};                        ///< 3-zone coloring (Success/Green -> Warning/Amber -> Danger/Red)
-    float warningRatio{0.70f};                        ///< Normalized threshold [0..1] for Warning zone
-    float dangerRatio{0.88f};                         ///< Normalized threshold [0..1] for Danger zone
+    bool multiZoneColor{true};                         ///< 3-zone coloring (Success/Green -> Warning/Amber -> Danger/Red)
+    float warningRatio{0.70f};                         ///< Normalized threshold [0..1] for Warning zone
+    float dangerRatio{0.88f};                          ///< Normalized threshold [0..1] for Danger zone
     keel::Optional<double> peakHoldValue{keel::kNullOpt}; ///< Explicit peak-hold marker value (if nullopt and autoPeakHold is true, tracked automatically)
-    bool autoPeakHold{true};                          ///< Automatically track & decay peak-hold marker per widget ID
-    float peakHoldDecayPerSec{0.15f};                 ///< Normalized decay rate per second for auto peak-hold after hold time
-    bool showClipLed{true};                           ///< Show dedicated overload/clip indicator LED cap at max end (click meter to reset clip/peak latch)
-    bool showScale{true};                             ///< Render calibrated dB/numeric scale ticks & labels alongside track
-    bool showValue{true};                             ///< Display formatted numeric readout tag
-    UiText valueFormat{"%.1f dB"};                    ///< Format string for numeric value (e.g. "%.1f dB", "%.0f %%")
-    keel::ArrayRef<keel::StringRef> channelLabels{};  ///< Optional per-channel labels (e.g. {"L", "R"} or {"CH1", "CH2"})
-    keel::Optional<float> barThickness{keel::kNullOpt}; ///< Thickness of each channel bar in logical dp (nullopt = auto from UiSize)
-    StateColor color{};                               ///< Base zone color override (defaults to Success when multiZoneColor is true, or Primary when false)
-    AxisSize width{};                                 ///< Horizontal sizing policy (`Auto`: `Stretch` when Horizontal, `Fit` when Vertical; or `Fit`/`Stretch`/`Fixed(dp)`)
-    AxisSize height{};                                ///< Vertical sizing policy (`Auto`: `Fit` when Horizontal, `Stretch` when Vertical; or `Fit`/`Stretch`/`Fixed(dp)`)
-    UiSize size{UiSize::Md};                          ///< Component size scale
-    UiText tooltip{};
-    bool disabled{false};
+    bool autoPeakHold{true};                           ///< Automatically track & decay peak-hold marker per widget ID
+    float peakHoldDecayPerSec{0.15f};                  ///< Normalized decay rate per second for auto peak-hold after hold time
+    bool showClipLed{true};                            ///< Show dedicated overload/clip indicator LED cap at max end (click meter to reset clip/peak latch)
+    bool showScale{true};                              ///< Render calibrated dB/numeric scale ticks & labels alongside track
+    bool showValue{true};                              ///< Display formatted numeric readout tag
+    UiText valueFormat{"%.1f dB"};                     ///< Format string for numeric value (e.g. "%.1f dB", "%.0f %%")
+    keel::ArrayRef<keel::StringRef> channelLabels{};   ///< Optional per-channel labels (e.g. {"L", "R"} or {"CH1", "CH2"})
+    keel::Optional<float> barThickness{keel::kNullOpt};///< Thickness of each channel bar in logical dp (nullopt = auto from UiSize)
+    UiText tooltip{};                                  ///< Optional floating tooltip text on hover
+    bool disabled{false};                              ///< Interaction suppression
+    ControlLayout layout{};                            ///< Sizing policy (`Stretch` main axis / `Fit` cross axis by default) and min/max constraints
+    ControlStyle style{};                              ///< Component size scale and base zone color override
 };
 
 class LevelMeter {

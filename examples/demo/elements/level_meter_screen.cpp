@@ -48,7 +48,7 @@ void RenderLevelMeterInspector(guikit::Context& ui, DemoContext&) {
     if (s_state.orientationIdx == 1) {
         if (auto el = ui.Element({
             .label = "Compact Vertical Height (Fit)",
-            .description = "Pass .height = SizeMode::Fit instead of stretching"
+            .description = "Pass .layout = {.height = SizeMode::Fit} instead of stretching"
         })) {
             if (ui.Switch(s_state.compactVertical).changed) {
                 ui.InvalidateAll();
@@ -179,14 +179,14 @@ void RenderLevelMeterStage(guikit::Context& ui, DemoContext& ctx) {
         ? keel::ArrayRef<keel::StringRef>(kStereoLabels)
         : keel::ArrayRef<keel::StringRef>(kMonoLabels);
     opts.barThickness = s_state.barThickness;
-    opts.color = ctx.GetControlColor();
-    opts.width = ctx.ResolveCtrlWidth();
-    opts.height = (orient == guikit::Orientation::Vertical && s_state.compactVertical && ctx.ResolveCtrlHeight().IsAuto())
-        ? guikit::AxisSize(guikit::SizeMode::Fit)
-        : ctx.ResolveCtrlHeight();
-    opts.size = ctx.controlsSize;
     opts.tooltip = "Click meter to reset Peak-Hold & Clip latch";
     opts.disabled = ctx.elemDisabled;
+    opts.layout.width = ctx.ResolveCtrlWidth();
+    opts.layout.height = (orient == guikit::Orientation::Vertical && s_state.compactVertical && ctx.ResolveCtrlHeight().IsAuto())
+        ? guikit::AxisSize(guikit::SizeMode::Fit)
+        : ctx.ResolveCtrlHeight();
+    opts.style.size = ctx.controlsSize;
+    opts.style.color = ctx.GetControlColor();
 
     ctx.RunElementStage(ui, [&]() {
         if (s_state.channelModeIdx == 1) {
@@ -206,6 +206,10 @@ keel::String GenerateLevelMeterCode(const DemoContext& ctx) {
             : ctx.ResolveCtrlHeight();
     const keel::FixedString<48> heightCode = DemoContext::FormatAxisSizeCode(ctrlH);
     const keel::u32 segVal = s_state.segmented ? s_state.segments : 0u;
+    const bool hasCustomSize = (ctx.controlsSize != guikit::UiSize::None && ctx.controlsSize != guikit::UiSize::Md);
+    const keel::FixedString<64> sizePrefix = hasCustomSize
+        ? keel::format_fixed<64>(".size = guikit::UiSize::{}, ", SizeName(ctx.controlsSize))
+        : keel::FixedString<64>{};
 
     if (s_state.channelModeIdx == 1) {
         const keel::String ctrl = keel::format(
@@ -220,10 +224,9 @@ keel::String GenerateLevelMeterCode(const DemoContext& ctx) {
             "    .valueFormat = \"%.1f dB\",\n"
             "    .channelLabels = kChannels,\n"
             "    .barThickness = {:.1f}f,\n"
-            "    .color = {},\n"
-            "    .width = {},\n"
-            "    .height = {}{},\n"
-            "    .disabled = {}\n"
+            "    .disabled = {},\n"
+            "    .layout = {{.width = {}, .height = {}}},\n"
+            "    .style = {{{}.color = {}}}\n"
             "}});",
             orientName,
             segVal,
@@ -233,11 +236,11 @@ keel::String GenerateLevelMeterCode(const DemoContext& ctx) {
             s_state.showScale ? "true" : "false",
             s_state.showValue ? "true" : "false",
             s_state.barThickness,
-            ctx.FormatControlColorCode(),
+            ctx.elemDisabled ? "true" : "false",
             ctx.FormatCtrlWidthCode(),
             heightCode,
-            FormatUiSizePrefix(ctx.controlsSize),
-            ctx.elemDisabled ? "true" : "false"
+            sizePrefix,
+            ctx.FormatControlColorCode()
         );
         keel::String out = keel::format(
             "static constexpr keel::StaticArray<keel::StringRef, 2> kChannels = {{\"L\", \"R\"}};\n"
@@ -260,10 +263,9 @@ keel::String GenerateLevelMeterCode(const DemoContext& ctx) {
         "    .showValue = {},\n"
         "    .valueFormat = \"%.1f dB\",\n"
         "    .barThickness = {:.1f}f,\n"
-        "    .color = {},\n"
-        "    .width = {},\n"
-        "    .height = {}{},\n"
-        "    .disabled = {}\n"
+        "    .disabled = {},\n"
+        "    .layout = {{.width = {}, .height = {}}},\n"
+        "    .style = {{{}.color = {}}}\n"
         "}});",
         orientName,
         segVal,
@@ -273,11 +275,11 @@ keel::String GenerateLevelMeterCode(const DemoContext& ctx) {
         s_state.showScale ? "true" : "false",
         s_state.showValue ? "true" : "false",
         s_state.barThickness,
-        ctx.FormatControlColorCode(),
+        ctx.elemDisabled ? "true" : "false",
         ctx.FormatCtrlWidthCode(),
         heightCode,
-        FormatUiSizePrefix(ctx.controlsSize),
-        ctx.elemDisabled ? "true" : "false"
+        sizePrefix,
+        ctx.FormatControlColorCode()
     );
     return ctx.WrapInElementCode(ctrl);
 }

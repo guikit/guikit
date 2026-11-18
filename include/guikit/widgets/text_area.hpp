@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
@@ -150,14 +151,10 @@ struct TextAreaOptions {
     keel::Optional<SyntaxPalette> syntaxPalette{keel::kNullOpt}; ///< Optional syntax color palette override
     SyntaxHighlighter syntaxHighlighter{nullptr};       ///< Optional custom syntax highlighting callback
     keel::Optional<CursorBlinkMode> cursorMode{keel::kNullOpt}; ///< Caret visibility and blinking behavior
-    StateColor color{};                                 ///< Optional focus ring / accent color override
-    AxisSize width{};                                   ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or `Fixed(dp)`)
-    AxisSize height{SizeMode::Fit};                     ///< Vertical sizing policy (`Auto`/`Fit`, `Stretch`, or `Fixed(dp)`)
-    StateColor background{};                            ///< Optional background fill color override
-    Border border{};                                    ///< Optional border configuration (color, width, radius)
     UiText tooltip{};                                   ///< Optional hover tooltip text
-    UiSize size{UiSize::Md};                            ///< Component size scale
     bool disabled{false};                               ///< Interaction suppression
+    ControlLayout layout{};                             ///< Sizing policy (`Stretch` width / `Fit` height default) and min/max constraints
+    SurfaceStyle style{.background = StateColor{}};     ///< Control size, focus/accent color, optional background fill override, and border
 
     // --- IDE & Code Intelligence Features ---
     bool showMinimap{false};                            ///< Render syntax-colored code overview minimap on the right

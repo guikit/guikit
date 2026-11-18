@@ -14,13 +14,12 @@ class ICanvas;
 
 /// Clean configuration options for Switch widget.
 struct SwitchOptions {
-    UiText textLeft{};                             ///< Optional companion text inside control to the left of the switch track (off state)
-    UiText textRight{};                            ///< Optional companion text inside control to the right of the switch track (on state)
-    UiText tooltip{};                              ///< Optional floating tooltip text on hover
-    StateColor color{};                            ///< Per-state accent fill color when switched ON
-    UiSize size{UiSize::Md};                       ///< Component size scale
-    bool symmetric{false};                         ///< Neutral/symmetric track style (highlights active side label)
-    bool disabled{false};                          ///< Interaction suppression
+    UiText textLeft{};    ///< Optional companion text inside control to the left of the switch track (off state)
+    UiText textRight{};   ///< Optional companion text inside control to the right of the switch track (on state)
+    bool symmetric{false};///< Neutral/symmetric track style (highlights active side label)
+    UiText tooltip{};     ///< Optional floating tooltip text on hover
+    bool disabled{false}; ///< Interaction suppression
+    ControlStyle style{}; ///< Component size scale and accent color
 };
 static_assert(sizeof(SwitchOptions) <= 512, "SwitchOptions must stay compact");
 

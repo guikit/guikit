@@ -105,8 +105,8 @@ void RenderTagInputInspector(guikit::Context& ui, DemoContext&) {
         if (ui.Button({
             .text = "Add Sample Tag",
             .icon = guikit::Icon::Plus(),
-            .width = guikit::SizeMode::Stretch,
-            .background = guikit::StateColor::Secondary()
+            .layout = {.width = guikit::SizeMode::Stretch},
+            .style = {.background = guikit::StateColor::Secondary()}
         }).clicked) {
             const keel::StringRef candidate = kSampleTags[s_state.sampleCounter % kSampleTags.size()];
             ++s_state.sampleCounter;
@@ -118,8 +118,8 @@ void RenderTagInputInspector(guikit::Context& ui, DemoContext&) {
         if (ui.Button({
             .text = "Reset Default Tags",
             .icon = guikit::Icon::Refresh(),
-            .width = guikit::SizeMode::Stretch,
-            .background = guikit::StateColor::Ghost()
+            .layout = {.width = guikit::SizeMode::Stretch},
+            .style = {.background = guikit::StateColor::Ghost()}
         }).clicked) {
             s_state.tags.assign({"C++20", "Vulkan", "Immediate-Mode", "Zero-Alloc"});
             ui.InvalidateAll();
@@ -140,17 +140,21 @@ void RenderTagInputStage(guikit::Context& ui, DemoContext& ctx) {
         opts.clearable = s_state.clearable;
         opts.showCounter = s_state.showCounter;
         opts.readOnly = s_state.readOnly;
-        opts.width = ctx.ResolveCtrlWidth();
-        opts.height = ctx.ResolveCtrlHeight();
-        opts.background = ctx.GetControlBackground(NavCategory::ElemTagInput);
-        opts.border = ctx.GetCtrlBorder();
-        opts.size = ctx.controlsSize;
         opts.disabled = ctx.elemDisabled;
+        opts.layout.width = ctx.ResolveCtrlWidth();
+        opts.layout.height = ctx.ResolveCtrlHeight();
+        opts.style.size = ctx.controlsSize;
+        opts.style.background = ctx.GetControlBackground(NavCategory::ElemTagInput);
+        opts.style.border = ctx.GetCtrlBorder();
         ui.TagInput(s_state.tags, opts);
     });
 }
 
 keel::String GenerateTagInputCode(const DemoContext& ctx) {
+    const bool hasCustomSize = (ctx.controlsSize != guikit::UiSize::None && ctx.controlsSize != guikit::UiSize::Md);
+    const keel::FixedString<64> sizeLine = hasCustomSize
+        ? keel::format_fixed<64>("        .size = guikit::UiSize::{},\n", SizeName(ctx.controlsSize))
+        : keel::FixedString<64>{};
     const keel::String ctrl = keel::format(
         "ui.TagInput(tags, {{\n"
         "    .placeholder = \"{}\",\n"
@@ -163,11 +167,13 @@ keel::String GenerateTagInputCode(const DemoContext& ctx) {
         "    .clearable = {},\n"
         "    .showCounter = {},\n"
         "    .readOnly = {},\n"
-        "    .width = {},\n"
-        "    .height = {},\n"
-        "    .background = {},\n"
-        "    .border = {}{},\n"
-        "    .disabled = {}\n"
+        "    .disabled = {},\n"
+        "    .layout = {{.width = {}, .height = {}}},\n"
+        "    .style = {{\n"
+        "{}"
+        "        .background = {},\n"
+        "        .border = {}\n"
+        "    }}\n"
         "}});",
         s_state.placeholder,
         s_state.prefix,
@@ -179,12 +185,12 @@ keel::String GenerateTagInputCode(const DemoContext& ctx) {
         s_state.clearable ? "true" : "false",
         s_state.showCounter ? "true" : "false",
         s_state.readOnly ? "true" : "false",
+        ctx.elemDisabled ? "true" : "false",
         ctx.FormatCtrlWidthCode(),
         ctx.FormatCtrlHeightCode(),
+        sizeLine,
         ctx.FormatControlBackgroundCode(NavCategory::ElemTagInput),
-        ctx.FormatCtrlBorderCode(),
-        FormatUiSizePrefix(ctx.controlsSize),
-        ctx.elemDisabled ? "true" : "false"
+        ctx.FormatCtrlBorderCode()
     );
     return ctx.WrapInElementCode(ctrl);
 }

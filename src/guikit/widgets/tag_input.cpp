@@ -45,17 +45,15 @@ struct TagInputNodeData {
 
 ControlSpec EffectiveTagInputControl(const TagInputOptions& opts, UiSize size, const UiTheme& theme) noexcept {
     const InputFieldMetrics& m = theme.GetInputField(size);
-    ControlSpec c{};
-    c.width = opts.width;
-    c.height = opts.height;
-    c.defaultWidthMode = SizeMode::Stretch;
-    c.defaultHeightMode = SizeMode::Fit;
-    c.minWidth = opts.minWidth;
-    c.defaultLayout = ElementLayout::Stacked;
-    c.labelGap = m.labelGap;
-    c.descGap = m.descGap;
-    c.inlineGap = m.paddingX;
-    return c;
+    return Control::FromLayout(
+        opts.layout,
+        SizeMode::Stretch,
+        SizeMode::Fit,
+        ElementLayout::Stacked,
+        m.labelGap,
+        m.descGap,
+        m.paddingX
+    );
 }
 
 keel::StringRef TrimWhitespace(keel::StringRef s) noexcept {
@@ -360,7 +358,7 @@ Response RunTagInputImpl(
 ) {
     const Id id = ctx.MakeChildId(loc);
 
-    const UiSize activeSize = opts.size;
+    const UiSize activeSize = opts.style.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
 
     ctx.RegisterFocusable(id, effectiveDisabled || opts.readOnly);
@@ -378,9 +376,9 @@ Response RunTagInputImpl(
     }
 
     TagInputOptions optsCopy = opts;
-    const SizeMode effW = Control::ResolveWidthMode(ctx, opts.width, SizeMode::Stretch);
-    if (!optsCopy.width.IsFixed()) {
-        optsCopy.width = effW;
+    const SizeMode effW = Control::ResolveWidthMode(ctx, opts.layout.width, SizeMode::Stretch);
+    if (!optsCopy.layout.width.IsFixed()) {
+        optsCopy.layout.width = effW;
     }
     optsCopy.placeholder = ctx.AllocText(opts.placeholder);
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);
@@ -642,12 +640,15 @@ Response RunTagInputImpl(
         optsCopy.clearable,
         optsCopy.showCounter,
         optsCopy.readOnly,
-        optsCopy.color,
-        optsCopy.background,
-        optsCopy.border,
-        optsCopy.width,
-        optsCopy.height,
-        optsCopy.minWidth.value_or(0.0f),
+        optsCopy.style.color,
+        optsCopy.style.background,
+        optsCopy.style.border,
+        optsCopy.layout.width,
+        optsCopy.layout.height,
+        optsCopy.layout.minWidth.value_or(0.0f),
+        optsCopy.layout.maxWidth.value_or(0.0f),
+        optsCopy.layout.minHeight.value_or(0.0f),
+        optsCopy.layout.maxHeight.value_or(0.0f),
         optsCopy.placeholder,
         optsCopy.prefix,
         data->editBuffer,
@@ -668,7 +669,7 @@ Response RunTagInputImpl(
         float boxW = m.defaultWidth;
         if (spec.width.IsFixed()) {
             boxW = spec.width.Dp();
-        } else if (d->opts.width.ResolveMode(SizeMode::Stretch) != SizeMode::Stretch) {
+        } else if (d->opts.layout.width.ResolveMode(SizeMode::Stretch) != SizeMode::Stretch) {
             const float chipFont = t.ResolveFontSize(TextRole::LabelSmall, n->uiSize);
             const float chipIconSz = keel::max(10.0f, m.iconSize - 2.0f);
             const bool showRemove = !d->opts.readOnly && !n->disabled;
@@ -784,7 +785,7 @@ Vec2 TagInput::Measure(
     float boxW = m.defaultWidth;
     if (ctrl.width.IsFixed()) {
         boxW = ctrl.width.Dp();
-    } else if (opts.width.ResolveMode(SizeMode::Stretch) != SizeMode::Stretch) {
+    } else if (opts.layout.width.ResolveMode(SizeMode::Stretch) != SizeMode::Stretch) {
         const float chipFont = theme.ResolveFontSize(TextRole::LabelSmall, size);
         const float chipIconSz = keel::max(10.0f, m.iconSize - 2.0f);
         const bool showRemove = !opts.readOnly && !opts.disabled;
@@ -838,18 +839,18 @@ void TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
     const InputFieldMetrics& m = theme.GetInputField(size);
     const auto& pal = theme.palette;
 
-    const bool hasBg = opts.background.IsBackgroundEnabled(true);
+    const bool hasBg = opts.style.background.IsBackgroundEnabled(true);
     Color boxBg = hasBg
         ? ((hovered && !disabled) ? pal.surface : pal.inputBackground)
         : Color::Transparent();
     Color boxBorder;
-    float strokeW = (opts.border.width > 0.0f) ? opts.border.width : m.strokeWidth;
+    float strokeW = (opts.style.border.width > 0.0f) ? opts.style.border.width : m.strokeWidth;
 
     if (focused && !disabled) {
-        boxBorder = opts.color.HasAny()
-            ? theme.ResolveColor(opts.color, hovered, focused, disabled, pal.focusRing)
+        boxBorder = opts.style.color.HasAny()
+            ? theme.ResolveColor(opts.style.color, hovered, focused, disabled, pal.focusRing)
             : pal.focusRing;
-        if (opts.border.width > 0.0f || m.strokeWidth > 0.0f) {
+        if (opts.style.border.width > 0.0f || m.strokeWidth > 0.0f) {
             strokeW += 0.5f;
         }
     } else if (hovered && !disabled) {
@@ -867,18 +868,18 @@ void TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
         boxBorder = boxBorder.WithAlphaF(0.40f);
     }
 
-    if (hasBg && opts.background.HasAny()) {
-        if (!opts.background.IsSurface()) {
-            boxBg = theme.ResolveColor(opts.background, hovered, focused, disabled, boxBg);
-        } else if (opts.background.HasAlphaScale()) {
-            boxBg = boxBg.ScaleAlpha(opts.background.alphaScale);
+    if (hasBg && opts.style.background.HasAny()) {
+        if (!opts.style.background.IsSurface()) {
+            boxBg = theme.ResolveColor(opts.style.background, hovered, focused, disabled, boxBg);
+        } else if (opts.style.background.HasAlphaScale()) {
+            boxBg = boxBg.ScaleAlpha(opts.style.background.alphaScale);
         }
     }
-    if (opts.border.color.HasAny()) {
-        boxBorder = theme.ResolveColor(opts.border.color, hovered, focused, disabled, boxBorder);
+    if (opts.style.border.color.HasAny()) {
+        boxBorder = theme.ResolveColor(opts.style.border.color, hovered, focused, disabled, boxBorder);
     }
 
-    const float radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
+    const float radius = opts.style.border.radius.has_value() ? *opts.style.border.radius : m.cornerRadius;
     canvas.DrawRoundRect(boxRect, radius, boxBg, boxBorder, strokeW);
 
     if (opts.prefix.HasContentOrReserve()) {
@@ -973,7 +974,7 @@ void TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
         const Color accent = ResolveChipAccentColor(
             chip.variant,
             opts.tagVariant,
-            opts.color,
+            opts.style.color,
             hovered,
             focused,
             disabled,

@@ -216,7 +216,7 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
                 if (s_tree.showEmbeddedControls) {
                     ui.Slider(s_tree.envExposure, 0.0f, 2.5f, {
                         .valueFormat = "%.2f EV",
-                        .width = useCols ? guikit::AxisSize::Auto() : guikit::AxisSize::Fixed(128.0f)
+                        .layout = {.width = useCols ? guikit::AxisSize::Auto() : guikit::AxisSize::Fixed(128.0f)}
                     });
                 }
 
@@ -251,7 +251,7 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
                     if (s_tree.showEmbeddedControls) {
                         ui.Slider(s_tree.fogDensity, 0.0f, 100.0f, {
                             .valueFormat = "%.0f%%",
-                            .width = useCols ? guikit::AxisSize::Auto() : guikit::AxisSize::Fixed(110.0f)
+                            .layout = {.width = useCols ? guikit::AxisSize::Auto() : guikit::AxisSize::Fixed(110.0f)}
                         });
                     }
                 }
@@ -289,7 +289,7 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
                     }
                     if (s_tree.showEmbeddedControls) {
                         ui.Select(s_tree.sonarModeIdx, kSonarModes, {
-                            .width = useCols ? guikit::AxisSize::Auto() : guikit::AxisSize::Fixed(100.0f)
+                            .layout = {.width = useCols ? guikit::AxisSize::Auto() : guikit::AxisSize::Fixed(100.0f)}
                         });
                     }
                 }
@@ -312,7 +312,7 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
                             ui.Switch(s_tree.wfTracking);
                             if (ui.Button({
                                 .text = "Calibrate",
-                                .color = guikit::StateColor::Secondary()
+                                .style = {.color = guikit::StateColor::Secondary()}
                             })) {
                                 ++s_tree.calibrateCount;
                             }
@@ -545,7 +545,7 @@ keel::String GenerateTreeViewCode(const DemoContext& ctx) {
     if (s_tree.showEmbeddedControls) {
         out.append(useCols
             ? "            ui.Slider(envExposure, 0.0f, 2.5f, {.valueFormat = \"%.2f EV\"});\n"
-            : "            ui.Slider(envExposure, 0.0f, 2.5f, {.valueFormat = \"%.2f EV\", .width = 128.0f});\n");
+            : "            ui.Slider(envExposure, 0.0f, 2.5f, {.valueFormat = \"%.2f EV\", .layout = {.width = 128.0f}});\n");
     }
     out.append("\n");
 
@@ -576,7 +576,7 @@ keel::String GenerateTreeViewCode(const DemoContext& ctx) {
     if (s_tree.showEmbeddedControls) {
         out.append(useCols
             ? "                ui.Slider(fogDensity, 0.0f, 100.0f, {.valueFormat = \"%.0f%%\"});\n"
-            : "                ui.Slider(fogDensity, 0.0f, 100.0f, {.valueFormat = \"%.0f%%\", .width = 110.0f});\n");
+            : "                ui.Slider(fogDensity, 0.0f, 100.0f, {.valueFormat = \"%.0f%%\", .layout = {.width = 110.0f}});\n");
     }
     out.append("            }\n");
     out.append("        }\n\n");
@@ -610,7 +610,7 @@ keel::String GenerateTreeViewCode(const DemoContext& ctx) {
     if (s_tree.showEmbeddedControls) {
         out.append(useCols
             ? "                ui.Select(sonarModeIdx, kSonarModes);\n"
-            : "                ui.Select(sonarModeIdx, kSonarModes, {.width = 100.0f});\n");
+            : "                ui.Select(sonarModeIdx, kSonarModes, {.layout = {.width = 100.0f}});\n");
     }
     out.append("            }\n\n");
 
@@ -628,7 +628,7 @@ keel::String GenerateTreeViewCode(const DemoContext& ctx) {
         out.append("                // Multi-widget cell: Switch + Button inside a single column cell\n"
                    "                if (auto cell = wfItem.Cell()) {\n"
                    "                    ui.Switch(wfTracking);\n"
-                   "                    if (ui.Button({.text = \"Calibrate\", .color = guikit::StateColor::Secondary()})) {\n"
+                   "                    if (ui.Button({.text = \"Calibrate\", .style = {.color = guikit::StateColor::Secondary()}})) {\n"
                    "                        ++calibrateCount;\n"
                    "                    }\n"
                    "                }\n");

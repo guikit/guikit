@@ -57,15 +57,10 @@ struct DatePickerOptions {
     keel::Optional<DateTime> maxDate{keel::kNullOpt};       ///< Optional upper bound for selectable date/time
     keel::Optional<DateTime> todayOverride{keel::kNullOpt}; ///< Optional deterministic override for "Today"/"Now" (nullopt = DateTime::Today())
     DatePickerLabels labels{};                              ///< Optional localized calendar, time-unit, and button labels
-    StateColor color{};
-    AxisSize width{};                                       ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit` in `Toolbar`, or `Fixed(dp)`)
-    AxisSize height{};                                      ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
-    keel::Optional<float> minWidth{keel::kNullOpt};         ///< Minimum control width constraint in points
-    StateColor background{StateColor::Surface()};
-    Border border{};
-    UiText tooltip{};
-    UiSize size{UiSize::Md};
-    bool disabled{false};
+    UiText tooltip{};                                       ///< Optional floating tooltip text on hover
+    bool disabled{false};                                   ///< Interaction suppression
+    ControlLayout layout{};                                 ///< Sizing policy (`Stretch` width / `Fit` height default) and min/max constraints
+    SurfaceStyle style{};                                   ///< Control size, semantic accent color, background surface, and border
 };
 
 /// Internal runtime state allocated in frame arena for DatePicker nodes.

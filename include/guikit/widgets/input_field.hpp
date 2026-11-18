@@ -24,28 +24,23 @@ enum class InputFilter : keel::u8 {
 
 /// Clean configuration options for text InputField widget.
 struct InputFieldOptions {
-    UiText placeholder{};                          ///< Placeholder text when empty (e.g. "Enter value...")
-    UiText tooltip{};                              ///< Optional floating tooltip shown on hover
-    UiAffix prefix{};                              ///< Leading icon and/or symbol/text inside field on left (e.g. "$", Icon::Search(), {Icon::Search(), "https://"})
-    UiAffix suffix{};                              ///< Trailing symbol/text and/or icon inside field on right (e.g. ":443", {"UTF-8", Icon::Check()})
-    UiText valueFormat{};                          ///< Optional text styling and/or candidate width variants
+    UiText placeholder{};                                      ///< Placeholder text when empty (e.g. "Enter value...")
+    UiAffix prefix{};                                          ///< Leading icon and/or symbol/text inside field on left (e.g. "$", Icon::Search(), {Icon::Search(), "https://"})
+    UiAffix suffix{};                                          ///< Trailing symbol/text and/or icon inside field on right (e.g. ":443", {"UTF-8", Icon::Check()})
+    UiText valueFormat{};                                      ///< Optional text styling and/or candidate width variants
     keel::Optional<CursorBlinkMode> cursorMode{keel::kNullOpt}; ///< Cursor blink override (inherits context config if nullopt)
-    AxisSize width{};                              ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit` in `Toolbar`, or `Fixed(dp)`)
-    AxisSize height{};                             ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
-    keel::Optional<float> minWidth{keel::kNullOpt};   ///< Minimum input box width constraint in points
-    StateColor color{};                            ///< Optional focus ring & caret accent color override (e.g. StateColor::Danger() for validation error)
-    StateColor background{StateColor::Surface()};  ///< Input box surface fill color (Surface/Default = on, None = off, or custom StateColor)
-    Border border{};                               ///< Input box border stroke & corner radius configuration
-    keel::usize maxLength{0};                           ///< Maximum UTF-8 codepoint count allowed (0 = unlimited)
-    InputFilter filter{InputFilter::Any};          ///< Optional live character filter (Integer, Decimal, Hex)
-    bool numericOnly{false};                       ///< Convenience alias for filter = InputFilter::Decimal when filter == InputFilter::Any
-    bool selectAllOnFocus{false};                  ///< Automatically select the entire text buffer when the field gains focus
-    bool password{false};                          ///< Masks input characters with '*'
-    bool passwordReveal{true};                     ///< Shows an interactive eye/eye-off toggle button when password is true
-    bool clearable{false};                         ///< Shows an interactive clear ('X') button when non-empty and editable
-    UiSize size{UiSize::Md};                       ///< Component size scale
-    bool disabled{false};                          ///< Interaction suppression
-    bool readOnly{false};                          ///< Non-editable display mode
+    keel::usize maxLength{0};                                  ///< Maximum UTF-8 codepoint count allowed (0 = unlimited)
+    InputFilter filter{InputFilter::Any};                      ///< Optional live character filter (Integer, Decimal, Hex)
+    bool numericOnly{false};                                   ///< Convenience alias for filter = InputFilter::Decimal when filter == InputFilter::Any
+    bool selectAllOnFocus{false};                              ///< Automatically select the entire text buffer when the field gains focus
+    bool password{false};                                      ///< Masks input characters with '*'
+    bool passwordReveal{true};                                 ///< Shows an interactive eye/eye-off toggle button when password is true
+    bool clearable{false};                                     ///< Shows an interactive clear ('X') button when non-empty and editable
+    bool readOnly{false};                                      ///< Non-editable display mode
+    UiText tooltip{};                                          ///< Optional floating tooltip shown on hover
+    bool disabled{false};                                      ///< Interaction suppression
+    ControlLayout layout{};                                    ///< Sizing policy (`Stretch` width / `Fit` height default) and min/max constraints
+    SurfaceStyle style{};                                      ///< Control size, focus/caret accent color, background surface, and border
 };
 
 /// Internal runtime state allocated in frame arena for InputField nodes.

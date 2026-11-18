@@ -78,7 +78,7 @@ void RenderToolButtonNode(const Node* n, ICanvas& canvas, const UiTheme& theme) 
     Color textCol = theme.palette.textPrimary;
     Color borderCol = Color::Transparent();
 
-    if (!active && (!p->btn.color.HasAny() || p->btn.color == StateColor::Ghost())) {
+    if (!active && (!p->btn.style.color.HasAny() || p->btn.style.color == StateColor::Ghost())) {
         const VariantColors& ghost = theme.GetVariant(UiVariant::Ghost);
         mainBg = mainPress ? ghost.bgActive : (mainHov ? ghost.bgHover : Color::Transparent());
         chevBg = chevPress ? ghost.bgActive : (chevHov ? ghost.bgHover : Color::Transparent());
@@ -91,12 +91,12 @@ void RenderToolButtonNode(const Node* n, ICanvas& canvas, const UiTheme& theme) 
         }
     } else {
         const VariantColors& prim = theme.GetVariant(UiVariant::Primary);
-        const Color baseBg = p->btn.color.Resolve(false, active, n->disabled, prim.bg, prim.bgHover, prim.bgActive, prim.bg.WithAlphaF(0.40f));
-        const Color hovBg = p->btn.color.Resolve(true, false, n->disabled, prim.bg, prim.bgHover, prim.bgActive, prim.bg.WithAlphaF(0.40f));
-        const Color pressBg = p->btn.color.Resolve(false, true, n->disabled, prim.bg, prim.bgHover, prim.bgActive, prim.bg.WithAlphaF(0.40f));
+        const Color baseBg = p->btn.style.color.Resolve(false, active, n->disabled, prim.bg, prim.bgHover, prim.bgActive, prim.bg.WithAlphaF(0.40f));
+        const Color hovBg = p->btn.style.color.Resolve(true, false, n->disabled, prim.bg, prim.bgHover, prim.bgActive, prim.bg.WithAlphaF(0.40f));
+        const Color pressBg = p->btn.style.color.Resolve(false, true, n->disabled, prim.bg, prim.bgHover, prim.bgActive, prim.bg.WithAlphaF(0.40f));
         mainBg = mainPress ? pressBg : (mainHov ? hovBg : baseBg);
         chevBg = chevPress ? pressBg : (chevHov ? hovBg : baseBg);
-        const Color baseText = (p->btn.color == StateColor::Warning() && theme.mode == ThemeMode::Dark)
+        const Color baseText = (p->btn.style.color == StateColor::Warning() && theme.mode == ThemeMode::Dark)
             ? Color::Hex(0x0F172AFF)
             : Color::Hex(0xFFFFFFFF);
         textCol = n->disabled ? baseText.WithAlphaF(0.40f) : baseText;
@@ -116,8 +116,8 @@ void RenderToolButtonNode(const Node* n, ICanvas& canvas, const UiTheme& theme) 
     }
 
     ButtonOptions mainBtn = p->btn;
-    mainBtn.background = StateColor::None();
-    mainBtn.border = {.width = 0.0f};
+    mainBtn.style.background = StateColor::None();
+    mainBtn.style.border = {.width = 0.0f};
     mainBtn.active = false;
     mainBtn.text.color = StateColor{textCol, textCol, textCol, textCol};
     if (!mainBtn.iconColor.has_value()) {
@@ -502,11 +502,11 @@ Response Toolbar::ToolButton(
     payload->btn.tooltip = ctx.AllocText(opts.tooltip);
     node->text = payload->btn.text.text;
     payload->btn.icon = ctx.AllocIcon(opts.icon);
-    payload->btn.color = opts.color.HasAny() ? opts.color : StateColor::Ghost();
+    payload->btn.style.color = opts.color.HasAny() ? opts.color : StateColor::Ghost();
     payload->btn.iconPlacement = opts.iconPlacement;
     payload->btn.align = opts.align;
-    payload->btn.width = opts.width;
-    payload->btn.minWidth = opts.minWidth;
+    payload->btn.layout.width = opts.width;
+    payload->btn.layout.minWidth = opts.minWidth;
     payload->btn.disabled = effectiveDisabled;
     payload->btn.active = opts.active;
     payload->btn.square = opts.square;
@@ -627,11 +627,11 @@ SplitButtonResponse Toolbar::SplitButton(
     payload->btn.tooltip = ctx.AllocText(opts.tooltip);
     node->text = payload->btn.text.text;
     payload->btn.icon = ctx.AllocIcon(opts.icon);
-    payload->btn.color = opts.color.HasAny() ? opts.color : StateColor::Ghost();
+    payload->btn.style.color = opts.color.HasAny() ? opts.color : StateColor::Ghost();
     payload->btn.iconPlacement = opts.iconPlacement;
     payload->btn.align = opts.align;
-    payload->btn.width = opts.width;
-    payload->btn.minWidth = opts.minWidth;
+    payload->btn.layout.width = opts.width;
+    payload->btn.layout.minWidth = opts.minWidth;
     payload->btn.disabled = effectiveDisabled;
     payload->btn.active = opts.active;
     payload->btn.square = opts.square;

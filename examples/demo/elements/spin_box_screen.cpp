@@ -94,11 +94,6 @@ void RenderSpinBoxStage(guikit::Context& ui, DemoContext& ctx) {
         opts.suffix = s_state.suffix;
         opts.valueFormat = {"%.1f", kValVariants};
         opts.cursorMode = s_state.cursorMode;
-        opts.color = ctx.GetControlColor();
-        opts.width = ctx.ResolveCtrlWidth();
-        opts.height = ctx.ResolveCtrlHeight();
-        opts.background = ctx.GetControlBackground(NavCategory::ElemSpinBox);
-        opts.border = ctx.GetCtrlBorder();
         opts.min = static_cast<double>(s_state.minVal);
         opts.max = static_cast<double>(s_state.maxVal);
         opts.step = static_cast<double>(s_state.step);
@@ -106,9 +101,14 @@ void RenderSpinBoxStage(guikit::Context& ui, DemoContext& ctx) {
         opts.minusIcon = minusIc;
         opts.plusIcon = plusIc;
         opts.showFillBar = s_state.showFillBar;
-        opts.size = ctx.controlsSize;
-        opts.disabled = ctx.elemDisabled;
         opts.readOnly = s_state.readOnly;
+        opts.disabled = ctx.elemDisabled;
+        opts.layout.width = ctx.ResolveCtrlWidth();
+        opts.layout.height = ctx.ResolveCtrlHeight();
+        opts.style.size = ctx.controlsSize;
+        opts.style.color = ctx.GetControlColor();
+        opts.style.background = ctx.GetControlBackground(NavCategory::ElemSpinBox);
+        opts.style.border = ctx.GetCtrlBorder();
         ui.SpinBox(s_state.val, opts);
     });
 }
@@ -120,6 +120,10 @@ keel::String GenerateSpinBoxCode(const DemoContext& ctx) {
     const keel::StringRef plusIconCode = (s_state.iconStyleIdx == 1)
         ? "guikit::Icon::ChevronUp()"
         : ((s_state.iconStyleIdx == 2) ? "guikit::Icon::ArrowRight()" : "guikit::Icon::Plus()");
+    const bool hasCustomSize = (ctx.controlsSize != guikit::UiSize::None && ctx.controlsSize != guikit::UiSize::Md);
+    const keel::FixedString<64> sizeLine = hasCustomSize
+        ? keel::format_fixed<64>("        .size = guikit::UiSize::{},\n", SizeName(ctx.controlsSize))
+        : keel::FixedString<64>{};
 
     const keel::String ctrl = keel::format(
         "ui.SpinBox(centerFreqMhz, {{\n"
@@ -127,29 +131,26 @@ keel::String GenerateSpinBoxCode(const DemoContext& ctx) {
         "    .suffix = \"{}\",\n"
         "    .valueFormat = \"%.1f\",\n"
         "    .cursorMode = guikit::CursorBlinkMode::{},\n"
-        "    .color = {},\n"
-        "    .width = {},\n"
-        "    .height = {},\n"
-        "    .background = {},\n"
-        "    .border = {},\n"
         "    .min = {:.1f},\n"
         "    .max = {:.1f},\n"
         "    .step = {:.1f},\n"
         "    .stepStyle = guikit::SpinBoxStepStyle::{},\n"
         "    .minusIcon = {},\n"
         "    .plusIcon = {},\n"
-        "    .showFillBar = {}{},\n"
+        "    .showFillBar = {},\n"
+        "    .readOnly = {},\n"
         "    .disabled = {},\n"
-        "    .readOnly = {}\n"
+        "    .layout = {{.width = {}, .height = {}}},\n"
+        "    .style = {{\n"
+        "{}"
+        "        .color = {},\n"
+        "        .background = {},\n"
+        "        .border = {}\n"
+        "    }}\n"
         "}});",
         s_state.prefix,
         s_state.suffix,
         CursorModeName(s_state.cursorMode),
-        ctx.FormatControlColorCode(),
-        ctx.FormatControlWidthCode(),
-        ctx.FormatControlHeightCode(),
-        ctx.FormatControlBackgroundCode(NavCategory::ElemSpinBox),
-        ctx.FormatCtrlBorderCode(),
         s_state.minVal,
         s_state.maxVal,
         s_state.step,
@@ -157,9 +158,14 @@ keel::String GenerateSpinBoxCode(const DemoContext& ctx) {
         minusIconCode,
         plusIconCode,
         s_state.showFillBar ? "true" : "false",
-        FormatUiSizePrefix(ctx.controlsSize),
+        s_state.readOnly ? "true" : "false",
         ctx.elemDisabled ? "true" : "false",
-        s_state.readOnly ? "true" : "false"
+        ctx.FormatControlWidthCode(),
+        ctx.FormatControlHeightCode(),
+        sizeLine,
+        ctx.FormatControlColorCode(),
+        ctx.FormatControlBackgroundCode(NavCategory::ElemSpinBox),
+        ctx.FormatCtrlBorderCode()
     );
     return ctx.WrapInElementCode(ctrl);
 }

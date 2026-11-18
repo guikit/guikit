@@ -91,47 +91,53 @@ void RenderImageStage(guikit::Context& ui, DemoContext& ctx) {
         opts.fit = s_state.fit;
         opts.alignX = s_state.alignX;
         opts.alignY = s_state.alignY;
-        opts.width = ctx.ResolveCtrlWidth();
-        opts.height = ctx.ResolveCtrlHeight();
-        opts.background = ctx.GetControlBackground(NavCategory::ElemImage);
-        opts.border = ctx.GetCtrlBorder();
         opts.checkerboard = s_state.checkerboard;
         opts.opacity = alpha;
-        opts.size = ctx.controlsSize;
         opts.disabled = ctx.elemDisabled;
+        opts.layout.width = ctx.ResolveCtrlWidth();
+        opts.layout.height = ctx.ResolveCtrlHeight();
+        opts.style.size = ctx.controlsSize;
+        opts.style.background = ctx.GetControlBackground(NavCategory::ElemImage);
+        opts.style.border = ctx.GetCtrlBorder();
         ui.Image(ImageState::sources[s_state.sourceIdx % ImageState::sources.size()], opts);
     });
 }
 
 keel::String GenerateImageCode(const DemoContext& ctx) {
     const keel::i32 alpha = keel::clamp(keel::round_i32(s_state.opacityPct * 2.55f), 0, 255);
+    const bool hasCustomSize = (ctx.controlsSize != guikit::UiSize::None && ctx.controlsSize != guikit::UiSize::Md);
+    const keel::FixedString<64> sizeLine = hasCustomSize
+        ? keel::format_fixed<64>("        .size = guikit::UiSize::{},\n", SizeName(ctx.controlsSize))
+        : keel::FixedString<64>{};
     const keel::String ctrl = keel::format(
         "ui.Image(\"{}\", {{\n"
         "    .alt = \"{}\",\n"
         "    .fit = guikit::ObjectFit::{},\n"
         "    .alignX = guikit::Align::{},\n"
         "    .alignY = guikit::Align::{},\n"
-        "    .width = {},\n"
-        "    .height = {},\n"
-        "    .background = {},\n"
-        "    .border = {},\n"
         "    .checkerboard = {},\n"
-        "    .opacity = {}{},\n"
-        "    .disabled = {}\n"
+        "    .opacity = {},\n"
+        "    .disabled = {},\n"
+        "    .layout = {{.width = {}, .height = {}}},\n"
+        "    .style = {{\n"
+        "{}"
+        "        .background = {},\n"
+        "        .border = {}\n"
+        "    }}\n"
         "}});",
         ImageState::sources[s_state.sourceIdx % ImageState::sources.size()],
         s_state.altText,
         ImageState::fitModeNames[static_cast<keel::usize>(s_state.fit)],
         AlignName(s_state.alignX),
         AlignName(s_state.alignY),
-        ctx.FormatCtrlWidthCode(),
-        ctx.FormatCtrlHeightCode(),
-        ctx.FormatControlBackgroundCode(NavCategory::ElemImage),
-        ctx.FormatCtrlBorderCode(),
         s_state.checkerboard ? "true" : "false",
         alpha,
-        FormatUiSizePrefix(ctx.controlsSize),
-        ctx.elemDisabled ? "true" : "false"
+        ctx.elemDisabled ? "true" : "false",
+        ctx.FormatCtrlWidthCode(),
+        ctx.FormatCtrlHeightCode(),
+        sizeLine,
+        ctx.FormatControlBackgroundCode(NavCategory::ElemImage),
+        ctx.FormatCtrlBorderCode()
     );
     return ctx.WrapInElementCode(ctrl);
 }

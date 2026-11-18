@@ -15,20 +15,16 @@ class ICanvas;
 
 /// Clean configuration options for ColorPicker control widget.
 struct ColorPickerOptions {
-    UiText tooltip{};                                ///< Optional floating tooltip shown on hover
-    AxisSize width{};                                ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit` in `Toolbar`, or `Fixed(dp)`)
-    AxisSize height{};                               ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
-    keel::Optional<float> minWidth{keel::kNullOpt};  ///< Minimum control width constraint in points
-    StateColor background{StateColor::Surface()};  ///< Control well surface fill color
-    Border border{};                               ///< Control well border stroke & corner radius
-    bool showHex{true};                            ///< Display formatted #RRGGBB / #RRGGBBAA text inside the closed swatch button
-    bool showAlpha{true};                          ///< Enable alpha channel slider and #RRGGBBAA hex representation
-    bool showSwatches{true};                       ///< Display quick preset color swatches inside the picker panel/popover
-    bool inlinePanel{false};                       ///< Render the full interactive SV + Hue/Alpha picker inline instead of a closed button + popover
-    keel::ArrayRef<Color> swatches{};              ///< Optional custom color swatches (preferred name; empty = fallback to presets or default palette)
-    keel::ArrayRef<Color> presets{};               ///< Legacy alias for swatches (empty = default 10-color palette)
-    UiSize size{UiSize::Md};                       ///< Component size scale
-    bool disabled{false};                          ///< Interaction suppression
+    bool showHex{true};              ///< Display formatted #RRGGBB / #RRGGBBAA text inside the closed swatch button
+    bool showAlpha{true};            ///< Enable alpha channel slider and #RRGGBBAA hex representation
+    bool showSwatches{true};         ///< Display quick preset color swatches inside the picker panel/popover
+    bool inlinePanel{false};         ///< Render the full interactive SV + Hue/Alpha picker inline instead of a closed button + popover
+    keel::ArrayRef<Color> swatches{};///< Optional custom color swatches (preferred name; empty = fallback to presets or default palette)
+    keel::ArrayRef<Color> presets{}; ///< Legacy alias for swatches (empty = default 10-color palette)
+    UiText tooltip{};                ///< Optional floating tooltip shown on hover
+    bool disabled{false};            ///< Interaction suppression
+    ControlLayout layout{};          ///< Sizing policy (`Stretch` width / `Fit` height default) and min/max constraints
+    SurfaceStyle style{};            ///< Control size, semantic tint, well background surface, and border
 };
 
 /// Internal runtime state stored per-widget ID for ColorPicker HSV continuity and drag tracking.

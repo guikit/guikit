@@ -26,17 +26,12 @@ struct SegmentedItem {
 
 /// Clean configuration options for Segmented control (button group / multi-segment switch) widget.
 struct SegmentedOptions {
-    UiText tooltip{};                              ///< Optional control-level floating tooltip on hover
-    StateColor color{};                            ///< Active segment pill fill color (Default/None = elevated surface + accent border, or Primary/Success/etc.)
-    AxisSize width{};                              ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit` in `Toolbar`, or `Fixed(dp)`)
-    AxisSize height{};                             ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
-    keel::Optional<float> minWidth{keel::kNullOpt};   ///< Minimum control width constraint in points
-    StateColor background{StateColor::Surface()};  ///< Outer capsule/track surface fill color
-    Border border{};                               ///< Outer capsule/track border stroke & corner radius
-    UiSize size{UiSize::Md};                       ///< Component size scale
-    bool equalWidth{true};                         ///< Give all segments equal width (true) or size each segment to its content (false)
-    bool showDividers{true};                       ///< Render subtle vertical hairlines between unselected adjacent segments
-    bool disabled{false};                          ///< Interaction suppression
+    bool equalWidth{true};   ///< Give all segments equal width (true) or size each segment to its content (false)
+    bool showDividers{true}; ///< Render subtle vertical hairlines between unselected adjacent segments
+    UiText tooltip{};        ///< Optional control-level floating tooltip on hover
+    bool disabled{false};    ///< Interaction suppression
+    ControlLayout layout{};  ///< Sizing policy (`Stretch` width / `Fit` height default) and min/max constraints
+    SurfaceStyle style{};    ///< Control size, active segment fill color, outer track background, and border
 };
 
 /// Internal runtime state allocated in frame arena for Segmented nodes.

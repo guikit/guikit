@@ -32,25 +32,29 @@ void RenderCheckboxInspector(guikit::Context& ui, DemoContext&) {
 void RenderCheckboxStage(guikit::Context& ui, DemoContext& ctx) {
     ctx.RunElementStage(ui, [&]() {
         guikit::CheckboxOptions opts{};
-        opts.color = ctx.GetControlColor();
-        opts.size = ctx.controlsSize;
-        opts.disabled = ctx.elemDisabled;
         opts.indeterminate = s_state.indet;
+        opts.disabled = ctx.elemDisabled;
+        opts.style.size = ctx.controlsSize;
+        opts.style.color = ctx.GetControlColor();
         ui.Checkbox(s_state.state, opts);
     });
 }
 
 keel::String GenerateCheckboxCode(const DemoContext& ctx) {
+    const bool hasCustomSize = (ctx.controlsSize != guikit::UiSize::None && ctx.controlsSize != guikit::UiSize::Md);
+    const keel::FixedString<64> sizePrefix = hasCustomSize
+        ? keel::format_fixed<64>(".size = guikit::UiSize::{}, ", SizeName(ctx.controlsSize))
+        : keel::FixedString<64>{};
     const keel::String ctrl = keel::format(
         "ui.Checkbox(checkState, {{\n"
-        "    .color = {}{},\n"
+        "    .indeterminate = {},\n"
         "    .disabled = {},\n"
-        "    .indeterminate = {}\n"
+        "    .style = {{{}.color = {}}}\n"
         "}});",
-        ctx.FormatControlColorCode(),
-        FormatUiSizePrefix(ctx.controlsSize),
+        s_state.indet ? "true" : "false",
         ctx.elemDisabled ? "true" : "false",
-        s_state.indet ? "true" : "false"
+        sizePrefix,
+        ctx.FormatControlColorCode()
     );
     return ctx.WrapInElementCode(ctrl);
 }

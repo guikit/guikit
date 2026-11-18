@@ -15,17 +15,15 @@ namespace {
 
 ControlSpec EffectiveSpinBoxControl(const SpinBoxOptions& opts, UiSize size, const UiTheme& theme) noexcept {
     const InputFieldMetrics& m = theme.GetInputField(size);
-    ControlSpec c{};
-    c.width = opts.width;
-    c.height = opts.height;
-    c.defaultWidthMode = SizeMode::Stretch;
-    c.defaultHeightMode = SizeMode::Fit;
-    c.minWidth = opts.minWidth;
-    c.defaultLayout = ElementLayout::Stacked;
-    c.labelGap = m.labelGap;
-    c.descGap = m.descGap;
-    c.inlineGap = m.paddingX;
-    return c;
+    return Control::FromLayout(
+        opts.layout,
+        SizeMode::Stretch,
+        SizeMode::Fit,
+        ElementLayout::Stacked,
+        m.labelGap,
+        m.descGap,
+        m.paddingX
+    );
 }
 
 SpinBoxStepStyle ResolveEffectiveStepStyle(const SpinBoxOptions& opts) noexcept {
@@ -60,7 +58,7 @@ Vec2 MeasureSpinBox(
     const InputFieldMetrics& m = theme.GetInputField(size);
     const ControlSpec ctrl = EffectiveSpinBoxControl(opts, size, theme);
     const bool hasVariants = !opts.valueFormat.variants.empty();
-    const SizeMode effWMode = opts.width.ResolveMode(SizeMode::Stretch);
+    const SizeMode effWMode = opts.layout.width.ResolveMode(SizeMode::Stretch);
     const SpinBoxStepStyle effStyle = ResolveEffectiveStepStyle(opts);
     const float boxH = ctrl.height.IsFixed() ? ctrl.height.Dp() : m.defaultHeight;
     const float extGap = 4.0f;
@@ -324,7 +322,7 @@ Response SpinBox::Run(
 ) {
 
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = opts.size;
+    const UiSize activeSize = opts.style.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const bool wasFocused = ctx.IsFocused(id) && !effectiveDisabled;
 
@@ -351,9 +349,9 @@ Response SpinBox::Run(
     }
 
     SpinBoxOptions optsCopy = opts;
-    const SizeMode effW = Control::ResolveWidthMode(ctx, opts.width, SizeMode::Stretch);
-    if (!optsCopy.width.IsFixed()) {
-        optsCopy.width = effW;
+    const SizeMode effW = Control::ResolveWidthMode(ctx, opts.layout.width, SizeMode::Stretch);
+    if (!optsCopy.layout.width.IsFixed()) {
+        optsCopy.layout.width = effW;
     }
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);
     optsCopy.prefix = ctx.AllocAffix(opts.prefix);
@@ -626,12 +624,15 @@ Response SpinBox::Run(
     node->SetPayload(data);
     node->visualHash = detail::HashArgs(
         static_cast<keel::u8>(optsCopy.stepStyle),
-        optsCopy.color,
-        optsCopy.background,
-        optsCopy.border,
-        optsCopy.width,
-        optsCopy.height,
-        optsCopy.minWidth.value_or(0.0f),
+        optsCopy.style.color,
+        optsCopy.style.background,
+        optsCopy.style.border,
+        optsCopy.layout.width,
+        optsCopy.layout.height,
+        optsCopy.layout.minWidth.value_or(0.0f),
+        optsCopy.layout.maxWidth.value_or(0.0f),
+        optsCopy.layout.minHeight.value_or(0.0f),
+        optsCopy.layout.maxHeight.value_or(0.0f),
         optsCopy.readOnly,
         optsCopy.stepButtons,
         optsCopy.showFillBar,
@@ -770,21 +771,21 @@ void SpinBox::Render(
     const bool inputHovered = hovered && (!isExternalStepBtns || (!stepMinusHovered && !stepPlusHovered));
 
     const auto& pal = theme.palette;
-    const bool hasBg = opts.background.IsBackgroundEnabled(true);
+    const bool hasBg = opts.style.background.IsBackgroundEnabled(true);
     Color boxBg = hasBg
         ? ((inputHovered && !disabled) ? pal.surface : pal.inputBackground)
         : Color::Transparent();
     Color boxBorder;
-    float strokeW = (opts.border.width > 0.0f) ? opts.border.width : m.strokeWidth;
+    float strokeW = (opts.style.border.width > 0.0f) ? opts.style.border.width : m.strokeWidth;
 
     const VariantColors& primaryVar = theme.GetVariant(UiVariant::Primary);
-    const Color accentCol = opts.color.HasAny()
-        ? theme.ResolveColor(opts.color, hovered && !disabled, focused && !disabled, disabled, primaryVar.bg, primaryVar.bgHover, primaryVar.bgActive, primaryVar.bg)
+    const Color accentCol = opts.style.color.HasAny()
+        ? theme.ResolveColor(opts.style.color, hovered && !disabled, focused && !disabled, disabled, primaryVar.bg, primaryVar.bgHover, primaryVar.bgActive, primaryVar.bg)
         : primaryVar.bg;
 
     if (focused && !disabled) {
-        boxBorder = opts.color.HasAny() ? accentCol : pal.focusRing;
-        if (opts.border.width > 0.0f || m.strokeWidth > 0.0f) strokeW += 0.5f;
+        boxBorder = opts.style.color.HasAny() ? accentCol : pal.focusRing;
+        if (opts.style.border.width > 0.0f || m.strokeWidth > 0.0f) strokeW += 0.5f;
     } else if (inputHovered && !disabled) {
         boxBorder = pal.borderHover;
     } else {
@@ -802,18 +803,18 @@ void SpinBox::Render(
         unitCol = unitCol.WithAlphaF(0.40f);
     }
 
-    if (hasBg && opts.background.HasAny()) {
-        if (!opts.background.IsSurface()) {
-            boxBg = theme.ResolveColor(opts.background, inputHovered, focused, disabled, boxBg);
-        } else if (opts.background.HasAlphaScale()) {
-            boxBg = boxBg.ScaleAlpha(opts.background.alphaScale);
+    if (hasBg && opts.style.background.HasAny()) {
+        if (!opts.style.background.IsSurface()) {
+            boxBg = theme.ResolveColor(opts.style.background, inputHovered, focused, disabled, boxBg);
+        } else if (opts.style.background.HasAlphaScale()) {
+            boxBg = boxBg.ScaleAlpha(opts.style.background.alphaScale);
         }
     }
-    if (opts.border.color.HasAny()) {
-        boxBorder = theme.ResolveColor(opts.border.color, inputHovered, focused, disabled, boxBorder);
+    if (opts.style.border.color.HasAny()) {
+        boxBorder = theme.ResolveColor(opts.style.border.color, inputHovered, focused, disabled, boxBorder);
     }
 
-    const float radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
+    const float radius = opts.style.border.radius.has_value() ? *opts.style.border.radius : m.cornerRadius;
     canvas.DrawRoundRect(boxRect, radius, boxBg, boxBorder, strokeW);
 
     // Optional fill bar along the bottom inside the SpinBox input field
@@ -834,14 +835,14 @@ void SpinBox::Render(
 
     // External square (H x H) stepper buttons for Detached / Split styles
     if (isExternalStepBtns) {
-        const float baseStrokeW = (opts.border.width > 0.0f) ? opts.border.width : m.strokeWidth;
+        const float baseStrokeW = (opts.style.border.width > 0.0f) ? opts.style.border.width : m.strokeWidth;
         const float iconSz = keel::max(8.0f, m.iconSize);
         auto drawSquareStepBtn = [&](const Rect& btnRect, const Icon& ic, bool btnHov, bool btnPress, bool btnDis) {
             if (btnRect.w <= 0.0f || btnRect.h <= 0.0f) return;
             const bool effDis = disabled || btnDis;
             Color btnBg = hasBg ? pal.inputBackground : Color::Transparent();
-            if (hasBg && opts.background.HasAny() && !opts.background.IsSurface()) {
-                btnBg = theme.ResolveColor(opts.background, btnHov && !effDis, btnPress && !effDis, effDis, btnBg);
+            if (hasBg && opts.style.background.HasAny() && !opts.style.background.IsSurface()) {
+                btnBg = theme.ResolveColor(opts.style.background, btnHov && !effDis, btnPress && !effDis, effDis, btnBg);
             } else {
                 if (!effDis) {
                     if (btnPress) {
@@ -850,8 +851,8 @@ void SpinBox::Render(
                         btnBg = pal.surfaceHover;
                     }
                 }
-                if (hasBg && opts.background.IsSurface() && opts.background.HasAlphaScale()) {
-                    btnBg = btnBg.ScaleAlpha(opts.background.alphaScale);
+                if (hasBg && opts.style.background.IsSurface() && opts.style.background.HasAlphaScale()) {
+                    btnBg = btnBg.ScaleAlpha(opts.style.background.alphaScale);
                 }
             }
 
@@ -860,11 +861,11 @@ void SpinBox::Render(
                 if (btnPress) {
                     btnBorder = accentCol;
                 } else if (btnHov) {
-                    btnBorder = opts.color.HasAny() ? accentCol.WithAlphaF(0.75f) : pal.borderHover;
+                    btnBorder = opts.style.color.HasAny() ? accentCol.WithAlphaF(0.75f) : pal.borderHover;
                 }
             }
-            if (opts.border.color.HasAny()) {
-                btnBorder = theme.ResolveColor(opts.border.color, btnHov && !effDis, btnPress && !effDis, effDis, btnBorder);
+            if (opts.style.border.color.HasAny()) {
+                btnBorder = theme.ResolveColor(opts.style.border.color, btnHov && !effDis, btnPress && !effDis, effDis, btnBorder);
             }
             if (effDis) {
                 btnBg = btnBg.WithAlphaF(0.40f);
@@ -880,7 +881,7 @@ void SpinBox::Render(
             );
             const Color icCol = effDis
                 ? unitCol.WithAlphaF(0.35f)
-                : ((btnHov || btnPress) ? (opts.color.HasAny() ? accentCol : pal.textPrimary) : pal.textPrimary);
+                : ((btnHov || btnPress) ? (opts.style.color.HasAny() ? accentCol : pal.textPrimary) : pal.textPrimary);
             ic.Draw(canvas, icRect, icCol);
         };
 
@@ -914,7 +915,7 @@ void SpinBox::Render(
                     btnBorder = accentCol;
                 } else if (btnHov) {
                     btnBg = pal.surfaceHover;
-                    btnBorder = opts.color.HasAny() ? accentCol.WithAlphaF(0.75f) : pal.borderHover;
+                    btnBorder = opts.style.color.HasAny() ? accentCol.WithAlphaF(0.75f) : pal.borderHover;
                 }
             }
             canvas.DrawRoundRect(btnRect, btnRadius, btnBg, btnBorder, 1.0f);
@@ -926,7 +927,7 @@ void SpinBox::Render(
             );
             const Color icCol = effDis
                 ? unitCol.WithAlphaF(0.35f)
-                : ((btnHov || btnPress) ? (opts.color.HasAny() ? accentCol : pal.textPrimary) : pal.textPrimary);
+                : ((btnHov || btnPress) ? (opts.style.color.HasAny() ? accentCol : pal.textPrimary) : pal.textPrimary);
             ic.Draw(canvas, icRect, icCol);
         };
 

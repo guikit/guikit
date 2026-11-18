@@ -221,7 +221,7 @@ void RenderAttitudeInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         .layout = guikit::ElementLayout::Top,
         .size = guikit::UiSize::Sm
     })) {
-        ui.Select(s_att.controlModeIndex, kControlModes, {.size = guikit::UiSize::Sm});
+        ui.Select(s_att.controlModeIndex, kControlModes, {.style = {.size = guikit::UiSize::Sm}});
     }
 
     if (auto el = ui.Element({
@@ -229,7 +229,7 @@ void RenderAttitudeInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         .layout = guikit::ElementLayout::Top,
         .size = guikit::UiSize::Sm
     })) {
-        ui.Select(s_att.displayModeIndex, kDisplayModes, {.size = guikit::UiSize::Sm});
+        ui.Select(s_att.displayModeIndex, kDisplayModes, {.style = {.size = guikit::UiSize::Sm}});
     }
 
     if (auto el = ui.Element({
@@ -237,7 +237,7 @@ void RenderAttitudeInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         .layout = guikit::ElementLayout::Top,
         .size = guikit::UiSize::Sm
     })) {
-        ui.Select(s_att.viewportModeIndex, kViewportModes, {.size = guikit::UiSize::Sm});
+        ui.Select(s_att.viewportModeIndex, kViewportModes, {.style = {.size = guikit::UiSize::Sm}});
     }
 
     if (auto el = ui.Element({
@@ -245,7 +245,7 @@ void RenderAttitudeInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         .layout = guikit::ElementLayout::Top,
         .size = guikit::UiSize::Sm
     })) {
-        if (ui.Segmented(s_att.referenceModeIndex, kRefModes, {.size = guikit::UiSize::Sm}).changed) {
+        if (ui.Segmented(s_att.referenceModeIndex, kRefModes, {.style = {.size = guikit::UiSize::Sm}}).changed) {
             if (s_att.referenceModeIndex == 1) {
                 s_att.aircraftSymbolIndex = 2; // Russian KPPI silhouette
             } else if (s_att.aircraftSymbolIndex == 2) {
@@ -259,7 +259,7 @@ void RenderAttitudeInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         .layout = guikit::ElementLayout::Top,
         .size = guikit::UiSize::Sm
     })) {
-        ui.Select(s_att.colorSchemeIndex, kColorSchemes, {.size = guikit::UiSize::Sm});
+        ui.Select(s_att.colorSchemeIndex, kColorSchemes, {.style = {.size = guikit::UiSize::Sm}});
     }
 
     if (auto el = ui.Element({
@@ -267,7 +267,7 @@ void RenderAttitudeInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         .layout = guikit::ElementLayout::Top,
         .size = guikit::UiSize::Sm
     })) {
-        ui.Segmented(s_att.fdStyleIndex, kFdStyles, {.size = guikit::UiSize::Sm});
+        ui.Segmented(s_att.fdStyleIndex, kFdStyles, {.style = {.size = guikit::UiSize::Sm}});
     }
 
     if (auto el = ui.Element({
@@ -275,7 +275,7 @@ void RenderAttitudeInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         .layout = guikit::ElementLayout::Top,
         .size = guikit::UiSize::Sm
     })) {
-        ui.Select(s_att.aircraftSymbolIndex, kAircraftSymbols, {.size = guikit::UiSize::Sm});
+        ui.Select(s_att.aircraftSymbolIndex, kAircraftSymbols, {.style = {.size = guikit::UiSize::Sm}});
     }
 
     ui.Heading({.label = "Attitude & Air Data", .level = guikit::HeadingLevel::H6, .separator = guikit::HeadingSeparator::Bottom});
@@ -287,7 +287,7 @@ void RenderAttitudeInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     })) {
         if (ui.Slider(s_att.rollDeg, -180.0f, 180.0f, {
             .valueFormat = "%+.1f deg",
-            .size = guikit::UiSize::Sm
+            .style = {.size = guikit::UiSize::Sm}
         }).changed) {
             s_att.controlModeIndex = 3;
         }
@@ -300,7 +300,7 @@ void RenderAttitudeInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     })) {
         if (ui.Slider(s_att.pitchDeg, -85.0f, 85.0f, {
             .valueFormat = "%+.1f deg",
-            .size = guikit::UiSize::Sm
+            .style = {.size = guikit::UiSize::Sm}
         }).changed) {
             s_att.controlModeIndex = 3;
         }
@@ -313,7 +313,7 @@ void RenderAttitudeInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     })) {
         ui.Slider(s_att.headingDeg, 0.0f, 359.0f, {
             .valueFormat = "%03.0f deg",
-            .size = guikit::UiSize::Sm
+            .style = {.size = guikit::UiSize::Sm}
         });
     }
 
@@ -324,7 +324,7 @@ void RenderAttitudeInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     })) {
         ui.Slider(s_att.airspeedKnots, 80.0f, 380.0f, {
             .valueFormat = "%.0f kt",
-            .size = guikit::UiSize::Sm
+            .style = {.size = guikit::UiSize::Sm}
         });
     }
 
@@ -335,7 +335,7 @@ void RenderAttitudeInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     })) {
         ui.Slider(s_att.altitudeFeet, 0.0f, 42000.0f, {
             .valueFormat = "%.0f ft",
-            .size = guikit::UiSize::Sm
+            .style = {.size = guikit::UiSize::Sm}
         });
     }
 
@@ -346,43 +346,42 @@ void RenderAttitudeInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     })) {
         ui.Slider(s_att.fovPitchDeg, 30.0f, 80.0f, {
             .valueFormat = "%.0f deg",
-            .size = guikit::UiSize::Sm
+            .style = {.size = guikit::UiSize::Sm}
         });
     }
 
     ui.Heading({.label = "Symbology & Tapes", .level = guikit::HeadingLevel::H6, .separator = guikit::HeadingSeparator::Bottom});
 
     if (auto el = ui.Element({.label = "Pitch Ladder & Chevrons", .size = guikit::UiSize::Sm})) {
-        ui.Switch(s_att.showPitchLadder, {.size = guikit::UiSize::Sm});
+        ui.Switch(s_att.showPitchLadder, {.style = {.size = guikit::UiSize::Sm}});
     }
     if (auto el = ui.Element({.label = "Bank Arc & Slip/Skid Ball", .size = guikit::UiSize::Sm})) {
-        ui.Switch(s_att.showBankScale, {.size = guikit::UiSize::Sm});
+        ui.Switch(s_att.showBankScale, {.style = {.size = guikit::UiSize::Sm}});
     }
     if (auto el = ui.Element({.label = "Flight Path Vector (FPV)", .size = guikit::UiSize::Sm})) {
-        ui.Switch(s_att.showFlightPathVector, {.size = guikit::UiSize::Sm});
+        ui.Switch(s_att.showFlightPathVector, {.style = {.size = guikit::UiSize::Sm}});
     }
     if (auto el = ui.Element({.label = "ILS Localizer & Glideslope", .size = guikit::UiSize::Sm})) {
-        ui.Switch(s_att.showIlsDiamonds, {.size = guikit::UiSize::Sm});
+        ui.Switch(s_att.showIlsDiamonds, {.style = {.size = guikit::UiSize::Sm}});
     }
     if (auto el = ui.Element({.label = "Speed & Altitude Tapes", .size = guikit::UiSize::Sm})) {
-        ui.Switch(s_att.showSpeedAndAltTapes, {.size = guikit::UiSize::Sm});
+        ui.Switch(s_att.showSpeedAndAltTapes, {.style = {.size = guikit::UiSize::Sm}});
     }
     if (auto el = ui.Element({.label = "Compass Heading Tape", .size = guikit::UiSize::Sm})) {
-        ui.Switch(s_att.showHeadingTape, {.size = guikit::UiSize::Sm});
+        ui.Switch(s_att.showHeadingTape, {.style = {.size = guikit::UiSize::Sm}});
     }
     if (auto el = ui.Element({.label = "Flight Mode Annunciator (FMA)", .size = guikit::UiSize::Sm})) {
-        ui.Switch(s_att.showFmaBar, {.size = guikit::UiSize::Sm});
+        ui.Switch(s_att.showFmaBar, {.style = {.size = guikit::UiSize::Sm}});
     }
     if (auto el = ui.Element({.label = "Mouse Stick Vector Overlay", .size = guikit::UiSize::Sm})) {
-        ui.Switch(s_att.showMouseStickOverlay, {.size = guikit::UiSize::Sm});
+        ui.Switch(s_att.showMouseStickOverlay, {.style = {.size = guikit::UiSize::Sm}});
     }
 
     if (ui.Button({
         .text = "Level Wings",
         .icon = guikit::Icon::Refresh(),
-        .color = guikit::StateColor::Secondary(),
-        .width = guikit::SizeMode::Stretch,
-        .size = guikit::UiSize::Sm
+        .layout = {.width = guikit::SizeMode::Stretch},
+        .style = {.size = guikit::UiSize::Sm, .color = guikit::StateColor::Secondary()}
     })) {
         s_att.rollDeg = 0.0f;
         s_att.pitchDeg = 2.0f;

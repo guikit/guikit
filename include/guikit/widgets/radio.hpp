@@ -14,10 +14,9 @@ class ICanvas;
 
 /// Clean configuration options for Radio widget.
 struct RadioOptions {
-    UiText tooltip{};                              ///< Optional floating tooltip text on hover
-    StateColor color{};                            ///< Per-state accent fill color when selected
-    UiSize size{UiSize::Md};                       ///< Component size scale
-    bool disabled{false};                          ///< Interaction suppression
+    UiText tooltip{};     ///< Optional floating tooltip text on hover
+    bool disabled{false}; ///< Interaction suppression
+    ControlStyle style{}; ///< Component size scale and accent color
 };
 static_assert(sizeof(RadioOptions) <= 384, "RadioOptions must stay compact");
 

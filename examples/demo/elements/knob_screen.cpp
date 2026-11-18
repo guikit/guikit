@@ -117,10 +117,9 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
                         .showArc = s_state.showArc,
                         .bipolar = true,
                         .valuePlacement = s_state.valuePlacement,
-                        .color = guikit::StateColor::Primary(),
                         .diameter = ctx.ResolveKnobDiameter(),
-                        .size = ctx.controlsSize,
-                        .disabled = ctx.elemDisabled
+                        .disabled = ctx.elemDisabled,
+                        .style = {.size = ctx.controlsSize, .color = guikit::StateColor::Primary()}
                     });
                 }
                 if (auto el = ui.Element({
@@ -142,10 +141,9 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
                         .showArc = s_state.showArc,
                         .bipolar = false,
                         .valuePlacement = s_state.valuePlacement,
-                        .color = guikit::StateColor::Info(),
                         .diameter = ctx.ResolveKnobDiameter(),
-                        .size = ctx.controlsSize,
-                        .disabled = ctx.elemDisabled
+                        .disabled = ctx.elemDisabled,
+                        .style = {.size = ctx.controlsSize, .color = guikit::StateColor::Info()}
                     });
                 }
                 if (auto el = ui.Element({
@@ -167,10 +165,9 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
                         .showArc = s_state.showArc,
                         .bipolar = false,
                         .valuePlacement = s_state.valuePlacement,
-                        .color = guikit::StateColor::Success(),
                         .diameter = ctx.ResolveKnobDiameter(),
-                        .size = ctx.controlsSize,
-                        .disabled = ctx.elemDisabled
+                        .disabled = ctx.elemDisabled,
+                        .style = {.size = ctx.controlsSize, .color = guikit::StateColor::Success()}
                     });
                 }
                 if (auto el = ui.Element({
@@ -192,10 +189,9 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
                         .showArc = s_state.showArc,
                         .bipolar = true,
                         .valuePlacement = s_state.valuePlacement,
-                        .color = guikit::StateColor::Warning(),
                         .diameter = ctx.ResolveKnobDiameter(),
-                        .size = ctx.controlsSize,
-                        .disabled = ctx.elemDisabled
+                        .disabled = ctx.elemDisabled,
+                        .style = {.size = ctx.controlsSize, .color = guikit::StateColor::Warning()}
                     });
                 }
             }
@@ -212,10 +208,10 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
         opts.showArc = s_state.showArc;
         opts.bipolar = s_state.bipolar;
         opts.valuePlacement = s_state.valuePlacement;
-        opts.color = ctx.GetControlColor();
         opts.diameter = ctx.ResolveKnobDiameter();
-        opts.size = ctx.controlsSize;
         opts.disabled = ctx.elemDisabled;
+        opts.style.size = ctx.controlsSize;
+        opts.style.color = ctx.GetControlColor();
 
         if (s_state.bipolar) {
             opts.valueFormat = "%+.1f %%";
@@ -230,6 +226,10 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
 }
 
 keel::String GenerateKnobCode(const DemoContext& ctx) {
+    const bool hasCustomSize = (ctx.controlsSize != guikit::UiSize::None && ctx.controlsSize != guikit::UiSize::Md);
+    const keel::FixedString<64> sizePrefix = hasCustomSize
+        ? keel::format_fixed<64>(".size = guikit::UiSize::{}, ", SizeName(ctx.controlsSize))
+        : keel::FixedString<64>{};
     const keel::String ctrl = keel::format(
         "ui.Knob(rotaryGain, {}, {}, {{\n"
         "    .valueFormat = \"{}\",\n"
@@ -241,9 +241,9 @@ keel::String GenerateKnobCode(const DemoContext& ctx) {
         "    .showArc = {},\n"
         "    .bipolar = {},\n"
         "    .valuePlacement = guikit::Placement::{},\n"
-        "    .color = {},\n"
-        "    .diameter = {}{},\n"
-        "    .disabled = {}\n"
+        "    .diameter = {},\n"
+        "    .disabled = {},\n"
+        "    .style = {{{}.color = {}}}\n"
         "}});",
         s_state.bipolar ? "-50.0f" : "0.0f",
         s_state.bipolar ? "50.0f" : "100.0f",
@@ -256,10 +256,10 @@ keel::String GenerateKnobCode(const DemoContext& ctx) {
         s_state.showArc ? "true" : "false",
         s_state.bipolar ? "true" : "false",
         PlacementName(s_state.valuePlacement),
-        ctx.FormatControlColorCode(),
         ctx.FormatKnobDiameterCode(),
-        FormatUiSizePrefix(ctx.controlsSize),
-        ctx.elemDisabled ? "true" : "false"
+        ctx.elemDisabled ? "true" : "false",
+        sizePrefix,
+        ctx.FormatControlColorCode()
     );
     return ctx.WrapInElementCode(ctrl);
 }

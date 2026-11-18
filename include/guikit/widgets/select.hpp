@@ -26,24 +26,20 @@ struct SelectItem {
 
 /// Clean configuration options for Select, ComboBox, and Autocomplete control widgets.
 struct SelectOptions {
-    UiText placeholder{"Select..."};               ///< Placeholder text when no item is selected or input is empty
-    UiText emptyText{"No matching items"};         ///< Text displayed inside popup when search filter yields no matches
-    UiText tooltip{};                              ///< Optional floating tooltip text on hover
-    UiAffix prefix{};                              ///< Optional default leading icon/text inside closed field
-    UiAffix suffix{};                              ///< Optional default trailing text/icon inside closed field
+    UiText placeholder{"Select..."};                           ///< Placeholder text when no item is selected or input is empty
+    UiText emptyText{"No matching items"};                     ///< Text displayed inside popup when search filter yields no matches
+    UiAffix prefix{};                                          ///< Optional default leading icon/text inside closed field
+    UiAffix suffix{};                                          ///< Optional default trailing text/icon inside closed field
     keel::Optional<keel::u32> maxVisibleItems{keel::kNullOpt}; ///< Optional limit on visible items count before scrolling
-    Align align{Align::Start};                     ///< Content horizontal alignment inside closed select box (Start, Center, End)
-    AxisSize width{};                              ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit` in `Toolbar`, or `Fixed(dp)`)
-    AxisSize height{};                             ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
-    keel::Optional<float> minWidth{keel::kNullOpt};   ///< Minimum select box width constraint in points
-    StateColor background{StateColor::Surface()};  ///< Select box surface fill color (Surface/Default = on, None = off, or custom StateColor)
-    Border border{};                               ///< Select box border stroke & corner radius configuration
-    bool searchable{false};                        ///< Enable live keyboard search/filtering of dropdown items (ComboBox mode)
-    bool editable{false};                          ///< Enable free-form text input with dropdown suggestions (Autocomplete mode)
-    bool clearable{false};                         ///< Show interactive clear (X) button when a selection or text is present
+    Align align{Align::Start};                                 ///< Content horizontal alignment inside closed select box (Start, Center, End)
+    bool searchable{false};                                    ///< Enable live keyboard search/filtering of dropdown items (ComboBox mode)
+    bool editable{false};                                      ///< Enable free-form text input with dropdown suggestions (Autocomplete mode)
+    bool clearable{false};                                     ///< Show interactive clear (X) button when a selection or text is present
     keel::Optional<CursorBlinkMode> cursorMode{keel::kNullOpt}; ///< Optional override for text cursor blink mode in searchable/editable modes
-    UiSize size{UiSize::Md};                       ///< Component size scale
-    bool disabled{false};                          ///< Interaction suppression
+    UiText tooltip{};                                          ///< Optional floating tooltip text on hover
+    bool disabled{false};                                      ///< Interaction suppression
+    ControlLayout layout{};                                    ///< Sizing policy (`Stretch` width / `Fit` height default) and min/max constraints
+    SurfaceStyle style{};                                      ///< Control size, semantic tint, background surface, and border
 };
 
 /// Visual chip data stored inside frame arena for MultiSelect nodes.

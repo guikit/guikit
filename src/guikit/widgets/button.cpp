@@ -13,16 +13,20 @@ namespace {
 ControlSpec EffectiveButtonControl(const ButtonOptions& opts, UiSize size, const UiTheme& theme) noexcept {
     const ComponentMetrics& m = theme.GetMetrics(size);
     const auto& inputMetrics = theme.GetInputField(size);
-    ControlSpec c{};
-    c.width = opts.square ? AxisSize::Fit() : opts.width;
-    c.height = opts.height;
-    c.defaultWidthMode = SizeMode::Fit;
-    c.defaultHeightMode = SizeMode::Fit;
-    c.minWidth = opts.square ? keel::kNullOpt : opts.minWidth;
-    c.defaultLayout = ElementLayout::Stacked;
-    c.labelGap = inputMetrics.labelGap;
-    c.descGap = inputMetrics.descGap;
-    c.inlineGap = m.paddingX;
+    ControlSpec c = Control::FromLayout(
+        opts.layout,
+        SizeMode::Fit,
+        SizeMode::Fit,
+        ElementLayout::Stacked,
+        inputMetrics.labelGap,
+        inputMetrics.descGap,
+        m.paddingX
+    );
+    if (opts.square) {
+        c.width = AxisSize::Fit();
+        c.minWidth = keel::kNullOpt;
+        c.maxWidth = keel::kNullOpt;
+    }
     return c;
 }
 
@@ -139,7 +143,7 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocati
     const Id id = ctx.MakeChildId(loc);
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const bool interactionBlocked = effectiveDisabled || opts.loading;
-    const UiSize activeSize = opts.size;
+    const UiSize activeSize = opts.style.size;
 
     ctx.RegisterFocusable(id, interactionBlocked);
 
@@ -195,7 +199,7 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocati
 
     const ControlSpec ctrl = EffectiveButtonControl(*bOpts, activeSize, ctx.GetTheme());
     node->visualHash = detail::HashArgs(
-        bOpts->color,
+        bOpts->style.color,
         bOpts->iconPlacement,
         static_cast<keel::u8>(bOpts->align),
         bOpts->active,
@@ -203,12 +207,15 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocati
         loadingPhase,
         bOpts->square,
         bOpts->iconColor.value_or(Color::Transparent()),
-        bOpts->width,
-        bOpts->height,
-        bOpts->minWidth.value_or(0.0f),
+        bOpts->layout.width,
+        bOpts->layout.height,
+        bOpts->layout.minWidth.value_or(0.0f),
+        bOpts->layout.maxWidth.value_or(0.0f),
+        bOpts->layout.minHeight.value_or(0.0f),
+        bOpts->layout.maxHeight.value_or(0.0f),
         activeSize,
-        bOpts->background,
-        bOpts->border,
+        bOpts->style.background,
+        bOpts->style.border,
         static_cast<keel::u8>(bOpts->icon.GetType()),
         static_cast<keel::u8>(bOpts->icon.GetId()),
         bOpts->icon.GetPath(),
@@ -242,13 +249,13 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocati
 
     Control::SetupNode(ctx, node, ctrl);
     if (!ctrl.width.IsFixed()) {
-        const float defaultMinW = (bOpts->square && bOpts->height.IsFixed())
-            ? bOpts->height.Dp()
+        const float defaultMinW = (bOpts->square && bOpts->layout.height.IsFixed())
+            ? bOpts->layout.height.Dp()
             : ctx.GetTheme().GetMetrics(activeSize).defaultHeight;
         node->minWidth = keel::max(node->minWidth, defaultMinW);
     }
     if (bOpts->square && (!node->parent || node->parent->type != NodeType::Element) &&
-        !bOpts->height.IsFixed() && !bOpts->height.IsStretch()) {
+        !bOpts->layout.height.IsFixed() && !bOpts->layout.height.IsStretch()) {
         node->heightMode = SizeMode::Fit;
     }
 
@@ -288,24 +295,24 @@ void Button::Render(
 
     const Rect capsuleRect = bounds;
 
-    const bool hasCtrlBg = opts.background.IsBackgroundEnabled(true);
-    const bool overrideBg = opts.background.HasAny() && !opts.background.IsSurface() && !opts.background.IsNone();
-    StateColor rawEffColor = overrideBg ? opts.background : opts.color;
-    if (!overrideBg && opts.background.IsSurface() && opts.background.HasAlphaScale()) {
-        rawEffColor = rawEffColor.WithAlpha(opts.background.alphaScale);
+    const bool hasCtrlBg = opts.style.background.IsBackgroundEnabled(true);
+    const bool overrideBg = opts.style.background.HasAny() && !opts.style.background.IsSurface() && !opts.style.background.IsNone();
+    StateColor rawEffColor = overrideBg ? opts.style.background : opts.style.color;
+    if (!overrideBg && opts.style.background.IsSurface() && opts.style.background.HasAlphaScale()) {
+        rawEffColor = rawEffColor.WithAlpha(opts.style.background.alphaScale);
     }
     const StateColor effColor = theme.ResolveStateColor(rawEffColor);
 
     Color bg = Color::Transparent();
     Color defaultText = theme.palette.textPrimary;
     Color borderCol = Color::Transparent();
-    float borderW = (opts.border.width > 0.0f) ? opts.border.width : 0.0f;
+    float borderW = (opts.style.border.width > 0.0f) ? opts.style.border.width : 0.0f;
 
     if (!effColor.HasAny() || effColor.token == StateColorToken::Secondary) {
         const VariantColors& colors = theme.GetVariant(UiVariant::Secondary);
         defaultText = colors.text;
         borderCol = colors.border;
-        if (opts.border.width <= 0.0f) borderW = colors.borderWidth;
+        if (opts.style.border.width <= 0.0f) borderW = colors.borderWidth;
         if (hasCtrlBg) {
             if (disabled) {
                 bg = effColor.disabled.value_or(colors.bg.WithAlphaF(0.40f));
@@ -328,7 +335,7 @@ void Button::Render(
     } else if (effColor.token == StateColorToken::Ghost || (effColor.normal.has_value() && effColor.normal->a == 0)) {
         const VariantColors& colors = theme.GetVariant(UiVariant::Ghost);
         defaultText = colors.text;
-        borderCol = (opts.border.width > 0.0f) ? theme.palette.border : colors.border;
+        borderCol = (opts.style.border.width > 0.0f) ? theme.palette.border : colors.border;
         if (hasCtrlBg) {
             if (pressed) bg = effColor.active.value_or(colors.bgActive);
             else if (opts.active) bg = hovered ? effColor.hover.value_or(colors.bgHover) : effColor.active.value_or(colors.bgActive);
@@ -367,7 +374,7 @@ void Button::Render(
                 bg = effColor.Resolve(hovered, pressed || opts.active, disabled, fallback.bg, fallback.bgHover, fallback.bgActive, fallback.bg.WithAlphaF(0.40f));
             }
         }
-        if (opts.border.width > 0.0f) {
+        if (opts.style.border.width > 0.0f) {
             borderCol = defaultText.WithAlphaF(0.65f);
             if (disabled) borderCol = borderCol.WithAlphaF(0.40f);
         }
@@ -377,12 +384,12 @@ void Button::Render(
         ? theme.ResolveTextStateColor(effectiveCapsuleText.color).Resolve(hovered, pressed || opts.active, disabled, defaultText)
         : (disabled ? defaultText.WithAlphaF(0.40f) : defaultText);
 
-    if (opts.border.color.HasAny()) {
-        borderCol = theme.ResolveColor(opts.border.color, hovered, pressed || opts.active || focused, disabled, borderCol);
+    if (opts.style.border.color.HasAny()) {
+        borderCol = theme.ResolveColor(opts.style.border.color, hovered, pressed || opts.active || focused, disabled, borderCol);
     }
 
     if (focused && !disabled) {
-        if (!opts.border.color.active.has_value()) {
+        if (!opts.style.border.color.active.has_value()) {
             borderCol = theme.palette.focusRing;
         }
         borderW = keel::max(borderW, 2.0f);
@@ -392,7 +399,7 @@ void Button::Render(
     canvas.PushClip(capsuleRect);
 
     // Background & border
-    const float radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
+    const float radius = opts.style.border.radius.has_value() ? *opts.style.border.radius : m.cornerRadius;
     canvas.DrawRoundRect(capsuleRect, radius, bg, borderCol, borderW);
 
     const bool hasIcon = opts.loading || opts.icon.IsValid();

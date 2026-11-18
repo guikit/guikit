@@ -104,21 +104,21 @@ void RenderSlotControl(guikit::Context& ui, ElementSlotPreset preset, keel::usiz
             bool& flag = (specimenIdx < s_state.specimenToggles.size())
                 ? s_state.specimenToggles[specimenIdx]
                 : s_state.singleToggle;
-            ui.Switch(flag, {.size = s_state.slotSize});
+            ui.Switch(flag, {.style = {.size = s_state.slotSize}});
             break;
         }
         case ElementSlotPreset::Slider: {
             float& val = (specimenIdx < s_state.specimenGains.size())
                 ? s_state.specimenGains[specimenIdx]
                 : s_state.sliderGainDb;
-            ui.Slider(val, -48.0f, 12.0f, {.valueFormat = "%.1f dB", .size = s_state.slotSize});
+            ui.Slider(val, -48.0f, 12.0f, {.valueFormat = "%.1f dB", .style = {.size = s_state.slotSize}});
             break;
         }
         case ElementSlotPreset::SpinBox: {
             ui.SpinBox(s_state.cutoffHz, 20.0f, 20000.0f, 50.0f, {
                 .suffix = {"Hz"},
                 .valueFormat = "%.0f",
-                .size = s_state.slotSize
+                .style = {.size = s_state.slotSize}
             });
             break;
         }
@@ -126,7 +126,7 @@ void RenderSlotControl(guikit::Context& ui, ElementSlotPreset preset, keel::usiz
             ui.InputField(s_state.endpointHost, {
                 .placeholder = "host:port",
                 .clearable = true,
-                .size = s_state.slotSize
+                .style = {.size = s_state.slotSize}
             });
             break;
         }
@@ -134,8 +134,7 @@ void RenderSlotControl(guikit::Context& ui, ElementSlotPreset preset, keel::usiz
             if (ui.Button({
                 .text = "Calibrate Stage",
                 .icon = guikit::Icon::Play(),
-                .color = guikit::StateColor::Primary(),
-                .size = s_state.slotSize
+                .style = {.size = s_state.slotSize, .color = guikit::StateColor::Primary()}
             })) {
                 ++s_state.triggerCount;
             }
@@ -147,12 +146,11 @@ void RenderSlotControl(guikit::Context& ui, ElementSlotPreset preset, keel::usiz
                     .placeholder = "Filter symbol...",
                     .prefix = {guikit::Icon::Search()},
                     .clearable = true,
-                    .size = s_state.slotSize
+                    .style = {.size = s_state.slotSize}
                 });
                 if (ui.Button({
                     .text = "Apply",
-                    .color = guikit::StateColor::Primary(),
-                    .size = s_state.slotSize
+                    .style = {.size = s_state.slotSize, .color = guikit::StateColor::Primary()}
                 })) {
                     ++s_state.triggerCount;
                 }
@@ -166,39 +164,42 @@ void RenderSlotControl(guikit::Context& ui, ElementSlotPreset preset, keel::usiz
 
 keel::String FormatSlotControlCode(ElementSlotPreset preset) {
     const bool hasSlotSize = (s_state.slotSize != guikit::UiSize::None && s_state.slotSize != guikit::UiSize::Md);
-    const keel::FixedString<48> szInline = hasSlotSize
-        ? keel::format_fixed<48>(", .size = guikit::UiSize::{}", SizeName(s_state.slotSize))
-        : keel::FixedString<48>{};
+    const keel::FixedString<64> styleInline = hasSlotSize
+        ? keel::format_fixed<64>(", .style = {{.size = guikit::UiSize::{}}}", SizeName(s_state.slotSize))
+        : keel::FixedString<64>{};
+    const keel::FixedString<64> sizeField = hasSlotSize
+        ? keel::format_fixed<64>(".size = guikit::UiSize::{}, ", SizeName(s_state.slotSize))
+        : keel::FixedString<64>{};
     switch (preset) {
         case ElementSlotPreset::Switch:
             return hasSlotSize
-                ? keel::format("ui.Switch(enabled, {{.size = guikit::UiSize::{}}});", SizeName(s_state.slotSize))
+                ? keel::format("ui.Switch(enabled, {{.style = {{.size = guikit::UiSize::{}}}}});", SizeName(s_state.slotSize))
                 : keel::String::from("ui.Switch(enabled);");
         case ElementSlotPreset::Slider:
-            return keel::format("ui.Slider(gainDb, -48.0f, 12.0f, {{.valueFormat = \"%.1f dB\"{}}});", szInline);
+            return keel::format("ui.Slider(gainDb, -48.0f, 12.0f, {{.valueFormat = \"%.1f dB\"{}}});", styleInline);
         case ElementSlotPreset::SpinBox:
             return keel::format(
                 "ui.SpinBox(cutoffHz, 20.0f, 20000.0f, 50.0f, {{.suffix = {{\"Hz\"}}, .valueFormat = \"%.0f\"{}}});",
-                szInline
+                styleInline
             );
         case ElementSlotPreset::InputField:
             return keel::format(
                 "ui.InputField(endpointHost, {{.placeholder = \"host:port\", .clearable = true{}}});",
-                szInline
+                styleInline
             );
         case ElementSlotPreset::Button:
             return keel::format(
-                "ui.Button({{.text = \"Calibrate Stage\", .icon = guikit::Icon::Play(), .color = guikit::StateColor::Primary(){}}});",
-                szInline
+                "ui.Button({{.text = \"Calibrate Stage\", .icon = guikit::Icon::Play(), .style = {{{}.color = guikit::StateColor::Primary()}}}});",
+                sizeField
             );
         case ElementSlotPreset::CompositeRow:
             return keel::format(
                 "if (auto row = ui.Row({{.gap = 8.0f, .align = guikit::Alignment::Center}})) {{\n"
                 "    ui.InputField(searchQuery, {{.placeholder = \"Filter symbol...\", .prefix = {{guikit::Icon::Search()}}, .clearable = true{}}});\n"
-                "    ui.Button({{.text = \"Apply\", .color = guikit::StateColor::Primary(){}}});\n"
+                "    ui.Button({{.text = \"Apply\", .style = {{{}.color = guikit::StateColor::Primary()}}}});\n"
                 "}}",
-                szInline,
-                szInline
+                styleInline,
+                sizeField
             );
         case ElementSlotPreset::Standalone:
             return {};

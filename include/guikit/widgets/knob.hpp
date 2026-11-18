@@ -15,20 +15,19 @@ class ICanvas;
 
 /// Clean configuration options for rotary Knob / Dial widget.
 struct KnobOptions {
-    UiText tooltip{};                              ///< Optional floating tooltip text on hover
-    UiText valueFormat{};                          ///< Format string for value (e.g. "%.1f dB", "%.0f %%"; empty = default numeric format)
-    keel::Optional<double> step{keel::kNullOpt};   ///< Step quantization (defaults to 1.0 for integers, continuous for float/double)
+    UiText valueFormat{};                            ///< Format string for value (e.g. "%.1f dB", "%.0f %%"; empty = default numeric format)
+    keel::Optional<double> step{keel::kNullOpt};     ///< Step quantization (defaults to 1.0 for integers, continuous for float/double)
     keel::Optional<double> defaultValue{keel::kNullOpt}; ///< Optional reset value on double-click
-    keel::u32 tickCount{11};                        ///< Number of radial tick marks when showTicks is true (0 = auto from step or 11)
-    bool showValue{true};                          ///< Whether to display current formatted value text
-    bool showTicks{true};                          ///< Render radial scale tick marks around the dial
-    bool showArc{true};                            ///< Render outer track & active value arc around the rotor
-    bool bipolar{false};                           ///< Sweep active arc from center/zero instead of minimum
-    Placement valuePlacement{Placement::Bottom};   ///< Value position relative to dial: Bottom, Top, Thumb (inside center), Leading, Trailing
-    StateColor color{};                            ///< Per-state accent fill color for active arc, pointer, and ticks
-    keel::Optional<float> diameter{keel::kNullOpt}; ///< Optional explicit dial diameter in logical dp (nullopt = auto from UiSize)
-    UiSize size{UiSize::Md};                        ///< Component size scale
-    bool disabled{false};                          ///< Interaction suppression
+    keel::u32 tickCount{11};                         ///< Number of radial tick marks when showTicks is true (0 = auto from step or 11)
+    bool showValue{true};                            ///< Whether to display current formatted value text
+    bool showTicks{true};                            ///< Render radial scale tick marks around the dial
+    bool showArc{true};                              ///< Render outer track & active value arc around the rotor
+    bool bipolar{false};                             ///< Sweep active arc from center/zero instead of minimum
+    Placement valuePlacement{Placement::Bottom};     ///< Value position relative to dial: Bottom, Top, Thumb (inside center), Leading, Trailing
+    keel::Optional<float> diameter{keel::kNullOpt};  ///< Optional explicit dial diameter in logical dp (nullopt = auto from UiSize)
+    UiText tooltip{};                                ///< Optional floating tooltip text on hover
+    bool disabled{false};                            ///< Interaction suppression
+    ControlStyle style{};                            ///< Component size scale and accent color
 };
 
 /// Internal runtime state stored per-widget ID for Knob drag interaction.

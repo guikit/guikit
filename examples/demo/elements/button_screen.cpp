@@ -67,17 +67,17 @@ void RenderButtonStage(guikit::Context& ui, DemoContext& ctx) {
         guikit::ButtonOptions opts{};
         opts.text = btnText;
         opts.icon = s_state.hasIcon ? guikit::Icon::Play() : guikit::Icon{};
-        opts.color = ctx.GetControlColor();
         opts.iconPlacement = s_state.iconPlacement;
         opts.align = ctx.GetCtrlAlign(NavCategory::ElemButton);
-        opts.width = ctx.ResolveCtrlWidth();
-        opts.height = ctx.ResolveCtrlHeight();
-        opts.background = ctx.GetControlBackground(NavCategory::ElemButton);
-        opts.border = ctx.GetCtrlBorder();
-        opts.disabled = ctx.elemDisabled;
         opts.loading = s_state.loading;
         opts.square = s_state.square;
-        opts.size = ctx.controlsSize;
+        opts.disabled = ctx.elemDisabled;
+        opts.layout.width = ctx.ResolveCtrlWidth();
+        opts.layout.height = ctx.ResolveCtrlHeight();
+        opts.style.size = ctx.controlsSize;
+        opts.style.color = ctx.GetControlColor();
+        opts.style.background = ctx.GetControlBackground(NavCategory::ElemButton);
+        opts.style.border = ctx.GetCtrlBorder();
 
         if (ui.Button(opts)) {
             ++s_state.clicks;
@@ -88,36 +88,42 @@ void RenderButtonStage(guikit::Context& ui, DemoContext& ctx) {
 
 keel::String GenerateButtonCode(const DemoContext& ctx) {
     const guikit::Align ctrlAlign = ctx.GetCtrlAlign(NavCategory::ElemButton);
+    const bool hasCustomSize = (ctx.controlsSize != guikit::UiSize::None && ctx.controlsSize != guikit::UiSize::Md);
+    const keel::FixedString<64> sizeLine = hasCustomSize
+        ? keel::format_fixed<64>("        .size = guikit::UiSize::{},\n", SizeName(ctx.controlsSize))
+        : keel::FixedString<64>{};
     const keel::String ctrlCode = keel::format(
         "if (ui.Button({{\n"
         "    .text = \"{}\",\n"
         "    .icon = {},\n"
-        "    .color = {},\n"
         "    .iconPlacement = guikit::Placement::{},\n"
         "    .align = guikit::Align::{},\n"
-        "    .width = {},\n"
-        "    .height = {},\n"
-        "    .background = {},\n"
-        "    .border = {},\n"
-        "    .disabled = {},\n"
         "    .loading = {},\n"
-        "    .square = {}{}\n"
+        "    .square = {},\n"
+        "    .disabled = {},\n"
+        "    .layout = {{.width = {}, .height = {}}},\n"
+        "    .style = {{\n"
+        "{}"
+        "        .color = {},\n"
+        "        .background = {},\n"
+        "        .border = {}\n"
+        "    }}\n"
         "}})) {{\n"
         "    // On click handler\n"
         "}}",
         s_state.text,
         s_state.hasIcon ? "guikit::Icon::Play()" : "{}",
-        ctx.FormatControlColorCode(),
         PlacementName(s_state.iconPlacement),
         AlignName(ctrlAlign),
-        ctx.FormatControlWidthCode(),
-        ctx.FormatControlHeightCode(),
-        ctx.FormatControlBackgroundCode(NavCategory::ElemButton),
-        ctx.FormatCtrlBorderCode(),
-        ctx.elemDisabled ? "true" : "false",
         s_state.loading ? "true" : "false",
         s_state.square ? "true" : "false",
-        FormatUiSizePrefix(ctx.controlsSize)
+        ctx.elemDisabled ? "true" : "false",
+        ctx.FormatControlWidthCode(),
+        ctx.FormatControlHeightCode(),
+        sizeLine,
+        ctx.FormatControlColorCode(),
+        ctx.FormatControlBackgroundCode(NavCategory::ElemButton),
+        ctx.FormatCtrlBorderCode()
     );
     return ctx.WrapInElementCode(ctrlCode);
 }

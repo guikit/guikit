@@ -30,16 +30,15 @@ struct PageToken {
 
 ControlSpec EffectivePaginationControl(const PaginationOptions& opts, UiSize size, const UiTheme& theme) noexcept {
     const SelectMetrics& sm = theme.GetSelect(size);
-    ControlSpec c{};
-    c.width = opts.width;
-    c.height = opts.height;
-    c.defaultWidthMode = SizeMode::Fit;
-    c.defaultHeightMode = SizeMode::Fit;
-    c.defaultLayout = ElementLayout::Stacked;
-    c.labelGap = sm.labelGap;
-    c.descGap = sm.descGap;
-    c.inlineGap = sm.paddingX;
-    return c;
+    return Control::FromLayout(
+        opts.layout,
+        SizeMode::Fit,
+        SizeMode::Fit,
+        ElementLayout::Stacked,
+        sm.labelGap,
+        sm.descGap,
+        sm.paddingX
+    );
 }
 
 Color ResolveContrastingTextOnFill(Color fill, const ThemePalette& pal) noexcept {
@@ -214,12 +213,12 @@ Vec2 MeasurePaginationNaturalBox(
         totalW += 10.0f + MeasureReservedPageInfoWidth(totalPages, size, canvas, theme);
     }
 
-    if (opts.width.IsFixed()) {
-        totalW = opts.width.Dp();
+    if (opts.layout.width.IsFixed()) {
+        totalW = opts.layout.width.Dp();
     }
 
-    const float boxH = opts.height.IsFixed()
-        ? opts.height.Dp()
+    const float boxH = opts.layout.height.IsFixed()
+        ? opts.layout.height.Dp()
         : cm.defaultHeight;
 
     return {keel::max(cm.defaultHeight, totalW), boxH};
@@ -341,7 +340,7 @@ Response Pagination::Run(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = opts.size;
+    const UiSize activeSize = opts.style.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const UiTheme theme = ctx.GetTheme();
     ICanvas* canvas = ctx.GetCanvas();
@@ -458,9 +457,13 @@ Response Pagination::Run(
         optsCopy.showPrevNext,
         optsCopy.showPageInfo,
         optsCopy.interactiveEllipsis,
-        optsCopy.width,
-        optsCopy.height,
-        optsCopy.color
+        optsCopy.layout.width,
+        optsCopy.layout.height,
+        optsCopy.layout.minWidth.value_or(0.0f),
+        optsCopy.layout.maxWidth.value_or(0.0f),
+        optsCopy.layout.minHeight.value_or(0.0f),
+        optsCopy.layout.maxHeight.value_or(0.0f),
+        optsCopy.style.color
     );
 
     node->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* c, const UiTheme& t) noexcept -> Vec2 {
@@ -521,8 +524,8 @@ void Pagination::Render(
         const bool isPressed = !tokDisabled && (d->pressedToken == static_cast<keel::i32>(i));
         const bool isActivePage = (tok.type == PageTokenType::PageNumber) && (tok.targetPage == d->currentPage);
 
-        const Color accentColor = d->opts.color.HasAny()
-            ? d->opts.color.Resolve(isHovered, isPressed, tokDisabled, pal.accent)
+        const Color accentColor = d->opts.style.color.HasAny()
+            ? d->opts.style.color.Resolve(isHovered, isPressed, tokDisabled, pal.accent)
             : pal.accent;
 
         Color pillFill = Color::Transparent();

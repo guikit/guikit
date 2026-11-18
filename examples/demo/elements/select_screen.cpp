@@ -84,13 +84,13 @@ void RenderSelectStage(guikit::Context& ui, DemoContext& ctx) {
         opts.prefix = s_state.hasPrefix ? guikit::Icon::Search() : guikit::Icon{};
         opts.maxVisibleItems = s_state.maxItems;
         opts.align = ctx.GetCtrlAlign(NavCategory::ElemSelect);
-        opts.width = ctx.ResolveCtrlWidth();
-        opts.height = ctx.ResolveCtrlHeight();
-        opts.background = ctx.GetControlBackground(NavCategory::ElemSelect);
-        opts.border = ctx.GetCtrlBorder();
         opts.clearable = s_state.clearable;
-        opts.size = ctx.controlsSize;
         opts.disabled = ctx.elemDisabled;
+        opts.layout.width = ctx.ResolveCtrlWidth();
+        opts.layout.height = ctx.ResolveCtrlHeight();
+        opts.style.size = ctx.controlsSize;
+        opts.style.background = ctx.GetControlBackground(NavCategory::ElemSelect);
+        opts.style.border = ctx.GetCtrlBorder();
 
         const auto richList = BuildRichSelectItems();
         if (s_state.mode == 0) {
@@ -129,6 +129,10 @@ keel::String GenerateSelectCode(const DemoContext& ctx) {
             ? "ComboBox(presetIndex"
             : ((s_state.mode == 2) ? "Autocomplete(customText" : "MultiSelect(selectedIndices"));
     const guikit::Align ctrlAlign = ctx.GetCtrlAlign(NavCategory::ElemSelect);
+    const bool hasCustomSize = (ctx.controlsSize != guikit::UiSize::None && ctx.controlsSize != guikit::UiSize::Md);
+    const keel::FixedString<64> sizeLine = hasCustomSize
+        ? keel::format_fixed<64>("        .size = guikit::UiSize::{},\n", SizeName(ctx.controlsSize))
+        : keel::FixedString<64>{};
 
     const keel::String ctrl = keel::format(
         "ui.{}, itemsList, {{\n"
@@ -136,25 +140,27 @@ keel::String GenerateSelectCode(const DemoContext& ctx) {
         "    .prefix = {},\n"
         "    .maxVisibleItems = {},\n"
         "    .align = guikit::Align::{},\n"
-        "    .width = {},\n"
-        "    .height = {},\n"
-        "    .background = {},\n"
-        "    .border = {},\n"
-        "    .clearable = {}{},\n"
-        "    .disabled = {}\n"
+        "    .clearable = {},\n"
+        "    .disabled = {},\n"
+        "    .layout = {{.width = {}, .height = {}}},\n"
+        "    .style = {{\n"
+        "{}"
+        "        .background = {},\n"
+        "        .border = {}\n"
+        "    }}\n"
         "}});",
         widgetCall,
         s_state.placeholder,
         s_state.hasPrefix ? "guikit::Icon::Search()" : "{}",
         s_state.maxItems,
         AlignName(ctrlAlign),
+        s_state.clearable ? "true" : "false",
+        ctx.elemDisabled ? "true" : "false",
         ctx.FormatCtrlWidthCode(),
         ctx.FormatCtrlHeightCode(),
+        sizeLine,
         ctx.FormatControlBackgroundCode(NavCategory::ElemSelect),
-        ctx.FormatCtrlBorderCode(),
-        s_state.clearable ? "true" : "false",
-        FormatUiSizePrefix(ctx.controlsSize),
-        ctx.elemDisabled ? "true" : "false"
+        ctx.FormatCtrlBorderCode()
     );
     return ctx.WrapInElementCode(ctrl);
 }

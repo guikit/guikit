@@ -14,11 +14,10 @@ class ICanvas;
 
 /// Clean configuration options for Checkbox widget.
 struct CheckboxOptions {
-    UiText tooltip{};                              ///< Optional floating tooltip text on hover
-    StateColor color{};                            ///< Per-state accent fill color when checked
-    UiSize size{UiSize::Md};                       ///< Component size scale
-    bool disabled{false};                          ///< Interaction suppression
-    bool indeterminate{false};                     ///< Tri-state / partial check (horizontal dash)
+    bool indeterminate{false}; ///< Tri-state / partial check (horizontal dash)
+    UiText tooltip{};          ///< Optional floating tooltip text on hover
+    bool disabled{false};      ///< Interaction suppression
+    ControlStyle style{};      ///< Component size scale and accent color
 };
 static_assert(sizeof(CheckboxOptions) <= 384, "CheckboxOptions must stay compact");
 

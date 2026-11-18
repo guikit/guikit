@@ -17,17 +17,15 @@ struct Node;
 
 /// Configuration options for Pagination bar widget.
 struct PaginationOptions {
-    keel::u32 siblingCount{1};        ///< Number of page buttons shown on each side of active page
+    keel::u32 siblingCount{1};       ///< Number of page buttons shown on each side of active page
     bool showFirstLast{true};        ///< Show « (First) and » (Last) buttons
     bool showPrevNext{true};         ///< Show ‹ (Prev) and › (Next) buttons
     bool showPageInfo{false};        ///< Show trailing "Page X of Y" summary label
     bool interactiveEllipsis{false}; ///< false = static "..." separator (MUI/Shadcn); true = fast-jump button on "..." (Ant Design)
-    StateColor color{};
-    AxisSize width{};                ///< Horizontal sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
-    AxisSize height{};               ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
-    UiText tooltip{};
-    UiSize size{UiSize::Md};
-    bool disabled{false};
+    UiText tooltip{};                ///< Optional floating tooltip text on hover
+    bool disabled{false};            ///< Interaction suppression
+    ControlLayout layout{};          ///< Sizing policy (`Fit` default) and min/max constraints
+    ControlStyle style{};            ///< Component size scale and accent color
 };
 
 /// Internal runtime payload allocated in frame arena for Pagination nodes.

@@ -29,8 +29,14 @@ Vec2 Control::Measure(
     if (spec.minWidth.has_value() && *spec.minWidth > 0.0f) {
         result.x = keel::max(result.x, *spec.minWidth);
     }
+    if (spec.maxWidth.has_value() && *spec.maxWidth > 0.0f) {
+        result.x = keel::min(result.x, *spec.maxWidth);
+    }
     if (spec.minHeight.has_value() && *spec.minHeight > 0.0f) {
         result.y = keel::max(result.y, *spec.minHeight);
+    }
+    if (spec.maxHeight.has_value() && *spec.maxHeight > 0.0f) {
+        result.y = keel::min(result.y, *spec.maxHeight);
     }
     if (spec.width.IsFixed()) {
         result.x = spec.width.Dp();
@@ -80,8 +86,14 @@ void Control::SetupNode(
     if (spec.minWidth.has_value() && *spec.minWidth > 0.0f) {
         node->minWidth = keel::max(node->minWidth, *spec.minWidth);
     }
+    if (spec.maxWidth.has_value() && *spec.maxWidth > 0.0f) {
+        node->maxWidth = (node->maxWidth > 0.0f) ? keel::min(node->maxWidth, *spec.maxWidth) : *spec.maxWidth;
+    }
     if (spec.minHeight.has_value() && *spec.minHeight > 0.0f) {
         node->minHeight = keel::max(node->minHeight, *spec.minHeight);
+    }
+    if (spec.maxHeight.has_value() && *spec.maxHeight > 0.0f) {
+        node->maxHeight = (node->maxHeight > 0.0f) ? keel::min(node->maxHeight, *spec.maxHeight) : *spec.maxHeight;
     }
 
     if (spec.width.IsFixed()) {

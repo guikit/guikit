@@ -772,9 +772,9 @@ TreeViewScope TreeView::Open(
                 if (ctx.InputField(st.filterText, {
                     .placeholder = opts.searchPlaceholder,
                     .prefix = Icon::Search(),
-                    .width = SizeMode::Stretch,
                     .clearable = true,
-                    .disabled = activeDisabled
+                    .disabled = activeDisabled,
+                    .layout = {.width = SizeMode::Stretch}
                 }).changed) {
                     if (opts.filterText.valid()) {
                         opts.filterText.assign(st.filterText.as_ref());
@@ -788,11 +788,11 @@ TreeViewScope TreeView::Open(
             if (opts.showToolbar) {
                 if (ctx.Button({
                     .text = "Expand",
-                    .tooltip = "Expand all tree branches",
                     .icon = Icon::ChevronDown(),
-                    .color = StateColor::Ghost(),
-                    .width = SizeMode::Fit,
-                    .disabled = activeDisabled
+                    .tooltip = "Expand all tree branches",
+                    .disabled = activeDisabled,
+                    .layout = {.width = SizeMode::Fit},
+                    .style = {.color = StateColor::Ghost()}
                 })) {
                     st.bulkToggleGen++;
                     st.bulkToggleOpen = true;
@@ -800,11 +800,11 @@ TreeViewScope TreeView::Open(
                 }
                 if (ctx.Button({
                     .text = "Collapse",
-                    .tooltip = "Collapse all tree branches",
                     .icon = Icon::ChevronRight(),
-                    .color = StateColor::Ghost(),
-                    .width = SizeMode::Fit,
-                    .disabled = activeDisabled
+                    .tooltip = "Collapse all tree branches",
+                    .disabled = activeDisabled,
+                    .layout = {.width = SizeMode::Fit},
+                    .style = {.color = StateColor::Ghost()}
                 })) {
                     st.bulkToggleGen++;
                     st.bulkToggleOpen = false;

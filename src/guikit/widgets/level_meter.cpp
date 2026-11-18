@@ -84,16 +84,15 @@ ControlSpec EffectiveLevelMeterControl(
 ) noexcept {
     const SliderMetrics& m = theme.GetSlider(size);
     const bool isVert = IsVerticalMeter(opts.orientation);
-    ControlSpec c{};
-    c.width = opts.width;
-    c.height = opts.height;
-    c.defaultWidthMode = isVert ? SizeMode::Fit : SizeMode::Stretch;
-    c.defaultHeightMode = isVert ? SizeMode::Stretch : SizeMode::Fit;
-    c.defaultLayout = ElementLayout::Stacked;
-    c.labelGap = m.labelGap;
-    c.descGap = m.descGap;
-    c.inlineGap = 12.0f;
-    return c;
+    return Control::FromLayout(
+        opts.layout,
+        isVert ? SizeMode::Fit : SizeMode::Stretch,
+        isVert ? SizeMode::Stretch : SizeMode::Fit,
+        ElementLayout::Stacked,
+        m.labelGap,
+        m.descGap,
+        12.0f
+    );
 }
 
 Color ResolveZoneColor(
@@ -107,10 +106,10 @@ Color ResolveZoneColor(
     const float dangerT = keel::clamp(opts.dangerRatio, warnT + 0.01f, 0.995f);
 
     Color col;
-    const StateColor resolvedColor = theme.ResolveStateColor(opts.color);
+    const StateColor resolvedColor = theme.ResolveStateColor(opts.style.color);
     if (!opts.multiZoneColor) {
         const VariantColors& primary = theme.GetVariant(UiVariant::Primary);
-        if (!opts.color.HasAny()) {
+        if (!opts.style.color.HasAny()) {
             col = primary.bg;
         } else if (resolvedColor.normal.has_value() && resolvedColor.normal->a == 0) {
             col = pal.borderHover;
@@ -124,7 +123,7 @@ Color ResolveZoneColor(
             col = theme.GetVariant(UiVariant::Warning).bg;
         } else {
             const Color defaultSafe = theme.GetVariant(UiVariant::Success).bg;
-            if (!opts.color.HasAny() || opts.color == StateColor::Primary()) {
+            if (!opts.style.color.HasAny() || opts.style.color == StateColor::Primary()) {
                 col = defaultSafe;
             } else if (resolvedColor.normal.has_value() && resolvedColor.normal->a == 0) {
                 col = defaultSafe;
@@ -235,8 +234,8 @@ LevelMeterMetrics ComputeLevelMeterMetrics(
             : (opts.showValue ? keel::max(mm.barThick, mm.valLineH * 0.85f) : mm.barThick);
         const float barsTotalH = static_cast<float>(numCh) * rowH + static_cast<float>(numCh - 1) * mm.channelGap;
 
-        const float defaultTrackW = opts.width.IsFixed()
-            ? opts.width.Dp()
+        const float defaultTrackW = opts.layout.width.IsFixed()
+            ? opts.layout.width.Dp()
             : sm.defaultWidth;
         const float leftW = (mm.labelReserveW > 0.0f) ? (mm.labelReserveW + 6.0f) : 0.0f;
         const float clipW = opts.showClipLed ? (mm.clipGap + mm.clipLedLen) : 0.0f;
@@ -582,7 +581,7 @@ Response RunLevelMeterImpl(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = opts.size;
+    const UiSize activeSize = opts.style.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const UiTheme& activeTheme = ctx.GetTheme();
 
@@ -720,9 +719,13 @@ Response RunLevelMeterImpl(
         data->opts.showScale,
         data->opts.showValue,
         data->opts.barThickness.value_or(0.0f),
-        data->opts.color,
-        data->opts.width,
-        data->opts.height,
+        data->opts.style.color,
+        data->opts.layout.width,
+        data->opts.layout.height,
+        data->opts.layout.minWidth.value_or(0.0f),
+        data->opts.layout.maxWidth.value_or(0.0f),
+        data->opts.layout.minHeight.value_or(0.0f),
+        data->opts.layout.maxHeight.value_or(0.0f),
         data->opts.valueFormat
     );
 

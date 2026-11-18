@@ -32,7 +32,7 @@ Response Checkbox::Run(
 ) {
 
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = opts.size;
+    const UiSize activeSize = opts.style.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
 
     ctx.RegisterFocusable(id, effectiveDisabled);
@@ -75,7 +75,7 @@ Response Checkbox::Run(
     Node* node = ctx.CreateNode(NodeType::Checkbox, id);
     node->SetPayload(ctx.AllocPayload<CheckboxOptions>(optsCopy));
     node->visualHash = detail::HashArgs(
-        optsCopy.color,
+        optsCopy.style.color,
         optsCopy.indeterminate,
         currentChecked
     );
@@ -170,19 +170,19 @@ void Checkbox::Render(
 
     if (isActive) {
         const VariantColors& v = theme.GetVariant(UiVariant::Primary);
-        if (!opts.color.HasAny()) {
+        if (!opts.style.color.HasAny()) {
             boxFill = (hovered && !disabled) ? v.bgHover : v.bg;
             boxStroke = (v.borderWidth > 0.0f) ? v.border : boxFill;
             strokeWidth = (v.borderWidth > 0.0f) ? v.borderWidth : 1.5f;
             markColor = pal.controlKnobActive;
-        } else if (opts.color.token == StateColorToken::Ghost || (opts.color.normal.has_value() && opts.color.normal->a == 0)) {
-            const StateColor resolved = theme.ResolveStateColor(opts.color);
+        } else if (opts.style.color.token == StateColorToken::Ghost || (opts.style.color.normal.has_value() && opts.style.color.normal->a == 0)) {
+            const StateColor resolved = theme.ResolveStateColor(opts.style.color);
             boxFill = (hovered && !disabled) ? resolved.hover.value_or(theme.GetVariant(UiVariant::Ghost).bgHover) : Color::Transparent();
             boxStroke = (hovered && !disabled) ? pal.borderHover : pal.border;
             strokeWidth = 1.5f;
             markColor = pal.textPrimary;
         } else {
-            boxFill = theme.ResolveColor(opts.color, hovered && !disabled, pressed && !disabled, false, v.bg, v.bgHover, v.bgActive, v.bg);
+            boxFill = theme.ResolveColor(opts.style.color, hovered && !disabled, pressed && !disabled, false, v.bg, v.bgHover, v.bgActive, v.bg);
             boxStroke = boxFill;
             strokeWidth = 1.5f;
             markColor = pal.controlKnobActive;

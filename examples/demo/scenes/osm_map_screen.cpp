@@ -110,9 +110,8 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
         if (ui.Button({
             .text = "Fit Chart Bounds",
             .icon = guikit::Icon::Search(),
-            .color = guikit::StateColor::Primary(),
-            .width = guikit::SizeMode::Stretch,
-            .size = guikit::UiSize::Sm
+            .layout = {.width = guikit::SizeMode::Stretch},
+            .style = {.size = guikit::UiSize::Sm, .color = guikit::StateColor::Primary()}
         }).clicked) {
             s_state.pendingCenterGeo = s_state.initialCenter;
             s_state.pendingTileZoom = s_state.initialTileZoom;
@@ -120,9 +119,8 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
         }
         if (ui.Button({
             .text = "Clear Sel",
-            .color = guikit::StateColor::Secondary(),
             .disabled = (s_state.selectedFeatureUid == 0),
-            .size = guikit::UiSize::Sm
+            .style = {.size = guikit::UiSize::Sm, .color = guikit::StateColor::Secondary()}
         }).clicked) {
             s_state.selectedFeatureUid = 0;
             ui.InvalidateAll();
@@ -217,7 +215,7 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
                 .label = ui.Format("{} ({})", layer.name.as_ref(), layer.features.size()),
                 .size = guikit::UiSize::Sm
             })) {
-                if (ui.Switch(layer.visible, {.size = guikit::UiSize::Sm}).changed) {
+                if (ui.Switch(layer.visible, {.style = {.size = guikit::UiSize::Sm}}).changed) {
                     ui.InvalidateAll();
                 }
             }

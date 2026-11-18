@@ -24,28 +24,23 @@ enum class SpinBoxStepStyle : keel::u8 {
 
 /// Clean configuration options for numeric SpinBox widget.
 struct SpinBoxOptions {
-    UiText tooltip{};                              ///< Optional floating tooltip shown on hover
-    UiAffix prefix{};                              ///< Leading icon and/or symbol/text inside field on left (e.g. "$", "X:")
-    UiAffix suffix{};                              ///< Trailing unit/symbol/text and/or icon inside field on right (e.g. "MHz", "mm", "%")
-    UiText valueFormat{"%.2f"};                    ///< Format string for numeric values and/or candidate width variants
+    UiAffix prefix{};                                          ///< Leading icon and/or symbol/text inside field on left (e.g. "$", "X:")
+    UiAffix suffix{};                                          ///< Trailing unit/symbol/text and/or icon inside field on right (e.g. "MHz", "mm", "%")
+    UiText valueFormat{"%.2f"};                                ///< Format string for numeric values and/or candidate width variants
     keel::Optional<CursorBlinkMode> cursorMode{keel::kNullOpt}; ///< Cursor blink override when editing text
-    StateColor color{};                            ///< Per-state accent color for active stepper buttons and optional progress fill bar
-    AxisSize width{};                              ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit` in `Toolbar`, or `Fixed(dp)`)
-    AxisSize height{};                             ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
-    keel::Optional<float> minWidth{keel::kNullOpt}; ///< Minimum SpinBox width constraint in points
-    StateColor background{StateColor::Surface()};  ///< SpinBox surface fill color (Surface/Default = on, None = off, or custom StateColor)
-    Border border{};                               ///< SpinBox border stroke & corner radius configuration
-    keel::Optional<double> min{keel::kNullOpt};    ///< Optional minimum numeric value constraint
-    keel::Optional<double> max{keel::kNullOpt};    ///< Optional maximum numeric value constraint
-    keel::Optional<double> step{keel::kNullOpt};   ///< Step increment for +/- buttons, Up/Down keys, and mouse wheel (defaults to 1.0)
-    SpinBoxStepStyle stepStyle{SpinBoxStepStyle::Inline}; ///< Layout style for '-' and '+' stepper buttons
-    Icon minusIcon{Icon::Minus()};                 ///< Icon rendered inside the decrement ('-') stepper button
-    Icon plusIcon{Icon::Plus()};                   ///< Icon rendered inside the increment ('+') stepper button
-    bool stepButtons{true};                        ///< Shows interactive '-' and '+' stepper buttons (false forces SpinBoxStepStyle::None)
-    bool showFillBar{false};                       ///< Renders an accent progress bar along the bottom edge when min & max are set
-    UiSize size{UiSize::Md};                       ///< Component size scale
-    bool disabled{false};                          ///< Interaction suppression
-    bool readOnly{false};                          ///< Non-editable display mode
+    keel::Optional<double> min{keel::kNullOpt};                ///< Optional minimum numeric value constraint
+    keel::Optional<double> max{keel::kNullOpt};                ///< Optional maximum numeric value constraint
+    keel::Optional<double> step{keel::kNullOpt};               ///< Step increment for +/- buttons, Up/Down keys, and mouse wheel (defaults to 1.0)
+    SpinBoxStepStyle stepStyle{SpinBoxStepStyle::Inline};      ///< Layout style for '-' and '+' stepper buttons
+    Icon minusIcon{Icon::Minus()};                             ///< Icon rendered inside the decrement ('-') stepper button
+    Icon plusIcon{Icon::Plus()};                               ///< Icon rendered inside the increment ('+') stepper button
+    bool stepButtons{true};                                    ///< Shows interactive '-' and '+' stepper buttons (false forces SpinBoxStepStyle::None)
+    bool showFillBar{false};                                   ///< Renders an accent progress bar along the bottom edge when min & max are set
+    bool readOnly{false};                                      ///< Non-editable display mode
+    UiText tooltip{};                                          ///< Optional floating tooltip shown on hover
+    bool disabled{false};                                      ///< Interaction suppression
+    ControlLayout layout{};                                    ///< Sizing policy (`Stretch` width / `Fit` height default) and min/max constraints
+    SurfaceStyle style{};                                      ///< Control size, accent color, background surface, and border
 };
 
 /// Internal runtime state allocated in frame arena for SpinBox nodes.

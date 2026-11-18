@@ -12,17 +12,15 @@ namespace {
 
 ControlSpec EffectiveSegmentedControl(const SegmentedOptions& opts, UiSize size, const UiTheme& theme) noexcept {
     const SelectMetrics& sm = theme.GetSelect(size);
-    ControlSpec c{};
-    c.width = opts.width;
-    c.height = opts.height;
-    c.defaultWidthMode = SizeMode::Stretch;
-    c.defaultHeightMode = SizeMode::Fit;
-    c.minWidth = opts.minWidth;
-    c.defaultLayout = ElementLayout::Stacked;
-    c.labelGap = sm.labelGap;
-    c.descGap = sm.descGap;
-    c.inlineGap = sm.paddingX;
-    return c;
+    return Control::FromLayout(
+        opts.layout,
+        SizeMode::Stretch,
+        SizeMode::Fit,
+        ElementLayout::Stacked,
+        sm.labelGap,
+        sm.descGap,
+        sm.paddingX
+    );
 }
 
 float MeasureSegmentNaturalWidth(
@@ -81,11 +79,14 @@ Vec2 MeasureSegmentedBox(
         ? (maxSegW * static_cast<float>(count) + inset * 2.0f)
         : (sumSegW + inset * 2.0f);
 
-    if (opts.minWidth.has_value()) {
-        totalW = keel::max(*opts.minWidth, totalW);
+    if (opts.layout.minWidth.has_value()) {
+        totalW = keel::max(*opts.layout.minWidth, totalW);
     }
-    if (opts.width.IsFixed()) {
-        totalW = opts.width.Dp();
+    if (opts.layout.maxWidth.has_value() && *opts.layout.maxWidth > 0.0f) {
+        totalW = keel::min(*opts.layout.maxWidth, totalW);
+    }
+    if (opts.layout.width.IsFixed()) {
+        totalW = opts.layout.width.Dp();
     }
 
     float defaultH = cm.defaultHeight;
@@ -93,7 +94,15 @@ Vec2 MeasureSegmentedBox(
         const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
         defaultH = keel::max(defaultH, cm.iconSize + fontSize + 14.0f);
     }
-    const float boxH = opts.height.IsFixed() ? opts.height.Dp() : defaultH;
+    float boxH = opts.layout.height.IsFixed() ? opts.layout.height.Dp() : defaultH;
+    if (!opts.layout.height.IsFixed()) {
+        if (opts.layout.minHeight.has_value() && *opts.layout.minHeight > 0.0f) {
+            boxH = keel::max(*opts.layout.minHeight, boxH);
+        }
+        if (opts.layout.maxHeight.has_value() && *opts.layout.maxHeight > 0.0f) {
+            boxH = keel::min(*opts.layout.maxHeight, boxH);
+        }
+    }
     return {totalW, boxH};
 }
 
@@ -203,15 +212,15 @@ Response Segmented::Run(
 ) {
 
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = opts.size;
+    const UiSize activeSize = opts.style.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const UiTheme theme = ctx.GetTheme();
     ICanvas* canvas = ctx.GetCanvas();
 
     SegmentedOptions optsCopy = opts;
-    const SizeMode effW = Control::ResolveWidthMode(ctx, opts.width, SizeMode::Stretch);
-    if (!optsCopy.width.IsFixed()) {
-        optsCopy.width = effW;
+    const SizeMode effW = Control::ResolveWidthMode(ctx, opts.layout.width, SizeMode::Stretch);
+    if (!optsCopy.layout.width.IsFixed()) {
+        optsCopy.layout.width = effW;
     }
 
     ctx.RegisterFocusable(id, effectiveDisabled);
@@ -381,12 +390,15 @@ Response Segmented::Run(
         multiSelect,
         hoveredSegment,
         pressedSegment,
-        optsCopy.width,
-        optsCopy.height,
-        optsCopy.minWidth.value_or(0.0f),
-        optsCopy.color,
-        optsCopy.background,
-        optsCopy.border,
+        optsCopy.layout.width,
+        optsCopy.layout.height,
+        optsCopy.layout.minWidth.value_or(0.0f),
+        optsCopy.layout.maxWidth.value_or(0.0f),
+        optsCopy.layout.minHeight.value_or(0.0f),
+        optsCopy.layout.maxHeight.value_or(0.0f),
+        optsCopy.style.color,
+        optsCopy.style.background,
+        optsCopy.style.border,
         optsCopy.equalWidth,
         optsCopy.showDividers
     );
@@ -449,25 +461,25 @@ void Segmented::Render(
     const auto& pal = theme.palette;
     const Rect trackRect = bounds;
     const float inset = (theme.SizeFactor(size) < 0.90f) ? 2.0f : 3.0f;
-    const float trackRadius = opts.border.radius.has_value()
-        ? *opts.border.radius
+    const float trackRadius = opts.style.border.radius.has_value()
+        ? *opts.style.border.radius
         : cm.cornerRadius;
 
     // 1. Render outer segmented track well
-    const bool hasBg = opts.background.IsBackgroundEnabled(true);
+    const bool hasBg = opts.style.background.IsBackgroundEnabled(true);
     Color trackBg = hasBg ? pal.inputBackground : Color::Transparent();
-    if (hasBg && opts.background.HasAny()) {
-        if (!opts.background.IsSurface()) {
-            trackBg = theme.ResolveColor(opts.background, hoveredSegment >= 0, pressedSegment >= 0, disabled, trackBg);
-        } else if (opts.background.HasAlphaScale()) {
-            trackBg = trackBg.ScaleAlpha(opts.background.alphaScale);
+    if (hasBg && opts.style.background.HasAny()) {
+        if (!opts.style.background.IsSurface()) {
+            trackBg = theme.ResolveColor(opts.style.background, hoveredSegment >= 0, pressedSegment >= 0, disabled, trackBg);
+        } else if (opts.style.background.HasAlphaScale()) {
+            trackBg = trackBg.ScaleAlpha(opts.style.background.alphaScale);
         }
     }
     Color trackBorder = focused ? pal.focusRing : pal.inputBorder;
-    if (opts.border.color.HasAny()) {
-        trackBorder = theme.ResolveColor(opts.border.color, hoveredSegment >= 0, focused, disabled, trackBorder);
+    if (opts.style.border.color.HasAny()) {
+        trackBorder = theme.ResolveColor(opts.style.border.color, hoveredSegment >= 0, focused, disabled, trackBorder);
     }
-    float trackStrokeW = (opts.border.width > 0.0f) ? opts.border.width : sm.strokeWidth;
+    float trackStrokeW = (opts.style.border.width > 0.0f) ? opts.style.border.width : sm.strokeWidth;
     if (focused && !disabled && trackStrokeW > 0.0f) trackStrokeW += 0.5f;
     if (disabled) {
         trackBg = trackBg.WithAlphaF(0.40f);
@@ -523,8 +535,8 @@ void Segmented::Render(
             Color pillStroke{0, 0, 0, 0};
             float pillStrokeW = 0.0f;
 
-            if (opts.color.HasAny()) {
-                pillFill = theme.ResolveColor(opts.color, hovered, pressed, segDisabled, pal.accent);
+            if (opts.style.color.HasAny()) {
+                pillFill = theme.ResolveColor(opts.style.color, hovered, pressed, segDisabled, pal.accent);
                 fgColor = segDisabled ? pal.textMuted : ResolveContrastingTextOnFill(pillFill, pal);
             } else {
                 // Default elevated segment pill with subtle primary accent tint & crisp border

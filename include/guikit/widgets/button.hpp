@@ -15,24 +15,19 @@ class ICanvas;
 
 /// Clean configuration options for a Button widget.
 struct ButtonOptions {
-    UiText text{};                                 ///< Text inside the button capsule
-    UiText badge{};                                ///< Optional pill badge inside the button capsule
-    UiText tooltip{};                              ///< Optional floating tooltip text on hover
-    Icon icon{};                                   ///< Icon inside the button capsule
-    StateColor color{};                            ///< Per-state capsule fill color (normal, hover, active, disabled)
+    UiText text{};                                  ///< Text inside the button capsule
+    UiText badge{};                                 ///< Optional pill badge inside the button capsule
+    Icon icon{};                                    ///< Icon inside the button capsule
     Placement iconPlacement{Placement::Leading};
-    Align align{Align::Center};                    ///< Content horizontal alignment inside button capsule (Start, Center, End)
-    AxisSize width{};                              ///< Horizontal sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
-    AxisSize height{};                             ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
-    keel::Optional<float> minWidth{keel::kNullOpt};   ///< Minimum capsule width constraint in points
-    StateColor background{StateColor::Surface()};  ///< Capsule surface fill configuration (Surface/Default = on, None = off, or custom StateColor)
-    Border border{};                               ///< Capsule border stroke & corner radius configuration
-    bool disabled{false};
+    Align align{Align::Center};                     ///< Content horizontal alignment inside button capsule (Start, Center, End)
     bool active{false};
-    bool loading{false};                           ///< Renders an animated vector spinner and suppresses click activation
-    bool square{false};                            ///< Force square (defaultHeight x defaultHeight) button geometry
-    UiSize size{UiSize::Md};                       ///< Component size scale (preset, dp target height, or factor)
-    keel::Optional<Color> iconColor{keel::kNullOpt};  ///< Optional custom icon tint override
+    bool loading{false};                            ///< Renders an animated vector spinner and suppresses click activation
+    bool square{false};                             ///< Force square (defaultHeight x defaultHeight) button geometry
+    keel::Optional<Color> iconColor{keel::kNullOpt}; ///< Optional custom icon tint override
+    UiText tooltip{};                               ///< Optional floating tooltip text on hover
+    bool disabled{false};
+    ControlLayout layout{};                         ///< Sizing policy (`Fit` default) and min/max constraints
+    SurfaceStyle style{};                           ///< Control size, semantic color, background surface, and border
 };
 
 /// Type alias for button response.

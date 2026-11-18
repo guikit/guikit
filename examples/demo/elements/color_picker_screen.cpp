@@ -47,43 +47,49 @@ void RenderColorPickerInspector(guikit::Context& ui, DemoContext&) {
 void RenderColorPickerStage(guikit::Context& ui, DemoContext& ctx) {
     ctx.RunElementStage(ui, [&]() {
         guikit::ColorPickerOptions opts{};
-        opts.width = ctx.ResolveCtrlWidth();
-        opts.height = ctx.ResolveCtrlHeight();
-        opts.background = ctx.GetControlBackground(NavCategory::ElemColorPicker);
-        opts.border = ctx.GetCtrlBorder();
         opts.showHex = s_state.showHex;
         opts.showAlpha = s_state.showAlpha;
         opts.showSwatches = s_state.showSwatches;
         opts.inlinePanel = s_state.inlinePanel;
-        opts.size = ctx.controlsSize;
         opts.disabled = ctx.elemDisabled;
+        opts.layout.width = ctx.ResolveCtrlWidth();
+        opts.layout.height = ctx.ResolveCtrlHeight();
+        opts.style.size = ctx.controlsSize;
+        opts.style.background = ctx.GetControlBackground(NavCategory::ElemColorPicker);
+        opts.style.border = ctx.GetCtrlBorder();
         ui.ColorPicker(s_state.color, opts);
     });
 }
 
 keel::String GenerateColorPickerCode(const DemoContext& ctx) {
+    const bool hasCustomSize = (ctx.controlsSize != guikit::UiSize::None && ctx.controlsSize != guikit::UiSize::Md);
+    const keel::FixedString<64> sizeLine = hasCustomSize
+        ? keel::format_fixed<64>("        .size = guikit::UiSize::{},\n", SizeName(ctx.controlsSize))
+        : keel::FixedString<64>{};
     const keel::String ctrl = keel::format(
         "ui.ColorPicker(traceColor, {{\n"
-        "    .width = {},\n"
-        "    .height = {},\n"
-        "    .background = {},\n"
-        "    .border = {},\n"
         "    .showHex = {},\n"
         "    .showAlpha = {},\n"
         "    .showSwatches = {},\n"
-        "    .inlinePanel = {}{},\n"
-        "    .disabled = {}\n"
+        "    .inlinePanel = {},\n"
+        "    .disabled = {},\n"
+        "    .layout = {{.width = {}, .height = {}}},\n"
+        "    .style = {{\n"
+        "{}"
+        "        .background = {},\n"
+        "        .border = {}\n"
+        "    }}\n"
         "}});",
-        ctx.FormatCtrlWidthCode(),
-        ctx.FormatCtrlHeightCode(),
-        ctx.FormatControlBackgroundCode(NavCategory::ElemColorPicker),
-        ctx.FormatCtrlBorderCode(),
         s_state.showHex ? "true" : "false",
         s_state.showAlpha ? "true" : "false",
         s_state.showSwatches ? "true" : "false",
         s_state.inlinePanel ? "true" : "false",
-        FormatUiSizePrefix(ctx.controlsSize),
-        ctx.elemDisabled ? "true" : "false"
+        ctx.elemDisabled ? "true" : "false",
+        ctx.FormatCtrlWidthCode(),
+        ctx.FormatCtrlHeightCode(),
+        sizeLine,
+        ctx.FormatControlBackgroundCode(NavCategory::ElemColorPicker),
+        ctx.FormatCtrlBorderCode()
     );
     return ctx.WrapInElementCode(ctrl);
 }

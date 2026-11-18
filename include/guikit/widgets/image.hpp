@@ -16,21 +16,17 @@ class ICanvas;
 
 /// Configuration options for the stateless leaf Image control widget.
 struct ImageOptions {
-    keel::StringRef source{};                           ///< Image file path (.svg, .png, .jpg) or inline <svg>
-    UiText alt{};                                       ///< Fallback text when image is missing or fails to load
-    UiText tooltip{};                                   ///< Optional hover tooltip text
-    ObjectFit fit{ObjectFit::Contain};                  ///< Fitting policy inside the control box
-    Align alignX{Align::Center};                        ///< Horizontal alignment of fitted image inside control box
-    Align alignY{Align::Center};                        ///< Vertical alignment of fitted image inside control box
-    AxisSize width{};                                   ///< Horizontal sizing policy (`Auto` -> `Fit`, `Stretch`, or `Fixed(dp)`)
-    AxisSize height{SizeMode::Fit};                     ///< Vertical sizing policy (`Auto`/`Fit` = aspect ratio, `Stretch`, or `Fixed(dp)`)
-    keel::Optional<float> maxHeight{keel::kNullOpt};    ///< Optional maximum height cap in px
-    StateColor background{};                            ///< Per-state image control box backdrop color (Default/None = off, Surface/Primary/etc. = on)
-    Border border{};                                    ///< Image control box border stroke & corner radius configuration
-    bool checkerboard{false};                           ///< Render transparency checkerboard pattern behind image
-    keel::u8 opacity{255};                               ///< Image opacity [0..255]
-    UiSize size{UiSize::Md};
-    bool disabled{false};
+    keel::StringRef source{};          ///< Image file path (.svg, .png, .jpg) or inline <svg>
+    UiText alt{};                      ///< Fallback text when image is missing or fails to load
+    ObjectFit fit{ObjectFit::Contain}; ///< Fitting policy inside the control box
+    Align alignX{Align::Center};       ///< Horizontal alignment of fitted image inside control box
+    Align alignY{Align::Center};       ///< Vertical alignment of fitted image inside control box
+    bool checkerboard{false};          ///< Render transparency checkerboard pattern behind image
+    keel::u8 opacity{255};             ///< Image opacity [0..255]
+    UiText tooltip{};                  ///< Optional hover tooltip text
+    bool disabled{false};              ///< Interaction suppression
+    ControlLayout layout{};            ///< Sizing policy (`Fit` default) and min/max constraints
+    SurfaceStyle style{.background = StateColor{}}; ///< Optional size, backdrop background (off by default), and border
 };
 
 /// Internal frame-arena payload for Image nodes.

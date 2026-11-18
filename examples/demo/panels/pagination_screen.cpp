@@ -94,9 +94,8 @@ void RenderPaginationStage(guikit::Context& ui, DemoContext& ctx) {
             .showPrevNext = s_pg.showPrevNext,
             .showPageInfo = s_pg.showPageInfo,
             .interactiveEllipsis = s_pg.interactiveEllipsis,
-            .color = activeCol,
-            .size = ctx.controlsSize,
-            .disabled = ctx.elemDisabled
+            .disabled = ctx.elemDisabled,
+            .style = {.size = ctx.controlsSize, .color = activeCol}
         });
     };
 
@@ -115,7 +114,9 @@ void RenderPaginationStage(guikit::Context& ui, DemoContext& ctx) {
 }
 
 keel::String GeneratePaginationCode(const DemoContext& ctx) {
-    const auto sizePrefix = FormatUiSizePrefix(ctx.controlsSize);
+    const keel::String styleCode = (ctx.controlsSize != guikit::UiSize::None && ctx.controlsSize != guikit::UiSize::Md)
+        ? keel::format("{{.size = guikit::UiSize::{}, .color = guikit::StateColor::{}()}}", SizeName(ctx.controlsSize), VariantName(ctx.btnVariant))
+        : keel::format("{{.color = guikit::StateColor::{}()}}", VariantName(ctx.btnVariant));
 
     if (s_pg.showSurfaceBox) {
         return keel::format(
@@ -131,8 +132,8 @@ keel::String GeneratePaginationCode(const DemoContext& ctx) {
             "        .showPrevNext = {},\n"
             "        .showPageInfo = {},\n"
             "        .interactiveEllipsis = {},\n"
-            "        .color = guikit::StateColor::{}(){},\n"
-            "        .disabled = {}\n"
+            "        .disabled = {},\n"
+            "        .style = {}\n"
             "    }});\n"
             "}}",
             s_pg.totalPages,
@@ -141,9 +142,8 @@ keel::String GeneratePaginationCode(const DemoContext& ctx) {
             s_pg.showPrevNext ? "true" : "false",
             s_pg.showPageInfo ? "true" : "false",
             s_pg.interactiveEllipsis ? "true" : "false",
-            VariantName(ctx.btnVariant),
-            sizePrefix,
-            ctx.elemDisabled ? "true" : "false"
+            ctx.elemDisabled ? "true" : "false",
+            styleCode
         );
     }
 
@@ -154,8 +154,8 @@ keel::String GeneratePaginationCode(const DemoContext& ctx) {
         "    .showPrevNext = {},\n"
         "    .showPageInfo = {},\n"
         "    .interactiveEllipsis = {},\n"
-        "    .color = guikit::StateColor::{}(){},\n"
-        "    .disabled = {}\n"
+        "    .disabled = {},\n"
+        "    .style = {}\n"
         "}});",
         s_pg.totalPages,
         s_pg.siblingCount,
@@ -163,9 +163,8 @@ keel::String GeneratePaginationCode(const DemoContext& ctx) {
         s_pg.showPrevNext ? "true" : "false",
         s_pg.showPageInfo ? "true" : "false",
         s_pg.interactiveEllipsis ? "true" : "false",
-        VariantName(ctx.btnVariant),
-        sizePrefix,
-        ctx.elemDisabled ? "true" : "false"
+        ctx.elemDisabled ? "true" : "false",
+        styleCode
     );
 }
 

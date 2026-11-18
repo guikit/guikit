@@ -145,7 +145,7 @@ Response Knob::Run(
 ) {
 
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = opts.size;
+    const UiSize activeSize = opts.style.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const bool isInt = (intVal != nullptr);
 
@@ -315,7 +315,7 @@ Response Knob::Run(
     node->SetPayload(data);
     node->text = data->valueText;
     node->visualHash = detail::HashArgs(
-        optsCopy.color,
+        optsCopy.style.color,
         optsCopy.showValue,
         static_cast<keel::u8>(optsCopy.valuePlacement),
         optsCopy.bipolar,
@@ -498,10 +498,10 @@ void Knob::Render(
     // Resolve colors
     const VariantColors& primaryVar = theme.GetVariant(UiVariant::Primary);
     Color accentCol;
-    if (!opts.color.HasAny()) {
+    if (!opts.style.color.HasAny()) {
         accentCol = active ? primaryVar.bgActive : (hovered ? primaryVar.bgHover : primaryVar.bg);
     } else {
-        accentCol = theme.ResolveColor(opts.color, hovered && !disabled, active && !disabled, disabled, primaryVar.bg, primaryVar.bgHover, primaryVar.bgActive, primaryVar.bg);
+        accentCol = theme.ResolveColor(opts.style.color, hovered && !disabled, active && !disabled, disabled, primaryVar.bg, primaryVar.bgHover, primaryVar.bgActive, primaryVar.bg);
     }
 
     Color trackCol = (hovered && !disabled) ? pal.controlTrackHover : pal.controlTrack;

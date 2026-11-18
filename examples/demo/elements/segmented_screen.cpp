@@ -100,15 +100,15 @@ void RenderSegmentedStage(guikit::Context& ui, DemoContext& ctx) {
     }};
 
     guikit::SegmentedOptions segOpts{};
-    segOpts.color = (ctx.btnVariant == guikit::UiVariant::Default) ? guikit::StateColor{} : ctx.GetControlColor();
-    segOpts.width = ctx.ResolveCtrlWidth();
-    segOpts.height = ctx.ResolveCtrlHeight();
-    segOpts.background = ctx.GetControlBackground(NavCategory::ElemSegmented);
-    segOpts.border = ctx.GetCtrlBorder();
-    segOpts.size = ctx.controlsSize;
     segOpts.equalWidth = s_state.equalWidth;
     segOpts.showDividers = s_state.showDividers;
     segOpts.disabled = ctx.elemDisabled;
+    segOpts.layout.width = ctx.ResolveCtrlWidth();
+    segOpts.layout.height = ctx.ResolveCtrlHeight();
+    segOpts.style.size = ctx.controlsSize;
+    segOpts.style.color = (ctx.btnVariant == guikit::UiVariant::Default) ? guikit::StateColor{} : ctx.GetControlColor();
+    segOpts.style.background = ctx.GetControlBackground(NavCategory::ElemSegmented);
+    segOpts.style.border = ctx.GetCtrlBorder();
 
     ctx.RunElementStage(ui, [&]() {
         if (s_state.multiSelect) {
@@ -125,6 +125,10 @@ keel::String GenerateSegmentedCode(const DemoContext& ctx) {
     const keel::FixedString<64> colorCode = (ctx.btnVariant == guikit::UiVariant::Default)
         ? keel::FixedString<64>("guikit::StateColor::Default()")
         : ctx.FormatControlColorCode();
+    const bool hasCustomSize = (ctx.controlsSize != guikit::UiSize::None && ctx.controlsSize != guikit::UiSize::Md);
+    const keel::FixedString<64> sizeLine = hasCustomSize
+        ? keel::format_fixed<64>("        .size = guikit::UiSize::{},\n", SizeName(ctx.controlsSize))
+        : keel::FixedString<64>{};
 
     const keel::String ctrl = keel::format(
         "ui.{}({}, {{\n"
@@ -133,27 +137,29 @@ keel::String GenerateSegmentedCode(const DemoContext& ctx) {
         "    {{.text = \"Sawtooth\", .icon = guikit::Icon::Play()}},\n"
         "    {{.text = \"Noise\", .icon = guikit::Icon::Warning(), .disabled = {}}}\n"
         "}}, {{\n"
-        "    .color = {},\n"
-        "    .width = {},\n"
-        "    .height = {},\n"
-        "    .background = {},\n"
-        "    .border = {}{},\n"
         "    .equalWidth = {},\n"
         "    .showDividers = {},\n"
-        "    .disabled = {}\n"
+        "    .disabled = {},\n"
+        "    .layout = {{.width = {}, .height = {}}},\n"
+        "    .style = {{\n"
+        "{}"
+        "        .color = {},\n"
+        "        .background = {},\n"
+        "        .border = {}\n"
+        "    }}\n"
         "}});",
         fnName,
         varName,
         s_state.disableLastSegment ? "true" : "false",
-        colorCode,
-        ctx.FormatCtrlWidthCode(),
-        ctx.FormatCtrlHeightCode(),
-        ctx.FormatControlBackgroundCode(NavCategory::ElemSegmented),
-        ctx.FormatCtrlBorderCode(),
-        FormatUiSizePrefix(ctx.controlsSize),
         s_state.equalWidth ? "true" : "false",
         s_state.showDividers ? "true" : "false",
-        ctx.elemDisabled ? "true" : "false"
+        ctx.elemDisabled ? "true" : "false",
+        ctx.FormatCtrlWidthCode(),
+        ctx.FormatCtrlHeightCode(),
+        sizeLine,
+        colorCode,
+        ctx.FormatControlBackgroundCode(NavCategory::ElemSegmented),
+        ctx.FormatCtrlBorderCode()
     );
     return ctx.WrapInElementCode(ctrl);
 }

@@ -558,8 +558,8 @@ void RenderCodeEditorStage(guikit::Context& ui, DemoContext& ctx) {
             .zoom = s_state.zoom,
             .syntax = synCfg,
             .syntaxPalette = synPalette,
-            .height = guikit::SizeMode::Stretch,
-            .size = ctx.controlsSize,
+            .layout = {.height = guikit::SizeMode::Stretch},
+            .style = {.size = ctx.controlsSize, .background = guikit::StateColor{}},
             .showMinimap = s_state.showMinimap,
             .showStatusBar = s_state.showStatusBar,
             .showIndentGuides = s_state.showIndentGuides,
@@ -612,39 +612,43 @@ keel::String GenerateCodeEditorCode(const DemoContext& ctx) {
         ? "guikit::Align::Start"
         : ((s_state.debugToolbarAlignIdx == 2) ? "guikit::Align::End" : "guikit::Align::Center");
 
+    const keel::String styleLine = (ctx.controlsSize != guikit::UiSize::None && ctx.controlsSize != guikit::UiSize::Md)
+        ? keel::format(",\n    .style = {{.size = guikit::UiSize::{}, .background = guikit::StateColor{{}}}}", SizeName(ctx.controlsSize))
+        : keel::String{};
+
     return keel::format(
         "auto resp = ui.TextArea(sourceBuffer, {{\n"
         "    .showLineNumbers = {},\n"
-        "    .showWhitespace = {},\n"
-        "    .showMinimap = {},\n"
-        "    .showStatusBar = {},\n"
-        "    .codeFolding = {},\n"
-        "    .showIndentGuides = {},\n"
-        "    .showDebugToolbar = {},\n"
-        "    .debugToolbarAlign = {},\n"
-        "    .breakpoints = &breakpoints,\n"
-        "    .executionLine = debugExecLine,\n"
-        "    .diagnostics = diagnostics,\n"
-        "    .inlineValues = inlineValues,\n"
-        "    .debugVariables = debugVariables,\n"
         "    .syntax = {},\n"
         "    .syntaxPalette = {},\n"
-        "    .height = guikit::SizeMode::Stretch{}\n"
+        "    .layout = {{.height = guikit::SizeMode::Stretch}}{},\n"
+        "    .showMinimap = {},\n"
+        "    .showStatusBar = {},\n"
+        "    .showIndentGuides = {},\n"
+        "    .showWhitespace = {},\n"
+        "    .codeFolding = {},\n"
+        "    .breakpoints = &breakpoints,\n"
+        "    .executionLine = debugExecLine,\n"
+        "    .showDebugToolbar = {},\n"
+        "    .debugToolbarAlign = {},\n"
+        "    .diagnostics = diagnostics,\n"
+        "    .inlineValues = inlineValues,\n"
+        "    .debugVariables = debugVariables\n"
         "}});\n"
         "if (resp.debugAction == guikit::CodeDebugAction::StepOver) {{\n"
         "    StepDebugger();\n"
         "}}",
         s_state.lineNumbers ? "true" : "false",
-        s_state.showWhitespace ? "true" : "false",
-        s_state.showMinimap ? "true" : "false",
-        s_state.showStatusBar ? "true" : "false",
-        s_state.codeFolding ? "true" : "false",
-        s_state.showIndentGuides ? "true" : "false",
-        s_state.showDebugToolbar ? "true" : "false",
-        dbgAlignStr,
         synLine,
         palLine,
-        FormatUiSizePrefix(ctx.controlsSize)
+        styleLine,
+        s_state.showMinimap ? "true" : "false",
+        s_state.showStatusBar ? "true" : "false",
+        s_state.showIndentGuides ? "true" : "false",
+        s_state.showWhitespace ? "true" : "false",
+        s_state.codeFolding ? "true" : "false",
+        s_state.showDebugToolbar ? "true" : "false",
+        dbgAlignStr
     );
 }
 
