@@ -1,6 +1,5 @@
 #include "guikit/widgets/text_area.hpp"
 #include <cctype>
-#include <cmath>
 #include <cstdio>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
@@ -1315,7 +1314,7 @@ EditorLayoutRects ComputeEditorLayout(
             rightCursor -= (copySz.x + tbGap * 0.75f);
         }
 
-        if (opts.allowZoom && std::abs(effZoom - 1.0f) > 0.01f && L.innerBounds.w > tbCm.defaultWidth * 1.75f) {
+        if (opts.allowZoom && keel::abs(effZoom - 1.0f) > 0.01f && L.innerBounds.w > tbCm.defaultWidth * 1.75f) {
             char zBuf[16]{};
             ButtonOptions zoomOpts{};
             zoomOpts.text = keel::format_buf(zBuf, "{}%", keel::round_i32(effZoom * 100.0f));
@@ -1954,7 +1953,7 @@ TextAreaResponse TextArea::Run(
     }
 
     const float reqZoom = keel::clamp(opts.zoom, 0.5f, 3.0f);
-    if (std::abs(state.lastOptsZoom - reqZoom) > 0.001f) {
+    if (keel::abs(state.lastOptsZoom - reqZoom) > 0.001f) {
         state.zoom = reqZoom;
         state.lastOptsZoom = reqZoom;
     }
@@ -1977,7 +1976,7 @@ TextAreaResponse TextArea::Run(
 
     auto applyZoomAnchor = [&](float newZoom) {
         const float clampedNew = keel::clamp(newZoom, 0.5f, 3.0f);
-        if (state.prevAppliedZoom > 0.001f && std::abs(clampedNew - state.prevAppliedZoom) > 0.0001f) {
+        if (state.prevAppliedZoom > 0.001f && keel::abs(clampedNew - state.prevAppliedZoom) > 0.0001f) {
             const float ratio = clampedNew / state.prevAppliedZoom;
             state.scrollY *= ratio;
             state.scrollX *= ratio;
@@ -2580,11 +2579,11 @@ TextAreaResponse TextArea::Run(
     // Handle mouse wheel
     if (res.hovered && !effectiveDisabled) {
         const Vec2 wheel = ctx.GetMouseWheel();
-        if (std::abs(wheel.y) > 0.001f || std::abs(wheel.x) > 0.001f) {
-            if (opts.allowZoom && ctx.GetKeyModifiers().ctrl && std::abs(wheel.y) > 0.001f) {
+        if (keel::abs(wheel.y) > 0.001f || keel::abs(wheel.x) > 0.001f) {
+            if (opts.allowZoom && ctx.GetKeyModifiers().ctrl && keel::abs(wheel.y) > 0.001f) {
                 const float prevZoom = state.zoom;
                 applyZoomAnchor(state.zoom + (wheel.y > 0.0f ? 0.10f : -0.10f));
-                if (std::abs(state.zoom - prevZoom) > 0.001f) {
+                if (keel::abs(state.zoom - prevZoom) > 0.001f) {
                     L = ComputeEditorLayout(
                         refBounds, valStr, logicalLines, optsCopy, activeSize, canvas, theme,
                         state.zoom, state.scrollX, state.scrollY, copyFeedbackActive,
@@ -2594,11 +2593,11 @@ TextAreaResponse TextArea::Run(
                     );
                 }
                 ctx.ConsumeMouseWheel();
-            } else if (!opts.wordWrap && (ctx.GetKeyModifiers().shift || std::abs(wheel.x) > std::abs(wheel.y)) && L.maxScrollX > 0.0f) {
-                const float delta = (std::abs(wheel.x) > 0.001f) ? wheel.x : wheel.y;
+            } else if (!opts.wordWrap && (ctx.GetKeyModifiers().shift || keel::abs(wheel.x) > keel::abs(wheel.y)) && L.maxScrollX > 0.0f) {
+                const float delta = (keel::abs(wheel.x) > 0.001f) ? wheel.x : wheel.y;
                 state.scrollX = keel::clamp(state.scrollX - delta * L.lineHeight * 2.5f, 0.0f, L.maxScrollX);
                 ctx.ConsumeMouseWheel();
-            } else if (!opts.autoHeight && L.maxScrollY > 0.0f && std::abs(wheel.y) > 0.001f) {
+            } else if (!opts.autoHeight && L.maxScrollY > 0.0f && keel::abs(wheel.y) > 0.001f) {
                 state.scrollY = keel::clamp(state.scrollY - wheel.y * L.lineHeight * 2.5f, 0.0f, L.maxScrollY);
                 ctx.ConsumeMouseWheel();
             }
@@ -3518,10 +3517,10 @@ void TextArea::Render(
     // 5. Virtualized visible lines loop
     const keel::usize totalVisLines = visualLines.size();
     const keel::usize firstVisLine = (L.lineHeight > 0.0f)
-        ? static_cast<keel::usize>(keel::max(0.0f, std::floor(clampedScrollY / L.lineHeight)))
+        ? static_cast<keel::usize>(keel::max(0.0f, keel::floor(clampedScrollY / L.lineHeight)))
         : 0;
     const keel::usize maxVisCount = (L.lineHeight > 0.0f)
-        ? (static_cast<keel::usize>(std::ceil(textViewport.h / L.lineHeight)) + 2)
+        ? (static_cast<keel::usize>(keel::ceil(textViewport.h / L.lineHeight)) + 2)
         : totalVisLines;
     const keel::usize lastVisLine = keel::min(totalVisLines, firstVisLine + maxVisCount);
 

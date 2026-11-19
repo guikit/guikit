@@ -5,7 +5,6 @@
 #include "keel/time.h"
 #include "keel/utf8.h"
 #include <cassert>
-#include <cmath>
 #if defined(__GLIBC__)
 #include <malloc.h>
 #endif
@@ -1629,7 +1628,7 @@ void Context::OnMouseMove(Vec2 pos) {
     const float scale = m_pixelsPerDp;
     const Vec2 newPos = pos / scale;
     m_mousePosPx = pos;
-    if (std::abs(newPos.x - m_mousePos.x) < 0.25f && std::abs(newPos.y - m_mousePos.y) < 0.25f) {
+    if (keel::abs(newPos.x - m_mousePos.x) < 0.25f && keel::abs(newPos.y - m_mousePos.y) < 0.25f) {
         return;
     }
     m_mousePos = newPos;
@@ -2302,7 +2301,7 @@ bool Context::IsCursorVisible(keel::Optional<CursorBlinkMode> modeOverride) cons
                 return true;
             }
             const double cycleTime = elapsedSinceInput - 0.5;
-            const double phase = std::fmod(cycleTime, static_cast<double>(m_cursorConfig.blinkPeriod));
+            const double phase = keel::fmod(cycleTime, static_cast<double>(m_cursorConfig.blinkPeriod));
             return phase < (static_cast<double>(m_cursorConfig.blinkPeriod) * 0.5);
         }
     }
@@ -2496,16 +2495,16 @@ bool Context::UpdateScrollAreasRecursive(Node* node) {
     ++m_widgetExecDepth;
     if (node->type == NodeType::ScrollArea || ((node->type == NodeType::Sidebar || node->type == NodeType::BottomPanel) && node->sidebarScrollable)) {
         ScrollArea::Update(*this, node);
-        if (std::abs(node->scrollOffset.x - prevScroll.x) > 0.01f ||
-            std::abs(node->scrollOffset.y - prevScroll.y) > 0.01f) {
+        if (keel::abs(node->scrollOffset.x - prevScroll.x) > 0.01f ||
+            keel::abs(node->scrollOffset.y - prevScroll.y) > 0.01f) {
             scrollChanged = true;
         }
     } else if (node->type == NodeType::Scene) {
         Scene::Update(*this, node);
     } else if (node->type == NodeType::Carousel || (node->type == NodeType::Toolbar && node->As<CarouselData>() != nullptr)) {
         Carousel::Update(*this, node);
-        if (std::abs(node->scrollOffset.x - prevScroll.x) > 0.01f ||
-            std::abs(node->scrollOffset.y - prevScroll.y) > 0.01f) {
+        if (keel::abs(node->scrollOffset.x - prevScroll.x) > 0.01f ||
+            keel::abs(node->scrollOffset.y - prevScroll.y) > 0.01f) {
             scrollChanged = true;
         }
     } else if (node->type == NodeType::Table) {
@@ -2839,10 +2838,10 @@ void Context::EndFrame(ICanvas& canvas) {
     } else {
         // Snap each damage rect to integer logical pixel bounds and coalesce overlapping regions
         for (const Rect& raw : damageRects) {
-            const float x1 = keel::max(0.0f, std::floor(raw.x));
-            const float y1 = keel::max(0.0f, std::floor(raw.y));
-            const float x2 = keel::min(logicalSize.x, std::ceil(raw.Right()));
-            const float y2 = keel::min(logicalSize.y, std::ceil(raw.Bottom()));
+            const float x1 = keel::max(0.0f, keel::floor(raw.x));
+            const float y1 = keel::max(0.0f, keel::floor(raw.y));
+            const float x2 = keel::min(logicalSize.x, keel::ceil(raw.Right()));
+            const float y2 = keel::min(logicalSize.y, keel::ceil(raw.Bottom()));
             if (x2 > x1 && y2 > y1) {
                 m_dirtyRects.emplace_back(x1, y1, x2 - x1, y2 - y1);
             }
@@ -3133,7 +3132,7 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
                 for (keel::i32 i = 0; i < steps; ++i) {
                     const float dy = static_cast<float>(i);
                     const float rem = keel::max(0.0f, rad - dy - 0.35f);
-                    const float dx = keel::max(0.0f, rad - std::sqrt(keel::max(0.0f, rad * rad - rem * rem)));
+                    const float dx = keel::max(0.0f, rad - keel::sqrt(keel::max(0.0f, rad * rad - rem * rem)));
                     if (dx > 0.25f) {
                         canvas.DrawRect(Rect(r.x - 0.5f, r.y + dy, dx + 1.0f, 1.25f), outerBg);
                         canvas.DrawRect(Rect(r.Right() - dx - 0.5f, r.y + dy, dx + 1.0f, 1.25f), outerBg);

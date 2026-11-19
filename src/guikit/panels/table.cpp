@@ -1,5 +1,4 @@
 #include "guikit/panels/table.hpp"
-#include <cmath>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
@@ -10,6 +9,7 @@
 #include "keel/array.h"
 #include "keel/core.h"
 #include "keel/format.h"
+#include "keel/math.h"
 #include "keel/static_array.h"
 
 namespace guikit {
@@ -158,7 +158,7 @@ namespace {
 
 void ResolveColumnWidths(TableData& data, float viewportW, const UiTheme& /*theme*/) noexcept {
     const float scale = 1.0f;
-    data.rowNumberColW = data.opts.showRowNumbers ? std::round(44.0f * scale) : 0.0f;
+    data.rowNumberColW = data.opts.showRowNumbers ? keel::round(44.0f * scale) : 0.0f;
     const float availForCols = keel::max(0.0f, viewportW - data.rowNumberColW);
 
     float fixedSum = 0.0f;
@@ -194,7 +194,7 @@ void ResolveColumnWidths(TableData& data, float viewportW, const UiTheme& /*them
         if (data.resolvedColW[i] <= 0.0f) {
             const float weight = keel::max(0.1f, col.flex);
             const float flexShare = (flexSum > 0.0f) ? (remainingW * (weight / flexSum)) : minW;
-            data.resolvedColW[i] = keel::clamp(std::round(flexShare), minW, maxW);
+            data.resolvedColW[i] = keel::clamp(keel::round(flexShare), minW, maxW);
         }
 
         // Stretch last column if auto-flex columns slightly undershoot viewport due to rounding
@@ -243,10 +243,10 @@ void UpdateVisibleRowRange(TableData& data) noexcept {
     if (!data.state) return;
     const float viewH = keel::max(data.rowHeight, data.state->lastViewportHeight);
     const keel::usize rawFirst = (data.rowHeight > 0.0f)
-        ? static_cast<keel::usize>(keel::max(0.0f, std::floor(data.state->scrollOffset.y / data.rowHeight)))
+        ? static_cast<keel::usize>(keel::max(0.0f, keel::floor(data.state->scrollOffset.y / data.rowHeight)))
         : 0;
     const keel::usize visibleCount = (data.rowHeight > 0.0f)
-        ? (static_cast<keel::usize>(std::ceil(viewH / data.rowHeight)) + 2)
+        ? (static_cast<keel::usize>(keel::ceil(viewH / data.rowHeight)) + 2)
         : 32;
 
     data.firstVisibleRow = (rawFirst > 0) ? (rawFirst - 1) : 0;
@@ -704,8 +704,8 @@ TableScope Table::Open(
                 }
                 state.scrollOffset.y = keel::clamp(state.scrollOffset.y, 0.0f, maxScrollY);
                 state.scrollOffset.x = keel::clamp(state.scrollOffset.x, 0.0f, maxScrollX);
-                if (std::abs(state.scrollOffset.x - prevOffset.x) > 0.01f ||
-                    std::abs(state.scrollOffset.y - prevOffset.y) > 0.01f) {
+                if (keel::abs(state.scrollOffset.x - prevOffset.x) > 0.01f ||
+                    keel::abs(state.scrollOffset.y - prevOffset.y) > 0.01f) {
                     ctx.ConsumeMouseWheel();
                 }
             }
@@ -755,7 +755,7 @@ TableScope Table::Open(
                 for (keel::u16 i = 0; i < data->columnCount; ++i) {
                     if (!data->columns[i].resizable) continue;
                     const float divX = data->resolvedColX[i] + data->resolvedColW[i];
-                    if (std::abs(localHeaderX - divX) <= gripHalfW) {
+                    if (keel::abs(localHeaderX - divX) <= gripHalfW) {
                         data->hoveredDividerCol = static_cast<keel::i32>(i);
                         ctx.SetCursor(CursorType::ResizeEW);
                         if (mouseClicked) {
@@ -903,8 +903,8 @@ TableScope Table::Open(
             }
         }
 
-        if (std::abs(state.scrollOffset.x - prevScroll.x) > 0.01f ||
-            std::abs(state.scrollOffset.y - prevScroll.y) > 0.01f) {
+        if (keel::abs(state.scrollOffset.x - prevScroll.x) > 0.01f ||
+            keel::abs(state.scrollOffset.y - prevScroll.y) > 0.01f) {
             ctx.InvalidateRect(data->frameRect);
             ctx.RequestRepaint(2);
         }
@@ -1198,8 +1198,8 @@ void Table::Update(
     data->state->scrollOffset.y = keel::clamp(data->state->scrollOffset.y, 0.0f, maxScrollY);
     data->state->scrollOffset.x = keel::clamp(data->state->scrollOffset.x, 0.0f, maxScrollX);
 
-    if (std::abs(data->state->scrollOffset.x - node->scrollOffset.x) > 0.01f ||
-        std::abs(data->state->scrollOffset.y - node->scrollOffset.y) > 0.01f) {
+    if (keel::abs(data->state->scrollOffset.x - node->scrollOffset.x) > 0.01f ||
+        keel::abs(data->state->scrollOffset.y - node->scrollOffset.y) > 0.01f) {
         node->scrollOffset = data->state->scrollOffset;
         Table::Arrange(node, node->computedRect, theme);
         ctx.InvalidateRect(data->frameRect);
@@ -1287,7 +1287,7 @@ void Table::RenderBody(
             }
 
             if (data->opts.gridLines) {
-                const float lineY = std::floor(rowRect.Bottom()) - 0.5f;
+                const float lineY = keel::floor(rowRect.Bottom()) - 0.5f;
                 canvas.DrawLine(
                     Vec2(rowRect.x, lineY),
                     Vec2(rowRect.Right(), lineY),
@@ -1300,7 +1300,7 @@ void Table::RenderBody(
         // Draw vertical column grid lines across the body viewport
         if (data->opts.gridLines) {
             if (data->opts.showRowNumbers && data->rowNumberColW > 0.0f) {
-                const float divX = std::floor(data->bodyViewportRect.x + data->rowNumberColW - node->scrollOffset.x) + 0.5f;
+                const float divX = keel::floor(data->bodyViewportRect.x + data->rowNumberColW - node->scrollOffset.x) + 0.5f;
                 if (divX >= data->bodyViewportRect.x && divX <= data->bodyViewportRect.Right()) {
                     canvas.DrawLine(
                         Vec2(divX, data->bodyViewportRect.y),
@@ -1311,7 +1311,7 @@ void Table::RenderBody(
                 }
             }
             for (keel::u16 i = 0; i < data->columnCount; ++i) {
-                const float divX = std::floor(
+                const float divX = keel::floor(
                     data->bodyViewportRect.x + data->resolvedColX[i] + data->resolvedColW[i] - node->scrollOffset.x
                 ) + 0.5f;
                 if (divX >= data->bodyViewportRect.x && divX < data->bodyViewportRect.Right() - 0.5f) {
@@ -1332,7 +1332,7 @@ void Table::RenderBody(
         if (activeDivCol >= 0 && static_cast<keel::u16>(activeDivCol) < data->columnCount) {
             const keel::u16 colIdx = static_cast<keel::u16>(activeDivCol);
             const float guideX = keel::clamp(
-                std::floor(data->bodyViewportRect.x + data->resolvedColX[colIdx] + data->resolvedColW[colIdx] - node->scrollOffset.x) + 0.5f,
+                keel::floor(data->bodyViewportRect.x + data->resolvedColX[colIdx] + data->resolvedColW[colIdx] - node->scrollOffset.x) + 0.5f,
                 data->bodyViewportRect.x + 1.0f,
                 data->bodyViewportRect.Right() - 1.5f
             );
@@ -1460,7 +1460,7 @@ void Table::RenderChromeAndScrollbars(
             }
 
             // Column divider line + resize handle highlight
-            const float divX = keel::min(std::floor(colX + colW) + 0.5f, data->headerRect.Right() - 1.5f);
+            const float divX = keel::min(keel::floor(colX + colW) + 0.5f, data->headerRect.Right() - 1.5f);
             const bool dividerActive = (data->state->resizingCol == static_cast<keel::i32>(i)) ||
                                        (data->hoveredDividerCol == static_cast<keel::i32>(i));
             const Color divCol = dividerActive ? pal.accent : pal.border;
@@ -1474,7 +1474,7 @@ void Table::RenderChromeAndScrollbars(
         }
 
         // Bottom separator line under sticky header
-        const float hdrBotY = std::floor(data->headerRect.Bottom()) - 0.5f;
+        const float hdrBotY = keel::floor(data->headerRect.Bottom()) - 0.5f;
         canvas.DrawLine(
             Vec2(data->headerRect.x, hdrBotY),
             Vec2(data->headerRect.Right(), hdrBotY),
@@ -1488,7 +1488,7 @@ void Table::RenderChromeAndScrollbars(
     if (data->footerRect.w > 0.0f && data->footerRect.h > 0.0f) {
         canvas.PushClip(data->footerRect);
         canvas.DrawRect(data->footerRect, pal.surfaceElevated);
-        const float topY = std::floor(data->footerRect.y) + 0.5f;
+        const float topY = keel::floor(data->footerRect.y) + 0.5f;
         canvas.DrawLine(
             Vec2(data->footerRect.x, topY),
             Vec2(data->footerRect.Right(), topY),

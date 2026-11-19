@@ -1,4 +1,4 @@
-#include <cmath>
+#include "keel/math.h"
 #include "../demo_context.hpp"
 
 namespace guikit::demo {
@@ -78,13 +78,13 @@ struct SonarDemoState {
 SonarDemoState s_sonar{};
 
 [[nodiscard]] inline float NormalizeDeg(float d) noexcept {
-    float r = std::fmod(d, 360.0f);
+    float r = keel::fmod(d, 360.0f);
     if (r < 0.0f) r += 360.0f;
     return r;
 }
 
 [[nodiscard]] inline float AngleDiffDeg(float a, float b) noexcept {
-    return std::fmod(a - b + 540.0f, 360.0f) - 180.0f;
+    return keel::fmod(a - b + 540.0f, 360.0f) - 180.0f;
 }
 
 [[nodiscard]] inline float FastHashNoise(keel::u32 x, keel::u32 y, keel::u32 seed) noexcept {
@@ -105,16 +105,16 @@ void BuildStaticBathymetry(SonarDemoState& st) {
             const float rng = rNorm * st.maxRangeMeters;
 
             // Base seabed reverberation + gentle shoal ridges
-            const float ridge1 = 0.07f * std::pow(keel::max(0.0f, std::sin(rNorm * 14.0f + std::cos(keel::deg_to_rad(brg) * 3.0f))), 2.0f);
+            const float ridge1 = 0.07f * keel::pow(keel::max(0.0f, keel::sin(rNorm * 14.0f + keel::cos(keel::deg_to_rad(brg) * 3.0f))), 2.0f);
             const float noise = 0.06f * FastHashNoise(b, r, 42u);
             float val = 0.04f + ridge1 + noise;
 
             // Harbor Breakwater wall between bearing 300..348 deg at ~260..310 m
             if (brg >= 296.0f && brg <= 350.0f) {
                 const float wallR = 255.0f + (brg - 296.0f) * 1.15f;
-                const float distToWall = std::abs(rng - wallR);
+                const float distToWall = keel::abs(rng - wallR);
                 if (distToWall < 16.0f) {
-                    const float wallEcho = 0.86f * std::exp(-(distToWall * distToWall) / (2.0f * 5.2f * 5.2f));
+                    const float wallEcho = 0.86f * keel::exp(-(distToWall * distToWall) / (2.0f * 5.2f * 5.2f));
                     val += wallEcho * (0.85f + 0.15f * FastHashNoise(b, r, 99u));
                 } else if (rng > wallR + 14.0f) {
                     // Acoustic shadow zone behind the stone breakwater!
@@ -125,10 +125,10 @@ void BuildStaticBathymetry(SonarDemoState& st) {
             // South-East Pier Pilings & Seafloor Pipeline along 065..105 deg
             if (brg >= 62.0f && brg <= 108.0f) {
                 const float pierR = 175.0f + (brg - 62.0f) * 1.8f;
-                const float distToPier = std::abs(rng - pierR);
+                const float distToPier = keel::abs(rng - pierR);
                 if (distToPier < 10.0f) {
-                    const float pilingMod = 0.5f + 0.5f * std::cos(keel::deg_to_rad(brg - 62.0f) * 45.0f);
-                    val += 0.72f * pilingMod * std::exp(-(distToPier * distToPier) / (2.0f * 3.8f * 3.8f));
+                    const float pilingMod = 0.5f + 0.5f * keel::cos(keel::deg_to_rad(brg - 62.0f) * 45.0f);
+                    val += 0.72f * pilingMod * keel::exp(-(distToPier * distToPier) / (2.0f * 3.8f * 3.8f));
                 }
             }
 
@@ -138,7 +138,7 @@ void BuildStaticBathymetry(SonarDemoState& st) {
                 const float dRng = rng - 142.0f;
                 const float d2 = (dRng * dRng) / (11.0f * 11.0f) + (dBrg * dBrg) / (3.8f * 3.8f);
                 if (d2 < 9.0f) {
-                    val += 0.68f * std::exp(-0.5f * d2);
+                    val += 0.68f * keel::exp(-0.5f * d2);
                 }
             }
 
@@ -310,15 +310,15 @@ void StepSonarSimulation(SonarDemoState& st) {
             c.y += c.vy * static_cast<float>(dt) * kinematicScale;
 
             // Gentle sinusoidal maneuvering & boundary turnaround
-            const float dist = std::sqrt(c.x * c.x + c.y * c.y);
+            const float dist = keel::sqrt(c.x * c.x + c.y * c.y);
             if (dist < 45.0f || dist > st.maxRangeMeters * 0.88f) {
                 c.vx = -c.vx;
                 c.vy = -c.vy;
             }
 
             if (recordTrail) {
-                const float rMeters = std::sqrt(c.x * c.x + c.y * c.y);
-                const float brgDeg = NormalizeDeg(keel::rad_to_deg(std::atan2(c.x, c.y)));
+                const float rMeters = keel::sqrt(c.x * c.x + c.y * c.y);
+                const float brgDeg = NormalizeDeg(keel::rad_to_deg(keel::atan2(c.x, c.y)));
                 c.trail.push_back(PolarPoint{rMeters, brgDeg});
                 if (c.trail.size() > 18) {
                     c.trail.erase(0);
@@ -346,10 +346,10 @@ void StepSonarSimulation(SonarDemoState& st) {
 
     // Inject moving target acoustic blooms & wakes into `polarMatrix`
     for (const auto& c : st.contacts) {
-        const float rMeters = std::sqrt(c.x * c.x + c.y * c.y);
-        const float brgDeg = NormalizeDeg(keel::rad_to_deg(std::atan2(c.x, c.y)));
-        const float speed = std::sqrt(c.vx * c.vx + c.vy * c.vy);
-        const float courseDeg = NormalizeDeg(keel::rad_to_deg(std::atan2(c.vx, c.vy)));
+        const float rMeters = keel::sqrt(c.x * c.x + c.y * c.y);
+        const float brgDeg = NormalizeDeg(keel::rad_to_deg(keel::atan2(c.x, c.y)));
+        const float speed = keel::sqrt(c.vx * c.vx + c.vy * c.vy);
+        const float courseDeg = NormalizeDeg(keel::rad_to_deg(keel::atan2(c.vx, c.vy)));
 
         st.targetViews.push_back(SonarTarget{
             .id = c.id,
@@ -370,15 +370,15 @@ void StepSonarSimulation(SonarDemoState& st) {
         for (keel::u32 b = 0; b < st.numBeams; ++b) {
             const float beamBrg = (static_cast<float>(b) / static_cast<float>(st.numBeams)) * 360.0f;
             const float dBrg = AngleDiffDeg(beamBrg, brgDeg);
-            if (std::abs(dBrg) > c.angularSpreadDeg * 3.2f) continue;
+            if (keel::abs(dBrg) > c.angularSpreadDeg * 3.2f) continue;
 
             float* row = st.polarMatrix.data() + static_cast<keel::usize>(b) * st.numRangeBins;
             for (keel::u32 r = 0; r < st.numRangeBins; ++r) {
                 const float binRng = (static_cast<float>(r) / static_cast<float>(st.numRangeBins - 1)) * st.maxRangeMeters;
                 const float dRng = binRng - rMeters;
-                if (std::abs(dRng) > c.radialSpreadMeters * 3.2f) continue;
+                if (keel::abs(dRng) > c.radialSpreadMeters * 3.2f) continue;
 
-                const float g = std::exp(-0.5f * (dRng * dRng * invSigR2 + dBrg * dBrg * invSigB2));
+                const float g = keel::exp(-0.5f * (dRng * dRng * invSigR2 + dBrg * dBrg * invSigB2));
                 row[r] = keel::min(1.0f, row[r] + c.echoStrength * g);
             }
         }

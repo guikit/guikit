@@ -1,4 +1,4 @@
-#include <cmath>
+#include "keel/math.h"
 #include "../demo_context.hpp"
 
 namespace guikit::demo {
@@ -61,13 +61,13 @@ struct AttitudeDemoState {
 AttitudeDemoState s_att{};
 
 [[nodiscard]] inline float WrapHeadingDeg(float d) noexcept {
-    float r = std::fmod(d, 360.0f);
+    float r = keel::fmod(d, 360.0f);
     if (r < 0.0f) r += 360.0f;
     return r;
 }
 
 [[nodiscard]] inline float WrapRollDeg(float d) noexcept {
-    float r = std::fmod(d + 180.0f, 360.0f);
+    float r = keel::fmod(d + 180.0f, 360.0f);
     if (r < 0.0f) r += 360.0f;
     return r - 180.0f;
 }
@@ -119,8 +119,8 @@ void StepAttitudeSimulation(guikit::Context& ui, AttitudeDemoState& st) {
         // Mode 1: Virtual Fly-By-Wire Side-Stick (Mouse offset commands Roll Rate & Pitch Rate, supports 360 barrel rolls)
         if (mouseInStage) {
             const float deadzone = 0.05f;
-            const float sx = (std::abs(nx) > deadzone) ? ((nx - std::copysign(deadzone, nx)) / (1.0f - deadzone)) : 0.0f;
-            const float sy = (std::abs(ny) > deadzone) ? ((ny - std::copysign(deadzone, ny)) / (1.0f - deadzone)) : 0.0f;
+            const float sx = (keel::abs(nx) > deadzone) ? ((nx - keel::copysign(deadzone, nx)) / (1.0f - deadzone)) : 0.0f;
+            const float sy = (keel::abs(ny) > deadzone) ? ((ny - keel::copysign(deadzone, ny)) / (1.0f - deadzone)) : 0.0f;
             const float rollRateDegPerSec = sx * 135.0f;
             const float pitchRateDegPerSec = -sy * 65.0f;
             st.rollDeg = WrapRollDeg(st.rollDeg + rollRateDegPerSec * fdt);
@@ -131,10 +131,10 @@ void StepAttitudeSimulation(guikit::Context& ui, AttitudeDemoState& st) {
     } else if (st.controlModeIndex == 2) {
         // Mode 2: Automated Autopilot Figure-8 Flight Pattern
         const float t = static_cast<float>(st.simTimeSec);
-        const float targetRoll = 36.0f * std::sin(t * 0.55f);
-        const float targetPitch = 3.0f + 9.5f * std::sin(t * 1.10f);
-        st.fdRollDeg = 36.0f * std::sin((t + 0.45f) * 0.55f);
-        st.fdPitchDeg = 3.0f + 9.5f * std::sin((t + 0.45f) * 1.10f);
+        const float targetRoll = 36.0f * keel::sin(t * 0.55f);
+        const float targetPitch = 3.0f + 9.5f * keel::sin(t * 1.10f);
+        st.fdRollDeg = 36.0f * keel::sin((t + 0.45f) * 0.55f);
+        st.fdPitchDeg = 3.0f + 9.5f * keel::sin((t + 0.45f) * 1.10f);
         const float alpha = keel::clamp(fdt * 6.0f, 0.02f, 1.0f);
         st.rollDeg += (targetRoll - st.rollDeg) * alpha;
         st.pitchDeg += (targetPitch - st.pitchDeg) * alpha;
@@ -145,24 +145,24 @@ void StepAttitudeSimulation(guikit::Context& ui, AttitudeDemoState& st) {
     const float pitchRate = (st.pitchDeg - prevPitch) / fdt;
 
     // Vertical speed (FPM) driven by pitch angle and airspeed
-    const float targetVsi = std::sin(keel::deg_to_rad(st.pitchDeg - 2.0f)) * st.airspeedKnots * 88.0f;
+    const float targetVsi = keel::sin(keel::deg_to_rad(st.pitchDeg - 2.0f)) * st.airspeedKnots * 88.0f;
     st.verticalSpeedFpm += (targetVsi - st.verticalSpeedFpm) * keel::clamp(fdt * 6.0f, 0.05f, 1.0f);
     st.altitudeFeet = keel::clamp(st.altitudeFeet + (st.verticalSpeedFpm / 60.0f) * fdt, 0.0f, 50000.0f);
     st.radioAltitudeFeet = keel::clamp(st.altitudeFeet - 10650.0f, 20.0f, 2500.0f);
 
     // Airspeed responds to dive/climb + autothrottle restoring toward targetAirspeedBug
-    const float gravityAccelKtPerSec = -std::sin(keel::deg_to_rad(st.pitchDeg - 2.0f)) * 18.0f;
+    const float gravityAccelKtPerSec = -keel::sin(keel::deg_to_rad(st.pitchDeg - 2.0f)) * 18.0f;
     const float autoThrottleKtPerSec = (st.targetAirspeedBug - st.airspeedKnots) * 0.45f;
     st.airspeedKnots = keel::clamp(st.airspeedKnots + (gravityAccelKtPerSec + autoThrottleKtPerSec) * fdt, 95.0f, 380.0f);
     st.machNumber = keel::clamp(st.airspeedKnots / 348.0f, 0.15f, 0.99f);
 
     // Coordinated turn rate integrates magnetic heading
     const float turnRateDegPerSec =
-        keel::clamp(std::tan(keel::deg_to_rad(keel::clamp(st.rollDeg, -70.0f, 70.0f))) * 4.2f, -18.0f, 18.0f);
+        keel::clamp(keel::tan(keel::deg_to_rad(keel::clamp(st.rollDeg, -70.0f, 70.0f))) * 4.2f, -18.0f, 18.0f);
     st.headingDeg = WrapHeadingDeg(st.headingDeg + turnRateDegPerSec * fdt);
 
     // Normal load factor (G) and inclinometer slip/skid ball
-    const float bankCos = keel::max(0.35f, std::cos(keel::deg_to_rad(keel::clamp(st.rollDeg, -70.0f, 70.0f))));
+    const float bankCos = keel::max(0.35f, keel::cos(keel::deg_to_rad(keel::clamp(st.rollDeg, -70.0f, 70.0f))));
     const float targetG = (1.0f / bankCos) + pitchRate * 0.035f;
     st.gLoad += (keel::clamp(targetG, -2.5f, 6.0f) - st.gLoad) * keel::clamp(fdt * 8.0f, 0.05f, 1.0f);
 
@@ -172,7 +172,7 @@ void StepAttitudeSimulation(guikit::Context& ui, AttitudeDemoState& st) {
     st.sideslipDeg = st.slipSkid * 3.5f;
 
     // Smoothly animate ILS Localizer & Glideslope deviation relative to target bugs
-    st.locDeviationDots = keel::clamp(std::sin(static_cast<float>(st.simTimeSec) * 0.35f) * 0.8f - st.rollDeg * 0.02f, -2.2f, 2.2f);
+    st.locDeviationDots = keel::clamp(keel::sin(static_cast<float>(st.simTimeSec) * 0.35f) * 0.8f - st.rollDeg * 0.02f, -2.2f, 2.2f);
     st.gsDeviationDots = keel::clamp((st.targetAltitudeBug - st.altitudeFeet) / 250.0f, -2.2f, 2.2f);
 }
 

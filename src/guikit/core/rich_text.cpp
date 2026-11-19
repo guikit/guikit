@@ -1,5 +1,4 @@
 #include "guikit/core/rich_text.hpp"
-#include <cmath>
 #include "guikit/core/id.hpp"
 #include "guikit/core/text_util.hpp"
 #include "keel/lru_cache.h"
@@ -288,7 +287,7 @@ void DocumentTextMap::AddToken(Rect r, keel::StringRef str, float fontSize, Font
     const keel::usize cEnd = plainText.size();
 
     keel::usize lineIdx = 0;
-    if (!lines.empty() && std::abs(lines.back().top - r.y) < r.h * 0.5f) {
+    if (!lines.empty() && keel::abs(lines.back().top - r.y) < r.h * 0.5f) {
         lineIdx = lines.size() - 1;
         PositionedLine& ln = lines.back();
         ln.top = keel::min(ln.top, r.y);

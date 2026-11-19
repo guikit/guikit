@@ -1,10 +1,10 @@
 #include "guikit/panels/bottom_panel.hpp"
-#include <cmath>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/graphics/icon.hpp"
 #include "guikit/panels/scroll_area.hpp"
+#include "keel/math.h"
 
 namespace guikit {
 
@@ -197,7 +197,7 @@ BottomPanelScope BottomPanel::Open(
                 res.pressed = true;
                 const float dragDeltaY = (state.dragStartMode == BottomPanelMode::Collapsed)
                     ? (state.dragStartMouseY - mouse.y)
-                    : std::abs(mouse.y - state.dragStartMouseY);
+                    : keel::abs(mouse.y - state.dragStartMouseY);
                 const float dragThreshold = (state.dragStartMode == BottomPanelMode::Collapsed)
                     ? (12.0f * activeScale)
                     : (4.0f * activeScale);
@@ -212,7 +212,7 @@ BottomPanelScope BottomPanel::Open(
                 }
                 const bool hitTarget = (canToggle && toggleRect.Contains(mouse)) ||
                     (state.dragStartMode == BottomPanelMode::Collapsed &&
-                     (sashRect.Contains(mouse) || std::abs(mouse.y - state.dragStartMouseY) <= 12.0f * activeScale));
+                     (sashRect.Contains(mouse) || keel::abs(mouse.y - state.dragStartMouseY) <= 12.0f * activeScale));
                 if (hitTarget) {
                     const BottomPanelMode nextM = (state.mode == BottomPanelMode::Expanded && opts.allowCollapse)
                         ? BottomPanelMode::Collapsed
@@ -253,7 +253,7 @@ BottomPanelScope BottomPanel::Open(
                         modeChanged = true;
                     }
                     const float clampedH = keel::clamp(rawLogicalH, effMinH, effMaxH);
-                    if (std::abs(state.customHeight - clampedH) > 0.25f) {
+                    if (keel::abs(state.customHeight - clampedH) > 0.25f) {
                         state.customHeight = clampedH;
                         state.lastExpandedHeight = clampedH;
                         heightChanged = true;

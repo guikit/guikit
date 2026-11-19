@@ -1,4 +1,4 @@
-#include <cmath>
+#include "keel/math.h"
 #include "../demo_context.hpp"
 
 namespace guikit::demo {
@@ -76,7 +76,7 @@ struct ImageViewDemoState {
                     v = 4500.0f + static_cast<float>(step) * 5800.0f;
                     // Subtle internal calibration pinholes inside each step
                     const float stepCenterX = 64.0f + (static_cast<float>(step) + 0.5f) * (896.0f / 10.0f);
-                    const float dHole = std::hypot(static_cast<float>(x) - stepCenterX, static_cast<float>(y) - 66.0f);
+                    const float dHole = keel::hypot(static_cast<float>(x) - stepCenterX, static_cast<float>(y) - 66.0f);
                     if (dHole < 10.0f) {
                         v += 1800.0f * (1.0f - dHole / 10.0f);
                     }
@@ -85,9 +85,9 @@ struct ImageViewDemoState {
                 // 3. Central radiographic assembly housing & concentric attenuation rings
                 const float dx = static_cast<float>(x) - cx;
                 const float dy = static_cast<float>(y) - cy;
-                const float r = std::hypot(dx, dy);
+                const float r = keel::hypot(dx, dy);
                 if (r < 265.0f) {
-                    v += 14000.0f * std::cos((r / 265.0f) * 1.570796f);
+                    v += 14000.0f * keel::cos((r / 265.0f) * 1.570796f);
                     // Annular machined grooves
                     if (r > 195.0f && r < 225.0f) {
                         v -= 6500.0f;
@@ -95,8 +95,8 @@ struct ImageViewDemoState {
                         v += 7200.0f;
                     }
                     // Radial spokes
-                    const float ang = std::atan2(dy, dx);
-                    const float spoke = std::cos(ang * 8.0f);
+                    const float ang = keel::atan2(dy, dx);
+                    const float spoke = keel::cos(ang * 8.0f);
                     if (r > 48.0f && r < 185.0f && spoke > 0.86f) {
                         v += 4200.0f * (spoke - 0.86f) / 0.14f;
                     }
@@ -105,7 +105,7 @@ struct ImageViewDemoState {
                 // 4. High-frequency resolution line-pair bar targets (bottom-left)
                 if (x >= 72 && x <= 320 && y >= 540 && y <= 700) {
                     const float freq = 0.15f + 0.85f * (static_cast<float>(x - 72) / 248.0f);
-                    const float wave = std::sin(static_cast<float>(x - 72) * freq * 1.3f);
+                    const float wave = keel::sin(static_cast<float>(x - 72) * freq * 1.3f);
                     v = 26000.0f + (wave >= 0.0f ? 11500.0f : -11500.0f);
                 }
 
@@ -117,7 +117,7 @@ struct ImageViewDemoState {
                             const float icx = 730.0f + static_cast<float>(col) * 62.0f;
                             const float icy = 555.0f + static_cast<float>(row) * 60.0f;
                             const float rad = 18.0f - static_cast<float>(row) * 4.0f;
-                            const float d = std::hypot(static_cast<float>(x) - icx, static_cast<float>(y) - icy);
+                            const float d = keel::hypot(static_cast<float>(x) - icx, static_cast<float>(y) - icy);
                             if (d < rad) {
                                 const float contrast = (800.0f + static_cast<float>(col) * 1400.0f);
                                 v += contrast * (1.0f - (d * d) / (rad * rad));
@@ -128,7 +128,7 @@ struct ImageViewDemoState {
 
                 // 6. Sensor quantum noise
                 const float noise = (HashNoise2D(x, y, 1337u) + HashNoise2D(x, y, 7919u) - 1.0f) * 480.0f;
-                const float clamped = keel::clamp(std::round(v + noise), 0.0f, 65535.0f);
+                const float clamped = keel::clamp(keel::round(v + noise), 0.0f, 65535.0f);
                 mono16Pixels[static_cast<keel::usize>(y) * kDemoImgW + x] = static_cast<keel::u16>(clamped);
             }
         }
@@ -145,8 +145,8 @@ struct ImageViewDemoState {
                 const float nx = static_cast<float>(x) / static_cast<float>(kDemoImgW - 1);
                 const float dx = static_cast<float>(x) - cx;
                 const float dy = static_cast<float>(y) - cy;
-                const float r = std::hypot(dx, dy);
-                const float ang = std::atan2(dy, dx);
+                const float r = keel::hypot(dx, dy);
+                const float ang = keel::atan2(dy, dx);
 
                 // Base background with slight channel offset (ideal for testing per-channel histogram & Auto Balance)
                 float red   = 180.0f + 420.0f * nx;
@@ -154,21 +154,21 @@ struct ImageViewDemoState {
                 float blue  = 260.0f + 320.0f * (1.0f - 0.5f * (nx + ny));
 
                 // Red Channel: outer filament ring & vascular radial web
-                const float ringEnv = std::exp(-((r - 220.0f) * (r - 220.0f)) / (2.0f * 42.0f * 42.0f));
-                const float web = 0.5f + 0.5f * std::sin(ang * 12.0f + r * 0.045f);
+                const float ringEnv = keel::exp(-((r - 220.0f) * (r - 220.0f)) / (2.0f * 42.0f * 42.0f));
+                const float web = 0.5f + 0.5f * keel::sin(ang * 12.0f + r * 0.045f);
                 red += 2850.0f * ringEnv * (0.35f + 0.65f * web);
 
                 // Green Channel: cellular organelle clusters & top calibration bars
                 for (keel::i32 k = 0; k < 6; ++k) {
                     const float a = static_cast<float>(k) * (keel::kTauF / 6.0f);
-                    const float ox = cx + std::cos(a) * 135.0f;
-                    const float oy = cy + std::sin(a) * 135.0f;
-                    const float od = std::hypot(static_cast<float>(x) - ox, static_cast<float>(y) - oy);
-                    green += 2700.0f * std::exp(-(od * od) / (2.0f * 36.0f * 36.0f));
+                    const float ox = cx + keel::cos(a) * 135.0f;
+                    const float oy = cy + keel::sin(a) * 135.0f;
+                    const float od = keel::hypot(static_cast<float>(x) - ox, static_cast<float>(y) - oy);
+                    green += 2700.0f * keel::exp(-(od * od) / (2.0f * 36.0f * 36.0f));
                 }
 
                 // Blue Channel: bright central core & outer calibration beacons
-                blue += 3300.0f * std::exp(-(r * r) / (2.0f * 68.0f * 68.0f));
+                blue += 3300.0f * keel::exp(-(r * r) / (2.0f * 68.0f * 68.0f));
 
                 // Top RGB calibration step wedge
                 if (y >= 24 && y <= 84 && x >= 64 && x < 960) {

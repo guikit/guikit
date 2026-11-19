@@ -1,8 +1,8 @@
 #include "guikit/panels/activity_bar.hpp"
-#include <cmath>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
+#include "keel/math.h"
 
 namespace guikit {
 
@@ -317,7 +317,7 @@ void ActivityBar::RenderItem(
     }
 
     // 2. Centered Icon (or fallback monogram letter)
-    const float iconSz = keel::min(bounds.w * 0.56f, std::round(m.iconSize * 1.12f));
+    const float iconSz = keel::min(bounds.w * 0.56f, keel::round(m.iconSize * 1.12f));
     if (item.icon.IsValid()) {
         const Rect iconRect(
             bounds.x + (bounds.w - iconSz) * 0.5f,

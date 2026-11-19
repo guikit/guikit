@@ -1,5 +1,4 @@
 #include "guikit/panels/scene.hpp"
-#include <cmath>
 #include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 #include "guikit/core/node.hpp"
@@ -464,7 +463,7 @@ void SceneScope::SetZoom(float zoom) noexcept {
     if (!m_payload || !m_payload->state) return;
     SceneState& st = *m_payload->state;
     const float newZoom = keel::clamp(zoom, m_payload->opts.minZoom, m_payload->opts.maxZoom);
-    if (std::abs(newZoom - st.zoom) > 0.0001f) {
+    if (keel::abs(newZoom - st.zoom) > 0.0001f) {
         st.zoom = newZoom;
         if (m_ctx && m_viewport.w > 1.0f && m_viewport.h > 1.0f) {
             m_ctx->InvalidateRect(m_viewport);
@@ -489,9 +488,9 @@ void SceneScope::CenterOn(Vec2 worldPoint, keel::Optional<float> zoom) noexcept 
         st.initialized = true;
         st.pendingCenterWorld.reset();
         st.pendingCenterZoom.reset();
-        if (std::abs(st.zoom - prevZoom) > 0.0001f ||
-            std::abs(st.pan.x - prevPan.x) > 0.01f ||
-            std::abs(st.pan.y - prevPan.y) > 0.01f) {
+        if (keel::abs(st.zoom - prevZoom) > 0.0001f ||
+            keel::abs(st.pan.x - prevPan.x) > 0.01f ||
+            keel::abs(st.pan.y - prevPan.y) > 0.01f) {
             m_ctx->InvalidateRect(m_viewport);
         }
     } else {
@@ -684,19 +683,19 @@ void SceneScope::DrawArc(
     float strokeWidth,
     keel::i32 segments
 ) {
-    if (!m_payload || worldRadius <= 0.0f || segments < 2 || std::abs(sweepAngleDeg) < 0.01f) return;
+    if (!m_payload || worldRadius <= 0.0f || segments < 2 || keel::abs(sweepAngleDeg) < 0.01f) return;
     const float startRad = keel::deg_to_rad(startAngleDeg);
     const float stepRad = keel::deg_to_rad(sweepAngleDeg) / static_cast<float>(segments);
 
     Vec2 prev{
-        worldCenter.x + std::cos(startRad) * worldRadius,
-        worldCenter.y + std::sin(startRad) * worldRadius
+        worldCenter.x + keel::cos(startRad) * worldRadius,
+        worldCenter.y + keel::sin(startRad) * worldRadius
     };
     for (keel::i32 i = 1; i <= segments; ++i) {
         const float ang = startRad + stepRad * static_cast<float>(i);
         const Vec2 cur{
-            worldCenter.x + std::cos(ang) * worldRadius,
-            worldCenter.y + std::sin(ang) * worldRadius
+            worldCenter.x + keel::cos(ang) * worldRadius,
+            worldCenter.y + keel::sin(ang) * worldRadius
         };
         DrawLine(prev, cur, color, strokeWidth);
         prev = cur;
@@ -843,7 +842,7 @@ void UpdateSceneCameraTransform(
     const bool autoRefitOnResize =
         !opts.pannable && !opts.zoomable && curWorldBounds.has_value() &&
         !state.pendingCenterWorld.has_value() &&
-        (std::abs(vp.w - state.lastViewport.w) > 0.5f || std::abs(vp.h - state.lastViewport.h) > 0.5f);
+        (keel::abs(vp.w - state.lastViewport.w) > 0.5f || keel::abs(vp.h - state.lastViewport.h) > 0.5f);
 
     if (!state.initialized || worldConfigChanged || autoRefitOnResize) {
         ApplyInitialFit(state, opts, vp, theme);
@@ -987,9 +986,9 @@ void UpdateSceneCameraTransform(
         const Vec2 wheel = ctx.GetMouseWheel();
         if (wheel.y != 0.0f) {
             const float oldZoom = state.zoom;
-            const float factor = std::pow(opts.zoomStep, wheel.y);
+            const float factor = keel::pow(opts.zoomStep, wheel.y);
             const float newZoom = keel::clamp(oldZoom * factor, opts.minZoom, opts.maxZoom);
-            if (std::abs(newZoom - oldZoom) > 0.0001f) {
+            if (keel::abs(newZoom - oldZoom) > 0.0001f) {
                 const Vec2 mouseRel = mousePos - vp.Pos();
                 const Vec2 worldUnderMouse = {
                     (mouseRel.x - state.pan.x) / (oldZoom * s),
@@ -1018,7 +1017,7 @@ void UpdateSceneCameraTransform(
         const bool canceled = ctx.ConsumeKey(Key::Escape);
         if (canceled || !mouseDown) {
             const Vec2 moved = mousePos - state.dragStartMouse;
-            if (!canceled && std::abs(moved.x) < 3.5f && std::abs(moved.y) < 3.5f) {
+            if (!canceled && keel::abs(moved.x) < 3.5f && keel::abs(moved.y) < 3.5f) {
                 state.dragClickKey = state.draggedItemKey;
             }
             state.dragEndedKey = state.draggedItemKey;
@@ -1069,12 +1068,12 @@ void UpdateSceneCameraTransform(
         ctx.RequestRepaint(2);
     } else if (state.pointerDown && mouseDown) {
         const Vec2 delta = mousePos - state.panStartMouse;
-        if (!state.panning && opts.pannable && (std::abs(delta.x) >= 3.5f || std::abs(delta.y) >= 3.5f)) {
+        if (!state.panning && opts.pannable && (keel::abs(delta.x) >= 3.5f || keel::abs(delta.y) >= 3.5f)) {
             state.panning = true;
         }
         if (state.panning) {
             const Vec2 newPan = state.panStartOffset + delta;
-            if (std::abs(newPan.x - state.pan.x) > 0.01f || std::abs(newPan.y - state.pan.y) > 0.01f) {
+            if (keel::abs(newPan.x - state.pan.x) > 0.01f || keel::abs(newPan.y - state.pan.y) > 0.01f) {
                 state.cameraModifiedByInput = true;
             }
             state.pan = newPan;
@@ -1084,9 +1083,9 @@ void UpdateSceneCameraTransform(
 
     ClampCameraToWorld(state, opts, vp, theme);
     state.cameraModifiedByInput =
-        (std::abs(state.zoom - preInputZoom) > 0.0001f) ||
-        (std::abs(state.pan.x - preInputPan.x) > 0.01f) ||
-        (std::abs(state.pan.y - preInputPan.y) > 0.01f);
+        (keel::abs(state.zoom - preInputZoom) > 0.0001f) ||
+        (keel::abs(state.pan.x - preInputPan.x) > 0.01f) ||
+        (keel::abs(state.pan.y - preInputPan.y) > 0.01f);
     state.preUpdateHudConsumed = hudConsumed;
     state.preUpdateScrollbarBusy = scrollbarBusy;
 }
@@ -1260,7 +1259,7 @@ void Scene::Update(Context& ctx, Node* node) {
         ctx.InvalidateRect(node->computedRect);
         ctx.RequestRepaint(2);
     } else {
-        if (std::abs(vp.w - payload->openViewport.w) > 1.0f || std::abs(vp.h - payload->openViewport.h) > 1.0f) {
+        if (keel::abs(vp.w - payload->openViewport.w) > 1.0f || keel::abs(vp.h - payload->openViewport.h) > 1.0f) {
             if (!opts.pannable && !opts.zoomable && ResolveWorldBounds(opts).has_value() && !state.pendingCenterWorld.has_value()) {
                 ApplyInitialFit(state, opts, vp, theme);
             }
@@ -1495,8 +1494,8 @@ void Scene::RenderBackgroundAndWorld(
         while (worldStep * worldScale > 160.0f * s) worldStep *= 0.5f;
 
         const float screenStep = worldStep * worldScale;
-        const float startX = vp.x + std::fmod(state.pan.x, screenStep) - (state.pan.x < 0.0f ? 0.0f : screenStep);
-        const float startY = vp.y + std::fmod(state.pan.y, screenStep) - (state.pan.y < 0.0f ? 0.0f : screenStep);
+        const float startX = vp.x + keel::fmod(state.pan.x, screenStep) - (state.pan.x < 0.0f ? 0.0f : screenStep);
+        const float startY = vp.y + keel::fmod(state.pan.y, screenStep) - (state.pan.y < 0.0f ? 0.0f : screenStep);
         const Color gridCol = theme.palette.borderSubtle.WithAlpha(130);
 
         if (opts.backgroundStyle == SceneBackground::GridLines) {
@@ -1548,10 +1547,10 @@ void Scene::RenderBackgroundAndWorld(
     };
 
     auto worldRectToSnappedScreen = [&](Rect wr) noexcept -> Rect {
-        const double x0 = std::round(vpX + panX + static_cast<double>(wr.x) * wScale);
-        const double y0 = std::round(vpY + panY + static_cast<double>(wr.y) * wScale);
-        const double x1 = std::round(vpX + panX + (static_cast<double>(wr.x) + static_cast<double>(wr.w)) * wScale);
-        const double y1 = std::round(vpY + panY + (static_cast<double>(wr.y) + static_cast<double>(wr.h)) * wScale);
+        const double x0 = keel::round(vpX + panX + static_cast<double>(wr.x) * wScale);
+        const double y0 = keel::round(vpY + panY + static_cast<double>(wr.y) * wScale);
+        const double x1 = keel::round(vpX + panX + (static_cast<double>(wr.x) + static_cast<double>(wr.w)) * wScale);
+        const double y1 = keel::round(vpY + panY + (static_cast<double>(wr.y) + static_cast<double>(wr.h)) * wScale);
         return Rect(
             static_cast<float>(x0),
             static_cast<float>(y0),
@@ -1694,12 +1693,12 @@ void Scene::RenderBackgroundAndWorld(
                         : cmd.fontSize;
                     if (fs >= 2.2f) {
                         const Color col = (tintFactor > 0.0f) ? blendColor(cmd.fill, accentCol, tintFactor) : cmd.fill;
-                        if (std::abs(cmd.angleDeg) <= 0.01f) {
+                        if (keel::abs(cmd.angleDeg) <= 0.01f) {
                             canvas.DrawTextBoxStyled(cmd.textOrSource, dst, fs, col, cmd.fontStyle, cmd.alignX, cmd.alignY);
                         } else {
                             const Vec2 ts = canvas.MeasureTextStyled(cmd.textOrSource, fs, cmd.fontStyle);
                             const float opticalH = fs * 1.18f;
-                            if (std::abs(cmd.angleDeg + 90.0f) < 1.0f) {
+                            if (keel::abs(cmd.angleDeg + 90.0f) < 1.0f) {
                                 const float tx = dst.x + (dst.w - opticalH) * cmd.alignX;
                                 const float ty = dst.y + ts.x + (dst.h - ts.x) * cmd.alignY;
                                 canvas.DrawTextStyled(cmd.textOrSource, {tx, ty}, fs, col, cmd.fontStyle, cmd.angleDeg);

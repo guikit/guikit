@@ -1,5 +1,4 @@
 #include "guikit/panels/map_view.hpp"
-#include <cmath>
 #include "guikit/context.hpp"
 #include "guikit/geo/gis_render_engine.hpp"
 #include "keel/core.h"

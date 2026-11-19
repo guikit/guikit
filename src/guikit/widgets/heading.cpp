@@ -1,11 +1,11 @@
 #include "guikit/widgets/heading.hpp"
-#include <cmath>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
 #include "guikit/layout/separator.hpp"
+#include "keel/math.h"
 
 namespace guikit {
 
@@ -479,10 +479,10 @@ void Heading::Render(
         float contentBottom = g.bounds.y;
         if (g.hasTitleBar) contentBottom = keel::max(contentBottom, g.titleBarRect.Bottom());
         if (g.hasDesc)     contentBottom = keel::max(contentBottom, g.descRect.Bottom());
-        const float sepY = std::floor(contentBottom + sepPad) + 0.5f;
+        const float sepY = keel::floor(contentBottom + sepPad) + 0.5f;
         Separator::RenderLine(canvas, Vec2(g.bounds.x, sepY), Vec2(g.bounds.Right(), sepY), sepColor, sepStrokeW);
     } else if (opts.separator.placement == HeadingSeparator::Trailing && g.hasTitleBar && g.titleBarRect.h > 0.0f) {
-        const float lineY = std::floor(g.titleBarRect.y + g.titleBarRect.h * 0.5f) + 0.5f;
+        const float lineY = keel::floor(g.titleBarRect.y + g.titleBarRect.h * 0.5f) + 0.5f;
         if (opts.layout == HeadingLayout::Inline && g.hasDesc && g.descRect.w > 0.0f) {
             const float bridgeStart = barRightX + m.gap;
             const float bridgeEnd = g.descRect.x - m.gap;

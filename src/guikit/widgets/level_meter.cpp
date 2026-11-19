@@ -1,5 +1,4 @@
 #include "guikit/widgets/level_meter.hpp"
-#include <cmath>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
@@ -55,10 +54,10 @@ void FormatScaleTickLabel(
     double val,
     double span
 ) noexcept {
-    if (std::abs(val) < 1e-4) {
+    if (keel::abs(val) < 1e-4) {
         val = 0.0;
     }
-    const keel::StringRef fmt = (span >= 10.0 && std::abs(val - std::round(val)) < 0.05) ? "{:.0f}" : "{:.1f}";
+    const keel::StringRef fmt = (span >= 10.0 && keel::abs(val - keel::round(val)) < 0.05) ? "{:.0f}" : "{:.1f}";
     keel::format_buf(buf, bufSize, fmt, val);
 }
 
@@ -69,7 +68,7 @@ float GetDefaultBarThickness(UiSize size, const UiTheme& theme) noexcept {
         case UiSize::Preset::Lg: return 16.0f;
         case UiSize::Preset::Xl: return 20.0f;
         case UiSize::Preset::Md: return 12.0f;
-        default:                 return std::round(12.0f * theme.SizeFactor(size));
+        default:                 return keel::round(12.0f * theme.SizeFactor(size));
     }
 }
 
@@ -262,7 +261,7 @@ LevelMeterMetrics ComputeLevelMeterMetrics(
         const float topClipH = opts.showClipLed ? (mm.clipLedLen + mm.clipGap) : 0.0f;
         const float bottomLabelH = (mm.labelReserveW > 0.0f) ? (4.0f + mm.labelLineH) : 0.0f;
         const float bottomValH = opts.showValue ? (4.0f + mm.valLineH) : 0.0f;
-        const float defaultTrackH = std::round(sm.defaultWidth);
+        const float defaultTrackH = keel::round(sm.defaultWidth);
 
         const float totalW = keel::max(mm.scaleRegionW + barsW, opts.showValue ? mm.valReserveW : 0.0f) + 8.0f;
         const float totalH = topClipH + defaultTrackH + bottomLabelH + bottomValH;
@@ -283,10 +282,10 @@ void DrawChannelBarHorizontal(
 ) noexcept {
     if (trackRect.w <= 1.0f || trackRect.h <= 1.0f) return;
 
-    trackRect.x = std::round(trackRect.x);
-    trackRect.y = std::round(trackRect.y);
-    trackRect.w = std::round(trackRect.w);
-    trackRect.h = keel::max(2.0f, std::round(trackRect.h));
+    trackRect.x = keel::round(trackRect.x);
+    trackRect.y = keel::round(trackRect.y);
+    trackRect.w = keel::round(trackRect.w);
+    trackRect.h = keel::max(2.0f, keel::round(trackRect.h));
 
     const auto& pal = theme.palette;
     const float warnT = keel::clamp(opts.warningRatio, 0.05f, 0.98f);
@@ -327,10 +326,10 @@ void DrawChannelBarHorizontal(
         const bool useRound = (keel::min(avgSegW, trackRect.h) >= 8.0f);
         const float stepW = (trackRect.w + gap) / static_cast<float>(segCount);
         for (keel::u32 i = 0; i < segCount; ++i) {
-            const float segLeft = std::round(trackRect.x + static_cast<float>(i) * stepW);
+            const float segLeft = keel::round(trackRect.x + static_cast<float>(i) * stepW);
             const float segRight = (i + 1 == segCount)
                 ? trackRect.Right()
-                : std::round(trackRect.x + static_cast<float>(i + 1) * stepW - gap);
+                : keel::round(trackRect.x + static_cast<float>(i + 1) * stepW - gap);
             const float segW = keel::max(1.0f, segRight - segLeft);
             const float segThreshold = static_cast<float>(i + 1) / static_cast<float>(segCount);
             const float segMidRatio = (static_cast<float>(i) + 0.5f) / static_cast<float>(segCount);
@@ -402,9 +401,9 @@ void DrawChannelBarHorizontal(
     // Dedicated Clip LED cap at right end
     if (opts.showClipLed && mm.clipLedLen > 0.0f) {
         const Rect clipRect(
-            std::round(trackRect.Right() + keel::max(3.0f, std::round(mm.clipGap))),
+            keel::round(trackRect.Right() + keel::max(3.0f, keel::round(mm.clipGap))),
             trackRect.y,
-            std::round(mm.clipLedLen),
+            keel::round(mm.clipLedLen),
             trackRect.h
         );
         const bool isClip = ch.clipped || (ch.ratio >= 0.995f);
@@ -430,10 +429,10 @@ void DrawChannelBarVertical(
 ) noexcept {
     if (trackRect.w <= 1.0f || trackRect.h <= 1.0f) return;
 
-    trackRect.x = std::round(trackRect.x);
-    trackRect.y = std::round(trackRect.y);
-    trackRect.w = keel::max(2.0f, std::round(trackRect.w));
-    trackRect.h = std::round(trackRect.h);
+    trackRect.x = keel::round(trackRect.x);
+    trackRect.y = keel::round(trackRect.y);
+    trackRect.w = keel::max(2.0f, keel::round(trackRect.w));
+    trackRect.h = keel::round(trackRect.h);
 
     const auto& pal = theme.palette;
     const float warnT = keel::clamp(opts.warningRatio, 0.05f, 0.98f);
@@ -475,10 +474,10 @@ void DrawChannelBarVertical(
         const float stepH = (trackRect.h + gap) / static_cast<float>(segCount);
         for (keel::u32 i = 0; i < segCount; ++i) {
             // Segment 0 is at the bottom, segment segCount-1 is at the top (all integer pixel coordinates)
-            const float segBottom = std::round(trackRect.Bottom() - static_cast<float>(i) * stepH);
+            const float segBottom = keel::round(trackRect.Bottom() - static_cast<float>(i) * stepH);
             const float segTop = (i + 1 == segCount)
                 ? trackRect.y
-                : std::round(trackRect.Bottom() - (static_cast<float>(i + 1) * stepH - gap));
+                : keel::round(trackRect.Bottom() - (static_cast<float>(i + 1) * stepH - gap));
             const float segH = keel::max(1.0f, segBottom - segTop);
             const float segThreshold = static_cast<float>(i + 1) / static_cast<float>(segCount);
             const float segMidRatio = (static_cast<float>(i) + 0.5f) / static_cast<float>(segCount);
@@ -551,11 +550,11 @@ void DrawChannelBarVertical(
 
     // Dedicated Clip LED cap at top end
     if (opts.showClipLed && mm.clipLedLen > 0.0f) {
-        const float clipH = std::round(mm.clipLedLen);
-        const float clipGap = keel::max(3.0f, std::round(mm.clipGap));
+        const float clipH = keel::round(mm.clipLedLen);
+        const float clipGap = keel::max(3.0f, keel::round(mm.clipGap));
         const Rect clipRect(
             trackRect.x,
-            std::round(trackRect.y - clipGap - clipH),
+            keel::round(trackRect.y - clipGap - clipH),
             trackRect.w,
             clipH
         );
@@ -839,8 +838,8 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
         if (!showLeftLabel) {
             leftW = 0.0f;
         }
-        const float trackX = std::round(ctrlRect.x + leftW);
-        const float trackW = keel::max(12.0f, std::round(ctrlRect.w - leftW - clipTotalW - rightW));
+        const float trackX = keel::round(ctrlRect.x + leftW);
+        const float trackW = keel::max(12.0f, keel::round(ctrlRect.w - leftW - clipTotalW - rightW));
 
         const float rowH = (numCh == 1 && showRightValue)
             ? keel::max(mm.barThick, mm.valLineH)
@@ -852,7 +851,7 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
         for (keel::usize ch = 0; ch < numCh; ++ch) {
             const LevelMeterChannelData& cd = d->channels[ch];
             const float rowY = startY + static_cast<float>(ch) * (rowH + mm.channelGap);
-            const float barY = std::round(rowY + (rowH - std::round(mm.barThick)) * 0.5f);
+            const float barY = keel::round(rowY + (rowH - keel::round(mm.barThick)) * 0.5f);
 
             // 1. Channel label on the left
             if (showLeftLabel && !cd.label.empty()) {
@@ -869,7 +868,7 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
             // 2. Meter bar & Clip LED cap
             DrawChannelBarHorizontal(
                 canvas,
-                Rect(trackX, barY, trackW, std::round(mm.barThick)),
+                Rect(trackX, barY, trackW, keel::round(mm.barThick)),
                 cd,
                 opts,
                 mm,
@@ -893,7 +892,7 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
 
         // 4. Calibrated horizontal scale ticks & labels below bars (with collision culling)
         if (opts.showScale && trackW >= 28.0f) {
-            const float tickTopY = std::round(startY + barsTotalH + 3.0f);
+            const float tickTopY = keel::round(startY + barsTotalH + 3.0f);
             const float labelTopY = tickTopY + mm.scaleTickLen + 1.0f;
             constexpr keel::i32 kMajorTicks = 5; // 6 major positions: 0%, 20%, 40%, 60%, 80%, 100%
             const bool showMinorTicks = (trackW >= 80.0f);
@@ -902,7 +901,7 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
                 const bool isMajor = (i % 2 == 0);
                 if (!isMajor && !showMinorTicks) continue;
                 const float t = static_cast<float>(i) / static_cast<float>(kMajorTicks * 2);
-                const float tx = std::round(trackX + t * trackW);
+                const float tx = keel::round(trackX + t * trackW);
                 const float tLen = isMajor ? mm.scaleTickLen : (mm.scaleTickLen * 0.6f);
                 canvas.DrawLine(Vec2(tx, tickTopY), Vec2(tx, tickTopY + tLen), scaleTickCol, 1.0f);
             }
@@ -919,7 +918,7 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
             keel::StaticArray<MajorTickLabel, kMajorTicks + 1> majorLabels{};
             for (keel::i32 m = 0; m <= kMajorTicks; ++m) {
                 const float t = static_cast<float>(m) / static_cast<float>(kMajorTicks);
-                const float tx = std::round(trackX + t * trackW);
+                const float tx = keel::round(trackX + t * trackW);
                 auto& ml = majorLabels[static_cast<keel::usize>(m)];
                 ml.tx = tx;
                 FormatScaleTickLabel(ml.text, sizeof(ml.text), d->min + static_cast<double>(t) * span, span);
@@ -981,8 +980,8 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
         }
     } else {
         // Vertical orientation
-        const float barThickInt = keel::max(2.0f, std::round(mm.barThick));
-        const float chGapInt = keel::max(2.0f, std::round(mm.channelGap));
+        const float barThickInt = keel::max(2.0f, keel::round(mm.barThick));
+        const float chGapInt = keel::max(2.0f, keel::round(mm.channelGap));
         const float barsW = static_cast<float>(numCh) * barThickInt + static_cast<float>(numCh - 1) * chGapInt;
         const float assemblyW = mm.scaleRegionW + barsW;
         const float assemblyStartX = ctrlRect.x + keel::max(0.0f, (ctrlRect.w - assemblyW) * 0.5f);
@@ -990,13 +989,13 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
         const float topClipH = opts.showClipLed ? (mm.clipLedLen + mm.clipGap) : 0.0f;
         const float bottomLabelH = (mm.labelReserveW > 0.0f) ? (4.0f + mm.labelLineH) : 0.0f;
         const float bottomValH = opts.showValue ? (4.0f + mm.valLineH) : 0.0f;
-        const float trackY = std::round(ctrlRect.y + topClipH);
-        const float trackH = keel::max(24.0f, std::round(ctrlRect.h - topClipH - bottomLabelH - bottomValH));
-        const float barsStartX = std::round(assemblyStartX + mm.scaleRegionW);
+        const float trackY = keel::round(ctrlRect.y + topClipH);
+        const float trackH = keel::max(24.0f, keel::round(ctrlRect.h - topClipH - bottomLabelH - bottomValH));
+        const float barsStartX = keel::round(assemblyStartX + mm.scaleRegionW);
 
         // 1. Calibrated vertical scale on the left of the bars (with vertical collision culling)
         if (opts.showScale && trackH >= 28.0f) {
-            const float tickRightX = std::round(barsStartX - 4.0f);
+            const float tickRightX = keel::round(barsStartX - 4.0f);
             const float labelRightX = tickRightX - mm.scaleTickLen - 3.0f;
             const float labelW = keel::max(8.0f, labelRightX - assemblyStartX);
             constexpr keel::i32 kMajorTicks = 5;
@@ -1009,7 +1008,7 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
                 const bool isMajor = (i % 2 == 0);
                 if (!isMajor && !showMinorTicks) continue;
                 const float t = static_cast<float>(i) / static_cast<float>(kMajorTicks * 2);
-                const float ty = std::round(trackY + trackH - t * trackH);
+                const float ty = keel::round(trackY + trackH - t * trackH);
                 const float tLen = isMajor ? mm.scaleTickLen : (mm.scaleTickLen * 0.6f);
                 canvas.DrawLine(Vec2(tickRightX - tLen, ty), Vec2(tickRightX, ty), scaleTickCol, 1.0f);
 

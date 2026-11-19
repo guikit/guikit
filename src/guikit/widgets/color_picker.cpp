@@ -1,5 +1,4 @@
 #include "guikit/widgets/color_picker.hpp"
-#include <cmath>
 #include <cstdio>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
@@ -184,7 +183,7 @@ void ColorPicker::RgbToHsv(Color c, float& outH, float& outS, float& outV) noexc
 
     float h = 0.0f;
     if (maxC == r) {
-        h = 60.0f * std::fmod(((g - b) / delta) + 6.0f, 6.0f);
+        h = 60.0f * keel::fmod(((g - b) / delta) + 6.0f, 6.0f);
     } else if (maxC == g) {
         h = 60.0f * (((b - r) / delta) + 2.0f);
     } else {
@@ -195,12 +194,12 @@ void ColorPicker::RgbToHsv(Color c, float& outH, float& outS, float& outV) noexc
 }
 
 Color ColorPicker::HsvToRgb(float h, float s, float v, keel::u8 a) noexcept {
-    const float clampedH = std::fmod(keel::max(0.0f, h), 360.0f);
+    const float clampedH = keel::fmod(keel::max(0.0f, h), 360.0f);
     const float clampedS = keel::clamp(s, 0.0f, 1.0f);
     const float clampedV = keel::clamp(v, 0.0f, 1.0f);
 
     const float c = clampedV * clampedS;
-    const float x = c * (1.0f - std::abs(std::fmod(clampedH / 60.0f, 2.0f) - 1.0f));
+    const float x = c * (1.0f - keel::abs(keel::fmod(clampedH / 60.0f, 2.0f) - 1.0f));
     const float m = clampedV - c;
 
     float r1 = 0.0f, g1 = 0.0f, b1 = 0.0f;

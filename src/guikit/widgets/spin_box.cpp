@@ -1,5 +1,4 @@
 #include "guikit/widgets/spin_box.hpp"
-#include <cmath>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
@@ -44,7 +43,7 @@ InlineStepMetrics ComputeInlineStepMetrics(const InputFieldMetrics& m, const UiT
     InlineStepMetrics sm{};
     sm.btnSize = m.iconSize + 4.0f;
     sm.btnGap = 2.0f;
-    sm.padX = keel::max(6.0f, std::round(m.paddingX * 0.55f));
+    sm.padX = keel::max(6.0f, keel::round(m.paddingX * 0.55f));
     sm.sectionWidth = sm.padX * 2.0f + sm.btnSize * 2.0f + sm.btnGap;
     return sm;
 }
@@ -442,7 +441,7 @@ Response SpinBox::Run(
                 stepDelta -= stepVal;
             }
         }
-        if ((isFocused || res.hovered) && std::abs(ctx.GetMouseWheel().y) > 0.001f) {
+        if ((isFocused || res.hovered) && keel::abs(ctx.GetMouseWheel().y) > 0.001f) {
             stepDelta += (ctx.GetMouseWheel().y > 0.0f ? stepVal : -stepVal);
             ctx.ConsumeMouseWheel();
         }

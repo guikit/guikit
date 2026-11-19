@@ -1,5 +1,4 @@
 #include "guikit/panels/accordion.hpp"
-#include <cmath>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"

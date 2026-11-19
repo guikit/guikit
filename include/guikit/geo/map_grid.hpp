@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cmath>
 #include "guikit/core/types.hpp"
 #include "keel/array.h"
 #include "keel/core.h"
@@ -295,13 +294,13 @@ public:
 
         const double phi = keel::deg_to_rad(keel::clamp(geo.lat, -89.999999, 89.999999));
         const double lam = keel::deg_to_rad(geo.lon);
-        const double sinPhi = std::sin(phi);
-        const double cosPhi = std::cos(phi);
-        const double sinLam = std::sin(lam);
-        const double cosLam = std::cos(lam);
+        const double sinPhi = keel::sin(phi);
+        const double cosPhi = keel::cos(phi);
+        const double sinLam = keel::sin(lam);
+        const double cosLam = keel::cos(lam);
 
         const double e1Sq = 2.0 * srcEllipsoid.f - srcEllipsoid.f * srcEllipsoid.f;
-        const double n1 = srcEllipsoid.a / std::sqrt(1.0 - e1Sq * sinPhi * sinPhi);
+        const double n1 = srcEllipsoid.a / keel::sqrt(1.0 - e1Sq * sinPhi * sinPhi);
         const double x1 = n1 * cosPhi * cosLam;
         const double y1 = n1 * cosPhi * sinLam;
         const double z1 = n1 * (1.0 - e1Sq) * sinPhi;
@@ -323,23 +322,23 @@ public:
         const double e2Sq = 2.0 * dstEllipsoid.f - dstEllipsoid.f * dstEllipsoid.f;
         const double b2 = dstEllipsoid.a * (1.0 - dstEllipsoid.f);
         const double ep2Sq = (dstEllipsoid.a * dstEllipsoid.a - b2 * b2) / (b2 * b2);
-        const double p = std::hypot(x2, y2);
+        const double p = keel::hypot(x2, y2);
         if (p < 1e-9) {
             return {z2 >= 0.0 ? 90.0 : -90.0, geo.lon};
         }
 
-        double theta = std::atan2(z2 * dstEllipsoid.a, p * b2);
+        double theta = keel::atan2(z2 * dstEllipsoid.a, p * b2);
         double phi2 = 0.0;
         for (keel::i32 i = 0; i < 2; ++i) {
-            const double sinT = std::sin(theta);
-            const double cosT = std::cos(theta);
-            phi2 = std::atan2(
+            const double sinT = keel::sin(theta);
+            const double cosT = keel::cos(theta);
+            phi2 = keel::atan2(
                 z2 + ep2Sq * b2 * sinT * sinT * sinT,
                 p - e2Sq * dstEllipsoid.a * cosT * cosT * cosT
             );
-            theta = std::atan((1.0 - dstEllipsoid.f) * std::tan(phi2));
+            theta = keel::atan((1.0 - dstEllipsoid.f) * keel::tan(phi2));
         }
-        const double lam2 = std::atan2(y2, x2);
+        const double lam2 = keel::atan2(y2, x2);
 
         return {
             keel::clamp(keel::rad_to_deg(phi2), -89.999999, 89.999999),
@@ -362,7 +361,7 @@ public:
         const double n2 = n * n;
         const double n3 = n2 * n;
         const double n4 = n2 * n2;
-        const double e = std::sqrt(2.0 * f - f * f);
+        const double e = keel::sqrt(2.0 * f - f * f);
         const double A = (spec.ellipsoid.a / (1.0 + n)) * (1.0 + 0.25 * n2 + (1.0 / 64.0) * n4);
 
         const double alpha1 = (1.0 / 2.0) * n - (2.0 / 3.0) * n2 + (5.0 / 16.0) * n3 + (41.0 / 180.0) * n4;
@@ -376,25 +375,25 @@ public:
         while (dLonDeg < -180.0) dLonDeg += 360.0;
         const double dLam = keel::deg_to_rad(keel::clamp(dLonDeg, -75.0, 75.0));
 
-        const double sinPhi = std::sin(phi);
-        const double Q = std::asinh(std::tan(phi)) - e * std::atanh(e * sinPhi);
-        const double tanChi = std::sinh(Q);
-        const double cosChi = 1.0 / std::hypot(1.0, tanChi);
+        const double sinPhi = keel::sin(phi);
+        const double Q = keel::asinh(keel::tan(phi)) - e * keel::atanh(e * sinPhi);
+        const double tanChi = keel::sinh(Q);
+        const double cosChi = 1.0 / keel::hypot(1.0, tanChi);
 
-        const double xiP = std::atan2(tanChi, std::cos(dLam));
-        const double etaP = std::atanh(keel::clamp(cosChi * std::sin(dLam), -0.9999999, 0.9999999));
+        const double xiP = keel::atan2(tanChi, keel::cos(dLam));
+        const double etaP = keel::atanh(keel::clamp(cosChi * keel::sin(dLam), -0.9999999, 0.9999999));
 
         const double xi = xiP
-            + alpha1 * std::sin(2.0 * xiP) * std::cosh(2.0 * etaP)
-            + alpha2 * std::sin(4.0 * xiP) * std::cosh(4.0 * etaP)
-            + alpha3 * std::sin(6.0 * xiP) * std::cosh(6.0 * etaP)
-            + alpha4 * std::sin(8.0 * xiP) * std::cosh(8.0 * etaP);
+            + alpha1 * keel::sin(2.0 * xiP) * keel::cosh(2.0 * etaP)
+            + alpha2 * keel::sin(4.0 * xiP) * keel::cosh(4.0 * etaP)
+            + alpha3 * keel::sin(6.0 * xiP) * keel::cosh(6.0 * etaP)
+            + alpha4 * keel::sin(8.0 * xiP) * keel::cosh(8.0 * etaP);
 
         const double eta = etaP
-            + alpha1 * std::cos(2.0 * xiP) * std::sinh(2.0 * etaP)
-            + alpha2 * std::cos(4.0 * xiP) * std::sinh(4.0 * etaP)
-            + alpha3 * std::cos(6.0 * xiP) * std::sinh(6.0 * etaP)
-            + alpha4 * std::cos(8.0 * xiP) * std::sinh(8.0 * etaP);
+            + alpha1 * keel::cos(2.0 * xiP) * keel::sinh(2.0 * etaP)
+            + alpha2 * keel::cos(4.0 * xiP) * keel::sinh(4.0 * etaP)
+            + alpha3 * keel::cos(6.0 * xiP) * keel::sinh(6.0 * etaP)
+            + alpha4 * keel::cos(8.0 * xiP) * keel::sinh(8.0 * etaP);
 
         const double easting  = spec.falseEasting  + spec.scaleFactor * A * eta;
         const double northing = spec.falseNorthing + spec.scaleFactor * A * xi;
@@ -414,7 +413,7 @@ public:
         const double n3 = n2 * n;
         const double n4 = n2 * n2;
         const double eSq = 2.0 * f - f * f;
-        const double e = std::sqrt(eSq);
+        const double e = keel::sqrt(eSq);
         const double A = (spec.ellipsoid.a / (1.0 + n)) * (1.0 + 0.25 * n2 + (1.0 / 64.0) * n4);
 
         const double beta1 = (1.0 / 2.0) * n - (2.0 / 3.0) * n2 + (37.0 / 96.0) * n3 - (1.0 / 360.0) * n4;
@@ -427,34 +426,34 @@ public:
         const double eta = keel::clamp((easting  - spec.falseEasting)  * invScaleA, -2.20, 2.20);
 
         const double xiP = xi
-            - beta1 * std::sin(2.0 * xi) * std::cosh(2.0 * eta)
-            - beta2 * std::sin(4.0 * xi) * std::cosh(4.0 * eta)
-            - beta3 * std::sin(6.0 * xi) * std::cosh(6.0 * eta)
-            - beta4 * std::sin(8.0 * xi) * std::cosh(8.0 * eta);
+            - beta1 * keel::sin(2.0 * xi) * keel::cosh(2.0 * eta)
+            - beta2 * keel::sin(4.0 * xi) * keel::cosh(4.0 * eta)
+            - beta3 * keel::sin(6.0 * xi) * keel::cosh(6.0 * eta)
+            - beta4 * keel::sin(8.0 * xi) * keel::cosh(8.0 * eta);
 
         const double etaP = eta
-            - beta1 * std::cos(2.0 * xi) * std::sinh(2.0 * eta)
-            - beta2 * std::cos(4.0 * xi) * std::sinh(4.0 * eta)
-            - beta3 * std::cos(6.0 * xi) * std::sinh(6.0 * eta)
-            - beta4 * std::cos(8.0 * xi) * std::sinh(8.0 * eta);
+            - beta1 * keel::cos(2.0 * xi) * keel::sinh(2.0 * eta)
+            - beta2 * keel::cos(4.0 * xi) * keel::sinh(4.0 * eta)
+            - beta3 * keel::cos(6.0 * xi) * keel::sinh(6.0 * eta)
+            - beta4 * keel::cos(8.0 * xi) * keel::sinh(8.0 * eta);
 
-        const double sinhEtaP = std::sinh(etaP);
-        const double coshEtaP = std::cosh(etaP);
-        const double sinChi = keel::clamp(std::sin(xiP) / coshEtaP, -0.999999999, 0.999999999);
-        const double dLam = std::atan2(sinhEtaP, std::cos(xiP));
+        const double sinhEtaP = keel::sinh(etaP);
+        const double coshEtaP = keel::cosh(etaP);
+        const double sinChi = keel::clamp(keel::sin(xiP) / coshEtaP, -0.999999999, 0.999999999);
+        const double dLam = keel::atan2(sinhEtaP, keel::cos(xiP));
 
         // Karney's quadratic Newton iteration for geodetic tangent tau = tan(phi)
-        const double Q = std::atanh(sinChi);
-        const double sinhQ = std::sinh(Q);
+        const double Q = keel::atanh(sinChi);
+        const double sinhQ = keel::sinh(Q);
         double tau = sinhQ;
         for (keel::i32 iter = 0; iter < 5; ++iter) {
-            const double tauHyp = std::hypot(1.0, tau);
-            const double sigma = std::sinh(e * std::atanh(e * tau / tauHyp));
-            const double tauP = tau * std::hypot(1.0, sigma) - sigma * tauHyp;
-            const double dTau = ((sinhQ - tauP) / std::hypot(1.0, tauP)) *
+            const double tauHyp = keel::hypot(1.0, tau);
+            const double sigma = keel::sinh(e * keel::atanh(e * tau / tauHyp));
+            const double tauP = tau * keel::hypot(1.0, sigma) - sigma * tauHyp;
+            const double dTau = ((sinhQ - tauP) / keel::hypot(1.0, tauP)) *
                                 ((1.0 + (1.0 - eSq) * tau * tau) / ((1.0 - eSq) * tauHyp));
             tau += dTau;
-            if (std::abs(dTau) < 1e-13) break;
+            if (keel::abs(dTau) < 1e-13) break;
         }
 
         double lonDeg = spec.centralMeridianDeg + keel::rad_to_deg(dLam);
@@ -462,7 +461,7 @@ public:
         while (lonDeg < -180.0) lonDeg += 360.0;
 
         const GeoCoord localGeo{
-            keel::clamp(keel::rad_to_deg(std::atan(tau)), -89.999999, 89.999999),
+            keel::clamp(keel::rad_to_deg(keel::atan(tau)), -89.999999, 89.999999),
             ClampLon(lonDeg)
         };
         return TransformDatumHelmert(
@@ -481,22 +480,22 @@ public:
         constexpr double eSq = e * e;
         constexpr double phiC = keel::deg_to_rad(71.0);
 
-        const double sinPhiC = std::sin(phiC);
-        const double mC = std::cos(phiC) / std::sqrt(1.0 - eSq * sinPhiC * sinPhiC);
-        const double tC = std::tan(0.25 * kPi - 0.5 * phiC) /
-                          std::pow((1.0 - e * sinPhiC) / (1.0 + e * sinPhiC), 0.5 * e);
+        const double sinPhiC = keel::sin(phiC);
+        const double mC = keel::cos(phiC) / keel::sqrt(1.0 - eSq * sinPhiC * sinPhiC);
+        const double tC = keel::tan(0.25 * kPi - 0.5 * phiC) /
+                          keel::pow((1.0 - e * sinPhiC) / (1.0 + e * sinPhiC), 0.5 * e);
 
         const double sign = northPole ? 1.0 : -1.0;
         const double phi = keel::deg_to_rad(keel::clamp(sign * wgs84.lat, -30.0, 89.999999));
         const double lam = keel::deg_to_rad(sign * wgs84.lon);
 
-        const double sinPhi = std::sin(phi);
-        const double t = std::tan(0.25 * kPi - 0.5 * phi) /
-                         std::pow((1.0 - e * sinPhi) / (1.0 + e * sinPhi), 0.5 * e);
+        const double sinPhi = keel::sin(phi);
+        const double t = keel::tan(0.25 * kPi - 0.5 * phi) /
+                         keel::pow((1.0 - e * sinPhi) / (1.0 + e * sinPhi), 0.5 * e);
         const double rho = (a * mC * t) / tC;
 
-        const double x = sign * rho * std::sin(lam);
-        const double y = -sign * rho * std::cos(lam);
+        const double x = sign * rho * keel::sin(lam);
+        const double y = -sign * rho * keel::cos(lam);
         return {x, y};
     }
 
@@ -512,29 +511,29 @@ public:
         constexpr double eSq = e * e;
         constexpr double phiC = keel::deg_to_rad(71.0);
 
-        const double sinPhiC = std::sin(phiC);
-        const double mC = std::cos(phiC) / std::sqrt(1.0 - eSq * sinPhiC * sinPhiC);
-        const double tC = std::tan(0.25 * kPi - 0.5 * phiC) /
-                          std::pow((1.0 - e * sinPhiC) / (1.0 + e * sinPhiC), 0.5 * e);
+        const double sinPhiC = keel::sin(phiC);
+        const double mC = keel::cos(phiC) / keel::sqrt(1.0 - eSq * sinPhiC * sinPhiC);
+        const double tC = keel::tan(0.25 * kPi - 0.5 * phiC) /
+                          keel::pow((1.0 - e * sinPhiC) / (1.0 + e * sinPhiC), 0.5 * e);
 
         const double sign = northPole ? 1.0 : -1.0;
         const double sx = sign * x;
         const double sy = -sign * y;
-        const double rho = std::hypot(sx, sy);
+        const double rho = keel::hypot(sx, sy);
         if (rho < 1e-9) {
             return {sign * 90.0, 0.0};
         }
 
         const double t = (rho * tC) / (a * mC);
-        double phi = 0.5 * kPi - 2.0 * std::atan(t);
+        double phi = 0.5 * kPi - 2.0 * keel::atan(t);
         for (keel::i32 iter = 0; iter < 6; ++iter) {
-            const double eSin = e * std::sin(phi);
-            const double cf = std::pow((1.0 - eSin) / (1.0 + eSin), 0.5 * e);
-            phi = 0.5 * kPi - 2.0 * std::atan(t * cf);
+            const double eSin = e * keel::sin(phi);
+            const double cf = keel::pow((1.0 - eSin) / (1.0 + eSin), 0.5 * e);
+            phi = 0.5 * kPi - 2.0 * keel::atan(t * cf);
         }
 
         const double lat = sign * keel::rad_to_deg(phi);
-        const double lon = sign * keel::rad_to_deg(std::atan2(sx, sy));
+        const double lon = sign * keel::rad_to_deg(keel::atan2(sx, sy));
         return {keel::clamp(lat, -89.999999, 89.999999), ClampLon(lon)};
     }
 
@@ -601,13 +600,13 @@ public:
             y = (90.0 - lat) / 180.0;
         } else if (crs == MapCrs::EPSG3395_WorldMercator) {
             const double phi = keel::deg_to_rad(lat);
-            const double eSin = kWgs84Eccentricity * std::sin(phi);
-            const double conformalFactor = std::pow((1.0 - eSin) / (1.0 + eSin), 0.5 * kWgs84Eccentricity);
-            const double mercY = std::log(std::tan(0.25 * kPi + 0.5 * phi) * conformalFactor);
+            const double eSin = kWgs84Eccentricity * keel::sin(phi);
+            const double conformalFactor = keel::pow((1.0 - eSin) / (1.0 + eSin), 0.5 * kWgs84Eccentricity);
+            const double mercY = keel::log(keel::tan(0.25 * kPi + 0.5 * phi) * conformalFactor);
             y = (1.0 - mercY / kPi) * 0.5;
         } else {
             const double phi = keel::deg_to_rad(lat);
-            const double mercY = std::log(std::tan(0.25 * kPi + 0.5 * phi));
+            const double mercY = keel::log(keel::tan(0.25 * kPi + 0.5 * phi));
             y = (1.0 - mercY / kPi) * 0.5;
         }
 
@@ -647,17 +646,17 @@ public:
             lat = 90.0 - ny * 180.0;
         } else if (crs == MapCrs::EPSG3395_WorldMercator) {
             const double mercY = kPi * (1.0 - 2.0 * ny);
-            const double t = std::exp(-mercY);
-            double phi = 0.5 * kPi - 2.0 * std::atan(t);
+            const double t = keel::exp(-mercY);
+            double phi = 0.5 * kPi - 2.0 * keel::atan(t);
             for (keel::i32 iter = 0; iter < 6; ++iter) {
-                const double eSin = kWgs84Eccentricity * std::sin(phi);
-                const double cf = std::pow((1.0 - eSin) / (1.0 + eSin), 0.5 * kWgs84Eccentricity);
-                phi = 0.5 * kPi - 2.0 * std::atan(t * cf);
+                const double eSin = kWgs84Eccentricity * keel::sin(phi);
+                const double cf = keel::pow((1.0 - eSin) / (1.0 + eSin), 0.5 * kWgs84Eccentricity);
+                phi = 0.5 * kPi - 2.0 * keel::atan(t * cf);
             }
             lat = keel::rad_to_deg(phi);
         } else {
             const double n = kPi * (1.0 - 2.0 * ny);
-            lat = keel::rad_to_deg(std::atan(std::sinh(n)));
+            lat = keel::rad_to_deg(keel::atan(keel::sinh(n)));
         }
 
         return {ClampLat(lat, crs), ClampLon(lon)};
@@ -732,7 +731,7 @@ public:
 
     /// Computes the Scene zoom factor required to achieve a target continuous tile zoom level.
     [[nodiscard]] static float TileZoomToSceneZoom(float targetTileZoom, keel::i32 baseZoom = 3) noexcept {
-        return std::pow(2.0f, targetTileZoom - static_cast<float>(baseZoom));
+        return keel::pow(2.0f, targetTileZoom - static_cast<float>(baseZoom));
     }
 
     /// Computes ground resolution in meters per screen pixel at a given latitude and continuous tile zoom.
@@ -743,11 +742,11 @@ public:
         float screenTileSize = 256.0f,
         MapCrs crs = MapCrs::EPSG3857_WebMercator
     ) noexcept {
-        const double worldPixels = static_cast<double>(screenTileSize) * std::pow(2.0, static_cast<double>(continuousZoom));
+        const double worldPixels = static_cast<double>(screenTileSize) * keel::pow(2.0, static_cast<double>(continuousZoom));
         if (!IsCylindricalCrs(crs)) {
             return keel::max(0.0001, kEarthCircumferenceMeters / worldPixels);
         }
-        const double cosLat = std::cos(keel::deg_to_rad(ClampLat(latDeg)));
+        const double cosLat = keel::cos(keel::deg_to_rad(ClampLat(latDeg)));
         return keel::max(0.0001, (kEarthCircumferenceMeters * cosLat) / worldPixels);
     }
 
@@ -783,9 +782,9 @@ public:
         const double desiredArcMin = desiredDeg * 60.0;
 
         double best = kStepsArcMin.front();
-        double bestDiff = std::abs(best - desiredArcMin);
+        double bestDiff = keel::abs(best - desiredArcMin);
         for (double step : kStepsArcMin) {
-            const double diff = std::abs(step - desiredArcMin);
+            const double diff = keel::abs(step - desiredArcMin);
             if (diff < bestDiff) {
                 bestDiff = diff;
                 best = step;
@@ -800,7 +799,7 @@ public:
         if (metersPerPixel <= 0.0 || maxBarPixels <= 10.0f) return bar;
 
         const double maxMeters = metersPerPixel * static_cast<double>(maxBarPixels);
-        const double exp10 = std::pow(10.0, std::floor(std::log10(keel::max(1.0, maxMeters))));
+        const double exp10 = keel::pow(10.0, keel::floor(keel::log10(keel::max(1.0, maxMeters))));
         double niceMeters = exp10;
         if (5.0 * exp10 <= maxMeters) {
             niceMeters = 5.0 * exp10;
@@ -827,7 +826,7 @@ public:
         const double maxNm = nmPerPixel * static_cast<double>(maxBarPixels);
 
         if (maxNm >= 1.0) {
-            const double exp10 = std::pow(10.0, std::floor(std::log10(maxNm)));
+            const double exp10 = keel::pow(10.0, keel::floor(keel::log10(maxNm)));
             double niceNm = exp10;
             if (5.0 * exp10 <= maxNm) {
                 niceNm = 5.0 * exp10;
@@ -867,7 +866,7 @@ public:
         const float safeZoom = keel::max(0.0001f, sceneZoom);
 
         // 1. Continuous and integer tile pyramid zoom level
-        out.continuousZoom = static_cast<float>(cfg.baseZoom) + std::log2(safeZoom) + cfg.zoomBias;
+        out.continuousZoom = static_cast<float>(cfg.baseZoom) + keel::log2(safeZoom) + cfg.zoomBias;
         out.tileZoom = keel::clamp(
             keel::floor_i32(out.continuousZoom + 0.5f),
             cfg.minTileZoom,
@@ -933,7 +932,7 @@ public:
         // 4. Physical ground resolution & Metric / Nautical scale bars
         // Screen size of a base tile is (safeWorld / 2^baseZoom) * sceneZoom
         const float baseTileWorld = safeWorld / static_cast<float>(1 << cfg.baseZoom);
-        const double effContinuousZ = static_cast<double>(cfg.baseZoom) + std::log2(static_cast<double>(safeZoom));
+        const double effContinuousZ = static_cast<double>(cfg.baseZoom) + keel::log2(static_cast<double>(safeZoom));
         out.metersPerPixel = MetersPerPixel(out.center.lat, static_cast<float>(effContinuousZ), baseTileWorld, cfg.crs);
         out.metricScale = ComputeMetricScaleBar(out.metersPerPixel, 120.0f);
         out.nauticalScale = ComputeNauticalScaleBar(out.metersPerPixel, 120.0f);
@@ -961,7 +960,7 @@ public:
                 if (lon < -180.0 - 1e-6 || lon > 180.0 + 1e-6) continue;
                 const float wx = GeoToWorld({out.center.lat, lon}, safeWorld, cfg.crs).x;
                 const bool isZero = (idx == 0);
-                const bool isMajor = isZero || (idx % 5 == 0) || (std::abs(std::fmod(lon, 1.0)) < 1e-5 && out.graticuleStepArcMin < 60.0);
+                const bool isMajor = isZero || (idx % 5 == 0) || (keel::abs(keel::fmod(lon, 1.0)) < 1e-5 && out.graticuleStepArcMin < 60.0);
                 out.meridians.push_back(GraticuleLine{
                     .degrees = lon,
                     .worldPos = wx,
@@ -982,7 +981,7 @@ public:
                 if (lat < -maxL || lat > maxL) continue;
                 const float wy = GeoToWorld({lat, out.center.lon}, safeWorld, cfg.crs).y;
                 const bool isZero = (idx == 0);
-                const bool isMajor = isZero || (idx % 5 == 0) || (std::abs(std::fmod(lat, 1.0)) < 1e-5 && out.graticuleStepArcMin < 60.0);
+                const bool isMajor = isZero || (idx % 5 == 0) || (keel::abs(keel::fmod(lat, 1.0)) < 1e-5 && out.graticuleStepArcMin < 60.0);
                 out.parallels.push_back(GraticuleLine{
                     .degrees = lat,
                     .worldPos = wy,
@@ -999,7 +998,7 @@ public:
     /// Formats a single latitude or longitude value according to the selected maritime/cartographic format.
     [[nodiscard]] static keel::FixedString<48> FormatAxis(double deg, bool isLat, GeoCoordFormat fmt = GeoCoordFormat::NauticalDMM) noexcept {
         const char hemi = isLat ? (deg >= 0.0 ? 'N' : 'S') : (deg >= 0.0 ? 'E' : 'W');
-        const double absDeg = std::abs(deg);
+        const double absDeg = keel::abs(deg);
 
         if (fmt == GeoCoordFormat::DecimalDegrees) {
             return keel::format_fixed<48>(isLat ? "%07.4f° %c" : "%08.4f° %c", absDeg, hemi);
@@ -1023,7 +1022,7 @@ public:
     /// Formats a short graticule ruler label (e.g. "54° 15.0' N") for border ticks.
     [[nodiscard]] static keel::FixedString<32> FormatGraticuleTick(double deg, bool isLat, double stepArcMin) noexcept {
         const char hemi = isLat ? (deg >= 0.0 ? 'N' : 'S') : (deg >= 0.0 ? 'E' : 'W');
-        const double absDeg = std::abs(deg);
+        const double absDeg = keel::abs(deg);
         if (stepArcMin >= 60.0) {
             return keel::format_fixed<32>("%.0f° %c", absDeg, hemi);
         }

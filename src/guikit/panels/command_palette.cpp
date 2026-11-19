@@ -1,5 +1,4 @@
 #include "guikit/panels/command_palette.hpp"
-#include <cmath>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/scrollbar.hpp"
@@ -178,17 +177,17 @@ CommandPaletteResponse CommandPalette::Run(
     const float descFont   = theme.ResolveFontSize(UiText{}, TextRole::BodySmall, activeSize);
     const float badgeFont  = theme.ResolveFontSize(UiText{}, TextRole::LabelSmall, activeSize);
 
-    const float searchH   = std::round(keel::max(im.defaultHeight + 10.0f * s, searchFont * 2.8f));
-    const float rowH      = std::round(keel::max(sm.itemHeight + 8.0f * s, labelFont * 2.5f));
-    const float listPadY  = std::round(keel::max(4.0f * s, cm.paddingY * 0.75f));
+    const float searchH   = keel::round(keel::max(im.defaultHeight + 10.0f * s, searchFont * 2.8f));
+    const float rowH      = keel::round(keel::max(sm.itemHeight + 8.0f * s, labelFont * 2.5f));
+    const float listPadY  = keel::round(keel::max(4.0f * s, cm.paddingY * 0.75f));
     const float footerH   = opts.showFooterHints
-        ? std::round(keel::max(cm.defaultHeight * 0.82f, badgeFont * 2.5f))
+        ? keel::round(keel::max(cm.defaultHeight * 0.82f, badgeFont * 2.5f))
         : 0.0f;
-    const float rowInsetX = std::round(6.0f * s);
-    const float rowPadX   = std::round(im.paddingX);
-    const float icSz      = std::round(cm.iconSize);
-    const float catPillH  = std::round(keel::max(16.0f * s, badgeFont + 7.0f * s));
-    const float keyPillH  = std::round(keel::max(18.0f * s, badgeFont + 9.0f * s));
+    const float rowInsetX = keel::round(6.0f * s);
+    const float rowPadX   = keel::round(im.paddingX);
+    const float icSz      = keel::round(cm.iconSize);
+    const float catPillH  = keel::round(keel::max(16.0f * s, badgeFont + 7.0f * s));
+    const float keyPillH  = keel::round(keel::max(18.0f * s, badgeFont + 9.0f * s));
 
     // Measure uniform tabular category column width across all items (prevents jagged label alignment)
     float maxCatPillW = 0.0f;
@@ -196,14 +195,14 @@ CommandPaletteResponse CommandPalette::Run(
         const keel::StringRef catSv = it.category;
         if (!catSv.empty()) {
             const float cw = TextUtil::MeasureWidth(catSv, badgeFont, measureCanvas);
-            maxCatPillW = keel::max(maxCatPillW, std::ceil(cw + 12.0f * s));
+            maxCatPillW = keel::max(maxCatPillW, keel::ceil(cw + 12.0f * s));
         }
     }
 
     // Measure natural content width across all items so auto-sizing fits icon + category + label + description + shortcut
-    const float escW = std::round(keel::max(32.0f * s, TextUtil::MeasureWidth("ESC", badgeFont, measureCanvas) + 14.0f * s));
+    const float escW = keel::round(keel::max(32.0f * s, TextUtil::MeasureWidth("ESC", badgeFont, measureCanvas) + 14.0f * s));
     const float escH = keyPillH;
-    const float clearSz = std::round(keel::max(20.0f * s, icSz + 6.0f * s));
+    const float clearSz = keel::round(keel::max(20.0f * s, icSz + 6.0f * s));
 
     float maxNaturalW = rowPadX * 2.0f + icSz + 10.0f * s
         + TextUtil::MeasureWidth(opts.placeholder, searchFont, measureCanvas)
@@ -220,7 +219,7 @@ CommandPaletteResponse CommandPalette::Run(
         }
         if (!it.shortcut.empty()) {
             const float sw = TextUtil::MeasureWidth(it.shortcut, badgeFont, measureCanvas);
-            rowW += 12.0f * s + std::ceil(sw + 12.0f * s);
+            rowW += 12.0f * s + keel::ceil(sw + 12.0f * s);
         }
         rowW += 22.0f * s; // right breathing room + scrollbar gutter reserve
         maxNaturalW = keel::max(maxNaturalW, rowW);
@@ -238,19 +237,19 @@ CommandPaletteResponse CommandPalette::Run(
     const float maxW = keel::max(minW, opts.maxWidth);
     const float targetW = (opts.width.has_value() && *opts.width > 0.0f)
         ? keel::max(260.0f, *opts.width)
-        : keel::clamp(std::ceil(maxNaturalW), minW, maxW);
-    const float cardW = std::round(keel::min(keel::max(200.0f * s, backdropRect.w - 24.0f * s), targetW));
+        : keel::clamp(keel::ceil(maxNaturalW), minW, maxW);
+    const float cardW = keel::round(keel::min(keel::max(200.0f * s, backdropRect.w - 24.0f * s), targetW));
     const keel::u32 maxVis = keel::max<keel::u32>(1u, opts.maxVisibleItems);
     const keel::u32 visRows = (filteredCount > 0)
         ? keel::min<keel::u32>(static_cast<keel::u32>(filteredCount), maxVis)
         : 1u;
     const float listViewportH = (filteredCount > 0)
         ? (static_cast<float>(visRows) * rowH + listPadY * 2.0f)
-        : std::round(rowH * 1.6f);
+        : keel::round(rowH * 1.6f);
     const float cardH = searchH + 1.0f + listViewportH + (opts.showFooterHints ? (1.0f + footerH) : 0.0f);
 
-    const float cardX = std::round(backdropRect.x + (backdropRect.w - cardW) * 0.5f);
-    const float cardY = std::round(backdropRect.y + keel::max(20.0f * s, backdropRect.h * 0.14f));
+    const float cardX = keel::round(backdropRect.x + (backdropRect.w - cardW) * 0.5f);
+    const float cardY = keel::round(backdropRect.y + keel::max(20.0f * s, backdropRect.h * 0.14f));
     const Rect cardRect(cardX, cardY, cardW, cardH);
     const Rect searchRect(cardX, cardY, cardW, searchH);
     const Rect listRect(cardX, cardY + searchH + 1.0f, cardW, listViewportH);
@@ -259,14 +258,14 @@ CommandPaletteResponse CommandPalette::Run(
     // Search bar interactive sub-rects (Clear button and ESC pill)
     const Rect escRect(
         searchRect.Right() - rowPadX - escW,
-        std::round(searchRect.y + (searchRect.h - escH) * 0.5f),
+        keel::round(searchRect.y + (searchRect.h - escH) * 0.5f),
         escW,
         escH
     );
 
     const Rect clearRect(
         escRect.x - 6.0f * s - clearSz,
-        std::round(searchRect.y + (searchRect.h - clearSz) * 0.5f),
+        keel::round(searchRect.y + (searchRect.h - clearSz) * 0.5f),
         clearSz,
         clearSz
     );
@@ -350,7 +349,7 @@ CommandPaletteResponse CommandPalette::Run(
     );
 
     const Vec2 mouse = ctx.GetMousePos();
-    const bool mouseMoved = (std::abs(mouse.x - st.lastMousePos.x) > 0.5f || std::abs(mouse.y - st.lastMousePos.y) > 0.5f);
+    const bool mouseMoved = (keel::abs(mouse.x - st.lastMousePos.x) > 0.5f || keel::abs(mouse.y - st.lastMousePos.y) > 0.5f);
     st.lastMousePos = mouse;
 
     ScrollbarGeometry sbGeom{};
@@ -485,7 +484,7 @@ CommandPaletteResponse CommandPalette::Run(
             .highlighted = (static_cast<keel::i32>(i) == st.highlightedPos),
             .matchPos = fe.labelMatchPos,
             .matchLen = fe.labelMatchLen,
-            .rowRect = Rect(cardRect.x + rowInsetX, std::round(rowY), cardRect.w - rowInsetX * 2.0f - sbRightReserve, rowH)
+            .rowRect = Rect(cardRect.x + rowInsetX, keel::round(rowY), cardRect.w - rowInsetX * 2.0f - sbRightReserve, rowH)
         };
     }
     const keel::ArrayRef<DrawRowItem> drawRows(arenaRows, drawRowCount);
@@ -596,7 +595,7 @@ CommandPaletteResponse CommandPalette::Run(
         const float searchIconSz = icSz;
         const Rect searchIconRect(
             searchRect.x + rowPadX + 2.0f * s,
-            std::round(searchRect.y + (searchRect.h - searchIconSz) * 0.5f),
+            keel::round(searchRect.y + (searchRect.h - searchIconSz) * 0.5f),
             searchIconSz,
             searchIconSz
         );
@@ -608,7 +607,7 @@ CommandPaletteResponse CommandPalette::Run(
 
         c.PushClip(queryTextRect);
         if (queryCopy.empty()) {
-            const float placeholderOffset = std::round(4.0f * s);
+            const float placeholderOffset = keel::round(4.0f * s);
             TextUtil::DrawUiText(
                 c,
                 placeholderCopy,
@@ -621,8 +620,8 @@ CommandPaletteResponse CommandPalette::Run(
                 &theme
             );
             if (cursorVis) {
-                const float caretH = std::round(searchFont * 1.15f);
-                const Rect caretRect(textStartX, std::round(searchRect.Center().y - caretH * 0.5f), keel::max(1.5f, std::round(1.5f * s)), caretH);
+                const float caretH = keel::round(searchFont * 1.15f);
+                const Rect caretRect(textStartX, keel::round(searchRect.Center().y - caretH * 0.5f), keel::max(1.5f, keel::round(1.5f * s)), caretH);
                 c.DrawRect(caretRect, primaryCol);
             }
         } else {
@@ -639,11 +638,11 @@ CommandPaletteResponse CommandPalette::Run(
                 0.5f
             );
             if (cursorVis) {
-                const float caretH = std::round(searchFont * 1.15f);
+                const float caretH = keel::round(searchFont * 1.15f);
                 const Rect caretRect(
-                    std::round(drawX + qw + 1.0f * s),
-                    std::round(searchRect.Center().y - caretH * 0.5f),
-                    keel::max(1.5f, std::round(1.5f * s)),
+                    keel::round(drawX + qw + 1.0f * s),
+                    keel::round(searchRect.Center().y - caretH * 0.5f),
+                    keel::max(1.5f, keel::round(1.5f * s)),
                     caretH
                 );
                 c.DrawRect(caretRect, primaryCol);
@@ -656,10 +655,10 @@ CommandPaletteResponse CommandPalette::Run(
             if (clearBtnHovered) {
                 c.DrawRoundRect(clearRect, 5.0f * s, pal.surfaceHover, Color::Transparent(), 0.0f);
             }
-            const float xSz = std::round(icSz * 0.75f);
+            const float xSz = keel::round(icSz * 0.75f);
             const Rect xBox(
-                std::round(clearRect.x + (clearRect.w - xSz) * 0.5f),
-                std::round(clearRect.y + (clearRect.h - xSz) * 0.5f),
+                keel::round(clearRect.x + (clearRect.w - xSz) * 0.5f),
+                keel::round(clearRect.y + (clearRect.h - xSz) * 0.5f),
                 xSz,
                 xSz
             );
@@ -702,10 +701,10 @@ CommandPaletteResponse CommandPalette::Run(
                         0.0f
                     );
                     // Left 3px accent bar in primary
-                    const float barW = keel::max(2.0f, std::round(3.0f * s));
+                    const float barW = keel::max(2.0f, keel::round(3.0f * s));
                     const float barH = keel::max(8.0f, rr.h - 10.0f * s);
                     c.DrawRoundRect(
-                        Rect(rr.x + 2.0f * s, std::round(rr.y + (rr.h - barH) * 0.5f), barW, barH),
+                        Rect(rr.x + 2.0f * s, keel::round(rr.y + (rr.h - barH) * 0.5f), barW, barH),
                         barW * 0.5f,
                         primaryCol,
                         Color::Transparent(),
@@ -722,10 +721,10 @@ CommandPaletteResponse CommandPalette::Run(
                 // Right-aligned [shortcut] keycap badge
                 if (!row.shortcut.empty()) {
                     const float sw = c.MeasureText(row.shortcut, badgeFont).x;
-                    const float pillW = std::round(sw + 12.0f * s);
+                    const float pillW = keel::round(sw + 12.0f * s);
                     const Rect pillRect(
                         rightEdge - pillW,
-                        std::round(rr.y + (rr.h - keyPillH) * 0.5f),
+                        keel::round(rr.y + (rr.h - keyPillH) * 0.5f),
                         pillW,
                         keyPillH
                     );
@@ -743,7 +742,7 @@ CommandPaletteResponse CommandPalette::Run(
                 // Leading icon
                 const Rect icRect(
                     curX,
-                    std::round(rr.y + (rr.h - icSz) * 0.5f),
+                    keel::round(rr.y + (rr.h - icSz) * 0.5f),
                     icSz,
                     icSz
                 );
@@ -760,7 +759,7 @@ CommandPaletteResponse CommandPalette::Run(
                     if (!row.category.empty()) {
                         const Rect catRect(
                             curX,
-                            std::round(rr.y + (rr.h - catPillH) * 0.5f),
+                            keel::round(rr.y + (rr.h - catPillH) * 0.5f),
                             catColW,
                             catPillH
                         );
@@ -879,12 +878,12 @@ CommandPaletteResponse CommandPalette::Run(
 
             float hintX = footerInner.x;
             const float maxHintRight = footerInner.Right() - countW - 12.0f * s;
-            const float kcapH = std::round(keel::max(16.0f * s, badgeFont + 5.0f * s));
-            const float kcapY = std::round(footerRect.y + (footerRect.h - kcapH) * 0.5f);
+            const float kcapH = keel::round(keel::max(16.0f * s, badgeFont + 5.0f * s));
+            const float kcapY = keel::round(footerRect.y + (footerRect.h - kcapH) * 0.5f);
 
             for (const auto& h : kHints) {
                 const float kw = c.MeasureText(h.key, badgeFont).x;
-                const float kcapW = std::round(kw + 10.0f * s);
+                const float kcapW = keel::round(kw + 10.0f * s);
                 const float aw = c.MeasureText(h.action, badgeFont).x;
                 const float groupW = kcapW + 5.0f * s + aw;
                 if (hintX + groupW > maxHintRight) {

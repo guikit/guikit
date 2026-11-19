@@ -1,5 +1,4 @@
 #include "guikit/widgets/knob.hpp"
-#include <cmath>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
@@ -22,7 +21,7 @@ float GetDefaultKnobDiameter(UiSize size, const UiTheme& theme) noexcept {
         case UiSize::Preset::Lg: return 66.0f;
         case UiSize::Preset::Xl: return 78.0f;
         case UiSize::Preset::Md: return 54.0f;
-        default:                 return std::round(54.0f * theme.SizeFactor(size));
+        default:                 return keel::round(54.0f * theme.SizeFactor(size));
     }
 }
 
@@ -51,7 +50,7 @@ double QuantizeAndClamp(double val, double minVal, double maxVal, keel::Optional
     if (maxVal < minVal) keel::swap(minVal, maxVal);
     val = keel::clamp(val, minVal, maxVal);
     if (step.has_value() && *step > 0.0) {
-        const double steps = std::round((val - minVal) / *step);
+        const double steps = keel::round((val - minVal) / *step);
         val = keel::clamp(minVal + steps * (*step), minVal, maxVal);
     }
     return val;
@@ -89,7 +88,7 @@ void DrawAnnularArc(
     Color color
 ) {
     if (color.a == 0 || radius <= 0.5f || thickness <= 0.2f) return;
-    if (std::abs(endAngleRad - startAngleRad) < 1e-4f) return;
+    if (keel::abs(endAngleRad - startAngleRad) < 1e-4f) return;
 
     if (endAngleRad < startAngleRad) {
         keel::swap(startAngleRad, endAngleRad);
@@ -107,14 +106,14 @@ void DrawAnnularArc(
     for (keel::i32 i = 0; i <= segs; ++i) {
         const float t = static_cast<float>(i) / static_cast<float>(segs);
         const float a = startAngleRad + span * t;
-        const Vec2 pt(center.x + std::cos(a) * rOuter, center.y + std::sin(a) * rOuter);
+        const Vec2 pt(center.x + keel::cos(a) * rOuter, center.y + keel::sin(a) * rOuter);
         if (i == 0) path.MoveTo(pt);
         else        path.LineTo(pt);
     }
     for (keel::i32 i = segs; i >= 0; --i) {
         const float t = static_cast<float>(i) / static_cast<float>(segs);
         const float a = startAngleRad + span * t;
-        const Vec2 pt(center.x + std::cos(a) * rInner, center.y + std::sin(a) * rInner);
+        const Vec2 pt(center.x + keel::cos(a) * rInner, center.y + keel::sin(a) * rInner);
         path.LineTo(pt);
     }
     path.Close();
@@ -125,8 +124,8 @@ void DrawAnnularArc(
     canvas.DrawPath(path, paint);
 
     // Draw rounded caps at start and end of the arc
-    const Vec2 capStart(center.x + std::cos(startAngleRad) * radius, center.y + std::sin(startAngleRad) * radius);
-    const Vec2 capEnd(center.x + std::cos(endAngleRad) * radius, center.y + std::sin(endAngleRad) * radius);
+    const Vec2 capStart(center.x + keel::cos(startAngleRad) * radius, center.y + keel::sin(startAngleRad) * radius);
+    const Vec2 capEnd(center.x + keel::cos(endAngleRad) * radius, center.y + keel::sin(endAngleRad) * radius);
     canvas.DrawRoundRect(Rect(capStart.x - halfT, capStart.y - halfT, thickness, thickness), halfT, color);
     canvas.DrawRoundRect(Rect(capEnd.x - halfT, capEnd.y - halfT, thickness, thickness), halfT, color);
 }
@@ -200,7 +199,7 @@ Response Knob::Run(
             currentVal = QuantizeAndClamp(targetVal, minVal, maxVal, effectiveStep);
             writeVal(currentVal);
             state.dragging = false;
-            if (std::abs(currentVal - prev) > 1e-7) {
+            if (keel::abs(currentVal - prev) > 1e-7) {
                 res.changed = true;
             }
         } else if (mouseJustPressed) {
@@ -223,7 +222,7 @@ Response Knob::Run(
                 currentVal = QuantizeAndClamp(state.dragStartVal + deltaNorm * span, minVal, maxVal, effectiveStep);
                 writeVal(currentVal);
                 res.pressed = true;
-                if (std::abs(currentVal - prev) > 1e-7) {
+                if (keel::abs(currentVal - prev) > 1e-7) {
                     res.changed = true;
                 }
             } else {
@@ -237,7 +236,7 @@ Response Knob::Run(
         // Mouse wheel and keyboard navigation
         const double keyStep = effectiveStep.value_or(span * 0.02);
         double stepDelta = 0.0;
-        if (res.hovered && std::abs(ctx.GetMouseWheel().y) > 0.001f) {
+        if (res.hovered && keel::abs(ctx.GetMouseWheel().y) > 0.001f) {
             stepDelta += (ctx.GetMouseWheel().y > 0.0f) ? keyStep : -keyStep;
             ctx.ConsumeMouseWheel();
         }
@@ -259,7 +258,7 @@ Response Knob::Run(
             const double prev = currentVal;
             currentVal = QuantizeAndClamp(currentVal + stepDelta, minVal, maxVal, effectiveStep);
             writeVal(currentVal);
-            if (std::abs(currentVal - prev) > 1e-7) {
+            if (keel::abs(currentVal - prev) > 1e-7) {
                 res.changed = true;
             }
         }
@@ -550,8 +549,8 @@ void Knob::Render(
             const Color tCol = isTickLit ? accentCol : tickMutedCol;
             const float tStroke = isMajor ? 1.6f : 1.1f;
 
-            const Vec2 p0(center.x + std::cos(a) * innerR, center.y + std::sin(a) * innerR);
-            const Vec2 p1(center.x + std::cos(a) * rTickOuter, center.y + std::sin(a) * rTickOuter);
+            const Vec2 p0(center.x + keel::cos(a) * innerR, center.y + keel::sin(a) * innerR);
+            const Vec2 p1(center.x + keel::cos(a) * rTickOuter, center.y + keel::sin(a) * rTickOuter);
             canvas.DrawLine(p0, p1, tCol, tStroke);
         }
     }
@@ -561,11 +560,11 @@ void Knob::Render(
         DrawAnnularArc(canvas, center, arcRadius, arcThickness, kMinAngleRad, kMaxAngleRad, trackCol);
 
         if (opts.bipolar) {
-            if (std::abs(valAngle - origAngle) > 0.01f) {
+            if (keel::abs(valAngle - origAngle) > 0.01f) {
                 DrawAnnularArc(canvas, center, arcRadius, arcThickness, origAngle, valAngle, accentCol);
             }
             // Center zero marker dot on arc
-            const Vec2 zeroPt(center.x + std::cos(origAngle) * arcRadius, center.y + std::sin(origAngle) * arcRadius);
+            const Vec2 zeroPt(center.x + keel::cos(origAngle) * arcRadius, center.y + keel::sin(origAngle) * arcRadius);
             const float dotR = arcThickness * 0.55f;
             canvas.DrawRoundRect(Rect(zeroPt.x - dotR, zeroPt.y - dotR, dotR * 2.0f, dotR * 2.0f), dotR, accentCol);
         } else if (normVal > 0.003f) {
@@ -599,8 +598,8 @@ void Knob::Render(
     const float ptrInnerR = centerValueMode
         ? keel::max(1.5f, rotorR * 0.68f)
         : keel::max(1.5f, rotorR * 0.28f);
-    const Vec2 ptrStart(center.x + std::cos(valAngle) * ptrInnerR, center.y + std::sin(valAngle) * ptrInnerR);
-    const Vec2 ptrEnd(center.x + std::cos(valAngle) * ptrOuterR, center.y + std::sin(valAngle) * ptrOuterR);
+    const Vec2 ptrStart(center.x + keel::cos(valAngle) * ptrInnerR, center.y + keel::sin(valAngle) * ptrInnerR);
+    const Vec2 ptrEnd(center.x + keel::cos(valAngle) * ptrOuterR, center.y + keel::sin(valAngle) * ptrOuterR);
     const float ptrWidth = 2.2f;
     canvas.DrawLine(ptrStart, ptrEnd, accentCol, ptrWidth);
 

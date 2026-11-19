@@ -1,5 +1,5 @@
 #include "guikit/core/theme.hpp"
-#include <cmath>
+#include "keel/math.h"
 
 namespace guikit {
 

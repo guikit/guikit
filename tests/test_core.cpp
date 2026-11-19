@@ -1,8 +1,8 @@
-#include <cmath>
 #include <cstring>
 #include "guikit/core.hpp"
 #include "guikit/geo/map_grid.hpp"
 #include "keel/keel.h"
+#include "keel/math.h"
 
 static keel::i32 g_failures = 0;
 
@@ -358,8 +358,8 @@ void TestCarouselMetricsTokens() {
     CHECK(customDp.arrowButtonSize > mdAfter.arrowButtonSize);
     CHECK(customDp.scrollStep > mdAfter.scrollStep);
     const CarouselMetrics customFactor = theme.GetCarousel(UiSize::Factor(2.0f));
-    CHECK(std::abs(customFactor.arrowButtonSize - mdAfter.arrowButtonSize * 2.0f) < 0.01f);
-    CHECK(std::abs(customFactor.scrollStep - mdAfter.scrollStep * 2.0f) < 0.01f);
+    CHECK(keel::abs(customFactor.arrowButtonSize - mdAfter.arrowButtonSize * 2.0f) < 0.01f);
+    CHECK(keel::abs(customFactor.scrollStep - mdAfter.scrollStep * 2.0f) < 0.01f);
 }
 
 void TestSliderMetricsTokens() {
@@ -389,9 +389,9 @@ void TestSliderMetricsTokens() {
     CHECK(implicitDp.IsCustom());
     const SliderMetrics mdAfter = theme.GetSlider(UiSize::Md);
     const SliderMetrics factor2 = theme.GetSlider(UiSize::Factor(2.0f));
-    CHECK(std::abs(factor2.defaultHeight - mdAfter.defaultHeight * 2.0f) < 0.01f);
-    CHECK(std::abs(factor2.thumbSize - mdAfter.thumbSize * 2.0f) < 0.01f);
-    CHECK(std::abs(factor2.trackHeight - mdAfter.trackHeight * 2.0f) < 0.01f);
+    CHECK(keel::abs(factor2.defaultHeight - mdAfter.defaultHeight * 2.0f) < 0.01f);
+    CHECK(keel::abs(factor2.thumbSize - mdAfter.thumbSize * 2.0f) < 0.01f);
+    CHECK(keel::abs(factor2.trackHeight - mdAfter.trackHeight * 2.0f) < 0.01f);
 }
 
 void TestHeadingLevelMetricsTokens() {
@@ -487,20 +487,20 @@ void TestMapGridAndProjections() {
         CHECK(uv.x > 0.5f && uv.x < 0.6f);
         CHECK(uv.y > 0.1f && uv.y < 0.45f);
         const GeoCoord back = MapGrid::NormalizedToGeo(uv, crs);
-        CHECK(std::abs(back.lat - helgoland.lat) < 1e-3);
-        CHECK(std::abs(back.lon - helgoland.lon) < 1e-3);
+        CHECK(keel::abs(back.lat - helgoland.lat) < 1e-3);
+        CHECK(keel::abs(back.lon - helgoland.lon) < 1e-3);
     }
 
     // 2. Noticeable difference between Spherical (EPSG:3857) and WGS84 Ellipsoidal (EPSG:3395) Mercator Y
     const auto [u3857, v3857] = MapGrid::GeoToNormalized(helgoland, MapCrs::EPSG3857_WebMercator);
     const auto [u3395, v3395] = MapGrid::GeoToNormalized(helgoland, MapCrs::EPSG3395_WorldMercator);
-    CHECK(std::abs(u3857 - u3395) < 1e-9);
-    CHECK(std::abs(v3857 - v3395) > 5e-4);
+    CHECK(keel::abs(u3857 - u3395) < 1e-9);
+    CHECK(keel::abs(v3857 - v3395) > 5e-4);
 
     const GeoPlanar p3857 = MapGrid::GeoToNormalizedDouble(helgoland, MapCrs::EPSG3857_WebMercator);
     const GeoPlanar p3395 = MapGrid::GeoToNormalizedDouble(helgoland, MapCrs::EPSG3395_WorldMercator);
-    CHECK(std::abs(p3857.first - p3395.first) < 1e-12);
-    CHECK(std::abs(p3857.second - p3395.second) > 5e-4);
+    CHECK(keel::abs(p3857.first - p3395.first) < 1e-12);
+    CHECK(keel::abs(p3857.second - p3395.second) > 5e-4);
 
     // 3. Tile ID & View State calculation
     MapGridConfig cfg{
@@ -512,7 +512,7 @@ void TestMapGridAndProjections() {
     };
     const Vec2 helgolandWorld = MapGrid::GeoToWorld(helgoland, cfg.worldSize, cfg.crs);
     const float sceneZoomZ7 = MapGrid::TileZoomToSceneZoom(7.0f, cfg.baseZoom);
-    CHECK(std::abs(sceneZoomZ7 - 16.0f) < 1e-4f);
+    CHECK(keel::abs(sceneZoomZ7 - 16.0f) < 1e-4f);
 
     const Rect visibleWorld{
         helgolandWorld.x - 20.0f,
@@ -528,8 +528,8 @@ void TestMapGridAndProjections() {
     CHECK(!view.visibleTiles.empty());
     CHECK(!view.meridians.empty());
     CHECK(!view.parallels.empty());
-    CHECK(std::abs(view.cursor.lat - helgoland.lat) < 1e-2);
-    CHECK(std::abs(view.cursor.lon - helgoland.lon) < 1e-2);
+    CHECK(keel::abs(view.cursor.lat - helgoland.lat) < 1e-2);
+    CHECK(keel::abs(view.cursor.lon - helgoland.lon) < 1e-2);
     CHECK(view.metricScale.screenPixels > 20.0f);
     CHECK(view.nauticalScale.screenPixels > 20.0f);
 
@@ -999,11 +999,11 @@ void TestMainWindowHeadlessBackend() {
     CHECK(rawBackend->m_canvas.GetGpuShaderPasses()[0].shader.shaderId == "test.custom_shader");
 
     // Default density: MainWindow starts at density 1.0f unless overridden in the config
-    CHECK(std::abs(app.rootDensity - 1.0f) < 1e-6f);
+    CHECK(keel::abs(app.rootDensity - 1.0f) < 1e-6f);
     {
         TestAppWindow touchApp({.reactiveMode = false, .initialDensity = 1.35f}, keel::make_unique<MockWindowBackend>());
         (void)touchApp.Run();
-        CHECK(std::abs(touchApp.rootDensity - 1.35f) < 1e-6f);
+        CHECK(keel::abs(touchApp.rootDensity - 1.35f) < 1e-6f);
     }
 
     // Shell scale is always a toolbar preset, so the selector label matches the applied scale
@@ -1012,36 +1012,36 @@ void TestMainWindowHeadlessBackend() {
         auto label = [&]() { return MainWindow::kScaleLabels[scaleApp.GetShellScaleIndex()]; };
         auto scale = [&]() { return scaleApp.GetShellScale(); };
 
-        CHECK(std::abs(scale() - 1.0f) < 1e-6f);
+        CHECK(keel::abs(scale() - 1.0f) < 1e-6f);
         CHECK(label() == "100%");
 
         scaleApp.StepShellScale(-1);
-        CHECK(std::abs(scale() - 0.9f) < 1e-6f);
+        CHECK(keel::abs(scale() - 0.9f) < 1e-6f);
         CHECK(label() == "90%");
         scaleApp.StepShellScale(-1);
-        CHECK(std::abs(scale() - 0.75f) < 1e-6f);
+        CHECK(keel::abs(scale() - 0.75f) < 1e-6f);
         CHECK(label() == "75%");
         scaleApp.StepShellScale(-1); // clamped at the smallest preset (Ctrl+Minus cannot go below the selector)
-        CHECK(std::abs(scale() - 0.75f) < 1e-6f);
+        CHECK(keel::abs(scale() - 0.75f) < 1e-6f);
         CHECK(label() == "75%");
 
         scaleApp.StepShellScale(+100); // clamped at the largest preset
-        CHECK(std::abs(scale() - 2.0f) < 1e-6f);
+        CHECK(keel::abs(scale() - 2.0f) < 1e-6f);
         CHECK(label() == "200%");
 
         // Programmatic values snap to the nearest preset instead of drifting out of the selector's range
         scaleApp.SetShellScale(0.5f);
-        CHECK(std::abs(scale() - 0.75f) < 1e-6f);
+        CHECK(keel::abs(scale() - 0.75f) < 1e-6f);
         CHECK(label() == "75%");
         scaleApp.SetShellScale(1.3f);
-        CHECK(std::abs(scale() - 1.25f) < 1e-6f);
+        CHECK(keel::abs(scale() - 1.25f) < 1e-6f);
         CHECK(label() == "125%");
         scaleApp.SetShellScale(3.0f);
-        CHECK(std::abs(scale() - 2.0f) < 1e-6f);
+        CHECK(keel::abs(scale() - 2.0f) < 1e-6f);
         CHECK(label() == "200%");
 
         TestAppWindow initApp({.initialScale = 0.8f}, keel::make_unique<MockWindowBackend>());
-        CHECK(std::abs(initApp.GetShellScale() - 0.75f) < 1e-6f);
+        CHECK(keel::abs(initApp.GetShellScale() - 0.75f) < 1e-6f);
     }
 
     // Shell zoom is a frame-wide factor: pixelsPerDp = OS display scale x shell zoom, applied once by the
@@ -1055,12 +1055,12 @@ void TestMainWindowHeadlessBackend() {
             keel::move(zoomBackend)
         );
         CHECK(zoomApp.Run() == 0);
-        CHECK(std::abs(zoomApp.framePixelsPerDp - 1.875f) < 1e-5f);
-        CHECK(std::abs(rawZoomBackend->m_canvas.GetScale() - 1.875f) < 1e-5f);
-        CHECK(std::abs(zoomApp.frameDisplayScale - 1.5f) < 1e-6f);
-        CHECK(std::abs(zoomApp.frameRootZoom - 1.25f) < 1e-6f);
-        CHECK(std::abs(zoomApp.logicalViewport.x - 800.0f) < 0.01f);
-        CHECK(std::abs(zoomApp.logicalViewport.y - 480.0f) < 0.01f);
+        CHECK(keel::abs(zoomApp.framePixelsPerDp - 1.875f) < 1e-5f);
+        CHECK(keel::abs(rawZoomBackend->m_canvas.GetScale() - 1.875f) < 1e-5f);
+        CHECK(keel::abs(zoomApp.frameDisplayScale - 1.5f) < 1e-6f);
+        CHECK(keel::abs(zoomApp.frameRootZoom - 1.25f) < 1e-6f);
+        CHECK(keel::abs(zoomApp.logicalViewport.x - 800.0f) < 0.01f);
+        CHECK(keel::abs(zoomApp.logicalViewport.y - 480.0f) < 0.01f);
     }
 
     // Engine toolbar button opens Popover with working Switches & Heartbeat Select while staying open
@@ -1330,7 +1330,7 @@ void TestKeelIntegration() {
         const float wLongest = TextUtil::MeasureWidth("Acquiring Telemetry", 14.0f, nullptr);
         const float wUiText = TextUtil::MeasureWidth(txtWithVars, 14.0f, nullptr);
         CHECK(wUiText > wShort);
-        CHECK(std::abs(wUiText - wLongest) < 1e-4f);
+        CHECK(keel::abs(wUiText - wLongest) < 1e-4f);
 
         const UiText styledVars("Idle", TextRole::LabelMedium, UiVariant::Success, kModeVariants);
         CHECK(styledVars == "Idle");
@@ -1340,7 +1340,7 @@ void TestKeelIntegration() {
         const UiText reserveOnly(kModeVariants);
         CHECK(reserveOnly.empty());
         CHECK(reserveOnly.HasContentOrReserve());
-        CHECK(std::abs(TextUtil::MeasureWidth(reserveOnly, 14.0f, nullptr) - wLongest) < 1e-4f);
+        CHECK(keel::abs(TextUtil::MeasureWidth(reserveOnly, 14.0f, nullptr) - wLongest) < 1e-4f);
     }
 
     // 6. keel/math.h constants, numeric limits, and UB-free integer rounding

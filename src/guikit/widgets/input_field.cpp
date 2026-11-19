@@ -1,5 +1,4 @@
 #include "guikit/widgets/input_field.hpp"
-#include <cmath>
 #include <cstring>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"

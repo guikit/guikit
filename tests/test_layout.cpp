@@ -1,4 +1,3 @@
-#include <cmath>
 #include "guikit/core.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/solver.hpp"
@@ -6,6 +5,7 @@
 #include "guikit/panels/carousel.hpp"
 #include "guikit/panels/scroll_area.hpp"
 #include "keel/keel.h"
+#include "keel/math.h"
 
 static keel::i32 g_failures = 0;
 
@@ -19,7 +19,7 @@ static keel::i32 g_failures = 0;
 
 #define CHECK_NEAR(a, b, eps)                                                                            \
     do {                                                                                                 \
-        if (std::abs((a) - (b)) > (eps)) {                                                               \
+        if (keel::abs((a) - (b)) > (eps)) {                                                               \
             keel::eprintln("[FAIL] {} ({}) != {} ({}) [{}:{}]", #a, (a), #b, (b), __FILE__, __LINE__);   \
             ++g_failures;                                                                                \
         }                                                                                                \

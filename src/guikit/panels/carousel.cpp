@@ -1,10 +1,10 @@
 #include "guikit/panels/carousel.hpp"
-#include <cmath>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/solver.hpp"
 #include "guikit/panels/scroll_area.hpp"
+#include "keel/math.h"
 
 namespace guikit {
 
@@ -367,7 +367,7 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
                         : ((relX + cw) - (fullW - btnGutter));
                 }
                 newTarget = keel::clamp(newTarget, 0.0f, maxScrollX);
-                if (std::abs(newTarget - node->scrollOffset.x) > 0.5f) {
+                if (keel::abs(newTarget - node->scrollOffset.x) > 0.5f) {
                     cData->targetOffsetX = newTarget;
                     cData->animatingX = true;
                 }
@@ -478,7 +478,7 @@ void Carousel::RenderArrows(
     auto* cData = node->As<CarouselData>();
     if (!cData) return;
 
-    const float sepInsetY = keel::max(4.0f, std::round(node->computedRect.h * 0.18f));
+    const float sepInsetY = keel::max(4.0f, keel::round(node->computedRect.h * 0.18f));
     const float sepY1 = node->computedRect.y + sepInsetY;
     const float sepY2 = node->computedRect.Bottom() - sepInsetY;
     const Color sepCol = pal.borderSubtle.WithAlphaF(0.65f);
@@ -486,13 +486,13 @@ void Carousel::RenderArrows(
     if (cData->showLeftArrow) {
         drawArrow(cData->leftArrowRect, cData->leftArrowHovered, cData->leftArrowPressed, true);
         if (sepY2 > sepY1) {
-            const float sepX = std::floor(cData->viewportRect.x) + 0.5f;
+            const float sepX = keel::floor(cData->viewportRect.x) + 0.5f;
             canvas.DrawLine(Vec2(sepX, sepY1), Vec2(sepX, sepY2), sepCol, 1.0f);
         }
     }
     if (cData->showRightArrow) {
         if (sepY2 > sepY1) {
-            const float sepX = std::floor(cData->viewportRect.Right()) - 0.5f;
+            const float sepX = keel::floor(cData->viewportRect.Right()) - 0.5f;
             canvas.DrawLine(Vec2(sepX, sepY1), Vec2(sepX, sepY2), sepCol, 1.0f);
         }
         drawArrow(cData->rightArrowRect, cData->rightArrowHovered, cData->rightArrowPressed, false);
@@ -538,16 +538,16 @@ void Carousel::Update(Context& ctx, Node* node) {
             dt = 0.016f;
         }
         const float diff = state.targetOffsetX - state.offset.x;
-        if (std::abs(diff) <= 0.75f) {
+        if (keel::abs(diff) <= 0.75f) {
             state.offset.x = state.targetOffsetX;
             state.animatingX = false;
             if (cData) cData->animatingX = false;
             ctx.RequestRepaint(2);
         } else {
-            const float alpha = 1.0f - std::exp(-20.0f * dt);
+            const float alpha = 1.0f - keel::exp(-20.0f * dt);
             const float stepMove = diff * alpha;
             const float minMove = (diff > 0.0f) ? keel::min(diff, 0.75f) : keel::max(diff, -0.75f);
-            state.offset.x += (std::abs(stepMove) < std::abs(minMove)) ? minMove : stepMove;
+            state.offset.x += (keel::abs(stepMove) < keel::abs(minMove)) ? minMove : stepMove;
             state.offset.x = keel::clamp(state.offset.x, 0.0f, maxScrollX);
             if (cData) cData->animatingX = true;
             ctx.RequestRepaint(2);

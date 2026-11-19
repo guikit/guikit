@@ -1,5 +1,5 @@
 #include "guikit/layout/separator.hpp"
-#include <cmath>
+#include "keel/math.h"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
@@ -29,7 +29,7 @@ void Separator::Render(
 ) noexcept {
     const Color stroke = color.a > 0 ? color : theme.palette.borderSubtle;
     if (orientation == Orientation::Vertical) {
-        const float midY = std::floor(bounds.Center().y) + 0.5f;
+        const float midY = keel::floor(bounds.Center().y) + 0.5f;
         const float padX = keel::max(2.0f, bounds.w * insetRatio);
         RenderLine(
             canvas,
@@ -39,7 +39,7 @@ void Separator::Render(
             1.0f
         );
     } else {
-        const float midX = std::floor(bounds.Center().x) + 0.5f;
+        const float midX = keel::floor(bounds.Center().x) + 0.5f;
         const float padY = keel::max(2.0f, bounds.h * insetRatio);
         RenderLine(
             canvas,
@@ -101,13 +101,13 @@ void Separator::Run(
         sep->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
             if (n->parent != nullptr && n->parent->type == NodeType::StatusBar) {
                 const Color stroke = n->borderColor.a > 0 ? n->borderColor : theme.palette.borderSubtle;
-                const float midX = std::floor(n->computedRect.Center().x) + 0.5f;
+                const float midX = keel::floor(n->computedRect.Center().x) + 0.5f;
                 const float centerY = n->computedRect.Center().y;
-                const float halfH = keel::max(4.0f, std::round(n->computedRect.h * 0.42f));
+                const float halfH = keel::max(4.0f, keel::round(n->computedRect.h * 0.42f));
                 Separator::RenderLine(
                     canvas,
-                    Vec2(midX, std::floor(centerY - halfH) + 0.5f),
-                    Vec2(midX, std::floor(centerY + halfH) + 0.5f),
+                    Vec2(midX, keel::floor(centerY - halfH) + 0.5f),
+                    Vec2(midX, keel::floor(centerY + halfH) + 0.5f),
                     stroke,
                     1.0f
                 );
@@ -130,7 +130,7 @@ void Separator::Run(
             };
         };
         sep->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
-            const float y = std::floor(n->computedRect.Center().y) + 0.5f;
+            const float y = keel::floor(n->computedRect.Center().y) + 0.5f;
             const Color stroke = n->borderColor.a > 0 ? n->borderColor : theme.palette.borderSubtle;
             float padX = 2.0f;
             if (n->fixedWidth > 0.0f && n->fixedWidth < 1.0f) {

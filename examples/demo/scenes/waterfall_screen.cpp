@@ -1,5 +1,5 @@
-#include <cmath>
 #include <cstring>
+#include "keel/math.h"
 #include "../demo_context.hpp"
 
 namespace guikit::demo {
@@ -73,7 +73,7 @@ WaterfallDemoState s_wf{};
 
 [[nodiscard]] inline float GaussianLobe(float x, float center, float sigma) noexcept {
     const float d = (x - center) / keel::max(1e-4f, sigma);
-    return std::exp(-0.5f * d * d);
+    return keel::exp(-0.5f * d * d);
 }
 
 // Synthesizes a single slice (1 row of `numBins` dB values) and updates track positions at simulation time `tSec`
@@ -92,9 +92,9 @@ void SynthesizeSliceAtTime(
         // =================================================================
         if (st.scenarioIndex == 1) {
             // Scenario 1: Hydroacoustic LOFAR / DEMON (Submarine Turbine Harmonics + Generator Tonal)
-            const float f0 = 1450.0f + 22.0f * static_cast<float>(std::sin(tSec * 0.18));
-            const float genF = 7850.0f + 95.0f * static_cast<float>(std::cos(tSec * 0.27));
-            const float cavBurst = keel::max(0.0f, static_cast<float>(std::sin(tSec * 1.9) - 0.55f));
+            const float f0 = 1450.0f + 22.0f * static_cast<float>(keel::sin(tSec * 0.18));
+            const float genF = 7850.0f + 95.0f * static_cast<float>(keel::cos(tSec * 0.27));
+            const float cavBurst = keel::max(0.0f, static_cast<float>(keel::sin(tSec * 1.9) - 0.55f));
 
             for (keel::u32 i = 0; i < N; ++i) {
                 const float u = static_cast<float>(i) / static_cast<float>(N - 1);
@@ -103,7 +103,7 @@ void SynthesizeSliceAtTime(
                 const float n2 = FastHashNoise(i + 17u, rowSeed * 3u, 211u);
 
                 // Ambient sea-state 1/f acoustic background noise
-                float linPower = std::pow(10.0f, (-94.0f - 10.0f * std::sqrt(u) + (n1 + n2 - 1.0f) * 3.8f) / 10.0f);
+                float linPower = keel::pow(10.0f, (-94.0f - 10.0f * keel::sqrt(u) + (n1 + n2 - 1.0f) * 3.8f) / 10.0f);
 
                 // Fundamental shaft/blade harmonic comb: f0, 2*f0, 3*f0, 4*f0, 5*f0, 6*f0
                 const float harmAmps[6] = {-18.0f, -24.0f, -31.0f, -38.0f, -45.0f, -52.0f};
@@ -111,35 +111,35 @@ void SynthesizeSliceAtTime(
                     const float hf = f0 * static_cast<float>(h);
                     const float lobe = GaussianLobe(f, hf, 26.0f + 4.0f * h);
                     if (lobe > 1e-4f) {
-                        linPower += lobe * std::pow(10.0f, harmAmps[h - 1] / 10.0f);
+                        linPower += lobe * keel::pow(10.0f, harmAmps[h - 1] / 10.0f);
                     }
                 }
 
                 // Auxiliary diesel-electric tonal + sidebands
-                linPower += GaussianLobe(f, genF, 34.0f) * std::pow(10.0f, -22.0f / 10.0f);
-                linPower += GaussianLobe(f, genF - 240.0f, 22.0f) * std::pow(10.0f, -44.0f / 10.0f);
-                linPower += GaussianLobe(f, genF + 240.0f, 22.0f) * std::pow(10.0f, -44.0f / 10.0f);
+                linPower += GaussianLobe(f, genF, 34.0f) * keel::pow(10.0f, -22.0f / 10.0f);
+                linPower += GaussianLobe(f, genF - 240.0f, 22.0f) * keel::pow(10.0f, -44.0f / 10.0f);
+                linPower += GaussianLobe(f, genF + 240.0f, 22.0f) * keel::pow(10.0f, -44.0f / 10.0f);
 
                 // Broadband cavitation modulation envelope
                 if (cavBurst > 0.0f) {
                     const float cav = cavBurst * GaussianLobe(f, 4600.0f, 1100.0f) * (0.6f + 0.8f * n1);
-                    linPower += cav * std::pow(10.0f, -42.0f / 10.0f);
+                    linPower += cav * keel::pow(10.0f, -42.0f / 10.0f);
                 }
 
-                outSliceDb[i] = 10.0f * std::log10(keel::max(1e-13f, linPower));
+                outSliceDb[i] = 10.0f * keel::log10(keel::max(1e-13f, linPower));
             }
         } else {
             // Scenario 0: RF SDR Wideband RTSA (CW Pilot + QPSK Carrier + FHSS Hopper + LFM Radar Chirp)
-            const float pilotF = 3400.0f + 320.0f * static_cast<float>(std::sin(tSec * 0.35));
+            const float pilotF = 3400.0f + 320.0f * static_cast<float>(keel::sin(tSec * 0.35));
             const float qpskCenter = 8600.0f;
             const float qpskBw = 2200.0f;
 
             // FHSS Hopper changes slot every 0.85 seconds
-            const keel::u32 hopSlot = static_cast<keel::u32>(std::floor(keel::max(0.0, tSec + 100.0) / 0.85));
+            const keel::u32 hopSlot = static_cast<keel::u32>(keel::floor(keel::max(0.0, tSec + 100.0) / 0.85));
             const float hopFreq = 13200.0f + static_cast<float>((hopSlot * 2654435761u) % 5200u);
 
             // Swept LFM Chirp between 19.2 kHz and 22.4 kHz
-            const float chirpPhase = static_cast<float>(std::fmod(keel::max(0.0, tSec + 100.0) * 0.65, 1.0));
+            const float chirpPhase = static_cast<float>(keel::fmod(keel::max(0.0, tSec + 100.0) * 0.65, 1.0));
             const float chirpF = 19200.0f + chirpPhase * 3000.0f;
 
             for (keel::u32 i = 0; i < N; ++i) {
@@ -148,27 +148,27 @@ void SynthesizeSliceAtTime(
                 const float n1 = FastHashNoise(i, rowSeed, 313u);
                 const float n2 = FastHashNoise(i + 29u, rowSeed * 5u, 719u);
 
-                float linPower = std::pow(10.0f, (-98.0f + (n1 + n2 - 1.0f) * 3.5f) / 10.0f);
+                float linPower = keel::pow(10.0f, (-98.0f + (n1 + n2 - 1.0f) * 3.5f) / 10.0f);
 
                 // 1. Drifting CW Beacon + 2nd harmonic
-                linPower += GaussianLobe(f, pilotF, 65.0f) * std::pow(10.0f, -15.0f / 10.0f);
-                linPower += GaussianLobe(f, pilotF * 2.0f, 75.0f) * std::pow(10.0f, -46.0f / 10.0f);
+                linPower += GaussianLobe(f, pilotF, 65.0f) * keel::pow(10.0f, -15.0f / 10.0f);
+                linPower += GaussianLobe(f, pilotF * 2.0f, 75.0f) * keel::pow(10.0f, -46.0f / 10.0f);
 
                 // 2. Wideband QPSK flat-top carrier with raised-cosine roll-off
-                const float dfQpsk = std::abs(f - qpskCenter);
+                const float dfQpsk = keel::abs(f - qpskCenter);
                 if (dfQpsk < qpskBw * 0.75f) {
                     const float edge = keel::clamp((qpskBw * 0.65f - dfQpsk) / (qpskBw * 0.25f), 0.0f, 1.0f);
                     const float ripple = 0.75f + 0.5f * n1;
-                    linPower += edge * ripple * std::pow(10.0f, -31.0f / 10.0f);
+                    linPower += edge * ripple * keel::pow(10.0f, -31.0f / 10.0f);
                 }
 
                 // 3. FHSS Frequency Hopper burst
-                linPower += GaussianLobe(f, hopFreq, 115.0f) * std::pow(10.0f, -18.0f / 10.0f);
+                linPower += GaussianLobe(f, hopFreq, 115.0f) * keel::pow(10.0f, -18.0f / 10.0f);
 
                 // 4. Swept LFM Chirp
-                linPower += GaussianLobe(f, chirpF, 130.0f) * std::pow(10.0f, -24.0f / 10.0f);
+                linPower += GaussianLobe(f, chirpF, 130.0f) * keel::pow(10.0f, -24.0f / 10.0f);
 
-                outSliceDb[i] = 10.0f * std::log10(keel::max(1e-13f, linPower));
+                outSliceDb[i] = 10.0f * keel::log10(keel::max(1e-13f, linPower));
             }
         }
     } else {
@@ -176,14 +176,14 @@ void SynthesizeSliceAtTime(
         // MODE B: DOA / BTR TRACKER (Azimuth Bearing -180..+180 deg vs Time)
         // =================================================================
         // Target 1: ALPHA-SUB drifting slowly across port quarter
-        const float brg1 = -62.0f + 18.0f * static_cast<float>(std::sin(tSec * 0.075));
+        const float brg1 = -62.0f + 18.0f * static_cast<float>(keel::sin(tSec * 0.075));
         // Target 2: BRAVO-SURFACE crossing target (crosses Target 3 / center boresight)
-        const float brg2 = -8.0f + 36.0f * static_cast<float>(std::cos(tSec * 0.095));
+        const float brg2 = -8.0f + 36.0f * static_cast<float>(keel::cos(tSec * 0.095));
         // Target 3: CHARLIE-ESCORT on starboard beam with periodic fade
-        const float brg3 = 78.0f + 9.0f * static_cast<float>(std::sin(tSec * 0.14));
-        const float fade3 = 0.55f + 0.45f * static_cast<float>(std::cos(tSec * 0.45));
+        const float brg3 = 78.0f + 9.0f * static_cast<float>(keel::sin(tSec * 0.14));
+        const float fade3 = 0.55f + 0.45f * static_cast<float>(keel::cos(tSec * 0.45));
         // Target 4: FAST-TORPEDO / AGILE THREAT high bearing rate
-        const float brg4 = 128.0f - 42.0f * static_cast<float>(std::sin(tSec * 0.22));
+        const float brg4 = 128.0f - 42.0f * static_cast<float>(keel::sin(tSec * 0.22));
 
         const bool isMusic = (st.scenarioIndex == 3);
         const float beamWidth = isMusic ? 1.8f : 4.2f;
@@ -196,16 +196,16 @@ void SynthesizeSliceAtTime(
             const float n2 = FastHashNoise(i + 41u, rowSeed * 7u, 883u);
 
             // Isotropic ambient noise + slight baffle degradation near +/-180 deg
-            const float endfireLoss = 3.5f * std::pow(std::abs(deg) / 180.0f, 2.0f);
-            float linPower = std::pow(10.0f, (-92.0f + endfireLoss + (n1 + n2 - 1.0f) * 3.0f) / 10.0f);
+            const float endfireLoss = 3.5f * keel::pow(keel::abs(deg) / 180.0f, 2.0f);
+            float linPower = keel::pow(10.0f, (-92.0f + endfireLoss + (n1 + n2 - 1.0f) * 3.0f) / 10.0f);
 
             auto addArrayResponse = [&](float targetBrg, float peakDb, float widthDeg) {
                 const float d = deg - targetBrg;
                 const float mainLobe = GaussianLobe(deg, targetBrg, widthDeg);
-                const float side1 = sidelobeLevel * GaussianLobe(std::abs(d), widthDeg * 2.8f, widthDeg * 0.9f);
+                const float side1 = sidelobeLevel * GaussianLobe(keel::abs(d), widthDeg * 2.8f, widthDeg * 0.9f);
                 const float resp = mainLobe + side1 * (0.6f + 0.4f * n1);
                 if (resp > 1e-5f) {
-                    linPower += resp * std::pow(10.0f, peakDb / 10.0f);
+                    linPower += resp * keel::pow(10.0f, peakDb / 10.0f);
                 }
             };
 
@@ -214,7 +214,7 @@ void SynthesizeSliceAtTime(
             addArrayResponse(brg3, -34.0f + 10.0f * fade3, beamWidth * 1.15f);
             addArrayResponse(brg4, -12.0f, beamWidth * 0.90f);
 
-            outSliceDb[i] = 10.0f * std::log10(keel::max(1e-13f, linPower));
+            outSliceDb[i] = 10.0f * keel::log10(keel::max(1e-13f, linPower));
         }
     }
 }
@@ -249,16 +249,16 @@ void RebuildTracksAtTime(WaterfallDemoState& st, double nowSec) {
         };
 
         buildDoaTrack(1, "TRK-01 ALPHA", WaterfallTrackStatus::Tracking, -19.0f, 22.5f, 9.0f, [](double t) {
-            return -62.0f + 18.0f * static_cast<float>(std::sin(t * 0.075));
+            return -62.0f + 18.0f * static_cast<float>(keel::sin(t * 0.075));
         });
         buildDoaTrack(2, "TRK-02 BRAVO", WaterfallTrackStatus::Tracking, -15.0f, 26.0f, 10.0f, [](double t) {
-            return -8.0f + 36.0f * static_cast<float>(std::cos(t * 0.095));
+            return -8.0f + 36.0f * static_cast<float>(keel::cos(t * 0.095));
         });
         buildDoaTrack(3, "TRK-03 CHARLIE", WaterfallTrackStatus::Coasting, -29.0f, 12.0f, 11.0f, [](double t) {
-            return 78.0f + 9.0f * static_cast<float>(std::sin(t * 0.14));
+            return 78.0f + 9.0f * static_cast<float>(keel::sin(t * 0.14));
         });
         buildDoaTrack(4, "TRK-04 TORPEDO", WaterfallTrackStatus::Alarm, -12.0f, 31.0f, 8.5f, [](double t) {
-            return 128.0f - 42.0f * static_cast<float>(std::sin(t * 0.22));
+            return 128.0f - 42.0f * static_cast<float>(keel::sin(t * 0.22));
         });
     } else if (st.scenarioIndex == 1) {
         // LOFAR / DEMON tracked shaft fundamental & generator tonal
@@ -285,10 +285,10 @@ void RebuildTracksAtTime(WaterfallDemoState& st, double nowSec) {
         };
 
         buildSpecTrack(1, "SHAFT-F0", WaterfallTrackStatus::Tracking, -18.0f, 220.0f, [](double t) {
-            return 1450.0f + 22.0f * static_cast<float>(std::sin(t * 0.18));
+            return 1450.0f + 22.0f * static_cast<float>(keel::sin(t * 0.18));
         });
         buildSpecTrack(2, "AUX-GEN", WaterfallTrackStatus::Tracking, -22.0f, 260.0f, [](double t) {
-            return 7850.0f + 95.0f * static_cast<float>(std::cos(t * 0.27));
+            return 7850.0f + 95.0f * static_cast<float>(keel::cos(t * 0.27));
         });
     } else {
         // RF SDR tracked drifting pilot beacon
@@ -299,14 +299,14 @@ void RebuildTracksAtTime(WaterfallDemoState& st, double nowSec) {
         trk.levelDb = -15.0f;
         trk.snrDb = 32.0f;
         trk.gateWidth = 420.0f;
-        trk.currentX = 3400.0f + 320.0f * static_cast<float>(std::sin(nowSec * 0.35));
-        trk.driftRatePerSec = 320.0f * 0.35f * static_cast<float>(std::cos(nowSec * 0.35));
+        trk.currentX = 3400.0f + 320.0f * static_cast<float>(keel::sin(nowSec * 0.35));
+        trk.driftRatePerSec = 320.0f * 0.35f * static_cast<float>(keel::cos(nowSec * 0.35));
         for (keel::i32 k = 0; k < kHistoryPts; ++k) {
             const float age = (static_cast<float>(k) / static_cast<float>(kHistoryPts - 1)) * histDur;
             const double t = nowSec - static_cast<double>(age);
             trk.history.push_back(WaterfallTrackPoint{
                 .timeAgoSec = age,
-                .xValue = 3400.0f + 320.0f * static_cast<float>(std::sin(t * 0.35)),
+                .xValue = 3400.0f + 320.0f * static_cast<float>(keel::sin(t * 0.35)),
                 .snrDb = 32.0f
             });
         }
@@ -404,7 +404,7 @@ void StepWaterfallSimulation(WaterfallDemoState& st) {
 
     const double slicePeriod = 1.0 / keel::clamp(static_cast<double>(st.updateRateHz), 5.0, 60.0);
     if (st.sliceAccumSec >= slicePeriod) {
-        st.sliceAccumSec = std::fmod(st.sliceAccumSec, slicePeriod);
+        st.sliceAccumSec = keel::fmod(st.sliceAccumSec, slicePeriod);
         st.sliceSequence++;
         SynthesizeSliceAtTime(st, st.simTimeSec, static_cast<keel::u32>(st.sliceSequence), st.currentSliceDb.data());
         RebuildTracksAtTime(st, st.simTimeSec);

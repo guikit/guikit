@@ -7,6 +7,7 @@
 #include <malloc.h>
 #endif
 #include <mutex>
+#include "keel/bits.h"
 #include "keel/core.h"
 #include "keel/format.h"
 #include "keel/fs.h"
@@ -30,8 +31,11 @@ bool DecodePngAndScaleToRgba(
     keel::u32 srcW = 0;
     keel::u32 srcH = 0;
     keel::Array<keel::u32> srcRgba;
+    keel::usize srcPx = 0;
     if (!guikit::DecodeImageFromMemory(pngBytes, srcW, srcH, srcRgba) ||
-        srcW == 0 || srcH == 0 || srcRgba.size() != static_cast<keel::usize>(srcW) * srcH) {
+        srcW == 0 || srcH == 0 ||
+        !keel::checked_mul<keel::usize>(srcW, srcH, srcPx) ||
+        srcRgba.size() != srcPx) {
         return false;
     }
 
@@ -41,7 +45,11 @@ bool DecodePngAndScaleToRgba(
         return true;
     }
 
-    outRgba.resize(static_cast<keel::usize>(targetSizePx) * targetSizePx);
+    keel::usize targetPx = 0;
+    if (!keel::checked_mul<keel::usize>(targetSizePx, targetSizePx, targetPx)) {
+        return false;
+    }
+    outRgba.resize(targetPx);
 
     // Fast 2x2 box filter path when downscaling by exact 2x (e.g. 256x256 -> 128x128)
     if (srcW == targetSizePx * 2u && srcH == targetSizePx * 2u) {
@@ -113,7 +121,7 @@ bool DecodePngAndScaleToRgba(
                                   w10 * static_cast<float>((p10 >> shift) & 0xFFu) +
                                   w01 * static_cast<float>((p01 >> shift) & 0xFFu) +
                                   w11 * static_cast<float>((p11 >> shift) & 0xFFu);
-                return static_cast<keel::u32>(keel::clamp(static_cast<keel::i32>(val + 0.5f), 0, 255));
+                return static_cast<keel::u32>(keel::sat_cast<keel::u8>(keel::round_i32(val)));
             };
 
             const keel::u32 r = sampleChannel(0u);
@@ -191,8 +199,11 @@ public:
         }
 
         // 2. Clean cartographic fallback if offline or in headless test environment without internet
+        keel::usize expectedPx = 0;
         const bool isFallback =
-            !decoded || tileImg->rgbaPixels.size() != static_cast<keel::usize>(normKey.tileSizePx) * normKey.tileSizePx;
+            !decoded ||
+            !keel::checked_mul<keel::usize>(normKey.tileSizePx, normKey.tileSizePx, expectedPx) ||
+            tileImg->rgbaPixels.size() != expectedPx;
         if (isFallback) {
             SynthesizeCartographicFallbackTile(normKey, tileImg->rgbaPixels);
         }
@@ -303,7 +314,12 @@ private:
         keel::Array<keel::u32>& outRgba
     ) {
         const keel::u32 sz = key.tileSizePx;
-        outRgba.resize(static_cast<keel::usize>(sz) * sz);
+        keel::usize numPx = 0;
+        if (!keel::checked_mul<keel::usize>(sz, sz, numPx)) {
+            outRgba.clear();
+            return;
+        }
+        outRgba.resize(numPx);
 
         const bool evenChecker = ((key.x + key.y) & 1) == 0;
         const keel::u8 baseR = evenChecker ? 236 : 231;

@@ -1,8 +1,8 @@
 #include "guikit/panels/context_menu.hpp"
-#include <cmath>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/text_util.hpp"
+#include "keel/math.h"
 #include "keel/small_array.h"
 
 namespace guikit {
@@ -80,13 +80,13 @@ ContextMenuResponse ContextMenu::Run(
     ICanvas* canvas = ctx.GetCanvas();
     const float s = 1.0f;
     const ComponentMetrics& cm = theme.GetMetrics(activeSize);
-    const float rowH = std::round(keel::max(32.0f * s, cm.defaultHeight * 0.9f));
-    const float sepH = std::round(9.0f * s);
-    const float padX = std::round(12.0f * s);
-    const float padY = std::round(6.0f * s);
+    const float rowH = keel::round(keel::max(32.0f * s, cm.defaultHeight * 0.9f));
+    const float sepH = keel::round(9.0f * s);
+    const float padX = keel::round(12.0f * s);
+    const float padY = keel::round(6.0f * s);
     const float icSz = cm.iconSize;
-    const float iconSlotW = std::round(icSz + 8.0f * s);
-    const float shortcutGap = std::round(24.0f * s);
+    const float iconSlotW = keel::round(icSz + 8.0f * s);
+    const float shortcutGap = keel::round(24.0f * s);
     const float labelFont = theme.ResolveFontSize(UiText{}, TextRole::LabelLarge, activeSize);
     const float shortcutFont = theme.ResolveFontSize(UiText{}, TextRole::LabelMedium, activeSize);
 
@@ -154,7 +154,7 @@ ContextMenuResponse ContextMenu::Run(
         if (vp.h > 0.0f) {
             y = keel::clamp(y, vp.y + 6.0f, keel::max(vp.y + 6.0f, vp.Bottom() - menuH - 6.0f));
         }
-        return Rect(std::round(x), std::round(y), std::round(menuW), std::round(menuH));
+        return Rect(keel::round(x), keel::round(y), keel::round(menuW), keel::round(menuH));
     };
 
     const Vec2 mouse = ctx.GetMousePos();
@@ -205,7 +205,7 @@ ContextMenuResponse ContextMenu::Run(
             RowEntry sepRow{};
             sepRow.itemIndex = i;
             sepRow.separatorBelow = true;
-            sepRow.sepY = std::round(curY + sepH * 0.5f);
+            sepRow.sepY = keel::round(curY + sepH * 0.5f);
             rows.push_back(sepRow);
             curY += sepH;
             continue;
@@ -225,7 +225,7 @@ ContextMenuResponse ContextMenu::Run(
         curY += rowH;
         if (item.separatorAfter) {
             rEntry.separatorBelow = true;
-            rEntry.sepY = std::round(curY + sepH * 0.5f);
+            rEntry.sepY = keel::round(curY + sepH * 0.5f);
             curY += sepH;
         }
         rows.push_back(rEntry);

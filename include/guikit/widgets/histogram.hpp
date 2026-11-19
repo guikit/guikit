@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cmath>
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
@@ -8,6 +7,7 @@
 #include "guikit/graphics/colormap.hpp"
 #include "guikit/graphics/icon.hpp"
 #include "keel/core.h"
+#include "keel/math.h"
 #include "keel/optional.h"
 #include "keel/ref.h"
 #include "keel/static_array.h"
@@ -69,8 +69,8 @@ struct ChannelTransferParams {
         const float span = keel::max(1e-5f, window);
         float t = keel::clamp((val - lo) / span, 0.0f, 1.0f);
         const float safeGamma = keel::clamp(gamma, 0.05f, 10.0f);
-        if (std::abs(safeGamma - 1.0f) > 1e-3f) {
-            t = std::pow(t, 1.0f / safeGamma);
+        if (keel::abs(safeGamma - 1.0f) > 1e-3f) {
+            t = keel::pow(t, 1.0f / safeGamma);
         }
         if (invert) {
             t = 1.0f - t;

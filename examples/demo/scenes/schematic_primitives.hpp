@@ -1,8 +1,8 @@
 #pragma once
 
-#include <cmath>
 #include "guikit/panels/scene.hpp"
 #include "keel/keel.h"
+#include "keel/math.h"
 
 namespace guikit::demo {
 
@@ -90,7 +90,7 @@ public:
         for (const auto& [a, b] : m_wires) {
             const float dx = b.x - a.x;
             const float dy = b.y - a.y;
-            const float len = std::hypot(dx, dy);
+            const float len = keel::hypot(dx, dy);
             if (len < 0.25f) continue;
 
             intervals.clear();
@@ -98,7 +98,7 @@ public:
 
             for (const Rect& r : m_cutouts) {
                 float tx0 = 0.0f, tx1 = 1.0f;
-                if (std::abs(dx) < 1e-4f) {
+                if (keel::abs(dx) < 1e-4f) {
                     if (a.x <= r.x + 0.05f || a.x >= r.Right() - 0.05f) continue;
                 } else {
                     tx0 = (r.x - a.x) / dx;
@@ -107,7 +107,7 @@ public:
                 }
 
                 float ty0 = 0.0f, ty1 = 1.0f;
-                if (std::abs(dy) < 1e-4f) {
+                if (keel::abs(dy) < 1e-4f) {
                     if (a.y <= r.y + 0.05f || a.y >= r.Bottom() - 0.05f) continue;
                 } else {
                     ty0 = (r.y - a.y) / dy;
@@ -160,7 +160,7 @@ public:
     void DashedLine(Vec2 a, Vec2 b, float dashLen = 8.0f, float gapLen = 5.0f, float width = 1.25f) {
         const float dx = b.x - a.x;
         const float dy = b.y - a.y;
-        const float len = std::hypot(dx, dy);
+        const float len = keel::hypot(dx, dy);
         if (len < 0.5f) return;
         const float ux = dx / len;
         const float uy = dy / len;
@@ -511,7 +511,7 @@ public:
             }));
         }
         const float rad = keel::deg_to_rad(dirDeg);
-        const Vec2 dir{std::cos(rad), std::sin(rad)};
+        const Vec2 dir{keel::cos(rad), keel::sin(rad)};
         const Vec2 nrm{-dir.y, dir.x};
 
         const float halfL = 5.2f;
@@ -535,10 +535,10 @@ public:
         }
 
         if (!refDes.empty()) {
-            if (std::abs(dir.x) < 0.25f) {
+            if (keel::abs(dir.x) < 0.25f) {
                 const float ax = (labelSide >= 0) ? (center.x + 8.0f) : (center.x - 8.0f);
                 SideLabel({ax, center.y}, labelSide, refDes, partNum);
-            } else if (std::abs(dir.y) < 0.25f) {
+            } else if (keel::abs(dir.y) < 0.25f) {
                 if (labelSide == 0) {
                     // Split refDes above and partNum below the horizontal diode
                     m_scene.DrawTextBox(refDes,  Rect(center.x - 28.0f, center.y - 15.0f, 56.0f, 8.0f), 5.8f, m_pal.inkBold, 0.5f, 0.5f, FontStyle::Bold);
@@ -605,7 +605,7 @@ public:
         const Vec2 legEnd   = emitterAtTop ? termTop : termBot;
         const float dx = legEnd.x - legStart.x;
         const float dy = legEnd.y - legStart.y;
-        const float len = std::hypot(dx, dy);
+        const float len = keel::hypot(dx, dy);
         if (len > 0.1f) {
             const float dirSign = isPNP ? -1.0f : 1.0f;
             const float ux = (dx / len) * dirSign;
@@ -823,7 +823,7 @@ public:
             m_scene.DrawCircle(selCenter, 20.0f, Color::Transparent(), m_pal.inkBold, m_pal.symbolWidth);
             for (keel::i32 p = 0; p < 6; ++p) {
                 const float ang = keel::deg_to_rad(static_cast<float>(p) * 60.0f - 90.0f);
-                pads[p] = {selCenter.x + std::cos(ang) * 13.0f, selCenter.y + std::sin(ang) * 13.0f};
+                pads[p] = {selCenter.x + keel::cos(ang) * 13.0f, selCenter.y + keel::sin(ang) * 13.0f};
                 SolderPad(pads[p], 2.3f);
             }
             // Internal selector bridges

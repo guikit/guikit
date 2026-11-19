@@ -1,5 +1,4 @@
 #include "guikit/widgets/slider.hpp"
-#include <cmath>
 #include <cstring>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
@@ -42,7 +41,7 @@ void FormatSliderValue(
         }
     } else if (isInt) {
         keel::format_buf(valBuf, bufSize, "{}", keel::round_i64(value));
-    } else if (std::abs(value - std::round(value)) < 0.0001) {
+    } else if (keel::abs(value - keel::round(value)) < 0.0001) {
         keel::format_buf(valBuf, bufSize, "{:.0f}", value);
     } else {
         keel::format_buf(valBuf, bufSize, "{:.1f}", value);
@@ -604,7 +603,7 @@ Response Slider::Run(
                 double rawVal = rangeMin + t * (rangeMax - rangeMin);
 
                 if (effectiveStep > 0.0) {
-                    rawVal = rangeMin + std::round((rawVal - rangeMin) / effectiveStep) * effectiveStep;
+                    rawVal = rangeMin + keel::round((rawVal - rangeMin) / effectiveStep) * effectiveStep;
                 }
                 rawVal = keel::clamp(rawVal, rangeMin, rangeMax);
 
@@ -741,8 +740,8 @@ Vec2 Slider::Measure(
     const double rangeMin = keel::min(min, max);
     const double rangeMax = keel::max(min, max);
     const bool isIntStep = opts.step.has_value() && *opts.step >= 1.0 &&
-                           std::abs(*opts.step - std::round(*opts.step)) < 0.0001 &&
-                           std::abs(rangeMin - std::round(rangeMin)) < 0.0001;
+                           keel::abs(*opts.step - keel::round(*opts.step)) < 0.0001 &&
+                           keel::abs(rangeMin - keel::round(rangeMin)) < 0.0001;
     char valBuf[64];
     FormatSliderValue(valBuf, sizeof(valBuf), value, isIntStep, opts.valueFormat.text);
     const ControlSpec ctrl = EffectiveSliderControl(opts, size, theme);
@@ -789,8 +788,8 @@ void Slider::Render(
     const double rangeMin = keel::min(min, max);
     const double rangeMax = keel::max(min, max);
     const bool isIntStep = opts.step.has_value() && *opts.step >= 1.0 &&
-                           std::abs(*opts.step - std::round(*opts.step)) < 0.0001 &&
-                           std::abs(rangeMin - std::round(rangeMin)) < 0.0001;
+                           keel::abs(*opts.step - keel::round(*opts.step)) < 0.0001 &&
+                           keel::abs(rangeMin - keel::round(rangeMin)) < 0.0001;
 
     char valBuf[64];
     FormatSliderValue(valBuf, sizeof(valBuf), value, isIntStep, opts.valueFormat.text);
@@ -1432,8 +1431,8 @@ Response RangeSlider::Run(
 
         if (res.clicked || (res.pressed && state.dragMode == RangeDragMode::None)) {
             const float pos = layout.Travel(ctx.GetMousePos());
-            const float distLow = std::abs(pos - lowPos);
-            const float distHigh = std::abs(pos - highPos);
+            const float distLow = keel::abs(pos - lowPos);
+            const float distHigh = keel::abs(pos - highPos);
             const bool insideIntervalBar = (pos > lowPos + halfThumb * 1.15f) &&
                                            (pos < highPos - halfThumb * 1.15f) &&
                                            ((highPos - lowPos) > m.thumbSize * 1.8f);
@@ -1466,7 +1465,7 @@ Response RangeSlider::Run(
                 const float t = layout.RatioAt(ctx.GetMousePos());
                 auto quantize = [&](double v) -> double {
                     if (effectiveStep > 0.0) {
-                        v = rangeMin + std::round((v - rangeMin) / effectiveStep) * effectiveStep;
+                        v = rangeMin + keel::round((v - rangeMin) / effectiveStep) * effectiveStep;
                     }
                     return keel::clamp(v, rangeMin, rangeMax);
                 };
@@ -1630,7 +1629,7 @@ Vec2 RangeSlider::Measure(
     const double rangeMin = keel::min(min, max);
     const double rangeMax = keel::max(min, max);
     const bool isIntStep = opts.step.has_value() && *opts.step >= 1.0 &&
-                           std::abs(*opts.step - std::round(*opts.step)) < 0.0001;
+                           keel::abs(*opts.step - keel::round(*opts.step)) < 0.0001;
     char valBuf[96];
     FormatRangeSliderPair(valBuf, sizeof(valBuf), lowValue, highValue, isIntStep, opts.valueFormat.text);
     char maxSpanBuf[96];
@@ -1684,7 +1683,7 @@ void RangeSlider::Render(
     const double rangeMin = keel::min(min, max);
     const double rangeMax = keel::max(min, max);
     const bool isIntStep = opts.step.has_value() && *opts.step >= 1.0 &&
-                           std::abs(*opts.step - std::round(*opts.step)) < 0.0001;
+                           keel::abs(*opts.step - keel::round(*opts.step)) < 0.0001;
 
     char valBuf[96];
     FormatRangeSliderPair(valBuf, sizeof(valBuf), lowValue, highValue, isIntStep, opts.valueFormat.text);
@@ -1737,7 +1736,7 @@ void RangeSlider::Render(
     canvas.DrawRoundRect(trackBgRect, halfTrack, trackBg, trackBorder, 1.0f);
 
     // 2. Draw active filled interval between the thumbs
-    const float fillLen = keel::max(0.0f, std::abs(highRatio - lowRatio) * layout.length);
+    const float fillLen = keel::max(0.0f, keel::abs(highRatio - lowRatio) * layout.length);
     if (fillLen > 0.0f) {
         const Rect fillRect = vertical
             ? Rect(layout.cross - halfTrack, highThumb.y, m.trackHeight, fillLen)
@@ -1796,7 +1795,7 @@ Response ProgressBar::Run(
 
     float animPhase = 0.0f;
     if (optsCopy.indeterminate && !effectiveDisabled) {
-        animPhase = static_cast<float>(std::fmod(keel::max(0.0, ctx.GetCurrentTime()) * 0.85, 1.0));
+        animPhase = static_cast<float>(keel::fmod(keel::max(0.0, ctx.GetCurrentTime()) * 0.85, 1.0));
         ctx.RequestRepaint(2);
     }
 
@@ -2019,8 +2018,8 @@ void ProgressBar::Render(
         SliderTrackLayout layout = ComputeSliderTrackLayout(ctrlRect, cm, m, true);
         const float trackTop = layout.region.y;
         const float trackH = keel::max(12.0f, layout.region.h);
-        const float barWInt = keel::max(2.0f, std::round(barThick));
-        const float barX = std::round(layout.cross - barWInt * 0.5f);
+        const float barWInt = keel::max(2.0f, keel::round(barThick));
+        const float barX = keel::round(layout.cross - barWInt * 0.5f);
         const float fillH = ratio * trackH;
         const Vec2 tipCenter(layout.cross, trackTop + trackH - fillH);
 
@@ -2037,7 +2036,7 @@ void ProgressBar::Render(
             canvas.DrawRoundRect(trackBgRect, barWInt * 0.5f, trackBg, trackBorder, 1.0f);
 
             const float shuttleH = keel::max(barWInt, trackH * 0.32f);
-            const float pingPong = 1.0f - std::abs(std::fmod(animPhase * 2.0f, 2.0f) - 1.0f);
+            const float pingPong = 1.0f - keel::abs(keel::fmod(animPhase * 2.0f, 2.0f) - 1.0f);
             const float smoothT = pingPong * pingPong * (3.0f - 2.0f * pingPong);
             const float shuttleY = trackTop + (1.0f - smoothT) * keel::max(0.0f, trackH - shuttleH);
             canvas.DrawRoundRect(Rect(barX, shuttleY, barWInt, shuttleH), barWInt * 0.5f, ResolveSliderTrackColor(opts.style.color, disabled, theme));
@@ -2048,8 +2047,8 @@ void ProgressBar::Render(
             const keel::u32 segCount = keel::min<keel::u32>(opts.segments, 64u);
             const float gap = (segCount > 28) ? 1.0f : 2.0f;
             const float totalGaps = gap * static_cast<float>(segCount - 1);
-            const float segH = keel::max(2.0f, std::floor((std::round(trackH) - totalGaps) / static_cast<float>(segCount)));
-            const float bottomY = std::round(trackTop + trackH);
+            const float segH = keel::max(2.0f, keel::floor((keel::round(trackH) - totalGaps) / static_cast<float>(segCount)));
+            const float bottomY = keel::round(trackTop + trackH);
             const bool useRound = (keel::min(barWInt, segH) >= 8.0f);
             const Color unlitBg = disabled ? pal.surfaceActive.WithAlphaF(0.35f) : pal.surfaceActive;
             const Color unlitBorder = disabled ? pal.border.WithAlphaF(0.25f) : pal.border.WithAlphaF(0.65f);
@@ -2119,8 +2118,8 @@ void ProgressBar::Render(
         effShowVal, opts.valuePlacement, disabled, theme
     );
 
-    const float barY = std::round(centerY - barThick * 0.5f);
-    const float barHInt = keel::max(2.0f, std::round(barThick));
+    const float barY = keel::round(centerY - barThick * 0.5f);
+    const float barHInt = keel::max(2.0f, keel::round(barThick));
 
     if (opts.indeterminate) {
         const Rect trackBgRect(trackRegionX, barY, trackRegionW, barThick);
@@ -2129,7 +2128,7 @@ void ProgressBar::Render(
         canvas.DrawRoundRect(trackBgRect, barThick * 0.5f, trackBg, trackBorder, 1.0f);
 
         const float shuttleW = keel::max(barThick, trackRegionW * 0.32f);
-        const float pingPong = 1.0f - std::abs(std::fmod(animPhase * 2.0f, 2.0f) - 1.0f);
+        const float pingPong = 1.0f - keel::abs(keel::fmod(animPhase * 2.0f, 2.0f) - 1.0f);
         const float smoothT = pingPong * pingPong * (3.0f - 2.0f * pingPong);
         const float shuttleX = trackRegionX + smoothT * keel::max(0.0f, trackRegionW - shuttleW);
         canvas.DrawRoundRect(Rect(shuttleX, barY, shuttleW, barThick), barThick * 0.5f, ResolveSliderTrackColor(opts.style.color, disabled, theme));
@@ -2141,8 +2140,8 @@ void ProgressBar::Render(
         const keel::u32 segCount = keel::min<keel::u32>(opts.segments, 64u);
         const float gap = (segCount > 28) ? 1.0f : 2.0f;
         const float totalGaps = gap * static_cast<float>(segCount - 1);
-        const float segW = keel::max(2.0f, std::floor((std::round(trackRegionW) - totalGaps) / static_cast<float>(segCount)));
-        const float startX = std::round(trackRegionX);
+        const float segW = keel::max(2.0f, keel::floor((keel::round(trackRegionW) - totalGaps) / static_cast<float>(segCount)));
+        const float startX = keel::round(trackRegionX);
         const bool useRound = (keel::min(segW, barHInt) >= 8.0f);
         const Color unlitBg = disabled ? pal.surfaceActive.WithAlphaF(0.35f) : pal.surfaceActive;
         const Color unlitBorder = disabled ? pal.border.WithAlphaF(0.25f) : pal.border.WithAlphaF(0.65f);

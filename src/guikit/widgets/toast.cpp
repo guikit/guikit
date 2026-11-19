@@ -1,8 +1,8 @@
 #include "guikit/widgets/toast.hpp"
-#include <cmath>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/text_util.hpp"
+#include "keel/math.h"
 #include "keel/small_array.h"
 
 namespace guikit {
@@ -90,11 +90,11 @@ void Toast::RunHost(
             contentH += keel::max(msgLineH, msgH);
         }
         contentH = keel::max(contentH, iconBoxSz);
-        const float cardH = std::round(padY * 2.0f + contentH + (e.showProgress && e.duration > 0.0f ? 4.0f * s : 0.0f));
+        const float cardH = keel::round(padY * 2.0f + contentH + (e.showProgress && e.duration > 0.0f ? 4.0f * s : 0.0f));
 
         LayoutToast lt{};
         lt.index = i;
-        lt.cardRect = Rect(0.0f, 0.0f, std::round(cardW), cardH);
+        lt.cardRect = Rect(0.0f, 0.0f, keel::round(cardW), cardH);
         lt.textW = textW;
         lt.msgH = keel::max(msgLineH, msgH);
         layoutList.push_back(lt);
@@ -125,8 +125,8 @@ void Toast::RunHost(
         } else {
             curY = y + lt.cardRect.h + gap;
         }
-        lt.cardRect.x = std::round(x);
-        lt.cardRect.y = std::round(y);
+        lt.cardRect.x = keel::round(x);
+        lt.cardRect.y = keel::round(y);
         lt.closeRect = Rect(
             lt.cardRect.Right() - padX * 0.75f - closeBtnSz,
             lt.cardRect.y + padY * 0.75f,
@@ -242,7 +242,7 @@ void Toast::RunHost(
         return;
     }
 
-    ctx.RegisterOverlay([drawList = keel::move(drawList), theme, s, padX, padY, iconBoxSz, closeBtnSz, titleFont, msgFont, titleLineH, msgLineH](ICanvas& c) {
+    ctx.RegisterOverlay([drawList = keel::move(drawList), theme, padX, padY, iconBoxSz, closeBtnSz, titleFont, msgFont, titleLineH, msgLineH](ICanvas& c) {
         const auto& pal = theme.palette;
         const float radius = 10.0f * s;
 

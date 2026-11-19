@@ -5,7 +5,6 @@
 #include "keel/small_array.h"
 #include "keel/string.h"
 #include <SDL3/SDL.h>
-#include <cmath>
 
 namespace guikit {
 
@@ -176,8 +175,8 @@ void SdlCanvas::DrawRoundRect(
             const float t = static_cast<float>(i) / static_cast<float>(kSegmentsPerCorner);
             const float angle = startAngle + t * (endAngle - startAngle);
             perimeter.push_back(SDL_FPoint{
-                cx + std::cos(angle) * r,
-                cy + std::sin(angle) * r
+                cx + keel::cos(angle) * r,
+                cy + keel::sin(angle) * r
             });
         }
     };
@@ -293,7 +292,7 @@ void SdlCanvas::DrawLine(Vec2 p1, Vec2 p2, Color color, float strokeWidth) {
     } else {
         const float dx = p2.x - p1.x;
         const float dy = p2.y - p1.y;
-        const float len = std::hypot(dx, dy);
+        const float len = keel::hypot(dx, dy);
         if (len > 0.001f) {
             const float nx = -dy / len * (strokeWidth * 0.5f);
             const float ny = dx / len * (strokeWidth * 0.5f);

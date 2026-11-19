@@ -1,7 +1,6 @@
 #include "guikit/geo/geo_json_io.hpp"
 #include "guikit/core/assets.hpp"
 #include "guikit/geo/polygon_triangulator.hpp"
-#include <cmath>
 #include "keel/algo.h"
 #include "keel/arena.h"
 #include "keel/format.h"
@@ -799,7 +798,7 @@ bool ParseGeometryObject(const JsonValue& geomObj, keel::i32 srsId, GeoFeature& 
         double optZ = keel::Limits<double>::quiet_nan();
         if (reader.ReadCoordPair(pt, &optZ)) {
             feat.points.push_back(pt);
-            if (!std::isnan(optZ) && std::isnan(feat.depthMeters)) {
+            if (!keel::is_nan(optZ) && keel::is_nan(feat.depthMeters)) {
                 feat.depthMeters = static_cast<float>(optZ);
             }
             return true;
@@ -936,7 +935,7 @@ void AppendRingJson(keel::String& out, keel::ArrayRef<guikit::GeoCoord> ring, bo
     if (closeRing && !ring.empty()) {
         const auto& f = ring.front();
         const auto& b = ring.back();
-        if (std::abs(f.lon - b.lon) > 1e-9 || std::abs(f.lat - b.lat) > 1e-9) {
+        if (keel::abs(f.lon - b.lon) > 1e-9 || keel::abs(f.lat - b.lat) > 1e-9) {
             char buf[64];
             out.append(keel::format_buf(buf, ", [%.6f, %.6f]", f.lon, f.lat));
         }

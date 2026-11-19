@@ -1,6 +1,5 @@
 #include "guikit/guikit.hpp"
 
-#include <cmath>
 #include <cstring>
 #include "guikit/backend/sdl_canvas.hpp"
 #include "guikit/backend/sdl_gl_shader_engine.hpp"
@@ -17,6 +16,7 @@
 #endif
 #endif
 #include "keel/keel.h"
+#include "keel/math.h"
 #if __has_include(<SDL3/SDL.h>)
 #include <SDL3/SDL.h>
 #endif
@@ -33,7 +33,7 @@ static keel::i32 g_failures = 0;
 
 #define CHECK_NEAR(a, b, eps)                                                        \
     do {                                                                             \
-        if (std::abs((a) - (b)) > (eps)) {                                           \
+        if (keel::abs((a) - (b)) > (eps)) {                                           \
             keel::eprintln("[FAIL] {} ({}) != {} ({}) [{}:{}]",                      \
                            #a, (a), #b, (b), __FILE__, __LINE__);                    \
             ++g_failures;                                                            \
@@ -1787,7 +1787,7 @@ void TestScrollAreaImmediateMode() {
 
     // Frame 2: Mouse wheel down far enough to reach the 200px maximum scroll (ticks * scrollStep token >= 200)
     ui.OnMouseMove({100.0f, 100.0f});
-    ui.OnMouseWheel(0.0f, -std::ceil(200.0f / sm.scrollStep));
+    ui.OnMouseWheel(0.0f, -keel::ceil(200.0f / sm.scrollStep));
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderUI();
     ui.EndFrame(canvas);
@@ -3344,7 +3344,7 @@ void TestSdlMouseCoordsMapToLogicalDp() {
         ui.BeginFrame({1600.0f, 1000.0f}, c.dpiScale);
         ui.OnMouseMove(SdlWindowToPhysicalPixels(c.windowPos, c.pixelDensity));
         const Vec2 mouse = ui.GetMousePos();
-        if (std::abs(mouse.x - c.expectedLogical.x) > 0.01f || std::abs(mouse.y - c.expectedLogical.y) > 0.01f) {
+        if (keel::abs(mouse.x - c.expectedLogical.x) > 0.01f || keel::abs(mouse.y - c.expectedLogical.y) > 0.01f) {
             keel::eprintln("[FAIL] {}: logical mouse ({}, {}) != expected ({}, {})",
                            c.name, mouse.x, mouse.y, c.expectedLogical.x, c.expectedLogical.y);
             ++g_failures;
@@ -3438,8 +3438,8 @@ void TestFrameScaleIsUniformAndKeepsPointer() {
         const Rect* b[] = {&scaled.heading, &scaled.toggle, &scaled.slider, &scaled.button, &scaled.input, &scaled.text};
         static constexpr const char* kNames[] = {"heading", "switch", "slider", "button", "input", "text"};
         for (keel::usize i = 0; i < 6; ++i) {
-            const bool same = std::abs(a[i]->x - b[i]->x) < 0.01f && std::abs(a[i]->y - b[i]->y) < 0.01f &&
-                              std::abs(a[i]->w - b[i]->w) < 0.01f && std::abs(a[i]->h - b[i]->h) < 0.01f;
+            const bool same = keel::abs(a[i]->x - b[i]->x) < 0.01f && keel::abs(a[i]->y - b[i]->y) < 0.01f &&
+                              keel::abs(a[i]->w - b[i]->w) < 0.01f && keel::abs(a[i]->h - b[i]->h) < 0.01f;
             if (!same) {
                 keel::eprintln("[FAIL] {} dp rect differs at pixelsPerDp {}: ({}, {}, {}, {}) vs ({}, {}, {}, {})",
                                kNames[i], factor, b[i]->x, b[i]->y, b[i]->w, b[i]->h, a[i]->x, a[i]->y, a[i]->w, a[i]->h);
@@ -3901,7 +3901,7 @@ void TestThorCanvasFontSizeIsInPixels() {
     CHECK(canvas.LoadFontMemory("RobotoTest", font->Bytes(), FontStyle::Regular));
     constexpr float kFontSize = 100.0f;
     const Vec2 box = canvas.MeasureText("Hg", kFontSize);
-    if (std::abs(box.y - kFontSize * emBoxRatio) > kFontSize * 0.02f) {
+    if (keel::abs(box.y - kFontSize * emBoxRatio) > kFontSize * 0.02f) {
         keel::eprintln("[FAIL] ThorCanvas text box {} dp for {} dp font, expected {} dp (ratio {:.3f} vs {:.3f})",
                        box.y, kFontSize, kFontSize * emBoxRatio, box.y / kFontSize, emBoxRatio);
         ++g_failures;
@@ -4092,7 +4092,7 @@ void TestIndustrialDashboardNoBlackLines() {
                     keel::u8 r = p & 0xFF;
                     keel::u8 g = (p >> 8) & 0xFF;
                     keel::u8 b = (p >> 16) & 0xFF;
-                    if (std::abs(r - 11) <= 2 && std::abs(g - 15) <= 2 && std::abs(b - 25) <= 2) {
+                    if (keel::abs(r - 11) <= 2 && keel::abs(g - 15) <= 2 && keel::abs(b - 25) <= 2) {
                         ++clearCount;
                     }
                 }
@@ -5074,7 +5074,7 @@ void TestSceneContentDamageAndItemDrag() {
     frame();
     ui.OnMouseMove(handleScreen + Vec2{-60.0f, 30.0f});
     frame();
-    CHECK(std::abs(handle.x - committed.x) > 10.0f);
+    CHECK(keel::abs(handle.x - committed.x) > 10.0f);
     ui.OnKeyDown(Key::Escape);
     frame();
     CHECK(drag.ended && drag.canceled);
@@ -5567,7 +5567,7 @@ void TestTextAreaWidgetWorkflow() {
     const float codeFontSize = theme.GetTypography(TextRole::CodeMedium).fontSize;
     const float glyphBoxH = canvas.MeasureTextStyled("Mg", codeFontSize, FontStyle::Monospace).y;
     // JetBrains Mono hhea (ascender - descender) / unitsPerEm = 1.32
-    CHECK(std::abs(glyphBoxH - codeFontSize * 1.32f) < codeFontSize * 0.03f);
+    CHECK(keel::abs(glyphBoxH - codeFontSize * 1.32f) < codeFontSize * 0.03f);
 
     keel::String coordText("AAAA\nBBBB\nCCCC");
     Response coordRes;
@@ -5645,7 +5645,7 @@ void TestTextAreaWidgetWorkflow() {
         renderCoordEditor();
         ui.EndFrame(canvas);
     }
-    CHECK(std::abs(coordRes.rect.h - hAt1x) < 0.05f);
+    CHECK(keel::abs(coordRes.rect.h - hAt1x) < 0.05f);
 }
 
 void TestButtonAlignmentAndProceduralIcons() {
@@ -8316,8 +8316,8 @@ void TestSignalViewWidgetWorkflow() {
     keel::Array<float> samples(numSamples, 0.0f);
     for (keel::usize i = 0; i < numSamples; ++i) {
         const float t = static_cast<float>(i) / sampleRate;
-        samples[i] = 0.6f * std::sin(keel::kTauF * 2000.0f * t) +
-                     0.25f * std::sin(keel::kTauF * 8000.0f * t);
+        samples[i] = 0.6f * keel::sin(keel::kTauF * 2000.0f * t) +
+                     0.25f * keel::sin(keel::kTauF * 8000.0f * t);
     }
 
     float splitRatio = 0.50f;
@@ -8666,7 +8666,7 @@ void TestSonarAndSignalGpuShaderPipeline() {
     keel::Array<float> sonarMatrix(90 * 128, 0.4f);
     keel::Array<float> audioSamples(4096, 0.0f);
     for (keel::usize i = 0; i < audioSamples.size(); ++i) {
-        audioSamples[i] = std::sin(static_cast<float>(i) * 0.1f) * 0.5f;
+        audioSamples[i] = keel::sin(static_cast<float>(i) * 0.1f) * 0.5f;
     }
 
     bool btnToggle = false;
@@ -8858,13 +8858,13 @@ void TestWaterfallViewWidgetAndGpuRingBuffer() {
     for (keel::u32 i = 0; i < kBins; ++i) {
         const float d1 = (static_cast<float>(i) - 64.0f) / 3.0f;
         const float d2 = (static_cast<float>(i) - 128.0f) / 4.0f;
-        specSlice[i] = -95.0f + 65.0f * std::exp(-0.5f * d1 * d1) + 48.0f * std::exp(-0.5f * d2 * d2);
+        specSlice[i] = -95.0f + 65.0f * keel::exp(-0.5f * d1 * d1) + 48.0f * keel::exp(-0.5f * d2 * d2);
     }
     for (keel::usize i = 0; i < doaSlice.size(); ++i) {
         const float deg = -90.0f + static_cast<float>(i);
         const float b1 = (deg + 25.0f) / 3.5f;
         const float b2 = (deg - 32.0f) / 4.0f;
-        doaSlice[i] = -85.0f + 58.0f * std::exp(-0.5f * b1 * b1) + 46.0f * std::exp(-0.5f * b2 * b2);
+        doaSlice[i] = -85.0f + 58.0f * keel::exp(-0.5f * b1 * b1) + 46.0f * keel::exp(-0.5f * b2 * b2);
     }
 
     WaterfallTrack tracks[2] = {
@@ -9316,8 +9316,8 @@ void TestTableVirtualizedDataGridWorkflow() {
     ui.EndFrame(canvas);
 
     // Left edge of Col 3 must remain stationary while its width grew by ~45px
-    CHECK(std::abs(firstProgressRect.x - initialProgX) < 2.0f);
-    CHECK(std::abs(firstProgressRect.w - (initialProgW + 45.0f)) < 3.0f);
+    CHECK(keel::abs(firstProgressRect.x - initialProgX) < 2.0f);
+    CHECK(keel::abs(firstProgressRect.w - (initialProgW + 45.0f)) < 3.0f);
 
     ui.OnMouseUp(1);
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
@@ -10006,13 +10006,13 @@ void TestUnifiedElementExplicitHeight() {
     renderFrame();
     ui.EndFrame(canvas);
 
-    CHECK(std::abs(rBtn.rect.h - 64.0f) < 1.0f);
-    CHECK(std::abs(rInput.rect.h - 56.0f) < 1.0f);
-    CHECK(std::abs(rSelect.rect.h - 52.0f) < 1.0f);
-    CHECK(std::abs(rSlider.rect.h - 60.0f) < 1.0f);
+    CHECK(keel::abs(rBtn.rect.h - 64.0f) < 1.0f);
+    CHECK(keel::abs(rInput.rect.h - 56.0f) < 1.0f);
+    CHECK(keel::abs(rSelect.rect.h - 52.0f) < 1.0f);
+    CHECK(keel::abs(rSlider.rect.h - 60.0f) < 1.0f);
     CHECK_NEAR(rKnob.rect.w, 72.0f, 0.5f);
     CHECK_NEAR(rKnob.rect.h, 72.0f, 0.5f);
-    CHECK(std::abs(rImg.rect.h - 90.0f) < 1.0f);
+    CHECK(keel::abs(rImg.rect.h - 90.0f) < 1.0f);
 }
 
 void TestElementOuterFrameAndControlWellFrame() {
@@ -11047,7 +11047,7 @@ void TestKnobSpinBoxAndRadioElements() {
     ui.EndFrame(canvas);
 
     CHECK(rKnobPan.changed);
-    CHECK(std::abs(knobPan - 2.0f) < 0.01f);
+    CHECK(keel::abs(knobPan - 2.0f) < 0.01f);
 
     // 3. Test SpinBox: dragging on value region selects text (does NOT scrub value),
     //    and holding down the '+' button triggers typematic auto-repeat stepping.
@@ -11064,7 +11064,7 @@ void TestKnobSpinBoxAndRadioElements() {
     ui.EndFrame(canvas);
 
     CHECK(!rSpinFreq.changed);
-    CHECK(std::abs(spinFreq - 100.0f) < 0.01f);
+    CHECK(keel::abs(spinFreq - 100.0f) < 0.01f);
 
     ui.OnMouseUp(1);
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
@@ -11243,9 +11243,9 @@ void TestSegmentedAndColorPickerElements() {
     float h = 0.0f, s = 0.0f, v = 0.0f;
     ColorPicker::RgbToHsv(Color(239, 68, 68, 200), h, s, v);
     const Color roundTrip = ColorPicker::HsvToRgb(h, s, v, 200);
-    CHECK(std::abs(keel::i32(roundTrip.r) - 239) <= 1);
-    CHECK(std::abs(keel::i32(roundTrip.g) - 68) <= 1);
-    CHECK(std::abs(keel::i32(roundTrip.b) - 68) <= 1);
+    CHECK(keel::abs(keel::i32(roundTrip.r) - 239) <= 1);
+    CHECK(keel::abs(keel::i32(roundTrip.g) - 68) <= 1);
+    CHECK(keel::abs(keel::i32(roundTrip.b) - 68) <= 1);
     CHECK(roundTrip.a == 200);
 
     // 4. Drag inside inline ColorPicker SV square to change color
@@ -11327,7 +11327,7 @@ void TestSidebarResizableCompactAndCollapsedModes() {
     CHECK(bodyExecuted == true);
     CHECK(sbMode == SidebarMode::Expanded);
     CHECK(sbNode != nullptr);
-    CHECK(std::abs(sbNode->computedRect.w - 200.0f) < 1.0f);
+    CHECK(keel::abs(sbNode->computedRect.w - 200.0f) < 1.0f);
 
     // 1. Drag inner sash at x=200, y=100 (above center toggle button) to x=280 -> expands width to 280px
     ui.OnMouseMove({200.0f, 100.0f});
@@ -11342,7 +11342,7 @@ void TestSidebarResizableCompactAndCollapsedModes() {
     ui.EndFrame(canvas);
 
     CHECK(sbMode == SidebarMode::Expanded);
-    CHECK(std::abs(sbNode->computedRect.w - 280.0f) < 1.0f);
+    CHECK(keel::abs(sbNode->computedRect.w - 280.0f) < 1.0f);
 
     ui.OnMouseUp(1);
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
@@ -11393,7 +11393,7 @@ void TestSidebarResizableCompactAndCollapsedModes() {
 
     CHECK(sbMode == SidebarMode::Expanded);
     CHECK(bodyExecuted == true);
-    CHECK(std::abs(sbNode->computedRect.w - 280.0f) < 1.0f);
+    CHECK(keel::abs(sbNode->computedRect.w - 280.0f) < 1.0f);
 
     keel::println("  [PASS] TestSidebarResizableCompactAndCollapsedModes completed");
 }
@@ -11790,10 +11790,10 @@ void TestBottomPanelAndStatusBarWorkflow() {
     renderWorkbench();
 
     CHECK(showPanel == true);
-    CHECK(std::abs(panelRect.h - 180.0f) < 1.0f);
-    CHECK(std::abs(reportedPanelH - 180.0f) < 1.0f);
-    CHECK(std::abs(statusRect.h - 26.0f) < 1.0f);
-    CHECK(std::abs(panelRect.Bottom() - statusRect.y) < 1.0f);
+    CHECK(keel::abs(panelRect.h - 180.0f) < 1.0f);
+    CHECK(keel::abs(reportedPanelH - 180.0f) < 1.0f);
+    CHECK(keel::abs(statusRect.h - 26.0f) < 1.0f);
+    CHECK(keel::abs(panelRect.Bottom() - statusRect.y) < 1.0f);
 
     // 1. Drag top sash of BottomPanel UP by 60px -> height increases from 180px to 240px
     const Vec2 sashPos(panelRect.Center().x, panelRect.y);
@@ -11806,8 +11806,8 @@ void TestBottomPanelAndStatusBarWorkflow() {
     renderWorkbench();
 
     CHECK(showPanel == true);
-    CHECK(std::abs(panelRect.h - 240.0f) < 1.5f);
-    CHECK(std::abs(reportedPanelH - 240.0f) < 1.5f);
+    CHECK(keel::abs(panelRect.h - 240.0f) < 1.5f);
+    CHECK(keel::abs(reportedPanelH - 240.0f) < 1.5f);
 
     // 2. Drag top sash all the way DOWN past collapse threshold -> snaps to Collapsed (showPanel == false, height == 0)
     const Vec2 sashPos2(panelRect.Center().x, panelRect.y);
@@ -11836,8 +11836,8 @@ void TestBottomPanelAndStatusBarWorkflow() {
     renderWorkbench();
 
     CHECK(showPanel == true);
-    CHECK(std::abs(reportedPanelH - 150.0f) < 1.5f);
-    CHECK(std::abs(panelRect.h - 150.0f) < 1.5f);
+    CHECK(keel::abs(reportedPanelH - 150.0f) < 1.5f);
+    CHECK(keel::abs(panelRect.h - 150.0f) < 1.5f);
 
     // 4. Click StatusBar Action ("Toggle Panel") -> collapses and then re-opens BottomPanel
     ui.OnMouseMove(statusActionRect.Center());
@@ -11856,10 +11856,10 @@ void TestBottomPanelAndStatusBarWorkflow() {
     CHECK(showPanel == true);
 
     renderWorkbench();
-    CHECK(std::abs(reportedPanelH - 150.0f) < 1.5f);
+    CHECK(keel::abs(reportedPanelH - 150.0f) < 1.5f);
 
     renderWorkbench();
-    CHECK(std::abs(panelRect.h - 150.0f) < 1.5f);
+    CHECK(keel::abs(panelRect.h - 150.0f) < 1.5f);
 
     // 5. Right-edge LeftClick ContextMenu stability when hovering inside popup (no X-position oscillation)
     Rect btnRect{};
@@ -11907,9 +11907,9 @@ void TestBottomPanelAndStatusBarWorkflow() {
     for (keel::i32 f = 0; f < 5; ++f) {
         renderRightMenu();
         CHECK(menuResp.isOpen == true);
-        CHECK(std::abs(menuResp.rect.x - openRectFrame1.x) < 0.5f);
-        CHECK(std::abs(menuResp.rect.y - openRectFrame1.y) < 0.5f);
-        CHECK(std::abs(btnRect.w) > 50.0f);
+        CHECK(keel::abs(menuResp.rect.x - openRectFrame1.x) < 0.5f);
+        CHECK(keel::abs(menuResp.rect.y - openRectFrame1.y) < 0.5f);
+        CHECK(keel::abs(btnRect.w) > 50.0f);
     }
 
     // Re-click the anchor button -> must toggle menuOpen cleanly back to false without reopening
@@ -12049,10 +12049,10 @@ void TestPanelSashAndBodyOcclusionOverMapViewAndScene() {
     renderBellhopLayout();
     renderBellhopLayout();
     CHECK(mapVp.w > 300.0f && mapVp.h > 300.0f);
-    CHECK(std::abs(bottomRect.y - 440.0f) < 1.5f);
-    CHECK(std::abs(bottomRect.h - 160.0f) < 1.5f);
-    CHECK(std::abs(rightSidebarRect.x - 620.0f) < 1.5f);
-    CHECK(std::abs(rightSidebarRect.w - 180.0f) < 1.5f);
+    CHECK(keel::abs(bottomRect.y - 440.0f) < 1.5f);
+    CHECK(keel::abs(bottomRect.h - 160.0f) < 1.5f);
+    CHECK(keel::abs(rightSidebarRect.x - 620.0f) < 1.5f);
+    CHECK(keel::abs(rightSidebarRect.w - 180.0f) < 1.5f);
 
     // 1. Hover & Click/Drag on BottomPanel top splitter sash protruding 4px upward into MapView (y = 436.0f < 440.0f)
     // MapView must NOT see hover or click or pan, and BottomPanel must smoothly resize from 160px to 240px!
@@ -12076,7 +12076,7 @@ void TestPanelSashAndBodyOcclusionOverMapViewAndScene() {
     ui.OnMouseUp(1);
     renderBellhopLayout();
     renderBellhopLayout();
-    CHECK(std::abs(bottomRect.h - 240.0f) < 2.0f);
+    CHECK(keel::abs(bottomRect.h - 240.0f) < 2.0f);
 
     // 2. Click inside BottomPanel body, Left Sidebar body, and Right Sidebar body -> MapView never reacts!
     ui.OnMouseMove({ 300.0f, 500.0f }); // Inside BottomPanel
@@ -12122,7 +12122,7 @@ void TestPanelSashAndBodyOcclusionOverMapViewAndScene() {
     ui.OnMouseUp(1);
     renderBellhopLayout();
     renderBellhopLayout();
-    CHECK(std::abs(rightSidebarRect.w - 240.0f) < 2.0f);
+    CHECK(keel::abs(rightSidebarRect.w - 240.0f) < 2.0f);
 
     // 4. Click on child Button inside Card inside MapView -> Button clicks, MapView canvas does NOT click!
     CHECK(childBtnRect.w > 20.0f && childBtnRect.h > 15.0f);
@@ -12143,7 +12143,7 @@ void TestPanelSashAndBodyOcclusionOverMapViewAndScene() {
     ui.OnMouseMove({ 300.0f, 500.0f }); // Over BottomPanel
     ui.OnMouseWheel(0.0f, 3.0f);
     renderBellhopLayout();
-    CHECK(std::abs(mapZoom - zoomBefore) < 0.0001f);
+    CHECK(keel::abs(mapZoom - zoomBefore) < 0.0001f);
 
     // 6. Clicking on unoccluded MapView canvas DOES fire mapRawClicked and mapScopeClicked
     ui.OnMouseMove({ 350.0f, 220.0f });
@@ -13006,7 +13006,7 @@ int main() {
             CHECK(rShort.rect.w >= 480.0f);
             CHECK(rLong.rect.w > rShort.rect.w);
             CHECK(rLong.rect.w <= 780.0f);
-            CHECK(std::abs(rExplicit.rect.w - 500.0f) < 1.0f);
+            CHECK(keel::abs(rExplicit.rect.w - 500.0f) < 1.0f);
             CHECK(rXl.rect.h > rXs.rect.h);
 
             // Verify mouse wheel scrolling and interactive scrollbar thumb drag on multi-frame open CommandPalette
@@ -13994,7 +13994,7 @@ int main() {
                     CHECK(clipCanvas.HasActiveGpuPasses());
                     CHECK(!clipCanvas.GetGpuShaderPasses().empty());
                     if (!clipCanvas.GetGpuShaderPasses().empty()) {
-                        CHECK(std::abs(clipCanvas.GetGpuShaderPasses()[0].clipRect.h - initialSonarClip.h) < 2.0f);
+                        CHECK(keel::abs(clipCanvas.GetGpuShaderPasses()[0].clipRect.h - initialSonarClip.h) < 2.0f);
                     }
                 }
 
@@ -14034,7 +14034,7 @@ int main() {
                     CHECK(clipCanvas.HasActiveGpuPasses());
                     CHECK(!clipCanvas.GetGpuShaderPasses().empty());
                     if (!clipCanvas.GetGpuShaderPasses().empty()) {
-                        CHECK(std::abs(clipCanvas.GetGpuShaderPasses()[0].clipRect.h - initialWfClip.h) < 2.0f);
+                        CHECK(keel::abs(clipCanvas.GetGpuShaderPasses()[0].clipRect.h - initialWfClip.h) < 2.0f);
                     }
                 }
             }
@@ -14669,7 +14669,7 @@ int main() {
                     const Vec2 monoNarrow = fontCanvas.MeasureTextStyled("iiii", 16.0f, FontStyle::Monospace);
                     const Vec2 monoWide = fontCanvas.MeasureTextStyled("WWWW", 16.0f, FontStyle::Monospace);
                     CHECK(monoNarrow.x > 10.0f);
-                    CHECK(std::abs(monoWide.x - monoNarrow.x) < 0.05f);
+                    CHECK(keel::abs(monoWide.x - monoNarrow.x) < 0.05f);
 
                     // LoadFontMemory with a temporary vector buffer (tests internal copy safety after buffer destruction)
                     auto monoAsset = Assets::Find("assets/fonts/JetBrainsMono-Regular.ttf");
@@ -14684,7 +14684,7 @@ int main() {
                         const Vec2 memN = memCanvas.MeasureTextStyled("iiii", 16.0f, FontStyle::Bold);
                         const Vec2 memW = memCanvas.MeasureTextStyled("WWWW", 16.0f, FontStyle::Bold);
                         CHECK(memN.x > 10.0f);
-                        CHECK(std::abs(memW.x - memN.x) < 0.05f);
+                        CHECK(keel::abs(memW.x - memN.x) < 0.05f);
                     }
                 }
 

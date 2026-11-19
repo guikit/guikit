@@ -1,5 +1,4 @@
 #include "guikit/panels/modal.hpp"
-#include <cmath>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
@@ -260,13 +259,13 @@ void Modal::Arrange(
         items.push_back(ChildLayout{c, cw, ch});
     }
 
-    float curY = std::round(ResolveGroupAlignY(alignY, contentArea.y, contentArea.h, totalH));
+    float curY = keel::round(ResolveGroupAlignY(alignY, contentArea.y, contentArea.h, totalH));
     Rect contentUnion{};
     bool hasUnion = false;
 
     for (const auto& item : items) {
-        const float cx = std::round(ResolveChildAlignX(alignX, contentArea.x, contentArea.w, item.w));
-        const Rect childRect(cx, curY, std::round(item.w), std::round(item.h));
+        const float cx = keel::round(ResolveChildAlignX(alignX, contentArea.x, contentArea.w, item.w));
+        const Rect childRect(cx, curY, keel::round(item.w), keel::round(item.h));
         Solver::Arrange(item.child, childRect, theme, canvas);
         contentUnion = hasUnion ? contentUnion.Union(childRect) : childRect;
         hasUnion = true;

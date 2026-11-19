@@ -1,6 +1,5 @@
 #include "guikit/core/main_window.hpp"
 
-#include <cmath>
 #include "keel/core.h"
 #include "keel/format.h"
 #include "keel/math.h"
@@ -335,7 +334,7 @@ void MainWindow::SetShellScale(float scale) noexcept {
     keel::usize bestIdx = 0;
     float bestDiff = keel::Limits<float>::kMax;
     for (keel::usize i = 0; i < kScaleValues.size(); ++i) {
-        const float d = std::abs(kScaleValues[i] - scale);
+        const float d = keel::abs(kScaleValues[i] - scale);
         if (d < bestDiff) {
             bestDiff = d;
             bestIdx = i;

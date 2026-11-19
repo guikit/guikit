@@ -1,9 +1,9 @@
 #include "guikit/widgets/segmented.hpp"
-#include <cmath>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
+#include "keel/math.h"
 #include "keel/small_array.h"
 
 namespace guikit {
@@ -510,7 +510,7 @@ void Segmented::Render(
             const bool nextHov = (hoveredSegment == static_cast<keel::i32>(i + 1));
             if (!curSel && !nextSel && !curHov && !nextHov) {
                 const Rect& r = segRects[i];
-                const float x = std::round(r.Right());
+                const float x = keel::round(r.Right());
                 const float padY = keel::max(4.0f, r.h * 0.22f);
                 canvas.DrawLine({x, r.y + padY}, {x, r.Bottom() - padY}, divCol, 1.0f);
             }

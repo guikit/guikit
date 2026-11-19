@@ -1,4 +1,4 @@
-#include <cmath>
+#include "keel/math.h"
 #include "../demo_context.hpp"
 
 namespace guikit::demo {
@@ -133,7 +133,7 @@ void StepCarSimulation(guikit::Context& ui, CarDashboardDemoState& st) {
 
     if (st.controlModeIndex == 3) {
         // Manual Sliders mode: keep peakG updated and keep road/telltale animations running
-        st.peakG = keel::max(st.peakG, std::hypot(st.latG, st.lonG));
+        st.peakG = keel::max(st.peakG, keel::hypot(st.latG, st.lonG));
         ui.RequestRepaint(2);
         return;
     }
@@ -169,7 +169,7 @@ void StepCarSimulation(guikit::Context& ui, CarDashboardDemoState& st) {
         ComputeAutomaticGearAndRpm(st, st.gearSelectorIndex == 4 || st.driveThemeIndex == 1 || st.driveThemeIndex == 3);
 
         // ADAS radar lead car distance modulation
-        st.adasLeadSpeedKmh = 105.0f + 12.0f * std::sin(static_cast<float>(st.simTimeSec) * 0.45f);
+        st.adasLeadSpeedKmh = 105.0f + 12.0f * keel::sin(static_cast<float>(st.simTimeSec) * 0.45f);
         const float relMps = (st.adasLeadSpeedKmh - st.speedKmh) / 3.6f;
         st.adasLeadDistanceM = keel::clamp(st.adasLeadDistanceM + relMps * fdt, 12.0f, 95.0f);
         if (st.adasLeadDistanceM >= 94.0f || st.adasLeadDistanceM <= 13.0f) {
@@ -178,32 +178,32 @@ void StepCarSimulation(guikit::Context& ui, CarDashboardDemoState& st) {
     } else if (st.controlModeIndex == 1) {
         // Mode 1: Highway ADAS Cruise (Smooth adaptive cruise & gentle lane weaves)
         const float t = static_cast<float>(st.simTimeSec);
-        const float targetSpd = st.cruiseTargetKmh + 14.0f * std::sin(t * 0.55f);
+        const float targetSpd = st.cruiseTargetKmh + 14.0f * keel::sin(t * 0.55f);
         st.speedKmh += (targetSpd - st.speedKmh) * keel::clamp(fdt * 2.5f, 0.02f, 1.0f);
-        st.steeringAngleDeg = 9.5f * std::sin(t * 0.85f);
-        st.throttlePct = keel::clamp(22.0f + 18.0f * std::cos(t * 0.55f), 5.0f, 65.0f);
-        st.brakePct = (std::cos(t * 0.55f) < -0.55f) ? (-28.0f * (std::cos(t * 0.55f) + 0.55f)) : 0.0f;
-        st.adasLeadSpeedKmh = st.speedKmh + 4.0f * std::cos(t * 0.7f);
-        st.adasLeadDistanceM = 38.0f + 14.0f * std::sin(t * 0.5f);
+        st.steeringAngleDeg = 9.5f * keel::sin(t * 0.85f);
+        st.throttlePct = keel::clamp(22.0f + 18.0f * keel::cos(t * 0.55f), 5.0f, 65.0f);
+        st.brakePct = (keel::cos(t * 0.55f) < -0.55f) ? (-28.0f * (keel::cos(t * 0.55f) + 0.55f)) : 0.0f;
+        st.adasLeadSpeedKmh = st.speedKmh + 4.0f * keel::cos(t * 0.7f);
+        st.adasLeadDistanceM = 38.0f + 14.0f * keel::sin(t * 0.5f);
         ComputeAutomaticGearAndRpm(st, false);
     } else if (st.controlModeIndex == 2) {
         // Mode 2: Track Hot Lap (Full-throttle pulls to redline, apex braking & high cornering G)
         const float t = static_cast<float>(st.simTimeSec);
-        const float lapPhase = std::fmod(t, 14.0f);
+        const float lapPhase = keel::fmod(t, 14.0f);
         float targetSpd = 140.0f;
         if (lapPhase < 9.5f) {
             // Full-throttle straight pull
             targetSpd = 75.0f + (lapPhase / 9.5f) * 205.0f;
             st.throttlePct = 96.0f;
             st.brakePct = 0.0f;
-            st.steeringAngleDeg = 6.0f * std::sin(lapPhase * 1.4f);
+            st.steeringAngleDeg = 6.0f * keel::sin(lapPhase * 1.4f);
         } else if (lapPhase < 11.8f) {
             // Heavy braking zone into chicane
             const float brkPhase = (lapPhase - 9.5f) / 2.3f;
             targetSpd = 280.0f - brkPhase * 185.0f;
             st.throttlePct = 0.0f;
             st.brakePct = 88.0f;
-            st.steeringAngleDeg = -28.0f * std::sin(brkPhase * keel::kPiF);
+            st.steeringAngleDeg = -28.0f * keel::sin(brkPhase * keel::kPiF);
         } else {
             // Corner exit acceleration
             const float exitPhase = (lapPhase - 11.8f) / 2.2f;
@@ -213,7 +213,7 @@ void StepCarSimulation(guikit::Context& ui, CarDashboardDemoState& st) {
             st.steeringAngleDeg = 32.0f * (1.0f - exitPhase);
         }
         st.speedKmh += (targetSpd - st.speedKmh) * keel::clamp(fdt * 6.0f, 0.04f, 1.0f);
-        st.adasLeadDistanceM = 24.0f + 12.0f * std::sin(t * 1.1f);
+        st.adasLeadDistanceM = 24.0f + 12.0f * keel::sin(t * 1.1f);
         st.adasLeadSpeedKmh = st.speedKmh + 5.0f;
         ComputeAutomaticGearAndRpm(st, true);
     }
@@ -226,7 +226,7 @@ void StepCarSimulation(guikit::Context& ui, CarDashboardDemoState& st) {
     const float speedFactor = keel::clamp(st.speedKmh / 140.0f, 0.1f, 1.4f);
     const float targetLatG = keel::clamp((st.steeringAngleDeg / 32.0f) * speedFactor * 1.05f, -1.45f, 1.45f);
     st.latG += (targetLatG - st.latG) * keel::clamp(fdt * 10.0f, 0.05f, 1.0f);
-    st.peakG = keel::max(st.peakG, std::hypot(st.latG, st.lonG));
+    st.peakG = keel::max(st.peakG, keel::hypot(st.latG, st.lonG));
 
     // Boost pressure & EV power
     const float targetBoost = -0.45f + (st.throttlePct * 0.01f) * 2.15f * keel::clamp(st.rpm / 5500.0f, 0.25f, 1.0f);
@@ -238,8 +238,8 @@ void StepCarSimulation(guikit::Context& ui, CarDashboardDemoState& st) {
     st.evPowerKw += (targetEvKw - st.evPowerKw) * keel::clamp(fdt * 10.0f, 0.05f, 1.0f);
 
     // AWD torque distribution & ESC indicator
-    st.frontTorquePct = keel::clamp(28.0f + std::abs(st.steeringAngleDeg) * 0.45f + (st.throttlePct * 0.12f), 15.0f, 50.0f);
-    st.ttEscActive = (std::hypot(st.latG, st.lonG) > 1.08f);
+    st.frontTorquePct = keel::clamp(28.0f + keel::abs(st.steeringAngleDeg) * 0.45f + (st.throttlePct * 0.12f), 15.0f, 50.0f);
+    st.ttEscActive = (keel::hypot(st.latG, st.lonG) > 1.08f);
 
     // Distance integration
     const double dKm = static_cast<double>(curSpeedMps * fdt) * 0.001;
@@ -419,7 +419,7 @@ void RenderCarDashboardInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
 void RenderCarDashboardStage(guikit::Context& ui, DemoContext& /*ctx*/) {
     StepCarSimulation(ui, s_car);
 
-    const bool blinkOn = (std::fmod(s_car.simTimeSec, 0.70) < 0.35);
+    const bool blinkOn = (keel::fmod(s_car.simTimeSec, 0.70) < 0.35);
     const bool autoLeftTurn = (s_car.controlModeIndex <= 2) && (s_car.steeringAngleDeg < -16.0f);
     const bool autoRightTurn = (s_car.controlModeIndex <= 2) && (s_car.steeringAngleDeg > 16.0f);
 

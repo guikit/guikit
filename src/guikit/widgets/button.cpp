@@ -1,5 +1,4 @@
 #include "guikit/widgets/button.hpp"
-#include <cmath>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
@@ -54,7 +53,7 @@ void DrawButtonSpinner(ICanvas& canvas, Rect r, Color col, float phase) {
     path.Reserve(kSegs + 1, kSegs + 1);
     for (keel::i32 i = 0; i <= kSegs; ++i) {
         const float a = startA + sweep * (static_cast<float>(i) / static_cast<float>(kSegs));
-        const Vec2 pt(center.x + std::cos(a) * radius, center.y + std::sin(a) * radius);
+        const Vec2 pt(center.x + keel::cos(a) * radius, center.y + keel::sin(a) * radius);
         if (i == 0) path.MoveTo(pt);
         else path.LineTo(pt);
     }
@@ -179,7 +178,7 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocati
 
     float loadingPhase = 0.0f;
     if (opts.loading && !effectiveDisabled) {
-        loadingPhase = static_cast<float>(std::fmod(keel::max(0.0, ctx.GetCurrentTime()) * 1.35, 1.0));
+        loadingPhase = static_cast<float>(keel::fmod(keel::max(0.0, ctx.GetCurrentTime()) * 1.35, 1.0));
         ctx.RequestRepaint(2);
     }
 

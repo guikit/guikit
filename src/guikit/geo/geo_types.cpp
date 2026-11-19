@@ -1,7 +1,7 @@
 #include "guikit/geo/geo_types.hpp"
 #include "guikit/geo/polygon_triangulator.hpp"
-#include <cmath>
 #include <mutex>
+#include "keel/bits.h"
 #include "keel/core.h"
 #include "keel/format.h"
 #include "keel/lru_cache.h"
@@ -279,7 +279,7 @@ keel::Arc<const DecodedGeometryPayload> GeoFeature::BuildDecodedGeometryPayload(
     payload->cachedVertexCount = cachedVertexCount;
     payload->cachedPolygonCount = cachedPolygonCount;
     payload->cachedHoleCount = cachedHoleCount;
-    payload->residentHeapBytes = static_cast<keel::u32>(keel::min<keel::usize>(RefreshResidentHeapBytes(), ~keel::u32{0}));
+    payload->residentHeapBytes = keel::sat_cast<keel::u32>(RefreshResidentHeapBytes());
     return payload;
 }
 
@@ -378,7 +378,7 @@ keel::usize GeoFeature::RefreshResidentHeapBytes() const noexcept {
     for (const auto& [k, v] : properties) {
         bytes += sizeof(GeoProperty) + k.capacity() + v.string_capacity();
     }
-    residentHeapBytes = static_cast<keel::u32>(keel::min<keel::usize>(bytes, ~keel::u32{0}));
+    residentHeapBytes = keel::sat_cast<keel::u32>(bytes);
     return bytes;
 }
 
@@ -527,9 +527,9 @@ void GeoFeature::RecomputeBoundsAndCentroid() {
         }
     }
 
-    cachedVertexCount = static_cast<keel::u32>(count);
-    cachedPolygonCount = static_cast<keel::u32>(polygons.size());
-    cachedHoleCount = static_cast<keel::u32>(holeCount);
+    cachedVertexCount = keel::sat_cast<keel::u32>(count);
+    cachedPolygonCount = keel::sat_cast<keel::u32>(polygons.size());
+    cachedHoleCount = keel::sat_cast<keel::u32>(holeCount);
 
     if (count > 0) {
         centroid = {sumLat / static_cast<double>(count), sumLon / static_cast<double>(count)};
@@ -546,7 +546,7 @@ void GeoFeature::ResolveDisplayName(keel::usize fallbackIndex, keel::StringRef l
     keel::String fallbackFeatureType;
 
     auto extractFloatAttr = [](const AttributeValue& v, float& ioTarget) noexcept {
-        if (!std::isnan(ioTarget)) return;
+        if (!keel::is_nan(ioTarget)) return;
         if (v.is_double() || v.is_int()) {
             ioTarget = static_cast<float>(v.as_double());
         } else if (v.is_string()) {
@@ -637,19 +637,19 @@ void GeoFeature::ResolveDisplayName(keel::usize fallbackIndex, keel::StringRef l
         name = keel::move(fallbackTitle);
         return;
     }
-    if (chartClass == ChartFeatureClass::Sounding && !std::isnan(depthMeters)) {
+    if (chartClass == ChartFeatureClass::Sounding && !keel::is_nan(depthMeters)) {
         name = keel::format("%.1f m", static_cast<double>(depthMeters));
         return;
     }
-    if ((chartClass == ChartFeatureClass::DepthContour || featureCode.as_ref() == "LNDELV") && !std::isnan(depthMeters)) {
+    if ((chartClass == ChartFeatureClass::DepthContour || featureCode.as_ref() == "LNDELV") && !keel::is_nan(depthMeters)) {
         name = keel::format("%.4g m", static_cast<double>(depthMeters));
         return;
     }
-    if (chartClass == ChartFeatureClass::DepthArea && (!std::isnan(minDepthMeters) || !std::isnan(maxDepthMeters))) {
+    if (chartClass == ChartFeatureClass::DepthArea && (!keel::is_nan(minDepthMeters) || !keel::is_nan(maxDepthMeters))) {
         name = keel::format(
             "DEPARE %.2g..%.2g m",
-            std::isnan(minDepthMeters) ? 0.0 : static_cast<double>(minDepthMeters),
-            std::isnan(maxDepthMeters) ? 0.0 : static_cast<double>(maxDepthMeters)
+            keel::is_nan(minDepthMeters) ? 0.0 : static_cast<double>(minDepthMeters),
+            keel::is_nan(maxDepthMeters) ? 0.0 : static_cast<double>(maxDepthMeters)
         );
         return;
     }
@@ -1133,12 +1133,12 @@ guikit::GeoCoord SrsTransform::ToWgs84(double x, double y, keel::i32 srsId) noex
         );
     }
 
-    const bool looksLikeMeters = (std::abs(x) > 180.0001 || std::abs(y) > 90.0001);
+    const bool looksLikeMeters = (keel::abs(x) > 180.0001 || keel::abs(y) > 90.0001);
 
     if (srsId == 3857 || srsId == 900913 || ((srsId == 4326 || srsId == 7683) && looksLikeMeters)) {
         constexpr double R = guikit::MapGrid::kEarthRadiusMeters;
         const double lon = keel::rad_to_deg(x / R);
-        const double lat = keel::rad_to_deg(2.0 * std::atan(std::exp(y / R)) - keel::kHalfPi);
+        const double lat = keel::rad_to_deg(2.0 * keel::atan(keel::exp(y / R)) - keel::kHalfPi);
         return {
             guikit::MapGrid::ClampLat(lat, guikit::MapCrs::EPSG4326_PlateCarree),
             guikit::MapGrid::ClampLon(lon)
@@ -1149,12 +1149,12 @@ guikit::GeoCoord SrsTransform::ToWgs84(double x, double y, keel::i32 srsId) noex
         constexpr double R = guikit::MapGrid::kEarthRadiusMeters;
         constexpr double e = guikit::MapGrid::kWgs84Eccentricity;
         const double lon = keel::rad_to_deg(x / R);
-        const double ts = std::exp(-y / R);
-        double phi = keel::kHalfPi - 2.0 * std::atan(ts);
+        const double ts = keel::exp(-y / R);
+        double phi = keel::kHalfPi - 2.0 * keel::atan(ts);
         for (keel::i32 iter = 0; iter < 6; ++iter) {
-            const double esin = e * std::sin(phi);
-            const double con = std::pow((1.0 - esin) / (1.0 + esin), 0.5 * e);
-            phi = keel::kHalfPi - 2.0 * std::atan(ts * con);
+            const double esin = e * keel::sin(phi);
+            const double con = keel::pow((1.0 - esin) / (1.0 + esin), 0.5 * e);
+            phi = keel::kHalfPi - 2.0 * keel::atan(ts * con);
         }
         const double lat = keel::rad_to_deg(phi);
         return {
@@ -1186,11 +1186,11 @@ guikit::GeoPlanar SrsTransform::FromWgs84(guikit::GeoCoord coord, keel::i32 srsI
         const double phi = keel::deg_to_rad(
             guikit::MapGrid::ClampLat(coord.lat, guikit::MapCrs::EPSG3395_WorldMercator)
         );
-        const double eSin = e * std::sin(phi);
-        const double cf = std::pow((1.0 - eSin) / (1.0 + eSin), 0.5 * e);
+        const double eSin = e * keel::sin(phi);
+        const double cf = keel::pow((1.0 - eSin) / (1.0 + eSin), 0.5 * e);
         return {
             R * lonRad,
-            R * std::log(std::tan(0.25 * keel::kPi + 0.5 * phi) * cf)
+            R * keel::log(keel::tan(0.25 * keel::kPi + 0.5 * phi) * cf)
         };
     }
     if (srsId >= 32601 && srsId <= 32660) {
@@ -1292,7 +1292,7 @@ guikit::GeoPlanar SrsTransform::Wgs84ToWebMercatorMeters(guikit::GeoCoord coord)
         guikit::MapGrid::ClampLat(coord.lat, guikit::MapCrs::EPSG3857_WebMercator)
     );
     const double x = R * lonRad;
-    const double y = R * std::log(std::tan(0.25 * keel::kPi + 0.5 * latRad));
+    const double y = R * keel::log(keel::tan(0.25 * keel::kPi + 0.5 * latRad));
     return {x, y};
 }
 
@@ -1340,14 +1340,14 @@ guikit::GeoCoord SrsTransform::BoundsCenter(const guikit::GeoBounds& bounds) noe
 }
 
 float SrsTransform::EstimateFitTileZoom(const guikit::GeoBounds& bounds) noexcept {
-    const double dLon = keel::max(1e-5, std::abs(bounds.se.lon - bounds.nw.lon));
-    const double dLat = keel::max(1e-5, std::abs(bounds.nw.lat - bounds.se.lat));
+    const double dLon = keel::max(1e-5, keel::abs(bounds.se.lon - bounds.nw.lon));
+    const double dLat = keel::max(1e-5, keel::abs(bounds.nw.lat - bounds.se.lat));
     const double maxSpanDeg = keel::max(dLon, dLat * 1.45);
 
     if (maxSpanDeg <= 0.005) {
         return 14.5f;
     }
-    const double z = std::log2(360.0 / maxSpanDeg) - 0.35;
+    const double z = keel::log2(360.0 / maxSpanDeg) - 0.35;
     return static_cast<float>(keel::clamp(z, 1.5, 16.5));
 }
 
@@ -1560,7 +1560,11 @@ public:
         tileImg->height = normKey.tileSizePx;
 
         const keel::u32 sz = normKey.tileSizePx;
-        tileImg->rgbaPixels.resize(static_cast<keel::usize>(sz) * sz);
+        keel::usize numPx = 0;
+        if (!keel::checked_mul<keel::usize>(sz, sz, numPx)) {
+            return {};
+        }
+        tileImg->rgbaPixels.resize(numPx);
 
         const bool evenChecker = ((normKey.x + normKey.y) & 1) == 0;
         const keel::u8 baseR = evenChecker ? 236 : 231;

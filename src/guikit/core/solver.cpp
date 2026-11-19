@@ -1,5 +1,5 @@
 #include "guikit/core/solver.hpp"
-#include <cmath>
+#include "keel/math.h"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/theme.hpp"
@@ -29,7 +29,7 @@ public:
 
     LocalUnitsView(Node* node, Mode mode) noexcept
         : m_node(node), m_mode(mode), m_scale(node != nullptr ? node->GetRelativeScale() : 1.0f) {
-        m_active = node != nullptr && m_scale > 0.0f && std::abs(m_scale - 1.0f) > 1e-6f;
+        m_active = node != nullptr && m_scale > 0.0f && keel::abs(m_scale - 1.0f) > 1e-6f;
         if (!m_active) {
             return;
         }

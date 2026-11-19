@@ -1,10 +1,10 @@
 #include "guikit/panels/sidebar.hpp"
-#include <cmath>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/graphics/icon.hpp"
 #include "guikit/panels/scroll_area.hpp"
+#include "keel/math.h"
 
 namespace guikit {
 
@@ -267,7 +267,7 @@ SidebarScope Sidebar::Open(
                     : (state.dragStartMouseX - mouse.x);
                 const float dragDeltaX = (state.dragStartMode == SidebarMode::Collapsed)
                     ? openDeltaX
-                    : std::abs(mouse.x - state.dragStartMouseX);
+                    : keel::abs(mouse.x - state.dragStartMouseX);
                 const float dragThreshold = (state.dragStartMode == SidebarMode::Collapsed)
                     ? (12.0f * activeScale)
                     : (4.0f * activeScale);
@@ -282,7 +282,7 @@ SidebarScope Sidebar::Open(
                 }
                 const bool hitTarget = (canToggle && toggleRect.Contains(mouse)) ||
                     (state.dragStartMode == SidebarMode::Collapsed &&
-                     (sashRect.Contains(mouse) || std::abs(mouse.x - state.dragStartMouseX) <= 12.0f * activeScale));
+                     (sashRect.Contains(mouse) || keel::abs(mouse.x - state.dragStartMouseX) <= 12.0f * activeScale));
                 if (hitTarget) {
                     const SidebarMode nextM = NextSidebarMode(state.mode, opts.allowCompact, opts.allowCollapse);
                     if (nextM != state.mode) {
@@ -333,7 +333,7 @@ SidebarScope Sidebar::Open(
                         modeChanged = true;
                     }
                     const float clampedW = keel::clamp(rawLogicalW, effMinW, effMaxW);
-                    if (std::abs(state.customWidth - clampedW) > 0.25f) {
+                    if (keel::abs(state.customWidth - clampedW) > 0.25f) {
                         state.customWidth = clampedW;
                         state.lastExpandedWidth = clampedW;
                         widthChanged = true;

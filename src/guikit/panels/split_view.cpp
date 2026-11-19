@@ -1,9 +1,9 @@
 #include "guikit/panels/split_view.hpp"
-#include <cmath>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/solver.hpp"
+#include "keel/math.h"
 
 namespace guikit {
 
@@ -79,7 +79,7 @@ Vec2 MeasureSplitView(
     const auto* payload = node->As<SplitViewPayload>();
     const SplitViewOptions opts = payload ? payload->opts : SplitViewOptions{};
     const bool isHoriz = (opts.orientation == Orientation::Horizontal);
-    const float sashPx = keel::max(2.0f, std::round(opts.sashSize));
+    const float sashPx = keel::max(2.0f, keel::round(opts.sashSize));
     const float bw = node->borderWidth;
 
     const Node* firstChild = node->firstChild;
@@ -151,7 +151,7 @@ void ArrangeSplitView(
 
     const bool isHoriz = (opts.orientation == Orientation::Horizontal);
     const float s = 1.0f;
-    const float sashPx = keel::max(2.0f, std::round(opts.sashSize));
+    const float sashPx = keel::max(2.0f, keel::round(opts.sashSize));
     const float availSpan = keel::max(0.0f, (isHoriz ? innerRect.w : innerRect.h) - sashPx);
 
     const float rawRatio = payload ? payload->ratio : opts.defaultRatio;
@@ -163,14 +163,14 @@ void ArrangeSplitView(
 
     if (isHoriz) {
         const float effSashW = keel::min(sashPx, innerRect.w);
-        const float firstW = std::round(availSpan * r);
+        const float firstW = keel::round(availSpan * r);
         const float secondW = keel::max(0.0f, availSpan - firstW);
         firstRect = Rect(innerRect.x, innerRect.y, firstW, innerRect.h);
         sashRect = Rect(innerRect.x + firstW, innerRect.y, effSashW, innerRect.h);
         secondRect = Rect(sashRect.Right(), innerRect.y, secondW, innerRect.h);
     } else {
         const float effSashH = keel::min(sashPx, innerRect.h);
-        const float firstH = std::round(availSpan * r);
+        const float firstH = keel::round(availSpan * r);
         const float secondH = keel::max(0.0f, availSpan - firstH);
         firstRect = Rect(innerRect.x, innerRect.y, innerRect.w, firstH);
         sashRect = Rect(innerRect.x, innerRect.y + firstH, innerRect.w, effSashH);
@@ -242,21 +242,21 @@ void RenderSplitView(
     // Center divider line (subtle line or highlighted primary line)
     const Color lineCol = active ? primaryCol.WithAlphaF(0.85f) : pal.borderSubtle;
     if (isHoriz) {
-        const float lineX = std::round(sashRect.Center().x);
+        const float lineX = keel::round(sashRect.Center().x);
         canvas.DrawRect(Rect(lineX, sashRect.y, 1.0f, sashRect.h), lineCol);
     } else {
-        const float lineY = std::round(sashRect.Center().y);
+        const float lineY = keel::round(sashRect.Center().y);
         canvas.DrawRect(Rect(sashRect.x, lineY, sashRect.w, 1.0f), lineCol);
     }
 
     // Center grip pill (3x24 for Horizontal or 24x3 for Vertical)
     if (payload->opts.showGrip) {
-        const float gripW = isHoriz ? keel::max(2.0f, std::round(3.0f * s)) : std::round(24.0f * s);
-        const float gripH = isHoriz ? std::round(24.0f * s) : keel::max(2.0f, std::round(3.0f * s));
+        const float gripW = isHoriz ? keel::max(2.0f, keel::round(3.0f * s)) : keel::round(24.0f * s);
+        const float gripH = isHoriz ? keel::round(24.0f * s) : keel::max(2.0f, keel::round(3.0f * s));
         if (sashRect.w >= (isHoriz ? 2.0f : gripW) && sashRect.h >= (isHoriz ? gripH : 2.0f)) {
             const Rect gripRect(
-                std::round(sashRect.Center().x - gripW * 0.5f),
-                std::round(sashRect.Center().y - gripH * 0.5f),
+                keel::round(sashRect.Center().x - gripW * 0.5f),
+                keel::round(sashRect.Center().y - gripH * 0.5f),
                 gripW,
                 gripH
             );
@@ -361,7 +361,7 @@ SplitViewScope SplitView::Open(
                         keel::clamp(opts.minRatio, 0.0f, 1.0f),
                         keel::clamp(opts.maxRatio, 0.0f, 1.0f)
                     );
-                    if (std::abs(st.ratio - resetTarget) > 1e-5f) {
+                    if (keel::abs(st.ratio - resetTarget) > 1e-5f) {
                         st.ratio = resetTarget;
                         res.changed = true;
                     }
@@ -387,7 +387,7 @@ SplitViewScope SplitView::Open(
         if (st.dragging) {
             if (ctx.IsMouseDown()) {
                 res.pressed = true;
-                const float sashPx = keel::max(2.0f, std::round(opts.sashSize));
+                const float sashPx = keel::max(2.0f, keel::round(opts.sashSize));
                 const float containerSpan = isHoriz ? st.prevContainerRect.w : st.prevContainerRect.h;
                 const float availSpan = keel::max(1.0f, containerSpan - sashPx);
                 const float delta = isHoriz
@@ -414,7 +414,7 @@ SplitViewScope SplitView::Open(
                     newRatio = ClampSplitRatio(rawRatio, availSpan, safeScale, opts);
                 }
 
-                if (std::abs(newRatio - st.ratio) > 1e-4f) {
+                if (keel::abs(newRatio - st.ratio) > 1e-4f) {
                     st.ratio = newRatio;
                     res.changed = true;
                     ctx.InvalidateAll();

@@ -1,8 +1,8 @@
 #include "guikit/panels/scroll_area.hpp"
-#include <cmath>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
+#include "keel/math.h"
 
 namespace guikit {
 
@@ -211,7 +211,7 @@ void ScrollArea::UpdateAxisScrollbar(
         }
     }
 
-    if (ioDragging || std::abs(ioScrollOffset - prevOffset) > 0.01f) {
+    if (ioDragging || keel::abs(ioScrollOffset - prevOffset) > 0.01f) {
         ctx.RequestRepaint(2);
     }
 }
@@ -347,8 +347,8 @@ void ScrollArea::Update(Context& ctx, Node* node) {
                 }
             }
 
-            if (std::abs(state.offset.x - prevOffset.x) > 0.01f ||
-                std::abs(state.offset.y - prevOffset.y) > 0.01f) {
+            if (keel::abs(state.offset.x - prevOffset.x) > 0.01f ||
+                keel::abs(state.offset.y - prevOffset.y) > 0.01f) {
                 ctx.ConsumeMouseWheel();
                 ctx.RequestRepaint(2);
             }

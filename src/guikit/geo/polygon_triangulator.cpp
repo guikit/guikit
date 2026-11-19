@@ -1,5 +1,4 @@
 #include "guikit/geo/polygon_triangulator.hpp"
-#include <cmath>
 #include "keel/algo.h"
 #include "keel/array.h"
 #include "keel/core.h"
@@ -13,7 +12,7 @@ namespace {
 constexpr double kEps = 1e-11;
 
 [[nodiscard]] bool NearlyEqual(guikit::GeoCoord a, guikit::GeoCoord b) noexcept {
-    return std::abs(a.lon - b.lon) <= kEps && std::abs(a.lat - b.lat) <= kEps;
+    return keel::abs(a.lon - b.lon) <= kEps && keel::abs(a.lat - b.lat) <= kEps;
 }
 
 /// 2D cross product (b - a) x (c - a) in (lon, lat) space.
@@ -63,7 +62,7 @@ void BridgeHoleIntoContour(
     keel::usize holeMaxIdx = 0;
     for (keel::usize i = 1; i < hole.size(); ++i) {
         if (hole[i].lon > hole[holeMaxIdx].lon ||
-            (std::abs(hole[i].lon - hole[holeMaxIdx].lon) <= kEps && hole[i].lat > hole[holeMaxIdx].lat)) {
+            (keel::abs(hole[i].lon - hole[holeMaxIdx].lon) <= kEps && hole[i].lat > hole[holeMaxIdx].lat)) {
             holeMaxIdx = i;
         }
     }
@@ -83,7 +82,7 @@ void BridgeHoleIntoContour(
         const bool straddles = (v0.lat > M.lat) != (v1.lat > M.lat);
         if (!straddles) {
             // Handle horizontal or vertex-touching case
-            if (std::abs(v0.lat - M.lat) <= kEps && v0.lon >= M.lon - kEps) {
+            if (keel::abs(v0.lat - M.lat) <= kEps && v0.lon >= M.lon - kEps) {
                 if (v0.lon < bestIntersectLon) {
                     bestIntersectLon = v0.lon;
                     I = v0;
@@ -145,9 +144,9 @@ void BridgeHoleIntoContour(
                         const double dy = curr.lat - M.lat;
                         const double distSq = dx * dx + dy * dy;
                         if (distSq > kEps) {
-                            const double angleCos = dx / std::sqrt(distSq);
+                            const double angleCos = dx / keel::sqrt(distSq);
                             if (angleCos > minAngleCos + kEps ||
-                                (std::abs(angleCos - minAngleCos) <= kEps && distSq < minDistSq)) {
+                                (keel::abs(angleCos - minAngleCos) <= kEps && distSq < minDistSq)) {
                                 minAngleCos = angleCos;
                                 minDistSq = distSq;
                                 visibleIdx = i;
@@ -330,7 +329,7 @@ void PolygonTriangulator::TriangulatePolygon(GeoPolygon& poly) {
         const guikit::GeoCoord a = contour[indices[m - 1]];
         const guikit::GeoCoord b = contour[indices[0]];
         const guikit::GeoCoord c = contour[indices[1]];
-        if (std::abs(Cross2D(a, b, c)) > kEps) {
+        if (keel::abs(Cross2D(a, b, c)) > kEps) {
             poly.triangles.push_back({a, b, c});
         }
         indices.remove_at(0);
@@ -340,7 +339,7 @@ void PolygonTriangulator::TriangulatePolygon(GeoPolygon& poly) {
         const guikit::GeoCoord a = contour[indices[0]];
         const guikit::GeoCoord b = contour[indices[1]];
         const guikit::GeoCoord c = contour[indices[2]];
-        if (std::abs(Cross2D(a, b, c)) > kEps) {
+        if (keel::abs(Cross2D(a, b, c)) > kEps) {
             poly.triangles.push_back({a, b, c});
         }
     }

@@ -1,5 +1,6 @@
 #include "guikit/widgets/date_picker.hpp"
 #include <ctime>
+#include "keel/math.h"
 #include "keel/static_array.h"
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
@@ -326,9 +327,9 @@ DatePickerPopoverLayout ComputePopoverLayout(
     const keel::StringRef doneLabel = ResolveDoneLabel(opts);
     constexpr float kFooterBtnPadX = 12.0f;
     float todayW = opts.showTodayButton
-        ? keel::max(64.0f, std::ceil(TextUtil::MeasureWidth(todayLabel, smallFont, canvas)) + kFooterBtnPadX * 2.0f)
+        ? keel::max(64.0f, keel::ceil(TextUtil::MeasureWidth(todayLabel, smallFont, canvas)) + kFooterBtnPadX * 2.0f)
         : 0.0f;
-    float doneW = keel::max(62.0f, std::ceil(TextUtil::MeasureWidth(doneLabel, smallFont, canvas)) + kFooterBtnPadX * 2.0f);
+    float doneW = keel::max(62.0f, keel::ceil(TextUtil::MeasureWidth(doneLabel, smallFont, canvas)) + kFooterBtnPadX * 2.0f);
     const float footerMinInnerW = opts.showTodayButton ? (todayW + 8.0f + doneW) : doneW;
 
     float popupW = l.hasCalendar
@@ -350,15 +351,15 @@ DatePickerPopoverLayout ComputePopoverLayout(
 
     if (vpRect.h > 60.0f && totalH > vpRect.h - 12.0f) {
         const float fitScale = keel::clamp((vpRect.h - 12.0f) / totalH, 0.56f, 1.0f);
-        pad = std::floor(pad * fitScale);
-        headerH = std::floor(headerH * fitScale);
-        weekdayH = std::floor(weekdayH * fitScale);
-        cellH = std::floor(cellH * fitScale);
+        pad = keel::floor(pad * fitScale);
+        headerH = keel::floor(headerH * fitScale);
+        weekdayH = keel::floor(weekdayH * fitScale);
+        cellH = keel::floor(cellH * fitScale);
         gridH = l.hasCalendar ? (cellH * 6.0f) : 0.0f;
-        timeH = std::floor(timeH * fitScale);
-        footerH = std::floor(footerH * fitScale);
-        headerGap = std::floor(headerGap * fitScale);
-        sectionGap = std::floor(sectionGap * fitScale);
+        timeH = keel::floor(timeH * fitScale);
+        footerH = keel::floor(footerH * fitScale);
+        headerGap = keel::floor(headerGap * fitScale);
+        sectionGap = keel::floor(sectionGap * fitScale);
 
         totalH = pad * 2.0f + footerH;
         if (l.hasCalendar) {
@@ -454,7 +455,7 @@ DatePickerPopoverLayout ComputePopoverLayout(
         const float maxButtonsW = keel::max(0.0f, innerW - 6.0f);
         if (todayW + doneW > maxButtonsW && maxButtonsW > 0.0f) {
             const float ratio = maxButtonsW / (todayW + doneW);
-            todayW = std::floor(todayW * ratio);
+            todayW = keel::floor(todayW * ratio);
             doneW = keel::max(24.0f, maxButtonsW - todayW);
         }
         l.todayBtnRect = Rect(innerX, btnY, todayW, btnH);

@@ -1,4 +1,4 @@
-#include <cmath>
+#include "keel/math.h"
 #include "../demo_context.hpp"
 #include "guikit/geo/geo_json_io.hpp"
 #include "guikit/geo/gis_render_engine.hpp"
@@ -89,7 +89,7 @@ struct GisScreenState {
                 const double spanLat = keel::max(0.005, chartBounds.SpanLat());
                 const double maxSpan = keel::max(spanLon, spanLat * 1.35);
                 initialTileZoom = keel::clamp(
-                    static_cast<float>(std::log2(360.0 / (maxSpan * 1.35))),
+                    static_cast<float>(keel::log2(360.0 / (maxSpan * 1.35))),
                     2.0f,
                     16.5f
                 );

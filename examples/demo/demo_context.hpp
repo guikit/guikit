@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cmath>
 #include "guikit/guikit.hpp"
 #include "keel/keel.h"
 

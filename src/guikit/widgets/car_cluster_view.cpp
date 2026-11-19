@@ -1,5 +1,4 @@
 #include "guikit/widgets/car_cluster_view.hpp"
-#include <cmath>
 #include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 #include "keel/core.h"
@@ -155,17 +154,17 @@ void DrawCircularArc(
     float thickness,
     keel::i32 segments = 36
 ) noexcept {
-    if (radius <= 1.0f || std::abs(endDeg - startDeg) < 0.2f || segments < 2) return;
+    if (radius <= 1.0f || keel::abs(endDeg - startDeg) < 0.2f || segments < 2) return;
     const float step = (endDeg - startDeg) / static_cast<float>(segments);
     Vec2 prev{
-        center.x + std::cos(keel::deg_to_rad(startDeg)) * radius,
-        center.y + std::sin(keel::deg_to_rad(startDeg)) * radius
+        center.x + keel::cos(keel::deg_to_rad(startDeg)) * radius,
+        center.y + keel::sin(keel::deg_to_rad(startDeg)) * radius
     };
     for (keel::i32 i = 1; i <= segments; ++i) {
         const float deg = startDeg + step * static_cast<float>(i);
         const Vec2 cur{
-            center.x + std::cos(keel::deg_to_rad(deg)) * radius,
-            center.y + std::sin(keel::deg_to_rad(deg)) * radius
+            center.x + keel::cos(keel::deg_to_rad(deg)) * radius,
+            center.y + keel::sin(keel::deg_to_rad(deg)) * radius
         };
         canvas.DrawLine(prev, cur, color, thickness);
         prev = cur;
@@ -185,7 +184,7 @@ void DrawGaugeNeedle(
     float s
 ) noexcept {
     const float rad = keel::deg_to_rad(angleDeg);
-    const Vec2 dir{std::cos(rad), std::sin(rad)};
+    const Vec2 dir{keel::cos(rad), keel::sin(rad)};
     const Vec2 nrm{-dir.y, dir.x};
 
     const Vec2 tip{center.x + dir.x * outerR, center.y + dir.y * outerR};
@@ -441,14 +440,14 @@ void RenderSpeedometerDial(
         const float cruiseDisp = keel::clamp(DisplaySpeed(opts.cruiseTargetKmh, opts.speedUnit), 0.0f, maxSpdDisp);
         const float cruiseDeg = kStartDeg + (cruiseDisp / maxSpdDisp) * kSweepDeg;
         const float cRad = keel::deg_to_rad(cruiseDeg);
-        const Vec2 bugTip{center.x + std::cos(cRad) * (arcR - 4.0f * s), center.y + std::sin(cRad) * (arcR - 4.0f * s)};
+        const Vec2 bugTip{center.x + keel::cos(cRad) * (arcR - 4.0f * s), center.y + keel::sin(cRad) * (arcR - 4.0f * s)};
         const Vec2 bugL{
-            center.x + std::cos(keel::deg_to_rad(cruiseDeg - 3.2f)) * (arcR + 6.0f * s),
-            center.y + std::sin(keel::deg_to_rad(cruiseDeg - 3.2f)) * (arcR + 6.0f * s)
+            center.x + keel::cos(keel::deg_to_rad(cruiseDeg - 3.2f)) * (arcR + 6.0f * s),
+            center.y + keel::sin(keel::deg_to_rad(cruiseDeg - 3.2f)) * (arcR + 6.0f * s)
         };
         const Vec2 bugR{
-            center.x + std::cos(keel::deg_to_rad(cruiseDeg + 3.2f)) * (arcR + 6.0f * s),
-            center.y + std::sin(keel::deg_to_rad(cruiseDeg + 3.2f)) * (arcR + 6.0f * s)
+            center.x + keel::cos(keel::deg_to_rad(cruiseDeg + 3.2f)) * (arcR + 6.0f * s),
+            center.y + keel::sin(keel::deg_to_rad(cruiseDeg + 3.2f)) * (arcR + 6.0f * s)
         };
         canvas.DrawTriangle(bugTip, bugL, bugR, pal.ecoGreen);
     }
@@ -467,8 +466,8 @@ void RenderSpeedometerDial(
         const float rOuter = radius * 0.89f;
         const float rInner = radius * (isMajor ? 0.78f : 0.835f);
 
-        const Vec2 p0{center.x + std::cos(rad) * rInner, center.y + std::sin(rad) * rInner};
-        const Vec2 p1{center.x + std::cos(rad) * rOuter, center.y + std::sin(rad) * rOuter};
+        const Vec2 p0{center.x + keel::cos(rad) * rInner, center.y + keel::sin(rad) * rInner};
+        const Vec2 p1{center.x + keel::cos(rad) * rOuter, center.y + keel::sin(rad) * rOuter};
         const Color tickCol = (static_cast<float>(v) <= curSpdDisp + 0.5f)
             ? (isMajor ? pal.textBright : pal.primaryAccent)
             : (isMajor ? pal.tickMajor : pal.tickMinor);
@@ -476,7 +475,7 @@ void RenderSpeedometerDial(
 
         if (isMajor && radius >= 68.0f) {
             const float labelR = radius * 0.65f;
-            const Vec2 lp{center.x + std::cos(rad) * labelR, center.y + std::sin(rad) * labelR};
+            const Vec2 lp{center.x + keel::cos(rad) * labelR, center.y + keel::sin(rad) * labelR};
             char buf[16]{};
             const Rect lblBox(lp.x - 16.0f * s, lp.y - 8.0f * s, 32.0f * s, 16.0f * s);
             canvas.DrawTextBox(keel::format_buf(buf, "%d", v), lblBox, keel::clamp(radius * 0.095f, 8.5f * s, 12.5f * s),
@@ -597,14 +596,14 @@ void RenderTachOrPowerDial(
 
             const float rOuter = radius * 0.89f;
             const float rInner = radius * (isMajor ? 0.78f : 0.835f);
-            const Vec2 p0{center.x + std::cos(rad) * rInner, center.y + std::sin(rad) * rInner};
-            const Vec2 p1{center.x + std::cos(rad) * rOuter, center.y + std::sin(rad) * rOuter};
+            const Vec2 p0{center.x + keel::cos(rad) * rInner, center.y + keel::sin(rad) * rInner};
+            const Vec2 p1{center.x + keel::cos(rad) * rOuter, center.y + keel::sin(rad) * rOuter};
             const Color tickCol = inRed ? pal.dangerRed : (isMajor ? pal.tickMajor : pal.tickMinor);
             canvas.DrawLine(p0, p1, tickCol, (isMajor ? 2.2f : 1.0f) * s);
 
             if (isMajor && radius >= 68.0f) {
                 const float labelR = radius * 0.65f;
-                const Vec2 lp{center.x + std::cos(rad) * labelR, center.y + std::sin(rad) * labelR};
+                const Vec2 lp{center.x + keel::cos(rad) * labelR, center.y + keel::sin(rad) * labelR};
                 char buf[8]{};
                 canvas.DrawTextBox(
                     keel::format_buf(buf, "%d", t / 5),
@@ -655,12 +654,12 @@ void RenderTachOrPowerDial(
         for (const auto& et : kEvTicks) {
             const float deg = kStartDeg + et.frac * kSweepDeg;
             const float rad = keel::deg_to_rad(deg);
-            const Vec2 p0{center.x + std::cos(rad) * (radius * 0.78f), center.y + std::sin(rad) * (radius * 0.78f)};
-            const Vec2 p1{center.x + std::cos(rad) * (radius * 0.89f), center.y + std::sin(rad) * (radius * 0.89f)};
+            const Vec2 p0{center.x + keel::cos(rad) * (radius * 0.78f), center.y + keel::sin(rad) * (radius * 0.78f)};
+            const Vec2 p1{center.x + keel::cos(rad) * (radius * 0.89f), center.y + keel::sin(rad) * (radius * 0.89f)};
             canvas.DrawLine(p0, p1, et.col, 2.0f * s);
             if (radius >= 68.0f) {
                 const float labelR = radius * 0.64f;
-                const Vec2 lp{center.x + std::cos(rad) * labelR, center.y + std::sin(rad) * labelR};
+                const Vec2 lp{center.x + keel::cos(rad) * labelR, center.y + keel::sin(rad) * labelR};
                 canvas.DrawTextBox(
                     et.label,
                     Rect(lp.x - 16.0f * s, lp.y - 8.0f * s, 32.0f * s, 16.0f * s),
@@ -844,7 +843,7 @@ void RenderAdasLaneRadarPage(
 
     // Animated scrolling distance chevrons along ego lane carpet
     for (keel::i32 k = 0; k < 5; ++k) {
-        float depthT = std::fmod(static_cast<float>(k) * 0.20f + roadPhase, 1.0f);
+        float depthT = keel::fmod(static_cast<float>(k) * 0.20f + roadPhase, 1.0f);
         depthT = depthT * depthT; // perspective foreshortening
         if (depthT < 0.08f || depthT > 0.85f) continue;
         const float y = horizonY + depthT * roadH;
@@ -1041,7 +1040,7 @@ void RenderGForceDynamicsPage(
     canvas.DrawLine(gCenter, puck, pal.primaryAccent, 2.0f * s);
     DrawCircleRing(canvas, puck, 5.0f * s, pal.dangerRed, pal.textBright, 1.4f * s);
 
-    const float totalG = std::hypot(opts.latG, opts.lonG);
+    const float totalG = keel::hypot(opts.latG, opts.lonG);
     char gBuf[48]{};
     const keel::StringRef gRef = keel::format_buf(gBuf, "%.2f G  (PEAK %.2f G)", totalG, keel::max(totalG, opts.peakG));
     canvas.DrawTextBox(
@@ -1484,7 +1483,7 @@ CarClusterViewResponse CarClusterView::Run(
     auto& state = ctx.GetOrCreatePersistentState<CarClusterViewState>(id);
     // Advance animated road scroll phase proportionally to vehicle speed
     const float speedMps = keel::max(0.0f, opts.speedKmh) / 3.6f;
-    state.roadScrollPhase = std::fmod(state.roadScrollPhase + static_cast<double>(speedMps) * 0.0018, 1.0);
+    state.roadScrollPhase = keel::fmod(state.roadScrollPhase + static_cast<double>(speedMps) * 0.0018, 1.0);
 
     Rect prevBounds = baseRes.rect;
     if (prevBounds.w <= 1.0f || prevBounds.h <= 1.0f) {
@@ -1535,7 +1534,7 @@ CarClusterViewResponse CarClusterView::Run(
 
             // Mouse wheel shifts manual gear 1..8
             const float wheelY = ctx.GetMouseWheel().y;
-            if (std::abs(wheelY) > 0.01f && opts.manualGearPtr) {
+            if (keel::abs(wheelY) > 0.01f && opts.manualGearPtr) {
                 const keel::i32 step = (wheelY > 0.0f) ? 1 : -1;
                 const keel::i32 newGear = keel::clamp(*opts.manualGearPtr + step, 1, 8);
                 if (newGear != *opts.manualGearPtr) {

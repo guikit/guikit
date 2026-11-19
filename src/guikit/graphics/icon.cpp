@@ -1,5 +1,5 @@
 #include "guikit/graphics/icon.hpp"
-#include <cmath>
+#include "keel/math.h"
 #include "guikit/backend/i_canvas.hpp"
 
 namespace guikit {
@@ -31,11 +31,11 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
             }
 
             case IconId::Plus: {
-                const float t = (s >= 11.0f) ? keel::max(2.0f, std::round(s * 0.14f)) : 1.5f;
-                const float armLen = keel::max(2.0f, std::round(s * 0.25f));
+                const float t = (s >= 11.0f) ? keel::max(2.0f, keel::round(s * 0.14f)) : 1.5f;
+                const float armLen = keel::max(2.0f, keel::round(s * 0.25f));
                 const float span = t + armLen * 2.0f;
-                const float vx = std::round(cx - t * 0.5f);
-                const float hy = std::round(cy - t * 0.5f);
+                const float vx = keel::round(cx - t * 0.5f);
+                const float hy = keel::round(cy - t * 0.5f);
                 const float hx0 = vx - armLen;
                 const float vy0 = hy - armLen;
                 const float r = t * 0.5f;
@@ -50,11 +50,11 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
             }
 
             case IconId::Minus: {
-                const float t = (s >= 11.0f) ? keel::max(2.0f, std::round(s * 0.14f)) : 1.5f;
-                const float armLen = keel::max(2.0f, std::round(s * 0.25f));
+                const float t = (s >= 11.0f) ? keel::max(2.0f, keel::round(s * 0.14f)) : 1.5f;
+                const float armLen = keel::max(2.0f, keel::round(s * 0.25f));
                 const float span = t + armLen * 2.0f;
-                const float vx = std::round(cx - t * 0.5f);
-                const float hy = std::round(cy - t * 0.5f);
+                const float vx = keel::round(cx - t * 0.5f);
+                const float hy = keel::round(cy - t * 0.5f);
                 const float hx0 = vx - armLen;
                 canvas.DrawRoundRect(Rect(hx0, hy, span, t), t * 0.5f, tint);
                 break;
@@ -89,11 +89,11 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
                 constexpr keel::i32 kSegs = 12;
                 const float startAng = 0.610865f;  // 35 deg
                 const float endAng   = 5.497787f;  // 315 deg (-45 deg, top-right)
-                Vec2 prevPt(cx + r * std::cos(startAng), cy + r * std::sin(startAng));
+                Vec2 prevPt(cx + r * keel::cos(startAng), cy + r * keel::sin(startAng));
                 for (keel::i32 i = 1; i <= kSegs; ++i) {
                     const float t = static_cast<float>(i) / static_cast<float>(kSegs);
                     const float ang = startAng + t * (endAng - startAng);
-                    const Vec2 curPt(cx + r * std::cos(ang), cy + r * std::sin(ang));
+                    const Vec2 curPt(cx + r * keel::cos(ang), cy + r * keel::sin(ang));
                     canvas.DrawLine(prevPt, curPt, tint, stroke);
                     prevPt = curPt;
                 }
@@ -164,8 +164,8 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
                 // 6 radial gear teeth spaced at 60 degree intervals
                 for (keel::i32 i = 0; i < 6; ++i) {
                     const float angle = static_cast<float>(i) * 1.04719755f; // pi / 3
-                    const float ca = std::cos(angle);
-                    const float sa = std::sin(angle);
+                    const float ca = keel::cos(angle);
+                    const float sa = keel::sin(angle);
                     canvas.DrawLine(
                         Vec2(cx + rHub * 0.8f * ca, cy + rHub * 0.8f * sa),
                         Vec2(cx + rTeeth * ca, cy + rTeeth * sa),
@@ -304,11 +304,11 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
                 constexpr keel::i32 kSegs = 8;
                 const float startAng = -2.65f; // ~ -152 deg (left-bottom)
                 const float endAng   = -0.49f; // ~ -28 deg (right-bottom)
-                Vec2 prevPt(cx + arcR * std::cos(startAng), arcCy + arcR * std::sin(startAng));
+                Vec2 prevPt(cx + arcR * keel::cos(startAng), arcCy + arcR * keel::sin(startAng));
                 for (keel::i32 i = 1; i <= kSegs; ++i) {
                     const float t = static_cast<float>(i) / static_cast<float>(kSegs);
                     const float ang = startAng + t * (endAng - startAng);
-                    const Vec2 curPt(cx + arcR * std::cos(ang), arcCy + arcR * std::sin(ang));
+                    const Vec2 curPt(cx + arcR * keel::cos(ang), arcCy + arcR * keel::sin(ang));
                     canvas.DrawLine(prevPt, curPt, tint, stroke);
                     prevPt = curPt;
                 }

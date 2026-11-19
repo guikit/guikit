@@ -1,10 +1,10 @@
 #pragma once
 
-#include <cmath>
 #include "demo_context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
 #include "keel/keel.h"
+#include "keel/math.h"
 
 namespace guikit::demo {
 
@@ -22,14 +22,14 @@ inline void RenderDotGridBackdrop(const guikit::Node* n, guikit::ICanvas& canvas
 
     // Subtle studio dot-grid pattern
     constexpr float scale = 1.0f;
-    const float step = std::round(18.0f * scale);
-    const float dotSize = keel::max(1.5f, std::round(1.5f * scale));
+    const float step = keel::round(18.0f * scale);
+    const float dotSize = keel::max(1.5f, keel::round(1.5f * scale));
     const guikit::Color dotColor = isLight
         ? guikit::Color(100, 116, 139, 46)
         : guikit::Color(148, 163, 184, 30);
 
-    const float startX = std::floor(r.x + step * 0.5f);
-    const float startY = std::floor(r.y + step * 0.5f);
+    const float startX = keel::floor(r.x + step * 0.5f);
+    const float startY = keel::floor(r.y + step * 0.5f);
     const float endX = r.Right() - 2.0f;
     const float endY = r.Bottom() - 2.0f;
     for (float y = startY; y < endY; y += step) {
@@ -55,7 +55,7 @@ inline void RenderBackdropHudBadge(const guikit::Node* n, guikit::ICanvas& canva
     if (r.w <= 160.0f || r.h <= 60.0f) return;
 
     constexpr float s = 1.0f;
-    const float fontSize = std::round(11.0f * s);
+    const float fontSize = keel::round(11.0f * s);
     const guikit::Vec2 textSz = canvas.MeasureText(n->text, fontSize);
     const float padX = 9.0f * s;
     const float padY = 4.0f * s;
@@ -125,7 +125,7 @@ inline void RenderDeviceChassisButtons(const guikit::Node* n, guikit::ICanvas& c
 
     constexpr float s = 1.0f;
     const guikit::Color btnCol(71, 85, 105, 255);
-    const float btnThickness = keel::max(1.5f, std::round(2.5f * s));
+    const float btnThickness = keel::max(1.5f, keel::round(2.5f * s));
 
     if (r.h >= r.w) {
         // Portrait orientation: volume rockers on left edge, power button on right edge
@@ -232,7 +232,7 @@ inline void RenderDeviceStatusSafeArea(const guikit::Node* n, guikit::ICanvas& c
     const guikit::Color fgMuted = theme.palette.textSecondary;
 
     // 1. Left: System Clock ("9:41")
-    const float fontSize = keel::max(7.0f, std::round(11.0f * s));
+    const float fontSize = keel::max(7.0f, keel::round(11.0f * s));
     const float textY = r.y + (r.h - fontSize) * 0.5f;
     const float edgeInset = IsPhone ? (22.0f * s) : (18.0f * s);
     canvas.DrawText("9:41", {r.x + edgeInset, textY}, fontSize, fg);
@@ -262,7 +262,7 @@ inline void RenderDeviceHomeIndicatorSafeArea(const guikit::Node* n, guikit::ICa
 
     constexpr float s = 1.0f;
     const float pillW = keel::min(r.w * 0.36f, 114.0f * s);
-    const float pillH = keel::max(2.0f, std::round(4.0f * s));
+    const float pillH = keel::max(2.0f, keel::round(4.0f * s));
     const float pillX = r.Center().x - pillW * 0.5f;
     const float pillY = r.Center().y - pillH * 0.5f;
     canvas.DrawRoundRect(
@@ -374,9 +374,9 @@ inline void RenderPreviewViewport(
         // Interactive Ctrl + MouseWheel zoom over the preview viewport
         if (backdropBounds.w > 0.0f && backdropBounds.Contains(ui.GetMousePos()) && ui.GetKeyModifiers().ctrl) {
             const float wheelY = ui.GetMouseWheel().y;
-            if (std::abs(wheelY) > 0.001f) {
-                const float snappedBase = std::round(effectiveZoom * 20.0f) / 20.0f;
-                const float step = (wheelY > 0.0f ? 0.05f : -0.05f) * keel::max(1.0f, std::round(std::abs(wheelY)));
+            if (keel::abs(wheelY) > 0.001f) {
+                const float snappedBase = keel::round(effectiveZoom * 20.0f) / 20.0f;
+                const float step = (wheelY > 0.0f ? 0.05f : -0.05f) * keel::max(1.0f, keel::round(keel::abs(wheelY)));
                 effectiveZoom = keel::clamp(snappedBase + step, 0.35f, 2.50f);
                 demoCtx.previewCustomZoom = effectiveZoom;
                 demoCtx.previewZoomModeIdx = static_cast<keel::usize>(PreviewZoomMode::Custom);
@@ -508,16 +508,16 @@ inline void RenderPreviewViewport(
                             else if (edge & 4)        ui.SetCursor(guikit::CursorType::ResizeNS);
                         };
 
-                        const float maxFitW = keel::max(320.0f, std::floor(availPxW / relScale));
-                        const float maxFitH = keel::max(220.0f, std::floor(availPxH / relScale));
+                        const float maxFitW = keel::max(320.0f, keel::floor(availPxW / relScale));
+                        const float maxFitH = keel::max(220.0f, keel::floor(availPxH / relScale));
 
                         auto toggleMaximizeRestore = [&]() {
                             if (demoCtx.previewWindowCustomSize) {
                                 demoCtx.previewWindowCustomSize = false;
                             } else {
                                 demoCtx.previewWindowCustomSize = true;
-                                demoCtx.previewWindowW = keel::clamp(std::round(maxFitW * 0.78f), 320.0f, maxFitW);
-                                demoCtx.previewWindowH = keel::clamp(std::round(maxFitH * 0.78f), 220.0f, maxFitH);
+                                demoCtx.previewWindowW = keel::clamp(keel::round(maxFitW * 0.78f), 320.0f, maxFitW);
+                                demoCtx.previewWindowH = keel::clamp(keel::round(maxFitH * 0.78f), 220.0f, maxFitH);
                             }
                             ui.InvalidateAll();
                         };
@@ -534,10 +534,10 @@ inline void RenderPreviewViewport(
                                     demoCtx.previewWindowDragStartMouse = mouse;
                                     demoCtx.previewWindowDragStartW = demoCtx.previewWindowCustomSize
                                         ? demoCtx.previewWindowW
-                                        : keel::clamp(std::round(winBounds.w / relScale), 320.0f, maxFitW);
+                                        : keel::clamp(keel::round(winBounds.w / relScale), 320.0f, maxFitW);
                                     demoCtx.previewWindowDragStartH = demoCtx.previewWindowCustomSize
                                         ? demoCtx.previewWindowH
-                                        : keel::clamp(std::round(winBounds.h / relScale), 220.0f, maxFitH);
+                                        : keel::clamp(keel::round(winBounds.h / relScale), 220.0f, maxFitH);
                                     ui.SetActiveId(winResizeId);
                                     ui.ConsumeMouseClick();
                                     ui.InvalidateAll();
@@ -561,21 +561,21 @@ inline void RenderPreviewViewport(
                                 const keel::u8 edge = demoCtx.previewWindowResizeEdge;
                                 const float rawDx = mouse.x - demoCtx.previewWindowDragStartMouse.x;
                                 const float rawDy = mouse.y - demoCtx.previewWindowDragStartMouse.y;
-                                if (demoCtx.previewWindowCustomSize || std::abs(rawDx) > 1.0f || std::abs(rawDy) > 1.0f) {
+                                if (demoCtx.previewWindowCustomSize || keel::abs(rawDx) > 1.0f || keel::abs(rawDy) > 1.0f) {
                                     demoCtx.previewWindowCustomSize = true;
                                     // Symmetric 2x delta keeps the dragged edge locked 1:1 under the cursor while centered
                                     if (edge & 2) {
                                         const float dx = rawDx * 2.0f / relScale;
-                                        demoCtx.previewWindowW = keel::clamp(std::round(demoCtx.previewWindowDragStartW + dx), 320.0f, maxFitW);
+                                        demoCtx.previewWindowW = keel::clamp(keel::round(demoCtx.previewWindowDragStartW + dx), 320.0f, maxFitW);
                                     } else if (edge & 1) {
                                         const float dx = -rawDx * 2.0f / relScale;
-                                        demoCtx.previewWindowW = keel::clamp(std::round(demoCtx.previewWindowDragStartW + dx), 320.0f, maxFitW);
+                                        demoCtx.previewWindowW = keel::clamp(keel::round(demoCtx.previewWindowDragStartW + dx), 320.0f, maxFitW);
                                     } else {
                                         demoCtx.previewWindowW = keel::clamp(demoCtx.previewWindowDragStartW, 320.0f, maxFitW);
                                     }
                                     if (edge & 4) {
                                         const float dy = rawDy * 2.0f / relScale;
-                                        demoCtx.previewWindowH = keel::clamp(std::round(demoCtx.previewWindowDragStartH + dy), 220.0f, maxFitH);
+                                        demoCtx.previewWindowH = keel::clamp(keel::round(demoCtx.previewWindowDragStartH + dy), 220.0f, maxFitH);
                                     } else {
                                         demoCtx.previewWindowH = keel::clamp(demoCtx.previewWindowDragStartH, 220.0f, maxFitH);
                                     }

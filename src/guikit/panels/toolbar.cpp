@@ -1,11 +1,11 @@
 #include "guikit/panels/toolbar.hpp"
-#include <cmath>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/solver.hpp"
 #include "guikit/panels/carousel.hpp"
 #include "guikit/panels/scroll_area.hpp"
+#include "keel/math.h"
 #include "keel/small_array.h"
 
 namespace guikit {
@@ -125,14 +125,14 @@ void RenderToolButtonNode(const Node* n, ICanvas& canvas, const UiTheme& theme) 
     }
     Button::Render(canvas, mainRect, mainBtn, n->uiSize, false, false, n->disabled, theme, false);
 
-    const float sepX = std::floor(chevRect.x) + 0.5f;
-    const float sepPadY = (anyHov && !active) ? 2.0f : std::round(fullRect.h * 0.20f);
+    const float sepX = keel::floor(chevRect.x) + 0.5f;
+    const float sepPadY = (anyHov && !active) ? 2.0f : keel::round(fullRect.h * 0.20f);
     const Color sepCol = active
         ? textCol.WithAlphaF(n->disabled ? 0.15f : 0.28f)
         : theme.palette.border.WithAlphaF(n->disabled ? 0.20f : (anyHov ? 0.85f : 0.45f));
     canvas.DrawLine(Vec2(sepX, fullRect.y + sepPadY), Vec2(sepX, fullRect.Bottom() - sepPadY), sepCol, 1.0f);
 
-    const float chevIconSz = std::round(m.iconSize * 0.72f);
+    const float chevIconSz = keel::round(m.iconSize * 0.72f);
     const Rect chevIconRect(
         chevRect.x + (chevRect.w - chevIconSz) * 0.5f,
         chevRect.y + (chevRect.h - chevIconSz) * 0.5f,
@@ -343,7 +343,7 @@ ToolbarScope Toolbar::Open(
         ? FlexDirection::Column
         : (opts.overflow == ToolbarOverflow::Wrap ? FlexDirection::Wrap : FlexDirection::Row);
     node->align = Alignment::Center;
-    const float defaultGap = keel::max(4.0f, std::round(theme.GetGap(activeSize) * 0.5f)) * density;
+    const float defaultGap = keel::max(4.0f, keel::round(theme.GetGap(activeSize) * 0.5f)) * density;
     const float crossPad = 4.0f * density;
     node->gap = opts.gap.has_value() ? theme.ResolveGap(opts.gap, activeSize, density) : defaultGap;
     node->runGap = node->gap;
@@ -356,7 +356,7 @@ ToolbarScope Toolbar::Open(
             if (t.IsNone()) {
                 toolbarPadding = Padding{};
             } else {
-                const float g = keel::max(4.0f, std::round(theme.GetGap(t) * 0.5f)) * density;
+                const float g = keel::max(4.0f, keel::round(theme.GetGap(t) * 0.5f)) * density;
                 toolbarPadding = isVertical
                     ? Padding::Symmetric(crossPad, g)
                     : Padding::Symmetric(g, crossPad);

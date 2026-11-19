@@ -1,6 +1,5 @@
 #include "guikit/widgets/markdown.hpp"
 #include <cctype>
-#include <cmath>
 #include <cstdio>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
@@ -913,7 +912,7 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
 
                     keel::usize pos = 0;
                     while (pos < lineStr.size()) {
-                        const keel::usize approxChars = keel::max<keel::usize>(1, static_cast<keel::usize>(std::floor(codeAvailW / spaceW)));
+                        const keel::usize approxChars = keel::max<keel::usize>(1, static_cast<keel::usize>(keel::floor(codeAvailW / spaceW)));
                         keel::usize fitEnd = keel::min(lineStr.size(), pos + approxChars);
                         while (fitEnd < lineStr.size() && (static_cast<keel::u8>(lineStr[fitEnd]) & 0xC0) == 0x80) {
                             ++fitEnd;
@@ -1561,7 +1560,7 @@ void RenderMarkdownDocumentLayout(
                         keel::usize leadSpaces = 0;
                         while (leadSpaces < vline.sliceStr.size() && vline.sliceStr[leadSpaces] == ' ') ++leadSpaces;
                         for (keel::usize col = 4; col <= leadSpaces; col += 4) {
-                            const float gx = std::round(screenCodeStartX + static_cast<float>(col) * bl.spaceW);
+                            const float gx = keel::round(screenCodeStartX + static_cast<float>(col) * bl.spaceW);
                             canvas.DrawLine({gx, screenLy}, {gx, screenLy + bl.codeLineH}, theme.palette.borderSubtle.WithAlpha(90), 1.0f);
                         }
                     }
@@ -1836,20 +1835,20 @@ MarkdownResponse Markdown::Run(
     // 1. Handle Smooth Zoom (Ctrl+Wheel & KeyAction::ZoomIn/ZoomOut/ZoomReset)
     if (optsCopy.allowZoom && !effectiveDisabled) {
         bool zoomChanged = false;
-        if (baseRes.hovered && ctx.GetKeyModifiers().ctrl && std::abs(ctx.GetMouseWheel().y) > 0.01f) {
+        if (baseRes.hovered && ctx.GetKeyModifiers().ctrl && keel::abs(ctx.GetMouseWheel().y) > 0.01f) {
             const float step = (ctx.GetMouseWheel().y > 0.0f) ? 0.1f : -0.1f;
-            const float nextZoom = keel::clamp(std::round((state.zoom + step) * 10.0f) / 10.0f, 0.5f, 3.0f);
-            if (std::abs(nextZoom - state.zoom) > 0.001f) {
+            const float nextZoom = keel::clamp(keel::round((state.zoom + step) * 10.0f) / 10.0f, 0.5f, 3.0f);
+            if (keel::abs(nextZoom - state.zoom) > 0.001f) {
                 state.zoom = nextZoom;
                 zoomChanged = true;
             }
         }
         if (isFocused || baseRes.hovered) {
             if (ctx.ConsumeAction(KeyAction::ZoomIn)) {
-                state.zoom = keel::clamp(std::round((state.zoom + 0.1f) * 10.0f) / 10.0f, 0.5f, 3.0f);
+                state.zoom = keel::clamp(keel::round((state.zoom + 0.1f) * 10.0f) / 10.0f, 0.5f, 3.0f);
                 zoomChanged = true;
             } else if (ctx.ConsumeAction(KeyAction::ZoomOut)) {
-                state.zoom = keel::clamp(std::round((state.zoom - 0.1f) * 10.0f) / 10.0f, 0.5f, 3.0f);
+                state.zoom = keel::clamp(keel::round((state.zoom - 0.1f) * 10.0f) / 10.0f, 0.5f, 3.0f);
                 zoomChanged = true;
             } else if (ctx.ConsumeAction(KeyAction::ZoomReset)) {
                 state.zoom = 1.0f;
@@ -2258,7 +2257,7 @@ MarkdownResponse Markdown::Run(
 
         keel::Arc<const MarkdownDocumentLayout> layoutHolder;
         const MarkdownDocumentLayout& layout =
-            (p->layout != nullptr && std::abs(p->layout->outerWidth - ctrlRect.w) < 1.0f)
+            (p->layout != nullptr && keel::abs(p->layout->outerWidth - ctrlRect.w) < 1.0f)
                 ? *p->layout
                 : *(layoutHolder = GetOrBuildMarkdownLayout(&canvas, ctrlRect.w, GetOrParseMarkdown(p->text), p->opts, th, p->zoom));
         const ParsedMarkdownDoc& parsedDoc = *layout.doc;

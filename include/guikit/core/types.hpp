@@ -1,8 +1,8 @@
 #pragma once
 
-#include <cmath>
 #include <initializer_list>
 #include "keel/core.h"
+#include "keel/math.h"
 #include "keel/md_ref.h"
 #include "keel/ref.h"
 #include "keel/static_array.h"
@@ -80,7 +80,7 @@ struct Vec2 {
     }
 
     [[nodiscard]] float Length() const noexcept {
-        return std::sqrt(x * x + y * y);
+        return keel::sqrt(x * x + y * y);
     }
 };
 
@@ -627,8 +627,8 @@ struct Dp {
 
     constexpr explicit Dp(float v) noexcept : value(v) {}
 
-    [[nodiscard]] inline float ToPixels(float scaleFactor) const noexcept {
-        return std::round(value * scaleFactor);
+    [[nodiscard]] constexpr float ToPixels(float scaleFactor) const noexcept {
+        return keel::round(value * scaleFactor);
     }
 };
 

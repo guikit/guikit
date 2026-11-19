@@ -1,9 +1,9 @@
 #include "guikit/widgets/breadcrumb.hpp"
-#include <cmath>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
+#include "keel/math.h"
 #include "keel/small_array.h"
 
 namespace guikit {
@@ -235,7 +235,7 @@ void DrawSeparatorGlyph(
 ) {
     const ComponentMetrics& cm = theme.GetMetrics(size);
     const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
-    const float iconSz = std::round(cm.iconSize * 0.78f);
+    const float iconSz = keel::round(cm.iconSize * 0.78f);
     const Vec2 center = sepRect.Center();
 
     switch (separator) {

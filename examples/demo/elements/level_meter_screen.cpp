@@ -1,4 +1,4 @@
-#include <cmath>
+#include "keel/math.h"
 #include "../demo_context.hpp"
 #include "guikit/widgets/level_meter.hpp"
 
@@ -145,14 +145,14 @@ void RenderLevelMeterStage(guikit::Context& ui, DemoContext& ctx) {
     if (s_state.simulateLive) {
         const double t = ui.GetCurrentTimeSec();
         const float envL = static_cast<float>(
-            std::sin(t * 4.2) * 4.5 +
-            std::sin(t * 11.3) * 2.8 +
-            keel::max(0.0, std::sin(t * 1.9)) * 4.2
+            keel::sin(t * 4.2) * 4.5 +
+            keel::sin(t * 11.3) * 2.8 +
+            keel::max(0.0, keel::sin(t * 1.9)) * 4.2
         );
         const float envR = static_cast<float>(
-            std::sin(t * 3.8 + 0.9) * 4.5 +
-            std::cos(t * 9.7) * 3.0 +
-            keel::max(0.0, std::sin(t * 1.9 + 0.4)) * 4.0
+            keel::sin(t * 3.8 + 0.9) * 4.5 +
+            keel::cos(t * 9.7) * 3.0 +
+            keel::max(0.0, keel::sin(t * 1.9 + 0.4)) * 4.0
         );
         chLeft = keel::clamp(s_state.levelDb + envL, -60.0f, 0.0f);
         chRight = keel::clamp(s_state.levelDb - s_state.stereoSpreadDb + envR, -60.0f, 0.0f);

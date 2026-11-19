@@ -1,12 +1,12 @@
 #pragma once
 
-#include <cmath>
 #include "keel/arena.h"
 #include "keel/array.h"
 #include "keel/core.h"
 #include "keel/format.h"
 #include "keel/function.h"
 #include "keel/hash_map.h"
+#include "keel/math.h"
 #include "keel/optional.h"
 #include "keel/ref.h"
 #include "keel/small_array.h"
@@ -375,10 +375,10 @@ public:
 
     /// Returns the active bounding rectangle of the dirty damage region in physical pixels for GPU blitting.
     [[nodiscard]] Rect GetPhysicalDirtyRect() const noexcept {
-        const float x1 = std::floor(m_dirtyRect.x * m_pixelsPerDp);
-        const float y1 = std::floor(m_dirtyRect.y * m_pixelsPerDp);
-        const float x2 = std::ceil(m_dirtyRect.Right() * m_pixelsPerDp);
-        const float y2 = std::ceil(m_dirtyRect.Bottom() * m_pixelsPerDp);
+        const float x1 = keel::floor(m_dirtyRect.x * m_pixelsPerDp);
+        const float y1 = keel::floor(m_dirtyRect.y * m_pixelsPerDp);
+        const float x2 = keel::ceil(m_dirtyRect.Right() * m_pixelsPerDp);
+        const float y2 = keel::ceil(m_dirtyRect.Bottom() * m_pixelsPerDp);
         return Rect(x1, y1, keel::max(0.0f, x2 - x1), keel::max(0.0f, y2 - y1));
     }
 

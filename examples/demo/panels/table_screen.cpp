@@ -1,5 +1,5 @@
 #include "../demo_context.hpp"
-#include <cmath>
+#include "keel/math.h"
 
 namespace guikit::demo {
 
@@ -65,8 +65,8 @@ struct TableDemoState {
             );
             r.modulation = kMods[static_cast<keel::usize>(i * 3) % kMods.size()];
             r.freqMhz = 118.500f + static_cast<float>(i) * 14.375f;
-            r.bearingDeg = -165.0f + std::fmod(static_cast<float>(i) * 29.5f, 330.0f);
-            r.snrDb = 8.0f + std::fmod(static_cast<float>(i) * 7.3f, 31.0f);
+            r.bearingDeg = -165.0f + keel::fmod(static_cast<float>(i) * 29.5f, 330.0f);
+            r.snrDb = 8.0f + keel::fmod(static_cast<float>(i) * 7.3f, 31.0f);
             r.status = (r.snrDb > 33.0f) ? 3 : ((r.snrDb > 22.0f) ? 0 : ((r.snrDb > 14.0f) ? 1 : 2));
             r.tracked = (i % 3 != 2);
             rows.push_back(r);
@@ -186,9 +186,9 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
             for (keel::usize i = 0; i < g_tableDemo.rows.size(); ++i) {
                 auto& r = g_tableDemo.rows[i];
                 if (!r.tracked) continue;
-                const float wave = std::sin(t * 2.2f + static_cast<float>(i) * 0.7f);
+                const float wave = keel::sin(t * 2.2f + static_cast<float>(i) * 0.7f);
                 r.snrDb = keel::clamp(20.0f + wave * 14.0f + static_cast<float>(i % 5) * 1.5f, 3.0f, 39.5f);
-                r.bearingDeg += std::cos(t * 1.1f + static_cast<float>(i)) * 0.08f;
+                r.bearingDeg += keel::cos(t * 1.1f + static_cast<float>(i)) * 0.08f;
                 r.status = (r.snrDb > 34.0f) ? 3 : ((r.snrDb > 22.0f) ? 0 : ((r.snrDb > 12.0f) ? 1 : 2));
             }
             ui.RequestRepaint(2);
@@ -277,7 +277,7 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
                     // Col 5: Azimuth bearing
                     ui.Text(
                         ui.Format("{:+05.1f} deg", item.bearingDeg),
-                        {.variant = (std::fabs(item.bearingDeg) < 25.0f) ? UiVariant::Success : UiVariant::Default}
+                        {.variant = (keel::abs(item.bearingDeg) < 25.0f) ? UiVariant::Success : UiVariant::Default}
                     );
 
                     // Col 6: Embedded Segmented VU ProgressBar widget

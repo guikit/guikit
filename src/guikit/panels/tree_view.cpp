@@ -1,5 +1,4 @@
 #include "guikit/panels/tree_view.hpp"
-#include <cmath>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
@@ -10,6 +9,7 @@
 #include "guikit/widgets/checkbox.hpp"
 #include "keel/arena.h"
 #include "keel/core.h"
+#include "keel/math.h"
 
 namespace guikit {
 
@@ -127,7 +127,7 @@ void ResolveTreeColumns(TreeViewPayload& tree, float totalW, const UiTheme& /*th
         if (tree.resolvedColW[i] <= 0.0f) {
             const float weight = keel::max(0.1f, col.flex);
             const float flexShare = (flexSum > 0.0f) ? (remainingW * (weight / flexSum)) : minW;
-            tree.resolvedColW[i] = keel::clamp(std::round(flexShare), minW, maxW);
+            tree.resolvedColW[i] = keel::clamp(keel::round(flexShare), minW, maxW);
         }
 
         if (i + 1 == tree.columnCount && flexSum > 0.0f &&
@@ -146,7 +146,7 @@ float ResolveIndentStep(const TreeViewPayload* tree, UiSize size, const UiTheme&
         return keel::max(8.0f, *tree->opts.indent);
     }
     const ComponentMetrics& cm = theme.GetMetrics(size);
-    return keel::max(14.0f, std::round(cm.defaultHeight * 0.50f));
+    return keel::max(14.0f, keel::round(cm.defaultHeight * 0.50f));
 }
 
 struct RowMetrics {
@@ -178,16 +178,16 @@ RowMetrics ComputeRowMetrics(
     rm.descFont = theme.ResolveFontSize(p.opts.description, TextRole::LabelSmall, size);
     rm.detailFont = theme.ResolveFontSize(p.opts.detail, TextRole::LabelMedium, size);
     rm.badgeFont = theme.ResolveFontSize(p.opts.badge, TextRole::LabelSmall, size);
-    rm.padX = keel::max(6.0f, std::round(cm.paddingX * 0.65f));
-    rm.padY = keel::max(3.0f, std::round(cm.paddingY * 0.55f));
-    rm.gap = keel::max(5.0f, std::round(cm.itemGap * 0.85f));
+    rm.padX = keel::max(6.0f, keel::round(cm.paddingX * 0.65f));
+    rm.padY = keel::max(3.0f, keel::round(cm.paddingY * 0.55f));
+    rm.gap = keel::max(5.0f, keel::round(cm.itemGap * 0.85f));
     rm.indentStep = ResolveIndentStep(p.tree, size, theme);
     rm.indentWidth = static_cast<float>(p.depth) * rm.indentStep;
-    rm.chevronSize = keel::max(10.0f, std::round(rm.labelFont * 0.82f));
+    rm.chevronSize = keel::max(10.0f, keel::round(rm.labelFont * 0.82f));
     rm.chevronSlotW = keel::max(14.0f, rm.chevronSize + 3.0f);
-    rm.checkboxSize = keel::max(14.0f, std::round(cm.defaultHeight * 0.44f));
-    rm.iconSize = keel::max(14.0f, std::round(rm.labelFont * 1.08f));
-    rm.minRowH = keel::max(24.0f, std::round(cm.defaultHeight * 0.82f));
+    rm.checkboxSize = keel::max(14.0f, keel::round(cm.defaultHeight * 0.44f));
+    rm.iconSize = keel::max(14.0f, keel::round(rm.labelFont * 1.08f));
+    rm.minRowH = keel::max(24.0f, keel::round(cm.defaultHeight * 0.82f));
     return rm;
 }
 
@@ -380,7 +380,7 @@ ContainerScope TreeItemScope::Cell(
 
     Node* cellNode = m_ctx->CreateNode(NodeType::Cell, cellId);
     cellNode->direction = FlexDirection::Row;
-    cellNode->gap = keel::max(4.0f, std::round(cm.itemGap * 0.85f)) * cellNode->GetDensity();
+    cellNode->gap = keel::max(4.0f, keel::round(cm.itemGap * 0.85f)) * cellNode->GetDensity();
     cellNode->align = Alignment::Center;
     cellNode->widthMode = SizeMode::Fit;
     cellNode->heightMode = SizeMode::Fit;
@@ -711,7 +711,7 @@ TreeViewScope TreeView::Open(
             for (keel::u16 i = 0; i + 1 < colCount; ++i) {
                 if (!payload->columns[i].resizable) continue;
                 const float divX = payload->resolvedColX[i] + payload->resolvedColW[i];
-                if (std::abs(localX - divX) <= gripHalfW) {
+                if (keel::abs(localX - divX) <= gripHalfW) {
                     payload->hoveredDividerCol = static_cast<keel::i32>(i);
                     if (mouseClicked) {
                         const double now = (ctx.GetCurrentTime)();
@@ -749,8 +749,8 @@ TreeViewScope TreeView::Open(
 
     if (!opts.title.empty() || opts.searchable || opts.showToolbar) {
         const ComponentMetrics& cm = theme.GetMetrics(activeSize);
-        const float barPad = keel::max(4.0f, std::round(cm.paddingY * 0.85f));
-        const float barGap = keel::max(4.0f, std::round(cm.itemGap * 0.85f));
+        const float barPad = keel::max(4.0f, keel::round(cm.paddingY * 0.85f));
+        const float barGap = keel::max(4.0f, keel::round(cm.itemGap * 0.85f));
         if (auto bar = ctx.Row({
             .gap = barGap,
             .padding = Padding(barPad, barPad, barPad, barPad),
@@ -1610,7 +1610,7 @@ void TreeView::RenderRow(
     }
 
     if (hasGridLines) {
-        const float lineY = std::floor(bounds.Bottom()) - 0.5f;
+        const float lineY = keel::floor(bounds.Bottom()) - 0.5f;
         canvas.DrawLine({bounds.x, lineY}, {bounds.Right(), lineY}, pal.borderSubtle.WithAlpha(85), 1.0f);
     }
 
@@ -1782,7 +1782,7 @@ void TreeView::RenderHeader(
     const auto& pal = theme.palette;
     constexpr float scale = 1.0f;
     const ComponentMetrics& cm = theme.GetMetrics(headerNode->uiSize);
-    const float cellPadX = keel::max(6.0f, std::round(cm.paddingX * 0.65f));
+    const float cellPadX = keel::max(6.0f, keel::round(cm.paddingX * 0.65f));
     const float headerFontSize = theme.ResolveFontSize(UiText{}, TextRole::LabelSmall, headerNode->uiSize);
 
     const float colOriginX = (tree->resolvedColTotalW > 0.0f) ? tree->resolvedColOriginX : headerRect.x;
@@ -1840,7 +1840,7 @@ void TreeView::RenderHeader(
         }
 
         if (i + 1 < tree->columnCount) {
-            const float divX = keel::min(std::floor(colX + colW) + 0.5f, headerRect.Right() - 1.5f);
+            const float divX = keel::min(keel::floor(colX + colW) + 0.5f, headerRect.Right() - 1.5f);
             const bool dividerActive = (tree->state && tree->state->resizingCol == static_cast<keel::i32>(i)) ||
                                        (tree->hoveredDividerCol == static_cast<keel::i32>(i));
             const Color divCol = dividerActive ? pal.accent : pal.borderSubtle;
@@ -1855,7 +1855,7 @@ void TreeView::RenderHeader(
         }
     }
 
-    const float botY = std::floor(headerRect.Bottom()) - 0.5f;
+    const float botY = keel::floor(headerRect.Bottom()) - 0.5f;
     canvas.DrawLine(
         Vec2(headerRect.x, botY),
         Vec2(headerRect.Right(), botY),
@@ -1885,7 +1885,7 @@ void TreeView::RenderOverlay(
 
     if (tree->opts.gridLines) {
         for (keel::u16 i = 0; i + 1 < tree->columnCount; ++i) {
-            const float divX = std::floor(colOriginX + tree->resolvedColX[i] + tree->resolvedColW[i]) + 0.5f;
+            const float divX = keel::floor(colOriginX + tree->resolvedColX[i] + tree->resolvedColW[i]) + 0.5f;
             if (divX >= bodyRect.x && divX < bodyRect.Right() - 0.5f) {
                 canvas.DrawLine(
                     Vec2(divX, bodyRect.y),
@@ -1903,7 +1903,7 @@ void TreeView::RenderOverlay(
     if (activeDivCol >= 0 && static_cast<keel::u16>(activeDivCol) + 1 < tree->columnCount) {
         const keel::u16 colIdx = static_cast<keel::u16>(activeDivCol);
         const float guideX = keel::clamp(
-            std::floor(colOriginX + tree->resolvedColX[colIdx] + tree->resolvedColW[colIdx]) + 0.5f,
+            keel::floor(colOriginX + tree->resolvedColX[colIdx] + tree->resolvedColW[colIdx]) + 0.5f,
             bodyRect.x + 1.0f,
             bodyRect.Right() - 1.5f
         );
@@ -1938,7 +1938,7 @@ void TreeView::RenderBranchGuides(
     if (!firstChildBranch) return;
 
     const RowMetrics rm = ComputeRowMetrics(*p, parentRow->uiSize, theme);
-    const float guideX = std::round(parentRow->computedRect.x + rm.padX + rm.indentWidth + rm.chevronSlotW * 0.5f) + 0.5f;
+    const float guideX = keel::round(parentRow->computedRect.x + rm.padX + rm.indentWidth + rm.chevronSlotW * 0.5f) + 0.5f;
     const float startY = parentRow->computedRect.Bottom();
 
     const Node* lastChildRow = nullptr;
@@ -1960,7 +1960,7 @@ void TreeView::RenderBranchGuides(
         : pal.border.WithAlphaF(0.65f);
 
     const float endY = (guides == TreeGuides::Connected)
-        ? (std::round(lastChildRow->computedRect.Center().y) + 0.5f)
+        ? (keel::round(lastChildRow->computedRect.Center().y) + 0.5f)
         : lastChildRow->computedRect.Bottom();
 
     if (endY > startY) {
@@ -1971,7 +1971,7 @@ void TreeView::RenderBranchGuides(
         const float tickLen = keel::max(6.0f, rm.indentStep - rm.chevronSlotW * 0.5f - 2.0f);
         for (const Node* cb = firstChildBranch; cb != nullptr; cb = cb->nextSibling) {
             if (cb->type == NodeType::TreeBranch && cb->firstChild && cb->firstChild->computedRect.h > 0.0f) {
-                const float cy = std::round(cb->firstChild->computedRect.Center().y) + 0.5f;
+                const float cy = keel::round(cb->firstChild->computedRect.Center().y) + 0.5f;
                 canvas.DrawLine({guideX, cy}, {guideX + tickLen, cy}, guideCol, 1.0f);
             }
         }

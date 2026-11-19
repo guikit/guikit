@@ -1,10 +1,10 @@
 #include "guikit/panels/status_bar.hpp"
-#include <cmath>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
 #include "guikit/panels/toolbar.hpp"
+#include "keel/math.h"
 
 namespace guikit {
 
@@ -93,7 +93,7 @@ Vec2 MeasureStatusSegment(
     }
 
     const float h = ResolveStatusBarHeight(theme, node->uiSize, scale) - 4.0f * scale;
-    return {std::ceil(w), keel::max(16.0f * scale, h)};
+    return {keel::ceil(w), keel::max(16.0f * scale, h)};
 }
 
 void RenderStatusSegment(
@@ -166,7 +166,7 @@ void RenderStatusSegment(
     if (!o.text.empty()) {
         const Vec2 textSz = canvas.MeasureText(o.text.text, fontSize);
         const float reservedW = keel::max(textSz.x, TextUtil::MeasureWidth(o.text, fontSize, &canvas));
-        const float textY = std::round(centerY - textSz.y * 0.5f - 1.5f * scale);
+        const float textY = keel::round(centerY - textSz.y * 0.5f - 1.5f * scale);
         canvas.DrawText(o.text.text, {curX, textY}, fontSize, fg);
         curX += reservedW + itemGap;
     }

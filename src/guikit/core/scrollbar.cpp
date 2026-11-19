@@ -1,6 +1,6 @@
 #include "guikit/core/scrollbar.hpp"
+#include "keel/math.h"
 
-#include <cmath>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 
@@ -24,18 +24,18 @@ ScrollbarGeometry Scrollbar::ComputeVertical(
     geom.visible = true;
     const float trackW = keel::max(3.0f, metrics.trackWidth);
     const float margin = keel::max(2.0f, metrics.margin);
-    const float trackX = std::round(viewportRect.Right() - trackW - margin);
+    const float trackX = keel::round(viewportRect.Right() - trackW - margin);
     const float trackY = viewportRect.y + margin;
     const float trackH = keel::max(8.0f, viewportH - margin * 2.0f);
     const float minThumb = keel::min(trackH, keel::max(16.0f, metrics.minThumbLength));
     const float thumbH = keel::clamp(
-        std::round(trackH * (viewportH / contentHeight)),
+        keel::round(trackH * (viewportH / contentHeight)),
         minThumb,
         trackH
     );
     const float travel = keel::max(0.0f, trackH - thumbH);
     const float ratio = keel::clamp(scrollOffset / maxScroll, 0.0f, 1.0f);
-    const float thumbY = std::round(trackY + travel * ratio);
+    const float thumbY = keel::round(trackY + travel * ratio);
 
     geom.travel = travel;
     geom.trackRect = Rect(trackX, trackY, trackW, trackH);
@@ -129,7 +129,7 @@ ScrollbarGeometry Scrollbar::UpdateVertical(
         ctx.ConsumeMouseClick();
     }
 
-    if (std::abs(ioScrollOffset - prevScroll) > 0.01f ||
+    if (keel::abs(ioScrollOffset - prevScroll) > 0.01f ||
         ioState.hovered != prevHovered ||
         ioState.dragging != prevDragging) {
         ctx.InvalidateRect(wheelBounds);

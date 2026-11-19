@@ -1,11 +1,11 @@
 #include "guikit/widgets/histogram.hpp"
-#include <cmath>
 #include <cstdio>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 #include "guikit/core/node.hpp"
 #include "keel/core.h"
+#include "keel/math.h"
 #include "keel/static_array.h"
 #include "keel/string.h"
 
@@ -101,9 +101,9 @@ struct HistogramGeometry {
     }
     switch (mode) {
         case HistogramScaleMode::Sqrt:
-            return std::sqrt(static_cast<float>(count)) / std::sqrt(static_cast<float>(maxCount));
+            return keel::sqrt(static_cast<float>(count)) / keel::sqrt(static_cast<float>(maxCount));
         case HistogramScaleMode::Logarithmic:
-            return std::log1p(static_cast<float>(count)) / std::log1p(static_cast<float>(maxCount));
+            return keel::log1p(static_cast<float>(count)) / keel::log1p(static_cast<float>(maxCount));
         case HistogramScaleMode::Linear:
             return static_cast<float>(count) / static_cast<float>(maxCount);
     }
@@ -312,7 +312,7 @@ HistogramResponse Histogram::Run(
 
         if (baseRes.hovered && inPlotOrBar && ctx.IsMouseClicked()) {
             const double nowSec = ctx.GetCurrentTime();
-            const float clickDist = std::hypot(mouse.x - st.lastClickPos.x, mouse.y - st.lastClickPos.y);
+            const float clickDist = keel::hypot(mouse.x - st.lastClickPos.x, mouse.y - st.lastClickPos.y);
             if (baseRes.doubleClicked || ((nowSec - st.lastClickTimeSec) < 0.35 && clickDist < 8.0f * scale)) {
                 // Double-click resets active channel window/level to full data range
                 transfer.SetLowHigh(minVal, maxVal);
@@ -324,8 +324,8 @@ HistogramResponse Histogram::Run(
                 st.lastClickTimeSec = nowSec;
                 st.lastClickPos = mouse;
 
-                const float distLo = std::abs(mouse.x - xlo);
-                const float distHi = std::abs(mouse.x - xhi);
+                const float distLo = keel::abs(mouse.x - xlo);
+                const float distHi = keel::abs(mouse.x - xhi);
                 if (distLo <= grabRadius && distLo <= distHi) {
                     st.dragMode = HistDragMode::DragLow;
                 } else if (distHi <= grabRadius) {

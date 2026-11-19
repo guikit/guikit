@@ -1,4 +1,4 @@
-#include <cmath>
+#include "keel/math.h"
 #include "../demo_context.hpp"
 #include "guikit/widgets/bpmn_editor.hpp"
 
@@ -567,7 +567,7 @@ void RenderBpmnInspector(guikit::Context& ui, DemoContext&) {
                 }
             }
         }
-        if (std::abs(selNode->labelOffset.x) > 0.5f || std::abs(selNode->labelOffset.y) > 0.5f) {
+        if (keel::abs(selNode->labelOffset.x) > 0.5f || keel::abs(selNode->labelOffset.y) > 0.5f) {
             if (ui.Button({.text = "Reset External Label Position", .layout = {.width = guikit::SizeMode::Stretch}, .style = {.color = guikit::StateColor::Ghost()}})) {
                 selNode->labelOffset = {0.0f, 0.0f};
                 ui.InvalidateAll();
@@ -588,7 +588,7 @@ void RenderBpmnInspector(guikit::Context& ui, DemoContext&) {
                 ui.InvalidateAll();
             }
         }
-        if (!selEdge->waypoints.empty() || std::abs(selEdge->labelOffset.x) > 0.5f || std::abs(selEdge->labelOffset.y) > 0.5f) {
+        if (!selEdge->waypoints.empty() || keel::abs(selEdge->labelOffset.x) > 0.5f || keel::abs(selEdge->labelOffset.y) > 0.5f) {
             if (ui.Button({.text = "Reset Custom Route & Label to Auto", .icon = guikit::Icon::Refresh(), .layout = {.width = guikit::SizeMode::Stretch}, .style = {.color = guikit::StateColor::Secondary()}})) {
                 selEdge->waypoints.clear();
                 selEdge->labelOffset = {0.0f, 0.0f};

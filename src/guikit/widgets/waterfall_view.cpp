@@ -1,5 +1,4 @@
 #include "guikit/widgets/waterfall_view.hpp"
-#include <cmath>
 #include <cstring>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
@@ -7,6 +6,7 @@
 #include "guikit/core/node.hpp"
 #include "guikit/graphics/colormap.hpp"
 #include "keel/algo.h"
+#include "keel/bits.h"
 #include "keel/format.h"
 #include "keel/math.h"
 #include "keel/small_array.h"
@@ -177,7 +177,7 @@ struct WaterfallGeometry {
         g.hasTrace = true;
         g.hasWaterfall = true;
         const float ratio = keel::clamp(opts.topTraceHeightRatio, 0.18f, 0.55f);
-        const float traceH = keel::max(54.0f, std::floor((availH - g.splitGap) * ratio));
+        const float traceH = keel::max(54.0f, keel::floor((availH - g.splitGap) * ratio));
         const float wfH = keel::max(60.0f, availH - traceH - g.splitGap);
         g.traceRect = Rect(plotX, availY, plotW, traceH);
         g.wfRect = Rect(plotX, availY + traceH + g.splitGap, plotW, wfH);
@@ -209,7 +209,7 @@ struct WaterfallGeometry {
         return keel::format_fixed<32>("%+04.0f°", xVal);
     }
 
-    const float absX = std::abs(xVal);
+    const float absX = keel::abs(xVal);
     if (absX >= 1000000.0f) {
         return keel::format_fixed<32>("%.3f MHz", xVal / 1000000.0f);
     }
@@ -257,7 +257,7 @@ struct WaterfallGeometry {
     const float domainSpan = keel::max(1e-5f, opts.maxX - opts.minX);
     const float uNorm = keel::clamp((xVal - opts.minX) / domainSpan, 0.0f, 1.0f);
     const float fIdx = uNorm * static_cast<float>(vec.size() - 1);
-    const keel::usize i0 = static_cast<keel::usize>(std::floor(fIdx));
+    const keel::usize i0 = static_cast<keel::usize>(keel::floor(fIdx));
     const keel::usize i1 = keel::min(vec.size() - 1, i0 + 1);
     const float frac = fIdx - static_cast<float>(i0);
     return (vec[i0] + frac * (vec[i1] - vec[i0])) + opts.gainDb;
@@ -501,42 +501,45 @@ void main() {
                     const auto& lutAbgr = GetColormapLutAbgr(opts.colormap);
                     const keel::u32 fbW = keel::clamp(static_cast<keel::u32>(geom.wfRect.w * 0.5f), 64u, 320u);
                     const keel::u32 fbH = keel::clamp(static_cast<keel::u32>(geom.wfRect.h * 0.5f), 48u, 200u);
-                    state.cpuFallbackPixels.resize(static_cast<keel::usize>(fbW) * fbH, 0u);
-                    const float dbSpan = keel::max(1.0f, geom.dbCeil - geom.dbFloor);
-                    const float gamma = keel::max(0.25f, opts.gamma);
-                    const keel::u32 bgPanelAbgr = PackAbgr(bgPanel);
-                    for (keel::u32 py = 0; py < fbH; ++py) {
-                        const float v = static_cast<float>(py) / static_cast<float>(keel::max(1u, fbH - 1));
-                        const float timeUv = opts.invertTimeAxis ? (1.0f - v) : v;
-                        const keel::u32 ageRow = keel::round_u32(timeUv * static_cast<float>(state.historyRows - 1));
-                        if (ageRow >= state.validRows) {
-                            keel::fill(
-                                keel::MutArrayRef<keel::u32>(state.cpuFallbackPixels.data() + static_cast<keel::usize>(py) * fbW, fbW),
-                                bgPanelAbgr
-                            );
-                            continue;
-                        }
-                        const keel::u32 ringRow = (state.headRow + state.historyRows - (ageRow % state.historyRows)) % state.historyRows;
-                        const float* rowPtr = state.ringBufferDb.data() + static_cast<keel::usize>(ringRow) * state.numBins;
-                        keel::u32* dstRow = state.cpuFallbackPixels.data() + static_cast<keel::usize>(py) * fbW;
-                        for (keel::u32 px = 0; px < fbW; ++px) {
-                            const float u = xMinNorm + (static_cast<float>(px) / static_cast<float>(keel::max(1u, fbW - 1))) * (xMaxNorm - xMinNorm);
-                            const keel::u32 bin = keel::min(
-                                state.numBins - 1,
-                                keel::round_u32(u * static_cast<float>(state.numBins - 1))
-                            );
-                            const float dbVal = rowPtr[bin] + opts.gainDb;
-                            float norm = keel::clamp((dbVal - geom.dbFloor) / dbSpan, 0.0f, 1.0f);
-                            if (opts.gateSuppression > 0.001f && dbVal < state.thresholdGateDb) {
-                                const float soft = keel::clamp((dbVal - (state.thresholdGateDb - 10.0f)) / 10.0f, 0.0f, 1.0f);
-                                norm *= (1.0f - opts.gateSuppression) + opts.gateSuppression * (soft * 0.25f);
+                    keel::usize pixelCount = 0;
+                    if (keel::checked_mul(static_cast<keel::usize>(fbW), static_cast<keel::usize>(fbH), pixelCount)) {
+                        state.cpuFallbackPixels.resize(pixelCount, 0u);
+                        const float dbSpan = keel::max(1.0f, geom.dbCeil - geom.dbFloor);
+                        const float gamma = keel::max(0.25f, opts.gamma);
+                        const keel::u32 bgPanelAbgr = PackAbgr(bgPanel);
+                        for (keel::u32 py = 0; py < fbH; ++py) {
+                            const float v = static_cast<float>(py) / static_cast<float>(keel::max(1u, fbH - 1));
+                            const float timeUv = opts.invertTimeAxis ? (1.0f - v) : v;
+                            const keel::u32 ageRow = keel::round_u32(timeUv * static_cast<float>(state.historyRows - 1));
+                            if (ageRow >= state.validRows) {
+                                keel::fill(
+                                    keel::MutArrayRef<keel::u32>(state.cpuFallbackPixels.data() + static_cast<keel::usize>(py) * fbW, fbW),
+                                    bgPanelAbgr
+                                );
+                                continue;
                             }
-                            norm = std::pow(norm, gamma);
-                            const keel::usize lutIdx = static_cast<keel::usize>(keel::clamp(norm * 255.0f, 0.0f, 255.0f));
-                            dstRow[px] = lutAbgr[lutIdx];
+                            const keel::u32 ringRow = (state.headRow + state.historyRows - (ageRow % state.historyRows)) % state.historyRows;
+                            const float* rowPtr = state.ringBufferDb.data() + static_cast<keel::usize>(ringRow) * state.numBins;
+                            keel::u32* dstRow = state.cpuFallbackPixels.data() + static_cast<keel::usize>(py) * fbW;
+                            for (keel::u32 px = 0; px < fbW; ++px) {
+                                const float u = xMinNorm + (static_cast<float>(px) / static_cast<float>(keel::max(1u, fbW - 1))) * (xMaxNorm - xMinNorm);
+                                const keel::u32 bin = keel::min(
+                                    state.numBins - 1,
+                                    keel::round_u32(u * static_cast<float>(state.numBins - 1))
+                                );
+                                const float dbVal = rowPtr[bin] + opts.gainDb;
+                                float norm = keel::clamp((dbVal - geom.dbFloor) / dbSpan, 0.0f, 1.0f);
+                                if (opts.gateSuppression > 0.001f && dbVal < state.thresholdGateDb) {
+                                    const float soft = keel::clamp((dbVal - (state.thresholdGateDb - 10.0f)) / 10.0f, 0.0f, 1.0f);
+                                    norm *= (1.0f - opts.gateSuppression) + opts.gateSuppression * (soft * 0.25f);
+                                }
+                                norm = keel::pow(norm, gamma);
+                                const keel::usize lutIdx = static_cast<keel::usize>(keel::clamp(norm * 255.0f, 0.0f, 255.0f));
+                                dstRow[px] = lutAbgr[lutIdx];
+                            }
                         }
+                        canvas.DrawPixels({state.cpuFallbackPixels, fbW, fbH}, geom.wfRect);
                     }
-                    canvas.DrawPixels({state.cpuFallbackPixels, fbW, fbH}, geom.wfRect);
                 }
             }
 
@@ -640,7 +643,7 @@ void main() {
             const float sx0 = keel::clamp(geom.XToScreen(resp.selectionStartX), geom.traceRect.x, geom.traceRect.Right());
             const float sx1 = keel::clamp(geom.XToScreen(resp.selectionEndX), geom.traceRect.x, geom.traceRect.Right());
             const float left = keel::min(sx0, sx1);
-            const float width = std::abs(sx1 - sx0);
+            const float width = keel::abs(sx1 - sx0);
             if (width > 1.0f) {
                 canvas.DrawRect(Rect(left, geom.traceRect.y, width, geom.traceRect.h), Color(56, 189, 248, 36));
                 canvas.DrawLine({left, geom.traceRect.y}, {left, geom.traceRect.Bottom()}, Color(56, 189, 248, 210), 1.3f);
@@ -730,7 +733,7 @@ void main() {
                     bool merged = false;
                     for (auto& existing : peaks) {
                         const float existBin = ((existing.xVal - geom.domainMinX) / domainSpan) * static_cast<float>(n - 1);
-                        if (std::abs(static_cast<float>(i) - existBin) < static_cast<float>(minSepBins)) {
+                        if (keel::abs(static_cast<float>(i) - existBin) < static_cast<float>(minSepBins)) {
                             if (db > existing.dbVal) {
                                 existing.xVal = xVal;
                                 existing.dbVal = db;
@@ -783,7 +786,7 @@ void main() {
             const float sx0 = keel::clamp(geom.XToScreen(resp.selectionStartX), geom.wfRect.x, geom.wfRect.Right());
             const float sx1 = keel::clamp(geom.XToScreen(resp.selectionEndX), geom.wfRect.x, geom.wfRect.Right());
             const float left = keel::min(sx0, sx1);
-            const float width = std::abs(sx1 - sx0);
+            const float width = keel::abs(sx1 - sx0);
             if (width > 1.0f) {
                 canvas.DrawRect(Rect(left, geom.wfRect.y, width, geom.wfRect.h), Color(56, 189, 248, 28));
                 canvas.DrawLine({left, geom.wfRect.y}, {left, geom.wfRect.Bottom()}, Color(56, 189, 248, 210), 1.3f);
@@ -984,8 +987,8 @@ WaterfallViewResponse WaterfallView::Run(
 
     // 1. Initialize or resize Circular Ring Buffer
     const bool dimsChanged = (!state.initialized || state.numBins != numBins || state.historyRows != historyRows);
-    const bool domainChanged = (std::abs(state.lastDomainMinX - opts.minX) > 1e-3f ||
-                                std::abs(state.lastDomainMaxX - opts.maxX) > 1e-3f);
+    const bool domainChanged = (keel::abs(state.lastDomainMinX - opts.minX) > 1e-3f ||
+                                keel::abs(state.lastDomainMaxX - opts.maxX) > 1e-3f);
     if (dimsChanged || opts.requestClearHistory) {
         state.numBins = numBins;
         state.historyRows = historyRows;
@@ -1100,7 +1103,7 @@ WaterfallViewResponse WaterfallView::Run(
     if (inPlot) {
         // 1. Mouse Wheel X-Axis Zoom centered on cursorX
         const Vec2 wheel = ctx.GetMouseWheel();
-        if (std::abs(wheel.y) > 0.01f) {
+        if (keel::abs(wheel.y) > 0.01f) {
             const float cursorX = geom.ScreenToX(mousePos.x);
             const float domainSpan = keel::max(1e-3f, opts.maxX - opts.minX);
             const float curSpan = keel::max(1e-3f, state.viewMaxX - state.viewMinX);
@@ -1128,7 +1131,7 @@ WaterfallViewResponse WaterfallView::Run(
         for (const auto& trk : opts.tracks) {
             const float headX = geom.XToScreen(trk.currentX);
             const float headY = geom.TimeAgoToWaterfallY(0.0f) + (opts.invertTimeAxis ? -8.0f : 8.0f);
-            if (std::abs(mousePos.x - headX) <= 14.0f && std::abs(mousePos.y - headY) <= 14.0f) {
+            if (keel::abs(mousePos.x - headX) <= 14.0f && keel::abs(mousePos.y - headY) <= 14.0f) {
                 resp.hoveredTrackId = trk.id;
                 break;
             }
@@ -1136,7 +1139,7 @@ WaterfallViewResponse WaterfallView::Run(
                 if (pt.timeAgoSec > geom.historyDurationSec) continue;
                 const float px = geom.XToScreen(pt.xValue);
                 const float py = geom.TimeAgoToWaterfallY(pt.timeAgoSec);
-                if (std::abs(mousePos.x - px) <= 10.0f && std::abs(mousePos.y - py) <= 10.0f) {
+                if (keel::abs(mousePos.x - px) <= 10.0f && keel::abs(mousePos.y - py) <= 10.0f) {
                     resp.hoveredTrackId = trk.id;
                     break;
                 }
@@ -1148,7 +1151,7 @@ WaterfallViewResponse WaterfallView::Run(
         if (ctx.IsMouseClicked()) {
             const KeyModifiers mods = ctx.GetKeyModifiers();
             const float gateY = geom.DbToTraceY(state.thresholdGateDb);
-            if (inTrace && opts.showThresholdGate && std::abs(mousePos.y - gateY) <= 7.0f) {
+            if (inTrace && opts.showThresholdGate && keel::abs(mousePos.y - gateY) <= 7.0f) {
                 state.draggingThreshold = true;
             } else if (mods.shift) {
                 state.draggingPan = true;
@@ -1267,11 +1270,11 @@ WaterfallViewResponse WaterfallView::Run(
             for (keel::usize b = keel::min(b0, b1); b <= keel::max(b0, b1); ++b) {
                 const float db = state.liveSliceDb[b] + opts.gainDb;
                 maxBandDb = keel::max(maxBandDb, db);
-                linSum += std::pow(10.0, static_cast<double>(db) / 10.0);
+                linSum += keel::pow(10.0, static_cast<double>(db) / 10.0);
                 count++;
             }
             resp.selectionBandPowerDb = (count > 0)
-                ? static_cast<float>(10.0 * std::log10(keel::max(1e-14, linSum / static_cast<double>(count))))
+                ? static_cast<float>(10.0 * keel::log10(keel::max(1e-14, linSum / static_cast<double>(count))))
                 : maxBandDb;
         }
     }

@@ -1,5 +1,4 @@
 #include "guikit/widgets/image.hpp"
-#include <cmath>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
@@ -281,7 +280,7 @@ void Image::Render(
     }
 
     const keel::u8 effAlpha = disabled ? static_cast<keel::u8>(opts.opacity / 2) : opts.opacity;
-    const float imgRad = (std::abs(fitted.w - box.w) < 1.5f && std::abs(fitted.h - box.h) < 1.5f) ? rad : 0.0f;
+    const float imgRad = (keel::abs(fitted.w - box.w) < 1.5f && keel::abs(fitted.h - box.h) < 1.5f) ? rad : 0.0f;
     const bool drawn = canvas.DrawImage(source, fitted, imgRad, effAlpha);
 
     if (needsClip) {

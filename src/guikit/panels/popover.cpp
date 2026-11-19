@@ -1,5 +1,4 @@
 #include "guikit/panels/popover.hpp"
-#include <cmath>
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 #include "keel/math.h"
@@ -196,9 +195,9 @@ Rect Popover::ResolvePopoverRect(
 
     const Rect& anchor = opts.anchorRect;
     if (anchor.w <= 0.0f && anchor.h <= 0.0f) {
-        const float cx = std::round(vp.x + (vp.w - w) * 0.5f);
-        const float cy = std::round(vp.y + (vp.h - h) * 0.5f);
-        return Rect(cx, cy, std::round(w), std::round(h));
+        const float cx = keel::round(vp.x + (vp.w - w) * 0.5f);
+        const float cy = keel::round(vp.y + (vp.h - h) * 0.5f);
+        return Rect(cx, cy, keel::round(w), keel::round(h));
     }
 
     PopoverPlacement resolvedPlacement = opts.placement;
@@ -237,7 +236,7 @@ Rect Popover::ResolvePopoverRect(
 
     x = keel::clamp(x, vp.x + margin, keel::max(vp.x + margin, vp.Right() - margin - w));
     y = keel::clamp(y, vp.y + margin, keel::max(vp.y + margin, vp.Bottom() - margin - h));
-    return Rect(std::round(x), std::round(y), std::round(w), std::round(h));
+    return Rect(keel::round(x), keel::round(y), keel::round(w), keel::round(h));
 }
 
 } // namespace guikit

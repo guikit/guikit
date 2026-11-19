@@ -82,6 +82,10 @@
 #error "guikit public headers must not leak <algorithm>"
 #endif
 
+#if defined(_GLIBCXX_CMATH) || defined(_LIBCPP_CMATH) || defined(_CMATH_)
+#error "guikit public headers must not leak <cmath> — use keel/math.h"
+#endif
+
 // 3. Verify `guikit::geo` internal/GIS symbols do NOT leak into `namespace guikit`
 namespace purity_probe {
 struct PolygonTriangulator {

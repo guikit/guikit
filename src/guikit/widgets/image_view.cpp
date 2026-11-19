@@ -1,5 +1,4 @@
 #include "guikit/widgets/image_view.hpp"
-#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include "guikit/backend/i_canvas.hpp"
@@ -18,6 +17,7 @@
 #include "guikit/widgets/slider.hpp"
 #include "guikit/widgets/text.hpp"
 #include "keel/array.h"
+#include "keel/bits.h"
 #include "keel/core.h"
 #include "keel/math.h"
 #include "keel/static_array.h"
@@ -224,7 +224,7 @@ struct ProfileCrossSection {
 
         const float dx = endSrc.x - startSrc.x;
         const float dy = endSrc.y - startSrc.y;
-        const float dist = std::hypot(dx, dy);
+        const float dist = keel::hypot(dx, dy);
         const keel::i32 n = keel::clamp(keel::round_i32(dist) + 1, 2, 2048);
 
         samplesLum.resize(static_cast<keel::usize>(n));
@@ -240,8 +240,8 @@ struct ProfileCrossSection {
 
         for (keel::i32 i = 0; i < n; ++i) {
             const float t = (n > 1) ? (static_cast<float>(i) / static_cast<float>(n - 1)) : 0.0f;
-            const keel::u32 sx = keel::min(data.width - 1, static_cast<keel::u32>(keel::max(0.0f, std::floor(startSrc.x + t * dx))));
-            const keel::u32 sy = keel::min(data.height - 1, static_cast<keel::u32>(keel::max(0.0f, std::floor(startSrc.y + t * dy))));
+            const keel::u32 sx = keel::min(data.width - 1, static_cast<keel::u32>(keel::max(0.0f, keel::floor(startSrc.x + t * dx))));
+            const keel::u32 sy = keel::min(data.height - 1, static_cast<keel::u32>(keel::max(0.0f, keel::floor(startSrc.y + t * dy))));
             const auto ch = ReadPixelChannels(data, sx, sy);
 
             if (data.channels == 1) {
@@ -345,7 +345,7 @@ struct ImageViewInternalState {
         if (data.channels == 1) {
             for (keel::usize i = 0; i < numPixels; ++i) {
                 const float v = ReadSampleAsFloat(data, i);
-                if (std::isfinite(v)) {
+                if (keel::is_finite(v)) {
                     if (v < mn) mn = v;
                     if (v > mx) mx = v;
                     sum += static_cast<double>(v);
@@ -357,7 +357,7 @@ struct ImageViewInternalState {
                 const float r = ReadSampleAsFloat(data, base + 0);
                 const float g = ReadSampleAsFloat(data, base + 1);
                 const float b = ReadSampleAsFloat(data, base + 2);
-                if (std::isfinite(r) && std::isfinite(g) && std::isfinite(b)) {
+                if (keel::is_finite(r) && keel::is_finite(g) && keel::is_finite(b)) {
                     mn = keel::min(keel::min(mn, r), keel::min(g, b));
                     mx = keel::max(keel::max(mx, r), keel::max(g, b));
                     sum += static_cast<double>(ComputeLuminance(r, g, b));
@@ -385,7 +385,7 @@ struct ImageViewInternalState {
         if (data.channels == 1) {
             for (keel::usize i = 0; i < numPixels; ++i) {
                 const float v = ReadSampleAsFloat(data, i);
-                if (std::isfinite(v)) {
+                if (keel::is_finite(v)) {
                     const keel::usize bin = static_cast<keel::usize>(keel::clamp((v - dataMin) * scale, 0.0f, static_cast<float>(kHistBins - 1)));
                     binsLum[bin]++;
                 }
@@ -434,6 +434,14 @@ struct ImageViewInternalState {
         const OrientedDimensions od = OrientedDimensions::Compute(
             data.width, data.height, params.rotation, params.flipHorizontal, params.flipVertical
         );
+        keel::usize pixelCount = 0;
+        if (!keel::checked_mul(static_cast<keel::usize>(od.dispW), static_cast<keel::usize>(od.dispH), pixelCount)) {
+            displayW = 0;
+            displayH = 0;
+            displayAbgr.clear();
+            cachedRenderKey = 0;
+            return;
+        }
 
         keel::u64 rKey = detail::HashArgs(
             cachedDataFp,
@@ -450,7 +458,7 @@ struct ImageViewInternalState {
         }
 
         if (rKey == cachedRenderKey && displayW == od.dispW && displayH == od.dispH &&
-            displayAbgr.size() == static_cast<keel::usize>(od.dispW) * od.dispH) {
+            displayAbgr.size() == pixelCount) {
             return;
         }
 
@@ -460,7 +468,7 @@ struct ImageViewInternalState {
         cachedRenderKey = rKey;
         displayW = od.dispW;
         displayH = od.dispH;
-        displayAbgr.resize(static_cast<keel::usize>(displayW) * displayH);
+        displayAbgr.resize(pixelCount);
 
         const float minV = dataMin;
         const float spanV = keel::max(1e-5f, dataMax - dataMin);
@@ -674,7 +682,7 @@ ImageViewResponse RunViewportNode(
     const ViewportLayoutGeom vgeom = ViewportLayoutGeom::Compute(boxRect, opts, activeSize, ctx.GetCanvas(), theme);
     const Rect cr = vgeom.canvasRect;
 
-    if (std::abs(cr.w - st.lastCanvasW) > 2.0f || std::abs(cr.h - st.lastCanvasH) > 2.0f) {
+    if (keel::abs(cr.w - st.lastCanvasW) > 2.0f || keel::abs(cr.h - st.lastCanvasH) > 2.0f) {
         st.fitPending = true;
         st.lastCanvasW = cr.w;
         st.lastCanvasH = cr.h;
@@ -747,8 +755,8 @@ ImageViewResponse RunViewportNode(
     const bool inCanvas = cr.Contains(mouse);
     if (!effectiveDisabled && !clickedToolbar && !data.Empty()) {
         // Cursor-centric Mouse Wheel Zoom
-        if (baseRes.hovered && inCanvas && std::abs(wheel.y) > 1e-3f) {
-            const float factor = std::pow(1.15f, wheel.y);
+        if (baseRes.hovered && inCanvas && keel::abs(wheel.y) > 1e-3f) {
+            const float factor = keel::pow(1.15f, wheel.y);
             ZoomAroundPoint(st, cr, mouse, st.zoom * factor);
             ctx.ConsumeMouseWheel();
             res.changed = true;
@@ -757,9 +765,9 @@ ImageViewResponse RunViewportNode(
         // LMB / MMB Press: Double-click Fit/100%, Ctrl+LMB W/L drag, or Pan
         if (baseRes.hovered && inCanvas && ctx.IsMouseClicked()) {
             const double nowSec = ctx.GetCurrentTime();
-            const float clickDist = std::hypot(mouse.x - st.lastClickPos.x, mouse.y - st.lastClickPos.y);
+            const float clickDist = keel::hypot(mouse.x - st.lastClickPos.x, mouse.y - st.lastClickPos.y);
             if (baseRes.doubleClicked || ((nowSec - st.lastClickTimeSec) < 0.32 && clickDist < 8.0f * scale)) {
-                if (std::abs(st.zoom - 1.0f) < 0.05f) {
+                if (keel::abs(st.zoom - 1.0f) < 0.05f) {
                     FitImageToCanvas(st, cr);
                 } else {
                     ZoomAroundPoint(st, cr, mouse, 1.0f);
@@ -861,7 +869,7 @@ ImageViewResponse RunViewportNode(
                     if (ctx.GetActiveId() == id) {
                         ctx.SetActiveId(Id::Null());
                     }
-                    if (std::hypot(st.profile.endSrc.x - st.profile.startSrc.x,
+                    if (keel::hypot(st.profile.endSrc.x - st.profile.startSrc.x,
                                    st.profile.endSrc.y - st.profile.startSrc.y) < 1.5f) {
                         // Simple right-click clears the profile overlay
                         st.profile.active = false;
@@ -965,8 +973,8 @@ ImageViewResponse RunViewportNode(
         node->type,
         st.cachedRenderKey,
         st.zoom,
-        std::round(st.pan.x * 2.0f),
-        std::round(st.pan.y * 2.0f),
+        keel::round(st.pan.x * 2.0f),
+        keel::round(st.pan.y * 2.0f),
         res.cursorInsideImage,
         res.cursorImageX,
         res.cursorImageY,
@@ -1025,7 +1033,7 @@ ImageViewResponse RunViewportNode(
         const ComponentMetrics& tbCm = th.GetMetrics(vg.toolbarSize);
         const Rect cr = vg.canvasRect;
 
-        if (std::abs(cr.w - s.lastCanvasW) > 2.0f || std::abs(cr.h - s.lastCanvasH) > 2.0f) {
+        if (keel::abs(cr.w - s.lastCanvasW) > 2.0f || keel::abs(cr.h - s.lastCanvasH) > 2.0f) {
             s.fitPending = true;
             s.lastCanvasW = cr.w;
             s.lastCanvasH = cr.h;
@@ -1111,10 +1119,10 @@ ImageViewResponse RunViewportNode(
             // High-zoom pixel grid (>= 12x zoom)
             if (o.showPixelGridAtHighZoom && s.zoom >= 12.0f) {
                 const Color gridCol(255, 255, 255, static_cast<keel::u8>(keel::clamp((s.zoom - 10.0f) * 4.0f, 18.0f, 75.0f)));
-                const keel::u32 x0 = static_cast<keel::u32>(keel::max(0.0f, std::floor((cr.x - destRect.x) / s.zoom)));
-                const keel::u32 x1 = keel::min(s.displayW, static_cast<keel::u32>(std::ceil((cr.Right() - destRect.x) / s.zoom)));
-                const keel::u32 y0 = static_cast<keel::u32>(keel::max(0.0f, std::floor((cr.y - destRect.y) / s.zoom)));
-                const keel::u32 y1 = keel::min(s.displayH, static_cast<keel::u32>(std::ceil((cr.Bottom() - destRect.y) / s.zoom)));
+                const keel::u32 x0 = static_cast<keel::u32>(keel::max(0.0f, keel::floor((cr.x - destRect.x) / s.zoom)));
+                const keel::u32 x1 = keel::min(s.displayW, static_cast<keel::u32>(keel::ceil((cr.Right() - destRect.x) / s.zoom)));
+                const keel::u32 y0 = static_cast<keel::u32>(keel::max(0.0f, keel::floor((cr.y - destRect.y) / s.zoom)));
+                const keel::u32 y1 = keel::min(s.displayH, static_cast<keel::u32>(keel::ceil((cr.Bottom() - destRect.y) / s.zoom)));
 
                 for (keel::u32 gx = x0; gx <= x1; ++gx) {
                     const float sx = destRect.x + static_cast<float>(gx) * s.zoom;

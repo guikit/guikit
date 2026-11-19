@@ -1,5 +1,4 @@
 #include "guikit/widgets/signal_view.hpp"
-#include <cmath>
 #include <cstring>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
@@ -9,6 +8,7 @@
 #include "guikit/graphics/colormap.hpp"
 #include "keel/algo.h"
 #include "keel/array.h"
+#include "keel/bits.h"
 #include "keel/core.h"
 #include "keel/format.h"
 #include "keel/math.h"
@@ -66,7 +66,7 @@ struct WaveformPyramid {
             levels[0][i] = PeakBucket{
                 .minVal = mn,
                 .maxVal = mx,
-                .rmsVal = static_cast<float>(std::sqrt(sumSq / keel::max(1.0f, count)))
+                .rmsVal = static_cast<float>(keel::sqrt(sumSq / keel::max(1.0f, count)))
             };
         }
 
@@ -90,7 +90,7 @@ struct WaveformPyramid {
                 levels[lvl][i] = PeakBucket{
                     .minVal = mn,
                     .maxVal = mx,
-                    .rmsVal = static_cast<float>(std::sqrt(sumSq / keel::max(1.0f, cnt)))
+                    .rmsVal = static_cast<float>(keel::sqrt(sumSq / keel::max(1.0f, cnt)))
                 };
             }
         }
@@ -125,7 +125,7 @@ struct WaveformPyramid {
             return PeakBucket{
                 .minVal = mn,
                 .maxVal = mx,
-                .rmsVal = static_cast<float>(std::sqrt(sumSq / static_cast<double>(span)))
+                .rmsVal = static_cast<float>(keel::sqrt(sumSq / static_cast<double>(span)))
             };
         }
 
@@ -154,7 +154,7 @@ struct WaveformPyramid {
         return PeakBucket{
             .minVal = mn,
             .maxVal = mx,
-            .rmsVal = static_cast<float>(std::sqrt(sumSq / keel::max(1.0f, cnt)))
+            .rmsVal = static_cast<float>(keel::sqrt(sumSq / keel::max(1.0f, cnt)))
         };
     }
 };
@@ -205,8 +205,8 @@ void Radix2Fft(keel::Array<float>& re, keel::Array<float>& im) noexcept {
     // Butterfly stages
     for (keel::usize len = 2; len <= n; len <<= 1) {
         const float angle = -keel::kTauF / static_cast<float>(len);
-        const float wLenRe = std::cos(angle);
-        const float wLenIm = std::sin(angle);
+        const float wLenRe = keel::cos(angle);
+        const float wLenIm = keel::sin(angle);
         const keel::usize half = len >> 1;
 
         for (keel::usize i = 0; i < n; i += len) {
@@ -231,10 +231,7 @@ void Radix2Fft(keel::Array<float>& re, keel::Array<float>& im) noexcept {
 }
 
 [[nodiscard]] keel::u32 SanitizeFftSize(keel::u32 requested) noexcept {
-    if (requested <= 256) return 256;
-    if (requested <= 512) return 512;
-    if (requested <= 1024) return 1024;
-    return 2048;
+    return static_cast<keel::u32>(keel::bit_ceil(static_cast<keel::u64>(keel::clamp(requested, 256u, 2048u))));
 }
 
 void BuildFftWindow(keel::u32 n, FftWindowType type, keel::Array<float>& outWin, float& outNorm) {
@@ -246,16 +243,16 @@ void BuildFftWindow(keel::u32 n, FftWindowType type, keel::Array<float>& outWin,
         float w = 1.0f;
         switch (type) {
             case FftWindowType::Hann:
-                w = 0.5f * (1.0f - std::cos(keel::kTauF * phase));
+                w = 0.5f * (1.0f - keel::cos(keel::kTauF * phase));
                 break;
             case FftWindowType::Hamming:
-                w = 0.54f - 0.46f * std::cos(keel::kTauF * phase);
+                w = 0.54f - 0.46f * keel::cos(keel::kTauF * phase);
                 break;
             case FftWindowType::BlackmanHarris:
                 w = 0.35875f
-                  - 0.48829f * std::cos(keel::kTauF * phase)
-                  + 0.14128f * std::cos(2.0f * keel::kTauF * phase)
-                  - 0.01168f * std::cos(3.0f * keel::kTauF * phase);
+                  - 0.48829f * keel::cos(keel::kTauF * phase)
+                  + 0.14128f * keel::cos(2.0f * keel::kTauF * phase)
+                  - 0.01168f * keel::cos(3.0f * keel::kTauF * phase);
                 break;
             case FftWindowType::Rectangular:
                 w = 1.0f;
@@ -278,7 +275,7 @@ void BuildFftWindow(keel::u32 n, FftWindowType type, keel::Array<float>& outWin,
     if (scale == FrequencyScale::Logarithmic) {
         const float safeMin = keel::max(kMinLogFreqHz, minFreqHz);
         const float safeMax = keel::max(safeMin + 10.0f, maxFreqHz);
-        return safeMin * std::pow(safeMax / safeMin, normFromBottom);
+        return safeMin * keel::pow(safeMax / safeMin, normFromBottom);
     }
     return minFreqHz + normFromBottom * (maxFreqHz - minFreqHz);
 }
@@ -294,7 +291,7 @@ void BuildFftWindow(keel::u32 n, FftWindowType type, keel::Array<float>& outWin,
         const float safeMin = keel::max(kMinLogFreqHz, minFreqHz);
         const float safeMax = keel::max(safeMin + 10.0f, maxFreqHz);
         const float clamped = keel::clamp(freqHz, safeMin, safeMax);
-        return std::log(clamped / safeMin) / std::log(safeMax / safeMin);
+        return keel::log(clamped / safeMin) / keel::log(safeMax / safeMin);
     }
     return keel::clamp((freqHz - minFreqHz) / (maxFreqHz - minFreqHz), 0.0f, 1.0f);
 }
@@ -348,31 +345,39 @@ struct SpectrogramCache {
     ) {
         const keel::u32 effFft = SanitizeFftSize(reqFftSize);
         const keel::u32 halfBins = effFft / 2 + 1;
+        keel::usize texPixels = 0;
+        keel::usize stftCount = 0;
+        if (!keel::checked_mul(static_cast<keel::usize>(kTexW), static_cast<keel::usize>(kTexH), texPixels) ||
+            !keel::checked_mul(static_cast<keel::usize>(kTexW), static_cast<keel::usize>(halfBins), stftCount)) {
+            stftValid = false;
+            pixelsValid = false;
+            return;
+        }
         const float safeFloor = keel::min(reqFloor, reqCeil - 6.0f);
         const float safeCeil = reqCeil;
 
         const bool stftSame =
             stftValid &&
             signalFp == fp &&
-            std::abs(viewStartSec - startSec) < 1e-7 &&
-            std::abs(viewEndSec - endSec) < 1e-7 &&
+            keel::abs(viewStartSec - startSec) < 1e-7 &&
+            keel::abs(viewEndSec - endSec) < 1e-7 &&
             fftSize == effFft &&
             windowType == reqWin &&
-            stftBinsDb.size() == static_cast<keel::usize>(kTexW * halfBins);
+            stftBinsDb.size() == stftCount;
 
         const bool geometrySame =
             stftSame &&
-            std::abs(minFreqHz - fMin) < 0.05f &&
-            std::abs(maxFreqHz - fMax) < 0.05f &&
+            keel::abs(minFreqHz - fMin) < 0.05f &&
+            keel::abs(maxFreqHz - fMax) < 0.05f &&
             freqScale == reqScale &&
-            dbGrid.size() == static_cast<keel::usize>(kTexW * kTexH);
+            dbGrid.size() == texPixels;
 
         const bool colorSame =
             geometrySame &&
             colormap == reqCmap &&
-            std::abs(dbFloor - safeFloor) < 0.05f &&
-            std::abs(dbCeil - safeCeil) < 0.05f &&
-            (skipCpuPixels || (pixelsValid && pixels.size() == static_cast<keel::usize>(kTexW * kTexH)));
+            keel::abs(dbFloor - safeFloor) < 0.05f &&
+            keel::abs(dbCeil - safeCeil) < 0.05f &&
+            (skipCpuPixels || (pixelsValid && pixels.size() == texPixels));
 
         if (colorSame) {
             return;
@@ -390,14 +395,14 @@ struct SpectrogramCache {
         dbFloor = safeFloor;
         dbCeil = safeCeil;
 
-        dbGrid.resize(static_cast<keel::usize>(kTexW * kTexH), -120.0f);
+        dbGrid.resize(texPixels, -120.0f);
 
         if (samples.empty() || sampleRate <= 0.0f) {
             dbGridGeneration++;
             stftValid = false;
             keel::fill(dbGrid.as_mut_ref(), -120.0f);
             if (!skipCpuPixels) {
-                pixels.resize(static_cast<keel::usize>(kTexW * kTexH));
+                pixels.resize(texPixels);
                 const keel::u32 bgPx = SampleColormapAbgr(colormap, 0.0f);
                 keel::fill(pixels.as_mut_ref(), bgPx);
                 pixelsValid = true;
@@ -416,7 +421,7 @@ struct SpectrogramCache {
 
             re.resize(effFft);
             im.resize(effFft);
-            stftBinsDb.resize(static_cast<keel::usize>(kTexW * halfBins));
+            stftBinsDb.resize(stftCount);
 
             const double spanSec = keel::max(1e-6, endSec - startSec);
             const keel::i64 totalSamples = static_cast<keel::i64>(samples.size());
@@ -440,7 +445,7 @@ struct SpectrogramCache {
                 float* colOut = stftBinsDb.data() + static_cast<keel::usize>(x) * halfBins;
                 for (keel::u32 b = 0; b < halfBins; ++b) {
                     const float magSq = (re[b] * re[b] + im[b] * im[b]) * winNormSq;
-                    colOut[b] = 10.0f * std::log10(keel::max(1e-12f, magSq));
+                    colOut[b] = 10.0f * keel::log10(keel::max(1e-12f, magSq));
                 }
             }
             stftValid = true;
@@ -478,7 +483,7 @@ struct SpectrogramCache {
         }
 
         // Map dbGrid to ABGR8888 pixels using [dbFloor, dbCeil] and active colormap
-        pixels.resize(static_cast<keel::usize>(kTexW * kTexH));
+        pixels.resize(texPixels);
         const auto& lutAbgr = GetColormapLutAbgr(colormap);
         const float invRange = 255.0f / keel::max(1.0f, safeCeil - safeFloor);
         for (keel::usize i = 0; i < dbGrid.size(); ++i) {
@@ -620,9 +625,9 @@ struct WaveformBitmapCache {
             showRms == reqShowRms &&
             showGrid == reqShowGrid &&
             ampScale == reqScale &&
-            std::abs(viewStartSec - startSec) < 1e-7 &&
-            std::abs(viewEndSec - endSec) < 1e-7 &&
-            std::abs(waveformGain - gain) < 1e-4f &&
+            keel::abs(viewStartSec - startSec) < 1e-7 &&
+            keel::abs(viewEndSec - endSec) < 1e-7 &&
+            keel::abs(waveformGain - gain) < 1e-4f &&
             pixels.size() == static_cast<keel::usize>(w) * h) {
             return;
         }
@@ -693,7 +698,7 @@ struct WaveformBitmapCache {
             const double t0 = startSec + (static_cast<double>(col) / static_cast<double>(w)) * viewSpan;
             const double t1 = startSec + (static_cast<double>(col + 1) / static_cast<double>(w)) * viewSpan;
             const keel::usize s0 = static_cast<keel::usize>(keel::clamp(t0 * sampleRate, 0.0, static_cast<double>(samples.size() - 1)));
-            const keel::usize s1 = static_cast<keel::usize>(keel::clamp(std::ceil(t1 * sampleRate), static_cast<double>(s0 + 1), static_cast<double>(samples.size())));
+            const keel::usize s1 = static_cast<keel::usize>(keel::clamp(keel::ceil(t1 * sampleRate), static_cast<double>(s0 + 1), static_cast<double>(samples.size())));
 
             const PeakBucket pk = pyramid.QueryRange(samples, s0, s1);
             float yTop = AmplitudeToNormY(pk.maxVal, gain, reqScale) * hf;
@@ -854,11 +859,11 @@ struct SignalViewGeometry {
     g.controlRect = ctrlBox;
     constexpr float s = 1.0f;
 
-    const float overviewH = opts.showOverviewBar ? std::round(26.0f * s) : 0.0f;
-    const float timeRulerH = opts.showTimeRuler ? std::round(22.0f * s) : 0.0f;
-    const float leftGutterW = (opts.showAmplitudeRuler || opts.showFrequencyRuler) ? std::round(52.0f * s) : 0.0f;
-    const float rightGutterW = opts.showColorbar ? std::round(42.0f * s) : 0.0f;
-    const float splitterH = std::round(6.0f * s);
+    const float overviewH = opts.showOverviewBar ? keel::round(26.0f * s) : 0.0f;
+    const float timeRulerH = opts.showTimeRuler ? keel::round(22.0f * s) : 0.0f;
+    const float leftGutterW = (opts.showAmplitudeRuler || opts.showFrequencyRuler) ? keel::round(52.0f * s) : 0.0f;
+    const float rightGutterW = opts.showColorbar ? keel::round(42.0f * s) : 0.0f;
+    const float splitterH = keel::round(6.0f * s);
 
     const float plotX = ctrlBox.x + leftGutterW;
     const float plotW = keel::max(20.0f, ctrlBox.w - leftGutterW - rightGutterW);
@@ -876,7 +881,7 @@ struct SignalViewGeometry {
     const float bodyH = keel::max(20.0f, ctrlBox.Bottom() - curY);
     const float clampedRatio = keel::clamp(splitRatio, 0.0f, 1.0f);
     const float usableH = keel::max(0.0f, bodyH - splitterH);
-    const float topH = std::round(usableH * clampedRatio);
+    const float topH = keel::round(usableH * clampedRatio);
     const float botH = keel::max(0.0f, usableH - topH);
 
     g.topPanelRect = Rect(ctrlBox.x, curY, ctrlBox.w, topH);
@@ -925,7 +930,7 @@ struct SignalViewGeometry {
 
 [[nodiscard]] keel::FixedString<32> FormatFreqTickHz(float freqHz) noexcept {
     if (freqHz >= 1000.0f) {
-        if (std::fmod(freqHz, 1000.0f) < 1.0f) {
+        if (keel::fmod(freqHz, 1000.0f) < 1.0f) {
             return keel::format_fixed<32>("%.0fkHz", freqHz * 0.001f);
         }
         return keel::format_fixed<32>("%.1fkHz", freqHz * 0.001f);
@@ -938,7 +943,7 @@ struct SignalViewGeometry {
     static constexpr keel::StaticArray<const char*, 12> kNoteNames = {
         "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
     };
-    const float midi = 69.0f + 12.0f * std::log2(freqHz / 440.0f);
+    const float midi = 69.0f + 12.0f * keel::log2(freqHz / 440.0f);
     const keel::i32 midiInt = keel::round_i32(midi);
     if (midiInt < 12 || midiInt > 127) return {};
     const keel::i32 noteIdx = ((midiInt % 12) + 12) % 12;
@@ -949,7 +954,7 @@ struct SignalViewGeometry {
 [[nodiscard]] double NiceTimeStep(double spanSec, float maxTicks) noexcept {
     if (spanSec <= 0.0 || maxTicks <= 1.0f) return 1.0;
     const double raw = spanSec / static_cast<double>(maxTicks);
-    const double exp10 = std::pow(10.0, std::floor(std::log10(raw)));
+    const double exp10 = keel::pow(10.0, keel::floor(keel::log10(raw)));
     const double frac = raw / exp10;
     double mult = 1.0;
     if (frac > 5.0) mult = 10.0;
@@ -1034,7 +1039,7 @@ SignalViewResponse SignalView::Run(
     // Synchronize external bindings (before input processing)
     if (opts.splitRatioBinding && st.dragMode != DragMode::Splitter) {
         st.splitRatio = keel::clamp(*opts.splitRatioBinding, 0.0f, 1.0f);
-    } else if (!opts.splitRatioBinding && st.dragMode != DragMode::Splitter && std::abs(opts.splitRatio - 0.46f) > 1e-4f) {
+    } else if (!opts.splitRatioBinding && st.dragMode != DragMode::Splitter && keel::abs(opts.splitRatio - 0.46f) > 1e-4f) {
         // Respect option changes when no pointer binding is used
     }
     if (opts.waveformGainBinding && st.dragMode != DragMode::AmplitudeGain) {
@@ -1105,7 +1110,7 @@ SignalViewResponse SignalView::Run(
         for (keel::usize i = 0; i < markerList.size(); ++i) {
             const float mx = geom.timeRulerRect.x +
                 static_cast<float>((markerList[i].timeSec - st.viewStartSec) / viewSpan) * geom.timeRulerRect.w;
-            if (std::abs(mouse.x - mx) <= 7.0f) {
+            if (keel::abs(mouse.x - mx) <= 7.0f) {
                 hoveredMarker = static_cast<keel::i32>(i);
                 break;
             }
@@ -1118,7 +1123,7 @@ SignalViewResponse SignalView::Run(
         const double viewSpan = keel::max(1e-6, st.viewEndSec - st.viewStartSec);
 
         // 1. Mouse Wheel Zoom (Time, Amplitude Gain, Frequency Band, or Colorbar Dynamic Range)
-        if (baseRes.hovered && (std::abs(wheel.y) > 0.001f || std::abs(wheel.x) > 0.001f)) {
+        if (baseRes.hovered && (keel::abs(wheel.y) > 0.001f || keel::abs(wheel.x) > 0.001f)) {
             const float zoomStep = (wheel.y > 0.0f) ? 0.80f : 1.25f;
 
             if (geom.waveRulerRect.Contains(mouse) || (geom.wavePlotRect.Contains(mouse) && mods.ctrl)) {
@@ -1169,7 +1174,7 @@ SignalViewResponse SignalView::Run(
         if (baseRes.hovered && mouseClicked && prevBounds.Contains(mouse)) {
             const double nowSec = ctx.GetCurrentTime();
             const bool isDoubleClick = (nowSec - st.lastClickTimeSec < 0.32) &&
-                                       (std::hypot(mouse.x - st.lastClickPos.x, mouse.y - st.lastClickPos.y) < 8.0f);
+                                       (keel::hypot(mouse.x - st.lastClickPos.x, mouse.y - st.lastClickPos.y) < 8.0f);
             st.lastClickTimeSec = nowSec;
             st.lastClickPos = mouse;
 
@@ -1195,9 +1200,9 @@ SignalViewResponse SignalView::Run(
                 const float x0 = geom.overviewRect.x + static_cast<float>(st.viewStartSec / totalDurationSec) * geom.overviewRect.w;
                 const float x1 = geom.overviewRect.x + static_cast<float>(st.viewEndSec / totalDurationSec) * geom.overviewRect.w;
                 const float handleTol = 6.0f;
-                if (std::abs(mouse.x - x0) <= handleTol) {
+                if (keel::abs(mouse.x - x0) <= handleTol) {
                     st.dragMode = DragMode::OverviewResizeLeft;
-                } else if (std::abs(mouse.x - x1) <= handleTol) {
+                } else if (keel::abs(mouse.x - x1) <= handleTol) {
                     st.dragMode = DragMode::OverviewResizeRight;
                 } else if (mouse.x >= x0 && mouse.x <= x1) {
                     st.dragMode = DragMode::OverviewPan;
@@ -1299,16 +1304,16 @@ SignalViewResponse SignalView::Run(
                             const bool inX = (mouse.x >= selX0 - edgeTol && mouse.x <= selX1 + edgeTol);
                             const bool inY = (mouse.y >= selYHigh - edgeTol && mouse.y <= selYLow + edgeTol);
 
-                            if (inY && std::abs(mouse.x - selX0) <= edgeTol) {
+                            if (inY && keel::abs(mouse.x - selX0) <= edgeTol) {
                                 st.dragMode = DragMode::SelectResizeLeft;
                                 grabbedHandle = true;
-                            } else if (inY && std::abs(mouse.x - selX1) <= edgeTol) {
+                            } else if (inY && keel::abs(mouse.x - selX1) <= edgeTol) {
                                 st.dragMode = DragMode::SelectResizeRight;
                                 grabbedHandle = true;
-                            } else if (inX && std::abs(mouse.y - selYHigh) <= edgeTol) {
+                            } else if (inX && keel::abs(mouse.y - selYHigh) <= edgeTol) {
                                 st.dragMode = DragMode::SelectResizeHighFreq;
                                 grabbedHandle = true;
-                            } else if (inX && std::abs(mouse.y - selYLow) <= edgeTol) {
+                            } else if (inX && keel::abs(mouse.y - selYLow) <= edgeTol) {
                                 st.dragMode = DragMode::SelectResizeLowFreq;
                                 grabbedHandle = true;
                             } else if (mouse.x > selX0 && mouse.x < selX1 && mouse.y > selYHigh && mouse.y < selYLow) {
@@ -1316,10 +1321,10 @@ SignalViewResponse SignalView::Run(
                                 grabbedHandle = true;
                             }
                         } else {
-                            if (std::abs(mouse.x - selX0) <= edgeTol) {
+                            if (keel::abs(mouse.x - selX0) <= edgeTol) {
                                 st.dragMode = DragMode::SelectResizeLeft;
                                 grabbedHandle = true;
-                            } else if (std::abs(mouse.x - selX1) <= edgeTol) {
+                            } else if (keel::abs(mouse.x - selX1) <= edgeTol) {
                                 st.dragMode = DragMode::SelectResizeRight;
                                 grabbedHandle = true;
                             }
@@ -1414,7 +1419,7 @@ SignalViewResponse SignalView::Run(
                         break;
                     }
                     case DragMode::AmplitudeGain: {
-                        const float factor = std::pow(2.0f, -dy / 45.0f);
+                        const float factor = keel::pow(2.0f, -dy / 45.0f);
                         st.waveformGain = keel::clamp(st.dragStartGain * factor, 0.1f, 64.0f);
                         if (opts.waveformGainBinding) *opts.waveformGainBinding = st.waveformGain;
                         res.changed = true;
@@ -1461,7 +1466,7 @@ SignalViewResponse SignalView::Run(
                         break;
                     }
                     case DragMode::WaveSelectNew: {
-                        if (std::abs(dx) > 3.0f) {
+                        if (keel::abs(dx) > 3.0f) {
                             const double curT = st.viewStartSec +
                                 keel::clamp(static_cast<double>((mouse.x - geom.wavePlotRect.x) / plotW), 0.0, 1.0) * viewSpan;
                             st.selection.active = true;
@@ -1474,7 +1479,7 @@ SignalViewResponse SignalView::Run(
                         break;
                     }
                     case DragMode::SpecSelectNew: {
-                        if (std::hypot(dx, dy) > 3.0f) {
+                        if (keel::hypot(dx, dy) > 3.0f) {
                             const double curT = st.viewStartSec +
                                 keel::clamp(static_cast<double>((mouse.x - geom.specPlotRect.x) / plotW), 0.0, 1.0) * viewSpan;
                             const float normYBottom = 1.0f - keel::clamp((mouse.y - geom.specPlotRect.y) / keel::max(1.0f, geom.specPlotRect.h), 0.0f, 1.0f);
@@ -1587,9 +1592,9 @@ SignalViewResponse SignalView::Run(
         const keel::usize s0 = static_cast<keel::usize>(keel::clamp(st.selection.MinTimeSec() * sampleRate, 0.0, static_cast<double>(samples.size() - 1)));
         const keel::usize s1 = static_cast<keel::usize>(keel::clamp(st.selection.MaxTimeSec() * sampleRate, static_cast<double>(s0 + 1), static_cast<double>(samples.size())));
         const PeakBucket pb = st.pyramid.QueryRange(samples, s0, s1);
-        const float peakAbs = keel::max(std::abs(pb.minVal), std::abs(pb.maxVal));
-        res.selectionPeakDbFs = 20.0f * std::log10(keel::max(1e-6f, peakAbs));
-        res.selectionRmsDbFs = 20.0f * std::log10(keel::max(1e-6f, pb.rmsVal));
+        const float peakAbs = keel::max(keel::abs(pb.minVal), keel::abs(pb.maxVal));
+        res.selectionPeakDbFs = 20.0f * keel::log10(keel::max(1e-6f, peakAbs));
+        res.selectionRmsDbFs = 20.0f * keel::log10(keel::max(1e-6f, pb.rmsVal));
         res.selectionCentroidHz = st.selection.hasSpectralBox
             ? 0.5f * (st.selection.MinFreqHz() + st.selection.MaxFreqHz())
             : 0.5f * (st.viewMinFreqHz + st.viewMaxFreqHz);
@@ -1608,7 +1613,7 @@ SignalViewResponse SignalView::Run(
                 static_cast<keel::usize>(keel::round_u64(res.cursorTimeSec * static_cast<double>(sampleRate)))
             );
             res.cursorAmplitude = samples[res.cursorSampleIndex];
-            res.cursorDbFs = 20.0f * std::log10(keel::max(1e-6f, std::abs(res.cursorAmplitude)));
+            res.cursorDbFs = 20.0f * keel::log10(keel::max(1e-6f, keel::abs(res.cursorAmplitude)));
         }
         if (inSpec) {
             const float normYFromTop = keel::clamp((mouse.y - geom.specPlotRect.y) / keel::max(1.0f, geom.specPlotRect.h), 0.0f, 1.0f);
@@ -1734,10 +1739,10 @@ SignalViewResponse SignalView::Run(
 
         const keel::u64 staticKey = detail::HashArgs(
             s.lastSignalFp,
-            std::round(box.x * 2.0f),
-            std::round(box.y * 2.0f),
-            std::round(box.w * 2.0f),
-            std::round(box.h * 2.0f),
+            keel::round(box.x * 2.0f),
+            keel::round(box.y * 2.0f),
+            keel::round(box.w * 2.0f),
+            keel::round(box.h * 2.0f),
             scale,
             c.GetScale(),
             isDark,
@@ -1893,11 +1898,11 @@ void main() {
             }
 
             // 2. Compute Shared Adaptive Time Grid Ticks
-            const float maxTimeTicks = keel::max(3.0f, std::floor(g.timeRulerRect.w / (88.0f * scale)));
+            const float maxTimeTicks = keel::max(3.0f, keel::floor(g.timeRulerRect.w / (88.0f * scale)));
             const double majorTimeStep = NiceTimeStep(viewSpan, maxTimeTicks);
             const double minorTimeStep = majorTimeStep * 0.2;
-            const double firstMajorTime = std::ceil(s.viewStartSec / majorTimeStep) * majorTimeStep;
-            const double firstMinorTime = std::ceil(s.viewStartSec / minorTimeStep) * minorTimeStep;
+            const double firstMajorTime = keel::ceil(s.viewStartSec / majorTimeStep) * majorTimeStep;
+            const double firstMinorTime = keel::ceil(s.viewStartSec / minorTimeStep) * minorTimeStep;
 
             // 3. Time Ruler & Cue Markers
             if (o.showTimeRuler && g.timeRulerRect.w > 0.0f && g.timeRulerRect.h > 0.0f) {
@@ -2037,14 +2042,14 @@ void main() {
                     for (float lv : kNormLevels) {
                         const float gy = wr.y + (0.5f - 0.5f * lv) * wr.h;
                         c.DrawLine({wr.Right() - 5.0f * scale, gy}, {wr.Right(), gy}, textMuted, 1.0f);
-                        const float effAmp = std::abs(lv) / keel::max(0.01f, s.waveformGain);
+                        const float effAmp = keel::abs(lv) / keel::max(0.01f, s.waveformGain);
                         char lbl[24]{};
                         keel::StringRef lblRef{};
                         if (o.amplitudeScale == AmplitudeScale::dBFS) {
-                            if (std::abs(lv) < 1e-3f) {
+                            if (keel::abs(lv) < 1e-3f) {
                                 lblRef = "-inf";
                             } else {
-                                const float db = 20.0f * std::log10(keel::max(1e-5f, effAmp));
+                                const float db = 20.0f * keel::log10(keel::max(1e-5f, effAmp));
                                 lblRef = keel::format_buf(lbl, "%+.0f dB", db);
                             }
                         } else {
@@ -2236,7 +2241,7 @@ void main() {
                     sy0 = sp.Bottom() - FreqHzToNormalizedY(s.selection.MaxFreqHz(), s.viewMinFreqHz, s.viewMaxFreqHz, o.frequencyScale) * sp.h;
                     sy1 = sp.Bottom() - FreqHzToNormalizedY(s.selection.MinFreqHz(), s.viewMinFreqHz, s.viewMaxFreqHz, o.frequencyScale) * sp.h;
                 }
-                const Rect boxSel(sx0, keel::min(sy0, sy1), keel::max(1.0f, sx1 - sx0), keel::max(1.0f, std::abs(sy1 - sy0)));
+                const Rect boxSel(sx0, keel::min(sy0, sy1), keel::max(1.0f, sx1 - sx0), keel::max(1.0f, keel::abs(sy1 - sy0)));
                 c.DrawRoundRect(boxSel, 2.0f * scale,
                                 Color(56, 189, 248, 36),
                                 Color(56, 189, 248, 235),
@@ -2299,7 +2304,7 @@ void main() {
                     ? keel::min(p->samples.size() - 1, static_cast<keel::usize>(keel::round_u64(curT * sampleRate)))
                     : 0;
                 const float amp = !p->samples.empty() ? p->samples[sampleIdx] : 0.0f;
-                const float ampDb = 20.0f * std::log10(keel::max(1e-6f, std::abs(amp)));
+                const float ampDb = 20.0f * keel::log10(keel::max(1e-6f, keel::abs(amp)));
 
                 char hudBuf[192]{};
                 keel::StringRef hudRef{};

@@ -1,10 +1,10 @@
 #include "guikit/core/text_util.hpp"
-#include <cmath>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/rich_text.hpp"
 #include "guikit/core/theme.hpp"
 #include "keel/small_array.h"
 #include "keel/utf8.h"
+#include "keel/math.h"
 
 namespace guikit {
 
@@ -447,7 +447,7 @@ void TextUtil::DrawUiText(
     }
 
     const keel::usize heightFitLines = (lh > 0.0f)
-        ? static_cast<keel::usize>(keel::max(1.0f, std::floor((bounds.h + kTextSubpixelTolerance) / lh)))
+        ? static_cast<keel::usize>(keel::max(1.0f, keel::floor((bounds.h + kTextSubpixelTolerance) / lh)))
         : lines.size();
     const keel::usize maxAllowedLines = (text.wrap.maxLines > 0)
         ? keel::min<keel::usize>(text.wrap.maxLines, heightFitLines)
@@ -674,11 +674,11 @@ void TextUtil::DrawHighlightedTextBox(
         if (x1 > x0 + 0.5f && x0 < bounds.Right()) {
             const float clampedX1 = keel::min(x1, bounds.Right());
             if (clampedX1 > x0 + 0.5f) {
-                const float hlH = std::round(fontSize * 1.30f);
+                const float hlH = keel::round(fontSize * 1.30f);
                 const Rect hlRect = Rect(
-                    std::round(x0 - 1.5f),
-                    std::round(bounds.y + (bounds.h - hlH) * alignY),
-                    std::round((clampedX1 - x0) + 3.0f),
+                    keel::round(x0 - 1.5f),
+                    keel::round(bounds.y + (bounds.h - hlH) * alignY),
+                    keel::round((clampedX1 - x0) + 3.0f),
                     hlH
                 ).Intersect(bounds);
                 if (hlRect.w > 0.0f && hlRect.h > 0.0f) {

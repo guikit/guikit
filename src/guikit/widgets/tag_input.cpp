@@ -1,6 +1,5 @@
 #include "guikit/widgets/tag_input.hpp"
 #include <cctype>
-#include <cmath>
 #include <cstdio>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"

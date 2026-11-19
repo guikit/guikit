@@ -1,11 +1,11 @@
 #include "guikit/widgets/pagination.hpp"
-#include <cmath>
 #include <cstdio>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
 #include "guikit/graphics/icon.hpp"
+#include "keel/math.h"
 #include "keel/small_array.h"
 
 namespace guikit {
@@ -167,7 +167,7 @@ float MeasureUniformSlotWidth(
     const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
     const float textW = TextUtil::MeasureWidth(buf, fontSize, canvas);
     const float padX = keel::max(8.0f, cm.paddingX * 0.65f);
-    return keel::max(minBtnW, std::ceil(textW + padX * 2.0f));
+    return keel::max(minBtnW, keel::ceil(textW + padX * 2.0f));
 }
 
 keel::StringRef FormatPageInfoText(keel::usize currentPage, keel::usize totalPages, char (&buf)[64]) noexcept {
@@ -187,7 +187,7 @@ float MeasureReservedPageInfoWidth(
     char buf[64];
     const keel::StringRef maxInfoStr = FormatPageInfoText(safeTotal - 1, safeTotal, buf);
     const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
-    return std::ceil(TextUtil::MeasureWidth(maxInfoStr, fontSize, canvas) + 4.0f);
+    return keel::ceil(TextUtil::MeasureWidth(maxInfoStr, fontSize, canvas) + 4.0f);
 }
 
 Vec2 MeasurePaginationNaturalBox(
@@ -511,7 +511,7 @@ void Pagination::Render(
 
     const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
     const float pillRadius = keel::max(4.0f, cm.cornerRadius);
-    const float iconSz = std::round(cm.iconSize * 0.85f);
+    const float iconSz = keel::round(cm.iconSize * 0.85f);
 
     canvas.PushClip(bounds);
 
