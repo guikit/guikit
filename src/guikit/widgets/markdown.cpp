@@ -1,5 +1,4 @@
 #include "guikit/widgets/markdown.hpp"
-#include <cctype>
 #include <cstdio>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"

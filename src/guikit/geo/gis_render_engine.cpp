@@ -19,9 +19,6 @@
 #include <atomic>
 #include <condition_variable>
 #include <cstring>
-#if defined(__GLIBC__)
-#include <malloc.h>
-#endif
 #include <mutex>
 #include <thread>
 
@@ -1955,9 +1952,7 @@ private:
                     slot.scratchA = {};
                     slot.scratchB = {};
                 }
-#if defined(__GLIBC__)
-                ::malloc_trim(0);
-#endif
+                keel::memory_trim();
                 continue;
             }
 
@@ -4465,9 +4460,7 @@ void GisRenderEngine::TrimInactiveCaches() noexcept {
     if (lastProv && lastProv.get() != defaultProv.get()) {
         lastProv->ClearCache();
     }
-#if defined(__GLIBC__)
-    ::malloc_trim(0);
-#endif
+    keel::memory_trim();
 }
 
 bool GisRenderEngine::WaitForBackgroundStreamingIdle(keel::u32 timeoutMs) {

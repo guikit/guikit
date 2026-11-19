@@ -5,9 +5,7 @@
 #include "keel/time.h"
 #include "keel/utf8.h"
 #include <cassert>
-#if defined(__GLIBC__)
-#include <malloc.h>
-#endif
+#include "keel/memory.h"
 
 namespace guikit {
 
@@ -3048,9 +3046,7 @@ void Context::EndFrame(ICanvas& canvas) {
     }
 
     if (trimmedAny) {
-#if defined(__GLIBC__)
-        ::malloc_trim(0);
-#endif
+        keel::memory_trim();
     }
 
     if (m_repaintFrames > 0) {

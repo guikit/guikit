@@ -1,5 +1,4 @@
 #include "guikit/widgets/text_area.hpp"
-#include <cctype>
 #include <cstdio>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
@@ -111,17 +110,15 @@ static constexpr keel::StaticArray<keel::StringRef, 22> kPythonBuiltins = {
 };
 
 bool IsIdentStart(char c) noexcept {
-    const keel::u8 u = static_cast<keel::u8>(c);
-    return std::isalpha(u) || c == '_';
+    return keel::is_ascii_alpha(c) || c == '_';
 }
 
 bool IsIdentChar(char c) noexcept {
-    const keel::u8 u = static_cast<keel::u8>(c);
-    return std::isalnum(u) || c == '_';
+    return keel::is_ascii_alnum(c) || c == '_';
 }
 
 char ToLowerAscii(char c) noexcept {
-    return (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c;
+    return keel::to_ascii_lower(c);
 }
 
 bool ContainsToken(keel::ArrayRef<keel::StringRef> list, keel::StringRef token) noexcept {
@@ -1770,10 +1767,10 @@ void TextArea::HighlightLine(
 
         // 5. Numeric literal
         if (config.highlightNumbers &&
-            (std::isdigit(static_cast<keel::u8>(lineText[i])) ||
-             (lineText[i] == '.' && i + 1 < len && std::isdigit(static_cast<keel::u8>(lineText[i + 1]))))) {
+            (keel::is_ascii_digit(lineText[i]) ||
+             (lineText[i] == '.' && i + 1 < len && keel::is_ascii_digit(lineText[i + 1])))) {
             const keel::usize start = i++;
-            while (i < len && (std::isalnum(static_cast<keel::u8>(lineText[i])) || lineText[i] == '.' ||
+            while (i < len && (keel::is_ascii_alnum(lineText[i]) || lineText[i] == '.' ||
                                (!config.transposeApostrophe && lineText[i] == '\''))) {
                 ++i;
             }
@@ -1814,7 +1811,7 @@ void TextArea::HighlightLine(
                lineText[i] != ' ' && lineText[i] != '\t' &&
                lineText[i] != '"' && lineText[i] != '\'' &&
                !IsIdentStart(lineText[i]) &&
-               !std::isdigit(static_cast<keel::u8>(lineText[i]))) {
+               !keel::is_ascii_digit(lineText[i])) {
             if (!config.blockCommentStart.empty() &&
                 i + config.blockCommentStart.size() <= len &&
                 lineText.substr(i, config.blockCommentStart.size()) == config.blockCommentStart) {
@@ -2410,7 +2407,7 @@ TextAreaResponse TextArea::Run(
         for (const keel::String& t : typedList) {
             for (char c : t) {
                 if (c >= 32 && c != 127) {
-                    if (state.overlayFocus == 3 && !std::isdigit(static_cast<keel::u8>(c))) {
+                    if (state.overlayFocus == 3 && !keel::is_ascii_digit(c)) {
                         continue;
                     }
                     targetStr->push_back(c);

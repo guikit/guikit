@@ -1,5 +1,4 @@
 #include "guikit/widgets/tag_input.hpp"
-#include <cctype>
 #include <cstdio>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
@@ -57,11 +56,11 @@ ControlSpec EffectiveTagInputControl(const TagInputOptions& opts, UiSize size, c
 
 keel::StringRef TrimWhitespace(keel::StringRef s) noexcept {
     keel::usize start = 0;
-    while (start < s.size() && std::isspace(static_cast<keel::u8>(s[start])) != 0) {
+    while (start < s.size() && keel::is_ascii_space(s[start])) {
         ++start;
     }
     keel::usize end = s.size();
-    while (end > start && std::isspace(static_cast<keel::u8>(s[end - 1])) != 0) {
+    while (end > start && keel::is_ascii_space(s[end - 1])) {
         --end;
     }
     return s.substr(start, end - start);

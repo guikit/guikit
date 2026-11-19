@@ -3,10 +3,8 @@
 #include "guikit/geo/gis_render_engine.hpp"
 
 #include <atomic>
-#if defined(__GLIBC__)
-#include <malloc.h>
-#endif
 #include <mutex>
+#include "keel/memory.h"
 #include "keel/bits.h"
 #include "keel/core.h"
 #include "keel/format.h"
@@ -227,9 +225,7 @@ public:
             std::lock_guard<std::mutex> lk(m_mutex);
             m_ramCache.clear();
         }
-#if defined(__GLIBC__)
-        ::malloc_trim(0);
-#endif
+        keel::memory_trim();
     }
 
 private:

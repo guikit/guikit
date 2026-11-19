@@ -1,7 +1,7 @@
 #include "guikit/widgets/date_picker.hpp"
-#include <ctime>
 #include "keel/math.h"
 #include "keel/static_array.h"
+#include "keel/time.h"
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
@@ -11,20 +11,14 @@
 namespace guikit {
 
 DateTime DateTime::Today() noexcept {
-    const std::time_t now = std::time(nullptr);
-    std::tm localTm{};
-#if defined(_WIN32)
-    localtime_s(&localTm, &now);
-#else
-    localtime_r(&now, &localTm);
-#endif
+    const keel::CalendarTime now = keel::local_time();
     return DateTime{
-        .year = localTm.tm_year + 1900,
-        .month = keel::clamp(localTm.tm_mon + 1, 1, 12),
-        .day = keel::clamp(localTm.tm_mday, 1, 31),
-        .hour = keel::clamp(localTm.tm_hour, 0, 23),
-        .minute = keel::clamp(localTm.tm_min, 0, 59),
-        .second = keel::clamp(localTm.tm_sec, 0, 59)
+        .year = now.year,
+        .month = now.month,
+        .day = now.day,
+        .hour = now.hour,
+        .minute = now.minute,
+        .second = now.second
     };
 }
 

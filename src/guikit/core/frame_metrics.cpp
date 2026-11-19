@@ -1,46 +1,17 @@
 #include "guikit/core/frame_metrics.hpp"
 
-#include <cstdio>
 #include "keel/core.h"
 #include "keel/format.h"
-#include "keel/number.h"
+#include "keel/process.h"
+#include "keel/thread_pool.h"
 #include "keel/time.h"
-
-#if defined(_WIN32)
-    #ifndef WIN32_LEAN_AND_MEAN
-        #define WIN32_LEAN_AND_MEAN
-    #endif
-    #ifndef NOMINMAX
-        #define NOMINMAX
-    #endif
-    #include <windows.h>
-    #include <psapi.h>
-#elif defined(__APPLE__)
-    #include <ctime>
-    #include <mach/mach.h>
-    #include <unistd.h>
-#elif defined(__EMSCRIPTEN__)
-    #include <malloc.h>
-#else
-    #include <ctime>
-    #include <unistd.h>
-#endif
 
 namespace guikit {
 
 namespace {
 
 [[nodiscard]] keel::i32 QueryNumProcessors() noexcept {
-#if defined(_WIN32)
-    SYSTEM_INFO sysInfo{};
-    GetSystemInfo(&sysInfo);
-    return keel::max(1, static_cast<keel::i32>(sysInfo.dwNumberOfProcessors));
-#elif defined(__EMSCRIPTEN__)
-    return 1;
-#else
-    const keel::i64 n = sysconf(_SC_NPROCESSORS_ONLN);
-    return (n > 0) ? static_cast<keel::i32>(n) : 1;
-#endif
+    return keel::max(1, static_cast<keel::i32>(keel::hardware_concurrency()));
 }
 
 [[nodiscard]] constexpr double DeltaSeconds(keel::u64 endNs, keel::u64 startNs) noexcept {
@@ -198,18 +169,16 @@ void FrameMetrics::EndFrame(float targetFps) noexcept {
 void FrameMetrics::UpdateProcessTelemetry(keel::u64 nowNs) noexcept {
     const double elapsedCpuSec = DeltaSeconds(nowNs, m_lastCpuCheckTimeNs);
     if (elapsedCpuSec >= 0.5) {
-#if defined(__EMSCRIPTEN__)
-        const float pct = static_cast<float>((m_accumulatedWorkSec / elapsedCpuSec) * 100.0);
-        m_cpuPercent = m_isIdle ? 0.0f : keel::clamp(pct, 0.0f, 100.0f);
-#else
         const double curCpuSec = QueryProcessCpuSeconds();
         if (curCpuSec >= 0.0 && m_lastProcessCpuSec >= 0.0) {
             const double deltaCpu = curCpuSec - m_lastProcessCpuSec;
             const float pct = static_cast<float>((deltaCpu / (elapsedCpuSec * m_numProcessors)) * 100.0);
             m_cpuPercent = keel::clamp(pct, 0.0f, 100.0f);
+        } else if (curCpuSec < 0.0) {
+            const float pct = static_cast<float>((m_accumulatedWorkSec / elapsedCpuSec) * 100.0);
+            m_cpuPercent = m_isIdle ? 0.0f : keel::clamp(pct, 0.0f, 100.0f);
         }
         m_lastProcessCpuSec = curCpuSec;
-#endif
         m_accumulatedWorkSec = 0.0;
         m_ramBytes = QueryProcessRamBytes();
         m_lastCpuCheckTimeNs = nowNs;
@@ -260,74 +229,15 @@ void FrameMetrics::RefreshDisplayStrings(keel::u64 nowNs, float targetFps) noexc
 }
 
 keel::usize FrameMetrics::QueryProcessRamBytes() noexcept {
-#if defined(_WIN32)
-    PROCESS_MEMORY_COUNTERS pmc{};
-    pmc.cb = sizeof(pmc);
-    if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
-        return static_cast<keel::usize>(pmc.WorkingSetSize);
-    }
-    return 0;
-#elif defined(__APPLE__)
-    mach_task_basic_info_data_t info{};
-    mach_msg_type_number_t count = MACH_TASK_BASIC_INFO_COUNT;
-    if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO, reinterpret_cast<task_info_t>(&info), &count) == KERN_SUCCESS) {
-        return static_cast<keel::usize>(info.resident_size);
-    }
-    return 0;
-#elif defined(__EMSCRIPTEN__)
-    const struct mallinfo mi = mallinfo();
-    if (mi.uordblks > 0) {
-        return static_cast<keel::usize>(static_cast<keel::u32>(mi.uordblks));
-    }
-    return static_cast<keel::usize>(__builtin_wasm_memory_size(0)) * 65536ULL;
-#else
-    FILE* fp = std::fopen("/proc/self/statm", "r");
-    if (!fp) {
-        return 0;
-    }
-    char statmBuf[128]{};
-    const keel::usize bytesRead = std::fread(statmBuf, 1, sizeof(statmBuf) - 1, fp);
-    std::fclose(fp);
-    const keel::StringRef view(statmBuf, bytesRead);
-    keel::usize pos = 0;
-    while (pos < view.size() && view[pos] == ' ') ++pos;
-    while (pos < view.size() && view[pos] >= '0' && view[pos] <= '9') ++pos;
-    while (pos < view.size() && view[pos] == ' ') ++pos;
-    const keel::usize rssStart = pos;
-    while (pos < view.size() && view[pos] >= '0' && view[pos] <= '9') ++pos;
-    if (pos > rssStart) {
-        if (const auto rssPages = keel::parse_u64(view.substr(rssStart, pos - rssStart))) {
-            const keel::i64 pageSize = sysconf(_SC_PAGESIZE);
-            if (pageSize > 0) {
-                return static_cast<keel::usize>(*rssPages) * static_cast<keel::usize>(pageSize);
-            }
-        }
-    }
-    return 0;
-#endif
+    return static_cast<keel::usize>(keel::process_rss_bytes());
 }
 
 double FrameMetrics::QueryProcessCpuSeconds() noexcept {
-#if defined(_WIN32)
-    FILETIME creation{}, exit{}, kernel{}, user{};
-    if (!GetProcessTimes(GetCurrentProcess(), &creation, &exit, &kernel, &user)) {
+    const keel::u64 cpuNs = keel::process_cpu_time_ns();
+    if (cpuNs == 0u) {
         return -1.0;
     }
-    ULARGE_INTEGER k, u;
-    k.LowPart = kernel.dwLowDateTime;
-    k.HighPart = kernel.dwHighDateTime;
-    u.LowPart = user.dwLowDateTime;
-    u.HighPart = user.dwHighDateTime;
-    return static_cast<double>(k.QuadPart + u.QuadPart) * 1e-7;
-#elif defined(__EMSCRIPTEN__)
-    return 0.0;
-#else
-    timespec ts{};
-    if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts) != 0) {
-        return -1.0;
-    }
-    return static_cast<double>(ts.tv_sec) + static_cast<double>(ts.tv_nsec) * 1e-9;
-#endif
+    return static_cast<double>(cpuNs) * 1e-9;
 }
 
 } // namespace guikit
