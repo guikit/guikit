@@ -250,7 +250,7 @@ void DemoWindow::RenderPreviewToolbar(guikit::Context& ui) {
         ui.Text("PREVIEW", {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Muted});
         previewTb.Separator();
 
-        if (ui.Select(m_demoCtx.previewFormFactorIdx, kPreviewFormFactorNames, {.layout = {.width = 96.0f}, .style = {.size = guikit::UiSize::Sm}}).changed) {
+        if (ui.Select(m_demoCtx.previewFormFactorIdx, kPreviewFormFactorNames, {.size = guikit::UiSize::Sm, .width = 96.0f}).changed) {
             if (m_demoCtx.previewFormFactorIdx == 1) {
                 m_demoCtx.previewLandscape = true;  // Tablet defaults to Landscape
                 if (m_demoCtx.previewZoomModeIdx == static_cast<keel::usize>(PreviewZoomMode::Zoom100)) {
@@ -282,8 +282,8 @@ void DemoWindow::RenderPreviewToolbar(guikit::Context& ui) {
         const keel::i32 effZoomPct = keel::round_i32(m_demoCtx.previewEffectiveZoom * 100.0f);
         guikit::SelectOptions zoomSelectOpts{
             .tooltip = "Preview Zoom / Scale (Fit, Real 1:1 physical mm, or Ctrl + MouseWheel)",
-            .layout = {.width = 116.0f},
-            .style = {.size = guikit::UiSize::Sm}
+            .size = guikit::UiSize::Sm,
+            .width = 116.0f
         };
         if (m_demoCtx.previewZoomModeIdx == static_cast<keel::usize>(PreviewZoomMode::Fit) ||
             m_demoCtx.previewZoomModeIdx == static_cast<keel::usize>(PreviewZoomMode::Real1To1)) {
@@ -316,7 +316,7 @@ void DemoWindow::RenderPreviewToolbar(guikit::Context& ui) {
             .textLeft = "Dark",
             .textRight = "Light",
             .symmetric = true,
-            .style = {.size = guikit::UiSize::Md}
+            .size = guikit::UiSize::Md
         }).changed) {
             m_demoCtx.previewDarkMode = !m_demoCtx.previewLightMode;
             m_demoCtx.previewTheme.SetMode(m_demoCtx.previewDarkMode
@@ -387,8 +387,9 @@ void DemoWindow::RenderCodePanel(guikit::Context& ui) {
             .monospace = true,
             .allowZoom = true,
             .syntax = guikit::SyntaxConfig::Cpp(),
-            .layout = {.height = guikit::SizeMode::Stretch},
-            .style = {.background = guikit::StateColor{}, .border = {.radius = 0.0f}}
+            .height = guikit::SizeMode::Stretch,
+            .background = guikit::StateColor{},
+            .border = {.radius = 0.0f}
         });
     }
 }

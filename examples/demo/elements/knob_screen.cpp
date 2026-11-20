@@ -119,7 +119,8 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
                         .valuePlacement = s_state.valuePlacement,
                         .diameter = ctx.ResolveKnobDiameter(),
                         .disabled = ctx.elemDisabled,
-                        .style = {.size = ctx.controlsSize, .color = guikit::StateColor::Primary()}
+                        .size = ctx.controlsSize,
+                        .color = guikit::StateColor::Primary()
                     });
                 }
                 if (auto el = ui.Element({
@@ -143,7 +144,8 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
                         .valuePlacement = s_state.valuePlacement,
                         .diameter = ctx.ResolveKnobDiameter(),
                         .disabled = ctx.elemDisabled,
-                        .style = {.size = ctx.controlsSize, .color = guikit::StateColor::Info()}
+                        .size = ctx.controlsSize,
+                        .color = guikit::StateColor::Info()
                     });
                 }
                 if (auto el = ui.Element({
@@ -167,7 +169,8 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
                         .valuePlacement = s_state.valuePlacement,
                         .diameter = ctx.ResolveKnobDiameter(),
                         .disabled = ctx.elemDisabled,
-                        .style = {.size = ctx.controlsSize, .color = guikit::StateColor::Success()}
+                        .size = ctx.controlsSize,
+                        .color = guikit::StateColor::Success()
                     });
                 }
                 if (auto el = ui.Element({
@@ -191,7 +194,8 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
                         .valuePlacement = s_state.valuePlacement,
                         .diameter = ctx.ResolveKnobDiameter(),
                         .disabled = ctx.elemDisabled,
-                        .style = {.size = ctx.controlsSize, .color = guikit::StateColor::Warning()}
+                        .size = ctx.controlsSize,
+                        .color = guikit::StateColor::Warning()
                     });
                 }
             }
@@ -210,8 +214,8 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
         opts.valuePlacement = s_state.valuePlacement;
         opts.diameter = ctx.ResolveKnobDiameter();
         opts.disabled = ctx.elemDisabled;
-        opts.style.size = ctx.controlsSize;
-        opts.style.color = ctx.GetControlColor();
+        opts.size = ctx.controlsSize;
+        opts.color = ctx.GetControlColor();
 
         if (s_state.bipolar) {
             opts.valueFormat = "%+.1f %%";
@@ -227,8 +231,8 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
 
 keel::String GenerateKnobCode(const DemoContext& ctx) {
     const bool hasCustomSize = (ctx.controlsSize != guikit::UiSize::None && ctx.controlsSize != guikit::UiSize::Md);
-    const keel::FixedString<64> sizePrefix = hasCustomSize
-        ? keel::format_fixed<64>(".size = guikit::UiSize::{}, ", SizeName(ctx.controlsSize))
+    const keel::FixedString<64> sizeLine = hasCustomSize
+        ? keel::format_fixed<64>("    .size = guikit::UiSize::{},\n", SizeName(ctx.controlsSize))
         : keel::FixedString<64>{};
     const keel::String ctrl = keel::format(
         "ui.Knob(rotaryGain, {}, {}, {{\n"
@@ -243,7 +247,8 @@ keel::String GenerateKnobCode(const DemoContext& ctx) {
         "    .valuePlacement = guikit::Placement::{},\n"
         "    .diameter = {},\n"
         "    .disabled = {},\n"
-        "    .style = {{{}.color = {}}}\n"
+        "{}"
+        "    .color = {}\n"
         "}});",
         s_state.bipolar ? "-50.0f" : "0.0f",
         s_state.bipolar ? "50.0f" : "100.0f",
@@ -258,7 +263,7 @@ keel::String GenerateKnobCode(const DemoContext& ctx) {
         PlacementName(s_state.valuePlacement),
         ctx.FormatKnobDiameterCode(),
         ctx.elemDisabled ? "true" : "false",
-        sizePrefix,
+        sizeLine,
         ctx.FormatControlColorCode()
     );
     return ctx.WrapInElementCode(ctrl);

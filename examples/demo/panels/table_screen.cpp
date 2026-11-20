@@ -147,7 +147,7 @@ void RenderTableInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
                 .placeholder = "Callsign or modulation...",
                 .prefix = Icon::Search(),
                 .clearable = true,
-                .style = {.size = UiSize::Sm}
+                .size = UiSize::Sm
             }).changed) {
                 g_tableDemo.selectedRow = 0;
             }
@@ -163,13 +163,13 @@ void RenderTableInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     } else {
         ui.Heading({.label = "VIRTUAL JUMP (100,000 ROWS)", .level = HeadingLevel::H6, .separator = HeadingSeparator::Bottom});
         if (auto row = ui.Row({.gap = 6.0f})) {
-            if (ui.Button({.text = "Top (#1)", .layout = {.width = SizeMode::Stretch}, .style = {.size = UiSize::Sm, .color = StateColor::Secondary()}})) {
+            if (ui.Button({.text = "Top (#1)", .size = UiSize::Sm, .width = SizeMode::Stretch, .color = StateColor::Secondary()})) {
                 g_tableDemo.pendingJumpRow = 0;
             }
-            if (ui.Button({.text = "Mid (#50k)", .layout = {.width = SizeMode::Stretch}, .style = {.size = UiSize::Sm, .color = StateColor::Secondary()}})) {
+            if (ui.Button({.text = "Mid (#50k)", .size = UiSize::Sm, .width = SizeMode::Stretch, .color = StateColor::Secondary()})) {
                 g_tableDemo.pendingJumpRow = 49999;
             }
-            if (ui.Button({.text = "End (#100k)", .layout = {.width = SizeMode::Stretch}, .style = {.size = UiSize::Sm, .color = StateColor::Primary()}})) {
+            if (ui.Button({.text = "End (#100k)", .size = UiSize::Sm, .width = SizeMode::Stretch, .color = StateColor::Primary()})) {
                 g_tableDemo.pendingJumpRow = 99999;
             }
         }
@@ -260,7 +260,7 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
 
                 if (auto row = table.Row(visRow, rowOpts)) {
                     // Col 0: Embedded Checkbox widget
-                    ui.Checkbox(item.tracked, {.style = {.size = UiSize::Sm, .color = StateColor::Primary()}});
+                    ui.Checkbox(item.tracked, {.size = UiSize::Sm, .color = StateColor::Primary()});
 
                     // Col 1: Target ID
                     ui.Text(ui.Format("T-{:04d}", item.id), {.variant = UiVariant::Secondary});
@@ -285,7 +285,7 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
                         .valueFormat = "%.1f dB",
                         .segments = 12,
                         .multiZoneColor = true,
-                        .style = {.size = UiSize::Sm}
+                        .size = UiSize::Sm
                     });
 
                     // Col 7: Status pill badge
@@ -368,7 +368,7 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
                         .valueFormat = "%.0f dBm",
                         .segments = 10,
                         .multiZoneColor = true,
-                        .style = {.size = UiSize::Xs}
+                        .size = UiSize::Xs
                     });
 
                     const bool crcOk = (logicalIdx % 19 != 0);

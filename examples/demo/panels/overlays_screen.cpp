@@ -234,7 +234,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                 if (ui.Button({
                     .text = "Open Modal Dialog...",
                     .icon = guikit::Icon::Settings(),
-                    .style = {.color = guikit::StateColor::Primary()}
+                    .color = guikit::StateColor::Primary()
                 }).clicked) {
                     s_ov.customModalOpen = true;
                 }
@@ -242,7 +242,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                 if (ui.Button({
                     .text = "Confirm Delete Modal...",
                     .icon = guikit::Icon::Trash(),
-                    .style = {.color = guikit::StateColor::Danger()}
+                    .color = guikit::StateColor::Danger()
                 }).clicked) {
                     s_ov.confirmDeleteModalOpen = true;
                 }
@@ -257,7 +257,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                 .icon = guikit::Icon::ChevronDown(),
                 .iconPlacement = guikit::Placement::Trailing,
                 .active = s_ov.popoverOpen,
-                .style = {.color = guikit::StateColor::Secondary()}
+                .color = guikit::StateColor::Secondary()
             });
             if (popBtn.clicked) {
                 s_ov.popoverOpen = !s_ov.popoverOpen;
@@ -282,22 +282,23 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                         .separator = guikit::HeadingSeparator::Bottom
                     });
                     if (auto el = ui.Element({.label = "Show Peak Markers"})) {
-                        ui.Switch(s_ov.filterShowPeaks, {.style = {.size = guikit::UiSize::Sm}});
+                        ui.Switch(s_ov.filterShowPeaks, {.size = guikit::UiSize::Sm});
                     }
                     if (auto el = ui.Element({.label = "Auto-Scale Y Axis"})) {
-                        ui.Switch(s_ov.filterAutoScale, {.style = {.size = guikit::UiSize::Sm}});
+                        ui.Switch(s_ov.filterAutoScale, {.size = guikit::UiSize::Sm});
                     }
                     if (auto el = ui.Element({.label = "Gain Offset"})) {
                         ui.Slider(s_ov.filterGainDb, -12.0f, 24.0f, {
                             .valueFormat = "%.1f dB",
                             .step = 0.5f,
-                            .style = {.size = guikit::UiSize::Sm}
+                            .size = guikit::UiSize::Sm
                         });
                     }
                     if (auto footer = ui.Row({.gap = 8.0f, .justify = guikit::Justify::End})) {
                         if (ui.Button({
                             .text = "Reset",
-                            .style = {.size = guikit::UiSize::Sm, .color = guikit::StateColor::Ghost()}
+                            .size = guikit::UiSize::Sm,
+                            .color = guikit::StateColor::Ghost()
                         }).clicked) {
                             s_ov.filterShowPeaks = true;
                             s_ov.filterAutoScale = true;
@@ -305,7 +306,8 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                         }
                         if (ui.Button({
                             .text = "Done",
-                            .style = {.size = guikit::UiSize::Sm, .color = guikit::StateColor::Primary()}
+                            .size = guikit::UiSize::Sm,
+                            .color = guikit::StateColor::Primary()
                         }).clicked) {
                             s_ov.lastPopoverStatus = keel::format_fixed<128>(
                                 "Peaks={} | AutoScale={} | Gain={:.1f} dB",
@@ -392,7 +394,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                     .icon = guikit::Icon::ChevronDown(),
                     .iconPlacement = guikit::Placement::Trailing,
                     .active = s_ov.btnMenuOpen,
-                    .style = {.color = guikit::StateColor::Secondary()}
+                    .color = guikit::StateColor::Secondary()
                 });
                 if (actionBtn.clicked) {
                     s_ov.btnMenuOpen = !s_ov.btnMenuOpen;
@@ -413,7 +415,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                 if (ui.Button({
                     .text = "Info",
                     .icon = guikit::Icon::Info(),
-                    .style = {.color = guikit::StateColor::Info()}
+                    .color = guikit::StateColor::Info()
                 }).clicked) {
                     ++s_ov.toastCounter;
                     ui.ShowToast({
@@ -429,7 +431,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                 if (ui.Button({
                     .text = "Success",
                     .icon = guikit::Icon::Check(),
-                    .style = {.color = guikit::StateColor::Success()}
+                    .color = guikit::StateColor::Success()
                 }).clicked) {
                     ++s_ov.toastCounter;
                     ui.ShowToast({
@@ -445,7 +447,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                 if (ui.Button({
                     .text = "Warning",
                     .icon = guikit::Icon::Warning(),
-                    .style = {.color = guikit::StateColor::Warning()}
+                    .color = guikit::StateColor::Warning()
                 }).clicked) {
                     ++s_ov.toastCounter;
                     ui.ShowToast({
@@ -461,7 +463,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                 if (ui.Button({
                     .text = "Danger",
                     .icon = guikit::Icon::Error(),
-                    .style = {.color = guikit::StateColor::Danger()}
+                    .color = guikit::StateColor::Danger()
                 }).clicked) {
                     ++s_ov.toastCounter;
                     ui.ShowToast({
@@ -478,7 +480,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                     .text = "Clear",
                     .icon = guikit::Icon::Trash(),
                     .disabled = (ui.GetActiveToastCount() == 0),
-                    .style = {.color = guikit::StateColor::Secondary()}
+                    .color = guikit::StateColor::Secondary()
                 }).clicked) {
                     ui.ClearToasts();
                 }
@@ -491,7 +493,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
             if (ui.Button({
                 .text = "Open Command Palette (Ctrl+K)...",
                 .icon = guikit::Icon::Search(),
-                .style = {.color = guikit::StateColor::Primary()}
+                .color = guikit::StateColor::Primary()
             }).clicked) {
                 s_ov.commandPaletteOpen = true;
             }
@@ -557,7 +559,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                     if (ui.Button({
                         .icon = guikit::Icon::Close(),
                         .square = true,
-                        .style = {.color = guikit::StateColor::Ghost()}
+                        .color = guikit::StateColor::Ghost()
                     }).clicked) {
                         s_ov.lastModalStatus = "Closed via [X]";
                         modal.Close();
@@ -575,14 +577,14 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                 .align = guikit::Alignment::Center,
                 .justify = guikit::Justify::End
             })) {
-                if (ui.Button({.text = "Cancel", .style = {.color = guikit::StateColor::Secondary()}}).clicked) {
+                if (ui.Button({.text = "Cancel", .color = guikit::StateColor::Secondary()}).clicked) {
                     s_ov.lastModalStatus = "Cancelled Modal";
                     modal.Close();
                 }
                 if (ui.Button({
                     .text = "Save",
                     .icon = guikit::Icon::Check(),
-                    .style = {.color = guikit::StateColor::Primary()}
+                    .color = guikit::StateColor::Primary()
                 }).clicked) {
                     s_ov.lastModalStatus = keel::format_fixed<128>("Saved '{}'", s_ov.profileName.as_ref());
                     modal.Close();
@@ -618,14 +620,14 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                 .align = guikit::Alignment::Center,
                 .justify = guikit::Justify::End
             })) {
-                if (ui.Button({.text = "Cancel", .style = {.color = guikit::StateColor::Secondary()}}).clicked) {
+                if (ui.Button({.text = "Cancel", .color = guikit::StateColor::Secondary()}).clicked) {
                     s_ov.lastModalStatus = "Cancelled Delete";
                     modal.Close();
                 }
                 if (ui.Button({
                     .text = "Delete",
                     .icon = guikit::Icon::Trash(),
-                    .style = {.color = guikit::StateColor::Danger()}
+                    .color = guikit::StateColor::Danger()
                 }).clicked) {
                     s_ov.lastModalStatus = "Confirmed Delete";
                     modal.Close();
@@ -649,7 +651,7 @@ keel::String GenerateOverlaysCode(const DemoContext& ctx) {
     if (s_ov.activeOverlay == 0) {
         const keel::String closeBtnSnippet = s_ov.showCloseButton
             ? keel::String::from(
-                "            if (ui.Button({.icon = guikit::Icon::Close(), .square = true, .style = {.color = guikit::StateColor::Ghost()}}).clicked) {\n"
+                "            if (ui.Button({.icon = guikit::Icon::Close(), .square = true, .color = guikit::StateColor::Ghost()}).clicked) {\n"
                 "                modal.Close();\n"
                 "            }\n"
             )
@@ -658,7 +660,7 @@ keel::String GenerateOverlaysCode(const DemoContext& ctx) {
             "if (ui.Button({{\n"
             "    .text = \"Open Modal Dialog...\",\n"
             "    .icon = guikit::Icon::Settings(),\n"
-            "    .style = {{.color = guikit::StateColor::Primary()}}\n"
+            "    .color = guikit::StateColor::Primary()\n"
             "}}).clicked) {{\n"
             "    isModalOpen = true;\n"
             "}}\n\n"
@@ -690,10 +692,10 @@ keel::String GenerateOverlaysCode(const DemoContext& ctx) {
             "            ui.Switch(autoReconnect);\n"
             "        }}\n"
             "        if (auto footer = ui.Row({{.gap = 10.0f, .justify = guikit::Justify::End}})) {{\n"
-            "            if (ui.Button({{.text = \"Cancel\", .style = {{.color = guikit::StateColor::Secondary()}}}}).clicked) {{\n"
+            "            if (ui.Button({{.text = \"Cancel\", .color = guikit::StateColor::Secondary()}}).clicked) {{\n"
             "                modal.Close();\n"
             "            }}\n"
-            "            if (ui.Button({{.text = \"Save\", .icon = guikit::Icon::Check(), .style = {{.color = guikit::StateColor::Primary()}}}}).clicked) {{\n"
+            "            if (ui.Button({{.text = \"Save\", .icon = guikit::Icon::Check(), .color = guikit::StateColor::Primary()}}).clicked) {{\n"
             "                modal.Close();\n"
             "            }}\n"
             "        }}\n"
@@ -716,7 +718,7 @@ keel::String GenerateOverlaysCode(const DemoContext& ctx) {
             "    .icon = guikit::Icon::ChevronDown(),\n"
             "    .iconPlacement = guikit::Placement::Trailing,\n"
             "    .active = popoverOpen,\n"
-            "    .style = {{.color = guikit::StateColor::Secondary()}}\n"
+            "    .color = guikit::StateColor::Secondary()\n"
             "}});\n"
             "if (popBtn.clicked) {{\n"
             "    popoverOpen = !popoverOpen;\n"
@@ -735,10 +737,10 @@ keel::String GenerateOverlaysCode(const DemoContext& ctx) {
             "        .elevated = true\n"
             "    }})) {{\n"
             "        ui.Heading({{.label = \"Stream Filters\", .level = guikit::HeadingLevel::H5, .separator = guikit::HeadingSeparator::Bottom}});\n"
-            "        if (auto el = ui.Element({{.label = \"Show Peak Markers\"}})) {{ ui.Switch(showPeaks, {{.style = {{.size = guikit::UiSize::Sm}}}}); }}\n"
-            "        if (auto el = ui.Element({{.label = \"Auto-Scale Y Axis\"}})) {{ ui.Switch(autoScale, {{.style = {{.size = guikit::UiSize::Sm}}}}); }}\n"
-            "        if (auto el = ui.Element({{.label = \"Gain Offset\"}})) {{ ui.Slider(gainDb, -12.0f, 24.0f, {{.valueFormat = \"%.1f dB\", .style = {{.size = guikit::UiSize::Sm}}}}); }}\n"
-            "        if (ui.Button({{.text = \"Done\", .style = {{.size = guikit::UiSize::Sm, .color = guikit::StateColor::Primary()}}}}).clicked) {{\n"
+            "        if (auto el = ui.Element({{.label = \"Show Peak Markers\"}})) {{ ui.Switch(showPeaks, {{.size = guikit::UiSize::Sm}}); }}\n"
+            "        if (auto el = ui.Element({{.label = \"Auto-Scale Y Axis\"}})) {{ ui.Switch(autoScale, {{.size = guikit::UiSize::Sm}}); }}\n"
+            "        if (auto el = ui.Element({{.label = \"Gain Offset\"}})) {{ ui.Slider(gainDb, -12.0f, 24.0f, {{.valueFormat = \"%.1f dB\", .size = guikit::UiSize::Sm}}); }}\n"
+            "        if (ui.Button({{.text = \"Done\", .size = guikit::UiSize::Sm, .color = guikit::StateColor::Primary()}}).clicked) {{\n"
             "            pop.Close();\n"
             "        }}\n"
             "    }}\n"
@@ -777,7 +779,7 @@ keel::String GenerateOverlaysCode(const DemoContext& ctx) {
             "    .icon = guikit::Icon::ChevronDown(),\n"
             "    .iconPlacement = guikit::Placement::Trailing,\n"
             "    .active = btnMenuOpen,\n"
-            "    .style = {{.color = guikit::StateColor::Secondary()}}\n"
+            "    .color = guikit::StateColor::Secondary()\n"
             "}});\n"
             "if (actionBtn.clicked) {{\n"
             "    btnMenuOpen = !btnMenuOpen;\n"
@@ -797,7 +799,7 @@ keel::String GenerateOverlaysCode(const DemoContext& ctx) {
     if (s_ov.activeOverlay == 3) {
         const keel::StringRef placementName = kToastPlacementNames[s_ov.toastPlacementIdx];
         return keel::format(
-            "if (ui.Button({{.text = \"Success\", .icon = guikit::Icon::Check(), .style = {{.color = guikit::StateColor::Success()}}}}).clicked) {{\n"
+            "if (ui.Button({{.text = \"Success\", .icon = guikit::Icon::Check(), .color = guikit::StateColor::Success()}}).clicked) {{\n"
             "    ui.ShowToast({{\n"
             "        .title = \"Configuration Saved\",\n"
             "        .message = \"Profile committed to flash.\",\n"

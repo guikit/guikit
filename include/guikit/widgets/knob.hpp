@@ -27,7 +27,8 @@ struct KnobOptions {
     keel::Optional<float> diameter{keel::kNullOpt};  ///< Optional explicit dial diameter in logical dp (nullopt = auto from UiSize)
     UiText tooltip{};                                ///< Optional floating tooltip text on hover
     bool disabled{false};                            ///< Interaction suppression
-    ControlStyle style{};                            ///< Component size scale and accent color
+    UiSize size{UiSize::Md};                         ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)
+    StateColor color{};                              ///< Per-state semantic accent color override
 };
 
 /// Internal runtime state stored per-widget ID for Knob drag interaction.

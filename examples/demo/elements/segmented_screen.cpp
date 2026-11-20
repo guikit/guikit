@@ -103,12 +103,12 @@ void RenderSegmentedStage(guikit::Context& ui, DemoContext& ctx) {
     segOpts.equalWidth = s_state.equalWidth;
     segOpts.showDividers = s_state.showDividers;
     segOpts.disabled = ctx.elemDisabled;
-    segOpts.layout.width = ctx.ResolveCtrlWidth();
-    segOpts.layout.height = ctx.ResolveCtrlHeight();
-    segOpts.style.size = ctx.controlsSize;
-    segOpts.style.color = (ctx.btnVariant == guikit::UiVariant::Default) ? guikit::StateColor{} : ctx.GetControlColor();
-    segOpts.style.background = ctx.GetControlBackground(NavCategory::ElemSegmented);
-    segOpts.style.border = ctx.GetCtrlBorder();
+    segOpts.size = ctx.controlsSize;
+    segOpts.width = ctx.ResolveCtrlWidth();
+    segOpts.height = ctx.ResolveCtrlHeight();
+    segOpts.color = (ctx.btnVariant == guikit::UiVariant::Default) ? guikit::StateColor{} : ctx.GetControlColor();
+    segOpts.background = ctx.GetControlBackground(NavCategory::ElemSegmented);
+    segOpts.border = ctx.GetCtrlBorder();
 
     ctx.RunElementStage(ui, [&]() {
         if (s_state.multiSelect) {
@@ -127,7 +127,7 @@ keel::String GenerateSegmentedCode(const DemoContext& ctx) {
         : ctx.FormatControlColorCode();
     const bool hasCustomSize = (ctx.controlsSize != guikit::UiSize::None && ctx.controlsSize != guikit::UiSize::Md);
     const keel::FixedString<64> sizeLine = hasCustomSize
-        ? keel::format_fixed<64>("        .size = guikit::UiSize::{},\n", SizeName(ctx.controlsSize))
+        ? keel::format_fixed<64>("    .size = guikit::UiSize::{},\n", SizeName(ctx.controlsSize))
         : keel::FixedString<64>{};
 
     const keel::String ctrl = keel::format(
@@ -140,13 +140,12 @@ keel::String GenerateSegmentedCode(const DemoContext& ctx) {
         "    .equalWidth = {},\n"
         "    .showDividers = {},\n"
         "    .disabled = {},\n"
-        "    .layout = {{.width = {}, .height = {}}},\n"
-        "    .style = {{\n"
         "{}"
-        "        .color = {},\n"
-        "        .background = {},\n"
-        "        .border = {}\n"
-        "    }}\n"
+        "    .width = {},\n"
+        "    .height = {},\n"
+        "    .color = {},\n"
+        "    .background = {},\n"
+        "    .border = {}\n"
         "}});",
         fnName,
         varName,
@@ -154,9 +153,9 @@ keel::String GenerateSegmentedCode(const DemoContext& ctx) {
         s_state.equalWidth ? "true" : "false",
         s_state.showDividers ? "true" : "false",
         ctx.elemDisabled ? "true" : "false",
+        sizeLine,
         ctx.FormatCtrlWidthCode(),
         ctx.FormatCtrlHeightCode(),
-        sizeLine,
         colorCode,
         ctx.FormatControlBackgroundCode(NavCategory::ElemSegmented),
         ctx.FormatCtrlBorderCode()

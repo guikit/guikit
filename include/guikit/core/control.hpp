@@ -11,34 +11,6 @@ class Context;
 struct Node;
 struct Response;
 
-/// Shared layout sizing and min/max constraints for controls.
-struct ControlLayout {
-    AxisSize width{};                                ///< Horizontal sizing policy (`Auto`, `Fit`, `Stretch`, or explicit `dp`)
-    AxisSize height{};                               ///< Vertical sizing policy (`Auto`, `Fit`, `Stretch`, or explicit `dp`)
-    keel::Optional<float> minWidth{keel::kNullOpt};  ///< Optional minimum width in logical dp
-    keel::Optional<float> maxWidth{keel::kNullOpt};  ///< Optional maximum width in logical dp
-    keel::Optional<float> minHeight{keel::kNullOpt}; ///< Optional minimum height in logical dp
-    keel::Optional<float> maxHeight{keel::kNullOpt}; ///< Optional maximum height in logical dp
-};
-
-/// Shared sizing and semantic accent/tint style for frameless controls
-/// (`Switch`, `Checkbox`, `Radio`, `Knob`, `Slider`, `StepSlider`, `RangeSlider`,
-/// `ProgressBar`, `LevelMeter`, `Breadcrumb`, `Pagination`).
-struct ControlStyle {
-    UiSize size{UiSize::Md}; ///< Control size token (`Xs`..`Xl`) or explicit `UiSize::Dp(...)` / `UiSize::Factor(...)`
-    StateColor color{};      ///< Per-state semantic color/accent override
-};
-
-/// Shared sizing, tint, surface background and border style for boxed controls
-/// (`Button`, `InputField`, `SpinBox`, `Select`, `Segmented`, `DatePicker`,
-/// `ColorPicker`, `TagInput`, `Image`, `TextArea`).
-struct SurfaceStyle {
-    UiSize size{UiSize::Md};                      ///< Control size token (`Xs`..`Xl`) or explicit `UiSize::Dp(...)` / `UiSize::Factor(...)`
-    StateColor color{};                           ///< Per-state semantic fill/accent color override
-    StateColor background{StateColor::Surface()}; ///< Control frame background fill (`StateColor::Surface()` by default)
-    Border border{};                              ///< Optional border width, color and radius override
-};
-
 /// Layout and sizing specification for an interactive or visual `Control`
 /// (either standalone or hosted inside an `Element` control slot).
 struct ControlSpec {
@@ -59,9 +31,11 @@ struct ControlSpec {
 /// Foundational Control sizing and interaction binding helpers.
 class Control {
 public:
-    /// Builds a `ControlSpec` from a shared `ControlLayout` plus widget-specific defaults.
-    [[nodiscard]] static constexpr ControlSpec FromLayout(
-        const ControlLayout& layout,
+    /// Builds a `ControlSpec` from any widget `*Options` struct carrying flat
+    /// `width`, `height`, `minWidth`, `maxWidth`, `minHeight`, and `maxHeight` fields.
+    template <typename Opts>
+    [[nodiscard]] static constexpr ControlSpec FromOptions(
+        const Opts& opts,
         SizeMode defaultWidthMode = SizeMode::Fit,
         SizeMode defaultHeightMode = SizeMode::Fit,
         ElementLayout defaultLayout = ElementLayout::Stacked,
@@ -70,14 +44,14 @@ public:
         float inlineGap = 0.0f
     ) noexcept {
         return ControlSpec{
-            .width = layout.width,
-            .height = layout.height,
+            .width = opts.width,
+            .height = opts.height,
             .defaultWidthMode = defaultWidthMode,
             .defaultHeightMode = defaultHeightMode,
-            .minWidth = layout.minWidth,
-            .maxWidth = layout.maxWidth,
-            .minHeight = layout.minHeight,
-            .maxHeight = layout.maxHeight,
+            .minWidth = opts.minWidth,
+            .maxWidth = opts.maxWidth,
+            .minHeight = opts.minHeight,
+            .maxHeight = opts.maxHeight,
             .defaultLayout = defaultLayout,
             .labelGap = labelGap,
             .descGap = descGap,

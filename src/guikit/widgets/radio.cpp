@@ -32,7 +32,7 @@ Response Radio::Run(
 ) {
 
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = opts.style.size;
+    const UiSize activeSize = opts.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
 
     ctx.RegisterFocusable(id, effectiveDisabled);
@@ -75,7 +75,7 @@ Response Radio::Run(
     Node* node = ctx.CreateNode(NodeType::Radio, id);
     node->SetPayload(ctx.AllocPayload<RadioOptions>(optsCopy));
     node->visualHash = detail::HashArgs(
-        optsCopy.style.color,
+        optsCopy.color,
         currentSelected
     );
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
@@ -166,19 +166,19 @@ void Radio::Render(
 
     if (selected) {
         const VariantColors& v = theme.GetVariant(UiVariant::Primary);
-        if (!opts.style.color.HasAny()) {
+        if (!opts.color.HasAny()) {
             ringFill = (hovered && !disabled) ? v.bgHover : v.bg;
             ringStroke = (v.borderWidth > 0.0f) ? v.border : ringFill;
             strokeWidth = (v.borderWidth > 0.0f) ? v.borderWidth : 1.5f;
             dotColor = pal.controlKnobActive;
-        } else if (opts.style.color.token == StateColorToken::Ghost || (opts.style.color.normal.has_value() && opts.style.color.normal->a == 0)) {
-            const StateColor resolved = theme.ResolveStateColor(opts.style.color);
+        } else if (opts.color.token == StateColorToken::Ghost || (opts.color.normal.has_value() && opts.color.normal->a == 0)) {
+            const StateColor resolved = theme.ResolveStateColor(opts.color);
             ringFill = (hovered && !disabled) ? resolved.hover.value_or(theme.GetVariant(UiVariant::Ghost).bgHover) : Color::Transparent();
             ringStroke = (hovered && !disabled) ? pal.borderHover : pal.border;
             strokeWidth = 1.5f;
             dotColor = pal.textPrimary;
         } else {
-            ringFill = theme.ResolveColor(opts.style.color, hovered && !disabled, pressed && !disabled, false, v.bg, v.bgHover, v.bgActive, v.bg);
+            ringFill = theme.ResolveColor(opts.color, hovered && !disabled, pressed && !disabled, false, v.bg, v.bgHover, v.bgActive, v.bg);
             ringStroke = ringFill;
             strokeWidth = 1.5f;
             dotColor = pal.controlKnobActive;

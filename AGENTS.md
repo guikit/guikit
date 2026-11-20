@@ -42,7 +42,7 @@ int main(int, char*[]) {
 Never manually nest `Column` + `Row` + `Text` just to attach a label, description, icon, or badge to one or more controls:
 - **`ui.Element(...)`** is a pure semantic single-slot form-field wrapper (`Label + [Control Slot] + Description`) with 5 self-contained `ElementLayout` placements (`Stacked`, `Top`, `Bottom`, `Leading`, `Trailing`) and automatic `AxisSize` / `SizeMode` resolution. For composite multi-control slots, place a `ui.Row(...)` / `ui.Column(...)` / `ui.Wrap(...)` inside `ui.Element(...)`.
 - **`ui.Heading(...)`** is a standalone section header leaf widget (`HeadingLevel::H1`–`H6`, default `H3`, independent of `UiSize`, with `HeadingLayout::Stacked` / `Overline` / `Inline` and `HeadingSeparator::None` / `Bottom` / `Trailing`).
-- **Surfaces & Borders** (`.background` / `.border` on Panels, `.style.background` / `.style.border` via `SurfaceStyle` on boxed controls) belong solely to `Panels` (`ui.Card(...)`, `ui.Box(...)`, `Modal`, `Table`, `Scene`, etc.) and intrinsic-box controls (`Button`, `InputField`, `Select`, `SpinBox`, `Segmented`, `DatePicker`, `ColorPicker`, `TagInput`, `Image`, `TextArea`) — never on `Element`, `Heading`, or frameless controls (`Switch`, `Checkbox`, `Radio`, `Knob`, `Slider`, `StepSlider`, `RangeSlider`, `ProgressBar`, `LevelMeter`, `Breadcrumb`, `Pagination`, which use `ControlStyle` with `.size` and `.color` only).
+- **Surfaces & Borders** (`.background` / `.border`) belong solely to `Panels` (`ui.Card(...)`, `ui.Box(...)`, `Modal`, `Table`, `Scene`, etc.) and intrinsic-box controls (`Button`, `InputField`, `Select`, `SpinBox`, `Segmented`, `DatePicker`, `ColorPicker`, `TagInput`, `Image`, `TextArea`) — never on `Element`, `Heading`, or frameless controls (`Switch`, `Checkbox`, `Radio`, `Knob`, `Slider`, `StepSlider`, `RangeSlider`, `ProgressBar`, `LevelMeter`, `Breadcrumb`, `Pagination`, which expose `.size` and `.color` only).
 
 ```cpp
 // GOOD: Section Heading + declarative Element form-field wrapper (use ui.Row inside Element for multi-control slots)
@@ -60,19 +60,17 @@ if (auto el = ui.Element({
 // BAD: Do NOT manually construct Row + Column + Text(label) + Text(description) + Spacer + Control
 ```
 
-### Rule 3: Use Widget `.style.size` (`UiSize`) — Do NOT Hardcode Pixel Heights or Font Sizes
-GuiKit provides `UiSize` (`UiSize::Xs`, `Sm`, `Md`, `Lg`, `Xl`, or custom `UiSize::Dp(dp)` / `UiSize::Factor(f)`). Size is a property of the control itself (`Md` by default, nested under `.style`), NOT an ambient zone property inherited by children:
+### Rule 3: Use Flat Top-Level `.size` (`UiSize`), `.width`/`.height` (`AxisSize`), & Visual Options — Do NOT Hardcode Pixel Heights or Font Sizes
+GuiKit provides `UiSize` (`UiSize::Xs`, `Sm`, `Md`, `Lg`, `Xl`, or custom `UiSize::Dp(dp)` / `UiSize::Factor(f)`). Size is a direct top-level property of the control itself (`Md` by default), NOT an ambient zone property inherited by children:
 
 ```cpp
-if (ui.Button({.text = "Compact Action", .style = {.size = guikit::UiSize::Sm}})) { /* ... */ }
-if (ui.Button({.text = "Custom Height", .style = {.size = guikit::UiSize::Dp(34.0f)}})) { /* ... */ }
+if (ui.Button({.text = "Compact Action", .size = guikit::UiSize::Sm})) { /* ... */ }
+if (ui.Button({.text = "Custom Height", .size = guikit::UiSize::Dp(34.0f), .width = guikit::SizeMode::Stretch})) { /* ... */ }
 ```
 
-Controls group orthogonal geometry and visual fields into nested sub-options so you can pass reusable style presets cleanly:
-- **`.layout` (`ControlLayout`)**: `.width`, `.height`, `.minWidth`, `.maxWidth`, `.minHeight`, `.maxHeight` (omitted on fixed-glyph indicators `Switch`, `Checkbox`, `Radio` and rotary `Knob`).
-- **`.style` (`ControlStyle` or `SurfaceStyle`)**:
-  - `ControlStyle` (`.size`, `.color`) for frameless controls (`Switch`, `Checkbox`, `Radio`, `Knob`, `Slider`, `StepSlider`, `RangeSlider`, `ProgressBar`, `LevelMeter`, `Breadcrumb`, `Pagination`).
-  - `SurfaceStyle` (`.size`, `.color`, `.background`, `.border`) for boxed controls (`Button`, `InputField`, `SpinBox`, `Select`, `Segmented`, `DatePicker`, `ColorPicker`, `TagInput`, `Image`, `TextArea`).
+All widgets and panels expose uniform flat top-level options in a canonical declaration order (after widget-specific fields, `.tooltip`, and `.disabled`):
+- **Geometry**: `.size` (`UiSize`), `.width`, `.height` (`AxisSize`), `.minWidth`, `.maxWidth`, `.minHeight`, `.maxHeight` (fixed-glyph indicators `Switch`, `Checkbox`, `Radio` omit `width`/`height`; rotary `Knob` exposes scalar `.diameter`).
+- **Visuals**: `.color` (`StateColor`) for all controls, plus `.background` (`StateColor{}` = theme/variant default, `StateColor::None()` = transparent) and `.border` (`Border`) for boxed controls and panels.
 
 ### Rule 3b: Wrap Subtrees in `ui.Zone(...)` for Ambient Environment & Geometry — Do NOT Pass Themes or Divide by the Shell Zoom by Hand
 Ambient state flows through the transparent RAII scope wrapper `ui.Zone(ZoneOptions)` (`.theme`, `.scale`, `.density`, `.debugBounds`, `.inspectMode`). `ui.Zone(...)` creates no layout node and composes cleanly around containers or widget groups, inheriting unset fields from `ui.GetZone()` (`const guikit::Zone*`):
@@ -93,7 +91,7 @@ if (auto zone = ui.Zone({
         .background = {ui.GetThemePalette().surface},
         .clipChildren = true
     })) {
-        ui.Button({.text = "Preview theme, fixed pixel size", .style = {.size = guikit::UiSize::Sm}});
+        ui.Button({.text = "Preview theme, fixed pixel size", .size = guikit::UiSize::Sm});
     }
 }
 ```
@@ -121,7 +119,7 @@ For multi-block documents (GFM tables, alerts `[!NOTE]`, task lists, fenced code
 
 ### Rule 6: Use Semantic Theme Tokens & `StateColor` — Do NOT Hardcode RGB Colors
 Hardcoded colors break Dark/Light theme switching and hover/active states.
-- For interactive controls (`Button`, `Switch`, `Slider`, etc.), set `.style = {.color = StateColor::Primary()}` (`Success()`, `Warning()`, `Danger()`, `Ghost()`).
+- For interactive controls (`Button`, `Switch`, `Slider`, etc.), set `.color = StateColor::Primary()` (`Success()`, `Warning()`, `Danger()`, `Ghost()`).
 - For surfaces and custom drawing, read tokens from `const auto& pal = ui.GetThemePalette();` (`pal.background`, `pal.surface`, `pal.surfaceElevated`, `pal.border`, `pal.textPrimary`, `pal.textSecondary`, `pal.accent`).
 
 ### Rule 7: Automatic Loop ID Disambiguation (`MakeChildId`) & Stable Scene Item IDs
@@ -211,8 +209,8 @@ When laying out a workspace that shares space with a resizable `BottomPanel` or 
 | `ui.ScrollArea(opts)` | Scrollable viewport with automatic scrollbars | `.orientation`, `.scrollbar`, `.width`, `.height`, `.maxHeight`, `.flexGrow` |
 | `ui.SplitView(ratio, opts)` | Resizable horizontal/vertical 2-pane splitter | `if (auto p1 = split.First())`, `if (auto p2 = split.Second())`; `.width`, `.height` |
 
-**Unified Sizing Policy (`AxisSize`, `SizeMode`, & `ControlLayout`):**
-Containers and panels expose top-level `.width` and `.height` options (`Element` and `Heading` expose `.width`), while resizable controls expose `.layout` (`ControlLayout` with `.width`, `.height`, `.minWidth`, `.maxWidth`, `.minHeight`, `.maxHeight`) of type `guikit::AxisSize`; intrinsic fixed-glyph indicators (`Switch`, `Checkbox`, `Radio`) are always `SizeMode::Fit` (scaled via `.style.size`), and rotary `Knob` exposes scalar `.diameter` (`keel::Optional<float>`):
+**Unified Sizing Policy (`AxisSize` & `SizeMode`):**
+All containers, panels, and resizable controls expose top-level `.width` and `.height` options of type `guikit::AxisSize` (plus optional `.minWidth` / `.maxWidth` / `.minHeight` / `.maxHeight`; `Element` and `Heading` expose `.width`); intrinsic fixed-glyph indicators (`Switch`, `Checkbox`, `Radio`) are always `SizeMode::Fit` (scaled via `.size`), and rotary `Knob` exposes scalar `.diameter` (`keel::Optional<float>`):
 - `AxisSize::Auto()` (default `{}`): Resolves to the widget or container's contextual default (`SizeMode::Fit` or `SizeMode::Stretch`).
 - `SizeMode::Fit` / `AxisSize::Fit()`: Shrink-wraps intrinsic content (respecting `.minWidth` / `.maxWidth` / `.minHeight` / `.maxHeight`). Default for compact controls (`Button`, `Image`, `Breadcrumb`, `Pagination`).
 - `SizeMode::Stretch` / `AxisSize::Stretch()`: Expands to fill available parent space along that axis (weighted by `.flexGrow` on flex containers). Default for full-width form inputs, pickers, tracks, panels, `Heading`, and 2D domain views (`InputField`, `Select`, `ColorPicker`, `DatePicker`, `Slider`, `SpinBox`, `Table`, `Scene`, etc.).
@@ -226,7 +224,7 @@ Before drawing custom shapes on `ICanvas`, check this inventory:
 
 - **Typography & Structure**: `Heading` (standalone `HeadingLevel::H1`–`H6` with default `H3`, `HeadingLayout::Stacked`/`Overline`/`Inline`, description, icon, badge & `HeadingSeparator`), `Text` (semantic `TextRole` + `UiVariant` + `UiText::Rich`), `Element` (pure semantic `Label + [Control Slot] + Description` form-field wrapper with `ElementLayout::Stacked`/`Top`/`Bottom`/`Leading`/`Trailing`; compose `ui.Row`/`ui.Column` in the slot for multiple controls), `Image` (PNG/JPG/SVG with `ObjectFit::Contain`/`Cover`/`ScaleDown` & corner rounding), procedural vector `Icon::*` library (`Icon::Play()`, `Icon::Settings()`, `Icon::Search()`, etc.).
 - **Buttons & Selection**: `Button` (solid/outline/ghost, icons, `.badge`, `.loading` spinner), `Switch`, `Checkbox` (with `indeterminate` support), `Radio`, `Segmented` (single-select `IndexLike` integer or `enum class`) & `SegmentedMask` (multi-select bitmask).
-- **Numeric & Metering**: `Slider`, `RangeSlider` (`minVal`, `maxVal`), `StepSlider` (`IndexLike` integer or `enum class`) — horizontal, or vertical via `.orientation = Orientation::Vertical` (min at the bottom, `.layout.height = SizeMode::Stretch` fills height by default, StepSlider labels right of the ticks), `ProgressBar` (smooth, discrete LED segments, `.indeterminate`, horizontal or vertical), `LevelMeter` (single & multi-channel audio/telemetry dB bargraph with 3-zone coloring, peak-hold & clip LED), `Knob` (rotary encoder with bipolar arc & radial ticks), `SpinBox` (64-bit integer & float numeric stepper with typematic hold-repeat).
+- **Numeric & Metering**: `Slider`, `RangeSlider` (`minVal`, `maxVal`), `StepSlider` (`IndexLike` integer or `enum class`) — horizontal, or vertical via `.orientation = Orientation::Vertical` (min at the bottom, `.height = SizeMode::Stretch` fills height by default, StepSlider labels right of the ticks), `ProgressBar` (smooth, discrete LED segments, `.indeterminate`, horizontal or vertical), `LevelMeter` (single & multi-channel audio/telemetry dB bargraph with 3-zone coloring, peak-hold & clip LED), `Knob` (rotary encoder with bipolar arc & radial ticks), `SpinBox` (64-bit integer & float numeric stepper with typematic hold-repeat).
 - **Text, Tags & Dropdowns**: `InputField` (in-place zero-copy editing of `keel::FixedString<N>`, `keel::SmallString<N>`, `keel::String`, plus duck-typed `WritableString` interop; password, `InputFilter::Integer`/`Decimal`/`Hex`, `.maxLength`, `.selectAllOnFocus`, prefix/suffix icons, clear button), `TagInput` (`keel::SmallArray` / `keel::Array` of strings or `TagItem`, plus duck-typed list interop), `Select` (`IndexLike` integer/`enum`, `keel::FixedString<N>`, `keel::SmallString<N>`, `keel::String`), `ComboBox` (searchable select), `Autocomplete` (free-text with suggestions), `MultiSelect` (`keel::SmallArray<keel::usize, N>` / `keel::Array<keel::usize>`, plus duck-typed index list interop).
 - **Pickers**: `ColorPicker` (2D HSV saturation/value canvas, hue/alpha sliders, HEX input, custom `.swatches`), `DatePicker` (`Date`, `DateTime`, `Time` modes with `DateTime::Today()`, `minDate`/`maxDate`, localized month/weekday labels & leap-year math).
 - **Navigation & Data**: `TabBar` (underline/pill/card/folder styles, `.closable` tabs returning `TabBarResponse::closedIndex`, `IndexLike` integer/`enum` binding, overflow scroll), `Breadcrumb` (with interactive `...` collapse menu), `Pagination` (ellipsis windowing), `Toolbar` (`ToolButton` / `Action`, `Toggle`, `Item`, `Dropdown`, `SplitButton`, `SplitToggle`, `Separator`, `Spacer` with `AutoCompact`/`Scroll`/`Wrap`/`Clip` overflow), `Sidebar`, `SidebarMenu`, `ActivityBar`, `BottomPanel`, `StatusBar`, `Accordion`, `Carousel`, `TreeView` (multi-column, filterable hierarchy), `Table` (virtualized 100k+ row data grid with sorting & selection).

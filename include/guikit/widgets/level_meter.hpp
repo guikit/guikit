@@ -29,9 +29,15 @@ struct LevelMeterOptions {
     keel::ArrayRef<keel::StringRef> channelLabels{};   ///< Optional per-channel labels (e.g. {"L", "R"} or {"CH1", "CH2"})
     keel::Optional<float> barThickness{keel::kNullOpt};///< Thickness of each channel bar in logical dp (nullopt = auto from UiSize)
     UiText tooltip{};                                  ///< Optional floating tooltip text on hover
-    bool disabled{false};                              ///< Interaction suppression
-    ControlLayout layout{};                            ///< Sizing policy (`Stretch` main axis / `Fit` cross axis by default) and min/max constraints
-    ControlStyle style{};                              ///< Component size scale and base zone color override
+    bool disabled{false};                            ///< Interaction suppression
+    UiSize size{UiSize::Md};                         ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)
+    AxisSize width{};                                ///< Horizontal sizing policy (`Auto` -> `Stretch` when horizontal, `Fit` when vertical)
+    AxisSize height{};                               ///< Vertical sizing policy (`Auto` -> `Fit` when horizontal, `Stretch` when vertical)
+    keel::Optional<float> minWidth{keel::kNullOpt};  ///< Optional minimum width in logical dp
+    keel::Optional<float> maxWidth{keel::kNullOpt};  ///< Optional maximum width in logical dp
+    keel::Optional<float> minHeight{keel::kNullOpt}; ///< Optional minimum height in logical dp
+    keel::Optional<float> maxHeight{keel::kNullOpt}; ///< Optional maximum height in logical dp
+    StateColor color{};                              ///< Base zone semantic color override
 };
 
 class LevelMeter {

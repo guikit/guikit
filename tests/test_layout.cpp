@@ -1248,11 +1248,11 @@ void TestGapDpAndContainerSizingConstraints() {
         if (auto root = ui.Column({.gap = 0.0f, .padding = Padding::All(0.0f), .width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
             // 1. ui.Gap(24.0f) fixed pixel offset vs ui.Spacer(1.0f) spring
             if (auto r = ui.Row({.gap = 0.0f, .padding = Padding::All(0.0f), .width = SizeMode::Stretch})) {
-                b1 = ui.Button({.text = "A", .layout = {.width = 80.0f}});
+                b1 = ui.Button({.text = "A", .width = 80.0f});
                 ui.Gap(24.0f);
-                b2 = ui.Button({.text = "B", .layout = {.width = 80.0f}});
+                b2 = ui.Button({.text = "B", .width = 80.0f});
                 ui.Spacer(1.0f);
-                b3 = ui.Button({.text = "C", .layout = {.width = 80.0f}});
+                b3 = ui.Button({.text = "C", .width = 80.0f});
             }
 
             // 2. Weighted flexGrow (1 : 3) across sibling Columns inside a Row
@@ -1282,7 +1282,7 @@ void TestGapDpAndContainerSizingConstraints() {
                 .padding = Padding::All(0.0f)
             })) {
                 constrainedCard = cd.GetNode();
-                ui.Button({.text = "Tall", .layout = {.width = 60.0f, .height = 120.0f}});
+                ui.Button({.text = "Tall", .width = 60.0f, .height = 120.0f});
             }
         }
         ui.EndFrame(canvas);

@@ -76,11 +76,11 @@ void RenderInputStage(guikit::Context& ui, DemoContext& ctx) {
         opts.clearable = s_state.clearable;
         opts.readOnly = s_state.readOnly;
         opts.disabled = ctx.elemDisabled;
-        opts.layout.width = ctx.ResolveCtrlWidth();
-        opts.layout.height = ctx.ResolveCtrlHeight();
-        opts.style.size = ctx.controlsSize;
-        opts.style.background = ctx.GetControlBackground(NavCategory::ElemInputField);
-        opts.style.border = ctx.GetCtrlBorder();
+        opts.size = ctx.controlsSize;
+        opts.width = ctx.ResolveCtrlWidth();
+        opts.height = ctx.ResolveCtrlHeight();
+        opts.background = ctx.GetControlBackground(NavCategory::ElemInputField);
+        opts.border = ctx.GetCtrlBorder();
         ui.InputField(s_state.text, opts);
 
         if (s_state.companionButton) {
@@ -91,8 +91,9 @@ void RenderInputStage(guikit::Context& ui, DemoContext& ctx) {
                 .text = btnLbl,
                 .icon = guikit::Icon::Play(),
                 .disabled = ctx.elemDisabled,
-                .layout = {.height = ctx.ResolveCtrlHeight()},
-                .style = {.size = ctx.controlsSize, .color = ctx.GetControlColor()}
+                .size = ctx.controlsSize,
+                .height = ctx.ResolveCtrlHeight(),
+                .color = ctx.GetControlColor()
             })) {
                 ++s_state.connectCount;
                 ui.InvalidateAll();
@@ -104,7 +105,7 @@ void RenderInputStage(guikit::Context& ui, DemoContext& ctx) {
 keel::String GenerateInputCode(const DemoContext& ctx) {
     const bool hasCustomSize = (ctx.controlsSize != guikit::UiSize::None && ctx.controlsSize != guikit::UiSize::Md);
     const keel::FixedString<64> sizeLine = hasCustomSize
-        ? keel::format_fixed<64>("        .size = guikit::UiSize::{},\n", SizeName(ctx.controlsSize))
+        ? keel::format_fixed<64>("    .size = guikit::UiSize::{},\n", SizeName(ctx.controlsSize))
         : keel::FixedString<64>{};
     const keel::FixedString<64> sizeInline = hasCustomSize
         ? keel::format_fixed<64>(".size = guikit::UiSize::{}, ", SizeName(ctx.controlsSize))
@@ -121,12 +122,11 @@ keel::String GenerateInputCode(const DemoContext& ctx) {
         "    .clearable = {},\n"
         "    .readOnly = {},\n"
         "    .disabled = {},\n"
-        "    .layout = {{.width = {}, .height = {}}},\n"
-        "    .style = {{\n"
         "{}"
-        "        .background = {},\n"
-        "        .border = {}\n"
-        "    }}\n"
+        "    .width = {},\n"
+        "    .height = {},\n"
+        "    .background = {},\n"
+        "    .border = {}\n"
         "}});",
         s_state.placeholder,
         s_state.prefix,
@@ -136,9 +136,9 @@ keel::String GenerateInputCode(const DemoContext& ctx) {
         s_state.clearable ? "true" : "false",
         s_state.readOnly ? "true" : "false",
         ctx.elemDisabled ? "true" : "false",
+        sizeLine,
         ctx.FormatCtrlWidthCode(),
         ctx.FormatCtrlHeightCode(),
-        sizeLine,
         ctx.FormatControlBackgroundCode(NavCategory::ElemInputField),
         ctx.FormatCtrlBorderCode()
     );
@@ -146,7 +146,7 @@ keel::String GenerateInputCode(const DemoContext& ctx) {
     if (s_state.companionButton) {
         keel::format_into(
             ctrl,
-            "\nif (ui.Button({{.text = \"Connect\", .icon = guikit::Icon::Play(), .style = {{{}.color = {}}}}})) {{\n"
+            "\nif (ui.Button({{.text = \"Connect\", .icon = guikit::Icon::Play(), {}.color = {}}})) {{\n"
             "    // Trigger endpoint action\n"
             "}}",
             sizeInline,

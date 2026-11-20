@@ -25,8 +25,8 @@ Vec2 ResolveNaturalImageSize(keel::StringRef source, ICanvas* canvas) noexcept {
 ControlSpec EffectiveImageControl(const ImageOptions& opts, UiSize size, const UiTheme& theme) noexcept {
     const ComponentMetrics& m = theme.GetMetrics(size);
     const InputFieldMetrics& inputMetrics = theme.GetInputField(size);
-    ControlSpec ctrl = Control::FromLayout(
-        opts.layout,
+    ControlSpec ctrl = Control::FromOptions(
+        opts,
         SizeMode::Fit,
         SizeMode::Fit,
         ElementLayout::Stacked,
@@ -50,9 +50,9 @@ Vec2 ComputeControlBoxSize(
     const float aspect = natW / natH;
 
     float ctrlW = natW;
-    if (opts.layout.width.IsFixed()) {
-        ctrlW = opts.layout.width.Dp();
-    } else if (opts.layout.width.ResolveMode(SizeMode::Fit) == SizeMode::Stretch && availableWidth > 0.0f) {
+    if (opts.width.IsFixed()) {
+        ctrlW = opts.width.Dp();
+    } else if (opts.width.ResolveMode(SizeMode::Fit) == SizeMode::Stretch && availableWidth > 0.0f) {
         ctrlW = availableWidth;
     }
     if (availableWidth > 0.0f) {
@@ -60,16 +60,16 @@ Vec2 ComputeControlBoxSize(
     }
 
     float ctrlH = natH;
-    if (opts.layout.height.IsFixed()) {
-        ctrlH = opts.layout.height.Dp();
+    if (opts.height.IsFixed()) {
+        ctrlH = opts.height.Dp();
     } else if (opts.fit == ObjectFit::Original) {
         ctrlH = natH;
     } else if (aspect > 0.0f) {
         ctrlH = ctrlW / aspect;
     }
 
-    if (opts.layout.maxHeight.has_value() && *opts.layout.maxHeight > 0.0f) {
-        ctrlH = keel::min(ctrlH, *opts.layout.maxHeight);
+    if (opts.maxHeight.has_value() && *opts.maxHeight > 0.0f) {
+        ctrlH = keel::min(ctrlH, *opts.maxHeight);
     }
 
     return { keel::max(1.0f, ctrlW), keel::max(1.0f, ctrlH) };
@@ -86,7 +86,7 @@ Response Image::Run(
 
     const Id id = ctx.MakeChildId(loc);
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    const UiSize activeSize = opts.style.size;
+    const UiSize activeSize = opts.size;
     const UiTheme& theme = ctx.GetTheme();
 
     Response res = ctx.Interact(id);
@@ -103,9 +103,9 @@ Response Image::Run(
     }
 
     ImageOptions optsCopy = opts;
-    const SizeMode effW = Control::ResolveWidthMode(ctx, opts.layout.width, SizeMode::Fit);
-    if (!optsCopy.layout.width.IsFixed()) {
-        optsCopy.layout.width = effW;
+    const SizeMode effW = Control::ResolveWidthMode(ctx, opts.width, SizeMode::Fit);
+    if (!optsCopy.width.IsFixed()) {
+        optsCopy.width = effW;
     }
 
     const ControlSpec ctrl = EffectiveImageControl(optsCopy, activeSize, theme);
@@ -122,18 +122,18 @@ Response Image::Run(
     node->visualHash = detail::HashArgs(
         payload->source,
         payload->opts.alt,
-        optsCopy.style.color,
-        optsCopy.style.background,
-        optsCopy.style.border,
+        optsCopy.color,
+        optsCopy.background,
+        optsCopy.border,
         static_cast<keel::u8>(optsCopy.fit),
         static_cast<keel::u8>(optsCopy.alignX),
         static_cast<keel::u8>(optsCopy.alignY),
-        optsCopy.layout.width,
-        optsCopy.layout.height,
-        optsCopy.layout.minWidth.value_or(0.0f),
-        optsCopy.layout.maxWidth.value_or(0.0f),
-        optsCopy.layout.minHeight.value_or(0.0f),
-        optsCopy.layout.maxHeight.value_or(0.0f),
+        optsCopy.width,
+        optsCopy.height,
+        optsCopy.minWidth.value_or(0.0f),
+        optsCopy.maxWidth.value_or(0.0f),
+        optsCopy.minHeight.value_or(0.0f),
+        optsCopy.maxHeight.value_or(0.0f),
         optsCopy.checkerboard,
         optsCopy.opacity,
         activeSize,
@@ -147,8 +147,8 @@ Response Image::Run(
             p->lastCanvas = canvas;
         }
         ImageOptions effOpts = p->opts;
-        if (n->widthMode == SizeMode::Stretch && !effOpts.layout.width.IsFixed()) {
-            effOpts.layout.width = SizeMode::Stretch;
+        if (n->widthMode == SizeMode::Stretch && !effOpts.width.IsFixed()) {
+            effOpts.width = SizeMode::Stretch;
         }
         return Image::Measure(p->source, effOpts, n->uiSize, canvas ? canvas : p->lastCanvas, th, availableWidth);
     };
@@ -169,7 +169,7 @@ Response Image::Run(
         ctrl.height.IsFixed() ? ctrl.height.Dp() : theme.GetMetrics(activeSize).defaultHeight
     );
     if ((!node->parent || node->parent->type != NodeType::Element) &&
-        optsCopy.layout.height.ResolveMode(SizeMode::Fit) == SizeMode::Fit &&
+        optsCopy.height.ResolveMode(SizeMode::Fit) == SizeMode::Fit &&
         node->heightMode == SizeMode::Stretch) {
         node->heightMode = SizeMode::Fit;
     }
@@ -255,16 +255,16 @@ void Image::Render(
     const Rect box = bounds;
     if (box.w <= 0.0f || box.h <= 0.0f) return;
 
-    const float rad = opts.style.border.radius.has_value() ? *opts.style.border.radius : cm.cornerRadius;
+    const float rad = opts.border.radius.has_value() ? *opts.border.radius : cm.cornerRadius;
     if (opts.checkerboard) {
         DrawCheckerboard(canvas, box, rad, theme);
-    } else if (opts.style.background.IsBackgroundEnabled(false)) {
+    } else if (opts.background.IsBackgroundEnabled(false)) {
         const Color defaultBg = disabled ? theme.palette.surfaceElevated.WithAlphaF(0.40f) : theme.palette.surfaceElevated;
-        const Color bg = (!opts.style.background.HasAny())
+        const Color bg = (!opts.background.HasAny())
             ? defaultBg
-            : (opts.style.background.IsSurface()
-                ? defaultBg.ScaleAlpha(opts.style.background.alphaScale)
-                : theme.ResolveColor(opts.style.background, hovered, false, disabled, defaultBg));
+            : (opts.background.IsSurface()
+                ? defaultBg.ScaleAlpha(opts.background.alphaScale)
+                : theme.ResolveColor(opts.background, hovered, false, disabled, defaultBg));
         canvas.DrawRoundRect(box, rad, bg);
     }
 
@@ -290,11 +290,11 @@ void Image::Render(
     if (!drawn) {
         // Clean vector placeholder card when image is missing or empty
         const Color defaultBg = disabled ? theme.palette.surfaceElevated.WithAlphaF(0.40f) : theme.palette.surfaceElevated;
-        const Color bg = (!opts.style.background.HasAny())
+        const Color bg = (!opts.background.HasAny())
             ? defaultBg
-            : (opts.style.background.IsSurface()
-                ? defaultBg.ScaleAlpha(opts.style.background.alphaScale)
-                : theme.ResolveColor(opts.style.background, hovered, false, disabled, defaultBg));
+            : (opts.background.IsSurface()
+                ? defaultBg.ScaleAlpha(opts.background.alphaScale)
+                : theme.ResolveColor(opts.background, hovered, false, disabled, defaultBg));
         const Color border = theme.palette.borderSubtle;
         canvas.DrawRoundRect(box, rad, bg, disabled ? border.WithAlphaF(0.40f) : border, 1.0f);
 
@@ -303,12 +303,12 @@ void Image::Render(
         canvas.DrawTextBox(fallbackText, box.Inset(cm.paddingX), fs, disabled ? theme.palette.textDisabled : theme.palette.textMuted, 0.5f, 0.5f);
     }
 
-    if (opts.style.border.width > 0.0f) {
+    if (opts.border.width > 0.0f) {
         Color bCol = disabled ? theme.palette.borderSubtle.WithAlphaF(0.40f) : theme.palette.borderSubtle;
-        if (opts.style.border.color.HasAny()) {
-            bCol = theme.ResolveColor(opts.style.border.color, hovered, false, disabled, bCol);
+        if (opts.border.color.HasAny()) {
+            bCol = theme.ResolveColor(opts.border.color, hovered, false, disabled, bCol);
         }
-        canvas.DrawRoundRect(box, rad, Color::Transparent(), bCol, opts.style.border.width);
+        canvas.DrawRoundRect(box, rad, Color::Transparent(), bCol, opts.border.width);
     }
 }
 

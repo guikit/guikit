@@ -37,16 +37,16 @@ void RenderSwitchStage(guikit::Context& ui, DemoContext& ctx) {
         opts.textRight = s_state.textRight;
         opts.symmetric = s_state.symmetric;
         opts.disabled = ctx.elemDisabled;
-        opts.style.size = ctx.controlsSize;
-        opts.style.color = ctx.GetControlColor();
+        opts.size = ctx.controlsSize;
+        opts.color = ctx.GetControlColor();
         ui.Switch(s_state.state, opts);
     });
 }
 
 keel::String GenerateSwitchCode(const DemoContext& ctx) {
     const bool hasCustomSize = (ctx.controlsSize != guikit::UiSize::None && ctx.controlsSize != guikit::UiSize::Md);
-    const keel::FixedString<64> sizePrefix = hasCustomSize
-        ? keel::format_fixed<64>(".size = guikit::UiSize::{}, ", SizeName(ctx.controlsSize))
+    const keel::FixedString<64> sizeLine = hasCustomSize
+        ? keel::format_fixed<64>("    .size = guikit::UiSize::{},\n", SizeName(ctx.controlsSize))
         : keel::FixedString<64>{};
     const keel::String ctrl = keel::format(
         "ui.Switch(switchState, {{\n"
@@ -54,13 +54,14 @@ keel::String GenerateSwitchCode(const DemoContext& ctx) {
         "    .textRight = \"{}\",\n"
         "    .symmetric = {},\n"
         "    .disabled = {},\n"
-        "    .style = {{{}.color = {}}}\n"
+        "{}"
+        "    .color = {}\n"
         "}});",
         s_state.textLeft,
         s_state.textRight,
         s_state.symmetric ? "true" : "false",
         ctx.elemDisabled ? "true" : "false",
-        sizePrefix,
+        sizeLine,
         ctx.FormatControlColorCode()
     );
     return ctx.WrapInElementCode(ctrl);

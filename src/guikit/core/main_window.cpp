@@ -441,7 +441,7 @@ bool MainWindow::RenderSidebarToggle(
 
 void MainWindow::RenderThemeControls(ToolbarScope& tb) {
     (void)tb;
-    if (m_ui.Select(m_shellScaleIndex, kScaleLabels, {.layout = {.width = 92.0f}, .style = {.size = UiSize::Sm}}).changed) {
+    if (m_ui.Select(m_shellScaleIndex, kScaleLabels, {.size = UiSize::Sm, .width = 92.0f}).changed) {
         SetShellScaleIndex(m_shellScaleIndex);
     }
 
@@ -522,7 +522,7 @@ void MainWindow::RenderEngineControls(ToolbarScope& tb) {
                 .layout = ElementLayout::Leading,
                 .disabled = !IsGpuShadersAvailable()
             })) {
-                if (m_ui.Switch(gpuEnabled, {.style = {.size = UiSize::Sm}})) {
+                if (m_ui.Switch(gpuEnabled, {.size = UiSize::Sm})) {
                     SetGpuShadersEnabled(gpuEnabled);
                 }
             }
@@ -533,7 +533,7 @@ void MainWindow::RenderEngineControls(ToolbarScope& tb) {
                 .description = "Synchronize swap interval",
                 .layout = ElementLayout::Leading
             })) {
-                if (m_ui.Switch(vsync, {.style = {.size = UiSize::Sm}})) {
+                if (m_ui.Switch(vsync, {.size = UiSize::Sm})) {
                     SetVsyncEnabled(vsync);
                 }
             }
@@ -543,7 +543,7 @@ void MainWindow::RenderEngineControls(ToolbarScope& tb) {
                 .description = "Idle sleep at 0% CPU",
                 .layout = ElementLayout::Leading
             })) {
-                if (m_ui.Switch(m_reactiveMode, {.style = {.size = UiSize::Sm}})) {
+                if (m_ui.Switch(m_reactiveMode, {.size = UiSize::Sm})) {
                     SetReactiveMode(m_reactiveMode);
                 }
             }
@@ -554,7 +554,7 @@ void MainWindow::RenderEngineControls(ToolbarScope& tb) {
                 .description = "Disjoint partial redraws",
                 .layout = ElementLayout::Leading
             })) {
-                if (m_ui.Switch(dirtyActive, {.style = {.size = UiSize::Sm}})) {
+                if (m_ui.Switch(dirtyActive, {.size = UiSize::Sm})) {
                     m_ui.SetDirtyRectEnabled(dirtyActive);
                     if (!dirtyActive) {
                         m_ui.InvalidateAll();
@@ -568,7 +568,7 @@ void MainWindow::RenderEngineControls(ToolbarScope& tb) {
                 .description = "Reflow while dragging edge",
                 .layout = ElementLayout::Leading
             })) {
-                if (m_ui.Switch(liveResizeActive, {.style = {.size = UiSize::Sm}})) {
+                if (m_ui.Switch(liveResizeActive, {.size = UiSize::Sm})) {
                     m_ui.SetLiveResize(liveResizeActive);
                 }
             }
@@ -581,7 +581,7 @@ void MainWindow::RenderEngineControls(ToolbarScope& tb) {
                 .disabled = !m_reactiveMode
             })) {
                 keel::usize hbIdx = m_heartbeatIndex;
-                if (m_ui.Select(hbIdx, kHeartbeatShortLabels, {.layout = {.width = 128.0f}, .style = {.size = UiSize::Sm}})) {
+                if (m_ui.Select(hbIdx, kHeartbeatShortLabels, {.size = UiSize::Sm, .width = 128.0f})) {
                     m_heartbeatIndex = hbIdx % kHeartbeatMsValues.size();
                     m_ui.SetIdleHeartbeatMs(kHeartbeatMsValues[m_heartbeatIndex]);
                 }

@@ -99,7 +99,7 @@ void RenderSlotControl(guikit::Context& ui, ElementSlotPreset preset) {
                 });
                 if (ui.Button({
                     .text = "Apply",
-                    .style = {.color = guikit::StateColor::Primary()}
+                    .color = guikit::StateColor::Primary()
                 })) {
                     ++s_state.triggerCount;
                 }
@@ -123,7 +123,7 @@ keel::String FormatSlotControlCode(ElementSlotPreset preset) {
             return keel::String::from(
                 "if (auto row = ui.Row({.gap = 8.0f, .align = guikit::Alignment::Center})) {\n"
                 "    ui.InputField(searchQuery, {.placeholder = \"Filter symbol...\", .prefix = {guikit::Icon::Search()}, .clearable = true});\n"
-                "    ui.Button({.text = \"Apply\", .style = {.color = guikit::StateColor::Primary()}});\n"
+                "    ui.Button({.text = \"Apply\", .color = guikit::StateColor::Primary()});\n"
                 "}"
             );
         case ElementSlotPreset::Standalone:

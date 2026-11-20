@@ -123,8 +123,8 @@ void RenderSplitViewInspector(guikit::Context& ui, DemoContext& ctx) {
     if (ui.Button({
         .text = "Reset Ratios",
         .icon = guikit::Icon::Refresh(),
-        .layout = {.width = guikit::SizeMode::Stretch},
-        .style = {.color = guikit::StateColor::Secondary()}
+        .width = guikit::SizeMode::Stretch,
+        .color = guikit::StateColor::Secondary()
     }).clicked) {
         s_split.primaryRatio = 0.35f;
         s_split.secondaryRatio = 0.55f;

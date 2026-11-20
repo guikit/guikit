@@ -103,12 +103,12 @@ void RenderSpinBoxStage(guikit::Context& ui, DemoContext& ctx) {
         opts.showFillBar = s_state.showFillBar;
         opts.readOnly = s_state.readOnly;
         opts.disabled = ctx.elemDisabled;
-        opts.layout.width = ctx.ResolveCtrlWidth();
-        opts.layout.height = ctx.ResolveCtrlHeight();
-        opts.style.size = ctx.controlsSize;
-        opts.style.color = ctx.GetControlColor();
-        opts.style.background = ctx.GetControlBackground(NavCategory::ElemSpinBox);
-        opts.style.border = ctx.GetCtrlBorder();
+        opts.size = ctx.controlsSize;
+        opts.width = ctx.ResolveCtrlWidth();
+        opts.height = ctx.ResolveCtrlHeight();
+        opts.color = ctx.GetControlColor();
+        opts.background = ctx.GetControlBackground(NavCategory::ElemSpinBox);
+        opts.border = ctx.GetCtrlBorder();
         ui.SpinBox(s_state.val, opts);
     });
 }
@@ -122,7 +122,7 @@ keel::String GenerateSpinBoxCode(const DemoContext& ctx) {
         : ((s_state.iconStyleIdx == 2) ? "guikit::Icon::ArrowRight()" : "guikit::Icon::Plus()");
     const bool hasCustomSize = (ctx.controlsSize != guikit::UiSize::None && ctx.controlsSize != guikit::UiSize::Md);
     const keel::FixedString<64> sizeLine = hasCustomSize
-        ? keel::format_fixed<64>("        .size = guikit::UiSize::{},\n", SizeName(ctx.controlsSize))
+        ? keel::format_fixed<64>("    .size = guikit::UiSize::{},\n", SizeName(ctx.controlsSize))
         : keel::FixedString<64>{};
 
     const keel::String ctrl = keel::format(
@@ -140,13 +140,12 @@ keel::String GenerateSpinBoxCode(const DemoContext& ctx) {
         "    .showFillBar = {},\n"
         "    .readOnly = {},\n"
         "    .disabled = {},\n"
-        "    .layout = {{.width = {}, .height = {}}},\n"
-        "    .style = {{\n"
         "{}"
-        "        .color = {},\n"
-        "        .background = {},\n"
-        "        .border = {}\n"
-        "    }}\n"
+        "    .width = {},\n"
+        "    .height = {},\n"
+        "    .color = {},\n"
+        "    .background = {},\n"
+        "    .border = {}\n"
         "}});",
         s_state.prefix,
         s_state.suffix,
@@ -160,9 +159,9 @@ keel::String GenerateSpinBoxCode(const DemoContext& ctx) {
         s_state.showFillBar ? "true" : "false",
         s_state.readOnly ? "true" : "false",
         ctx.elemDisabled ? "true" : "false",
+        sizeLine,
         ctx.FormatControlWidthCode(),
         ctx.FormatControlHeightCode(),
-        sizeLine,
         ctx.FormatControlColorCode(),
         ctx.FormatControlBackgroundCode(NavCategory::ElemSpinBox),
         ctx.FormatCtrlBorderCode()

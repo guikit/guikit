@@ -558,8 +558,9 @@ void RenderCodeEditorStage(guikit::Context& ui, DemoContext& ctx) {
             .zoom = s_state.zoom,
             .syntax = synCfg,
             .syntaxPalette = synPalette,
-            .layout = {.height = guikit::SizeMode::Stretch},
-            .style = {.size = ctx.controlsSize, .background = guikit::StateColor{}},
+            .size = ctx.controlsSize,
+            .height = guikit::SizeMode::Stretch,
+            .background = guikit::StateColor{},
             .showMinimap = s_state.showMinimap,
             .showStatusBar = s_state.showStatusBar,
             .showIndentGuides = s_state.showIndentGuides,
@@ -612,8 +613,8 @@ keel::String GenerateCodeEditorCode(const DemoContext& ctx) {
         ? "guikit::Align::Start"
         : ((s_state.debugToolbarAlignIdx == 2) ? "guikit::Align::End" : "guikit::Align::Center");
 
-    const keel::String styleLine = (ctx.controlsSize != guikit::UiSize::None && ctx.controlsSize != guikit::UiSize::Md)
-        ? keel::format(",\n    .style = {{.size = guikit::UiSize::{}, .background = guikit::StateColor{{}}}}", SizeName(ctx.controlsSize))
+    const keel::String sizeLine = (ctx.controlsSize != guikit::UiSize::None && ctx.controlsSize != guikit::UiSize::Md)
+        ? keel::format("    .size = guikit::UiSize::{},\n", SizeName(ctx.controlsSize))
         : keel::String{};
 
     return keel::format(
@@ -621,7 +622,8 @@ keel::String GenerateCodeEditorCode(const DemoContext& ctx) {
         "    .showLineNumbers = {},\n"
         "    .syntax = {},\n"
         "    .syntaxPalette = {},\n"
-        "    .layout = {{.height = guikit::SizeMode::Stretch}}{},\n"
+        "{}"
+        "    .height = guikit::SizeMode::Stretch,\n"
         "    .showMinimap = {},\n"
         "    .showStatusBar = {},\n"
         "    .showIndentGuides = {},\n"
@@ -641,7 +643,7 @@ keel::String GenerateCodeEditorCode(const DemoContext& ctx) {
         s_state.lineNumbers ? "true" : "false",
         synLine,
         palLine,
-        styleLine,
+        sizeLine,
         s_state.showMinimap ? "true" : "false",
         s_state.showStatusBar ? "true" : "false",
         s_state.showIndentGuides ? "true" : "false",

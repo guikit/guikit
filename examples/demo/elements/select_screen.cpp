@@ -86,11 +86,11 @@ void RenderSelectStage(guikit::Context& ui, DemoContext& ctx) {
         opts.align = ctx.GetCtrlAlign(NavCategory::ElemSelect);
         opts.clearable = s_state.clearable;
         opts.disabled = ctx.elemDisabled;
-        opts.layout.width = ctx.ResolveCtrlWidth();
-        opts.layout.height = ctx.ResolveCtrlHeight();
-        opts.style.size = ctx.controlsSize;
-        opts.style.background = ctx.GetControlBackground(NavCategory::ElemSelect);
-        opts.style.border = ctx.GetCtrlBorder();
+        opts.size = ctx.controlsSize;
+        opts.width = ctx.ResolveCtrlWidth();
+        opts.height = ctx.ResolveCtrlHeight();
+        opts.background = ctx.GetControlBackground(NavCategory::ElemSelect);
+        opts.border = ctx.GetCtrlBorder();
 
         const auto richList = BuildRichSelectItems();
         if (s_state.mode == 0) {
@@ -131,7 +131,7 @@ keel::String GenerateSelectCode(const DemoContext& ctx) {
     const guikit::Align ctrlAlign = ctx.GetCtrlAlign(NavCategory::ElemSelect);
     const bool hasCustomSize = (ctx.controlsSize != guikit::UiSize::None && ctx.controlsSize != guikit::UiSize::Md);
     const keel::FixedString<64> sizeLine = hasCustomSize
-        ? keel::format_fixed<64>("        .size = guikit::UiSize::{},\n", SizeName(ctx.controlsSize))
+        ? keel::format_fixed<64>("    .size = guikit::UiSize::{},\n", SizeName(ctx.controlsSize))
         : keel::FixedString<64>{};
 
     const keel::String ctrl = keel::format(
@@ -142,12 +142,11 @@ keel::String GenerateSelectCode(const DemoContext& ctx) {
         "    .align = guikit::Align::{},\n"
         "    .clearable = {},\n"
         "    .disabled = {},\n"
-        "    .layout = {{.width = {}, .height = {}}},\n"
-        "    .style = {{\n"
         "{}"
-        "        .background = {},\n"
-        "        .border = {}\n"
-        "    }}\n"
+        "    .width = {},\n"
+        "    .height = {},\n"
+        "    .background = {},\n"
+        "    .border = {}\n"
         "}});",
         widgetCall,
         s_state.placeholder,
@@ -156,9 +155,9 @@ keel::String GenerateSelectCode(const DemoContext& ctx) {
         AlignName(ctrlAlign),
         s_state.clearable ? "true" : "false",
         ctx.elemDisabled ? "true" : "false",
+        sizeLine,
         ctx.FormatCtrlWidthCode(),
         ctx.FormatCtrlHeightCode(),
-        sizeLine,
         ctx.FormatControlBackgroundCode(NavCategory::ElemSelect),
         ctx.FormatCtrlBorderCode()
     );

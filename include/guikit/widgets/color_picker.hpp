@@ -22,9 +22,17 @@ struct ColorPickerOptions {
     keel::ArrayRef<Color> swatches{};///< Optional custom color swatches (preferred name; empty = fallback to presets or default palette)
     keel::ArrayRef<Color> presets{}; ///< Legacy alias for swatches (empty = default 10-color palette)
     UiText tooltip{};                ///< Optional floating tooltip shown on hover
-    bool disabled{false};            ///< Interaction suppression
-    ControlLayout layout{};          ///< Sizing policy (`Stretch` width / `Fit` height default) and min/max constraints
-    SurfaceStyle style{};            ///< Control size, semantic tint, well background surface, and border
+    bool disabled{false};                            ///< Interaction suppression
+    UiSize size{UiSize::Md};                         ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)
+    AxisSize width{};                                ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or explicit `dp`)
+    AxisSize height{};                               ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or explicit `dp`)
+    keel::Optional<float> minWidth{keel::kNullOpt};  ///< Optional minimum width in logical dp
+    keel::Optional<float> maxWidth{keel::kNullOpt};  ///< Optional maximum width in logical dp
+    keel::Optional<float> minHeight{keel::kNullOpt}; ///< Optional minimum height in logical dp
+    keel::Optional<float> maxHeight{keel::kNullOpt}; ///< Optional maximum height in logical dp
+    StateColor color{};                              ///< Per-state semantic tint/accent color override
+    StateColor background{};                         ///< Optional well background override (`{}` = theme default, `StateColor::None()` = transparent)
+    Border border{};                                 ///< Optional border width, color, and radius override
 };
 
 /// Internal runtime state stored per-widget ID for ColorPicker HSV continuity and drag tracking.

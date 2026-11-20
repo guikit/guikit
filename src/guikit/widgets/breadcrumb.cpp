@@ -22,8 +22,8 @@ struct BreadcrumbToken {
 
 ControlSpec EffectiveBreadcrumbControl(const BreadcrumbOptions& opts, UiSize size, const UiTheme& theme) noexcept {
     const SelectMetrics& sm = theme.GetSelect(size);
-    return Control::FromLayout(
-        opts.layout,
+    return Control::FromOptions(
+        opts,
         SizeMode::Fit,
         SizeMode::Fit,
         ElementLayout::Stacked,
@@ -129,12 +129,12 @@ Vec2 MeasureBreadcrumbNaturalBox(
         totalW += MeasureTokenNaturalWidth(items, tokens[i], size, canvas, theme);
     }
 
-    if (opts.layout.width.IsFixed()) {
-        totalW = opts.layout.width.Dp();
+    if (opts.width.IsFixed()) {
+        totalW = opts.width.Dp();
     }
 
-    const float boxH = opts.layout.height.IsFixed()
-        ? opts.layout.height.Dp()
+    const float boxH = opts.height.IsFixed()
+        ? opts.height.Dp()
         : cm.defaultHeight;
 
     return {keel::max(24.0f, totalW), boxH};
@@ -312,8 +312,8 @@ void RenderBreadcrumbPopup(
 
         const bool isSelected = (static_cast<keel::i32>(i) == activeRow);
         const bool isHovered = (static_cast<keel::i32>(i) == hoveredRow);
-        const Color accentColor = opts.style.color.HasAny()
-            ? opts.style.color.Resolve(isHovered, false, false, pal.accent)
+        const Color accentColor = opts.color.HasAny()
+            ? opts.color.Resolve(isHovered, false, false, pal.accent)
             : pal.accent;
 
         if (isSelected) {
@@ -432,7 +432,7 @@ Response Breadcrumb::Run(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = opts.style.size;
+    const UiSize activeSize = opts.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const UiTheme theme = ctx.GetTheme();
     ICanvas* canvas = ctx.GetCanvas();
@@ -806,13 +806,13 @@ Response Breadcrumb::Run(
         pressedToken,
         static_cast<keel::u8>(optsCopy.separator),
         optsCopy.maxVisibleItems,
-        optsCopy.layout.width,
-        optsCopy.layout.height,
-        optsCopy.layout.minWidth.value_or(0.0f),
-        optsCopy.layout.maxWidth.value_or(0.0f),
-        optsCopy.layout.minHeight.value_or(0.0f),
-        optsCopy.layout.maxHeight.value_or(0.0f),
-        optsCopy.style.color
+        optsCopy.width,
+        optsCopy.height,
+        optsCopy.minWidth.value_or(0.0f),
+        optsCopy.maxWidth.value_or(0.0f),
+        optsCopy.minHeight.value_or(0.0f),
+        optsCopy.maxHeight.value_or(0.0f),
+        optsCopy.color
     );
 
     node->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* c, const UiTheme& t) noexcept -> Vec2 {
@@ -883,8 +883,8 @@ void Breadcrumb::Render(
         const bool isPressed = !disabled && (d->pressedToken == static_cast<keel::i32>(i));
         const bool isActiveItem = !tok.isEllipsis && (tok.itemIndex == d->activeIndex);
 
-        const Color accentColor = d->opts.style.color.HasAny()
-            ? d->opts.style.color.Resolve(isHovered, isPressed, disabled, pal.accent)
+        const Color accentColor = d->opts.color.HasAny()
+            ? d->opts.color.Resolve(isHovered, isPressed, disabled, pal.accent)
             : pal.accent;
 
         if (tok.isEllipsis) {
@@ -909,7 +909,7 @@ void Breadcrumb::Render(
 
         // Pill background for active or hovered breadcrumb item
         if (isActiveItem) {
-            const Color activeFill = d->opts.style.color.HasAny()
+            const Color activeFill = d->opts.color.HasAny()
                 ? accentColor.WithAlphaF(disabled ? 0.10f : (isHovered ? 0.24f : 0.16f))
                 : pal.accent.WithAlphaF(disabled ? 0.10f : (isHovered ? 0.22f : 0.14f));
             const Color activeStroke = (focused && !disabled)
@@ -924,7 +924,7 @@ void Breadcrumb::Render(
         Color fgColor = disabled
             ? pal.textDisabled
             : (isActiveItem
-                ? (d->opts.style.color.HasAny() ? accentColor : pal.textPrimary)
+                ? (d->opts.color.HasAny() ? accentColor : pal.textPrimary)
                 : (isHovered ? pal.textPrimary : pal.textSecondary));
 
         const float iconGap = 5.0f;

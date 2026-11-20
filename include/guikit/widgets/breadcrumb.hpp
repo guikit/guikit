@@ -37,9 +37,15 @@ struct BreadcrumbOptions {
     BreadcrumbSeparator separator{BreadcrumbSeparator::Chevron};
     keel::u32 maxVisibleItems{0}; ///< 0 = show all (auto-collapses if viewport is narrower than trail); >= 2 collapses middle items into an interactive "..." dropdown menu when items.size() > maxVisibleItems
     UiText tooltip{};             ///< Optional floating tooltip text on hover
-    bool disabled{false};         ///< Interaction suppression
-    ControlLayout layout{};       ///< Sizing policy (`Fit` default) and min/max constraints
-    ControlStyle style{};         ///< Component size scale and accent color
+    bool disabled{false};                            ///< Interaction suppression
+    UiSize size{UiSize::Md};                         ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)
+    AxisSize width{};                                ///< Horizontal sizing policy (`Auto` -> `Fit`, `Stretch`, or explicit `dp`)
+    AxisSize height{};                               ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or explicit `dp`)
+    keel::Optional<float> minWidth{keel::kNullOpt};  ///< Optional minimum width in logical dp
+    keel::Optional<float> maxWidth{keel::kNullOpt};  ///< Optional maximum width in logical dp
+    keel::Optional<float> minHeight{keel::kNullOpt}; ///< Optional minimum height in logical dp
+    keel::Optional<float> maxHeight{keel::kNullOpt}; ///< Optional maximum height in logical dp
+    StateColor color{};                              ///< Per-state semantic accent color override
 };
 
 /// Internal runtime payload allocated in frame arena for Breadcrumb nodes.

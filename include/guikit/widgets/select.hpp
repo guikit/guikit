@@ -38,8 +38,16 @@ struct SelectOptions {
     keel::Optional<CursorBlinkMode> cursorMode{keel::kNullOpt}; ///< Optional override for text cursor blink mode in searchable/editable modes
     UiText tooltip{};                                          ///< Optional floating tooltip text on hover
     bool disabled{false};                                      ///< Interaction suppression
-    ControlLayout layout{};                                    ///< Sizing policy (`Stretch` width / `Fit` height default) and min/max constraints
-    SurfaceStyle style{};                                      ///< Control size, semantic tint, background surface, and border
+    UiSize size{UiSize::Md};                                   ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)
+    AxisSize width{};                                          ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or explicit `dp`)
+    AxisSize height{};                                         ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or explicit `dp`)
+    keel::Optional<float> minWidth{keel::kNullOpt};            ///< Optional minimum width in logical dp
+    keel::Optional<float> maxWidth{keel::kNullOpt};            ///< Optional maximum width in logical dp
+    keel::Optional<float> minHeight{keel::kNullOpt};           ///< Optional minimum height in logical dp
+    keel::Optional<float> maxHeight{keel::kNullOpt};           ///< Optional maximum height in logical dp
+    StateColor color{};                                        ///< Per-state semantic tint/accent color override
+    StateColor background{};                                   ///< Optional background fill override (`{}` = theme default, `StateColor::None()` = transparent)
+    Border border{};                                           ///< Optional border width, color, and radius override
 };
 
 /// Visual chip data stored inside frame arena for MultiSelect nodes.

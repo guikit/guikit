@@ -60,12 +60,12 @@ void RenderDatePickerStage(guikit::Context& ui, DemoContext& ctx) {
         opts.showTodayButton = s_state.showTodayButton;
         opts.firstDayMonday = s_state.firstDayMonday;
         opts.disabled = ctx.elemDisabled;
-        opts.layout.width = ctx.ResolveCtrlWidth();
-        opts.layout.height = ctx.ResolveCtrlHeight();
-        opts.style.size = ctx.controlsSize;
-        opts.style.color = ctx.GetControlColor();
-        opts.style.background = ctx.GetControlBackground(navCat);
-        opts.style.border = ctx.GetCtrlBorder();
+        opts.size = ctx.controlsSize;
+        opts.width = ctx.ResolveCtrlWidth();
+        opts.height = ctx.ResolveCtrlHeight();
+        opts.color = ctx.GetControlColor();
+        opts.background = ctx.GetControlBackground(navCat);
+        opts.border = ctx.GetCtrlBorder();
         (void)ui.DatePicker(s_state.value, opts);
     });
 }
@@ -75,7 +75,7 @@ keel::String GenerateDatePickerCode(const DemoContext& ctx) {
     const guikit::DatePickerMode mode = ActiveMode();
     const bool hasCustomSize = (ctx.controlsSize != guikit::UiSize::None && ctx.controlsSize != guikit::UiSize::Md);
     const keel::FixedString<64> sizeLine = hasCustomSize
-        ? keel::format_fixed<64>("        .size = guikit::UiSize::{},\n", SizeName(ctx.controlsSize))
+        ? keel::format_fixed<64>("    .size = guikit::UiSize::{},\n", SizeName(ctx.controlsSize))
         : keel::FixedString<64>{};
     const keel::String ctrl = keel::format(
         "ui.DatePicker(dateTimeValue, {{\n"
@@ -84,22 +84,21 @@ keel::String GenerateDatePickerCode(const DemoContext& ctx) {
         "    .showTodayButton = {},\n"
         "    .firstDayMonday = {},\n"
         "    .disabled = {},\n"
-        "    .layout = {{.width = {}, .height = {}}},\n"
-        "    .style = {{\n"
         "{}"
-        "        .color = {},\n"
-        "        .background = {},\n"
-        "        .border = {}\n"
-        "    }}\n"
+        "    .width = {},\n"
+        "    .height = {},\n"
+        "    .color = {},\n"
+        "    .background = {},\n"
+        "    .border = {}\n"
         "}});",
         ModeEnumName(mode),
         s_state.showSeconds ? "true" : "false",
         s_state.showTodayButton ? "true" : "false",
         s_state.firstDayMonday ? "true" : "false",
         ctx.elemDisabled ? "true" : "false",
+        sizeLine,
         ctx.FormatCtrlWidthCode(),
         ctx.FormatCtrlHeightCode(),
-        sizeLine,
         ctx.FormatControlColorCode(),
         ctx.FormatControlBackgroundCode(navCat),
         ctx.FormatCtrlBorderCode()

@@ -72,12 +72,12 @@ void RenderButtonStage(guikit::Context& ui, DemoContext& ctx) {
         opts.loading = s_state.loading;
         opts.square = s_state.square;
         opts.disabled = ctx.elemDisabled;
-        opts.layout.width = ctx.ResolveCtrlWidth();
-        opts.layout.height = ctx.ResolveCtrlHeight();
-        opts.style.size = ctx.controlsSize;
-        opts.style.color = ctx.GetControlColor();
-        opts.style.background = ctx.GetControlBackground(NavCategory::ElemButton);
-        opts.style.border = ctx.GetCtrlBorder();
+        opts.size = ctx.controlsSize;
+        opts.width = ctx.ResolveCtrlWidth();
+        opts.height = ctx.ResolveCtrlHeight();
+        opts.color = ctx.GetControlColor();
+        opts.background = ctx.GetControlBackground(NavCategory::ElemButton);
+        opts.border = ctx.GetCtrlBorder();
 
         if (ui.Button(opts)) {
             ++s_state.clicks;
@@ -90,7 +90,7 @@ keel::String GenerateButtonCode(const DemoContext& ctx) {
     const guikit::Align ctrlAlign = ctx.GetCtrlAlign(NavCategory::ElemButton);
     const bool hasCustomSize = (ctx.controlsSize != guikit::UiSize::None && ctx.controlsSize != guikit::UiSize::Md);
     const keel::FixedString<64> sizeLine = hasCustomSize
-        ? keel::format_fixed<64>("        .size = guikit::UiSize::{},\n", SizeName(ctx.controlsSize))
+        ? keel::format_fixed<64>("    .size = guikit::UiSize::{},\n", SizeName(ctx.controlsSize))
         : keel::FixedString<64>{};
     const keel::String ctrlCode = keel::format(
         "if (ui.Button({{\n"
@@ -101,13 +101,12 @@ keel::String GenerateButtonCode(const DemoContext& ctx) {
         "    .loading = {},\n"
         "    .square = {},\n"
         "    .disabled = {},\n"
-        "    .layout = {{.width = {}, .height = {}}},\n"
-        "    .style = {{\n"
         "{}"
-        "        .color = {},\n"
-        "        .background = {},\n"
-        "        .border = {}\n"
-        "    }}\n"
+        "    .width = {},\n"
+        "    .height = {},\n"
+        "    .color = {},\n"
+        "    .background = {},\n"
+        "    .border = {}\n"
         "}})) {{\n"
         "    // On click handler\n"
         "}}",
@@ -118,9 +117,9 @@ keel::String GenerateButtonCode(const DemoContext& ctx) {
         s_state.loading ? "true" : "false",
         s_state.square ? "true" : "false",
         ctx.elemDisabled ? "true" : "false",
+        sizeLine,
         ctx.FormatControlWidthCode(),
         ctx.FormatControlHeightCode(),
-        sizeLine,
         ctx.FormatControlColorCode(),
         ctx.FormatControlBackgroundCode(NavCategory::ElemButton),
         ctx.FormatCtrlBorderCode()

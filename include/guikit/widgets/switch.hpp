@@ -18,8 +18,9 @@ struct SwitchOptions {
     UiText textRight{};   ///< Optional companion text inside control to the right of the switch track (on state)
     bool symmetric{false};///< Neutral/symmetric track style (highlights active side label)
     UiText tooltip{};     ///< Optional floating tooltip text on hover
-    bool disabled{false}; ///< Interaction suppression
-    ControlStyle style{}; ///< Component size scale and accent color
+    bool disabled{false};     ///< Interaction suppression
+    UiSize size{UiSize::Md};  ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)
+    StateColor color{};       ///< Per-state semantic accent color override
 };
 static_assert(sizeof(SwitchOptions) <= 512, "SwitchOptions must stay compact");
 

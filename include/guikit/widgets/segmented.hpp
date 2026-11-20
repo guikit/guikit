@@ -29,9 +29,17 @@ struct SegmentedOptions {
     bool equalWidth{true};   ///< Give all segments equal width (true) or size each segment to its content (false)
     bool showDividers{true}; ///< Render subtle vertical hairlines between unselected adjacent segments
     UiText tooltip{};        ///< Optional control-level floating tooltip on hover
-    bool disabled{false};    ///< Interaction suppression
-    ControlLayout layout{};  ///< Sizing policy (`Stretch` width / `Fit` height default) and min/max constraints
-    SurfaceStyle style{};    ///< Control size, active segment fill color, outer track background, and border
+    bool disabled{false};                            ///< Interaction suppression
+    UiSize size{UiSize::Md};                         ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)
+    AxisSize width{};                                ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or explicit `dp`)
+    AxisSize height{};                               ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or explicit `dp`)
+    keel::Optional<float> minWidth{keel::kNullOpt};  ///< Optional minimum width in logical dp
+    keel::Optional<float> maxWidth{keel::kNullOpt};  ///< Optional maximum width in logical dp
+    keel::Optional<float> minHeight{keel::kNullOpt}; ///< Optional minimum height in logical dp
+    keel::Optional<float> maxHeight{keel::kNullOpt}; ///< Optional maximum height in logical dp
+    StateColor color{};                              ///< Active segment fill semantic color override
+    StateColor background{};                         ///< Optional outer track background override (`{}` = theme default, `StateColor::None()` = transparent)
+    Border border{};                                 ///< Optional border width, color, and radius override
 };
 
 /// Internal runtime state allocated in frame arena for Segmented nodes.

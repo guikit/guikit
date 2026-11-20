@@ -30,8 +30,14 @@ struct SliderOptions {
     Placement valuePlacement{Placement::Trailing};    ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
     UiText tooltip{};                                 ///< Optional floating tooltip text on hover
     bool disabled{false};                             ///< Interaction suppression
-    ControlLayout layout{};                           ///< Sizing policy (`Stretch` main axis / `Fit` cross axis by default) and min/max constraints
-    ControlStyle style{};                             ///< Component size scale and accent color for active track and thumb
+    UiSize size{UiSize::Md};                          ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)
+    AxisSize width{};                                 ///< Horizontal sizing policy (`Auto` -> `Stretch` when horizontal, `Fit` when vertical)
+    AxisSize height{};                                ///< Vertical sizing policy (`Auto` -> `Fit` when horizontal, `Stretch` when vertical)
+    keel::Optional<float> minWidth{keel::kNullOpt};   ///< Optional minimum width in logical dp
+    keel::Optional<float> maxWidth{keel::kNullOpt};   ///< Optional maximum width in logical dp
+    keel::Optional<float> minHeight{keel::kNullOpt};  ///< Optional minimum height in logical dp
+    keel::Optional<float> maxHeight{keel::kNullOpt};  ///< Optional maximum height in logical dp
+    StateColor color{};                               ///< Per-state semantic accent color for active track and thumb
 };
 
 /// Clean configuration options for discrete N-position StepSlider widget.
@@ -51,8 +57,14 @@ struct StepSliderOptions {
     bool includeNone{false};                          ///< For UiSize overload: if true, range includes UiSize::None (None..Xl)
     UiText tooltip{};                                 ///< Optional floating tooltip text on hover
     bool disabled{false};                             ///< Interaction suppression
-    ControlLayout layout{};                           ///< Sizing policy (`Stretch` main axis / `Fit` cross axis by default) and min/max constraints
-    ControlStyle style{};                             ///< Component size scale and accent color for active track and thumb
+    UiSize size{UiSize::Md};                          ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)
+    AxisSize width{};                                 ///< Horizontal sizing policy (`Auto` -> `Stretch` when horizontal, `Fit` when vertical)
+    AxisSize height{};                                ///< Vertical sizing policy (`Auto` -> `Fit` when horizontal, `Stretch` when vertical)
+    keel::Optional<float> minWidth{keel::kNullOpt};   ///< Optional minimum width in logical dp
+    keel::Optional<float> maxWidth{keel::kNullOpt};   ///< Optional maximum width in logical dp
+    keel::Optional<float> minHeight{keel::kNullOpt};  ///< Optional minimum height in logical dp
+    keel::Optional<float> maxHeight{keel::kNullOpt};  ///< Optional maximum height in logical dp
+    StateColor color{};                               ///< Per-state semantic accent color for active track and thumb
 };
 
 /// Clean configuration options for two-thumb continuous/stepped RangeSlider widget.
@@ -70,8 +82,14 @@ struct RangeSliderOptions {
     Placement valuePlacement{Placement::Trailing};    ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
     UiText tooltip{};                                 ///< Optional floating tooltip text on hover
     bool disabled{false};                             ///< Interaction suppression
-    ControlLayout layout{};                           ///< Sizing policy (`Stretch` main axis / `Fit` cross axis by default) and min/max constraints
-    ControlStyle style{};                             ///< Component size scale and accent color for active interval and thumbs
+    UiSize size{UiSize::Md};                          ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)
+    AxisSize width{};                                 ///< Horizontal sizing policy (`Auto` -> `Stretch` when horizontal, `Fit` when vertical)
+    AxisSize height{};                                ///< Vertical sizing policy (`Auto` -> `Fit` when horizontal, `Stretch` when vertical)
+    keel::Optional<float> minWidth{keel::kNullOpt};   ///< Optional minimum width in logical dp
+    keel::Optional<float> maxWidth{keel::kNullOpt};   ///< Optional maximum width in logical dp
+    keel::Optional<float> minHeight{keel::kNullOpt};  ///< Optional minimum height in logical dp
+    keel::Optional<float> maxHeight{keel::kNullOpt};  ///< Optional maximum height in logical dp
+    StateColor color{};                               ///< Per-state semantic accent color for active interval and thumbs
 };
 
 /// Clean configuration options for continuous ProgressBar & Segmented LED / VU LevelMeter widget.
@@ -91,8 +109,14 @@ struct ProgressBarOptions {
     bool multiZoneColor{false};                       ///< Color bar/segments across 3 zones (Variant/Success -> Warning -> Danger)
     UiText tooltip{};                                 ///< Optional floating tooltip text on hover
     bool disabled{false};                             ///< Dimmed disabled state
-    ControlLayout layout{};                           ///< Sizing policy (`Stretch` main axis / `Fit` cross axis by default) and min/max constraints
-    ControlStyle style{};                             ///< Component size scale and accent color for active bar (or base zone when multiZoneColor is true)
+    UiSize size{UiSize::Md};                          ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)
+    AxisSize width{};                                 ///< Horizontal sizing policy (`Auto` -> `Stretch` when horizontal, `Fit` when vertical)
+    AxisSize height{};                                ///< Vertical sizing policy (`Auto` -> `Fit` when horizontal, `Stretch` when vertical)
+    keel::Optional<float> minWidth{keel::kNullOpt};   ///< Optional minimum width in logical dp
+    keel::Optional<float> maxWidth{keel::kNullOpt};   ///< Optional maximum width in logical dp
+    keel::Optional<float> minHeight{keel::kNullOpt};  ///< Optional minimum height in logical dp
+    keel::Optional<float> maxHeight{keel::kNullOpt};  ///< Optional maximum height in logical dp
+    StateColor color{};                               ///< Per-state semantic accent color for active bar (or base zone when multiZoneColor is true)
 };
 
 /// Internal runtime interaction state stored per-widget ID.

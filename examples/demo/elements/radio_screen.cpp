@@ -41,8 +41,8 @@ void RenderRadioInspector(guikit::Context& ui, DemoContext&) {
 void RenderRadioStage(guikit::Context& ui, DemoContext& ctx) {
     guikit::RadioOptions ctrlOpts{};
     ctrlOpts.disabled = ctx.elemDisabled;
-    ctrlOpts.style.size = ctx.controlsSize;
-    ctrlOpts.style.color = ctx.GetControlColor();
+    ctrlOpts.size = ctx.controlsSize;
+    ctrlOpts.color = ctx.GetControlColor();
 
     if (s_state.groupDemo) {
         if (auto col = ui.Column({.gap = 14.0f})) {
@@ -78,17 +78,18 @@ keel::String GenerateRadioCode(const DemoContext& ctx) {
         ? "Radio(selectedMode, 0"
         : "Radio(radioSelected";
     const bool hasCustomSize = (ctx.controlsSize != guikit::UiSize::None && ctx.controlsSize != guikit::UiSize::Md);
-    const keel::FixedString<64> sizePrefix = hasCustomSize
-        ? keel::format_fixed<64>(".size = guikit::UiSize::{}, ", SizeName(ctx.controlsSize))
+    const keel::FixedString<64> sizeLine = hasCustomSize
+        ? keel::format_fixed<64>("    .size = guikit::UiSize::{},\n", SizeName(ctx.controlsSize))
         : keel::FixedString<64>{};
     const keel::String ctrl = keel::format(
         "ui.{}, {{\n"
         "    .disabled = {},\n"
-        "    .style = {{{}.color = {}}}\n"
+        "{}"
+        "    .color = {}\n"
         "}});",
         callHead,
         ctx.elemDisabled ? "true" : "false",
-        sizePrefix,
+        sizeLine,
         ctx.FormatControlColorCode()
     );
     return ctx.WrapInElementCode(ctrl);

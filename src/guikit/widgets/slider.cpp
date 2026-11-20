@@ -463,8 +463,8 @@ template <typename Opts>
 ControlSpec EffectiveSliderControl(const Opts& opts, UiSize size, const UiTheme& theme) noexcept {
     const SliderMetrics& m = theme.GetSlider(size);
     const bool isVert = IsVerticalSlider(opts.orientation);
-    return Control::FromLayout(
-        opts.layout,
+    return Control::FromOptions(
+        opts,
         isVert ? SizeMode::Fit : SizeMode::Stretch,
         isVert ? SizeMode::Stretch : SizeMode::Fit,
         ElementLayout::Stacked,
@@ -540,7 +540,7 @@ Response Slider::Run(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = opts.style.size;
+    const UiSize activeSize = opts.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const UiTheme& activeTheme = ctx.GetTheme();
 
@@ -692,14 +692,14 @@ Response Slider::Run(
     node->visualHash = detail::HashArgs(
         valBits,
         static_cast<keel::u8>(data->opts.orientation),
-        data->opts.style.color,
+        data->opts.color,
         static_cast<keel::u8>(data->opts.valuePlacement),
-        data->opts.layout.width,
-        data->opts.layout.height,
-        data->opts.layout.minWidth.value_or(0.0f),
-        data->opts.layout.maxWidth.value_or(0.0f),
-        data->opts.layout.minHeight.value_or(0.0f),
-        data->opts.layout.maxHeight.value_or(0.0f),
+        data->opts.width,
+        data->opts.height,
+        data->opts.minWidth.value_or(0.0f),
+        data->opts.maxWidth.value_or(0.0f),
+        data->opts.minHeight.value_or(0.0f),
+        data->opts.maxHeight.value_or(0.0f),
         data->opts.showValue,
         data->opts.textLeft,
         data->opts.textRight,
@@ -841,14 +841,14 @@ void Slider::Render(
         const Rect fillRect = vertical
             ? Rect(layout.cross - halfTrack, thumbCenter.y, m.trackHeight, fillLen)
             : Rect(layout.start, layout.cross - halfTrack, fillLen, m.trackHeight);
-        Color fillCol = ResolveSliderTrackColor(opts.style.color, disabled, theme);
+        Color fillCol = ResolveSliderTrackColor(opts.color, disabled, theme);
         canvas.DrawRoundRect(fillRect, halfTrack, fillCol);
     }
 
     // 3. Draw thumb knob
     const Rect thumbRect(thumbCenter.x - halfThumb, thumbCenter.y - halfThumb, m.thumbSize, m.thumbSize);
     Color thumbBg = disabled ? pal.surface.WithAlphaF(0.5f) :
-                    active   ? ResolveSliderActiveThumbColor(opts.style.color, theme) :
+                    active   ? ResolveSliderActiveThumbColor(opts.color, theme) :
                     hovered  ? pal.surface : pal.surface;
     Color thumbBorder = disabled ? pal.border.WithAlphaF(0.4f) :
                         focused  ? pal.focusRing :
@@ -870,7 +870,7 @@ Response StepSlider::Run(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = opts.style.size;
+    const UiSize activeSize = opts.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const UiTheme& activeTheme = ctx.GetTheme();
 
@@ -1010,14 +1010,14 @@ Response StepSlider::Run(
         curIdx,
         totalSteps,
         static_cast<keel::u8>(data->opts.orientation),
-        data->opts.style.color,
+        data->opts.color,
         static_cast<keel::u8>(data->opts.valuePlacement),
-        data->opts.layout.width,
-        data->opts.layout.height,
-        data->opts.layout.minWidth.value_or(0.0f),
-        data->opts.layout.maxWidth.value_or(0.0f),
-        data->opts.layout.minHeight.value_or(0.0f),
-        data->opts.layout.maxHeight.value_or(0.0f),
+        data->opts.width,
+        data->opts.height,
+        data->opts.minWidth.value_or(0.0f),
+        data->opts.maxWidth.value_or(0.0f),
+        data->opts.minHeight.value_or(0.0f),
+        data->opts.maxHeight.value_or(0.0f),
         data->opts.showTicks,
         data->opts.showLabels,
         data->opts.showValue,
@@ -1156,7 +1156,7 @@ void StepSlider::Render(
         const Rect fillRect = vertical
             ? Rect(layout.cross - halfTrack, thumbCenter.y, m.trackHeight, fillLen)
             : Rect(layout.start, layout.cross - halfTrack, fillLen, m.trackHeight);
-        Color fillCol = ResolveSliderTrackColor(opts.style.color, disabled, theme);
+        Color fillCol = ResolveSliderTrackColor(opts.color, disabled, theme);
         canvas.DrawRoundRect(fillRect, halfTrack, fillCol);
     }
 
@@ -1175,7 +1175,7 @@ void StepSlider::Render(
     // 4. Draw thumb knob
     const Rect thumbRect(thumbCenter.x - halfThumb, thumbCenter.y - halfThumb, m.thumbSize, m.thumbSize);
     Color thumbBg = disabled ? pal.surface.WithAlphaF(0.5f) :
-                    active   ? ResolveSliderActiveThumbColor(opts.style.color, theme) :
+                    active   ? ResolveSliderActiveThumbColor(opts.color, theme) :
                     hovered  ? pal.surface : pal.surface;
     Color thumbBorder = disabled ? pal.border.WithAlphaF(0.4f) :
                         focused  ? pal.focusRing :
@@ -1363,7 +1363,7 @@ Response RangeSlider::Run(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = opts.style.size;
+    const UiSize activeSize = opts.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const UiTheme& activeTheme = ctx.GetTheme();
 
@@ -1576,14 +1576,14 @@ Response RangeSlider::Run(
         highBits,
         state.activeThumb,
         static_cast<keel::u8>(data->opts.orientation),
-        data->opts.style.color,
+        data->opts.color,
         static_cast<keel::u8>(data->opts.valuePlacement),
-        data->opts.layout.width,
-        data->opts.layout.height,
-        data->opts.layout.minWidth.value_or(0.0f),
-        data->opts.layout.maxWidth.value_or(0.0f),
-        data->opts.layout.minHeight.value_or(0.0f),
-        data->opts.layout.maxHeight.value_or(0.0f),
+        data->opts.width,
+        data->opts.height,
+        data->opts.minWidth.value_or(0.0f),
+        data->opts.maxWidth.value_or(0.0f),
+        data->opts.minHeight.value_or(0.0f),
+        data->opts.maxHeight.value_or(0.0f),
         data->opts.showValue,
         data->opts.textLeft,
         data->opts.textRight,
@@ -1741,7 +1741,7 @@ void RangeSlider::Render(
         const Rect fillRect = vertical
             ? Rect(layout.cross - halfTrack, highThumb.y, m.trackHeight, fillLen)
             : Rect(lowThumb.x, layout.cross - halfTrack, fillLen, m.trackHeight);
-        const Color fillCol = ResolveSliderTrackColor(opts.style.color, disabled, theme);
+        const Color fillCol = ResolveSliderTrackColor(opts.color, disabled, theme);
         canvas.DrawRoundRect(fillRect, halfTrack, fillCol);
     }
 
@@ -1749,7 +1749,7 @@ void RangeSlider::Render(
     auto drawThumb = [&](Vec2 c, bool isFocusedThumb) {
         const Rect thumbRect(c.x - halfThumb, c.y - halfThumb, m.thumbSize, m.thumbSize);
         const Color thumbBg = disabled ? pal.surface.WithAlphaF(0.5f) :
-                              (active && isFocusedThumb) ? ResolveSliderActiveThumbColor(opts.style.color, theme) : pal.surface;
+                              (active && isFocusedThumb) ? ResolveSliderActiveThumbColor(opts.color, theme) : pal.surface;
         const Color thumbBorder = disabled ? pal.border.WithAlphaF(0.4f) :
                                   (focused && isFocusedThumb) ? pal.focusRing :
                                   (active || hovered) ? pal.accent : pal.borderHover;
@@ -1774,7 +1774,7 @@ Response ProgressBar::Run(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = opts.style.size;
+    const UiSize activeSize = opts.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const UiTheme& activeTheme = ctx.GetTheme();
 
@@ -1834,14 +1834,14 @@ Response ProgressBar::Run(
         data->opts.warningRatio,
         data->opts.dangerRatio,
         data->opts.trackHeight.value_or(0.0f),
-        data->opts.style.color,
+        data->opts.color,
         static_cast<keel::u8>(data->opts.valuePlacement),
-        data->opts.layout.width,
-        data->opts.layout.height,
-        data->opts.layout.minWidth.value_or(0.0f),
-        data->opts.layout.maxWidth.value_or(0.0f),
-        data->opts.layout.minHeight.value_or(0.0f),
-        data->opts.layout.maxHeight.value_or(0.0f),
+        data->opts.width,
+        data->opts.height,
+        data->opts.minWidth.value_or(0.0f),
+        data->opts.maxWidth.value_or(0.0f),
+        data->opts.minHeight.value_or(0.0f),
+        data->opts.maxHeight.value_or(0.0f),
         data->opts.showValue,
         data->opts.textLeft,
         data->opts.textRight,
@@ -1996,19 +1996,19 @@ void ProgressBar::Render(
 
     auto resolveZoneColor = [&](float normPos) -> Color {
         if (!opts.multiZoneColor) {
-            return ResolveSliderTrackColor(opts.style.color, disabled, theme);
+            return ResolveSliderTrackColor(opts.color, disabled, theme);
         }
         Color col;
         if (normPos >= opts.dangerRatio) {
             col = theme.GetVariant(UiVariant::Danger).bg;
         } else if (normPos >= opts.warningRatio) {
             col = theme.GetVariant(UiVariant::Warning).bg;
-        } else if (!opts.style.color.HasAny() || opts.style.color.token == StateColorToken::Primary) {
+        } else if (!opts.color.HasAny() || opts.color.token == StateColorToken::Primary) {
             col = theme.GetVariant(UiVariant::Success).bg;
-        } else if (opts.style.color.token == StateColorToken::Ghost || (opts.style.color.normal.has_value() && opts.style.color.normal->a == 0)) {
+        } else if (opts.color.token == StateColorToken::Ghost || (opts.color.normal.has_value() && opts.color.normal->a == 0)) {
             col = pal.borderHover;
         } else {
-            const StateColor resolved = theme.ResolveStateColor(opts.style.color);
+            const StateColor resolved = theme.ResolveStateColor(opts.color);
             col = resolved.normal.value_or(theme.GetVariant(UiVariant::Success).bg);
         }
         return disabled ? col.WithAlphaF(0.4f) : col;
@@ -2039,7 +2039,7 @@ void ProgressBar::Render(
             const float pingPong = 1.0f - keel::abs(keel::fmod(animPhase * 2.0f, 2.0f) - 1.0f);
             const float smoothT = pingPong * pingPong * (3.0f - 2.0f * pingPong);
             const float shuttleY = trackTop + (1.0f - smoothT) * keel::max(0.0f, trackH - shuttleH);
-            canvas.DrawRoundRect(Rect(barX, shuttleY, barWInt, shuttleH), barWInt * 0.5f, ResolveSliderTrackColor(opts.style.color, disabled, theme));
+            canvas.DrawRoundRect(Rect(barX, shuttleY, barWInt, shuttleH), barWInt * 0.5f, ResolveSliderTrackColor(opts.color, disabled, theme));
             return;
         }
 
@@ -2131,7 +2131,7 @@ void ProgressBar::Render(
         const float pingPong = 1.0f - keel::abs(keel::fmod(animPhase * 2.0f, 2.0f) - 1.0f);
         const float smoothT = pingPong * pingPong * (3.0f - 2.0f * pingPong);
         const float shuttleX = trackRegionX + smoothT * keel::max(0.0f, trackRegionW - shuttleW);
-        canvas.DrawRoundRect(Rect(shuttleX, barY, shuttleW, barThick), barThick * 0.5f, ResolveSliderTrackColor(opts.style.color, disabled, theme));
+        canvas.DrawRoundRect(Rect(shuttleX, barY, shuttleW, barThick), barThick * 0.5f, ResolveSliderTrackColor(opts.color, disabled, theme));
         return;
     }
 

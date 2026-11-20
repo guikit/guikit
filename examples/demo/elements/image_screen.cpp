@@ -94,11 +94,11 @@ void RenderImageStage(guikit::Context& ui, DemoContext& ctx) {
         opts.checkerboard = s_state.checkerboard;
         opts.opacity = alpha;
         opts.disabled = ctx.elemDisabled;
-        opts.layout.width = ctx.ResolveCtrlWidth();
-        opts.layout.height = ctx.ResolveCtrlHeight();
-        opts.style.size = ctx.controlsSize;
-        opts.style.background = ctx.GetControlBackground(NavCategory::ElemImage);
-        opts.style.border = ctx.GetCtrlBorder();
+        opts.size = ctx.controlsSize;
+        opts.width = ctx.ResolveCtrlWidth();
+        opts.height = ctx.ResolveCtrlHeight();
+        opts.background = ctx.GetControlBackground(NavCategory::ElemImage);
+        opts.border = ctx.GetCtrlBorder();
         ui.Image(ImageState::sources[s_state.sourceIdx % ImageState::sources.size()], opts);
     });
 }
@@ -107,7 +107,7 @@ keel::String GenerateImageCode(const DemoContext& ctx) {
     const keel::i32 alpha = keel::clamp(keel::round_i32(s_state.opacityPct * 2.55f), 0, 255);
     const bool hasCustomSize = (ctx.controlsSize != guikit::UiSize::None && ctx.controlsSize != guikit::UiSize::Md);
     const keel::FixedString<64> sizeLine = hasCustomSize
-        ? keel::format_fixed<64>("        .size = guikit::UiSize::{},\n", SizeName(ctx.controlsSize))
+        ? keel::format_fixed<64>("    .size = guikit::UiSize::{},\n", SizeName(ctx.controlsSize))
         : keel::FixedString<64>{};
     const keel::String ctrl = keel::format(
         "ui.Image(\"{}\", {{\n"
@@ -118,12 +118,11 @@ keel::String GenerateImageCode(const DemoContext& ctx) {
         "    .checkerboard = {},\n"
         "    .opacity = {},\n"
         "    .disabled = {},\n"
-        "    .layout = {{.width = {}, .height = {}}},\n"
-        "    .style = {{\n"
         "{}"
-        "        .background = {},\n"
-        "        .border = {}\n"
-        "    }}\n"
+        "    .width = {},\n"
+        "    .height = {},\n"
+        "    .background = {},\n"
+        "    .border = {}\n"
         "}});",
         ImageState::sources[s_state.sourceIdx % ImageState::sources.size()],
         s_state.altText,
@@ -133,9 +132,9 @@ keel::String GenerateImageCode(const DemoContext& ctx) {
         s_state.checkerboard ? "true" : "false",
         alpha,
         ctx.elemDisabled ? "true" : "false",
+        sizeLine,
         ctx.FormatCtrlWidthCode(),
         ctx.FormatCtrlHeightCode(),
-        sizeLine,
         ctx.FormatControlBackgroundCode(NavCategory::ElemImage),
         ctx.FormatCtrlBorderCode()
     );

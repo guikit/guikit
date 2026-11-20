@@ -35,8 +35,8 @@ constexpr Color ResolveThemePrimary(const Pal& pal) noexcept {
 
 Color ResolveAccentColor(const DatePickerOptions& opts, const UiTheme& theme, bool hovered = false, bool active = false, bool disabled = false) noexcept {
     const Color fallback = ResolveThemePrimary(theme.palette);
-    if (opts.style.color.HasAny()) {
-        return theme.ResolveColor(opts.style.color, hovered, active, disabled, fallback);
+    if (opts.color.HasAny()) {
+        return theme.ResolveColor(opts.color, hovered, active, disabled, fallback);
     }
     return disabled ? fallback.WithAlphaF(0.40f) : fallback;
 }
@@ -109,8 +109,8 @@ void ClampDateTimeToBounds(DateTime& dt, const DatePickerOptions& opts) noexcept
 
 ControlSpec EffectiveDatePickerControl(const DatePickerOptions& opts, UiSize size, const UiTheme& theme) noexcept {
     const SelectMetrics& m = theme.GetSelect(size);
-    return Control::FromLayout(
-        opts.layout,
+    return Control::FromOptions(
+        opts,
         SizeMode::Stretch,
         SizeMode::Fit,
         ElementLayout::Stacked,
@@ -316,7 +316,7 @@ DatePickerPopoverLayout ComputePopoverLayout(
     float headerGap = 4.0f;
     float sectionGap = 6.0f;
 
-    const float smallFont = theme.ResolveFontSize(UiText{}, TextRole::LabelSmall, opts.style.size);
+    const float smallFont = theme.ResolveFontSize(UiText{}, TextRole::LabelSmall, opts.size);
     const keel::StringRef todayLabel = ResolveTodayLabel(opts);
     const keel::StringRef doneLabel = ResolveDoneLabel(opts);
     constexpr float kFooterBtnPadX = 12.0f;
@@ -709,8 +709,8 @@ Vec2 DatePicker::Measure(
     const float minContentW = m.paddingX * 2.0f + m.iconSize * 2.0f + 22.0f + textW;
 
     float boxW = keel::max(m.minWidth, minContentW);
-    if (opts.layout.minWidth.has_value()) {
-        boxW = keel::max(*opts.layout.minWidth, boxW);
+    if (opts.minWidth.has_value()) {
+        boxW = keel::max(*opts.minWidth, boxW);
     }
     if (ctrl.width.IsFixed()) {
         boxW = ctrl.width.Dp();
@@ -737,7 +737,7 @@ Response DatePicker::Run(
 ) {
 
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = opts.style.size;
+    const UiSize activeSize = opts.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const bool wasOpen = ctx.IsPopupOpen(id);
 
@@ -766,8 +766,8 @@ Response DatePicker::Run(
     ICanvas* canvas = ctx.GetCanvas();
 
     DatePickerOptions optsCopy = opts;
-    if (!optsCopy.layout.width.IsFixed()) {
-        optsCopy.layout.width = AxisSize(Control::ResolveWidthMode(ctx, optsCopy.layout.width, SizeMode::Stretch));
+    if (!optsCopy.width.IsFixed()) {
+        optsCopy.width = AxisSize(Control::ResolveWidthMode(ctx, optsCopy.width, SizeMode::Stretch));
     }
     auto copyLabelList = [&](keel::ArrayRef<keel::StringRef> src) -> keel::ArrayRef<keel::StringRef> {
         if (src.empty()) return {};
@@ -1068,15 +1068,15 @@ Response DatePicker::Run(
         optsCopy.showSeconds,
         optsCopy.showTodayButton,
         optsCopy.firstDayMonday,
-        optsCopy.layout.width,
-        optsCopy.layout.height,
-        optsCopy.layout.minWidth,
-        optsCopy.layout.maxWidth,
-        optsCopy.layout.minHeight,
-        optsCopy.layout.maxHeight,
-        optsCopy.style.color,
-        optsCopy.style.background,
-        optsCopy.style.border,
+        optsCopy.width,
+        optsCopy.height,
+        optsCopy.minWidth,
+        optsCopy.maxWidth,
+        optsCopy.minHeight,
+        optsCopy.maxHeight,
+        optsCopy.color,
+        optsCopy.background,
+        optsCopy.border,
         data->formattedText,
         data->isOpen,
         data->chevronHovered
@@ -1117,16 +1117,16 @@ void DatePicker::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
     const auto& pal = theme.palette;
     const Color accentCol = ResolveAccentColor(opts, theme, hovered, open || focused, disabled);
 
-    const bool hasBg = opts.style.background.IsBackgroundEnabled(true);
+    const bool hasBg = opts.background.IsBackgroundEnabled(true);
     Color boxBg = hasBg
         ? ((hovered && !disabled) ? pal.surface : pal.inputBackground)
         : Color::Transparent();
     Color boxBorder;
-    float strokeW = (opts.style.border.width > 0.0f) ? opts.style.border.width : m.strokeWidth;
+    float strokeW = (opts.border.width > 0.0f) ? opts.border.width : m.strokeWidth;
 
     if ((open || focused) && !disabled) {
-        boxBorder = opts.style.color.HasAny() ? accentCol : pal.focusRing;
-        if (opts.style.border.width > 0.0f || m.strokeWidth > 0.0f) strokeW += 0.5f;
+        boxBorder = opts.color.HasAny() ? accentCol : pal.focusRing;
+        if (opts.border.width > 0.0f || m.strokeWidth > 0.0f) strokeW += 0.5f;
     } else if (hovered && !disabled) {
         boxBorder = pal.borderHover;
     } else {
@@ -1142,18 +1142,18 @@ void DatePicker::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
         chevronCol = chevronCol.WithAlphaF(0.40f);
     }
 
-    if (hasBg && opts.style.background.HasAny()) {
-        if (!opts.style.background.IsSurface()) {
-            boxBg = theme.ResolveColor(opts.style.background, hovered, open || focused, disabled, boxBg);
-        } else if (opts.style.background.HasAlphaScale()) {
-            boxBg = boxBg.ScaleAlpha(opts.style.background.alphaScale);
+    if (hasBg && opts.background.HasAny()) {
+        if (!opts.background.IsSurface()) {
+            boxBg = theme.ResolveColor(opts.background, hovered, open || focused, disabled, boxBg);
+        } else if (opts.background.HasAlphaScale()) {
+            boxBg = boxBg.ScaleAlpha(opts.background.alphaScale);
         }
     }
-    if (opts.style.border.color.HasAny()) {
-        boxBorder = theme.ResolveColor(opts.style.border.color, hovered, open || focused, disabled, boxBorder);
+    if (opts.border.color.HasAny()) {
+        boxBorder = theme.ResolveColor(opts.border.color, hovered, open || focused, disabled, boxBorder);
     }
 
-    const float radius = opts.style.border.radius.has_value() ? *opts.style.border.radius : m.cornerRadius;
+    const float radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
     canvas.DrawRoundRect(bounds, radius, boxBg, boxBorder, strokeW);
 
     // Left vector calendar / clock icon

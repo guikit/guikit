@@ -774,7 +774,7 @@ TreeViewScope TreeView::Open(
                     .prefix = Icon::Search(),
                     .clearable = true,
                     .disabled = activeDisabled,
-                    .layout = {.width = SizeMode::Stretch}
+                    .width = SizeMode::Stretch
                 }).changed) {
                     if (opts.filterText.valid()) {
                         opts.filterText.assign(st.filterText.as_ref());
@@ -791,8 +791,8 @@ TreeViewScope TreeView::Open(
                     .icon = Icon::ChevronDown(),
                     .tooltip = "Expand all tree branches",
                     .disabled = activeDisabled,
-                    .layout = {.width = SizeMode::Fit},
-                    .style = {.color = StateColor::Ghost()}
+                    .width = SizeMode::Fit,
+                    .color = StateColor::Ghost()
                 })) {
                     st.bulkToggleGen++;
                     st.bulkToggleOpen = true;
@@ -803,8 +803,8 @@ TreeViewScope TreeView::Open(
                     .icon = Icon::ChevronRight(),
                     .tooltip = "Collapse all tree branches",
                     .disabled = activeDisabled,
-                    .layout = {.width = SizeMode::Fit},
-                    .style = {.color = StateColor::Ghost()}
+                    .width = SizeMode::Fit,
+                    .color = StateColor::Ghost()
                 })) {
                     st.bulkToggleGen++;
                     st.bulkToggleOpen = false;

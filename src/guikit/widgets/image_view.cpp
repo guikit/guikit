@@ -1067,9 +1067,9 @@ ImageViewResponse RunViewportNode(
                 } else {
                     bOpts.text = ViewportLayoutGeom::kToolLabels[i];
                 }
-                bOpts.style.color = activeToggle ? StateColor::Primary() : StateColor::Secondary();
+                bOpts.color = activeToggle ? StateColor::Primary() : StateColor::Secondary();
                 bOpts.active = activeToggle;
-                bOpts.layout.width = SizeMode::Stretch;
+                bOpts.width = SizeMode::Stretch;
                 Button::Render(c, br, bOpts, vg.toolbarSize, isHovered, false, n->disabled, th, false);
             }
 
@@ -1449,7 +1449,7 @@ ImageViewResponse RunImageViewImpl(
                 };
                 keel::i32 dispChIdx = static_cast<keel::i32>(params.displayChannel);
                 if (auto el = ctx.Element({.label = "View Mode", .size = UiSize::Sm})) {
-                    if (ctx.Select(dispChIdx, kDispChNames, {.style = {.size = UiSize::Sm}}).changed) {
+                    if (ctx.Select(dispChIdx, kDispChNames, {.size = UiSize::Sm}).changed) {
                         params.displayChannel = static_cast<ImageDisplayChannel>(dispChIdx);
                         if (params.displayChannel == ImageDisplayChannel::RedOnly) params.activeHistChannel = HistogramChannel::Red;
                         else if (params.displayChannel == ImageDisplayChannel::GreenOnly) params.activeHistChannel = HistogramChannel::Green;
@@ -1470,7 +1470,7 @@ ImageViewResponse RunImageViewImpl(
                 if (ctx.Slider(curTp.window, minW, span * 1.5f, {
                     .valueFormat = wlFmt,
                     .showValue = true,
-                    .style = {.size = UiSize::Sm}
+                    .size = UiSize::Sm
                 }).changed) {
                     params.autoStrength = AutoWindowStrength::Off;
                     sidebarChangedParams = true;
@@ -1481,7 +1481,7 @@ ImageViewResponse RunImageViewImpl(
                 if (ctx.Slider(curTp.level, st.dataMin, st.dataMax, {
                     .valueFormat = wlFmt,
                     .showValue = true,
-                    .style = {.size = UiSize::Sm}
+                    .size = UiSize::Sm
                 }).changed) {
                     params.autoStrength = AutoWindowStrength::Off;
                     sidebarChangedParams = true;
@@ -1493,7 +1493,7 @@ ImageViewResponse RunImageViewImpl(
                     .valueFormat = "%.2f",
                     .step = 0.05,
                     .showValue = true,
-                    .style = {.size = UiSize::Sm}
+                    .size = UiSize::Sm
                 }).changed) {
                     sidebarChangedParams = true;
                 }
@@ -1501,12 +1501,12 @@ ImageViewResponse RunImageViewImpl(
 
             if (auto invRow = ctx.Row({.gap = 8.0f, .align = Alignment::Center})) {
                 if (auto el = ctx.Element({.label = "Invert", .size = UiSize::Sm})) {
-                    if (ctx.Checkbox(curTp.invert, {.style = {.size = UiSize::Sm}}).changed) {
+                    if (ctx.Checkbox(curTp.invert, {.size = UiSize::Sm}).changed) {
                         sidebarChangedParams = true;
                     }
                 }
                 ctx.Spacer();
-                if (ctx.Button({.text = "Reset W/L", .style = {.size = UiSize::Sm, .color = StateColor::Secondary()}}).clicked) {
+                if (ctx.Button({.text = "Reset W/L", .size = UiSize::Sm, .color = StateColor::Secondary()}).clicked) {
                     for (auto& ch : params.channels) {
                         ch.ResetToRange(st.dataMin, st.dataMax);
                     }
@@ -1525,7 +1525,7 @@ ImageViewResponse RunImageViewImpl(
                     .size = UiSize::Sm,
                     .disabled = !canUseColormap
                 })) {
-                    if (ctx.Select(cmapIdx, GetAllColormapNames(), {.style = {.size = UiSize::Sm}}).changed) {
+                    if (ctx.Select(cmapIdx, GetAllColormapNames(), {.size = UiSize::Sm}).changed) {
                         params.colormap = static_cast<Colormap>(cmapIdx);
                         sidebarChangedParams = true;
                     }
@@ -1536,7 +1536,7 @@ ImageViewResponse RunImageViewImpl(
             ctx.Text("Auto Window", {.role = TextRole::LabelLarge});
             static constexpr keel::StaticArray<keel::StringRef, 3> kAutoTargets = {"Black", "White", "All"};
             keel::i32 targetIdx = static_cast<keel::i32>(params.autoTarget);
-            if (ctx.StepSlider(targetIdx, kAutoTargets, {.showValue = false, .style = {.size = UiSize::Sm}}).changed) {
+            if (ctx.StepSlider(targetIdx, kAutoTargets, {.showValue = false, .size = UiSize::Sm}).changed) {
                 params.autoTarget = static_cast<AutoWindowTarget>(targetIdx);
                 if (params.autoStrength != AutoWindowStrength::Off) {
                     keel::ArrayRef<keel::u32> targetBins = st.binsLum;
@@ -1557,8 +1557,9 @@ ImageViewResponse RunImageViewImpl(
                     const bool isSel = (params.autoStrength == sMode);
                     if (ctx.Button({
                         .text = kStrengthNames[i],
-                        .layout = {.width = SizeMode::Stretch},
-                        .style = {.size = UiSize::Sm, .color = isSel ? StateColor::Primary() : StateColor::Secondary()}
+                        .size = UiSize::Sm,
+                        .width = SizeMode::Stretch,
+                        .color = isSel ? StateColor::Primary() : StateColor::Secondary()
                     }).clicked) {
                         params.autoStrength = sMode;
                         keel::ArrayRef<keel::u32> targetBins = st.binsLum;
@@ -1576,8 +1577,9 @@ ImageViewResponse RunImageViewImpl(
             if (data.channels >= 3) {
                 if (ctx.Button({
                     .text = "Auto White Balance (Per-Channel R/G/B)",
-                    .layout = {.width = SizeMode::Stretch},
-                    .style = {.size = UiSize::Sm, .color = StateColor::Secondary()}
+                    .size = UiSize::Sm,
+                    .width = SizeMode::Stretch,
+                    .color = StateColor::Secondary()
                 }).clicked) {
                     params.channels[0].ResetToRange(st.dataMin, st.dataMax);
                     const AutoWindowStrength effStr = (params.autoStrength == AutoWindowStrength::Off)
@@ -1593,10 +1595,10 @@ ImageViewResponse RunImageViewImpl(
             // --- Section 4: Transform & View ---
             ctx.Text("Transform & View", {.role = TextRole::LabelLarge});
             if (auto zRow = ctx.Row({.gap = 6.0f, .align = Alignment::Center})) {
-                if (ctx.Button({.text = "Fit", .layout = {.width = SizeMode::Stretch}, .style = {.size = UiSize::Sm, .color = StateColor::Secondary()}}).clicked) {
+                if (ctx.Button({.text = "Fit", .size = UiSize::Sm, .width = SizeMode::Stretch, .color = StateColor::Secondary()}).clicked) {
                     st.fitPending = true;
                 }
-                if (ctx.Button({.text = "100%", .layout = {.width = SizeMode::Stretch}, .style = {.size = UiSize::Sm, .color = StateColor::Secondary()}}).clicked) {
+                if (ctx.Button({.text = "100%", .size = UiSize::Sm, .width = SizeMode::Stretch, .color = StateColor::Secondary()}).clicked) {
                     st.zoom = 1.0f;
                     st.fitPending = false;
                 }
@@ -1605,7 +1607,7 @@ ImageViewResponse RunImageViewImpl(
             static constexpr keel::StaticArray<keel::StringRef, 4> kRotLabels = {"0\xC2\xB0", "90\xC2\xB0", "180\xC2\xB0", "270\xC2\xB0"};
             keel::i32 rotIdx = static_cast<keel::i32>(params.rotation);
             if (auto el = ctx.Element({.label = "Rotate", .size = UiSize::Sm})) {
-                if (ctx.StepSlider(rotIdx, kRotLabels, {.showValue = false, .style = {.size = UiSize::Sm}}).changed) {
+                if (ctx.StepSlider(rotIdx, kRotLabels, {.showValue = false, .size = UiSize::Sm}).changed) {
                     params.rotation = static_cast<ImageRotation>(rotIdx);
                     st.fitPending = true;
                     sidebarChangedParams = true;
@@ -1615,16 +1617,18 @@ ImageViewResponse RunImageViewImpl(
             if (auto flipRow = ctx.Row({.gap = 6.0f})) {
                 if (ctx.Button({
                     .text = "Flip H",
-                    .layout = {.width = SizeMode::Stretch},
-                    .style = {.size = UiSize::Sm, .color = params.flipHorizontal ? StateColor::Primary() : StateColor::Secondary()}
+                    .size = UiSize::Sm,
+                    .width = SizeMode::Stretch,
+                    .color = params.flipHorizontal ? StateColor::Primary() : StateColor::Secondary()
                 }).clicked) {
                     params.flipHorizontal = !params.flipHorizontal;
                     sidebarChangedParams = true;
                 }
                 if (ctx.Button({
                     .text = "Flip V",
-                    .layout = {.width = SizeMode::Stretch},
-                    .style = {.size = UiSize::Sm, .color = params.flipVertical ? StateColor::Primary() : StateColor::Secondary()}
+                    .size = UiSize::Sm,
+                    .width = SizeMode::Stretch,
+                    .color = params.flipVertical ? StateColor::Primary() : StateColor::Secondary()
                 }).clicked) {
                     params.flipVertical = !params.flipVertical;
                     sidebarChangedParams = true;

@@ -26,8 +26,16 @@ struct ButtonOptions {
     keel::Optional<Color> iconColor{keel::kNullOpt}; ///< Optional custom icon tint override
     UiText tooltip{};                               ///< Optional floating tooltip text on hover
     bool disabled{false};
-    ControlLayout layout{};                         ///< Sizing policy (`Fit` default) and min/max constraints
-    SurfaceStyle style{};                           ///< Control size, semantic color, background surface, and border
+    UiSize size{UiSize::Md};                        ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)
+    AxisSize width{};                               ///< Horizontal sizing policy (`Auto` -> `Fit`, `Stretch`, or explicit `dp`)
+    AxisSize height{};                              ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or explicit `dp`)
+    keel::Optional<float> minWidth{keel::kNullOpt}; ///< Optional minimum width in logical dp
+    keel::Optional<float> maxWidth{keel::kNullOpt}; ///< Optional maximum width in logical dp
+    keel::Optional<float> minHeight{keel::kNullOpt};///< Optional minimum height in logical dp
+    keel::Optional<float> maxHeight{keel::kNullOpt};///< Optional maximum height in logical dp
+    StateColor color{};                             ///< Per-state semantic fill/accent color override
+    StateColor background{};                        ///< Optional background fill override (`{}` = theme/variant default, `StateColor::None()` = transparent)
+    Border border{};                                ///< Optional border width, color, and radius override
 };
 
 /// Type alias for button response.

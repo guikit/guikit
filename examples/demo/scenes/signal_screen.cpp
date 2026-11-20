@@ -433,8 +433,9 @@ void RenderSignalInspector(guikit::Context& ui, DemoContext&) {
             .text = "Zoom Selection",
             .icon = guikit::Icon::Search(),
             .disabled = !s_sig.selection.active || s_sig.selection.DurationSec() <= 1e-5,
-            .layout = {.width = guikit::SizeMode::Stretch},
-            .style = {.size = guikit::UiSize::Sm, .color = guikit::StateColor::Primary()}
+            .size = guikit::UiSize::Sm,
+            .width = guikit::SizeMode::Stretch,
+            .color = guikit::StateColor::Primary()
         })) {
             s_sig.requestViewStartSec = s_sig.selection.MinTimeSec();
             s_sig.requestViewEndSec = s_sig.selection.MaxTimeSec();
@@ -445,8 +446,9 @@ void RenderSignalInspector(guikit::Context& ui, DemoContext&) {
         if (ui.Button({
             .text = "Reset View",
             .icon = guikit::Icon::Refresh(),
-            .layout = {.width = guikit::SizeMode::Stretch},
-            .style = {.size = guikit::UiSize::Sm, .color = guikit::StateColor::Secondary()}
+            .size = guikit::UiSize::Sm,
+            .width = guikit::SizeMode::Stretch,
+            .color = guikit::StateColor::Secondary()
         })) {
             s_sig.requestResetView = true;
             s_sig.waveformGain = 1.0f;

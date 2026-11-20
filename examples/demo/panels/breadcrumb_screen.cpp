@@ -99,7 +99,8 @@ void RenderBreadcrumbStage(guikit::Context& ui, DemoContext& ctx) {
             .separator = s_bc.separator,
             .maxVisibleItems = maxVis,
             .disabled = ctx.elemDisabled,
-            .style = {.size = ctx.controlsSize, .color = activeCol}
+            .size = ctx.controlsSize,
+            .color = activeCol
         });
     };
 
@@ -119,9 +120,14 @@ void RenderBreadcrumbStage(guikit::Context& ui, DemoContext& ctx) {
 
 keel::String GenerateBreadcrumbCode(const DemoContext& ctx) {
     const keel::u32 maxVis = (s_bc.maxVisibleItems >= 2) ? static_cast<keel::u32>(s_bc.maxVisibleItems) : 0u;
-    const keel::String styleCode = (ctx.controlsSize != guikit::UiSize::None && ctx.controlsSize != guikit::UiSize::Md)
-        ? keel::format("{{.size = guikit::UiSize::{}, .color = guikit::StateColor::{}()}}", SizeName(ctx.controlsSize), VariantName(ctx.btnVariant))
-        : keel::format("{{.color = guikit::StateColor::{}()}}", VariantName(ctx.btnVariant));
+    const bool hasCustomSize = (ctx.controlsSize != guikit::UiSize::None && ctx.controlsSize != guikit::UiSize::Md);
+    const keel::FixedString<64> sizeLineIndented = hasCustomSize
+        ? keel::format_fixed<64>("        .size = guikit::UiSize::{},\n", SizeName(ctx.controlsSize))
+        : keel::FixedString<64>{};
+    const keel::FixedString<64> sizeLineTop = hasCustomSize
+        ? keel::format_fixed<64>("    .size = guikit::UiSize::{},\n", SizeName(ctx.controlsSize))
+        : keel::FixedString<64>{};
+    const keel::FixedString<64> colorCode = keel::format_fixed<64>("guikit::StateColor::{}()", VariantName(ctx.btnVariant));
 
     const keel::String crumbsDecl = keel::String::from(
         "static const keel::StaticArray<guikit::BreadcrumbItem, 5> crumbs = {{\n"
@@ -146,14 +152,16 @@ keel::String GenerateBreadcrumbCode(const DemoContext& ctx) {
             "        .separator = guikit::BreadcrumbSeparator::{},\n"
             "        .maxVisibleItems = {},\n"
             "        .disabled = {},\n"
-            "        .style = {}\n"
+            "{}"
+            "        .color = {}\n"
             "    }});\n"
             "}}",
             crumbsDecl,
             SeparatorEnumName(s_bc.separator),
             maxVis,
             ctx.elemDisabled ? "true" : "false",
-            styleCode
+            sizeLineIndented,
+            colorCode
         );
     }
 
@@ -163,13 +171,15 @@ keel::String GenerateBreadcrumbCode(const DemoContext& ctx) {
         "    .separator = guikit::BreadcrumbSeparator::{},\n"
         "    .maxVisibleItems = {},\n"
         "    .disabled = {},\n"
-        "    .style = {}\n"
+        "{}"
+        "    .color = {}\n"
         "}});",
         crumbsDecl,
         SeparatorEnumName(s_bc.separator),
         maxVis,
         ctx.elemDisabled ? "true" : "false",
-        styleCode
+        sizeLineTop,
+        colorCode
     );
 }
 
