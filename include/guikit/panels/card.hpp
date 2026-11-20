@@ -13,7 +13,7 @@ class Context;
 
 /// Options for configuring a visual Card surface container.
 struct CardOptions {
-    float minWidth{0.0f};                           ///< Minimum card width constraint (0 = auto content intrinsic)
+    keel::Optional<float> minWidth{keel::kNullOpt}; ///< Minimum card width constraint (nullopt = auto content intrinsic)
     keel::Optional<float> maxWidth{keel::kNullOpt};
     AxisSize width{SizeMode::Stretch};
     AxisSize height{SizeMode::Fit};

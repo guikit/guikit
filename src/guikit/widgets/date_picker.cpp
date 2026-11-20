@@ -766,7 +766,7 @@ Response DatePicker::Run(
     ICanvas* canvas = ctx.GetCanvas();
 
     DatePickerOptions optsCopy = opts;
-    if (!optsCopy.width.IsFixed()) {
+    if (optsCopy.width.IsAuto()) {
         optsCopy.width = AxisSize(Control::ResolveWidthMode(ctx, optsCopy.width, SizeMode::Stretch));
     }
     auto copyLabelList = [&](keel::ArrayRef<keel::StringRef> src) -> keel::ArrayRef<keel::StringRef> {

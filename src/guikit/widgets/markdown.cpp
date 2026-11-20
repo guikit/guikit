@@ -1803,9 +1803,8 @@ MarkdownResponse Markdown::Run(
     const UiTheme& theme = ctx.GetTheme();
 
     MarkdownOptions optsCopy = CloneMarkdownOptionsWithoutCallbacks(opts);
-    const SizeMode effW = Control::ResolveWidthMode(ctx, opts.width, SizeMode::Stretch);
-    if (!optsCopy.width.IsFixed()) {
-        optsCopy.width = effW;
+    if (optsCopy.width.IsAuto()) {
+        optsCopy.width = Control::ResolveWidthMode(ctx, opts.width, SizeMode::Stretch);
     }
     optsCopy.searchQuery = ctx.AllocString(opts.searchQuery);
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);

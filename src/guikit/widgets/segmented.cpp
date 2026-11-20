@@ -218,9 +218,8 @@ Response Segmented::Run(
     ICanvas* canvas = ctx.GetCanvas();
 
     SegmentedOptions optsCopy = opts;
-    const SizeMode effW = Control::ResolveWidthMode(ctx, opts.width, SizeMode::Stretch);
-    if (!optsCopy.width.IsFixed()) {
-        optsCopy.width = effW;
+    if (optsCopy.width.IsAuto()) {
+        optsCopy.width = Control::ResolveWidthMode(ctx, opts.width, SizeMode::Stretch);
     }
 
     ctx.RegisterFocusable(id, effectiveDisabled);

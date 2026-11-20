@@ -348,9 +348,8 @@ Response SpinBox::Run(
     }
 
     SpinBoxOptions optsCopy = opts;
-    const SizeMode effW = Control::ResolveWidthMode(ctx, opts.width, SizeMode::Stretch);
-    if (!optsCopy.width.IsFixed()) {
-        optsCopy.width = effW;
+    if (optsCopy.width.IsAuto()) {
+        optsCopy.width = Control::ResolveWidthMode(ctx, opts.width, SizeMode::Stretch);
     }
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);
     optsCopy.prefix = ctx.AllocAffix(opts.prefix);

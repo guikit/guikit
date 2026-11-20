@@ -20,6 +20,37 @@ SizeMode Control::ResolveWidthMode(
     return defaultMode;
 }
 
+float Control::ResolveFlexGrow(
+    const Node* parent,
+    AxisSize width,
+    AxisSize height,
+    float fallbackFlexGrow
+) noexcept {
+    const Node* layoutParent = parent;
+    if (layoutParent && layoutParent->type == NodeType::Element) {
+        layoutParent = layoutParent->parent;
+    }
+    if (layoutParent && layoutParent->direction == FlexDirection::Row) {
+        return width.HasCustomStretchWeight() ? width.StretchWeight() : fallbackFlexGrow;
+    }
+    if (height.HasCustomStretchWeight()) {
+        return height.StretchWeight();
+    }
+    if (!layoutParent && width.HasCustomStretchWeight()) {
+        return width.StretchWeight();
+    }
+    return fallbackFlexGrow;
+}
+
+float Control::ResolveFlexGrow(
+    const Context& ctx,
+    AxisSize width,
+    AxisSize height,
+    float fallbackFlexGrow
+) noexcept {
+    return ResolveFlexGrow(ctx.GetCurrentContainer(), width, height, fallbackFlexGrow);
+}
+
 Vec2 Control::Measure(
     Vec2 intrinsicSize,
     const ControlSpec& spec,
@@ -111,6 +142,8 @@ void Control::SetupNode(
         node->heightMode = ResolveHeightMode(spec.height, spec.defaultHeightMode);
         node->fixedHeight = 0.0f;
     }
+
+    node->flexGrow = ResolveFlexGrow(node->parent, spec.width, spec.height, node->flexGrow);
 
     Node* parent = node->parent;
     if (parent && parent->type == NodeType::Element) {

@@ -1,6 +1,7 @@
 #include "guikit/panels/scroll_area.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
+#include "guikit/core/control.hpp"
 #include "guikit/core/node.hpp"
 #include "keel/math.h"
 
@@ -26,7 +27,7 @@ ContainerScope ScrollArea::Open(
     node->fixedWidth = opts.width.IsFixed() ? opts.width.Dp() : 0.0f;
     node->heightMode = opts.height.ResolveMode(SizeMode::Stretch);
     node->fixedHeight = opts.height.IsFixed() ? opts.height.Dp() : 0.0f;
-    node->flexGrow = 1.0f;
+    node->flexGrow = Control::ResolveFlexGrow(node->parent, opts.width, opts.height, 1.0f);
     if (!opts.height.IsFixed() && opts.maxHeight.has_value() && *opts.maxHeight > 0.0f) {
         auto* layoutData = ctx.AllocPayload<ScrollAreaLayoutData>();
         layoutData->maxHeight = *opts.maxHeight;

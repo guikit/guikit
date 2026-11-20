@@ -244,6 +244,7 @@ Response Heading::Run(
         node->widthMode = Control::ResolveWidthMode(ctx, opts.width, SizeMode::Stretch);
     }
     node->heightMode = SizeMode::Fit;
+    node->flexGrow = Control::ResolveFlexGrow(node->parent, opts.width, AxisSize::Fit(), 1.0f);
 
     node->visualHash = detail::HashArgs(
         static_cast<keel::u8>(opts.level),

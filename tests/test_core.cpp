@@ -1525,6 +1525,13 @@ void TestElementHeadingSpecAndSeparatorSpace() {
     static_assert(AxisSize{}.IsAuto());
     static_assert(AxisSize(SizeMode::Fit).IsFit());
     static_assert(AxisSize(SizeMode::Stretch).IsStretch());
+    static_assert(AxisSize(SizeMode::Stretch) == AxisSize::Stretch());
+    static_assert(AxisSize::Stretch().StretchWeight() == 1.0f && !AxisSize::Stretch().HasCustomStretchWeight());
+    static_assert(AxisSize::Stretch(2.5f).IsStretch() && AxisSize::Stretch(2.5f) == SizeMode::Stretch);
+    static_assert(AxisSize::Stretch(2.5f).StretchWeight() == 2.5f && AxisSize::Stretch(2.5f).HasCustomStretchWeight());
+    static_assert(AxisSize::Stretch(2.5f).Dp() == 0.0f);
+    static_assert(AxisSize::Stretch(0.0f).StretchWeight() == 1.0f && AxisSize::Stretch(-3.0f).StretchWeight() == 1.0f);
+    static_assert(AxisSize::Stretch(2.0f) != AxisSize::Stretch(1.0f));
     static_assert(AxisSize(SizeMode::Fixed).IsFit()); // Bare Fixed without dp safely falls back to Fit
     static_assert(AxisSize(180.0f).IsFixed() && AxisSize(180.0f).Dp() == 180.0f);
     static_assert(AxisSize(200).IsFixed() && AxisSize(200).Dp() == 200.0f);

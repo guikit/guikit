@@ -559,9 +559,8 @@ TableScope Table::Open(
     node->heightMode = Control::ResolveHeightMode(optsCopy.height, SizeMode::Stretch);
     if (optsCopy.height.IsFixed()) {
         node->fixedHeight = optsCopy.height.Dp();
-    } else if (node->heightMode == SizeMode::Stretch) {
-        node->flexGrow = 1.0f;
     }
+    node->flexGrow = Control::ResolveFlexGrow(node->parent, optsCopy.width, optsCopy.height, 1.0f);
 
     auto& state = ctx.GetOrCreatePersistentState<TableState>(id);
     state.visibleRows.clear();

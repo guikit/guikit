@@ -1,5 +1,6 @@
 #include "guikit/layout/column.hpp"
 #include "guikit/context.hpp"
+#include "guikit/core/control.hpp"
 #include "guikit/core/node.hpp"
 
 namespace guikit {
@@ -36,7 +37,7 @@ ContainerScope Column::Open(
     if (opts.maxHeight.has_value() && *opts.maxHeight > 0.0f) {
         node->maxHeight = *opts.maxHeight;
     }
-    node->flexGrow = opts.flexGrow;
+    node->flexGrow = Control::ResolveFlexGrow(node->parent, opts.width, opts.height, opts.flexGrow);
     node->uiSize = UiSize::Md;
 
     ctx.FinishContainer(node);

@@ -1,5 +1,6 @@
 #include "guikit/layout/row.hpp"
 #include "guikit/context.hpp"
+#include "guikit/core/control.hpp"
 #include "guikit/core/node.hpp"
 
 namespace guikit {
@@ -45,7 +46,7 @@ ContainerScope Row::Open(
     if (opts.maxHeight.has_value() && *opts.maxHeight > 0.0f) {
         node->maxHeight = *opts.maxHeight;
     }
-    node->flexGrow = opts.flexGrow;
+    node->flexGrow = Control::ResolveFlexGrow(node->parent, opts.width, opts.height, opts.flexGrow);
     node->equalWidths = opts.equalWidths;
     node->uiSize = UiSize::Md;
 

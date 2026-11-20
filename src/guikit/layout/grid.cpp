@@ -1,5 +1,6 @@
 #include "guikit/layout/grid.hpp"
 #include "guikit/context.hpp"
+#include "guikit/core/control.hpp"
 #include "guikit/core/node.hpp"
 
 namespace guikit {
@@ -37,7 +38,7 @@ GridScope Grid::Open(
     if (opts.maxHeight.has_value() && *opts.maxHeight > 0.0f) {
         node->maxHeight = *opts.maxHeight;
     }
-    node->flexGrow = opts.flexGrow;
+    node->flexGrow = Control::ResolveFlexGrow(node->parent, opts.width, opts.height, opts.flexGrow);
     node->uiSize = UiSize::Md;
 
     ctx.FinishContainer(node);
@@ -54,7 +55,9 @@ ContainerScope GridScope::Cell(keel::i32 span, CellOptions opts, keel::SourceLoc
     const float density = node->GetDensity();
     node->direction = FlexDirection::Column;
     node->colSpan = static_cast<keel::u8>(keel::clamp(span, 1, maxCols));
-    node->minWidth = opts.minWidth;
+    if (opts.minWidth.has_value() && *opts.minWidth > 0.0f) {
+        node->minWidth = *opts.minWidth;
+    }
     if (opts.maxWidth.has_value() && *opts.maxWidth > 0.0f) {
         node->maxWidth = *opts.maxWidth;
     }

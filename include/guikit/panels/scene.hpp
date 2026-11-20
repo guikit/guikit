@@ -139,7 +139,7 @@ struct SceneOptions {
     float gridStep{32.0f};                              ///< Base world-space step in units for GridDots / GridLines
     AxisSize width{};                                   ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or fixed `dp`)
     AxisSize height{SizeMode::Stretch};                 ///< Vertical sizing policy (`Stretch`, `Fit`, or fixed `dp`)
-    float minHeight{220.0f};                            ///< Minimum fallback height when placed inside a Fit/ScrollArea container
+    keel::Optional<float> minHeight{keel::kNullOpt};    ///< Minimum fallback height when placed inside a Fit/ScrollArea container (nullopt = 220 dp)
     float minZoom{0.1f};
     float maxZoom{16.0f};
     float zoomStep{1.2f};

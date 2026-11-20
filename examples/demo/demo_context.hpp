@@ -590,6 +590,9 @@ struct DemoContext {
             return "guikit::SizeMode::Fit";
         }
         if (sz.IsStretch()) {
+            if (sz.HasCustomStretchWeight()) {
+                return keel::format_fixed<48>("guikit::AxisSize::Stretch({:.1f}f)", sz.StretchWeight());
+            }
             return "guikit::SizeMode::Stretch";
         }
         if (sz.IsFixed()) {

@@ -59,11 +59,13 @@ Vec2 ComputeSceneControlSize(
         ctrlW = availableWidth;
     }
 
-    float ctrlH = opts.minHeight;
+    constexpr float kDefaultSceneMinHeightDp = 220.0f;
+    const float minH = opts.minHeight.value_or(kDefaultSceneMinHeightDp);
+    float ctrlH = minH;
     if (opts.height.IsFixed()) {
         ctrlH = opts.height.Dp();
     } else if (heightMode == SizeMode::Fit && wb.has_value() && aspect > 0.0f) {
-        ctrlH = keel::max(opts.minHeight, ctrlW / aspect);
+        ctrlH = keel::max(minH, ctrlW / aspect);
     }
 
     return { keel::max(40.0f, ctrlW), keel::max(40.0f, ctrlH) };
@@ -1130,9 +1132,10 @@ SceneScope Scene::OpenWithId(
     node->renderFn = &Scene::RenderBackgroundAndWorld;
     node->postRenderFn = &Scene::RenderOverlays;
 
+    constexpr float kDefaultSceneMinHeightDp = 220.0f;
     const float effMinHeightDp = optsCopy.height.IsFixed()
         ? optsCopy.height.Dp()
-        : optsCopy.minHeight;
+        : optsCopy.minHeight.value_or(kDefaultSceneMinHeightDp);
     if (node->parent && node->parent->type == NodeType::Element) {
         Control::SetupNode(
             ctx,
@@ -1157,6 +1160,7 @@ SceneScope Scene::OpenWithId(
             node->fixedHeight = optsCopy.height.Dp();
         }
         node->minHeight = effMinHeightDp;
+        node->flexGrow = Control::ResolveFlexGrow(node->parent, optsCopy.width, optsCopy.height, 1.0f);
     }
 
     bool inScrollableAncestor = false;

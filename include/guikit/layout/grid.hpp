@@ -31,7 +31,7 @@ struct GridOptions {
 
 /// Options for configuring an individual grid cell slot.
 struct CellOptions {
-    float minWidth{0.0f};                             ///< Minimum width constraint (0 = auto content intrinsic)
+    keel::Optional<float> minWidth{keel::kNullOpt};   ///< Minimum width constraint (nullopt = auto content intrinsic)
     keel::Optional<float> maxWidth{keel::kNullOpt};
     AxisSize height{SizeMode::Fit};
     keel::Optional<float> minHeight{keel::kNullOpt};

@@ -117,7 +117,7 @@ void RenderCardInspector(guikit::Context& ui, DemoContext& ctx) {
 
 void RenderCardStage(guikit::Context& ui, DemoContext& ctx) {
     if (auto card = ui.Card({
-        .minWidth = s_card.fullWidth ? 0.0f : s_card.minWidth,
+        .minWidth = s_card.fullWidth ? keel::Optional<float>{keel::kNullOpt} : keel::Optional<float>{s_card.minWidth},
         .width = s_card.fullWidth ? guikit::SizeMode::Stretch : guikit::SizeMode::Fit,
         .gap = ctx.cardGap,
         .padding = guikit::Padding::All(ctx.cardPadding),

@@ -70,13 +70,13 @@ void RenderTabBarStage(guikit::Context& ui, DemoContext& ctx) {
         .scrollable = s_state.scrollable,
         .gap = s_state.gap,
         .padding = s_state.hasBg ? guikit::Padding::All(s_state.padding) : guikit::Padding{},
+        .size = ctx.controlsSize,
         .background = s_state.hasBg ? guikit::StateColor{th.palette.surfaceElevated} : guikit::StateColor::None(),
         .border = {
             .width = s_state.hasBg ? s_state.borderWidth : 0.0f,
             .radius = s_state.hasBg ? s_state.radius : 0.0f,
             .color = s_state.hasBg ? guikit::StateColor{th.palette.borderSubtle} : guikit::StateColor{}
-        },
-        .size = ctx.controlsSize
+        }
     });
 }
 
@@ -90,10 +90,9 @@ keel::String GenerateTabBarCode(const DemoContext& ctx) {
         "    .fullWidth = {},\n"
         "    .scrollable = {},\n"
         "    .gap = {:.1f}f,\n"
-        "    .padding = guikit::Padding::All({:.1f}f),\n"
+        "    .padding = guikit::Padding::All({:.1f}f){},\n"
         "    .background = {},\n"
-        "    .border = {{.width = {:.1f}f, .radius = {:.1f}f, .color = {}}},\n"
-        "    .activeColor = guikit::Color::Transparent(){}\n"
+        "    .border = {{.width = {:.1f}f, .radius = {:.1f}f, .color = {}}}\n"
         "}});",
         kStyleCodeNames[styleIdx],
         s_state.showSep ? "true" : "false",
@@ -101,11 +100,11 @@ keel::String GenerateTabBarCode(const DemoContext& ctx) {
         s_state.scrollable ? "true" : "false",
         s_state.gap,
         s_state.hasBg ? s_state.padding : 0.0f,
+        FormatUiSizePrefix(ctx.controlsSize),
         s_state.hasBg ? "guikit::StateColor{theme.palette.surfaceElevated}" : "guikit::StateColor::None()",
         s_state.hasBg ? s_state.borderWidth : 0.0f,
         s_state.hasBg ? s_state.radius : 0.0f,
-        s_state.hasBg ? "guikit::StateColor{theme.palette.borderSubtle}" : "guikit::StateColor{}",
-        FormatUiSizePrefix(ctx.controlsSize)
+        s_state.hasBg ? "guikit::StateColor{theme.palette.borderSubtle}" : "guikit::StateColor{}"
     );
 }
 

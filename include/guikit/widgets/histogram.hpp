@@ -127,7 +127,7 @@ struct HistogramOptions {
     // --- Sizing & Geometry ---
     AxisSize width{};                     ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or `Fixed(dp)`)
     AxisSize height{SizeMode::Fit};       ///< Vertical sizing policy (`Fit` -> 136 dp default, `Stretch`, or `Fixed(dp)`)
-    float minHeight{96.0f};
+    keel::Optional<float> minHeight{keel::kNullOpt}; ///< Minimum fallback height (nullopt = 96 dp)
     StateColor background{};
     Border border{};
 

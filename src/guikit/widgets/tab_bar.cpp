@@ -207,7 +207,7 @@ TabBarResponse TabBar::Run(
         tabNode->visualHash = detail::HashArgs(
             opts.style,
             opts.showSeparator,
-            opts.activeColor.ToUint32(),
+            opts.color,
             opts.border.radius.value_or(-1.0f),
             item.variant,
             item.closable,
@@ -335,9 +335,12 @@ void TabBar::RenderTab(
 
     canvas.PushClip(bounds);
 
-    const Color accentCol = (opts.activeColor.a > 0)
-        ? opts.activeColor
-        : (item.variant != UiVariant::Default ? theme.GetVariant(item.variant).bg : pal.accent);
+    const Color defaultAccent = (item.variant != UiVariant::Default)
+        ? theme.GetVariant(item.variant).bg
+        : pal.accent;
+    const Color accentCol = opts.color.HasAny()
+        ? theme.ResolveColor(opts.color, hovered, active, disabled, defaultAccent)
+        : defaultAccent;
 
     if (opts.style == TabBarStyle::Underline) {
         if (opts.showSeparator) {
@@ -434,9 +437,12 @@ void TabBar::RenderTab(
         const float focusBorderW = (focused && !disabled) ? 1.5f : 0.0f;
 
         if (active) {
-            const Color pillCol = (opts.activeColor.a > 0)
-                ? opts.activeColor
-                : (item.variant != UiVariant::Default ? theme.GetVariant(item.variant).bgActive : pal.surfaceActive);
+            const Color defaultPillCol = (item.variant != UiVariant::Default)
+                ? theme.GetVariant(item.variant).bgActive
+                : pal.surfaceActive;
+            const Color pillCol = opts.color.HasAny()
+                ? theme.ResolveColor(opts.color, hovered, active, disabled, defaultPillCol)
+                : defaultPillCol;
             canvas.DrawRoundRect(bounds, pillRadius, pillCol, focusBorder, focusBorderW);
         } else if (hovered && !disabled) {
             canvas.DrawRoundRect(bounds, pillRadius, pal.surfaceHover, focusBorder, focusBorderW);

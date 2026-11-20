@@ -1,6 +1,7 @@
 #include "guikit/panels/toolbar.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
+#include "guikit/core/control.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/solver.hpp"
 #include "guikit/panels/carousel.hpp"
@@ -559,6 +560,7 @@ Response Toolbar::ToolButton(
         node->minWidth = *opts.minWidth;
     }
     node->heightMode = SizeMode::Fit;
+    node->flexGrow = Control::ResolveFlexGrow(node->parent, opts.width, AxisSize::Fit(), 1.0f);
 
     ctx.AdaptChildToContainer(node);
 
@@ -728,6 +730,7 @@ SplitButtonResponse Toolbar::SplitButton(
         node->minWidth = *opts.minWidth + chevW;
     }
     node->heightMode = SizeMode::Fit;
+    node->flexGrow = Control::ResolveFlexGrow(node->parent, opts.width, AxisSize::Fit(), 1.0f);
 
     ctx.AdaptChildToContainer(node);
 

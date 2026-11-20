@@ -1,6 +1,7 @@
 #include "guikit/panels/split_view.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
+#include "guikit/core/control.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/solver.hpp"
 #include "keel/math.h"
@@ -454,6 +455,7 @@ SplitViewScope SplitView::Open(
     outerNode->fixedWidth = opts.width.IsFixed() ? opts.width.Dp() : 0.0f;
     outerNode->heightMode = opts.height.ResolveMode(SizeMode::Stretch);
     outerNode->fixedHeight = opts.height.IsFixed() ? opts.height.Dp() : 0.0f;
+    outerNode->flexGrow = Control::ResolveFlexGrow(outerNode->parent, opts.width, opts.height, 1.0f);
     outerNode->padding = theme.ResolvePadding(opts.padding, UiSize::None, density);
 
     const auto& pal = theme.palette;

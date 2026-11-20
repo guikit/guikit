@@ -1,6 +1,7 @@
 #include "guikit/panels/card.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
+#include "guikit/core/control.hpp"
 #include "guikit/core/node.hpp"
 
 namespace guikit {
@@ -60,7 +61,9 @@ ContainerScope Card::Open(
     const bool activeDisabled = outerNode->disabled;
     outerNode->direction = FlexDirection::Column;
     outerNode->gap = theme.ResolveGap(opts.gap, UiSize::Md, density);
-    outerNode->minWidth = opts.minWidth;
+    if (opts.minWidth.has_value() && *opts.minWidth > 0.0f) {
+        outerNode->minWidth = *opts.minWidth;
+    }
     outerNode->widthMode = opts.width.ResolveMode(SizeMode::Stretch);
     outerNode->fixedWidth = opts.width.IsFixed() ? opts.width.Dp() : 0.0f;
     outerNode->heightMode = opts.height.ResolveMode(SizeMode::Fit);
@@ -74,7 +77,7 @@ ContainerScope Card::Open(
     if (opts.maxHeight.has_value() && *opts.maxHeight > 0.0f) {
         outerNode->maxHeight = *opts.maxHeight;
     }
-    outerNode->flexGrow = opts.flexGrow;
+    outerNode->flexGrow = Control::ResolveFlexGrow(outerNode->parent, opts.width, opts.height, opts.flexGrow);
     outerNode->padding = theme.ResolvePadding(opts.padding, UiSize::Md, density);
     outerNode->explicitRadius = opts.border.radius.has_value() ? 1 : 0;
     outerNode->cornerRadius = theme.ResolveRadius(opts.border.radius, UiSize::Md);

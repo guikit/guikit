@@ -103,9 +103,8 @@ Response Image::Run(
     }
 
     ImageOptions optsCopy = opts;
-    const SizeMode effW = Control::ResolveWidthMode(ctx, opts.width, SizeMode::Fit);
-    if (!optsCopy.width.IsFixed()) {
-        optsCopy.width = effW;
+    if (optsCopy.width.IsAuto()) {
+        optsCopy.width = Control::ResolveWidthMode(ctx, opts.width, SizeMode::Fit);
     }
 
     const ControlSpec ctrl = EffectiveImageControl(optsCopy, activeSize, theme);

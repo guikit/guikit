@@ -30,15 +30,17 @@ namespace {
 constexpr keel::usize kHistBins = 256;
 constexpr keel::usize kToneLutSize = 4096;
 constexpr float kDefaultImageViewHeightDp = 620.0f;
+constexpr float kDefaultImageViewMinHeightDp = 360.0f;
 
 [[nodiscard]] constexpr float ResolveEffectiveMinHeightDp(const ImageViewOptions& opts) noexcept {
+    const float minH = opts.minHeight.value_or(kDefaultImageViewMinHeightDp);
     if (opts.height.IsStretch()) {
-        return opts.minHeight;
+        return minH;
     }
     if (opts.height.IsFixed()) {
-        return keel::max(opts.minHeight, opts.height.Dp());
+        return keel::max(minH, opts.height.Dp());
     }
-    return keel::max(opts.minHeight, kDefaultImageViewHeightDp);
+    return keel::max(minH, kDefaultImageViewHeightDp);
 }
 
 [[nodiscard]] float ReadSampleAsFloat(const ImageViewData& data, keel::usize index) noexcept {
@@ -955,7 +957,7 @@ ImageViewResponse RunViewportNode(
         if (opts.height.IsFixed()) {
             ctrlSpec.height = effectiveMinHDp;
         } else if (opts.height.IsStretch()) {
-            ctrlSpec.height = SizeMode::Stretch;
+            ctrlSpec.height = opts.height;
         } else {
             ctrlSpec.height = SizeMode::Fit;
         }
@@ -1639,10 +1641,10 @@ ImageViewResponse RunImageViewImpl(
 
     const float effectiveMinHDp = ResolveEffectiveMinHeightDp(optsCopy);
     const SizeMode resolvedOuterW = Control::ResolveWidthMode(ctx, optsCopy.width, SizeMode::Stretch);
-    const AxisSize outerWidth = optsCopy.width.IsFixed() ? optsCopy.width : AxisSize(resolvedOuterW);
+    const AxisSize outerWidth = optsCopy.width.IsAuto() ? AxisSize(resolvedOuterW) : optsCopy.width;
     const AxisSize outerHeight = optsCopy.height.IsFixed()
         ? AxisSize::Fixed(effectiveMinHDp)
-        : (optsCopy.height.IsStretch() ? AxisSize::Stretch() : AxisSize::Fit());
+        : (optsCopy.height.IsStretch() ? optsCopy.height : AxisSize::Fit());
 
     if (auto outerRow = ctx.Row({
         .gap = 8.0f,
@@ -1655,6 +1657,7 @@ ImageViewResponse RunImageViewImpl(
             if (rNode->parent && rNode->parent->type == NodeType::Element) {
                 rNode->widthMode = SizeMode::Stretch;
                 rNode->heightMode = SizeMode::Stretch;
+                rNode->flexGrow = Control::ResolveFlexGrow(rNode->parent, outerWidth, outerHeight, 1.0f);
             } else {
                 if (optsCopy.width.IsFixed()) {
                     rNode->widthMode = SizeMode::Fixed;
@@ -1675,6 +1678,7 @@ ImageViewResponse RunImageViewImpl(
                     rNode->heightMode = SizeMode::Fit;
                     rNode->fixedHeight = 0.0f;
                 }
+                rNode->flexGrow = Control::ResolveFlexGrow(rNode->parent, outerWidth, outerHeight, 1.0f);
             }
         }
 

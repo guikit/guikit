@@ -52,7 +52,7 @@ struct MapViewOptions {
     // --- Layout & Viewport Controls ---
     AxisSize width{};
     AxisSize height{SizeMode::Stretch};
-    float minHeight{220.0f};
+    keel::Optional<float> minHeight{keel::kNullOpt}; ///< Minimum fallback height (nullopt = 220 dp)
     float minZoom{0.25f};
     float maxZoom{4096.0f};
     float zoomStep{1.2f};

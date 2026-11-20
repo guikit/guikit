@@ -215,7 +215,7 @@ struct ImageViewOptions {
     // --- Sizing & Geometry ---
     AxisSize width{};                     ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or `Fixed(dp)`)
     AxisSize height{SizeMode::Fit};       ///< Vertical sizing policy (`Fit` -> 620 dp default, `Stretch`, or `Fixed(dp)`)
-    float minHeight{360.0f};
+    keel::Optional<float> minHeight{keel::kNullOpt}; ///< Minimum fallback height (nullopt = 360 dp)
     StateColor background{};
     Border border{};
 

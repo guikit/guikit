@@ -12480,6 +12480,7 @@ void TestPopoverComponent();
 void TestApiPolish();
 void TestControlFlatSizingAndStyleOptions();
 void TestSceneWorldSizeInsideScrollAreaDoesNotOverflow();
+void TestApiPolishStretchWeightsTabBarColorAndOptionalMins();
 
 int main() {
     keel::println("[RUN] Testing GuiKit Context & Immediate Mode API...");
@@ -15231,6 +15232,7 @@ int main() {
     TestApiPolish();
     TestControlFlatSizingAndStyleOptions();
     TestSceneWorldSizeInsideScrollAreaDoesNotOverflow();
+    TestApiPolishStretchWeightsTabBarColorAndOptionalMins();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Context tests passed successfully!");
@@ -17090,6 +17092,145 @@ void TestSceneWorldSizeInsideScrollAreaDoesNotOverflow() {
     CHECK(botRightScreen.y <= sceneVp.Bottom() + 1.0f);
 
     keel::println("  [PASS] TestSceneWorldSizeInsideScrollAreaDoesNotOverflow completed");
+}
+
+void TestApiPolishStretchWeightsTabBarColorAndOptionalMins() {
+    using namespace guikit;
+    keel::println("  -> TestApiPolishStretchWeightsTabBarColorAndOptionalMins...");
+
+    ThorCanvas canvas;
+    keel::Array<keel::u32> fb(640u * 600u, 0u);
+    canvas.SetTarget(fb.data(), 640, 600, 640);
+
+    // 1. Proportional AxisSize::Stretch(weight) across direct controls, Elements, and containers
+    {
+        Context ui;
+        keel::FixedString<32> s1{"host"};
+        keel::FixedString<32> s2{"8080"};
+        Response rDirectA{}, rDirectB{};
+        Response rElemA{}, rElemB{};
+        Rect colBoxA{}, colBoxB{};
+        Rect legacyFlexA{}, legacyFlexB{};
+
+        auto runFrame = [&]() {
+            ui.BeginFrame({600.0f, 600.0f});
+            if (auto root = ui.Column({.gap = 0.0f})) {
+                // 2:1 direct controls in Row (600dp total -> 400dp + 200dp)
+                if (auto row = ui.Row({.gap = 0.0f})) {
+                    rDirectA = ui.InputField(s1, {.width = AxisSize::Stretch(2.0f)});
+                    rDirectB = ui.InputField(s2, {.width = AxisSize::Stretch(1.0f)});
+                }
+                // 3:1 Element-wrapped controls in Row (one on Element, one on inner control -> 450dp + 150dp)
+                if (auto row = ui.Row({.gap = 0.0f})) {
+                    if (auto e1 = ui.Element({.label = "Host", .width = AxisSize::Stretch(3.0f)})) {
+                        rElemA = ui.InputField(s1);
+                    }
+                    if (auto e2 = ui.Element({.label = "Port"})) {
+                        rElemB = ui.InputField(s2, {.width = AxisSize::Stretch(1.0f)});
+                    }
+                }
+                // 2:1 vertical stretch weights in fixed-height Column (300dp -> 200dp + 100dp)
+                if (auto col = ui.Column({.gap = 0.0f, .height = 300.0f})) {
+                    if (auto b1 = ui.Box({.height = AxisSize::Stretch(2.0f)})) {
+                        colBoxA = ui.GetPrevFrameBounds(b1.GetNode()->id);
+                    }
+                    if (auto b2 = ui.Box({.height = AxisSize::Stretch(1.0f)})) {
+                        colBoxB = ui.GetPrevFrameBounds(b2.GetNode()->id);
+                    }
+                }
+                // Existing container .flexGrow continues to work with default SizeMode::Stretch
+                if (auto row = ui.Row({.gap = 0.0f})) {
+                    if (auto b1 = ui.Box({.width = SizeMode::Stretch, .height = 20.0f, .flexGrow = 3.0f})) {
+                        legacyFlexA = ui.GetPrevFrameBounds(b1.GetNode()->id);
+                    }
+                    if (auto b2 = ui.Box({.width = SizeMode::Stretch, .height = 20.0f, .flexGrow = 1.0f})) {
+                        legacyFlexB = ui.GetPrevFrameBounds(b2.GetNode()->id);
+                    }
+                }
+            }
+            ui.EndFrame(canvas);
+        };
+
+        runFrame();
+        runFrame();
+
+        CHECK(keel::abs(rDirectA.rect.w - 400.0f) < 1.5f);
+        CHECK(keel::abs(rDirectB.rect.w - 200.0f) < 1.5f);
+        CHECK(keel::abs(rElemA.rect.w - 450.0f) < 1.5f);
+        CHECK(keel::abs(rElemB.rect.w - 150.0f) < 1.5f);
+        CHECK(keel::abs(colBoxA.h - 200.0f) < 1.5f);
+        CHECK(keel::abs(colBoxB.h - 100.0f) < 1.5f);
+        CHECK(keel::abs(legacyFlexA.w - 450.0f) < 1.5f);
+        CHECK(keel::abs(legacyFlexB.w - 150.0f) < 1.5f);
+    }
+
+    // 2. TabBarOptions::color (StateColor) renders & triggers damage on change
+    {
+        Context ui;
+        keel::i32 tabIdx = 0;
+        StateColor tabColor = StateColor::Danger();
+        auto renderTabs = [&]() {
+            ui.BeginFrame({480.0f, 120.0f});
+            ui.TabBar(tabIdx, {{"Alpha"}, {"Beta"}}, {
+                .style = TabBarStyle::Underline,
+                .color = tabColor
+            });
+            ui.EndFrame(canvas);
+        };
+        renderTabs();
+        renderTabs();
+        CHECK(ui.GetDirtyRects().empty());
+        tabColor = StateColor::Success();
+        renderTabs();
+        CHECK(!ui.GetDirtyRects().empty());
+    }
+
+    // 3. Optional<float> minWidth / minHeight defaults and explicit overrides
+    {
+        Context ui;
+        Rect cardDefaultRect{}, cardMinWRect{};
+        Rect sceneDefaultRect{}, sceneSmallMinRect{};
+
+        auto runFrame = [&]() {
+            ui.BeginFrame({600.0f, 600.0f});
+            if (auto col = ui.Column({.gap = 8.0f})) {
+                if (auto row = ui.Row({.gap = 8.0f})) {
+                    if (auto c1 = ui.Card({.width = SizeMode::Fit})) {
+                        ui.Text("Hi");
+                        cardDefaultRect = ui.GetPrevFrameBounds(c1.GetNode()->id);
+                    }
+                    if (auto c2 = ui.Card({.minWidth = 260.0f, .width = SizeMode::Fit})) {
+                        ui.Text("Hi");
+                        cardMinWRect = ui.GetPrevFrameBounds(c2.GetNode()->id);
+                    }
+                }
+                if (auto sc1 = ui.Scene({.height = SizeMode::Fit})) {
+                    sceneDefaultRect = sc1.GetViewportRect();
+                }
+                if (auto sc2 = ui.Scene({.height = SizeMode::Fit, .minHeight = 90.0f})) {
+                    sceneSmallMinRect = sc2.GetViewportRect();
+                }
+            }
+            ui.EndFrame(canvas);
+        };
+
+        runFrame();
+        runFrame();
+
+        CHECK(cardDefaultRect.w < 150.0f);
+        CHECK(cardMinWRect.w >= 259.5f);
+        CHECK(keel::abs(sceneDefaultRect.h - 220.0f) < 1.5f);
+        CHECK(keel::abs(sceneSmallMinRect.h - 90.0f) < 1.5f);
+
+        // HistogramOptions::minHeight default (96dp) vs explicit override (64dp)
+        const HistogramData hData{};
+        const Vec2 hDefault = Histogram::Measure(hData, {.height = SizeMode::Stretch}, UiSize::Md, &canvas, ui.GetTheme(), 300.0f);
+        const Vec2 hCustom = Histogram::Measure(hData, {.height = SizeMode::Stretch, .minHeight = 64.0f}, UiSize::Md, &canvas, ui.GetTheme(), 300.0f);
+        CHECK(keel::abs(hDefault.y - 96.0f) < 0.5f);
+        CHECK(keel::abs(hCustom.y - 64.0f) < 0.5f);
+    }
+
+    keel::println("  [PASS] TestApiPolishStretchWeightsTabBarColorAndOptionalMins completed");
 }
 
 

@@ -47,10 +47,10 @@ struct TabBarOptions {
     bool disabled{false};       ///< Disable interaction across the entire TabBar
     keel::Optional<float> gap{keel::kNullOpt};   ///< Gap between consecutive tab items (nullopt = from theme)
     keel::Optional<Padding> padding{keel::kNullOpt};   ///< Container padding around tabs (nullopt = auto based on style)
+    UiSize size{UiSize::Md};                     ///< Component size scale
+    StateColor color{};                          ///< Optional semantic/custom accent color for active tab indicator / pill
     StateColor background{};                     ///< Optional background fill color for the tab bar
     Border border{};                             ///< Optional border configuration (color, width, radius)
-    Color activeColor{Color::Transparent()}; ///< Optional custom accent color override
-    UiSize size{UiSize::Md};                     ///< Component size scale
 };
 
 /// Internal runtime state allocated in frame arena for TabItem nodes.

@@ -215,15 +215,17 @@ struct HistogramPayload {
 };
 
 constexpr float kDefaultHistogramHeightDp = 136.0f;
+constexpr float kDefaultHistogramMinHeightDp = 96.0f;
 
 [[nodiscard]] constexpr float ResolveEffectiveMinHeightDp(const HistogramOptions& opts) noexcept {
+    const float minH = opts.minHeight.value_or(kDefaultHistogramMinHeightDp);
     if (opts.height.IsStretch()) {
-        return opts.minHeight;
+        return minH;
     }
     if (opts.height.IsFixed()) {
-        return keel::max(opts.minHeight, opts.height.Dp());
+        return keel::max(minH, opts.height.Dp());
     }
-    return keel::max(opts.minHeight, kDefaultHistogramHeightDp);
+    return keel::max(minH, kDefaultHistogramHeightDp);
 }
 
 } // namespace
@@ -429,7 +431,7 @@ HistogramResponse Histogram::Run(
     if (optsCopy.height.IsFixed()) {
         ctrlSpec.height = effectiveMinHDp;
     } else if (optsCopy.height.IsStretch()) {
-        ctrlSpec.height = SizeMode::Stretch;
+        ctrlSpec.height = optsCopy.height;
     } else {
         ctrlSpec.height = SizeMode::Fit;
     }

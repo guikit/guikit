@@ -600,12 +600,14 @@ TreeViewScope TreeView::Open(
             outerNode,
             ControlSpec{
                 .width = opts.width,
-                .height = opts.height.IsFixed() ? opts.height : AxisSize(outerNode->heightMode),
+                .height = opts.height.IsFixed() ? opts.height : (opts.height.HasCustomStretchWeight() ? opts.height : AxisSize(outerNode->heightMode)),
                 .defaultWidthMode = SizeMode::Stretch,
                 .defaultHeightMode = SizeMode::Stretch,
                 .defaultLayout = ElementLayout::Top
             }
         );
+    } else {
+        outerNode->flexGrow = Control::ResolveFlexGrow(outerNode->parent, opts.width, opts.height, 1.0f);
     }
 
     outerNode->cornerRadius = opts.border.radius.has_value()

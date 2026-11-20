@@ -912,7 +912,7 @@ enum class SizeMode : keel::u8 {
 /// into a single 8-byte value type so mutually exclusive policies cannot conflict:
 /// - `AxisSize::Auto()` / `{}`: contextual default resolved by the widget or container
 /// - `SizeMode::Fit` / `AxisSize::Fit()`: shrink-wraps intrinsic content
-/// - `SizeMode::Stretch` / `AxisSize::Stretch()`: expands to fill available parent space
+/// - `SizeMode::Stretch` / `AxisSize::Stretch(weight = 1.0f)`: expands to fill available parent space (with optional proportional flex weight)
 /// - `180.0f` / `AxisSize::Fixed(180.0f)`: exact dimension in logical `dp` (`> 0.0f`)
 struct AxisSize {
     enum class Kind : keel::u8 {
@@ -923,16 +923,16 @@ struct AxisSize {
     };
 
 private:
-    float m_dp{0.0f};
+    float m_value{0.0f}; ///< Fixed dimension in dp (when `Fixed`) or proportional flex weight (when `Stretch`)
     Kind m_kind{Kind::Auto};
 
-    constexpr AxisSize(Kind kind, float dp) noexcept : m_dp(dp), m_kind(kind) {}
+    constexpr AxisSize(Kind kind, float value) noexcept : m_value(value), m_kind(kind) {}
 
 public:
     constexpr AxisSize() noexcept = default;
 
     constexpr AxisSize(SizeMode mode) noexcept
-        : m_dp(0.0f),
+        : m_value(mode == SizeMode::Stretch ? 1.0f : 0.0f),
           m_kind(mode == SizeMode::Stretch ? Kind::Stretch : Kind::Fit) {}
 
     template <typename T>
@@ -940,12 +940,14 @@ public:
                   !keel::IsSame<keel::RemoveCvRef<T>, bool> &&
                   !keel::IsSame<keel::RemoveCvRef<T>, char>)
     constexpr AxisSize(T dp) noexcept
-        : m_dp(dp > static_cast<T>(0) ? static_cast<float>(dp) : 0.0f),
+        : m_value(dp > static_cast<T>(0) ? static_cast<float>(dp) : 0.0f),
           m_kind(dp > static_cast<T>(0) ? Kind::Fixed : Kind::Auto) {}
 
     [[nodiscard]] static constexpr AxisSize Auto() noexcept { return {}; }
     [[nodiscard]] static constexpr AxisSize Fit() noexcept { return AxisSize(Kind::Fit, 0.0f); }
-    [[nodiscard]] static constexpr AxisSize Stretch() noexcept { return AxisSize(Kind::Stretch, 0.0f); }
+    [[nodiscard]] static constexpr AxisSize Stretch(float weight = 1.0f) noexcept {
+        return AxisSize(Kind::Stretch, (weight > 0.0f) ? weight : 1.0f);
+    }
     [[nodiscard]] static constexpr AxisSize Fixed(float dp) noexcept {
         return (dp > 0.0f) ? AxisSize(Kind::Fixed, dp) : AxisSize{};
     }
@@ -955,7 +957,13 @@ public:
     [[nodiscard]] constexpr bool IsFit() const noexcept { return m_kind == Kind::Fit; }
     [[nodiscard]] constexpr bool IsStretch() const noexcept { return m_kind == Kind::Stretch; }
     [[nodiscard]] constexpr bool IsFixed() const noexcept { return m_kind == Kind::Fixed; }
-    [[nodiscard]] constexpr float Dp() const noexcept { return m_dp; }
+    [[nodiscard]] constexpr float Dp() const noexcept { return (m_kind == Kind::Fixed) ? m_value : 0.0f; }
+    [[nodiscard]] constexpr float StretchWeight() const noexcept {
+        return (m_kind == Kind::Stretch && m_value > 0.0f) ? m_value : 1.0f;
+    }
+    [[nodiscard]] constexpr bool HasCustomStretchWeight() const noexcept {
+        return m_kind == Kind::Stretch && m_value > 0.0f && m_value != 1.0f;
+    }
 
     [[nodiscard]] constexpr SizeMode ResolveMode(SizeMode autoDefault) const noexcept {
         switch (m_kind) {
@@ -968,7 +976,7 @@ public:
     }
 
     [[nodiscard]] constexpr bool operator==(const AxisSize& other) const noexcept {
-        return m_kind == other.m_kind && m_dp == other.m_dp;
+        return m_kind == other.m_kind && m_value == other.m_value;
     }
     [[nodiscard]] constexpr bool operator==(SizeMode mode) const noexcept {
         if (mode == SizeMode::Stretch) return m_kind == Kind::Stretch;

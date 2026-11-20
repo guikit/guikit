@@ -49,6 +49,7 @@ void AccumulateSlotSubtree(
         static_cast<keel::u8>(sub->heightMode),
         sub->fixedWidth,
         sub->fixedHeight,
+        sub->flexGrow,
         sub->gap
     );
     for (const Node* c = sub->firstChild; c != nullptr; c = c->nextSibling) {
@@ -395,6 +396,20 @@ void Element::SyncWithChildren(Context& /*ctx*/, Node* elNode) noexcept {
     }
 
     elNode->heightMode = anyStretchH ? SizeMode::Stretch : SizeMode::Fit;
+
+    if (outerParent != nullptr && outerParent->direction == FlexDirection::Row) {
+        if (ep->opts.width.HasCustomStretchWeight()) {
+            elNode->flexGrow = ep->opts.width.StretchWeight();
+        } else if (slotChild != nullptr && elNode->widthMode == SizeMode::Stretch) {
+            elNode->flexGrow = slotChild->flexGrow;
+        } else {
+            elNode->flexGrow = 1.0f;
+        }
+    } else if (slotChild != nullptr && elNode->heightMode == SizeMode::Stretch) {
+        elNode->flexGrow = slotChild->flexGrow;
+    } else {
+        elNode->flexGrow = 1.0f;
+    }
 
     elNode->visualHash = detail::HashArgs(
         static_cast<keel::u8>(ep->opts.layout.value_or(ElementLayout::Stacked)),

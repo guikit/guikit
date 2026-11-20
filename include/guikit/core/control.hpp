@@ -76,6 +76,22 @@ public:
         return height.ResolveMode(defaultMode);
     }
 
+    /// Resolves effective proportional `flexGrow` weight along the parent container's main axis
+    /// from `AxisSize::Stretch(weight)` (falling back to `fallbackFlexGrow` when no custom weight is set).
+    [[nodiscard]] static float ResolveFlexGrow(
+        const Node* parent,
+        AxisSize width,
+        AxisSize height,
+        float fallbackFlexGrow = 1.0f
+    ) noexcept;
+
+    [[nodiscard]] static float ResolveFlexGrow(
+        const Context& ctx,
+        AxisSize width,
+        AxisSize height,
+        float fallbackFlexGrow = 1.0f
+    ) noexcept;
+
     /// Measures the control's dimensions given its natural `intrinsicSize`, applying
     /// `minWidth`, `minHeight`, and explicit `width` / `height` overrides in logical `dp`.
     [[nodiscard]] static Vec2 Measure(

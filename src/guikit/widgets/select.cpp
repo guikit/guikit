@@ -259,7 +259,7 @@ Response Select::Run(
 
     SelectOptions optsCopy = opts;
     const SizeMode effWidthMode = Control::ResolveWidthMode(ctx, opts.width, SizeMode::Stretch);
-    if (!optsCopy.width.IsFixed()) {
+    if (optsCopy.width.IsAuto()) {
         optsCopy.width = effWidthMode;
     }
 
@@ -2183,7 +2183,7 @@ Response Select::RunMulti(
 
     SelectOptions optsCopy = opts;
     const SizeMode effWidthMode = Control::ResolveWidthMode(ctx, opts.width, SizeMode::Stretch);
-    if (!optsCopy.width.IsFixed()) {
+    if (optsCopy.width.IsAuto()) {
         optsCopy.width = effWidthMode;
     }
 
