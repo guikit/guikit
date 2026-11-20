@@ -34,8 +34,11 @@ void PopoverScope::Close() noexcept {
 void PopoverScope::EndPopoverIfNeeded() noexcept {
     if (m_activePopover && m_ctx) {
         const bool stillOpen = m_openPtr ? *m_openPtr : false;
-        if (!stillOpen && m_node && m_node->parent) {
-            m_node->parent->RemoveChild(m_node);
+        if (!stillOpen && m_node) {
+            m_ctx->ClearPopoverBlock(m_node->id);
+            if (m_node->parent) {
+                m_node->parent->RemoveChild(m_node);
+            }
             m_ctx->InvalidateAll();
         }
         m_activePopover = false;
@@ -52,6 +55,10 @@ PopoverScope Popover::Open(
     auto& state = ctx.GetOrCreateState<PopoverPersistState>(id);
 
     if (!open) {
+        if (state.wasOpen) {
+            ctx.ClearPopoverBlock(id);
+            ctx.InvalidateAll();
+        }
         state.wasOpen = false;
         return PopoverScope(&ctx, nullptr, &open, {}, false);
     }
@@ -70,9 +77,10 @@ PopoverScope Popover::Open(
     const bool childPopupOpen = ctx.GetOpenPopupId().IsValid();
 
     {
-        auto hitScope = ctx.ScopedOverlayHitCheck(id);
+        auto hitScope = ctx.ScopedOverlayHitCheck(id, OverlayLayer::Portal);
         const Vec2 mouse = ctx.GetMousePos();
-        res.hovered = prevPopoverRect.w > 0.0f && prevPopoverRect.Contains(mouse);
+        const bool occluded = ctx.IsOverlayOccluded(id, mouse, OverlayLayer::Portal);
+        res.hovered = !occluded && prevPopoverRect.w > 0.0f && prevPopoverRect.Contains(mouse);
 
         if (!justOpened && opts.closeOnClickOutside && ctx.IsMouseClicked()) {
             const bool insidePopover = prevPopoverRect.w > 0.0f && prevPopoverRect.h > 0.0f && prevPopoverRect.Contains(mouse);
@@ -83,6 +91,7 @@ PopoverScope Popover::Open(
                 open = false;
                 state.wasOpen = false;
                 res.changed = true;
+                ctx.ClearPopoverBlock(id);
                 if (opts.consumeOutsideClick) {
                     ctx.ConsumeMouseClick();
                 }
@@ -92,10 +101,11 @@ PopoverScope Popover::Open(
         }
     }
 
-    if (opts.closeOnEscape && !childPopupOpen && ctx.ConsumeKey(Key::Escape)) {
+    if (opts.closeOnEscape && !childPopupOpen && !ctx.HasModalAboveCurrentScope() && ctx.ConsumeKey(Key::Escape)) {
         open = false;
         state.wasOpen = false;
         res.changed = true;
+        ctx.ClearPopoverBlock(id);
         ctx.InvalidateAll();
         return PopoverScope(&ctx, nullptr, &open, res, true);
     }

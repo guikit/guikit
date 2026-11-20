@@ -236,8 +236,10 @@ struct StoredState {
 
 /// Z-ordering layer for deferred overlay render passes and overlay hit regions.
 enum class OverlayLayer : keel::u8 {
-    Panel = 1, ///< Panel chrome overlays (Sidebar / BottomPanel / SplitView sashes & toggle pills) rendered below Modals/Popovers.
-    Popup = 3  ///< Top-level popups & toasts (Select, DatePicker, ColorPicker, ContextMenu, CommandPalette, Toast) rendered above Modals/Popovers.
+    Panel        = 1, ///< Panel chrome overlays (Sidebar / BottomPanel / SplitView sashes & toggle pills) rendered below Modals/Popovers.
+    Portal       = 2, ///< Out-of-flow portals (Modal / Popover).
+    Popup        = 3, ///< Top-level interactive popups (Select, DatePicker, ColorPicker, ContextMenu, CommandPalette) rendered above Modals/Popovers.
+    Notification = 4  ///< Global notifications (Toast) rendered above all popups regardless of host call order.
 };
 
 /// Primary immediate mode context coordinating input, layout, and rendering.
@@ -1750,12 +1752,7 @@ public:
     void RequestFocus(Id id, FocusReason reason = FocusReason::Auto);
     [[nodiscard]] Id GetFocusedId() const noexcept { return m_focusedId; }
     [[nodiscard]] InputModality GetInputModality() const noexcept { return m_inputModality; }
-    [[nodiscard]] bool IsFocused(Id id) const noexcept {
-        if (!id.IsValid() || m_focusedId != id) return false;
-        if (m_openPopupId.IsValid() && m_openPopupId != id) return false;
-        if (m_modalScopeDepth == 0 && (m_currFrameModalId.IsValid() || m_prevFrameModalId.IsValid())) return false;
-        return true;
-    }
+    [[nodiscard]] bool IsFocused(Id id) const noexcept;
     /// Returns true when `id` has focus AND the focus ring should be drawn (`:focus-visible` semantics:
     /// true for keyboard navigation, false after mouse/pointer click on non-text controls).
     [[nodiscard]] bool IsFocusVisible(Id id) const noexcept {
@@ -1853,6 +1850,8 @@ public:
         Id id{Id::Null()};
         Rect rect{};
         OverlayLayer layer{OverlayLayer::Popup};
+        keel::u8 zLayer{static_cast<keel::u8>(OverlayLayer::Popup)};
+        Id ownerPortalId{Id::Null()};
     };
 
     void OpenPopup(Id id, Rect bounds, Rect anchorRect = Rect{});
@@ -1896,18 +1895,25 @@ public:
             .destroy = keel::IsTriviallyDestructible<Decayed>
                 ? nullptr
                 : +[](void* p) noexcept { static_cast<Decayed*>(p)->~Decayed(); },
-            .space = CurrentSpace()
+            .space = CurrentSpace(),
+            .scopeZLayer = CurrentScopeZLayer(),
+            .ownerPortalId = CurrentPortalId()
         });
     }
-    /// RAII scope guard that enters an overlay's hit-testing context and restores the previous overlay ID on exit.
+    /// RAII scope guard that enters an overlay's hit-testing context at `layer` and restores the previous context on exit.
     class [[nodiscard]] OverlayHitCheckScope {
     public:
-        OverlayHitCheckScope(Context& ctx, Id id) noexcept
-            : m_ctx(&ctx), m_prevId(ctx.m_activeOverlayHitCheckId) {
+        OverlayHitCheckScope(Context& ctx, Id id, OverlayLayer layer = OverlayLayer::Popup) noexcept
+            : m_ctx(&ctx)
+            , m_prevId(ctx.m_activeOverlayHitCheckId)
+            , m_prevLayer(ctx.m_activeOverlayHitCheckLayer) {
             ctx.m_activeOverlayHitCheckId = id;
+            ctx.m_activeOverlayHitCheckLayer = layer;
         }
         OverlayHitCheckScope(OverlayHitCheckScope&& other) noexcept
-            : m_ctx(other.m_ctx), m_prevId(other.m_prevId) {
+            : m_ctx(other.m_ctx)
+            , m_prevId(other.m_prevId)
+            , m_prevLayer(other.m_prevLayer) {
             other.m_ctx = nullptr;
         }
         OverlayHitCheckScope(const OverlayHitCheckScope&) = delete;
@@ -1916,19 +1922,32 @@ public:
         ~OverlayHitCheckScope() noexcept {
             if (m_ctx) {
                 m_ctx->m_activeOverlayHitCheckId = m_prevId;
+                m_ctx->m_activeOverlayHitCheckLayer = m_prevLayer;
             }
         }
     private:
         Context* m_ctx{nullptr};
         Id m_prevId{Id::Null()};
+        OverlayLayer m_prevLayer{OverlayLayer::Popup};
     };
 
-    [[nodiscard]] OverlayHitCheckScope ScopedOverlayHitCheck(Id id) noexcept {
-        return OverlayHitCheckScope(*this, id);
+    [[nodiscard]] OverlayHitCheckScope ScopedOverlayHitCheck(
+        Id id,
+        OverlayLayer layer = OverlayLayer::Popup
+    ) noexcept {
+        return OverlayHitCheckScope(*this, id, layer);
     }
     void BeginWidgetExecution() noexcept { ++m_widgetExecDepth; }
     void EndWidgetExecution() noexcept { if (m_widgetExecDepth > 0) --m_widgetExecDepth; }
     [[nodiscard]] bool IsMouseOccluded(Id id, Vec2 pos) const noexcept;
+    /// Returns true if any overlay/portal strictly above `layer` (or another blocking overlay on `layer`) occludes `pos`.
+    [[nodiscard]] bool IsOverlayOccluded(
+        Id id,
+        Vec2 pos,
+        OverlayLayer layer = OverlayLayer::Panel
+    ) const noexcept {
+        return IsOverlayOccludedInFrame(id, CurrentSpace().Apply(pos), layer);
+    }
     [[nodiscard]] bool IsRectHovered(Id id, const Rect& rect) const noexcept;
     [[nodiscard]] bool IsMouseBlockedForCurrentScope() const noexcept;
     void SetTooltip(UiText tooltip, Rect anchorRect);
@@ -1936,71 +1955,31 @@ public:
     [[nodiscard]] const UiText& GetActiveTooltip() const noexcept { return m_activeTooltip; }
     void RegisterFocusable(Id id, bool disabled = false);
 
-    void BeginModalScope(Id id, Rect backdropRect) noexcept {
-        if (m_modalScopeDepth == 0 && m_focusedId.IsValid()) {
-            bool focusedBeforeModal = false;
-            for (const Id& fid : m_currFocusableIds) {
-                if (fid == m_focusedId) {
-                    focusedBeforeModal = true;
-                    break;
-                }
-            }
-            if (focusedBeforeModal) {
-                if (!m_savedFocusBeforeModal.IsValid()) {
-                    m_savedFocusBeforeModal = m_focusedId;
-                }
-                if (m_editState.id == m_focusedId) {
-                    FlushActiveEditHistory();
-                    m_editState.id = Id::Null();
-                }
-                m_focusedId = Id::Null();
-                m_suspendDirectEditInput = false;
-                m_pendingTextInput.clear();
-            }
-        }
-        ++m_modalScopeDepth;
-        m_currFrameModalId = id;
-        m_currFrameModalBackdropRect = CurrentSpace().Apply(backdropRect);
-    }
+    void BeginModalScope(Id id, Rect backdropRect) noexcept;
+    void EndModalScope(bool stillOpen = true, Id id = Id::Null()) noexcept;
+    void ClearModalBlock(Id id = Id::Null()) noexcept;
+    void ClearPopoverBlock(Id id) noexcept;
 
-    void EndModalScope(bool stillOpen = true) noexcept {
-        if (m_modalScopeDepth > 0) {
-            --m_modalScopeDepth;
-        }
-        if (!stillOpen && m_modalScopeDepth == 0) {
-            m_modalClosedThisFrame = true;
-            ClearModalBlock();
-            InvalidateAll();
-        }
+    [[nodiscard]] bool IsInModalScope() const noexcept { return !m_activeModalStack.empty(); }
+    [[nodiscard]] Id GetPrevFrameModalId() const noexcept {
+        return m_prevFrameModals.empty() ? Id::Null() : m_prevFrameModals.back().id;
     }
-
-    void ClearModalBlock() noexcept {
-        m_currFrameModalId = Id::Null();
-        m_currFrameModalBackdropRect = Rect{};
-        m_prevFrameModalId = Id::Null();
-        m_prevFrameModalBackdropRect = Rect{};
-        m_currModalFocusableIds.clear();
-    }
-
-    [[nodiscard]] bool IsInModalScope() const noexcept { return m_modalScopeDepth > 0; }
-    [[nodiscard]] Id GetPrevFrameModalId() const noexcept { return m_prevFrameModalId; }
+    [[nodiscard]] bool HasPrevFrameModal(Id id) const noexcept;
+    [[nodiscard]] bool IsTopModal(Id id) const noexcept;
+    [[nodiscard]] bool HasModalAboveCurrentScope() const noexcept;
+    [[nodiscard]] bool HasPrevFramePopoverOver(Id modalId) const noexcept;
 
     /// `pos` is in the current space.
     [[nodiscard]] bool IsModalBlocking(Vec2 pos) const noexcept { return IsModalBlockingInFrame(CurrentSpace().Apply(pos)); }
 
     /// Frame-space variant used by the context's own hit testing.
-    [[nodiscard]] bool IsModalBlockingInFrame(Vec2 pos) const noexcept {
-        if (m_modalScopeDepth > 0) return false;
-        if (m_currFrameModalId.IsValid() && m_currFrameModalBackdropRect.Contains(pos)) return true;
-        if (m_prevFrameModalId.IsValid() && m_prevFrameModalBackdropRect.Contains(pos)) return true;
-        return false;
-    }
+    [[nodiscard]] bool IsModalBlockingInFrame(Vec2 pos, Id exemptModalId = Id::Null()) const noexcept;
 
     /// Returns true if an open `Popover` sits above the current scope and covers `pos` (in current space).
     [[nodiscard]] bool IsPopoverBlocking(Vec2 pos) const noexcept { return IsPopoverBlockingInFrame(CurrentSpace().Apply(pos)); }
 
     /// Frame-space variant used by the context's own hit testing.
-    [[nodiscard]] bool IsPopoverBlockingInFrame(Vec2 pos) const noexcept;
+    [[nodiscard]] bool IsPopoverBlockingInFrame(Vec2 pos, Id ownerPortalOverride = Id::Null()) const noexcept;
 
     // --- Input Queries & Consumption ---
     /// Mouse position in the current space (see `CurrentSpace()`).
@@ -2113,7 +2092,9 @@ private:
 
     // Frame-space variants used by the context's own hit testing and damage tracking
     [[nodiscard]] keel::u8 CurrentScopeZLayer() const noexcept;
+    [[nodiscard]] Id CurrentPortalId() const noexcept;
     [[nodiscard]] bool IsMouseOccludedInFrame(Id id, Vec2 framePos) const noexcept;
+    [[nodiscard]] bool IsOverlayOccludedInFrame(Id id, Vec2 framePos, OverlayLayer layer) const noexcept;
     [[nodiscard]] Rect PopupViewportInFrame() const noexcept;
     void InvalidateFrameRect(Rect frameRect) noexcept;
 
@@ -2334,6 +2315,7 @@ private:
     // Previous frame widget bounds for instantaneous hit testing
     struct HitNodeRecord {
         Id id{Id::Null()};
+        Id portalId{Id::Null()};
         Rect rect{};
         keel::u32 preIndex{0};
         keel::u32 postIndex{0};
@@ -2356,17 +2338,31 @@ private:
         void* ctx{nullptr};
         void (*invoke)(void*){nullptr};
         void (*destroy)(void*) noexcept{nullptr};
-        Transform2D space{}; ///< Space the builder was registered from; current while it runs
+        Transform2D space{};      ///< Space the builder was registered from; current while it runs
+        keel::u8 scopeZLayer{0};  ///< Active container z-layer when the builder was registered
+        Id ownerPortalId{Id::Null()}; ///< Active Modal/Popover container when the builder was registered
+    };
+    struct ModalRecord {
+        Id id{Id::Null()};
+        Rect backdropRect{};
+    };
+    struct ModalFocusableEntry {
+        Id modalId{Id::Null()};
+        Id focusableId{Id::Null()};
     };
     keel::Array<OverlayHitRegion> m_prevOverlayHitRegions;
     keel::Array<OverlayHitRegion> m_currOverlayHitRegions;
     keel::SmallArray<OverlayHitBuilder, 8> m_overlayHitBuilders;
+    bool m_runningOverlayHitBuilder{false};
+    keel::u8 m_overlayBuilderZLayer{0};
+    Id m_overlayBuilderPortalId{Id::Null()};
     Id m_activeOverlayHitCheckId{Id::Null()};
+    OverlayLayer m_activeOverlayHitCheckLayer{OverlayLayer::Popup};
     keel::i32 m_widgetExecDepth{0};
     keel::Array<Id> m_prevFocusableIds;
     keel::Array<Id> m_currFocusableIds;
-    keel::Array<Id> m_prevModalFocusableIds;
-    keel::Array<Id> m_currModalFocusableIds;
+    keel::Array<ModalFocusableEntry> m_prevModalFocusables;
+    keel::Array<ModalFocusableEntry> m_currModalFocusables;
 
     // Floating popup, tooltip, modal & toast overlay state
     Id m_openPopupId{Id::Null()};
@@ -2376,11 +2372,9 @@ private:
     Id m_prevOpenPopupId{Id::Null()};
     Rect m_prevOpenPopupRect{0.0f, 0.0f, 0.0f, 0.0f};
     keel::u64 m_prevOpenPopupVisualHash{0};
-    Id m_prevFrameModalId{Id::Null()};
-    Rect m_prevFrameModalBackdropRect{0.0f, 0.0f, 0.0f, 0.0f};
-    Id m_currFrameModalId{Id::Null()};
-    Rect m_currFrameModalBackdropRect{0.0f, 0.0f, 0.0f, 0.0f};
-    keel::i32 m_modalScopeDepth{0};
+    keel::SmallArray<ModalRecord, 4> m_prevFrameModals;
+    keel::SmallArray<ModalRecord, 4> m_currFrameModals;
+    keel::SmallArray<Id, 4> m_activeModalStack;
     bool m_hadModalLastFrame{false};
     bool m_modalClosedThisFrame{false};
     UiText m_activeTooltip{};

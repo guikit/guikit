@@ -360,7 +360,7 @@ void Toast::RunHost(
 
             c.PopClip();
         }
-    });
+    }, OverlayLayer::Notification);
 }
 
 } // namespace guikit

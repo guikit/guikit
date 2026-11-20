@@ -58,10 +58,11 @@ void ModalScope::Close() noexcept {
 void ModalScope::EndModalIfNeeded() noexcept {
     if (m_activeModal && m_ctx) {
         const bool stillOpen = m_openPtr ? *m_openPtr : false;
+        const Id modalId = m_node ? m_node->id : Id::Null();
         if (!stillOpen && m_node && m_node->parent) {
             m_node->parent->RemoveChild(m_node);
         }
-        m_ctx->EndModalScope(stillOpen);
+        m_ctx->EndModalScope(stillOpen, modalId);
         m_activeModal = false;
     }
 }
@@ -74,8 +75,8 @@ ModalScope Modal::Open(
 ) {
     const Id id = ctx.MakeChildId(loc);
     if (!open) {
-        if (ctx.GetPrevFrameModalId() == id) {
-            ctx.ClearModalBlock();
+        if (ctx.HasPrevFrameModal(id)) {
+            ctx.ClearModalBlock(id);
             ctx.InvalidateAll();
         }
         return ModalScope{};
@@ -98,25 +99,28 @@ ModalScope Modal::Open(
 
     const Vec2 mouse = ctx.GetMousePos();
     const bool popupOpen = ctx.GetOpenPopupId().IsValid();
+    const bool isTopModal = ctx.IsTopModal(id);
+    const bool hasPopoverAbove = ctx.HasPrevFramePopoverOver(id);
 
-    if (opts.closeOnBackdrop && !popupOpen) {
-        auto hitScope = ctx.ScopedOverlayHitCheck(id);
+    if (opts.closeOnBackdrop && !popupOpen && isTopModal) {
+        auto hitScope = ctx.ScopedOverlayHitCheck(id, OverlayLayer::Portal);
         const bool hasPrevContent = (state.contentRect.w > 0.5f && state.contentRect.h > 0.5f);
-        if (hasPrevContent && ctx.IsMouseClicked() &&
+        const bool occluded = ctx.IsOverlayOccluded(id, mouse, OverlayLayer::Portal);
+        if (hasPrevContent && !occluded && ctx.IsMouseClicked() &&
             backdropRect.Contains(mouse) && !state.contentRect.Contains(mouse)) {
             open = false;
             res.changed = true;
-            ctx.ClearModalBlock();
+            ctx.ClearModalBlock(id);
             ctx.ConsumeMouseClick();
             ctx.InvalidateAll();
             return ModalScope(&ctx, nullptr, &open, res, true);
         }
     }
 
-    if (opts.closeOnEscape && !popupOpen && ctx.ConsumeKey(Key::Escape)) {
+    if (opts.closeOnEscape && !popupOpen && isTopModal && !hasPopoverAbove && ctx.ConsumeKey(Key::Escape)) {
         open = false;
         res.changed = true;
-        ctx.ClearModalBlock();
+        ctx.ClearModalBlock(id);
         ctx.InvalidateAll();
         return ModalScope(&ctx, nullptr, &open, res, true);
     }

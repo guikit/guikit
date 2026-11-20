@@ -343,16 +343,14 @@ SplitViewScope SplitView::Open(
     const bool hasPrevSash = (st.prevSashRect.w > 0.0f && st.prevSashRect.h > 0.0f);
 
     if (!activeDisabled && hasPrevSash) {
-        auto hitScope = ctx.ScopedOverlayHitCheck(idSash);
+        auto hitScope = ctx.ScopedOverlayHitCheck(idSash, OverlayLayer::Panel);
         const Vec2 mouse = ctx.GetMousePos();
-        const bool occludedByPopup = ctx.GetOpenPopupId().IsValid() && ctx.GetOpenPopupRect().Contains(mouse);
-        const bool occludedByModal = ctx.IsModalBlocking(mouse);
-        const bool occludedByPopover = ctx.IsPopoverBlocking(mouse);
+        const bool occluded = ctx.IsOverlayOccluded(idSash, mouse, OverlayLayer::Panel);
         const bool otherActive = ctx.GetActiveId().IsValid() && ctx.GetActiveId() != idSash;
 
         const Rect hitRect = ExpandSashHitRect(st.prevSashRect, opts.orientation, 2.0f * safeScale);
 
-        if (!occludedByPopup && !occludedByModal && !occludedByPopover && !otherActive) {
+        if (!occluded && !otherActive) {
             if (hitRect.Contains(mouse)) {
                 st.sashHovered = true;
                 res.hovered = true;

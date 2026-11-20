@@ -174,11 +174,9 @@ SidebarScope Sidebar::Open(
     state.toggleHovered = false;
 
     if (hasInteractiveEdge) {
-        auto hitScope = ctx.ScopedOverlayHitCheck(sashId);
+        auto hitScope = ctx.ScopedOverlayHitCheck(sashId, OverlayLayer::Panel);
         const Vec2 mouse = ctx.GetMousePos();
-        const bool occludedByPopup = ctx.GetOpenPopupId().IsValid() && ctx.GetOpenPopupRect().Contains(mouse);
-        const bool occludedByModal = ctx.IsModalBlocking(mouse);
-        const bool occludedByPopover = ctx.IsPopoverBlocking(mouse);
+        const bool occluded = ctx.IsOverlayOccluded(sashId, mouse, OverlayLayer::Panel);
         const bool otherActive = ctx.GetActiveId().IsValid() && ctx.GetActiveId() != sashId;
 
         const Rect toggleRect = ComputeToggleRect(prevBounds, opts.side, state.mode, sameSideIndex, activeScale);
@@ -186,7 +184,7 @@ SidebarScope Sidebar::Open(
         const bool canToggle = showToggle;
         const bool canSash = opts.resizable || (state.mode == SidebarMode::Collapsed && opts.allowCollapse);
 
-        if (!occludedByPopup && !occludedByModal && !occludedByPopover && !otherActive) {
+        if (!occluded && !otherActive) {
             const bool onToggle = canToggle && toggleRect.Contains(mouse);
             const bool onSash = canSash && !onToggle && sashRect.Contains(mouse);
             state.toggleHovered = onToggle;

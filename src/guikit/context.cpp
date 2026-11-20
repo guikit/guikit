@@ -175,10 +175,9 @@ void Context::BeginFrame(Vec2 viewportSize, float displayScale, float rootZoom) 
     m_currFrameModalOverlay = false;
     m_openPopupVisualHash = 0;
     m_currFocusableIds.clear();
-    m_currModalFocusableIds.clear();
-    m_currFrameModalId = Id::Null();
-    m_currFrameModalBackdropRect = Rect{};
-    m_modalScopeDepth = 0;
+    m_currModalFocusables.clear();
+    m_currFrameModals.clear();
+    m_activeModalStack.clear();
     m_modalClosedThisFrame = false;
     m_toastHostVisitedThisFrame = false;
     m_activeTooltip = {};
@@ -186,9 +185,18 @@ void Context::BeginFrame(Vec2 viewportSize, float displayScale, float rootZoom) 
     m_activeTooltipViewport = {};
     m_cursor = CursorType::Default;
 
-    const auto& activeFocusables = (m_prevFrameModalId.IsValid() && !m_prevModalFocusableIds.empty())
-        ? m_prevModalFocusableIds
-        : m_prevFocusableIds;
+    keel::SmallArray<Id, 32> topModalFocusables;
+    if (!m_prevFrameModals.empty()) {
+        const Id topModalId = m_prevFrameModals.back().id;
+        for (const auto& entry : m_prevModalFocusables) {
+            if (entry.modalId == topModalId) {
+                topModalFocusables.push_back(entry.focusableId);
+            }
+        }
+    }
+    const keel::ArrayRef<Id> activeFocusables = !topModalFocusables.empty()
+        ? keel::ArrayRef<Id>(topModalFocusables.data(), topModalFocusables.size())
+        : keel::ArrayRef<Id>(m_prevFocusableIds.data(), m_prevFocusableIds.size());
 
     if (!m_openPopupId.IsValid() && !activeFocusables.empty()) {
         const bool multilineEditorFocused =
@@ -206,7 +214,7 @@ void Context::BeginFrame(Vec2 viewportSize, float displayScale, float rootZoom) 
                 const keel::usize curIdx = FindIdIndex(activeFocusables, m_focusedId);
                 Id nextId = Id::Null();
                 if (curIdx == keel::kInvalidIndex) {
-                    nextId = reverse ? activeFocusables.back() : activeFocusables.front();
+                    nextId = reverse ? activeFocusables[activeFocusables.size() - 1] : activeFocusables[0];
                 } else {
                     const keel::usize n = activeFocusables.size();
                     const keel::usize nextIdx = reverse ? ((curIdx + n - 1) % n) : ((curIdx + 1) % n);
@@ -274,7 +282,11 @@ void Context::BeginFrame(Vec2 viewportSize, float displayScale, float rootZoom) 
     m_currNodeSpaces.clear();
     m_currHitNodes.clear();
     m_currOverlayHitRegions.clear();
+    m_runningOverlayHitBuilder = false;
+    m_overlayBuilderZLayer = 0;
+    m_overlayBuilderPortalId = Id::Null();
     m_activeOverlayHitCheckId = Id::Null();
+    m_activeOverlayHitCheckLayer = OverlayLayer::Popup;
     m_widgetExecDepth = 0;
     m_rowDisabled = false;
 
@@ -1703,6 +1715,13 @@ void Context::OnMouseWheel(float x, float y) {
     RequestRepaint(3);
 }
 
+bool Context::IsFocused(Id id) const noexcept {
+    if (!id.IsValid() || m_focusedId != id) return false;
+    if (m_openPopupId.IsValid() && m_openPopupId != id) return false;
+    if (HasModalAboveCurrentScope()) return false;
+    return true;
+}
+
 bool Context::IsDirectEditAllowed() const noexcept {
     if (m_suspendDirectEditInput || m_mouseClicked || !m_focusedId.IsValid() || m_editState.id != m_focusedId) {
         return false;
@@ -1710,8 +1729,16 @@ bool Context::IsDirectEditAllowed() const noexcept {
     if (m_openPopupId.IsValid() && m_openPopupId != m_focusedId) {
         return false;
     }
-    if (m_prevFrameModalId.IsValid()) {
-        if (!ContainsId(m_prevModalFocusableIds, m_focusedId)) {
+    if (!m_prevFrameModals.empty()) {
+        const Id topModalId = m_prevFrameModals.back().id;
+        bool inTopModal = false;
+        for (const auto& entry : m_prevModalFocusables) {
+            if (entry.modalId == topModalId && entry.focusableId == m_focusedId) {
+                inTopModal = true;
+                break;
+            }
+        }
+        if (!inTopModal) {
             return false;
         }
     }
@@ -1831,14 +1858,48 @@ void Context::InvalidateFrameRect(Rect frameRect) noexcept {
     }
 }
 
+static bool DoesOverlayRegionOcclude(
+    const Context::OverlayHitRegion& ov,
+    Id targetId,
+    keel::u8 targetZLayer,
+    Id targetPortalId,
+    Vec2 framePos
+) noexcept {
+    if (ov.id == targetId || !ov.rect.Contains(framePos)) {
+        return false;
+    }
+    if (static_cast<keel::u8>(ov.layer) >= static_cast<keel::u8>(OverlayLayer::Popup)) {
+        return true;
+    }
+    if (ov.zLayer > targetZLayer) {
+        return true;
+    }
+    if (ov.zLayer == targetZLayer && ov.ownerPortalId == targetPortalId) {
+        return true;
+    }
+    return false;
+}
+
 void Context::RegisterOverlayHitRegion(Id id, Rect rect, OverlayLayer layer) {
     if (id.IsValid() && rect.w > 0.0f && rect.h > 0.0f) {
-        m_currOverlayHitRegions.push_back(OverlayHitRegion{id, CurrentSpace().Apply(rect), layer});
+        const keel::u8 scopeZ = m_runningOverlayHitBuilder ? m_overlayBuilderZLayer : CurrentScopeZLayer();
+        const Id ownerPortal = m_runningOverlayHitBuilder ? m_overlayBuilderPortalId : CurrentPortalId();
+        const bool isGlobalTopOverlay = (static_cast<keel::u8>(layer) >= static_cast<keel::u8>(OverlayLayer::Popup));
+        const keel::u8 effectiveZ = isGlobalTopOverlay
+            ? static_cast<keel::u8>(layer)
+            : keel::max<keel::u8>(static_cast<keel::u8>(layer), scopeZ);
+        m_currOverlayHitRegions.push_back(OverlayHitRegion{
+            .id = id,
+            .rect = CurrentSpace().Apply(rect),
+            .layer = layer,
+            .zLayer = effectiveZ,
+            .ownerPortalId = isGlobalTopOverlay ? Id::Null() : ownerPortal
+        });
     }
 }
 
 keel::u8 Context::CurrentScopeZLayer() const noexcept {
-    keel::u8 zLayer = (m_modalScopeDepth > 0) ? 2 : 0;
+    keel::u8 zLayer = !m_activeModalStack.empty() ? 2 : 0;
     for (const Node* n : m_containerStack) {
         if (!n) continue;
         if (n->IsOutOfFlow()) {
@@ -1852,18 +1913,188 @@ keel::u8 Context::CurrentScopeZLayer() const noexcept {
     return zLayer;
 }
 
-bool Context::IsPopoverBlockingInFrame(Vec2 pos) const noexcept {
-    const Node* activePortal = nullptr;
+Id Context::CurrentPortalId() const noexcept {
     for (keel::usize i = m_containerStack.size(); i > 0; --i) {
         const Node* n = m_containerStack[i - 1];
-        if (n && n->IsOutOfFlow()) {
-            activePortal = n;
-            break;
+        if (n && n->IsOutOfFlow() && n->id.IsValid()) {
+            return n->id;
         }
     }
+    if (!m_activeModalStack.empty()) {
+        return m_activeModalStack.back();
+    }
+    return Id::Null();
+}
+
+void Context::BeginModalScope(Id id, Rect backdropRect) noexcept {
+    if (m_activeModalStack.empty() && m_focusedId.IsValid()) {
+        bool focusedBeforeModal = false;
+        for (const Id& fid : m_currFocusableIds) {
+            if (fid == m_focusedId) {
+                focusedBeforeModal = true;
+                break;
+            }
+        }
+        if (focusedBeforeModal) {
+            if (!m_savedFocusBeforeModal.IsValid()) {
+                m_savedFocusBeforeModal = m_focusedId;
+            }
+            if (m_editState.id == m_focusedId) {
+                FlushActiveEditHistory();
+                m_editState.id = Id::Null();
+            }
+            m_focusedId = Id::Null();
+            m_suspendDirectEditInput = false;
+            m_pendingTextInput.clear();
+        }
+    }
+    m_activeModalStack.push_back(id);
+    const Rect frameBackdrop = CurrentSpace().Apply(backdropRect);
+    for (auto& rec : m_currFrameModals) {
+        if (rec.id == id) {
+            rec.backdropRect = frameBackdrop;
+            return;
+        }
+    }
+    m_currFrameModals.push_back(ModalRecord{id, frameBackdrop});
+}
+
+void Context::EndModalScope(bool stillOpen, Id id) noexcept {
+    Id closedId = id;
+    if (!m_activeModalStack.empty()) {
+        if (!closedId.IsValid()) {
+            closedId = m_activeModalStack.back();
+        }
+        m_activeModalStack.pop_back();
+    }
+    if (!stillOpen) {
+        m_modalClosedThisFrame = true;
+        ClearModalBlock(closedId);
+        InvalidateAll();
+    }
+}
+
+void Context::ClearModalBlock(Id id) noexcept {
+    if (!id.IsValid()) {
+        m_currFrameModals.clear();
+        m_prevFrameModals.clear();
+        m_currModalFocusables.clear();
+        m_prevModalFocusables.clear();
+        return;
+    }
+    for (keel::usize i = 0; i < m_currFrameModals.size(); ) {
+        if (m_currFrameModals[i].id == id) {
+            m_currFrameModals.remove_at(i);
+        } else {
+            ++i;
+        }
+    }
+    for (keel::usize i = 0; i < m_prevFrameModals.size(); ) {
+        if (m_prevFrameModals[i].id == id) {
+            m_prevFrameModals.remove_at(i);
+        } else {
+            ++i;
+        }
+    }
+    ArrayEraseIf(m_currModalFocusables, [id](const ModalFocusableEntry& e) { return e.modalId == id; });
+    ArrayEraseIf(m_prevModalFocusables, [id](const ModalFocusableEntry& e) { return e.modalId == id; });
+}
+
+void Context::ClearPopoverBlock(Id id) noexcept {
+    if (!id.IsValid()) return;
+    for (auto& rec : m_prevHitNodes) {
+        if (rec.id == id && rec.type == NodeType::Popover) {
+            rec.blocksHit = false;
+        }
+    }
+}
+
+bool Context::HasPrevFrameModal(Id id) const noexcept {
+    if (!id.IsValid()) return false;
+    for (const auto& m : m_prevFrameModals) {
+        if (m.id == id) return true;
+    }
+    return false;
+}
+
+bool Context::IsTopModal(Id id) const noexcept {
+    if (!id.IsValid()) return false;
+    // Check prev-frame modals: if `id` existed last frame, it must be the topmost one
+    for (keel::usize i = 0; i < m_prevFrameModals.size(); ++i) {
+        if (m_prevFrameModals[i].id == id) {
+            return (i + 1 == m_prevFrameModals.size());
+        }
+    }
+    // Check curr-frame modals as well
+    for (keel::usize i = 0; i < m_currFrameModals.size(); ++i) {
+        if (m_currFrameModals[i].id == id) {
+            return (i + 1 == m_currFrameModals.size());
+        }
+    }
+    // Newly opened modal this frame sits on top
+    return true;
+}
+
+bool Context::HasModalAboveCurrentScope() const noexcept {
+    if (m_activeModalStack.empty()) {
+        return !m_currFrameModals.empty() || !m_prevFrameModals.empty();
+    }
+    return !IsTopModal(m_activeModalStack.back());
+}
+
+bool Context::HasPrevFramePopoverOver(Id modalId) const noexcept {
+    if (!modalId.IsValid()) return false;
+    const keel::usize* modalIdx = m_prevHitNodeMap.get(modalId);
+    if (modalIdx == nullptr) return false;
+    const HitNodeRecord& modalRec = m_prevHitNodes[*modalIdx];
+    for (const auto& b : m_prevHitNodes) {
+        if (b.type != NodeType::Popover || !b.blocksHit) continue;
+        const bool isDescendant = (modalRec.preIndex < b.preIndex && b.postIndex <= modalRec.postIndex);
+        const bool isAfter = (b.preIndex > modalRec.postIndex);
+        if (isDescendant || isAfter) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Context::IsModalBlockingInFrame(Vec2 pos, Id exemptModalId) const noexcept {
+    const Id activeModalId = exemptModalId.IsValid()
+        ? exemptModalId
+        : (!m_activeModalStack.empty() ? m_activeModalStack.back() : Id::Null());
+
+    auto checkList = [&](const keel::SmallArray<ModalRecord, 4>& modals) -> bool {
+        if (modals.empty()) return false;
+        if (!activeModalId.IsValid()) {
+            for (const auto& m : modals) {
+                if (m.backdropRect.Contains(pos)) return true;
+            }
+            return false;
+        }
+        keel::usize activeIdx = keel::kInvalidIndex;
+        for (keel::usize i = 0; i < modals.size(); ++i) {
+            if (modals[i].id == activeModalId) {
+                activeIdx = i;
+                break;
+            }
+        }
+        if (activeIdx == keel::kInvalidIndex) {
+            return false;
+        }
+        for (keel::usize i = activeIdx + 1; i < modals.size(); ++i) {
+            if (modals[i].backdropRect.Contains(pos)) return true;
+        }
+        return false;
+    };
+
+    return checkList(m_currFrameModals) || checkList(m_prevFrameModals);
+}
+
+bool Context::IsPopoverBlockingInFrame(Vec2 pos, Id ownerPortalOverride) const noexcept {
+    const Id activePortalId = ownerPortalOverride.IsValid() ? ownerPortalOverride : CurrentPortalId();
     const HitNodeRecord* activePortalRec = nullptr;
-    if (activePortal && activePortal->id.IsValid()) {
-        if (const keel::usize* idx = m_prevHitNodeMap.get(activePortal->id)) {
+    if (activePortalId.IsValid()) {
+        if (const keel::usize* idx = m_prevHitNodeMap.get(activePortalId)) {
             activePortalRec = &m_prevHitNodes[*idx];
         }
     }
@@ -1872,8 +2103,8 @@ bool Context::IsPopoverBlockingInFrame(Vec2 pos) const noexcept {
         if (b.type != NodeType::Popover || !b.blocksHit || !b.rect.Contains(pos)) {
             continue;
         }
-        if (activePortal != nullptr) {
-            if (activePortal->id == b.id) {
+        if (activePortalId.IsValid()) {
+            if (activePortalId == b.id) {
                 continue;
             }
             if (activePortalRec != nullptr) {
@@ -1888,6 +2119,51 @@ bool Context::IsPopoverBlockingInFrame(Vec2 pos) const noexcept {
         }
         return true;
     }
+    return false;
+}
+
+bool Context::IsOverlayOccludedInFrame(Id id, Vec2 pos, OverlayLayer layer) const noexcept {
+    const keel::u8 layerRank = static_cast<keel::u8>(layer);
+
+    // 1. Layer 3+ (Popup / Notification): active dropdown/menu popup and higher global overlays
+    if (layerRank <= static_cast<keel::u8>(OverlayLayer::Popup) &&
+        m_openPopupId.IsValid() && m_openPopupId != id && m_openPopupRect.Contains(pos)) {
+        return true;
+    }
+    for (const auto& ov : m_prevOverlayHitRegions) {
+        if (static_cast<keel::u8>(ov.layer) > layerRank && ov.id != id && ov.rect.Contains(pos)) {
+            return true;
+        }
+    }
+
+    // 2. Layer 2 (Portal): Modals & Popovers strictly above this overlay's scope/layer
+    if (layerRank < static_cast<keel::u8>(OverlayLayer::Popup)) {
+        Id exemptModal = Id::Null();
+        if (layer == OverlayLayer::Portal && id.IsValid()) {
+            for (const auto& m : m_prevFrameModals) {
+                if (m.id == id) { exemptModal = id; break; }
+            }
+            if (!exemptModal.IsValid()) {
+                for (const auto& m : m_currFrameModals) {
+                    if (m.id == id) { exemptModal = id; break; }
+                }
+            }
+        }
+        if (IsModalBlockingInFrame(pos, exemptModal)) {
+            return true;
+        }
+        if (layer == OverlayLayer::Panel) {
+            if (IsPopoverBlockingInFrame(pos)) {
+                return true;
+            }
+        } else if (layer == OverlayLayer::Portal && exemptModal.IsValid()) {
+            // A Popover opened inside or after a Modal sits above that Modal's backdrop
+            if (IsPopoverBlockingInFrame(pos, exemptModal)) {
+                return true;
+            }
+        }
+    }
+
     return false;
 }
 
@@ -1911,16 +2187,20 @@ bool Context::IsMouseOccludedInFrame(Id id, Vec2 pos) const noexcept {
 
     const keel::usize* idxA = m_prevHitNodeMap.get(id);
     keel::u8 targetZLayer = CurrentScopeZLayer();
+    Id targetPortalId = CurrentPortalId();
     if (idxA != nullptr) {
         targetZLayer = keel::max<keel::u8>(targetZLayer, m_prevHitNodes[*idxA].zLayer);
+        if (!targetPortalId.IsValid()) {
+            targetPortalId = m_prevHitNodes[*idxA].portalId;
+        }
     }
 
     for (const auto& ov : m_prevOverlayHitRegions) {
         if (m_activeId.IsValid() && m_activeId == ov.id) {
             return ov.id != id;
         }
-        if (static_cast<keel::u8>(ov.layer) >= targetZLayer && ov.rect.Contains(pos)) {
-            return ov.id != id;
+        if (DoesOverlayRegionOcclude(ov, id, targetZLayer, targetPortalId, pos)) {
+            return true;
         }
     }
 
@@ -2006,15 +2286,10 @@ bool Context::IsRectHovered(Id id, const Rect& rect) const noexcept {
 
 bool Context::IsMouseBlockedForCurrentScope() const noexcept {
     if (m_activeOverlayHitCheckId.IsValid()) {
-        if (m_openPopupId.IsValid() && m_openPopupId != m_activeOverlayHitCheckId && m_openPopupRect.Contains(m_mousePos)) {
-            return true;
+        if (m_activeId.IsValid() && m_activeId == m_activeOverlayHitCheckId) {
+            return false;
         }
-        if (m_activeOverlayHitCheckId != m_prevFrameModalId &&
-            m_activeOverlayHitCheckId != m_currFrameModalId &&
-            IsModalBlockingInFrame(m_mousePos)) {
-            return true;
-        }
-        return false;
+        return IsOverlayOccludedInFrame(m_activeOverlayHitCheckId, m_mousePos, m_activeOverlayHitCheckLayer);
     }
 
     if (m_openPopupId.IsValid() && m_openPopupRect.Contains(m_mousePos)) {
@@ -2036,13 +2311,14 @@ bool Context::IsMouseBlockedForCurrentScope() const noexcept {
 
     const bool hasActiveCapture = m_activeId.IsValid() && !clickImpulse;
     const keel::u8 currentZLayer = CurrentScopeZLayer();
+    const Id currentPortalId = CurrentPortalId();
 
     // Block non-overlay scopes when hovering/clicking an overlay hit region
-    // at or above the current scope's Z-layer, unless a non-overlay widget/handle
-    // already owns active drag capture.
+    // at or above the current scope's Z-layer (respecting portal ownership),
+    // unless a non-overlay widget/handle already owns active drag capture.
     if (!hasActiveCapture) {
         for (const auto& ov : m_prevOverlayHitRegions) {
-            if (static_cast<keel::u8>(ov.layer) >= currentZLayer && ov.rect.Contains(m_mousePos)) {
+            if (DoesOverlayRegionOcclude(ov, Id::Null(), currentZLayer, currentPortalId, m_mousePos)) {
                 return true;
             }
         }
@@ -2102,8 +2378,8 @@ void Context::SetTooltip(UiText tooltip, Rect anchorRect) {
 
 void Context::RegisterFocusable(Id id, bool disabled) {
     if (!disabled && id.IsValid()) {
-        if (m_modalScopeDepth > 0) {
-            m_currModalFocusableIds.push_back(id);
+        if (!m_activeModalStack.empty()) {
+            m_currModalFocusables.push_back(ModalFocusableEntry{m_activeModalStack.back(), id});
         }
         m_currFocusableIds.push_back(id);
     }
@@ -2480,6 +2756,7 @@ static void CollectBoundsRecursive(
     HitVecT& outHitNodes,
     keel::u32& ioOrderCounter,
     keel::u8 inheritedZLayer,
+    Id inheritedPortalId,
     Rect parentClip,
     const UiTheme& theme,
     const Transform2D& parentSpace,
@@ -2498,12 +2775,15 @@ static void CollectBoundsRecursive(
 
     // Out-of-flow modals and popovers are rendered at top level above ancestor ScrollAreas/clips
     keel::u8 curZLayer = inheritedZLayer;
+    Id curPortalId = inheritedPortalId;
     if (node->type == NodeType::Modal) {
         parentClip = frameRect;
         curZLayer = 2;
+        if (node->id.IsValid()) curPortalId = node->id;
     } else if (node->type == NodeType::Popover) {
         parentClip = Rect(-100000.0f, -100000.0f, 200000.0f, 200000.0f);
         curZLayer = 2;
+        if (node->id.IsValid()) curPortalId = node->id;
     } else if ((node->type == NodeType::Sidebar || node->type == NodeType::BottomPanel) && !node->sidebarCollapsed) {
         curZLayer = keel::max<keel::u8>(curZLayer, 1);
     } else if (node->type == NodeType::StatusBar) {
@@ -2529,6 +2809,7 @@ static void CollectBoundsRecursive(
             using ElemT = keel::RemoveCvRef<decltype(*outHitNodes.data())>;
             ElemT rec{};
             rec.id = node->id;
+            rec.portalId = curPortalId;
             rec.rect = clipped;
             rec.preIndex = preIdx;
             rec.postIndex = preIdx;
@@ -2557,6 +2838,7 @@ static void CollectBoundsRecursive(
             outHitNodes,
             ioOrderCounter,
             curZLayer,
+            curPortalId,
             effectiveClip,
             activeTheme,
             space,
@@ -2574,7 +2856,7 @@ bool Context::UpdateScrollAreasRecursive(Node* node) {
 
     const bool isModal = (node->type == NodeType::Modal);
     if (isModal) {
-        ++m_modalScopeDepth;
+        m_activeModalStack.push_back(node->id);
     }
 
     const bool pushedToStack = (node != m_root);
@@ -2617,8 +2899,8 @@ bool Context::UpdateScrollAreasRecursive(Node* node) {
     if (pushedToStack && !m_containerStack.empty() && m_containerStack.back() == node) {
         m_containerStack.pop_back();
     }
-    if (isModal && m_modalScopeDepth > 0) {
-        --m_modalScopeDepth;
+    if (isModal && !m_activeModalStack.empty()) {
+        m_activeModalStack.pop_back();
     }
     return scrollChanged;
 }
@@ -2660,7 +2942,7 @@ void Context::EndFrame(ICanvas& canvas) {
         m_containerStack.pop_back();
     }
     m_zoneStack.clear();
-    m_modalScopeDepth = 0;
+    m_activeModalStack.clear();
 
     const Vec2 logicalSize = m_viewportSize / m_pixelsPerDp;
 
@@ -2688,6 +2970,7 @@ void Context::EndFrame(ICanvas& canvas) {
         m_currHitNodes,
         hitOrderCounter,
         0,
+        Id::Null(),
         Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y),
         m_theme,
         Transform2D{},
@@ -2696,7 +2979,13 @@ void Context::EndFrame(ICanvas& canvas) {
     for (const auto& builder : m_overlayHitBuilders) {
         if (builder.invoke) {
             m_spaceOverride = &builder.space; // regions are given in the space the builder was registered from
+            m_runningOverlayHitBuilder = true;
+            m_overlayBuilderZLayer = builder.scopeZLayer;
+            m_overlayBuilderPortalId = builder.ownerPortalId;
             builder.invoke(builder.ctx);
+            m_runningOverlayHitBuilder = false;
+            m_overlayBuilderZLayer = 0;
+            m_overlayBuilderPortalId = Id::Null();
             m_spaceOverride = nullptr;
         }
     }
@@ -2716,13 +3005,20 @@ void Context::EndFrame(ICanvas& canvas) {
     m_prevNodeSpaces = keel::move(m_currNodeSpaces);
     m_currNodeSpaces.clear();
     m_prevFocusableIds = keel::move(m_currFocusableIds);
-    m_prevModalFocusableIds = keel::move(m_currModalFocusableIds);
+    m_prevModalFocusables = keel::move(m_currModalFocusables);
 
-    // Suspend focus from occluded background widgets when a Modal opens, and restore it when the Modal closes
-    if (m_currFrameModalId.IsValid()) {
+    // Suspend focus from occluded background widgets when a Modal opens, and restore it when all Modals close
+    if (!m_currFrameModals.empty()) {
         if (m_focusedId.IsValid()) {
-            const bool insideModal = ContainsId(m_prevModalFocusableIds, m_focusedId);
-            if (!insideModal) {
+            const Id topModalId = m_currFrameModals.back().id;
+            bool insideTopModal = false;
+            for (const auto& entry : m_prevModalFocusables) {
+                if (entry.modalId == topModalId && entry.focusableId == m_focusedId) {
+                    insideTopModal = true;
+                    break;
+                }
+            }
+            if (!insideTopModal) {
                 if (!m_savedFocusBeforeModal.IsValid()) {
                     m_savedFocusBeforeModal = m_focusedId;
                 }
@@ -2905,7 +3201,7 @@ void Context::EndFrame(ICanvas& canvas) {
     const bool tooltipChanged = (hasTooltip != m_hadTooltipLastFrame) ||
                                 (hasTooltip && tooltipHash != m_prevTooltipHash);
 
-    const bool hasModal = m_currFrameModalId.IsValid();
+    const bool hasModal = !m_currFrameModals.empty();
     const bool modalChanged = (hasModal != m_hadModalLastFrame) || m_modalClosedThisFrame;
 
     const bool hasToasts = !m_toasts.empty();
@@ -2996,8 +3292,8 @@ void Context::EndFrame(ICanvas& canvas) {
     m_hadModalOverlayLastFrame = m_currFrameModalOverlay;
     m_hadDebugBoundsLastFrame = anyDebugBounds;
     m_hadInspectModeLastFrame = anyInspectMode;
-    m_prevFrameModalId = m_currFrameModalId;
-    m_prevFrameModalBackdropRect = m_currFrameModalBackdropRect;
+    m_prevFrameModals = keel::move(m_currFrameModals);
+    m_currFrameModals.clear();
     m_prevSnapshots = keel::move(currSnapshots);
 
     // Overlays draw (and query the context) in the space they were registered from
@@ -3047,6 +3343,7 @@ void Context::EndFrame(ICanvas& canvas) {
             runOverlayPasses(OverlayLayer::Panel, m_dirtyRect, false);
             RenderModalsRecursive(m_root, canvas, m_dirtyRect, m_theme);
             runOverlayPasses(OverlayLayer::Popup, m_dirtyRect, false);
+            runOverlayPasses(OverlayLayer::Notification, m_dirtyRect, false);
             if (hasTooltip) {
                 RenderTooltipOverlay(canvas, logicalSize);
             }
@@ -3067,6 +3364,7 @@ void Context::EndFrame(ICanvas& canvas) {
                 runOverlayPasses(OverlayLayer::Panel, dr, true);
                 RenderModalsRecursive(m_root, canvas, dr, m_theme);
                 runOverlayPasses(OverlayLayer::Popup, dr, true);
+                runOverlayPasses(OverlayLayer::Notification, dr, true);
                 canvas.PopClip();
                 canvas.End();
             }

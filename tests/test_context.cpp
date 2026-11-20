@@ -12486,6 +12486,7 @@ void TestFocusVisibleModalityAndTabBarFocusRing();
 void TestTextCompositorAndSubpixelRendering();
 void TestSwitchAndRadioSubpixelCentering();
 void TestPopoverOccludesPanelSashesAndRendersAboveThem();
+void TestUnifiedOverlayLayersNestedModalsAndModalSplitView();
 
 int main() {
     keel::println("[RUN] Testing GuiKit Context & Immediate Mode API...");
@@ -15242,6 +15243,7 @@ int main() {
     TestTextCompositorAndSubpixelRendering();
     TestSwitchAndRadioSubpixelCentering();
     TestPopoverOccludesPanelSashesAndRendersAboveThem();
+    TestUnifiedOverlayLayersNestedModalsAndModalSplitView();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Context tests passed successfully!");
@@ -17742,14 +17744,232 @@ void TestPopoverOccludesPanelSashesAndRendersAboveThem() {
     const Color exposedSashCol = samplePixel(700u, sashY);
     CHECK(static_cast<keel::i32>(exposedSashCol.b) > static_cast<keel::i32>(exposedSashCol.r) + 40);
 
-    // 5. Closing the Popover restores normal BottomPanel sash hover at the exact same coordinate.
+    // 5. Closing the Popover clears its hit-block immediately on the SAME frame (no 1-frame lag).
     popoverOpen = false;
-    renderFrame();
     ui.OnMouseMove(btnOverSash);
     renderFrame();
     CHECK(ui.GetCursor() == CursorType::ResizeNS);
 
     keel::println("  [PASS] TestPopoverOccludesPanelSashesAndRendersAboveThem completed");
+}
+
+void TestUnifiedOverlayLayersNestedModalsAndModalSplitView() {
+    keel::println("  -> TestUnifiedOverlayLayersNestedModalsAndModalSplitView...");
+    constexpr keel::u32 W = 800;
+    constexpr keel::u32 H = 600;
+    keel::Array<keel::u32> pixels(W * H, 0u);
+    ThorCanvas canvas;
+    canvas.SetTarget(pixels.data(), W, H, W);
+
+    // Part 1: Nested Modals (Modal A -> Modal B) + Escape LIFO + Focus & Hit isolation
+    {
+        Context ui;
+        bool modalAOpen = true;
+        bool modalBOpen = true;
+        bool btnAClicked = false;
+        bool btnBClicked = false;
+        bool btnAHovered = false;
+        Response btnARes{};
+        Response btnBRes{};
+
+        auto renderNestedModals = [&]() {
+            btnAHovered = false;
+            ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+            if (auto col = ui.Column({})) {
+                ui.Text("Workspace");
+                if (auto mA = ui.Modal(modalAOpen, {
+                    .padding = Padding::All(40.0f),
+                    .align = Alignment::Start,
+                    .verticalAlign = Alignment::Start
+                })) {
+                    if (auto cardA = ui.Card({.width = 240.0f, .padding = Padding::All(16.0f)})) {
+                        btnARes = ui.Button({.text = "Modal A Button", .width = SizeMode::Stretch});
+                        btnAHovered = btnARes.hovered;
+                        if (btnARes.clicked) btnAClicked = true;
+
+                        if (auto mB = ui.Modal(modalBOpen, {
+                            .padding = Padding::All(40.0f),
+                            .align = Alignment::End,
+                            .verticalAlign = Alignment::End
+                        })) {
+                            if (auto cardB = ui.Card({.width = 220.0f, .padding = Padding::All(16.0f)})) {
+                                btnBRes = ui.Button({.text = "Modal B Button", .width = SizeMode::Stretch});
+                                if (btnBRes.clicked) btnBClicked = true;
+                            }
+                        }
+                    }
+                }
+            }
+            ui.EndFrame(canvas);
+        };
+
+        renderNestedModals();
+        renderNestedModals();
+        CHECK(modalAOpen && modalBOpen);
+        CHECK(btnARes.rect.w > 40.0f && btnBRes.rect.w > 40.0f);
+
+        // Hovering and clicking Modal A's button while Modal B is open must be blocked by Modal B's backdrop!
+        ui.OnMouseMove(btnARes.rect.Center());
+        renderNestedModals();
+        CHECK(!btnAHovered);
+
+        // Clicking Modal B's button works!
+        ui.OnMouseMove(btnBRes.rect.Center());
+        ui.OnMouseDown(1);
+        renderNestedModals();
+        ui.OnMouseUp(1);
+        renderNestedModals();
+        CHECK(btnBClicked);
+        CHECK(!btnAClicked);
+        CHECK(modalAOpen && modalBOpen);
+
+        // First Escape closes ONLY Modal B, leaving Modal A open
+        ui.OnKeyDown(Key::Escape);
+        renderNestedModals();
+        CHECK(!modalBOpen);
+        CHECK(modalAOpen);
+
+        // Modal A's button is immediately interactive again after Modal B closes
+        ui.OnMouseMove(btnARes.rect.Center());
+        ui.OnMouseDown(1);
+        renderNestedModals();
+        ui.OnMouseUp(1);
+        renderNestedModals();
+        CHECK(btnAClicked);
+        CHECK(modalAOpen);
+
+        // Second Escape closes Modal A
+        ui.OnKeyDown(Key::Escape);
+        renderNestedModals();
+        CHECK(!modalAOpen);
+    }
+
+    // Part 2: SplitView inside Modal + Popover over that Modal's SplitView + Escape closes Popover before Modal
+    {
+        Context ui;
+        bool modalOpen = true;
+        bool popOpen = false;
+        float splitRatio = 0.5f;
+        bool sceneClickedInLeftPane = false;
+        bool popBtnClicked = false;
+        Rect splitRect{};
+        Response popBtnRes{};
+
+        auto renderModalSplit = [&]() {
+            ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+            if (auto col = ui.Column({})) {
+                if (auto m = ui.Modal(modalOpen, {
+                    .align = Alignment::Center,
+                    .verticalAlign = Alignment::Center
+                })) {
+                    if (auto card = ui.Card({.width = 480.0f, .height = 320.0f, .padding = Padding::All(12.0f)})) {
+                        if (auto sp = ui.SplitView(splitRatio, {
+                            .orientation = Orientation::Horizontal,
+                            .height = SizeMode::Stretch
+                        })) {
+                            splitRect = sp.response.rect;
+                            if (auto p1 = sp.First()) {
+                                if (auto sc = ui.Scene({.height = SizeMode::Stretch})) {
+                                    if (ui.IsMouseClicked()) {
+                                        sceneClickedInLeftPane = true;
+                                    }
+                                }
+                            }
+                            if (auto p2 = sp.Second()) {
+                                ui.Text("Right Pane");
+                            }
+                        }
+                        if (auto pop = ui.Popover(popOpen, {
+                            .anchorRect = Rect{splitRect.Center().x - 60.0f, splitRect.y + 10.0f, 120.0f, 24.0f},
+                            .placement = PopoverPlacement::BottomStart,
+                            .offset = 4.0f
+                        })) {
+                            if (auto pCard = ui.Card({.width = 180.0f, .padding = Padding::All(12.0f)})) {
+                                popBtnRes = ui.Button({.text = "Popover Over Split", .width = SizeMode::Stretch});
+                                if (popBtnRes.clicked) popBtnClicked = true;
+                            }
+                        }
+                    }
+                }
+            }
+            ui.EndFrame(canvas);
+        };
+
+        renderModalSplit();
+        renderModalSplit();
+        CHECK(modalOpen);
+        CHECK(splitRect.w > 400.0f);
+
+        // 1. Hover & drag the SplitView sash inside the Modal: works AND occludes child Scene in left pane!
+        const Vec2 sashPos{splitRect.Center().x, splitRect.Center().y};
+        ui.OnMouseMove(sashPos);
+        renderModalSplit();
+        CHECK(ui.GetCursor() == CursorType::ResizeEW);
+
+        ui.OnMouseDown(1);
+        renderModalSplit();
+        ui.OnMouseMove({sashPos.x + 40.0f, sashPos.y});
+        renderModalSplit();
+        ui.OnMouseUp(1);
+        renderModalSplit();
+        CHECK(splitRatio > 0.55f);
+        CHECK(!sceneClickedInLeftPane);
+
+        // 2. Open Popover inside the Modal right over the SplitView sash:
+        //    Popover occludes SplitView sash AND Popover's Button is clickable!
+        splitRatio = 0.5f;
+        popOpen = true;
+        renderModalSplit();
+        renderModalSplit();
+        CHECK(popOpen && modalOpen);
+        CHECK(popBtnRes.rect.w > 40.0f);
+
+        const Vec2 overlapPos{splitRect.Center().x, popBtnRes.rect.Center().y};
+        CHECK(popBtnRes.rect.Contains(overlapPos));
+        ui.OnMouseMove(overlapPos);
+        renderModalSplit();
+        CHECK(ui.GetCursor() != CursorType::ResizeEW);
+
+        ui.OnMouseDown(1);
+        renderModalSplit();
+        ui.OnMouseUp(1);
+        renderModalSplit();
+        CHECK(popBtnClicked);
+        CHECK(modalOpen && popOpen);
+
+        // 3. First Escape closes the Popover inside Modal (leaving Modal open), second Escape closes Modal!
+        ui.OnKeyDown(Key::Escape);
+        renderModalSplit();
+        CHECK(!popOpen);
+        CHECK(modalOpen);
+
+        ui.OnKeyDown(Key::Escape);
+        renderModalSplit();
+        CHECK(!modalOpen);
+    }
+
+    // Part 3: OverlayLayer::Notification renders above OverlayLayer::Popup even when registered earlier in the frame
+    {
+        Context ui;
+        ui.SetThemeMode(ThemeMode::Light);
+        ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+        // Register Notification BEFORE Popup (simulating explicit ui.ToastHost() at top of frame)
+        ui.RegisterOverlay([](ICanvas& c) {
+            c.DrawRect(Rect{100.0f, 100.0f, 120.0f, 40.0f}, Color{20, 200, 60, 255});
+        }, OverlayLayer::Notification);
+        ui.RegisterOverlay([](ICanvas& c) {
+            c.DrawRect(Rect{100.0f, 100.0f, 120.0f, 40.0f}, Color{220, 30, 30, 255});
+        }, OverlayLayer::Popup);
+        ui.EndFrame(canvas);
+
+        const keel::u32 px = pixels[120u * W + 160u];
+        const keel::u8 r = static_cast<keel::u8>(px & 0xFFu);
+        const keel::u8 g = static_cast<keel::u8>((px >> 8) & 0xFFu);
+        const keel::u8 b = static_cast<keel::u8>((px >> 16) & 0xFFu);
+        CHECK(g > 180 && r < 40 && b < 80);
+    }
+
+    keel::println("  [PASS] TestUnifiedOverlayLayersNestedModalsAndModalSplitView completed");
 }
 
 
