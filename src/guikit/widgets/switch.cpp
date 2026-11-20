@@ -279,8 +279,8 @@ void Switch::Render(
     const float trackRadius = m.trackSize.y * 0.5f;
     canvas.DrawRoundRect(trackRect, trackRadius, trackFill, trackStroke, strokeWidth);
 
-    // Compute knob position
-    const float knobY = trackRect.y + m.knobPadding;
+    // Compute knob position centered exactly on track's vertical midline
+    const float knobY = trackRect.y + (trackRect.h - m.knobDiameter) * 0.5f;
     float knobX = 0.0f;
     if (checked) {
         knobX = trackRect.x + trackRect.w - m.knobDiameter - m.knobPadding;

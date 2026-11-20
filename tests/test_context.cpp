@@ -12484,6 +12484,7 @@ void TestSceneWorldSizeInsideScrollAreaDoesNotOverflow();
 void TestApiPolishStretchWeightsTabBarColorAndOptionalMins();
 void TestFocusVisibleModalityAndTabBarFocusRing();
 void TestTextCompositorAndSubpixelRendering();
+void TestSwitchAndRadioSubpixelCentering();
 
 int main() {
     keel::println("[RUN] Testing GuiKit Context & Immediate Mode API...");
@@ -15238,6 +15239,7 @@ int main() {
     TestApiPolishStretchWeightsTabBarColorAndOptionalMins();
     TestFocusVisibleModalityAndTabBarFocusRing();
     TestTextCompositorAndSubpixelRendering();
+    TestSwitchAndRadioSubpixelCentering();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Context tests passed successfully!");
@@ -17502,6 +17504,83 @@ void TestTextCompositorAndSubpixelRendering() {
 #endif
 
     keel::println("  [PASS] TestTextCompositorAndSubpixelRendering completed");
+}
+
+void TestSwitchAndRadioSubpixelCentering() {
+    using namespace guikit;
+    keel::println("  -> TestSwitchAndRadioSubpixelCentering...");
+
+    ThorCanvas canvas;
+    const UiTheme theme = UiTheme::Light();
+    constexpr keel::u32 W = 96;
+    constexpr keel::u32 H = 64;
+    keel::Array<keel::u32> fb(W * H, 0u);
+
+    auto measureCentroidY = [&](const keel::Array<keel::u32>& buf, auto weightFn) -> float {
+        double sumW = 0.0;
+        double sumYW = 0.0;
+        for (keel::u32 y = 0; y < H; ++y) {
+            for (keel::u32 x = 0; x < W; ++x) {
+                const float w = weightFn(buf[y * W + x]);
+                if (w > 0.0f) {
+                    sumW += w;
+                    sumYW += (static_cast<double>(y) + 0.5) * w;
+                }
+            }
+        }
+        return (sumW > 0.0) ? static_cast<float>(sumYW / sumW) : -1.0f;
+    };
+
+    const float fractionalOffsets[] = {0.0f, 0.15f, 0.30f, 0.40f, 0.50f, 0.60f, 0.75f, 0.90f};
+    for (float fracY : fractionalOffsets) {
+        // 1. Switch Md (trackH = 15, knobDia = 12, padding = 1.5): knob must stay vertically centered in track
+        {
+            fb.assign(W * H, 0u);
+            canvas.SetTarget(fb.data(), W, H, W);
+            canvas.Begin(W, H, 1.0f);
+            const Rect trackBounds(16.0f + fracY, 16.0f + fracY, 27.0f, 15.0f);
+            Switch::Render(canvas, trackBounds, true, SwitchOptions{}, UiSize::Md, false, false, false, theme, false);
+            canvas.End();
+
+            // Outer silhouette (any non-transparent pixel) vs inner white knob (high R, G, B)
+            const float trackCenterY = measureCentroidY(fb, [](keel::u32 px) -> float {
+                return static_cast<float>((px >> 24) & 0xFFu) / 255.0f;
+            });
+            // Weight inner white knob/dot smoothly by whiteness (red channel above primary blue's R=37)
+            const float knobCenterY = measureCentroidY(fb, [](keel::u32 px) -> float {
+                const keel::u32 a = (px >> 24) & 0xFFu;
+                if (a < 200u) return 0.0f;
+                const float r = static_cast<float>(px & 0xFFu);
+                return keel::clamp((r - 50.0f) / 205.0f, 0.0f, 1.0f);
+            });
+            CHECK(trackCenterY > 0.0f && knobCenterY > 0.0f);
+            CHECK(keel::abs(knobCenterY - trackCenterY) < 0.15f);
+        }
+
+        // 2. Radio Md (box = 13.5, dot = 6.0): inner dot must stay centered in X and Y
+        {
+            fb.assign(W * H, 0u);
+            canvas.SetTarget(fb.data(), W, H, W);
+            canvas.Begin(W, H, 1.0f);
+            const Rect radioBounds(16.0f + fracY, 16.0f + fracY, 13.5f, 13.5f);
+            Radio::Render(canvas, radioBounds, true, RadioOptions{}, UiSize::Md, false, false, false, theme, false);
+            canvas.End();
+
+            const float ringCenterY = measureCentroidY(fb, [](keel::u32 px) -> float {
+                return static_cast<float>((px >> 24) & 0xFFu) / 255.0f;
+            });
+            const float dotCenterY = measureCentroidY(fb, [](keel::u32 px) -> float {
+                const keel::u32 a = (px >> 24) & 0xFFu;
+                if (a < 200u) return 0.0f;
+                const float r = static_cast<float>(px & 0xFFu);
+                return keel::clamp((r - 50.0f) / 205.0f, 0.0f, 1.0f);
+            });
+            CHECK(ringCenterY > 0.0f && dotCenterY > 0.0f);
+            CHECK(keel::abs(dotCenterY - ringCenterY) < 0.15f);
+        }
+    }
+
+    keel::println("  [PASS] TestSwitchAndRadioSubpixelCentering completed");
 }
 
 

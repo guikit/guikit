@@ -295,6 +295,7 @@ private:
         keel::u16 qH{0};
         keel::u16 qRad{0};
         keel::u16 qStrokeW{0};
+        keel::u8 subpixelPhase{0}; ///< (phaseY << 2) | phaseX, quarter-pixel [0..3]
 
         bool operator==(const ShapeStampKey& o) const noexcept {
             return fillRgba == o.fillRgba &&
@@ -302,7 +303,8 @@ private:
                    qW == o.qW &&
                    qH == o.qH &&
                    qRad == o.qRad &&
-                   qStrokeW == o.qStrokeW;
+                   qStrokeW == o.qStrokeW &&
+                   subpixelPhase == o.subpixelPhase;
         }
     };
 
@@ -311,6 +313,7 @@ private:
             keel::u64 h = static_cast<keel::u64>(k.fillRgba) | (static_cast<keel::u64>(k.strokeRgba) << 32);
             h ^= (static_cast<keel::u64>(k.qW) | (static_cast<keel::u64>(k.qH) << 16) |
                   (static_cast<keel::u64>(k.qRad) << 32) | (static_cast<keel::u64>(k.qStrokeW) << 48)) * 0x9e3779b97f4a7c15ULL;
+            h ^= static_cast<keel::u64>(k.subpixelPhase) * 0x517cc1b727220a95ULL;
             h ^= h >> 33;
             return h * 0xff51afd7ed558ccdULL;
         }
@@ -467,7 +470,9 @@ private:
         float scaledRadius,
         Color fill,
         Color stroke,
-        float scaledStrokeWidth
+        float scaledStrokeWidth,
+        keel::u8 phaseX = 0u,
+        keel::u8 phaseY = 0u
     );
     void BlitTextMask(
         const TextMaskEntry& mask,
@@ -486,13 +491,13 @@ private:
     );
 
     static constexpr keel::usize kMaxTextStampBytes = 2u * 1024u * 1024u;
-    static constexpr keel::usize kMaxShapeStampBytes = 1u * 1024u * 1024u;
+    static constexpr keel::usize kMaxShapeStampBytes = 2u * 1024u * 1024u;
     static constexpr keel::usize kMaxImageCacheEntries = 48u;
     static constexpr keel::usize kMaxImageCacheBytes = 4u * 1024u * 1024u;
 
     keel::LruCache<TextMeasureKey, Vec2, 1024, TextMeasureKeyHash> m_textMeasureCache;
     StampLruCache<TextMaskKey, TextMaskEntry, 512, kMaxTextStampBytes, TextMaskKeyHash> m_textStampCache;
-    StampLruCache<ShapeStampKey, ShapeStampEntry, 192, kMaxShapeStampBytes, ShapeStampKeyHash> m_shapeStampCache;
+    StampLruCache<ShapeStampKey, ShapeStampEntry, 512, kMaxShapeStampBytes, ShapeStampKeyHash> m_shapeStampCache;
     keel::HashMap<keel::String, ImageCacheEntry> m_imageCache;
     keel::usize m_imageCacheBytes{0};
 };

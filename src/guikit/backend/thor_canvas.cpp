@@ -638,9 +638,13 @@ void ThorCanvas::DrawRoundRect(
 
     if (m_targetBuffer && m_width > 0 && m_height > 0 &&
         ((sRect.w <= 180.0f && sRect.h <= 52.0f) || (sRect.w <= 72.0f && sRect.h <= 72.0f))) {
-        const keel::i32 dstX = keel::round_i32(sRect.x);
-        const keel::i32 dstY = keel::round_i32(sRect.y);
-        const ShapeStampEntry& stamp = ResolveShapeStamp(sRect.w, sRect.h, sRadius, fill, stroke, sStrokeW);
+        const keel::i32 qx = keel::round_i32(sRect.x * 4.0f);
+        const keel::i32 qy = keel::round_i32(sRect.y * 4.0f);
+        const keel::i32 dstX = keel::floor_i32(static_cast<float>(qx) * 0.25f);
+        const keel::i32 dstY = keel::floor_i32(static_cast<float>(qy) * 0.25f);
+        const keel::u8 phaseX = static_cast<keel::u8>(qx - dstX * 4);
+        const keel::u8 phaseY = static_cast<keel::u8>(qy - dstY * 4);
+        const ShapeStampEntry& stamp = ResolveShapeStamp(sRect.w, sRect.h, sRadius, fill, stroke, sStrokeW, phaseX, phaseY);
         BlitShapeStamp(stamp, dstX, dstY);
         return;
     }
@@ -955,7 +959,9 @@ const ThorCanvas::ShapeStampEntry& ThorCanvas::ResolveShapeStamp(
     float scaledRadius,
     Color fill,
     Color stroke,
-    float scaledStrokeWidth
+    float scaledStrokeWidth,
+    keel::u8 phaseX,
+    keel::u8 phaseY
 ) {
     const keel::u16 qW = static_cast<keel::u16>(keel::clamp(keel::round_i32(scaledW * 4.0f), 1, 4096));
     const keel::u16 qH = static_cast<keel::u16>(keel::clamp(keel::round_i32(scaledH * 4.0f), 1, 4096));
@@ -963,6 +969,9 @@ const ThorCanvas::ShapeStampEntry& ThorCanvas::ResolveShapeStamp(
     const keel::u16 qStrokeW = (stroke.a > 0 && scaledStrokeWidth > 0.0f)
         ? static_cast<keel::u16>(keel::clamp(keel::round_i32(scaledStrokeWidth * 4.0f), 1, 1024))
         : 0u;
+    const keel::u8 pxPhase = static_cast<keel::u8>(phaseX & 3u);
+    const keel::u8 pyPhase = static_cast<keel::u8>(phaseY & 3u);
+    const keel::u8 packedPhase = static_cast<keel::u8>((pyPhase << 2) | pxPhase);
 
     const ShapeStampKey key{
         .fillRgba = (fill.a > 0) ? fill.ToUint32() : 0u,
@@ -970,7 +979,8 @@ const ThorCanvas::ShapeStampEntry& ThorCanvas::ResolveShapeStamp(
         .qW = qW,
         .qH = qH,
         .qRad = qRad,
-        .qStrokeW = qStrokeW
+        .qStrokeW = qStrokeW,
+        .subpixelPhase = packedPhase
     };
 
     if (const ShapeStampEntry* cached = m_shapeStampCache.Get(key)) {
@@ -982,10 +992,12 @@ const ThorCanvas::ShapeStampEntry& ThorCanvas::ResolveShapeStamp(
     const float h = static_cast<float>(qH) * 0.25f;
     const float rad = static_cast<float>(qRad) * 0.25f;
     const float sw = static_cast<float>(qStrokeW) * 0.25f;
+    const float subX = static_cast<float>(pxPhase) * 0.25f;
+    const float subY = static_cast<float>(pyPhase) * 0.25f;
 
     const keel::i32 pad = keel::ceil_i32(sw * 0.5f) + 2;
-    const keel::i32 bufW = keel::clamp(keel::ceil_i32(w) + pad * 2, 4, 512);
-    const keel::i32 bufH = keel::clamp(keel::ceil_i32(h) + pad * 2, 4, 256);
+    const keel::i32 bufW = keel::clamp(keel::ceil_i32(w + subX) + pad * 2, 4, 512);
+    const keel::i32 bufH = keel::clamp(keel::ceil_i32(h + subY) + pad * 2, 4, 256);
 
     if (!m_stampCanvas) {
         m_stampCanvas = tvg::SwCanvas::gen(tvg::EngineOption::None);
@@ -995,7 +1007,7 @@ const ThorCanvas::ShapeStampEntry& ThorCanvas::ResolveShapeStamp(
     m_stampCanvas->target(m_stampScratch.data(), static_cast<keel::u32>(bufW), static_cast<keel::u32>(bufW), static_cast<keel::u32>(bufH), tvg::ColorSpace::ABGR8888);
 
     auto* shape = tvg::Shape::gen();
-    shape->appendRect(static_cast<float>(pad), static_cast<float>(pad), w, h, rad, rad);
+    shape->appendRect(static_cast<float>(pad) + subX, static_cast<float>(pad) + subY, w, h, rad, rad);
     if (fill.a > 0) {
         shape->fill(fill.r, fill.g, fill.b, fill.a);
     }

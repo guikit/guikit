@@ -201,7 +201,10 @@ void Radio::Render(
     canvas.DrawRoundRect(boxRect, outerRadius, ringFill, ringStroke, strokeWidth);
 
     if (selected) {
-        const float dotDia = keel::max(4.0f, boxRect.w * 0.44f);
+        // Choose dot diameter so (boxRect.w - dotDia) * 0.5 lands on a clean 0.25-dp grid (eliminating relative subpixel drift)
+        const float rawGap = boxRect.w * 0.56f;
+        const float snappedGap = keel::round(rawGap * 2.0f) * 0.5f;
+        const float dotDia = keel::max(4.0f, boxRect.w - snappedGap);
         const Rect dotRect(
             boxRect.x + (boxRect.w - dotDia) * 0.5f,
             boxRect.y + (boxRect.h - dotDia) * 0.5f,
