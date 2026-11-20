@@ -1,6 +1,9 @@
 #include "guikit/backend/thor_canvas.hpp"
 #include "guikit/backend/text_compositor.hpp"
 #include "guikit/backend/vector_backend.hpp"
+#if defined(GUIKIT_HAS_FREETYPE) && GUIKIT_HAS_FREETYPE
+#include "freetype_text_engine.hpp"
+#endif
 #include <cstdlib>
 #include <cstring>
 #include "guikit/core/assets.hpp"
@@ -125,6 +128,13 @@ ThorCanvas::ThorCanvas(bool loadDefaultFonts) {
     // multi-core mutex contention and condition_variable wakeups on UI primitives.
     tvg::Initializer::init(0);
     m_canvas = tvg::SwCanvas::gen(tvg::EngineOption::None);
+#if defined(GUIKIT_HAS_FREETYPE) && GUIKIT_HAS_FREETYPE
+    m_ftEngine = new FreeTypeTextEngine();
+    if (!m_ftEngine->IsAvailable()) {
+        delete m_ftEngine;
+        m_ftEngine = nullptr;
+    }
+#endif
 
     if (!loadDefaultFonts) {
         return;
@@ -163,6 +173,10 @@ ThorCanvas::ThorCanvas(bool loadDefaultFonts) {
 }
 
 ThorCanvas::~ThorCanvas() {
+#if defined(GUIKIT_HAS_FREETYPE) && GUIKIT_HAS_FREETYPE
+    delete m_ftEngine;
+    m_ftEngine = nullptr;
+#endif
     if (m_measureText) {
         m_measureText->unref();
         m_measureText = nullptr;
@@ -200,12 +214,37 @@ void ThorCanvas::TrimCaches() noexcept {
     m_stampScratch = {};
     m_subpixelRowScratch = {};
     m_filteredMaskScratch = {};
+#if defined(GUIKIT_HAS_FREETYPE) && GUIKIT_HAS_FREETYPE
+    if (m_ftEngine) {
+        m_ftEngine->TrimCaches();
+    }
+#endif
+}
+
+keel::StringRef ThorCanvas::GetTextEngineName() const noexcept {
+#if defined(GUIKIT_HAS_FREETYPE) && GUIKIT_HAS_FREETYPE
+    if (m_ftEngine && m_ftEngine->IsAvailable()) {
+        return "FreeType";
+    }
+#endif
+    return "ThorVG";
+}
+
+bool ThorCanvas::SupportsFontHinting() const noexcept {
+#if defined(GUIKIT_HAS_FREETYPE) && GUIKIT_HAS_FREETYPE
+    return m_ftEngine && m_ftEngine->IsAvailable();
+#else
+    return false;
+#endif
 }
 
 void ThorCanvas::SetTextRenderSettings(const TextRenderSettings& settings) noexcept {
     TextRenderSettings clamped = settings;
     clamped.contrast = keel::clamp(clamped.contrast, 0.5f, 2.0f);
     clamped.stemDarkening = keel::clamp(clamped.stemDarkening, 0.0f, 0.5f);
+    if (clamped.hinting != m_textSettings.hinting) {
+        m_textMeasureCache.clear();
+    }
     m_textSettings = clamped;
 }
 
@@ -259,6 +298,11 @@ bool ThorCanvas::LoadFontMemoryInternal(
     FontSlot& slot = m_fonts[FontStyleSlotIndex(style)];
     slot.name.assign(name);
     slot.loaded = true;
+#if defined(GUIKIT_HAS_FREETYPE) && GUIKIT_HAS_FREETYPE
+    if (m_ftEngine && m_ftEngine->IsAvailable()) {
+        (void)m_ftEngine->LoadFontMemory(data, style, copyData);
+    }
+#endif
     m_textMeasureCache.clear();
     m_textStampCache.Clear();
     return true;
@@ -637,6 +681,14 @@ Vec2 ThorCanvas::MeasureTextStyled(keel::StringRef text, float fontSize, FontSty
     if (const Vec2* cached = m_textMeasureCache.get(key)) {
         return *cached;
     }
+
+#if defined(GUIKIT_HAS_FREETYPE) && GUIKIT_HAS_FREETYPE
+    if (m_ftEngine && m_ftEngine->HasFontForStyle(style)) {
+        const Vec2 result = m_ftEngine->MeasureText(text, fontSize, style, m_textSettings.hinting);
+        m_textMeasureCache.put(key, result);
+        return result;
+    }
+#endif
 
     if (!m_measureText) {
         m_measureText = tvg::Text::gen();
@@ -1151,6 +1203,25 @@ void ThorCanvas::DrawTextStyled(
             return;
         }
         const float scaledFs = fontSize * m_scale;
+#if defined(GUIKIT_HAS_FREETYPE) && GUIKIT_HAS_FREETYPE
+        if (m_ftEngine && m_ftEngine->HasFontForStyle(style)) {
+            Rect clipPx(0.0f, 0.0f, static_cast<float>(m_width), static_cast<float>(m_height));
+            if (!m_clipStack.empty()) {
+                clipPx = clipPx.Intersect(m_clipStack.back());
+            }
+            if (clipPx.w > 0.0f && clipPx.h > 0.0f) {
+                FlushCanvas();
+                if (m_ftEngine->DrawText(
+                        m_targetBuffer, m_width, m_height, m_stride,
+                        stampText, PxX(pos.x), PxY(pos.y), scaledFs,
+                        color, style, clipPx, m_textSettings, m_scale)) {
+                    return;
+                }
+            } else {
+                return;
+            }
+        }
+#endif
         const FontSmoothing effSmooth = TextCompositor::ResolveEffectiveSmoothing(m_textSettings.smoothing, m_scale);
         const bool useSubpixel = (effSmooth == FontSmoothing::SubpixelRGB || effSmooth == FontSmoothing::SubpixelBGR);
         const bool bgrOrder = (effSmooth == FontSmoothing::SubpixelBGR);
@@ -1235,6 +1306,27 @@ void ThorCanvas::DrawTextBoxStyled(
         drawText.find('\n') == keel::StringRef::npos) {
         const keel::StringRef stampText = ClampUtf8Prefix(drawText, 512);
         const float scaledFs = fontSize * m_scale;
+#if defined(GUIKIT_HAS_FREETYPE) && GUIKIT_HAS_FREETYPE
+        if (m_ftEngine && m_ftEngine->HasFontForStyle(style)) {
+            const float vPad = keel::max(4.0f, scaledFs * 0.35f);
+            Rect clipPx(0.0f, 0.0f, static_cast<float>(m_width), static_cast<float>(m_height));
+            if (!m_clipStack.empty()) {
+                clipPx = clipPx.Intersect(m_clipStack.back());
+            }
+            clipPx = clipPx.Intersect(Rect(sBounds.x - 2.0f, sBounds.y - vPad, sBounds.w + 4.0f, sBounds.h + vPad * 2.0f));
+            if (clipPx.w > 0.0f && clipPx.h > 0.0f) {
+                FlushCanvas();
+                if (m_ftEngine->DrawTextBox(
+                        m_targetBuffer, m_width, m_height, m_stride,
+                        stampText, sBounds, scaledFs, color, style,
+                        alignX, alignY, clipPx, m_textSettings, m_scale)) {
+                    return;
+                }
+            } else {
+                return;
+            }
+        }
+#endif
         const FontSmoothing effSmooth = TextCompositor::ResolveEffectiveSmoothing(m_textSettings.smoothing, m_scale);
         const bool useSubpixel = (effSmooth == FontSmoothing::SubpixelRGB || effSmooth == FontSmoothing::SubpixelBGR);
         const bool bgrOrder = (effSmooth == FontSmoothing::SubpixelBGR);

@@ -618,8 +618,14 @@ void MainWindow::RenderEngineControls(ToolbarScope& tb) {
                 "Subpixel RGB",
                 "Subpixel BGR"
             }};
+            static constexpr keel::StaticArray<keel::StringRef, 3> kHintingLabels = {{
+                "None",
+                "Light",
+                "Normal"
+            }};
 
             TextRenderSettings textCfg = GetTextRenderSettings();
+            const bool supportsHinting = m_backend && m_backend->GetCanvas().SupportsFontHinting();
             bool textChanged = false;
 
             if (auto el = m_ui.Element({
@@ -629,6 +635,18 @@ void MainWindow::RenderEngineControls(ToolbarScope& tb) {
                 keel::usize smoothIdx = static_cast<keel::usize>(textCfg.smoothing);
                 if (m_ui.Select(smoothIdx, kSmoothingLabels, {.size = UiSize::Sm, .width = 128.0f})) {
                     textCfg.smoothing = static_cast<FontSmoothing>(smoothIdx % kSmoothingLabels.size());
+                    textChanged = true;
+                }
+            }
+
+            if (auto el = m_ui.Element({
+                .label = "Hinting",
+                .layout = ElementLayout::Leading,
+                .disabled = !supportsHinting
+            })) {
+                keel::usize hintIdx = static_cast<keel::usize>(textCfg.hinting);
+                if (m_ui.Select(hintIdx, kHintingLabels, {.disabled = !supportsHinting, .size = UiSize::Sm, .width = 128.0f})) {
+                    textCfg.hinting = static_cast<FontHinting>(hintIdx % kHintingLabels.size());
                     textChanged = true;
                 }
             }

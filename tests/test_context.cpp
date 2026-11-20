@@ -17396,9 +17396,15 @@ void TestTextCompositorAndSubpixelRendering() {
     const keel::u32 rSrgb = pxSrgb & 0xFFu;
     CHECK(rGamma > rSrgb + 30u); // Linear 50% white on dark is ~188 vs ~139 in sRGB
 
-    // 5. ThorCanvas Grayscale vs SubpixelRGB vs SubpixelBGR & color-independent mask reuse
+    // 5. ThorCanvas Grayscale vs SubpixelRGB vs SubpixelBGR & Hinting (FreeType when enabled, ThorVG fallback when OFF)
     ThorCanvas canvas;
+#if defined(GUIKIT_HAS_FREETYPE) && GUIKIT_HAS_FREETYPE
+    CHECK(canvas.GetTextEngineName() == "FreeType");
+    CHECK(canvas.SupportsFontHinting());
+#else
     CHECK(canvas.GetTextEngineName() == "ThorVG");
+    CHECK(!canvas.SupportsFontHinting());
+#endif
     constexpr keel::u32 W = 180;
     constexpr keel::u32 H = 48;
     keel::Array<keel::u32> fbGray(W * H, 0u);
@@ -17460,6 +17466,40 @@ void TestTextCompositorAndSubpixelRendering() {
     // Auto mode selects SubpixelRGB at 1x and Grayscale at 2x HiDPI
     CHECK(TextCompositor::ResolveEffectiveSmoothing(FontSmoothing::Auto, 1.0f) == FontSmoothing::SubpixelRGB);
     CHECK(TextCompositor::ResolveEffectiveSmoothing(FontSmoothing::Auto, 2.0f) == FontSmoothing::Grayscale);
+
+#if defined(GUIKIT_HAS_FREETYPE) && GUIKIT_HAS_FREETYPE
+    // 6. Verify FreeType hinting modes (None vs Light vs Normal) render cleanly and produce distinct rasterizations
+    {
+        keel::Array<keel::u32> fbNone(W * H, 0u);
+        keel::Array<keel::u32> fbLight(W * H, 0u);
+        keel::Array<keel::u32> fbNormal(W * H, 0u);
+        auto renderHinted = [&](keel::Array<keel::u32>& fb, FontHinting hint) {
+            canvas.SetTarget(fb.data(), W, H, W);
+            canvas.SetTextRenderSettings(TextRenderSettings{
+                .smoothing = FontSmoothing::Grayscale,
+                .hinting = hint,
+                .gammaCorrectBlending = true,
+                .contrast = 1.0f,
+                .stemDarkening = 0.0f
+            });
+            canvas.Begin(W, H, 1.0f);
+            canvas.Clear(darkBg);
+            canvas.DrawText("Hamburgefonstiv 123", {6.0f, 10.0f}, 13.0f, white);
+            canvas.End();
+        };
+        renderHinted(fbNone, FontHinting::None);
+        renderHinted(fbLight, FontHinting::Light);
+        renderHinted(fbNormal, FontHinting::Normal);
+        keel::usize diffNoneLight = 0;
+        keel::usize diffLightNormal = 0;
+        for (keel::usize i = 0; i < W * H; ++i) {
+            if (fbNone[i] != fbLight[i]) ++diffNoneLight;
+            if (fbLight[i] != fbNormal[i]) ++diffLightNormal;
+        }
+        CHECK(diffNoneLight > 10u);
+        CHECK(diffLightNormal > 10u);
+    }
+#endif
 
     keel::println("  [PASS] TestTextCompositorAndSubpixelRendering completed");
 }

@@ -482,6 +482,9 @@ public:
     /// Returns the active text rasterizer backend name (e.g. "ThorVG", "FreeType", "FreeType + HarfBuzz").
     [[nodiscard]] virtual keel::StringRef GetTextEngineName() const noexcept { return "Default"; }
 
+    /// Returns true if the active text rasterizer honors `TextRenderSettings::hinting`.
+    [[nodiscard]] virtual bool SupportsFontHinting() const noexcept { return false; }
+
     /// Configures text anti-aliasing, hinting, gamma-corrected blending, contrast, and stem darkening.
     virtual void SetTextRenderSettings(const TextRenderSettings& /*settings*/) noexcept {}
 

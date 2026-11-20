@@ -10,3 +10,6 @@
 [submodule "third_party/http"]
 	path = third_party/http
 	url = https://github.com/keelcpp/http.git
+[submodule "third_party/freetype"]
+	path = third_party/freetype
+	url = https://github.com/freetype/freetype.git

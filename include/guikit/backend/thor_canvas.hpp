@@ -16,6 +16,8 @@ struct Text;
 
 namespace guikit {
 
+class FreeTypeTextEngine;
+
 /// ThorVG-based vector graphics canvas implementation.
 class ThorCanvas : public ICanvas {
 public:
@@ -131,7 +133,8 @@ public:
     bool RestoreRegion(Rect rect, PixelRef pixels) override;
     void TrimCaches() noexcept override;
 
-    [[nodiscard]] keel::StringRef GetTextEngineName() const noexcept override { return "ThorVG"; }
+    [[nodiscard]] keel::StringRef GetTextEngineName() const noexcept override;
+    [[nodiscard]] bool SupportsFontHinting() const noexcept override;
     void SetTextRenderSettings(const TextRenderSettings& settings) noexcept override;
     [[nodiscard]] const TextRenderSettings& GetTextRenderSettings() const noexcept override {
         return m_textSettings;
@@ -187,6 +190,7 @@ private:
     keel::Array<keel::u8> m_subpixelRowScratch;
     keel::Array<keel::u8> m_filteredMaskScratch;
     TextRenderSettings m_textSettings{};
+    [[maybe_unused]] FreeTypeTextEngine* m_ftEngine{nullptr};
     tvg::Text* m_measureText{nullptr};
     keel::u32* m_targetBuffer{nullptr};
     keel::u32 m_width{0};
