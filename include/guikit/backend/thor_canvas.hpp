@@ -131,6 +131,12 @@ public:
     bool RestoreRegion(Rect rect, PixelRef pixels) override;
     void TrimCaches() noexcept override;
 
+    [[nodiscard]] keel::StringRef GetTextEngineName() const noexcept override { return "ThorVG"; }
+    void SetTextRenderSettings(const TextRenderSettings& settings) noexcept override;
+    [[nodiscard]] const TextRenderSettings& GetTextRenderSettings() const noexcept override {
+        return m_textSettings;
+    }
+
     [[nodiscard]] keel::ArrayRef<GpuShaderPassDesc> GetGpuShaderPasses() const noexcept override { return m_gpuPasses; }
     [[nodiscard]] bool HasActiveGpuPasses() const noexcept override {
         return m_gpuShadersEnabled && !m_gpuPasses.empty();
@@ -178,6 +184,9 @@ private:
     tvg::SwCanvas* m_canvas{nullptr};
     tvg::SwCanvas* m_stampCanvas{nullptr};
     keel::Array<keel::u32> m_stampScratch;
+    keel::Array<keel::u8> m_subpixelRowScratch;
+    keel::Array<keel::u8> m_filteredMaskScratch;
+    TextRenderSettings m_textSettings{};
     tvg::Text* m_measureText{nullptr};
     keel::u32* m_targetBuffer{nullptr};
     keel::u32 m_width{0};
@@ -223,39 +232,56 @@ private:
         }
     };
 
-    struct TextStampKey {
+    struct TextMaskKey {
         keel::u64 textHash{0};
         keel::u32 fontSizeBits{0};
-        keel::u32 colorRgba{0};
         keel::u16 textLen{0};
         keel::u8 style{0};
+        keel::u8 subpixel{0};
 
-        bool operator==(const TextStampKey& o) const noexcept {
+        bool operator==(const TextMaskKey& o) const noexcept {
             return textHash == o.textHash &&
                    fontSizeBits == o.fontSizeBits &&
-                   colorRgba == o.colorRgba &&
                    textLen == o.textLen &&
-                   style == o.style;
+                   style == o.style &&
+                   subpixel == o.subpixel;
         }
     };
 
-    struct TextStampKeyHash {
-        keel::u64 operator()(const TextStampKey& k) const noexcept {
+    struct TextMaskKeyHash {
+        keel::u64 operator()(const TextMaskKey& k) const noexcept {
             keel::u64 h = k.textHash;
             h ^= static_cast<keel::u64>(k.fontSizeBits) * 0x9e3779b97f4a7c15ULL;
-            h ^= static_cast<keel::u64>(k.colorRgba) * 0xbf58476d1ce4e5b9ULL;
-            h ^= (static_cast<keel::u64>(k.textLen) << 8 | k.style) * 0x94d049bb133111ebULL;
+            h ^= ((static_cast<keel::u64>(k.textLen) << 16) |
+                  (static_cast<keel::u64>(k.style) << 8) |
+                  static_cast<keel::u64>(k.subpixel)) * 0x94d049bb133111ebULL;
             return h;
         }
     };
 
-    struct TextStampEntry {
+    struct TextMaskEntry {
+        keel::Array<keel::u8> mask; ///< 1 byte/px (Grayscale) or 3 bytes/px RGB (Subpixel)
+        keel::u16 width{0};
+        keel::u16 height{0};
+        keel::i16 offsetX{0};
+        keel::i16 offsetY{0};
+        bool isSubpixel{false};
+        bool empty{false};
+
+        [[nodiscard]] keel::usize ByteCapacity() const noexcept { return mask.capacity(); }
+        void ReleaseStorage() noexcept { mask = keel::Array<keel::u8>{}; }
+    };
+
+    struct ShapeStampEntry {
         keel::Array<keel::u32> pixels;
         keel::u16 width{0};
         keel::u16 height{0};
         keel::i16 offsetX{0};
         keel::i16 offsetY{0};
         bool empty{false};
+
+        [[nodiscard]] keel::usize ByteCapacity() const noexcept { return pixels.capacity() * sizeof(keel::u32); }
+        void ReleaseStorage() noexcept { pixels = keel::Array<keel::u32>{}; }
     };
 
     struct ShapeStampKey {
@@ -286,19 +312,19 @@ private:
         }
     };
 
-    template <typename Key, keel::usize MaxEntries, keel::usize MaxPixelBytes, typename HashFn>
+    template <typename Key, typename Entry, keel::usize MaxEntries, keel::usize MaxPixelBytes, typename HashFn>
     class StampLruCache {
         static constexpr keel::u32 kNil = 0xFFFFFFFFu;
 
         struct Node {
             Key key{};
-            TextStampEntry entry{};
+            Entry entry{};
             keel::u32 prev{kNil};
             keel::u32 next{kNil};
         };
 
     public:
-        [[nodiscard]] const TextStampEntry* Get(const Key& key) noexcept {
+        [[nodiscard]] const Entry* Get(const Key& key) noexcept {
             const keel::u32* idxPtr = m_map.get(key);
             if (!idxPtr) {
                 return nullptr;
@@ -308,11 +334,11 @@ private:
             return &m_nodes[idx].entry;
         }
 
-        const TextStampEntry& Insert(const Key& key, TextStampEntry&& entry) {
-            const keel::usize newBytes = entry.pixels.capacity() * sizeof(keel::u32);
+        const Entry& Insert(const Key& key, Entry&& entry) {
+            const keel::usize newBytes = entry.ByteCapacity();
             if (const keel::u32* existingPtr = m_map.get(key)) {
                 const keel::u32 idx = *existingPtr;
-                const keel::usize oldBytes = m_nodes[idx].entry.pixels.capacity() * sizeof(keel::u32);
+                const keel::usize oldBytes = m_nodes[idx].entry.ByteCapacity();
                 m_totalPixelBytes = (m_totalPixelBytes >= oldBytes) ? (m_totalPixelBytes - oldBytes) : 0u;
                 m_nodes[idx].entry = keel::move(entry);
                 m_totalPixelBytes += newBytes;
@@ -372,11 +398,11 @@ private:
             }
             const keel::u32 slot = m_tail;
             Node& victim = m_nodes[slot];
-            const keel::usize oldBytes = victim.entry.pixels.capacity() * sizeof(keel::u32);
+            const keel::usize oldBytes = victim.entry.ByteCapacity();
             m_totalPixelBytes = (m_totalPixelBytes >= oldBytes) ? (m_totalPixelBytes - oldBytes) : 0u;
             (void)m_map.remove(victim.key);
             Detach(slot);
-            victim.entry.pixels = keel::Array<keel::u32>{};
+            victim.entry.ReleaseStorage();
             victim.next = m_freeHead;
             m_freeHead = slot;
         }
@@ -425,13 +451,13 @@ private:
         keel::u32 m_freeHead{kNil};
     };
 
-    const TextStampEntry& ResolveTextStamp(
+    const TextMaskEntry& ResolveTextMask(
         keel::StringRef text,
         float scaledFontSize,
-        Color color,
-        FontStyle style
+        FontStyle style,
+        bool subpixel
     );
-    const TextStampEntry& ResolveShapeStamp(
+    const ShapeStampEntry& ResolveShapeStamp(
         float scaledW,
         float scaledH,
         float scaledRadius,
@@ -439,8 +465,17 @@ private:
         Color stroke,
         float scaledStrokeWidth
     );
-    void BlitTextStamp(
-        const TextStampEntry& stamp,
+    void BlitTextMask(
+        const TextMaskEntry& mask,
+        keel::i32 dstX,
+        keel::i32 dstY,
+        Color color,
+        float scaledFontSize,
+        bool bgrOrder,
+        keel::Optional<Rect> extraClip = keel::kNullOpt
+    );
+    void BlitShapeStamp(
+        const ShapeStampEntry& stamp,
         keel::i32 dstX,
         keel::i32 dstY,
         keel::Optional<Rect> extraClip = keel::kNullOpt
@@ -452,8 +487,8 @@ private:
     static constexpr keel::usize kMaxImageCacheBytes = 4u * 1024u * 1024u;
 
     keel::LruCache<TextMeasureKey, Vec2, 1024, TextMeasureKeyHash> m_textMeasureCache;
-    StampLruCache<TextStampKey, 512, kMaxTextStampBytes, TextStampKeyHash> m_textStampCache;
-    StampLruCache<ShapeStampKey, 192, kMaxShapeStampBytes, ShapeStampKeyHash> m_shapeStampCache;
+    StampLruCache<TextMaskKey, TextMaskEntry, 512, kMaxTextStampBytes, TextMaskKeyHash> m_textStampCache;
+    StampLruCache<ShapeStampKey, ShapeStampEntry, 192, kMaxShapeStampBytes, ShapeStampKeyHash> m_shapeStampCache;
     keel::HashMap<keel::String, ImageCacheEntry> m_imageCache;
     keel::usize m_imageCacheBytes{0};
 };

@@ -6,6 +6,7 @@
 #include "guikit/backend/sdl_canvas.hpp"
 #include "guikit/backend/sdl_gl_shader_engine.hpp"
 #include "guikit/backend/sdl_window_backend.hpp"
+#include "guikit/backend/text_compositor.hpp"
 #include "guikit/backend/thor_canvas.hpp"
 
 // 1. Verify zero OS / C / third-party header & macro pollution in public headers

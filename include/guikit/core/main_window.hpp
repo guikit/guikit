@@ -73,6 +73,9 @@ public:
     [[nodiscard]] bool IsGpuShadersAvailable() const noexcept;
     void SetGpuShadersEnabled(bool enabled) noexcept;
 
+    [[nodiscard]] const TextRenderSettings& GetTextRenderSettings() const noexcept;
+    void SetTextRenderSettings(const TextRenderSettings& settings) noexcept;
+
     [[nodiscard]] UiTheme& GetShellTheme() noexcept { return m_shellTheme; }
     [[nodiscard]] const UiTheme& GetShellTheme() const noexcept { return m_shellTheme; }
     void SetShellTheme(const UiTheme& theme) noexcept;

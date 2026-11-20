@@ -94,6 +94,7 @@ keel::i32 MainWindow::Run() {
     if (!m_backend->Initialize(m_config, m_ui, keel::move(hostCallbacks))) {
         return 1;
     }
+    m_backend->GetCanvas().SetTextRenderSettings(m_config.textRender);
 
     m_running = true;
     OnInit();
@@ -301,6 +302,22 @@ void MainWindow::SetGpuShadersEnabled(bool enabled) noexcept {
     m_config.gpuShaders = enabled;
     if (m_backend) {
         m_backend->SetGpuShadersEnabled(enabled);
+    }
+    m_ui.InvalidateAll();
+    m_ui.RequestRepaint(2);
+}
+
+const TextRenderSettings& MainWindow::GetTextRenderSettings() const noexcept {
+    if (m_backend) {
+        return m_backend->GetCanvas().GetTextRenderSettings();
+    }
+    return m_config.textRender;
+}
+
+void MainWindow::SetTextRenderSettings(const TextRenderSettings& settings) noexcept {
+    m_config.textRender = settings;
+    if (m_backend) {
+        m_backend->GetCanvas().SetTextRenderSettings(settings);
     }
     m_ui.InvalidateAll();
     m_ui.RequestRepaint(2);
@@ -585,6 +602,75 @@ void MainWindow::RenderEngineControls(ToolbarScope& tb) {
                     m_heartbeatIndex = hbIdx % kHeartbeatMsValues.size();
                     m_ui.SetIdleHeartbeatMs(kHeartbeatMsValues[m_heartbeatIndex]);
                 }
+            }
+
+            m_ui.Separator();
+
+            m_ui.Heading({
+                .label = "Text Rendering",
+                .badge = {m_backend ? m_backend->GetCanvas().GetTextEngineName() : keel::StringRef{"Default"}, StateColor::Primary()},
+                .level = HeadingLevel::H5
+            });
+
+            static constexpr keel::StaticArray<keel::StringRef, 4> kSmoothingLabels = {{
+                "Auto",
+                "Grayscale",
+                "Subpixel RGB",
+                "Subpixel BGR"
+            }};
+
+            TextRenderSettings textCfg = GetTextRenderSettings();
+            bool textChanged = false;
+
+            if (auto el = m_ui.Element({
+                .label = "Smoothing",
+                .layout = ElementLayout::Leading
+            })) {
+                keel::usize smoothIdx = static_cast<keel::usize>(textCfg.smoothing);
+                if (m_ui.Select(smoothIdx, kSmoothingLabels, {.size = UiSize::Sm, .width = 128.0f})) {
+                    textCfg.smoothing = static_cast<FontSmoothing>(smoothIdx % kSmoothingLabels.size());
+                    textChanged = true;
+                }
+            }
+
+            if (auto el = m_ui.Element({
+                .label = "Gamma Blending",
+                .description = "Linear sRGB text compositing",
+                .layout = ElementLayout::Leading
+            })) {
+                if (m_ui.Switch(textCfg.gammaCorrectBlending, {.size = UiSize::Sm})) {
+                    textChanged = true;
+                }
+            }
+
+            if (auto el = m_ui.Element({
+                .label = "Contrast",
+                .layout = ElementLayout::Leading
+            })) {
+                if (m_ui.Slider(textCfg.contrast, 0.6f, 1.8f, {
+                    .valueFormat = "%.2f",
+                    .size = UiSize::Sm,
+                    .width = 136.0f
+                })) {
+                    textChanged = true;
+                }
+            }
+
+            if (auto el = m_ui.Element({
+                .label = "Stem Darkening",
+                .layout = ElementLayout::Leading
+            })) {
+                if (m_ui.Slider(textCfg.stemDarkening, 0.0f, 0.45f, {
+                    .valueFormat = "%.2f",
+                    .size = UiSize::Sm,
+                    .width = 136.0f
+                })) {
+                    textChanged = true;
+                }
+            }
+
+            if (textChanged) {
+                SetTextRenderSettings(textCfg);
             }
         }
     }

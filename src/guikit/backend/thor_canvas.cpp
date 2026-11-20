@@ -1,4 +1,5 @@
 #include "guikit/backend/thor_canvas.hpp"
+#include "guikit/backend/text_compositor.hpp"
 #include "guikit/backend/vector_backend.hpp"
 #include <cstdlib>
 #include <cstring>
@@ -197,6 +198,15 @@ void ThorCanvas::TrimCaches() noexcept {
     m_imageCache = {};
     m_imageCacheBytes = 0;
     m_stampScratch = {};
+    m_subpixelRowScratch = {};
+    m_filteredMaskScratch = {};
+}
+
+void ThorCanvas::SetTextRenderSettings(const TextRenderSettings& settings) noexcept {
+    TextRenderSettings clamped = settings;
+    clamped.contrast = keel::clamp(clamped.contrast, 0.5f, 2.0f);
+    clamped.stemDarkening = keel::clamp(clamped.stemDarkening, 0.0f, 0.5f);
+    m_textSettings = clamped;
 }
 
 void ThorCanvas::SyncViewportClip() {
@@ -586,8 +596,8 @@ void ThorCanvas::DrawRoundRect(
         ((sRect.w <= 180.0f && sRect.h <= 52.0f) || (sRect.w <= 72.0f && sRect.h <= 72.0f))) {
         const keel::i32 dstX = keel::round_i32(sRect.x);
         const keel::i32 dstY = keel::round_i32(sRect.y);
-        const TextStampEntry& stamp = ResolveShapeStamp(sRect.w, sRect.h, sRadius, fill, stroke, sStrokeW);
-        BlitTextStamp(stamp, dstX, dstY);
+        const ShapeStampEntry& stamp = ResolveShapeStamp(sRect.w, sRect.h, sRadius, fill, stroke, sStrokeW);
+        BlitShapeStamp(stamp, dstX, dstY);
         return;
     }
 
@@ -684,11 +694,11 @@ float ThorCanvas::GetLineHeight(float fontSize) {
     return fontSize * kDefaultLineHeightMultiplier;
 }
 
-const ThorCanvas::TextStampEntry& ThorCanvas::ResolveTextStamp(
+const ThorCanvas::TextMaskEntry& ThorCanvas::ResolveTextMask(
     keel::StringRef text,
     float scaledFontSize,
-    Color color,
-    FontStyle style
+    FontStyle style,
+    bool subpixel
 ) {
     keel::u64 h = 14695981039346656037ULL;
     for (char c : text) {
@@ -698,38 +708,50 @@ const ThorCanvas::TextStampEntry& ThorCanvas::ResolveTextStamp(
     keel::u32 fsBits = 0;
     std::memcpy(&fsBits, &qFontSize, sizeof(float));
 
-    const TextStampKey key{
+    const Vec2 m = MeasureTextStyled(text, qFontSize, style);
+    const keel::i32 padLeft = subpixel ? 4 : 3;
+    const keel::i32 padTop = keel::max(3, keel::ceil_i32(qFontSize * 0.25f));
+    const keel::i32 padRight = keel::max(6, keel::ceil_i32(qFontSize * 0.35f)) + (subpixel ? 1 : 0);
+    const keel::i32 padBottom = keel::max(4, keel::ceil_i32(qFontSize * 0.40f));
+    const keel::i32 rawBufW = keel::ceil_i32(m.x) + padLeft + padRight;
+    // Gracefully fall back to grayscale on ultra-wide lines (> 1364 px) so 3x scratch stays bounded
+    const bool effSubpixel = subpixel && (rawBufW <= 1364);
+
+    const TextMaskKey key{
         .textHash = h,
         .fontSizeBits = fsBits,
-        .colorRgba = color.ToUint32(),
         .textLen = static_cast<keel::u16>(keel::min<keel::usize>(text.size(), 65535u)),
-        .style = static_cast<keel::u8>(style)
+        .style = static_cast<keel::u8>(style),
+        .subpixel = static_cast<keel::u8>(effSubpixel ? 1u : 0u)
     };
 
-    if (const TextStampEntry* cached = m_textStampCache.Get(key)) {
+    if (const TextMaskEntry* cached = m_textStampCache.Get(key)) {
         return *cached;
     }
 
-    TextStampEntry entry{};
-    const Vec2 m = MeasureTextStyled(text, qFontSize, style);
+    TextMaskEntry entry{};
+    entry.isSubpixel = effSubpixel;
     if (m.x <= 0.0f || m.y <= 0.0f) {
         entry.empty = true;
         return m_textStampCache.Insert(key, keel::move(entry));
     }
 
-    const keel::i32 padLeft = 3;
-    const keel::i32 padTop = keel::max(3, keel::ceil_i32(qFontSize * 0.25f));
-    const keel::i32 padRight = keel::max(6, keel::ceil_i32(qFontSize * 0.35f));
-    const keel::i32 padBottom = keel::max(4, keel::ceil_i32(qFontSize * 0.40f));
-    const keel::i32 bufW = keel::clamp(keel::ceil_i32(m.x) + padLeft + padRight, 4, 2048);
+    const keel::i32 bufW = keel::clamp(rawBufW, 4, effSubpixel ? 1364 : 2048);
     const keel::i32 bufH = keel::clamp(keel::ceil_i32(m.y) + padTop + padBottom, 4, 256);
+    const keel::i32 rasterW = effSubpixel ? (bufW * 3) : bufW;
 
     if (!m_stampCanvas) {
         m_stampCanvas = tvg::SwCanvas::gen(tvg::EngineOption::None);
     }
 
-    m_stampScratch.assign(static_cast<keel::usize>(bufW) * static_cast<keel::usize>(bufH), 0u);
-    m_stampCanvas->target(m_stampScratch.data(), static_cast<keel::u32>(bufW), static_cast<keel::u32>(bufW), static_cast<keel::u32>(bufH), tvg::ColorSpace::ABGR8888);
+    m_stampScratch.assign(static_cast<keel::usize>(rasterW) * static_cast<keel::usize>(bufH), 0u);
+    m_stampCanvas->target(
+        m_stampScratch.data(),
+        static_cast<keel::u32>(rasterW),
+        static_cast<keel::u32>(rasterW),
+        static_cast<keel::u32>(bufH),
+        tvg::ColorSpace::ABGR8888
+    );
 
     const bool isItalic = NeedsSyntheticItalic(style);
     const bool isBold = NeedsSyntheticBold(style);
@@ -743,10 +765,20 @@ const ThorCanvas::TextStampEntry& ThorCanvas::ResolveTextStamp(
         if (isItalic) {
             txt->italic(0.18f);
         }
-        txt->fill(color.r, color.g, color.b);
-        txt->opacity(color.a);
+        // Rasterize pure opaque white so pixel alpha holds exact 8-bit outline coverage
+        txt->fill(255, 255, 255);
+        txt->opacity(255);
         txt->align(0.0f, 0.0f);
-        txt->translate(static_cast<float>(padLeft) + offsetX, static_cast<float>(padTop));
+        if (effSubpixel) {
+            const tvg::Matrix mat{
+                3.0f, 0.0f, (static_cast<float>(padLeft) + offsetX) * 3.0f,
+                0.0f, 1.0f, static_cast<float>(padTop),
+                0.0f, 0.0f, 1.0f
+            };
+            txt->transform(mat);
+        } else {
+            txt->translate(static_cast<float>(padLeft) + offsetX, static_cast<float>(padTop));
+        }
         m_stampCanvas->add(txt);
     };
 
@@ -760,49 +792,112 @@ const ThorCanvas::TextStampEntry& ThorCanvas::ResolveTextStamp(
     m_stampCanvas->remove();
     m_stampCanvas->sync();
 
-    keel::i32 minX = bufW;
-    keel::i32 minY = bufH;
-    keel::i32 maxX = -1;
-    keel::i32 maxY = -1;
-    for (keel::i32 y = 0; y < bufH; ++y) {
-        const keel::u32* row = m_stampScratch.data() + static_cast<keel::usize>(y) * bufW;
-        for (keel::i32 x = 0; x < bufW; ++x) {
-            if (row[x] != 0u) {
-                if (x < minX) minX = x;
-                if (x > maxX) maxX = x;
-                if (y < minY) minY = y;
-                if (y > maxY) maxY = y;
+    if (effSubpixel) {
+        const keel::usize rowSubBytes = static_cast<keel::usize>(bufW) * 3u;
+        m_subpixelRowScratch.resize(rowSubBytes);
+        m_filteredMaskScratch.resize(rowSubBytes * static_cast<keel::usize>(bufH));
+
+        keel::i32 minX = bufW;
+        keel::i32 minY = bufH;
+        keel::i32 maxX = -1;
+        keel::i32 maxY = -1;
+
+        for (keel::i32 y = 0; y < bufH; ++y) {
+            const keel::u32* srcRow = m_stampScratch.data() + static_cast<keel::usize>(y) * static_cast<keel::usize>(rasterW);
+            bool anyNonZero = false;
+            for (keel::i32 sx = 0; sx < rasterW; ++sx) {
+                const keel::u8 a = static_cast<keel::u8>(srcRow[sx] >> 24);
+                m_subpixelRowScratch[static_cast<keel::usize>(sx)] = a;
+                if (a != 0u) anyNonZero = true;
+            }
+            keel::u8* dstFilteredRow = m_filteredMaskScratch.data() + static_cast<keel::usize>(y) * rowSubBytes;
+            if (!anyNonZero) {
+                std::memset(dstFilteredRow, 0, rowSubBytes);
+                continue;
+            }
+            TextCompositor::FilterSubpixel3xRow(
+                m_subpixelRowScratch.data(),
+                dstFilteredRow,
+                static_cast<keel::u32>(bufW)
+            );
+            for (keel::i32 px = 0; px < bufW; ++px) {
+                const keel::u8* rgb = dstFilteredRow + static_cast<keel::usize>(px) * 3u;
+                if ((rgb[0] | rgb[1] | rgb[2]) != 0u) {
+                    if (px < minX) minX = px;
+                    if (px > maxX) maxX = px;
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                }
             }
         }
-    }
 
-    if (maxX < minX || maxY < minY) {
-        entry.empty = true;
+        if (maxX < minX || maxY < minY) {
+            entry.empty = true;
+        } else {
+            const keel::i32 cropW = maxX - minX + 1;
+            const keel::i32 cropH = maxY - minY + 1;
+            entry.width = static_cast<keel::u16>(cropW);
+            entry.height = static_cast<keel::u16>(cropH);
+            entry.offsetX = static_cast<keel::i16>(minX - padLeft);
+            entry.offsetY = static_cast<keel::i16>(minY - padTop);
+            const keel::usize cropRowBytes = static_cast<keel::usize>(cropW) * 3u;
+            entry.mask.resize(cropRowBytes * static_cast<keel::usize>(cropH));
+            for (keel::i32 row = 0; row < cropH; ++row) {
+                std::memcpy(
+                    entry.mask.data() + static_cast<keel::usize>(row) * cropRowBytes,
+                    m_filteredMaskScratch.data() + static_cast<keel::usize>(minY + row) * rowSubBytes + static_cast<keel::usize>(minX) * 3u,
+                    cropRowBytes
+                );
+            }
+        }
     } else {
-        const keel::i32 cropW = maxX - minX + 1;
-        const keel::i32 cropH = maxY - minY + 1;
-        entry.width = static_cast<keel::u16>(cropW);
-        entry.height = static_cast<keel::u16>(cropH);
-        entry.offsetX = static_cast<keel::i16>(minX - padLeft);
-        entry.offsetY = static_cast<keel::i16>(minY - padTop);
-        entry.pixels.resize(static_cast<keel::usize>(cropW) * static_cast<keel::usize>(cropH));
-        for (keel::i32 row = 0; row < cropH; ++row) {
-            std::memcpy(
-                entry.pixels.data() + static_cast<keel::usize>(row) * cropW,
-                m_stampScratch.data() + static_cast<keel::usize>(minY + row) * bufW + minX,
-                static_cast<keel::usize>(cropW) * sizeof(keel::u32)
-            );
+        keel::i32 minX = bufW;
+        keel::i32 minY = bufH;
+        keel::i32 maxX = -1;
+        keel::i32 maxY = -1;
+        for (keel::i32 y = 0; y < bufH; ++y) {
+            const keel::u32* row = m_stampScratch.data() + static_cast<keel::usize>(y) * bufW;
+            for (keel::i32 x = 0; x < bufW; ++x) {
+                if ((row[x] >> 24) != 0u) {
+                    if (x < minX) minX = x;
+                    if (x > maxX) maxX = x;
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                }
+            }
+        }
+
+        if (maxX < minX || maxY < minY) {
+            entry.empty = true;
+        } else {
+            const keel::i32 cropW = maxX - minX + 1;
+            const keel::i32 cropH = maxY - minY + 1;
+            entry.width = static_cast<keel::u16>(cropW);
+            entry.height = static_cast<keel::u16>(cropH);
+            entry.offsetX = static_cast<keel::i16>(minX - padLeft);
+            entry.offsetY = static_cast<keel::i16>(minY - padTop);
+            entry.mask.resize(static_cast<keel::usize>(cropW) * static_cast<keel::usize>(cropH));
+            for (keel::i32 row = 0; row < cropH; ++row) {
+                const keel::u32* srcRow = m_stampScratch.data() + static_cast<keel::usize>(minY + row) * bufW + minX;
+                keel::u8* dstRow = entry.mask.data() + static_cast<keel::usize>(row) * static_cast<keel::usize>(cropW);
+                for (keel::i32 x = 0; x < cropW; ++x) {
+                    dstRow[x] = static_cast<keel::u8>(srcRow[x] >> 24);
+                }
+            }
         }
     }
 
     if (m_stampScratch.capacity() > 65536u) {
         m_stampScratch = keel::Array<keel::u32>{};
     }
+    if (m_filteredMaskScratch.capacity() > 131072u) {
+        m_filteredMaskScratch = keel::Array<keel::u8>{};
+    }
 
     return m_textStampCache.Insert(key, keel::move(entry));
 }
 
-const ThorCanvas::TextStampEntry& ThorCanvas::ResolveShapeStamp(
+const ThorCanvas::ShapeStampEntry& ThorCanvas::ResolveShapeStamp(
     float scaledW,
     float scaledH,
     float scaledRadius,
@@ -826,11 +921,11 @@ const ThorCanvas::TextStampEntry& ThorCanvas::ResolveShapeStamp(
         .qStrokeW = qStrokeW
     };
 
-    if (const TextStampEntry* cached = m_shapeStampCache.Get(key)) {
+    if (const ShapeStampEntry* cached = m_shapeStampCache.Get(key)) {
         return *cached;
     }
 
-    TextStampEntry entry{};
+    ShapeStampEntry entry{};
     const float w = static_cast<float>(qW) * 0.25f;
     const float h = static_cast<float>(qH) * 0.25f;
     const float rad = static_cast<float>(qRad) * 0.25f;
@@ -904,8 +999,74 @@ const ThorCanvas::TextStampEntry& ThorCanvas::ResolveShapeStamp(
     return m_shapeStampCache.Insert(key, keel::move(entry));
 }
 
-void ThorCanvas::BlitTextStamp(
-    const TextStampEntry& stamp,
+void ThorCanvas::BlitTextMask(
+    const TextMaskEntry& mask,
+    keel::i32 dstX,
+    keel::i32 dstY,
+    Color color,
+    float scaledFontSize,
+    bool bgrOrder,
+    keel::Optional<Rect> extraClip
+) {
+    if (mask.empty || mask.mask.empty() || !m_targetBuffer || m_width == 0 || m_height == 0 || color.a == 0u) {
+        return;
+    }
+
+    Rect clipPx(0.0f, 0.0f, static_cast<float>(m_width), static_cast<float>(m_height));
+    if (!m_clipStack.empty()) {
+        clipPx = clipPx.Intersect(m_clipStack.back());
+    }
+    if (extraClip.has_value()) {
+        clipPx = clipPx.Intersect(*extraClip);
+    }
+    if (clipPx.w <= 0.0f || clipPx.h <= 0.0f) {
+        return;
+    }
+
+    FlushCanvas();
+
+    const keel::i32 x0 = dstX + mask.offsetX;
+    const keel::i32 y0 = dstY + mask.offsetY;
+    if (mask.isSubpixel) {
+        TextCompositor::BlitSubpixelMask(
+            m_targetBuffer,
+            m_width,
+            m_height,
+            m_stride,
+            mask.mask.data(),
+            mask.width,
+            mask.height,
+            static_cast<keel::u32>(mask.width) * 3u,
+            x0,
+            y0,
+            clipPx,
+            color,
+            m_textSettings,
+            scaledFontSize,
+            bgrOrder
+        );
+    } else {
+        TextCompositor::BlitGrayscaleMask(
+            m_targetBuffer,
+            m_width,
+            m_height,
+            m_stride,
+            mask.mask.data(),
+            mask.width,
+            mask.height,
+            mask.width,
+            x0,
+            y0,
+            clipPx,
+            color,
+            m_textSettings,
+            scaledFontSize
+        );
+    }
+}
+
+void ThorCanvas::BlitShapeStamp(
+    const ShapeStampEntry& stamp,
     keel::i32 dstX,
     keel::i32 dstY,
     keel::Optional<Rect> extraClip
@@ -989,10 +1150,14 @@ void ThorCanvas::DrawTextStyled(
         if (!m_clipStack.empty() && !approxBounds.Intersects(m_clipStack.back())) {
             return;
         }
+        const float scaledFs = fontSize * m_scale;
+        const FontSmoothing effSmooth = TextCompositor::ResolveEffectiveSmoothing(m_textSettings.smoothing, m_scale);
+        const bool useSubpixel = (effSmooth == FontSmoothing::SubpixelRGB || effSmooth == FontSmoothing::SubpixelBGR);
+        const bool bgrOrder = (effSmooth == FontSmoothing::SubpixelBGR);
         const keel::i32 dstX = keel::round_i32(PxX(pos.x));
         const keel::i32 dstY = keel::round_i32(PxY(pos.y));
-        const TextStampEntry& stamp = ResolveTextStamp(stampText, fontSize * m_scale, color, style);
-        BlitTextStamp(stamp, dstX, dstY);
+        const TextMaskEntry& mask = ResolveTextMask(stampText, scaledFs, style, useSubpixel);
+        BlitTextMask(mask, dstX, dstY, color, scaledFs, bgrOrder);
         return;
     }
 
@@ -1070,11 +1235,14 @@ void ThorCanvas::DrawTextBoxStyled(
         drawText.find('\n') == keel::StringRef::npos) {
         const keel::StringRef stampText = ClampUtf8Prefix(drawText, 512);
         const float scaledFs = fontSize * m_scale;
-        const TextStampEntry& capStamp = ResolveTextStamp("H", scaledFs, Color(255, 255, 255, 255), style);
+        const FontSmoothing effSmooth = TextCompositor::ResolveEffectiveSmoothing(m_textSettings.smoothing, m_scale);
+        const bool useSubpixel = (effSmooth == FontSmoothing::SubpixelRGB || effSmooth == FontSmoothing::SubpixelBGR);
+        const bool bgrOrder = (effSmooth == FontSmoothing::SubpixelBGR);
+        const TextMaskEntry& capStamp = ResolveTextMask("H", scaledFs, style, false);
         const bool capEmpty = capStamp.empty;
         const keel::i32 capRawOffY = static_cast<keel::i32>(capStamp.offsetY);
         const keel::i32 capRawH = static_cast<keel::i32>(capStamp.height);
-        const TextStampEntry& stamp = ResolveTextStamp(stampText, scaledFs, color, style);
+        const TextMaskEntry& stamp = ResolveTextMask(stampText, scaledFs, style, useSubpixel);
         if (stamp.empty) return;
         const keel::i32 capOffY = capEmpty ? static_cast<keel::i32>(stamp.offsetY) : capRawOffY;
         const keel::i32 capH = capEmpty ? static_cast<keel::i32>(stamp.height) : capRawH;
@@ -1090,7 +1258,7 @@ void ThorCanvas::DrawTextBoxStyled(
         const keel::i32 dstX = keel::round_i32(tx);
         const keel::i32 dstY = keel::round_i32(ty);
         const float vPad = keel::max(4.0f, scaledFs * 0.35f);
-        BlitTextStamp(stamp, dstX, dstY, Rect(sBounds.x - 2.0f, sBounds.y - vPad, sBounds.w + 4.0f, sBounds.h + vPad * 2.0f));
+        BlitTextMask(stamp, dstX, dstY, color, scaledFs, bgrOrder, Rect(sBounds.x - 2.0f, sBounds.y - vPad, sBounds.w + 4.0f, sBounds.h + vPad * 2.0f));
         return;
     }
 

@@ -15,6 +15,32 @@ enum class FontStyle : keel::u8 {
     Monospace
 };
 
+/// Anti-aliasing / subpixel smoothing mode for text rasterization.
+enum class FontSmoothing : keel::u8 {
+    Auto = 0,     ///< SubpixelRGB when canvas scale < 1.5, Grayscale on HiDPI (>= 1.5)
+    Grayscale,    ///< 8-bit grayscale coverage anti-aliasing
+    SubpixelRGB,  ///< 3x horizontal LCD subpixel anti-aliasing (RGB panel stripe)
+    SubpixelBGR   ///< 3x horizontal LCD subpixel anti-aliasing (BGR panel stripe)
+};
+
+/// Outline grid-fitting hint level (honored by FreeType backend; ignored gracefully by outline-only fallbacks).
+enum class FontHinting : keel::u8 {
+    None = 0,     ///< Unhinted outlines (macOS / HiDPI style)
+    Light,        ///< Vertical-only auto-hinting (FreeType Slight — crispest on 1x displays)
+    Normal        ///< Full grid-fitting hinting
+};
+
+/// Engine-wide text rasterization and compositing quality settings.
+struct TextRenderSettings {
+    FontSmoothing smoothing{FontSmoothing::Auto};
+    FontHinting hinting{FontHinting::Light};
+    bool gammaCorrectBlending{true};  ///< Linear sRGB alpha/LCD compositing (prevents starved light-on-dark stems)
+    float contrast{1.0f};             ///< Stroke contrast multiplier [0.5 .. 2.0] (1.0 = neutral)
+    float stemDarkening{0.15f};       ///< Subtle coverage boost on small sizes [0.0 .. 0.5] (CoreText/DirectWrite style)
+
+    [[nodiscard]] constexpr bool operator==(const TextRenderSettings& other) const noexcept = default;
+};
+
 /// Native 32-bit pixel format written by software/hybrid vector canvases into target memory.
 enum class SurfacePixelFormat : keel::u8 {
     ABGR8888_Premul = 0, ///< 0xAABBGGRR premultiplied alpha (SDL_PIXELFORMAT_ABGR8888 on little-endian)
@@ -452,6 +478,18 @@ public:
 
     /// Releases regenerable internal glyph, shape, image, and scratch caches when a canvas goes idle.
     virtual void TrimCaches() noexcept {}
+
+    /// Returns the active text rasterizer backend name (e.g. "ThorVG", "FreeType", "FreeType + HarfBuzz").
+    [[nodiscard]] virtual keel::StringRef GetTextEngineName() const noexcept { return "Default"; }
+
+    /// Configures text anti-aliasing, hinting, gamma-corrected blending, contrast, and stem darkening.
+    virtual void SetTextRenderSettings(const TextRenderSettings& /*settings*/) noexcept {}
+
+    /// Returns the active text rendering quality settings.
+    [[nodiscard]] virtual const TextRenderSettings& GetTextRenderSettings() const noexcept {
+        static constexpr TextRenderSettings kDefault{};
+        return kDefault;
+    }
 };
 
 } // namespace guikit

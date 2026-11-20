@@ -112,6 +112,7 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/panels/split_view.cpp
     src/guikit/widgets/breadcrumb.cpp
     src/guikit/widgets/date_picker.cpp
+    src/guikit/backend/text_compositor.cpp
     src/guikit/widgets/level_meter.cpp
     src/guikit/widgets/pagination.cpp
     src/guikit/widgets/tag_input.cpp

@@ -4,6 +4,7 @@
 #include "guikit/backend/sdl_canvas.hpp"
 #include "guikit/backend/sdl_gl_shader_engine.hpp"
 #include "guikit/backend/sdl_window_backend.hpp"
+#include "guikit/backend/text_compositor.hpp"
 #include "guikit/backend/thor_canvas.hpp"
 #include "guikit/core/assets.hpp"
 #include "guikit/core/rich_text.hpp"
@@ -12482,6 +12483,7 @@ void TestControlFlatSizingAndStyleOptions();
 void TestSceneWorldSizeInsideScrollAreaDoesNotOverflow();
 void TestApiPolishStretchWeightsTabBarColorAndOptionalMins();
 void TestFocusVisibleModalityAndTabBarFocusRing();
+void TestTextCompositorAndSubpixelRendering();
 
 int main() {
     keel::println("[RUN] Testing GuiKit Context & Immediate Mode API...");
@@ -15235,6 +15237,7 @@ int main() {
     TestSceneWorldSizeInsideScrollAreaDoesNotOverflow();
     TestApiPolishStretchWeightsTabBarColorAndOptionalMins();
     TestFocusVisibleModalityAndTabBarFocusRing();
+    TestTextCompositorAndSubpixelRendering();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Context tests passed successfully!");
@@ -17336,6 +17339,129 @@ void TestFocusVisibleModalityAndTabBarFocusRing() {
     CHECK(!ui.IsFocusVisible(btnResp.id));
 
     keel::println("  [PASS] TestFocusVisibleModalityAndTabBarFocusRing completed");
+}
+
+void TestTextCompositorAndSubpixelRendering() {
+    using namespace guikit;
+    keel::println("  -> TestTextCompositorAndSubpixelRendering...");
+
+    // 1. Lossless 8-bit sRGB <-> 12-bit Linear round-trip for every channel value [0..255]
+    for (keel::u32 v = 0; v < 256u; ++v) {
+        const keel::u16 lin = TextCompositor::SrgbToLinear12(static_cast<keel::u8>(v));
+        const keel::u8 rt = TextCompositor::Linear12ToSrgb(lin);
+        CHECK(rt == static_cast<keel::u8>(v));
+    }
+
+    // 2. Coverage LUT: endpoints exact, monotonic, stem darkening lifts small sizes & tapers at display sizes
+    keel::StaticArray<keel::u8, 256> lutSmall{};
+    keel::StaticArray<keel::u8, 256> lutLarge{};
+    TextCompositor::BuildCoverageLut(lutSmall, 1.0f, 0.25f, 12.0f);
+    TextCompositor::BuildCoverageLut(lutLarge, 1.0f, 0.25f, 32.0f);
+    CHECK(lutSmall[0] == 0u && lutSmall[255] == 255u);
+    CHECK(lutLarge[0] == 0u && lutLarge[255] == 255u);
+    for (keel::u32 i = 1; i < 256u; ++i) {
+        CHECK(lutSmall[i] >= lutSmall[i - 1]);
+    }
+    CHECK(lutSmall[128] > 128u);
+    CHECK(lutLarge[128] == 128u);
+
+    // 3. 5-tap LCD FIR filter: energy conservation on flat 255 interior + balanced impulse
+    keel::StaticArray<keel::u8, 15> srcFlat{};
+    keel::StaticArray<keel::u8, 15> dstFlat{};
+    srcFlat.fill(255u);
+    TextCompositor::FilterSubpixel3xRow(srcFlat.data(), dstFlat.data(), 5u);
+    CHECK(dstFlat[6] == 255u && dstFlat[7] == 255u && dstFlat[8] == 255u);
+
+    keel::StaticArray<keel::u8, 15> srcImpulse{};
+    keel::StaticArray<keel::u8, 15> dstImpulse{};
+    srcImpulse.fill(0u);
+    srcImpulse[7] = 255u;
+    TextCompositor::FilterSubpixel3xRow(srcImpulse.data(), dstImpulse.data(), 5u);
+    CHECK(dstImpulse[5] == 8u);
+    CHECK(dstImpulse[6] == 77u);
+    CHECK(dstImpulse[7] == 86u);
+    CHECK(dstImpulse[8] == 77u);
+    CHECK(dstImpulse[9] == 8u);
+
+    // 4. Gamma-correct linear blending vs sRGB blending on opaque Dark backdrop
+    keel::u32 pxGamma = Color::Hex(0x181818FF).ToUint32();
+    keel::u32 pxSrgb = pxGamma;
+    const keel::u8 halfMask = 128u;
+    const TextRenderSettings gammaOn{.smoothing = FontSmoothing::Grayscale, .gammaCorrectBlending = true, .contrast = 1.0f, .stemDarkening = 0.0f};
+    const TextRenderSettings gammaOff{.smoothing = FontSmoothing::Grayscale, .gammaCorrectBlending = false, .contrast = 1.0f, .stemDarkening = 0.0f};
+    const Color white(255, 255, 255, 255);
+    TextCompositor::BlitGrayscaleMask(&pxGamma, 1, 1, 1, &halfMask, 1, 1, 1, 0, 0, Rect(0, 0, 1, 1), white, gammaOn, 14.0f);
+    TextCompositor::BlitGrayscaleMask(&pxSrgb, 1, 1, 1, &halfMask, 1, 1, 1, 0, 0, Rect(0, 0, 1, 1), white, gammaOff, 14.0f);
+    const keel::u32 rGamma = pxGamma & 0xFFu;
+    const keel::u32 rSrgb = pxSrgb & 0xFFu;
+    CHECK(rGamma > rSrgb + 30u); // Linear 50% white on dark is ~188 vs ~139 in sRGB
+
+    // 5. ThorCanvas Grayscale vs SubpixelRGB vs SubpixelBGR & color-independent mask reuse
+    ThorCanvas canvas;
+    CHECK(canvas.GetTextEngineName() == "ThorVG");
+    constexpr keel::u32 W = 180;
+    constexpr keel::u32 H = 48;
+    keel::Array<keel::u32> fbGray(W * H, 0u);
+    keel::Array<keel::u32> fbRgb(W * H, 0u);
+    keel::Array<keel::u32> fbBgr(W * H, 0u);
+    keel::Array<keel::u32> fbTrans(W * H, 0u);
+
+    const Color darkBg = Color(0x20, 0x20, 0x20, 0xFF);
+    auto renderWord = [&](keel::Array<keel::u32>& fb, FontSmoothing mode, Color bg, Color fg) {
+        canvas.SetTarget(fb.data(), W, H, W);
+        canvas.SetTextRenderSettings(TextRenderSettings{.smoothing = mode, .gammaCorrectBlending = true, .contrast = 1.0f, .stemDarkening = 0.15f});
+        canvas.Begin(W, H, 1.0f);
+        if (bg.a > 0) {
+            canvas.Clear(bg);
+        } else {
+            fb.assign(W * H, 0u);
+        }
+        canvas.DrawText("Hello 123", {8.0f, 10.0f}, 14.0f, fg);
+        canvas.End();
+    };
+
+    renderWord(fbGray, FontSmoothing::Grayscale, darkBg, white);
+    renderWord(fbRgb, FontSmoothing::SubpixelRGB, darkBg, white);
+    renderWord(fbBgr, FontSmoothing::SubpixelBGR, darkBg, white);
+    renderWord(fbTrans, FontSmoothing::SubpixelRGB, Color(0, 0, 0, 0), white);
+
+    keel::usize grayLit = 0;
+    keel::usize grayChromatic = 0;
+    keel::usize rgbChromatic = 0;
+    keel::usize rgbVsBgrDiff = 0;
+    keel::usize transLit = 0;
+    for (keel::usize i = 0; i < W * H; ++i) {
+        const keel::u32 gPx = fbGray[i];
+        const keel::u32 gr = gPx & 0xFFu, gg = (gPx >> 8) & 0xFFu, gb = (gPx >> 16) & 0xFFu;
+        if (gr > 0x20u) ++grayLit;
+        if (gr != gg || gg != gb) ++grayChromatic;
+
+        const keel::u32 rPx = fbRgb[i];
+        const keel::u32 rr = rPx & 0xFFu, rg = (rPx >> 8) & 0xFFu, rb = (rPx >> 16) & 0xFFu;
+        if (rr != rg || rg != rb) ++rgbChromatic;
+        if (rPx != fbBgr[i]) ++rgbVsBgrDiff;
+
+        const keel::u32 tPx = fbTrans[i];
+        const keel::u32 ta = (tPx >> 24) & 0xFFu;
+        if (ta > 0u) {
+            ++transLit;
+            CHECK((tPx & 0xFFu) <= ta);
+            CHECK(((tPx >> 8) & 0xFFu) <= ta);
+            CHECK(((tPx >> 16) & 0xFFu) <= ta);
+        }
+    }
+
+    CHECK(grayLit > 50u);
+    CHECK(grayChromatic == 0u);   // Pure grayscale on neutral dark background has R == G == B
+    CHECK(rgbChromatic > 20u);    // 3x LCD subpixel produces distinct R/G/B coverage on glyph edges
+    CHECK(rgbVsBgrDiff > 20u);    // BGR flips subpixel polarity vs RGB
+    CHECK(transLit > 50u);        // Transparent destination falls back cleanly to premul SrcOver
+
+    // Auto mode selects SubpixelRGB at 1x and Grayscale at 2x HiDPI
+    CHECK(TextCompositor::ResolveEffectiveSmoothing(FontSmoothing::Auto, 1.0f) == FontSmoothing::SubpixelRGB);
+    CHECK(TextCompositor::ResolveEffectiveSmoothing(FontSmoothing::Auto, 2.0f) == FontSmoothing::Grayscale);
+
+    keel::println("  [PASS] TestTextCompositorAndSubpixelRendering completed");
 }
 
 

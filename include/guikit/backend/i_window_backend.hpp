@@ -37,6 +37,7 @@ struct MainWindowConfig {
     float initialDensity = 1.0f; ///< Initial layout gap/padding density multiplier (1.0f = standard)
     ShellStyle initialShellStyle = ShellStyle::Docked;
     keel::Optional<UiTheme> initialTheme = keel::kNullOpt; ///< Optional complete initial theme override
+    TextRenderSettings textRender{};                       ///< Initial text anti-aliasing, hinting, gamma & contrast settings
     VectorCanvasFactory canvasFactory = nullptr; ///< Optional per-window custom `ICanvas` factory override
 };
 
