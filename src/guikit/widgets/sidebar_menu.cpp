@@ -198,7 +198,7 @@ Response SidebarMenu::Item(
     node->hovered = res.hovered;
     node->pressed = res.pressed;
     node->active = item.active;
-    node->focused = ctx.IsFocused(id);
+    node->focused = ctx.IsFocusVisible(id);
     node->widthMode = menuOpts.collapsed ? SizeMode::Fixed : SizeMode::Stretch;
     node->heightMode = SizeMode::Fit;
     if (menuOpts.collapsed) {

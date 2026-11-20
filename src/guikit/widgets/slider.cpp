@@ -671,7 +671,7 @@ Response Slider::Run(
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
     node->pressed = res.pressed || state.dragging;
-    node->focused = ctx.IsFocused(id);
+    node->focused = ctx.IsFocusVisible(id);
 
     auto* data = ctx.AllocPayload<SliderData>();
     data->opts = optsCopy;
@@ -993,7 +993,7 @@ Response StepSlider::Run(
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
     node->pressed = res.pressed || state.dragging;
-    node->focused = ctx.IsFocused(id);
+    node->focused = ctx.IsFocusVisible(id);
 
     auto* data = ctx.AllocPayload<StepSliderData>();
     data->opts = optsCopy;
@@ -1552,7 +1552,7 @@ Response RangeSlider::Run(
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
     node->pressed = res.pressed || (state.dragMode != RangeDragMode::None);
-    node->focused = ctx.IsFocused(id);
+    node->focused = ctx.IsFocusVisible(id);
 
     auto* data = ctx.AllocPayload<RangeSliderData>();
     data->opts = optsCopy;

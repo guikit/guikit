@@ -5,7 +5,7 @@ namespace guikit {
 
 void Response::Focus() {
     if (ctx && id.IsValid()) {
-        ctx->RequestFocus(id);
+        ctx->RequestFocus(id, FocusReason::Programmatic);
     }
 }
 

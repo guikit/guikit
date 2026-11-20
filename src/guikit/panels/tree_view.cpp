@@ -493,12 +493,16 @@ TreeViewScope TreeView::Open(
     const Rect prevTreeBounds = ctx.GetPrevFrameBounds(idTree);
     const bool treeHovered = prevTreeBounds.w > 0.0f && ctx.IsRectHovered(idTree, prevTreeBounds);
     bool anyRowFocused = ctx.IsFocused(idTree);
+    bool anyRowFocusVisible = ctx.IsFocusVisible(idTree);
     keel::i32 currentVisIdx = -1;
 
     for (keel::usize i = 0; i < st.prevVisibleItems.size(); ++i) {
         const auto& entry = st.prevVisibleItems[i];
         if (ctx.IsFocused(entry.idRow)) {
             anyRowFocused = true;
+            if (ctx.IsFocusVisible(entry.idRow)) {
+                anyRowFocusVisible = true;
+            }
         }
         const bool matchId = st.selectedId.IsValid() && entry.idOuter == st.selectedId;
         const bool matchIdx = (st.selectedIndex >= 0 && entry.index == st.selectedIndex);
@@ -515,7 +519,7 @@ TreeViewScope TreeView::Open(
             st.selectedIndex = target.index;
             if (opts.selectedId) *opts.selectedId = target.idOuter;
             if (opts.selectedIndex) *opts.selectedIndex = target.index;
-            ctx.RequestFocus(target.idRow);
+            ctx.RequestFocus(target.idRow, FocusReason::Keyboard);
             ctx.ScrollToId(target.idRow);
             ctx.InvalidateAll();
         };
@@ -617,7 +621,7 @@ TreeViewScope TreeView::Open(
     if (outerNode->borderWidth > 0.0f) {
         outerNode->borderColor = opts.border.color.Resolve(
             treeHovered,
-            anyRowFocused,
+            anyRowFocusVisible,
             activeDisabled,
             pal.borderSubtle,
             pal.borderHover,
@@ -635,7 +639,7 @@ TreeViewScope TreeView::Open(
         outerNode->backgroundColor = theme.ResolveColor(
             opts.background,
             treeHovered,
-            anyRowFocused,
+            anyRowFocusVisible,
             activeDisabled,
             pal.surface,
             pal.surfaceHover,
@@ -1065,7 +1069,7 @@ TreeItemScope TreeView::OpenItem(
     rowNode->disabled = activeDisabled;
     rowNode->hovered = res.hovered;
     rowNode->pressed = res.pressed;
-    rowNode->focused = ctx.IsFocused(idRow);
+    rowNode->focused = ctx.IsFocusVisible(idRow);
     rowNode->checked = isOpen;
     rowNode->active = isSelected;
     rowNode->widthMode = SizeMode::Stretch;

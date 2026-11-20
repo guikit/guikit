@@ -553,7 +553,7 @@ Response Toolbar::ToolButton(
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
     node->pressed = res.pressed;
-    node->focused = ctx.IsFocused(id);
+    node->focused = ctx.IsFocusVisible(id);
     node->widthMode = opts.width.ResolveMode(SizeMode::Fit);
     node->fixedWidth = opts.width.IsFixed() ? opts.width.Dp() : 0.0f;
     if (opts.minWidth.has_value() && *opts.minWidth > 0.0f) {
@@ -718,7 +718,7 @@ SplitButtonResponse Toolbar::SplitButton(
     node->disabled = effectiveDisabled;
     node->hovered = baseRes.hovered;
     node->pressed = baseRes.pressed;
-    node->focused = ctx.IsFocused(id);
+    node->focused = ctx.IsFocusVisible(id);
     if (opts.width.IsFixed()) {
         node->widthMode = SizeMode::Fixed;
         node->fixedWidth = opts.width.Dp() + chevW;

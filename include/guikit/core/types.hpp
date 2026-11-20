@@ -342,6 +342,20 @@ struct KeyModifiers {
     }
 };
 
+/// Last active interaction modality driving `:focus-visible` indicator behavior.
+enum class InputModality : keel::u8 {
+    Pointer = 0,  ///< Mouse / touch interaction (suppresses focus rings on non-text controls)
+    Keyboard      ///< Keyboard navigation (Tab / Arrows / Space / Enter — shows focus rings)
+};
+
+/// Cause of a focus transition (following W3C `:focus-visible`, WinUI 3, and React Aria semantics).
+enum class FocusReason : keel::u8 {
+    Auto = 0,     ///< Inherits the current `InputModality` (`Pointer` vs `Keyboard`)
+    Pointer,      ///< Focused via mouse / touch click (logical focus only; no ring on non-text controls)
+    Keyboard,     ///< Focused via keyboard navigation (shows focus ring)
+    Programmatic  ///< Focused imperatively by application code (inherits current modality)
+};
+
 /// Semantic keyboard actions decoupled from physical key codes.
 /// Widgets react to KeyAction rather than hardcoded Key + KeyModifiers combinations.
 enum class KeyAction : keel::u8 {

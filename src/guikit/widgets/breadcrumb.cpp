@@ -825,7 +825,7 @@ Response Breadcrumb::Run(
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
     node->active = res.pressed;
-    node->focused = ctx.IsFocused(id);
+    node->focused = ctx.IsFocusVisible(id);
 
     Control::SetupNode(ctx, node, ctrl);
 

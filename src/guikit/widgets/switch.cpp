@@ -138,7 +138,7 @@ Response Switch::Run(
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
     node->pressed = res.pressed;
-    node->focused = ctx.IsFocused(id);
+    node->focused = ctx.IsFocusVisible(id);
 
     Control::SetupNode(ctx, node, ctrl);
 

@@ -1207,7 +1207,7 @@ Response Select::Run(
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
     node->active = isOpen;
-    node->focused = finalFocused;
+    node->focused = isOpen || isEditingText || ctx.IsFocusVisible(id);
     res.focused = finalFocused;
 
     Control::SetupNode(ctx, node, ctrl);
@@ -2894,7 +2894,7 @@ Response Select::RunMulti(
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
     node->active = isOpen;
-    node->focused = finalFocused;
+    node->focused = isOpen || isEditingText || ctx.IsFocusVisible(id);
     res.focused = finalFocused;
 
     Control::SetupNode(ctx, node, ctrl);

@@ -12481,6 +12481,7 @@ void TestApiPolish();
 void TestControlFlatSizingAndStyleOptions();
 void TestSceneWorldSizeInsideScrollAreaDoesNotOverflow();
 void TestApiPolishStretchWeightsTabBarColorAndOptionalMins();
+void TestFocusVisibleModalityAndTabBarFocusRing();
 
 int main() {
     keel::println("[RUN] Testing GuiKit Context & Immediate Mode API...");
@@ -15233,6 +15234,7 @@ int main() {
     TestControlFlatSizingAndStyleOptions();
     TestSceneWorldSizeInsideScrollAreaDoesNotOverflow();
     TestApiPolishStretchWeightsTabBarColorAndOptionalMins();
+    TestFocusVisibleModalityAndTabBarFocusRing();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Context tests passed successfully!");
@@ -17231,6 +17233,109 @@ void TestApiPolishStretchWeightsTabBarColorAndOptionalMins() {
     }
 
     keel::println("  [PASS] TestApiPolishStretchWeightsTabBarColorAndOptionalMins completed");
+}
+
+void TestFocusVisibleModalityAndTabBarFocusRing() {
+    using namespace guikit;
+    keel::println("  -> TestFocusVisibleModalityAndTabBarFocusRing...");
+
+    ThorCanvas canvas;
+    keel::Array<keel::u32> fb(520u * 260u, 0u);
+    canvas.SetTarget(fb.data(), 520, 260, 520);
+
+    Context ui;
+    keel::i32 activeTab = 0;
+    keel::FixedString<32> textVal{"hello"};
+    Response btnResp{}, inputResp{}, tabResp{};
+    bool btnClickedBySpace = false;
+
+    auto renderFrame = [&]() {
+        ui.BeginFrame({520.0f, 260.0f});
+        if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
+            tabResp = ui.TabBar(activeTab, {{"First"}, {"Second"}, {"Third"}}, {
+                .style = TabBarStyle::Folder,
+                .fullWidth = true
+            });
+            btnResp = ui.Button({.text = "Action"});
+            if (btnResp.clicked) {
+                btnClickedBySpace = true;
+            }
+            inputResp = ui.InputField(textVal);
+        }
+        ui.EndFrame(canvas);
+    };
+
+    renderFrame();
+    renderFrame();
+
+    // 1. Click "Second" tab with mouse -> tab activates, logical focus moves, but :focus-visible stays false (Pointer modality)
+    const Vec2 secondTabPt{tabResp.rect.x + tabResp.rect.w * 0.5f, tabResp.rect.Center().y};
+    ui.OnMouseMove(secondTabPt);
+    ui.OnMouseDown(1);
+    renderFrame();
+    ui.OnMouseUp(1);
+    renderFrame();
+
+    CHECK(activeTab == 1);
+    CHECK(ui.GetInputModality() == InputModality::Pointer);
+    CHECK(ui.GetFocusedId().IsValid());
+    CHECK(!ui.IsFocusVisible(ui.GetFocusedId()));
+
+    // Non-navigation keys (Ctrl+C, Escape) must NOT switch modality to Keyboard
+    ui.OnKeyDown(Key::C, {.ctrl = true});
+    ui.OnKeyDown(Key::Escape, {});
+    renderFrame();
+    CHECK(ui.GetInputModality() == InputModality::Pointer);
+    CHECK(!ui.IsFocusVisible(ui.GetFocusedId()));
+
+    // 2. Click Button with mouse -> logical focus is on button (Space still activates it), but focus ring is NOT visible
+    btnClickedBySpace = false;
+    ui.OnMouseMove(btnResp.rect.Center());
+    ui.OnMouseDown(1);
+    renderFrame();
+    ui.OnMouseUp(1);
+    renderFrame();
+
+    CHECK(ui.IsFocused(btnResp.id));
+    CHECK(!ui.IsFocusVisible(btnResp.id));
+    CHECK(ui.GetInputModality() == InputModality::Pointer);
+
+    // Pressing Space on the pointer-focused button activates it AND switches modality to Keyboard (:focus-visible = true)
+    btnClickedBySpace = false;
+    ui.OnKeyDown(Key::Space);
+    renderFrame();
+    CHECK(btnClickedBySpace);
+    CHECK(ui.GetInputModality() == InputModality::Keyboard);
+    CHECK(ui.IsFocusVisible(btnResp.id));
+
+    // 3. Pressing Tab cycles focus to InputField with :focus-visible == true
+    ui.OnKeyDown(Key::Tab);
+    renderFrame();
+    CHECK(ui.IsFocused(inputResp.id));
+    CHECK(ui.IsFocusVisible(inputResp.id));
+
+    // 4. Clicking InputField with mouse switches modality to Pointer, while InputField keeps logical focus
+    ui.OnMouseMove(inputResp.rect.Center());
+    ui.OnMouseDown(1);
+    renderFrame();
+    ui.OnMouseUp(1);
+    renderFrame();
+    CHECK(ui.IsFocused(inputResp.id));
+    CHECK(ui.GetInputModality() == InputModality::Pointer);
+    CHECK(!ui.IsFocusVisible(inputResp.id));
+
+    // 5. Explicit FocusReason::Keyboard vs FocusReason::Pointer
+    ui.RequestFocus(btnResp.id, FocusReason::Keyboard);
+    renderFrame();
+    CHECK(ui.IsFocused(btnResp.id));
+    CHECK(ui.IsFocusVisible(btnResp.id));
+
+    ui.RequestFocus(btnResp.id, FocusReason::Pointer);
+    renderFrame();
+    CHECK(ui.IsFocused(btnResp.id));
+    CHECK(!ui.IsFocusVisible(btnResp.id));
+
+    keel::println("  [PASS] TestFocusVisibleModalityAndTabBarFocusRing completed");
 }
 
 

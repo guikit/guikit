@@ -1741,13 +1741,19 @@ public:
     }
 
     // Imperative actions requested from Response
-    void RequestFocus(Id id);
+    void RequestFocus(Id id, FocusReason reason = FocusReason::Auto);
     [[nodiscard]] Id GetFocusedId() const noexcept { return m_focusedId; }
+    [[nodiscard]] InputModality GetInputModality() const noexcept { return m_inputModality; }
     [[nodiscard]] bool IsFocused(Id id) const noexcept {
         if (!id.IsValid() || m_focusedId != id) return false;
         if (m_openPopupId.IsValid() && m_openPopupId != id) return false;
         if (m_modalScopeDepth == 0 && (m_currFrameModalId.IsValid() || m_prevFrameModalId.IsValid())) return false;
         return true;
+    }
+    /// Returns true when `id` has focus AND the focus ring should be drawn (`:focus-visible` semantics:
+    /// true for keyboard navigation, false after mouse/pointer click on non-text controls).
+    [[nodiscard]] bool IsFocusVisible(Id id) const noexcept {
+        return m_focusVisible && IsFocused(id);
     }
     [[nodiscard]] bool HasActiveTextEdit(Id id) const noexcept { return m_editState.id == id && id.IsValid(); }
     void ClearFocus() noexcept {
@@ -1756,6 +1762,7 @@ public:
             m_editState.id = Id::Null();
         }
         m_focusedId = Id::Null();
+        m_focusVisible = false;
     }
 
     [[nodiscard]] Id GetActiveId() const noexcept { return m_activeId; }
@@ -2200,6 +2207,8 @@ private:
     Id m_hoveredId{Id::Null()};
     Id m_activeId{Id::Null()};
     Id m_focusedId{Id::Null()};
+    InputModality m_inputModality{InputModality::Pointer};
+    bool m_focusVisible{false};
     CursorType m_cursor{CursorType::Default};
 
     // Active text edit state

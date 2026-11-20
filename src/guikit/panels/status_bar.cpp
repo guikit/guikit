@@ -347,7 +347,7 @@ Response StatusBar::RenderSegment(
     node->disabled = effectiveDisabled;
     node->hovered = interactive && res.hovered;
     node->pressed = interactive && res.pressed;
-    node->focused = interactive && ctx.IsFocused(id);
+    node->focused = interactive && ctx.IsFocusVisible(id);
     node->active = opts.active;
 
     auto* payload = ctx.AllocPayload<StatusSegmentPayload>();

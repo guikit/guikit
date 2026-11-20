@@ -579,7 +579,7 @@ Response ColorPicker::Run(
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
     node->active = isOpen || (state.dragTarget != 0);
-    node->focused = isOpen || ctx.IsFocused(id);
+    node->focused = isOpen || ctx.IsFocusVisible(id);
 
     const ControlSpec ctrl = EffectiveColorPickerControl(optsCopy, activeSize, theme);
     Control::SetupNode(ctx, node, ctrl);

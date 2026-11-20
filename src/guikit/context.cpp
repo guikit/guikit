@@ -217,6 +217,8 @@ void Context::BeginFrame(Vec2 viewportSize, float displayScale, float rootZoom) 
                     m_editState.id = Id::Null();
                 }
                 m_focusedId = nextId;
+                m_inputModality = InputModality::Keyboard;
+                m_focusVisible = true;
                 m_suspendDirectEditInput = false;
                 InvalidateAll();
             } else {
@@ -248,6 +250,7 @@ void Context::BeginFrame(Vec2 viewportSize, float displayScale, float rootZoom) 
                         m_editState.id = Id::Null();
                     }
                     m_focusedId = Id::Null();
+                    m_focusVisible = false;
                     m_suspendDirectEditInput = false;
                 }
             } else {
@@ -256,6 +259,7 @@ void Context::BeginFrame(Vec2 viewportSize, float displayScale, float rootZoom) 
                     m_editState.id = Id::Null();
                 }
                 m_focusedId = Id::Null();
+                m_focusVisible = false;
                 m_suspendDirectEditInput = false;
             }
         }
@@ -884,12 +888,23 @@ void Context::ClearToasts() noexcept {
     }
 }
 
-void Context::RequestFocus(Id id) {
+void Context::RequestFocus(Id id, FocusReason reason) {
     if (m_focusedId != id && m_editState.id.IsValid() && m_editState.id != id) {
         FlushActiveEditHistory();
         m_editState.id = Id::Null();
     }
     m_focusedId = id;
+    if (!id.IsValid()) {
+        m_focusVisible = false;
+    } else if (reason == FocusReason::Keyboard) {
+        m_inputModality = InputModality::Keyboard;
+        m_focusVisible = true;
+    } else if (reason == FocusReason::Pointer) {
+        m_inputModality = InputModality::Pointer;
+        m_focusVisible = false;
+    } else {
+        m_focusVisible = (m_inputModality == InputModality::Keyboard);
+    }
     ResetCursorBlink();
 }
 
@@ -1637,6 +1652,10 @@ void Context::OnMouseMove(Vec2 pos) {
 }
 
 void Context::OnMouseDown(keel::i32 button) {
+    if (button == 1 || button == 2 || button == 3) {
+        m_inputModality = InputModality::Pointer;
+        m_focusVisible = false;
+    }
     if (button == 1) { // Left mouse button
         m_mouseDown = true;
         m_mouseClicked = true;
@@ -1709,8 +1728,36 @@ void Context::OnTextInput(keel::StringRef utf8Text) {
     }
 }
 
+static bool IsKeyboardFocusTriggerKey(Key key, KeyModifiers mods) noexcept {
+    if (mods.ctrl || mods.alt) {
+        return false;
+    }
+    switch (key) {
+        case Key::Tab:
+        case Key::Enter:
+        case Key::Space:
+        case Key::Left:
+        case Key::Right:
+        case Key::Up:
+        case Key::Down:
+        case Key::Home:
+        case Key::End:
+        case Key::PageUp:
+        case Key::PageDown:
+            return true;
+        default:
+            return false;
+    }
+}
+
 void Context::OnKeyDown(Key key, KeyModifiers mods) {
     m_keyMods = mods;
+    if (IsKeyboardFocusTriggerKey(key, mods)) {
+        m_inputModality = InputModality::Keyboard;
+        if (m_focusedId.IsValid()) {
+            m_focusVisible = true;
+        }
+    }
     ResetCursorBlink();
     RequestRepaint(3);
 
@@ -2629,6 +2676,7 @@ void Context::EndFrame(ICanvas& canvas) {
                     m_editState.id = Id::Null();
                 }
                 m_focusedId = Id::Null();
+                m_focusVisible = false;
                 m_suspendDirectEditInput = false;
             }
         }
@@ -2636,6 +2684,7 @@ void Context::EndFrame(ICanvas& canvas) {
         if (!m_focusedId.IsValid()) {
             if (ContainsId(m_prevFocusableIds, m_savedFocusBeforeModal)) {
                 m_focusedId = m_savedFocusBeforeModal;
+                m_focusVisible = (m_inputModality == InputModality::Keyboard);
             }
         }
         m_savedFocusBeforeModal = Id::Null();

@@ -250,7 +250,7 @@ TabBarResponse TabBar::Run(
         tabNode->disabled = effectiveDisabled;
         tabNode->hovered = tabRes.hovered;
         tabNode->pressed = tabRes.pressed;
-        tabNode->focused = ctx.IsFocused(tabId);
+        tabNode->focused = ctx.IsFocusVisible(tabId);
         tabNode->widthMode = opts.fullWidth ? SizeMode::Stretch : SizeMode::Fit;
         tabNode->heightMode = SizeMode::Stretch;
     }
@@ -363,8 +363,9 @@ void TabBar::RenderTab(
             const Rect lineR(bounds.x + linePad, bounds.Bottom() - lineH, keel::max(0.0f, bounds.w - linePad * 2.0f), lineH);
             canvas.DrawRoundRect(lineR, 1.5f, accentCol);
         }
-        if (focused && !active && !disabled) {
-            canvas.DrawRoundRect(Rect(bounds.x + 1.0f, bounds.y + 2.0f, keel::max(0.0f, bounds.w - 2.0f), keel::max(0.0f, bounds.h - 4.0f)), m.cornerRadius, Color::Transparent(), pal.focusRing, 1.5f);
+        if (focused && !disabled) {
+            const float bottomInset = active ? 6.0f : 4.0f;
+            canvas.DrawRoundRect(Rect(bounds.x + 1.0f, bounds.y + 2.0f, keel::max(0.0f, bounds.w - 2.0f), keel::max(0.0f, bounds.h - bottomInset)), m.cornerRadius, Color::Transparent(), pal.focusRing, 1.5f);
         }
     } else if (opts.style == TabBarStyle::Card) {
         const float r = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
@@ -383,7 +384,8 @@ void TabBar::RenderTab(
             }
         }
         if (focused && !disabled) {
-            canvas.DrawRoundRect(Rect(bounds.x + 1.0f, bounds.y + 3.0f, keel::max(0.0f, bounds.w - 2.0f), keel::max(0.0f, bounds.h - 4.0f)), keel::max(0.0f, r - 1.0f), Color::Transparent(), pal.focusRing, 1.5f);
+            const Rect focusCardR(bounds.x + 0.75f, bounds.y + 2.75f, keel::max(0.0f, bounds.w - 1.5f), bounds.h + r);
+            canvas.DrawRoundRect(focusCardR, keel::max(0.0f, r - 0.5f), Color::Transparent(), pal.focusRing, 1.5f);
         }
     } else if (opts.style == TabBarStyle::Folder) {
         const float slope = keel::min(6.0f, bounds.w * 0.14f);
@@ -412,7 +414,18 @@ void TabBar::RenderTab(
             canvas.DrawLine(Vec2(bounds.x, botY - 0.5f), Vec2(bounds.Right(), botY - 0.5f), pal.borderSubtle, 1.0f);
         }
         if (focused && !disabled) {
-            canvas.DrawRoundRect(Rect(bounds.x + slope, topY + 1.0f, keel::max(0.0f, bounds.w - slope * 2.0f), keel::max(0.0f, botY - topY - 2.0f)), 2.0f, Color::Transparent(), pal.focusRing, 1.5f);
+            // Trace the open trapezoidal folder silhouette (preserving the open bottom seam)
+            VectorPath focusPath;
+            focusPath.MoveTo({bounds.x + 0.75f, botY});
+            focusPath.LineTo({bounds.x + slope, topY + 0.75f});
+            focusPath.LineTo({bounds.Right() - slope, topY + 0.75f});
+            focusPath.LineTo({bounds.Right() - 0.75f, botY});
+            PathPaint fp{};
+            fp.renderFill = false;
+            fp.renderStroke = true;
+            fp.strokeColor = pal.focusRing;
+            fp.strokeWidthPx = 1.5f;
+            canvas.DrawPath(focusPath, fp);
         }
     } else {
         // Pill / Segmented style

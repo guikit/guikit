@@ -183,7 +183,7 @@ Response ActivityBar::Item(
     node->hovered = res.hovered;
     node->pressed = res.pressed;
     node->active = item.active;
-    node->focused = ctx.IsFocused(id);
+    node->focused = ctx.IsFocusVisible(id);
     node->widthMode = SizeMode::Fixed;
     node->heightMode = SizeMode::Fixed;
     node->fixedWidth = m.defaultHeight;
