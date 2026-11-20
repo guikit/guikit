@@ -939,7 +939,7 @@ TreeItemScope TreeView::OpenItem(
     res.ctx = &ctx;
     if (overEmbeddedControls) {
         res.rect = ctx.GetPrevFrameBounds(idRow);
-        const bool occluded = ctx.GetOpenPopupId().IsValid() && ctx.GetOpenPopupRect().Contains(mousePos);
+        const bool occluded = ctx.IsMouseOccluded(idRow, mousePos);
         res.hovered = !occluded && res.rect.Contains(mousePos);
     } else {
         res = ctx.Interact(idRow);

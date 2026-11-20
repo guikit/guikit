@@ -128,6 +128,7 @@ BottomPanelScope BottomPanel::Open(
         const Vec2 mouse = ctx.GetMousePos();
         const bool occludedByPopup = ctx.GetOpenPopupId().IsValid() && ctx.GetOpenPopupRect().Contains(mouse);
         const bool occludedByModal = ctx.IsModalBlocking(mouse);
+        const bool occludedByPopover = ctx.IsPopoverBlocking(mouse);
         const bool otherActive = ctx.GetActiveId().IsValid() && ctx.GetActiveId() != sashId;
 
         const Rect toggleRect = ComputeTopToggleRect(prevBounds, activeScale);
@@ -135,7 +136,7 @@ BottomPanelScope BottomPanel::Open(
         const bool canToggle = showToggle;
         const bool canSash = opts.resizable || (state.mode == BottomPanelMode::Collapsed && opts.allowCollapse);
 
-        if (!occludedByPopup && !occludedByModal && !otherActive) {
+        if (!occludedByPopup && !occludedByModal && !occludedByPopover && !otherActive) {
             const bool onToggle = canToggle && toggleRect.Contains(mouse);
             const bool onSash = canSash && !onToggle && sashRect.Contains(mouse);
             state.toggleHovered = onToggle;
@@ -385,10 +386,10 @@ BottomPanelScope BottomPanel::Open(
             const Rect r = node->computedRect;
             if (r.w <= 4.0f) return;
             if (drawToggle) {
-                ctx.RegisterOverlayHitRegion(sashId, ComputeTopToggleRect(r, activeScale));
+                ctx.RegisterOverlayHitRegion(sashId, ComputeTopToggleRect(r, activeScale), OverlayLayer::Panel);
             }
             if (canSash) {
-                ctx.RegisterOverlayHitRegion(sashId, ComputeTopSashHitRect(r, curMode, activeScale));
+                ctx.RegisterOverlayHitRegion(sashId, ComputeTopSashHitRect(r, curMode, activeScale), OverlayLayer::Panel);
             }
         });
 
@@ -452,7 +453,7 @@ BottomPanelScope BottomPanel::Open(
                 iconCol = iconCol.WithAlphaF(alphaMul);
                 chevron.Draw(canvas, iconRect, iconCol);
             }
-        });
+        }, OverlayLayer::Panel);
     }
 
     return BottomPanelScope(&ctx, node, res, state.mode, reportedLogicalH);

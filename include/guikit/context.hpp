@@ -234,6 +234,12 @@ struct StoredState {
 
 } // namespace detail
 
+/// Z-ordering layer for deferred overlay render passes and overlay hit regions.
+enum class OverlayLayer : keel::u8 {
+    Panel = 1, ///< Panel chrome overlays (Sidebar / BottomPanel / SplitView sashes & toggle pills) rendered below Modals/Popovers.
+    Popup = 3  ///< Top-level popups & toasts (Select, DatePicker, ColorPicker, ContextMenu, CommandPalette, Toast) rendered above Modals/Popovers.
+};
+
 /// Primary immediate mode context coordinating input, layout, and rendering.
 class Context {
 public:
@@ -1846,6 +1852,7 @@ public:
     struct OverlayHitRegion {
         Id id{Id::Null()};
         Rect rect{};
+        OverlayLayer layer{OverlayLayer::Popup};
     };
 
     void OpenPopup(Id id, Rect bounds, Rect anchorRect = Rect{});
@@ -1856,7 +1863,7 @@ public:
     void SetOpenPopupVisualHash(keel::u64 hash) noexcept { m_openPopupVisualHash = hash; }
     template <typename F>
         requires requires(keel::Decay<F>& f, ICanvas& c) { f(c); }
-    void RegisterOverlay(F&& drawFn) {
+    void RegisterOverlay(F&& drawFn, OverlayLayer layer = OverlayLayer::Popup) {
         using Decayed = keel::Decay<F>;
         if constexpr (keel::IsPointer<Decayed> || requires(const Decayed& f) { static_cast<bool>(f); }) {
             if (!static_cast<bool>(drawFn)) return;
@@ -1869,11 +1876,12 @@ public:
                 ? nullptr
                 : +[](void* p) noexcept { static_cast<Decayed*>(p)->~Decayed(); },
             .clipRect = PopupViewportInFrame(),
-            .space = CurrentSpace()
+            .space = CurrentSpace(),
+            .layer = layer
         });
     }
     void MarkModalOverlayActive() noexcept { m_currFrameModalOverlay = true; }
-    void RegisterOverlayHitRegion(Id id, Rect rect);
+    void RegisterOverlayHitRegion(Id id, Rect rect, OverlayLayer layer = OverlayLayer::Popup);
     template <typename F>
         requires requires(keel::Decay<F>& f) { f(); }
     void RegisterOverlayHitBuilder(F&& builderFn) {
@@ -1988,6 +1996,12 @@ public:
         return false;
     }
 
+    /// Returns true if an open `Popover` sits above the current scope and covers `pos` (in current space).
+    [[nodiscard]] bool IsPopoverBlocking(Vec2 pos) const noexcept { return IsPopoverBlockingInFrame(CurrentSpace().Apply(pos)); }
+
+    /// Frame-space variant used by the context's own hit testing.
+    [[nodiscard]] bool IsPopoverBlockingInFrame(Vec2 pos) const noexcept;
+
     // --- Input Queries & Consumption ---
     /// Mouse position in the current space (see `CurrentSpace()`).
     [[nodiscard]] Vec2 GetMousePos() const noexcept { return CurrentSpace().Invert(m_mousePos); }
@@ -2098,6 +2112,7 @@ private:
     friend class TableRowScope;
 
     // Frame-space variants used by the context's own hit testing and damage tracking
+    [[nodiscard]] keel::u8 CurrentScopeZLayer() const noexcept;
     [[nodiscard]] bool IsMouseOccludedInFrame(Id id, Vec2 framePos) const noexcept;
     [[nodiscard]] Rect PopupViewportInFrame() const noexcept;
     void InvalidateFrameRect(Rect frameRect) noexcept;
@@ -2384,6 +2399,7 @@ private:
         void (*destroy)(void*) noexcept{nullptr};
         Rect clipRect{};     ///< Frame space
         Transform2D space{}; ///< Space the overlay was registered from; it draws in that space
+        OverlayLayer layer{OverlayLayer::Popup};
     };
     keel::SmallArray<OverlayPass, 8> m_overlayPasses;
     void ClearOverlayPasses() noexcept;

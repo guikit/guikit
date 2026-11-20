@@ -1831,10 +1831,64 @@ void Context::InvalidateFrameRect(Rect frameRect) noexcept {
     }
 }
 
-void Context::RegisterOverlayHitRegion(Id id, Rect rect) {
+void Context::RegisterOverlayHitRegion(Id id, Rect rect, OverlayLayer layer) {
     if (id.IsValid() && rect.w > 0.0f && rect.h > 0.0f) {
-        m_currOverlayHitRegions.push_back(OverlayHitRegion{id, CurrentSpace().Apply(rect)});
+        m_currOverlayHitRegions.push_back(OverlayHitRegion{id, CurrentSpace().Apply(rect), layer});
     }
+}
+
+keel::u8 Context::CurrentScopeZLayer() const noexcept {
+    keel::u8 zLayer = (m_modalScopeDepth > 0) ? 2 : 0;
+    for (const Node* n : m_containerStack) {
+        if (!n) continue;
+        if (n->IsOutOfFlow()) {
+            zLayer = keel::max<keel::u8>(zLayer, 2);
+        } else if (n->type == NodeType::Sidebar ||
+                   n->type == NodeType::BottomPanel ||
+                   n->type == NodeType::StatusBar) {
+            zLayer = keel::max<keel::u8>(zLayer, 1);
+        }
+    }
+    return zLayer;
+}
+
+bool Context::IsPopoverBlockingInFrame(Vec2 pos) const noexcept {
+    const Node* activePortal = nullptr;
+    for (keel::usize i = m_containerStack.size(); i > 0; --i) {
+        const Node* n = m_containerStack[i - 1];
+        if (n && n->IsOutOfFlow()) {
+            activePortal = n;
+            break;
+        }
+    }
+    const HitNodeRecord* activePortalRec = nullptr;
+    if (activePortal && activePortal->id.IsValid()) {
+        if (const keel::usize* idx = m_prevHitNodeMap.get(activePortal->id)) {
+            activePortalRec = &m_prevHitNodes[*idx];
+        }
+    }
+
+    for (const auto& b : m_prevHitNodes) {
+        if (b.type != NodeType::Popover || !b.blocksHit || !b.rect.Contains(pos)) {
+            continue;
+        }
+        if (activePortal != nullptr) {
+            if (activePortal->id == b.id) {
+                continue;
+            }
+            if (activePortalRec != nullptr) {
+                const bool bIsDescendant = (activePortalRec->preIndex < b.preIndex && b.postIndex <= activePortalRec->postIndex);
+                const bool bIsAfter = (b.preIndex > activePortalRec->postIndex);
+                if (!bIsDescendant && !bIsAfter) {
+                    continue;
+                }
+            } else {
+                continue;
+            }
+        }
+        return true;
+    }
+    return false;
 }
 
 bool Context::IsMouseOccluded(Id id, Vec2 pos) const noexcept {
@@ -1851,16 +1905,25 @@ bool Context::IsMouseOccludedInFrame(Id id, Vec2 pos) const noexcept {
     if (m_activeId.IsValid() && m_activeId == id) {
         return false;
     }
+    if (IsPopoverBlockingInFrame(pos)) {
+        return true;
+    }
+
+    const keel::usize* idxA = m_prevHitNodeMap.get(id);
+    keel::u8 targetZLayer = CurrentScopeZLayer();
+    if (idxA != nullptr) {
+        targetZLayer = keel::max<keel::u8>(targetZLayer, m_prevHitNodes[*idxA].zLayer);
+    }
+
     for (const auto& ov : m_prevOverlayHitRegions) {
         if (m_activeId.IsValid() && m_activeId == ov.id) {
             return ov.id != id;
         }
-        if (ov.rect.Contains(pos)) {
+        if (static_cast<keel::u8>(ov.layer) >= targetZLayer && ov.rect.Contains(pos)) {
             return ov.id != id;
         }
     }
 
-    const keel::usize* idxA = m_prevHitNodeMap.get(id);
     if (idxA != nullptr) {
         const HitNodeRecord& a = m_prevHitNodes[*idxA];
         for (const auto& b : m_prevHitNodes) {
@@ -1972,27 +2035,19 @@ bool Context::IsMouseBlockedForCurrentScope() const noexcept {
     }
 
     const bool hasActiveCapture = m_activeId.IsValid() && !clickImpulse;
+    const keel::u8 currentZLayer = CurrentScopeZLayer();
 
     // Block non-overlay scopes when hovering/clicking an overlay hit region
-    // unless a non-overlay widget/handle already owns active drag capture
+    // at or above the current scope's Z-layer, unless a non-overlay widget/handle
+    // already owns active drag capture.
     if (!hasActiveCapture) {
         for (const auto& ov : m_prevOverlayHitRegions) {
-            if (ov.rect.Contains(m_mousePos)) {
+            if (static_cast<keel::u8>(ov.layer) >= currentZLayer && ov.rect.Contains(m_mousePos)) {
                 return true;
             }
         }
-    }
-
-    // Determine current scope Z-layer from container stack
-    keel::u8 currentZLayer = (m_modalScopeDepth > 0) ? 2 : 0;
-    for (const Node* n : m_containerStack) {
-        if (!n) continue;
-        if (n->IsOutOfFlow()) {
-            currentZLayer = keel::max<keel::u8>(currentZLayer, 2);
-        } else if (n->type == NodeType::Sidebar ||
-                   n->type == NodeType::BottomPanel ||
-                   n->type == NodeType::StatusBar) {
-            currentZLayer = keel::max<keel::u8>(currentZLayer, 1);
+        if (IsPopoverBlockingInFrame(m_mousePos)) {
+            return true;
         }
     }
 
@@ -2037,7 +2092,7 @@ bool Context::IsMouseBlockedForCurrentScope() const noexcept {
 }
 
 void Context::SetTooltip(UiText tooltip, Rect anchorRect) {
-    if (tooltip.empty() || m_openPopupId.IsValid() || IsModalBlockingInFrame(m_mousePos)) {
+    if (tooltip.empty() || m_openPopupId.IsValid() || IsModalBlockingInFrame(m_mousePos) || IsPopoverBlockingInFrame(m_mousePos)) {
         return;
     }
     m_activeTooltip = AllocText(tooltip);
@@ -2959,6 +3014,28 @@ void Context::EndFrame(ICanvas& canvas) {
         }
     };
 
+    auto runOverlayPasses = [&](OverlayLayer targetLayer, const Rect& clipBounds, bool intersectWithClip) {
+        for (const auto& pass : m_overlayPasses) {
+            if (pass.layer != targetLayer) continue;
+            if (pass.clipRect.w > 0.0f && pass.clipRect.h > 0.0f) {
+                if (intersectWithClip) {
+                    const Rect clip = pass.clipRect.Intersect(clipBounds);
+                    if (clip.w <= 0.0f || clip.h <= 0.0f) continue;
+                    canvas.PushClip(clip);
+                    invokeOverlay(pass);
+                    canvas.PopClip();
+                } else {
+                    if (!pass.clipRect.Intersects(clipBounds)) continue;
+                    canvas.PushClip(pass.clipRect);
+                    invokeOverlay(pass);
+                    canvas.PopClip();
+                }
+            } else {
+                invokeOverlay(pass);
+            }
+        }
+    };
+
     // If damage exists, clear target buffer and rasterize scene graph
     if (m_hasDirtyDamage) {
         canvas.Begin(static_cast<keel::u32>(m_viewportSize.x), static_cast<keel::u32>(m_viewportSize.y), m_pixelsPerDp);
@@ -2967,18 +3044,9 @@ void Context::EndFrame(ICanvas& canvas) {
             canvas.PushClip(m_dirtyRect);
             canvas.Clear(m_clearColor);
             RenderNodeRecursive(m_root, canvas, m_dirtyRect, m_theme);
+            runOverlayPasses(OverlayLayer::Panel, m_dirtyRect, false);
             RenderModalsRecursive(m_root, canvas, m_dirtyRect, m_theme);
-
-            for (const auto& pass : m_overlayPasses) {
-                if (pass.clipRect.w > 0.0f && pass.clipRect.h > 0.0f) {
-                    if (!pass.clipRect.Intersects(m_dirtyRect)) continue;
-                    canvas.PushClip(pass.clipRect);
-                    invokeOverlay(pass);
-                    canvas.PopClip();
-                } else {
-                    invokeOverlay(pass);
-                }
-            }
+            runOverlayPasses(OverlayLayer::Popup, m_dirtyRect, false);
             if (hasTooltip) {
                 RenderTooltipOverlay(canvas, logicalSize);
             }
@@ -2996,18 +3064,9 @@ void Context::EndFrame(ICanvas& canvas) {
                 canvas.PushClip(dr);
                 canvas.Clear(m_clearColor, dr);
                 RenderNodeRecursive(m_root, canvas, dr, m_theme);
+                runOverlayPasses(OverlayLayer::Panel, dr, true);
                 RenderModalsRecursive(m_root, canvas, dr, m_theme);
-                for (const auto& pass : m_overlayPasses) {
-                    if (pass.clipRect.w > 0.0f && pass.clipRect.h > 0.0f) {
-                        const Rect clip = pass.clipRect.Intersect(dr);
-                        if (clip.w <= 0.0f || clip.h <= 0.0f) continue;
-                        canvas.PushClip(clip);
-                        invokeOverlay(pass);
-                        canvas.PopClip();
-                    } else {
-                        invokeOverlay(pass);
-                    }
-                }
+                runOverlayPasses(OverlayLayer::Popup, dr, true);
                 canvas.PopClip();
                 canvas.End();
             }

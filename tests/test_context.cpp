@@ -12485,6 +12485,7 @@ void TestApiPolishStretchWeightsTabBarColorAndOptionalMins();
 void TestFocusVisibleModalityAndTabBarFocusRing();
 void TestTextCompositorAndSubpixelRendering();
 void TestSwitchAndRadioSubpixelCentering();
+void TestPopoverOccludesPanelSashesAndRendersAboveThem();
 
 int main() {
     keel::println("[RUN] Testing GuiKit Context & Immediate Mode API...");
@@ -15240,6 +15241,7 @@ int main() {
     TestFocusVisibleModalityAndTabBarFocusRing();
     TestTextCompositorAndSubpixelRendering();
     TestSwitchAndRadioSubpixelCentering();
+    TestPopoverOccludesPanelSashesAndRendersAboveThem();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Context tests passed successfully!");
@@ -17581,6 +17583,173 @@ void TestSwitchAndRadioSubpixelCentering() {
     }
 
     keel::println("  [PASS] TestSwitchAndRadioSubpixelCentering completed");
+}
+
+void TestPopoverOccludesPanelSashesAndRendersAboveThem() {
+    keel::println("  -> TestPopoverOccludesPanelSashesAndRendersAboveThem...");
+    constexpr keel::u32 W = 800;
+    constexpr keel::u32 H = 600;
+    keel::Array<keel::u32> pixels(W * H, 0u);
+    ThorCanvas canvas;
+    canvas.SetTarget(pixels.data(), W, H, W);
+
+    Context ui;
+    ui.SetThemeMode(ThemeMode::Light);
+
+    bool popoverOpen = true;
+    bool splitActive = false;
+    float splitRatio = 0.35f;
+    SidebarMode sbMode = SidebarMode::Expanded;
+    BottomPanelMode bpMode = BottomPanelMode::Expanded;
+    keel::usize selectIdx = 0;
+    const keel::StaticArray<keel::StringRef, 2> selectItems = {{"Option A", "Option B"}};
+
+    Response popRes{};
+    Response popBtnRes{};
+    Response popSelectRes{};
+    Rect sbRect{};
+    Rect bpRect{};
+    bool popBtnClickedAny = false;
+    bool popBtnHoveredLast = false;
+
+    const Color kPopoverBg{245, 240, 230, 255}; // Warm cream — distinct from theme accent blue
+
+    auto renderFrame = [&]() {
+        popBtnHoveredLast = false;
+        ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+        if (auto rootCol = ui.Column({.gap = 0.0f, .padding = Padding::All(0.0f)})) {
+            if (auto tb = ui.Toolbar({})) {
+                const Response trig = tb.Toggle(popoverOpen, {.text = "Engine"});
+                if (auto pop = ui.Popover(popoverOpen, {
+                    .anchorRect = Rect{100.0f, trig.rect.y, 100.0f, trig.rect.h > 0.0f ? trig.rect.h : 28.0f},
+                    .placement = PopoverPlacement::BottomStart,
+                    .offset = 4.0f
+                })) {
+                    popRes = pop.response;
+                    if (auto card = ui.Card({
+                        .width = 280.0f,
+                        .height = 420.0f,
+                        .gap = 8.0f,
+                        .padding = Padding::All(16.0f),
+                        .background = {kPopoverBg},
+                        .elevated = true
+                    })) {
+                        // Push button down so it straddles the BottomPanel top sash (y ~ 360)
+                        ui.Gap(268.0f);
+                        popBtnRes = ui.Button({.text = "Over Sash Action", .width = SizeMode::Stretch});
+                        popBtnHoveredLast = popBtnRes.hovered;
+                        if (popBtnRes.clicked) {
+                            popBtnClickedAny = true;
+                        }
+                        popSelectRes = ui.Select(selectIdx, selectItems, {.width = SizeMode::Stretch});
+                    }
+                }
+            }
+            if (auto midRow = ui.Row({.gap = 0.0f, .padding = Padding::All(0.0f), .height = SizeMode::Stretch})) {
+                if (auto sb = ui.Sidebar(sbMode, {
+                    .side = SidebarSide::Left,
+                    .width = 180.0f,
+                    .resizable = true,
+                    .showToggleButton = true
+                })) {
+                    sbRect = sb.response.rect;
+                    ui.Text("Sidebar");
+                }
+                if (auto sp = ui.SplitView(splitRatio, {
+                    .orientation = Orientation::Horizontal,
+                    .height = SizeMode::Stretch
+                })) {
+                    splitActive = sp.IsDragging();
+                    if (auto p1 = sp.First()) { ui.Text("Pane 1"); }
+                    if (auto p2 = sp.Second()) { ui.Text("Pane 2"); }
+                }
+            }
+            if (auto bp = ui.BottomPanel(bpMode, {
+                .height = 240.0f,
+                .resizable = true,
+                .showToggleButton = true
+            })) {
+                bpRect = bp.response.rect;
+                ui.Text("Bottom Panel");
+            }
+        }
+        ui.EndFrame(canvas);
+    };
+
+    // Settle layout & previous-frame bounds
+    renderFrame();
+    renderFrame();
+    CHECK(popoverOpen);
+    CHECK(popRes.rect.w > 200.0f && popRes.rect.h > 380.0f);
+    CHECK(bpRect.y > popRes.rect.y && bpRect.y < popRes.rect.Bottom());
+    CHECK(sbRect.Right() > popRes.rect.x && sbRect.Right() < popRes.rect.Right());
+    CHECK(popBtnRes.rect.y <= bpRect.y && popBtnRes.rect.Bottom() >= bpRect.y);
+
+    // 1. Hovering directly over the BottomPanel sash INSIDE the Popover must NOT activate ResizeNS
+    //    and MUST hover the Popover's Button sitting on top of the sash.
+    const Vec2 btnOverSash{popBtnRes.rect.Center().x, bpRect.y};
+    ui.OnMouseMove(btnOverSash);
+    renderFrame();
+    CHECK(ui.GetCursor() != CursorType::ResizeNS);
+    CHECK(popBtnHoveredLast);
+
+    // 2. Clicking that Button right on the BottomPanel sash line triggers the Button (NOT sash drag or popover close).
+    ui.OnMouseDown(1);
+    renderFrame();
+    CHECK(ui.GetCursor() != CursorType::ResizeNS);
+    ui.OnMouseUp(1);
+    renderFrame();
+    CHECK(popoverOpen);
+    CHECK(popBtnClickedAny);
+    CHECK(bpMode == BottomPanelMode::Expanded);
+
+    // 3. Hovering directly over the Sidebar right sash INSIDE the Popover must NOT activate ResizeEW.
+    const Vec2 sidebarSashInsidePop{sbRect.Right(), popRes.rect.y + 80.0f};
+    CHECK(popRes.rect.Contains(sidebarSashInsidePop));
+    ui.OnMouseMove(sidebarSashInsidePop);
+    renderFrame();
+    CHECK(ui.GetCursor() != CursorType::ResizeEW);
+
+    // 4. Hovering the EXPOSED BottomPanel sash OUTSIDE the non-modal Popover activates the blue sash highlight,
+    //    and pixel Z-order MUST keep the Popover card surface ON TOP of the blue sash highlight!
+    const Vec2 exposedBpSash{700.0f, bpRect.y};
+    CHECK(!popRes.rect.Contains(exposedBpSash));
+    ui.OnMouseMove(exposedBpSash);
+    renderFrame();
+    renderFrame();
+    CHECK(ui.GetCursor() == CursorType::ResizeNS);
+    CHECK(!splitActive);
+
+    const auto samplePixel = [&](keel::u32 x, keel::u32 y) -> Color {
+        const keel::u32 px = pixels[y * W + x];
+        return Color(
+            static_cast<keel::u8>(px & 0xFFu),
+            static_cast<keel::u8>((px >> 8) & 0xFFu),
+            static_cast<keel::u8>((px >> 16) & 0xFFu),
+            static_cast<keel::u8>((px >> 24) & 0xFFu)
+        );
+    };
+
+    // Sample on the sash Y inside the Popover card padding (x = popRes.rect.x + 8, away from button/border)
+    const keel::u32 insidePopX = static_cast<keel::u32>(popRes.rect.x + 8.0f);
+    const keel::u32 sashY = static_cast<keel::u32>(keel::round(bpRect.y));
+    const Color insidePopCol = samplePixel(insidePopX, sashY);
+    CHECK(keel::abs(static_cast<keel::i32>(insidePopCol.r) - static_cast<keel::i32>(kPopoverBg.r)) <= 4);
+    CHECK(keel::abs(static_cast<keel::i32>(insidePopCol.g) - static_cast<keel::i32>(kPopoverBg.g)) <= 4);
+    CHECK(keel::abs(static_cast<keel::i32>(insidePopCol.b) - static_cast<keel::i32>(kPopoverBg.b)) <= 4);
+
+    // Meanwhile on the exposed sash outside the Popover, the blue accent highlight IS visible (B > R + 40)
+    const Color exposedSashCol = samplePixel(700u, sashY);
+    CHECK(static_cast<keel::i32>(exposedSashCol.b) > static_cast<keel::i32>(exposedSashCol.r) + 40);
+
+    // 5. Closing the Popover restores normal BottomPanel sash hover at the exact same coordinate.
+    popoverOpen = false;
+    renderFrame();
+    ui.OnMouseMove(btnOverSash);
+    renderFrame();
+    CHECK(ui.GetCursor() == CursorType::ResizeNS);
+
+    keel::println("  [PASS] TestPopoverOccludesPanelSashesAndRendersAboveThem completed");
 }
 
 
