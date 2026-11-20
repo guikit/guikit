@@ -142,4 +142,16 @@ run_guideline_case("reject_thorvg_in_ui" FALSE "bad_tvg.cpp"
 "#include \"thorvg.h\"
 " "set(KG_FORBID_HEADERS \"SDL3/SDL.h;thorvg.h\")")
 
-message(STATUS "All 10 Keel/GuiKit guideline self-tests passed.")
+# 11. Forbidden qualified `std::size_t` -> FAIL
+run_guideline_case("reject_std_size_t" FALSE "bad_std_size_t.cpp"
+"#include \"keel/core.h\"
+keel::usize Foo(std::size_t n) { return n; }
+" "")
+
+# 12. Forbidden POSIX `ssize_t` -> FAIL
+run_guideline_case("reject_ssize_t" FALSE "bad_ssize_t.cpp"
+"#include \"keel/core.h\"
+keel::isize Bar(ssize_t n) { return n; }
+" "")
+
+message(STATUS "All 12 Keel/GuiKit guideline self-tests passed.")
