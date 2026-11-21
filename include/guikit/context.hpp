@@ -39,6 +39,7 @@
 #include "guikit/panels/scroll_area.hpp"
 #include "guikit/panels/scene.hpp"
 #include "guikit/panels/context_menu.hpp"
+#include "guikit/panels/menu_bar.hpp"
 #include "guikit/panels/modal.hpp"
 #include "guikit/panels/popover.hpp"
 #include "guikit/panels/sidebar.hpp"
@@ -1599,7 +1600,23 @@ public:
         return guikit::Popover::Open(*this, open, opts, loc);
     }
 
+    // --- MenuBar Container ---
+    [[nodiscard]] MenuBarScope MenuBar(
+        MenuBarOptions opts = {},
+        keel::SourceLocation loc = keel::SourceLocation::current()
+    ) {
+        return guikit::MenuBar::Open(*this, opts, loc);
+    }
+
     // --- ContextMenu Popup Component ---
+    [[nodiscard]] MenuScope ContextMenu(
+        bool& open,
+        const ContextMenuOptions& opts = {},
+        keel::SourceLocation loc = keel::SourceLocation::current()
+    ) {
+        return guikit::ContextMenu::Open(*this, open, opts, loc);
+    }
+
     ContextMenuResponse ContextMenu(
         bool& open,
         keel::ArrayRef<ContextMenuItem> items,
@@ -1809,10 +1826,12 @@ public:
     };
 
     void OpenPopup(Id id, Rect bounds, Rect anchorRect = Rect{});
+    void AddOpenPopupRect(Rect bounds);
     void ClosePopup();
     [[nodiscard]] bool IsPopupOpen(Id id) const noexcept { return m_openPopupId == id && id.IsValid(); }
     [[nodiscard]] Id GetOpenPopupId() const noexcept { return m_openPopupId; }
     [[nodiscard]] Rect GetOpenPopupRect() const noexcept { return CurrentSpace().Invert(m_openPopupRect); }
+    [[nodiscard]] bool IsPointInOpenPopup(Vec2 framePos) const noexcept;
     void SetOpenPopupVisualHash(keel::u64 hash) noexcept { m_openPopupVisualHash = hash; }
     template <typename F>
         requires requires(keel::Decay<F>& f, ICanvas& c) { f(c); }
@@ -2322,9 +2341,11 @@ private:
     Id m_openPopupId{Id::Null()};
     Rect m_openPopupRect{0.0f, 0.0f, 0.0f, 0.0f};
     Rect m_openPopupAnchorRect{0.0f, 0.0f, 0.0f, 0.0f};
+    keel::SmallArray<Rect, 8> m_openPopupExtraRects;
     keel::u64 m_openPopupVisualHash{0};
     Id m_prevOpenPopupId{Id::Null()};
     Rect m_prevOpenPopupRect{0.0f, 0.0f, 0.0f, 0.0f};
+    keel::SmallArray<Rect, 8> m_prevOpenPopupExtraRects;
     keel::u64 m_prevOpenPopupVisualHash{0};
     keel::SmallArray<ModalRecord, 4> m_prevFrameModals;
     keel::SmallArray<ModalRecord, 4> m_currFrameModals;

@@ -240,7 +240,7 @@ void Context::BeginFrame(Vec2 viewportSize, float displayScale, float rootZoom) 
         const bool overSelect = (selectBounds != nullptr) && selectBounds->Contains(m_mousePos);
         const bool overAnchor = (m_openPopupAnchorRect.w > 0.0f && m_openPopupAnchorRect.h > 0.0f) &&
                                 m_openPopupAnchorRect.Contains(m_mousePos);
-        const bool overPopup = m_openPopupRect.Contains(m_mousePos);
+        const bool overPopup = IsPointInOpenPopup(m_mousePos);
         if (!overSelect && !overAnchor && !overPopup) {
             ClosePopup();
             ConsumeMouseClick();
@@ -248,7 +248,7 @@ void Context::BeginFrame(Vec2 viewportSize, float displayScale, float rootZoom) 
     }
 
     if (m_mouseClicked && m_focusedId.IsValid()) {
-        const bool overOwnPopup = (m_openPopupId == m_focusedId) && m_openPopupRect.Contains(m_mousePos);
+        const bool overOwnPopup = (m_openPopupId == m_focusedId) && IsPointInOpenPopup(m_mousePos);
         if (!overOwnPopup) {
             const Rect* focusedBounds = m_prevFrameBounds.get(m_focusedId);
             if (focusedBounds != nullptr) {
@@ -1819,11 +1819,40 @@ void Context::OpenPopup(Id id, Rect bounds, Rect anchorRect) {
         if (m_openPopupId.IsValid() && m_openPopupRect.w > 0.0f && m_openPopupRect.h > 0.0f) {
             InvalidateFrameRect(ExpandPopupDamageRect(m_openPopupRect));
         }
+        for (const Rect& er : m_openPopupExtraRects) {
+            if (er.w > 0.0f && er.h > 0.0f) {
+                InvalidateFrameRect(ExpandPopupDamageRect(er));
+            }
+        }
         m_openPopupId = id;
         m_openPopupRect = frameBounds;
         m_openPopupAnchorRect = anchorFrameBounds;
         InvalidateFrameRect(ExpandPopupDamageRect(m_openPopupRect));
     }
+    m_openPopupExtraRects.clear();
+}
+
+void Context::AddOpenPopupRect(Rect bounds) {
+    if (!m_openPopupId.IsValid() || bounds.w <= 0.0f || bounds.h <= 0.0f) {
+        return;
+    }
+    const Rect frameBounds = CurrentSpace().Apply(bounds);
+    m_openPopupExtraRects.push_back(frameBounds);
+}
+
+bool Context::IsPointInOpenPopup(Vec2 framePos) const noexcept {
+    if (!m_openPopupId.IsValid()) {
+        return false;
+    }
+    if (m_openPopupRect.Contains(framePos)) {
+        return true;
+    }
+    for (const Rect& er : m_openPopupExtraRects) {
+        if (er.Contains(framePos)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void Context::ClosePopup() {
@@ -1832,9 +1861,15 @@ void Context::ClosePopup() {
         if (m_openPopupRect.w > 0.0f && m_openPopupRect.h > 0.0f) {
             InvalidateFrameRect(ExpandPopupDamageRect(m_openPopupRect));
         }
+        for (const Rect& er : m_openPopupExtraRects) {
+            if (er.w > 0.0f && er.h > 0.0f) {
+                InvalidateFrameRect(ExpandPopupDamageRect(er));
+            }
+        }
         m_openPopupId = Id::Null();
         m_openPopupRect = Rect{};
         m_openPopupAnchorRect = Rect{};
+        m_openPopupExtraRects.clear();
         m_openPopupVisualHash = 0;
         ArrayEraseIf(m_prevOverlayHitRegions, [closedId](const OverlayHitRegion& r) { return r.id == closedId; });
         ArrayEraseIf(m_currOverlayHitRegions, [closedId](const OverlayHitRegion& r) { return r.id == closedId; });
@@ -2127,7 +2162,7 @@ bool Context::IsOverlayOccludedInFrame(Id id, Vec2 pos, OverlayLayer layer) cons
 
     // 1. Layer 3+ (Popup / Notification): active dropdown/menu popup and higher global overlays
     if (layerRank <= static_cast<keel::u8>(OverlayLayer::Popup) &&
-        m_openPopupId.IsValid() && m_openPopupId != id && m_openPopupRect.Contains(pos)) {
+        m_openPopupId.IsValid() && m_openPopupId != id && IsPointInOpenPopup(pos)) {
         return true;
     }
     for (const auto& ov : m_prevOverlayHitRegions) {
@@ -2172,7 +2207,7 @@ bool Context::IsMouseOccluded(Id id, Vec2 pos) const noexcept {
 }
 
 bool Context::IsMouseOccludedInFrame(Id id, Vec2 pos) const noexcept {
-    if (m_openPopupId.IsValid() && id != m_openPopupId && m_openPopupRect.Contains(pos)) {
+    if (m_openPopupId.IsValid() && id != m_openPopupId && IsPointInOpenPopup(pos)) {
         return true;
     }
     if (IsModalBlockingInFrame(pos)) {
@@ -2292,7 +2327,7 @@ bool Context::IsMouseBlockedForCurrentScope() const noexcept {
         return IsOverlayOccludedInFrame(m_activeOverlayHitCheckId, m_mousePos, m_activeOverlayHitCheckLayer);
     }
 
-    if (m_openPopupId.IsValid() && m_openPopupRect.Contains(m_mousePos)) {
+    if (m_openPopupId.IsValid() && IsPointInOpenPopup(m_mousePos)) {
         return true;
     }
     if (IsModalBlockingInFrame(m_mousePos)) {
@@ -3174,18 +3209,42 @@ void Context::EndFrame(ICanvas& canvas) {
         }
     }
 
+    bool popupExtraChanged = (m_openPopupExtraRects.size() != m_prevOpenPopupExtraRects.size());
+    if (!popupExtraChanged) {
+        for (keel::usize i = 0; i < m_openPopupExtraRects.size(); ++i) {
+            if (m_openPopupExtraRects[i] != m_prevOpenPopupExtraRects[i]) {
+                popupExtraChanged = true;
+                break;
+            }
+        }
+    }
     if (m_openPopupId != m_prevOpenPopupId ||
         m_openPopupRect != m_prevOpenPopupRect ||
+        popupExtraChanged ||
         (m_openPopupId.IsValid() && m_openPopupVisualHash != m_prevOpenPopupVisualHash)) {
         if (m_prevOpenPopupId.IsValid() && m_prevOpenPopupRect.w > 0.0f && m_prevOpenPopupRect.h > 0.0f) {
             addDamage(ExpandPopupDamageRect(m_prevOpenPopupRect));
         }
+        for (const Rect& er : m_prevOpenPopupExtraRects) {
+            if (er.w > 0.0f && er.h > 0.0f) {
+                addDamage(ExpandPopupDamageRect(er));
+            }
+        }
         if (m_openPopupId.IsValid() && m_openPopupRect.w > 0.0f && m_openPopupRect.h > 0.0f) {
             addDamage(ExpandPopupDamageRect(m_openPopupRect));
+        }
+        for (const Rect& er : m_openPopupExtraRects) {
+            if (er.w > 0.0f && er.h > 0.0f) {
+                addDamage(ExpandPopupDamageRect(er));
+            }
         }
     }
     m_prevOpenPopupId = m_openPopupId;
     m_prevOpenPopupRect = m_openPopupRect;
+    m_prevOpenPopupExtraRects.clear();
+    for (const Rect& er : m_openPopupExtraRects) {
+        m_prevOpenPopupExtraRects.push_back(er);
+    }
     m_prevOpenPopupVisualHash = m_openPopupVisualHash;
 
     const bool hasTooltip = !m_activeTooltip.empty();

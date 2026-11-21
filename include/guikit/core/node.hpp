@@ -74,6 +74,7 @@ enum class NodeType : keel::u16 {
     Toolbar     = 116,  ///< Horizontal or vertical command toolbar container
     SplitView   = 117,  ///< Resizable two-pane split container with draggable sash
     Popover     = 118,  ///< Out-of-flow non-modal floating popover anchored to a trigger rect
+    MenuBar     = 119,  ///< Desktop top-level menu bar hosting cascading menus with hover-scrubbing
 
     // --- Leaf Widgets (200..999): Self-rendering elements ---
     Button      = 200,

@@ -104,6 +104,7 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/widgets/tag.cpp
     src/guikit/widgets/tag_input.cpp
     src/guikit/panels/context_menu.cpp
+    src/guikit/panels/menu_bar.cpp
     src/guikit/panels/modal.cpp
     src/guikit/panels/popover.cpp
     src/guikit/panels/scroll_area.cpp

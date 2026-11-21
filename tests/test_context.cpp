@@ -11217,6 +11217,7 @@ void TestSwitchAndRadioSubpixelCentering();
 void TestPopoverOccludesPanelSashesAndRendersAboveThem();
 void TestUnifiedOverlayLayersNestedModalsAndModalSplitView();
 void TestTagAndReadoutWidgets();
+void TestMenuBarAndCascadingMenus();
 
 int main() {
     keel::println("[RUN] Testing GuiKit Context & Immediate Mode API...");
@@ -13782,6 +13783,7 @@ int main() {
     TestPopoverOccludesPanelSashesAndRendersAboveThem();
     TestUnifiedOverlayLayersNestedModalsAndModalSplitView();
     TestTagAndReadoutWidgets();
+    TestMenuBarAndCascadingMenus();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Context tests passed successfully!");
@@ -16703,6 +16705,209 @@ void TestTagAndReadoutWidgets() {
 
     keel::println("  [PASS] TestTagAndReadoutWidgets completed");
 }
+
+void TestMenuBarAndCascadingMenus() {
+    keel::println("  -> TestMenuBarAndCascadingMenus...");
+    constexpr keel::u32 W = 900;
+    constexpr keel::u32 H = 640;
+    keel::Array<keel::u32> pixels(W * H, 0u);
+    ThorCanvas canvas;
+    canvas.SetTarget(pixels.data(), W, H, W);
+
+    // 1. MenuBar hover-scrubbing, keyboard Left/Right switching, cascading SubMenu, Checkbox(keepOpen), Radio, Type-ahead
+    {
+        Context ui;
+        ui.SetThemeMode(ThemeMode::Dark);
+
+        bool showGrid = false;
+        keel::i32 modeVal = 0;
+        bool svgExported = false;
+        bool copyTriggered = false;
+        bool anyMenuOpen = false;
+        Rect barRect{};
+
+        auto renderBar = [&]() {
+            ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+            if (auto root = ui.Column({.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+                if (auto mb = ui.MenuBar({.style = MenuBarStyle::Header})) {
+                    barRect = mb.GetBounds();
+                    anyMenuOpen = mb.IsAnyMenuOpen();
+
+                    if (auto file = mb.Menu("File")) {
+                        (void)file.Item("New", {.shortcut = "Ctrl+N", .icon = Icon::Plus()});
+                        file.Separator();
+                        file.Separator(); // duplicate separator must be collapsed
+                        if (auto exp = file.SubMenu("Export", {.icon = Icon::Save()})) {
+                            if (exp.Item("PNG Image")) {}
+                            if (exp.Item("SVG Vector")) {
+                                svgExported = true;
+                            }
+                        }
+                        file.Separator();
+                        (void)file.Item("Exit", {.variant = UiVariant::Danger});
+                    }
+                    if (auto edit = mb.Menu("Edit")) {
+                        (void)edit.Item("Undo", {.shortcut = "Ctrl+Z", .disabled = true});
+                        if (edit.Item("Copy", {.shortcut = "Ctrl+C"})) {
+                            copyTriggered = true;
+                        }
+                    }
+                    if (auto view = mb.Menu("View")) {
+                        view.Section("OVERLAYS");
+                        (void)view.Checkbox("Show Grid", showGrid, {.keepOpen = true});
+                        view.Separator();
+                        view.Section("MODE");
+                        (void)view.Radio("Standard", modeVal, 0);
+                        (void)view.Radio("Compact", modeVal, 1);
+                    }
+                    mb.Spacer();
+                    (void)ui.Tag("Ready", {.variant = UiVariant::Success, .size = UiSize::Xs});
+                }
+            }
+            ui.EndFrame(canvas);
+        };
+
+        renderBar();
+        renderBar();
+        CHECK(barRect.w > 800.0f && barRect.h >= 24.0f);
+        CHECK(!anyMenuOpen);
+
+        // 1a. Click "File" trigger -> opens File menu
+        const Vec2 fileTrig{24.0f, barRect.Center().y};
+        ui.OnMouseMove(fileTrig);
+        ui.OnMouseDown(1);
+        renderBar();
+        ui.OnMouseUp(1);
+        renderBar();
+        CHECK(anyMenuOpen);
+        const Rect filePopup = ui.GetOpenPopupRect();
+        CHECK(filePopup.w > 140.0f && filePopup.h > 80.0f);
+
+        // 1b. Hover-scrubbing: move pointer right to "Edit" trigger WITHOUT clicking -> switches instantly!
+        const Vec2 editTrig{fileTrig.x + 48.0f, barRect.Center().y};
+        ui.OnMouseMove(editTrig);
+        renderBar();
+        renderBar();
+        CHECK(anyMenuOpen);
+        const Rect editPopup = ui.GetOpenPopupRect();
+        CHECK(editPopup.x > filePopup.x);
+
+        // 1c. Keyboard Down skips disabled "Undo" and lands on "Copy", Enter activates Copy & closes menu
+        ui.OnKeyDown(Key::Down);
+        renderBar();
+        ui.OnKeyDown(Key::Enter);
+        renderBar();
+        CHECK(copyTriggered);
+        renderBar();
+        CHECK(!anyMenuOpen);
+
+        // 1d. Reopen File, navigate with Down -> Down to "Export" submenu, Right opens cascading submenu, Down -> Enter activates "SVG Vector"!
+        ui.OnMouseMove(fileTrig);
+        ui.OnMouseDown(1);
+        renderBar();
+        ui.OnMouseUp(1);
+        renderBar();
+        CHECK(anyMenuOpen);
+
+        ui.OnKeyDown(Key::Down); // New
+        renderBar();
+        ui.OnKeyDown(Key::Down); // Export (SubMenu)
+        renderBar();
+        ui.OnKeyDown(Key::Right); // Expand Export submenu (auto-focuses "PNG Image")
+        renderBar();
+        renderBar();
+        ui.OnKeyDown(Key::Down); // Move to "SVG Vector"
+        renderBar();
+        ui.OnKeyDown(Key::Enter); // Activate "SVG Vector"
+        renderBar();
+        CHECK(svgExported);
+        renderBar();
+        CHECK(!anyMenuOpen);
+
+        // 1e. Open View via File -> Right -> Right (MenuBar keyboard root switching!), test Checkbox(keepOpen) & Radio!
+        ui.OnMouseMove(fileTrig);
+        ui.OnMouseDown(1);
+        renderBar();
+        ui.OnMouseUp(1);
+        renderBar();
+        ui.OnKeyDown(Key::Right); // File -> Edit
+        renderBar();
+        renderBar();
+        ui.OnKeyDown(Key::Right); // Edit -> View
+        renderBar();
+        renderBar();
+        CHECK(anyMenuOpen);
+
+        // First enabled item in View is "Show Grid" (section header skipped!)
+        ui.OnKeyDown(Key::Enter); // Toggles showGrid with keepOpen = true!
+        renderBar();
+        CHECK(showGrid);
+        renderBar();
+        CHECK(anyMenuOpen); // Still open because keepOpen = true!
+
+        // Down -> Standard, Down -> Compact, Enter selects modeVal = 1 and closes
+        ui.OnKeyDown(Key::Down);
+        renderBar();
+        ui.OnKeyDown(Key::Down);
+        renderBar();
+        ui.OnKeyDown(Key::Enter);
+        renderBar();
+        CHECK(modeVal == 1);
+        renderBar();
+        CHECK(!anyMenuOpen);
+    }
+
+    // 2. Declarative ContextMenu::Run with recursive children submenus, Section, and maxHeight scroll
+    {
+        Context ui;
+        ui.SetThemeMode(ThemeMode::Light);
+        bool open = true;
+        ContextMenuResponse res{};
+
+        static constexpr ContextMenuItem kSubItems[] = {
+            {.label = "CSV Format",  .id = 101},
+            {.label = "JSON Format", .id = 102}
+        };
+        static constexpr ContextMenuItem kRootItems[] = {
+            ContextMenuItem::Section("ACTIONS"),
+            {.label = "Refresh", .id = 1},
+            {.label = "Export",  .id = 2, .children = kSubItems},
+            ContextMenuItem::Separator(),
+            {.label = "Delete",  .variant = UiVariant::Danger, .id = 3}
+        };
+
+        auto renderDecl = [&]() {
+            ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+            res = ui.ContextMenu(open, kRootItems, {
+                .title = "NODE MENU",
+                .anchorPos = Vec2{120.0f, 120.0f},
+                .maxHeight = 200.0f
+            });
+            ui.EndFrame(canvas);
+        };
+
+        renderDecl();
+        renderDecl();
+        CHECK(open && res.isOpen);
+
+        // Type-ahead 'e' jumps to "Export", Right opens submenu, Down -> Enter picks "JSON Format" (id = 102)
+        ui.OnTextInput("e");
+        renderDecl();
+        ui.OnKeyDown(Key::Right);
+        renderDecl();
+        renderDecl();
+        ui.OnKeyDown(Key::Down);
+        renderDecl();
+        ui.OnKeyDown(Key::Enter);
+        renderDecl();
+        CHECK(res.clicked);
+        CHECK(res.clickedId == 102);
+        CHECK(!open);
+    }
+
+    keel::println("  [PASS] TestMenuBarAndCascadingMenus completed");
+}
+
 
 
 

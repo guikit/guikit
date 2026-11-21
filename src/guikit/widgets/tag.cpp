@@ -233,6 +233,12 @@ TagPalette ResolveTagPalette(
 
 } // namespace
 
+FontStyle ResolveTagFontStyle(const TagOptions& opts) noexcept {
+    return (opts.variant != UiVariant::Default && opts.variant != UiVariant::Muted)
+        ? FontStyle::Bold
+        : FontStyle::Regular;
+}
+
 Vec2 Tag::Measure(
     const UiText& text,
     const TagOptions& opts,
@@ -242,9 +248,14 @@ Vec2 Tag::Measure(
 ) {
     const TagMetrics m = ComputeTagMetrics(size, theme);
     const float fontSize = m.fontSize;
-    const float textW = text.empty() ? 0.0f : TextUtil::MeasureUiTextWidth(text, fontSize, canvas);
+    const FontStyle style = ResolveTagFontStyle(opts);
+    const float textW = text.empty()
+        ? 0.0f
+        : (canvas != nullptr
+            ? canvas->MeasureTextStyled(text.text, fontSize, style).x
+            : TextUtil::MeasureUiTextWidth(text, fontSize, nullptr));
 
-    float w = m.padX * 2.0f + textW;
+    float w = m.padX * 2.0f + textW + 2.0f;
     if (opts.icon.IsValid()) {
         w += m.iconSize + (textW > 0.0f ? m.gap : 0.0f);
     }
@@ -312,9 +323,7 @@ void Tag::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
     if (!data->text.empty()) {
         const float textW = keel::max(4.0f, rightEdge - curX);
         const Rect textRect(curX, rect.y, textW, rect.h);
-        const FontStyle style = (opts.variant != UiVariant::Default && opts.variant != UiVariant::Muted)
-            ? FontStyle::Bold
-            : FontStyle::Regular;
+        const FontStyle style = ResolveTagFontStyle(opts);
         canvas.DrawTextBoxStyled(data->text.text, textRect, fontSize, p.fg, style, 0.0f, 0.5f);
     }
 }
