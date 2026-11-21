@@ -285,7 +285,7 @@ HistogramResponse Histogram::Run(
     if (!effectiveDisabled && geom.hasPills && baseRes.hovered && ctx.IsMouseClicked()) {
         for (keel::usize i = 0; i < 4; ++i) {
             if (geom.pillRects[i].Contains(mouse)) {
-                const auto targetCh = static_cast<HistogramChannel>(i);
+                const auto targetCh = keel::from_underlying<HistogramChannel>(i);
                 if (targetCh != res.activeChannel) {
                     res.activeChannel = targetCh;
                     res.channelChanged = true;
@@ -544,7 +544,7 @@ HistogramResponse Histogram::Run(
             if (g.hasPills) {
                 static constexpr keel::StaticArray<keel::StringRef, 4> kPillLabels = {"RGB", "R", "G", "B"};
                 for (keel::usize i = 0; i < 4; ++i) {
-                    const auto ch = static_cast<HistogramChannel>(i);
+                    const auto ch = keel::from_underlying<HistogramChannel>(i);
                     const bool isSelected = (o.activeChannel == ch);
                     const Color chAccent = GetChannelAccentColor(ch, isDark);
                     const Color pillFill = isSelected

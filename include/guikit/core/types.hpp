@@ -16,6 +16,17 @@ template <typename T>
 concept IndexLike = (keel::IsIntegral<keel::RemoveCvRef<T>> || keel::IsEnum<keel::RemoveCvRef<T>>) &&
                     !keel::IsSame<keel::RemoveCvRef<T>, bool>;
 
+namespace detail {
+template <typename To, typename From>
+[[nodiscard]] constexpr keel::Decay<To> FromIndexLike(From val) noexcept {
+    if constexpr (keel::IsEnum<keel::Decay<To>>) {
+        return keel::from_underlying<keel::Decay<To>>(val);
+    } else {
+        return keel::as<keel::Decay<To>>(val);
+    }
+}
+} // namespace detail
+
 /// Standard system mouse cursor shapes requested by interactive widgets and resize handles.
 enum class CursorType : keel::u8 {
     Default = 0,
@@ -597,7 +608,7 @@ public:
         if (key == Key::None) return KeyAction::None;
         for (keel::usize i = 1; i < kActionCount; ++i) {
             if (m_bindings[i].Matches(key, mods)) {
-                return static_cast<KeyAction>(i);
+                return keel::from_underlying<KeyAction>(i);
             }
         }
         return KeyAction::None;
@@ -855,7 +866,7 @@ public:
 
     [[nodiscard]] constexpr Preset GetPreset() const noexcept {
         if (m_encoded >= 0 && m_encoded < kPresetCount) {
-            return static_cast<Preset>(m_encoded);
+            return keel::from_underlying<Preset>(m_encoded);
         }
         return (m_encoded < 0) ? Preset::Factor : Preset::Dp;
     }
@@ -954,8 +965,8 @@ public:
                   !keel::IsSame<keel::RemoveCvRef<T>, bool> &&
                   !keel::IsSame<keel::RemoveCvRef<T>, char>)
     constexpr AxisSize(T dp) noexcept
-        : m_value(dp > static_cast<T>(0) ? keel::as<keel::f32>(dp) : 0.0f),
-          m_kind(dp > static_cast<T>(0) ? Kind::Fixed : Kind::Auto) {}
+        : m_value(dp > keel::as<T>(0) ? keel::as<keel::f32>(dp) : 0.0f),
+          m_kind(dp > keel::as<T>(0) ? Kind::Fixed : Kind::Auto) {}
 
     [[nodiscard]] static constexpr AxisSize Auto() noexcept { return {}; }
     [[nodiscard]] static constexpr AxisSize Fit() noexcept { return AxisSize(Kind::Fit, 0.0f); }
@@ -1115,7 +1126,7 @@ struct Padding {
 
     [[nodiscard]] constexpr UiSize GetToken() const noexcept {
         if (!IsToken()) return UiSize::None;
-        const auto preset = static_cast<UiSize::Preset>(keel::as<keel::u8>(top));
+        const auto preset = keel::from_underlying<UiSize::Preset>(keel::as<keel::u8>(top));
         switch (preset) {
             case UiSize::Preset::None:   return UiSize::None;
             case UiSize::Preset::Xs:     return UiSize::Xs;

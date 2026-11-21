@@ -393,7 +393,7 @@ constexpr Rect OffsetRect(Rect r, Vec2 delta) noexcept {
 }
 
 keel::f32 HeadingFontSize(keel::u8 level, const MarkdownOptions& opts, const UiTheme& theme, keel::f32 zoom) noexcept {
-    const HeadingLevel hl = static_cast<HeadingLevel>(keel::clamp<keel::u8>(level, 1, 6) - 1);
+    const HeadingLevel hl = keel::from_underlying<HeadingLevel>(keel::clamp<keel::u8>(level, 1, 6) - 1);
     const keel::f32 base = theme.GetHeading(hl).titleFontSize;
     return base * keel::clamp(opts.headingScale, 0.5f, 2.5f) * zoom;
 }

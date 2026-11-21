@@ -840,7 +840,7 @@ InlineFlowLayout BuildInlineFlowLayout(
     keel::StaticArray<keel::f32, 5> cachedGlyphH{};
     for (keel::u8 st = 0; st < 5; ++st) {
         cachedGlyphH[st] = canvas
-            ? canvas->MeasureTextStyled("Mg", baseFontSize, static_cast<FontStyle>(st)).y
+            ? canvas->MeasureTextStyled("Mg", baseFontSize, keel::from_underlying<FontStyle>(st)).y
             : baseFontSize;
     }
 

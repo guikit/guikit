@@ -634,7 +634,7 @@ void MainWindow::RenderEngineControls(ToolbarScope& tb) {
             })) {
                 keel::usize smoothIdx = keel::as<keel::usize>(textCfg.smoothing);
                 if (m_ui.Select(smoothIdx, kSmoothingLabels, {.size = UiSize::Sm, .width = 128.0f})) {
-                    textCfg.smoothing = static_cast<FontSmoothing>(smoothIdx % kSmoothingLabels.size());
+                    textCfg.smoothing = keel::from_underlying<FontSmoothing>(smoothIdx % kSmoothingLabels.size());
                     textChanged = true;
                 }
             }
@@ -646,7 +646,7 @@ void MainWindow::RenderEngineControls(ToolbarScope& tb) {
             })) {
                 keel::usize hintIdx = keel::as<keel::usize>(textCfg.hinting);
                 if (m_ui.Select(hintIdx, kHintingLabels, {.disabled = !supportsHinting, .size = UiSize::Sm, .width = 128.0f})) {
-                    textCfg.hinting = static_cast<FontHinting>(hintIdx % kHintingLabels.size());
+                    textCfg.hinting = keel::from_underlying<FontHinting>(hintIdx % kHintingLabels.size());
                     textChanged = true;
                 }
             }

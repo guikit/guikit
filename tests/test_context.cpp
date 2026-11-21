@@ -9235,7 +9235,7 @@ void TestUnifiedColormapHistogramAndImageView() {
     CHECK(GetColormapName(Colormap::Gold) == "Gold");
 
     for (keel::usize m = 0; m < keel::as<keel::usize>(Colormap::Count); ++m) {
-        const auto cmap = static_cast<Colormap>(m);
+        const auto cmap = keel::from_underlying<Colormap>(m);
         const auto& lutNorm = GetColormapLut(cmap, false);
         const auto& lutInv  = GetColormapLut(cmap, true);
         const auto& abgrNorm = GetColormapLutAbgr(cmap, false);

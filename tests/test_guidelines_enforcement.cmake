@@ -89,7 +89,7 @@ struct Iter {
     keel::usize idx{0};
     constexpr Iter operator++(int) noexcept { Iter tmp = *this; ++idx; return tmp; }
 };
-constexpr float operator\"\"_px(long double v) noexcept { return static_cast<float>(v); }
+constexpr keel::f32 operator\"\"_px(long double v) noexcept { return keel::as<keel::f32>(v); }
 }
 " "")
 
@@ -154,4 +154,10 @@ run_guideline_case("reject_ssize_t" FALSE "bad_ssize_t.cpp"
 keel::isize Bar(ssize_t n) { return n; }
 " "")
 
-message(STATUS "All 12 Keel/GuiKit guideline self-tests passed.")
+# 13. Forbidden raw `float` -> FAIL
+run_guideline_case("reject_raw_float" FALSE "bad_raw_float.cpp"
+"#include \"keel/core.h\"
+keel::f32 Baz(float v) { return v; }
+" "")
+
+message(STATUS "All 13 Keel/GuiKit guideline self-tests passed.")

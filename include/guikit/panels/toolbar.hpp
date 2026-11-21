@@ -173,7 +173,7 @@ public:
         keel::i32 raw = keel::as<keel::i32>(selectedIndex);
         const SplitButtonResponse r = SplitToggle(active, raw, items, keel::move(opts), keel::move(menuOpts), loc);
         if (r.selectionChanged && raw >= 0) {
-            selectedIndex = static_cast<IndexT>(raw);
+            selectedIndex = detail::FromIndexLike<IndexT>(raw);
         }
         return r;
     }
@@ -201,7 +201,7 @@ public:
         keel::i32 raw = keel::as<keel::i32>(selectedIndex);
         const SplitButtonResponse r = SplitToggle(active, raw, items, keel::move(opts), keel::move(menuOpts), loc);
         if (r.selectionChanged && raw >= 0) {
-            selectedIndex = static_cast<IndexT>(raw);
+            selectedIndex = detail::FromIndexLike<IndexT>(raw);
         }
         return r;
     }

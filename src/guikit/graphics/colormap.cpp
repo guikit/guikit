@@ -197,7 +197,7 @@ struct ColormapLutCache {
 
     ColormapLutCache() noexcept {
         for (keel::usize m = 0; m < kColormapCount; ++m) {
-            const auto cmap = static_cast<Colormap>(m);
+            const auto cmap = keel::from_underlying<Colormap>(m);
             const auto stops = GetStopsForColormap(cmap);
             for (keel::usize i = 0; i < 256; ++i) {
                 const keel::f32 t = keel::as<keel::f32>(i) / 255.0f;

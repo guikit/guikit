@@ -592,7 +592,7 @@ public:
             keel::i32 idx = keel::as<keel::i32>(activeIndex);
             Response r = guikit::ActivityBar::Run(*this, idx, items, opts, loc);
             if (r.changed && idx >= 0) {
-                activeIndex = static_cast<IndexT>(idx);
+                activeIndex = detail::FromIndexLike<IndexT>(idx);
             }
             return r;
         }
@@ -915,7 +915,7 @@ public:
             keel::f64 tmp = keel::as<keel::f64>(value);
             Response r = Run<guikit::SpinBox>(nullptr, &tmp, nullptr, opts, loc);
             if (r.changed) {
-                value = static_cast<Decayed>(tmp);
+                value = keel::as<Decayed>(tmp);
             }
             return r;
         } else if constexpr (keel::IsSame<Decayed, keel::i64>) {
@@ -930,7 +930,7 @@ public:
             constexpr keel::i64 kTypeMax = keel::IsUnsigned<Decayed>
                 ? ((sizeof(Decayed) >= sizeof(keel::u64))
                        ? kInt64Max
-                       : keel::as<keel::i64>(static_cast<Decayed>(~Decayed{0})))
+                       : keel::as<keel::i64>(keel::as<Decayed>(~Decayed{0})))
                 : ((sizeof(Decayed) >= sizeof(keel::i64))
                        ? kInt64Max
                        : ((keel::i64{1} << (kBits - 1)) - 1));
@@ -946,7 +946,7 @@ public:
                 : keel::as<keel::i64>(value);
             Response r = Run<guikit::SpinBox>(nullptr, nullptr, &tmp, opts, loc);
             if (r.changed) {
-                value = static_cast<Decayed>(keel::clamp(tmp, kTypeMin, kTypeMax));
+                value = keel::as<Decayed>(keel::clamp(tmp, kTypeMin, kTypeMax));
             }
             return r;
         }
@@ -1026,14 +1026,14 @@ public:
                 keel::i32 idx = keel::as<keel::i32>(selected);
                 Response r = Run<guikit::Select>(nullptr, &idx, keel::Optional<keel::StringSink>{}, nullptr, items, opts, loc);
                 if (r.changed) {
-                    selected = static_cast<T>(idx);
+                    selected = detail::FromIndexLike<T>(idx);
                 }
                 return r;
             } else {
                 keel::usize idx = keel::as<keel::usize>(selected);
                 Response r = Run<guikit::Select>(&idx, nullptr, keel::Optional<keel::StringSink>{}, nullptr, items, opts, loc);
                 if (r.changed) {
-                    selected = static_cast<T>(idx);
+                    selected = detail::FromIndexLike<T>(idx);
                 }
                 return r;
             }
@@ -1074,14 +1074,14 @@ public:
                 keel::i32 idx = keel::as<keel::i32>(selected);
                 Response r = Run<guikit::Select>(nullptr, &idx, keel::Optional<keel::StringSink>{}, nullptr, items, opts, loc);
                 if (r.changed) {
-                    selected = static_cast<T>(idx);
+                    selected = detail::FromIndexLike<T>(idx);
                 }
                 return r;
             } else {
                 keel::usize idx = keel::as<keel::usize>(selected);
                 Response r = Run<guikit::Select>(&idx, nullptr, keel::Optional<keel::StringSink>{}, nullptr, items, opts, loc);
                 if (r.changed) {
-                    selected = static_cast<T>(idx);
+                    selected = detail::FromIndexLike<T>(idx);
                 }
                 return r;
             }
@@ -1192,7 +1192,7 @@ public:
         BeginWidgetExecution();
         keel::i32 idx = keel::as<keel::i32>(activeIndex);
         TabBarResponse r = TabBar::Run(*this, idx, tabs, opts, loc);
-        if (r.changed && idx >= 0) activeIndex = static_cast<IndexT>(idx);
+        if (r.changed && idx >= 0) activeIndex = detail::FromIndexLike<IndexT>(idx);
         return r;
     }
 
@@ -1217,7 +1217,7 @@ public:
         BeginWidgetExecution();
         keel::i32 idx = keel::as<keel::i32>(activeIndex);
         Response r = SidebarMenu::Run(*this, idx, items, opts, loc);
-        if (r.changed && idx >= 0) activeIndex = static_cast<IndexT>(idx);
+        if (r.changed && idx >= 0) activeIndex = detail::FromIndexLike<IndexT>(idx);
         return r;
     }
 
@@ -1238,7 +1238,7 @@ public:
             keel::i64 val64 = keel::as<keel::i64>(value);
             Response res = Run<guikit::Slider>(nullptr, nullptr, &val64, keel::as<keel::f64>(min), keel::as<keel::f64>(max), opts, loc);
             if (res.changed) {
-                value = static_cast<T>(val64);
+                value = keel::as<T>(val64);
             }
             return res;
         }
@@ -1262,8 +1262,8 @@ public:
             keel::i64 high64 = keel::as<keel::i64>(highValue);
             Response res = Run<guikit::RangeSlider>(nullptr, nullptr, nullptr, nullptr, &low64, &high64, keel::as<keel::f64>(min), keel::as<keel::f64>(max), opts, loc);
             if (res.changed) {
-                lowValue = static_cast<T>(low64);
-                highValue = static_cast<T>(high64);
+                lowValue = keel::as<T>(low64);
+                highValue = keel::as<T>(high64);
             }
             return res;
         }
@@ -1303,7 +1303,7 @@ public:
             keel::i32 idxInt = keel::as<keel::i32>(index);
             Response res = Run<guikit::StepSlider>(nullptr, &idxInt, totalSteps, opts, loc);
             if (res.changed) {
-                index = static_cast<IndexT>(idxInt);
+                index = detail::FromIndexLike<IndexT>(idxInt);
             }
             return res;
         }
@@ -1352,7 +1352,7 @@ public:
             keel::i64 valInt = keel::as<keel::i64>(value);
             Response res = Run<guikit::Knob>(nullptr, nullptr, &valInt, keel::as<keel::f64>(min), keel::as<keel::f64>(max), opts, loc);
             if (res.changed) {
-                value = static_cast<T>(valInt);
+                value = keel::as<T>(valInt);
             }
             return res;
         }
@@ -1373,7 +1373,7 @@ public:
             keel::i32 idx = keel::as<keel::i32>(selectedIndex);
             Response r = Run<guikit::Segmented>(nullptr, &idx, nullptr, items, opts, loc);
             if (r.changed && idx >= 0) {
-                selectedIndex = static_cast<IndexT>(idx);
+                selectedIndex = detail::FromIndexLike<IndexT>(idx);
             }
             return r;
         }
@@ -1393,7 +1393,7 @@ public:
             keel::i32 idx = keel::as<keel::i32>(selectedIndex);
             Response r = Run<guikit::Segmented>(nullptr, &idx, nullptr, items, opts, loc);
             if (r.changed && idx >= 0) {
-                selectedIndex = static_cast<IndexT>(idx);
+                selectedIndex = detail::FromIndexLike<IndexT>(idx);
             }
             return r;
         }
@@ -1520,7 +1520,7 @@ public:
         } else {
             keel::i32 idx = keel::as<keel::i32>(activeIndex);
             Response r = Run<guikit::Breadcrumb>(idx, items, opts, loc);
-            if (r.changed && idx >= 0) activeIndex = static_cast<IndexT>(idx);
+            if (r.changed && idx >= 0) activeIndex = detail::FromIndexLike<IndexT>(idx);
             return r;
         }
     }
@@ -1538,7 +1538,7 @@ public:
         } else {
             keel::i32 idx = keel::as<keel::i32>(activeIndex);
             Response r = Run<guikit::Breadcrumb>(idx, items, opts, loc);
-            if (r.changed && idx >= 0) activeIndex = static_cast<IndexT>(idx);
+            if (r.changed && idx >= 0) activeIndex = detail::FromIndexLike<IndexT>(idx);
             return r;
         }
     }
@@ -1556,7 +1556,7 @@ public:
         } else {
             keel::i32 page = keel::as<keel::i32>(currentPage);
             Response r = Run<guikit::Pagination>(page, keel::as<keel::i32>(totalPages), opts, loc);
-            if (r.changed && page >= 0) currentPage = static_cast<IndexT>(page);
+            if (r.changed && page >= 0) currentPage = detail::FromIndexLike<IndexT>(page);
             return r;
         }
     }

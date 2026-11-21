@@ -726,7 +726,7 @@ ImageViewResponse RunViewportNode(
                             ZoomAroundPoint(st, cr, centerPt, st.zoom * 1.25f);
                             break;
                         case 4: // 90 deg rotate CW
-                            params.rotation = static_cast<ImageRotation>((keel::as<keel::u8>(params.rotation) + 1) % 4);
+                            params.rotation = keel::from_underlying<ImageRotation>((keel::as<keel::u8>(params.rotation) + 1) % 4);
                             st.fitPending = true;
                             res.paramsChanged = true;
                             break;
@@ -1452,7 +1452,7 @@ ImageViewResponse RunImageViewImpl(
                 keel::i32 dispChIdx = keel::as<keel::i32>(params.displayChannel);
                 if (auto el = ctx.Element({.label = "View Mode", .size = UiSize::Sm})) {
                     if (ctx.Select(dispChIdx, kDispChNames, {.size = UiSize::Sm}).changed) {
-                        params.displayChannel = static_cast<ImageDisplayChannel>(dispChIdx);
+                        params.displayChannel = keel::from_underlying<ImageDisplayChannel>(dispChIdx);
                         if (params.displayChannel == ImageDisplayChannel::RedOnly) params.activeHistChannel = HistogramChannel::Red;
                         else if (params.displayChannel == ImageDisplayChannel::GreenOnly) params.activeHistChannel = HistogramChannel::Green;
                         else if (params.displayChannel == ImageDisplayChannel::BlueOnly) params.activeHistChannel = HistogramChannel::Blue;
@@ -1528,7 +1528,7 @@ ImageViewResponse RunImageViewImpl(
                     .disabled = !canUseColormap
                 })) {
                     if (ctx.Select(cmapIdx, GetAllColormapNames(), {.size = UiSize::Sm}).changed) {
-                        params.colormap = static_cast<Colormap>(cmapIdx);
+                        params.colormap = keel::from_underlying<Colormap>(cmapIdx);
                         sidebarChangedParams = true;
                     }
                 }
@@ -1539,7 +1539,7 @@ ImageViewResponse RunImageViewImpl(
             static constexpr keel::StaticArray<keel::StringRef, 3> kAutoTargets = {"Black", "White", "All"};
             keel::i32 targetIdx = keel::as<keel::i32>(params.autoTarget);
             if (ctx.StepSlider(targetIdx, kAutoTargets, {.showValue = false, .size = UiSize::Sm}).changed) {
-                params.autoTarget = static_cast<AutoWindowTarget>(targetIdx);
+                params.autoTarget = keel::from_underlying<AutoWindowTarget>(targetIdx);
                 if (params.autoStrength != AutoWindowStrength::Off) {
                     keel::ArrayRef<keel::u32> targetBins = st.binsLum;
                     if (data.channels >= 3) {
@@ -1555,7 +1555,7 @@ ImageViewResponse RunImageViewImpl(
             if (auto strRow = ctx.Row({.gap = 6.0f})) {
                 static constexpr keel::StaticArray<keel::StringRef, 3> kStrengthNames = {"Off", "Medium", "Strong"};
                 for (keel::usize i = 0; i < 3; ++i) {
-                    const auto sMode = static_cast<AutoWindowStrength>(i);
+                    const auto sMode = keel::from_underlying<AutoWindowStrength>(i);
                     const bool isSel = (params.autoStrength == sMode);
                     if (ctx.Button({
                         .text = kStrengthNames[i],
@@ -1610,7 +1610,7 @@ ImageViewResponse RunImageViewImpl(
             keel::i32 rotIdx = keel::as<keel::i32>(params.rotation);
             if (auto el = ctx.Element({.label = "Rotate", .size = UiSize::Sm})) {
                 if (ctx.StepSlider(rotIdx, kRotLabels, {.showValue = false, .size = UiSize::Sm}).changed) {
-                    params.rotation = static_cast<ImageRotation>(rotIdx);
+                    params.rotation = keel::from_underlying<ImageRotation>(rotIdx);
                     st.fitPending = true;
                     sidebarChangedParams = true;
                 }

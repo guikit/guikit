@@ -127,7 +127,7 @@ constexpr keel::u64 HashVal(const T& val, keel::u64 hash = Fnv1aOffsetBasis) noe
         hash = HashBytes(&weight, sizeof(weight), hash);
         return hash;
     } else if constexpr (keel::IsEnum<CleanT>) {
-        auto underlying = static_cast<keel::UnderlyingType<CleanT>>(val);
+        auto underlying = keel::to_underlying(val);
         return HashBytes(&underlying, sizeof(underlying), hash);
     } else {
         return HashBytes(&val, sizeof(val), hash);
