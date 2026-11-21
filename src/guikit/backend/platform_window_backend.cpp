@@ -80,6 +80,10 @@ bool PlatformWindowBackend::Initialize(
     }
 
     m_canvas->SetGpuShadersEnabled(m_gpuShadersEnabled);
+    if (!m_canvas->UsesCpuFramebuffer()) {
+        // Double/triple-buffered GPU swapchains do not preserve backbuffer contents across SwapBuffers()
+        ui.SetDirtyRectEnabled(false);
+    }
     m_initialized = true;
     return true;
 }
