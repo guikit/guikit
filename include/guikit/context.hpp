@@ -1617,6 +1617,7 @@ public:
     [[nodiscard]] keel::Array<ToastEntry>& GetToastEntries() noexcept { return m_toasts; }
     [[nodiscard]] keel::ArrayRef<ToastEntry> GetToastEntries() const noexcept { return m_toasts; }
     void MarkToastHostVisited() noexcept { m_toastHostVisitedThisFrame = true; }
+    [[nodiscard]] bool HasToastHostVisited() const noexcept { return m_toastHostVisitedThisFrame; }
     void SetToastHostOptions(const ToastHostOptions& opts) noexcept { m_defaultToastHostOpts = opts; }
     [[nodiscard]] const ToastHostOptions& GetToastHostOptions() const noexcept { return m_defaultToastHostOpts; }
     void ToastHost(const ToastHostOptions& opts = {}) {

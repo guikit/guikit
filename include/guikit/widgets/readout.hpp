@@ -18,7 +18,7 @@ struct Node;
 /// Unit conversion specification for `Readout`.
 /// Computes `displayed = baseValue * factor + offset`, or invokes `convert(baseValue, userData)` when non-null.
 struct ReadoutUnit {
-    UiText label{};                                            ///< Display symbol (e.g. "kN", "N", "kgf", "lbf", "mm")
+    UiText label{};                                            ///< Display symbol (e.g. "V", "mV", "kV", "A", "Hz", "C")
     double factor{1.0};                                        ///< Linear scale factor from channel base unit
     double offset{0.0};                                        ///< Affine offset added after scaling (e.g. °C -> °F: factor=1.8, offset=32.0)
     double (*convert)(double baseValue, void* userData){nullptr}; ///< Optional custom non-linear converter
@@ -31,16 +31,16 @@ struct ReadoutUnit {
 
 /// Selectable telemetry channel descriptor for `Readout`.
 struct ReadoutChannel {
-    UiText label{};                                ///< Full name shown in channel dropdown (e.g. "Load", "Crosshead Displacement")
+    UiText label{};                                ///< Full name shown in channel dropdown (e.g. "Supply Voltage", "Output Current")
     UiText headerLabel{};                          ///< Optional compact/uppercase card header text (falls back to `label`)
     double value{0.0};                             ///< Current measurement in the channel's base unit
     UiText formattedValue{};                       ///< Optional pre-formatted display string (e.g. "01:23.4"); disables precision menu
     keel::ArrayRef<ReadoutUnit> units{};           ///< Allowed display units for this channel (empty = unitless)
     keel::i32 defaultUnitIndex{0};                 ///< Unit selected when switching to this channel
     keel::i32 defaultPrecision{2};                 ///< Decimal precision selected when switching to this channel
-    UiVariant variant{UiVariant::Primary};         ///< Semantic value color (Primary, Info, Warning, Danger for overload...)
-    bool showAction{true};                         ///< Show trailing action button (e.g. ◎ tare/zero)
-    bool actionActive{false};                      ///< Highlight trailing action button as active/engaged (e.g. tared)
+    UiVariant variant{UiVariant::Primary};         ///< Semantic value color (Primary, Info, Warning, Danger for threshold alert...)
+    bool showAction{true};                         ///< Show trailing action button (e.g. ◎ relative zero / reset)
+    bool actionActive{false};                      ///< Highlight trailing action button as active/engaged (e.g. relative zero active)
     bool actionDisabled{false};                    ///< Disable only the trailing action button
     UiText actionTooltip{};                        ///< Optional hover tooltip for the trailing action button
 };

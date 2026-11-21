@@ -16417,12 +16417,12 @@ void TestTagAndReadoutWidgets() {
         auto renderTags = [&]() {
             ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
             if (auto row = ui.Row({.gap = 8.0f, .padding = Padding::All(20.0f)})) {
-                tagClickRes = ui.Tag("# gost-1497", {
+                tagClickRes = ui.Tag("# release", {
                     .variant = UiVariant::Default,
                     .style = TagStyle::Soft,
                     .clickable = true
                 });
-                tagCloseRes = ui.Tag("In Method", {
+                tagCloseRes = ui.Tag("Active", {
                     .icon = Icon::Check(),
                     .variant = UiVariant::Success,
                     .style = TagStyle::Soft,
@@ -16496,65 +16496,63 @@ void TestTagAndReadoutWidgets() {
         CHECK_NEAR(dbm.Convert(2.0), 50.0, 1e-9);
     }
 
-    // 3. Readout multi-channel interactive workflow: header->channel, value->precision, unit->units, 1-click switch, tare ◎
+    // 3. Readout multi-channel interactive workflow: header->channel, value->precision, unit->units, 1-click switch, zero ◎
     {
         Context ui;
         ui.SetThemeMode(ThemeMode::Light);
 
-        static constexpr ReadoutUnit kForceUnits[] = {
-            {.label = "N",   .factor = 1.0},
-            {.label = "kN",  .factor = 0.001},
-            {.label = "kgf", .factor = 0.101971621},
-            {.label = "lbf", .factor = 0.224808943}
+        static constexpr ReadoutUnit kVoltageUnits[] = {
+            {.label = "mV", .factor = 1.0},
+            {.label = "V",  .factor = 0.001},
+            {.label = "kV", .factor = 1e-6}
         };
-        static constexpr ReadoutUnit kDispUnits[] = {
-            {.label = "mm", .factor = 1.0},
-            {.label = "cm", .factor = 0.1},
-            {.label = "m",  .factor = 0.001}
+        static constexpr ReadoutUnit kCurrentUnits[] = {
+            {.label = "mA", .factor = 1.0},
+            {.label = "A",  .factor = 0.001}
         };
         static constexpr UiText kPrecLabels[] = {
-            "0 signs (0)",
-            "1 sign (0.0)",
-            "2 signs (0.00)",
-            "3 signs (0.000)",
-            "4 signs (0.0000)"
+            "0 digits (0)",
+            "1 digit (0.0)",
+            "2 digits (0.00)",
+            "3 digits (0.000)",
+            "4 digits (0.0000)"
         };
 
         ReadoutState st{.channelIndex = 0, .unitIndex = 1, .precision = 2};
-        double forceN = 12345.0;
-        double dispMm = -0.0002; // tests -0.00 normalization
-        bool tareDisabled = false;
+        double voltageMv = 12345.0;
+        double currentMa = -0.0002; // tests -0.00 normalization
+        bool zeroDisabled = false;
         ReadoutResponse lastRes{};
 
         auto renderReadout = [&]() {
             ReadoutChannel channels[3] = {
                 {
-                    .label = "Load",
-                    .headerLabel = "LOAD",
-                    .value = forceN,
-                    .units = kForceUnits,
+                    .label = "Supply Voltage",
+                    .headerLabel = "VOLTAGE",
+                    .value = voltageMv,
+                    .units = kVoltageUnits,
                     .defaultUnitIndex = 1,
                     .defaultPrecision = 2,
                     .variant = UiVariant::Primary,
                     .showAction = true,
-                    .actionDisabled = tareDisabled,
-                    .actionTooltip = "Tare load cell"
+                    .actionDisabled = zeroDisabled,
+                    .actionTooltip = "Zero voltage offset"
                 },
                 {
-                    .label = "Crosshead Displacement",
-                    .headerLabel = "DISPLACEMENT",
-                    .value = dispMm,
-                    .units = kDispUnits,
+                    .label = "Output Current",
+                    .headerLabel = "CURRENT",
+                    .value = currentMa,
+                    .units = kCurrentUnits,
                     .defaultUnitIndex = 0,
                     .defaultPrecision = 3,
                     .variant = UiVariant::Info,
                     .showAction = true
                 },
                 {
-                    .label = "Disconnected Sensor",
-                    .headerLabel = "EXTENSOMETER",
+                    .label = "Disconnected Probe",
+                    .headerLabel = "PROBE",
                     .value = keel::Limits<double>::quiet_nan(),
-                    .units = kDispUnits,
+                    .units = kCurrentUnits,
                     .defaultUnitIndex = 0,
                     .defaultPrecision = 2,
                     .variant = UiVariant::Muted,
@@ -16668,7 +16666,7 @@ void TestTagAndReadoutWidgets() {
 
         // 3g. Disabled action button ignores clicks
         st.channelIndex = 0;
-        tareDisabled = true;
+        zeroDisabled = true;
         renderReadout();
         ui.OnMouseMove(tarePt);
         ui.OnMouseDown(1);
