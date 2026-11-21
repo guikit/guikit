@@ -28,15 +28,15 @@ public:
     void MarkGpuDone() noexcept;
 
     /// Call at the end of the frame (after present / delay).
-    void EndFrame(float targetFps = 60.0f) noexcept;
+    void EndFrame(keel::f32 targetFps = 60.0f) noexcept;
 
-    [[nodiscard]] float GetFps() const noexcept { return m_displayFps; }
-    [[nodiscard]] float GetCpuPercent() const noexcept { return m_displayCpuPercent; }
-    [[nodiscard]] float GetCpuTimeMs() const noexcept { return m_displayCpuTimeMs; }
-    [[nodiscard]] float GetGpuTimeMs() const noexcept { return m_displayGpuTimeMs; }
-    [[nodiscard]] float GetGpuBudgetPercent() const noexcept { return m_displayGpuBudgetPercent; }
+    [[nodiscard]] keel::f32 GetFps() const noexcept { return m_displayFps; }
+    [[nodiscard]] keel::f32 GetCpuPercent() const noexcept { return m_displayCpuPercent; }
+    [[nodiscard]] keel::f32 GetCpuTimeMs() const noexcept { return m_displayCpuTimeMs; }
+    [[nodiscard]] keel::f32 GetGpuTimeMs() const noexcept { return m_displayGpuTimeMs; }
+    [[nodiscard]] keel::f32 GetGpuBudgetPercent() const noexcept { return m_displayGpuBudgetPercent; }
     [[nodiscard]] keel::usize GetRamUsageBytes() const noexcept { return m_ramBytes; }
-    [[nodiscard]] float GetRamUsageMb() const noexcept { return m_displayRamMb; }
+    [[nodiscard]] keel::f32 GetRamUsageMb() const noexcept { return m_displayRamMb; }
     [[nodiscard]] bool IsIdle() const noexcept { return m_isIdle; }
 
     [[nodiscard]] keel::StringRef GetFpsString() const noexcept { return m_fpsString.as_ref(); }
@@ -51,10 +51,10 @@ public:
 
 private:
     void UpdateProcessTelemetry(keel::u64 nowNs) noexcept;
-    void RefreshDisplayStrings(keel::u64 nowNs, float targetFps) noexcept;
+    void RefreshDisplayStrings(keel::u64 nowNs, keel::f32 targetFps) noexcept;
 
     static keel::usize QueryProcessRamBytes() noexcept;
-    static double QueryProcessCpuSeconds() noexcept;
+    static keel::f64 QueryProcessCpuSeconds() noexcept;
 
     keel::u64 m_frameStartNs{0};
     keel::u64 m_cpuDoneNs{0};
@@ -68,8 +68,8 @@ private:
     keel::u64 m_fpsWindowStartNs{0};
     keel::u64 m_pendingWakeStartNs{0};
 
-    double m_lastProcessCpuSec{-1.0};
-    double m_accumulatedWorkSec{0.0};
+    keel::f64 m_lastProcessCpuSec{-1.0};
+    keel::f64 m_accumulatedWorkSec{0.0};
     keel::i32 m_numProcessors{1};
     keel::u32 m_fpsFrameCount{0};
     bool m_hasPreviousFrame{false};
@@ -78,21 +78,21 @@ private:
     bool m_wokeFromIdle{false};
     bool m_pendingWakePresent{false};
 
-    float m_lastTargetFps{60.0f};
-    float m_pendingWakeCpuMs{0.0f};
-    float m_pendingWakeGpuMs{0.0f};
-    float m_smoothedFps{0.0f};
-    float m_smoothedCpuMs{0.0f};
-    float m_smoothedGpuMs{0.0f};
-    float m_cpuPercent{0.0f};
+    keel::f32 m_lastTargetFps{60.0f};
+    keel::f32 m_pendingWakeCpuMs{0.0f};
+    keel::f32 m_pendingWakeGpuMs{0.0f};
+    keel::f32 m_smoothedFps{0.0f};
+    keel::f32 m_smoothedCpuMs{0.0f};
+    keel::f32 m_smoothedGpuMs{0.0f};
+    keel::f32 m_cpuPercent{0.0f};
 
-    float m_displayFps{0.0f};
-    float m_displayCpuPercent{0.0f};
-    float m_displayCpuTimeMs{0.0f};
-    float m_displayGpuTimeMs{0.0f};
-    float m_displayGpuBudgetPercent{0.0f};
+    keel::f32 m_displayFps{0.0f};
+    keel::f32 m_displayCpuPercent{0.0f};
+    keel::f32 m_displayCpuTimeMs{0.0f};
+    keel::f32 m_displayGpuTimeMs{0.0f};
+    keel::f32 m_displayGpuBudgetPercent{0.0f};
     keel::usize m_ramBytes{0};
-    float m_displayRamMb{0.0f};
+    keel::f32 m_displayRamMb{0.0f};
 
     keel::FixedString<64> m_fpsString{"0 FPS (Idle)"};
     keel::FixedString<64> m_cpuString{"CPU: 0.00 ms (0.0%)"};

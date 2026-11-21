@@ -9,7 +9,7 @@
 
 namespace guikit {
 
-static_assert(sizeof(float) == 4 && sizeof(double) == 8, "GuiKit requires 32-bit float and 64-bit double");
+static_assert(sizeof(keel::f32) == 4 && sizeof(keel::f64) == 8, "GuiKit requires 32-bit float and 64-bit double");
 
 /// Concept matching any integral or enum index type except `bool`.
 template <typename T>
@@ -31,11 +31,11 @@ enum class CursorType : keel::u8 {
 
 /// 2D floating-point vector for layout coordinates, sizes, and offsets.
 struct Vec2 {
-    float x{0.0f};
-    float y{0.0f};
+    keel::f32 x{0.0f};
+    keel::f32 y{0.0f};
 
     constexpr Vec2() noexcept = default;
-    constexpr Vec2(float inX, float inY) noexcept : x(inX), y(inY) {}
+    constexpr Vec2(keel::f32 inX, keel::f32 inY) noexcept : x(inX), y(inY) {}
 
     [[nodiscard]] constexpr bool operator==(const Vec2& other) const noexcept {
         return x == other.x && y == other.y;
@@ -53,11 +53,11 @@ struct Vec2 {
         return {x - other.x, y - other.y};
     }
 
-    [[nodiscard]] constexpr Vec2 operator*(float scalar) const noexcept {
+    [[nodiscard]] constexpr Vec2 operator*(keel::f32 scalar) const noexcept {
         return {x * scalar, y * scalar};
     }
 
-    [[nodiscard]] constexpr Vec2 operator/(float scalar) const noexcept {
+    [[nodiscard]] constexpr Vec2 operator/(keel::f32 scalar) const noexcept {
         return {x / scalar, y / scalar};
     }
 
@@ -73,26 +73,26 @@ struct Vec2 {
         return *this;
     }
 
-    constexpr Vec2& operator*=(float scalar) noexcept {
+    constexpr Vec2& operator*=(keel::f32 scalar) noexcept {
         x *= scalar;
         y *= scalar;
         return *this;
     }
 
-    [[nodiscard]] float Length() const noexcept {
+    [[nodiscard]] keel::f32 Length() const noexcept {
         return keel::sqrt(x * x + y * y);
     }
 };
 
 /// 2D rectangle defined by top-left position and dimensions.
 struct Rect {
-    float x{0.0f};
-    float y{0.0f};
-    float w{0.0f};
-    float h{0.0f};
+    keel::f32 x{0.0f};
+    keel::f32 y{0.0f};
+    keel::f32 w{0.0f};
+    keel::f32 h{0.0f};
 
     constexpr Rect() noexcept = default;
-    constexpr Rect(float inX, float inY, float inW, float inH) noexcept
+    constexpr Rect(keel::f32 inX, keel::f32 inY, keel::f32 inW, keel::f32 inH) noexcept
         : x(inX), y(inY), w(inW), h(inH) {}
     constexpr Rect(Vec2 pos, Vec2 size) noexcept
         : x(pos.x), y(pos.y), w(size.x), h(size.y) {}
@@ -100,10 +100,10 @@ struct Rect {
     [[nodiscard]] constexpr Vec2 Pos() const noexcept { return {x, y}; }
     [[nodiscard]] constexpr Vec2 Size() const noexcept { return {w, h}; }
 
-    [[nodiscard]] constexpr float Left() const noexcept { return x; }
-    [[nodiscard]] constexpr float Top() const noexcept { return y; }
-    [[nodiscard]] constexpr float Right() const noexcept { return x + w; }
-    [[nodiscard]] constexpr float Bottom() const noexcept { return y + h; }
+    [[nodiscard]] constexpr keel::f32 Left() const noexcept { return x; }
+    [[nodiscard]] constexpr keel::f32 Top() const noexcept { return y; }
+    [[nodiscard]] constexpr keel::f32 Right() const noexcept { return x + w; }
+    [[nodiscard]] constexpr keel::f32 Bottom() const noexcept { return y + h; }
 
     [[nodiscard]] constexpr Vec2 Center() const noexcept {
         return {x + w * 0.5f, y + h * 0.5f};
@@ -119,35 +119,35 @@ struct Rect {
     }
 
     [[nodiscard]] constexpr Rect Intersect(const Rect& other) const noexcept {
-        const float nx = keel::max(x, other.x);
-        const float ny = keel::max(y, other.y);
-        const float nr = keel::min(Right(), other.Right());
-        const float nb = keel::min(Bottom(), other.Bottom());
+        const keel::f32 nx = keel::max(x, other.x);
+        const keel::f32 ny = keel::max(y, other.y);
+        const keel::f32 nr = keel::min(Right(), other.Right());
+        const keel::f32 nb = keel::min(Bottom(), other.Bottom());
         if (nr <= nx || nb <= ny) {
             return {nx, ny, 0.0f, 0.0f};
         }
         return {nx, ny, nr - nx, nb - ny};
     }
 
-    [[nodiscard]] constexpr Rect Inset(float amount) const noexcept {
+    [[nodiscard]] constexpr Rect Inset(keel::f32 amount) const noexcept {
         return {x + amount, y + amount, keel::max(0.0f, w - 2.0f * amount), keel::max(0.0f, h - 2.0f * amount)};
     }
 
-    [[nodiscard]] constexpr Rect Inset(float dx, float dy) const noexcept {
+    [[nodiscard]] constexpr Rect Inset(keel::f32 dx, keel::f32 dy) const noexcept {
         return {x + dx, y + dy, keel::max(0.0f, w - 2.0f * dx), keel::max(0.0f, h - 2.0f * dy)};
     }
 
-    [[nodiscard]] constexpr float Area() const noexcept {
+    [[nodiscard]] constexpr keel::f32 Area() const noexcept {
         return (w > 0.0f && h > 0.0f) ? (w * h) : 0.0f;
     }
 
     [[nodiscard]] constexpr Rect Union(const Rect& other) const noexcept {
         if (w <= 0.0f || h <= 0.0f) return other;
         if (other.w <= 0.0f || other.h <= 0.0f) return *this;
-        const float nx = keel::min(x, other.x);
-        const float ny = keel::min(y, other.y);
-        const float nr = keel::max(Right(), other.Right());
-        const float nb = keel::max(Bottom(), other.Bottom());
+        const keel::f32 nx = keel::min(x, other.x);
+        const keel::f32 ny = keel::min(y, other.y);
+        const keel::f32 nr = keel::max(Right(), other.Right());
+        const keel::f32 nb = keel::max(Bottom(), other.Bottom());
         return {nx, ny, nr - nx, nb - ny};
     }
 
@@ -164,11 +164,11 @@ struct Rect {
 /// parent's (or, composed along a branch, into the frame's). There is no rotation or shear by design: every
 /// layout transform in the engine scales about a point.
 struct Transform2D {
-    float scale{1.0f};
+    keel::f32 scale{1.0f};
     Vec2 offset{0.0f, 0.0f};
 
     /// Scales by `s` about `origin`, which stays fixed: `origin + (p - origin) * s`.
-    [[nodiscard]] static constexpr Transform2D ScaleAbout(Vec2 origin, float s) noexcept {
+    [[nodiscard]] static constexpr Transform2D ScaleAbout(Vec2 origin, keel::f32 s) noexcept {
         return Transform2D{s, Vec2{origin.x * (1.0f - s), origin.y * (1.0f - s)}};
     }
 
@@ -213,10 +213,10 @@ struct Color {
 
     /// Pack as little-endian 32-bit integer (ABGR in memory / 0xAABBGGRR).
     [[nodiscard]] constexpr keel::u32 ToUint32() const noexcept {
-        return (static_cast<keel::u32>(a) << 24) |
-               (static_cast<keel::u32>(b) << 16) |
-               (static_cast<keel::u32>(g) << 8) |
-               static_cast<keel::u32>(r);
+        return (keel::as<keel::u32>(a) << 24) |
+               (keel::as<keel::u32>(b) << 16) |
+               (keel::as<keel::u32>(g) << 8) |
+               keel::as<keel::u32>(r);
     }
 
     [[nodiscard]] constexpr bool operator==(const Color& other) const noexcept {
@@ -231,16 +231,16 @@ struct Color {
     [[nodiscard]] static constexpr Color Hex(keel::u32 hex, bool hasAlpha = true) noexcept {
         if (hasAlpha) {
             return {
-                static_cast<keel::u8>((hex >> 24) & 0xFF),
-                static_cast<keel::u8>((hex >> 16) & 0xFF),
-                static_cast<keel::u8>((hex >> 8) & 0xFF),
-                static_cast<keel::u8>(hex & 0xFF)
+                keel::as<keel::u8>((hex >> 24) & 0xFF),
+                keel::as<keel::u8>((hex >> 16) & 0xFF),
+                keel::as<keel::u8>((hex >> 8) & 0xFF),
+                keel::as<keel::u8>(hex & 0xFF)
             };
         }
         return {
-            static_cast<keel::u8>((hex >> 16) & 0xFF),
-            static_cast<keel::u8>((hex >> 8) & 0xFF),
-            static_cast<keel::u8>(hex & 0xFF),
+            keel::as<keel::u8>((hex >> 16) & 0xFF),
+            keel::as<keel::u8>((hex >> 8) & 0xFF),
+            keel::as<keel::u8>(hex & 0xFF),
             255
         };
     }
@@ -257,9 +257,9 @@ struct Color {
         return {r, g, b, newAlpha};
     }
 
-    [[nodiscard]] constexpr Color WithAlphaF(float factor) const noexcept {
-        const float clamped = keel::clamp(factor, 0.0f, 1.0f);
-        return {r, g, b, static_cast<keel::u8>(static_cast<float>(a) * clamped)};
+    [[nodiscard]] constexpr Color WithAlphaF(keel::f32 factor) const noexcept {
+        const keel::f32 clamped = keel::clamp(factor, 0.0f, 1.0f);
+        return {r, g, b, keel::as<keel::u8>(keel::as<keel::f32>(a) * clamped)};
     }
 
     [[nodiscard]] constexpr Color ScaleAlpha(keel::u8 scale) const noexcept {
@@ -268,7 +268,7 @@ struct Color {
             r,
             g,
             b,
-            static_cast<keel::u8>((static_cast<keel::u32>(a) * static_cast<keel::u32>(scale) + 127u) / 255u)
+            keel::as<keel::u8>((keel::as<keel::u32>(a) * keel::as<keel::u32>(scale) + 127u) / 255u)
         };
     }
 
@@ -276,19 +276,19 @@ struct Color {
         const keel::u32 w = weight;
         const keel::u32 inv = 255u - w;
         return {
-            static_cast<keel::u8>((static_cast<keel::u32>(base.r) * inv + static_cast<keel::u32>(accent.r) * w + 127u) / 255u),
-            static_cast<keel::u8>((static_cast<keel::u32>(base.g) * inv + static_cast<keel::u32>(accent.g) * w + 127u) / 255u),
-            static_cast<keel::u8>((static_cast<keel::u32>(base.b) * inv + static_cast<keel::u32>(accent.b) * w + 127u) / 255u),
-            static_cast<keel::u8>((static_cast<keel::u32>(base.a) * inv + static_cast<keel::u32>(accent.a) * w + 127u) / 255u)
+            keel::as<keel::u8>((keel::as<keel::u32>(base.r) * inv + keel::as<keel::u32>(accent.r) * w + 127u) / 255u),
+            keel::as<keel::u8>((keel::as<keel::u32>(base.g) * inv + keel::as<keel::u32>(accent.g) * w + 127u) / 255u),
+            keel::as<keel::u8>((keel::as<keel::u32>(base.b) * inv + keel::as<keel::u32>(accent.b) * w + 127u) / 255u),
+            keel::as<keel::u8>((keel::as<keel::u32>(base.a) * inv + keel::as<keel::u32>(accent.a) * w + 127u) / 255u)
         };
     }
 
-    [[nodiscard]] static constexpr Color Lerp(Color a, Color b, float t) noexcept {
-        const float f = keel::clamp(t, 0.0f, 1.0f);
+    [[nodiscard]] static constexpr Color Lerp(Color a, Color b, keel::f32 t) noexcept {
+        const keel::f32 f = keel::clamp(t, 0.0f, 1.0f);
         auto lerpCh = [f](keel::u8 u0, keel::u8 u1) constexpr noexcept -> keel::u8 {
-            const float v0 = static_cast<float>(u0);
-            const float v1 = static_cast<float>(u1);
-            return static_cast<keel::u8>(v0 + f * (v1 - v0));
+            const keel::f32 v0 = keel::as<keel::f32>(u0);
+            const keel::f32 v1 = keel::as<keel::f32>(u1);
+            return keel::as<keel::u8>(v0 + f * (v1 - v0));
         };
         return {
             lerpCh(a.r, b.r),
@@ -479,7 +479,7 @@ struct KeyBinding {
 /// Centralized, user-configurable keybinding table mapping KeyAction to KeyChords.
 class Keymap {
 public:
-    static constexpr keel::usize kActionCount = static_cast<keel::usize>(KeyAction::Count);
+    static constexpr keel::usize kActionCount = keel::as<keel::usize>(KeyAction::Count);
 
     constexpr Keymap() noexcept = default;
 
@@ -566,7 +566,7 @@ public:
 
     /// Binds a semantic action to a primary (and optional secondary) key chord.
     constexpr void Bind(KeyAction action, KeyChord primary, KeyChord secondary = {}) noexcept {
-        const keel::usize idx = static_cast<keel::usize>(action);
+        const keel::usize idx = keel::as<keel::usize>(action);
         if (idx > 0 && idx < kActionCount) {
             m_bindings[idx] = KeyBinding{primary, secondary};
         }
@@ -574,7 +574,7 @@ public:
 
     /// Removes all key bindings for the specified action.
     constexpr void Unbind(KeyAction action) noexcept {
-        const keel::usize idx = static_cast<keel::usize>(action);
+        const keel::usize idx = keel::as<keel::usize>(action);
         if (idx > 0 && idx < kActionCount) {
             m_bindings[idx] = KeyBinding{};
         }
@@ -582,13 +582,13 @@ public:
 
     /// Returns the current binding for the specified action.
     [[nodiscard]] constexpr KeyBinding GetBinding(KeyAction action) const noexcept {
-        const keel::usize idx = static_cast<keel::usize>(action);
+        const keel::usize idx = keel::as<keel::usize>(action);
         return (idx > 0 && idx < kActionCount) ? m_bindings[idx] : KeyBinding{};
     }
 
     /// Returns true if the given (key, mods) event matches the specified semantic action.
     [[nodiscard]] constexpr bool Matches(KeyAction action, Key key, KeyModifiers mods) const noexcept {
-        const keel::usize idx = static_cast<keel::usize>(action);
+        const keel::usize idx = keel::as<keel::usize>(action);
         return (idx > 0 && idx < kActionCount) && m_bindings[idx].Matches(key, mods);
     }
 
@@ -617,8 +617,8 @@ enum class CursorBlinkMode : keel::u8 {
 /// Timing and geometry configuration for text input cursor.
 struct CursorConfig {
     CursorBlinkMode mode{CursorBlinkMode::Blinking};
-    float blinkPeriod{1.06f};   ///< Full cycle duration in seconds (530ms on, 530ms off)
-    float width{1.5f};          ///< Caret line width in pixels
+    keel::f32 blinkPeriod{1.06f};   ///< Full cycle duration in seconds (530ms on, 530ms off)
+    keel::f32 width{1.5f};          ///< Caret line width in pixels
 };
 
 /// Universal 1D/2D orientation for layout and components (ScrollArea, Splitter, Slider, Separator).
@@ -637,11 +637,11 @@ enum class VisibilityPolicy : keel::u8 {
 
 /// Density-independent point unit (dp) wrapper.
 struct Dp {
-    float value{0.0f};
+    keel::f32 value{0.0f};
 
-    constexpr explicit Dp(float v) noexcept : value(v) {}
+    constexpr explicit Dp(keel::f32 v) noexcept : value(v) {}
 
-    [[nodiscard]] constexpr float ToPixels(float scaleFactor) const noexcept {
+    [[nodiscard]] constexpr keel::f32 ToPixels(keel::f32 scaleFactor) const noexcept {
         return keel::round(value * scaleFactor);
     }
 };
@@ -790,10 +790,10 @@ private:
 
 namespace literals {
     constexpr Dp operator""_dp(long double v) noexcept {
-        return Dp(static_cast<float>(v));
+        return Dp(keel::as<keel::f32>(v));
     }
     constexpr Dp operator""_dp(unsigned long long v) noexcept {
-        return Dp(static_cast<float>(v));
+        return Dp(keel::as<keel::f32>(v));
     }
 } // namespace literals
 
@@ -817,34 +817,34 @@ struct UiSize {
 
 private:
     static constexpr keel::i32 kPresetCount = 6;
-    static constexpr float kFixedScale = 1024.0f;
-    static constexpr float kMaxCustomVal = 1000000.0f;
+    static constexpr keel::f32 kFixedScale = 1024.0f;
+    static constexpr keel::f32 kMaxCustomVal = 1000000.0f;
 
-    keel::i32 m_encoded{static_cast<keel::i32>(Preset::Md)};
+    keel::i32 m_encoded{keel::as<keel::i32>(Preset::Md)};
 
     constexpr explicit UiSize(keel::i32 encoded) noexcept : m_encoded(encoded) {}
 
-    [[nodiscard]] static constexpr keel::i32 EncodeDp(float dp) noexcept {
-        if (!(dp > 0.0f)) return static_cast<keel::i32>(Preset::None);
-        const float clamped = (dp > kMaxCustomVal) ? kMaxCustomVal : dp;
-        return kPresetCount + static_cast<keel::i32>(clamped * kFixedScale + 0.5f);
+    [[nodiscard]] static constexpr keel::i32 EncodeDp(keel::f32 dp) noexcept {
+        if (!(dp > 0.0f)) return keel::as<keel::i32>(Preset::None);
+        const keel::f32 clamped = (dp > kMaxCustomVal) ? kMaxCustomVal : dp;
+        return kPresetCount + keel::as<keel::i32>(clamped * kFixedScale + 0.5f);
     }
 
-    [[nodiscard]] static constexpr keel::i32 EncodeFactor(float factor) noexcept {
-        if (!(factor > 0.0f)) return static_cast<keel::i32>(Preset::Md);
-        const float clamped = (factor > kMaxCustomVal) ? kMaxCustomVal : factor;
-        const keel::i32 q = static_cast<keel::i32>(clamped * kFixedScale + 0.5f);
+    [[nodiscard]] static constexpr keel::i32 EncodeFactor(keel::f32 factor) noexcept {
+        if (!(factor > 0.0f)) return keel::as<keel::i32>(Preset::Md);
+        const keel::f32 clamped = (factor > kMaxCustomVal) ? kMaxCustomVal : factor;
+        const keel::i32 q = keel::as<keel::i32>(clamped * kFixedScale + 0.5f);
         return -keel::max<keel::i32>(1, q);
     }
 
 public:
     constexpr UiSize() noexcept = default;
 
-    constexpr UiSize(float dp) noexcept : m_encoded(EncodeDp(dp)) {}
+    constexpr UiSize(keel::f32 dp) noexcept : m_encoded(EncodeDp(dp)) {}
     constexpr UiSize(detail::DpValue dp) noexcept : m_encoded(EncodeDp(dp.value)) {}
 
-    [[nodiscard]] static constexpr UiSize Dp(float dp) noexcept { return UiSize(EncodeDp(dp)); }
-    [[nodiscard]] static constexpr UiSize Factor(float factor) noexcept { return UiSize(EncodeFactor(factor)); }
+    [[nodiscard]] static constexpr UiSize Dp(keel::f32 dp) noexcept { return UiSize(EncodeDp(dp)); }
+    [[nodiscard]] static constexpr UiSize Factor(keel::f32 factor) noexcept { return UiSize(EncodeFactor(factor)); }
 
     static const UiSize None;
     static const UiSize Xs;
@@ -860,33 +860,33 @@ public:
         return (m_encoded < 0) ? Preset::Factor : Preset::Dp;
     }
 
-    [[nodiscard]] constexpr bool IsNone() const noexcept { return m_encoded == static_cast<keel::i32>(Preset::None); }
+    [[nodiscard]] constexpr bool IsNone() const noexcept { return m_encoded == keel::as<keel::i32>(Preset::None); }
     [[nodiscard]] constexpr bool IsPreset() const noexcept { return m_encoded >= 0 && m_encoded < kPresetCount; }
     [[nodiscard]] constexpr bool IsDp() const noexcept { return m_encoded >= kPresetCount; }
     [[nodiscard]] constexpr bool IsFactor() const noexcept { return m_encoded < 0; }
     [[nodiscard]] constexpr bool IsCustom() const noexcept { return !IsPreset(); }
 
-    [[nodiscard]] constexpr float CustomValue() const noexcept {
+    [[nodiscard]] constexpr keel::f32 CustomValue() const noexcept {
         if (m_encoded >= kPresetCount) {
-            return static_cast<float>(m_encoded - kPresetCount) / kFixedScale;
+            return keel::as<keel::f32>(m_encoded - kPresetCount) / kFixedScale;
         }
         if (m_encoded < 0) {
-            return static_cast<float>(-m_encoded) / kFixedScale;
+            return keel::as<keel::f32>(-m_encoded) / kFixedScale;
         }
         return 0.0f;
     }
 
     [[nodiscard]] constexpr keel::usize TableIndex() const noexcept {
-        return IsPreset() ? static_cast<keel::usize>(m_encoded) : static_cast<keel::usize>(Preset::Md);
+        return IsPreset() ? keel::as<keel::usize>(m_encoded) : keel::as<keel::usize>(Preset::Md);
     }
 
-    [[nodiscard]] constexpr float ResolveFactor(float mdHeightDp) const noexcept {
+    [[nodiscard]] constexpr keel::f32 ResolveFactor(keel::f32 mdHeightDp) const noexcept {
         if (m_encoded >= kPresetCount) {
-            const float targetDp = static_cast<float>(m_encoded - kPresetCount) / kFixedScale;
+            const keel::f32 targetDp = keel::as<keel::f32>(m_encoded - kPresetCount) / kFixedScale;
             return (mdHeightDp > 0.0f) ? (targetDp / mdHeightDp) : 1.0f;
         }
         if (m_encoded < 0) {
-            return static_cast<float>(-m_encoded) / kFixedScale;
+            return keel::as<keel::f32>(-m_encoded) / kFixedScale;
         }
         return 1.0f;
     }
@@ -897,12 +897,12 @@ public:
     [[nodiscard]] constexpr bool operator==(const UiSize& other) const noexcept = default;
 };
 
-inline constexpr UiSize UiSize::None{static_cast<keel::i32>(UiSize::Preset::None)};
-inline constexpr UiSize UiSize::Xs{static_cast<keel::i32>(UiSize::Preset::Xs)};
-inline constexpr UiSize UiSize::Sm{static_cast<keel::i32>(UiSize::Preset::Sm)};
-inline constexpr UiSize UiSize::Md{static_cast<keel::i32>(UiSize::Preset::Md)};
-inline constexpr UiSize UiSize::Lg{static_cast<keel::i32>(UiSize::Preset::Lg)};
-inline constexpr UiSize UiSize::Xl{static_cast<keel::i32>(UiSize::Preset::Xl)};
+inline constexpr UiSize UiSize::None{keel::as<keel::i32>(UiSize::Preset::None)};
+inline constexpr UiSize UiSize::Xs{keel::as<keel::i32>(UiSize::Preset::Xs)};
+inline constexpr UiSize UiSize::Sm{keel::as<keel::i32>(UiSize::Preset::Sm)};
+inline constexpr UiSize UiSize::Md{keel::as<keel::i32>(UiSize::Preset::Md)};
+inline constexpr UiSize UiSize::Lg{keel::as<keel::i32>(UiSize::Preset::Lg)};
+inline constexpr UiSize UiSize::Xl{keel::as<keel::i32>(UiSize::Preset::Xl)};
 static_assert(sizeof(UiSize) == 4, "UiSize must remain 4 bytes");
 
 /// Direction of primary layout axis.
@@ -937,10 +937,10 @@ struct AxisSize {
     };
 
 private:
-    float m_value{0.0f}; ///< Fixed dimension in dp (when `Fixed`) or proportional flex weight (when `Stretch`)
+    keel::f32 m_value{0.0f}; ///< Fixed dimension in dp (when `Fixed`) or proportional flex weight (when `Stretch`)
     Kind m_kind{Kind::Auto};
 
-    constexpr AxisSize(Kind kind, float value) noexcept : m_value(value), m_kind(kind) {}
+    constexpr AxisSize(Kind kind, keel::f32 value) noexcept : m_value(value), m_kind(kind) {}
 
 public:
     constexpr AxisSize() noexcept = default;
@@ -954,15 +954,15 @@ public:
                   !keel::IsSame<keel::RemoveCvRef<T>, bool> &&
                   !keel::IsSame<keel::RemoveCvRef<T>, char>)
     constexpr AxisSize(T dp) noexcept
-        : m_value(dp > static_cast<T>(0) ? static_cast<float>(dp) : 0.0f),
+        : m_value(dp > static_cast<T>(0) ? keel::as<keel::f32>(dp) : 0.0f),
           m_kind(dp > static_cast<T>(0) ? Kind::Fixed : Kind::Auto) {}
 
     [[nodiscard]] static constexpr AxisSize Auto() noexcept { return {}; }
     [[nodiscard]] static constexpr AxisSize Fit() noexcept { return AxisSize(Kind::Fit, 0.0f); }
-    [[nodiscard]] static constexpr AxisSize Stretch(float weight = 1.0f) noexcept {
+    [[nodiscard]] static constexpr AxisSize Stretch(keel::f32 weight = 1.0f) noexcept {
         return AxisSize(Kind::Stretch, (weight > 0.0f) ? weight : 1.0f);
     }
-    [[nodiscard]] static constexpr AxisSize Fixed(float dp) noexcept {
+    [[nodiscard]] static constexpr AxisSize Fixed(keel::f32 dp) noexcept {
         return (dp > 0.0f) ? AxisSize(Kind::Fixed, dp) : AxisSize{};
     }
 
@@ -971,8 +971,8 @@ public:
     [[nodiscard]] constexpr bool IsFit() const noexcept { return m_kind == Kind::Fit; }
     [[nodiscard]] constexpr bool IsStretch() const noexcept { return m_kind == Kind::Stretch; }
     [[nodiscard]] constexpr bool IsFixed() const noexcept { return m_kind == Kind::Fixed; }
-    [[nodiscard]] constexpr float Dp() const noexcept { return (m_kind == Kind::Fixed) ? m_value : 0.0f; }
-    [[nodiscard]] constexpr float StretchWeight() const noexcept {
+    [[nodiscard]] constexpr keel::f32 Dp() const noexcept { return (m_kind == Kind::Fixed) ? m_value : 0.0f; }
+    [[nodiscard]] constexpr keel::f32 StretchWeight() const noexcept {
         return (m_kind == Kind::Stretch && m_value > 0.0f) ? m_value : 1.0f;
     }
     [[nodiscard]] constexpr bool HasCustomStretchWeight() const noexcept {
@@ -1033,8 +1033,8 @@ enum class ObjectFit : keel::u8 {
     ObjectFit fit,
     Vec2 srcSize,
     Rect dstRect,
-    float alignX = 0.5f,
-    float alignY = 0.5f
+    keel::f32 alignX = 0.5f,
+    keel::f32 alignY = 0.5f
 ) noexcept {
     if (dstRect.w <= 0.0f || dstRect.h <= 0.0f) {
         return {dstRect.x, dstRect.y, 0.0f, 0.0f};
@@ -1043,9 +1043,9 @@ enum class ObjectFit : keel::u8 {
         return dstRect;
     }
 
-    float scale = 1.0f;
-    const float scaleX = dstRect.w / srcSize.x;
-    const float scaleY = dstRect.h / srcSize.y;
+    keel::f32 scale = 1.0f;
+    const keel::f32 scaleX = dstRect.w / srcSize.x;
+    const keel::f32 scaleY = dstRect.h / srcSize.y;
 
     switch (fit) {
         case ObjectFit::Contain:
@@ -1064,48 +1064,48 @@ enum class ObjectFit : keel::u8 {
             return dstRect;
     }
 
-    const float outW = srcSize.x * scale;
-    const float outH = srcSize.y * scale;
-    const float outX = dstRect.x + (dstRect.w - outW) * alignX;
-    const float outY = dstRect.y + (dstRect.h - outH) * alignY;
+    const keel::f32 outW = srcSize.x * scale;
+    const keel::f32 outH = srcSize.y * scale;
+    const keel::f32 outX = dstRect.x + (dstRect.w - outW) * alignX;
+    const keel::f32 outY = dstRect.y + (dstRect.h - outH) * alignY;
     return {outX, outY, outW, outH};
 }
 
 /// Inset margins or internal padding on 4 sides, supporting both explicit pixel insets and semantic design tokens.
 struct Padding {
-    static constexpr float kTokenSentinel = -3.402823466e+38f;
+    static constexpr keel::f32 kTokenSentinel = -3.402823466e+38f;
 
-    float left{0.0f};
-    float top{0.0f};
-    float right{0.0f};
-    float bottom{0.0f};
+    keel::f32 left{0.0f};
+    keel::f32 top{0.0f};
+    keel::f32 right{0.0f};
+    keel::f32 bottom{0.0f};
 
     constexpr Padding() noexcept = default;
 
     /// Uniform explicit pixel padding on all 4 sides.
-    constexpr Padding(float all) noexcept
+    constexpr Padding(keel::f32 all) noexcept
         : left(all), top(all), right(all), bottom(all) {}
 
     /// Explicit pixel padding on 4 individual sides.
-    constexpr Padding(float l, float t, float r, float b) noexcept
+    constexpr Padding(keel::f32 l, keel::f32 t, keel::f32 r, keel::f32 b) noexcept
         : left(l), top(t), right(r), bottom(b) {}
 
     /// Semantic design token padding dynamically resolved via UiTheme and UI density scale.
     constexpr Padding(UiSize size) noexcept
         : left(kTokenSentinel)
-        , top(static_cast<float>(static_cast<keel::u8>(size.GetPreset())))
+        , top(keel::as<keel::f32>(keel::as<keel::u8>(size.GetPreset())))
         , right(size.IsCustom() ? size.CustomValue() : kTokenSentinel)
         , bottom(kTokenSentinel) {}
 
-    [[nodiscard]] static constexpr Padding All(float val) noexcept {
+    [[nodiscard]] static constexpr Padding All(keel::f32 val) noexcept {
         return Padding(val);
     }
 
-    [[nodiscard]] static constexpr Padding Symmetric(float horizontal, float vertical) noexcept {
+    [[nodiscard]] static constexpr Padding Symmetric(keel::f32 horizontal, keel::f32 vertical) noexcept {
         return Padding(horizontal, vertical, horizontal, vertical);
     }
 
-    [[nodiscard]] constexpr Padding ScaledBy(float factor) const noexcept {
+    [[nodiscard]] constexpr Padding ScaledBy(keel::f32 factor) const noexcept {
         return IsToken() ? *this : Padding(left * factor, top * factor, right * factor, bottom * factor);
     }
 
@@ -1115,7 +1115,7 @@ struct Padding {
 
     [[nodiscard]] constexpr UiSize GetToken() const noexcept {
         if (!IsToken()) return UiSize::None;
-        const auto preset = static_cast<UiSize::Preset>(static_cast<keel::u8>(top));
+        const auto preset = static_cast<UiSize::Preset>(keel::as<keel::u8>(top));
         switch (preset) {
             case UiSize::Preset::None:   return UiSize::None;
             case UiSize::Preset::Xs:     return UiSize::Xs;
@@ -1129,11 +1129,11 @@ struct Padding {
         return UiSize::None;
     }
 
-    [[nodiscard]] constexpr float Horizontal() const noexcept {
+    [[nodiscard]] constexpr keel::f32 Horizontal() const noexcept {
         return IsToken() ? 0.0f : (left + right);
     }
 
-    [[nodiscard]] constexpr float Vertical() const noexcept {
+    [[nodiscard]] constexpr keel::f32 Vertical() const noexcept {
         return IsToken() ? 0.0f : (top + bottom);
     }
 
@@ -1162,8 +1162,8 @@ struct PixelRef {
 
     [[nodiscard]] constexpr bool Empty() const noexcept { return md.empty(); }
     [[nodiscard]] constexpr explicit operator bool() const noexcept { return !md.empty(); }
-    [[nodiscard]] constexpr keel::u32 Width() const noexcept { return static_cast<keel::u32>(md.extent(1)); }
-    [[nodiscard]] constexpr keel::u32 Height() const noexcept { return static_cast<keel::u32>(md.extent(0)); }
+    [[nodiscard]] constexpr keel::u32 Width() const noexcept { return keel::as<keel::u32>(md.extent(1)); }
+    [[nodiscard]] constexpr keel::u32 Height() const noexcept { return keel::as<keel::u32>(md.extent(0)); }
     [[nodiscard]] constexpr keel::u32 RowStride() const noexcept { return Width(); }
     [[nodiscard]] constexpr keel::usize Size() const noexcept { return md.size(); }
     [[nodiscard]] constexpr keel::ArrayRef<keel::u32> Flat() const noexcept { return md.flat(); }
@@ -1192,8 +1192,8 @@ struct MutPixelRef {
     [[nodiscard]] constexpr operator PixelRef() const noexcept { return PixelRef(md.as_ref()); }
     [[nodiscard]] constexpr bool Empty() const noexcept { return md.empty(); }
     [[nodiscard]] constexpr explicit operator bool() const noexcept { return !md.empty(); }
-    [[nodiscard]] constexpr keel::u32 Width() const noexcept { return static_cast<keel::u32>(md.extent(1)); }
-    [[nodiscard]] constexpr keel::u32 Height() const noexcept { return static_cast<keel::u32>(md.extent(0)); }
+    [[nodiscard]] constexpr keel::u32 Width() const noexcept { return keel::as<keel::u32>(md.extent(1)); }
+    [[nodiscard]] constexpr keel::u32 Height() const noexcept { return keel::as<keel::u32>(md.extent(0)); }
     [[nodiscard]] constexpr keel::u32 RowStride() const noexcept { return Width(); }
     [[nodiscard]] constexpr keel::usize Size() const noexcept { return md.size(); }
     [[nodiscard]] constexpr keel::MutArrayRef<keel::u32> Flat() const noexcept { return md.flat(); }
@@ -1235,16 +1235,16 @@ struct StridedPixelRef {
 
     [[nodiscard]] constexpr bool Empty() const noexcept { return md.empty(); }
     [[nodiscard]] constexpr explicit operator bool() const noexcept { return !md.empty(); }
-    [[nodiscard]] constexpr keel::u32 Width() const noexcept { return static_cast<keel::u32>(md.extent(1)); }
-    [[nodiscard]] constexpr keel::u32 Height() const noexcept { return static_cast<keel::u32>(md.extent(0)); }
-    [[nodiscard]] constexpr keel::u32 RowStride() const noexcept { return static_cast<keel::u32>(md.stride(0)); }
+    [[nodiscard]] constexpr keel::u32 Width() const noexcept { return keel::as<keel::u32>(md.extent(1)); }
+    [[nodiscard]] constexpr keel::u32 Height() const noexcept { return keel::as<keel::u32>(md.extent(0)); }
+    [[nodiscard]] constexpr keel::u32 RowStride() const noexcept { return keel::as<keel::u32>(md.stride(0)); }
     [[nodiscard]] constexpr keel::usize Size() const noexcept { return md.size(); }
     [[nodiscard]] constexpr const keel::u32* Data() const noexcept { return md.data(); }
     [[nodiscard]] constexpr bool IsContiguous() const noexcept { return md.is_contiguous(); }
     [[nodiscard]] constexpr PixelRef AsContiguous() const noexcept { return PixelRef(md.as_contiguous()); }
     [[nodiscard]] constexpr keel::ArrayRef<keel::u32> Row(keel::u32 y) const noexcept {
         KEEL_BOUNDS_ASSERT(!Empty() && y < Height());
-        return keel::ArrayRef<keel::u32>(md.data() + static_cast<keel::usize>(y) * md.stride(0), Width());
+        return keel::ArrayRef<keel::u32>(md.data() + keel::as<keel::usize>(y) * md.stride(0), Width());
     }
     [[nodiscard]] constexpr keel::u32 At(keel::u32 x, keel::u32 y) const noexcept { return md(y, x); }
     [[nodiscard]] constexpr keel::StridedMdRef<keel::u32, 2> Strided() const noexcept { return md; }
@@ -1284,16 +1284,16 @@ struct MutStridedPixelRef {
     [[nodiscard]] constexpr operator StridedPixelRef() const noexcept { return StridedPixelRef(md.as_ref()); }
     [[nodiscard]] constexpr bool Empty() const noexcept { return md.empty(); }
     [[nodiscard]] constexpr explicit operator bool() const noexcept { return !md.empty(); }
-    [[nodiscard]] constexpr keel::u32 Width() const noexcept { return static_cast<keel::u32>(md.extent(1)); }
-    [[nodiscard]] constexpr keel::u32 Height() const noexcept { return static_cast<keel::u32>(md.extent(0)); }
-    [[nodiscard]] constexpr keel::u32 RowStride() const noexcept { return static_cast<keel::u32>(md.stride(0)); }
+    [[nodiscard]] constexpr keel::u32 Width() const noexcept { return keel::as<keel::u32>(md.extent(1)); }
+    [[nodiscard]] constexpr keel::u32 Height() const noexcept { return keel::as<keel::u32>(md.extent(0)); }
+    [[nodiscard]] constexpr keel::u32 RowStride() const noexcept { return keel::as<keel::u32>(md.stride(0)); }
     [[nodiscard]] constexpr keel::usize Size() const noexcept { return md.size(); }
     [[nodiscard]] constexpr keel::u32* Data() const noexcept { return md.data(); }
     [[nodiscard]] constexpr bool IsContiguous() const noexcept { return md.is_contiguous(); }
     [[nodiscard]] constexpr MutPixelRef AsContiguous() const noexcept { return MutPixelRef(md.as_contiguous()); }
     [[nodiscard]] constexpr keel::MutArrayRef<keel::u32> Row(keel::u32 y) const noexcept {
         KEEL_BOUNDS_ASSERT(!Empty() && y < Height());
-        return keel::MutArrayRef<keel::u32>(md.data() + static_cast<keel::usize>(y) * md.stride(0), Width());
+        return keel::MutArrayRef<keel::u32>(md.data() + keel::as<keel::usize>(y) * md.stride(0), Width());
     }
     [[nodiscard]] constexpr keel::u32& At(keel::u32 x, keel::u32 y) const noexcept { return md(y, x); }
     [[nodiscard]] constexpr keel::MutStridedMdRef<keel::u32, 2> Strided() const noexcept { return md; }

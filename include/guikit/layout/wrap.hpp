@@ -12,18 +12,18 @@ class Context;
 
 /// Options for configuring an auto-wrapping flow layout.
 struct WrapOptions {
-    keel::Optional<float> gap{keel::kNullOpt};        ///< Horizontal gap between items on same line
-    keel::Optional<float> runGap{keel::kNullOpt};     ///< Vertical gap between consecutive wrapped lines
+    keel::Optional<keel::f32> gap{keel::kNullOpt};        ///< Horizontal gap between items on same line
+    keel::Optional<keel::f32> runGap{keel::kNullOpt};     ///< Vertical gap between consecutive wrapped lines
     keel::Optional<Padding> padding{keel::kNullOpt};
     Alignment align{Alignment::Center};
     Justify justify{Justify::Start};
     AxisSize width{SizeMode::Stretch};
     AxisSize height{SizeMode::Fit};
-    keel::Optional<float> minWidth{keel::kNullOpt};
-    keel::Optional<float> maxWidth{keel::kNullOpt};
-    keel::Optional<float> minHeight{keel::kNullOpt};
-    keel::Optional<float> maxHeight{keel::kNullOpt};
-    float flexGrow{1.0f};
+    keel::Optional<keel::f32> minWidth{keel::kNullOpt};
+    keel::Optional<keel::f32> maxWidth{keel::kNullOpt};
+    keel::Optional<keel::f32> minHeight{keel::kNullOpt};
+    keel::Optional<keel::f32> maxHeight{keel::kNullOpt};
+    keel::f32 flexGrow{1.0f};
     bool disabled{false};
 };
 

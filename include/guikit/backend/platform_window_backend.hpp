@@ -48,12 +48,12 @@ public:
 
     void PrepareFrameTarget(Context& ui) override;
     void PresentFrame(const Context& ui, FrameMetrics& metrics, bool forcePresent) override;
-    void PaceFrame(double elapsedMs, bool presented) noexcept override;
+    void PaceFrame(keel::f64 elapsedMs, bool presented) noexcept override;
 
     [[nodiscard]] keel::i32 GetWidth() const noexcept override;
     [[nodiscard]] keel::i32 GetHeight() const noexcept override;
-    [[nodiscard]] float GetDpiScale() const noexcept override;
-    [[nodiscard]] float GetDisplayPixelsPerMm() const noexcept override;
+    [[nodiscard]] keel::f32 GetDpiScale() const noexcept override;
+    [[nodiscard]] keel::f32 GetDisplayPixelsPerMm() const noexcept override;
     [[nodiscard]] bool IsMinimized() const noexcept override;
     [[nodiscard]] bool IsLiveResizeFrame() const noexcept override;
 
@@ -80,7 +80,7 @@ private:
     keel::u32 m_fbWidth{0};
     keel::u32 m_fbHeight{0};
 
-    float m_targetFps{60.0f};
+    keel::f32 m_targetFps{60.0f};
     bool m_gpuShadersEnabled{true};
     bool m_initialized{false};
 };

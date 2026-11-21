@@ -41,7 +41,7 @@ Response Text::Run(
     node->text = data->label.text;
     node->SetPayload(data);
     node->visualHash = detail::HashArgs(opts.role, opts.variant, opts.align, data->label);
-    node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<TextPayload>();
         if (!d) {
             return Text::Measure(n->text, TextOptions{}, canvas, theme, availableWidth);
@@ -80,7 +80,7 @@ Vec2 Text::Measure(
     const TextOptions& opts,
     ICanvas* canvas,
     const UiTheme& theme,
-    float availableWidth
+    keel::f32 availableWidth
 ) {
     if (!label.HasContentOrReserve()) {
         return {0.0f, 0.0f};
@@ -89,25 +89,25 @@ Vec2 Text::Measure(
         ? opts.role
         : label.size.role.value_or(opts.role);
     const TypographyMetrics& m = theme.GetTypography(effectiveRole);
-    const float fontSize = (label.size.px > 0.0f)
+    const keel::f32 fontSize = (label.size.px > 0.0f)
         ? label.size.px
         : (label.size.preset != UiSize::None ? theme.ResolveFontSize(effectiveRole, label.size.preset) : m.fontSize);
-    const float lineHeight = (label.size.px > 0.0f || label.size.preset != UiSize::None)
+    const keel::f32 lineHeight = (label.size.px > 0.0f || label.size.preset != UiSize::None)
         ? theme.GetLineHeight(fontSize)
         : m.lineHeight;
 
-    float w = 0.0f;
+    keel::f32 w = 0.0f;
     if (label.wrap.rich) {
         w = TextUtil::MeasureUiTextWidth(label, fontSize, canvas);
     } else {
-        auto measureSingleLineW = [&](keel::StringRef sv) -> float {
+        auto measureSingleLineW = [&](keel::StringRef sv) -> keel::f32 {
             if (sv.empty()) {
                 return 0.0f;
             }
             if (canvas) {
                 return canvas->MeasureText(sv, fontSize).x;
             }
-            return static_cast<float>(sv.length()) * (fontSize * (m.isMonospace ? kMonospaceCharAdvanceRatio : kDefaultCharAdvanceRatio));
+            return keel::as<keel::f32>(sv.length()) * (fontSize * (m.isMonospace ? kMonospaceCharAdvanceRatio : kDefaultCharAdvanceRatio));
         };
 
         w = measureSingleLineW(label.text);
@@ -116,7 +116,7 @@ Vec2 Text::Measure(
         }
     }
 
-    float h = TextUtil::MeasureUiTextHeight(label, availableWidth, fontSize, lineHeight, canvas, &theme);
+    keel::f32 h = TextUtil::MeasureUiTextHeight(label, availableWidth, fontSize, lineHeight, canvas, &theme);
     if (canvas && !label.text.empty() && !label.wrap.IsWordWrap() && label.wrap.minLines <= 1 && !label.wrap.rich) {
         h = keel::max(h, canvas->MeasureText(label.text, fontSize).y);
     }
@@ -127,7 +127,7 @@ Vec2 Text::Measure(
     const UiText& label,
     const TextOptions& opts,
     ICanvas* canvas,
-    float availableWidth
+    keel::f32 availableWidth
 ) {
     static const UiTheme defaultTheme = UiTheme::Dark();
     return Measure(label, opts, canvas, defaultTheme, availableWidth);
@@ -149,10 +149,10 @@ void Text::Render(
         ? opts.role
         : label.size.role.value_or(opts.role);
     const TypographyMetrics& m = theme.GetTypography(effectiveRole);
-    const float fontSize = (label.size.px > 0.0f)
+    const keel::f32 fontSize = (label.size.px > 0.0f)
         ? label.size.px
         : (label.size.preset != UiSize::None ? theme.ResolveFontSize(effectiveRole, label.size.preset) : m.fontSize);
-    const float lineHeight = (label.size.px > 0.0f || label.size.preset != UiSize::None)
+    const keel::f32 lineHeight = (label.size.px > 0.0f || label.size.preset != UiSize::None)
         ? theme.GetLineHeight(fontSize)
         : m.lineHeight;
     const auto& pal = theme.palette;
@@ -182,7 +182,7 @@ void Text::Render(
         }
     }
 
-    float alignFactor = 0.0f;
+    keel::f32 alignFactor = 0.0f;
     if (opts.align == Align::Center) {
         alignFactor = 0.5f;
     } else if (opts.align == Align::End) {
@@ -190,9 +190,9 @@ void Text::Render(
     }
 
     if (label.wrap.rich) {
-        const float baseLh = canvas.GetLineHeight(fontSize);
-        const float lhScale = (baseLh > 0.0f) ? (lineHeight / baseLh) : 1.0f;
-        const float effAvailW = label.wrap.IsWordWrap() ? bounds.w : 100000.0f;
+        const keel::f32 baseLh = canvas.GetLineHeight(fontSize);
+        const keel::f32 lhScale = (baseLh > 0.0f) ? (lineHeight / baseLh) : 1.0f;
+        const keel::f32 effAvailW = label.wrap.IsWordWrap() ? bounds.w : 100000.0f;
         auto flow = GetOrBuildRichTextFlow(
             &canvas,
             label.text,
@@ -205,11 +205,11 @@ void Text::Render(
             m.isMonospace ? FontStyle::Monospace : FontStyle::Regular,
             label.wrap.IsWordWrap() ? opts.align : Align::Start
         );
-        float drawY = bounds.y;
+        keel::f32 drawY = bounds.y;
         if (!label.wrap.IsWordWrap() && bounds.h > flow->height + kTextSubpixelTolerance) {
             drawY += (bounds.h - flow->height) * 0.5f;
         }
-        float drawX = bounds.x;
+        keel::f32 drawX = bounds.x;
         if (!label.wrap.IsWordWrap() && opts.align != Align::Start) {
             drawX += (bounds.w - flow->width) * alignFactor;
         }

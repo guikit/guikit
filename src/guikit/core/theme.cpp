@@ -273,7 +273,7 @@ void UiTheme::SetShellStyle(ShellStyle style) noexcept {
         shell.panelRadius      = 0.0f;
         shell.panelBorderWidth = 1.0f;
     } else {
-        const float gap = GetGap(UiSize::Sm);
+        const keel::f32 gap = GetGap(UiSize::Sm);
         shell.windowPadding    = Padding::All(gap);
         shell.panelGap         = gap;
         shell.panelRadius      = GetRadius(UiSize::Md);

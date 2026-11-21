@@ -54,8 +54,8 @@ public:
 
     [[nodiscard]] keel::i32 GetWidth() const noexcept;
     [[nodiscard]] keel::i32 GetHeight() const noexcept;
-    [[nodiscard]] float GetDpiScale() const noexcept;
-    [[nodiscard]] float GetDisplayPixelsPerMm() const noexcept;
+    [[nodiscard]] keel::f32 GetDpiScale() const noexcept;
+    [[nodiscard]] keel::f32 GetDisplayPixelsPerMm() const noexcept;
     [[nodiscard]] bool IsLiveResizeFrame() const noexcept;
     [[nodiscard]] bool IsMinimized() const noexcept;
 
@@ -87,9 +87,9 @@ public:
     void SetShellFloating(bool floating) noexcept;
 
     /// Shell UI scale is always one of `kScaleValues`, so the toolbar selector shows the real scale.
-    [[nodiscard]] float GetShellScale() const noexcept { return m_shellScale; }
+    [[nodiscard]] keel::f32 GetShellScale() const noexcept { return m_shellScale; }
     /// Snaps `scale` to the nearest `kScaleValues` preset.
-    void SetShellScale(float scale) noexcept;
+    void SetShellScale(keel::f32 scale) noexcept;
     [[nodiscard]] keel::usize GetShellScaleIndex() const noexcept { return m_shellScaleIndex; }
     void SetShellScaleIndex(keel::usize index) noexcept;
     /// Moves `steps` presets up (positive) or down (negative), clamped to the preset range.
@@ -143,7 +143,7 @@ public:
         UiText placeholder = "Jump to screen or run command..."
     );
 
-    static constexpr keel::StaticArray<float, 7> kScaleValues = {{0.75f, 0.9f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f}};
+    static constexpr keel::StaticArray<keel::f32, 7> kScaleValues = {{0.75f, 0.9f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f}};
     static constexpr keel::StaticArray<keel::StringRef, 7> kScaleLabels = {{
         "75%",
         "90%",
@@ -196,7 +196,7 @@ private:
     UiTheme m_shellTheme = UiTheme::Dark();
     bool m_shellLightMode = false;
     bool m_shellFloating = false;
-    float m_shellScale = 1.0f;
+    keel::f32 m_shellScale = 1.0f;
     keel::usize m_shellScaleIndex = 2; // kScaleValues[2] == 1.0f
     keel::usize m_heartbeatIndex = 2;
     bool m_enginePopoverOpen = false;

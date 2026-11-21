@@ -35,8 +35,8 @@ struct TextRenderSettings {
     FontSmoothing smoothing{FontSmoothing::Auto};
     FontHinting hinting{FontHinting::Light};
     bool gammaCorrectBlending{true};  ///< Linear sRGB alpha/LCD compositing (prevents starved light-on-dark stems)
-    float contrast{1.0f};             ///< Stroke contrast multiplier [0.5 .. 2.0] (1.0 = neutral)
-    float stemDarkening{0.15f};       ///< Subtle coverage boost on small sizes [0.0 .. 0.5] (CoreText/DirectWrite style)
+    keel::f32 contrast{1.0f};             ///< Stroke contrast multiplier [0.5 .. 2.0] (1.0 = neutral)
+    keel::f32 stemDarkening{0.15f};       ///< Subtle coverage boost on small sizes [0.0 .. 0.5] (CoreText/DirectWrite style)
 
     [[nodiscard]] constexpr bool operator==(const TextRenderSettings& other) const noexcept = default;
 };
@@ -126,13 +126,13 @@ struct VectorPath {
 struct PathPaint {
     Color fillColor{0, 0, 0, 0};
     Color strokeColor{0, 0, 0, 0};
-    float strokeWidthPx{1.0f};
+    keel::f32 strokeWidthPx{1.0f};
     FillRule fillRule{FillRule::NonZero};
     bool renderFill{false};
     bool renderStroke{false};
     bool dashed{false};
-    float dashOnPx{5.0f};
-    float dashOffPx{4.0f};
+    keel::f32 dashOnPx{5.0f};
+    keel::f32 dashOffPx{4.0f};
 };
 
 /// Abstract interface for vector graphics rendering backends.
@@ -170,16 +170,16 @@ public:
     }
 
     /// Prepares the canvas for a new frame with dimensions and optional DPI / UI scale factor.
-    virtual void Begin(keel::u32 width, keel::u32 height, float scale = 1.0f) = 0;
+    virtual void Begin(keel::u32 width, keel::u32 height, keel::f32 scale = 1.0f) = 0;
 
     /// Finalizes and commits all recorded rendering commands.
     virtual void End() = 0;
 
     /// Returns the current number of physical pixels per logical unit, including any pushed transforms.
-    [[nodiscard]] virtual float GetScale() const noexcept = 0;
+    [[nodiscard]] virtual keel::f32 GetScale() const noexcept = 0;
 
     /// Sets or overrides the current canvas scale factor.
-    virtual void SetScale(float scale) = 0;
+    virtual void SetScale(keel::f32 scale) = 0;
 
     /// Enters a local coordinate system: a point `p` drawn after this call lands where `transform.Apply(p)` would
     /// land before it. Transforms nest; text and strokes are rasterized at the resulting pixel scale, so scaled
@@ -207,34 +207,34 @@ public:
     /// Draws a rounded rectangle with optional fill, stroke, and corner radius.
     virtual void DrawRoundRect(
         Rect rect,
-        float radius,
+        keel::f32 radius,
         Color fill,
         Color stroke = Color(0, 0, 0, 0),
-        float strokeWidth = 0.0f
+        keel::f32 strokeWidth = 0.0f
     ) = 0;
 
     /// Measures the dimensions of a single-line text string using backend font metrics.
-    virtual Vec2 MeasureText(keel::StringRef text, float fontSize) = 0;
+    virtual Vec2 MeasureText(keel::StringRef text, keel::f32 fontSize) = 0;
 
     /// Measures the dimensions of a styled single-line text string (Bold, Italic, Monospace).
-    virtual Vec2 MeasureTextStyled(keel::StringRef text, float fontSize, FontStyle /*style*/) {
+    virtual Vec2 MeasureTextStyled(keel::StringRef text, keel::f32 fontSize, FontStyle /*style*/) {
         return MeasureText(text, fontSize);
     }
 
     /// Returns the vertical typographic line height for the specified font size according to backend font metrics.
-    [[nodiscard]] virtual float GetLineHeight(float fontSize) = 0;
+    [[nodiscard]] virtual keel::f32 GetLineHeight(keel::f32 fontSize) = 0;
 
     /// Draws a single-line text string with specified font size and color.
-    virtual void DrawText(keel::StringRef text, Vec2 pos, float fontSize, Color color) = 0;
+    virtual void DrawText(keel::StringRef text, Vec2 pos, keel::f32 fontSize, Color color) = 0;
 
     /// Draws a single-line text string with typographic style and optional rotation angle in degrees.
     virtual void DrawTextStyled(
         keel::StringRef text,
         Vec2 pos,
-        float fontSize,
+        keel::f32 fontSize,
         Color color,
         FontStyle /*style*/,
-        float /*angleDeg*/ = 0.0f
+        keel::f32 /*angleDeg*/ = 0.0f
     ) {
         DrawText(text, pos, fontSize, color);
     }
@@ -243,21 +243,21 @@ public:
     virtual void DrawTextBox(
         keel::StringRef text,
         Rect bounds,
-        float fontSize,
+        keel::f32 fontSize,
         Color color,
-        float alignX = 0.0f,
-        float alignY = 0.5f
+        keel::f32 alignX = 0.0f,
+        keel::f32 alignY = 0.5f
     ) = 0;
 
     /// Draws styled text constrained within a bounding rectangle with horizontal and vertical alignment factors [0..1].
     virtual void DrawTextBoxStyled(
         keel::StringRef text,
         Rect bounds,
-        float fontSize,
+        keel::f32 fontSize,
         Color color,
         FontStyle /*style*/,
-        float alignX = 0.0f,
-        float alignY = 0.5f
+        keel::f32 alignX = 0.0f,
+        keel::f32 alignY = 0.5f
     ) {
         DrawTextBox(text, bounds, fontSize, color, alignX, alignY);
     }
@@ -266,17 +266,17 @@ public:
     void DrawTextBox(
         keel::StringRef text,
         Rect bounds,
-        float fontSize,
+        keel::f32 fontSize,
         Color color,
-        float alignX,
-        float alignY,
+        keel::f32 alignX,
+        keel::f32 alignY,
         FontStyle style
     ) {
         DrawTextBoxStyled(text, bounds, fontSize, color, style, alignX, alignY);
     }
 
     /// Draws a line segment between two points.
-    virtual void DrawLine(Vec2 p1, Vec2 p2, Color color, float strokeWidth = 1.0f) = 0;
+    virtual void DrawLine(Vec2 p1, Vec2 p2, Color color, keel::f32 strokeWidth = 1.0f) = 0;
 
     /// Draws a filled and/or stroked triangle defined by three points.
     virtual void DrawTriangle(
@@ -285,7 +285,7 @@ public:
         Vec2 p3,
         Color fill,
         Color stroke = Color(0, 0, 0, 0),
-        float strokeWidth = 0.0f
+        keel::f32 strokeWidth = 0.0f
     ) {
         if (fill.a > 0) {
             DrawLine(p1, p2, fill, 1.0f);
@@ -303,7 +303,7 @@ public:
     virtual void DrawPath(const VectorPath& path, const PathPaint& paint) {
         if (path.Empty()) return;
         const Color col = (paint.renderStroke && paint.strokeColor.a > 0) ? paint.strokeColor : paint.fillColor;
-        const float sw = (paint.renderStroke && paint.strokeWidthPx > 0.0f) ? paint.strokeWidthPx : 1.0f;
+        const keel::f32 sw = (paint.renderStroke && paint.strokeWidthPx > 0.0f) ? paint.strokeWidthPx : 1.0f;
         if (col.a == 0) return;
 
         Vec2 startPt{};
@@ -362,7 +362,7 @@ public:
     virtual bool DrawImage(
         keel::StringRef /*source*/,
         Rect /*destRect*/,
-        float /*cornerRadius*/ = 0.0f,
+        keel::f32 /*cornerRadius*/ = 0.0f,
         keel::u8 /*opacity*/ = 255
     ) {
         return false;
@@ -372,7 +372,7 @@ public:
     virtual bool DrawPixels(
         PixelRef pixels,
         Rect destRect,
-        float cornerRadius = 0.0f,
+        keel::f32 cornerRadius = 0.0f,
         keel::u8 opacity = 255
     ) {
         (void)cornerRadius;
@@ -381,18 +381,18 @@ public:
         }
         const keel::u32 width = pixels.Width();
         const keel::u32 height = pixels.Height();
-        const float cw = destRect.w / static_cast<float>(width);
-        const float ch = destRect.h / static_cast<float>(height);
+        const keel::f32 cw = destRect.w / keel::as<keel::f32>(width);
+        const keel::f32 ch = destRect.h / keel::as<keel::f32>(height);
         for (keel::u32 y = 0; y < height; ++y) {
-            const float ry = destRect.y + static_cast<float>(y) * ch;
+            const keel::f32 ry = destRect.y + keel::as<keel::f32>(y) * ch;
             const auto row = pixels.Row(y);
             for (keel::u32 x = 0; x < width; ++x) {
                 const keel::u32 px = row[x];
-                const keel::u8 r = static_cast<keel::u8>(px & 0xFFu);
-                const keel::u8 g = static_cast<keel::u8>((px >> 8) & 0xFFu);
-                const keel::u8 b = static_cast<keel::u8>((px >> 16) & 0xFFu);
-                const keel::u8 a = static_cast<keel::u8>(((px >> 24) & 0xFFu) * opacity / 255u);
-                DrawRect(Rect(destRect.x + static_cast<float>(x) * cw, ry, cw + 0.5f, ch + 0.5f), Color(r, g, b, a));
+                const keel::u8 r = keel::as<keel::u8>(px & 0xFFu);
+                const keel::u8 g = keel::as<keel::u8>((px >> 8) & 0xFFu);
+                const keel::u8 b = keel::as<keel::u8>((px >> 16) & 0xFFu);
+                const keel::u8 a = keel::as<keel::u8>(((px >> 24) & 0xFFu) * opacity / 255u);
+                DrawRect(Rect(destRect.x + keel::as<keel::f32>(x) * cw, ry, cw + 0.5f, ch + 0.5f), Color(r, g, b, a));
             }
         }
         return true;
@@ -417,10 +417,10 @@ public:
 
     /// Generic 16-byte aligned `float4` uniform register (`std140` / `cbuffer` layout).
     struct GpuFloat4 {
-        float x{0.0f};
-        float y{0.0f};
-        float z{0.0f};
-        float w{0.0f};
+        keel::f32 x{0.0f};
+        keel::f32 y{0.0f};
+        keel::f32 z{0.0f};
+        keel::f32 w{0.0f};
     };
 
     /// Declarative, domain-agnostic descriptor for a 2D hardware GPU shader underlay pass.
@@ -433,12 +433,12 @@ public:
         Color bgColor{0, 0, 0, 255};
 
         // 2D Data Texture (Slot 0: `u_DataTex`)
-        keel::MdRef<float, 2> dataField{};    ///< Contiguous row-major [rows (texHeight) x cols (texWidth)] float field
+        keel::MdRef<keel::f32, 2> dataField{};    ///< Contiguous row-major [rows (texHeight) x cols (texWidth)] float field
         keel::u64 fullGeneration{0};          ///< Incremented when the full 2D grid changes
         keel::u64 sliceGeneration{0};         ///< Optional: incremented when a single row is written in a circular ring buffer
         keel::u32 headRow{0};                 ///< Optional: ring-buffer head row index [0 .. rows-1] for O(1) sub-row upload
-        float dataNormOffset{0.0f};          ///< Value mapped to 0.0 in RG16 upload (0.0 for [0..1] data, -140.0 for dB data)
-        float dataNormScale{1.0f};           ///< Span mapped to [0..1] in RG16 upload (1.0 for [0..1] data, 160.0 for dB data)
+        keel::f32 dataNormOffset{0.0f};          ///< Value mapped to 0.0 in RG16 upload (0.0 for [0..1] data, -140.0 for dB data)
+        keel::f32 dataNormScale{1.0f};           ///< Span mapped to [0..1] in RG16 upload (1.0 for [0..1] data, 160.0 for dB data)
 
         // 1D Colormap LUT Texture (Slot 1: `u_LutTex`, 256 x 1 ABGR8888)
         keel::u8 colormapId{0};

@@ -45,7 +45,7 @@ struct TabBarOptions {
     bool fullWidth{false};      ///< Stretch tabs equally to fill available container width
     bool scrollable{true};      ///< Enable horizontal scrolling with arrows when tabs overflow
     bool disabled{false};       ///< Disable interaction across the entire TabBar
-    keel::Optional<float> gap{keel::kNullOpt};   ///< Gap between consecutive tab items (nullopt = from theme)
+    keel::Optional<keel::f32> gap{keel::kNullOpt};   ///< Gap between consecutive tab items (nullopt = from theme)
     keel::Optional<Padding> padding{keel::kNullOpt};   ///< Container padding around tabs (nullopt = auto based on style)
     UiSize size{UiSize::Md};                     ///< Component size scale
     StateColor color{};                          ///< Optional semantic/custom accent color for active tab indicator / pill

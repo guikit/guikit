@@ -16,7 +16,7 @@ struct UiTheme;
 /// Configuration options for the out-of-flow `Modal` overlay portal (backdrop, input/focus isolation, placement).
 /// Modal does not render a surface card or style children; place a `ui.Card(...)`, `ui.Box(...)`, or widget inside it.
 struct ModalOptions {
-    float backdropOpacity{0.55f};                        ///< Dimmed backdrop alpha (0.0..1.0) when `backdropColor` is unset
+    keel::f32 backdropOpacity{0.55f};                        ///< Dimmed backdrop alpha (0.0..1.0) when `backdropColor` is unset
     keel::Optional<Color> backdropColor{keel::kNullOpt}; ///< Explicit backdrop fill override
     bool closeOnBackdrop{true};                          ///< Dismiss modal when clicking backdrop outside modal content
     bool closeOnEscape{true};                            ///< Dismiss modal when pressing Escape
@@ -101,7 +101,7 @@ public:
 
     static Vec2 Measure(
         const Node* node,
-        float availableWidth,
+        keel::f32 availableWidth,
         ICanvas* canvas,
         const UiTheme& theme
     );

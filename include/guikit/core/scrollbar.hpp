@@ -14,15 +14,15 @@ class ICanvas;
 struct ScrollbarState {
     bool dragging{false};
     bool hovered{false};
-    float dragStartScroll{0.0f};
-    float dragStartMouse{0.0f};
+    keel::f32 dragStartScroll{0.0f};
+    keel::f32 dragStartMouse{0.0f};
 };
 
 /// Computed geometry for a scrollbar track, thumb, and interactive hit zones.
 struct ScrollbarGeometry {
     bool visible{false};
-    float maxScroll{0.0f};
-    float travel{0.0f};
+    keel::f32 maxScroll{0.0f};
+    keel::f32 travel{0.0f};
     Rect trackRect{};
     Rect thumbRect{};
     Rect hitTrackRect{};
@@ -35,8 +35,8 @@ public:
     /// Computes vertical scrollbar geometry inside `viewportRect` for `contentHeight` and `scrollOffset`.
     [[nodiscard]] static ScrollbarGeometry ComputeVertical(
         Rect viewportRect,
-        float contentHeight,
-        float scrollOffset,
+        keel::f32 contentHeight,
+        keel::f32 scrollOffset,
         const ScrollbarMetrics& metrics
     ) noexcept;
 
@@ -46,8 +46,8 @@ public:
         Context& ctx,
         Id activeOwnerId,
         Rect viewportRect,
-        float contentHeight,
-        float& ioScrollOffset,
+        keel::f32 contentHeight,
+        keel::f32& ioScrollOffset,
         ScrollbarState& ioState,
         const ScrollbarMetrics& metrics,
         keel::Optional<Rect> wheelHoverRect = keel::kNullOpt

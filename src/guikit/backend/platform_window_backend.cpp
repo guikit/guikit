@@ -162,12 +162,12 @@ void PlatformWindowBackend::PrepareFrameTarget(Context& /*ui*/) {
     if (w <= 0 || h <= 0) {
         return;
     }
-    const auto uw = static_cast<keel::u32>(w);
-    const auto uh = static_cast<keel::u32>(h);
-    if (uw != m_fbWidth || uh != m_fbHeight || m_cpuFramebuffer.size() != static_cast<keel::usize>(uw) * uh) {
+    const auto uw = keel::as<keel::u32>(w);
+    const auto uh = keel::as<keel::u32>(h);
+    if (uw != m_fbWidth || uh != m_fbHeight || m_cpuFramebuffer.size() != keel::as<keel::usize>(uw) * uh) {
         m_fbWidth = uw;
         m_fbHeight = uh;
-        m_cpuFramebuffer.resize(static_cast<keel::usize>(uw) * uh, 0u);
+        m_cpuFramebuffer.resize(keel::as<keel::usize>(uw) * uh, 0u);
     }
     m_canvas->SetTarget(m_cpuFramebuffer.data(), m_fbWidth, m_fbHeight, m_fbWidth);
 }
@@ -202,17 +202,17 @@ void PlatformWindowBackend::PresentFrame(const Context& ui, FrameMetrics& metric
     metrics.MarkFramePresented();
 }
 
-void PlatformWindowBackend::PaceFrame(double elapsedMs, bool presented) noexcept {
+void PlatformWindowBackend::PaceFrame(keel::f64 elapsedMs, bool presented) noexcept {
     if (!presented && IsVsyncEnabled()) {
         return;
     }
     if (IsVsyncEnabled()) {
         return;
     }
-    const double targetMs = 1000.0 / static_cast<double>(m_targetFps);
-    const double remainingMs = targetMs - elapsedMs;
+    const keel::f64 targetMs = 1000.0 / keel::as<keel::f64>(m_targetFps);
+    const keel::f64 remainingMs = targetMs - elapsedMs;
     if (remainingMs > 1.0) {
-        keel::sleep_us(static_cast<keel::u64>((remainingMs - 0.5) * 1000.0));
+        keel::sleep_us(keel::as<keel::u64>((remainingMs - 0.5) * 1000.0));
     }
 }
 
@@ -224,11 +224,11 @@ keel::i32 PlatformWindowBackend::GetHeight() const noexcept {
     return m_window ? m_window->GetFramebufferHeight() : 0;
 }
 
-float PlatformWindowBackend::GetDpiScale() const noexcept {
+keel::f32 PlatformWindowBackend::GetDpiScale() const noexcept {
     return m_window ? m_window->GetDpiScale() : 1.0f;
 }
 
-float PlatformWindowBackend::GetDisplayPixelsPerMm() const noexcept {
+keel::f32 PlatformWindowBackend::GetDisplayPixelsPerMm() const noexcept {
     return m_window ? m_window->GetDisplayPixelsPerMm() : (96.0f / 25.4f);
 }
 

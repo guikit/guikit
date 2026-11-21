@@ -55,7 +55,7 @@ void SidebarMenuScope::Separator(keel::SourceLocation loc) {
     guikit::Separator::Run(*m_ctx, 0.0f, Color::Transparent(), loc);
 }
 
-void SidebarMenuScope::Spacer(float flex, keel::SourceLocation loc) {
+void SidebarMenuScope::Spacer(keel::f32 flex, keel::SourceLocation loc) {
     if (!m_ctx) return;
     const Id id = m_ctx->MakeChildId(loc);
     Node* spacer = m_ctx->CreateNode(NodeType::Spacer, id);
@@ -63,7 +63,7 @@ void SidebarMenuScope::Spacer(float flex, keel::SourceLocation loc) {
     spacer->heightMode = SizeMode::Stretch;
     spacer->isSpacer = true;
     spacer->flexGrow = flex;
-    spacer->measureFn = [](const Node*, float /*availableWidth*/, ICanvas*, const UiTheme&) noexcept -> Vec2 {
+    spacer->measureFn = [](const Node*, keel::f32 /*availableWidth*/, ICanvas*, const UiTheme&) noexcept -> Vec2 {
         return {0.0f, 0.0f};
     };
 }
@@ -130,10 +130,10 @@ Response SidebarMenu::Run(
                 scope.Section(items[i].section, true, loc);
             }
             SidebarMenuItem it = items[i];
-            it.active = (static_cast<keel::i32>(i) == activeIndex);
+            it.active = (keel::as<keel::i32>(i) == activeIndex);
             Response itemRes = scope.Item(it, loc);
-            if (itemRes.clicked && activeIndex != static_cast<keel::i32>(i)) {
-                activeIndex = static_cast<keel::i32>(i);
+            if (itemRes.clicked && activeIndex != keel::as<keel::i32>(i)) {
+                activeIndex = keel::as<keel::i32>(i);
                 barRes.clicked = true;
                 barRes.changed = true;
                 ctx.InvalidateAll();
@@ -206,20 +206,20 @@ Response SidebarMenu::Item(
     }
 
     node->visualHash = detail::HashArgs(
-        static_cast<keel::u8>(menuOpts.style),
+        keel::as<keel::u8>(menuOpts.style),
         menuOpts.collapsed,
         menuOpts.border,
         item.color.HasAny() ? item.color : menuOpts.color,
         item.active,
         effectiveDisabled,
-        static_cast<keel::u8>(data->item.icon.GetType()),
-        static_cast<keel::u8>(data->item.icon.GetId()),
+        keel::as<keel::u8>(data->item.icon.GetType()),
+        keel::as<keel::u8>(data->item.icon.GetId()),
         data->item.icon.GetPath(),
         data->item.text,
         data->item.badge
     );
 
-    node->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, keel::f32 /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<SidebarItemData>();
         if (!d) return {0.0f, 0.0f};
         return SidebarMenu::MeasureItem(d->item, d->menuOpts, n->uiSize, canvas, theme);
@@ -246,10 +246,10 @@ Vec2 SidebarMenu::MeasureItem(
         return {m.defaultHeight, m.defaultHeight};
     }
 
-    const float fontSize = theme.ResolveFontSize(item.text, TextRole::LabelLarge, size);
-    const float indicatorPad = (opts.style == SidebarMenuStyle::Indicator) ? 4.0f : 0.0f;
+    const keel::f32 fontSize = theme.ResolveFontSize(item.text, TextRole::LabelLarge, size);
+    const keel::f32 indicatorPad = (opts.style == SidebarMenuStyle::Indicator) ? 4.0f : 0.0f;
 
-    float contentW = indicatorPad;
+    keel::f32 contentW = indicatorPad;
     if (item.icon.IsValid()) {
         contentW += m.iconSize;
         if (!item.text.empty()) {
@@ -262,8 +262,8 @@ Vec2 SidebarMenu::MeasureItem(
     }
 
     if (!item.badge.empty() || !item.badge.variants.empty()) {
-        const float badgeFont = theme.ResolveFontSize(item.badge, TextRole::LabelSmall, size);
-        const float badgeTextW = TextUtil::MeasureWidth(item.badge, badgeFont, canvas);
+        const keel::f32 badgeFont = theme.ResolveFontSize(item.badge, TextRole::LabelSmall, size);
+        const keel::f32 badgeTextW = TextUtil::MeasureWidth(item.badge, badgeFont, canvas);
         contentW += 8.0f + badgeTextW + 10.0f;
     }
 
@@ -304,11 +304,11 @@ void SidebarMenu::RenderItem(
         v.bgHover = effColor.hover.has_value() ? *effColor.hover : v.bg.WithAlphaF(0.85f);
         v.bgActive = effColor.active.has_value() ? *effColor.active : v.bg.WithAlphaF(0.75f);
     }
-    const float radius = opts.border.radius.value_or(m.cornerRadius);
+    const keel::f32 radius = opts.border.radius.value_or(m.cornerRadius);
 
     Color bg = Color::Transparent();
     Color borderCol = Color::Transparent();
-    float borderW = 0.0f;
+    keel::f32 borderW = 0.0f;
     Color textCol = item.text.color.HasAny()
         ? item.text.color.Resolve(hovered, pressed || item.active, disabled, pal.textPrimary)
         : pal.textPrimary;
@@ -362,8 +362,8 @@ void SidebarMenu::RenderItem(
     }
 
     if (opts.style == SidebarMenuStyle::Indicator && item.active) {
-        const float barW = 3.0f;
-        const float barPadY = keel::min(6.0f, bounds.h * 0.22f);
+        const keel::f32 barW = 3.0f;
+        const keel::f32 barPadY = keel::min(6.0f, bounds.h * 0.22f);
         const Rect barRect(bounds.x + 2.0f, bounds.y + barPadY, barW, keel::max(4.0f, bounds.h - barPadY * 2.0f));
         Color barCol = disabled ? v.bg.WithAlphaF(0.40f) : v.bg;
         canvas.DrawRoundRect(barRect, barW * 0.5f, barCol);
@@ -379,14 +379,14 @@ void SidebarMenu::RenderItem(
             );
             item.icon.Draw(canvas, iconRect, iconCol);
         } else if (!item.text.empty()) {
-            const float fontSize = theme.ResolveFontSize(item.text, TextRole::LabelLarge, size);
+            const keel::f32 fontSize = theme.ResolveFontSize(item.text, TextRole::LabelLarge, size);
             canvas.DrawTextBox(item.text.text.substr(0, 1), bounds, fontSize, textCol, 0.5f, 0.5f);
         }
         if (!item.badge.empty()) {
-            const float badgeFont = keel::max(9.0f, theme.ResolveFontSize(item.badge, TextRole::LabelSmall, size) - 1.5f);
+            const keel::f32 badgeFont = keel::max(9.0f, theme.ResolveFontSize(item.badge, TextRole::LabelSmall, size) - 1.5f);
             const Vec2 badgeDims = canvas.MeasureText(item.badge.text, badgeFont);
-            const float badgeH = keel::min(bounds.h * 0.48f, keel::max(13.0f, badgeFont + 3.0f));
-            const float badgeW = keel::min(bounds.w - 4.0f, keel::max(badgeH, badgeDims.x + 6.0f));
+            const keel::f32 badgeH = keel::min(bounds.h * 0.48f, keel::max(13.0f, badgeFont + 3.0f));
+            const keel::f32 badgeW = keel::min(bounds.w - 4.0f, keel::max(badgeH, badgeDims.x + 6.0f));
             const Rect badgeRect(
                 bounds.Right() - badgeW - 2.0f,
                 bounds.Bottom() - badgeH - 2.0f,
@@ -404,9 +404,9 @@ void SidebarMenu::RenderItem(
         return;
     }
 
-    const float indicatorPad = (opts.style == SidebarMenuStyle::Indicator) ? 4.0f : 0.0f;
-    float leftX = bounds.x + m.paddingX + indicatorPad;
-    float rightX = bounds.Right() - m.paddingX;
+    const keel::f32 indicatorPad = (opts.style == SidebarMenuStyle::Indicator) ? 4.0f : 0.0f;
+    keel::f32 leftX = bounds.x + m.paddingX + indicatorPad;
+    keel::f32 rightX = bounds.Right() - m.paddingX;
 
     // 1. Leading Icon
     if (item.icon.IsValid()) {
@@ -422,10 +422,10 @@ void SidebarMenu::RenderItem(
 
     // 2. Trailing Badge
     if (!item.badge.empty()) {
-        const float badgeFont = theme.ResolveFontSize(item.badge, TextRole::LabelSmall, size);
+        const keel::f32 badgeFont = theme.ResolveFontSize(item.badge, TextRole::LabelSmall, size);
         const Vec2 badgeTextDims = canvas.MeasureText(item.badge.text, badgeFont);
-        const float badgeW = badgeTextDims.x + 10.0f;
-        const float badgeH = keel::min(bounds.h - 6.0f, badgeFont + 6.0f);
+        const keel::f32 badgeW = badgeTextDims.x + 10.0f;
+        const keel::f32 badgeH = keel::min(bounds.h - 6.0f, badgeFont + 6.0f);
         const Rect badgeRect(
             rightX - badgeW,
             bounds.y + (bounds.h - badgeH) * 0.5f,
@@ -449,7 +449,7 @@ void SidebarMenu::RenderItem(
 
     // 3. Item Text
     if (!item.text.empty() && rightX > leftX) {
-        const float fontSize = theme.ResolveFontSize(item.text, TextRole::LabelLarge, size);
+        const keel::f32 fontSize = theme.ResolveFontSize(item.text, TextRole::LabelLarge, size);
         const Rect textRect(leftX, bounds.y, rightX - leftX, bounds.h);
         canvas.PushClip(textRect);
         canvas.DrawTextBox(item.text.text, textRect, fontSize, textCol, 0.0f, 0.5f);

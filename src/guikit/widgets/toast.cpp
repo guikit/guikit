@@ -33,7 +33,7 @@ void Toast::RunHost(
 
     const UiTheme theme = ctx.GetTheme();
 
-    constexpr float s = 1.0f;
+    constexpr keel::f32 s = 1.0f;
     Rect hostBounds = ctx.GetPopupViewportRect();
     if (opts.confineToParent) {
         const Rect parentBounds = ctx.GetParentPrevFrameBounds();
@@ -43,19 +43,19 @@ void Toast::RunHost(
     }
 
     ICanvas* canvas = ctx.GetCanvas();
-    const float cardW = keel::min(keel::max(160.0f, hostBounds.w - 24.0f * s), opts.width);
-    const float gap = opts.gap;
-    const float margin = opts.margin;
-    const float padX = 14.0f * s;
-    const float padY = 12.0f * s;
-    const float iconBoxSz = 26.0f * s;
-    const float closeBtnSz = 20.0f * s;
-    const float titleFont = theme.ResolveFontSize(UiText{}, TextRole::LabelMedium, UiSize::Md);
-    const float msgFont = theme.ResolveFontSize(UiText{}, TextRole::BodySmall, UiSize::Sm);
-    const float titleLineH = canvas ? canvas->GetLineHeight(titleFont) : (titleFont * 1.3f);
-    const float msgLineH = canvas ? canvas->GetLineHeight(msgFont) : (msgFont * 1.35f);
+    const keel::f32 cardW = keel::min(keel::max(160.0f, hostBounds.w - 24.0f * s), opts.width);
+    const keel::f32 gap = opts.gap;
+    const keel::f32 margin = opts.margin;
+    const keel::f32 padX = 14.0f * s;
+    const keel::f32 padY = 12.0f * s;
+    const keel::f32 iconBoxSz = 26.0f * s;
+    const keel::f32 closeBtnSz = 20.0f * s;
+    const keel::f32 titleFont = theme.ResolveFontSize(UiText{}, TextRole::LabelMedium, UiSize::Md);
+    const keel::f32 msgFont = theme.ResolveFontSize(UiText{}, TextRole::BodySmall, UiSize::Sm);
+    const keel::f32 titleLineH = canvas ? canvas->GetLineHeight(titleFont) : (titleFont * 1.3f);
+    const keel::f32 msgLineH = canvas ? canvas->GetLineHeight(msgFont) : (msgFont * 1.35f);
 
-    const double nowSec = ctx.GetCurrentTime();
+    const keel::f64 nowSec = ctx.GetCurrentTime();
     const Vec2 mouse = ctx.GetMousePos();
 
     // Determine visible slice (newest toasts up to maxVisible)
@@ -66,19 +66,19 @@ void Toast::RunHost(
         keel::usize index{0};
         Rect cardRect{};
         Rect closeRect{};
-        float textW{0.0f};
-        float msgH{0.0f};
+        keel::f32 textW{0.0f};
+        keel::f32 msgH{0.0f};
     };
     keel::SmallArray<LayoutToast, 8> layoutList;
     layoutList.reserve(entries.size() - startIdx);
 
     for (keel::usize i = startIdx; i < entries.size(); ++i) {
         const auto& e = entries[i];
-        const float rightReserve = e.closable ? (closeBtnSz + 8.0f * s) : 0.0f;
-        const float textW = keel::max(40.0f, cardW - padX * 2.0f - (iconBoxSz + 10.0f * s) - rightReserve);
+        const keel::f32 rightReserve = e.closable ? (closeBtnSz + 8.0f * s) : 0.0f;
+        const keel::f32 textW = keel::max(40.0f, cardW - padX * 2.0f - (iconBoxSz + 10.0f * s) - rightReserve);
 
-        float contentH = 0.0f;
-        float msgH = 0.0f;
+        keel::f32 contentH = 0.0f;
+        keel::f32 msgH = 0.0f;
         if (!e.title.empty()) {
             contentH += titleLineH;
         }
@@ -90,7 +90,7 @@ void Toast::RunHost(
             contentH += keel::max(msgLineH, msgH);
         }
         contentH = keel::max(contentH, iconBoxSz);
-        const float cardH = keel::round(padY * 2.0f + contentH + (e.showProgress && e.duration > 0.0f ? 4.0f * s : 0.0f));
+        const keel::f32 cardH = keel::round(padY * 2.0f + contentH + (e.showProgress && e.duration > 0.0f ? 4.0f * s : 0.0f));
 
         LayoutToast lt{};
         lt.index = i;
@@ -108,17 +108,17 @@ void Toast::RunHost(
     const bool isCenter = (opts.placement == ToastPlacement::TopCenter ||
                            opts.placement == ToastPlacement::BottomCenter);
 
-    float curY = isBottom ? (hostBounds.Bottom() - margin) : (hostBounds.y + margin);
+    keel::f32 curY = isBottom ? (hostBounds.Bottom() - margin) : (hostBounds.y + margin);
     // Stack newest closest to anchor edge
     for (keel::usize k = layoutList.size(); k > 0; --k) {
         auto& lt = layoutList[k - 1];
-        float x = hostBounds.x + margin;
+        keel::f32 x = hostBounds.x + margin;
         if (isRight) {
             x = hostBounds.Right() - margin - lt.cardRect.w;
         } else if (isCenter) {
             x = hostBounds.x + (hostBounds.w - lt.cardRect.w) * 0.5f;
         }
-        float y = curY;
+        keel::f32 y = curY;
         if (isBottom) {
             y = curY - lt.cardRect.h;
             curY = y - gap;
@@ -160,7 +160,7 @@ void Toast::RunHost(
     // Advance timers on all entries
     for (keel::usize i = 0; i < entries.size(); ++i) {
         auto& e = entries[i];
-        const double dt = keel::max(0.0, nowSec - e.lastTickSec);
+        const keel::f64 dt = keel::max(0.0, nowSec - e.lastTickSec);
         e.lastTickSec = nowSec;
         if (e.duration > 0.0f) {
             if (!(opts.pauseOnHover && e.hovered)) {
@@ -178,16 +178,16 @@ void Toast::RunHost(
         TextWrap messageWrap{};
         UiVariant variant{UiVariant::Info};
         Icon icon{};
-        float duration{3.5f};
-        double elapsedSec{0.0};
+        keel::f32 duration{3.5f};
+        keel::f64 elapsedSec{0.0};
         bool closable{true};
         bool showProgress{true};
         bool hovered{false};
         bool closeHovered{false};
         Rect cardRect{};
         Rect closeRect{};
-        float textW{0.0f};
-        float msgH{0.0f};
+        keel::f32 textW{0.0f};
+        keel::f32 msgH{0.0f};
     };
     keel::SmallArray<DrawToastData, 8> drawList;
     drawList.reserve(layoutList.size());
@@ -195,7 +195,7 @@ void Toast::RunHost(
         if (lt.index >= entries.size()) continue;
         const auto& ent = entries[lt.index];
         const bool dismissed = (dismissId != 0 && ent.id == dismissId);
-        const bool expired = (ent.duration > 0.0f && ent.elapsedSec >= static_cast<double>(ent.duration));
+        const bool expired = (ent.duration > 0.0f && ent.elapsedSec >= keel::as<keel::f64>(ent.duration));
         if (dismissed || expired) continue;
 
         Icon safeIcon = ent.icon;
@@ -224,7 +224,7 @@ void Toast::RunHost(
 
     for (keel::usize i = 0; i < entries.size(); ) {
         const bool dismissed = (dismissId != 0 && entries[i].id == dismissId);
-        const bool expired = (entries[i].duration > 0.0f && entries[i].elapsedSec >= static_cast<double>(entries[i].duration));
+        const bool expired = (entries[i].duration > 0.0f && entries[i].elapsedSec >= keel::as<keel::f64>(entries[i].duration));
         if (dismissed || expired) {
             entries.remove_at(i);
             ctx.InvalidateAll();
@@ -244,7 +244,7 @@ void Toast::RunHost(
 
     ctx.RegisterOverlay([drawList = keel::move(drawList), theme, padX, padY, iconBoxSz, closeBtnSz, titleFont, msgFont, titleLineH, msgLineH](ICanvas& c) {
         const auto& pal = theme.palette;
-        const float radius = 10.0f * s;
+        const keel::f32 radius = 10.0f * s;
 
         for (const auto& dt : drawList) {
             const auto& e = dt;
@@ -285,7 +285,7 @@ void Toast::RunHost(
                 accentCol.WithAlphaF(0.32f),
                 1.0f
             );
-            const float icSz = 14.0f * s;
+            const keel::f32 icSz = 14.0f * s;
             effIcon.Draw(
                 c,
                 Rect(badgeRect.x + (iconBoxSz - icSz) * 0.5f, badgeRect.y + (iconBoxSz - icSz) * 0.5f, icSz, icSz),
@@ -293,8 +293,8 @@ void Toast::RunHost(
             );
 
             // Text stack
-            const float textX = badgeRect.Right() + 10.0f * s;
-            float textY = r.y + padY;
+            const keel::f32 textX = badgeRect.Right() + 10.0f * s;
+            keel::f32 textY = r.y + padY;
             if (!e.title.empty()) {
                 UiText titleTxt(e.title);
                 titleTxt.wrap = e.titleWrap;
@@ -333,7 +333,7 @@ void Toast::RunHost(
                 if (e.closeHovered) {
                     c.DrawRoundRect(dt.closeRect, 5.0f * s, pal.surfaceHover, Color::Transparent(), 0.0f);
                 }
-                const float xSz = 11.0f * s;
+                const keel::f32 xSz = 11.0f * s;
                 Icon::Close().Draw(
                     c,
                     Rect(
@@ -348,12 +348,12 @@ void Toast::RunHost(
 
             // Bottom countdown progress bar
             if (e.showProgress && e.duration > 0.0f) {
-                const float ratio = keel::clamp(
-                    1.0f - static_cast<float>(e.elapsedSec / static_cast<double>(e.duration)),
+                const keel::f32 ratio = keel::clamp(
+                    1.0f - keel::as<keel::f32>(e.elapsedSec / keel::as<keel::f64>(e.duration)),
                     0.0f,
                     1.0f
                 );
-                const float barH = 3.0f * s;
+                const keel::f32 barH = 3.0f * s;
                 c.DrawRect(Rect(r.x, r.Bottom() - barH, r.w, barH), pal.borderSubtle.WithAlphaF(0.35f));
                 c.DrawRect(Rect(r.x, r.Bottom() - barH, r.w * ratio, barH), accentCol);
             }

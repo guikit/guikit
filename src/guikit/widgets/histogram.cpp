@@ -22,12 +22,12 @@ enum class HistDragMode : keel::u8 {
 
 struct HistogramInternalState {
     HistDragMode dragMode{HistDragMode::None};
-    float grabMouseX{0.0f};
-    float grabLow{0.0f};
-    float grabHigh{0.0f};
-    float grabLevel{0.0f};
-    float grabWindow{1.0f};
-    double lastClickTimeSec{-10.0};
+    keel::f32 grabMouseX{0.0f};
+    keel::f32 grabLow{0.0f};
+    keel::f32 grabHigh{0.0f};
+    keel::f32 grabLevel{0.0f};
+    keel::f32 grabWindow{1.0f};
+    keel::f64 lastClickTimeSec{-10.0};
     Vec2 lastClickPos{0.0f, 0.0f};
 };
 
@@ -46,28 +46,28 @@ struct HistogramGeometry {
     const Rect& box,
     const HistogramData& data,
     const HistogramOptions& opts,
-    float scale
+    keel::f32 scale
 ) noexcept {
     HistogramGeometry g{};
     g.outerRect = box;
-    const float pad = 6.0f * scale;
+    const keel::f32 pad = 6.0f * scale;
     g.hasPills = (data.channelCount >= 3) && opts.showChannelPills;
     g.hasHeader = g.hasPills || opts.showRangeReadout;
     g.hasColorbar = opts.showColorbar && (box.h >= 64.0f * scale);
 
-    const float headerH = g.hasHeader ? (20.0f * scale) : 0.0f;
-    const float colorbarH = g.hasColorbar ? (8.0f * scale) : 0.0f;
-    const float colorbarGap = g.hasColorbar ? (4.0f * scale) : 0.0f;
+    const keel::f32 headerH = g.hasHeader ? (20.0f * scale) : 0.0f;
+    const keel::f32 colorbarH = g.hasColorbar ? (8.0f * scale) : 0.0f;
+    const keel::f32 colorbarGap = g.hasColorbar ? (4.0f * scale) : 0.0f;
 
     if (g.hasHeader) {
         g.headerRect = Rect(box.x + pad, box.y + 4.0f * scale, keel::max(0.0f, box.w - pad * 2.0f), headerH);
         if (g.hasPills) {
-            const float pillW = 28.0f * scale;
-            const float pillGap = 3.0f * scale;
-            const float totalPillsW = pillW * 4.0f + pillGap * 3.0f;
-            float px = g.headerRect.Right() - totalPillsW;
-            const float py = g.headerRect.y + 1.0f * scale;
-            const float ph = keel::max(12.0f, g.headerRect.h - 2.0f * scale);
+            const keel::f32 pillW = 28.0f * scale;
+            const keel::f32 pillGap = 3.0f * scale;
+            const keel::f32 totalPillsW = pillW * 4.0f + pillGap * 3.0f;
+            keel::f32 px = g.headerRect.Right() - totalPillsW;
+            const keel::f32 py = g.headerRect.y + 1.0f * scale;
+            const keel::f32 ph = keel::max(12.0f, g.headerRect.h - 2.0f * scale);
             for (keel::usize i = 0; i < 4; ++i) {
                 g.pillRects[i] = Rect(px, py, pillW, ph);
                 px += pillW + pillGap;
@@ -75,8 +75,8 @@ struct HistogramGeometry {
         }
     }
 
-    const float plotTop = box.y + (g.hasHeader ? (4.0f * scale + headerH + 2.0f * scale) : pad);
-    const float plotBottom = box.Bottom() - pad - colorbarH - colorbarGap;
+    const keel::f32 plotTop = box.y + (g.hasHeader ? (4.0f * scale + headerH + 2.0f * scale) : pad);
+    const keel::f32 plotBottom = box.Bottom() - pad - colorbarH - colorbarGap;
     g.plotRect = Rect(
         box.x + pad,
         plotTop,
@@ -95,17 +95,17 @@ struct HistogramGeometry {
     return g;
 }
 
-[[nodiscard]] float ScaleBinValue(keel::u32 count, keel::u32 maxCount, HistogramScaleMode mode) noexcept {
+[[nodiscard]] keel::f32 ScaleBinValue(keel::u32 count, keel::u32 maxCount, HistogramScaleMode mode) noexcept {
     if (count == 0 || maxCount == 0) {
         return 0.0f;
     }
     switch (mode) {
         case HistogramScaleMode::Sqrt:
-            return keel::sqrt(static_cast<float>(count)) / keel::sqrt(static_cast<float>(maxCount));
+            return keel::sqrt(keel::as<keel::f32>(count)) / keel::sqrt(keel::as<keel::f32>(maxCount));
         case HistogramScaleMode::Logarithmic:
-            return keel::log1p(static_cast<float>(count)) / keel::log1p(static_cast<float>(maxCount));
+            return keel::log1p(keel::as<keel::f32>(count)) / keel::log1p(keel::as<keel::f32>(maxCount));
         case HistogramScaleMode::Linear:
-            return static_cast<float>(count) / static_cast<float>(maxCount);
+            return keel::as<keel::f32>(count) / keel::as<keel::f32>(maxCount);
     }
     return 0.0f;
 }
@@ -118,7 +118,7 @@ struct HistogramGeometry {
     return m;
 }
 
-void FormatHistValue(char* buf, keel::usize bufSize, float v, float span) noexcept {
+void FormatHistValue(char* buf, keel::usize bufSize, keel::f32 v, keel::f32 span) noexcept {
     if (span >= 50.0f) {
         std::snprintf(buf, bufSize, "%.0f", v);
     } else if (span >= 2.0f) {
@@ -155,16 +155,16 @@ void DrawChannelDistribution(
         return;
     }
     const keel::usize n = bins.size();
-    const float barW = plotRect.w / static_cast<float>(n);
-    const float usableH = keel::max(2.0f, plotRect.h - 3.0f);
+    const keel::f32 barW = plotRect.w / keel::as<keel::f32>(n);
+    const keel::f32 usableH = keel::max(2.0f, plotRect.h - 3.0f);
 
     Vec2 prevTop{};
     bool hasPrev = false;
     for (keel::usize i = 0; i < n; ++i) {
-        const float normH = keel::clamp(ScaleBinValue(bins[i], maxCount, scaleMode), 0.0f, 1.0f);
-        const float bh = normH * usableH;
-        const float bx = plotRect.x + static_cast<float>(i) * barW;
-        const float by = plotRect.Bottom() - bh;
+        const keel::f32 normH = keel::clamp(ScaleBinValue(bins[i], maxCount, scaleMode), 0.0f, 1.0f);
+        const keel::f32 bh = normH * usableH;
+        const keel::f32 bx = plotRect.x + keel::as<keel::f32>(i) * barW;
+        const keel::f32 by = plotRect.Bottom() - bh;
         if (bh >= 0.5f && fillCol.a > 0) {
             c.DrawRect(Rect(bx, by, keel::max(1.0f, barW + 0.35f), bh), fillCol);
         }
@@ -180,24 +180,24 @@ void DrawChannelDistribution(
 void DrawTransferCurveLine(
     ICanvas& c,
     const Rect& plotRect,
-    float minVal,
-    float maxVal,
+    keel::f32 minVal,
+    keel::f32 maxVal,
     const ChannelTransferParams& tp,
     Color curveColor,
-    float strokeWidth
+    keel::f32 strokeWidth
 ) noexcept {
-    const float domainSpan = keel::max(1e-5f, maxVal - minVal);
-    const float xlo = plotRect.x + keel::clamp((tp.Low() - minVal) / domainSpan, 0.0f, 1.0f) * plotRect.w;
-    const float xhi = plotRect.x + keel::clamp((tp.High() - minVal) / domainSpan, 0.0f, 1.0f) * plotRect.w;
+    const keel::f32 domainSpan = keel::max(1e-5f, maxVal - minVal);
+    const keel::f32 xlo = plotRect.x + keel::clamp((tp.Low() - minVal) / domainSpan, 0.0f, 1.0f) * plotRect.w;
+    const keel::f32 xhi = plotRect.x + keel::clamp((tp.High() - minVal) / domainSpan, 0.0f, 1.0f) * plotRect.w;
 
     constexpr keel::i32 kSegments = 24;
     Vec2 prevPt{};
     for (keel::i32 i = 0; i <= kSegments; ++i) {
-        const float u = static_cast<float>(i) / static_cast<float>(kSegments);
-        const float val = tp.Low() + u * tp.window;
-        const float outY = tp.Evaluate(val);
-        const float sx = keel::clamp(xlo + u * (xhi - xlo), plotRect.x, plotRect.Right());
-        const float sy = plotRect.Bottom() - outY * plotRect.h;
+        const keel::f32 u = keel::as<keel::f32>(i) / keel::as<keel::f32>(kSegments);
+        const keel::f32 val = tp.Low() + u * tp.window;
+        const keel::f32 outY = tp.Evaluate(val);
+        const keel::f32 sx = keel::clamp(xlo + u * (xhi - xlo), plotRect.x, plotRect.Right());
+        const keel::f32 sy = plotRect.Bottom() - outY * plotRect.h;
         const Vec2 pt{sx, sy};
         if (i > 0) {
             c.DrawLine(prevPt, pt, curveColor, strokeWidth);
@@ -214,11 +214,11 @@ struct HistogramPayload {
     HistogramInternalState* state{nullptr};
 };
 
-constexpr float kDefaultHistogramHeightDp = 136.0f;
-constexpr float kDefaultHistogramMinHeightDp = 96.0f;
+constexpr keel::f32 kDefaultHistogramHeightDp = 136.0f;
+constexpr keel::f32 kDefaultHistogramMinHeightDp = 96.0f;
 
-[[nodiscard]] constexpr float ResolveEffectiveMinHeightDp(const HistogramOptions& opts) noexcept {
-    const float minH = opts.minHeight.value_or(kDefaultHistogramMinHeightDp);
+[[nodiscard]] constexpr keel::f32 ResolveEffectiveMinHeightDp(const HistogramOptions& opts) noexcept {
+    const keel::f32 minH = opts.minHeight.value_or(kDefaultHistogramMinHeightDp);
     if (opts.height.IsStretch()) {
         return minH;
     }
@@ -236,15 +236,15 @@ Vec2 Histogram::Measure(
     UiSize /*size*/,
     ICanvas* /*canvas*/,
     const UiTheme& /*theme*/,
-    float availableWidth
+    keel::f32 availableWidth
 ) noexcept {
-    float w = 240.0f;
+    keel::f32 w = 240.0f;
     if (opts.width.IsFixed()) {
         w = opts.width.Dp();
     } else if (opts.width.ResolveMode(SizeMode::Stretch) == SizeMode::Stretch && availableWidth > 0.0f) {
         w = availableWidth;
     }
-    const float h = ResolveEffectiveMinHeightDp(opts);
+    const keel::f32 h = ResolveEffectiveMinHeightDp(opts);
     return {w, h};
 }
 
@@ -259,7 +259,7 @@ HistogramResponse Histogram::Run(
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = opts.size;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    constexpr float scale = 1.0f;
+    constexpr keel::f32 scale = 1.0f;
 
     HistogramOptions optsCopy = opts;
 
@@ -273,9 +273,9 @@ HistogramResponse Histogram::Run(
     const Rect ctrlRect = baseRes.rect;
     const HistogramGeometry geom = ComputeHistogramGeometry(ctrlRect, data, optsCopy, scale);
 
-    const float minVal = data.minValue;
-    const float maxVal = keel::max(minVal + 1e-4f, data.maxValue);
-    const float domainSpan = maxVal - minVal;
+    const keel::f32 minVal = data.minValue;
+    const keel::f32 maxVal = keel::max(minVal + 1e-4f, data.maxValue);
+    const keel::f32 domainSpan = maxVal - minVal;
 
     const Vec2 mouse = ctx.GetMousePos();
     const KeyModifiers mods = ctx.GetKeyModifiers();
@@ -300,9 +300,9 @@ HistogramResponse Histogram::Run(
 
     // 2. Interactive W/L handle & band dragging on plotRect
     if (!effectiveDisabled && optsCopy.interactive && !clickedPill && geom.plotRect.w > 8.0f) {
-        const float xlo = geom.plotRect.x + keel::clamp((transfer.Low() - minVal) / domainSpan, 0.0f, 1.0f) * geom.plotRect.w;
-        const float xhi = geom.plotRect.x + keel::clamp((transfer.High() - minVal) / domainSpan, 0.0f, 1.0f) * geom.plotRect.w;
-        const float grabRadius = 7.0f * scale;
+        const keel::f32 xlo = geom.plotRect.x + keel::clamp((transfer.Low() - minVal) / domainSpan, 0.0f, 1.0f) * geom.plotRect.w;
+        const keel::f32 xhi = geom.plotRect.x + keel::clamp((transfer.High() - minVal) / domainSpan, 0.0f, 1.0f) * geom.plotRect.w;
+        const keel::f32 grabRadius = 7.0f * scale;
 
         const Rect expandedPlot(
             geom.plotRect.x - grabRadius,
@@ -313,8 +313,8 @@ HistogramResponse Histogram::Run(
         const bool inPlotOrBar = expandedPlot.Contains(mouse);
 
         if (baseRes.hovered && inPlotOrBar && ctx.IsMouseClicked()) {
-            const double nowSec = ctx.GetCurrentTime();
-            const float clickDist = keel::hypot(mouse.x - st.lastClickPos.x, mouse.y - st.lastClickPos.y);
+            const keel::f64 nowSec = ctx.GetCurrentTime();
+            const keel::f32 clickDist = keel::hypot(mouse.x - st.lastClickPos.x, mouse.y - st.lastClickPos.y);
             if (baseRes.doubleClicked || ((nowSec - st.lastClickTimeSec) < 0.35 && clickDist < 8.0f * scale)) {
                 // Double-click resets active channel window/level to full data range
                 transfer.SetLowHigh(minVal, maxVal);
@@ -326,8 +326,8 @@ HistogramResponse Histogram::Run(
                 st.lastClickTimeSec = nowSec;
                 st.lastClickPos = mouse;
 
-                const float distLo = keel::abs(mouse.x - xlo);
-                const float distHi = keel::abs(mouse.x - xhi);
+                const keel::f32 distLo = keel::abs(mouse.x - xlo);
+                const keel::f32 distHi = keel::abs(mouse.x - xhi);
                 if (distLo <= grabRadius && distLo <= distHi) {
                     st.dragMode = HistDragMode::DragLow;
                 } else if (distHi <= grabRadius) {
@@ -346,19 +346,19 @@ HistogramResponse Histogram::Run(
         if (st.dragMode != HistDragMode::None) {
             if (ctx.IsMouseDown()) {
                 ctx.SetActiveId(id);
-                const float fineFactor = mods.shift ? 0.2f : 1.0f;
-                const float dxNorm = ((mouse.x - st.grabMouseX) / keel::max(1.0f, geom.plotRect.w)) * fineFactor;
-                const float dVal = dxNorm * domainSpan;
-                const float minWin = keel::max(1e-4f, domainSpan * 0.002f);
+                const keel::f32 fineFactor = mods.shift ? 0.2f : 1.0f;
+                const keel::f32 dxNorm = ((mouse.x - st.grabMouseX) / keel::max(1.0f, geom.plotRect.w)) * fineFactor;
+                const keel::f32 dVal = dxNorm * domainSpan;
+                const keel::f32 minWin = keel::max(1e-4f, domainSpan * 0.002f);
 
                 if (st.dragMode == HistDragMode::DragLow) {
-                    const float newLo = keel::clamp(st.grabLow + dVal, minVal, st.grabHigh - minWin);
+                    const keel::f32 newLo = keel::clamp(st.grabLow + dVal, minVal, st.grabHigh - minWin);
                     transfer.SetLowHigh(newLo, st.grabHigh, minWin);
                 } else if (st.dragMode == HistDragMode::DragHigh) {
-                    const float newHi = keel::clamp(st.grabHigh + dVal, st.grabLow + minWin, maxVal);
+                    const keel::f32 newHi = keel::clamp(st.grabHigh + dVal, st.grabLow + minWin, maxVal);
                     transfer.SetLowHigh(st.grabLow, newHi, minWin);
                 } else if (st.dragMode == HistDragMode::DragLevel) {
-                    const float newLevel = keel::clamp(st.grabLevel + dVal, minVal, maxVal);
+                    const keel::f32 newLevel = keel::clamp(st.grabLevel + dVal, minVal, maxVal);
                     transfer.level = newLevel;
                     transfer.window = keel::max(minWin, st.grabWindow);
                 }
@@ -381,7 +381,7 @@ HistogramResponse Histogram::Run(
 
     // 3. Hover telemetry
     if (baseRes.hovered && geom.plotRect.Contains(mouse)) {
-        const float u = keel::clamp((mouse.x - geom.plotRect.x) / keel::max(1.0f, geom.plotRect.w), 0.0f, 1.0f);
+        const keel::f32 u = keel::clamp((mouse.x - geom.plotRect.x) / keel::max(1.0f, geom.plotRect.w), 0.0f, 1.0f);
         res.hoveredValue = minVal + u * domainSpan;
         keel::ArrayRef<keel::u32> activeBins = data.binsLum;
         if (data.channelCount >= 3) {
@@ -390,8 +390,8 @@ HistogramResponse Histogram::Run(
             else if (res.activeChannel == HistogramChannel::Blue && !data.binsB.empty()) activeBins = data.binsB;
         }
         if (!activeBins.empty()) {
-            const keel::usize idx = keel::min(activeBins.size() - 1, static_cast<keel::usize>(u * static_cast<float>(activeBins.size())));
-            res.hoveredBin = static_cast<keel::i32>(idx);
+            const keel::usize idx = keel::min(activeBins.size() - 1, keel::as<keel::usize>(u * keel::as<keel::f32>(activeBins.size())));
+            res.hoveredBin = keel::as<keel::i32>(idx);
             res.hoveredCount = activeBins[idx];
         }
     }
@@ -423,7 +423,7 @@ HistogramResponse Histogram::Run(
     node->active = res.pressed;
     node->focused = baseRes.focused;
 
-    const float effectiveMinHDp = ResolveEffectiveMinHeightDp(optsCopy);
+    const keel::f32 effectiveMinHDp = ResolveEffectiveMinHeightDp(optsCopy);
     ControlSpec ctrlSpec{};
     ctrlSpec.width = optsCopy.width;
     ctrlSpec.defaultWidthMode = SizeMode::Stretch;
@@ -464,9 +464,9 @@ HistogramResponse Histogram::Run(
         transfer.level,
         transfer.gamma,
         transfer.invert,
-        static_cast<keel::u8>(optsCopy.scaleMode),
-        static_cast<keel::u8>(res.activeChannel),
-        static_cast<keel::u8>(optsCopy.colormap),
+        keel::as<keel::u8>(optsCopy.scaleMode),
+        keel::as<keel::u8>(res.activeChannel),
+        keel::as<keel::u8>(optsCopy.colormap),
         optsCopy.showColorbar,
         optsCopy.showTransferCurve,
         optsCopy.showChannelPills,
@@ -474,12 +474,12 @@ HistogramResponse Histogram::Run(
         optsCopy.background,
         optsCopy.border,
         res.hoveredBin,
-        static_cast<keel::u8>(st.dragMode),
+        keel::as<keel::u8>(st.dragMode),
         activeSize,
         effectiveDisabled
     );
 
-    node->measureFn = [](const Node* n, float availableWidth, ICanvas* c, const UiTheme& th) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* c, const UiTheme& th) noexcept -> Vec2 {
         const auto* p = n->As<HistogramPayload>();
         if (!p) return {0.0f, 0.0f};
         HistogramOptions effOpts = p->opts;
@@ -497,27 +497,27 @@ HistogramResponse Histogram::Run(
         const ChannelTransferParams& tp = p->transfer;
         const HistogramOptions& o = p->opts;
         const HistogramResponse& resp = p->resp;
-        constexpr float scale = 1.0f;
+        constexpr keel::f32 scale = 1.0f;
 
         const Rect box = n->computedRect;
         if (box.w <= 8.0f || box.h <= 8.0f) return;
 
         const bool isDark = (th.mode == ThemeMode::Dark);
-        const float rad = o.border.radius.has_value() ? *o.border.radius : th.GetRadius(n->uiSize);
+        const keel::f32 rad = o.border.radius.has_value() ? *o.border.radius : th.GetRadius(n->uiSize);
         const Color defaultBgSurface = isDark ? Color(15, 20, 30, 255) : Color(245, 248, 252, 255);
         const Color bgSurface = o.background.Resolve(n->hovered, n->active, n->disabled, defaultBgSurface);
         const Color plotBg    = isDark ? Color(10, 14, 22, 255) : Color(255, 255, 255, 255);
         const Color borderCol = o.border.color.Resolve(n->hovered, n->active, n->disabled, th.palette.borderSubtle);
-        const float borderW   = (o.border.width > 0.0f) ? o.border.width : 1.0f;
+        const keel::f32 borderW   = (o.border.width > 0.0f) ? o.border.width : 1.0f;
         const Color gridCol   = isDark ? Color(51, 65, 85, 70) : Color(203, 213, 225, 110);
 
         c.DrawRoundRect(box, rad, bgSurface, borderCol, borderW);
 
         const HistogramGeometry g = ComputeHistogramGeometry(box, d, o, scale);
-        const float minVal = d.minValue;
-        const float maxVal = keel::max(minVal + 1e-4f, d.maxValue);
-        const float domainSpan = maxVal - minVal;
-        const float smallFs = th.GetFontSize(TextRole::LabelSmall) * 0.86f;
+        const keel::f32 minVal = d.minValue;
+        const keel::f32 maxVal = keel::max(minVal + 1e-4f, d.maxValue);
+        const keel::f32 domainSpan = maxVal - minVal;
+        const keel::f32 smallFs = th.GetFontSize(TextRole::LabelSmall) * 0.86f;
 
         // 1. Header bar: Range Readout & Multi-Channel Pills [RGB | R | G | B]
         if (g.hasHeader) {
@@ -528,7 +528,7 @@ HistogramResponse Histogram::Run(
                 FormatHistValue(hiBuf, sizeof(hiBuf), tp.High(), domainSpan);
                 char rangeBuf[64]{};
                 std::snprintf(rangeBuf, sizeof(rangeBuf), "[%s .. %s]", loBuf, hiBuf);
-                const float maxLabelW = g.hasPills
+                const keel::f32 maxLabelW = g.hasPills
                     ? keel::max(20.0f, g.pillRects[0].x - g.headerRect.x - 4.0f * scale)
                     : g.headerRect.w;
                 c.DrawTextBox(
@@ -566,9 +566,9 @@ HistogramResponse Histogram::Run(
 
         // Subtle 25%, 50%, 75% grid lines
         for (keel::i32 k = 1; k <= 3; ++k) {
-            const float u = static_cast<float>(k) * 0.25f;
-            const float gx = pr.x + u * pr.w;
-            const float gy = pr.y + u * pr.h;
+            const keel::f32 u = keel::as<keel::f32>(k) * 0.25f;
+            const keel::f32 gx = pr.x + u * pr.w;
+            const keel::f32 gy = pr.y + u * pr.h;
             c.DrawLine({gx, pr.y}, {gx, pr.Bottom()}, gridCol, 1.0f);
             c.DrawLine({pr.x, gy}, {pr.Right(), gy}, gridCol, 1.0f);
         }
@@ -616,9 +616,9 @@ HistogramResponse Histogram::Run(
         }
 
         // 3. Window / Level [xlo .. xhi] Overlay Band, Transfer Curve & Grab Handles
-        const float xlo = pr.x + keel::clamp((tp.Low() - minVal) / domainSpan, 0.0f, 1.0f) * pr.w;
-        const float xhi = pr.x + keel::clamp((tp.High() - minVal) / domainSpan, 0.0f, 1.0f) * pr.w;
-        const float xmid = 0.5f * (xlo + xhi);
+        const keel::f32 xlo = pr.x + keel::clamp((tp.Low() - minVal) / domainSpan, 0.0f, 1.0f) * pr.w;
+        const keel::f32 xhi = pr.x + keel::clamp((tp.High() - minVal) / domainSpan, 0.0f, 1.0f) * pr.w;
+        const keel::f32 xmid = 0.5f * (xlo + xhi);
         const Color activeAccent = GetChannelAccentColor(o.activeChannel, isDark);
 
         if (xhi > xlo) {
@@ -645,8 +645,8 @@ HistogramResponse Histogram::Run(
         c.DrawLine({xlo, pr.y}, {xlo, pr.Bottom()}, lineCol, 2.0f);
         c.DrawLine({xhi, pr.y}, {xhi, pr.Bottom()}, lineCol, 2.0f);
 
-        const float triW = 5.0f * scale;
-        const float triH = 7.0f * scale;
+        const keel::f32 triW = 5.0f * scale;
+        const keel::f32 triH = 7.0f * scale;
         c.DrawTriangle({xlo - triW, pr.y}, {xlo + triW, pr.y}, {xlo, pr.y + triH}, lineCol);
         c.DrawTriangle({xhi - triW, pr.y}, {xhi + triW, pr.y}, {xhi, pr.y + triH}, lineCol);
 
@@ -659,13 +659,13 @@ HistogramResponse Histogram::Run(
             } else {
                 keel::StaticArray<keel::u32, 256> chLut{};
                 for (keel::usize i = 0; i < 256; ++i) {
-                    const keel::u8 v = static_cast<keel::u8>(tp.invert ? (255 - i) : i);
+                    const keel::u8 v = keel::as<keel::u8>(tp.invert ? (255 - i) : i);
                     if (o.activeChannel == HistogramChannel::Red) {
-                        chLut[i] = PackAbgr(Color(v, static_cast<keel::u8>(v / 8), static_cast<keel::u8>(v / 8), 255));
+                        chLut[i] = PackAbgr(Color(v, keel::as<keel::u8>(v / 8), keel::as<keel::u8>(v / 8), 255));
                     } else if (o.activeChannel == HistogramChannel::Green) {
-                        chLut[i] = PackAbgr(Color(static_cast<keel::u8>(v / 8), v, static_cast<keel::u8>(v / 8), 255));
+                        chLut[i] = PackAbgr(Color(keel::as<keel::u8>(v / 8), v, keel::as<keel::u8>(v / 8), 255));
                     } else {
-                        chLut[i] = PackAbgr(Color(static_cast<keel::u8>(v / 8), static_cast<keel::u8>(v / 6), v, 255));
+                        chLut[i] = PackAbgr(Color(keel::as<keel::u8>(v / 8), keel::as<keel::u8>(v / 6), v, 255));
                     }
                 }
                 c.DrawPixels({chLut, 256, 1}, g.colorbarRect, 2.0f * scale, 255);

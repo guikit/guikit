@@ -13,9 +13,9 @@ namespace {
 
 struct SliderData {
     SliderOptions opts;
-    double value{0.0};
-    double min{0.0};
-    double max{1.0};
+    keel::f64 value{0.0};
+    keel::f64 min{0.0};
+    keel::f64 max{1.0};
     bool isInt{false};
     keel::StringRef formattedValue{};
 };
@@ -29,7 +29,7 @@ struct StepSliderData {
 void FormatSliderValue(
     char* valBuf,
     keel::usize bufSize,
-    double value,
+    keel::f64 value,
     bool isInt,
     keel::StringRef format
 ) noexcept {
@@ -49,33 +49,33 @@ void FormatSliderValue(
 }
 
 struct SliderControlMetrics {
-    float leftTextW{0.0f};
-    float leftTextFont{12.0f};
-    float rightTextW{0.0f};
-    float rightTextFont{12.0f};
-    float valW{0.0f};
-    float valReserveW{0.0f};
-    float valLineH{0.0f};
-    float valFont{12.0f};
-    float leftGutterW{0.0f};
-    float rightGutterW{0.0f};
-    float topValH{0.0f};
-    float bottomValH{0.0f};
-    float trackRowH{0.0f};
-    float extraLabelsH{0.0f};
+    keel::f32 leftTextW{0.0f};
+    keel::f32 leftTextFont{12.0f};
+    keel::f32 rightTextW{0.0f};
+    keel::f32 rightTextFont{12.0f};
+    keel::f32 valW{0.0f};
+    keel::f32 valReserveW{0.0f};
+    keel::f32 valLineH{0.0f};
+    keel::f32 valFont{12.0f};
+    keel::f32 leftGutterW{0.0f};
+    keel::f32 rightGutterW{0.0f};
+    keel::f32 topValH{0.0f};
+    keel::f32 bottomValH{0.0f};
+    keel::f32 trackRowH{0.0f};
+    keel::f32 extraLabelsH{0.0f};
     // Vertical orientation: gutters along the main (Y) axis and the track column width
-    float leftTextLineH{0.0f};
-    float rightTextLineH{0.0f};
-    float endGutterH{0.0f};    ///< Above the track (max end): textRight, Trailing/Top value
-    float startGutterH{0.0f};  ///< Below the track (min end): Leading/Bottom value, textLeft
-    float crossW{0.0f};        ///< Track + thumb column width
-    float extraLabelsW{0.0f};  ///< StepSlider labels column right of the track
-    float thumbValW{0.0f};     ///< Thumb value readout right of the track (and labels)
+    keel::f32 leftTextLineH{0.0f};
+    keel::f32 rightTextLineH{0.0f};
+    keel::f32 endGutterH{0.0f};    ///< Above the track (max end): textRight, Trailing/Top value
+    keel::f32 startGutterH{0.0f};  ///< Below the track (min end): Leading/Bottom value, textLeft
+    keel::f32 crossW{0.0f};        ///< Track + thumb column width
+    keel::f32 extraLabelsW{0.0f};  ///< StepSlider labels column right of the track
+    keel::f32 thumbValW{0.0f};     ///< Thumb value readout right of the track (and labels)
     Vec2 intrinsicControlSize{};
 };
 
-constexpr float kSliderInnerGap = 8.0f;
-constexpr float kSliderVerticalTextGap = 4.0f;
+constexpr keel::f32 kSliderInnerGap = 8.0f;
+constexpr keel::f32 kSliderVerticalTextGap = 4.0f;
 
 [[nodiscard]] constexpr bool IsVerticalSlider(Orientation orientation) noexcept {
     return orientation == Orientation::Vertical;
@@ -89,19 +89,19 @@ SliderControlMetrics ComputeSliderControlMetrics(
     bool showValue,
     Placement valuePlacement,
     AxisSize width,
-    float extraLabelsBand,
+    keel::f32 extraLabelsBand,
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme,
     keel::ArrayRef<keel::StringRef> extraValCandidates = {},
     bool hasNumericRange = false,
-    double rangeMin = 0.0,
-    double rangeMax = 1.0,
+    keel::f64 rangeMin = 0.0,
+    keel::f64 rangeMax = 1.0,
     bool isInt = false,
     Orientation orientation = Orientation::Horizontal
 ) noexcept {
     const SliderMetrics& m = theme.GetSlider(size);
-    const float innerGap = kSliderInnerGap;
+    const keel::f32 innerGap = kSliderInnerGap;
     SliderControlMetrics cm{};
     cm.trackRowH = keel::max(m.defaultHeight, m.thumbSize);
     if (IsVerticalSlider(orientation)) {
@@ -138,7 +138,7 @@ SliderControlMetrics ComputeSliderControlMetrics(
                 FormatSliderValue(buf, sizeof(buf), rangeMax, isInt, fmt);
                 cm.valReserveW = keel::max(cm.valReserveW, TextUtil::MeasureWidth(keel::StringRef(buf), cm.valFont, canvas));
 
-                const double sampleVal = (rangeMax > rangeMin + 0.1)
+                const keel::f64 sampleVal = (rangeMax > rangeMin + 0.1)
                     ? (rangeMax - 0.1)
                     : (rangeMin + (rangeMax - rangeMin) * 0.88);
                 FormatSliderValue(buf, sizeof(buf), sampleVal, isInt, fmt);
@@ -163,7 +163,7 @@ SliderControlMetrics ComputeSliderControlMetrics(
 
     if (IsVerticalSlider(orientation)) {
         // Fader: track column + optional Thumb readout; texts and value stacked above / below the track
-        const auto lineH = [&](float font) { return canvas ? canvas->GetLineHeight(font) : theme.GetLineHeight(font); };
+        const auto lineH = [&](keel::f32 font) { return canvas ? canvas->GetLineHeight(font) : theme.GetLineHeight(font); };
         cm.crossW = keel::max(m.defaultHeight, m.thumbSize);
         if (showValue && valuePlacement == Placement::Thumb) {
             cm.thumbValW = innerGap + cm.valReserveW;
@@ -212,7 +212,7 @@ SliderControlMetrics ComputeSliderControlMetrics(
         cm.bottomValH = 2.0f + cm.valLineH;
     }
 
-    const float trackW = width.IsFixed() ? width.Dp() : m.defaultWidth;
+    const keel::f32 trackW = width.IsFixed() ? width.Dp() : m.defaultWidth;
     cm.intrinsicControlSize = {
         cm.leftGutterW + trackW + m.thumbSize + cm.rightGutterW,
         cm.topValH + cm.trackRowH + cm.extraLabelsH + cm.bottomValH
@@ -224,22 +224,22 @@ SliderControlMetrics ComputeSliderControlMetrics(
 struct SliderTrackLayout {
     bool vertical{false};
     Rect region{};      ///< Track + thumb travel region (companion texts and value gutters excluded)
-    float start{0.0f};  ///< Thumb center coordinate along the main axis at value == min
-    float length{0.0f}; ///< Thumb center travel from min to max along the main axis (>= 0)
-    float cross{0.0f};  ///< Track centerline coordinate on the cross axis
+    keel::f32 start{0.0f};  ///< Thumb center coordinate along the main axis at value == min
+    keel::f32 length{0.0f}; ///< Thumb center travel from min to max along the main axis (>= 0)
+    keel::f32 cross{0.0f};  ///< Track centerline coordinate on the cross axis
 
     /// Thumb center for normalized ratio `t` in [0, 1] (min at the left / bottom).
-    [[nodiscard]] Vec2 ThumbCenter(float t) const noexcept {
+    [[nodiscard]] Vec2 ThumbCenter(keel::f32 t) const noexcept {
         return vertical ? Vec2{cross, start - t * length} : Vec2{start + t * length, cross};
     }
 
     /// Signed distance of `p` along the travel from the min end (grows towards max in both orientations).
-    [[nodiscard]] float Travel(Vec2 p) const noexcept {
+    [[nodiscard]] keel::f32 Travel(Vec2 p) const noexcept {
         return vertical ? (start - p.y) : (p.x - start);
     }
 
     /// Normalized ratio [0, 1] under pointer position `p`.
-    [[nodiscard]] float RatioAt(Vec2 p) const noexcept {
+    [[nodiscard]] keel::f32 RatioAt(Vec2 p) const noexcept {
         return keel::clamp(Travel(p) / keel::max(1.0f, length), 0.0f, 1.0f);
     }
 };
@@ -250,12 +250,12 @@ SliderTrackLayout ComputeSliderTrackLayout(
     const SliderMetrics& m,
     bool vertical
 ) noexcept {
-    const float halfThumb = m.thumbSize * 0.5f;
+    const keel::f32 halfThumb = m.thumbSize * 0.5f;
     SliderTrackLayout l{};
     l.vertical = vertical;
     if (vertical) {
-        const float contentW = cm.crossW + cm.extraLabelsW + cm.thumbValW;
-        const float offsetX = keel::max(0.0f, (ctrlRect.w - contentW) * 0.5f);
+        const keel::f32 contentW = cm.crossW + cm.extraLabelsW + cm.thumbValW;
+        const keel::f32 offsetX = keel::max(0.0f, (ctrlRect.w - contentW) * 0.5f);
         l.region = Rect(
             ctrlRect.x + offsetX,
             ctrlRect.y + cm.endGutterH,
@@ -267,7 +267,7 @@ SliderTrackLayout ComputeSliderTrackLayout(
         l.cross = l.region.x + cm.crossW * 0.5f;
         return l;
     }
-    const float contentOffsetY = keel::max(0.0f, (ctrlRect.h - cm.intrinsicControlSize.y) * 0.5f);
+    const keel::f32 contentOffsetY = keel::max(0.0f, (ctrlRect.h - cm.intrinsicControlSize.y) * 0.5f);
     l.region = Rect(
         ctrlRect.x + cm.leftGutterW,
         ctrlRect.y + contentOffsetY + cm.topValH,
@@ -287,7 +287,7 @@ void RenderSliderCompanionTextsVertical(
     const Rect& controlRect,
     const SliderTrackLayout& layout,
     Vec2 thumbCenter,
-    float thumbSize,
+    keel::f32 thumbSize,
     const SliderControlMetrics& cm,
     const UiText& textLeft,
     const UiText& textRight,
@@ -302,7 +302,7 @@ void RenderSliderCompanionTextsVertical(
     const bool hasValue = showValue && !effectiveValStr.empty();
 
     // Above the track (max end): [textRight] [Trailing / Top value]
-    float y = controlRect.y;
+    keel::f32 y = controlRect.y;
     if (!textRight.empty() || !textRight.variants.empty()) {
         if (!textRight.empty()) {
             const Color col = theme.ResolveTextColor(textRight, UiVariant::Secondary, disabled);
@@ -335,7 +335,7 @@ void RenderSliderCompanionTextsVertical(
 
     // Thumb value: right of the track (and labels column), following the thumb
     if (hasValue && valuePlacement == Placement::Thumb) {
-        const float x = keel::max(thumbCenter.x + thumbSize * 0.5f, layout.region.x + layout.region.w) +
+        const keel::f32 x = keel::max(thumbCenter.x + thumbSize * 0.5f, layout.region.x + layout.region.w) +
                         cm.extraLabelsW + kSliderInnerGap;
         canvas.DrawTextBox(effectiveValStr, Rect(x, thumbCenter.y - cm.valLineH * 0.5f, cm.valReserveW, cm.valLineH),
                            cm.valFont, valCol, 0.0f, 0.5f);
@@ -345,10 +345,10 @@ void RenderSliderCompanionTextsVertical(
 void RenderSliderCompanionTexts(
     ICanvas& canvas,
     const Rect& controlRect,
-    float trackRegionX,
-    float trackRegionW,
-    float trackRowY,
-    float thumbCenterX,
+    keel::f32 trackRegionX,
+    keel::f32 trackRegionW,
+    keel::f32 trackRowY,
+    keel::f32 thumbCenterX,
     const SliderControlMetrics& cm,
     const UiText& textLeft,
     const UiText& textRight,
@@ -359,11 +359,11 @@ void RenderSliderCompanionTexts(
     bool disabled,
     const UiTheme& theme
 ) noexcept {
-    const float innerGap = kSliderInnerGap;
+    const keel::f32 innerGap = kSliderInnerGap;
     const Color valCol = theme.ResolveTextColor(valueStyle, UiVariant::Secondary, disabled);
 
     // Left gutter: [textLeft] [Leading value]
-    float leftX = controlRect.x;
+    keel::f32 leftX = controlRect.x;
     if (!textLeft.empty() || !textLeft.variants.empty()) {
         if (!textLeft.empty()) {
             const Color leftCol = theme.ResolveTextColor(textLeft, UiVariant::Secondary, disabled);
@@ -390,7 +390,7 @@ void RenderSliderCompanionTexts(
     }
 
     // Right gutter: [textRight] [Trailing value]
-    float rightX = trackRegionX + trackRegionW;
+    keel::f32 rightX = trackRegionX + trackRegionW;
     if (!textRight.empty() || !textRight.variants.empty()) {
         rightX += innerGap;
         if (!textRight.empty()) {
@@ -420,7 +420,7 @@ void RenderSliderCompanionTexts(
 
     // Top / Thumb / Bottom value
     if (showValue && !effectiveValStr.empty()) {
-        const float topY = trackRowY - cm.topValH;
+        const keel::f32 topY = trackRowY - cm.topValH;
         if (valuePlacement == Placement::Top) {
             canvas.DrawTextBox(
                 effectiveValStr,
@@ -431,8 +431,8 @@ void RenderSliderCompanionTexts(
                 0.5f
             );
         } else if (valuePlacement == Placement::Thumb) {
-            const float valDrawW = keel::max(cm.valW, 4.0f);
-            const float thumbValX = keel::clamp(
+            const keel::f32 valDrawW = keel::max(cm.valW, 4.0f);
+            const keel::f32 thumbValX = keel::clamp(
                 thumbCenterX - valDrawW * 0.5f,
                 trackRegionX,
                 keel::max(trackRegionX, trackRegionX + trackRegionW - valDrawW)
@@ -446,7 +446,7 @@ void RenderSliderCompanionTexts(
                 0.5f
             );
         } else if (valuePlacement == Placement::Bottom) {
-            const float bottomY = trackRowY + cm.trackRowH + cm.extraLabelsH + 2.0f;
+            const keel::f32 bottomY = trackRowY + cm.trackRowH + cm.extraLabelsH + 2.0f;
             canvas.DrawTextBox(
                 effectiveValStr,
                 Rect(trackRegionX, bottomY, trackRegionW, cm.valLineH),
@@ -476,11 +476,11 @@ ControlSpec EffectiveSliderControl(const Opts& opts, UiSize size, const UiTheme&
 
 /// StepSlider labels band across the track: a row below it (height) when horizontal, a column right of
 /// it (widest label) when vertical; 0 without labels.
-float StepSliderLabelsBand(
+keel::f32 StepSliderLabelsBand(
     const StepSliderOptions& opts,
     keel::usize totalSteps,
     const SliderMetrics& m,
-    float tickFont,
+    keel::f32 tickFont,
     ICanvas* canvas
 ) noexcept {
     if (!opts.showLabels || opts.stepLabels.empty() || totalSteps <= 1) {
@@ -489,7 +489,7 @@ float StepSliderLabelsBand(
     if (!IsVerticalSlider(opts.orientation)) {
         return m.tickGap + tickFont * 1.3f;
     }
-    float widest = 0.0f;
+    keel::f32 widest = 0.0f;
     const keel::usize n = keel::min(totalSteps, opts.stepLabels.size());
     for (keel::usize i = 0; i < n; ++i) {
         widest = keel::max(widest, TextUtil::MeasureWidth(opts.stepLabels[i], tickFont, canvas));
@@ -531,11 +531,11 @@ Color ResolveSliderActiveThumbColor(const StateColor& rawColor, const UiTheme& t
 
 Response Slider::Run(
     Context& ctx,
-    double* valDouble,
-    float* valFloat,
+    keel::f64* valDouble,
+    keel::f32* valFloat,
     keel::i64* valInt,
-    double min,
-    double max,
+    keel::f64 min,
+    keel::f64 max,
     const SliderOptions& opts,
     keel::SourceLocation loc
 ) {
@@ -547,16 +547,16 @@ Response Slider::Run(
     const SliderOptions& optsCopy = opts;
 
     const SliderMetrics& m = activeTheme.GetSlider(activeSize);
-    const double rangeMin = keel::min(min, max);
-    const double rangeMax = keel::max(min, max);
+    const keel::f64 rangeMin = keel::min(min, max);
+    const keel::f64 rangeMax = keel::max(min, max);
 
-    double currentVal = (valDouble != nullptr) ? *valDouble :
-                        (valFloat != nullptr)  ? static_cast<double>(*valFloat) :
-                        (valInt != nullptr)    ? static_cast<double>(*valInt) : rangeMin;
+    keel::f64 currentVal = (valDouble != nullptr) ? *valDouble :
+                        (valFloat != nullptr)  ? keel::as<keel::f64>(*valFloat) :
+                        (valInt != nullptr)    ? keel::as<keel::f64>(*valInt) : rangeMin;
 
     currentVal = keel::clamp(currentVal, rangeMin, rangeMax);
 
-    const double effectiveStep = (optsCopy.step.has_value() && *optsCopy.step > 0.0) ? *optsCopy.step :
+    const keel::f64 effectiveStep = (optsCopy.step.has_value() && *optsCopy.step > 0.0) ? *optsCopy.step :
                                  (valInt != nullptr) ? 1.0 : 0.0;
 
     char initValBuf[64];
@@ -599,8 +599,8 @@ Response Slider::Run(
                 }
             } else {
                 res.pressed = true;
-                const float t = layout.RatioAt(ctx.GetMousePos());
-                double rawVal = rangeMin + t * (rangeMax - rangeMin);
+                const keel::f32 t = layout.RatioAt(ctx.GetMousePos());
+                keel::f64 rawVal = rangeMin + t * (rangeMax - rangeMin);
 
                 if (effectiveStep > 0.0) {
                     rawVal = rangeMin + keel::round((rawVal - rangeMin) / effectiveStep) * effectiveStep;
@@ -618,10 +618,10 @@ Response Slider::Run(
         // Mouse wheel adjustment
         if (res.hovered && !state.dragging) {
             const Vec2 wheel = ctx.GetMouseWheel();
-            const float wheelDelta = (wheel.x != 0.0f) ? wheel.x : wheel.y;
+            const keel::f32 wheelDelta = (wheel.x != 0.0f) ? wheel.x : wheel.y;
             if (wheelDelta != 0.0f) {
-                const double stepDelta = (effectiveStep > 0.0) ? effectiveStep : (rangeMax - rangeMin) * 0.05;
-                double rawVal = currentVal + wheelDelta * stepDelta;
+                const keel::f64 stepDelta = (effectiveStep > 0.0) ? effectiveStep : (rangeMax - rangeMin) * 0.05;
+                keel::f64 rawVal = currentVal + wheelDelta * stepDelta;
                 rawVal = keel::clamp(rawVal, rangeMin, rangeMax);
                 if (rawVal != currentVal) {
                     currentVal = rawVal;
@@ -633,16 +633,16 @@ Response Slider::Run(
 
         // Keyboard arrow adjustment when focused
         if (ctx.IsFocused(id) && !state.dragging) {
-            const double stepDelta = (effectiveStep > 0.0) ? effectiveStep : (rangeMax - rangeMin) * 0.05;
+            const keel::f64 stepDelta = (effectiveStep > 0.0) ? effectiveStep : (rangeMax - rangeMin) * 0.05;
             if (ctx.ConsumeKey(Key::Right) || ctx.ConsumeKey(Key::Up)) {
-                const double rawVal = keel::clamp(currentVal + stepDelta, rangeMin, rangeMax);
+                const keel::f64 rawVal = keel::clamp(currentVal + stepDelta, rangeMin, rangeMax);
                 if (rawVal != currentVal) {
                     currentVal = rawVal;
                     res.changed = true;
                     ctx.RequestRepaint(3);
                 }
             } else if (ctx.ConsumeKey(Key::Left) || ctx.ConsumeKey(Key::Down)) {
-                const double rawVal = keel::clamp(currentVal - stepDelta, rangeMin, rangeMax);
+                const keel::f64 rawVal = keel::clamp(currentVal - stepDelta, rangeMin, rangeMax);
                 if (rawVal != currentVal) {
                     currentVal = rawVal;
                     res.changed = true;
@@ -658,7 +658,7 @@ Response Slider::Run(
 
     // Write back updated value
     if (valDouble != nullptr) *valDouble = currentVal;
-    if (valFloat != nullptr)  *valFloat = static_cast<float>(currentVal);
+    if (valFloat != nullptr)  *valFloat = keel::as<keel::f32>(currentVal);
     if (valInt != nullptr)    *valInt = keel::round_i64(currentVal);
 
     // Format current value string
@@ -688,12 +688,12 @@ Response Slider::Run(
     node->SetPayload(data);
 
     keel::u64 valBits = 0;
-    std::memcpy(&valBits, &currentVal, sizeof(double));
+    std::memcpy(&valBits, &currentVal, sizeof(keel::f64));
     node->visualHash = detail::HashArgs(
         valBits,
-        static_cast<keel::u8>(data->opts.orientation),
+        keel::as<keel::u8>(data->opts.orientation),
         data->opts.color,
-        static_cast<keel::u8>(data->opts.valuePlacement),
+        keel::as<keel::u8>(data->opts.valuePlacement),
         data->opts.width,
         data->opts.height,
         data->opts.minWidth.value_or(0.0f),
@@ -707,7 +707,7 @@ Response Slider::Run(
         data->formattedValue
     );
 
-    node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<SliderData>();
         return Slider::Measure(d ? d->opts : SliderOptions{},
                                d ? d->value : 0.0,
@@ -729,16 +729,16 @@ Response Slider::Run(
 
 Vec2 Slider::Measure(
     const SliderOptions& opts,
-    double value,
-    double min,
-    double max,
+    keel::f64 value,
+    keel::f64 min,
+    keel::f64 max,
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme,
-    float /*availableWidth*/
+    keel::f32 /*availableWidth*/
 ) {
-    const double rangeMin = keel::min(min, max);
-    const double rangeMax = keel::max(min, max);
+    const keel::f64 rangeMin = keel::min(min, max);
+    const keel::f64 rangeMax = keel::max(min, max);
     const bool isIntStep = opts.step.has_value() && *opts.step >= 1.0 &&
                            keel::abs(*opts.step - keel::round(*opts.step)) < 0.0001 &&
                            keel::abs(rangeMin - keel::round(rangeMin)) < 0.0001;
@@ -756,12 +756,12 @@ Vec2 Slider::Measure(
 
 Vec2 Slider::Measure(
     const SliderOptions& opts,
-    double value,
-    double min,
-    double max,
+    keel::f64 value,
+    keel::f64 min,
+    keel::f64 max,
     UiSize size,
     ICanvas* canvas,
-    float availableWidth
+    keel::f32 availableWidth
 ) {
     static const UiTheme defaultTheme = UiTheme::Dark();
     return Measure(opts, value, min, max, size, canvas, defaultTheme, availableWidth);
@@ -770,9 +770,9 @@ Vec2 Slider::Measure(
 void Slider::Render(
     ICanvas& canvas,
     Rect bounds,
-    double value,
-    double min,
-    double max,
+    keel::f64 value,
+    keel::f64 min,
+    keel::f64 max,
     const SliderOptions& opts,
     UiSize size,
     bool hovered,
@@ -785,8 +785,8 @@ void Slider::Render(
 
     const SliderMetrics& m = theme.GetSlider(size);
     const auto& pal = theme.palette;
-    const double rangeMin = keel::min(min, max);
-    const double rangeMax = keel::max(min, max);
+    const keel::f64 rangeMin = keel::min(min, max);
+    const keel::f64 rangeMax = keel::max(min, max);
     const bool isIntStep = opts.step.has_value() && *opts.step >= 1.0 &&
                            keel::abs(*opts.step - keel::round(*opts.step)) < 0.0001 &&
                            keel::abs(rangeMin - keel::round(rangeMin)) < 0.0001;
@@ -805,12 +805,12 @@ void Slider::Render(
     const Rect ctrlRect = bounds;
     const bool vertical = IsVerticalSlider(opts.orientation);
     const SliderTrackLayout layout = ComputeSliderTrackLayout(ctrlRect, cm, m, vertical);
-    const float halfThumb = m.thumbSize * 0.5f;
+    const keel::f32 halfThumb = m.thumbSize * 0.5f;
 
-    const double range = max - min;
-    const float ratio = (range > 0.0) ? static_cast<float>(keel::clamp((value - min) / range, 0.0, 1.0)) : 0.0f;
+    const keel::f64 range = max - min;
+    const keel::f32 ratio = (range > 0.0) ? keel::as<keel::f32>(keel::clamp((value - min) / range, 0.0, 1.0)) : 0.0f;
     const Vec2 thumbCenter = layout.ThumbCenter(ratio);
-    const float fillLen = ratio * layout.length;
+    const keel::f32 fillLen = ratio * layout.length;
 
     // 0. Draw companion textLeft / textRight and value readout
     if (vertical) {
@@ -828,7 +828,7 @@ void Slider::Render(
     }
 
     // 1. Draw inactive background track (min -> max along the main axis)
-    const float halfTrack = m.trackHeight * 0.5f;
+    const keel::f32 halfTrack = m.trackHeight * 0.5f;
     const Rect trackBgRect = vertical
         ? Rect(layout.cross - halfTrack, layout.start - layout.length, m.trackHeight, layout.length)
         : Rect(layout.start, layout.cross - halfTrack, layout.length, m.trackHeight);
@@ -853,7 +853,7 @@ void Slider::Render(
     Color thumbBorder = disabled ? pal.border.WithAlphaF(0.4f) :
                         focused  ? pal.focusRing :
                         (active || hovered) ? pal.accent : pal.borderHover;
-    const float thumbBorderW = (active || hovered || focused) ? 2.5f : 2.0f;
+    const keel::f32 thumbBorderW = (active || hovered || focused) ? 2.5f : 2.0f;
     canvas.DrawRoundRect(thumbRect, halfThumb, thumbBg, thumbBorder, thumbBorderW);
 }
 
@@ -883,14 +883,14 @@ Response StepSlider::Run(
     }
 
     keel::usize curIdx = (indexSizeT != nullptr) ? *indexSizeT :
-                    (indexInt != nullptr)   ? static_cast<keel::usize>(keel::max(0, *indexInt)) : 0;
+                    (indexInt != nullptr)   ? keel::as<keel::usize>(keel::max(0, *indexInt)) : 0;
     curIdx = keel::min(curIdx, totalSteps - 1);
 
     const keel::StringRef initStepStr = !optsCopy.valueText.empty()
         ? optsCopy.valueText.text
         : ((curIdx < optsCopy.stepLabels.size()) ? optsCopy.stepLabels[curIdx] : keel::StringRef{});
-    const float tickFont = activeTheme.ResolveFontSize(TextRole::LabelSmall, activeSize);
-    const float labelsBand = StepSliderLabelsBand(optsCopy, totalSteps, m, tickFont, nullptr);
+    const keel::f32 tickFont = activeTheme.ResolveFontSize(TextRole::LabelSmall, activeSize);
+    const keel::f32 labelsBand = StepSliderLabelsBand(optsCopy, totalSteps, m, tickFont, nullptr);
 
     Rect prevBounds = ctx.GetPrevFrameBounds(id);
     auto& state = ctx.GetOrCreateState<SliderState>(id);
@@ -929,10 +929,10 @@ Response StepSlider::Run(
                 }
             } else {
                 res.pressed = true;
-                const float t = layout.RatioAt(ctx.GetMousePos());
+                const keel::f32 t = layout.RatioAt(ctx.GetMousePos());
                 const keel::usize newIdx = (totalSteps > 1)
                     ? keel::clamp(
-                          static_cast<keel::usize>(keel::round_u64(t * static_cast<float>(totalSteps - 1))),
+                          keel::as<keel::usize>(keel::round_u64(t * keel::as<keel::f32>(totalSteps - 1))),
                           keel::usize{0},
                           totalSteps - 1
                       )
@@ -949,7 +949,7 @@ Response StepSlider::Run(
         // Mouse wheel adjustment
         if (res.hovered && !state.dragging) {
             const Vec2 wheel = ctx.GetMouseWheel();
-            const float wheelDelta = (wheel.x != 0.0f) ? wheel.x : wheel.y;
+            const keel::f32 wheelDelta = (wheel.x != 0.0f) ? wheel.x : wheel.y;
             if (wheelDelta != 0.0f) {
                 if (wheelDelta > 0.0f && curIdx + 1 < totalSteps) {
                     curIdx++;
@@ -986,7 +986,7 @@ Response StepSlider::Run(
     }
 
     if (indexSizeT != nullptr) *indexSizeT = curIdx;
-    if (indexInt != nullptr)   *indexInt = static_cast<keel::i32>(curIdx);
+    if (indexInt != nullptr)   *indexInt = keel::as<keel::i32>(curIdx);
 
     Node* node = ctx.CreateNode(NodeType::StepSlider, id);
     node->uiSize = activeSize;
@@ -1009,9 +1009,9 @@ Response StepSlider::Run(
     node->visualHash = detail::HashArgs(
         curIdx,
         totalSteps,
-        static_cast<keel::u8>(data->opts.orientation),
+        keel::as<keel::u8>(data->opts.orientation),
         data->opts.color,
-        static_cast<keel::u8>(data->opts.valuePlacement),
+        keel::as<keel::u8>(data->opts.valuePlacement),
         data->opts.width,
         data->opts.height,
         data->opts.minWidth.value_or(0.0f),
@@ -1026,7 +1026,7 @@ Response StepSlider::Run(
         data->opts.valueText
     );
 
-    node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<StepSliderData>();
         return StepSlider::Measure(d ? d->opts : StepSliderOptions{},
                                    d ? d->index : 0,
@@ -1052,14 +1052,14 @@ Vec2 StepSlider::Measure(
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme,
-    float /*availableWidth*/
+    keel::f32 /*availableWidth*/
 ) {
     if (totalSteps == 0) {
         totalSteps = opts.stepLabels.empty() ? 1 : opts.stepLabels.size();
     }
     const SliderMetrics& m = theme.GetSlider(size);
-    const float tickFont = theme.ResolveFontSize(TextRole::LabelSmall, size);
-    const float labelsBand = StepSliderLabelsBand(opts, totalSteps, m, tickFont, canvas);
+    const keel::f32 tickFont = theme.ResolveFontSize(TextRole::LabelSmall, size);
+    const keel::f32 labelsBand = StepSliderLabelsBand(opts, totalSteps, m, tickFont, canvas);
     const keel::StringRef stepStr = !opts.valueText.empty()
         ? opts.valueText.text
         : ((index < opts.stepLabels.size()) ? opts.stepLabels[index] : keel::StringRef{});
@@ -1079,7 +1079,7 @@ Vec2 StepSlider::Measure(
     keel::usize totalSteps,
     UiSize size,
     ICanvas* canvas,
-    float availableWidth
+    keel::f32 availableWidth
 ) {
     static const UiTheme defaultTheme = UiTheme::Dark();
     return Measure(opts, index, totalSteps, size, canvas, defaultTheme, availableWidth);
@@ -1101,13 +1101,13 @@ void StepSlider::Render(
     if (bounds.w <= 0.0f || bounds.h <= 0.0f) return;
 
     const SliderMetrics& m = theme.GetSlider(size);
-    const float tickFont = theme.ResolveFontSize(TextRole::LabelSmall, size);
+    const keel::f32 tickFont = theme.ResolveFontSize(TextRole::LabelSmall, size);
     const auto& pal = theme.palette;
 
     const keel::StringRef stepStr = !opts.valueText.empty()
         ? opts.valueText.text
         : ((index < opts.stepLabels.size()) ? opts.stepLabels[index] : keel::StringRef{});
-    const float labelsBand = StepSliderLabelsBand(opts, totalSteps, m, tickFont, &canvas);
+    const keel::f32 labelsBand = StepSliderLabelsBand(opts, totalSteps, m, tickFont, &canvas);
 
     const ControlSpec ctrl = EffectiveSliderControl(opts, size, theme);
     const SliderControlMetrics cm = ComputeSliderControlMetrics(
@@ -1120,13 +1120,13 @@ void StepSlider::Render(
     const Rect ctrlRect = bounds;
     const bool vertical = IsVerticalSlider(opts.orientation);
     const SliderTrackLayout layout = ComputeSliderTrackLayout(ctrlRect, cm, m, vertical);
-    const float halfThumb = m.thumbSize * 0.5f;
-    const float halfTrack = m.trackHeight * 0.5f;
+    const keel::f32 halfThumb = m.thumbSize * 0.5f;
+    const keel::f32 halfTrack = m.trackHeight * 0.5f;
 
-    const float ratio = (totalSteps > 1) ? static_cast<float>(index) / static_cast<float>(totalSteps - 1) : 0.0f;
+    const keel::f32 ratio = (totalSteps > 1) ? keel::as<keel::f32>(index) / keel::as<keel::f32>(totalSteps - 1) : 0.0f;
     const Vec2 thumbCenter = layout.ThumbCenter(ratio);
-    const float fillLen = ratio * layout.length;
-    auto stepRatio = [&](keel::usize i) { return static_cast<float>(i) / static_cast<float>(totalSteps - 1); };
+    const keel::f32 fillLen = ratio * layout.length;
+    auto stepRatio = [&](keel::usize i) { return keel::as<keel::f32>(i) / keel::as<keel::f32>(totalSteps - 1); };
 
     // 0. Draw companion textLeft / textRight and value readout
     if (vertical) {
@@ -1162,7 +1162,7 @@ void StepSlider::Render(
 
     // 3. Draw tick dots on track
     if (opts.showTicks && totalSteps > 1) {
-        const float tickR = m.tickSize * 0.5f;
+        const keel::f32 tickR = m.tickSize * 0.5f;
         for (keel::usize i = 0; i < totalSteps; ++i) {
             const Vec2 tick = layout.ThumbCenter(stepRatio(i));
             const Rect tickRect(tick.x - tickR, tick.y - tickR, m.tickSize, m.tickSize);
@@ -1180,34 +1180,34 @@ void StepSlider::Render(
     Color thumbBorder = disabled ? pal.border.WithAlphaF(0.4f) :
                         focused  ? pal.focusRing :
                         (active || hovered) ? pal.accent : pal.borderHover;
-    const float thumbBorderW = (active || hovered || focused) ? 2.5f : 2.0f;
+    const keel::f32 thumbBorderW = (active || hovered || focused) ? 2.5f : 2.0f;
     canvas.DrawRoundRect(thumbRect, halfThumb, thumbBg, thumbBorder, thumbBorderW);
 
     // 5. Draw step labels (with collision culling so labels never overlap): a row below the track
     //    when horizontal, a column right of the ticks when vertical
     if (opts.showLabels && !opts.stepLabels.empty() && totalSteps > 1) {
         const keel::usize nLabels = keel::min(totalSteps, opts.stepLabels.size());
-        const float minGap = 4.0f;
+        const keel::f32 minGap = 4.0f;
         auto labelColor = [&](keel::usize i) {
             return (i == index) ? pal.accent : (disabled ? pal.textDisabled : pal.textSecondary);
         };
 
         if (vertical) {
             // Bottom-up from the first step; first and last labels always drawn
-            const float labelsX = layout.region.x + layout.region.w + m.tickGap;
-            const float regionTop = layout.region.y;
-            const float regionBottom = layout.region.y + layout.region.h;
-            auto labelTop = [&](keel::usize i, float h) {
+            const keel::f32 labelsX = layout.region.x + layout.region.w + m.tickGap;
+            const keel::f32 regionTop = layout.region.y;
+            const keel::f32 regionBottom = layout.region.y + layout.region.h;
+            auto labelTop = [&](keel::usize i, keel::f32 h) {
                 return keel::clamp(layout.ThumbCenter(stepRatio(i)).y - h * 0.5f, regionTop,
                                   keel::max(regionTop, regionBottom - h));
             };
-            const float lastH = canvas.MeasureText(opts.stepLabels[nLabels - 1], tickFont).y;
-            const float lastBottom = labelTop(nLabels - 1, lastH) + lastH;
-            float prevTop = 1e9f;
+            const keel::f32 lastH = canvas.MeasureText(opts.stepLabels[nLabels - 1], tickFont).y;
+            const keel::f32 lastBottom = labelTop(nLabels - 1, lastH) + lastH;
+            keel::f32 prevTop = 1e9f;
             for (keel::usize i = 0; i < nLabels; ++i) {
                 const keel::StringRef lbl = opts.stepLabels[i];
-                const float h = canvas.MeasureText(lbl, tickFont).y;
-                const float top = labelTop(i, h);
+                const keel::f32 h = canvas.MeasureText(lbl, tickFont).y;
+                const keel::f32 top = labelTop(i, h);
                 const bool isFirst = (i == 0);
                 const bool isLast = (i + 1 == nLabels);
                 if (!isFirst && !isLast) {
@@ -1221,14 +1221,14 @@ void StepSlider::Render(
                 prevTop = top;
             }
         } else {
-            const float trackRegionX = layout.region.x;
-            const float trackRegionW = layout.region.w;
-            const float labelsY = layout.cross + halfThumb + m.tickGap;
+            const keel::f32 trackRegionX = layout.region.x;
+            const keel::f32 trackRegionW = layout.region.w;
+            const keel::f32 labelsY = layout.cross + halfThumb + m.tickGap;
 
-            float lastLabelLeft = trackRegionX + trackRegionW;
+            keel::f32 lastLabelLeft = trackRegionX + trackRegionW;
             if (nLabels > 1) {
                 const Vec2 lastDims = canvas.MeasureText(opts.stepLabels[nLabels - 1], tickFont);
-                const float lastTickX = layout.start + layout.length;
+                const keel::f32 lastTickX = layout.start + layout.length;
                 lastLabelLeft = keel::clamp(
                     lastTickX - lastDims.x * 0.5f,
                     trackRegionX,
@@ -1236,12 +1236,12 @@ void StepSlider::Render(
                 );
             }
 
-            float prevRight = -1e9f;
+            keel::f32 prevRight = -1e9f;
             for (keel::usize i = 0; i < nLabels; ++i) {
-                const float tickX = layout.ThumbCenter(stepRatio(i)).x;
+                const keel::f32 tickX = layout.ThumbCenter(stepRatio(i)).x;
                 const keel::StringRef lbl = opts.stepLabels[i];
                 const Vec2 dims = canvas.MeasureText(lbl, tickFont);
-                float lblX = tickX - dims.x * 0.5f;
+                keel::f32 lblX = tickX - dims.x * 0.5f;
                 lblX = keel::clamp(lblX, trackRegionX, keel::max(trackRegionX, trackRegionX + trackRegionW - dims.x));
 
                 const bool isFirst = (i == 0);
@@ -1277,33 +1277,33 @@ enum class RangeDragMode : keel::u8 {
 struct RangeSliderState {
     RangeDragMode dragMode{RangeDragMode::None};
     keel::u8 activeThumb{1}; // 0 = low thumb, 1 = high thumb
-    double dragStartLow{0.0};
-    double dragStartHigh{0.0};
-    float dragStartTravel{0.0f}; // pointer position along the track travel (SliderTrackLayout::Travel)
+    keel::f64 dragStartLow{0.0};
+    keel::f64 dragStartHigh{0.0};
+    keel::f32 dragStartTravel{0.0f}; // pointer position along the track travel (SliderTrackLayout::Travel)
 };
 
 struct RangeSliderData {
     RangeSliderOptions opts;
-    double lowValue{0.0};
-    double highValue{1.0};
-    double min{0.0};
-    double max{1.0};
+    keel::f64 lowValue{0.0};
+    keel::f64 highValue{1.0};
+    keel::f64 min{0.0};
+    keel::f64 max{1.0};
     keel::u8 activeThumb{1};
 };
 
 struct ProgressBarData {
     ProgressBarOptions opts;
-    double value{0.0};
-    double min{0.0};
-    double max{100.0};
-    float animPhase{0.0f};
+    keel::f64 value{0.0};
+    keel::f64 min{0.0};
+    keel::f64 max{100.0};
+    keel::f32 animPhase{0.0f};
 };
 
 void FormatRangeSliderPair(
     char* outBuf,
     keel::usize bufSize,
-    double lowVal,
-    double highVal,
+    keel::f64 lowVal,
+    keel::f64 highVal,
     bool isInt,
     keel::StringRef format
 ) noexcept {
@@ -1351,14 +1351,14 @@ void FormatRangeSliderPair(
 
 Response RangeSlider::Run(
     Context& ctx,
-    double* lowDouble,
-    double* highDouble,
-    float* lowFloat,
-    float* highFloat,
+    keel::f64* lowDouble,
+    keel::f64* highDouble,
+    keel::f32* lowFloat,
+    keel::f32* highFloat,
     keel::i64* lowInt,
     keel::i64* highInt,
-    double min,
-    double max,
+    keel::f64 min,
+    keel::f64 max,
     const RangeSliderOptions& opts,
     keel::SourceLocation loc
 ) {
@@ -1370,18 +1370,18 @@ Response RangeSlider::Run(
     const RangeSliderOptions& optsCopy = opts;
 
     const SliderMetrics& m = activeTheme.GetSlider(activeSize);
-    const double rangeMin = keel::min(min, max);
-    const double rangeMax = keel::max(min, max);
+    const keel::f64 rangeMin = keel::min(min, max);
+    const keel::f64 rangeMax = keel::max(min, max);
     const bool isInt = (lowInt != nullptr || highInt != nullptr);
-    const double effectiveStep = (optsCopy.step.has_value() && *optsCopy.step > 0.0) ? *optsCopy.step : (isInt ? 1.0 : 0.0);
-    const double minSpan = keel::clamp(keel::max(0.0, optsCopy.minSpan), 0.0, rangeMax - rangeMin);
+    const keel::f64 effectiveStep = (optsCopy.step.has_value() && *optsCopy.step > 0.0) ? *optsCopy.step : (isInt ? 1.0 : 0.0);
+    const keel::f64 minSpan = keel::clamp(keel::max(0.0, optsCopy.minSpan), 0.0, rangeMax - rangeMin);
 
-    double curLow = (lowDouble != nullptr) ? *lowDouble :
-                    (lowFloat != nullptr)  ? static_cast<double>(*lowFloat) :
-                    (lowInt != nullptr)    ? static_cast<double>(*lowInt) : rangeMin;
-    double curHigh = (highDouble != nullptr) ? *highDouble :
-                     (highFloat != nullptr)  ? static_cast<double>(*highFloat) :
-                     (highInt != nullptr)    ? static_cast<double>(*highInt) : rangeMax;
+    keel::f64 curLow = (lowDouble != nullptr) ? *lowDouble :
+                    (lowFloat != nullptr)  ? keel::as<keel::f64>(*lowFloat) :
+                    (lowInt != nullptr)    ? keel::as<keel::f64>(*lowInt) : rangeMin;
+    keel::f64 curHigh = (highDouble != nullptr) ? *highDouble :
+                     (highFloat != nullptr)  ? keel::as<keel::f64>(*highFloat) :
+                     (highInt != nullptr)    ? keel::as<keel::f64>(*highInt) : rangeMax;
 
     curLow = keel::clamp(curLow, rangeMin, rangeMax);
     curHigh = keel::clamp(curHigh, rangeMin, rangeMax);
@@ -1409,7 +1409,7 @@ Response RangeSlider::Run(
         res.pressed = false;
         state.dragMode = RangeDragMode::None;
     } else {
-        const float halfThumb = m.thumbSize * 0.5f;
+        const keel::f32 halfThumb = m.thumbSize * 0.5f;
         const SliderControlMetrics cm = ComputeSliderControlMetrics(
             optsCopy.textLeft, optsCopy.textRight, optsCopy.valueFormat, initValBuf,
             optsCopy.showValue, optsCopy.valuePlacement, ctrl.width,
@@ -1419,20 +1419,20 @@ Response RangeSlider::Run(
         const Rect ctrlRect = prevBounds;
         const SliderTrackLayout layout =
             ComputeSliderTrackLayout(ctrlRect, cm, m, IsVerticalSlider(optsCopy.orientation));
-        const float trackLen = keel::max(1.0f, layout.length);
+        const keel::f32 trackLen = keel::max(1.0f, layout.length);
 
         // Thumb and pointer positions along the travel from the min end (X when horizontal,
         // distance up from the bottom when vertical)
-        const double range = keel::max(1e-9, rangeMax - rangeMin);
-        const float lowRatio = static_cast<float>(keel::clamp((curLow - rangeMin) / range, 0.0, 1.0));
-        const float highRatio = static_cast<float>(keel::clamp((curHigh - rangeMin) / range, 0.0, 1.0));
-        const float lowPos = lowRatio * layout.length;
-        const float highPos = highRatio * layout.length;
+        const keel::f64 range = keel::max(1e-9, rangeMax - rangeMin);
+        const keel::f32 lowRatio = keel::as<keel::f32>(keel::clamp((curLow - rangeMin) / range, 0.0, 1.0));
+        const keel::f32 highRatio = keel::as<keel::f32>(keel::clamp((curHigh - rangeMin) / range, 0.0, 1.0));
+        const keel::f32 lowPos = lowRatio * layout.length;
+        const keel::f32 highPos = highRatio * layout.length;
 
         if (res.clicked || (res.pressed && state.dragMode == RangeDragMode::None)) {
-            const float pos = layout.Travel(ctx.GetMousePos());
-            const float distLow = keel::abs(pos - lowPos);
-            const float distHigh = keel::abs(pos - highPos);
+            const keel::f32 pos = layout.Travel(ctx.GetMousePos());
+            const keel::f32 distLow = keel::abs(pos - lowPos);
+            const keel::f32 distHigh = keel::abs(pos - highPos);
             const bool insideIntervalBar = (pos > lowPos + halfThumb * 1.15f) &&
                                            (pos < highPos - halfThumb * 1.15f) &&
                                            ((highPos - lowPos) > m.thumbSize * 1.8f);
@@ -1461,9 +1461,9 @@ Response RangeSlider::Run(
                 }
             } else {
                 res.pressed = true;
-                const float pos = layout.Travel(ctx.GetMousePos());
-                const float t = layout.RatioAt(ctx.GetMousePos());
-                auto quantize = [&](double v) -> double {
+                const keel::f32 pos = layout.Travel(ctx.GetMousePos());
+                const keel::f32 t = layout.RatioAt(ctx.GetMousePos());
+                auto quantize = [&](keel::f64 v) -> keel::f64 {
                     if (effectiveStep > 0.0) {
                         v = rangeMin + keel::round((v - rangeMin) / effectiveStep) * effectiveStep;
                     }
@@ -1471,7 +1471,7 @@ Response RangeSlider::Run(
                 };
 
                 if (state.dragMode == RangeDragMode::LowThumb) {
-                    double rawLow = quantize(rangeMin + t * (rangeMax - rangeMin));
+                    keel::f64 rawLow = quantize(rangeMin + t * (rangeMax - rangeMin));
                     rawLow = keel::min(rawLow, curHigh - minSpan);
                     rawLow = keel::clamp(rawLow, rangeMin, rangeMax);
                     if (rawLow != curLow) {
@@ -1480,7 +1480,7 @@ Response RangeSlider::Run(
                         ctx.RequestRepaint(3);
                     }
                 } else if (state.dragMode == RangeDragMode::HighThumb) {
-                    double rawHigh = quantize(rangeMin + t * (rangeMax - rangeMin));
+                    keel::f64 rawHigh = quantize(rangeMin + t * (rangeMax - rangeMin));
                     rawHigh = keel::max(rawHigh, curLow + minSpan);
                     rawHigh = keel::clamp(rawHigh, rangeMin, rangeMax);
                     if (rawHigh != curHigh) {
@@ -1489,13 +1489,13 @@ Response RangeSlider::Run(
                         ctx.RequestRepaint(3);
                     }
                 } else if (state.dragMode == RangeDragMode::IntervalSpan) {
-                    const double span = state.dragStartHigh - state.dragStartLow;
-                    const double deltaVal = ((pos - state.dragStartTravel) / trackLen) * (rangeMax - rangeMin);
-                    double newLow = state.dragStartLow + deltaVal;
+                    const keel::f64 span = state.dragStartHigh - state.dragStartLow;
+                    const keel::f64 deltaVal = ((pos - state.dragStartTravel) / trackLen) * (rangeMax - rangeMin);
+                    keel::f64 newLow = state.dragStartLow + deltaVal;
                     if (newLow < rangeMin) newLow = rangeMin;
                     if (newLow + span > rangeMax) newLow = rangeMax - span;
                     newLow = quantize(newLow);
-                    double newHigh = keel::clamp(newLow + span, rangeMin, rangeMax);
+                    keel::f64 newHigh = keel::clamp(newLow + span, rangeMin, rangeMax);
                     if (effectiveStep > 0.0) {
                         newHigh = quantize(newHigh);
                     }
@@ -1511,21 +1511,21 @@ Response RangeSlider::Run(
 
         // Keyboard arrow adjustment when focused
         if (ctx.IsFocused(id) && state.dragMode == RangeDragMode::None) {
-            const double stepDelta = (effectiveStep > 0.0) ? effectiveStep : (rangeMax - rangeMin) * 0.05;
-            double dir = 0.0;
+            const keel::f64 stepDelta = (effectiveStep > 0.0) ? effectiveStep : (rangeMax - rangeMin) * 0.05;
+            keel::f64 dir = 0.0;
             if (ctx.ConsumeKey(Key::Right) || ctx.ConsumeKey(Key::Up)) dir = 1.0;
             else if (ctx.ConsumeKey(Key::Left) || ctx.ConsumeKey(Key::Down)) dir = -1.0;
 
             if (dir != 0.0) {
                 if (state.activeThumb == 0) {
-                    const double nextLow = keel::clamp(curLow + dir * stepDelta, rangeMin, curHigh - minSpan);
+                    const keel::f64 nextLow = keel::clamp(curLow + dir * stepDelta, rangeMin, curHigh - minSpan);
                     if (nextLow != curLow) {
                         curLow = nextLow;
                         res.changed = true;
                         ctx.RequestRepaint(3);
                     }
                 } else {
-                    const double nextHigh = keel::clamp(curHigh + dir * stepDelta, curLow + minSpan, rangeMax);
+                    const keel::f64 nextHigh = keel::clamp(curHigh + dir * stepDelta, curLow + minSpan, rangeMax);
                     if (nextHigh != curHigh) {
                         curHigh = nextHigh;
                         res.changed = true;
@@ -1542,8 +1542,8 @@ Response RangeSlider::Run(
 
     if (lowDouble != nullptr)  *lowDouble = curLow;
     if (highDouble != nullptr) *highDouble = curHigh;
-    if (lowFloat != nullptr)   *lowFloat = static_cast<float>(curLow);
-    if (highFloat != nullptr)  *highFloat = static_cast<float>(curHigh);
+    if (lowFloat != nullptr)   *lowFloat = keel::as<keel::f32>(curLow);
+    if (highFloat != nullptr)  *highFloat = keel::as<keel::f32>(curHigh);
     if (lowInt != nullptr)     *lowInt = keel::round_i64(curLow);
     if (highInt != nullptr)    *highInt = keel::round_i64(curHigh);
 
@@ -1569,15 +1569,15 @@ Response RangeSlider::Run(
     node->SetPayload(data);
 
     keel::u64 lowBits = 0, highBits = 0;
-    std::memcpy(&lowBits, &curLow, sizeof(double));
-    std::memcpy(&highBits, &curHigh, sizeof(double));
+    std::memcpy(&lowBits, &curLow, sizeof(keel::f64));
+    std::memcpy(&highBits, &curHigh, sizeof(keel::f64));
     node->visualHash = detail::HashArgs(
         lowBits,
         highBits,
         state.activeThumb,
-        static_cast<keel::u8>(data->opts.orientation),
+        keel::as<keel::u8>(data->opts.orientation),
         data->opts.color,
-        static_cast<keel::u8>(data->opts.valuePlacement),
+        keel::as<keel::u8>(data->opts.valuePlacement),
         data->opts.width,
         data->opts.height,
         data->opts.minWidth.value_or(0.0f),
@@ -1590,7 +1590,7 @@ Response RangeSlider::Run(
         data->opts.valueFormat
     );
 
-    node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<RangeSliderData>();
         return RangeSlider::Measure(
             d ? d->opts : RangeSliderOptions{},
@@ -1617,17 +1617,17 @@ Response RangeSlider::Run(
 
 Vec2 RangeSlider::Measure(
     const RangeSliderOptions& opts,
-    double lowValue,
-    double highValue,
-    double min,
-    double max,
+    keel::f64 lowValue,
+    keel::f64 highValue,
+    keel::f64 min,
+    keel::f64 max,
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme,
-    float /*availableWidth*/
+    keel::f32 /*availableWidth*/
 ) {
-    const double rangeMin = keel::min(min, max);
-    const double rangeMax = keel::max(min, max);
+    const keel::f64 rangeMin = keel::min(min, max);
+    const keel::f64 rangeMax = keel::max(min, max);
     const bool isIntStep = opts.step.has_value() && *opts.step >= 1.0 &&
                            keel::abs(*opts.step - keel::round(*opts.step)) < 0.0001;
     char valBuf[96];
@@ -1648,13 +1648,13 @@ Vec2 RangeSlider::Measure(
 
 Vec2 RangeSlider::Measure(
     const RangeSliderOptions& opts,
-    double lowValue,
-    double highValue,
-    double min,
-    double max,
+    keel::f64 lowValue,
+    keel::f64 highValue,
+    keel::f64 min,
+    keel::f64 max,
     UiSize size,
     ICanvas* canvas,
-    float availableWidth
+    keel::f32 availableWidth
 ) {
     static const UiTheme defaultTheme = UiTheme::Dark();
     return Measure(opts, lowValue, highValue, min, max, size, canvas, defaultTheme, availableWidth);
@@ -1663,10 +1663,10 @@ Vec2 RangeSlider::Measure(
 void RangeSlider::Render(
     ICanvas& canvas,
     Rect bounds,
-    double lowValue,
-    double highValue,
-    double min,
-    double max,
+    keel::f64 lowValue,
+    keel::f64 highValue,
+    keel::f64 min,
+    keel::f64 max,
     const RangeSliderOptions& opts,
     UiSize size,
     bool hovered,
@@ -1680,8 +1680,8 @@ void RangeSlider::Render(
 
     const SliderMetrics& m = theme.GetSlider(size);
     const auto& pal = theme.palette;
-    const double rangeMin = keel::min(min, max);
-    const double rangeMax = keel::max(min, max);
+    const keel::f64 rangeMin = keel::min(min, max);
+    const keel::f64 rangeMax = keel::max(min, max);
     const bool isIntStep = opts.step.has_value() && *opts.step >= 1.0 &&
                            keel::abs(*opts.step - keel::round(*opts.step)) < 0.0001;
 
@@ -1702,12 +1702,12 @@ void RangeSlider::Render(
     const Rect ctrlRect = bounds;
     const bool vertical = IsVerticalSlider(opts.orientation);
     const SliderTrackLayout layout = ComputeSliderTrackLayout(ctrlRect, cm, m, vertical);
-    const float halfThumb = m.thumbSize * 0.5f;
-    const float halfTrack = m.trackHeight * 0.5f;
+    const keel::f32 halfThumb = m.thumbSize * 0.5f;
+    const keel::f32 halfTrack = m.trackHeight * 0.5f;
 
-    const double range = rangeMax - rangeMin;
-    const float lowRatio = (range > 0.0) ? static_cast<float>(keel::clamp((lowValue - rangeMin) / range, 0.0, 1.0)) : 0.0f;
-    const float highRatio = (range > 0.0) ? static_cast<float>(keel::clamp((highValue - rangeMin) / range, 0.0, 1.0)) : 1.0f;
+    const keel::f64 range = rangeMax - rangeMin;
+    const keel::f32 lowRatio = (range > 0.0) ? keel::as<keel::f32>(keel::clamp((lowValue - rangeMin) / range, 0.0, 1.0)) : 0.0f;
+    const keel::f32 highRatio = (range > 0.0) ? keel::as<keel::f32>(keel::clamp((highValue - rangeMin) / range, 0.0, 1.0)) : 1.0f;
     const Vec2 lowThumb = layout.ThumbCenter(keel::min(lowRatio, highRatio));
     const Vec2 highThumb = layout.ThumbCenter(keel::max(lowRatio, highRatio));
     const Vec2 midCenter{(lowThumb.x + highThumb.x) * 0.5f, (lowThumb.y + highThumb.y) * 0.5f};
@@ -1736,7 +1736,7 @@ void RangeSlider::Render(
     canvas.DrawRoundRect(trackBgRect, halfTrack, trackBg, trackBorder, 1.0f);
 
     // 2. Draw active filled interval between the thumbs
-    const float fillLen = keel::max(0.0f, keel::abs(highRatio - lowRatio) * layout.length);
+    const keel::f32 fillLen = keel::max(0.0f, keel::abs(highRatio - lowRatio) * layout.length);
     if (fillLen > 0.0f) {
         const Rect fillRect = vertical
             ? Rect(layout.cross - halfTrack, highThumb.y, m.trackHeight, fillLen)
@@ -1753,7 +1753,7 @@ void RangeSlider::Render(
         const Color thumbBorder = disabled ? pal.border.WithAlphaF(0.4f) :
                                   (focused && isFocusedThumb) ? pal.focusRing :
                                   (active || hovered) ? pal.accent : pal.borderHover;
-        const float thumbBorderW = (active || hovered || (focused && isFocusedThumb)) ? 2.5f : 2.0f;
+        const keel::f32 thumbBorderW = (active || hovered || (focused && isFocusedThumb)) ? 2.5f : 2.0f;
         canvas.DrawRoundRect(thumbRect, halfThumb, thumbBg, thumbBorder, thumbBorderW);
     };
 
@@ -1767,9 +1767,9 @@ void RangeSlider::Render(
 
 Response ProgressBar::Run(
     Context& ctx,
-    double value,
-    double min,
-    double max,
+    keel::f64 value,
+    keel::f64 min,
+    keel::f64 max,
     const ProgressBarOptions& opts,
     keel::SourceLocation loc
 ) {
@@ -1780,9 +1780,9 @@ Response ProgressBar::Run(
 
     const ProgressBarOptions& optsCopy = opts;
 
-    const double rangeMin = keel::min(min, max);
-    const double rangeMax = keel::max(min, max);
-    const double clampedVal = keel::clamp(value, rangeMin, rangeMax);
+    const keel::f64 rangeMin = keel::min(min, max);
+    const keel::f64 rangeMax = keel::max(min, max);
+    const keel::f64 clampedVal = keel::clamp(value, rangeMin, rangeMax);
 
     Response res = ctx.Interact(id);
     res.clicked = false;
@@ -1793,9 +1793,9 @@ Response ProgressBar::Run(
         ctx.SetTooltip(optsCopy.tooltip, ctx.GetPrevFrameBounds(id));
     }
 
-    float animPhase = 0.0f;
+    keel::f32 animPhase = 0.0f;
     if (optsCopy.indeterminate && !effectiveDisabled) {
-        animPhase = static_cast<float>(keel::fmod(keel::max(0.0, ctx.GetCurrentTime()) * 0.85, 1.0));
+        animPhase = keel::as<keel::f32>(keel::fmod(keel::max(0.0, ctx.GetCurrentTime()) * 0.85, 1.0));
         ctx.RequestRepaint(2);
     }
 
@@ -1818,15 +1818,15 @@ Response ProgressBar::Run(
     node->SetPayload(data);
 
     keel::u64 valBits = 0;
-    std::memcpy(&valBits, &clampedVal, sizeof(double));
-    const double peakVal = data->opts.peakHoldValue.value_or(-1e9);
+    std::memcpy(&valBits, &clampedVal, sizeof(keel::f64));
+    const keel::f64 peakVal = data->opts.peakHoldValue.value_or(-1e9);
     keel::u64 peakBits = 0;
-    std::memcpy(&peakBits, &peakVal, sizeof(double));
+    std::memcpy(&peakBits, &peakVal, sizeof(keel::f64));
 
     node->visualHash = detail::HashArgs(
         valBits,
         peakBits,
-        static_cast<keel::u8>(data->opts.orientation),
+        keel::as<keel::u8>(data->opts.orientation),
         data->opts.indeterminate,
         animPhase,
         data->opts.segments,
@@ -1835,7 +1835,7 @@ Response ProgressBar::Run(
         data->opts.dangerRatio,
         data->opts.trackHeight.value_or(0.0f),
         data->opts.color,
-        static_cast<keel::u8>(data->opts.valuePlacement),
+        keel::as<keel::u8>(data->opts.valuePlacement),
         data->opts.width,
         data->opts.height,
         data->opts.minWidth.value_or(0.0f),
@@ -1848,7 +1848,7 @@ Response ProgressBar::Run(
         data->opts.valueFormat
     );
 
-    node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<ProgressBarData>();
         return ProgressBar::Measure(
             d ? d->opts : ProgressBarOptions{},
@@ -1874,16 +1874,16 @@ Response ProgressBar::Run(
 
 Vec2 ProgressBar::Measure(
     const ProgressBarOptions& opts,
-    double value,
-    double min,
-    double max,
+    keel::f64 value,
+    keel::f64 min,
+    keel::f64 max,
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme,
-    float /*availableWidth*/
+    keel::f32 /*availableWidth*/
 ) {
-    const double rangeMin = keel::min(min, max);
-    const double rangeMax = keel::max(min, max);
+    const keel::f64 rangeMin = keel::min(min, max);
+    const keel::f64 rangeMax = keel::max(min, max);
     const bool hasStaticLabel = !opts.valueFormat.text.empty() && opts.valueFormat.text.find('%') == keel::StringRef::npos;
     const bool effShowVal = opts.showValue && (!opts.indeterminate || hasStaticLabel);
     const keel::StringRef fmt = opts.valueFormat.text.empty() ? "%.0f %%" : opts.valueFormat.text;
@@ -1905,7 +1905,7 @@ Vec2 ProgressBar::Measure(
         {}, !opts.indeterminate, rangeMin, rangeMax, false, opts.orientation
     );
     if (opts.trackHeight.has_value()) {
-        const float minThick = *opts.trackHeight + 4.0f;
+        const keel::f32 minThick = *opts.trackHeight + 4.0f;
         if (IsVerticalSlider(opts.orientation)) {
             if (minThick > cm.crossW) {
                 cm.intrinsicControlSize.x += (minThick - cm.crossW);
@@ -1923,12 +1923,12 @@ Vec2 ProgressBar::Measure(
 
 Vec2 ProgressBar::Measure(
     const ProgressBarOptions& opts,
-    double value,
-    double min,
-    double max,
+    keel::f64 value,
+    keel::f64 min,
+    keel::f64 max,
     UiSize size,
     ICanvas* canvas,
-    float availableWidth
+    keel::f32 availableWidth
 ) {
     static const UiTheme defaultTheme = UiTheme::Dark();
     return Measure(opts, value, min, max, size, canvas, defaultTheme, availableWidth);
@@ -1937,22 +1937,22 @@ Vec2 ProgressBar::Measure(
 void ProgressBar::Render(
     ICanvas& canvas,
     Rect bounds,
-    double value,
-    double min,
-    double max,
+    keel::f64 value,
+    keel::f64 min,
+    keel::f64 max,
     const ProgressBarOptions& opts,
     UiSize size,
     bool hovered,
     bool disabled,
     const UiTheme& theme,
-    float animPhase
+    keel::f32 animPhase
 ) {
     if (bounds.w <= 0.0f || bounds.h <= 0.0f) return;
 
     const SliderMetrics& m = theme.GetSlider(size);
     const auto& pal = theme.palette;
-    const double rangeMin = keel::min(min, max);
-    const double rangeMax = keel::max(min, max);
+    const keel::f64 rangeMin = keel::min(min, max);
+    const keel::f64 rangeMax = keel::max(min, max);
     const bool vertical = IsVerticalSlider(opts.orientation);
     const bool hasStaticLabel = !opts.valueFormat.text.empty() && opts.valueFormat.text.find('%') == keel::StringRef::npos;
     const bool effShowVal = opts.showValue && (!opts.indeterminate || hasStaticLabel);
@@ -1976,7 +1976,7 @@ void ProgressBar::Render(
         0.0f, size, &canvas, theme,
         {}, !opts.indeterminate, rangeMin, rangeMax, false, opts.orientation
     );
-    const float barThick = opts.trackHeight.has_value()
+    const keel::f32 barThick = opts.trackHeight.has_value()
         ? *opts.trackHeight
         : keel::max(m.trackHeight * 1.55f, 8.0f);
     if (!vertical && barThick + 4.0f > cm.trackRowH) {
@@ -1989,12 +1989,12 @@ void ProgressBar::Render(
 
     const Rect ctrlRect = bounds;
 
-    const double range = rangeMax - rangeMin;
-    const float ratio = opts.indeterminate
+    const keel::f64 range = rangeMax - rangeMin;
+    const keel::f32 ratio = opts.indeterminate
         ? 0.0f
-        : ((range > 0.0) ? static_cast<float>(keel::clamp((value - rangeMin) / range, 0.0, 1.0)) : 0.0f);
+        : ((range > 0.0) ? keel::as<keel::f32>(keel::clamp((value - rangeMin) / range, 0.0, 1.0)) : 0.0f);
 
-    auto resolveZoneColor = [&](float normPos) -> Color {
+    auto resolveZoneColor = [&](keel::f32 normPos) -> Color {
         if (!opts.multiZoneColor) {
             return ResolveSliderTrackColor(opts.color, disabled, theme);
         }
@@ -2016,11 +2016,11 @@ void ProgressBar::Render(
 
     if (vertical) {
         SliderTrackLayout layout = ComputeSliderTrackLayout(ctrlRect, cm, m, true);
-        const float trackTop = layout.region.y;
-        const float trackH = keel::max(12.0f, layout.region.h);
-        const float barWInt = keel::max(2.0f, keel::round(barThick));
-        const float barX = keel::round(layout.cross - barWInt * 0.5f);
-        const float fillH = ratio * trackH;
+        const keel::f32 trackTop = layout.region.y;
+        const keel::f32 trackH = keel::max(12.0f, layout.region.h);
+        const keel::f32 barWInt = keel::max(2.0f, keel::round(barThick));
+        const keel::f32 barX = keel::round(layout.cross - barWInt * 0.5f);
+        const keel::f32 fillH = ratio * trackH;
         const Vec2 tipCenter(layout.cross, trackTop + trackH - fillH);
 
         RenderSliderCompanionTextsVertical(
@@ -2035,42 +2035,42 @@ void ProgressBar::Render(
             const Color trackBorder = disabled ? pal.border.WithAlphaF(0.3f) : pal.border;
             canvas.DrawRoundRect(trackBgRect, barWInt * 0.5f, trackBg, trackBorder, 1.0f);
 
-            const float shuttleH = keel::max(barWInt, trackH * 0.32f);
-            const float pingPong = 1.0f - keel::abs(keel::fmod(animPhase * 2.0f, 2.0f) - 1.0f);
-            const float smoothT = pingPong * pingPong * (3.0f - 2.0f * pingPong);
-            const float shuttleY = trackTop + (1.0f - smoothT) * keel::max(0.0f, trackH - shuttleH);
+            const keel::f32 shuttleH = keel::max(barWInt, trackH * 0.32f);
+            const keel::f32 pingPong = 1.0f - keel::abs(keel::fmod(animPhase * 2.0f, 2.0f) - 1.0f);
+            const keel::f32 smoothT = pingPong * pingPong * (3.0f - 2.0f * pingPong);
+            const keel::f32 shuttleY = trackTop + (1.0f - smoothT) * keel::max(0.0f, trackH - shuttleH);
             canvas.DrawRoundRect(Rect(barX, shuttleY, barWInt, shuttleH), barWInt * 0.5f, ResolveSliderTrackColor(opts.color, disabled, theme));
             return;
         }
 
         if (opts.segments > 1) {
             const keel::u32 segCount = keel::min<keel::u32>(opts.segments, 64u);
-            const float gap = (segCount > 28) ? 1.0f : 2.0f;
-            const float totalGaps = gap * static_cast<float>(segCount - 1);
-            const float segH = keel::max(2.0f, keel::floor((keel::round(trackH) - totalGaps) / static_cast<float>(segCount)));
-            const float bottomY = keel::round(trackTop + trackH);
+            const keel::f32 gap = (segCount > 28) ? 1.0f : 2.0f;
+            const keel::f32 totalGaps = gap * keel::as<keel::f32>(segCount - 1);
+            const keel::f32 segH = keel::max(2.0f, keel::floor((keel::round(trackH) - totalGaps) / keel::as<keel::f32>(segCount)));
+            const keel::f32 bottomY = keel::round(trackTop + trackH);
             const bool useRound = (keel::min(barWInt, segH) >= 8.0f);
             const Color unlitBg = disabled ? pal.surfaceActive.WithAlphaF(0.35f) : pal.surfaceActive;
             const Color unlitBorder = disabled ? pal.border.WithAlphaF(0.25f) : pal.border.WithAlphaF(0.65f);
 
             keel::i32 peakSegIdx = -1;
             if (opts.peakHoldValue.has_value() && range > 0.0) {
-                const float peakRatio = static_cast<float>(keel::clamp((*opts.peakHoldValue - rangeMin) / range, 0.0, 1.0));
+                const keel::f32 peakRatio = keel::as<keel::f32>(keel::clamp((*opts.peakHoldValue - rangeMin) / range, 0.0, 1.0));
                 if (peakRatio > 0.001f) {
                     peakSegIdx = keel::clamp(
-                        keel::ceil_i32(peakRatio * static_cast<float>(segCount)) - 1,
+                        keel::ceil_i32(peakRatio * keel::as<keel::f32>(segCount)) - 1,
                         0,
-                        static_cast<keel::i32>(segCount) - 1
+                        keel::as<keel::i32>(segCount) - 1
                     );
                 }
             }
 
             for (keel::u32 i = 0; i < segCount; ++i) {
-                const float segY = bottomY - static_cast<float>(i + 1) * segH - static_cast<float>(i) * gap;
-                const float segThreshold = static_cast<float>(i + 1) / static_cast<float>(segCount);
-                const float segMidRatio = (static_cast<float>(i) + 0.5f) / static_cast<float>(segCount);
-                const bool isLit = (ratio >= segThreshold - (0.5f / static_cast<float>(segCount))) && (ratio > 0.001f);
-                const bool isPeakSeg = (static_cast<keel::i32>(i) == peakSegIdx);
+                const keel::f32 segY = bottomY - keel::as<keel::f32>(i + 1) * segH - keel::as<keel::f32>(i) * gap;
+                const keel::f32 segThreshold = keel::as<keel::f32>(i + 1) / keel::as<keel::f32>(segCount);
+                const keel::f32 segMidRatio = (keel::as<keel::f32>(i) + 0.5f) / keel::as<keel::f32>(segCount);
+                const bool isLit = (ratio >= segThreshold - (0.5f / keel::as<keel::f32>(segCount))) && (ratio > 0.001f);
+                const bool isPeakSeg = (keel::as<keel::i32>(i) == peakSegIdx);
                 const Rect segRect(barX, segY, barWInt, segH);
                 if (isLit || isPeakSeg) {
                     const Color segCol = resolveZoneColor(segMidRatio);
@@ -2092,9 +2092,9 @@ void ProgressBar::Render(
                 canvas.DrawRoundRect(fillRect, barWInt * 0.5f, resolveZoneColor(ratio));
             }
             if (opts.peakHoldValue.has_value() && range > 0.0) {
-                const float peakRatio = static_cast<float>(keel::clamp((*opts.peakHoldValue - rangeMin) / range, 0.0, 1.0));
+                const keel::f32 peakRatio = keel::as<keel::f32>(keel::clamp((*opts.peakHoldValue - rangeMin) / range, 0.0, 1.0));
                 if (peakRatio > 0.001f) {
-                    const float peakY = trackTop + trackH - peakRatio * trackH;
+                    const keel::f32 peakY = trackTop + trackH - peakRatio * trackH;
                     canvas.DrawRoundRect(Rect(barX - 2.0f, peakY - 1.5f, barWInt + 4.0f, 3.0f), 1.5f, resolveZoneColor(peakRatio));
                 }
             }
@@ -2102,14 +2102,14 @@ void ProgressBar::Render(
         return;
     }
 
-    const float trackRegionX = ctrlRect.x + cm.leftGutterW;
-    const float trackRegionW = keel::max(12.0f, ctrlRect.w - cm.leftGutterW - cm.rightGutterW);
-    const float contentOffsetY = keel::max(0.0f, (ctrlRect.h - cm.intrinsicControlSize.y) * 0.5f);
-    const float trackRowY = ctrlRect.y + contentOffsetY + cm.topValH;
-    const float centerY = trackRowY + cm.trackRowH * 0.5f;
+    const keel::f32 trackRegionX = ctrlRect.x + cm.leftGutterW;
+    const keel::f32 trackRegionW = keel::max(12.0f, ctrlRect.w - cm.leftGutterW - cm.rightGutterW);
+    const keel::f32 contentOffsetY = keel::max(0.0f, (ctrlRect.h - cm.intrinsicControlSize.y) * 0.5f);
+    const keel::f32 trackRowY = ctrlRect.y + contentOffsetY + cm.topValH;
+    const keel::f32 centerY = trackRowY + cm.trackRowH * 0.5f;
 
-    const float fillW = ratio * trackRegionW;
-    const float tipX = trackRegionX + fillW;
+    const keel::f32 fillW = ratio * trackRegionW;
+    const keel::f32 tipX = trackRegionX + fillW;
 
     // 0. Draw companion textLeft / textRight and value readout
     RenderSliderCompanionTexts(
@@ -2118,8 +2118,8 @@ void ProgressBar::Render(
         effShowVal, opts.valuePlacement, disabled, theme
     );
 
-    const float barY = keel::round(centerY - barThick * 0.5f);
-    const float barHInt = keel::max(2.0f, keel::round(barThick));
+    const keel::f32 barY = keel::round(centerY - barThick * 0.5f);
+    const keel::f32 barHInt = keel::max(2.0f, keel::round(barThick));
 
     if (opts.indeterminate) {
         const Rect trackBgRect(trackRegionX, barY, trackRegionW, barThick);
@@ -2127,10 +2127,10 @@ void ProgressBar::Render(
         const Color trackBorder = disabled ? pal.border.WithAlphaF(0.3f) : pal.border;
         canvas.DrawRoundRect(trackBgRect, barThick * 0.5f, trackBg, trackBorder, 1.0f);
 
-        const float shuttleW = keel::max(barThick, trackRegionW * 0.32f);
-        const float pingPong = 1.0f - keel::abs(keel::fmod(animPhase * 2.0f, 2.0f) - 1.0f);
-        const float smoothT = pingPong * pingPong * (3.0f - 2.0f * pingPong);
-        const float shuttleX = trackRegionX + smoothT * keel::max(0.0f, trackRegionW - shuttleW);
+        const keel::f32 shuttleW = keel::max(barThick, trackRegionW * 0.32f);
+        const keel::f32 pingPong = 1.0f - keel::abs(keel::fmod(animPhase * 2.0f, 2.0f) - 1.0f);
+        const keel::f32 smoothT = pingPong * pingPong * (3.0f - 2.0f * pingPong);
+        const keel::f32 shuttleX = trackRegionX + smoothT * keel::max(0.0f, trackRegionW - shuttleW);
         canvas.DrawRoundRect(Rect(shuttleX, barY, shuttleW, barThick), barThick * 0.5f, ResolveSliderTrackColor(opts.color, disabled, theme));
         return;
     }
@@ -2138,32 +2138,32 @@ void ProgressBar::Render(
     if (opts.segments > 1) {
         // Segmented LED / VU Level Meter (integer pixel-snapped cells & gaps)
         const keel::u32 segCount = keel::min<keel::u32>(opts.segments, 64u);
-        const float gap = (segCount > 28) ? 1.0f : 2.0f;
-        const float totalGaps = gap * static_cast<float>(segCount - 1);
-        const float segW = keel::max(2.0f, keel::floor((keel::round(trackRegionW) - totalGaps) / static_cast<float>(segCount)));
-        const float startX = keel::round(trackRegionX);
+        const keel::f32 gap = (segCount > 28) ? 1.0f : 2.0f;
+        const keel::f32 totalGaps = gap * keel::as<keel::f32>(segCount - 1);
+        const keel::f32 segW = keel::max(2.0f, keel::floor((keel::round(trackRegionW) - totalGaps) / keel::as<keel::f32>(segCount)));
+        const keel::f32 startX = keel::round(trackRegionX);
         const bool useRound = (keel::min(segW, barHInt) >= 8.0f);
         const Color unlitBg = disabled ? pal.surfaceActive.WithAlphaF(0.35f) : pal.surfaceActive;
         const Color unlitBorder = disabled ? pal.border.WithAlphaF(0.25f) : pal.border.WithAlphaF(0.65f);
 
         keel::i32 peakSegIdx = -1;
         if (opts.peakHoldValue.has_value() && range > 0.0) {
-            const float peakRatio = static_cast<float>(keel::clamp((*opts.peakHoldValue - rangeMin) / range, 0.0, 1.0));
+            const keel::f32 peakRatio = keel::as<keel::f32>(keel::clamp((*opts.peakHoldValue - rangeMin) / range, 0.0, 1.0));
             if (peakRatio > 0.001f) {
                 peakSegIdx = keel::clamp(
-                    keel::ceil_i32(peakRatio * static_cast<float>(segCount)) - 1,
+                    keel::ceil_i32(peakRatio * keel::as<keel::f32>(segCount)) - 1,
                     0,
-                    static_cast<keel::i32>(segCount) - 1
+                    keel::as<keel::i32>(segCount) - 1
                 );
             }
         }
 
         for (keel::u32 i = 0; i < segCount; ++i) {
-            const float segX = startX + static_cast<float>(i) * (segW + gap);
-            const float segThreshold = static_cast<float>(i + 1) / static_cast<float>(segCount);
-            const float segMidRatio = (static_cast<float>(i) + 0.5f) / static_cast<float>(segCount);
-            const bool isLit = (ratio >= segThreshold - (0.5f / static_cast<float>(segCount))) && (ratio > 0.001f);
-            const bool isPeakSeg = (static_cast<keel::i32>(i) == peakSegIdx);
+            const keel::f32 segX = startX + keel::as<keel::f32>(i) * (segW + gap);
+            const keel::f32 segThreshold = keel::as<keel::f32>(i + 1) / keel::as<keel::f32>(segCount);
+            const keel::f32 segMidRatio = (keel::as<keel::f32>(i) + 0.5f) / keel::as<keel::f32>(segCount);
+            const bool isLit = (ratio >= segThreshold - (0.5f / keel::as<keel::f32>(segCount))) && (ratio > 0.001f);
+            const bool isPeakSeg = (keel::as<keel::i32>(i) == peakSegIdx);
 
             const Rect segRect(segX, barY, segW, barHInt);
             if (isLit || isPeakSeg) {
@@ -2196,9 +2196,9 @@ void ProgressBar::Render(
 
         // Optional peak-hold marker tick on smooth bar
         if (opts.peakHoldValue.has_value() && range > 0.0) {
-            const float peakRatio = static_cast<float>(keel::clamp((*opts.peakHoldValue - rangeMin) / range, 0.0, 1.0));
+            const keel::f32 peakRatio = keel::as<keel::f32>(keel::clamp((*opts.peakHoldValue - rangeMin) / range, 0.0, 1.0));
             if (peakRatio > 0.001f) {
-                const float peakX = trackRegionX + peakRatio * trackRegionW;
+                const keel::f32 peakX = trackRegionX + peakRatio * trackRegionW;
                 const Color peakCol = resolveZoneColor(peakRatio);
                 canvas.DrawRoundRect(Rect(peakX - 1.5f, barY - 2.0f, 3.0f, barThick + 4.0f), 1.5f, peakCol);
             }

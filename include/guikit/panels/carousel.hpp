@@ -16,7 +16,7 @@ struct Node;
 
 /// Configuration options for Carousel horizontal scroll container.
 struct CarouselOptions {
-    keel::Optional<float> gap{keel::kNullOpt};        ///< Gap between items in the ribbon (nullopt = from theme)
+    keel::Optional<keel::f32> gap{keel::kNullOpt};        ///< Gap between items in the ribbon (nullopt = from theme)
     keel::Optional<Padding> padding{keel::kNullOpt};   ///< Viewport content padding (nullopt = zero)
     Alignment align{Alignment::Center};             ///< Vertical alignment of items
     Justify justify{Justify::Start};                ///< Horizontal item distribution
@@ -31,8 +31,8 @@ struct CarouselData {
     Rect leftArrowRect{0.0f, 0.0f, 0.0f, 0.0f};
     Rect rightArrowRect{0.0f, 0.0f, 0.0f, 0.0f};
     Rect viewportRect{0.0f, 0.0f, 0.0f, 0.0f};
-    float targetOffsetX{0.0f};
-    float baseTargetX{0.0f};
+    keel::f32 targetOffsetX{0.0f};
+    keel::f32 baseTargetX{0.0f};
     keel::i8 stepDirection{0};
     bool animatingX{false};
     bool showLeftArrow{false};
@@ -66,8 +66,8 @@ public:
     );
 
     /// Measures intrinsic dimensions for a Carousel container ribbon.
-    static Vec2 Measure(const Node* node, float availableWidth, ICanvas* canvas, const UiTheme& theme);
-    static Vec2 Measure(const Node* node, float availableWidth = 0.0f, ICanvas* canvas = nullptr);
+    static Vec2 Measure(const Node* node, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme);
+    static Vec2 Measure(const Node* node, keel::f32 availableWidth = 0.0f, ICanvas* canvas = nullptr);
 
     /// Custom flex row arrangement with dynamic gutters and scroll viewport.
     static void Arrange(Node* node, const Rect& availableRect, const UiTheme& theme);

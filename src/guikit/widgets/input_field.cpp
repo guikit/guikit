@@ -36,28 +36,28 @@ Vec2 MeasureInputBox(
 
     const SizeMode effWMode = opts.width.ResolveMode(SizeMode::Stretch);
     const bool hasExplicitDpW = ctrl.width.IsFixed();
-    float boxW = m.defaultWidth;
+    keel::f32 boxW = m.defaultWidth;
     if (hasExplicitDpW) {
         boxW = ctrl.width.Dp();
     } else if (effWMode != SizeMode::Stretch && hasVariants) {
-            const float inputFont = theme.ResolveFontSize(opts.valueFormat, TextRole::LabelMedium, size);
-            float contentW = 0.0f;
+            const keel::f32 inputFont = theme.ResolveFontSize(opts.valueFormat, TextRole::LabelMedium, size);
+            keel::f32 contentW = 0.0f;
             for (keel::StringRef v : opts.valueFormat.variants) {
                 if (!v.empty()) {
                     contentW = keel::max(contentW, TextUtil::MeasureWidth(v, inputFont, canvas));
                 }
             }
 
-            float totalW = m.paddingX * 2.0f + contentW + 4.0f;
+            keel::f32 totalW = m.paddingX * 2.0f + contentW + 4.0f;
             if (opts.prefix.HasContentOrReserve()) {
-                const float pFont = theme.ResolveFontSize(opts.prefix.text, TextRole::LabelMedium, size);
-                const float pW = TextUtil::MeasureAffixWidth(opts.prefix, pFont, m.iconSize, 4.0f, canvas);
-                const float pGap = (opts.prefix.HasIcon() && !opts.prefix.HasText()) ? 6.0f : 4.0f;
+                const keel::f32 pFont = theme.ResolveFontSize(opts.prefix.text, TextRole::LabelMedium, size);
+                const keel::f32 pW = TextUtil::MeasureAffixWidth(opts.prefix, pFont, m.iconSize, 4.0f, canvas);
+                const keel::f32 pGap = (opts.prefix.HasIcon() && !opts.prefix.HasText()) ? 6.0f : 4.0f;
                 totalW += pW + pGap;
             }
             if (opts.suffix.HasContentOrReserve()) {
-                const float sFont = theme.ResolveFontSize(opts.suffix.text, TextRole::LabelMedium, size);
-                const float sW = TextUtil::MeasureAffixWidth(opts.suffix, sFont, m.iconSize, 4.0f, canvas);
+                const keel::f32 sFont = theme.ResolveFontSize(opts.suffix.text, TextRole::LabelMedium, size);
+                const keel::f32 sW = TextUtil::MeasureAffixWidth(opts.suffix, sFont, m.iconSize, 4.0f, canvas);
                 totalW += sW + 6.0f;
             }
             if (opts.password && opts.passwordReveal) {
@@ -80,8 +80,8 @@ Vec2 MeasureInputBox(
 }
 
 struct InputFieldState {
-    float scrollX{0.0f};
-    double lastClickTime{-10.0};
+    keel::f32 scrollX{0.0f};
+    keel::f64 lastClickTime{-10.0};
     Vec2 lastClickPos{-1000.0f, -1000.0f};
     keel::i32 clickCount{0};
     bool draggingWord{false};
@@ -110,25 +110,25 @@ InputBoxRects ResolveInputBoxRects(
     const InputFieldMetrics& m = theme.GetInputField(size);
     const Rect boxRect = bounds;
 
-    float leftX = boxRect.x + m.paddingX;
+    keel::f32 leftX = boxRect.x + m.paddingX;
     if (opts.prefix.HasContentOrReserve()) {
-        const float pFont = theme.ResolveFontSize(opts.prefix.text, TextRole::LabelMedium, size);
-        const float pW = TextUtil::MeasureAffixWidth(opts.prefix, pFont, m.iconSize, 4.0f, canvas);
-        const float pGap = (opts.prefix.HasIcon() && !opts.prefix.HasText()) ? 6.0f : 4.0f;
+        const keel::f32 pFont = theme.ResolveFontSize(opts.prefix.text, TextRole::LabelMedium, size);
+        const keel::f32 pW = TextUtil::MeasureAffixWidth(opts.prefix, pFont, m.iconSize, 4.0f, canvas);
+        const keel::f32 pGap = (opts.prefix.HasIcon() && !opts.prefix.HasText()) ? 6.0f : 4.0f;
         leftX += pW + pGap;
     }
 
-    float rightX = boxRect.x + boxRect.w - m.paddingX;
+    keel::f32 rightX = boxRect.x + boxRect.w - m.paddingX;
 
     if (opts.suffix.HasContentOrReserve()) {
-        const float sFont = theme.ResolveFontSize(opts.suffix.text, TextRole::LabelMedium, size);
-        const float sW = TextUtil::MeasureAffixWidth(opts.suffix, sFont, m.iconSize, 4.0f, canvas);
+        const keel::f32 sFont = theme.ResolveFontSize(opts.suffix.text, TextRole::LabelMedium, size);
+        const keel::f32 sW = TextUtil::MeasureAffixWidth(opts.suffix, sFont, m.iconSize, 4.0f, canvas);
         rightX -= sW + 6.0f;
     }
 
     Rect revealRect{};
     if (showRevealBtn) {
-        const float btnSize = m.iconSize + 4.0f;
+        const keel::f32 btnSize = m.iconSize + 4.0f;
         rightX -= btnSize;
         revealRect = Rect(rightX, boxRect.y + (boxRect.h - btnSize) * 0.5f, btnSize, btnSize);
         rightX -= 4.0f;
@@ -136,13 +136,13 @@ InputBoxRects ResolveInputBoxRects(
 
     Rect clearRect{};
     if (showClearBtn) {
-        const float btnSize = m.iconSize + 4.0f;
+        const keel::f32 btnSize = m.iconSize + 4.0f;
         rightX -= btnSize;
         clearRect = Rect(rightX, boxRect.y + (boxRect.h - btnSize) * 0.5f, btnSize, btnSize);
         rightX -= 4.0f;
     }
 
-    const float availW = keel::max(0.0f, rightX - leftX);
+    const keel::f32 availW = keel::max(0.0f, rightX - leftX);
     return InputBoxRects{
         .boxRect = boxRect,
         .textRect = Rect(leftX, boxRect.y, availW, boxRect.h),
@@ -153,7 +153,7 @@ InputBoxRects ResolveInputBoxRects(
 
 keel::usize SnapToUtf8CodepointBoundary(keel::StringRef text, keel::usize idx) noexcept {
     idx = keel::min(idx, text.size());
-    while (idx > 0 && idx < text.size() && (static_cast<keel::u8>(text[idx]) & 0xC0) == 0x80) {
+    while (idx > 0 && idx < text.size() && (keel::as<keel::u8>(text[idx]) & 0xC0) == 0x80) {
         --idx;
     }
     return idx;
@@ -358,7 +358,7 @@ Response InputField::Run(
         clearHovered = showClearBtn && res.hovered && rects.clearRect.Contains(mousePos);
 
         const Rect textRect = rects.textRect;
-        const float inputFont = theme.ResolveFontSize(optsCopy.valueFormat, TextRole::LabelMedium, activeSize);
+        const keel::f32 inputFont = theme.ResolveFontSize(optsCopy.valueFormat, TextRole::LabelMedium, activeSize);
 
         const bool isMasked = opts.password && !state.passwordRevealed;
         const keel::StringRef hitTestText = (isMasked && !currentEditText.empty())
@@ -373,13 +373,13 @@ Response InputField::Run(
 
         if ((mouseJustPressed || res.pressed) && !state.actionBtnDown &&
             !(opts.selectAllOnFocus && justGainedFocus && mouseJustPressed)) {
-            const float localX = (mousePos.x - textRect.x) + state.scrollX;
+            const keel::f32 localX = (mousePos.x - textRect.x) + state.scrollX;
             const keel::usize rawHitIdx = TextUtil::HitTestIndex(hitTestText, localX, inputFont, canvas);
             const keel::usize hitIdx = mapHitToByte(rawHitIdx);
 
             if (mouseJustPressed) {
-                const double now = ctx.GetCurrentTime();
-                const float dist = (mousePos - state.lastClickPos).Length();
+                const keel::f64 now = ctx.GetCurrentTime();
+                const keel::f32 dist = (mousePos - state.lastClickPos).Length();
                 if (wasFocused && (now - state.lastClickTime) <= 0.35 && dist <= 6.0f) {
                     state.clickCount += 1;
                 } else {
@@ -492,16 +492,16 @@ Response InputField::Run(
                 ? ByteIndexToCodepointOffset(displayText, cursor)
                 : cursor;
             const keel::usize safeCursor = keel::min(mappedCursor, measureText.size());
-            const float cursorX = TextUtil::MeasureWidth(measureText.substr(0, safeCursor), inputFont, canvas);
-            const float fullTextW = TextUtil::MeasureWidth(measureText, inputFont, canvas);
-            const float visibleW = keel::max(0.0f, rects.textRect.w - 2.0f);
+            const keel::f32 cursorX = TextUtil::MeasureWidth(measureText.substr(0, safeCursor), inputFont, canvas);
+            const keel::f32 fullTextW = TextUtil::MeasureWidth(measureText, inputFont, canvas);
+            const keel::f32 visibleW = keel::max(0.0f, rects.textRect.w - 2.0f);
 
             if (cursorX < state.scrollX) {
                 state.scrollX = cursorX;
             } else if (cursorX > state.scrollX + visibleW) {
                 state.scrollX = cursorX - visibleW;
             }
-            const float maxScroll = keel::max(0.0f, fullTextW - visibleW);
+            const keel::f32 maxScroll = keel::max(0.0f, fullTextW - visibleW);
             state.scrollX = keel::clamp(state.scrollX, 0.0f, maxScroll);
         } else if (!isFocused) {
             state.scrollX = 0.0f;
@@ -569,7 +569,7 @@ Response InputField::Run(
         optsCopy.placeholder,
         optsCopy.valueFormat
     );
-    node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<InputFieldData>();
         return InputField::Measure(
             d ? d->displayText : keel::StringRef{},
@@ -623,7 +623,7 @@ Vec2 InputField::Measure(
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme,
-    float /*availableWidth*/
+    keel::f32 /*availableWidth*/
 ) {
     const Vec2 boxDims = MeasureInputBox(opts, size, canvas, theme);
     const ControlSpec ctrl = EffectiveInputControl(opts, size, theme);
@@ -635,7 +635,7 @@ Vec2 InputField::Measure(
     const InputFieldOptions& opts,
     UiSize size,
     ICanvas* canvas,
-    float availableWidth
+    keel::f32 availableWidth
 ) {
     static const UiTheme defaultTheme = UiTheme::Dark();
     return Measure(displayText, opts, size, canvas, defaultTheme, availableWidth);
@@ -652,11 +652,11 @@ void InputField::Render(
     keel::usize cursor,
     bool disabled,
     bool cursorVisible,
-    float cursorWidth,
+    keel::f32 cursorWidth,
     const UiTheme& theme,
     keel::usize selStart,
     keel::usize selEnd,
-    float scrollX,
+    keel::f32 scrollX,
     bool showClearBtn,
     bool clearHovered,
     bool showRevealBtn,
@@ -676,7 +676,7 @@ void InputField::Render(
         ? ((hovered && !disabled) ? pal.surface : pal.inputBackground)
         : Color::Transparent();
     Color boxBorder;
-    float strokeW = (opts.border.width > 0.0f) ? opts.border.width : m.strokeWidth;
+    keel::f32 strokeW = (opts.border.width > 0.0f) ? opts.border.width : m.strokeWidth;
 
     if (focused && !disabled) {
         boxBorder = opts.color.HasAny()
@@ -712,36 +712,36 @@ void InputField::Render(
         boxBorder = theme.ResolveColor(opts.border.color, hovered, focused, disabled, boxBorder);
     }
 
-    const float radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
+    const keel::f32 radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
     canvas.DrawRoundRect(boxRect, radius, boxBg, boxBorder, strokeW);
 
-    const float inputFont = theme.ResolveFontSize(opts.valueFormat, TextRole::LabelMedium, size);
+    const keel::f32 inputFont = theme.ResolveFontSize(opts.valueFormat, TextRole::LabelMedium, size);
 
-    float leftX = boxRect.x + m.paddingX;
+    keel::f32 leftX = boxRect.x + m.paddingX;
     if (opts.prefix.HasContentOrReserve()) {
-        const float pFont = theme.ResolveFontSize(opts.prefix.text, TextRole::LabelMedium, size);
+        const keel::f32 pFont = theme.ResolveFontSize(opts.prefix.text, TextRole::LabelMedium, size);
         const Color pTextCol = theme.ResolveTextColor(opts.prefix.text, UiVariant::Secondary, disabled, hovered, focused);
         const Color pIconCol = opts.prefix.text.color.HasAny() ? pTextCol : unitCol;
-        const float pW = TextUtil::MeasureAffixWidth(opts.prefix, pFont, m.iconSize, 4.0f, &canvas);
+        const keel::f32 pW = TextUtil::MeasureAffixWidth(opts.prefix, pFont, m.iconSize, 4.0f, &canvas);
         TextUtil::DrawAffix(canvas, opts.prefix, Rect(leftX, boxRect.y, pW, boxRect.h), pFont, m.iconSize, pTextCol, pIconCol, 4.0f);
-        const float pGap = (opts.prefix.HasIcon() && !opts.prefix.HasText()) ? 6.0f : 4.0f;
+        const keel::f32 pGap = (opts.prefix.HasIcon() && !opts.prefix.HasText()) ? 6.0f : 4.0f;
         leftX += pW + pGap;
     }
 
-    float rightX = boxRect.x + boxRect.w - m.paddingX;
+    keel::f32 rightX = boxRect.x + boxRect.w - m.paddingX;
 
     if (opts.suffix.HasContentOrReserve()) {
-        const float sFont = theme.ResolveFontSize(opts.suffix.text, TextRole::LabelMedium, size);
+        const keel::f32 sFont = theme.ResolveFontSize(opts.suffix.text, TextRole::LabelMedium, size);
         const Color sTextCol = theme.ResolveTextColor(opts.suffix.text, UiVariant::Secondary, disabled, hovered, focused);
         const Color sIconCol = opts.suffix.text.color.HasAny() ? sTextCol : unitCol;
-        const float sW = TextUtil::MeasureAffixWidth(opts.suffix, sFont, m.iconSize, 4.0f, &canvas);
+        const keel::f32 sW = TextUtil::MeasureAffixWidth(opts.suffix, sFont, m.iconSize, 4.0f, &canvas);
         rightX -= sW;
         TextUtil::DrawAffix(canvas, opts.suffix, Rect(rightX, boxRect.y, sW, boxRect.h), sFont, m.iconSize, sTextCol, sIconCol, 4.0f);
         rightX -= 6.0f;
     }
 
     if (showRevealBtn) {
-        const float btnSize = m.iconSize + 4.0f;
+        const keel::f32 btnSize = m.iconSize + 4.0f;
         rightX -= btnSize;
         const Rect btnRect(rightX, boxRect.y + (boxRect.h - btnSize) * 0.5f, btnSize, btnSize);
         if (revealHovered && !disabled) {
@@ -755,13 +755,13 @@ void InputField::Render(
     }
 
     if (showClearBtn) {
-        const float btnSize = m.iconSize + 4.0f;
+        const keel::f32 btnSize = m.iconSize + 4.0f;
         rightX -= btnSize;
         const Rect btnRect(rightX, boxRect.y + (boxRect.h - btnSize) * 0.5f, btnSize, btnSize);
         if (clearHovered && !disabled) {
             canvas.DrawRoundRect(btnRect, 4.0f, pal.surfaceHover, Color::Transparent(), 0.0f);
         }
-        const float clearIconSz = keel::max(8.0f, m.iconSize - 2.0f);
+        const keel::f32 clearIconSz = keel::max(8.0f, m.iconSize - 2.0f);
         const Rect icRect(
             rightX + (btnSize - clearIconSz) * 0.5f,
             boxRect.y + (boxRect.h - clearIconSz) * 0.5f,
@@ -773,7 +773,7 @@ void InputField::Render(
         rightX -= 4.0f;
     }
 
-    const float availW = keel::max(0.0f, rightX - leftX);
+    const keel::f32 availW = keel::max(0.0f, rightX - leftX);
     const Rect textRect(leftX, boxRect.y, availW, boxRect.h);
     canvas.PushClip(textRect);
 
@@ -781,23 +781,23 @@ void InputField::Render(
         const keel::usize s0 = keel::min(keel::min(selStart, selEnd), displayText.size());
         const keel::usize s1 = keel::min(keel::max(selStart, selEnd), displayText.size());
         if (s1 > s0) {
-            const float x0 = textRect.x - scrollX + canvas.MeasureText(displayText.substr(0, s0), inputFont).x;
-            const float x1 = textRect.x - scrollX + canvas.MeasureText(displayText.substr(0, s1), inputFont).x;
-            const float selH = inputFont * 1.25f;
-            const float selY = boxRect.y + (boxRect.h - selH) * 0.5f;
+            const keel::f32 x0 = textRect.x - scrollX + canvas.MeasureText(displayText.substr(0, s0), inputFont).x;
+            const keel::f32 x1 = textRect.x - scrollX + canvas.MeasureText(displayText.substr(0, s1), inputFont).x;
+            const keel::f32 selH = inputFont * 1.25f;
+            const keel::f32 selY = boxRect.y + (boxRect.h - selH) * 0.5f;
             const Rect selRect(x0, selY, keel::max(1.0f, x1 - x0), selH);
             canvas.DrawRoundRect(selRect, 2.0f, pal.accent.WithAlpha(88), Color::Transparent(), 0.0f);
         }
     }
 
     if (displayText.empty() && !opts.placeholder.empty() && !focused) {
-        const float phFont = !opts.placeholder.size.IsAuto()
+        const keel::f32 phFont = !opts.placeholder.size.IsAuto()
             ? theme.ResolveFontSize(opts.placeholder, TextRole::LabelMedium, size)
             : inputFont;
         canvas.DrawTextBox(opts.placeholder.text, textRect, phFont, placeholderCol, 0.0f, 0.5f);
     } else if (!displayText.empty()) {
         if (focused || scrollX > 0.0f) {
-            const float fullW = keel::max(textRect.w, canvas.MeasureText(displayText, inputFont).x + 8.0f);
+            const keel::f32 fullW = keel::max(textRect.w, canvas.MeasureText(displayText, inputFont).x + 8.0f);
             const Rect scrolledRect(textRect.x - scrollX, textRect.y, fullW, textRect.h);
             canvas.DrawTextBox(displayText, scrolledRect, inputFont, textCol, 0.0f, 0.5f);
         } else {
@@ -808,10 +808,10 @@ void InputField::Render(
     if (focused && !disabled && !opts.readOnly && cursorVisible) {
         const keel::usize safeCursor = keel::min(cursor, displayText.size());
         const keel::StringRef sub = displayText.substr(0, safeCursor);
-        const float subW = canvas.MeasureText(sub, inputFont).x;
-        const float caretX = textRect.x - scrollX + subW;
-        const float caretH = inputFont * 1.15f;
-        const float caretY = boxRect.y + (boxRect.h - caretH) * 0.5f;
+        const keel::f32 subW = canvas.MeasureText(sub, inputFont).x;
+        const keel::f32 caretX = textRect.x - scrollX + subW;
+        const keel::f32 caretH = inputFont * 1.15f;
+        const keel::f32 caretY = boxRect.y + (boxRect.h - caretH) * 0.5f;
         canvas.DrawLine({caretX, caretY}, {caretX, caretY + caretH}, pal.caret, cursorWidth);
     }
     canvas.PopClip();

@@ -11,7 +11,7 @@ void Separator::RenderLine(
     Vec2 p0,
     Vec2 p1,
     Color color,
-    float thickness
+    keel::f32 thickness
 ) noexcept {
     if (color.a == 0 || thickness <= 0.0f) {
         return;
@@ -25,12 +25,12 @@ void Separator::Render(
     Color color,
     const UiTheme& theme,
     Orientation orientation,
-    float insetRatio
+    keel::f32 insetRatio
 ) noexcept {
     const Color stroke = color.a > 0 ? color : theme.palette.borderSubtle;
     if (orientation == Orientation::Vertical) {
-        const float midY = keel::floor(bounds.Center().y) + 0.5f;
-        const float padX = keel::max(2.0f, bounds.w * insetRatio);
+        const keel::f32 midY = keel::floor(bounds.Center().y) + 0.5f;
+        const keel::f32 padX = keel::max(2.0f, bounds.w * insetRatio);
         RenderLine(
             canvas,
             Vec2(bounds.x + padX, midY),
@@ -39,8 +39,8 @@ void Separator::Render(
             1.0f
         );
     } else {
-        const float midX = keel::floor(bounds.Center().x) + 0.5f;
-        const float padY = keel::max(2.0f, bounds.h * insetRatio);
+        const keel::f32 midX = keel::floor(bounds.Center().x) + 0.5f;
+        const keel::f32 padY = keel::max(2.0f, bounds.h * insetRatio);
         RenderLine(
             canvas,
             Vec2(midX, bounds.y + padY),
@@ -53,7 +53,7 @@ void Separator::Render(
 
 void Separator::Run(
     Context& ctx,
-    float extentRatio,
+    keel::f32 extentRatio,
     Color colorOverride,
     keel::SourceLocation loc,
     keel::Optional<Orientation> lineOrientationOverride
@@ -72,7 +72,7 @@ void Separator::Run(
     } else {
         sep->borderColor = ctx.GetTheme().palette.borderSubtle;
     }
-    const float clampedExtent = (extentRatio > 0.0f) ? keel::clamp(extentRatio, 0.05f, 1.0f) : 0.0f;
+    const keel::f32 clampedExtent = (extentRatio > 0.0f) ? keel::clamp(extentRatio, 0.05f, 1.0f) : 0.0f;
     sep->visualHash = detail::HashArgs(sep->borderColor, drawVerticalLine, clampedExtent);
 
     if (drawVerticalLine) {
@@ -80,10 +80,10 @@ void Separator::Run(
         sep->widthMode = SizeMode::Fixed;
         sep->fixedWidth = isStatusBar ? 8.0f : 10.0f;
         if ((parent != nullptr && (parent->fixedHeight > 0.0f || parent->type == NodeType::Toolbar)) || clampedExtent > 0.0f || isStatusBar) {
-            const float minR = isStatusBar ? 0.2f : 0.1f;
-            const float maxR = isStatusBar ? 0.9f : 1.0f;
-            const float ratio = (clampedExtent > 0.0f) ? keel::clamp(clampedExtent, minR, maxR) : 0.55f;
-            const float parentH = (parent != nullptr && parent->fixedHeight > 0.0f)
+            const keel::f32 minR = isStatusBar ? 0.2f : 0.1f;
+            const keel::f32 maxR = isStatusBar ? 0.9f : 1.0f;
+            const keel::f32 ratio = (clampedExtent > 0.0f) ? keel::clamp(clampedExtent, minR, maxR) : 0.55f;
+            const keel::f32 parentH = (parent != nullptr && parent->fixedHeight > 0.0f)
                 ? parent->fixedHeight
                 : (isStatusBar ? 26.0f : 32.0f);
             sep->heightMode = SizeMode::Fixed;
@@ -91,7 +91,7 @@ void Separator::Run(
         } else {
             sep->heightMode = SizeMode::Stretch;
         }
-        sep->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* /*canvas*/, const UiTheme& /*theme*/) noexcept -> Vec2 {
+        sep->measureFn = [](const Node* n, keel::f32 /*availableWidth*/, ICanvas* /*canvas*/, const UiTheme& /*theme*/) noexcept -> Vec2 {
             const bool sb = (n->parent != nullptr && n->parent->type == NodeType::StatusBar);
             return {
                 n->fixedWidth > 0.0f ? n->fixedWidth : (sb ? 8.0f : 10.0f),
@@ -101,9 +101,9 @@ void Separator::Run(
         sep->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
             if (n->parent != nullptr && n->parent->type == NodeType::StatusBar) {
                 const Color stroke = n->borderColor.a > 0 ? n->borderColor : theme.palette.borderSubtle;
-                const float midX = keel::floor(n->computedRect.Center().x) + 0.5f;
-                const float centerY = n->computedRect.Center().y;
-                const float halfH = keel::max(4.0f, keel::round(n->computedRect.h * 0.42f));
+                const keel::f32 midX = keel::floor(n->computedRect.Center().x) + 0.5f;
+                const keel::f32 centerY = n->computedRect.Center().y;
+                const keel::f32 halfH = keel::max(4.0f, keel::round(n->computedRect.h * 0.42f));
                 Separator::RenderLine(
                     canvas,
                     Vec2(midX, keel::floor(centerY - halfH) + 0.5f),
@@ -122,7 +122,7 @@ void Separator::Run(
         }
         sep->heightMode = SizeMode::Fixed;
         sep->fixedHeight = 8.0f;
-        sep->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* /*canvas*/, const UiTheme& /*theme*/) noexcept -> Vec2 {
+        sep->measureFn = [](const Node* n, keel::f32 /*availableWidth*/, ICanvas* /*canvas*/, const UiTheme& /*theme*/) noexcept -> Vec2 {
             const bool inToolbar = (n->parent != nullptr && n->parent->type == NodeType::Toolbar);
             return {
                 inToolbar ? 20.0f : 0.0f,
@@ -130,9 +130,9 @@ void Separator::Run(
             };
         };
         sep->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
-            const float y = keel::floor(n->computedRect.Center().y) + 0.5f;
+            const keel::f32 y = keel::floor(n->computedRect.Center().y) + 0.5f;
             const Color stroke = n->borderColor.a > 0 ? n->borderColor : theme.palette.borderSubtle;
-            float padX = 2.0f;
+            keel::f32 padX = 2.0f;
             if (n->fixedWidth > 0.0f && n->fixedWidth < 1.0f) {
                 padX = keel::max(0.0f, n->computedRect.w * (1.0f - n->fixedWidth) * 0.5f);
             } else if (n->parent && n->parent->type == NodeType::Toolbar) {

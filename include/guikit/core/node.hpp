@@ -28,7 +28,7 @@ struct UiTheme;
 
 /// Function signature for measuring intrinsic content dimensions of a leaf widget or container.
 /// Takes available width (0.0f if unconstrained) for width-dependent height resolution (e.g. wrapped text).
-using MeasureFunc = Vec2 (*)(const Node* node, float availableWidth, ICanvas* canvas, const UiTheme& theme);
+using MeasureFunc = Vec2 (*)(const Node* node, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme);
 
 /// Function signature for custom arrangement of a container node and its children.
 using ArrangeFunc = void (*)(Node* node, const Rect& availableRect, const UiTheme& theme);
@@ -168,17 +168,17 @@ struct Node {
     keel::u16 explicitRadius : 1 {0};
     keel::u16 payloadTypeId : 9 {0};   ///< Runtime type tag for safe Node::As<T>() casting
 
-    float fixedWidth{0.0f};
-    float fixedHeight{0.0f};
-    float flexGrow{1.0f};       ///< Distribution factor for Stretch/Spacer elements
-    float gap{0.0f};            ///< Gap between consecutive children on same line
-    float runGap{0.0f};         ///< Vertical gap between consecutive wrapped lines
-    float minWidth{0.0f};       ///< Minimum width constraint for responsive wrapping
-    float minHeight{0.0f};      ///< Minimum height constraint for 2D elements and Stretch fallback
-    float maxWidth{0.0f};       ///< Optional maximum width constraint (> 0 clamps width)
-    float maxHeight{0.0f};      ///< Optional maximum height constraint (> 0 clamps height)
-    float aspectRatio{0.0f};    ///< Optional width/height ratio (> 0 enables automatic height from width)
-    float minColWidth{0.0f};    ///< Minimum column width constraint for Grid container
+    keel::f32 fixedWidth{0.0f};
+    keel::f32 fixedHeight{0.0f};
+    keel::f32 flexGrow{1.0f};       ///< Distribution factor for Stretch/Spacer elements
+    keel::f32 gap{0.0f};            ///< Gap between consecutive children on same line
+    keel::f32 runGap{0.0f};         ///< Vertical gap between consecutive wrapped lines
+    keel::f32 minWidth{0.0f};       ///< Minimum width constraint for responsive wrapping
+    keel::f32 minHeight{0.0f};      ///< Minimum height constraint for 2D elements and Stretch fallback
+    keel::f32 maxWidth{0.0f};       ///< Optional maximum width constraint (> 0 clamps width)
+    keel::f32 maxHeight{0.0f};      ///< Optional maximum height constraint (> 0 clamps height)
+    keel::f32 aspectRatio{0.0f};    ///< Optional width/height ratio (> 0 enables automatic height from width)
+    keel::f32 minColWidth{0.0f};    ///< Minimum column width constraint for Grid container
     Padding padding{};          ///< Internal padding inside container
 
     // Scroll area configuration and state
@@ -192,8 +192,8 @@ struct Node {
     // Visual & text attributes (rendered by backend)
     Color backgroundColor{0, 0, 0, 0};
     Color borderColor{0, 0, 0, 0};
-    float borderWidth{0.0f};
-    float cornerRadius{0.0f};
+    keel::f32 borderWidth{0.0f};
+    keel::f32 cornerRadius{0.0f};
     keel::StringRef text{};
 
     // Generic arena-allocated widget payload (ButtonOptions, InputFieldData, CarouselData, user data, etc.)
@@ -213,22 +213,22 @@ struct Node {
         return zone->theme;
     }
 
-    [[nodiscard]] constexpr float GetScale() const noexcept {
+    [[nodiscard]] constexpr keel::f32 GetScale() const noexcept {
         return (zone->scale > 0.0f) ? zone->scale : 1.0f;
     }
 
     /// Relative scale jump from `parent` to this node (1.0f when both share the same scale).
-    [[nodiscard]] constexpr float GetRelativeScale() const noexcept {
+    [[nodiscard]] constexpr keel::f32 GetRelativeScale() const noexcept {
         const Zone* parentZone = (parent != nullptr) ? parent->zone : &kDefaultZone;
         if (zone == parentZone || zone->scale == parentZone->scale) {
             return 1.0f;
         }
-        const float self = GetScale();
-        const float parentScale = parentZone->scale;
+        const keel::f32 self = GetScale();
+        const keel::f32 parentScale = parentZone->scale;
         return (parentScale > 0.0f) ? (self / parentScale) : 1.0f;
     }
 
-    [[nodiscard]] constexpr float GetDensity() const noexcept {
+    [[nodiscard]] constexpr keel::f32 GetDensity() const noexcept {
         return (zone->density > 0.0f) ? zone->density : 1.0f;
     }
 
@@ -242,7 +242,7 @@ struct Node {
 
     /// Converts outer sizing fields (fixed / min / max) from this node's local units into its parent's units.
     /// Call once after setting outer sizing fields on a scaled container node.
-    constexpr void SetOuterScale(float s) noexcept {
+    constexpr void SetOuterScale(keel::f32 s) noexcept {
         if (!(s > 0.0f) || s == 1.0f) {
             return;
         }
@@ -283,7 +283,7 @@ struct Node {
 
     /// Returns the fundamental semantic category of this element.
     [[nodiscard]] constexpr NodeCategory GetCategory() const noexcept {
-        const auto val = static_cast<keel::u16>(type);
+        const auto val = keel::as<keel::u16>(type);
         if (type == NodeType::Spacer || isSpacer) {
             return NodeCategory::Spacer;
         }
@@ -368,7 +368,7 @@ struct Node {
             case NodeType::LevelMeter:      return "LevelMeter";
             case NodeType::TagInput:        return "TagInput";
             default:
-                if (static_cast<keel::u16>(type) >= static_cast<keel::u16>(NodeType::User)) {
+                if (keel::as<keel::u16>(type) >= keel::as<keel::u16>(NodeType::User)) {
                     return !text.empty() ? text : keel::StringRef("UserWidget");
                 }
                 return "Unknown";

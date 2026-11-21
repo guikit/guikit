@@ -28,10 +28,10 @@ enum class TableSortDirection : keel::u8 {
 struct TableColumn {
     UiText title{};                         ///< Header caption text
     Icon icon{};                            ///< Optional leading icon in column header
-    float width{0.0f};                      ///< Initial fixed width in points (0.0f = proportional flex column)
-    float flex{1.0f};                       ///< Proportional flex weight when width <= 0.0f
-    float minWidth{52.0f};                  ///< Minimum column width in points (enforced during resize and layout)
-    float maxWidth{0.0f};                   ///< Optional maximum column width in points (0.0f = unlimited)
+    keel::f32 width{0.0f};                      ///< Initial fixed width in points (0.0f = proportional flex column)
+    keel::f32 flex{1.0f};                       ///< Proportional flex weight when width <= 0.0f
+    keel::f32 minWidth{52.0f};                  ///< Minimum column width in points (enforced during resize and layout)
+    keel::f32 maxWidth{0.0f};                   ///< Optional maximum column width in points (0.0f = unlimited)
     Align align{Align::Start};              ///< Horizontal alignment for header and cells in this column
     bool sortable{false};                   ///< Whether clicking the column header cycles sort direction
     bool resizable{true};                   ///< Whether the right border of this column can be dragged to resize
@@ -54,8 +54,8 @@ struct TableOptions {
 
     // --- Virtualization & Row Metrics ---
     keel::usize totalRows{0};                                ///< Total row count (0 = auto-count; >0 enables O(1) virtualized scrolling)
-    keel::Optional<float> rowHeight{keel::kNullOpt};    ///< Row height in points (nullopt = derived from UiSize)
-    keel::Optional<float> headerHeight{keel::kNullOpt}; ///< Sticky header height in points (nullopt = derived from UiSize)
+    keel::Optional<keel::f32> rowHeight{keel::kNullOpt};    ///< Row height in points (nullopt = derived from UiSize)
+    keel::Optional<keel::f32> headerHeight{keel::kNullOpt}; ///< Sticky header height in points (nullopt = derived from UiSize)
 
     // --- Selection & Sorting Bindings ---
     keel::i32* selectedRow{nullptr};                          ///< Optional bound index of selected row (-1 = none)
@@ -239,7 +239,7 @@ public:
 
     [[nodiscard]] static Vec2 Measure(
         const Node* node,
-        float availableWidth,
+        keel::f32 availableWidth,
         ICanvas* canvas,
         const UiTheme& theme
     );

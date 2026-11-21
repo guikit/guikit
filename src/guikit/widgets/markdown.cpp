@@ -322,7 +322,7 @@ keel::Arc<const ParsedMarkdownDoc> GetOrParseMarkdown(keel::StringRef source) {
         while (leadingSpaces < rawLine.size() && rawLine[leadingSpaces] == ' ') {
             ++leadingSpaces;
         }
-        const keel::u8 indentLvl = static_cast<keel::u8>(keel::min<keel::usize>(3, leadingSpaces / 2));
+        const keel::u8 indentLvl = keel::as<keel::u8>(keel::min<keel::usize>(3, leadingSpaces / 2));
 
         if ((trimmed.starts_with("- ") || trimmed.starts_with("* ")) && trimmed.size() > 2) {
             MarkdownBlock blk{};
@@ -355,7 +355,7 @@ keel::Arc<const ParsedMarkdownDoc> GetOrParseMarkdown(keel::StringRef source) {
             blk.isOrderedList = true;
             keel::u16 num = 0;
             for (keel::usize d = 0; d < digitEnd; ++d) {
-                num = static_cast<keel::u16>(num * 10 + (trimmed[d] - '0'));
+                num = keel::as<keel::u16>(num * 10 + (trimmed[d] - '0'));
             }
             blk.listNumber = keel::max<keel::u16>(1, num);
             blk.spans = ParseInlineSpans(TrimView(trimmed.substr(digitEnd + 2)));
@@ -392,9 +392,9 @@ constexpr Rect OffsetRect(Rect r, Vec2 delta) noexcept {
     return Rect(r.x + delta.x, r.y + delta.y, r.w, r.h);
 }
 
-float HeadingFontSize(keel::u8 level, const MarkdownOptions& opts, const UiTheme& theme, float zoom) noexcept {
+keel::f32 HeadingFontSize(keel::u8 level, const MarkdownOptions& opts, const UiTheme& theme, keel::f32 zoom) noexcept {
     const HeadingLevel hl = static_cast<HeadingLevel>(keel::clamp<keel::u8>(level, 1, 6) - 1);
-    const float base = theme.GetHeading(hl).titleFontSize;
+    const keel::f32 base = theme.GetHeading(hl).titleFontSize;
     return base * keel::clamp(opts.headingScale, 0.5f, 2.5f) * zoom;
 }
 
@@ -424,7 +424,7 @@ Icon AlertIcon(AlertKind kind) noexcept {
 
 struct CopyBtnHitRegion {
     Rect boxLocalRect{};
-    float headerH{0.0f};
+    keel::f32 headerH{0.0f};
     keel::i32 codeBlockIndex{-1};
     keel::StringRef rawCode{};
 };
@@ -438,7 +438,7 @@ struct TaskHitRegion {
 struct CodeRenderSpan {
     keel::StringRef text{};
     Color color{};
-    float localOffsetX{0.0f};
+    keel::f32 localOffsetX{0.0f};
 };
 
 struct CodeVisualLineLayout {
@@ -446,8 +446,8 @@ struct CodeVisualLineLayout {
     bool isFirstSlice{true};
     bool isLastSlice{true};
     keel::StringRef sliceStr{};
-    float localY{0.0f};
-    float textLocalY{0.0f};
+    keel::f32 localY{0.0f};
+    keel::f32 textLocalY{0.0f};
     keel::usize tokenIndex{keel::kInvalidIndex};
     keel::Array<CodeRenderSpan> renderSpans{};
 };
@@ -460,28 +460,28 @@ struct BlockLayout {
     InlineFlowLayout flow{};
     Vec2 flowLocalOrigin{};
     bool hasHeadingDivider{false};
-    float dividerLocalY{0.0f};
+    keel::f32 dividerLocalY{0.0f};
 
-    float boxRadius{0.0f};
-    float padX{0.0f};
-    float padY{0.0f};
-    float headerH{0.0f};
+    keel::f32 boxRadius{0.0f};
+    keel::f32 padX{0.0f};
+    keel::f32 padY{0.0f};
+    keel::f32 headerH{0.0f};
     Rect markerLocalRect{};
 
     keel::Array<CodeVisualLineLayout> codeVisualLines{};
-    float gutterW{0.0f};
-    float codeStartX{0.0f};
-    float spaceW{0.0f};
-    float codeFs{13.0f};
-    float codeLineH{18.0f};
-    float bodyH{0.0f};
+    keel::f32 gutterW{0.0f};
+    keel::f32 codeStartX{0.0f};
+    keel::f32 spaceW{0.0f};
+    keel::f32 codeFs{13.0f};
+    keel::f32 codeLineH{18.0f};
+    keel::f32 bodyH{0.0f};
 
     Rect imgLocalRect{};
-    float imgRadius{0.0f};
+    keel::f32 imgRadius{0.0f};
 
-    keel::Array<float> colWidths{};
-    keel::Array<float> colX{};
-    keel::Array<float> rowHeights{};
+    keel::Array<keel::f32> colWidths{};
+    keel::Array<keel::f32> colX{};
+    keel::Array<keel::f32> rowHeights{};
     keel::Array<keel::Array<InlineFlowLayout>> cellFlows{};
     keel::Array<keel::Array<Vec2>> cellFlowOrigins{};
 };
@@ -489,11 +489,11 @@ struct BlockLayout {
 struct MarkdownDocumentLayout {
     keel::Arc<const ParsedMarkdownDoc> doc{}; // Keeps backing AST & rawText slices alive while layout lives
     keel::u64 layoutKey{0};
-    float outerWidth{0.0f};
-    float totalWidth{0.0f};
-    float totalHeight{0.0f};
-    float effZoom{1.0f};
-    float scale{1.0f};
+    keel::f32 outerWidth{0.0f};
+    keel::f32 totalWidth{0.0f};
+    keel::f32 totalHeight{0.0f};
+    keel::f32 effZoom{1.0f};
+    keel::f32 scale{1.0f};
     Rect contentLocalBounds{};
     DocumentTextMap textMap{};
     keel::Array<BlockLayout> blocks{};
@@ -503,8 +503,8 @@ struct MarkdownDocumentLayout {
 };
 
 struct MarkdownPassResult {
-    float totalWidth{0.0f};
-    float totalHeight{0.0f};
+    keel::f32 totalWidth{0.0f};
+    keel::f32 totalHeight{0.0f};
     keel::StringRef hoveredLink{};
     Rect hoveredLinkRect{};
     keel::i32 hoveredCopyBlock{-1};
@@ -515,8 +515,8 @@ struct MarkdownPassResult {
 
 keel::u64 ComputeMarkdownLayoutKey(
     keel::u64 docSourceHash,
-    float outerWidth,
-    float effZoom,
+    keel::f32 outerWidth,
+    keel::f32 effZoom,
     const MarkdownOptions& opts,
     const UiTheme& theme,
     bool hasCanvasMetrics
@@ -531,7 +531,7 @@ keel::u64 ComputeMarkdownLayoutKey(
         theme.mode,
         theme.palette.textPrimary.ToUint32(),
         theme.palette.accent.ToUint32(),
-        static_cast<keel::u8>(opts.align),
+        keel::as<keel::u8>(opts.align),
         opts.bodyFontSize.value_or(-1.0f),
         opts.headingScale,
         opts.inlineCodeFontSize.value_or(-1.0f),
@@ -556,11 +556,11 @@ keel::u64 ComputeMarkdownLayoutKey(
 
 keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
     ICanvas* canvas,
-    float outerWidth,
+    keel::f32 outerWidth,
     const keel::Arc<const ParsedMarkdownDoc>& docPtr,
     const MarkdownOptions& opts,
     const UiTheme& theme,
-    float zoom,
+    keel::f32 zoom,
     keel::u64 layoutKey
 ) {
     auto layoutPtr = keel::make_arc<MarkdownDocumentLayout>();
@@ -570,17 +570,17 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
     out.outerWidth = outerWidth;
     const ParsedMarkdownDoc& doc = *docPtr;
 
-    const float effZoom = keel::clamp(zoom, 0.5f, 3.0f);
-    const float s = effZoom;
-    const float docPad = keel::max(0.0f, opts.documentPadding) * s;
+    const keel::f32 effZoom = keel::clamp(zoom, 0.5f, 3.0f);
+    const keel::f32 s = effZoom;
+    const keel::f32 docPad = keel::max(0.0f, opts.documentPadding) * s;
 
     out.effZoom = effZoom;
     out.scale = s;
 
-    float availW = keel::max(120.0f, outerWidth - docPad * 2.0f);
-    float startX = docPad;
+    keel::f32 availW = keel::max(120.0f, outerWidth - docPad * 2.0f);
+    keel::f32 startX = docPad;
     if (opts.maxContentWidth.has_value() && *opts.maxContentWidth > 0.0f) {
-        const float maxColW = *opts.maxContentWidth * s;
+        const keel::f32 maxColW = *opts.maxContentWidth * s;
         if (availW > maxColW) {
             startX += (availW - maxColW) * 0.5f;
             availW = maxColW;
@@ -590,20 +590,20 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
     const Rect contentBounds(startX, docPad, availW, 0.0f);
     out.contentLocalBounds = contentBounds;
 
-    const float bodyFs = (opts.bodyFontSize.has_value() ? *opts.bodyFontSize : theme.GetFontSize(TextRole::BodyMedium)) * effZoom;
-    const float codeFs = (opts.codeFontSize.has_value() ? *opts.codeFontSize : theme.GetFontSize(TextRole::CodeMedium)) * effZoom;
-    const float inlineCodeFs = opts.inlineCodeFontSize.has_value()
+    const keel::f32 bodyFs = (opts.bodyFontSize.has_value() ? *opts.bodyFontSize : theme.GetFontSize(TextRole::BodyMedium)) * effZoom;
+    const keel::f32 codeFs = (opts.codeFontSize.has_value() ? *opts.codeFontSize : theme.GetFontSize(TextRole::CodeMedium)) * effZoom;
+    const keel::f32 inlineCodeFs = opts.inlineCodeFontSize.has_value()
         ? (*opts.inlineCodeFontSize * effZoom)
         : (bodyFs * 0.92f);
-    const float lhScale = keel::clamp(opts.lineHeightScale, 0.8f, 2.5f);
-    const float codeLineH = (canvas ? canvas->GetLineHeight(codeFs) : theme.GetLineHeight(codeFs)) * lhScale;
-    const float gap = opts.blockGap * s;
-    const float blkPad = keel::max(4.0f, opts.blockPadding) * s;
-    const float blkRad = keel::max(0.0f, opts.blockRadius) * s;
-    const float paraIndent = keel::max(0.0f, opts.paragraphIndent) * s;
-    const float listStep = keel::max(8.0f, opts.listIndent) * s;
+    const keel::f32 lhScale = keel::clamp(opts.lineHeightScale, 0.8f, 2.5f);
+    const keel::f32 codeLineH = (canvas ? canvas->GetLineHeight(codeFs) : theme.GetLineHeight(codeFs)) * lhScale;
+    const keel::f32 gap = opts.blockGap * s;
+    const keel::f32 blkPad = keel::max(4.0f, opts.blockPadding) * s;
+    const keel::f32 blkRad = keel::max(0.0f, opts.blockRadius) * s;
+    const keel::f32 paraIndent = keel::max(0.0f, opts.paragraphIndent) * s;
+    const keel::f32 listStep = keel::max(8.0f, opts.listIndent) * s;
 
-    float curY = contentBounds.y;
+    keel::f32 curY = contentBounds.y;
     bool firstBlock = true;
     out.blocks.reserve(doc.blocks.size());
 
@@ -620,7 +620,7 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
 
         switch (blk.kind) {
             case BlockKind::Divider: {
-                const float h = 8.0f * s;
+                const keel::f32 h = 8.0f * s;
                 bl.localBounds = Rect(contentBounds.x, curY, availW, h);
                 curY += h;
                 out.totalWidth = keel::max(out.totalWidth, availW);
@@ -628,11 +628,11 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
             }
 
             case BlockKind::Heading: {
-                const float hFs = HeadingFontSize(blk.headingLevel, opts, theme, effZoom);
-                const float headingInlineCodeFs = opts.inlineCodeFontSize.has_value()
+                const keel::f32 hFs = HeadingFontSize(blk.headingLevel, opts, theme, effZoom);
+                const keel::f32 headingInlineCodeFs = opts.inlineCodeFontSize.has_value()
                     ? (inlineCodeFs * (hFs / keel::max(1.0f, bodyFs)) * 0.85f)
                     : (hFs * 0.75f);
-                const float startY = curY;
+                const keel::f32 startY = curY;
                 bl.flowLocalOrigin = {contentBounds.x, curY};
                 bl.flow = BuildInlineFlowLayout(
                     canvas,
@@ -660,7 +660,7 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
             }
 
             case BlockKind::Paragraph: {
-                const float startY = curY;
+                const keel::f32 startY = curY;
                 bl.flowLocalOrigin = {contentBounds.x, curY};
                 bl.flow = BuildInlineFlowLayout(
                     canvas,
@@ -683,9 +683,9 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
             }
 
             case BlockKind::Blockquote: {
-                const float padX = blkPad + 2.0f * s;
-                const float padY = blkPad * 0.7f;
-                const float innerW = keel::max(40.0f, availW - padX * 2.0f);
+                const keel::f32 padX = blkPad + 2.0f * s;
+                const keel::f32 padY = blkPad * 0.7f;
+                const keel::f32 innerW = keel::max(40.0f, availW - padX * 2.0f);
                 bl.flowLocalOrigin = {contentBounds.x + padX, curY + padY};
                 bl.flow = BuildInlineFlowLayout(
                     canvas,
@@ -700,7 +700,7 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                     FontStyle::Italic
                 );
                 CommitInlineFlowToDocument(bl.flow, bl.flowLocalOrigin, out.textMap, out.linkRegions);
-                const float boxH = bl.flow.height + padY * 2.0f;
+                const keel::f32 boxH = bl.flow.height + padY * 2.0f;
                 bl.localBounds = Rect(contentBounds.x, curY, availW, boxH);
                 bl.boxRadius = blkRad;
                 curY += boxH;
@@ -709,10 +709,10 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
             }
 
             case BlockKind::Alert: {
-                const float padX = blkPad + 4.0f * s;
-                const float padY = blkPad * 0.85f;
-                const float headerH = 20.0f * s;
-                const float innerW = keel::max(40.0f, availW - padX * 2.0f);
+                const keel::f32 padX = blkPad + 4.0f * s;
+                const keel::f32 padY = blkPad * 0.85f;
+                const keel::f32 headerH = 20.0f * s;
+                const keel::f32 innerW = keel::max(40.0f, availW - padX * 2.0f);
                 bl.padX = padX;
                 bl.padY = padY;
                 bl.headerH = headerH;
@@ -731,7 +731,7 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                     FontStyle::Regular
                 );
                 CommitInlineFlowToDocument(bl.flow, bl.flowLocalOrigin, out.textMap, out.linkRegions);
-                const float boxH = padY * 2.0f + headerH + 4.0f * s + bl.flow.height;
+                const keel::f32 boxH = padY * 2.0f + headerH + 4.0f * s + bl.flow.height;
                 bl.localBounds = Rect(contentBounds.x, curY, availW, boxH);
                 curY += boxH;
                 out.totalWidth = keel::max(out.totalWidth, availW);
@@ -739,14 +739,14 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
             }
 
             case BlockKind::ListItem: {
-                const float indent = static_cast<float>(blk.indentLevel) * listStep + (listStep + 4.0f * s);
-                const float itemX = contentBounds.x + indent;
-                const float itemW = keel::max(40.0f, availW - indent);
-                const float lineH = (canvas ? canvas->GetLineHeight(bodyFs) : theme.GetLineHeight(bodyFs)) * lhScale;
-                const float markerX = itemX - 18.0f * s;
+                const keel::f32 indent = keel::as<keel::f32>(blk.indentLevel) * listStep + (listStep + 4.0f * s);
+                const keel::f32 itemX = contentBounds.x + indent;
+                const keel::f32 itemW = keel::max(40.0f, availW - indent);
+                const keel::f32 lineH = (canvas ? canvas->GetLineHeight(bodyFs) : theme.GetLineHeight(bodyFs)) * lhScale;
+                const keel::f32 markerX = itemX - 18.0f * s;
 
                 if (blk.taskState >= 0) {
-                    const float cbSz = 14.0f * s;
+                    const keel::f32 cbSz = 14.0f * s;
                     bl.markerLocalRect = Rect(markerX, curY + (lineH - cbSz) * 0.5f, cbSz, cbSz);
                     out.taskRegions.push_back(TaskHitRegion{
                         .localHitRect = bl.markerLocalRect.Inset(-3.0f * s),
@@ -756,7 +756,7 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                 } else if (blk.isOrderedList) {
                     bl.markerLocalRect = Rect(markerX - 2.0f * s, curY + (lineH - bodyFs) * 0.5f, 16.0f * s, bodyFs);
                 } else {
-                    const float dotSz = 5.0f * s;
+                    const keel::f32 dotSz = 5.0f * s;
                     bl.markerLocalRect = Rect(markerX + 4.0f * s, curY + (lineH - dotSz) * 0.5f, dotSz, dotSz);
                 }
 
@@ -795,14 +795,14 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                 }
                 if (codeLines.empty()) codeLines.push_back("");
 
-                const float headerH = 28.0f * s;
-                const float padY = blkPad * 0.85f;
-                const float padX = blkPad;
-                const float gutterW = opts.codeLineNumbers ? (36.0f * s) : 0.0f;
-                const float codeStartX = contentBounds.x + gutterW + padX;
-                const float codeAvailW = keel::max(48.0f * s, availW - gutterW - padX * 2.0f);
-                const float spaceW = keel::max(1.0f, MeasureStyledSlice(canvas, " ", codeFs, FontStyle::Monospace));
-                const float codeGlyphH = canvas ? canvas->MeasureTextStyled("Mg", codeFs, FontStyle::Monospace).y : codeFs;
+                const keel::f32 headerH = 28.0f * s;
+                const keel::f32 padY = blkPad * 0.85f;
+                const keel::f32 padX = blkPad;
+                const keel::f32 gutterW = opts.codeLineNumbers ? (36.0f * s) : 0.0f;
+                const keel::f32 codeStartX = contentBounds.x + gutterW + padX;
+                const keel::f32 codeAvailW = keel::max(48.0f * s, availW - gutterW - padX * 2.0f);
+                const keel::f32 spaceW = keel::max(1.0f, MeasureStyledSlice(canvas, " ", codeFs, FontStyle::Monospace));
+                const keel::f32 codeGlyphH = canvas ? canvas->MeasureTextStyled("Mg", codeFs, FontStyle::Monospace).y : codeFs;
 
                 SyntaxConfig synCfg = SyntaxConfig::ForLanguage(blk.codeLang);
                 if (opts.codePalette.has_value()) {
@@ -834,10 +834,10 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
 
                     auto emitSlice = [&](keel::usize startCol, keel::usize len, bool isFirst, bool isLast) {
                         const keel::usize vIdx = bl.codeVisualLines.size();
-                        const float ly = curY + headerH + padY + static_cast<float>(vIdx) * codeLineH;
-                        const float textY = ly + (codeLineH - ((codeGlyphH > 0.0f) ? codeGlyphH : codeFs)) * 0.5f;
+                        const keel::f32 ly = curY + headerH + padY + keel::as<keel::f32>(vIdx) * codeLineH;
+                        const keel::f32 textY = ly + (codeLineH - ((codeGlyphH > 0.0f) ? codeGlyphH : codeFs)) * 0.5f;
                         const keel::StringRef sliceStr = lineStr.substr(startCol, len);
-                        const float lineW = keel::max(spaceW, MeasureStyledSlice(canvas, sliceStr, codeFs, FontStyle::Monospace));
+                        const keel::f32 lineW = keel::max(spaceW, MeasureStyledSlice(canvas, sliceStr, codeFs, FontStyle::Monospace));
                         const Rect lineRect(codeStartX, ly, lineW, codeLineH);
 
                         const keel::usize tokIdx = out.textMap.tokens.size();
@@ -868,10 +868,10 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                                 });
                             } else {
                                 const keel::usize sliceEnd = startCol + len;
-                                float spanOffX = 0.0f;
+                                keel::f32 spanOffX = 0.0f;
                                 for (const TextSpan& sp : syntaxSpans) {
-                                    const keel::usize spStart = static_cast<keel::usize>(sp.startCol);
-                                    const keel::usize spEnd = spStart + static_cast<keel::usize>(sp.length);
+                                    const keel::usize spStart = keel::as<keel::usize>(sp.startCol);
+                                    const keel::usize spEnd = spStart + keel::as<keel::usize>(sp.length);
                                     const keel::usize segStart = keel::max(spStart, startCol);
                                     const keel::usize segEnd = keel::min(spEnd, keel::min(sliceEnd, lineStr.size()));
                                     if (segEnd > segStart) {
@@ -903,7 +903,7 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                         emitSlice(0, 0, true, true);
                         continue;
                     }
-                    const float fullW = MeasureStyledSlice(canvas, lineStr, codeFs, FontStyle::Monospace);
+                    const keel::f32 fullW = MeasureStyledSlice(canvas, lineStr, codeFs, FontStyle::Monospace);
                     if (fullW <= codeAvailW + 0.5f) {
                         emitSlice(0, lineStr.size(), true, true);
                         continue;
@@ -911,14 +911,14 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
 
                     keel::usize pos = 0;
                     while (pos < lineStr.size()) {
-                        const keel::usize approxChars = keel::max<keel::usize>(1, static_cast<keel::usize>(keel::floor(codeAvailW / spaceW)));
+                        const keel::usize approxChars = keel::max<keel::usize>(1, keel::as<keel::usize>(keel::floor(codeAvailW / spaceW)));
                         keel::usize fitEnd = keel::min(lineStr.size(), pos + approxChars);
-                        while (fitEnd < lineStr.size() && (static_cast<keel::u8>(lineStr[fitEnd]) & 0xC0) == 0x80) {
+                        while (fitEnd < lineStr.size() && (keel::as<keel::u8>(lineStr[fitEnd]) & 0xC0) == 0x80) {
                             ++fitEnd;
                         }
                         while (fitEnd < lineStr.size()) {
                             keel::usize nextCp = fitEnd + 1;
-                            while (nextCp < lineStr.size() && (static_cast<keel::u8>(lineStr[nextCp]) & 0xC0) == 0x80) {
+                            while (nextCp < lineStr.size() && (keel::as<keel::u8>(lineStr[nextCp]) & 0xC0) == 0x80) {
                                 ++nextCp;
                             }
                             if (MeasureStyledSlice(canvas, lineStr.substr(pos, nextCp - pos), codeFs, FontStyle::Monospace) <= codeAvailW + 0.5f) {
@@ -929,7 +929,7 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                         }
                         while (fitEnd > pos + 1 && MeasureStyledSlice(canvas, lineStr.substr(pos, fitEnd - pos), codeFs, FontStyle::Monospace) > codeAvailW + 0.5f) {
                             --fitEnd;
-                            while (fitEnd > pos + 1 && (static_cast<keel::u8>(lineStr[fitEnd]) & 0xC0) == 0x80) {
+                            while (fitEnd > pos + 1 && (keel::as<keel::u8>(lineStr[fitEnd]) & 0xC0) == 0x80) {
                                 --fitEnd;
                             }
                         }
@@ -947,7 +947,7 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                         }
                         if (splitEnd <= pos) {
                             splitEnd = keel::min(lineStr.size(), pos + 1);
-                            while (splitEnd < lineStr.size() && (static_cast<keel::u8>(lineStr[splitEnd]) & 0xC0) == 0x80) {
+                            while (splitEnd < lineStr.size() && (keel::as<keel::u8>(lineStr[splitEnd]) & 0xC0) == 0x80) {
                                 ++splitEnd;
                             }
                         }
@@ -957,8 +957,8 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                     }
                 }
 
-                const float bodyH = static_cast<float>(bl.codeVisualLines.size()) * codeLineH + padY * 2.0f;
-                const float totalBoxH = headerH + bodyH;
+                const keel::f32 bodyH = keel::as<keel::f32>(bl.codeVisualLines.size()) * codeLineH + padY * 2.0f;
+                const keel::f32 totalBoxH = headerH + bodyH;
                 bl.localBounds = Rect(contentBounds.x, curY, availW, totalBoxH);
                 bl.headerH = headerH;
                 bl.padX = padX;
@@ -984,24 +984,24 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
             }
 
             case BlockKind::ImageBlock: {
-                const float startY = curY;
+                const keel::f32 startY = curY;
                 Vec2 nat = canvas ? canvas->GetImageSize(blk.rawText) : Vec2{0.0f, 0.0f};
                 if (nat.x <= 0.0f || nat.y <= 0.0f) {
                     nat = {320.0f, 160.0f};
                 }
                 const Vec2 scaledNat = { nat.x * s, nat.y * s };
-                const float maxH = opts.imageMaxHeight * s;
-                const float scaleFactor = keel::min(1.0f, keel::min(availW / scaledNat.x, maxH / scaledNat.y));
-                const float imgW = keel::max(40.0f, scaledNat.x * scaleFactor);
-                const float imgH = keel::max(30.0f, scaledNat.y * scaleFactor);
-                const float imgX = contentBounds.x + (availW - imgW) * 0.5f;
+                const keel::f32 maxH = opts.imageMaxHeight * s;
+                const keel::f32 scaleFactor = keel::min(1.0f, keel::min(availW / scaledNat.x, maxH / scaledNat.y));
+                const keel::f32 imgW = keel::max(40.0f, scaledNat.x * scaleFactor);
+                const keel::f32 imgH = keel::max(30.0f, scaledNat.y * scaleFactor);
+                const keel::f32 imgX = contentBounds.x + (availW - imgW) * 0.5f;
                 bl.imgLocalRect = Rect(imgX, curY, imgW, imgH);
                 bl.imgRadius = opts.imageRadius * s;
                 curY += imgH;
 
                 if (!blk.spans.empty()) {
-                    const float capFs = theme.GetFontSize(TextRole::LabelSmall) * effZoom;
-                    const float capCodeFs = capFs * 0.92f;
+                    const keel::f32 capFs = theme.GetFontSize(TextRole::LabelSmall) * effZoom;
+                    const keel::f32 capCodeFs = capFs * 0.92f;
                     curY += 4.0f * s;
                     bl.flowLocalOrigin = {contentBounds.x, curY};
                     bl.flow = BuildInlineFlowLayout(
@@ -1032,12 +1032,12 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                     numCols = keel::max(numCols, r.size());
                 }
 
-                const float cellPadX = keel::clamp(availW / (static_cast<float>(numCols) * 14.0f), 4.5f * s, 10.0f * s);
-                const float cellPadY = keel::clamp(cellPadX * 0.7f, 4.5f * s, 7.0f * s);
+                const keel::f32 cellPadX = keel::clamp(availW / (keel::as<keel::f32>(numCols) * 14.0f), 4.5f * s, 10.0f * s);
+                const keel::f32 cellPadY = keel::clamp(cellPadX * 0.7f, 4.5f * s, 7.0f * s);
 
                 // 1. Single-pass intrinsic width measurement per cell
-                keel::Array<float> minTextW(numCols, 24.0f * s);
-                keel::Array<float> naturalTextW(numCols, 24.0f * s);
+                keel::Array<keel::f32> minTextW(numCols, 24.0f * s);
+                keel::Array<keel::f32> naturalTextW(numCols, 24.0f * s);
 
                 for (keel::usize r = 0; r < blk.tableRows.size(); ++r) {
                     const FontStyle rowBaseStyle = (r == 0) ? FontStyle::Bold : FontStyle::Regular;
@@ -1056,26 +1056,26 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                     }
                 }
 
-                float sumMinTextW = 0.0f;
+                keel::f32 sumMinTextW = 0.0f;
                 for (keel::usize c = 0; c < numCols; ++c) {
                     minTextW[c] = keel::min(minTextW[c], naturalTextW[c]);
                     sumMinTextW += minTextW[c];
                 }
 
-                const float totalPadW = static_cast<float>(numCols) * cellPadX * 2.0f;
-                const float availTextW = keel::max(32.0f * s, availW - totalPadW);
-                const float tableFontScale = (availTextW < sumMinTextW * 1.03f && sumMinTextW > 0.0f)
+                const keel::f32 totalPadW = keel::as<keel::f32>(numCols) * cellPadX * 2.0f;
+                const keel::f32 availTextW = keel::max(32.0f * s, availW - totalPadW);
+                const keel::f32 tableFontScale = (availTextW < sumMinTextW * 1.03f && sumMinTextW > 0.0f)
                     ? keel::clamp(availTextW / (sumMinTextW * 1.03f), 0.68f, 1.0f)
                     : 1.0f;
-                const float tableBodyFs = bodyFs * tableFontScale;
-                const float tableCodeFs = inlineCodeFs * tableFontScale;
-                const float tableEffZoom = effZoom * tableFontScale;
-                const float minRowH = (canvas ? canvas->GetLineHeight(tableBodyFs) : theme.GetLineHeight(tableBodyFs)) * lhScale + cellPadY * 2.0f;
+                const keel::f32 tableBodyFs = bodyFs * tableFontScale;
+                const keel::f32 tableCodeFs = inlineCodeFs * tableFontScale;
+                const keel::f32 tableEffZoom = effZoom * tableFontScale;
+                const keel::f32 minRowH = (canvas ? canvas->GetLineHeight(tableBodyFs) : theme.GetLineHeight(tableBodyFs)) * lhScale + cellPadY * 2.0f;
 
-                keel::Array<float> minColW(numCols, 0.0f);
-                keel::Array<float> naturalColW(numCols, 0.0f);
-                float sumMinW = 0.0f;
-                float sumNatW = 0.0f;
+                keel::Array<keel::f32> minColW(numCols, 0.0f);
+                keel::Array<keel::f32> naturalColW(numCols, 0.0f);
+                keel::f32 sumMinW = 0.0f;
+                keel::f32 sumNatW = 0.0f;
                 for (keel::usize c = 0; c < numCols; ++c) {
                     minColW[c] = minTextW[c] * tableFontScale + cellPadX * 2.0f;
                     naturalColW[c] = naturalTextW[c] * tableFontScale + cellPadX * 2.0f;
@@ -1083,15 +1083,15 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                     sumNatW += naturalColW[c];
                 }
 
-                bl.colWidths.assign(numCols, availW / static_cast<float>(numCols));
+                bl.colWidths.assign(numCols, availW / keel::as<keel::f32>(numCols));
                 if (availW >= sumNatW && sumNatW > 0.0f) {
-                    const float extraW = availW - sumNatW;
+                    const keel::f32 extraW = availW - sumNatW;
                     for (keel::usize c = 0; c < numCols; ++c) {
                         bl.colWidths[c] = naturalColW[c] + extraW * (naturalColW[c] / sumNatW);
                     }
                 } else if (availW >= sumMinW && sumNatW > sumMinW) {
-                    const float flexAvail = availW - sumMinW;
-                    const float flexTotal = sumNatW - sumMinW;
+                    const keel::f32 flexAvail = availW - sumMinW;
+                    const keel::f32 flexTotal = sumNatW - sumMinW;
                     for (keel::usize c = 0; c < numCols; ++c) {
                         bl.colWidths[c] = minColW[c] + flexAvail * ((naturalColW[c] - minColW[c]) / flexTotal);
                     }
@@ -1103,7 +1103,7 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
 
                 bl.colX.assign(numCols, contentBounds.x);
                 {
-                    float accumX = contentBounds.x;
+                    keel::f32 accumX = contentBounds.x;
                     for (keel::usize c = 0; c < numCols; ++c) {
                         bl.colX[c] = accumX;
                         accumX += bl.colWidths[c];
@@ -1119,15 +1119,15 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                     bl.cellFlowOrigins[r].resize(numCols);
                 }
                 bl.rowHeights.assign(numRows, minRowH);
-                float tableH = 0.0f;
+                keel::f32 tableH = 0.0f;
 
                 for (keel::usize r = 0; r < numRows; ++r) {
                     const FontStyle cellStyle = (r == 0) ? FontStyle::Bold : FontStyle::Regular;
                     const auto& rowCells = blk.tableRows[r];
-                    float maxCellH = 0.0f;
+                    keel::f32 maxCellH = 0.0f;
                     for (keel::usize c = 0; c < numCols && c < rowCells.size(); ++c) {
                         const Align colAlign = (c < blk.tableAligns.size()) ? blk.tableAligns[c] : Align::Start;
-                        const float cellInnerW = keel::max(8.0f, bl.colWidths[c] - cellPadX * 2.0f);
+                        const keel::f32 cellInnerW = keel::max(8.0f, bl.colWidths[c] - cellPadX * 2.0f);
                         bl.cellFlows[r][c] = BuildInlineFlowLayout(
                             canvas,
                             rowCells[c].spans,
@@ -1147,13 +1147,13 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                     tableH += bl.rowHeights[r];
                 }
 
-                float ry = curY;
+                keel::f32 ry = curY;
                 for (keel::usize r = 0; r < numRows; ++r) {
-                    const float rowH = bl.rowHeights[r];
+                    const keel::f32 rowH = bl.rowHeights[r];
                     const auto& rowCells = blk.tableRows[r];
                     for (keel::usize c = 0; c < numCols && c < rowCells.size(); ++c) {
-                        const float cellContentH = bl.cellFlows[r][c].height;
-                        const float cellContentY = ry + keel::max(cellPadY, (rowH - cellContentH) * 0.5f);
+                        const keel::f32 cellContentH = bl.cellFlows[r][c].height;
+                        const keel::f32 cellContentY = ry + keel::max(cellPadY, (rowH - cellContentH) * 0.5f);
                         const Vec2 cellOrigin{bl.colX[c] + cellPadX, cellContentY};
                         bl.cellFlowOrigins[r][c] = cellOrigin;
                         CommitInlineFlowToDocument(bl.cellFlows[r][c], cellOrigin, out.textMap, out.linkRegions);
@@ -1191,14 +1191,14 @@ void ClearMarkdownThreadCaches() noexcept {
 
 keel::Arc<const MarkdownDocumentLayout> GetOrBuildMarkdownLayout(
     ICanvas* canvas,
-    float outerWidth,
+    keel::f32 outerWidth,
     const keel::Arc<const ParsedMarkdownDoc>& doc,
     const MarkdownOptions& opts,
     const UiTheme& theme,
-    float zoom
+    keel::f32 zoom
 ) {
     auto& layoutCache = GetMarkdownLayoutCache();
-    const float effZoom = keel::clamp(zoom, 0.5f, 3.0f);
+    const keel::f32 effZoom = keel::clamp(zoom, 0.5f, 3.0f);
     const keel::u64 key = ComputeMarkdownLayoutKey(doc->sourceHash, outerWidth, effZoom, opts, theme, canvas != nullptr);
 
     if (const auto* cached = layoutCache.find(key)) {
@@ -1230,7 +1230,7 @@ MarkdownPassResult HitTestMarkdownLayout(
 
     const Vec2 docOrigin = outerBounds.Pos();
     const Vec2 localMouse = screenMousePos - docOrigin;
-    const float s = layout.scale;
+    const keel::f32 s = layout.scale;
 
     for (const LinkHitRegion& lr : layout.linkRegions) {
         if (lr.localRect.Contains(localMouse)) {
@@ -1242,8 +1242,8 @@ MarkdownPassResult HitTestMarkdownLayout(
 
     if (showCopyButton) {
         for (const CopyBtnHitRegion& cr : layout.copyRegions) {
-            const float copyBtnW = (activeCopiedBlock == cr.codeBlockIndex) ? (72.0f * s) : (56.0f * s);
-            const float copyBtnH = 20.0f * s;
+            const keel::f32 copyBtnW = (activeCopiedBlock == cr.codeBlockIndex) ? (72.0f * s) : (56.0f * s);
+            const keel::f32 copyBtnH = 20.0f * s;
             const Rect btnLocalRect(
                 cr.boxLocalRect.Right() - copyBtnW - 6.0f * s,
                 cr.boxLocalRect.y + (cr.headerH - copyBtnH) * 0.5f,
@@ -1295,9 +1295,9 @@ void RenderMarkdownDocumentLayout(
 ) {
     const Vec2 docOrigin = outerBounds.Pos();
     const Vec2 localMouse = screenMousePos - docOrigin;
-    const float effZoom = layout.effZoom;
-    const float s = layout.scale;
-    const float bodyFs = (opts.bodyFontSize.has_value() ? *opts.bodyFontSize : theme.GetFontSize(TextRole::BodyMedium)) * effZoom;
+    const keel::f32 effZoom = layout.effZoom;
+    const keel::f32 s = layout.scale;
+    const keel::f32 bodyFs = (opts.bodyFontSize.has_value() ? *opts.bodyFontSize : theme.GetFontSize(TextRole::BodyMedium)) * effZoom;
 
     for (const BlockLayout& bl : layout.blocks) {
         if (bl.astBlockIndex >= doc.blocks.size()) continue;
@@ -1312,7 +1312,7 @@ void RenderMarkdownDocumentLayout(
 
         switch (bl.kind) {
             case BlockKind::Divider: {
-                const float ly = screenBlk.y + screenBlk.h * 0.5f;
+                const keel::f32 ly = screenBlk.y + screenBlk.h * 0.5f;
                 canvas.DrawLine({screenBlk.x, ly}, {screenBlk.Right(), ly}, theme.palette.borderSubtle, 1.0f);
                 break;
             }
@@ -1330,7 +1330,7 @@ void RenderMarkdownDocumentLayout(
                     localMouse
                 );
                 if (bl.hasHeadingDivider) {
-                    const float dy = docOrigin.y + bl.dividerLocalY;
+                    const keel::f32 dy = docOrigin.y + bl.dividerLocalY;
                     canvas.DrawLine({screenBlk.x, dy}, {screenBlk.Right(), dy}, theme.palette.borderSubtle, 1.0f);
                 }
                 break;
@@ -1374,10 +1374,10 @@ void RenderMarkdownDocumentLayout(
                 canvas.DrawRoundRect(Rect(screenBlk.x, screenBlk.y, 4.0f * s, screenBlk.h), 2.0f * s, accent);
 
                 const Icon ic = AlertIcon(blk.alertKind);
-                const float icSz = 15.0f * s;
+                const keel::f32 icSz = 15.0f * s;
                 ic.Render(canvas, Rect(screenBlk.x + bl.padX, screenBlk.y + bl.padY + (bl.headerH - icSz) * 0.5f, icSz, icSz), accent);
 
-                const float titleFs = theme.GetFontSize(TextRole::LabelLarge) * effZoom;
+                const keel::f32 titleFs = theme.GetFontSize(TextRole::LabelLarge) * effZoom;
                 canvas.DrawTextStyled(
                     blk.alertTitle,
                     {screenBlk.x + bl.padX + icSz + 8.0f * s, screenBlk.y + bl.padY + (bl.headerH - titleFs) * 0.5f},
@@ -1476,7 +1476,7 @@ void RenderMarkdownDocumentLayout(
                     1.0f
                 );
 
-                const float lblFs = theme.GetFontSize(TextRole::LabelSmall) * effZoom;
+                const keel::f32 lblFs = theme.GetFontSize(TextRole::LabelSmall) * effZoom;
                 const keel::StringRef langLabel = blk.codeLang.empty() ? keel::StringRef("code") : blk.codeLang.as_ref();
                 canvas.DrawTextStyled(
                     langLabel,
@@ -1489,8 +1489,8 @@ void RenderMarkdownDocumentLayout(
                 if (opts.showCopyButton) {
                     const bool isHov = (hoveredCopyBlock == blk.codeBlockIndex);
                     const bool isCopied = (activeCopiedBlock == blk.codeBlockIndex);
-                    const float copyBtnW = isCopied ? (72.0f * s) : (56.0f * s);
-                    const float copyBtnH = 20.0f * s;
+                    const keel::f32 copyBtnW = isCopied ? (72.0f * s) : (56.0f * s);
+                    const keel::f32 copyBtnH = 20.0f * s;
                     const Rect copyBtnRect(
                         screenBlk.Right() - copyBtnW - 6.0f * s,
                         screenBlk.y + (bl.headerH - copyBtnH) * 0.5f,
@@ -1528,12 +1528,12 @@ void RenderMarkdownDocumentLayout(
                     );
                 }
 
-                const float screenCodeStartX = docOrigin.x + bl.codeStartX;
-                const float lineNumFs = theme.GetFontSize(TextRole::CodeSmall) * effZoom;
+                const keel::f32 screenCodeStartX = docOrigin.x + bl.codeStartX;
+                const keel::f32 lineNumFs = theme.GetFontSize(TextRole::CodeSmall) * effZoom;
 
                 for (const CodeVisualLineLayout& vline : bl.codeVisualLines) {
-                    const float screenLy = docOrigin.y + vline.localY;
-                    const float screenTextY = docOrigin.y + vline.textLocalY;
+                    const keel::f32 screenLy = docOrigin.y + vline.localY;
+                    const keel::f32 screenTextY = docOrigin.y + vline.textLocalY;
 
                     if (opts.codeLineNumbers && vline.isFirstSlice) {
                         char lnBuf[16];
@@ -1559,21 +1559,21 @@ void RenderMarkdownDocumentLayout(
                         keel::usize leadSpaces = 0;
                         while (leadSpaces < vline.sliceStr.size() && vline.sliceStr[leadSpaces] == ' ') ++leadSpaces;
                         for (keel::usize col = 4; col <= leadSpaces; col += 4) {
-                            const float gx = keel::round(screenCodeStartX + static_cast<float>(col) * bl.spaceW);
+                            const keel::f32 gx = keel::round(screenCodeStartX + keel::as<keel::f32>(col) * bl.spaceW);
                             canvas.DrawLine({gx, screenLy}, {gx, screenLy + bl.codeLineH}, theme.palette.borderSubtle.WithAlpha(90), 1.0f);
                         }
                     }
 
                     if (opts.codeShowWhitespace && !vline.sliceStr.empty() && bl.spaceW > 0.0f) {
-                        const float dotR = keel::max(1.2f, 1.4f * s);
-                        const float cy = screenLy + bl.codeLineH * 0.5f;
+                        const keel::f32 dotR = keel::max(1.2f, 1.4f * s);
+                        const keel::f32 cy = screenLy + bl.codeLineH * 0.5f;
                         for (keel::usize c = 0; c < vline.sliceStr.size(); ++c) {
                             if (vline.sliceStr[c] == ' ') {
-                                const float cx = screenCodeStartX + (static_cast<float>(c) + 0.5f) * bl.spaceW;
+                                const keel::f32 cx = screenCodeStartX + (keel::as<keel::f32>(c) + 0.5f) * bl.spaceW;
                                 canvas.DrawRoundRect(Rect(cx - dotR, cy - dotR, dotR * 2.0f, dotR * 2.0f), dotR, wsColor);
                             } else if (vline.sliceStr[c] == '\t') {
-                                const float x0 = screenCodeStartX + static_cast<float>(c) * bl.spaceW + 2.0f * s;
-                                const float x1 = screenCodeStartX + static_cast<float>(c + 1) * bl.spaceW - 2.0f * s;
+                                const keel::f32 x0 = screenCodeStartX + keel::as<keel::f32>(c) * bl.spaceW + 2.0f * s;
+                                const keel::f32 x1 = screenCodeStartX + keel::as<keel::f32>(c + 1) * bl.spaceW - 2.0f * s;
                                 if (x1 > x0) {
                                     canvas.DrawLine({x0, cy}, {x1, cy}, wsColor, 1.2f);
                                     canvas.DrawLine({x1 - 3.0f * s, cy - 2.5f * s}, {x1, cy}, wsColor, 1.2f);
@@ -1642,10 +1642,10 @@ void RenderMarkdownDocumentLayout(
 
                 const keel::usize numRows = bl.rowHeights.size();
                 const keel::usize numCols = bl.colWidths.size();
-                float ry = screenBlk.y;
+                keel::f32 ry = screenBlk.y;
 
                 for (keel::usize r = 0; r < numRows; ++r) {
-                    const float rowH = bl.rowHeights[r];
+                    const keel::f32 rowH = bl.rowHeights[r];
                     const Rect rowRect(screenBlk.x, ry, screenBlk.w, rowH);
                     if (r == 0) {
                         canvas.DrawRoundRect(rowRect, bl.boxRadius, theme.palette.surfaceElevated);
@@ -1657,8 +1657,8 @@ void RenderMarkdownDocumentLayout(
                     }
 
                     for (keel::usize c = 0; c < numCols; ++c) {
-                        const float cx = docOrigin.x + bl.colX[c];
-                        const float cw = bl.colWidths[c];
+                        const keel::f32 cx = docOrigin.x + bl.colX[c];
+                        const keel::f32 cw = bl.colWidths[c];
                         if (c > 0) {
                             canvas.DrawLine({cx, ry}, {cx, ry + rowH}, theme.palette.borderSubtle, 1.0f);
                         }
@@ -1689,14 +1689,14 @@ void RenderMarkdownDocumentLayout(
 struct MarkdownState {
     keel::u64 docSourceHash{0};
     keel::i32 copiedBlockIndex{-1};
-    float zoom{1.0f};
+    keel::f32 zoom{1.0f};
     keel::Arc<const MarkdownDocumentLayout> cachedLayout{};
 
     // Selection & Cursor state
     keel::usize cursorOffset{0};
     keel::usize selAnchorOffset{0};
     bool isDraggingSelection{false};
-    float preferredCursorX{-1.0f};
+    keel::f32 preferredCursorX{-1.0f};
     keel::String cachedSelectedText{};
 
     // Interactive Task List overrides
@@ -1770,7 +1770,7 @@ MarkdownOptions CloneMarkdownOptionsWithoutCallbacks(const MarkdownOptions& src)
 struct MarkdownPayload {
     keel::StringRef text{};
     MarkdownOptions opts{};
-    float zoom{1.0f};
+    keel::f32 zoom{1.0f};
     keel::i32 hoveredCopyBlock{-1};
     keel::i32 activeCopiedBlock{-1};
     keel::i32 hoveredTaskIndex{-1};
@@ -1834,8 +1834,8 @@ MarkdownResponse Markdown::Run(
     if (optsCopy.allowZoom && !effectiveDisabled) {
         bool zoomChanged = false;
         if (baseRes.hovered && ctx.GetKeyModifiers().ctrl && keel::abs(ctx.GetMouseWheel().y) > 0.01f) {
-            const float step = (ctx.GetMouseWheel().y > 0.0f) ? 0.1f : -0.1f;
-            const float nextZoom = keel::clamp(keel::round((state.zoom + step) * 10.0f) / 10.0f, 0.5f, 3.0f);
+            const keel::f32 step = (ctx.GetMouseWheel().y > 0.0f) ? 0.1f : -0.1f;
+            const keel::f32 nextZoom = keel::clamp(keel::round((state.zoom + step) * 10.0f) / 10.0f, 0.5f, 3.0f);
             if (keel::abs(nextZoom - state.zoom) > 0.001f) {
                 state.zoom = nextZoom;
                 zoomChanged = true;
@@ -1992,7 +1992,7 @@ MarkdownResponse Markdown::Run(
                 if (!typedChunks.empty()) {
                     for (const keel::String& chunk : typedChunks) {
                         for (char ch : chunk) {
-                            if (static_cast<keel::u8>(ch) >= 32) {
+                            if (keel::as<keel::u8>(ch) >= 32) {
                                 state.searchQuery.push_back(ch);
                             }
                         }
@@ -2019,12 +2019,12 @@ MarkdownResponse Markdown::Run(
                     state.preferredCursorX = GetCursorXForOffset(textMap, hitCanvas, state.cursorOffset);
                 }
                 const keel::i32 targetLine = keel::clamp(
-                    static_cast<keel::i32>(curLine) + lineDelta,
+                    keel::as<keel::i32>(curLine) + lineDelta,
                     0,
-                    static_cast<keel::i32>(textMap.lines.size()) - 1
+                    keel::as<keel::i32>(textMap.lines.size()) - 1
                 );
-                const PositionedLine& ln = textMap.lines[static_cast<keel::usize>(targetLine)];
-                const float targetY = (ln.top + ln.bottom) * 0.5f;
+                const PositionedLine& ln = textMap.lines[keel::as<keel::usize>(targetLine)];
+                const keel::f32 targetY = (ln.top + ln.bottom) * 0.5f;
                 state.cursorOffset = HitTestDocumentCharOffset(textMap, hitCanvas, {state.preferredCursorX, targetY});
                 if (!extendSelection) {
                     state.selAnchorOffset = state.cursorOffset;
@@ -2121,12 +2121,12 @@ MarkdownResponse Markdown::Run(
         ? optsCopy.searchQuery
         : state.searchQuery.as_ref();
     const auto matches = FindSearchMatches(textMap.plainText, effectiveQuery);
-    res.searchMatchCount = static_cast<keel::i32>(matches.size());
+    res.searchMatchCount = keel::as<keel::i32>(matches.size());
     if (!matches.empty()) {
         if (state.activeSearchMatch < 0) {
-            state.activeSearchMatch = static_cast<keel::i32>(matches.size()) - 1;
+            state.activeSearchMatch = keel::as<keel::i32>(matches.size()) - 1;
         } else {
-            state.activeSearchMatch = state.activeSearchMatch % static_cast<keel::i32>(matches.size());
+            state.activeSearchMatch = state.activeSearchMatch % keel::as<keel::i32>(matches.size());
         }
         res.activeSearchMatch = state.activeSearchMatch;
     } else {
@@ -2164,7 +2164,7 @@ MarkdownResponse Markdown::Run(
     node->visualHash = detail::HashArgs(
         doc->sourceHash,
         state.zoom,
-        static_cast<keel::u8>(optsCopy.align),
+        keel::as<keel::u8>(optsCopy.align),
         optsCopy.width,
         optsCopy.height,
         optsCopy.background,
@@ -2208,14 +2208,14 @@ MarkdownResponse Markdown::Run(
         effectiveDisabled
     );
 
-    node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& th) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& th) noexcept -> Vec2 {
         const auto* p = n->As<MarkdownPayload>();
         if (!p) return {0.0f, 0.0f};
         if (canvas) {
             p->lastCanvas = canvas;
         }
         if (availableWidth <= 0.0f && p->layout != nullptr) {
-            const float finalH = p->opts.height.IsFixed()
+            const keel::f32 finalH = p->opts.height.IsFixed()
                 ? p->opts.height.Dp()
                 : p->layout->totalHeight;
             return {keel::max(p->layout->outerWidth, p->layout->totalWidth), finalH};
@@ -2224,7 +2224,7 @@ MarkdownResponse Markdown::Run(
         if (n->widthMode == SizeMode::Stretch && !mOpts.width.IsFixed()) {
             mOpts.width = SizeMode::Stretch;
         }
-        float z = p->zoom;
+        keel::f32 z = p->zoom;
         mOpts.zoom = &z;
         return Markdown::Measure(p->text, mOpts, n->uiSize, canvas ? canvas : p->lastCanvas, th, availableWidth);
     };
@@ -2238,8 +2238,8 @@ MarkdownResponse Markdown::Run(
                 ? th.ResolveColor(p->opts.background, interactiveBg && n->hovered, interactiveBg && n->pressed, n->disabled, th.palette.surface)
                 : Color::Transparent();
             const Color bCol = th.ResolveColor(p->opts.border.color, n->hovered, n->pressed, n->disabled, th.palette.border);
-            const float bW = (p->opts.border.width > 0.0f) ? p->opts.border.width : (p->opts.border.color.HasAny() ? 1.0f : 0.0f);
-            const float bR = p->opts.border.radius.has_value() ? *p->opts.border.radius : 0.0f;
+            const keel::f32 bW = (p->opts.border.width > 0.0f) ? p->opts.border.width : (p->opts.border.color.HasAny() ? 1.0f : 0.0f);
+            const keel::f32 bR = p->opts.border.radius.has_value() ? *p->opts.border.radius : 0.0f;
             canvas.DrawRoundRect(n->computedRect, bR, bgCol, bCol, bW);
         }
 
@@ -2292,11 +2292,11 @@ MarkdownResponse Markdown::Run(
 
         // Render floating in-document Search bar if open (pinned to visible viewport top-right)
         if (p->searchBarOpen) {
-            constexpr float s = 1.0f;
-            const float barW = 240.0f * s;
-            const float barH = 30.0f * s;
-            const float anchorTop = (visibleRect.h > 0.0f) ? visibleRect.y : ctrlRect.y;
-            const float anchorRight = (visibleRect.w > 0.0f) ? visibleRect.Right() : ctrlRect.Right();
+            constexpr keel::f32 s = 1.0f;
+            const keel::f32 barW = 240.0f * s;
+            const keel::f32 barH = 30.0f * s;
+            const keel::f32 anchorTop = (visibleRect.h > 0.0f) ? visibleRect.y : ctrlRect.y;
+            const keel::f32 anchorRight = (visibleRect.w > 0.0f) ? visibleRect.Right() : ctrlRect.Right();
             const Rect barRect(
                 anchorRight - barW - 10.0f * s,
                 anchorTop + 8.0f * s,
@@ -2304,7 +2304,7 @@ MarkdownResponse Markdown::Run(
                 barH
             );
             canvas.DrawRoundRect(barRect, 6.0f * s, th.palette.surfaceElevated, th.palette.accent, 1.2f);
-            const float fs = th.GetFontSize(TextRole::BodySmall);
+            const keel::f32 fs = th.GetFontSize(TextRole::BodySmall);
             const keel::StringRef disp = p->activeSearchQuery.empty()
                 ? keel::StringRef("Find in document...")
                 : p->activeSearchQuery;
@@ -2360,13 +2360,13 @@ Vec2 Markdown::Measure(
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme,
-    float availableWidth
+    keel::f32 availableWidth
 ) {
     (void)size;
     const auto doc = GetOrParseMarkdown(markdownText);
-    const float effZoom = (opts.zoom != nullptr) ? keel::clamp(*opts.zoom, 0.5f, 3.0f) : 1.0f;
+    const keel::f32 effZoom = (opts.zoom != nullptr) ? keel::clamp(*opts.zoom, 0.5f, 3.0f) : 1.0f;
 
-    float ctrlW = (availableWidth > 0.0f) ? availableWidth : 520.0f;
+    keel::f32 ctrlW = (availableWidth > 0.0f) ? availableWidth : 520.0f;
     if (opts.width.IsFixed()) {
         ctrlW = opts.width.Dp();
     } else if (opts.width.ResolveMode(SizeMode::Stretch) == SizeMode::Stretch && availableWidth > 0.0f) {
@@ -2375,7 +2375,7 @@ Vec2 Markdown::Measure(
 
     const auto layout = GetOrBuildMarkdownLayout(canvas, ctrlW, doc, opts, theme, effZoom);
 
-    const float finalH = opts.height.IsFixed()
+    const keel::f32 finalH = opts.height.IsFixed()
         ? opts.height.Dp()
         : layout->totalHeight;
     return { keel::max(ctrlW, layout->totalWidth), finalH };
@@ -2401,13 +2401,13 @@ void Markdown::Render(
             ? theme.ResolveColor(opts.background, false, false, disabled, theme.palette.surface)
             : Color::Transparent();
         const Color bCol = theme.ResolveColor(opts.border.color, false, false, disabled, theme.palette.border);
-        const float bW = (opts.border.width > 0.0f) ? opts.border.width : (opts.border.color.HasAny() ? 1.0f : 0.0f);
-        const float bR = opts.border.radius.has_value() ? *opts.border.radius : 0.0f;
+        const keel::f32 bW = (opts.border.width > 0.0f) ? opts.border.width : (opts.border.color.HasAny() ? 1.0f : 0.0f);
+        const keel::f32 bR = opts.border.radius.has_value() ? *opts.border.radius : 0.0f;
         canvas.DrawRoundRect(bounds, bR, bgCol, bCol, bW);
     }
 
     const auto doc = GetOrParseMarkdown(markdownText);
-    const float effZoom = (opts.zoom != nullptr) ? keel::clamp(*opts.zoom, 0.5f, 3.0f) : 1.0f;
+    const keel::f32 effZoom = (opts.zoom != nullptr) ? keel::clamp(*opts.zoom, 0.5f, 3.0f) : 1.0f;
 
     const auto layout = GetOrBuildMarkdownLayout(&canvas, bounds.w, doc, opts, theme, effZoom);
     const MarkdownPassResult hit = HitTestMarkdownLayout(

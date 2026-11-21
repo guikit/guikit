@@ -24,8 +24,8 @@ enum class StatusBarStyle : keel::u8 {
 /// Options for configuring a StatusBar container.
 struct StatusBarOptions {
     StatusBarStyle style{StatusBarStyle::Surface};
-    keel::Optional<float> height{keel::kNullOpt};          ///< Explicit height in pixels (nullopt = auto compact height from theme, ~26px in Md)
-    keel::Optional<float> gap{keel::kNullOpt};             ///< Horizontal gap between status items (nullopt = auto compact gap)
+    keel::Optional<keel::f32> height{keel::kNullOpt};          ///< Explicit height in pixels (nullopt = auto compact height from theme, ~26px in Md)
+    keel::Optional<keel::f32> gap{keel::kNullOpt};             ///< Horizontal gap between status items (nullopt = auto compact gap)
     keel::Optional<Padding> padding{keel::kNullOpt};       ///< Internal bar padding (nullopt = auto compact padding)
     StateColor background{};
     Border border{.width = 1.0f};
@@ -41,7 +41,7 @@ struct StatusItemOptions {
     StateColor color{};                                 ///< Optional text/icon color override (Default = Secondary)
     UiText badge{};                                     ///< Optional trailing pill badge text
     UiText tooltip{};                                   ///< Optional hover tooltip
-    keel::Optional<float> minWidth{keel::kNullOpt};        ///< Optional minimum segment width in unscaled points
+    keel::Optional<keel::f32> minWidth{keel::kNullOpt};        ///< Optional minimum segment width in unscaled points
     bool active{false};                                 ///< Highlight state for toggleable status actions
     bool disabled{false};
 };
@@ -72,7 +72,7 @@ public:
 
     /// Renders a vertical divider line between status segments.
     void Separator(
-        float heightRatio = 0.55f,
+        keel::f32 heightRatio = 0.55f,
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
@@ -80,7 +80,7 @@ public:
     void Spacer(keel::SourceLocation loc = keel::SourceLocation::current());
 
     /// Inserts a fixed horizontal gap in logical dp.
-    void Gap(float sizeDp = 8.0f, keel::SourceLocation loc = keel::SourceLocation::current());
+    void Gap(keel::f32 sizeDp = 8.0f, keel::SourceLocation loc = keel::SourceLocation::current());
 
     [[nodiscard]] const Response* operator->() const noexcept { return &response; }
 

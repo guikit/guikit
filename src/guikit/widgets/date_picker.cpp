@@ -121,8 +121,8 @@ ControlSpec EffectiveDatePickerControl(const DatePickerOptions& opts, UiSize siz
 }
 
 constexpr keel::StringRef MonthName(keel::i32 month, keel::ArrayRef<keel::StringRef> customMonths = {}) noexcept {
-    if (customMonths.size() >= 12 && month >= 1 && month <= 12 && !customMonths[static_cast<keel::usize>(month - 1)].empty()) {
-        return customMonths[static_cast<keel::usize>(month - 1)];
+    if (customMonths.size() >= 12 && month >= 1 && month <= 12 && !customMonths[keel::as<keel::usize>(month - 1)].empty()) {
+        return customMonths[keel::as<keel::usize>(month - 1)];
     }
     switch (month) {
         case 1:  return "January";
@@ -200,21 +200,21 @@ keel::StaticArray<DayCellEntry, 42> BuildCalendarGrid(keel::i32 viewYear, keel::
 
     for (keel::i32 i = 0; i < 42; ++i) {
         if (i < leading) {
-            cells[static_cast<keel::usize>(i)] = DayCellEntry{
+            cells[keel::as<keel::usize>(i)] = DayCellEntry{
                 .year = prevYear,
                 .month = prevMonth,
                 .day = daysInPrev - leading + 1 + i,
                 .isCurrentMonth = false
             };
         } else if (i < leading + daysInCurr) {
-            cells[static_cast<keel::usize>(i)] = DayCellEntry{
+            cells[keel::as<keel::usize>(i)] = DayCellEntry{
                 .year = viewYear,
                 .month = clampedMonth,
                 .day = i - leading + 1,
                 .isCurrentMonth = true
             };
         } else {
-            cells[static_cast<keel::usize>(i)] = DayCellEntry{
+            cells[keel::as<keel::usize>(i)] = DayCellEntry{
                 .year = nextYear,
                 .month = nextMonth,
                 .day = i - (leading + daysInCurr) + 1,
@@ -227,27 +227,27 @@ keel::StaticArray<DayCellEntry, 42> BuildCalendarGrid(keel::i32 viewYear, keel::
 
 void DrawCalendarIcon(ICanvas& canvas, Rect r, Color col) {
     if (r.w <= 0.0f || r.h <= 0.0f) return;
-    const float bodyY = r.y + r.h * 0.14f;
-    const float bodyH = r.h * 0.82f;
+    const keel::f32 bodyY = r.y + r.h * 0.14f;
+    const keel::f32 bodyH = r.h * 0.82f;
     const Rect bodyRect(r.x + r.w * 0.08f, bodyY, r.w * 0.84f, bodyH);
     canvas.DrawRoundRect(bodyRect, 2.5f, Color::Transparent(), col, 1.4f);
 
     // Top rings
-    const float ringTop = r.y + r.h * 0.04f;
-    const float ringBot = bodyY + r.h * 0.10f;
+    const keel::f32 ringTop = r.y + r.h * 0.04f;
+    const keel::f32 ringBot = bodyY + r.h * 0.10f;
     canvas.DrawLine({r.x + r.w * 0.30f, ringTop}, {r.x + r.w * 0.30f, ringBot}, col, 1.4f);
     canvas.DrawLine({r.x + r.w * 0.70f, ringTop}, {r.x + r.w * 0.70f, ringBot}, col, 1.4f);
 
     // Header divider line
-    const float sepY = bodyY + bodyH * 0.32f;
+    const keel::f32 sepY = bodyY + bodyH * 0.32f;
     canvas.DrawLine({bodyRect.x + 1.0f, sepY}, {bodyRect.Right() - 1.0f, sepY}, col, 1.2f);
 
     // Grid dots
-    const float dotSz = keel::max(1.6f, r.w * 0.11f);
-    const float row1Y = sepY + (bodyRect.Bottom() - sepY) * 0.30f - dotSz * 0.5f;
-    const float row2Y = sepY + (bodyRect.Bottom() - sepY) * 0.68f - dotSz * 0.5f;
+    const keel::f32 dotSz = keel::max(1.6f, r.w * 0.11f);
+    const keel::f32 row1Y = sepY + (bodyRect.Bottom() - sepY) * 0.30f - dotSz * 0.5f;
+    const keel::f32 row2Y = sepY + (bodyRect.Bottom() - sepY) * 0.68f - dotSz * 0.5f;
     for (keel::i32 colIdx = 0; colIdx < 3; ++colIdx) {
-        const float cx = bodyRect.x + bodyRect.w * (0.25f + static_cast<float>(colIdx) * 0.25f) - dotSz * 0.5f;
+        const keel::f32 cx = bodyRect.x + bodyRect.w * (0.25f + keel::as<keel::f32>(colIdx) * 0.25f) - dotSz * 0.5f;
         canvas.DrawRoundRect(Rect(cx, row1Y, dotSz, dotSz), 0.8f, col);
         canvas.DrawRoundRect(Rect(cx, row2Y, dotSz, dotSz), 0.8f, col);
     }
@@ -255,7 +255,7 @@ void DrawCalendarIcon(ICanvas& canvas, Rect r, Color col) {
 
 void DrawClockIcon(ICanvas& canvas, Rect r, Color col) {
     if (r.w <= 0.0f || r.h <= 0.0f) return;
-    const float sz = keel::min(r.w, r.h) * 0.86f;
+    const keel::f32 sz = keel::min(r.w, r.h) * 0.86f;
     const Rect circleRect(r.x + (r.w - sz) * 0.5f, r.y + (r.h - sz) * 0.5f, sz, sz);
     canvas.DrawRoundRect(circleRect, sz * 0.5f, Color::Transparent(), col, 1.4f);
 
@@ -279,8 +279,8 @@ struct DatePickerPopoverLayout {
     // Weekday & 6x7 day grid
     Rect weekdayRowRect{};
     Rect gridRect{};
-    float cellW{0.0f};
-    float cellH{0.0f};
+    keel::f32 cellW{0.0f};
+    keel::f32 cellH{0.0f};
 
     // Time selector bar
     Rect timeBarRect{};
@@ -307,26 +307,26 @@ DatePickerPopoverLayout ComputePopoverLayout(
     l.hasCalendar = (opts.mode != DatePickerMode::Time);
     l.hasTime = (opts.mode == DatePickerMode::DateTime || opts.mode == DatePickerMode::Time);
 
-    float pad = 10.0f;
-    float headerH = l.hasCalendar ? 30.0f : 0.0f;
-    float weekdayH = l.hasCalendar ? 22.0f : 0.0f;
-    float cellH = l.hasCalendar ? 28.0f : 0.0f;
-    float timeH = l.hasTime ? 42.0f : 0.0f;
-    float footerH = 36.0f;
-    float headerGap = 4.0f;
-    float sectionGap = 6.0f;
+    keel::f32 pad = 10.0f;
+    keel::f32 headerH = l.hasCalendar ? 30.0f : 0.0f;
+    keel::f32 weekdayH = l.hasCalendar ? 22.0f : 0.0f;
+    keel::f32 cellH = l.hasCalendar ? 28.0f : 0.0f;
+    keel::f32 timeH = l.hasTime ? 42.0f : 0.0f;
+    keel::f32 footerH = 36.0f;
+    keel::f32 headerGap = 4.0f;
+    keel::f32 sectionGap = 6.0f;
 
-    const float smallFont = theme.ResolveFontSize(UiText{}, TextRole::LabelSmall, opts.size);
+    const keel::f32 smallFont = theme.ResolveFontSize(UiText{}, TextRole::LabelSmall, opts.size);
     const keel::StringRef todayLabel = ResolveTodayLabel(opts);
     const keel::StringRef doneLabel = ResolveDoneLabel(opts);
-    constexpr float kFooterBtnPadX = 12.0f;
-    float todayW = opts.showTodayButton
+    constexpr keel::f32 kFooterBtnPadX = 12.0f;
+    keel::f32 todayW = opts.showTodayButton
         ? keel::max(64.0f, keel::ceil(TextUtil::MeasureWidth(todayLabel, smallFont, canvas)) + kFooterBtnPadX * 2.0f)
         : 0.0f;
-    float doneW = keel::max(62.0f, keel::ceil(TextUtil::MeasureWidth(doneLabel, smallFont, canvas)) + kFooterBtnPadX * 2.0f);
-    const float footerMinInnerW = opts.showTodayButton ? (todayW + 8.0f + doneW) : doneW;
+    keel::f32 doneW = keel::max(62.0f, keel::ceil(TextUtil::MeasureWidth(doneLabel, smallFont, canvas)) + kFooterBtnPadX * 2.0f);
+    const keel::f32 footerMinInnerW = opts.showTodayButton ? (todayW + 8.0f + doneW) : doneW;
 
-    float popupW = l.hasCalendar
+    keel::f32 popupW = l.hasCalendar
         ? 264.0f
         : (opts.showSeconds ? 258.0f : 196.0f);
     popupW = keel::max(popupW, footerMinInnerW + pad * 2.0f);
@@ -334,8 +334,8 @@ DatePickerPopoverLayout ComputePopoverLayout(
         popupW = keel::max(140.0f, vpRect.w - 8.0f);
     }
 
-    float gridH = l.hasCalendar ? (cellH * 6.0f) : 0.0f;
-    float totalH = pad * 2.0f + footerH;
+    keel::f32 gridH = l.hasCalendar ? (cellH * 6.0f) : 0.0f;
+    keel::f32 totalH = pad * 2.0f + footerH;
     if (l.hasCalendar) {
         totalH += headerH + headerGap + weekdayH + gridH + sectionGap;
     }
@@ -344,7 +344,7 @@ DatePickerPopoverLayout ComputePopoverLayout(
     }
 
     if (vpRect.h > 60.0f && totalH > vpRect.h - 12.0f) {
-        const float fitScale = keel::clamp((vpRect.h - 12.0f) / totalH, 0.56f, 1.0f);
+        const keel::f32 fitScale = keel::clamp((vpRect.h - 12.0f) / totalH, 0.56f, 1.0f);
         pad = keel::floor(pad * fitScale);
         headerH = keel::floor(headerH * fitScale);
         weekdayH = keel::floor(weekdayH * fitScale);
@@ -364,12 +364,12 @@ DatePickerPopoverLayout ComputePopoverLayout(
         }
     }
 
-    float popupX = boxRect.x;
-    float popupY = boxRect.y + boxRect.h + 4.0f;
+    keel::f32 popupX = boxRect.x;
+    keel::f32 popupY = boxRect.y + boxRect.h + 4.0f;
     if (vpRect.w > 0.0f && vpRect.h > 0.0f) {
-        const float margin = 6.0f;
-        const float downY = boxRect.Bottom() + 4.0f;
-        const float upY = boxRect.y - 4.0f - totalH;
+        const keel::f32 margin = 6.0f;
+        const keel::f32 downY = boxRect.Bottom() + 4.0f;
+        const keel::f32 upY = boxRect.y - 4.0f - totalH;
         const bool fitsDown = (downY + totalH <= vpRect.Bottom() - margin);
         const bool fitsUp = (upY >= vpRect.y + margin);
 
@@ -378,8 +378,8 @@ DatePickerPopoverLayout ComputePopoverLayout(
         } else if (fitsUp) {
             popupY = upY;
         } else {
-            const float rightX = boxRect.Right() + 6.0f;
-            const float leftX = boxRect.x - 6.0f - popupW;
+            const keel::f32 rightX = boxRect.Right() + 6.0f;
+            const keel::f32 leftX = boxRect.x - 6.0f - popupW;
             if (rightX + popupW <= vpRect.Right() - margin) {
                 popupX = rightX;
                 popupY = boxRect.y;
@@ -387,8 +387,8 @@ DatePickerPopoverLayout ComputePopoverLayout(
                 popupX = leftX;
                 popupY = boxRect.y;
             } else {
-                const float availDown = vpRect.Bottom() - downY - margin;
-                const float availUp = boxRect.y - 4.0f - (vpRect.y + margin);
+                const keel::f32 availDown = vpRect.Bottom() - downY - margin;
+                const keel::f32 availUp = boxRect.y - 4.0f - (vpRect.y + margin);
                 popupY = (availUp > availDown) ? upY : downY;
             }
         }
@@ -398,18 +398,18 @@ DatePickerPopoverLayout ComputePopoverLayout(
 
     l.popupRect = Rect(popupX, popupY, popupW, totalH);
 
-    float curY = popupY + pad;
-    const float innerX = popupX + pad;
-    const float innerW = popupW - pad * 2.0f;
+    keel::f32 curY = popupY + pad;
+    const keel::f32 innerX = popupX + pad;
+    const keel::f32 innerW = popupW - pad * 2.0f;
 
     if (l.hasCalendar) {
-        const float navBtnSz = keel::min(headerH, 26.0f);
-        const float navY = curY + (headerH - navBtnSz) * 0.5f;
+        const keel::f32 navBtnSz = keel::min(headerH, 26.0f);
+        const keel::f32 navY = curY + (headerH - navBtnSz) * 0.5f;
         l.prevYearRect = Rect(innerX, navY, navBtnSz, navBtnSz);
         l.prevMonthRect = Rect(innerX + navBtnSz + 2.0f, navY, navBtnSz, navBtnSz);
         l.nextYearRect = Rect(innerX + innerW - navBtnSz, navY, navBtnSz, navBtnSz);
         l.nextMonthRect = Rect(innerX + innerW - (navBtnSz * 2.0f + 2.0f), navY, navBtnSz, navBtnSz);
-        const float titleX = l.prevMonthRect.Right() + 4.0f;
+        const keel::f32 titleX = l.prevMonthRect.Right() + 4.0f;
         l.titleRect = Rect(titleX, curY, keel::max(0.0f, l.nextMonthRect.x - 4.0f - titleX), headerH);
         curY += headerH + headerGap;
 
@@ -425,30 +425,30 @@ DatePickerPopoverLayout ComputePopoverLayout(
     if (l.hasTime) {
         l.timeBarRect = Rect(innerX, curY, innerW, timeH);
         l.timeUnitCount = opts.showSeconds ? 3 : 2;
-        const float unitGap = 8.0f;
-        const float unitH = keel::min(keel::max(16.0f, timeH - 2.0f), 28.0f);
-        const float unitY = curY + (timeH - unitH) * 0.5f;
-        const float totalGap = unitGap * static_cast<float>(l.timeUnitCount - 1);
-        const float unitW = (innerW - totalGap) / static_cast<float>(l.timeUnitCount);
-        const float stepBtnW = 22.0f;
+        const keel::f32 unitGap = 8.0f;
+        const keel::f32 unitH = keel::min(keel::max(16.0f, timeH - 2.0f), 28.0f);
+        const keel::f32 unitY = curY + (timeH - unitH) * 0.5f;
+        const keel::f32 totalGap = unitGap * keel::as<keel::f32>(l.timeUnitCount - 1);
+        const keel::f32 unitW = (innerW - totalGap) / keel::as<keel::f32>(l.timeUnitCount);
+        const keel::f32 stepBtnW = 22.0f;
 
         for (keel::i32 u = 0; u < l.timeUnitCount; ++u) {
-            const float ux = innerX + static_cast<float>(u) * (unitW + unitGap);
-            l.timeUnitRects[static_cast<keel::usize>(u)] = Rect(ux, unitY, unitW, unitH);
-            l.timeMinusRects[static_cast<keel::usize>(u)] = Rect(ux, unitY, stepBtnW, unitH);
-            l.timePlusRects[static_cast<keel::usize>(u)] = Rect(ux + unitW - stepBtnW, unitY, stepBtnW, unitH);
-            l.timeValueRects[static_cast<keel::usize>(u)] = Rect(ux + stepBtnW, unitY, keel::max(0.0f, unitW - stepBtnW * 2.0f), unitH);
+            const keel::f32 ux = innerX + keel::as<keel::f32>(u) * (unitW + unitGap);
+            l.timeUnitRects[keel::as<keel::usize>(u)] = Rect(ux, unitY, unitW, unitH);
+            l.timeMinusRects[keel::as<keel::usize>(u)] = Rect(ux, unitY, stepBtnW, unitH);
+            l.timePlusRects[keel::as<keel::usize>(u)] = Rect(ux + unitW - stepBtnW, unitY, stepBtnW, unitH);
+            l.timeValueRects[keel::as<keel::usize>(u)] = Rect(ux + stepBtnW, unitY, keel::max(0.0f, unitW - stepBtnW * 2.0f), unitH);
         }
         curY += timeH + sectionGap;
     }
 
     l.footerRect = Rect(innerX, popupY + totalH - pad - footerH, innerW, footerH);
-    const float btnH = keel::min(keel::max(16.0f, footerH - 2.0f), 26.0f);
-    const float btnY = l.footerRect.y + (footerH - btnH) * 0.5f + 1.0f;
+    const keel::f32 btnH = keel::min(keel::max(16.0f, footerH - 2.0f), 26.0f);
+    const keel::f32 btnY = l.footerRect.y + (footerH - btnH) * 0.5f + 1.0f;
     if (opts.showTodayButton) {
-        const float maxButtonsW = keel::max(0.0f, innerW - 6.0f);
+        const keel::f32 maxButtonsW = keel::max(0.0f, innerW - 6.0f);
         if (todayW + doneW > maxButtonsW && maxButtonsW > 0.0f) {
-            const float ratio = maxButtonsW / (todayW + doneW);
+            const keel::f32 ratio = maxButtonsW / (todayW + doneW);
             todayW = keel::floor(todayW * ratio);
             doneW = keel::max(24.0f, maxButtonsW - todayW);
         }
@@ -488,8 +488,8 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
     canvas.DrawRoundRect(Rect(popupRect.x, popupRect.y + 2.0f, popupRect.w, popupRect.h), m.cornerRadius + 2.0f, Color(0, 0, 0, 56));
     canvas.DrawRoundRect(popupRect, m.cornerRadius + 1.0f, pal.surfaceElevated, pal.border, 1.0f);
 
-    const float bodyFont = d.theme.ResolveFontSize(UiText{}, TextRole::LabelMedium, d.size);
-    const float smallFont = d.theme.ResolveFontSize(UiText{}, TextRole::LabelSmall, d.size);
+    const keel::f32 bodyFont = d.theme.ResolveFontSize(UiText{}, TextRole::LabelMedium, d.size);
+    const keel::f32 smallFont = d.theme.ResolveFontSize(UiText{}, TextRole::LabelSmall, d.size);
 
     if (d.layout.hasCalendar) {
         // Navigation buttons: «, ‹, ›, »
@@ -503,10 +503,10 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
         for (keel::i32 i = 0; i < 4; ++i) {
             const bool hov = (d.hoveredNavBtn == i);
             if (hov) {
-                canvas.DrawRoundRect(navRects[static_cast<keel::usize>(i)], 4.0f, pal.surfaceHover);
+                canvas.DrawRoundRect(navRects[keel::as<keel::usize>(i)], 4.0f, pal.surfaceHover);
             }
             const Color navCol = hov ? pal.textPrimary : pal.textSecondary;
-            canvas.DrawTextBox(navLabels[static_cast<keel::usize>(i)], navRects[static_cast<keel::usize>(i)], bodyFont * 1.15f, navCol, 0.5f, 0.45f);
+            canvas.DrawTextBox(navLabels[keel::as<keel::usize>(i)], navRects[keel::as<keel::usize>(i)], bodyFont * 1.15f, navCol, 0.5f, 0.45f);
         }
 
         // Month & year title ("October 2026")
@@ -519,11 +519,11 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
         static constexpr keel::StaticArray<keel::StringRef, 7> kDefaultWeekdaysSun = {"Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"};
         for (keel::i32 col = 0; col < 7; ++col) {
             const keel::i32 dow = (col + (d.opts.firstDayMonday ? 1 : 0)) % 7;
-            const keel::StringRef wLabel = (d.opts.labels.weekdayNames.size() >= 7 && !d.opts.labels.weekdayNames[static_cast<keel::usize>(dow)].empty())
-                ? d.opts.labels.weekdayNames[static_cast<keel::usize>(dow)]
-                : kDefaultWeekdaysSun[static_cast<keel::usize>(dow)];
+            const keel::StringRef wLabel = (d.opts.labels.weekdayNames.size() >= 7 && !d.opts.labels.weekdayNames[keel::as<keel::usize>(dow)].empty())
+                ? d.opts.labels.weekdayNames[keel::as<keel::usize>(dow)]
+                : kDefaultWeekdaysSun[keel::as<keel::usize>(dow)];
             const Rect wRect(
-                d.layout.weekdayRowRect.x + static_cast<float>(col) * d.layout.cellW,
+                d.layout.weekdayRowRect.x + keel::as<keel::f32>(col) * d.layout.cellW,
                 d.layout.weekdayRowRect.y,
                 d.layout.cellW,
                 d.layout.weekdayRowRect.h
@@ -538,8 +538,8 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
             const keel::i32 row = idx / 7;
             const keel::i32 col = idx % 7;
             const Rect cellRect(
-                d.layout.gridRect.x + static_cast<float>(col) * d.layout.cellW,
-                d.layout.gridRect.y + static_cast<float>(row) * d.layout.cellH,
+                d.layout.gridRect.x + keel::as<keel::f32>(col) * d.layout.cellW,
+                d.layout.gridRect.y + keel::as<keel::f32>(row) * d.layout.cellH,
                 d.layout.cellW,
                 d.layout.cellH
             );
@@ -550,7 +550,7 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
                 keel::max(0.0f, cellRect.h - 3.0f)
             );
 
-            const DayCellEntry& cell = cells[static_cast<keel::usize>(idx)];
+            const DayCellEntry& cell = cells[keel::as<keel::usize>(idx)];
             const bool cellDisabled = IsDayCellDisabled(cell.year, cell.month, cell.day, d.opts);
             const bool isSelected = (cell.year == d.value.year && cell.month == d.value.month && cell.day == d.value.day);
             const bool isToday = (cell.year == todayRef.year && cell.month == todayRef.month && cell.day == todayRef.day);
@@ -586,7 +586,7 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
 
     if (d.layout.hasTime) {
         if (d.layout.hasCalendar) {
-            const float sepY = d.layout.timeBarRect.y - 2.0f;
+            const keel::f32 sepY = d.layout.timeBarRect.y - 2.0f;
             canvas.DrawLine(
                 {d.layout.timeBarRect.x, sepY},
                 {d.layout.timeBarRect.Right(), sepY},
@@ -607,7 +607,7 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
         };
 
         for (keel::i32 u = 0; u < d.layout.timeUnitCount; ++u) {
-            const keel::usize su = static_cast<keel::usize>(u);
+            const keel::usize su = keel::as<keel::usize>(u);
             const Rect& unitRect = d.layout.timeUnitRects[su];
             const Rect& minusRect = d.layout.timeMinusRects[su];
             const Rect& valRect = d.layout.timeValueRects[su];
@@ -632,7 +632,7 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
             canvas.DrawTextBox(valStr, valRect, smallFont, pal.textPrimary, 0.5f, 0.5f);
 
             if (u + 1 < d.layout.timeUnitCount) {
-                const float colonX = unitRect.Right() + (d.layout.timeUnitRects[su + 1].x - unitRect.Right()) * 0.5f;
+                const keel::f32 colonX = unitRect.Right() + (d.layout.timeUnitRects[su + 1].x - unitRect.Right()) * 0.5f;
                 const Rect colonRect(colonX - 4.0f, unitRect.y, 8.0f, unitRect.h);
                 canvas.DrawTextBox(":", colonRect, bodyFont, pal.textSecondary, 0.5f, 0.5f);
             }
@@ -704,18 +704,18 @@ Vec2 DatePicker::Measure(
     const ControlSpec ctrl = EffectiveDatePickerControl(opts, size, theme);
 
     const keel::FixedString<32> formatted = FormatDateTime(value, opts.mode, opts.showSeconds);
-    const float font = theme.ResolveFontSize(UiText{}, TextRole::LabelMedium, size);
-    const float textW = TextUtil::MeasureWidth(formatted, font, canvas);
-    const float minContentW = m.paddingX * 2.0f + m.iconSize * 2.0f + 22.0f + textW;
+    const keel::f32 font = theme.ResolveFontSize(UiText{}, TextRole::LabelMedium, size);
+    const keel::f32 textW = TextUtil::MeasureWidth(formatted, font, canvas);
+    const keel::f32 minContentW = m.paddingX * 2.0f + m.iconSize * 2.0f + 22.0f + textW;
 
-    float boxW = keel::max(m.minWidth, minContentW);
+    keel::f32 boxW = keel::max(m.minWidth, minContentW);
     if (opts.minWidth.has_value()) {
         boxW = keel::max(*opts.minWidth, boxW);
     }
     if (ctrl.width.IsFixed()) {
         boxW = ctrl.width.Dp();
     }
-    const float boxH = ctrl.height.IsFixed() ? ctrl.height.Dp() : m.defaultHeight;
+    const keel::f32 boxH = ctrl.height.IsFixed() ? ctrl.height.Dp() : m.defaultHeight;
     return Control::Measure({boxW, boxH}, ctrl, theme);
 }
 
@@ -852,7 +852,7 @@ Response DatePicker::Run(
                 popLayout.nextYearRect
             };
             for (keel::i32 i = 0; i < 4; ++i) {
-                if (navRects[static_cast<keel::usize>(i)].Contains(mouse)) {
+                if (navRects[keel::as<keel::usize>(i)].Contains(mouse)) {
                     hoveredNavBtn = i;
                     if (mouseClicked) {
                         if (i == 0) state.viewYear -= 1;
@@ -866,11 +866,11 @@ Response DatePicker::Run(
             }
 
             if (popLayout.gridRect.Contains(mouse)) {
-                const keel::i32 col = keel::clamp(static_cast<keel::i32>((mouse.x - popLayout.gridRect.x) / popLayout.cellW), 0, 6);
-                const keel::i32 row = keel::clamp(static_cast<keel::i32>((mouse.y - popLayout.gridRect.y) / popLayout.cellH), 0, 5);
+                const keel::i32 col = keel::clamp(keel::as<keel::i32>((mouse.x - popLayout.gridRect.x) / popLayout.cellW), 0, 6);
+                const keel::i32 row = keel::clamp(keel::as<keel::i32>((mouse.y - popLayout.gridRect.y) / popLayout.cellH), 0, 5);
                 const keel::i32 cellIdx = row * 7 + col;
                 const auto cells = BuildCalendarGrid(state.viewYear, state.viewMonth, optsCopy.firstDayMonday);
-                const DayCellEntry& chosen = cells[static_cast<keel::usize>(cellIdx)];
+                const DayCellEntry& chosen = cells[keel::as<keel::usize>(cellIdx)];
                 const bool cellDisabled = IsDayCellDisabled(chosen.year, chosen.month, chosen.day, optsCopy);
                 if (!cellDisabled) {
                     hoveredDayCell = cellIdx;
@@ -899,7 +899,7 @@ Response DatePicker::Run(
         if (popLayout.hasTime) {
             const Vec2 wheel = ctx.GetMouseWheel();
             for (keel::i32 u = 0; u < popLayout.timeUnitCount; ++u) {
-                const keel::usize su = static_cast<keel::usize>(u);
+                const keel::usize su = keel::as<keel::usize>(u);
                 if (popLayout.timeMinusRects[su].Contains(mouse)) {
                     hoveredTimeBtn = u * 2;
                     if (mouseClicked) {
@@ -1018,7 +1018,7 @@ Response DatePicker::Run(
             value.second,
             state.viewYear,
             state.viewMonth,
-            static_cast<keel::u8>(optsCopy.mode),
+            keel::as<keel::u8>(optsCopy.mode),
             optsCopy.showSeconds,
             optsCopy.showTodayButton,
             optsCopy.firstDayMonday,
@@ -1039,7 +1039,7 @@ Response DatePicker::Run(
         ctx.SetTooltip(opts.tooltip, prevBounds);
     }
 
-    const float btnSize = m.iconSize + 4.0f;
+    const keel::f32 btnSize = m.iconSize + 4.0f;
     const Rect chevronRect(
         boxRect.x + boxRect.w - m.paddingX - m.iconSize - 2.0f,
         boxRect.y + (boxRect.h - btnSize) * 0.5f,
@@ -1064,7 +1064,7 @@ Response DatePicker::Run(
     node->text = data->formattedText.text;
     node->SetPayload(data);
     node->visualHash = detail::HashArgs(
-        static_cast<keel::u8>(optsCopy.mode),
+        keel::as<keel::u8>(optsCopy.mode),
         optsCopy.showSeconds,
         optsCopy.showTodayButton,
         optsCopy.firstDayMonday,
@@ -1081,7 +1081,7 @@ Response DatePicker::Run(
         data->isOpen,
         data->chevronHovered
     );
-    node->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* c, const UiTheme& t) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, keel::f32 /*availableWidth*/, ICanvas* c, const UiTheme& t) noexcept -> Vec2 {
         const auto* d = n->As<DatePickerData>();
         return d
             ? DatePicker::Measure(d->value, d->opts, n->uiSize, c, t)
@@ -1122,7 +1122,7 @@ void DatePicker::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
         ? ((hovered && !disabled) ? pal.surface : pal.inputBackground)
         : Color::Transparent();
     Color boxBorder;
-    float strokeW = (opts.border.width > 0.0f) ? opts.border.width : m.strokeWidth;
+    keel::f32 strokeW = (opts.border.width > 0.0f) ? opts.border.width : m.strokeWidth;
 
     if ((open || focused) && !disabled) {
         boxBorder = opts.color.HasAny() ? accentCol : pal.focusRing;
@@ -1153,11 +1153,11 @@ void DatePicker::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
         boxBorder = theme.ResolveColor(opts.border.color, hovered, open || focused, disabled, boxBorder);
     }
 
-    const float radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
+    const keel::f32 radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
     canvas.DrawRoundRect(bounds, radius, boxBg, boxBorder, strokeW);
 
     // Left vector calendar / clock icon
-    float leftX = bounds.x + m.paddingX;
+    keel::f32 leftX = bounds.x + m.paddingX;
     const Rect iconRect(leftX, bounds.y + (bounds.h - m.iconSize) * 0.5f, m.iconSize, m.iconSize);
     if (opts.mode == DatePickerMode::Time) {
         DrawClockIcon(canvas, iconRect, leadIconCol);
@@ -1167,18 +1167,18 @@ void DatePicker::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
     leftX += m.iconSize + 8.0f;
 
     // Right chevron icon
-    const float rightX = bounds.x + bounds.w - m.paddingX - m.iconSize;
+    const keel::f32 rightX = bounds.x + bounds.w - m.paddingX - m.iconSize;
     const Rect chevronRect(rightX, bounds.y + (bounds.h - m.iconSize) * 0.5f, m.iconSize, m.iconSize);
     const Icon chevron = open ? Icon::ChevronUp() : Icon::ChevronDown();
     chevron.Draw(canvas, chevronRect, chevronCol);
 
     // Formatted date/time text
-    const float availW = keel::max(0.0f, (rightX - 6.0f) - leftX);
+    const keel::f32 availW = keel::max(0.0f, (rightX - 6.0f) - leftX);
     const Rect textRect(leftX, bounds.y, availW, bounds.h);
     canvas.PushClip(textRect);
 
     const UiText displayTxt = d ? d->formattedText : UiText{"2026-10-20"};
-    const float font = theme.ResolveFontSize(displayTxt, TextRole::LabelMedium, size);
+    const keel::f32 font = theme.ResolveFontSize(displayTxt, TextRole::LabelMedium, size);
     const Color textCol = disabled ? pal.textPrimary.WithAlphaF(0.40f) : pal.textPrimary;
     TextUtil::DrawUiText(canvas, displayTxt, textRect, font, bounds.h, textCol, 0.0f, 0.5f, &theme);
 

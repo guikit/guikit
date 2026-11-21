@@ -28,9 +28,9 @@ struct SpinBoxOptions {
     UiAffix suffix{};                                          ///< Trailing unit/symbol/text and/or icon inside field on right (e.g. "MHz", "mm", "%")
     UiText valueFormat{"%.2f"};                                ///< Format string for numeric values and/or candidate width variants
     keel::Optional<CursorBlinkMode> cursorMode{keel::kNullOpt}; ///< Cursor blink override when editing text
-    keel::Optional<double> min{keel::kNullOpt};                ///< Optional minimum numeric value constraint
-    keel::Optional<double> max{keel::kNullOpt};                ///< Optional maximum numeric value constraint
-    keel::Optional<double> step{keel::kNullOpt};               ///< Step increment for +/- buttons, Up/Down keys, and mouse wheel (defaults to 1.0)
+    keel::Optional<keel::f64> min{keel::kNullOpt};                ///< Optional minimum numeric value constraint
+    keel::Optional<keel::f64> max{keel::kNullOpt};                ///< Optional maximum numeric value constraint
+    keel::Optional<keel::f64> step{keel::kNullOpt};               ///< Step increment for +/- buttons, Up/Down keys, and mouse wheel (defaults to 1.0)
     SpinBoxStepStyle stepStyle{SpinBoxStepStyle::Inline};      ///< Layout style for '-' and '+' stepper buttons
     Icon minusIcon{Icon::Minus()};                             ///< Icon rendered inside the decrement ('-') stepper button
     Icon plusIcon{Icon::Plus()};                               ///< Icon rendered inside the increment ('+') stepper button
@@ -42,10 +42,10 @@ struct SpinBoxOptions {
     UiSize size{UiSize::Md};                                   ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)
     AxisSize width{};                                          ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or explicit `dp`)
     AxisSize height{};                                         ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or explicit `dp`)
-    keel::Optional<float> minWidth{keel::kNullOpt};            ///< Optional minimum width in logical dp
-    keel::Optional<float> maxWidth{keel::kNullOpt};            ///< Optional maximum width in logical dp
-    keel::Optional<float> minHeight{keel::kNullOpt};           ///< Optional minimum height in logical dp
-    keel::Optional<float> maxHeight{keel::kNullOpt};           ///< Optional maximum height in logical dp
+    keel::Optional<keel::f32> minWidth{keel::kNullOpt};            ///< Optional minimum width in logical dp
+    keel::Optional<keel::f32> maxWidth{keel::kNullOpt};            ///< Optional maximum width in logical dp
+    keel::Optional<keel::f32> minHeight{keel::kNullOpt};           ///< Optional minimum height in logical dp
+    keel::Optional<keel::f32> maxHeight{keel::kNullOpt};           ///< Optional maximum height in logical dp
     StateColor color{};                                        ///< Per-state semantic accent color override
     StateColor background{};                                   ///< Optional background fill override (`{}` = theme default, `StateColor::None()` = transparent)
     Border border{};                                           ///< Optional border width, color, and radius override
@@ -55,12 +55,12 @@ struct SpinBoxOptions {
 struct SpinBoxData {
     SpinBoxOptions opts{};
     keel::StringRef displayText{};
-    float fillRatio{0.0f};
+    keel::f32 fillRatio{0.0f};
     keel::usize cursor{0};
     keel::usize selStart{0};
     keel::usize selEnd{0};
-    float scrollX{0.0f};
-    float cursorWidth{1.5f};
+    keel::f32 scrollX{0.0f};
+    keel::f32 cursorWidth{1.5f};
     bool cursorVisible{true};
     bool showStepBtns{true};
     bool stepMinusHovered{false};
@@ -77,8 +77,8 @@ public:
     /// Primary immediate mode entry point for SpinBox with editable numeric value pointers.
     static Response Run(
         Context& ctx,
-        float* floatValue,
-        double* doubleValue,
+        keel::f32* floatValue,
+        keel::f64* doubleValue,
         keel::i64* intValue,
         const SpinBoxOptions& opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
@@ -91,14 +91,14 @@ public:
         UiSize size,
         ICanvas* canvas,
         const UiTheme& theme,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     );
     static Vec2 Measure(
         keel::StringRef displayText,
         const SpinBoxOptions& opts,
         UiSize size,
         ICanvas* canvas = nullptr,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     );
 
     /// Renders the spinbox frame, optional fill bar, prefix, suffix/unit, stepper buttons, text, selection, and cursor.
@@ -113,17 +113,17 @@ public:
         keel::usize cursor = 0,
         bool disabled = false,
         bool cursorVisible = true,
-        float cursorWidth = 1.5f,
+        keel::f32 cursorWidth = 1.5f,
         const UiTheme& theme = UiTheme::Dark(),
         keel::usize selStart = 0,
         keel::usize selEnd = 0,
-        float scrollX = 0.0f,
+        keel::f32 scrollX = 0.0f,
         bool showStepBtns = true,
         bool stepMinusHovered = false,
         bool stepPlusHovered = false,
         bool stepMinusDisabled = false,
         bool stepPlusDisabled = false,
-        float fillRatio = 0.0f,
+        keel::f32 fillRatio = 0.0f,
         bool stepMinusPressed = false,
         bool stepPlusPressed = false
     );

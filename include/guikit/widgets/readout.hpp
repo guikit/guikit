@@ -19,12 +19,12 @@ struct Node;
 /// Computes `displayed = baseValue * factor + offset`, or invokes `convert(baseValue, userData)` when non-null.
 struct ReadoutUnit {
     UiText label{};                                            ///< Display symbol (e.g. "V", "mV", "kV", "A", "Hz", "C")
-    double factor{1.0};                                        ///< Linear scale factor from channel base unit
-    double offset{0.0};                                        ///< Affine offset added after scaling (e.g. °C -> °F: factor=1.8, offset=32.0)
-    double (*convert)(double baseValue, void* userData){nullptr}; ///< Optional custom non-linear converter
+    keel::f64 factor{1.0};                                        ///< Linear scale factor from channel base unit
+    keel::f64 offset{0.0};                                        ///< Affine offset added after scaling (e.g. °C -> °F: factor=1.8, offset=32.0)
+    keel::f64 (*convert)(keel::f64 baseValue, void* userData){nullptr}; ///< Optional custom non-linear converter
     void* userData{nullptr};                                   ///< Opaque pointer passed to `convert`
 
-    [[nodiscard]] double Convert(double baseValue) const noexcept {
+    [[nodiscard]] keel::f64 Convert(keel::f64 baseValue) const noexcept {
         return convert != nullptr ? convert(baseValue, userData) : (baseValue * factor + offset);
     }
 };
@@ -33,7 +33,7 @@ struct ReadoutUnit {
 struct ReadoutChannel {
     UiText label{};                                ///< Full name shown in channel dropdown (e.g. "Supply Voltage", "Output Current")
     UiText headerLabel{};                          ///< Optional compact/uppercase card header text (falls back to `label`)
-    double value{0.0};                             ///< Current measurement in the channel's base unit
+    keel::f64 value{0.0};                             ///< Current measurement in the channel's base unit
     UiText formattedValue{};                       ///< Optional pre-formatted display string (e.g. "01:23.4"); disables precision menu
     keel::ArrayRef<ReadoutUnit> units{};           ///< Allowed display units for this channel (empty = unitless)
     keel::i32 defaultUnitIndex{0};                 ///< Unit selected when switching to this channel
@@ -57,10 +57,10 @@ struct ReadoutOptions {
     UiSize size{UiSize::Md};
     AxisSize width{};                              ///< Horizontal sizing (`Auto` -> `Fit` with `minWidth`)
     AxisSize height{};                             ///< Vertical sizing (`Auto` -> `Fit`)
-    keel::Optional<float> minWidth{188.0f};        ///< Stable minimum card width in logical dp
-    keel::Optional<float> maxWidth{keel::kNullOpt};
-    keel::Optional<float> minHeight{keel::kNullOpt};
-    keel::Optional<float> maxHeight{keel::kNullOpt};
+    keel::Optional<keel::f32> minWidth{188.0f};        ///< Stable minimum card width in logical dp
+    keel::Optional<keel::f32> maxWidth{keel::kNullOpt};
+    keel::Optional<keel::f32> minHeight{keel::kNullOpt};
+    keel::Optional<keel::f32> maxHeight{keel::kNullOpt};
     keel::Optional<Padding> padding{keel::kNullOpt};
     StateColor background{};
     Border border{.width = 1.0f};
@@ -93,7 +93,7 @@ struct ReadoutResponse : public Response {
     bool unitChanged{false};       ///< True on the frame a new display unit was selected from the unit dropdown
     bool precisionChanged{false};  ///< True on the frame a new decimal precision was selected from the value dropdown
     bool actionClicked{false};     ///< True on the frame the trailing action button (e.g. ◎ tare) was clicked
-    double displayedValue{0.0};    ///< Converted numeric value currently rendered (before string formatting)
+    keel::f64 displayedValue{0.0};    ///< Converted numeric value currently rendered (before string formatting)
 };
 
 /// Autonomous engineering Digital Readout widget with direct-click channel, precision, unit dropdowns and trailing action button.
@@ -112,7 +112,7 @@ public:
     static ReadoutResponse Run(
         Context& ctx,
         UiText label,
-        double value,
+        keel::f64 value,
         keel::i32& unitIndex,
         keel::i32& precision,
         keel::ArrayRef<ReadoutUnit> units = {},

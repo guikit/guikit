@@ -42,10 +42,10 @@ struct InputFieldOptions {
     UiSize size{UiSize::Md};                                   ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)
     AxisSize width{};                                          ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or explicit `dp`)
     AxisSize height{};                                         ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or explicit `dp`)
-    keel::Optional<float> minWidth{keel::kNullOpt};            ///< Optional minimum width in logical dp
-    keel::Optional<float> maxWidth{keel::kNullOpt};            ///< Optional maximum width in logical dp
-    keel::Optional<float> minHeight{keel::kNullOpt};           ///< Optional minimum height in logical dp
-    keel::Optional<float> maxHeight{keel::kNullOpt};           ///< Optional maximum height in logical dp
+    keel::Optional<keel::f32> minWidth{keel::kNullOpt};            ///< Optional minimum width in logical dp
+    keel::Optional<keel::f32> maxWidth{keel::kNullOpt};            ///< Optional maximum width in logical dp
+    keel::Optional<keel::f32> minHeight{keel::kNullOpt};           ///< Optional minimum height in logical dp
+    keel::Optional<keel::f32> maxHeight{keel::kNullOpt};           ///< Optional maximum height in logical dp
     StateColor color{};                                        ///< Per-state focus/caret semantic accent color override
     StateColor background{};                                   ///< Optional background fill override (`{}` = theme default, `StateColor::None()` = transparent)
     Border border{};                                           ///< Optional border width, color, and radius override
@@ -58,8 +58,8 @@ struct InputFieldData {
     keel::usize cursor{0};
     keel::usize selStart{0};
     keel::usize selEnd{0};
-    float scrollX{0.0f};
-    float cursorWidth{1.5f};
+    keel::f32 scrollX{0.0f};
+    keel::f32 cursorWidth{1.5f};
     bool cursorVisible{true};
     bool showClearBtn{false};
     bool clearHovered{false};
@@ -87,14 +87,14 @@ public:
         UiSize size,
         ICanvas* canvas,
         const UiTheme& theme,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     );
     static Vec2 Measure(
         keel::StringRef displayText,
         const InputFieldOptions& opts,
         UiSize size,
         ICanvas* canvas = nullptr,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     );
 
     /// Renders the input frame, prefix, suffix, text/placeholder, selection highlight, and cursor.
@@ -109,11 +109,11 @@ public:
         keel::usize cursor = 0,
         bool disabled = false,
         bool cursorVisible = true,
-        float cursorWidth = 1.5f,
+        keel::f32 cursorWidth = 1.5f,
         const UiTheme& theme = UiTheme::Dark(),
         keel::usize selStart = 0,
         keel::usize selEnd = 0,
-        float scrollX = 0.0f,
+        keel::f32 scrollX = 0.0f,
         bool showClearBtn = false,
         bool clearHovered = false,
         bool showRevealBtn = false,

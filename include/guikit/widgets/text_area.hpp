@@ -146,7 +146,7 @@ struct TextAreaOptions {
     keel::u8 tabSize{4};                                 ///< Visual tab width and indentation step in spaces (1..16)
     bool insertSpaces{true};                            ///< Insert spaces instead of '\t' on Tab / smart indent
     bool allowZoom{true};                               ///< Allow interactive Ctrl + Mouse Wheel zoom (50%..300%)
-    float zoom{1.0f};                                   ///< Base editor zoom factor (1.0f = 100%)
+    keel::f32 zoom{1.0f};                                   ///< Base editor zoom factor (1.0f = 100%)
     keel::Optional<SyntaxConfig> syntax{keel::kNullOpt};      ///< Configurable rule-based syntax highlighting
     keel::Optional<SyntaxPalette> syntaxPalette{keel::kNullOpt}; ///< Optional syntax color palette override
     SyntaxHighlighter syntaxHighlighter{nullptr};       ///< Optional custom syntax highlighting callback
@@ -156,10 +156,10 @@ struct TextAreaOptions {
     UiSize size{UiSize::Md};                            ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)
     AxisSize width{};                                   ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or explicit `dp`)
     AxisSize height{};                                  ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or explicit `dp`)
-    keel::Optional<float> minWidth{keel::kNullOpt};     ///< Optional minimum width in logical dp
-    keel::Optional<float> maxWidth{keel::kNullOpt};     ///< Optional maximum width in logical dp
-    keel::Optional<float> minHeight{keel::kNullOpt};    ///< Optional minimum height in logical dp
-    keel::Optional<float> maxHeight{keel::kNullOpt};    ///< Optional maximum height in logical dp
+    keel::Optional<keel::f32> minWidth{keel::kNullOpt};     ///< Optional minimum width in logical dp
+    keel::Optional<keel::f32> maxWidth{keel::kNullOpt};     ///< Optional maximum width in logical dp
+    keel::Optional<keel::f32> minHeight{keel::kNullOpt};    ///< Optional minimum height in logical dp
+    keel::Optional<keel::f32> maxHeight{keel::kNullOpt};    ///< Optional maximum height in logical dp
     StateColor color{};                                 ///< Per-state focus/accent color override
     StateColor background{};                            ///< Optional background fill override (`{}` = theme default, `StateColor::None()` = transparent)
     Border border{};                                    ///< Optional border width, color, and radius override
@@ -208,11 +208,11 @@ struct TextAreaFoldRegion {
 
 /// Persistent interactive state for TextArea.
 struct TextAreaState {
-    float scrollX{0.0f};
-    float scrollY{0.0f};
-    float zoom{1.0f};
-    float lastOptsZoom{1.0f};
-    float prevAppliedZoom{1.0f};
+    keel::f32 scrollX{0.0f};
+    keel::f32 scrollY{0.0f};
+    keel::f32 zoom{1.0f};
+    keel::f32 lastOptsZoom{1.0f};
+    keel::f32 prevAppliedZoom{1.0f};
     keel::usize cursor{0};
     keel::usize selectionStart{0};
     keel::usize selectionEnd{0};
@@ -227,14 +227,14 @@ struct TextAreaState {
     bool draggingHThumb{false};
     bool draggingMinimap{false};
     bool draggingDebugToolbar{false};
-    float dragGrabOffset{0.0f};
-    float debugToolbarGrabOffset{0.0f};
-    float debugToolbarRatio{-1.0f}; ///< Custom horizontal ratio [0..1] when dragged (-1 = use debugToolbarAlign)
+    keel::f32 dragGrabOffset{0.0f};
+    keel::f32 debugToolbarGrabOffset{0.0f};
+    keel::f32 debugToolbarRatio{-1.0f}; ///< Custom horizontal ratio [0..1] when dragged (-1 = use debugToolbarAlign)
     Align lastDebugToolbarAlign{Align::Center};
-    double lastClickTime{-10.0};
+    keel::f64 lastClickTime{-10.0};
     Vec2 lastClickPos{-1000.0f, -1000.0f};
     keel::i32 clickCount{0};
-    double copyFeedbackUntil{-1.0};
+    keel::f64 copyFeedbackUntil{-1.0};
 
     // Find & Replace / Go to Line state
     bool searchOpen{false};
@@ -264,7 +264,7 @@ struct TextAreaState {
 
     // Cached line / fold / visual layout buffers (avoids per-frame heap allocations & static re-parsing)
     keel::u64 cachedDocHash{0};
-    keel::usize cachedDocSize{static_cast<keel::usize>(-1)};
+    keel::usize cachedDocSize{keel::as<keel::usize>(-1)};
     bool cachedFoldEnabled{false};
     keel::u64 cachedFoldSyntaxHash{0};
     keel::Array<TextAreaLogicalLine> cachedLogicalLines{};
@@ -279,7 +279,7 @@ struct TextAreaState {
         resolvedInlineValues = {};
         resolvedDiagnostics = {};
         cachedDocHash = 0;
-        cachedDocSize = static_cast<keel::usize>(-1);
+        cachedDocSize = keel::as<keel::usize>(-1);
         cachedFoldSyntaxHash = 0;
         cachedLogicalLines = {};
         cachedFoldRegions = {};
@@ -295,10 +295,10 @@ struct TextAreaData {
     keel::usize selectionStart{0};
     keel::usize selectionEnd{0};
     bool cursorVisible{true};
-    float cursorWidth{1.8f};
-    float scrollX{0.0f};
-    float scrollY{0.0f};
-    float zoom{1.0f};
+    keel::f32 cursorWidth{1.8f};
+    keel::f32 scrollX{0.0f};
+    keel::f32 scrollY{0.0f};
+    keel::f32 zoom{1.0f};
     bool copyHovered{false};
     bool copyFeedbackActive{false};
     bool searchBtnHovered{false};
@@ -310,7 +310,7 @@ struct TextAreaData {
     bool minimapHovered{false};
     bool minimapDragging{false};
     bool debugToolbarDragging{false};
-    float debugToolbarRatio{-1.0f};
+    keel::f32 debugToolbarRatio{-1.0f};
 
     // Search & Replace overlay snapshot
     bool searchOpen{false};
@@ -358,7 +358,7 @@ public:
         UiSize size,
         ICanvas* canvas,
         const UiTheme& theme,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     );
     static Vec2 Measure(
         keel::StringRef text,
@@ -379,7 +379,7 @@ public:
         keel::usize cursor = 0,
         bool disabled = false,
         bool cursorVisible = true,
-        float scrollY = 0.0f,
+        keel::f32 scrollY = 0.0f,
         const UiTheme& theme = UiTheme::Dark(),
         const TextAreaData* extData = nullptr
     );

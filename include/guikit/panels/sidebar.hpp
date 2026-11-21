@@ -30,17 +30,17 @@ enum class SidebarMode : keel::u8 {
 struct SidebarOptions {
     SidebarSide side{SidebarSide::Left};                ///< Docking side (Left by default, or Right)
     SidebarMode defaultMode{SidebarMode::Expanded};     ///< Initial mode when managed by Context
-    keel::Optional<float> width{keel::kNullOpt};           ///< Explicit sidebar width in Expanded mode (nullopt = Fit to content)
-    keel::Optional<float> minWidth{keel::kNullOpt};        ///< Optional minimum width in logical dp (nullopt = auto from theme metrics)
-    keel::Optional<float> maxWidth{keel::kNullOpt};        ///< Optional maximum width in logical dp (nullopt = auto from parent width * maxRatio)
-    float maxRatio{0.65f};                              ///< Maximum fraction of parent container width the sidebar can occupy (0.15 .. 0.90)
+    keel::Optional<keel::f32> width{keel::kNullOpt};           ///< Explicit sidebar width in Expanded mode (nullopt = Fit to content)
+    keel::Optional<keel::f32> minWidth{keel::kNullOpt};        ///< Optional minimum width in logical dp (nullopt = auto from theme metrics)
+    keel::Optional<keel::f32> maxWidth{keel::kNullOpt};        ///< Optional maximum width in logical dp (nullopt = auto from parent width * maxRatio)
+    keel::f32 maxRatio{0.65f};                              ///< Maximum fraction of parent container width the sidebar can occupy (0.15 .. 0.90)
     bool resizable{false};                              ///< Allow dragging the inner border (sash) to resize or snap-collapse
     bool allowCompact{false};                           ///< Support Compact (icons-only rail) mode via drag-snap or toggle button
     bool allowCollapse{false};                          ///< Support Collapsed (completely minimized 0px) mode via drag-snap or toggle
     bool showToggleButton{false};                       ///< Optional floating edge tab on border (false by default; Sash line handles resize/collapse)
     bool scrollable{true};                              ///< Automatically scroll vertically when content overflows
     VisibilityPolicy scrollbar{VisibilityPolicy::Auto};
-    keel::Optional<float> gap{keel::kNullOpt};             ///< Gap between child elements inside sidebar (nullopt = from theme)
+    keel::Optional<keel::f32> gap{keel::kNullOpt};             ///< Gap between child elements inside sidebar (nullopt = from theme)
     keel::Optional<Padding> padding{keel::kNullOpt};       ///< Sidebar internal padding (nullopt = auto from theme)
     StateColor background{};
     Border border{.width = 1.0f};
@@ -53,12 +53,12 @@ struct SidebarOptions {
 struct SidebarPersistState {
     bool initialized{false};
     SidebarMode mode{SidebarMode::Expanded};
-    float customWidth{0.0f};
-    float lastExpandedWidth{220.0f};
+    keel::f32 customWidth{0.0f};
+    keel::f32 lastExpandedWidth{220.0f};
     bool draggingSash{false};
-    float dragStartMouseX{0.0f};
-    float dragStartWidth{0.0f};
-    float dragStartCustomWidth{0.0f};
+    keel::f32 dragStartMouseX{0.0f};
+    keel::f32 dragStartWidth{0.0f};
+    keel::f32 dragStartCustomWidth{0.0f};
     SidebarMode dragStartMode{SidebarMode::Expanded};
     bool sashHovered{false};
     bool toggleHovered{false};
@@ -73,7 +73,7 @@ public:
     Response response{};
 
     SidebarScope() noexcept : ContainerScope(nullptr, nullptr) {}
-    SidebarScope(Context* ctx, Node* node, Response res, SidebarMode mode, float width) noexcept
+    SidebarScope(Context* ctx, Node* node, Response res, SidebarMode mode, keel::f32 width) noexcept
         : ContainerScope(ctx, node), response(res), m_mode(mode), m_width(width) {}
 
     SidebarScope(SidebarScope&& other) noexcept
@@ -104,12 +104,12 @@ public:
     [[nodiscard]] constexpr bool IsExpanded() const noexcept { return m_mode == SidebarMode::Expanded; }
     [[nodiscard]] constexpr bool IsCompact() const noexcept { return m_mode == SidebarMode::Compact; }
     [[nodiscard]] constexpr bool IsCollapsed() const noexcept { return m_mode == SidebarMode::Collapsed; }
-    [[nodiscard]] constexpr float Width() const noexcept { return m_width; }
+    [[nodiscard]] constexpr keel::f32 Width() const noexcept { return m_width; }
     [[nodiscard]] const Response* operator->() const noexcept { return &response; }
 
 private:
     SidebarMode m_mode{SidebarMode::Expanded};
-    float m_width{0.0f};
+    keel::f32 m_width{0.0f};
 };
 
 /// Autonomous immediate mode dockable Sidebar panel container entry point.

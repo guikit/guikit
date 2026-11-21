@@ -24,11 +24,11 @@ struct CommandPaletteItem {
 
 struct CommandPaletteOptions {
     UiText placeholder{"Type a command or search..."};
-    keel::Optional<float> width{keel::kNullOpt}; ///< Explicit width in dp (nullopt or <= 0 = auto-fit content within [minWidth..maxWidth])
-    float minWidth{480.0f};                      ///< Minimum width in dp when auto-fitting content
-    float maxWidth{780.0f};                      ///< Maximum width in dp when auto-fitting content
+    keel::Optional<keel::f32> width{keel::kNullOpt}; ///< Explicit width in dp (nullopt or <= 0 = auto-fit content within [minWidth..maxWidth])
+    keel::f32 minWidth{480.0f};                      ///< Minimum width in dp when auto-fitting content
+    keel::f32 maxWidth{780.0f};                      ///< Maximum width in dp when auto-fitting content
     keel::u32 maxVisibleItems{9};
-    float backdropOpacity{0.45f};
+    keel::f32 backdropOpacity{0.45f};
     keel::Optional<Color> backdropColor{keel::kNullOpt};
     bool closeOnBackdropClick{true};
     bool closeOnEscape{true};

@@ -182,7 +182,7 @@ void MainWindow::RenderFrame() {
     // One dp -> pixel factor for the whole frame: OS display scale x root zoom (the shell zoom). The canvas applies
     // it uniformly, so the shell zoom behaves exactly like a different monitor DPI and nothing in the
     // tree needs to be scaled by hand.
-    m_ui.BeginFrame({static_cast<float>(winW), static_cast<float>(winH)}, GetDpiScale(), GetShellScale());
+    m_ui.BeginFrame({keel::as<keel::f32>(winW), keel::as<keel::f32>(winH)}, GetDpiScale(), GetShellScale());
     {
         const ShellStyle activeShellStyle = m_shellFloating ? ShellStyle::Floating : ShellStyle::Docked;
         if (m_shellTheme.GetShellStyle() != activeShellStyle) {
@@ -219,8 +219,8 @@ void MainWindow::RenderFrame() {
 
     if (shouldPresent && !m_backend->IsVsyncEnabled() && !m_reactiveMode) {
         const keel::u64 frameEndNs = keel::monotonic_ns();
-        const double frameElapsedMs = (frameEndNs > frameWorkStartNs)
-            ? (static_cast<double>(frameEndNs - frameWorkStartNs) * 1e-6)
+        const keel::f64 frameElapsedMs = (frameEndNs > frameWorkStartNs)
+            ? (keel::as<keel::f64>(frameEndNs - frameWorkStartNs) * 1e-6)
             : 0.0;
         m_backend->PaceFrame(frameElapsedMs, true);
     }
@@ -229,8 +229,8 @@ void MainWindow::RenderFrame() {
 
     if (!shouldPresent && m_ui.NeedsRepaint()) {
         const keel::u64 frameEndNs = keel::monotonic_ns();
-        const double frameElapsedMs = (frameEndNs > frameWorkStartNs)
-            ? (static_cast<double>(frameEndNs - frameWorkStartNs) * 1e-6)
+        const keel::f64 frameElapsedMs = (frameEndNs > frameWorkStartNs)
+            ? (keel::as<keel::f64>(frameEndNs - frameWorkStartNs) * 1e-6)
             : 0.0;
         m_backend->PaceFrame(frameElapsedMs, false);
     }
@@ -256,11 +256,11 @@ keel::i32 MainWindow::GetHeight() const noexcept {
     return m_backend ? m_backend->GetHeight() : m_config.height;
 }
 
-float MainWindow::GetDpiScale() const noexcept {
+keel::f32 MainWindow::GetDpiScale() const noexcept {
     return m_backend ? m_backend->GetDpiScale() : 1.0f;
 }
 
-float MainWindow::GetDisplayPixelsPerMm() const noexcept {
+keel::f32 MainWindow::GetDisplayPixelsPerMm() const noexcept {
     return m_backend ? m_backend->GetDisplayPixelsPerMm() : (96.0f / 25.4f);
 }
 
@@ -347,11 +347,11 @@ void MainWindow::SetShellFloating(bool floating) noexcept {
     m_ui.InvalidateAll();
 }
 
-void MainWindow::SetShellScale(float scale) noexcept {
+void MainWindow::SetShellScale(keel::f32 scale) noexcept {
     keel::usize bestIdx = 0;
-    float bestDiff = keel::Limits<float>::kMax;
+    keel::f32 bestDiff = keel::Limits<keel::f32>::kMax;
     for (keel::usize i = 0; i < kScaleValues.size(); ++i) {
-        const float d = keel::abs(kScaleValues[i] - scale);
+        const keel::f32 d = keel::abs(kScaleValues[i] - scale);
         if (d < bestDiff) {
             bestDiff = d;
             bestIdx = i;
@@ -367,9 +367,9 @@ void MainWindow::SetShellScaleIndex(keel::usize index) noexcept {
 }
 
 void MainWindow::StepShellScale(keel::i32 steps) noexcept {
-    const keel::i64 maxIdx = static_cast<keel::i64>(kScaleValues.size()) - 1;
-    const keel::i64 target = keel::clamp(static_cast<keel::i64>(m_shellScaleIndex) + steps, keel::i64{0}, maxIdx);
-    SetShellScaleIndex(static_cast<keel::usize>(target));
+    const keel::i64 maxIdx = keel::as<keel::i64>(kScaleValues.size()) - 1;
+    const keel::i64 target = keel::clamp(keel::as<keel::i64>(m_shellScaleIndex) + steps, keel::i64{0}, maxIdx);
+    SetShellScaleIndex(keel::as<keel::usize>(target));
 }
 
 void MainWindow::SetCommandPaletteOpen(bool open) noexcept {
@@ -632,7 +632,7 @@ void MainWindow::RenderEngineControls(ToolbarScope& tb) {
                 .label = "Smoothing",
                 .layout = ElementLayout::Leading
             })) {
-                keel::usize smoothIdx = static_cast<keel::usize>(textCfg.smoothing);
+                keel::usize smoothIdx = keel::as<keel::usize>(textCfg.smoothing);
                 if (m_ui.Select(smoothIdx, kSmoothingLabels, {.size = UiSize::Sm, .width = 128.0f})) {
                     textCfg.smoothing = static_cast<FontSmoothing>(smoothIdx % kSmoothingLabels.size());
                     textChanged = true;
@@ -644,7 +644,7 @@ void MainWindow::RenderEngineControls(ToolbarScope& tb) {
                 .layout = ElementLayout::Leading,
                 .disabled = !supportsHinting
             })) {
-                keel::usize hintIdx = static_cast<keel::usize>(textCfg.hinting);
+                keel::usize hintIdx = keel::as<keel::usize>(textCfg.hinting);
                 if (m_ui.Select(hintIdx, kHintingLabels, {.disabled = !supportsHinting, .size = UiSize::Sm, .width = 128.0f})) {
                     textCfg.hinting = static_cast<FontHinting>(hintIdx % kHintingLabels.size());
                     textChanged = true;

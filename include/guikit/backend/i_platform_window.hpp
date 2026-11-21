@@ -84,8 +84,8 @@ public:
 
     [[nodiscard]] virtual keel::i32 GetFramebufferWidth() const noexcept = 0;
     [[nodiscard]] virtual keel::i32 GetFramebufferHeight() const noexcept = 0;
-    [[nodiscard]] virtual float GetDpiScale() const noexcept { return 1.0f; }
-    [[nodiscard]] virtual float GetDisplayPixelsPerMm() const noexcept {
+    [[nodiscard]] virtual keel::f32 GetDpiScale() const noexcept { return 1.0f; }
+    [[nodiscard]] virtual keel::f32 GetDisplayPixelsPerMm() const noexcept {
         return (96.0f * GetDpiScale()) / 25.4f;
     }
     [[nodiscard]] virtual bool IsMinimized() const noexcept { return false; }

@@ -349,7 +349,7 @@ void TestWrapContainer() {
     CHECK_NEAR(wrap->computedRect.h, 156.0f, 0.001f);
     for (keel::i32 i = 0; i < 4; ++i) {
         CHECK_NEAR(items[i]->computedRect.x, 0.0f, 0.001f);
-        CHECK_NEAR(items[i]->computedRect.y, static_cast<float>(i * (30 + 12)), 0.001f);
+        CHECK_NEAR(items[i]->computedRect.y, keel::as<keel::f32>(i * (30 + 12)), 0.001f);
     }
 }
 
@@ -638,7 +638,7 @@ void TestCustomMeasureAndArrangeDelegates() {
 
     // Custom widget with measureFn
     Node* customLeaf = arena.create<Node>();
-    customLeaf->measureFn = [](const Node*, float /*availableWidth*/, ICanvas*, const UiTheme&) -> Vec2 {
+    customLeaf->measureFn = [](const Node*, keel::f32 /*availableWidth*/, ICanvas*, const UiTheme&) -> Vec2 {
         return {123.0f, 45.0f};
     };
 
@@ -804,8 +804,8 @@ void TestCarouselArrowScaling() {
     Solver::Arrange(c1, Rect(0.0f, 0.0f, 300.0f, 36.0f), theme1);
 
     CHECK(d1->showRightArrow == true);
-    const float h1 = d1->rightArrowRect.h;
-    const float w1 = d1->rightArrowRect.w;
+    const keel::f32 h1 = d1->rightArrowRect.h;
+    const keel::f32 w1 = d1->rightArrowRect.w;
     CHECK_NEAR(h1, w1, 0.001f); // Square button
     CHECK(h1 >= 18.0f && h1 <= 23.0f); // Md arrow button token is 19.5 dp
 
@@ -834,8 +834,8 @@ void TestCarouselArrowScaling() {
     Solver::Arrange(c2, Rect(0.0f, 0.0f, 300.0f, 72.0f), theme2);
 
     CHECK(d2->showRightArrow == true);
-    const float h2 = d2->rightArrowRect.h;
-    const float w2 = d2->rightArrowRect.w;
+    const keel::f32 h2 = d2->rightArrowRect.h;
+    const keel::f32 w2 = d2->rightArrowRect.w;
     CHECK_NEAR(h2, w2, 0.001f); // Square button
     // The 2.0x arrow button must be approximately double the 1.0x arrow button height (not capped at 26px!)
     CHECK_NEAR(h2, h1 * 2.0f, 2.0f);
@@ -894,23 +894,23 @@ void TestRowEqualWidthsFitAndStretch() {
     fitRow->equalWidths = true;
     fitRow->gap = 8.0f;
 
-    const float widths[5] = {80.0f, 62.0f, 60.0f, 56.0f, 52.0f};
+    const keel::f32 widths[5] = {80.0f, 62.0f, 60.0f, 56.0f, 52.0f};
     Node* items[5]{};
     for (keel::i32 i = 0; i < 5; ++i) {
         Node* n = arena.create<Node>();
         n->widthMode = SizeMode::Fit;
         n->heightMode = SizeMode::Fixed;
         n->fixedHeight = 32.0f;
-        const float w = widths[i];
+        const keel::f32 w = widths[i];
         n->measureFn = (w == 80.0f)
-            ? +[](const Node*, float, ICanvas*, const UiTheme&) -> Vec2 { return {80.0f, 32.0f}; }
+            ? +[](const Node*, keel::f32, ICanvas*, const UiTheme&) -> Vec2 { return {80.0f, 32.0f}; }
             : (w == 62.0f)
-                ? +[](const Node*, float, ICanvas*, const UiTheme&) -> Vec2 { return {62.0f, 32.0f}; }
+                ? +[](const Node*, keel::f32, ICanvas*, const UiTheme&) -> Vec2 { return {62.0f, 32.0f}; }
                 : (w == 60.0f)
-                    ? +[](const Node*, float, ICanvas*, const UiTheme&) -> Vec2 { return {60.0f, 32.0f}; }
+                    ? +[](const Node*, keel::f32, ICanvas*, const UiTheme&) -> Vec2 { return {60.0f, 32.0f}; }
                     : (w == 56.0f)
-                        ? +[](const Node*, float, ICanvas*, const UiTheme&) -> Vec2 { return {56.0f, 32.0f}; }
-                        : +[](const Node*, float, ICanvas*, const UiTheme&) -> Vec2 { return {52.0f, 32.0f}; };
+                        ? +[](const Node*, keel::f32, ICanvas*, const UiTheme&) -> Vec2 { return {56.0f, 32.0f}; }
+                        : +[](const Node*, keel::f32, ICanvas*, const UiTheme&) -> Vec2 { return {52.0f, 32.0f}; };
         fitRow->AddChild(n);
         items[i] = n;
     }
@@ -923,7 +923,7 @@ void TestRowEqualWidthsFitAndStretch() {
     CHECK_NEAR(fitRow->computedRect.w, 432.0f, 0.001f);
     for (keel::i32 i = 0; i < 5; ++i) {
         CHECK_NEAR(items[i]->computedRect.w, 80.0f, 0.001f);
-        CHECK_NEAR(items[i]->computedRect.x, static_cast<float>(i) * 88.0f, 0.001f);
+        CHECK_NEAR(items[i]->computedRect.x, keel::as<keel::f32>(i) * 88.0f, 0.001f);
     }
 
     // 2. Stretch Row with equalWidths = true: items divide row width equally
@@ -936,12 +936,12 @@ void TestRowEqualWidthsFitAndStretch() {
 
     Node* s1 = arena.create<Node>();
     s1->widthMode = SizeMode::Fit;
-    s1->measureFn = +[](const Node*, float, ICanvas*, const UiTheme&) -> Vec2 { return {50.0f, 32.0f}; };
+    s1->measureFn = +[](const Node*, keel::f32, ICanvas*, const UiTheme&) -> Vec2 { return {50.0f, 32.0f}; };
     stretchRow->AddChild(s1);
 
     Node* s2 = arena.create<Node>();
     s2->widthMode = SizeMode::Fit;
-    s2->measureFn = +[](const Node*, float, ICanvas*, const UiTheme&) -> Vec2 { return {110.0f, 32.0f}; };
+    s2->measureFn = +[](const Node*, keel::f32, ICanvas*, const UiTheme&) -> Vec2 { return {110.0f, 32.0f}; };
     stretchRow->AddChild(s2);
 
     Solver::Measure(stretchRow);
@@ -974,13 +974,13 @@ void TestRowTextDeficitShrinkAndCenterClamp() {
     Node* longTitle = arena.create<Node>();
     longTitle->type = NodeType::Text;
     longTitle->widthMode = SizeMode::Fit;
-    longTitle->measureFn = +[](const Node*, float, ICanvas*, const UiTheme&) -> Vec2 { return {240.0f, 16.0f}; };
+    longTitle->measureFn = +[](const Node*, keel::f32, ICanvas*, const UiTheme&) -> Vec2 { return {240.0f, 16.0f}; };
     row->AddChild(longTitle);
 
     Node* shortBadge = arena.create<Node>();
     shortBadge->type = NodeType::Text;
     shortBadge->widthMode = SizeMode::Fit;
-    shortBadge->measureFn = +[](const Node*, float, ICanvas*, const UiTheme&) -> Vec2 { return {56.0f, 14.0f}; };
+    shortBadge->measureFn = +[](const Node*, keel::f32, ICanvas*, const UiTheme&) -> Vec2 { return {56.0f, 14.0f}; };
     row->AddChild(shortBadge);
 
     Solver::Measure(row);
@@ -1003,7 +1003,7 @@ void TestRowTextDeficitShrinkAndCenterClamp() {
 
     Node* wideChild = arena.create<Node>();
     wideChild->widthMode = SizeMode::Fit;
-    wideChild->measureFn = +[](const Node*, float, ICanvas*, const UiTheme&) -> Vec2 { return {320.0f, 32.0f}; };
+    wideChild->measureFn = +[](const Node*, keel::f32, ICanvas*, const UiTheme&) -> Vec2 { return {320.0f, 32.0f}; };
     centerRow->AddChild(wideChild);
 
     Solver::Measure(centerRow);
@@ -1034,7 +1034,7 @@ void TestRowTextDeficitShrinkAndCenterClamp() {
     cardText->type = NodeType::Text;
     cardText->widthMode = SizeMode::Fit;
     cardText->heightMode = SizeMode::Fit;
-    cardText->measureFn = +[](const Node*, float, ICanvas*, const UiTheme&) -> Vec2 { return {200.0f, 20.0f}; };
+    cardText->measureFn = +[](const Node*, keel::f32, ICanvas*, const UiTheme&) -> Vec2 { return {200.0f, 20.0f}; };
     cardNode->AddChild(cardText);
     cardCenterRow->AddChild(cardNode);
 
@@ -1211,10 +1211,10 @@ void TestGapDpAndContainerSizingConstraints() {
 
     class LayoutMockCanvas final : public ICanvas {
     public:
-        void Begin(keel::u32, keel::u32, float s = 1.0f) override { m_scale = s; }
+        void Begin(keel::u32, keel::u32, keel::f32 s = 1.0f) override { m_scale = s; }
         void End() override {}
-        [[nodiscard]] float GetScale() const noexcept override { return m_scale; }
-        void SetScale(float s) override { m_scale = s; }
+        [[nodiscard]] keel::f32 GetScale() const noexcept override { return m_scale; }
+        void SetScale(keel::f32 s) override { m_scale = s; }
         void PushTransform(const Transform2D&) override {}
         void PopTransform() override {}
         [[nodiscard]] keel::StringRef GetBackendName() const noexcept override { return "LayoutMock"; }
@@ -1222,16 +1222,16 @@ void TestGapDpAndContainerSizingConstraints() {
         void PushClip(Rect) override {}
         void PopClip() override {}
         void DrawRect(Rect, Color) override {}
-        void DrawRoundRect(Rect, float, Color, Color = Color(0, 0, 0, 0), float = 0.0f) override {}
-        Vec2 MeasureText(keel::StringRef t, float fs) override {
-            return {static_cast<float>(t.size()) * fs * 0.5f, fs};
+        void DrawRoundRect(Rect, keel::f32, Color, Color = Color(0, 0, 0, 0), keel::f32 = 0.0f) override {}
+        Vec2 MeasureText(keel::StringRef t, keel::f32 fs) override {
+            return {keel::as<keel::f32>(t.size()) * fs * 0.5f, fs};
         }
-        [[nodiscard]] float GetLineHeight(float fs) override { return fs * 1.2f; }
-        void DrawText(keel::StringRef, Vec2, float, Color) override {}
-        void DrawTextBox(keel::StringRef, Rect, float, Color, float = 0.0f, float = 0.5f) override {}
-        void DrawLine(Vec2, Vec2, Color, float = 1.0f) override {}
+        [[nodiscard]] keel::f32 GetLineHeight(keel::f32 fs) override { return fs * 1.2f; }
+        void DrawText(keel::StringRef, Vec2, keel::f32, Color) override {}
+        void DrawTextBox(keel::StringRef, Rect, keel::f32, Color, keel::f32 = 0.0f, keel::f32 = 0.5f) override {}
+        void DrawLine(Vec2, Vec2, Color, keel::f32 = 1.0f) override {}
     private:
-        float m_scale{1.0f};
+        keel::f32 m_scale{1.0f};
     };
 
     Context ui;

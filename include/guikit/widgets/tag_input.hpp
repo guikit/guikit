@@ -106,7 +106,7 @@ private:
                 const auto& c = *static_cast<const C*>(obj);
                 if (idx >= c.size()) return {};
                 const auto& elem = c[idx];
-                return keel::StringRef(elem.data(), static_cast<keel::usize>(elem.size()));
+                return keel::StringRef(elem.data(), keel::as<keel::usize>(elem.size()));
             },
             +[](void* obj) {
                 static_cast<C*>(obj)->clear();
@@ -266,10 +266,10 @@ struct TagInputOptions {
     UiSize size{UiSize::Md};                         ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)
     AxisSize width{};                                ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or explicit `dp`)
     AxisSize height{};                               ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or explicit `dp`)
-    keel::Optional<float> minWidth{keel::kNullOpt};  ///< Optional minimum width in logical dp
-    keel::Optional<float> maxWidth{keel::kNullOpt};  ///< Optional maximum width in logical dp
-    keel::Optional<float> minHeight{keel::kNullOpt}; ///< Optional minimum height in logical dp
-    keel::Optional<float> maxHeight{keel::kNullOpt}; ///< Optional maximum height in logical dp
+    keel::Optional<keel::f32> minWidth{keel::kNullOpt};  ///< Optional minimum width in logical dp
+    keel::Optional<keel::f32> maxWidth{keel::kNullOpt};  ///< Optional maximum width in logical dp
+    keel::Optional<keel::f32> minHeight{keel::kNullOpt}; ///< Optional minimum height in logical dp
+    keel::Optional<keel::f32> maxHeight{keel::kNullOpt}; ///< Optional maximum height in logical dp
     StateColor color{};                              ///< Active focus/chip semantic accent color override
     StateColor background{};                         ///< Optional background fill override (`{}` = theme default, `StateColor::None()` = transparent)
     Border border{};                                 ///< Optional border width, color, and radius override
@@ -297,7 +297,7 @@ public:
         UiSize size,
         ICanvas* canvas,
         const UiTheme& theme,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     );
 
     static void Render(const Node* node, ICanvas& canvas, const UiTheme& theme);

@@ -17,26 +17,26 @@ struct LevelMeterOptions {
     Orientation orientation{Orientation::Horizontal};  ///< Horizontal or Vertical meter bar(s)
     keel::u32 segments{24};                            ///< 0 = smooth continuous bar; >0 = discrete LED cells (e.g. 16, 24, 32)
     bool multiZoneColor{true};                         ///< 3-zone coloring (Success/Green -> Warning/Amber -> Danger/Red)
-    float warningRatio{0.70f};                         ///< Normalized threshold [0..1] for Warning zone
-    float dangerRatio{0.88f};                          ///< Normalized threshold [0..1] for Danger zone
-    keel::Optional<double> peakHoldValue{keel::kNullOpt}; ///< Explicit peak-hold marker value (if nullopt and autoPeakHold is true, tracked automatically)
+    keel::f32 warningRatio{0.70f};                         ///< Normalized threshold [0..1] for Warning zone
+    keel::f32 dangerRatio{0.88f};                          ///< Normalized threshold [0..1] for Danger zone
+    keel::Optional<keel::f64> peakHoldValue{keel::kNullOpt}; ///< Explicit peak-hold marker value (if nullopt and autoPeakHold is true, tracked automatically)
     bool autoPeakHold{true};                           ///< Automatically track & decay peak-hold marker per widget ID
-    float peakHoldDecayPerSec{0.15f};                  ///< Normalized decay rate per second for auto peak-hold after hold time
+    keel::f32 peakHoldDecayPerSec{0.15f};                  ///< Normalized decay rate per second for auto peak-hold after hold time
     bool showClipLed{true};                            ///< Show dedicated overload/clip indicator LED cap at max end (click meter to reset clip/peak latch)
     bool showScale{true};                              ///< Render calibrated dB/numeric scale ticks & labels alongside track
     bool showValue{true};                              ///< Display formatted numeric readout tag
     UiText valueFormat{"%.1f dB"};                     ///< Format string for numeric value (e.g. "%.1f dB", "%.0f %%")
     keel::ArrayRef<keel::StringRef> channelLabels{};   ///< Optional per-channel labels (e.g. {"L", "R"} or {"CH1", "CH2"})
-    keel::Optional<float> barThickness{keel::kNullOpt};///< Thickness of each channel bar in logical dp (nullopt = auto from UiSize)
+    keel::Optional<keel::f32> barThickness{keel::kNullOpt};///< Thickness of each channel bar in logical dp (nullopt = auto from UiSize)
     UiText tooltip{};                                  ///< Optional floating tooltip text on hover
     bool disabled{false};                            ///< Interaction suppression
     UiSize size{UiSize::Md};                         ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)
     AxisSize width{};                                ///< Horizontal sizing policy (`Auto` -> `Stretch` when horizontal, `Fit` when vertical)
     AxisSize height{};                               ///< Vertical sizing policy (`Auto` -> `Fit` when horizontal, `Stretch` when vertical)
-    keel::Optional<float> minWidth{keel::kNullOpt};  ///< Optional minimum width in logical dp
-    keel::Optional<float> maxWidth{keel::kNullOpt};  ///< Optional maximum width in logical dp
-    keel::Optional<float> minHeight{keel::kNullOpt}; ///< Optional minimum height in logical dp
-    keel::Optional<float> maxHeight{keel::kNullOpt}; ///< Optional maximum height in logical dp
+    keel::Optional<keel::f32> minWidth{keel::kNullOpt};  ///< Optional minimum width in logical dp
+    keel::Optional<keel::f32> maxWidth{keel::kNullOpt};  ///< Optional maximum width in logical dp
+    keel::Optional<keel::f32> minHeight{keel::kNullOpt}; ///< Optional minimum height in logical dp
+    keel::Optional<keel::f32> maxHeight{keel::kNullOpt}; ///< Optional maximum height in logical dp
     StateColor color{};                              ///< Base zone semantic color override
 };
 
@@ -45,9 +45,9 @@ public:
     /// Single-channel LevelMeter.
     static Response Run(
         Context& ctx,
-        double value,
-        double min = -60.0,
-        double max = 0.0,
+        keel::f64 value,
+        keel::f64 min = -60.0,
+        keel::f64 max = 0.0,
         const LevelMeterOptions& opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
@@ -55,22 +55,22 @@ public:
     /// Multi-channel (e.g. Stereo L/R or N-channel rack) LevelMeter.
     static Response Run(
         Context& ctx,
-        keel::ArrayRef<float> channelValues,
-        float min = -60.0f,
-        float max = 0.0f,
+        keel::ArrayRef<keel::f32> channelValues,
+        keel::f32 min = -60.0f,
+        keel::f32 max = 0.0f,
         const LevelMeterOptions& opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     static Vec2 Measure(
         keel::usize channelCount,
-        double min,
-        double max,
+        keel::f64 min,
+        keel::f64 max,
         const LevelMeterOptions& opts,
         UiSize size,
         ICanvas* canvas,
         const UiTheme& theme,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     );
 
     static void Render(const Node* node, ICanvas& canvas, const UiTheme& theme);

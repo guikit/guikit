@@ -13,7 +13,7 @@ ContainerScope Wrap::Open(
     const Id id = ctx.MakeChildId(loc);
     Node* node = ctx.CreateNode(NodeType::Wrap, id, opts.disabled);
     const UiTheme& theme = node->GetTheme(ctx.GetTheme());
-    const float density = node->GetDensity();
+    const keel::f32 density = node->GetDensity();
     node->direction = FlexDirection::Wrap;
     node->gap = theme.ResolveGap(opts.gap, UiSize::Md, density);
     node->runGap = opts.runGap.has_value() ? (*opts.runGap * density) : node->gap;

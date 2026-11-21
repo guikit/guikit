@@ -72,7 +72,7 @@ struct SceneItemDrag {
 /// Persistent camera and interaction state for a 2D Scene viewport.
 struct SceneState {
     Vec2 pan{0.0f, 0.0f};       ///< Offset of world origin (0,0) relative to viewport top-left in screen pixels
-    float zoom{1.0f};           ///< Active camera zoom factor
+    keel::f32 zoom{1.0f};           ///< Active camera zoom factor
     bool initialized{false};    ///< True once initial fit/framing has been computed
     bool pointerDown{false};    ///< True while left mouse button is held after pressing inside viewport
     bool panning{false};        ///< True while dragging the canvas with mouse
@@ -80,8 +80,8 @@ struct SceneState {
     Vec2 panStartOffset{0.0f, 0.0f};
     bool draggingScrollX{false};
     bool draggingScrollY{false};
-    float dragStartScrollX{0.0f};
-    float dragStartScrollY{0.0f};
+    keel::f32 dragStartScrollX{0.0f};
+    keel::f32 dragStartScrollY{0.0f};
     Vec2 dragStartScrollMouse{0.0f, 0.0f};
     keel::u8 hoveredHudBtn{0};   ///< 1 = '-', 2 = 'Fit', 3 = '100%', 4 = '+'
 
@@ -102,7 +102,7 @@ struct SceneState {
     Vec2 boxSelectStartWorld{0.0f, 0.0f};
     Vec2 boxSelectCurrentWorld{0.0f, 0.0f};
     keel::Optional<Vec2> pendingCenterWorld{keel::kNullOpt};
-    keel::Optional<float> pendingCenterZoom{keel::kNullOpt};
+    keel::Optional<keel::f32> pendingCenterZoom{keel::kNullOpt};
     Rect lastViewport{};
     keel::Optional<Rect> lastWorldBounds{keel::kNullOpt};
     Padding lastFitPadding{};
@@ -126,7 +126,7 @@ struct SceneTextOptions {
     Vec2 align{0.0f, 0.0f};     ///< Anchor on text box: {0,0}=TopLeft, {0.5,0}=TopCenter, {0.5,1}=BottomCenter, {1,0.5}=MiddleRight
     Vec2 offset{0.0f, 0.0f};    ///< Screen-space offset in dp from worldPos (invariant to camera zoom)
     bool scaleWithZoom{false};  ///< false = constant readable UI font size in dp; true = scales with world zoom
-    float angleDeg{0.0f};       ///< Rotation angle in degrees
+    keel::f32 angleDeg{0.0f};       ///< Rotation angle in degrees
 };
 
 /// Configuration options for a 2D Scene camera viewport.
@@ -136,13 +136,13 @@ struct SceneOptions {
     Padding fitPadding{};                               ///< Screen-space inset padding in dp reserved around fitted worldBounds / worldSize
     ObjectFit initialFit{ObjectFit::Contain};           ///< Initial camera framing when worldSize / worldBounds is set
     SceneBackground backgroundStyle{SceneBackground::Checkerboard};
-    float gridStep{32.0f};                              ///< Base world-space step in units for GridDots / GridLines
+    keel::f32 gridStep{32.0f};                              ///< Base world-space step in units for GridDots / GridLines
     AxisSize width{};                                   ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or fixed `dp`)
     AxisSize height{SizeMode::Stretch};                 ///< Vertical sizing policy (`Stretch`, `Fit`, or fixed `dp`)
-    keel::Optional<float> minHeight{keel::kNullOpt};    ///< Minimum fallback height when placed inside a Fit/ScrollArea container (nullopt = 220 dp)
-    float minZoom{0.1f};
-    float maxZoom{16.0f};
-    float zoomStep{1.2f};
+    keel::Optional<keel::f32> minHeight{keel::kNullOpt};    ///< Minimum fallback height when placed inside a Fit/ScrollArea container (nullopt = 220 dp)
+    keel::f32 minZoom{0.1f};
+    keel::f32 maxZoom{16.0f};
+    keel::f32 zoomStep{1.2f};
     bool zoomable{true};                                ///< Allow mouse wheel zooming towards cursor
     bool pannable{true};                                ///< Allow mouse drag panning
     bool selectableItems{true};                         ///< Enable interactive hit-testing, click selection, and Shift+Drag marquee selection
@@ -178,12 +178,12 @@ struct SceneDrawCmd {
     Vec2 p3{};
     Color fill{};
     Color stroke{};
-    float radius{0.0f};
-    float strokeWidth{0.0f};
-    float fontSize{14.0f};
-    float alignX{0.5f};
-    float alignY{0.5f};
-    float angleDeg{0.0f};
+    keel::f32 radius{0.0f};
+    keel::f32 strokeWidth{0.0f};
+    keel::f32 fontSize{14.0f};
+    keel::f32 alignX{0.5f};
+    keel::f32 alignY{0.5f};
+    keel::f32 angleDeg{0.0f};
     FontStyle fontStyle{FontStyle::Regular};
     keel::u8 opacity{255};
     bool scaleFontWithZoom{true};
@@ -263,16 +263,16 @@ public:
     void SelectItem(keel::StringRef id, bool addToSelection = false) noexcept;
 
     /// Returns the current camera zoom multiplier.
-    [[nodiscard]] float GetZoom() const noexcept;
+    [[nodiscard]] keel::f32 GetZoom() const noexcept;
 
     /// Returns the effective screen-pixels-per-world-unit scale factor (zoom * themeScale).
-    [[nodiscard]] float GetWorldScale() const noexcept;
+    [[nodiscard]] keel::f32 GetWorldScale() const noexcept;
 
     /// Sets the camera zoom multiplier (clamped to [minZoom, maxZoom]).
-    void SetZoom(float zoom) noexcept;
+    void SetZoom(keel::f32 zoom) noexcept;
 
     /// Centers the camera on a specific world-space coordinate with an optional new zoom multiplier.
-    void CenterOn(Vec2 worldPoint, keel::Optional<float> zoom = keel::kNullOpt) noexcept;
+    void CenterOn(Vec2 worldPoint, keel::Optional<keel::f32> zoom = keel::kNullOpt) noexcept;
 
     /// Resets camera to initial fit framing.
     void ResetView() noexcept;
@@ -314,7 +314,7 @@ public:
     void DrawImage(
         keel::StringRef source,
         Rect worldRect,
-        float radius = 0.0f,
+        keel::f32 radius = 0.0f,
         keel::u8 opacity = 255
     );
 
@@ -324,7 +324,7 @@ public:
     void DrawPixels(
         PixelRef pixels,
         Rect worldRect,
-        float radius = 0.0f,
+        keel::f32 radius = 0.0f,
         keel::u8 opacity = 255,
         keel::u64 contentVersion = 0
     );
@@ -333,18 +333,18 @@ public:
     void DrawRect(
         Rect worldRect,
         Color fill,
-        float radius = 0.0f,
+        keel::f32 radius = 0.0f,
         Color stroke = Color::Transparent(),
-        float strokeWidth = 0.0f
+        keel::f32 strokeWidth = 0.0f
     );
 
     /// Queues a filled/stroked circle in World Coordinates.
     void DrawCircle(
         Vec2 worldCenter,
-        float worldRadius,
+        keel::f32 worldRadius,
         Color fill,
         Color stroke = Color::Transparent(),
-        float strokeWidth = 0.0f
+        keel::f32 strokeWidth = 0.0f
     );
 
     /// Queues a filled/stroked triangle in World Coordinates.
@@ -354,28 +354,28 @@ public:
         Vec2 worldP3,
         Color fill,
         Color stroke = Color::Transparent(),
-        float strokeWidth = 0.0f
+        keel::f32 strokeWidth = 0.0f
     );
 
     /// Queues a circular arc in World Coordinates (angles in degrees, 0 = +X, 90 = +Y).
     void DrawArc(
         Vec2 worldCenter,
-        float worldRadius,
-        float startAngleDeg,
-        float sweepAngleDeg,
+        keel::f32 worldRadius,
+        keel::f32 startAngleDeg,
+        keel::f32 sweepAngleDeg,
         Color color,
-        float strokeWidth = 1.0f,
+        keel::f32 strokeWidth = 1.0f,
         keel::i32 segments = 14
     );
 
     /// Queues a line segment in World Coordinates.
-    void DrawLine(Vec2 worldP1, Vec2 worldP2, Color color, float strokeWidth = 1.0f);
+    void DrawLine(Vec2 worldP1, Vec2 worldP2, Color color, keel::f32 strokeWidth = 1.0f);
 
     /// Queues a connected polyline (or closed polygon outline) in World Coordinates.
     void DrawPolyline(
         keel::ArrayRef<Vec2> points,
         Color color,
-        float strokeWidth = 1.0f,
+        keel::f32 strokeWidth = 1.0f,
         bool closed = false
     );
 
@@ -384,25 +384,25 @@ public:
         keel::ArrayRef<Vec2> points,
         Color fill,
         Color stroke = Color::Transparent(),
-        float strokeWidth = 0.0f
+        keel::f32 strokeWidth = 0.0f
     );
 
     /// Queues a text label in World Coordinates.
     void DrawText(
         keel::StringRef text,
         Vec2 worldPos,
-        float fontSize,
+        keel::f32 fontSize,
         Color color,
         FontStyle style = FontStyle::Regular,
         bool scaleWithZoom = true,
-        float angleDeg = 0.0f
+        keel::f32 angleDeg = 0.0f
     );
 
     /// Queues an anchor-aligned text label at a world coordinate with optional screen-space dp offset.
     void DrawText(
         keel::StringRef text,
         Vec2 worldPos,
-        float fontSize,
+        keel::f32 fontSize,
         Color color,
         const SceneTextOptions& opts
     );
@@ -411,13 +411,13 @@ public:
     void DrawTextBox(
         keel::StringRef text,
         Rect worldRect,
-        float fontSize,
+        keel::f32 fontSize,
         Color color,
-        float alignX = 0.5f,
-        float alignY = 0.5f,
+        keel::f32 alignX = 0.5f,
+        keel::f32 alignY = 0.5f,
         FontStyle style = FontStyle::Regular,
         bool scaleWithZoom = true,
-        float angleDeg = 0.0f
+        keel::f32 angleDeg = 0.0f
     );
 
 private:
@@ -460,7 +460,7 @@ public:
         UiSize size,
         ICanvas* canvas,
         const UiTheme& theme,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     );
 
     /// Renders background grid/checkerboard and world-space draw commands before child UI nodes.

@@ -77,7 +77,7 @@ struct ImageViewData {
     }
 
     [[nodiscard]] static ImageViewData FromFloat(
-        keel::ArrayRef<float> pixels,
+        keel::ArrayRef<keel::f32> pixels,
         keel::u32 w,
         keel::u32 h,
         keel::u32 ch = 1,
@@ -94,22 +94,22 @@ struct ImageViewData {
         };
     }
 
-    [[nodiscard]] static ImageViewData FromFloat(keel::MdRef<float, 2> pixels, keel::u64 gen = 0) noexcept {
+    [[nodiscard]] static ImageViewData FromFloat(keel::MdRef<keel::f32, 2> pixels, keel::u64 gen = 0) noexcept {
         return FromFloat(
             pixels.flat(),
-            static_cast<keel::u32>(pixels.extent(1)),
-            static_cast<keel::u32>(pixels.extent(0)),
+            keel::as<keel::u32>(pixels.extent(1)),
+            keel::as<keel::u32>(pixels.extent(0)),
             1u,
             gen
         );
     }
 
-    [[nodiscard]] static ImageViewData FromFloat(keel::MdRef<float, 3> pixels, keel::u64 gen = 0) noexcept {
+    [[nodiscard]] static ImageViewData FromFloat(keel::MdRef<keel::f32, 3> pixels, keel::u64 gen = 0) noexcept {
         return FromFloat(
             pixels.flat(),
-            static_cast<keel::u32>(pixels.extent(1)),
-            static_cast<keel::u32>(pixels.extent(0)),
-            static_cast<keel::u32>(pixels.extent(2)),
+            keel::as<keel::u32>(pixels.extent(1)),
+            keel::as<keel::u32>(pixels.extent(0)),
+            keel::as<keel::u32>(pixels.extent(2)),
             gen
         );
     }
@@ -135,8 +135,8 @@ struct ImageViewData {
     [[nodiscard]] static ImageViewData FromU16(keel::MdRef<keel::u16, 2> pixels, keel::u64 gen = 0) noexcept {
         return FromU16(
             pixels.flat(),
-            static_cast<keel::u32>(pixels.extent(1)),
-            static_cast<keel::u32>(pixels.extent(0)),
+            keel::as<keel::u32>(pixels.extent(1)),
+            keel::as<keel::u32>(pixels.extent(0)),
             1u,
             gen
         );
@@ -145,9 +145,9 @@ struct ImageViewData {
     [[nodiscard]] static ImageViewData FromU16(keel::MdRef<keel::u16, 3> pixels, keel::u64 gen = 0) noexcept {
         return FromU16(
             pixels.flat(),
-            static_cast<keel::u32>(pixels.extent(1)),
-            static_cast<keel::u32>(pixels.extent(0)),
-            static_cast<keel::u32>(pixels.extent(2)),
+            keel::as<keel::u32>(pixels.extent(1)),
+            keel::as<keel::u32>(pixels.extent(0)),
+            keel::as<keel::u32>(pixels.extent(2)),
             gen
         );
     }
@@ -173,8 +173,8 @@ struct ImageViewData {
     [[nodiscard]] static ImageViewData FromU8(keel::MdRef<keel::u8, 2> pixels, keel::u64 gen = 0) noexcept {
         return FromU8(
             pixels.flat(),
-            static_cast<keel::u32>(pixels.extent(1)),
-            static_cast<keel::u32>(pixels.extent(0)),
+            keel::as<keel::u32>(pixels.extent(1)),
+            keel::as<keel::u32>(pixels.extent(0)),
             1u,
             gen
         );
@@ -183,9 +183,9 @@ struct ImageViewData {
     [[nodiscard]] static ImageViewData FromU8(keel::MdRef<keel::u8, 3> pixels, keel::u64 gen = 0) noexcept {
         return FromU8(
             pixels.flat(),
-            static_cast<keel::u32>(pixels.extent(1)),
-            static_cast<keel::u32>(pixels.extent(0)),
-            static_cast<keel::u32>(pixels.extent(2)),
+            keel::as<keel::u32>(pixels.extent(1)),
+            keel::as<keel::u32>(pixels.extent(0)),
+            keel::as<keel::u32>(pixels.extent(2)),
             gen
         );
     }
@@ -215,14 +215,14 @@ struct ImageViewOptions {
     // --- Sizing & Geometry ---
     AxisSize width{};                     ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or `Fixed(dp)`)
     AxisSize height{SizeMode::Fit};       ///< Vertical sizing policy (`Fit` -> 620 dp default, `Stretch`, or `Fixed(dp)`)
-    keel::Optional<float> minHeight{keel::kNullOpt}; ///< Minimum fallback height (nullopt = 360 dp)
+    keel::Optional<keel::f32> minHeight{keel::kNullOpt}; ///< Minimum fallback height (nullopt = 360 dp)
     StateColor background{};
     Border border{};
 
     // --- Workstation Layout & Features ---
     bool showSidebar{true};             ///< Render built-in control sidebar (Histogram, W/L, Colormap, Auto Window, Transform)
     bool sidebarOnRight{false};         ///< False = Sidebar on Left (drs-xview style); True = Sidebar on Right
-    float sidebarWidth{300.0f};         ///< Width of the built-in sidebar in logical points
+    keel::f32 sidebarWidth{300.0f};         ///< Width of the built-in sidebar in logical points
     bool showTopToolbar{true};          ///< Show quick zoom/fit/rotate/channel bar at top of image viewport
     keel::Optional<UiSize> toolbarSize{keel::kNullOpt}; ///< Size token for top toolbar buttons (nullopt = inherit widget UiSize)
     bool showStatusBar{true};           ///< Show bottom telemetry bar (X, Y, Raw pixel values, Zoom, W/L)
@@ -239,25 +239,25 @@ struct ImageViewOptions {
 /// Telemetry and interaction response returned by `ui.ImageView`.
 struct ImageViewResponse : public Response {
     bool paramsChanged{false};          ///< True if Window/Level/Gamma/Colormap/Transform changed this frame
-    float zoom{1.0f};                   ///< Current viewport zoom factor (1.0 = 100%)
+    keel::f32 zoom{1.0f};                   ///< Current viewport zoom factor (1.0 = 100%)
     Vec2 panOffset{0.0f, 0.0f};         ///< Current pan offset in screen pixels
 
     bool cursorInsideImage{false};      ///< True when mouse cursor is over a valid source image pixel
     keel::u32 cursorImageX{0};           ///< Source image X coordinate [0 .. width-1]
     keel::u32 cursorImageY{0};           ///< Source image Y coordinate [0 .. height-1]
-    keel::StaticArray<float, 4> cursorSample{}; ///< Raw sample values under cursor (ch 0..3)
-    float cursorLuminance{0.0f};        ///< Raw intensity (1ch) or luminance (3ch) under cursor
+    keel::StaticArray<keel::f32, 4> cursorSample{}; ///< Raw sample values under cursor (ch 0..3)
+    keel::f32 cursorLuminance{0.0f};        ///< Raw intensity (1ch) or luminance (3ch) under cursor
 
     bool profileActive{false};          ///< True when a cross-section RMB line profile is active
     Vec2 profileStartPx{0.0f, 0.0f};    ///< Line profile start in source image coordinates
     Vec2 profileEndPx{0.0f, 0.0f};      ///< Line profile end in source image coordinates
     keel::u32 profileSampleCount{0};     ///< Number of samples along the cross-section
-    float profileMin{0.0f};
-    float profileMax{0.0f};
-    float profileMean{0.0f};
+    keel::f32 profileMin{0.0f};
+    keel::f32 profileMax{0.0f};
+    keel::f32 profileMean{0.0f};
 
-    float dataMin{0.0f};                ///< Minimum sample value in the image
-    float dataMax{65535.0f};            ///< Maximum sample value in the image
+    keel::f32 dataMin{0.0f};                ///< Minimum sample value in the image
+    keel::f32 dataMax{65535.0f};            ///< Maximum sample value in the image
 };
 
 /// Production-ready single-channel (16-bit/float radiograph/scientific) and multi-channel (RGB) Image Viewer.
@@ -269,7 +269,7 @@ public:
         UiSize size,
         ICanvas* canvas,
         const UiTheme& theme,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     ) noexcept;
 
     static ImageViewResponse Run(
@@ -290,8 +290,8 @@ public:
     /// Computes quantile-based Auto Window on a 256-bin histogram distribution.
     static void ApplyQuantileAutoWindow(
         keel::ArrayRef<keel::u32> bins,
-        float minVal,
-        float maxVal,
+        keel::f32 minVal,
+        keel::f32 maxVal,
         AutoWindowTarget target,
         AutoWindowStrength strength,
         ChannelTransferParams& ioTransfer

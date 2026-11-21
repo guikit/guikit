@@ -70,9 +70,9 @@ struct ElementSpec {
     AxisSize width{SizeMode::Stretch};                    ///< Resolved outer horizontal sizing policy (`Stretch`, `Fit`, or `Fixed(dp)`)
     ControlSpec control{};                                ///< Combined specification for the inner control slot
     UiSize widgetSize{UiSize::Md};                        ///< Active UiSize token
-    float labelGap{6.0f};                                 ///< Vertical gap between label bar and control/description
-    float descGap{6.0f};                                  ///< Vertical gap between control/label and description
-    float inlineGap{10.0f};                               ///< Horizontal gap in Inline layout
+    keel::f32 labelGap{6.0f};                                 ///< Vertical gap between label bar and control/description
+    keel::f32 descGap{6.0f};                                  ///< Vertical gap between control/label and description
+    keel::f32 inlineGap{10.0f};                               ///< Horizontal gap in Inline layout
     bool hasControl{true};                                ///< False for control-less Element; true when 1+ child controls are present
     bool disabled{false};                                 ///< Whether the element is disabled (dims text, icon, and badge)
     bool hovered{false};                                  ///< Whether the element is currently hovered
@@ -85,10 +85,10 @@ struct ElementGeometry {
     Rect controlRect{};
     Rect labelRect{};
     Rect descRect{};
-    float measuredLabelW{0.0f};
-    float measuredDescW{0.0f};
-    float labelFontSize{14.0f};
-    float descFontSize{11.0f};
+    keel::f32 measuredLabelW{0.0f};
+    keel::f32 measuredDescW{0.0f};
+    keel::f32 labelFontSize{14.0f};
+    keel::f32 descFontSize{11.0f};
     bool hasLabel{false};
     bool hasDesc{false};
     bool hasExternal{false};
@@ -140,7 +140,7 @@ public:
         const ElementSpec& spec,
         ICanvas* canvas,
         const UiTheme& theme,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     ) noexcept;
 
     /// Measures intrinsic dimensions of a control-less `ElementSpec`.
@@ -148,7 +148,7 @@ public:
         const ElementSpec& spec,
         ICanvas* canvas,
         const UiTheme& theme,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     ) noexcept {
         return Measure({0.0f, 0.0f}, spec, canvas, theme, availableWidth);
     }
@@ -159,7 +159,7 @@ public:
         UiSize size,
         ICanvas* canvas,
         const UiTheme& theme,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     ) noexcept {
         return Measure({0.0f, 0.0f}, MakeSpec(opts, size, opts.disabled, theme), canvas, theme, availableWidth);
     }
@@ -218,11 +218,11 @@ public:
     }
 
 protected:
-    [[nodiscard]] static float ResolveLabelFontSize(const ElementSpec& spec, const UiTheme& theme) noexcept;
-    [[nodiscard]] static float ResolveDescFontSize(const ElementSpec& spec, const UiTheme& theme) noexcept;
+    [[nodiscard]] static keel::f32 ResolveLabelFontSize(const ElementSpec& spec, const UiTheme& theme) noexcept;
+    [[nodiscard]] static keel::f32 ResolveDescFontSize(const ElementSpec& spec, const UiTheme& theme) noexcept;
     [[nodiscard]] static Vec2 MeasureLabelBar(
         const ElementSpec& spec,
-        float labelFontSize,
+        keel::f32 labelFontSize,
         ICanvas* canvas,
         const UiTheme& theme
     ) noexcept;

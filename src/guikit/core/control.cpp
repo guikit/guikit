@@ -20,11 +20,11 @@ SizeMode Control::ResolveWidthMode(
     return defaultMode;
 }
 
-float Control::ResolveFlexGrow(
+keel::f32 Control::ResolveFlexGrow(
     const Node* parent,
     AxisSize width,
     AxisSize height,
-    float fallbackFlexGrow
+    keel::f32 fallbackFlexGrow
 ) noexcept {
     const Node* layoutParent = parent;
     if (layoutParent && layoutParent->type == NodeType::Element) {
@@ -42,11 +42,11 @@ float Control::ResolveFlexGrow(
     return fallbackFlexGrow;
 }
 
-float Control::ResolveFlexGrow(
+keel::f32 Control::ResolveFlexGrow(
     const Context& ctx,
     AxisSize width,
     AxisSize height,
-    float fallbackFlexGrow
+    keel::f32 fallbackFlexGrow
 ) noexcept {
     return ResolveFlexGrow(ctx.GetCurrentContainer(), width, height, fallbackFlexGrow);
 }
@@ -168,8 +168,8 @@ void Control::SetupNode(
         parent->visualHash = detail::HashArgs(
             parent->visualHash,
             node->visualHash,
-            static_cast<keel::u8>(node->widthMode),
-            static_cast<keel::u8>(node->heightMode),
+            keel::as<keel::u8>(node->widthMode),
+            keel::as<keel::u8>(node->heightMode),
             node->fixedWidth,
             node->fixedHeight
         );

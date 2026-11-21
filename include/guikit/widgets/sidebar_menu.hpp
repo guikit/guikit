@@ -40,9 +40,9 @@ struct SidebarMenuOptions {
     SidebarMenuStyle style{SidebarMenuStyle::Pill};
     bool collapsed{false};                          ///< Compact icon-only rail mode (hides text, badges, and section titles)
     StateColor color{};                             ///< Default highlight color for active items (Default = theme Primary)
-    keel::Optional<float> gap{4.0f};                ///< Vertical gap between consecutive menu items
-    float sectionGap{8.0f};                         ///< Extra top spacing before a non-first Section header
-    keel::Optional<float> width{keel::kNullOpt};    ///< Optional explicit menu width (nullopt = Fit/Stretch to container)
+    keel::Optional<keel::f32> gap{4.0f};                ///< Vertical gap between consecutive menu items
+    keel::f32 sectionGap{8.0f};                         ///< Extra top spacing before a non-first Section header
+    keel::Optional<keel::f32> width{keel::kNullOpt};    ///< Optional explicit menu width (nullopt = Fit/Stretch to container)
     Border border{};                                ///< Optional item border / corner rounding radius override
     UiSize size{UiSize::Md};                        ///< Component size scale
     bool disabled{false};
@@ -95,7 +95,7 @@ public:
     void Separator(keel::SourceLocation loc = keel::SourceLocation::current());
 
     /// Adds a vertical expanding spacer pushing subsequent items to the bottom of the menu.
-    void Spacer(float flex = 1.0f, keel::SourceLocation loc = keel::SourceLocation::current());
+    void Spacer(keel::f32 flex = 1.0f, keel::SourceLocation loc = keel::SourceLocation::current());
 
 private:
     void InvalidateContext() noexcept;

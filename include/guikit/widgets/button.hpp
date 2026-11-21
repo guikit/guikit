@@ -29,10 +29,10 @@ struct ButtonOptions {
     UiSize size{UiSize::Md};                        ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)
     AxisSize width{};                               ///< Horizontal sizing policy (`Auto` -> `Fit`, `Stretch`, or explicit `dp`)
     AxisSize height{};                              ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or explicit `dp`)
-    keel::Optional<float> minWidth{keel::kNullOpt}; ///< Optional minimum width in logical dp
-    keel::Optional<float> maxWidth{keel::kNullOpt}; ///< Optional maximum width in logical dp
-    keel::Optional<float> minHeight{keel::kNullOpt};///< Optional minimum height in logical dp
-    keel::Optional<float> maxHeight{keel::kNullOpt};///< Optional maximum height in logical dp
+    keel::Optional<keel::f32> minWidth{keel::kNullOpt}; ///< Optional minimum width in logical dp
+    keel::Optional<keel::f32> maxWidth{keel::kNullOpt}; ///< Optional maximum width in logical dp
+    keel::Optional<keel::f32> minHeight{keel::kNullOpt};///< Optional minimum height in logical dp
+    keel::Optional<keel::f32> maxHeight{keel::kNullOpt};///< Optional maximum height in logical dp
     StateColor color{};                             ///< Per-state semantic fill/accent color override
     StateColor background{};                        ///< Optional background fill override (`{}` = theme/variant default, `StateColor::None()` = transparent)
     Border border{};                                ///< Optional border width, color, and radius override
@@ -52,8 +52,8 @@ public:
     );
 
     /// Measures intrinsic dimensions based on content (icon + label + padding for current UiSize).
-    static Vec2 Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, const UiTheme& theme, float availableWidth = 0.0f);
-    static Vec2 Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas = nullptr, float availableWidth = 0.0f);
+    static Vec2 Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, const UiTheme& theme, keel::f32 availableWidth = 0.0f);
+    static Vec2 Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas = nullptr, keel::f32 availableWidth = 0.0f);
 
     /// Renders the button into its allocated bounds according to interaction and disabled state.
     static void Render(
@@ -66,7 +66,7 @@ public:
         bool disabled,
         const UiTheme& theme,
         bool focused = false,
-        float loadingPhase = 0.0f
+        keel::f32 loadingPhase = 0.0f
     );
 };
 

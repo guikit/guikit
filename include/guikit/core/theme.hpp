@@ -11,7 +11,7 @@ namespace guikit {
 struct UiTheme {
     ThemeMode mode{ThemeMode::Dark};
     ShellStyle shellStyle{ShellStyle::Docked};
-    float lineHeightMultiplier{kDefaultLineHeightMultiplier};
+    keel::f32 lineHeightMultiplier{kDefaultLineHeightMultiplier};
 
     // 0. Application shell framing tokens (resolved from shellStyle)
     ShellMetrics shell{};
@@ -38,10 +38,10 @@ struct UiTheme {
     keel::StaticArray<CarouselMetrics, 6> carousels{};
 
     // 6. Spacing scale (gaps) per UiSize (6 sizes)
-    keel::StaticArray<float, 6> spacing{};
+    keel::StaticArray<keel::f32, 6> spacing{};
 
     // 7. Corner radius scale per UiSize (6 sizes)
-    keel::StaticArray<float, 6> radius{};
+    keel::StaticArray<keel::f32, 6> radius{};
 
     // 8. Specific widget metrics per UiSize (6 sizes each), plus section HeadingMetrics per HeadingLevel (H1..H6)
     keel::StaticArray<SwitchMetrics, 6>     switches{};
@@ -53,14 +53,14 @@ struct UiTheme {
 
     // --- Fast Inline Accessors ---
 
-    [[nodiscard]] constexpr float SizeFactor(UiSize size) const noexcept {
+    [[nodiscard]] constexpr keel::f32 SizeFactor(UiSize size) const noexcept {
         return size.ResolveFactor(metrics[UiSize::Md.TableIndex()].defaultHeight);
     }
 
-    [[nodiscard]] constexpr float ScaleBySize(float mdValue, UiSize size) const noexcept {
+    [[nodiscard]] constexpr keel::f32 ScaleBySize(keel::f32 mdValue, UiSize size) const noexcept {
         if (size.IsPreset()) {
-            const float mdH = metrics[UiSize::Md.TableIndex()].defaultHeight;
-            const float curH = metrics[size.TableIndex()].defaultHeight;
+            const keel::f32 mdH = metrics[UiSize::Md.TableIndex()].defaultHeight;
+            const keel::f32 curH = metrics[size.TableIndex()].defaultHeight;
             return (mdH > 0.0f && curH > 0.0f) ? (mdValue * (curH / mdH)) : mdValue;
         }
         return mdValue * SizeFactor(size);
@@ -71,7 +71,7 @@ struct UiTheme {
             return metrics[size.TableIndex()];
         }
         ComponentMetrics m = metrics[UiSize::Md.TableIndex()];
-        const float f = SizeFactor(size);
+        const keel::f32 f = SizeFactor(size);
         m.defaultHeight *= f;
         m.fontSize *= f;
         m.companionFontSize *= f;
@@ -93,12 +93,12 @@ struct UiTheme {
     }
 
     [[nodiscard]] constexpr const VariantColors& GetVariant(UiVariant variant) const noexcept {
-        const keel::usize idx = static_cast<keel::usize>(variant);
-        return (idx < variants.size()) ? variants[idx] : variants[static_cast<keel::usize>(UiVariant::Default)];
+        const keel::usize idx = keel::as<keel::usize>(variant);
+        return (idx < variants.size()) ? variants[idx] : variants[keel::as<keel::usize>(UiVariant::Default)];
     }
     [[nodiscard]] constexpr VariantColors& GetVariant(UiVariant variant) noexcept {
-        const keel::usize idx = static_cast<keel::usize>(variant);
-        return (idx < variants.size()) ? variants[idx] : variants[static_cast<keel::usize>(UiVariant::Default)];
+        const keel::usize idx = keel::as<keel::usize>(variant);
+        return (idx < variants.size()) ? variants[idx] : variants[keel::as<keel::usize>(UiVariant::Default)];
     }
 
     [[nodiscard]] constexpr Color GetTextColor(UiVariant variant) const noexcept {
@@ -112,16 +112,16 @@ struct UiTheme {
     }
 
     [[nodiscard]] constexpr const TypographyMetrics& GetTypography(TextRole role) const noexcept {
-        const keel::usize idx = static_cast<keel::usize>(role);
-        return (idx < typography.size()) ? typography[idx] : typography[static_cast<keel::usize>(TextRole::BodyMedium)];
+        const keel::usize idx = keel::as<keel::usize>(role);
+        return (idx < typography.size()) ? typography[idx] : typography[keel::as<keel::usize>(TextRole::BodyMedium)];
     }
     [[nodiscard]] constexpr TypographyMetrics& GetTypography(TextRole role) noexcept {
-        const keel::usize idx = static_cast<keel::usize>(role);
-        return (idx < typography.size()) ? typography[idx] : typography[static_cast<keel::usize>(TextRole::BodyMedium)];
+        const keel::usize idx = keel::as<keel::usize>(role);
+        return (idx < typography.size()) ? typography[idx] : typography[keel::as<keel::usize>(TextRole::BodyMedium)];
     }
 
     /// Resolves font size for a semantic TextRole at a given widget UiSize.
-    [[nodiscard]] constexpr float ResolveFontSize(
+    [[nodiscard]] constexpr keel::f32 ResolveFontSize(
         TextRole role,
         UiSize widgetSize = UiSize::Md
     ) const noexcept {
@@ -143,7 +143,7 @@ struct UiTheme {
         }
     }
 
-    [[nodiscard]] constexpr float GetFontSize(
+    [[nodiscard]] constexpr keel::f32 GetFontSize(
         TextRole role,
         UiSize widgetSize = UiSize::Md
     ) const noexcept {
@@ -151,7 +151,7 @@ struct UiTheme {
     }
 
     /// Resolves font size for a UiText: checks explicit px, preset UiSize, or TextRole, falling back to defaultRole at widgetSize.
-    [[nodiscard]] constexpr float ResolveFontSize(
+    [[nodiscard]] constexpr keel::f32 ResolveFontSize(
         const UiText& text,
         TextRole defaultRole,
         UiSize widgetSize = UiSize::Md
@@ -161,16 +161,16 @@ struct UiTheme {
         }
         const UiSize effectiveSize = !text.size.preset.IsNone() ? text.size.preset : widgetSize;
         if (text.size.role.has_value()) {
-            const float f = effectiveSize.IsCustom() ? SizeFactor(effectiveSize) : 1.0f;
+            const keel::f32 f = effectiveSize.IsCustom() ? SizeFactor(effectiveSize) : 1.0f;
             return GetTypography(*text.size.role).fontSize * f;
         }
         return ResolveFontSize(defaultRole, effectiveSize);
     }
 
     /// Resolves font size for a UiText with an explicit fallback pixel size.
-    [[nodiscard]] constexpr float ResolveFontSize(
+    [[nodiscard]] constexpr keel::f32 ResolveFontSize(
         const UiText& text,
-        float fallbackFontSize
+        keel::f32 fallbackFontSize
     ) const noexcept {
         if (text.size.px > 0.0f) {
             return text.size.px;
@@ -207,8 +207,8 @@ struct UiTheme {
             ).WithAlpha(palette.surface.a);
 
             auto tintOver = [](Color surf, Color accent, keel::u8 tint) constexpr noexcept -> Color {
-                const keel::u32 effW = (static_cast<keel::u32>(tint) * static_cast<keel::u32>(accent.a) + 127u) / 255u;
-                return Color::Mix255(surf, accent, static_cast<keel::u8>(effW)).WithAlpha(surf.a);
+                const keel::u32 effW = (keel::as<keel::u32>(tint) * keel::as<keel::u32>(accent.a) + 127u) / 255u;
+                return Color::Mix255(surf, accent, keel::as<keel::u8>(effW)).WithAlpha(surf.a);
             };
 
             const Color baseNormal = res.normal.value_or(opaqueSurface);
@@ -418,7 +418,7 @@ struct UiTheme {
             return scrollbars[size.TableIndex()];
         }
         ScrollbarMetrics m = scrollbars[UiSize::Md.TableIndex()];
-        const float f = SizeFactor(size);
+        const keel::f32 f = SizeFactor(size);
         m.trackWidth *= f;
         m.minThumbLength *= f;
         m.cornerRadius *= f;
@@ -436,7 +436,7 @@ struct UiTheme {
             return carousels[size.TableIndex()];
         }
         CarouselMetrics m = carousels[UiSize::Md.TableIndex()];
-        const float f = SizeFactor(size);
+        const keel::f32 f = SizeFactor(size);
         m.arrowButtonSize *= f;
         m.iconSize *= f;
         m.cornerRadius *= f;
@@ -450,7 +450,7 @@ struct UiTheme {
         return carousels[size.TableIndex()];
     }
 
-    [[nodiscard]] constexpr float GetGap(UiSize size) const noexcept {
+    [[nodiscard]] constexpr keel::f32 GetGap(UiSize size) const noexcept {
         if (size.IsPreset()) {
             return spacing[size.TableIndex()];
         }
@@ -458,16 +458,16 @@ struct UiTheme {
     }
 
     /// Resolves an optional explicit gap or falls back to the theme spacing token for fallbackSize, scaled by container density.
-    [[nodiscard]] constexpr float ResolveGap(
-        keel::Optional<float> explicitGap,
+    [[nodiscard]] constexpr keel::f32 ResolveGap(
+        keel::Optional<keel::f32> explicitGap,
         UiSize fallbackSize = UiSize::Md,
-        float density = 1.0f
+        keel::f32 density = 1.0f
     ) const noexcept {
-        const float base = explicitGap.has_value() ? *explicitGap : GetGap(fallbackSize);
+        const keel::f32 base = explicitGap.has_value() ? *explicitGap : GetGap(fallbackSize);
         return base * density;
     }
 
-    [[nodiscard]] constexpr float GetRadius(UiSize size) const noexcept {
+    [[nodiscard]] constexpr keel::f32 GetRadius(UiSize size) const noexcept {
         if (size.IsPreset()) {
             return radius[size.TableIndex()];
         }
@@ -475,13 +475,13 @@ struct UiTheme {
     }
 
     /// Resolves an optional explicit corner radius or falls back to the theme radius token for fallbackSize.
-    [[nodiscard]] constexpr float ResolveRadius(keel::Optional<float> explicitRadius, UiSize fallbackSize = UiSize::Md) const noexcept {
+    [[nodiscard]] constexpr keel::f32 ResolveRadius(keel::Optional<keel::f32> explicitRadius, UiSize fallbackSize = UiSize::Md) const noexcept {
         return explicitRadius.has_value() ? *explicitRadius : GetRadius(fallbackSize);
     }
 
     [[nodiscard]] constexpr Padding GetPadding(UiSize size) const noexcept {
         if (size.IsNone()) return Padding{};
-        const float val = (size == UiSize::Xs) ? spacing[UiSize::Sm.TableIndex()] :
+        const keel::f32 val = (size == UiSize::Xs) ? spacing[UiSize::Sm.TableIndex()] :
                           (size == UiSize::Sm) ? spacing[UiSize::Md.TableIndex()] :
                           (size == UiSize::Md) ? spacing[UiSize::Lg.TableIndex()] :
                           (size == UiSize::Lg) ? spacing[UiSize::Xl.TableIndex()] :
@@ -494,7 +494,7 @@ struct UiTheme {
     [[nodiscard]] constexpr Padding ResolvePadding(
         keel::Optional<Padding> p,
         UiSize fallbackSize = UiSize::None,
-        float density = 1.0f
+        keel::f32 density = 1.0f
     ) const noexcept {
         Padding result{};
         if (p.has_value()) {
@@ -510,7 +510,7 @@ struct UiTheme {
             return switches[size.TableIndex()];
         }
         SwitchMetrics m = switches[UiSize::Md.TableIndex()];
-        const float f = SizeFactor(size);
+        const keel::f32 f = SizeFactor(size);
         m.trackSize.x *= f;
         m.trackSize.y *= f;
         m.knobDiameter *= f;
@@ -529,7 +529,7 @@ struct UiTheme {
             return checkboxes[size.TableIndex()];
         }
         CheckboxMetrics m = checkboxes[UiSize::Md.TableIndex()];
-        const float f = SizeFactor(size);
+        const keel::f32 f = SizeFactor(size);
         m.boxSize *= f;
         m.cornerRadius *= f;
         m.gap *= f;
@@ -547,7 +547,7 @@ struct UiTheme {
             return inputs[size.TableIndex()];
         }
         InputFieldMetrics m = inputs[UiSize::Md.TableIndex()];
-        const float f = SizeFactor(size);
+        const keel::f32 f = SizeFactor(size);
         m.defaultHeight *= f;
         m.cornerRadius *= f;
         m.paddingX *= f;
@@ -568,7 +568,7 @@ struct UiTheme {
             return selects[size.TableIndex()];
         }
         SelectMetrics m = selects[UiSize::Md.TableIndex()];
-        const float f = SizeFactor(size);
+        const keel::f32 f = SizeFactor(size);
         m.defaultHeight *= f;
         m.cornerRadius *= f;
         m.paddingX *= f;
@@ -586,12 +586,12 @@ struct UiTheme {
     }
 
     [[nodiscard]] constexpr const HeadingMetrics& GetHeading(HeadingLevel level) const noexcept {
-        const keel::usize idx = static_cast<keel::usize>(level);
-        return (idx < headings.size()) ? headings[idx] : headings[static_cast<keel::usize>(HeadingLevel::H3)];
+        const keel::usize idx = keel::as<keel::usize>(level);
+        return (idx < headings.size()) ? headings[idx] : headings[keel::as<keel::usize>(HeadingLevel::H3)];
     }
     [[nodiscard]] constexpr HeadingMetrics& GetHeading(HeadingLevel level) noexcept {
-        const keel::usize idx = static_cast<keel::usize>(level);
-        return (idx < headings.size()) ? headings[idx] : headings[static_cast<keel::usize>(HeadingLevel::H3)];
+        const keel::usize idx = keel::as<keel::usize>(level);
+        return (idx < headings.size()) ? headings[idx] : headings[keel::as<keel::usize>(HeadingLevel::H3)];
     }
 
     [[nodiscard]] constexpr SliderMetrics GetSlider(UiSize size) const noexcept {
@@ -599,7 +599,7 @@ struct UiTheme {
             return sliders[size.TableIndex()];
         }
         SliderMetrics m = sliders[UiSize::Md.TableIndex()];
-        const float f = SizeFactor(size);
+        const keel::f32 f = SizeFactor(size);
         m.defaultHeight *= f;
         m.trackHeight *= f;
         m.thumbSize *= f;
@@ -616,26 +616,26 @@ struct UiTheme {
     }
 
     struct SpacingProxy {
-        float& none;
-        float& xs;
-        float& sm;
-        float& md;
-        float& lg;
-        float& xl;
+        keel::f32& none;
+        keel::f32& xs;
+        keel::f32& sm;
+        keel::f32& md;
+        keel::f32& lg;
+        keel::f32& xl;
 
-        explicit SpacingProxy(keel::StaticArray<float, 6>& a) noexcept
+        explicit SpacingProxy(keel::StaticArray<keel::f32, 6>& a) noexcept
             : none(a[0]), xs(a[1]), sm(a[2]), md(a[3]), lg(a[4]), xl(a[5]) {}
     };
 
     struct ConstSpacingProxy {
-        const float none;
-        const float xs;
-        const float sm;
-        const float md;
-        const float lg;
-        const float xl;
+        const keel::f32 none;
+        const keel::f32 xs;
+        const keel::f32 sm;
+        const keel::f32 md;
+        const keel::f32 lg;
+        const keel::f32 xl;
 
-        explicit ConstSpacingProxy(const keel::StaticArray<float, 6>& a) noexcept
+        explicit ConstSpacingProxy(const keel::StaticArray<keel::f32, 6>& a) noexcept
             : none(a[0]), xs(a[1]), sm(a[2]), md(a[3]), lg(a[4]), xl(a[5]) {}
     };
 
@@ -644,7 +644,7 @@ struct UiTheme {
 
     [[nodiscard]] constexpr ShellStyle GetShellStyle() const noexcept { return shellStyle; }
     [[nodiscard]] constexpr ComponentMetrics GetComponentMetrics(UiSize size) const noexcept { return GetMetrics(size); }
-    [[nodiscard]] constexpr float GetLineHeight(float fontSize) const noexcept { return fontSize * lineHeightMultiplier; }
+    [[nodiscard]] constexpr keel::f32 GetLineHeight(keel::f32 fontSize) const noexcept { return fontSize * lineHeightMultiplier; }
 
     // --- Standard Theme Factories ---
     [[nodiscard]] static UiTheme Dark() noexcept;

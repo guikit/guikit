@@ -13,8 +13,8 @@ struct UiTheme;
 /// Resolved subtree environment inherited down UI nodes (`Context::GetZone()` / `Node::zone`).
 struct Zone {
     UiTheme* theme{nullptr};                          ///< Active theme (context theme or arena copy)
-    float scale{1.0f};                                ///< Accumulated geometric scale (relative to root)
-    float density{1.0f};                              ///< Accumulated spacing/gap/padding multiplier
+    keel::f32 scale{1.0f};                                ///< Accumulated geometric scale (relative to root)
+    keel::f32 density{1.0f};                              ///< Accumulated spacing/gap/padding multiplier
     keel::Optional<bool> debugBounds{keel::kNullOpt}; ///< Debug bounding boxes (`kNullOpt` = the context setting)
     keel::Optional<bool> inspectMode{keel::kNullOpt}; ///< DevTools inspector (`kNullOpt` = the context setting)
 };
@@ -26,8 +26,8 @@ inline constexpr Zone kDefaultZone{};
 /// Anything left unset inherits from the enclosing zone; `scale` and `density` compose multiplicatively.
 struct ZoneOptions {
     keel::Optional<const UiTheme&> theme{keel::kNullOpt}; ///< Replaces inherited theme (copied into the frame arena)
-    keel::Optional<float> scale{keel::kNullOpt};          ///< Geometric subtree multiplier (layout, text, strokes, input)
-    keel::Optional<float> density{keel::kNullOpt};        ///< Spacing/gap/padding multiplier for container layouts
+    keel::Optional<keel::f32> scale{keel::kNullOpt};          ///< Geometric subtree multiplier (layout, text, strokes, input)
+    keel::Optional<keel::f32> density{keel::kNullOpt};        ///< Spacing/gap/padding multiplier for container layouts
     keel::Optional<bool> debugBounds{keel::kNullOpt};     ///< Shows (or hides) debug bounding boxes inside the subtree
     keel::Optional<bool> inspectMode{keel::kNullOpt};     ///< Enables (or disables) the DevTools inspector inside the subtree
 

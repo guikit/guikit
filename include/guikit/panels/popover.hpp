@@ -27,7 +27,7 @@ enum class PopoverPlacement : keel::u8 {
 struct PopoverOptions {
     Rect anchorRect{};                                  ///< Trigger bounds in current coordinates
     PopoverPlacement placement{PopoverPlacement::Auto}; ///< Preferred placement relative to anchorRect
-    float offset{6.0f};                                 ///< Gap in logical dp between anchorRect and popover bounds
+    keel::f32 offset{6.0f};                                 ///< Gap in logical dp between anchorRect and popover bounds
     keel::Optional<Rect> viewport{keel::kNullOpt};      ///< Explicit confining bounds (nullopt = active popup viewport)
     bool closeOnClickOutside{true};                     ///< Dismiss when clicking outside both popover content and anchorRect
     bool closeOnEscape{true};                           ///< Dismiss when pressing Escape (if no child dropdown popup is open)
@@ -109,7 +109,7 @@ public:
 
     static Vec2 Measure(
         const Node* node,
-        float availableWidth,
+        keel::f32 availableWidth,
         ICanvas* canvas,
         const UiTheme& theme
     );
@@ -123,8 +123,8 @@ public:
     /// Computes final popover bounding rect anchored to `opts.anchorRect` inside the confining viewport.
     [[nodiscard]] static Rect ResolvePopoverRect(
         const Node* node,
-        float resolvedWidth,
-        float resolvedHeight,
+        keel::f32 resolvedWidth,
+        keel::f32 resolvedHeight,
         const Rect& fallbackViewport
     ) noexcept;
 };

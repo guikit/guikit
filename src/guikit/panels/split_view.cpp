@@ -12,11 +12,11 @@ namespace {
 
 struct SplitViewPersistState {
     bool initialized{false};
-    float ratio{0.5f};
+    keel::f32 ratio{0.5f};
     bool dragging{false};
     bool sashHovered{false};
     Vec2 dragStartMouse{0.0f, 0.0f};
-    float dragStartRatio{0.5f};
+    keel::f32 dragStartRatio{0.5f};
     Rect prevContainerRect{0.0f, 0.0f, 0.0f, 0.0f};
     Rect prevSashRect{0.0f, 0.0f, 0.0f, 0.0f};
 };
@@ -26,15 +26,15 @@ struct SplitViewPayload {
     SplitViewPersistState* state{nullptr};
     ICanvas* canvas{nullptr};
     Rect sashRect{0.0f, 0.0f, 0.0f, 0.0f};
-    float ratio{0.5f};
+    keel::f32 ratio{0.5f};
     bool sashHovered{false};
     bool dragging{false};
 };
 
-float ClampSplitRatio(
-    float ratio,
-    float availSpan,
-    float scale,
+keel::f32 ClampSplitRatio(
+    keel::f32 ratio,
+    keel::f32 availSpan,
+    keel::f32 scale,
     const SplitViewOptions& opts
 ) noexcept {
     if (opts.collapsible) {
@@ -42,14 +42,14 @@ float ClampSplitRatio(
         if (ratio >= 0.999f) return 1.0f;
     }
 
-    float minR = keel::clamp(opts.minRatio, 0.0f, 1.0f);
-    float maxR = keel::clamp(opts.maxRatio, minR, 1.0f);
+    keel::f32 minR = keel::clamp(opts.minRatio, 0.0f, 1.0f);
+    keel::f32 maxR = keel::clamp(opts.maxRatio, minR, 1.0f);
 
     if (availSpan > 1.0f) {
-        const float minFirstPx = keel::max(0.0f, opts.minFirstSize) * scale;
-        const float minSecondPx = keel::max(0.0f, opts.minSecondSize) * scale;
-        const float reqMinR = keel::min(0.5f, minFirstPx / availSpan);
-        const float reqMaxR = keel::max(0.5f, 1.0f - (minSecondPx / availSpan));
+        const keel::f32 minFirstPx = keel::max(0.0f, opts.minFirstSize) * scale;
+        const keel::f32 minSecondPx = keel::max(0.0f, opts.minSecondSize) * scale;
+        const keel::f32 reqMinR = keel::min(0.5f, minFirstPx / availSpan);
+        const keel::f32 reqMaxR = keel::max(0.5f, 1.0f - (minSecondPx / availSpan));
         minR = keel::max(minR, reqMinR);
         maxR = keel::min(maxR, reqMaxR);
         if (minR > maxR) {
@@ -60,7 +60,7 @@ float ClampSplitRatio(
     return keel::clamp(ratio, minR, maxR);
 }
 
-Rect ExpandSashHitRect(const Rect& sashRect, Orientation orientation, float expandPx) noexcept {
+Rect ExpandSashHitRect(const Rect& sashRect, Orientation orientation, keel::f32 expandPx) noexcept {
     if (sashRect.w <= 0.0f || sashRect.h <= 0.0f) {
         return sashRect;
     }
@@ -72,7 +72,7 @@ Rect ExpandSashHitRect(const Rect& sashRect, Orientation orientation, float expa
 
 Vec2 MeasureSplitView(
     const Node* node,
-    float /*availableWidth*/,
+    keel::f32 /*availableWidth*/,
     ICanvas* /*canvas*/,
     const UiTheme& /*theme*/
 ) noexcept {
@@ -80,8 +80,8 @@ Vec2 MeasureSplitView(
     const auto* payload = node->As<SplitViewPayload>();
     const SplitViewOptions opts = payload ? payload->opts : SplitViewOptions{};
     const bool isHoriz = (opts.orientation == Orientation::Horizontal);
-    const float sashPx = keel::max(2.0f, keel::round(opts.sashSize));
-    const float bw = node->borderWidth;
+    const keel::f32 sashPx = keel::max(2.0f, keel::round(opts.sashSize));
+    const keel::f32 bw = node->borderWidth;
 
     const Node* firstChild = node->firstChild;
     const Node* secondChild = firstChild ? firstChild->nextSibling : nullptr;
@@ -98,8 +98,8 @@ Vec2 MeasureSplitView(
         secondSz.y = (secondChild->heightMode == SizeMode::Fixed) ? secondChild->fixedHeight : secondChild->intrinsicSize.y;
     }
 
-    float totalW = node->padding.Horizontal() + bw * 2.0f;
-    float totalH = node->padding.Vertical() + bw * 2.0f;
+    keel::f32 totalW = node->padding.Horizontal() + bw * 2.0f;
+    keel::f32 totalH = node->padding.Vertical() + bw * 2.0f;
 
     if (isHoriz) {
         totalW += firstSz.x + sashPx + secondSz.x;
@@ -127,8 +127,8 @@ void ArrangeSplitView(
     auto* payload = node->As<SplitViewPayload>();
     const SplitViewOptions opts = payload ? payload->opts : SplitViewOptions{};
 
-    float w = availableRect.w;
-    float h = availableRect.h;
+    keel::f32 w = availableRect.w;
+    keel::f32 h = availableRect.h;
     if (node->widthMode == SizeMode::Fixed && node->fixedWidth > 0.0f) {
         w = node->fixedWidth;
     } else if (node->widthMode == SizeMode::Fit && node->intrinsicSize.x > 0.0f) {
@@ -142,7 +142,7 @@ void ArrangeSplitView(
 
     node->computedRect = Rect(availableRect.x, availableRect.y, w, h);
 
-    const float bw = node->borderWidth;
+    const keel::f32 bw = node->borderWidth;
     const Rect innerRect(
         node->computedRect.x + node->padding.left + bw,
         node->computedRect.y + node->padding.top + bw,
@@ -151,28 +151,28 @@ void ArrangeSplitView(
     );
 
     const bool isHoriz = (opts.orientation == Orientation::Horizontal);
-    const float s = 1.0f;
-    const float sashPx = keel::max(2.0f, keel::round(opts.sashSize));
-    const float availSpan = keel::max(0.0f, (isHoriz ? innerRect.w : innerRect.h) - sashPx);
+    const keel::f32 s = 1.0f;
+    const keel::f32 sashPx = keel::max(2.0f, keel::round(opts.sashSize));
+    const keel::f32 availSpan = keel::max(0.0f, (isHoriz ? innerRect.w : innerRect.h) - sashPx);
 
-    const float rawRatio = payload ? payload->ratio : opts.defaultRatio;
-    const float r = ClampSplitRatio(rawRatio, availSpan, s, opts);
+    const keel::f32 rawRatio = payload ? payload->ratio : opts.defaultRatio;
+    const keel::f32 r = ClampSplitRatio(rawRatio, availSpan, s, opts);
 
     Rect firstRect{};
     Rect sashRect{};
     Rect secondRect{};
 
     if (isHoriz) {
-        const float effSashW = keel::min(sashPx, innerRect.w);
-        const float firstW = keel::round(availSpan * r);
-        const float secondW = keel::max(0.0f, availSpan - firstW);
+        const keel::f32 effSashW = keel::min(sashPx, innerRect.w);
+        const keel::f32 firstW = keel::round(availSpan * r);
+        const keel::f32 secondW = keel::max(0.0f, availSpan - firstW);
         firstRect = Rect(innerRect.x, innerRect.y, firstW, innerRect.h);
         sashRect = Rect(innerRect.x + firstW, innerRect.y, effSashW, innerRect.h);
         secondRect = Rect(sashRect.Right(), innerRect.y, secondW, innerRect.h);
     } else {
-        const float effSashH = keel::min(sashPx, innerRect.h);
-        const float firstH = keel::round(availSpan * r);
-        const float secondH = keel::max(0.0f, availSpan - firstH);
+        const keel::f32 effSashH = keel::min(sashPx, innerRect.h);
+        const keel::f32 firstH = keel::round(availSpan * r);
+        const keel::f32 secondH = keel::max(0.0f, availSpan - firstH);
         firstRect = Rect(innerRect.x, innerRect.y, innerRect.w, firstH);
         sashRect = Rect(innerRect.x, innerRect.y + firstH, innerRect.w, effSashH);
         secondRect = Rect(innerRect.x, sashRect.Bottom(), innerRect.w, secondH);
@@ -228,7 +228,7 @@ void RenderSplitView(
     }
 
     const auto& pal = theme.palette;
-    const float s = 1.0f;
+    const keel::f32 s = 1.0f;
     const bool isHoriz = (payload->opts.orientation == Orientation::Horizontal);
     const bool active = payload->sashHovered || payload->dragging;
     const Color primaryCol = theme.GetVariant(UiVariant::Primary).bg;
@@ -243,17 +243,17 @@ void RenderSplitView(
     // Center divider line (subtle line or highlighted primary line)
     const Color lineCol = active ? primaryCol.WithAlphaF(0.85f) : pal.borderSubtle;
     if (isHoriz) {
-        const float lineX = keel::round(sashRect.Center().x);
+        const keel::f32 lineX = keel::round(sashRect.Center().x);
         canvas.DrawRect(Rect(lineX, sashRect.y, 1.0f, sashRect.h), lineCol);
     } else {
-        const float lineY = keel::round(sashRect.Center().y);
+        const keel::f32 lineY = keel::round(sashRect.Center().y);
         canvas.DrawRect(Rect(sashRect.x, lineY, sashRect.w, 1.0f), lineCol);
     }
 
     // Center grip pill (3x24 for Horizontal or 24x3 for Vertical)
     if (payload->opts.showGrip) {
-        const float gripW = isHoriz ? keel::max(2.0f, keel::round(3.0f * s)) : keel::round(24.0f * s);
-        const float gripH = isHoriz ? keel::round(24.0f * s) : keel::max(2.0f, keel::round(3.0f * s));
+        const keel::f32 gripW = isHoriz ? keel::max(2.0f, keel::round(3.0f * s)) : keel::round(24.0f * s);
+        const keel::f32 gripH = isHoriz ? keel::round(24.0f * s) : keel::max(2.0f, keel::round(3.0f * s));
         if (sashRect.w >= (isHoriz ? 2.0f : gripW) && sashRect.h >= (isHoriz ? gripH : 2.0f)) {
             const Rect gripRect(
                 keel::round(sashRect.Center().x - gripW * 0.5f),
@@ -262,7 +262,7 @@ void RenderSplitView(
                 gripH
             );
             const Color gripCol = active ? primaryCol : pal.textMuted.WithAlphaF(0.65f);
-            const float gripRadius = keel::min(gripW, gripH) * 0.5f;
+            const keel::f32 gripRadius = keel::min(gripW, gripH) * 0.5f;
             canvas.DrawRoundRect(gripRect, gripRadius, gripCol, Color::Transparent(), 0.0f);
         }
     }
@@ -295,12 +295,12 @@ SplitViewScope SplitView::Open(
     const SplitViewOptions& opts,
     keel::SourceLocation loc
 ) {
-    return Open(ctx, static_cast<float*>(nullptr), opts, loc);
+    return Open(ctx, static_cast<keel::f32*>(nullptr), opts, loc);
 }
 
 SplitViewScope SplitView::Open(
     Context& ctx,
-    float& ratio,
+    keel::f32& ratio,
     const SplitViewOptions& opts,
     keel::SourceLocation loc
 ) {
@@ -309,7 +309,7 @@ SplitViewScope SplitView::Open(
 
 SplitViewScope SplitView::Open(
     Context& ctx,
-    float* externalRatio,
+    keel::f32* externalRatio,
     const SplitViewOptions& opts,
     keel::SourceLocation loc
 ) {
@@ -318,7 +318,7 @@ SplitViewScope SplitView::Open(
 
     const UiSize activeSize = UiSize::Md;
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    const float safeScale = 1.0f;
+    const keel::f32 safeScale = 1.0f;
     const UiTheme& theme = ctx.GetTheme();
 
     auto& st = ctx.GetOrCreatePersistentState<SplitViewPersistState>(id);
@@ -356,7 +356,7 @@ SplitViewScope SplitView::Open(
                 res.hovered = true;
 
                 if (ctx.IsMouseDoubleClicked()) {
-                    const float resetTarget = keel::clamp(
+                    const keel::f32 resetTarget = keel::clamp(
                         opts.defaultRatio,
                         keel::clamp(opts.minRatio, 0.0f, 1.0f),
                         keel::clamp(opts.maxRatio, 0.0f, 1.0f)
@@ -387,25 +387,25 @@ SplitViewScope SplitView::Open(
         if (st.dragging) {
             if (ctx.IsMouseDown()) {
                 res.pressed = true;
-                const float sashPx = keel::max(2.0f, keel::round(opts.sashSize));
-                const float containerSpan = isHoriz ? st.prevContainerRect.w : st.prevContainerRect.h;
-                const float availSpan = keel::max(1.0f, containerSpan - sashPx);
-                const float delta = isHoriz
+                const keel::f32 sashPx = keel::max(2.0f, keel::round(opts.sashSize));
+                const keel::f32 containerSpan = isHoriz ? st.prevContainerRect.w : st.prevContainerRect.h;
+                const keel::f32 availSpan = keel::max(1.0f, containerSpan - sashPx);
+                const keel::f32 delta = isHoriz
                     ? (mouse.x - st.dragStartMouse.x)
                     : (mouse.y - st.dragStartMouse.y);
 
-                const float rawRatio = st.dragStartRatio + (delta / availSpan);
-                const float rawFirstPx = rawRatio * availSpan;
-                const float rawSecondPx = (1.0f - rawRatio) * availSpan;
-                const float distFromStart = isHoriz
+                const keel::f32 rawRatio = st.dragStartRatio + (delta / availSpan);
+                const keel::f32 rawFirstPx = rawRatio * availSpan;
+                const keel::f32 rawSecondPx = (1.0f - rawRatio) * availSpan;
+                const keel::f32 distFromStart = isHoriz
                     ? (mouse.x - st.prevContainerRect.x)
                     : (mouse.y - st.prevContainerRect.y);
-                const float distFromEnd = isHoriz
+                const keel::f32 distFromEnd = isHoriz
                     ? (st.prevContainerRect.Right() - mouse.x)
                     : (st.prevContainerRect.Bottom() - mouse.y);
-                const float snapThresholdPx = 16.0f * safeScale;
+                const keel::f32 snapThresholdPx = 16.0f * safeScale;
 
-                float newRatio = rawRatio;
+                keel::f32 newRatio = rawRatio;
                 if (opts.collapsible && (distFromStart <= snapThresholdPx || rawFirstPx <= snapThresholdPx)) {
                     newRatio = 0.0f;
                 } else if (opts.collapsible && (distFromEnd <= snapThresholdPx || rawSecondPx <= snapThresholdPx)) {
@@ -448,7 +448,7 @@ SplitViewScope SplitView::Open(
     }
 
     Node* outerNode = ctx.CreateNode(NodeType::SplitView, id, opts.disabled);
-    const float density = outerNode->GetDensity();
+    const keel::f32 density = outerNode->GetDensity();
     outerNode->direction = isHoriz ? FlexDirection::Row : FlexDirection::Column;
     outerNode->widthMode = opts.width.ResolveMode(SizeMode::Stretch);
     outerNode->fixedWidth = opts.width.IsFixed() ? opts.width.Dp() : 0.0f;
@@ -461,7 +461,7 @@ SplitViewScope SplitView::Open(
     outerNode->backgroundColor = opts.background.IsBackgroundEnabled(false)
         ? theme.ResolveColor(opts.background, false, false, activeDisabled, pal.surface)
         : Color::Transparent();
-    const float bw = (opts.border.width > 0.0f) ? opts.border.width : (opts.border.color.HasAny() ? 1.0f : 0.0f);
+    const keel::f32 bw = (opts.border.width > 0.0f) ? opts.border.width : (opts.border.color.HasAny() ? 1.0f : 0.0f);
     outerNode->borderWidth = bw;
     outerNode->borderColor = (bw > 0.0f)
         ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, pal.border)
@@ -490,7 +490,7 @@ SplitViewScope SplitView::Open(
         st.ratio,
         st.sashHovered,
         st.dragging,
-        static_cast<keel::u8>(opts.orientation),
+        keel::as<keel::u8>(opts.orientation),
         opts.sashSize,
         opts.showGrip,
         opts.collapsible,

@@ -17,7 +17,7 @@ void RenderElevatedCard(const Node* node, ICanvas& canvas, const UiTheme& /*them
     if (!payload) return;
 
     const Rect& rect = node->computedRect;
-    const float r = node->cornerRadius;
+    const keel::f32 r = node->cornerRadius;
 
     // 1. Soft two-layer ambient drop shadow
     canvas.DrawRoundRect(
@@ -57,7 +57,7 @@ ContainerScope Card::Open(
     // Outer styled surface frame
     Node* outerNode = ctx.CreateNode(NodeType::Card, idOuter, opts.disabled);
     const UiTheme& theme = outerNode->GetTheme(ctx.GetTheme());
-    const float density = outerNode->GetDensity();
+    const keel::f32 density = outerNode->GetDensity();
     const bool activeDisabled = outerNode->disabled;
     outerNode->direction = FlexDirection::Column;
     outerNode->gap = theme.ResolveGap(opts.gap, UiSize::Md, density);

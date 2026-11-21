@@ -31,10 +31,10 @@ struct MainWindowConfig {
     bool scaleShortcuts = true; ///< Enables Ctrl+Plus / Ctrl+Minus / Ctrl+0 UI shell scaling
     bool autoShellScope = true; ///< Wraps OnRender() in a root Column with shellTheme (shell zoom is always frame-wide)
     keel::i32 idleHeartbeatMs = 500;  ///< Periodic wakeup interval in reactive mode (-1 to disable)
-    float targetFps = 60.0f;    ///< Target frame rate for telemetry budget and non-VSync frame pacing
-    float initialScale = 1.0f;  ///< Initial shell UI scale, snapped to the nearest `MainWindow::kScaleValues` preset
+    keel::f32 targetFps = 60.0f;    ///< Target frame rate for telemetry budget and non-VSync frame pacing
+    keel::f32 initialScale = 1.0f;  ///< Initial shell UI scale, snapped to the nearest `MainWindow::kScaleValues` preset
     ThemeMode initialThemeMode = ThemeMode::Dark;
-    float initialDensity = 1.0f; ///< Initial layout gap/padding density multiplier (1.0f = standard)
+    keel::f32 initialDensity = 1.0f; ///< Initial layout gap/padding density multiplier (1.0f = standard)
     ShellStyle initialShellStyle = ShellStyle::Docked;
     keel::Optional<UiTheme> initialTheme = keel::kNullOpt; ///< Optional complete initial theme override
     TextRenderSettings textRender{};                       ///< Initial text anti-aliasing, hinting, gamma & contrast settings
@@ -84,15 +84,15 @@ public:
     virtual void PresentFrame(const Context& ui, FrameMetrics& metrics, bool forcePresent) = 0;
 
     /// Sleeps briefly when frame pacing is needed (e.g. non-reactive mode with VSync disabled).
-    virtual void PaceFrame(double elapsedMs, bool presented) noexcept {
+    virtual void PaceFrame(keel::f64 elapsedMs, bool presented) noexcept {
         (void)elapsedMs;
         (void)presented;
     }
 
     [[nodiscard]] virtual keel::i32 GetWidth() const noexcept = 0;
     [[nodiscard]] virtual keel::i32 GetHeight() const noexcept = 0;
-    [[nodiscard]] virtual float GetDpiScale() const noexcept { return 1.0f; }
-    [[nodiscard]] virtual float GetDisplayPixelsPerMm() const noexcept = 0;
+    [[nodiscard]] virtual keel::f32 GetDpiScale() const noexcept { return 1.0f; }
+    [[nodiscard]] virtual keel::f32 GetDisplayPixelsPerMm() const noexcept = 0;
     [[nodiscard]] virtual bool IsMinimized() const noexcept = 0;
     [[nodiscard]] virtual bool ShouldRenderFrame() const noexcept { return !IsMinimized(); }
     [[nodiscard]] virtual bool IsLiveResizeFrame() const noexcept = 0;

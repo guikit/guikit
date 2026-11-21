@@ -34,20 +34,20 @@ enum class HistogramChannel : keel::u8 {
 
 /// Window / Level / Gamma tonal transfer parameters for a single channel or master curve.
 struct ChannelTransferParams {
-    float window{65535.0f}; ///< Width of the active tonal window (high - low)
-    float level{32767.5f};  ///< Center of the active tonal window (0.5 * (low + high))
-    float gamma{1.0f};      ///< Midtone gamma exponent (0.10 .. 5.00; 1.0 = linear)
+    keel::f32 window{65535.0f}; ///< Width of the active tonal window (high - low)
+    keel::f32 level{32767.5f};  ///< Center of the active tonal window (0.5 * (low + high))
+    keel::f32 gamma{1.0f};      ///< Midtone gamma exponent (0.10 .. 5.00; 1.0 = linear)
     bool invert{false};     ///< True to invert output slope (1.0 - t)
 
-    [[nodiscard]] constexpr float Low() const noexcept {
+    [[nodiscard]] constexpr keel::f32 Low() const noexcept {
         return level - window * 0.5f;
     }
 
-    [[nodiscard]] constexpr float High() const noexcept {
+    [[nodiscard]] constexpr keel::f32 High() const noexcept {
         return level + window * 0.5f;
     }
 
-    constexpr void SetLowHigh(float lo, float hi, float minSpan = 1e-4f) noexcept {
+    constexpr void SetLowHigh(keel::f32 lo, keel::f32 hi, keel::f32 minSpan = 1e-4f) noexcept {
         if (hi < lo + minSpan) {
             hi = lo + minSpan;
         }
@@ -55,8 +55,8 @@ struct ChannelTransferParams {
         level = 0.5f * (lo + hi);
     }
 
-    constexpr void ResetToRange(float minVal, float maxVal) noexcept {
-        const float span = keel::max(1e-4f, maxVal - minVal);
+    constexpr void ResetToRange(keel::f32 minVal, keel::f32 maxVal) noexcept {
+        const keel::f32 span = keel::max(1e-4f, maxVal - minVal);
         window = span;
         level = minVal + span * 0.5f;
         gamma = 1.0f;
@@ -64,11 +64,11 @@ struct ChannelTransferParams {
     }
 
     /// Evaluates normalized output intensity [0.0, 1.0] for an input sample `val`.
-    [[nodiscard]] float Evaluate(float val) const noexcept {
-        const float lo = Low();
-        const float span = keel::max(1e-5f, window);
-        float t = keel::clamp((val - lo) / span, 0.0f, 1.0f);
-        const float safeGamma = keel::clamp(gamma, 0.05f, 10.0f);
+    [[nodiscard]] keel::f32 Evaluate(keel::f32 val) const noexcept {
+        const keel::f32 lo = Low();
+        const keel::f32 span = keel::max(1e-5f, window);
+        keel::f32 t = keel::clamp((val - lo) / span, 0.0f, 1.0f);
+        const keel::f32 safeGamma = keel::clamp(gamma, 0.05f, 10.0f);
         if (keel::abs(safeGamma - 1.0f) > 1e-3f) {
             t = keel::pow(t, 1.0f / safeGamma);
         }
@@ -86,13 +86,13 @@ struct HistogramData {
     keel::ArrayRef<keel::u32> binsR{};           ///< Red channel bins (when channelCount >= 3)
     keel::ArrayRef<keel::u32> binsG{};           ///< Green channel bins (when channelCount >= 3)
     keel::ArrayRef<keel::u32> binsB{};           ///< Blue channel bins (when channelCount >= 3)
-    float minValue{0.0f};                       ///< Minimum physical/intensity value corresponding to bin 0
-    float maxValue{65535.0f};                   ///< Maximum physical/intensity value corresponding to last bin
+    keel::f32 minValue{0.0f};                       ///< Minimum physical/intensity value corresponding to bin 0
+    keel::f32 maxValue{65535.0f};                   ///< Maximum physical/intensity value corresponding to last bin
 
     [[nodiscard]] static constexpr HistogramData Mono(
         keel::ArrayRef<keel::u32> bins,
-        float minVal = 0.0f,
-        float maxVal = 65535.0f
+        keel::f32 minVal = 0.0f,
+        keel::f32 maxVal = 65535.0f
     ) noexcept {
         return HistogramData{
             .channelCount = 1,
@@ -107,8 +107,8 @@ struct HistogramData {
         keel::ArrayRef<keel::u32> r,
         keel::ArrayRef<keel::u32> g,
         keel::ArrayRef<keel::u32> b,
-        float minVal = 0.0f,
-        float maxVal = 255.0f
+        keel::f32 minVal = 0.0f,
+        keel::f32 maxVal = 255.0f
     ) noexcept {
         return HistogramData{
             .channelCount = 3,
@@ -127,7 +127,7 @@ struct HistogramOptions {
     // --- Sizing & Geometry ---
     AxisSize width{};                     ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or `Fixed(dp)`)
     AxisSize height{SizeMode::Fit};       ///< Vertical sizing policy (`Fit` -> 136 dp default, `Stretch`, or `Fixed(dp)`)
-    keel::Optional<float> minHeight{keel::kNullOpt}; ///< Minimum fallback height (nullopt = 96 dp)
+    keel::Optional<keel::f32> minHeight{keel::kNullOpt}; ///< Minimum fallback height (nullopt = 96 dp)
     StateColor background{};
     Border border{};
 
@@ -155,13 +155,13 @@ struct HistogramResponse : public Response {
     bool windowLevelChanged{false};             ///< True when window or level was modified by user drag or reset
     bool channelChanged{false};                 ///< True when activeChannel was switched via header pills
     HistogramChannel activeChannel{HistogramChannel::Master};
-    float window{65535.0f};
-    float level{32767.5f};
-    float lowValue{0.0f};
-    float highValue{65535.0f};
+    keel::f32 window{65535.0f};
+    keel::f32 level{32767.5f};
+    keel::f32 lowValue{0.0f};
+    keel::f32 highValue{65535.0f};
 
     keel::i32 hoveredBin{-1};                         ///< Bin index [0..N-1] under cursor, or -1 if not hovered
-    float hoveredValue{0.0f};                   ///< Physical intensity value at cursor X
+    keel::f32 hoveredValue{0.0f};                   ///< Physical intensity value at cursor X
     keel::u32 hoveredCount{0};                   ///< Sample count in hoveredBin for the active channel
 };
 
@@ -174,7 +174,7 @@ public:
         UiSize size,
         ICanvas* canvas,
         const UiTheme& theme,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     ) noexcept;
 
     static HistogramResponse Run(

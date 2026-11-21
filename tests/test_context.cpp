@@ -71,7 +71,7 @@ void TestImmediateApiWorkflow() {
     };
 
     // Frame 1: Initial layout establishment
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     CHECK(!b1.clicked);
     CHECK(!b2.clicked);
@@ -79,7 +79,7 @@ void TestImmediateApiWorkflow() {
 
     // Frame 2: Hover over Button A (Button A is at x=0, y=0, w ~ 70+, h ~ 36)
     ui.OnMouseMove({20.0f, 15.0f});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     CHECK(b1.hovered);
     CHECK(!b2.hovered);
@@ -88,7 +88,7 @@ void TestImmediateApiWorkflow() {
 
     // Frame 3: Mouse down on Button A
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     CHECK(b1.pressed);
     CHECK(!b1.clicked);
@@ -96,7 +96,7 @@ void TestImmediateApiWorkflow() {
 
     // Frame 4: Mouse up on Button A -> Triggers .clicked == true!
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     CHECK(b1.clicked);
     CHECK(bool(b1)); // Implicit bool conversion works
@@ -104,7 +104,7 @@ void TestImmediateApiWorkflow() {
     ui.EndFrame(canvas);
 
     // Frame 5: Mouse button is up, click event is consumed
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     CHECK(!b1.clicked);
     ui.EndFrame(canvas);
@@ -228,11 +228,11 @@ void TestFooterExitButtonStaysVisibleInNarrowWindow() {
         }
     };
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -280,12 +280,12 @@ void TestWrapContainerInContextApi() {
         }
     };
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     // Frame 2: inspect bounds
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -340,11 +340,11 @@ void TestFooterExitButtonPushedToBottomWithCardAndWrap() {
         }
     };
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -419,12 +419,12 @@ void TestTwoLevelDisabledWorkflow() {
     };
 
     // Frame 1: Layout establishment
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     // Frame 2: Mouse click over the disabled button
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     ui.OnMouseMove(btnDirectDisabled.rect.Center());
     ui.OnMouseDown(1);
     ui.OnMouseUp(1);
@@ -435,7 +435,7 @@ void TestTwoLevelDisabledWorkflow() {
     CHECK(!btnDirectDisabled.hovered);
 
     // Click over scoped disabled button
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     ui.OnMouseMove(btnScopedDisabled.rect.Center());
     ui.OnMouseDown(1);
     ui.OnMouseUp(1);
@@ -446,13 +446,13 @@ void TestTwoLevelDisabledWorkflow() {
     CHECK(!btnScopedDisabled.hovered);
 
     // Click over active button
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     ui.OnMouseMove(btnEnabled.rect.Center());
     ui.OnMouseDown(1);
     renderUI();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     ui.OnMouseUp(1);
     renderUI();
     ui.EndFrame(canvas);
@@ -484,11 +484,11 @@ void TestBoxSlotWithUiSizeToken() {
         }
     };
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -533,11 +533,11 @@ void TestButtonWidgetRunAndResponseChaining() {
         }
     };
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -582,7 +582,7 @@ void TestUiStringAndContextFormatting() {
     keel::Array<keel::u32> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     if (auto col = ui.Column({.gap = 8.0f})) {
         ui.Text(ui.Format("Value: {}", 99));
         ui.Button({.text = ui.String("Action")});
@@ -620,7 +620,7 @@ void TestUiStringAndContextFormatting() {
     }
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     if (auto col = ui.Column({.gap = 8.0f})) {
         ui.Text(ui.Format("Value: {}", 100));
         ui.Button({.text = ui.String("Action")});
@@ -647,11 +647,11 @@ void TestBoxContainerGapSpacing() {
         }
     };
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -714,12 +714,12 @@ void TestAutonomousTextWidgetAndTypographyRoles() {
     };
 
     // Frame 1: Measure and layout
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     // Frame 2: Bounds populated and interaction check
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -732,21 +732,21 @@ void TestAutonomousTextWidgetAndTypographyRoles() {
 
     // 3. Test interaction: hover, press, and click on text widget
     ui.OnMouseMove({rDisp.rect.x + 5.0f, rDisp.rect.y + 5.0f});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(rDisp.hovered);
 
     // Mouse press
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(rDisp.pressed);
 
     // Mouse release completes click
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(rDisp.clicked);
@@ -870,12 +870,12 @@ void TestSwitchAndCheckboxWidgets() {
     };
 
     // Frame 1: Measure and layout
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     // Frame 2: Bounds populated
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -897,13 +897,13 @@ void TestSwitchAndCheckboxWidgets() {
     // 3. Click Switch to toggle value
     ui.OnMouseMove({rSwitch.rect.x + 5.0f, rSwitch.rect.y + 5.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(rSwitch.pressed);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -915,13 +915,13 @@ void TestSwitchAndCheckboxWidgets() {
     // 4. Click Checkbox to toggle value
     ui.OnMouseMove({rCheck.rect.x + 5.0f, rCheck.rect.y + 5.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(rCheck.pressed);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -933,13 +933,13 @@ void TestSwitchAndCheckboxWidgets() {
     // 5. Click Switch with description to toggle value
     ui.OnMouseMove({rDesc.rect.x + 10.0f, rDesc.rect.y + 10.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(rDesc.pressed);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -951,13 +951,13 @@ void TestSwitchAndCheckboxWidgets() {
     // 6. Click Stacked Switch to toggle value
     ui.OnMouseMove({rStacked.rect.x + 10.0f, rStacked.rect.y + 10.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(rStacked.pressed);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -971,12 +971,12 @@ void TestSwitchAndCheckboxWidgets() {
     CHECK(!optSwitchState);
     ui.OnMouseMove({rOptSwitch.rect.x + 5.0f, rOptSwitch.rect.y + 5.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(optSwitchState == true);
@@ -987,12 +987,12 @@ void TestSwitchAndCheckboxWidgets() {
     CHECK(!optCheckState);
     ui.OnMouseMove({rOptCheck.rect.x + 5.0f, rOptCheck.rect.y + 5.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(optCheckState == true);
@@ -1010,10 +1010,10 @@ void TestInputFieldWidget() {
     keel::Array<keel::u32> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
-    float speedDrop = 50.0f;
+    keel::f32 speedDrop = 50.0f;
     keel::i32 count = 42;
     keel::String sampleName("Specimen-A");
-    float optInputVal = 12.3f;
+    keel::f32 optInputVal = 12.3f;
 
     Response rSpeed;
     Response rCount;
@@ -1074,12 +1074,12 @@ void TestInputFieldWidget() {
     };
 
     // Frame 1: Measure & Layout
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     // Frame 2: Bounds populated
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -1094,12 +1094,12 @@ void TestInputFieldWidget() {
     // 1. Click speed field to focus (click past end of "50" so cursor is placed at end)
     ui.OnMouseMove({rSpeed.rect.x + 100.0f, rSpeed.rect.y + 18.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -1109,7 +1109,7 @@ void TestInputFieldWidget() {
     // 2. Type text into focused speed field: "50" -> backspace -> "5" -> insert "5" -> "55"
     ui.OnKeyDown(Key::Backspace);
     ui.OnTextInput("5");
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -1118,7 +1118,7 @@ void TestInputFieldWidget() {
 
     // 3. Press Enter to submit and blur
     ui.OnKeyDown(Key::Enter);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -1129,19 +1129,19 @@ void TestInputFieldWidget() {
     // 4. Click name field (past end of "Specimen-A") and edit string
     ui.OnMouseMove({rName.rect.x + 150.0f, rName.rect.y + 18.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     CHECK(rName.focused);
 
     ui.OnTextInput("-X");
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -1151,12 +1151,12 @@ void TestInputFieldWidget() {
     // 4a. LMB click at the very start of the text (x + 12.0f -> index 0) and insert prefix
     ui.OnMouseMove({rName.rect.x + 12.0f, rName.rect.y + 18.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     ui.OnMouseUp(1);
     ui.OnTextInput("ID:");
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(sampleName == "ID:Specimen-A-X");
@@ -1164,7 +1164,7 @@ void TestInputFieldWidget() {
     // 4b. Keyboard selection, Clipboard (Ctrl+A, Ctrl+C, Ctrl+X, Ctrl+V), and Undo (Ctrl+Z)
     ui.OnKeyDown(Key::A, {.ctrl = true});
     ui.OnKeyDown(Key::C, {.ctrl = true});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(ui.GetClipboardText() == "ID:Specimen-A-X");
@@ -1175,7 +1175,7 @@ void TestInputFieldWidget() {
     ui.OnKeyDown(Key::Left, {.shift = true});
     ui.OnKeyDown(Key::Left, {.shift = true});
     ui.OnKeyDown(Key::X, {.ctrl = true});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(ui.GetClipboardText() == "A-X");
@@ -1183,7 +1183,7 @@ void TestInputFieldWidget() {
 
     // Undo (Ctrl+Z) restores "ID:Specimen-A-X"
     ui.OnKeyDown(Key::Z, {.ctrl = true});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(sampleName == "ID:Specimen-A-X");
@@ -1192,20 +1192,20 @@ void TestInputFieldWidget() {
     ui.SetClipboardText("-99\r\n");
     ui.OnKeyDown(Key::End);
     ui.OnKeyDown(Key::V, {.ctrl = true});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(sampleName == "ID:Specimen-A-X-99");
 
     // Word deletion via Ctrl+Backspace (deletes "99", then "-")
     ui.OnKeyDown(Key::Backspace, {.ctrl = true});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(sampleName == "ID:Specimen-A-X-");
 
     ui.OnKeyDown(Key::Backspace, {.ctrl = true});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(sampleName == "ID:Specimen-A-X");
@@ -1214,12 +1214,12 @@ void TestInputFieldWidget() {
     // (x + 200) to select all, then replace
     ui.OnMouseMove({rName.rect.x + 2.0f, rName.rect.y + rName.rect.h * 0.5f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     ui.OnMouseMove({rName.rect.x + 200.0f, rName.rect.y + 18.0f});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -1230,7 +1230,7 @@ void TestInputFieldWidget() {
 
     ui.OnMouseUp(1);
     ui.OnTextInput("Specimen-A-X");
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(sampleName == "Specimen-A-X");
@@ -1239,21 +1239,21 @@ void TestInputFieldWidget() {
     ui.SetCurrentTime(10.0);
     ui.OnMouseMove({rName.rect.x + 20.0f, rName.rect.y + 18.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     ui.AdvanceTime(0.10); // within 0.35s double-click threshold
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -1264,7 +1264,7 @@ void TestInputFieldWidget() {
     // 4e. UTF-8 Cyrillic editing & word navigation
     sampleName.assign("Привет мир");
     ui.ClearFocus();
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -1272,21 +1272,21 @@ void TestInputFieldWidget() {
     ui.AdvanceTime(1.0);
     ui.OnMouseMove({rName.rect.x + 200.0f, rName.rect.y + 18.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     ui.OnMouseUp(1);
 
     // Backspace deletes single 2-byte UTF-8 character 'р' -> "Привет ми"
     ui.OnKeyDown(Key::Backspace);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(sampleName == "Привет ми");
 
     // Ctrl+Backspace deletes the whole Cyrillic word "ми" -> "Привет "
     ui.OnKeyDown(Key::Backspace, {.ctrl = true});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(sampleName == "Привет ");
@@ -1297,12 +1297,12 @@ void TestInputFieldWidget() {
     // 5. Click outside (e.g. at 5, 5 in padding) to blur focus
     ui.OnMouseMove({5.0f, 5.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -1358,12 +1358,12 @@ void TestSelectWidget() {
     };
 
     // Frame 1: Measure & Layout pass
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     // Frame 2: Bounds populated
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -1378,12 +1378,12 @@ void TestSelectWidget() {
     // 1. Click Baud Rate select box to open dropdown popup
     ui.OnMouseMove({rBaud.rect.x + 20.0f, rBaud.rect.y + 18.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -1394,16 +1394,16 @@ void TestSelectWidget() {
 
     // 2. Hover over item 3 ("115200") in the popup and click it
     // Item 3 rect is at popupRect.y + 4.0f + 3 * itemHeight (theme token)
-    const float selectItemH = ui.GetTheme().selects[UiSize::Md.TableIndex()].itemHeight;
-    const float item3Y = popupRect.y + 4.0f + 3.0f * selectItemH + selectItemH * 0.5f;
+    const keel::f32 selectItemH = ui.GetTheme().selects[UiSize::Md.TableIndex()].itemHeight;
+    const keel::f32 item3Y = popupRect.y + 4.0f + 3.0f * selectItemH + selectItemH * 0.5f;
     ui.OnMouseMove({popupRect.x + 30.0f, item3Y});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -1414,54 +1414,54 @@ void TestSelectWidget() {
     // 3. Toggle open and close on clicking the select box again
     ui.OnMouseMove({rBaud.rect.x + 20.0f, rBaud.rect.y + 18.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(ui.IsPopupOpen(rBaud.id));
 
     // Click select box again
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(!ui.IsPopupOpen(rBaud.id)); // Closed on toggle
 
     // 4. Open popup and close via Escape key
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(ui.IsPopupOpen(rBaud.id));
 
     ui.OnKeyDown(Key::Escape);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(!ui.IsPopupOpen(rBaud.id)); // Closed on Escape
 
     // 5. Open popup and close via outside click
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(ui.IsPopupOpen(rBaud.id));
@@ -1469,12 +1469,12 @@ void TestSelectWidget() {
     // Click at outside position (5, 5)
     ui.OnMouseMove({5.0f, 5.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(!ui.IsPopupOpen(rBaud.id)); // Closed on outside click
@@ -1482,19 +1482,19 @@ void TestSelectWidget() {
     // 6. Keyboard navigation with Down / Up / Enter
     ui.OnMouseMove({rBaud.rect.x + 20.0f, rBaud.rect.y + 18.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(ui.IsPopupOpen(rBaud.id));
 
     // Current baudIndex is 3 (max). Navigate Up to 2
     ui.OnKeyDown(Key::Up);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(baudIndex == 2);
@@ -1502,7 +1502,7 @@ void TestSelectWidget() {
 
     // Press Enter to accept and close
     ui.OnKeyDown(Key::Enter);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(!ui.IsPopupOpen(rBaud.id));
@@ -1511,27 +1511,27 @@ void TestSelectWidget() {
     // 7. String-based selection with Profile
     ui.OnMouseMove({rProfile.rect.x + 20.0f, rProfile.rect.y + 15.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(ui.IsPopupOpen(rProfile.id));
 
     popupRect = ui.GetOpenPopupRect();
     // Item 3 in Profile is "Extreme" (index 3)
-    const float extremeY = popupRect.y + 4.0f + 3.0f * selectItemH + selectItemH * 0.5f;
+    const keel::f32 extremeY = popupRect.y + 4.0f + 3.0f * selectItemH + selectItemH * 0.5f;
     ui.OnMouseMove({popupRect.x + 30.0f, extremeY});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -1543,12 +1543,12 @@ void TestSelectWidget() {
     disabledMode = true;
     ui.OnMouseMove({rMode.rect.x + 20.0f, rMode.rect.y + 15.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -1567,29 +1567,29 @@ void TestSelectWidget() {
         }
     };
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderLimited();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderLimited();
     ui.EndFrame(canvas);
 
     ui.OnMouseMove({rLim.rect.x + 10.0f, rLim.rect.y + 10.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderLimited();
     ui.EndFrame(canvas);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderLimited();
     ui.EndFrame(canvas);
 
     CHECK(ui.IsPopupOpen(rLim.id));
     const Rect limPopupRect = ui.GetOpenPopupRect();
     // 2 visible items: 2 * itemHeight (theme token) + 8.0f popup padding
-    const float limItemH = ui.GetTheme().selects[UiSize::Md.TableIndex()].itemHeight;
+    const keel::f32 limItemH = ui.GetTheme().selects[UiSize::Md.TableIndex()].itemHeight;
     CHECK_NEAR(limPopupRect.h, 2.0f * limItemH + 8.0f, 0.5f);
 }
 
@@ -1651,7 +1651,7 @@ void TestGridAndCardLayout() {
 
     bool switchVal1 = false;
     bool switchVal2 = true;
-    float speedVal = 120.0f;
+    keel::f32 speedVal = 120.0f;
     keel::String nameVal("Axis-1");
 
     WidgetResponse sw1Res;
@@ -1696,7 +1696,7 @@ void TestGridAndCardLayout() {
     };
 
     // Frame 1: Initial render pass
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -1737,14 +1737,14 @@ void TestGridAndCardLayout() {
     // Frame 3: Mouse down on Switch inside Cell6
     ui.OnMouseMove({bSw1.x + 10.0f, bSw1.y + 10.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(sw1Res.pressed);
 
     // Frame 4: Mouse up on Switch -> click fired and boolean toggled
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(sw1Res.clicked);
@@ -1780,7 +1780,7 @@ void TestScrollAreaImmediateMode() {
     };
 
     // Frame 1: Initial layout
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -1798,7 +1798,7 @@ void TestScrollAreaImmediateMode() {
     // Frame 2: Mouse wheel down far enough to reach the 200px maximum scroll (ticks * scrollStep token >= 200)
     ui.OnMouseMove({100.0f, 100.0f});
     ui.OnMouseWheel(0.0f, -keel::ceil(200.0f / sm.scrollStep));
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -1814,21 +1814,21 @@ void TestScrollAreaImmediateMode() {
     // Frame 3: Click on Button 3
     ui.OnMouseMove({bBtn3.Center().x, bBtn3.Center().y});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(btn3Res.pressed);
 
     // Frame 4: Release mouse -> clicked event
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(btn3Res.clicked);
 
     // Frame 5: ScrollTo brings Button 1 back into view
     btn1Res.ScrollTo();
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -1837,7 +1837,7 @@ void TestScrollAreaImmediateMode() {
     CHECK_NEAR(bBtn1.y, 0.0f, 1.0f);
 
     // Verify ScrollAreaOptions with gap and horizontal orientation
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     if (auto scrollH = ui.ScrollArea({.orientation = Orientation::Horizontal, .gap = 8.0f})) {
         Node* n = scrollH.GetNode();
         CHECK(n != nullptr);
@@ -1888,15 +1888,15 @@ void TestScrollAreaImmediateMode() {
 
         CHECK(ui.HasDirtyDamage());
         CHECK(scrollNode->scrollOffset.y > 10.0f);
-        const float wheelScrollY = scrollNode->scrollOffset.y;
+        const keel::f32 wheelScrollY = scrollNode->scrollOffset.y;
 
         // 2. Drag vertical scrollbar thumb further down -> must update scrollOffset and child computedRect in same frame
-        const float sbX = 600.0f - sm.margin - sm.trackWidth * 0.5f;
-        const float trackLen = 220.0f - 2.0f * sm.margin;
-        const float maxScroll = scrollNode->scrollContentSize.y - 220.0f;
-        const float thumbLen = keel::clamp((220.0f / scrollNode->scrollContentSize.y) * trackLen, sm.minThumbLength, trackLen);
-        const float travel = keel::max(0.0f, trackLen - thumbLen);
-        const float thumbY = sm.margin + (wheelScrollY / maxScroll) * travel + thumbLen * 0.5f;
+        const keel::f32 sbX = 600.0f - sm.margin - sm.trackWidth * 0.5f;
+        const keel::f32 trackLen = 220.0f - 2.0f * sm.margin;
+        const keel::f32 maxScroll = scrollNode->scrollContentSize.y - 220.0f;
+        const keel::f32 thumbLen = keel::clamp((220.0f / scrollNode->scrollContentSize.y) * trackLen, sm.minThumbLength, trackLen);
+        const keel::f32 travel = keel::max(0.0f, trackLen - thumbLen);
+        const keel::f32 thumbY = sm.margin + (wheelScrollY / maxScroll) * travel + thumbLen * 0.5f;
 
         ui.OnMouseMove({sbX, thumbY});
         ui.OnMouseDown(1);
@@ -1988,15 +1988,15 @@ void TestScrollAreaImmediateMode() {
         struct RichCountingCanvas : public TestCanvas {
             keel::i32 layoutMeasureCalls{0};
             bool insideDrawText{false};
-            Vec2 MeasureText(keel::StringRef text, float fontSize) override {
+            Vec2 MeasureText(keel::StringRef text, keel::f32 fontSize) override {
                 if (!insideDrawText) ++layoutMeasureCalls;
                 return TestCanvas::MeasureText(text, fontSize);
             }
-            Vec2 MeasureTextStyled(keel::StringRef text, float fontSize, FontStyle style) override {
+            Vec2 MeasureTextStyled(keel::StringRef text, keel::f32 fontSize, FontStyle style) override {
                 if (!insideDrawText) ++layoutMeasureCalls;
                 return TestCanvas::MeasureTextStyled(text, fontSize, style);
             }
-            void DrawTextStyled(keel::StringRef text, Vec2 pos, float fontSize, Color color, FontStyle style, float angleDeg = 0.0f) override {
+            void DrawTextStyled(keel::StringRef text, Vec2 pos, keel::f32 fontSize, Color color, FontStyle style, keel::f32 angleDeg = 0.0f) override {
                 insideDrawText = true;
                 TestCanvas::DrawTextStyled(text, pos, fontSize, color, style, angleDeg);
                 insideDrawText = false;
@@ -2153,17 +2153,17 @@ void TestDirtyRectDamageTracking() {
     };
 
     // Frame 1: Initial layout establishment must trigger a full repaint
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     CHECK(ui.IsFullRepaint());
     CHECK(ui.HasDirtyDamage());
-    CHECK(ui.GetDirtyRect().w == static_cast<float>(width));
-    CHECK(ui.GetDirtyRect().h == static_cast<float>(height));
+    CHECK(ui.GetDirtyRect().w == keel::as<keel::f32>(width));
+    CHECK(ui.GetDirtyRect().h == keel::as<keel::f32>(height));
 
     // Frame 2: Identical state with zero input produces zero damage
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -2172,7 +2172,7 @@ void TestDirtyRectDamageTracking() {
 
     // Frame 3: Hover over the button marks only the button bounds as dirty
     ui.OnMouseMove({20.0f, 15.0f});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -2196,18 +2196,18 @@ void TestDirtyRectDamageTracking() {
         }
     };
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderInput();
     ui.EndFrame(canvas);
 
     // Settle edit state
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderInput();
     ui.EndFrame(canvas);
 
     // Advance time past solid phase (0.5s) and first half of blink cycle to cause cursor to hide
     ui.AdvanceTime(1.1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderInput();
     ui.EndFrame(canvas);
 
@@ -2218,18 +2218,18 @@ void TestDirtyRectDamageTracking() {
 
     // Frame 5: InvalidateAll forces full repaint
     ui.InvalidateAll();
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI(&text);
     ui.EndFrame(canvas);
 
     CHECK(ui.IsFullRepaint());
     CHECK(ui.HasDirtyDamage());
-    CHECK(ui.GetDirtyRect().w == static_cast<float>(width));
+    CHECK(ui.GetDirtyRect().w == keel::as<keel::f32>(width));
 
     // Frame 6: Disabling dirty rect optimization forces full repaint
     ui.SetDirtyRectEnabled(false);
     CHECK(!ui.IsDirtyRectEnabled());
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI(&text);
     ui.EndFrame(canvas);
 
@@ -2247,7 +2247,7 @@ void TestDirtyRectDamageTracking() {
 
     // Settle layout completely
     for (keel::i32 i = 0; i < 3; ++i) {
-        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
         renderTabTest();
         ui.EndFrame(canvas);
     }
@@ -2255,7 +2255,7 @@ void TestDirtyRectDamageTracking() {
 
     // Switch style to Pill with ZERO mouse input
     currentTabStyle = TabBarStyle::Pill;
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderTabTest();
     ui.EndFrame(canvas);
 
@@ -2266,7 +2266,7 @@ void TestDirtyRectDamageTracking() {
     CHECK(ui.GetDirtyRect().h > 0.0f);
 
     // Frame 8: Slider dragging produces dirty damage while dragging
-    float sliderVal = 10.0f;
+    keel::f32 sliderVal = 10.0f;
     Response sliderRes;
     auto renderSlider = [&]() {
         if (auto b = ui.Box({.width = 300.0f})) {
@@ -2276,17 +2276,17 @@ void TestDirtyRectDamageTracking() {
 
     // Initial render & settle layout completely
     for (keel::i32 i = 0; i < 3; ++i) {
-        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
         renderSlider();
         ui.EndFrame(canvas);
     }
     CHECK(!ui.HasDirtyDamage());
 
     // Mouse down on slider produces dirty damage
-    const float sliderMidY = sliderRes.rect.Center().y;
+    const keel::f32 sliderMidY = sliderRes.rect.Center().y;
     ui.OnMouseMove({sliderRes.rect.x + sliderRes.rect.w * 0.5f, sliderMidY});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderSlider();
     ui.EndFrame(canvas);
     CHECK(ui.HasDirtyDamage());
@@ -2294,14 +2294,14 @@ void TestDirtyRectDamageTracking() {
 
     // Moving mouse while dragging MUST produce dirty damage on every frame!
     ui.OnMouseMove({sliderRes.rect.x + sliderRes.rect.w * 0.73f, sliderMidY});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderSlider();
     ui.EndFrame(canvas);
     CHECK(ui.HasDirtyDamage());
     CHECK(!ui.IsFullRepaint());
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderSlider();
     ui.EndFrame(canvas);
 }
@@ -2331,7 +2331,7 @@ void TestTabBarWidgetWorkflow() {
     };
 
     // Frame 1: Initial layout establishment
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -2339,7 +2339,7 @@ void TestTabBarWidgetWorkflow() {
     CHECK(!tabRes.changed);
 
     // Frame 2: Layout is established
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -2347,12 +2347,12 @@ void TestTabBarWidgetWorkflow() {
     // Move mouse over Tab 1 ("Telemetry") and click
     ui.OnMouseMove({180.0f, 36.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -2360,7 +2360,7 @@ void TestTabBarWidgetWorkflow() {
     CHECK(tabRes.changed);
 
     // Frame: Next frame without click should have changed == false
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(!tabRes.changed);
@@ -2370,7 +2370,7 @@ void TestTabBarWidgetWorkflow() {
     ui.OnMouseMove({300.0f, 36.0f});
     ui.OnMouseDown(1);
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -2385,7 +2385,7 @@ void TestTabBarWidgetWorkflow() {
         }
     };
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderPill();
     ui.EndFrame(canvas);
 
@@ -2416,19 +2416,19 @@ void TestTabBarWidgetWorkflow() {
         }
     };
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderStyledTabBar();
     ui.EndFrame(canvas);
 
     // Click on "Third" tab (index 2, right third of 800px fullWidth bar -> x ~ 650, y ~ 28)
     ui.OnMouseMove({650.0f, 28.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderStyledTabBar();
     ui.EndFrame(canvas);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderStyledTabBar();
     ui.EndFrame(canvas);
     CHECK(styledIdx == 2);
@@ -2445,19 +2445,19 @@ void TestTabBarWidgetWorkflow() {
         }
     };
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderDynamicBgTabBar();
     ui.EndFrame(canvas);
 
     // Idle frame: no changes -> HasDirtyDamage must be false
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderDynamicBgTabBar();
     ui.EndFrame(canvas);
     CHECK(!ui.HasDirtyDamage());
 
     // Next frame: change backgroundColor -> must generate dirty damage
     dynamicBg = Color(50, 60, 70, 255);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderDynamicBgTabBar();
     ui.EndFrame(canvas);
     CHECK(ui.HasDirtyDamage());
@@ -2489,7 +2489,7 @@ void TestToolbarWidgetWorkflow() {
     };
 
     // Frame 1: Establish layout
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderToolbar();
     ui.EndFrame(canvas);
 
@@ -2500,20 +2500,20 @@ void TestToolbarWidgetWorkflow() {
 
     // Frame 2: Hover over "New" button (x ~ 25.0f, y ~ 20.0f)
     ui.OnMouseMove({25.0f, 20.0f});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderToolbar();
     CHECK(btnNew.hovered);
     ui.EndFrame(canvas);
 
     // Frame 3: Mouse down & up to click "New" button
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderToolbar();
     CHECK(btnNew.pressed);
     ui.EndFrame(canvas);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderToolbar();
     CHECK(btnNew.clicked);
     ui.EndFrame(canvas);
@@ -2523,7 +2523,7 @@ void TestToolbarWidgetWorkflow() {
     ui.OnMouseMove({90.0f, 20.0f});
     ui.OnMouseDown(1);
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderToolbar();
     CHECK(!btnSave.clicked);
     CHECK(!btnSave.hovered);
@@ -2537,7 +2537,7 @@ void TestToolbarWidgetWorkflow() {
     Id floatingTbId{};
 
     auto renderAdvancedToolbar = [&]() {
-        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
         if (auto tb = ui.Toolbar({.style = ToolbarStyle::Floating})) {
             floatingTbId = tb.response.id;
             tb.Item(activeTool, 0, {.text = "Select"});
@@ -2585,7 +2585,7 @@ void TestToolbarWidgetWorkflow() {
     static constexpr keel::StaticArray<keel::StringRef, 3> kTrigModes = {"Auto", "Normal", "Single"};
 
     auto renderSplitToolbar = [&]() {
-        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
         if (auto tb = ui.Toolbar({.style = ToolbarStyle::Surface})) {
             splitRes = tb.SplitToggle(trigActive, trigMode, kTrigModes, {
                 .text = "Trigger",
@@ -2673,14 +2673,14 @@ void TestLabelVariantsStableSizing() {
 
     // Frame 1: OFF state
     state = false;
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     render();
     ui.EndFrame(canvas);
     const Rect boundsOff = ui.GetPrevFrameBounds(btn.id);
 
     // Frame 2: ON state
     state = true;
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     render();
     ui.EndFrame(canvas);
     const Rect boundsOn = ui.GetPrevFrameBounds(btn.id);
@@ -2730,7 +2730,7 @@ void TestLabelVariantsStableSizing() {
         const Vec2 szShortIn = InputField::Measure("5", inShortOpts, UiSize::Md, &canvas, ui.GetTheme());
         const Vec2 szShortIn2 = InputField::Measure("99", inShortOpts, UiSize::Md, &canvas, ui.GetTheme());
         const Vec2 szLongIn = InputField::Measure("localhost", inLongOpts, UiSize::Md, &canvas, ui.GetTheme());
-        const float defInW = ui.GetTheme().GetInputField(UiSize::Md).defaultWidth;
+        const keel::f32 defInW = ui.GetTheme().GetInputField(UiSize::Md).defaultWidth;
 
         // Short numeric compact input with variants must be narrower than defaultWidth (160pt) even with a long placeholder
         CHECK(szShortIn.x < defInW);
@@ -2776,11 +2776,11 @@ void TestContainerSizeInheritanceAndWidgetStretch() {
         }
     };
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderSizeTest(UiSize::Lg, true);
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderSizeTest(UiSize::Lg, true);
     ui.EndFrame(canvas);
 
@@ -2790,11 +2790,11 @@ void TestContainerSizeInheritanceAndWidgetStretch() {
     const Rect iLg = ui.GetPrevFrameBounds(inLg.id);
     const Rect slLg = ui.GetPrevFrameBounds(selLg.id);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderSizeTest(UiSize::Sm, false);
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderSizeTest(UiSize::Sm, false);
     ui.EndFrame(canvas);
 
@@ -2821,11 +2821,11 @@ void TestContainerSizeInheritanceAndWidgetStretch() {
         }
     };
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderStretchRow();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderStretchRow();
     ui.EndFrame(canvas);
 
@@ -2882,11 +2882,11 @@ void TestUiStyleAndDensityScaling() {
     };
 
     // Frame 1: Standard density (1.0f -> default Md gap = 9px)
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     render();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     render();
     ui.EndFrame(canvas);
 
@@ -2898,11 +2898,11 @@ void TestUiStyleAndDensityScaling() {
 
     // Frame 2: Switch root density to 0.5f (Md gap = 4.5px; nested zones compose multiplicatively)
     ui.SetDensity(0.5f);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     render();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     render();
     ui.EndFrame(canvas);
 
@@ -2912,11 +2912,11 @@ void TestUiStyleAndDensityScaling() {
 
     // Frame 3: Switch root density to 2.0f (Md gap = 18px)
     ui.SetDensity(2.0f);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     render();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     render();
     ui.EndFrame(canvas);
 
@@ -2925,11 +2925,11 @@ void TestUiStyleAndDensityScaling() {
     // Frame 4: Custom spacing scale override at density = 1.0f
     ui.SetDensity(1.0f);
     ui.GetTheme().Spacing().md = 25.0f;
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     render();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     render();
     ui.EndFrame(canvas);
 
@@ -3005,11 +3005,11 @@ void TestLeafWidgetSizeOverrides() {
         }
     };
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     render();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     render();
     ui.EndFrame(canvas);
 
@@ -3110,19 +3110,19 @@ void TestHeadingWidgetWorkflow() {
                 Rect rect;
                 Color fill;
                 Color stroke;
-                float strokeWidth;
+                keel::f32 strokeWidth;
             };
             struct LineRec {
                 Vec2 p1;
                 Vec2 p2;
                 Color color;
-                float thickness;
+                keel::f32 thickness;
             };
-            void DrawRoundRect(Rect rect, float radius, Color fill, Color stroke = Color(0, 0, 0, 0), float strokeWidth = 0.0f) override {
+            void DrawRoundRect(Rect rect, keel::f32 radius, Color fill, Color stroke = Color(0, 0, 0, 0), keel::f32 strokeWidth = 0.0f) override {
                 roundRects.push_back({rect, fill, stroke, strokeWidth});
                 TestCanvas::DrawRoundRect(rect, radius, fill, stroke, strokeWidth);
             }
-            void DrawLine(Vec2 p1, Vec2 p2, Color color, float thickness = 1.0f) override {
+            void DrawLine(Vec2 p1, Vec2 p2, Color color, keel::f32 thickness = 1.0f) override {
                 lines.push_back({p1, p2, color, thickness});
                 TestCanvas::DrawLine(p1, p2, color, thickness);
             }
@@ -3229,11 +3229,11 @@ void TestHeadingWidgetWorkflow() {
     };
 
     // Settle 2 frames
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -3262,14 +3262,14 @@ void TestHeadingWidgetWorkflow() {
 
     // 3. Dirty rect damage tracking when heading text changes
     // Frame 3: no changes -> no dirty damage
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(!ui.HasDirtyDamage());
 
     // Frame 4: change dynamic subtitle -> dirty damage must trigger and cover r1
     dynamicSubtitle.assign("Updated Subtitle with Alert");
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -3297,7 +3297,7 @@ void TestDpiScalingAndBackendMetadata() {
 #endif
 
     // Frame 1: 100% scale
-    ui.BeginFrame({static_cast<float>(winWidth), static_cast<float>(winHeight)}, 1.0f);
+    ui.BeginFrame({keel::as<keel::f32>(winWidth), keel::as<keel::f32>(winHeight)}, 1.0f);
     CHECK_NEAR(ui.GetLogicalViewport().x, 1200.0f, 0.01f);
     CHECK_NEAR(ui.GetLogicalViewport().y, 900.0f, 0.01f);
     CHECK_NEAR(ui.GetDisplayScale(), 1.0f, 0.01f);
@@ -3306,7 +3306,7 @@ void TestDpiScalingAndBackendMetadata() {
     CHECK_NEAR(canvas.GetScale(), 1.0f, 0.01f);
 
     // Frame 2: 150% scale (DPI scale = 1.5)
-    ui.BeginFrame({static_cast<float>(winWidth), static_cast<float>(winHeight)}, 1.5f);
+    ui.BeginFrame({keel::as<keel::f32>(winWidth), keel::as<keel::f32>(winHeight)}, 1.5f);
     CHECK_NEAR(ui.GetLogicalViewport().x, 800.0f, 0.01f);
     CHECK_NEAR(ui.GetLogicalViewport().y, 600.0f, 0.01f);
     CHECK_NEAR(ui.GetDisplayScale(), 1.5f, 0.01f);
@@ -3340,8 +3340,8 @@ void TestSdlMouseCoordsMapToLogicalDp() {
 
     struct Case {
         const char* name;
-        float pixelDensity; // SDL_GetWindowPixelDensity()
-        float dpiScale;     // SDL_GetWindowDisplayScale() / devicePixelRatio
+        keel::f32 pixelDensity; // SDL_GetWindowPixelDensity()
+        keel::f32 dpiScale;     // SDL_GetWindowDisplayScale() / devicePixelRatio
         Vec2 windowPos;     // SDL event coordinates
         Vec2 expectedLogical;
     };
@@ -3368,8 +3368,8 @@ void TestSdlMouseCoordsMapToLogicalDp() {
 
     // End-to-end hover at Windows 150%: pointing the OS cursor at the button's on-screen centre must hover it.
     {
-        constexpr float kDpi = 1.5f;
-        constexpr float kPixelDensity = 1.0f;
+        constexpr keel::f32 kDpi = 1.5f;
+        constexpr keel::f32 kPixelDensity = 1.0f;
         constexpr keel::u32 kW = 1200;
         constexpr keel::u32 kH = 900;
         Context ui;
@@ -3386,7 +3386,7 @@ void TestSdlMouseCoordsMapToLogicalDp() {
 
         // Two frames: widget rects are resolved from the previous frame's layout
         for (keel::i32 i = 0; i < 2; ++i) {
-            ui.BeginFrame({static_cast<float>(kW), static_cast<float>(kH)}, kDpi);
+            ui.BeginFrame({keel::as<keel::f32>(kW), keel::as<keel::f32>(kH)}, kDpi);
             renderUI();
             ui.EndFrame(canvas);
         }
@@ -3396,7 +3396,7 @@ void TestSdlMouseCoordsMapToLogicalDp() {
         // On-screen centre in SDL window coords = logical centre * dpi / pixelDensity
         const Vec2 windowCenter = btn.rect.Center() * (kDpi / kPixelDensity);
         ui.OnMouseMove(SdlWindowToPhysicalPixels(windowCenter, kPixelDensity));
-        ui.BeginFrame({static_cast<float>(kW), static_cast<float>(kH)}, kDpi);
+        ui.BeginFrame({keel::as<keel::f32>(kW), keel::as<keel::f32>(kH)}, kDpi);
         renderUI();
         ui.EndFrame(canvas);
         CHECK(btn.hovered);
@@ -3413,7 +3413,7 @@ void TestFrameScaleIsUniformAndKeepsPointer() {
     struct Layout {
         Rect heading, toggle, slider, button, input, text;
     };
-    auto layoutAt = [](float pixelsPerDp) {
+    auto layoutAt = [](keel::f32 pixelsPerDp) {
         const keel::u32 w = keel::round_u32(800.0f * pixelsPerDp);
         const keel::u32 h = keel::round_u32(600.0f * pixelsPerDp);
         Context ui;
@@ -3422,11 +3422,11 @@ void TestFrameScaleIsUniformAndKeepsPointer() {
         canvas.SetTarget(pixels.data(), w, h, w);
 
         bool enabled = true;
-        float gain = -6.0f;
+        keel::f32 gain = -6.0f;
         keel::FixedString<32> name("Channel A");
         Layout out{};
         for (keel::i32 frame = 0; frame < 2; ++frame) {
-            ui.BeginFrame({static_cast<float>(w), static_cast<float>(h)}, pixelsPerDp);
+            ui.BeginFrame({keel::as<keel::f32>(w), keel::as<keel::f32>(h)}, pixelsPerDp);
             if (auto card = ui.Card({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
                 out.heading = ui.Heading({.label = "Audio Channel", .separator = HeadingSeparator::Bottom}).rect;
                 if (auto el = ui.Element({.label = "Enable Stage"})) {
@@ -3447,8 +3447,8 @@ void TestFrameScaleIsUniformAndKeepsPointer() {
     const Layout base = layoutAt(1.0f);
     CHECK(base.button.w > 0.0f && base.slider.w > 0.0f && base.heading.w > 0.0f);
 
-    static constexpr float kFactors[] = {0.75f, 1.25f, 1.5f, 1.875f, 2.0f};
-    for (float factor : kFactors) {
+    static constexpr keel::f32 kFactors[] = {0.75f, 1.25f, 1.5f, 1.875f, 2.0f};
+    for (keel::f32 factor : kFactors) {
         const Layout scaled = layoutAt(factor);
         const Rect* a[] = {&base.heading, &base.toggle, &base.slider, &base.button, &base.input, &base.text};
         const Rect* b[] = {&scaled.heading, &scaled.toggle, &scaled.slider, &scaled.button, &scaled.input, &scaled.text};
@@ -3492,7 +3492,7 @@ void TestZonesInheritanceZoomIndependenceAndBalance() {
     constexpr keel::u32 kH = 900;
     keel::Array<keel::u32> pixels(kW * kH);
     canvas.SetTarget(pixels.data(), kW, kH, kW);
-    const Vec2 viewport{static_cast<float>(kW), static_cast<float>(kH)};
+    const Vec2 viewport{keel::as<keel::f32>(kW), keel::as<keel::f32>(kH)};
 
     // --- Frame factor decomposition ---
     ui.BeginFrame(viewport, 1.5f, 1.25f);
@@ -3560,8 +3560,8 @@ void TestZonesInheritanceZoomIndependenceAndBalance() {
 
     // A container scaled with ScaleForZoom has the same pixel size at every root zoom, while the surrounding UI
     // follows the root zoom
-    static constexpr float kRootZooms[] = {0.75f, 1.0f, 1.25f, 1.5f, 2.0f};
-    for (float rootZoom : kRootZooms) {
+    static constexpr keel::f32 kRootZooms[] = {0.75f, 1.0f, 1.25f, 1.5f, 2.0f};
+    for (keel::f32 rootZoom : kRootZooms) {
         Context ctx;
         Id insideId = Id::Null();
         Id outsideId = Id::Null();
@@ -3664,7 +3664,7 @@ void TestZoneThemeReachesNodesBuiltInside() {
     constexpr keel::u32 kH = 600;
     keel::Array<keel::u32> pixels(kW * kH);
     canvas.SetTarget(pixels.data(), kW, kH, kW);
-    const Vec2 viewport{static_cast<float>(kW), static_cast<float>(kH)};
+    const Vec2 viewport{keel::as<keel::f32>(kW), keel::as<keel::f32>(kH)};
     UiTheme tallTheme = UiTheme::Dark();
     tallTheme.MutableMetrics(UiSize::Md).defaultHeight = 40.0f;
 
@@ -3695,8 +3695,8 @@ void TestZoneThemeReachesNodesBuiltInside() {
         }
         ui.EndFrame(canvas);
     }
-    const float mdStandard = UiTheme::Dark().GetMetrics(UiSize::Md).defaultHeight;
-    const float mdTall = tallTheme.GetMetrics(UiSize::Md).defaultHeight;
+    const keel::f32 mdStandard = UiTheme::Dark().GetMetrics(UiSize::Md).defaultHeight;
+    const keel::f32 mdTall = tallTheme.GetMetrics(UiSize::Md).defaultHeight;
     // Frame bounds (in frame dp, read outside any container)
     const Rect plainB = ui.GetPrevFrameBounds(plain.id);
     const Rect scaledB = ui.GetPrevFrameBounds(scaled.id);
@@ -3720,9 +3720,9 @@ void TestCanvasTransformMatchesMappedGeometry() {
 
     constexpr keel::u32 kW = 260;
     constexpr keel::u32 kH = 180;
-    constexpr float kFrameScale = 1.5f;
+    constexpr keel::f32 kFrameScale = 1.5f;
     const Vec2 origin{10.0f, 10.0f};
-    constexpr float s = 2.0f;
+    constexpr keel::f32 s = 2.0f;
     auto map = [&](Vec2 v) { return Vec2{origin.x + (v.x - origin.x) * s, origin.y + (v.y - origin.y) * s}; };
     auto mapRect = [&](Rect r) {
         const Vec2 o = map({r.x, r.y});
@@ -3735,7 +3735,7 @@ void TestCanvasTransformMatchesMappedGeometry() {
     auto draw = [&](ThorCanvas& c, bool useTransform) {
         auto R = [&](Rect r) { return useTransform ? r : mapRect(r); };
         auto P = [&](Vec2 v) { return useTransform ? v : map(v); };
-        auto L = [&](float v) { return useTransform ? v : v * s; };
+        auto L = [&](keel::f32 v) { return useTransform ? v : v * s; };
         c.Begin(kW, kH, kFrameScale);
         c.Clear(Color(10, 12, 16));
         if (useTransform) {
@@ -3776,8 +3776,8 @@ void TestCanvasTransformMatchesMappedGeometry() {
         if (a[i] == b[i]) continue;
         ++differing;
         for (keel::i32 shift = 0; shift < 32; shift += 8) {
-            const keel::i32 ca8 = static_cast<keel::i32>((a[i] >> shift) & 0xFFu);
-            const keel::i32 cb8 = static_cast<keel::i32>((b[i] >> shift) & 0xFFu);
+            const keel::i32 ca8 = keel::as<keel::i32>((a[i] >> shift) & 0xFFu);
+            const keel::i32 cb8 = keel::as<keel::i32>((b[i] >> shift) & 0xFFu);
             maxDelta = keel::max(maxDelta, keel::abs(ca8 - cb8));
         }
     }
@@ -3816,7 +3816,7 @@ void TestScaledContainerSpaces() {
     TestCanvas canvas;
     keel::Array<keel::u32> pixels(kW * kH);
     canvas.SetTarget(pixels.data(), kW, kH, kW);
-    const Vec2 viewport{static_cast<float>(kW), static_cast<float>(kH)};
+    const Vec2 viewport{keel::as<keel::f32>(kW), keel::as<keel::f32>(kH)};
 
     Response btn;
     Vec2 mouseInside{};
@@ -3838,8 +3838,8 @@ void TestScaledContainerSpaces() {
     frame();
 
     // The widget sees its rect in local units: origin shared with the panel at (40, 40), size unscaled
-    const float bw = btn.rect.w;
-    const float bh = btn.rect.h;
+    const keel::f32 bw = btn.rect.w;
+    const keel::f32 bh = btn.rect.h;
     CHECK_NEAR(btn.rect.x, 40.0f, 0.01f);
     CHECK_NEAR(btn.rect.y, 40.0f, 0.01f);
     CHECK_NEAR(bh, UiTheme::Dark().GetMetrics(UiSize::Md).defaultHeight, 0.01f);
@@ -3872,7 +3872,7 @@ void TestScaledContainerSpaces() {
     // Rendering: the button's surface reaches the frame-space corner, and stops there
     ui.InvalidateAll();
     frame();
-    auto px = [&](float x, float y) { return pixels[static_cast<keel::usize>(y) * kW + static_cast<keel::usize>(x)]; };
+    auto px = [&](keel::f32 x, keel::f32 y) { return pixels[keel::as<keel::usize>(y) * kW + keel::as<keel::usize>(x)]; };
     const keel::u32 nearTopLeft = px(frameRect.x + 6.0f, frameRect.y + 6.0f);
     const keel::u32 nearBottomRight = px(frameRect.Right() - 6.0f, frameRect.Bottom() - 6.0f);
     const keel::u32 outside = px(frameRect.Right() + 6.0f, frameRect.Bottom() - 6.0f);
@@ -3896,16 +3896,16 @@ void TestThorCanvasFontSizeIsInPixels() {
 
     // Minimal sfnt table lookup (big-endian) for 'head'.unitsPerEm and 'hhea'.ascender/descender
     const keel::u8* d = font->data;
-    auto be16 = [&](keel::usize off) { return static_cast<keel::u16>((d[off] << 8) | d[off + 1]); };
+    auto be16 = [&](keel::usize off) { return keel::as<keel::u16>((d[off] << 8) | d[off + 1]); };
     auto be32 = [&](keel::usize off) {
-        return (static_cast<keel::u32>(d[off]) << 24) | (static_cast<keel::u32>(d[off + 1]) << 16) |
-               (static_cast<keel::u32>(d[off + 2]) << 8) | static_cast<keel::u32>(d[off + 3]);
+        return (keel::as<keel::u32>(d[off]) << 24) | (keel::as<keel::u32>(d[off + 1]) << 16) |
+               (keel::as<keel::u32>(d[off + 2]) << 8) | keel::as<keel::u32>(d[off + 3]);
     };
     keel::usize headOff = 0;
     keel::usize hheaOff = 0;
     const keel::u16 numTables = be16(4);
     for (keel::u16 i = 0; i < numTables; ++i) {
-        const keel::usize rec = 12 + static_cast<keel::usize>(i) * 16;
+        const keel::usize rec = 12 + keel::as<keel::usize>(i) * 16;
         if (std::memcmp(d + rec, "head", 4) == 0) headOff = be32(rec + 8);
         if (std::memcmp(d + rec, "hhea", 4) == 0) hheaOff = be32(rec + 8);
     }
@@ -3913,14 +3913,14 @@ void TestThorCanvasFontSizeIsInPixels() {
     if (headOff == 0 || hheaOff == 0) {
         return;
     }
-    const float unitsPerEm = static_cast<float>(be16(headOff + 18));
-    const float ascender = static_cast<float>(static_cast<keel::i16>(be16(hheaOff + 4)));
-    const float descender = static_cast<float>(static_cast<keel::i16>(be16(hheaOff + 6)));
-    const float emBoxRatio = (ascender - descender) / unitsPerEm;
+    const keel::f32 unitsPerEm = keel::as<keel::f32>(be16(headOff + 18));
+    const keel::f32 ascender = keel::as<keel::f32>(keel::as<keel::i16>(be16(hheaOff + 4)));
+    const keel::f32 descender = keel::as<keel::f32>(keel::as<keel::i16>(be16(hheaOff + 6)));
+    const keel::f32 emBoxRatio = (ascender - descender) / unitsPerEm;
 
     ThorCanvas canvas;
     CHECK(canvas.LoadFontMemory("RobotoTest", font->Bytes(), FontStyle::Regular));
-    constexpr float kFontSize = 100.0f;
+    constexpr keel::f32 kFontSize = 100.0f;
     const Vec2 box = canvas.MeasureText("Hg", kFontSize);
     if (keel::abs(box.y - kFontSize * emBoxRatio) > kFontSize * 0.02f) {
         keel::eprintln("[FAIL] ThorCanvas text box {} dp for {} dp font, expected {} dp (ratio {:.3f} vs {:.3f})",
@@ -3973,9 +3973,9 @@ void TestSdlCanvasBackendInterface() {
 void TestIndustrialDashboardNoBlackLines() {
     using namespace guikit;
 
-    static constexpr keel::StaticArray<float, 5> testScales = {1.0f, 1.25f, 1.5f, 1.75f, 2.0f};
+    static constexpr keel::StaticArray<keel::f32, 5> testScales = {1.0f, 1.25f, 1.5f, 1.75f, 2.0f};
 
-    for (float testScale : testScales) {
+    for (keel::f32 testScale : testScales) {
         Context ui;
         ThorCanvas canvas;
         const keel::u32 width = 1000;
@@ -3984,13 +3984,13 @@ void TestIndustrialDashboardNoBlackLines() {
         canvas.SetTarget(pixels.data(), width, height, width);
 
         bool enableSensors = true;
-        float maxTravel = 150.0f;
-        float maxVelocity = 25.0f;
+        keel::f32 maxTravel = 150.0f;
+        keel::f32 maxVelocity = 25.0f;
         keel::usize sensorChannel = 0;
         keel::usize activeTabIndex = 2; // Industrial Dashboard
         bool hwEstop = false;
         keel::usize interlockMode = 0;
-        float rampDown = 250.0f;
+        keel::f32 rampDown = 250.0f;
 
         Id cardId = Id::Null();
 
@@ -4095,7 +4095,7 @@ void TestIndustrialDashboardNoBlackLines() {
         };
 
         // Frame 1: Full initial frame
-        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)}, testScale);
+        ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)}, testScale);
         renderUI();
         ui.EndFrame(canvas);
 
@@ -4103,12 +4103,12 @@ void TestIndustrialDashboardNoBlackLines() {
 
         // Helper to check for horizontal clearColor seams in card interior
         auto checkCardSeams = [&](keel::i32 frameNum) {
-            const float s = testScale;
+            const keel::f32 s = testScale;
             // Physical pixel bounds of card interior
-            const keel::u32 startY = static_cast<keel::u32>(keel::max(0.0f, (cardRect.y + 15.0f) * s));
-            const keel::u32 endY = static_cast<keel::u32>(keel::min(static_cast<float>(height), (cardRect.Bottom() - 15.0f) * s));
-            const keel::u32 startX = static_cast<keel::u32>(keel::max(0.0f, (cardRect.x + 15.0f) * s));
-            const keel::u32 endX = static_cast<keel::u32>(keel::min(static_cast<float>(width), (cardRect.Right() - 15.0f) * s));
+            const keel::u32 startY = keel::as<keel::u32>(keel::max(0.0f, (cardRect.y + 15.0f) * s));
+            const keel::u32 endY = keel::as<keel::u32>(keel::min(keel::as<keel::f32>(height), (cardRect.Bottom() - 15.0f) * s));
+            const keel::u32 startX = keel::as<keel::u32>(keel::max(0.0f, (cardRect.x + 15.0f) * s));
+            const keel::u32 endX = keel::as<keel::u32>(keel::min(keel::as<keel::f32>(width), (cardRect.Right() - 15.0f) * s));
 
             for (keel::u32 y = startY; y < endY; ++y) {
                 keel::i32 clearCount = 0;
@@ -4133,21 +4133,21 @@ void TestIndustrialDashboardNoBlackLines() {
         // Frame 2: Mouse move across widgets (hovering)
         // Switch position
         ui.OnMouseMove({(cardRect.x + 30.0f) * testScale, (cardRect.y + 70.0f) * testScale});
-        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)}, testScale);
+        ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)}, testScale);
         renderUI();
         ui.EndFrame(canvas);
         checkCardSeams(2);
 
         // Frame 3: Move to InputField
         ui.OnMouseMove({(cardRect.x + 30.0f) * testScale, (cardRect.y + 130.0f) * testScale});
-        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)}, testScale);
+        ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)}, testScale);
         renderUI();
         ui.EndFrame(canvas);
         checkCardSeams(3);
 
         // Frame 4: Move to Select
         ui.OnMouseMove({(cardRect.x + 30.0f) * testScale, (cardRect.y + 190.0f) * testScale});
-        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)}, testScale);
+        ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)}, testScale);
         renderUI();
         ui.EndFrame(canvas);
         checkCardSeams(4);
@@ -4179,18 +4179,18 @@ void TestCarouselWidgetAndTabBarOverflow() {
     };
 
     // Frame 1: Measure and layout
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderCarousel();
     ui.EndFrame(canvas);
 
     // Frame 2: Bounds collected
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderCarousel();
     ui.EndFrame(canvas);
 
     CHECK(b1.rect.w > 0.0f);
     CHECK(b2.rect.w > 0.0f);
-    const float initialB1X = b1.rect.x;
+    const keel::f32 initialB1X = b1.rect.x;
 
     // At offset 0: left arrow hidden, right arrow visible
     CHECK(carouselNode != nullptr);
@@ -4209,17 +4209,17 @@ void TestCarouselWidgetAndTabBarOverflow() {
     // Click near right edge: x = 285, y = 18
     ui.OnMouseMove({285.0f, 18.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderCarousel();
     ui.EndFrame(canvas);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderCarousel();
     ui.EndFrame(canvas);
 
     // Frame after click propagation
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderCarousel();
     ui.EndFrame(canvas);
 
@@ -4238,14 +4238,14 @@ void TestCarouselWidgetAndTabBarOverflow() {
     }
 
     // Test mouse wheel on carousel
-    const float prevB3X = b3.rect.x;
+    const keel::f32 prevB3X = b3.rect.x;
     ui.OnMouseMove({150.0f, 18.0f});
     ui.OnMouseWheel(0.0f, -2.0f); // Wheel down/right
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderCarousel();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderCarousel();
     ui.EndFrame(canvas);
 
@@ -4267,11 +4267,11 @@ void TestCarouselWidgetAndTabBarOverflow() {
         ui.TabBar(activeTab, longTabs);
     };
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderTabBar();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderTabBar();
     ui.EndFrame(canvas);
 
@@ -4279,11 +4279,11 @@ void TestCarouselWidgetAndTabBarOverflow() {
 
     // Switch active tab programmatically to last tab (Advanced)
     activeTab = 6;
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderTabBar();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderTabBar();
     ui.EndFrame(canvas);
 
@@ -4311,7 +4311,7 @@ void TestDebugBoundsAndInspectMode() {
     CHECK(ui.IsInspectMode());
 
     // Frame with debug bounds and inspect mode enabled
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(12.0f)})) {
         if (auto row = ui.Row({.gap = 12.0f})) {
             ui.Button({.text = "Inspect Me"});
@@ -4338,7 +4338,7 @@ void TestDebugBoundsAndInspectMode() {
     CHECK(!ui.IsDebugBounds());
     CHECK(!ui.IsInspectMode());
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     if (auto col = ui.Column()) {
         ui.Text("Normal Mode");
     }
@@ -4358,7 +4358,7 @@ void TestPostRenderDelegateWorkflow() {
     static keel::Array<keel::i32> executionTrace;
     executionTrace.clear();
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
 
     if (auto c = ui.Column()) {
         Node* containerNode = c.GetNode();
@@ -4507,7 +4507,7 @@ struct MyCustomBadge {
 
 // Definition of a 3rd party user-defined container
 struct MyCustomPanel {
-    static ContainerScope Open(Context& ctx, float minWidth = 100.0f, keel::SourceLocation loc = keel::SourceLocation::current()) {
+    static ContainerScope Open(Context& ctx, keel::f32 minWidth = 100.0f, keel::SourceLocation loc = keel::SourceLocation::current()) {
         const Id id = ctx.MakeChildId(loc);
         Node* node = ctx.CreateNode(NodeType::Container, id);
         node->direction = FlexDirection::Column;
@@ -4527,7 +4527,7 @@ void TestGenericTemplateFacade() {
     static_assert(WidgetRunnable<MyCustomBadge, keel::StringRef, UiVariant>);
     static_assert(WidgetRunnable<Button, ButtonOptions>);
     static_assert(ContainerOpenable<MyCustomPanel>);
-    static_assert(ContainerOpenable<MyCustomPanel, float>);
+    static_assert(ContainerOpenable<MyCustomPanel, keel::f32>);
     static_assert(ContainerOpenable<Row, RowOptions>);
     static_assert(ContainerOpenable<Card, CardOptions>);
 
@@ -4538,7 +4538,7 @@ void TestGenericTemplateFacade() {
     keel::Array<keel::u32> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     if (auto panel = ui.Open<MyCustomPanel>(150.0f)) {
         CHECK(panel.GetNode() != nullptr);
         CHECK(panel.GetNode()->minWidth == 150.0f);
@@ -4663,9 +4663,9 @@ void TestScopedThemeAndScaleOverrides() {
     UiTheme inspectorTheme = UiTheme::Dark();
     inspectorTheme.palette.surface = Color(10, 20, 30, 255);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)}, 1.0f);
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)}, 1.0f);
 
-    const float baseBtnHeight = ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight;
+    const keel::f32 baseBtnHeight = ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight;
 
     // 1. Zone theme override (even without wrapping in an extra Box)
     if (auto zCustom = ui.Zone({.theme = customTheme})) {
@@ -4777,7 +4777,7 @@ void TestSliderAndStepSliderWidgets() {
     keel::Array<keel::u32> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
-    float floatVal = 5.0f;
+    keel::f32 floatVal = 5.0f;
     keel::i32 intVal = 4;
     keel::usize stepIndex = 1;
     UiSize activeSize = UiSize::Sm;
@@ -4920,7 +4920,7 @@ void TestVerticalSlider() {
         CHECK_NEAR(vHSize.y, 300.0f, 0.5f);
     }
 
-    double gain = 20.0;
+    keel::f64 gain = 20.0;
     Response r;
     auto renderUI = [&]() {
         if (auto col = ui.Column()) {
@@ -4994,7 +4994,7 @@ void TestSceneContentDamageAndItemDrag() {
     keel::Array<keel::u32> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
-    float rectX = 50.0f;
+    keel::f32 rectX = 50.0f;
     keel::Array<keel::u32> img(16 * 16, 0xff0000ffu);
     Vec2 handle{200.0f, 150.0f};
     Vec2 handleAtStart{};
@@ -5003,10 +5003,10 @@ void TestSceneContentDamageAndItemDrag() {
     bool clicked = false;
     Rect vp{};
     Vec2 handleScreen{};
-    float worldScale = 1.0f;
+    keel::f32 worldScale = 1.0f;
 
     auto frame = [&]() {
-        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
         if (auto sc = ui.Scene({
             .worldSize = Vec2{400.0f, 300.0f},
             .backgroundStyle = SceneBackground::Solid,
@@ -5173,7 +5173,7 @@ void TestVerticalStepAndRangeSliders() {
     }
 
     keel::usize stepIdx = 1;
-    double lo = 20.0, hi = 60.0;
+    keel::f64 lo = 20.0, hi = 60.0;
     Response rs, rr;
     auto renderUI = [&]() {
         if (auto row = ui.Row({.gap = 40.0f, .height = SizeMode::Stretch})) {
@@ -5196,7 +5196,7 @@ void TestVerticalStepAndRangeSliders() {
     CHECK(rb.x > sb.x + sb.w);
 
     // 2. StepSlider: press near the top -> last step, drag to the bottom -> first step
-    const float trackX = sb.x + keel::max(m.defaultHeight, m.thumbSize) * 0.5f;
+    const keel::f32 trackX = sb.x + keel::max(m.defaultHeight, m.thumbSize) * 0.5f;
     ui.OnMouseMove({trackX, sb.y + 4.0f});
     ui.OnMouseDown(1);
     frame();
@@ -5217,10 +5217,10 @@ void TestVerticalStepAndRangeSliders() {
     frame();
 
     // 3. RangeSlider: travel coordinate maps value v to y = bottom - halfThumb - v / 80 * length
-    const float half = m.thumbSize * 0.5f;
-    const float len = rb.h - m.thumbSize;
-    const float rx = rb.x + keel::max(m.defaultHeight, m.thumbSize) * 0.5f;
-    auto yOf = [&](double v) { return rb.y + rb.h - half - static_cast<float>(v / 80.0) * len; };
+    const keel::f32 half = m.thumbSize * 0.5f;
+    const keel::f32 len = rb.h - m.thumbSize;
+    const keel::f32 rx = rb.x + keel::max(m.defaultHeight, m.thumbSize) * 0.5f;
+    auto yOf = [&](keel::f64 v) { return rb.y + rb.h - half - keel::as<keel::f32>(v / 80.0) * len; };
 
     // Press just below the low thumb -> drags the low thumb (not the high one)
     ui.OnMouseMove({rx, yOf(15.0)});
@@ -5237,13 +5237,13 @@ void TestVerticalStepAndRangeSliders() {
     ui.OnMouseDown(1);
     frame();
     CHECK(hi > 65.0);
-    const double loBefore = lo;
+    const keel::f64 loBefore = lo;
     ui.OnMouseUp(1);
     frame();
 
     // Press inside the interval and drag up by 10 units -> both move up together
-    const double span = hi - lo;
-    const double mid = (lo + hi) * 0.5;
+    const keel::f64 span = hi - lo;
+    const keel::f64 mid = (lo + hi) * 0.5;
     ui.OnMouseMove({rx, yOf(mid)});
     ui.OnMouseDown(1);
     frame();
@@ -5338,12 +5338,12 @@ void TestPixelGeometryAndWidgetUiSizeDecoupling() {
     };
 
     // Frame 1: Measure and layout
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     render();
     ui.EndFrame(canvas);
 
     // Frame 2: Retrieve cached bounds from previous frame
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     render();
     ui.EndFrame(canvas);
 
@@ -5356,7 +5356,7 @@ void TestTextWrappingAndBackendIndependence() {
     keel::println("  - TestTextWrappingAndBackendIndependence...");
 
     // 1. TextUtil unit checks with fallback ratio (canvas = nullptr)
-    const float singleW = TextUtil::MeasureWidth("Hello World", 14.0f, nullptr);
+    const keel::f32 singleW = TextUtil::MeasureWidth("Hello World", 14.0f, nullptr);
     CHECK(singleW > 0.0f);
 
     // Truncation with ellipsis
@@ -5373,8 +5373,8 @@ void TestTextWrappingAndBackendIndependence() {
         CHECK(TextUtil::MeasureWidth(line, 12.0f, nullptr) <= 120.0f + 1.0f);
     }
 
-    const float wrappedH = TextUtil::MeasureWrappedHeight(sentence, 120.0f, 12.0f, 18.0f, nullptr);
-    CHECK_NEAR(wrappedH, static_cast<float>(lines.size()) * 18.0f, 0.01f);
+    const keel::f32 wrappedH = TextUtil::MeasureWrappedHeight(sentence, 120.0f, 12.0f, 18.0f, nullptr);
+    CHECK_NEAR(wrappedH, keel::as<keel::f32>(lines.size()) * 18.0f, 0.01f);
 
     // 2. Heading wordWrap test: single-line vs multi-line height resolution
     HeadingOptions optsWrap{
@@ -5386,8 +5386,8 @@ void TestTextWrappingAndBackendIndependence() {
         .description = {"Sensory tripwire thresholds & limits for automated closed-loop machinery", TextWrap::SingleLine()}
     };
 
-    const float hNoWrap = Heading::Measure(optsNoWrap, 150.0f).y;
-    const float hWrap = Heading::Measure(optsWrap, 150.0f).y;
+    const keel::f32 hNoWrap = Heading::Measure(optsNoWrap, 150.0f).y;
+    const keel::f32 hWrap = Heading::Measure(optsWrap, 150.0f).y;
     // Multi-line wrapped heading in narrow width must be taller than single-line heading!
     CHECK(hWrap > hNoWrap);
 
@@ -5439,7 +5439,7 @@ void TestTextWrappingAndBackendIndependence() {
         {.label = "Network Diagnostics"}
     }};
 
-    for (float testScale : {1.0f, 1.5f}) {
+    for (keel::f32 testScale : {1.0f, 1.5f}) {
         keel::i32 tabIdx = 0;
         TestCanvas thorCanvas;
         keel::Array<keel::u32> px(800 * 600);
@@ -5536,7 +5536,7 @@ void TestTextAreaWidgetWorkflow() {
 
     // 3. Interactive 2D editing, multiline navigation (Up/Down/Tab/Enter), and Ctrl+Wheel zoom
     keel::String editableText("int a = 1;\nint b = 2;");
-    float editorZoom = 1.0f;
+    keel::f32 editorZoom = 1.0f;
     Response editRes;
     auto renderEditor = [&]() {
         if (auto el = ui.Element({.label = "A text area", .description = "This is a text area"})) {
@@ -5553,11 +5553,11 @@ void TestTextAreaWidgetWorkflow() {
 
     // Frame 1 & 2: Settle layout
     for (keel::i32 f = 0; f < 2; ++f) {
-        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
         renderEditor();
         ui.EndFrame(canvas);
     }
-    const float heightBeforeZoom = editRes.rect.h;
+    const keel::f32 heightBeforeZoom = editRes.rect.h;
     CHECK(editRes.rect.w > 100.0f);
     CHECK(heightBeforeZoom > 50.0f);
 
@@ -5565,7 +5565,7 @@ void TestTextAreaWidgetWorkflow() {
     const Vec2 clickPt(editRes.rect.x + 80.0f, editRes.rect.y + 20.0f);
     ui.OnMouseMove(clickPt);
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderEditor();
     ui.EndFrame(canvas);
     ui.OnMouseUp(1);
@@ -5577,7 +5577,7 @@ void TestTextAreaWidgetWorkflow() {
     ui.OnKeyDown(Key::Down);
     ui.OnKeyDown(Key::Home);
     ui.OnKeyDown(Key::Tab);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderEditor();
     ui.EndFrame(canvas);
 
@@ -5587,15 +5587,15 @@ void TestTextAreaWidgetWorkflow() {
     // Increase zoom via editorZoom option -> autoHeight editor grows taller!
     editorZoom = 1.5f;
     for (keel::i32 f = 0; f < 2; ++f) {
-        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
         renderEditor();
         ui.EndFrame(canvas);
     }
     CHECK(editRes.rect.h > heightBeforeZoom);
 
     // 4. Verify glyph metric box height and precise mouse coordinate hit-testing per line & column
-    const float codeFontSize = theme.GetTypography(TextRole::CodeMedium).fontSize;
-    const float glyphBoxH = canvas.MeasureTextStyled("Mg", codeFontSize, FontStyle::Monospace).y;
+    const keel::f32 codeFontSize = theme.GetTypography(TextRole::CodeMedium).fontSize;
+    const keel::f32 glyphBoxH = canvas.MeasureTextStyled("Mg", codeFontSize, FontStyle::Monospace).y;
 #if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
     // JetBrains Mono hhea (ascender - descender) / unitsPerEm = 1.32
     CHECK(keel::abs(glyphBoxH - codeFontSize * 1.32f) < codeFontSize * 0.03f);
@@ -5614,33 +5614,33 @@ void TestTextAreaWidgetWorkflow() {
         });
     };
     for (keel::i32 f = 0; f < 2; ++f) {
-        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
         renderCoordEditor();
         ui.EndFrame(canvas);
     }
 
     // Compute exact linear line height and gutter width for Md size
     const auto& cm = theme.GetMetrics(UiSize::Md);
-    const float lineH = keel::max(theme.GetLineHeight(codeFontSize), glyphBoxH * 1.14f);
-    const float padY = keel::max(8.0f, cm.paddingY);
-    const float padX = keel::max(10.0f, cm.paddingX);
-    const float charW = canvas.MeasureTextStyled("B", codeFontSize, FontStyle::Monospace).x;
-    const float digitW = canvas.MeasureTextStyled("8", codeFontSize, FontStyle::Monospace).x;
-    const float gutterW = 2.0f * digitW + charW * 1.25f * 2.0f;
-    const float textStartX = coordRes.rect.x + 1.0f + gutterW + padX;
-    const float line1CenterY = coordRes.rect.y + 1.0f + padY + lineH * 1.5f; // Center of second line ("BBBB")
+    const keel::f32 lineH = keel::max(theme.GetLineHeight(codeFontSize), glyphBoxH * 1.14f);
+    const keel::f32 padY = keel::max(8.0f, cm.paddingY);
+    const keel::f32 padX = keel::max(10.0f, cm.paddingX);
+    const keel::f32 charW = canvas.MeasureTextStyled("B", codeFontSize, FontStyle::Monospace).x;
+    const keel::f32 digitW = canvas.MeasureTextStyled("8", codeFontSize, FontStyle::Monospace).x;
+    const keel::f32 gutterW = 2.0f * digitW + charW * 1.25f * 2.0f;
+    const keel::f32 textStartX = coordRes.rect.x + 1.0f + gutterW + padX;
+    const keel::f32 line1CenterY = coordRes.rect.y + 1.0f + padY + lineH * 1.5f; // Center of second line ("BBBB")
 
     // Click right after the 2nd 'B' on line 1 (column 2) and insert 'X'
     const Vec2 line1Col2Pt(textStartX + charW * 2.0f, line1CenterY);
     ui.OnMouseMove(line1Col2Pt);
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderCoordEditor();
     ui.EndFrame(canvas);
     ui.OnMouseUp(1);
 
     ui.OnTextInput("X");
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderCoordEditor();
     ui.EndFrame(canvas);
 
@@ -5648,9 +5648,9 @@ void TestTextAreaWidgetWorkflow() {
 
     // 5. Verify continuous sub-pixel zoom without std::ceil step quantization:
     // Every 0.01x zoom increment must smoothly increase height (never staying frozen and jumping).
-    float prevSubZoomH = 0.0f;
+    keel::f32 prevSubZoomH = 0.0f;
     for (keel::i32 step = 0; step <= 4; ++step) {
-        const float z = 1.0f + static_cast<float>(step) * 0.01f;
+        const keel::f32 z = 1.0f + keel::as<keel::f32>(step) * 0.01f;
         const Vec2 measured = TextArea::Measure(coordText, {
             .autoHeight = true,
             .showLineNumbers = true,
@@ -5664,10 +5664,10 @@ void TestTextAreaWidgetWorkflow() {
     }
 
     // 6. Verify Ctrl+Plus and Ctrl+0 keyboard zoom shortcuts on focused editor
-    const float hAt1x = coordRes.rect.h;
+    const keel::f32 hAt1x = coordRes.rect.h;
     ui.OnKeyDown(Key::Plus, {.ctrl = true});
     for (keel::i32 f = 0; f < 2; ++f) {
-        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
         renderCoordEditor();
         ui.EndFrame(canvas);
     }
@@ -5675,7 +5675,7 @@ void TestTextAreaWidgetWorkflow() {
 
     ui.OnKeyDown(Key::Zero, {.ctrl = true});
     for (keel::i32 f = 0; f < 2; ++f) {
-        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
         renderCoordEditor();
         ui.EndFrame(canvas);
     }
@@ -5706,7 +5706,7 @@ void TestButtonAlignmentAndProceduralIcons() {
     CHECK(eyeOffIcon.GetId() == IconId::EyeOff);
 
     // Render frame with Left-Aligned (Start) navigation rail buttons
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)}, 1.0f);
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)}, 1.0f);
     if (auto col = ui.Column({.gap = 4.0f})) {
         ui.Button({
             .text = "Button",
@@ -5757,18 +5757,18 @@ void TestButtonAlignmentAndProceduralIcons() {
     // and does NOT move the button capsule relative to bounds or external labels
     class RecordingCanvas : public TestCanvas {
     public:
-        void DrawRoundRect(Rect rect, float radius, Color fill, Color stroke = Color(0, 0, 0, 0), float strokeWidth = 0.0f) override {
+        void DrawRoundRect(Rect rect, keel::f32 radius, Color fill, Color stroke = Color(0, 0, 0, 0), keel::f32 strokeWidth = 0.0f) override {
             lastCapsuleRect = rect;
             TestCanvas::DrawRoundRect(rect, radius, fill, stroke, strokeWidth);
         }
-        void DrawTextBox(keel::StringRef text, Rect bounds, float fontSize, Color color, float alignX = 0.0f, float alignY = 0.5f) override {
+        void DrawTextBox(keel::StringRef text, Rect bounds, keel::f32 fontSize, Color color, keel::f32 alignX = 0.0f, keel::f32 alignY = 0.5f) override {
             lastTextBounds = bounds;
             lastAlignX = alignX;
             TestCanvas::DrawTextBox(text, bounds, fontSize, color, alignX, alignY);
         }
         Rect lastCapsuleRect{};
         Rect lastTextBounds{};
-        float lastAlignX{0.0f};
+        keel::f32 lastAlignX{0.0f};
     };
 
     RecordingCanvas recCanvas;
@@ -5804,15 +5804,15 @@ void TestButtonAlignmentAndProceduralIcons() {
 
     Button::Render(recCanvas, geom.controlRect, bStart, UiSize::Md, false, false, false, darkTheme);
     const Rect capStart = recCanvas.lastCapsuleRect;
-    const float alignXStart = recCanvas.lastAlignX;
+    const keel::f32 alignXStart = recCanvas.lastAlignX;
 
     Button::Render(recCanvas, geom.controlRect, bCenter, UiSize::Md, false, false, false, darkTheme);
     const Rect capCenter = recCanvas.lastCapsuleRect;
-    const float alignXCenter = recCanvas.lastAlignX;
+    const keel::f32 alignXCenter = recCanvas.lastAlignX;
 
     Button::Render(recCanvas, geom.controlRect, bEnd, UiSize::Md, false, false, false, darkTheme);
     const Rect capEnd = recCanvas.lastCapsuleRect;
-    const float alignXEnd = recCanvas.lastAlignX;
+    const keel::f32 alignXEnd = recCanvas.lastAlignX;
 
     // Capsule positions must be strictly identical (not shifted horizontally by .align)
     CHECK_NEAR(capStart.x, widgetBounds.x, 0.01f);
@@ -5842,7 +5842,7 @@ void TestWidgetRadiusOverride() {
 
     keel::String inputText("hello");
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)}, 1.0f);
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)}, 1.0f);
     if (auto col = ui.Column({.gap = 8.0f})) {
         auto btnDefault = ui.Button({.text = "Default Radius"});
         auto btnCustom = ui.Button({.text = "Custom Radius", .border = Border::Rounded(16.0f)});
@@ -5898,7 +5898,7 @@ void TestButtonExternalLabelDescriptionAndPlacement() {
     keel::usize selIdx = 0;
     static const keel::StaticArray<keel::StringRef, 3> items = {"Alpha", "Beta", "Gamma"};
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)}, 1.0f);
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)}, 1.0f);
     if (auto col = ui.Column({.gap = 8.0f})) {
         Response bStacked, bLeading, bTrailing, bTop, bBottom, selRes;
         if (auto el = ui.Element({
@@ -5991,8 +5991,8 @@ void TestWidgetSizeModesAndExplicitWidth() {
     {
         SliderOptions sDef{.showValue = false};
         Vec2 szSDef = Slider::Measure(sDef, 50.0, 0.0, 100.0, UiSize::Md, &canvas, ui.GetTheme());
-        const float defaultW = ui.GetTheme().GetSlider(UiSize::Md).defaultWidth;
-        const float thumbSize = ui.GetTheme().GetSlider(UiSize::Md).thumbSize;
+        const keel::f32 defaultW = ui.GetTheme().GetSlider(UiSize::Md).defaultWidth;
+        const keel::f32 thumbSize = ui.GetTheme().GetSlider(UiSize::Md).thumbSize;
         CHECK_NEAR(szSDef.x, defaultW + thumbSize, 0.01f);
 
         SliderOptions sExplicit{.showValue = false, .width = 240.0f};
@@ -6008,7 +6008,7 @@ void TestWidgetSizeModesAndExplicitWidth() {
     {
         SelectOptions selDef;
         Vec2 szSelDef = Select::Measure(selDef, UiSize::Md, &canvas, ui.GetTheme());
-        const float defW = ui.GetTheme().GetSelect(UiSize::Md).defaultWidth;
+        const keel::f32 defW = ui.GetTheme().GetSelect(UiSize::Md).defaultWidth;
         CHECK_NEAR(szSelDef.x, defW, 0.01f);
 
         SelectOptions selExplicit{.width = 320.0f};
@@ -6024,7 +6024,7 @@ void TestWidgetSizeModesAndExplicitWidth() {
     {
         InputFieldOptions inDef;
         Vec2 szInDef = InputField::Measure("", inDef, UiSize::Md, &canvas, ui.GetTheme());
-        const float defInW = ui.GetTheme().GetInputField(UiSize::Md).defaultWidth;
+        const keel::f32 defInW = ui.GetTheme().GetInputField(UiSize::Md).defaultWidth;
         CHECK_NEAR(szInDef.x, defInW, 0.01f);
 
         InputFieldOptions inExp{.width = 280.0f};
@@ -6046,7 +6046,7 @@ void TestWidgetSizeModesAndExplicitWidth() {
 
     bool swVal = true;
     bool cbVal = true;
-    float slVal = 50.0f;
+    keel::f32 slVal = 50.0f;
     keel::usize selIdx = 0;
     static const keel::StaticArray<keel::StringRef, 2> selOpts = {"Alpha", "Beta"};
     keel::String inText("Test");
@@ -6152,11 +6152,11 @@ void TestWidgetSizeModesAndExplicitWidth() {
         }
     };
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     render();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     render();
     ui.EndFrame(canvas);
 
@@ -6283,14 +6283,14 @@ public:
     struct TextBoxCall {
         keel::String text;
         guikit::Rect bounds;
-        float alignX;
+        keel::f32 alignX;
         guikit::Color color;
     };
-    void DrawRoundRect(guikit::Rect rect, float radius, guikit::Color fill, guikit::Color stroke = guikit::Color(0, 0, 0, 0), float strokeWidth = 0.0f) override {
+    void DrawRoundRect(guikit::Rect rect, keel::f32 radius, guikit::Color fill, guikit::Color stroke = guikit::Color(0, 0, 0, 0), keel::f32 strokeWidth = 0.0f) override {
         lastRoundRect = rect;
         TestCanvas::DrawRoundRect(rect, radius, fill, stroke, strokeWidth);
     }
-    void DrawTextBox(keel::StringRef text, guikit::Rect bounds, float fontSize, guikit::Color color, float alignX = 0.0f, float alignY = 0.5f) override {
+    void DrawTextBox(keel::StringRef text, guikit::Rect bounds, keel::f32 fontSize, guikit::Color color, keel::f32 alignX = 0.0f, keel::f32 alignY = 0.5f) override {
         textBoxCalls.push_back({keel::String(text), bounds, alignX, color});
         TestCanvas::DrawTextBox(text, bounds, fontSize, color, alignX, alignY);
     }
@@ -6438,10 +6438,10 @@ void TestLabelAlignmentGeometryOptionA() {
         CHECK(call != nullptr);
         if (call) {
             // Button capsule is at 50 + 800 - 150 = 700
-            const float expectedCapX = 700.0f;
+            const keel::f32 expectedCapX = 700.0f;
             CHECK_NEAR(recCanvas.lastRoundRect.x, expectedCapX, 0.01f);
             CHECK_NEAR(call->bounds.x, 50.0f, 0.01f);
-            const float measuredW = recCanvas.MeasureText("Setting Title", darkTheme.GetTypography(TextRole::LabelLarge).fontSize).x;
+            const keel::f32 measuredW = recCanvas.MeasureText("Setting Title", darkTheme.GetTypography(TextRole::LabelLarge).fontSize).x;
             CHECK_NEAR(call->bounds.w, measuredW, 0.01f);
             CHECK_NEAR(call->alignX, 1.0f, 0.01f);
         }
@@ -6521,9 +6521,9 @@ void TestLabelAlignmentGeometryOptionA() {
         const auto* call = recCanvas.FindTextBox("Trailing Field Info");
         CHECK(call != nullptr);
         if (call) {
-            const float measuredW = recCanvas.MeasureText("Trailing Field Info", darkTheme.GetTypography(TextRole::LabelLarge).fontSize).x;
-            const float contentW = 200.0f + elSpec.inlineGap + measuredW;
-            const float expectedStartX = widgetBounds.x + (widgetBounds.w - contentW) * 0.5f;
+            const keel::f32 measuredW = recCanvas.MeasureText("Trailing Field Info", darkTheme.GetTypography(TextRole::LabelLarge).fontSize).x;
+            const keel::f32 contentW = 200.0f + elSpec.inlineGap + measuredW;
+            const keel::f32 expectedStartX = widgetBounds.x + (widgetBounds.w - contentW) * 0.5f;
             CHECK_NEAR(geom.controlRect.x, expectedStartX, 0.01f);
             CHECK_NEAR(call->bounds.x, expectedStartX + 200.0f + elSpec.inlineGap, 0.01f);
             CHECK_NEAR(call->bounds.w, measuredW, 0.01f);
@@ -6633,8 +6633,8 @@ void TestLabelAlignmentGeometryOptionA() {
         const auto* call = recCanvas.FindTextBox("Power Switch");
         CHECK(call != nullptr);
         if (call) {
-            const float measuredW = recCanvas.MeasureText("Power Switch", darkTheme.GetTypography(TextRole::LabelLarge).fontSize).x;
-            const float expectedTextX = widgetBounds.x + widgetBounds.w - measuredW;
+            const keel::f32 measuredW = recCanvas.MeasureText("Power Switch", darkTheme.GetTypography(TextRole::LabelLarge).fontSize).x;
+            const keel::f32 expectedTextX = widgetBounds.x + widgetBounds.w - measuredW;
             CHECK_NEAR(call->bounds.x, expectedTextX, 0.01f);
             CHECK_NEAR(call->bounds.w, measuredW, 0.01f);
         }
@@ -6659,8 +6659,8 @@ void TestLabelAlignmentGeometryOptionA() {
         const auto* call = recCanvas.FindTextBox("Enable Feature");
         CHECK(call != nullptr);
         if (call) {
-            const float measuredW = recCanvas.MeasureText("Enable Feature", darkTheme.GetTypography(TextRole::LabelLarge).fontSize).x;
-            const float expectedTextX = widgetBounds.x + widgetBounds.w - measuredW;
+            const keel::f32 measuredW = recCanvas.MeasureText("Enable Feature", darkTheme.GetTypography(TextRole::LabelLarge).fontSize).x;
+            const keel::f32 expectedTextX = widgetBounds.x + widgetBounds.w - measuredW;
             CHECK_NEAR(call->bounds.x, expectedTextX, 0.01f);
             CHECK_NEAR(call->bounds.w, measuredW, 0.01f);
         }
@@ -6687,8 +6687,8 @@ void TestLabelAlignmentGeometryOptionA() {
         const auto* call = recCanvas.FindTextBox("Volume Level");
         CHECK(call != nullptr);
         if (call) {
-            const float measuredW = recCanvas.MeasureText("Volume Level", darkTheme.GetTypography(TextRole::LabelLarge).fontSize).x;
-            const float expectedTextX = widgetBounds.x + widgetBounds.w - measuredW;
+            const keel::f32 measuredW = recCanvas.MeasureText("Volume Level", darkTheme.GetTypography(TextRole::LabelLarge).fontSize).x;
+            const keel::f32 expectedTextX = widgetBounds.x + widgetBounds.w - measuredW;
             CHECK_NEAR(geom.controlRect.x, widgetBounds.x, 0.01f);
             CHECK_NEAR(call->bounds.x, expectedTextX, 0.01f);
             CHECK_NEAR(call->bounds.w, measuredW, 0.01f);
@@ -6968,11 +6968,11 @@ void TestSidebarAndSidebarMenuWorkflow() {
         }
     };
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderMultiSidebar();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderMultiSidebar();
     ui.EndFrame(canvas);
 
@@ -7022,11 +7022,11 @@ void TestSidebarAndSidebarMenuWorkflow() {
         }
     };
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderAutoFitMenu();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderAutoFitMenu();
     ui.EndFrame(canvas);
 
@@ -7038,12 +7038,12 @@ void TestSidebarAndSidebarMenuWorkflow() {
     // Click second menu item ("Analytics")
     ui.OnMouseMove(item1Bounds.Center());
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderAutoFitMenu();
     ui.EndFrame(canvas);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderAutoFitMenu();
     ui.EndFrame(canvas);
 
@@ -7051,11 +7051,11 @@ void TestSidebarAndSidebarMenuWorkflow() {
 
     // Collapse SidebarMenu into icon-only rail -> auto-fit Sidebar width shrinks!
     menuCollapsed = true;
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderAutoFitMenu();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderAutoFitMenu();
     ui.EndFrame(canvas);
 
@@ -7078,7 +7078,7 @@ void TestSidebarAndSidebarMenuWorkflow() {
         }
     };
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderSpanMenu();
     ui.EndFrame(canvas);
     CHECK(spanMenuRes.id.IsValid());
@@ -7086,7 +7086,7 @@ void TestSidebarAndSidebarMenuWorkflow() {
     CHECK_NEAR(ui.GetPrevFrameBounds(fixedSbId).w, 200.0f, 0.5f);
 
     fixedSbCollapsed = true;
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderSpanMenu();
     ui.EndFrame(canvas);
     CHECK(ui.GetPrevFrameBounds(fixedSbId).w < 80.0f);
@@ -7118,7 +7118,7 @@ void TestSidebarAndSidebarMenuWorkflow() {
         renderOverflowSidebar();
         scrollUi.EndFrame(canvas);
 
-        const float initialY = scrollUi.GetPrevUnclippedBounds(firstItemRes.id).y;
+        const keel::f32 initialY = scrollUi.GetPrevUnclippedBounds(firstItemRes.id).y;
         const Rect sbRect = scrollUi.GetPrevFrameBounds(scrollSbId);
         CHECK(sbRect.w > 100.0f);
         CHECK(sbRect.h > 150.0f);
@@ -7129,7 +7129,7 @@ void TestSidebarAndSidebarMenuWorkflow() {
         renderOverflowSidebar();
         scrollUi.EndFrame(canvas);
 
-        const float scrolledY = scrollUi.GetPrevUnclippedBounds(firstItemRes.id).y;
+        const keel::f32 scrolledY = scrollUi.GetPrevUnclippedBounds(firstItemRes.id).y;
         CHECK(scrolledY < initialY - 10.0f);
     }
 
@@ -7186,8 +7186,8 @@ void TestUiTextModesAndVerticalSpaceReservation() {
         const Vec2 cSize = InputField::Measure("", InputFieldOptions{}, UiSize::Md, &recCanvas, darkTheme);
         const Vec2 singleM = Element::Measure(cSize, singleSpec, &recCanvas, darkTheme, 140.0f);
         const Vec2 multiM = Element::Measure(cSize, multiSpec, &recCanvas, darkTheme, 140.0f);
-        const float descFontSize = darkTheme.ResolveFontSize(multiSpec.description, TextRole::LabelSmall, UiSize::Md);
-        const float descLineH = descFontSize * kDefaultLineHeightMultiplier;
+        const keel::f32 descFontSize = darkTheme.ResolveFontSize(multiSpec.description, TextRole::LabelSmall, UiSize::Md);
+        const keel::f32 descLineH = descFontSize * kDefaultLineHeightMultiplier;
 
         // Multi-line with Max(2) must be exactly 1 description line taller than single-line
         CHECK_NEAR(multiM.y - singleM.y, descLineH, 0.01f);
@@ -7288,19 +7288,19 @@ void TestUiTextModesAndVerticalSpaceReservation() {
         ui.BeginFrame({180.0f, 300.0f});
         renderPasswordForm();
         ui.EndFrame(recCanvas);
-        const float btnYStage0 = ui.GetPrevFrameBounds(submitBtnRes.id).y;
+        const keel::f32 btnYStage0 = ui.GetPrevFrameBounds(submitBtnRes.id).y;
 
         errorStage = 1;
         ui.BeginFrame({180.0f, 300.0f});
         renderPasswordForm();
         ui.EndFrame(recCanvas);
-        const float btnYStage1 = ui.GetPrevFrameBounds(submitBtnRes.id).y;
+        const keel::f32 btnYStage1 = ui.GetPrevFrameBounds(submitBtnRes.id).y;
 
         errorStage = 2;
         ui.BeginFrame({180.0f, 300.0f});
         renderPasswordForm();
         ui.EndFrame(recCanvas);
-        const float btnYStage2 = ui.GetPrevFrameBounds(submitBtnRes.id).y;
+        const keel::f32 btnYStage2 = ui.GetPrevFrameBounds(submitBtnRes.id).y;
 
         CHECK_NEAR(btnYStage0, btnYStage1, 0.001f);
         CHECK_NEAR(btnYStage0, btnYStage2, 0.001f);
@@ -7327,14 +7327,14 @@ void TestUiTextModesAndVerticalSpaceReservation() {
         ui.BeginFrame({160.0f, 300.0f});
         renderTextDemo();
         ui.EndFrame(recCanvas);
-        const float yHidden = ui.GetPrevFrameBounds(belowBtn.id).y;
+        const keel::f32 yHidden = ui.GetPrevFrameBounds(belowBtn.id).y;
 
         showNotice = true;
         recCanvas.Reset();
         ui.BeginFrame({160.0f, 300.0f});
         renderTextDemo();
         ui.EndFrame(recCanvas);
-        const float yShown = ui.GetPrevFrameBounds(belowBtn.id).y;
+        const keel::f32 yShown = ui.GetPrevFrameBounds(belowBtn.id).y;
 
         CHECK_NEAR(yHidden, yShown, 0.001f);
         CHECK(recCanvas.textBoxCalls.size() >= 2); // Wrapped text + button text
@@ -7474,7 +7474,7 @@ void TestSelectItemsAndUnifiedAffixes() {
 
         // Try clicking on disabled item 2 in popup -> should NOT select index 2 or close popup
         const Rect popupRect = ui.GetOpenPopupRect();
-        const float itemH = darkTheme.GetSelect(UiSize::Md).itemHeight;
+        const keel::f32 itemH = darkTheme.GetSelect(UiSize::Md).itemHeight;
         const Vec2 item2Center(popupRect.x + popupRect.w * 0.5f, popupRect.y + 4.0f + 2.5f * itemH);
         ui.OnMouseMove(item2Center);
         ui.OnMouseDown(1);
@@ -7541,7 +7541,7 @@ void TestSelectPopupScrollingWithMaxVisibleItems() {
         renderPair();
         ui.EndFrame(recCanvas);
 
-        const float expectedGutter = darkTheme.GetScrollbar(UiSize::Md).gutter;
+        const keel::f32 expectedGutter = darkTheme.GetScrollbar(UiSize::Md).gutter;
         CHECK_NEAR(resScroll.rect.w - resNoScroll.rect.w, expectedGutter, 0.5f);
     }
 
@@ -7576,7 +7576,7 @@ void TestSelectPopupScrollingWithMaxVisibleItems() {
         renderScene();
         ui.EndFrame(recCanvas);
 
-        const float initialSelectY = selRes.rect.y;
+        const keel::f32 initialSelectY = selRes.rect.y;
 
         // Open the Select popup
         ui.OnMouseMove(selRes.rect.Center());
@@ -7593,7 +7593,7 @@ void TestSelectPopupScrollingWithMaxVisibleItems() {
 
         CHECK(ui.IsPopupOpen(selRes.id));
         const Rect popupRect = ui.GetOpenPopupRect();
-        const float itemH = darkTheme.GetSelect(UiSize::Md).itemHeight;
+        const keel::f32 itemH = darkTheme.GetSelect(UiSize::Md).itemHeight;
         CHECK_NEAR(popupRect.h, 3.0f * itemH + 8.0f, 0.5f);
 
         // At scrollY == 0: Options 0, 1, 2 are visible; Options 3..7 are culled
@@ -7644,8 +7644,8 @@ void TestSelectPopupScrollingWithMaxVisibleItems() {
 
         // Drag scrollbar thumb back to top -> releasing mouse button must NOT close popup or select an item
         const auto& sm = darkTheme.GetScrollbar(UiSize::Md);
-        const float trackX = popupRect.Right() - sm.margin - sm.trackWidth * 0.5f;
-        const float bottomThumbY = popupRect.Bottom() - 4.0f - sm.margin - sm.minThumbLength * 0.5f;
+        const keel::f32 trackX = popupRect.Right() - sm.margin - sm.trackWidth * 0.5f;
+        const keel::f32 bottomThumbY = popupRect.Bottom() - 4.0f - sm.margin - sm.minThumbLength * 0.5f;
 
         ui.OnMouseMove({trackX, bottomThumbY});
         ui.OnMouseDown(1);
@@ -7764,7 +7764,7 @@ void TestBaseElementsAllInOneEnhancements() {
         keel::i32 btnClicks = 0;
         bool cbChecked = false;
         bool swState = false;
-        float sliderVal = 50.0f;
+        keel::f32 sliderVal = 50.0f;
         Response btnRes, cbRes, swRes, slRes;
 
         auto renderFocusScene = [&]() {
@@ -8057,7 +8057,7 @@ void TestImageSceneAndMarkdownWidgets() {
 
     Response imgRes;
     Rect sceneVisRect{};
-    float sceneZoom = 0.0f;
+    keel::f32 sceneZoom = 0.0f;
     Vec2 itemR1ScreenCenter{};
     Rect itemR1WorldBounds{};
     bool r1Hovered = false;
@@ -8113,12 +8113,12 @@ void TestImageSceneAndMarkdownWidgets() {
     };
 
     // Frame 1: Measure & Arrange
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     // Frame 2: Verify layout geometry, camera state & SceneItem auto-BBox
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -8150,17 +8150,17 @@ void TestImageSceneAndMarkdownWidgets() {
     // 3c. Hover and click on R1 in screen space -> selects R1
     ui.OnMouseMove(itemR1ScreenCenter);
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     // Next frame reads updated selection state
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -8237,7 +8237,7 @@ void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
     }
 
     // 2. Render Heading + Element-wrapped controls inside a Card surface in a live frame
-    float sliderVal = 42.0f;
+    keel::f32 sliderVal = 42.0f;
     keel::usize stepIdx = 1;
     keel::String inputVal("hello");
     keel::usize selectIdx = 0;
@@ -8347,10 +8347,10 @@ void TestRangeSliderProgressBarSpinBoxAndRadioButton() {
     keel::Array<keel::u32> pixels(width * height);
     canvas.SetTarget(pixels.data(), width, height, width);
 
-    float lowFreq = 20.0f;
-    float highFreq = 60.0f;
-    float progressVal = 72.5f;
-    float vuLevel = 78.0f;
+    keel::f32 lowFreq = 20.0f;
+    keel::f32 highFreq = 60.0f;
+    keel::f32 progressVal = 72.5f;
+    keel::f32 vuLevel = 78.0f;
     keel::i32 spinVal = 10;
     keel::i32 radioMode = 0;
 
@@ -8425,11 +8425,11 @@ void TestRangeSliderProgressBarSpinBoxAndRadioButton() {
     };
 
     // Frame 1 & 2: Measure & Layout
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -8444,12 +8444,12 @@ void TestRangeSliderProgressBarSpinBoxAndRadioButton() {
     // 1. Test RadioButton selection: click rRadio2 to select mode 2
     ui.OnMouseMove({rRadio2.rect.x + 10.0f, rRadio2.rect.y + 8.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -8458,54 +8458,54 @@ void TestRangeSliderProgressBarSpinBoxAndRadioButton() {
     CHECK(radioMode == 2);
 
     // 2. Test SpinBox [+] button (located at right end of rSpin input box)
-    const float spinBoxBottomY = rSpin.rect.y + rSpin.rect.h * 0.5f;
-    const float plusBtnX = rSpin.rect.x + rSpin.rect.w - 10.5f;  // centre of the trailing [+] stepper
-    const float minusBtnX = rSpin.rect.x + rSpin.rect.w - 31.5f; // centre of the [-] stepper to its left
+    const keel::f32 spinBoxBottomY = rSpin.rect.y + rSpin.rect.h * 0.5f;
+    const keel::f32 plusBtnX = rSpin.rect.x + rSpin.rect.w - 10.5f;  // centre of the trailing [+] stepper
+    const keel::f32 minusBtnX = rSpin.rect.x + rSpin.rect.w - 31.5f; // centre of the [-] stepper to its left
 
     ui.OnMouseMove({plusBtnX, spinBoxBottomY});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(rSpin.changed);
     CHECK(spinVal == 12);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     // Click [-] button to decrement back to 10
     ui.OnMouseMove({minusBtnX, spinBoxBottomY});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(rSpin.changed);
     CHECK(spinVal == 10);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     // 3. Test RangeSlider center span drag (at 40% of track width, which is inside [20%, 60%])
-    const float rangeTrackY = rRange.rect.y + rRange.rect.h - 10.0f;
-    const float spanCenterX = rRange.rect.x + rRange.rect.w * 0.40f;
+    const keel::f32 rangeTrackY = rRange.rect.y + rRange.rect.h - 10.0f;
+    const keel::f32 spanCenterX = rRange.rect.x + rRange.rect.w * 0.40f;
     ui.OnMouseMove({spanCenterX, rangeTrackY});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     // Drag span right by 10% of width
     ui.OnMouseMove({spanCenterX + rRange.rect.w * 0.10f, rangeTrackY});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -8562,7 +8562,7 @@ void TestTableVirtualizedDataGridWorkflow() {
             })) {
                 tableBounds = table.GetNode()->computedRect;
                 if (pendingJump >= 0) {
-                    table.ScrollToRow(static_cast<keel::usize>(pendingJump));
+                    table.ScrollToRow(keel::as<keel::usize>(pendingJump));
                     pendingJump = -1;
                 }
                 visStart = table.FirstVisibleRow();
@@ -8593,11 +8593,11 @@ void TestTableVirtualizedDataGridWorkflow() {
     };
 
     // Frame 1 & 2: Measure & Layout
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -8610,34 +8610,34 @@ void TestTableVirtualizedDataGridWorkflow() {
     // 2. Click embedded Checkbox inside Row 0 Cell 0
     ui.OnMouseMove({row0CheckRect.x + 5.0f, row0CheckRect.y + 5.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(row0Checked == true);
 
     // 3. Click row 3 in the table body to select it
-    const float row3Y = row0CheckRect.y + 3.0f * 32.0f;
+    const keel::f32 row3Y = row0CheckRect.y + 3.0f * 32.0f;
     ui.OnMouseMove({300.0f, row3Y});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(selectedRow == 3);
     CHECK(selChanged == true);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     // 4. Press Key::End while table is focused -> jumps selection to row 99,999 and scrolls viewport!
     ui.OnKeyDown(Key::End);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -8645,7 +8645,7 @@ void TestTableVirtualizedDataGridWorkflow() {
     CHECK(selChanged == true);
 
     // Next frame: visible range reflects the new scroll position at the bottom of the 100,000-row table
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(visStart > 99970);
@@ -8653,33 +8653,33 @@ void TestTableVirtualizedDataGridWorkflow() {
 
     // 5. Programmatic ScrollToRow(50000) updates FirstVisibleRow/EndVisibleRow on the SAME frame
     pendingJump = 50000;
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(visStart <= 50000);
     CHECK(visEnd > 50000);
 
     // Settle layout for dirty-rect verification
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     // 6. Drag the right divider of Col 3 ("RSSI", preceded by flex Col 2 "Signal")
     // Verify that Col 3's left edge stays pinned (Col 2 does not counter-shrink) and the whole Table is marked dirty.
-    const float initialProgX = firstProgressRect.x;
-    const float initialProgW = firstProgressRect.w;
-    const float col3RightDivX = firstProgressRect.Right() + 6.0f; // cellNode horizontal padding = 6.0f
-    const float headerCenterY = row0CheckRect.y - 20.0f;
+    const keel::f32 initialProgX = firstProgressRect.x;
+    const keel::f32 initialProgW = firstProgressRect.w;
+    const keel::f32 col3RightDivX = firstProgressRect.Right() + 6.0f; // cellNode horizontal padding = 6.0f
+    const keel::f32 headerCenterY = row0CheckRect.y - 20.0f;
 
     ui.OnMouseMove({col3RightDivX, headerCenterY});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
     // Drag divider right by +45px
     ui.OnMouseMove({col3RightDivX + 45.0f, headerCenterY});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -8689,7 +8689,7 @@ void TestTableVirtualizedDataGridWorkflow() {
     // Entire table width must be covered by the dirty rect (not just the ProgressBar rect)
     CHECK(dirtyOnResize.w >= tableBounds.w - 2.0f);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -8698,7 +8698,7 @@ void TestTableVirtualizedDataGridWorkflow() {
     CHECK(keel::abs(firstProgressRect.w - (initialProgW + 45.0f)) < 3.0f);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -8784,11 +8784,11 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
         });
     };
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIde();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIde();
     ui.EndFrame(canvas);
 
@@ -8799,27 +8799,27 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
     const Vec2 editorCenter(lastResp.rect.x + 180.0f, lastResp.rect.y + 90.0f);
     ui.OnMouseMove(editorCenter);
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIde();
     ui.EndFrame(canvas);
     ui.OnMouseUp(1);
 
     // 3. Test multi-step Undo (Ctrl+Z) & Redo (Ctrl+Y) and auto-closing brackets at EOL
     ui.OnKeyDown(Key::End, {});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIde();
     ui.EndFrame(canvas);
 
     const keel::String initialCode = code.clone();
     ui.OnTextInput("A");
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIde();
     ui.EndFrame(canvas);
     const keel::String afterA = code.clone();
     CHECK(afterA != initialCode);
 
     ui.OnTextInput("(");
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIde();
     ui.EndFrame(canvas);
     const keel::String afterParen = code.clone();
@@ -8828,28 +8828,28 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
 
     // Undo once -> back to afterA
     ui.OnKeyDown(Key::Z, {.ctrl = true});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIde();
     ui.EndFrame(canvas);
     CHECK(code == afterA);
 
     // Undo second time -> back to initialCode
     ui.OnKeyDown(Key::Z, {.ctrl = true});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIde();
     ui.EndFrame(canvas);
     CHECK(code == initialCode);
 
     // Redo (Ctrl+Y) -> back to afterA
     ui.OnKeyDown(Key::Y, {.ctrl = true});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIde();
     ui.EndFrame(canvas);
     CHECK(code == afterA);
 
     // Undo back to initialCode
     ui.OnKeyDown(Key::Z, {.ctrl = true});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIde();
     ui.EndFrame(canvas);
     CHECK(code == initialCode);
@@ -8857,7 +8857,7 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
     // 4. Test F9 Breakpoint toggle on active cursor line
     const keel::usize bpCountBefore = breakpoints.size();
     ui.OnKeyDown(Key::F9, {});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIde();
     ui.EndFrame(canvas);
     CHECK(lastResp.toggledBreakpointLine > 0);
@@ -8865,7 +8865,7 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
 
     // Toggle F9 again to restore original breakpoint on line 3
     ui.OnKeyDown(Key::F9, {});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIde();
     ui.EndFrame(canvas);
     breakpoints.assign(1, 3);
@@ -8873,13 +8873,13 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
 
     // 4b. Test automatic line-shift tracking for breakpoints, executionLine, inlineValues, and diagnostics
     ui.OnKeyDown(Key::Home, {.ctrl = true});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIde();
     ui.EndFrame(canvas);
 
     // Press Enter at start of line 1 -> shifts line 3 down to line 4
     ui.OnKeyDown(Key::Enter, {});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIde();
     ui.EndFrame(canvas);
     CHECK(lastResp.lineDelta == 1);
@@ -8894,7 +8894,7 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
 
     // Undo Enter -> shifts line 4 back to line 3
     ui.OnKeyDown(Key::Z, {.ctrl = true});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIde();
     ui.EndFrame(canvas);
     CHECK(lastResp.lineDelta == -1);
@@ -8908,13 +8908,13 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
     // Move to line 3 (Down twice from line 1) and toggle comment (Ctrl+/) -> inline value badge must hide on comment line
     ui.OnKeyDown(Key::Down, {});
     ui.OnKeyDown(Key::Down, {});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIde();
     ui.EndFrame(canvas);
     CHECK(lastResp.cursorLine == 3);
 
     ui.OnKeyDown(Key::Slash, {.ctrl = true});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIde();
     ui.EndFrame(canvas);
     if (const auto* st = ui.FindState<TextAreaState>(lastResp.id)) {
@@ -8923,7 +8923,7 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
 
     // Uncomment line 3 (Ctrl+/) -> inline value badge reappears on line 3
     ui.OnKeyDown(Key::Slash, {.ctrl = true});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIde();
     ui.EndFrame(canvas);
     if (const auto* st = ui.FindState<TextAreaState>(lastResp.id)) {
@@ -8933,31 +8933,31 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
 
     // 5. Test Debugger Keyboard Shortcuts (F10 StepOver, F5 Continue, Shift+F5 Stop)
     ui.OnKeyDown(Key::F10, {});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIde();
     ui.EndFrame(canvas);
     CHECK(lastResp.debugAction == CodeDebugAction::StepOver);
 
     ui.OnKeyDown(Key::F5, {});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIde();
     ui.EndFrame(canvas);
     CHECK(lastResp.debugAction == CodeDebugAction::Continue);
 
     ui.OnKeyDown(Key::F5, {.shift = true});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIde();
     ui.EndFrame(canvas);
     CHECK(lastResp.debugAction == CodeDebugAction::Stop);
 
     // 6. Test Ctrl+F Find overlay opening and searching without modifying code buffer
     ui.OnKeyDown(Key::F, {.ctrl = true});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIde();
     ui.EndFrame(canvas);
 
     ui.OnTextInput("hann");
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIde();
     ui.EndFrame(canvas);
     // Code buffer must remain untouched while typing in Find overlay!
@@ -8965,7 +8965,7 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
 
     // Close Find overlay with Escape
     ui.OnKeyDown(Key::Escape, {});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIde();
     ui.EndFrame(canvas);
 
@@ -8995,7 +8995,7 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
         });
     };
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIdeAligned();
     ui.EndFrame(canvas);
     if (const auto* st = ui.FindState<TextAreaState>(lastResp.id)) {
@@ -9005,16 +9005,16 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
 
     // Switch alignment to Center and grab the 6-dot grip handle on the left of the centered debug toolbar
     dbgAlign = Align::Center;
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIdeAligned();
     ui.EndFrame(canvas);
 
     // The centered debug toolbar's left grip is near the horizontal center minus half the toolbar width (~71 dp)
-    const float gripX = lastResp.rect.x + lastResp.rect.w * 0.5f - 66.0f;
-    const float gripY = lastResp.rect.y + 14.0f;
+    const keel::f32 gripX = lastResp.rect.x + lastResp.rect.w * 0.5f - 66.0f;
+    const keel::f32 gripY = lastResp.rect.y + 14.0f;
     ui.OnMouseMove({gripX, gripY});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIdeAligned();
     ui.EndFrame(canvas);
     if (const auto* st = ui.FindState<TextAreaState>(lastResp.id)) {
@@ -9023,7 +9023,7 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
 
     // Drag the toolbar grip 120px to the right
     ui.OnMouseMove({gripX + 120.0f, gripY});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIdeAligned();
     ui.EndFrame(canvas);
     if (const auto* st = ui.FindState<TextAreaState>(lastResp.id)) {
@@ -9032,7 +9032,7 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
     }
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIdeAligned();
     ui.EndFrame(canvas);
     if (const auto* st = ui.FindState<TextAreaState>(lastResp.id)) {
@@ -9042,7 +9042,7 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
 
     // Changing debugToolbarAlign to Align::End resets custom ratio back to preset
     dbgAlign = Align::End;
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderIdeAligned();
     ui.EndFrame(canvas);
     if (const auto* st = ui.FindState<TextAreaState>(lastResp.id)) {
@@ -9107,7 +9107,7 @@ void TestKeymapAndMarkdownTopTierFeatures() {
         "y = fft(x);\n"
         "```\n";
 
-    float zoom = 1.0f;
+    keel::f32 zoom = 1.0f;
     keel::String searchQuery;
     MarkdownResponse mdRes{};
     Id scrollId = Id::Null();
@@ -9140,11 +9140,11 @@ void TestKeymapAndMarkdownTopTierFeatures() {
     };
 
     // Frame 1 & 2: Initial layout
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderMd();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderMd();
     ui.EndFrame(canvas);
     CHECK_NEAR(mdRes.currentZoom, 1.0f, 0.001f);
@@ -9153,7 +9153,7 @@ void TestKeymapAndMarkdownTopTierFeatures() {
     ui.OnMouseMove({200.0f, 120.0f});
     ui.SetKeyModifiers({.ctrl = true});
     ui.OnMouseWheel(0.0f, 1.0f);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderMd();
     ui.EndFrame(canvas);
     ui.SetKeyModifiers({});
@@ -9166,18 +9166,18 @@ void TestKeymapAndMarkdownTopTierFeatures() {
     // Click inside Markdown to focus it, then test SelectAll (Ctrl+A) and Copy (Ctrl+C) via KeyAction
     ui.OnMouseMove({100.0f, 40.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderMd();
     ui.EndFrame(canvas);
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderMd();
     ui.EndFrame(canvas);
     CHECK(ui.GetFocusedId() == mdRes.id);
 
     // SelectAll via KeyAction::SelectAll (Ctrl+A)
     ui.OnKeyDown(Key::A, {.ctrl = true});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderMd();
     ui.EndFrame(canvas);
     CHECK(!mdRes.selectedText.empty());
@@ -9186,7 +9186,7 @@ void TestKeymapAndMarkdownTopTierFeatures() {
 
     // Copy via KeyAction::Copy (Ctrl+C)
     ui.OnKeyDown(Key::C, {.ctrl = true});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderMd();
     ui.EndFrame(canvas);
     CHECK(!clipboardText.empty());
@@ -9194,20 +9194,20 @@ void TestKeymapAndMarkdownTopTierFeatures() {
 
     // Test keyboard cursor & selection movement (MoveDocStart -> SelectWordRight -> Copy)
     ui.OnKeyDown(Key::Home, {.ctrl = true});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderMd();
     ui.EndFrame(canvas);
     CHECK(mdRes.selectedText.empty());
 
     ui.OnKeyDown(Key::Right, {.ctrl = true, .shift = true});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderMd();
     ui.EndFrame(canvas);
     CHECK(mdRes.selectedText == "Title");
 
     // Test Search match counting
     searchQuery.assign("task");
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderMd();
     ui.EndFrame(canvas);
     CHECK(mdRes.searchMatchCount == 2);
@@ -9224,7 +9224,7 @@ void TestUnifiedColormapHistogramAndImageView() {
     static_assert(keel::IsSame<decltype(ImageViewParams::colormap), Colormap>);
 
     const auto allNames = GetAllColormapNames();
-    CHECK(allNames.size() == static_cast<keel::usize>(Colormap::Count));
+    CHECK(allNames.size() == keel::as<keel::usize>(Colormap::Count));
     CHECK(GetColormapName(Colormap::Grayscale) == "Grayscale");
     CHECK(GetColormapName(Colormap::Bone) == "Bone");
     CHECK(GetColormapName(Colormap::Inferno) == "Inferno");
@@ -9234,7 +9234,7 @@ void TestUnifiedColormapHistogramAndImageView() {
     CHECK(GetColormapName(Colormap::Blue) == "Blue");
     CHECK(GetColormapName(Colormap::Gold) == "Gold");
 
-    for (keel::usize m = 0; m < static_cast<keel::usize>(Colormap::Count); ++m) {
+    for (keel::usize m = 0; m < keel::as<keel::usize>(Colormap::Count); ++m) {
         const auto cmap = static_cast<Colormap>(m);
         const auto& lutNorm = GetColormapLut(cmap, false);
         const auto& lutInv  = GetColormapLut(cmap, true);
@@ -9271,14 +9271,14 @@ void TestUnifiedColormapHistogramAndImageView() {
     constexpr keel::u32 imgW = 64;
     constexpr keel::u32 imgH = 48;
     keel::Array<keel::u16> mono16(imgW * imgH);
-    keel::Array<float> rgbFloat(imgW * imgH * 3, 0.0f);
+    keel::Array<keel::f32> rgbFloat(imgW * imgH * 3, 0.0f);
     for (keel::u32 y = 0; y < imgH; ++y) {
         for (keel::u32 x = 0; x < imgW; ++x) {
-            mono16[y * imgW + x] = static_cast<keel::u16>((x * 1000 + y * 500) % 65536);
+            mono16[y * imgW + x] = keel::as<keel::u16>((x * 1000 + y * 500) % 65536);
             const keel::usize base = (y * imgW + x) * 3;
-            rgbFloat[base + 0] = static_cast<float>(x * 4);
-            rgbFloat[base + 1] = static_cast<float>(y * 5);
-            rgbFloat[base + 2] = static_cast<float>((x + y) * 2);
+            rgbFloat[base + 0] = keel::as<keel::f32>(x * 4);
+            rgbFloat[base + 1] = keel::as<keel::f32>(y * 5);
+            rgbFloat[base + 2] = keel::as<keel::f32>((x + y) * 2);
         }
     }
 
@@ -9298,7 +9298,7 @@ void TestUnifiedColormapHistogramAndImageView() {
     };
 
     // Frame 1: Initialize 16-bit mono ImageView
-    ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+    ui.BeginFrame({keel::as<keel::f32>(W), keel::as<keel::f32>(H)});
     renderFrame(false);
     ui.EndFrame(canvas);
 
@@ -9309,13 +9309,13 @@ void TestUnifiedColormapHistogramAndImageView() {
     // Frame 2: Switch colormap to Inferno and rotate 90 deg
     monoParams.colormap = Colormap::Inferno;
     monoParams.rotation = ImageRotation::Deg90;
-    ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+    ui.BeginFrame({keel::as<keel::f32>(W), keel::as<keel::f32>(H)});
     renderFrame(false);
     ui.EndFrame(canvas);
     CHECK(monoResp.zoom > 0.05f);
 
     // Frame 3: Initialize 3-channel RGB ImageView
-    ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+    ui.BeginFrame({keel::as<keel::f32>(W), keel::as<keel::f32>(H)});
     renderFrame(true);
     ui.EndFrame(canvas);
     CHECK(rgbParams.initialized);
@@ -9324,19 +9324,19 @@ void TestUnifiedColormapHistogramAndImageView() {
     // Frame 4: Test RMB Line Profile drag on the RGB viewport (x=600, y=250 -> x=700, y=300)
     ui.OnMouseMove({600.0f, 250.0f});
     ui.OnMouseDown(3); // RMB
-    ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+    ui.BeginFrame({keel::as<keel::f32>(W), keel::as<keel::f32>(H)});
     renderFrame(true);
     ui.EndFrame(canvas);
 
     ui.OnMouseMove({700.0f, 300.0f});
-    ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+    ui.BeginFrame({keel::as<keel::f32>(W), keel::as<keel::f32>(H)});
     renderFrame(true);
     ui.EndFrame(canvas);
     CHECK(rgbResp.profileActive);
     CHECK(rgbResp.profileSampleCount >= 2u);
 
     ui.OnMouseUp(3);
-    ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+    ui.BeginFrame({keel::as<keel::f32>(W), keel::as<keel::f32>(H)});
     renderFrame(true);
     ui.EndFrame(canvas);
     CHECK(rgbResp.profileActive);
@@ -9355,8 +9355,8 @@ void TestUnifiedElementExplicitHeight() {
     keel::String inputVal("Test");
     keel::usize selectIdx = 0;
     static constexpr keel::StaticArray<keel::StringRef, 2> selectItems = {"A", "B"};
-    float sliderVal = 50.0f;
-    float knobVal = 25.0f;
+    keel::f32 sliderVal = 50.0f;
+    keel::f32 knobVal = 25.0f;
 
     Response rBtn, rInput, rSelect, rSlider, rKnob, rImg;
 
@@ -9371,11 +9371,11 @@ void TestUnifiedElementExplicitHeight() {
         }
     };
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderFrame();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderFrame();
     ui.EndFrame(canvas);
 
@@ -9432,7 +9432,7 @@ void TestElementOuterFrameAndControlWellFrame() {
     CHECK_NEAR(measuredCtrl.y, 40.0f, 0.01f);
 
     // 2. Verify Panel (`Card` / `Box`) surfaces & intrinsic-box `Button` borders in full immediate-mode frame
-    float sliderVal = 0.5f;
+    keel::f32 sliderVal = 0.5f;
     bool switchVal = true;
     bool checkVal = false;
     Response rSliderPlain, rSliderFramed, rSwitchWell, rCheckWell, rBtnFramed;
@@ -9525,11 +9525,11 @@ void TestElementOuterFrameAndControlWellFrame() {
     // Disabled falls back to normal with 40% alpha when disabled is nullopt
     CHECK(customCol.Resolve(false, false, true, fb) == Color(100, 120, 140, 255).WithAlphaF(0.40f));
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderFrame();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderFrame();
     ui.EndFrame(canvas);
 
@@ -9586,7 +9586,7 @@ void TestAccordionWidgetWorkflow() {
     };
 
     // Frame 1: acc1 is open (defaultOpen = true), acc2 is closed (externalOpen = false)
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderAccordions();
     ui.EndFrame(canvas);
 
@@ -9602,14 +9602,14 @@ void TestAccordionWidgetWorkflow() {
     // Frame 2: Click on acc1 header to collapse it
     ui.OnMouseMove({r1.x + r1.w * 0.5f, r1.y + r1.h * 0.5f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderAccordions();
     ui.EndFrame(canvas);
 
     bodyExecutedCount1 = 0;
     bodyExecutedCount2 = 0;
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderAccordions();
     ui.EndFrame(canvas);
 
@@ -9623,14 +9623,14 @@ void TestAccordionWidgetWorkflow() {
     CHECK(r2AfterCollapse.y < r2.y);
     ui.OnMouseMove({r2AfterCollapse.x + r2AfterCollapse.w * 0.5f, r2AfterCollapse.y + r2AfterCollapse.h * 0.5f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderAccordions();
     ui.EndFrame(canvas);
 
     bodyExecutedCount1 = 0;
     bodyExecutedCount2 = 0;
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderAccordions();
     ui.EndFrame(canvas);
 
@@ -9682,11 +9682,11 @@ void TestSizeScopeChainingAndIsolation() {
         }
     };
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -9717,7 +9717,7 @@ void TestTreeViewAndTreeItemWorkflow() {
     bool chkLeafA = true;
     bool rootSwitch = false;
     bool collapsedBranchSwitch = false;
-    float leafSlider = 0.5f;
+    keel::f32 leafSlider = 0.5f;
 
     Response rootRowRes{};
     Response leafARowRes{};
@@ -9782,11 +9782,11 @@ void TestTreeViewAndTreeItemWorkflow() {
     };
 
     // Frame 1 & 2: settle layout and state
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -9810,7 +9810,7 @@ void TestTreeViewAndTreeItemWorkflow() {
     ui.OnMouseMove(swCenter);
     ui.OnMouseDown(1);
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -9826,7 +9826,7 @@ void TestTreeViewAndTreeItemWorkflow() {
     ui.OnMouseMove(leafBodyPos);
     ui.OnMouseDown(1);
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -9835,7 +9835,7 @@ void TestTreeViewAndTreeItemWorkflow() {
 
     // 3. Click the checkbox on "Root Branch" -> toggles chkRoot
     // Settle one frame so st.checkboxRect is up to date, then click checkbox area
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -9847,7 +9847,7 @@ void TestTreeViewAndTreeItemWorkflow() {
     ui.OnMouseMove(rootCheckboxPos);
     ui.OnMouseDown(1);
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -9856,11 +9856,11 @@ void TestTreeViewAndTreeItemWorkflow() {
 
     // 4. Filter by "Deep Hidden" -> automatically expands collapsed branch and shows ancestor + matching leaf (2 items)
     filterQuery.assign("Deep Hidden");
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
@@ -9868,7 +9868,7 @@ void TestTreeViewAndTreeItemWorkflow() {
 
     // Clear filter -> returns to normal open/closed states
     filterQuery.clear();
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(visibleCount == 3);
@@ -9906,7 +9906,7 @@ void TestTreeViewAndTreeItemWorkflow() {
     };
 
     for (keel::i32 f = 0; f < 2; ++f) {
-        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
         renderMultiColTree();
         ui.EndFrame(canvas);
     }
@@ -9923,7 +9923,7 @@ void TestTreeViewAndTreeItemWorkflow() {
     ui.OnMouseMove(cellSwPos);
     ui.OnMouseDown(1);
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderMultiColTree();
     ui.EndFrame(canvas);
 
@@ -9935,7 +9935,7 @@ void TestTreeViewAndTreeItemWorkflow() {
     ui.OnMouseMove(cellBtnPos);
     ui.OnMouseDown(1);
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderMultiColTree();
     ui.EndFrame(canvas);
 
@@ -9947,7 +9947,7 @@ void TestTreeViewAndTreeItemWorkflow() {
     ui.OnMouseMove(badgeColPos);
     ui.OnMouseDown(1);
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderMultiColTree();
     ui.EndFrame(canvas);
 
@@ -9964,9 +9964,9 @@ void TestKnobSpinBoxAndRadioElements() {
     canvas.SetTarget(pixelBuffer.data(), width, height, width);
 
     Context ui;
-    float knobGain = 50.0f;
-    float knobPan = 0.0f;
-    float spinFreq = 100.0f;
+    keel::f32 knobGain = 50.0f;
+    keel::f32 knobPan = 0.0f;
+    keel::f32 spinFreq = 100.0f;
     keel::i32 radioGroup = 1;
     bool singleRadio = false;
 
@@ -10029,11 +10029,11 @@ void TestKnobSpinBoxAndRadioElements() {
     };
 
     // Frame 1 & 2: Measure & Layout
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
@@ -10048,12 +10048,12 @@ void TestKnobSpinBoxAndRadioElements() {
     const Vec2 knobCenter = {rKnobGain.rect.x + rKnobGain.rect.w * 0.5f, rKnobGain.rect.y + 24.0f};
     ui.OnMouseMove(knobCenter);
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
     ui.OnMouseMove({knobCenter.x, knobCenter.y - 45.0f});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
@@ -10061,7 +10061,7 @@ void TestKnobSpinBoxAndRadioElements() {
     CHECK(knobGain > 60.0f);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
@@ -10069,7 +10069,7 @@ void TestKnobSpinBoxAndRadioElements() {
     const Vec2 panCenter = {rKnobPan.rect.x + rKnobPan.rect.w * 0.5f, rKnobPan.rect.y + rKnobPan.rect.h * 0.5f};
     ui.OnMouseMove(panCenter);
     ui.OnMouseWheel(0.0f, 1.0f);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
@@ -10081,12 +10081,12 @@ void TestKnobSpinBoxAndRadioElements() {
     const Vec2 spinCenter = {rSpinFreq.rect.x + rSpinFreq.rect.w * 0.5f, rSpinFreq.rect.y + rSpinFreq.rect.h * 0.5f};
     ui.OnMouseMove(spinCenter);
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
     ui.OnMouseMove({spinCenter.x + 24.0f, spinCenter.y});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
@@ -10094,7 +10094,7 @@ void TestKnobSpinBoxAndRadioElements() {
     CHECK(keel::abs(spinFreq - 100.0f) < 0.01f);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
@@ -10104,7 +10104,7 @@ void TestKnobSpinBoxAndRadioElements() {
     ui.OnMouseMove(spinPlusPt);
     ui.SetCurrentTime(10.0);
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
     CHECK(rSpinFreq.changed);
@@ -10112,7 +10112,7 @@ void TestKnobSpinBoxAndRadioElements() {
 
     // Before initial 0.40s typematic delay (t = 10.25s) -> no repeat yet
     ui.SetCurrentTime(10.25);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
     CHECK(!rSpinFreq.changed);
@@ -10120,7 +10120,7 @@ void TestKnobSpinBoxAndRadioElements() {
 
     // After 0.40s typematic delay (t = 10.45s) -> first auto-repeat step (110 -> 120)
     ui.SetCurrentTime(10.45);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
     CHECK(rSpinFreq.changed);
@@ -10128,25 +10128,25 @@ void TestKnobSpinBoxAndRadioElements() {
 
     // Next repeat interval (t = 10.53s) -> second auto-repeat step (120 -> 130)
     ui.SetCurrentTime(10.53);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
     CHECK(rSpinFreq.changed);
     CHECK_NEAR(spinFreq, 130.0f, 0.01f);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
     // 4. Test standalone Radio group and single Radio toggle
     ui.OnMouseMove({rRadio0.rect.x + 8.0f, rRadio0.rect.y + 8.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
@@ -10155,11 +10155,11 @@ void TestKnobSpinBoxAndRadioElements() {
 
     ui.OnMouseMove({rSingleRadio.rect.x + 8.0f, rSingleRadio.rect.y + 8.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
@@ -10221,11 +10221,11 @@ void TestSegmentedAndColorPickerElements() {
     };
 
     // Frame 1 & 2: Measure & Layout
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
@@ -10235,15 +10235,15 @@ void TestSegmentedAndColorPickerElements() {
     CHECK(rColorInline.rect.h >= 190.0f);
 
     // 1. Click 3rd segment ("Saw", index 2) of single-select Segmented control
-    const float seg2X = rSeg.rect.x + rSeg.rect.w * 0.625f;
-    const float seg2Y = rSeg.rect.y + rSeg.rect.h * 0.5f;
+    const keel::f32 seg2X = rSeg.rect.x + rSeg.rect.w * 0.625f;
+    const keel::f32 seg2Y = rSeg.rect.y + rSeg.rect.h * 0.5f;
     ui.OnMouseMove({seg2X, seg2Y});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
@@ -10251,15 +10251,15 @@ void TestSegmentedAndColorPickerElements() {
     CHECK(segIndex == 2);
 
     // 2. Click 2nd segment ("CH2", bit 1) of multi-select SegmentedMask control
-    const float mask1X = rSegMask.rect.x + rSegMask.rect.w * 0.375f;
-    const float mask1Y = rSegMask.rect.y + rSegMask.rect.h * 0.5f;
+    const keel::f32 mask1X = rSegMask.rect.x + rSegMask.rect.w * 0.375f;
+    const keel::f32 mask1Y = rSegMask.rect.y + rSegMask.rect.h * 0.5f;
     ui.OnMouseMove({mask1X, mask1Y});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
@@ -10267,7 +10267,7 @@ void TestSegmentedAndColorPickerElements() {
     CHECK(segMask == 0b0011u);
 
     // 3. Test HSV <-> RGB round-trip conversion
-    float h = 0.0f, s = 0.0f, v = 0.0f;
+    keel::f32 h = 0.0f, s = 0.0f, v = 0.0f;
     ColorPicker::RgbToHsv(Color(239, 68, 68, 200), h, s, v);
     const Color roundTrip = ColorPicker::HsvToRgb(h, s, v, 200);
     CHECK(keel::abs(keel::i32(roundTrip.r) - 239) <= 1);
@@ -10279,19 +10279,19 @@ void TestSegmentedAndColorPickerElements() {
     const Vec2 svPt = {rColorInline.rect.x + 40.0f, rColorInline.rect.y + 30.0f};
     ui.OnMouseMove(svPt);
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
     ui.OnMouseMove({svPt.x + 80.0f, svPt.y + 20.0f});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
     CHECK(rColorInline.changed);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
@@ -10343,11 +10343,11 @@ void TestSidebarResizableCompactAndCollapsedModes() {
     };
 
     // Frame 1 & 2: Initial Expanded layout (width = 200px)
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
@@ -10359,12 +10359,12 @@ void TestSidebarResizableCompactAndCollapsedModes() {
     // 1. Drag inner sash at x=200, y=100 (above center toggle button) to x=280 -> expands width to 280px
     ui.OnMouseMove({200.0f, 100.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
     ui.OnMouseMove({280.0f, 100.0f});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
@@ -10372,19 +10372,19 @@ void TestSidebarResizableCompactAndCollapsedModes() {
     CHECK(keel::abs(sbNode->computedRect.w - 280.0f) < 1.0f);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
     // 2. Drag sash from 280px inward to x=60 -> snaps to Compact (icons only), preserving 280px as lastExpandedWidth
     ui.OnMouseMove({280.0f, 100.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
     ui.OnMouseMove({60.0f, 100.0f});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
@@ -10394,7 +10394,7 @@ void TestSidebarResizableCompactAndCollapsedModes() {
 
     // 3. Continue dragging sash to x=10 (below collapseSnapW 24px) -> snaps to Collapsed (0px)
     ui.OnMouseMove({10.0f, 100.0f});
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
@@ -10402,19 +10402,19 @@ void TestSidebarResizableCompactAndCollapsedModes() {
     CHECK(bodyExecuted == false);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
     // 4. Click edge toggle button at x=6, y=250 -> restores to Expanded with the 280px width preserved!
     ui.OnMouseMove({6.0f, 250.0f});
     ui.OnMouseDown(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
     ui.OnMouseUp(1);
-    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
     renderScene();
     ui.EndFrame(canvas);
 
@@ -10459,7 +10459,7 @@ void TestModalContextMenuAndToastWorkflow() {
         modalConfirmClicked = false;
         modalBodyExecuted = false;
 
-        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
         if (auto root = ui.Column({.gap = 12.0f, .padding = Padding::All(20.0f)})) {
             auto bgBtn = ui.Button({.text = "Background Action"});
             bgBtnRect = bgBtn.rect;
@@ -10631,7 +10631,7 @@ void TestActivityBarAndLinkedSidebarWorkflow() {
 
     auto renderWorkbench = [&]() {
         actionClicked = false;
-        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
         if (auto workspace = ui.Box({
             .gap = 12.0f,
             .width = SizeMode::Stretch,
@@ -10757,10 +10757,10 @@ void TestBottomPanelAndStatusBarWorkflow() {
     Rect panelRect{};
     Rect statusRect{};
     Rect statusActionRect{};
-    float reportedPanelH = 0.0f;
+    keel::f32 reportedPanelH = 0.0f;
 
     auto renderWorkbench = [&]() {
-        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
         if (auto root = ui.Column({
             .gap = 0.0f,
             .width = SizeMode::Stretch,
@@ -11004,7 +11004,7 @@ void TestReviewP0AndP1Regressions() {
         Context ui;
         keel::i32 activeTab = 0;
         Rect scrollViewport{};
-        float firstItemScreenY = 0.0f;
+        keel::f32 firstItemScreenY = 0.0f;
         bool childFolderVisible = false;
 
         bool expandTriggered = false;
@@ -11041,7 +11041,7 @@ void TestReviewP0AndP1Regressions() {
 
         renderTabs();
         renderTabs();
-        const float initialFirstY = firstItemScreenY;
+        const keel::f32 initialFirstY = firstItemScreenY;
         CHECK(!childFolderVisible);
 
         // Scroll the ScrollArea down and expand "SubFolder"
@@ -11050,7 +11050,7 @@ void TestReviewP0AndP1Regressions() {
         ui.OnMouseWheel(0.0f, -3.0f);
         renderTabs();
         renderTabs();
-        const float scrolledFirstY = firstItemScreenY;
+        const keel::f32 scrolledFirstY = firstItemScreenY;
         CHECK(scrolledFirstY < initialFirstY - 20.0f);
         CHECK(childFolderVisible);
 
@@ -11422,8 +11422,8 @@ int main() {
         keel::Array<keel::u32> pixels(600 * 240);
         canvas.SetTarget(pixels.data(), 600, 240, 600);
 
-        float valDetached = 129.0f;
-        float valSplit = 50.0f;
+        keel::f32 valDetached = 129.0f;
+        keel::f32 valSplit = 50.0f;
         guikit::Response rDetached{};
         guikit::Response rSplit{};
 
@@ -11449,7 +11449,7 @@ int main() {
 
         // In Detached mode, the '+' square button (H x H) is at the right edge of rDetached.rect,
         // and the '-' square button (H x H) is immediately to its left (offset by 4px gap + H)
-        const float h = rDetached.rect.h;
+        const keel::f32 h = rDetached.rect.h;
         CHECK(h >= 24.0f);
         const guikit::Vec2 plusPt{rDetached.rect.Right() - h * 0.5f, rDetached.rect.Center().y};
         const guikit::Vec2 minusPt{rDetached.rect.Right() - h - 4.0f - h * 0.5f, rDetached.rect.Center().y};
@@ -11553,7 +11553,7 @@ int main() {
 
         // 2. Click clear (X) button on ComboBox to clear selection to size_t(-1)
         const guikit::SelectMetrics& sm = ui.GetTheme().GetSelect(guikit::UiSize::Md);
-        const float clearBtnCenterX = rCombo.rect.Right() - sm.paddingX - sm.iconSize - 6.0f - (sm.iconSize + 4.0f) * 0.5f;
+        const keel::f32 clearBtnCenterX = rCombo.rect.Right() - sm.paddingX - sm.iconSize - 6.0f - (sm.iconSize + 4.0f) * 0.5f;
         ui.OnMouseMove({clearBtnCenterX, rCombo.rect.Center().y});
         ui.OnMouseDown(1);
         ui.BeginFrame({800.0f, 400.0f});
@@ -11627,7 +11627,7 @@ int main() {
         keel::usize crumbIdx = 1;
         static constexpr keel::StaticArray<keel::StringRef, 4> crumbItems = {"Home", "Workspaces", "DSP", "Sonar"};
         keel::usize pageIdx = 2;
-        float splitRatio = 0.4f;
+        keel::f32 splitRatio = 0.4f;
         bool cmdOpen = false;
         const guikit::CommandPaletteItem cmdItems[] = {
             {.label = "Open Signal View", .category = "Scenes", .shortcut = "Ctrl+1"},
@@ -11834,8 +11834,8 @@ int main() {
             scrollCpUi.EndFrame(canvas);
 
             // Click on scrollbar thumb near top-right of list area and drag down
-            const float sbX = rScroll.rect.Right() - 6.0f;
-            const float sbStartY = rScroll.rect.y + 60.0f;
+            const keel::f32 sbX = rScroll.rect.Right() - 6.0f;
+            const keel::f32 sbStartY = rScroll.rect.y + 60.0f;
             scrollCpUi.OnMouseMove({sbX, sbStartY});
             scrollCpUi.OnMouseDown(1);
             scrollCpUi.BeginFrame({800.0f, 600.0f});
@@ -11962,7 +11962,7 @@ int main() {
                 renderCollapsedBc();
                 ui.EndFrame(canvas);
             }
-            const float collapsedWidthBefore = rColBc.rect.w;
+            const keel::f32 collapsedWidthBefore = rColBc.rect.w;
             CHECK(!ui.IsPopupOpen(rColBc.id));
 
             // Click '...' pill (located right after first item "Workspace" + separator)
@@ -12014,7 +12014,7 @@ int main() {
                 ui.EndFrame(canvas);
             }
             // Slot 3 center out of 11 uniform slots: (3 + 0.5) / 11.0
-            const float leftEllipsisX = rPgMode.rect.x + rPgMode.rect.w * (3.5f / 11.0f);
+            const keel::f32 leftEllipsisX = rPgMode.rect.x + rPgMode.rect.w * (3.5f / 11.0f);
             ui.OnMouseMove({leftEllipsisX, rPgMode.rect.Center().y});
             ui.OnMouseDown(1);
             ui.BeginFrame({800.0f, 600.0f});
@@ -12055,8 +12055,8 @@ int main() {
         keel::Array<keel::u32> pixels(800 * 600);
         canvas.SetTarget(pixels.data(), 800, 600, 800);
 
-        double dbLevel = -12.0;
-        keel::StaticArray<float, 2> stereoLevels = {-6.0f, 0.0f}; // R channel at 0.0 dB -> triggers clip latch
+        keel::f64 dbLevel = -12.0;
+        keel::StaticArray<keel::f32, 2> stereoLevels = {-6.0f, 0.0f}; // R channel at 0.0 dB -> triggers clip latch
         static constexpr keel::StaticArray<keel::StringRef, 2> kStereoCh = {"L", "R"};
         keel::Array<keel::String> tags;
         tags.push_back(keel::String("dsp"));
@@ -12107,7 +12107,7 @@ int main() {
         // Verify unified vertical stretching policy between Slider and LevelMeter inside Row and Element
         {
             guikit::Context vUi;
-            float faderVal = -6.0f;
+            keel::f32 faderVal = -6.0f;
             guikit::Response rFaderFill{}, rMeterFill{}, rFaderCompact{}, rMeterCompact{}, rFaderExplicitH{}, rMeterExplicitH{};
             guikit::Response rElFaderFill{}, rElMeterFill{}, rElFaderSpace{}, rElMeterSpace{};
 
@@ -12321,8 +12321,8 @@ int main() {
         CHECK(floatTheme.GetShellStyle() == ShellStyle::Floating);
         CHECK(floatTheme.mode == ThemeMode::Light);
         ui.SetTheme(floatTheme);
-        const float expectedGap = floatTheme.shell.panelGap;
-        const float expectedRadius = floatTheme.shell.panelRadius;
+        const keel::f32 expectedGap = floatTheme.shell.panelGap;
+        const keel::f32 expectedRadius = floatTheme.shell.panelRadius;
         CHECK(expectedGap > 0.0f);
         CHECK(expectedRadius > 0.0f);
 
@@ -12353,8 +12353,8 @@ int main() {
         Id outerId = Id::Null();
         Id innerId = Id::Null();
         Id childId = Id::Null();
-        float childW = 200.0f;
-        float childH = 150.0f;
+        keel::f32 childW = 200.0f;
+        keel::f32 childH = 150.0f;
 
         auto render2D = [&]() {
             ui.BeginFrame({500.0f, 400.0f});
@@ -12521,7 +12521,7 @@ int main() {
         // Widget bounds in frame dp (read between frames, outside the scaled preview): where the mouse has to go
         auto frameCenter = [&](Id id) { return ui.GetPrevFrameBounds(id).Center(); };
 
-        auto renderSimulatedPhoneLandscape = [&](float previewZoom = 1.0f) {
+        auto renderSimulatedPhoneLandscape = [&](keel::f32 previewZoom = 1.0f) {
             if (auto outer = ui.Column({.padding = Padding::All(40.0f), .align = Alignment::Center, .justify = Justify::Center})) {
                 if (auto phoneZ = ui.Zone({.scale = previewZoom})) {
                     if (auto screenBox = ui.Box({
@@ -12718,7 +12718,7 @@ int main() {
             }
             const Rect rightArrowRect = tbUi.GetPrevFrameBounds(GetCarouselRightArrowId(tbId));
             CHECK(rightArrowRect.w > 10.0f);
-            const float startPanX = rPan.rect.x;
+            const keel::f32 startPanX = rPan.rect.x;
 
             // Click right arrow '>' -> starts smooth animation toward item boundary
             tbUi.OnMouseMove(rightArrowRect.Center());
@@ -12733,7 +12733,7 @@ int main() {
             renderTb();
             tbUi.EndFrame(tbCanvas);
 
-            const float midPanX = tbUi.GetPrevUnclippedBounds(rPan.id).x;
+            const keel::f32 midPanX = tbUi.GetPrevUnclippedBounds(rPan.id).x;
             CHECK(midPanX < startPanX - 1.0f); // Animation started moving left
             CHECK(tbUi.NeedsRepaint());        // Reactive loop kept awake while animating
 
@@ -12744,7 +12744,7 @@ int main() {
                 renderTb();
                 tbUi.EndFrame(tbCanvas);
             }
-            const float endPanX = tbUi.GetPrevUnclippedBounds(rPan.id).x;
+            const keel::f32 endPanX = tbUi.GetPrevUnclippedBounds(rPan.id).x;
             CHECK(endPanX < midPanX - 5.0f);
             // Select is completely scrolled out of the visible viewport (no half-cut fragment!)
             CHECK(tbUi.GetPrevFrameBounds(rSelect.id).w <= 0.5f);
@@ -12880,14 +12880,14 @@ int main() {
 
                 Context dragUi;
                 bool rightSidebarOpen = true;
-                float wsSliderVal = 50.0f;
-                float sbSliderVal = 50.0f;
+                keel::f32 wsSliderVal = 50.0f;
+                keel::f32 sbSliderVal = 50.0f;
                 Rect wsSliderRect{};
                 Rect sbSliderRect{};
                 Rect sbPanelRect{};
                 bool sbBtnHoveredDuringDrag = false;
                 bool customGripDragging = false;
-                float customGripWidth = 400.0f;
+                keel::f32 customGripWidth = 400.0f;
                 const Id customGripId(0x9988776655443322ULL);
 
                 auto runDragWorkbench = [&]() {
@@ -12960,7 +12960,7 @@ int main() {
                 CHECK_NEAR(sbSliderVal, 0.0f, 1.0f);
 
                 // Return into the Sidebar Slider track while LMB is still held down -> slider must still track!
-                const float sbTargetTrackX = sbSliderRect.x + sbSliderRect.w * 0.60f;
+                const keel::f32 sbTargetTrackX = sbSliderRect.x + sbSliderRect.w * 0.60f;
                 dragUi.OnMouseMove({sbTargetTrackX, sbSliderRect.Center().y});
                 runDragWorkbench();
                 CHECK(sbSliderVal > 60.0f && sbSliderVal < 90.0f);
@@ -12988,7 +12988,7 @@ int main() {
                 CHECK(sbBtnHoveredDuringDrag == false);
 
                 // Move back to 25% of workspace slider while LMB is still held down -> must continue dragging!
-                const float wsTarget25X = wsSliderRect.x + wsSliderRect.w * 0.25f;
+                const keel::f32 wsTarget25X = wsSliderRect.x + wsSliderRect.w * 0.25f;
                 dragUi.OnMouseMove({wsTarget25X, wsSliderRect.Center().y});
                 runDragWorkbench();
                 CHECK(wsSliderVal > 10.0f && wsSliderVal < 40.0f);
@@ -13109,15 +13109,15 @@ int main() {
                     keel::i32 layoutMeasureCalls{0};
                     keel::i32 drawTextCalls{0};
                     bool insideDrawText{false};
-                    Vec2 MeasureText(keel::StringRef text, float fontSize) override {
+                    Vec2 MeasureText(keel::StringRef text, keel::f32 fontSize) override {
                         if (!insideDrawText) ++layoutMeasureCalls;
                         return TestCanvas::MeasureText(text, fontSize);
                     }
-                    Vec2 MeasureTextStyled(keel::StringRef text, float fontSize, FontStyle style) override {
+                    Vec2 MeasureTextStyled(keel::StringRef text, keel::f32 fontSize, FontStyle style) override {
                         if (!insideDrawText) ++layoutMeasureCalls;
                         return TestCanvas::MeasureTextStyled(text, fontSize, style);
                     }
-                    void DrawTextStyled(keel::StringRef text, Vec2 pos, float fontSize, Color color, FontStyle style, float angleDeg = 0.0f) override {
+                    void DrawTextStyled(keel::StringRef text, Vec2 pos, keel::f32 fontSize, Color color, FontStyle style, keel::f32 angleDeg = 0.0f) override {
                         ++drawTextCalls;
                         insideDrawText = true;
                         TestCanvas::DrawTextStyled(text, pos, fontSize, color, style, angleDeg);
@@ -13136,7 +13136,7 @@ int main() {
                 }
 
                 Context retainedUi;
-                auto runRetainedFrame = [&](float scrollH) {
+                auto runRetainedFrame = [&](keel::f32 scrollH) {
                     retainedUi.BeginFrame({420.0f, scrollH});
                     if (auto sa = retainedUi.ScrollArea()) {
                         retainedUi.Markdown(bigDoc);
@@ -13179,7 +13179,7 @@ int main() {
                     Rect modalDialogRect{};
 
                     auto runModalStage = [&]() {
-                        modalUi.BeginFrame({static_cast<float>(mw), static_cast<float>(mh)});
+                        modalUi.BeginFrame({keel::as<keel::f32>(mw), keel::as<keel::f32>(mh)});
                         if (auto stage = modalUi.Box({
                             .width = SizeMode::Stretch,
                             .height = SizeMode::Stretch,
@@ -13261,8 +13261,8 @@ int main() {
 #if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
                     CHECK(modalPixels[40 * mw + 40] == cleanBackdropPixel);
                     // Sample below modalDialogRect where the drop shadow was drawn (y = modalDialogRect.Bottom() + 6)
-                    const keel::u32 shadowY = keel::min<keel::u32>(mh - 1, static_cast<keel::u32>(modalDialogRect.Bottom() + 6.0f));
-                    const keel::u32 shadowX = keel::min<keel::u32>(mw - 1, static_cast<keel::u32>(modalDialogRect.Center().x));
+                    const keel::u32 shadowY = keel::min<keel::u32>(mh - 1, keel::as<keel::u32>(modalDialogRect.Bottom() + 6.0f));
+                    const keel::u32 shadowX = keel::min<keel::u32>(mw - 1, keel::as<keel::u32>(modalDialogRect.Center().x));
                     CHECK(modalPixels[shadowY * mw + shadowX] == cleanBackdropPixel);
 #endif
 
@@ -13326,7 +13326,7 @@ int main() {
                     Vec2 screenTopRight{};
 
                     auto runSceneBpFrame = [&]() {
-                        sceneBpUi.BeginFrame({static_cast<float>(sw), static_cast<float>(sh)}, 1.0f);
+                        sceneBpUi.BeginFrame({keel::as<keel::f32>(sw), keel::as<keel::f32>(sh)}, 1.0f);
                         if (auto rootCol = sceneBpUi.Column({
                             .gap = 0.0f,
                             .padding = Padding::All(0.0f),
@@ -13394,7 +13394,7 @@ int main() {
                         runSceneBpFrame();
                     }
                     CHECK(!sceneBpUi.NeedsRepaint());
-                    sceneBpUi.BeginFrame({static_cast<float>(sw), static_cast<float>(sh)}, 1.0f);
+                    sceneBpUi.BeginFrame({keel::as<keel::f32>(sw), keel::as<keel::f32>(sh)}, 1.0f);
                     sceneBpUi.RequestRepaint(1);
                     sceneBpUi.EndFrame(sceneBpCanvas);
                     CHECK(sceneBpUi.NeedsRepaint());
@@ -13633,7 +13633,7 @@ int main() {
                         // Tab 0 and Tab 1 sit at the left of tabResp.rect; let's measure Tab 0 and Tab 1 directly!
                         const Vec2 t0Sz = TabBar::MeasureTab(kClosableTabs[0], {.style = TabBarStyle::Card}, UiSize::Md, &auditCanvas, auditUi.GetTheme());
                         const Vec2 t1Sz = TabBar::MeasureTab(kClosableTabs[1], {.style = TabBarStyle::Card}, UiSize::Md, &auditCanvas, auditUi.GetTheme());
-                        const float gapPx = auditUi.GetTheme().Spacing().xs;
+                        const keel::f32 gapPx = auditUi.GetTheme().Spacing().xs;
                         const Vec2 tab1ClosePt{
                             tabResp.rect.x + t0Sz.x + gapPx + t1Sz.x - 12.0f,
                             tabResp.rect.Center().y
@@ -13661,7 +13661,7 @@ int main() {
                         keel::String codeBuf{"int x = 1;"};
 
                         keel::i64 bigCounter = 5000000000LL;
-                        float cutoffFreq = 125.0f;
+                        keel::f32 cutoffFreq = 125.0f;
                         // Non-null-terminated substring view: first 7 chars are "%.1f Hz", followed by garbage "%s%s%n"
                         const char rawFmtBuf[] = "%.1f Hz%s%s%n_TRAILING";
                         const keel::StringRef subFmt(rawFmtBuf, 7);
@@ -13937,7 +13937,7 @@ void TestKeelZeroCopyWidgetBindings() {
     Response rTagsFixed{}, rTagsHeap{}, rTagsRich{};
 
     auto renderFrame = [&]() {
-        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)}, 1.0f);
+        ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)}, 1.0f);
         if (auto col = ui.Column({.gap = 6.0f, .padding = Padding::All(8.0f), .width = SizeMode::Stretch})) {
             if (auto r1 = ui.Row({.gap = 8.0f})) {
                 rFixed = ui.InputField(fixed16, {.width = 220.0f});
@@ -14192,8 +14192,8 @@ void TestExternalStlDuckTypedInterop() {
 
     const std::string stdLabel = "External std::string Label";
     const std::string_view stdBtnText = "External std::string_view Button";
-    const std::optional<float> optScale = 1.0f;
-    const std::optional<float> optAutoScale = std::nullopt;
+    const std::optional<keel::f32> optScale = 1.0f;
+    const std::optional<keel::f32> optAutoScale = std::nullopt;
 
     std::string stdInput = "stl_edit";
     std::string stdCode = "float gain = 1.0f;\nreturn gain;";
@@ -14214,8 +14214,8 @@ void TestExternalStlDuckTypedInterop() {
         TagItem{.text = "badge", .variant = UiVariant::Success}
     };
 
-    const std::vector<float> stdLevels = {-12.0f, -3.0f};
-    const std::span<const float> stdLevelsSpan(stdLevels);
+    const std::vector<keel::f32> stdLevels = {-12.0f, -3.0f};
+    const std::span<const keel::f32> stdLevelsSpan(stdLevels);
 
     Response rTextStr{}, rTextSv{}, rBtn{}, rInput{};
     CodeEditorResponse rCode{};
@@ -14223,7 +14223,7 @@ void TestExternalStlDuckTypedInterop() {
     Response rStrTags{}, rRichTags{}, rMeter{};
 
     auto renderStlFrame = [&]() {
-        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)}, 1.0f);
+        ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)}, 1.0f);
         if (auto colZ = ui.Zone({.scale = optAutoScale})) {
             if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(12.0f), .width = SizeMode::Stretch})) {
                 rTextStr = ui.Text(stdLabel);
@@ -14347,7 +14347,7 @@ void TestBoundedCachesAndInactiveStateTrimming() {
     // 1. Context automatic TrimInactiveCaches() for inactive persistent widget states
     {
         struct MockHeavyWidgetState {
-            float zoom{2.75f};
+            keel::f32 zoom{2.75f};
             keel::i32 selectedMarker{42};
             keel::i32 trimCount{0};
             keel::Array<keel::u32> offscreenPixels{};
@@ -14461,7 +14461,7 @@ void TestBoundedCachesAndInactiveStateTrimming() {
                 0.0f,
                 0.5f
             );
-            const float w = 24.0f + static_cast<float>(i % 140) + 0.25f * static_cast<float>(i & 3);
+            const keel::f32 w = 24.0f + keel::as<keel::f32>(i % 140) + 0.25f * keel::as<keel::f32>(i & 3);
             canvas.DrawRoundRect(
                 Rect(8.0f, 48.0f, w, 24.0f),
                 6.0f,
@@ -14513,7 +14513,7 @@ void TestBoundedCachesAndInactiveStateTrimming() {
             "| CH-02 | +1.5 dB |\n";
 
         Id editorId = Id::Null();
-        float initialMdHeight = 0.0f;
+        keel::f32 initialMdHeight = 0.0f;
         for (keel::i32 f = 0; f < 3; ++f) {
             ui.AdvanceTime(0.016);
             ui.BeginFrame({480.0f, 360.0f});
@@ -14565,7 +14565,7 @@ void TestBoundedCachesAndInactiveStateTrimming() {
         CHECK(ui.GetRecommendedSleepTimeoutMs() == 0);
 
         // Re-visiting Markdown + CodeEditor seamlessly rebuilds layout with identical geometry
-        float rebuiltMdHeight = 0.0f;
+        keel::f32 rebuiltMdHeight = 0.0f;
         for (keel::i32 f = 0; f < 2; ++f) {
             ui.AdvanceTime(0.016);
             ui.BeginFrame({480.0f, 360.0f});
@@ -14588,19 +14588,19 @@ void TestElementHeadingCompositionAndIndependentSizing() {
             Rect rect;
             Color fill;
             Color stroke;
-            float strokeWidth;
+            keel::f32 strokeWidth;
         };
         struct LineRec {
             Vec2 p1;
             Vec2 p2;
             Color color;
-            float thickness;
+            keel::f32 thickness;
         };
-        void DrawRoundRect(Rect rect, float radius, Color fill, Color stroke = Color(0, 0, 0, 0), float strokeWidth = 0.0f) override {
+        void DrawRoundRect(Rect rect, keel::f32 radius, Color fill, Color stroke = Color(0, 0, 0, 0), keel::f32 strokeWidth = 0.0f) override {
             roundRects.push_back({rect, fill, stroke, strokeWidth});
             TestCanvas::DrawRoundRect(rect, radius, fill, stroke, strokeWidth);
         }
-        void DrawLine(Vec2 p1, Vec2 p2, Color color, float thickness = 1.0f) override {
+        void DrawLine(Vec2 p1, Vec2 p2, Color color, keel::f32 thickness = 1.0f) override {
             lines.push_back({p1, p2, color, thickness});
             TestCanvas::DrawLine(p1, p2, color, thickness);
         }
@@ -15134,8 +15134,8 @@ void TestApiPolish() {
 
     // 2. GpuShaderPassDesc validates dataField (MdRef<float, 2>) & lutAbgr256 sizes
     {
-        keel::StaticArray<float, 3> smallFloats = {{0.1f, 0.2f, 0.3f}};
-        keel::StaticArray<float, 4> okFloats = {{0.1f, 0.2f, 0.3f, 0.4f}};
+        keel::StaticArray<keel::f32, 3> smallFloats = {{0.1f, 0.2f, 0.3f}};
+        keel::StaticArray<keel::f32, 4> okFloats = {{0.1f, 0.2f, 0.3f, 0.4f}};
         keel::StaticArray<keel::u32, 256> lut{};
         lut[0] = 0xFF000000u;
         lut[255] = 0xFFFFFFFFu;
@@ -15168,7 +15168,7 @@ void TestApiPolish() {
                 .rows = 3,
                 .syntaxHighlighter = [](keel::StringRef lineText, keel::usize /*lineIndex*/, keel::Array<TextSpan>& outSpans, const UiTheme& theme) {
                     if (!lineText.empty()) {
-                        outSpans.push_back(TextSpan{0u, static_cast<keel::u32>(lineText.size()), theme.palette.accent});
+                        outSpans.push_back(TextSpan{0u, keel::as<keel::u32>(lineText.size()), theme.palette.accent});
                     }
                 }
             });
@@ -15392,7 +15392,7 @@ void TestControlFlatSizingAndStyleOptions() {
         Response rInStretchMax{}, rInFitMin{}, rInStretchH{};
 
         auto renderLayout = [&]() {
-            ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+            ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
             if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(0.0f), .width = SizeMode::Stretch})) {
                 rBtnStretchMax = ui.Button({
                     .text = "Stretched Button Clamped",
@@ -15459,15 +15459,15 @@ void TestControlFlatSizingAndStyleOptions() {
                 Rect rect;
                 Color fill;
                 Color stroke;
-                float strokeWidth;
+                keel::f32 strokeWidth;
             };
-            void Begin(keel::u32, keel::u32, float scale = 1.0f) override {
+            void Begin(keel::u32, keel::u32, keel::f32 scale = 1.0f) override {
                 m_scale = scale;
                 roundRects.clear();
             }
             void End() override {}
-            [[nodiscard]] float GetScale() const noexcept override { return m_scale; }
-            void SetScale(float scale) override { m_scale = scale; }
+            [[nodiscard]] keel::f32 GetScale() const noexcept override { return m_scale; }
+            void SetScale(keel::f32 scale) override { m_scale = scale; }
             void PushTransform(const Transform2D&) override {}
             void PopTransform() override {}
             [[nodiscard]] keel::StringRef GetBackendName() const noexcept override { return "StyleSpyCanvas"; }
@@ -15475,18 +15475,18 @@ void TestControlFlatSizingAndStyleOptions() {
             void PushClip(Rect) override {}
             void PopClip() override {}
             void DrawRect(Rect, Color) override {}
-            void DrawRoundRect(Rect r, float, Color fill, Color stroke = Color(0, 0, 0, 0), float strokeWidth = 0.0f) override {
+            void DrawRoundRect(Rect r, keel::f32, Color fill, Color stroke = Color(0, 0, 0, 0), keel::f32 strokeWidth = 0.0f) override {
                 roundRects.push_back({r, fill, stroke, strokeWidth});
             }
-            Vec2 MeasureText(keel::StringRef text, float fontSize) override {
-                return {static_cast<float>(text.size()) * fontSize * 0.55f, fontSize * 1.2f};
+            Vec2 MeasureText(keel::StringRef text, keel::f32 fontSize) override {
+                return {keel::as<keel::f32>(text.size()) * fontSize * 0.55f, fontSize * 1.2f};
             }
-            [[nodiscard]] float GetLineHeight(float fontSize) override { return fontSize * 1.25f; }
-            void DrawText(keel::StringRef, Vec2, float, Color) override {}
-            void DrawTextBox(keel::StringRef, Rect, float, Color, float = 0.0f, float = 0.5f) override {}
-            void DrawLine(Vec2, Vec2, Color, float = 1.0f) override {}
+            [[nodiscard]] keel::f32 GetLineHeight(keel::f32 fontSize) override { return fontSize * 1.25f; }
+            void DrawText(keel::StringRef, Vec2, keel::f32, Color) override {}
+            void DrawTextBox(keel::StringRef, Rect, keel::f32, Color, keel::f32 = 0.0f, keel::f32 = 0.5f) override {}
+            void DrawLine(Vec2, Vec2, Color, keel::f32 = 1.0f) override {}
 
-            float m_scale{1.0f};
+            keel::f32 m_scale{1.0f};
             keel::Array<RoundRectCall> roundRects;
         };
 
@@ -15505,7 +15505,7 @@ void TestControlFlatSizingAndStyleOptions() {
         bool swVal = true;
         bool cbVal = true;
         bool rbVal = true;
-        float slVal = 0.75f;
+        keel::f32 slVal = 0.75f;
 
         Response rBtn{}, rIn{}, rSel{};
         Response rSw{}, rCb{}, rRb{}, rSl{}, rPb{};
@@ -15530,7 +15530,7 @@ void TestControlFlatSizingAndStyleOptions() {
         ui.InvalidateAll();
         renderStyled();
 
-        const float lgHeight = theme.GetMetrics(UiSize::Lg).defaultHeight;
+        const keel::f32 lgHeight = theme.GetMetrics(UiSize::Lg).defaultHeight;
         CHECK_NEAR(rBtn.rect.h, lgHeight, 0.5f);
         CHECK_NEAR(rIn.rect.h, theme.GetInputField(UiSize::Lg).defaultHeight, 0.5f);
         CHECK_NEAR(rSel.rect.h, theme.GetSelect(UiSize::Lg).defaultHeight, 0.5f);
@@ -15574,7 +15574,7 @@ void TestSceneWorldSizeInsideScrollAreaDoesNotOverflow() {
     Rect sceneVp{};
     Vec2 topLeftScreen{};
     Vec2 botRightScreen{};
-    float fittedZoom = 0.0f;
+    keel::f32 fittedZoom = 0.0f;
 
     auto renderFrame = [&]() {
         ui.BeginFrame({800.0f, 500.0f});
@@ -15604,8 +15604,8 @@ void TestSceneWorldSizeInsideScrollAreaDoesNotOverflow() {
     renderFrame();
     renderFrame();
 
-    const float expectedW = 800.0f - 36.0f;
-    const float expectedH = 500.0f - 36.0f;
+    const keel::f32 expectedW = 800.0f - 36.0f;
+    const keel::f32 expectedH = 500.0f - 36.0f;
     CHECK(sceneVp.w > 100.0f && sceneVp.w <= expectedW + 0.5f);
     CHECK(sceneVp.h > 100.0f && sceneVp.h <= expectedH + 0.5f);
     CHECK(fittedZoom > 0.25f && fittedZoom < 0.5f);
@@ -15865,9 +15865,9 @@ void TestTextCompositorAndSubpixelRendering() {
 
     // 1. Lossless 8-bit sRGB <-> 12-bit Linear round-trip for every channel value [0..255]
     for (keel::u32 v = 0; v < 256u; ++v) {
-        const keel::u16 lin = TextCompositor::SrgbToLinear12(static_cast<keel::u8>(v));
+        const keel::u16 lin = TextCompositor::SrgbToLinear12(keel::as<keel::u8>(v));
         const keel::u8 rt = TextCompositor::Linear12ToSrgb(lin);
-        CHECK(rt == static_cast<keel::u8>(v));
+        CHECK(rt == keel::as<keel::u8>(v));
     }
 
     // 2. Coverage LUT: endpoints exact, monotonic, stem darkening lifts small sizes & tapers at display sizes
@@ -16035,23 +16035,23 @@ void TestSwitchAndRadioSubpixelCentering() {
     constexpr keel::u32 H = 64;
     keel::Array<keel::u32> fb(W * H, 0u);
 
-    auto measureCentroidY = [&](const keel::Array<keel::u32>& buf, auto weightFn) -> float {
-        double sumW = 0.0;
-        double sumYW = 0.0;
+    auto measureCentroidY = [&](const keel::Array<keel::u32>& buf, auto weightFn) -> keel::f32 {
+        keel::f64 sumW = 0.0;
+        keel::f64 sumYW = 0.0;
         for (keel::u32 y = 0; y < H; ++y) {
             for (keel::u32 x = 0; x < W; ++x) {
-                const float w = weightFn(buf[y * W + x]);
+                const keel::f32 w = weightFn(buf[y * W + x]);
                 if (w > 0.0f) {
                     sumW += w;
-                    sumYW += (static_cast<double>(y) + 0.5) * w;
+                    sumYW += (keel::as<keel::f64>(y) + 0.5) * w;
                 }
             }
         }
-        return (sumW > 0.0) ? static_cast<float>(sumYW / sumW) : -1.0f;
+        return (sumW > 0.0) ? keel::as<keel::f32>(sumYW / sumW) : -1.0f;
     };
 
-    const float fractionalOffsets[] = {0.0f, 0.15f, 0.30f, 0.40f, 0.50f, 0.60f, 0.75f, 0.90f};
-    for (float fracY : fractionalOffsets) {
+    const keel::f32 fractionalOffsets[] = {0.0f, 0.15f, 0.30f, 0.40f, 0.50f, 0.60f, 0.75f, 0.90f};
+    for (keel::f32 fracY : fractionalOffsets) {
         // 1. Switch Md (trackH = 15, knobDia = 12, padding = 1.5): knob must stay vertically centered in track
         {
             fb.assign(W * H, 0u);
@@ -16062,14 +16062,14 @@ void TestSwitchAndRadioSubpixelCentering() {
             canvas.End();
 
             // Outer silhouette (any non-transparent pixel) vs inner white knob (high R, G, B)
-            const float trackCenterY = measureCentroidY(fb, [](keel::u32 px) -> float {
-                return static_cast<float>((px >> 24) & 0xFFu) / 255.0f;
+            const keel::f32 trackCenterY = measureCentroidY(fb, [](keel::u32 px) -> keel::f32 {
+                return keel::as<keel::f32>((px >> 24) & 0xFFu) / 255.0f;
             });
             // Weight inner white knob/dot smoothly by whiteness (red channel above primary blue's R=37)
-            const float knobCenterY = measureCentroidY(fb, [](keel::u32 px) -> float {
+            const keel::f32 knobCenterY = measureCentroidY(fb, [](keel::u32 px) -> keel::f32 {
                 const keel::u32 a = (px >> 24) & 0xFFu;
                 if (a < 200u) return 0.0f;
-                const float r = static_cast<float>(px & 0xFFu);
+                const keel::f32 r = keel::as<keel::f32>(px & 0xFFu);
                 return keel::clamp((r - 50.0f) / 205.0f, 0.0f, 1.0f);
             });
             CHECK(trackCenterY > 0.0f && knobCenterY > 0.0f);
@@ -16085,13 +16085,13 @@ void TestSwitchAndRadioSubpixelCentering() {
             Radio::Render(canvas, radioBounds, true, RadioOptions{}, UiSize::Md, false, false, false, theme, false);
             canvas.End();
 
-            const float ringCenterY = measureCentroidY(fb, [](keel::u32 px) -> float {
-                return static_cast<float>((px >> 24) & 0xFFu) / 255.0f;
+            const keel::f32 ringCenterY = measureCentroidY(fb, [](keel::u32 px) -> keel::f32 {
+                return keel::as<keel::f32>((px >> 24) & 0xFFu) / 255.0f;
             });
-            const float dotCenterY = measureCentroidY(fb, [](keel::u32 px) -> float {
+            const keel::f32 dotCenterY = measureCentroidY(fb, [](keel::u32 px) -> keel::f32 {
                 const keel::u32 a = (px >> 24) & 0xFFu;
                 if (a < 200u) return 0.0f;
-                const float r = static_cast<float>(px & 0xFFu);
+                const keel::f32 r = keel::as<keel::f32>(px & 0xFFu);
                 return keel::clamp((r - 50.0f) / 205.0f, 0.0f, 1.0f);
             });
             CHECK(ringCenterY > 0.0f && dotCenterY > 0.0f);
@@ -16116,7 +16116,7 @@ void TestPopoverOccludesPanelSashesAndRendersAboveThem() {
 
     bool popoverOpen = true;
     bool splitActive = false;
-    float splitRatio = 0.35f;
+    keel::f32 splitRatio = 0.35f;
     SidebarMode sbMode = SidebarMode::Expanded;
     BottomPanelMode bpMode = BottomPanelMode::Expanded;
     keel::usize selectIdx = 0;
@@ -16134,7 +16134,7 @@ void TestPopoverOccludesPanelSashesAndRendersAboveThem() {
 
     auto renderFrame = [&]() {
         popBtnHoveredLast = false;
-        ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+        ui.BeginFrame({keel::as<keel::f32>(W), keel::as<keel::f32>(H)});
         if (auto rootCol = ui.Column({.gap = 0.0f, .padding = Padding::All(0.0f)})) {
             if (auto tb = ui.Toolbar({})) {
                 const Response trig = tb.Toggle(popoverOpen, {.text = "Engine"});
@@ -16242,24 +16242,24 @@ void TestPopoverOccludesPanelSashesAndRendersAboveThem() {
     const auto samplePixel = [&](keel::u32 x, keel::u32 y) -> Color {
         const keel::u32 px = pixels[y * W + x];
         return Color(
-            static_cast<keel::u8>(px & 0xFFu),
-            static_cast<keel::u8>((px >> 8) & 0xFFu),
-            static_cast<keel::u8>((px >> 16) & 0xFFu),
-            static_cast<keel::u8>((px >> 24) & 0xFFu)
+            keel::as<keel::u8>(px & 0xFFu),
+            keel::as<keel::u8>((px >> 8) & 0xFFu),
+            keel::as<keel::u8>((px >> 16) & 0xFFu),
+            keel::as<keel::u8>((px >> 24) & 0xFFu)
         );
     };
 
     // Sample on the sash Y inside the Popover card padding (x = popRes.rect.x + 8, away from button/border)
-    const keel::u32 insidePopX = static_cast<keel::u32>(popRes.rect.x + 8.0f);
-    const keel::u32 sashY = static_cast<keel::u32>(keel::round(bpRect.y));
+    const keel::u32 insidePopX = keel::as<keel::u32>(popRes.rect.x + 8.0f);
+    const keel::u32 sashY = keel::as<keel::u32>(keel::round(bpRect.y));
     const Color insidePopCol = samplePixel(insidePopX, sashY);
-    CHECK(keel::abs(static_cast<keel::i32>(insidePopCol.r) - static_cast<keel::i32>(kPopoverBg.r)) <= 4);
-    CHECK(keel::abs(static_cast<keel::i32>(insidePopCol.g) - static_cast<keel::i32>(kPopoverBg.g)) <= 4);
-    CHECK(keel::abs(static_cast<keel::i32>(insidePopCol.b) - static_cast<keel::i32>(kPopoverBg.b)) <= 4);
+    CHECK(keel::abs(keel::as<keel::i32>(insidePopCol.r) - keel::as<keel::i32>(kPopoverBg.r)) <= 4);
+    CHECK(keel::abs(keel::as<keel::i32>(insidePopCol.g) - keel::as<keel::i32>(kPopoverBg.g)) <= 4);
+    CHECK(keel::abs(keel::as<keel::i32>(insidePopCol.b) - keel::as<keel::i32>(kPopoverBg.b)) <= 4);
 
     // Meanwhile on the exposed sash outside the Popover, the blue accent highlight IS visible (B > R + 40)
     const Color exposedSashCol = samplePixel(700u, sashY);
-    CHECK(static_cast<keel::i32>(exposedSashCol.b) > static_cast<keel::i32>(exposedSashCol.r) + 40);
+    CHECK(keel::as<keel::i32>(exposedSashCol.b) > keel::as<keel::i32>(exposedSashCol.r) + 40);
 #endif
 
     // 5. Closing the Popover clears its hit-block immediately on the SAME frame (no 1-frame lag).
@@ -16292,7 +16292,7 @@ void TestUnifiedOverlayLayersNestedModalsAndModalSplitView() {
 
         auto renderNestedModals = [&]() {
             btnAHovered = false;
-            ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+            ui.BeginFrame({keel::as<keel::f32>(W), keel::as<keel::f32>(H)});
             if (auto col = ui.Column({})) {
                 ui.Text("Workspace");
                 if (auto mA = ui.Modal(modalAOpen, {
@@ -16367,14 +16367,14 @@ void TestUnifiedOverlayLayersNestedModalsAndModalSplitView() {
         Context ui;
         bool modalOpen = true;
         bool popOpen = false;
-        float splitRatio = 0.5f;
+        keel::f32 splitRatio = 0.5f;
         bool sceneClickedInLeftPane = false;
         bool popBtnClicked = false;
         Rect splitRect{};
         Response popBtnRes{};
 
         auto renderModalSplit = [&]() {
-            ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+            ui.BeginFrame({keel::as<keel::f32>(W), keel::as<keel::f32>(H)});
             if (auto col = ui.Column({})) {
                 if (auto m = ui.Modal(modalOpen, {
                     .align = Alignment::Center,
@@ -16470,7 +16470,7 @@ void TestUnifiedOverlayLayersNestedModalsAndModalSplitView() {
     {
         Context ui;
         ui.SetThemeMode(ThemeMode::Light);
-        ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+        ui.BeginFrame({keel::as<keel::f32>(W), keel::as<keel::f32>(H)});
         keel::SmallArray<keel::i32, 4> drawOrder;
         // Register Notification BEFORE Popup (simulating explicit ui.ToastHost() at top of frame)
         ui.RegisterOverlay([&](ICanvas& c) {
@@ -16486,9 +16486,9 @@ void TestUnifiedOverlayLayersNestedModalsAndModalSplitView() {
         CHECK(drawOrder.size() == 2u && drawOrder[0] == 1 && drawOrder[1] == 2);
 #if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
         const keel::u32 px = pixels[120u * W + 160u];
-        const keel::u8 r = static_cast<keel::u8>(px & 0xFFu);
-        const keel::u8 g = static_cast<keel::u8>((px >> 8) & 0xFFu);
-        const keel::u8 b = static_cast<keel::u8>((px >> 16) & 0xFFu);
+        const keel::u8 r = keel::as<keel::u8>(px & 0xFFu);
+        const keel::u8 g = keel::as<keel::u8>((px >> 8) & 0xFFu);
+        const keel::u8 b = keel::as<keel::u8>((px >> 16) & 0xFFu);
         CHECK(g > 180 && r < 40 && b < 80);
 #endif
     }
@@ -16513,7 +16513,7 @@ void TestTagAndReadoutWidgets() {
         TagResponse tagDisabledRes{};
 
         auto renderTags = [&]() {
-            ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+            ui.BeginFrame({keel::as<keel::f32>(W), keel::as<keel::f32>(H)});
             if (auto row = ui.Row({.gap = 8.0f, .padding = Padding::All(20.0f)})) {
                 tagClickRes = ui.Tag("# release", {
                     .variant = UiVariant::Default,
@@ -16585,11 +16585,11 @@ void TestTagAndReadoutWidgets() {
         const ReadoutUnit fahr{.label = "F", .factor = 1.8, .offset = 32.0};
         CHECK_NEAR(fahr.Convert(100.0), 212.0, 1e-9);
 
-        auto customDbm = [](double watts, void* user) noexcept -> double {
-            const double bias = user ? *static_cast<const double*>(user) : 0.0;
+        auto customDbm = [](keel::f64 watts, void* user) noexcept -> keel::f64 {
+            const keel::f64 bias = user ? *static_cast<const keel::f64*>(user) : 0.0;
             return watts * 10.0 + bias;
         };
-        double bias = 30.0;
+        keel::f64 bias = 30.0;
         const ReadoutUnit dbm{.label = "dBm", .convert = customDbm, .userData = &bias};
         CHECK_NEAR(dbm.Convert(2.0), 50.0, 1e-9);
     }
@@ -16617,8 +16617,8 @@ void TestTagAndReadoutWidgets() {
         };
 
         ReadoutState st{.channelIndex = 0, .unitIndex = 1, .precision = 2};
-        double voltageMv = 12345.0;
-        double currentMa = -0.0002; // tests -0.00 normalization
+        keel::f64 voltageMv = 12345.0;
+        keel::f64 currentMa = -0.0002; // tests -0.00 normalization
         bool zeroDisabled = false;
         ReadoutResponse lastRes{};
 
@@ -16649,7 +16649,7 @@ void TestTagAndReadoutWidgets() {
                 {
                     .label = "Disconnected Probe",
                     .headerLabel = "PROBE",
-                    .value = keel::Limits<double>::quiet_nan(),
+                    .value = keel::Limits<keel::f64>::quiet_nan(),
                     .units = kCurrentUnits,
                     .defaultUnitIndex = 0,
                     .defaultPrecision = 2,
@@ -16658,7 +16658,7 @@ void TestTagAndReadoutWidgets() {
                 }
             };
 
-            ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+            ui.BeginFrame({keel::as<keel::f32>(W), keel::as<keel::f32>(H)});
             if (auto row = ui.Row({.gap = 12.0f, .padding = Padding::All(20.0f)})) {
                 lastRes = ui.Readout(st, channels, {
                     .minWidth = 220.0f,
@@ -16698,7 +16698,7 @@ void TestTagAndReadoutWidgets() {
         CHECK(precPopup.w > 120.0f && precPopup.h > 100.0f);
 
         // 3c. 1-click switch directly from Precision menu -> Unit menu!
-        const float valMeasureW = canvas.MeasureTextStyled("12.35", 28.0f, FontStyle::Bold).x;
+        const keel::f32 valMeasureW = canvas.MeasureTextStyled("12.35", 28.0f, FontStyle::Bold).x;
         const Vec2 unitPt{lastRes.rect.x + 10.0f + valMeasureW + 12.0f, lastRes.rect.Bottom() - 20.0f};
         ui.OnMouseMove(unitPt);
         ui.OnMouseDown(1);
@@ -16786,7 +16786,7 @@ void TestTagAndReadoutWidgets() {
         keel::i32 uIdx = 1;
         keel::i32 prec = 1;
         ReadoutResponse r{};
-        ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+        ui.BeginFrame({keel::as<keel::f32>(W), keel::as<keel::f32>(H)});
         if (auto card = ui.Card({
             .border = {
                 .width = 1.0f,
@@ -16824,7 +16824,7 @@ void TestMenuBarAndCascadingMenus() {
         Rect barRect{};
 
         auto renderBar = [&]() {
-            ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+            ui.BeginFrame({keel::as<keel::f32>(W), keel::as<keel::f32>(H)});
             if (auto root = ui.Column({.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
                 if (auto mb = ui.MenuBar({.style = MenuBarStyle::Header})) {
                     barRect = mb.GetBounds();
@@ -16974,7 +16974,7 @@ void TestMenuBarAndCascadingMenus() {
         };
 
         auto renderDecl = [&]() {
-            ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+            ui.BeginFrame({keel::as<keel::f32>(W), keel::as<keel::f32>(H)});
             res = ui.ContextMenu(open, kRootItems, {
                 .title = "NODE MENU",
                 .anchorPos = Vec2{120.0f, 120.0f},
@@ -17183,7 +17183,7 @@ void TestPlatformWindowBackendAndStandaloneFreeType() {
         CHECK(fm.ascentPx > 8.0f && fm.lineHeightPx > 14.0f && fm.capHeightPx > 6.0f);
 
         FreeTypeTextEngine::RasterizedGlyph grayGlyph{};
-        CHECK(ft.RasterizeCodepoint(static_cast<keel::u32>('A'), 16.0f, FontStyle::Regular, FontHinting::Light, false, 0u, grayGlyph));
+        CHECK(ft.RasterizeCodepoint(keel::as<keel::u32>('A'), 16.0f, FontStyle::Regular, FontHinting::Light, false, 0u, grayGlyph));
         CHECK(!grayGlyph.empty && grayGlyph.bitmap != nullptr);
         CHECK(!grayGlyph.isSubpixel);
         CHECK(grayGlyph.width > 4u && grayGlyph.height > 6u);
@@ -17191,7 +17191,7 @@ void TestPlatformWindowBackendAndStandaloneFreeType() {
         CHECK(grayGlyph.advancePx > 4.0f);
 
         FreeTypeTextEngine::RasterizedGlyph lcdGlyph{};
-        CHECK(ft.RasterizeCodepoint(static_cast<keel::u32>('A'), 16.0f, FontStyle::Regular, FontHinting::Light, true, 0u, lcdGlyph));
+        CHECK(ft.RasterizeCodepoint(keel::as<keel::u32>('A'), 16.0f, FontStyle::Regular, FontHinting::Light, true, 0u, lcdGlyph));
         CHECK(!lcdGlyph.empty && lcdGlyph.bitmap != nullptr);
         CHECK(lcdGlyph.isSubpixel);
         CHECK(lcdGlyph.strideBytes == lcdGlyph.width * 3u);

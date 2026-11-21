@@ -131,18 +131,18 @@ struct StateColor {
 
     /// Mixes this semantic/custom color onto the theme's opaque `surface` palette token (`0.0f` = pure surface, `1.0f` = full accent).
     /// Produces an opaque tonal surface (callout/well backdrop) that adapts automatically to both Light and Dark themes.
-    [[nodiscard]] constexpr StateColor Tinted(float amount = 0.14f) const noexcept {
+    [[nodiscard]] constexpr StateColor Tinted(keel::f32 amount = 0.14f) const noexcept {
         StateColor copy = *this;
-        const float clamped = keel::clamp(amount, 0.0f, 1.0f);
-        copy.surfaceTint = static_cast<keel::u8>(clamped * 255.0f + 0.5f);
+        const keel::f32 clamped = keel::clamp(amount, 0.0f, 1.0f);
+        copy.surfaceTint = keel::as<keel::u8>(clamped * 255.0f + 0.5f);
         return copy;
     }
 
     /// Scales the resolved alpha channel across all interaction states (`0.0f` = transparent, `1.0f` = unchanged) while keeping theme reactivity.
-    [[nodiscard]] constexpr StateColor WithAlphaF(float factor) const noexcept {
+    [[nodiscard]] constexpr StateColor WithAlphaF(keel::f32 factor) const noexcept {
         StateColor copy = *this;
-        const float clamped = keel::clamp(factor, 0.0f, 1.0f);
-        copy.alphaScale = static_cast<keel::u8>(clamped * 255.0f + 0.5f);
+        const keel::f32 clamped = keel::clamp(factor, 0.0f, 1.0f);
+        copy.alphaScale = keel::as<keel::u8>(clamped * 255.0f + 0.5f);
         return copy;
     }
 
@@ -157,32 +157,32 @@ struct StateColor {
         return surfaceTint < 255;
     }
 
-    [[nodiscard]] constexpr float GetTint() const noexcept {
-        return static_cast<float>(surfaceTint) / 255.0f;
+    [[nodiscard]] constexpr keel::f32 GetTint() const noexcept {
+        return keel::as<keel::f32>(surfaceTint) / 255.0f;
     }
 
     [[nodiscard]] constexpr bool HasAlphaScale() const noexcept {
         return alphaScale < 255;
     }
 
-    [[nodiscard]] constexpr float GetAlphaF() const noexcept {
-        return static_cast<float>(alphaScale) / 255.0f;
+    [[nodiscard]] constexpr keel::f32 GetAlphaF() const noexcept {
+        return keel::as<keel::f32>(alphaScale) / 255.0f;
     }
 
     [[nodiscard]] static constexpr Color BrightenColor(Color c) noexcept {
         return Color(
-            static_cast<keel::u8>(keel::min(255, static_cast<keel::i32>(c.r) + (255 - static_cast<keel::i32>(c.r)) / 5)),
-            static_cast<keel::u8>(keel::min(255, static_cast<keel::i32>(c.g) + (255 - static_cast<keel::i32>(c.g)) / 5)),
-            static_cast<keel::u8>(keel::min(255, static_cast<keel::i32>(c.b) + (255 - static_cast<keel::i32>(c.b)) / 5)),
+            keel::as<keel::u8>(keel::min(255, keel::as<keel::i32>(c.r) + (255 - keel::as<keel::i32>(c.r)) / 5)),
+            keel::as<keel::u8>(keel::min(255, keel::as<keel::i32>(c.g) + (255 - keel::as<keel::i32>(c.g)) / 5)),
+            keel::as<keel::u8>(keel::min(255, keel::as<keel::i32>(c.b) + (255 - keel::as<keel::i32>(c.b)) / 5)),
             c.a
         );
     }
 
     [[nodiscard]] static constexpr Color DarkenColor(Color c) noexcept {
         return Color(
-            static_cast<keel::u8>((static_cast<keel::i32>(c.r) * 82) / 100),
-            static_cast<keel::u8>((static_cast<keel::i32>(c.g) * 82) / 100),
-            static_cast<keel::u8>((static_cast<keel::i32>(c.b) * 82) / 100),
+            keel::as<keel::u8>((keel::as<keel::i32>(c.r) * 82) / 100),
+            keel::as<keel::u8>((keel::as<keel::i32>(c.g) * 82) / 100),
+            keel::as<keel::u8>((keel::as<keel::i32>(c.b) * 82) / 100),
             c.a
         );
     }
@@ -426,8 +426,8 @@ struct StateColor {
 /// Pure C++20 aggregate supporting designated initializers (`{.width = 1.0f, .radius = 8.0f, .color = StateColor::Danger()}`)
 /// as well as concise positional initialization (`{1.0f}`) and static factory presets.
 struct Border {
-    float width{0.0f};                           ///< Stroke thickness in points (0.0f = none / theme default)
-    keel::Optional<float> radius{keel::kNullOpt}; ///< Corner radius override in points (nullopt = theme radius)
+    keel::f32 width{0.0f};                           ///< Stroke thickness in points (0.0f = none / theme default)
+    keel::Optional<keel::f32> radius{keel::kNullOpt}; ///< Corner radius override in points (nullopt = theme radius)
     StateColor color{};                          ///< Per-state border stroke color (normal, hover, active, disabled)
 
     [[nodiscard]] constexpr bool HasStroke() const noexcept {
@@ -443,14 +443,14 @@ struct Border {
     }
 
     [[nodiscard]] static constexpr Border Solid(
-        float w = 1.0f,
+        keel::f32 w = 1.0f,
         StateColor col = {},
-        keel::Optional<float> r = keel::kNullOpt
+        keel::Optional<keel::f32> r = keel::kNullOpt
     ) noexcept {
         return {w, r, col};
     }
 
-    [[nodiscard]] static constexpr Border Rounded(float r) noexcept {
+    [[nodiscard]] static constexpr Border Rounded(keel::f32 r) noexcept {
         return {0.0f, r, {}};
     }
 
@@ -463,13 +463,13 @@ struct Border {
 struct HeadingDivider {
     HeadingSeparator placement{HeadingSeparator::None}; ///< Divider placement (None, Bottom, or Trailing)
     StateColor color{};                                 ///< Per-state divider stroke color (default = theme borderSubtle)
-    float width{1.0f};                                  ///< Divider stroke thickness in points (<= 0.0f = disabled)
+    keel::f32 width{1.0f};                                  ///< Divider stroke thickness in points (<= 0.0f = disabled)
 
     constexpr HeadingDivider() noexcept = default;
     constexpr HeadingDivider(
         HeadingSeparator inPlacement,
         StateColor inColor = {},
-        float inWidth = 1.0f
+        keel::f32 inWidth = 1.0f
     ) noexcept
         : placement(inPlacement), color(inColor), width(inWidth) {}
 
@@ -481,11 +481,11 @@ struct HeadingDivider {
         return {};
     }
 
-    [[nodiscard]] static constexpr HeadingDivider Bottom(StateColor col = {}, float w = 1.0f) noexcept {
+    [[nodiscard]] static constexpr HeadingDivider Bottom(StateColor col = {}, keel::f32 w = 1.0f) noexcept {
         return {HeadingSeparator::Bottom, col, w};
     }
 
-    [[nodiscard]] static constexpr HeadingDivider Trailing(StateColor col = {}, float w = 1.0f) noexcept {
+    [[nodiscard]] static constexpr HeadingDivider Trailing(StateColor col = {}, keel::f32 w = 1.0f) noexcept {
         return {HeadingSeparator::Trailing, col, w};
     }
 
@@ -502,18 +502,18 @@ struct HeadingDivider {
 /// - Scale presets (`TextSize::Xs()`, `Sm()`, `Md()`, `Lg()`, `Xl()`, or `UiSize` in `UiText`)
 /// - Typographic role (`TextRole::HeadlineSmall`, `TextRole::CodeSmall`, etc.)
 struct TextSize {
-    float px{0.0f};                               ///< Explicit pixel size (> 0.0f overrides theme scale)
+    keel::f32 px{0.0f};                               ///< Explicit pixel size (> 0.0f overrides theme scale)
     UiSize preset{UiSize::None};                  ///< Relative scale preset (Xs, Sm, Md, Lg, Xl) resolved via UiTheme
     keel::Optional<TextRole> role{keel::kNullOpt}; ///< Optional typographic role (Display, Headline, Title, Body, Label, Code)
 
     constexpr TextSize() noexcept = default;
-    constexpr TextSize(float inPx) noexcept : px(inPx) {}
+    constexpr TextSize(keel::f32 inPx) noexcept : px(inPx) {}
     constexpr TextSize(UiSize s) noexcept : preset(s) {}
     constexpr TextSize(TextRole r) noexcept : role(r) {}
     constexpr TextSize(TextRole r, UiSize s) noexcept : preset(s), role(r) {}
 
     [[nodiscard]] static constexpr TextSize Auto() noexcept { return {}; }
-    [[nodiscard]] static constexpr TextSize Px(float inPx) noexcept { return TextSize(inPx); }
+    [[nodiscard]] static constexpr TextSize Px(keel::f32 inPx) noexcept { return TextSize(inPx); }
     [[nodiscard]] static constexpr TextSize Xs() noexcept { return TextSize(UiSize::Xs); }
     [[nodiscard]] static constexpr TextSize Sm() noexcept { return TextSize(UiSize::Sm); }
     [[nodiscard]] static constexpr TextSize Md() noexcept { return TextSize(UiSize::Md); }
@@ -620,7 +620,7 @@ void AcceptTextVariants(TextVariants) noexcept;
 template <typename T>
 concept UiTextModifier =
     keel::IsSame<keel::Decay<T>, TextSize> ||
-    keel::IsSame<keel::Decay<T>, float> ||
+    keel::IsSame<keel::Decay<T>, keel::f32> ||
     keel::IsSame<keel::Decay<T>, UiSize> ||
     keel::IsSame<keel::Decay<T>, TextRole> ||
     keel::IsSame<keel::Decay<T>, StateColor> ||
@@ -645,7 +645,7 @@ struct GUIKIT_LIFETIME_POINTER UiText {
         if (s.preset != UiSize::None) size.preset = s.preset;
         if (s.role.has_value()) size.role = s.role;
     }
-    constexpr void ApplyModifier(float px) noexcept { size.px = px; }
+    constexpr void ApplyModifier(keel::f32 px) noexcept { size.px = px; }
     constexpr void ApplyModifier(UiSize s) noexcept { size.preset = s; }
     constexpr void ApplyModifier(TextRole r) noexcept { size.role = r; }
     constexpr void ApplyModifier(StateColor c) noexcept { color = c; }
@@ -912,129 +912,129 @@ struct GUIKIT_LIFETIME_POINTER UiAffix {
 };
 
 /// Typographic metrics ratio representing line-height to font-size for standard UI text.
-inline constexpr float kDefaultLineHeightMultiplier = 1.35f;
+inline constexpr keel::f32 kDefaultLineHeightMultiplier = 1.35f;
 
 /// Typographic metrics ratio representing average character advance to font-size for proportional text fallback.
-inline constexpr float kDefaultCharAdvanceRatio = 0.58f;
+inline constexpr keel::f32 kDefaultCharAdvanceRatio = 0.58f;
 
 /// Typographic metrics ratio representing average character advance to font-size for monospace text fallback.
-inline constexpr float kMonospaceCharAdvanceRatio = 0.62f;
+inline constexpr keel::f32 kMonospaceCharAdvanceRatio = 0.62f;
 
 /// Metrics associated with a TextRole.
 struct TypographyMetrics {
-    float fontSize;
-    float lineHeight;
+    keel::f32 fontSize;
+    keel::f32 lineHeight;
     bool isMonospace;
 };
 
 /// Standardized component metrics associated with each UiSize.
 struct ComponentMetrics {
-    float defaultHeight;
-    float fontSize;             ///< Primary label / control text size (LabelLarge level)
-    float companionFontSize;    ///< Companion / inner control text size (LabelMedium level)
-    float descFontSize;         ///< Helper description / caption text size (LabelSmall level)
-    float paddingX;
-    float paddingY;
-    float cornerRadius;
-    float iconSize;
-    float minWidth{48.0f};
-    float defaultWidth{60.0f};
-    float badgeFontSize{11.0f}; ///< Pill badge text size inside controls and form labels
-    float itemGap{4.5f};        ///< Horizontal gap between leading icon, label, and inline items
-    float badgeGap{6.0f};       ///< Horizontal gap before trailing pill badge
-    float lineGap{2.25f};       ///< Vertical gap between stacked label and description lines
+    keel::f32 defaultHeight;
+    keel::f32 fontSize;             ///< Primary label / control text size (LabelLarge level)
+    keel::f32 companionFontSize;    ///< Companion / inner control text size (LabelMedium level)
+    keel::f32 descFontSize;         ///< Helper description / caption text size (LabelSmall level)
+    keel::f32 paddingX;
+    keel::f32 paddingY;
+    keel::f32 cornerRadius;
+    keel::f32 iconSize;
+    keel::f32 minWidth{48.0f};
+    keel::f32 defaultWidth{60.0f};
+    keel::f32 badgeFontSize{11.0f}; ///< Pill badge text size inside controls and form labels
+    keel::f32 itemGap{4.5f};        ///< Horizontal gap between leading icon, label, and inline items
+    keel::f32 badgeGap{6.0f};       ///< Horizontal gap before trailing pill badge
+    keel::f32 lineGap{2.25f};       ///< Vertical gap between stacked label and description lines
 };
 
 /// Standardized metrics for scrollbars derived from UiSize tokens.
 struct ScrollbarMetrics {
-    float trackWidth;      ///< Thickness of the scrollbar track and thumb in points
-    float minThumbLength;  ///< Minimum thumb size preventing it from becoming unclickable
-    float cornerRadius;    ///< Rounding radius of the thumb pill
-    float scrollStep;      ///< Pixels / points scrolled per mouse wheel tick
-    float margin;          ///< Margin between track and viewport edge / content
-    float gutter;          ///< Total reserved gutter (trackWidth + 2 * margin)
+    keel::f32 trackWidth;      ///< Thickness of the scrollbar track and thumb in points
+    keel::f32 minThumbLength;  ///< Minimum thumb size preventing it from becoming unclickable
+    keel::f32 cornerRadius;    ///< Rounding radius of the thumb pill
+    keel::f32 scrollStep;      ///< Pixels / points scrolled per mouse wheel tick
+    keel::f32 margin;          ///< Margin between track and viewport edge / content
+    keel::f32 gutter;          ///< Total reserved gutter (trackWidth + 2 * margin)
 };
 
 /// Standardized metrics for Carousel navigation arrows and ribbon scrolling derived from UiSize tokens.
 struct CarouselMetrics {
-    float arrowButtonSize; ///< Width & height of the navigation arrow square button
-    float iconSize;        ///< Size of the vector chevron arrow icon
-    float cornerRadius;    ///< Rounding radius of the arrow button
-    float margin;          ///< Outer margin between arrow button and container edge
-    float gap;             ///< Inner gap between arrow button and scrollable viewport
-    float gutter;          ///< Total reserved gutter (margin + arrowButtonSize + gap)
-    float scrollStep;      ///< Scroll distance in points per arrow button click
+    keel::f32 arrowButtonSize; ///< Width & height of the navigation arrow square button
+    keel::f32 iconSize;        ///< Size of the vector chevron arrow icon
+    keel::f32 cornerRadius;    ///< Rounding radius of the arrow button
+    keel::f32 margin;          ///< Outer margin between arrow button and container edge
+    keel::f32 gap;             ///< Inner gap between arrow button and scrollable viewport
+    keel::f32 gutter;          ///< Total reserved gutter (margin + arrowButtonSize + gap)
+    keel::f32 scrollStep;      ///< Scroll distance in points per arrow button click
 };
 
 /// Standardized metrics for Slider and StepSlider widgets according to UiSize.
 struct SliderMetrics {
-    float defaultHeight;  ///< Height of the interactive track/thumb row
-    float trackHeight;    ///< Height/thickness of the horizontal track
-    float thumbSize;      ///< Diameter/size of the circular thumb knob
-    float cornerRadius;   ///< Rounding radius of track and thumb
-    float tickSize;       ///< Diameter of tick marks on StepSlider track
-    float labelGap;       ///< Vertical gap between header label and track
-    float tickGap;        ///< Vertical gap between track and step labels
-    float descGap;        ///< Vertical gap between slider and description
-    float defaultWidth{135.0f}; ///< Default track length in points
+    keel::f32 defaultHeight;  ///< Height of the interactive track/thumb row
+    keel::f32 trackHeight;    ///< Height/thickness of the horizontal track
+    keel::f32 thumbSize;      ///< Diameter/size of the circular thumb knob
+    keel::f32 cornerRadius;   ///< Rounding radius of track and thumb
+    keel::f32 tickSize;       ///< Diameter of tick marks on StepSlider track
+    keel::f32 labelGap;       ///< Vertical gap between header label and track
+    keel::f32 tickGap;        ///< Vertical gap between track and step labels
+    keel::f32 descGap;        ///< Vertical gap between slider and description
+    keel::f32 defaultWidth{135.0f}; ///< Default track length in points
 };
 
 /// Standardized metrics for Switch widget according to UiSize.
 struct SwitchMetrics {
     Vec2 trackSize;
-    float knobDiameter;
-    float knobPadding;
-    float gap;
-    float labelGap;
-    float descGap;
+    keel::f32 knobDiameter;
+    keel::f32 knobPadding;
+    keel::f32 gap;
+    keel::f32 labelGap;
+    keel::f32 descGap;
 };
 
 /// Standardized metrics for Checkbox widget according to UiSize.
 struct CheckboxMetrics {
-    float boxSize;
-    float cornerRadius;
-    float gap;
-    float labelGap;
-    float descGap;
-    float strokeWidth;
+    keel::f32 boxSize;
+    keel::f32 cornerRadius;
+    keel::f32 gap;
+    keel::f32 labelGap;
+    keel::f32 descGap;
+    keel::f32 strokeWidth;
 };
 
 /// Standardized metrics for InputField widget according to UiSize.
 struct InputFieldMetrics {
-    float defaultHeight;
-    float cornerRadius;
-    float paddingX;
-    float labelGap;
-    float descGap;
-    float strokeWidth;
-    float iconSize;
-    float defaultWidth{120.0f};
-    float minWidth{60.0f};
+    keel::f32 defaultHeight;
+    keel::f32 cornerRadius;
+    keel::f32 paddingX;
+    keel::f32 labelGap;
+    keel::f32 descGap;
+    keel::f32 strokeWidth;
+    keel::f32 iconSize;
+    keel::f32 defaultWidth{120.0f};
+    keel::f32 minWidth{60.0f};
 };
 
 /// Standardized metrics for Select widget according to UiSize.
 struct SelectMetrics {
-    float defaultHeight;
-    float cornerRadius;
-    float paddingX;
-    float labelGap;
-    float descGap;
-    float strokeWidth;
-    float iconSize;
-    float itemHeight;
-    float defaultWidth{120.0f};
-    float minWidth{60.0f};
+    keel::f32 defaultHeight;
+    keel::f32 cornerRadius;
+    keel::f32 paddingX;
+    keel::f32 labelGap;
+    keel::f32 descGap;
+    keel::f32 strokeWidth;
+    keel::f32 iconSize;
+    keel::f32 itemHeight;
+    keel::f32 defaultWidth{120.0f};
+    keel::f32 minWidth{60.0f};
 };
 
 /// Standardized metrics for section `Heading` typography according to `HeadingLevel` (`H1`–`H6`).
 struct HeadingMetrics {
-    float titleFontSize;
-    float subtitleFontSize;
-    float badgeFontSize;
-    float iconSize;
-    float gap;
-    float badgeGap;
-    float lineGap;
+    keel::f32 titleFontSize;
+    keel::f32 subtitleFontSize;
+    keel::f32 badgeFontSize;
+    keel::f32 iconSize;
+    keel::f32 gap;
+    keel::f32 badgeGap;
+    keel::f32 lineGap;
 };
 
 /// Universal color theme modes.
@@ -1052,9 +1052,9 @@ enum class ShellStyle : keel::u8 {
 /// Theme-resolved geometric tokens for application shell framing.
 struct ShellMetrics {
     Padding windowPadding{0.0f};   ///< Outer viewport inset around root shell containers
-    float   panelGap{0.0f};        ///< Gap between adjacent shell panels (Toolbar, Sidebar, BottomPanel, StatusBar, Canvas)
-    float   panelRadius{0.0f};     ///< Default corner radius of shell chrome panels
-    float   panelBorderWidth{1.0f};///< Default border/divider stroke thickness of shell chrome panels
+    keel::f32   panelGap{0.0f};        ///< Gap between adjacent shell panels (Toolbar, Sidebar, BottomPanel, StatusBar, Canvas)
+    keel::f32   panelRadius{0.0f};     ///< Default corner radius of shell chrome panels
+    keel::f32   panelBorderWidth{1.0f};///< Default border/divider stroke thickness of shell chrome panels
 };
 
 /// Color palette definition for an entire theme.
@@ -1103,7 +1103,7 @@ struct VariantColors {
     Color bgActive;
     Color text;
     Color border;
-    float borderWidth{0.0f};
+    keel::f32 borderWidth{0.0f};
 };
 
 /// Color palette for configurable code syntax highlighting and editor overlays.

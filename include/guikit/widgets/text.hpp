@@ -35,13 +35,13 @@ public:
         const TextOptions& opts,
         ICanvas* canvas,
         const UiTheme& theme,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     );
     static Vec2 Measure(
         const UiText& label,
         const TextOptions& opts,
         ICanvas* canvas = nullptr,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     );
 
     /// Renders text into allocated bounds with alignment, wrapping/truncation, and semantic color.

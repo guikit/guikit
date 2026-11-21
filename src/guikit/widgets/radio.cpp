@@ -78,7 +78,7 @@ Response Radio::Run(
         optsCopy.color,
         currentSelected
     );
-    node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* opts = n->As<RadioOptions>();
         return Radio::Measure(opts ? *opts : RadioOptions{}, n->uiSize, canvas, theme, availableWidth);
     };
@@ -114,7 +114,7 @@ Vec2 Radio::Measure(
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme,
-    float /*availableWidth*/
+    keel::f32 /*availableWidth*/
 ) {
     (void)opts;
     (void)canvas;
@@ -127,7 +127,7 @@ Vec2 Radio::Measure(
     const RadioOptions& opts,
     UiSize size,
     ICanvas* canvas,
-    float availableWidth
+    keel::f32 availableWidth
 ) {
     static const UiTheme defaultTheme = UiTheme::Dark();
     return Measure(opts, size, canvas, defaultTheme, availableWidth);
@@ -161,7 +161,7 @@ void Radio::Render(
     const auto& pal = theme.palette;
     Color ringFill;
     Color ringStroke;
-    float strokeWidth = 1.5f;
+    keel::f32 strokeWidth = 1.5f;
     Color dotColor = pal.controlKnobActive;
 
     if (selected) {
@@ -197,14 +197,14 @@ void Radio::Render(
         strokeWidth = keel::max(strokeWidth, 2.0f);
     }
 
-    const float outerRadius = boxRect.w * 0.5f;
+    const keel::f32 outerRadius = boxRect.w * 0.5f;
     canvas.DrawRoundRect(boxRect, outerRadius, ringFill, ringStroke, strokeWidth);
 
     if (selected) {
         // Choose dot diameter so (boxRect.w - dotDia) * 0.5 lands on a clean 0.25-dp grid (eliminating relative subpixel drift)
-        const float rawGap = boxRect.w * 0.56f;
-        const float snappedGap = keel::round(rawGap * 2.0f) * 0.5f;
-        const float dotDia = keel::max(4.0f, boxRect.w - snappedGap);
+        const keel::f32 rawGap = boxRect.w * 0.56f;
+        const keel::f32 snappedGap = keel::round(rawGap * 2.0f) * 0.5f;
+        const keel::f32 dotDia = keel::max(4.0f, boxRect.w - snappedGap);
         const Rect dotRect(
             boxRect.x + (boxRect.w - dotDia) * 0.5f,
             boxRect.y + (boxRect.h - dotDia) * 0.5f,

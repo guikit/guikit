@@ -11,7 +11,7 @@ namespace guikit {
 
 namespace {
 
-float ResolveTitleFontSize(const HeadingOptions& opts, const HeadingMetrics& m, const UiTheme& theme) noexcept {
+keel::f32 ResolveTitleFontSize(const HeadingOptions& opts, const HeadingMetrics& m, const UiTheme& theme) noexcept {
     if (opts.label.size.px > 0.0f) {
         return opts.label.size.px;
     }
@@ -24,7 +24,7 @@ float ResolveTitleFontSize(const HeadingOptions& opts, const HeadingMetrics& m, 
     return m.titleFontSize;
 }
 
-float ResolveSubtitleFontSize(const HeadingOptions& opts, const HeadingMetrics& m, const UiTheme& theme) noexcept {
+keel::f32 ResolveSubtitleFontSize(const HeadingOptions& opts, const HeadingMetrics& m, const UiTheme& theme) noexcept {
     if (opts.description.size.px > 0.0f) {
         return opts.description.size.px;
     }
@@ -37,7 +37,7 @@ float ResolveSubtitleFontSize(const HeadingOptions& opts, const HeadingMetrics& 
     return m.subtitleFontSize;
 }
 
-float ResolveBadgeFontSize(const HeadingOptions& opts, const HeadingMetrics& m, const UiTheme& theme) noexcept {
+keel::f32 ResolveBadgeFontSize(const HeadingOptions& opts, const HeadingMetrics& m, const UiTheme& theme) noexcept {
     if (opts.badge.size.px > 0.0f) {
         return opts.badge.size.px;
     }
@@ -53,13 +53,13 @@ float ResolveBadgeFontSize(const HeadingOptions& opts, const HeadingMetrics& m, 
 Vec2 MeasureTitleBar(
     const HeadingOptions& opts,
     const HeadingMetrics& m,
-    float titleFontSize,
-    float badgeFontSize,
+    keel::f32 titleFontSize,
+    keel::f32 badgeFontSize,
     ICanvas* canvas,
     const UiTheme& theme
 ) noexcept {
-    float barW = 0.0f;
-    float barH = 0.0f;
+    keel::f32 barW = 0.0f;
+    keel::f32 barH = 0.0f;
 
     if (opts.icon.IsValid()) {
         barW += m.iconSize;
@@ -69,13 +69,13 @@ Vec2 MeasureTitleBar(
     if (opts.label.HasContentOrReserve()) {
         if (barW > 0.0f) barW += m.gap;
         barW += TextUtil::MeasureUiTextWidth(opts.label, titleFontSize, canvas);
-        const float lineH = canvas ? canvas->GetLineHeight(titleFontSize) : theme.GetLineHeight(titleFontSize);
+        const keel::f32 lineH = canvas ? canvas->GetLineHeight(titleFontSize) : theme.GetLineHeight(titleFontSize);
         barH = keel::max(barH, lineH);
     }
 
     if (opts.badge.HasContentOrReserve()) {
         if (barW > 0.0f) barW += m.badgeGap;
-        const float badgeTextW = TextUtil::MeasureWidth(opts.badge, badgeFontSize, canvas);
+        const keel::f32 badgeTextW = TextUtil::MeasureWidth(opts.badge, badgeFontSize, canvas);
         barW += badgeTextW + 12.0f;
         barH = keel::max(barH, badgeFontSize * 1.4f);
     }
@@ -87,10 +87,10 @@ struct HeadingLayoutGeometry {
     Rect bounds{};
     Rect titleBarRect{};
     Rect descRect{};
-    float rawTitleBarW{0.0f};
-    float titleFontSize{16.0f};
-    float descFontSize{12.0f};
-    float badgeFontSize{10.0f};
+    keel::f32 rawTitleBarW{0.0f};
+    keel::f32 titleFontSize{16.0f};
+    keel::f32 descFontSize{12.0f};
+    keel::f32 badgeFontSize{10.0f};
     bool hasTitleBar{false};
     bool hasDesc{false};
 };
@@ -114,55 +114,55 @@ HeadingLayoutGeometry ResolveHeadingGeometry(
         : Vec2{0.0f, 0.0f};
     g.rawTitleBarW = rawBar.x;
 
-    const float rawDescW = g.hasDesc ? TextUtil::MeasureUiTextWidth(opts.description, g.descFontSize, canvas) : 0.0f;
-    const float inlineGap = m.gap * 1.5f;
-    const float alignFactor = (opts.align == Align::End) ? 1.0f : ((opts.align == Align::Center) ? 0.5f : 0.0f);
-    const float natW = (opts.layout == HeadingLayout::Inline)
+    const keel::f32 rawDescW = g.hasDesc ? TextUtil::MeasureUiTextWidth(opts.description, g.descFontSize, canvas) : 0.0f;
+    const keel::f32 inlineGap = m.gap * 1.5f;
+    const keel::f32 alignFactor = (opts.align == Align::End) ? 1.0f : ((opts.align == Align::Center) ? 0.5f : 0.0f);
+    const keel::f32 natW = (opts.layout == HeadingLayout::Inline)
         ? (rawBar.x + (g.hasTitleBar && g.hasDesc && rawDescW > 0.0f ? inlineGap + rawDescW : rawDescW))
         : keel::max(rawBar.x, rawDescW);
-    const float minW = (g.hasDesc && !opts.description.wrap.IsWordWrap()) ? natW : rawBar.x;
+    const keel::f32 minW = (g.hasDesc && !opts.description.wrap.IsWordWrap()) ? natW : rawBar.x;
 
     if (opts.width.IsFixed()) {
-        const float effW = keel::min(bounds.w, keel::max(minW, opts.width.Dp()));
+        const keel::f32 effW = keel::min(bounds.w, keel::max(minW, opts.width.Dp()));
         bounds.x += (bounds.w - effW) * alignFactor;
         bounds.w = effW;
     } else if (opts.width.IsFit()) {
-        const float effW = keel::min(bounds.w, natW);
+        const keel::f32 effW = keel::min(bounds.w, natW);
         bounds.x += (bounds.w - effW) * alignFactor;
         bounds.w = effW;
     }
 
     g.bounds = bounds;
-    const float bottomSep = Heading::ComputeBottomSeparatorSpace(opts, theme);
+    const keel::f32 bottomSep = Heading::ComputeBottomSeparatorSpace(opts, theme);
     Rect contentBounds = bounds;
     if (bottomSep > 0.0f) {
         contentBounds.h = keel::max(0.0f, contentBounds.h - bottomSep);
     }
 
     if (!g.hasDesc) {
-        const float barH = keel::min(rawBar.y, contentBounds.h);
-        const float barY = contentBounds.y + (contentBounds.h - barH) * 0.5f;
+        const keel::f32 barH = keel::min(rawBar.y, contentBounds.h);
+        const keel::f32 barY = contentBounds.y + (contentBounds.h - barH) * 0.5f;
         g.titleBarRect = Rect(contentBounds.x, barY, contentBounds.w, barH);
         return g;
     }
 
-    const float descLineH = canvas ? canvas->GetLineHeight(g.descFontSize) : theme.GetLineHeight(g.descFontSize);
+    const keel::f32 descLineH = canvas ? canvas->GetLineHeight(g.descFontSize) : theme.GetLineHeight(g.descFontSize);
     if (!g.hasTitleBar) {
-        const float descH = TextUtil::MeasureUiTextHeight(opts.description, contentBounds.w, g.descFontSize, descLineH, canvas, &theme);
+        const keel::f32 descH = TextUtil::MeasureUiTextHeight(opts.description, contentBounds.w, g.descFontSize, descLineH, canvas, &theme);
         g.descRect = Rect(contentBounds.x, contentBounds.y, contentBounds.w, keel::min(descH, contentBounds.h));
         return g;
     }
 
     if (opts.layout == HeadingLayout::Inline) {
-        const float barW = keel::min(contentBounds.w, rawBar.x);
-        const float availDescW = keel::max(0.0f, contentBounds.w - barW - inlineGap);
-        const float descBlockW = keel::min(rawDescW, availDescW);
-        const float descH = TextUtil::MeasureUiTextHeight(opts.description, descBlockW, g.descFontSize, descLineH, canvas, &theme);
-        const float barH = keel::min(rawBar.y, contentBounds.h);
-        const float clampedDescH = keel::min(descH, contentBounds.h);
+        const keel::f32 barW = keel::min(contentBounds.w, rawBar.x);
+        const keel::f32 availDescW = keel::max(0.0f, contentBounds.w - barW - inlineGap);
+        const keel::f32 descBlockW = keel::min(rawDescW, availDescW);
+        const keel::f32 descH = TextUtil::MeasureUiTextHeight(opts.description, descBlockW, g.descFontSize, descLineH, canvas, &theme);
+        const keel::f32 barH = keel::min(rawBar.y, contentBounds.h);
+        const keel::f32 clampedDescH = keel::min(descH, contentBounds.h);
         if (opts.width.IsFit()) {
-            const float totalInlineW = barW + (descBlockW > 0.0f ? inlineGap + descBlockW : 0.0f);
-            const float groupX = contentBounds.x + keel::max(0.0f, contentBounds.w - totalInlineW) * alignFactor;
+            const keel::f32 totalInlineW = barW + (descBlockW > 0.0f ? inlineGap + descBlockW : 0.0f);
+            const keel::f32 groupX = contentBounds.x + keel::max(0.0f, contentBounds.w - totalInlineW) * alignFactor;
             g.titleBarRect = Rect(groupX, contentBounds.y + (contentBounds.h - barH) * 0.5f, barW, barH);
             g.descRect = Rect(groupX + barW + inlineGap, contentBounds.y + (contentBounds.h - clampedDescH) * 0.5f, descBlockW, clampedDescH);
         } else {
@@ -172,14 +172,14 @@ HeadingLayoutGeometry ResolveHeadingGeometry(
         return g;
     }
 
-    const float descH = TextUtil::MeasureUiTextHeight(opts.description, contentBounds.w, g.descFontSize, descLineH, canvas, &theme);
+    const keel::f32 descH = TextUtil::MeasureUiTextHeight(opts.description, contentBounds.w, g.descFontSize, descLineH, canvas, &theme);
     if (opts.layout == HeadingLayout::Overline) {
         g.descRect = Rect(contentBounds.x, contentBounds.y, contentBounds.w, descH);
-        const float barY = contentBounds.y + descH + m.lineGap;
+        const keel::f32 barY = contentBounds.y + descH + m.lineGap;
         g.titleBarRect = Rect(contentBounds.x, barY, contentBounds.w, rawBar.y);
     } else { // HeadingLayout::Stacked
         g.titleBarRect = Rect(contentBounds.x, contentBounds.y, contentBounds.w, rawBar.y);
-        const float descY = contentBounds.y + rawBar.y + m.lineGap;
+        const keel::f32 descY = contentBounds.y + rawBar.y + m.lineGap;
         g.descRect = Rect(contentBounds.x, descY, contentBounds.w, descH);
     }
     return g;
@@ -187,14 +187,14 @@ HeadingLayoutGeometry ResolveHeadingGeometry(
 
 } // namespace
 
-float Heading::ComputeBottomSeparatorSpace(
+keel::f32 Heading::ComputeBottomSeparatorSpace(
     const HeadingOptions& opts,
     const UiTheme& theme
 ) noexcept {
     if (opts.separator.IsEnabled() && opts.separator.placement == HeadingSeparator::Bottom) {
         const HeadingMetrics& m = theme.GetHeading(opts.level);
-        const float divPad = keel::max(4.0f, m.gap * 0.75f);
-        const float strokeW = opts.separator.width;
+        const keel::f32 divPad = keel::max(4.0f, m.gap * 0.75f);
+        const keel::f32 strokeW = opts.separator.width;
         return divPad + strokeW + divPad * 0.5f;
     }
     return 0.0f;
@@ -247,22 +247,22 @@ Response Heading::Run(
     node->flexGrow = Control::ResolveFlexGrow(node->parent, opts.width, AxisSize::Fit(), 1.0f);
 
     node->visualHash = detail::HashArgs(
-        static_cast<keel::u8>(opts.level),
-        static_cast<keel::u8>(opts.layout),
-        static_cast<keel::u8>(opts.align),
-        static_cast<keel::u8>(node->widthMode),
+        keel::as<keel::u8>(opts.level),
+        keel::as<keel::u8>(opts.layout),
+        keel::as<keel::u8>(opts.align),
+        keel::as<keel::u8>(node->widthMode),
         opts.width,
         hOpts->label,
         hOpts->description,
         hOpts->badge,
         opts.separator,
         effectiveDisabled,
-        static_cast<keel::u8>(opts.icon.GetType()),
-        static_cast<keel::u8>(opts.icon.GetId()),
+        keel::as<keel::u8>(opts.icon.GetType()),
+        keel::as<keel::u8>(opts.icon.GetId()),
         hOpts->icon.GetPath()
     );
 
-    node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* o = n->As<HeadingOptions>();
         return Heading::Measure(o ? *o : HeadingOptions{}, canvas, theme, availableWidth);
     };
@@ -287,43 +287,43 @@ Vec2 Heading::Measure(
     const HeadingOptions& opts,
     ICanvas* canvas,
     const UiTheme& theme,
-    float availableWidth
+    keel::f32 availableWidth
 ) noexcept {
     const HeadingMetrics& m = theme.GetHeading(opts.level);
-    const float titleFs = ResolveTitleFontSize(opts, m, theme);
-    const float descFs = ResolveSubtitleFontSize(opts, m, theme);
-    const float badgeFs = ResolveBadgeFontSize(opts, m, theme);
+    const keel::f32 titleFs = ResolveTitleFontSize(opts, m, theme);
+    const keel::f32 descFs = ResolveSubtitleFontSize(opts, m, theme);
+    const keel::f32 badgeFs = ResolveBadgeFontSize(opts, m, theme);
     const bool hasTitleBar = opts.icon.IsValid() || opts.label.HasContentOrReserve() || opts.badge.HasContentOrReserve();
     const bool hasDesc = opts.description.HasContentOrReserve();
-    const float bottomSep = ComputeBottomSeparatorSpace(opts, theme);
+    const keel::f32 bottomSep = ComputeBottomSeparatorSpace(opts, theme);
 
     const Vec2 rawBar = hasTitleBar
         ? MeasureTitleBar(opts, m, titleFs, badgeFs, canvas, theme)
         : Vec2{0.0f, 0.0f};
-    const float rawDescW = hasDesc ? TextUtil::MeasureUiTextWidth(opts.description, descFs, canvas) : 0.0f;
-    const float inlineGap = m.gap * 1.5f;
+    const keel::f32 rawDescW = hasDesc ? TextUtil::MeasureUiTextWidth(opts.description, descFs, canvas) : 0.0f;
+    const keel::f32 inlineGap = m.gap * 1.5f;
 
     const bool hasExplicitDpW = opts.width.IsFixed();
-    const float fixedDpW = opts.width.Dp();
+    const keel::f32 fixedDpW = opts.width.Dp();
     if (hasExplicitDpW) {
-        const float natW = (opts.layout == HeadingLayout::Inline)
+        const keel::f32 natW = (opts.layout == HeadingLayout::Inline)
             ? (rawBar.x + (hasTitleBar && hasDesc && rawDescW > 0.0f ? inlineGap + rawDescW : rawDescW))
             : keel::max(rawBar.x, rawDescW);
-        const float minW = (hasDesc && !opts.description.wrap.IsWordWrap()) ? natW : rawBar.x;
-        const float targetW = keel::max(minW, fixedDpW);
+        const keel::f32 minW = (hasDesc && !opts.description.wrap.IsWordWrap()) ? natW : rawBar.x;
+        const keel::f32 targetW = keel::max(minW, fixedDpW);
         availableWidth = (availableWidth > 0.0f) ? keel::min(availableWidth, targetW) : targetW;
     }
 
     if (!hasDesc) {
-        float w = rawBar.x;
+        keel::f32 w = rawBar.x;
         if (hasExplicitDpW) w = keel::max(w, fixedDpW);
         return {w, rawBar.y + bottomSep};
     }
 
-    const float descLineH = canvas ? canvas->GetLineHeight(descFs) : theme.GetLineHeight(descFs);
+    const keel::f32 descLineH = canvas ? canvas->GetLineHeight(descFs) : theme.GetLineHeight(descFs);
     if (!hasTitleBar) {
-        const float descH = TextUtil::MeasureUiTextHeight(opts.description, availableWidth, descFs, descLineH, canvas, &theme);
-        float w = (hasExplicitDpW && opts.description.wrap.IsWordWrap())
+        const keel::f32 descH = TextUtil::MeasureUiTextHeight(opts.description, availableWidth, descFs, descLineH, canvas, &theme);
+        keel::f32 w = (hasExplicitDpW && opts.description.wrap.IsWordWrap())
             ? keel::min(rawDescW, fixedDpW)
             : rawDescW;
         if (hasExplicitDpW) w = keel::max(w, fixedDpW);
@@ -331,23 +331,23 @@ Vec2 Heading::Measure(
     }
 
     if (opts.layout == HeadingLayout::Inline) {
-        const float descWrapW = (availableWidth > 0.0f)
+        const keel::f32 descWrapW = (availableWidth > 0.0f)
             ? keel::max(0.0f, availableWidth - keel::min(availableWidth, rawBar.x) - inlineGap)
             : 0.0f;
-        const float descH = TextUtil::MeasureUiTextHeight(opts.description, descWrapW, descFs, descLineH, canvas, &theme);
-        const float effDescW = (hasExplicitDpW && opts.description.wrap.IsWordWrap())
+        const keel::f32 descH = TextUtil::MeasureUiTextHeight(opts.description, descWrapW, descFs, descLineH, canvas, &theme);
+        const keel::f32 effDescW = (hasExplicitDpW && opts.description.wrap.IsWordWrap())
             ? keel::min(rawDescW, descWrapW)
             : rawDescW;
-        float totalW = rawBar.x + (effDescW > 0.0f ? inlineGap + effDescW : 0.0f);
+        keel::f32 totalW = rawBar.x + (effDescW > 0.0f ? inlineGap + effDescW : 0.0f);
         if (hasExplicitDpW) totalW = keel::max(totalW, fixedDpW);
         return {totalW, keel::max(rawBar.y, descH) + bottomSep};
     }
 
-    const float descH = TextUtil::MeasureUiTextHeight(opts.description, availableWidth, descFs, descLineH, canvas, &theme);
-    const float effDescW = (hasExplicitDpW && opts.description.wrap.IsWordWrap())
+    const keel::f32 descH = TextUtil::MeasureUiTextHeight(opts.description, availableWidth, descFs, descLineH, canvas, &theme);
+    const keel::f32 effDescW = (hasExplicitDpW && opts.description.wrap.IsWordWrap())
         ? keel::min(rawDescW, availableWidth)
         : rawDescW;
-    float totalW = keel::max(rawBar.x, effDescW);
+    keel::f32 totalW = keel::max(rawBar.x, effDescW);
     if (hasExplicitDpW) totalW = keel::max(totalW, fixedDpW);
     return {totalW, rawBar.y + m.lineGap + descH + bottomSep};
 }
@@ -369,44 +369,44 @@ void Heading::Render(
     const HeadingLayoutGeometry g = ResolveHeadingGeometry(bounds, opts, &canvas, theme);
     const HeadingMetrics& m = theme.GetHeading(opts.level);
     const auto& pal = theme.palette;
-    const float alignFactor = (opts.align == Align::End) ? 1.0f : ((opts.align == Align::Center) ? 0.5f : 0.0f);
+    const keel::f32 alignFactor = (opts.align == Align::End) ? 1.0f : ((opts.align == Align::Center) ? 0.5f : 0.0f);
 
     const Color titleCol = theme.ResolveTextColor(opts.label, UiVariant::Default, effDisabled, hovered, active);
     const Color descCol = theme.ResolveTextColor(opts.description, UiVariant::Secondary, effDisabled, hovered, active);
 
-    float barLeftX = g.titleBarRect.x;
-    float barRightX = g.titleBarRect.x;
+    keel::f32 barLeftX = g.titleBarRect.x;
+    keel::f32 barRightX = g.titleBarRect.x;
 
     if (g.hasTitleBar && g.titleBarRect.w > 0.0f && g.titleBarRect.h > 0.0f) {
-        const float barW = keel::min(g.titleBarRect.w, g.rawTitleBarW);
-        const float barAlign = (opts.layout == HeadingLayout::Inline && g.hasDesc) ? 0.0f : alignFactor;
-        float curX = g.titleBarRect.x + keel::max(0.0f, g.titleBarRect.w - barW) * barAlign;
+        const keel::f32 barW = keel::min(g.titleBarRect.w, g.rawTitleBarW);
+        const keel::f32 barAlign = (opts.layout == HeadingLayout::Inline && g.hasDesc) ? 0.0f : alignFactor;
+        keel::f32 curX = g.titleBarRect.x + keel::max(0.0f, g.titleBarRect.w - barW) * barAlign;
         barLeftX = curX;
         barRightX = curX + barW;
 
-        const float topY = g.titleBarRect.y;
-        const float titleLineH = g.titleBarRect.h;
+        const keel::f32 topY = g.titleBarRect.y;
+        const keel::f32 titleLineH = g.titleBarRect.h;
 
         if (opts.icon.IsValid()) {
-            const float iconY = topY + (titleLineH - m.iconSize) * 0.5f;
+            const keel::f32 iconY = topY + (titleLineH - m.iconSize) * 0.5f;
             opts.icon.Draw(canvas, Rect(curX, iconY, m.iconSize, m.iconSize), titleCol);
             curX += m.iconSize + ((opts.label.HasContentOrReserve() || !opts.badge.empty()) ? m.gap : 0.0f);
         }
 
         if (!opts.label.empty()) {
-            const float badgeReserveW = opts.badge.empty()
+            const keel::f32 badgeReserveW = opts.badge.empty()
                 ? 0.0f
                 : (m.badgeGap + TextUtil::MeasureWidth(opts.badge, g.badgeFontSize, &canvas) + 12.0f);
-            const float titleAvailW = keel::max(0.0f, barRightX - curX - badgeReserveW);
+            const keel::f32 titleAvailW = keel::max(0.0f, barRightX - curX - badgeReserveW);
             const Rect titleR(curX, topY, titleAvailW, titleLineH);
             if (opts.label.wrap.rich) {
-                const float rawTitleW = TextUtil::MeasureUiTextWidth(opts.label, g.titleFontSize, &canvas);
+                const keel::f32 rawTitleW = TextUtil::MeasureUiTextWidth(opts.label, g.titleFontSize, &canvas);
                 UiText singleLineRich = opts.label;
                 singleLineRich.wrap.maxLines = 1;
                 TextUtil::DrawUiText(canvas, singleLineRich, titleR, g.titleFontSize, titleLineH, titleCol, 0.0f, 0.5f, &theme);
                 curX += keel::min(titleAvailW, rawTitleW);
             } else {
-                float titleW = canvas.MeasureText(opts.label.text, g.titleFontSize).x;
+                keel::f32 titleW = canvas.MeasureText(opts.label.text, g.titleFontSize).x;
                 keel::FixedString<256> truncatedTitle;
                 keel::StringRef displayTitle = opts.label.text;
                 if (titleW > titleAvailW + kTextSubpixelTolerance && titleAvailW > 0.0f) {
@@ -423,16 +423,16 @@ void Heading::Render(
             if (!opts.label.empty()) {
                 curX += m.badgeGap;
             }
-            const float badgeTextW = TextUtil::MeasureWidth(opts.badge, g.badgeFontSize, &canvas);
-            const float badgePadH = 6.0f;
-            const float badgeW = badgeTextW + badgePadH * 2.0f;
-            const float badgeH = g.badgeFontSize + 4.0f;
-            const float badgeY = topY + (titleLineH - badgeH) * 0.5f;
+            const keel::f32 badgeTextW = TextUtil::MeasureWidth(opts.badge, g.badgeFontSize, &canvas);
+            const keel::f32 badgePadH = 6.0f;
+            const keel::f32 badgeW = badgeTextW + badgePadH * 2.0f;
+            const keel::f32 badgeH = g.badgeFontSize + 4.0f;
+            const keel::f32 badgeY = topY + (titleLineH - badgeH) * 0.5f;
 
             Color badgeBg = pal.surfaceHover;
             Color badgeTextCol = pal.textPrimary;
             Color badgeBorderCol = Color::Transparent();
-            float badgeBorderW = 0.0f;
+            keel::f32 badgeBorderW = 0.0f;
             if (opts.badge.color.HasAny()) {
                 const Color resolvedBadge = theme.ResolveColor(opts.badge.color, hovered, active, effDisabled, pal.textPrimary);
                 badgeBg = resolvedBadge.WithAlphaF(effDisabled ? 0.12f : 0.22f);
@@ -451,9 +451,9 @@ void Heading::Render(
     }
 
     if (g.hasDesc && !opts.description.empty() && g.descRect.w > 0.0f && g.descRect.h > 0.0f) {
-        const float lineH = canvas.GetLineHeight(g.descFontSize);
+        const keel::f32 lineH = canvas.GetLineHeight(g.descFontSize);
         const bool compactInline = opts.width.IsFit();
-        const float descAlign = (opts.layout == HeadingLayout::Inline && g.hasTitleBar)
+        const keel::f32 descAlign = (opts.layout == HeadingLayout::Inline && g.hasTitleBar)
             ? (compactInline ? 0.0f : 1.0f)
             : alignFactor;
         TextUtil::DrawUiText(canvas, opts.description, g.descRect, g.descFontSize, lineH, descCol, descAlign, 0.5f, &theme);
@@ -473,26 +473,26 @@ void Heading::Render(
         pal.focusRing,
         pal.borderSubtle.WithAlphaF(0.40f)
     );
-    const float sepStrokeW = opts.separator.width;
+    const keel::f32 sepStrokeW = opts.separator.width;
 
     if (opts.separator.placement == HeadingSeparator::Bottom) {
-        const float sepPad = keel::max(4.0f, m.gap * 0.75f);
-        float contentBottom = g.bounds.y;
+        const keel::f32 sepPad = keel::max(4.0f, m.gap * 0.75f);
+        keel::f32 contentBottom = g.bounds.y;
         if (g.hasTitleBar) contentBottom = keel::max(contentBottom, g.titleBarRect.Bottom());
         if (g.hasDesc)     contentBottom = keel::max(contentBottom, g.descRect.Bottom());
-        const float sepY = keel::floor(contentBottom + sepPad) + 0.5f;
+        const keel::f32 sepY = keel::floor(contentBottom + sepPad) + 0.5f;
         Separator::RenderLine(canvas, Vec2(g.bounds.x, sepY), Vec2(g.bounds.Right(), sepY), sepColor, sepStrokeW);
     } else if (opts.separator.placement == HeadingSeparator::Trailing && g.hasTitleBar && g.titleBarRect.h > 0.0f) {
-        const float lineY = keel::floor(g.titleBarRect.y + g.titleBarRect.h * 0.5f) + 0.5f;
+        const keel::f32 lineY = keel::floor(g.titleBarRect.y + g.titleBarRect.h * 0.5f) + 0.5f;
         if (opts.layout == HeadingLayout::Inline && g.hasDesc && g.descRect.w > 0.0f) {
-            const float bridgeStart = barRightX + m.gap;
-            const float bridgeEnd = g.descRect.x - m.gap;
+            const keel::f32 bridgeStart = barRightX + m.gap;
+            const keel::f32 bridgeEnd = g.descRect.x - m.gap;
             if (bridgeEnd > bridgeStart + 4.0f) {
                 Separator::RenderLine(canvas, Vec2(bridgeStart, lineY), Vec2(bridgeEnd, lineY), sepColor, sepStrokeW);
             }
         } else {
-            const float leftEnd = barLeftX - m.gap;
-            const float rightStart = barRightX + m.gap;
+            const keel::f32 leftEnd = barLeftX - m.gap;
+            const keel::f32 rightStart = barRightX + m.gap;
 
             if (leftEnd > g.bounds.x + 4.0f) {
                 Separator::RenderLine(canvas, Vec2(g.bounds.x, lineY), Vec2(leftEnd, lineY), sepColor, sepStrokeW);

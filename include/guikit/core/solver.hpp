@@ -18,7 +18,7 @@ public:
     static void Measure(Node* root, ICanvas* canvas = nullptr);
 
     /// Resolves constrained height for a node given an explicit available width.
-    static float ResolveHeight(Node* node, float availableWidth, ICanvas* canvas, const UiTheme& theme);
+    static keel::f32 ResolveHeight(Node* node, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme);
 
     /// Computes final coordinates and dimensions top-down based on parent constraints.
     static void Arrange(Node* root, Rect availableRect, const UiTheme& theme, ICanvas* canvas = nullptr);

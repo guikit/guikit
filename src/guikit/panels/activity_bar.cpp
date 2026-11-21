@@ -25,7 +25,7 @@ void ActivityBarScope::Separator(keel::SourceLocation loc) {
     guikit::Separator::Run(*m_ctx, 0.0f, Color::Transparent(), loc);
 }
 
-void ActivityBarScope::Spacer(float flex, keel::SourceLocation loc) {
+void ActivityBarScope::Spacer(keel::f32 flex, keel::SourceLocation loc) {
     if (!m_ctx) return;
     const Id id = m_ctx->MakeChildId(loc);
     Node* spacer = m_ctx->CreateNode(NodeType::Spacer, id);
@@ -33,7 +33,7 @@ void ActivityBarScope::Spacer(float flex, keel::SourceLocation loc) {
     spacer->heightMode = SizeMode::Stretch;
     spacer->isSpacer = true;
     spacer->flexGrow = flex;
-    spacer->measureFn = [](const Node*, float /*availableWidth*/, ICanvas*, const UiTheme&) noexcept -> Vec2 {
+    spacer->measureFn = [](const Node*, keel::f32 /*availableWidth*/, ICanvas*, const UiTheme&) noexcept -> Vec2 {
         return {0.0f, 0.0f};
     };
 }
@@ -53,7 +53,7 @@ ActivityBarScope ActivityBar::Open(
     Node* node = ctx.CreateNode(NodeType::Sidebar, id, opts.disabled);
     const UiTheme& theme = node->GetTheme(ctx.GetTheme());
     const auto& pal = theme.palette;
-    const float density = node->GetDensity();
+    const keel::f32 density = node->GetDensity();
     const bool activeDisabled = node->disabled;
     node->direction = FlexDirection::Column;
     node->align = Alignment::Center;
@@ -92,8 +92,8 @@ ActivityBarScope ActivityBar::Open(
     node->uiSize = activeSize;
 
     node->visualHash = detail::HashArgs(
-        static_cast<keel::u8>(opts.side),
-        static_cast<keel::u8>(opts.style),
+        keel::as<keel::u8>(opts.side),
+        keel::as<keel::u8>(opts.style),
         opts.color,
         opts.flushWithSidebar,
         opts.background,
@@ -116,7 +116,7 @@ Response ActivityBar::Run(
     if (auto scope = Open(ctx, opts, loc)) {
         barRes = scope.response;
         for (keel::usize i = 0; i < items.size(); ++i) {
-            Response itemRes = scope.Item(activeIndex, static_cast<keel::i32>(i), items[i], loc);
+            Response itemRes = scope.Item(activeIndex, keel::as<keel::i32>(i), items[i], loc);
             if (itemRes.clicked) {
                 barRes.clicked = true;
             }
@@ -190,19 +190,19 @@ Response ActivityBar::Item(
     node->fixedHeight = m.defaultHeight;
 
     node->visualHash = detail::HashArgs(
-        static_cast<keel::u8>(barOpts.side),
-        static_cast<keel::u8>(barOpts.style),
+        keel::as<keel::u8>(barOpts.side),
+        keel::as<keel::u8>(barOpts.style),
         item.color.HasAny() ? item.color : barOpts.color,
         item.active,
         effectiveDisabled,
-        static_cast<keel::u8>(data->item.icon.GetType()),
-        static_cast<keel::u8>(data->item.icon.GetId()),
+        keel::as<keel::u8>(data->item.icon.GetType()),
+        keel::as<keel::u8>(data->item.icon.GetId()),
         data->item.icon.GetPath(),
         data->item.label,
         data->item.badge
     );
 
-    node->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, keel::f32 /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<ActivityBarItemData>();
         if (!d) return {0.0f, 0.0f};
         return ActivityBar::MeasureItem(d->item, d->barOpts, n->uiSize, canvas, theme);
@@ -252,11 +252,11 @@ void ActivityBar::RenderItem(
         v.bgHover = effColor.hover.has_value() ? *effColor.hover : v.bg.WithAlphaF(0.85f);
         v.bgActive = effColor.active.has_value() ? *effColor.active : v.bg.WithAlphaF(0.75f);
     }
-    const float radius = m.cornerRadius;
+    const keel::f32 radius = m.cornerRadius;
 
     Color bg = Color::Transparent();
     Color borderCol = Color::Transparent();
-    float borderW = 0.0f;
+    keel::f32 borderW = 0.0f;
     Color textCol = item.label.color.HasAny()
         ? item.label.color.Resolve(hovered, pressed || item.active, disabled, pal.textPrimary)
         : pal.textPrimary;
@@ -306,9 +306,9 @@ void ActivityBar::RenderItem(
 
     // 1. Active edge indicator bar (drawn on Left edge when docked Left, Right edge when docked Right)
     if (opts.style == ActivityBarStyle::Indicator && item.active) {
-        const float barW = 3.0f;
-        const float barPadY = keel::min(6.0f, bounds.h * 0.20f);
-        const float barX = (opts.side == SidebarSide::Right)
+        const keel::f32 barW = 3.0f;
+        const keel::f32 barPadY = keel::min(6.0f, bounds.h * 0.20f);
+        const keel::f32 barX = (opts.side == SidebarSide::Right)
             ? (bounds.Right() - barW - 1.0f)
             : (bounds.x + 1.0f);
         const Rect barRect(barX, bounds.y + barPadY, barW, keel::max(4.0f, bounds.h - barPadY * 2.0f));
@@ -317,7 +317,7 @@ void ActivityBar::RenderItem(
     }
 
     // 2. Centered Icon (or fallback monogram letter)
-    const float iconSz = keel::min(bounds.w * 0.56f, keel::round(m.iconSize * 1.12f));
+    const keel::f32 iconSz = keel::min(bounds.w * 0.56f, keel::round(m.iconSize * 1.12f));
     if (item.icon.IsValid()) {
         const Rect iconRect(
             bounds.x + (bounds.w - iconSz) * 0.5f,
@@ -327,16 +327,16 @@ void ActivityBar::RenderItem(
         );
         item.icon.Draw(canvas, iconRect, iconCol);
     } else if (!item.label.empty()) {
-        const float fontSize = theme.ResolveFontSize(item.label, TextRole::LabelLarge, size);
+        const keel::f32 fontSize = theme.ResolveFontSize(item.label, TextRole::LabelLarge, size);
         canvas.DrawTextBox(item.label.text.substr(0, 1), bounds, fontSize, iconCol, 0.5f, 0.5f);
     }
 
     // 3. Corner Badge (compact counter pill in the bottom-right corner with surface cutout border)
     if (!item.badge.empty()) {
-        const float badgeFont = keel::max(9.0f, theme.ResolveFontSize(item.badge, TextRole::LabelSmall, size) - 1.5f);
+        const keel::f32 badgeFont = keel::max(9.0f, theme.ResolveFontSize(item.badge, TextRole::LabelSmall, size) - 1.5f);
         const Vec2 badgeDims = canvas.MeasureText(item.badge.text, badgeFont);
-        const float badgeH = keel::min(bounds.h * 0.48f, keel::max(13.0f, badgeFont + 3.0f));
-        const float badgeW = keel::min(bounds.w - 4.0f, keel::max(badgeH, badgeDims.x + 6.0f));
+        const keel::f32 badgeH = keel::min(bounds.h * 0.48f, keel::max(13.0f, badgeFont + 3.0f));
+        const keel::f32 badgeW = keel::min(bounds.w - 4.0f, keel::max(badgeH, badgeDims.x + 6.0f));
         const Rect badgeRect(
             bounds.Right() - badgeW - 2.0f,
             bounds.Bottom() - badgeH - 2.0f,

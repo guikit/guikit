@@ -26,11 +26,11 @@ struct TreeViewPayload {
 
     keel::u16 columnCount{0};
     keel::StaticArray<TableColumn, TreeViewState::kMaxColumns> columns{};
-    keel::StaticArray<float, TreeViewState::kMaxColumns> resolvedColX{};
-    keel::StaticArray<float, TreeViewState::kMaxColumns> resolvedColW{};
+    keel::StaticArray<keel::f32, TreeViewState::kMaxColumns> resolvedColX{};
+    keel::StaticArray<keel::f32, TreeViewState::kMaxColumns> resolvedColW{};
     keel::i32 hoveredDividerCol{-1};
-    float resolvedColOriginX{0.0f};
-    float resolvedColTotalW{0.0f};
+    keel::f32 resolvedColOriginX{0.0f};
+    keel::f32 resolvedColTotalW{0.0f};
 };
 
 struct TreeCellPayload {
@@ -67,7 +67,7 @@ bool ContainsIgnoreCase(keel::StringRef haystack, keel::StringRef needle) noexce
     return TextUtil::FindCaseInsensitive(haystack, needle) != keel::kInvalidIndex;
 }
 
-float AlignToFactor(Align align) noexcept {
+keel::f32 AlignToFactor(Align align) noexcept {
     switch (align) {
         case Align::Center: return 0.5f;
         case Align::End:    return 1.0f;
@@ -75,7 +75,7 @@ float AlignToFactor(Align align) noexcept {
     }
 }
 
-float ResolveTreeHeaderHeight(UiSize size, const UiTheme& theme) noexcept {
+keel::f32 ResolveTreeHeaderHeight(UiSize size, const UiTheme& theme) noexcept {
     switch (size.GetPreset()) {
         case UiSize::Preset::Xs: return 24.0f;
         case UiSize::Preset::Sm: return 28.0f;
@@ -89,25 +89,25 @@ float ResolveTreeHeaderHeight(UiSize size, const UiTheme& theme) noexcept {
     }
 }
 
-void ResolveTreeColumns(TreeViewPayload& tree, float totalW, const UiTheme& /*theme*/) noexcept {
+void ResolveTreeColumns(TreeViewPayload& tree, keel::f32 totalW, const UiTheme& /*theme*/) noexcept {
     if (tree.columnCount == 0) return;
-    const float scale = 1.0f;
-    const float availW = keel::max(0.0f, totalW);
+    const keel::f32 scale = 1.0f;
+    const keel::f32 availW = keel::max(0.0f, totalW);
 
-    float fixedSum = 0.0f;
-    float flexSum = 0.0f;
+    keel::f32 fixedSum = 0.0f;
+    keel::f32 flexSum = 0.0f;
 
     for (keel::u16 i = 0; i < tree.columnCount; ++i) {
         const auto& col = tree.columns[i];
-        const float minW = keel::max(36.0f * scale, col.minWidth * scale);
-        const float maxW = (col.maxWidth > 0.0f) ? (col.maxWidth * scale) : 100000.0f;
+        const keel::f32 minW = keel::max(36.0f * scale, col.minWidth * scale);
+        const keel::f32 maxW = (col.maxWidth > 0.0f) ? (col.maxWidth * scale) : 100000.0f;
 
         if (tree.state && tree.state->hasUserColWidth[i]) {
-            const float w = keel::clamp(tree.state->userColWidths[i] * scale, minW, maxW);
+            const keel::f32 w = keel::clamp(tree.state->userColWidths[i] * scale, minW, maxW);
             tree.resolvedColW[i] = w;
             fixedSum += w;
         } else if (col.width > 0.0f) {
-            const float w = keel::clamp(col.width * scale, minW, maxW);
+            const keel::f32 w = keel::clamp(col.width * scale, minW, maxW);
             tree.resolvedColW[i] = w;
             fixedSum += w;
         } else {
@@ -116,17 +116,17 @@ void ResolveTreeColumns(TreeViewPayload& tree, float totalW, const UiTheme& /*th
         }
     }
 
-    const float remainingW = keel::max(0.0f, availW - fixedSum);
-    float curX = 0.0f;
+    const keel::f32 remainingW = keel::max(0.0f, availW - fixedSum);
+    keel::f32 curX = 0.0f;
 
     for (keel::u16 i = 0; i < tree.columnCount; ++i) {
         const auto& col = tree.columns[i];
-        const float minW = keel::max(36.0f * scale, col.minWidth * scale);
-        const float maxW = (col.maxWidth > 0.0f) ? (col.maxWidth * scale) : 100000.0f;
+        const keel::f32 minW = keel::max(36.0f * scale, col.minWidth * scale);
+        const keel::f32 maxW = (col.maxWidth > 0.0f) ? (col.maxWidth * scale) : 100000.0f;
 
         if (tree.resolvedColW[i] <= 0.0f) {
-            const float weight = keel::max(0.1f, col.flex);
-            const float flexShare = (flexSum > 0.0f) ? (remainingW * (weight / flexSum)) : minW;
+            const keel::f32 weight = keel::max(0.1f, col.flex);
+            const keel::f32 flexShare = (flexSum > 0.0f) ? (remainingW * (weight / flexSum)) : minW;
             tree.resolvedColW[i] = keel::clamp(keel::round(flexShare), minW, maxW);
         }
 
@@ -141,7 +141,7 @@ void ResolveTreeColumns(TreeViewPayload& tree, float totalW, const UiTheme& /*th
     }
 }
 
-float ResolveIndentStep(const TreeViewPayload* tree, UiSize size, const UiTheme& theme) noexcept {
+keel::f32 ResolveIndentStep(const TreeViewPayload* tree, UiSize size, const UiTheme& theme) noexcept {
     if (tree && tree->opts.indent.has_value()) {
         return keel::max(8.0f, *tree->opts.indent);
     }
@@ -150,20 +150,20 @@ float ResolveIndentStep(const TreeViewPayload* tree, UiSize size, const UiTheme&
 }
 
 struct RowMetrics {
-    float padX{8.0f};
-    float padY{4.0f};
-    float gap{6.0f};
-    float indentStep{18.0f};
-    float indentWidth{0.0f};
-    float chevronSlotW{14.0f};
-    float chevronSize{11.0f};
-    float checkboxSize{15.0f};
-    float iconSize{15.0f};
-    float labelFont{13.0f};
-    float descFont{11.0f};
-    float detailFont{12.0f};
-    float badgeFont{11.0f};
-    float minRowH{28.0f};
+    keel::f32 padX{8.0f};
+    keel::f32 padY{4.0f};
+    keel::f32 gap{6.0f};
+    keel::f32 indentStep{18.0f};
+    keel::f32 indentWidth{0.0f};
+    keel::f32 chevronSlotW{14.0f};
+    keel::f32 chevronSize{11.0f};
+    keel::f32 checkboxSize{15.0f};
+    keel::f32 iconSize{15.0f};
+    keel::f32 labelFont{13.0f};
+    keel::f32 descFont{11.0f};
+    keel::f32 detailFont{12.0f};
+    keel::f32 badgeFont{11.0f};
+    keel::f32 minRowH{28.0f};
 };
 
 RowMetrics ComputeRowMetrics(
@@ -182,7 +182,7 @@ RowMetrics ComputeRowMetrics(
     rm.padY = keel::max(3.0f, keel::round(cm.paddingY * 0.55f));
     rm.gap = keel::max(5.0f, keel::round(cm.itemGap * 0.85f));
     rm.indentStep = ResolveIndentStep(p.tree, size, theme);
-    rm.indentWidth = static_cast<float>(p.depth) * rm.indentStep;
+    rm.indentWidth = keel::as<keel::f32>(p.depth) * rm.indentStep;
     rm.chevronSize = keel::max(10.0f, keel::round(rm.labelFont * 0.82f));
     rm.chevronSlotW = keel::max(14.0f, rm.chevronSize + 3.0f);
     rm.checkboxSize = keel::max(14.0f, keel::round(cm.defaultHeight * 0.44f));
@@ -193,9 +193,9 @@ RowMetrics ComputeRowMetrics(
 
 Vec2 MeasureEmbeddedChild(
     const Node* child,
-    float availRowWidth,
+    keel::f32 availRowWidth,
     bool singleChildInRow,
-    keel::Optional<float> rowControlWidth,
+    keel::Optional<keel::f32> rowControlWidth,
     const RowMetrics& rm,
     ICanvas* canvas,
     const UiTheme& theme
@@ -207,10 +207,10 @@ Vec2 MeasureEmbeddedChild(
     if (child->firstChild != nullptr &&
         (child->type == NodeType::Cell || child->type == NodeType::Row ||
          child->type == NodeType::Column || child->type == NodeType::Box)) {
-        float sumW = 0.0f;
-        float maxH = 0.0f;
+        keel::f32 sumW = 0.0f;
+        keel::f32 maxH = 0.0f;
         keel::u32 gcCount = 0;
-        const float gap = (child->gap > 0.0f) ? child->gap : rm.gap;
+        const keel::f32 gap = (child->gap > 0.0f) ? child->gap : rm.gap;
         for (const Node* gc = child->firstChild; gc != nullptr; gc = gc->nextSibling) {
             const Vec2 gm = MeasureEmbeddedChild(gc, availRowWidth, false, keel::kNullOpt, rm, canvas, childTheme);
             if (child->direction == FlexDirection::Column) {
@@ -224,9 +224,9 @@ Vec2 MeasureEmbeddedChild(
         }
         if (gcCount > 1) {
             if (child->direction == FlexDirection::Column) {
-                maxH += static_cast<float>(gcCount - 1) * gap;
+                maxH += keel::as<keel::f32>(gcCount - 1) * gap;
             } else {
-                sumW += static_cast<float>(gcCount - 1) * gap;
+                sumW += keel::as<keel::f32>(gcCount - 1) * gap;
             }
         }
         return {sumW + child->padding.Horizontal(), maxH + child->padding.Vertical()};
@@ -243,7 +243,7 @@ Vec2 MeasureEmbeddedChild(
     }
 
     const bool isPlainOrBadgeElement = (child->type == NodeType::Element && child->firstChild == nullptr);
-    float cw = intr.x;
+    keel::f32 cw = intr.x;
     if (rowControlWidth.has_value() && *rowControlWidth > 0.0f && singleChildInRow) {
         cw = *rowControlWidth;
     } else if (child->widthMode == SizeMode::Fixed && child->fixedWidth > 0.0f) {
@@ -260,8 +260,8 @@ Vec2 MeasureEmbeddedChild(
 Vec2 MeasureControlsSlot(
     const Node* rowNode,
     const TreeItemPayload& p,
-    float availRowWidth,
-    float /*leftContentWidth*/,
+    keel::f32 availRowWidth,
+    keel::f32 /*leftContentWidth*/,
     const RowMetrics& rm,
     ICanvas* canvas,
     const UiTheme& theme
@@ -270,8 +270,8 @@ Vec2 MeasureControlsSlot(
         return {0.0f, 0.0f};
     }
 
-    float totalW = 0.0f;
-    float maxH = 0.0f;
+    keel::f32 totalW = 0.0f;
+    keel::f32 maxH = 0.0f;
     keel::u32 count = 0;
     const bool singleChild = (rowNode->childCount == 1);
 
@@ -283,7 +283,7 @@ Vec2 MeasureControlsSlot(
     }
 
     if (count > 1) {
-        totalW += static_cast<float>(count - 1) * rm.gap;
+        totalW += keel::as<keel::f32>(count - 1) * rm.gap;
     }
     return {totalW, maxH};
 }
@@ -478,7 +478,7 @@ TreeViewScope TreeView::Open(
     Node* outerNode = ctx.CreateNode(NodeType::TreeView, idTree, opts.disabled);
     const UiTheme& theme = outerNode->GetTheme(ctx.GetTheme());
     const auto& pal = theme.palette;
-    const float density = outerNode->GetDensity();
+    const keel::f32 density = outerNode->GetDensity();
     const bool activeDisabled = outerNode->disabled;
 
     TreeViewState& st = ctx.GetOrCreatePersistentState<TreeViewState>(idTree);
@@ -507,14 +507,14 @@ TreeViewScope TreeView::Open(
         const bool matchId = st.selectedId.IsValid() && entry.idOuter == st.selectedId;
         const bool matchIdx = (st.selectedIndex >= 0 && entry.index == st.selectedIndex);
         if (matchId || matchIdx) {
-            currentVisIdx = static_cast<keel::i32>(i);
+            currentVisIdx = keel::as<keel::i32>(i);
         }
     }
 
     if (!activeDisabled && (anyRowFocused || treeHovered) && !st.prevVisibleItems.empty()) {
         auto selectVisibleAt = [&](keel::i32 visIdx) {
-            visIdx = keel::clamp(visIdx, 0, static_cast<keel::i32>(st.prevVisibleItems.size()) - 1);
-            const auto& target = st.prevVisibleItems[static_cast<keel::usize>(visIdx)];
+            visIdx = keel::clamp(visIdx, 0, keel::as<keel::i32>(st.prevVisibleItems.size()) - 1);
+            const auto& target = st.prevVisibleItems[keel::as<keel::usize>(visIdx)];
             st.selectedId = target.idOuter;
             st.selectedIndex = target.index;
             if (opts.selectedId) *opts.selectedId = target.idOuter;
@@ -539,15 +539,15 @@ TreeViewScope TreeView::Open(
         } else if (ctx.ConsumeKey(Key::Home)) {
             selectVisibleAt(0);
         } else if (ctx.ConsumeKey(Key::End)) {
-            selectVisibleAt(static_cast<keel::i32>(st.prevVisibleItems.size()) - 1);
-        } else if (currentVisIdx >= 0 && static_cast<keel::usize>(currentVisIdx) < st.prevVisibleItems.size()) {
-            const auto& cur = st.prevVisibleItems[static_cast<keel::usize>(currentVisIdx)];
+            selectVisibleAt(keel::as<keel::i32>(st.prevVisibleItems.size()) - 1);
+        } else if (currentVisIdx >= 0 && keel::as<keel::usize>(currentVisIdx) < st.prevVisibleItems.size()) {
+            const auto& cur = st.prevVisibleItems[keel::as<keel::usize>(currentVisIdx)];
             if (ctx.ConsumeKey(Key::Right)) {
                 if (cur.isBranch && !cur.isOpen) {
                     setBranchOpen(cur, true);
                 } else if (cur.isBranch && cur.isOpen &&
-                           static_cast<keel::usize>(currentVisIdx + 1) < st.prevVisibleItems.size() &&
-                           st.prevVisibleItems[static_cast<keel::usize>(currentVisIdx + 1)].parentIdOuter == cur.idOuter) {
+                           keel::as<keel::usize>(currentVisIdx + 1) < st.prevVisibleItems.size() &&
+                           st.prevVisibleItems[keel::as<keel::usize>(currentVisIdx + 1)].parentIdOuter == cur.idOuter) {
                     selectVisibleAt(currentVisIdx + 1);
                 }
             } else if (ctx.ConsumeKey(Key::Left)) {
@@ -556,7 +556,7 @@ TreeViewScope TreeView::Open(
                 } else if (cur.parentIdOuter.IsValid()) {
                     for (keel::usize i = 0; i < st.prevVisibleItems.size(); ++i) {
                         if (st.prevVisibleItems[i].idOuter == cur.parentIdOuter) {
-                            selectVisibleAt(static_cast<keel::i32>(i));
+                            selectVisibleAt(keel::as<keel::i32>(i));
                             break;
                         }
                     }
@@ -656,7 +656,7 @@ TreeViewScope TreeView::Open(
     payload->opts = opts;
     payload->opts.title = ctx.AllocText(opts.title);
 
-    const keel::u16 colCount = static_cast<keel::u16>(
+    const keel::u16 colCount = keel::as<keel::u16>(
         keel::min(opts.columns.size(), TreeViewState::kMaxColumns)
     );
     payload->columnCount = colCount;
@@ -677,10 +677,10 @@ TreeViewScope TreeView::Open(
     // Handle column divider hover, drag resize, and double-click reset
     if (colCount > 0 && opts.stickyHeader && opts.resizableColumns && !activeDisabled &&
         st.lastHeaderRect.w > 0.0f && st.lastHeaderRect.h > 0.0f) {
-        constexpr float scale = 1.0f;
-        const float gripHalfW = 6.0f;
-        const float prevOriginX = (st.lastColTotalW > 0.0f) ? st.lastColOriginX : st.lastHeaderRect.x;
-        const float prevTotalW = (st.lastColTotalW > 0.0f) ? st.lastColTotalW : st.lastHeaderRect.w;
+        constexpr keel::f32 scale = 1.0f;
+        const keel::f32 gripHalfW = 6.0f;
+        const keel::f32 prevOriginX = (st.lastColTotalW > 0.0f) ? st.lastColOriginX : st.lastHeaderRect.x;
+        const keel::f32 prevTotalW = (st.lastColTotalW > 0.0f) ? st.lastColTotalW : st.lastHeaderRect.w;
         ResolveTreeColumns(*payload, prevTotalW, theme);
 
         const Vec2 mousePos = ctx.GetMousePos();
@@ -694,13 +694,13 @@ TreeViewScope TreeView::Open(
         );
 
         if (st.resizingCol >= 0) {
-            if (mouseDown && st.resizingCol < static_cast<keel::i32>(colCount)) {
-                const keel::u16 colIdx = static_cast<keel::u16>(st.resizingCol);
-                const float minW = keel::max(36.0f * scale, payload->columns[colIdx].minWidth * scale);
-                const float maxW = (payload->columns[colIdx].maxWidth > 0.0f)
+            if (mouseDown && st.resizingCol < keel::as<keel::i32>(colCount)) {
+                const keel::u16 colIdx = keel::as<keel::u16>(st.resizingCol);
+                const keel::f32 minW = keel::max(36.0f * scale, payload->columns[colIdx].minWidth * scale);
+                const keel::f32 maxW = (payload->columns[colIdx].maxWidth > 0.0f)
                     ? (payload->columns[colIdx].maxWidth * scale)
                     : 100000.0f;
-                const float newW = keel::clamp(st.resizeStartWidth + (mousePos.x - st.resizeStartX), minW, maxW);
+                const keel::f32 newW = keel::clamp(st.resizeStartWidth + (mousePos.x - st.resizeStartX), minW, maxW);
                 st.userColWidths[colIdx] = newW / scale;
                 st.hasUserColWidth[colIdx] = true;
                 ResolveTreeColumns(*payload, prevTotalW, theme);
@@ -713,15 +713,15 @@ TreeViewScope TreeView::Open(
                 ctx.InvalidateAll();
             }
         } else if (headerHitRect.Contains(mousePos) && !ctx.IsMouseOccluded(idTree, mousePos)) {
-            const float localX = mousePos.x - prevOriginX;
+            const keel::f32 localX = mousePos.x - prevOriginX;
             for (keel::u16 i = 0; i + 1 < colCount; ++i) {
                 if (!payload->columns[i].resizable) continue;
-                const float divX = payload->resolvedColX[i] + payload->resolvedColW[i];
+                const keel::f32 divX = payload->resolvedColX[i] + payload->resolvedColW[i];
                 if (keel::abs(localX - divX) <= gripHalfW) {
-                    payload->hoveredDividerCol = static_cast<keel::i32>(i);
+                    payload->hoveredDividerCol = keel::as<keel::i32>(i);
                     if (mouseClicked) {
-                        const double now = (ctx.GetCurrentTime)();
-                        if (st.lastDividerCol == static_cast<keel::i32>(i) && (now - st.lastDividerClickTime) <= 0.35) {
+                        const keel::f64 now = (ctx.GetCurrentTime)();
+                        if (st.lastDividerCol == keel::as<keel::i32>(i) && (now - st.lastDividerClickTime) <= 0.35) {
                             st.hasUserColWidth.fill(false);
                             st.resizingCol = -1;
                             ResolveTreeColumns(*payload, prevTotalW, theme);
@@ -733,13 +733,13 @@ TreeViewScope TreeView::Open(
                                     st.hasUserColWidth[j] = true;
                                 }
                             }
-                            st.resizingCol = static_cast<keel::i32>(i);
+                            st.resizingCol = keel::as<keel::i32>(i);
                             st.resizeStartX = mousePos.x;
                             st.resizeStartWidth = payload->resolvedColW[i];
                             ctx.SetActiveId(idTree);
                         }
                         st.lastDividerClickTime = now;
-                        st.lastDividerCol = static_cast<keel::i32>(i);
+                        st.lastDividerCol = keel::as<keel::i32>(i);
                         ctx.InvalidateAll();
                     }
                     break;
@@ -755,8 +755,8 @@ TreeViewScope TreeView::Open(
 
     if (!opts.title.empty() || opts.searchable || opts.showToolbar) {
         const ComponentMetrics& cm = theme.GetMetrics(activeSize);
-        const float barPad = keel::max(4.0f, keel::round(cm.paddingY * 0.85f));
-        const float barGap = keel::max(4.0f, keel::round(cm.itemGap * 0.85f));
+        const keel::f32 barPad = keel::max(4.0f, keel::round(cm.paddingY * 0.85f));
+        const keel::f32 barGap = keel::max(4.0f, keel::round(cm.itemGap * 0.85f));
         if (auto bar = ctx.Row({
             .gap = barGap,
             .padding = Padding(barPad, barPad, barPad, barPad),
@@ -1048,7 +1048,7 @@ TreeItemScope TreeView::OpenItem(
     branchNode->type = NodeType::TreeBranch;
     branchNode->id = idOuter;
     branchNode->zone = ctx.GetZone();
-    const float itemDensity = branchNode->GetDensity();
+    const keel::f32 itemDensity = branchNode->GetDensity();
     branchNode->direction = FlexDirection::Column;
     branchNode->widthMode = SizeMode::Stretch;
     branchNode->heightMode = SizeMode::Fit;
@@ -1097,7 +1097,7 @@ TreeItemScope TreeView::OpenItem(
     }
     payload->idOuter = idOuter;
     payload->idRow = idRow;
-    payload->depth = parentPayload ? static_cast<keel::u16>(parentPayload->depth + 1u) : 0u;
+    payload->depth = parentPayload ? keel::as<keel::u16>(parentPayload->depth + 1u) : 0u;
     payload->open = isOpen;
     payload->effectiveOpen = effectiveOpen;
     payload->selected = isSelected;
@@ -1142,12 +1142,12 @@ TreeItemScope TreeView::OpenItem(
         opts.background,
         opts.border,
         activeDisabled,
-        static_cast<keel::u8>(opts.icon.GetType()),
-        static_cast<keel::u8>(opts.icon.GetId()),
-        static_cast<keel::u8>(opts.openIcon.GetType()),
-        static_cast<keel::u8>(opts.openIcon.GetId()),
+        keel::as<keel::u8>(opts.icon.GetType()),
+        keel::as<keel::u8>(opts.icon.GetId()),
+        keel::as<keel::u8>(opts.openIcon.GetType()),
+        keel::as<keel::u8>(opts.openIcon.GetId()),
         opts.color,
-        treePayload ? static_cast<keel::u8>(treePayload->opts.selectionStyle) : keel::u8{0},
+        treePayload ? keel::as<keel::u8>(treePayload->opts.selectionStyle) : keel::u8{0},
         treePayload ? treePayload->opts.color : StateColor{},
         treePayload ? treePayload->opts.striped : false,
         treePayload ? treePayload->opts.gridLines : false,
@@ -1172,7 +1172,7 @@ TreeItemScope TreeView::OpenItem(
 
 Vec2 TreeView::MeasureRow(
     const Node* rowNode,
-    float availableWidth,
+    keel::f32 availableWidth,
     ICanvas* canvas,
     const UiTheme& theme
 ) noexcept {
@@ -1184,7 +1184,7 @@ Vec2 TreeView::MeasureRow(
     const RowMetrics rm = ComputeRowMetrics(*p, rowNode->uiSize, theme);
     const Icon activeIcon = (p->open && p->opts.openIcon.IsValid()) ? p->opts.openIcon : p->opts.icon;
 
-    float leftW = rm.padX + rm.indentWidth + rm.chevronSlotW + rm.gap;
+    keel::f32 leftW = rm.padX + rm.indentWidth + rm.chevronSlotW + rm.gap;
     if (p->opts.checked != nullptr) {
         leftW += rm.checkboxSize + rm.gap;
     }
@@ -1192,7 +1192,7 @@ Vec2 TreeView::MeasureRow(
         leftW += rm.iconSize + rm.gap;
     }
 
-    float textW = 0.0f;
+    keel::f32 textW = 0.0f;
     if (p->opts.label.HasContentOrReserve()) {
         textW = TextUtil::MeasureWidth(p->opts.label, rm.labelFont, canvas);
     }
@@ -1201,33 +1201,33 @@ Vec2 TreeView::MeasureRow(
     }
     leftW += textW;
 
-    float rightDecorW = 0.0f;
+    keel::f32 rightDecorW = 0.0f;
     if (p->opts.detail.HasContentOrReserve()) {
         rightDecorW += rm.gap + TextUtil::MeasureWidth(p->opts.detail, rm.detailFont, canvas);
     }
     if (p->opts.badge.HasContentOrReserve()) {
-        const float badgePadX = keel::max(5.0f, rm.badgeFont * 0.45f);
+        const keel::f32 badgePadX = keel::max(5.0f, rm.badgeFont * 0.45f);
         rightDecorW += rm.gap + TextUtil::MeasureWidth(p->opts.badge, rm.badgeFont, canvas) + badgePadX * 2.0f;
     }
 
     const Vec2 ctrlSlot = MeasureControlsSlot(rowNode, *p, availableWidth, leftW + rightDecorW, rm, canvas, theme);
-    float totalW = leftW + rightDecorW + rm.padX;
+    keel::f32 totalW = leftW + rightDecorW + rm.padX;
     if (ctrlSlot.x > 0.0f) {
         totalW += rm.gap + ctrlSlot.x;
     }
 
-    const float labelLineH = canvas ? canvas->GetLineHeight(rm.labelFont) : (rm.labelFont * 1.28f);
-    float contentH = keel::max(labelLineH, keel::max(rm.chevronSize, rm.iconSize));
+    const keel::f32 labelLineH = canvas ? canvas->GetLineHeight(rm.labelFont) : (rm.labelFont * 1.28f);
+    keel::f32 contentH = keel::max(labelLineH, keel::max(rm.chevronSize, rm.iconSize));
     if (p->opts.checked != nullptr) {
         contentH = keel::max(contentH, rm.checkboxSize);
     }
     if (p->opts.description.HasContentOrReserve()) {
-        const float descLineH = canvas ? canvas->GetLineHeight(rm.descFont) : (rm.descFont * 1.25f);
+        const keel::f32 descLineH = canvas ? canvas->GetLineHeight(rm.descFont) : (rm.descFont * 1.25f);
         contentH += 2.0f + descLineH;
     }
     contentH = keel::max(contentH, ctrlSlot.y);
 
-    const float totalH = keel::max(rm.minRowH, contentH + rm.padY * 2.0f);
+    const keel::f32 totalH = keel::max(rm.minRowH, contentH + rm.padY * 2.0f);
     return {totalW, totalH};
 }
 
@@ -1262,7 +1262,7 @@ void ArrangeEmbeddedContainerChildren(
         keel::max(0.0f, cellRect.w - containerNode->padding.Horizontal()),
         keel::max(0.0f, cellRect.h - containerNode->padding.Vertical())
     );
-    const float gap = (containerNode->gap > 0.0f) ? containerNode->gap : rm.gap;
+    const keel::f32 gap = (containerNode->gap > 0.0f) ? containerNode->gap : rm.gap;
 
     Align effectiveAlign = colAlign;
     if (containerNode->type == NodeType::Cell) {
@@ -1277,7 +1277,7 @@ void ArrangeEmbeddedContainerChildren(
         effectiveAlign = Align::End;
     }
 
-    float totalW = 0.0f;
+    keel::f32 totalW = 0.0f;
     keel::u32 count = 0;
     keel::u32 stretchCount = 0;
 
@@ -1305,12 +1305,12 @@ void ArrangeEmbeddedContainerChildren(
         ++count;
     }
 
-    const float totalGaps = (count > 1) ? (static_cast<float>(count - 1) * gap) : 0.0f;
-    const float freeW = keel::max(0.0f, inner.w - totalW - totalGaps);
-    const float stretchShare = (stretchCount > 0) ? (freeW / static_cast<float>(stretchCount)) : 0.0f;
-    const float usedW = (stretchCount > 0) ? inner.w : keel::min(inner.w, totalW + totalGaps);
+    const keel::f32 totalGaps = (count > 1) ? (keel::as<keel::f32>(count - 1) * gap) : 0.0f;
+    const keel::f32 freeW = keel::max(0.0f, inner.w - totalW - totalGaps);
+    const keel::f32 stretchShare = (stretchCount > 0) ? (freeW / keel::as<keel::f32>(stretchCount)) : 0.0f;
+    const keel::f32 usedW = (stretchCount > 0) ? inner.w : keel::min(inner.w, totalW + totalGaps);
 
-    float curX = inner.x + (inner.w - usedW) * AlignToFactor(effectiveAlign);
+    keel::f32 curX = inner.x + (inner.w - usedW) * AlignToFactor(effectiveAlign);
 
     for (Node* gc = containerNode->firstChild; gc != nullptr; gc = gc->nextSibling) {
         if (gc->isSpacer) {
@@ -1320,7 +1320,7 @@ void ArrangeEmbeddedContainerChildren(
         const UiTheme& gcTheme = gc->GetTheme(theme);
         const Vec2 intr = gc->intrinsicSize;
 
-        float cw = intr.x;
+        keel::f32 cw = intr.x;
         if (gc->widthMode == SizeMode::Fixed && gc->fixedWidth > 0.0f) {
             cw = gc->fixedWidth;
         } else if (gc->widthMode == SizeMode::Stretch) {
@@ -1328,8 +1328,8 @@ void ArrangeEmbeddedContainerChildren(
         }
         cw = keel::min(cw, keel::max(0.0f, inner.Right() - curX));
 
-        const float ch = keel::min(inner.h - 2.0f, keel::max(intr.y, 18.0f));
-        const float cy = inner.y + (inner.h - ch) * 0.5f;
+        const keel::f32 ch = keel::min(inner.h - 2.0f, keel::max(intr.y, 18.0f));
+        const keel::f32 cy = inner.y + (inner.h - ch) * 0.5f;
         const Rect cRect(curX, cy, cw, ch);
 
         if (gc->type == NodeType::Cell) {
@@ -1366,12 +1366,12 @@ void TreeView::ArrangeRow(
     const RowMetrics rm = ComputeRowMetrics(*p, rowNode->uiSize, theme);
     const Rect bounds = availableRect;
 
-    const float chevX = bounds.x + rm.padX + rm.indentWidth;
+    const keel::f32 chevX = bounds.x + rm.padX + rm.indentWidth;
     p->state->chevronRect = Rect(chevX - 2.0f, bounds.y, rm.chevronSlotW + 4.0f, bounds.h);
 
-    float curX = chevX + rm.chevronSlotW + rm.gap;
+    keel::f32 curX = chevX + rm.chevronSlotW + rm.gap;
     if (p->opts.checked != nullptr) {
-        const float chkY = bounds.y + (bounds.h - rm.checkboxSize) * 0.5f;
+        const keel::f32 chkY = bounds.y + (bounds.h - rm.checkboxSize) * 0.5f;
         p->state->checkboxRect = Rect(curX - 2.0f, chkY - 2.0f, rm.checkboxSize + 4.0f, rm.checkboxSize + 4.0f);
         curX += rm.checkboxSize + rm.gap;
     } else {
@@ -1401,8 +1401,8 @@ void TreeView::ArrangeRow(
                 continue;
             }
 
-            const float colX = bounds.x + p->tree->resolvedColX[colIdx];
-            const float colW = p->tree->resolvedColW[colIdx];
+            const keel::f32 colX = bounds.x + p->tree->resolvedColX[colIdx];
+            const keel::f32 colW = p->tree->resolvedColW[colIdx];
             const Align colAlign = p->tree->columns[colIdx].align;
             const Rect innerRect(
                 colX + rm.padX,
@@ -1443,8 +1443,8 @@ void TreeView::ArrangeRow(
             // Non-interactive Text or standalone Element (icon+label / pill badge) inside a column
             const bool isPlainOrBadgeElement = (child->type == NodeType::Element && child->firstChild == nullptr);
             if (child->type == NodeType::Text || isPlainOrBadgeElement) {
-                const float tw = keel::min(innerRect.w, intr.x);
-                const float th = keel::min(innerRect.h, intr.y);
+                const keel::f32 tw = keel::min(innerRect.w, intr.x);
+                const keel::f32 th = keel::min(innerRect.h, intr.y);
                 Align effAlign = colAlign;
                 if (child->type == NodeType::Text && child->align != Alignment::Start) {
                     effAlign = child->align;
@@ -1453,8 +1453,8 @@ void TreeView::ArrangeRow(
                         effAlign = ep->opts.align;
                     }
                 }
-                const float tx = innerRect.x + (innerRect.w - tw) * AlignToFactor(effAlign);
-                const float ty = innerRect.y + (innerRect.h - th) * 0.5f;
+                const keel::f32 tx = innerRect.x + (innerRect.w - tw) * AlignToFactor(effAlign);
+                const keel::f32 ty = innerRect.y + (innerRect.h - th) * 0.5f;
                 const Rect tRect(tx, ty, tw, th);
                 if (child->arrangeFn) {
                     child->arrangeFn(child, tRect, childTheme);
@@ -1465,7 +1465,7 @@ void TreeView::ArrangeRow(
             }
 
             // Interactive Control widget inside a column
-            float cw = intr.x;
+            keel::f32 cw = intr.x;
             if (child->widthMode == SizeMode::Fixed && child->fixedWidth > 0.0f) {
                 cw = keel::min(innerRect.w, child->fixedWidth);
             } else if (child->widthMode == SizeMode::Stretch) {
@@ -1473,9 +1473,9 @@ void TreeView::ArrangeRow(
             } else {
                 cw = keel::min(innerRect.w, intr.x);
             }
-            const float ch = keel::min(innerRect.h - 4.0f, keel::max(intr.y, 18.0f));
-            const float cx = innerRect.x + (innerRect.w - cw) * AlignToFactor(colAlign);
-            const float cy = innerRect.y + (innerRect.h - ch) * 0.5f;
+            const keel::f32 ch = keel::min(innerRect.h - 4.0f, keel::max(intr.y, 18.0f));
+            const keel::f32 cx = innerRect.x + (innerRect.w - cw) * AlignToFactor(colAlign);
+            const keel::f32 cy = innerRect.y + (innerRect.h - ch) * 0.5f;
             const Rect cRect(cx, cy, cw, ch);
 
             if (child->arrangeFn) {
@@ -1496,16 +1496,16 @@ void TreeView::ArrangeRow(
     }
 
     // Single-Column Mode: reserve badge width on the far right, then place embedded controls to the left of badge
-    float rightEdge = bounds.Right() - rm.padX;
+    keel::f32 rightEdge = bounds.Right() - rm.padX;
     if (!p->opts.badge.empty()) {
-        const float badgePadX = keel::max(5.0f, rm.badgeFont * 0.45f);
-        const float badgeW = TextUtil::MeasureWidth(p->opts.badge, rm.badgeFont, p->lastCanvas) + badgePadX * 2.0f;
+        const keel::f32 badgePadX = keel::max(5.0f, rm.badgeFont * 0.45f);
+        const keel::f32 badgeW = TextUtil::MeasureWidth(p->opts.badge, rm.badgeFont, p->lastCanvas) + badgePadX * 2.0f;
         rightEdge -= (badgeW + rm.gap);
     }
 
     const Vec2 ctrlSlot = MeasureControlsSlot(rowNode, *p, bounds.w, curX, rm, p->lastCanvas, theme);
-    float ctrlStartX = keel::max(curX, rightEdge - ctrlSlot.x);
-    float x = ctrlStartX;
+    keel::f32 ctrlStartX = keel::max(curX, rightEdge - ctrlSlot.x);
+    keel::f32 x = ctrlStartX;
     Rect unionControls{};
     const bool singleChild = (rowNode->childCount == 1);
 
@@ -1516,9 +1516,9 @@ void TreeView::ArrangeRow(
         }
 
         const Vec2 cm = MeasureEmbeddedChild(child, bounds.w, singleChild, p->opts.controlWidth, rm, p->lastCanvas, theme);
-        const float cw = keel::min(cm.x, keel::max(0.0f, rightEdge - x));
-        const float ch = keel::min(bounds.h - 2.0f, keel::max(cm.y, 18.0f));
-        const float cy = bounds.y + (bounds.h - ch) * 0.5f;
+        const keel::f32 cw = keel::min(cm.x, keel::max(0.0f, rightEdge - x));
+        const keel::f32 ch = keel::min(bounds.h - 2.0f, keel::max(cm.y, 18.0f));
+        const keel::f32 cy = bounds.y + (bounds.h - ch) * 0.5f;
         const Rect cRect(x, cy, cw, ch);
 
         if (child->firstChild != nullptr &&
@@ -1574,7 +1574,7 @@ void TreeView::RenderRow(
             ? p->tree->opts.color.Resolve(hovered, selected, disabled, pal.accent)
             : pal.accent);
     const bool hasGridLines = (p->tree != nullptr && p->tree->opts.gridLines);
-    const float radius = p->opts.border.radius.has_value()
+    const keel::f32 radius = p->opts.border.radius.has_value()
         ? *p->opts.border.radius
         : (hasGridLines ? 0.0f : keel::max(4.0f, theme.GetRadius(rowNode->uiSize) * 0.70f));
 
@@ -1594,7 +1594,7 @@ void TreeView::RenderRow(
             pal.surfaceHover.WithAlphaF(0.30f)
         );
     } else if (selected) {
-        const float alpha = (selStyle == TreeSelectionStyle::Pill)
+        const keel::f32 alpha = (selStyle == TreeSelectionStyle::Pill)
             ? (hovered ? 0.26f : 0.20f)
             : (hovered ? 0.20f : 0.14f);
         rowBg = accentCol.WithAlphaF(disabled ? 0.08f : alpha);
@@ -1602,7 +1602,7 @@ void TreeView::RenderRow(
         rowBg = pressed ? pal.surfaceActive.WithAlphaF(0.75f) : pal.surfaceHover.WithAlphaF(0.55f);
     }
 
-    const float borderW = (p->opts.border.width > 0.0f) ? p->opts.border.width : 0.0f;
+    const keel::f32 borderW = (p->opts.border.width > 0.0f) ? p->opts.border.width : 0.0f;
     Color borderCol = Color::Transparent();
     if (borderW > 0.0f) {
         borderCol = p->opts.border.color.Resolve(hovered, selected, disabled, pal.borderSubtle, pal.borderHover, accentCol, pal.borderSubtle);
@@ -1616,14 +1616,14 @@ void TreeView::RenderRow(
     }
 
     if (hasGridLines) {
-        const float lineY = keel::floor(bounds.Bottom()) - 0.5f;
+        const keel::f32 lineY = keel::floor(bounds.Bottom()) - 0.5f;
         canvas.DrawLine({bounds.x, lineY}, {bounds.Right(), lineY}, pal.borderSubtle.WithAlpha(85), 1.0f);
     }
 
     // Left vertical accent indicator bar when selected in Indicator mode
     if (selected && selStyle == TreeSelectionStyle::Indicator) {
-        const float barW = 3.0f;
-        const float barPadY = keel::max(4.0f, bounds.h * 0.18f);
+        const keel::f32 barW = 3.0f;
+        const keel::f32 barPadY = keel::max(4.0f, bounds.h * 0.18f);
         const Rect barRect(bounds.x + 1.0f, bounds.y + barPadY, barW, keel::max(4.0f, bounds.h - barPadY * 2.0f));
         canvas.DrawRoundRect(barRect, barW * 0.5f, disabled ? accentCol.WithAlphaF(0.40f) : accentCol);
     }
@@ -1633,13 +1633,13 @@ void TreeView::RenderRow(
         canvas.DrawRoundRect(bounds.Inset(1.0f), radius, Color::Transparent(), pal.focusRing.WithAlphaF(0.75f), 1.0f);
     }
 
-    float curX = bounds.x + rm.padX + rm.indentWidth;
+    keel::f32 curX = bounds.x + rm.padX + rm.indentWidth;
 
     // 2. Chevron (for branch nodes)
     if (isBranch) {
         const Icon chevIcon = p->open ? Icon::ChevronDown() : Icon::ChevronRight();
-        const float chevX = curX + (rm.chevronSlotW - rm.chevronSize) * 0.5f;
-        const float chevY = bounds.y + (bounds.h - rm.chevronSize) * 0.5f;
+        const keel::f32 chevX = curX + (rm.chevronSlotW - rm.chevronSize) * 0.5f;
+        const keel::f32 chevY = bounds.y + (bounds.h - rm.chevronSize) * 0.5f;
         const bool chevHover = hovered && p->state && p->state->chevronRect.Contains(p->ctx ? p->ctx->GetMousePos() : Vec2{-1.0f, -1.0f});
         Color chevCol = selected ? accentCol : (chevHover ? pal.textPrimary : pal.textSecondary);
         if (disabled) chevCol = chevCol.WithAlphaF(0.40f);
@@ -1649,9 +1649,9 @@ void TreeView::RenderRow(
 
     // 3. Optional Checkbox (supports checked + indeterminate tri-state)
     if (p->opts.checked != nullptr) {
-        const float chkY = bounds.y + (bounds.h - rm.checkboxSize) * 0.5f;
+        const keel::f32 chkY = bounds.y + (bounds.h - rm.checkboxSize) * 0.5f;
         const Rect chkRect(curX, chkY, rm.checkboxSize, rm.checkboxSize);
-        const float chkRadius = keel::max(3.0f, rm.checkboxSize * 0.22f);
+        const keel::f32 chkRadius = keel::max(3.0f, rm.checkboxSize * 0.22f);
         const bool isChecked = *p->opts.checked;
         const bool isIndet = p->opts.indeterminate;
 
@@ -1665,8 +1665,8 @@ void TreeView::RenderRow(
 
         const Color glyphCol = disabled ? pal.textPrimary.WithAlphaF(0.45f) : Color(255, 255, 255, 255);
         if (isIndet) {
-            const float dashW = rm.checkboxSize * 0.52f;
-            const float dashH = 2.0f;
+            const keel::f32 dashW = rm.checkboxSize * 0.52f;
+            const keel::f32 dashH = 2.0f;
             canvas.DrawRoundRect(
                 Rect(chkRect.Center().x - dashW * 0.5f, chkRect.Center().y - dashH * 0.5f, dashW, dashH),
                 dashH * 0.5f,
@@ -1681,7 +1681,7 @@ void TreeView::RenderRow(
     // 4. Optional Icon (supports openIcon when expanded)
     const Icon activeIcon = (p->open && p->opts.openIcon.IsValid()) ? p->opts.openIcon : p->opts.icon;
     if (activeIcon.IsValid()) {
-        const float iconY = bounds.y + (bounds.h - rm.iconSize) * 0.5f;
+        const keel::f32 iconY = bounds.y + (bounds.h - rm.iconSize) * 0.5f;
         Color iconCol = selected ? accentCol : theme.ResolveTextColor(p->opts.label, UiVariant::Secondary, disabled, hovered, selected);
         if (!p->opts.label.color.HasAny() && !selected) {
             iconCol = hovered ? pal.textPrimary : pal.textSecondary;
@@ -1693,18 +1693,18 @@ void TreeView::RenderRow(
 
     // 5. Compute right boundary of Column 0 (or full row in single-column mode)
     const bool multiCol = (p->tree != nullptr && p->tree->columnCount > 0);
-    float rightLimit = multiCol
+    keel::f32 rightLimit = multiCol
         ? (bounds.x + p->tree->resolvedColW[0] - rm.padX)
         : (bounds.Right() - rm.padX);
 
     // 5a. Trailing Badge (in Col 0 or row right)
     if (!p->opts.badge.empty() && rightLimit > curX + 24.0f) {
-        const float badgePadX = keel::max(5.0f, rm.badgeFont * 0.45f);
-        const float badgeTextW = TextUtil::MeasureWidth(p->opts.badge, rm.badgeFont, &canvas);
-        const float badgeW = badgeTextW + badgePadX * 2.0f;
-        const float badgeH = keel::max(16.0f, rm.badgeFont + 4.0f);
-        const float badgeX = rightLimit - badgeW;
-        const float badgeY = bounds.y + (bounds.h - badgeH) * 0.5f;
+        const keel::f32 badgePadX = keel::max(5.0f, rm.badgeFont * 0.45f);
+        const keel::f32 badgeTextW = TextUtil::MeasureWidth(p->opts.badge, rm.badgeFont, &canvas);
+        const keel::f32 badgeW = badgeTextW + badgePadX * 2.0f;
+        const keel::f32 badgeH = keel::max(16.0f, rm.badgeFont + 4.0f);
+        const keel::f32 badgeX = rightLimit - badgeW;
+        const keel::f32 badgeY = bounds.y + (bounds.h - badgeH) * 0.5f;
 
         Color badgeBg = selected ? accentCol.WithAlphaF(0.24f) : pal.surfaceHover;
         Color badgeTextCol = selected ? accentCol : pal.textSecondary;
@@ -1729,12 +1729,12 @@ void TreeView::RenderRow(
 
     // 5c. Detail metadata text (to the left of controls/badge)
     if (!p->opts.detail.empty() && rightLimit > curX + 40.0f) {
-        const float detailW = keel::min(
+        const keel::f32 detailW = keel::min(
             TextUtil::MeasureWidth(p->opts.detail, rm.detailFont, &canvas),
             keel::max(0.0f, (rightLimit - curX) * 0.45f)
         );
         if (detailW > 12.0f) {
-            const float detailX = rightLimit - detailW;
+            const keel::f32 detailX = rightLimit - detailW;
             const Color detailCol = theme.ResolveTextColor(p->opts.detail, UiVariant::Muted, disabled, hovered, selected);
             const auto displayDetail = TextUtil::TruncateWithEllipsis(p->opts.detail.text, detailW, rm.detailFont, &canvas);
             canvas.DrawTextBox(displayDetail, Rect(detailX, bounds.y, detailW, bounds.h), rm.detailFont, detailCol, 1.0f, 0.5f);
@@ -1743,7 +1743,7 @@ void TreeView::RenderRow(
     }
 
     // 6. Primary Label + optional Description
-    const float availTextW = keel::max(0.0f, rightLimit - curX);
+    const keel::f32 availTextW = keel::max(0.0f, rightLimit - curX);
     if (availTextW > 2.0f) {
         const Color labelCol = theme.ResolveTextColor(
             p->opts.label,
@@ -1757,11 +1757,11 @@ void TreeView::RenderRow(
             const auto displayLabel = TextUtil::TruncateWithEllipsis(p->opts.label.text, availTextW, rm.labelFont, &canvas);
             canvas.DrawTextBox(displayLabel, Rect(curX, bounds.y, availTextW, bounds.h), rm.labelFont, labelCol, 0.0f, 0.5f);
         } else {
-            const float labelLineH = canvas.GetLineHeight(rm.labelFont);
-            const float descLineH = canvas.GetLineHeight(rm.descFont);
-            const float lineGap = 2.0f;
-            const float totalTextH = labelLineH + lineGap + descLineH;
-            const float startY = bounds.y + (bounds.h - totalTextH) * 0.5f;
+            const keel::f32 labelLineH = canvas.GetLineHeight(rm.labelFont);
+            const keel::f32 descLineH = canvas.GetLineHeight(rm.descFont);
+            const keel::f32 lineGap = 2.0f;
+            const keel::f32 totalTextH = labelLineH + lineGap + descLineH;
+            const keel::f32 startY = bounds.y + (bounds.h - totalTextH) * 0.5f;
 
             const auto displayLabel = TextUtil::TruncateWithEllipsis(p->opts.label.text, availTextW, rm.labelFont, &canvas);
             canvas.DrawTextBox(displayLabel, Rect(curX, startY, availTextW, labelLineH), rm.labelFont, labelCol, 0.0f, 0.5f);
@@ -1786,13 +1786,13 @@ void TreeView::RenderHeader(
     if (!tree || tree->columnCount == 0) return;
 
     const auto& pal = theme.palette;
-    constexpr float scale = 1.0f;
+    constexpr keel::f32 scale = 1.0f;
     const ComponentMetrics& cm = theme.GetMetrics(headerNode->uiSize);
-    const float cellPadX = keel::max(6.0f, keel::round(cm.paddingX * 0.65f));
-    const float headerFontSize = theme.ResolveFontSize(UiText{}, TextRole::LabelSmall, headerNode->uiSize);
+    const keel::f32 cellPadX = keel::max(6.0f, keel::round(cm.paddingX * 0.65f));
+    const keel::f32 headerFontSize = theme.ResolveFontSize(UiText{}, TextRole::LabelSmall, headerNode->uiSize);
 
-    const float colOriginX = (tree->resolvedColTotalW > 0.0f) ? tree->resolvedColOriginX : headerRect.x;
-    const float colTotalW = (tree->resolvedColTotalW > 0.0f) ? tree->resolvedColTotalW : headerRect.w;
+    const keel::f32 colOriginX = (tree->resolvedColTotalW > 0.0f) ? tree->resolvedColOriginX : headerRect.x;
+    const keel::f32 colTotalW = (tree->resolvedColTotalW > 0.0f) ? tree->resolvedColTotalW : headerRect.w;
     ResolveTreeColumns(*const_cast<TreeViewPayload*>(tree), colTotalW, theme);
 
     if (tree->state) {
@@ -1806,8 +1806,8 @@ void TreeView::RenderHeader(
 
     for (keel::u16 i = 0; i < tree->columnCount; ++i) {
         const auto& col = tree->columns[i];
-        const float colX = colOriginX + tree->resolvedColX[i];
-        const float colW = tree->resolvedColW[i];
+        const keel::f32 colX = colOriginX + tree->resolvedColX[i];
+        const keel::f32 colW = tree->resolvedColW[i];
         const Rect colHdrRect(colX, headerRect.y, colW, headerRect.h);
         if (!colHdrRect.Intersects(headerRect)) continue;
 
@@ -1820,10 +1820,10 @@ void TreeView::RenderHeader(
         const Color titleCol = headerNode->disabled ? pal.textSecondary.WithAlphaF(0.45f) : pal.textSecondary;
 
         if (col.icon.IsValid()) {
-            const float iconSz = keel::min(13.0f * scale, headerRect.h * 0.55f);
+            const keel::f32 iconSz = keel::min(13.0f * scale, headerRect.h * 0.55f);
             const Rect iconRect(titleRect.x, headerRect.y + (headerRect.h - iconSz) * 0.5f, iconSz, iconSz);
             col.icon.Draw(canvas, iconRect, titleCol);
-            const float adv = iconSz + 5.0f * scale;
+            const keel::f32 adv = iconSz + 5.0f * scale;
             titleRect.x += adv;
             titleRect.w = keel::max(0.0f, titleRect.w - adv);
         }
@@ -1846,12 +1846,12 @@ void TreeView::RenderHeader(
         }
 
         if (i + 1 < tree->columnCount) {
-            const float divX = keel::min(keel::floor(colX + colW) + 0.5f, headerRect.Right() - 1.5f);
-            const bool dividerActive = (tree->state && tree->state->resizingCol == static_cast<keel::i32>(i)) ||
-                                       (tree->hoveredDividerCol == static_cast<keel::i32>(i));
+            const keel::f32 divX = keel::min(keel::floor(colX + colW) + 0.5f, headerRect.Right() - 1.5f);
+            const bool dividerActive = (tree->state && tree->state->resizingCol == keel::as<keel::i32>(i)) ||
+                                       (tree->hoveredDividerCol == keel::as<keel::i32>(i));
             const Color divCol = dividerActive ? pal.accent : pal.borderSubtle;
-            const float divThick = dividerActive ? (2.0f * scale) : 1.0f;
-            const float padY = dividerActive ? (3.0f * scale) : (5.0f * scale);
+            const keel::f32 divThick = dividerActive ? (2.0f * scale) : 1.0f;
+            const keel::f32 padY = dividerActive ? (3.0f * scale) : (5.0f * scale);
             canvas.DrawLine(
                 Vec2(divX, headerRect.y + padY),
                 Vec2(divX, headerRect.Bottom() - padY),
@@ -1861,7 +1861,7 @@ void TreeView::RenderHeader(
         }
     }
 
-    const float botY = keel::floor(headerRect.Bottom()) - 0.5f;
+    const keel::f32 botY = keel::floor(headerRect.Bottom()) - 0.5f;
     canvas.DrawLine(
         Vec2(headerRect.x, botY),
         Vec2(headerRect.Right(), botY),
@@ -1884,14 +1884,14 @@ void TreeView::RenderOverlay(
     if (bodyRect.w <= 0.0f || bodyRect.h <= 0.0f) return;
 
     const auto& pal = theme.palette;
-    constexpr float scale = 1.0f;
-    const float colOriginX = (tree->resolvedColTotalW > 0.0f) ? tree->resolvedColOriginX : bodyRect.x;
+    constexpr keel::f32 scale = 1.0f;
+    const keel::f32 colOriginX = (tree->resolvedColTotalW > 0.0f) ? tree->resolvedColOriginX : bodyRect.x;
 
     canvas.PushClip(bodyRect);
 
     if (tree->opts.gridLines) {
         for (keel::u16 i = 0; i + 1 < tree->columnCount; ++i) {
-            const float divX = keel::floor(colOriginX + tree->resolvedColX[i] + tree->resolvedColW[i]) + 0.5f;
+            const keel::f32 divX = keel::floor(colOriginX + tree->resolvedColX[i] + tree->resolvedColW[i]) + 0.5f;
             if (divX >= bodyRect.x && divX < bodyRect.Right() - 0.5f) {
                 canvas.DrawLine(
                     Vec2(divX, bodyRect.y),
@@ -1906,9 +1906,9 @@ void TreeView::RenderOverlay(
     const keel::i32 activeDivCol = (tree->state && tree->state->resizingCol >= 0)
         ? tree->state->resizingCol
         : tree->hoveredDividerCol;
-    if (activeDivCol >= 0 && static_cast<keel::u16>(activeDivCol) + 1 < tree->columnCount) {
-        const keel::u16 colIdx = static_cast<keel::u16>(activeDivCol);
-        const float guideX = keel::clamp(
+    if (activeDivCol >= 0 && keel::as<keel::u16>(activeDivCol) + 1 < tree->columnCount) {
+        const keel::u16 colIdx = keel::as<keel::u16>(activeDivCol);
+        const keel::f32 guideX = keel::clamp(
             keel::floor(colOriginX + tree->resolvedColX[colIdx] + tree->resolvedColW[colIdx]) + 0.5f,
             bodyRect.x + 1.0f,
             bodyRect.Right() - 1.5f
@@ -1944,8 +1944,8 @@ void TreeView::RenderBranchGuides(
     if (!firstChildBranch) return;
 
     const RowMetrics rm = ComputeRowMetrics(*p, parentRow->uiSize, theme);
-    const float guideX = keel::round(parentRow->computedRect.x + rm.padX + rm.indentWidth + rm.chevronSlotW * 0.5f) + 0.5f;
-    const float startY = parentRow->computedRect.Bottom();
+    const keel::f32 guideX = keel::round(parentRow->computedRect.x + rm.padX + rm.indentWidth + rm.chevronSlotW * 0.5f) + 0.5f;
+    const keel::f32 startY = parentRow->computedRect.Bottom();
 
     const Node* lastChildRow = nullptr;
     for (const Node* cb = firstChildBranch; cb != nullptr; cb = cb->nextSibling) {
@@ -1965,7 +1965,7 @@ void TreeView::RenderBranchGuides(
         ? accentCol.WithAlphaF(0.55f)
         : pal.border.WithAlphaF(0.65f);
 
-    const float endY = (guides == TreeGuides::Connected)
+    const keel::f32 endY = (guides == TreeGuides::Connected)
         ? (keel::round(lastChildRow->computedRect.Center().y) + 0.5f)
         : lastChildRow->computedRect.Bottom();
 
@@ -1974,10 +1974,10 @@ void TreeView::RenderBranchGuides(
     }
 
     if (guides == TreeGuides::Connected) {
-        const float tickLen = keel::max(6.0f, rm.indentStep - rm.chevronSlotW * 0.5f - 2.0f);
+        const keel::f32 tickLen = keel::max(6.0f, rm.indentStep - rm.chevronSlotW * 0.5f - 2.0f);
         for (const Node* cb = firstChildBranch; cb != nullptr; cb = cb->nextSibling) {
             if (cb->type == NodeType::TreeBranch && cb->firstChild && cb->firstChild->computedRect.h > 0.0f) {
-                const float cy = keel::round(cb->firstChild->computedRect.Center().y) + 0.5f;
+                const keel::f32 cy = keel::round(cb->firstChild->computedRect.Center().y) + 0.5f;
                 canvas.DrawLine({guideX, cy}, {guideX + tickLen, cy}, guideCol, 1.0f);
             }
         }

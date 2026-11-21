@@ -27,7 +27,7 @@ enum class MenuBarStyle : keel::u8 {
 struct MenuBarOptions {
     MenuBarStyle style{MenuBarStyle::Header};
     UiSize size{UiSize::Sm};
-    keel::Optional<float> gap{2.0f};
+    keel::Optional<keel::f32> gap{2.0f};
     keel::Optional<Padding> padding{keel::kNullOpt};
     StateColor background{};
     Border border{};
@@ -68,7 +68,7 @@ public:
     void Spacer(keel::SourceLocation loc = keel::SourceLocation::current());
 
     /// Adds a subtle vertical divider line between menu groups or trailing widgets.
-    void Separator(float heightRatio = 0.55f, keel::SourceLocation loc = keel::SourceLocation::current());
+    void Separator(keel::f32 heightRatio = 0.55f, keel::SourceLocation loc = keel::SourceLocation::current());
 
     /// Returns true if any menu in this MenuBar is currently expanded.
     [[nodiscard]] bool IsAnyMenuOpen() const noexcept;

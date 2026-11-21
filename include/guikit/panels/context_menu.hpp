@@ -66,9 +66,9 @@ struct ContextMenuOptions {
     UiText title{};                                     ///< Optional header title rendered above items with a subtle divider
     Rect anchorRect{};                                  ///< Anchor bounds (e.g. button or MenuBar rect) for dropdown placement
     keel::Optional<Vec2> anchorPos{keel::kNullOpt};     ///< Explicit anchor coordinate (e.g. cursor position on RightClick)
-    keel::Optional<float> minWidth{188.0f};
-    keel::Optional<float> width{keel::kNullOpt};
-    keel::Optional<float> maxHeight{keel::kNullOpt};    ///< Optional max height before internal wheel scrolling kicks in
+    keel::Optional<keel::f32> minWidth{188.0f};
+    keel::Optional<keel::f32> width{keel::kNullOpt};
+    keel::Optional<keel::f32> maxHeight{keel::kNullOpt};    ///< Optional max height before internal wheel scrolling kicks in
     StateColor background{};
     Border border{.width = 1.0f, .radius = 8.0f};
     UiSize size{UiSize::Md};

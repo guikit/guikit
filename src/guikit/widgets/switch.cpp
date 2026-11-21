@@ -15,21 +15,21 @@ Vec2 MeasureSwitchControl(
     const UiTheme& theme
 ) noexcept {
     const SwitchMetrics& m = theme.GetSwitch(size);
-    float ctrlW = m.trackSize.x;
-    float ctrlH = m.trackSize.y;
+    keel::f32 ctrlW = m.trackSize.x;
+    keel::f32 ctrlH = m.trackSize.y;
 
     if (!opts.textLeft.empty() || !opts.textLeft.variants.empty()) {
-        const float leftFont = theme.ResolveFontSize(opts.textLeft, TextRole::LabelMedium, size);
-        const float leftW = TextUtil::MeasureWidth(opts.textLeft, leftFont, canvas);
-        const float leftH = canvas ? canvas->GetLineHeight(leftFont) : theme.GetLineHeight(leftFont);
+        const keel::f32 leftFont = theme.ResolveFontSize(opts.textLeft, TextRole::LabelMedium, size);
+        const keel::f32 leftW = TextUtil::MeasureWidth(opts.textLeft, leftFont, canvas);
+        const keel::f32 leftH = canvas ? canvas->GetLineHeight(leftFont) : theme.GetLineHeight(leftFont);
         ctrlW += leftW + m.gap;
         ctrlH = keel::max(ctrlH, leftH);
     }
 
     if (!opts.textRight.empty() || !opts.textRight.variants.empty()) {
-        const float rightFont = theme.ResolveFontSize(opts.textRight, TextRole::LabelMedium, size);
-        const float rightW = TextUtil::MeasureWidth(opts.textRight, rightFont, canvas);
-        const float rightH = canvas ? canvas->GetLineHeight(rightFont) : theme.GetLineHeight(rightFont);
+        const keel::f32 rightFont = theme.ResolveFontSize(opts.textRight, TextRole::LabelMedium, size);
+        const keel::f32 rightW = TextUtil::MeasureWidth(opts.textRight, rightFont, canvas);
+        const keel::f32 rightH = canvas ? canvas->GetLineHeight(rightFont) : theme.GetLineHeight(rightFont);
         ctrlW += m.gap + rightW;
         ctrlH = keel::max(ctrlH, rightH);
     }
@@ -114,7 +114,7 @@ Response Switch::Run(
         optsCopy.textLeft,
         optsCopy.textRight
     );
-    node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* opts = n->As<SwitchOptions>();
         return Switch::Measure(opts ? *opts : SwitchOptions{}, n->uiSize, canvas, theme, availableWidth);
     };
@@ -150,7 +150,7 @@ Vec2 Switch::Measure(
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme,
-    float /*availableWidth*/
+    keel::f32 /*availableWidth*/
 ) {
     const Vec2 ctrlDims = MeasureSwitchControl(opts, size, canvas, theme);
     const ControlSpec ctrl = EffectiveSwitchControl(size, theme);
@@ -161,7 +161,7 @@ Vec2 Switch::Measure(
     const SwitchOptions& opts,
     UiSize size,
     ICanvas* canvas,
-    float availableWidth
+    keel::f32 availableWidth
 ) {
     static const UiTheme defaultTheme = UiTheme::Dark();
     return Measure(opts, size, canvas, defaultTheme, availableWidth);
@@ -188,10 +188,10 @@ void Switch::Render(
 
     const Vec2 ctrlDims = MeasureSwitchControl(opts, size, &canvas, theme);
     const Rect ctrlRect = bounds;
-    float curX = ctrlRect.x + keel::max(0.0f, (ctrlRect.w - ctrlDims.x) * 0.5f);
+    keel::f32 curX = ctrlRect.x + keel::max(0.0f, (ctrlRect.w - ctrlDims.x) * 0.5f);
     if (!opts.textLeft.empty() || !opts.textLeft.variants.empty()) {
-        const float leftFont = theme.ResolveFontSize(opts.textLeft, TextRole::LabelMedium, size);
-        const float leftW = TextUtil::MeasureWidth(opts.textLeft, leftFont, &canvas);
+        const keel::f32 leftFont = theme.ResolveFontSize(opts.textLeft, TextRole::LabelMedium, size);
+        const keel::f32 leftW = TextUtil::MeasureWidth(opts.textLeft, leftFont, &canvas);
         if (!opts.textLeft.empty()) {
             const UiVariant defaultLeftVar = checked ? UiVariant::Secondary : UiVariant::Default;
             const Color leftCol = theme.ResolveTextColor(opts.textLeft, defaultLeftVar, disabled);
@@ -207,14 +207,14 @@ void Switch::Render(
         curX += leftW + m.gap;
     }
 
-    const float trackY = ctrlRect.y + (ctrlRect.h - m.trackSize.y) * 0.5f;
+    const keel::f32 trackY = ctrlRect.y + (ctrlRect.h - m.trackSize.y) * 0.5f;
     const Rect trackRect(curX, trackY, m.trackSize.x, m.trackSize.y);
     curX += m.trackSize.x;
 
     if (!opts.textRight.empty() || !opts.textRight.variants.empty()) {
         curX += m.gap;
-        const float rightFont = theme.ResolveFontSize(opts.textRight, TextRole::LabelMedium, size);
-        const float rightW = TextUtil::MeasureWidth(opts.textRight, rightFont, &canvas);
+        const keel::f32 rightFont = theme.ResolveFontSize(opts.textRight, TextRole::LabelMedium, size);
+        const keel::f32 rightW = TextUtil::MeasureWidth(opts.textRight, rightFont, &canvas);
         if (!opts.textRight.empty()) {
             const UiVariant defaultRightVar = checked ? UiVariant::Default : UiVariant::Secondary;
             const Color rightCol = theme.ResolveTextColor(opts.textRight, defaultRightVar, disabled);
@@ -232,7 +232,7 @@ void Switch::Render(
     // Determine track & knob colors
     Color trackFill;
     Color trackStroke{0, 0, 0, 0};
-    float strokeWidth = 0.0f;
+    keel::f32 strokeWidth = 0.0f;
     Color knobFill;
 
     if (opts.symmetric) {
@@ -276,12 +276,12 @@ void Switch::Render(
     }
 
     // Draw track
-    const float trackRadius = m.trackSize.y * 0.5f;
+    const keel::f32 trackRadius = m.trackSize.y * 0.5f;
     canvas.DrawRoundRect(trackRect, trackRadius, trackFill, trackStroke, strokeWidth);
 
     // Compute knob position centered exactly on track's vertical midline
-    const float knobY = trackRect.y + (trackRect.h - m.knobDiameter) * 0.5f;
-    float knobX = 0.0f;
+    const keel::f32 knobY = trackRect.y + (trackRect.h - m.knobDiameter) * 0.5f;
+    keel::f32 knobX = 0.0f;
     if (checked) {
         knobX = trackRect.x + trackRect.w - m.knobDiameter - m.knobPadding;
     } else {

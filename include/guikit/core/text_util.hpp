@@ -11,32 +11,32 @@ class ICanvas;
 struct UiTheme;
 
 /// Subpixel tolerance in points for anti-aliasing and rasterizer grid rounding.
-inline constexpr float kTextSubpixelTolerance = 0.5f;
+inline constexpr keel::f32 kTextSubpixelTolerance = 0.5f;
 
 /// Platform- and backend-agnostic text layout, wrapping, and truncation utility.
 class TextUtil {
 public:
     /// Measures single-line text width in points using canvas or fallback ratio.
-    [[nodiscard]] static float MeasureWidth(
+    [[nodiscard]] static keel::f32 MeasureWidth(
         keel::StringRef text,
-        float fontSize,
+        keel::f32 fontSize,
         ICanvas* canvas = nullptr
     ) noexcept;
 
     /// Measures maximum single-line text width across UiText's active string and all its candidate variants.
     template <typename T>
         requires keel::IsSame<T, UiText>
-    [[nodiscard]] static float MeasureWidth(
+    [[nodiscard]] static keel::f32 MeasureWidth(
         const T& text,
-        float fontSize,
+        keel::f32 fontSize,
         ICanvas* canvas = nullptr
     ) noexcept {
         return MeasureUiTextWidth(text, fontSize, canvas);
     }
 
-    [[nodiscard]] static float MeasureUiTextWidth(
+    [[nodiscard]] static keel::f32 MeasureUiTextWidth(
         const UiText& text,
-        float fontSize,
+        keel::f32 fontSize,
         ICanvas* canvas = nullptr
     ) noexcept;
 
@@ -45,8 +45,8 @@ public:
     /// If maxWidth cannot even accommodate "...", returns empty string.
     [[nodiscard]] static keel::FixedString<256> TruncateWithEllipsis(
         keel::StringRef text,
-        float maxWidth,
-        float fontSize,
+        keel::f32 maxWidth,
+        keel::f32 fontSize,
         ICanvas* canvas = nullptr,
         FontStyle style = FontStyle::Regular
     );
@@ -56,27 +56,27 @@ public:
     /// Preserves explicit newline characters ('\n').
     [[nodiscard]] static keel::SmallArray<keel::StringRef, 16> WrapText(
         keel::StringRef text,
-        float maxWidth,
-        float fontSize,
+        keel::f32 maxWidth,
+        keel::f32 fontSize,
         ICanvas* canvas = nullptr
     );
 
     /// Calculates total height of wrapped text given maxWidth and lineHeight.
-    [[nodiscard]] static float MeasureWrappedHeight(
+    [[nodiscard]] static keel::f32 MeasureWrappedHeight(
         keel::StringRef text,
-        float maxWidth,
-        float fontSize,
-        float lineHeight,
+        keel::f32 maxWidth,
+        keel::f32 fontSize,
+        keel::f32 lineHeight,
         ICanvas* canvas = nullptr
     );
 
     /// Calculates total vertical height for a UiText considering its wrap mode, minLines/maxLines reservation,
     /// and candidate variants. Returns 0.0f when empty and minLines == 0.
-    [[nodiscard]] static float MeasureUiTextHeight(
+    [[nodiscard]] static keel::f32 MeasureUiTextHeight(
         const UiText& text,
-        float maxWidth,
-        float fontSize,
-        float lineHeight,
+        keel::f32 maxWidth,
+        keel::f32 fontSize,
+        keel::f32 lineHeight,
         ICanvas* canvas = nullptr,
         const UiTheme* theme = nullptr
     ) noexcept;
@@ -86,34 +86,34 @@ public:
         ICanvas& canvas,
         const UiText& text,
         Rect bounds,
-        float fontSize,
-        float lineHeight,
+        keel::f32 fontSize,
+        keel::f32 lineHeight,
         Color color,
-        float alignX = 0.0f,
-        float singleLineAlignY = 0.5f,
+        keel::f32 alignX = 0.0f,
+        keel::f32 singleLineAlignY = 0.5f,
         const UiTheme* theme = nullptr
     );
 
     /// Measures total horizontal width of a UiAffix (icon + text + innerGap if both are present).
-    [[nodiscard]] static float MeasureAffixWidth(
+    [[nodiscard]] static keel::f32 MeasureAffixWidth(
         const UiAffix& affix,
-        float fontSize,
-        float iconSize,
-        float innerGap = 4.0f,
+        keel::f32 fontSize,
+        keel::f32 iconSize,
+        keel::f32 innerGap = 4.0f,
         ICanvas* canvas = nullptr
     ) noexcept;
 
     /// Renders a UiAffix horizontally inside `rowBounds` starting at `rowBounds.x` (respecting iconPlacement)
     /// and returns the total width consumed by the affix.
-    static float DrawAffix(
+    static keel::f32 DrawAffix(
         ICanvas& canvas,
         const UiAffix& affix,
         Rect rowBounds,
-        float fontSize,
-        float iconSize,
+        keel::f32 fontSize,
+        keel::f32 iconSize,
         Color textColor,
         Color iconColor,
-        float innerGap = 4.0f
+        keel::f32 innerGap = 4.0f
     );
 
     /// Returns the byte index of the previous UTF-8 codepoint boundary before `index`.
@@ -134,8 +134,8 @@ public:
     /// Hit-tests a horizontal local coordinate `localX` (in points from text start) to the nearest UTF-8 character boundary byte index.
     [[nodiscard]] static keel::usize HitTestIndex(
         keel::StringRef text,
-        float localX,
-        float fontSize,
+        keel::f32 localX,
+        keel::f32 fontSize,
         ICanvas* canvas = nullptr
     ) noexcept;
 
@@ -162,14 +162,14 @@ public:
         ICanvas& canvas,
         keel::StringRef text,
         Rect bounds,
-        float fontSize,
+        keel::f32 fontSize,
         Color textColor,
         keel::usize matchPos,
         keel::usize matchLen,
         Color highlightFill,
         Color highlightBorder = Color::Transparent(),
-        float pillRadius = 3.0f,
-        float alignY = 0.5f,
+        keel::f32 pillRadius = 3.0f,
+        keel::f32 alignY = 0.5f,
         FontStyle style = FontStyle::Regular
     );
 };

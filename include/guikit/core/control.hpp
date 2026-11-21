@@ -18,14 +18,14 @@ struct ControlSpec {
     AxisSize height{};                                       ///< Requested vertical sizing policy (`Auto`, `Fit`, `Stretch`, or `Fixed(dp)`)
     SizeMode defaultWidthMode{SizeMode::Fit};                ///< Widget's natural horizontal fallback when `width` is `Auto`
     SizeMode defaultHeightMode{SizeMode::Fit};               ///< Widget's natural vertical fallback when `height` is `Auto`
-    keel::Optional<float> minWidth{keel::kNullOpt};          ///< Optional minimum control width in logical dp
-    keel::Optional<float> maxWidth{keel::kNullOpt};          ///< Optional maximum control width in logical dp
-    keel::Optional<float> minHeight{keel::kNullOpt};         ///< Optional minimum control height in logical dp
-    keel::Optional<float> maxHeight{keel::kNullOpt};         ///< Optional maximum control height in logical dp
+    keel::Optional<keel::f32> minWidth{keel::kNullOpt};          ///< Optional minimum control width in logical dp
+    keel::Optional<keel::f32> maxWidth{keel::kNullOpt};          ///< Optional maximum control width in logical dp
+    keel::Optional<keel::f32> minHeight{keel::kNullOpt};         ///< Optional minimum control height in logical dp
+    keel::Optional<keel::f32> maxHeight{keel::kNullOpt};         ///< Optional maximum control height in logical dp
     ElementLayout defaultLayout{ElementLayout::Stacked};     ///< Default parent Element layout when wrapped (Trailing for Switch/Checkbox/Radio, Leading for Knob, Stacked for others)
-    float labelGap{0.0f};                                    ///< Preferred vertical gap between parent Element label and control
-    float descGap{0.0f};                                     ///< Preferred vertical gap between control and parent Element description
-    float inlineGap{0.0f};                                   ///< Preferred horizontal gap in Inline layout
+    keel::f32 labelGap{0.0f};                                    ///< Preferred vertical gap between parent Element label and control
+    keel::f32 descGap{0.0f};                                     ///< Preferred vertical gap between control and parent Element description
+    keel::f32 inlineGap{0.0f};                                   ///< Preferred horizontal gap in Inline layout
 };
 
 /// Foundational Control sizing and interaction binding helpers.
@@ -39,9 +39,9 @@ public:
         SizeMode defaultWidthMode = SizeMode::Fit,
         SizeMode defaultHeightMode = SizeMode::Fit,
         ElementLayout defaultLayout = ElementLayout::Stacked,
-        float labelGap = 0.0f,
-        float descGap = 0.0f,
-        float inlineGap = 0.0f
+        keel::f32 labelGap = 0.0f,
+        keel::f32 descGap = 0.0f,
+        keel::f32 inlineGap = 0.0f
     ) noexcept {
         return ControlSpec{
             .width = opts.width,
@@ -78,18 +78,18 @@ public:
 
     /// Resolves effective proportional `flexGrow` weight along the parent container's main axis
     /// from `AxisSize::Stretch(weight)` (falling back to `fallbackFlexGrow` when no custom weight is set).
-    [[nodiscard]] static float ResolveFlexGrow(
+    [[nodiscard]] static keel::f32 ResolveFlexGrow(
         const Node* parent,
         AxisSize width,
         AxisSize height,
-        float fallbackFlexGrow = 1.0f
+        keel::f32 fallbackFlexGrow = 1.0f
     ) noexcept;
 
-    [[nodiscard]] static float ResolveFlexGrow(
+    [[nodiscard]] static keel::f32 ResolveFlexGrow(
         const Context& ctx,
         AxisSize width,
         AxisSize height,
-        float fallbackFlexGrow = 1.0f
+        keel::f32 fallbackFlexGrow = 1.0f
     ) noexcept;
 
     /// Measures the control's dimensions given its natural `intrinsicSize`, applying

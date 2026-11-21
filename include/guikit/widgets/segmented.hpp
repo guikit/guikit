@@ -33,10 +33,10 @@ struct SegmentedOptions {
     UiSize size{UiSize::Md};                         ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)
     AxisSize width{};                                ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or explicit `dp`)
     AxisSize height{};                               ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or explicit `dp`)
-    keel::Optional<float> minWidth{keel::kNullOpt};  ///< Optional minimum width in logical dp
-    keel::Optional<float> maxWidth{keel::kNullOpt};  ///< Optional maximum width in logical dp
-    keel::Optional<float> minHeight{keel::kNullOpt}; ///< Optional minimum height in logical dp
-    keel::Optional<float> maxHeight{keel::kNullOpt}; ///< Optional maximum height in logical dp
+    keel::Optional<keel::f32> minWidth{keel::kNullOpt};  ///< Optional minimum width in logical dp
+    keel::Optional<keel::f32> maxWidth{keel::kNullOpt};  ///< Optional maximum width in logical dp
+    keel::Optional<keel::f32> minHeight{keel::kNullOpt}; ///< Optional minimum height in logical dp
+    keel::Optional<keel::f32> maxHeight{keel::kNullOpt}; ///< Optional maximum height in logical dp
     StateColor color{};                              ///< Active segment fill semantic color override
     StateColor background{};                         ///< Optional outer track background override (`{}` = theme default, `StateColor::None()` = transparent)
     Border border{};                                 ///< Optional border width, color, and radius override
@@ -85,14 +85,14 @@ public:
         UiSize size,
         ICanvas* canvas,
         const UiTheme& theme,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     );
     static Vec2 Measure(
         keel::ArrayRef<SegmentedItem> items,
         const SegmentedOptions& opts,
         UiSize size,
         ICanvas* canvas = nullptr,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     );
 
     /// Renders the segmented control track, dividers, active segment pills, icons, and labels.

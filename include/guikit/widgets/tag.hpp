@@ -36,10 +36,10 @@ struct TagOptions {
     Border border{.width = 1.0f};                    ///< Border width, radius & color override
     AxisSize width{};                                ///< Horizontal sizing (`Auto` -> `Fit`)
     AxisSize height{};                               ///< Vertical sizing (`Auto` -> `Fit`)
-    keel::Optional<float> minWidth{keel::kNullOpt};
-    keel::Optional<float> maxWidth{keel::kNullOpt};
-    keel::Optional<float> minHeight{keel::kNullOpt};
-    keel::Optional<float> maxHeight{keel::kNullOpt};
+    keel::Optional<keel::f32> minWidth{keel::kNullOpt};
+    keel::Optional<keel::f32> maxWidth{keel::kNullOpt};
+    keel::Optional<keel::f32> minHeight{keel::kNullOpt};
+    keel::Optional<keel::f32> maxHeight{keel::kNullOpt};
 };
 
 /// Extended response returned by `ui.Tag(...)`.

@@ -83,7 +83,7 @@ public:
         return ic;
     }
 
-    [[nodiscard]] static Icon Texture(keel::u64 textureId, float width, float height) noexcept {
+    [[nodiscard]] static Icon Texture(keel::u64 textureId, keel::f32 width, keel::f32 height) noexcept {
         Icon ic;
         ic.m_type = SourceType::Texture;
         ic.m_textureId = textureId;

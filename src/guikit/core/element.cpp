@@ -43,10 +43,10 @@ void AccumulateSlotSubtree(
     if (sub->focused || sub->active) ioActive = true;
     ioHash = detail::HashArgs(
         ioHash,
-        static_cast<keel::u8>(sub->type),
+        keel::as<keel::u8>(sub->type),
         sub->visualHash,
-        static_cast<keel::u8>(sub->widthMode),
-        static_cast<keel::u8>(sub->heightMode),
+        keel::as<keel::u8>(sub->widthMode),
+        keel::as<keel::u8>(sub->heightMode),
         sub->fixedWidth,
         sub->fixedHeight,
         sub->flexGrow,
@@ -71,7 +71,7 @@ ElementSpec MakeSpecFromPayload(
         if (!s.width.IsFixed()) {
             s.width = n->widthMode;
         }
-        const float d = n->GetDensity();
+        const keel::f32 d = n->GetDensity();
         s.labelGap *= d;
         s.descGap *= d;
         s.inlineGap *= d;
@@ -103,10 +103,10 @@ ElementSpec MakeSpecFromPayload(
     ctrl.minWidth = keel::kNullOpt;
     ctrl.minHeight = keel::kNullOpt;
 
-    const float d = n->GetDensity();
-    const float baseLabelGap = ((ctrl.labelGap > 0.0f) ? ctrl.labelGap : im.labelGap) * d;
-    const float baseDescGap = ((ctrl.descGap > 0.0f) ? ctrl.descGap : im.descGap) * d;
-    const float baseInlineGap = ((ctrl.inlineGap > 0.0f) ? ctrl.inlineGap : cm.paddingX) * d;
+    const keel::f32 d = n->GetDensity();
+    const keel::f32 baseLabelGap = ((ctrl.labelGap > 0.0f) ? ctrl.labelGap : im.labelGap) * d;
+    const keel::f32 baseDescGap = ((ctrl.descGap > 0.0f) ? ctrl.descGap : im.descGap) * d;
+    const keel::f32 baseInlineGap = ((ctrl.inlineGap > 0.0f) ? ctrl.inlineGap : cm.paddingX) * d;
 
     return ElementSpec{
         .label = ep.opts.label,
@@ -128,16 +128,16 @@ ElementSpec MakeSpecFromPayload(
     };
 }
 
-float ResolveSlotAvailableWidth(
+keel::f32 ResolveSlotAvailableWidth(
     const ElementSpec& spec,
-    float availableWidth,
+    keel::f32 availableWidth,
     ICanvas* canvas,
     const UiTheme& theme,
-    float descFontSize,
+    keel::f32 descFontSize,
     Vec2 measuredLabelBar
 ) noexcept {
     if (spec.width.IsFixed()) {
-        const float fixedOuterW = spec.width.Dp();
+        const keel::f32 fixedOuterW = spec.width.Dp();
         availableWidth = (availableWidth > 0.0f) ? keel::min(availableWidth, fixedOuterW) : fixedOuterW;
     }
     if (availableWidth <= 0.0f) {
@@ -155,8 +155,8 @@ float ResolveSlotAvailableWidth(
         return keel::min(availableWidth, spec.control.width.Dp());
     }
     if (spec.control.width.ResolveMode(spec.control.defaultWidthMode) == SizeMode::Stretch) {
-        const float descW = hasDesc ? TextUtil::MeasureUiTextWidth(spec.description, descFontSize, canvas) : 0.0f;
-        const float textW = keel::max(measuredLabelBar.x, descW);
+        const keel::f32 descW = hasDesc ? TextUtil::MeasureUiTextWidth(spec.description, descFontSize, canvas) : 0.0f;
+        const keel::f32 textW = keel::max(measuredLabelBar.x, descW);
         return keel::max(theme.GetMetrics(spec.widgetSize).defaultHeight, availableWidth - textW - spec.inlineGap);
     }
     return availableWidth;
@@ -164,12 +164,12 @@ float ResolveSlotAvailableWidth(
 
 Vec2 MeasureSingleChildNode(
     const Node* child,
-    float availW,
+    keel::f32 availW,
     ICanvas* canvas,
     const UiTheme& parentTheme
 ) noexcept {
     const UiTheme& childTheme = child->GetTheme(parentTheme);
-    const float childQueryW = (child->widthMode == SizeMode::Fixed && child->fixedWidth > 0.0f)
+    const keel::f32 childQueryW = (child->widthMode == SizeMode::Fixed && child->fixedWidth > 0.0f)
         ? ((availW > 0.0f) ? keel::min(availW, child->fixedWidth) : child->fixedWidth)
         : availW;
     Vec2 intr = child->measureFn
@@ -199,7 +199,7 @@ Vec2 MeasureSingleChildNode(
 
 Vec2 MeasureControlSlot(
     const Node* elNode,
-    float slotAvailW,
+    keel::f32 slotAvailW,
     ICanvas* canvas,
     const UiTheme& theme
 ) noexcept {
@@ -237,23 +237,23 @@ void ArrangeControlSlot(
 
 } // namespace
 
-float Element::ResolveLabelFontSize(const ElementSpec& spec, const UiTheme& theme) noexcept {
+keel::f32 Element::ResolveLabelFontSize(const ElementSpec& spec, const UiTheme& theme) noexcept {
     return theme.ResolveFontSize(spec.label, TextRole::LabelLarge, spec.widgetSize);
 }
 
-float Element::ResolveDescFontSize(const ElementSpec& spec, const UiTheme& theme) noexcept {
+keel::f32 Element::ResolveDescFontSize(const ElementSpec& spec, const UiTheme& theme) noexcept {
     return theme.ResolveFontSize(spec.description, TextRole::LabelSmall, spec.widgetSize);
 }
 
 Vec2 Element::MeasureLabelBar(
     const ElementSpec& spec,
-    float labelFontSize,
+    keel::f32 labelFontSize,
     ICanvas* canvas,
     const UiTheme& theme
 ) noexcept {
     const UiSize effSize = (spec.widgetSize == UiSize::None) ? UiSize::Md : spec.widgetSize;
     const ComponentMetrics& m = theme.GetMetrics(effSize);
-    const float badgeFont = (spec.badge.size.px > 0.0f)
+    const keel::f32 badgeFont = (spec.badge.size.px > 0.0f)
         ? spec.badge.size.px
         : (spec.badge.size.role.has_value()
             ? theme.GetTypography(*spec.badge.size.role).fontSize
@@ -261,8 +261,8 @@ Vec2 Element::MeasureLabelBar(
                 ? theme.GetMetrics(spec.badge.size.preset).badgeFontSize
                 : m.badgeFontSize));
 
-    float barW = 0.0f;
-    float barH = 0.0f;
+    keel::f32 barW = 0.0f;
+    keel::f32 barH = 0.0f;
 
     if (spec.icon.IsValid()) {
         barW += m.iconSize;
@@ -271,16 +271,16 @@ Vec2 Element::MeasureLabelBar(
 
     if (spec.label.HasContentOrReserve()) {
         if (barW > 0.0f) barW += m.itemGap;
-        const float textW = TextUtil::MeasureUiTextWidth(spec.label, labelFontSize, canvas);
+        const keel::f32 textW = TextUtil::MeasureUiTextWidth(spec.label, labelFontSize, canvas);
         barW += textW;
-        const float lineH = canvas ? canvas->GetLineHeight(labelFontSize) : theme.GetLineHeight(labelFontSize);
+        const keel::f32 lineH = canvas ? canvas->GetLineHeight(labelFontSize) : theme.GetLineHeight(labelFontSize);
         barH = keel::max(barH, lineH);
     }
 
     if (spec.badge.HasContentOrReserve()) {
         if (barW > 0.0f) barW += m.badgeGap;
-        const float badgeTextW = TextUtil::MeasureWidth(spec.badge, badgeFont, canvas);
-        const float badgeW = badgeTextW + 12.0f;
+        const keel::f32 badgeTextW = TextUtil::MeasureWidth(spec.badge, badgeFont, canvas);
+        const keel::f32 badgeW = badgeTextW + 12.0f;
         barW += badgeW;
         barH = keel::max(barH, badgeFont * 1.4f);
     }
@@ -352,7 +352,7 @@ void Element::SyncWithChildren(Context& /*ctx*/, Node* elNode) noexcept {
         if (subActive) elNode->active = true;
 
         if (!ep->opts.width.IsFixed()) {
-            const float childMinW = (slotChild->widthMode == SizeMode::Fixed && slotChild->fixedWidth > 0.0f)
+            const keel::f32 childMinW = (slotChild->widthMode == SizeMode::Fixed && slotChild->fixedWidth > 0.0f)
                 ? slotChild->fixedWidth
                 : slotChild->minWidth;
             if (childMinW > 0.0f) {
@@ -412,18 +412,18 @@ void Element::SyncWithChildren(Context& /*ctx*/, Node* elNode) noexcept {
     }
 
     elNode->visualHash = detail::HashArgs(
-        static_cast<keel::u8>(ep->opts.layout.value_or(ElementLayout::Stacked)),
+        keel::as<keel::u8>(ep->opts.layout.value_or(ElementLayout::Stacked)),
         ep->opts.layout.has_value(),
-        static_cast<keel::u8>(ep->opts.align),
-        static_cast<keel::u8>(elNode->widthMode),
-        static_cast<keel::u8>(elNode->heightMode),
+        keel::as<keel::u8>(ep->opts.align),
+        keel::as<keel::u8>(elNode->widthMode),
+        keel::as<keel::u8>(elNode->heightMode),
         ep->opts.width,
         ep->opts.label,
         ep->opts.description,
         ep->opts.badge,
         elNode->disabled,
-        static_cast<keel::u8>(ep->opts.icon.GetType()),
-        static_cast<keel::u8>(ep->opts.icon.GetId()),
+        keel::as<keel::u8>(ep->opts.icon.GetType()),
+        keel::as<keel::u8>(ep->opts.icon.GetId()),
         ep->opts.icon.GetPath(),
         slotChild != nullptr,
         childrenHash
@@ -471,17 +471,17 @@ ElementScope Element::Open(
 
     SyncWithChildren(ctx, node);
 
-    node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* ep = n->As<ElementPayload>();
         if (!ep) return {0.0f, 0.0f};
         ep->lastCanvas = canvas;
         const ElementSpec spec = MakeSpecFromPayload(n, *ep, theme);
         Vec2 slotIntrinsic{0.0f, 0.0f};
         if (spec.hasControl) {
-            const float labelFs = ResolveLabelFontSize(spec, theme);
-            const float descFs = ResolveDescFontSize(spec, theme);
+            const keel::f32 labelFs = ResolveLabelFontSize(spec, theme);
+            const keel::f32 descFs = ResolveDescFontSize(spec, theme);
             const Vec2 rawBar = HasLabelBar(spec) ? MeasureLabelBar(spec, labelFs, canvas, theme) : Vec2{0.0f, 0.0f};
-            const float slotAvailW = ResolveSlotAvailableWidth(spec, availableWidth, canvas, theme, descFs, rawBar);
+            const keel::f32 slotAvailW = ResolveSlotAvailableWidth(spec, availableWidth, canvas, theme, descFs, rawBar);
             slotIntrinsic = MeasureControlSlot(n, slotAvailW, canvas, theme);
         }
         return Element::Measure(slotIntrinsic, spec, canvas, theme, availableWidth);
@@ -497,10 +497,10 @@ ElementScope Element::Open(
             Element::Render(canvas, n->computedRect, spec, theme);
             return;
         }
-        const float labelFs = ResolveLabelFontSize(spec, theme);
-        const float descFs = ResolveDescFontSize(spec, theme);
+        const keel::f32 labelFs = ResolveLabelFontSize(spec, theme);
+        const keel::f32 descFs = ResolveDescFontSize(spec, theme);
         const Vec2 rawBar = HasLabelBar(spec) ? MeasureLabelBar(spec, labelFs, &canvas, theme) : Vec2{0.0f, 0.0f};
-        const float slotAvailW = ResolveSlotAvailableWidth(spec, n->computedRect.w, &canvas, theme, descFs, rawBar);
+        const keel::f32 slotAvailW = ResolveSlotAvailableWidth(spec, n->computedRect.w, &canvas, theme, descFs, rawBar);
         const Vec2 slotIntrinsic = MeasureControlSlot(n, slotAvailW, &canvas, theme);
         const ElementGeometry geom = Element::Resolve(n->computedRect, slotIntrinsic, spec, &canvas, theme);
         Element::RenderText(canvas, geom, spec, theme);
@@ -532,10 +532,10 @@ void Element::Arrange(
         return;
     }
 
-    const float labelFs = ResolveLabelFontSize(spec, theme);
-    const float descFs = ResolveDescFontSize(spec, theme);
+    const keel::f32 labelFs = ResolveLabelFontSize(spec, theme);
+    const keel::f32 descFs = ResolveDescFontSize(spec, theme);
     const Vec2 rawBar = HasLabelBar(spec) ? MeasureLabelBar(spec, labelFs, ep->lastCanvas, theme) : Vec2{0.0f, 0.0f};
-    const float slotAvailW = ResolveSlotAvailableWidth(spec, bounds.w, ep->lastCanvas, theme, descFs, rawBar);
+    const keel::f32 slotAvailW = ResolveSlotAvailableWidth(spec, bounds.w, ep->lastCanvas, theme, descFs, rawBar);
     const Vec2 slotIntrinsic = MeasureControlSlot(node, slotAvailW, ep->lastCanvas, theme);
     const ElementGeometry geom = Element::Resolve(bounds, slotIntrinsic, spec, ep->lastCanvas, theme);
     ArrangeControlSlot(node, geom.controlRect, ep->lastCanvas, theme);
@@ -546,10 +546,10 @@ Vec2 Element::Measure(
     const ElementSpec& spec,
     ICanvas* canvas,
     const UiTheme& theme,
-    float availableWidth
+    keel::f32 availableWidth
 ) noexcept {
-    const float labelFontSize = ResolveLabelFontSize(spec, theme);
-    const float descFontSize = ResolveDescFontSize(spec, theme);
+    const keel::f32 labelFontSize = ResolveLabelFontSize(spec, theme);
+    const keel::f32 descFontSize = ResolveDescFontSize(spec, theme);
 
     if (!spec.hasControl) {
         intrinsicControlSize = MeasureLabelBar(spec, labelFontSize, canvas, theme);
@@ -565,18 +565,18 @@ Vec2 Element::Measure(
     const bool hasLabel = spec.hasControl && HasLabelBar(spec);
     const bool hasDesc = spec.description.HasContentOrReserve();
     const bool hasExternal = hasLabel || hasDesc;
-    const float rawDescW = hasDesc ? TextUtil::MeasureUiTextWidth(spec.description, descFontSize, canvas) : 0.0f;
+    const keel::f32 rawDescW = hasDesc ? TextUtil::MeasureUiTextWidth(spec.description, descFontSize, canvas) : 0.0f;
 
-    float minNoCtrlW = intrinsicControlSize.x;
+    keel::f32 minNoCtrlW = intrinsicControlSize.x;
     if (!spec.hasControl) {
-        const float natW = IsInlineElementLayout(spec.layout)
+        const keel::f32 natW = IsInlineElementLayout(spec.layout)
             ? (intrinsicControlSize.x + (hasDesc && rawDescW > 0.0f ? spec.inlineGap + rawDescW : 0.0f))
             : keel::max(intrinsicControlSize.x, rawDescW);
         minNoCtrlW = (hasDesc && !spec.description.wrap.IsWordWrap()) ? natW : intrinsicControlSize.x;
     }
 
     if (hasOuterDpW) {
-        const float targetW = spec.hasControl
+        const keel::f32 targetW = spec.hasControl
             ? spec.width.Dp()
             : keel::max(minNoCtrlW, spec.width.Dp());
         availableWidth = (availableWidth > 0.0f) ? keel::min(availableWidth, targetW) : targetW;
@@ -596,44 +596,44 @@ Vec2 Element::Measure(
     }
 
     const Vec2 rawLabelBar = hasLabel ? MeasureLabelBar(spec, labelFontSize, canvas, theme) : Vec2{0.0f, 0.0f};
-    float effLabelW = rawLabelBar.x;
-    float effDescW = rawDescW;
+    keel::f32 effLabelW = rawLabelBar.x;
+    keel::f32 effDescW = rawDescW;
 
     if (!IsInlineElementLayout(spec.layout) && outerIsFit && ctrlStretchesW) {
         if (spec.label.wrap.IsWordWrap()) {
             effLabelW = keel::min(effLabelW, intrinsicControlSize.x);
         }
-        const float baseW = keel::max(intrinsicControlSize.x, effLabelW);
+        const keel::f32 baseW = keel::max(intrinsicControlSize.x, effLabelW);
         if (spec.description.wrap.IsWordWrap()) {
             effDescW = keel::min(effDescW, baseW);
         }
     } else if (!spec.hasControl && hasOuterDpW && spec.description.wrap.IsWordWrap()) {
-        const float targetW = keel::max(minNoCtrlW, spec.width.Dp());
-        const float maxDescW = IsInlineElementLayout(spec.layout)
+        const keel::f32 targetW = keel::max(minNoCtrlW, spec.width.Dp());
+        const keel::f32 maxDescW = IsInlineElementLayout(spec.layout)
             ? keel::max(0.0f, targetW - intrinsicControlSize.x - spec.inlineGap)
             : targetW;
         effDescW = keel::min(rawDescW, maxDescW);
     }
 
-    float textWrapW = availableWidth;
+    keel::f32 textWrapW = availableWidth;
     if (spec.hasControl && spec.control.width.IsFixed() && outerIsFit) {
-        const float fixedCtrlW = spec.control.width.Dp();
+        const keel::f32 fixedCtrlW = spec.control.width.Dp();
         textWrapW = (availableWidth > 0.0f) ? keel::min(availableWidth, fixedCtrlW) : fixedCtrlW;
     }
     if (IsInlineElementLayout(spec.layout)) {
         if (textWrapW > 0.0f) {
-            const float ctrlW = keel::min(textWrapW, intrinsicControlSize.x);
+            const keel::f32 ctrlW = keel::min(textWrapW, intrinsicControlSize.x);
             textWrapW = keel::max(0.0f, textWrapW - ctrlW - spec.inlineGap);
         }
     } else if (outerIsFit && ctrlStretchesW) {
-        const float compactBlockW = keel::max(intrinsicControlSize.x, keel::max(effLabelW, effDescW));
+        const keel::f32 compactBlockW = keel::max(intrinsicControlSize.x, keel::max(effLabelW, effDescW));
         textWrapW = (availableWidth > 0.0f) ? keel::min(availableWidth, compactBlockW) : compactBlockW;
     }
 
     Vec2 labelDims{0.0f, 0.0f};
     if (hasLabel) {
-        const float lineH = canvas ? canvas->GetLineHeight(labelFontSize) : theme.GetLineHeight(labelFontSize);
-        const float wrappedH = spec.label.HasContentOrReserve()
+        const keel::f32 lineH = canvas ? canvas->GetLineHeight(labelFontSize) : theme.GetLineHeight(labelFontSize);
+        const keel::f32 wrappedH = spec.label.HasContentOrReserve()
             ? TextUtil::MeasureUiTextHeight(spec.label, textWrapW, labelFontSize, lineH, canvas, &theme)
             : 0.0f;
         labelDims = {effLabelW, keel::max(rawLabelBar.y, wrappedH)};
@@ -641,42 +641,42 @@ Vec2 Element::Measure(
 
     Vec2 descDims{0.0f, 0.0f};
     if (hasDesc) {
-        const float lineH = canvas ? canvas->GetLineHeight(descFontSize) : theme.GetLineHeight(descFontSize);
-        const float h = TextUtil::MeasureUiTextHeight(spec.description, textWrapW, descFontSize, lineH, canvas, &theme);
+        const keel::f32 lineH = canvas ? canvas->GetLineHeight(descFontSize) : theme.GetLineHeight(descFontSize);
+        const keel::f32 h = TextUtil::MeasureUiTextHeight(spec.description, textWrapW, descFontSize, lineH, canvas, &theme);
         descDims = {effDescW, h};
     }
 
     if (spec.layout == ElementLayout::Stacked) {
-        const float totalW = keel::max(intrinsicControlSize.x, keel::max(labelDims.x, descDims.x));
-        float totalH = intrinsicControlSize.y;
+        const keel::f32 totalW = keel::max(intrinsicControlSize.x, keel::max(labelDims.x, descDims.x));
+        keel::f32 totalH = intrinsicControlSize.y;
         if (hasLabel) totalH += labelDims.y + spec.labelGap;
         if (hasDesc)  totalH += spec.descGap + descDims.y;
         return applyOuterFixedWidth({totalW, totalH});
     }
 
     const ComponentMetrics& cm = theme.GetMetrics(spec.widgetSize);
-    const float adjacentTextGap = keel::min(spec.descGap, cm.lineGap);
+    const keel::f32 adjacentTextGap = keel::min(spec.descGap, cm.lineGap);
 
     if (spec.layout == ElementLayout::Top) {
-        const float totalW = keel::max(intrinsicControlSize.x, keel::max(labelDims.x, descDims.x));
-        float textH = 0.0f;
+        const keel::f32 totalW = keel::max(intrinsicControlSize.x, keel::max(labelDims.x, descDims.x));
+        keel::f32 textH = 0.0f;
         if (hasLabel) textH += labelDims.y;
         if (hasDesc)  textH += (hasLabel ? adjacentTextGap : 0.0f) + descDims.y;
         return applyOuterFixedWidth({totalW, textH + spec.labelGap + intrinsicControlSize.y});
     }
 
     if (spec.layout == ElementLayout::Bottom) {
-        const float totalW = keel::max(intrinsicControlSize.x, keel::max(labelDims.x, descDims.x));
-        float textH = 0.0f;
+        const keel::f32 totalW = keel::max(intrinsicControlSize.x, keel::max(labelDims.x, descDims.x));
+        keel::f32 textH = 0.0f;
         if (hasLabel) textH += labelDims.y;
         if (hasDesc)  textH += (hasLabel ? adjacentTextGap : 0.0f) + descDims.y;
         return applyOuterFixedWidth({totalW, intrinsicControlSize.y + spec.descGap + textH});
     }
 
     // ElementLayout::Leading / ElementLayout::Trailing
-    const float textW = keel::max(labelDims.x, descDims.x);
+    const keel::f32 textW = keel::max(labelDims.x, descDims.x);
     const bool hasAnyText = (textW > 0.0f) || hasLabel || hasDesc;
-    float textH = 0.0f;
+    keel::f32 textH = 0.0f;
     if (hasLabel && hasDesc) {
         textH = labelDims.y + adjacentTextGap + descDims.y;
     } else if (hasLabel) {
@@ -684,8 +684,8 @@ Vec2 Element::Measure(
     } else if (hasDesc) {
         textH = descDims.y;
     }
-    const float totalW = intrinsicControlSize.x + (hasAnyText && textW > 0.0f ? spec.inlineGap + textW : 0.0f);
-    const float totalH = keel::max(intrinsicControlSize.y, textH);
+    const keel::f32 totalW = intrinsicControlSize.x + (hasAnyText && textW > 0.0f ? spec.inlineGap + textW : 0.0f);
+    const keel::f32 totalH = keel::max(intrinsicControlSize.y, textH);
     return applyOuterFixedWidth({totalW, totalH});
 }
 
@@ -718,16 +718,16 @@ ElementGeometry Element::Resolve(
     geom.hasDesc = spec.description.HasContentOrReserve();
     geom.hasExternal = geom.hasLabel || geom.hasDesc;
 
-    const float alignFactor = (spec.align == Align::End) ? 1.0f : ((spec.align == Align::Center) ? 0.5f : 0.0f);
+    const keel::f32 alignFactor = (spec.align == Align::End) ? 1.0f : ((spec.align == Align::Center) ? 0.5f : 0.0f);
 
     if (!spec.hasControl) {
-        const float rawDescW = geom.hasDesc
+        const keel::f32 rawDescW = geom.hasDesc
             ? TextUtil::MeasureUiTextWidth(spec.description, geom.descFontSize, canvas)
             : 0.0f;
-        const float natW = IsInlineElementLayout(spec.layout)
+        const keel::f32 natW = IsInlineElementLayout(spec.layout)
             ? (intrinsicControlSize.x + (geom.hasDesc && rawDescW > 0.0f ? spec.inlineGap + rawDescW : 0.0f))
             : keel::max(intrinsicControlSize.x, rawDescW);
-        const float minW = (geom.hasDesc && !spec.description.wrap.IsWordWrap()) ? natW : intrinsicControlSize.x;
+        const keel::f32 minW = (geom.hasDesc && !spec.description.wrap.IsWordWrap()) ? natW : intrinsicControlSize.x;
 
         if (hasOuterDpW) {
             geom.bounds.w = keel::min(geom.bounds.w, keel::max(minW, spec.width.Dp()));
@@ -741,23 +741,23 @@ ElementGeometry Element::Resolve(
     bounds = geom.bounds;
     const bool compactOuter = outerIsFit;
 
-    float ctrlW = keel::min(bounds.w, intrinsicControlSize.x);
+    keel::f32 ctrlW = keel::min(bounds.w, intrinsicControlSize.x);
     if (ctrlStretchesW && (!geom.hasExternal || !IsInlineElementLayout(spec.layout))) {
         ctrlW = compactOuter ? keel::min(bounds.w, intrinsicControlSize.x) : bounds.w;
     }
 
     if (!geom.hasExternal) {
-        const float ctrlX = bounds.x + (bounds.w - ctrlW) * alignFactor;
-        const float ctrlH = ctrlStretchesH ? bounds.h : keel::min(intrinsicControlSize.y, bounds.h);
-        const float ctrlY = ctrlStretchesH ? bounds.y : (bounds.y + (bounds.h - ctrlH) * 0.5f);
+        const keel::f32 ctrlX = bounds.x + (bounds.w - ctrlW) * alignFactor;
+        const keel::f32 ctrlH = ctrlStretchesH ? bounds.h : keel::min(intrinsicControlSize.y, bounds.h);
+        const keel::f32 ctrlY = ctrlStretchesH ? bounds.y : (bounds.y + (bounds.h - ctrlH) * 0.5f);
         geom.controlRect = Rect(ctrlX, ctrlY, ctrlW, ctrlH);
         return geom;
     }
 
-    const float labelLineH = geom.hasLabel
+    const keel::f32 labelLineH = geom.hasLabel
         ? (canvas ? canvas->GetLineHeight(geom.labelFontSize) : theme.GetLineHeight(geom.labelFontSize))
         : 0.0f;
-    const float descLineH = geom.hasDesc
+    const keel::f32 descLineH = geom.hasDesc
         ? (canvas ? canvas->GetLineHeight(geom.descFontSize) : theme.GetLineHeight(geom.descFontSize))
         : 0.0f;
 
@@ -769,46 +769,46 @@ ElementGeometry Element::Resolve(
         geom.measuredDescW = TextUtil::MeasureUiTextWidth(spec.description, geom.descFontSize, canvas);
     }
 
-    float effLabelW = geom.measuredLabelW;
-    float effDescW = geom.measuredDescW;
+    keel::f32 effLabelW = geom.measuredLabelW;
+    keel::f32 effDescW = geom.measuredDescW;
     if (!IsInlineElementLayout(spec.layout) && compactOuter && ctrlStretchesW) {
         if (spec.label.wrap.IsWordWrap()) {
             effLabelW = keel::min(effLabelW, ctrlW);
         }
-        const float baseW = keel::max(ctrlW, effLabelW);
+        const keel::f32 baseW = keel::max(ctrlW, effLabelW);
         if (spec.description.wrap.IsWordWrap()) {
             effDescW = keel::min(effDescW, baseW);
         }
     }
 
-    const float measuredTextW = keel::max(effLabelW, effDescW);
+    const keel::f32 measuredTextW = keel::max(effLabelW, effDescW);
     const ComponentMetrics& cm = theme.GetMetrics(spec.widgetSize);
-    const float adjacentTextGap = keel::min(spec.descGap, cm.lineGap);
+    const keel::f32 adjacentTextGap = keel::min(spec.descGap, cm.lineGap);
 
-    const auto resolveLabelH = [&](float availW) noexcept -> float {
+    const auto resolveLabelH = [&](keel::f32 availW) noexcept -> keel::f32 {
         if (!geom.hasLabel) return 0.0f;
-        const float wrappedH = spec.label.HasContentOrReserve()
+        const keel::f32 wrappedH = spec.label.HasContentOrReserve()
             ? TextUtil::MeasureUiTextHeight(spec.label, availW, geom.labelFontSize, labelLineH, canvas, &theme)
             : 0.0f;
         return keel::max(rawLabelBar.y, wrappedH);
     };
 
     if (spec.layout == ElementLayout::Stacked) {
-        const float blockW = compactOuter ? keel::min(bounds.w, keel::max(ctrlW, measuredTextW)) : bounds.w;
+        const keel::f32 blockW = compactOuter ? keel::min(bounds.w, keel::max(ctrlW, measuredTextW)) : bounds.w;
         if (compactOuter && ctrlStretchesW) {
             ctrlW = blockW;
         }
-        const float labelH = resolveLabelH(blockW);
-        const float descH = geom.hasDesc
+        const keel::f32 labelH = resolveLabelH(blockW);
+        const keel::f32 descH = geom.hasDesc
             ? TextUtil::MeasureUiTextHeight(spec.description, blockW, geom.descFontSize, descLineH, canvas, &theme)
             : 0.0f;
-        const float nonCtrlH = (geom.hasLabel ? labelH + spec.labelGap : 0.0f) + (geom.hasDesc ? descH + spec.descGap : 0.0f);
-        const float availCtrlH = keel::max(0.0f, bounds.h - nonCtrlH);
-        const float ctrlH = ctrlStretchesH ? availCtrlH : keel::min(intrinsicControlSize.y, availCtrlH);
-        const float blockX = bounds.x;
-        const float ctrlX = blockX + (blockW - ctrlW) * alignFactor;
+        const keel::f32 nonCtrlH = (geom.hasLabel ? labelH + spec.labelGap : 0.0f) + (geom.hasDesc ? descH + spec.descGap : 0.0f);
+        const keel::f32 availCtrlH = keel::max(0.0f, bounds.h - nonCtrlH);
+        const keel::f32 ctrlH = ctrlStretchesH ? availCtrlH : keel::min(intrinsicControlSize.y, availCtrlH);
+        const keel::f32 blockX = bounds.x;
+        const keel::f32 ctrlX = blockX + (blockW - ctrlW) * alignFactor;
 
-        float curY = bounds.y;
+        keel::f32 curY = bounds.y;
         if (geom.hasLabel) {
             geom.labelRect = Rect(blockX, curY, blockW, labelH);
             curY += labelH + spec.labelGap;
@@ -819,21 +819,21 @@ ElementGeometry Element::Resolve(
             geom.descRect = Rect(blockX, curY, blockW, descH);
         }
     } else if (spec.layout == ElementLayout::Top) {
-        const float blockW = compactOuter ? keel::min(bounds.w, keel::max(ctrlW, measuredTextW)) : bounds.w;
+        const keel::f32 blockW = compactOuter ? keel::min(bounds.w, keel::max(ctrlW, measuredTextW)) : bounds.w;
         if (compactOuter && ctrlStretchesW) {
             ctrlW = blockW;
         }
-        const float labelH = resolveLabelH(blockW);
-        const float descH = geom.hasDesc
+        const keel::f32 labelH = resolveLabelH(blockW);
+        const keel::f32 descH = geom.hasDesc
             ? TextUtil::MeasureUiTextHeight(spec.description, blockW, geom.descFontSize, descLineH, canvas, &theme)
             : 0.0f;
-        const float textTotalH = (geom.hasLabel ? labelH : 0.0f) + (geom.hasDesc ? (geom.hasLabel ? adjacentTextGap : 0.0f) + descH : 0.0f) + spec.labelGap;
-        const float availCtrlH = keel::max(0.0f, bounds.h - textTotalH);
-        const float ctrlH = ctrlStretchesH ? availCtrlH : keel::min(intrinsicControlSize.y, availCtrlH);
-        const float blockX = bounds.x;
-        const float ctrlX = blockX + (blockW - ctrlW) * alignFactor;
+        const keel::f32 textTotalH = (geom.hasLabel ? labelH : 0.0f) + (geom.hasDesc ? (geom.hasLabel ? adjacentTextGap : 0.0f) + descH : 0.0f) + spec.labelGap;
+        const keel::f32 availCtrlH = keel::max(0.0f, bounds.h - textTotalH);
+        const keel::f32 ctrlH = ctrlStretchesH ? availCtrlH : keel::min(intrinsicControlSize.y, availCtrlH);
+        const keel::f32 blockX = bounds.x;
+        const keel::f32 ctrlX = blockX + (blockW - ctrlW) * alignFactor;
 
-        float curY = bounds.y;
+        keel::f32 curY = bounds.y;
         if (geom.hasLabel) {
             geom.labelRect = Rect(blockX, curY, blockW, labelH);
             curY += labelH + (geom.hasDesc ? adjacentTextGap : 0.0f);
@@ -845,21 +845,21 @@ ElementGeometry Element::Resolve(
         curY += spec.labelGap;
         geom.controlRect = Rect(ctrlX, curY, ctrlW, ctrlH);
     } else if (spec.layout == ElementLayout::Bottom) {
-        const float blockW = compactOuter ? keel::min(bounds.w, keel::max(ctrlW, measuredTextW)) : bounds.w;
+        const keel::f32 blockW = compactOuter ? keel::min(bounds.w, keel::max(ctrlW, measuredTextW)) : bounds.w;
         if (compactOuter && ctrlStretchesW) {
             ctrlW = blockW;
         }
-        const float labelH = resolveLabelH(blockW);
-        const float descH = geom.hasDesc
+        const keel::f32 labelH = resolveLabelH(blockW);
+        const keel::f32 descH = geom.hasDesc
             ? TextUtil::MeasureUiTextHeight(spec.description, blockW, geom.descFontSize, descLineH, canvas, &theme)
             : 0.0f;
-        const float textTotalH = spec.descGap + (geom.hasLabel ? labelH : 0.0f) + (geom.hasDesc ? (geom.hasLabel ? adjacentTextGap : 0.0f) + descH : 0.0f);
-        const float availCtrlH = keel::max(0.0f, bounds.h - textTotalH);
-        const float ctrlH = ctrlStretchesH ? availCtrlH : keel::min(intrinsicControlSize.y, availCtrlH);
-        const float blockX = bounds.x;
-        const float ctrlX = blockX + (blockW - ctrlW) * alignFactor;
+        const keel::f32 textTotalH = spec.descGap + (geom.hasLabel ? labelH : 0.0f) + (geom.hasDesc ? (geom.hasLabel ? adjacentTextGap : 0.0f) + descH : 0.0f);
+        const keel::f32 availCtrlH = keel::max(0.0f, bounds.h - textTotalH);
+        const keel::f32 ctrlH = ctrlStretchesH ? availCtrlH : keel::min(intrinsicControlSize.y, availCtrlH);
+        const keel::f32 blockX = bounds.x;
+        const keel::f32 ctrlX = blockX + (blockW - ctrlW) * alignFactor;
 
-        float curY = bounds.y;
+        keel::f32 curY = bounds.y;
         geom.controlRect = Rect(ctrlX, curY, ctrlW, ctrlH);
         curY += geom.controlRect.h + spec.descGap;
         if (geom.hasLabel) {
@@ -870,34 +870,34 @@ ElementGeometry Element::Resolve(
             geom.descRect = Rect(blockX, curY, blockW, descH);
         }
     } else { // ElementLayout::Leading / ElementLayout::Trailing
-        const float gap = spec.inlineGap;
+        const keel::f32 gap = spec.inlineGap;
         if (ctrlStretchesW && !compactOuter) {
             ctrlW = keel::max(0.0f, bounds.w - measuredTextW - gap);
         }
-        const float availTextW = keel::max(0.0f, bounds.w - ctrlW - gap);
-        const float textBlockW = (spec.label.wrap.IsWordWrap() || spec.description.wrap.IsWordWrap())
+        const keel::f32 availTextW = keel::max(0.0f, bounds.w - ctrlW - gap);
+        const keel::f32 textBlockW = (spec.label.wrap.IsWordWrap() || spec.description.wrap.IsWordWrap())
             ? (compactOuter ? keel::min(measuredTextW, availTextW) : availTextW)
             : keel::min(measuredTextW, availTextW);
 
-        const float labelH = resolveLabelH(textBlockW);
-        const float descH = geom.hasDesc
+        const keel::f32 labelH = resolveLabelH(textBlockW);
+        const keel::f32 descH = geom.hasDesc
             ? TextUtil::MeasureUiTextHeight(spec.description, textBlockW, geom.descFontSize, descLineH, canvas, &theme)
             : 0.0f;
 
-        const float totalTextH = (geom.hasLabel && geom.hasDesc) ? (labelH + adjacentTextGap + descH) : (geom.hasLabel ? labelH : descH);
-        const float startY = bounds.y + (bounds.h - totalTextH) * 0.5f;
-        const float ctrlH = ctrlStretchesH ? bounds.h : keel::min(intrinsicControlSize.y, bounds.h);
+        const keel::f32 totalTextH = (geom.hasLabel && geom.hasDesc) ? (labelH + adjacentTextGap + descH) : (geom.hasLabel ? labelH : descH);
+        const keel::f32 startY = bounds.y + (bounds.h - totalTextH) * 0.5f;
+        const keel::f32 ctrlH = ctrlStretchesH ? bounds.h : keel::min(intrinsicControlSize.y, bounds.h);
 
         const bool controlSlotOnRight = spec.hasControl
             ? (spec.layout == ElementLayout::Leading)
             : (spec.layout == ElementLayout::Trailing);
         if (controlSlotOnRight) {
-            const float ctrlX = compactOuter
+            const keel::f32 ctrlX = compactOuter
                 ? (bounds.x + (textBlockW > 0.0f ? textBlockW + gap : 0.0f))
                 : (bounds.Right() - ctrlW);
             geom.controlRect = Rect(ctrlX, bounds.y + (bounds.h - ctrlH) * 0.5f, ctrlW, ctrlH);
 
-            float textY = startY;
+            keel::f32 textY = startY;
             if (geom.hasLabel) {
                 geom.labelRect = Rect(bounds.x, textY, textBlockW, labelH);
                 textY += labelH + adjacentTextGap;
@@ -907,14 +907,14 @@ ElementGeometry Element::Resolve(
             }
         } else {
             // ElementLayout::Trailing ([Control] Label)
-            const float contentW = ctrlW + (textBlockW > 0.0f ? gap + textBlockW : 0.0f);
-            const float groupStartX = compactOuter
+            const keel::f32 contentW = ctrlW + (textBlockW > 0.0f ? gap + textBlockW : 0.0f);
+            const keel::f32 groupStartX = compactOuter
                 ? bounds.x
                 : (bounds.x + keel::max(0.0f, bounds.w - contentW) * alignFactor);
             geom.controlRect = Rect(groupStartX, bounds.y + (bounds.h - ctrlH) * 0.5f, ctrlW, ctrlH);
 
-            const float textX = groupStartX + ctrlW + gap;
-            float textY = startY;
+            const keel::f32 textX = groupStartX + ctrlW + gap;
+            keel::f32 textY = startY;
             if (geom.hasLabel) {
                 geom.labelRect = Rect(textX, textY, textBlockW, labelH);
                 textY += labelH + adjacentTextGap;
@@ -934,13 +934,13 @@ void Element::RenderText(
     const ElementSpec& spec,
     const UiTheme& theme
 ) noexcept {
-    const float alignFactor = (spec.align == Align::End) ? 1.0f : ((spec.align == Align::Center) ? 0.5f : 0.0f);
+    const keel::f32 alignFactor = (spec.align == Align::End) ? 1.0f : ((spec.align == Align::Center) ? 0.5f : 0.0f);
     const Color labelCol = theme.ResolveTextColor(spec.label, UiVariant::Default, spec.disabled, spec.hovered, spec.active);
     const Color descCol = theme.ResolveTextColor(spec.description, UiVariant::Muted, spec.disabled, spec.hovered, spec.active);
     const UiSize effSize = (spec.widgetSize == UiSize::None) ? UiSize::Md : spec.widgetSize;
     const ComponentMetrics& m = theme.GetMetrics(effSize);
     const auto& pal = theme.palette;
-    const float badgeFont = (spec.badge.size.px > 0.0f)
+    const keel::f32 badgeFont = (spec.badge.size.px > 0.0f)
         ? spec.badge.size.px
         : (spec.badge.size.role.has_value()
             ? theme.GetTypography(*spec.badge.size.role).fontSize
@@ -950,40 +950,40 @@ void Element::RenderText(
 
     const bool hasDecoratedLabelBar = !spec.hasControl || spec.icon.IsValid() || !spec.badge.empty();
     const Rect labelBarRect = spec.hasControl ? geom.labelRect : geom.controlRect;
-    const float topY = labelBarRect.y;
-    const float titleLineH = labelBarRect.h;
+    const keel::f32 topY = labelBarRect.y;
+    const keel::f32 titleLineH = labelBarRect.h;
 
     if (spec.hasControl && geom.hasLabel && !hasDecoratedLabelBar) {
         if (!spec.label.empty() && geom.labelRect.w > 0.0f && geom.labelRect.h > 0.0f) {
-            const float lineH = canvas.GetLineHeight(geom.labelFontSize);
+            const keel::f32 lineH = canvas.GetLineHeight(geom.labelFontSize);
             TextUtil::DrawUiText(canvas, spec.label, geom.labelRect, geom.labelFontSize, lineH, labelCol, alignFactor, 0.5f, &theme);
         }
     } else if ((!spec.hasControl || geom.hasLabel) && labelBarRect.w > 0.0f && labelBarRect.h > 0.0f) {
         const Vec2 rawBar = MeasureLabelBar(spec, geom.labelFontSize, &canvas, theme);
-        const float barW = keel::min(labelBarRect.w, rawBar.x);
-        float curX = labelBarRect.x + keel::max(0.0f, labelBarRect.w - barW) * alignFactor;
-        const float barLeftX = curX;
+        const keel::f32 barW = keel::min(labelBarRect.w, rawBar.x);
+        keel::f32 curX = labelBarRect.x + keel::max(0.0f, labelBarRect.w - barW) * alignFactor;
+        const keel::f32 barLeftX = curX;
 
         if (spec.icon.IsValid()) {
-            const float iconY = topY + (titleLineH - m.iconSize) * 0.5f;
+            const keel::f32 iconY = topY + (titleLineH - m.iconSize) * 0.5f;
             spec.icon.Draw(canvas, Rect(curX, iconY, m.iconSize, m.iconSize), labelCol);
             curX += m.iconSize + ((spec.label.HasContentOrReserve() || !spec.badge.empty()) ? m.itemGap : 0.0f);
         }
 
         if (!spec.label.empty()) {
-            const float badgeReserveW = spec.badge.empty()
+            const keel::f32 badgeReserveW = spec.badge.empty()
                 ? 0.0f
                 : (m.badgeGap + TextUtil::MeasureWidth(spec.badge, badgeFont, &canvas) + 12.0f);
-            const float titleAvailW = keel::max(0.0f, (barLeftX + barW) - curX - badgeReserveW);
+            const keel::f32 titleAvailW = keel::max(0.0f, (barLeftX + barW) - curX - badgeReserveW);
             const Rect titleR(curX, topY, titleAvailW, titleLineH);
             if (spec.label.wrap.rich) {
-                const float rawTitleW = TextUtil::MeasureUiTextWidth(spec.label, geom.labelFontSize, &canvas);
+                const keel::f32 rawTitleW = TextUtil::MeasureUiTextWidth(spec.label, geom.labelFontSize, &canvas);
                 UiText singleLineRich = spec.label;
                 singleLineRich.wrap.maxLines = 1;
                 TextUtil::DrawUiText(canvas, singleLineRich, titleR, geom.labelFontSize, titleLineH, labelCol, 0.0f, 0.5f, &theme);
                 curX += keel::min(titleAvailW, rawTitleW);
             } else {
-                float titleW = canvas.MeasureText(spec.label.text, geom.labelFontSize).x;
+                keel::f32 titleW = canvas.MeasureText(spec.label.text, geom.labelFontSize).x;
                 keel::FixedString<256> truncatedTitle;
                 keel::StringRef displayTitle = spec.label.text;
                 if (titleW > titleAvailW + kTextSubpixelTolerance && titleAvailW > 0.0f) {
@@ -1000,16 +1000,16 @@ void Element::RenderText(
             if (!spec.label.empty()) {
                 curX += m.badgeGap;
             }
-            const float badgeTextW = TextUtil::MeasureWidth(spec.badge, badgeFont, &canvas);
-            const float badgePadH = 6.0f;
-            const float badgeW = badgeTextW + badgePadH * 2.0f;
-            const float badgeH = badgeFont + 4.0f;
-            const float badgeY = topY + (titleLineH - badgeH) * 0.5f;
+            const keel::f32 badgeTextW = TextUtil::MeasureWidth(spec.badge, badgeFont, &canvas);
+            const keel::f32 badgePadH = 6.0f;
+            const keel::f32 badgeW = badgeTextW + badgePadH * 2.0f;
+            const keel::f32 badgeH = badgeFont + 4.0f;
+            const keel::f32 badgeY = topY + (titleLineH - badgeH) * 0.5f;
 
             Color badgeBg = pal.surfaceHover;
             Color badgeTextCol = pal.textPrimary;
             Color badgeBorderCol = Color::Transparent();
-            float badgeBorderW = 0.0f;
+            keel::f32 badgeBorderW = 0.0f;
             if (spec.badge.color.HasAny()) {
                 const Color resolvedBadge = theme.ResolveColor(spec.badge.color, spec.hovered, spec.active, spec.disabled, pal.textPrimary);
                 badgeBg = resolvedBadge.WithAlphaF(spec.disabled ? 0.12f : 0.22f);
@@ -1028,7 +1028,7 @@ void Element::RenderText(
     }
 
     if (geom.hasDesc && !spec.description.empty() && geom.descRect.w > 0.0f && geom.descRect.h > 0.0f) {
-        const float lineH = canvas.GetLineHeight(geom.descFontSize);
+        const keel::f32 lineH = canvas.GetLineHeight(geom.descFontSize);
         TextUtil::DrawUiText(canvas, spec.description, geom.descRect, geom.descFontSize, lineH, descCol, alignFactor, 0.5f, &theme);
     }
 }

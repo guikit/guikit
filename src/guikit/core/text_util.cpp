@@ -23,15 +23,15 @@ namespace {
         return text.size();
     }
     keel::usize len = maxBytes;
-    while (len > 0 && !IsUtf8LeadByte(static_cast<keel::u8>(text[len]))) {
+    while (len > 0 && !IsUtf8LeadByte(keel::as<keel::u8>(text[len]))) {
         --len;
     }
     return len;
 }
 
-[[nodiscard]] float MeasureStyledWidth(
+[[nodiscard]] keel::f32 MeasureStyledWidth(
     keel::StringRef text,
-    float fontSize,
+    keel::f32 fontSize,
     ICanvas* canvas,
     FontStyle style
 ) noexcept {
@@ -43,14 +43,14 @@ namespace {
             ? canvas->MeasureText(text, fontSize).x
             : canvas->MeasureTextStyled(text, fontSize, style).x;
     }
-    return static_cast<float>(text.length()) * (fontSize * kDefaultCharAdvanceRatio);
+    return keel::as<keel::f32>(text.length()) * (fontSize * kDefaultCharAdvanceRatio);
 }
 
 } // namespace
 
-float TextUtil::MeasureWidth(
+keel::f32 TextUtil::MeasureWidth(
     keel::StringRef text,
-    float fontSize,
+    keel::f32 fontSize,
     ICanvas* canvas
 ) noexcept {
     if (text.empty() || fontSize <= 0.0f) {
@@ -59,26 +59,26 @@ float TextUtil::MeasureWidth(
     if (canvas) {
         return canvas->MeasureText(text, fontSize).x;
     }
-    return static_cast<float>(text.length()) * (fontSize * kDefaultCharAdvanceRatio);
+    return keel::as<keel::f32>(text.length()) * (fontSize * kDefaultCharAdvanceRatio);
 }
 
-float TextUtil::MeasureUiTextWidth(
+keel::f32 TextUtil::MeasureUiTextWidth(
     const UiText& text,
-    float fontSize,
+    keel::f32 fontSize,
     ICanvas* canvas
 ) noexcept {
     if (fontSize <= 0.0f) {
         return 0.0f;
     }
     if (text.wrap.rich) {
-        const float codeFs = fontSize * 0.92f;
-        auto measureRich = [&](keel::StringRef sv) -> float {
+        const keel::f32 codeFs = fontSize * 0.92f;
+        auto measureRich = [&](keel::StringRef sv) -> keel::f32 {
             if (sv.empty()) return 0.0f;
             return GetOrMeasureRichTextIntrinsicWidths(
                 canvas, sv, fontSize, codeFs, FontStyle::Regular, 1.0f
             ).second;
         };
-        float maxW = measureRich(text.text);
+        keel::f32 maxW = measureRich(text.text);
         for (keel::StringRef var : text.variants) {
             if (!var.empty()) {
                 maxW = keel::max(maxW, measureRich(var));
@@ -86,7 +86,7 @@ float TextUtil::MeasureUiTextWidth(
         }
         return maxW;
     }
-    float maxW = MeasureWidth(text.text, fontSize, canvas);
+    keel::f32 maxW = MeasureWidth(text.text, fontSize, canvas);
     for (keel::StringRef var : text.variants) {
         if (!var.empty()) {
             maxW = keel::max(maxW, MeasureWidth(var, fontSize, canvas));
@@ -97,8 +97,8 @@ float TextUtil::MeasureUiTextWidth(
 
 keel::FixedString<256> TextUtil::TruncateWithEllipsis(
     keel::StringRef text,
-    float maxWidth,
-    float fontSize,
+    keel::f32 maxWidth,
+    keel::f32 fontSize,
     ICanvas* canvas,
     FontStyle style
 ) {
@@ -113,19 +113,19 @@ keel::FixedString<256> TextUtil::TruncateWithEllipsis(
         return out;
     }
 
-    const float dotsW = MeasureStyledWidth("...", fontSize, canvas, style);
+    const keel::f32 dotsW = MeasureStyledWidth("...", fontSize, canvas, style);
     if (dotsW >= maxWidth) {
         return out;
     }
 
-    const float targetW = maxWidth - dotsW;
+    const keel::f32 targetW = maxWidth - dotsW;
 
     // Collect all valid UTF-8 character end offsets
     keel::SmallArray<keel::usize, 64> boundaries;
     boundaries.reserve(text.size() + 1);
     boundaries.push_back(0);
     for (keel::usize i = 1; i <= text.size(); ++i) {
-        if (i == text.size() || IsUtf8LeadByte(static_cast<keel::u8>(text[i]))) {
+        if (i == text.size() || IsUtf8LeadByte(keel::as<keel::u8>(text[i]))) {
             boundaries.push_back(i);
         }
     }
@@ -138,7 +138,7 @@ keel::FixedString<256> TextUtil::TruncateWithEllipsis(
     while (low <= high) {
         const keel::usize mid = low + (high - low) / 2;
         const keel::usize len = boundaries[mid];
-        const float w = MeasureStyledWidth(text.substr(0, len), fontSize, canvas, style);
+        const keel::f32 w = MeasureStyledWidth(text.substr(0, len), fontSize, canvas, style);
         if (w <= targetW) {
             bestIdx = mid;
             low = mid + 1;
@@ -157,8 +157,8 @@ keel::FixedString<256> TextUtil::TruncateWithEllipsis(
 
 keel::SmallArray<keel::StringRef, 16> TextUtil::WrapText(
     keel::StringRef text,
-    float maxWidth,
-    float fontSize,
+    keel::f32 maxWidth,
+    keel::f32 fontSize,
     ICanvas* canvas
 ) {
     keel::SmallArray<keel::StringRef, 16> lines;
@@ -195,7 +195,7 @@ keel::SmallArray<keel::StringRef, 16> TextUtil::WrapText(
 
         // Try candidate line from lineStart to wordEnd
         const keel::StringRef candidate = text.substr(lineStart, wordEnd - lineStart);
-        const float candW = MeasureWidth(candidate, fontSize, canvas);
+        const keel::f32 candW = MeasureWidth(candidate, fontSize, canvas);
 
         if (candW <= maxWidth) {
             // Word fits on current line, proceed to next word
@@ -258,11 +258,11 @@ keel::SmallArray<keel::StringRef, 16> TextUtil::WrapText(
     return lines;
 }
 
-float TextUtil::MeasureWrappedHeight(
+keel::f32 TextUtil::MeasureWrappedHeight(
     keel::StringRef text,
-    float maxWidth,
-    float fontSize,
-    float lineHeight,
+    keel::f32 maxWidth,
+    keel::f32 fontSize,
+    keel::f32 lineHeight,
     ICanvas* canvas
 ) {
     if (text.empty() || fontSize <= 0.0f || lineHeight <= 0.0f) {
@@ -272,14 +272,14 @@ float TextUtil::MeasureWrappedHeight(
     if (lines.empty()) {
         return lineHeight;
     }
-    return static_cast<float>(lines.size()) * lineHeight;
+    return keel::as<keel::f32>(lines.size()) * lineHeight;
 }
 
-float TextUtil::MeasureUiTextHeight(
+keel::f32 TextUtil::MeasureUiTextHeight(
     const UiText& text,
-    float maxWidth,
-    float fontSize,
-    float lineHeight,
+    keel::f32 maxWidth,
+    keel::f32 fontSize,
+    keel::f32 lineHeight,
     ICanvas* canvas,
     const UiTheme* theme
 ) noexcept {
@@ -292,23 +292,23 @@ float TextUtil::MeasureUiTextHeight(
     if (text.wrap.rich && text.wrap.IsWordWrap()) {
         static const UiTheme defaultTheme = UiTheme::Dark();
         const UiTheme& activeTheme = theme ? *theme : defaultTheme;
-        const float baseLh = canvas ? canvas->GetLineHeight(fontSize) : (fontSize * kDefaultLineHeightMultiplier);
-        const float lhScale = (baseLh > 0.0f) ? (lineHeight / baseLh) : 1.0f;
-        auto measureRichH = [&](keel::StringRef sv) -> float {
+        const keel::f32 baseLh = canvas ? canvas->GetLineHeight(fontSize) : (fontSize * kDefaultLineHeightMultiplier);
+        const keel::f32 lhScale = (baseLh > 0.0f) ? (lineHeight / baseLh) : 1.0f;
+        auto measureRichH = [&](keel::StringRef sv) -> keel::f32 {
             if (sv.empty()) return 0.0f;
-            const float effAvailW = (maxWidth > 0.0f) ? maxWidth : 100000.0f;
+            const keel::f32 effAvailW = (maxWidth > 0.0f) ? maxWidth : 100000.0f;
             auto flow = GetOrBuildRichTextFlow(canvas, sv, effAvailW, fontSize, fontSize * 0.92f, lhScale, activeTheme);
             return flow->height;
         };
-        float maxH = keel::max(static_cast<float>(linesCount) * lineHeight, measureRichH(text.text));
+        keel::f32 maxH = keel::max(keel::as<keel::f32>(linesCount) * lineHeight, measureRichH(text.text));
         for (keel::StringRef var : text.variants) {
             if (!var.empty()) {
                 maxH = keel::max(maxH, measureRichH(var));
             }
         }
         if (text.wrap.maxLines > 0) {
-            maxH = keel::min(maxH, static_cast<float>(text.wrap.maxLines) * lineHeight);
-            maxH = keel::max(maxH, static_cast<float>(text.wrap.minLines) * lineHeight);
+            maxH = keel::min(maxH, keel::as<keel::f32>(text.wrap.maxLines) * lineHeight);
+            maxH = keel::max(maxH, keel::as<keel::f32>(text.wrap.minLines) * lineHeight);
         }
         return maxH;
     }
@@ -342,33 +342,33 @@ float TextUtil::MeasureUiTextHeight(
         }
     }
 
-    return static_cast<float>(linesCount) * lineHeight;
+    return keel::as<keel::f32>(linesCount) * lineHeight;
 }
 
 void TextUtil::DrawUiText(
     ICanvas& canvas,
     const UiText& text,
     Rect bounds,
-    float fontSize,
-    float lineHeight,
+    keel::f32 fontSize,
+    keel::f32 lineHeight,
     Color color,
-    float alignX,
-    float singleLineAlignY,
+    keel::f32 alignX,
+    keel::f32 singleLineAlignY,
     const UiTheme* theme
 ) {
     if (text.empty() || bounds.w <= 0.0f || bounds.h <= 0.0f || fontSize <= 0.0f) {
         return;
     }
 
-    const float lh = (lineHeight > 0.0f) ? lineHeight : (fontSize * kDefaultLineHeightMultiplier);
+    const keel::f32 lh = (lineHeight > 0.0f) ? lineHeight : (fontSize * kDefaultLineHeightMultiplier);
 
     if (text.wrap.rich) {
         static const UiTheme defaultTheme = UiTheme::Dark();
         const UiTheme& activeTheme = theme ? *theme : defaultTheme;
-        const float baseLh = canvas.GetLineHeight(fontSize);
-        const float lhScale = (baseLh > 0.0f) ? (lh / baseLh) : 1.0f;
+        const keel::f32 baseLh = canvas.GetLineHeight(fontSize);
+        const keel::f32 lhScale = (baseLh > 0.0f) ? (lh / baseLh) : 1.0f;
         const Align horizAlign = (alignX < 0.25f) ? Align::Start : ((alignX > 0.75f) ? Align::End : Align::Center);
-        const float effAvailW = text.wrap.IsWordWrap() ? bounds.w : 100000.0f;
+        const keel::f32 effAvailW = text.wrap.IsWordWrap() ? bounds.w : 100000.0f;
         auto flow = GetOrBuildRichTextFlow(
             &canvas,
             text.text,
@@ -381,11 +381,11 @@ void TextUtil::DrawUiText(
             FontStyle::Regular,
             text.wrap.IsWordWrap() ? horizAlign : Align::Start
         );
-        float drawY = bounds.y;
+        keel::f32 drawY = bounds.y;
         if (!text.wrap.IsWordWrap() && bounds.h > flow->height + kTextSubpixelTolerance) {
             drawY += (bounds.h - flow->height) * singleLineAlignY;
         }
-        float drawX = bounds.x;
+        keel::f32 drawX = bounds.x;
         if (!text.wrap.IsWordWrap() && horizAlign != Align::Start) {
             drawX += (bounds.w - flow->width) * alignX;
         }
@@ -405,7 +405,7 @@ void TextUtil::DrawUiText(
         const Rect drawRect = (text.wrap.minLines > 1 && bounds.h > lh + kTextSubpixelTolerance)
             ? Rect(bounds.x, bounds.y, bounds.w, lh)
             : bounds;
-        const float effAlignY = (text.wrap.minLines > 1 && bounds.h > lh + kTextSubpixelTolerance)
+        const keel::f32 effAlignY = (text.wrap.minLines > 1 && bounds.h > lh + kTextSubpixelTolerance)
             ? 0.5f
             : singleLineAlignY;
 
@@ -447,7 +447,7 @@ void TextUtil::DrawUiText(
     }
 
     const keel::usize heightFitLines = (lh > 0.0f)
-        ? static_cast<keel::usize>(keel::max(1.0f, keel::floor((bounds.h + kTextSubpixelTolerance) / lh)))
+        ? keel::as<keel::usize>(keel::max(1.0f, keel::floor((bounds.h + kTextSubpixelTolerance) / lh)))
         : lines.size();
     const keel::usize maxAllowedLines = (text.wrap.maxLines > 0)
         ? keel::min<keel::usize>(text.wrap.maxLines, heightFitLines)
@@ -455,9 +455,9 @@ void TextUtil::DrawUiText(
     const keel::usize visibleCount = keel::min(lines.size(), maxAllowedLines);
 
     for (keel::usize i = 0; i < visibleCount; ++i) {
-        const Rect lineRect(bounds.x, bounds.y + static_cast<float>(i) * lh, bounds.w, lh);
+        const Rect lineRect(bounds.x, bounds.y + keel::as<keel::f32>(i) * lh, bounds.w, lh);
         if (i + 1 == visibleCount && lines.size() > visibleCount) {
-            const keel::usize startOffset = static_cast<keel::usize>(lines[i].data() - text.text.data());
+            const keel::usize startOffset = keel::as<keel::usize>(lines[i].data() - text.text.data());
             const keel::StringRef tail = text.text.substr(startOffset);
             const keel::usize nlPos = tail.find('\n');
             const keel::StringRef paragraphSlice = (nlPos != keel::kInvalidIndex) ? tail.substr(0, nlPos) : tail;
@@ -484,16 +484,16 @@ void TextUtil::DrawUiText(
     }
 }
 
-float TextUtil::MeasureAffixWidth(
+keel::f32 TextUtil::MeasureAffixWidth(
     const UiAffix& affix,
-    float fontSize,
-    float iconSize,
-    float innerGap,
+    keel::f32 fontSize,
+    keel::f32 iconSize,
+    keel::f32 innerGap,
     ICanvas* canvas
 ) noexcept {
     const bool hasIcon = affix.icon.IsValid() && iconSize > 0.0f;
-    const float textW = affix.HasText() ? MeasureUiTextWidth(affix.text, fontSize, canvas) : 0.0f;
-    float w = 0.0f;
+    const keel::f32 textW = affix.HasText() ? MeasureUiTextWidth(affix.text, fontSize, canvas) : 0.0f;
+    keel::f32 w = 0.0f;
     if (hasIcon) {
         w += iconSize;
     }
@@ -506,23 +506,23 @@ float TextUtil::MeasureAffixWidth(
     return w;
 }
 
-float TextUtil::DrawAffix(
+keel::f32 TextUtil::DrawAffix(
     ICanvas& canvas,
     const UiAffix& affix,
     Rect rowBounds,
-    float fontSize,
-    float iconSize,
+    keel::f32 fontSize,
+    keel::f32 iconSize,
     Color textColor,
     Color iconColor,
-    float innerGap
+    keel::f32 innerGap
 ) {
     const bool hasIcon = affix.icon.IsValid() && iconSize > 0.0f;
-    const float textW = affix.HasText() ? MeasureUiTextWidth(affix.text, fontSize, &canvas) : 0.0f;
+    const keel::f32 textW = affix.HasText() ? MeasureUiTextWidth(affix.text, fontSize, &canvas) : 0.0f;
     if (!hasIcon && textW <= 0.0f) {
         return 0.0f;
     }
 
-    float curX = rowBounds.x;
+    keel::f32 curX = rowBounds.x;
     if (affix.iconPlacement != Placement::Trailing) {
         if (hasIcon) {
             const Rect icRect(curX, rowBounds.y + (rowBounds.h - iconSize) * 0.5f, iconSize, iconSize);
@@ -581,14 +581,14 @@ void TextUtil::SelectWordAt(keel::StringRef text, keel::usize index, keel::usize
 
 keel::usize TextUtil::HitTestIndex(
     keel::StringRef text,
-    float localX,
-    float fontSize,
+    keel::f32 localX,
+    keel::f32 fontSize,
     ICanvas* canvas
 ) noexcept {
     if (text.empty() || localX <= 0.0f || fontSize <= 0.0f) {
         return 0;
     }
-    const float totalW = MeasureWidth(text, fontSize, canvas);
+    const keel::f32 totalW = MeasureWidth(text, fontSize, canvas);
     if (localX >= totalW) {
         return text.size();
     }
@@ -598,7 +598,7 @@ keel::usize TextUtil::HitTestIndex(
     boundaries.reserve(text.size() + 1);
     boundaries.push_back(0);
     for (keel::usize i = 1; i <= text.size(); ++i) {
-        if (i == text.size() || IsUtf8LeadByte(static_cast<keel::u8>(text[i]))) {
+        if (i == text.size() || IsUtf8LeadByte(keel::as<keel::u8>(text[i]))) {
             boundaries.push_back(i);
         }
     }
@@ -611,7 +611,7 @@ keel::usize TextUtil::HitTestIndex(
     keel::usize high = boundaries.size() - 1;
     while (low + 1 < high) {
         const keel::usize mid = low + (high - low) / 2;
-        const float w = MeasureWidth(text.substr(0, boundaries[mid]), fontSize, canvas);
+        const keel::f32 w = MeasureWidth(text.substr(0, boundaries[mid]), fontSize, canvas);
         if (w <= localX) {
             low = mid;
         } else {
@@ -619,9 +619,9 @@ keel::usize TextUtil::HitTestIndex(
         }
     }
 
-    const float w0 = MeasureWidth(text.substr(0, boundaries[low]), fontSize, canvas);
-    const float w1 = MeasureWidth(text.substr(0, boundaries[high]), fontSize, canvas);
-    const float midX = 0.5f * (w0 + w1);
+    const keel::f32 w0 = MeasureWidth(text.substr(0, boundaries[low]), fontSize, canvas);
+    const keel::f32 w1 = MeasureWidth(text.substr(0, boundaries[high]), fontSize, canvas);
+    const keel::f32 midX = 0.5f * (w0 + w1);
     return (localX < midX) ? boundaries[low] : boundaries[high];
 }
 
@@ -642,14 +642,14 @@ void TextUtil::DrawHighlightedTextBox(
     ICanvas& canvas,
     keel::StringRef text,
     Rect bounds,
-    float fontSize,
+    keel::f32 fontSize,
     Color textColor,
     keel::usize matchPos,
     keel::usize matchLen,
     Color highlightFill,
     Color highlightBorder,
-    float pillRadius,
-    float alignY,
+    keel::f32 pillRadius,
+    keel::f32 alignY,
     FontStyle style
 ) {
     if (text.empty() || bounds.w <= 1.0f || bounds.h <= 1.0f || fontSize <= 0.0f) {
@@ -666,15 +666,15 @@ void TextUtil::DrawHighlightedTextBox(
         matchPos < text.size() &&
         highlightFill.a > 0) {
         const keel::usize safeEnd = keel::min(text.size(), matchPos + matchLen);
-        const float x0 = bounds.x + (matchPos == 0
+        const keel::f32 x0 = bounds.x + (matchPos == 0
             ? 0.0f
             : canvas.MeasureTextStyled(text.substr(0, matchPos), fontSize, style).x);
-        const float x1 = bounds.x + canvas.MeasureTextStyled(text.substr(0, safeEnd), fontSize, style).x;
+        const keel::f32 x1 = bounds.x + canvas.MeasureTextStyled(text.substr(0, safeEnd), fontSize, style).x;
 
         if (x1 > x0 + 0.5f && x0 < bounds.Right()) {
-            const float clampedX1 = keel::min(x1, bounds.Right());
+            const keel::f32 clampedX1 = keel::min(x1, bounds.Right());
             if (clampedX1 > x0 + 0.5f) {
-                const float hlH = keel::round(fontSize * 1.30f);
+                const keel::f32 hlH = keel::round(fontSize * 1.30f);
                 const Rect hlRect = Rect(
                     keel::round(x0 - 1.5f),
                     keel::round(bounds.y + (bounds.h - hlH) * alignY),

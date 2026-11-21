@@ -13,7 +13,7 @@ ContainerScope Column::Open(
     const Id id = ctx.MakeChildId(loc);
     Node* node = ctx.CreateNode(NodeType::Column, id, opts.disabled);
     const UiTheme& theme = node->GetTheme(ctx.GetTheme());
-    const float density = node->GetDensity();
+    const keel::f32 density = node->GetDensity();
     node->direction = FlexDirection::Column;
     node->explicitGap = opts.gap.has_value() ? 1 : 0;
     node->explicitPadding = opts.padding.has_value() ? 1 : 0;

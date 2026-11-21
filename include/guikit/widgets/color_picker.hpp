@@ -26,10 +26,10 @@ struct ColorPickerOptions {
     UiSize size{UiSize::Md};                         ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)
     AxisSize width{};                                ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or explicit `dp`)
     AxisSize height{};                               ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or explicit `dp`)
-    keel::Optional<float> minWidth{keel::kNullOpt};  ///< Optional minimum width in logical dp
-    keel::Optional<float> maxWidth{keel::kNullOpt};  ///< Optional maximum width in logical dp
-    keel::Optional<float> minHeight{keel::kNullOpt}; ///< Optional minimum height in logical dp
-    keel::Optional<float> maxHeight{keel::kNullOpt}; ///< Optional maximum height in logical dp
+    keel::Optional<keel::f32> minWidth{keel::kNullOpt};  ///< Optional minimum width in logical dp
+    keel::Optional<keel::f32> maxWidth{keel::kNullOpt};  ///< Optional maximum width in logical dp
+    keel::Optional<keel::f32> minHeight{keel::kNullOpt}; ///< Optional minimum height in logical dp
+    keel::Optional<keel::f32> maxHeight{keel::kNullOpt}; ///< Optional maximum height in logical dp
     StateColor color{};                              ///< Per-state semantic tint/accent color override
     StateColor background{};                         ///< Optional well background override (`{}` = theme default, `StateColor::None()` = transparent)
     Border border{};                                 ///< Optional border width, color, and radius override
@@ -37,9 +37,9 @@ struct ColorPickerOptions {
 
 /// Internal runtime state stored per-widget ID for ColorPicker HSV continuity and drag tracking.
 struct ColorPickerState {
-    float h{210.0f};        ///< Hue in degrees [0..360)
-    float s{0.75f};         ///< Saturation [0..1]
-    float v{0.90f};         ///< Value / Brightness [0..1]
+    keel::f32 h{210.0f};        ///< Hue in degrees [0..360)
+    keel::f32 s{0.75f};         ///< Saturation [0..1]
+    keel::f32 v{0.90f};         ///< Value / Brightness [0..1]
     Color lastSyncedColor{0, 0, 0, 0};
     bool initialized{false};
     keel::u8 dragTarget{0};  ///< 0 = none, 1 = SV square, 2 = Hue bar, 3 = Alpha bar
@@ -50,9 +50,9 @@ struct ColorPickerState {
 struct ColorPickerData {
     ColorPickerOptions opts{};
     Color value{59, 130, 246, 255};
-    float h{210.0f};
-    float s{0.75f};
-    float v{0.90f};
+    keel::f32 h{210.0f};
+    keel::f32 s{0.75f};
+    keel::f32 v{0.90f};
     keel::StringRef hexText{};
     keel::i32 hoveredSwatch{-1};
     bool isOpen{false};
@@ -70,10 +70,10 @@ public:
     );
 
     /// Converts RGB [0..255] to HSV (h in [0..360], s in [0..1], v in [0..1]).
-    static void RgbToHsv(Color c, float& outH, float& outS, float& outV) noexcept;
+    static void RgbToHsv(Color c, keel::f32& outH, keel::f32& outS, keel::f32& outV) noexcept;
 
     /// Converts HSV (h in [0..360], s in [0..1], v in [0..1]) and alpha [0..255] to Color.
-    [[nodiscard]] static Color HsvToRgb(float h, float s, float v, keel::u8 a = 255) noexcept;
+    [[nodiscard]] static Color HsvToRgb(keel::f32 h, keel::f32 s, keel::f32 v, keel::u8 a = 255) noexcept;
 
     /// Measures intrinsic dimensions of the closed swatch button or inline picker panel.
     static Vec2 Measure(
@@ -81,13 +81,13 @@ public:
         UiSize size,
         ICanvas* canvas,
         const UiTheme& theme,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     );
     static Vec2 Measure(
         const ColorPickerOptions& opts,
         UiSize size,
         ICanvas* canvas = nullptr,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     );
 
     /// Renders the closed ColorPicker button (or inline panel when opts.inlinePanel is true).
@@ -95,9 +95,9 @@ public:
         ICanvas& canvas,
         Rect bounds,
         Color value,
-        float h,
-        float s,
-        float v,
+        keel::f32 h,
+        keel::f32 s,
+        keel::f32 v,
         keel::StringRef hexText,
         keel::i32 hoveredSwatch,
         const ColorPickerOptions& opts,
@@ -114,9 +114,9 @@ public:
         ICanvas& canvas,
         Rect panelRect,
         Color value,
-        float h,
-        float s,
-        float v,
+        keel::f32 h,
+        keel::f32 s,
+        keel::f32 v,
         keel::StringRef hexText,
         keel::i32 hoveredSwatch,
         const ColorPickerOptions& opts,

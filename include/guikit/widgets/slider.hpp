@@ -25,7 +25,7 @@ struct SliderOptions {
     UiText textLeft{};                                ///< Optional companion text inside control on the left of the track (below it when Vertical)
     UiText textRight{};                               ///< Optional companion text inside control on the right of the track (above it when Vertical)
     UiText valueFormat{};                             ///< Format string and style for value (e.g. "%.1f %%", {"%.1f dB", StateColor::Info()}, or static text; empty text = default numeric format)
-    keel::Optional<double> step{keel::kNullOpt};      ///< Step quantization (defaults to 1.0 for integers, continuous for float)
+    keel::Optional<keel::f64> step{keel::kNullOpt};      ///< Step quantization (defaults to 1.0 for integers, continuous for float)
     bool showValue{true};                             ///< Whether to display current formatted value text inside control
     Placement valuePlacement{Placement::Trailing};    ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
     UiText tooltip{};                                 ///< Optional floating tooltip text on hover
@@ -33,10 +33,10 @@ struct SliderOptions {
     UiSize size{UiSize::Md};                          ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)
     AxisSize width{};                                 ///< Horizontal sizing policy (`Auto` -> `Stretch` when horizontal, `Fit` when vertical)
     AxisSize height{};                                ///< Vertical sizing policy (`Auto` -> `Fit` when horizontal, `Stretch` when vertical)
-    keel::Optional<float> minWidth{keel::kNullOpt};   ///< Optional minimum width in logical dp
-    keel::Optional<float> maxWidth{keel::kNullOpt};   ///< Optional maximum width in logical dp
-    keel::Optional<float> minHeight{keel::kNullOpt};  ///< Optional minimum height in logical dp
-    keel::Optional<float> maxHeight{keel::kNullOpt};  ///< Optional maximum height in logical dp
+    keel::Optional<keel::f32> minWidth{keel::kNullOpt};   ///< Optional minimum width in logical dp
+    keel::Optional<keel::f32> maxWidth{keel::kNullOpt};   ///< Optional maximum width in logical dp
+    keel::Optional<keel::f32> minHeight{keel::kNullOpt};  ///< Optional minimum height in logical dp
+    keel::Optional<keel::f32> maxHeight{keel::kNullOpt};  ///< Optional maximum height in logical dp
     StateColor color{};                               ///< Per-state semantic accent color for active track and thumb
 };
 
@@ -60,10 +60,10 @@ struct StepSliderOptions {
     UiSize size{UiSize::Md};                          ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)
     AxisSize width{};                                 ///< Horizontal sizing policy (`Auto` -> `Stretch` when horizontal, `Fit` when vertical)
     AxisSize height{};                                ///< Vertical sizing policy (`Auto` -> `Fit` when horizontal, `Stretch` when vertical)
-    keel::Optional<float> minWidth{keel::kNullOpt};   ///< Optional minimum width in logical dp
-    keel::Optional<float> maxWidth{keel::kNullOpt};   ///< Optional maximum width in logical dp
-    keel::Optional<float> minHeight{keel::kNullOpt};  ///< Optional minimum height in logical dp
-    keel::Optional<float> maxHeight{keel::kNullOpt};  ///< Optional maximum height in logical dp
+    keel::Optional<keel::f32> minWidth{keel::kNullOpt};   ///< Optional minimum width in logical dp
+    keel::Optional<keel::f32> maxWidth{keel::kNullOpt};   ///< Optional maximum width in logical dp
+    keel::Optional<keel::f32> minHeight{keel::kNullOpt};  ///< Optional minimum height in logical dp
+    keel::Optional<keel::f32> maxHeight{keel::kNullOpt};  ///< Optional maximum height in logical dp
     StateColor color{};                               ///< Per-state semantic accent color for active track and thumb
 };
 
@@ -76,8 +76,8 @@ struct RangeSliderOptions {
     UiText textLeft{};                                ///< Optional companion text inside control on the left of the track (below it when Vertical)
     UiText textRight{};                               ///< Optional companion text inside control on the right of the track (above it when Vertical)
     UiText valueFormat{};                             ///< Format string for range values (e.g. "%.0f .. %.0f Hz" or "%.1f %%")
-    keel::Optional<double> step{keel::kNullOpt};      ///< Step quantization (defaults to 1.0 for integers, continuous for float)
-    double minSpan{0.0};                              ///< Minimum separation between low and high values
+    keel::Optional<keel::f64> step{keel::kNullOpt};      ///< Step quantization (defaults to 1.0 for integers, continuous for float)
+    keel::f64 minSpan{0.0};                              ///< Minimum separation between low and high values
     bool showValue{true};                             ///< Whether to display current formatted range text inside control
     Placement valuePlacement{Placement::Trailing};    ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
     UiText tooltip{};                                 ///< Optional floating tooltip text on hover
@@ -85,10 +85,10 @@ struct RangeSliderOptions {
     UiSize size{UiSize::Md};                          ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)
     AxisSize width{};                                 ///< Horizontal sizing policy (`Auto` -> `Stretch` when horizontal, `Fit` when vertical)
     AxisSize height{};                                ///< Vertical sizing policy (`Auto` -> `Fit` when horizontal, `Stretch` when vertical)
-    keel::Optional<float> minWidth{keel::kNullOpt};   ///< Optional minimum width in logical dp
-    keel::Optional<float> maxWidth{keel::kNullOpt};   ///< Optional maximum width in logical dp
-    keel::Optional<float> minHeight{keel::kNullOpt};  ///< Optional minimum height in logical dp
-    keel::Optional<float> maxHeight{keel::kNullOpt};  ///< Optional maximum height in logical dp
+    keel::Optional<keel::f32> minWidth{keel::kNullOpt};   ///< Optional minimum width in logical dp
+    keel::Optional<keel::f32> maxWidth{keel::kNullOpt};   ///< Optional maximum width in logical dp
+    keel::Optional<keel::f32> minHeight{keel::kNullOpt};  ///< Optional minimum height in logical dp
+    keel::Optional<keel::f32> maxHeight{keel::kNullOpt};  ///< Optional maximum height in logical dp
     StateColor color{};                               ///< Per-state semantic accent color for active interval and thumbs
 };
 
@@ -98,11 +98,11 @@ struct ProgressBarOptions {
     UiText textLeft{};                                ///< Optional companion text inside control on the left of the track (below when Vertical)
     UiText textRight{};                               ///< Optional companion text inside control on the right of the track (above when Vertical)
     UiText valueFormat{};                             ///< Format string for value (e.g. "%.0f %%", "%.1f dB"; empty = default numeric format)
-    keel::Optional<double> peakHoldValue{keel::kNullOpt}; ///< Optional peak-hold marker value on the track (for VU/dB level meters)
+    keel::Optional<keel::f64> peakHoldValue{keel::kNullOpt}; ///< Optional peak-hold marker value on the track (for VU/dB level meters)
     keel::u32 segments{0};                            ///< 0 = smooth continuous bar; >0 = segmented LED/VU level meter (e.g. 20 segments)
-    float warningRatio{0.70f};                        ///< Normalized threshold [0..1] for Warning zone when multiZoneColor is true
-    float dangerRatio{0.90f};                         ///< Normalized threshold [0..1] for Danger zone when multiZoneColor is true
-    keel::Optional<float> trackHeight{keel::kNullOpt};///< Optional bar thickness override in points
+    keel::f32 warningRatio{0.70f};                        ///< Normalized threshold [0..1] for Warning zone when multiZoneColor is true
+    keel::f32 dangerRatio{0.90f};                         ///< Normalized threshold [0..1] for Danger zone when multiZoneColor is true
+    keel::Optional<keel::f32> trackHeight{keel::kNullOpt};///< Optional bar thickness override in points
     bool showValue{true};                             ///< Whether to display current formatted value text inside control
     bool indeterminate{false};                        ///< Animated indeterminate shuttle bar when progress duration is unknown
     Placement valuePlacement{Placement::Trailing};    ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
@@ -112,17 +112,17 @@ struct ProgressBarOptions {
     UiSize size{UiSize::Md};                          ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)
     AxisSize width{};                                 ///< Horizontal sizing policy (`Auto` -> `Stretch` when horizontal, `Fit` when vertical)
     AxisSize height{};                                ///< Vertical sizing policy (`Auto` -> `Fit` when horizontal, `Stretch` when vertical)
-    keel::Optional<float> minWidth{keel::kNullOpt};   ///< Optional minimum width in logical dp
-    keel::Optional<float> maxWidth{keel::kNullOpt};   ///< Optional maximum width in logical dp
-    keel::Optional<float> minHeight{keel::kNullOpt};  ///< Optional minimum height in logical dp
-    keel::Optional<float> maxHeight{keel::kNullOpt};  ///< Optional maximum height in logical dp
+    keel::Optional<keel::f32> minWidth{keel::kNullOpt};   ///< Optional minimum width in logical dp
+    keel::Optional<keel::f32> maxWidth{keel::kNullOpt};   ///< Optional maximum width in logical dp
+    keel::Optional<keel::f32> minHeight{keel::kNullOpt};  ///< Optional minimum height in logical dp
+    keel::Optional<keel::f32> maxHeight{keel::kNullOpt};  ///< Optional maximum height in logical dp
     StateColor color{};                               ///< Per-state semantic accent color for active bar (or base zone when multiZoneColor is true)
 };
 
 /// Internal runtime interaction state stored per-widget ID.
 struct SliderState {
     bool dragging{false};
-    double dragStartVal{0.0};
+    keel::f64 dragStartVal{0.0};
     Vec2 dragStartMouse{};
 };
 
@@ -131,41 +131,41 @@ class Slider {
 public:
     static Response Run(
         Context& ctx,
-        double* valDouble,
-        float* valFloat,
+        keel::f64* valDouble,
+        keel::f32* valFloat,
         keel::i64* valInt,
-        double min,
-        double max,
+        keel::f64 min,
+        keel::f64 max,
         const SliderOptions& opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     static Vec2 Measure(
         const SliderOptions& opts,
-        double value,
-        double min,
-        double max,
+        keel::f64 value,
+        keel::f64 min,
+        keel::f64 max,
         UiSize size,
         ICanvas* canvas,
         const UiTheme& theme,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     );
     static Vec2 Measure(
         const SliderOptions& opts,
-        double value,
-        double min,
-        double max,
+        keel::f64 value,
+        keel::f64 min,
+        keel::f64 max,
         UiSize size,
         ICanvas* canvas = nullptr,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     );
 
     static void Render(
         ICanvas& canvas,
         Rect bounds,
-        double value,
-        double min,
-        double max,
+        keel::f64 value,
+        keel::f64 min,
+        keel::f64 max,
         const SliderOptions& opts,
         UiSize size,
         bool hovered,
@@ -195,7 +195,7 @@ public:
         UiSize size,
         ICanvas* canvas,
         const UiTheme& theme,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     );
     static Vec2 Measure(
         const StepSliderOptions& opts,
@@ -203,7 +203,7 @@ public:
         keel::usize totalSteps,
         UiSize size,
         ICanvas* canvas = nullptr,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     );
 
     static void Render(
@@ -226,47 +226,47 @@ class RangeSlider {
 public:
     static Response Run(
         Context& ctx,
-        double* lowDouble,
-        double* highDouble,
-        float* lowFloat,
-        float* highFloat,
+        keel::f64* lowDouble,
+        keel::f64* highDouble,
+        keel::f32* lowFloat,
+        keel::f32* highFloat,
         keel::i64* lowInt,
         keel::i64* highInt,
-        double min,
-        double max,
+        keel::f64 min,
+        keel::f64 max,
         const RangeSliderOptions& opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     static Vec2 Measure(
         const RangeSliderOptions& opts,
-        double lowValue,
-        double highValue,
-        double min,
-        double max,
+        keel::f64 lowValue,
+        keel::f64 highValue,
+        keel::f64 min,
+        keel::f64 max,
         UiSize size,
         ICanvas* canvas,
         const UiTheme& theme,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     );
     static Vec2 Measure(
         const RangeSliderOptions& opts,
-        double lowValue,
-        double highValue,
-        double min,
-        double max,
+        keel::f64 lowValue,
+        keel::f64 highValue,
+        keel::f64 min,
+        keel::f64 max,
         UiSize size,
         ICanvas* canvas = nullptr,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     );
 
     static void Render(
         ICanvas& canvas,
         Rect bounds,
-        double lowValue,
-        double highValue,
-        double min,
-        double max,
+        keel::f64 lowValue,
+        keel::f64 highValue,
+        keel::f64 min,
+        keel::f64 max,
         const RangeSliderOptions& opts,
         UiSize size,
         bool hovered,
@@ -283,45 +283,45 @@ class ProgressBar {
 public:
     static Response Run(
         Context& ctx,
-        double value,
-        double min,
-        double max,
+        keel::f64 value,
+        keel::f64 min,
+        keel::f64 max,
         const ProgressBarOptions& opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     static Vec2 Measure(
         const ProgressBarOptions& opts,
-        double value,
-        double min,
-        double max,
+        keel::f64 value,
+        keel::f64 min,
+        keel::f64 max,
         UiSize size,
         ICanvas* canvas,
         const UiTheme& theme,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     );
     static Vec2 Measure(
         const ProgressBarOptions& opts,
-        double value,
-        double min,
-        double max,
+        keel::f64 value,
+        keel::f64 min,
+        keel::f64 max,
         UiSize size,
         ICanvas* canvas = nullptr,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     );
 
     static void Render(
         ICanvas& canvas,
         Rect bounds,
-        double value,
-        double min,
-        double max,
+        keel::f64 value,
+        keel::f64 min,
+        keel::f64 max,
         const ProgressBarOptions& opts,
         UiSize size,
         bool hovered,
         bool disabled,
         const UiTheme& theme,
-        float animPhase = 0.0f
+        keel::f32 animPhase = 0.0f
     );
 };
 

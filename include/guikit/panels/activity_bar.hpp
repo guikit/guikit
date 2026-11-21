@@ -41,8 +41,8 @@ struct ActivityBarOptions {
     StateColor color{};                                 ///< Default accent color for active items and badges (Default = theme accent)
     SidebarMode* linkedSidebarMode{nullptr};            ///< Optional companion Sidebar mode for VS Code click-to-toggle/expand behavior
     keel::Optional<bool> flushWithSidebar{keel::kNullOpt}; ///< Dock adjacent same-side Sidebar flush (nullopt = auto from theme.shellStyle)
-    keel::Optional<float> width{keel::kNullOpt};           ///< Optional explicit rail width (nullopt = auto-fit to square icon cells)
-    keel::Optional<float> gap{4.0f};                     ///< Vertical spacing between consecutive items
+    keel::Optional<keel::f32> width{keel::kNullOpt};           ///< Optional explicit rail width (nullopt = auto-fit to square icon cells)
+    keel::Optional<keel::f32> gap{4.0f};                     ///< Vertical spacing between consecutive items
     keel::Optional<Padding> padding{keel::kNullOpt};       ///< Internal rail padding (nullopt = compact symmetric padding)
     StateColor background{};
     Border border{.width = 1.0f};
@@ -120,7 +120,7 @@ public:
     void Separator(keel::SourceLocation loc = keel::SourceLocation::current());
 
     /// Adds an elastic vertical spacer pushing subsequent items (e.g. Settings/Account) to the bottom.
-    void Spacer(float flex = 1.0f, keel::SourceLocation loc = keel::SourceLocation::current());
+    void Spacer(keel::f32 flex = 1.0f, keel::SourceLocation loc = keel::SourceLocation::current());
 
     [[nodiscard]] const Response* operator->() const noexcept { return &response; }
 

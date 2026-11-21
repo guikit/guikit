@@ -26,30 +26,30 @@ struct MenuBarTriggerData {
     bool hovered{false};
     bool open{false};
     bool disabled{false};
-    float fontSize{13.0f};
-    float padX{10.0f};
-    float radius{5.0f};
+    keel::f32 fontSize{13.0f};
+    keel::f32 padX{10.0f};
+    keel::f32 radius{5.0f};
 };
 
 struct MenuBarMetrics {
-    float barHeight{30.0f};
-    float itemHeight{24.0f};
-    float fontSize{13.0f};
-    float padX{10.0f};
-    float radius{5.0f};
+    keel::f32 barHeight{30.0f};
+    keel::f32 itemHeight{24.0f};
+    keel::f32 fontSize{13.0f};
+    keel::f32 padX{10.0f};
+    keel::f32 radius{5.0f};
     Padding barPadding{6.0f, 3.0f, 6.0f, 3.0f};
 };
 
 MenuBarMetrics ComputeMenuBarMetrics(const MenuBarOptions& opts, const UiTheme& theme) noexcept {
     MenuBarMetrics m{};
-    const float f = theme.SizeFactor(opts.size);
+    const keel::f32 f = theme.SizeFactor(opts.size);
     const bool compact = (opts.style == MenuBarStyle::Compact);
     m.fontSize = keel::round(theme.ResolveFontSize(UiText{}, TextRole::LabelLarge, opts.size));
     m.itemHeight = keel::round((compact ? 22.0f : 24.0f) * f);
     m.barHeight = keel::round((compact ? 26.0f : 30.0f) * f);
     m.padX = keel::round((compact ? 8.0f : 10.0f) * f);
     m.radius = keel::round(5.0f * f);
-    const float vPad = keel::max(2.0f, keel::round((m.barHeight - m.itemHeight) * 0.5f));
+    const keel::f32 vPad = keel::max(2.0f, keel::round((m.barHeight - m.itemHeight) * 0.5f));
     m.barPadding = Padding(keel::round(6.0f * f), vPad, keel::round(6.0f * f), vPad);
     return m;
 }
@@ -111,16 +111,16 @@ void RenderMenuBarTrigger(const Node* node, ICanvas& canvas, const UiTheme& them
 }
 
 struct MenuBarSepPayload {
-    float heightRatio{0.55f};
+    keel::f32 heightRatio{0.55f};
 };
 
 void RenderMenuBarSeparator(const Node* node, ICanvas& canvas, const UiTheme& theme) {
     const auto* p = node ? node->As<MenuBarSepPayload>() : nullptr;
-    const float ratio = p ? p->heightRatio : 0.55f;
+    const keel::f32 ratio = p ? p->heightRatio : 0.55f;
     const Rect& r = node->computedRect;
-    const float lineH = keel::max(8.0f, r.h * keel::clamp(ratio, 0.2f, 0.95f));
-    const float x = keel::round(r.x + r.w * 0.5f);
-    const float y0 = keel::round(r.y + (r.h - lineH) * 0.5f);
+    const keel::f32 lineH = keel::max(8.0f, r.h * keel::clamp(ratio, 0.2f, 0.95f));
+    const keel::f32 x = keel::round(r.x + r.w * 0.5f);
+    const keel::f32 y0 = keel::round(r.y + (r.h - lineH) * 0.5f);
     canvas.DrawLine(Vec2(x, y0), Vec2(x, y0 + lineH), theme.palette.border, 1.0f);
 }
 
@@ -194,10 +194,10 @@ void MenuBarScope::FinishBarIfNeeded() noexcept {
         Context& ctx = *m_ctx;
         auto& st = ctx.GetOrCreateState<MenuBarPersistState>(m_barId);
         st.totalMenusPrev = m_menuCount;
-        while (static_cast<keel::i32>(st.prevTriggerRects.size()) > m_menuCount) {
+        while (keel::as<keel::i32>(st.prevTriggerRects.size()) > m_menuCount) {
             st.prevTriggerRects.pop_back();
         }
-        while (static_cast<keel::i32>(st.prevTriggerDisabled.size()) > m_menuCount) {
+        while (keel::as<keel::i32>(st.prevTriggerDisabled.size()) > m_menuCount) {
             st.prevTriggerDisabled.pop_back();
         }
         st.lastMousePos = ctx.GetMousePos();
@@ -249,12 +249,12 @@ MenuBarScope::TriggerResult MenuBarScope::RunMenuTrigger(
     const MenuBarMetrics m = ComputeMenuBarMetrics(m_opts, theme);
 
     const Rect prevTriggerRect = ctx.GetPrevFrameBounds(triggerId);
-    if (static_cast<keel::usize>(idx) >= st.prevTriggerRects.size()) {
+    if (keel::as<keel::usize>(idx) >= st.prevTriggerRects.size()) {
         st.prevTriggerRects.push_back(prevTriggerRect);
         st.prevTriggerDisabled.push_back(effDisabled);
     } else {
-        st.prevTriggerRects[static_cast<keel::usize>(idx)] = prevTriggerRect;
-        st.prevTriggerDisabled[static_cast<keel::usize>(idx)] = effDisabled;
+        st.prevTriggerRects[keel::as<keel::usize>(idx)] = prevTriggerRect;
+        st.prevTriggerDisabled[keel::as<keel::usize>(idx)] = effDisabled;
     }
 
     const Vec2 mouse = ctx.GetMousePos();
@@ -290,10 +290,10 @@ MenuBarScope::TriggerResult MenuBarScope::RunMenuTrigger(
 
     trigNode->text = payload->label;
     trigNode->SetPayload(payload);
-    trigNode->measureFn = [](const Node* n, float /*availW*/, ICanvas* canvas, const UiTheme& /*t*/) -> Vec2 {
+    trigNode->measureFn = [](const Node* n, keel::f32 /*availW*/, ICanvas* canvas, const UiTheme& /*t*/) -> Vec2 {
         const auto* d = n->As<MenuBarTriggerData>();
         if (!d) return Vec2(44.0f, 24.0f);
-        const float tw = TextUtil::MeasureUiTextWidth(UiText(d->label), d->fontSize, canvas);
+        const keel::f32 tw = TextUtil::MeasureUiTextWidth(UiText(d->label), d->fontSize, canvas);
         return Vec2(keel::ceil(tw + d->padX * 2.0f), n->fixedHeight);
     };
     trigNode->renderFn = &RenderMenuBarTrigger;
@@ -325,7 +325,7 @@ MenuScope MenuBarScope::Menu(
 
     menuOpts.anchorRect = (barRect.w > 0.0f && barRect.h > 0.0f) ? barRect : tr.triggerRect;
     if (!menuOpts.anchorPos.has_value() && tr.triggerRect.w > 0.0f && tr.triggerRect.h > 0.0f) {
-        const float anchorBottom = (barRect.h > 0.0f) ? barRect.Bottom() : tr.triggerRect.Bottom();
+        const keel::f32 anchorBottom = (barRect.h > 0.0f) ? barRect.Bottom() : tr.triggerRect.Bottom();
         menuOpts.anchorPos = Vec2(tr.triggerRect.x, anchorBottom + 3.0f);
     }
     if (st.openedByKeyboard) {
@@ -363,7 +363,7 @@ ContextMenuResponse MenuBarScope::Menu(
 
     menuOpts.anchorRect = (barRect.w > 0.0f && barRect.h > 0.0f) ? barRect : tr.triggerRect;
     if (!menuOpts.anchorPos.has_value() && tr.triggerRect.w > 0.0f && tr.triggerRect.h > 0.0f) {
-        const float anchorBottom = (barRect.h > 0.0f) ? barRect.Bottom() : tr.triggerRect.Bottom();
+        const keel::f32 anchorBottom = (barRect.h > 0.0f) ? barRect.Bottom() : tr.triggerRect.Bottom();
         menuOpts.anchorPos = Vec2(tr.triggerRect.x, anchorBottom + 3.0f);
     }
     if (st.openedByKeyboard) {
@@ -406,7 +406,7 @@ ContextMenuResponse MenuBarScope::Menu(
                             res.clicked = true;
                             res.changed = true;
                             if (isRootLevel) {
-                                res.clickedIndex = static_cast<keel::i32>(i);
+                                res.clickedIndex = keel::as<keel::i32>(i);
                             }
                             res.clickedId = item.id;
                         }
@@ -435,7 +435,7 @@ void MenuBarScope::Spacer(keel::SourceLocation loc) {
     guikit::Spacer::Run(*m_ctx, 1.0f, loc);
 }
 
-void MenuBarScope::Separator(float heightRatio, keel::SourceLocation loc) {
+void MenuBarScope::Separator(keel::f32 heightRatio, keel::SourceLocation loc) {
     if (!m_ctx || !m_activeBar) return;
     Context& ctx = *m_ctx;
     const Id sepId = ctx.MakeChildId(loc);
@@ -532,7 +532,7 @@ MenuBarScope MenuBar::Open(
                     continue;
                 }
                 if (st.prevTriggerRects[i].Contains(mouse)) {
-                    const keel::i32 idx = static_cast<keel::i32>(i);
+                    const keel::i32 idx = keel::as<keel::i32>(i);
                     ctx.SetCursor(CursorType::Pointer);
                     if (mouseMoved && st.openIndex >= 0 && st.openIndex != idx) {
                         st.openIndex = idx;

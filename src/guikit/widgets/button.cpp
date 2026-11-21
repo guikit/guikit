@@ -29,11 +29,11 @@ ControlSpec EffectiveButtonControl(const ButtonOptions& opts, UiSize size, const
     return c;
 }
 
-void DrawButtonSpinner(ICanvas& canvas, Rect r, Color col, float phase) {
+void DrawButtonSpinner(ICanvas& canvas, Rect r, Color col, keel::f32 phase) {
     if (r.w <= 1.0f || r.h <= 1.0f || col.a == 0) return;
-    const float diameter = keel::min(r.w, r.h);
-    const float strokeW = keel::clamp(diameter * 0.14f, 1.5f, 3.0f);
-    const float radius = keel::max(1.0f, (diameter - strokeW) * 0.5f);
+    const keel::f32 diameter = keel::min(r.w, r.h);
+    const keel::f32 strokeW = keel::clamp(diameter * 0.14f, 1.5f, 3.0f);
+    const keel::f32 radius = keel::max(1.0f, (diameter - strokeW) * 0.5f);
     const Vec2 center(r.x + r.w * 0.5f, r.y + r.h * 0.5f);
 
     // Subtle background ring
@@ -46,13 +46,13 @@ void DrawButtonSpinner(ICanvas& canvas, Rect r, Color col, float phase) {
     );
 
     // 250-degree rotating arc
-    const float startA = phase * keel::kTauF;
-    const float sweep = 1.38f * keel::kPiF;
+    const keel::f32 startA = phase * keel::kTauF;
+    const keel::f32 sweep = 1.38f * keel::kPiF;
     constexpr keel::i32 kSegs = 18;
     VectorPath path;
     path.Reserve(kSegs + 1, kSegs + 1);
     for (keel::i32 i = 0; i <= kSegs; ++i) {
-        const float a = startA + sweep * (static_cast<float>(i) / static_cast<float>(kSegs));
+        const keel::f32 a = startA + sweep * (keel::as<keel::f32>(i) / keel::as<keel::f32>(kSegs));
         const Vec2 pt(center.x + keel::cos(a) * radius, center.y + keel::sin(a) * radius);
         if (i == 0) path.MoveTo(pt);
         else path.LineTo(pt);
@@ -65,7 +65,7 @@ void DrawButtonSpinner(ICanvas& canvas, Rect r, Color col, float phase) {
     canvas.DrawPath(path, paint);
 }
 
-void DrawButtonGlyph(ICanvas& canvas, const ButtonOptions& opts, Rect r, Color col, float phase) {
+void DrawButtonGlyph(ICanvas& canvas, const ButtonOptions& opts, Rect r, Color col, keel::f32 phase) {
     if (opts.loading) {
         DrawButtonSpinner(canvas, r, col, phase);
     } else if (opts.icon.IsValid()) {
@@ -81,32 +81,32 @@ Vec2 MeasureButtonCapsule(
     const UiTheme& theme
 ) {
     const ComponentMetrics& m = theme.GetMetrics(size);
-    const float capFontSize = theme.ResolveFontSize(opts.text, TextRole::LabelLarge, size);
-    const float badgeFontSize = theme.ResolveFontSize(opts.badge, m.fontSize * 0.78f);
+    const keel::f32 capFontSize = theme.ResolveFontSize(opts.text, TextRole::LabelLarge, size);
+    const keel::f32 badgeFontSize = theme.ResolveFontSize(opts.badge, m.fontSize * 0.78f);
     const bool hasIcon = opts.loading || opts.icon.IsValid();
     const bool hasCapsuleText = !opts.text.empty();
     const bool hasBadge = opts.badge.HasContentOrReserve();
-    const float baseH = ctrl.height.IsFixed() ? ctrl.height.Dp() : m.defaultHeight;
+    const keel::f32 baseH = ctrl.height.IsFixed() ? ctrl.height.Dp() : m.defaultHeight;
 
     // Explicit square button or icon-only button with no text variants or badge defaults to square
     if (opts.square) {
         return {baseH, baseH};
     }
     if (hasIcon && !hasCapsuleText && opts.text.variants.empty() && !hasBadge) {
-        const float w = ctrl.width.IsFixed() ? ctrl.width.Dp() : baseH;
+        const keel::f32 w = ctrl.width.IsFixed() ? ctrl.width.Dp() : baseH;
         return {w, baseH};
     }
 
-    const float maxTextW = TextUtil::MeasureWidth(opts.text, capFontSize, canvas);
+    const keel::f32 maxTextW = TextUtil::MeasureWidth(opts.text, capFontSize, canvas);
 
-    float contentW = 0.0f;
-    float contentH = baseH;
+    keel::f32 contentW = 0.0f;
+    keel::f32 contentH = baseH;
     if (hasIcon && maxTextW > 0.0f) {
         if (opts.iconPlacement == Placement::Top || opts.iconPlacement == Placement::Bottom) {
             contentW = keel::max(m.iconSize, maxTextW);
             contentH = keel::max(baseH, m.iconSize + 4.0f + capFontSize + m.paddingY * 2.0f);
         } else {
-            const float gap = keel::max(4.0f, m.paddingX * 0.55f);
+            const keel::f32 gap = keel::max(4.0f, m.paddingX * 0.55f);
             contentW = m.iconSize + gap + maxTextW;
         }
     } else if (hasIcon) {
@@ -116,15 +116,15 @@ Vec2 MeasureButtonCapsule(
     }
 
     if (hasBadge) {
-        const float badgeTextW = TextUtil::MeasureWidth(opts.badge, badgeFontSize, canvas);
-        const float badgeW = badgeTextW + 10.0f;
+        const keel::f32 badgeTextW = TextUtil::MeasureWidth(opts.badge, badgeFontSize, canvas);
+        const keel::f32 badgeW = badgeTextW + 10.0f;
         if (contentW > 0.0f) {
             contentW += 6.0f;
         }
         contentW += badgeW;
     }
 
-    float totalW = contentW + m.paddingX * 2.0f;
+    keel::f32 totalW = contentW + m.paddingX * 2.0f;
     if (ctrl.width.IsFixed()) {
         totalW = ctrl.width.Dp();
     } else if (ctrl.minWidth.has_value()) {
@@ -176,9 +176,9 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocati
         }
     }
 
-    float loadingPhase = 0.0f;
+    keel::f32 loadingPhase = 0.0f;
     if (opts.loading && !effectiveDisabled) {
-        loadingPhase = static_cast<float>(keel::fmod(keel::max(0.0, ctx.GetCurrentTime()) * 1.35, 1.0));
+        loadingPhase = keel::as<keel::f32>(keel::fmod(keel::max(0.0, ctx.GetCurrentTime()) * 1.35, 1.0));
         ctx.RequestRepaint(2);
     }
 
@@ -200,7 +200,7 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocati
     node->visualHash = detail::HashArgs(
         bOpts->color,
         bOpts->iconPlacement,
-        static_cast<keel::u8>(bOpts->align),
+        keel::as<keel::u8>(bOpts->align),
         bOpts->active,
         bOpts->loading,
         loadingPhase,
@@ -215,13 +215,13 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocati
         activeSize,
         bOpts->background,
         bOpts->border,
-        static_cast<keel::u8>(bOpts->icon.GetType()),
-        static_cast<keel::u8>(bOpts->icon.GetId()),
+        keel::as<keel::u8>(bOpts->icon.GetType()),
+        keel::as<keel::u8>(bOpts->icon.GetId()),
         bOpts->icon.GetPath(),
         bOpts->text,
         bOpts->badge
     );
-    node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* b = n->As<ButtonOptions>();
         return Button::Measure(b ? *b : ButtonOptions{}, n->uiSize, canvas, theme, availableWidth);
     };
@@ -248,7 +248,7 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocati
 
     Control::SetupNode(ctx, node, ctrl);
     if (!ctrl.width.IsFixed()) {
-        const float defaultMinW = (bOpts->square && bOpts->height.IsFixed())
+        const keel::f32 defaultMinW = (bOpts->square && bOpts->height.IsFixed())
             ? bOpts->height.Dp()
             : ctx.GetTheme().GetMetrics(activeSize).defaultHeight;
         node->minWidth = keel::max(node->minWidth, defaultMinW);
@@ -261,13 +261,13 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocati
     return res;
 }
 
-Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, const UiTheme& theme, float /*availableWidth*/) {
+Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, const UiTheme& theme, keel::f32 /*availableWidth*/) {
     const ControlSpec ctrl = EffectiveButtonControl(opts, size, theme);
     const Vec2 capsuleDims = MeasureButtonCapsule(opts, ctrl, size, canvas, theme);
     return Control::Measure(capsuleDims, ctrl, theme);
 }
 
-Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, float availableWidth) {
+Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, keel::f32 availableWidth) {
     static const UiTheme defaultTheme = UiTheme::Dark();
     return Measure(opts, size, canvas, defaultTheme, availableWidth);
 }
@@ -282,7 +282,7 @@ void Button::Render(
     bool disabled,
     const UiTheme& theme,
     bool focused,
-    float loadingPhase
+    keel::f32 loadingPhase
 ) {
     if (bounds.w <= 0.0f || bounds.h <= 0.0f) {
         return;
@@ -290,7 +290,7 @@ void Button::Render(
 
     const ComponentMetrics& m = theme.GetMetrics(size);
     const UiText& effectiveCapsuleText = opts.text;
-    const float capFontSize = theme.ResolveFontSize(effectiveCapsuleText, TextRole::LabelLarge, size);
+    const keel::f32 capFontSize = theme.ResolveFontSize(effectiveCapsuleText, TextRole::LabelLarge, size);
 
     const Rect capsuleRect = bounds;
 
@@ -305,7 +305,7 @@ void Button::Render(
     Color bg = Color::Transparent();
     Color defaultText = theme.palette.textPrimary;
     Color borderCol = Color::Transparent();
-    float borderW = (opts.border.width > 0.0f) ? opts.border.width : 0.0f;
+    keel::f32 borderW = (opts.border.width > 0.0f) ? opts.border.width : 0.0f;
 
     if (!effColor.HasAny() || effColor.token == StateColorToken::Secondary) {
         const VariantColors& colors = theme.GetVariant(UiVariant::Secondary);
@@ -398,7 +398,7 @@ void Button::Render(
     canvas.PushClip(capsuleRect);
 
     // Background & border
-    const float radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
+    const keel::f32 radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
     canvas.DrawRoundRect(capsuleRect, radius, bg, borderCol, borderW);
 
     const bool hasIcon = opts.loading || opts.icon.IsValid();
@@ -406,12 +406,12 @@ void Button::Render(
     const Color icoCol = opts.iconColor.has_value()
         ? (disabled ? opts.iconColor->WithAlphaF(0.40f) : *opts.iconColor)
         : textCol;
-    const float padX = opts.square ? keel::min(m.paddingX, 2.0f) : m.paddingX;
+    const keel::f32 padX = opts.square ? keel::min(m.paddingX, 2.0f) : m.paddingX;
 
     // Reserve optional trailing badge inside capsule
-    const float badgeFontSize = theme.ResolveFontSize(opts.badge, m.fontSize * 0.78f);
-    float badgeW = 0.0f;
-    float badgeGap = 0.0f;
+    const keel::f32 badgeFontSize = theme.ResolveFontSize(opts.badge, m.fontSize * 0.78f);
+    keel::f32 badgeW = 0.0f;
+    keel::f32 badgeGap = 0.0f;
     bool drawBadge = false;
     if (!opts.badge.empty() && !opts.square) {
         badgeW = TextUtil::MeasureWidth(opts.badge, badgeFontSize, &canvas) + 10.0f;
@@ -427,7 +427,7 @@ void Button::Render(
         capsuleRect.h
     );
     if (drawBadge) {
-        const float badgeH = keel::min(capsuleRect.h - 4.0f, badgeFontSize + 5.0f);
+        const keel::f32 badgeH = keel::min(capsuleRect.h - 4.0f, badgeFontSize + 5.0f);
         const Rect badgeRect(
             capsuleRect.Right() - padX - badgeW,
             capsuleRect.y + (capsuleRect.h - badgeH) * 0.5f,
@@ -446,8 +446,8 @@ void Button::Render(
 
     if (hasIcon && (!hasCapsuleText || opts.square)) {
         // Icon-only or Square ToolButton with icon
-        const float isz = m.iconSize;
-        float iconX = contentBounds.x + (contentBounds.w - isz) * 0.5f;
+        const keel::f32 isz = m.iconSize;
+        keel::f32 iconX = contentBounds.x + (contentBounds.w - isz) * 0.5f;
         if (!opts.square) {
             if (opts.align == Align::Start) {
                 iconX = contentBounds.x + padX;
@@ -463,10 +463,10 @@ void Button::Render(
         DrawButtonGlyph(canvas, opts, iconBounds, icoCol, loadingPhase);
     } else if (!hasIcon && hasCapsuleText) {
         // Label-only with automatic ellipsis
-        const float rightPad = drawBadge ? 0.0f : padX;
-        const float availW = keel::max(0.0f, contentBounds.w - padX - rightPad);
+        const keel::f32 rightPad = drawBadge ? 0.0f : padX;
+        const keel::f32 availW = keel::max(0.0f, contentBounds.w - padX - rightPad);
         const Rect textRect(contentBounds.x + padX, contentBounds.y, availW, contentBounds.h);
-        float alignX = 0.5f;
+        keel::f32 alignX = 0.5f;
         if (!opts.square) {
             if (opts.align == Align::Start) {
                 alignX = 0.0f;
@@ -477,15 +477,15 @@ void Button::Render(
         canvas.DrawTextBox(effectiveCapsuleText.text, textRect, capFontSize, textCol, alignX, 0.5f);
     } else if (hasIcon && hasCapsuleText) {
         // Icon + Label
-        const float rightPad = drawBadge ? 0.0f : padX;
-        const float gap = keel::max(4.0f, m.paddingX * 0.55f);
+        const keel::f32 rightPad = drawBadge ? 0.0f : padX;
+        const keel::f32 gap = keel::max(4.0f, m.paddingX * 0.55f);
         if (opts.iconPlacement == Placement::Top) {
-            const float vGap = 4.0f;
-            const float textH = canvas.GetLineHeight(capFontSize);
-            const float totalContentH = m.iconSize + vGap + textH;
-            const float startY = contentBounds.y + (contentBounds.h - totalContentH) * 0.5f;
-            float iconX = contentBounds.x + (contentBounds.w - m.iconSize) * 0.5f;
-            float alignX = 0.5f;
+            const keel::f32 vGap = 4.0f;
+            const keel::f32 textH = canvas.GetLineHeight(capFontSize);
+            const keel::f32 totalContentH = m.iconSize + vGap + textH;
+            const keel::f32 startY = contentBounds.y + (contentBounds.h - totalContentH) * 0.5f;
+            keel::f32 iconX = contentBounds.x + (contentBounds.w - m.iconSize) * 0.5f;
+            keel::f32 alignX = 0.5f;
             if (opts.align == Align::Start) {
                 iconX = contentBounds.x + padX;
                 alignX = 0.0f;
@@ -497,12 +497,12 @@ void Button::Render(
             const Rect textRect(contentBounds.x + padX, startY + m.iconSize + vGap, keel::max(0.0f, contentBounds.w - padX - rightPad), textH);
             canvas.DrawTextBox(effectiveCapsuleText.text, textRect, capFontSize, textCol, alignX, 0.5f);
         } else if (opts.iconPlacement == Placement::Bottom) {
-            const float vGap = 4.0f;
-            const float textH = canvas.GetLineHeight(capFontSize);
-            const float totalContentH = m.iconSize + vGap + textH;
-            const float startY = contentBounds.y + (contentBounds.h - totalContentH) * 0.5f;
-            float iconX = contentBounds.x + (contentBounds.w - m.iconSize) * 0.5f;
-            float alignX = 0.5f;
+            const keel::f32 vGap = 4.0f;
+            const keel::f32 textH = canvas.GetLineHeight(capFontSize);
+            const keel::f32 totalContentH = m.iconSize + vGap + textH;
+            const keel::f32 startY = contentBounds.y + (contentBounds.h - totalContentH) * 0.5f;
+            keel::f32 iconX = contentBounds.x + (contentBounds.w - m.iconSize) * 0.5f;
+            keel::f32 alignX = 0.5f;
             if (opts.align == Align::Start) {
                 iconX = contentBounds.x + padX;
                 alignX = 0.0f;
@@ -514,12 +514,12 @@ void Button::Render(
             canvas.DrawTextBox(effectiveCapsuleText.text, textRect, capFontSize, textCol, alignX, 0.5f);
             DrawButtonGlyph(canvas, opts, Rect(iconX, startY + textH + vGap, m.iconSize, m.iconSize), icoCol, loadingPhase);
         } else if (opts.iconPlacement == Placement::Trailing) {
-            const float availTextW = keel::max(0.0f, contentBounds.w - padX - rightPad - m.iconSize - gap);
-            const float iconY = contentBounds.y + (contentBounds.h - m.iconSize) * 0.5f;
+            const keel::f32 availTextW = keel::max(0.0f, contentBounds.w - padX - rightPad - m.iconSize - gap);
+            const keel::f32 iconY = contentBounds.y + (contentBounds.h - m.iconSize) * 0.5f;
             if (availTextW < capFontSize * 1.25f) {
                 DrawButtonGlyph(canvas, opts, Rect(contentBounds.x + (contentBounds.w - m.iconSize) * 0.5f, iconY, m.iconSize, m.iconSize), icoCol, loadingPhase);
             } else {
-                float textW = canvas.MeasureText(effectiveCapsuleText.text, capFontSize).x;
+                keel::f32 textW = canvas.MeasureText(effectiveCapsuleText.text, capFontSize).x;
                 keel::FixedString<256> truncatedLabel;
                 keel::StringRef displayLabel = effectiveCapsuleText.text;
                 if (textW > availTextW + kTextSubpixelTolerance && availTextW > 0.0f) {
@@ -527,11 +527,11 @@ void Button::Render(
                     displayLabel = truncatedLabel;
                     textW = canvas.MeasureText(displayLabel, capFontSize).x;
                 }
-                const float totalContentW = m.iconSize + gap + textW;
-                const float centeredStartX = contentBounds.x + (contentBounds.w - totalContentW) * 0.5f;
-                const float minStartX = contentBounds.x + padX;
-                const float maxStartX = contentBounds.x + contentBounds.w - rightPad - totalContentW;
-                float startX = centeredStartX;
+                const keel::f32 totalContentW = m.iconSize + gap + textW;
+                const keel::f32 centeredStartX = contentBounds.x + (contentBounds.w - totalContentW) * 0.5f;
+                const keel::f32 minStartX = contentBounds.x + padX;
+                const keel::f32 maxStartX = contentBounds.x + contentBounds.w - rightPad - totalContentW;
+                keel::f32 startX = centeredStartX;
                 if (opts.align == Align::Start) {
                     startX = minStartX;
                 } else if (opts.align == Align::End) {
@@ -544,12 +544,12 @@ void Button::Render(
                 DrawButtonGlyph(canvas, opts, Rect(startX + textW + gap, iconY, m.iconSize, m.iconSize), icoCol, loadingPhase);
             }
         } else { // Leading / default
-            const float availTextW = keel::max(0.0f, contentBounds.w - padX - rightPad - m.iconSize - gap);
-            const float iconY = contentBounds.y + (contentBounds.h - m.iconSize) * 0.5f;
+            const keel::f32 availTextW = keel::max(0.0f, contentBounds.w - padX - rightPad - m.iconSize - gap);
+            const keel::f32 iconY = contentBounds.y + (contentBounds.h - m.iconSize) * 0.5f;
             if (availTextW < capFontSize * 1.25f) {
                 DrawButtonGlyph(canvas, opts, Rect(contentBounds.x + (contentBounds.w - m.iconSize) * 0.5f, iconY, m.iconSize, m.iconSize), icoCol, loadingPhase);
             } else {
-                float textW = canvas.MeasureText(effectiveCapsuleText.text, capFontSize).x;
+                keel::f32 textW = canvas.MeasureText(effectiveCapsuleText.text, capFontSize).x;
                 keel::FixedString<256> truncatedLabel;
                 keel::StringRef displayLabel = effectiveCapsuleText.text;
                 if (textW > availTextW + kTextSubpixelTolerance && availTextW > 0.0f) {
@@ -557,11 +557,11 @@ void Button::Render(
                     displayLabel = truncatedLabel;
                     textW = canvas.MeasureText(displayLabel, capFontSize).x;
                 }
-                const float totalContentW = m.iconSize + gap + textW;
-                const float centeredStartX = contentBounds.x + (contentBounds.w - totalContentW) * 0.5f;
-                const float minStartX = contentBounds.x + padX;
-                const float maxStartX = contentBounds.x + contentBounds.w - rightPad - totalContentW;
-                float startX = centeredStartX;
+                const keel::f32 totalContentW = m.iconSize + gap + textW;
+                const keel::f32 centeredStartX = contentBounds.x + (contentBounds.w - totalContentW) * 0.5f;
+                const keel::f32 minStartX = contentBounds.x + padX;
+                const keel::f32 maxStartX = contentBounds.x + contentBounds.w - rightPad - totalContentW;
+                keel::f32 startX = centeredStartX;
                 if (opts.align == Align::Start) {
                     startX = minStartX;
                 } else if (opts.align == Align::End) {
@@ -570,7 +570,7 @@ void Button::Render(
                     startX = minStartX;
                 }
                 DrawButtonGlyph(canvas, opts, Rect(startX, iconY, m.iconSize, m.iconSize), icoCol, loadingPhase);
-                const float remainingW = keel::max(0.0f, (contentBounds.x + contentBounds.w - rightPad) - (startX + m.iconSize + gap));
+                const keel::f32 remainingW = keel::max(0.0f, (contentBounds.x + contentBounds.w - rightPad) - (startX + m.iconSize + gap));
                 const Rect textRect(startX + m.iconSize + gap, contentBounds.y, remainingW, contentBounds.h);
                 canvas.DrawTextBox(displayLabel, textRect, capFontSize, textCol, 0.0f, 0.5f);
             }

@@ -18,7 +18,7 @@ namespace {
 struct CommandPalettePersistState {
     keel::SmallString<128> query{};
     keel::i32 highlightedPos{0};
-    float scrollOffset{0.0f};
+    keel::f32 scrollOffset{0.0f};
     Vec2 lastMousePos{-10000.0f, -10000.0f};
     bool wasOpen{false};
     bool prevClearHovered{false};
@@ -44,7 +44,7 @@ keel::SmallArray<FilteredCommandEntry, 64> FilterItems(
         const auto& it = items[i];
         if (query.empty()) {
             result.push_back(FilteredCommandEntry{
-                .origIndex = static_cast<keel::i32>(i),
+                .origIndex = keel::as<keel::i32>(i),
                 .labelMatchPos = keel::kInvalidIndex,
                 .labelMatchLen = 0
             });
@@ -59,7 +59,7 @@ keel::SmallArray<FilteredCommandEntry, 64> FilterItems(
         keel::usize labelLen = 0;
         if (TextUtil::FindCaseInsensitive(labelSv, query, labelPos, labelLen)) {
             result.push_back(FilteredCommandEntry{
-                .origIndex = static_cast<keel::i32>(i),
+                .origIndex = keel::as<keel::i32>(i),
                 .labelMatchPos = labelPos,
                 .labelMatchLen = labelLen
             });
@@ -69,7 +69,7 @@ keel::SmallArray<FilteredCommandEntry, 64> FilterItems(
         if (TextUtil::FindCaseInsensitive(catSv, query) != keel::kInvalidIndex ||
             TextUtil::FindCaseInsensitive(descSv, query) != keel::kInvalidIndex) {
             result.push_back(FilteredCommandEntry{
-                .origIndex = static_cast<keel::i32>(i),
+                .origIndex = keel::as<keel::i32>(i),
                 .labelMatchPos = keel::kInvalidIndex,
                 .labelMatchLen = 0
             });
@@ -139,7 +139,7 @@ CommandPaletteResponse CommandPalette::Run(
     const keel::Array<keel::String> pendingText = ctx.ConsumePendingTextInput();
     for (const keel::String& chunk : pendingText) {
         for (char c : chunk) {
-            const keel::u8 uc = static_cast<keel::u8>(c);
+            const keel::u8 uc = keel::as<keel::u8>(c);
             if (uc >= 32 && uc != 127) {
                 st.query.push_back(c);
                 queryModified = true;
@@ -155,7 +155,7 @@ CommandPaletteResponse CommandPalette::Run(
 
     // 2. Filter items against current query
     keel::SmallArray<FilteredCommandEntry, 64> filtered = FilterItems(items, st.query.as_ref());
-    const keel::i32 filteredCount = static_cast<keel::i32>(filtered.size());
+    const keel::i32 filteredCount = keel::as<keel::i32>(filtered.size());
 
     if (filteredCount == 0) {
         st.highlightedPos = -1;
@@ -165,51 +165,51 @@ CommandPaletteResponse CommandPalette::Run(
     }
 
     // 3. Compute geometry from UiSize + Density tokens and content-aware natural row widths
-    const float s = 1.0f;
+    const keel::f32 s = 1.0f;
     ICanvas* measureCanvas = ctx.GetCanvas();
 
     const ComponentMetrics& cm = theme.GetMetrics(activeSize);
     const InputFieldMetrics& im = theme.GetInputField(activeSize);
     const SelectMetrics& sm = theme.GetSelect(activeSize);
 
-    const float searchFont = theme.ResolveFontSize(UiText{}, TextRole::BodyMedium, activeSize);
-    const float labelFont  = theme.ResolveFontSize(UiText{}, TextRole::LabelLarge, activeSize);
-    const float descFont   = theme.ResolveFontSize(UiText{}, TextRole::BodySmall, activeSize);
-    const float badgeFont  = theme.ResolveFontSize(UiText{}, TextRole::LabelSmall, activeSize);
+    const keel::f32 searchFont = theme.ResolveFontSize(UiText{}, TextRole::BodyMedium, activeSize);
+    const keel::f32 labelFont  = theme.ResolveFontSize(UiText{}, TextRole::LabelLarge, activeSize);
+    const keel::f32 descFont   = theme.ResolveFontSize(UiText{}, TextRole::BodySmall, activeSize);
+    const keel::f32 badgeFont  = theme.ResolveFontSize(UiText{}, TextRole::LabelSmall, activeSize);
 
-    const float searchH   = keel::round(keel::max(im.defaultHeight + 10.0f * s, searchFont * 2.8f));
-    const float rowH      = keel::round(keel::max(sm.itemHeight + 8.0f * s, labelFont * 2.5f));
-    const float listPadY  = keel::round(keel::max(4.0f * s, cm.paddingY * 0.75f));
-    const float footerH   = opts.showFooterHints
+    const keel::f32 searchH   = keel::round(keel::max(im.defaultHeight + 10.0f * s, searchFont * 2.8f));
+    const keel::f32 rowH      = keel::round(keel::max(sm.itemHeight + 8.0f * s, labelFont * 2.5f));
+    const keel::f32 listPadY  = keel::round(keel::max(4.0f * s, cm.paddingY * 0.75f));
+    const keel::f32 footerH   = opts.showFooterHints
         ? keel::round(keel::max(cm.defaultHeight * 0.82f, badgeFont * 2.5f))
         : 0.0f;
-    const float rowInsetX = keel::round(6.0f * s);
-    const float rowPadX   = keel::round(im.paddingX);
-    const float icSz      = keel::round(cm.iconSize);
-    const float catPillH  = keel::round(keel::max(16.0f * s, badgeFont + 7.0f * s));
-    const float keyPillH  = keel::round(keel::max(18.0f * s, badgeFont + 9.0f * s));
+    const keel::f32 rowInsetX = keel::round(6.0f * s);
+    const keel::f32 rowPadX   = keel::round(im.paddingX);
+    const keel::f32 icSz      = keel::round(cm.iconSize);
+    const keel::f32 catPillH  = keel::round(keel::max(16.0f * s, badgeFont + 7.0f * s));
+    const keel::f32 keyPillH  = keel::round(keel::max(18.0f * s, badgeFont + 9.0f * s));
 
     // Measure uniform tabular category column width across all items (prevents jagged label alignment)
-    float maxCatPillW = 0.0f;
+    keel::f32 maxCatPillW = 0.0f;
     for (const auto& it : items) {
         const keel::StringRef catSv = it.category;
         if (!catSv.empty()) {
-            const float cw = TextUtil::MeasureWidth(catSv, badgeFont, measureCanvas);
+            const keel::f32 cw = TextUtil::MeasureWidth(catSv, badgeFont, measureCanvas);
             maxCatPillW = keel::max(maxCatPillW, keel::ceil(cw + 12.0f * s));
         }
     }
 
     // Measure natural content width across all items so auto-sizing fits icon + category + label + description + shortcut
-    const float escW = keel::round(keel::max(32.0f * s, TextUtil::MeasureWidth("ESC", badgeFont, measureCanvas) + 14.0f * s));
-    const float escH = keyPillH;
-    const float clearSz = keel::round(keel::max(20.0f * s, icSz + 6.0f * s));
+    const keel::f32 escW = keel::round(keel::max(32.0f * s, TextUtil::MeasureWidth("ESC", badgeFont, measureCanvas) + 14.0f * s));
+    const keel::f32 escH = keyPillH;
+    const keel::f32 clearSz = keel::round(keel::max(20.0f * s, icSz + 6.0f * s));
 
-    float maxNaturalW = rowPadX * 2.0f + icSz + 10.0f * s
+    keel::f32 maxNaturalW = rowPadX * 2.0f + icSz + 10.0f * s
         + TextUtil::MeasureWidth(opts.placeholder, searchFont, measureCanvas)
         + clearSz + escW + 36.0f * s;
 
     for (const auto& it : items) {
-        float rowW = rowInsetX * 2.0f + rowPadX + 10.0f * s + icSz + 10.0f * s;
+        keel::f32 rowW = rowInsetX * 2.0f + rowPadX + 10.0f * s + icSz + 10.0f * s;
         if (maxCatPillW > 0.0f) {
             rowW += maxCatPillW + 10.0f * s;
         }
@@ -218,7 +218,7 @@ CommandPaletteResponse CommandPalette::Run(
             rowW += 12.0f * s + TextUtil::MeasureWidth(it.description, descFont, measureCanvas);
         }
         if (!it.shortcut.empty()) {
-            const float sw = TextUtil::MeasureWidth(it.shortcut, badgeFont, measureCanvas);
+            const keel::f32 sw = TextUtil::MeasureWidth(it.shortcut, badgeFont, measureCanvas);
             rowW += 12.0f * s + keel::ceil(sw + 12.0f * s);
         }
         rowW += 22.0f * s; // right breathing room + scrollbar gutter reserve
@@ -233,23 +233,23 @@ CommandPaletteResponse CommandPalette::Run(
         }
     }
 
-    const float minW = keel::max(260.0f, opts.minWidth);
-    const float maxW = keel::max(minW, opts.maxWidth);
-    const float targetW = (opts.width.has_value() && *opts.width > 0.0f)
+    const keel::f32 minW = keel::max(260.0f, opts.minWidth);
+    const keel::f32 maxW = keel::max(minW, opts.maxWidth);
+    const keel::f32 targetW = (opts.width.has_value() && *opts.width > 0.0f)
         ? keel::max(260.0f, *opts.width)
         : keel::clamp(keel::ceil(maxNaturalW), minW, maxW);
-    const float cardW = keel::round(keel::min(keel::max(200.0f * s, backdropRect.w - 24.0f * s), targetW));
+    const keel::f32 cardW = keel::round(keel::min(keel::max(200.0f * s, backdropRect.w - 24.0f * s), targetW));
     const keel::u32 maxVis = keel::max<keel::u32>(1u, opts.maxVisibleItems);
     const keel::u32 visRows = (filteredCount > 0)
-        ? keel::min<keel::u32>(static_cast<keel::u32>(filteredCount), maxVis)
+        ? keel::min<keel::u32>(keel::as<keel::u32>(filteredCount), maxVis)
         : 1u;
-    const float listViewportH = (filteredCount > 0)
-        ? (static_cast<float>(visRows) * rowH + listPadY * 2.0f)
+    const keel::f32 listViewportH = (filteredCount > 0)
+        ? (keel::as<keel::f32>(visRows) * rowH + listPadY * 2.0f)
         : keel::round(rowH * 1.6f);
-    const float cardH = searchH + 1.0f + listViewportH + (opts.showFooterHints ? (1.0f + footerH) : 0.0f);
+    const keel::f32 cardH = searchH + 1.0f + listViewportH + (opts.showFooterHints ? (1.0f + footerH) : 0.0f);
 
-    const float cardX = keel::round(backdropRect.x + (backdropRect.w - cardW) * 0.5f);
-    const float cardY = keel::round(backdropRect.y + keel::max(20.0f * s, backdropRect.h * 0.14f));
+    const keel::f32 cardX = keel::round(backdropRect.x + (backdropRect.w - cardW) * 0.5f);
+    const keel::f32 cardY = keel::round(backdropRect.y + keel::max(20.0f * s, backdropRect.h * 0.14f));
     const Rect cardRect(cardX, cardY, cardW, cardH);
     const Rect searchRect(cardX, cardY, cardW, searchH);
     const Rect listRect(cardX, cardY + searchH + 1.0f, cardW, listViewportH);
@@ -270,14 +270,14 @@ CommandPaletteResponse CommandPalette::Run(
         clearSz
     );
 
-    const float totalListContentH = (filteredCount > 0) ? (static_cast<float>(filteredCount) * rowH) : 0.0f;
-    const float innerListViewportH = keel::max(0.0f, listViewportH - listPadY * 2.0f);
-    const float maxScroll = keel::max(0.0f, totalListContentH - innerListViewportH);
+    const keel::f32 totalListContentH = (filteredCount > 0) ? (keel::as<keel::f32>(filteredCount) * rowH) : 0.0f;
+    const keel::f32 innerListViewportH = keel::max(0.0f, listViewportH - listPadY * 2.0f);
+    const keel::f32 maxScroll = keel::max(0.0f, totalListContentH - innerListViewportH);
 
     auto scrollHighlightedIntoView = [&]() {
         if (st.highlightedPos < 0 || filteredCount <= 0) return;
-        const float itemTop = static_cast<float>(st.highlightedPos) * rowH;
-        const float itemBottom = itemTop + rowH;
+        const keel::f32 itemTop = keel::as<keel::f32>(st.highlightedPos) * rowH;
+        const keel::f32 itemBottom = itemTop + rowH;
         if (itemTop < st.scrollOffset) {
             st.scrollOffset = itemTop;
         } else if (itemBottom > st.scrollOffset + innerListViewportH) {
@@ -311,9 +311,9 @@ CommandPaletteResponse CommandPalette::Run(
     } else if (ctx.ConsumeKey(Key::End)) {
         moveHighlight(filteredCount);
     } else if (ctx.ConsumeKey(Key::PageUp)) {
-        moveHighlight(-static_cast<keel::i32>(maxVis));
+        moveHighlight(-keel::as<keel::i32>(maxVis));
     } else if (ctx.ConsumeKey(Key::PageDown)) {
-        moveHighlight(static_cast<keel::i32>(maxVis));
+        moveHighlight(keel::as<keel::i32>(maxVis));
     }
 
     if (opts.closeOnEscape && ctx.ConsumeKey(Key::Escape)) {
@@ -326,7 +326,7 @@ CommandPaletteResponse CommandPalette::Run(
     if (ctx.ConsumeKey(Key::Enter)) {
         if (st.highlightedPos >= 0 && st.highlightedPos < filteredCount) {
             const keel::i32 origIdx = filtered[st.highlightedPos].origIndex;
-            if (origIdx >= 0 && static_cast<keel::usize>(origIdx) < items.size() && !items[static_cast<keel::usize>(origIdx)].disabled) {
+            if (origIdx >= 0 && keel::as<keel::usize>(origIdx) < items.size() && !items[keel::as<keel::usize>(origIdx)].disabled) {
                 res.selectedIndex = origIdx;
                 res.changed = true;
                 res.clicked = true;
@@ -380,9 +380,9 @@ CommandPaletteResponse CommandPalette::Run(
 
         keel::i32 hoveredFilteredPos = -1;
         if (filteredCount > 0 && listRect.Contains(mouse) && !st.scrollbar.hovered && !st.scrollbar.dragging) {
-            const float relY = (mouse.y - (listRect.y + listPadY)) + st.scrollOffset;
+            const keel::f32 relY = (mouse.y - (listRect.y + listPadY)) + st.scrollOffset;
             if (relY >= 0.0f) {
-                const keel::i32 idx = static_cast<keel::i32>(relY / rowH);
+                const keel::i32 idx = keel::as<keel::i32>(relY / rowH);
                 if (idx >= 0 && idx < filteredCount) {
                     hoveredFilteredPos = idx;
                     if (mouseMoved && st.highlightedPos != idx) {
@@ -402,7 +402,7 @@ CommandPaletteResponse CommandPalette::Run(
                     ctx.ConsumeMouseClick();
                     ctx.InvalidateAll();
                     filtered = FilterItems(items, st.query.as_ref());
-                    sbGeom = Scrollbar::ComputeVertical(sbViewport, static_cast<float>(filtered.size()) * rowH, st.scrollOffset, sbm);
+                    sbGeom = Scrollbar::ComputeVertical(sbViewport, keel::as<keel::f32>(filtered.size()) * rowH, st.scrollOffset, sbm);
                 } else if (escPillHovered) {
                     isOpen = false;
                     st.wasOpen = false;
@@ -410,9 +410,9 @@ CommandPaletteResponse CommandPalette::Run(
                     ctx.ConsumeMouseClick();
                     ctx.InvalidateAll();
                     return res;
-                } else if (hoveredFilteredPos >= 0 && hoveredFilteredPos < static_cast<keel::i32>(filtered.size())) {
+                } else if (hoveredFilteredPos >= 0 && hoveredFilteredPos < keel::as<keel::i32>(filtered.size())) {
                     const keel::i32 origIdx = filtered[hoveredFilteredPos].origIndex;
-                    if (origIdx >= 0 && static_cast<keel::usize>(origIdx) < items.size() && !items[static_cast<keel::usize>(origIdx)].disabled) {
+                    if (origIdx >= 0 && keel::as<keel::usize>(origIdx) < items.size() && !items[keel::as<keel::usize>(origIdx)].disabled) {
                         res.selectedIndex = origIdx;
                         res.changed = true;
                         res.clicked = true;
@@ -461,7 +461,7 @@ CommandPaletteResponse CommandPalette::Run(
         Rect rowRect{};
     };
 
-    const float sbRightReserve = sbGeom.visible ? (sbGeom.trackRect.w + sbm.margin) : 0.0f;
+    const keel::f32 sbRightReserve = sbGeom.visible ? (sbGeom.trackRect.w + sbm.margin) : 0.0f;
     const bool sbHoveredCopy = st.scrollbar.hovered;
     const bool sbDraggingCopy = st.scrollbar.dragging;
 
@@ -469,8 +469,8 @@ CommandPaletteResponse CommandPalette::Run(
     keel::usize drawRowCount = 0;
     for (keel::usize i = 0; i < filtered.size(); ++i) {
         const auto& fe = filtered[i];
-        const auto& src = items[static_cast<keel::usize>(fe.origIndex)];
-        const float rowY = listRect.y + listPadY + static_cast<float>(i) * rowH - st.scrollOffset;
+        const auto& src = items[keel::as<keel::usize>(fe.origIndex)];
+        const keel::f32 rowY = listRect.y + listPadY + keel::as<keel::f32>(i) * rowH - st.scrollOffset;
         if (rowY + rowH < listRect.y || rowY > listRect.Bottom()) {
             continue;
         }
@@ -481,7 +481,7 @@ CommandPaletteResponse CommandPalette::Run(
             .shortcut = ctx.AllocString(src.shortcut),
             .icon = ctx.AllocIcon(src.icon),
             .disabled = src.disabled,
-            .highlighted = (static_cast<keel::i32>(i) == st.highlightedPos),
+            .highlighted = (keel::as<keel::i32>(i) == st.highlightedPos),
             .matchPos = fe.labelMatchPos,
             .matchLen = fe.labelMatchLen,
             .rowRect = Rect(cardRect.x + rowInsetX, keel::round(rowY), cardRect.w - rowInsetX * 2.0f - sbRightReserve, rowH)
@@ -492,7 +492,7 @@ CommandPaletteResponse CommandPalette::Run(
     const keel::StringRef queryCopy = ctx.AllocString(st.query.as_ref());
     const UiText placeholderCopy = ctx.AllocText(opts.placeholder);
     const bool showFooter = opts.showFooterHints;
-    const float backdropOpacity = opts.backdropOpacity;
+    const keel::f32 backdropOpacity = opts.backdropOpacity;
     const keel::Optional<Color> backdropColor = opts.backdropColor;
     const StateColor bgOpt = opts.background;
     const Border borderOpt = opts.border;
@@ -549,20 +549,20 @@ CommandPaletteResponse CommandPalette::Run(
                 c.DrawRect(backdropRect, *backdropColor);
             }
         } else {
-            const float alpha = keel::clamp(backdropOpacity, 0.0f, 0.95f);
+            const keel::f32 alpha = keel::clamp(backdropOpacity, 0.0f, 0.95f);
             if (alpha > 0.001f && backdropRect.w > 0.0f && backdropRect.h > 0.0f) {
                 c.DrawRect(
                     backdropRect,
-                    Color(0, 0, 0, static_cast<keel::u8>(keel::clamp(keel::round_i32(alpha * 255.0f), 0, 255)))
+                    Color(0, 0, 0, keel::as<keel::u8>(keel::clamp(keel::round_i32(alpha * 255.0f), 0, 255)))
                 );
             }
         }
 
         // 2. Multi-layer elevated shadow & surface card
-        const float radius = borderOpt.radius.has_value()
+        const keel::f32 radius = borderOpt.radius.has_value()
             ? *borderOpt.radius
             : (10.0f * s);
-        const float borderW = (borderOpt.width > 0.0f) ? borderOpt.width : 1.0f;
+        const keel::f32 borderW = (borderOpt.width > 0.0f) ? borderOpt.width : 1.0f;
 
         c.DrawRoundRect(
             Rect(cardRect.x - 2.0f * s, cardRect.y + 8.0f * s, cardRect.w + 4.0f * s, cardRect.h + 10.0f * s),
@@ -592,7 +592,7 @@ CommandPaletteResponse CommandPalette::Run(
         c.DrawRoundRect(cardRect, radius, surfaceBg, borderCol, borderW);
 
         // 3. Top Search Bar
-        const float searchIconSz = icSz;
+        const keel::f32 searchIconSz = icSz;
         const Rect searchIconRect(
             searchRect.x + rowPadX + 2.0f * s,
             keel::round(searchRect.y + (searchRect.h - searchIconSz) * 0.5f),
@@ -601,13 +601,13 @@ CommandPaletteResponse CommandPalette::Run(
         );
         Icon::Search().Draw(c, searchIconRect, primaryCol);
 
-        const float textStartX = searchIconRect.Right() + 10.0f * s;
-        const float textEndX = (!queryCopy.empty() ? clearRect.x : escRect.x) - 8.0f * s;
+        const keel::f32 textStartX = searchIconRect.Right() + 10.0f * s;
+        const keel::f32 textEndX = (!queryCopy.empty() ? clearRect.x : escRect.x) - 8.0f * s;
         const Rect queryTextRect(textStartX, searchRect.y, keel::max(10.0f, textEndX - textStartX), searchRect.h);
 
         c.PushClip(queryTextRect);
         if (queryCopy.empty()) {
-            const float placeholderOffset = keel::round(4.0f * s);
+            const keel::f32 placeholderOffset = keel::round(4.0f * s);
             TextUtil::DrawUiText(
                 c,
                 placeholderCopy,
@@ -620,13 +620,13 @@ CommandPaletteResponse CommandPalette::Run(
                 &theme
             );
             if (cursorVis) {
-                const float caretH = keel::round(searchFont * 1.15f);
+                const keel::f32 caretH = keel::round(searchFont * 1.15f);
                 const Rect caretRect(textStartX, keel::round(searchRect.Center().y - caretH * 0.5f), keel::max(1.5f, keel::round(1.5f * s)), caretH);
                 c.DrawRect(caretRect, primaryCol);
             }
         } else {
-            const float qw = c.MeasureText(queryCopy, searchFont).x;
-            const float drawX = (qw > queryTextRect.w - 4.0f * s)
+            const keel::f32 qw = c.MeasureText(queryCopy, searchFont).x;
+            const keel::f32 drawX = (qw > queryTextRect.w - 4.0f * s)
                 ? (queryTextRect.Right() - qw - 4.0f * s)
                 : textStartX;
             c.DrawTextBox(
@@ -638,7 +638,7 @@ CommandPaletteResponse CommandPalette::Run(
                 0.5f
             );
             if (cursorVis) {
-                const float caretH = keel::round(searchFont * 1.15f);
+                const keel::f32 caretH = keel::round(searchFont * 1.15f);
                 const Rect caretRect(
                     keel::round(drawX + qw + 1.0f * s),
                     keel::round(searchRect.Center().y - caretH * 0.5f),
@@ -655,7 +655,7 @@ CommandPaletteResponse CommandPalette::Run(
             if (clearBtnHovered) {
                 c.DrawRoundRect(clearRect, 5.0f * s, pal.surfaceHover, Color::Transparent(), 0.0f);
             }
-            const float xSz = keel::round(icSz * 0.75f);
+            const keel::f32 xSz = keel::round(icSz * 0.75f);
             const Rect xBox(
                 keel::round(clearRect.x + (clearRect.w - xSz) * 0.5f),
                 keel::round(clearRect.y + (clearRect.h - xSz) * 0.5f),
@@ -701,8 +701,8 @@ CommandPaletteResponse CommandPalette::Run(
                         0.0f
                     );
                     // Left 3px accent bar in primary
-                    const float barW = keel::max(2.0f, keel::round(3.0f * s));
-                    const float barH = keel::max(8.0f, rr.h - 10.0f * s);
+                    const keel::f32 barW = keel::max(2.0f, keel::round(3.0f * s));
+                    const keel::f32 barH = keel::max(8.0f, rr.h - 10.0f * s);
                     c.DrawRoundRect(
                         Rect(rr.x + 2.0f * s, keel::round(rr.y + (rr.h - barH) * 0.5f), barW, barH),
                         barW * 0.5f,
@@ -715,13 +715,13 @@ CommandPaletteResponse CommandPalette::Run(
                 Color fg = row.disabled ? pal.textDisabled : pal.textPrimary;
                 Color mutedFg = row.disabled ? pal.textDisabled : pal.textMuted;
 
-                float curX = rr.x + rowPadX;
-                float rightEdge = rr.Right() - 16.0f * s;
+                keel::f32 curX = rr.x + rowPadX;
+                keel::f32 rightEdge = rr.Right() - 16.0f * s;
 
                 // Right-aligned [shortcut] keycap badge
                 if (!row.shortcut.empty()) {
-                    const float sw = c.MeasureText(row.shortcut, badgeFont).x;
-                    const float pillW = keel::round(sw + 12.0f * s);
+                    const keel::f32 sw = c.MeasureText(row.shortcut, badgeFont).x;
+                    const keel::f32 pillW = keel::round(sw + 12.0f * s);
                     const Rect pillRect(
                         rightEdge - pillW,
                         keel::round(rr.y + (rr.h - keyPillH) * 0.5f),
@@ -755,7 +755,7 @@ CommandPaletteResponse CommandPalette::Run(
 
                 // Tabular [category] column prefix (uniform width so all labels align vertically)
                 if (maxCatPillW > 0.0f) {
-                    const float catColW = keel::min(maxCatPillW, keel::max(36.0f * s, (rightEdge - curX) * 0.30f));
+                    const keel::f32 catColW = keel::min(maxCatPillW, keel::max(36.0f * s, (rightEdge - curX) * 0.30f));
                     if (!row.category.empty()) {
                         const Rect catRect(
                             curX,
@@ -789,10 +789,10 @@ CommandPaletteResponse CommandPalette::Run(
                 }
 
                 // Label with matched substring highlight and graceful ellipsis fallback
-                const float availTextW = keel::max(0.0f, rightEdge - curX);
+                const keel::f32 availTextW = keel::max(0.0f, rightEdge - curX);
                 if (availTextW > 4.0f) {
                     const keel::StringRef labelSv = row.label;
-                    const float fullLabelW = c.MeasureText(labelSv, labelFont).x;
+                    const keel::f32 fullLabelW = c.MeasureText(labelSv, labelFont).x;
 
                     TextUtil::DrawHighlightedTextBox(
                         c,
@@ -855,7 +855,7 @@ CommandPaletteResponse CommandPalette::Run(
             const keel::StringRef countLabel = (totalFiltered == 1)
                 ? keel::StringRef("1 command")
                 : keel::format_buf(countBuf, "%zu commands", totalFiltered);
-            const float countW = c.MeasureText(countLabel, badgeFont).x;
+            const keel::f32 countW = c.MeasureText(countLabel, badgeFont).x;
             c.DrawTextBox(
                 countLabel,
                 footerInner,
@@ -876,16 +876,16 @@ CommandPaletteResponse CommandPalette::Run(
                 {"Esc",   "Close"}
             }};
 
-            float hintX = footerInner.x;
-            const float maxHintRight = footerInner.Right() - countW - 12.0f * s;
-            const float kcapH = keel::round(keel::max(16.0f * s, badgeFont + 5.0f * s));
-            const float kcapY = keel::round(footerRect.y + (footerRect.h - kcapH) * 0.5f);
+            keel::f32 hintX = footerInner.x;
+            const keel::f32 maxHintRight = footerInner.Right() - countW - 12.0f * s;
+            const keel::f32 kcapH = keel::round(keel::max(16.0f * s, badgeFont + 5.0f * s));
+            const keel::f32 kcapY = keel::round(footerRect.y + (footerRect.h - kcapH) * 0.5f);
 
             for (const auto& h : kHints) {
-                const float kw = c.MeasureText(h.key, badgeFont).x;
-                const float kcapW = keel::round(kw + 10.0f * s);
-                const float aw = c.MeasureText(h.action, badgeFont).x;
-                const float groupW = kcapW + 5.0f * s + aw;
+                const keel::f32 kw = c.MeasureText(h.key, badgeFont).x;
+                const keel::f32 kcapW = keel::round(kw + 10.0f * s);
+                const keel::f32 aw = c.MeasureText(h.action, badgeFont).x;
+                const keel::f32 groupW = kcapW + 5.0f * s + aw;
                 if (hintX + groupW > maxHintRight) {
                     break;
                 }

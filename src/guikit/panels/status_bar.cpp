@@ -16,7 +16,7 @@ struct StatusSegmentPayload {
     bool interactive{false};
 };
 
-float ResolveStatusBarHeight(const UiTheme& theme, UiSize size, float scale) noexcept {
+keel::f32 ResolveStatusBarHeight(const UiTheme& theme, UiSize size, keel::f32 scale) noexcept {
     switch (size.GetPreset()) {
         case UiSize::Preset::Xs: return 20.0f * scale;
         case UiSize::Preset::Sm: return 22.0f * scale;
@@ -51,19 +51,19 @@ Color ResolveSegmentTextColor(
 
 Vec2 MeasureStatusSegment(
     const Node* node,
-    float /*availableWidth*/,
+    keel::f32 /*availableWidth*/,
     ICanvas* canvas,
     const UiTheme& theme
 ) noexcept {
     const auto* payload = node->As<StatusSegmentPayload>();
     if (!payload) return {0.0f, 0.0f};
     const StatusItemOptions& o = payload->opts;
-    const float scale = 1.0f;
-    const float fontSize = theme.ResolveFontSize(o.text, TextRole::LabelSmall, node->uiSize);
-    const float padX = (payload->interactive ? 6.0f : 4.0f) * scale;
-    const float itemGap = 5.0f * scale;
+    const keel::f32 scale = 1.0f;
+    const keel::f32 fontSize = theme.ResolveFontSize(o.text, TextRole::LabelSmall, node->uiSize);
+    const keel::f32 padX = (payload->interactive ? 6.0f : 4.0f) * scale;
+    const keel::f32 itemGap = 5.0f * scale;
 
-    float w = padX * 2.0f;
+    keel::f32 w = padX * 2.0f;
     keel::i32 parts = 0;
 
     if (o.dotColor.a > 0) {
@@ -75,24 +75,24 @@ Vec2 MeasureStatusSegment(
         ++parts;
     }
     if (!o.text.empty() || o.text.HasContentOrReserve()) {
-        const float textW = TextUtil::MeasureWidth(o.text, fontSize, canvas);
+        const keel::f32 textW = TextUtil::MeasureWidth(o.text, fontSize, canvas);
         w += textW;
         ++parts;
     }
     if (!o.badge.empty() || o.badge.HasContentOrReserve()) {
-        const float badgeFont = keel::max(9.0f * scale, fontSize * 0.85f);
-        const float badgeTextW = TextUtil::MeasureWidth(o.badge, badgeFont, canvas);
+        const keel::f32 badgeFont = keel::max(9.0f * scale, fontSize * 0.85f);
+        const keel::f32 badgeTextW = TextUtil::MeasureWidth(o.badge, badgeFont, canvas);
         w += keel::max(14.0f * scale, badgeTextW + 8.0f * scale);
         ++parts;
     }
     if (parts > 1) {
-        w += static_cast<float>(parts - 1) * itemGap;
+        w += keel::as<keel::f32>(parts - 1) * itemGap;
     }
     if (o.minWidth.has_value() && *o.minWidth > 0.0f) {
         w = keel::max(w, *o.minWidth * scale);
     }
 
-    const float h = ResolveStatusBarHeight(theme, node->uiSize, scale) - 4.0f * scale;
+    const keel::f32 h = ResolveStatusBarHeight(theme, node->uiSize, scale) - 4.0f * scale;
     return {keel::ceil(w), keel::max(16.0f * scale, h)};
 }
 
@@ -107,9 +107,9 @@ void RenderStatusSegment(
     const Rect& r = node->computedRect;
     if (r.w <= 0.5f || r.h <= 0.5f) return;
 
-    const float scale = 1.0f;
+    const keel::f32 scale = 1.0f;
     const auto& p = theme.palette;
-    const float alphaMul = node->disabled ? 0.45f : 1.0f;
+    const keel::f32 alphaMul = node->disabled ? 0.45f : 1.0f;
 
     // 1. Interactive hover / active background pill
     if (payload->interactive || o.active) {
@@ -134,11 +134,11 @@ void RenderStatusSegment(
         }
     }
 
-    const float fontSize = theme.ResolveFontSize(o.text, TextRole::LabelSmall, node->uiSize);
-    const float padX = (payload->interactive ? 6.0f : 4.0f) * scale;
-    const float itemGap = 5.0f * scale;
-    float curX = r.x + padX;
-    const float centerY = r.Center().y;
+    const keel::f32 fontSize = theme.ResolveFontSize(o.text, TextRole::LabelSmall, node->uiSize);
+    const keel::f32 padX = (payload->interactive ? 6.0f : 4.0f) * scale;
+    const keel::f32 itemGap = 5.0f * scale;
+    keel::f32 curX = r.x + padX;
+    const keel::f32 centerY = r.Center().y;
 
     Color fg = ResolveSegmentTextColor(o, payload->barStyle, theme, node->hovered || o.active);
     if (o.active && payload->barStyle != StatusBarStyle::Accent && !o.color.HasAny() && !o.text.color.HasAny()) {
@@ -148,7 +148,7 @@ void RenderStatusSegment(
 
     // 2. Optional status LED dot
     if (o.dotColor.a > 0) {
-        const float dotSz = 6.0f * scale;
+        const keel::f32 dotSz = 6.0f * scale;
         const Rect dotRect(curX, centerY - dotSz * 0.5f, dotSz, dotSz);
         canvas.DrawRoundRect(dotRect, dotSz * 0.5f, o.dotColor.WithAlphaF(alphaMul));
         curX += dotSz + itemGap;
@@ -156,7 +156,7 @@ void RenderStatusSegment(
 
     // 3. Optional leading icon
     if (o.icon.IsValid()) {
-        const float iconSz = 12.0f * scale;
+        const keel::f32 iconSz = 12.0f * scale;
         const Rect iconRect(curX, centerY - iconSz * 0.5f, iconSz, iconSz);
         o.icon.Draw(canvas, iconRect, fg);
         curX += iconSz + itemGap;
@@ -165,18 +165,18 @@ void RenderStatusSegment(
     // 4. Text label
     if (!o.text.empty()) {
         const Vec2 textSz = canvas.MeasureText(o.text.text, fontSize);
-        const float reservedW = keel::max(textSz.x, TextUtil::MeasureWidth(o.text, fontSize, &canvas));
-        const float textY = keel::round(centerY - textSz.y * 0.5f - 1.5f * scale);
+        const keel::f32 reservedW = keel::max(textSz.x, TextUtil::MeasureWidth(o.text, fontSize, &canvas));
+        const keel::f32 textY = keel::round(centerY - textSz.y * 0.5f - 1.5f * scale);
         canvas.DrawText(o.text.text, {curX, textY}, fontSize, fg);
         curX += reservedW + itemGap;
     }
 
     // 5. Optional trailing badge pill
     if (!o.badge.empty()) {
-        const float badgeFont = keel::max(9.0f * scale, fontSize * 0.85f);
+        const keel::f32 badgeFont = keel::max(9.0f * scale, fontSize * 0.85f);
         const Vec2 bSz = canvas.MeasureText(o.badge.text, badgeFont);
-        const float pillH = keel::min(r.h - 2.0f * scale, keel::max(13.0f * scale, bSz.y + 2.0f * scale));
-        const float pillW = keel::max(pillH, bSz.x + 8.0f * scale);
+        const keel::f32 pillH = keel::min(r.h - 2.0f * scale, keel::max(13.0f * scale, bSz.y + 2.0f * scale));
+        const keel::f32 pillW = keel::max(pillH, bSz.x + 8.0f * scale);
         const Rect pillRect(curX, centerY - pillH * 0.5f, pillW, pillH);
 
         const Color pillBg = (payload->barStyle == StatusBarStyle::Accent)
@@ -209,7 +209,7 @@ Response StatusBarScope::Action(
     return StatusBar::RenderSegment(*m_ctx, opts, m_opts.style, true, loc);
 }
 
-void StatusBarScope::Separator(float heightRatio, keel::SourceLocation loc) {
+void StatusBarScope::Separator(keel::f32 heightRatio, keel::SourceLocation loc) {
     if (!m_ctx || !m_node) return;
     const Color col = (m_opts.style == StatusBarStyle::Accent)
         ? m_ctx->GetTheme().palette.accentText.WithAlphaF(0.3f)
@@ -224,12 +224,12 @@ void StatusBarScope::Spacer(keel::SourceLocation loc) {
     spacer->widthMode = SizeMode::Stretch;
     spacer->isSpacer = true;
     spacer->flexGrow = 1.0f;
-    spacer->measureFn = [](const Node*, float /*availableWidth*/, ICanvas*, const UiTheme&) noexcept -> Vec2 {
+    spacer->measureFn = [](const Node*, keel::f32 /*availableWidth*/, ICanvas*, const UiTheme&) noexcept -> Vec2 {
         return {0.0f, 0.0f};
     };
 }
 
-void StatusBarScope::Gap(float sizeDp, keel::SourceLocation loc) {
+void StatusBarScope::Gap(keel::f32 sizeDp, keel::SourceLocation loc) {
     if (!m_ctx) return;
     guikit::Spacer::Gap(*m_ctx, sizeDp, loc);
 }
@@ -242,10 +242,10 @@ StatusBarScope StatusBar::Open(
     const Id id = ctx.MakeChildId(loc);
     Node* node = ctx.CreateNode(NodeType::StatusBar, id, opts.disabled);
     const UiTheme& theme = node->GetTheme(ctx.GetTheme());
-    const float density = node->GetDensity();
+    const keel::f32 density = node->GetDensity();
     const UiSize activeSize = opts.size;
     const bool effectiveDisabled = node->disabled;
-    const float barH = opts.height.has_value()
+    const keel::f32 barH = opts.height.has_value()
         ? *opts.height
         : ResolveStatusBarHeight(theme, activeSize, 1.0f);
 
@@ -292,7 +292,7 @@ StatusBarScope StatusBar::Open(
 
     node->uiSize = activeSize;
     node->visualHash = detail::HashArgs(
-        static_cast<keel::u8>(opts.style),
+        keel::as<keel::u8>(opts.style),
         node->fixedHeight,
         opts.background,
         opts.border
@@ -364,12 +364,12 @@ Response StatusBar::RenderSegment(
     node->visualHash = detail::HashArgs(
         payload->opts.text,
         payload->opts.badge,
-        static_cast<keel::u8>(payload->opts.icon.GetType()),
-        static_cast<keel::u8>(payload->opts.icon.GetId()),
+        keel::as<keel::u8>(payload->opts.icon.GetType()),
+        keel::as<keel::u8>(payload->opts.icon.GetId()),
         payload->opts.icon.GetPath(),
         payload->opts.dotColor,
         payload->opts.color,
-        static_cast<keel::u8>(barStyle),
+        keel::as<keel::u8>(barStyle),
         interactive,
         opts.active,
         node->hovered,

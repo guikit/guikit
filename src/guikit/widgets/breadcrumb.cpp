@@ -12,7 +12,7 @@ namespace {
 
 struct BreadcrumbPersistentState {
     keel::i32 highlightedPopupRow{-1};
-    float popupScrollY{0.0f};
+    keel::f32 popupScrollY{0.0f};
 };
 
 struct BreadcrumbToken {
@@ -42,7 +42,7 @@ void BuildBreadcrumbTokens(
     if (items.empty()) return;
 
     const bool shouldCollapse = (opts.maxVisibleItems >= 2) &&
-                                (items.size() > static_cast<keel::usize>(opts.maxVisibleItems));
+                                (items.size() > keel::as<keel::usize>(opts.maxVisibleItems));
 
     if (!shouldCollapse) {
         outTokens.reserve(items.size());
@@ -52,7 +52,7 @@ void BuildBreadcrumbTokens(
         return;
     }
 
-    const keel::usize trailingCount = static_cast<keel::usize>(opts.maxVisibleItems - 1);
+    const keel::usize trailingCount = keel::as<keel::usize>(opts.maxVisibleItems - 1);
     outTokens.reserve(1 + 1 + trailingCount);
     outTokens.push_back(BreadcrumbToken{.itemIndex = 0, .isEllipsis = false});
     outTokens.push_back(BreadcrumbToken{.itemIndex = 1, .isEllipsis = true});
@@ -63,7 +63,7 @@ void BuildBreadcrumbTokens(
     }
 }
 
-float MeasureTokenNaturalWidth(
+keel::f32 MeasureTokenNaturalWidth(
     keel::ArrayRef<BreadcrumbItem> items,
     const BreadcrumbToken& token,
     UiSize size,
@@ -71,11 +71,11 @@ float MeasureTokenNaturalWidth(
     const UiTheme& theme
 ) noexcept {
     const ComponentMetrics& cm = theme.GetMetrics(size);
-    const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
-    const float padX = keel::max(6.0f, cm.paddingX * 0.65f);
+    const keel::f32 fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
+    const keel::f32 padX = keel::max(6.0f, cm.paddingX * 0.65f);
 
     if (token.isEllipsis) {
-        const float dotsW = TextUtil::MeasureWidth("...", fontSize, canvas);
+        const keel::f32 dotsW = TextUtil::MeasureWidth("...", fontSize, canvas);
         return keel::max(26.0f, dotsW + padX * 1.8f);
     }
 
@@ -84,11 +84,11 @@ float MeasureTokenNaturalWidth(
     }
 
     const BreadcrumbItem& item = items[token.itemIndex];
-    const float iconGap = 5.0f;
-    const float badgeGap = 5.0f;
-    const float badgeFontSize = fontSize * 0.82f;
+    const keel::f32 iconGap = 5.0f;
+    const keel::f32 badgeGap = 5.0f;
+    const keel::f32 badgeFontSize = fontSize * 0.82f;
 
-    float contentW = 0.0f;
+    keel::f32 contentW = 0.0f;
     if (item.icon.IsValid()) {
         contentW += cm.iconSize;
     }
@@ -104,7 +104,7 @@ float MeasureTokenNaturalWidth(
     return keel::max(cm.defaultHeight * 0.75f, contentW + padX * 2.0f);
 }
 
-float MeasureSeparatorSlotWidth(UiSize size, const UiTheme& theme) noexcept {
+keel::f32 MeasureSeparatorSlotWidth(UiSize size, const UiTheme& theme) noexcept {
     const ComponentMetrics& cm = theme.GetMetrics(size);
     return keel::max(14.0f, cm.iconSize * 1.05f);
 }
@@ -120,8 +120,8 @@ Vec2 MeasureBreadcrumbNaturalBox(
     keel::SmallArray<BreadcrumbToken, 16> tokens;
     BuildBreadcrumbTokens(items, opts, tokens);
 
-    const float sepW = MeasureSeparatorSlotWidth(size, theme);
-    float totalW = 0.0f;
+    const keel::f32 sepW = MeasureSeparatorSlotWidth(size, theme);
+    keel::f32 totalW = 0.0f;
     for (keel::usize i = 0; i < tokens.size(); ++i) {
         if (i > 0) {
             totalW += sepW;
@@ -133,7 +133,7 @@ Vec2 MeasureBreadcrumbNaturalBox(
         totalW = opts.width.Dp();
     }
 
-    const float boxH = opts.height.IsFixed()
+    const keel::f32 boxH = opts.height.IsFixed()
         ? opts.height.Dp()
         : cm.defaultHeight;
 
@@ -159,9 +159,9 @@ void ComputeBreadcrumbLayout(
     outTokenRects.reserve(outTokens.size());
     outSepRects.reserve(outTokens.size() > 1 ? outTokens.size() - 1 : 0);
 
-    const float sepW = MeasureSeparatorSlotWidth(size, theme);
-    keel::SmallArray<float, 16> widths(outTokens.size(), 0.0f);
-    float totalW = 0.0f;
+    const keel::f32 sepW = MeasureSeparatorSlotWidth(size, theme);
+    keel::SmallArray<keel::f32, 16> widths(outTokens.size(), 0.0f);
+    keel::f32 totalW = 0.0f;
     for (keel::usize i = 0; i < outTokens.size(); ++i) {
         if (i > 0) totalW += sepW;
         widths[i] = MeasureTokenNaturalWidth(items, outTokens[i], size, canvas, theme);
@@ -178,7 +178,7 @@ void ComputeBreadcrumbLayout(
     }
     if (!hasEllipsis && outTokens.size() >= 3 && innerRect.w > 1.0f && totalW > innerRect.w + 0.5f) {
         BreadcrumbOptions collapsedOpts = opts;
-        for (keel::u32 maxVis = static_cast<keel::u32>(outTokens.size() - 1); maxVis >= 2; --maxVis) {
+        for (keel::u32 maxVis = keel::as<keel::u32>(outTokens.size() - 1); maxVis >= 2; --maxVis) {
             collapsedOpts.maxVisibleItems = maxVis;
             BuildBreadcrumbTokens(items, collapsedOpts, outTokens);
             widths.assign(outTokens.size(), 0.0f);
@@ -194,27 +194,27 @@ void ComputeBreadcrumbLayout(
         }
     }
 
-    float effSepW = sepW;
+    keel::f32 effSepW = sepW;
     if (innerRect.w > 1.0f && totalW > innerRect.w + 0.5f && !outTokens.empty()) {
-        const float totalSepW = (outTokens.size() > 1) ? (static_cast<float>(outTokens.size() - 1) * sepW) : 0.0f;
-        const float sumTokW = keel::max(1.0f, totalW - totalSepW);
-        if (innerRect.w > totalSepW + static_cast<float>(outTokens.size()) * 18.0f) {
-            const float availTokW = innerRect.w - totalSepW;
-            const float ratio = availTokW / sumTokW;
-            for (float& w : widths) {
+        const keel::f32 totalSepW = (outTokens.size() > 1) ? (keel::as<keel::f32>(outTokens.size() - 1) * sepW) : 0.0f;
+        const keel::f32 sumTokW = keel::max(1.0f, totalW - totalSepW);
+        if (innerRect.w > totalSepW + keel::as<keel::f32>(outTokens.size()) * 18.0f) {
+            const keel::f32 availTokW = innerRect.w - totalSepW;
+            const keel::f32 ratio = availTokW / sumTokW;
+            for (keel::f32& w : widths) {
                 w *= ratio;
             }
         } else {
-            const float ratio = innerRect.w / keel::max(1.0f, totalW);
+            const keel::f32 ratio = innerRect.w / keel::max(1.0f, totalW);
             effSepW *= ratio;
-            for (float& w : widths) {
+            for (keel::f32& w : widths) {
                 w *= ratio;
             }
         }
         totalW = innerRect.w;
     }
 
-    float curX = innerRect.x;
+    keel::f32 curX = innerRect.x;
     for (keel::usize i = 0; i < outTokens.size(); ++i) {
         if (i > 0) {
             outSepRects.emplace_back(curX, innerRect.y, effSepW, innerRect.h);
@@ -234,8 +234,8 @@ void DrawSeparatorGlyph(
     Color color
 ) {
     const ComponentMetrics& cm = theme.GetMetrics(size);
-    const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
-    const float iconSz = keel::round(cm.iconSize * 0.78f);
+    const keel::f32 fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
+    const keel::f32 iconSz = keel::round(cm.iconSize * 0.78f);
     const Vec2 center = sepRect.Center();
 
     switch (separator) {
@@ -254,7 +254,7 @@ void DrawSeparatorGlyph(
             break;
         }
         case BreadcrumbSeparator::Dot: {
-            const float r = 2.2f;
+            const keel::f32 r = 2.2f;
             canvas.DrawRoundRect(Rect(center.x - r, center.y - r, r * 2.0f, r * 2.0f), r, color);
             break;
         }
@@ -270,7 +270,7 @@ void RenderBreadcrumbPopup(
     const BreadcrumbOptions& opts,
     UiSize size,
     const UiTheme& theme,
-    float scrollY
+    keel::f32 scrollY
 ) {
     if (popupRect.w <= 0.0f || popupRect.h <= 0.0f || collapsedItems.empty()) {
         return;
@@ -284,17 +284,17 @@ void RenderBreadcrumbPopup(
     canvas.DrawRoundRect(Rect(popupRect.x, popupRect.y + 2.0f, popupRect.w, popupRect.h), sm.cornerRadius + 1.0f, Color(0, 0, 0, 56));
     canvas.DrawRoundRect(popupRect, sm.cornerRadius, pal.surfaceElevated, pal.border, 1.0f);
 
-    const float viewportH = keel::max(0.0f, popupRect.h - 8.0f);
-    const float totalContentH = static_cast<float>(collapsedItems.size()) * sm.itemHeight;
-    const float maxScrollY = keel::max(0.0f, totalContentH - viewportH);
-    const float clampedScrollY = keel::clamp(scrollY, 0.0f, maxScrollY);
-    const float itemW = keel::max(0.0f, popupRect.w - 8.0f);
+    const keel::f32 viewportH = keel::max(0.0f, popupRect.h - 8.0f);
+    const keel::f32 totalContentH = keel::as<keel::f32>(collapsedItems.size()) * sm.itemHeight;
+    const keel::f32 maxScrollY = keel::max(0.0f, totalContentH - viewportH);
+    const keel::f32 clampedScrollY = keel::clamp(scrollY, 0.0f, maxScrollY);
+    const keel::f32 itemW = keel::max(0.0f, popupRect.w - 8.0f);
     const Rect itemsClipRect(popupRect.x + 1.0f, popupRect.y + 4.0f, keel::max(0.0f, popupRect.w - 2.0f), viewportH);
 
-    const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
-    const float badgeFontSize = fontSize * 0.82f;
-    const float iconGap = 6.0f;
-    const float badgeGap = 8.0f;
+    const keel::f32 fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
+    const keel::f32 badgeFontSize = fontSize * 0.82f;
+    const keel::f32 iconGap = 6.0f;
+    const keel::f32 badgeGap = 8.0f;
 
     canvas.PushClip(itemsClipRect);
 
@@ -302,7 +302,7 @@ void RenderBreadcrumbPopup(
         const BreadcrumbItem& item = collapsedItems[i];
         const Rect itemRect(
             popupRect.x + 4.0f,
-            popupRect.y + 4.0f + static_cast<float>(i) * sm.itemHeight - clampedScrollY,
+            popupRect.y + 4.0f + keel::as<keel::f32>(i) * sm.itemHeight - clampedScrollY,
             itemW,
             sm.itemHeight
         );
@@ -310,8 +310,8 @@ void RenderBreadcrumbPopup(
             continue;
         }
 
-        const bool isSelected = (static_cast<keel::i32>(i) == activeRow);
-        const bool isHovered = (static_cast<keel::i32>(i) == hoveredRow);
+        const bool isSelected = (keel::as<keel::i32>(i) == activeRow);
+        const bool isHovered = (keel::as<keel::i32>(i) == hoveredRow);
         const Color accentColor = opts.color.HasAny()
             ? opts.color.Resolve(isHovered, false, false, pal.accent)
             : pal.accent;
@@ -327,12 +327,12 @@ void RenderBreadcrumbPopup(
             ? accentColor
             : (isHovered ? pal.textPrimary : pal.textSecondary);
 
-        float leftX = itemRect.x + sm.paddingX;
-        float rightX = itemRect.Right() - sm.paddingX;
-        const float centerY = itemRect.y + itemRect.h * 0.5f;
+        keel::f32 leftX = itemRect.x + sm.paddingX;
+        keel::f32 rightX = itemRect.Right() - sm.paddingX;
+        const keel::f32 centerY = itemRect.y + itemRect.h * 0.5f;
 
         if (isSelected) {
-            const float checkSz = cm.iconSize;
+            const keel::f32 checkSz = cm.iconSize;
             rightX -= checkSz;
             const Rect checkRect(rightX, centerY - checkSz * 0.5f, checkSz, checkSz);
             Icon::Check().Draw(canvas, checkRect, accentColor);
@@ -340,8 +340,8 @@ void RenderBreadcrumbPopup(
         }
 
         if (!item.badge.empty()) {
-            const float badgeW = canvas.MeasureText(item.badge, badgeFontSize).x + 10.0f;
-            const float badgeH = badgeFontSize + 5.0f;
+            const keel::f32 badgeW = canvas.MeasureText(item.badge, badgeFontSize).x + 10.0f;
+            const keel::f32 badgeH = badgeFontSize + 5.0f;
             rightX -= badgeW;
             const Rect badgeR(rightX, centerY - badgeH * 0.5f, badgeW, badgeH);
             const Color badgeBg = isSelected ? accentColor.WithAlphaF(0.25f) : pal.surfaceHover;
@@ -401,10 +401,10 @@ Response Breadcrumb::Run(
     const BreadcrumbOptions& opts,
     keel::SourceLocation loc
 ) {
-    keel::usize idx = (activeIndex >= 0) ? static_cast<keel::usize>(activeIndex) : 0;
+    keel::usize idx = (activeIndex >= 0) ? keel::as<keel::usize>(activeIndex) : 0;
     Response res = Run(ctx, idx, items, opts, loc);
     if (res.changed) {
-        activeIndex = static_cast<keel::i32>(idx);
+        activeIndex = keel::as<keel::i32>(idx);
     }
     return res;
 }
@@ -416,10 +416,10 @@ Response Breadcrumb::Run(
     const BreadcrumbOptions& opts,
     keel::SourceLocation loc
 ) {
-    keel::usize idx = (activeIndex >= 0) ? static_cast<keel::usize>(activeIndex) : 0;
+    keel::usize idx = (activeIndex >= 0) ? keel::as<keel::usize>(activeIndex) : 0;
     Response res = Run(ctx, idx, items, opts, loc);
     if (res.changed) {
-        activeIndex = static_cast<keel::i32>(idx);
+        activeIndex = keel::as<keel::i32>(idx);
     }
     return res;
 }
@@ -459,7 +459,7 @@ Response Breadcrumb::Run(
     keel::SmallArray<keel::usize, 16> collapsedIndices;
     for (keel::usize i = 0; i < tokens.size(); ++i) {
         if (tokens[i].isEllipsis) {
-            ellipsisTokenIdx = static_cast<keel::i32>(i);
+            ellipsisTokenIdx = keel::as<keel::i32>(i);
             const keel::usize startCollapsed = (i > 0) ? (tokens[i - 1].itemIndex + 1) : 0;
             const keel::usize endCollapsed = (i + 1 < tokens.size()) ? tokens[i + 1].itemIndex : items.size();
             for (keel::usize idx = startCollapsed; idx < endCollapsed && idx < items.size(); ++idx) {
@@ -492,9 +492,9 @@ Response Breadcrumb::Run(
         if (res.hovered || res.pressed || res.clicked) {
             for (keel::usize i = 0; i < tokenRects.size(); ++i) {
                 if (tokenRects[i].Contains(mouse)) {
-                    hoveredToken = static_cast<keel::i32>(i);
+                    hoveredToken = keel::as<keel::i32>(i);
                     if (res.pressed) {
-                        pressedToken = static_cast<keel::i32>(i);
+                        pressedToken = keel::as<keel::i32>(i);
                     }
                     break;
                 }
@@ -503,8 +503,8 @@ Response Breadcrumb::Run(
 
         if (res.clicked) {
             ctx.RequestFocus(id);
-            if (hoveredToken >= 0 && static_cast<keel::usize>(hoveredToken) < tokens.size()) {
-                const BreadcrumbToken& tok = tokens[static_cast<keel::usize>(hoveredToken)];
+            if (hoveredToken >= 0 && keel::as<keel::usize>(hoveredToken) < tokens.size()) {
+                const BreadcrumbToken& tok = tokens[keel::as<keel::usize>(hoveredToken)];
                 if (tok.isEllipsis) {
                     if (wasOpen) {
                         wantClose = true;
@@ -539,7 +539,7 @@ Response Breadcrumb::Run(
         state.highlightedPopupRow = 0;
         for (keel::usize r = 0; r < collapsedIndices.size(); ++r) {
             if (collapsedIndices[r] == currIndex) {
-                state.highlightedPopupRow = static_cast<keel::i32>(r);
+                state.highlightedPopupRow = keel::as<keel::i32>(r);
                 break;
             }
         }
@@ -547,16 +547,16 @@ Response Breadcrumb::Run(
 
     const SelectMetrics& sm = theme.GetSelect(activeSize);
     const ComponentMetrics& cm = theme.GetMetrics(activeSize);
-    const float fontSize = theme.GetFontSize(TextRole::LabelMedium, activeSize);
-    const float badgeFontSize = fontSize * 0.82f;
-    const float iconGap = 6.0f;
-    const float badgeGap = 8.0f;
+    const keel::f32 fontSize = theme.GetFontSize(TextRole::LabelMedium, activeSize);
+    const keel::f32 badgeFontSize = fontSize * 0.82f;
+    const keel::f32 iconGap = 6.0f;
+    const keel::f32 badgeGap = 8.0f;
 
     if (isOpen && !collapsedIndices.empty()) {
-        float maxRowW = 140.0f;
+        keel::f32 maxRowW = 140.0f;
         for (keel::usize origIdx : collapsedIndices) {
             const BreadcrumbItem& item = items[origIdx];
-            float w = sm.paddingX * 2.0f;
+            keel::f32 w = sm.paddingX * 2.0f;
             if (item.icon.IsValid()) {
                 w += cm.iconSize + iconGap;
             }
@@ -572,19 +572,19 @@ Response Breadcrumb::Run(
             maxRowW = keel::max(maxRowW, w);
         }
 
-        const float popupW = maxRowW + 8.0f;
+        const keel::f32 popupW = maxRowW + 8.0f;
         const keel::usize visibleRows = keel::min<keel::usize>(collapsedIndices.size(), 8);
-        float popupH = static_cast<float>(visibleRows) * sm.itemHeight + 8.0f;
-        const Rect anchorRect = (ellipsisTokenIdx >= 0 && static_cast<keel::usize>(ellipsisTokenIdx) < tokenRects.size())
-            ? tokenRects[static_cast<keel::usize>(ellipsisTokenIdx)]
+        keel::f32 popupH = keel::as<keel::f32>(visibleRows) * sm.itemHeight + 8.0f;
+        const Rect anchorRect = (ellipsisTokenIdx >= 0 && keel::as<keel::usize>(ellipsisTokenIdx) < tokenRects.size())
+            ? tokenRects[keel::as<keel::usize>(ellipsisTokenIdx)]
             : prevBounds;
-        float popupX = anchorRect.x;
-        float popupY = anchorRect.Bottom() + 4.0f;
+        keel::f32 popupX = anchorRect.x;
+        keel::f32 popupY = anchorRect.Bottom() + 4.0f;
 
         const Rect vp = ctx.GetPopupViewportRect();
         if (vp.h > 0.0f) {
-            const float availDown = vp.Bottom() - popupY - 6.0f;
-            const float availUp = anchorRect.y - 4.0f - (vp.y + 6.0f);
+            const keel::f32 availDown = vp.Bottom() - popupY - 6.0f;
+            const keel::f32 availUp = anchorRect.y - 4.0f - (vp.y + 6.0f);
             if (popupY + popupH > vp.Bottom() - 6.0f && availUp > availDown) {
                 popupY = keel::max(vp.y + 6.0f, anchorRect.y - 4.0f - popupH);
                 popupH = keel::clamp(anchorRect.y - 4.0f - popupY, keel::min(sm.itemHeight + 8.0f, vp.h - 8.0f), popupH);
@@ -608,9 +608,9 @@ Response Breadcrumb::Run(
         auto hitScope = ctx.ScopedOverlayHitCheck(id);
         const Rect popupRect = ctx.GetOpenPopupRect();
         const Vec2 mouse = ctx.GetMousePos();
-        const float viewportH = keel::max(0.0f, popupRect.h - 8.0f);
-        const float totalContentH = static_cast<float>(collapsedIndices.size()) * sm.itemHeight;
-        const float maxScrollY = keel::max(0.0f, totalContentH - viewportH);
+        const keel::f32 viewportH = keel::max(0.0f, popupRect.h - 8.0f);
+        const keel::f32 totalContentH = keel::as<keel::f32>(collapsedIndices.size()) * sm.itemHeight;
+        const keel::f32 maxScrollY = keel::max(0.0f, totalContentH - viewportH);
         state.popupScrollY = keel::clamp(state.popupScrollY, 0.0f, maxScrollY);
 
         if (maxScrollY > 0.5f && popupRect.Contains(mouse)) {
@@ -622,13 +622,13 @@ Response Breadcrumb::Run(
             }
         }
 
-        const float itemW = keel::max(0.0f, popupRect.w - 8.0f);
+        const keel::f32 itemW = keel::max(0.0f, popupRect.w - 8.0f);
         const Rect itemsViewport(popupRect.x + 4.0f, popupRect.y + 4.0f, itemW, viewportH);
         if (itemsViewport.Contains(mouse)) {
             for (keel::usize r = 0; r < collapsedIndices.size(); ++r) {
                 const Rect itemRect(
                     popupRect.x + 4.0f,
-                    popupRect.y + 4.0f + static_cast<float>(r) * sm.itemHeight - state.popupScrollY,
+                    popupRect.y + 4.0f + keel::as<keel::f32>(r) * sm.itemHeight - state.popupScrollY,
                     itemW,
                     sm.itemHeight
                 );
@@ -636,7 +636,7 @@ Response Breadcrumb::Run(
                     continue;
                 }
                 if (itemRect.Contains(mouse)) {
-                    hoveredPopupRow = static_cast<keel::i32>(r);
+                    hoveredPopupRow = keel::as<keel::i32>(r);
                     state.highlightedPopupRow = hoveredPopupRow;
                     if (ctx.IsMouseReleased()) {
                         const keel::usize chosenIdx = collapsedIndices[r];
@@ -663,8 +663,8 @@ Response Breadcrumb::Run(
                 ctx.RequestFocus(id);
             } else if (ctx.ConsumeKey(Key::Enter) || ctx.ConsumeKey(Key::Space)) {
                 if (state.highlightedPopupRow >= 0 &&
-                    static_cast<keel::usize>(state.highlightedPopupRow) < collapsedIndices.size()) {
-                    const keel::usize chosenIdx = collapsedIndices[static_cast<keel::usize>(state.highlightedPopupRow)];
+                    keel::as<keel::usize>(state.highlightedPopupRow) < collapsedIndices.size()) {
+                    const keel::usize chosenIdx = collapsedIndices[keel::as<keel::usize>(state.highlightedPopupRow)];
                     if (currIndex != chosenIdx) {
                         currIndex = chosenIdx;
                         activeIndex = currIndex;
@@ -679,14 +679,14 @@ Response Breadcrumb::Run(
                 const keel::i32 nextRow = keel::clamp(
                     state.highlightedPopupRow + 1,
                     0,
-                    static_cast<keel::i32>(collapsedIndices.size()) - 1
+                    keel::as<keel::i32>(collapsedIndices.size()) - 1
                 );
                 state.highlightedPopupRow = nextRow;
             } else if (ctx.ConsumeKey(Key::Up)) {
                 const keel::i32 prevRow = keel::clamp(
                     (state.highlightedPopupRow <= 0) ? 0 : (state.highlightedPopupRow - 1),
                     0,
-                    static_cast<keel::i32>(collapsedIndices.size()) - 1
+                    keel::as<keel::i32>(collapsedIndices.size()) - 1
                 );
                 state.highlightedPopupRow = prevRow;
             }
@@ -748,14 +748,14 @@ Response Breadcrumb::Run(
 
     if (isOpen && !collapsedIndices.empty()) {
         const Rect currentPopupRect = ctx.GetOpenPopupRect();
-        const float popupScrollY = state.popupScrollY;
+        const keel::f32 popupScrollY = state.popupScrollY;
         const keel::i32 effectiveHoveredRow = (hoveredPopupRow >= 0) ? hoveredPopupRow : state.highlightedPopupRow;
         keel::i32 activePopupRow = -1;
         BreadcrumbItem* popupItems = ctx.GetArena().create_array<BreadcrumbItem>(collapsedIndices.size());
         for (keel::usize r = 0; r < collapsedIndices.size(); ++r) {
             const keel::usize origIdx = collapsedIndices[r];
             if (origIdx == currIndex) {
-                activePopupRow = static_cast<keel::i32>(r);
+                activePopupRow = keel::as<keel::i32>(r);
             }
             popupItems[r] = arenaItems[origIdx];
         }
@@ -804,7 +804,7 @@ Response Breadcrumb::Run(
         isOpen,
         hoveredToken,
         pressedToken,
-        static_cast<keel::u8>(optsCopy.separator),
+        keel::as<keel::u8>(optsCopy.separator),
         optsCopy.maxVisibleItems,
         optsCopy.width,
         optsCopy.height,
@@ -815,7 +815,7 @@ Response Breadcrumb::Run(
         optsCopy.color
     );
 
-    node->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* c, const UiTheme& t) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, keel::f32 /*availableWidth*/, ICanvas* c, const UiTheme& t) noexcept -> Vec2 {
         const auto* d = n->As<BreadcrumbData>();
         if (!d) return {0.0f, 0.0f};
         return Breadcrumb::Measure(d->items, d->opts, n->uiSize, c, t);
@@ -869,18 +869,18 @@ void Breadcrumb::Render(
     }
 
     // 2. Render tokens (items & interactive "..." dropdown trigger pill)
-    const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
-    const float badgeFontSize = fontSize * 0.82f;
-    const float pillRadius = keel::max(4.0f, cm.cornerRadius * 0.85f);
-    const float pillInsetY = keel::max(2.0f, innerRect.h * 0.10f);
+    const keel::f32 fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
+    const keel::f32 badgeFontSize = fontSize * 0.82f;
+    const keel::f32 pillRadius = keel::max(4.0f, cm.cornerRadius * 0.85f);
+    const keel::f32 pillInsetY = keel::max(2.0f, innerRect.h * 0.10f);
 
     for (keel::usize i = 0; i < tokens.size(); ++i) {
         const BreadcrumbToken& tok = tokens[i];
         const Rect tr = tokenRects[i];
         const Rect pillRect(tr.x, tr.y + pillInsetY, tr.w, keel::max(0.0f, tr.h - pillInsetY * 2.0f));
 
-        const bool isHovered = !disabled && (d->hoveredToken == static_cast<keel::i32>(i));
-        const bool isPressed = !disabled && (d->pressedToken == static_cast<keel::i32>(i));
+        const bool isHovered = !disabled && (d->hoveredToken == keel::as<keel::i32>(i));
+        const bool isPressed = !disabled && (d->pressedToken == keel::as<keel::i32>(i));
         const bool isActiveItem = !tok.isEllipsis && (tok.itemIndex == d->activeIndex);
 
         const Color accentColor = d->opts.color.HasAny()
@@ -927,26 +927,26 @@ void Breadcrumb::Render(
                 ? (d->opts.color.HasAny() ? accentColor : pal.textPrimary)
                 : (isHovered ? pal.textPrimary : pal.textSecondary));
 
-        const float iconGap = 5.0f;
-        const float badgeGap = 5.0f;
-        const float padX = keel::min(keel::max(4.0f, cm.paddingX * 0.55f), tr.w * 0.14f);
-        const float availW = keel::max(0.0f, tr.w - padX * 2.0f);
+        const keel::f32 iconGap = 5.0f;
+        const keel::f32 badgeGap = 5.0f;
+        const keel::f32 padX = keel::min(keel::max(4.0f, cm.paddingX * 0.55f), tr.w * 0.14f);
+        const keel::f32 availW = keel::max(0.0f, tr.w - padX * 2.0f);
 
         const bool hasIcon = item.icon.IsValid() && (availW >= cm.iconSize * 0.85f);
-        float badgeW = 0.0f;
+        keel::f32 badgeW = 0.0f;
         if (!item.badge.empty()) {
             badgeW = canvas.MeasureText(item.badge, badgeFontSize).x + 10.0f;
         }
         const bool showBadge = !item.badge.empty() &&
             (availW >= (hasIcon ? cm.iconSize + iconGap : 0.0f) + badgeW + (!item.label.empty() ? fontSize * 1.8f + badgeGap : 0.0f));
 
-        const float fixedW = (hasIcon ? cm.iconSize : 0.0f) + (showBadge ? badgeW + badgeGap : 0.0f);
-        const float availLabelW = keel::max(0.0f, availW - fixedW - ((hasIcon && !item.label.empty()) ? iconGap : 0.0f));
+        const keel::f32 fixedW = (hasIcon ? cm.iconSize : 0.0f) + (showBadge ? badgeW + badgeGap : 0.0f);
+        const keel::f32 availLabelW = keel::max(0.0f, availW - fixedW - ((hasIcon && !item.label.empty()) ? iconGap : 0.0f));
         const bool showLabel = !item.label.empty() && (!hasIcon || availLabelW >= fontSize * 1.1f);
 
         keel::StringRef displayLabel{};
         keel::FixedString<256> truncatedLabel;
-        float labelW = 0.0f;
+        keel::f32 labelW = 0.0f;
         if (showLabel) {
             displayLabel = item.label;
             labelW = canvas.MeasureText(displayLabel, fontSize).x;
@@ -957,7 +957,7 @@ void Breadcrumb::Render(
             }
         }
 
-        float contentW = 0.0f;
+        keel::f32 contentW = 0.0f;
         if (hasIcon) {
             contentW += cm.iconSize;
         }
@@ -970,8 +970,8 @@ void Breadcrumb::Render(
             contentW += badgeW;
         }
 
-        float curX = tr.x + keel::max(padX, (tr.w - contentW) * 0.5f);
-        const float centerY = tr.y + tr.h * 0.5f;
+        keel::f32 curX = tr.x + keel::max(padX, (tr.w - contentW) * 0.5f);
+        const keel::f32 centerY = tr.y + tr.h * 0.5f;
 
         if (hasIcon) {
             const Rect iconR(curX, centerY - cm.iconSize * 0.5f, cm.iconSize, cm.iconSize);
@@ -987,7 +987,7 @@ void Breadcrumb::Render(
 
         if (showBadge) {
             if (hasIcon || showLabel) curX += badgeGap;
-            const float badgeH = badgeFontSize + 5.0f;
+            const keel::f32 badgeH = badgeFontSize + 5.0f;
             const Rect badgeR(curX, centerY - badgeH * 0.5f, badgeW, badgeH);
             const Color badgeBg = isActiveItem ? accentColor.WithAlphaF(0.25f) : pal.surfaceHover;
             const Color badgeFg = isActiveItem ? accentColor : pal.textSecondary;

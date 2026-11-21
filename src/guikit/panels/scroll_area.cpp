@@ -15,7 +15,7 @@ ContainerScope ScrollArea::Open(
     const Id id = ctx.MakeChildId(loc);
     Node* node = ctx.CreateNode(NodeType::ScrollArea, id, opts.disabled);
     const UiTheme& theme = node->GetTheme(ctx.GetTheme());
-    const float density = node->GetDensity();
+    const keel::f32 density = node->GetDensity();
     const bool activeDisabled = node->disabled;
     const UiSize activeSize = opts.size;
 
@@ -42,7 +42,7 @@ ContainerScope ScrollArea::Open(
     node->backgroundColor = opts.background.IsBackgroundEnabled(false)
         ? theme.ResolveColor(opts.background, false, false, activeDisabled, pal.surface)
         : Color::Transparent();
-    const float bw = (opts.border.width > 0.0f) ? opts.border.width : (opts.border.color.HasAny() ? 1.0f : 0.0f);
+    const keel::f32 bw = (opts.border.width > 0.0f) ? opts.border.width : (opts.border.color.HasAny() ? 1.0f : 0.0f);
     node->borderWidth = bw;
     node->borderColor = (bw > 0.0f) ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, pal.border) : Color::Transparent();
     node->cornerRadius = opts.border.radius.has_value() ? *opts.border.radius : 0.0f;
@@ -63,40 +63,40 @@ ContainerScope ScrollArea::Open(
 void ScrollArea::RenderAxisScrollbar(
     ICanvas& canvas,
     Rect viewportRect,
-    float contentLength,
-    float scrollOffset,
+    keel::f32 contentLength,
+    keel::f32 scrollOffset,
     bool isHorizontal,
     bool hovered,
     bool active,
     UiSize size,
     const UiTheme& theme,
-    float cornerReserve
+    keel::f32 cornerReserve
 ) {
     const ScrollbarMetrics& m = theme.GetScrollbar(size);
-    const float viewLen = isHorizontal ? viewportRect.w : viewportRect.h;
+    const keel::f32 viewLen = isHorizontal ? viewportRect.w : viewportRect.h;
     if (viewLen <= 10.0f || contentLength <= 0.0f) return;
 
-    const float trackLen = keel::max(0.0f, viewLen - 2.0f * m.margin - cornerReserve);
+    const keel::f32 trackLen = keel::max(0.0f, viewLen - 2.0f * m.margin - cornerReserve);
     if (trackLen <= 4.0f) return;
 
-    const float effContent = keel::max(viewLen, contentLength);
-    const float maxScroll = effContent - viewLen;
-    const float thumbLen = keel::clamp((viewLen / effContent) * trackLen, m.minThumbLength, trackLen);
-    const float travel = keel::max(0.0f, trackLen - thumbLen);
-    const float ratio = (maxScroll > 0.0f) ? keel::clamp(scrollOffset / maxScroll, 0.0f, 1.0f) : 0.0f;
+    const keel::f32 effContent = keel::max(viewLen, contentLength);
+    const keel::f32 maxScroll = effContent - viewLen;
+    const keel::f32 thumbLen = keel::clamp((viewLen / effContent) * trackLen, m.minThumbLength, trackLen);
+    const keel::f32 travel = keel::max(0.0f, trackLen - thumbLen);
+    const keel::f32 ratio = (maxScroll > 0.0f) ? keel::clamp(scrollOffset / maxScroll, 0.0f, 1.0f) : 0.0f;
 
     Rect trackRect{};
     Rect thumbRect{};
     if (isHorizontal) {
-        const float trackX = viewportRect.x + m.margin;
-        const float trackY = viewportRect.Bottom() - m.trackWidth - m.margin;
-        const float thumbX = trackX + ratio * travel;
+        const keel::f32 trackX = viewportRect.x + m.margin;
+        const keel::f32 trackY = viewportRect.Bottom() - m.trackWidth - m.margin;
+        const keel::f32 thumbX = trackX + ratio * travel;
         trackRect = Rect(trackX, trackY, trackLen, m.trackWidth);
         thumbRect = Rect(thumbX, trackY, thumbLen, m.trackWidth);
     } else {
-        const float trackX = viewportRect.Right() - m.trackWidth - m.margin;
-        const float trackY = viewportRect.y + m.margin;
-        const float thumbY = trackY + ratio * travel;
+        const keel::f32 trackX = viewportRect.Right() - m.trackWidth - m.margin;
+        const keel::f32 trackY = viewportRect.y + m.margin;
+        const keel::f32 thumbY = trackY + ratio * travel;
         trackRect = Rect(trackX, trackY, m.trackWidth, trackLen);
         thumbRect = Rect(trackX, thumbY, m.trackWidth, thumbLen);
     }
@@ -117,25 +117,25 @@ void ScrollArea::UpdateAxisScrollbar(
     Context& ctx,
     Id ownerId,
     Rect viewportRect,
-    float contentLength,
-    float& ioScrollOffset,
+    keel::f32 contentLength,
+    keel::f32& ioScrollOffset,
     bool& ioDragging,
-    float& ioDragStartOffset,
+    keel::f32& ioDragStartOffset,
     Vec2& ioDragStartMouse,
     bool& outHovered,
     bool& outActive,
     bool isHorizontal,
     UiSize size,
     const UiTheme& theme,
-    float cornerReserve
+    keel::f32 cornerReserve
 ) {
     outHovered = false;
     outActive = false;
 
-    const float prevOffset = ioScrollOffset;
+    const keel::f32 prevOffset = ioScrollOffset;
     const ScrollbarMetrics& m = theme.GetScrollbar(size);
-    const float viewLen = isHorizontal ? viewportRect.w : viewportRect.h;
-    const float maxScroll = keel::max(0.0f, contentLength - viewLen);
+    const keel::f32 viewLen = isHorizontal ? viewportRect.w : viewportRect.h;
+    const keel::f32 maxScroll = keel::max(0.0f, contentLength - viewLen);
     ioScrollOffset = keel::clamp(ioScrollOffset, 0.0f, maxScroll);
 
     if (viewLen <= 10.0f || maxScroll <= 0.0f) {
@@ -143,32 +143,32 @@ void ScrollArea::UpdateAxisScrollbar(
         return;
     }
 
-    const float trackLen = keel::max(0.0f, viewLen - 2.0f * m.margin - cornerReserve);
-    const float thumbLen = keel::clamp((viewLen / contentLength) * trackLen, m.minThumbLength, trackLen);
-    const float travel = keel::max(0.0f, trackLen - thumbLen);
-    const float ratio = (maxScroll > 0.0f) ? (ioScrollOffset / maxScroll) : 0.0f;
+    const keel::f32 trackLen = keel::max(0.0f, viewLen - 2.0f * m.margin - cornerReserve);
+    const keel::f32 thumbLen = keel::clamp((viewLen / contentLength) * trackLen, m.minThumbLength, trackLen);
+    const keel::f32 travel = keel::max(0.0f, trackLen - thumbLen);
+    const keel::f32 ratio = (maxScroll > 0.0f) ? (ioScrollOffset / maxScroll) : 0.0f;
 
     Rect trackRect{};
     Rect thumbRect{};
     Rect hitTrackRect{};
     Rect hitThumbRect{};
-    const float hitExpand = m.margin + 2.0f;
+    const keel::f32 hitExpand = m.margin + 2.0f;
     if (isHorizontal) {
-        const float trackX = viewportRect.x + m.margin;
-        const float trackY = viewportRect.Bottom() - m.trackWidth - m.margin;
-        const float thumbX = trackX + ratio * travel;
+        const keel::f32 trackX = viewportRect.x + m.margin;
+        const keel::f32 trackY = viewportRect.Bottom() - m.trackWidth - m.margin;
+        const keel::f32 thumbX = trackX + ratio * travel;
         trackRect = Rect(trackX, trackY, trackLen, m.trackWidth);
         thumbRect = Rect(thumbX, trackY, thumbLen, m.trackWidth);
         hitTrackRect = Rect(trackX, trackY - hitExpand, trackLen, m.trackWidth + hitExpand * 2.0f);
         hitThumbRect = Rect(thumbX, trackY - hitExpand, thumbLen, m.trackWidth + hitExpand * 2.0f);
     } else {
-        const float trackX = viewportRect.Right() - m.trackWidth - m.margin;
-        const float trackY = viewportRect.y + m.margin;
-        const float thumbY = trackY + ratio * travel;
+        const keel::f32 trackX = viewportRect.Right() - m.trackWidth - m.margin;
+        const keel::f32 trackY = viewportRect.y + m.margin;
+        const keel::f32 thumbY = trackY + ratio * travel;
         trackRect = Rect(trackX, trackY, m.trackWidth, trackLen);
         thumbRect = Rect(trackX, thumbY, m.trackWidth, thumbLen);
-        const float hitX = trackX - hitExpand;
-        const float hitW = keel::max(0.0f, (viewportRect.Right() - 1.5f) - hitX);
+        const keel::f32 hitX = trackX - hitExpand;
+        const keel::f32 hitW = keel::max(0.0f, (viewportRect.Right() - 1.5f) - hitX);
         hitTrackRect = Rect(hitX, trackY, hitW, trackLen);
         hitThumbRect = Rect(hitX, thumbY, hitW, thumbLen);
     }
@@ -188,8 +188,8 @@ void ScrollArea::UpdateAxisScrollbar(
         ioDragStartOffset = ioScrollOffset;
         ctx.SetActiveId(ownerId);
     } else if (hoverTrack && mouseClicked && !hoverThumb) {
-        const float mouseCoord = isHorizontal ? mousePos.x : mousePos.y;
-        const float thumbCoord = isHorizontal ? thumbRect.x : thumbRect.y;
+        const keel::f32 mouseCoord = isHorizontal ? mousePos.x : mousePos.y;
+        const keel::f32 thumbCoord = isHorizontal ? thumbRect.x : thumbRect.y;
         if (mouseCoord < thumbCoord) {
             ioScrollOffset = keel::max(0.0f, ioScrollOffset - viewLen * 0.8f);
         } else {
@@ -200,7 +200,7 @@ void ScrollArea::UpdateAxisScrollbar(
     if (ioDragging) {
         outActive = true;
         if (mouseDown) {
-            const float delta = isHorizontal ? (mousePos.x - ioDragStartMouse.x) : (mousePos.y - ioDragStartMouse.y);
+            const keel::f32 delta = isHorizontal ? (mousePos.x - ioDragStartMouse.x) : (mousePos.y - ioDragStartMouse.y);
             if (travel > 0.0f) {
                 ioScrollOffset = keel::clamp(ioDragStartOffset + (delta / travel) * maxScroll, 0.0f, maxScroll);
             }
@@ -236,7 +236,7 @@ void ScrollArea::RenderScrollbar(
     );
 
     const ScrollbarMetrics& m = theme.GetScrollbar(node->uiSize);
-    const float cornerReserve = (showV && showH) ? (m.trackWidth + m.margin) : 0.0f;
+    const keel::f32 cornerReserve = (showV && showH) ? (m.trackWidth + m.margin) : 0.0f;
 
     if (showV) {
         RenderAxisScrollbar(
@@ -283,8 +283,8 @@ Rect ScrollArea::GetContentClipRect(const Node* node, const UiTheme& theme) {
         (node->scrollbarPolicy == VisibilityPolicy::Auto && node->scrollContentSize.x > node->computedRect.w + 0.5f)
     );
 
-    const float gutterX = showV ? sm.gutter : 0.0f;
-    const float gutterY = showH ? sm.gutter : 0.0f;
+    const keel::f32 gutterX = showV ? sm.gutter : 0.0f;
+    const keel::f32 gutterY = showH ? sm.gutter : 0.0f;
     return Rect(
         node->computedRect.x + node->padding.left,
         node->computedRect.y + node->padding.top,
@@ -320,7 +320,7 @@ void ScrollArea::Update(Context& ctx, Node* node) {
         (node->scrollbarPolicy == VisibilityPolicy::Auto && node->scrollContentSize.x > node->computedRect.w + 0.5f)
     );
     const ScrollbarMetrics& m = resolvedTheme->GetScrollbar(node->uiSize);
-    const float cornerReserve = (showV && showH) ? (m.trackWidth + m.margin) : 0.0f;
+    const keel::f32 cornerReserve = (showV && showH) ? (m.trackWidth + m.margin) : 0.0f;
 
     if (!node->disabled && node->computedRect.w > 0.0f && node->computedRect.h > 0.0f) {
         const Vec2 wheel = ctx.GetMouseWheel();
@@ -329,13 +329,13 @@ void ScrollArea::Update(Context& ctx, Node* node) {
             node->computedRect.Contains(mousePos) &&
             !ctx.IsMouseOccluded(node->id, mousePos) &&
             !ctx.GetKeyModifiers().ctrl) {
-            const float maxScrollY = allowV ? keel::max(0.0f, node->scrollContentSize.y - node->computedRect.h) : 0.0f;
-            const float maxScrollX = allowH ? keel::max(0.0f, node->scrollContentSize.x - node->computedRect.w) : 0.0f;
+            const keel::f32 maxScrollY = allowV ? keel::max(0.0f, node->scrollContentSize.y - node->computedRect.h) : 0.0f;
+            const keel::f32 maxScrollX = allowH ? keel::max(0.0f, node->scrollContentSize.x - node->computedRect.w) : 0.0f;
             const Vec2 prevOffset = state.offset;
 
             if (node->scrollOrientation == Orientation::Horizontal ||
                 (node->scrollOrientation == Orientation::Both && ctx.GetKeyModifiers().shift && wheel.x == 0.0f)) {
-                const float delta = (wheel.x != 0.0f) ? wheel.x : wheel.y;
+                const keel::f32 delta = (wheel.x != 0.0f) ? wheel.x : wheel.y;
                 if (allowH) {
                     state.offset.x = keel::clamp(state.offset.x - delta * m.scrollStep, 0.0f, maxScrollX);
                 }
@@ -375,7 +375,7 @@ void ScrollArea::Update(Context& ctx, Node* node) {
             cornerReserve
         );
     } else if (allowV) {
-        const float maxScrollY = keel::max(0.0f, node->scrollContentSize.y - node->computedRect.h);
+        const keel::f32 maxScrollY = keel::max(0.0f, node->scrollContentSize.y - node->computedRect.h);
         state.offset.y = keel::clamp(state.offset.y, 0.0f, maxScrollY);
         state.draggingY = false;
     } else {
@@ -404,7 +404,7 @@ void ScrollArea::Update(Context& ctx, Node* node) {
             cornerReserve
         );
     } else if (allowH) {
-        const float maxScrollX = keel::max(0.0f, node->scrollContentSize.x - node->computedRect.w);
+        const keel::f32 maxScrollX = keel::max(0.0f, node->scrollContentSize.x - node->computedRect.w);
         state.offset.x = keel::clamp(state.offset.x, 0.0f, maxScrollX);
         state.draggingX = false;
     } else {
@@ -420,10 +420,10 @@ void ScrollArea::Update(Context& ctx, Node* node) {
 void ScrollArea::ScrollToChild(Context& ctx, Node* scrollNode, const Node* targetNode) {
     if (!scrollNode || !targetNode || !scrollNode->id.IsValid()) return;
     auto& state = ctx.GetOrCreatePersistentState<ScrollState>(scrollNode->id);
-    const float targetTop = targetNode->computedRect.y;
-    const float targetBottom = targetNode->computedRect.Bottom();
-    const float viewTop = scrollNode->computedRect.y + scrollNode->padding.top;
-    const float viewBottom = scrollNode->computedRect.Bottom() - scrollNode->padding.bottom;
+    const keel::f32 targetTop = targetNode->computedRect.y;
+    const keel::f32 targetBottom = targetNode->computedRect.Bottom();
+    const keel::f32 viewTop = scrollNode->computedRect.y + scrollNode->padding.top;
+    const keel::f32 viewBottom = scrollNode->computedRect.Bottom() - scrollNode->padding.bottom;
 
     if (targetTop < viewTop) {
         state.offset.y -= (viewTop - targetTop);

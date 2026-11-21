@@ -25,17 +25,17 @@ struct ReadoutPersistState {
 };
 
 struct ReadoutMetrics {
-    float headerFont{12.0f};
-    float valueFont{28.0f};
-    float unitFont{16.0f};
-    float headerH{16.0f};
-    float valueRowH{34.0f};
-    float rowGap{4.0f};
-    float unitGap{6.0f};
-    float actionGap{10.0f};
-    float actionBtnSize{32.0f};
-    float actionIconSize{16.0f};
-    float radius{8.0f};
+    keel::f32 headerFont{12.0f};
+    keel::f32 valueFont{28.0f};
+    keel::f32 unitFont{16.0f};
+    keel::f32 headerH{16.0f};
+    keel::f32 valueRowH{34.0f};
+    keel::f32 rowGap{4.0f};
+    keel::f32 unitGap{6.0f};
+    keel::f32 actionGap{10.0f};
+    keel::f32 actionBtnSize{32.0f};
+    keel::f32 actionIconSize{16.0f};
+    keel::f32 radius{8.0f};
     Padding defaultPadding{10.0f, 12.0f, 10.0f, 12.0f};
 };
 
@@ -113,7 +113,7 @@ ReadoutMetrics ComputeReadoutMetrics(UiSize size, const UiTheme& theme) noexcept
             m.defaultPadding = Padding(10.0f, 12.0f, 10.0f, 12.0f);
             break;
         default: {
-            const float f = theme.SizeFactor(size);
+            const keel::f32 f = theme.SizeFactor(size);
             m.headerFont = keel::round(12.0f * f);
             m.valueFont = keel::round(28.0f * f);
             m.unitFont = keel::round(16.0f * f);
@@ -137,7 +137,7 @@ ReadoutMetrics ComputeReadoutMetrics(UiSize size, const UiTheme& theme) noexcept
     return m;
 }
 
-float MeasureStyledWidth(keel::StringRef text, float fontSize, FontStyle style, ICanvas* canvas) noexcept {
+keel::f32 MeasureStyledWidth(keel::StringRef text, keel::f32 fontSize, FontStyle style, ICanvas* canvas) noexcept {
     if (text.empty()) return 0.0f;
     if (canvas != nullptr) {
         return canvas->MeasureTextStyled(text, fontSize, style).x;
@@ -164,22 +164,22 @@ ReadoutGeometry ComputeReadoutGeometry(
 ) noexcept {
     ReadoutGeometry g{};
     const Padding pad = opts.padding.value_or(m.defaultPadding);
-    const float innerX = bounds.x + pad.left;
-    const float innerY = bounds.y + pad.top;
-    const float innerW = keel::max(8.0f, bounds.w - pad.left - pad.right);
-    const float innerH = keel::max(8.0f, bounds.h - pad.top - pad.bottom);
+    const keel::f32 innerX = bounds.x + pad.left;
+    const keel::f32 innerY = bounds.y + pad.top;
+    const keel::f32 innerW = keel::max(8.0f, bounds.w - pad.left - pad.right);
+    const keel::f32 innerH = keel::max(8.0f, bounds.h - pad.top - pad.bottom);
 
-    const float headerTextW = MeasureStyledWidth(headerText, m.headerFont, FontStyle::Bold, canvas);
-    const float valueTextW = MeasureStyledWidth(valueText, m.valueFont, FontStyle::Bold, canvas);
-    const float unitTextW = MeasureStyledWidth(unitText, m.unitFont, FontStyle::Regular, canvas);
+    const keel::f32 headerTextW = MeasureStyledWidth(headerText, m.headerFont, FontStyle::Bold, canvas);
+    const keel::f32 valueTextW = MeasureStyledWidth(valueText, m.valueFont, FontStyle::Bold, canvas);
+    const keel::f32 unitTextW = MeasureStyledWidth(unitText, m.unitFont, FontStyle::Regular, canvas);
 
-    const float headerH = headerText.empty() ? 0.0f : m.headerH;
-    const float rowGap = headerText.empty() ? 0.0f : m.rowGap;
-    const float totalContentH = headerH + rowGap + m.valueRowH;
-    const float topOffset = keel::max(0.0f, (innerH - totalContentH) * 0.5f);
+    const keel::f32 headerH = headerText.empty() ? 0.0f : m.headerH;
+    const keel::f32 rowGap = headerText.empty() ? 0.0f : m.rowGap;
+    const keel::f32 totalContentH = headerH + rowGap + m.valueRowH;
+    const keel::f32 topOffset = keel::max(0.0f, (innerH - totalContentH) * 0.5f);
 
-    const float headerY = keel::round(innerY + topOffset);
-    const float valueRowY = keel::round(headerY + headerH + rowGap);
+    const keel::f32 headerY = keel::round(innerY + topOffset);
+    const keel::f32 valueRowY = keel::round(headerY + headerH + rowGap);
 
     if (!headerText.empty()) {
         g.headerRect = Rect(
@@ -190,48 +190,48 @@ ReadoutGeometry ComputeReadoutGeometry(
         );
     }
 
-    float rightLimit = innerX + innerW;
+    keel::f32 rightLimit = innerX + innerW;
     if (showAction) {
-        const float btnSz = keel::min(m.actionBtnSize, innerH);
-        const float btnX = keel::round(innerX + innerW - btnSz);
-        const float btnY = keel::round(valueRowY + (m.valueRowH - btnSz) * 0.5f);
+        const keel::f32 btnSz = keel::min(m.actionBtnSize, innerH);
+        const keel::f32 btnX = keel::round(innerX + innerW - btnSz);
+        const keel::f32 btnY = keel::round(valueRowY + (m.valueRowH - btnSz) * 0.5f);
         g.actionRect = Rect(btnX, btnY, btnSz, btnSz);
         rightLimit = keel::max(innerX, btnX - m.actionGap);
     }
 
-    const float availValueAndUnitW = keel::max(8.0f, rightLimit - innerX);
-    const float unitReserve = unitText.empty() ? 0.0f : (m.unitGap + keel::ceil(unitTextW) + 2.0f);
-    const float maxValW = keel::max(12.0f, availValueAndUnitW - unitReserve);
-    const float actualValW = keel::min(maxValW, keel::ceil(valueTextW) + 2.0f);
+    const keel::f32 availValueAndUnitW = keel::max(8.0f, rightLimit - innerX);
+    const keel::f32 unitReserve = unitText.empty() ? 0.0f : (m.unitGap + keel::ceil(unitTextW) + 2.0f);
+    const keel::f32 maxValW = keel::max(12.0f, availValueAndUnitW - unitReserve);
+    const keel::f32 actualValW = keel::min(maxValW, keel::ceil(valueTextW) + 2.0f);
 
     g.valueRect = Rect(innerX, valueRowY, actualValW, m.valueRowH);
 
     if (!unitText.empty()) {
-        const float unitH = keel::round(m.unitFont + 6.0f);
+        const keel::f32 unitH = keel::round(m.unitFont + 6.0f);
         // Align unit text near the bottom baseline of the large numeric readout
-        const float unitY = keel::round(valueRowY + m.valueRowH - unitH - 1.0f);
-        const float unitX = keel::round(g.valueRect.Right() + m.unitGap);
-        const float availUnitW = keel::max(0.0f, rightLimit - unitX);
+        const keel::f32 unitY = keel::round(valueRowY + m.valueRowH - unitH - 1.0f);
+        const keel::f32 unitX = keel::round(g.valueRect.Right() + m.unitGap);
+        const keel::f32 availUnitW = keel::max(0.0f, rightLimit - unitX);
         g.unitRect = Rect(unitX, unitY, keel::min(availUnitW, keel::ceil(unitTextW) + 2.0f), unitH);
     }
 
     return g;
 }
 
-void DrawDashedUnderline(ICanvas& canvas, float x0, float x1, float y, Color color, float strokeW = 1.5f) {
+void DrawDashedUnderline(ICanvas& canvas, keel::f32 x0, keel::f32 x1, keel::f32 y, Color color, keel::f32 strokeW = 1.5f) {
     if (x1 <= x0 || color.a == 0) return;
-    const float dashLen = 3.0f;
-    const float gapLen = 2.0f;
-    const float py = keel::round(y);
-    for (float x = x0; x < x1; x += dashLen + gapLen) {
-        const float segEnd = keel::min(x + dashLen, x1);
+    const keel::f32 dashLen = 3.0f;
+    const keel::f32 gapLen = 2.0f;
+    const keel::f32 py = keel::round(y);
+    for (keel::f32 x = x0; x < x1; x += dashLen + gapLen) {
+        const keel::f32 segEnd = keel::min(x + dashLen, x1);
         canvas.DrawLine(Vec2(x, py), Vec2(segEnd, py), color, strokeW);
     }
 }
 
 keel::StringRef FormatNumericValue(
     Context& ctx,
-    double val,
+    keel::f64 val,
     keel::i32 precision,
     bool showPlusSign,
     keel::StringRef invalidText
@@ -241,7 +241,7 @@ keel::StringRef FormatNumericValue(
     }
 
     const keel::i32 p = keel::clamp(precision, 0, 8);
-    static constexpr double kPow10[9] = {
+    static constexpr keel::f64 kPow10[9] = {
         1.0, 10.0, 100.0, 1000.0, 10000.0, 100000.0, 1000000.0, 10000000.0, 100000000.0
     };
     // Suppress flickering "-0.00" when noisy sensor signal hovers near zero
@@ -260,7 +260,7 @@ keel::StringRef FormatNumericValue(
         buf[0] = '+';
         offset = 1;
     }
-    const keel::usize written = keel::format_buf(buf + offset, sizeof(buf) - offset, kFmt[static_cast<keel::usize>(p)], val);
+    const keel::usize written = keel::format_buf(buf + offset, sizeof(buf) - offset, kFmt[keel::as<keel::usize>(p)], val);
     return ctx.AllocString(keel::StringRef(buf, offset + written));
 }
 
@@ -271,7 +271,7 @@ keel::StringRef FormatDefaultPrecisionLabel(Context& ctx, keel::i32 precision) {
     const keel::i32 p = keel::clamp(precision, 0, 8);
     char buf[64]{};
     const keel::StringRef fmt = (p == 1) ? "{} decimal ({})" : "{} decimals ({})";
-    const keel::usize written = keel::format_buf(buf, sizeof(buf), fmt, p, kExamples[static_cast<keel::usize>(p)]);
+    const keel::usize written = keel::format_buf(buf, sizeof(buf), fmt, p, kExamples[keel::as<keel::usize>(p)]);
     return ctx.AllocString(keel::StringRef(buf, written));
 }
 
@@ -311,11 +311,11 @@ Vec2 Readout::Measure(
     const ReadoutMetrics m = ComputeReadoutMetrics(size, theme);
     const Padding pad = opts.padding.value_or(m.defaultPadding);
 
-    const float headerW = MeasureStyledWidth(headerText, m.headerFont, FontStyle::Bold, canvas);
-    const float valueW = MeasureStyledWidth(valueText, m.valueFont, FontStyle::Bold, canvas);
-    const float unitW = MeasureStyledWidth(unitText, m.unitFont, FontStyle::Regular, canvas);
+    const keel::f32 headerW = MeasureStyledWidth(headerText, m.headerFont, FontStyle::Bold, canvas);
+    const keel::f32 valueW = MeasureStyledWidth(valueText, m.valueFont, FontStyle::Bold, canvas);
+    const keel::f32 unitW = MeasureStyledWidth(unitText, m.unitFont, FontStyle::Regular, canvas);
 
-    float bottomRowW = valueW;
+    keel::f32 bottomRowW = valueW;
     if (!unitText.empty()) {
         bottomRowW += m.unitGap + unitW;
     }
@@ -323,12 +323,12 @@ Vec2 Readout::Measure(
         bottomRowW += m.actionGap + m.actionBtnSize;
     }
 
-    const float contentW = keel::max(headerW, bottomRowW);
-    const float headerH = headerText.empty() ? 0.0f : (m.headerH + m.rowGap);
-    const float contentH = headerH + m.valueRowH;
+    const keel::f32 contentW = keel::max(headerW, bottomRowW);
+    const keel::f32 headerH = headerText.empty() ? 0.0f : (m.headerH + m.rowGap);
+    const keel::f32 contentH = headerH + m.valueRowH;
 
-    const float totalW = keel::ceil(contentW + pad.left + pad.right + 4.0f);
-    const float totalH = keel::ceil(contentH + pad.top + pad.bottom);
+    const keel::f32 totalW = keel::ceil(contentW + pad.left + pad.right + 4.0f);
+    const keel::f32 totalH = keel::ceil(contentH + pad.top + pad.bottom);
     return Vec2(totalW, totalH);
 }
 
@@ -344,7 +344,7 @@ void Readout::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
     const auto& pal = theme.palette;
     const bool isDark = (theme.mode == ThemeMode::Dark);
     const bool disabled = node->disabled;
-    const float radius = opts.border.radius.has_value() ? *opts.border.radius : m.radius;
+    const keel::f32 radius = opts.border.radius.has_value() ? *opts.border.radius : m.radius;
 
     // 1. Optional subtle drop shadow when elevated
     if (opts.elevated) {
@@ -496,11 +496,11 @@ void Readout::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
             iconCol = iconCol.WithAlphaF(0.35f);
         }
 
-        const float btnRadius = keel::max(4.0f, radius - 2.0f);
+        const keel::f32 btnRadius = keel::max(4.0f, radius - 2.0f);
         canvas.DrawRoundRect(g.actionRect, btnRadius, btnBg, btnBorder, 1.0f);
 
         if (opts.actionIcon.IsValid()) {
-            const float icSz = keel::min(m.actionIconSize, g.actionRect.w * 0.65f);
+            const keel::f32 icSz = keel::min(m.actionIconSize, g.actionRect.w * 0.65f);
             const Rect icRect(
                 g.actionRect.x + (g.actionRect.w - icSz) * 0.5f,
                 g.actionRect.y + (g.actionRect.h - icSz) * 0.5f,
@@ -540,23 +540,23 @@ ReadoutResponse Readout::Run(
 
     ReadoutChannel fallbackCh{};
     if (!channels.empty()) {
-        state.channelIndex = keel::clamp(state.channelIndex, 0, static_cast<keel::i32>(channels.size()) - 1);
+        state.channelIndex = keel::clamp(state.channelIndex, 0, keel::as<keel::i32>(channels.size()) - 1);
     } else {
         state.channelIndex = 0;
     }
     const ReadoutChannel& activeCh = channels.empty()
         ? fallbackCh
-        : channels[static_cast<keel::usize>(state.channelIndex)];
+        : channels[keel::as<keel::usize>(state.channelIndex)];
 
     if (!activeCh.units.empty()) {
-        state.unitIndex = keel::clamp(state.unitIndex, 0, static_cast<keel::i32>(activeCh.units.size()) - 1);
+        state.unitIndex = keel::clamp(state.unitIndex, 0, keel::as<keel::i32>(activeCh.units.size()) - 1);
     } else {
         state.unitIndex = 0;
     }
 
     const bool hasUnit = !activeCh.units.empty();
-    const double displayedVal = hasUnit
-        ? activeCh.units[static_cast<keel::usize>(state.unitIndex)].Convert(activeCh.value)
+    const keel::f64 displayedVal = hasUnit
+        ? activeCh.units[keel::as<keel::usize>(state.unitIndex)].Convert(activeCh.value)
         : activeCh.value;
     res.displayedValue = displayedVal;
 
@@ -568,7 +568,7 @@ ReadoutResponse Readout::Run(
         ? ctx.AllocString(activeCh.formattedValue.text)
         : FormatNumericValue(ctx, displayedVal, state.precision, opts.showPlusSign, opts.invalidText.text);
     const keel::StringRef unitText = hasUnit
-        ? ctx.AllocString(activeCh.units[static_cast<keel::usize>(state.unitIndex)].label.text)
+        ? ctx.AllocString(activeCh.units[keel::as<keel::usize>(state.unitIndex)].label.text)
         : keel::StringRef{};
 
     const bool canOpenChannel = !effectiveDisabled && opts.allowChannelMenu && channels.size() > 1;
@@ -677,16 +677,16 @@ ReadoutResponse Readout::Run(
                 ContextMenuItem item{};
                 item.label = channels[i].label;
                 item.hasCheck = true;
-                item.checked = (static_cast<keel::i32>(i) == state.channelIndex);
+                item.checked = (keel::as<keel::i32>(i) == state.channelIndex);
                 menuItems.push_back(item);
             }
         } else if (persist.openMenu == ReadoutOpenMenu::Precision) {
             menuOpts.title = opts.precisionMenuTitle;
             menuOpts.anchorPos = Vec2(prevGeom.valueRect.x, prevGeom.valueRect.Bottom() + 6.0f);
             const keel::i32 count = maxP - minP + 1;
-            menuItems.reserve(static_cast<keel::usize>(count));
+            menuItems.reserve(keel::as<keel::usize>(count));
             for (keel::i32 p = minP; p <= maxP; ++p) {
-                const keel::usize labelIdx = static_cast<keel::usize>(p - minP);
+                const keel::usize labelIdx = keel::as<keel::usize>(p - minP);
                 ContextMenuItem item{};
                 item.label = (labelIdx < opts.precisionLabels.size() && !opts.precisionLabels[labelIdx].empty())
                     ? opts.precisionLabels[labelIdx]
@@ -703,7 +703,7 @@ ReadoutResponse Readout::Run(
                 ContextMenuItem item{};
                 item.label = activeCh.units[i].label;
                 item.hasCheck = true;
-                item.checked = (static_cast<keel::i32>(i) == state.unitIndex);
+                item.checked = (keel::as<keel::i32>(i) == state.unitIndex);
                 menuItems.push_back(item);
             }
         }
@@ -711,13 +711,13 @@ ReadoutResponse Readout::Run(
         const ContextMenuResponse menuRes = ContextMenu::Run(ctx, menuOpen, menuItems, menuOpts, loc);
         if (menuRes.clickedIndex >= 0) {
             if (persist.openMenu == ReadoutOpenMenu::Channel) {
-                const keel::i32 nextChIdx = keel::clamp(menuRes.clickedIndex, 0, static_cast<keel::i32>(channels.size()) - 1);
+                const keel::i32 nextChIdx = keel::clamp(menuRes.clickedIndex, 0, keel::as<keel::i32>(channels.size()) - 1);
                 if (nextChIdx != state.channelIndex) {
                     state.channelIndex = nextChIdx;
-                    const ReadoutChannel& nextCh = channels[static_cast<keel::usize>(nextChIdx)];
+                    const ReadoutChannel& nextCh = channels[keel::as<keel::usize>(nextChIdx)];
                     state.unitIndex = nextCh.units.empty()
                         ? 0
-                        : keel::clamp(nextCh.defaultUnitIndex, 0, static_cast<keel::i32>(nextCh.units.size()) - 1);
+                        : keel::clamp(nextCh.defaultUnitIndex, 0, keel::as<keel::i32>(nextCh.units.size()) - 1);
                     state.precision = keel::clamp(nextCh.defaultPrecision, minP, maxP);
                     res.channelChanged = true;
                     res.changed = true;
@@ -732,7 +732,7 @@ ReadoutResponse Readout::Run(
             } else if (persist.openMenu == ReadoutOpenMenu::Unit) {
                 const keel::i32 nextUnit = activeCh.units.empty()
                     ? 0
-                    : keel::clamp(menuRes.clickedIndex, 0, static_cast<keel::i32>(activeCh.units.size()) - 1);
+                    : keel::clamp(menuRes.clickedIndex, 0, keel::as<keel::i32>(activeCh.units.size()) - 1);
                 if (nextUnit != state.unitIndex) {
                     state.unitIndex = nextUnit;
                     res.unitChanged = true;
@@ -791,7 +791,7 @@ ReadoutResponse Readout::Run(
 
     node->text = valueText;
     node->SetPayload(data);
-    node->measureFn = [](const Node* n, float /*availW*/, ICanvas* canvas, const UiTheme& t) -> Vec2 {
+    node->measureFn = [](const Node* n, keel::f32 /*availW*/, ICanvas* canvas, const UiTheme& t) -> Vec2 {
         const auto* d = n->As<ReadoutData>();
         if (!d) return Vec2(188.0f, 72.0f);
         return Readout::Measure(d->headerText, d->valueText, d->unitText, d->showAction, d->opts, n->uiSize, canvas, t);
@@ -827,7 +827,7 @@ ReadoutResponse Readout::Run(
 ReadoutResponse Readout::Run(
     Context& ctx,
     UiText label,
-    double value,
+    keel::f64 value,
     keel::i32& unitIndex,
     keel::i32& precision,
     keel::ArrayRef<ReadoutUnit> units,

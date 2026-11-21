@@ -10,7 +10,7 @@ namespace {
 [[nodiscard]] keel::usize CountUtf8Codepoints(keel::StringRef text) noexcept {
     keel::usize count = 0;
     for (keel::usize i = 0; i < text.size(); ++i) {
-        const auto byte = static_cast<keel::u8>(text[i]);
+        const auto byte = keel::as<keel::u8>(text[i]);
         if ((byte & 0xC0u) != 0x80u) {
             ++count;
         }
@@ -18,7 +18,7 @@ namespace {
     return count;
 }
 
-[[nodiscard]] float StyleAdvanceRatio(FontStyle style) noexcept {
+[[nodiscard]] keel::f32 StyleAdvanceRatio(FontStyle style) noexcept {
     switch (style) {
         case FontStyle::Bold:
         case FontStyle::BoldItalic:
@@ -34,7 +34,7 @@ namespace {
 
 } // namespace
 
-void NullCanvas::Begin(keel::u32 width, keel::u32 height, float scale) {
+void NullCanvas::Begin(keel::u32 width, keel::u32 height, keel::f32 scale) {
     m_width = width;
     m_height = height;
     m_scale = (scale > 0.0f) ? scale : 1.0f;
@@ -49,7 +49,7 @@ void NullCanvas::End() {
     ++m_stats.endCount;
 }
 
-void NullCanvas::SetScale(float scale) {
+void NullCanvas::SetScale(keel::f32 scale) {
     m_scale = (scale > 0.0f) ? scale : 1.0f;
 }
 
@@ -118,35 +118,35 @@ void NullCanvas::DrawRect(Rect rect, Color fill) {
 
 void NullCanvas::DrawRoundRect(
     Rect rect,
-    float /*radius*/,
+    keel::f32 /*radius*/,
     Color fill,
     Color stroke,
-    float strokeWidth
+    keel::f32 strokeWidth
 ) {
     if (rect.w <= 0.0f || rect.h <= 0.0f) return;
     if (fill.a == 0 && (stroke.a == 0 || strokeWidth <= 0.0f)) return;
     ++m_stats.drawRoundRectCount;
 }
 
-Vec2 NullCanvas::MeasureText(keel::StringRef text, float fontSize) {
+Vec2 NullCanvas::MeasureText(keel::StringRef text, keel::f32 fontSize) {
     return MeasureTextStyled(text, fontSize, FontStyle::Regular);
 }
 
-Vec2 NullCanvas::MeasureTextStyled(keel::StringRef text, float fontSize, FontStyle style) {
+Vec2 NullCanvas::MeasureTextStyled(keel::StringRef text, keel::f32 fontSize, FontStyle style) {
     if (fontSize <= 0.0f) {
         return {0.0f, 0.0f};
     }
     const keel::usize codepoints = CountUtf8Codepoints(text);
-    const float width = static_cast<float>(codepoints) * (fontSize * StyleAdvanceRatio(style));
+    const keel::f32 width = keel::as<keel::f32>(codepoints) * (fontSize * StyleAdvanceRatio(style));
     return {width, GetLineHeight(fontSize)};
 }
 
-float NullCanvas::GetLineHeight(float fontSize) {
+keel::f32 NullCanvas::GetLineHeight(keel::f32 fontSize) {
     if (fontSize <= 0.0f) return 0.0f;
     return fontSize * kDefaultLineHeightMultiplier;
 }
 
-void NullCanvas::DrawText(keel::StringRef text, Vec2 /*pos*/, float fontSize, Color color) {
+void NullCanvas::DrawText(keel::StringRef text, Vec2 /*pos*/, keel::f32 fontSize, Color color) {
     if (text.empty() || fontSize <= 0.0f || color.a == 0) return;
     ++m_stats.drawTextCount;
 }
@@ -154,10 +154,10 @@ void NullCanvas::DrawText(keel::StringRef text, Vec2 /*pos*/, float fontSize, Co
 void NullCanvas::DrawTextStyled(
     keel::StringRef text,
     Vec2 /*pos*/,
-    float fontSize,
+    keel::f32 fontSize,
     Color color,
     FontStyle /*style*/,
-    float /*angleDeg*/
+    keel::f32 /*angleDeg*/
 ) {
     if (text.empty() || fontSize <= 0.0f || color.a == 0) return;
     ++m_stats.drawTextCount;
@@ -166,10 +166,10 @@ void NullCanvas::DrawTextStyled(
 void NullCanvas::DrawTextBox(
     keel::StringRef text,
     Rect bounds,
-    float fontSize,
+    keel::f32 fontSize,
     Color color,
-    float /*alignX*/,
-    float /*alignY*/
+    keel::f32 /*alignX*/,
+    keel::f32 /*alignY*/
 ) {
     if (text.empty() || fontSize <= 0.0f || color.a == 0 || bounds.w <= 0.0f || bounds.h <= 0.0f) return;
     ++m_stats.drawTextCount;
@@ -178,17 +178,17 @@ void NullCanvas::DrawTextBox(
 void NullCanvas::DrawTextBoxStyled(
     keel::StringRef text,
     Rect bounds,
-    float fontSize,
+    keel::f32 fontSize,
     Color color,
     FontStyle /*style*/,
-    float /*alignX*/,
-    float /*alignY*/
+    keel::f32 /*alignX*/,
+    keel::f32 /*alignY*/
 ) {
     if (text.empty() || fontSize <= 0.0f || color.a == 0 || bounds.w <= 0.0f || bounds.h <= 0.0f) return;
     ++m_stats.drawTextCount;
 }
 
-void NullCanvas::DrawLine(Vec2 /*p1*/, Vec2 /*p2*/, Color color, float strokeWidth) {
+void NullCanvas::DrawLine(Vec2 /*p1*/, Vec2 /*p2*/, Color color, keel::f32 strokeWidth) {
     if (color.a == 0 || strokeWidth <= 0.0f) return;
     ++m_stats.drawLineCount;
 }
@@ -199,7 +199,7 @@ void NullCanvas::DrawTriangle(
     Vec2 /*p3*/,
     Color fill,
     Color stroke,
-    float strokeWidth
+    keel::f32 strokeWidth
 ) {
     if (fill.a == 0 && (stroke.a == 0 || strokeWidth <= 0.0f)) return;
     ++m_stats.drawTriangleCount;
@@ -217,7 +217,7 @@ void NullCanvas::DrawPath(const VectorPath& path, const PathPaint& paint) {
 bool NullCanvas::DrawImage(
     keel::StringRef source,
     Rect destRect,
-    float /*cornerRadius*/,
+    keel::f32 /*cornerRadius*/,
     keel::u8 opacity
 ) {
     if (source.empty() || opacity == 0 || destRect.w <= 0.0f || destRect.h <= 0.0f) return false;
@@ -228,7 +228,7 @@ bool NullCanvas::DrawImage(
 bool NullCanvas::DrawPixels(
     PixelRef pixels,
     Rect destRect,
-    float /*cornerRadius*/,
+    keel::f32 /*cornerRadius*/,
     keel::u8 opacity
 ) {
     if (pixels.Empty() || opacity == 0 || destRect.w <= 0.0f || destRect.h <= 0.0f) return false;

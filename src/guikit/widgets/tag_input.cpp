@@ -21,7 +21,7 @@ struct TagChipView {
 
 struct TagInputPersistState {
     keel::SmallString<64> editBuffer{};
-    float scrollOffsetX{0.0f};
+    keel::f32 scrollOffsetX{0.0f};
     keel::i32 hoveredChipRemoveIdx{-1};
     bool clearHovered{false};
     keel::SmallArray<Rect, 16> chipRemoveRects{};
@@ -34,10 +34,10 @@ struct TagInputNodeData {
     keel::StringRef editBuffer{};
     keel::usize cursor{0};
     bool cursorVisible{false};
-    float cursorWidth{1.5f};
+    keel::f32 cursorWidth{1.5f};
     keel::i32 hoveredChipRemoveIdx{-1};
     bool clearHovered{false};
-    float scrollOffsetX{0.0f};
+    keel::f32 scrollOffsetX{0.0f};
     TagInputPersistState* persistState{nullptr};
 };
 
@@ -89,20 +89,20 @@ keel::FixedString<48> FormatCounterText(keel::usize count, keel::u32 maxTags) no
     return keel::FixedString<48>(buf);
 }
 
-float MeasureChipWidth(
+keel::f32 MeasureChipWidth(
     const TagChipView& chip,
-    float chipFont,
-    float iconSz,
+    keel::f32 chipFont,
+    keel::f32 iconSz,
     bool showRemove,
     ICanvas* canvas
 ) noexcept {
-    const float textW = TextUtil::MeasureWidth(chip.text, chipFont, canvas);
-    float w = 6.0f + textW;
+    const keel::f32 textW = TextUtil::MeasureWidth(chip.text, chipFont, canvas);
+    keel::f32 w = 6.0f + textW;
     if (chip.icon.IsValid()) {
         w += iconSz + 4.0f;
     }
     if (showRemove) {
-        const float removeBtnSz = keel::max(12.0f, iconSz + 2.0f);
+        const keel::f32 removeBtnSz = keel::max(12.0f, iconSz + 2.0f);
         w += 4.0f + removeBtnSz + 4.0f;
     } else {
         w += 6.0f;
@@ -120,8 +120,8 @@ struct TagLayoutResult {
     keel::usize visibleChipCount{0};
     keel::usize overflowCount{0};
     Rect overflowRect{};
-    float inlineTextX{0.0f};
-    float resolvedScrollX{0.0f};
+    keel::f32 inlineTextX{0.0f};
+    keel::f32 resolvedScrollX{0.0f};
 };
 
 TagLayoutResult ComputeTagLayout(
@@ -133,31 +133,31 @@ TagLayoutResult ComputeTagLayout(
     UiSize size,
     bool focused,
     bool disabled,
-    float currentScrollX,
+    keel::f32 currentScrollX,
     ICanvas* canvas,
     const UiTheme& theme
 ) {
     TagLayoutResult out{};
     const InputFieldMetrics& m = theme.GetInputField(size);
-    const float chipFont = theme.ResolveFontSize(TextRole::LabelSmall, size);
-    const float inputFont = theme.ResolveFontSize(opts.placeholder, TextRole::LabelMedium, size);
-    const float chipIconSz = keel::max(10.0f, m.iconSize - 2.0f);
-    const float removeBtnSz = keel::max(12.0f, chipIconSz + 2.0f);
+    const keel::f32 chipFont = theme.ResolveFontSize(TextRole::LabelSmall, size);
+    const keel::f32 inputFont = theme.ResolveFontSize(opts.placeholder, TextRole::LabelMedium, size);
+    const keel::f32 chipIconSz = keel::max(10.0f, m.iconSize - 2.0f);
+    const keel::f32 removeBtnSz = keel::max(12.0f, chipIconSz + 2.0f);
     const bool showRemove = !opts.readOnly && !disabled;
 
-    float leftX = boxRect.x + m.paddingX;
+    keel::f32 leftX = boxRect.x + m.paddingX;
     if (opts.prefix.HasContentOrReserve()) {
-        const float pFont = theme.ResolveFontSize(opts.prefix.text, TextRole::LabelMedium, size);
-        const float pW = TextUtil::MeasureAffixWidth(opts.prefix, pFont, m.iconSize, 4.0f, canvas);
-        const float pGap = (opts.prefix.HasIcon() && !opts.prefix.HasText()) ? 6.0f : 4.0f;
+        const keel::f32 pFont = theme.ResolveFontSize(opts.prefix.text, TextRole::LabelMedium, size);
+        const keel::f32 pW = TextUtil::MeasureAffixWidth(opts.prefix, pFont, m.iconSize, 4.0f, canvas);
+        const keel::f32 pGap = (opts.prefix.HasIcon() && !opts.prefix.HasText()) ? 6.0f : 4.0f;
         leftX += pW + pGap;
     }
 
-    float rightX = boxRect.x + boxRect.w - m.paddingX;
+    keel::f32 rightX = boxRect.x + boxRect.w - m.paddingX;
 
     const bool showClear = opts.clearable && !chips.empty() && !opts.readOnly && !disabled;
     if (showClear) {
-        const float btnSize = m.iconSize + 4.0f;
+        const keel::f32 btnSize = m.iconSize + 4.0f;
         rightX -= btnSize;
         out.clearBtnRect = Rect(rightX, boxRect.y + (boxRect.h - btnSize) * 0.5f, btnSize, btnSize);
         rightX -= 4.0f;
@@ -166,27 +166,27 @@ TagLayoutResult ComputeTagLayout(
     const bool showCounter = opts.showCounter || opts.maxTags > 0;
     if (showCounter) {
         out.counterStr = FormatCounterText(chips.size(), opts.maxTags);
-        const float counterTextW = TextUtil::MeasureWidth(out.counterStr, chipFont, canvas);
-        const float badgeW = counterTextW + 10.0f;
-        const float badgeH = keel::max(16.0f, keel::min(boxRect.h - 8.0f, chipFont + 6.0f));
+        const keel::f32 counterTextW = TextUtil::MeasureWidth(out.counterStr, chipFont, canvas);
+        const keel::f32 badgeW = counterTextW + 10.0f;
+        const keel::f32 badgeH = keel::max(16.0f, keel::min(boxRect.h - 8.0f, chipFont + 6.0f));
         rightX -= badgeW;
         out.counterRect = Rect(rightX, boxRect.y + (boxRect.h - badgeH) * 0.5f, badgeW, badgeH);
         rightX -= 6.0f;
     }
 
-    const float availW = keel::max(0.0f, rightX - leftX);
+    const keel::f32 availW = keel::max(0.0f, rightX - leftX);
     out.innerRect = Rect(leftX, boxRect.y, availW, boxRect.h);
 
-    const float chipH = keel::max(16.0f, boxRect.h - 8.0f);
-    const float chipY = boxRect.y + (boxRect.h - chipH) * 0.5f;
-    const float chipGap = 4.0f;
+    const keel::f32 chipH = keel::max(16.0f, boxRect.h - 8.0f);
+    const keel::f32 chipY = boxRect.y + (boxRect.h - chipH) * 0.5f;
+    const keel::f32 chipGap = 4.0f;
 
     const keel::usize nChips = chips.size();
     out.chipRects.assign(nChips, Rect{});
     out.chipRemoveRects.assign(nChips, Rect{});
 
-    keel::SmallArray<float, 16> chipWidths(nChips, 0.0f);
-    float totalChipsW = 0.0f;
+    keel::SmallArray<keel::f32, 16> chipWidths(nChips, 0.0f);
+    keel::f32 totalChipsW = 0.0f;
     for (keel::usize i = 0; i < nChips; ++i) {
         chipWidths[i] = MeasureChipWidth(chips[i], chipFont, chipIconSz, showRemove, canvas);
         totalChipsW += chipWidths[i];
@@ -199,38 +199,38 @@ TagLayoutResult ComputeTagLayout(
         out.visibleChipCount = chips.size();
         out.overflowCount = 0;
 
-        float relX = 0.0f;
+        keel::f32 relX = 0.0f;
         for (keel::usize i = 0; i < nChips; ++i) {
             relX += chipWidths[i] + chipGap;
         }
-        const float textStartRelX = relX;
+        const keel::f32 textStartRelX = relX;
         const keel::usize safeCursor = keel::min(cursor, editBuffer.size());
-        const float cursorOffset = TextUtil::MeasureWidth(editBuffer.substr(0, safeCursor), inputFont, canvas);
-        const float fullEditW = keel::max(
+        const keel::f32 cursorOffset = TextUtil::MeasureWidth(editBuffer.substr(0, safeCursor), inputFont, canvas);
+        const keel::f32 fullEditW = keel::max(
             TextUtil::MeasureWidth(editBuffer, inputFont, canvas) + 12.0f,
             (chips.empty() && editBuffer.empty()) ? TextUtil::MeasureWidth(opts.placeholder.text, inputFont, canvas) : 28.0f
         );
-        const float totalContentW = textStartRelX + fullEditW;
-        const float cursorRelX = textStartRelX + cursorOffset;
+        const keel::f32 totalContentW = textStartRelX + fullEditW;
+        const keel::f32 cursorRelX = textStartRelX + cursorOffset;
 
-        float scrollX = focused ? currentScrollX : 0.0f;
+        keel::f32 scrollX = focused ? currentScrollX : 0.0f;
         if (focused && availW > 0.0f) {
-            const float visibleW = keel::max(0.0f, availW - 4.0f);
+            const keel::f32 visibleW = keel::max(0.0f, availW - 4.0f);
             if (cursorRelX + 4.0f > scrollX + visibleW) {
                 scrollX = (cursorRelX + 4.0f) - visibleW;
             } else if (cursorRelX < scrollX) {
                 scrollX = keel::max(0.0f, cursorRelX - 16.0f);
             }
-            const float maxScroll = keel::max(0.0f, totalContentW - visibleW);
+            const keel::f32 maxScroll = keel::max(0.0f, totalContentW - visibleW);
             scrollX = keel::clamp(scrollX, 0.0f, maxScroll);
         } else {
             scrollX = 0.0f;
         }
         out.resolvedScrollX = scrollX;
 
-        float curX = out.innerRect.x - scrollX;
+        keel::f32 curX = out.innerRect.x - scrollX;
         for (keel::usize i = 0; i < nChips; ++i) {
-            const float cw = chipWidths[i];
+            const keel::f32 cw = chipWidths[i];
             const Rect cRect(curX, chipY, cw, chipH);
             out.chipRects[i] = cRect;
             if (showRemove) {
@@ -249,9 +249,9 @@ TagLayoutResult ComputeTagLayout(
         if (totalChipsW <= availW || chips.empty()) {
             out.visibleChipCount = chips.size();
             out.overflowCount = 0;
-            float curX = out.innerRect.x;
+            keel::f32 curX = out.innerRect.x;
             for (keel::usize i = 0; i < nChips; ++i) {
-                const float cw = chipWidths[i];
+                const keel::f32 cw = chipWidths[i];
                 const Rect cRect(curX, chipY, cw, chipH);
                 out.chipRects[i] = cRect;
                 if (showRemove) {
@@ -267,15 +267,15 @@ TagLayoutResult ComputeTagLayout(
             out.inlineTextX = curX;
         } else {
             keel::usize fitCount = 0;
-            float usedW = 0.0f;
+            keel::f32 usedW = 0.0f;
             for (keel::usize i = 0; i < chips.size(); ++i) {
                 const keel::usize remaining = chips.size() - (i + 1);
                 char ovBuf[32];
                 std::snprintf(ovBuf, sizeof(ovBuf), "+%zu", remaining);
-                const float ovBadgeW = (remaining > 0)
+                const keel::f32 ovBadgeW = (remaining > 0)
                     ? (TextUtil::MeasureWidth(ovBuf, chipFont, canvas) + 12.0f + chipGap)
                     : 0.0f;
-                const float nextW = usedW + (i > 0 ? chipGap : 0.0f) + chipWidths[i];
+                const keel::f32 nextW = usedW + (i > 0 ? chipGap : 0.0f) + chipWidths[i];
                 if (nextW + ovBadgeW <= availW) {
                     usedW = nextW;
                     fitCount = i + 1;
@@ -286,9 +286,9 @@ TagLayoutResult ComputeTagLayout(
             out.visibleChipCount = fitCount;
             out.overflowCount = chips.size() - fitCount;
 
-            float curX = out.innerRect.x;
+            keel::f32 curX = out.innerRect.x;
             for (keel::usize i = 0; i < fitCount; ++i) {
-                const float cw = chipWidths[i];
+                const keel::f32 cw = chipWidths[i];
                 const Rect cRect(curX, chipY, cw, chipH);
                 out.chipRects[i] = cRect;
                 if (showRemove) {
@@ -304,7 +304,7 @@ TagLayoutResult ComputeTagLayout(
             if (out.overflowCount > 0) {
                 char ovBuf[32];
                 std::snprintf(ovBuf, sizeof(ovBuf), "+%zu", out.overflowCount);
-                const float ovW = TextUtil::MeasureWidth(ovBuf, chipFont, canvas) + 12.0f;
+                const keel::f32 ovW = TextUtil::MeasureWidth(ovBuf, chipFont, canvas) + 12.0f;
                 out.overflowRect = Rect(curX, chipY, ovW, chipH);
                 curX += ovW + chipGap;
             }
@@ -429,7 +429,7 @@ Response RunTagInputImpl(
             for (keel::usize i = 0; i < st.chipRemoveRects.size() && i < tags.size(); ++i) {
                 if (st.chipRemoveRects[i].w > 0.0f &&
                     st.chipRemoveRects[i].Contains(mousePos)) {
-                    st.hoveredChipRemoveIdx = static_cast<keel::i32>(i);
+                    st.hoveredChipRemoveIdx = keel::as<keel::i32>(i);
                     break;
                 }
             }
@@ -440,8 +440,8 @@ Response RunTagInputImpl(
     if ((mouseJustPressed || res.clicked) && !effectiveDisabled) {
         if (!optsCopy.readOnly) {
             if (mouseJustPressed && st.hoveredChipRemoveIdx >= 0 &&
-                static_cast<keel::usize>(st.hoveredChipRemoveIdx) < tags.size()) {
-                tags.erase_at(static_cast<keel::usize>(st.hoveredChipRemoveIdx));
+                keel::as<keel::usize>(st.hoveredChipRemoveIdx) < tags.size()) {
+                tags.erase_at(keel::as<keel::usize>(st.hoveredChipRemoveIdx));
                 st.hoveredChipRemoveIdx = -1;
                 res.changed = true;
                 ctx.RequestFocus(id);
@@ -624,15 +624,15 @@ Response RunTagInputImpl(
         chipsHash = detail::HashArgs(
             chipsHash,
             chipSpan[i].text,
-            static_cast<keel::u8>(chipSpan[i].variant),
-            static_cast<keel::u16>(chipSpan[i].icon.GetId()),
+            keel::as<keel::u8>(chipSpan[i].variant),
+            keel::as<keel::u16>(chipSpan[i].icon.GetId()),
             chipSpan[i].icon.GetPath()
         );
     }
 
     node->visualHash = detail::HashArgs(
         chipsHash,
-        static_cast<keel::u8>(optsCopy.tagVariant),
+        keel::as<keel::u8>(optsCopy.tagVariant),
         optsCopy.maxTags,
         optsCopy.clearable,
         optsCopy.showCounter,
@@ -656,33 +656,33 @@ Response RunTagInputImpl(
         data->scrollOffsetX
     );
 
-    node->measureFn = [](const Node* n, float availableWidth, ICanvas* c, const UiTheme& t) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* c, const UiTheme& t) noexcept -> Vec2 {
         const auto* d = n->As<TagInputNodeData>();
         if (!d) {
             return TagInput::Measure({}, TagInputOptions{}, n->uiSize, c, t, availableWidth);
         }
         const InputFieldMetrics& m = t.GetInputField(n->uiSize);
         const ControlSpec spec = EffectiveTagInputControl(d->opts, n->uiSize, t);
-        float boxW = m.defaultWidth;
+        keel::f32 boxW = m.defaultWidth;
         if (spec.width.IsFixed()) {
             boxW = spec.width.Dp();
         } else if (d->opts.width.ResolveMode(SizeMode::Stretch) != SizeMode::Stretch) {
-            const float chipFont = t.ResolveFontSize(TextRole::LabelSmall, n->uiSize);
-            const float chipIconSz = keel::max(10.0f, m.iconSize - 2.0f);
+            const keel::f32 chipFont = t.ResolveFontSize(TextRole::LabelSmall, n->uiSize);
+            const keel::f32 chipIconSz = keel::max(10.0f, m.iconSize - 2.0f);
             const bool showRemove = !d->opts.readOnly && !n->disabled;
-            float contentW = m.paddingX * 2.0f;
+            keel::f32 contentW = m.paddingX * 2.0f;
             for (keel::usize i = 0; i < d->chips.size(); ++i) {
                 contentW += MeasureChipWidth(d->chips[i], chipFont, chipIconSz, showRemove, c) + 4.0f;
             }
             if (!d->opts.readOnly) {
-                const float inputFont = t.ResolveFontSize(d->opts.placeholder, TextRole::LabelMedium, n->uiSize);
-                const float phW = d->chips.empty()
+                const keel::f32 inputFont = t.ResolveFontSize(d->opts.placeholder, TextRole::LabelMedium, n->uiSize);
+                const keel::f32 phW = d->chips.empty()
                     ? TextUtil::MeasureWidth(d->opts.placeholder.text, inputFont, c)
                     : 56.0f;
                 contentW += keel::max(48.0f, phW + 8.0f);
             }
             if (d->opts.prefix.HasContentOrReserve()) {
-                const float pFont = t.ResolveFontSize(d->opts.prefix.text, TextRole::LabelMedium, n->uiSize);
+                const keel::f32 pFont = t.ResolveFontSize(d->opts.prefix.text, TextRole::LabelMedium, n->uiSize);
                 contentW += TextUtil::MeasureAffixWidth(d->opts.prefix, pFont, m.iconSize, 4.0f, c) + 6.0f;
             }
             if (d->opts.clearable && !d->opts.readOnly) {
@@ -774,32 +774,32 @@ Vec2 TagInput::Measure(
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme,
-    float /*availableWidth*/
+    keel::f32 /*availableWidth*/
 ) {
     const InputFieldMetrics& m = theme.GetInputField(size);
     const ControlSpec ctrl = EffectiveTagInputControl(opts, size, theme);
 
-    float boxW = m.defaultWidth;
+    keel::f32 boxW = m.defaultWidth;
     if (ctrl.width.IsFixed()) {
         boxW = ctrl.width.Dp();
     } else if (opts.width.ResolveMode(SizeMode::Stretch) != SizeMode::Stretch) {
-        const float chipFont = theme.ResolveFontSize(TextRole::LabelSmall, size);
-        const float chipIconSz = keel::max(10.0f, m.iconSize - 2.0f);
+        const keel::f32 chipFont = theme.ResolveFontSize(TextRole::LabelSmall, size);
+        const keel::f32 chipIconSz = keel::max(10.0f, m.iconSize - 2.0f);
         const bool showRemove = !opts.readOnly && !opts.disabled;
-        float contentW = m.paddingX * 2.0f;
+        keel::f32 contentW = m.paddingX * 2.0f;
         for (keel::StringRef tag : tags) {
             const TagChipView v{.text = tag, .variant = opts.tagVariant};
             contentW += MeasureChipWidth(v, chipFont, chipIconSz, showRemove, canvas) + 4.0f;
         }
         if (!opts.readOnly) {
-            const float inputFont = theme.ResolveFontSize(opts.placeholder, TextRole::LabelMedium, size);
-            const float phW = tags.empty()
+            const keel::f32 inputFont = theme.ResolveFontSize(opts.placeholder, TextRole::LabelMedium, size);
+            const keel::f32 phW = tags.empty()
                 ? TextUtil::MeasureWidth(opts.placeholder.text, inputFont, canvas)
                 : 56.0f;
             contentW += keel::max(48.0f, phW + 8.0f);
         }
         if (opts.prefix.HasContentOrReserve()) {
-            const float pFont = theme.ResolveFontSize(opts.prefix.text, TextRole::LabelMedium, size);
+            const keel::f32 pFont = theme.ResolveFontSize(opts.prefix.text, TextRole::LabelMedium, size);
             contentW += TextUtil::MeasureAffixWidth(opts.prefix, pFont, m.iconSize, 4.0f, canvas) + 6.0f;
         }
         if (opts.clearable && !opts.readOnly) {
@@ -841,7 +841,7 @@ void TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
         ? ((hovered && !disabled) ? pal.surface : pal.inputBackground)
         : Color::Transparent();
     Color boxBorder;
-    float strokeW = (opts.border.width > 0.0f) ? opts.border.width : m.strokeWidth;
+    keel::f32 strokeW = (opts.border.width > 0.0f) ? opts.border.width : m.strokeWidth;
 
     if (focused && !disabled) {
         boxBorder = opts.color.HasAny()
@@ -876,14 +876,14 @@ void TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
         boxBorder = theme.ResolveColor(opts.border.color, hovered, focused, disabled, boxBorder);
     }
 
-    const float radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
+    const keel::f32 radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
     canvas.DrawRoundRect(boxRect, radius, boxBg, boxBorder, strokeW);
 
     if (opts.prefix.HasContentOrReserve()) {
-        const float pFont = theme.ResolveFontSize(opts.prefix.text, TextRole::LabelMedium, size);
+        const keel::f32 pFont = theme.ResolveFontSize(opts.prefix.text, TextRole::LabelMedium, size);
         const Color pTextCol = theme.ResolveTextColor(opts.prefix.text, UiVariant::Secondary, disabled, hovered, focused);
         const Color pIconCol = opts.prefix.text.color.HasAny() ? pTextCol : unitCol;
-        const float pW = TextUtil::MeasureAffixWidth(opts.prefix, pFont, m.iconSize, 4.0f, &canvas);
+        const keel::f32 pW = TextUtil::MeasureAffixWidth(opts.prefix, pFont, m.iconSize, 4.0f, &canvas);
         TextUtil::DrawAffix(
             canvas,
             opts.prefix,
@@ -899,7 +899,7 @@ void TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
     const keel::ArrayRef<TagChipView> chips = data ? data->chips : keel::ArrayRef<TagChipView>{};
     const keel::StringRef editBuf = data ? data->editBuffer : keel::StringRef{};
     const keel::usize cursor = data ? data->cursor : 0;
-    const float scrollIn = data ? data->scrollOffsetX : 0.0f;
+    const keel::f32 scrollIn = data ? data->scrollOffsetX : 0.0f;
 
     const TagLayoutResult layout = ComputeTagLayout(
         boxRect,
@@ -921,9 +921,9 @@ void TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
         data->persistState->clearBtnRect = layout.clearBtnRect;
     }
 
-    const float chipFont = theme.ResolveFontSize(TextRole::LabelSmall, size);
-    const float inputFont = theme.ResolveFontSize(opts.placeholder, TextRole::LabelMedium, size);
-    const float chipIconSz = keel::max(10.0f, m.iconSize - 2.0f);
+    const keel::f32 chipFont = theme.ResolveFontSize(TextRole::LabelSmall, size);
+    const keel::f32 inputFont = theme.ResolveFontSize(opts.placeholder, TextRole::LabelMedium, size);
+    const keel::f32 chipIconSz = keel::max(10.0f, m.iconSize - 2.0f);
 
     if (layout.counterRect.w > 0.0f) {
         const bool atLimit = (opts.maxTags > 0 && chips.size() >= opts.maxTags);
@@ -940,7 +940,7 @@ void TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
         if (clearHovered) {
             canvas.DrawRoundRect(layout.clearBtnRect, 4.0f, pal.surfaceHover, Color::Transparent(), 0.0f);
         }
-        const float clearIconSz = keel::max(8.0f, m.iconSize - 2.0f);
+        const keel::f32 clearIconSz = keel::max(8.0f, m.iconSize - 2.0f);
         const Rect icRect(
             layout.clearBtnRect.x + (layout.clearBtnRect.w - clearIconSz) * 0.5f,
             layout.clearBtnRect.y + (layout.clearBtnRect.h - clearIconSz) * 0.5f,
@@ -989,24 +989,24 @@ void TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
 
         canvas.DrawRoundRect(cRect, 4.0f, chipBg, chipBorder, 1.0f);
 
-        float cx = cRect.x + 6.0f;
+        keel::f32 cx = cRect.x + 6.0f;
         if (chip.icon.IsValid()) {
             const Rect icRect(cx, cRect.y + (cRect.h - chipIconSz) * 0.5f, chipIconSz, chipIconSz);
             chip.icon.Draw(canvas, icRect, chipTextCol);
             cx += chipIconSz + 4.0f;
         }
 
-        const float textRight = showRemove ? layout.chipRemoveRects[i].x - 2.0f : cRect.Right() - 6.0f;
+        const keel::f32 textRight = showRemove ? layout.chipRemoveRects[i].x - 2.0f : cRect.Right() - 6.0f;
         const Rect chipTextRect(cx, cRect.y, keel::max(0.0f, textRight - cx), cRect.h);
         canvas.DrawTextBox(chip.text, chipTextRect, chipFont, chipTextCol, 0.0f, 0.5f);
 
         if (showRemove) {
             const Rect remRect = layout.chipRemoveRects[i];
-            const bool remHovered = (hoveredRemoveIdx == static_cast<keel::i32>(i));
+            const bool remHovered = (hoveredRemoveIdx == keel::as<keel::i32>(i));
             if (remHovered) {
                 canvas.DrawRoundRect(remRect, 3.0f, accent.WithAlphaF(0.28f), Color::Transparent(), 0.0f);
             }
-            const float xIconSz = keel::max(7.0f, chipIconSz - 2.0f);
+            const keel::f32 xIconSz = keel::max(7.0f, chipIconSz - 2.0f);
             const Rect xRect(
                 remRect.x + (remRect.w - xIconSz) * 0.5f,
                 remRect.y + (remRect.h - xIconSz) * 0.5f,
@@ -1028,11 +1028,11 @@ void TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
     }
 
     if (!opts.readOnly) {
-        const float textAvailW = keel::max(64.0f, layout.innerRect.Right() - layout.inlineTextX);
+        const keel::f32 textAvailW = keel::max(64.0f, layout.innerRect.Right() - layout.inlineTextX);
         const Rect inlineRect(layout.inlineTextX, boxRect.y, textAvailW, boxRect.h);
 
         if (!editBuf.empty()) {
-            const float drawW = keel::max(inlineRect.w, canvas.MeasureText(editBuf, inputFont).x + 8.0f);
+            const keel::f32 drawW = keel::max(inlineRect.w, canvas.MeasureText(editBuf, inputFont).x + 8.0f);
             canvas.DrawTextBox(editBuf, Rect(inlineRect.x, inlineRect.y, drawW, inlineRect.h), inputFont, textCol, 0.0f, 0.5f);
         } else if (chips.empty() && !opts.placeholder.empty()) {
             canvas.DrawTextBox(opts.placeholder.text, inlineRect, inputFont, placeholderCol, 0.0f, 0.5f);
@@ -1040,10 +1040,10 @@ void TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
 
         if (focused && !disabled && data && data->cursorVisible) {
             const keel::usize safeCursor = keel::min(cursor, editBuf.size());
-            const float subW = canvas.MeasureText(editBuf.substr(0, safeCursor), inputFont).x;
-            const float caretX = inlineRect.x + subW;
-            const float caretH = inputFont * 1.15f;
-            const float caretY = boxRect.y + (boxRect.h - caretH) * 0.5f;
+            const keel::f32 subW = canvas.MeasureText(editBuf.substr(0, safeCursor), inputFont).x;
+            const keel::f32 caretX = inlineRect.x + subW;
+            const keel::f32 caretH = inputFont * 1.15f;
+            const keel::f32 caretY = boxRect.y + (boxRect.h - caretH) * 0.5f;
             canvas.DrawLine({caretX, caretY}, {caretX, caretY + caretH}, pal.caret, data->cursorWidth);
         }
     } else if (chips.empty() && !opts.placeholder.empty()) {

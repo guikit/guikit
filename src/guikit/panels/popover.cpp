@@ -132,7 +132,7 @@ PopoverScope Popover::Open(
         opts.anchorRect.y,
         opts.anchorRect.w,
         opts.anchorRect.h,
-        static_cast<keel::u8>(opts.placement),
+        keel::as<keel::u8>(opts.placement),
         opts.offset,
         viewportRect.x,
         viewportRect.y,
@@ -146,29 +146,29 @@ PopoverScope Popover::Open(
 
 Vec2 Popover::Measure(
     const Node* node,
-    float availableWidth,
+    keel::f32 availableWidth,
     ICanvas* /*canvas*/,
     const UiTheme& /*theme*/
 ) {
-    float maxVpW = availableWidth > 0.0f ? availableWidth : 480.0f;
+    keel::f32 maxVpW = availableWidth > 0.0f ? availableWidth : 480.0f;
     if (const auto* payload = node->As<PopoverPayload>()) {
         if (payload->viewportRect.w > 0.0f) {
             maxVpW = payload->viewportRect.w;
         }
     }
 
-    float totalH = 0.0f;
-    float maxW = 0.0f;
+    keel::f32 totalH = 0.0f;
+    keel::f32 maxW = 0.0f;
 
     for (const Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
         if (child->IsOutOfFlow()) continue;
-        const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
-        const float ch = (child->heightMode == SizeMode::Fixed) ? child->fixedHeight : child->intrinsicSize.y;
+        const keel::f32 cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
+        const keel::f32 ch = (child->heightMode == SizeMode::Fixed) ? child->fixedHeight : child->intrinsicSize.y;
         totalH += ch;
         maxW = keel::max(maxW, cw);
     }
 
-    const float w = (maxVpW > 0.0f) ? keel::min(maxW, maxVpW) : maxW;
+    const keel::f32 w = (maxVpW > 0.0f) ? keel::min(maxW, maxVpW) : maxW;
     return {w, totalH};
 }
 
@@ -182,8 +182,8 @@ void Popover::Arrange(
 
 Rect Popover::ResolvePopoverRect(
     const Node* node,
-    float resolvedWidth,
-    float resolvedHeight,
+    keel::f32 resolvedWidth,
+    keel::f32 resolvedHeight,
     const Rect& fallbackViewport
 ) noexcept {
     if (!node) return fallbackViewport;
@@ -197,16 +197,16 @@ Rect Popover::ResolvePopoverRect(
         }
     }
 
-    const float margin = 8.0f;
-    const float maxVpW = keel::max(0.0f, vp.w - margin * 2.0f);
-    const float maxVpH = keel::max(0.0f, vp.h - margin * 2.0f);
-    const float w = keel::clamp(resolvedWidth, 0.0f, (vp.w > margin * 2.0f) ? maxVpW : vp.w);
-    const float h = keel::clamp(resolvedHeight, 0.0f, (vp.h > margin * 2.0f) ? maxVpH : vp.h);
+    const keel::f32 margin = 8.0f;
+    const keel::f32 maxVpW = keel::max(0.0f, vp.w - margin * 2.0f);
+    const keel::f32 maxVpH = keel::max(0.0f, vp.h - margin * 2.0f);
+    const keel::f32 w = keel::clamp(resolvedWidth, 0.0f, (vp.w > margin * 2.0f) ? maxVpW : vp.w);
+    const keel::f32 h = keel::clamp(resolvedHeight, 0.0f, (vp.h > margin * 2.0f) ? maxVpH : vp.h);
 
     const Rect& anchor = opts.anchorRect;
     if (anchor.w <= 0.0f && anchor.h <= 0.0f) {
-        const float cx = keel::round(vp.x + (vp.w - w) * 0.5f);
-        const float cy = keel::round(vp.y + (vp.h - h) * 0.5f);
+        const keel::f32 cx = keel::round(vp.x + (vp.w - w) * 0.5f);
+        const keel::f32 cy = keel::round(vp.y + (vp.h - h) * 0.5f);
         return Rect(cx, cy, keel::round(w), keel::round(h));
     }
 
@@ -217,15 +217,15 @@ Rect Popover::ResolvePopoverRect(
             : PopoverPlacement::BottomStart;
     }
 
-    const float gap = keel::max(0.0f, opts.offset);
-    float x = anchor.x;
+    const keel::f32 gap = keel::max(0.0f, opts.offset);
+    keel::f32 x = anchor.x;
     if (resolvedPlacement == PopoverPlacement::BottomEnd || resolvedPlacement == PopoverPlacement::TopEnd) {
         x = anchor.Right() - w;
     }
 
-    const float belowY = anchor.Bottom() + gap;
-    const float aboveY = anchor.y - gap - h;
-    float y = belowY;
+    const keel::f32 belowY = anchor.Bottom() + gap;
+    const keel::f32 aboveY = anchor.y - gap - h;
+    keel::f32 y = belowY;
 
     if (resolvedPlacement == PopoverPlacement::TopStart || resolvedPlacement == PopoverPlacement::TopEnd) {
         y = aboveY;
@@ -237,8 +237,8 @@ Rect Popover::ResolvePopoverRect(
             if (aboveY >= vp.y + margin) {
                 y = aboveY;
             } else {
-                const float spaceBelow = vp.Bottom() - anchor.Bottom();
-                const float spaceAbove = anchor.y - vp.y;
+                const keel::f32 spaceBelow = vp.Bottom() - anchor.Bottom();
+                const keel::f32 spaceAbove = anchor.y - vp.y;
                 y = (spaceAbove > spaceBelow) ? aboveY : belowY;
             }
         }

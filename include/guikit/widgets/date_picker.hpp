@@ -62,10 +62,10 @@ struct DatePickerOptions {
     UiSize size{UiSize::Md};                                ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)
     AxisSize width{};                                       ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or explicit `dp`)
     AxisSize height{};                                      ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or explicit `dp`)
-    keel::Optional<float> minWidth{keel::kNullOpt};         ///< Optional minimum width in logical dp
-    keel::Optional<float> maxWidth{keel::kNullOpt};         ///< Optional maximum width in logical dp
-    keel::Optional<float> minHeight{keel::kNullOpt};        ///< Optional minimum height in logical dp
-    keel::Optional<float> maxHeight{keel::kNullOpt};        ///< Optional maximum height in logical dp
+    keel::Optional<keel::f32> minWidth{keel::kNullOpt};         ///< Optional minimum width in logical dp
+    keel::Optional<keel::f32> maxWidth{keel::kNullOpt};         ///< Optional maximum width in logical dp
+    keel::Optional<keel::f32> minHeight{keel::kNullOpt};        ///< Optional minimum height in logical dp
+    keel::Optional<keel::f32> maxHeight{keel::kNullOpt};        ///< Optional maximum height in logical dp
     StateColor color{};                                     ///< Per-state semantic accent color override
     StateColor background{};                                ///< Optional background fill override (`{}` = theme default, `StateColor::None()` = transparent)
     Border border{};                                        ///< Optional border width, color, and radius override

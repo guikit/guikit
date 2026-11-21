@@ -13,14 +13,14 @@ class Context;
 
 /// Options for configuring a visual Card surface container.
 struct CardOptions {
-    keel::Optional<float> minWidth{keel::kNullOpt}; ///< Minimum card width constraint (nullopt = auto content intrinsic)
-    keel::Optional<float> maxWidth{keel::kNullOpt};
+    keel::Optional<keel::f32> minWidth{keel::kNullOpt}; ///< Minimum card width constraint (nullopt = auto content intrinsic)
+    keel::Optional<keel::f32> maxWidth{keel::kNullOpt};
     AxisSize width{SizeMode::Stretch};
     AxisSize height{SizeMode::Fit};
-    keel::Optional<float> minHeight{keel::kNullOpt};
-    keel::Optional<float> maxHeight{keel::kNullOpt};
-    float flexGrow{1.0f};
-    keel::Optional<float> gap{keel::kNullOpt};        ///< Gap between child elements inside card (nullopt = from theme)
+    keel::Optional<keel::f32> minHeight{keel::kNullOpt};
+    keel::Optional<keel::f32> maxHeight{keel::kNullOpt};
+    keel::f32 flexGrow{1.0f};
+    keel::Optional<keel::f32> gap{keel::kNullOpt};        ///< Gap between child elements inside card (nullopt = from theme)
     keel::Optional<Padding> padding{keel::kNullOpt};   ///< Card padding (nullopt = auto from theme)
     StateColor background{};
     Border border{.width = 1.0f};

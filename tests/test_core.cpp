@@ -115,7 +115,7 @@ void TestBumpAllocator() {
 
     struct SampleData {
         keel::i32 a;
-        double b;
+        keel::f64 b;
         keel::StringRef tag;
     };
 
@@ -131,7 +131,7 @@ void TestBumpAllocator() {
 
     // Allocate enough objects to cross chunk boundary
     for (keel::i32 i = 0; i < 100; ++i) {
-        SampleData* obj = allocator.create<SampleData>(i, static_cast<double>(i), "loop");
+        SampleData* obj = allocator.create<SampleData>(i, keel::as<keel::f64>(i), "loop");
         CHECK(obj != nullptr);
         CHECK(obj->a == i);
     }
@@ -493,7 +493,7 @@ void TestTextWrapForceSplitLastWord() {
     {
         const keel::StringRef subtitle =
             "Each button automatically receives equal available width via widthMode = SizeMode::Stretch.";
-        for (float maxW = 4.0f; maxW <= 250.0f; maxW += 7.0f) {
+        for (keel::f32 maxW = 4.0f; maxW <= 250.0f; maxW += 7.0f) {
             const auto lines = TextUtil::WrapText(subtitle, maxW, 13.0f, nullptr);
             CHECK(!lines.empty());
         }
@@ -502,7 +502,7 @@ void TestTextWrapForceSplitLastWord() {
     // 3. UTF-8 multi-byte string force-split at the end of string
     {
         const keel::StringRef utf8Text = "Короткий текст СверхдлинноеСловоВКонцеСтроки";
-        for (float maxW = 5.0f; maxW <= 200.0f; maxW += 11.0f) {
+        for (keel::f32 maxW = 5.0f; maxW <= 200.0f; maxW += 11.0f) {
             const auto lines = TextUtil::WrapText(utf8Text, maxW, 14.0f, nullptr);
             CHECK(!lines.empty());
         }
@@ -514,10 +514,10 @@ void TestStandaloneCoreModuleZeroDependencies() {
 
     class NullCanvas final : public ICanvas {
     public:
-        void Begin(keel::u32, keel::u32, float scale = 1.0f) override { m_scale = scale; }
+        void Begin(keel::u32, keel::u32, keel::f32 scale = 1.0f) override { m_scale = scale; }
         void End() override {}
-        [[nodiscard]] float GetScale() const noexcept override { return m_scale; }
-        void SetScale(float scale) override { m_scale = scale; }
+        [[nodiscard]] keel::f32 GetScale() const noexcept override { return m_scale; }
+        void SetScale(keel::f32 scale) override { m_scale = scale; }
         void PushTransform(const Transform2D&) override {}
         void PopTransform() override {}
         [[nodiscard]] keel::StringRef GetBackendName() const noexcept override { return "NullCanvas (Zero-Dep)"; }
@@ -525,23 +525,23 @@ void TestStandaloneCoreModuleZeroDependencies() {
         void PushClip(Rect) override {}
         void PopClip() override {}
         void DrawRect(Rect, Color) override { ++drawCount; }
-        void DrawRoundRect(Rect, float, Color, Color = Color(0, 0, 0, 0), float = 0.0f) override { ++drawCount; }
-        Vec2 MeasureText(keel::StringRef text, float fontSize) override {
-            return {static_cast<float>(text.size()) * fontSize * 0.55f, fontSize * 1.2f};
+        void DrawRoundRect(Rect, keel::f32, Color, Color = Color(0, 0, 0, 0), keel::f32 = 0.0f) override { ++drawCount; }
+        Vec2 MeasureText(keel::StringRef text, keel::f32 fontSize) override {
+            return {keel::as<keel::f32>(text.size()) * fontSize * 0.55f, fontSize * 1.2f};
         }
-        [[nodiscard]] float GetLineHeight(float fontSize) override { return fontSize * 1.25f; }
-        void DrawText(keel::StringRef, Vec2, float, Color) override { ++drawCount; }
-        void DrawTextBox(keel::StringRef, Rect, float, Color, float = 0.0f, float = 0.5f) override { ++drawCount; }
-        void DrawLine(Vec2, Vec2, Color, float = 1.0f) override { ++drawCount; }
+        [[nodiscard]] keel::f32 GetLineHeight(keel::f32 fontSize) override { return fontSize * 1.25f; }
+        void DrawText(keel::StringRef, Vec2, keel::f32, Color) override { ++drawCount; }
+        void DrawTextBox(keel::StringRef, Rect, keel::f32, Color, keel::f32 = 0.0f, keel::f32 = 0.5f) override { ++drawCount; }
+        void DrawLine(Vec2, Vec2, Color, keel::f32 = 1.0f) override { ++drawCount; }
 
-        float m_scale{1.0f};
+        keel::f32 m_scale{1.0f};
         keel::usize drawCount{0};
     };
 
     Context ui;
     NullCanvas canvas;
 
-    float sliderVal = 0.5f;
+    keel::f32 sliderVal = 0.5f;
     bool switchVal = true;
     keel::i32 selectedRow = 0;
 
@@ -601,7 +601,7 @@ void TestEmbeddedAndRuntimeAssets() {
     // 2. Verify runtime asset registration & override cleanup
     keel::SmallArray<keel::u8, 8> customSvg;
     for (char ch : keel::StringRef("<svg/>")) {
-        customSvg.push_back(static_cast<keel::u8>(ch));
+        customSvg.push_back(keel::as<keel::u8>(ch));
     }
     Assets::RegisterOwned("assets/runtime/custom.svg", customSvg);
     CHECK(Assets::Exists("assets/runtime/custom.svg"));
@@ -769,13 +769,13 @@ void TestMainWindowHeadlessBackend() {
 
     class HeadlessCanvas final : public ICanvas {
     public:
-        void Begin(keel::u32, keel::u32, float scale = 1.0f) override {
+        void Begin(keel::u32, keel::u32, keel::f32 scale = 1.0f) override {
             m_scale = scale;
             m_passes.clear();
         }
         void End() override {}
-        [[nodiscard]] float GetScale() const noexcept override { return m_scale; }
-        void SetScale(float scale) override { m_scale = scale; }
+        [[nodiscard]] keel::f32 GetScale() const noexcept override { return m_scale; }
+        void SetScale(keel::f32 scale) override { m_scale = scale; }
         void PushTransform(const Transform2D&) override {}
         void PopTransform() override {}
         [[nodiscard]] keel::StringRef GetBackendName() const noexcept override { return "HeadlessCanvas"; }
@@ -783,14 +783,14 @@ void TestMainWindowHeadlessBackend() {
         void PushClip(Rect) override {}
         void PopClip() override {}
         void DrawRect(Rect, Color) override { ++drawCount; }
-        void DrawRoundRect(Rect, float, Color, Color = Color(0, 0, 0, 0), float = 0.0f) override { ++drawCount; }
-        Vec2 MeasureText(keel::StringRef text, float fontSize) override {
-            return {static_cast<float>(text.size()) * fontSize * 0.55f, fontSize * 1.2f};
+        void DrawRoundRect(Rect, keel::f32, Color, Color = Color(0, 0, 0, 0), keel::f32 = 0.0f) override { ++drawCount; }
+        Vec2 MeasureText(keel::StringRef text, keel::f32 fontSize) override {
+            return {keel::as<keel::f32>(text.size()) * fontSize * 0.55f, fontSize * 1.2f};
         }
-        [[nodiscard]] float GetLineHeight(float fontSize) override { return fontSize * 1.25f; }
-        void DrawText(keel::StringRef, Vec2, float, Color) override { ++drawCount; }
-        void DrawTextBox(keel::StringRef, Rect, float, Color, float = 0.0f, float = 0.5f) override { ++drawCount; }
-        void DrawLine(Vec2, Vec2, Color, float = 1.0f) override { ++drawCount; }
+        [[nodiscard]] keel::f32 GetLineHeight(keel::f32 fontSize) override { return fontSize * 1.25f; }
+        void DrawText(keel::StringRef, Vec2, keel::f32, Color) override { ++drawCount; }
+        void DrawTextBox(keel::StringRef, Rect, keel::f32, Color, keel::f32 = 0.0f, keel::f32 = 0.5f) override { ++drawCount; }
+        void DrawLine(Vec2, Vec2, Color, keel::f32 = 1.0f) override { ++drawCount; }
         bool DrawGpuShaderPass(const GpuShaderPassDesc& desc, bool = true) override {
             m_passes.push_back(desc);
             ++drawCount;
@@ -800,7 +800,7 @@ void TestMainWindowHeadlessBackend() {
             return m_passes;
         }
 
-        float m_scale{1.0f};
+        keel::f32 m_scale{1.0f};
         keel::usize drawCount{0};
         keel::Array<GpuShaderPassDesc> m_passes;
     };
@@ -828,8 +828,8 @@ void TestMainWindowHeadlessBackend() {
         }
         keel::i32 GetWidth() const noexcept override { return m_cfg.width; }
         keel::i32 GetHeight() const noexcept override { return m_cfg.height; }
-        float GetDpiScale() const noexcept override { return m_dpi; }
-        float GetDisplayPixelsPerMm() const noexcept override { return 4.0f; }
+        keel::f32 GetDpiScale() const noexcept override { return m_dpi; }
+        keel::f32 GetDisplayPixelsPerMm() const noexcept override { return 4.0f; }
         bool IsMinimized() const noexcept override { return false; }
         bool IsLiveResizeFrame() const noexcept override { return false; }
         bool IsVsyncEnabled() const noexcept override { return m_vsync; }
@@ -842,7 +842,7 @@ void TestMainWindowHeadlessBackend() {
 
         MainWindowConfig m_cfg{};
         HeadlessCanvas m_canvas{};
-        float m_dpi{1.0f};
+        keel::f32 m_dpi{1.0f};
         bool m_vsync{true};
         bool m_gpuShaders{true};
         CursorType lastCursor{CursorType::Default};
@@ -858,10 +858,10 @@ void TestMainWindowHeadlessBackend() {
         bool initCalled{false};
         bool shutdownCalled{false};
         keel::i32 guiCount{0};
-        float framePixelsPerDp{0.0f};
-        float frameDisplayScale{0.0f};
-        float frameRootZoom{0.0f};
-        float rootDensity{0.0f};
+        keel::f32 framePixelsPerDp{0.0f};
+        keel::f32 frameDisplayScale{0.0f};
+        keel::f32 frameRootZoom{0.0f};
+        keel::f32 rootDensity{0.0f};
         Vec2 logicalViewport{};
 
     protected:
@@ -1035,8 +1035,8 @@ void TestMainWindowHeadlessBackend() {
             void PresentFrame(const Context&, FrameMetrics&, bool) override {}
             keel::i32 GetWidth() const noexcept override { return m_cfg.width; }
             keel::i32 GetHeight() const noexcept override { return m_cfg.height; }
-            float GetDpiScale() const noexcept override { return 1.0f; }
-            float GetDisplayPixelsPerMm() const noexcept override { return 4.0f; }
+            keel::f32 GetDpiScale() const noexcept override { return 1.0f; }
+            keel::f32 GetDisplayPixelsPerMm() const noexcept override { return 4.0f; }
             bool IsMinimized() const noexcept override { return false; }
             bool IsLiveResizeFrame() const noexcept override { return false; }
             bool IsVsyncEnabled() const noexcept override { return vsync; }
@@ -1253,9 +1253,9 @@ void TestKeelIntegration() {
         CHECK(txtWithVars.variants.size() == 3);
         CHECK(txtWithVars.HasContentOrReserve());
 
-        const float wShort = TextUtil::MeasureWidth("Idle", 14.0f, nullptr);
-        const float wLongest = TextUtil::MeasureWidth("Acquiring Telemetry", 14.0f, nullptr);
-        const float wUiText = TextUtil::MeasureWidth(txtWithVars, 14.0f, nullptr);
+        const keel::f32 wShort = TextUtil::MeasureWidth("Idle", 14.0f, nullptr);
+        const keel::f32 wLongest = TextUtil::MeasureWidth("Acquiring Telemetry", 14.0f, nullptr);
+        const keel::f32 wUiText = TextUtil::MeasureWidth(txtWithVars, 14.0f, nullptr);
         CHECK(wUiText > wShort);
         CHECK(keel::abs(wUiText - wLongest) < 1e-4f);
 
@@ -1274,13 +1274,13 @@ void TestKeelIntegration() {
     {
         static_assert(keel::round_i32(2.5f) == 3);
         static_assert(keel::round_i32(-2.5f) == -3);
-        static_assert(keel::round_i32(keel::Limits<float>::quiet_nan()) == 0);
-        static_assert(keel::round_i32(keel::Limits<float>::infinity()) == keel::Limits<keel::i32>::kMax);
+        static_assert(keel::round_i32(keel::Limits<keel::f32>::quiet_nan()) == 0);
+        static_assert(keel::round_i32(keel::Limits<keel::f32>::infinity()) == keel::Limits<keel::i32>::kMax);
         static_assert(keel::floor_i32(-1.2f) == -2);
         static_assert(keel::ceil_i32(1.2f) == 2);
         static_assert(keel::approx_eq(keel::deg_to_rad(180.0f), keel::kPiF));
-        CHECK(keel::is_nan(keel::Limits<float>::quiet_nan()));
-        CHECK(keel::is_inf(keel::Limits<double>::infinity()));
+        CHECK(keel::is_nan(keel::Limits<keel::f32>::quiet_nan()));
+        CHECK(keel::is_inf(keel::Limits<keel::f64>::infinity()));
         CHECK(keel::round_u32(254.6f) == 255u);
     }
 }
@@ -1499,7 +1499,7 @@ void TestElementHeadingSpecAndSeparatorSpace() {
         .layout = HeadingLayout::Stacked,
         .separator = HeadingSeparator::None
     };
-    const float sepSpace = Heading::ComputeBottomSeparatorSpace(h2BottomOpts, theme);
+    const keel::f32 sepSpace = Heading::ComputeBottomSeparatorSpace(h2BottomOpts, theme);
     CHECK(sepSpace > 6.0f);
     CHECK(keel::abs(Heading::ComputeBottomSeparatorSpace(h2NoneOpts, theme)) < 0.001f);
 
@@ -1547,8 +1547,8 @@ void TestMdRefAndPixelRef() {
     keel::println("  -> TestMdRefAndPixelRef...");
 
     // 1. Valid 2D MutMdRef / MdRef indexing, row slicing, outer slice, and reshape
-    keel::StaticArray<float, 6> storage = {{1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}};
-    keel::MutMdRef<float, 2> mutMat(storage, 2, 3);
+    keel::StaticArray<keel::f32, 6> storage = {{1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}};
+    keel::MutMdRef<keel::f32, 2> mutMat(storage, 2, 3);
     CHECK(!mutMat.empty());
     CHECK(mutMat.rank() == 2);
     CHECK(mutMat.extent(0) == 2);
@@ -1559,27 +1559,27 @@ void TestMdRefAndPixelRef() {
     CHECK(mutMat(1, 2) == 6.0f);
     mutMat(1, 2) = 42.0f;
 
-    const keel::MdRef<float, 2> mat = mutMat;
+    const keel::MdRef<keel::f32, 2> mat = mutMat;
     CHECK(mat(1, 2) == 42.0f);
     CHECK(mat.row(0).size() == 3);
     CHECK(mat.row(1)[2] == 42.0f);
     CHECK(mat.subview(1)(2) == 42.0f);
 
-    const keel::MdRef<float, 2> tailRow = mat.slice(1, 1);
+    const keel::MdRef<keel::f32, 2> tailRow = mat.slice(1, 1);
     CHECK(tailRow.extent(0) == 1);
     CHECK(tailRow.extent(1) == 3);
     CHECK(tailRow(0, 2) == 42.0f);
 
-    const keel::MdRef<float, 3> vol = mat.reshape(1, 3, 2);
+    const keel::MdRef<keel::f32, 3> vol = mat.reshape(1, 3, 2);
     CHECK(!vol.empty());
     CHECK(vol(0, 2, 1) == 42.0f);
     CHECK(mat.reshape(2, 2).empty()); // Mismatched total element count rejected
 
     // 2. Undersized, zero-extent, negative-signed, and overflowed shapes normalize to empty()
-    CHECK((keel::MdRef<float, 2>(storage, 3, 3).empty()));
-    CHECK((keel::MdRef<float, 2>(storage, 0, 3).empty()));
-    CHECK((keel::MdRef<float, 2>(storage, -2, 3).empty()));
-    CHECK((keel::MdRef<float, 2>(storage, keel::kInvalidIndex / 2, 4).empty()));
+    CHECK((keel::MdRef<keel::f32, 2>(storage, 3, 3).empty()));
+    CHECK((keel::MdRef<keel::f32, 2>(storage, 0, 3).empty()));
+    CHECK((keel::MdRef<keel::f32, 2>(storage, -2, 3).empty()));
+    CHECK((keel::MdRef<keel::f32, 2>(storage, keel::kInvalidIndex / 2, 4).empty()));
 
     // 3. Graphics PixelRef & MutPixelRef preserve (width, height) contract over MdRef<u32, 2>
     keel::StaticArray<keel::u32, 6> pxBuf{};
@@ -1599,18 +1599,18 @@ void TestMdRefAndPixelRef() {
     // 4. StridedMdRef / MutStridedMdRef: column slicing, decimation, transpose, RGB channel extraction & PixelRef ROI
     {
         // 4a. Spectrogram-like 2D matrix (4 time frames x 3 freq bins): extract column (bin 1) & decimate frames
-        keel::StaticArray<float, 12> specBuf = {{
+        keel::StaticArray<keel::f32, 12> specBuf = {{
             1.0f,  2.0f,  3.0f,
             4.0f,  5.0f,  6.0f,
             7.0f,  8.0f,  9.0f,
             10.0f, 11.0f, 12.0f
         }};
-        keel::MutMdRef<float, 2> specMut(specBuf, 4, 3);
-        const keel::StridedMdRef<float, 2> spec = specMut.as_ref();
+        keel::MutMdRef<keel::f32, 2> specMut(specBuf, 4, 3);
+        const keel::StridedMdRef<keel::f32, 2> spec = specMut.as_ref();
         CHECK(spec.is_contiguous());
         CHECK(!spec.as_contiguous().empty());
 
-        const keel::StridedMdRef<float, 1> bin1 = spec.col(1);
+        const keel::StridedMdRef<keel::f32, 1> bin1 = spec.col(1);
         CHECK(bin1.extent(0) == 4);
         CHECK(bin1.stride(0) == 3);
         CHECK(!bin1.is_contiguous());
@@ -1618,13 +1618,13 @@ void TestMdRefAndPixelRef() {
         CHECK(bin1(0) == 2.0f);
         CHECK(bin1(3) == 11.0f);
 
-        const keel::StridedMdRef<float, 1> decimated = bin1.slice_axis(0, 1, keel::kInvalidIndex, 2);
+        const keel::StridedMdRef<keel::f32, 1> decimated = bin1.slice_axis(0, 1, keel::kInvalidIndex, 2);
         CHECK(decimated.extent(0) == 2);
         CHECK(decimated.stride(0) == 6);
         CHECK(decimated(0) == 5.0f);
         CHECK(decimated(1) == 11.0f);
 
-        const keel::StridedMdRef<float, 2> specT = spec.transpose();
+        const keel::StridedMdRef<keel::f32, 2> specT = spec.transpose();
         CHECK(specT.extent(0) == 3 && specT.extent(1) == 4);
         CHECK(specT(2, 3) == 12.0f);
 
@@ -1664,8 +1664,8 @@ void TestMdRefAndPixelRef() {
         CHECK(StridedPixelRef(px).AsContiguous().Width() == 3);
 
         // 4d. Out-of-bounds strided buffer & overflow rejection
-        CHECK((keel::StridedMdRef<float, 2>(specBuf, {4, 3}, {4, 1}).empty())); // (3*4 + 2*1 = 14) >= 12
-        CHECK((keel::StridedMdRef<float, 2>(specBuf, {2, 2}, {keel::kInvalidIndex, 1}).empty()));
+        CHECK((keel::StridedMdRef<keel::f32, 2>(specBuf, {4, 3}, {4, 1}).empty())); // (3*4 + 2*1 = 14) >= 12
+        CHECK((keel::StridedMdRef<keel::f32, 2>(specBuf, {2, 2}, {keel::kInvalidIndex, 1}).empty()));
         CHECK(spec.slice_axis(0, 4, 1).empty());
     }
 }

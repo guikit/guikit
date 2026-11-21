@@ -104,7 +104,7 @@ void ArrayEraseIf(keel::Array<T>& arr, Pred&& pred) noexcept {
     if (node == nullptr) {
         return Transform2D{};
     }
-    const float relScale = node->GetRelativeScale();
+    const keel::f32 relScale = node->GetRelativeScale();
     if (relScale == 1.0f || !(relScale > 0.0f)) {
         return Transform2D{};
     }
@@ -146,11 +146,11 @@ void Context::ClearOverlayHitBuilders() noexcept {
     m_overlayHitBuilders.clear();
 }
 
-void Context::BeginFrame(Vec2 viewportSize, float displayScale, float rootZoom) {
+void Context::BeginFrame(Vec2 viewportSize, keel::f32 displayScale, keel::f32 rootZoom) {
     ++m_frameIndex;
-    const float effDisplay = (displayScale > 0.0f) ? displayScale : 1.0f;
-    const float effZoom = (rootZoom > 0.0f) ? rootZoom : 1.0f;
-    const float effScale = effDisplay * effZoom;
+    const keel::f32 effDisplay = (displayScale > 0.0f) ? displayScale : 1.0f;
+    const keel::f32 effZoom = (rootZoom > 0.0f) ? rootZoom : 1.0f;
+    const keel::f32 effScale = effDisplay * effZoom;
     if (m_viewportSize != viewportSize || m_pixelsPerDp != effScale) {
         InvalidateAll();
     }
@@ -166,7 +166,7 @@ void Context::BeginFrame(Vec2 viewportSize, float displayScale, float rootZoom) 
     if (!m_manualTime) {
         const keel::u64 nowNs = keel::monotonic_ns();
         m_currentTimeSec = (nowNs >= m_startTimeNs)
-            ? static_cast<double>(nowNs - m_startTimeNs) * 1e-9
+            ? keel::as<keel::f64>(nowNs - m_startTimeNs) * 1e-9
             : 0.0;
     }
 
@@ -482,8 +482,8 @@ Rect Context::GetPrevUnclippedBounds(Id id) const {
 Rect Context::GetParentPrevFrameBounds() const {
     keel::i32 startIdx = -1;
     Rect r{};
-    for (keel::i32 i = static_cast<keel::i32>(m_containerStack.size()) - 1; i >= 0; --i) {
-        const Node* parent = m_containerStack[static_cast<keel::usize>(i)];
+    for (keel::i32 i = keel::as<keel::i32>(m_containerStack.size()) - 1; i >= 0; --i) {
+        const Node* parent = m_containerStack[keel::as<keel::usize>(i)];
         if (!parent || !parent->id.IsValid()) continue;
         const Rect* found = m_prevFrameBounds.get(parent->id);
         if (found != nullptr && found->w > 1.0f && found->h > 1.0f) {
@@ -496,16 +496,16 @@ Rect Context::GetParentPrevFrameBounds() const {
         return Rect{};
     }
 
-    const keel::i32 stackSize = static_cast<keel::i32>(m_containerStack.size());
+    const keel::i32 stackSize = keel::as<keel::i32>(m_containerStack.size());
     for (keel::i32 i = startIdx; i < stackSize; ++i) {
-        const Node* c = m_containerStack[static_cast<keel::usize>(i)];
+        const Node* c = m_containerStack[keel::as<keel::usize>(i)];
         if (!c) continue;
 
-        const float localToFrame = GetNodeSpace(c->id).scale;                        // c's own units
-        const float outerToFrame = localToFrame / c->GetRelativeScale();             // c's parent's units
+        const keel::f32 localToFrame = GetNodeSpace(c->id).scale;                        // c's own units
+        const keel::f32 outerToFrame = localToFrame / c->GetRelativeScale();             // c's parent's units
         if (i > startIdx) {
             if (c->heightMode == SizeMode::Fixed && c->fixedHeight > 0.0f) {
-                const float h = keel::min(r.h, c->fixedHeight * outerToFrame);
+                const keel::f32 h = keel::min(r.h, c->fixedHeight * outerToFrame);
                 if (c->type == NodeType::BottomPanel) {
                     r.y = r.Bottom() - h;
                 }
@@ -527,11 +527,11 @@ Rect Context::GetParentPrevFrameBounds() const {
         if (c->direction == FlexDirection::Column &&
             (i + 1 < stackSize || c->type == NodeType::BottomPanel || c->type == NodeType::Sidebar)) {
             const Node* stopChild = (i + 1 < stackSize)
-                ? m_containerStack[static_cast<keel::usize>(i + 1)]
+                ? m_containerStack[keel::as<keel::usize>(i + 1)]
                 : c->lastChild;
             for (const Node* ch = c->firstChild; ch != nullptr && ch != stopChild; ch = ch->nextSibling) {
                 if (ch->heightMode == SizeMode::Fixed && ch->fixedHeight > 0.0f && !ch->sidebarCollapsed) {
-                    const float consumeH = (ch->fixedHeight + c->gap) * localToFrame;
+                    const keel::f32 consumeH = (ch->fixedHeight + c->gap) * localToFrame;
                     r.y += consumeH;
                     r.h = keel::max(0.0f, r.h - consumeH);
                 }
@@ -555,7 +555,7 @@ Rect Context::PopupViewportInFrame() const noexcept {
             const Rect* found = m_prevFrameBounds.get(n->id);
             if (found != nullptr && found->w > 1.0f && found->h > 1.0f) {
                 Rect boxRect = *found;
-                const float border = n->borderWidth * GetNodeSpace(n->id).scale;
+                const keel::f32 border = n->borderWidth * GetNodeSpace(n->id).scale;
                 if (border > 0.0f && boxRect.w > border * 2.0f && boxRect.h > border * 2.0f) {
                     boxRect = boxRect.Inset(border);
                 }
@@ -598,15 +598,15 @@ GridScope Context::Grid(GridOptions opts, keel::SourceLocation loc) {
     return Open<guikit::Grid>(opts, loc);
 }
 
-void Context::Spacer(float flex, keel::SourceLocation loc) {
+void Context::Spacer(keel::f32 flex, keel::SourceLocation loc) {
     Run<guikit::Spacer>(flex, loc);
 }
 
-void Context::Gap(float sizeDp, keel::SourceLocation loc) {
+void Context::Gap(keel::f32 sizeDp, keel::SourceLocation loc) {
     guikit::Spacer::Gap(*this, sizeDp, loc);
 }
 
-void Context::Separator(float extentRatio, Color colorOverride, keel::SourceLocation loc) {
+void Context::Separator(keel::f32 extentRatio, Color colorOverride, keel::SourceLocation loc) {
     guikit::Separator::Run(*this, extentRatio, colorOverride, loc);
 }
 
@@ -614,7 +614,7 @@ void Context::Separator(Color colorOverride, keel::SourceLocation loc) {
     guikit::Separator::Run(*this, 0.0f, colorOverride, loc);
 }
 
-void Context::Separator(Orientation lineOrientation, float extentRatio, Color colorOverride, keel::SourceLocation loc) {
+void Context::Separator(Orientation lineOrientation, keel::f32 extentRatio, Color colorOverride, keel::SourceLocation loc) {
     guikit::Separator::Run(*this, extentRatio, colorOverride, loc, lineOrientation);
 }
 
@@ -968,7 +968,7 @@ void Context::ActiveEditState::Insert(keel::StringRef utf8Text) {
 
     keel::String sanitized = keel::String::with_capacity(utf8Text.size());
     for (char c : utf8Text) {
-        const keel::u8 u = static_cast<keel::u8>(c);
+        const keel::u8 u = keel::as<keel::u8>(c);
         if (c == '\r') {
             continue;
         }
@@ -1650,7 +1650,7 @@ keel::i32 Context::GetRecommendedSleepTimeoutMs() const noexcept {
 }
 
 void Context::OnMouseMove(Vec2 pos) {
-    const float scale = m_pixelsPerDp;
+    const keel::f32 scale = m_pixelsPerDp;
     const Vec2 newPos = pos / scale;
     m_mousePosPx = pos;
     if (keel::abs(newPos.x - m_mousePos.x) < 0.25f && keel::abs(newPos.y - m_mousePos.y) < 0.25f) {
@@ -1671,9 +1671,9 @@ void Context::OnMouseDown(keel::i32 button) {
     if (button == 1) { // Left mouse button
         m_mouseDown = true;
         m_mouseClicked = true;
-        const double now = m_currentTimeSec;
-        const float dx = m_mousePos.x - m_lastClickPos.x;
-        const float dy = m_mousePos.y - m_lastClickPos.y;
+        const keel::f64 now = m_currentTimeSec;
+        const keel::f32 dx = m_mousePos.x - m_lastClickPos.x;
+        const keel::f32 dy = m_mousePos.y - m_lastClickPos.y;
         if (m_lastClickTimeSec >= 0.0 && (now - m_lastClickTimeSec) <= 0.36 && (dx * dx + dy * dy) <= 64.0f) {
             m_mouseDoubleClicked = true;
             m_lastClickTimeSec = -1.0;
@@ -1710,7 +1710,7 @@ void Context::OnMouseUp(keel::i32 button) {
     }
 }
 
-void Context::OnMouseWheel(float x, float y) {
+void Context::OnMouseWheel(keel::f32 x, keel::f32 y) {
     m_mouseWheel = {x, y};
     RequestRepaint(3);
 }
@@ -1903,7 +1903,7 @@ static bool DoesOverlayRegionOcclude(
     if (ov.id == targetId || !ov.rect.Contains(framePos)) {
         return false;
     }
-    if (static_cast<keel::u8>(ov.layer) >= static_cast<keel::u8>(OverlayLayer::Popup)) {
+    if (keel::as<keel::u8>(ov.layer) >= keel::as<keel::u8>(OverlayLayer::Popup)) {
         return true;
     }
     if (ov.zLayer > targetZLayer) {
@@ -1919,10 +1919,10 @@ void Context::RegisterOverlayHitRegion(Id id, Rect rect, OverlayLayer layer) {
     if (id.IsValid() && rect.w > 0.0f && rect.h > 0.0f) {
         const keel::u8 scopeZ = m_runningOverlayHitBuilder ? m_overlayBuilderZLayer : CurrentScopeZLayer();
         const Id ownerPortal = m_runningOverlayHitBuilder ? m_overlayBuilderPortalId : CurrentPortalId();
-        const bool isGlobalTopOverlay = (static_cast<keel::u8>(layer) >= static_cast<keel::u8>(OverlayLayer::Popup));
+        const bool isGlobalTopOverlay = (keel::as<keel::u8>(layer) >= keel::as<keel::u8>(OverlayLayer::Popup));
         const keel::u8 effectiveZ = isGlobalTopOverlay
-            ? static_cast<keel::u8>(layer)
-            : keel::max<keel::u8>(static_cast<keel::u8>(layer), scopeZ);
+            ? keel::as<keel::u8>(layer)
+            : keel::max<keel::u8>(keel::as<keel::u8>(layer), scopeZ);
         m_currOverlayHitRegions.push_back(OverlayHitRegion{
             .id = id,
             .rect = CurrentSpace().Apply(rect),
@@ -2158,21 +2158,21 @@ bool Context::IsPopoverBlockingInFrame(Vec2 pos, Id ownerPortalOverride) const n
 }
 
 bool Context::IsOverlayOccludedInFrame(Id id, Vec2 pos, OverlayLayer layer) const noexcept {
-    const keel::u8 layerRank = static_cast<keel::u8>(layer);
+    const keel::u8 layerRank = keel::as<keel::u8>(layer);
 
     // 1. Layer 3+ (Popup / Notification): active dropdown/menu popup and higher global overlays
-    if (layerRank <= static_cast<keel::u8>(OverlayLayer::Popup) &&
+    if (layerRank <= keel::as<keel::u8>(OverlayLayer::Popup) &&
         m_openPopupId.IsValid() && m_openPopupId != id && IsPointInOpenPopup(pos)) {
         return true;
     }
     for (const auto& ov : m_prevOverlayHitRegions) {
-        if (static_cast<keel::u8>(ov.layer) > layerRank && ov.id != id && ov.rect.Contains(pos)) {
+        if (keel::as<keel::u8>(ov.layer) > layerRank && ov.id != id && ov.rect.Contains(pos)) {
             return true;
         }
     }
 
     // 2. Layer 2 (Portal): Modals & Popovers strictly above this overlay's scope/layer
-    if (layerRank < static_cast<keel::u8>(OverlayLayer::Popup)) {
+    if (layerRank < keel::as<keel::u8>(OverlayLayer::Popup)) {
         Id exemptModal = Id::Null();
         if (layer == OverlayLayer::Portal && id.IsValid()) {
             for (const auto& m : m_prevFrameModals) {
@@ -2634,7 +2634,7 @@ void Context::SetTextEditAutoClose(Id id, bool enabled) noexcept {
 
 void Context::SetTextEditIndentation(Id id, keel::u8 tabSize, bool insertSpaces) noexcept {
     if (m_editState.id == id && id.IsValid()) {
-        m_editState.tabSize = static_cast<keel::u8>(keel::clamp<keel::i32>(tabSize, 1, 16));
+        m_editState.tabSize = keel::as<keel::u8>(keel::clamp<keel::i32>(tabSize, 1, 16));
         m_editState.insertSpaces = insertSpaces;
     }
 }
@@ -2685,12 +2685,12 @@ void Context::ResetCursorBlink() noexcept {
     m_lastInputTimeSec = m_currentTimeSec;
 }
 
-void Context::SetCurrentTime(double timeSeconds) noexcept {
+void Context::SetCurrentTime(keel::f64 timeSeconds) noexcept {
     m_manualTime = true;
     m_currentTimeSec = timeSeconds;
 }
 
-void Context::AdvanceTime(double deltaSeconds) noexcept {
+void Context::AdvanceTime(keel::f64 deltaSeconds) noexcept {
     m_manualTime = true;
     m_currentTimeSec += deltaSeconds;
 }
@@ -2703,7 +2703,7 @@ bool Context::IsCursorVisible(keel::Optional<CursorBlinkMode> modeOverride) cons
         case CursorBlinkMode::Solid:
             return true;
         case CursorBlinkMode::Blinking: {
-            const double elapsedSinceInput = m_currentTimeSec - m_lastInputTimeSec;
+            const keel::f64 elapsedSinceInput = m_currentTimeSec - m_lastInputTimeSec;
             // Typing reset phase: cursor remains solid/visible for 0.5s after user interaction
             if (elapsedSinceInput >= 0.0 && elapsedSinceInput < 0.5) {
                 return true;
@@ -2711,9 +2711,9 @@ bool Context::IsCursorVisible(keel::Optional<CursorBlinkMode> modeOverride) cons
             if (m_cursorConfig.blinkPeriod <= 0.0f) {
                 return true;
             }
-            const double cycleTime = elapsedSinceInput - 0.5;
-            const double phase = keel::fmod(cycleTime, static_cast<double>(m_cursorConfig.blinkPeriod));
-            return phase < (static_cast<double>(m_cursorConfig.blinkPeriod) * 0.5);
+            const keel::f64 cycleTime = elapsedSinceInput - 0.5;
+            const keel::f64 phase = keel::fmod(cycleTime, keel::as<keel::f64>(m_cursorConfig.blinkPeriod));
+            return phase < (keel::as<keel::f64>(m_cursorConfig.blinkPeriod) * 0.5);
         }
     }
     return true;
@@ -3281,7 +3281,7 @@ void Context::EndFrame(ICanvas& canvas) {
 
     // Determine whether full repaint or partial dirty rect is required
     m_dirtyRects.clear();
-    const float totalViewportArea = logicalSize.x * logicalSize.y;
+    const keel::f32 totalViewportArea = logicalSize.x * logicalSize.y;
     if (!m_dirtyRectEnabled || m_forceFullRepaint || m_prevSnapshots.empty() ||
         anyOverlayStateChanged || activeOverlayRequiresFullOnDamage) {
         m_isFullRepaint = true;
@@ -3295,10 +3295,10 @@ void Context::EndFrame(ICanvas& canvas) {
     } else {
         // Snap each damage rect to integer logical pixel bounds and coalesce overlapping regions
         for (const Rect& raw : damageRects) {
-            const float x1 = keel::max(0.0f, keel::floor(raw.x));
-            const float y1 = keel::max(0.0f, keel::floor(raw.y));
-            const float x2 = keel::min(logicalSize.x, keel::ceil(raw.Right()));
-            const float y2 = keel::min(logicalSize.y, keel::ceil(raw.Bottom()));
+            const keel::f32 x1 = keel::max(0.0f, keel::floor(raw.x));
+            const keel::f32 y1 = keel::max(0.0f, keel::floor(raw.y));
+            const keel::f32 x2 = keel::min(logicalSize.x, keel::ceil(raw.Right()));
+            const keel::f32 y2 = keel::min(logicalSize.y, keel::ceil(raw.Bottom()));
             if (x2 > x1 && y2 > y1) {
                 m_dirtyRects.emplace_back(x1, y1, x2 - x1, y2 - y1);
             }
@@ -3325,7 +3325,7 @@ void Context::EndFrame(ICanvas& canvas) {
             m_dirtyRect = Rect{0.0f, 0.0f, 0.0f, 0.0f};
         } else {
             Rect unionRect = m_dirtyRects[0];
-            float totalDamageArea = m_dirtyRects[0].Area();
+            keel::f32 totalDamageArea = m_dirtyRects[0].Area();
             for (keel::usize i = 1; i < m_dirtyRects.size(); ++i) {
                 unionRect = unionRect.Union(m_dirtyRects[i]);
                 totalDamageArea += m_dirtyRects[i].Area();
@@ -3393,7 +3393,7 @@ void Context::EndFrame(ICanvas& canvas) {
 
     // If damage exists, clear target buffer and rasterize scene graph
     if (m_hasDirtyDamage) {
-        canvas.Begin(static_cast<keel::u32>(m_viewportSize.x), static_cast<keel::u32>(m_viewportSize.y), m_pixelsPerDp);
+        canvas.Begin(keel::as<keel::u32>(m_viewportSize.x), keel::as<keel::u32>(m_viewportSize.y), m_pixelsPerDp);
 
         if (m_isFullRepaint) {
             canvas.PushClip(m_dirtyRect);
@@ -3465,7 +3465,7 @@ void Context::EndFrame(ICanvas& canvas) {
             if (idleFrames == 0 || key.id == m_focusedId || key.id == m_activeId) {
                 continue;
             }
-            const double idleSec = m_currentTimeSec - state.lastTimeActiveSec;
+            const keel::f64 idleSec = m_currentTimeSec - state.lastTimeActiveSec;
             if (idleFrames > 120 || (idleFrames > 3 && idleSec >= 1.5)) {
                 state.trim(state.ptr);
                 state.cachesTrimmed = true;
@@ -3497,7 +3497,7 @@ void Context::EndFrame(ICanvas& canvas) {
             const keel::u64 idleFrames = (m_frameIndex > state.lastFrameActive)
                 ? (m_frameIndex - state.lastFrameActive)
                 : 0;
-            const double idleSec = (m_currentTimeSec > state.lastTimeActiveSec)
+            const keel::f64 idleSec = (m_currentTimeSec > state.lastTimeActiveSec)
                 ? (m_currentTimeSec - state.lastTimeActiveSec)
                 : 0.0;
             if (idleFrames > 600 || (idleFrames > 5 && idleSec >= 10.0)) {
@@ -3579,7 +3579,7 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
     // (e.g. full-bleed toolbars, titlebars, or sidebars) never bleed outside the parent's rounded corners.
     if (isContainerSurface && node->clipChildren && node->cornerRadius > 1.5f && node->firstChild != nullptr) {
         const Rect& r = node->computedRect;
-        const float rad = keel::clamp(node->cornerRadius, 0.0f, keel::min(r.w, r.h) * 0.5f);
+        const keel::f32 rad = keel::clamp(node->cornerRadius, 0.0f, keel::min(r.w, r.h) * 0.5f);
         if (rad > 1.5f) {
             Color outerBg = m_clearColor;
             for (const Node* anc = node->parent; anc != nullptr; anc = anc->parent) {
@@ -3591,9 +3591,9 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
             if (outerBg.a > 0) {
                 const keel::i32 steps = keel::ceil_i32(rad);
                 for (keel::i32 i = 0; i < steps; ++i) {
-                    const float dy = static_cast<float>(i);
-                    const float rem = keel::max(0.0f, rad - dy - 0.35f);
-                    const float dx = keel::max(0.0f, rad - keel::sqrt(keel::max(0.0f, rad * rad - rem * rem)));
+                    const keel::f32 dy = keel::as<keel::f32>(i);
+                    const keel::f32 rem = keel::max(0.0f, rad - dy - 0.35f);
+                    const keel::f32 dx = keel::max(0.0f, rad - keel::sqrt(keel::max(0.0f, rad * rad - rem * rem)));
                     if (dx > 0.25f) {
                         canvas.DrawRect(Rect(r.x - 0.5f, r.y + dy, dx + 1.0f, 1.25f), outerBg);
                         canvas.DrawRect(Rect(r.Right() - dx - 0.5f, r.y + dy, dx + 1.0f, 1.25f), outerBg);
@@ -3609,17 +3609,17 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
     if (hasContainerBorder) {
         const Rect& r = node->computedRect;
         if (node->cornerRadius <= 0.0f && node->type == NodeType::Sidebar) {
-            const float x = node->sidebarRight ? r.x : keel::max(r.x, r.Right() - node->borderWidth);
+            const keel::f32 x = node->sidebarRight ? r.x : keel::max(r.x, r.Right() - node->borderWidth);
             canvas.DrawRect(Rect(x, r.y, node->borderWidth, r.h), node->borderColor);
         } else if (node->cornerRadius <= 0.0f &&
                    (node->type == NodeType::BottomPanel || node->type == NodeType::StatusBar)) {
             canvas.DrawRect(Rect(r.x, r.y, r.w, node->borderWidth), node->borderColor);
         } else if (node->cornerRadius <= 0.0f && node->type == NodeType::Toolbar) {
             if (node->direction == FlexDirection::Column) {
-                const float x = keel::max(r.x, r.Right() - node->borderWidth);
+                const keel::f32 x = keel::max(r.x, r.Right() - node->borderWidth);
                 canvas.DrawRect(Rect(x, r.y, node->borderWidth, r.h), node->borderColor);
             } else {
-                const float y = keel::max(r.y, r.Bottom() - node->borderWidth);
+                const keel::f32 y = keel::max(r.y, r.Bottom() - node->borderWidth);
                 canvas.DrawRect(Rect(r.x, y, r.w, node->borderWidth), node->borderColor);
             }
         } else {
@@ -3746,10 +3746,10 @@ void Context::RenderDebugBoundsRecursive(Node* node, ICanvas& canvas, bool inher
         // Draw padding strips if node defines internal padding
         const auto& p = node->padding;
         if (p.top > 0.0f || p.bottom > 0.0f || p.left > 0.0f || p.right > 0.0f) {
-            const float x = node->computedRect.x;
-            const float y = node->computedRect.y;
-            const float w = node->computedRect.w;
-            const float h = node->computedRect.h;
+            const keel::f32 x = node->computedRect.x;
+            const keel::f32 y = node->computedRect.y;
+            const keel::f32 w = node->computedRect.w;
+            const keel::f32 h = node->computedRect.h;
 
             if (p.top > 0.0f) {
                 canvas.DrawRect(Rect(x, y, w, p.top), padColor);
@@ -3757,7 +3757,7 @@ void Context::RenderDebugBoundsRecursive(Node* node, ICanvas& canvas, bool inher
             if (p.bottom > 0.0f) {
                 canvas.DrawRect(Rect(x, y + h - p.bottom, w, p.bottom), padColor);
             }
-            const float midH = keel::max(0.0f, h - p.top - p.bottom);
+            const keel::f32 midH = keel::max(0.0f, h - p.top - p.bottom);
             if (midH > 0.0f) {
                 if (p.left > 0.0f) {
                     canvas.DrawRect(Rect(x, y + p.top, p.left, midH), padColor);
@@ -3853,10 +3853,10 @@ void Context::RenderInspectOverlay(Node* root, ICanvas& canvas, Vec2 logicalSize
     const auto& p = target->padding;
     if (p.top > 0.0f || p.bottom > 0.0f || p.left > 0.0f || p.right > 0.0f) {
         const Color devToolsPadColor(147, 196, 125, 140);
-        const float x = target->computedRect.x;
-        const float y = target->computedRect.y;
-        const float w = target->computedRect.w;
-        const float h = target->computedRect.h;
+        const keel::f32 x = target->computedRect.x;
+        const keel::f32 y = target->computedRect.y;
+        const keel::f32 w = target->computedRect.w;
+        const keel::f32 h = target->computedRect.h;
 
         if (p.top > 0.0f) {
             canvas.DrawRect(Rect(x, y, w, p.top), devToolsPadColor);
@@ -3864,7 +3864,7 @@ void Context::RenderInspectOverlay(Node* root, ICanvas& canvas, Vec2 logicalSize
         if (p.bottom > 0.0f) {
             canvas.DrawRect(Rect(x, y + h - p.bottom, w, p.bottom), devToolsPadColor);
         }
-        const float midH = keel::max(0.0f, h - p.top - p.bottom);
+        const keel::f32 midH = keel::max(0.0f, h - p.top - p.bottom);
         if (midH > 0.0f) {
             if (p.left > 0.0f) {
                 canvas.DrawRect(Rect(x, y + p.top, p.left, midH), devToolsPadColor);
@@ -3922,18 +3922,18 @@ void Context::RenderInspectOverlay(Node* root, ICanvas& canvas, Vec2 logicalSize
         line3 = keel::format_buf(line3Buf, "align: %s", alignStr);
     }
 
-    const float fontSize = 11.0f;
-    const float w1 = canvas.MeasureText(line1, fontSize).x;
-    const float w2 = canvas.MeasureText(line2, fontSize).x;
-    const float w3 = canvas.MeasureText(line3, fontSize).x;
-    const float maxTextW = keel::max(w1, keel::max(w2, w3));
+    const keel::f32 fontSize = 11.0f;
+    const keel::f32 w1 = canvas.MeasureText(line1, fontSize).x;
+    const keel::f32 w2 = canvas.MeasureText(line2, fontSize).x;
+    const keel::f32 w3 = canvas.MeasureText(line3, fontSize).x;
+    const keel::f32 maxTextW = keel::max(w1, keel::max(w2, w3));
 
-    const float badgeW = keel::max(140.0f, maxTextW + 24.0f);
-    const float badgeH = 58.0f;
+    const keel::f32 badgeW = keel::max(140.0f, maxTextW + 24.0f);
+    const keel::f32 badgeH = 58.0f;
 
     // Positioning with smart flip if close to viewport boundaries
-    float bx = m_mousePos.x + 16.0f;
-    float by = m_mousePos.y + 16.0f;
+    keel::f32 bx = m_mousePos.x + 16.0f;
+    keel::f32 by = m_mousePos.y + 16.0f;
     if (bx + badgeW > logicalSize.x - 8.0f) {
         bx = m_mousePos.x - badgeW - 12.0f;
     }
@@ -3957,26 +3957,26 @@ void Context::RenderInspectOverlay(Node* root, ICanvas& canvas, Vec2 logicalSize
 void Context::RenderTooltipOverlay(ICanvas& canvas, Vec2 logicalSize) {
     if (m_activeTooltip.empty()) return;
 
-    const float fontSize = m_theme.ResolveFontSize(m_activeTooltip, TextRole::LabelSmall, UiSize::Sm);
-    const float lineH = canvas.GetLineHeight(fontSize);
+    const keel::f32 fontSize = m_theme.ResolveFontSize(m_activeTooltip, TextRole::LabelSmall, UiSize::Sm);
+    const keel::f32 lineH = canvas.GetLineHeight(fontSize);
 
-    const float maxTextW = 280.0f;
-    const float natW = TextUtil::MeasureUiTextWidth(m_activeTooltip, fontSize, &canvas);
-    const float contentW = keel::min(natW, maxTextW);
-    const float contentH = TextUtil::MeasureUiTextHeight(
+    const keel::f32 maxTextW = 280.0f;
+    const keel::f32 natW = TextUtil::MeasureUiTextWidth(m_activeTooltip, fontSize, &canvas);
+    const keel::f32 contentW = keel::min(natW, maxTextW);
+    const keel::f32 contentH = TextUtil::MeasureUiTextHeight(
         m_activeTooltip, keel::max(1.0f, contentW), fontSize, lineH, &canvas);
 
-    const float padX = 10.0f;
-    const float padY = 6.0f;
-    const float boxW = keel::max(28.0f, contentW + padX * 2.0f);
-    const float boxH = keel::max(24.0f, contentH + padY * 2.0f);
+    const keel::f32 padX = 10.0f;
+    const keel::f32 padY = 6.0f;
+    const keel::f32 boxW = keel::max(28.0f, contentW + padX * 2.0f);
+    const keel::f32 boxH = keel::max(24.0f, contentH + padY * 2.0f);
 
     const Rect vp = (m_activeTooltipViewport.w > 1.0f && m_activeTooltipViewport.h > 1.0f)
         ? m_activeTooltipViewport
         : Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y);
 
-    float bx = m_mousePos.x + 12.0f;
-    float by = m_mousePos.y + 18.0f;
+    keel::f32 bx = m_mousePos.x + 12.0f;
+    keel::f32 by = m_mousePos.y + 18.0f;
     if (m_activeTooltipAnchor.w > 0.0f && m_activeTooltipAnchor.h > 0.0f) {
         bx = m_activeTooltipAnchor.x + (m_activeTooltipAnchor.w - boxW) * 0.5f;
         by = m_activeTooltipAnchor.y - boxH - 6.0f;

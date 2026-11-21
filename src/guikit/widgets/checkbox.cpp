@@ -79,7 +79,7 @@ Response Checkbox::Run(
         optsCopy.indeterminate,
         currentChecked
     );
-    node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* opts = n->As<CheckboxOptions>();
         return Checkbox::Measure(opts ? *opts : CheckboxOptions{}, n->uiSize, canvas, theme, availableWidth);
     };
@@ -115,7 +115,7 @@ Vec2 Checkbox::Measure(
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme,
-    float /*availableWidth*/
+    keel::f32 /*availableWidth*/
 ) {
     (void)opts;
     (void)canvas;
@@ -128,7 +128,7 @@ Vec2 Checkbox::Measure(
     const CheckboxOptions& opts,
     UiSize size,
     ICanvas* canvas,
-    float availableWidth
+    keel::f32 availableWidth
 ) {
     static const UiTheme defaultTheme = UiTheme::Dark();
     return Measure(opts, size, canvas, defaultTheme, availableWidth);
@@ -163,7 +163,7 @@ void Checkbox::Render(
     const auto& pal = theme.palette;
     Color boxFill;
     Color boxStroke;
-    float strokeWidth = 1.5f;
+    keel::f32 strokeWidth = 1.5f;
     Color markColor = pal.controlKnobActive;
 
     const bool isActive = checked || opts.indeterminate;

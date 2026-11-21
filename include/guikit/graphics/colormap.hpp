@@ -30,27 +30,27 @@ enum class Colormap : keel::u8 {
 
 /// Packs an RGBA `Color` into a 32-bit `ABGR8888` pixel (`(a << 24) | (b << 16) | (g << 8) | r`).
 [[nodiscard]] constexpr keel::u32 PackAbgr(Color c) noexcept {
-    return (static_cast<keel::u32>(c.a) << 24u) |
-           (static_cast<keel::u32>(c.b) << 16u) |
-           (static_cast<keel::u32>(c.g) << 8u)  |
-           static_cast<keel::u32>(c.r);
+    return (keel::as<keel::u32>(c.a) << 24u) |
+           (keel::as<keel::u32>(c.b) << 16u) |
+           (keel::as<keel::u32>(c.g) << 8u)  |
+           keel::as<keel::u32>(c.r);
 }
 
 /// Unpacks a 32-bit `ABGR8888` pixel into a `Color`.
 [[nodiscard]] constexpr Color UnpackAbgr(keel::u32 abgr) noexcept {
     return Color(
-        static_cast<keel::u8>(abgr & 0xFFu),
-        static_cast<keel::u8>((abgr >> 8u) & 0xFFu),
-        static_cast<keel::u8>((abgr >> 16u) & 0xFFu),
-        static_cast<keel::u8>((abgr >> 24u) & 0xFFu)
+        keel::as<keel::u8>(abgr & 0xFFu),
+        keel::as<keel::u8>((abgr >> 8u) & 0xFFu),
+        keel::as<keel::u8>((abgr >> 16u) & 0xFFu),
+        keel::as<keel::u8>((abgr >> 24u) & 0xFFu)
     );
 }
 
 /// Evaluates the specified `Colormap` at normalized position `t` in `[0.0, 1.0]`.
-[[nodiscard]] Color SampleColormap(Colormap map, float t, bool invert = false) noexcept;
+[[nodiscard]] Color SampleColormap(Colormap map, keel::f32 t, bool invert = false) noexcept;
 
 /// Evaluates the specified `Colormap` at normalized position `t` in `[0.0, 1.0]` as packed `ABGR8888`.
-[[nodiscard]] keel::u32 SampleColormapAbgr(Colormap map, float t, bool invert = false) noexcept;
+[[nodiscard]] keel::u32 SampleColormapAbgr(Colormap map, keel::f32 t, bool invert = false) noexcept;
 
 /// Returns a precomputed 256-entry `Color` lookup table for the specified `Colormap` (zero frame allocation).
 [[nodiscard]] const keel::StaticArray<Color, 256>& GetColormapLut(Colormap map, bool invert = false) noexcept;
@@ -74,7 +74,7 @@ void DrawColormapBar(
     Colormap map,
     bool vertical = false,
     bool invert = false,
-    float cornerRadius = 0.0f,
+    keel::f32 cornerRadius = 0.0f,
     Color borderColor = Color::Transparent()
 );
 

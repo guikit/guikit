@@ -40,8 +40,8 @@ struct InlineSpan {
 };
 
 struct FloatPair {
-    float first{0.0f};
-    float second{0.0f};
+    keel::f32 first{0.0f};
+    keel::f32 second{0.0f};
 };
 
 [[nodiscard]] constexpr FontStyle CombineFontStyles(FontStyle a, FontStyle b) noexcept {
@@ -58,10 +58,10 @@ struct FloatPair {
     return FontStyle::Regular;
 }
 
-[[nodiscard]] float MeasureStyledSlice(
+[[nodiscard]] keel::f32 MeasureStyledSlice(
     ICanvas* canvas,
     keel::StringRef text,
-    float fontSize,
+    keel::f32 fontSize,
     FontStyle style
 ) noexcept;
 
@@ -77,10 +77,10 @@ struct FloatPair {
 [[nodiscard]] FloatPair MeasureInlineSpansIntrinsicWidths(
     ICanvas* canvas,
     keel::ArrayRef<InlineSpan> spans,
-    float bodyFs,
-    float inlineCodeFs,
+    keel::f32 bodyFs,
+    keel::f32 inlineCodeFs,
     FontStyle rowBaseStyle,
-    float scale
+    keel::f32 scale
 ) noexcept;
 
 /// Cached O(1) intrinsic width measurement for a rich-text markup string: returns {minTokenWidth, unwrappedWidth}.
@@ -88,10 +88,10 @@ struct FloatPair {
 [[nodiscard]] FloatPair GetOrMeasureRichTextIntrinsicWidths(
     ICanvas* canvas,
     keel::StringRef richMarkup,
-    float bodyFs,
-    float inlineCodeFs,
+    keel::f32 bodyFs,
+    keel::f32 inlineCodeFs,
     FontStyle baseStyle = FontStyle::Regular,
-    float scale = 1.0f
+    keel::f32 scale = 1.0f
 ) noexcept;
 
 // ============================================================================
@@ -103,14 +103,14 @@ struct PositionedToken {
     keel::usize charStart{0};
     keel::usize charEnd{0};
     keel::usize lineIndex{0};
-    float fontSize{13.0f};
+    keel::f32 fontSize{13.0f};
     FontStyle fontStyle{FontStyle::Regular};
-    float textPadX{0.0f};
+    keel::f32 textPadX{0.0f};
 };
 
 struct PositionedLine {
-    float top{0.0f};
-    float bottom{0.0f};
+    keel::f32 top{0.0f};
+    keel::f32 bottom{0.0f};
     keel::usize firstToken{0};
     keel::usize tokenCount{0};
     keel::usize charStart{0};
@@ -143,7 +143,7 @@ struct DocumentTextMap {
     keel::Array<PositionedToken> tokens{};
     keel::Array<PositionedLine> lines{};
 
-    void AddToken(Rect r, keel::StringRef str, float fontSize, FontStyle style, float textPadX = 0.0f);
+    void AddToken(Rect r, keel::StringRef str, keel::f32 fontSize, FontStyle style, keel::f32 textPadX = 0.0f);
     void AppendNewline();
 };
 
@@ -166,7 +166,7 @@ struct DocumentTextMap {
     keel::usize offset
 ) noexcept;
 
-[[nodiscard]] float GetCursorXForOffset(
+[[nodiscard]] keel::f32 GetCursorXForOffset(
     const DocumentTextMap& map,
     ICanvas* canvas,
     keel::usize offset
@@ -206,15 +206,15 @@ struct InlineAtom {
     bool isWhitespace{false};
     keel::StringRef text{};
     keel::StringRef url{};
-    float width{0.0f};
-    float fontSize{13.0f};
-    float padX{0.0f};
+    keel::f32 width{0.0f};
+    keel::f32 fontSize{13.0f};
+    keel::f32 padX{0.0f};
 };
 
 struct PositionedAtom {
     InlineAtom atom{};
     Rect localRect{};            ///< Relative to the InlineFlowLayout's origin (0, 0)
-    float textLocalY{0.0f};      ///< Relative to the InlineFlowLayout's origin (0, 0)
+    keel::f32 textLocalY{0.0f};      ///< Relative to the InlineFlowLayout's origin (0, 0)
     keel::usize lineIdx{0};
     keel::usize tokenIndex{keel::kInvalidIndex}; ///< Index into DocumentTextMap::tokens
 };
@@ -224,10 +224,10 @@ struct PositionedAtom {
 /// and `InlineAtom::url` views remain valid across moves, clones, and cache retention.
 struct InlineFlowLayout {
     keel::Array<char> textPool{};
-    float width{0.0f};
-    float height{0.0f};
-    float lineH{0.0f};
-    float scale{1.0f};
+    keel::f32 width{0.0f};
+    keel::f32 height{0.0f};
+    keel::f32 lineH{0.0f};
+    keel::f32 scale{1.0f};
     keel::usize lineCount{0};
     keel::Array<PositionedAtom> items{};
 
@@ -269,13 +269,13 @@ private:
 [[nodiscard]] InlineFlowLayout BuildInlineFlowLayout(
     ICanvas* canvas,
     keel::ArrayRef<InlineSpan> spans,
-    float maxWidth,
-    float baseFontSize,
-    float codeBaseFontSize,
-    float lineHeightScale,
-    float firstLineIndent,
+    keel::f32 maxWidth,
+    keel::f32 baseFontSize,
+    keel::f32 codeBaseFontSize,
+    keel::f32 lineHeightScale,
+    keel::f32 firstLineIndent,
     const UiTheme& theme,
-    float zoom = 1.0f,
+    keel::f32 zoom = 1.0f,
     FontStyle overrideStyle = FontStyle::Regular,
     Align horizontalAlign = Align::Start
 );
@@ -284,12 +284,12 @@ private:
 [[nodiscard]] keel::Arc<const InlineFlowLayout> GetOrBuildRichTextFlow(
     ICanvas* canvas,
     keel::StringRef richMarkup,
-    float maxWidth,
-    float baseFontSize,
-    float codeBaseFontSize,
-    float lineHeightScale,
+    keel::f32 maxWidth,
+    keel::f32 baseFontSize,
+    keel::f32 codeBaseFontSize,
+    keel::f32 lineHeightScale,
     const UiTheme& theme,
-    float zoom = 1.0f,
+    keel::f32 zoom = 1.0f,
     FontStyle overrideStyle = FontStyle::Regular,
     Align horizontalAlign = Align::Start
 );

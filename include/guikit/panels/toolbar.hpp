@@ -41,7 +41,7 @@ struct ToolButtonOptions {
     Placement iconPlacement{Placement::Leading};
     Align align{Align::Center};                 ///< Content horizontal alignment (Start = left, Center, End = right)
     AxisSize width{SizeMode::Fit};              ///< Horizontal sizing policy (`Fit`, `Stretch`, or explicit `dp`)
-    keel::Optional<float> minWidth{keel::kNullOpt};///< Minimum capsule width in logical dp
+    keel::Optional<keel::f32> minWidth{keel::kNullOpt};///< Minimum capsule width in logical dp
     bool disabled{false};
     bool active{false};                         ///< Toggle active/selected highlight state
     bool square{false};                         ///< Force square (defaultHeight x defaultHeight) button geometry
@@ -63,7 +63,7 @@ struct ToolbarOptions {
     ToolbarStyle style{ToolbarStyle::Surface};              ///< Surface (default), Header (flush), or Floating (compact island)
     Orientation orientation{Orientation::Horizontal};       ///< Horizontal bar or Vertical tool palette
     ToolbarOverflow overflow{ToolbarOverflow::AutoCompact}; ///< Overflow behavior when tools exceed horizontal space
-    keel::Optional<float> gap{keel::kNullOpt};                 ///< Gap between toolbar items (nullopt = inherit size)
+    keel::Optional<keel::f32> gap{keel::kNullOpt};                 ///< Gap between toolbar items (nullopt = inherit size)
     keel::Optional<Padding> padding{keel::kNullOpt};       ///< Internal toolbar padding token or explicit insets
     StateColor background{};
     Border border{};
@@ -81,13 +81,13 @@ public:
         : ContainerScope(ctx, node), response(res), m_opts(opts) {}
 
     /// Adds a separator line between tool groups (vertical in Horizontal toolbars, horizontal in Vertical toolbars).
-    void Separator(float heightRatio = 0.55f, keel::SourceLocation loc = keel::SourceLocation::current());
+    void Separator(keel::f32 heightRatio = 0.55f, keel::SourceLocation loc = keel::SourceLocation::current());
 
     /// Adds an elastic spacer pushing subsequent tools to the far end of the toolbar.
     void Spacer(keel::SourceLocation loc = keel::SourceLocation::current());
 
     /// Adds a fixed non-stretching gap in logical dp along the toolbar's main axis.
-    void Gap(float sizeDp = 8.0f, keel::SourceLocation loc = keel::SourceLocation::current());
+    void Gap(keel::f32 sizeDp = 8.0f, keel::SourceLocation loc = keel::SourceLocation::current());
 
     /// Adds a compact tool button with icon and optional label.
     Response ToolButton(
@@ -170,7 +170,7 @@ public:
         ContextMenuOptions menuOpts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        keel::i32 raw = static_cast<keel::i32>(selectedIndex);
+        keel::i32 raw = keel::as<keel::i32>(selectedIndex);
         const SplitButtonResponse r = SplitToggle(active, raw, items, keel::move(opts), keel::move(menuOpts), loc);
         if (r.selectionChanged && raw >= 0) {
             selectedIndex = static_cast<IndexT>(raw);
@@ -198,7 +198,7 @@ public:
         ContextMenuOptions menuOpts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        keel::i32 raw = static_cast<keel::i32>(selectedIndex);
+        keel::i32 raw = keel::as<keel::i32>(selectedIndex);
         const SplitButtonResponse r = SplitToggle(active, raw, items, keel::move(opts), keel::move(menuOpts), loc);
         if (r.selectionChanged && raw >= 0) {
             selectedIndex = static_cast<IndexT>(raw);

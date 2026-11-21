@@ -74,8 +74,8 @@ struct TreeViewOptions {
     TreeGuides guides{TreeGuides::Connected};                       ///< Hierarchy guide line style
     TreeSelectionStyle selectionStyle{TreeSelectionStyle::Indicator}; ///< Selection highlight style
     StateColor color{};                                             ///< Accent color override for selection, guides, and checkboxes (Default = theme accent)
-    keel::Optional<float> indent{keel::kNullOpt};                   ///< Per-level indentation in points (nullopt = derived from UiSize)
-    keel::Optional<float> rowGap{2.0f};                             ///< Vertical gap between consecutive tree rows
+    keel::Optional<keel::f32> indent{keel::kNullOpt};                   ///< Per-level indentation in points (nullopt = derived from UiSize)
+    keel::Optional<keel::f32> rowGap{2.0f};                             ///< Vertical gap between consecutive tree rows
     keel::Optional<Padding> padding{keel::kNullOpt};                ///< Internal viewport padding around tree items
     bool striped{false};                                            ///< Alternating subtle row background shading
     bool expandOnSelect{false};                                     ///< Clicking anywhere on a branch row also toggles open/collapsed state
@@ -109,7 +109,7 @@ struct TreeItemOptions {
     bool* checked{nullptr};                         ///< Optional bound boolean checkbox state (renders interactive checkbox when non-null)
     bool indeterminate{false};                      ///< Renders checkbox in indeterminate [-] tri-state
     bool forceBranch{false};                        ///< Forces rendering the expand/collapse chevron even if no child TreeItems are emitted
-    keel::Optional<float> controlWidth{keel::kNullOpt}; ///< Optional explicit width in points for embedded trailing control slot
+    keel::Optional<keel::f32> controlWidth{keel::kNullOpt}; ///< Optional explicit width in points for embedded trailing control slot
     StateColor background{};                        ///< Optional custom row background override
     Border border{};                                ///< Optional custom row border override
     UiSize size{UiSize::Md};                        ///< Item row size
@@ -152,16 +152,16 @@ struct TreeViewState {
     keel::Array<VisibleTreeItemEntry> prevVisibleItems{};
 
     keel::u16 userColCount{0};
-    keel::StaticArray<float, kMaxColumns> userColWidths{};
+    keel::StaticArray<keel::f32, kMaxColumns> userColWidths{};
     keel::StaticArray<bool, kMaxColumns> hasUserColWidth{};
     keel::i32 resizingCol{-1};
-    float resizeStartX{0.0f};
-    float resizeStartWidth{0.0f};
-    double lastDividerClickTime{-10.0};
+    keel::f32 resizeStartX{0.0f};
+    keel::f32 resizeStartWidth{0.0f};
+    keel::f64 lastDividerClickTime{-10.0};
     keel::i32 lastDividerCol{-1};
     Rect lastHeaderRect{};
-    float lastColOriginX{0.0f};
-    float lastColTotalW{0.0f};
+    keel::f32 lastColOriginX{0.0f};
+    keel::f32 lastColTotalW{0.0f};
 };
 
 /// RAII scope returned by `ui.TreeView(...)`.
@@ -320,7 +320,7 @@ public:
 
     [[nodiscard]] static Vec2 MeasureRow(
         const Node* rowNode,
-        float availableWidth,
+        keel::f32 availableWidth,
         ICanvas* canvas,
         const UiTheme& theme
     ) noexcept;

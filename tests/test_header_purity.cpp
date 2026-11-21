@@ -121,6 +121,6 @@ int main() {
     static_assert(sizeof(keel::i32) == 4 && sizeof(keel::u32) == 4);
     static_assert(sizeof(keel::i64) == 8 && sizeof(keel::u64) == 8);
     static_assert(sizeof(keel::isize) == sizeof(void*) && sizeof(keel::usize) == sizeof(void*));
-    static_assert(sizeof(float) == 4 && sizeof(double) == 8);
+    static_assert(sizeof(keel::f32) == 4 && sizeof(keel::f64) == 8);
     return (VerifyNamespaceHygiene() == 3) ? 0 : 1;
 }

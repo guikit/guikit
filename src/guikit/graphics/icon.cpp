@@ -10,15 +10,15 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
     }
 
     if (m_type == SourceType::Builtin) {
-        const float s = keel::min(bounds.w, bounds.h);
-        const float cx = bounds.x + bounds.w * 0.5f;
-        const float cy = bounds.y + bounds.h * 0.5f;
-        const float stroke = keel::max(1.5f, s * 0.12f);
-        const float hw = s * 0.5f;
+        const keel::f32 s = keel::min(bounds.w, bounds.h);
+        const keel::f32 cx = bounds.x + bounds.w * 0.5f;
+        const keel::f32 cy = bounds.y + bounds.h * 0.5f;
+        const keel::f32 stroke = keel::max(1.5f, s * 0.12f);
+        const keel::f32 hw = s * 0.5f;
 
         switch (m_id) {
             case IconId::Close: {
-                const float pad = s * 0.24f;
+                const keel::f32 pad = s * 0.24f;
                 canvas.DrawLine(Vec2(cx - hw + pad, cy - hw + pad), Vec2(cx + hw - pad, cy + hw - pad), tint, stroke);
                 canvas.DrawLine(Vec2(cx + hw - pad, cy - hw + pad), Vec2(cx - hw + pad, cy + hw - pad), tint, stroke);
                 break;
@@ -31,14 +31,14 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
             }
 
             case IconId::Plus: {
-                const float t = (s >= 11.0f) ? keel::max(2.0f, keel::round(s * 0.14f)) : 1.5f;
-                const float armLen = keel::max(2.0f, keel::round(s * 0.25f));
-                const float span = t + armLen * 2.0f;
-                const float vx = keel::round(cx - t * 0.5f);
-                const float hy = keel::round(cy - t * 0.5f);
-                const float hx0 = vx - armLen;
-                const float vy0 = hy - armLen;
-                const float r = t * 0.5f;
+                const keel::f32 t = (s >= 11.0f) ? keel::max(2.0f, keel::round(s * 0.14f)) : 1.5f;
+                const keel::f32 armLen = keel::max(2.0f, keel::round(s * 0.25f));
+                const keel::f32 span = t + armLen * 2.0f;
+                const keel::f32 vx = keel::round(cx - t * 0.5f);
+                const keel::f32 hy = keel::round(cy - t * 0.5f);
+                const keel::f32 hx0 = vx - armLen;
+                const keel::f32 vy0 = hy - armLen;
+                const keel::f32 r = t * 0.5f;
                 canvas.DrawRoundRect(Rect(hx0, hy, span, t), r, tint);
                 if (tint.a == 255) {
                     canvas.DrawRoundRect(Rect(vx, vy0, t, span), r, tint);
@@ -50,12 +50,12 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
             }
 
             case IconId::Minus: {
-                const float t = (s >= 11.0f) ? keel::max(2.0f, keel::round(s * 0.14f)) : 1.5f;
-                const float armLen = keel::max(2.0f, keel::round(s * 0.25f));
-                const float span = t + armLen * 2.0f;
-                const float vx = keel::round(cx - t * 0.5f);
-                const float hy = keel::round(cy - t * 0.5f);
-                const float hx0 = vx - armLen;
+                const keel::f32 t = (s >= 11.0f) ? keel::max(2.0f, keel::round(s * 0.14f)) : 1.5f;
+                const keel::f32 armLen = keel::max(2.0f, keel::round(s * 0.25f));
+                const keel::f32 span = t + armLen * 2.0f;
+                const keel::f32 vx = keel::round(cx - t * 0.5f);
+                const keel::f32 hy = keel::round(cy - t * 0.5f);
+                const keel::f32 hx0 = vx - armLen;
                 canvas.DrawRoundRect(Rect(hx0, hy, span, t), t * 0.5f, tint);
                 break;
             }
@@ -69,36 +69,36 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
             }
 
             case IconId::Pause: {
-                const float barW = keel::max(2.0f, s * 0.16f);
-                const float barH = s * 0.60f;
-                const float gap = s * 0.12f;
+                const keel::f32 barW = keel::max(2.0f, s * 0.16f);
+                const keel::f32 barH = s * 0.60f;
+                const keel::f32 gap = s * 0.12f;
                 canvas.DrawRect(Rect(cx - gap - barW, cy - barH * 0.5f, barW, barH), tint);
                 canvas.DrawRect(Rect(cx + gap, cy - barH * 0.5f, barW, barH), tint);
                 break;
             }
 
             case IconId::Stop: {
-                const float sz = s * 0.56f;
+                const keel::f32 sz = s * 0.56f;
                 canvas.DrawRoundRect(Rect(cx - sz * 0.5f, cy - sz * 0.5f, sz, sz), keel::max(1.5f, s * 0.10f), tint);
                 break;
             }
 
             case IconId::Refresh: {
-                const float r = s * 0.31f;
+                const keel::f32 r = s * 0.31f;
                 // Draw a 280-degree open circular arc (from +35 deg to +315 deg)
                 constexpr keel::i32 kSegs = 12;
-                const float startAng = 0.610865f;  // 35 deg
-                const float endAng   = 5.497787f;  // 315 deg (-45 deg, top-right)
+                const keel::f32 startAng = 0.610865f;  // 35 deg
+                const keel::f32 endAng   = 5.497787f;  // 315 deg (-45 deg, top-right)
                 Vec2 prevPt(cx + r * keel::cos(startAng), cy + r * keel::sin(startAng));
                 for (keel::i32 i = 1; i <= kSegs; ++i) {
-                    const float t = static_cast<float>(i) / static_cast<float>(kSegs);
-                    const float ang = startAng + t * (endAng - startAng);
+                    const keel::f32 t = keel::as<keel::f32>(i) / keel::as<keel::f32>(kSegs);
+                    const keel::f32 ang = startAng + t * (endAng - startAng);
                     const Vec2 curPt(cx + r * keel::cos(ang), cy + r * keel::sin(ang));
                     canvas.DrawLine(prevPt, curPt, tint, stroke);
                     prevPt = curPt;
                 }
                 // Crisp arrowhead at endAng (top-right, pointing clockwise / down-right)
-                const float wing = s * 0.19f;
+                const keel::f32 wing = s * 0.19f;
                 canvas.DrawLine(prevPt, Vec2(prevPt.x - wing, prevPt.y - wing * 0.15f), tint, stroke);
                 canvas.DrawLine(prevPt, Vec2(prevPt.x + wing * 0.12f, prevPt.y - wing), tint, stroke);
                 break;
@@ -157,15 +157,15 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
             }
 
             case IconId::Settings: {
-                const float rHub = s * 0.22f;
-                const float rTeeth = s * 0.38f;
-                const float toothStroke = keel::max(2.0f, stroke * 1.3f);
+                const keel::f32 rHub = s * 0.22f;
+                const keel::f32 rTeeth = s * 0.38f;
+                const keel::f32 toothStroke = keel::max(2.0f, stroke * 1.3f);
 
                 // 6 radial gear teeth spaced at 60 degree intervals
                 for (keel::i32 i = 0; i < 6; ++i) {
-                    const float angle = static_cast<float>(i) * 1.04719755f; // pi / 3
-                    const float ca = keel::cos(angle);
-                    const float sa = keel::sin(angle);
+                    const keel::f32 angle = keel::as<keel::f32>(i) * 1.04719755f; // pi / 3
+                    const keel::f32 ca = keel::cos(angle);
+                    const keel::f32 sa = keel::sin(angle);
                     canvas.DrawLine(
                         Vec2(cx + rHub * 0.8f * ca, cy + rHub * 0.8f * sa),
                         Vec2(cx + rTeeth * ca, cy + rTeeth * sa),
@@ -178,20 +178,20 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
                 canvas.DrawRoundRect(Rect(cx - rHub, cy - rHub, rHub * 2.0f, rHub * 2.0f), rHub, Color(0, 0, 0, 0), tint, stroke);
 
                 // Central axle hole
-                const float rHole = s * 0.10f;
+                const keel::f32 rHole = s * 0.10f;
                 canvas.DrawRoundRect(Rect(cx - rHole, cy - rHole, rHole * 2.0f, rHole * 2.0f), rHole, tint);
                 break;
             }
 
             case IconId::Save: {
-                const float sz = s * 0.60f;
+                const keel::f32 sz = s * 0.60f;
                 canvas.DrawRoundRect(Rect(cx - sz * 0.5f, cy - sz * 0.5f, sz, sz), 2.0f, Color(0, 0, 0, 0), tint, stroke);
                 canvas.DrawRect(Rect(cx - sz * 0.30f, cy - sz * 0.5f + stroke, sz * 0.60f, sz * 0.32f), tint);
                 break;
             }
 
             case IconId::Search: {
-                const float r = s * 0.22f;
+                const keel::f32 r = s * 0.22f;
                 const Vec2 lCenter(cx - s * 0.08f, cy - s * 0.08f);
                 canvas.DrawRoundRect(Rect(lCenter.x - r, lCenter.y - r, r * 2.0f, r * 2.0f), r, Color(0, 0, 0, 0), tint, stroke);
                 canvas.DrawLine(Vec2(lCenter.x + r * 0.70f, lCenter.y + r * 0.70f), Vec2(cx + s * 0.32f, cy + s * 0.32f), tint, stroke);
@@ -215,7 +215,7 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
             }
 
             case IconId::Eye: {
-                const float r = s * 0.16f;
+                const keel::f32 r = s * 0.16f;
                 canvas.DrawRoundRect(Rect(cx - r, cy - r, r * 2.0f, r * 2.0f), r, tint);
                 canvas.DrawLine(Vec2(cx - s * 0.35f, cy), Vec2(cx, cy - s * 0.22f), tint, stroke);
                 canvas.DrawLine(Vec2(cx, cy - s * 0.22f), Vec2(cx + s * 0.35f, cy), tint, stroke);
@@ -225,7 +225,7 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
             }
 
             case IconId::EyeOff: {
-                const float r = s * 0.16f;
+                const keel::f32 r = s * 0.16f;
                 canvas.DrawRoundRect(Rect(cx - r, cy - r, r * 2.0f, r * 2.0f), r, tint);
                 canvas.DrawLine(Vec2(cx - s * 0.35f, cy), Vec2(cx, cy - s * 0.22f), tint, stroke);
                 canvas.DrawLine(Vec2(cx, cy - s * 0.22f), Vec2(cx + s * 0.35f, cy), tint, stroke);
@@ -251,7 +251,7 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
             }
 
             case IconId::Info: {
-                const float r = s * 0.40f;
+                const keel::f32 r = s * 0.40f;
                 canvas.DrawRoundRect(Rect(cx - r, cy - r, r * 2.0f, r * 2.0f), r, Color(0, 0, 0, 0), tint, stroke);
                 canvas.DrawLine(Vec2(cx, cy - s * 0.04f), Vec2(cx, cy + s * 0.24f), tint, stroke * 1.2f);
                 canvas.DrawRoundRect(Rect(cx - stroke * 0.6f, cy - s * 0.24f, stroke * 1.2f, stroke * 1.2f), stroke * 0.6f, tint);
@@ -275,7 +275,7 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
             }
 
             case IconId::Error: {
-                const float r = s * 0.40f;
+                const keel::f32 r = s * 0.40f;
                 canvas.DrawRoundRect(Rect(cx - r, cy - r, r * 2.0f, r * 2.0f), r, Color(0, 0, 0, 0), tint, stroke);
                 canvas.DrawLine(Vec2(cx, cy - s * 0.22f), Vec2(cx, cy + s * 0.06f), tint, stroke * 1.2f);
                 canvas.DrawRoundRect(Rect(cx - stroke * 0.6f, cy + s * 0.16f, stroke * 1.2f, stroke * 1.2f), stroke * 0.6f, tint);
@@ -284,8 +284,8 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
 
             case IconId::DebugContinue: {
                 // VS Code Continue: Left vertical bar + Right filled play triangle
-                const float barW = keel::max(1.8f, stroke * 1.15f);
-                const float barH = s * 0.60f;
+                const keel::f32 barW = keel::max(1.8f, stroke * 1.15f);
+                const keel::f32 barH = s * 0.60f;
                 canvas.DrawRoundRect(Rect(cx - s * 0.36f, cy - barH * 0.5f, barW, barH), barW * 0.5f, tint);
                 const Vec2 pTop(cx - s * 0.12f, cy - s * 0.30f);
                 const Vec2 pBot(cx - s * 0.12f, cy + s * 0.30f);
@@ -296,23 +296,23 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
 
             case IconId::StepOver: {
                 // VS Code Step Over: Bottom dot + curved arc jumping over the dot with arrowhead on the right
-                const float dotR = keel::max(1.6f, s * 0.11f);
+                const keel::f32 dotR = keel::max(1.6f, s * 0.11f);
                 canvas.DrawRoundRect(Rect(cx - dotR, cy + s * 0.24f - dotR, dotR * 2.0f, dotR * 2.0f), dotR, tint);
 
-                const float arcCy = cy + s * 0.08f;
-                const float arcR = s * 0.33f;
+                const keel::f32 arcCy = cy + s * 0.08f;
+                const keel::f32 arcR = s * 0.33f;
                 constexpr keel::i32 kSegs = 8;
-                const float startAng = -2.65f; // ~ -152 deg (left-bottom)
-                const float endAng   = -0.49f; // ~ -28 deg (right-bottom)
+                const keel::f32 startAng = -2.65f; // ~ -152 deg (left-bottom)
+                const keel::f32 endAng   = -0.49f; // ~ -28 deg (right-bottom)
                 Vec2 prevPt(cx + arcR * keel::cos(startAng), arcCy + arcR * keel::sin(startAng));
                 for (keel::i32 i = 1; i <= kSegs; ++i) {
-                    const float t = static_cast<float>(i) / static_cast<float>(kSegs);
-                    const float ang = startAng + t * (endAng - startAng);
+                    const keel::f32 t = keel::as<keel::f32>(i) / keel::as<keel::f32>(kSegs);
+                    const keel::f32 ang = startAng + t * (endAng - startAng);
                     const Vec2 curPt(cx + arcR * keel::cos(ang), arcCy + arcR * keel::sin(ang));
                     canvas.DrawLine(prevPt, curPt, tint, stroke);
                     prevPt = curPt;
                 }
-                const float wing = s * 0.19f;
+                const keel::f32 wing = s * 0.19f;
                 canvas.DrawLine(prevPt, Vec2(prevPt.x - wing, prevPt.y - wing * 0.10f), tint, stroke);
                 canvas.DrawLine(prevPt, Vec2(prevPt.x + wing * 0.08f, prevPt.y - wing), tint, stroke);
                 break;
@@ -320,7 +320,7 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
 
             case IconId::StepInto: {
                 // VS Code Step Into: Vertical arrow pointing down toward a bottom dot
-                const float dotR = keel::max(1.6f, s * 0.11f);
+                const keel::f32 dotR = keel::max(1.6f, s * 0.11f);
                 canvas.DrawRoundRect(Rect(cx - dotR, cy + s * 0.27f - dotR, dotR * 2.0f, dotR * 2.0f), dotR, tint);
 
                 const Vec2 tip(cx, cy + s * 0.07f);
@@ -332,7 +332,7 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
 
             case IconId::StepOut: {
                 // VS Code Step Out: Vertical arrow pointing up away from a bottom dot
-                const float dotR = keel::max(1.6f, s * 0.11f);
+                const keel::f32 dotR = keel::max(1.6f, s * 0.11f);
                 canvas.DrawRoundRect(Rect(cx - dotR, cy + s * 0.27f - dotR, dotR * 2.0f, dotR * 2.0f), dotR, tint);
 
                 const Vec2 tip(cx, cy - s * 0.35f);
@@ -365,8 +365,8 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
 
             case IconId::Target: {
                 // Concentric ring + center dot (◎ — zero / tare / bullseye)
-                const float rOuter = s * 0.36f;
-                const float rDot = keel::max(1.6f, s * 0.11f);
+                const keel::f32 rOuter = s * 0.36f;
+                const keel::f32 rDot = keel::max(1.6f, s * 0.11f);
                 canvas.DrawRoundRect(
                     Rect(cx - rOuter, cy - rOuter, rOuter * 2.0f, rOuter * 2.0f),
                     rOuter,

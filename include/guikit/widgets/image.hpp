@@ -28,10 +28,10 @@ struct ImageOptions {
     UiSize size{UiSize::Md};                         ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)
     AxisSize width{};                                ///< Horizontal sizing policy (`Auto` -> `Fit`, `Stretch`, or explicit `dp`)
     AxisSize height{};                               ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or explicit `dp`)
-    keel::Optional<float> minWidth{keel::kNullOpt};  ///< Optional minimum width in logical dp
-    keel::Optional<float> maxWidth{keel::kNullOpt};  ///< Optional maximum width in logical dp
-    keel::Optional<float> minHeight{keel::kNullOpt}; ///< Optional minimum height in logical dp
-    keel::Optional<float> maxHeight{keel::kNullOpt}; ///< Optional maximum height in logical dp
+    keel::Optional<keel::f32> minWidth{keel::kNullOpt};  ///< Optional minimum width in logical dp
+    keel::Optional<keel::f32> maxWidth{keel::kNullOpt};  ///< Optional maximum width in logical dp
+    keel::Optional<keel::f32> minHeight{keel::kNullOpt}; ///< Optional minimum height in logical dp
+    keel::Optional<keel::f32> maxHeight{keel::kNullOpt}; ///< Optional maximum height in logical dp
     StateColor color{};                              ///< Optional semantic tint color override
     StateColor background{};                         ///< Optional backdrop background fill (transparent by default)
     Border border{};                                 ///< Optional border width, color, and radius override
@@ -62,14 +62,14 @@ public:
         UiSize size,
         ICanvas* canvas,
         const UiTheme& theme,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     );
     static Vec2 Measure(
         keel::StringRef source,
         const ImageOptions& opts,
         UiSize size,
         ICanvas* canvas = nullptr,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     );
 
     /// Renders the Image widget, optional checkerboard/frame, and external label/description.
@@ -88,9 +88,9 @@ public:
     static void DrawCheckerboard(
         ICanvas& canvas,
         Rect rect,
-        float radius,
+        keel::f32 radius,
         const UiTheme& theme,
-        float cellSize = 10.0f
+        keel::f32 cellSize = 10.0f
     );
 };
 

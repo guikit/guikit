@@ -18,7 +18,7 @@ public:
     /// `Orientation::Vertical` = vertical rule) when explicitly specified.
     static void Run(
         Context& ctx,
-        float extentRatio = 0.0f,
+        keel::f32 extentRatio = 0.0f,
         Color colorOverride = Color::Transparent(),
         keel::SourceLocation loc = keel::SourceLocation::current(),
         keel::Optional<Orientation> lineOrientationOverride = keel::kNullOpt
@@ -30,7 +30,7 @@ public:
         Vec2 p0,
         Vec2 p1,
         Color color,
-        float thickness = 1.0f
+        keel::f32 thickness = 1.0f
     ) noexcept;
 
     /// Renders a centered separator line inside `bounds` for the given `orientation`.
@@ -40,7 +40,7 @@ public:
         Color color,
         const UiTheme& theme,
         Orientation orientation = Orientation::Horizontal,
-        float insetRatio = 0.20f
+        keel::f32 insetRatio = 0.20f
     ) noexcept;
 };
 

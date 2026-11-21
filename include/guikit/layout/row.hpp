@@ -12,17 +12,17 @@ class Context;
 
 /// Options for configuring a horizontal Row layout.
 struct RowOptions {
-    keel::Optional<float> gap{keel::kNullOpt};
+    keel::Optional<keel::f32> gap{keel::kNullOpt};
     keel::Optional<Padding> padding{keel::kNullOpt};
     Alignment align{Alignment::Stretch};
     Justify justify{Justify::Start};
     AxisSize width{};
     AxisSize height{SizeMode::Fit};
-    keel::Optional<float> minWidth{keel::kNullOpt};
-    keel::Optional<float> maxWidth{keel::kNullOpt};
-    keel::Optional<float> minHeight{keel::kNullOpt};
-    keel::Optional<float> maxHeight{keel::kNullOpt};
-    float flexGrow{1.0f};
+    keel::Optional<keel::f32> minWidth{keel::kNullOpt};
+    keel::Optional<keel::f32> maxWidth{keel::kNullOpt};
+    keel::Optional<keel::f32> minHeight{keel::kNullOpt};
+    keel::Optional<keel::f32> maxHeight{keel::kNullOpt};
+    keel::f32 flexGrow{1.0f};
     bool equalWidths{false};
     bool disabled{false};
 };

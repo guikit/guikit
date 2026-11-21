@@ -15,17 +15,17 @@ Rect ComputeToggleRect(
     SidebarSide side,
     SidebarMode /*mode*/,
     keel::u32 sameSideIndex,
-    float scale
+    keel::f32 scale
 ) noexcept {
-    const float edgeX = (side == SidebarSide::Left) ? bounds.Right() : bounds.x;
-    const float toggleW = 13.0f * scale;
-    const float toggleH = 28.0f * scale;
-    const float baseCenterY = bounds.Center().y + static_cast<float>(sameSideIndex) * (toggleH + 6.0f * scale);
-    const float minY = bounds.y + 4.0f * scale;
-    const float maxY = keel::max(minY, bounds.Bottom() - toggleH - 4.0f * scale);
-    const float toggleY = keel::clamp(baseCenterY - toggleH * 0.5f, minY, maxY);
+    const keel::f32 edgeX = (side == SidebarSide::Left) ? bounds.Right() : bounds.x;
+    const keel::f32 toggleW = 13.0f * scale;
+    const keel::f32 toggleH = 28.0f * scale;
+    const keel::f32 baseCenterY = bounds.Center().y + keel::as<keel::f32>(sameSideIndex) * (toggleH + 6.0f * scale);
+    const keel::f32 minY = bounds.y + 4.0f * scale;
+    const keel::f32 maxY = keel::max(minY, bounds.Bottom() - toggleH - 4.0f * scale);
+    const keel::f32 toggleY = keel::clamp(baseCenterY - toggleH * 0.5f, minY, maxY);
 
-    const float toggleX = (side == SidebarSide::Left)
+    const keel::f32 toggleX = (side == SidebarSide::Left)
         ? (edgeX - 1.0f * scale)
         : (edgeX - toggleW + 1.0f * scale);
     return Rect(toggleX, toggleY, toggleW, toggleH);
@@ -35,11 +35,11 @@ Rect ComputeSashHitRect(
     const Rect& bounds,
     SidebarSide side,
     SidebarMode mode,
-    float scale
+    keel::f32 scale
 ) noexcept {
-    const float edgeX = (side == SidebarSide::Left) ? bounds.Right() : bounds.x;
+    const keel::f32 edgeX = (side == SidebarSide::Left) ? bounds.Right() : bounds.x;
     if (mode == SidebarMode::Collapsed) {
-        const float x = (side == SidebarSide::Left)
+        const keel::f32 x = (side == SidebarSide::Left)
             ? (edgeX - 2.0f * scale)
             : (edgeX - 8.0f * scale);
         return Rect(x, bounds.y, 10.0f * scale, bounds.h);
@@ -113,14 +113,14 @@ SidebarScope Sidebar::Open(
 
     const UiSize activeSize = opts.size;
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    const float activeScale = 1.0f;
+    const keel::f32 activeScale = 1.0f;
 
     const UiTheme& theme = ctx.GetTheme();
-    const float safeScale = 1.0f;
+    const keel::f32 safeScale = 1.0f;
     const ComponentMetrics& m = theme.GetMetrics(activeSize);
-    const float metricMinW = m.defaultHeight * 3.8f;
+    const keel::f32 metricMinW = m.defaultHeight * 3.8f;
     const Rect parentBounds = ctx.GetParentPrevFrameBounds();
-    const float clampedRatio = keel::clamp(opts.maxRatio, 0.15f, 0.90f);
+    const keel::f32 clampedRatio = keel::clamp(opts.maxRatio, 0.15f, 0.90f);
 
     auto& state = ctx.GetOrCreatePersistentState<SidebarPersistState>(id);
     if (!state.initialized) {
@@ -135,14 +135,14 @@ SidebarScope Sidebar::Open(
         }
     }
 
-    const float baseW = opts.width.value_or(state.lastExpandedWidth > 0.0f ? state.lastExpandedWidth : 180.0f);
-    const float effMinW = (opts.minWidth.has_value() && *opts.minWidth > 0.0f)
+    const keel::f32 baseW = opts.width.value_or(state.lastExpandedWidth > 0.0f ? state.lastExpandedWidth : 180.0f);
+    const keel::f32 effMinW = (opts.minWidth.has_value() && *opts.minWidth > 0.0f)
         ? *opts.minWidth
         : (opts.resizable ? keel::min(baseW, metricMinW) : 0.0f);
-    const float parentMaxW = (parentBounds.w > 1.0f)
+    const keel::f32 parentMaxW = (parentBounds.w > 1.0f)
         ? keel::max(effMinW, (parentBounds.w / safeScale) * clampedRatio)
         : keel::max(effMinW, 560.0f);
-    const float effMaxW = (opts.maxWidth.has_value() && *opts.maxWidth > 0.0f)
+    const keel::f32 effMaxW = (opts.maxWidth.has_value() && *opts.maxWidth > 0.0f)
         ? keel::max(effMinW, (parentBounds.w > 1.0f) ? keel::min(*opts.maxWidth, parentMaxW) : *opts.maxWidth)
         : parentMaxW;
 
@@ -261,13 +261,13 @@ SidebarScope Sidebar::Open(
         if (state.togglePressed) {
             if (ctx.IsMouseDown()) {
                 res.pressed = true;
-                const float openDeltaX = (opts.side == SidebarSide::Left)
+                const keel::f32 openDeltaX = (opts.side == SidebarSide::Left)
                     ? (mouse.x - state.dragStartMouseX)
                     : (state.dragStartMouseX - mouse.x);
-                const float dragDeltaX = (state.dragStartMode == SidebarMode::Collapsed)
+                const keel::f32 dragDeltaX = (state.dragStartMode == SidebarMode::Collapsed)
                     ? openDeltaX
                     : keel::abs(mouse.x - state.dragStartMouseX);
-                const float dragThreshold = (state.dragStartMode == SidebarMode::Collapsed)
+                const keel::f32 dragThreshold = (state.dragStartMode == SidebarMode::Collapsed)
                     ? (12.0f * activeScale)
                     : (4.0f * activeScale);
                 if (opts.resizable && dragDeltaX > dragThreshold) {
@@ -297,14 +297,14 @@ SidebarScope Sidebar::Open(
         if (state.draggingSash) {
             if (ctx.IsMouseDown()) {
                 res.pressed = true;
-                const float deltaX = (opts.side == SidebarSide::Left)
+                const keel::f32 deltaX = (opts.side == SidebarSide::Left)
                     ? (mouse.x - state.dragStartMouseX)
                     : (state.dragStartMouseX - mouse.x);
-                const float rawLogicalW = state.dragStartWidth + (deltaX / safeScale);
+                const keel::f32 rawLogicalW = state.dragStartWidth + (deltaX / safeScale);
 
-                const float compactW = (m.defaultHeight / safeScale) * 1.5f;
-                const float compactSnapW = (effMinW + compactW) * 0.5f;
-                const float collapseSnapW = (state.dragStartMode == SidebarMode::Collapsed)
+                const keel::f32 compactW = (m.defaultHeight / safeScale) * 1.5f;
+                const keel::f32 compactSnapW = (effMinW + compactW) * 0.5f;
+                const keel::f32 collapseSnapW = (state.dragStartMode == SidebarMode::Collapsed)
                     ? 12.0f
                     : (opts.allowCompact ? 24.0f : (effMinW * 0.45f));
 
@@ -331,7 +331,7 @@ SidebarScope Sidebar::Open(
                         state.mode = SidebarMode::Expanded;
                         modeChanged = true;
                     }
-                    const float clampedW = keel::clamp(rawLogicalW, effMinW, effMaxW);
+                    const keel::f32 clampedW = keel::clamp(rawLogicalW, effMinW, effMaxW);
                     if (keel::abs(state.customWidth - clampedW) > 0.25f) {
                         state.customWidth = clampedW;
                         state.lastExpandedWidth = clampedW;
@@ -374,7 +374,7 @@ SidebarScope Sidebar::Open(
     }
 
     Node* node = ctx.CreateNode(NodeType::Sidebar, id, opts.disabled);
-    const float density = node->GetDensity();
+    const keel::f32 density = node->GetDensity();
     node->direction = FlexDirection::Column;
     node->sidebarRight = (opts.side == SidebarSide::Right);
     node->sidebarCompact = (state.mode == SidebarMode::Compact);
@@ -397,8 +397,8 @@ SidebarScope Sidebar::Open(
     const Color resolvedBorderCol = (opts.border.width > 0.0f)
         ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, pal.border)
         : Color::Transparent();
-    const float resolvedBorderW = (opts.border.width == 1.0f) ? theme.shell.panelBorderWidth : opts.border.width;
-    float reportedLogicalW = 0.0f;
+    const keel::f32 resolvedBorderW = (opts.border.width == 1.0f) ? theme.shell.panelBorderWidth : opts.border.width;
+    keel::f32 reportedLogicalW = 0.0f;
 
     if (node->sidebarCollapsed) {
         node->widthMode = SizeMode::Fixed;
@@ -423,14 +423,14 @@ SidebarScope Sidebar::Open(
     } else {
         node->minWidth = effMinW;
         if (state.customWidth > 0.0f) {
-            const float effW = (parentBounds.w > 1.0f)
+            const keel::f32 effW = (parentBounds.w > 1.0f)
                 ? keel::clamp(state.customWidth, effMinW, effMaxW)
                 : state.customWidth;
             node->widthMode = SizeMode::Fixed;
             node->fixedWidth = effW;
             reportedLogicalW = effW;
         } else if (opts.width.has_value()) {
-            const float effW = (parentBounds.w > 1.0f)
+            const keel::f32 effW = (parentBounds.w > 1.0f)
                 ? keel::clamp(*opts.width, effMinW, effMaxW)
                 : *opts.width;
             node->widthMode = SizeMode::Fixed;
@@ -447,7 +447,7 @@ SidebarScope Sidebar::Open(
     }
 
     node->visualHash = detail::HashArgs(
-        static_cast<keel::u8>(state.mode),
+        keel::as<keel::u8>(state.mode),
         state.customWidth,
         state.sashHovered,
         state.draggingSash,
@@ -497,22 +497,22 @@ SidebarScope Sidebar::Open(
             if (r.h <= 4.0f) return;
 
             const auto& p = themeSnap.palette;
-            const float curEdgeX = (side == SidebarSide::Left) ? r.Right() : r.x;
+            const keel::f32 curEdgeX = (side == SidebarSide::Left) ? r.Right() : r.x;
 
             // 1. Draw interactive splitter (sash) highlight when hovered or actively dragged
             if (sashHov || sashDrag) {
-                const float cornerInset = keel::max(2.0f * activeScale, node->cornerRadius);
-                const float glowW = 6.0f * activeScale;
-                const float lineW = (sashDrag ? 2.5f : 2.0f) * activeScale;
-                const float spanH = keel::max(0.0f, r.h - cornerInset * 2.0f);
+                const keel::f32 cornerInset = keel::max(2.0f * activeScale, node->cornerRadius);
+                const keel::f32 glowW = 6.0f * activeScale;
+                const keel::f32 lineW = (sashDrag ? 2.5f : 2.0f) * activeScale;
+                const keel::f32 spanH = keel::max(0.0f, r.h - cornerInset * 2.0f);
                 const Rect glowRect(curEdgeX - glowW * 0.5f, r.y + cornerInset, glowW, spanH);
                 const Rect lineRect(curEdgeX - lineW * 0.5f, r.y + cornerInset, lineW, spanH);
                 canvas.DrawRect(glowRect, p.accent.WithAlphaF(sashDrag ? 0.25f : 0.14f));
                 canvas.DrawRoundRect(lineRect, lineW * 0.5f, sashDrag ? p.accent : p.accent.WithAlphaF(0.85f));
 
                 if (!drawToggle) {
-                    const float gripW = 4.0f * activeScale;
-                    const float gripH = 24.0f * activeScale;
+                    const keel::f32 gripW = 4.0f * activeScale;
+                    const keel::f32 gripH = 24.0f * activeScale;
                     const Rect gripRect(curEdgeX - gripW * 0.5f, r.Center().y - gripH * 0.5f, gripW, gripH);
                     canvas.DrawRoundRect(gripRect, gripW * 0.5f, p.accent);
                 }
@@ -522,7 +522,7 @@ SidebarScope Sidebar::Open(
             if (drawToggle) {
                 const Rect btnRect = ComputeToggleRect(r, side, curMode, sameSideIndex, activeScale);
                 const bool highlighted = togHov || togPress || sashHov || sashDrag || (curMode == SidebarMode::Collapsed);
-                const float alphaMul = highlighted ? 1.0f : 0.80f;
+                const keel::f32 alphaMul = highlighted ? 1.0f : 0.80f;
 
                 Color bg = togPress ? p.surfaceActive : (togHov ? p.surfaceHover : p.surfaceElevated);
                 Color border = (togHov || togPress || sashDrag) ? p.accent : p.border;
@@ -537,7 +537,7 @@ SidebarScope Sidebar::Open(
                 const bool pointLeft = (side == SidebarSide::Left) ? shrinksTowardWall : !shrinksTowardWall;
                 const Icon chevron = pointLeft ? Icon::ChevronLeft() : Icon::ChevronRight();
 
-                const float iconSz = 10.0f * activeScale;
+                const keel::f32 iconSz = 10.0f * activeScale;
                 const Rect iconRect(
                     btnRect.Center().x - iconSz * 0.5f,
                     btnRect.Center().y - iconSz * 0.5f,

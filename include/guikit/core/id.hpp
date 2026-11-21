@@ -33,7 +33,7 @@ constexpr keel::u64 HashBytes(const void* data, keel::usize size, keel::u64 hash
     if (__builtin_is_constant_evaluated()) {
         const auto* bytes = static_cast<const keel::u8*>(data);
         for (keel::usize i = 0; i < size; ++i) {
-            hash ^= static_cast<keel::u64>(bytes[i]);
+            hash ^= keel::as<keel::u64>(bytes[i]);
             hash *= Fnv1aPrime;
         }
         return hash;
@@ -58,9 +58,9 @@ constexpr keel::u64 HashVal(const T& val, keel::u64 hash = Fnv1aOffsetBasis) noe
         return HashStringView(keel::StringRef(val), hash);
     } else if constexpr (requires { val.text; val.icon; val.iconPlacement; }) {
         hash = HashVal(val.text, hash);
-        const keel::u8 icType = static_cast<keel::u8>(val.icon.GetType());
-        const keel::u16 icId = static_cast<keel::u16>(val.icon.GetId());
-        const keel::u8 icPlace = static_cast<keel::u8>(val.iconPlacement);
+        const keel::u8 icType = keel::as<keel::u8>(val.icon.GetType());
+        const keel::u16 icId = keel::as<keel::u16>(val.icon.GetId());
+        const keel::u8 icPlace = keel::as<keel::u8>(val.iconPlacement);
         hash = HashBytes(&icType, sizeof(icType), hash);
         hash = HashBytes(&icId, sizeof(icId), hash);
         hash = HashStringView(val.icon.GetPath(), hash);
@@ -71,7 +71,7 @@ constexpr keel::u64 HashVal(const T& val, keel::u64 hash = Fnv1aOffsetBasis) noe
         hash = HashBytes(&val.size.px, sizeof(val.size.px), hash);
         const keel::i32 presetVal = val.size.preset.Encoded();
         const keel::u8 hasRole = val.size.role.has_value() ? 1u : 0u;
-        const keel::u8 roleVal = val.size.role.has_value() ? static_cast<keel::u8>(*val.size.role) : 0u;
+        const keel::u8 roleVal = val.size.role.has_value() ? keel::as<keel::u8>(*val.size.role) : 0u;
         hash = HashBytes(&presetVal, sizeof(presetVal), hash);
         hash = HashBytes(&hasRole, sizeof(hasRole), hash);
         hash = HashBytes(&roleVal, sizeof(roleVal), hash);
@@ -98,7 +98,7 @@ constexpr keel::u64 HashVal(const T& val, keel::u64 hash = Fnv1aOffsetBasis) noe
         hashOptCol(val.active);
         hashOptCol(val.disabled);
         if constexpr (requires { val.token; }) {
-            const keel::u8 tok = static_cast<keel::u8>(val.token);
+            const keel::u8 tok = keel::as<keel::u8>(val.token);
             hash = HashBytes(&tok, sizeof(tok), hash);
         }
         if constexpr (requires { val.surfaceTint; val.alphaScale; }) {
@@ -108,20 +108,20 @@ constexpr keel::u64 HashVal(const T& val, keel::u64 hash = Fnv1aOffsetBasis) noe
         return hash;
     } else if constexpr (requires { val.width; val.radius; val.color; }) {
         hash = HashBytes(&val.width, sizeof(val.width), hash);
-        const float r = val.radius.value_or(-1.0f);
+        const keel::f32 r = val.radius.value_or(-1.0f);
         hash = HashBytes(&r, sizeof(r), hash);
         hash = HashVal(val.color, hash);
         return hash;
     } else if constexpr (requires { val.placement; val.width; val.color; }) {
-        const keel::u8 pl = static_cast<keel::u8>(val.placement);
+        const keel::u8 pl = keel::as<keel::u8>(val.placement);
         hash = HashBytes(&pl, sizeof(pl), hash);
         hash = HashBytes(&val.width, sizeof(val.width), hash);
         hash = HashVal(val.color, hash);
         return hash;
     } else if constexpr (requires { val.GetKind(); val.Dp(); val.StretchWeight(); }) {
-        const keel::u8 k = static_cast<keel::u8>(val.GetKind());
-        const float dp = val.Dp();
-        const float weight = val.StretchWeight();
+        const keel::u8 k = keel::as<keel::u8>(val.GetKind());
+        const keel::f32 dp = val.Dp();
+        const keel::f32 weight = val.StretchWeight();
         hash = HashBytes(&k, sizeof(k), hash);
         hash = HashBytes(&dp, sizeof(dp), hash);
         hash = HashBytes(&weight, sizeof(weight), hash);
@@ -152,8 +152,8 @@ constexpr keel::u64 HashArgs(const Args&... args) noexcept {
         hash = HashInt64(parentId.value, hash);
     }
     hash = HashInt64(fileHash, hash);
-    hash = HashInt64(static_cast<keel::u64>(line), hash);
-    hash = HashInt64(static_cast<keel::u64>(column), hash);
+    hash = HashInt64(keel::as<keel::u64>(line), hash);
+    hash = HashInt64(keel::as<keel::u64>(column), hash);
     return hash;
 }
 
@@ -161,7 +161,7 @@ constexpr keel::u64 HashArgs(const Args&... args) noexcept {
     keel::u64 callsiteHash,
     keel::u32 occurrenceIndex
 ) noexcept {
-    keel::u64 hash = HashInt64(static_cast<keel::u64>(occurrenceIndex), callsiteHash);
+    keel::u64 hash = HashInt64(keel::as<keel::u64>(occurrenceIndex), callsiteHash);
     if (hash == 0) {
         hash = 1;
     }

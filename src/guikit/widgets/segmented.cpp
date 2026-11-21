@@ -23,21 +23,21 @@ ControlSpec EffectiveSegmentedControl(const SegmentedOptions& opts, UiSize size,
     );
 }
 
-float MeasureSegmentNaturalWidth(
+keel::f32 MeasureSegmentNaturalWidth(
     const SegmentedItem& item,
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme
 ) noexcept {
     const ComponentMetrics& cm = theme.GetMetrics(size);
-    const float fontSize = theme.ResolveFontSize(item.text, TextRole::LabelMedium, size);
-    const float textW = item.text.HasContentOrReserve()
+    const keel::f32 fontSize = theme.ResolveFontSize(item.text, TextRole::LabelMedium, size);
+    const keel::f32 textW = item.text.HasContentOrReserve()
         ? TextUtil::MeasureUiTextWidth(item.text, fontSize, canvas)
         : 0.0f;
     const bool hasIcon = item.icon.IsValid();
     const bool hasText = (textW > 0.0f);
-    const float padX = keel::max(8.0f, cm.paddingX * 0.78f);
-    const float iconGap = 6.0f;
+    const keel::f32 padX = keel::max(8.0f, cm.paddingX * 0.78f);
+    const keel::f32 iconGap = 6.0f;
 
     if (hasIcon && hasText) {
         if (item.iconPlacement == Placement::Top || item.iconPlacement == Placement::Bottom) {
@@ -59,13 +59,13 @@ Vec2 MeasureSegmentedBox(
     const UiTheme& theme
 ) noexcept {
     const ComponentMetrics& cm = theme.GetMetrics(size);
-    const float inset = (theme.SizeFactor(size) < 0.90f) ? 2.0f : 3.0f;
+    const keel::f32 inset = (theme.SizeFactor(size) < 0.90f) ? 2.0f : 3.0f;
 
     bool hasStackedIconText = false;
-    float maxSegW = 28.0f;
-    float sumSegW = 0.0f;
+    keel::f32 maxSegW = 28.0f;
+    keel::f32 sumSegW = 0.0f;
     for (const SegmentedItem& it : items) {
-        const float sw = MeasureSegmentNaturalWidth(it, size, canvas, theme);
+        const keel::f32 sw = MeasureSegmentNaturalWidth(it, size, canvas, theme);
         maxSegW = keel::max(maxSegW, sw);
         sumSegW += sw;
         if (it.icon.IsValid() && it.text.HasContentOrReserve() &&
@@ -75,8 +75,8 @@ Vec2 MeasureSegmentedBox(
     }
 
     const keel::usize count = keel::max<keel::usize>(1, items.size());
-    float totalW = opts.equalWidth
-        ? (maxSegW * static_cast<float>(count) + inset * 2.0f)
+    keel::f32 totalW = opts.equalWidth
+        ? (maxSegW * keel::as<keel::f32>(count) + inset * 2.0f)
         : (sumSegW + inset * 2.0f);
 
     if (opts.minWidth.has_value()) {
@@ -89,12 +89,12 @@ Vec2 MeasureSegmentedBox(
         totalW = opts.width.Dp();
     }
 
-    float defaultH = cm.defaultHeight;
+    keel::f32 defaultH = cm.defaultHeight;
     if (hasStackedIconText) {
-        const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
+        const keel::f32 fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
         defaultH = keel::max(defaultH, cm.iconSize + fontSize + 14.0f);
     }
-    float boxH = opts.height.IsFixed() ? opts.height.Dp() : defaultH;
+    keel::f32 boxH = opts.height.IsFixed() ? opts.height.Dp() : defaultH;
     if (!opts.height.IsFixed()) {
         if (opts.minHeight.has_value() && *opts.minHeight > 0.0f) {
             boxH = keel::max(*opts.minHeight, boxH);
@@ -119,7 +119,7 @@ void ComputeSegmentRects(
     if (items.empty()) return;
     outRects.reserve(items.size());
 
-    const float inset = (theme.SizeFactor(size) < 0.90f) ? 2.0f : 3.0f;
+    const keel::f32 inset = (theme.SizeFactor(size) < 0.90f) ? 2.0f : 3.0f;
     const Rect inner = trackRect.Inset(inset);
     if (inner.w <= 0.0f || inner.h <= 0.0f) {
         for (keel::usize i = 0; i < items.size(); ++i) {
@@ -129,20 +129,20 @@ void ComputeSegmentRects(
     }
 
     if (opts.equalWidth || items.size() == 1) {
-        const float segW = inner.w / static_cast<float>(items.size());
+        const keel::f32 segW = inner.w / keel::as<keel::f32>(items.size());
         for (keel::usize i = 0; i < items.size(); ++i) {
-            outRects.emplace_back(inner.x + static_cast<float>(i) * segW, inner.y, segW, inner.h);
+            outRects.emplace_back(inner.x + keel::as<keel::f32>(i) * segW, inner.y, segW, inner.h);
         }
     } else {
-        keel::SmallArray<float, 16> natW(items.size(), 1.0f);
-        float sumNat = 0.0f;
+        keel::SmallArray<keel::f32, 16> natW(items.size(), 1.0f);
+        keel::f32 sumNat = 0.0f;
         for (keel::usize i = 0; i < items.size(); ++i) {
             natW[i] = keel::max(1.0f, MeasureSegmentNaturalWidth(items[i], size, canvas, theme));
             sumNat += natW[i];
         }
-        float curX = inner.x;
+        keel::f32 curX = inner.x;
         for (keel::usize i = 0; i < items.size(); ++i) {
-            const float w = (i + 1 == items.size())
+            const keel::f32 w = (i + 1 == items.size())
                 ? keel::max(0.0f, inner.Right() - curX)
                 : (inner.w * (natW[i] / keel::max(1.0f, sumNat)));
             outRects.emplace_back(curX, inner.y, w, inner.h);
@@ -152,9 +152,9 @@ void ComputeSegmentRects(
 }
 
 Color ResolveContrastingTextOnFill(Color fill, const ThemePalette& pal) noexcept {
-    const float lum = (0.299f * static_cast<float>(fill.r) +
-                       0.587f * static_cast<float>(fill.g) +
-                       0.114f * static_cast<float>(fill.b)) / 255.0f;
+    const keel::f32 lum = (0.299f * keel::as<keel::f32>(fill.r) +
+                       0.587f * keel::as<keel::f32>(fill.g) +
+                       0.114f * keel::as<keel::f32>(fill.b)) / 255.0f;
     return (lum > 0.62f) ? Color(15, 23, 42, 255) : pal.controlKnobActive;
 }
 
@@ -166,7 +166,7 @@ Vec2 Segmented::Measure(
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme,
-    float /*availableWidth*/
+    keel::f32 /*availableWidth*/
 ) {
     const Vec2 boxDims = MeasureSegmentedBox(items, opts, size, canvas, theme);
     const ControlSpec ctrl = EffectiveSegmentedControl(opts, size, theme);
@@ -178,7 +178,7 @@ Vec2 Segmented::Measure(
     const SegmentedOptions& opts,
     UiSize size,
     ICanvas* canvas,
-    float availableWidth
+    keel::f32 availableWidth
 ) {
     static const UiTheme defaultTheme = UiTheme::Dark();
     return Measure(items, opts, size, canvas, defaultTheme, availableWidth);
@@ -234,8 +234,8 @@ Response Segmented::Run(
     } else if (selectedIndex != nullptr) {
         if (*selectedIndex < items.size()) currIndex = *selectedIndex;
     } else if (selectedIntIndex != nullptr) {
-        if (*selectedIntIndex >= 0 && static_cast<keel::usize>(*selectedIntIndex) < items.size()) {
-            currIndex = static_cast<keel::usize>(*selectedIntIndex);
+        if (*selectedIntIndex >= 0 && keel::as<keel::usize>(*selectedIntIndex) < items.size()) {
+            currIndex = keel::as<keel::usize>(*selectedIntIndex);
         }
     }
 
@@ -243,14 +243,14 @@ Response Segmented::Run(
         if (newIdx < items.size() && !items[newIdx].disabled && currIndex != newIdx) {
             currIndex = newIdx;
             if (selectedIndex != nullptr) *selectedIndex = newIdx;
-            if (selectedIntIndex != nullptr) *selectedIntIndex = static_cast<keel::i32>(newIdx);
+            if (selectedIntIndex != nullptr) *selectedIntIndex = keel::as<keel::i32>(newIdx);
             res.changed = true;
         }
     };
 
     auto toggleMaskBit = [&](keel::usize bitIdx) {
         if (bitIdx < items.size() && bitIdx < 32 && !items[bitIdx].disabled) {
-            currMask ^= (1u << static_cast<keel::u32>(bitIdx));
+            currMask ^= (1u << keel::as<keel::u32>(bitIdx));
             if (selectedMask != nullptr) *selectedMask = currMask;
             res.changed = true;
         }
@@ -274,9 +274,9 @@ Response Segmented::Run(
             for (keel::usize i = 0; i < segRects.size(); ++i) {
                 if (segRects[i].Contains(mouse)) {
                     if (!items[i].disabled) {
-                        hoveredSegment = static_cast<keel::i32>(i);
+                        hoveredSegment = keel::as<keel::i32>(i);
                         if (res.pressed) {
-                            pressedSegment = static_cast<keel::i32>(i);
+                            pressedSegment = keel::as<keel::i32>(i);
                         }
                     }
                     break;
@@ -288,9 +288,9 @@ Response Segmented::Run(
             ctx.RequestFocus(id);
             if (hoveredSegment >= 0) {
                 if (multiSelect) {
-                    toggleMaskBit(static_cast<keel::usize>(hoveredSegment));
+                    toggleMaskBit(keel::as<keel::usize>(hoveredSegment));
                 } else {
-                    applySingleSelection(static_cast<keel::usize>(hoveredSegment));
+                    applySingleSelection(keel::as<keel::usize>(hoveredSegment));
                 }
             }
         }
@@ -334,12 +334,12 @@ Response Segmented::Run(
 
     if (res.hovered) {
         if (hoveredSegment >= 0) {
-            const keel::usize hIdx = static_cast<keel::usize>(hoveredSegment);
+            const keel::usize hIdx = keel::as<keel::usize>(hoveredSegment);
             const Rect hRect = segRects[hIdx];
             if (!items[hIdx].tooltip.empty()) {
                 ctx.SetTooltip(items[hIdx].tooltip, hRect);
             } else if (!items[hIdx].text.empty()) {
-                const float natW = MeasureSegmentNaturalWidth(items[hIdx], activeSize, nullptr, theme);
+                const keel::f32 natW = MeasureSegmentNaturalWidth(items[hIdx], activeSize, nullptr, theme);
                 if (hRect.w + 1.0f < natW) {
                     ctx.SetTooltip(items[hIdx].text, hRect);
                 } else if (!optsCopy.tooltip.empty()) {
@@ -367,7 +367,7 @@ Response Segmented::Run(
             itemsHash,
             arenaItems[i].text,
             arenaItems[i].icon,
-            static_cast<keel::u8>(arenaItems[i].iconPlacement),
+            keel::as<keel::u8>(arenaItems[i].iconPlacement),
             arenaItems[i].disabled
         );
     }
@@ -402,7 +402,7 @@ Response Segmented::Run(
         optsCopy.showDividers
     );
 
-    node->measureFn = [](const Node* n, float availableWidth, ICanvas* c, const UiTheme& t) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* c, const UiTheme& t) noexcept -> Vec2 {
         const auto* d = n->As<SegmentedData>();
         if (!d) return {0.0f, 0.0f};
         return Segmented::Measure(d->items, d->opts, n->uiSize, c, t, availableWidth);
@@ -459,8 +459,8 @@ void Segmented::Render(
     const SelectMetrics& sm = theme.GetSelect(size);
     const auto& pal = theme.palette;
     const Rect trackRect = bounds;
-    const float inset = (theme.SizeFactor(size) < 0.90f) ? 2.0f : 3.0f;
-    const float trackRadius = opts.border.radius.has_value()
+    const keel::f32 inset = (theme.SizeFactor(size) < 0.90f) ? 2.0f : 3.0f;
+    const keel::f32 trackRadius = opts.border.radius.has_value()
         ? *opts.border.radius
         : cm.cornerRadius;
 
@@ -478,7 +478,7 @@ void Segmented::Render(
     if (opts.border.color.HasAny()) {
         trackBorder = theme.ResolveColor(opts.border.color, hoveredSegment >= 0, focused, disabled, trackBorder);
     }
-    float trackStrokeW = (opts.border.width > 0.0f) ? opts.border.width : sm.strokeWidth;
+    keel::f32 trackStrokeW = (opts.border.width > 0.0f) ? opts.border.width : sm.strokeWidth;
     if (focused && !disabled && trackStrokeW > 0.0f) trackStrokeW += 0.5f;
     if (disabled) {
         trackBg = trackBg.WithAlphaF(0.40f);
@@ -490,11 +490,11 @@ void Segmented::Render(
 
     keel::SmallArray<Rect, 16> segRects;
     ComputeSegmentRects(trackRect, items, opts, size, &canvas, theme, segRects);
-    const float pillRadius = keel::max(2.0f, trackRadius - inset);
+    const keel::f32 pillRadius = keel::max(2.0f, trackRadius - inset);
 
     auto isSegmentSelected = [&](keel::usize idx) noexcept -> bool {
         if (multiSelect) {
-            return idx < 32 && ((selectedMask & (1u << static_cast<keel::u32>(idx))) != 0u);
+            return idx < 32 && ((selectedMask & (1u << keel::as<keel::u32>(idx))) != 0u);
         }
         return idx == selectedIndex;
     };
@@ -505,12 +505,12 @@ void Segmented::Render(
         for (keel::usize i = 0; i + 1 < items.size(); ++i) {
             const bool curSel = isSegmentSelected(i);
             const bool nextSel = isSegmentSelected(i + 1);
-            const bool curHov = (hoveredSegment == static_cast<keel::i32>(i));
-            const bool nextHov = (hoveredSegment == static_cast<keel::i32>(i + 1));
+            const bool curHov = (hoveredSegment == keel::as<keel::i32>(i));
+            const bool nextHov = (hoveredSegment == keel::as<keel::i32>(i + 1));
             if (!curSel && !nextSel && !curHov && !nextHov) {
                 const Rect& r = segRects[i];
-                const float x = keel::round(r.Right());
-                const float padY = keel::max(4.0f, r.h * 0.22f);
+                const keel::f32 x = keel::round(r.Right());
+                const keel::f32 padY = keel::max(4.0f, r.h * 0.22f);
                 canvas.DrawLine({x, r.y + padY}, {x, r.Bottom() - padY}, divCol, 1.0f);
             }
         }
@@ -524,15 +524,15 @@ void Segmented::Render(
 
         const bool segDisabled = disabled || item.disabled;
         const bool selected = isSegmentSelected(i);
-        const bool hovered = !segDisabled && (hoveredSegment == static_cast<keel::i32>(i));
-        const bool pressed = !segDisabled && (pressedSegment == static_cast<keel::i32>(i));
+        const bool hovered = !segDisabled && (hoveredSegment == keel::as<keel::i32>(i));
+        const bool pressed = !segDisabled && (pressedSegment == keel::as<keel::i32>(i));
 
         Color fgColor = segDisabled ? pal.textMuted : (hovered ? pal.textPrimary : pal.textSecondary);
 
         if (selected) {
             Color pillFill{};
             Color pillStroke{0, 0, 0, 0};
-            float pillStrokeW = 0.0f;
+            keel::f32 pillStrokeW = 0.0f;
 
             if (opts.color.HasAny()) {
                 pillFill = theme.ResolveColor(opts.color, hovered, pressed, segDisabled, pal.accent);
@@ -561,20 +561,20 @@ void Segmented::Render(
 
         const bool hasIcon = item.icon.IsValid();
         const bool hasText = !item.text.empty();
-        const float fontSize = theme.ResolveFontSize(item.text, TextRole::LabelMedium, size);
-        const float iconSz = keel::min(cm.iconSize, keel::max(8.0f, keel::min(sr.w, sr.h) - 4.0f));
+        const keel::f32 fontSize = theme.ResolveFontSize(item.text, TextRole::LabelMedium, size);
+        const keel::f32 iconSz = keel::min(cm.iconSize, keel::max(8.0f, keel::min(sr.w, sr.h) - 4.0f));
 
         if (hasIcon && hasText) {
             if (item.iconPlacement == Placement::Top || item.iconPlacement == Placement::Bottom) {
-                const float padX = keel::min(3.0f, sr.w * 0.10f);
-                const float availW = keel::max(0.0f, sr.w - padX * 2.0f);
-                const float gapY = 2.0f;
-                const float totalH = iconSz + gapY + fontSize;
+                const keel::f32 padX = keel::min(3.0f, sr.w * 0.10f);
+                const keel::f32 availW = keel::max(0.0f, sr.w - padX * 2.0f);
+                const keel::f32 gapY = 2.0f;
+                const keel::f32 totalH = iconSz + gapY + fontSize;
                 if (availW < fontSize * 1.15f || sr.h < iconSz + fontSize * 0.85f) {
                     const Rect iconRect(sr.x + (sr.w - iconSz) * 0.5f, sr.y + (sr.h - iconSz) * 0.5f, iconSz, iconSz);
                     item.icon.Draw(canvas, iconRect, fgColor);
                 } else {
-                    const float startY = sr.y + (sr.h - totalH) * 0.5f;
+                    const keel::f32 startY = sr.y + (sr.h - totalH) * 0.5f;
                     if (item.iconPlacement == Placement::Top) {
                         const Rect iconRect(sr.x + (sr.w - iconSz) * 0.5f, startY, iconSz, iconSz);
                         item.icon.Draw(canvas, iconRect, fgColor);
@@ -588,10 +588,10 @@ void Segmented::Render(
                     }
                 }
             } else {
-                const float padX = keel::min(4.0f, sr.w * 0.12f);
-                const float gapX = keel::min(5.0f, keel::max(2.0f, sr.w * 0.08f));
-                const float availW = keel::max(0.0f, sr.w - padX * 2.0f);
-                const float availTextW = availW - iconSz - gapX;
+                const keel::f32 padX = keel::min(4.0f, sr.w * 0.12f);
+                const keel::f32 gapX = keel::min(5.0f, keel::max(2.0f, sr.w * 0.08f));
+                const keel::f32 availW = keel::max(0.0f, sr.w - padX * 2.0f);
+                const keel::f32 availTextW = availW - iconSz - gapX;
 
                 // When segment is too narrow to show meaningful text beside the icon, auto-collapse to centered icon
                 if (availTextW < fontSize * 1.45f) {
@@ -600,15 +600,15 @@ void Segmented::Render(
                 } else {
                     keel::FixedString<256> truncatedLabel;
                     keel::StringRef displayLabel = item.text.text;
-                    float textW = canvas.MeasureText(displayLabel, fontSize).x;
+                    keel::f32 textW = canvas.MeasureText(displayLabel, fontSize).x;
                     if (textW > availTextW + kTextSubpixelTolerance) {
                         truncatedLabel = TextUtil::TruncateWithEllipsis(item.text.text, availTextW, fontSize, &canvas);
                         displayLabel = truncatedLabel;
                         textW = keel::min(availTextW, canvas.MeasureText(displayLabel, fontSize).x);
                     }
-                    const float totalW = iconSz + gapX + textW;
-                    const float startX = sr.x + keel::max(padX, (sr.w - totalW) * 0.5f);
-                    const float iconY = sr.y + (sr.h - iconSz) * 0.5f;
+                    const keel::f32 totalW = iconSz + gapX + textW;
+                    const keel::f32 startX = sr.x + keel::max(padX, (sr.w - totalW) * 0.5f);
+                    const keel::f32 iconY = sr.y + (sr.h - iconSz) * 0.5f;
                     if (item.iconPlacement == Placement::Trailing) {
                         const Rect textRect(startX, sr.y, availTextW, sr.h);
                         canvas.DrawTextBox(displayLabel, textRect, fontSize, fgColor, 0.0f, 0.5f);
@@ -626,7 +626,7 @@ void Segmented::Render(
             const Rect iconRect(sr.x + (sr.w - iconSz) * 0.5f, sr.y + (sr.h - iconSz) * 0.5f, iconSz, iconSz);
             item.icon.Draw(canvas, iconRect, fgColor);
         } else if (hasText) {
-            const float padX = keel::min(4.0f, sr.w * 0.12f);
+            const keel::f32 padX = keel::min(4.0f, sr.w * 0.12f);
             canvas.DrawTextBox(item.text.text, sr.Inset(padX, 0.0f), fontSize, fgColor, 0.5f, 0.5f);
         }
 

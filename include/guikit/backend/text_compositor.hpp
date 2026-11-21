@@ -17,7 +17,7 @@ public:
     /// Resolves `FontSmoothing::Auto` based on physical canvas scale (`< 1.5` -> `SubpixelRGB`, `>= 1.5` -> `Grayscale`).
     [[nodiscard]] static constexpr FontSmoothing ResolveEffectiveSmoothing(
         FontSmoothing requested,
-        float canvasScale
+        keel::f32 canvasScale
     ) noexcept {
         if (requested != FontSmoothing::Auto) {
             return requested;
@@ -35,9 +35,9 @@ public:
     /// Guarantees `outLut[0] == 0` and `outLut[255] == 255`.
     static void BuildCoverageLut(
         keel::StaticArray<keel::u8, 256>& outLut,
-        float contrast,
-        float stemDarkening,
-        float scaledFontSizePx
+        keel::f32 contrast,
+        keel::f32 stemDarkening,
+        keel::f32 scaledFontSizePx
     ) noexcept;
 
     /// Applies a 5-tap balanced FreeType-style LCD FIR filter (`[8, 77, 86, 77, 8] / 256`)
@@ -63,7 +63,7 @@ public:
         Rect clipPx,
         Color color,
         const TextRenderSettings& settings,
-        float scaledFontSizePx
+        keel::f32 scaledFontSizePx
     ) noexcept;
 
     /// Composites a 3-byte-per-pixel RGB subpixel coverage mask into an `ABGR8888_Premul` target surface.
@@ -83,7 +83,7 @@ public:
         Rect clipPx,
         Color color,
         const TextRenderSettings& settings,
-        float scaledFontSizePx,
+        keel::f32 scaledFontSizePx,
         bool bgrOrder = false
     ) noexcept;
 };

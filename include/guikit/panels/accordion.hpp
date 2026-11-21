@@ -24,7 +24,7 @@ struct AccordionOptions {
     UiText tooltip{};                               ///< Optional hover tooltip text for the header
     bool defaultOpen{true};                         ///< Initial open state when state is managed by Context
     Placement chevronPlacement{Placement::Leading}; ///< Chevron position: Leading (left of label/icon) or Trailing (far right)
-    keel::Optional<float> gap{keel::kNullOpt};         ///< Vertical gap between children inside expanded body (nullopt = from theme)
+    keel::Optional<keel::f32> gap{keel::kNullOpt};         ///< Vertical gap between children inside expanded body (nullopt = from theme)
     keel::Optional<Padding> padding{keel::kNullOpt};   ///< Padding around expanded body children (nullopt = default top/bottom spacing)
     StateColor background{};                        ///< Per-state header backdrop color (Default = subtle surface bar, None = transparent, Surface/Primary/... = custom)
     Border border{};                                ///< Header border stroke & corner radius

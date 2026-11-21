@@ -17,8 +17,8 @@ struct ToolButtonPayload {
     UiText origText{};
     UiText badge{};
     StateColor badgeColor{};
-    float expandedWidth{0.0f};
-    float splitChevronWidth{0.0f};
+    keel::f32 expandedWidth{0.0f};
+    keel::f32 splitChevronWidth{0.0f};
     bool origSquare{false};
     bool isSplit{false};
     bool chevronHovered{false};
@@ -33,11 +33,11 @@ void RenderToolBadge(const Node* n, const ToolButtonPayload* p, ICanvas& canvas,
     const Color resolvedBg = p->badge.color.HasAny()
         ? p->badge.color.Resolve(n->hovered, n->pressed, n->disabled, v.bg)
         : p->badgeColor.Resolve(n->hovered, n->pressed, n->disabled, v.bg);
-    const float badgeFont = keel::max(9.0f, theme.ResolveFontSize(p->badge, TextRole::LabelSmall, n->uiSize) - 1.5f);
+    const keel::f32 badgeFont = keel::max(9.0f, theme.ResolveFontSize(p->badge, TextRole::LabelSmall, n->uiSize) - 1.5f);
     const Vec2 badgeDims = canvas.MeasureText(p->badge.text, badgeFont);
-    const float badgeH = keel::min(n->computedRect.h * 0.48f, keel::max(13.0f, badgeFont + 3.0f));
-    const float badgeW = keel::min(n->computedRect.w - 4.0f, keel::max(badgeH, badgeDims.x + 6.0f));
-    const float rightInset = p->isSplit ? (p->splitChevronWidth + 2.0f) : 2.0f;
+    const keel::f32 badgeH = keel::min(n->computedRect.h * 0.48f, keel::max(13.0f, badgeFont + 3.0f));
+    const keel::f32 badgeW = keel::min(n->computedRect.w - 4.0f, keel::max(badgeH, badgeDims.x + 6.0f));
+    const keel::f32 rightInset = p->isSplit ? (p->splitChevronWidth + 2.0f) : 2.0f;
     const Rect badgeRect(
         n->computedRect.Right() - badgeW - rightInset,
         n->computedRect.y + 2.0f,
@@ -61,12 +61,12 @@ void RenderToolButtonNode(const Node* n, ICanvas& canvas, const UiTheme& theme) 
     const Rect fullRect = n->computedRect;
     if (fullRect.w <= 0.0f || fullRect.h <= 0.0f) return;
 
-    const float chevW = keel::min(p->splitChevronWidth, fullRect.w * 0.45f);
+    const keel::f32 chevW = keel::min(p->splitChevronWidth, fullRect.w * 0.45f);
     const Rect mainRect(fullRect.x, fullRect.y, keel::max(0.0f, fullRect.w - chevW), fullRect.h);
     const Rect chevRect(fullRect.Right() - chevW, fullRect.y, chevW, fullRect.h);
 
     const ComponentMetrics& m = theme.GetMetrics(n->uiSize);
-    const float radius = m.cornerRadius;
+    const keel::f32 radius = m.cornerRadius;
     const bool active = p->btn.active;
     const bool mainHov = n->hovered;
     const bool mainPress = n->pressed;
@@ -126,14 +126,14 @@ void RenderToolButtonNode(const Node* n, ICanvas& canvas, const UiTheme& theme) 
     }
     Button::Render(canvas, mainRect, mainBtn, n->uiSize, false, false, n->disabled, theme, false);
 
-    const float sepX = keel::floor(chevRect.x) + 0.5f;
-    const float sepPadY = (anyHov && !active) ? 2.0f : keel::round(fullRect.h * 0.20f);
+    const keel::f32 sepX = keel::floor(chevRect.x) + 0.5f;
+    const keel::f32 sepPadY = (anyHov && !active) ? 2.0f : keel::round(fullRect.h * 0.20f);
     const Color sepCol = active
         ? textCol.WithAlphaF(n->disabled ? 0.15f : 0.28f)
         : theme.palette.border.WithAlphaF(n->disabled ? 0.20f : (anyHov ? 0.85f : 0.45f));
     canvas.DrawLine(Vec2(sepX, fullRect.y + sepPadY), Vec2(sepX, fullRect.Bottom() - sepPadY), sepCol, 1.0f);
 
-    const float chevIconSz = keel::round(m.iconSize * 0.72f);
+    const keel::f32 chevIconSz = keel::round(m.iconSize * 0.72f);
     const Rect chevIconRect(
         chevRect.x + (chevRect.w - chevIconSz) * 0.5f,
         chevRect.y + (chevRect.h - chevIconSz) * 0.5f,
@@ -160,7 +160,7 @@ void ToolbarScope::InvalidateContext() noexcept {
     }
 }
 
-void ToolbarScope::Separator(float heightRatio, keel::SourceLocation loc) {
+void ToolbarScope::Separator(keel::f32 heightRatio, keel::SourceLocation loc) {
     if (!m_ctx || !m_node) return;
     guikit::Separator::Run(*m_ctx, heightRatio, m_node->borderColor, loc);
 }
@@ -177,12 +177,12 @@ void ToolbarScope::Spacer(keel::SourceLocation loc) {
     }
     spacer->isSpacer = true;
     spacer->flexGrow = 1.0f;
-    spacer->measureFn = [](const Node*, float /*availableWidth*/, ICanvas*, const UiTheme&) noexcept -> Vec2 {
+    spacer->measureFn = [](const Node*, keel::f32 /*availableWidth*/, ICanvas*, const UiTheme&) noexcept -> Vec2 {
         return {0.0f, 0.0f};
     };
 }
 
-void ToolbarScope::Gap(float sizeDp, keel::SourceLocation loc) {
+void ToolbarScope::Gap(keel::f32 sizeDp, keel::SourceLocation loc) {
     if (!m_ctx) return;
     guikit::Spacer::Gap(*m_ctx, sizeDp, loc);
 }
@@ -264,7 +264,7 @@ SplitButtonResponse ToolbarScope::SplitToggle(
         ContextMenuItem item{};
         item.label = UiText{items[i]};
         item.hasCheck = true;
-        item.checked = (static_cast<keel::i32>(i) == selectedIndex);
+        item.checked = (keel::as<keel::i32>(i) == selectedIndex);
         menuItems.push_back(item);
     }
     return SplitToggle(active, selectedIndex, keel::ArrayRef<ContextMenuItem>(menuItems), keel::move(opts), keel::move(menuOpts), loc);
@@ -292,7 +292,7 @@ SplitButtonResponse ToolbarScope::SplitToggle(
         ContextMenuItem item = items[i];
         if (!item.isSeparatorOnly) {
             item.hasCheck = true;
-            item.checked = (static_cast<keel::i32>(i) == selectedIndex);
+            item.checked = (keel::as<keel::i32>(i) == selectedIndex);
         }
         menuItems.push_back(item);
     }
@@ -304,7 +304,7 @@ SplitButtonResponse ToolbarScope::SplitToggle(
         res.changed = true;
         m_ctx->InvalidateAll();
     }
-    if (res.selectionChanged && res.selectedIndex >= 0 && res.selectedIndex < static_cast<keel::i32>(menuItems.size())) {
+    if (res.selectionChanged && res.selectedIndex >= 0 && res.selectedIndex < keel::as<keel::i32>(menuItems.size())) {
         if (selectedIndex != res.selectedIndex) {
             selectedIndex = res.selectedIndex;
         }
@@ -328,11 +328,11 @@ ToolbarScope Toolbar::Open(
     const Id id = ctx.MakeChildId(loc);
     Node* node = ctx.CreateNode(NodeType::Toolbar, id, opts.disabled);
     const UiTheme& theme = node->GetTheme(ctx.GetTheme());
-    const float density = node->GetDensity();
+    const keel::f32 density = node->GetDensity();
     const UiSize activeSize = opts.size;
     const bool effectiveDisabled = node->disabled;
     const ComponentMetrics& m = theme.GetMetrics(activeSize);
-    const float barExtent = m.defaultHeight + 8.0f;
+    const keel::f32 barExtent = m.defaultHeight + 8.0f;
     const bool isVertical = (opts.orientation == Orientation::Vertical);
 
     Response res{};
@@ -344,8 +344,8 @@ ToolbarScope Toolbar::Open(
         ? FlexDirection::Column
         : (opts.overflow == ToolbarOverflow::Wrap ? FlexDirection::Wrap : FlexDirection::Row);
     node->align = Alignment::Center;
-    const float defaultGap = keel::max(4.0f, keel::round(theme.GetGap(activeSize) * 0.5f)) * density;
-    const float crossPad = 4.0f * density;
+    const keel::f32 defaultGap = keel::max(4.0f, keel::round(theme.GetGap(activeSize) * 0.5f)) * density;
+    const keel::f32 crossPad = 4.0f * density;
     node->gap = opts.gap.has_value() ? theme.ResolveGap(opts.gap, activeSize, density) : defaultGap;
     node->runGap = node->gap;
     node->clipChildren = true;
@@ -357,7 +357,7 @@ ToolbarScope Toolbar::Open(
             if (t.IsNone()) {
                 toolbarPadding = Padding{};
             } else {
-                const float g = keel::max(4.0f, keel::round(theme.GetGap(t) * 0.5f)) * density;
+                const keel::f32 g = keel::max(4.0f, keel::round(theme.GetGap(t) * 0.5f)) * density;
                 toolbarPadding = isVertical
                     ? Padding::Symmetric(crossPad, g)
                     : Padding::Symmetric(g, crossPad);
@@ -439,9 +439,9 @@ ToolbarScope Toolbar::Open(
     const auto* tbCar = node->As<CarouselData>();
     node->uiSize = activeSize;
     node->visualHash = detail::HashArgs(
-        static_cast<keel::u8>(opts.style),
-        static_cast<keel::u8>(opts.orientation),
-        static_cast<keel::u8>(opts.overflow),
+        keel::as<keel::u8>(opts.style),
+        keel::as<keel::u8>(opts.orientation),
+        keel::as<keel::u8>(opts.overflow),
         node->cornerRadius,
         node->borderWidth,
         opts.background,
@@ -527,13 +527,13 @@ Response Toolbar::ToolButton(
         opts.width,
         opts.minWidth.value_or(0.0f),
         activeSize,
-        static_cast<keel::u8>(payload->btn.icon.GetType()),
-        static_cast<keel::u8>(payload->btn.icon.GetId()),
+        keel::as<keel::u8>(payload->btn.icon.GetType()),
+        keel::as<keel::u8>(payload->btn.icon.GetId()),
         payload->btn.icon.GetPath(),
         payload->origText,
         payload->badge
     );
-    node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         auto* p = const_cast<ToolButtonPayload*>(n->As<ToolButtonPayload>());
         if (p) {
             p->btn.square = p->origSquare;
@@ -578,12 +578,12 @@ SplitButtonResponse Toolbar::SplitButton(
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const Node* parent = ctx.GetCurrentContainer();
     const UiSize activeSize = opts.size.value_or((parent != nullptr) ? parent->uiSize : UiSize::Md);
-    const float chevW = 20.0f;
+    const keel::f32 chevW = 20.0f;
 
     const Rect prevUnclipped = ctx.GetPrevUnclippedBounds(id);
     const Rect prevClipped = ctx.GetPrevFrameBounds(id);
     const Rect prevRect = (prevUnclipped.w > 0.0f) ? prevUnclipped : prevClipped;
-    const float effChevW = (prevRect.w > chevW) ? chevW : (prevRect.w * 0.35f);
+    const keel::f32 effChevW = (prevRect.w > chevW) ? chevW : (prevRect.w * 0.35f);
     const Rect chevRect(prevRect.Right() - effChevW, prevRect.y, effChevW, prevRect.h);
 
     const Vec2 mouse = ctx.GetMousePos();
@@ -690,8 +690,8 @@ SplitButtonResponse Toolbar::SplitButton(
         opts.width,
         opts.minWidth.value_or(0.0f),
         activeSize,
-        static_cast<keel::u8>(payload->btn.icon.GetType()),
-        static_cast<keel::u8>(payload->btn.icon.GetId()),
+        keel::as<keel::u8>(payload->btn.icon.GetType()),
+        keel::as<keel::u8>(payload->btn.icon.GetId()),
         payload->btn.icon.GetPath(),
         payload->origText,
         payload->badge,
@@ -700,7 +700,7 @@ SplitButtonResponse Toolbar::SplitButton(
         payload->chevronPressed,
         payload->chevronOpen
     );
-    node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         auto* p = const_cast<ToolButtonPayload*>(n->As<ToolButtonPayload>());
         if (p) {
             p->btn.square = p->origSquare;
@@ -768,8 +768,8 @@ void Toolbar::Arrange(
 ) {
     if (!node) return;
 
-    float w = availableRect.w;
-    float h = (node->heightMode == SizeMode::Fixed) ? node->fixedHeight : availableRect.h;
+    keel::f32 w = availableRect.w;
+    keel::f32 h = (node->heightMode == SizeMode::Fixed) ? node->fixedHeight : availableRect.h;
     if (node->parent == nullptr && !node->isSpacer && node->widthMode == SizeMode::Fit) {
         w = node->intrinsicSize.x;
     }
@@ -777,9 +777,9 @@ void Toolbar::Arrange(
     node->computedRect = Rect(availableRect.x, availableRect.y, w, h);
     if (node->childCount == 0) return;
 
-    auto arrangeFittingRow = [&](float contentTotalW) {
-        float boxW = w;
-        float boxX = availableRect.x;
+    auto arrangeFittingRow = [&](keel::f32 contentTotalW) {
+        keel::f32 boxW = w;
+        keel::f32 boxX = availableRect.x;
         if (node->widthMode == SizeMode::Fit) {
             boxW = keel::min(w, contentTotalW + node->padding.Horizontal());
             if (node->parent != nullptr) {
@@ -796,10 +796,10 @@ void Toolbar::Arrange(
         }
         node->computedRect.x = boxX;
         node->computedRect.w = boxW;
-        const float sX = boxX + node->padding.left;
-        const float sY = node->computedRect.y + node->padding.top;
-        const float fW = keel::max(0.0f, boxW - node->padding.Horizontal());
-        const float fH = keel::max(0.0f, node->computedRect.h - node->padding.Vertical());
+        const keel::f32 sX = boxX + node->padding.left;
+        const keel::f32 sY = node->computedRect.y + node->padding.top;
+        const keel::f32 fW = keel::max(0.0f, boxW - node->padding.Horizontal());
+        const keel::f32 fH = keel::max(0.0f, node->computedRect.h - node->padding.Vertical());
 
         if (auto* cData = node->As<CarouselData>()) {
             cData->showLeftArrow = false;
@@ -813,8 +813,8 @@ void Toolbar::Arrange(
         }
         node->scrollOffset.x = 0.0f;
 
-        float nonFlexSum = 0.0f;
-        float totalFlexGrow = 0.0f;
+        keel::f32 nonFlexSum = 0.0f;
+        keel::f32 totalFlexGrow = 0.0f;
         keel::u32 flowCount = 0;
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
             if (child->IsOutOfFlow()) continue;
@@ -828,14 +828,14 @@ void Toolbar::Arrange(
             }
         }
 
-        const float totalGap = (flowCount > 1) ? static_cast<float>(flowCount - 1) * node->gap : 0.0f;
-        const float freeSpace = keel::max(0.0f, fW - totalGap - nonFlexSum);
+        const keel::f32 totalGap = (flowCount > 1) ? keel::as<keel::f32>(flowCount - 1) * node->gap : 0.0f;
+        const keel::f32 freeSpace = keel::max(0.0f, fW - totalGap - nonFlexSum);
         node->scrollContentSize = {nonFlexSum + totalGap, fH};
 
-        float curX = sX;
+        keel::f32 curX = sX;
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
             if (child->IsOutOfFlow()) continue;
-            float childW = 0.0f;
+            keel::f32 childW = 0.0f;
             if (child->isSpacer || child->widthMode == SizeMode::Stretch) {
                 childW = (totalFlexGrow > 0.0f)
                     ? (freeSpace * (keel::max(0.01f, child->flexGrow) / totalFlexGrow))
@@ -845,9 +845,9 @@ void Toolbar::Arrange(
             } else {
                 childW = child->intrinsicSize.x;
             }
-            const float childH = (child->heightMode == SizeMode::Fixed) ? child->fixedHeight :
+            const keel::f32 childH = (child->heightMode == SizeMode::Fixed) ? child->fixedHeight :
                                  (child->heightMode == SizeMode::Stretch ? fH : child->intrinsicSize.y);
-            float childY = sY;
+            keel::f32 childY = sY;
             if (node->align == Alignment::Center) {
                 childY += (fH - childH) * 0.5f;
             } else if (node->align == Alignment::End) {
@@ -859,8 +859,8 @@ void Toolbar::Arrange(
         }
     };
 
-    const float availContentW = keel::max(0.0f, w - node->padding.Horizontal());
-    float expandedTotalW = 0.0f;
+    const keel::f32 availContentW = keel::max(0.0f, w - node->padding.Horizontal());
+    keel::f32 expandedTotalW = 0.0f;
     keel::u32 flowCount = 0;
 
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
@@ -877,12 +877,12 @@ void Toolbar::Arrange(
         }
         ++flowCount;
         if (!child->isSpacer) {
-            const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
+            const keel::f32 cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
             expandedTotalW += cw;
         }
     }
     if (flowCount > 1) {
-        expandedTotalW += static_cast<float>(flowCount - 1) * node->gap;
+        expandedTotalW += keel::as<keel::f32>(flowCount - 1) * node->gap;
     }
 
     if (expandedTotalW <= availContentW + 0.5f) {
@@ -892,7 +892,7 @@ void Toolbar::Arrange(
 
     auto* cData = node->As<CarouselData>();
     if (cData && cData->autoCompact) {
-        float compactTotalW = 0.0f;
+        keel::f32 compactTotalW = 0.0f;
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
             if (child->IsOutOfFlow()) continue;
             if (child->type == NodeType::Button) {
@@ -908,12 +908,12 @@ void Toolbar::Arrange(
                 }
             }
             if (!child->isSpacer) {
-                const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
+                const keel::f32 cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
                 compactTotalW += cw;
             }
         }
         if (flowCount > 1) {
-            compactTotalW += static_cast<float>(flowCount - 1) * node->gap;
+            compactTotalW += keel::as<keel::f32>(flowCount - 1) * node->gap;
         }
 
         if (compactTotalW <= availContentW + 0.5f) {

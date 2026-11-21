@@ -19,14 +19,14 @@ struct TagData {
 };
 
 struct TagMetrics {
-    float fontSize{12.0f};
-    float height{24.0f};
-    float padX{8.0f};
-    float gap{5.0f};
-    float iconSize{12.0f};
-    float closeSize{10.0f};
-    float closeHitW{16.0f};
-    float radius{5.0f};
+    keel::f32 fontSize{12.0f};
+    keel::f32 height{24.0f};
+    keel::f32 padX{8.0f};
+    keel::f32 gap{5.0f};
+    keel::f32 iconSize{12.0f};
+    keel::f32 closeSize{10.0f};
+    keel::f32 closeHitW{16.0f};
+    keel::f32 radius{5.0f};
 };
 
 TagMetrics ComputeTagMetrics(UiSize size, const UiTheme& theme) noexcept {
@@ -83,7 +83,7 @@ TagMetrics ComputeTagMetrics(UiSize size, const UiTheme& theme) noexcept {
             m.radius = 6.0f;
             break;
         default: {
-            const float f = theme.SizeFactor(size);
+            const keel::f32 f = theme.SizeFactor(size);
             m.fontSize = keel::round(12.0f * f);
             m.height = keel::round(24.0f * f);
             m.padX = keel::round(8.0f * f);
@@ -99,8 +99,8 @@ TagMetrics ComputeTagMetrics(UiSize size, const UiTheme& theme) noexcept {
 }
 
 Rect ComputeCloseRect(const Rect& bounds, const TagMetrics& m) noexcept {
-    const float w = m.closeHitW;
-    const float h = keel::min(bounds.h, m.closeHitW + 2.0f);
+    const keel::f32 w = m.closeHitW;
+    const keel::f32 h = keel::min(bounds.h, m.closeHitW + 2.0f);
     return Rect(
         bounds.Right() - m.padX * 0.65f - w,
         bounds.y + (bounds.h - h) * 0.5f,
@@ -109,11 +109,11 @@ Rect ComputeCloseRect(const Rect& bounds, const TagMetrics& m) noexcept {
     );
 }
 
-Color ShadeLighten(Color c, float amount) noexcept {
+Color ShadeLighten(Color c, keel::f32 amount) noexcept {
     return Color::Lerp(c, Color(255, 255, 255, c.a), amount);
 }
 
-Color ShadeDarken(Color c, float amount) noexcept {
+Color ShadeDarken(Color c, keel::f32 amount) noexcept {
     return Color::Lerp(c, Color(0, 0, 0, c.a), amount);
 }
 
@@ -201,8 +201,8 @@ TagPalette ResolveTagPalette(
             }
         } else {
             // Soft
-            const float bgAlpha = isDark ? 0.18f : 0.12f;
-            const float borderAlpha = isDark ? 0.42f : 0.38f;
+            const keel::f32 bgAlpha = isDark ? 0.18f : 0.12f;
+            const keel::f32 borderAlpha = isDark ? 0.42f : 0.38f;
             out.bg = accent.WithAlphaF(bgAlpha);
             out.border = accent.WithAlphaF(borderAlpha);
             out.fg = isDark ? ShadeLighten(accent, 0.24f) : ShadeDarken(accent, 0.24f);
@@ -223,8 +223,8 @@ TagPalette ResolveTagPalette(
     }
 
     if (disabled) {
-        out.bg = out.bg.WithAlphaF(static_cast<float>(out.bg.a) / 255.0f * 0.55f);
-        out.border = out.border.WithAlphaF(static_cast<float>(out.border.a) / 255.0f * 0.50f);
+        out.bg = out.bg.WithAlphaF(keel::as<keel::f32>(out.bg.a) / 255.0f * 0.55f);
+        out.border = out.border.WithAlphaF(keel::as<keel::f32>(out.border.a) / 255.0f * 0.50f);
         out.fg = out.fg.WithAlphaF(0.45f);
     }
 
@@ -247,22 +247,22 @@ Vec2 Tag::Measure(
     const UiTheme& theme
 ) {
     const TagMetrics m = ComputeTagMetrics(size, theme);
-    const float fontSize = m.fontSize;
+    const keel::f32 fontSize = m.fontSize;
     const FontStyle style = ResolveTagFontStyle(opts);
-    const float textW = text.empty()
+    const keel::f32 textW = text.empty()
         ? 0.0f
         : (canvas != nullptr
             ? canvas->MeasureTextStyled(text.text, fontSize, style).x
             : TextUtil::MeasureUiTextWidth(text, fontSize, nullptr));
 
-    float w = m.padX * 2.0f + textW + 2.0f;
+    keel::f32 w = m.padX * 2.0f + textW + 2.0f;
     if (opts.icon.IsValid()) {
         w += m.iconSize + (textW > 0.0f ? m.gap : 0.0f);
     }
     if (opts.closable) {
         w += m.closeHitW + (textW > 0.0f || opts.icon.IsValid() ? m.gap * 0.5f : 0.0f);
     }
-    const float h = keel::max(m.height, fontSize + 10.0f);
+    const keel::f32 h = keel::max(m.height, fontSize + 10.0f);
     return Vec2(keel::ceil(w), keel::ceil(h));
 }
 
@@ -275,13 +275,13 @@ void Tag::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
 
     const TagOptions& opts = data->opts;
     const TagMetrics m = ComputeTagMetrics(node->uiSize, theme);
-    const float fontSize = m.fontSize;
-    const float radius = opts.border.radius.has_value()
+    const keel::f32 fontSize = m.fontSize;
+    const keel::f32 radius = opts.border.radius.has_value()
         ? *opts.border.radius
         : (opts.pill ? rect.h * 0.5f : m.radius);
 
     const TagPalette p = ResolveTagPalette(opts, data->hovered, data->pressed, node->disabled, theme);
-    const float borderW = (opts.style == TagStyle::Solid && !opts.border.color.HasAny())
+    const keel::f32 borderW = (opts.style == TagStyle::Solid && !opts.border.color.HasAny())
         ? 0.0f
         : keel::max(0.0f, opts.border.width);
 
@@ -293,8 +293,8 @@ void Tag::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
         borderW
     );
 
-    float curX = rect.x + m.padX;
-    float rightEdge = rect.Right() - m.padX;
+    keel::f32 curX = rect.x + m.padX;
+    keel::f32 rightEdge = rect.Right() - m.padX;
 
     if (opts.icon.IsValid()) {
         const Rect icRect(curX, rect.y + (rect.h - m.iconSize) * 0.5f, m.iconSize, m.iconSize);
@@ -321,7 +321,7 @@ void Tag::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
     }
 
     if (!data->text.empty()) {
-        const float textW = keel::max(4.0f, rightEdge - curX);
+        const keel::f32 textW = keel::max(4.0f, rightEdge - curX);
         const Rect textRect(curX, rect.y, textW, rect.h);
         const FontStyle style = ResolveTagFontStyle(opts);
         canvas.DrawTextBoxStyled(data->text.text, textRect, fontSize, p.fg, style, 0.0f, 0.5f);
@@ -422,7 +422,7 @@ TagResponse Tag::Run(
 
     node->text = data->text.text;
     node->SetPayload(data);
-    node->measureFn = [](const Node* n, float /*availW*/, ICanvas* canvas, const UiTheme& t) -> Vec2 {
+    node->measureFn = [](const Node* n, keel::f32 /*availW*/, ICanvas* canvas, const UiTheme& t) -> Vec2 {
         const auto* d = n->As<TagData>();
         if (!d) return Vec2(40.0f, 24.0f);
         return Tag::Measure(d->text, d->opts, n->uiSize, canvas, t);

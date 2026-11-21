@@ -9,8 +9,8 @@ namespace guikit {
 
 namespace {
 
-constexpr float kDefaultFallbackWidth = 240.0f;
-constexpr float kDefaultFallbackHeight = 140.0f;
+constexpr keel::f32 kDefaultFallbackWidth = 240.0f;
+constexpr keel::f32 kDefaultFallbackHeight = 140.0f;
 
 Vec2 ResolveNaturalImageSize(keel::StringRef source, ICanvas* canvas) noexcept {
     if (canvas && !source.empty()) {
@@ -43,13 +43,13 @@ ControlSpec EffectiveImageControl(const ImageOptions& opts, UiSize size, const U
 Vec2 ComputeControlBoxSize(
     Vec2 naturalSize,
     const ImageOptions& opts,
-    float availableWidth
+    keel::f32 availableWidth
 ) noexcept {
-    const float natW = keel::max(1.0f, naturalSize.x);
-    const float natH = keel::max(1.0f, naturalSize.y);
-    const float aspect = natW / natH;
+    const keel::f32 natW = keel::max(1.0f, naturalSize.x);
+    const keel::f32 natH = keel::max(1.0f, naturalSize.y);
+    const keel::f32 aspect = natW / natH;
 
-    float ctrlW = natW;
+    keel::f32 ctrlW = natW;
     if (opts.width.IsFixed()) {
         ctrlW = opts.width.Dp();
     } else if (opts.width.ResolveMode(SizeMode::Fit) == SizeMode::Stretch && availableWidth > 0.0f) {
@@ -59,7 +59,7 @@ Vec2 ComputeControlBoxSize(
         ctrlW = keel::min(ctrlW, availableWidth);
     }
 
-    float ctrlH = natH;
+    keel::f32 ctrlH = natH;
     if (opts.height.IsFixed()) {
         ctrlH = opts.height.Dp();
     } else if (opts.fit == ObjectFit::Original) {
@@ -124,9 +124,9 @@ Response Image::Run(
         optsCopy.color,
         optsCopy.background,
         optsCopy.border,
-        static_cast<keel::u8>(optsCopy.fit),
-        static_cast<keel::u8>(optsCopy.alignX),
-        static_cast<keel::u8>(optsCopy.alignY),
+        keel::as<keel::u8>(optsCopy.fit),
+        keel::as<keel::u8>(optsCopy.alignX),
+        keel::as<keel::u8>(optsCopy.alignY),
         optsCopy.width,
         optsCopy.height,
         optsCopy.minWidth.value_or(0.0f),
@@ -139,7 +139,7 @@ Response Image::Run(
         effectiveDisabled
     );
 
-    node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& th) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& th) noexcept -> Vec2 {
         const auto* p = n->As<ImagePayload>();
         if (!p) return {0.0f, 0.0f};
         if (canvas) {
@@ -182,7 +182,7 @@ Vec2 Image::Measure(
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme,
-    float availableWidth
+    keel::f32 availableWidth
 ) {
     const Vec2 naturalSize = ResolveNaturalImageSize(source, canvas);
     const Vec2 ctrlSize = ComputeControlBoxSize(naturalSize, opts, availableWidth);
@@ -195,7 +195,7 @@ Vec2 Image::Measure(
     const ImageOptions& opts,
     UiSize size,
     ICanvas* canvas,
-    float availableWidth
+    keel::f32 availableWidth
 ) {
     static const UiTheme defaultTheme = UiTheme::Dark();
     return Measure(source, opts, size, canvas, defaultTheme, availableWidth);
@@ -204,9 +204,9 @@ Vec2 Image::Measure(
 void Image::DrawCheckerboard(
     ICanvas& canvas,
     Rect rect,
-    float radius,
+    keel::f32 radius,
     const UiTheme& theme,
-    float cellSize
+    keel::f32 cellSize
 ) {
     if (rect.w <= 0.0f || rect.h <= 0.0f) return;
 
@@ -217,16 +217,16 @@ void Image::DrawCheckerboard(
     canvas.DrawRoundRect(rect, radius, c1);
     canvas.PushClip(rect.Inset(keel::max(1.0f, radius * 0.25f)));
 
-    const float step = keel::max(4.0f, cellSize);
+    const keel::f32 step = keel::max(4.0f, cellSize);
     const keel::i32 cols = keel::ceil_i32(rect.w / step);
     const keel::i32 rows = keel::ceil_i32(rect.h / step);
 
     for (keel::i32 r = 0; r < rows; ++r) {
         for (keel::i32 c = (r & 1); c < cols; c += 2) {
-            const float x = rect.x + static_cast<float>(c) * step;
-            const float y = rect.y + static_cast<float>(r) * step;
-            const float w = keel::min(step, rect.Right() - x);
-            const float h = keel::min(step, rect.Bottom() - y);
+            const keel::f32 x = rect.x + keel::as<keel::f32>(c) * step;
+            const keel::f32 y = rect.y + keel::as<keel::f32>(r) * step;
+            const keel::f32 w = keel::min(step, rect.Right() - x);
+            const keel::f32 h = keel::min(step, rect.Bottom() - y);
             if (w > 0.0f && h > 0.0f) {
                 canvas.DrawRect(Rect(x, y, w, h), c2);
             }
@@ -254,7 +254,7 @@ void Image::Render(
     const Rect box = bounds;
     if (box.w <= 0.0f || box.h <= 0.0f) return;
 
-    const float rad = opts.border.radius.has_value() ? *opts.border.radius : cm.cornerRadius;
+    const keel::f32 rad = opts.border.radius.has_value() ? *opts.border.radius : cm.cornerRadius;
     if (opts.checkerboard) {
         DrawCheckerboard(canvas, box, rad, theme);
     } else if (opts.background.IsBackgroundEnabled(false)) {
@@ -267,8 +267,8 @@ void Image::Render(
         canvas.DrawRoundRect(box, rad, bg);
     }
 
-    const float ax = (opts.alignX == Align::End) ? 1.0f : ((opts.alignX == Align::Center) ? 0.5f : 0.0f);
-    const float ay = (opts.alignY == Align::End) ? 1.0f : ((opts.alignY == Align::Center) ? 0.5f : 0.0f);
+    const keel::f32 ax = (opts.alignX == Align::End) ? 1.0f : ((opts.alignX == Align::Center) ? 0.5f : 0.0f);
+    const keel::f32 ay = (opts.alignY == Align::End) ? 1.0f : ((opts.alignY == Align::Center) ? 0.5f : 0.0f);
     const Vec2 scaledNat = naturalSize;
     const Rect fitted = ComputeBoxFit(opts.fit, scaledNat, box, ax, ay);
 
@@ -278,8 +278,8 @@ void Image::Render(
         canvas.PushClip(box);
     }
 
-    const keel::u8 effAlpha = disabled ? static_cast<keel::u8>(opts.opacity / 2) : opts.opacity;
-    const float imgRad = (keel::abs(fitted.w - box.w) < 1.5f && keel::abs(fitted.h - box.h) < 1.5f) ? rad : 0.0f;
+    const keel::u8 effAlpha = disabled ? keel::as<keel::u8>(opts.opacity / 2) : opts.opacity;
+    const keel::f32 imgRad = (keel::abs(fitted.w - box.w) < 1.5f && keel::abs(fitted.h - box.h) < 1.5f) ? rad : 0.0f;
     const bool drawn = canvas.DrawImage(source, fitted, imgRad, effAlpha);
 
     if (needsClip) {
@@ -297,7 +297,7 @@ void Image::Render(
         const Color border = theme.palette.borderSubtle;
         canvas.DrawRoundRect(box, rad, bg, disabled ? border.WithAlphaF(0.40f) : border, 1.0f);
 
-        const float fs = cm.companionFontSize;
+        const keel::f32 fs = cm.companionFontSize;
         keel::StringRef fallbackText = !opts.alt.empty() ? opts.alt.text : (!source.empty() ? source : keel::StringRef("Image Placeholder"));
         canvas.DrawTextBox(fallbackText, box.Inset(cm.paddingX), fs, disabled ? theme.palette.textDisabled : theme.palette.textMuted, 0.5f, 0.5f);
     }

@@ -19,17 +19,17 @@ struct ScrollState {
     Vec2 offset{0.0f, 0.0f};
     bool draggingY{false};
     bool draggingX{false};
-    float dragStartOffset{0.0f};
-    float dragStartOffsetX{0.0f};
+    keel::f32 dragStartOffset{0.0f};
+    keel::f32 dragStartOffsetX{0.0f};
     Vec2 dragStartMouse{0.0f, 0.0f};
-    float targetOffsetX{0.0f};
+    keel::f32 targetOffsetX{0.0f};
     bool animatingX{false};
-    double lastAnimTimeSec{0.0};
+    keel::f64 lastAnimTimeSec{0.0};
 };
 
 /// Internal layout payload for ScrollArea constraints.
 struct ScrollAreaLayoutData {
-    float maxHeight{0.0f};
+    keel::f32 maxHeight{0.0f};
 };
 
 /// Options for configuring a ScrollArea viewport.
@@ -38,11 +38,11 @@ struct ScrollAreaOptions {
     VisibilityPolicy scrollbar{VisibilityPolicy::Auto};
     Alignment align{Alignment::Stretch};            ///< Cross-axis alignment inside scroll content rect
     Justify justify{Justify::Start};                ///< Main-axis justification when content is smaller than viewport
-    keel::Optional<float> gap{keel::kNullOpt};        ///< Gap between consecutive scroll items (nullopt = zero)
+    keel::Optional<keel::f32> gap{keel::kNullOpt};        ///< Gap between consecutive scroll items (nullopt = zero)
     keel::Optional<Padding> padding{keel::kNullOpt};   ///< Viewport content padding (nullopt = zero)
     AxisSize width{SizeMode::Stretch};                ///< Horizontal sizing policy (`Stretch`, `Fit`, or fixed `dp`)
     AxisSize height{SizeMode::Stretch};               ///< Vertical sizing policy (`Stretch`, `Fit`, or fixed `dp`)
-    keel::Optional<float> maxHeight{keel::kNullOpt};   ///< Maximum viewport height in dp (shrink-wraps content up to maxHeight)
+    keel::Optional<keel::f32> maxHeight{keel::kNullOpt};   ///< Maximum viewport height in dp (shrink-wraps content up to maxHeight)
     StateColor background{};
     Border border{};
     UiSize size{UiSize::Md};                          ///< Scrollbar thickness/gutter size
@@ -79,14 +79,14 @@ public:
     static void RenderAxisScrollbar(
         ICanvas& canvas,
         Rect viewportRect,
-        float contentLength,
-        float scrollOffset,
+        keel::f32 contentLength,
+        keel::f32 scrollOffset,
         bool isHorizontal,
         bool hovered,
         bool active,
         UiSize size,
         const UiTheme& theme,
-        float cornerReserve = 0.0f
+        keel::f32 cornerReserve = 0.0f
     );
 
     /// Shared primitive: updates interaction (hover, thumb drag, track page jump) for a single scrollbar axis.
@@ -94,17 +94,17 @@ public:
         Context& ctx,
         Id ownerId,
         Rect viewportRect,
-        float contentLength,
-        float& ioScrollOffset,
+        keel::f32 contentLength,
+        keel::f32& ioScrollOffset,
         bool& ioDragging,
-        float& ioDragStartOffset,
+        keel::f32& ioDragStartOffset,
         Vec2& ioDragStartMouse,
         bool& outHovered,
         bool& outActive,
         bool isHorizontal,
         UiSize size,
         const UiTheme& theme,
-        float cornerReserve = 0.0f
+        keel::f32 cornerReserve = 0.0f
     );
 };
 

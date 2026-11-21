@@ -84,16 +84,16 @@ AccordionScope Accordion::Open(
         hData->opts.label,
         hData->opts.description,
         hData->opts.badge,
-        static_cast<keel::u8>(opts.chevronPlacement),
+        keel::as<keel::u8>(opts.chevronPlacement),
         opts.background,
         opts.border,
         isOpen,
         activeDisabled,
-        static_cast<keel::u8>(opts.icon.GetType()),
-        static_cast<keel::u8>(opts.icon.GetId()),
+        keel::as<keel::u8>(opts.icon.GetType()),
+        keel::as<keel::u8>(opts.icon.GetId()),
         hData->opts.icon.GetPath()
     );
-    headerNode->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* canvas, const UiTheme& th) noexcept -> Vec2 {
+    headerNode->measureFn = [](const Node* n, keel::f32 /*availableWidth*/, ICanvas* canvas, const UiTheme& th) noexcept -> Vec2 {
         const auto* d = n->As<AccordionHeaderData>();
         return Accordion::MeasureHeader(d ? d->opts : AccordionOptions{}, n->uiSize, canvas, th);
     };
@@ -116,7 +116,7 @@ AccordionScope Accordion::Open(
         Node* bodyNode = ctx.CreateNode(NodeType::Column, idBody);
         ctx.PopContainer(outerNode);
 
-        const float bodyDensity = bodyNode->GetDensity();
+        const keel::f32 bodyDensity = bodyNode->GetDensity();
         bodyNode->direction = FlexDirection::Column;
         bodyNode->widthMode = SizeMode::Stretch;
         bodyNode->heightMode = SizeMode::Fit;
@@ -143,16 +143,16 @@ Vec2 Accordion::MeasureHeader(
 ) noexcept {
     const ComponentMetrics& m = theme.GetMetrics(size);
 
-    const float titleFont = theme.ResolveFontSize(opts.label, TextRole::LabelLarge, size);
-    const float descFont = theme.ResolveFontSize(opts.description, TextRole::LabelSmall, size);
-    const float badgeFont = theme.ResolveFontSize(opts.badge, TextRole::LabelSmall, size);
-    const float padX = keel::max(8.0f, m.paddingX * 0.70f);
-    const float padY = keel::max(5.0f, m.paddingY * 0.75f);
-    const float itemGap = keel::max(6.0f, m.itemGap);
-    const float chevronSize = keel::max(11.0f, titleFont * 0.85f);
-    const float iconSize = keel::max(13.0f, titleFont);
+    const keel::f32 titleFont = theme.ResolveFontSize(opts.label, TextRole::LabelLarge, size);
+    const keel::f32 descFont = theme.ResolveFontSize(opts.description, TextRole::LabelSmall, size);
+    const keel::f32 badgeFont = theme.ResolveFontSize(opts.badge, TextRole::LabelSmall, size);
+    const keel::f32 padX = keel::max(8.0f, m.paddingX * 0.70f);
+    const keel::f32 padY = keel::max(5.0f, m.paddingY * 0.75f);
+    const keel::f32 itemGap = keel::max(6.0f, m.itemGap);
+    const keel::f32 chevronSize = keel::max(11.0f, titleFont * 0.85f);
+    const keel::f32 iconSize = keel::max(13.0f, titleFont);
 
-    float rowW = padX * 2.0f + chevronSize + itemGap;
+    keel::f32 rowW = padX * 2.0f + chevronSize + itemGap;
     if (opts.icon.IsValid()) {
         rowW += iconSize + itemGap;
     }
@@ -160,18 +160,18 @@ Vec2 Accordion::MeasureHeader(
         rowW += TextUtil::MeasureWidth(opts.label, titleFont, canvas);
     }
     if (opts.badge.HasContentOrReserve()) {
-        const float badgePadX = keel::max(5.0f, badgeFont * 0.45f);
+        const keel::f32 badgePadX = keel::max(5.0f, badgeFont * 0.45f);
         rowW += itemGap + TextUtil::MeasureWidth(opts.badge, badgeFont, canvas) + badgePadX * 2.0f;
     }
 
-    float titleRowH = keel::max(titleFont * 1.30f, chevronSize);
+    keel::f32 titleRowH = keel::max(titleFont * 1.30f, chevronSize);
     if (opts.icon.IsValid()) {
         titleRowH = keel::max(titleRowH, iconSize);
     }
 
-    float totalH = padY * 2.0f + titleRowH;
+    keel::f32 totalH = padY * 2.0f + titleRowH;
     if (opts.description.HasContentOrReserve()) {
-        const float descW = padX * 2.0f + chevronSize + itemGap + TextUtil::MeasureWidth(opts.description, descFont, canvas);
+        const keel::f32 descW = padX * 2.0f + chevronSize + itemGap + TextUtil::MeasureWidth(opts.description, descFont, canvas);
         rowW = keel::max(rowW, descW);
         totalH += m.lineGap + descFont * 1.25f;
     }
@@ -197,15 +197,15 @@ void Accordion::RenderHeader(
     const auto& pal = theme.palette;
     const ComponentMetrics& m = theme.GetMetrics(size);
 
-    const float titleFont = theme.ResolveFontSize(opts.label, TextRole::LabelLarge, size);
-    const float descFont = theme.ResolveFontSize(opts.description, TextRole::LabelSmall, size);
-    const float badgeFont = theme.ResolveFontSize(opts.badge, TextRole::LabelSmall, size);
-    const float padX = keel::max(8.0f, m.paddingX * 0.70f);
-    const float padY = keel::max(5.0f, m.paddingY * 0.75f);
-    const float itemGap = keel::max(6.0f, m.itemGap);
-    const float chevronSize = keel::max(11.0f, titleFont * 0.85f);
-    const float iconSize = keel::max(13.0f, titleFont);
-    const float radius = opts.border.radius.has_value()
+    const keel::f32 titleFont = theme.ResolveFontSize(opts.label, TextRole::LabelLarge, size);
+    const keel::f32 descFont = theme.ResolveFontSize(opts.description, TextRole::LabelSmall, size);
+    const keel::f32 badgeFont = theme.ResolveFontSize(opts.badge, TextRole::LabelSmall, size);
+    const keel::f32 padX = keel::max(8.0f, m.paddingX * 0.70f);
+    const keel::f32 padY = keel::max(5.0f, m.paddingY * 0.75f);
+    const keel::f32 itemGap = keel::max(6.0f, m.itemGap);
+    const keel::f32 chevronSize = keel::max(11.0f, titleFont * 0.85f);
+    const keel::f32 iconSize = keel::max(13.0f, titleFont);
+    const keel::f32 radius = opts.border.radius.has_value()
         ? *opts.border.radius
         : keel::max(4.0f, theme.GetRadius(size) * 0.75f);
 
@@ -241,7 +241,7 @@ void Accordion::RenderHeader(
         );
     }
 
-    const float strokeW = opts.border.HasStroke() ? opts.border.width : 0.0f;
+    const keel::f32 strokeW = opts.border.HasStroke() ? opts.border.width : 0.0f;
     Color borderCol = Color::Transparent();
     if (strokeW > 0.0f) {
         borderCol = opts.border.color.Resolve(
@@ -263,17 +263,17 @@ void Accordion::RenderHeader(
     const Color titleColor = theme.ResolveTextColor(opts.label, UiVariant::Default, disabled, hovered, pressed);
     const Color chevronColor = disabled ? pal.textDisabled : (hovered ? pal.textPrimary : pal.textSecondary);
 
-    float titleRowH = keel::max(titleFont * 1.30f, chevronSize);
+    keel::f32 titleRowH = keel::max(titleFont * 1.30f, chevronSize);
     if (opts.icon.IsValid()) {
         titleRowH = keel::max(titleRowH, iconSize);
     }
-    const float titleRowY = opts.description.empty()
+    const keel::f32 titleRowY = opts.description.empty()
         ? (bounds.y + (bounds.h - titleRowH) * 0.5f)
         : (bounds.y + padY);
-    const float titleCenterY = titleRowY + titleRowH * 0.5f;
+    const keel::f32 titleCenterY = titleRowY + titleRowH * 0.5f;
 
-    float leftX = bounds.x + padX;
-    float rightX = bounds.Right() - padX;
+    keel::f32 leftX = bounds.x + padX;
+    keel::f32 rightX = bounds.Right() - padX;
 
     const Icon chevronIcon = open ? Icon::ChevronDown() : Icon::ChevronRight();
     if (opts.chevronPlacement == Placement::Leading) {
@@ -304,10 +304,10 @@ void Accordion::RenderHeader(
 
     // 3. Optional trailing pill badge
     if (!opts.badge.empty() && rightX > leftX + 20.0f) {
-        const float badgePadX = keel::max(5.0f, badgeFont * 0.45f);
-        const float badgeTextW = TextUtil::MeasureWidth(opts.badge, badgeFont, &canvas);
-        const float badgeW = badgeTextW + badgePadX * 2.0f;
-        const float badgeH = keel::min(titleRowH, badgeFont + 5.0f);
+        const keel::f32 badgePadX = keel::max(5.0f, badgeFont * 0.45f);
+        const keel::f32 badgeTextW = TextUtil::MeasureWidth(opts.badge, badgeFont, &canvas);
+        const keel::f32 badgeW = badgeTextW + badgePadX * 2.0f;
+        const keel::f32 badgeH = keel::min(titleRowH, badgeFont + 5.0f);
         const Rect badgeRect{
             rightX - badgeW,
             titleCenterY - badgeH * 0.5f,
@@ -332,7 +332,7 @@ void Accordion::RenderHeader(
     }
 
     // 4. Title & optional subtitle
-    const float availTitleW = keel::max(0.0f, rightX - leftX);
+    const keel::f32 availTitleW = keel::max(0.0f, rightX - leftX);
     if (!opts.label.empty() && availTitleW > 1.0f) {
         canvas.DrawTextBox(
             opts.label.text,
@@ -346,8 +346,8 @@ void Accordion::RenderHeader(
 
     if (!opts.description.empty() && availTitleW > 1.0f) {
         const Color descColor = theme.ResolveTextColor(opts.description, UiVariant::Muted, disabled, hovered, pressed);
-        const float descH = descFont * 1.25f;
-        const float descY = titleRowY + titleRowH + m.lineGap;
+        const keel::f32 descH = descFont * 1.25f;
+        const keel::f32 descY = titleRowY + titleRowH + m.lineGap;
         canvas.DrawTextBox(
             opts.description.text,
             Rect{leftX, descY, keel::max(0.0f, bounds.Right() - padX - leftX), descH},

@@ -41,10 +41,10 @@ struct SelectOptions {
     UiSize size{UiSize::Md};                                   ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)
     AxisSize width{};                                          ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or explicit `dp`)
     AxisSize height{};                                         ///< Vertical sizing policy (`Auto` -> `Fit`, `Stretch`, or explicit `dp`)
-    keel::Optional<float> minWidth{keel::kNullOpt};            ///< Optional minimum width in logical dp
-    keel::Optional<float> maxWidth{keel::kNullOpt};            ///< Optional maximum width in logical dp
-    keel::Optional<float> minHeight{keel::kNullOpt};           ///< Optional minimum height in logical dp
-    keel::Optional<float> maxHeight{keel::kNullOpt};           ///< Optional maximum height in logical dp
+    keel::Optional<keel::f32> minWidth{keel::kNullOpt};            ///< Optional minimum width in logical dp
+    keel::Optional<keel::f32> maxWidth{keel::kNullOpt};            ///< Optional maximum width in logical dp
+    keel::Optional<keel::f32> minHeight{keel::kNullOpt};           ///< Optional minimum height in logical dp
+    keel::Optional<keel::f32> maxHeight{keel::kNullOpt};           ///< Optional maximum height in logical dp
     StateColor color{};                                        ///< Per-state semantic tint/accent color override
     StateColor background{};                                   ///< Optional background fill override (`{}` = theme default, `StateColor::None()` = transparent)
     Border border{};                                           ///< Optional border width, color, and radius override
@@ -67,9 +67,9 @@ struct SelectData {
     keel::usize cursor{0};
     keel::usize selStart{0};
     keel::usize selEnd{0};
-    float scrollX{0.0f};
-    float cursorWidth{1.5f};
-    float naturalWidth{0.0f};
+    keel::f32 scrollX{0.0f};
+    keel::f32 cursorWidth{1.5f};
+    keel::f32 naturalWidth{0.0f};
     bool isEditing{false};
     bool cursorVisible{false};
     bool showClearBtn{false};
@@ -132,13 +132,13 @@ public:
         UiSize size,
         ICanvas* canvas,
         const UiTheme& theme,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     );
     static Vec2 Measure(
         const SelectOptions& opts,
         UiSize size,
         ICanvas* canvas = nullptr,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     );
 
     /// Computes the exact bounding box for the closed select field within overall bounds.
@@ -165,10 +165,10 @@ public:
         bool isEditing = false,
         keel::usize cursor = 0,
         bool cursorVisible = false,
-        float cursorWidth = 1.5f,
+        keel::f32 cursorWidth = 1.5f,
         keel::usize selStart = 0,
         keel::usize selEnd = 0,
-        float scrollX = 0.0f,
+        keel::f32 scrollX = 0.0f,
         bool showClearBtn = false,
         bool clearHovered = false,
         bool chevronHovered = false
@@ -184,7 +184,7 @@ public:
         const SelectOptions& opts,
         UiSize size,
         const UiTheme& theme = UiTheme::Dark(),
-        float scrollY = 0.0f,
+        keel::f32 scrollY = 0.0f,
         bool scrollbarHovered = false,
         bool scrollbarActive = false,
         keel::StringRef highlightQuery = {}
@@ -200,7 +200,7 @@ public:
         const SelectOptions& opts,
         UiSize size,
         const UiTheme& theme = UiTheme::Dark(),
-        float scrollY = 0.0f,
+        keel::f32 scrollY = 0.0f,
         bool scrollbarHovered = false,
         bool scrollbarActive = false,
         keel::StringRef highlightQuery = {}

@@ -38,7 +38,7 @@ struct HeadingOptions {
 /// Standalone section heading leaf widget with `HeadingMetrics` typography (`H1`–`H6`, default `H3`) and built-in dividers.
 class Heading {
 public:
-    [[nodiscard]] static float ComputeBottomSeparatorSpace(
+    [[nodiscard]] static keel::f32 ComputeBottomSeparatorSpace(
         const HeadingOptions& opts,
         const UiTheme& theme
     ) noexcept;
@@ -53,12 +53,12 @@ public:
         const HeadingOptions& opts,
         ICanvas* canvas,
         const UiTheme& theme,
-        float availableWidth = 0.0f
+        keel::f32 availableWidth = 0.0f
     ) noexcept;
 
     static Vec2 Measure(
         const HeadingOptions& opts,
-        float availableWidth,
+        keel::f32 availableWidth,
         ICanvas* canvas,
         const UiTheme& theme
     ) noexcept {
@@ -67,15 +67,15 @@ public:
 
     static Vec2 Measure(
         const HeadingOptions& opts,
-        float availableWidth = 0.0f,
+        keel::f32 availableWidth = 0.0f,
         ICanvas* canvas = nullptr
     ) noexcept {
         return Measure(opts, canvas, UiTheme::Dark(), availableWidth);
     }
 
-    static float ResolveHeight(
+    static keel::f32 ResolveHeight(
         const HeadingOptions& opts,
-        float availableWidth,
+        keel::f32 availableWidth,
         ICanvas* canvas,
         const UiTheme& theme
     ) noexcept {

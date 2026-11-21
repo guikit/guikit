@@ -28,8 +28,8 @@ struct PrevMenuPanel {
     Id panelId{Id::Null()};
     Rect popupRect{};
     Rect contentRect{};
-    float scrollY{0.0f};
-    float maxScrollY{0.0f};
+    keel::f32 scrollY{0.0f};
+    keel::f32 maxScrollY{0.0f};
     keel::Array<PrevMenuItemHit> items{};
 };
 
@@ -44,29 +44,29 @@ struct MenuTreePersistState {
     // Highlighted item per depth level (tracks keyboard focus & active parent submenu row)
     keel::SmallArray<Id, kMaxMenuDepth> highlightPath{};
     // Scroll offsets preserved per panel depth
-    keel::SmallArray<float, kMaxMenuDepth> scrollYByDepth{};
+    keel::SmallArray<keel::f32, kMaxMenuDepth> scrollYByDepth{};
     // Layout snapshot from the previous frame for zero-lag hit testing & keyboard nav
     keel::SmallArray<PrevMenuPanel, kMaxMenuDepth> prevPanels{};
 
     // Hover-intent safe-triangle state
     Vec2 lastMousePos{-1e6f, -1e6f};
     Vec2 submenuSafeOrigin{-1e6f, -1e6f};
-    double submenuGraceUntilSec{0.0};
+    keel::f64 submenuGraceUntilSec{0.0};
     keel::u32 submenuGraceDepth{0};
     bool pendingFocusDeepest{false};
 };
 
 char ToLowerAscii(char c) noexcept {
-    return (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c;
+    return (c >= 'A' && c <= 'Z') ? keel::as<char>(c - 'A' + 'a') : c;
 }
 
 bool PointInTriangle(Vec2 p, Vec2 a, Vec2 b, Vec2 c) noexcept {
-    auto sign = [](Vec2 p1, Vec2 p2, Vec2 p3) noexcept -> float {
+    auto sign = [](Vec2 p1, Vec2 p2, Vec2 p3) noexcept -> keel::f32 {
         return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
     };
-    const float d1 = sign(p, a, b);
-    const float d2 = sign(p, b, c);
-    const float d3 = sign(p, c, a);
+    const keel::f32 d1 = sign(p, a, b);
+    const keel::f32 d2 = sign(p, b, c);
+    const keel::f32 d3 = sign(p, c, a);
     const bool hasNeg = (d1 < 0.0f) || (d2 < 0.0f) || (d3 < 0.0f);
     const bool hasPos = (d1 > 0.0f) || (d2 > 0.0f) || (d3 > 0.0f);
     return !(hasNeg && hasPos);
@@ -149,7 +149,7 @@ void ResetPersistState(MenuTreePersistState& st) noexcept {
 keel::i32 FindPrevItemIndex(const PrevMenuPanel& p, Id itemId) noexcept {
     for (keel::usize i = 0; i < p.items.size(); ++i) {
         if (p.items[i].id == itemId) {
-            return static_cast<keel::i32>(i);
+            return keel::as<keel::i32>(i);
         }
     }
     return -1;
@@ -158,7 +158,7 @@ keel::i32 FindPrevItemIndex(const PrevMenuPanel& p, Id itemId) noexcept {
 keel::i32 FindFirstSelectable(const PrevMenuPanel& p) noexcept {
     for (keel::usize i = 0; i < p.items.size(); ++i) {
         if (!p.items[i].nonSelectable && !p.items[i].disabled) {
-            return static_cast<keel::i32>(i);
+            return keel::as<keel::i32>(i);
         }
     }
     return -1;
@@ -167,21 +167,21 @@ keel::i32 FindFirstSelectable(const PrevMenuPanel& p) noexcept {
 keel::i32 FindLastSelectable(const PrevMenuPanel& p) noexcept {
     for (keel::usize i = p.items.size(); i > 0; --i) {
         if (!p.items[i - 1].nonSelectable && !p.items[i - 1].disabled) {
-            return static_cast<keel::i32>(i - 1);
+            return keel::as<keel::i32>(i - 1);
         }
     }
     return -1;
 }
 
 keel::i32 StepSelectable(const PrevMenuPanel& p, Id currentId, keel::i32 dir) noexcept {
-    const keel::i32 n = static_cast<keel::i32>(p.items.size());
+    const keel::i32 n = keel::as<keel::i32>(p.items.size());
     if (n <= 0) return -1;
     keel::i32 cur = FindPrevItemIndex(p, currentId);
     for (keel::i32 step = 0; step < n; ++step) {
         cur = (cur < 0)
             ? (dir > 0 ? 0 : n - 1)
             : ((cur + dir + n) % n);
-        const auto& it = p.items[static_cast<keel::usize>(cur)];
+        const auto& it = p.items[keel::as<keel::usize>(cur)];
         if (!it.nonSelectable && !it.disabled) {
             return cur;
         }
@@ -195,8 +195,8 @@ void EnsureHighlightVisible(MenuTreePersistState& persist, keel::usize depth, co
     }
     const keel::i32 idx = FindPrevItemIndex(panel, targetId);
     if (idx < 0) return;
-    const Rect& ir = panel.items[static_cast<keel::usize>(idx)].rect;
-    float& scrollY = persist.scrollYByDepth[depth];
+    const Rect& ir = panel.items[keel::as<keel::usize>(idx)].rect;
+    keel::f32& scrollY = persist.scrollYByDepth[depth];
     if (ir.y < panel.contentRect.y) {
         scrollY = keel::max(0.0f, scrollY - (panel.contentRect.y - ir.y));
     } else if (ir.Bottom() > panel.contentRect.Bottom()) {
@@ -244,25 +244,25 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
     const UiTheme theme = ctx.GetTheme();
     ICanvas* canvas = ctx.GetCanvas();
     const UiSize activeSize = opts.size;
-    constexpr float s = 1.0f;
+    constexpr keel::f32 s = 1.0f;
     const ComponentMetrics& cm = theme.GetMetrics(activeSize);
-    const float rowH = keel::round(keel::max(30.0f * s, cm.defaultHeight * 0.88f));
-    const float sectionH = keel::round(24.0f * s);
-    const float sepH = keel::round(9.0f * s);
-    const float padX = keel::round(12.0f * s);
-    const float padY = keel::round(6.0f * s);
-    const float icSz = cm.iconSize;
-    const float iconSlotW = keel::round(icSz + 8.0f * s);
-    const float submenuSlotW = keel::round(icSz + 6.0f * s);
-    const float shortcutGap = keel::round(24.0f * s);
-    const float scrollbarW = 6.0f * s;
-    const float labelFont = theme.ResolveFontSize(UiText{}, TextRole::LabelLarge, activeSize);
-    const float shortcutFont = theme.ResolveFontSize(UiText{}, TextRole::LabelMedium, activeSize);
-    const float sectionFont = theme.ResolveFontSize(UiText{}, TextRole::LabelSmall, activeSize);
-    const float titleFont = theme.ResolveFontSize(opts.title, TextRole::LabelMedium, activeSize);
+    const keel::f32 rowH = keel::round(keel::max(30.0f * s, cm.defaultHeight * 0.88f));
+    const keel::f32 sectionH = keel::round(24.0f * s);
+    const keel::f32 sepH = keel::round(9.0f * s);
+    const keel::f32 padX = keel::round(12.0f * s);
+    const keel::f32 padY = keel::round(6.0f * s);
+    const keel::f32 icSz = cm.iconSize;
+    const keel::f32 iconSlotW = keel::round(icSz + 8.0f * s);
+    const keel::f32 submenuSlotW = keel::round(icSz + 6.0f * s);
+    const keel::f32 shortcutGap = keel::round(24.0f * s);
+    const keel::f32 scrollbarW = 6.0f * s;
+    const keel::f32 labelFont = theme.ResolveFontSize(UiText{}, TextRole::LabelLarge, activeSize);
+    const keel::f32 shortcutFont = theme.ResolveFontSize(UiText{}, TextRole::LabelMedium, activeSize);
+    const keel::f32 sectionFont = theme.ResolveFontSize(UiText{}, TextRole::LabelSmall, activeSize);
+    const keel::f32 titleFont = theme.ResolveFontSize(opts.title, TextRole::LabelMedium, activeSize);
 
     const Rect vp = ctx.GetPopupViewportRect();
-    const float maxAllowedH = opts.maxHeight.has_value()
+    const keel::f32 maxAllowedH = opts.maxHeight.has_value()
         ? keel::max(80.0f, *opts.maxHeight)
         : (vp.h > 60.0f ? keel::max(120.0f, vp.h - 16.0f) : 600.0f);
 
@@ -288,11 +288,11 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
         Rect popupRect{};
         Rect contentRect{};
         keel::StringRef title{};
-        float titleH{0.0f};
-        float titleSepY{0.0f};
-        float scrollY{0.0f};
-        float maxScrollY{0.0f};
-        float contentTotalH{0.0f};
+        keel::f32 titleH{0.0f};
+        keel::f32 titleSepY{0.0f};
+        keel::f32 scrollY{0.0f};
+        keel::f32 maxScrollY{0.0f};
+        keel::f32 contentTotalH{0.0f};
         bool anyLeadingSlot{false};
         bool anyTrailingCheck{false};
         bool anySubMenu{false};
@@ -337,8 +337,8 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
     for (keel::usize pIdx = 0; pIdx < sess.panels.size(); ++pIdx) {
         const RecordedMenuPanel& rec = sess.panels[pIdx];
         const bool hasTitle = !rec.title.empty();
-        const float titleH = hasTitle ? keel::round(keel::max(26.0f * s, titleFont + 14.0f * s)) : 0.0f;
-        const float titleSepH = hasTitle ? keel::round(7.0f * s) : 0.0f;
+        const keel::f32 titleH = hasTitle ? keel::round(keel::max(26.0f * s, titleFont + 14.0f * s)) : 0.0f;
+        const keel::f32 titleSepH = hasTitle ? keel::round(7.0f * s) : 0.0f;
 
         bool anyLeadingSlot = false;
         bool anyTrailingCheck = false;
@@ -356,8 +356,8 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
             }
         }
 
-        float maxContentW = hasTitle ? TextUtil::MeasureUiTextWidth(UiText(rec.title), titleFont, canvas) : 0.0f;
-        float itemsTotalH = 0.0f;
+        keel::f32 maxContentW = hasTitle ? TextUtil::MeasureUiTextWidth(UiText(rec.title), titleFont, canvas) : 0.0f;
+        keel::f32 itemsTotalH = 0.0f;
         for (const auto& it : rec.items) {
             if (it.isSeparator) {
                 itemsTotalH += sepH;
@@ -365,26 +365,26 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
             }
             if (it.isSection) {
                 itemsTotalH += sectionH;
-                const float sw = TextUtil::MeasureUiTextWidth(UiText(it.label), sectionFont, canvas);
+                const keel::f32 sw = TextUtil::MeasureUiTextWidth(UiText(it.label), sectionFont, canvas);
                 maxContentW = keel::max(maxContentW, sw);
                 continue;
             }
             itemsTotalH += rowH;
-            const float lw = TextUtil::MeasureUiTextWidth(UiText(it.label), labelFont, canvas);
-            const float sw = it.shortcut.empty()
+            const keel::f32 lw = TextUtil::MeasureUiTextWidth(UiText(it.label), labelFont, canvas);
+            const keel::f32 sw = it.shortcut.empty()
                 ? 0.0f
                 : (shortcutGap + TextUtil::MeasureUiTextWidth(UiText(it.shortcut), shortcutFont, canvas));
-            const float leadW = anyLeadingSlot ? iconSlotW : 0.0f;
-            const float trailW = (anyTrailingCheck ? iconSlotW : 0.0f) + (anySubMenu ? submenuSlotW : 0.0f);
+            const keel::f32 leadW = anyLeadingSlot ? iconSlotW : 0.0f;
+            const keel::f32 trailW = (anyTrailingCheck ? iconSlotW : 0.0f) + (anySubMenu ? submenuSlotW : 0.0f);
             maxContentW = keel::max(maxContentW, leadW + lw + sw + trailW);
         }
 
-        const float headerBlockH = titleH + titleSepH;
-        const float naturalH = padY * 2.0f + headerBlockH + keel::max(rowH, itemsTotalH);
+        const keel::f32 headerBlockH = titleH + titleSepH;
+        const keel::f32 naturalH = padY * 2.0f + headerBlockH + keel::max(rowH, itemsTotalH);
         const bool needsScroll = (naturalH > maxAllowedH + 0.5f);
-        const float menuH = needsScroll ? keel::round(maxAllowedH) : keel::round(naturalH);
+        const keel::f32 menuH = needsScroll ? keel::round(maxAllowedH) : keel::round(naturalH);
 
-        float menuW = maxContentW + padX * 2.0f + 8.0f * s + (needsScroll ? scrollbarW : 0.0f);
+        keel::f32 menuW = maxContentW + padX * 2.0f + 8.0f * s + (needsScroll ? scrollbarW : 0.0f);
         if (pIdx == 0) {
             if (opts.minWidth.has_value()) {
                 menuW = keel::max(menuW, *opts.minWidth);
@@ -398,8 +398,8 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
         menuW = keel::round(menuW);
 
         // Compute anchored position with auto-flip
-        float px = 0.0f;
-        float py = 0.0f;
+        keel::f32 px = 0.0f;
+        keel::f32 py = 0.0f;
         if (pIdx == 0) {
             px = persist.rootAnchorPos.x;
             py = persist.rootAnchorPos.y;
@@ -423,10 +423,10 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
                 ? panelItemRects[rec.parentPanelIdx][rec.parentItemIdx]
                 : parentPopup;
             // Open to the right of parent menu with a clean 4dp breathing gap; flip to left if clipped
-            constexpr float kSubmenuGap = 4.0f;
+            constexpr keel::f32 kSubmenuGap = 4.0f;
             px = parentPopup.Right() + kSubmenuGap * s;
             if (vp.w > 0.0f && px + menuW > vp.Right() - 6.0f) {
-                const float flippedX = parentPopup.x - menuW - kSubmenuGap * s;
+                const keel::f32 flippedX = parentPopup.x - menuW - kSubmenuGap * s;
                 if (flippedX >= vp.x + 6.0f || (parentPopup.x - vp.x) > (vp.Right() - parentPopup.Right())) {
                     px = flippedX;
                 }
@@ -451,8 +451,8 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
             popupRect.w - (needsScroll ? scrollbarW : 0.0f),
             keel::max(10.0f, popupRect.h - padY * 2.0f - headerBlockH)
         );
-        const float maxScrollY = keel::max(0.0f, itemsTotalH - contentRect.h);
-        float& scrollY = persist.scrollYByDepth[pIdx];
+        const keel::f32 maxScrollY = keel::max(0.0f, itemsTotalH - contentRect.h);
+        keel::f32& scrollY = persist.scrollYByDepth[pIdx];
         scrollY = keel::clamp(scrollY, 0.0f, maxScrollY);
 
         const Id activeHighlightId = (pIdx < persist.highlightPath.size()) ? persist.highlightPath[pIdx] : Id::Null();
@@ -470,7 +470,7 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
         prevSnap.maxScrollY = maxScrollY;
         prevSnap.items.reserve(rec.items.size());
 
-        float curY = contentRect.y - scrollY;
+        keel::f32 curY = contentRect.y - scrollY;
         for (keel::usize i = 0; i < rec.items.size(); ++i) {
             const auto& src = rec.items[i];
             Rect r{};
@@ -516,7 +516,7 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
             hit.disabled = src.disabled;
             hit.nonSelectable = src.isSeparator || src.isSection;
             hit.keepOpen = src.keepOpen;
-            hit.flatIndex = static_cast<keel::i32>(i);
+            hit.flatIndex = keel::as<keel::i32>(i);
             prevSnap.items.push_back(keel::move(hit));
         }
 
@@ -546,8 +546,8 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
         const Rect& childR = computedPanels[pIdx].popupRect;
         ctx.AddOpenPopupRect(childR);
         const Rect& parentR = computedPanels[sess.panels[pIdx].parentPanelIdx].popupRect;
-        const float topY = keel::max(parentR.y, childR.y);
-        const float botY = keel::min(parentR.Bottom(), childR.Bottom());
+        const keel::f32 topY = keel::max(parentR.y, childR.y);
+        const keel::f32 botY = keel::min(parentR.Bottom(), childR.Bottom());
         if (botY > topY) {
             if (childR.x > parentR.Right()) {
                 ctx.AddOpenPopupRect(Rect(parentR.Right(), topY, childR.x - parentR.Right(), botY - topY));
@@ -571,7 +571,7 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
     }
     const keel::ArrayRef<DrawPanel> drawPanels(arenaPanels, computedPanels.size());
 
-    const float radius = opts.border.radius.has_value()
+    const keel::f32 radius = opts.border.radius.has_value()
         ? *opts.border.radius
         : theme.ResolveRadius(keel::kNullOpt, activeSize);
 
@@ -588,7 +588,7 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
                     ? defaultSurfaceBg.ScaleAlpha(opts.background.alphaScale)
                     : theme.ResolveColor(opts.background, false, false, false, defaultSurfaceBg)))
             : Color::Transparent();
-        const float borderW = (opts.border.width > 0.0f) ? opts.border.width : 0.0f;
+        const keel::f32 borderW = (opts.border.width > 0.0f) ? opts.border.width : 0.0f;
         const Color borderCol = (borderW > 0.0f)
             ? theme.ResolveColor(opts.border.color, false, false, false, pal.borderHover)
             : Color::Transparent();
@@ -654,7 +654,7 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
                     mutedFg = mutedFg.WithAlphaF(0.4f);
                 }
 
-                float textX = it.rect.x + padX - 2.0f * s;
+                keel::f32 textX = it.rect.x + padX - 2.0f * s;
                 if (panel.anyLeadingSlot) {
                     const Rect icRect(
                         textX + (iconSlotW - icSz) * 0.5f - 2.0f * s,
@@ -668,7 +668,7 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
                     } else if (it.checked) {
                         const Color markCol = isDanger ? dangerCol : pal.accent;
                         if (it.isRadio) {
-                            const float dotD = keel::max(6.0f, icSz * 0.46f);
+                            const keel::f32 dotD = keel::max(6.0f, icSz * 0.46f);
                             const Rect dotRect(
                                 icRect.x + (icRect.w - dotD) * 0.5f,
                                 icRect.y + (icRect.h - dotD) * 0.5f,
@@ -683,10 +683,10 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
                     textX += iconSlotW;
                 }
 
-                float rightPad = it.rect.Right() - padX + 2.0f * s;
+                keel::f32 rightPad = it.rect.Right() - padX + 2.0f * s;
                 if (panel.anySubMenu) {
                     if (it.isSubMenu) {
-                        const float chevSz = keel::max(10.0f, icSz * 0.80f);
+                        const keel::f32 chevSz = keel::max(10.0f, icSz * 0.80f);
                         const Rect chevRect(
                             rightPad - chevSz,
                             it.rect.y + (it.rect.h - chevSz) * 0.5f,
@@ -707,7 +707,7 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
                         );
                         const Color markCol = isDanger ? dangerCol : pal.accent;
                         if (it.isRadio) {
-                            const float dotD = keel::max(6.0f, icSz * 0.46f);
+                            const keel::f32 dotD = keel::max(6.0f, icSz * 0.46f);
                             c.DrawRoundRect(
                                 Rect(chkRect.x + (chkRect.w - dotD) * 0.5f, chkRect.y + (chkRect.h - dotD) * 0.5f, dotD, dotD),
                                 dotD * 0.5f,
@@ -720,9 +720,9 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
                     rightPad -= iconSlotW;
                 }
 
-                float availW = keel::max(10.0f, rightPad - textX);
+                keel::f32 availW = keel::max(10.0f, rightPad - textX);
                 if (!it.shortcut.empty()) {
-                    const float sw = c.MeasureText(it.shortcut, shortcutFont).x;
+                    const keel::f32 sw = c.MeasureText(it.shortcut, shortcutFont).x;
                     c.DrawTextBox(
                         it.shortcut,
                         Rect(rightPad - sw - 2.0f * s, it.rect.y, sw + 4.0f * s, it.rect.h),
@@ -747,10 +747,10 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
 
             // Subtle scrollbar thumb when menu overflows max height
             if (panel.maxScrollY > 0.5f && panel.contentTotalH > 0.0f) {
-                const float trackH = keel::max(16.0f, panel.contentRect.h - 4.0f);
-                const float thumbH = keel::clamp(trackH * (panel.contentRect.h / panel.contentTotalH), 18.0f, trackH);
-                const float ratio = panel.scrollY / panel.maxScrollY;
-                const float thumbY = panel.contentRect.y + 2.0f + ratio * (trackH - thumbH);
+                const keel::f32 trackH = keel::max(16.0f, panel.contentRect.h - 4.0f);
+                const keel::f32 thumbH = keel::clamp(trackH * (panel.contentRect.h / panel.contentTotalH), 18.0f, trackH);
+                const keel::f32 ratio = panel.scrollY / panel.maxScrollY;
+                const keel::f32 thumbY = panel.contentRect.y + 2.0f + ratio * (trackH - thumbH);
                 const Rect thumbRect(pr.Right() - 5.5f * s, thumbY, 3.5f * s, thumbH);
                 c.DrawRoundRect(thumbRect, 1.75f * s, pal.textMuted.WithAlphaF(0.45f));
             }
@@ -859,7 +859,7 @@ MenuScope MenuScope::SubMenu(UiText label, const MenuItemOptions& opts, keel::So
     auto& parentPanel = m_session->panels[m_panelIdx];
     const keel::u32 ordinal = m_session->itemOrdinals[m_panelIdx]++;
     const Id subId = MakeMenuItemId(parentPanel.panelId, ordinal, label.text);
-    const keel::u32 parentItemIdx = static_cast<keel::u32>(parentPanel.items.size());
+    const keel::u32 parentItemIdx = keel::as<keel::u32>(parentPanel.items.size());
 
     RecordedMenuItem rec{};
     rec.id = subId;
@@ -880,7 +880,7 @@ MenuScope MenuScope::SubMenu(UiText label, const MenuItemOptions& opts, keel::So
         m_session->persist->openPath[childDepth] == subId &&
         m_session->panels.size() < kMaxMenuDepth) {
         expanded = true;
-        childPanelIdx = static_cast<keel::u32>(m_session->panels.size());
+        childPanelIdx = keel::as<keel::u32>(m_session->panels.size());
         rec.childPanelIdx = childPanelIdx;
     }
 
@@ -983,7 +983,7 @@ MenuScope ContextMenu::OpenWithId(
     }
 
     const Vec2 mouse = ctx.GetMousePos();
-    const double nowSec = ctx.GetCurrentTime();
+    const keel::f64 nowSec = ctx.GetCurrentTime();
     bool callerMovedAnchor = false;
 
     if (!wasPopupOpen) {
@@ -1044,7 +1044,7 @@ MenuScope ContextMenu::OpenWithId(
     if (opts.autoFocusFirst && !persist.prevPanels.empty() && !persist.highlightPath[0].IsValid()) {
         const keel::i32 first = FindFirstSelectable(persist.prevPanels[0]);
         if (first >= 0) {
-            persist.highlightPath[0] = persist.prevPanels[0].items[static_cast<keel::usize>(first)].id;
+            persist.highlightPath[0] = persist.prevPanels[0].items[keel::as<keel::usize>(first)].id;
         }
     }
     if (persist.pendingFocusDeepest && !persist.prevPanels.empty()) {
@@ -1052,7 +1052,7 @@ MenuScope ContextMenu::OpenWithId(
         if (deepest < persist.highlightPath.size() && !persist.highlightPath[deepest].IsValid()) {
             const keel::i32 first = FindFirstSelectable(persist.prevPanels[deepest]);
             if (first >= 0) {
-                persist.highlightPath[deepest] = persist.prevPanels[deepest].items[static_cast<keel::usize>(first)].id;
+                persist.highlightPath[deepest] = persist.prevPanels[deepest].items[keel::as<keel::usize>(first)].id;
             }
         }
         persist.pendingFocusDeepest = false;
@@ -1072,12 +1072,12 @@ MenuScope ContextMenu::OpenWithId(
             const keel::usize depth = d - 1;
             const auto& panel = persist.prevPanels[depth];
             if (panel.popupRect.Contains(mouse)) {
-                hoveredPanelDepth = static_cast<keel::i32>(depth);
+                hoveredPanelDepth = keel::as<keel::i32>(depth);
                 if (HalfOpenContains(panel.contentRect, mouse)) {
                     for (keel::usize i = 0; i < panel.items.size(); ++i) {
                         const auto& it = panel.items[i];
                         if (!it.nonSelectable && !it.disabled && HalfOpenContains(it.rect, mouse)) {
-                            hoveredItemIdx = static_cast<keel::i32>(i);
+                            hoveredItemIdx = keel::as<keel::i32>(i);
                             break;
                         }
                     }
@@ -1088,7 +1088,7 @@ MenuScope ContextMenu::OpenWithId(
 
         // 2. Mouse wheel scrolling inside hovered panel
         if (hoveredPanelDepth >= 0) {
-            const keel::usize d = static_cast<keel::usize>(hoveredPanelDepth);
+            const keel::usize d = keel::as<keel::usize>(hoveredPanelDepth);
             const Vec2 wheel = ctx.GetMouseWheel();
             if (wheel.y != 0.0f && d < persist.prevPanels.size() && persist.prevPanels[d].maxScrollY > 0.5f) {
                 if (d < persist.scrollYByDepth.size()) {
@@ -1106,15 +1106,15 @@ MenuScope ContextMenu::OpenWithId(
         // 3. Pointer hover & cascading submenu expansion (with safe-triangle intent grace)
         const bool mouseMoved = (mouse != persist.lastMousePos);
         if (hoveredPanelDepth >= 0 && hoveredItemIdx >= 0) {
-            const keel::usize d = static_cast<keel::usize>(hoveredPanelDepth);
-            const auto& hitItem = persist.prevPanels[d].items[static_cast<keel::usize>(hoveredItemIdx)];
+            const keel::usize d = keel::as<keel::usize>(hoveredPanelDepth);
+            const auto& hitItem = persist.prevPanels[d].items[keel::as<keel::usize>(hoveredItemIdx)];
 
             bool blockedBySafeTriangle = false;
             if (d + 1 < persist.prevPanels.size() && d + 1 < persist.openPath.size() &&
                 hitItem.id != persist.openPath[d + 1] && mouseMoved) {
                 const Rect& childRect = persist.prevPanels[d + 1].popupRect;
                 const bool childOnRight = childRect.Center().x >= persist.prevPanels[d].popupRect.Center().x;
-                const float dx = mouse.x - persist.lastMousePos.x;
+                const keel::f32 dx = mouse.x - persist.lastMousePos.x;
                 const bool movingTowardChild = childOnRight ? (dx > 0.5f) : (dx < -0.5f);
                 if (movingTowardChild) {
                     const Vec2 edgeTop = childOnRight ? Vec2(childRect.x, childRect.y) : Vec2(childRect.Right(), childRect.y);
@@ -1122,7 +1122,7 @@ MenuScope ContextMenu::OpenWithId(
                     if (nowSec > persist.submenuGraceUntilSec || persist.submenuGraceDepth != d) {
                         persist.submenuSafeOrigin = persist.lastMousePos;
                         persist.submenuGraceUntilSec = nowSec + 0.22;
-                        persist.submenuGraceDepth = static_cast<keel::u32>(d);
+                        persist.submenuGraceDepth = keel::as<keel::u32>(d);
                     }
                     if (PointInTriangle(mouse, persist.submenuSafeOrigin, edgeTop, edgeBot)) {
                         blockedBySafeTriangle = true;
@@ -1154,7 +1154,7 @@ MenuScope ContextMenu::OpenWithId(
             }
         } else if (hoveredPanelDepth >= 0 && mouseMoved) {
             // Hovered over separator/section/padding inside panel d: clear highlight at panel d unless child submenu is open
-            const keel::usize d = static_cast<keel::usize>(hoveredPanelDepth);
+            const keel::usize d = keel::as<keel::usize>(hoveredPanelDepth);
             if (persist.openPath.size() == d + 1 && d < persist.highlightPath.size()) {
                 persist.highlightPath[d] = Id::Null();
             }
@@ -1169,7 +1169,7 @@ MenuScope ContextMenu::OpenWithId(
         if (ctx.ConsumeKey(Key::Down)) {
             const keel::i32 nextIdx = StepSelectable(activePanel, curHl, 1);
             if (nextIdx >= 0) {
-                const Id nextId = activePanel.items[static_cast<keel::usize>(nextIdx)].id;
+                const Id nextId = activePanel.items[keel::as<keel::usize>(nextIdx)].id;
                 persist.highlightPath[activeDepth] = nextId;
                 EnsureHighlightVisible(persist, activeDepth, activePanel, nextId);
                 ctx.InvalidateAll();
@@ -1177,7 +1177,7 @@ MenuScope ContextMenu::OpenWithId(
         } else if (ctx.ConsumeKey(Key::Up)) {
             const keel::i32 prevIdx = StepSelectable(activePanel, curHl, -1);
             if (prevIdx >= 0) {
-                const Id prevId = activePanel.items[static_cast<keel::usize>(prevIdx)].id;
+                const Id prevId = activePanel.items[keel::as<keel::usize>(prevIdx)].id;
                 persist.highlightPath[activeDepth] = prevId;
                 EnsureHighlightVisible(persist, activeDepth, activePanel, prevId);
                 ctx.InvalidateAll();
@@ -1185,7 +1185,7 @@ MenuScope ContextMenu::OpenWithId(
         } else if (ctx.ConsumeKey(Key::Home)) {
             const keel::i32 firstIdx = FindFirstSelectable(activePanel);
             if (firstIdx >= 0) {
-                const Id firstId = activePanel.items[static_cast<keel::usize>(firstIdx)].id;
+                const Id firstId = activePanel.items[keel::as<keel::usize>(firstIdx)].id;
                 persist.highlightPath[activeDepth] = firstId;
                 EnsureHighlightVisible(persist, activeDepth, activePanel, firstId);
                 ctx.InvalidateAll();
@@ -1193,16 +1193,16 @@ MenuScope ContextMenu::OpenWithId(
         } else if (ctx.ConsumeKey(Key::End)) {
             const keel::i32 lastIdx = FindLastSelectable(activePanel);
             if (lastIdx >= 0) {
-                const Id lastId = activePanel.items[static_cast<keel::usize>(lastIdx)].id;
+                const Id lastId = activePanel.items[keel::as<keel::usize>(lastIdx)].id;
                 persist.highlightPath[activeDepth] = lastId;
                 EnsureHighlightVisible(persist, activeDepth, activePanel, lastId);
                 ctx.InvalidateAll();
             }
         } else if (ctx.ConsumeKey(Key::Right)) {
             const keel::i32 curIdx = FindPrevItemIndex(activePanel, curHl);
-            if (curIdx >= 0 && activePanel.items[static_cast<keel::usize>(curIdx)].isSubMenu &&
-                !activePanel.items[static_cast<keel::usize>(curIdx)].disabled && activeDepth + 1 < kMaxMenuDepth) {
-                const Id subId = activePanel.items[static_cast<keel::usize>(curIdx)].id;
+            if (curIdx >= 0 && activePanel.items[keel::as<keel::usize>(curIdx)].isSubMenu &&
+                !activePanel.items[keel::as<keel::usize>(curIdx)].disabled && activeDepth + 1 < kMaxMenuDepth) {
+                const Id subId = activePanel.items[keel::as<keel::usize>(curIdx)].id;
                 TruncateOpenPathToDepth(persist, activeDepth + 1);
                 persist.openPath.push_back(subId);
                 persist.highlightPath.push_back(Id::Null());
@@ -1229,7 +1229,7 @@ MenuScope ContextMenu::OpenWithId(
         } else if (ctx.ConsumeKey(Key::Enter) || ctx.ConsumeKey(Key::Space)) {
             const keel::i32 curIdx = FindPrevItemIndex(activePanel, curHl);
             if (curIdx >= 0) {
-                const auto& act = activePanel.items[static_cast<keel::usize>(curIdx)];
+                const auto& act = activePanel.items[keel::as<keel::usize>(curIdx)];
                 if (!act.nonSelectable && !act.disabled) {
                     if (act.isSubMenu && activeDepth + 1 < kMaxMenuDepth) {
                         TruncateOpenPathToDepth(persist, activeDepth + 1);
@@ -1251,11 +1251,11 @@ MenuScope ContextMenu::OpenWithId(
             if (!typed.empty() && !typed[0].empty()) {
                 const char ch = ToLowerAscii(typed[0][0]);
                 if (ch >= 33 && ch <= 126) {
-                    const keel::i32 n = static_cast<keel::i32>(activePanel.items.size());
+                    const keel::i32 n = keel::as<keel::i32>(activePanel.items.size());
                     const keel::i32 start = FindPrevItemIndex(activePanel, curHl);
                     for (keel::i32 step = 1; step <= n; ++step) {
                         const keel::i32 idx = (start < 0) ? (step - 1) : ((start + step) % n);
-                        const auto& it = activePanel.items[static_cast<keel::usize>(idx)];
+                        const auto& it = activePanel.items[keel::as<keel::usize>(idx)];
                         if (!it.nonSelectable && !it.disabled && it.firstAsciiLower == ch) {
                             persist.highlightPath[activeDepth] = it.id;
                             EnsureHighlightVisible(persist, activeDepth, activePanel, it.id);
@@ -1274,8 +1274,8 @@ MenuScope ContextMenu::OpenWithId(
                                       persist.anchorRect.Contains(mouse);
             if (insideAnyPopup) {
                 if (ctx.IsMouseClicked() && hoveredItemIdx >= 0) {
-                    const auto& clicked = persist.prevPanels[static_cast<keel::usize>(hoveredPanelDepth)]
-                                              .items[static_cast<keel::usize>(hoveredItemIdx)];
+                    const auto& clicked = persist.prevPanels[keel::as<keel::usize>(hoveredPanelDepth)]
+                                              .items[keel::as<keel::usize>(hoveredItemIdx)];
                     if (!clicked.nonSelectable && !clicked.disabled && !clicked.isSubMenu) {
                         sess->activatedItemId = clicked.id;
                         sess->activatedKeepOpen = clicked.keepOpen;
@@ -1381,7 +1381,7 @@ ContextMenuResponse ContextMenu::Run(
                             res.clicked = true;
                             res.changed = true;
                             if (isRootLevel) {
-                                res.clickedIndex = static_cast<keel::i32>(i);
+                                res.clickedIndex = keel::as<keel::i32>(i);
                             }
                             res.clickedId = item.id;
                         }

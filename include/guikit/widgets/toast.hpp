@@ -27,7 +27,7 @@ struct ToastOptions {
     UiText message{};
     UiVariant variant{UiVariant::Info}; ///< Default, Primary, Secondary, Info, Success, Warning, Danger
     Icon icon{};                        ///< Optional icon (auto-selected from variant if empty)
-    float duration{4.0f};               ///< Auto-dismiss duration in seconds (<= 0.0f = sticky until closed)
+    keel::f32 duration{4.0f};               ///< Auto-dismiss duration in seconds (<= 0.0f = sticky until closed)
     bool showProgress{true};            ///< Render animated countdown bar along the bottom edge
     bool closable{true};                ///< Show [X] dismiss button
 };
@@ -35,9 +35,9 @@ struct ToastOptions {
 /// Configuration options for the Toast stack host (`ui.ToastHost(...)` or `ui.SetToastHostOptions(...)`).
 struct ToastHostOptions {
     ToastPlacement placement{ToastPlacement::BottomRight};
-    float width{320.0f};
-    float gap{8.0f};
-    float margin{16.0f};
+    keel::f32 width{320.0f};
+    keel::f32 gap{8.0f};
+    keel::f32 margin{16.0f};
     keel::usize maxVisible{5};
     bool pauseOnHover{true};
     bool confineToParent{false}; ///< Anchor inside current container bounds instead of full viewport
@@ -53,11 +53,11 @@ struct ToastEntry {
     keel::String iconPath{};
     UiVariant variant{UiVariant::Info};
     Icon icon{};
-    float duration{4.0f};
+    keel::f32 duration{4.0f};
     bool showProgress{true};
     bool closable{true};
-    double elapsedSec{0.0};
-    double lastTickSec{0.0};
+    keel::f64 elapsedSec{0.0};
+    keel::f64 lastTickSec{0.0};
     bool hovered{false};
     bool closeHovered{false};
 };

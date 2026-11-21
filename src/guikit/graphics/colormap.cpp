@@ -9,32 +9,32 @@ namespace guikit {
 namespace {
 
 struct RgbaStop {
-    float t;
+    keel::f32 t;
     keel::u8 r;
     keel::u8 g;
     keel::u8 b;
 };
 
-[[nodiscard]] Color SampleGradientStops(keel::ArrayRef<RgbaStop> stops, float t) noexcept {
+[[nodiscard]] Color SampleGradientStops(keel::ArrayRef<RgbaStop> stops, keel::f32 t) noexcept {
     t = keel::clamp(t, 0.0f, 1.0f);
     if (stops.empty()) {
         return Color(0, 0, 0, 255);
     }
     for (keel::usize i = 0; i + 1 < stops.size(); ++i) {
         if (t >= stops[i].t && t <= stops[i + 1].t) {
-            const float span = keel::max(1e-5f, stops[i + 1].t - stops[i].t);
-            const float u = (t - stops[i].t) / span;
+            const keel::f32 span = keel::max(1e-5f, stops[i + 1].t - stops[i].t);
+            const keel::f32 u = (t - stops[i].t) / span;
             const RgbaStop& s0 = stops[i];
             const RgbaStop& s1 = stops[i + 1];
             return Color(
-                static_cast<keel::u8>(keel::clamp(
-                    keel::round_i32(keel::lerp(static_cast<float>(s0.r), static_cast<float>(s1.r), u)), 0, 255
+                keel::as<keel::u8>(keel::clamp(
+                    keel::round_i32(keel::lerp(keel::as<keel::f32>(s0.r), keel::as<keel::f32>(s1.r), u)), 0, 255
                 )),
-                static_cast<keel::u8>(keel::clamp(
-                    keel::round_i32(keel::lerp(static_cast<float>(s0.g), static_cast<float>(s1.g), u)), 0, 255
+                keel::as<keel::u8>(keel::clamp(
+                    keel::round_i32(keel::lerp(keel::as<keel::f32>(s0.g), keel::as<keel::f32>(s1.g), u)), 0, 255
                 )),
-                static_cast<keel::u8>(keel::clamp(
-                    keel::round_i32(keel::lerp(static_cast<float>(s0.b), static_cast<float>(s1.b), u)), 0, 255
+                keel::as<keel::u8>(keel::clamp(
+                    keel::round_i32(keel::lerp(keel::as<keel::f32>(s0.b), keel::as<keel::f32>(s1.b), u)), 0, 255
                 )),
                 255
             );
@@ -187,7 +187,7 @@ struct RgbaStop {
     return kGrayscale;
 }
 
-constexpr keel::usize kColormapCount = static_cast<keel::usize>(Colormap::Count);
+constexpr keel::usize kColormapCount = keel::as<keel::usize>(Colormap::Count);
 
 struct ColormapLutCache {
     keel::StaticArray<keel::StaticArray<Color, 256>, kColormapCount> colorNormal{};
@@ -200,7 +200,7 @@ struct ColormapLutCache {
             const auto cmap = static_cast<Colormap>(m);
             const auto stops = GetStopsForColormap(cmap);
             for (keel::usize i = 0; i < 256; ++i) {
-                const float t = static_cast<float>(i) / 255.0f;
+                const keel::f32 t = keel::as<keel::f32>(i) / 255.0f;
                 const Color c = SampleGradientStops(stops, t);
                 colorNormal[m][i] = c;
                 abgrNormal[m][i] = PackAbgr(c);
@@ -219,13 +219,13 @@ struct ColormapLutCache {
 }
 
 [[nodiscard]] constexpr keel::usize SanitizeIndex(Colormap map) noexcept {
-    const keel::usize idx = static_cast<keel::usize>(map);
+    const keel::usize idx = keel::as<keel::usize>(map);
     return idx < kColormapCount ? idx : 0u;
 }
 
 } // namespace
 
-Color SampleColormap(Colormap map, float t, bool invert) noexcept {
+Color SampleColormap(Colormap map, keel::f32 t, bool invert) noexcept {
     t = keel::clamp(t, 0.0f, 1.0f);
     if (invert) {
         t = 1.0f - t;
@@ -233,7 +233,7 @@ Color SampleColormap(Colormap map, float t, bool invert) noexcept {
     return SampleGradientStops(GetStopsForColormap(map), t);
 }
 
-keel::u32 SampleColormapAbgr(Colormap map, float t, bool invert) noexcept {
+keel::u32 SampleColormapAbgr(Colormap map, keel::f32 t, bool invert) noexcept {
     return PackAbgr(SampleColormap(map, t, invert));
 }
 
@@ -289,7 +289,7 @@ void DrawColormapBar(
     Colormap map,
     bool vertical,
     bool invert,
-    float cornerRadius,
+    keel::f32 cornerRadius,
     Color borderColor
 ) {
     if (rect.w <= 0.0f || rect.h <= 0.0f) {

@@ -10,10 +10,10 @@ namespace guikit {
 namespace {
 
 Rect ComputeTabCloseButtonRect(Rect bounds, const ComponentMetrics& m) noexcept {
-    const float btnSz = keel::max(12.0f, m.iconSize);
-    const float padX = keel::min(m.paddingX, bounds.w * 0.12f);
-    const float bx = bounds.Right() - keel::max(4.0f, padX * 0.65f) - btnSz;
-    const float by = bounds.y + (bounds.h - btnSz) * 0.5f;
+    const keel::f32 btnSz = keel::max(12.0f, m.iconSize);
+    const keel::f32 padX = keel::min(m.paddingX, bounds.w * 0.12f);
+    const keel::f32 bx = bounds.Right() - keel::max(4.0f, padX * 0.65f) - btnSz;
+    const keel::f32 by = bounds.y + (bounds.h - btnSz) * 0.5f;
     return Rect(bx, by, btnSz, btnSz);
 }
 
@@ -57,11 +57,11 @@ TabBarResponse TabBar::Run(
 
     const UiTheme& theme = ctx.GetTheme();
     const ComponentMetrics& m = theme.GetMetrics(activeSize);
-    const float barDensity = barNode->GetDensity();
-    const float defaultTabGap = (opts.style == TabBarStyle::Card || opts.style == TabBarStyle::Folder)
+    const keel::f32 barDensity = barNode->GetDensity();
+    const keel::f32 defaultTabGap = (opts.style == TabBarStyle::Card || opts.style == TabBarStyle::Folder)
         ? 2.0f
         : ((theme.SizeFactor(activeSize) < 0.90f) ? theme.GetGap(UiSize::Xs) : theme.GetGap(UiSize::Sm));
-    const float activeTabGap = (opts.gap.has_value() ? *opts.gap : defaultTabGap) * barDensity;
+    const keel::f32 activeTabGap = (opts.gap.has_value() ? *opts.gap : defaultTabGap) * barDensity;
 
     const Color resolvedBg = opts.background.IsBackgroundEnabled(false)
         ? (opts.background.IsSurface()
@@ -77,18 +77,18 @@ TabBarResponse TabBar::Run(
     if (opts.padding.has_value()) {
         resolvedPadding = theme.ResolvePadding(opts.padding, UiSize::Md, barDensity);
     } else if (opts.style == TabBarStyle::Pill && hasCustomBgOrBorder) {
-        const float defaultPad = ((theme.SizeFactor(activeSize) < 0.90f) ? 2.0f : 3.0f) * barDensity;
+        const keel::f32 defaultPad = ((theme.SizeFactor(activeSize) < 0.90f) ? 2.0f : 3.0f) * barDensity;
         resolvedPadding = Padding{defaultPad, defaultPad, defaultPad, defaultPad};
     }
 
-    float resolvedRadius = 0.0f;
+    keel::f32 resolvedRadius = 0.0f;
     if (opts.border.radius.has_value()) {
         resolvedRadius = *opts.border.radius;
     } else if (opts.style == TabBarStyle::Pill && hasCustomBgOrBorder) {
         resolvedRadius = m.cornerRadius + 2.0f;
     }
 
-    const float effectiveBorderWidth = (opts.border.width > 0.0f)
+    const keel::f32 effectiveBorderWidth = (opts.border.width > 0.0f)
         ? opts.border.width
         : (resolvedBorderCol.a > 0 ? 1.0f : 0.0f);
 
@@ -117,7 +117,7 @@ TabBarResponse TabBar::Run(
         (opts.style == TabBarStyle::Underline || opts.style == TabBarStyle::Card || opts.style == TabBarStyle::Folder);
     if (hasBaselineSeparator) {
         barNode->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& th) noexcept {
-            const float sepY = n->computedRect.Bottom() - 0.5f;
+            const keel::f32 sepY = n->computedRect.Bottom() - 0.5f;
             canvas.DrawLine(
                 Vec2(n->computedRect.x, sepY),
                 Vec2(n->computedRect.Right(), sepY),
@@ -140,7 +140,7 @@ TabBarResponse TabBar::Run(
 
     for (keel::usize i = 0; i < tabs.size(); ++i) {
         const TabItem& item = tabs[i];
-        const Id tabId = MakeId(static_cast<keel::u32>(i), loc, barNode->id);
+        const Id tabId = MakeId(keel::as<keel::u32>(i), loc, barNode->id);
         const bool effectiveDisabled = activeDisabled || item.disabled;
 
         ctx.RegisterFocusable(tabId, effectiveDisabled);
@@ -180,8 +180,8 @@ TabBarResponse TabBar::Run(
             ctx.SetTooltip(item.tooltip, tabRes.rect);
         }
 
-        if (tabRes.clicked && !effectiveDisabled && activeIndex != static_cast<keel::i32>(i)) {
-            activeIndex = static_cast<keel::i32>(i);
+        if (tabRes.clicked && !effectiveDisabled && activeIndex != keel::as<keel::i32>(i)) {
+            activeIndex = keel::as<keel::i32>(i);
             res.changed = true;
             res.clicked = true;
             ctx.GetOrCreatePersistentState<keel::i32>(barNode->id) = activeIndex;
@@ -214,11 +214,11 @@ TabBarResponse TabBar::Run(
             closeHovered,
             tData->item.badge,
             tData->item.label,
-            static_cast<keel::u8>(tData->item.icon.GetType()),
-            static_cast<keel::u8>(tData->item.icon.GetId()),
+            keel::as<keel::u8>(tData->item.icon.GetType()),
+            keel::as<keel::u8>(tData->item.icon.GetId()),
             tData->item.icon.GetPath()
         );
-        tabNode->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+        tabNode->measureFn = [](const Node* n, keel::f32 /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
             const auto* d = n->As<TabItemData>();
             return TabBar::MeasureTab(
                 d ? d->item : TabItem{},
@@ -245,7 +245,7 @@ TabBarResponse TabBar::Run(
                 d ? d->closeHovered : false
             );
         };
-        tabNode->active = (activeIndex == static_cast<keel::i32>(i));
+        tabNode->active = (activeIndex == keel::as<keel::i32>(i));
         tabNode->uiSize = activeSize;
         tabNode->disabled = effectiveDisabled;
         tabNode->hovered = tabRes.hovered;
@@ -272,9 +272,9 @@ Vec2 TabBar::MeasureTab(
     const UiTheme& theme
 ) {
     const ComponentMetrics& m = theme.GetMetrics(size);
-    const float labelFont = theme.ResolveFontSize(item.label, TextRole::LabelLarge, size);
-    const float badgeFontSize = theme.ResolveFontSize(item.badge, m.fontSize * 0.78f);
-    float contentW = 0.0f;
+    const keel::f32 labelFont = theme.ResolveFontSize(item.label, TextRole::LabelLarge, size);
+    const keel::f32 badgeFontSize = theme.ResolveFontSize(item.badge, m.fontSize * 0.78f);
+    keel::f32 contentW = 0.0f;
 
     if (item.icon.IsValid()) {
         contentW += m.iconSize;
@@ -289,17 +289,17 @@ Vec2 TabBar::MeasureTab(
 
     if (item.badge.HasContentOrReserve()) {
         contentW += 6.0f; // Gap between text and badge
-        const float badgeTextW = TextUtil::MeasureWidth(item.badge, badgeFontSize, canvas);
+        const keel::f32 badgeTextW = TextUtil::MeasureWidth(item.badge, badgeFontSize, canvas);
         contentW += badgeTextW + 12.0f; // Badge padding
     }
 
     if (item.closable) {
-        const float closeBtnSz = keel::max(12.0f, m.iconSize);
+        const keel::f32 closeBtnSz = keel::max(12.0f, m.iconSize);
         contentW += (contentW > 0.0f ? 6.0f : 0.0f) + closeBtnSz;
     }
 
-    const float padX = m.paddingX + (opts.style == TabBarStyle::Folder ? 4.0f : 0.0f);
-    const float totalW = contentW + padX * 2.0f;
+    const keel::f32 padX = m.paddingX + (opts.style == TabBarStyle::Folder ? 4.0f : 0.0f);
+    const keel::f32 totalW = contentW + padX * 2.0f;
 
     return {keel::max(m.defaultHeight, totalW), m.defaultHeight};
 }
@@ -330,8 +330,8 @@ void TabBar::RenderTab(
     (void)pressed;
     const ComponentMetrics& m = theme.GetMetrics(size);
     const auto& pal = theme.palette;
-    const float labelFont = theme.ResolveFontSize(item.label, TextRole::LabelLarge, size);
-    const float badgeFontSize = theme.ResolveFontSize(item.badge, m.fontSize * 0.78f);
+    const keel::f32 labelFont = theme.ResolveFontSize(item.label, TextRole::LabelLarge, size);
+    const keel::f32 badgeFontSize = theme.ResolveFontSize(item.badge, m.fontSize * 0.78f);
 
     canvas.PushClip(bounds);
 
@@ -358,17 +358,17 @@ void TabBar::RenderTab(
         }
 
         if (active) {
-            const float lineH = 3.0f;
-            const float linePad = 2.0f;
+            const keel::f32 lineH = 3.0f;
+            const keel::f32 linePad = 2.0f;
             const Rect lineR(bounds.x + linePad, bounds.Bottom() - lineH, keel::max(0.0f, bounds.w - linePad * 2.0f), lineH);
             canvas.DrawRoundRect(lineR, 1.5f, accentCol);
         }
         if (focused && !disabled) {
-            const float bottomInset = active ? 6.0f : 4.0f;
+            const keel::f32 bottomInset = active ? 6.0f : 4.0f;
             canvas.DrawRoundRect(Rect(bounds.x + 1.0f, bounds.y + 2.0f, keel::max(0.0f, bounds.w - 2.0f), keel::max(0.0f, bounds.h - bottomInset)), m.cornerRadius, Color::Transparent(), pal.focusRing, 1.5f);
         }
     } else if (opts.style == TabBarStyle::Card) {
-        const float r = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
+        const keel::f32 r = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
         const Rect cardR(bounds.x, bounds.y + 2.0f, bounds.w, bounds.h + r);
         if (active) {
             canvas.DrawRoundRect(cardR, r, pal.surface, pal.border, 1.0f);
@@ -388,9 +388,9 @@ void TabBar::RenderTab(
             canvas.DrawRoundRect(focusCardR, keel::max(0.0f, r - 0.5f), Color::Transparent(), pal.focusRing, 1.5f);
         }
     } else if (opts.style == TabBarStyle::Folder) {
-        const float slope = keel::min(6.0f, bounds.w * 0.14f);
-        const float topY = bounds.y + (active ? 1.5f : 4.0f);
-        const float botY = bounds.Bottom();
+        const keel::f32 slope = keel::min(6.0f, bounds.w * 0.14f);
+        const keel::f32 topY = bounds.y + (active ? 1.5f : 4.0f);
+        const keel::f32 botY = bounds.Bottom();
         VectorPath folderPath;
         folderPath.MoveTo({bounds.x, botY});
         folderPath.LineTo({bounds.x + slope, topY});
@@ -430,14 +430,14 @@ void TabBar::RenderTab(
     } else {
         // Pill / Segmented style
         const bool hasCustomBgOrBorder = (opts.background.IsBackgroundEnabled(false) || opts.border.color.HasAny() || opts.border.width > 0.0f);
-        float padTop = 0.0f;
+        keel::f32 padTop = 0.0f;
         if (opts.padding.has_value()) {
             padTop = opts.padding->top;
         } else if (opts.style == TabBarStyle::Pill && hasCustomBgOrBorder) {
             padTop = (theme.SizeFactor(size) < 0.90f) ? 2.0f : 3.0f;
         }
 
-        float pillRadius = m.cornerRadius;
+        keel::f32 pillRadius = m.cornerRadius;
         if (opts.border.radius.has_value()) {
             if (*opts.border.radius == 0.0f) {
                 pillRadius = 0.0f;
@@ -447,7 +447,7 @@ void TabBar::RenderTab(
         }
 
         const Color focusBorder = (focused && !disabled) ? pal.focusRing : Color::Transparent();
-        const float focusBorderW = (focused && !disabled) ? 1.5f : 0.0f;
+        const keel::f32 focusBorderW = (focused && !disabled) ? 1.5f : 0.0f;
 
         if (active) {
             const Color defaultPillCol = (item.variant != UiVariant::Default)
@@ -477,27 +477,27 @@ void TabBar::RenderTab(
     }
 
     const Rect closeRect = item.closable ? ComputeTabCloseButtonRect(bounds, m) : Rect{};
-    const float closeReserve = item.closable ? (closeRect.w + 6.0f) : 0.0f;
+    const keel::f32 closeReserve = item.closable ? (closeRect.w + 6.0f) : 0.0f;
 
     // Measure components to center content within tab bounds (gracefully adapting at narrow tab widths)
-    const float padX = keel::min(m.paddingX, bounds.w * 0.12f);
-    const float innerW = keel::max(0.0f, bounds.w - padX * 2.0f - closeReserve);
+    const keel::f32 padX = keel::min(m.paddingX, bounds.w * 0.12f);
+    const keel::f32 innerW = keel::max(0.0f, bounds.w - padX * 2.0f - closeReserve);
     const bool hasIcon = item.icon.IsValid();
     const bool hasLabel = item.label.HasContentOrReserve();
-    float badgeW = 0.0f;
+    keel::f32 badgeW = 0.0f;
     if (item.badge.HasContentOrReserve()) {
         badgeW = TextUtil::MeasureWidth(item.badge, badgeFontSize, &canvas) + 12.0f;
     }
     const bool showBadge = !item.badge.empty() &&
         (innerW >= (hasIcon ? m.iconSize + 6.0f : 0.0f) + badgeW + (hasLabel ? labelFont * 2.2f + 6.0f : 0.0f));
 
-    const float iconAndBadgeW = (hasIcon ? m.iconSize : 0.0f) + (showBadge ? badgeW + 6.0f : 0.0f);
-    const float availLabelW = keel::max(0.0f, innerW - iconAndBadgeW - ((hasIcon && hasLabel) ? 6.0f : 0.0f));
+    const keel::f32 iconAndBadgeW = (hasIcon ? m.iconSize : 0.0f) + (showBadge ? badgeW + 6.0f : 0.0f);
+    const keel::f32 availLabelW = keel::max(0.0f, innerW - iconAndBadgeW - ((hasIcon && hasLabel) ? 6.0f : 0.0f));
     const bool showLabel = !item.label.empty() && (!hasIcon || availLabelW >= labelFont * 1.35f);
 
     keel::FixedString<256> truncatedLabel;
     keel::StringRef displayLabel = item.label.text;
-    float labelW = 0.0f;
+    keel::f32 labelW = 0.0f;
     if (showLabel) {
         labelW = canvas.MeasureText(displayLabel, labelFont).x;
         if (labelW > availLabelW + kTextSubpixelTolerance && availLabelW > 0.0f) {
@@ -507,7 +507,7 @@ void TabBar::RenderTab(
         }
     }
 
-    float contentW = 0.0f;
+    keel::f32 contentW = 0.0f;
     if (hasIcon) contentW += m.iconSize;
     if (showLabel) {
         if (contentW > 0.0f) contentW += 6.0f;
@@ -518,9 +518,9 @@ void TabBar::RenderTab(
         contentW += badgeW;
     }
 
-    const float contentAreaW = keel::max(0.0f, bounds.w - closeReserve);
-    float curX = bounds.x + keel::max(padX, (contentAreaW - contentW) * 0.5f);
-    const float centerY = bounds.y + bounds.h * 0.5f;
+    const keel::f32 contentAreaW = keel::max(0.0f, bounds.w - closeReserve);
+    keel::f32 curX = bounds.x + keel::max(padX, (contentAreaW - contentW) * 0.5f);
+    const keel::f32 centerY = bounds.y + bounds.h * 0.5f;
 
     // Draw Icon
     if (hasIcon) {
@@ -539,7 +539,7 @@ void TabBar::RenderTab(
     // Draw Badge
     if (showBadge) {
         if (hasIcon || showLabel) curX += 6.0f;
-        const float badgeH = badgeFontSize + 6.0f;
+        const keel::f32 badgeH = badgeFontSize + 6.0f;
         const Rect badgeR(curX, centerY - badgeH * 0.5f, badgeW, badgeH);
 
         Color badgeBg = active ? pal.accent.WithAlphaF(0.25f) : pal.surfaceHover;
@@ -564,7 +564,7 @@ void TabBar::RenderTab(
         if (closeHovered && !disabled) {
             canvas.DrawRoundRect(closeRect, 3.5f, pal.surfaceHover);
         }
-        const float icSz = keel::max(8.0f, closeRect.w * 0.68f);
+        const keel::f32 icSz = keel::max(8.0f, closeRect.w * 0.68f);
         const Rect icRect(
             closeRect.x + (closeRect.w - icSz) * 0.5f,
             closeRect.y + (closeRect.h - icSz) * 0.5f,

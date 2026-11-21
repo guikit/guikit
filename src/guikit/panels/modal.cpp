@@ -20,7 +20,7 @@ struct ModalPersistState {
     Rect contentRect{};
 };
 
-float ResolveChildAlignX(Alignment align, float availX, float availW, float childW) noexcept {
+keel::f32 ResolveChildAlignX(Alignment align, keel::f32 availX, keel::f32 availW, keel::f32 childW) noexcept {
     switch (align) {
         case Alignment::Center: return availX + (availW - childW) * 0.5f;
         case Alignment::End:    return availX + (availW - childW);
@@ -30,7 +30,7 @@ float ResolveChildAlignX(Alignment align, float availX, float availW, float chil
     }
 }
 
-float ResolveGroupAlignY(Alignment verticalAlign, float availY, float availH, float totalH) noexcept {
+keel::f32 ResolveGroupAlignY(Alignment verticalAlign, keel::f32 availY, keel::f32 availH, keel::f32 totalH) noexcept {
     switch (verticalAlign) {
         case Alignment::Center: return availY + (availH - totalH) * 0.5f;
         case Alignment::End:    return availY + (availH - totalH);
@@ -156,8 +156,8 @@ ModalScope Modal::Open(
         opts.padding.top,
         opts.padding.right,
         opts.padding.bottom,
-        static_cast<keel::u8>(opts.align),
-        static_cast<keel::u8>(opts.verticalAlign)
+        keel::as<keel::u8>(opts.align),
+        keel::as<keel::u8>(opts.verticalAlign)
     );
 
     ctx.BeginModalScope(id, backdropRect);
@@ -168,17 +168,17 @@ ModalScope Modal::Open(
 
 Vec2 Modal::Measure(
     const Node* node,
-    float /*availableWidth*/,
+    keel::f32 /*availableWidth*/,
     ICanvas* /*canvas*/,
     const UiTheme& /*theme*/
 ) {
-    float totalH = node->padding.Vertical();
-    float maxW = 0.0f;
+    keel::f32 totalH = node->padding.Vertical();
+    keel::f32 maxW = 0.0f;
 
     for (const Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
         if (child->IsOutOfFlow()) continue;
-        const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
-        const float ch = (child->heightMode == SizeMode::Fixed) ? child->fixedHeight : child->intrinsicSize.y;
+        const keel::f32 cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
+        const keel::f32 ch = (child->heightMode == SizeMode::Fixed) ? child->fixedHeight : child->intrinsicSize.y;
         totalH += ch;
         maxW = keel::max(maxW, cw);
     }
@@ -210,11 +210,11 @@ void Modal::Arrange(
 
     struct ChildLayout {
         Node* child{nullptr};
-        float w{0.0f};
-        float h{0.0f};
+        keel::f32 w{0.0f};
+        keel::f32 h{0.0f};
     };
     keel::SmallArray<ChildLayout, 8> items;
-    float totalH = 0.0f;
+    keel::f32 totalH = 0.0f;
     keel::u32 flowCount = 0;
 
     for (Node* c = node->firstChild; c != nullptr; c = c->nextSibling) {
@@ -226,7 +226,7 @@ void Modal::Arrange(
     for (Node* c = node->firstChild; c != nullptr; c = c->nextSibling) {
         if (c->IsOutOfFlow()) continue;
 
-        float cw = 0.0f;
+        keel::f32 cw = 0.0f;
         if (c->widthMode == SizeMode::Fixed && c->fixedWidth > 0.0f) {
             cw = c->fixedWidth;
         } else if (alignX == Alignment::Stretch) {
@@ -243,7 +243,7 @@ void Modal::Arrange(
         cw = keel::min(cw, contentArea.w);
 
         const UiTheme& childTheme = c->GetTheme(theme);
-        float ch = 0.0f;
+        keel::f32 ch = 0.0f;
         if (c->heightMode == SizeMode::Fixed && c->fixedHeight > 0.0f) {
             ch = c->fixedHeight;
         } else if (flowCount == 1 && (c->heightMode == SizeMode::Stretch || alignY == Alignment::Stretch)) {
@@ -263,12 +263,12 @@ void Modal::Arrange(
         items.push_back(ChildLayout{c, cw, ch});
     }
 
-    float curY = keel::round(ResolveGroupAlignY(alignY, contentArea.y, contentArea.h, totalH));
+    keel::f32 curY = keel::round(ResolveGroupAlignY(alignY, contentArea.y, contentArea.h, totalH));
     Rect contentUnion{};
     bool hasUnion = false;
 
     for (const auto& item : items) {
-        const float cx = keel::round(ResolveChildAlignX(alignX, contentArea.x, contentArea.w, item.w));
+        const keel::f32 cx = keel::round(ResolveChildAlignX(alignX, contentArea.x, contentArea.w, item.w));
         const Rect childRect(cx, curY, keel::round(item.w), keel::round(item.h));
         Solver::Arrange(item.child, childRect, theme, canvas);
         contentUnion = hasUnion ? contentUnion.Union(childRect) : childRect;
@@ -308,11 +308,11 @@ void Modal::Render(
             canvas.DrawRect(backdropRect, *opts.backdropColor);
         }
     } else {
-        const float alpha = keel::clamp(opts.backdropOpacity, 0.0f, 0.95f);
+        const keel::f32 alpha = keel::clamp(opts.backdropOpacity, 0.0f, 0.95f);
         if (alpha > 0.001f) {
             canvas.DrawRect(
                 backdropRect,
-                Color(4, 7, 14, static_cast<keel::u8>(keel::clamp(keel::round_i32(alpha * 255.0f), 0, 255)))
+                Color(4, 7, 14, keel::as<keel::u8>(keel::clamp(keel::round_i32(alpha * 255.0f), 0, 255)))
             );
         }
     }
