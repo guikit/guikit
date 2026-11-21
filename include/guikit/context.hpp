@@ -60,6 +60,7 @@
 #include "guikit/widgets/markdown.hpp"
 #include "guikit/widgets/pagination.hpp"
 #include "guikit/widgets/radio.hpp"
+#include "guikit/widgets/readout.hpp"
 #include "guikit/widgets/segmented.hpp"
 #include "guikit/widgets/select.hpp"
 #include "guikit/widgets/sidebar_menu.hpp"
@@ -67,6 +68,7 @@
 #include "guikit/widgets/spin_box.hpp"
 #include "guikit/widgets/switch.hpp"
 #include "guikit/widgets/tab_bar.hpp"
+#include "guikit/widgets/tag.hpp"
 #include "guikit/widgets/tag_input.hpp"
 #include "guikit/widgets/text.hpp"
 #include "guikit/widgets/text_area.hpp"
@@ -1451,6 +1453,37 @@ public:
         keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         return Run<guikit::LevelMeter>(channelValues, min, max, opts, loc);
+    }
+
+    // --- Readout Widget ---
+    ReadoutResponse Readout(
+        ReadoutState& state,
+        keel::ArrayRef<ReadoutChannel> channels,
+        ReadoutOptions opts = {},
+        keel::SourceLocation loc = keel::SourceLocation::current()
+    ) {
+        return Run<guikit::Readout>(state, channels, opts, loc);
+    }
+
+    ReadoutResponse Readout(
+        UiText label,
+        double value,
+        keel::i32& unitIndex,
+        keel::i32& precision,
+        keel::ArrayRef<ReadoutUnit> units = {},
+        ReadoutOptions opts = {},
+        keel::SourceLocation loc = keel::SourceLocation::current()
+    ) {
+        return Run<guikit::Readout>(label, value, unitIndex, precision, units, opts, loc);
+    }
+
+    // --- Tag Widget ---
+    TagResponse Tag(
+        UiText text,
+        TagOptions opts = {},
+        keel::SourceLocation loc = keel::SourceLocation::current()
+    ) {
+        return Run<guikit::Tag>(text, opts, loc);
     }
 
     // --- TagInput Widget ---

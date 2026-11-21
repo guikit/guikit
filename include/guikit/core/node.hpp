@@ -109,6 +109,8 @@ enum class NodeType : keel::u16 {
     CommandPalette  = 236,
     LevelMeter      = 237,
     TagInput        = 238,
+    Tag             = 239,
+    Readout         = 240,
 
     // --- User Extension Base (1000+) ---
     User          = 1000

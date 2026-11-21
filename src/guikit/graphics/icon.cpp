@@ -363,6 +363,25 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
                 break;
             }
 
+            case IconId::Target: {
+                // Concentric ring + center dot (◎ — zero / tare / bullseye)
+                const float rOuter = s * 0.36f;
+                const float rDot = keel::max(1.6f, s * 0.11f);
+                canvas.DrawRoundRect(
+                    Rect(cx - rOuter, cy - rOuter, rOuter * 2.0f, rOuter * 2.0f),
+                    rOuter,
+                    Color::Transparent(),
+                    tint,
+                    stroke
+                );
+                canvas.DrawRoundRect(
+                    Rect(cx - rDot, cy - rDot, rDot * 2.0f, rDot * 2.0f),
+                    rDot,
+                    tint
+                );
+                break;
+            }
+
             default:
                 break;
         }

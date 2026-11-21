@@ -35,6 +35,7 @@ struct ContextMenuItem {
 
 /// Configuration options for a `ContextMenu` popup.
 struct ContextMenuOptions {
+    UiText title{};                                     ///< Optional header title rendered above items with a subtle divider
     Rect anchorRect{};                                  ///< Anchor bounds (e.g. `actionBtn.rect`) for dropdown placement below/above
     keel::Optional<Vec2> anchorPos{keel::kNullOpt};     ///< Explicit anchor coordinate (e.g. cursor position on RightClick)
     keel::Optional<float> minWidth{188.0f};

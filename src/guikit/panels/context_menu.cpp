@@ -89,6 +89,10 @@ ContextMenuResponse ContextMenu::Run(
     const float shortcutGap = keel::round(24.0f * s);
     const float labelFont = theme.ResolveFontSize(UiText{}, TextRole::LabelLarge, activeSize);
     const float shortcutFont = theme.ResolveFontSize(UiText{}, TextRole::LabelMedium, activeSize);
+    const float titleFont = theme.ResolveFontSize(opts.title, TextRole::LabelMedium, activeSize);
+    const bool hasTitle = !opts.title.empty();
+    const float titleH = hasTitle ? keel::round(keel::max(26.0f * s, titleFont + 14.0f * s)) : 0.0f;
+    const float titleSepH = hasTitle ? keel::round(7.0f * s) : 0.0f;
 
     bool anyLeadingSlot = false;
     bool anyTrailingCheck = false;
@@ -101,8 +105,8 @@ ContextMenuResponse ContextMenu::Run(
         }
     }
 
-    float maxContentW = 0.0f;
-    float totalH = padY * 2.0f;
+    float maxContentW = hasTitle ? TextUtil::MeasureUiTextWidth(opts.title, titleFont, canvas) : 0.0f;
+    float totalH = padY * 2.0f + titleH + titleSepH;
     for (const auto& item : items) {
         if (item.isSeparatorOnly) {
             totalH += sepH;
@@ -196,7 +200,8 @@ ContextMenuResponse ContextMenu::Run(
     keel::SmallArray<RowEntry, 16> rows;
     rows.reserve(items.size());
 
-    float curY = popupRect.y + padY;
+    float curY = popupRect.y + padY + titleH + titleSepH;
+    const float titleSepY = hasTitle ? keel::round(popupRect.y + padY + titleH + titleSepH * 0.5f) : 0.0f;
     keel::i32 hoveredIdx = -1;
 
     for (keel::usize i = 0; i < items.size(); ++i) {
@@ -370,6 +375,8 @@ ContextMenuResponse ContextMenu::Run(
     }
     const keel::ArrayRef<OverlayItemData> drawItems(arenaDrawItems, rows.size());
 
+    const keel::StringRef titleCopy = hasTitle ? ctx.AllocString(opts.title.text) : keel::StringRef{};
+
     const float radius = opts.border.radius.has_value()
         ? *opts.border.radius
         : theme.ResolveRadius(keel::kNullOpt, activeSize);
@@ -382,10 +389,11 @@ ContextMenuResponse ContextMenu::Run(
         hoveredIdx,
         state.keyboardIndex,
         items.size(),
-        activeSize
+        activeSize,
+        titleCopy
     ));
 
-    ctx.RegisterOverlay([popupRect, radius, s, padX, icSz, iconSlotW, anyLeadingSlot, anyTrailingCheck, labelFont, shortcutFont, theme, opts, drawItems](ICanvas& c) {
+    ctx.RegisterOverlay([popupRect, radius, s, padX, padY, icSz, iconSlotW, anyLeadingSlot, anyTrailingCheck, labelFont, shortcutFont, titleFont, hasTitle, titleH, titleSepY, titleCopy, theme, opts, drawItems](ICanvas& c) {
         const auto& pal = theme.palette;
 
         // Soft drop shadow
@@ -414,6 +422,29 @@ ContextMenuResponse ContextMenu::Run(
         c.DrawRoundRect(popupRect, radius, surfaceBg, borderCol, borderW);
 
         c.PushClip(popupRect);
+        if (hasTitle) {
+            const Rect titleRect(
+                popupRect.x + padX,
+                popupRect.y + padY,
+                keel::max(10.0f, popupRect.w - padX * 2.0f),
+                titleH
+            );
+            c.DrawTextBoxStyled(
+                titleCopy,
+                titleRect,
+                titleFont,
+                pal.textSecondary,
+                FontStyle::Bold,
+                0.0f,
+                0.5f
+            );
+            c.DrawLine(
+                Vec2(popupRect.x + padX * 0.75f, titleSepY),
+                Vec2(popupRect.Right() - padX * 0.75f, titleSepY),
+                pal.border,
+                1.0f
+            );
+        }
         for (const auto& it : drawItems) {
             if (!it.isSeparatorOnly) {
                 const bool isDanger = (it.variant == UiVariant::Danger);
@@ -429,7 +460,7 @@ ContextMenuResponse ContextMenu::Run(
                     c.DrawRoundRect(it.rect, keel::max(4.0f * s, radius - 2.0f * s), pal.surfaceHover, Color::Transparent(), 0.0f);
                 }
 
-                Color fg = isDanger ? dangerCol : (it.checked && iconWithCheck ? pal.accent : pal.textPrimary);
+                Color fg = isDanger ? dangerCol : (it.checked ? pal.accent : pal.textPrimary);
                 Color mutedFg = pal.textSecondary;
                 if (it.disabled) {
                     fg = fg.WithAlphaF(0.4f);

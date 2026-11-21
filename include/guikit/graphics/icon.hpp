@@ -45,6 +45,7 @@ enum class IconId : keel::u16 {
     Warning,
     Flash,
     Error,
+    Target,
 
     // IDE & Debugger
     DebugContinue,
@@ -120,6 +121,7 @@ public:
     [[nodiscard]] static constexpr Icon Warning()       noexcept { return Icon(IconId::Warning); }
     [[nodiscard]] static constexpr Icon Flash()         noexcept { return Icon(IconId::Flash); }
     [[nodiscard]] static constexpr Icon Error()         noexcept { return Icon(IconId::Error); }
+    [[nodiscard]] static constexpr Icon Target()        noexcept { return Icon(IconId::Target); }
     [[nodiscard]] static constexpr Icon DebugContinue() noexcept { return Icon(IconId::DebugContinue); }
     [[nodiscard]] static constexpr Icon StepOver()      noexcept { return Icon(IconId::StepOver); }
     [[nodiscard]] static constexpr Icon StepInto()      noexcept { return Icon(IconId::StepInto); }

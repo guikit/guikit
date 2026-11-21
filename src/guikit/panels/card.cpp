@@ -87,8 +87,17 @@ ContainerScope Card::Open(
     const auto& pal = theme.palette;
     const Color defaultBg = opts.elevated ? pal.surfaceElevated : pal.surface;
     const Color defaultBorder = opts.elevated ? pal.borderHover : pal.border;
+    const bool wantsBgHover = opts.background.hover.has_value();
+    const bool wantsBorderHover = opts.border.width > 0.0f && opts.border.color.hover.has_value();
+    bool isHovered = false;
+    if (!activeDisabled && (wantsBgHover || wantsBorderHover)) {
+        const Rect prevRect = ctx.GetPrevFrameBounds(idOuter);
+        if (prevRect.w > 0.0f && prevRect.h > 0.0f) {
+            isHovered = ctx.IsRectHovered(idOuter, prevRect);
+        }
+    }
     const Color resolvedBg = opts.background.IsBackgroundEnabled(true)
-        ? theme.ResolveColor(opts.background, false, false, activeDisabled, defaultBg)
+        ? theme.ResolveColor(opts.background, wantsBgHover && isHovered, false, activeDisabled, defaultBg)
         : Color::Transparent();
 
     if (opts.elevated) {
@@ -101,9 +110,9 @@ ContainerScope Card::Open(
 
     outerNode->borderWidth = opts.border.width;
     outerNode->borderColor = (opts.border.width > 0.0f)
-        ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, defaultBorder)
+        ? theme.ResolveColor(opts.border.color, wantsBorderHover && isHovered, false, activeDisabled, defaultBorder)
         : Color::Transparent();
-    outerNode->visualHash = detail::HashArgs(opts.background, opts.border, opts.elevated);
+    outerNode->visualHash = detail::HashArgs(opts.background, opts.border, opts.elevated, isHovered);
 
     ctx.FinishContainer(outerNode);
     return ContainerScope(&ctx, outerNode);

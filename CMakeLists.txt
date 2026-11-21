@@ -100,6 +100,8 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/backend/text_compositor.cpp
     src/guikit/widgets/level_meter.cpp
     src/guikit/widgets/pagination.cpp
+    src/guikit/widgets/readout.cpp
+    src/guikit/widgets/tag.cpp
     src/guikit/widgets/tag_input.cpp
     src/guikit/panels/context_menu.cpp
     src/guikit/panels/modal.cpp

@@ -11216,6 +11216,7 @@ void TestTextCompositorAndSubpixelRendering();
 void TestSwitchAndRadioSubpixelCentering();
 void TestPopoverOccludesPanelSashesAndRendersAboveThem();
 void TestUnifiedOverlayLayersNestedModalsAndModalSplitView();
+void TestTagAndReadoutWidgets();
 
 int main() {
     keel::println("[RUN] Testing GuiKit Context & Immediate Mode API...");
@@ -13780,6 +13781,7 @@ int main() {
     TestSwitchAndRadioSubpixelCentering();
     TestPopoverOccludesPanelSashesAndRendersAboveThem();
     TestUnifiedOverlayLayersNestedModalsAndModalSplitView();
+    TestTagAndReadoutWidgets();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Context tests passed successfully!");
@@ -16395,6 +16397,315 @@ void TestUnifiedOverlayLayersNestedModalsAndModalSplitView() {
 
     keel::println("  [PASS] TestUnifiedOverlayLayersNestedModalsAndModalSplitView completed");
 }
+
+void TestTagAndReadoutWidgets() {
+    keel::println("  -> TestTagAndReadoutWidgets...");
+    constexpr keel::u32 W = 900;
+    constexpr keel::u32 H = 640;
+    keel::Array<keel::u32> pixels(W * H, 0u);
+    ThorCanvas canvas;
+    canvas.SetTarget(pixels.data(), W, H, W);
+
+    // 1. Tag widget: clickable, closable, styles, variants, disabled
+    {
+        Context ui;
+        ui.SetThemeMode(ThemeMode::Light);
+        TagResponse tagClickRes{};
+        TagResponse tagCloseRes{};
+        TagResponse tagDisabledRes{};
+
+        auto renderTags = [&]() {
+            ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+            if (auto row = ui.Row({.gap = 8.0f, .padding = Padding::All(20.0f)})) {
+                tagClickRes = ui.Tag("# gost-1497", {
+                    .variant = UiVariant::Default,
+                    .style = TagStyle::Soft,
+                    .clickable = true
+                });
+                tagCloseRes = ui.Tag("In Method", {
+                    .icon = Icon::Check(),
+                    .variant = UiVariant::Success,
+                    .style = TagStyle::Soft,
+                    .clickable = true,
+                    .closable = true
+                });
+                tagDisabledRes = ui.Tag("Disabled", {
+                    .variant = UiVariant::Warning,
+                    .style = TagStyle::Outline,
+                    .clickable = true,
+                    .closable = true,
+                    .disabled = true
+                });
+                (void)ui.Tag("Solid Pill", {
+                    .icon = Icon::Target(),
+                    .variant = UiVariant::Primary,
+                    .style = TagStyle::Solid,
+                    .pill = true
+                });
+            }
+            ui.EndFrame(canvas);
+        };
+
+        renderTags();
+        renderTags();
+        CHECK(tagClickRes.rect.w > 40.0f && tagClickRes.rect.h >= 20.0f);
+        CHECK(tagCloseRes.rect.w > 60.0f);
+
+        // Click on clickable tag
+        ui.OnMouseMove(tagClickRes.rect.Center());
+        ui.OnMouseDown(1);
+        renderTags();
+        CHECK(tagClickRes.clicked);
+        CHECK(!tagClickRes.closed);
+        ui.OnMouseUp(1);
+        renderTags();
+
+        // Click on trailing close 'x' button of closable tag
+        const Vec2 closePt{tagCloseRes.rect.Right() - 8.0f, tagCloseRes.rect.Center().y};
+        ui.OnMouseMove(closePt);
+        ui.OnMouseDown(1);
+        renderTags();
+        CHECK(tagCloseRes.closed);
+        CHECK(!tagCloseRes.clicked);
+        ui.OnMouseUp(1);
+        renderTags();
+
+        // Disabled tag ignores clicks
+        ui.OnMouseMove(tagDisabledRes.rect.Center());
+        ui.OnMouseDown(1);
+        renderTags();
+        CHECK(!tagDisabledRes.clicked && !tagDisabledRes.closed);
+        ui.OnMouseUp(1);
+        renderTags();
+    }
+
+    // 2. ReadoutUnit conversions (linear, affine, custom callback)
+    {
+        const ReadoutUnit kn{.label = "kN", .factor = 0.001};
+        CHECK_NEAR(kn.Convert(2500.0), 2.5, 1e-9);
+
+        const ReadoutUnit fahr{.label = "F", .factor = 1.8, .offset = 32.0};
+        CHECK_NEAR(fahr.Convert(100.0), 212.0, 1e-9);
+
+        auto customDbm = [](double watts, void* user) noexcept -> double {
+            const double bias = user ? *static_cast<const double*>(user) : 0.0;
+            return watts * 10.0 + bias;
+        };
+        double bias = 30.0;
+        const ReadoutUnit dbm{.label = "dBm", .convert = customDbm, .userData = &bias};
+        CHECK_NEAR(dbm.Convert(2.0), 50.0, 1e-9);
+    }
+
+    // 3. Readout multi-channel interactive workflow: header->channel, value->precision, unit->units, 1-click switch, tare ◎
+    {
+        Context ui;
+        ui.SetThemeMode(ThemeMode::Light);
+
+        static constexpr ReadoutUnit kForceUnits[] = {
+            {.label = "N",   .factor = 1.0},
+            {.label = "kN",  .factor = 0.001},
+            {.label = "kgf", .factor = 0.101971621},
+            {.label = "lbf", .factor = 0.224808943}
+        };
+        static constexpr ReadoutUnit kDispUnits[] = {
+            {.label = "mm", .factor = 1.0},
+            {.label = "cm", .factor = 0.1},
+            {.label = "m",  .factor = 0.001}
+        };
+        static constexpr UiText kPrecLabels[] = {
+            "0 signs (0)",
+            "1 sign (0.0)",
+            "2 signs (0.00)",
+            "3 signs (0.000)",
+            "4 signs (0.0000)"
+        };
+
+        ReadoutState st{.channelIndex = 0, .unitIndex = 1, .precision = 2};
+        double forceN = 12345.0;
+        double dispMm = -0.0002; // tests -0.00 normalization
+        bool tareDisabled = false;
+        ReadoutResponse lastRes{};
+
+        auto renderReadout = [&]() {
+            ReadoutChannel channels[3] = {
+                {
+                    .label = "Load",
+                    .headerLabel = "LOAD",
+                    .value = forceN,
+                    .units = kForceUnits,
+                    .defaultUnitIndex = 1,
+                    .defaultPrecision = 2,
+                    .variant = UiVariant::Primary,
+                    .showAction = true,
+                    .actionDisabled = tareDisabled,
+                    .actionTooltip = "Tare load cell"
+                },
+                {
+                    .label = "Crosshead Displacement",
+                    .headerLabel = "DISPLACEMENT",
+                    .value = dispMm,
+                    .units = kDispUnits,
+                    .defaultUnitIndex = 0,
+                    .defaultPrecision = 3,
+                    .variant = UiVariant::Info,
+                    .showAction = true
+                },
+                {
+                    .label = "Disconnected Sensor",
+                    .headerLabel = "EXTENSOMETER",
+                    .value = keel::Limits<double>::quiet_nan(),
+                    .units = kDispUnits,
+                    .defaultUnitIndex = 0,
+                    .defaultPrecision = 2,
+                    .variant = UiVariant::Muted,
+                    .showAction = false
+                }
+            };
+
+            ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+            if (auto row = ui.Row({.gap = 12.0f, .padding = Padding::All(20.0f)})) {
+                lastRes = ui.Readout(st, channels, {
+                    .minWidth = 220.0f,
+                    .minPrecision = 0,
+                    .maxPrecision = 4,
+                    .channelMenuTitle = "SELECT CHANNEL",
+                    .precisionMenuTitle = "PRECISION",
+                    .unitMenuTitle = "UNITS",
+                    .precisionLabels = kPrecLabels
+                });
+            }
+            ui.EndFrame(canvas);
+        };
+
+        renderReadout();
+        renderReadout();
+        CHECK(lastRes.rect.w >= 220.0f && lastRes.rect.h >= 60.0f);
+        CHECK_NEAR(lastRes.displayedValue, 12.345, 1e-6);
+
+        // 3a. Click trailing tare button (◎)
+        const Vec2 tarePt{lastRes.rect.Right() - 24.0f, lastRes.rect.Bottom() - 24.0f};
+        ui.OnMouseMove(tarePt);
+        ui.OnMouseDown(1);
+        renderReadout();
+        CHECK(lastRes.actionClicked);
+        ui.OnMouseUp(1);
+        renderReadout();
+
+        // 3b. Click value area -> opens Precision menu, select 4th item (precision = 3)
+        const Vec2 valPt{lastRes.rect.x + 36.0f, lastRes.rect.Bottom() - 22.0f};
+        ui.OnMouseMove(valPt);
+        ui.OnMouseDown(1);
+        renderReadout();
+        ui.OnMouseUp(1);
+        renderReadout();
+        const Rect precPopup = ui.GetOpenPopupRect();
+        CHECK(precPopup.w > 120.0f && precPopup.h > 100.0f);
+
+        // 3c. 1-click switch directly from Precision menu -> Unit menu!
+        const Vec2 unitPt{lastRes.rect.x + 92.0f, lastRes.rect.Bottom() - 20.0f};
+        ui.OnMouseMove(unitPt);
+        ui.OnMouseDown(1);
+        renderReadout();
+        ui.OnMouseUp(1);
+        renderReadout();
+        const Rect unitPopup = ui.GetOpenPopupRect();
+        CHECK(unitPopup.w > 120.0f && unitPopup.h > 80.0f);
+        CHECK(unitPopup.x > precPopup.x); // repositioned under unit label!
+
+        // Select 1st item ("N") in unit menu (below header + divider)
+        const Vec2 firstUnitItem{unitPopup.Center().x, unitPopup.y + 52.0f};
+        ui.OnMouseMove(firstUnitItem);
+        ui.OnMouseDown(1);
+        renderReadout();
+        CHECK(lastRes.unitChanged);
+        CHECK(st.unitIndex == 0);
+        ui.OnMouseUp(1);
+        renderReadout();
+        CHECK_NEAR(lastRes.displayedValue, 12345.0, 1e-6);
+
+        // 3d. Click header ("LOAD") -> opens Channel menu, select 2nd item ("Crosshead Displacement")
+        const Vec2 headerPt{lastRes.rect.x + 26.0f, lastRes.rect.y + 18.0f};
+        ui.OnMouseMove(headerPt);
+        ui.OnMouseDown(1);
+        renderReadout();
+        ui.OnMouseUp(1);
+        renderReadout();
+        const Rect chPopup = ui.GetOpenPopupRect();
+        CHECK(chPopup.w > 140.0f && chPopup.h > 80.0f);
+
+        const Vec2 secondChItem{chPopup.Center().x, chPopup.y + 84.0f};
+        ui.OnMouseMove(secondChItem);
+        ui.OnMouseDown(1);
+        renderReadout();
+        CHECK(lastRes.channelChanged);
+        CHECK(st.channelIndex == 1);
+        CHECK(st.unitIndex == 0);
+        CHECK(st.precision == 3);
+        ui.OnMouseUp(1);
+        renderReadout();
+
+        // 3e. Click value area on channel 1 and pick precision 4 (5th item)
+        ui.OnMouseMove(valPt);
+        ui.OnMouseDown(1);
+        renderReadout();
+        ui.OnMouseUp(1);
+        renderReadout();
+        const Rect precPopup2 = ui.GetOpenPopupRect();
+        CHECK(precPopup2.w > 120.0f);
+        const Vec2 fifthPrecItem{precPopup2.Center().x, precPopup2.Bottom() - 18.0f};
+        ui.OnMouseMove(fifthPrecItem);
+        ui.OnMouseDown(1);
+        renderReadout();
+        CHECK(lastRes.precisionChanged);
+        CHECK(st.precision == 4);
+        ui.OnMouseUp(1);
+        renderReadout();
+
+        // 3f. Switch to channel 2 (NaN value) and verify graceful rendering without crash
+        st.channelIndex = 2;
+        renderReadout();
+        CHECK(!keel::is_finite(lastRes.displayedValue));
+
+        // 3g. Disabled action button ignores clicks
+        st.channelIndex = 0;
+        tareDisabled = true;
+        renderReadout();
+        ui.OnMouseMove(tarePt);
+        ui.OnMouseDown(1);
+        renderReadout();
+        CHECK(!lastRes.actionClicked);
+        ui.OnMouseUp(1);
+        renderReadout();
+    }
+
+    // 4. Single-channel convenience overload + Card hover StateColor
+    {
+        Context ui;
+        ui.SetThemeMode(ThemeMode::Dark);
+        static constexpr ReadoutUnit kTempUnits[] = {
+            {.label = "C", .factor = 1.0, .offset = 0.0},
+            {.label = "F", .factor = 1.8, .offset = 32.0}
+        };
+        keel::i32 uIdx = 1;
+        keel::i32 prec = 1;
+        ReadoutResponse r{};
+        ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+        if (auto card = ui.Card({
+            .border = {
+                .width = 1.0f,
+                .radius = 8.0f,
+                .color = {.normal = Color(60, 70, 90, 255), .hover = Color(90, 150, 240, 255)}
+            }
+        })) {
+            r = ui.Readout("TEMP", 25.0, uIdx, prec, kTempUnits);
+        }
+        ui.EndFrame(canvas);
+        CHECK_NEAR(r.displayedValue, 77.0, 1e-6);
+    }
+
+    keel::println("  [PASS] TestTagAndReadoutWidgets completed");
+}
+
 
 
 
