@@ -128,6 +128,18 @@ void NullCanvas::DrawRoundRect(
     ++m_stats.drawRoundRectCount;
 }
 
+void NullCanvas::DrawShadow(
+    Rect rect,
+    keel::f32 /*cornerRadius*/,
+    keel::f32 /*blurRadius*/,
+    Vec2 /*offset*/,
+    Color color,
+    keel::f32 /*spread*/
+) {
+    if (color.a == 0 || rect.w <= 0.0f || rect.h <= 0.0f) return;
+    ++m_stats.drawRoundRectCount;
+}
+
 Vec2 NullCanvas::MeasureText(keel::StringRef text, keel::f32 fontSize) {
     return MeasureTextStyled(text, fontSize, FontStyle::Regular);
 }
@@ -191,6 +203,22 @@ void NullCanvas::DrawTextBoxStyled(
 void NullCanvas::DrawLine(Vec2 /*p1*/, Vec2 /*p2*/, Color color, keel::f32 strokeWidth) {
     if (color.a == 0 || strokeWidth <= 0.0f) return;
     ++m_stats.drawLineCount;
+}
+
+void NullCanvas::DrawArc(
+    Vec2 /*center*/,
+    keel::f32 radius,
+    keel::f32 startAngleRad,
+    keel::f32 endAngleRad,
+    Color color,
+    keel::f32 strokeWidth,
+    bool /*roundCaps*/
+) {
+    if (color.a == 0 || radius <= 0.25f || strokeWidth <= 0.0f ||
+        keel::abs(endAngleRad - startAngleRad) < 1e-4f) {
+        return;
+    }
+    ++m_stats.drawPathCount;
 }
 
 void NullCanvas::DrawTriangle(

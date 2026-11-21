@@ -596,14 +596,8 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
         for (const auto& panel : drawPanels) {
             const Rect& pr = panel.popupRect;
 
-            // Soft drop shadow
-            c.DrawRoundRect(
-                Rect(pr.x - 1.0f * s, pr.y + 4.0f * s, pr.w + 2.0f * s, pr.h + 4.0f * s),
-                radius + 2.0f * s,
-                Color(0, 0, 0, isDark ? 72 : 42),
-                Color::Transparent(),
-                0.0f
-            );
+            // Soft Gaussian drop shadow
+            c.DrawShadow(pr, radius, 18.0f * s, {0.0f, 6.0f * s}, Color(0, 0, 0, isDark ? 128 : 64));
 
             c.DrawRoundRect(pr, radius, surfaceBg, borderCol, borderW);
 

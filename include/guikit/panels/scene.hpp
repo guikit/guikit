@@ -164,6 +164,7 @@ struct SceneDrawCmd {
         Pixels,
         Rect,
         Line,
+        Arc,
         Triangle,
         Text,
         TextBox

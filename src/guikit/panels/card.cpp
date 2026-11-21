@@ -19,21 +19,8 @@ void RenderElevatedCard(const Node* node, ICanvas& canvas, const UiTheme& /*them
     const Rect& rect = node->computedRect;
     const keel::f32 r = node->cornerRadius;
 
-    // 1. Soft two-layer ambient drop shadow
-    canvas.DrawRoundRect(
-        Rect(rect.x - 2.0f, rect.y + 6.0f, rect.w + 4.0f, rect.h + 6.0f),
-        r + 2.0f,
-        Color(0, 0, 0, 44),
-        Color::Transparent(),
-        0.0f
-    );
-    canvas.DrawRoundRect(
-        Rect(rect.x, rect.y + 2.0f, rect.w, rect.h + 2.0f),
-        r + 1.0f,
-        Color(0, 0, 0, 62),
-        Color::Transparent(),
-        0.0f
-    );
+    // 1. Soft Gaussian drop shadow
+    canvas.DrawShadow(rect, r, 16.0f, {0.0f, 5.0f}, Color(0, 0, 0, 108));
 
     // 2. Elevated surface fill over shadow (border is drawn after children by RenderNodeRecursive)
     if (payload->surfaceBg.a > 0) {

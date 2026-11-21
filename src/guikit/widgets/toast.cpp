@@ -250,13 +250,13 @@ void Toast::RunHost(
             const auto& e = dt;
             const Rect& r = dt.cardRect;
 
-            // Shadow
-            c.DrawRoundRect(
-                Rect(r.x - 1.0f * s, r.y + 4.0f * s, r.w + 2.0f * s, r.h + 4.0f * s),
-                radius + 2.0f * s,
-                Color(0, 0, 0, 60),
-                Color::Transparent(),
-                0.0f
+            // Soft Gaussian shadow
+            c.DrawShadow(
+                r,
+                radius,
+                18.0f * s,
+                {0.0f, 6.0f * s},
+                Color(0, 0, 0, (theme.mode == ThemeMode::Dark) ? 120 : 58)
             );
 
             Color accentCol = pal.accent;

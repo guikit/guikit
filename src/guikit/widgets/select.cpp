@@ -1447,10 +1447,10 @@ void Select::RenderPopup(
     // Dropdown container styling: card with border and subtle shadow
     const Color popupBg = pal.surfaceElevated;
     const Color popupBorder = pal.border;
-    const Color shadowCol = Color(0, 0, 0, 50);
+    const Color shadowCol = Color(0, 0, 0, (theme.mode == ThemeMode::Dark) ? 115 : 56);
 
     // Outer subtle drop shadow
-    canvas.DrawRoundRect(Rect(popupRect.x, popupRect.y + 2.0f, popupRect.w, popupRect.h), m.cornerRadius + 1.0f, shadowCol);
+    canvas.DrawShadow(popupRect, m.cornerRadius, 14.0f, {0.0f, 4.0f}, shadowCol);
 
     // Popup background and border
     canvas.DrawRoundRect(popupRect, m.cornerRadius, popupBg, popupBorder, 1.0f);
@@ -1987,9 +1987,9 @@ void RenderMultiPopup(
 
     const Color popupBg = pal.surfaceElevated;
     const Color popupBorder = pal.border;
-    const Color shadowCol = Color(0, 0, 0, 50);
+    const Color shadowCol = Color(0, 0, 0, (theme.mode == ThemeMode::Dark) ? 115 : 56);
 
-    canvas.DrawRoundRect(Rect(popupRect.x, popupRect.y + 2.0f, popupRect.w, popupRect.h), m.cornerRadius + 1.0f, shadowCol);
+    canvas.DrawShadow(popupRect, m.cornerRadius, 14.0f, {0.0f, 4.0f}, shadowCol);
     canvas.DrawRoundRect(popupRect, m.cornerRadius, popupBg, popupBorder, 1.0f);
 
     if (items.empty()) {

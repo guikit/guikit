@@ -273,4 +273,148 @@ bool DecodeImageFromMemory(
     return decoder(encodedBytes, outWidth, outHeight, outRgbaPixels);
 }
 
+void ICanvas::DrawArc(
+    Vec2 center,
+    keel::f32 radius,
+    keel::f32 startAngleRad,
+    keel::f32 endAngleRad,
+    Color color,
+    keel::f32 strokeWidth,
+    bool roundCaps
+) {
+    if (color.a == 0u || radius <= 0.25f || strokeWidth <= 0.1f) {
+        return;
+    }
+    keel::f32 a0 = startAngleRad;
+    keel::f32 a1 = endAngleRad;
+    if (a1 < a0) {
+        keel::swap(a0, a1);
+    }
+    const keel::f32 span = a1 - a0;
+    if (span < 1e-4f) {
+        return;
+    }
+
+    const keel::f32 halfT = strokeWidth * 0.5f;
+    const keel::f32 rOuter = radius + halfT;
+    const keel::f32 rInner = keel::max(0.25f, radius - halfT);
+
+    if (span >= keel::kTauF - 1e-4f) {
+        DrawRoundRect(
+            Rect(center.x - rOuter, center.y - rOuter, rOuter * 2.0f, rOuter * 2.0f),
+            rOuter,
+            Color(0, 0, 0, 0),
+            color,
+            strokeWidth
+        );
+        return;
+    }
+
+    // Split circular arc into <= 90 deg exact cubic Bezier segments with optional integrated semicircular caps
+    const keel::i32 nSegs = keel::clamp(keel::ceil_i32(span / (keel::kPiF * 0.5f)), 1, 8);
+    const keel::f32 dTheta = span / keel::as<keel::f32>(nSegs);
+    const keel::f32 kArc = (4.0f / 3.0f) * keel::tan(dTheta * 0.25f);
+    static constexpr keel::f32 kQuadCap = 0.55228475f;
+
+    VectorPath path;
+    path.Reserve(keel::as<keel::usize>(nSegs * 2 + 8), keel::as<keel::usize>(nSegs * 6 + 18));
+
+    const Vec2 uStart(keel::cos(a0), keel::sin(a0));
+    const Vec2 tStart(-uStart.y, uStart.x);
+    const Vec2 uEnd(keel::cos(a1), keel::sin(a1));
+    const Vec2 tEnd(-uEnd.y, uEnd.x);
+
+    path.MoveTo(center + uStart * rOuter);
+    for (keel::i32 i = 0; i < nSegs; ++i) {
+        const keel::f32 ang0 = a0 + dTheta * keel::as<keel::f32>(i);
+        const keel::f32 ang1 = a0 + dTheta * keel::as<keel::f32>(i + 1);
+        const Vec2 u0(keel::cos(ang0), keel::sin(ang0));
+        const Vec2 u1(keel::cos(ang1), keel::sin(ang1));
+        const Vec2 t0(-u0.y, u0.x);
+        const Vec2 t1(-u1.y, u1.x);
+        const Vec2 p0 = center + u0 * rOuter;
+        const Vec2 p3 = center + u1 * rOuter;
+        path.CubicTo(p0 + t0 * (kArc * rOuter), p3 - t1 * (kArc * rOuter), p3);
+    }
+
+    const keel::f32 capR = (rOuter - rInner) * 0.5f;
+    const keel::f32 capMidR = (rOuter + rInner) * 0.5f;
+    if (roundCaps && capR > 0.1f) {
+        const Vec2 capC = center + uEnd * capMidR;
+        const Vec2 o1 = capC + uEnd * capR;
+        const Vec2 apex1 = capC + tEnd * capR;
+        const Vec2 i1 = capC - uEnd * capR;
+        path.CubicTo(o1 + tEnd * (kQuadCap * capR), apex1 + uEnd * (kQuadCap * capR), apex1);
+        path.CubicTo(apex1 - uEnd * (kQuadCap * capR), i1 + tEnd * (kQuadCap * capR), i1);
+    } else {
+        path.LineTo(center + uEnd * rInner);
+    }
+
+    for (keel::i32 i = nSegs - 1; i >= 0; --i) {
+        const keel::f32 ang0 = a0 + dTheta * keel::as<keel::f32>(i);
+        const keel::f32 ang1 = a0 + dTheta * keel::as<keel::f32>(i + 1);
+        const Vec2 u0(keel::cos(ang0), keel::sin(ang0));
+        const Vec2 u1(keel::cos(ang1), keel::sin(ang1));
+        const Vec2 t0(-u0.y, u0.x);
+        const Vec2 t1(-u1.y, u1.x);
+        const Vec2 p0 = center + u1 * rInner;
+        const Vec2 p3 = center + u0 * rInner;
+        path.CubicTo(p0 - t1 * (kArc * rInner), p3 + t0 * (kArc * rInner), p3);
+    }
+
+    if (roundCaps && capR > 0.1f) {
+        const Vec2 capC = center + uStart * capMidR;
+        const Vec2 i0 = capC - uStart * capR;
+        const Vec2 apex0 = capC - tStart * capR;
+        const Vec2 o0 = capC + uStart * capR;
+        path.CubicTo(i0 - tStart * (kQuadCap * capR), apex0 - uStart * (kQuadCap * capR), apex0);
+        path.CubicTo(apex0 + uStart * (kQuadCap * capR), o0 - tStart * (kQuadCap * capR), o0);
+    }
+    path.Close();
+
+    PathPaint paint{};
+    paint.fillColor = color;
+    paint.renderFill = true;
+    DrawPath(path, paint);
+}
+
+void ICanvas::DrawShadow(
+    Rect rect,
+    keel::f32 cornerRadius,
+    keel::f32 blurRadius,
+    Vec2 offset,
+    Color color,
+    keel::f32 spread
+) {
+    if (color.a == 0u || rect.w <= 0.0f || rect.h <= 0.0f) {
+        return;
+    }
+    const Rect base(
+        rect.x + offset.x - spread,
+        rect.y + offset.y - spread,
+        rect.w + spread * 2.0f,
+        rect.h + spread * 2.0f
+    );
+    if (base.w <= 0.0f || base.h <= 0.0f) {
+        return;
+    }
+    const keel::f32 blur = keel::max(0.0f, blurRadius);
+    if (blur < 1.0f) {
+        DrawRoundRect(base, keel::max(0.0f, cornerRadius + spread), color);
+        return;
+    }
+
+    // Soft 3-layer concentric fallback for software/vector canvases without a Gaussian shadow shader
+    const keel::f32 baseAlpha = keel::as<keel::f32>(color.a) / 255.0f;
+    static constexpr keel::f32 kExpands[3] = {0.55f, 0.28f, 0.08f};
+    static constexpr keel::f32 kWeights[3] = {0.22f, 0.34f, 0.44f};
+    for (keel::usize i = 0u; i < 3u; ++i) {
+        const keel::f32 pad = blur * kExpands[i];
+        const keel::u8 a = keel::as<keel::u8>(keel::clamp(keel::round_i32(baseAlpha * kWeights[i] * 255.0f), 0, 255));
+        if (a == 0u) continue;
+        const Rect layer(base.x - pad, base.y - pad, base.w + pad * 2.0f, base.h + pad * 2.0f);
+        DrawRoundRect(layer, keel::max(0.0f, cornerRadius + spread + pad * 0.5f), Color(color.r, color.g, color.b, a));
+    }
+}
+
 } // namespace guikit

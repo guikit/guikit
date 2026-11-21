@@ -275,8 +275,33 @@ public:
         DrawTextBoxStyled(text, bounds, fontSize, color, style, alignX, alignY);
     }
 
+    /// Draws a soft Gaussian drop shadow for a rounded rectangle.
+    /// GPU SDF backends (`GlEs3Canvas`) evaluate an analytical blurred rounded-box shadow in a single quad;
+    /// other canvases fall back to a soft multi-layer rounded-rect approximation.
+    virtual void DrawShadow(
+        Rect rect,
+        keel::f32 cornerRadius,
+        keel::f32 blurRadius,
+        Vec2 offset = {0.0f, 4.0f},
+        Color color = Color(0, 0, 0, 96),
+        keel::f32 spread = 0.0f
+    );
+
     /// Draws a line segment between two points.
     virtual void DrawLine(Vec2 p1, Vec2 p2, Color color, keel::f32 strokeWidth = 1.0f) = 0;
+
+    /// Draws a smooth circular arc (angles in radians: 0 = +X right, increasing clockwise in screen space).
+    /// GPU SDF backends (`GlEs3Canvas`) render this in a single pixel-exact quad; other canvases fall back
+    /// to an exact cubic-Bezier annular path with integrated round or flat endcaps.
+    virtual void DrawArc(
+        Vec2 center,
+        keel::f32 radius,
+        keel::f32 startAngleRad,
+        keel::f32 endAngleRad,
+        Color color,
+        keel::f32 strokeWidth = 1.5f,
+        bool roundCaps = true
+    );
 
     /// Draws a filled and/or stroked triangle defined by three points.
     virtual void DrawTriangle(

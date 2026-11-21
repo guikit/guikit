@@ -3990,7 +3990,7 @@ void Context::RenderTooltipOverlay(ICanvas& canvas, Vec2 logicalSize) {
 
     canvas.PushClip(vp);
     const Rect boxRect(bx, by, boxW, boxH);
-    canvas.DrawRoundRect(Rect(bx, by + 2.0f, boxW, boxH), 6.0f, Color(0, 0, 0, 60), Color::Transparent(), 0.0f);
+    canvas.DrawShadow(boxRect, 6.0f, 12.0f, {0.0f, 4.0f}, Color(0, 0, 0, 110));
     canvas.DrawRoundRect(boxRect, 6.0f, Color(15, 23, 42, 245), Color(71, 85, 105, 220), 1.0f);
 
     const Color textColor = m_theme.ResolveTextColor(m_activeTooltip, Color(248, 250, 252, 255));

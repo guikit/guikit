@@ -348,11 +348,7 @@ void Readout::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
 
     // 1. Optional subtle drop shadow when elevated
     if (opts.elevated) {
-        canvas.DrawRoundRect(
-            Rect(rect.x - 1.0f, rect.y + 3.0f, rect.w + 2.0f, rect.h + 3.0f),
-            radius + 1.0f,
-            Color(0, 0, 0, isDark ? 55 : 28)
-        );
+        canvas.DrawShadow(rect, radius, 12.0f, {0.0f, 4.0f}, Color(0, 0, 0, isDark ? 96 : 44));
     }
 
     // 2. Card surface & border

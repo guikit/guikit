@@ -366,6 +366,7 @@ void SceneScope::FinalizeItem(keel::i32 itemIndex, keel::i32 prevItemIndex) noex
             case SceneDrawCmd::Type::Image:
             case SceneDrawCmd::Type::Pixels:
             case SceneDrawCmd::Type::Rect:
+            case SceneDrawCmd::Type::Arc:
                 expandRect(cmd.rect);
                 break;
             case SceneDrawCmd::Type::Line:
@@ -683,25 +684,22 @@ void SceneScope::DrawArc(
     keel::f32 sweepAngleDeg,
     Color color,
     keel::f32 strokeWidth,
-    keel::i32 segments
+    keel::i32 /*segments*/
 ) {
-    if (!m_payload || worldRadius <= 0.0f || segments < 2 || keel::abs(sweepAngleDeg) < 0.01f) return;
+    if (!m_payload || worldRadius <= 0.0f || keel::abs(sweepAngleDeg) < 0.01f) return;
     const keel::f32 startRad = keel::deg_to_rad(startAngleDeg);
-    const keel::f32 stepRad = keel::deg_to_rad(sweepAngleDeg) / keel::as<keel::f32>(segments);
+    const keel::f32 endRad = keel::deg_to_rad(startAngleDeg + sweepAngleDeg);
 
-    Vec2 prev{
-        worldCenter.x + keel::cos(startRad) * worldRadius,
-        worldCenter.y + keel::sin(startRad) * worldRadius
-    };
-    for (keel::i32 i = 1; i <= segments; ++i) {
-        const keel::f32 ang = startRad + stepRad * keel::as<keel::f32>(i);
-        const Vec2 cur{
-            worldCenter.x + keel::cos(ang) * worldRadius,
-            worldCenter.y + keel::sin(ang) * worldRadius
-        };
-        DrawLine(prev, cur, color, strokeWidth);
-        prev = cur;
-    }
+    SceneDrawCmd cmd{};
+    cmd.type = SceneDrawCmd::Type::Arc;
+    cmd.itemIndex = m_payload->activeItemIndex;
+    cmd.rect = Rect(worldCenter.x - worldRadius, worldCenter.y - worldRadius, worldRadius * 2.0f, worldRadius * 2.0f);
+    cmd.p1 = worldCenter;
+    cmd.p2 = {startRad, endRad};
+    cmd.radius = worldRadius;
+    cmd.fill = color;
+    cmd.strokeWidth = strokeWidth;
+    PushCmd(cmd);
 }
 
 void SceneScope::DrawLine(Vec2 worldP1, Vec2 worldP2, Color color, keel::f32 strokeWidth) {
@@ -1646,6 +1644,19 @@ void Scene::RenderBackgroundAndWorld(
                 };
                 const Color col = (tintFactor > 0.0f) ? blendColor(cmd.fill, accentCol, tintFactor) : cmd.fill;
                 canvas.DrawLine(sp1, sp2, col, keel::max(0.75f, cmd.strokeWidth * strokeScale * strokeBoost));
+                break;
+            }
+            case SceneDrawCmd::Type::Arc: {
+                const Rect dst = worldRectToScreen(cmd.rect);
+                if (dst.Intersects(vp)) {
+                    const Vec2 sc{
+                        vp.x + state.pan.x + cmd.p1.x * worldScale,
+                        vp.y + state.pan.y + cmd.p1.y * worldScale
+                    };
+                    const Color col = (tintFactor > 0.0f) ? blendColor(cmd.fill, accentCol, tintFactor) : cmd.fill;
+                    const keel::f32 sw = keel::max(0.75f, cmd.strokeWidth * strokeScale * strokeBoost);
+                    canvas.DrawArc(sc, cmd.radius * worldScale, cmd.p2.x, cmd.p2.y, col, sw, /*roundCaps=*/true);
+                }
                 break;
             }
             case SceneDrawCmd::Type::Triangle: {

@@ -87,47 +87,7 @@ void DrawAnnularArc(
     keel::f32 endAngleRad,
     Color color
 ) {
-    if (color.a == 0 || radius <= 0.5f || thickness <= 0.2f) return;
-    if (keel::abs(endAngleRad - startAngleRad) < 1e-4f) return;
-
-    if (endAngleRad < startAngleRad) {
-        keel::swap(startAngleRad, endAngleRad);
-    }
-
-    const keel::f32 halfT = thickness * 0.5f;
-    const keel::f32 rOuter = radius + halfT;
-    const keel::f32 rInner = keel::max(0.5f, radius - halfT);
-    const keel::f32 span = endAngleRad - startAngleRad;
-    const keel::i32 segs = keel::clamp(keel::ceil_i32(span / (keel::kPiF / 24.0f)), 6, 64);
-
-    VectorPath path;
-    path.Reserve(keel::as<keel::usize>(segs * 2 + 4), keel::as<keel::usize>(segs * 2 + 4));
-
-    for (keel::i32 i = 0; i <= segs; ++i) {
-        const keel::f32 t = keel::as<keel::f32>(i) / keel::as<keel::f32>(segs);
-        const keel::f32 a = startAngleRad + span * t;
-        const Vec2 pt(center.x + keel::cos(a) * rOuter, center.y + keel::sin(a) * rOuter);
-        if (i == 0) path.MoveTo(pt);
-        else        path.LineTo(pt);
-    }
-    for (keel::i32 i = segs; i >= 0; --i) {
-        const keel::f32 t = keel::as<keel::f32>(i) / keel::as<keel::f32>(segs);
-        const keel::f32 a = startAngleRad + span * t;
-        const Vec2 pt(center.x + keel::cos(a) * rInner, center.y + keel::sin(a) * rInner);
-        path.LineTo(pt);
-    }
-    path.Close();
-
-    PathPaint paint{};
-    paint.fillColor = color;
-    paint.renderFill = true;
-    canvas.DrawPath(path, paint);
-
-    // Draw rounded caps at start and end of the arc
-    const Vec2 capStart(center.x + keel::cos(startAngleRad) * radius, center.y + keel::sin(startAngleRad) * radius);
-    const Vec2 capEnd(center.x + keel::cos(endAngleRad) * radius, center.y + keel::sin(endAngleRad) * radius);
-    canvas.DrawRoundRect(Rect(capStart.x - halfT, capStart.y - halfT, thickness, thickness), halfT, color);
-    canvas.DrawRoundRect(Rect(capEnd.x - halfT, capEnd.y - halfT, thickness, thickness), halfT, color);
+    canvas.DrawArc(center, radius, startAngleRad, endAngleRad, color, thickness, /*roundCaps=*/true);
 }
 
 } // namespace

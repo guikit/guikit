@@ -36,33 +36,12 @@ void DrawButtonSpinner(ICanvas& canvas, Rect r, Color col, keel::f32 phase) {
     const keel::f32 radius = keel::max(1.0f, (diameter - strokeW) * 0.5f);
     const Vec2 center(r.x + r.w * 0.5f, r.y + r.h * 0.5f);
 
-    // Subtle background ring
-    canvas.DrawRoundRect(
-        Rect(center.x - radius, center.y - radius, radius * 2.0f, radius * 2.0f),
-        radius,
-        Color::Transparent(),
-        col.WithAlphaF(0.22f),
-        strokeW
-    );
+    // Concentric background ring + 250-degree rotating arc (single-quad SDF on GPU canvases)
+    canvas.DrawArc(center, radius, 0.0f, keel::kTauF, col.WithAlphaF(0.22f), strokeW, /*roundCaps=*/false);
 
-    // 250-degree rotating arc
     const keel::f32 startA = phase * keel::kTauF;
     const keel::f32 sweep = 1.38f * keel::kPiF;
-    constexpr keel::i32 kSegs = 18;
-    VectorPath path;
-    path.Reserve(kSegs + 1, kSegs + 1);
-    for (keel::i32 i = 0; i <= kSegs; ++i) {
-        const keel::f32 a = startA + sweep * (keel::as<keel::f32>(i) / keel::as<keel::f32>(kSegs));
-        const Vec2 pt(center.x + keel::cos(a) * radius, center.y + keel::sin(a) * radius);
-        if (i == 0) path.MoveTo(pt);
-        else path.LineTo(pt);
-    }
-    PathPaint paint{};
-    paint.strokeColor = col;
-    paint.strokeWidthPx = strokeW;
-    paint.renderStroke = true;
-    paint.renderFill = false;
-    canvas.DrawPath(path, paint);
+    canvas.DrawArc(center, radius, startA, startA + sweep, col, strokeW, /*roundCaps=*/true);
 }
 
 void DrawButtonGlyph(ICanvas& canvas, const ButtonOptions& opts, Rect r, Color col, keel::f32 phase) {

@@ -564,19 +564,12 @@ CommandPaletteResponse CommandPalette::Run(
             : (10.0f * s);
         const keel::f32 borderW = (borderOpt.width > 0.0f) ? borderOpt.width : 1.0f;
 
-        c.DrawRoundRect(
-            Rect(cardRect.x - 2.0f * s, cardRect.y + 8.0f * s, cardRect.w + 4.0f * s, cardRect.h + 10.0f * s),
-            radius + 4.0f * s,
-            Color(0, 0, 0, 65),
-            Color::Transparent(),
-            0.0f
-        );
-        c.DrawRoundRect(
-            Rect(cardRect.x, cardRect.y + 3.0f * s, cardRect.w, cardRect.h + 2.0f * s),
-            radius + 1.0f * s,
-            Color(0, 0, 0, 85),
-            Color::Transparent(),
-            0.0f
+        c.DrawShadow(
+            cardRect,
+            radius,
+            28.0f * s,
+            {0.0f, 10.0f * s},
+            Color(0, 0, 0, (theme.mode == ThemeMode::Dark) ? 150 : 78)
         );
 
         const Color defaultSurface = (theme.mode == ThemeMode::Dark)
