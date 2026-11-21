@@ -107,8 +107,8 @@ void TestThorCanvasTextRendering() {
     bool fontOk = canvas.LoadFontFile("assets/fonts/Roboto-Regular.ttf");
     CHECK(fontOk);
 
-    const Vec2 lenaSize = canvas.GetImageSize("assets/images/lena.png");
-    CHECK(lenaSize.x > 0.0f && lenaSize.y > 0.0f);
+    const Vec2 iconSize = canvas.GetImageSize("assets/guikit-icon-inter850-1024.png");
+    CHECK(iconSize.x > 0.0f && iconSize.y > 0.0f);
 
     std::memset(pixels.data(), 0, pixels.size() * sizeof(keel::u32));
     canvas.Begin(width, height);
@@ -12993,7 +12993,7 @@ int main() {
 
                 // Image caption multi-line wrapping in narrow viewports
                 const keel::String imgCaptionMd(
-                    "![Lena Standard Test Image (512x512 PNG - Embedded Native & WASM Asset)](assets/images/lena.png)\n");
+                    "![GuiKit Brand Icon (1024x1024 PNG - Embedded Native & WASM Asset)](assets/guikit-icon-inter850-1024.png)\n");
                 const Vec2 wideImgSz = Markdown::Measure(imgCaptionMd, {}, UiSize::Md, &archCanvas, mdTheme, 1200.0f);
                 const Vec2 narrowImgSz = Markdown::Measure(imgCaptionMd, {}, UiSize::Md, &archCanvas, mdTheme, 280.0f);
                 CHECK(narrowImgSz.y > wideImgSz.y + 10.0f);

@@ -19,20 +19,13 @@ endif()
 option(GUIKIT_BUILD_BACKEND_THORVG "Build GuiKit ThorVG software/vector rasterizer backend" ON)
 option(GUIKIT_USE_FREETYPE "Enable FreeType hinted glyph rasterizer & per-glyph atlas (falls back to ThorVG when OFF)" ON)
 option(GUIKIT_BUILD_BACKEND_SDL3 "Build GuiKit SDL3 + OpenGL ES3/WebGL2 backend" ON)
-option(GUIKIT_BUILD_DEMO "Build GuiKit interactive demo and examples" ${PROJECT_IS_TOP_LEVEL})
+option(GUIKIT_BUILD_EXAMPLES "Build GuiKit minimal example application" ${PROJECT_IS_TOP_LEVEL})
 option(GUIKIT_BUILD_TESTS "Build GuiKit unit tests" ${PROJECT_IS_TOP_LEVEL})
 option(GUIKIT_INSTALL "Enable CMake install targets for GuiKit" ${PROJECT_IS_TOP_LEVEL})
 
 if (GUIKIT_BUILD_TESTS)
     enable_testing()
 endif()
-
-if (GUIKIT_BUILD_DEMO OR GUIKIT_BUILD_TESTS)
-    set(_GUIKIT_DEFAULT_EMBED_DEMO_ASSETS ON)
-else()
-    set(_GUIKIT_DEFAULT_EMBED_DEMO_ASSETS OFF)
-endif()
-option(GUIKIT_EMBED_DEMO_ASSETS "Embed demo showcase assets (lena.png) into binary" ${_GUIKIT_DEFAULT_EMBED_DEMO_ASSETS})
 
 # Optimize WebAssembly builds for compact binary size (-Oz + Link-Time Optimization)
 if (EMSCRIPTEN)
@@ -149,7 +142,6 @@ add_custom_command(
     COMMAND "${CMAKE_COMMAND}"
         "-DASSETS_DIR=${CMAKE_CURRENT_SOURCE_DIR}/assets"
         "-DOUTPUT_FILE=${GUIKIT_GENERATED_ASSETS_CPP}"
-        "-DEMBED_DEMO_ASSETS=${GUIKIT_EMBED_DEMO_ASSETS}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/GenerateEmbeddedAssets.cmake"
     DEPENDS
         "${CMAKE_CURRENT_SOURCE_DIR}/cmake/GenerateEmbeddedAssets.cmake"
@@ -327,78 +319,13 @@ if (TARGET guikit::backend_sdl3)
     target_link_libraries(guikit INTERFACE guikit::backend_sdl3)
 endif()
 
-# --- Interactive Showcase Demo ---
-if (GUIKIT_BUILD_DEMO)
-    add_library(guikit_demo_lib STATIC
-        examples/demo/demo_window.cpp
-        examples/demo/elements/heading_screen.cpp
-        examples/demo/elements/element_screen.cpp
-        examples/demo/elements/button_screen.cpp
-        examples/demo/elements/slider_screen.cpp
-        examples/demo/elements/knob_screen.cpp
-        examples/demo/elements/spin_box_screen.cpp
-        examples/demo/elements/input_screen.cpp
-        examples/demo/elements/select_screen.cpp
-        examples/demo/elements/segmented_screen.cpp
-        examples/demo/elements/color_picker_screen.cpp
-        examples/demo/elements/date_picker_screen.cpp
-        examples/demo/elements/level_meter_screen.cpp
-        examples/demo/elements/tag_input_screen.cpp
-        examples/demo/panels/split_view_screen.cpp
-        examples/demo/panels/breadcrumb_screen.cpp
-        examples/demo/panels/pagination_screen.cpp
-        examples/demo/elements/switch_screen.cpp
-        examples/demo/elements/checkbox_screen.cpp
-        examples/demo/elements/radio_screen.cpp
-        examples/demo/elements/image_screen.cpp
-        examples/demo/panels/card_screen.cpp
-        examples/demo/panels/tab_bar_screen.cpp
-        examples/demo/panels/toolbar_screen.cpp
-        examples/demo/panels/sidebar_screen.cpp
-        examples/demo/panels/tree_view_screen.cpp
-        examples/demo/panels/table_screen.cpp
-        examples/demo/panels/overlays_screen.cpp
-        examples/demo/content/markdown_screen.cpp
-        examples/demo/content/code_editor_screen.cpp
-        examples/demo/scenes/schematic_screen.cpp
-        examples/demo/scenes/image_view_screen.cpp
+# --- Minimal Example ---
+if (GUIKIT_BUILD_EXAMPLES AND NOT EMSCRIPTEN)
+    add_executable(guikit_minimal
+        examples/minimal/main.cpp
     )
-    add_library(guikit::demo_lib ALIAS guikit_demo_lib)
-    target_include_directories(guikit_demo_lib PUBLIC
-        "${CMAKE_CURRENT_SOURCE_DIR}/examples/demo"
-    )
-    target_link_libraries(guikit_demo_lib PUBLIC guikit::guikit)
-    guikit_enforce_guidelines(guikit_demo_lib
-        HEADERS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/examples/demo"
-    )
-
-    add_executable(guikit_demo
-        examples/demo/main.cpp
-    )
-    target_link_libraries(guikit_demo PRIVATE guikit::demo_lib)
-    guikit_enforce_guidelines(guikit_demo)
-    if (EMSCRIPTEN)
-        set_target_properties(guikit_demo PROPERTIES SUFFIX ".html")
-        target_link_options(guikit_demo PRIVATE
-            "-Oz"
-            "-flto"
-            "-sSTACK_SIZE=1048576"
-            "-Wl,--stack-first"
-            "-sALLOW_MEMORY_GROWTH=1"
-            "-sINITIAL_MEMORY=67108864"
-            "-sMAX_WEBGL_VERSION=2"
-            "-sMIN_WEBGL_VERSION=1"
-            "-sEXIT_RUNTIME=0"
-            "--shell-file" "${CMAKE_CURRENT_SOURCE_DIR}/examples/demo/shell.html"
-        )
-    endif()
-    if (NOT EMSCRIPTEN)
-        add_executable(guikit_minimal
-            examples/minimal/main.cpp
-        )
-        target_link_libraries(guikit_minimal PRIVATE guikit::guikit)
-        guikit_enforce_guidelines(guikit_minimal)
-    endif()
+    target_link_libraries(guikit_minimal PRIVATE guikit::guikit)
+    guikit_enforce_guidelines(guikit_minimal)
 endif()
 
 # --- CMake Install Rules ---

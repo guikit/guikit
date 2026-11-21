@@ -41,11 +41,11 @@ if [[ ! -f "build/Makefile" && ! -f "build/build.ninja" ]]; then
     cmake -B build -S . -DCMAKE_BUILD_TYPE="$CONFIG"
 fi
 
-echo "[INFO] Building guikit_demo ($CONFIG)..."
-cmake --build build --config "$CONFIG" --target guikit_demo --parallel
+echo "[INFO] Building GuiKit library, minimal example & tests ($CONFIG)..."
+cmake --build build --config "$CONFIG" --parallel
 
 echo ""
 echo "========================================================"
 echo " Desktop build succeeded!"
-echo " Binary: build/guikit_demo"
+echo " Minimal example: build/guikit_minimal"
 echo "========================================================"

@@ -25,7 +25,7 @@ $files = @(
     "src/guikit/widgets/tab_bar.cpp",
     "src/guikit/widgets/text.cpp",
     "src/guikit/panels/toolbar.cpp",
-    "examples/demo/main.cpp",
+    "examples/minimal/main.cpp",
     "tests/test_core.cpp",
     "tests/test_layout.cpp",
     "tests/test_context.cpp"

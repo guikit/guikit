@@ -9,8 +9,8 @@ echo ========================================================
 echo  GuiKit Desktop Build (%CONFIG%)
 echo ========================================================
 
-:: Stop running guikit_demo.exe if open so linker can overwrite it cleanly
-taskkill /F /IM guikit_demo.exe >nul 2>&1
+:: Stop running guikit_minimal.exe if open so linker can overwrite it cleanly
+taskkill /F /IM guikit_minimal.exe >nul 2>&1
 
 if not exist "build\guikit.sln" if not exist "build\build.ninja" if not exist "build\Makefile" (
     echo [INFO] Configuring CMake build directory...
@@ -21,8 +21,8 @@ if not exist "build\guikit.sln" if not exist "build\build.ninja" if not exist "b
     )
 )
 
-echo [INFO] Building guikit_demo (%CONFIG%)...
-cmake --build build --config %CONFIG% --target guikit_demo --parallel
+echo [INFO] Building GuiKit library, minimal example & tests (%CONFIG%)...
+cmake --build build --config %CONFIG% --parallel
 if errorlevel 1 (
     echo [ERROR] Desktop build failed!
     exit /b 1
@@ -31,6 +31,6 @@ if errorlevel 1 (
 echo.
 echo ========================================================
 echo  Desktop build succeeded!
-echo  Binary: build\%CONFIG%\guikit_demo.exe
+echo  Minimal example: build\%CONFIG%\guikit_minimal.exe
 echo ========================================================
 endlocal

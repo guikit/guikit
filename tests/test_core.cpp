@@ -575,27 +575,27 @@ void TestStandaloneCoreModuleZeroDependencies() {
 void TestEmbeddedAndRuntimeAssets() {
     using namespace guikit;
 
-    // 1. Verify build-time embedded assets (lena.png + Roboto-Regular.ttf)
-    CHECK(Assets::Exists("assets/images/lena.png"));
-    CHECK(Assets::Exists("../assets/images/lena.png"));
-    CHECK(Assets::Exists("images/lena.png"));
-    CHECK(Assets::Exists("assets\\images\\lena.png"));
+    // 1. Verify build-time embedded assets (guikit-icon-inter850-1024.png + Roboto-Regular.ttf)
+    CHECK(Assets::Exists("assets/guikit-icon-inter850-1024.png"));
+    CHECK(Assets::Exists("../assets/guikit-icon-inter850-1024.png"));
+    CHECK(Assets::Exists("guikit-icon-inter850-1024.png"));
+    CHECK(Assets::Exists("assets\\guikit-icon-inter850-1024.png"));
     CHECK(Assets::Exists("assets/fonts/Roboto-Regular.ttf"));
     CHECK(!Assets::Exists("assets/images/architecture.svg"));
     CHECK(!Assets::Exists("assets/images/circuit.svg"));
     CHECK(!Assets::ListPaths().empty());
 
-    const auto lena = Assets::Find("assets/images/lena.png");
-    CHECK(lena.has_value());
-    if (lena.has_value()) {
-        CHECK(!lena->Empty());
-        CHECK(lena->mimeType == "png");
-        CHECK(lena->size > 1000u);
+    const auto iconPng = Assets::Find("assets/guikit-icon-inter850-1024.png");
+    CHECK(iconPng.has_value());
+    if (iconPng.has_value()) {
+        CHECK(!iconPng->Empty());
+        CHECK(iconPng->mimeType == "png");
+        CHECK(iconPng->size > 1000u);
         // PNG magic signature: 89 50 4E 47
-        CHECK(lena->data[0] == 0x89);
-        CHECK(lena->data[1] == 0x50);
-        CHECK(lena->data[2] == 0x4E);
-        CHECK(lena->data[3] == 0x47);
+        CHECK(iconPng->data[0] == 0x89);
+        CHECK(iconPng->data[1] == 0x50);
+        CHECK(iconPng->data[2] == 0x4E);
+        CHECK(iconPng->data[3] == 0x47);
     }
 
     // 2. Verify runtime asset registration & override cleanup

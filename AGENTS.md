@@ -229,7 +229,12 @@ Before drawing custom shapes on `ICanvas`, check this inventory:
 - **Pickers**: `ColorPicker` (2D HSV saturation/value canvas, hue/alpha sliders, HEX input, custom `.swatches`), `DatePicker` (`Date`, `DateTime`, `Time` modes with `DateTime::Today()`, `minDate`/`maxDate`, localized month/weekday labels & leap-year math).
 - **Navigation & Data**: `TabBar` (underline/pill/card/folder styles, `.closable` tabs returning `TabBarResponse::closedIndex`, `IndexLike` integer/`enum` binding, overflow scroll), `Breadcrumb` (with interactive `...` collapse menu), `Pagination` (ellipsis windowing), `Toolbar` (`ToolButton` / `Action`, `Toggle`, `Item`, `Dropdown`, `SplitButton`, `SplitToggle`, `Separator`, `Spacer` with `AutoCompact`/`Scroll`/`Wrap`/`Clip` overflow), `Sidebar`, `SidebarMenu`, `ActivityBar`, `BottomPanel`, `StatusBar`, `Accordion`, `Carousel`, `TreeView` (multi-column, filterable hierarchy), `Table` (virtualized 100k+ row data grid with sorting & selection).
 - **Overlays**: `Modal` (`if (auto m = ui.Modal(open, opts))` — pure backdrop & input/focus trap portal around `Card`/`Box`/widgets), `Popover` (`if (auto p = ui.Popover(open, opts))` — non-modal anchored portal around `Card`/`Box`/widgets), `ContextMenu`, `CommandPalette` (`Ctrl+K` fuzzy command launcher), `Toast` (`ui.ShowToast(...)` + `ui.ToastHost()`).
-- **Rich Editors & 2D Domain Scenes (`guikit::scenes`)**: `Markdown`, `TextArea` / `CodeEditor` (`ui.CodeEditor(...)`, `keel::String`/`FixedString` support, `.rows`, `.autoHeight`, `.tabSize`, `.insertSpaces`, syntax highlighting, breakpoints, code folding, minimap, find/replace), `Scene` (infinite pan/zoom vector canvas with grid & rulers), `MapView` (S-52/ENC vector marine GIS chart + 7 geodetic projections), `SignalView` (waveform + STFT spectrogram), `SonarView` (PPI 360° / Sector / B-Scan radar), `WaterfallView` (RTSA spectral waterfall), `ImageView` + `Histogram` (16-bit scientific image workstation with Window/Level & pixel loupe), `AttitudeView` (avionics PFD), `CarClusterView` (automotive cockpit), `BpmnEditor` (interactive BPMN 2.0 modeler & token simulator).
+- **Rich Editors & 2D Views**: `Markdown`, `TextArea` / `CodeEditor` (`ui.CodeEditor(...)`, `keel::String`/`FixedString` support, `.rows`, `.autoHeight`, `.tabSize`, `.insertSpaces`, syntax highlighting, breakpoints, code folding, minimap, find/replace), `Scene` (infinite pan/zoom vector canvas with grid & rulers), `ImageView` + `Histogram` (16-bit scientific image workstation with Window/Level & pixel loupe).
+- **Companion Ecosystem Modules** (separate repositories, aggregated in `guikit/bundle`):
+  - `guikit/geo` (`guikit::geo`): `MapView` (S-52/ENC vector marine GIS chart + 7 geodetic projections, GeoJSON, OSM tiles).
+  - `guikit/signal` (`guikit::signal`): `SignalView` (waveform + STFT spectrogram), `SonarView` (PPI 360° / Sector / B-Scan radar), `WaterfallView` (RTSA spectral waterfall).
+  - `guikit/cockpit` (`guikit::cockpit`): `AttitudeView` (avionics PFD), `CarClusterView` (automotive cockpit).
+  - `guikit/diagram` (`guikit::diagram`): `BpmnEditor` (interactive BPMN 2.0 modeler & token simulator).
 
 ---
 
@@ -247,8 +252,8 @@ When modifying or extending GuiKit itself:
    - Umbrella headers:
      - `#include "guikit/guikit.hpp"` (master umbrella header)
      - `#include "guikit/core.hpp"` (`guikit::core` widgets, panels, layouts)
-     - `#include "guikit/scenes.hpp"` (`guikit::scenes` scientific/GIS views)
      - `#include "guikit/context.hpp"` (UI context)
+     - Companion modules: `#include "guikit/geo.hpp"`, `"guikit/signal.hpp"`, `"guikit/cockpit.hpp"`, `"guikit/diagram.hpp"`
 2. **Symbol Naming**:
    - **Namespaces**: `snake_case` (`guikit`, `guikit::geo`, `guikit::detail`).
    - **Classes, Structs, `enum class`, Enumerators, and Methods**: `PascalCase` (`Context`, `ButtonOptions`, `UiSize::Md`, `DrawParagraph`).
@@ -266,7 +271,7 @@ When modifying or extending GuiKit itself:
 5. **Building & Running Tests**:
    ```powershell
    cmake -B build
-   cmake --build build --target test_core test_layout test_context test_guikit_header_purity guikit_demo
+   cmake --build build --target test_core test_layout test_context test_guikit_header_purity guikit_minimal
    ctest --test-dir build -C Debug --output-on-failure
    ```
    Every new widget, layout rule, or dirty-rect fix must include deterministic unit tests in `tests/test_core.cpp`, `tests/test_layout.cpp`, `tests/test_context.cpp`, or `tests/test_header_purity.cpp`.
