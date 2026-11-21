@@ -38,6 +38,7 @@ public:
 
     bool PumpEvents(Context& ui, bool reactiveMode, keel::i32 sleepTimeoutMs) override;
     void WakeUp() noexcept override;
+    [[nodiscard]] bool ShouldRenderFrame() const noexcept override;
 
     [[nodiscard]] bool UsesMainLoopCallback() const noexcept override;
     void RunMainLoopCallback(keel::Function<bool()> stepFn) override;

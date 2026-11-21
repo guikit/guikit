@@ -109,13 +109,22 @@ bool PlatformWindowBackend::PumpEvents(Context& ui, bool reactiveMode, keel::i32
     if (!m_window) {
         return false;
     }
-    return m_window->PumpEvents(ui, reactiveMode, sleepTimeoutMs);
+    const bool minimized = m_window->IsMinimized();
+    const bool effectiveReactive = reactiveMode || minimized;
+    const keel::i32 effectiveTimeout = minimized
+        ? ((sleepTimeoutMs < 0) ? sleepTimeoutMs : keel::max(sleepTimeoutMs, 250))
+        : sleepTimeoutMs;
+    return m_window->PumpEvents(ui, effectiveReactive, effectiveTimeout);
 }
 
 void PlatformWindowBackend::WakeUp() noexcept {
     if (m_window) {
         m_window->WakeUp();
     }
+}
+
+bool PlatformWindowBackend::ShouldRenderFrame() const noexcept {
+    return m_initialized && m_window && !m_window->IsMinimized();
 }
 
 bool PlatformWindowBackend::UsesMainLoopCallback() const noexcept {
