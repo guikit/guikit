@@ -124,7 +124,7 @@ void PlatformWindowBackend::WakeUp() noexcept {
 }
 
 bool PlatformWindowBackend::ShouldRenderFrame() const noexcept {
-    return m_initialized && m_window && !m_window->IsMinimized();
+    return m_initialized && m_window && m_window->ShouldRenderFrame();
 }
 
 bool PlatformWindowBackend::UsesMainLoopCallback() const noexcept {

@@ -89,6 +89,7 @@ public:
         return (96.0f * GetDpiScale()) / 25.4f;
     }
     [[nodiscard]] virtual bool IsMinimized() const noexcept { return false; }
+    [[nodiscard]] virtual bool ShouldRenderFrame() const noexcept { return !IsMinimized(); }
     [[nodiscard]] virtual bool IsLiveResizeFrame() const noexcept { return false; }
 
     [[nodiscard]] virtual bool IsVsyncEnabled() const noexcept { return true; }
