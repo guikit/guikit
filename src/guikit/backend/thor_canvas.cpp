@@ -2,7 +2,7 @@
 #include "guikit/backend/text_compositor.hpp"
 #include "guikit/backend/vector_backend.hpp"
 #if defined(GUIKIT_HAS_FREETYPE) && GUIKIT_HAS_FREETYPE
-#include "freetype_text_engine.hpp"
+#include "guikit/backend/freetype_text_engine.hpp"
 #endif
 #include <cstdlib>
 #include <cstring>

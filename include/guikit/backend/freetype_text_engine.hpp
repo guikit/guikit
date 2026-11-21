@@ -10,12 +10,35 @@ struct FT_FaceRec_;
 
 namespace guikit {
 
-/// Internal FreeType-backed hinted glyph rasterizer and per-glyph LRU atlas.
+/// Standalone FreeType-backed hinted glyph rasterizer and per-glyph LRU cache.
 ///
-/// Shares `TextCompositor` for gamma-correct grayscale and LCD RGB/BGR compositing.
+/// Decoupled from ThorVG so both CPU (`ThorCanvas`) and GPU (`GlEs3Canvas` glyph atlas)
+/// backends share identical font loading, kerning, hinting, and subpixel LCD rasterization.
 /// Never leaks `<ft2build.h>` or FreeType types into public `include/guikit/` headers.
 class FreeTypeTextEngine {
 public:
+    /// Vertical typographic metrics for a resolved font face at a specific pixel size.
+    struct FontMetrics {
+        float ascentPx{0.0f};
+        float descentPx{0.0f};
+        float lineHeightPx{0.0f};
+        float capHeightPx{0.0f};
+    };
+
+    /// Non-owning view into a cached rasterized glyph bitmap (1 byte/px Grayscale or 3 bytes/px LCD RGB).
+    /// Pointer remains valid until the next mutating call (`RasterizeCodepoint`, `DrawText`, `TrimCaches`, `LoadFontMemory`).
+    struct RasterizedGlyph {
+        const keel::u8* bitmap{nullptr};
+        keel::u16 width{0};
+        keel::u16 height{0};
+        keel::u16 strideBytes{0};
+        keel::i16 bearingX{0};
+        keel::i16 bearingY{0};
+        float advancePx{0.0f};
+        bool isSubpixel{false};
+        bool empty{true};
+    };
+
     FreeTypeTextEngine() noexcept;
     ~FreeTypeTextEngine() noexcept;
 
@@ -28,8 +51,40 @@ public:
     /// If `copyData` is false, `data` must point to static/embedded lifetime storage.
     bool LoadFontMemory(keel::ArrayRef<keel::u8> data, FontStyle style, bool copyData);
 
+    /// Loads GuiKit's embedded default Roboto & JetBrainsMono font family from `guikit::Assets`.
+    /// Returns true if at least the Regular font face was loaded.
+    bool LoadDefaultEmbeddedFonts();
+
     /// Returns true if a valid face can be resolved for `style` (directly or via Regular fallback).
     [[nodiscard]] bool HasFontForStyle(FontStyle style) const noexcept;
+
+    /// Queries scaled typographic metrics (ascent, descent, lineHeight, capHeight) for a font style.
+    [[nodiscard]] bool GetFontMetrics(
+        float scaledFontSizePx,
+        FontStyle style,
+        FontHinting hinting,
+        FontMetrics& outMetrics
+    );
+
+    /// Returns horizontal kerning adjustment in pixels between two Unicode codepoints.
+    [[nodiscard]] float GetKerningPx(
+        keel::u32 prevCodepoint,
+        keel::u32 codepoint,
+        float scaledFontSizePx,
+        FontStyle style,
+        FontHinting hinting
+    );
+
+    /// Rasterizes (or fetches from the internal LRU cache) a single Unicode codepoint for GPU texture atlas upload.
+    [[nodiscard]] bool RasterizeCodepoint(
+        keel::u32 codepoint,
+        float scaledFontSizePx,
+        FontStyle style,
+        FontHinting hinting,
+        bool subpixel,
+        keel::u8 phase,
+        RasterizedGlyph& outGlyph
+    );
 
     /// Measures single-line UTF-8 text width and line box height at `scaledFontSizePx`.
     [[nodiscard]] Vec2 MeasureText(

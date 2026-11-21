@@ -2,6 +2,9 @@
 
 #include <cstring>
 #include "guikit/backend/null_canvas.hpp"
+#if defined(GUIKIT_HAS_FREETYPE) && GUIKIT_HAS_FREETYPE
+#include "guikit/backend/freetype_text_engine.hpp"
+#endif
 #if defined(GUIKIT_HAS_BACKEND_SDL3) && GUIKIT_HAS_BACKEND_SDL3
 #include "guikit/backend/sdl_canvas.hpp"
 #include "guikit/backend/sdl_gl_shader_engine.hpp"
@@ -11260,11 +11263,13 @@ void TestUnifiedOverlayLayersNestedModalsAndModalSplitView();
 void TestTagAndReadoutWidgets();
 void TestMenuBarAndCascadingMenus();
 void TestNullCanvasHeadlessWorkflow();
+void TestPlatformWindowBackendAndStandaloneFreeType();
 
 int main() {
     keel::println("[RUN] Testing GuiKit Context & Immediate Mode API...");
 
     TestNullCanvasHeadlessWorkflow();
+    TestPlatformWindowBackendAndStandaloneFreeType();
     TestTextWrappingAndBackendIndependence();
 
 #if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
@@ -17055,6 +17060,150 @@ void TestNullCanvasHeadlessWorkflow() {
     CHECK(btn.clicked);
 
     keel::println("  [PASS] TestNullCanvasHeadlessWorkflow completed");
+}
+
+void TestPlatformWindowBackendAndStandaloneFreeType() {
+    using namespace guikit;
+    keel::println("  -> TestPlatformWindowBackendAndStandaloneFreeType...");
+
+    // 1. Verify MainWindow + PlatformWindowBackend + custom IPlatformWindow + GPU-style SwapBuffers lifecycle
+    {
+        class MockPlatformWindow final : public IPlatformWindow {
+        public:
+            bool created{false};
+            bool destroyed{false};
+            keel::i32 makeCurrentCount{0};
+            keel::i32 swapCount{0};
+            keel::i32 pumpCount{0};
+            keel::i32 width{640};
+            keel::i32 height{480};
+            GraphicsApi receivedApi{GraphicsApi::None};
+            CursorType lastCursor{CursorType::Default};
+            WindowHostCallbacks callbacks{};
+
+            bool Create(const PlatformWindowDesc& desc, Context& /*ui*/, WindowHostCallbacks cb) override {
+                created = true;
+                width = desc.width;
+                height = desc.height;
+                receivedApi = desc.graphicsApi;
+                callbacks = keel::move(cb);
+                return true;
+            }
+            void Destroy() noexcept override {
+                destroyed = true;
+                callbacks = {};
+            }
+            bool PumpEvents(Context& /*ui*/, bool /*reactiveMode*/, keel::i32 /*sleepTimeoutMs*/) override {
+                ++pumpCount;
+                if (pumpCount == 2) {
+                    width = 800;
+                    height = 600;
+                    if (callbacks.onResize) {
+                        callbacks.onResize(width, height);
+                    }
+                }
+                if (pumpCount > 3) {
+                    if (callbacks.onCloseRequested) {
+                        (void)callbacks.onCloseRequested();
+                    }
+                    return false;
+                }
+                return true;
+            }
+            bool MakeContextCurrent() noexcept override {
+                ++makeCurrentCount;
+                return true;
+            }
+            void SwapBuffers() noexcept override {
+                ++swapCount;
+            }
+            [[nodiscard]] keel::i32 GetFramebufferWidth() const noexcept override { return width; }
+            [[nodiscard]] keel::i32 GetFramebufferHeight() const noexcept override { return height; }
+            void SetCursor(CursorType cursor) noexcept override { lastCursor = cursor; }
+            [[nodiscard]] keel::StringRef GetPlatformName() const noexcept override { return "MockES3"; }
+        };
+
+        auto mockWin = keel::make_unique<MockPlatformWindow>();
+        MockPlatformWindow* rawWin = mockWin.get();
+        bool factoryReceivedPlatformWindow = false;
+        NullCanvas* rawCanvas = nullptr;
+
+        auto backend = keel::make_unique<PlatformWindowBackend>(
+            keel::move(mockWin),
+            [&](IPlatformWindow& win) -> keel::UniquePtr<ICanvas> {
+                factoryReceivedPlatformWindow = (win.GetPlatformName() == "MockES3");
+                auto c = keel::make_unique<NullCanvas>();
+                rawCanvas = c.get();
+                return c;
+            },
+            GraphicsApi::OpenGLES3
+        );
+
+        MainWindowConfig cfg{};
+        cfg.width = 640;
+        cfg.height = 480;
+        cfg.reactiveMode = false;
+
+        keel::i32 framesRendered = 0;
+        MainWindow app(cfg, keel::move(backend));
+        const keel::i32 rc = app.Run([&](Context& ui) {
+            ++framesRendered;
+            if (auto col = ui.Column({.padding = Padding::All(12.0f)})) {
+                ui.Heading({.label = "Platform Bridge"});
+                (void)ui.Button({.text = "OK"});
+            }
+            ui.SetCursor(CursorType::Pointer);
+        });
+
+        CHECK(rc == 0);
+        CHECK(rawWin->created);
+        CHECK(rawWin->destroyed);
+        CHECK(rawWin->receivedApi == GraphicsApi::OpenGLES3);
+        CHECK(factoryReceivedPlatformWindow);
+        CHECK(rawCanvas != nullptr);
+        CHECK(framesRendered == 3);
+        CHECK(rawWin->makeCurrentCount >= 4);
+        CHECK(rawWin->swapCount >= 1);
+        CHECK(rawWin->width == 800 && rawWin->height == 600);
+        CHECK(rawWin->lastCursor == CursorType::Pointer);
+    }
+
+    // 2. Verify standalone FreeTypeTextEngine (decoupled from ThorVG) rasterizes glyphs for GPU atlas upload
+#if defined(GUIKIT_HAS_FREETYPE) && GUIKIT_HAS_FREETYPE
+    {
+        FreeTypeTextEngine ft;
+        CHECK(ft.IsAvailable());
+        CHECK(ft.LoadDefaultEmbeddedFonts());
+        CHECK(ft.HasFontForStyle(FontStyle::Regular));
+        CHECK(ft.HasFontForStyle(FontStyle::Bold));
+        CHECK(ft.HasFontForStyle(FontStyle::Monospace));
+
+        FreeTypeTextEngine::FontMetrics fm{};
+        CHECK(ft.GetFontMetrics(16.0f, FontStyle::Regular, FontHinting::Light, fm));
+        CHECK(fm.ascentPx > 8.0f && fm.lineHeightPx > 14.0f && fm.capHeightPx > 6.0f);
+
+        FreeTypeTextEngine::RasterizedGlyph grayGlyph{};
+        CHECK(ft.RasterizeCodepoint(static_cast<keel::u32>('A'), 16.0f, FontStyle::Regular, FontHinting::Light, false, 0u, grayGlyph));
+        CHECK(!grayGlyph.empty && grayGlyph.bitmap != nullptr);
+        CHECK(!grayGlyph.isSubpixel);
+        CHECK(grayGlyph.width > 4u && grayGlyph.height > 6u);
+        CHECK(grayGlyph.strideBytes == grayGlyph.width);
+        CHECK(grayGlyph.advancePx > 4.0f);
+
+        FreeTypeTextEngine::RasterizedGlyph lcdGlyph{};
+        CHECK(ft.RasterizeCodepoint(static_cast<keel::u32>('A'), 16.0f, FontStyle::Regular, FontHinting::Light, true, 0u, lcdGlyph));
+        CHECK(!lcdGlyph.empty && lcdGlyph.bitmap != nullptr);
+        CHECK(lcdGlyph.isSubpixel);
+        CHECK(lcdGlyph.strideBytes == lcdGlyph.width * 3u);
+
+        const Vec2 monoNarrow = ft.MeasureText("iiii", 16.0f, FontStyle::Monospace, FontHinting::Light);
+        const Vec2 monoWide = ft.MeasureText("WWWW", 16.0f, FontStyle::Monospace, FontHinting::Light);
+        CHECK(monoNarrow.x > 10.0f);
+        CHECK_NEAR(monoNarrow.x, monoWide.x, 0.1f);
+    }
+#endif
+
+    keel::println("  [PASS] TestPlatformWindowBackendAndStandaloneFreeType completed");
 }
 
 

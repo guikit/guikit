@@ -19,7 +19,7 @@ endif()
 
 # --- Module Build Options ---
 option(GUIKIT_BUILD_BACKEND_THORVG "Build GuiKit ThorVG software/vector rasterizer backend" ON)
-option(GUIKIT_USE_FREETYPE "Enable FreeType hinted glyph rasterizer & per-glyph atlas (falls back to ThorVG when OFF)" ON)
+option(GUIKIT_USE_FREETYPE "Build standalone GuiKit FreeType text engine (guikit::text_freetype)" ON)
 option(GUIKIT_BUILD_BACKEND_SDL3 "Build GuiKit SDL3 + OpenGL ES3/WebGL2 backend" ON)
 option(GUIKIT_BUILD_EXAMPLES "Build GuiKit minimal example application" ${PROJECT_IS_TOP_LEVEL})
 option(GUIKIT_BUILD_TESTS "Build GuiKit unit tests" ${PROJECT_IS_TOP_LEVEL})
@@ -98,6 +98,7 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/widgets/breadcrumb.cpp
     src/guikit/widgets/date_picker.cpp
     src/guikit/backend/null_canvas.cpp
+    src/guikit/backend/platform_window_backend.cpp
     src/guikit/backend/text_compositor.cpp
     src/guikit/widgets/level_meter.cpp
     src/guikit/widgets/pagination.cpp
@@ -222,12 +223,48 @@ function(_guikit_add_bundled_sdl)
 endfunction()
 
 # ==============================================================================
-# 2. Module: guikit::backend_thorvg
+# 2. Module: guikit::text_freetype (Optional, Backend-Independent)
+#    Standalone FreeType hinted glyph rasterizer & LRU cache shared by CPU/GPU canvases
+# ==============================================================================
+set(GUIKIT_BUNDLED_FREETYPE OFF)
+set(GUIKIT_FREETYPE_ENABLED OFF)
+if (GUIKIT_USE_FREETYPE)
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/freetype/CMakeLists.txt")
+        set(GUIKIT_BUNDLED_FREETYPE ON)
+        set(GUIKIT_FREETYPE_ENABLED ON)
+        _guikit_add_bundled_freetype()
+    else()
+        find_package(Freetype QUIET)
+        if (Freetype_FOUND)
+            set(GUIKIT_FREETYPE_ENABLED ON)
+        else()
+            message(STATUS "GuiKit: FreeType not found; guikit::text_freetype disabled")
+        endif()
+    endif()
+endif()
+
+if (GUIKIT_FREETYPE_ENABLED)
+    add_library(guikit_text_freetype STATIC
+        src/guikit/backend/freetype_text_engine.cpp
+    )
+    add_library(guikit::text_freetype ALIAS guikit_text_freetype)
+    set_target_properties(guikit_text_freetype PROPERTIES EXPORT_NAME text_freetype)
+
+    target_compile_features(guikit_text_freetype PUBLIC cxx_std_20)
+    target_compile_definitions(guikit_text_freetype PUBLIC GUIKIT_HAS_FREETYPE=1)
+    if (GUIKIT_BUNDLED_FREETYPE)
+        target_link_libraries(guikit_text_freetype PUBLIC guikit::core PRIVATE freetype)
+    else()
+        target_link_libraries(guikit_text_freetype PUBLIC guikit::core PRIVATE Freetype::Freetype)
+    endif()
+    keel_enforce_guidelines(guikit_text_freetype)
+endif()
+
+# ==============================================================================
+# 3. Module: guikit::backend_thorvg
 #    CPU / Headless Vector Rasterizer Backend (ThorCanvas)
 # ==============================================================================
 set(GUIKIT_BUNDLED_THORVG OFF)
-set(GUIKIT_BUNDLED_FREETYPE OFF)
-set(GUIKIT_FREETYPE_ENABLED OFF)
 if (GUIKIT_BUILD_BACKEND_THORVG)
     if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/thorvg/inc/thorvg.h")
         set(GUIKIT_BUNDLED_THORVG ON)
@@ -236,46 +273,16 @@ if (GUIKIT_BUILD_BACKEND_THORVG)
         find_package(thorvg REQUIRED)
     endif()
 
-    set(_GUIKIT_THORVG_SOURCES
-        src/guikit/backend/thor_canvas.cpp
-    )
-
-    if (GUIKIT_USE_FREETYPE)
-        if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/freetype/CMakeLists.txt")
-            set(GUIKIT_BUNDLED_FREETYPE ON)
-            set(GUIKIT_FREETYPE_ENABLED ON)
-            _guikit_add_bundled_freetype()
-        else()
-            find_package(Freetype QUIET)
-            if (Freetype_FOUND)
-                set(GUIKIT_FREETYPE_ENABLED ON)
-            else()
-                message(STATUS "GuiKit: FreeType not found; falling back to ThorVG text rasterizer")
-            endif()
-        endif()
-    endif()
-
-    if (GUIKIT_FREETYPE_ENABLED)
-        list(APPEND _GUIKIT_THORVG_SOURCES
-            src/guikit/backend/freetype_text_engine.cpp
-        )
-    endif()
-
     add_library(guikit_backend_thorvg STATIC
-        ${_GUIKIT_THORVG_SOURCES}
+        src/guikit/backend/thor_canvas.cpp
     )
     add_library(guikit::backend_thorvg ALIAS guikit_backend_thorvg)
     set_target_properties(guikit_backend_thorvg PROPERTIES EXPORT_NAME backend_thorvg)
 
     target_compile_features(guikit_backend_thorvg PUBLIC cxx_std_20)
     target_compile_definitions(guikit_backend_thorvg PUBLIC GUIKIT_HAS_BACKEND_THORVG=1)
-    if (GUIKIT_FREETYPE_ENABLED)
-        target_compile_definitions(guikit_backend_thorvg PUBLIC GUIKIT_HAS_FREETYPE=1)
-        if (GUIKIT_BUNDLED_FREETYPE)
-            target_link_libraries(guikit_backend_thorvg PRIVATE freetype)
-        else()
-            target_link_libraries(guikit_backend_thorvg PRIVATE Freetype::Freetype)
-        endif()
+    if (TARGET guikit::text_freetype)
+        target_link_libraries(guikit_backend_thorvg PUBLIC guikit::text_freetype)
     else()
         target_compile_definitions(guikit_backend_thorvg PUBLIC GUIKIT_HAS_FREETYPE=0)
     endif()
@@ -328,6 +335,9 @@ add_library(guikit INTERFACE)
 add_library(guikit::guikit ALIAS guikit)
 
 target_link_libraries(guikit INTERFACE guikit::core)
+if (TARGET guikit::text_freetype)
+    target_link_libraries(guikit INTERFACE guikit::text_freetype)
+endif()
 if (TARGET guikit::backend_thorvg)
     target_link_libraries(guikit INTERFACE guikit::backend_thorvg)
 endif()
@@ -335,13 +345,21 @@ if (TARGET guikit::backend_sdl3)
     target_link_libraries(guikit INTERFACE guikit::backend_sdl3)
 endif()
 
-# --- Minimal Example ---
-if (GUIKIT_BUILD_EXAMPLES AND NOT EMSCRIPTEN AND GUIKIT_BUILD_BACKEND_SDL3)
-    add_executable(guikit_minimal
-        examples/minimal/main.cpp
+# --- Examples ---
+if (GUIKIT_BUILD_EXAMPLES AND NOT EMSCRIPTEN)
+    add_executable(guikit_headless
+        examples/headless/main.cpp
     )
-    target_link_libraries(guikit_minimal PRIVATE guikit::guikit)
-    guikit_enforce_guidelines(guikit_minimal)
+    target_link_libraries(guikit_headless PRIVATE guikit::core)
+    guikit_enforce_guidelines(guikit_headless)
+
+    if (GUIKIT_BUILD_BACKEND_SDL3)
+        add_executable(guikit_minimal
+            examples/minimal/main.cpp
+        )
+        target_link_libraries(guikit_minimal PRIVATE guikit::guikit)
+        guikit_enforce_guidelines(guikit_minimal)
+    endif()
 endif()
 
 # --- CMake Install Rules ---
@@ -350,13 +368,16 @@ if (GUIKIT_INSTALL)
     include(CMakePackageConfigHelpers)
 
     set(_GUIKIT_EXPORT_TARGETS guikit_core guikit)
+    if (TARGET guikit_text_freetype)
+        list(APPEND _GUIKIT_EXPORT_TARGETS guikit_text_freetype)
+        if (GUIKIT_BUNDLED_FREETYPE AND TARGET freetype)
+            list(APPEND _GUIKIT_EXPORT_TARGETS freetype)
+        endif()
+    endif()
     if (TARGET guikit_backend_thorvg)
         list(APPEND _GUIKIT_EXPORT_TARGETS guikit_backend_thorvg)
         if (GUIKIT_BUNDLED_THORVG AND TARGET thorvg)
             list(APPEND _GUIKIT_EXPORT_TARGETS thorvg)
-        endif()
-        if (GUIKIT_BUNDLED_FREETYPE AND TARGET freetype)
-            list(APPEND _GUIKIT_EXPORT_TARGETS freetype)
         endif()
     endif()
     if (TARGET guikit_backend_sdl3)

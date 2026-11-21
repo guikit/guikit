@@ -1,6 +1,9 @@
 #include "guikit/core.hpp"
 #include "guikit/guikit.hpp"
+#include "guikit/backend/freetype_text_engine.hpp"
+#include "guikit/backend/i_platform_window.hpp"
 #include "guikit/backend/null_canvas.hpp"
+#include "guikit/backend/platform_window_backend.hpp"
 #include "guikit/backend/sdl_canvas.hpp"
 #include "guikit/backend/sdl_gl_shader_engine.hpp"
 #include "guikit/backend/sdl_window_backend.hpp"
@@ -18,6 +21,10 @@
 
 #if defined(THORVG_H) || defined(_THORVG_H_)
 #error "guikit public headers must not leak thorvg.h"
+#endif
+
+#if defined(FT_FREETYPE_H) || defined(FT2BUILD_H_)
+#error "guikit public headers must not leak FreeType headers"
 #endif
 
 #if defined(min) || defined(max) || defined(near) || defined(far) || defined(DrawText) || defined(RGB)

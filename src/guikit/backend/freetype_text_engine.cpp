@@ -1,10 +1,11 @@
-#include "freetype_text_engine.hpp"
+#include "guikit/backend/freetype_text_engine.hpp"
 #include <cstring>
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include FT_LCD_FILTER_H
 #include FT_SYNTHESIS_H
 #include "guikit/backend/text_compositor.hpp"
+#include "guikit/core/assets.hpp"
 #include "keel/math.h"
 #include "keel/utf8.h"
 
@@ -111,6 +112,143 @@ bool FreeTypeTextEngine::LoadFontMemory(keel::ArrayRef<keel::u8> data, FontStyle
     slot.currentSizeQ4 = 0u;
 
     TrimCaches();
+    return true;
+}
+
+bool FreeTypeTextEngine::LoadDefaultEmbeddedFonts() {
+    if (!m_library) {
+        return false;
+    }
+    struct DefaultFontSlot {
+        keel::StringRef path;
+        FontStyle style;
+    };
+    static constexpr DefaultFontSlot kDefaults[] = {
+        {"assets/fonts/Roboto-Regular.ttf", FontStyle::Regular},
+        {"assets/fonts/Roboto-Bold.ttf", FontStyle::Bold},
+        {"assets/fonts/Roboto-Italic.ttf", FontStyle::Italic},
+        {"assets/fonts/Roboto-BoldItalic.ttf", FontStyle::BoldItalic},
+        {"assets/fonts/JetBrainsMono-Regular.ttf", FontStyle::Monospace},
+    };
+    bool loadedRegular = false;
+    for (const auto& entry : kDefaults) {
+        if (const auto asset = Assets::Find(entry.path); asset && !asset->Empty()) {
+            const bool ok = LoadFontMemory(asset->Bytes(), entry.style, /*copyData=*/false);
+            if (ok && entry.style == FontStyle::Regular) {
+                loadedRegular = true;
+            }
+        }
+    }
+    return loadedRegular || HasFontForStyle(FontStyle::Regular);
+}
+
+bool FreeTypeTextEngine::GetFontMetrics(
+    float scaledFontSizePx,
+    FontStyle style,
+    FontHinting hinting,
+    FontMetrics& outMetrics
+) {
+    outMetrics = FontMetrics{};
+    if (scaledFontSizePx <= 0.0f) {
+        return false;
+    }
+    const ResolvedFace rf = ResolveFace(style);
+    if (!rf.slot) {
+        return false;
+    }
+    const keel::u16 sizeQ4 = QuantizeSizeQ4(scaledFontSizePx);
+    if (!EnsureFaceSize(*rf.slot, sizeQ4)) {
+        return false;
+    }
+    FT_Face face = rf.slot->face;
+    if (face->units_per_EM > 0u && face->ascender > face->descender) {
+        const float scale = scaledFontSizePx / static_cast<float>(face->units_per_EM);
+        outMetrics.ascentPx = static_cast<float>(face->ascender) * scale;
+        outMetrics.descentPx = static_cast<float>(-face->descender) * scale;
+        outMetrics.lineHeightPx = static_cast<float>(face->ascender - face->descender) * scale;
+    } else {
+        outMetrics.ascentPx = static_cast<float>(face->size->metrics.ascender) / 64.0f;
+        outMetrics.descentPx = static_cast<float>(-face->size->metrics.descender) / 64.0f;
+        outMetrics.lineHeightPx = scaledFontSizePx * 1.25f;
+    }
+    const keel::u32 capIdx = FT_Get_Char_Index(face, static_cast<keel::u32>('H'));
+    if (capIdx != 0u) {
+        const GlyphEntry& capG = ResolveGlyph(rf, capIdx, sizeQ4, hinting, false, 0u);
+        outMetrics.capHeightPx = (capG.bearingY > 0) ? static_cast<float>(capG.bearingY) : (scaledFontSizePx * 0.72f);
+    } else {
+        outMetrics.capHeightPx = scaledFontSizePx * 0.72f;
+    }
+    return true;
+}
+
+float FreeTypeTextEngine::GetKerningPx(
+    keel::u32 prevCodepoint,
+    keel::u32 codepoint,
+    float scaledFontSizePx,
+    FontStyle style,
+    FontHinting hinting
+) {
+    if (prevCodepoint == 0u || codepoint == 0u || scaledFontSizePx <= 0.0f) {
+        return 0.0f;
+    }
+    const ResolvedFace rf = ResolveFace(style);
+    if (!rf.slot) {
+        return 0.0f;
+    }
+    const keel::u16 sizeQ4 = QuantizeSizeQ4(scaledFontSizePx);
+    if (!EnsureFaceSize(*rf.slot, sizeQ4)) {
+        return 0.0f;
+    }
+    FT_Face face = rf.slot->face;
+    if (FT_HAS_KERNING(face) == 0) {
+        return 0.0f;
+    }
+    const keel::u32 g1 = FT_Get_Char_Index(face, prevCodepoint);
+    const keel::u32 g2 = FT_Get_Char_Index(face, codepoint);
+    if (g1 == 0u || g2 == 0u) {
+        return 0.0f;
+    }
+    const FT_UInt kernMode = UsesSubpixelPhase(hinting) ? FT_KERNING_UNFITTED : FT_KERNING_DEFAULT;
+    FT_Vector kern{};
+    if (FT_Get_Kerning(face, g1, g2, kernMode, &kern) != 0) {
+        return 0.0f;
+    }
+    return static_cast<float>(kern.x) / 64.0f;
+}
+
+bool FreeTypeTextEngine::RasterizeCodepoint(
+    keel::u32 codepoint,
+    float scaledFontSizePx,
+    FontStyle style,
+    FontHinting hinting,
+    bool subpixel,
+    keel::u8 phase,
+    RasterizedGlyph& outGlyph
+) {
+    outGlyph = RasterizedGlyph{};
+    if (scaledFontSizePx <= 0.0f) {
+        return false;
+    }
+    const ResolvedFace rf = ResolveFace(style);
+    if (!rf.slot) {
+        return false;
+    }
+    const keel::u16 sizeQ4 = QuantizeSizeQ4(scaledFontSizePx);
+    if (!EnsureFaceSize(*rf.slot, sizeQ4)) {
+        return false;
+    }
+    FT_Face face = rf.slot->face;
+    const keel::u32 glyphIdx = FT_Get_Char_Index(face, codepoint);
+    const GlyphEntry& g = ResolveGlyph(rf, glyphIdx, sizeQ4, hinting, subpixel, phase);
+    outGlyph.bitmap = g.bitmap.empty() ? nullptr : g.bitmap.data();
+    outGlyph.width = g.width;
+    outGlyph.height = g.height;
+    outGlyph.strideBytes = g.strideBytes;
+    outGlyph.bearingX = g.bearingX;
+    outGlyph.bearingY = g.bearingY;
+    outGlyph.advancePx = g.advancePx;
+    outGlyph.isSubpixel = g.isSubpixel;
+    outGlyph.empty = g.empty;
     return true;
 }
 
