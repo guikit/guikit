@@ -53,6 +53,32 @@ if (NOT TARGET keel::keel)
     endif()
 endif()
 
+if (NOT TARGET keel::compress)
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/compress/CMakeLists.txt")
+        set(KEEL_COMPRESS_BUILD_TESTS OFF)
+        if (GUIKIT_INSTALL)
+            add_subdirectory(third_party/compress)
+        else()
+            add_subdirectory(third_party/compress EXCLUDE_FROM_ALL)
+        endif()
+    else()
+        find_package(keel_compress QUIET)
+    endif()
+endif()
+
+if (NOT TARGET keel::imagefile)
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/imagefile/CMakeLists.txt")
+        set(KEEL_IMAGEFILE_BUILD_TESTS OFF)
+        if (GUIKIT_INSTALL)
+            add_subdirectory(third_party/imagefile)
+        else()
+            add_subdirectory(third_party/imagefile EXCLUDE_FROM_ALL)
+        endif()
+    else()
+        find_package(keel_imagefile QUIET)
+    endif()
+endif()
+
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/GuiKitGuidelines.cmake")
 
 # ==============================================================================
@@ -168,6 +194,12 @@ target_include_directories(guikit_core PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 target_link_libraries(guikit_core PUBLIC keel::keel)
+set(GUIKIT_HAS_KEEL_IMAGEFILE OFF)
+if (TARGET keel::imagefile)
+    target_link_libraries(guikit_core PRIVATE keel::imagefile)
+    target_compile_definitions(guikit_core PRIVATE GUIKIT_HAS_KEEL_IMAGEFILE=1)
+    set(GUIKIT_HAS_KEEL_IMAGEFILE ON)
+endif()
 
 guikit_enforce_guidelines(guikit_core
     HEADERS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include"

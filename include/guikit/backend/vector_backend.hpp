@@ -32,8 +32,17 @@ void RegisterDefaultImageDecoder(ImageDecoderFn decoder) noexcept;
 /// optimized for vector tile rasterization and headless offscreen surfaces.
 [[nodiscard]] keel::UniquePtr<ICanvas> CreateOffscreenVectorCanvas();
 
-/// Backend-agnostic image decoder: decodes an encoded raster image (PNG / JPEG / WebP) from memory
-/// into 32-bit RGBA8888 pixels (`(A << 24) | (B << 16) | (G << 8) | R`).
+/// Inspects encoded raster image dimensions (PNG / JPEG / TIFF / BMP / TGA / PNM / GIF) without
+/// decoding the full pixel payload. Returns `false` if the format is unrecognized or invalid.
+/// Thread-safe and safe to invoke from background worker threads.
+[[nodiscard]] bool InspectImageFromMemory(
+    keel::ArrayRef<keel::u8> encodedBytes,
+    keel::u32& outWidth,
+    keel::u32& outHeight
+) noexcept;
+
+/// Backend-agnostic image decoder: decodes an encoded raster image (PNG / JPEG / TIFF / BMP / TGA / PNM / GIF / WebP)
+/// from memory into 32-bit RGBA8888 pixels (`(A << 24) | (B << 16) | (G << 8) | R`).
 /// Thread-safe and safe to invoke from background worker threads.
 [[nodiscard]] bool DecodeImageFromMemory(
     keel::ArrayRef<keel::u8> encodedBytes,

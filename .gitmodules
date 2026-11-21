@@ -1,3 +1,9 @@
 [submodule "third_party/keel"]
 	path = third_party/keel
 	url = https://github.com/keelcpp/keel.git
+[submodule "third_party/compress"]
+	path = third_party/compress
+	url = https://github.com/keelcpp/compress.git
+[submodule "third_party/imagefile"]
+	path = third_party/imagefile
+	url = https://github.com/keelcpp/imagefile.git

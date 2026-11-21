@@ -1670,6 +1670,64 @@ void TestMdRefAndPixelRef() {
     }
 }
 
+void TestBuiltInImageDecoding() {
+    using namespace guikit;
+
+    // Pure guikit::core must inspect & decode embedded raster assets via built-in keel::imagefile
+    // without requiring native or sdl backends to register a custom ImageDecoderFn.
+    const auto iconAsset = Assets::Find("assets/guikit-icon-inter850-1024.png");
+    CHECK(iconAsset.has_value() && !iconAsset->Empty());
+    if (iconAsset && !iconAsset->Empty()) {
+        keel::u32 peekW = 0u;
+        keel::u32 peekH = 0u;
+        CHECK(InspectImageFromMemory(iconAsset->Bytes(), peekW, peekH));
+        CHECK(peekW == 1024u && peekH == 1024u);
+
+        keel::u32 decW = 0u;
+        keel::u32 decH = 0u;
+        keel::Array<keel::u32> rgba;
+        CHECK(DecodeImageFromMemory(iconAsset->Bytes(), decW, decH, rgba));
+        CHECK(decW == 1024u && decH == 1024u);
+        CHECK(rgba.size() == 1024u * 1024u);
+
+        keel::u32 opaqueCount = 0u;
+        for (keel::usize i = 0u; i < rgba.size(); i += 257u) {
+            if ((rgba[i] >> 24) > 0u) {
+                ++opaqueCount;
+            }
+        }
+        CHECK(opaqueCount > 100u);
+    }
+
+    // Minimal valid 2x1 24-bit uncompressed TGA verifies multi-format decoding beyond PNG
+    const keel::u8 tinyTga[24] = {
+        0u, 0u, 2u, 0u, 0u, 0u, 0u, 0u,
+        0u, 0u, 0u, 0u, 2u, 0u, 1u, 0u, 24u, 0x20u,
+        10u, 20u, 30u, // BGR -> RGB(30, 20, 10)
+        40u, 50u, 60u  // BGR -> RGB(60, 50, 40)
+    };
+    const keel::ArrayRef<keel::u8> tgaRef(tinyTga, sizeof(tinyTga));
+    keel::u32 tw = 0u;
+    keel::u32 th = 0u;
+    keel::Array<keel::u32> tgaRgba;
+    CHECK(InspectImageFromMemory(tgaRef, tw, th));
+    CHECK(tw == 2u && th == 1u);
+    CHECK(DecodeImageFromMemory(tgaRef, tw, th, tgaRgba));
+    CHECK(tw == 2u && th == 1u && tgaRgba.size() == 2u);
+    CHECK(tgaRgba[0] == (30u | (20u << 8) | (10u << 16) | (255u << 24)));
+    CHECK(tgaRgba[1] == (60u | (50u << 8) | (40u << 16) | (255u << 24)));
+
+    // Garbage / truncated input must fail cleanly without touching outputs
+    const keel::u8 garbage[8] = {0x00u, 0x11u, 0x22u, 0x33u, 0x44u, 0x55u, 0x66u, 0x77u};
+    keel::u32 gw = 99u;
+    keel::u32 gh = 99u;
+    keel::Array<keel::u32> gRgba;
+    CHECK(!InspectImageFromMemory(keel::ArrayRef<keel::u8>(garbage, sizeof(garbage)), gw, gh));
+    CHECK(gw == 0u && gh == 0u);
+    CHECK(!DecodeImageFromMemory(keel::ArrayRef<keel::u8>(garbage, sizeof(garbage)), gw, gh, gRgba));
+    CHECK(gw == 0u && gh == 0u);
+}
+
 int main() {
     keel::println("[RUN] Testing GuiKit Core Foundation...");
 
@@ -1692,6 +1750,7 @@ int main() {
     TestThemeTokensPaddingAndDateTime();
     TestElementHeadingSpecAndSeparatorSpace();
     TestMdRefAndPixelRef();
+    TestBuiltInImageDecoding();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Core tests passed successfully!");

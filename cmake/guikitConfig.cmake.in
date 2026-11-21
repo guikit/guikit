@@ -3,6 +3,9 @@
 include(CMakeFindDependencyMacro)
 
 find_dependency(keel)
+if (@GUIKIT_HAS_KEEL_IMAGEFILE@)
+    find_dependency(keel_imagefile)
+endif()
 
 if (NOT EMSCRIPTEN)
     find_dependency(Threads)
