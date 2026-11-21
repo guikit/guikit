@@ -217,7 +217,9 @@ ContextMenuResponse ContextMenu::Run(
         }
 
         const Rect itemRect(popupRect.x + 4.0f * s, curY, popupRect.w - 8.0f * s, rowH);
-        const bool isHov = !item.disabled && itemRect.Contains(mouse);
+        const bool isHov = !item.disabled &&
+            mouse.x >= itemRect.x && mouse.x < itemRect.Right() &&
+            mouse.y >= itemRect.y && mouse.y < itemRect.Bottom();
         if (isHov) {
             hoveredIdx = static_cast<keel::i32>(i);
             state.keyboardIndex = hoveredIdx;
@@ -226,7 +228,7 @@ ContextMenuResponse ContextMenu::Run(
         RowEntry rEntry{};
         rEntry.rect = itemRect;
         rEntry.itemIndex = i;
-        rEntry.hovered = isHov;
+        rEntry.hovered = false;
         curY += rowH;
         if (item.separatorAfter) {
             rEntry.separatorBelow = true;
@@ -286,11 +288,9 @@ ContextMenuResponse ContextMenu::Run(
 
     if (hoveredIdx < 0 && state.keyboardIndex >= 0) {
         hoveredIdx = state.keyboardIndex;
-        for (auto& r : rows) {
-            if (static_cast<keel::i32>(r.itemIndex) == hoveredIdx) {
-                r.hovered = true;
-            }
-        }
+    }
+    for (auto& r : rows) {
+        r.hovered = (hoveredIdx >= 0 && static_cast<keel::i32>(r.itemIndex) == hoveredIdx);
     }
 
     // Mouse click handling when already open
