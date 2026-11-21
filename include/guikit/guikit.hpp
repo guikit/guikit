@@ -1,7 +1,7 @@
 #pragma once
 
 // ==============================================================================
-// GuiKit - Autonomous Immediate Mode Vector GUI Library (Umbrella Header)
+// GuiKit - Autonomous Immediate Mode Vector GUI Library (Core Umbrella Header)
 // ==============================================================================
 
 #define GUIKIT_VERSION_MAJOR 1
@@ -13,30 +13,6 @@
 #include "keel/core.h"
 
 namespace guikit {
-
-#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
-void RegisterThorVectorBackend() noexcept;
-#endif
-#if defined(GUIKIT_HAS_BACKEND_SDL3) && GUIKIT_HAS_BACKEND_SDL3
-void RegisterSdlWindowBackend() noexcept;
-#endif
-
-#if (defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG) || \
-    (defined(GUIKIT_HAS_BACKEND_SDL3) && GUIKIT_HAS_BACKEND_SDL3)
-namespace detail {
-struct DefaultBackendsAutoRegistrar {
-    DefaultBackendsAutoRegistrar() noexcept {
-#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
-        RegisterThorVectorBackend();
-#endif
-#if defined(GUIKIT_HAS_BACKEND_SDL3) && GUIKIT_HAS_BACKEND_SDL3
-        RegisterSdlWindowBackend();
-#endif
-    }
-};
-inline const DefaultBackendsAutoRegistrar g_defaultBackendsAutoRegistrar{};
-} // namespace detail
-#endif
 
 struct Version {
     static constexpr keel::i32 major = GUIKIT_VERSION_MAJOR;
