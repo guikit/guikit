@@ -8,6 +8,7 @@
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/backend/i_window_backend.hpp"
+#include "guikit/backend/null_canvas.hpp"
 #include "guikit/backend/vector_backend.hpp"
 #include "guikit/core/assets.hpp"
 #include "guikit/core/container_scope.hpp"

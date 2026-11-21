@@ -97,6 +97,7 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/panels/split_view.cpp
     src/guikit/widgets/breadcrumb.cpp
     src/guikit/widgets/date_picker.cpp
+    src/guikit/backend/null_canvas.cpp
     src/guikit/backend/text_compositor.cpp
     src/guikit/widgets/level_meter.cpp
     src/guikit/widgets/pagination.cpp
@@ -335,7 +336,7 @@ if (TARGET guikit::backend_sdl3)
 endif()
 
 # --- Minimal Example ---
-if (GUIKIT_BUILD_EXAMPLES AND NOT EMSCRIPTEN)
+if (GUIKIT_BUILD_EXAMPLES AND NOT EMSCRIPTEN AND GUIKIT_BUILD_BACKEND_SDL3)
     add_executable(guikit_minimal
         examples/minimal/main.cpp
     )

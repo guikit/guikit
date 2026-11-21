@@ -1,18 +1,29 @@
 #include "guikit/guikit.hpp"
 
 #include <cstring>
+#include "guikit/backend/null_canvas.hpp"
+#if defined(GUIKIT_HAS_BACKEND_SDL3) && GUIKIT_HAS_BACKEND_SDL3
 #include "guikit/backend/sdl_canvas.hpp"
 #include "guikit/backend/sdl_gl_shader_engine.hpp"
 #include "guikit/backend/sdl_window_backend.hpp"
+#endif
 #include "guikit/backend/text_compositor.hpp"
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
 #include "guikit/backend/thor_canvas.hpp"
+#endif
 #include "guikit/core/assets.hpp"
 #include "guikit/core/rich_text.hpp"
 #include "guikit/core/text_util.hpp"
 #include "keel/keel.h"
 #include "keel/math.h"
-#if __has_include(<SDL3/SDL.h>)
+#if defined(GUIKIT_HAS_BACKEND_SDL3) && GUIKIT_HAS_BACKEND_SDL3 && __has_include(<SDL3/SDL.h>)
 #include <SDL3/SDL.h>
+#endif
+
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
+using TestCanvas = guikit::ThorCanvas;
+#else
+using TestCanvas = guikit::NullCanvas;
 #endif
 
 static keel::i32 g_failures = 0;
@@ -38,7 +49,7 @@ void TestImmediateApiWorkflow() {
     using namespace guikit;
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
 
     const keel::u32 width = 800;
     const keel::u32 height = 600;
@@ -96,6 +107,7 @@ void TestImmediateApiWorkflow() {
     ui.EndFrame(canvas);
 }
 
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
 void TestThorCanvasTextRendering() {
     using namespace guikit;
     ThorCanvas canvas;
@@ -130,11 +142,12 @@ void TestThorCanvasTextRendering() {
                   minX, maxX, minY, maxY, maxX - minX + 1, maxY - minY + 1);
     CHECK(minX >= 0 && minY >= 0);
 }
+#endif
 
 void TestHeaderRowTextMetricsAndNoOverlap() {
     using namespace guikit;
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 800;
     const keel::u32 height = 600;
     keel::Array<keel::u32> pixels(width * height);
@@ -182,7 +195,7 @@ void TestHeaderRowTextMetricsAndNoOverlap() {
 void TestFooterExitButtonStaysVisibleInNarrowWindow() {
     using namespace guikit;
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 500;
     const keel::u32 height = 400;
     keel::Array<keel::u32> pixels(width * height);
@@ -232,7 +245,7 @@ void TestWrapContainerInContextApi() {
     using namespace guikit;
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
 
     const keel::u32 width = 300;
     const keel::u32 height = 400;
@@ -288,7 +301,7 @@ void TestWrapContainerInContextApi() {
 void TestFooterExitButtonPushedToBottomWithCardAndWrap() {
     using namespace guikit;
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 800;
     const keel::u32 height = 600;
     keel::Array<keel::u32> pixels(width * height);
@@ -366,7 +379,7 @@ void TestUiTokensAndIconFactories() {
     CHECK(!emptyIcon);
 
     // Verify Icon drawing does not crash
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 100;
     const keel::u32 height = 100;
     keel::Array<keel::u32> pixels(width * height);
@@ -381,7 +394,7 @@ void TestTwoLevelDisabledWorkflow() {
     using namespace guikit;
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 400;
     const keel::u32 height = 200;
     keel::Array<keel::u32> pixels(width * height);
@@ -448,7 +461,7 @@ void TestBoxSlotWithUiSizeToken() {
     using namespace guikit;
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 400;
     const keel::u32 height = 200;
     keel::Array<keel::u32> pixels(width * height);
@@ -488,7 +501,7 @@ void TestBoxSlotWithUiSizeToken() {
 void TestButtonWidgetRunAndResponseChaining() {
     using namespace guikit;
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 400;
     const keel::u32 height = 200;
     keel::Array<keel::u32> pixels(width * height);
@@ -560,7 +573,7 @@ void TestUiStringAndContextFormatting() {
 
     // Test Context arena formatting and interning in UI frame
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 400;
     const keel::u32 height = 200;
     keel::Array<keel::u32> pixels(width * height);
@@ -615,7 +628,7 @@ void TestUiStringAndContextFormatting() {
 void TestBoxContainerGapSpacing() {
     using namespace guikit;
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 400;
     const keel::u32 height = 300;
     keel::Array<keel::u32> pixels(width * height);
@@ -669,7 +682,7 @@ void TestAutonomousTextWidgetAndTypographyRoles() {
 
     // 2. Immediate mode rendering and semantic shorthands
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 800;
     const keel::u32 height = 600;
     keel::Array<keel::u32> pixels(width * height);
@@ -783,7 +796,7 @@ void TestSwitchAndCheckboxWidgets() {
 
     // 2. Interactive mutation test
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 500;
     const keel::u32 height = 400;
     keel::Array<keel::u32> pixels(width * height);
@@ -987,7 +1000,7 @@ void TestInputFieldWidget() {
     using namespace guikit;
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
 
     const keel::u32 width = 600;
     const keel::u32 height = 500;
@@ -1298,7 +1311,7 @@ void TestSelectWidget() {
     using namespace guikit;
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
 
     const keel::u32 width = 800;
     const keel::u32 height = 600;
@@ -1627,7 +1640,7 @@ void TestGridAndCardLayout() {
     using namespace guikit;
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 800;
     const keel::u32 height = 600;
     keel::Array<keel::u32> pixels(width * height);
@@ -1739,7 +1752,7 @@ void TestScrollAreaImmediateMode() {
     using namespace guikit;
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 800;
     const keel::u32 height = 400;
     keel::Array<keel::u32> pixels(width * height);
@@ -1969,20 +1982,20 @@ void TestScrollAreaImmediateMode() {
         }
 
         // D. UiText::Rich integration in ui.Text, ui.Element, and ui.SetTooltip + 0 steady-state font measure calls
-        struct RichCountingCanvas : public ThorCanvas {
+        struct RichCountingCanvas : public TestCanvas {
             keel::i32 layoutMeasureCalls{0};
             bool insideDrawText{false};
             Vec2 MeasureText(keel::StringRef text, float fontSize) override {
                 if (!insideDrawText) ++layoutMeasureCalls;
-                return ThorCanvas::MeasureText(text, fontSize);
+                return TestCanvas::MeasureText(text, fontSize);
             }
             Vec2 MeasureTextStyled(keel::StringRef text, float fontSize, FontStyle style) override {
                 if (!insideDrawText) ++layoutMeasureCalls;
-                return ThorCanvas::MeasureTextStyled(text, fontSize, style);
+                return TestCanvas::MeasureTextStyled(text, fontSize, style);
             }
             void DrawTextStyled(keel::StringRef text, Vec2 pos, float fontSize, Color color, FontStyle style, float angleDeg = 0.0f) override {
                 insideDrawText = true;
-                ThorCanvas::DrawTextStyled(text, pos, fontSize, color, style, angleDeg);
+                TestCanvas::DrawTextStyled(text, pos, fontSize, color, style, angleDeg);
                 insideDrawText = false;
             }
         };
@@ -2026,7 +2039,7 @@ void TestScrollAreaImmediateMode() {
 void TestReactiveEventLoop() {
     using namespace guikit;
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     keel::Array<keel::u32> pixels(100 * 100);
     canvas.SetTarget(pixels.data(), 100, 100, 100);
 
@@ -2114,7 +2127,7 @@ void TestDirtyRectDamageTracking() {
     using namespace guikit;
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 800;
     const keel::u32 height = 600;
     keel::Array<keel::u32> pixels(width * height);
@@ -2293,7 +2306,7 @@ void TestDirtyRectDamageTracking() {
 void TestTabBarWidgetWorkflow() {
     using namespace guikit;
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 800;
     const keel::u32 height = 600;
     keel::Array<keel::u32> pixels(width * height);
@@ -2450,7 +2463,7 @@ void TestTabBarWidgetWorkflow() {
 void TestToolbarWidgetWorkflow() {
     using namespace guikit;
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 800;
     const keel::u32 height = 600;
     keel::Array<keel::u32> pixels(width * height);
@@ -2638,7 +2651,7 @@ void TestToolbarWidgetWorkflow() {
 void TestLabelVariantsStableSizing() {
     using namespace guikit;
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 800;
     const keel::u32 height = 600;
     keel::Array<keel::u32> pixels(width * height);
@@ -2728,7 +2741,7 @@ void TestLabelVariantsStableSizing() {
 void TestContainerSizeInheritanceAndWidgetStretch() {
     using namespace guikit;
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 800;
     const keel::u32 height = 600;
     keel::Array<keel::u32> pixels(width * height);
@@ -2837,7 +2850,7 @@ void TestUiStyleAndDensityScaling() {
 
     // 2. Context dynamic float density switching (Variant B: density scales ALL container gaps/padding + ui.Gap)
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 400;
     const keel::u32 height = 300;
     keel::Array<keel::u32> pixels(width * height);
@@ -2924,7 +2937,7 @@ void TestLeafWidgetSizeOverrides() {
     using namespace guikit;
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 800;
     const keel::u32 height = 1200;
     keel::Array<keel::u32> pixels(width * height);
@@ -3088,7 +3101,7 @@ void TestHeadingWidgetWorkflow() {
     static_assert(![]<typename T = guikit::HeadingOptions>() { return requires(T o) { o.background; }; }());
     static_assert(![]<typename T = guikit::HeadingOptions>() { return requires(T o) { o.border; }; }());
     {
-        class HeadingStrokeSpyCanvas : public ThorCanvas {
+        class HeadingStrokeSpyCanvas : public TestCanvas {
         public:
             struct RoundRectRec {
                 Rect rect;
@@ -3104,13 +3117,13 @@ void TestHeadingWidgetWorkflow() {
             };
             void DrawRoundRect(Rect rect, float radius, Color fill, Color stroke = Color(0, 0, 0, 0), float strokeWidth = 0.0f) override {
                 roundRects.push_back({rect, fill, stroke, strokeWidth});
-                ThorCanvas::DrawRoundRect(rect, radius, fill, stroke, strokeWidth);
+                TestCanvas::DrawRoundRect(rect, radius, fill, stroke, strokeWidth);
             }
             void DrawLine(Vec2 p1, Vec2 p2, Color color, float thickness = 1.0f) override {
                 lines.push_back({p1, p2, color, thickness});
-                ThorCanvas::DrawLine(p1, p2, color, thickness);
+                TestCanvas::DrawLine(p1, p2, color, thickness);
             }
-            using ThorCanvas::Clear;
+            using TestCanvas::Clear;
             void Clear() {
                 roundRects.clear();
                 lines.clear();
@@ -3194,7 +3207,7 @@ void TestHeadingWidgetWorkflow() {
     const keel::i32 width = 800;
     const keel::i32 height = 600;
     keel::Array<keel::u32> pixels(width * height);
-    ThorCanvas canvas;
+    TestCanvas canvas;
     canvas.SetTarget(pixels.data(), width, height, width);
 
     Response head1, head2, head3, head4;
@@ -3266,7 +3279,7 @@ void TestDpiScalingAndBackendMetadata() {
     using namespace guikit;
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
 
     const keel::u32 winWidth = 1200;
     const keel::u32 winHeight = 900;
@@ -3274,7 +3287,11 @@ void TestDpiScalingAndBackendMetadata() {
     canvas.SetTarget(pixels.data(), winWidth, winHeight, winWidth);
 
     // Backend metadata check
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
     CHECK(canvas.GetBackendName() == "ThorVG (Vector Software)");
+#else
+    CHECK(canvas.GetBackendName() == "NullCanvas (Headless)");
+#endif
 
     // Frame 1: 100% scale
     ui.BeginFrame({static_cast<float>(winWidth), static_cast<float>(winHeight)}, 1.0f);
@@ -3314,6 +3331,7 @@ void TestDpiScalingAndBackendMetadata() {
 // Regression: the SDL backend once converted mouse coords to logical dp itself, and
 // Context::OnMouseMove divided by the DPI scale a second time (hover landed at 1/dpi of the cursor).
 // Exercises the full chain SDL window coords -> SdlWindowToPhysicalPixels -> OnMouseMove -> logical dp.
+#if defined(GUIKIT_HAS_BACKEND_SDL3) && GUIKIT_HAS_BACKEND_SDL3
 void TestSdlMouseCoordsMapToLogicalDp() {
     using namespace guikit;
 
@@ -3352,7 +3370,7 @@ void TestSdlMouseCoordsMapToLogicalDp() {
         constexpr keel::u32 kW = 1200;
         constexpr keel::u32 kH = 900;
         Context ui;
-        ThorCanvas canvas;
+        TestCanvas canvas;
         keel::Array<keel::u32> pixels(kW * kH);
         canvas.SetTarget(pixels.data(), kW, kH, kW);
 
@@ -3381,6 +3399,7 @@ void TestSdlMouseCoordsMapToLogicalDp() {
         CHECK(btn.hovered);
     }
 }
+#endif
 
 // The frame's pixels-per-dp factor (OS display scale x user zoom) is the only dp -> pixel conversion:
 // the dp layout of a tree must not depend on it, so every widget is exactly N times larger in pixels
@@ -3395,7 +3414,7 @@ void TestFrameScaleIsUniformAndKeepsPointer() {
         const keel::u32 w = keel::round_u32(800.0f * pixelsPerDp);
         const keel::u32 h = keel::round_u32(600.0f * pixelsPerDp);
         Context ui;
-        ThorCanvas canvas;
+        TestCanvas canvas;
         keel::Array<keel::u32> pixels(w * h);
         canvas.SetTarget(pixels.data(), w, h, w);
 
@@ -3465,7 +3484,7 @@ void TestZonesInheritanceZoomIndependenceAndBalance() {
     using namespace guikit;
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     constexpr keel::u32 kW = 1200;
     constexpr keel::u32 kH = 900;
     keel::Array<keel::u32> pixels(kW * kH);
@@ -3637,7 +3656,7 @@ void TestZonesInheritanceZoomIndependenceAndBalance() {
 void TestZoneThemeReachesNodesBuiltInside() {
     using namespace guikit;
 
-    ThorCanvas canvas;
+    TestCanvas canvas;
     constexpr keel::u32 kW = 800;
     constexpr keel::u32 kH = 600;
     keel::Array<keel::u32> pixels(kW * kH);
@@ -3692,6 +3711,7 @@ void TestZoneThemeReachesNodesBuiltInside() {
 // Canvas transforms: drawing in a pushed transform must produce exactly the pixels of the same geometry mapped
 // by hand (origin + (p - origin) * s), including text, strokes, rounded rects and clipping, and PopTransform
 // must restore the previous mapping.
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
 void TestCanvasTransformMatchesMappedGeometry() {
     using namespace guikit;
 
@@ -3765,6 +3785,7 @@ void TestCanvasTransformMatchesMappedGeometry() {
     CHECK(maxDelta <= 2);              // float rounding of p * S + offset vs (mapped p) * S only
     CHECK(differing < a.size() / 500); // < 0.2% of the surface
 }
+#endif
 
 // A container with a scale is a transform root: widgets inside see local coordinates (their rect, the mouse),
 // hit testing and damage happen in frame space, and rendering lands where the frame-space rect says.
@@ -3789,7 +3810,7 @@ void TestScaledContainerSpaces() {
     constexpr keel::u32 kW = 600;
     constexpr keel::u32 kH = 400;
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     keel::Array<keel::u32> pixels(kW * kH);
     canvas.SetTarget(pixels.data(), kW, kH, kW);
     const Vec2 viewport{static_cast<float>(kW), static_cast<float>(kH)};
@@ -3844,6 +3865,7 @@ void TestScaledContainerSpaces() {
     frame();
     CHECK(!btn.hovered);
 
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
     // Rendering: the button's surface reaches the frame-space corner, and stops there
     ui.InvalidateAll();
     frame();
@@ -3853,8 +3875,10 @@ void TestScaledContainerSpaces() {
     const keel::u32 outside = px(frameRect.Right() + 6.0f, frameRect.Bottom() - 6.0f);
     CHECK(nearTopLeft == nearBottomRight);
     CHECK(nearBottomRight != outside);
+#endif
 }
 
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
 // Regression: ThorVG's Text::size() takes points and scales by 96/72 internally, so passing a dp
 // font size straight through rendered all text ~33% larger than the theme's typography tokens.
 // The text box height must match the embedded font's hhea (ascender - descender) / unitsPerEm.
@@ -3901,7 +3925,9 @@ void TestThorCanvasFontSizeIsInPixels() {
         ++g_failures;
     }
 }
+#endif
 
+#if defined(GUIKIT_HAS_BACKEND_SDL3) && GUIKIT_HAS_BACKEND_SDL3
 void TestSdlCanvasBackendInterface() {
     using namespace guikit;
 
@@ -3938,7 +3964,9 @@ void TestSdlCanvasBackendInterface() {
     ui.Button({.text = "GPU Button"});
     ui.EndFrame(canvas);
 }
+#endif
 
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
 void TestIndustrialDashboardNoBlackLines() {
     using namespace guikit;
 
@@ -4122,11 +4150,12 @@ void TestIndustrialDashboardNoBlackLines() {
         checkCardSeams(4);
     }
 }
+#endif
 
 void TestCarouselWidgetAndTabBarOverflow() {
     using namespace guikit;
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 300;
     const keel::u32 height = 400;
     keel::Array<keel::u32> pixels(width * height);
@@ -4262,7 +4291,7 @@ void TestDebugBoundsAndInspectMode() {
     using namespace guikit;
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
 
     const keel::u32 width = 800;
     const keel::u32 height = 600;
@@ -4317,7 +4346,7 @@ void TestPostRenderDelegateWorkflow() {
     using namespace guikit;
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 400;
     const keel::u32 height = 300;
     keel::Array<keel::u32> pixels(width * height);
@@ -4366,7 +4395,7 @@ void TestContainersAndLayoutsReorganization() {
 
     keel::println("  - TestContainersAndLayoutsReorganization...");
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 800;
     const keel::u32 height = 600;
     keel::Array<keel::u32> pixels(width * height);
@@ -4500,7 +4529,7 @@ void TestGenericTemplateFacade() {
     static_assert(ContainerOpenable<Card, CardOptions>);
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 400;
     const keel::u32 height = 300;
     keel::Array<keel::u32> pixels(width * height);
@@ -4522,7 +4551,7 @@ void TestContextCleanArchitectureAndStateGC() {
     using namespace guikit;
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 400;
     const keel::u32 height = 300;
     keel::Array<keel::u32> pixels(width * height);
@@ -4618,7 +4647,7 @@ void TestScopedThemeAndScaleOverrides() {
     using namespace guikit;
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
 
     const keel::u32 width = 800;
     const keel::u32 height = 600;
@@ -4739,7 +4768,7 @@ void TestSliderAndStepSliderWidgets() {
     using namespace guikit;
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 400;
     const keel::u32 height = 600;
     keel::Array<keel::u32> pixels(width * height);
@@ -4846,7 +4875,7 @@ void TestVerticalSlider() {
     using namespace guikit;
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 400;
     const keel::u32 height = 600;
     keel::Array<keel::u32> pixels(width * height);
@@ -4956,7 +4985,7 @@ void TestSceneContentDamageAndItemDrag() {
     using namespace guikit;
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 420;
     const keel::u32 height = 320;
     keel::Array<keel::u32> pixels(width * height);
@@ -5103,7 +5132,7 @@ void TestVerticalStepAndRangeSliders() {
     using namespace guikit;
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 400;
     const keel::u32 height = 600;
     keel::Array<keel::u32> pixels(width * height);
@@ -5226,7 +5255,7 @@ void TestVerticalStepAndRangeSliders() {
 void TestPixelGeometryAndWidgetUiSizeDecoupling() {
     using namespace guikit;
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 800;
     const keel::u32 height = 600;
     keel::Array<keel::u32> pixels(width * height);
@@ -5359,8 +5388,12 @@ void TestTextWrappingAndBackendIndependence() {
     // Multi-line wrapped heading in narrow width must be taller than single-line heading!
     CHECK(hWrap > hNoWrap);
 
-    // 3. Backend independence: SdlCanvas (without ThorVG) layout and rendering
+    // 3. Backend independence: non-ThorVG canvas layout and rendering
+#if defined(GUIKIT_HAS_BACKEND_SDL3) && GUIKIT_HAS_BACKEND_SDL3
     SdlCanvas sdlCanvas(nullptr);
+#else
+    NullCanvas sdlCanvas;
+#endif
     sdlCanvas.Begin(300, 400, 1.0f);
 
     Context ui;
@@ -5405,7 +5438,7 @@ void TestTextWrappingAndBackendIndependence() {
 
     for (float testScale : {1.0f, 1.5f}) {
         keel::i32 tabIdx = 0;
-        ThorCanvas thorCanvas;
+        TestCanvas thorCanvas;
         keel::Array<keel::u32> px(800 * 600);
         thorCanvas.SetTarget(px.data(), 800, 600, 800);
         thorCanvas.Begin(800, 600, testScale);
@@ -5433,7 +5466,7 @@ void TestTextAreaWidgetWorkflow() {
     using namespace guikit;
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
 
     const keel::u32 width = 800;
     const keel::u32 height = 600;
@@ -5560,8 +5593,12 @@ void TestTextAreaWidgetWorkflow() {
     // 4. Verify glyph metric box height and precise mouse coordinate hit-testing per line & column
     const float codeFontSize = theme.GetTypography(TextRole::CodeMedium).fontSize;
     const float glyphBoxH = canvas.MeasureTextStyled("Mg", codeFontSize, FontStyle::Monospace).y;
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
     // JetBrains Mono hhea (ascender - descender) / unitsPerEm = 1.32
     CHECK(keel::abs(glyphBoxH - codeFontSize * 1.32f) < codeFontSize * 0.03f);
+#else
+    CHECK(glyphBoxH > codeFontSize);
+#endif
 
     keel::String coordText("AAAA\nBBBB\nCCCC");
     Response coordRes;
@@ -5646,7 +5683,7 @@ void TestButtonAlignmentAndProceduralIcons() {
     using namespace guikit;
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 400;
     const keel::u32 height = 500;
     keel::Array<keel::u32> pixels(width * height);
@@ -5715,16 +5752,16 @@ void TestButtonAlignmentAndProceduralIcons() {
 
     // Verify that Content Alignment (.align) affects only content inside button capsule,
     // and does NOT move the button capsule relative to bounds or external labels
-    class RecordingCanvas : public ThorCanvas {
+    class RecordingCanvas : public TestCanvas {
     public:
         void DrawRoundRect(Rect rect, float radius, Color fill, Color stroke = Color(0, 0, 0, 0), float strokeWidth = 0.0f) override {
             lastCapsuleRect = rect;
-            ThorCanvas::DrawRoundRect(rect, radius, fill, stroke, strokeWidth);
+            TestCanvas::DrawRoundRect(rect, radius, fill, stroke, strokeWidth);
         }
         void DrawTextBox(keel::StringRef text, Rect bounds, float fontSize, Color color, float alignX = 0.0f, float alignY = 0.5f) override {
             lastTextBounds = bounds;
             lastAlignX = alignX;
-            ThorCanvas::DrawTextBox(text, bounds, fontSize, color, alignX, alignY);
+            TestCanvas::DrawTextBox(text, bounds, fontSize, color, alignX, alignY);
         }
         Rect lastCapsuleRect{};
         Rect lastTextBounds{};
@@ -5794,7 +5831,7 @@ void TestWidgetRadiusOverride() {
     using namespace guikit;
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 400;
     const keel::u32 height = 300;
     keel::Array<keel::u32> pixels(width * height);
@@ -5827,7 +5864,7 @@ void TestWidgetRadiusOverride() {
 void TestButtonExternalLabelDescriptionAndPlacement() {
     keel::println("[TEST] Running TestButtonExternalLabelDescriptionAndPlacement...");
 
-    ThorCanvas canvas;
+    TestCanvas canvas;
     Context ui;
 
     const keel::u32 width = 600;
@@ -5922,7 +5959,7 @@ void TestWidgetSizeModesAndExplicitWidth() {
     using namespace guikit;
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 800;
     const keel::u32 height = 1200;
     keel::Array<keel::u32> pixels(width * height);
@@ -6238,7 +6275,7 @@ void TestWidgetSizeModesAndExplicitWidth() {
 }
 
 namespace {
-class LabelRecordingCanvas : public guikit::ThorCanvas {
+class LabelRecordingCanvas : public TestCanvas {
 public:
     struct TextBoxCall {
         keel::String text;
@@ -6248,11 +6285,11 @@ public:
     };
     void DrawRoundRect(guikit::Rect rect, float radius, guikit::Color fill, guikit::Color stroke = guikit::Color(0, 0, 0, 0), float strokeWidth = 0.0f) override {
         lastRoundRect = rect;
-        ThorCanvas::DrawRoundRect(rect, radius, fill, stroke, strokeWidth);
+        TestCanvas::DrawRoundRect(rect, radius, fill, stroke, strokeWidth);
     }
     void DrawTextBox(keel::StringRef text, guikit::Rect bounds, float fontSize, guikit::Color color, float alignX = 0.0f, float alignY = 0.5f) override {
         textBoxCalls.push_back({keel::String(text), bounds, alignX, color});
-        ThorCanvas::DrawTextBox(text, bounds, fontSize, color, alignX, alignY);
+        TestCanvas::DrawTextBox(text, bounds, fontSize, color, alignX, alignY);
     }
     void Reset() {
         lastRoundRect = {};
@@ -6895,7 +6932,7 @@ void TestSidebarAndSidebarMenuWorkflow() {
     const keel::u32 width = 1000;
     const keel::u32 height = 600;
     keel::Array<keel::u32> pixels(width * height);
-    ThorCanvas canvas;
+    TestCanvas canvas;
     canvas.SetTarget(pixels.data(), width, height, width);
 
     Id sbLeft1Id, sbLeft2Id, sbRight1Id, sbRight2Id;
@@ -7993,7 +8030,7 @@ void TestImageSceneAndMarkdownWidgets() {
     using namespace guikit;
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 800;
     const keel::u32 height = 900;
     keel::Array<keel::u32> pixels(width * height);
@@ -8082,6 +8119,7 @@ void TestImageSceneAndMarkdownWidgets() {
     renderUI();
     ui.EndFrame(canvas);
 
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
     // 1. Verify inline SVG natural size query via ThorCanvas
     const Vec2 svgNat = canvas.GetImageSize(kInlineSvg);
     CHECK_NEAR(svgNat.x, 200.0f, 0.5f);
@@ -8090,6 +8128,9 @@ void TestImageSceneAndMarkdownWidgets() {
     // 2. Verify Image widget layout (50% of 768px = 384px wide, 2:1 aspect ratio -> >= 192px tall with label)
     CHECK_NEAR(imgRes.rect.w, 768.0f, 1.0f);
     CHECK(imgRes.rect.h >= 192.0f);
+#else
+    CHECK_NEAR(imgRes.rect.w, 768.0f, 1.0f);
+#endif
 
     // 3. Verify Scene 2D camera fit-to-viewport & visible world rect
     CHECK(sceneZoom > 0.1f && sceneZoom <= 1.0f);
@@ -8172,7 +8213,7 @@ void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
     keel::println("  [TEST] TestUnifiedElementHeaderDecorationsAcrossWidgets...");
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     keel::Array<keel::u32> pixels(800 * 900);
     canvas.SetTarget(pixels.data(), 800, 900, 800);
 
@@ -8297,7 +8338,7 @@ void TestRangeSliderProgressBarSpinBoxAndRadioButton() {
     using namespace guikit;
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 700;
     const keel::u32 height = 600;
     keel::Array<keel::u32> pixels(width * height);
@@ -8476,7 +8517,7 @@ void TestTableVirtualizedDataGridWorkflow() {
     using namespace guikit;
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 800;
     const keel::u32 height = 600;
     keel::Array<keel::u32> pixels(width * height);
@@ -8666,7 +8707,7 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
     keel::println("[TEST] Running TestCodeEditorIdeAndDebuggerWorkflow...");
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 900;
     const keel::u32 height = 650;
     keel::Array<keel::u32> pixels(width * height);
@@ -9041,7 +9082,7 @@ void TestKeymapAndMarkdownTopTierFeatures() {
 
     // 3. Verify Markdown Smooth Zoom, Selection, Cursor Navigation, Copy, Search & Task Lists
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 640;
     const keel::u32 height = 480;
     keel::Array<keel::u32> pixels(width * height);
@@ -9217,7 +9258,7 @@ void TestUnifiedColormapHistogramAndImageView() {
 
     // 3. Test standalone multi-channel Histogram & 16-bit / RGB ImageView rendering and interaction
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 W = 1000;
     const keel::u32 H = 700;
     keel::Array<keel::u32> framePixels(W * H);
@@ -9302,7 +9343,7 @@ void TestUnifiedElementExplicitHeight() {
     using namespace guikit;
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 600;
     const keel::u32 height = 800;
     keel::Array<keel::u32> pixels(width * height);
@@ -9347,7 +9388,7 @@ void TestUnifiedElementExplicitHeight() {
 void TestElementOuterFrameAndControlWellFrame() {
     using namespace guikit;
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 800;
     const keel::u32 height = 600;
     keel::Array<keel::u32> pixels(width * height);
@@ -9500,7 +9541,7 @@ void TestElementOuterFrameAndControlWellFrame() {
 void TestAccordionWidgetWorkflow() {
     using namespace guikit;
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 600;
     const keel::u32 height = 500;
     keel::Array<keel::u32> pixels(width * height);
@@ -9600,7 +9641,7 @@ void TestAccordionWidgetWorkflow() {
 void TestSizeScopeChainingAndIsolation() {
     using namespace guikit;
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 600;
     const keel::u32 height = 500;
     keel::Array<keel::u32> pixels(width * height);
@@ -9658,7 +9699,7 @@ void TestTreeViewAndTreeItemWorkflow() {
     keel::println("[TEST] Running TestTreeViewAndTreeItemWorkflow...");
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 700;
     const keel::u32 height = 500;
     keel::Array<keel::u32> pixels(width * height);
@@ -9916,7 +9957,7 @@ void TestKnobSpinBoxAndRadioElements() {
     const keel::u32 width = 640;
     const keel::u32 height = 600;
     keel::Array<keel::u32> pixelBuffer(width * height);
-    ThorCanvas canvas;
+    TestCanvas canvas;
     canvas.SetTarget(pixelBuffer.data(), width, height, width);
 
     Context ui;
@@ -10130,7 +10171,7 @@ void TestSegmentedAndColorPickerElements() {
     keel::println("  -> TestSegmentedAndColorPickerElements...");
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 640;
     const keel::u32 height = 560;
     keel::Array<keel::u32> pixels(width * height);
@@ -10259,7 +10300,7 @@ void TestSidebarResizableCompactAndCollapsedModes() {
     keel::println("  -> TestSidebarResizableCompactAndCollapsedModes...");
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 800;
     const keel::u32 height = 500;
     keel::Array<keel::u32> pixels(width * height);
@@ -10386,7 +10427,7 @@ void TestModalContextMenuAndToastWorkflow() {
     keel::println("[TEST] Running TestModalContextMenuAndToastWorkflow...");
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 800;
     const keel::u32 height = 600;
     keel::Array<keel::u32> pixels(width * height);
@@ -10570,7 +10611,7 @@ void TestActivityBarAndLinkedSidebarWorkflow() {
     keel::println("[TEST] Running TestActivityBarAndLinkedSidebarWorkflow...");
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 900;
     const keel::u32 height = 600;
     keel::Array<keel::u32> pixels(width * height);
@@ -10701,7 +10742,7 @@ void TestBottomPanelAndStatusBarWorkflow() {
     keel::println("[TEST] Running TestBottomPanelAndStatusBarWorkflow...");
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 800;
     const keel::u32 height = 600;
     keel::Array<keel::u32> pixels(width * height);
@@ -10911,7 +10952,7 @@ void TestBottomPanelAndStatusBarWorkflow() {
 void TestReviewP0AndP1Regressions() {
     using namespace guikit;
 
-    ThorCanvas canvas;
+    TestCanvas canvas;
     keel::Array<keel::u32> pixels(800 * 600);
     canvas.SetTarget(pixels.data(), 800, 600, 800);
 
@@ -11218,15 +11259,21 @@ void TestPopoverOccludesPanelSashesAndRendersAboveThem();
 void TestUnifiedOverlayLayersNestedModalsAndModalSplitView();
 void TestTagAndReadoutWidgets();
 void TestMenuBarAndCascadingMenus();
+void TestNullCanvasHeadlessWorkflow();
 
 int main() {
     keel::println("[RUN] Testing GuiKit Context & Immediate Mode API...");
 
+    TestNullCanvasHeadlessWorkflow();
     TestTextWrappingAndBackendIndependence();
 
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
     TestIndustrialDashboardNoBlackLines();
+#endif
     TestImmediateApiWorkflow();
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
     TestThorCanvasTextRendering();
+#endif
     TestHeaderRowTextMetricsAndNoOverlap();
     TestFooterExitButtonStaysVisibleInNarrowWindow();
     TestWrapContainerInContextApi();
@@ -11255,14 +11302,22 @@ int main() {
     TestLeafWidgetSizeOverrides();
     TestHeadingWidgetWorkflow();
     TestDpiScalingAndBackendMetadata();
+#if defined(GUIKIT_HAS_BACKEND_SDL3) && GUIKIT_HAS_BACKEND_SDL3
     TestSdlMouseCoordsMapToLogicalDp();
+#endif
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
     TestThorCanvasFontSizeIsInPixels();
+#endif
     TestFrameScaleIsUniformAndKeepsPointer();
     TestZonesInheritanceZoomIndependenceAndBalance();
     TestZoneThemeReachesNodesBuiltInside();
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
     TestCanvasTransformMatchesMappedGeometry();
+#endif
     TestScaledContainerSpaces();
+#if defined(GUIKIT_HAS_BACKEND_SDL3) && GUIKIT_HAS_BACKEND_SDL3
     TestSdlCanvasBackendInterface();
+#endif
     TestDebugBoundsAndInspectMode();
     TestPostRenderDelegateWorkflow();
     TestContainersAndLayoutsReorganization();
@@ -11319,7 +11374,7 @@ int main() {
     // Equal-width button group via ui.Row({.equalWidths = true}) in Toolbar and Column
     {
         guikit::Context ui;
-        guikit::ThorCanvas canvas;
+        TestCanvas canvas;
         keel::Array<keel::u32> pixels(800 * 200);
         canvas.SetTarget(pixels.data(), 800, 200, 800);
 
@@ -11358,7 +11413,7 @@ int main() {
     // SpinBox external square stepper styles (Detached and Split)
     {
         guikit::Context ui;
-        guikit::ThorCanvas canvas;
+        TestCanvas canvas;
         keel::Array<keel::u32> pixels(600 * 240);
         canvas.SetTarget(pixels.data(), 600, 240, 600);
 
@@ -11433,7 +11488,7 @@ int main() {
     // ComboBox (searchable dropdown) & Autocomplete (editable free-form + suggestions)
     {
         guikit::Context ui;
-        guikit::ThorCanvas canvas;
+        TestCanvas canvas;
         keel::Array<keel::u32> pixels(800 * 400);
         canvas.SetTarget(pixels.data(), 800, 400, 800);
 
@@ -11555,7 +11610,7 @@ int main() {
     // MultiSelect, DatePicker, Breadcrumb, Pagination, SplitView & CommandPalette
     {
         guikit::Context ui;
-        guikit::ThorCanvas canvas;
+        TestCanvas canvas;
         keel::Array<keel::u32> pixels(800 * 600);
         canvas.SetTarget(pixels.data(), 800, 600, 800);
 
@@ -11991,7 +12046,7 @@ int main() {
     // LevelMeter (Single & Stereo, Segmented LEDs, Peak-Hold, Clip Reset) & TagInput (Editable Chips, Delimiter Split, Backspace)
     {
         guikit::Context ui;
-        guikit::ThorCanvas canvas;
+        TestCanvas canvas;
         keel::Array<keel::u32> pixels(800 * 600);
         canvas.SetTarget(pixels.data(), 800, 600, 800);
 
@@ -12184,7 +12239,7 @@ int main() {
     {
         using namespace guikit;
         Context ui;
-        ThorCanvas canvas;
+        TestCanvas canvas;
         keel::Array<keel::u32> pixels(800 * 600);
         canvas.SetTarget(pixels.data(), 800, 600, 800);
 
@@ -12288,7 +12343,7 @@ int main() {
     {
         using namespace guikit;
         Context ui;
-        SdlCanvas canvas(nullptr);
+        TestCanvas canvas;
 
         Id outerId = Id::Null();
         Id innerId = Id::Null();
@@ -12356,7 +12411,7 @@ int main() {
     {
         using namespace guikit;
         Context ui;
-        SdlCanvas canvas(nullptr);
+        TestCanvas canvas;
         Color col(59, 130, 246, 235);
         Response cpRes{};
 
@@ -12446,7 +12501,7 @@ int main() {
         // 3. Popups (DatePicker, ColorPicker, Select) inside a clipped Box (e.g. 784x375 Phone Landscape inside 1400x900 window)
         // stay strictly within the clipped Box bounds via GetPopupViewportRect()
         Context ui;
-        ThorCanvas thorCanvas;
+        TestCanvas thorCanvas;
         keel::Array<keel::u32> fullPixels(1400 * 900);
         thorCanvas.SetTarget(fullPixels.data(), 1400, 900, 1400);
 
@@ -12589,7 +12644,7 @@ int main() {
         // Toolbar overflow policies: AutoCompact, Scroll, Wrap, Clip
         {
             Context tbUi;
-            ThorCanvas tbCanvas;
+            TestCanvas tbCanvas;
             keel::Array<keel::u32> tbPixels(800 * 200);
             tbCanvas.SetTarget(tbPixels.data(), 800, 200, 800);
 
@@ -12695,7 +12750,7 @@ int main() {
         // --- Regression test: Markdown in narrow ScrollArea (Phone Portrait) must not vertically center or add top empty gap ---
         {
             Context mdUi;
-            ThorCanvas mdCanvas;
+            TestCanvas mdCanvas;
             keel::Array<keel::u32> mdPixels(340 * 600);
             mdCanvas.SetTarget(mdPixels.data(), 340, 600, 340);
 
@@ -12734,7 +12789,7 @@ int main() {
 
         // --- Architectural test: ScopedOverlayHitCheck nesting, unified ThorCanvas metrics, and TextUtil::FindCaseInsensitive ---
         {
-            ThorCanvas archCanvas;
+            TestCanvas archCanvas;
             keel::Array<keel::u32> archPixels(320 * 120);
             archCanvas.SetTarget(archPixels.data(), 320, 120, 320);
 
@@ -12780,12 +12835,15 @@ int main() {
             ovUi.EndFrame(archCanvas);
 
             // 4. VectorBackend registry & SdlWindowBackend ICanvas Dependency Injection
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
             CHECK(HasDefaultVectorCanvasFactory() == true);
             auto defaultVecCanvas = CreateOffscreenVectorCanvas();
             CHECK(defaultVecCanvas != nullptr);
             CHECK(defaultVecCanvas->UsesCpuFramebuffer() == true);
             CHECK(defaultVecCanvas->GetPixelFormat() == SurfacePixelFormat::ABGR8888_Premul);
+#endif
 
+#if defined(GUIKIT_HAS_BACKEND_SDL3) && GUIKIT_HAS_BACKEND_SDL3
             SdlCanvas directGpuCanvas(nullptr);
             CHECK(directGpuCanvas.UsesCpuFramebuffer() == false);
 
@@ -12802,10 +12860,13 @@ int main() {
                 CHECK(fallbackWinBackend.GetCanvas().UsesCpuFramebuffer() == false);
                 CHECK(fallbackWinBackend.GetCanvas().GetBackendName() == "SDL3 (Direct GPU)");
             }
+#endif
 
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
             // Restore ThorVG vector backend registration
             RegisterThorVectorBackend();
             CHECK(HasDefaultVectorCanvasFactory() == true);
+#endif
 
             // 5. Active mouse capture (m_activeId) preserves drag across splitter sashes and Z-layers
             {
@@ -12993,12 +13054,14 @@ int main() {
                 // Narrow viewport soft-wraps long code line into multiple visual lines
                 CHECK(narrowCodeSz.y > wideCodeSz.y + 14.0f);
 
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
                 // Image caption multi-line wrapping in narrow viewports
                 const keel::String imgCaptionMd(
                     "![GuiKit Brand Icon (1024x1024 PNG - Embedded Native & WASM Asset)](assets/guikit-icon-inter850-1024.png)\n");
                 const Vec2 wideImgSz = Markdown::Measure(imgCaptionMd, {}, UiSize::Md, &archCanvas, mdTheme, 1200.0f);
                 const Vec2 narrowImgSz = Markdown::Measure(imgCaptionMd, {}, UiSize::Md, &archCanvas, mdTheme, 280.0f);
                 CHECK(narrowImgSz.y > wideImgSz.y + 10.0f);
+#endif
 
                 // Ultra-narrow heading with (`assets/images/lena.png`) splits the code pill at '/' and keeps `)` attached
                 const keel::String headingCodeMd("## 1. Embedded Image Asset (`assets/images/lena.png`)\n");
@@ -13037,27 +13100,27 @@ int main() {
                 CHECK(mdResp.selectedText.find("const guikit::Rect visible = scene.GetVisibleWorldBounds") != keel::StringRef::npos);
 
                 // 9. Verify 3-Phase Retained Markdown Layout Cache (Zero-Measurement on Scroll/Hover & Viewport Frustum Culling)
-                struct CountingThorCanvas : public ThorCanvas {
+                struct CountingTestCanvas : public TestCanvas {
                     keel::i32 layoutMeasureCalls{0};
                     keel::i32 drawTextCalls{0};
                     bool insideDrawText{false};
                     Vec2 MeasureText(keel::StringRef text, float fontSize) override {
                         if (!insideDrawText) ++layoutMeasureCalls;
-                        return ThorCanvas::MeasureText(text, fontSize);
+                        return TestCanvas::MeasureText(text, fontSize);
                     }
                     Vec2 MeasureTextStyled(keel::StringRef text, float fontSize, FontStyle style) override {
                         if (!insideDrawText) ++layoutMeasureCalls;
-                        return ThorCanvas::MeasureTextStyled(text, fontSize, style);
+                        return TestCanvas::MeasureTextStyled(text, fontSize, style);
                     }
                     void DrawTextStyled(keel::StringRef text, Vec2 pos, float fontSize, Color color, FontStyle style, float angleDeg = 0.0f) override {
                         ++drawTextCalls;
                         insideDrawText = true;
-                        ThorCanvas::DrawTextStyled(text, pos, fontSize, color, style, angleDeg);
+                        TestCanvas::DrawTextStyled(text, pos, fontSize, color, style, angleDeg);
                         insideDrawText = false;
                     }
                 };
 
-                CountingThorCanvas countCanvas;
+                CountingTestCanvas countCanvas;
                 keel::Array<keel::u32> countPixels(420 * 1200);
                 countCanvas.SetTarget(countPixels.data(), 420, 1200, 420);
 
@@ -13098,7 +13161,7 @@ int main() {
 
                 // 10. Verify Modal interior Cancel button (modal.Close()) leaves zero backdrop or drop-shadow ghost artifacts
                 {
-                    ThorCanvas modalCanvas;
+                    TestCanvas modalCanvas;
                     const keel::u32 mw = 600;
                     const keel::u32 mh = 400;
                     keel::Array<keel::u32> modalPixels(mw * mh);
@@ -13156,7 +13219,9 @@ int main() {
                     // Settle closed baseline and sample clean stage surface color at top-left corner (x=40, y=40)
                     runModalStage();
                     runModalStage();
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
                     const keel::u32 cleanBackdropPixel = modalPixels[40 * mw + 40];
+#endif
 
                     // Open modal and settle 2 frames
                     modalOpen = true;
@@ -13164,9 +13229,11 @@ int main() {
                     runModalStage();
                     CHECK(modalDialogRect.w > 200.0f);
                     CHECK(cancelBtnRes.rect.w > 30.0f);
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
                     // Backdrop pixel must be darkened while modal is open
                     const keel::u32 dimmedBackdropPixel = modalPixels[40 * mw + 40];
                     CHECK(dimmedBackdropPixel != cleanBackdropPixel);
+#endif
 
                     // Click the interior "Cancel" button (triggers modal.Close() inside the ModalScope body)
                     modalUi.OnMouseMove(cancelBtnRes.rect.Center());
@@ -13178,17 +13245,21 @@ int main() {
                     CHECK(modalOpen == false);
                     CHECK(statusText == "Cancelled Modal");
                     CHECK(modalUi.IsFullRepaint());
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
                     // Immediately on Frame N, the modal is detached and backdrop pixel must be restored to clean surface color
                     CHECK(modalPixels[40 * mw + 40] == cleanBackdropPixel);
+#endif
 
                     // Frame N+1: first frame with modalOpen == false from the start -> must also do full repaint & leave zero ghost trace
                     runModalStage();
                     CHECK(modalUi.IsFullRepaint());
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
                     CHECK(modalPixels[40 * mw + 40] == cleanBackdropPixel);
                     // Sample below modalDialogRect where the drop shadow was drawn (y = modalDialogRect.Bottom() + 6)
                     const keel::u32 shadowY = keel::min<keel::u32>(mh - 1, static_cast<keel::u32>(modalDialogRect.Bottom() + 6.0f));
                     const keel::u32 shadowX = keel::min<keel::u32>(mw - 1, static_cast<keel::u32>(modalDialogRect.Center().x));
                     CHECK(modalPixels[shadowY * mw + shadowX] == cleanBackdropPixel);
+#endif
 
                     // Frame N+2: idle -> dirty-rect engine settles with zero dirty damage
                     runModalStage();
@@ -13201,6 +13272,7 @@ int main() {
                     CHECK(Assets::Exists("assets/fonts/Roboto-Regular.ttf"));
                     CHECK(Assets::Exists("assets/fonts/JetBrainsMono-Regular.ttf"));
 
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
                     ThorCanvas fontCanvas(false);
                     CHECK(fontCanvas.LoadFontFile("assets/fonts/Roboto-Regular.ttf", FontStyle::Regular));
                     CHECK(fontCanvas.LoadFontFile("assets/fonts/JetBrainsMono-Regular.ttf", FontStyle::Monospace));
@@ -13231,12 +13303,13 @@ int main() {
                         CHECK(memN.x > 10.0f);
                         CHECK(keel::abs(memW.x - memN.x) < 0.05f);
                     }
+#endif
                 }
 
                 // --- Scene inside BottomPanel: First-Frame Bounds, Stretch Fit, worldBounds + fitPadding & SceneTextOptions ---
                 {
                     Context sceneBpUi;
-                    ThorCanvas sceneBpCanvas;
+                    TestCanvas sceneBpCanvas;
                     const keel::u32 sw = 1000;
                     const keel::u32 sh = 700;
                     keel::Array<keel::u32> sceneBpPixels(sw * sh);
@@ -13345,6 +13418,7 @@ int main() {
                     runCamScene();
                     CHECK(!camMod);
 
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
                     // --- ThorCanvas::DrawTextBoxStyled preserves leading spaces at alignX=0 ---
                     {
                         ThorCanvas txtCanvas;
@@ -13372,11 +13446,12 @@ int main() {
                         };
                         CHECK(findFirstInkX(bufWithSpace) > findFirstInkX(bufNoSpace) + 6);
                     }
+#endif
 
                     // --- Dirty-Rect & Idle Settle with Sidebar, BottomPanel, StatusBar, and Stationary Tooltip ---
                     {
                         Context idleUi;
-                        ThorCanvas idleCanvas;
+                        TestCanvas idleCanvas;
                         keel::Array<keel::u32> idlePixels(800 * 600);
                         idleCanvas.SetTarget(idlePixels.data(), 800, 600, 800);
 
@@ -13441,7 +13516,7 @@ int main() {
                     // --- Comprehensive Interface Audit Verification Suite ---
                     {
                         Context auditUi;
-                        ThorCanvas auditCanvas;
+                        TestCanvas auditCanvas;
                         keel::Array<keel::u32> auditPixels(900 * 900);
                         auditCanvas.SetTarget(auditPixels.data(), 900, 900, 900);
 
@@ -13779,7 +13854,9 @@ int main() {
     TestApiPolishStretchWeightsTabBarColorAndOptionalMins();
     TestFocusVisibleModalityAndTabBarFocusRing();
     TestTextCompositorAndSubpixelRendering();
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
     TestSwitchAndRadioSubpixelCentering();
+#endif
     TestPopoverOccludesPanelSashesAndRendersAboveThem();
     TestUnifiedOverlayLayersNestedModalsAndModalSplitView();
     TestTagAndReadoutWidgets();
@@ -13799,7 +13876,7 @@ void TestKeelZeroCopyWidgetBindings() {
     keel::println("  -> TestKeelZeroCopyWidgetBindings...");
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 960;
     const keel::u32 height = 900;
     keel::Array<keel::u32> pixels(width * height, 0u);
@@ -14102,7 +14179,7 @@ void TestExternalStlDuckTypedInterop() {
     keel::println("  -> TestExternalStlDuckTypedInterop...");
 
     Context ui;
-    ThorCanvas canvas;
+    TestCanvas canvas;
     const keel::u32 width = 900;
     const keel::u32 height = 760;
     keel::Array<keel::u32> pixels(width * height, 0u);
@@ -14276,7 +14353,7 @@ void TestBoundedCachesAndInactiveStateTrimming() {
             }
         };
 
-        ThorCanvas canvas;
+        TestCanvas canvas;
         keel::Array<keel::u32> fb(320u * 240u, 0u);
         canvas.SetTarget(fb.data(), 320, 240, 320);
 
@@ -14358,6 +14435,7 @@ void TestBoundedCachesAndInactiveStateTrimming() {
         }
     }
 
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
     // 2. ThorCanvas StampLruCache eviction under heavy unique text & shape churn
     {
         ThorCanvas canvas;
@@ -14398,11 +14476,12 @@ void TestBoundedCachesAndInactiveStateTrimming() {
         }
         CHECK(nonBgPixels > 100u);
     }
+#endif
 
 
     // 4. TextArea / CodeEditor & Markdown inactive cache trimming + reactive time-based wakeup & trimming
     {
-        ThorCanvas canvas;
+        TestCanvas canvas;
         keel::Array<keel::u32> fb(480u * 360u, 0u);
         canvas.SetTarget(fb.data(), 480, 360, 480);
 
@@ -14499,7 +14578,7 @@ void TestElementHeadingCompositionAndIndependentSizing() {
     using namespace guikit;
     keel::println("  -> TestElementHeadingCompositionAndIndependentSizing...");
 
-    struct ElementSpyCanvas final : public ThorCanvas {
+    struct ElementSpyCanvas final : public TestCanvas {
         struct RoundRectRec {
             Rect rect;
             Color fill;
@@ -14514,13 +14593,13 @@ void TestElementHeadingCompositionAndIndependentSizing() {
         };
         void DrawRoundRect(Rect rect, float radius, Color fill, Color stroke = Color(0, 0, 0, 0), float strokeWidth = 0.0f) override {
             roundRects.push_back({rect, fill, stroke, strokeWidth});
-            ThorCanvas::DrawRoundRect(rect, radius, fill, stroke, strokeWidth);
+            TestCanvas::DrawRoundRect(rect, radius, fill, stroke, strokeWidth);
         }
         void DrawLine(Vec2 p1, Vec2 p2, Color color, float thickness = 1.0f) override {
             lines.push_back({p1, p2, color, thickness});
-            ThorCanvas::DrawLine(p1, p2, color, thickness);
+            TestCanvas::DrawLine(p1, p2, color, thickness);
         }
-        using ThorCanvas::Clear;
+        using TestCanvas::Clear;
         void ResetRecords() {
             roundRects.clear();
             lines.clear();
@@ -14824,7 +14903,7 @@ void TestElementHeadingCompositionAndIndependentSizing() {
 void TestPopoverComponent() {
     keel::println("  -> TestPopoverComponent...");
     keel::Array<keel::u32> pixels(800u * 600u, 0u);
-    ThorCanvas canvas;
+    TestCanvas canvas;
     canvas.SetTarget(pixels.data(), 800, 600, 800);
 
     Context ui;
@@ -15035,7 +15114,7 @@ void TestPopoverComponent() {
 void TestApiPolish() {
     keel::println("  -> TestApiPolish...");
     keel::Array<keel::u32> pixels(800u * 600u, 0u);
-    ThorCanvas canvas;
+    TestCanvas canvas;
     canvas.SetTarget(pixels.data(), 800, 600, 800);
     canvas.SetGpuShadersEnabled(true);
 
@@ -15251,7 +15330,7 @@ void TestControlFlatSizingAndStyleOptions() {
         CHECK(!defTa.background.IsBackgroundEnabled(false));
 
         Context ui;
-        ThorCanvas canvas;
+        TestCanvas canvas;
         const keel::u32 width = 800;
         const keel::u32 height = 600;
         keel::Array<keel::u32> pixels(width * height, 0u);
@@ -15482,7 +15561,7 @@ void TestSceneWorldSizeInsideScrollAreaDoesNotOverflow() {
     using namespace guikit;
     keel::println("  -> TestSceneWorldSizeInsideScrollAreaDoesNotOverflow...");
 
-    ThorCanvas canvas;
+    TestCanvas canvas;
     keel::Array<keel::u32> fb(800u * 500u, 0u);
     canvas.SetTarget(fb.data(), 800, 500, 800);
 
@@ -15537,7 +15616,7 @@ void TestApiPolishStretchWeightsTabBarColorAndOptionalMins() {
     using namespace guikit;
     keel::println("  -> TestApiPolishStretchWeightsTabBarColorAndOptionalMins...");
 
-    ThorCanvas canvas;
+    TestCanvas canvas;
     keel::Array<keel::u32> fb(640u * 600u, 0u);
     canvas.SetTarget(fb.data(), 640, 600, 640);
 
@@ -15676,7 +15755,7 @@ void TestFocusVisibleModalityAndTabBarFocusRing() {
     using namespace guikit;
     keel::println("  -> TestFocusVisibleModalityAndTabBarFocusRing...");
 
-    ThorCanvas canvas;
+    TestCanvas canvas;
     keel::Array<keel::u32> fb(520u * 260u, 0u);
     canvas.SetTarget(fb.data(), 520, 260, 520);
 
@@ -15830,6 +15909,7 @@ void TestTextCompositorAndSubpixelRendering() {
     const keel::u32 rSrgb = pxSrgb & 0xFFu;
     CHECK(rGamma > rSrgb + 30u); // Linear 50% white on dark is ~188 vs ~139 in sRGB
 
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
     // 5. ThorCanvas Grayscale vs SubpixelRGB vs SubpixelBGR & Hinting (FreeType when enabled, ThorVG fallback when OFF)
     ThorCanvas canvas;
 #if defined(GUIKIT_HAS_FREETYPE) && GUIKIT_HAS_FREETYPE
@@ -15934,10 +16014,12 @@ void TestTextCompositorAndSubpixelRendering() {
         CHECK(diffLightNormal > 10u);
     }
 #endif
+#endif
 
     keel::println("  [PASS] TestTextCompositorAndSubpixelRendering completed");
 }
 
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
 void TestSwitchAndRadioSubpixelCentering() {
     using namespace guikit;
     keel::println("  -> TestSwitchAndRadioSubpixelCentering...");
@@ -16014,13 +16096,14 @@ void TestSwitchAndRadioSubpixelCentering() {
 
     keel::println("  [PASS] TestSwitchAndRadioSubpixelCentering completed");
 }
+#endif
 
 void TestPopoverOccludesPanelSashesAndRendersAboveThem() {
     keel::println("  -> TestPopoverOccludesPanelSashesAndRendersAboveThem...");
     constexpr keel::u32 W = 800;
     constexpr keel::u32 H = 600;
     keel::Array<keel::u32> pixels(W * H, 0u);
-    ThorCanvas canvas;
+    TestCanvas canvas;
     canvas.SetTarget(pixels.data(), W, H, W);
 
     Context ui;
@@ -16150,6 +16233,7 @@ void TestPopoverOccludesPanelSashesAndRendersAboveThem() {
     CHECK(ui.GetCursor() == CursorType::ResizeNS);
     CHECK(!splitActive);
 
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
     const auto samplePixel = [&](keel::u32 x, keel::u32 y) -> Color {
         const keel::u32 px = pixels[y * W + x];
         return Color(
@@ -16171,6 +16255,7 @@ void TestPopoverOccludesPanelSashesAndRendersAboveThem() {
     // Meanwhile on the exposed sash outside the Popover, the blue accent highlight IS visible (B > R + 40)
     const Color exposedSashCol = samplePixel(700u, sashY);
     CHECK(static_cast<keel::i32>(exposedSashCol.b) > static_cast<keel::i32>(exposedSashCol.r) + 40);
+#endif
 
     // 5. Closing the Popover clears its hit-block immediately on the SAME frame (no 1-frame lag).
     popoverOpen = false;
@@ -16186,7 +16271,7 @@ void TestUnifiedOverlayLayersNestedModalsAndModalSplitView() {
     constexpr keel::u32 W = 800;
     constexpr keel::u32 H = 600;
     keel::Array<keel::u32> pixels(W * H, 0u);
-    ThorCanvas canvas;
+    TestCanvas canvas;
     canvas.SetTarget(pixels.data(), W, H, W);
 
     // Part 1: Nested Modals (Modal A -> Modal B) + Escape LIFO + Focus & Hit isolation
@@ -16381,20 +16466,26 @@ void TestUnifiedOverlayLayersNestedModalsAndModalSplitView() {
         Context ui;
         ui.SetThemeMode(ThemeMode::Light);
         ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+        keel::SmallArray<keel::i32, 4> drawOrder;
         // Register Notification BEFORE Popup (simulating explicit ui.ToastHost() at top of frame)
-        ui.RegisterOverlay([](ICanvas& c) {
+        ui.RegisterOverlay([&](ICanvas& c) {
+            drawOrder.push_back(2);
             c.DrawRect(Rect{100.0f, 100.0f, 120.0f, 40.0f}, Color{20, 200, 60, 255});
         }, OverlayLayer::Notification);
-        ui.RegisterOverlay([](ICanvas& c) {
+        ui.RegisterOverlay([&](ICanvas& c) {
+            drawOrder.push_back(1);
             c.DrawRect(Rect{100.0f, 100.0f, 120.0f, 40.0f}, Color{220, 30, 30, 255});
         }, OverlayLayer::Popup);
         ui.EndFrame(canvas);
 
+        CHECK(drawOrder.size() == 2u && drawOrder[0] == 1 && drawOrder[1] == 2);
+#if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
         const keel::u32 px = pixels[120u * W + 160u];
         const keel::u8 r = static_cast<keel::u8>(px & 0xFFu);
         const keel::u8 g = static_cast<keel::u8>((px >> 8) & 0xFFu);
         const keel::u8 b = static_cast<keel::u8>((px >> 16) & 0xFFu);
         CHECK(g > 180 && r < 40 && b < 80);
+#endif
     }
 
     keel::println("  [PASS] TestUnifiedOverlayLayersNestedModalsAndModalSplitView completed");
@@ -16405,7 +16496,7 @@ void TestTagAndReadoutWidgets() {
     constexpr keel::u32 W = 900;
     constexpr keel::u32 H = 640;
     keel::Array<keel::u32> pixels(W * H, 0u);
-    ThorCanvas canvas;
+    TestCanvas canvas;
     canvas.SetTarget(pixels.data(), W, H, W);
 
     // 1. Tag widget: clickable, closable, styles, variants, disabled
@@ -16602,7 +16693,8 @@ void TestTagAndReadoutWidgets() {
         CHECK(precPopup.w > 120.0f && precPopup.h > 100.0f);
 
         // 3c. 1-click switch directly from Precision menu -> Unit menu!
-        const Vec2 unitPt{lastRes.rect.x + 92.0f, lastRes.rect.Bottom() - 20.0f};
+        const float valMeasureW = canvas.MeasureTextStyled("12.35", 28.0f, FontStyle::Bold).x;
+        const Vec2 unitPt{lastRes.rect.x + 10.0f + valMeasureW + 12.0f, lastRes.rect.Bottom() - 20.0f};
         ui.OnMouseMove(unitPt);
         ui.OnMouseDown(1);
         renderReadout();
@@ -16711,7 +16803,7 @@ void TestMenuBarAndCascadingMenus() {
     constexpr keel::u32 W = 900;
     constexpr keel::u32 H = 640;
     keel::Array<keel::u32> pixels(W * H, 0u);
-    ThorCanvas canvas;
+    TestCanvas canvas;
     canvas.SetTarget(pixels.data(), W, H, W);
 
     // 1. MenuBar hover-scrubbing, keyboard Left/Right switching, cascading SubMenu, Checkbox(keepOpen), Radio, Type-ahead
@@ -16907,6 +16999,64 @@ void TestMenuBarAndCascadingMenus() {
 
     keel::println("  [PASS] TestMenuBarAndCascadingMenus completed");
 }
+
+void TestNullCanvasHeadlessWorkflow() {
+    using namespace guikit;
+    keel::println("  -> TestNullCanvasHeadlessWorkflow...");
+
+    NullCanvas canvas;
+    CHECK(!canvas.UsesCpuFramebuffer());
+    CHECK(canvas.GetBackendName() == "NullCanvas (Headless)");
+
+    // Deterministic UTF-8 metrics & style widths
+    const Vec2 mAscii = canvas.MeasureText("Hello", 16.0f);
+    const Vec2 mUtf8 = canvas.MeasureText("\xD0\x9F\xD1\x80\xD0\xB8\xD0\xB2\xD0\xB5", 16.0f); // 5 Cyrillic codepoints
+    CHECK(mAscii.x > 0.0f && mAscii.y > 0.0f);
+    CHECK_NEAR(mAscii.x, mUtf8.x, 0.01f);
+    const Vec2 mBold = canvas.MeasureTextStyled("Hello", 16.0f, FontStyle::Bold);
+    CHECK(mBold.x > mAscii.x);
+
+    // Transform stack tracks effective scale
+    canvas.Begin(640, 480, 1.5f);
+    CHECK_NEAR(canvas.GetScale(), 1.5f, 1e-5f);
+    canvas.PushTransform(Transform2D::ScaleAbout({10.0f, 10.0f}, 2.0f));
+    CHECK_NEAR(canvas.GetScale(), 3.0f, 1e-5f);
+    canvas.PopTransform();
+    CHECK_NEAR(canvas.GetScale(), 1.5f, 1e-5f);
+    canvas.End();
+
+    // Full Context immediate-mode frame & interaction cycle with zero external backends
+    canvas.ResetStats();
+    Context ui;
+    Response btn{};
+    auto renderUi = [&]() {
+        ui.BeginFrame({640.0f, 480.0f}, 1.0f);
+        if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(16.0f)})) {
+            ui.Heading({.label = "Headless Core"});
+            btn = ui.Button({.text = "Invoke"});
+        }
+        ui.EndFrame(canvas);
+    };
+
+    renderUi();
+    renderUi();
+    CHECK(btn.rect.w > 20.0f && btn.rect.h > 20.0f);
+    CHECK(canvas.GetStats().beginCount >= 1u);
+    CHECK(canvas.GetStats().endCount == canvas.GetStats().beginCount);
+    CHECK(canvas.GetStats().drawRoundRectCount > 0u);
+    CHECK(canvas.GetStats().drawTextCount > 0u);
+
+    ui.OnMouseMove(btn.rect.Center());
+    ui.OnMouseDown(1);
+    renderUi();
+    CHECK(btn.hovered && btn.pressed);
+    ui.OnMouseUp(1);
+    renderUi();
+    CHECK(btn.clicked);
+
+    keel::println("  [PASS] TestNullCanvasHeadlessWorkflow completed");
+}
+
 
 
 

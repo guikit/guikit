@@ -1,5 +1,6 @@
 #include "guikit/core.hpp"
 #include "guikit/guikit.hpp"
+#include "guikit/backend/null_canvas.hpp"
 #include "guikit/backend/sdl_canvas.hpp"
 #include "guikit/backend/sdl_gl_shader_engine.hpp"
 #include "guikit/backend/sdl_window_backend.hpp"
