@@ -11,9 +11,6 @@
 
 #include "guikit/core.hpp"
 #include "keel/core.h"
-#if defined(GUIKIT_HAS_SCENES) && GUIKIT_HAS_SCENES
-#include "guikit/scenes.hpp"
-#endif
 
 namespace guikit {
 

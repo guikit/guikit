@@ -1,6 +1,5 @@
 #include <cstring>
 #include "guikit/core.hpp"
-#include "guikit/geo/map_grid.hpp"
 #include "keel/keel.h"
 #include "keel/math.h"
 
@@ -475,70 +474,6 @@ void TestComputeBoxFit() {
     CHECK(rOrigEnd.w == 100.0f && rOrigEnd.h == 50.0f);
 }
 
-void TestMapGridAndProjections() {
-    using namespace guikit;
-
-    // 1. Round-trip Geographic <-> Normalized (u, v) across all 3 CRS projections
-    const GeoCoord helgoland{54.1833, 7.8833};
-    for (MapCrs crs : {MapCrs::EPSG3857_WebMercator,
-                       MapCrs::EPSG3395_WorldMercator,
-                       MapCrs::EPSG4326_PlateCarree}) {
-        const Vec2 uv = MapGrid::GeoToNormalized(helgoland, crs);
-        CHECK(uv.x > 0.5f && uv.x < 0.6f);
-        CHECK(uv.y > 0.1f && uv.y < 0.45f);
-        const GeoCoord back = MapGrid::NormalizedToGeo(uv, crs);
-        CHECK(keel::abs(back.lat - helgoland.lat) < 1e-3);
-        CHECK(keel::abs(back.lon - helgoland.lon) < 1e-3);
-    }
-
-    // 2. Noticeable difference between Spherical (EPSG:3857) and WGS84 Ellipsoidal (EPSG:3395) Mercator Y
-    const auto [u3857, v3857] = MapGrid::GeoToNormalized(helgoland, MapCrs::EPSG3857_WebMercator);
-    const auto [u3395, v3395] = MapGrid::GeoToNormalized(helgoland, MapCrs::EPSG3395_WorldMercator);
-    CHECK(keel::abs(u3857 - u3395) < 1e-9);
-    CHECK(keel::abs(v3857 - v3395) > 5e-4);
-
-    const GeoPlanar p3857 = MapGrid::GeoToNormalizedDouble(helgoland, MapCrs::EPSG3857_WebMercator);
-    const GeoPlanar p3395 = MapGrid::GeoToNormalizedDouble(helgoland, MapCrs::EPSG3395_WorldMercator);
-    CHECK(keel::abs(p3857.first - p3395.first) < 1e-12);
-    CHECK(keel::abs(p3857.second - p3395.second) > 5e-4);
-
-    // 3. Tile ID & View State calculation
-    MapGridConfig cfg{
-        .crs = MapCrs::EPSG3857_WebMercator,
-        .worldSize = 2048.0f,
-        .baseZoom = 3,
-        .minTileZoom = 1,
-        .maxTileZoom = 18
-    };
-    const Vec2 helgolandWorld = MapGrid::GeoToWorld(helgoland, cfg.worldSize, cfg.crs);
-    const float sceneZoomZ7 = MapGrid::TileZoomToSceneZoom(7.0f, cfg.baseZoom);
-    CHECK(keel::abs(sceneZoomZ7 - 16.0f) < 1e-4f);
-
-    const Rect visibleWorld{
-        helgolandWorld.x - 20.0f,
-        helgolandWorld.y - 15.0f,
-        40.0f,
-        30.0f
-    };
-    const Rect viewportRect{0.0f, 0.0f, 640.0f, 480.0f};
-    const MapViewState view = MapGrid::ComputeView(
-        visibleWorld, viewportRect, sceneZoomZ7, helgolandWorld, cfg
-    );
-    CHECK(view.tileZoom == 7);
-    CHECK(!view.visibleTiles.empty());
-    CHECK(!view.meridians.empty());
-    CHECK(!view.parallels.empty());
-    CHECK(keel::abs(view.cursor.lat - helgoland.lat) < 1e-2);
-    CHECK(keel::abs(view.cursor.lon - helgoland.lon) < 1e-2);
-    CHECK(view.metricScale.screenPixels > 20.0f);
-    CHECK(view.nauticalScale.screenPixels > 20.0f);
-
-    // 4. Nautical DMM formatting check
-    const auto dmmStr = MapGrid::FormatCoord(helgoland, GeoCoordFormat::NauticalDMM);
-    CHECK(dmmStr.as_ref().find("54") != keel::StringRef::npos);
-    CHECK(dmmStr.as_ref().find("007") != keel::StringRef::npos);
-}
-
 void TestTextWrapForceSplitLastWord() {
     using namespace guikit;
 
@@ -646,17 +581,9 @@ void TestEmbeddedAndRuntimeAssets() {
     CHECK(Assets::Exists("images/lena.png"));
     CHECK(Assets::Exists("assets\\images\\lena.png"));
     CHECK(Assets::Exists("assets/fonts/Roboto-Regular.ttf"));
-    CHECK(Assets::Exists("assets/geo/demo_bay.geojson"));
     CHECK(!Assets::Exists("assets/images/architecture.svg"));
     CHECK(!Assets::Exists("assets/images/circuit.svg"));
     CHECK(!Assets::ListPaths().empty());
-
-    const auto demoBay = Assets::Find("assets/geo/demo_bay.geojson");
-    CHECK(demoBay.has_value());
-    if (demoBay.has_value()) {
-        CHECK(!demoBay->Empty());
-        CHECK(demoBay->size > 300000u);
-    }
 
     const auto lena = Assets::Find("assets/images/lena.png");
     CHECK(lena.has_value());
@@ -1756,7 +1683,6 @@ int main() {
     TestSliderMetricsTokens();
     TestHeadingLevelMetricsTokens();
     TestComputeBoxFit();
-    TestMapGridAndProjections();
     TestTextWrapForceSplitLastWord();
     TestStandaloneCoreModuleZeroDependencies();
     TestEmbeddedAndRuntimeAssets();

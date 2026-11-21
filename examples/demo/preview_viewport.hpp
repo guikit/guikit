@@ -281,7 +281,9 @@ template <typename ContentFn>
 inline void RenderPreviewViewport(
     guikit::Context& ui,
     DemoContext& demoCtx,
-    NavCategory selectedCategory,
+    bool isFullStage,
+    bool isShellScreen,
+    keel::StringRef displayTitle,
     ContentFn&& renderClientContent
 ) {
     const PreviewFormFactor formFactor = static_cast<PreviewFormFactor>(
@@ -291,8 +293,6 @@ inline void RenderPreviewViewport(
     const bool isPhone = (formFactor == PreviewFormFactor::Phone);
     const bool isResizableWindow = (formFactor == PreviewFormFactor::Window);
     const bool useCenteredScrollCanvas = isDeviceMode || (isResizableWindow && demoCtx.previewWindowCustomSize);
-    const bool isFullStage = IsFullStageCategory(selectedCategory);
-    const bool isShellScreen = (selectedCategory == NavCategory::PanelSidebar);
     const float clientPad = isShellScreen ? 0.0f : (isFullStage ? 8.0f : 24.0f);
 
     // 1. Recessed Studio Artboard Backdrop (2D ScrollArea in Device / Custom-Sized Window mode, Stretch Box otherwise)
@@ -632,7 +632,7 @@ inline void RenderPreviewViewport(
                                         .height = guikit::SizeMode::Stretch
                                     })) {}
                                     ui.Spacer();
-                                    ui.Text(CategoryDisplayTitle(selectedCategory), {
+                                    ui.Text(displayTitle, {
                                         .role = guikit::TextRole::LabelSmall,
                                         .variant = guikit::UiVariant::Secondary
                                     });

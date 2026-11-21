@@ -36,15 +36,8 @@
 #include "guikit/panels/card.hpp"
 #include "guikit/panels/carousel.hpp"
 #include "guikit/panels/command_palette.hpp"
-#if !defined(GUIKIT_HAS_SCENES)
-#define GUIKIT_HAS_SCENES 0
-#endif
-
 #include "guikit/panels/scroll_area.hpp"
 #include "guikit/panels/scene.hpp"
-#if GUIKIT_HAS_SCENES
-#include "guikit/panels/map_view.hpp"
-#endif
 #include "guikit/panels/context_menu.hpp"
 #include "guikit/panels/modal.hpp"
 #include "guikit/panels/popover.hpp"
@@ -81,14 +74,6 @@
 #include "guikit/graphics/colormap.hpp"
 #include "guikit/widgets/histogram.hpp"
 #include "guikit/widgets/image_view.hpp"
-#if GUIKIT_HAS_SCENES
-#include "guikit/widgets/signal_view.hpp"
-#include "guikit/widgets/sonar_view.hpp"
-#include "guikit/widgets/waterfall_view.hpp"
-#include "guikit/widgets/attitude_view.hpp"
-#include "guikit/widgets/bpmn_editor.hpp"
-#include "guikit/widgets/car_cluster_view.hpp"
-#endif
 
 namespace guikit {
 
@@ -676,15 +661,6 @@ public:
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
-#if GUIKIT_HAS_SCENES
-    [[nodiscard]] MapViewScope MapView(
-        MapViewOptions opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return Open<guikit::MapView>(opts, loc);
-    }
-#endif
-
     [[nodiscard]] TableScope Table(
         keel::ArrayRef<TableColumn> columns,
         const TableOptions& opts = {},
@@ -794,35 +770,6 @@ public:
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
-#if GUIKIT_HAS_SCENES
-    // --- SignalView (Waveform + Spectrogram DAW Analyzer) Widget ---
-    SignalViewResponse SignalView(
-        keel::ArrayRef<float> samples,
-        const SignalViewOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return Run<guikit::SignalView>(samples, opts, loc);
-    }
-
-    // --- SonarView (Polar Heatmap / Diver Detection Sonar / PPI Radar) Widget ---
-    SonarViewResponse SonarView(
-        keel::ArrayRef<float> polarMatrix,
-        const SonarViewOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return Run<guikit::SonarView>(polarMatrix, opts, loc);
-    }
-
-    // --- WaterfallView (RTSA Spectrum Analyzer & DOA / BTR Target Tracker) Widget ---
-    WaterfallViewResponse WaterfallView(
-        keel::ArrayRef<float> latestSliceDb,
-        const WaterfallViewOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return Run<guikit::WaterfallView>(latestSliceDb, opts, loc);
-    }
-#endif
-
     // --- Histogram (Single-Channel & Multi-Channel RGB+Lum Window/Level) Widget ---
     HistogramResponse Histogram(
         const HistogramData& data,
@@ -850,33 +797,6 @@ public:
     ) {
         return Run<guikit::ImageView>(data, opts, loc);
     }
-
-#if GUIKIT_HAS_SCENES
-    // --- AttitudeView (Avionics Artificial Horizon & Primary Flight Display) Widget ---
-    AttitudeViewResponse AttitudeView(
-        const AttitudeViewOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return Run<guikit::AttitudeView>(opts, loc);
-    }
-
-    // --- CarClusterView (Automotive Digital Instrument Cluster & ADAS Cockpit) Widget ---
-    CarClusterViewResponse CarClusterView(
-        const CarClusterViewOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return Run<guikit::CarClusterView>(opts, loc);
-    }
-
-    // --- BpmnEditor (BPMN 2.0 Diagram Modeler & Token Simulation) Widget ---
-    BpmnEditorResponse BpmnEditor(
-        BpmnDiagram& diagram,
-        const BpmnEditorOptions& opts = {},
-        keel::SourceLocation loc = keel::SourceLocation::current()
-    ) {
-        return Run<guikit::BpmnEditor>(diagram, opts, loc);
-    }
-#endif
 
     // --- Switch Widget ---
     Response Switch(

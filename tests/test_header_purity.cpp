@@ -1,8 +1,5 @@
 #include "guikit/core.hpp"
 #include "guikit/guikit.hpp"
-#if defined(GUIKIT_HAS_SCENES) && GUIKIT_HAS_SCENES
-#include "guikit/scenes.hpp"
-#endif
 #include "guikit/backend/sdl_canvas.hpp"
 #include "guikit/backend/sdl_gl_shader_engine.hpp"
 #include "guikit/backend/sdl_window_backend.hpp"
@@ -109,9 +106,6 @@ namespace {
     const PolygonTriangulator a{};
     const LayerStyle b{};
     const AttributeValue c{};
-#if defined(GUIKIT_HAS_SCENES) && GUIKIT_HAS_SCENES
-    static_assert(keel::IsSame<guikit::GeoJsonIO, guikit::geo::GeoJsonIO>);
-#endif
     return a.ok + b.ok + c.ok;
 }
 } // namespace

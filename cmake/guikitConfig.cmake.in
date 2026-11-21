@@ -4,13 +4,6 @@ include(CMakeFindDependencyMacro)
 
 find_dependency(keel)
 
-if (@GUIKIT_BUILD_SCENES@)
-    if (NOT WIN32 AND NOT EMSCRIPTEN)
-        find_package(CURL QUIET)
-    endif()
-    find_dependency(keel_http)
-endif()
-
 if (NOT EMSCRIPTEN)
     find_dependency(Threads)
 endif()

@@ -41,16 +41,9 @@ enum class NavCategory : keel::u8 {
     ContentMarkdown,
     ContentCodeEditor,
 
-    // 4. 2D SCENES (Interactive Vector Viewports & GIS)
+    // 4. 2D SCENES (Interactive Vector Viewports)
     SceneSchematic2D,
-    SceneOsmMap,
-    SceneSignalView,
-    SceneSonarView,
-    SceneWaterfallView,
-    SceneImageView,
-    SceneAttitudeView,
-    SceneCarDashboard,
-    SceneBpmnEditor
+    SceneImageView
 };
 
 constexpr bool IsControlCategory(NavCategory cat) noexcept {
@@ -58,7 +51,7 @@ constexpr bool IsControlCategory(NavCategory cat) noexcept {
 }
 
 constexpr bool IsSandboxCategory(NavCategory cat) noexcept {
-    return cat <= NavCategory::SceneBpmnEditor;
+    return cat <= NavCategory::SceneImageView;
 }
 
 constexpr bool IsFullStageCategory(NavCategory cat) noexcept {
@@ -69,14 +62,7 @@ constexpr bool IsFullStageCategory(NavCategory cat) noexcept {
            cat == NavCategory::ContentMarkdown ||
            cat == NavCategory::ContentCodeEditor ||
            cat == NavCategory::SceneSchematic2D ||
-           cat == NavCategory::SceneOsmMap ||
-           cat == NavCategory::SceneSignalView ||
-           cat == NavCategory::SceneSonarView ||
-           cat == NavCategory::SceneWaterfallView ||
-           cat == NavCategory::SceneImageView ||
-           cat == NavCategory::SceneAttitudeView ||
-           cat == NavCategory::SceneCarDashboard ||
-           cat == NavCategory::SceneBpmnEditor;
+           cat == NavCategory::SceneImageView;
 }
 
 enum class PreviewFormFactor : keel::u8 {
@@ -148,14 +134,7 @@ constexpr keel::StringRef CategoryDisplayTitle(NavCategory cat) noexcept {
         case NavCategory::ContentMarkdown:   return "Markdown — Rich Document Renderer";
         case NavCategory::ContentCodeEditor: return "Code Editor — Syntax Highlighting & Minimap";
         case NavCategory::SceneSchematic2D:  return "Schematic 2D — Node Graph Canvas";
-        case NavCategory::SceneOsmMap:       return "GIS Map — ENC Nautical & OSM Tile Engine";
-        case NavCategory::SceneSignalView:   return "Signal View — DSP Waveform & Spectrogram";
-        case NavCategory::SceneSonarView:    return "Sonar Radar — DDS Polar Heatmap & Tracker";
-        case NavCategory::SceneWaterfallView:return "Waterfall — DOA Bearing-Timegram";
         case NavCategory::SceneImageView:    return "Image View — 16-bit Scientific Inspector";
-        case NavCategory::SceneAttitudeView: return "Attitude PFD — Primary Flight Display";
-        case NavCategory::SceneCarDashboard: return "Car Cluster — Digital Cockpit Instrument";
-        case NavCategory::SceneBpmnEditor:   return "BPMN 2.0 Modeler — Workflow Diagram Editor";
     }
     return "GuiKit Preview";
 }
@@ -1316,48 +1295,16 @@ void RenderCodeEditorStage(guikit::Context& ui, DemoContext& ctx);
 keel::String GenerateCodeEditorCode(const DemoContext& ctx);
 
 // ============================================================================
-// 4. 2D SCENES (Interactive Vector Viewports & GIS)
+// 4. 2D SCENES (Interactive Vector Viewports)
 // ============================================================================
 void RenderSchematicInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderSchematicStage(guikit::Context& ui, DemoContext& ctx);
 keel::String GenerateSchematicCode(const DemoContext& ctx);
 
-void RenderOsmMapInspector(guikit::Context& ui, DemoContext& ctx);
-void RenderOsmMapStage(guikit::Context& ui, DemoContext& ctx);
-keel::String GenerateOsmMapCode(const DemoContext& ctx);
-
-void RenderSignalInspector(guikit::Context& ui, DemoContext& ctx);
-void RenderSignalStage(guikit::Context& ui, DemoContext& ctx);
-keel::String GenerateSignalCode(const DemoContext& ctx);
-
-void RenderSonarInspector(guikit::Context& ui, DemoContext& ctx);
-void RenderSonarStage(guikit::Context& ui, DemoContext& ctx);
-keel::String GenerateSonarCode(const DemoContext& ctx);
-
-void RenderWaterfallInspector(guikit::Context& ui, DemoContext& ctx);
-void RenderWaterfallStage(guikit::Context& ui, DemoContext& ctx);
-keel::String GenerateWaterfallCode(const DemoContext& ctx);
-
 void RenderImageViewInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderImageViewStage(guikit::Context& ui, DemoContext& ctx);
 keel::String GenerateImageViewCode(const DemoContext& ctx);
 
-void RenderAttitudeInspector(guikit::Context& ui, DemoContext& ctx);
-void RenderAttitudeStage(guikit::Context& ui, DemoContext& ctx);
-keel::String GenerateAttitudeCode(const DemoContext& ctx);
-
-void RenderCarDashboardInspector(guikit::Context& ui, DemoContext& ctx);
-void RenderCarDashboardStage(guikit::Context& ui, DemoContext& ctx);
-keel::String GenerateCarDashboardCode(const DemoContext& ctx);
-
-void RenderBpmnInspector(guikit::Context& ui, DemoContext& ctx);
-void RenderBpmnStage(guikit::Context& ui, DemoContext& ctx);
-keel::String GenerateBpmnCode(const DemoContext& ctx);
-
-void ReleaseOsmMapDemoBuffers() noexcept;
-void ReleaseSignalDemoBuffers() noexcept;
-void ReleaseSonarDemoBuffers() noexcept;
-void ReleaseWaterfallDemoBuffers() noexcept;
 void ReleaseImageViewDemoBuffers() noexcept;
 
 } // namespace guikit::demo

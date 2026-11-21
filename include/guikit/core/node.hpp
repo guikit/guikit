@@ -93,16 +93,10 @@ enum class NodeType : keel::u16 {
     SidebarItem = 214,
     Image       = 215,
     Markdown    = 216,
-    SignalView    = 217,
-    SonarView     = 218,
-    WaterfallView = 219,
     RangeSlider   = 220,
     ProgressBar   = 221,
     Histogram      = 222,
     ImageView      = 223,
-    AttitudeView   = 224,
-    CarClusterView = 225,
-    BpmnEditor      = 226,
     AccordionHeader = 227,
     Radio           = 228,
     SpinBox         = 229,
@@ -354,16 +348,10 @@ struct Node {
             case NodeType::SidebarItem: return "SidebarItem";
             case NodeType::Image:       return "Image";
             case NodeType::Markdown:    return "Markdown";
-            case NodeType::SignalView:    return "SignalView";
-            case NodeType::SonarView:     return "SonarView";
-            case NodeType::WaterfallView: return "WaterfallView";
             case NodeType::RangeSlider:   return "RangeSlider";
             case NodeType::ProgressBar:   return "ProgressBar";
             case NodeType::Histogram:     return "Histogram";
             case NodeType::ImageView:      return "ImageView";
-            case NodeType::AttitudeView:   return "AttitudeView";
-            case NodeType::CarClusterView:  return "CarClusterView";
-            case NodeType::BpmnEditor:      return "BpmnEditor";
             case NodeType::AccordionHeader: return "AccordionHeader";
             case NodeType::Radio:           return "Radio";
             case NodeType::SpinBox:         return "SpinBox";
@@ -376,7 +364,11 @@ struct Node {
             case NodeType::CommandPalette:  return "CommandPalette";
             case NodeType::LevelMeter:      return "LevelMeter";
             case NodeType::TagInput:        return "TagInput";
-            default:                       return (static_cast<keel::u16>(type) >= static_cast<keel::u16>(NodeType::User)) ? "UserWidget" : "Unknown";
+            default:
+                if (static_cast<keel::u16>(type) >= static_cast<keel::u16>(NodeType::User)) {
+                    return !text.empty() ? text : keel::StringRef("UserWidget");
+                }
+                return "Unknown";
         }
     }
 

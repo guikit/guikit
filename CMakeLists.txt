@@ -16,7 +16,6 @@ if (MSVC)
 endif()
 
 # --- Module Build Options ---
-option(GUIKIT_BUILD_SCENES "Build GuiKit scientific/DSP/GIS 2D scene modules (SignalView, SonarView, WaterfallView, MapView)" ON)
 option(GUIKIT_BUILD_BACKEND_THORVG "Build GuiKit ThorVG software/vector rasterizer backend" ON)
 option(GUIKIT_USE_FREETYPE "Enable FreeType hinted glyph rasterizer & per-glyph atlas (falls back to ThorVG when OFF)" ON)
 option(GUIKIT_BUILD_BACKEND_SDL3 "Build GuiKit SDL3 + OpenGL ES3/WebGL2 backend" ON)
@@ -28,12 +27,12 @@ if (GUIKIT_BUILD_TESTS)
     enable_testing()
 endif()
 
-if (GUIKIT_BUILD_DEMO OR GUIKIT_BUILD_TESTS OR GUIKIT_BUILD_SCENES)
+if (GUIKIT_BUILD_DEMO OR GUIKIT_BUILD_TESTS)
     set(_GUIKIT_DEFAULT_EMBED_DEMO_ASSETS ON)
 else()
     set(_GUIKIT_DEFAULT_EMBED_DEMO_ASSETS OFF)
 endif()
-option(GUIKIT_EMBED_DEMO_ASSETS "Embed demo showcase assets (lena.png, demo_bay.geojson) into binary" ${_GUIKIT_DEFAULT_EMBED_DEMO_ASSETS})
+option(GUIKIT_EMBED_DEMO_ASSETS "Embed demo showcase assets (lena.png) into binary" ${_GUIKIT_DEFAULT_EMBED_DEMO_ASSETS})
 
 # Optimize WebAssembly builds for compact binary size (-Oz + Link-Time Optimization)
 if (EMSCRIPTEN)
@@ -48,31 +47,21 @@ if (NOT EMSCRIPTEN)
 endif()
 
 # ==============================================================================
-# 0. Dependencies: keel & keel::http (0BSD C++20 Foundation Libraries)
+# 0. Dependency: keel (0BSD C++20 Foundation Library)
 # ==============================================================================
-if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/keel/CMakeLists.txt")
-    if (GUIKIT_INSTALL)
-        add_subdirectory(third_party/keel)
+if (NOT TARGET keel::keel)
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/keel/CMakeLists.txt")
+        if (GUIKIT_INSTALL)
+            add_subdirectory(third_party/keel)
+        else()
+            add_subdirectory(third_party/keel EXCLUDE_FROM_ALL)
+        endif()
     else()
-        add_subdirectory(third_party/keel EXCLUDE_FROM_ALL)
+        find_package(keel REQUIRED)
     endif()
-else()
-    find_package(keel REQUIRED)
 endif()
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/GuiKitGuidelines.cmake")
-
-if (GUIKIT_BUILD_SCENES)
-    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/http/CMakeLists.txt")
-        if (GUIKIT_INSTALL)
-            add_subdirectory(third_party/http)
-        else()
-            add_subdirectory(third_party/http EXCLUDE_FROM_ALL)
-        endif()
-    else()
-        find_package(keel_http REQUIRED)
-    endif()
-endif()
 
 # ==============================================================================
 # 1. Module: guikit::core
@@ -190,40 +179,7 @@ guikit_enforce_guidelines(guikit_core
 )
 
 # ==============================================================================
-# 2. Module: guikit::scenes
-#    Scientific / DSP / GIS 2D Views (SignalView, SonarView, WaterfallView, MapView)
-# ==============================================================================
-if (GUIKIT_BUILD_SCENES)
-    set(GUIKIT_SCENES_SOURCES
-        src/guikit/geo/geo_json_io.cpp
-        src/guikit/geo/geo_types.cpp
-        src/guikit/geo/gis_render_engine.cpp
-        src/guikit/geo/osm_raster_tile_provider.cpp
-        src/guikit/geo/polygon_triangulator.cpp
-        src/guikit/panels/map_view.cpp
-        src/guikit/widgets/attitude_view.cpp
-        src/guikit/widgets/bpmn_editor.cpp
-        src/guikit/widgets/car_cluster_view.cpp
-        src/guikit/widgets/signal_view.cpp
-        src/guikit/widgets/sonar_view.cpp
-        src/guikit/widgets/waterfall_view.cpp
-    )
-
-    add_library(guikit_scenes STATIC ${GUIKIT_SCENES_SOURCES})
-    add_library(guikit::scenes ALIAS guikit_scenes)
-    set_target_properties(guikit_scenes PROPERTIES EXPORT_NAME scenes)
-
-    target_compile_features(guikit_scenes PUBLIC cxx_std_20)
-    target_compile_definitions(guikit_scenes PUBLIC GUIKIT_HAS_SCENES=1)
-    target_link_libraries(guikit_scenes PUBLIC guikit::core keel::http)
-    if (NOT EMSCRIPTEN)
-        target_link_libraries(guikit_scenes PUBLIC Threads::Threads)
-    endif()
-    guikit_enforce_guidelines(guikit_scenes)
-endif()
-
-# ==============================================================================
-# 3. Module: guikit::backend_thorvg
+# 2. Module: guikit::backend_thorvg
 #    CPU / Headless Vector Rasterizer Backend (ThorCanvas)
 # ==============================================================================
 set(GUIKIT_BUNDLED_THORVG OFF)
@@ -364,9 +320,6 @@ add_library(guikit INTERFACE)
 add_library(guikit::guikit ALIAS guikit)
 
 target_link_libraries(guikit INTERFACE guikit::core)
-if (TARGET guikit::scenes)
-    target_link_libraries(guikit INTERFACE guikit::scenes)
-endif()
 if (TARGET guikit::backend_thorvg)
     target_link_libraries(guikit INTERFACE guikit::backend_thorvg)
 endif()
@@ -376,70 +329,68 @@ endif()
 
 # --- Interactive Showcase Demo ---
 if (GUIKIT_BUILD_DEMO)
-    if (GUIKIT_BUILD_SCENES)
-        add_executable(guikit_demo
-            examples/demo/main.cpp
-            examples/demo/demo_window.cpp
-            examples/demo/elements/heading_screen.cpp
-            examples/demo/elements/element_screen.cpp
-            examples/demo/elements/button_screen.cpp
-            examples/demo/elements/slider_screen.cpp
-            examples/demo/elements/knob_screen.cpp
-            examples/demo/elements/spin_box_screen.cpp
-            examples/demo/elements/input_screen.cpp
-            examples/demo/elements/select_screen.cpp
-            examples/demo/elements/segmented_screen.cpp
-            examples/demo/elements/color_picker_screen.cpp
-            examples/demo/elements/date_picker_screen.cpp
-            examples/demo/elements/level_meter_screen.cpp
-            examples/demo/elements/tag_input_screen.cpp
-            examples/demo/panels/split_view_screen.cpp
-            examples/demo/panels/breadcrumb_screen.cpp
-            examples/demo/panels/pagination_screen.cpp
-            examples/demo/elements/switch_screen.cpp
-            examples/demo/elements/checkbox_screen.cpp
-            examples/demo/elements/radio_screen.cpp
-            examples/demo/elements/image_screen.cpp
-            examples/demo/panels/card_screen.cpp
-            examples/demo/panels/tab_bar_screen.cpp
-            examples/demo/panels/toolbar_screen.cpp
-            examples/demo/panels/sidebar_screen.cpp
-            examples/demo/panels/tree_view_screen.cpp
-            examples/demo/panels/table_screen.cpp
-            examples/demo/panels/overlays_screen.cpp
-            examples/demo/content/markdown_screen.cpp
-            examples/demo/content/code_editor_screen.cpp
-            examples/demo/scenes/schematic_screen.cpp
-            examples/demo/scenes/osm_map_screen.cpp
-            examples/demo/scenes/signal_screen.cpp
-            examples/demo/scenes/sonar_screen.cpp
-            examples/demo/scenes/waterfall_screen.cpp
-            examples/demo/scenes/image_view_screen.cpp
-            examples/demo/scenes/attitude_screen.cpp
-            examples/demo/scenes/car_dashboard_screen.cpp
-            examples/demo/scenes/bpmn_screen.cpp
+    add_library(guikit_demo_lib STATIC
+        examples/demo/demo_window.cpp
+        examples/demo/elements/heading_screen.cpp
+        examples/demo/elements/element_screen.cpp
+        examples/demo/elements/button_screen.cpp
+        examples/demo/elements/slider_screen.cpp
+        examples/demo/elements/knob_screen.cpp
+        examples/demo/elements/spin_box_screen.cpp
+        examples/demo/elements/input_screen.cpp
+        examples/demo/elements/select_screen.cpp
+        examples/demo/elements/segmented_screen.cpp
+        examples/demo/elements/color_picker_screen.cpp
+        examples/demo/elements/date_picker_screen.cpp
+        examples/demo/elements/level_meter_screen.cpp
+        examples/demo/elements/tag_input_screen.cpp
+        examples/demo/panels/split_view_screen.cpp
+        examples/demo/panels/breadcrumb_screen.cpp
+        examples/demo/panels/pagination_screen.cpp
+        examples/demo/elements/switch_screen.cpp
+        examples/demo/elements/checkbox_screen.cpp
+        examples/demo/elements/radio_screen.cpp
+        examples/demo/elements/image_screen.cpp
+        examples/demo/panels/card_screen.cpp
+        examples/demo/panels/tab_bar_screen.cpp
+        examples/demo/panels/toolbar_screen.cpp
+        examples/demo/panels/sidebar_screen.cpp
+        examples/demo/panels/tree_view_screen.cpp
+        examples/demo/panels/table_screen.cpp
+        examples/demo/panels/overlays_screen.cpp
+        examples/demo/content/markdown_screen.cpp
+        examples/demo/content/code_editor_screen.cpp
+        examples/demo/scenes/schematic_screen.cpp
+        examples/demo/scenes/image_view_screen.cpp
+    )
+    add_library(guikit::demo_lib ALIAS guikit_demo_lib)
+    target_include_directories(guikit_demo_lib PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/examples/demo"
+    )
+    target_link_libraries(guikit_demo_lib PUBLIC guikit::guikit)
+    guikit_enforce_guidelines(guikit_demo_lib
+        HEADERS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/examples/demo"
+    )
+
+    add_executable(guikit_demo
+        examples/demo/main.cpp
+    )
+    target_link_libraries(guikit_demo PRIVATE guikit::demo_lib)
+    guikit_enforce_guidelines(guikit_demo)
+    if (EMSCRIPTEN)
+        set_target_properties(guikit_demo PROPERTIES SUFFIX ".html")
+        target_link_options(guikit_demo PRIVATE
+            "-Oz"
+            "-flto"
+            "-sSTACK_SIZE=1048576"
+            "-Wl,--stack-first"
+            "-sALLOW_MEMORY_GROWTH=1"
+            "-sINITIAL_MEMORY=67108864"
+            "-sMAX_WEBGL_VERSION=2"
+            "-sMIN_WEBGL_VERSION=1"
+            "-sEXIT_RUNTIME=0"
+            "--shell-file" "${CMAKE_CURRENT_SOURCE_DIR}/examples/demo/shell.html"
         )
-        target_link_libraries(guikit_demo PRIVATE guikit::guikit)
-        guikit_enforce_guidelines(guikit_demo
-            HEADERS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/examples/demo"
-        )
-        if (EMSCRIPTEN)
-            set_target_properties(guikit_demo PROPERTIES SUFFIX ".html")
-            target_link_options(guikit_demo PRIVATE
-                "-Oz"
-                "-flto"
-                "-sSTACK_SIZE=1048576"
-                "-Wl,--stack-first"
-                "-sALLOW_MEMORY_GROWTH=1"
-                "-sINITIAL_MEMORY=67108864"
-                "-sMAX_WEBGL_VERSION=2"
-                "-sMIN_WEBGL_VERSION=1"
-                "-sEXIT_RUNTIME=0"
-                "--shell-file" "${CMAKE_CURRENT_SOURCE_DIR}/examples/demo/shell.html"
-            )
-        endif()
-    else()
-        message(STATUS "Skipping guikit_demo because GUIKIT_BUILD_SCENES=OFF (guikit_minimal remains enabled)")
     endif()
     if (NOT EMSCRIPTEN)
         add_executable(guikit_minimal
@@ -456,9 +407,6 @@ if (GUIKIT_INSTALL)
     include(CMakePackageConfigHelpers)
 
     set(_GUIKIT_EXPORT_TARGETS guikit_core guikit)
-    if (TARGET guikit_scenes)
-        list(APPEND _GUIKIT_EXPORT_TARGETS guikit_scenes)
-    endif()
     if (TARGET guikit_backend_thorvg)
         list(APPEND _GUIKIT_EXPORT_TARGETS guikit_backend_thorvg)
         if (GUIKIT_BUNDLED_THORVG AND TARGET thorvg)
