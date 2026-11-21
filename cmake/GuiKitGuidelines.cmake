@@ -76,8 +76,8 @@ function(guikit_embed_assets TARGET_NAME)
         message(FATAL_ERROR "guikit_embed_assets: target '${TARGET_NAME}' does not exist.")
     endif()
 
-    set(OPTIONS "")
-    set(ONE_VALUE_ARGS ASSETS_DIR OUTPUT_FILE EMBED_DEMO_ASSETS)
+    set(OPTIONS NO_AUTO_REGISTER)
+    set(ONE_VALUE_ARGS ASSETS_DIR OUTPUT_FILE VIRTUAL_PREFIX NAMESPACE REGISTER_FUNCTION)
     set(MULTI_VALUE_ARGS "")
     cmake_parse_arguments(GEA "${OPTIONS}" "${ONE_VALUE_ARGS}" "${MULTI_VALUE_ARGS}" ${ARGN})
 
@@ -91,8 +91,25 @@ function(guikit_embed_assets TARGET_NAME)
     else()
         set(_OUT_CPP "${CMAKE_CURRENT_BINARY_DIR}/generated/${TARGET_NAME}_embedded_assets.cpp")
     endif()
-    if(NOT DEFINED GEA_EMBED_DEMO_ASSETS)
-        set(GEA_EMBED_DEMO_ASSETS ON)
+
+    set(_GEN_ARGS
+        "-DASSET_MODE=APP"
+        "-DASSETS_DIR=${_ABS_ASSETS}"
+        "-DOUTPUT_FILE=${_OUT_CPP}"
+    )
+    if(DEFINED GEA_VIRTUAL_PREFIX)
+        list(APPEND _GEN_ARGS "-DVIRTUAL_PREFIX=${GEA_VIRTUAL_PREFIX}")
+    endif()
+    if(DEFINED GEA_NAMESPACE)
+        list(APPEND _GEN_ARGS "-DNAMESPACE=${GEA_NAMESPACE}")
+    endif()
+    if(DEFINED GEA_REGISTER_FUNCTION)
+        list(APPEND _GEN_ARGS "-DREGISTER_FUNCTION=${GEA_REGISTER_FUNCTION}")
+    endif()
+    if(GEA_NO_AUTO_REGISTER)
+        list(APPEND _GEN_ARGS "-DAUTO_REGISTER=OFF")
+    else()
+        list(APPEND _GEN_ARGS "-DAUTO_REGISTER=ON")
     endif()
 
     file(GLOB_RECURSE _ASSET_FILES CONFIGURE_DEPENDS "${_ABS_ASSETS}/*")
@@ -100,11 +117,7 @@ function(guikit_embed_assets TARGET_NAME)
 
     add_custom_command(
         OUTPUT "${_OUT_CPP}"
-        COMMAND "${CMAKE_COMMAND}"
-            "-DASSETS_DIR=${_ABS_ASSETS}"
-            "-DOUTPUT_FILE=${_OUT_CPP}"
-            "-DEMBED_DEMO_ASSETS=${GEA_EMBED_DEMO_ASSETS}"
-            -P "${_GEN_SCRIPT}"
+        COMMAND "${CMAKE_COMMAND}" ${_GEN_ARGS} -P "${_GEN_SCRIPT}"
         DEPENDS "${_GEN_SCRIPT}" ${_ASSET_FILES}
         COMMENT "Embedding assets for ${TARGET_NAME} (Native + WASM)"
         VERBATIM

@@ -13,7 +13,7 @@
 ## Key Highlights
 
 - **Pure Vector Rendering & GLSL Underlays**: Razor-sharp UI at any DPI and scale via **ThorVG**, combined with hardware-accelerated **OpenGL / WebGL2 GLSL** shader underlays (`SdlGlShaderEngine`) for real-time 2D visualizations.
-- **100% Autonomous C++20 Immediate Mode**: Zero dependency on Dear ImGui and zero STL headers in public headers (powered by [`keel`](https://github.com/guikit/keel)). Clean, composable `Element` + `Control` architecture using designated initializers, RAII container scopes, `ui.Zone(...)` ambient scoping, and reactive dirty-rectangle damage tracking:
+- **100% Autonomous C++20 Immediate Mode**: Zero dependency on Dear ImGui and zero STL headers in public headers (powered by [`keel`](https://github.com/keelcpp/keel)). Clean, composable `Element` + `Control` architecture using designated initializers, RAII container scopes, `ui.Zone(...)` ambient scoping, and reactive dirty-rectangle damage tracking:
   ```cpp
   if (auto card = ui.Card({
       .gap = 12.0f,
