@@ -23,18 +23,19 @@ enum class FontSmoothing : keel::u8 {
     SubpixelBGR   ///< 3x horizontal LCD subpixel anti-aliasing (BGR panel stripe)
 };
 
-/// Outline grid-fitting hint level (honored by FreeType backend; ignored gracefully by outline-only fallbacks).
+/// Outline grid-fitting hint level (honored by text rasterizer backends; ignored gracefully by outline-only fallbacks).
 enum class FontHinting : keel::u8 {
-    None = 0,     ///< Unhinted outlines (macOS / HiDPI style)
-    Light,        ///< Vertical-only auto-hinting (FreeType Slight — crispest on 1x displays)
-    Normal        ///< Full grid-fitting hinting
+    None = 0,     ///< Unhinted outlines + subpixel positioning (smooth zoom / animation)
+    Light,        ///< Vertical-only auto-hinting + fractional advances (crisp baselines, Retina fidelity)
+    Normal,       ///< Full horizontal & vertical stem snapping (maximum crispness on 1x displays)
+    Auto          ///< Adaptive default (vertical-only Light hinting for uniform weight & spacing at all scales)
 };
 
 /// Engine-wide text rasterization and compositing quality settings.
 struct TextRenderSettings {
     FontSmoothing smoothing{FontSmoothing::Auto};
-    FontHinting hinting{FontHinting::Light};
-    bool gammaCorrectBlending{true};  ///< Linear sRGB alpha/LCD compositing (prevents starved light-on-dark stems)
+    FontHinting hinting{FontHinting::Auto};
+    bool gammaCorrectBlending{true};  ///< Perceptual text gamma + polarity-aware stem compositing
     keel::f32 contrast{1.0f};             ///< Stroke contrast multiplier [0.5 .. 2.0] (1.0 = neutral)
     keel::f32 stemDarkening{0.15f};       ///< Subtle coverage boost on small sizes [0.0 .. 0.5] (CoreText/DirectWrite style)
 

@@ -16052,9 +16052,24 @@ void TestTextCompositorAndSubpixelRendering() {
     CHECK(rgbVsBgrDiff > 20u);    // BGR flips subpixel polarity vs RGB
     CHECK(transLit > 50u);        // Transparent destination falls back cleanly to premul SrcOver
 
-    // Auto mode selects SubpixelRGB at 1x and Grayscale at 2x HiDPI
+    // Auto mode selects SubpixelRGB at 1x, Grayscale at 2x HiDPI, and Light hinting across all scales
     CHECK(TextCompositor::ResolveEffectiveSmoothing(FontSmoothing::Auto, 1.0f) == FontSmoothing::SubpixelRGB);
     CHECK(TextCompositor::ResolveEffectiveSmoothing(FontSmoothing::Auto, 2.0f) == FontSmoothing::Grayscale);
+    CHECK(TextCompositor::ResolveEffectiveHinting(FontHinting::Auto, 1.0f) == FontHinting::Light);
+    CHECK(TextCompositor::ResolveEffectiveHinting(FontHinting::Auto, 1.25f) == FontHinting::Light);
+    CHECK(TextCompositor::ResolveEffectiveHinting(FontHinting::Auto, 2.0f) == FontHinting::Light);
+    CHECK(TextCompositor::ResolveEffectiveHinting(FontHinting::Normal, 1.0f) == FontHinting::Normal);
+    CHECK(TextCompositor::ResolveEffectiveHinting(FontHinting::None, 1.0f) == FontHinting::None);
+
+    // Polarity-aware dark-on-light compositing preserves rich perceptual ink density on anti-aliased strokes
+    {
+        keel::u32 pxDarkOnLight = Color::Hex(0xF8FAFCFF).ToUint32();
+        const Color darkInk(15, 23, 42, 255);
+        const TextRenderSettings defaultOn{.smoothing = FontSmoothing::Grayscale, .gammaCorrectBlending = true, .contrast = 1.0f, .stemDarkening = 0.15f};
+        TextCompositor::BlitGrayscaleMask(&pxDarkOnLight, 1, 1, 1, &halfMask, 1, 1, 1, 0, 0, Rect(0, 0, 1, 1), darkInk, defaultOn, 14.0f);
+        const keel::u32 rOut = pxDarkOnLight & 0xFFu;
+        CHECK(rOut < 160u); // Well-inked dark stroke on light surface (not starved > 180 faint gray)
+    }
 
 #if (defined(GUIKIT_HAS_TEXT_ENGINE) && GUIKIT_HAS_TEXT_ENGINE) || (defined(GUIKIT_HAS_FREETYPE) && GUIKIT_HAS_FREETYPE)
     // 6. Verify hinting modes (None vs Light vs Normal) render cleanly and produce distinct rasterizations

@@ -5,6 +5,33 @@ namespace guikit {
 
 namespace {
 
+// DirectWrite / Skia calibrated text blending gamma (1.8 instead of raw 2.4).
+// Raw 2.4 starves dark-on-light anti-aliased strokes into faint hairlines while
+// over-bloating light-on-dark bold text due to emissive display halation.
+struct TextGammaLuts {
+    keel::StaticArray<keel::u16, 256> toLinear12{};
+    keel::StaticArray<keel::u8, 4096> toSrgb8{};
+
+    TextGammaLuts() noexcept {
+        static constexpr keel::f32 kTextGamma = 1.8f;
+        static constexpr keel::f32 kInvTextGamma = 1.0f / kTextGamma;
+        for (keel::u32 i = 0; i < 256u; ++i) {
+            const keel::f32 u = keel::as<keel::f32>(i) / 255.0f;
+            const keel::f32 lin = keel::pow(u, kTextGamma);
+            toLinear12[i] = keel::as<keel::u16>(keel::clamp(keel::round_i32(lin * 4095.0f), 0, 4095));
+        }
+        for (keel::u32 i = 0; i < 4096u; ++i) {
+            const keel::f32 lin = keel::as<keel::f32>(i) / 4095.0f;
+            const keel::f32 enc = keel::pow(lin, kInvTextGamma);
+            toSrgb8[i] = keel::as<keel::u8>(keel::clamp(keel::round_i32(enc * 255.0f), 0, 255));
+        }
+        toLinear12[0] = 0u;
+        toLinear12[255] = 4095u;
+        toSrgb8[0] = 0u;
+        toSrgb8[4095] = 255u;
+    }
+};
+
 struct SrgbLuts {
     keel::StaticArray<keel::u16, 256> toLinear12{};
     keel::StaticArray<keel::u8, 4096> toSrgb8{};
@@ -31,9 +58,18 @@ struct SrgbLuts {
     }
 };
 
+const TextGammaLuts& GetTextGammaLuts() noexcept {
+    static const TextGammaLuts kLuts{};
+    return kLuts;
+}
+
 const SrgbLuts& GetSrgbLuts() noexcept {
     static const SrgbLuts kLuts{};
     return kLuts;
+}
+
+[[nodiscard]] constexpr keel::u32 ApproxLuma8(keel::u32 r, keel::u32 g, keel::u32 b) noexcept {
+    return (54u * r + 183u * g + 19u * b) >> 8u;
 }
 
 [[nodiscard]] inline keel::u32 BlendPremulSrcOverScalar(keel::u32 dst, Color src, keel::u32 effAlpha) noexcept {
@@ -200,17 +236,30 @@ void TextCompositor::BlitGrayscaleMask(
         return;
     }
 
-    keel::StaticArray<keel::u8, 256> covLut{};
-    BuildCoverageLut(covLut, settings.contrast, settings.stemDarkening, scaledFontSizePx);
+    const bool useGamma = settings.gammaCorrectBlending;
+    keel::StaticArray<keel::u8, 256> covLutDarkOnLight{};
+    keel::StaticArray<keel::u8, 256> covLutLightOnDark{};
+    if (useGamma) {
+        // Polarity-aware stem darkening (DirectWrite / CoreText / Skia style):
+        // dark-on-light needs stronger ink weight to resist bright-pixel halation;
+        // light-on-dark already receives lift from 1.8 gamma blending.
+        const keel::f32 darkBoost = keel::clamp(settings.stemDarkening * 1.85f + 0.14f, 0.0f, 0.50f);
+        const keel::f32 lightBoost = keel::clamp(settings.stemDarkening * 0.25f, 0.0f, 0.20f);
+        BuildCoverageLut(covLutDarkOnLight, settings.contrast, darkBoost, scaledFontSizePx);
+        BuildCoverageLut(covLutLightOnDark, settings.contrast, lightBoost, scaledFontSizePx);
+    } else {
+        BuildCoverageLut(covLutDarkOnLight, settings.contrast, settings.stemDarkening, scaledFontSizePx);
+        covLutLightOnDark = covLutDarkOnLight;
+    }
 
-    const SrgbLuts& luts = GetSrgbLuts();
+    const TextGammaLuts& luts = GetTextGammaLuts();
     const keel::u32 srcLinR = luts.toLinear12[color.r];
     const keel::u32 srcLinG = luts.toLinear12[color.g];
     const keel::u32 srcLinB = luts.toLinear12[color.b];
+    const keel::u32 srcLuma = ApproxLuma8(color.r, color.g, color.b);
     const keel::u32 srcOpaquePx = 0xFF000000u | (keel::as<keel::u32>(color.b) << 16) |
                                   (keel::as<keel::u32>(color.g) << 8) | keel::as<keel::u32>(color.r);
     const keel::u32 colorA = color.a;
-    const bool useGamma = settings.gammaCorrectBlending;
 
     const keel::i32 spanW = cx1 - cx0;
     const keel::i32 srcOffX = cx0 - dstX;
@@ -222,7 +271,13 @@ void TextCompositor::BlitGrayscaleMask(
             const keel::u8 rawCov = srcRow[x];
             if (rawCov == 0u) continue;
 
-            const keel::u32 shaped = covLut[rawCov];
+            const keel::u32 dstPx = dstRow[x];
+            const keel::u32 dstA = (dstPx >> 24) & 0xFFu;
+            const keel::u32 dr = dstPx & 0xFFu;
+            const keel::u32 dg = (dstPx >> 8) & 0xFFu;
+            const keel::u32 db = (dstPx >> 16) & 0xFFu;
+            const bool isLightOnDark = (dstA == 255u) ? (srcLuma > ApproxLuma8(dr, dg, db)) : (srcLuma >= 128u);
+            const keel::u32 shaped = isLightOnDark ? covLutLightOnDark[rawCov] : covLutDarkOnLight[rawCov];
             const keel::u32 effA = (colorA == 255u) ? shaped : ((shaped * colorA + 127u) / 255u);
             if (effA == 0u) continue;
 
@@ -231,17 +286,12 @@ void TextCompositor::BlitGrayscaleMask(
                 continue;
             }
 
-            const keel::u32 dstPx = dstRow[x];
-            const keel::u32 dstA = (dstPx >> 24) & 0xFFu;
             if (dstA < 255u) {
                 dstRow[x] = BlendPremulSrcOverScalar(dstPx, color, effA);
                 continue;
             }
 
             const keel::u32 invA = 255u - effA;
-            const keel::u32 dr = dstPx & 0xFFu;
-            const keel::u32 dg = (dstPx >> 8) & 0xFFu;
-            const keel::u32 db = (dstPx >> 16) & 0xFFu;
 
             if (useGamma) {
                 const keel::u32 outLinR = (keel::as<keel::u32>(luts.toLinear12[dr]) * invA + srcLinR * effA + 127u) / 255u;
@@ -287,23 +337,43 @@ void TextCompositor::BlitSubpixelMask(
         return;
     }
 
-    keel::StaticArray<keel::u8, 256> covLut{};
-    BuildCoverageLut(covLut, settings.contrast, settings.stemDarkening, scaledFontSizePx);
+    const bool useGamma = settings.gammaCorrectBlending;
+    keel::StaticArray<keel::u8, 256> covLutDarkOnLight{};
+    keel::StaticArray<keel::u8, 256> covLutLightOnDark{};
+    if (useGamma) {
+        const keel::f32 darkBoost = keel::clamp(settings.stemDarkening * 1.85f + 0.14f, 0.0f, 0.50f);
+        const keel::f32 lightBoost = keel::clamp(settings.stemDarkening * 0.25f, 0.0f, 0.20f);
+        BuildCoverageLut(covLutDarkOnLight, settings.contrast, darkBoost, scaledFontSizePx);
+        BuildCoverageLut(covLutLightOnDark, settings.contrast, lightBoost, scaledFontSizePx);
+    } else {
+        BuildCoverageLut(covLutDarkOnLight, settings.contrast, settings.stemDarkening, scaledFontSizePx);
+        covLutLightOnDark = covLutDarkOnLight;
+    }
 
-    const SrgbLuts& luts = GetSrgbLuts();
+    const TextGammaLuts& luts = GetTextGammaLuts();
     const keel::u32 srcLinR = luts.toLinear12[color.r];
     const keel::u32 srcLinG = luts.toLinear12[color.g];
     const keel::u32 srcLinB = luts.toLinear12[color.b];
+    const keel::u32 srcLuma = ApproxLuma8(color.r, color.g, color.b);
     const keel::u32 srcOpaquePx = 0xFF000000u | (keel::as<keel::u32>(color.b) << 16) |
                                   (keel::as<keel::u32>(color.g) << 8) | keel::as<keel::u32>(color.r);
     const keel::u32 colorA = color.a;
-    const bool useGamma = settings.gammaCorrectBlending;
 
     const keel::i32 spanW = cx1 - cx0;
     const keel::i32 srcOffX = cx0 - dstX;
     const keel::usize idxR = bgrOrder ? 2u : 0u;
     const keel::usize idxG = 1u;
     const keel::usize idxB = bgrOrder ? 0u : 2u;
+
+    // Damp LCD subpixel chroma separation on saturated foreground colors (e.g. red/cyan/orange/blue
+    // readouts & syntax tokens) so R/G/B coverage never creates asymmetrical luma/hue fringing.
+    const keel::u32 maxC = keel::max(keel::as<keel::u32>(color.r), keel::max(keel::as<keel::u32>(color.g), keel::as<keel::u32>(color.b)));
+    const keel::u32 minC = keel::min(keel::as<keel::u32>(color.r), keel::min(keel::as<keel::u32>(color.g), keel::as<keel::u32>(color.b)));
+    const keel::f32 sat = (maxC > 0u) ? (keel::as<keel::f32>(maxC - minC) / keel::as<keel::f32>(maxC)) : 0.0f;
+    const keel::f32 satKeep = 1.0f - 0.85f * sat;
+    const keel::i32 keepLightQ8 = keel::clamp(keel::round_i32(satKeep * 256.0f), 32, 256);
+    // Light-on-dark gamma lifts low subpixel tails more strongly; soften chroma gently on dark backdrops.
+    const keel::i32 keepDarkQ8 = keel::clamp(keel::round_i32(satKeep * 0.72f * 256.0f), 24, 256);
 
     for (keel::i32 y = cy0; y < cy1; ++y) {
         const keel::u8* srcRow = maskRgb + keel::as<keel::usize>(y - dstY) * maskStrideBytes + keel::as<keel::usize>(srcOffX) * 3u;
@@ -315,13 +385,33 @@ void TextCompositor::BlitSubpixelMask(
             const keel::u8 rawB = sub[idxB];
             if ((rawR | rawG | rawB) == 0u) continue;
 
-            const keel::u32 shR = covLut[rawR];
-            const keel::u32 shG = covLut[rawG];
-            const keel::u32 shB = covLut[rawB];
+            const keel::u32 dstPx = dstRow[x];
+            const keel::u32 dstA = (dstPx >> 24) & 0xFFu;
+            const keel::u32 dr = dstPx & 0xFFu;
+            const keel::u32 dg = (dstPx >> 8) & 0xFFu;
+            const keel::u32 db = (dstPx >> 16) & 0xFFu;
+            const bool isLightOnDark = (dstA == 255u) ? (srcLuma > ApproxLuma8(dr, dg, db)) : (srcLuma >= 128u);
+            const auto& activeLut = isLightOnDark ? covLutLightOnDark : covLutDarkOnLight;
 
-            const keel::u32 covR = (colorA == 255u) ? shR : ((shR * colorA + 127u) / 255u);
-            const keel::u32 covG = (colorA == 255u) ? shG : ((shG * colorA + 127u) / 255u);
-            const keel::u32 covB = (colorA == 255u) ? shB : ((shB * colorA + 127u) / 255u);
+            keel::i32 shR = keel::as<keel::i32>(activeLut[rawR]);
+            keel::i32 shG = keel::as<keel::i32>(activeLut[rawG]);
+            keel::i32 shB = keel::as<keel::i32>(activeLut[rawB]);
+
+            const keel::i32 keepQ8 = isLightOnDark ? keepDarkQ8 : keepLightQ8;
+            if (keepQ8 < 256) {
+                const keel::i32 avg = (shR + shG + shB + 1) / 3;
+                shR = avg + (((shR - avg) * keepQ8) >> 8);
+                shG = avg + (((shG - avg) * keepQ8) >> 8);
+                shB = avg + (((shB - avg) * keepQ8) >> 8);
+            }
+
+            const keel::u32 uShR = keel::as<keel::u32>(keel::clamp(shR, 0, 255));
+            const keel::u32 uShG = keel::as<keel::u32>(keel::clamp(shG, 0, 255));
+            const keel::u32 uShB = keel::as<keel::u32>(keel::clamp(shB, 0, 255));
+
+            const keel::u32 covR = (colorA == 255u) ? uShR : ((uShR * colorA + 127u) / 255u);
+            const keel::u32 covG = (colorA == 255u) ? uShG : ((uShG * colorA + 127u) / 255u);
+            const keel::u32 covB = (colorA == 255u) ? uShB : ((uShB * colorA + 127u) / 255u);
 
             if ((covR | covG | covB) == 0u) continue;
             if ((covR & covG & covB) == 255u) {
@@ -329,18 +419,12 @@ void TextCompositor::BlitSubpixelMask(
                 continue;
             }
 
-            const keel::u32 dstPx = dstRow[x];
-            const keel::u32 dstA = (dstPx >> 24) & 0xFFu;
             if (dstA < 255u) {
                 // Non-opaque destination surface: gracefully fall back to scalar coverage SrcOver
                 const keel::u32 scalarCov = (covR + covG + covB + 1u) / 3u;
                 dstRow[x] = BlendPremulSrcOverScalar(dstPx, color, scalarCov);
                 continue;
             }
-
-            const keel::u32 dr = dstPx & 0xFFu;
-            const keel::u32 dg = (dstPx >> 8) & 0xFFu;
-            const keel::u32 db = (dstPx >> 16) & 0xFFu;
 
             if (useGamma) {
                 const keel::u32 outLinR = (keel::as<keel::u32>(luts.toLinear12[dr]) * (255u - covR) + srcLinR * covR + 127u) / 255u;

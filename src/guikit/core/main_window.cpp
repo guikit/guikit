@@ -656,10 +656,11 @@ void MainWindow::RenderEngineControls(ToolbarScope& tb) {
                 "Subpixel RGB",
                 "Subpixel BGR"
             }};
-            static constexpr keel::StaticArray<keel::StringRef, 3> kHintingLabels = {{
+            static constexpr keel::StaticArray<keel::StringRef, 4> kHintingLabels = {{
                 "None",
                 "Light",
-                "Normal"
+                "Normal",
+                "Auto"
             }};
 
             TextRenderSettings textCfg = GetTextRenderSettings();

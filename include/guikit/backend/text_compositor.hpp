@@ -25,6 +25,18 @@ public:
         return (canvasScale < 1.5f) ? FontSmoothing::SubpixelRGB : FontSmoothing::Grayscale;
     }
 
+    /// Resolves `FontHinting::Auto` to vertical-only auto-hinting (`Light`), preserving crisp baselines
+    /// and horizontal bars with uniform stem weights and fractional spacing across all scales (100%–200%).
+    [[nodiscard]] static constexpr FontHinting ResolveEffectiveHinting(
+        FontHinting requested,
+        keel::f32 /*canvasScale*/
+    ) noexcept {
+        if (requested != FontHinting::Auto) {
+            return requested;
+        }
+        return FontHinting::Light;
+    }
+
     /// Converts 8-bit sRGB channel `[0..255]` to 12-bit linear light `[0..4095]`.
     [[nodiscard]] static keel::u16 SrgbToLinear12(keel::u8 srgb) noexcept;
 
