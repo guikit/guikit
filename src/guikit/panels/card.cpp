@@ -12,15 +12,17 @@ struct CardElevatedPayload {
     Color surfaceBg{};
 };
 
-void RenderElevatedCard(const Node* node, ICanvas& canvas, const UiTheme& /*theme*/) {
+void RenderElevatedCard(const Node* node, ICanvas& canvas, const UiTheme& theme) {
     const auto* payload = node ? node->As<CardElevatedPayload>() : nullptr;
     if (!payload) return;
 
     const Rect& rect = node->computedRect;
     const keel::f32 r = node->cornerRadius;
 
-    // 1. Soft Gaussian drop shadow
-    canvas.DrawShadow(rect, r, 16.0f, {0.0f, 5.0f}, Color(0, 0, 0, 108));
+    // 1. Theme-controlled elevation shadow
+    if (const ShadowStyle sh = theme.GetShadow(Elevation::Md); sh.IsVisible()) {
+        canvas.DrawShadow(rect, r, sh.blur, sh.offset, sh.color);
+    }
 
     // 2. Elevated surface fill over shadow (border is drawn after children by RenderNodeRecursive)
     if (payload->surfaceBg.a > 0) {

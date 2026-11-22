@@ -596,8 +596,10 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
         for (const auto& panel : drawPanels) {
             const Rect& pr = panel.popupRect;
 
-            // Soft Gaussian drop shadow
-            c.DrawShadow(pr, radius, 18.0f * s, {0.0f, 6.0f * s}, Color(0, 0, 0, isDark ? 128 : 64));
+            // Theme-controlled elevation shadow
+            if (const ShadowStyle sh = theme.GetShadow(Elevation::Lg, s); sh.IsVisible()) {
+                c.DrawShadow(pr, radius, sh.blur, sh.offset, sh.color);
+            }
 
             c.DrawRoundRect(pr, radius, surfaceBg, borderCol, borderW);
 

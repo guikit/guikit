@@ -4,7 +4,6 @@
 
 namespace guikit {
 
-// Zone resolution helper; keeps translation unit linked for build targets.
 const Zone* ResolveZone(
     const Zone* parent,
     const ZoneOptions& opts,
@@ -15,8 +14,40 @@ const Zone* ResolveZone(
         return base;
     }
     Zone* resolved = arena.create<Zone>(*base);
-    if (opts.theme.has_value()) {
-        resolved->theme = arena.create<UiTheme>(*opts.theme);
+    if (opts.HasThemeOverride()) {
+        UiTheme* arenaTheme = nullptr;
+        if (opts.theme.has_value()) {
+            arenaTheme = arena.create<UiTheme>(*opts.theme);
+        } else if (opts.preset.has_value()) {
+            arenaTheme = arena.create<UiTheme>(UiTheme::FromPreset(*opts.preset));
+            if (base->theme != nullptr) {
+                arenaTheme->SetShellStyle(base->theme->shellStyle);
+            }
+        } else if (base->theme != nullptr) {
+            arenaTheme = arena.create<UiTheme>(*base->theme);
+        } else {
+            arenaTheme = arena.create<UiTheme>(UiTheme::Dark());
+        }
+
+        if (opts.preset.has_value() && opts.theme.has_value()) {
+            arenaTheme->SetPreset(*opts.preset);
+        }
+        if (opts.mode.has_value() && arenaTheme->mode != *opts.mode) {
+            arenaTheme->SetMode(*opts.mode);
+        }
+        if (opts.accent.has_value()) {
+            arenaTheme->SetAccent(*opts.accent);
+        }
+        if (opts.surfaceStyle.has_value()) {
+            arenaTheme->SetSurfaceStyle(*opts.surfaceStyle);
+        }
+        if (opts.radiusScale.has_value()) {
+            arenaTheme->SetRadiusScale(*opts.radiusScale);
+        }
+        if (opts.shadowIntensity.has_value()) {
+            arenaTheme->SetShadowIntensity(*opts.shadowIntensity);
+        }
+        resolved->theme = arenaTheme;
     }
     if (opts.scale.has_value() && *opts.scale > 0.0f) {
         resolved->scale *= (*opts.scale);

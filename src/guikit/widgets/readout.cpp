@@ -346,9 +346,11 @@ void Readout::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
     const bool disabled = node->disabled;
     const keel::f32 radius = opts.border.radius.has_value() ? *opts.border.radius : m.radius;
 
-    // 1. Optional subtle drop shadow when elevated
+    // 1. Optional theme-controlled drop shadow when elevated
     if (opts.elevated) {
-        canvas.DrawShadow(rect, radius, 12.0f, {0.0f, 4.0f}, Color(0, 0, 0, isDark ? 96 : 44));
+        if (const ShadowStyle sh = theme.GetShadow(Elevation::Sm); sh.IsVisible()) {
+            canvas.DrawShadow(rect, radius, sh.blur, sh.offset, sh.color);
+        }
     }
 
     // 2. Card surface & border

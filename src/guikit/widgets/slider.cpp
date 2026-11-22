@@ -500,27 +500,46 @@ keel::f32 StepSliderLabelsBand(
 Color ResolveSliderTrackColor(const StateColor& rawColor, bool disabled, const UiTheme& theme) noexcept {
     const StateColor color = theme.ResolveStateColor(rawColor);
     const auto& pal = theme.palette;
-    const VariantColors& primary = theme.GetVariant(UiVariant::Primary);
+    const Color primaryHue = theme.GetSemanticAccent(UiVariant::Primary);
     if (!color.HasAny()) {
-        return disabled ? primary.bg.WithAlphaF(0.4f) : primary.bg;
+        return disabled ? primaryHue.WithAlphaF(theme.disabledOpacity) : primaryHue;
+    }
+    if (rawColor.token == StateColorToken::Primary) {
+        return disabled ? primaryHue.WithAlphaF(theme.disabledOpacity) : primaryHue;
+    }
+    if (rawColor.token == StateColorToken::Success) {
+        const Color c = theme.GetSemanticAccent(UiVariant::Success);
+        return disabled ? c.WithAlphaF(theme.disabledOpacity) : c;
+    }
+    if (rawColor.token == StateColorToken::Warning) {
+        const Color c = theme.GetSemanticAccent(UiVariant::Warning);
+        return disabled ? c.WithAlphaF(theme.disabledOpacity) : c;
+    }
+    if (rawColor.token == StateColorToken::Danger) {
+        const Color c = theme.GetSemanticAccent(UiVariant::Danger);
+        return disabled ? c.WithAlphaF(theme.disabledOpacity) : c;
+    }
+    if (rawColor.token == StateColorToken::Info) {
+        const Color c = theme.GetSemanticAccent(UiVariant::Info);
+        return disabled ? c.WithAlphaF(theme.disabledOpacity) : c;
     }
     if (color.normal.has_value() && color.normal->a == 0) {
-        return disabled ? pal.borderHover.WithAlphaF(0.4f) : pal.borderHover;
+        return disabled ? pal.borderHover.WithAlphaF(theme.disabledOpacity) : pal.borderHover;
     }
-    const Color base = color.normal.value_or(primary.bg);
-    return disabled ? color.disabled.value_or(base.WithAlphaF(0.4f)) : base;
+    const Color base = color.normal.value_or(primaryHue);
+    return disabled ? color.disabled.value_or(base.WithAlphaF(theme.disabledOpacity)) : base;
 }
 
 Color ResolveSliderActiveThumbColor(const StateColor& rawColor, const UiTheme& theme) noexcept {
     const StateColor color = theme.ResolveStateColor(rawColor);
-    const VariantColors& primary = theme.GetVariant(UiVariant::Primary);
-    if (!color.HasAny()) {
-        return primary.bgActive;
+    const Color primaryActive = theme.GetSemanticAccent(UiVariant::Primary).Darken(0.08f);
+    if (!color.HasAny() || rawColor.token == StateColorToken::Primary) {
+        return primaryActive;
     }
     if (color.normal.has_value() && color.normal->a == 0) {
         return theme.GetVariant(UiVariant::Ghost).bgActive;
     }
-    return color.active.value_or(color.normal.has_value() ? StateColor::DarkenColor(*color.normal) : primary.bgActive);
+    return color.active.value_or(color.normal.has_value() ? StateColor::DarkenColor(*color.normal) : primaryActive);
 }
 
 } // namespace
@@ -1795,8 +1814,13 @@ Response ProgressBar::Run(
 
     keel::f32 animPhase = 0.0f;
     if (optsCopy.indeterminate && !effectiveDisabled) {
-        animPhase = keel::as<keel::f32>(keel::fmod(keel::max(0.0, ctx.GetCurrentTime()) * 0.85, 1.0));
-        ctx.RequestRepaint(2);
+        const keel::f32 animScale = keel::max(0.0f, activeTheme.animationScale);
+        if (animScale > 0.001f) {
+            animPhase = keel::as<keel::f32>(keel::fmod(keel::max(0.0, ctx.GetCurrentTime()) * 0.85 * keel::as<keel::f64>(animScale), 1.0));
+            ctx.RequestRepaint(2);
+        } else {
+            animPhase = 0.35f;
+        }
     }
 
     const ControlSpec ctrl = EffectiveSliderControl(optsCopy, activeSize, activeTheme);
@@ -2000,18 +2024,18 @@ void ProgressBar::Render(
         }
         Color col;
         if (normPos >= opts.dangerRatio) {
-            col = theme.GetVariant(UiVariant::Danger).bg;
+            col = theme.GetSemanticAccent(UiVariant::Danger);
         } else if (normPos >= opts.warningRatio) {
-            col = theme.GetVariant(UiVariant::Warning).bg;
+            col = theme.GetSemanticAccent(UiVariant::Warning);
         } else if (!opts.color.HasAny() || opts.color.token == StateColorToken::Primary) {
-            col = theme.GetVariant(UiVariant::Success).bg;
+            col = theme.GetSemanticAccent(UiVariant::Success);
         } else if (opts.color.token == StateColorToken::Ghost || (opts.color.normal.has_value() && opts.color.normal->a == 0)) {
             col = pal.borderHover;
         } else {
             const StateColor resolved = theme.ResolveStateColor(opts.color);
-            col = resolved.normal.value_or(theme.GetVariant(UiVariant::Success).bg);
+            col = resolved.normal.value_or(theme.GetSemanticAccent(UiVariant::Success));
         }
-        return disabled ? col.WithAlphaF(0.4f) : col;
+        return disabled ? col.WithAlphaF(theme.disabledOpacity) : col;
     };
 
     if (vertical) {

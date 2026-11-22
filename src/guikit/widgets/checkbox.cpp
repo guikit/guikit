@@ -174,7 +174,7 @@ void Checkbox::Render(
             boxFill = (hovered && !disabled) ? v.bgHover : v.bg;
             boxStroke = (v.borderWidth > 0.0f) ? v.border : boxFill;
             strokeWidth = (v.borderWidth > 0.0f) ? v.borderWidth : 1.5f;
-            markColor = pal.controlKnobActive;
+            markColor = (v.bg.a == 0u || theme.surfaceStyle == SurfaceStyle::Soft) ? v.text : pal.controlKnobActive;
         } else if (opts.color.token == StateColorToken::Ghost || (opts.color.normal.has_value() && opts.color.normal->a == 0)) {
             const StateColor resolved = theme.ResolveStateColor(opts.color);
             boxFill = (hovered && !disabled) ? resolved.hover.value_or(theme.GetVariant(UiVariant::Ghost).bgHover) : Color::Transparent();
@@ -193,12 +193,12 @@ void Checkbox::Render(
     }
 
     if (disabled) {
-        boxFill = boxFill.WithAlphaF(0.40f);
-        boxStroke = boxStroke.WithAlphaF(0.40f);
-        markColor = markColor.WithAlphaF(0.40f);
+        boxFill = boxFill.WithAlphaF(theme.disabledOpacity);
+        boxStroke = boxStroke.WithAlphaF(theme.disabledOpacity);
+        markColor = markColor.WithAlphaF(theme.disabledOpacity);
     } else if (focused) {
         boxStroke = pal.focusRing;
-        strokeWidth = keel::max(strokeWidth, 2.0f);
+        strokeWidth = keel::max(strokeWidth, theme.focusRingWidth);
     }
 
     // Draw box

@@ -10,11 +10,22 @@ namespace guikit {
 /// Flat, contiguous in memory, and fast to look up with zero dynamic allocation.
 struct UiTheme {
     ThemeMode mode{ThemeMode::Dark};
+    ThemePreset preset{ThemePreset::Dark};
     ShellStyle shellStyle{ShellStyle::Docked};
+    SurfaceStyle surfaceStyle{SurfaceStyle::Solid};
+    SyntaxPreset syntaxPreset{SyntaxPreset::Auto};
     keel::f32 lineHeightMultiplier{kDefaultLineHeightMultiplier};
+    keel::f32 focusRingWidth{2.0f};
+    keel::f32 disabledOpacity{0.50f};
+    keel::f32 borderScale{1.0f};
+    keel::f32 animationScale{1.0f};
+    bool shadowsEnabled{true};
 
     // 0. Application shell framing tokens (resolved from shellStyle)
     ShellMetrics shell{};
+
+    // 0b. Elevation shadow tokens per Elevation level (None, Sm, Md, Lg)
+    keel::StaticArray<ShadowStyle, 4> shadows{};
 
     // 1. Semantic color palette
     ThemePalette palette{};
@@ -101,13 +112,24 @@ struct UiTheme {
         return (idx < variants.size()) ? variants[idx] : variants[keel::as<keel::usize>(UiVariant::Default)];
     }
 
+    /// Returns the solid semantic hue color for `variant` even when `surfaceStyle` is `Soft` or `Outline`.
+    [[nodiscard]] constexpr Color GetSemanticAccent(UiVariant variant) const noexcept {
+        const VariantColors& vc = GetVariant(variant);
+        if (surfaceStyle == SurfaceStyle::Outline || surfaceStyle == SurfaceStyle::Soft) {
+            if (variant == UiVariant::Primary) return palette.accent;
+            if (vc.border.a > 0u) return vc.border.WithAlpha(255u);
+            return vc.text.WithAlpha(255u);
+        }
+        return vc.bg;
+    }
+
     [[nodiscard]] constexpr Color GetTextColor(UiVariant variant) const noexcept {
         switch (variant) {
             case UiVariant::Default:   return palette.textPrimary;
             case UiVariant::Secondary:
             case UiVariant::Muted:     return palette.textSecondary;
             case UiVariant::Ghost:     return palette.textMuted;
-            default:                   return GetVariant(variant).bg;
+            default:                   return GetSemanticAccent(variant);
         }
     }
 
@@ -218,7 +240,7 @@ struct UiTheme {
             res.normal = tintOver(opaqueSurface, baseNormal, surfaceTint);
             res.hover = tintOver(opaqueSurfaceHover, baseHover, surfaceTint);
             res.active = tintOver(opaqueSurfaceActive, baseActive, surfaceTint);
-            res.disabled = res.normal->WithAlphaF(0.40f);
+            res.disabled = res.normal->WithAlphaF(disabledOpacity);
         }
         if (alphaScale < 255) {
             if (res.normal.has_value())   res.normal   = res.normal->ScaleAlpha(alphaScale);
@@ -646,16 +668,82 @@ struct UiTheme {
     [[nodiscard]] constexpr ComponentMetrics GetComponentMetrics(UiSize size) const noexcept { return GetMetrics(size); }
     [[nodiscard]] constexpr keel::f32 GetLineHeight(keel::f32 fontSize) const noexcept { return fontSize * lineHeightMultiplier; }
 
-    // --- Standard Theme Factories ---
+    /// Returns resolved elevation shadow parameters (empty/invisible when `shadowsEnabled == false` or `Elevation::None`).
+    [[nodiscard]] constexpr ShadowStyle GetShadow(
+        Elevation elev,
+        keel::f32 geomScale = 1.0f
+    ) const noexcept {
+        if (!shadowsEnabled || elev == Elevation::None) {
+            return ShadowStyle{};
+        }
+        const keel::usize idx = keel::as<keel::usize>(elev);
+        const ShadowStyle s = (idx < shadows.size()) ? shadows[idx] : shadows[2];
+        return (geomScale == 1.0f) ? s : s.Scaled(geomScale);
+    }
+
+    // --- Standard & Curated Theme Factories ---
     [[nodiscard]] static UiTheme Dark() noexcept;
     [[nodiscard]] static UiTheme Light() noexcept;
+    [[nodiscard]] static UiTheme Nord() noexcept;
+    [[nodiscard]] static UiTheme Dracula() noexcept;
+    [[nodiscard]] static UiTheme CatppuccinMocha() noexcept;
+    [[nodiscard]] static UiTheme CatppuccinLatte() noexcept;
+    [[nodiscard]] static UiTheme Industrial() noexcept;
+    [[nodiscard]] static UiTheme IndustrialLight() noexcept;
+    [[nodiscard]] static UiTheme HighContrastDark() noexcept;
+    [[nodiscard]] static UiTheme HighContrastLight() noexcept;
     [[nodiscard]] static UiTheme Standard() noexcept { return Dark(); }
 
-    /// Updates color palette, syntax palette, and semantic variants to Dark or Light mode while preserving shell style.
+    /// Constructs a curated theme from a `ThemePreset` enum value.
+    [[nodiscard]] static UiTheme FromPreset(ThemePreset p) noexcept;
+
+    /// Compiles a complete `UiTheme` from a declarative `ThemeSpec` recipe.
+    [[nodiscard]] static UiTheme Build(const ThemeSpec& spec) noexcept;
+
+    /// Smoothly interpolates colors, shadows, radii, and metrics between two themes (`t` in [0..1]).
+    [[nodiscard]] static UiTheme Lerp(const UiTheme& a, const UiTheme& b, keel::f32 t) noexcept;
+
+    /// Updates color palette, syntax palette, shadows, and semantic variants to Dark or Light mode while preserving shell style.
     void SetMode(ThemeMode m) noexcept;
+
+    /// Applies a curated preset's palette, syntax palette, shadows, and semantic variants while preserving shell style.
+    void SetPreset(ThemePreset p) noexcept;
 
     /// Updates application shell framing metrics (windowPadding, panelGap, panelRadius, panelBorderWidth) for Docked or Floating style.
     void SetShellStyle(ShellStyle style) noexcept;
+
+    /// Applies a seed brand accent color, auto-deriving `accentHover`, WCAG-contrast `accentText`, `focusRing`, `caret`, and `variants[Primary]`.
+    void SetAccent(Color accent) noexcept;
+
+    /// Overrides a semantic variant (`Primary`, `Success`, `Warning`, `Danger`, `Info`) with auto-derived hover/active/contrast text.
+    void SetSemanticColor(UiVariant variant, Color baseColor) noexcept;
+
+    /// Blends a subtle neutral tint seed into backgrounds, surfaces, and borders.
+    void SetNeutralTint(Color tint, keel::f32 strength = 0.25f) noexcept;
+
+    /// Scales corner radii consistently across all tokens, widget metrics, and floating shell panels (`0.0` = sharp, `1.0` = default).
+    void SetRadiusScale(keel::f32 scale) noexcept;
+
+    /// Scales spacing gaps and paddings across layout tokens, component metrics, and floating shell chrome.
+    void SetSpacingScale(keel::f32 scale) noexcept;
+
+    /// Scales typography roles, component text sizes, and heading metrics globally.
+    void SetFontScale(keel::f32 scale) noexcept;
+
+    /// Scales border stroke thicknesses across variants, inputs, selects, and shell dividers.
+    void SetBorderScale(keel::f32 scale) noexcept;
+
+    /// Scales elevation shadow intensity (`0.0` = flat / disables shadows, `1.0` = default, `1.5` = deep).
+    void SetShadowIntensity(keel::f32 intensity) noexcept;
+
+    /// Transforms semantic & neutral control variants to match `Solid`, `Soft`, `Outline`, or `Brutalist` appearance.
+    void SetSurfaceStyle(SurfaceStyle style) noexcept;
+
+    /// Adjusts tonal separation between viewport background, cards, elevated surfaces, inputs, and borders (`0.5..1.8`).
+    void SetSurfaceContrast(keel::f32 contrast) noexcept;
+
+    /// Applies an independent curated syntax highlighting palette (`Auto` preserves the active theme preset's syntax colors).
+    void SetSyntaxPreset(SyntaxPreset preset) noexcept;
 };
 
 /// Backward-compatible alias for UiTheme.

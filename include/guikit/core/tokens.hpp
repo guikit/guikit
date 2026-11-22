@@ -3,6 +3,7 @@
 #include "guikit/core/types.hpp"
 #include "guikit/graphics/icon.hpp"
 #include "keel/optional.h"
+#include "keel/string.h"
 
 namespace guikit {
 
@@ -1043,10 +1044,154 @@ enum class ThemeMode : keel::u8 {
     Light
 };
 
+/// Curated built-in design system theme presets.
+enum class ThemePreset : keel::u8 {
+    Dark = 0,         ///< Modern Slate Dark (default)
+    Light,            ///< Crisp Slate Light
+    Nord,             ///< Arctic bluish dark (Polar Night + Frost)
+    Dracula,          ///< Vibrant purple-charcoal dark
+    CatppuccinMocha,  ///< Warm pastel dark (Catppuccin Mocha)
+    CatppuccinLatte,  ///< Warm cream light (Catppuccin Latte)
+    Industrial,       ///< High-contrast amber-on-obsidian SCADA / cockpit (Dark)
+    IndustrialLight,  ///< Daylight brushed-steel & amber SCADA / engineering HMI (Light)
+    HighContrastDark, ///< WCAG AAA high-contrast dark (sharp borders, max legibility)
+    HighContrastLight ///< WCAG AAA high-contrast light
+};
+
+inline constexpr keel::usize kThemePresetCount = 10u;
+
+/// Human-readable display name for a `ThemePreset`.
+[[nodiscard]] constexpr keel::StringRef ThemePresetName(ThemePreset preset) noexcept {
+    switch (preset) {
+        case ThemePreset::Dark:              return "Dark";
+        case ThemePreset::Light:             return "Light";
+        case ThemePreset::Nord:              return "Nord";
+        case ThemePreset::Dracula:           return "Dracula";
+        case ThemePreset::CatppuccinMocha:   return "Catppuccin Mocha";
+        case ThemePreset::CatppuccinLatte:   return "Catppuccin Latte";
+        case ThemePreset::Industrial:        return "Industrial Dark";
+        case ThemePreset::IndustrialLight:   return "Industrial Light";
+        case ThemePreset::HighContrastDark:  return "High Contrast Dark";
+        case ThemePreset::HighContrastLight: return "High Contrast Light";
+    }
+    return "Dark";
+}
+
+/// Elevation levels for theme-controlled drop shadows.
+enum class Elevation : keel::u8 {
+    None = 0, ///< Flat (no shadow)
+    Sm   = 1, ///< Subtle lift (tooltips, readouts, inline callouts)
+    Md   = 2, ///< Cards, dropdown selects, popovers
+    Lg   = 3  ///< Context menus, date pickers, command palettes, toasts
+};
+
+/// Theme-resolved drop shadow parameters passed to `ICanvas::DrawShadow`.
+struct ShadowStyle {
+    keel::f32 blur{0.0f};
+    Vec2 offset{0.0f, 0.0f};
+    Color color{0, 0, 0, 0};
+
+    [[nodiscard]] constexpr bool IsVisible() const noexcept {
+        return blur > 0.0f && color.a > 0u;
+    }
+
+    [[nodiscard]] constexpr ShadowStyle Scaled(keel::f32 geomScale) const noexcept {
+        return ShadowStyle{blur * geomScale, {offset.x * geomScale, offset.y * geomScale}, color};
+    }
+};
+
 /// Architectural framing style for application shell chrome (Toolbar, Sidebar, ActivityBar, BottomPanel, StatusBar).
 enum class ShellStyle : keel::u8 {
     Docked = 0, ///< Flush edge-to-edge panels (0px outer padding, 0px panel gap, 0px radius, 1px inner-seam divider)
     Floating    ///< Detached floating islands (outer window padding, inter-panel gap, rounded corners, 4-sided border)
+};
+
+/// Global visual appearance style for semantic controls and interactive surfaces.
+enum class SurfaceStyle : keel::u8 {
+    Solid = 0,  ///< Saturated semantic fills with high-contrast foreground text (classic default)
+    Soft,       ///< Material 3 / Radix tonal tinted surfaces with matching vibrant ink and hairline borders
+    Outline,    ///< Minimalist transparent fill with crisp semantic borders and tinted hover states
+    Brutalist   ///< High-structure flat editorial style with bold high-contrast borders
+};
+
+inline constexpr keel::usize kSurfaceStyleCount = 4u;
+
+/// Human-readable display name for a `SurfaceStyle`.
+[[nodiscard]] constexpr keel::StringRef SurfaceStyleName(SurfaceStyle style) noexcept {
+    switch (style) {
+        case SurfaceStyle::Solid:     return "Solid";
+        case SurfaceStyle::Soft:      return "Soft (Tonal)";
+        case SurfaceStyle::Outline:   return "Outline";
+        case SurfaceStyle::Brutalist: return "Brutalist";
+    }
+    return "Solid";
+}
+
+/// Curated syntax highlighting scheme selectable independently from UI theme preset.
+enum class SyntaxPreset : keel::u8 {
+    Auto = 0,       ///< Match the active `ThemePreset` syntax palette
+    VsCodeDark,     ///< VS Code Dark+ Modern
+    Monokai,        ///< Monokai Pro
+    Dracula,        ///< Dracula
+    OneDark,        ///< Atom One Dark Pro
+    Solarized,      ///< Solarized Dark
+    GitHubLight,    ///< GitHub Light
+    MatlabClassic   ///< MATLAB Classic Light
+};
+
+inline constexpr keel::usize kSyntaxPresetCount = 8u;
+
+/// Human-readable display name for a `SyntaxPreset`.
+[[nodiscard]] constexpr keel::StringRef SyntaxPresetName(SyntaxPreset preset) noexcept {
+    switch (preset) {
+        case SyntaxPreset::Auto:          return "Auto (Match Preset)";
+        case SyntaxPreset::VsCodeDark:    return "VS Code Dark+";
+        case SyntaxPreset::Monokai:       return "Monokai Pro";
+        case SyntaxPreset::Dracula:       return "Dracula";
+        case SyntaxPreset::OneDark:       return "One Dark Pro";
+        case SyntaxPreset::Solarized:     return "Solarized Dark";
+        case SyntaxPreset::GitHubLight:   return "GitHub Light";
+        case SyntaxPreset::MatlabClassic: return "MATLAB Classic";
+    }
+    return "Auto (Match Preset)";
+}
+
+/// Compact declarative recipe for generating a complete `UiTheme` via `UiTheme::Build(spec)`.
+/// Supports seed-based accent/neutral derivation, surface appearance styles, layer contrast,
+/// radius/spacing/font/border/shadow/accessibility scaling, syntax scheme selection,
+/// and zero-dependency JSON export/import (`ToJson` / `FromJson`).
+struct ThemeSpec {
+    ThemePreset base{ThemePreset::Dark};             ///< Starting curated preset (palette + syntax + variants)
+    keel::Optional<ThemeMode> mode{keel::kNullOpt};  ///< Optional Dark/Light mode override
+    SurfaceStyle surfaceStyle{SurfaceStyle::Solid};  ///< Global control appearance (`Solid`, `Soft`, `Outline`, `Brutalist`)
+    SyntaxPreset syntaxPreset{SyntaxPreset::Auto};   ///< Independent code editor syntax color scheme (`Auto` = match preset)
+    keel::Optional<Color> accent{keel::kNullOpt};    ///< Optional seed brand accent (auto-derives Primary, hover, active, contrast text, focusRing, caret)
+    keel::Optional<Color> neutral{keel::kNullOpt};   ///< Optional neutral tint seed blended into surfaces & borders
+    keel::Optional<Color> background{keel::kNullOpt};///< Optional direct viewport background color override
+    keel::Optional<Color> surface{keel::kNullOpt};   ///< Optional direct card/surface fill color override
+    keel::Optional<Color> border{keel::kNullOpt};    ///< Optional direct border color override
+    keel::Optional<Color> textPrimary{keel::kNullOpt};///< Optional direct primary text ink color override
+    keel::f32 surfaceContrast{1.0f};                 ///< Layer separation contrast multiplier (0.5 = subtle/flat, 1.0 = default, 1.8 = crisp)
+    keel::f32 radiusScale{1.0f};                     ///< Corner radius scale (0.0 = sharp, 1.0 = default, 1.6 = soft/pill)
+    keel::f32 spacingScale{1.0f};                    ///< Layout spacing & padding density multiplier (0.75..1.4)
+    keel::f32 fontScale{1.0f};                       ///< Global typography size multiplier (0.8..1.5)
+    keel::f32 lineHeightMultiplier{kDefaultLineHeightMultiplier}; ///< Paragraph / multi-line leading multiplier (1.1..1.8)
+    keel::f32 borderScale{1.0f};                     ///< Stroke thickness scale (0.0 = borderless, 1.0 = default, 2.0 = bold)
+    keel::f32 shadowIntensity{1.0f};                 ///< Elevation shadow strength (0.0 = flat/no shadows, 1.0 = default, 1.6 = deep)
+    keel::f32 focusRingWidth{2.0f};                  ///< Keyboard focus outline thickness in dp (1.0..4.0)
+    keel::f32 disabledOpacity{0.50f};                ///< Disabled widget opacity multiplier (0.2..0.8)
+    keel::f32 animationScale{1.0f};                  ///< Motion scale (0.0 = reduced motion, 1.0 = default)
+    ShellStyle shellStyle{ShellStyle::Docked};       ///< Application chrome framing (`Docked` or `Floating`)
+    keel::Optional<Color> success{keel::kNullOpt};   ///< Optional semantic Success color override
+    keel::Optional<Color> warning{keel::kNullOpt};   ///< Optional semantic Warning color override
+    keel::Optional<Color> danger{keel::kNullOpt};    ///< Optional semantic Danger color override
+    keel::Optional<Color> info{keel::kNullOpt};      ///< Optional semantic Info color override
+
+    /// Serializes this `ThemeSpec` to a compact, human-readable JSON object.
+    [[nodiscard]] keel::String ToJson() const;
+
+    /// Parses a `ThemeSpec` from JSON produced by `ToJson()` (returns `kNullOpt` on invalid input).
+    [[nodiscard]] static keel::Optional<ThemeSpec> FromJson(keel::StringRef json) noexcept;
 };
 
 /// Theme-resolved geometric tokens for application shell framing.

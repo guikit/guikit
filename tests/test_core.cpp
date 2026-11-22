@@ -1728,6 +1728,180 @@ void TestBuiltInImageDecoding() {
     CHECK(gw == 0u && gh == 0u);
 }
 
+void TestThemeSystemColorSciencePresetsSpecJsonAndLerp() {
+    using namespace guikit;
+
+    // 1. WCAG luminance, contrast ratio & auto-contrast BestTextColor
+    const Color black = Color::Hex(0x000000FF);
+    const Color white = Color::Hex(0xFFFFFFFF);
+    CHECK(black.RelativeLuminance() < 0.001f);
+    CHECK(white.RelativeLuminance() > 0.999f);
+    CHECK(Color::ContrastRatio(black, white) > 20.5f);
+    CHECK(Color::ContrastRatio(white, white) < 1.01f);
+
+    const Color brightYellow = Color::Hex(0xFDE047FF);
+    const Color deepIndigo   = Color::Hex(0x1E1B4BFF);
+    const Color textOnYellow = Color::BestTextColor(brightYellow);
+    const Color textOnIndigo = Color::BestTextColor(deepIndigo);
+    CHECK(textOnYellow.RelativeLuminance() < 0.1f);
+    CHECK(textOnIndigo.RelativeLuminance() > 0.9f);
+    CHECK(Color::ContrastRatio(textOnYellow, brightYellow) >= 4.5f);
+    CHECK(Color::ContrastRatio(textOnIndigo, deepIndigo) >= 4.5f);
+
+    // 2. HSL round-trip & Lighten/Darken monotonicity
+    const Color teal = Color::Hex(0x14B8A6FF);
+    keel::f32 h = 0.0f;
+    keel::f32 s = 0.0f;
+    keel::f32 l = 0.0f;
+    teal.ToHsl(h, s, l);
+    const Color roundTripped = Color::FromHsl(h, s, l, teal.a);
+    CHECK(keel::abs(keel::as<keel::i32>(roundTripped.r) - keel::as<keel::i32>(teal.r)) <= 2);
+    CHECK(keel::abs(keel::as<keel::i32>(roundTripped.g) - keel::as<keel::i32>(teal.g)) <= 2);
+    CHECK(keel::abs(keel::as<keel::i32>(roundTripped.b) - keel::as<keel::i32>(teal.b)) <= 2);
+    CHECK(teal.Lighten(0.15f).RelativeLuminance() > teal.RelativeLuminance());
+    CHECK(teal.Darken(0.15f).RelativeLuminance() < teal.RelativeLuminance());
+
+    // 3. All 9 curated ThemePresets meet WCAG AA contrast (and HighContrast meets >= 12:1)
+    for (keel::usize i = 0u; i < kThemePresetCount; ++i) {
+        const auto preset = keel::from_underlying<ThemePreset>(i);
+        CHECK(!ThemePresetName(preset).empty());
+        const UiTheme t = UiTheme::FromPreset(preset);
+        CHECK(t.preset == preset);
+        const keel::f32 textBg = Color::ContrastRatio(t.palette.textPrimary, t.palette.background);
+        const keel::f32 accentContrast = Color::ContrastRatio(t.palette.accentText, t.palette.accent);
+        CHECK(textBg >= 4.5f);
+        CHECK(accentContrast >= 4.5f);
+        if (preset == ThemePreset::HighContrastDark || preset == ThemePreset::HighContrastLight) {
+            CHECK(textBg >= 12.0f);
+            CHECK(!t.shadowsEnabled);
+            CHECK(t.focusRingWidth >= 3.0f);
+            CHECK(!t.GetShadow(Elevation::Lg).IsVisible());
+        } else {
+            CHECK(t.shadowsEnabled);
+            CHECK(t.GetShadow(Elevation::Lg).blur > t.GetShadow(Elevation::Sm).blur);
+            CHECK(!t.GetShadow(Elevation::None).IsVisible());
+        }
+    }
+
+    // 4. Declarative ThemeSpec builder, SurfaceStyle, SurfaceContrast, SyntaxPreset & mutators
+    ThemeSpec spec{};
+    spec.base = ThemePreset::Nord;
+    spec.surfaceStyle = SurfaceStyle::Soft;
+    spec.syntaxPreset = SyntaxPreset::Monokai;
+    spec.accent = Color::Hex(0xF59E0BFF);
+    spec.neutral = Color::Hex(0x161922FF);
+    spec.background = Color::Hex(0x10131AFF);
+    spec.surface = Color::Hex(0x1B202BFF);
+    spec.border = Color::Hex(0x334155FF);
+    spec.textPrimary = Color::Hex(0xF8FAFCFF);
+    spec.success = Color::Hex(0x22C55EFF);
+    spec.surfaceContrast = 1.35f;
+    spec.radiusScale = 0.0f;
+    spec.spacingScale = 1.2f;
+    spec.fontScale = 1.25f;
+    spec.lineHeightMultiplier = 1.55f;
+    spec.borderScale = 2.0f;
+    spec.shadowIntensity = 0.0f;
+    spec.focusRingWidth = 3.5f;
+    spec.disabledOpacity = 0.35f;
+    spec.animationScale = 0.0f;
+    spec.shellStyle = ShellStyle::Floating;
+
+    const UiTheme nordBase = UiTheme::Nord();
+    const UiTheme custom = UiTheme::Build(spec);
+    CHECK(custom.surfaceStyle == SurfaceStyle::Soft);
+    CHECK(custom.syntaxPreset == SyntaxPreset::Monokai);
+    CHECK(custom.syntax.editorBg == SyntaxPalette::Monokai().editorBg);
+    CHECK(custom.palette.accent == *spec.accent);
+    CHECK(custom.palette.background == *spec.background);
+    CHECK(custom.palette.surface == *spec.surface);
+    CHECK(custom.palette.border == *spec.border);
+    CHECK(custom.palette.textPrimary == *spec.textPrimary);
+    CHECK(Color::ContrastRatio(custom.palette.accentText, custom.palette.accent) >= 4.5f);
+    CHECK(custom.GetVariant(UiVariant::Primary).borderWidth > 0.0f);
+    CHECK(Color::ContrastRatio(custom.GetVariant(UiVariant::Primary).text, custom.GetVariant(UiVariant::Primary).bg) >= 4.5f);
+    CHECK(custom.GetMetrics(UiSize::Md).cornerRadius == 0.0f);
+    CHECK(!custom.shadowsEnabled);
+    CHECK(!custom.GetShadow(Elevation::Lg).IsVisible());
+    CHECK(custom.borderScale == 2.0f);
+    CHECK(keel::abs(custom.focusRingWidth - 3.5f) < 0.01f);
+    CHECK(keel::abs(custom.disabledOpacity - 0.35f) < 0.01f);
+    CHECK(custom.animationScale == 0.0f);
+    CHECK(keel::abs(custom.lineHeightMultiplier - 1.55f) < 0.01f);
+    CHECK(custom.shellStyle == ShellStyle::Floating);
+    CHECK(custom.GetTypography(TextRole::BodyMedium).fontSize > nordBase.GetTypography(TextRole::BodyMedium).fontSize * 1.2f);
+    CHECK(custom.Spacing().md > nordBase.Spacing().md * 1.15f);
+
+    // 4b. Outline & Brutalist SurfaceStyles + SurfaceContrast separation
+    ThemeSpec outlineSpec{};
+    outlineSpec.base = ThemePreset::Dark;
+    outlineSpec.surfaceStyle = SurfaceStyle::Outline;
+    const UiTheme outlined = UiTheme::Build(outlineSpec);
+    CHECK(outlined.GetVariant(UiVariant::Primary).bg.a == 0u);
+    CHECK(outlined.GetVariant(UiVariant::Primary).borderWidth > 1.0f);
+    CHECK(outlined.GetSemanticAccent(UiVariant::Primary).a == 255u);
+    CHECK(Color::ContrastRatio(outlined.GetVariant(UiVariant::Primary).text, outlined.palette.surface) >= 4.5f);
+
+    ThemeSpec brutalSpec{};
+    brutalSpec.base = ThemePreset::Light;
+    brutalSpec.surfaceStyle = SurfaceStyle::Brutalist;
+    const UiTheme brutal = UiTheme::Build(brutalSpec);
+    CHECK(!brutal.shadowsEnabled);
+    CHECK(brutal.GetVariant(UiVariant::Primary).borderWidth >= 1.5f);
+
+    ThemeSpec lowC{};
+    lowC.surfaceContrast = 0.6f;
+    ThemeSpec highC{};
+    highC.surfaceContrast = 1.6f;
+    const UiTheme lowCT = UiTheme::Build(lowC);
+    const UiTheme highCT = UiTheme::Build(highC);
+    const keel::f32 lowDelta = keel::abs(lowCT.palette.surface.RelativeLuminance() - lowCT.palette.background.RelativeLuminance());
+    const keel::f32 highDelta = keel::abs(highCT.palette.surface.RelativeLuminance() - highCT.palette.background.RelativeLuminance());
+    CHECK(highDelta > lowDelta);
+
+    // 5. ThemeSpec JSON serialization round-trip & malformed input rejection
+    const keel::String json = spec.ToJson();
+    CHECK(!json.empty());
+    const keel::Optional<ThemeSpec> parsedOpt = ThemeSpec::FromJson(json);
+    CHECK(parsedOpt.has_value());
+    if (parsedOpt.has_value()) {
+        const ThemeSpec& parsed = *parsedOpt;
+        CHECK(parsed.base == ThemePreset::Nord);
+        CHECK(parsed.surfaceStyle == SurfaceStyle::Soft);
+        CHECK(parsed.syntaxPreset == SyntaxPreset::Monokai);
+        CHECK(parsed.accent.has_value() && *parsed.accent == *spec.accent);
+        CHECK(parsed.neutral.has_value() && *parsed.neutral == *spec.neutral);
+        CHECK(parsed.background.has_value() && *parsed.background == *spec.background);
+        CHECK(parsed.surface.has_value() && *parsed.surface == *spec.surface);
+        CHECK(parsed.border.has_value() && *parsed.border == *spec.border);
+        CHECK(parsed.textPrimary.has_value() && *parsed.textPrimary == *spec.textPrimary);
+        CHECK(parsed.success.has_value() && *parsed.success == *spec.success);
+        CHECK(keel::abs(parsed.surfaceContrast - 1.35f) < 0.01f);
+        CHECK(keel::abs(parsed.radiusScale - 0.0f) < 0.01f);
+        CHECK(keel::abs(parsed.spacingScale - 1.2f) < 0.01f);
+        CHECK(keel::abs(parsed.fontScale - 1.25f) < 0.01f);
+        CHECK(keel::abs(parsed.lineHeightMultiplier - 1.55f) < 0.01f);
+        CHECK(keel::abs(parsed.borderScale - 2.0f) < 0.01f);
+        CHECK(keel::abs(parsed.shadowIntensity - 0.0f) < 0.01f);
+        CHECK(keel::abs(parsed.focusRingWidth - 3.5f) < 0.01f);
+        CHECK(keel::abs(parsed.disabledOpacity - 0.35f) < 0.01f);
+        CHECK(keel::abs(parsed.animationScale - 0.0f) < 0.01f);
+        CHECK(parsed.shellStyle == ShellStyle::Floating);
+    }
+    CHECK(!ThemeSpec::FromJson("").has_value());
+    CHECK(!ThemeSpec::FromJson("not-json").has_value());
+    CHECK(!ThemeSpec::FromJson("{\"base\": ").has_value());
+
+    // 6. Smooth UiTheme::Lerp interpolation
+    const UiTheme dark = UiTheme::Dark();
+    const UiTheme light = UiTheme::Light();
+    const UiTheme mid = UiTheme::Lerp(dark, light, 0.5f);
+    CHECK(mid.palette.background.RelativeLuminance() > dark.palette.background.RelativeLuminance());
+    CHECK(mid.palette.background.RelativeLuminance() < light.palette.background.RelativeLuminance());
+    CHECK(UiTheme::Lerp(dark, light, 0.0f).palette.background == dark.palette.background);
+    CHECK(UiTheme::Lerp(dark, light, 1.0f).palette.background == light.palette.background);
+}
+
 int main() {
     keel::println("[RUN] Testing GuiKit Core Foundation...");
 
@@ -1751,6 +1925,7 @@ int main() {
     TestElementHeadingSpecAndSeparatorSpace();
     TestMdRefAndPixelRef();
     TestBuiltInImageDecoding();
+    TestThemeSystemColorSciencePresetsSpecJsonAndLerp();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Core tests passed successfully!");

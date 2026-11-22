@@ -98,6 +98,10 @@ public:
     virtual void SetCursor(CursorType /*cursor*/) noexcept {}
     virtual void OpenUrl(keel::StringRef /*url*/) const noexcept {}
 
+    /// Queries the OS/browser preferred color scheme (`ThemeMode::Dark` or `ThemeMode::Light`),
+    /// or `keel::kNullOpt` if unavailable or unknown.
+    [[nodiscard]] virtual keel::Optional<ThemeMode> QuerySystemTheme() const noexcept { return keel::kNullOpt; }
+
     /// Human-readable platform identifier (e.g. "X11 + EGL", "Wayland + EGL", "Win32 + WGL", "Headless").
     [[nodiscard]] virtual keel::StringRef GetPlatformName() const noexcept = 0;
 };

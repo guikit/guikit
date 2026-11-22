@@ -1444,13 +1444,13 @@ void Select::RenderPopup(
     const ScrollbarMetrics& sm = theme.GetScrollbar(size);
     const auto& pal = theme.palette;
 
-    // Dropdown container styling: card with border and subtle shadow
+    // Dropdown container styling: card with border and theme-controlled shadow
     const Color popupBg = pal.surfaceElevated;
     const Color popupBorder = pal.border;
-    const Color shadowCol = Color(0, 0, 0, (theme.mode == ThemeMode::Dark) ? 115 : 56);
 
-    // Outer subtle drop shadow
-    canvas.DrawShadow(popupRect, m.cornerRadius, 14.0f, {0.0f, 4.0f}, shadowCol);
+    if (const ShadowStyle sh = theme.GetShadow(Elevation::Md); sh.IsVisible()) {
+        canvas.DrawShadow(popupRect, m.cornerRadius, sh.blur, sh.offset, sh.color);
+    }
 
     // Popup background and border
     canvas.DrawRoundRect(popupRect, m.cornerRadius, popupBg, popupBorder, 1.0f);
@@ -1987,9 +1987,10 @@ void RenderMultiPopup(
 
     const Color popupBg = pal.surfaceElevated;
     const Color popupBorder = pal.border;
-    const Color shadowCol = Color(0, 0, 0, (theme.mode == ThemeMode::Dark) ? 115 : 56);
 
-    canvas.DrawShadow(popupRect, m.cornerRadius, 14.0f, {0.0f, 4.0f}, shadowCol);
+    if (const ShadowStyle sh = theme.GetShadow(Elevation::Md); sh.IsVisible()) {
+        canvas.DrawShadow(popupRect, m.cornerRadius, sh.blur, sh.offset, sh.color);
+    }
     canvas.DrawRoundRect(popupRect, m.cornerRadius, popupBg, popupBorder, 1.0f);
 
     if (items.empty()) {

@@ -172,15 +172,15 @@ TagPalette ResolveTagPalette(
             }
         }
     } else {
-        const VariantColors vc = theme.GetVariant(opts.variant);
+        const Color semHue = theme.GetSemanticAccent(opts.variant);
         const Color accent = opts.color.HasAny()
-            ? theme.ResolveColor(opts.color, opts.clickable && hovered, opts.clickable && pressed, disabled, vc.bg)
-            : vc.bg;
+            ? theme.ResolveColor(opts.color, opts.clickable && hovered, opts.clickable && pressed, disabled, semHue)
+            : semHue;
 
         if (opts.style == TagStyle::Solid) {
             out.bg = accent;
             out.border = Color::Transparent();
-            out.fg = vc.text;
+            out.fg = Color::BestTextColor(accent, Color::Hex(0x0F172AFF), Color::Hex(0xFFFFFFFF));
             if (opts.clickable && !disabled) {
                 if (pressed) {
                     out.bg = ShadeDarken(accent, 0.12f);
@@ -223,9 +223,9 @@ TagPalette ResolveTagPalette(
     }
 
     if (disabled) {
-        out.bg = out.bg.WithAlphaF(keel::as<keel::f32>(out.bg.a) / 255.0f * 0.55f);
-        out.border = out.border.WithAlphaF(keel::as<keel::f32>(out.border.a) / 255.0f * 0.50f);
-        out.fg = out.fg.WithAlphaF(0.45f);
+        out.bg = out.bg.WithAlphaF(keel::as<keel::f32>(out.bg.a) / 255.0f * theme.disabledOpacity);
+        out.border = out.border.WithAlphaF(keel::as<keel::f32>(out.border.a) / 255.0f * theme.disabledOpacity);
+        out.fg = out.fg.WithAlphaF(theme.disabledOpacity);
     }
 
     return out;

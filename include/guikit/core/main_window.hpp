@@ -80,6 +80,11 @@ public:
     [[nodiscard]] const UiTheme& GetShellTheme() const noexcept { return m_shellTheme; }
     void SetShellTheme(const UiTheme& theme) noexcept;
 
+    [[nodiscard]] ThemePreset GetShellThemePreset() const noexcept { return m_shellTheme.preset; }
+    void SetShellThemePreset(ThemePreset preset) noexcept;
+
+    [[nodiscard]] keel::Optional<ThemeMode> QuerySystemTheme() const noexcept;
+
     [[nodiscard]] bool IsShellLightMode() const noexcept { return m_shellLightMode; }
     void SetShellLightMode(bool lightMode) noexcept;
 
@@ -121,7 +126,7 @@ public:
         const Icon& icon = Icon::Settings()
     );
 
-    /// Renders the UI scale selector (`75%..200%`), `Dark/Light` theme switch, and `Dock/Float` shell switch.
+    /// Renders the UI scale selector (`75%..200%`), theme preset selector, and `Dock/Float` shell switch.
     void RenderThemeControls(ToolbarScope& tb);
 
     /// Renders the `Bounds` (`Ctrl+B`) and `Inspect` (`Ctrl+I`) debug overlay toggles.

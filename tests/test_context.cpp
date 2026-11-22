@@ -11265,6 +11265,72 @@ void TestMenuBarAndCascadingMenus();
 void TestNullCanvasHeadlessWorkflow();
 void TestPlatformWindowBackendAndStandaloneFreeType();
 
+void TestZonePartialThemeOverrides() {
+    using namespace guikit;
+
+    Context ui;
+    ui.SetTheme(UiTheme::Dark());
+    TestCanvas canvas;
+    keel::Array<keel::u32> pixels(400 * 300);
+    canvas.SetTarget(pixels.data(), 400u, 300u, 400u);
+
+    const Color rootBg = ui.GetTheme().palette.background;
+    const Color rootAccent = ui.GetTheme().palette.accent;
+    const keel::f32 rootRadius = ui.GetTheme().GetMetrics(UiSize::Md).cornerRadius;
+
+    Color insidePresetBg{};
+    Color insideAccent{};
+    keel::f32 insideRadius = -1.0f;
+    bool insideShadows = true;
+    ThemePreset insidePreset = ThemePreset::Dark;
+    SurfaceStyle insideSurfaceStyle = SurfaceStyle::Solid;
+
+    Color afterZoneBg{};
+    Color afterZoneAccent{};
+    keel::f32 afterZoneRadius = -1.0f;
+    SurfaceStyle afterZoneSurfaceStyle = SurfaceStyle::Outline;
+
+    ui.BeginFrame({400.0f, 300.0f});
+    if (auto col = ui.Column({.gap = 8.0f})) {
+        if (auto zone = ui.Zone({
+            .preset = ThemePreset::Industrial,
+            .surfaceStyle = SurfaceStyle::Outline,
+            .accent = Color::Hex(0xE11D48FF),
+            .radiusScale = 0.0f,
+            .shadowIntensity = 0.0f
+        })) {
+            const UiTheme& zt = ui.GetTheme();
+            insidePreset = zt.preset;
+            insideSurfaceStyle = zt.surfaceStyle;
+            insidePresetBg = zt.palette.background;
+            insideAccent = zt.palette.accent;
+            insideRadius = zt.GetMetrics(UiSize::Md).cornerRadius;
+            insideShadows = zt.shadowsEnabled;
+            ui.Button({.text = "Patched Button", .color = StateColor::Primary()});
+        }
+
+        const UiTheme& restored = ui.GetTheme();
+        afterZoneBg = restored.palette.background;
+        afterZoneAccent = restored.palette.accent;
+        afterZoneRadius = restored.GetMetrics(UiSize::Md).cornerRadius;
+        afterZoneSurfaceStyle = restored.surfaceStyle;
+    }
+    ui.EndFrame(canvas);
+
+    CHECK(insidePreset == ThemePreset::Industrial);
+    CHECK(insideSurfaceStyle == SurfaceStyle::Outline);
+    CHECK(insidePresetBg == UiTheme::Industrial().palette.background);
+    CHECK(insideAccent == Color::Hex(0xE11D48FF));
+    CHECK(insideRadius == 0.0f);
+    CHECK(!insideShadows);
+
+    // Outer context theme must be completely untouched after zone scope exits
+    CHECK(afterZoneBg == rootBg);
+    CHECK(afterZoneAccent == rootAccent);
+    CHECK_NEAR(afterZoneRadius, rootRadius, 0.001f);
+    CHECK(afterZoneSurfaceStyle == SurfaceStyle::Solid);
+}
+
 int main() {
     keel::println("[RUN] Testing GuiKit Context & Immediate Mode API...");
 
@@ -11316,6 +11382,7 @@ int main() {
     TestFrameScaleIsUniformAndKeepsPointer();
     TestZonesInheritanceZoomIndependenceAndBalance();
     TestZoneThemeReachesNodesBuiltInside();
+    TestZonePartialThemeOverrides();
 #if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
     TestCanvasTransformMatchesMappedGeometry();
 #endif

@@ -277,4 +277,8 @@ void PlatformWindowBackend::OpenUrl(keel::StringRef url) const noexcept {
     }
 }
 
+keel::Optional<ThemeMode> PlatformWindowBackend::QuerySystemTheme() const noexcept {
+    return m_window ? m_window->QuerySystemTheme() : keel::kNullOpt;
+}
+
 } // namespace guikit

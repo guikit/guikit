@@ -564,17 +564,11 @@ CommandPaletteResponse CommandPalette::Run(
             : (10.0f * s);
         const keel::f32 borderW = (borderOpt.width > 0.0f) ? borderOpt.width : 1.0f;
 
-        c.DrawShadow(
-            cardRect,
-            radius,
-            28.0f * s,
-            {0.0f, 10.0f * s},
-            Color(0, 0, 0, (theme.mode == ThemeMode::Dark) ? 150 : 78)
-        );
+        if (const ShadowStyle sh = theme.GetShadow(Elevation::Lg, s); sh.IsVisible()) {
+            c.DrawShadow(cardRect, radius, sh.blur * 1.25f, sh.offset * 1.25f, sh.color);
+        }
 
-        const Color defaultSurface = (theme.mode == ThemeMode::Dark)
-            ? Color(19, 26, 41, 254)
-            : Color(255, 255, 255, 254);
+        const Color defaultSurface = pal.surfaceElevated.WithAlpha(252u);
         const Color surfaceBg = bgOpt.HasAny()
             ? bgOpt.Resolve(false, false, false, defaultSurface)
             : defaultSurface;

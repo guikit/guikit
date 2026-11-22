@@ -280,14 +280,10 @@ void RenderBreadcrumbPopup(
     const ComponentMetrics& cm = theme.GetMetrics(size);
     const auto& pal = theme.palette;
 
-    // Elevated dropdown card with subtle shadow and border
-    canvas.DrawShadow(
-        popupRect,
-        sm.cornerRadius,
-        14.0f,
-        {0.0f, 4.0f},
-        Color(0, 0, 0, (theme.mode == ThemeMode::Dark) ? 115 : 56)
-    );
+    // Elevated dropdown card with theme-controlled shadow and border
+    if (const ShadowStyle sh = theme.GetShadow(Elevation::Md); sh.IsVisible()) {
+        canvas.DrawShadow(popupRect, sm.cornerRadius, sh.blur, sh.offset, sh.color);
+    }
     canvas.DrawRoundRect(popupRect, sm.cornerRadius, pal.surfaceElevated, pal.border, 1.0f);
 
     const keel::f32 viewportH = keel::max(0.0f, popupRect.h - 8.0f);

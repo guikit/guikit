@@ -682,7 +682,9 @@ void InputField::Render(
         boxBorder = opts.color.HasAny()
             ? theme.ResolveColor(opts.color, hovered, focused, disabled, pal.focusRing)
             : pal.focusRing;
-        if (opts.border.width > 0.0f || m.strokeWidth > 0.0f) strokeW += 0.5f;
+        if (opts.border.width > 0.0f || m.strokeWidth > 0.0f) {
+            strokeW = keel::max(strokeW + 0.5f, theme.focusRingWidth);
+        }
     } else if (hovered && !disabled) {
         boxBorder = pal.borderHover;
     } else {
@@ -691,14 +693,14 @@ void InputField::Render(
 
     Color textCol = opts.valueFormat.color.HasAny()
         ? theme.ResolveTextColor(opts.valueFormat, UiVariant::Default, disabled, hovered, focused)
-        : (disabled ? pal.textPrimary.WithAlphaF(0.40f) : pal.textPrimary);
+        : (disabled ? pal.textPrimary.WithAlphaF(theme.disabledOpacity) : pal.textPrimary);
     Color placeholderCol = theme.ResolveTextColor(opts.placeholder, UiVariant::Secondary, disabled, hovered, focused);
     Color unitCol = pal.textSecondary;
 
     if (disabled) {
-        boxBg = boxBg.WithAlphaF(0.40f);
-        boxBorder = boxBorder.WithAlphaF(0.40f);
-        unitCol = unitCol.WithAlphaF(0.40f);
+        boxBg = boxBg.WithAlphaF(theme.disabledOpacity);
+        boxBorder = boxBorder.WithAlphaF(theme.disabledOpacity);
+        unitCol = unitCol.WithAlphaF(theme.disabledOpacity);
     }
 
     if (hasBg && opts.background.HasAny()) {

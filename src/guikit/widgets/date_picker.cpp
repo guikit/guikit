@@ -484,14 +484,10 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
     const auto& pal = d.theme.palette;
     const Color accentCol = ResolveAccentColor(d.opts, d.theme);
 
-    // Outer subtle drop shadow and elevated card surface
-    canvas.DrawShadow(
-        popupRect,
-        m.cornerRadius + 1.0f,
-        16.0f,
-        {0.0f, 5.0f},
-        Color(0, 0, 0, (d.theme.mode == ThemeMode::Dark) ? 120 : 58)
-    );
+    // Theme-controlled elevation shadow and elevated card surface
+    if (const ShadowStyle sh = d.theme.GetShadow(Elevation::Lg); sh.IsVisible()) {
+        canvas.DrawShadow(popupRect, m.cornerRadius + 1.0f, sh.blur, sh.offset, sh.color);
+    }
     canvas.DrawRoundRect(popupRect, m.cornerRadius + 1.0f, pal.surfaceElevated, pal.border, 1.0f);
 
     const keel::f32 bodyFont = d.theme.ResolveFontSize(UiText{}, TextRole::LabelMedium, d.size);

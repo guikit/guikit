@@ -308,6 +308,108 @@ struct Color {
             lerpCh(a.a, b.a)
         };
     }
+
+    /// Relative luminance in [0..1] per WCAG 2.1 (fast constexpr sRGB-to-linear transfer).
+    [[nodiscard]] constexpr keel::f32 RelativeLuminance() const noexcept {
+        auto toLin = [](keel::u8 ch) constexpr noexcept -> keel::f32 {
+            const keel::f32 c = keel::as<keel::f32>(ch) / 255.0f;
+            return (c <= 0.04045f)
+                ? (c / 12.92f)
+                : (c * (c * (c * 0.305306011f + 0.682171111f) + 0.012522878f));
+        };
+        return 0.2126f * toLin(r) + 0.7152f * toLin(g) + 0.0722f * toLin(b);
+    }
+
+    /// WCAG 2.1 contrast ratio in [1.0 .. 21.0] (AA >= 4.5, AAA >= 7.0).
+    [[nodiscard]] static constexpr keel::f32 ContrastRatio(Color a, Color b) noexcept {
+        const keel::f32 la = a.RelativeLuminance();
+        const keel::f32 lb = b.RelativeLuminance();
+        const keel::f32 hi = (la > lb) ? la : lb;
+        const keel::f32 lo = (la > lb) ? lb : la;
+        return (hi + 0.05f) / (lo + 0.05f);
+    }
+
+    /// Picks whichever ink (`darkInk` or `lightInk`) maximizes WCAG contrast against `bg`.
+    [[nodiscard]] static constexpr Color BestTextColor(
+        Color bg,
+        Color darkInk = Hex(0x0F172AFF),
+        Color lightInk = Hex(0xFFFFFFFF)
+    ) noexcept {
+        return (ContrastRatio(bg, darkInk) >= ContrastRatio(bg, lightInk)) ? darkInk : lightInk;
+    }
+
+    /// Converts RGB to HSL (`h` in [0..360), `s` and `l` in [0..1]).
+    constexpr void ToHsl(keel::f32& outH, keel::f32& outS, keel::f32& outL) const noexcept {
+        const keel::f32 rf = keel::as<keel::f32>(r) / 255.0f;
+        const keel::f32 gf = keel::as<keel::f32>(g) / 255.0f;
+        const keel::f32 bf = keel::as<keel::f32>(b) / 255.0f;
+        const keel::f32 cMax = keel::max(rf, keel::max(gf, bf));
+        const keel::f32 cMin = keel::min(rf, keel::min(gf, bf));
+        const keel::f32 delta = cMax - cMin;
+
+        outL = 0.5f * (cMax + cMin);
+        if (delta <= 1.0e-5f) {
+            outH = 0.0f;
+            outS = 0.0f;
+            return;
+        }
+        outS = delta / (1.0f - keel::abs(2.0f * outL - 1.0f));
+        if (cMax == rf) {
+            outH = 60.0f * ((gf - bf) / delta);
+            if (outH < 0.0f) outH += 360.0f;
+        } else if (cMax == gf) {
+            outH = 60.0f * ((bf - rf) / delta + 2.0f);
+        } else {
+            outH = 60.0f * ((rf - gf) / delta + 4.0f);
+        }
+    }
+
+    /// Constructs a Color from HSL (`h` in degrees, `s` and `l` in [0..1], `alpha` in [0..255]).
+    [[nodiscard]] static constexpr Color FromHsl(
+        keel::f32 h,
+        keel::f32 s,
+        keel::f32 l,
+        keel::u8 alpha = 255
+    ) noexcept {
+        s = keel::clamp(s, 0.0f, 1.0f);
+        l = keel::clamp(l, 0.0f, 1.0f);
+        while (h < 0.0f) h += 360.0f;
+        while (h >= 360.0f) h -= 360.0f;
+
+        const keel::f32 c = (1.0f - keel::abs(2.0f * l - 1.0f)) * s;
+        const keel::f32 h60 = h / 60.0f;
+        const keel::f32 hMod2 = h60 - 2.0f * keel::as<keel::f32>(keel::as<keel::i32>(h60 * 0.5f));
+        const keel::f32 x = c * (1.0f - keel::abs(hMod2 - 1.0f));
+        const keel::f32 m = l - 0.5f * c;
+
+        keel::f32 rf = 0.0f, gf = 0.0f, bf = 0.0f;
+        if (h < 60.0f)       { rf = c; gf = x; bf = 0.0f; }
+        else if (h < 120.0f) { rf = x; gf = c; bf = 0.0f; }
+        else if (h < 180.0f) { rf = 0.0f; gf = c; bf = x; }
+        else if (h < 240.0f) { rf = 0.0f; gf = x; bf = c; }
+        else if (h < 300.0f) { rf = x; gf = 0.0f; bf = c; }
+        else                 { rf = c; gf = 0.0f; bf = x; }
+
+        auto toU8 = [](keel::f32 v) constexpr noexcept -> keel::u8 {
+            return keel::as<keel::u8>(keel::clamp(keel::round_i32(v * 255.0f), 0, 255));
+        };
+        return {toU8(rf + m), toU8(gf + m), toU8(bf + m), alpha};
+    }
+
+    /// Shifts HSL lightness by `deltaL` (positive = lighter, negative = darker) while preserving hue & saturation.
+    [[nodiscard]] constexpr Color ShiftLightness(keel::f32 deltaL) const noexcept {
+        keel::f32 h = 0.0f, s = 0.0f, l = 0.0f;
+        ToHsl(h, s, l);
+        return FromHsl(h, s, keel::clamp(l + deltaL, 0.0f, 1.0f), a);
+    }
+
+    [[nodiscard]] constexpr Color Lighten(keel::f32 amount) const noexcept {
+        return ShiftLightness(keel::clamp(amount, 0.0f, 1.0f));
+    }
+
+    [[nodiscard]] constexpr Color Darken(keel::f32 amount) const noexcept {
+        return ShiftLightness(-keel::clamp(amount, 0.0f, 1.0f));
+    }
 };
 
 /// Logical key codes for keyboard navigation and text editing.

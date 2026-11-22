@@ -66,6 +66,7 @@ public:
 
     void UpdateSystemCursor(CursorType cursor) noexcept override;
     void OpenUrl(keel::StringRef url) const noexcept override;
+    [[nodiscard]] keel::Optional<ThemeMode> QuerySystemTheme() const noexcept override;
 
     [[nodiscard]] IPlatformWindow* GetPlatformWindow() noexcept { return m_window.get(); }
     [[nodiscard]] const IPlatformWindow* GetPlatformWindow() const noexcept { return m_window.get(); }

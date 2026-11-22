@@ -34,6 +34,8 @@ struct MainWindowConfig {
     keel::f32 targetFps = 60.0f;    ///< Target frame rate for telemetry budget and non-VSync frame pacing
     keel::f32 initialScale = 1.0f;  ///< Initial shell UI scale, snapped to the nearest `MainWindow::kScaleValues` preset
     ThemeMode initialThemeMode = ThemeMode::Dark;
+    keel::Optional<ThemePreset> initialThemePreset = keel::kNullOpt; ///< Optional curated theme preset (overrides `initialThemeMode`)
+    bool followSystemTheme = false; ///< If true (and `initialTheme` / `initialThemePreset` are unset), adopts OS dark/light theme on startup
     keel::f32 initialDensity = 1.0f; ///< Initial layout gap/padding density multiplier (1.0f = standard)
     ShellStyle initialShellStyle = ShellStyle::Docked;
     keel::Optional<UiTheme> initialTheme = keel::kNullOpt; ///< Optional complete initial theme override
@@ -106,6 +108,10 @@ public:
 
     virtual void UpdateSystemCursor(CursorType cursor) noexcept = 0;
     virtual void OpenUrl(keel::StringRef url) const noexcept = 0;
+
+    /// Queries the OS/browser preferred color scheme (`ThemeMode::Dark` or `ThemeMode::Light`),
+    /// or `keel::kNullOpt` if unavailable or unknown.
+    [[nodiscard]] virtual keel::Optional<ThemeMode> QuerySystemTheme() const noexcept { return keel::kNullOpt; }
 };
 
 using WindowBackendFactory = keel::UniquePtr<IWindowBackend>(*)();

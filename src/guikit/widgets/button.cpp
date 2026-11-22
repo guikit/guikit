@@ -293,7 +293,7 @@ void Button::Render(
         if (opts.border.width <= 0.0f) borderW = colors.borderWidth;
         if (hasCtrlBg) {
             if (disabled) {
-                bg = effColor.disabled.value_or(colors.bg.WithAlphaF(0.40f));
+                bg = effColor.disabled.value_or(colors.bg.WithAlphaF(theme.disabledOpacity));
             } else if (pressed) {
                 bg = effColor.active.value_or(colors.bgActive);
             } else if (opts.active) {
@@ -308,7 +308,7 @@ void Button::Render(
             }
         }
         if (disabled) {
-            borderCol = borderCol.WithAlphaF(0.40f);
+            borderCol = borderCol.WithAlphaF(theme.disabledOpacity);
         }
     } else if (effColor.token == StateColorToken::Ghost || (effColor.normal.has_value() && effColor.normal->a == 0)) {
         const VariantColors& colors = theme.GetVariant(UiVariant::Ghost);
@@ -325,8 +325,8 @@ void Button::Render(
             borderW = keel::max(borderW, 1.0f);
         }
         if (disabled) {
-            bg = bg.WithAlphaF(0.40f);
-            borderCol = borderCol.WithAlphaF(0.40f);
+            bg = bg.WithAlphaF(theme.disabledOpacity);
+            borderCol = borderCol.WithAlphaF(theme.disabledOpacity);
         }
     } else {
         UiVariant matchedVar = UiVariant::Primary;
@@ -349,18 +349,21 @@ void Button::Render(
             if (opts.active && !pressed && hovered && !disabled) {
                 bg = effColor.hover.value_or(effColor.normal.value_or(fallback.bgHover));
             } else {
-                bg = effColor.Resolve(hovered, pressed || opts.active, disabled, fallback.bg, fallback.bgHover, fallback.bgActive, fallback.bg.WithAlphaF(0.40f));
+                bg = effColor.Resolve(hovered, pressed || opts.active, disabled, fallback.bg, fallback.bgHover, fallback.bgActive, fallback.bg.WithAlphaF(theme.disabledOpacity));
             }
         }
         if (opts.border.width > 0.0f) {
             borderCol = defaultText.WithAlphaF(0.65f);
-            if (disabled) borderCol = borderCol.WithAlphaF(0.40f);
+            if (disabled) borderCol = borderCol.WithAlphaF(theme.disabledOpacity);
+        } else if (hasMatchedVar && fallback.borderWidth > 0.0f) {
+            borderCol = disabled ? fallback.border.WithAlphaF(theme.disabledOpacity) : fallback.border;
+            borderW = fallback.borderWidth;
         }
     }
 
     Color textCol = effectiveCapsuleText.color.HasAny()
         ? theme.ResolveTextStateColor(effectiveCapsuleText.color).Resolve(hovered, pressed || opts.active, disabled, defaultText)
-        : (disabled ? defaultText.WithAlphaF(0.40f) : defaultText);
+        : (disabled ? defaultText.WithAlphaF(theme.disabledOpacity) : defaultText);
 
     if (opts.border.color.HasAny()) {
         borderCol = theme.ResolveColor(opts.border.color, hovered, pressed || opts.active || focused, disabled, borderCol);
@@ -370,7 +373,7 @@ void Button::Render(
         if (!opts.border.color.active.has_value()) {
             borderCol = theme.palette.focusRing;
         }
-        borderW = keel::max(borderW, 2.0f);
+        borderW = keel::max(borderW, theme.focusRingWidth);
     }
 
     // Clip all button capsule content strictly to capsuleRect to prevent any bleeding
@@ -383,7 +386,7 @@ void Button::Render(
     const bool hasIcon = opts.loading || opts.icon.IsValid();
     const bool hasCapsuleText = !effectiveCapsuleText.empty();
     const Color icoCol = opts.iconColor.has_value()
-        ? (disabled ? opts.iconColor->WithAlphaF(0.40f) : *opts.iconColor)
+        ? (disabled ? opts.iconColor->WithAlphaF(theme.disabledOpacity) : *opts.iconColor)
         : textCol;
     const keel::f32 padX = opts.square ? keel::min(m.paddingX, 2.0f) : m.paddingX;
 

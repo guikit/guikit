@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/core/tokens.hpp"
 #include "keel/core.h"
 #include "keel/optional.h"
 
@@ -26,13 +27,29 @@ inline constexpr Zone kDefaultZone{};
 /// Anything left unset inherits from the enclosing zone; `scale` and `density` compose multiplicatively.
 struct ZoneOptions {
     keel::Optional<const UiTheme&> theme{keel::kNullOpt}; ///< Replaces inherited theme (copied into the frame arena)
+    keel::Optional<ThemePreset> preset{keel::kNullOpt};   ///< Lightweight subtree preset override (Nord, Dracula, Industrial, ...)
+    keel::Optional<ThemeMode> mode{keel::kNullOpt};       ///< Lightweight subtree Dark/Light flip
+    keel::Optional<SurfaceStyle> surfaceStyle{keel::kNullOpt}; ///< Lightweight subtree appearance override (Solid, Soft, Outline, Brutalist)
+    keel::Optional<Color> accent{keel::kNullOpt};         ///< Lightweight subtree brand accent override
+    keel::Optional<keel::f32> radiusScale{keel::kNullOpt};///< Lightweight subtree corner radius multiplier
+    keel::Optional<keel::f32> shadowIntensity{keel::kNullOpt}; ///< Lightweight subtree elevation shadow strength (0.0 = flat)
     keel::Optional<keel::f32> scale{keel::kNullOpt};          ///< Geometric subtree multiplier (layout, text, strokes, input)
     keel::Optional<keel::f32> density{keel::kNullOpt};        ///< Spacing/gap/padding multiplier for container layouts
     keel::Optional<bool> debugBounds{keel::kNullOpt};     ///< Shows (or hides) debug bounding boxes inside the subtree
     keel::Optional<bool> inspectMode{keel::kNullOpt};     ///< Enables (or disables) the DevTools inspector inside the subtree
 
+    [[nodiscard]] constexpr bool HasThemeOverride() const noexcept {
+        return theme.has_value()
+            || preset.has_value()
+            || mode.has_value()
+            || surfaceStyle.has_value()
+            || accent.has_value()
+            || radiusScale.has_value()
+            || shadowIntensity.has_value();
+    }
+
     [[nodiscard]] constexpr bool IsEmpty() const noexcept {
-        return !theme.has_value()
+        return !HasThemeOverride()
             && !scale.has_value()
             && !density.has_value()
             && !debugBounds.has_value()

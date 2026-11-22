@@ -29,9 +29,11 @@ MainWindow::MainWindow(MainWindowConfig config, keel::UniquePtr<IWindowBackend> 
     , m_backend(backend ? keel::move(backend) : CreateDefaultWindowBackend())
     , m_shellTheme(m_config.initialTheme.has_value()
                    ? *m_config.initialTheme
-                   : (m_config.initialThemeMode == ThemeMode::Light
-                      ? UiTheme::Light()
-                      : UiTheme::Dark()))
+                   : (m_config.initialThemePreset.has_value()
+                      ? UiTheme::FromPreset(*m_config.initialThemePreset)
+                      : (m_config.initialThemeMode == ThemeMode::Light
+                         ? UiTheme::Light()
+                         : UiTheme::Dark())))
     , m_shellLightMode(m_shellTheme.mode == ThemeMode::Light)
     , m_shellFloating(m_config.initialTheme.has_value()
                       ? (m_shellTheme.shellStyle == ShellStyle::Floating)
@@ -96,12 +98,21 @@ keel::i32 MainWindow::Run() {
     }
     m_backend->GetCanvas().SetTextRenderSettings(m_config.textRender);
 
+    if (m_config.followSystemTheme &&
+        !m_config.initialTheme.has_value() &&
+        !m_config.initialThemePreset.has_value()) {
+        if (const keel::Optional<ThemeMode> sysTheme = m_backend->QuerySystemTheme(); sysTheme.has_value()) {
+            SetShellLightMode(*sysTheme == ThemeMode::Light);
+        }
+    }
+
     m_running = true;
     OnInit();
 
     // Synchronize m_shellTheme if OnInit() customized m_ui.GetTheme() directly
     const UiTheme& postInitTheme = m_ui.GetTheme();
-    if (postInitTheme.mode != m_shellTheme.mode ||
+    if (postInitTheme.preset != m_shellTheme.preset ||
+        postInitTheme.mode != m_shellTheme.mode ||
         postInitTheme.shellStyle != m_shellTheme.shellStyle ||
         postInitTheme.palette.background != m_shellTheme.palette.background ||
         postInitTheme.palette.surface != m_shellTheme.palette.surface ||
@@ -332,6 +343,20 @@ void MainWindow::SetShellTheme(const UiTheme& theme) noexcept {
     m_ui.InvalidateAll();
 }
 
+void MainWindow::SetShellThemePreset(ThemePreset preset) noexcept {
+    const ShellStyle prevShell = m_shellTheme.shellStyle;
+    m_shellTheme = UiTheme::FromPreset(preset);
+    m_shellTheme.SetShellStyle(prevShell);
+    m_shellLightMode = (m_shellTheme.mode == ThemeMode::Light);
+    m_ui.SetTheme(m_shellTheme);
+    m_ui.SetClearColor(m_shellTheme.palette.background);
+    m_ui.InvalidateAll();
+}
+
+keel::Optional<ThemeMode> MainWindow::QuerySystemTheme() const noexcept {
+    return m_backend ? m_backend->QuerySystemTheme() : keel::kNullOpt;
+}
+
 void MainWindow::SetShellLightMode(bool lightMode) noexcept {
     m_shellLightMode = lightMode;
     m_shellTheme.SetMode(m_shellLightMode ? ThemeMode::Light : ThemeMode::Dark);
@@ -458,16 +483,29 @@ bool MainWindow::RenderSidebarToggle(
 
 void MainWindow::RenderThemeControls(ToolbarScope& tb) {
     (void)tb;
-    if (m_ui.Select(m_shellScaleIndex, kScaleLabels, {.size = UiSize::Sm, .width = 92.0f}).changed) {
+    static constexpr keel::StaticArray<keel::StringRef, kThemePresetCount> kPresetLabels = {{
+        ThemePresetName(ThemePreset::Dark),
+        ThemePresetName(ThemePreset::Light),
+        ThemePresetName(ThemePreset::Nord),
+        ThemePresetName(ThemePreset::Dracula),
+        ThemePresetName(ThemePreset::CatppuccinMocha),
+        ThemePresetName(ThemePreset::CatppuccinLatte),
+        ThemePresetName(ThemePreset::Industrial),
+        ThemePresetName(ThemePreset::IndustrialLight),
+        ThemePresetName(ThemePreset::HighContrastDark),
+        ThemePresetName(ThemePreset::HighContrastLight)
+    }};
+
+    if (m_ui.Select(m_shellScaleIndex, kScaleLabels, {.size = UiSize::Sm, .width = 88.0f}).changed) {
         SetShellScaleIndex(m_shellScaleIndex);
     }
 
-    if (m_ui.Switch(m_shellLightMode, {
-        .textLeft = "Dark",
-        .textRight = "Light",
-        .symmetric = true
-    }).changed) {
-        SetShellLightMode(m_shellLightMode);
+    keel::usize presetIndex = keel::as<keel::usize>(m_shellTheme.preset);
+    if (presetIndex >= kThemePresetCount) {
+        presetIndex = 0u;
+    }
+    if (m_ui.Select(presetIndex, kPresetLabels, {.size = UiSize::Sm, .width = 152.0f}).changed) {
+        SetShellThemePreset(keel::from_underlying<ThemePreset>(presetIndex));
     }
 
     if (m_ui.Switch(m_shellFloating, {

@@ -250,23 +250,17 @@ void Toast::RunHost(
             const auto& e = dt;
             const Rect& r = dt.cardRect;
 
-            // Soft Gaussian shadow
-            c.DrawShadow(
-                r,
-                radius,
-                18.0f * s,
-                {0.0f, 6.0f * s},
-                Color(0, 0, 0, (theme.mode == ThemeMode::Dark) ? 120 : 58)
-            );
+            // Theme-controlled elevation shadow
+            if (const ShadowStyle sh = theme.GetShadow(Elevation::Lg, s); sh.IsVisible()) {
+                c.DrawShadow(r, radius, sh.blur, sh.offset, sh.color);
+            }
 
             Color accentCol = pal.accent;
             if (e.variant != UiVariant::Default && e.variant != UiVariant::Ghost && e.variant != UiVariant::Secondary) {
                 accentCol = theme.GetVariant(e.variant).bg;
             }
 
-            const Color bgCol = (theme.mode == ThemeMode::Dark)
-                ? Color(19, 26, 41, 248)
-                : Color(255, 255, 255, 250);
+            const Color bgCol = pal.surfaceElevated.WithAlpha(248u);
             const Color borderCol = e.hovered ? accentCol.WithAlphaF(0.65f) : pal.borderHover;
             c.DrawRoundRect(r, radius, bgCol, borderCol, 1.0f);
 
