@@ -1211,6 +1211,9 @@ SceneScope Scene::OpenWithId(
         optsCopy.height,
         optsCopy.showScrollbars,
         optsCopy.showControls,
+        optsCopy.inspectorPlacement,
+        optsCopy.inspectorOffset.x,
+        optsCopy.inspectorOffset.y,
         state.zoom,
         state.pan.x,
         state.pan.y,
@@ -1892,9 +1895,17 @@ void Scene::RenderOverlays(
                 const keel::f32 pad = 4.0f * s;
                 const keel::f32 badgeTextW = canvas.MeasureText(badgeText.as_ref(), fs).x + 14.0f * s;
                 const keel::f32 detailTextW = canvas.MeasureText(detailText.as_ref(), fs).x + 16.0f * s;
-                const keel::f32 pillW = keel::min(hud.barRect.x - (vp.x + 16.0f * s), pad * 2.0f + badgeTextW + detailTextW);
+                const keel::f32 pillX = vp.x + (10.0f + opts.inspectorOffset.x) * s;
+                keel::f32 pillY = hud.barRect.y - opts.inspectorOffset.y * s;
+                keel::f32 maxPillW = hud.barRect.x - pillX - 6.0f * s;
+                if (opts.inspectorPlacement == SceneInspectorPlacement::TopLeft) {
+                    pillY = vp.y + (10.0f + opts.inspectorOffset.y) * s;
+                    const keel::f32 rightReserve = showVScroll ? (sm.trackWidth + sm.margin + 10.0f * s) : (10.0f * s);
+                    maxPillW = vp.Right() - rightReserve - pillX;
+                }
+                const keel::f32 pillW = keel::min(maxPillW, pad * 2.0f + badgeTextW + detailTextW);
                 if (pillW > 80.0f * s) {
-                    const Rect pillRect(vp.x + 10.0f * s, hud.barRect.y, pillW, hud.barRect.h);
+                    const Rect pillRect(pillX, pillY, pillW, hud.barRect.h);
                     canvas.DrawRoundRect(pillRect, 6.0f * s, hudBg, hudBorder, 1.0f);
 
                     const Rect catRect(pillRect.x + pad, pillRect.y + pad, badgeTextW, pillRect.h - pad * 2.0f);

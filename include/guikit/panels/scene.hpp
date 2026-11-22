@@ -129,6 +129,12 @@ struct SceneTextOptions {
     keel::f32 angleDeg{0.0f};       ///< Rotation angle in degrees
 };
 
+/// Corner placement for the Scene's floating item inspector pill (hover / selection readout).
+enum class SceneInspectorPlacement : keel::u8 {
+    BottomLeft = 0, ///< Bottom-left beside the Zoom HUD (default CAD schematic layout)
+    TopLeft         ///< Top-left corner (avoids bottom-left overlays such as map scale bars)
+};
+
 /// Configuration options for a 2D Scene camera viewport.
 struct SceneOptions {
     keel::Optional<Vec2> worldSize{keel::kNullOpt};     ///< Bounded world dimensions (0..W, 0..H), or nullopt for infinite world (OSM maps, graphs)
@@ -148,6 +154,8 @@ struct SceneOptions {
     bool selectableItems{true};                         ///< Enable interactive hit-testing, click selection, and Shift+Drag marquee selection
     bool showScrollbars{true};                          ///< Render 2D (X/Y) scrollbars when worldSize overflows viewport
     bool showControls{true};                            ///< Render floating Zoom HUD (-, Fit, 100%, +)
+    SceneInspectorPlacement inspectorPlacement{SceneInspectorPlacement::BottomLeft}; ///< Corner anchor for the floating hover/selection inspector pill
+    Vec2 inspectorOffset{0.0f, 0.0f};                   ///< Additional screen-space inset in dp for the floating inspector pill
     bool clampToWorld{true};                            ///< Clamp panning to worldSize bounds when worldSize is finite
     keel::Optional<bool> scaleStrokeWithZoom{keel::kNullOpt}; ///< Scale line/rect strokeWidth with zoom (defaults to false when worldBounds is set, true otherwise)
     StateColor background{};
