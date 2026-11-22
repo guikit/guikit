@@ -2,8 +2,8 @@
 
 #include <cstring>
 #include "guikit/backend/null_canvas.hpp"
-#if defined(GUIKIT_HAS_FREETYPE) && GUIKIT_HAS_FREETYPE
-#include "guikit/backend/freetype_text_engine.hpp"
+#if (defined(GUIKIT_HAS_TEXT_ENGINE) && GUIKIT_HAS_TEXT_ENGINE) || (defined(GUIKIT_HAS_FREETYPE) && GUIKIT_HAS_FREETYPE)
+#include "guikit/backend/text_engine.hpp"
 #endif
 #if defined(GUIKIT_HAS_BACKEND_SDL3) && GUIKIT_HAS_BACKEND_SDL3
 #include "guikit/backend/sdl_canvas.hpp"
@@ -15920,6 +15920,9 @@ void TestTextCompositorAndSubpixelRendering() {
 #if defined(GUIKIT_HAS_FREETYPE) && GUIKIT_HAS_FREETYPE
     CHECK(canvas.GetTextEngineName() == "FreeType");
     CHECK(canvas.SupportsFontHinting());
+#elif defined(GUIKIT_HAS_TEXT_ENGINE) && GUIKIT_HAS_TEXT_ENGINE
+    CHECK(canvas.GetTextEngineName() == "keel::font");
+    CHECK(canvas.SupportsFontHinting());
 #else
     CHECK(canvas.GetTextEngineName() == "ThorVG");
     CHECK(!canvas.SupportsFontHinting());
@@ -15986,8 +15989,8 @@ void TestTextCompositorAndSubpixelRendering() {
     CHECK(TextCompositor::ResolveEffectiveSmoothing(FontSmoothing::Auto, 1.0f) == FontSmoothing::SubpixelRGB);
     CHECK(TextCompositor::ResolveEffectiveSmoothing(FontSmoothing::Auto, 2.0f) == FontSmoothing::Grayscale);
 
-#if defined(GUIKIT_HAS_FREETYPE) && GUIKIT_HAS_FREETYPE
-    // 6. Verify FreeType hinting modes (None vs Light vs Normal) render cleanly and produce distinct rasterizations
+#if (defined(GUIKIT_HAS_TEXT_ENGINE) && GUIKIT_HAS_TEXT_ENGINE) || (defined(GUIKIT_HAS_FREETYPE) && GUIKIT_HAS_FREETYPE)
+    // 6. Verify hinting modes (None vs Light vs Normal) render cleanly and produce distinct rasterizations
     {
         keel::Array<keel::u32> fbNone(W * H, 0u);
         keel::Array<keel::u32> fbLight(W * H, 0u);
@@ -17168,21 +17171,21 @@ void TestPlatformWindowBackendAndStandaloneFreeType() {
         CHECK(rawWin->lastCursor == CursorType::Pointer);
     }
 
-    // 2. Verify standalone FreeTypeTextEngine (decoupled from ThorVG) rasterizes glyphs for GPU atlas upload
-#if defined(GUIKIT_HAS_FREETYPE) && GUIKIT_HAS_FREETYPE
+    // 2. Verify standalone TextEngine (decoupled from ThorVG) rasterizes glyphs for GPU atlas upload
+#if (defined(GUIKIT_HAS_TEXT_ENGINE) && GUIKIT_HAS_TEXT_ENGINE) || (defined(GUIKIT_HAS_FREETYPE) && GUIKIT_HAS_FREETYPE)
     {
-        FreeTypeTextEngine ft;
+        TextEngine ft;
         CHECK(ft.IsAvailable());
         CHECK(ft.LoadDefaultEmbeddedFonts());
         CHECK(ft.HasFontForStyle(FontStyle::Regular));
         CHECK(ft.HasFontForStyle(FontStyle::Bold));
         CHECK(ft.HasFontForStyle(FontStyle::Monospace));
 
-        FreeTypeTextEngine::FontMetrics fm{};
+        TextEngine::FontMetrics fm{};
         CHECK(ft.GetFontMetrics(16.0f, FontStyle::Regular, FontHinting::Light, fm));
         CHECK(fm.ascentPx > 8.0f && fm.lineHeightPx > 14.0f && fm.capHeightPx > 6.0f);
 
-        FreeTypeTextEngine::RasterizedGlyph grayGlyph{};
+        TextEngine::RasterizedGlyph grayGlyph{};
         CHECK(ft.RasterizeCodepoint(keel::as<keel::u32>('A'), 16.0f, FontStyle::Regular, FontHinting::Light, false, 0u, grayGlyph));
         CHECK(!grayGlyph.empty && grayGlyph.bitmap != nullptr);
         CHECK(!grayGlyph.isSubpixel);
@@ -17190,7 +17193,7 @@ void TestPlatformWindowBackendAndStandaloneFreeType() {
         CHECK(grayGlyph.strideBytes == grayGlyph.width);
         CHECK(grayGlyph.advancePx > 4.0f);
 
-        FreeTypeTextEngine::RasterizedGlyph lcdGlyph{};
+        TextEngine::RasterizedGlyph lcdGlyph{};
         CHECK(ft.RasterizeCodepoint(keel::as<keel::u32>('A'), 16.0f, FontStyle::Regular, FontHinting::Light, true, 0u, lcdGlyph));
         CHECK(!lcdGlyph.empty && lcdGlyph.bitmap != nullptr);
         CHECK(lcdGlyph.isSubpixel);
