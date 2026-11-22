@@ -25,6 +25,7 @@
 #include "guikit/core/rich_text.hpp"
 #include "guikit/core/scrollbar.hpp"
 #include "guikit/core/solver.hpp"
+#include "guikit/core/style_painter.hpp"
 #include "guikit/core/text_util.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"

@@ -2,6 +2,7 @@
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
+#include "guikit/core/style_painter.hpp"
 #include "guikit/core/text_util.hpp"
 #include "guikit/widgets/heading.hpp"
 
@@ -397,7 +398,7 @@ void SidebarMenu::RenderItem(
             Color badgeTextCol = item.badge.color.HasAny()
                 ? item.badge.color.Resolve(hovered, item.active, disabled, v.text)
                 : (disabled ? v.text.WithAlphaF(0.55f) : v.text);
-            canvas.DrawRoundRect(badgeRect, badgeH * 0.5f, badgeBg, pal.surface, 1.5f);
+            theme.Painter().DrawBadge(canvas, theme, badgeRect, badgeBg, pal.surface, 1.5f, badgeH * 0.5f);
             canvas.DrawTextBox(item.badge.text, badgeRect, badgeFont, badgeTextCol, 0.5f, 0.5f);
         }
         canvas.PopClip();
@@ -442,7 +443,7 @@ void SidebarMenu::RenderItem(
         if (disabled) {
             badgeBg = badgeBg.WithAlphaF(0.40f);
         }
-        canvas.DrawRoundRect(badgeRect, badgeH * 0.5f, badgeBg);
+        theme.Painter().DrawBadge(canvas, theme, badgeRect, badgeBg, Color::Transparent(), 0.0f, badgeH * 0.5f);
         canvas.DrawTextBox(item.badge.text, badgeRect, badgeFont, badgeTextCol, 0.5f, 0.5f);
         rightX = badgeRect.x - 6.0f;
     }

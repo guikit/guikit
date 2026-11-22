@@ -6,6 +6,8 @@
 
 namespace guikit {
 
+class IStylePainter;
+
 /// Complete styling theme for the GuiKit engine.
 /// Flat, contiguous in memory, and fast to look up with zero dynamic allocation.
 struct UiTheme {
@@ -26,6 +28,13 @@ struct UiTheme {
 
     // 0b. Elevation shadow tokens per Elevation level (None, Sm, Md, Lg)
     keel::StaticArray<ShadowStyle, 4> shadows{};
+
+    // 0c. 3D bevel color palette & declarative structural control tokens
+    BevelPalette bevel{};
+    ControlStyleTokens controlStyle{};
+
+    // 0d. Optional custom look-and-feel painter (nullptr = built-in DefaultStylePainter)
+    const IStylePainter* stylePainter{nullptr};
 
     // 1. Semantic color palette
     ThemePalette palette{};
@@ -681,9 +690,19 @@ struct UiTheme {
         return (geomScale == 1.0f) ? s : s.Scaled(geomScale);
     }
 
+    /// Returns true when the active theme uses 3D bevel chrome (`FrameChrome::Bevel3D`).
     [[nodiscard]] constexpr bool IsBevel() const noexcept {
-        return surfaceStyle == SurfaceStyle::Bevel;
+        return controlStyle.frameChrome == FrameChrome::Bevel3D;
     }
+
+    /// Returns the active look-and-feel style painter (custom `stylePainter` if set, otherwise `GetDefaultStylePainter()`).
+    [[nodiscard]] const IStylePainter& Painter() const noexcept;
+
+    /// Replaces the 4-tone 3D bevel palette used by `FrameChrome::Bevel3D`.
+    void SetBevelPalette(const BevelPalette& b) noexcept { bevel = b; }
+
+    /// Installs a custom non-owning `IStylePainter` for this theme (pass `nullptr` to restore built-in default).
+    void SetStylePainter(const IStylePainter* painter) noexcept { stylePainter = painter; }
 
     // --- Standard & Curated Theme Factories ---
     [[nodiscard]] static UiTheme Dark() noexcept;

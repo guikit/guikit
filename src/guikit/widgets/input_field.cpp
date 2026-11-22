@@ -2,7 +2,7 @@
 #include <cstring>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
-#include "guikit/core/bevel_draw.hpp"
+#include "guikit/core/style_painter.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
 #include "keel/core.h"
@@ -716,21 +716,18 @@ void InputField::Render(
     }
 
     const keel::f32 radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
-    if (theme.IsBevel() && !opts.border.radius.has_value()) {
-        canvas.DrawRect(boxRect, disabled ? pal.surface : boxBg);
-        detail::DrawBevelFrame(canvas, boxRect, theme, /*sunken=*/true, /*thin=*/false);
-        if (focused && !disabled && boxRect.w > 6.0f && boxRect.h > 6.0f) {
-            canvas.DrawRoundRect(
-                Rect(boxRect.x + 2.0f, boxRect.y + 2.0f, boxRect.w - 4.0f, boxRect.h - 4.0f),
-                0.0f,
-                Color::Transparent(),
-                pal.focusRing,
-                1.0f
-            );
-        }
-    } else {
-        canvas.DrawRoundRect(boxRect, radius, boxBg, boxBorder, strokeW);
-    }
+    const Color effBoxBg = (disabled && theme.controlStyle.frameChrome == FrameChrome::Bevel3D) ? pal.surface : boxBg;
+    theme.Painter().DrawFrame(canvas, theme, FrameKind::Input, FramePaintParams{
+        .rect = boxRect,
+        .radius = radius,
+        .explicitRadius = opts.border.radius.has_value(),
+        .bg = effBoxBg,
+        .border = boxBorder,
+        .borderWidth = strokeW,
+        .hovered = hovered,
+        .focused = focused,
+        .disabled = disabled
+    });
 
     const keel::f32 inputFont = theme.ResolveFontSize(opts.valueFormat, TextRole::LabelMedium, size);
 

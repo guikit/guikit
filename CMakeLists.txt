@@ -93,6 +93,7 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/core/frame_metrics.cpp
     src/guikit/core/main_window.cpp
     src/guikit/core/response.cpp
+    src/guikit/core/style_painter.cpp
     src/guikit/core/theme.cpp
     src/guikit/core/assets.cpp
     src/guikit/core/text_util.cpp

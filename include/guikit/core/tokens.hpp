@@ -1160,15 +1160,69 @@ inline constexpr keel::usize kSyntaxPresetCount = 8u;
     return "Auto (Match Preset)";
 }
 
+/// 4-tone 3D bevel color palette used by `FrameChrome::Bevel3D` / `SurfaceStyle::Bevel`.
+struct BevelPalette {
+    Color highlightOuter{255, 255, 255, 255}; ///< Outer top/left bright edge (Win98 COLOR_3DHILIGHT)
+    Color highlightInner{223, 223, 223, 255}; ///< Inner top/left light edge (Win98 COLOR_3DLIGHT)
+    Color shadowInner{128, 128, 128, 255};    ///< Inner bottom/right shadow edge (Win98 COLOR_3DSHADOW)
+    Color shadowOuter{0, 0, 0, 255};          ///< Outer bottom/right deep edge (Win98 COLOR_3DDKSHADOW)
+};
+
+/// Structural frame treatment applied by the active `IStylePainter`.
+enum class FrameChrome : keel::u8 {
+    Flat = 0,     ///< Clean vector stroke / rounded rect (Solid, Soft, Outline, Brutalist)
+    Bevel3D       ///< Classic 2px raised/sunken/etched 3D bevel frames (Windows 98)
+};
+
+/// Structural geometry of `Slider` / `StepSlider` thumb knobs.
+enum class SliderThumbShape : keel::u8 {
+    Circle = 0,   ///< Modern circular thumb knob
+    Square,       ///< Sharp rectangular thumb (e.g. `radiusScale == 0`)
+    Pointer3D     ///< Classic Windows 98 pentagonal 3D pointer thumb
+};
+
+/// Structural fill style for `ProgressBar`.
+enum class ProgressFillStyle : keel::u8 {
+    Smooth = 0,   ///< Continuous bar (rounded or sharp according to theme radius)
+    Segmented3D   ///< Classic Windows 98 sunken 3D trough with segmented rectangular blocks
+};
+
+/// Structural rendering style for `TabBar`.
+enum class TabBarChrome : keel::u8 {
+    Modern = 0,   ///< Standard GuiKit Underline / Card / Pill / Folder tabs
+    Classic3D     ///< Contiguous chamfered 3D property-sheet tabs (zero gap)
+};
+
+/// Text rendering treatment for disabled controls.
+enum class DisabledTextStyle : keel::u8 {
+    Opacity = 0,  ///< Standard alpha attenuation (`theme.disabledOpacity`)
+    Embossed3D    ///< Classic Windows 98 1px white drop + gray foreground embossing
+};
+
+/// Declarative structural look-and-feel tokens consumed by `IStylePainter` and widgets.
+struct ControlStyleTokens {
+    FrameChrome       frameChrome{FrameChrome::Flat};
+    SliderThumbShape  sliderThumb{SliderThumbShape::Circle};
+    ProgressFillStyle progressStyle{ProgressFillStyle::Smooth};
+    TabBarChrome      tabChrome{TabBarChrome::Modern};
+    DisabledTextStyle disabledText{DisabledTextStyle::Opacity};
+    keel::f32         buttonPressOffset{0.0f}; ///< Content shift in dp on pressed/active buttons
+    keel::f32         tabGapOverride{-1.0f};   ///< >= 0 overrides default TabBar item gap (e.g. 0.0f for Win98)
+    bool              pillBadgesAllowed{true}; ///< False forces sharp rectangular badges
+    bool              sunkenCheckbox{false};   ///< True draws sunken input-bg checkbox with ink checkmark
+    bool              bevelSelectButton{false};///< True draws raised 3D dropdown button inside Select
+    bool              neutralSliderTrack{false};///< True keeps slider groove neutral unless explicit color is set
+};
+
 /// Compact declarative recipe for generating a complete `UiTheme` via `UiTheme::Build(spec)`.
 /// Supports seed-based accent/neutral derivation, surface appearance styles, layer contrast,
 /// radius/spacing/font/border/shadow/accessibility scaling, syntax scheme selection,
 /// and zero-dependency JSON export/import (`ToJson` / `FromJson`).
 struct ThemeSpec {
-    ThemePreset base{ThemePreset::Dark};             ///< Starting curated preset (palette + syntax + variants)
-    keel::Optional<ThemeMode> mode{keel::kNullOpt};  ///< Optional Dark/Light mode override
-    SurfaceStyle surfaceStyle{SurfaceStyle::Solid};  ///< Global control appearance (`Solid`, `Soft`, `Outline`, `Brutalist`)
-    SyntaxPreset syntaxPreset{SyntaxPreset::Auto};   ///< Independent code editor syntax color scheme (`Auto` = match preset)
+    ThemePreset base{ThemePreset::Dark};                     ///< Starting curated preset (palette + syntax + variants + default surfaceStyle)
+    keel::Optional<ThemeMode> mode{keel::kNullOpt};          ///< Optional Dark/Light mode override
+    keel::Optional<SurfaceStyle> surfaceStyle{keel::kNullOpt}; ///< Optional global control appearance override (`Solid`, `Soft`, `Outline`, `Brutalist`, `Bevel`)
+    SyntaxPreset syntaxPreset{SyntaxPreset::Auto};           ///< Independent code editor syntax color scheme (`Auto` = match preset)
     keel::Optional<Color> accent{keel::kNullOpt};    ///< Optional seed brand accent (auto-derives Primary, hover, active, contrast text, focusRing, caret)
     keel::Optional<Color> neutral{keel::kNullOpt};   ///< Optional neutral tint seed blended into surfaces & borders
     keel::Optional<Color> background{keel::kNullOpt};///< Optional direct viewport background color override

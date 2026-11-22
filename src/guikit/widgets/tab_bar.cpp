@@ -1,7 +1,7 @@
 #include "guikit/widgets/tab_bar.hpp"
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
-#include "guikit/core/bevel_draw.hpp"
+#include "guikit/core/style_painter.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
 #include "guikit/panels/carousel.hpp"
@@ -59,8 +59,8 @@ TabBarResponse TabBar::Run(
     const UiTheme& theme = ctx.GetTheme();
     const ComponentMetrics& m = theme.GetMetrics(activeSize);
     const keel::f32 barDensity = barNode->GetDensity();
-    const keel::f32 defaultTabGap = theme.IsBevel()
-        ? 0.0f
+    const keel::f32 defaultTabGap = (theme.controlStyle.tabGapOverride >= 0.0f)
+        ? theme.controlStyle.tabGapOverride
         : ((opts.style == TabBarStyle::Card || opts.style == TabBarStyle::Folder)
             ? 2.0f
             : ((theme.SizeFactor(activeSize) < 0.90f) ? theme.GetGap(UiSize::Xs) : theme.GetGap(UiSize::Sm)));
@@ -120,19 +120,7 @@ TabBarResponse TabBar::Run(
         (opts.style == TabBarStyle::Underline || opts.style == TabBarStyle::Card || opts.style == TabBarStyle::Folder);
     if (hasBaselineSeparator) {
         barNode->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& th) noexcept {
-            if (th.IsBevel()) {
-                const detail::BevelColors bc = detail::ResolveBevelColors(th);
-                const keel::f32 y = keel::floor(n->computedRect.Bottom() - 1.0f);
-                canvas.DrawRect(Rect(n->computedRect.x, y, n->computedRect.w, 1.0f), bc.highlightOuter);
-                return;
-            }
-            const keel::f32 sepY = n->computedRect.Bottom() - 0.5f;
-            canvas.DrawLine(
-                Vec2(n->computedRect.x, sepY),
-                Vec2(n->computedRect.Right(), sepY),
-                th.palette.borderSubtle,
-                1.0f
-            );
+            th.Painter().DrawTabBarBaseline(canvas, th, n->computedRect);
         };
     }
 
@@ -351,173 +339,45 @@ void TabBar::RenderTab(
         ? theme.ResolveColor(opts.color, hovered, active, disabled, defaultAccent)
         : defaultAccent;
 
-    if (theme.IsBevel() && opts.style != TabBarStyle::Folder) {
-        // Authentic Windows 98 property-sheet tabs (contiguous, 2px chamfered top corners, seamless active bottom)
-        const detail::BevelColors bc = detail::ResolveBevelColors(theme);
-        const keel::f32 topOff = active ? 0.0f : 3.0f;
-        const keel::f32 tx = keel::floor(bounds.x);
-        const keel::f32 ty = keel::floor(bounds.y + topOff);
-        const keel::f32 tw = keel::floor(bounds.w);
-        const keel::f32 botY = keel::floor(bounds.Bottom());
-        const keel::f32 th = keel::max(4.0f, botY - ty);
-        const Color tabBg = active
-            ? pal.surface
-            : ((hovered && !disabled) ? pal.surfaceHover : pal.background);
+    TabChromeStyle chromeStyle = TabChromeStyle::Pill;
+    if (opts.style == TabBarStyle::Underline) chromeStyle = TabChromeStyle::Underline;
+    else if (opts.style == TabBarStyle::Card) chromeStyle = TabChromeStyle::Card;
+    else if (opts.style == TabBarStyle::Folder) chromeStyle = TabChromeStyle::Folder;
 
-        // Fill tab body with 2px chamfered top-left & top-right corners
-        if (tw > 4.0f && th > 2.0f) {
-            canvas.DrawRect(Rect(tx + 2.0f, ty, tw - 4.0f, 1.0f), tabBg);
-            canvas.DrawRect(Rect(tx + 1.0f, ty + 1.0f, tw - 2.0f, 1.0f), tabBg);
-            canvas.DrawRect(Rect(tx, ty + 2.0f, tw, th - 2.0f), tabBg);
-        } else {
-            canvas.DrawRect(Rect(tx, ty, tw, th), tabBg);
-        }
-
-        // Top & left raised bevel (with 2px chamfered top-left corner)
-        canvas.DrawRect(Rect(tx + 2.0f, ty, keel::max(0.0f, tw - 4.0f), 1.0f), bc.highlightOuter);
-        canvas.DrawRect(Rect(tx + 1.0f, ty + 1.0f, 1.0f, 1.0f), bc.highlightOuter);
-        canvas.DrawRect(Rect(tx, ty + 2.0f, 1.0f, keel::max(0.0f, th - 2.0f)), bc.highlightOuter);
-
-        canvas.DrawRect(Rect(tx + 2.0f, ty + 1.0f, keel::max(0.0f, tw - 4.0f), 1.0f), bc.highlightInner);
-        canvas.DrawRect(Rect(tx + 1.0f, ty + 2.0f, 1.0f, keel::max(0.0f, th - 2.0f)), bc.highlightInner);
-
-        // Right raised bevel (with 2px chamfered top-right corner)
-        canvas.DrawRect(Rect(tx + tw - 2.0f, ty + 1.0f, 1.0f, 1.0f), bc.shadowOuter);
-        canvas.DrawRect(Rect(tx + tw - 1.0f, ty + 2.0f, 1.0f, keel::max(0.0f, th - 2.0f)), bc.shadowOuter);
-        canvas.DrawRect(Rect(tx + tw - 2.0f, ty + 2.0f, 1.0f, keel::max(0.0f, th - 2.0f)), bc.shadowInner);
-
-        if (active) {
-            // Seamlessly mask the baseline highlight under the active tab
-            canvas.DrawRect(Rect(tx + 2.0f, botY - 1.0f, keel::max(0.0f, tw - 4.0f), 1.0f), tabBg);
-        } else if (opts.showSeparator) {
-            // Continue panel top highlight across bottom of inactive tabs
-            canvas.DrawRect(Rect(tx, botY - 1.0f, tw, 1.0f), bc.highlightOuter);
-        }
-
-        if (focused && !disabled && tw > 8.0f && th > 8.0f) {
-            canvas.DrawRoundRect(Rect(tx + 3.0f, ty + 3.0f, tw - 6.0f, th - 5.0f), 0.0f, Color::Transparent(), pal.focusRing, 1.0f);
-        }
-    } else if (opts.style == TabBarStyle::Underline) {
-        if (opts.showSeparator) {
-            canvas.DrawLine(
-                Vec2(bounds.x, bounds.Bottom() - 0.5f),
-                Vec2(bounds.Right(), bounds.Bottom() - 0.5f),
-                pal.borderSubtle,
-                1.0f
-            );
-        }
-
-        if (hovered && !active && !disabled) {
-            const Rect hoverR(bounds.x, bounds.y + 4.0f, bounds.w, bounds.h - 8.0f);
-            canvas.DrawRoundRect(hoverR, m.cornerRadius, pal.surfaceHover);
-        }
-
-        if (active) {
-            const keel::f32 lineH = 3.0f;
-            const keel::f32 linePad = 2.0f;
-            const Rect lineR(bounds.x + linePad, bounds.Bottom() - lineH, keel::max(0.0f, bounds.w - linePad * 2.0f), lineH);
-            canvas.DrawRoundRect(lineR, 1.5f, accentCol);
-        }
-        if (focused && !disabled) {
-            const keel::f32 bottomInset = active ? 6.0f : 4.0f;
-            canvas.DrawRoundRect(Rect(bounds.x + 1.0f, bounds.y + 2.0f, keel::max(0.0f, bounds.w - 2.0f), keel::max(0.0f, bounds.h - bottomInset)), m.cornerRadius, Color::Transparent(), pal.focusRing, 1.5f);
-        }
-    } else if (opts.style == TabBarStyle::Card) {
-        const keel::f32 r = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
-        const Rect cardR(bounds.x, bounds.y + 2.0f, bounds.w, bounds.h + r);
-        if (active) {
-            canvas.DrawRoundRect(cardR, r, pal.surface, pal.border, 1.0f);
-            // Mask baseline seam under active card tab
-            canvas.DrawRect(Rect(bounds.x + 1.0f, bounds.Bottom() - 1.5f, keel::max(0.0f, bounds.w - 2.0f), 2.0f), pal.surface);
-            canvas.DrawRoundRect(Rect(bounds.x + 1.0f, bounds.y + 2.0f, keel::max(0.0f, bounds.w - 2.0f), 2.5f), 1.0f, accentCol);
-        } else {
-            if (opts.showSeparator) {
-                canvas.DrawLine(Vec2(bounds.x, bounds.Bottom() - 0.5f), Vec2(bounds.Right(), bounds.Bottom() - 0.5f), pal.borderSubtle, 1.0f);
-            }
-            if (hovered && !disabled) {
-                canvas.DrawRoundRect(cardR, r, pal.surfaceHover, pal.borderSubtle, 1.0f);
-            }
-        }
-        if (focused && !disabled) {
-            const Rect focusCardR(bounds.x + 0.75f, bounds.y + 2.75f, keel::max(0.0f, bounds.w - 1.5f), bounds.h + r);
-            canvas.DrawRoundRect(focusCardR, keel::max(0.0f, r - 0.5f), Color::Transparent(), pal.focusRing, 1.5f);
-        }
-    } else if (opts.style == TabBarStyle::Folder) {
-        const keel::f32 slope = keel::min(6.0f, bounds.w * 0.14f);
-        const keel::f32 topY = bounds.y + (active ? 1.5f : 4.0f);
-        const keel::f32 botY = bounds.Bottom();
-        VectorPath folderPath;
-        folderPath.MoveTo({bounds.x, botY});
-        folderPath.LineTo({bounds.x + slope, topY});
-        folderPath.LineTo({bounds.Right() - slope, topY});
-        folderPath.LineTo({bounds.Right(), botY});
-        folderPath.Close();
-
-        if (active || (hovered && !disabled)) {
-            PathPaint p{};
-            p.fillColor = active ? pal.surfaceElevated : pal.surfaceHover;
-            p.renderFill = true;
-            p.strokeColor = active ? pal.border : pal.borderSubtle;
-            p.strokeWidthPx = 1.0f;
-            p.renderStroke = true;
-            canvas.DrawPath(folderPath, p);
-        }
-        if (active) {
-            canvas.DrawRect(Rect(bounds.x + 1.0f, botY - 1.5f, keel::max(0.0f, bounds.w - 2.0f), 2.0f), pal.surfaceElevated);
-            canvas.DrawLine(Vec2(bounds.x + slope, topY + 0.5f), Vec2(bounds.Right() - slope, topY + 0.5f), accentCol, 2.0f);
-        } else if (opts.showSeparator) {
-            canvas.DrawLine(Vec2(bounds.x, botY - 0.5f), Vec2(bounds.Right(), botY - 0.5f), pal.borderSubtle, 1.0f);
-        }
-        if (focused && !disabled) {
-            // Trace the open trapezoidal folder silhouette (preserving the open bottom seam)
-            VectorPath focusPath;
-            focusPath.MoveTo({bounds.x + 0.75f, botY});
-            focusPath.LineTo({bounds.x + slope, topY + 0.75f});
-            focusPath.LineTo({bounds.Right() - slope, topY + 0.75f});
-            focusPath.LineTo({bounds.Right() - 0.75f, botY});
-            PathPaint fp{};
-            fp.renderFill = false;
-            fp.renderStroke = true;
-            fp.strokeColor = pal.focusRing;
-            fp.strokeWidthPx = 1.5f;
-            canvas.DrawPath(focusPath, fp);
-        }
-    } else {
-        // Pill / Segmented style
+    keel::f32 tabRadius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
+    if (opts.style == TabBarStyle::Pill) {
         const bool hasCustomBgOrBorder = (opts.background.IsBackgroundEnabled(false) || opts.border.color.HasAny() || opts.border.width > 0.0f);
         keel::f32 padTop = 0.0f;
         if (opts.padding.has_value()) {
             padTop = opts.padding->top;
-        } else if (opts.style == TabBarStyle::Pill && hasCustomBgOrBorder) {
+        } else if (hasCustomBgOrBorder) {
             padTop = (theme.SizeFactor(size) < 0.90f) ? 2.0f : 3.0f;
         }
-
-        keel::f32 pillRadius = m.cornerRadius;
         if (opts.border.radius.has_value()) {
-            if (*opts.border.radius == 0.0f) {
-                pillRadius = 0.0f;
-            } else {
-                pillRadius = keel::max(0.0f, *opts.border.radius - padTop);
-            }
-        }
-
-        const Color focusBorder = (focused && !disabled) ? pal.focusRing : Color::Transparent();
-        const keel::f32 focusBorderW = (focused && !disabled) ? 1.5f : 0.0f;
-
-        if (active) {
-            const Color defaultPillCol = (item.variant != UiVariant::Default)
-                ? theme.GetVariant(item.variant).bgActive
-                : pal.surfaceActive;
-            const Color pillCol = opts.color.HasAny()
-                ? theme.ResolveColor(opts.color, hovered, active, disabled, defaultPillCol)
-                : defaultPillCol;
-            canvas.DrawRoundRect(bounds, pillRadius, pillCol, focusBorder, focusBorderW);
-        } else if (hovered && !disabled) {
-            canvas.DrawRoundRect(bounds, pillRadius, pal.surfaceHover, focusBorder, focusBorderW);
-        } else if (focused && !disabled) {
-            canvas.DrawRoundRect(bounds, pillRadius, Color::Transparent(), focusBorder, focusBorderW);
+            tabRadius = (*opts.border.radius == 0.0f) ? 0.0f : keel::max(0.0f, *opts.border.radius - padTop);
         }
     }
+    const Color defaultPillCol = (item.variant != UiVariant::Default)
+        ? theme.GetVariant(item.variant).bgActive
+        : pal.surfaceActive;
+    const Color pillActiveCol = opts.color.HasAny()
+        ? theme.ResolveColor(opts.color, hovered, active, disabled, defaultPillCol)
+        : defaultPillCol;
+
+    const keel::f32 chromeYShift = theme.Painter().DrawTabChrome(
+        canvas,
+        theme,
+        bounds,
+        chromeStyle,
+        active,
+        hovered,
+        focused,
+        disabled,
+        opts.showSeparator,
+        accentCol,
+        pillActiveCol,
+        tabRadius
+    );
 
     // Determine foreground colors for text and icon
     Color fgCol;
@@ -575,10 +435,7 @@ void TabBar::RenderTab(
 
     const keel::f32 contentAreaW = keel::max(0.0f, bounds.w - closeReserve);
     keel::f32 curX = bounds.x + keel::max(padX, (contentAreaW - contentW) * 0.5f);
-    const keel::f32 bevelYShift = (theme.IsBevel() && opts.style != TabBarStyle::Folder)
-        ? (active ? -0.5f : 1.5f)
-        : 0.0f;
-    const keel::f32 centerY = bounds.y + bounds.h * 0.5f + bevelYShift;
+    const keel::f32 centerY = bounds.y + bounds.h * 0.5f + chromeYShift;
 
     // Draw Icon
     if (hasIcon) {
@@ -589,8 +446,8 @@ void TabBar::RenderTab(
 
     // Draw Label
     if (showLabel) {
-        const Rect textR(curX, bounds.y + bevelYShift, availLabelW, bounds.h);
-        canvas.DrawTextBox(displayLabel, textR, labelFont, fgCol, 0.0f, 0.5f);
+        const Rect textR(curX, bounds.y + chromeYShift, availLabelW, bounds.h);
+        theme.Painter().DrawControlText(canvas, theme, displayLabel, textR, labelFont, fgCol, disabled, 0.0f, 0.5f);
         curX += labelW;
     }
 
@@ -613,14 +470,14 @@ void TabBar::RenderTab(
             badgeText = success.text;
         }
 
-        canvas.DrawRoundRect(badgeR, 4.0f, badgeBg);
+        theme.Painter().DrawBadge(canvas, theme, badgeR, badgeBg, Color::Transparent(), 0.0f, 4.0f);
         canvas.DrawTextBox(item.badge.text, badgeR, badgeFontSize, badgeText, 0.5f, 0.5f);
     }
 
     // Draw trailing Close ('X') button if closable
     if (item.closable && closeRect.w > 4.0f && bounds.w > closeRect.w + 8.0f) {
         if (closeHovered && !disabled) {
-            canvas.DrawRoundRect(closeRect, 3.5f, pal.surfaceHover);
+            canvas.DrawRoundRect(closeRect, keel::min(3.5f, m.cornerRadius), pal.surfaceHover);
         }
         const keel::f32 icSz = keel::max(8.0f, closeRect.w * 0.68f);
         const Rect icRect(

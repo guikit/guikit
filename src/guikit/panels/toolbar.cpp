@@ -4,6 +4,7 @@
 #include "guikit/core/control.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/solver.hpp"
+#include "guikit/core/style_painter.hpp"
 #include "guikit/panels/carousel.hpp"
 #include "guikit/panels/scroll_area.hpp"
 #include "keel/math.h"
@@ -46,7 +47,7 @@ void RenderToolBadge(const Node* n, const ToolButtonPayload* p, ICanvas& canvas,
     );
     const Color badgeBg = n->disabled ? resolvedBg.WithAlphaF(0.45f) : resolvedBg;
     const Color badgeTextCol = n->disabled ? v.text.WithAlphaF(0.55f) : v.text;
-    canvas.DrawRoundRect(badgeRect, badgeH * 0.5f, badgeBg, pal.surface, 1.5f);
+    theme.Painter().DrawBadge(canvas, theme, badgeRect, badgeBg, pal.surface, 1.5f, badgeH * 0.5f);
     canvas.DrawTextBox(p->badge.text, badgeRect, badgeFont, badgeTextCol, 0.5f, 0.5f);
 }
 

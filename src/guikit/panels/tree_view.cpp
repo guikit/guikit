@@ -4,6 +4,7 @@
 #include "guikit/core/control.hpp"
 #include "guikit/core/element.hpp"
 #include "guikit/core/node.hpp"
+#include "guikit/core/style_painter.hpp"
 #include "guikit/core/text_util.hpp"
 #include "guikit/panels/scroll_area.hpp"
 #include "guikit/widgets/checkbox.hpp"
@@ -1717,8 +1718,9 @@ void TreeView::RenderRow(
             badgeTextCol = badgeTextCol.WithAlphaF(0.40f);
         }
 
-        canvas.DrawRoundRect(Rect(badgeX, badgeY, badgeW, badgeH), badgeH * 0.5f, badgeBg);
-        canvas.DrawTextBox(p->opts.badge.text, Rect(badgeX, badgeY, badgeW, badgeH), rm.badgeFont, badgeTextCol, 0.5f, 0.5f);
+        const Rect badgeR(badgeX, badgeY, badgeW, badgeH);
+        theme.Painter().DrawBadge(canvas, theme, badgeR, badgeBg, Color::Transparent(), 0.0f, badgeH * 0.5f);
+        canvas.DrawTextBox(p->opts.badge.text, badgeR, rm.badgeFont, badgeTextCol, 0.5f, 0.5f);
         rightLimit = badgeX - rm.gap;
     }
 

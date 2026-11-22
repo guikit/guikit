@@ -1,4 +1,5 @@
 #include "guikit/core/theme.hpp"
+#include "guikit/core/style_painter.hpp"
 #include "keel/format.h"
 #include "keel/math.h"
 #include "keel/number.h"
@@ -6,6 +7,58 @@
 namespace guikit {
 
 namespace {
+
+void PopulateBevelPalette(UiTheme& theme) noexcept {
+    if (theme.mode == ThemeMode::Dark) {
+        const Color base = theme.palette.surface.WithAlpha(255u);
+        theme.bevel = BevelPalette{
+            .highlightOuter = base.Lighten(0.28f),
+            .highlightInner = base.Lighten(0.13f),
+            .shadowInner    = theme.palette.background.Darken(0.14f),
+            .shadowOuter    = Color::Hex(0x000000E8)
+        };
+    } else {
+        theme.bevel = BevelPalette{
+            .highlightOuter = Color::Hex(0xFFFFFFFF),
+            .highlightInner = Color::Hex(0xDFDFDFFF),
+            .shadowInner    = Color::Hex(0x808080FF),
+            .shadowOuter    = Color::Hex(0x000000FF)
+        };
+    }
+}
+
+void PopulateControlStyle(UiTheme& theme, SurfaceStyle style) noexcept {
+    const bool zeroRadius = (theme.GetRadius(UiSize::Md) <= 0.01f);
+    if (style == SurfaceStyle::Bevel) {
+        theme.controlStyle = ControlStyleTokens{
+            .frameChrome        = FrameChrome::Bevel3D,
+            .sliderThumb        = SliderThumbShape::Pointer3D,
+            .progressStyle      = ProgressFillStyle::Segmented3D,
+            .tabChrome          = TabBarChrome::Classic3D,
+            .disabledText       = DisabledTextStyle::Embossed3D,
+            .buttonPressOffset  = 1.0f,
+            .tabGapOverride     = 0.0f,
+            .pillBadgesAllowed  = false,
+            .sunkenCheckbox     = true,
+            .bevelSelectButton  = true,
+            .neutralSliderTrack = true
+        };
+    } else {
+        theme.controlStyle = ControlStyleTokens{
+            .frameChrome        = FrameChrome::Flat,
+            .sliderThumb        = zeroRadius ? SliderThumbShape::Square : SliderThumbShape::Circle,
+            .progressStyle      = ProgressFillStyle::Smooth,
+            .tabChrome          = TabBarChrome::Modern,
+            .disabledText       = DisabledTextStyle::Opacity,
+            .buttonPressOffset  = 0.0f,
+            .tabGapOverride     = -1.0f,
+            .pillBadgesAllowed  = !zeroRadius,
+            .sunkenCheckbox     = false,
+            .bevelSelectButton  = false,
+            .neutralSliderTrack = false
+        };
+    }
+}
 
 [[nodiscard]] VariantColors MakeSemanticVariant(Color base, ThemeMode mode, keel::f32 borderWidth = 0.0f) noexcept {
     const Color hover = (mode == ThemeMode::Dark) ? base.Lighten(0.08f) : base.Lighten(0.07f);
@@ -685,6 +738,8 @@ void ApplyCuratedPresetColors(UiTheme& theme, ThemePreset p) noexcept {
             PopulateShadows(theme, ThemeMode::Light, 0.0f);
             break;
     }
+    PopulateBevelPalette(theme);
+    PopulateControlStyle(theme, theme.surfaceStyle);
 }
 
 // ==============================================================================
@@ -880,7 +935,9 @@ keel::String ThemeSpec::ToJson() const {
     if (mode.has_value()) {
         out.append(keel::format("  \"mode\": \"{}\",\n", (*mode == ThemeMode::Light) ? "Light" : "Dark"));
     }
-    out.append(keel::format("  \"surfaceStyle\": \"{}\",\n", SurfaceStyleJsonKey(surfaceStyle)));
+    if (surfaceStyle.has_value()) {
+        out.append(keel::format("  \"surfaceStyle\": \"{}\",\n", SurfaceStyleJsonKey(*surfaceStyle)));
+    }
     if (syntaxPreset != SyntaxPreset::Auto) {
         out.append(keel::format("  \"syntaxPreset\": \"{}\",\n", SyntaxPresetJsonKey(syntaxPreset)));
     }
@@ -1025,6 +1082,10 @@ keel::Optional<ThemeSpec> ThemeSpec::FromJson(keel::StringRef json) noexcept {
 // UiTheme Mutators
 // ==============================================================================
 
+const IStylePainter& UiTheme::Painter() const noexcept {
+    return (stylePainter != nullptr) ? *stylePainter : GetDefaultStylePainter();
+}
+
 void UiTheme::SetMode(ThemeMode m) noexcept {
     mode = m;
     preset = (m == ThemeMode::Light) ? ThemePreset::Light : ThemePreset::Dark;
@@ -1032,6 +1093,7 @@ void UiTheme::SetMode(ThemeMode m) noexcept {
     PopulateSyntaxPalette(*this, m);
     PopulateVariants(*this, m);
     PopulateShadows(*this, m, shadowsEnabled ? 1.0f : 0.0f);
+    PopulateBevelPalette(*this);
 }
 
 void UiTheme::SetPreset(ThemePreset p) noexcept {
@@ -1128,6 +1190,15 @@ void UiTheme::SetRadiusScale(keel::f32 scale) noexcept {
     if (shellStyle == ShellStyle::Floating) {
         shell.panelRadius = GetRadius(UiSize::Md);
     }
+    const bool zeroRadius = (GetRadius(UiSize::Md) <= 0.01f);
+    if (controlStyle.frameChrome != FrameChrome::Bevel3D) {
+        controlStyle.pillBadgesAllowed = !zeroRadius;
+        if (zeroRadius && controlStyle.sliderThumb == SliderThumbShape::Circle) {
+            controlStyle.sliderThumb = SliderThumbShape::Square;
+        } else if (!zeroRadius && controlStyle.sliderThumb == SliderThumbShape::Square) {
+            controlStyle.sliderThumb = SliderThumbShape::Circle;
+        }
+    }
 }
 
 void UiTheme::SetSpacingScale(keel::f32 scale) noexcept {
@@ -1184,6 +1255,8 @@ void UiTheme::SetShadowIntensity(keel::f32 intensity) noexcept {
 
 void UiTheme::SetSurfaceStyle(SurfaceStyle style) noexcept {
     surfaceStyle = style;
+    PopulateBevelPalette(*this);
+    PopulateControlStyle(*this, style);
     const bool isDark = (mode == ThemeMode::Dark);
     const keel::f32 bwScale = keel::max(borderScale, 0.5f);
 
@@ -1447,8 +1520,8 @@ UiTheme UiTheme::Build(const ThemeSpec& spec) noexcept {
     if (spec.danger.has_value())  theme.SetSemanticColor(UiVariant::Danger, *spec.danger);
     if (spec.info.has_value())    theme.SetSemanticColor(UiVariant::Info, *spec.info);
 
-    if (spec.surfaceStyle != SurfaceStyle::Solid) {
-        theme.SetSurfaceStyle(spec.surfaceStyle);
+    if (spec.surfaceStyle.has_value()) {
+        theme.SetSurfaceStyle(*spec.surfaceStyle);
     }
     if (spec.syntaxPreset != SyntaxPreset::Auto) {
         theme.SetSyntaxPreset(spec.syntaxPreset);
@@ -1474,7 +1547,7 @@ UiTheme UiTheme::Build(const ThemeSpec& spec) noexcept {
     }
     if (keel::abs(spec.shadowIntensity - 1.0f) > 1.0e-4f) {
         theme.SetShadowIntensity(spec.shadowIntensity);
-    } else if (spec.surfaceStyle == SurfaceStyle::Brutalist || spec.surfaceStyle == SurfaceStyle::Bevel) {
+    } else if (theme.surfaceStyle == SurfaceStyle::Brutalist || theme.surfaceStyle == SurfaceStyle::Bevel) {
         theme.SetShadowIntensity(0.0f);
     }
     if (keel::abs(spec.focusRingWidth - 2.0f) > 1.0e-4f) {
@@ -1501,6 +1574,13 @@ UiTheme UiTheme::Lerp(const UiTheme& a, const UiTheme& b, keel::f32 t) noexcept 
     out.borderScale = lerpF(a.borderScale, b.borderScale);
     out.animationScale = lerpF(a.animationScale, b.animationScale);
     out.shadowsEnabled = a.shadowsEnabled || b.shadowsEnabled;
+
+    // Bevel palette & structural offsets
+    out.bevel.highlightOuter = lerpC(a.bevel.highlightOuter, b.bevel.highlightOuter);
+    out.bevel.highlightInner = lerpC(a.bevel.highlightInner, b.bevel.highlightInner);
+    out.bevel.shadowInner    = lerpC(a.bevel.shadowInner, b.bevel.shadowInner);
+    out.bevel.shadowOuter    = lerpC(a.bevel.shadowOuter, b.bevel.shadowOuter);
+    out.controlStyle.buttonPressOffset = lerpF(a.controlStyle.buttonPressOffset, b.controlStyle.buttonPressOffset);
 
     // Palette
     out.palette.background        = lerpC(a.palette.background, b.palette.background);

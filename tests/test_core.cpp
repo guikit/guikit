@@ -1790,15 +1790,56 @@ void TestThemeSystemColorSciencePresetsSpecJsonAndLerp() {
         }
     }
 
-    // 3b. Windows98 preset factory & JSON round-trip
+    // 3b. Windows98 preset factory, Optional<SurfaceStyle> override, custom IStylePainter & JSON round-trip
     {
         const UiTheme w98 = UiTheme::Windows98();
         CHECK(w98.preset == ThemePreset::Windows98);
+        CHECK(w98.surfaceStyle == SurfaceStyle::Bevel);
+        CHECK(w98.controlStyle.frameChrome == FrameChrome::Bevel3D);
+        CHECK(w98.controlStyle.sliderThumb == SliderThumbShape::Pointer3D);
+        CHECK(w98.controlStyle.progressStyle == ProgressFillStyle::Segmented3D);
+        CHECK(w98.controlStyle.tabChrome == TabBarChrome::Classic3D);
+        CHECK(w98.controlStyle.tabGapOverride == 0.0f);
+        CHECK(!w98.controlStyle.pillBadgesAllowed);
         CHECK(w98.GetMetrics(UiSize::Md).cornerRadius == 0.0f);
+
+        // Default ThemeSpec with Windows98 preserves preset's Bevel style
         ThemeSpec w98Spec{};
         w98Spec.base = ThemePreset::Windows98;
+        const UiTheme w98Built = UiTheme::Build(w98Spec);
+        CHECK(w98Built.surfaceStyle == SurfaceStyle::Bevel);
+        CHECK(w98Built.IsBevel());
+
+        // Explicit Solid override on Windows98 switches cleanly to Flat chrome
+        ThemeSpec w98SolidSpec{};
+        w98SolidSpec.base = ThemePreset::Windows98;
+        w98SolidSpec.surfaceStyle = SurfaceStyle::Solid;
+        const UiTheme w98Solid = UiTheme::Build(w98SolidSpec);
+        CHECK(w98Solid.surfaceStyle == SurfaceStyle::Solid);
+        CHECK(!w98Solid.IsBevel());
+        CHECK(w98Solid.controlStyle.frameChrome == FrameChrome::Flat);
+
         const auto w98Parsed = ThemeSpec::FromJson(w98Spec.ToJson());
         CHECK(w98Parsed.has_value() && w98Parsed->base == ThemePreset::Windows98);
+
+        // Custom IStylePainter hook dispatch
+        struct CountingPainter final : public DefaultStylePainter {
+            mutable keel::i32 frameCalls{0};
+            void DrawFrame(ICanvas& c, const UiTheme& t, FrameKind k, const FramePaintParams& p) const override {
+                ++frameCalls;
+                DefaultStylePainter::DrawFrame(c, t, k, p);
+            }
+        };
+        CountingPainter customPainter{};
+        UiTheme customPainted = UiTheme::Windows98();
+        customPainted.SetStylePainter(&customPainter);
+        CHECK(&customPainted.Painter() == &customPainter);
+        NullCanvas nullCanvas{};
+        customPainted.Painter().DrawFrame(nullCanvas, customPainted, FrameKind::Button, FramePaintParams{
+            .rect = Rect(0.0f, 0.0f, 80.0f, 28.0f),
+            .bg = customPainted.palette.surface
+        });
+        CHECK(customPainter.frameCalls == 1);
     }
 
     // 4. Declarative ThemeSpec builder, SurfaceStyle, SurfaceContrast, SyntaxPreset & mutators
@@ -1885,7 +1926,7 @@ void TestThemeSystemColorSciencePresetsSpecJsonAndLerp() {
     if (parsedOpt.has_value()) {
         const ThemeSpec& parsed = *parsedOpt;
         CHECK(parsed.base == ThemePreset::Nord);
-        CHECK(parsed.surfaceStyle == SurfaceStyle::Soft);
+        CHECK(parsed.surfaceStyle.has_value() && *parsed.surfaceStyle == SurfaceStyle::Soft);
         CHECK(parsed.syntaxPreset == SyntaxPreset::Monokai);
         CHECK(parsed.accent.has_value() && *parsed.accent == *spec.accent);
         CHECK(parsed.neutral.has_value() && *parsed.neutral == *spec.neutral);

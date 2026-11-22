@@ -1,7 +1,7 @@
 #include "guikit/panels/menu_bar.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
-#include "guikit/core/bevel_draw.hpp"
+#include "guikit/core/style_painter.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
 #include "guikit/layout/spacer.hpp"
@@ -61,27 +61,24 @@ void RenderMenuBarSurface(const Node* node, ICanvas& canvas, const UiTheme& them
     if (r.w <= 0.0f || r.h <= 0.0f) return;
 
     if (node->backgroundColor.a > 0) {
-        if (node->cornerRadius > 0.0f && !theme.IsBevel()) {
+        if (node->cornerRadius > 0.0f && theme.controlStyle.frameChrome != FrameChrome::Bevel3D) {
             canvas.DrawRoundRect(r, node->cornerRadius, node->backgroundColor, Color::Transparent(), 0.0f);
         } else {
             canvas.DrawRect(r, node->backgroundColor);
         }
     }
 
-    // Header / Compact styles draw a clean bottom border; Surface draws full border
+    // Header / Compact styles draw a bottom divider; Surface draws full border
     if (node->borderWidth > 0.0f && node->borderColor.a > 0) {
-        if (theme.IsBevel() && node->cornerRadius <= 0.0f) {
-            detail::DrawBevelDividerH(canvas, r.x, r.Right(), r.Bottom() - 2.0f, theme);
-        } else if (node->cornerRadius > 0.0f) {
-            canvas.DrawRoundRect(r, node->cornerRadius, Color::Transparent(), node->borderColor, node->borderWidth);
-        } else {
-            canvas.DrawLine(
-                Vec2(r.x, r.Bottom() - 0.5f),
-                Vec2(r.Right(), r.Bottom() - 0.5f),
-                node->borderColor,
-                node->borderWidth
-            );
-        }
+        theme.Painter().DrawContainerBorder(
+            canvas,
+            theme,
+            ContainerFrameRole::Toolbar,
+            r,
+            node->cornerRadius,
+            node->borderColor,
+            node->borderWidth
+        );
     }
 }
 
@@ -92,45 +89,11 @@ void RenderMenuBarTrigger(const Node* node, ICanvas& canvas, const UiTheme& them
     const Rect& r = node->computedRect;
     if (r.w <= 0.0f || r.h <= 0.0f) return;
 
-    const auto& pal = theme.palette;
-    const bool isDark = (theme.mode == ThemeMode::Dark);
-
-    if (theme.IsBevel()) {
-        Color fg = data->disabled ? pal.textPrimary.WithAlphaF(theme.disabledOpacity) : pal.textPrimary;
-        Rect textR = r;
-        if (!data->disabled && data->open) {
-            canvas.DrawRect(r, pal.accent);
-            detail::DrawBevelFrame(canvas, r, theme, /*sunken=*/true, /*thin=*/true);
-            fg = pal.accentText;
-            textR.x += 1.0f;
-            textR.y += 1.0f;
-        } else if (!data->disabled && data->hovered) {
-            detail::DrawBevelFrame(canvas, r, theme, /*sunken=*/false, /*thin=*/true);
-        }
-        canvas.DrawTextBox(data->label, textR, data->fontSize, fg, 0.5f, 0.5f);
-        return;
-    }
-
-    Color bg = Color::Transparent();
-    Color fg = pal.textPrimary;
-
-    if (data->disabled) {
-        fg = fg.WithAlphaF(0.4f);
-    } else if (data->open) {
-        bg = isDark ? pal.surfaceActive : pal.accent.WithAlphaF(0.14f);
-        fg = pal.accent;
-    } else if (data->hovered) {
-        bg = pal.surfaceHover;
-    }
-
-    if (bg.a > 0) {
-        if (data->radius > 0.0f) {
-            canvas.DrawRoundRect(r, data->radius, bg);
-        } else {
-            canvas.DrawRect(r, bg);
-        }
-    }
-    canvas.DrawTextBox(data->label, r, data->fontSize, fg, 0.5f, 0.5f);
+    Color fg = theme.palette.textPrimary;
+    Vec2 shift{};
+    theme.Painter().DrawMenuBarTrigger(canvas, theme, r, data->radius, data->hovered, data->open, data->disabled, fg, shift);
+    const Rect textR(r.x + shift.x, r.y + shift.y, r.w, r.h);
+    theme.Painter().DrawControlText(canvas, theme, data->label, textR, data->fontSize, fg, data->disabled, 0.5f, 0.5f);
 }
 
 struct MenuBarSepPayload {
@@ -144,11 +107,7 @@ void RenderMenuBarSeparator(const Node* node, ICanvas& canvas, const UiTheme& th
     const keel::f32 lineH = keel::max(8.0f, r.h * keel::clamp(ratio, 0.2f, 0.95f));
     const keel::f32 x = keel::round(r.x + r.w * 0.5f);
     const keel::f32 y0 = keel::round(r.y + (r.h - lineH) * 0.5f);
-    if (theme.IsBevel()) {
-        detail::DrawBevelDividerV(canvas, x - 1.0f, y0, y0 + lineH, theme);
-        return;
-    }
-    canvas.DrawLine(Vec2(x, y0), Vec2(x, y0 + lineH), theme.palette.border, 1.0f);
+    theme.Painter().DrawDivider(canvas, theme, Vec2(x, y0), Vec2(x, y0 + lineH), theme.palette.border, 1.0f);
 }
 
 } // namespace

@@ -1,7 +1,7 @@
 #include "guikit/widgets/select.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
-#include "guikit/core/bevel_draw.hpp"
+#include "guikit/core/style_painter.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
 #include "keel/core.h"
@@ -1287,15 +1287,21 @@ void Select::Render(
         boxBorder = theme.ResolveColor(opts.border.color, hovered, open || focused, disabled, boxBorder);
     }
 
-    // Draw box background and border
-    const bool isBevel = theme.IsBevel() && !opts.border.radius.has_value();
+    // Draw box background and border via active style painter
+    const bool useBevelDropBtn = theme.controlStyle.bevelSelectButton && !opts.border.radius.has_value();
     const keel::f32 radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
-    if (isBevel) {
-        canvas.DrawRect(boxRect, disabled ? pal.surface : boxBg);
-        detail::DrawBevelFrame(canvas, boxRect, theme, /*sunken=*/true, /*thin=*/false);
-    } else {
-        canvas.DrawRoundRect(boxRect, radius, boxBg, boxBorder, strokeW);
-    }
+    theme.Painter().DrawFrame(canvas, theme, FrameKind::Input, FramePaintParams{
+        .rect = boxRect,
+        .radius = radius,
+        .explicitRadius = opts.border.radius.has_value(),
+        .bg = (disabled && useBevelDropBtn) ? pal.surface : boxBg,
+        .border = boxBorder,
+        .borderWidth = strokeW,
+        .hovered = hovered,
+        .active = open,
+        .focused = focused,
+        .disabled = disabled
+    });
 
     // Left elements (prefix icon and/or text)
     keel::f32 leftX = boxRect.x + m.paddingX;
@@ -1311,7 +1317,7 @@ void Select::Render(
     // Right elements (chevron indicator + optional clear button + optional suffix)
     const keel::f32 btnSize = m.iconSize + 4.0f;
     keel::f32 rightX = boxRect.x + boxRect.w - m.paddingX - m.iconSize;
-    if (isBevel) {
+    if (useBevelDropBtn) {
         const keel::f32 dropBtnW = keel::max(18.0f, keel::min(boxRect.h - 4.0f, m.paddingX + m.iconSize + 4.0f));
         const Rect dropBtnRect(
             keel::floor(boxRect.Right() - 2.0f - dropBtnW),
@@ -1319,9 +1325,13 @@ void Select::Render(
             keel::floor(dropBtnW),
             keel::max(4.0f, keel::floor(boxRect.h - 4.0f))
         );
-        canvas.DrawRect(dropBtnRect, disabled ? pal.surface : (open ? pal.surfaceActive : pal.surface));
-        detail::DrawBevelFrame(canvas, dropBtnRect, theme, /*sunken=*/(!disabled && open), /*thin=*/false);
-        const keel::f32 shift = (!disabled && open) ? 1.0f : 0.0f;
+        theme.Painter().DrawFrame(canvas, theme, FrameKind::DropdownButton, FramePaintParams{
+            .rect = dropBtnRect,
+            .bg = disabled ? pal.surface : (open ? pal.surfaceActive : pal.surface),
+            .active = open,
+            .disabled = disabled
+        });
+        const keel::f32 shift = (!disabled && open) ? theme.controlStyle.buttonPressOffset : 0.0f;
         const Rect chevronRect(
             dropBtnRect.x + (dropBtnRect.w - m.iconSize) * 0.5f + shift,
             dropBtnRect.y + (dropBtnRect.h - m.iconSize) * 0.5f + shift,
@@ -1334,7 +1344,7 @@ void Select::Render(
     } else {
         if (chevronHovered && !disabled && (opts.searchable || opts.editable)) {
             const Rect chevBtnRect(rightX - 2.0f, boxRect.y + (boxRect.h - btnSize) * 0.5f, btnSize, btnSize);
-            canvas.DrawRoundRect(chevBtnRect, 4.0f, pal.surfaceHover, Color::Transparent(), 0.0f);
+            canvas.DrawRoundRect(chevBtnRect, keel::min(4.0f, m.cornerRadius), pal.surfaceHover, Color::Transparent(), 0.0f);
         }
         const Rect chevronRect(rightX, boxRect.y + (boxRect.h - m.iconSize) * 0.5f, m.iconSize, m.iconSize);
         const Icon chevron = open ? Icon::ChevronUp() : Icon::ChevronDown();
@@ -1473,17 +1483,16 @@ void Select::RenderPopup(
     const ScrollbarMetrics& sm = theme.GetScrollbar(size);
     const auto& pal = theme.palette;
 
-    // Dropdown container styling: card with border and theme-controlled shadow
-    const bool isBevel = theme.IsBevel();
-    const Color popupBg = isBevel ? pal.inputBackground : pal.surfaceElevated;
-    const Color popupBorder = isBevel ? Color::Hex(0x000000FF) : pal.border;
-    const keel::f32 popupRadius = isBevel ? 0.0f : m.cornerRadius;
+    // Dropdown container styling via active style painter
+    const bool useClassicList = (theme.controlStyle.frameChrome == FrameChrome::Bevel3D);
+    const Color popupBg = useClassicList ? pal.inputBackground : pal.surfaceElevated;
+    const Color popupBorder = useClassicList ? theme.bevel.shadowOuter : pal.border;
+    const keel::f32 popupRadius = useClassicList ? 0.0f : m.cornerRadius;
 
     if (const ShadowStyle sh = theme.GetShadow(Elevation::Md); sh.IsVisible()) {
         canvas.DrawShadow(popupRect, popupRadius, sh.blur, sh.offset, sh.color);
     }
 
-    // Popup background and border
     canvas.DrawRoundRect(popupRect, popupRadius, popupBg, popupBorder, 1.0f);
 
     if (items.empty()) {
@@ -1524,19 +1533,21 @@ void Select::RenderPopup(
         const bool itemDisabled = item.disabled;
         const bool isSelected = (i == selectedIndex);
         const bool isHovered = (keel::as<keel::i32>(i) == hoveredIndex) && !itemDisabled;
-        const bool bevelActiveRow = isBevel && !itemDisabled && (isHovered || (isSelected && hoveredIndex < 0));
-
-        if (bevelActiveRow) {
-            canvas.DrawRect(itemRect, pal.accent);
-        } else if (isSelected) {
-            const Color itemBg = isHovered ? pal.surfaceActive : pal.surfaceHover;
-            canvas.DrawRoundRect(itemRect, isBevel ? 0.0f : keel::min(4.0f, m.cornerRadius), itemBg);
-        } else if (isHovered) {
-            canvas.DrawRoundRect(itemRect, isBevel ? 0.0f : keel::min(4.0f, m.cornerRadius), pal.surfaceHover);
-        }
+        const bool accentHighlight = theme.Painter().DrawMenuItemHighlight(
+            canvas,
+            theme,
+            itemRect,
+            keel::min(4.0f, m.cornerRadius),
+            isHovered,
+            isSelected && (!useClassicList || hoveredIndex < 0),
+            false,
+            false,
+            itemDisabled,
+            pal.border
+        );
 
         // Colors for item text and checkmark
-        Color itemTextCol = bevelActiveRow
+        Color itemTextCol = accentHighlight
             ? pal.accentText
             : (item.text.color.HasAny()
                 ? theme.ResolveTextColor(item.text, UiVariant::Default, itemDisabled, isHovered, isSelected)
