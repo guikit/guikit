@@ -2245,11 +2245,25 @@ MarkdownResponse Markdown::Run(
 
         const Rect ctrlRect = n->computedRect;
 
-        // Compute visible viewport rect by intersecting with clipping ancestors (for O(1) block frustum culling)
+        // Compute visible viewport rect in the Markdown node's local space by intersecting with clipping ancestors,
+        // transforming across any scaled Zone boundaries so O(1) block frustum culling never clips visible blocks.
         Rect visibleRect = ctrlRect;
-        for (const Node* anc = n->parent; anc != nullptr; anc = anc->parent) {
+        Transform2D nodeToAnc{};
+        for (const Node* cur = n; cur->parent != nullptr; cur = cur->parent) {
+            const keel::f32 relScale = cur->GetRelativeScale();
+            if (relScale > 0.0f && keel::abs(relScale - 1.0f) > 1e-6f) {
+                const Transform2D localToParent = Transform2D::ScaleAbout(
+                    Vec2{cur->computedRect.x, cur->computedRect.y},
+                    relScale
+                );
+                nodeToAnc = localToParent.Then(nodeToAnc);
+            }
+            const Node* anc = cur->parent;
             if (anc->clipChildren) {
-                visibleRect = visibleRect.Intersect(anc->computedRect);
+                const Rect ancLocalRect = nodeToAnc.IsIdentity()
+                    ? anc->computedRect
+                    : nodeToAnc.Invert(anc->computedRect);
+                visibleRect = visibleRect.Intersect(ancLocalRect);
             }
         }
 

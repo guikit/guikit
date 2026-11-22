@@ -13231,6 +13231,101 @@ int main() {
                 const keel::i32 unculledDrawCalls = countCanvas.drawTextCalls;
                 CHECK(culledDrawCalls * 2 < unculledDrawCalls);
 
+                // 9b. Regression test: Markdown frustum culling inside a scaled Zone (`relScale < 1`, e.g. 100% preview
+                // under 125% shell zoom) with non-zero offset must transform clipping ancestor rects into the Markdown
+                // node's local space so blocks visible near the bottom of the inner ScrollArea are never falsely culled.
+                {
+                    struct MarkerCapturingCanvas : public TestCanvas {
+                        bool sawLowerVisible{false};
+                        bool sawOffscreen{false};
+                        keel::f32 lowerMarkerY{-1.0f};
+                        void DrawTextStyled(keel::StringRef text, Vec2 pos, keel::f32 fontSize, Color color, FontStyle style, keel::f32 angleDeg = 0.0f) override {
+                            if (text.find("LOWER_VISIBLE_MARKER") != keel::StringRef::npos) {
+                                sawLowerVisible = true;
+                                lowerMarkerY = pos.y;
+                            }
+                            if (text.find("FAR_OFFSCREEN_MARKER") != keel::StringRef::npos) {
+                                sawOffscreen = true;
+                            }
+                            TestCanvas::DrawTextStyled(text, pos, fontSize, color, style, angleDeg);
+                        }
+                    };
+
+                    MarkerCapturingCanvas scaledCanvas;
+                    keel::Array<keel::u32> scaledPixels(1200 * 900);
+                    scaledCanvas.SetTarget(scaledPixels.data(), 1200, 900, 1200);
+
+                    keel::String scaledDoc("# Scaled Zone Markdown\n\n");
+                    for (keel::i32 i = 0; i < 22; ++i) {
+                        keel::format_into(scaledDoc, "Filler paragraph line {} for vertical spacing.\n\n", i);
+                    }
+                    scaledDoc.append("LOWER_VISIBLE_MARKER\n\n");
+                    for (keel::i32 i = 0; i < 20; ++i) {
+                        keel::format_into(scaledDoc, "Trailing paragraph line {} below viewport.\n\n", i);
+                    }
+                    scaledDoc.append("FAR_OFFSCREEN_MARKER\n");
+
+                    Context scaledUi;
+                    Node* outerNode = nullptr;
+                    Node* scrollNode = nullptr;
+                    auto runScaledFrame = [&](bool resetFlags) {
+                        if (resetFlags) {
+                            scaledCanvas.sawLowerVisible = false;
+                            scaledCanvas.sawOffscreen = false;
+                            scaledCanvas.lowerMarkerY = -1.0f;
+                        }
+                        // 1200x900 physical px at 125% root zoom -> 960x720 studio dp; 100% preview zone -> relScale = 0.8
+                        scaledUi.BeginFrame({1200.0f, 900.0f}, 1.0f, 1.25f);
+                        if (auto rootCol = scaledUi.Column({.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+                            if (auto topBar = scaledUi.Box({.width = SizeMode::Stretch, .height = 40.0f})) {}
+                            if (auto mainRow = scaledUi.Row({.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+                                if (auto sideBar = scaledUi.Box({.width = 120.0f, .height = SizeMode::Stretch})) {}
+                                if (auto outerBackdrop = scaledUi.ScrollArea({
+                                    .orientation = Orientation::Both,
+                                    .scrollbar = VisibilityPolicy::Never,
+                                    .padding = Padding::All(18.0f)
+                                })) {
+                                    outerNode = outerBackdrop.GetNode();
+                                    if (auto previewZ = scaledUi.Zone({.scale = scaledUi.ScaleForZoom(1.0f)})) {
+                                        if (auto winFrame = scaledUi.Box({
+                                            .width = SizeMode::Stretch,
+                                            .height = SizeMode::Stretch,
+                                            .clipChildren = true
+                                        })) {
+                                            if (auto innerScroll = scaledUi.ScrollArea()) {
+                                                scrollNode = innerScroll.GetNode();
+                                                scaledUi.Markdown(scaledDoc);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        scaledUi.EndFrame(scaledCanvas);
+                    };
+
+                    runScaledFrame(true);
+                    CHECK(outerNode != nullptr);
+                    CHECK(scrollNode != nullptr);
+                    // Verify LOWER_VISIBLE_MARKER sits strictly below outerBackdrop's untransformed Bottom() (studio dp)
+                    // yet inside innerScroll's local Bottom() (preview dp) — the exact zone previously falsely culled.
+                    CHECK(scaledCanvas.sawLowerVisible);
+                    CHECK(scaledCanvas.lowerMarkerY > outerNode->computedRect.Bottom() + 20.0f);
+                    CHECK(scaledCanvas.lowerMarkerY < scrollNode->computedRect.Bottom() - 10.0f);
+                    CHECK(!scaledCanvas.sawOffscreen);
+
+                    // Scroll down organically via mouse wheel (no InvalidateAll) and verify full scroll range & repaint
+                    scaledUi.OnMouseMove({700.0f, 500.0f});
+                    const keel::f32 maxScrollY = keel::max(0.0f, scrollNode->scrollContentSize.y - scrollNode->computedRect.h);
+                    CHECK(maxScrollY > 300.0f);
+                    for (keel::i32 step = 0; step < 30 && scrollNode->scrollOffset.y + 0.5f < maxScrollY; ++step) {
+                        scaledUi.OnMouseWheel(0.0f, -3.0f);
+                        runScaledFrame(true);
+                    }
+                    CHECK_NEAR(scrollNode->scrollOffset.y, maxScrollY, 1.0f);
+                    CHECK(scaledCanvas.sawOffscreen);
+                }
+
                 // 10. Verify Modal interior Cancel button (modal.Close()) leaves zero backdrop or drop-shadow ghost artifacts
                 {
                     TestCanvas modalCanvas;
