@@ -161,7 +161,14 @@ struct HudLayout {
     Rect badgeRect{};
 };
 
-HudLayout ComputeHudLayout(Rect vp, const UiTheme& theme, bool hasHScroll, bool hasVScroll, UiSize size) noexcept {
+HudLayout ComputeHudLayout(
+    Rect vp,
+    const UiTheme& theme,
+    bool hasHScroll,
+    bool hasVScroll,
+    UiSize size,
+    bool showZoomPercent
+) noexcept {
     HudLayout hud{};
     const keel::f32 s = 1.0f;
     const ScrollbarMetrics& sm = theme.GetScrollbar(size);
@@ -171,12 +178,14 @@ HudLayout ComputeHudLayout(Rect vp, const UiTheme& theme, bool hasHScroll, bool 
     const keel::f32 btnH = 24.0f * s;
     const keel::f32 sqW = 24.0f * s;
     const keel::f32 fitW = 34.0f * s;
-    const keel::f32 oneW = 40.0f * s;
-    const keel::f32 badgeW = 46.0f * s;
+    const keel::f32 oneW = showZoomPercent ? (40.0f * s) : 0.0f;
+    const keel::f32 badgeW = showZoomPercent ? (46.0f * s) : 0.0f;
     const keel::f32 pad = 3.0f * s;
     const keel::f32 gap = 2.0f * s;
 
-    const keel::f32 totalW = pad * 2.0f + sqW + fitW + oneW + sqW + badgeW + gap * 4.0f;
+    const keel::f32 totalW = showZoomPercent
+        ? (pad * 2.0f + sqW + fitW + oneW + sqW + badgeW + gap * 4.0f)
+        : (pad * 2.0f + sqW + fitW + sqW + gap * 2.0f);
     const keel::f32 totalH = btnH + pad * 2.0f;
 
     const keel::f32 x = keel::max(vp.x + 4.0f * s, vp.Right() - totalW - marginX);
@@ -188,9 +197,13 @@ HudLayout ComputeHudLayout(Rect vp, const UiTheme& theme, bool hasHScroll, bool 
 
     hud.minusBtn = Rect(cx, cy, sqW, btnH); cx += sqW + gap;
     hud.fitBtn   = Rect(cx, cy, fitW, btnH); cx += fitW + gap;
-    hud.oneBtn   = Rect(cx, cy, oneW, btnH); cx += oneW + gap;
+    if (showZoomPercent) {
+        hud.oneBtn = Rect(cx, cy, oneW, btnH); cx += oneW + gap;
+    }
     hud.plusBtn  = Rect(cx, cy, sqW, btnH); cx += sqW + gap;
-    hud.badgeRect = Rect(cx, cy, badgeW, btnH);
+    if (showZoomPercent) {
+        hud.badgeRect = Rect(cx, cy, badgeW, btnH);
+    }
     return hud;
 }
 
@@ -582,6 +595,10 @@ bool SceneScope::WasClicked(keel::i32 button) const noexcept {
     return false;
 }
 
+bool SceneScope::WasBackgroundClicked() const noexcept {
+    return (m_payload && m_payload->state) ? m_payload->state->backgroundClicked : false;
+}
+
 void SceneScope::DrawImage(
     keel::StringRef source,
     Rect worldRect,
@@ -890,12 +907,12 @@ void UpdateSceneCameraTransform(
     bool hudConsumed = false;
     state.hoveredHudBtn = 0;
     if (opts.showControls && notOccluded) {
-        const HudLayout hud = ComputeHudLayout(vp, theme, showHScroll, showVScroll, node->uiSize);
+        const HudLayout hud = ComputeHudLayout(vp, theme, showHScroll, showVScroll, node->uiSize, opts.showZoomPercent);
         if (hud.barRect.Contains(mousePos)) {
             hudConsumed = true;
             if (hud.minusBtn.Contains(mousePos)) state.hoveredHudBtn = 1;
             else if (hud.fitBtn.Contains(mousePos)) state.hoveredHudBtn = 2;
-            else if (hud.oneBtn.Contains(mousePos)) state.hoveredHudBtn = 3;
+            else if (opts.showZoomPercent && hud.oneBtn.Contains(mousePos)) state.hoveredHudBtn = 3;
             else if (hud.plusBtn.Contains(mousePos)) state.hoveredHudBtn = 4;
 
             if (mouseClicked && state.hoveredHudBtn != 0) {
@@ -1211,6 +1228,7 @@ SceneScope Scene::OpenWithId(
         optsCopy.height,
         optsCopy.showScrollbars,
         optsCopy.showControls,
+        optsCopy.showZoomPercent,
         optsCopy.inspectorPlacement,
         optsCopy.inspectorOffset.x,
         optsCopy.inspectorOffset.y,
@@ -1254,6 +1272,7 @@ void Scene::Update(Context& ctx, Node* node) {
     SceneState& state = *payload->state;
     const SceneOptions& opts = payload->opts;
     state.clickedItemKey = 0;
+    state.backgroundClicked = false;
 
     const UiTheme& theme = node->GetTheme(ctx.GetTheme());
     const Rect vp = GetViewportRect(node, nullptr, theme);
@@ -1414,7 +1433,11 @@ void Scene::Update(Context& ctx, Node* node) {
                 }
             } else if (!mods.ctrl) {
                 state.selectedItemKeys.clear();
+                state.backgroundClicked = true;
             }
+            ctx.RequestRepaint(2);
+        } else if (!state.panning && state.hoveredItemKey == 0 && !mods.ctrl) {
+            state.backgroundClicked = true;
             ctx.RequestRepaint(2);
         }
         state.pointerDown = false;
@@ -1834,9 +1857,10 @@ void Scene::RenderOverlays(
         );
     }
 
-    // 2. Render Floating Zoom HUD (Bottom-Right) and CAD Selection Inspector Pill (Bottom-Left)
-    if (opts.showControls && vp.w > 180.0f * s && vp.h > 60.0f * s) {
-        const HudLayout hud = ComputeHudLayout(vp, theme, showHScroll, showVScroll, node->uiSize);
+    // 2. Render Floating Zoom HUD (Bottom-Right) and CAD Selection Inspector Pill (Bottom-Left or Top-Left)
+    const keel::f32 minHudViewportW = opts.showZoomPercent ? (180.0f * s) : (110.0f * s);
+    if (opts.showControls && vp.w > minHudViewportW && vp.h > 60.0f * s) {
+        const HudLayout hud = ComputeHudLayout(vp, theme, showHScroll, showVScroll, node->uiSize, opts.showZoomPercent);
         const Color hudBg = theme.palette.surfaceElevated.WithAlpha(235);
         const Color hudBorder = theme.palette.borderHover;
         canvas.DrawRoundRect(hud.barRect, 6.0f * s, hudBg, hudBorder, 1.0f);
@@ -1852,12 +1876,16 @@ void Scene::RenderOverlays(
 
         drawHudBtn(hud.minusBtn, "-", 1);
         drawHudBtn(hud.fitBtn, "Fit", 2);
-        drawHudBtn(hud.oneBtn, "100%", 3);
+        if (opts.showZoomPercent) {
+            drawHudBtn(hud.oneBtn, "100%", 3);
+        }
         drawHudBtn(hud.plusBtn, "+", 4);
 
-        char zoomBuf[24]{};
-        const keel::StringRef zoomStr = keel::format_buf(zoomBuf, "%.0f%%", state.zoom * 100.0f);
-        canvas.DrawTextBox(zoomStr, hud.badgeRect, fs, theme.palette.textSecondary, 0.5f, 0.5f);
+        if (opts.showZoomPercent) {
+            char zoomBuf[24]{};
+            const keel::StringRef zoomStr = keel::format_buf(zoomBuf, "%.0f%%", state.zoom * 100.0f);
+            canvas.DrawTextBox(zoomStr, hud.badgeRect, fs, theme.palette.textSecondary, 0.5f, 0.5f);
+        }
 
         // CAD Component Inspector Pill (Bottom-Left) when an item is hovered or selected
         const SceneItemInfo* hovItem = nullptr;

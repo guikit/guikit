@@ -88,6 +88,7 @@ struct SceneState {
     // Interactive SceneItem selection & marquee state
     keel::u64 hoveredItemKey{0};
     keel::u64 clickedItemKey{0};
+    bool backgroundClicked{false};       ///< One-frame: left click released on empty background without panning
     keel::Array<keel::u64> selectedItemKeys{};
     keel::u64 hoveredDraggableKey{0};    ///< hoveredItemKey when that item is draggable (press starts a drag)
     keel::u64 draggedItemKey{0};         ///< Item being dragged (0 = none)
@@ -154,6 +155,7 @@ struct SceneOptions {
     bool selectableItems{true};                         ///< Enable interactive hit-testing, click selection, and Shift+Drag marquee selection
     bool showScrollbars{true};                          ///< Render 2D (X/Y) scrollbars when worldSize overflows viewport
     bool showControls{true};                            ///< Render floating Zoom HUD (-, Fit, 100%, +)
+    bool showZoomPercent{true};                         ///< Show the `100%` reset button and zoom percentage readout in the Zoom HUD
     SceneInspectorPlacement inspectorPlacement{SceneInspectorPlacement::BottomLeft}; ///< Corner anchor for the floating hover/selection inspector pill
     Vec2 inspectorOffset{0.0f, 0.0f};                   ///< Additional screen-space inset in dp for the floating inspector pill
     bool clampToWorld{true};                            ///< Clamp panning to worldSize bounds when worldSize is finite
@@ -300,6 +302,10 @@ public:
 
     /// Returns true if the given mouse button (1=Left, 2=Middle, 3=Right) was clicked on the unoccluded scene canvas in this frame.
     [[nodiscard]] bool WasClicked(keel::i32 button = 1) const noexcept;
+
+    /// Returns true for one frame when the user clicked (pressed and released without panning/dragging)
+    /// on empty scene background rather than on any interactive `Scene::Item` or HUD control.
+    [[nodiscard]] bool WasBackgroundClicked() const noexcept;
 
     /// Returns the screen-space viewport rectangle.
     [[nodiscard]] Rect GetViewportRect() const noexcept { return m_viewport; }
