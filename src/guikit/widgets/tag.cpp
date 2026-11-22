@@ -1,6 +1,7 @@
 #include "guikit/widgets/tag.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
+#include "guikit/core/bevel_draw.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
 #include "keel/math.h"
@@ -95,6 +96,7 @@ TagMetrics ComputeTagMetrics(UiSize size, const UiTheme& theme) noexcept {
             break;
         }
     }
+    m.radius = theme.GetRadius(size);
     return m;
 }
 
@@ -276,22 +278,30 @@ void Tag::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
     const TagOptions& opts = data->opts;
     const TagMetrics m = ComputeTagMetrics(node->uiSize, theme);
     const keel::f32 fontSize = m.fontSize;
+    const bool isBevel = theme.IsBevel() && !opts.border.radius.has_value();
     const keel::f32 radius = opts.border.radius.has_value()
         ? *opts.border.radius
-        : (opts.pill ? rect.h * 0.5f : m.radius);
+        : ((opts.pill && !isBevel && m.radius > 0.01f) ? rect.h * 0.5f : (isBevel ? 0.0f : m.radius));
 
     const TagPalette p = ResolveTagPalette(opts, data->hovered, data->pressed, node->disabled, theme);
     const keel::f32 borderW = (opts.style == TagStyle::Solid && !opts.border.color.HasAny())
         ? 0.0f
         : keel::max(0.0f, opts.border.width);
 
-    canvas.DrawRoundRect(
-        rect,
-        keel::min(radius, rect.h * 0.5f),
-        p.bg,
-        borderW > 0.0f ? p.border : Color::Transparent(),
-        borderW
-    );
+    if (isBevel) {
+        if (p.bg.a > 0u) {
+            canvas.DrawRect(rect, p.bg);
+        }
+        detail::DrawBevelFrame(canvas, rect, theme, /*sunken=*/true, /*thin=*/true);
+    } else {
+        canvas.DrawRoundRect(
+            rect,
+            keel::min(radius, rect.h * 0.5f),
+            p.bg,
+            borderW > 0.0f ? p.border : Color::Transparent(),
+            borderW
+        );
+    }
 
     keel::f32 curX = rect.x + m.padX;
     keel::f32 rightEdge = rect.Right() - m.padX;

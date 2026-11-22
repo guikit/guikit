@@ -70,7 +70,7 @@ struct ContextMenuOptions {
     keel::Optional<keel::f32> width{keel::kNullOpt};
     keel::Optional<keel::f32> maxHeight{keel::kNullOpt};    ///< Optional max height before internal wheel scrolling kicks in
     StateColor background{};
-    Border border{.width = 1.0f, .radius = 8.0f};
+    Border border{.width = 1.0f};
     UiSize size{UiSize::Md};
     bool disabled{false};
     bool autoFocusFirst{false};                         ///< Automatically highlight first enabled item when freshly opened

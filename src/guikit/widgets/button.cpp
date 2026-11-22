@@ -1,6 +1,7 @@
 #include "guikit/widgets/button.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
+#include "guikit/core/bevel_draw.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
 #include "keel/math.h"
@@ -380,8 +381,31 @@ void Button::Render(
     canvas.PushClip(capsuleRect);
 
     // Background & border
+    const bool isGhostBtn = (effColor.token == StateColorToken::Ghost) ||
+                            (effColor.normal.has_value() && effColor.normal->a == 0u);
+    const bool isBevel = theme.IsBevel() && !opts.border.radius.has_value();
     const keel::f32 radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
-    canvas.DrawRoundRect(capsuleRect, radius, bg, borderCol, borderW);
+
+    if (isBevel) {
+        if (bg.a > 0u) {
+            canvas.DrawRect(capsuleRect, bg);
+        }
+        if (isGhostBtn) {
+            if (!disabled && (pressed || opts.active)) {
+                detail::DrawBevelFrame(canvas, capsuleRect, theme, /*sunken=*/true, /*thin=*/true);
+            } else if (!disabled && hovered) {
+                detail::DrawBevelFrame(canvas, capsuleRect, theme, /*sunken=*/false, /*thin=*/true);
+            }
+        } else if (hasCtrlBg) {
+            detail::DrawBevelFrame(canvas, capsuleRect, theme, /*sunken=*/(!disabled && (pressed || opts.active)), /*thin=*/false);
+        }
+        if (focused && !disabled && capsuleRect.w > 8.0f && capsuleRect.h > 8.0f) {
+            const Rect innerFocus(capsuleRect.x + 3.0f, capsuleRect.y + 3.0f, capsuleRect.w - 6.0f, capsuleRect.h - 6.0f);
+            canvas.DrawRoundRect(innerFocus, 0.0f, Color::Transparent(), theme.palette.focusRing, 1.0f);
+        }
+    } else {
+        canvas.DrawRoundRect(capsuleRect, radius, bg, borderCol, borderW);
+    }
 
     const bool hasIcon = opts.loading || opts.icon.IsValid();
     const bool hasCapsuleText = !effectiveCapsuleText.empty();
@@ -402,9 +426,10 @@ void Button::Render(
             drawBadge = true;
         }
     }
+    const keel::f32 pressShift = (isBevel && !disabled && (pressed || opts.active)) ? 1.0f : 0.0f;
     const Rect contentBounds(
-        capsuleRect.x,
-        capsuleRect.y,
+        capsuleRect.x + pressShift,
+        capsuleRect.y + pressShift,
         keel::max(0.0f, capsuleRect.w - (drawBadge ? (badgeW + badgeGap) : 0.0f)),
         capsuleRect.h
     );
@@ -422,7 +447,8 @@ void Button::Render(
             badgeFg = theme.ResolveTextStateColor(opts.badge.color).Resolve(hovered, pressed || opts.active, disabled, textCol);
             badgeBg = badgeFg.WithAlphaF(0.20f);
         }
-        canvas.DrawRoundRect(badgeRect, badgeH * 0.5f, badgeBg);
+        const keel::f32 badgeRadius = (isBevel || m.cornerRadius <= 0.01f) ? 0.0f : (badgeH * 0.5f);
+        canvas.DrawRoundRect(badgeRect, badgeRadius, badgeBg);
         canvas.DrawTextBox(opts.badge.text, badgeRect, badgeFontSize, badgeFg, 0.5f, 0.5f);
     }
 
@@ -456,7 +482,11 @@ void Button::Render(
                 alignX = 1.0f;
             }
         }
-        canvas.DrawTextBox(effectiveCapsuleText.text, textRect, capFontSize, textCol, alignX, 0.5f);
+        if (isBevel && disabled) {
+            detail::DrawBevelDisabledTextBox(canvas, effectiveCapsuleText.text, textRect, capFontSize, theme, alignX, 0.5f);
+        } else {
+            canvas.DrawTextBox(effectiveCapsuleText.text, textRect, capFontSize, textCol, alignX, 0.5f);
+        }
     } else if (hasIcon && hasCapsuleText) {
         // Icon + Label
         const keel::f32 rightPad = drawBadge ? 0.0f : padX;
@@ -477,7 +507,11 @@ void Button::Render(
             }
             DrawButtonGlyph(canvas, opts, Rect(iconX, startY, m.iconSize, m.iconSize), icoCol, loadingPhase);
             const Rect textRect(contentBounds.x + padX, startY + m.iconSize + vGap, keel::max(0.0f, contentBounds.w - padX - rightPad), textH);
-            canvas.DrawTextBox(effectiveCapsuleText.text, textRect, capFontSize, textCol, alignX, 0.5f);
+            if (isBevel && disabled) {
+                detail::DrawBevelDisabledTextBox(canvas, effectiveCapsuleText.text, textRect, capFontSize, theme, alignX, 0.5f);
+            } else {
+                canvas.DrawTextBox(effectiveCapsuleText.text, textRect, capFontSize, textCol, alignX, 0.5f);
+            }
         } else if (opts.iconPlacement == Placement::Bottom) {
             const keel::f32 vGap = 4.0f;
             const keel::f32 textH = canvas.GetLineHeight(capFontSize);
@@ -493,7 +527,11 @@ void Button::Render(
                 alignX = 1.0f;
             }
             const Rect textRect(contentBounds.x + padX, startY, keel::max(0.0f, contentBounds.w - padX - rightPad), textH);
-            canvas.DrawTextBox(effectiveCapsuleText.text, textRect, capFontSize, textCol, alignX, 0.5f);
+            if (isBevel && disabled) {
+                detail::DrawBevelDisabledTextBox(canvas, effectiveCapsuleText.text, textRect, capFontSize, theme, alignX, 0.5f);
+            } else {
+                canvas.DrawTextBox(effectiveCapsuleText.text, textRect, capFontSize, textCol, alignX, 0.5f);
+            }
             DrawButtonGlyph(canvas, opts, Rect(iconX, startY + textH + vGap, m.iconSize, m.iconSize), icoCol, loadingPhase);
         } else if (opts.iconPlacement == Placement::Trailing) {
             const keel::f32 availTextW = keel::max(0.0f, contentBounds.w - padX - rightPad - m.iconSize - gap);

@@ -1,6 +1,7 @@
 #include "guikit/widgets/heading.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
+#include "guikit/core/bevel_draw.hpp"
 #include "guikit/core/control.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
@@ -444,8 +445,15 @@ void Heading::Render(
                 badgeTextCol = badgeTextCol.WithAlphaF(0.40f);
             }
 
-            canvas.DrawRoundRect(Rect(curX, badgeY, badgeW, badgeH), badgeH * 0.5f, badgeBg, badgeBorderCol, badgeBorderW);
-            canvas.DrawTextBox(opts.badge.text, Rect(curX, badgeY, badgeW, badgeH), g.badgeFontSize, badgeTextCol, 0.5f, 0.5f);
+            const Rect badgeR(curX, badgeY, badgeW, badgeH);
+            if (theme.IsBevel()) {
+                canvas.DrawRect(badgeR, badgeBg);
+                detail::DrawBevelFrame(canvas, badgeR, theme, /*sunken=*/true, /*thin=*/true);
+            } else {
+                const keel::f32 badgeRadius = (theme.GetRadius(UiSize::Sm) <= 0.01f) ? 0.0f : (badgeH * 0.5f);
+                canvas.DrawRoundRect(badgeR, badgeRadius, badgeBg, badgeBorderCol, badgeBorderW);
+            }
+            canvas.DrawTextBox(opts.badge.text, badgeR, g.badgeFontSize, badgeTextCol, 0.5f, 0.5f);
             curX += badgeW;
         }
     }
@@ -481,7 +489,11 @@ void Heading::Render(
         if (g.hasTitleBar) contentBottom = keel::max(contentBottom, g.titleBarRect.Bottom());
         if (g.hasDesc)     contentBottom = keel::max(contentBottom, g.descRect.Bottom());
         const keel::f32 sepY = keel::floor(contentBottom + sepPad) + 0.5f;
-        Separator::RenderLine(canvas, Vec2(g.bounds.x, sepY), Vec2(g.bounds.Right(), sepY), sepColor, sepStrokeW);
+        if (theme.IsBevel()) {
+            detail::DrawBevelDividerH(canvas, g.bounds.x, g.bounds.Right(), sepY - 0.5f, theme);
+        } else {
+            Separator::RenderLine(canvas, Vec2(g.bounds.x, sepY), Vec2(g.bounds.Right(), sepY), sepColor, sepStrokeW);
+        }
     } else if (opts.separator.placement == HeadingSeparator::Trailing && g.hasTitleBar && g.titleBarRect.h > 0.0f) {
         const keel::f32 lineY = keel::floor(g.titleBarRect.y + g.titleBarRect.h * 0.5f) + 0.5f;
         if (opts.layout == HeadingLayout::Inline && g.hasDesc && g.descRect.w > 0.0f) {

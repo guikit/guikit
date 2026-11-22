@@ -1761,7 +1761,7 @@ void TestThemeSystemColorSciencePresetsSpecJsonAndLerp() {
     CHECK(teal.Lighten(0.15f).RelativeLuminance() > teal.RelativeLuminance());
     CHECK(teal.Darken(0.15f).RelativeLuminance() < teal.RelativeLuminance());
 
-    // 3. All 9 curated ThemePresets meet WCAG AA contrast (and HighContrast meets >= 12:1)
+    // 3. All curated ThemePresets meet WCAG AA contrast (and HighContrast meets >= 12:1)
     for (keel::usize i = 0u; i < kThemePresetCount; ++i) {
         const auto preset = keel::from_underlying<ThemePreset>(i);
         CHECK(!ThemePresetName(preset).empty());
@@ -1776,11 +1776,29 @@ void TestThemeSystemColorSciencePresetsSpecJsonAndLerp() {
             CHECK(!t.shadowsEnabled);
             CHECK(t.focusRingWidth >= 3.0f);
             CHECK(!t.GetShadow(Elevation::Lg).IsVisible());
+        } else if (preset == ThemePreset::Windows98) {
+            CHECK(t.mode == ThemeMode::Light);
+            CHECK(t.IsBevel());
+            CHECK(!t.shadowsEnabled);
+            CHECK(!t.GetShadow(Elevation::Lg).IsVisible());
+            CHECK(t.GetMetrics(UiSize::Md).cornerRadius == 0.0f);
+            CHECK(t.GetRadius(UiSize::Md) == 0.0f);
         } else {
             CHECK(t.shadowsEnabled);
             CHECK(t.GetShadow(Elevation::Lg).blur > t.GetShadow(Elevation::Sm).blur);
             CHECK(!t.GetShadow(Elevation::None).IsVisible());
         }
+    }
+
+    // 3b. Windows98 preset factory & JSON round-trip
+    {
+        const UiTheme w98 = UiTheme::Windows98();
+        CHECK(w98.preset == ThemePreset::Windows98);
+        CHECK(w98.GetMetrics(UiSize::Md).cornerRadius == 0.0f);
+        ThemeSpec w98Spec{};
+        w98Spec.base = ThemePreset::Windows98;
+        const auto w98Parsed = ThemeSpec::FromJson(w98Spec.ToJson());
+        CHECK(w98Parsed.has_value() && w98Parsed->base == ThemePreset::Windows98);
     }
 
     // 4. Declarative ThemeSpec builder, SurfaceStyle, SurfaceContrast, SyntaxPreset & mutators

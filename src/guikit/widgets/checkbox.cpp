@@ -1,6 +1,7 @@
 #include "guikit/widgets/checkbox.hpp"
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/core/bevel_draw.hpp"
 #include "guikit/core/node.hpp"
 
 namespace guikit {
@@ -202,7 +203,19 @@ void Checkbox::Render(
     }
 
     // Draw box
-    canvas.DrawRoundRect(boxRect, m.cornerRadius, boxFill, boxStroke, strokeWidth);
+    if (theme.IsBevel()) {
+        const Color bevelFill = disabled
+            ? pal.surface
+            : (pressed ? pal.surface : pal.inputBackground);
+        canvas.DrawRect(boxRect, bevelFill);
+        detail::DrawBevelFrame(canvas, boxRect, theme, /*sunken=*/true, /*thin=*/false);
+        if (focused && !disabled) {
+            canvas.DrawRoundRect(boxRect, 0.0f, Color::Transparent(), pal.focusRing, 1.0f);
+        }
+        markColor = disabled ? pal.textDisabled : pal.textPrimary;
+    } else {
+        canvas.DrawRoundRect(boxRect, m.cornerRadius, boxFill, boxStroke, strokeWidth);
+    }
 
     // Draw checkmark or indeterminate dash
     if (checked) {

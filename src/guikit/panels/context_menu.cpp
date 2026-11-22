@@ -1,6 +1,7 @@
 #include "guikit/panels/context_menu.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
+#include "guikit/core/bevel_draw.hpp"
 #include "guikit/core/text_util.hpp"
 #include "keel/array.h"
 #include "keel/math.h"
@@ -578,9 +579,11 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
     ctx.RegisterOverlay([drawPanels, radius, padX, padY, icSz, iconSlotW, submenuSlotW, labelFont, shortcutFont, sectionFont, titleFont, theme, opts](ICanvas& c) {
         const auto& pal = theme.palette;
         const bool isDark = (theme.mode == ThemeMode::Dark);
-        const Color defaultSurfaceBg = isDark
-            ? Color(19, 26, 41, 250)
-            : Color(255, 255, 255, 252);
+        const bool isBevel = theme.IsBevel();
+        const keel::f32 effRadius = isBevel ? 0.0f : radius;
+        const Color defaultSurfaceBg = isBevel
+            ? pal.surfaceElevated.WithAlpha(255u)
+            : (isDark ? pal.surfaceElevated.WithAlpha(250u) : pal.surfaceElevated.WithAlpha(252u));
         const Color surfaceBg = opts.background.IsBackgroundEnabled(true)
             ? (!opts.background.HasAny()
                 ? defaultSurfaceBg
@@ -598,22 +601,31 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
 
             // Theme-controlled elevation shadow
             if (const ShadowStyle sh = theme.GetShadow(Elevation::Lg, s); sh.IsVisible()) {
-                c.DrawShadow(pr, radius, sh.blur, sh.offset, sh.color);
+                c.DrawShadow(pr, effRadius, sh.blur, sh.offset, sh.color);
             }
 
-            c.DrawRoundRect(pr, radius, surfaceBg, borderCol, borderW);
+            if (isBevel) {
+                c.DrawRect(pr, surfaceBg);
+                detail::DrawBevelFrame(c, pr, theme, /*sunken=*/false, /*thin=*/false);
+            } else {
+                c.DrawRoundRect(pr, effRadius, surfaceBg, borderCol, borderW);
+            }
 
             c.PushClip(pr);
 
             if (!panel.title.empty()) {
                 const Rect titleRect(pr.x + padX, pr.y + padY, keel::max(10.0f, pr.w - padX * 2.0f), panel.titleH);
                 c.DrawTextBoxStyled(panel.title, titleRect, titleFont, pal.textSecondary, FontStyle::Bold, 0.0f, 0.5f);
-                c.DrawLine(
-                    Vec2(pr.x + padX * 0.75f, panel.titleSepY),
-                    Vec2(pr.Right() - padX * 0.75f, panel.titleSepY),
-                    pal.border,
-                    1.0f
-                );
+                if (isBevel) {
+                    detail::DrawBevelDividerH(c, pr.x + padX * 0.5f, pr.Right() - padX * 0.5f, panel.titleSepY, theme);
+                } else {
+                    c.DrawLine(
+                        Vec2(pr.x + padX * 0.75f, panel.titleSepY),
+                        Vec2(pr.Right() - padX * 0.75f, panel.titleSepY),
+                        pal.border,
+                        1.0f
+                    );
+                }
             }
 
             c.PushClip(panel.contentRect);
@@ -622,7 +634,11 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
                     continue;
                 }
                 if (it.isSeparator) {
-                    c.DrawLine(Vec2(it.rect.x, it.rect.y), Vec2(it.rect.Right(), it.rect.y), pal.border, 1.0f);
+                    if (isBevel) {
+                        detail::DrawBevelDividerH(c, it.rect.x, it.rect.Right(), it.rect.y, theme);
+                    } else {
+                        c.DrawLine(Vec2(it.rect.x, it.rect.y), Vec2(it.rect.Right(), it.rect.y), pal.border, 1.0f);
+                    }
                     continue;
                 }
                 if (it.isSection) {
@@ -633,18 +649,32 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
                 const bool isDanger = (it.variant == UiVariant::Danger);
                 const Color dangerCol = theme.GetVariant(UiVariant::Danger).bg;
                 const bool iconWithCheck = it.icon.IsValid() && (it.hasCheck || it.checked);
+                const bool bevelHighlight = isBevel && it.hovered && !it.disabled;
+                const keel::f32 itemRadius = isBevel ? 0.0f : keel::max(0.0f, effRadius - 2.0f * s);
 
-                if (it.hovered && !it.disabled) {
+                if (bevelHighlight) {
+                    c.DrawRect(it.rect, isDanger ? dangerCol : pal.accent);
+                } else if (it.hovered && !it.disabled) {
                     const Color hovBg = isDanger
                         ? dangerCol.WithAlphaF(isDark ? 0.22f : 0.14f)
                         : (it.subExpanded ? pal.surfaceActive : pal.surfaceHover);
-                    c.DrawRoundRect(it.rect, keel::max(4.0f * s, radius - 2.0f * s), hovBg, Color::Transparent(), 0.0f);
+                    if (itemRadius > 0.0f) {
+                        c.DrawRoundRect(it.rect, itemRadius, hovBg, Color::Transparent(), 0.0f);
+                    } else {
+                        c.DrawRect(it.rect, hovBg);
+                    }
                 } else if (it.checked && iconWithCheck) {
-                    c.DrawRoundRect(it.rect, keel::max(4.0f * s, radius - 2.0f * s), pal.surfaceHover, Color::Transparent(), 0.0f);
+                    if (itemRadius > 0.0f) {
+                        c.DrawRoundRect(it.rect, itemRadius, pal.surfaceHover, Color::Transparent(), 0.0f);
+                    } else {
+                        c.DrawRect(it.rect, pal.surfaceHover);
+                    }
                 }
 
-                Color fg = isDanger ? dangerCol : (it.checked ? pal.accent : pal.textPrimary);
-                Color mutedFg = pal.textSecondary;
+                Color fg = bevelHighlight
+                    ? pal.accentText
+                    : (isDanger ? dangerCol : (it.checked ? pal.accent : pal.textPrimary));
+                Color mutedFg = bevelHighlight ? pal.accentText : pal.textSecondary;
                 if (it.disabled) {
                     fg = fg.WithAlphaF(0.4f);
                     mutedFg = mutedFg.WithAlphaF(0.4f);
@@ -659,10 +689,10 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
                         icSz
                     );
                     if (it.icon.IsValid()) {
-                        const Color icCol = isDanger ? fg : (it.checked ? pal.accent : (it.hovered ? fg : mutedFg));
+                        const Color icCol = bevelHighlight ? pal.accentText : (isDanger ? fg : (it.checked ? pal.accent : (it.hovered ? fg : mutedFg)));
                         it.icon.Draw(c, icRect, icCol);
                     } else if (it.checked) {
-                        const Color markCol = isDanger ? dangerCol : pal.accent;
+                        const Color markCol = bevelHighlight ? pal.accentText : (isDanger ? dangerCol : pal.accent);
                         if (it.isRadio) {
                             const keel::f32 dotD = keel::max(6.0f, icSz * 0.46f);
                             const Rect dotRect(
@@ -701,7 +731,7 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
                             icSz,
                             icSz
                         );
-                        const Color markCol = isDanger ? dangerCol : pal.accent;
+                        const Color markCol = bevelHighlight ? pal.accentText : (isDanger ? dangerCol : pal.accent);
                         if (it.isRadio) {
                             const keel::f32 dotD = keel::max(6.0f, icSz * 0.46f);
                             c.DrawRoundRect(

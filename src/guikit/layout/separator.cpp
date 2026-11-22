@@ -2,6 +2,7 @@
 #include "keel/math.h"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
+#include "guikit/core/bevel_draw.hpp"
 #include "guikit/core/node.hpp"
 
 namespace guikit {
@@ -31,23 +32,31 @@ void Separator::Render(
     if (orientation == Orientation::Vertical) {
         const keel::f32 midY = keel::floor(bounds.Center().y) + 0.5f;
         const keel::f32 padX = keel::max(2.0f, bounds.w * insetRatio);
-        RenderLine(
-            canvas,
-            Vec2(bounds.x + padX, midY),
-            Vec2(bounds.Right() - padX, midY),
-            stroke,
-            1.0f
-        );
+        if (theme.IsBevel()) {
+            detail::DrawBevelDividerH(canvas, bounds.x + padX, bounds.Right() - padX, midY - 0.5f, theme);
+        } else {
+            RenderLine(
+                canvas,
+                Vec2(bounds.x + padX, midY),
+                Vec2(bounds.Right() - padX, midY),
+                stroke,
+                1.0f
+            );
+        }
     } else {
         const keel::f32 midX = keel::floor(bounds.Center().x) + 0.5f;
         const keel::f32 padY = keel::max(2.0f, bounds.h * insetRatio);
-        RenderLine(
-            canvas,
-            Vec2(midX, bounds.y + padY),
-            Vec2(midX, bounds.Bottom() - padY),
-            stroke,
-            1.0f
-        );
+        if (theme.IsBevel()) {
+            detail::DrawBevelDividerV(canvas, midX - 0.5f, bounds.y + padY, bounds.Bottom() - padY, theme);
+        } else {
+            RenderLine(
+                canvas,
+                Vec2(midX, bounds.y + padY),
+                Vec2(midX, bounds.Bottom() - padY),
+                stroke,
+                1.0f
+            );
+        }
     }
 }
 
@@ -104,6 +113,10 @@ void Separator::Run(
                 const keel::f32 midX = keel::floor(n->computedRect.Center().x) + 0.5f;
                 const keel::f32 centerY = n->computedRect.Center().y;
                 const keel::f32 halfH = keel::max(4.0f, keel::round(n->computedRect.h * 0.42f));
+                if (theme.IsBevel()) {
+                    detail::DrawBevelDividerV(canvas, midX - 0.5f, keel::floor(centerY - halfH), keel::floor(centerY + halfH), theme);
+                    return;
+                }
                 Separator::RenderLine(
                     canvas,
                     Vec2(midX, keel::floor(centerY - halfH) + 0.5f),
@@ -139,6 +152,10 @@ void Separator::Run(
                 padX = keel::max(2.0f, n->computedRect.w * 0.18f);
             } else if (n->parent && n->parent->type == NodeType::Sidebar && n->parent->sidebarCompact) {
                 padX = keel::min(6.0f, n->computedRect.w * 0.18f);
+            }
+            if (theme.IsBevel()) {
+                detail::DrawBevelDividerH(canvas, n->computedRect.x + padX, n->computedRect.Right() - padX, y - 0.5f, theme);
+                return;
             }
             Separator::RenderLine(
                 canvas,

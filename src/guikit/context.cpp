@@ -1,4 +1,5 @@
 #include "guikit/context.hpp"
+#include "guikit/core/bevel_draw.hpp"
 #include "guikit/core/text_util.hpp"
 #include "keel/math.h"
 #include "keel/static_array.h"
@@ -3608,7 +3609,24 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
     // 2. Render container border stroke on top of children (after PopClip) so children never overwrite parent border
     if (hasContainerBorder) {
         const Rect& r = node->computedRect;
-        if (node->cornerRadius <= 0.0f && node->type == NodeType::Sidebar) {
+        if (activeTheme.IsBevel() && node->cornerRadius <= 0.0f) {
+            if (node->type == NodeType::Sidebar) {
+                const keel::f32 x = node->sidebarRight ? r.x : keel::max(r.x, r.Right() - 2.0f);
+                detail::DrawBevelDividerV(canvas, x, r.y, r.Bottom(), activeTheme);
+            } else if (node->type == NodeType::BottomPanel || node->type == NodeType::StatusBar) {
+                detail::DrawBevelDividerH(canvas, r.x, r.Right(), r.y, activeTheme);
+            } else if (node->type == NodeType::Toolbar) {
+                if (node->direction == FlexDirection::Column) {
+                    detail::DrawBevelDividerV(canvas, keel::max(r.x, r.Right() - 2.0f), r.y, r.Bottom(), activeTheme);
+                } else {
+                    detail::DrawBevelDividerH(canvas, r.x, r.Right(), keel::max(r.y, r.Bottom() - 2.0f), activeTheme);
+                }
+            } else if (node->type == NodeType::Card && node->renderFn == nullptr) {
+                detail::DrawBevelEtchedFrame(canvas, r, activeTheme);
+            } else {
+                detail::DrawBevelFrame(canvas, r, activeTheme, /*sunken=*/false, /*thin=*/false);
+            }
+        } else if (node->cornerRadius <= 0.0f && node->type == NodeType::Sidebar) {
             const keel::f32 x = node->sidebarRight ? r.x : keel::max(r.x, r.Right() - node->borderWidth);
             canvas.DrawRect(Rect(x, r.y, node->borderWidth, r.h), node->borderColor);
         } else if (node->cornerRadius <= 0.0f &&

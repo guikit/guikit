@@ -1,6 +1,7 @@
 #include "guikit/widgets/tab_bar.hpp"
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/core/bevel_draw.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
 #include "guikit/panels/carousel.hpp"
@@ -58,9 +59,11 @@ TabBarResponse TabBar::Run(
     const UiTheme& theme = ctx.GetTheme();
     const ComponentMetrics& m = theme.GetMetrics(activeSize);
     const keel::f32 barDensity = barNode->GetDensity();
-    const keel::f32 defaultTabGap = (opts.style == TabBarStyle::Card || opts.style == TabBarStyle::Folder)
-        ? 2.0f
-        : ((theme.SizeFactor(activeSize) < 0.90f) ? theme.GetGap(UiSize::Xs) : theme.GetGap(UiSize::Sm));
+    const keel::f32 defaultTabGap = theme.IsBevel()
+        ? 0.0f
+        : ((opts.style == TabBarStyle::Card || opts.style == TabBarStyle::Folder)
+            ? 2.0f
+            : ((theme.SizeFactor(activeSize) < 0.90f) ? theme.GetGap(UiSize::Xs) : theme.GetGap(UiSize::Sm)));
     const keel::f32 activeTabGap = (opts.gap.has_value() ? *opts.gap : defaultTabGap) * barDensity;
 
     const Color resolvedBg = opts.background.IsBackgroundEnabled(false)
@@ -117,6 +120,12 @@ TabBarResponse TabBar::Run(
         (opts.style == TabBarStyle::Underline || opts.style == TabBarStyle::Card || opts.style == TabBarStyle::Folder);
     if (hasBaselineSeparator) {
         barNode->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& th) noexcept {
+            if (th.IsBevel()) {
+                const detail::BevelColors bc = detail::ResolveBevelColors(th);
+                const keel::f32 y = keel::floor(n->computedRect.Bottom() - 1.0f);
+                canvas.DrawRect(Rect(n->computedRect.x, y, n->computedRect.w, 1.0f), bc.highlightOuter);
+                return;
+            }
             const keel::f32 sepY = n->computedRect.Bottom() - 0.5f;
             canvas.DrawLine(
                 Vec2(n->computedRect.x, sepY),
@@ -342,7 +351,53 @@ void TabBar::RenderTab(
         ? theme.ResolveColor(opts.color, hovered, active, disabled, defaultAccent)
         : defaultAccent;
 
-    if (opts.style == TabBarStyle::Underline) {
+    if (theme.IsBevel() && opts.style != TabBarStyle::Folder) {
+        // Authentic Windows 98 property-sheet tabs (contiguous, 2px chamfered top corners, seamless active bottom)
+        const detail::BevelColors bc = detail::ResolveBevelColors(theme);
+        const keel::f32 topOff = active ? 0.0f : 3.0f;
+        const keel::f32 tx = keel::floor(bounds.x);
+        const keel::f32 ty = keel::floor(bounds.y + topOff);
+        const keel::f32 tw = keel::floor(bounds.w);
+        const keel::f32 botY = keel::floor(bounds.Bottom());
+        const keel::f32 th = keel::max(4.0f, botY - ty);
+        const Color tabBg = active
+            ? pal.surface
+            : ((hovered && !disabled) ? pal.surfaceHover : pal.background);
+
+        // Fill tab body with 2px chamfered top-left & top-right corners
+        if (tw > 4.0f && th > 2.0f) {
+            canvas.DrawRect(Rect(tx + 2.0f, ty, tw - 4.0f, 1.0f), tabBg);
+            canvas.DrawRect(Rect(tx + 1.0f, ty + 1.0f, tw - 2.0f, 1.0f), tabBg);
+            canvas.DrawRect(Rect(tx, ty + 2.0f, tw, th - 2.0f), tabBg);
+        } else {
+            canvas.DrawRect(Rect(tx, ty, tw, th), tabBg);
+        }
+
+        // Top & left raised bevel (with 2px chamfered top-left corner)
+        canvas.DrawRect(Rect(tx + 2.0f, ty, keel::max(0.0f, tw - 4.0f), 1.0f), bc.highlightOuter);
+        canvas.DrawRect(Rect(tx + 1.0f, ty + 1.0f, 1.0f, 1.0f), bc.highlightOuter);
+        canvas.DrawRect(Rect(tx, ty + 2.0f, 1.0f, keel::max(0.0f, th - 2.0f)), bc.highlightOuter);
+
+        canvas.DrawRect(Rect(tx + 2.0f, ty + 1.0f, keel::max(0.0f, tw - 4.0f), 1.0f), bc.highlightInner);
+        canvas.DrawRect(Rect(tx + 1.0f, ty + 2.0f, 1.0f, keel::max(0.0f, th - 2.0f)), bc.highlightInner);
+
+        // Right raised bevel (with 2px chamfered top-right corner)
+        canvas.DrawRect(Rect(tx + tw - 2.0f, ty + 1.0f, 1.0f, 1.0f), bc.shadowOuter);
+        canvas.DrawRect(Rect(tx + tw - 1.0f, ty + 2.0f, 1.0f, keel::max(0.0f, th - 2.0f)), bc.shadowOuter);
+        canvas.DrawRect(Rect(tx + tw - 2.0f, ty + 2.0f, 1.0f, keel::max(0.0f, th - 2.0f)), bc.shadowInner);
+
+        if (active) {
+            // Seamlessly mask the baseline highlight under the active tab
+            canvas.DrawRect(Rect(tx + 2.0f, botY - 1.0f, keel::max(0.0f, tw - 4.0f), 1.0f), tabBg);
+        } else if (opts.showSeparator) {
+            // Continue panel top highlight across bottom of inactive tabs
+            canvas.DrawRect(Rect(tx, botY - 1.0f, tw, 1.0f), bc.highlightOuter);
+        }
+
+        if (focused && !disabled && tw > 8.0f && th > 8.0f) {
+            canvas.DrawRoundRect(Rect(tx + 3.0f, ty + 3.0f, tw - 6.0f, th - 5.0f), 0.0f, Color::Transparent(), pal.focusRing, 1.0f);
+        }
+    } else if (opts.style == TabBarStyle::Underline) {
         if (opts.showSeparator) {
             canvas.DrawLine(
                 Vec2(bounds.x, bounds.Bottom() - 0.5f),
@@ -520,7 +575,10 @@ void TabBar::RenderTab(
 
     const keel::f32 contentAreaW = keel::max(0.0f, bounds.w - closeReserve);
     keel::f32 curX = bounds.x + keel::max(padX, (contentAreaW - contentW) * 0.5f);
-    const keel::f32 centerY = bounds.y + bounds.h * 0.5f;
+    const keel::f32 bevelYShift = (theme.IsBevel() && opts.style != TabBarStyle::Folder)
+        ? (active ? -0.5f : 1.5f)
+        : 0.0f;
+    const keel::f32 centerY = bounds.y + bounds.h * 0.5f + bevelYShift;
 
     // Draw Icon
     if (hasIcon) {
@@ -531,7 +589,7 @@ void TabBar::RenderTab(
 
     // Draw Label
     if (showLabel) {
-        const Rect textR(curX, bounds.y, availLabelW, bounds.h);
+        const Rect textR(curX, bounds.y + bevelYShift, availLabelW, bounds.h);
         canvas.DrawTextBox(displayLabel, textR, labelFont, fgCol, 0.0f, 0.5f);
         curX += labelW;
     }

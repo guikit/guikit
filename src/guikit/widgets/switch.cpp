@@ -1,6 +1,7 @@
 #include "guikit/widgets/switch.hpp"
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/core/bevel_draw.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
 
@@ -279,19 +280,38 @@ void Switch::Render(
     }
 
     // Draw track
-    const keel::f32 trackRadius = m.trackSize.y * 0.5f;
-    canvas.DrawRoundRect(trackRect, trackRadius, trackFill, trackStroke, strokeWidth);
+    const bool isBevel = theme.IsBevel();
+    const bool sharpRect = isBevel || (theme.GetRadius(size) <= 0.01f);
+    if (isBevel) {
+        canvas.DrawRect(trackRect, trackFill);
+        detail::DrawBevelFrame(canvas, trackRect, theme, /*sunken=*/true, /*thin=*/false);
+        if (focused && !disabled) {
+            canvas.DrawRoundRect(trackRect, 0.0f, Color::Transparent(), pal.focusRing, 1.0f);
+        }
+    } else {
+        const keel::f32 trackRadius = sharpRect ? 0.0f : (m.trackSize.y * 0.5f);
+        canvas.DrawRoundRect(trackRect, trackRadius, trackFill, trackStroke, strokeWidth);
+    }
 
     // Compute knob position centered exactly on track's vertical midline
-    const keel::f32 knobY = trackRect.y + (trackRect.h - m.knobDiameter) * 0.5f;
+    const keel::f32 knobPad = isBevel ? 2.0f : m.knobPadding;
+    const keel::f32 knobH = isBevel ? keel::max(6.0f, trackRect.h - knobPad * 2.0f) : m.knobDiameter;
+    const keel::f32 knobW = isBevel ? keel::max(10.0f, m.knobDiameter) : m.knobDiameter;
+    const keel::f32 knobY = trackRect.y + (trackRect.h - knobH) * 0.5f;
     keel::f32 knobX = 0.0f;
     if (checked) {
-        knobX = trackRect.x + trackRect.w - m.knobDiameter - m.knobPadding;
+        knobX = trackRect.x + trackRect.w - knobW - knobPad;
     } else {
-        knobX = trackRect.x + m.knobPadding;
+        knobX = trackRect.x + knobPad;
     }
-    const Rect knobRect(knobX, knobY, m.knobDiameter, m.knobDiameter);
-    canvas.DrawRoundRect(knobRect, m.knobDiameter * 0.5f, knobFill);
+    const Rect knobRect(keel::floor(knobX), keel::floor(knobY), keel::floor(knobW), keel::floor(knobH));
+    if (isBevel) {
+        const Color bevelKnobBg = disabled ? pal.surface.WithAlphaF(theme.disabledOpacity) : pal.surface;
+        canvas.DrawRect(knobRect, bevelKnobBg);
+        detail::DrawBevelFrame(canvas, knobRect, theme, /*sunken=*/false, /*thin=*/false);
+    } else {
+        canvas.DrawRoundRect(knobRect, sharpRect ? 0.0f : (m.knobDiameter * 0.5f), knobFill);
+    }
 }
 
 } // namespace guikit

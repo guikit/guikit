@@ -493,7 +493,8 @@ void MainWindow::RenderThemeControls(ToolbarScope& tb) {
         ThemePresetName(ThemePreset::Industrial),
         ThemePresetName(ThemePreset::IndustrialLight),
         ThemePresetName(ThemePreset::HighContrastDark),
-        ThemePresetName(ThemePreset::HighContrastLight)
+        ThemePresetName(ThemePreset::HighContrastLight),
+        ThemePresetName(ThemePreset::Windows98)
     }};
 
     if (m_ui.Select(m_shellScaleIndex, kScaleLabels, {.size = UiSize::Sm, .width = 88.0f}).changed) {

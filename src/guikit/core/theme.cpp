@@ -284,6 +284,7 @@ void PopulateAllMetrics(UiTheme& theme) noexcept {
 
 void ApplyCuratedPresetColors(UiTheme& theme, ThemePreset p) noexcept {
     theme.preset = p;
+    theme.surfaceStyle = SurfaceStyle::Solid;
     switch (p) {
         case ThemePreset::Dark:
             theme.mode = ThemeMode::Dark;
@@ -638,6 +639,51 @@ void ApplyCuratedPresetColors(UiTheme& theme, ThemePreset p) noexcept {
             PopulateShadows(theme, ThemeMode::Light, 0.0f);
             theme.focusRingWidth = 3.0f;
             break;
+
+        case ThemePreset::Windows98:
+            theme.mode = ThemeMode::Light;
+            theme.surfaceStyle = SurfaceStyle::Bevel;
+            theme.palette = {
+                .background        = Color::Hex(0xC0C0C0FF), // Classic Win98 COLOR_3DFACE desktop gray
+                .surface           = Color::Hex(0xC8C8C8FF), // Classic Win98 dialog & panel gray
+                .surfaceHover      = Color::Hex(0xD4D4D4FF),
+                .surfaceActive     = Color::Hex(0xB0B0B0FF),
+                .surfaceElevated   = Color::Hex(0xC0C0C0FF), // Classic Win98 popup menu & raised window face
+                .border            = Color::Hex(0x808080FF), // Classic Win98 COLOR_3DSHADOW
+                .borderHover       = Color::Hex(0x000080FF), // Win98 Navy highlight border
+                .borderSubtle      = Color::Hex(0x989898FF), // Classic etched separator
+                .focusRing         = Color::Hex(0x000080FF), // Iconic Win98 Navy focus outline
+                .textPrimary       = Color::Hex(0x000000FF), // Pure black ink (11.5:1 on #C0C0C0)
+                .textSecondary     = Color::Hex(0x222222FF),
+                .textMuted         = Color::Hex(0x4F4F4FFF),
+                .textDisabled      = Color::Hex(0x787878B8), // Classic embossed gray disabled text
+                .inputBackground   = Color::Hex(0xFFFFFFFF), // Classic sunken white text field
+                .inputBorder       = Color::Hex(0x404040FF), // Classic Win98 COLOR_3DDKSHADOW
+                .caret             = Color::Hex(0x000000FF),
+                .controlTrack      = Color::Hex(0xB0B0B0FF), // Sunken scrollbar / slider trough
+                .controlTrackHover = Color::Hex(0xA4A4A4FF),
+                .controlKnob       = Color::Hex(0xC0C0C0FF), // Classic raised silver thumb
+                .controlKnobHover  = Color::Hex(0xD0D0D0FF),
+                .controlKnobActive = Color::Hex(0xB0B0B0FF),
+                .accent            = Color::Hex(0x000080FF), // Iconic Win98 Active Titlebar Navy (16.0:1 with white)
+                .accentHover       = Color::Hex(0x0000A8FF), // Rich Win98 hover blue
+                .accentText        = Color::Hex(0xFFFFFFFF)
+            };
+            PopulateVariants(theme, ThemeMode::Light);
+            theme.variants[keel::as<keel::usize>(UiVariant::Default)]   = { Color::Hex(0xC0C0C0FF), Color::Hex(0xCCCCCCFF), Color::Hex(0xB0B0B0FF), Color::Hex(0x000000FF), Color::Hex(0x404040FF), 1.0f };
+            theme.variants[keel::as<keel::usize>(UiVariant::Secondary)] = theme.variants[keel::as<keel::usize>(UiVariant::Default)];
+            theme.variants[keel::as<keel::usize>(UiVariant::Primary)]   = { Color::Hex(0x000080FF), Color::Hex(0x0000A8FF), Color::Hex(0x000060FF), Color::Hex(0xFFFFFFFF), Color::Hex(0x000040FF), 1.0f };
+            theme.variants[keel::as<keel::usize>(UiVariant::Success)]   = { Color::Hex(0x006B38FF), Color::Hex(0x008044FF), Color::Hex(0x00522AFF), Color::Hex(0xFFFFFFFF), Color::Hex(0x003D20FF), 1.0f };
+            theme.variants[keel::as<keel::usize>(UiVariant::Warning)]   = { Color::Hex(0x8A5300FF), Color::Hex(0xA36200FF), Color::Hex(0x6E4200FF), Color::Hex(0xFFFFFFFF), Color::Hex(0x4D2E00FF), 1.0f };
+            theme.variants[keel::as<keel::usize>(UiVariant::Danger)]    = { Color::Hex(0xA80000FF), Color::Hex(0xC40000FF), Color::Hex(0x850000FF), Color::Hex(0xFFFFFFFF), Color::Hex(0x5C0000FF), 1.0f };
+            theme.variants[keel::as<keel::usize>(UiVariant::Info)]      = { Color::Hex(0x006666FF), Color::Hex(0x007A7AFF), Color::Hex(0x004F4FFF), Color::Hex(0xFFFFFFFF), Color::Hex(0x003B3BFF), 1.0f };
+            theme.syntax = SyntaxPalette::MatlabClassic();
+            theme.syntax.editorBg      = Color::Hex(0xFFFFFFFF);
+            theme.syntax.gutterBg      = Color::Hex(0xC0C0C0FF);
+            theme.syntax.lineHighlight = Color::Hex(0x00008018);
+            theme.syntax.selectionBg   = Color::Hex(0x00008040);
+            PopulateShadows(theme, ThemeMode::Light, 0.0f);
+            break;
     }
 }
 
@@ -691,6 +737,7 @@ void ApplyCuratedPresetColors(UiTheme& theme, ThemePreset p) noexcept {
         case ThemePreset::IndustrialLight:   return "IndustrialLight";
         case ThemePreset::HighContrastDark:  return "HighContrastDark";
         case ThemePreset::HighContrastLight: return "HighContrastLight";
+        case ThemePreset::Windows98:         return "Windows98";
     }
     return "Dark";
 }
@@ -711,6 +758,7 @@ void ApplyCuratedPresetColors(UiTheme& theme, ThemePreset p) noexcept {
         case SurfaceStyle::Soft:      return "Soft";
         case SurfaceStyle::Outline:   return "Outline";
         case SurfaceStyle::Brutalist: return "Brutalist";
+        case SurfaceStyle::Bevel:     return "Bevel";
     }
     return "Solid";
 }
@@ -1220,6 +1268,25 @@ void UiTheme::SetSurfaceStyle(SurfaceStyle style) noexcept {
         return;
     }
 
+    if (style == SurfaceStyle::Bevel) {
+        for (const UiVariant v : kSemantics) {
+            auto& vc = variants[keel::as<keel::usize>(v)];
+            const Color seed = extractSeedColor(vc);
+            vc = MakeSemanticVariant(seed, mode, 1.0f * bwScale);
+            vc.border = seed.Darken(0.28f);
+        }
+        for (const UiVariant v : {UiVariant::Default, UiVariant::Secondary}) {
+            auto& vc = variants[keel::as<keel::usize>(v)];
+            vc.bg          = palette.surface;
+            vc.bgHover     = palette.surfaceHover.WithAlpha(255u);
+            vc.bgActive    = palette.surfaceActive.WithAlpha(255u);
+            vc.border      = palette.border;
+            vc.borderWidth = 1.0f * bwScale;
+        }
+        PopulateShadows(*this, mode, 0.0f);
+        return;
+    }
+
     // SurfaceStyle::Brutalist — high-contrast editorial strokes, crisp solid surfaces, flat elevation
     const Color boldInk = isDark ? palette.textPrimary : Color::Hex(0x0F172AFF);
     for (const UiVariant v : kSemantics) {
@@ -1319,6 +1386,8 @@ UiTheme UiTheme::FromPreset(ThemePreset p) noexcept {
     } else if (p == ThemePreset::HighContrastDark || p == ThemePreset::HighContrastLight) {
         theme.SetRadiusScale(0.45f);
         theme.SetBorderScale(1.5f);
+    } else if (p == ThemePreset::Windows98) {
+        theme.SetRadiusScale(0.0f);
     }
     return theme;
 }
@@ -1333,6 +1402,7 @@ UiTheme UiTheme::Industrial() noexcept        { return FromPreset(ThemePreset::I
 UiTheme UiTheme::IndustrialLight() noexcept   { return FromPreset(ThemePreset::IndustrialLight); }
 UiTheme UiTheme::HighContrastDark() noexcept  { return FromPreset(ThemePreset::HighContrastDark); }
 UiTheme UiTheme::HighContrastLight() noexcept { return FromPreset(ThemePreset::HighContrastLight); }
+UiTheme UiTheme::Windows98() noexcept         { return FromPreset(ThemePreset::Windows98); }
 
 UiTheme UiTheme::Build(const ThemeSpec& spec) noexcept {
     UiTheme theme = FromPreset(spec.base);
@@ -1404,7 +1474,7 @@ UiTheme UiTheme::Build(const ThemeSpec& spec) noexcept {
     }
     if (keel::abs(spec.shadowIntensity - 1.0f) > 1.0e-4f) {
         theme.SetShadowIntensity(spec.shadowIntensity);
-    } else if (spec.surfaceStyle == SurfaceStyle::Brutalist) {
+    } else if (spec.surfaceStyle == SurfaceStyle::Brutalist || spec.surfaceStyle == SurfaceStyle::Bevel) {
         theme.SetShadowIntensity(0.0f);
     }
     if (keel::abs(spec.focusRingWidth - 2.0f) > 1.0e-4f) {

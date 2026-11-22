@@ -2,6 +2,7 @@
 #include <cstring>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
+#include "guikit/core/bevel_draw.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
 #include "keel/format.h"
@@ -847,33 +848,55 @@ void Slider::Render(
     }
 
     // 1. Draw inactive background track (min -> max along the main axis)
-    const keel::f32 halfTrack = m.trackHeight * 0.5f;
+    const bool isBevel = theme.IsBevel();
+    const bool sharpRect = isBevel || (m.cornerRadius <= 0.01f);
+    const keel::f32 effTrackH = isBevel ? 4.0f : m.trackHeight;
+    const keel::f32 halfTrack = effTrackH * 0.5f;
     const Rect trackBgRect = vertical
-        ? Rect(layout.cross - halfTrack, layout.start - layout.length, m.trackHeight, layout.length)
-        : Rect(layout.start, layout.cross - halfTrack, layout.length, m.trackHeight);
+        ? Rect(keel::floor(layout.cross - halfTrack), layout.start - layout.length, effTrackH, layout.length)
+        : Rect(layout.start, keel::floor(layout.cross - halfTrack), layout.length, effTrackH);
     Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(0.4f) : pal.surfaceActive;
     Color trackBorder = disabled ? pal.border.WithAlphaF(0.3f) : pal.border;
-    canvas.DrawRoundRect(trackBgRect, halfTrack, trackBg, trackBorder, 1.0f);
+    if (isBevel) {
+        canvas.DrawRect(trackBgRect, pal.background);
+        detail::DrawBevelFrame(canvas, trackBgRect, theme, /*sunken=*/true, /*thin=*/false);
+    } else if (sharpRect) {
+        canvas.DrawRoundRect(trackBgRect, 0.0f, trackBg, trackBorder, 1.0f);
+    } else {
+        canvas.DrawRoundRect(trackBgRect, halfTrack, trackBg, trackBorder, 1.0f);
+    }
 
-    // 2. Draw active filled track segment (from min to the thumb)
-    if (fillLen > 0.0f) {
+    // 2. Draw active filled track segment (classic Win98 keeps sunken groove neutral unless explicit color is set)
+    if (fillLen > 0.0f && (!isBevel || opts.color.HasAny())) {
+        const keel::f32 inset = isBevel ? 1.5f : 0.0f;
         const Rect fillRect = vertical
-            ? Rect(layout.cross - halfTrack, thumbCenter.y, m.trackHeight, fillLen)
-            : Rect(layout.start, layout.cross - halfTrack, fillLen, m.trackHeight);
+            ? Rect(trackBgRect.x + inset, thumbCenter.y, keel::max(1.0f, effTrackH - inset * 2.0f), fillLen)
+            : Rect(layout.start + inset, trackBgRect.y + inset, keel::max(0.0f, fillLen - inset), keel::max(1.0f, effTrackH - inset * 2.0f));
         Color fillCol = ResolveSliderTrackColor(opts.color, disabled, theme);
-        canvas.DrawRoundRect(fillRect, halfTrack, fillCol);
+        if (sharpRect) {
+            canvas.DrawRect(fillRect, fillCol);
+        } else {
+            canvas.DrawRoundRect(fillRect, halfTrack, fillCol);
+        }
     }
 
     // 3. Draw thumb knob
-    const Rect thumbRect(thumbCenter.x - halfThumb, thumbCenter.y - halfThumb, m.thumbSize, m.thumbSize);
-    Color thumbBg = disabled ? pal.surface.WithAlphaF(0.5f) :
-                    active   ? ResolveSliderActiveThumbColor(opts.color, theme) :
-                    hovered  ? pal.surface : pal.surface;
-    Color thumbBorder = disabled ? pal.border.WithAlphaF(0.4f) :
-                        focused  ? pal.focusRing :
-                        (active || hovered) ? pal.accent : pal.borderHover;
-    const keel::f32 thumbBorderW = (active || hovered || focused) ? 2.5f : 2.0f;
-    canvas.DrawRoundRect(thumbRect, halfThumb, thumbBg, thumbBorder, thumbBorderW);
+    if (isBevel) {
+        const Color thumbBg = disabled ? pal.surface.WithAlphaF(theme.disabledOpacity) :
+                              active   ? pal.surfaceActive :
+                              hovered  ? pal.surfaceHover : pal.surface;
+        detail::DrawBevelSliderThumb(canvas, thumbCenter, vertical, thumbBg, theme, focused && !disabled);
+    } else {
+        const Rect thumbRect(thumbCenter.x - halfThumb, thumbCenter.y - halfThumb, m.thumbSize, m.thumbSize);
+        Color thumbBg = disabled ? pal.surface.WithAlphaF(0.5f) :
+                        active   ? ResolveSliderActiveThumbColor(opts.color, theme) :
+                        hovered  ? pal.surface : pal.surface;
+        Color thumbBorder = disabled ? pal.border.WithAlphaF(0.4f) :
+                            focused  ? pal.focusRing :
+                            (active || hovered) ? pal.accent : pal.borderHover;
+        const keel::f32 thumbBorderW = (active || hovered || focused) ? 2.5f : 2.0f;
+        canvas.DrawRoundRect(thumbRect, sharpRect ? 0.0f : halfThumb, thumbBg, thumbBorder, thumbBorderW);
+    }
 }
 
 // ============================================================================
@@ -1140,7 +1163,6 @@ void StepSlider::Render(
     const bool vertical = IsVerticalSlider(opts.orientation);
     const SliderTrackLayout layout = ComputeSliderTrackLayout(ctrlRect, cm, m, vertical);
     const keel::f32 halfThumb = m.thumbSize * 0.5f;
-    const keel::f32 halfTrack = m.trackHeight * 0.5f;
 
     const keel::f32 ratio = (totalSteps > 1) ? keel::as<keel::f32>(index) / keel::as<keel::f32>(totalSteps - 1) : 0.0f;
     const Vec2 thumbCenter = layout.ThumbCenter(ratio);
@@ -1163,44 +1185,81 @@ void StepSlider::Render(
     }
 
     // 1. Draw inactive background track
+    const bool isBevel = theme.IsBevel();
+    const bool sharpRect = isBevel || (m.cornerRadius <= 0.01f);
+    const keel::f32 effTrackH = isBevel ? 4.0f : m.trackHeight;
+    const keel::f32 effHalfTrack = effTrackH * 0.5f;
     const Rect trackBgRect = vertical
-        ? Rect(layout.cross - halfTrack, layout.start - layout.length, m.trackHeight, layout.length)
-        : Rect(layout.start, layout.cross - halfTrack, layout.length, m.trackHeight);
+        ? Rect(keel::floor(layout.cross - effHalfTrack), layout.start - layout.length, effTrackH, layout.length)
+        : Rect(layout.start, keel::floor(layout.cross - effHalfTrack), layout.length, effTrackH);
     Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(0.4f) : pal.surfaceActive;
     Color trackBorder = disabled ? pal.border.WithAlphaF(0.3f) : pal.border;
-    canvas.DrawRoundRect(trackBgRect, halfTrack, trackBg, trackBorder, 1.0f);
-
-    // 2. Draw active filled track segment (from the first step to the thumb)
-    if (fillLen > 0.0f) {
-        const Rect fillRect = vertical
-            ? Rect(layout.cross - halfTrack, thumbCenter.y, m.trackHeight, fillLen)
-            : Rect(layout.start, layout.cross - halfTrack, fillLen, m.trackHeight);
-        Color fillCol = ResolveSliderTrackColor(opts.color, disabled, theme);
-        canvas.DrawRoundRect(fillRect, halfTrack, fillCol);
+    if (isBevel) {
+        canvas.DrawRect(trackBgRect, pal.background);
+        detail::DrawBevelFrame(canvas, trackBgRect, theme, /*sunken=*/true, /*thin=*/false);
+    } else {
+        canvas.DrawRoundRect(trackBgRect, sharpRect ? 0.0f : effHalfTrack, trackBg, trackBorder, 1.0f);
     }
 
-    // 3. Draw tick dots on track
+    // 2. Draw active filled track segment (from the first step to the thumb)
+    if (fillLen > 0.0f && (!isBevel || opts.color.HasAny())) {
+        const keel::f32 inset = isBevel ? 1.5f : 0.0f;
+        const Rect fillRect = vertical
+            ? Rect(trackBgRect.x + inset, thumbCenter.y, keel::max(1.0f, effTrackH - inset * 2.0f), fillLen)
+            : Rect(layout.start + inset, trackBgRect.y + inset, keel::max(0.0f, fillLen - inset), keel::max(1.0f, effTrackH - inset * 2.0f));
+        Color fillCol = ResolveSliderTrackColor(opts.color, disabled, theme);
+        if (sharpRect) {
+            canvas.DrawRect(fillRect, fillCol);
+        } else {
+            canvas.DrawRoundRect(fillRect, effHalfTrack, fillCol);
+        }
+    }
+
+    // 3. Draw tick dots/marks on track
     if (opts.showTicks && totalSteps > 1) {
-        const keel::f32 tickR = m.tickSize * 0.5f;
-        for (keel::usize i = 0; i < totalSteps; ++i) {
-            const Vec2 tick = layout.ThumbCenter(stepRatio(i));
-            const Rect tickRect(tick.x - tickR, tick.y - tickR, m.tickSize, m.tickSize);
-            Color tickCol = (i <= index) ? pal.surface : pal.textDisabled;
-            if (disabled) tickCol = tickCol.WithAlphaF(0.4f);
-            canvas.DrawRoundRect(tickRect, tickR, tickCol);
+        if (isBevel) {
+            const Color tickCol = disabled ? pal.textDisabled : pal.border;
+            for (keel::usize i = 0; i < totalSteps; ++i) {
+                const Vec2 tick = layout.ThumbCenter(stepRatio(i));
+                if (vertical) {
+                    canvas.DrawRect(Rect(keel::floor(layout.cross + 10.0f), keel::floor(tick.y), 3.0f, 1.0f), tickCol);
+                } else {
+                    canvas.DrawRect(Rect(keel::floor(tick.x), keel::floor(layout.cross + 10.0f), 1.0f, 3.0f), tickCol);
+                }
+            }
+        } else {
+            const keel::f32 tickR = m.tickSize * 0.5f;
+            for (keel::usize i = 0; i < totalSteps; ++i) {
+                const Vec2 tick = layout.ThumbCenter(stepRatio(i));
+                const Rect tickRect(tick.x - tickR, tick.y - tickR, m.tickSize, m.tickSize);
+                Color tickCol = (i <= index) ? pal.surface : pal.textDisabled;
+                if (disabled) tickCol = tickCol.WithAlphaF(0.4f);
+                if (sharpRect) {
+                    canvas.DrawRect(tickRect, tickCol);
+                } else {
+                    canvas.DrawRoundRect(tickRect, tickR, tickCol);
+                }
+            }
         }
     }
 
     // 4. Draw thumb knob
-    const Rect thumbRect(thumbCenter.x - halfThumb, thumbCenter.y - halfThumb, m.thumbSize, m.thumbSize);
-    Color thumbBg = disabled ? pal.surface.WithAlphaF(0.5f) :
-                    active   ? ResolveSliderActiveThumbColor(opts.color, theme) :
-                    hovered  ? pal.surface : pal.surface;
-    Color thumbBorder = disabled ? pal.border.WithAlphaF(0.4f) :
-                        focused  ? pal.focusRing :
-                        (active || hovered) ? pal.accent : pal.borderHover;
-    const keel::f32 thumbBorderW = (active || hovered || focused) ? 2.5f : 2.0f;
-    canvas.DrawRoundRect(thumbRect, halfThumb, thumbBg, thumbBorder, thumbBorderW);
+    if (isBevel) {
+        const Color thumbBg = disabled ? pal.surface.WithAlphaF(theme.disabledOpacity) :
+                              active   ? pal.surfaceActive :
+                              hovered  ? pal.surfaceHover : pal.surface;
+        detail::DrawBevelSliderThumb(canvas, thumbCenter, vertical, thumbBg, theme, focused && !disabled);
+    } else {
+        const Rect thumbRect(thumbCenter.x - halfThumb, thumbCenter.y - halfThumb, m.thumbSize, m.thumbSize);
+        Color thumbBg = disabled ? pal.surface.WithAlphaF(0.5f) :
+                        active   ? ResolveSliderActiveThumbColor(opts.color, theme) :
+                        hovered  ? pal.surface : pal.surface;
+        Color thumbBorder = disabled ? pal.border.WithAlphaF(0.4f) :
+                            focused  ? pal.focusRing :
+                            (active || hovered) ? pal.accent : pal.borderHover;
+        const keel::f32 thumbBorderW = (active || hovered || focused) ? 2.5f : 2.0f;
+        canvas.DrawRoundRect(thumbRect, sharpRect ? 0.0f : halfThumb, thumbBg, thumbBorder, thumbBorderW);
+    }
 
     // 5. Draw step labels (with collision culling so labels never overlap): a row below the track
     //    when horizontal, a column right of the ticks when vertical
@@ -2142,20 +2201,42 @@ void ProgressBar::Render(
         effShowVal, opts.valuePlacement, disabled, theme
     );
 
-    const keel::f32 barY = keel::round(centerY - barThick * 0.5f);
-    const keel::f32 barHInt = keel::max(2.0f, keel::round(barThick));
+    const bool isBevel = theme.IsBevel();
+    const bool sharpRect = isBevel || (m.cornerRadius <= 0.01f);
+    const keel::f32 effBarThick = isBevel ? keel::max(barThick + 4.0f, 14.0f) : barThick;
+    const keel::f32 barY = keel::round(centerY - effBarThick * 0.5f);
+    const keel::f32 barHInt = keel::max(2.0f, keel::round(effBarThick));
 
     if (opts.indeterminate) {
-        const Rect trackBgRect(trackRegionX, barY, trackRegionW, barThick);
-        const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(0.4f) : pal.surfaceActive;
+        const Rect trackBgRect(trackRegionX, barY, trackRegionW, effBarThick);
+        const Color trackBg = isBevel
+            ? (disabled ? pal.background.WithAlphaF(0.5f) : pal.background)
+            : (disabled ? pal.surfaceActive.WithAlphaF(0.4f) : pal.surfaceActive);
         const Color trackBorder = disabled ? pal.border.WithAlphaF(0.3f) : pal.border;
-        canvas.DrawRoundRect(trackBgRect, barThick * 0.5f, trackBg, trackBorder, 1.0f);
-
-        const keel::f32 shuttleW = keel::max(barThick, trackRegionW * 0.32f);
-        const keel::f32 pingPong = 1.0f - keel::abs(keel::fmod(animPhase * 2.0f, 2.0f) - 1.0f);
-        const keel::f32 smoothT = pingPong * pingPong * (3.0f - 2.0f * pingPong);
-        const keel::f32 shuttleX = trackRegionX + smoothT * keel::max(0.0f, trackRegionW - shuttleW);
-        canvas.DrawRoundRect(Rect(shuttleX, barY, shuttleW, barThick), barThick * 0.5f, ResolveSliderTrackColor(opts.color, disabled, theme));
+        if (isBevel) {
+            canvas.DrawRect(trackBgRect, trackBg);
+            detail::DrawBevelFrame(canvas, trackBgRect, theme, /*sunken=*/true, /*thin=*/false);
+            const Rect inner(trackBgRect.x + 2.0f, trackBgRect.y + 2.0f, keel::max(0.0f, trackBgRect.w - 4.0f), keel::max(2.0f, trackBgRect.h - 4.0f));
+            const keel::f32 blockW = 8.0f;
+            const keel::f32 blockGap = 2.0f;
+            const keel::f32 shuttleW = keel::min(inner.w, blockW * 3.0f + blockGap * 2.0f);
+            const keel::f32 pingPong = 1.0f - keel::abs(keel::fmod(animPhase * 2.0f, 2.0f) - 1.0f);
+            const keel::f32 shuttleX = inner.x + pingPong * keel::max(0.0f, inner.w - shuttleW);
+            const Color fillCol = ResolveSliderTrackColor(opts.color, disabled, theme);
+            canvas.PushClip(inner);
+            for (keel::i32 b = 0; b < 3; ++b) {
+                const keel::f32 bx = keel::floor(shuttleX + keel::as<keel::f32>(b) * (blockW + blockGap));
+                canvas.DrawRect(Rect(bx, inner.y, blockW, inner.h), fillCol);
+            }
+            canvas.PopClip();
+        } else {
+            canvas.DrawRoundRect(trackBgRect, sharpRect ? 0.0f : (effBarThick * 0.5f), trackBg, trackBorder, 1.0f);
+            const keel::f32 shuttleW = keel::max(effBarThick, trackRegionW * 0.32f);
+            const keel::f32 pingPong = 1.0f - keel::abs(keel::fmod(animPhase * 2.0f, 2.0f) - 1.0f);
+            const keel::f32 smoothT = pingPong * pingPong * (3.0f - 2.0f * pingPong);
+            const keel::f32 shuttleX = trackRegionX + smoothT * keel::max(0.0f, trackRegionW - shuttleW);
+            canvas.DrawRoundRect(Rect(shuttleX, barY, shuttleW, effBarThick), sharpRect ? 0.0f : (effBarThick * 0.5f), ResolveSliderTrackColor(opts.color, disabled, theme));
+        }
         return;
     }
 
@@ -2166,7 +2247,7 @@ void ProgressBar::Render(
         const keel::f32 totalGaps = gap * keel::as<keel::f32>(segCount - 1);
         const keel::f32 segW = keel::max(2.0f, keel::floor((keel::round(trackRegionW) - totalGaps) / keel::as<keel::f32>(segCount)));
         const keel::f32 startX = keel::round(trackRegionX);
-        const bool useRound = (keel::min(segW, barHInt) >= 8.0f);
+        const bool useRound = !sharpRect && (keel::min(segW, barHInt) >= 8.0f);
         const Color unlitBg = disabled ? pal.surfaceActive.WithAlphaF(0.35f) : pal.surfaceActive;
         const Color unlitBorder = disabled ? pal.border.WithAlphaF(0.25f) : pal.border.WithAlphaF(0.65f);
 
@@ -2205,17 +2286,40 @@ void ProgressBar::Render(
                 }
             }
         }
+    } else if (isBevel) {
+        // Classic Windows 98 sunken trough with segmented rectangular blocks
+        const Rect trackBgRect(trackRegionX, barY, trackRegionW, effBarThick);
+        const Color trackBg = disabled ? pal.background.WithAlphaF(0.5f) : pal.background;
+        canvas.DrawRect(trackBgRect, trackBg);
+        detail::DrawBevelFrame(canvas, trackBgRect, theme, /*sunken=*/true, /*thin=*/false);
+
+        const Rect inner(trackBgRect.x + 2.0f, trackBgRect.y + 2.0f, keel::max(0.0f, trackBgRect.w - 4.0f), keel::max(2.0f, trackBgRect.h - 4.0f));
+        const keel::f32 innerFillW = ratio * inner.w;
+        if (innerFillW > 0.5f && inner.w > 1.0f) {
+            const keel::f32 blockW = 8.0f;
+            const keel::f32 blockGap = 2.0f;
+            const keel::f32 stride = blockW + blockGap;
+            canvas.PushClip(inner);
+            for (keel::f32 bx = 0.0f; bx < innerFillW - 0.5f; bx += stride) {
+                const keel::f32 w = keel::min(blockW, innerFillW - bx);
+                if (w >= 2.0f) {
+                    const keel::f32 normPos = keel::clamp((bx + w * 0.5f) / inner.w, 0.0f, 1.0f);
+                    canvas.DrawRect(Rect(keel::floor(inner.x + bx), inner.y, keel::floor(w), inner.h), resolveZoneColor(normPos));
+                }
+            }
+            canvas.PopClip();
+        }
     } else {
         // Smooth continuous progress bar
-        const Rect trackBgRect(trackRegionX, barY, trackRegionW, barThick);
+        const Rect trackBgRect(trackRegionX, barY, trackRegionW, effBarThick);
         const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(0.4f) : pal.surfaceActive;
         const Color trackBorder = disabled ? pal.border.WithAlphaF(0.3f) : pal.border;
-        canvas.DrawRoundRect(trackBgRect, barThick * 0.5f, trackBg, trackBorder, 1.0f);
+        canvas.DrawRoundRect(trackBgRect, sharpRect ? 0.0f : (effBarThick * 0.5f), trackBg, trackBorder, 1.0f);
 
         if (fillW > 0.5f) {
-            const Rect fillRect(trackRegionX, barY, fillW, barThick);
+            const Rect fillRect(trackRegionX, barY, fillW, effBarThick);
             const Color fillCol = resolveZoneColor(ratio);
-            canvas.DrawRoundRect(fillRect, barThick * 0.5f, fillCol);
+            canvas.DrawRoundRect(fillRect, sharpRect ? 0.0f : (effBarThick * 0.5f), fillCol);
         }
 
         // Optional peak-hold marker tick on smooth bar
@@ -2224,7 +2328,7 @@ void ProgressBar::Render(
             if (peakRatio > 0.001f) {
                 const keel::f32 peakX = trackRegionX + peakRatio * trackRegionW;
                 const Color peakCol = resolveZoneColor(peakRatio);
-                canvas.DrawRoundRect(Rect(peakX - 1.5f, barY - 2.0f, 3.0f, barThick + 4.0f), 1.5f, peakCol);
+                canvas.DrawRoundRect(Rect(peakX - 1.5f, barY - 2.0f, 3.0f, effBarThick + 4.0f), sharpRect ? 0.0f : 1.5f, peakCol);
             }
         }
     }

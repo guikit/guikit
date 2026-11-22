@@ -1055,10 +1055,11 @@ enum class ThemePreset : keel::u8 {
     Industrial,       ///< High-contrast amber-on-obsidian SCADA / cockpit (Dark)
     IndustrialLight,  ///< Daylight brushed-steel & amber SCADA / engineering HMI (Light)
     HighContrastDark, ///< WCAG AAA high-contrast dark (sharp borders, max legibility)
-    HighContrastLight ///< WCAG AAA high-contrast light
+    HighContrastLight,///< WCAG AAA high-contrast light
+    Windows98         ///< Classic retro Windows 98 silver-gray & navy blue (0dp sharp corners)
 };
 
-inline constexpr keel::usize kThemePresetCount = 10u;
+inline constexpr keel::usize kThemePresetCount = 11u;
 
 /// Human-readable display name for a `ThemePreset`.
 [[nodiscard]] constexpr keel::StringRef ThemePresetName(ThemePreset preset) noexcept {
@@ -1073,6 +1074,7 @@ inline constexpr keel::usize kThemePresetCount = 10u;
         case ThemePreset::IndustrialLight:   return "Industrial Light";
         case ThemePreset::HighContrastDark:  return "High Contrast Dark";
         case ThemePreset::HighContrastLight: return "High Contrast Light";
+        case ThemePreset::Windows98:         return "Windows 98";
     }
     return "Dark";
 }
@@ -1111,10 +1113,11 @@ enum class SurfaceStyle : keel::u8 {
     Solid = 0,  ///< Saturated semantic fills with high-contrast foreground text (classic default)
     Soft,       ///< Material 3 / Radix tonal tinted surfaces with matching vibrant ink and hairline borders
     Outline,    ///< Minimalist transparent fill with crisp semantic borders and tinted hover states
-    Brutalist   ///< High-structure flat editorial style with bold high-contrast borders
+    Brutalist,  ///< High-structure flat editorial style with bold high-contrast borders
+    Bevel       ///< Classic 3D raised/sunken beveled frames and rectangular controls (Windows 98 style)
 };
 
-inline constexpr keel::usize kSurfaceStyleCount = 4u;
+inline constexpr keel::usize kSurfaceStyleCount = 5u;
 
 /// Human-readable display name for a `SurfaceStyle`.
 [[nodiscard]] constexpr keel::StringRef SurfaceStyleName(SurfaceStyle style) noexcept {
@@ -1123,6 +1126,7 @@ inline constexpr keel::usize kSurfaceStyleCount = 4u;
         case SurfaceStyle::Soft:      return "Soft (Tonal)";
         case SurfaceStyle::Outline:   return "Outline";
         case SurfaceStyle::Brutalist: return "Brutalist";
+        case SurfaceStyle::Bevel:     return "Classic 3D";
     }
     return "Solid";
 }

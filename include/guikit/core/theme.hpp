@@ -681,6 +681,10 @@ struct UiTheme {
         return (geomScale == 1.0f) ? s : s.Scaled(geomScale);
     }
 
+    [[nodiscard]] constexpr bool IsBevel() const noexcept {
+        return surfaceStyle == SurfaceStyle::Bevel;
+    }
+
     // --- Standard & Curated Theme Factories ---
     [[nodiscard]] static UiTheme Dark() noexcept;
     [[nodiscard]] static UiTheme Light() noexcept;
@@ -692,6 +696,7 @@ struct UiTheme {
     [[nodiscard]] static UiTheme IndustrialLight() noexcept;
     [[nodiscard]] static UiTheme HighContrastDark() noexcept;
     [[nodiscard]] static UiTheme HighContrastLight() noexcept;
+    [[nodiscard]] static UiTheme Windows98() noexcept;
     [[nodiscard]] static UiTheme Standard() noexcept { return Dark(); }
 
     /// Constructs a curated theme from a `ThemePreset` enum value.
