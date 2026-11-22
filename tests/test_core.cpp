@@ -1900,6 +1900,24 @@ void TestThemeSystemColorSciencePresetsSpecJsonAndLerp() {
     CHECK(mid.palette.background.RelativeLuminance() < light.palette.background.RelativeLuminance());
     CHECK(UiTheme::Lerp(dark, light, 0.0f).palette.background == dark.palette.background);
     CHECK(UiTheme::Lerp(dark, light, 1.0f).palette.background == light.palette.background);
+
+    // 7. Shared OS system theme query helper (QueryOsSystemTheme)
+    {
+        const keel::Optional<ThemeMode> probed = QueryOsSystemTheme();
+        (void)probed;
+#if !defined(_WIN32) && !defined(__APPLE__) && !defined(__EMSCRIPTEN__)
+        const keel::Optional<keel::String> prevGtkTheme = keel::env_get("GTK_THEME");
+        (void)keel::env_set("GTK_THEME", "Adwaita:dark");
+        CHECK(QueryOsSystemTheme().has_value() && *QueryOsSystemTheme() == ThemeMode::Dark);
+        (void)keel::env_set("GTK_THEME", "Adwaita:light");
+        CHECK(QueryOsSystemTheme().has_value() && *QueryOsSystemTheme() == ThemeMode::Light);
+        if (prevGtkTheme.has_value()) {
+            (void)keel::env_set("GTK_THEME", *prevGtkTheme);
+        } else {
+            (void)keel::env_unset("GTK_THEME");
+        }
+#endif
+    }
 }
 
 int main() {

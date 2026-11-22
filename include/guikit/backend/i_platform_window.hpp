@@ -2,6 +2,7 @@
 
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/backend/i_window_backend.hpp"
+#include "guikit/backend/system_theme.hpp"
 #include "keel/function.h"
 #include "keel/string.h"
 
@@ -100,7 +101,7 @@ public:
 
     /// Queries the OS/browser preferred color scheme (`ThemeMode::Dark` or `ThemeMode::Light`),
     /// or `keel::kNullOpt` if unavailable or unknown.
-    [[nodiscard]] virtual keel::Optional<ThemeMode> QuerySystemTheme() const noexcept { return keel::kNullOpt; }
+    [[nodiscard]] virtual keel::Optional<ThemeMode> QuerySystemTheme() const noexcept { return QueryOsSystemTheme(); }
 
     /// Human-readable platform identifier (e.g. "X11 + EGL", "Wayland + EGL", "Win32 + WGL", "Headless").
     [[nodiscard]] virtual keel::StringRef GetPlatformName() const noexcept = 0;

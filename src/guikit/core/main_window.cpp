@@ -354,7 +354,7 @@ void MainWindow::SetShellThemePreset(ThemePreset preset) noexcept {
 }
 
 keel::Optional<ThemeMode> MainWindow::QuerySystemTheme() const noexcept {
-    return m_backend ? m_backend->QuerySystemTheme() : keel::kNullOpt;
+    return m_backend ? m_backend->QuerySystemTheme() : QueryOsSystemTheme();
 }
 
 void MainWindow::SetShellLightMode(bool lightMode) noexcept {

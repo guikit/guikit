@@ -123,6 +123,7 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/widgets/date_picker.cpp
     src/guikit/backend/null_canvas.cpp
     src/guikit/backend/platform_window_backend.cpp
+    src/guikit/backend/system_theme.cpp
     src/guikit/backend/text_compositor.cpp
     src/guikit/widgets/level_meter.cpp
     src/guikit/widgets/pagination.cpp

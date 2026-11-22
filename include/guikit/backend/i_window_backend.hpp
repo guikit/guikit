@@ -1,6 +1,7 @@
 #pragma once
 
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/backend/system_theme.hpp"
 #include "guikit/backend/vector_backend.hpp"
 #include "guikit/core/frame_metrics.hpp"
 #include "guikit/core/theme.hpp"
@@ -111,7 +112,7 @@ public:
 
     /// Queries the OS/browser preferred color scheme (`ThemeMode::Dark` or `ThemeMode::Light`),
     /// or `keel::kNullOpt` if unavailable or unknown.
-    [[nodiscard]] virtual keel::Optional<ThemeMode> QuerySystemTheme() const noexcept { return keel::kNullOpt; }
+    [[nodiscard]] virtual keel::Optional<ThemeMode> QuerySystemTheme() const noexcept { return QueryOsSystemTheme(); }
 };
 
 using WindowBackendFactory = keel::UniquePtr<IWindowBackend>(*)();
