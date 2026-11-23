@@ -57,6 +57,26 @@ struct FramePaintParams {
     keel::f32 shadowScale{1.0f};
 };
 
+/// Parameters describing a scrollbar's layout and interactive state for `IStylePainter::DrawScrollbar`.
+struct ScrollbarPaintParams {
+    Rect      barRect{};
+    Rect      trackRect{};
+    Rect      thumbRect{};
+    Rect      startButtonRect{};
+    Rect      endButtonRect{};
+    bool      horizontal{false};
+    bool      hasButtons{false};
+    bool      hovered{false};
+    bool      thumbHovered{false};
+    bool      dragging{false};
+    bool      startHovered{false};
+    bool      startPressed{false};
+    bool      endHovered{false};
+    bool      endPressed{false};
+    keel::f32 cornerRadius{0.0f};
+    Color     accentColor{Color::Transparent()};
+};
+
 /// Pluggable look-and-feel style painter interface (analogous to Qt QStyle / Flutter ThemeExtension).
 ///
 /// Widgets delegate surface frames, bevels, dividers, tabs, sliders, progress bars, switches,
@@ -252,6 +272,20 @@ public:
         keel::f32 borderWidth,
         keel::f32 fallbackRadius
     ) const = 0;
+
+    /// Draws a vertical or horizontal scrollbar (track, thumb, optional grip, and optional stepper buttons).
+    virtual void DrawScrollbar(
+        ICanvas& canvas,
+        const UiTheme& theme,
+        const ScrollbarPaintParams& p
+    ) const = 0;
+
+    /// Draws the bottom-right corner filler square where vertical and horizontal scrollbars intersect.
+    virtual void DrawScrollbarCorner(
+        ICanvas& canvas,
+        const UiTheme& theme,
+        Rect cornerRect
+    ) const = 0;
 };
 
 /// Built-in default look-and-feel painter supporting all `SurfaceStyle` and `ControlStyleTokens` modes
@@ -275,6 +309,8 @@ public:
     void DrawMenuBarTrigger(ICanvas& canvas, const UiTheme& theme, Rect rect, keel::f32 radius, bool hovered, bool open, bool disabled, Color& outTextColor, Vec2& outTextShift) const override;
     [[nodiscard]] bool DrawMenuItemHighlight(ICanvas& canvas, const UiTheme& theme, Rect itemRect, keel::f32 itemRadius, bool hovered, bool selected, bool subExpanded, bool isDanger, bool disabled, Color dangerColor) const override;
     void DrawBadge(ICanvas& canvas, const UiTheme& theme, Rect rect, Color bg, Color border, keel::f32 borderWidth, keel::f32 fallbackRadius) const override;
+    void DrawScrollbar(ICanvas& canvas, const UiTheme& theme, const ScrollbarPaintParams& p) const override;
+    void DrawScrollbarCorner(ICanvas& canvas, const UiTheme& theme, Rect cornerRect) const override;
 
     // Reusable low-level 3D bevel drawing helpers available to custom painters
     static void DrawBevelFrame(ICanvas& canvas, Rect r, const BevelPalette& c, bool sunken, bool thin = false);

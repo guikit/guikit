@@ -1739,8 +1739,6 @@ void RangeSlider::Render(
     const Rect ctrlRect = bounds;
     const bool vertical = IsVerticalSlider(opts.orientation);
     const SliderTrackLayout layout = ComputeSliderTrackLayout(ctrlRect, cm, m, vertical);
-    const keel::f32 halfThumb = m.thumbSize * 0.5f;
-    const keel::f32 halfTrack = m.trackHeight * 0.5f;
 
     const keel::f64 range = rangeMax - rangeMin;
     const keel::f32 lowRatio = (range > 0.0) ? keel::as<keel::f32>(keel::clamp((lowValue - rangeMin) / range, 0.0, 1.0)) : 0.0f;
@@ -1764,34 +1762,39 @@ void RangeSlider::Render(
         );
     }
 
-    // 1. Draw inactive background track
+    // 1 & 2. Draw track groove and active interval fill via active style painter
+    const bool isBevel = (theme.controlStyle.frameChrome == FrameChrome::Bevel3D);
+    const keel::f32 effTrackH = isBevel ? 6.0f : m.trackHeight;
+    const keel::f32 halfTrack = effTrackH * 0.5f;
     const Rect trackBgRect = vertical
-        ? Rect(layout.cross - halfTrack, layout.start - layout.length, m.trackHeight, layout.length)
-        : Rect(layout.start, layout.cross - halfTrack, layout.length, m.trackHeight);
+        ? Rect(keel::floor(layout.cross - halfTrack), layout.start - layout.length, effTrackH, layout.length)
+        : Rect(layout.start, keel::floor(layout.cross - halfTrack), layout.length, effTrackH);
+    const keel::f32 fillLen = keel::max(0.0f, keel::abs(highRatio - lowRatio) * layout.length);
+    const Rect fillRect = vertical
+        ? Rect(trackBgRect.x, highThumb.y, effTrackH, fillLen)
+        : Rect(lowThumb.x, trackBgRect.y, fillLen, effTrackH);
     const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(0.4f) : pal.surfaceActive;
     const Color trackBorder = disabled ? pal.border.WithAlphaF(0.3f) : pal.border;
-    canvas.DrawRoundRect(trackBgRect, halfTrack, trackBg, trackBorder, 1.0f);
+    const Color fillCol = ResolveSliderTrackColor(opts.color, disabled, theme);
+    theme.Painter().DrawSliderTrack(
+        canvas, theme, trackBgRect, fillRect, vertical, fillLen > 0.0f,
+        trackBg, trackBorder, fillCol, m.cornerRadius, true
+    );
 
-    // 2. Draw active filled interval between the thumbs
-    const keel::f32 fillLen = keel::max(0.0f, keel::abs(highRatio - lowRatio) * layout.length);
-    if (fillLen > 0.0f) {
-        const Rect fillRect = vertical
-            ? Rect(layout.cross - halfTrack, highThumb.y, m.trackHeight, fillLen)
-            : Rect(lowThumb.x, layout.cross - halfTrack, fillLen, m.trackHeight);
-        const Color fillCol = ResolveSliderTrackColor(opts.color, disabled, theme);
-        canvas.DrawRoundRect(fillRect, halfTrack, fillCol);
-    }
-
-    // 3. Draw low and high thumb knobs
+    // 3. Draw low and high thumb knobs via active style painter
     auto drawThumb = [&](Vec2 c, bool isFocusedThumb) {
-        const Rect thumbRect(c.x - halfThumb, c.y - halfThumb, m.thumbSize, m.thumbSize);
+        const bool thumbActive = active && isFocusedThumb;
+        const bool thumbFocused = focused && isFocusedThumb;
         const Color thumbBg = disabled ? pal.surface.WithAlphaF(0.5f) :
-                              (active && isFocusedThumb) ? ResolveSliderActiveThumbColor(opts.color, theme) : pal.surface;
+                              thumbActive ? ResolveSliderActiveThumbColor(opts.color, theme) : pal.surface;
         const Color thumbBorder = disabled ? pal.border.WithAlphaF(0.4f) :
-                                  (focused && isFocusedThumb) ? pal.focusRing :
+                                  thumbFocused ? pal.focusRing :
                                   (active || hovered) ? pal.accent : pal.borderHover;
-        const keel::f32 thumbBorderW = (active || hovered || (focused && isFocusedThumb)) ? 2.5f : 2.0f;
-        canvas.DrawRoundRect(thumbRect, halfThumb, thumbBg, thumbBorder, thumbBorderW);
+        const keel::f32 thumbBorderW = (active || hovered || thumbFocused) ? 2.5f : 2.0f;
+        theme.Painter().DrawSliderThumb(
+            canvas, theme, c, m.thumbSize, vertical,
+            thumbBg, thumbBorder, thumbBorderW, hovered, thumbActive, thumbFocused, disabled, m.cornerRadius
+        );
     };
 
     drawThumb(lowThumb, activeThumb == 0);

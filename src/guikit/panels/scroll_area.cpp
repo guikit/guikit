@@ -3,6 +3,8 @@
 #include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 #include "guikit/core/node.hpp"
+#include "guikit/core/scrollbar.hpp"
+#include "guikit/core/style_painter.hpp"
 #include "keel/math.h"
 
 namespace guikit {
@@ -70,47 +72,26 @@ void ScrollArea::RenderAxisScrollbar(
     bool active,
     UiSize size,
     const UiTheme& theme,
-    keel::f32 cornerReserve
+    keel::f32 cornerReserve,
+    keel::u8 hoveredPart,
+    keel::u8 pressedPart
 ) {
     const ScrollbarMetrics& m = theme.GetScrollbar(size);
-    const keel::f32 viewLen = isHorizontal ? viewportRect.w : viewportRect.h;
-    if (viewLen <= 10.0f || contentLength <= 0.0f) return;
+    const ScrollbarGeometry geom = Scrollbar::ComputeAxis(
+        viewportRect,
+        contentLength,
+        scrollOffset,
+        isHorizontal,
+        m,
+        theme.scrollbarStyle,
+        cornerReserve,
+        true
+    );
+    if (!geom.visible) return;
 
-    const keel::f32 trackLen = keel::max(0.0f, viewLen - 2.0f * m.margin - cornerReserve);
-    if (trackLen <= 4.0f) return;
-
-    const keel::f32 effContent = keel::max(viewLen, contentLength);
-    const keel::f32 maxScroll = effContent - viewLen;
-    const keel::f32 thumbLen = keel::clamp((viewLen / effContent) * trackLen, m.minThumbLength, trackLen);
-    const keel::f32 travel = keel::max(0.0f, trackLen - thumbLen);
-    const keel::f32 ratio = (maxScroll > 0.0f) ? keel::clamp(scrollOffset / maxScroll, 0.0f, 1.0f) : 0.0f;
-
-    Rect trackRect{};
-    Rect thumbRect{};
-    if (isHorizontal) {
-        const keel::f32 trackX = viewportRect.x + m.margin;
-        const keel::f32 trackY = viewportRect.Bottom() - m.trackWidth - m.margin;
-        const keel::f32 thumbX = trackX + ratio * travel;
-        trackRect = Rect(trackX, trackY, trackLen, m.trackWidth);
-        thumbRect = Rect(thumbX, trackY, thumbLen, m.trackWidth);
-    } else {
-        const keel::f32 trackX = viewportRect.Right() - m.trackWidth - m.margin;
-        const keel::f32 trackY = viewportRect.y + m.margin;
-        const keel::f32 thumbY = trackY + ratio * travel;
-        trackRect = Rect(trackX, trackY, m.trackWidth, trackLen);
-        thumbRect = Rect(trackX, thumbY, m.trackWidth, thumbLen);
-    }
-
-    const auto& pal = theme.palette;
-    canvas.DrawRoundRect(trackRect, m.cornerRadius, pal.borderSubtle);
-
-    Color thumbCol = pal.textMuted;
-    if (active) {
-        thumbCol = pal.accent;
-    } else if (hovered) {
-        thumbCol = pal.textSecondary;
-    }
-    canvas.DrawRoundRect(thumbRect, m.cornerRadius, thumbCol);
+    const ScrollbarPart hPart = static_cast<ScrollbarPart>(hoveredPart);
+    const ScrollbarPart pPart = static_cast<ScrollbarPart>(pressedPart);
+    Scrollbar::DrawAxis(canvas, geom, isHorizontal, hovered, active, hPart, pPart, m, theme);
 }
 
 void ScrollArea::UpdateAxisScrollbar(
@@ -127,10 +108,14 @@ void ScrollArea::UpdateAxisScrollbar(
     bool isHorizontal,
     UiSize size,
     const UiTheme& theme,
-    keel::f32 cornerReserve
+    keel::f32 cornerReserve,
+    keel::u8* outHoveredPart,
+    keel::u8* ioPressedButton,
+    keel::f64* ioNextRepeatSec
 ) {
     outHovered = false;
     outActive = false;
+    if (outHoveredPart) *outHoveredPart = static_cast<keel::u8>(ScrollbarPart::None);
 
     const keel::f32 prevOffset = ioScrollOffset;
     const ScrollbarMetrics& m = theme.GetScrollbar(size);
@@ -140,37 +125,23 @@ void ScrollArea::UpdateAxisScrollbar(
 
     if (viewLen <= 10.0f || maxScroll <= 0.0f) {
         ioDragging = false;
+        if (ioPressedButton) *ioPressedButton = static_cast<keel::u8>(ScrollbarPart::None);
         return;
     }
 
-    const keel::f32 trackLen = keel::max(0.0f, viewLen - 2.0f * m.margin - cornerReserve);
-    const keel::f32 thumbLen = keel::clamp((viewLen / contentLength) * trackLen, m.minThumbLength, trackLen);
-    const keel::f32 travel = keel::max(0.0f, trackLen - thumbLen);
-    const keel::f32 ratio = (maxScroll > 0.0f) ? (ioScrollOffset / maxScroll) : 0.0f;
-
-    Rect trackRect{};
-    Rect thumbRect{};
-    Rect hitTrackRect{};
-    Rect hitThumbRect{};
-    const keel::f32 hitExpand = m.margin + 2.0f;
-    if (isHorizontal) {
-        const keel::f32 trackX = viewportRect.x + m.margin;
-        const keel::f32 trackY = viewportRect.Bottom() - m.trackWidth - m.margin;
-        const keel::f32 thumbX = trackX + ratio * travel;
-        trackRect = Rect(trackX, trackY, trackLen, m.trackWidth);
-        thumbRect = Rect(thumbX, trackY, thumbLen, m.trackWidth);
-        hitTrackRect = Rect(trackX, trackY - hitExpand, trackLen, m.trackWidth + hitExpand * 2.0f);
-        hitThumbRect = Rect(thumbX, trackY - hitExpand, thumbLen, m.trackWidth + hitExpand * 2.0f);
-    } else {
-        const keel::f32 trackX = viewportRect.Right() - m.trackWidth - m.margin;
-        const keel::f32 trackY = viewportRect.y + m.margin;
-        const keel::f32 thumbY = trackY + ratio * travel;
-        trackRect = Rect(trackX, trackY, m.trackWidth, trackLen);
-        thumbRect = Rect(trackX, thumbY, m.trackWidth, thumbLen);
-        const keel::f32 hitX = trackX - hitExpand;
-        const keel::f32 hitW = keel::max(0.0f, (viewportRect.Right() - 1.5f) - hitX);
-        hitTrackRect = Rect(hitX, trackY, hitW, trackLen);
-        hitThumbRect = Rect(hitX, thumbY, hitW, thumbLen);
+    const ScrollbarGeometry geom = Scrollbar::ComputeAxis(
+        viewportRect,
+        contentLength,
+        ioScrollOffset,
+        isHorizontal,
+        m,
+        theme.scrollbarStyle,
+        cornerReserve
+    );
+    if (!geom.visible) {
+        ioDragging = false;
+        if (ioPressedButton) *ioPressedButton = static_cast<keel::u8>(ScrollbarPart::None);
+        return;
     }
 
     const Vec2 mousePos = ctx.GetMousePos();
@@ -178,31 +149,28 @@ void ScrollArea::UpdateAxisScrollbar(
     const bool mouseClicked = !occluded && ctx.IsMouseClicked();
     const bool mouseDown = ctx.IsMouseDown();
 
-    const bool hoverThumb = !occluded && hitThumbRect.Contains(mousePos);
-    const bool hoverTrack = !occluded && hitTrackRect.Contains(mousePos);
-    outHovered = hoverThumb || hoverTrack;
+    const bool hoverStart = !occluded && geom.hasButtons && geom.startButtonRect.Contains(mousePos);
+    const bool hoverEnd   = !occluded && geom.hasButtons && geom.endButtonRect.Contains(mousePos);
+    const bool hoverThumb = !occluded && !hoverStart && !hoverEnd && geom.hitThumbRect.Contains(mousePos);
+    const bool hoverTrack = !occluded && geom.hitTrackRect.Contains(mousePos);
+    outHovered = hoverStart || hoverEnd || hoverThumb || hoverTrack;
 
-    if (hoverThumb && mouseClicked) {
-        ioDragging = true;
-        ioDragStartMouse = mousePos;
-        ioDragStartOffset = ioScrollOffset;
-        ctx.SetActiveId(ownerId);
-    } else if (hoverTrack && mouseClicked && !hoverThumb) {
-        const keel::f32 mouseCoord = isHorizontal ? mousePos.x : mousePos.y;
-        const keel::f32 thumbCoord = isHorizontal ? thumbRect.x : thumbRect.y;
-        if (mouseCoord < thumbCoord) {
-            ioScrollOffset = keel::max(0.0f, ioScrollOffset - viewLen * 0.8f);
-        } else {
-            ioScrollOffset = keel::min(maxScroll, ioScrollOffset + viewLen * 0.8f);
-        }
-    }
+    ScrollbarPart hovPart = ScrollbarPart::None;
+    if (hoverStart)      hovPart = ScrollbarPart::StartButton;
+    else if (hoverEnd)   hovPart = ScrollbarPart::EndButton;
+    else if (hoverThumb) hovPart = ScrollbarPart::Thumb;
+    else if (hoverTrack) hovPart = ScrollbarPart::Track;
+    if (outHoveredPart) *outHoveredPart = static_cast<keel::u8>(hovPart);
+
+    const keel::f64 now = ctx.GetCurrentTime();
+    keel::u8 pressedBtn = ioPressedButton ? *ioPressedButton : static_cast<keel::u8>(ScrollbarPart::None);
 
     if (ioDragging) {
         outActive = true;
         if (mouseDown) {
             const keel::f32 delta = isHorizontal ? (mousePos.x - ioDragStartMouse.x) : (mousePos.y - ioDragStartMouse.y);
-            if (travel > 0.0f) {
-                ioScrollOffset = keel::clamp(ioDragStartOffset + (delta / travel) * maxScroll, 0.0f, maxScroll);
+            if (geom.travel > 0.0f) {
+                ioScrollOffset = keel::clamp(ioDragStartOffset + (delta / geom.travel) * maxScroll, 0.0f, maxScroll);
             }
         } else {
             ioDragging = false;
@@ -210,9 +178,60 @@ void ScrollArea::UpdateAxisScrollbar(
                 ctx.SetActiveId(Id::Null());
             }
         }
+    } else if (pressedBtn == static_cast<keel::u8>(ScrollbarPart::StartButton) ||
+               pressedBtn == static_cast<keel::u8>(ScrollbarPart::EndButton)) {
+        if (mouseDown) {
+            outActive = true;
+            const bool isStart = (pressedBtn == static_cast<keel::u8>(ScrollbarPart::StartButton));
+            const bool stillOver = isStart ? hoverStart : hoverEnd;
+            if (stillOver) {
+                ctx.RequestRepaint(1);
+                if (ioNextRepeatSec && now >= *ioNextRepeatSec) {
+                    const keel::f32 step = isStart ? -m.scrollStep : m.scrollStep;
+                    ioScrollOffset = keel::clamp(ioScrollOffset + step, 0.0f, maxScroll);
+                    *ioNextRepeatSec = now + 0.05;
+                    ctx.RequestRepaint(2);
+                }
+            }
+        } else {
+            pressedBtn = static_cast<keel::u8>(ScrollbarPart::None);
+            if (ctx.GetActiveId() == ownerId) {
+                ctx.SetActiveId(Id::Null());
+            }
+        }
+    } else if (mouseClicked && outHovered) {
+        if (hoverStart) {
+            ioScrollOffset = keel::max(0.0f, ioScrollOffset - m.scrollStep);
+            pressedBtn = static_cast<keel::u8>(ScrollbarPart::StartButton);
+            outActive = true;
+            if (ioNextRepeatSec) *ioNextRepeatSec = now + 0.30;
+            ctx.SetActiveId(ownerId);
+        } else if (hoverEnd) {
+            ioScrollOffset = keel::min(maxScroll, ioScrollOffset + m.scrollStep);
+            pressedBtn = static_cast<keel::u8>(ScrollbarPart::EndButton);
+            outActive = true;
+            if (ioNextRepeatSec) *ioNextRepeatSec = now + 0.30;
+            ctx.SetActiveId(ownerId);
+        } else if (hoverThumb) {
+            ioDragging = true;
+            outActive = true;
+            ioDragStartMouse = mousePos;
+            ioDragStartOffset = ioScrollOffset;
+            ctx.SetActiveId(ownerId);
+        } else if (hoverTrack) {
+            const keel::f32 mouseCoord = isHorizontal ? mousePos.x : mousePos.y;
+            const keel::f32 thumbCoord = isHorizontal ? geom.thumbRect.x : geom.thumbRect.y;
+            if (mouseCoord < thumbCoord) {
+                ioScrollOffset = keel::max(0.0f, ioScrollOffset - viewLen * 0.8f);
+            } else {
+                ioScrollOffset = keel::min(maxScroll, ioScrollOffset + viewLen * 0.8f);
+            }
+        }
     }
 
-    if (ioDragging || keel::abs(ioScrollOffset - prevOffset) > 0.01f) {
+    if (ioPressedButton) *ioPressedButton = pressedBtn;
+
+    if (ioDragging || pressedBtn != 0u || keel::abs(ioScrollOffset - prevOffset) > 0.01f) {
         ctx.RequestRepaint(2);
     }
 }
@@ -249,7 +268,9 @@ void ScrollArea::RenderScrollbar(
             node->scrollbarActive,
             node->uiSize,
             theme,
-            cornerReserve
+            cornerReserve,
+            node->scrollbarPartHoveredY,
+            node->scrollbarPartPressedY
         );
     }
     if (showH) {
@@ -263,8 +284,19 @@ void ScrollArea::RenderScrollbar(
             node->scrollbarActiveX,
             node->uiSize,
             theme,
-            cornerReserve
+            cornerReserve,
+            node->scrollbarPartHoveredX,
+            node->scrollbarPartPressedX
         );
+    }
+    if (showV && showH) {
+        const Rect cornerRect(
+            keel::floor(node->computedRect.Right() - m.trackWidth - m.margin),
+            keel::floor(node->computedRect.Bottom() - m.trackWidth - m.margin),
+            m.trackWidth,
+            m.trackWidth
+        );
+        theme.Painter().DrawScrollbarCorner(canvas, theme, cornerRect);
     }
 }
 
@@ -300,10 +332,16 @@ void ScrollArea::Update(Context& ctx, Node* node) {
     if (node->disabled) {
         state.draggingY = false;
         state.draggingX = false;
+        state.pressedButtonY = 0u;
+        state.pressedButtonX = 0u;
         node->scrollbarHovered = false;
         node->scrollbarActive = false;
         node->scrollbarHoveredX = false;
         node->scrollbarActiveX = false;
+        node->scrollbarPartHoveredY = 0u;
+        node->scrollbarPartPressedY = 0u;
+        node->scrollbarPartHoveredX = 0u;
+        node->scrollbarPartPressedX = 0u;
         return;
     }
 
@@ -357,6 +395,7 @@ void ScrollArea::Update(Context& ctx, Node* node) {
     }
 
     bool hovY = false, actY = false;
+    keel::u8 hovPartY = 0u;
     if (showV) {
         UpdateAxisScrollbar(
             ctx,
@@ -372,20 +411,30 @@ void ScrollArea::Update(Context& ctx, Node* node) {
             false,
             node->uiSize,
             *resolvedTheme,
-            cornerReserve
+            cornerReserve,
+            &hovPartY,
+            &state.pressedButtonY,
+            &state.nextRepeatSecY
         );
     } else if (allowV) {
         const keel::f32 maxScrollY = keel::max(0.0f, node->scrollContentSize.y - node->computedRect.h);
         state.offset.y = keel::clamp(state.offset.y, 0.0f, maxScrollY);
         state.draggingY = false;
+        state.pressedButtonY = 0u;
     } else {
         state.offset.y = 0.0f;
         state.draggingY = false;
+        state.pressedButtonY = 0u;
     }
     node->scrollbarHovered = hovY;
     node->scrollbarActive = actY;
+    node->scrollbarPartHoveredY = hovPartY;
+    node->scrollbarPartPressedY = state.draggingY
+        ? static_cast<keel::u8>(ScrollbarPart::Thumb)
+        : state.pressedButtonY;
 
     bool hovX = false, actX = false;
+    keel::u8 hovPartX = 0u;
     if (showH) {
         UpdateAxisScrollbar(
             ctx,
@@ -401,18 +450,27 @@ void ScrollArea::Update(Context& ctx, Node* node) {
             true,
             node->uiSize,
             *resolvedTheme,
-            cornerReserve
+            cornerReserve,
+            &hovPartX,
+            &state.pressedButtonX,
+            &state.nextRepeatSecX
         );
     } else if (allowH) {
         const keel::f32 maxScrollX = keel::max(0.0f, node->scrollContentSize.x - node->computedRect.w);
         state.offset.x = keel::clamp(state.offset.x, 0.0f, maxScrollX);
         state.draggingX = false;
+        state.pressedButtonX = 0u;
     } else {
         state.offset.x = 0.0f;
         state.draggingX = false;
+        state.pressedButtonX = 0u;
     }
     node->scrollbarHoveredX = hovX;
     node->scrollbarActiveX = actX;
+    node->scrollbarPartHoveredX = hovPartX;
+    node->scrollbarPartPressedX = state.draggingX
+        ? static_cast<keel::u8>(ScrollbarPart::Thumb)
+        : state.pressedButtonX;
 
     node->scrollOffset = state.offset;
 }

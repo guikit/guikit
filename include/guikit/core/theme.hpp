@@ -32,6 +32,8 @@ struct UiTheme {
     // 0c. 3D bevel color palette & declarative structural control tokens
     BevelPalette bevel{};
     ControlStyleTokens controlStyle{};
+    ScrollbarPreset scrollbarPreset{ScrollbarPreset::Auto};
+    ScrollbarStyleTokens scrollbarStyle{};
 
     // 0d. Optional custom look-and-feel painter (nullptr = built-in DefaultStylePainter)
     const IStylePainter* stylePainter{nullptr};
@@ -700,6 +702,15 @@ struct UiTheme {
 
     /// Replaces the 4-tone 3D bevel palette used by `FrameChrome::Bevel3D`.
     void SetBevelPalette(const BevelPalette& b) noexcept { bevel = b; }
+
+    /// Applies a curated `ScrollbarPreset` (updating `scrollbarStyle` and `scrollbars[]` metrics).
+    void SetScrollbarPreset(ScrollbarPreset preset) noexcept;
+
+    /// Replaces the declarative `ScrollbarStyleTokens` for fine-grained scrollbar customization.
+    void SetScrollbarStyle(const ScrollbarStyleTokens& style) noexcept { scrollbarStyle = style; }
+
+    /// Scales scrollbar track widths and gutters proportionally around the specified `UiSize::Md` width in dp.
+    void SetScrollbarWidth(keel::f32 mdWidth) noexcept;
 
     /// Installs a custom non-owning `IStylePainter` for this theme (pass `nullptr` to restore built-in default).
     void SetStylePainter(const IStylePainter* painter) noexcept { stylePainter = painter; }

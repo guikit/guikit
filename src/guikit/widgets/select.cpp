@@ -1,6 +1,7 @@
 #include "guikit/widgets/select.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
+#include "guikit/core/scrollbar.hpp"
 #include "guikit/core/style_painter.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
@@ -806,35 +807,37 @@ Response Select::Run(
             }
         }
 
-        // 2. Scrollbar thumb drag & track page-jump interaction
+        // 2. Scrollbar stepper buttons, thumb drag & track page-jump interaction
         popupState.scrollbarHovered = false;
         if (hasScrollbar && popupRect.h > 10.0f) {
-            const keel::f32 trackX = popupRect.Right() - sm.trackWidth - sm.margin;
-            const keel::f32 trackY = popupRect.y + sm.margin;
-            const keel::f32 trackH = keel::max(0.0f, popupRect.h - 2.0f * sm.margin);
-            const keel::f32 thumbH = keel::clamp((viewportH / keel::max(1.0f, totalContentH)) * trackH, sm.minThumbLength, trackH);
-            const keel::f32 travelH = keel::max(0.0f, trackH - thumbH);
-            const keel::f32 scrollRatio = (maxScrollY > 0.0f) ? keel::clamp(popupState.scrollY / maxScrollY, 0.0f, 1.0f) : 0.0f;
-            const keel::f32 thumbY = trackY + scrollRatio * travelH;
+            const ScrollbarGeometry sbGeom = Scrollbar::ComputeAxis(
+                popupRect,
+                popupRect.h + maxScrollY,
+                popupState.scrollY,
+                false,
+                sm,
+                theme.scrollbarStyle
+            );
+            const bool overStart = sbGeom.hasButtons && sbGeom.startButtonRect.Contains(mouse);
+            const bool overEnd   = sbGeom.hasButtons && sbGeom.endButtonRect.Contains(mouse);
+            const bool overThumb = !overStart && !overEnd && sbGeom.hitThumbRect.Contains(mouse);
+            const bool overTrack = sbGeom.hitTrackRect.Contains(mouse);
+            popupState.scrollbarHovered = overStart || overEnd || overThumb || overTrack;
 
-            const Rect trackRect(trackX, trackY, sm.trackWidth, trackH);
-            const Rect thumbRect(trackX, thumbY, sm.trackWidth, thumbH);
-            const Rect gutterRect(popupRect.Right() - sm.gutter, popupRect.y, sm.gutter, popupRect.h);
-
-            const bool overThumb = thumbRect.Contains(mouse);
-            const bool overTrack = trackRect.Contains(mouse) || gutterRect.Contains(mouse);
-            popupState.scrollbarHovered = overThumb || overTrack;
-
-            if (ctx.IsMouseClicked() && overTrack) {
-                if (overThumb) {
+            if (ctx.IsMouseClicked() && popupState.scrollbarHovered) {
+                if (overStart) {
+                    popupState.scrollY = keel::max(0.0f, popupState.scrollY - sm.scrollStep);
+                } else if (overEnd) {
+                    popupState.scrollY = keel::min(maxScrollY, popupState.scrollY + sm.scrollStep);
+                } else if (overThumb) {
                     popupState.draggingScrollbar = true;
                     popupState.dragStartMouseY = mouse.y;
                     popupState.dragStartScrollY = popupState.scrollY;
                     ctx.SetActiveId(id);
                 } else {
-                    if (mouse.y < thumbRect.y) {
+                    if (mouse.y < sbGeom.thumbRect.y) {
                         popupState.scrollY = keel::max(0.0f, popupState.scrollY - viewportH * 0.8f);
-                    } else if (mouse.y > thumbRect.Bottom()) {
+                    } else if (mouse.y > sbGeom.thumbRect.Bottom()) {
                         popupState.scrollY = keel::min(maxScrollY, popupState.scrollY + viewportH * 0.8f);
                     }
                 }
@@ -843,10 +846,10 @@ Response Select::Run(
 
             if (popupState.draggingScrollbar) {
                 if (ctx.IsMouseDown()) {
-                    if (travelH > 0.0f) {
+                    if (sbGeom.travel > 0.0f) {
                         const keel::f32 deltaY = mouse.y - popupState.dragStartMouseY;
                         popupState.scrollY = keel::clamp(
-                            popupState.dragStartScrollY + (deltaY / travelH) * maxScrollY,
+                            popupState.dragStartScrollY + (deltaY / sbGeom.travel) * maxScrollY,
                             0.0f,
                             maxScrollY
                         );
@@ -1616,26 +1619,27 @@ void Select::RenderPopup(
     // Render vertical scrollbar when items exceed visible popup height
     if (hasScrollbar && popupRect.h > 10.0f) {
         canvas.PushClip(popupRect);
-        const keel::f32 trackX = popupRect.Right() - sm.trackWidth - sm.margin;
-        const keel::f32 trackY = popupRect.y + sm.margin;
-        const keel::f32 trackH = keel::max(0.0f, popupRect.h - 2.0f * sm.margin);
-        const keel::f32 thumbH = keel::clamp((viewportH / keel::max(1.0f, totalContentH)) * trackH, sm.minThumbLength, trackH);
-        const keel::f32 travelH = keel::max(0.0f, trackH - thumbH);
-        const keel::f32 scrollRatio = (maxScrollY > 0.0f) ? (clampedScrollY / maxScrollY) : 0.0f;
-        const keel::f32 thumbY = trackY + scrollRatio * travelH;
-
-        const Rect trackRect(trackX, trackY, sm.trackWidth, trackH);
-        const Rect thumbRect(trackX, thumbY, sm.trackWidth, thumbH);
-
-        canvas.DrawRoundRect(trackRect, sm.cornerRadius, pal.borderSubtle);
-
-        Color thumbCol = pal.textMuted;
-        if (scrollbarActive) {
-            thumbCol = pal.accent;
-        } else if (scrollbarHovered) {
-            thumbCol = pal.textSecondary;
+        const ScrollbarGeometry sbGeom = Scrollbar::ComputeAxis(
+            popupRect,
+            popupRect.h + maxScrollY,
+            clampedScrollY,
+            false,
+            sm,
+            theme.scrollbarStyle
+        );
+        if (sbGeom.visible) {
+            Scrollbar::DrawAxis(
+                canvas,
+                sbGeom,
+                false,
+                scrollbarHovered,
+                scrollbarActive,
+                scrollbarHovered ? ScrollbarPart::Thumb : ScrollbarPart::None,
+                scrollbarActive ? ScrollbarPart::Thumb : ScrollbarPart::None,
+                sm,
+                theme
+            );
         }
-        canvas.DrawRoundRect(thumbRect, sm.cornerRadius, thumbCol);
         canvas.PopClip();
     }
 }
@@ -2154,26 +2158,28 @@ void RenderMultiPopup(
 
     if (hasScrollbar && popupRect.h > 10.0f) {
         canvas.PushClip(popupRect);
-        const keel::f32 trackX = popupRect.Right() - sm.trackWidth - sm.margin;
-        const keel::f32 trackY = popupRect.y + sm.margin;
-        const keel::f32 trackH = keel::max(0.0f, popupRect.h - 2.0f * sm.margin);
-        const keel::f32 thumbH = keel::clamp((viewportH / keel::max(1.0f, totalContentH)) * trackH, sm.minThumbLength, trackH);
-        const keel::f32 travelH = keel::max(0.0f, trackH - thumbH);
-        const keel::f32 scrollRatio = (maxScrollY > 0.0f) ? (clampedScrollY / maxScrollY) : 0.0f;
-        const keel::f32 thumbY = trackY + scrollRatio * travelH;
-
-        const Rect trackRect(trackX, trackY, sm.trackWidth, trackH);
-        const Rect thumbRect(trackX, thumbY, sm.trackWidth, thumbH);
-
-        canvas.DrawRoundRect(trackRect, sm.cornerRadius, pal.borderSubtle);
-
-        Color thumbCol = pal.textMuted;
-        if (scrollbarActive) {
-            thumbCol = primaryCol;
-        } else if (scrollbarHovered) {
-            thumbCol = pal.textSecondary;
+        const ScrollbarGeometry sbGeom = Scrollbar::ComputeAxis(
+            popupRect,
+            popupRect.h + maxScrollY,
+            clampedScrollY,
+            false,
+            sm,
+            theme.scrollbarStyle
+        );
+        if (sbGeom.visible) {
+            Scrollbar::DrawAxis(
+                canvas,
+                sbGeom,
+                false,
+                scrollbarHovered,
+                scrollbarActive,
+                scrollbarHovered ? ScrollbarPart::Thumb : ScrollbarPart::None,
+                scrollbarActive ? ScrollbarPart::Thumb : ScrollbarPart::None,
+                sm,
+                theme,
+                primaryCol
+            );
         }
-        canvas.DrawRoundRect(thumbRect, sm.cornerRadius, thumbCol);
         canvas.PopClip();
     }
 }
@@ -2613,32 +2619,34 @@ Response Select::RunMulti(
 
         popupState.scrollbarHovered = false;
         if (hasScrollbar && popupRect.h > 10.0f) {
-            const keel::f32 trackX = popupRect.Right() - sm.trackWidth - sm.margin;
-            const keel::f32 trackY = popupRect.y + sm.margin;
-            const keel::f32 trackH = keel::max(0.0f, popupRect.h - 2.0f * sm.margin);
-            const keel::f32 thumbH = keel::clamp((viewportH / keel::max(1.0f, totalContentH)) * trackH, sm.minThumbLength, trackH);
-            const keel::f32 travelH = keel::max(0.0f, trackH - thumbH);
-            const keel::f32 scrollRatio = (maxScrollY > 0.0f) ? keel::clamp(popupState.scrollY / maxScrollY, 0.0f, 1.0f) : 0.0f;
-            const keel::f32 thumbY = trackY + scrollRatio * travelH;
+            const ScrollbarGeometry sbGeom = Scrollbar::ComputeAxis(
+                popupRect,
+                popupRect.h + maxScrollY,
+                popupState.scrollY,
+                false,
+                sm,
+                theme.scrollbarStyle
+            );
+            const bool overStart = sbGeom.hasButtons && sbGeom.startButtonRect.Contains(mouse);
+            const bool overEnd   = sbGeom.hasButtons && sbGeom.endButtonRect.Contains(mouse);
+            const bool overThumb = !overStart && !overEnd && sbGeom.hitThumbRect.Contains(mouse);
+            const bool overTrack = sbGeom.hitTrackRect.Contains(mouse);
+            popupState.scrollbarHovered = overStart || overEnd || overThumb || overTrack;
 
-            const Rect trackRect(trackX, trackY, sm.trackWidth, trackH);
-            const Rect thumbRect(trackX, thumbY, sm.trackWidth, thumbH);
-            const Rect gutterRect(popupRect.Right() - sm.gutter, popupRect.y, sm.gutter, popupRect.h);
-
-            const bool overThumb = thumbRect.Contains(mouse);
-            const bool overTrack = trackRect.Contains(mouse) || gutterRect.Contains(mouse);
-            popupState.scrollbarHovered = overThumb || overTrack;
-
-            if (ctx.IsMouseClicked() && overTrack) {
-                if (overThumb) {
+            if (ctx.IsMouseClicked() && popupState.scrollbarHovered) {
+                if (overStart) {
+                    popupState.scrollY = keel::max(0.0f, popupState.scrollY - sm.scrollStep);
+                } else if (overEnd) {
+                    popupState.scrollY = keel::min(maxScrollY, popupState.scrollY + sm.scrollStep);
+                } else if (overThumb) {
                     popupState.draggingScrollbar = true;
                     popupState.dragStartMouseY = mouse.y;
                     popupState.dragStartScrollY = popupState.scrollY;
                     ctx.SetActiveId(id);
                 } else {
-                    if (mouse.y < thumbRect.y) {
+                    if (mouse.y < sbGeom.thumbRect.y) {
                         popupState.scrollY = keel::max(0.0f, popupState.scrollY - viewportH * 0.8f);
-                    } else if (mouse.y > thumbRect.Bottom()) {
+                    } else if (mouse.y > sbGeom.thumbRect.Bottom()) {
                         popupState.scrollY = keel::min(maxScrollY, popupState.scrollY + viewportH * 0.8f);
                     }
                 }
@@ -2647,10 +2655,10 @@ Response Select::RunMulti(
 
             if (popupState.draggingScrollbar) {
                 if (ctx.IsMouseDown()) {
-                    if (travelH > 0.0f) {
+                    if (sbGeom.travel > 0.0f) {
                         const keel::f32 deltaY = mouse.y - popupState.dragStartMouseY;
                         popupState.scrollY = keel::clamp(
-                            popupState.dragStartScrollY + (deltaY / travelH) * maxScrollY,
+                            popupState.dragStartScrollY + (deltaY / sbGeom.travel) * maxScrollY,
                             0.0f,
                             maxScrollY
                         );

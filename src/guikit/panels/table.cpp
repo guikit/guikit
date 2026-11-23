@@ -4,6 +4,8 @@
 #include "guikit/core/control.hpp"
 #include "guikit/core/element.hpp"
 #include "guikit/core/node.hpp"
+#include "guikit/core/scrollbar.hpp"
+#include "guikit/core/style_painter.hpp"
 #include "guikit/core/text_util.hpp"
 #include "guikit/panels/scroll_area.hpp"
 #include "keel/array.h"
@@ -31,6 +33,10 @@ struct TableState {
     keel::f32 dragStartOffsetH{0.0f};
     Vec2 dragStartMouseV{0.0f, 0.0f};
     Vec2 dragStartMouseH{0.0f, 0.0f};
+    keel::u8 pressedButtonV{0};
+    keel::u8 pressedButtonH{0};
+    keel::f64 nextRepeatSecV{0.0};
+    keel::f64 nextRepeatSecH{0.0};
 
     keel::u16 userColCount{0};
     keel::StaticArray<keel::f32, kMaxTableColumns> userColWidths{};
@@ -642,6 +648,7 @@ TableScope Table::Open(
         const keel::f32 cornerReserve = (showV && showH) ? (sm.trackWidth + sm.margin) : 0.0f;
 
         bool hovV = false, actV = false;
+        keel::u8 hovPartV = 0u;
         const Id vScrollId(id.value ^ 0x517CC1B727220A95ULL);
         if (state.resizingCol < 0) {
             ScrollArea::UpdateAxisScrollbar(
@@ -658,13 +665,21 @@ TableScope Table::Open(
                 false,
                 activeSize,
                 theme,
-                cornerReserve
+                cornerReserve,
+                &hovPartV,
+                &state.pressedButtonV,
+                &state.nextRepeatSecV
             );
         }
         node->scrollbarHovered = hovV;
         node->scrollbarActive = actV;
+        node->scrollbarPartHoveredY = hovPartV;
+        node->scrollbarPartPressedY = state.draggingScrollbarV
+            ? static_cast<keel::u8>(ScrollbarPart::Thumb)
+            : state.pressedButtonV;
 
         bool hovH = false, actH = false;
+        keel::u8 hovPartH = 0u;
         const Id hScrollId(id.value ^ 0x9E3779B97F4A7C15ULL);
         if (state.resizingCol < 0) {
             ScrollArea::UpdateAxisScrollbar(
@@ -681,11 +696,18 @@ TableScope Table::Open(
                 true,
                 activeSize,
                 theme,
-                cornerReserve
+                cornerReserve,
+                &hovPartH,
+                &state.pressedButtonH,
+                &state.nextRepeatSecH
             );
         }
         node->scrollbarHoveredX = hovH;
         node->scrollbarActiveX = actH;
+        node->scrollbarPartHoveredX = hovPartH;
+        node->scrollbarPartPressedX = state.draggingScrollbarH
+            ? static_cast<keel::u8>(ScrollbarPart::Thumb)
+            : state.pressedButtonH;
 
         const bool interactingScrollbar = state.draggingScrollbarV || state.draggingScrollbarH || hovV || hovH;
         const bool tableHovered = ctx.IsRectHovered(id, data->frameRect);
@@ -1574,7 +1596,9 @@ void Table::RenderChromeAndScrollbars(
             node->scrollbarActive,
             node->uiSize,
             theme,
-            cornerReserve
+            cornerReserve,
+            node->scrollbarPartHoveredY,
+            node->scrollbarPartPressedY
         );
     }
     if (showH) {
@@ -1588,8 +1612,19 @@ void Table::RenderChromeAndScrollbars(
             node->scrollbarActiveX,
             node->uiSize,
             theme,
-            cornerReserve
+            cornerReserve,
+            node->scrollbarPartHoveredX,
+            node->scrollbarPartPressedX
         );
+    }
+    if (showV && showH) {
+        const Rect cornerRect(
+            keel::floor(data->bodyViewportRect.Right() - sm.trackWidth - sm.margin),
+            keel::floor(data->bodyViewportRect.Bottom() - sm.trackWidth - sm.margin),
+            sm.trackWidth,
+            sm.trackWidth
+        );
+        theme.Painter().DrawScrollbarCorner(canvas, theme, cornerRect);
     }
 
     // 4. Outer rounded frame border

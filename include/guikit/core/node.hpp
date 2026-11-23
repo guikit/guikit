@@ -151,6 +151,10 @@ struct Node {
     bool scrollbarActive : 1 {false};
     bool scrollbarHoveredX : 1 {false};
     bool scrollbarActiveX : 1 {false};
+    keel::u8 scrollbarPartHoveredY : 3 {0};
+    keel::u8 scrollbarPartPressedY : 3 {0};
+    keel::u8 scrollbarPartHoveredX : 3 {0};
+    keel::u8 scrollbarPartPressedX : 3 {0};
     bool disabled : 1 {false};
     bool hovered : 1 {false};
     bool pressed : 1 {false};

@@ -2,6 +2,8 @@
 #include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 #include "guikit/core/node.hpp"
+#include "guikit/core/scrollbar.hpp"
+#include "guikit/core/style_painter.hpp"
 #include "guikit/core/text_util.hpp"
 #include "guikit/panels/scroll_area.hpp"
 #include "guikit/widgets/image.hpp"
@@ -941,6 +943,7 @@ void UpdateSceneCameraTransform(
 
     // 2. 2D Scrollbar interaction (when worldSize is finite)
     bool hovY = false, actY = false, hovX = false, actX = false;
+    keel::u8 hovPartY = 0u, hovPartX = 0u;
     if (opts.showScrollbars && hasWorld) {
         const ScrollbarMetrics& sm = theme.GetScrollbar(node->uiSize);
         const keel::f32 cornerReserve = (showVScroll && showHScroll) ? (sm.trackWidth + sm.margin) : 0.0f;
@@ -961,7 +964,8 @@ void UpdateSceneCameraTransform(
                 false,
                 node->uiSize,
                 theme,
-                cornerReserve
+                cornerReserve,
+                &hovPartY
             );
             state.pan.y = -scrollY;
         } else {
@@ -984,7 +988,8 @@ void UpdateSceneCameraTransform(
                 true,
                 node->uiSize,
                 theme,
-                cornerReserve
+                cornerReserve,
+                &hovPartX
             );
             state.pan.x = -scrollX;
         } else {
@@ -995,6 +1000,10 @@ void UpdateSceneCameraTransform(
     node->scrollbarActive = actY;
     node->scrollbarHoveredX = hovX;
     node->scrollbarActiveX = actX;
+    node->scrollbarPartHoveredY = hovPartY;
+    node->scrollbarPartHoveredX = hovPartX;
+    node->scrollbarPartPressedY = state.draggingScrollY ? static_cast<keel::u8>(ScrollbarPart::Thumb) : 0u;
+    node->scrollbarPartPressedX = state.draggingScrollX ? static_cast<keel::u8>(ScrollbarPart::Thumb) : 0u;
 
     const bool scrollbarBusy = hovY || actY || hovX || actX;
 
@@ -1839,7 +1848,9 @@ void Scene::RenderOverlays(
             node->scrollbarActive,
             node->uiSize,
             theme,
-            cornerReserve
+            cornerReserve,
+            node->scrollbarPartHoveredY,
+            node->scrollbarPartPressedY
         );
     }
     if (showHScroll) {
@@ -1853,8 +1864,19 @@ void Scene::RenderOverlays(
             node->scrollbarActiveX,
             node->uiSize,
             theme,
-            cornerReserve
+            cornerReserve,
+            node->scrollbarPartHoveredX,
+            node->scrollbarPartPressedX
         );
+    }
+    if (showVScroll && showHScroll) {
+        const Rect cornerRect(
+            keel::floor(vp.Right() - sm.trackWidth - sm.margin),
+            keel::floor(vp.Bottom() - sm.trackWidth - sm.margin),
+            sm.trackWidth,
+            sm.trackWidth
+        );
+        theme.Painter().DrawScrollbarCorner(canvas, theme, cornerRect);
     }
 
     // 2. Render Floating Zoom HUD (Bottom-Right) and CAD Selection Inspector Pill (Bottom-Left or Top-Left)

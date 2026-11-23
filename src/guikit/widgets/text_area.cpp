@@ -4,6 +4,7 @@
 #include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 #include "guikit/core/node.hpp"
+#include "guikit/core/style_painter.hpp"
 #include "guikit/core/text_util.hpp"
 #include "guikit/panels/toolbar.hpp"
 #include "guikit/widgets/button.hpp"
@@ -1069,8 +1070,14 @@ struct EditorLayoutRects {
     Rect textViewport{};
     Rect vTrackRect{};
     Rect vThumbRect{};
+    Rect vStartBtnRect{};
+    Rect vEndBtnRect{};
+    bool vHasButtons{false};
     Rect hTrackRect{};
     Rect hThumbRect{};
+    Rect hStartBtnRect{};
+    Rect hEndBtnRect{};
+    bool hHasButtons{false};
     Rect copyBtnRect{};
     Rect searchBtnRect{};
     Rect zoomBtnRect{};
@@ -1258,32 +1265,49 @@ EditorLayoutRects ComputeEditorLayout(
     const keel::f32 clampedScrollY = keel::clamp(scrollY, 0.0f, L.maxScrollY);
     const keel::f32 clampedScrollX = keel::clamp(scrollX, 0.0f, L.maxScrollX);
 
+    const ScrollbarStyleTokens& sbStyle = theme.scrollbarStyle;
+    const keel::f32 sbBtnLen = (sbStyle.buttonSize > 0.0f) ? sbStyle.buttonSize : sm.trackWidth;
+
     if (L.needVScroll) {
-        const keel::f32 trackX = L.innerBounds.Right() - sm.trackWidth - sm.margin;
-        const keel::f32 trackY = L.innerBounds.y + sm.margin;
-        const keel::f32 trackH = keel::max(0.0f, L.innerBounds.h - sm.margin * 2.0f - hBarReserve);
-        L.vTrackRect = Rect(trackX, trackY, sm.trackWidth, trackH);
+        const keel::f32 barX = keel::floor(L.innerBounds.Right() - sm.trackWidth - sm.margin);
+        const keel::f32 barY = keel::floor(L.innerBounds.y + sm.margin);
+        const keel::f32 barH = keel::max(0.0f, L.innerBounds.h - sm.margin * 2.0f - hBarReserve);
+        L.vHasButtons = sbStyle.showButtons && (barH >= sbBtnLen * 2.0f + 12.0f);
+        if (L.vHasButtons) {
+            L.vStartBtnRect = Rect(barX, barY, sm.trackWidth, sbBtnLen);
+            L.vEndBtnRect   = Rect(barX, barY + barH - sbBtnLen, sm.trackWidth, sbBtnLen);
+        }
+        const keel::f32 trackY = barY + (L.vHasButtons ? sbBtnLen : 0.0f);
+        const keel::f32 trackH = keel::max(0.0f, barH - (L.vHasButtons ? sbBtnLen * 2.0f : 0.0f));
+        L.vTrackRect = Rect(barX, trackY, sm.trackWidth, trackH);
         if (trackH > 0.0f && L.totalContentH > 0.0f) {
             const keel::f32 visibleRatio = keel::clamp(L.textViewport.h / L.totalContentH, 0.05f, 1.0f);
             const keel::f32 thumbH = keel::min(trackH, keel::max(sm.minThumbLength, trackH * visibleRatio));
             const keel::f32 maxTravel = keel::max(0.0f, trackH - thumbH);
             const keel::f32 thumbY = trackY + ((L.maxScrollY > 0.0f) ? (clampedScrollY / L.maxScrollY) * maxTravel : 0.0f);
-            L.vThumbRect = Rect(trackX, thumbY, sm.trackWidth, thumbH);
+            L.vThumbRect = Rect(barX, thumbY, sm.trackWidth, thumbH);
         }
     }
 
     if (L.needHScroll) {
-        const keel::f32 trackX = L.innerBounds.x + L.gutterWidth + sm.margin;
-        const keel::f32 trackY = L.innerBounds.Bottom() - sm.trackWidth - sm.margin;
-        const keel::f32 trackW = keel::max(0.0f, L.innerBounds.w - L.gutterWidth - L.minimapWidth - sm.margin * 2.0f - (L.needVScroll ? (sm.trackWidth + sm.margin) : 0.0f));
-        L.hTrackRect = Rect(trackX, trackY, trackW, sm.trackWidth);
+        const keel::f32 barX = keel::floor(L.innerBounds.x + L.gutterWidth + sm.margin);
+        const keel::f32 barY = keel::floor(L.innerBounds.Bottom() - sm.trackWidth - sm.margin);
+        const keel::f32 barW = keel::max(0.0f, L.innerBounds.w - L.gutterWidth - L.minimapWidth - sm.margin * 2.0f - (L.needVScroll ? (sm.trackWidth + sm.margin) : 0.0f));
+        L.hHasButtons = sbStyle.showButtons && (barW >= sbBtnLen * 2.0f + 12.0f);
+        if (L.hHasButtons) {
+            L.hStartBtnRect = Rect(barX, barY, sbBtnLen, sm.trackWidth);
+            L.hEndBtnRect   = Rect(barX + barW - sbBtnLen, barY, sbBtnLen, sm.trackWidth);
+        }
+        const keel::f32 trackX = barX + (L.hHasButtons ? sbBtnLen : 0.0f);
+        const keel::f32 trackW = keel::max(0.0f, barW - (L.hHasButtons ? sbBtnLen * 2.0f : 0.0f));
+        L.hTrackRect = Rect(trackX, barY, trackW, sm.trackWidth);
         const keel::f32 totalW = L.maxLineW + 24.0f;
         if (trackW > 0.0f && totalW > 0.0f) {
             const keel::f32 visibleRatio = keel::clamp(L.textViewport.w / totalW, 0.05f, 1.0f);
             const keel::f32 thumbW = keel::min(trackW, keel::max(sm.minThumbLength, trackW * visibleRatio));
             const keel::f32 maxTravel = keel::max(0.0f, trackW - thumbW);
             const keel::f32 thumbX = trackX + ((L.maxScrollX > 0.0f) ? (clampedScrollX / L.maxScrollX) * maxTravel : 0.0f);
-            L.hThumbRect = Rect(thumbX, trackY, thumbW, sm.trackWidth);
+            L.hThumbRect = Rect(thumbX, barY, thumbW, sm.trackWidth);
         }
     }
 
@@ -2515,6 +2539,10 @@ TextAreaResponse TextArea::Run(
     const Vec2 mousePos = ctx.GetMousePos();
     const bool copyHovered = opts.showCopyButton && res.hovered && L.copyBtnRect.w > 0.0f && L.copyBtnRect.Contains(mousePos);
     const bool zoomHovered = opts.allowZoom && res.hovered && L.zoomBtnRect.w > 0.0f && L.zoomBtnRect.Contains(mousePos);
+    const bool vStartBtnHovered = L.needVScroll && L.vHasButtons && res.hovered && L.vStartBtnRect.Contains(mousePos);
+    const bool vEndBtnHovered   = L.needVScroll && L.vHasButtons && res.hovered && L.vEndBtnRect.Contains(mousePos);
+    const bool hStartBtnHovered = L.needHScroll && L.hHasButtons && res.hovered && L.hStartBtnRect.Contains(mousePos);
+    const bool hEndBtnHovered   = L.needHScroll && L.hHasButtons && res.hovered && L.hEndBtnRect.Contains(mousePos);
     const bool vThumbHovered = L.needVScroll && res.hovered && L.vThumbRect.Contains(mousePos);
     const bool hThumbHovered = L.needHScroll && res.hovered && L.hThumbRect.Contains(mousePos);
     const bool vTrackHovered = L.needVScroll && res.hovered && L.vTrackRect.Contains(mousePos);
@@ -2707,6 +2735,18 @@ TextAreaResponse TextArea::Run(
         } else if (minimapHovered) {
             consumedByChrome = true;
             state.draggingMinimap = true;
+        } else if (vStartBtnHovered) {
+            consumedByChrome = true;
+            state.scrollY = keel::max(0.0f, state.scrollY - theme.GetScrollbar(activeSize).scrollStep);
+        } else if (vEndBtnHovered) {
+            consumedByChrome = true;
+            state.scrollY = keel::min(L.maxScrollY, state.scrollY + theme.GetScrollbar(activeSize).scrollStep);
+        } else if (hStartBtnHovered) {
+            consumedByChrome = true;
+            state.scrollX = keel::max(0.0f, state.scrollX - theme.GetScrollbar(activeSize).scrollStep);
+        } else if (hEndBtnHovered) {
+            consumedByChrome = true;
+            state.scrollX = keel::min(L.maxScrollX, state.scrollX + theme.GetScrollbar(activeSize).scrollStep);
         } else if (vThumbHovered) {
             consumedByChrome = true;
             state.draggingVThumb = true;
@@ -4082,10 +4122,24 @@ void TextArea::Render(
 
     // 7. Render vertical & horizontal scrollbars (with overview ruler markers for search/breakpoints/diagnostics)
     if (L.needVScroll && L.vTrackRect.h > 0.0f) {
-        canvas.DrawRoundRect(L.vTrackRect, sm.cornerRadius, pal.surfaceHover.WithAlphaF(0.25f));
-        const bool vActive = extData && (extData->vThumbHovered || extData->vThumbDragging);
-        const Color thumbCol = vActive ? pal.controlKnobHover : pal.controlKnob.WithAlphaF(0.65f);
-        canvas.DrawRoundRect(L.vThumbRect, sm.cornerRadius, thumbCol);
+        const bool vHov = extData && extData->vThumbHovered;
+        const bool vDrag = extData && extData->vThumbDragging;
+        const Rect vBarRect = L.vHasButtons
+            ? Rect(L.vStartBtnRect.x, L.vStartBtnRect.y, L.vTrackRect.w, L.vEndBtnRect.Bottom() - L.vStartBtnRect.y)
+            : L.vTrackRect;
+        ScrollbarPaintParams vp{};
+        vp.barRect = vBarRect;
+        vp.trackRect = L.vTrackRect;
+        vp.thumbRect = L.vThumbRect;
+        vp.startButtonRect = L.vStartBtnRect;
+        vp.endButtonRect = L.vEndBtnRect;
+        vp.horizontal = false;
+        vp.hasButtons = L.vHasButtons;
+        vp.hovered = vHov || vDrag;
+        vp.thumbHovered = vHov;
+        vp.dragging = vDrag;
+        vp.cornerRadius = sm.cornerRadius;
+        theme.Painter().DrawScrollbar(canvas, theme, vp);
 
         // Overview ruler ticks on vertical scrollbar track
         const keel::f32 totalLinesF = keel::as<keel::f32>(keel::max<keel::usize>(1, logicalLines.size()));
@@ -4109,10 +4163,34 @@ void TextArea::Render(
     }
 
     if (L.needHScroll && L.hTrackRect.w > 0.0f) {
-        canvas.DrawRoundRect(L.hTrackRect, sm.cornerRadius, pal.surfaceHover.WithAlphaF(0.25f));
-        const bool hActive = extData && (extData->hThumbHovered || extData->hThumbDragging);
-        const Color thumbCol = hActive ? pal.controlKnobHover : pal.controlKnob.WithAlphaF(0.65f);
-        canvas.DrawRoundRect(L.hThumbRect, sm.cornerRadius, thumbCol);
+        const bool hHov = extData && extData->hThumbHovered;
+        const bool hDrag = extData && extData->hThumbDragging;
+        const Rect hBarRect = L.hHasButtons
+            ? Rect(L.hStartBtnRect.x, L.hStartBtnRect.y, L.hEndBtnRect.Right() - L.hStartBtnRect.x, L.hTrackRect.h)
+            : L.hTrackRect;
+        ScrollbarPaintParams hp{};
+        hp.barRect = hBarRect;
+        hp.trackRect = L.hTrackRect;
+        hp.thumbRect = L.hThumbRect;
+        hp.startButtonRect = L.hStartBtnRect;
+        hp.endButtonRect = L.hEndBtnRect;
+        hp.horizontal = true;
+        hp.hasButtons = L.hHasButtons;
+        hp.hovered = hHov || hDrag;
+        hp.thumbHovered = hHov;
+        hp.dragging = hDrag;
+        hp.cornerRadius = sm.cornerRadius;
+        theme.Painter().DrawScrollbar(canvas, theme, hp);
+    }
+
+    if (L.needVScroll && L.needHScroll) {
+        const Rect cornerRect(
+            keel::floor(L.innerBounds.Right() - sm.trackWidth - sm.margin),
+            keel::floor(L.innerBounds.Bottom() - sm.trackWidth - sm.margin),
+            sm.trackWidth,
+            sm.trackWidth
+        );
+        theme.Painter().DrawScrollbarCorner(canvas, theme, cornerRect);
     }
 
     // 8. Render Debug Hover DataTip Card when hovering over a variable in opts.debugVariables

@@ -27,6 +27,33 @@ void PopulateBevelPalette(UiTheme& theme) noexcept {
     }
 }
 
+void ApplyScrollbarMetricsForPreset(UiTheme& theme, ScrollbarPreset effectivePreset) noexcept {
+    if (effectivePreset == ScrollbarPreset::Modern || effectivePreset == ScrollbarPreset::Auto) {
+        theme.scrollbars = {{
+            ScrollbarMetrics{ 0.0f,  0.0f, 0.0f,  0.0f, 0.0f,  0.0f }, // None
+            ScrollbarMetrics{ 3.0f, 12.0f, 1.5f, 18.0f, 1.5f,  6.0f }, // Xs
+            ScrollbarMetrics{ 4.5f, 15.0f, 2.25f, 24.0f, 2.25f, 9.0f }, // Sm
+            ScrollbarMetrics{ 6.0f, 21.0f, 3.0f, 30.0f, 2.25f, 10.5f }, // Md
+            ScrollbarMetrics{ 7.5f, 27.0f, 3.75f, 36.0f, 3.0f, 13.5f }, // Lg
+            ScrollbarMetrics{ 9.0f, 33.0f, 4.5f, 42.0f, 3.0f, 15.0f }  // Xl
+        }};
+        return;
+    }
+
+    const bool softEdges = (effectivePreset == ScrollbarPreset::WindowsXp ||
+                            effectivePreset == ScrollbarPreset::WindowsVista ||
+                            effectivePreset == ScrollbarPreset::Windows7);
+    const keel::f32 cr = softEdges ? 1.5f : 0.0f;
+    theme.scrollbars = {{
+        ScrollbarMetrics{  0.0f,  0.0f, 0.0f,  0.0f, 0.0f,  0.0f }, // None
+        ScrollbarMetrics{ 12.0f, 16.0f, cr,   18.0f, 0.0f, 12.0f }, // Xs
+        ScrollbarMetrics{ 14.0f, 18.0f, cr,   24.0f, 0.0f, 14.0f }, // Sm
+        ScrollbarMetrics{ 16.0f, 20.0f, cr,   30.0f, 0.0f, 16.0f }, // Md
+        ScrollbarMetrics{ 18.0f, 24.0f, cr,   36.0f, 0.0f, 18.0f }, // Lg
+        ScrollbarMetrics{ 20.0f, 28.0f, cr,   42.0f, 0.0f, 20.0f }  // Xl
+    }};
+}
+
 void PopulateControlStyle(UiTheme& theme, SurfaceStyle style) noexcept {
     const bool zeroRadius = (theme.GetRadius(UiSize::Md) <= 0.01f);
     if (style == SurfaceStyle::Bevel) {
@@ -57,6 +84,11 @@ void PopulateControlStyle(UiTheme& theme, SurfaceStyle style) noexcept {
             .bevelSelectButton  = false,
             .neutralSliderTrack = false
         };
+    }
+    if (theme.scrollbarPreset == ScrollbarPreset::Auto) {
+        const ScrollbarPreset eff = (style == SurfaceStyle::Bevel) ? ScrollbarPreset::Windows98 : ScrollbarPreset::Modern;
+        theme.scrollbarStyle = ScrollbarStyleTokens::FromPreset(eff);
+        ApplyScrollbarMetricsForPreset(theme, eff);
     }
 }
 
@@ -852,6 +884,30 @@ void ApplyCuratedPresetColors(UiTheme& theme, ThemePreset p) noexcept {
     return keel::kNullOpt;
 }
 
+[[nodiscard]] keel::StringRef ScrollbarPresetJsonKey(ScrollbarPreset p) noexcept {
+    switch (p) {
+        case ScrollbarPreset::Auto:         return "Auto";
+        case ScrollbarPreset::Modern:       return "Modern";
+        case ScrollbarPreset::Classic1988:  return "Classic1988";
+        case ScrollbarPreset::Windows98:    return "Windows98";
+        case ScrollbarPreset::WindowsXp:    return "WindowsXp";
+        case ScrollbarPreset::WindowsVista: return "WindowsVista";
+        case ScrollbarPreset::Windows7:     return "Windows7";
+        case ScrollbarPreset::WindowsFlat:  return "WindowsFlat";
+    }
+    return "Auto";
+}
+
+[[nodiscard]] keel::Optional<ScrollbarPreset> ParseScrollbarPresetKey(keel::StringRef s) noexcept {
+    for (keel::usize i = 0u; i < kScrollbarPresetCount; ++i) {
+        const auto p = keel::from_underlying<ScrollbarPreset>(i);
+        if (s == ScrollbarPresetJsonKey(p) || s == ScrollbarPresetName(p)) {
+            return p;
+        }
+    }
+    return keel::kNullOpt;
+}
+
 void SkipWs(keel::StringRef s, keel::usize& pos) noexcept {
     while (pos < s.size()) {
         const char c = s[pos];
@@ -971,6 +1027,12 @@ keel::String ThemeSpec::ToJson() const {
     if (info.has_value()) {
         out.append(keel::format("  \"info\": \"{}\",\n", FormatHexColor(*info)));
     }
+    if (scrollbarPreset.has_value()) {
+        out.append(keel::format("  \"scrollbarPreset\": \"{}\",\n", ScrollbarPresetJsonKey(*scrollbarPreset)));
+    }
+    if (scrollbarWidth.has_value()) {
+        out.append(keel::format("  \"scrollbarWidth\": {:.2f},\n", *scrollbarWidth));
+    }
     out.append(keel::format("  \"surfaceContrast\": {:.2f},\n", surfaceContrast));
     out.append(keel::format("  \"radiusScale\": {:.2f},\n", radiusScale));
     out.append(keel::format("  \"spacingScale\": {:.2f},\n", spacingScale));
@@ -1029,6 +1091,14 @@ keel::Optional<ThemeSpec> ThemeSpec::FromJson(keel::StringRef json) noexcept {
             keel::StringRef val;
             if (!ParseJsonString(json, pos, val)) return keel::kNullOpt;
             if (const auto sp = ParseSyntaxPresetKey(val); sp.has_value()) spec.syntaxPreset = *sp;
+        } else if (key == "scrollbarPreset") {
+            keel::StringRef val;
+            if (!ParseJsonString(json, pos, val)) return keel::kNullOpt;
+            if (const auto sbp = ParseScrollbarPresetKey(val); sbp.has_value()) spec.scrollbarPreset = *sbp;
+        } else if (key == "scrollbarWidth") {
+            keel::f32 num = 0.0f;
+            if (!ParseJsonNumber(json, pos, num)) return keel::kNullOpt;
+            spec.scrollbarWidth = keel::clamp(num, 4.0f, 28.0f);
         } else if (key == "shellStyle") {
             keel::StringRef val;
             if (!ParseJsonString(json, pos, val)) return keel::kNullOpt;
@@ -1084,6 +1154,25 @@ keel::Optional<ThemeSpec> ThemeSpec::FromJson(keel::StringRef json) noexcept {
 
 const IStylePainter& UiTheme::Painter() const noexcept {
     return (stylePainter != nullptr) ? *stylePainter : GetDefaultStylePainter();
+}
+
+void UiTheme::SetScrollbarPreset(ScrollbarPreset p) noexcept {
+    scrollbarPreset = p;
+    const ScrollbarPreset eff = (p == ScrollbarPreset::Auto)
+        ? ((surfaceStyle == SurfaceStyle::Bevel) ? ScrollbarPreset::Windows98 : ScrollbarPreset::Modern)
+        : p;
+    scrollbarStyle = ScrollbarStyleTokens::FromPreset(eff);
+    ApplyScrollbarMetricsForPreset(*this, eff);
+}
+
+void UiTheme::SetScrollbarWidth(keel::f32 mdWidth) noexcept {
+    const keel::f32 targetMd = keel::clamp(mdWidth, 4.0f, 28.0f);
+    const keel::f32 baseMd = keel::max(1.0f, scrollbars[keel::as<keel::usize>(UiSize::Preset::Md)].trackWidth);
+    const keel::f32 scale = targetMd / baseMd;
+    for (keel::usize i = 1u; i < scrollbars.size(); ++i) {
+        scrollbars[i].trackWidth = keel::max(3.0f, keel::round(scrollbars[i].trackWidth * scale));
+        scrollbars[i].gutter = scrollbars[i].trackWidth + scrollbars[i].margin * 2.0f;
+    }
 }
 
 void UiTheme::SetMode(ThemeMode m) noexcept {
@@ -1555,6 +1644,12 @@ UiTheme UiTheme::Build(const ThemeSpec& spec) noexcept {
     }
     theme.disabledOpacity = keel::clamp(spec.disabledOpacity, 0.15f, 0.85f);
     theme.animationScale = keel::clamp(spec.animationScale, 0.0f, 2.0f);
+    if (spec.scrollbarPreset.has_value()) {
+        theme.SetScrollbarPreset(*spec.scrollbarPreset);
+    }
+    if (spec.scrollbarWidth.has_value()) {
+        theme.SetScrollbarWidth(*spec.scrollbarWidth);
+    }
     theme.SetShellStyle(spec.shellStyle);
     return theme;
 }

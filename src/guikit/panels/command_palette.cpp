@@ -402,7 +402,7 @@ CommandPaletteResponse CommandPalette::Run(
                     ctx.ConsumeMouseClick();
                     ctx.InvalidateAll();
                     filtered = FilterItems(items, st.query.as_ref());
-                    sbGeom = Scrollbar::ComputeVertical(sbViewport, keel::as<keel::f32>(filtered.size()) * rowH, st.scrollOffset, sbm);
+                    sbGeom = Scrollbar::ComputeVertical(sbViewport, keel::as<keel::f32>(filtered.size()) * rowH, st.scrollOffset, sbm, theme.scrollbarStyle);
                 } else if (escPillHovered) {
                     isOpen = false;
                     st.wasOpen = false;
@@ -462,8 +462,7 @@ CommandPaletteResponse CommandPalette::Run(
     };
 
     const keel::f32 sbRightReserve = sbGeom.visible ? (sbGeom.trackRect.w + sbm.margin) : 0.0f;
-    const bool sbHoveredCopy = st.scrollbar.hovered;
-    const bool sbDraggingCopy = st.scrollbar.dragging;
+    const ScrollbarState sbStateCopy = st.scrollbar;
 
     DrawRowItem* arenaRows = ctx.GetArena().create_array<DrawRowItem>(filtered.size());
     keel::usize drawRowCount = 0;
@@ -520,8 +519,7 @@ CommandPaletteResponse CommandPalette::Run(
         totalFiltered,
         sbGeom,
         sbm,
-        sbHoveredCopy,
-        sbDraggingCopy,
+        sbStateCopy,
         showFooter,
         backdropOpacity,
         backdropColor,
@@ -819,8 +817,8 @@ CommandPaletteResponse CommandPalette::Run(
                 }
             }
 
-            // Interactive scrollbar track & thumb when list overflows
-            Scrollbar::DrawVertical(c, sbGeom, sbHoveredCopy, sbDraggingCopy, sbm, pal, primaryCol);
+            // Interactive scrollbar track, buttons & thumb when list overflows
+            Scrollbar::DrawVertical(c, sbGeom, sbStateCopy, sbm, theme, primaryCol);
         }
         c.PopClip();
 

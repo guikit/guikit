@@ -1,5 +1,7 @@
 #include <cstring>
 #include "guikit/core.hpp"
+#include "guikit/core/scrollbar.hpp"
+#include "guikit/core/style_painter.hpp"
 #include "keel/keel.h"
 #include "keel/math.h"
 
@@ -1979,6 +1981,141 @@ void TestThemeSystemColorSciencePresetsSpecJsonAndLerp() {
     }
 }
 
+void TestScrollbarCustomizationPresetsAndGeometry() {
+    using namespace guikit;
+
+    // 1. Default theme uses Modern scrollbar; Windows98 auto-selects ClassicBevel 16dp with stepper buttons
+    const UiTheme dark = UiTheme::Dark();
+    CHECK(dark.scrollbarPreset == ScrollbarPreset::Auto);
+    CHECK(dark.scrollbarStyle.chrome == ScrollbarChromeStyle::Modern);
+    CHECK(!dark.scrollbarStyle.showButtons);
+    CHECK(keel::abs(dark.GetScrollbar(UiSize::Md).trackWidth - 6.0f) < 0.01f);
+
+    const UiTheme win98 = UiTheme::Windows98();
+    CHECK(win98.scrollbarStyle.chrome == ScrollbarChromeStyle::ClassicBevel);
+    CHECK(win98.scrollbarStyle.showButtons);
+    CHECK(win98.scrollbarStyle.arrowStyle == ScrollbarArrowStyle::Triangle);
+    CHECK(win98.scrollbarStyle.showCornerBox);
+    CHECK(keel::abs(win98.GetScrollbar(UiSize::Md).trackWidth - 16.0f) < 0.01f);
+    CHECK(keel::abs(win98.GetScrollbar(UiSize::Md).margin - 0.0f) < 0.01f);
+
+    // 2. All Windows-era presets produce valid distinct tokens & metrics
+    UiTheme t = UiTheme::Light();
+    for (keel::usize i = 0; i < kScrollbarPresetCount; ++i) {
+        const auto preset = keel::from_underlying<ScrollbarPreset>(i);
+        CHECK(!ScrollbarPresetName(preset).empty());
+        t.SetScrollbarPreset(preset);
+        CHECK(t.scrollbarPreset == preset);
+        if (preset == ScrollbarPreset::Classic1988) {
+            CHECK(t.scrollbarStyle.chrome == ScrollbarChromeStyle::Outlined);
+            CHECK(t.scrollbarStyle.arrowStyle == ScrollbarArrowStyle::Arrow);
+            CHECK(t.scrollbarStyle.showButtons);
+        } else if (preset == ScrollbarPreset::WindowsXp) {
+            CHECK(t.scrollbarStyle.gripStyle == ScrollbarGripStyle::Lines);
+            CHECK(t.scrollbarStyle.arrowStyle == ScrollbarArrowStyle::Chevron);
+            CHECK(t.scrollbarStyle.showButtons);
+        } else if (preset == ScrollbarPreset::Windows7) {
+            CHECK(t.scrollbarStyle.gripStyle == ScrollbarGripStyle::Lines);
+            CHECK(t.scrollbarStyle.arrowStyle == ScrollbarArrowStyle::Triangle);
+            CHECK(t.scrollbarStyle.showButtons);
+        } else if (preset == ScrollbarPreset::WindowsFlat) {
+            CHECK(t.scrollbarStyle.chrome == ScrollbarChromeStyle::Flat);
+            CHECK(t.scrollbarStyle.arrowStyle == ScrollbarArrowStyle::Chevron);
+            CHECK(t.scrollbarStyle.showButtons);
+        }
+    }
+
+    // 3. Explicit scrollbar width scaling
+    t.SetScrollbarPreset(ScrollbarPreset::Windows98);
+    t.SetScrollbarWidth(20.0f);
+    CHECK(keel::abs(t.GetScrollbar(UiSize::Md).trackWidth - 20.0f) < 0.01f);
+    CHECK(t.GetScrollbar(UiSize::Sm).trackWidth < t.GetScrollbar(UiSize::Md).trackWidth);
+    CHECK(t.GetScrollbar(UiSize::Lg).trackWidth > t.GetScrollbar(UiSize::Md).trackWidth);
+
+    // 4. ThemeSpec JSON round-trip for scrollbarPreset and scrollbarWidth
+    {
+        ThemeSpec spec{};
+        spec.base = ThemePreset::Light;
+        spec.scrollbarPreset = ScrollbarPreset::WindowsXp;
+        spec.scrollbarWidth = 18.0f;
+
+        const keel::String json = spec.ToJson();
+        const auto parsed = ThemeSpec::FromJson(json);
+        CHECK(parsed.has_value());
+        if (parsed.has_value()) {
+            CHECK(parsed->scrollbarPreset.has_value() && *parsed->scrollbarPreset == ScrollbarPreset::WindowsXp);
+            CHECK(parsed->scrollbarWidth.has_value() && keel::abs(*parsed->scrollbarWidth - 18.0f) < 0.01f);
+        }
+
+        const UiTheme built = UiTheme::Build(spec);
+        CHECK(built.scrollbarPreset == ScrollbarPreset::WindowsXp);
+        CHECK(built.scrollbarStyle.gripStyle == ScrollbarGripStyle::Lines);
+        CHECK(keel::abs(built.GetScrollbar(UiSize::Md).trackWidth - 18.0f) < 0.01f);
+    }
+
+    // 5. Scrollbar::ComputeAxis vertical & horizontal with stepper buttons & cornerReserve
+    {
+        const Rect vp(0.0f, 0.0f, 300.0f, 200.0f);
+        const ScrollbarMetrics& m = win98.GetScrollbar(UiSize::Md);
+        const ScrollbarGeometry vGeom = Scrollbar::ComputeAxis(
+            vp, 800.0f, 150.0f, false, m, win98.scrollbarStyle, 16.0f
+        );
+        CHECK(vGeom.visible);
+        CHECK(vGeom.hasButtons);
+        CHECK(keel::abs(vGeom.barRect.h - 184.0f) < 0.01f);
+        CHECK(keel::abs(vGeom.startButtonRect.h - 16.0f) < 0.01f);
+        CHECK(keel::abs(vGeom.endButtonRect.h - 16.0f) < 0.01f);
+        CHECK(keel::abs(vGeom.trackRect.y - vGeom.startButtonRect.Bottom()) < 0.01f);
+        CHECK(keel::abs(vGeom.trackRect.Bottom() - vGeom.endButtonRect.y) < 0.01f);
+        CHECK(vGeom.thumbRect.y >= vGeom.trackRect.y);
+        CHECK(vGeom.thumbRect.Bottom() <= vGeom.trackRect.Bottom());
+
+        const ScrollbarGeometry hGeom = Scrollbar::ComputeAxis(
+            vp, 900.0f, 100.0f, true, m, win98.scrollbarStyle, 16.0f
+        );
+        CHECK(hGeom.visible);
+        CHECK(hGeom.hasButtons);
+        CHECK(keel::abs(hGeom.barRect.w - 284.0f) < 0.01f);
+        CHECK(keel::abs(hGeom.trackRect.x - hGeom.startButtonRect.Right()) < 0.01f);
+        CHECK(keel::abs(hGeom.trackRect.Right() - hGeom.endButtonRect.x) < 0.01f);
+        CHECK(hGeom.thumbRect.x >= hGeom.trackRect.x);
+        CHECK(hGeom.thumbRect.Right() <= hGeom.trackRect.Right());
+    }
+
+    // 6. Custom IStylePainter override receives DrawScrollbar & DrawScrollbarCorner
+    {
+        struct SpyScrollbarPainter final : public DefaultStylePainter {
+            mutable keel::i32 scrollbarCalls{0};
+            mutable keel::i32 cornerCalls{0};
+            void DrawScrollbar(ICanvas& c, const UiTheme& th, const ScrollbarPaintParams& p) const override {
+                ++scrollbarCalls;
+                DefaultStylePainter::DrawScrollbar(c, th, p);
+            }
+            void DrawScrollbarCorner(ICanvas& c, const UiTheme& th, Rect r) const override {
+                ++cornerCalls;
+                DefaultStylePainter::DrawScrollbarCorner(c, th, r);
+            }
+        };
+
+        SpyScrollbarPainter spy{};
+        UiTheme customTheme = UiTheme::Windows98();
+        customTheme.stylePainter = &spy;
+        NullCanvas nullCanvas{};
+        const ScrollbarGeometry g = Scrollbar::ComputeAxis(
+            Rect(0.0f, 0.0f, 200.0f, 200.0f), 600.0f, 50.0f, false,
+            customTheme.GetScrollbar(UiSize::Md), customTheme.scrollbarStyle
+        );
+        Scrollbar::DrawAxis(
+            nullCanvas, g, false, true, false,
+            ScrollbarPart::StartButton, ScrollbarPart::None,
+            customTheme.GetScrollbar(UiSize::Md), customTheme
+        );
+        customTheme.Painter().DrawScrollbarCorner(nullCanvas, customTheme, Rect(184.0f, 184.0f, 16.0f, 16.0f));
+        CHECK(spy.scrollbarCalls == 1);
+        CHECK(spy.cornerCalls == 1);
+    }
+}
+
 int main() {
     keel::println("[RUN] Testing GuiKit Core Foundation...");
 
@@ -2003,6 +2140,7 @@ int main() {
     TestMdRefAndPixelRef();
     TestBuiltInImageDecoding();
     TestThemeSystemColorSciencePresetsSpecJsonAndLerp();
+    TestScrollbarCustomizationPresetsAndGeometry();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Core tests passed successfully!");

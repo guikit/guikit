@@ -25,6 +25,10 @@ struct ScrollState {
     keel::f32 targetOffsetX{0.0f};
     bool animatingX{false};
     keel::f64 lastAnimTimeSec{0.0};
+    keel::u8 pressedButtonY{0};
+    keel::u8 pressedButtonX{0};
+    keel::f64 nextRepeatSecY{0.0};
+    keel::f64 nextRepeatSecX{0.0};
 };
 
 /// Internal layout payload for ScrollArea constraints.
@@ -86,10 +90,12 @@ public:
         bool active,
         UiSize size,
         const UiTheme& theme,
-        keel::f32 cornerReserve = 0.0f
+        keel::f32 cornerReserve = 0.0f,
+        keel::u8 hoveredPart = 0u,
+        keel::u8 pressedPart = 0u
     );
 
-    /// Shared primitive: updates interaction (hover, thumb drag, track page jump) for a single scrollbar axis.
+    /// Shared primitive: updates interaction (stepper buttons, hover, thumb drag, track page jump) for a single scrollbar axis.
     static void UpdateAxisScrollbar(
         Context& ctx,
         Id ownerId,
@@ -104,7 +110,10 @@ public:
         bool isHorizontal,
         UiSize size,
         const UiTheme& theme,
-        keel::f32 cornerReserve = 0.0f
+        keel::f32 cornerReserve = 0.0f,
+        keel::u8* outHoveredPart = nullptr,
+        keel::u8* ioPressedButton = nullptr,
+        keel::f64* ioNextRepeatSec = nullptr
     );
 };
 
