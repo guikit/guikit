@@ -127,7 +127,7 @@ void ShellControls::RenderThemeControls(MainWindow& win, ToolbarScope& tb) {
     }};
 
     keel::usize scaleIdx = win.GetShellScaleIndex();
-    if (guikit::Select(ui, scaleIdx, MainWindow::kScaleLabels, {.size = UiSize::Sm, .width = 88.0f}).changed) {
+    if (guikit::Select(ui, scaleIdx, MainWindow::kScaleLabels, {.size = UiSize::Sm, .width = 96.0f}).changed) {
         win.SetShellScaleIndex(scaleIdx);
     }
 
@@ -135,7 +135,7 @@ void ShellControls::RenderThemeControls(MainWindow& win, ToolbarScope& tb) {
     if (presetIndex >= kThemePresetCount) {
         presetIndex = 0u;
     }
-    if (guikit::Select(ui, presetIndex, kPresetLabels, {.size = UiSize::Sm, .width = 152.0f}).changed) {
+    if (guikit::Select(ui, presetIndex, kPresetLabels, {.size = UiSize::Sm, .width = 160.0f}).changed) {
         win.SetShellThemePreset(keel::from_underlying<ThemePreset>(presetIndex));
     }
 
