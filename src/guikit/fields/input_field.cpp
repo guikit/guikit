@@ -729,7 +729,7 @@ void detail::InputField::Render(
     }
 
     const keel::f32 radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
-    const Color effBoxBg = (disabled && theme.controlStyle.frameChrome == FrameChrome::Bevel3D) ? pal.surface : boxBg;
+    const Color effBoxBg = (disabled && theme.chrome.frame == FrameTreatment::Bevel3D) ? pal.surface : boxBg;
     theme.Painter().DrawFrame(canvas, theme, FrameKind::Input, FramePaintParams{
         .rect = boxRect,
         .radius = radius,

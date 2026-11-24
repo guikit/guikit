@@ -14,7 +14,8 @@ struct UiTheme {
     ThemeMode mode{ThemeMode::Dark};
     ThemePreset preset{ThemePreset::Dark};
     ShellStyle shellStyle{ShellStyle::Docked};
-    SurfaceStyle surfaceStyle{SurfaceStyle::Solid};
+    ChromeStyle chromeStyle{ChromeStyle::Modern};
+    FillStyle fillStyle{FillStyle::Solid};
     SyntaxPreset syntaxPreset{SyntaxPreset::Auto};
     keel::f32 lineHeightMultiplier{kDefaultLineHeightMultiplier};
     keel::f32 focusRingWidth{2.0f};
@@ -29,9 +30,9 @@ struct UiTheme {
     // 0b. Elevation shadow tokens per Elevation level (None, Sm, Md, Lg)
     keel::StaticArray<ShadowStyle, 4> shadows{};
 
-    // 0c. 3D bevel color palette & declarative structural control tokens
+    // 0c. 3D bevel color palette & declarative structural chrome matrix (zero hardcoded colors)
     BevelPalette bevel{};
-    ControlStyleTokens controlStyle{};
+    ChromeTokens chrome{};
     ScrollbarPreset scrollbarPreset{ScrollbarPreset::Auto};
     ScrollbarStyleTokens scrollbarStyle{};
 
@@ -123,10 +124,10 @@ struct UiTheme {
         return (idx < variants.size()) ? variants[idx] : variants[keel::as<keel::usize>(UiVariant::Default)];
     }
 
-    /// Returns the solid semantic hue color for `variant` even when `surfaceStyle` is `Soft` or `Outline`.
+    /// Returns the solid semantic hue color for `variant` even when `fillStyle` is `Soft` or `Outline`.
     [[nodiscard]] constexpr Color GetSemanticAccent(UiVariant variant) const noexcept {
         const VariantColors& vc = GetVariant(variant);
-        if (surfaceStyle == SurfaceStyle::Outline || surfaceStyle == SurfaceStyle::Soft) {
+        if (fillStyle == FillStyle::Outline || fillStyle == FillStyle::Soft) {
             if (variant == UiVariant::Primary) return palette.accent;
             if (vc.border.a > 0u) return vc.border.WithAlpha(255u);
             return vc.text.WithAlpha(255u);
@@ -692,16 +693,14 @@ struct UiTheme {
         return (geomScale == 1.0f) ? s : s.Scaled(geomScale);
     }
 
-    /// Returns true when the active theme uses 3D bevel chrome (`FrameChrome::Bevel3D`).
-    [[nodiscard]] constexpr bool IsBevel() const noexcept {
-        return controlStyle.frameChrome == FrameChrome::Bevel3D;
-    }
-
     /// Returns the active look-and-feel style painter (custom `stylePainter` if set, otherwise `GetDefaultStylePainter()`).
     [[nodiscard]] const IStylePainter& Painter() const noexcept;
 
-    /// Replaces the 4-tone 3D bevel palette used by `FrameChrome::Bevel3D`.
+    /// Replaces the 4-tone 3D bevel palette (normally derived automatically from `ThemePalette`).
     void SetBevelPalette(const BevelPalette& b) noexcept { bevel = b; }
+
+    /// Replaces individual structural chrome tokens without switching the active palette.
+    void SetChromeTokens(const ChromeTokens& tokens) noexcept;
 
     /// Applies a curated `ScrollbarPreset` (updating `scrollbarStyle` and `scrollbars[]` metrics).
     void SetScrollbarPreset(ScrollbarPreset preset) noexcept;
@@ -771,8 +770,11 @@ struct UiTheme {
     /// Scales elevation shadow intensity (`0.0` = flat / disables shadows, `1.0` = default, `1.5` = deep).
     void SetShadowIntensity(keel::f32 intensity) noexcept;
 
-    /// Transforms semantic & neutral control variants to match `Solid`, `Soft`, `Outline`, or `Brutalist` appearance.
-    void SetSurfaceStyle(SurfaceStyle style) noexcept;
+    /// Switches structural visual language (`Modern`, `Fluent`, `Classic3D`, `Brutalist`) without altering the color palette.
+    void SetChromeStyle(ChromeStyle style) noexcept;
+
+    /// Transforms semantic & neutral control variants to match `Solid`, `Soft`, or `Outline` fill treatment.
+    void SetFillStyle(FillStyle style) noexcept;
 
     /// Adjusts tonal separation between viewport background, cards, elevated surfaces, inputs, and borders (`0.5..1.8`).
     void SetSurfaceContrast(keel::f32 contrast) noexcept;

@@ -1278,7 +1278,7 @@ void detail::Select::Render(
     }
 
     // Draw box background and border via active style painter
-    const bool useBevelDropBtn = theme.controlStyle.bevelSelectButton && !opts.border.radius.has_value();
+    const bool useBevelDropBtn = (theme.chrome.fieldButton == FieldButtonStyle::Raised3D) && !opts.border.radius.has_value();
     const keel::f32 radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
     theme.Painter().DrawFrame(canvas, theme, FrameKind::Input, FramePaintParams{
         .rect = boxRect,
@@ -1321,7 +1321,7 @@ void detail::Select::Render(
             .active = open,
             .disabled = disabled
         });
-        const keel::f32 shift = (!disabled && open) ? theme.controlStyle.buttonPressOffset : 0.0f;
+        const keel::f32 shift = (!disabled && open) ? theme.chrome.buttonPressOffset : 0.0f;
         const Rect chevronRect(
             dropBtnRect.x + (dropBtnRect.w - m.iconSize) * 0.5f + shift,
             dropBtnRect.y + (dropBtnRect.h - m.iconSize) * 0.5f + shift,
@@ -1474,7 +1474,7 @@ void detail::Select::RenderPopup(
     const auto& pal = theme.palette;
 
     // Dropdown container styling via active style painter
-    const bool useClassicList = (theme.controlStyle.frameChrome == FrameChrome::Bevel3D);
+    const bool useClassicList = (theme.chrome.frame == FrameTreatment::Bevel3D);
     const Color popupBg = useClassicList ? pal.inputBackground : pal.surfaceElevated;
     const Color popupBorder = useClassicList ? theme.bevel.shadowOuter : pal.border;
     const keel::f32 popupRadius = useClassicList ? 0.0f : m.cornerRadius;

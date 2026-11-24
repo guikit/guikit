@@ -1797,7 +1797,8 @@ void TestThemeSystemColorSciencePresetsSpecJsonAndLerp() {
             CHECK(!t.GetShadow(Elevation::Lg).IsVisible());
         } else if (preset == ThemePreset::Windows98) {
             CHECK(t.mode == ThemeMode::Light);
-            CHECK(t.IsBevel());
+            CHECK(t.chromeStyle == ChromeStyle::Classic3D);
+            CHECK(t.chrome.frame == FrameTreatment::Bevel3D);
             CHECK(!t.shadowsEnabled);
             CHECK(!t.GetShadow(Elevation::Lg).IsVisible());
             CHECK(t.GetMetrics(UiSize::Md).cornerRadius == 0.0f);
@@ -1809,34 +1810,70 @@ void TestThemeSystemColorSciencePresetsSpecJsonAndLerp() {
         }
     }
 
-    // 3b. Windows98 preset factory, Optional<SurfaceStyle> override, custom IStylePainter & JSON round-trip
+    // 3b. Orthogonal 3-axis theme matrix: Palette x ChromeStyle/ChromeTokens x FillStyle
     {
         const UiTheme w98 = UiTheme::Windows98();
         CHECK(w98.preset == ThemePreset::Windows98);
-        CHECK(w98.surfaceStyle == SurfaceStyle::Bevel);
-        CHECK(w98.controlStyle.frameChrome == FrameChrome::Bevel3D);
-        CHECK(w98.controlStyle.sliderThumb == SliderThumbShape::Pointer3D);
-        CHECK(w98.controlStyle.progressStyle == ProgressFillStyle::Segmented3D);
-        CHECK(w98.controlStyle.tabChrome == TabBarChrome::Classic3D);
-        CHECK(w98.controlStyle.tabGapOverride == 0.0f);
-        CHECK(!w98.controlStyle.pillBadgesAllowed);
+        CHECK(w98.chromeStyle == ChromeStyle::Classic3D);
+        CHECK(w98.fillStyle == FillStyle::Solid);
+        CHECK(w98.chrome.frame == FrameTreatment::Bevel3D);
+        CHECK(w98.chrome.field == FieldTreatment::Sunken3D);
+        CHECK(w98.chrome.fieldButton == FieldButtonStyle::Raised3D);
+        CHECK(w98.chrome.selection == SelectionHighlightStyle::SolidAccent);
+        CHECK(w98.chrome.checkControl == CheckControlStyle::SunkenInk);
+        CHECK(w98.chrome.sliderThumb == SliderThumbShape::Pointer3D);
+        CHECK(w98.chrome.progressFill == ProgressFillStyle::Segmented);
+        CHECK(w98.chrome.tabChrome == TabBarChrome::Classic3D);
+        CHECK(w98.chrome.badgeShape == BadgeShape::Sharp);
+        CHECK(w98.chrome.tabGapOverride == 0.0f);
         CHECK(w98.GetMetrics(UiSize::Md).cornerRadius == 0.0f);
+        // Palette-pure auto scrollbar: no hardcoded RGB colors on ScrollbarStyleTokens
+        CHECK(!w98.scrollbarStyle.trackColor.has_value());
+        CHECK(!w98.scrollbarStyle.thumbColor.has_value());
+        CHECK(!w98.scrollbarStyle.buttonColor.has_value());
 
-        // Default ThemeSpec with Windows98 preserves preset's Bevel style
+        // Default ThemeSpec with Windows98 preserves preset's Classic3D chrome
         ThemeSpec w98Spec{};
         w98Spec.base = ThemePreset::Windows98;
         const UiTheme w98Built = UiTheme::Build(w98Spec);
-        CHECK(w98Built.surfaceStyle == SurfaceStyle::Bevel);
-        CHECK(w98Built.IsBevel());
+        CHECK(w98Built.chromeStyle == ChromeStyle::Classic3D);
+        CHECK(w98Built.chrome.frame == FrameTreatment::Bevel3D);
 
-        // Explicit Solid override on Windows98 switches cleanly to Flat chrome
-        ThemeSpec w98SolidSpec{};
-        w98SolidSpec.base = ThemePreset::Windows98;
-        w98SolidSpec.surfaceStyle = SurfaceStyle::Solid;
-        const UiTheme w98Solid = UiTheme::Build(w98SolidSpec);
-        CHECK(w98Solid.surfaceStyle == SurfaceStyle::Solid);
-        CHECK(!w98Solid.IsBevel());
-        CHECK(w98Solid.controlStyle.frameChrome == FrameChrome::Flat);
+        // Windows98 palette x Modern chrome restores rounded Modern geometry
+        ThemeSpec w98ModernSpec{};
+        w98ModernSpec.base = ThemePreset::Windows98;
+        w98ModernSpec.chrome = ChromeStyle::Modern;
+        const UiTheme w98Modern = UiTheme::Build(w98ModernSpec);
+        CHECK(w98Modern.chromeStyle == ChromeStyle::Modern);
+        CHECK(w98Modern.chrome.frame == FrameTreatment::Flat);
+        CHECK(w98Modern.GetMetrics(UiSize::Md).cornerRadius > 0.0f);
+        CHECK(w98Modern.scrollbarStyle.chrome == ScrollbarChromeStyle::Modern);
+
+        // Dracula dark palette x Classic3D chrome: dark derived bevels + palette-pure 3D scrollbar
+        ThemeSpec drac3dSpec{};
+        drac3dSpec.base = ThemePreset::Dracula;
+        drac3dSpec.chrome = ChromeStyle::Classic3D;
+        drac3dSpec.fillStyle = FillStyle::Soft;
+        const UiTheme drac3d = UiTheme::Build(drac3dSpec);
+        CHECK(drac3d.mode == ThemeMode::Dark);
+        CHECK(drac3d.chromeStyle == ChromeStyle::Classic3D);
+        CHECK(drac3d.fillStyle == FillStyle::Soft);
+        CHECK(drac3d.bevel.highlightOuter.RelativeLuminance() > drac3d.palette.surface.RelativeLuminance());
+        CHECK(drac3d.bevel.shadowInner.RelativeLuminance() < drac3d.palette.surface.RelativeLuminance());
+        CHECK(drac3d.bevel.highlightOuter.RelativeLuminance() < 0.60f); // dark-derived, never hardcoded white
+        CHECK(drac3d.scrollbarStyle.chrome == ScrollbarChromeStyle::ClassicBevel);
+        CHECK(!drac3d.scrollbarStyle.trackColor.has_value());
+
+        // Dark palette x Fluent chrome
+        ThemeSpec fluentSpec{};
+        fluentSpec.base = ThemePreset::Dark;
+        fluentSpec.chrome = ChromeStyle::Fluent;
+        const UiTheme fluent = UiTheme::Build(fluentSpec);
+        CHECK(fluent.chromeStyle == ChromeStyle::Fluent);
+        CHECK(fluent.chrome.frame == FrameTreatment::Directional1px);
+        CHECK(fluent.chrome.field == FieldTreatment::BottomAccent);
+        CHECK(fluent.chrome.selection == SelectionHighlightStyle::LeftAccentBar);
+        CHECK(fluent.chrome.badgeShape == BadgeShape::Rounded);
 
         const auto w98Parsed = ThemeSpec::FromJson(w98Spec.ToJson());
         CHECK(w98Parsed.has_value() && w98Parsed->base == ThemePreset::Windows98);
@@ -1861,10 +1898,11 @@ void TestThemeSystemColorSciencePresetsSpecJsonAndLerp() {
         CHECK(customPainter.frameCalls == 1);
     }
 
-    // 4. Declarative ThemeSpec builder, SurfaceStyle, SurfaceContrast, SyntaxPreset & mutators
+    // 4. Declarative ThemeSpec builder, ChromeStyle, FillStyle, SurfaceContrast, SyntaxPreset & mutators
     ThemeSpec spec{};
     spec.base = ThemePreset::Nord;
-    spec.surfaceStyle = SurfaceStyle::Soft;
+    spec.chrome = ChromeStyle::Fluent;
+    spec.fillStyle = FillStyle::Soft;
     spec.syntaxPreset = SyntaxPreset::Monokai;
     spec.accent = Color::Hex(0xF59E0BFF);
     spec.neutral = Color::Hex(0x161922FF);
@@ -1887,7 +1925,8 @@ void TestThemeSystemColorSciencePresetsSpecJsonAndLerp() {
 
     const UiTheme nordBase = UiTheme::Nord();
     const UiTheme custom = UiTheme::Build(spec);
-    CHECK(custom.surfaceStyle == SurfaceStyle::Soft);
+    CHECK(custom.chromeStyle == ChromeStyle::Fluent);
+    CHECK(custom.fillStyle == FillStyle::Soft);
     CHECK(custom.syntaxPreset == SyntaxPreset::Monokai);
     CHECK(custom.syntax.editorBg == SyntaxPalette::Monokai().editorBg);
     CHECK(custom.palette.accent == *spec.accent);
@@ -1910,10 +1949,10 @@ void TestThemeSystemColorSciencePresetsSpecJsonAndLerp() {
     CHECK(custom.GetTypography(TextRole::BodyMedium).fontSize > nordBase.GetTypography(TextRole::BodyMedium).fontSize * 1.2f);
     CHECK(custom.Spacing().md > nordBase.Spacing().md * 1.15f);
 
-    // 4b. Outline & Brutalist SurfaceStyles + SurfaceContrast separation
+    // 4b. Outline FillStyle & Brutalist ChromeStyle + SurfaceContrast separation
     ThemeSpec outlineSpec{};
     outlineSpec.base = ThemePreset::Dark;
-    outlineSpec.surfaceStyle = SurfaceStyle::Outline;
+    outlineSpec.fillStyle = FillStyle::Outline;
     const UiTheme outlined = UiTheme::Build(outlineSpec);
     CHECK(outlined.GetVariant(UiVariant::Primary).bg.a == 0u);
     CHECK(outlined.GetVariant(UiVariant::Primary).borderWidth > 1.0f);
@@ -1922,9 +1961,12 @@ void TestThemeSystemColorSciencePresetsSpecJsonAndLerp() {
 
     ThemeSpec brutalSpec{};
     brutalSpec.base = ThemePreset::Light;
-    brutalSpec.surfaceStyle = SurfaceStyle::Brutalist;
+    brutalSpec.chrome = ChromeStyle::Brutalist;
     const UiTheme brutal = UiTheme::Build(brutalSpec);
-    CHECK(!brutal.shadowsEnabled);
+    CHECK(brutal.chrome.frame == FrameTreatment::HardShadow);
+    CHECK(brutal.shadowsEnabled);
+    CHECK(brutal.GetShadow(Elevation::Md).blur == 0.0f);
+    CHECK(brutal.GetShadow(Elevation::Md).IsVisible());
     CHECK(brutal.GetVariant(UiVariant::Primary).borderWidth >= 1.5f);
 
     ThemeSpec lowC{};
@@ -1945,7 +1987,8 @@ void TestThemeSystemColorSciencePresetsSpecJsonAndLerp() {
     if (parsedOpt.has_value()) {
         const ThemeSpec& parsed = *parsedOpt;
         CHECK(parsed.base == ThemePreset::Nord);
-        CHECK(parsed.surfaceStyle.has_value() && *parsed.surfaceStyle == SurfaceStyle::Soft);
+        CHECK(parsed.chrome.has_value() && *parsed.chrome == ChromeStyle::Fluent);
+        CHECK(parsed.fillStyle.has_value() && *parsed.fillStyle == FillStyle::Soft);
         CHECK(parsed.syntaxPreset == SyntaxPreset::Monokai);
         CHECK(parsed.accent.has_value() && *parsed.accent == *spec.accent);
         CHECK(parsed.neutral.has_value() && *parsed.neutral == *spec.neutral);

@@ -29,7 +29,8 @@ struct ZoneOptions {
     keel::Optional<const UiTheme&> theme{keel::kNullOpt}; ///< Replaces inherited theme (copied into the frame arena)
     keel::Optional<ThemePreset> preset{keel::kNullOpt};   ///< Lightweight subtree preset override (Nord, Dracula, Industrial, ...)
     keel::Optional<ThemeMode> mode{keel::kNullOpt};       ///< Lightweight subtree Dark/Light flip
-    keel::Optional<SurfaceStyle> surfaceStyle{keel::kNullOpt}; ///< Lightweight subtree appearance override (Solid, Soft, Outline, Brutalist)
+    keel::Optional<ChromeStyle> chrome{keel::kNullOpt};    ///< Lightweight subtree structural chrome override (`Modern`, `Fluent`, `Classic3D`, `Brutalist`)
+    keel::Optional<FillStyle> fillStyle{keel::kNullOpt};   ///< Lightweight subtree semantic fill override (`Solid`, `Soft`, `Outline`)
     keel::Optional<Color> accent{keel::kNullOpt};         ///< Lightweight subtree brand accent override
     keel::Optional<keel::f32> radiusScale{keel::kNullOpt};///< Lightweight subtree corner radius multiplier
     keel::Optional<keel::f32> shadowIntensity{keel::kNullOpt}; ///< Lightweight subtree elevation shadow strength (0.0 = flat)
@@ -42,7 +43,8 @@ struct ZoneOptions {
         return theme.has_value()
             || preset.has_value()
             || mode.has_value()
-            || surfaceStyle.has_value()
+            || chrome.has_value()
+            || fillStyle.has_value()
             || accent.has_value()
             || radiusScale.has_value()
             || shadowIntensity.has_value();

@@ -59,8 +59,8 @@ TabBarResponse detail::TabBar::Run(
     const UiTheme& theme = ctx.GetTheme();
     const ComponentMetrics& m = theme.GetMetrics(activeSize);
     const keel::f32 barDensity = barNode->GetDensity();
-    const keel::f32 defaultTabGap = (theme.controlStyle.tabGapOverride >= 0.0f)
-        ? theme.controlStyle.tabGapOverride
+    const keel::f32 defaultTabGap = (theme.chrome.tabGapOverride >= 0.0f)
+        ? theme.chrome.tabGapOverride
         : ((opts.style == TabBarStyle::Card || opts.style == TabBarStyle::Folder)
             ? 2.0f
             : ((theme.SizeFactor(activeSize) < 0.90f) ? theme.GetGap(UiSize::Xs) : theme.GetGap(UiSize::Sm)));

@@ -250,7 +250,7 @@ void detail::Switch::Render(
                 : ((hovered && !disabled) ? v.bgHover : v.bg);
             trackStroke = (v.borderWidth > 0.0f) ? v.border : Color::Transparent();
             strokeWidth = v.borderWidth;
-            knobFill = isOutlineTrack ? pal.accentText : ((v.bg.a > 0u && theme.surfaceStyle == SurfaceStyle::Soft) ? v.text : pal.controlKnobActive);
+            knobFill = isOutlineTrack ? pal.accentText : ((v.bg.a > 0u && theme.fillStyle == FillStyle::Soft) ? v.text : pal.controlKnobActive);
         } else if (opts.color.token == StateColorToken::Ghost || (opts.color.normal.has_value() && opts.color.normal->a == 0)) {
             const StateColor resolved = theme.ResolveStateColor(opts.color);
             trackFill = (hovered && !disabled) ? resolved.hover.value_or(theme.GetVariant(UiVariant::Ghost).bgHover) : Color::Transparent();

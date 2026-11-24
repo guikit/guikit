@@ -428,7 +428,7 @@ void detail::Button::Render(
             drawBadge = true;
         }
     }
-    const keel::f32 pressShift = (!disabled && (pressed || opts.active)) ? theme.controlStyle.buttonPressOffset : 0.0f;
+    const keel::f32 pressShift = (!disabled && (pressed || opts.active)) ? theme.chrome.buttonPressOffset : 0.0f;
     const Rect contentBounds(
         capsuleRect.x + pressShift,
         capsuleRect.y + pressShift,

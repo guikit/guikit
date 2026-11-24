@@ -462,7 +462,7 @@ void detail::RangeSlider::Render(
     }
 
     // 1 & 2. Draw track groove and active interval fill via active style painter
-    const bool isBevel = (theme.controlStyle.frameChrome == FrameChrome::Bevel3D);
+    const bool isBevel = (theme.chrome.frame == FrameTreatment::Bevel3D);
     const keel::f32 effTrackH = isBevel ? 6.0f : m.trackHeight;
     const keel::f32 halfTrack = effTrackH * 0.5f;
     const Rect trackBgRect = vertical

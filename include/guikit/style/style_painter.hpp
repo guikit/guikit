@@ -262,7 +262,7 @@ public:
         Color dangerColor
     ) const = 0;
 
-    /// Draws a compact badge / counter pill (respecting `controlStyle.pillBadgesAllowed` and `FrameChrome`).
+    /// Draws a compact badge / counter pill (respecting `chrome.badgeShape` and `chrome.frame`).
     virtual void DrawBadge(
         ICanvas& canvas,
         const UiTheme& theme,
@@ -288,8 +288,8 @@ public:
     ) const = 0;
 };
 
-/// Built-in default look-and-feel painter supporting all `SurfaceStyle` and `ControlStyleTokens` modes
-/// (`Solid`, `Soft`, `Outline`, `Brutalist`, and `Bevel` / Classic 3D).
+/// Built-in default look-and-feel painter supporting all `ChromeStyle`, `ChromeTokens`, and `FillStyle` modes
+/// (`Modern`, `Fluent`, `Classic3D`, `Brutalist` across any `ThemePalette`).
 /// Subclass this painter to override only specific control primitives while keeping default behavior.
 class DefaultStylePainter : public IStylePainter {
 public:

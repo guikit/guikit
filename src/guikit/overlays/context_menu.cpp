@@ -579,7 +579,7 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
     ctx.RegisterOverlay([drawPanels, radius, padX, padY, icSz, iconSlotW, submenuSlotW, labelFont, shortcutFont, sectionFont, titleFont, theme, opts](ICanvas& c) {
         const auto& pal = theme.palette;
         const bool isDark = (theme.mode == ThemeMode::Dark);
-        const Color defaultSurfaceBg = (theme.controlStyle.frameChrome == FrameChrome::Bevel3D)
+        const Color defaultSurfaceBg = (theme.chrome.frame == FrameTreatment::Bevel3D)
             ? pal.surfaceElevated.WithAlpha(255u)
             : (isDark ? pal.surfaceElevated.WithAlpha(250u) : pal.surfaceElevated.WithAlpha(252u));
         const Color surfaceBg = opts.background.IsBackgroundEnabled(true)

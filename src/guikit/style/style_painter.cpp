@@ -199,12 +199,17 @@ void DefaultStylePainter::DrawFrame(
 ) const {
     if (p.rect.w <= 0.0f || p.rect.h <= 0.0f) return;
 
-    const bool useBevel = (theme.controlStyle.frameChrome == FrameChrome::Bevel3D) && !p.explicitRadius;
+    const bool useBevel = (theme.chrome.frame == FrameTreatment::Bevel3D) && !p.explicitRadius;
     const keel::f32 effRadius = useBevel ? 0.0f : p.radius;
 
     if (p.elevation != Elevation::None) {
         if (const ShadowStyle sh = theme.GetShadow(p.elevation, p.shadowScale); sh.IsVisible()) {
-            canvas.DrawShadow(p.rect, effRadius, sh.blur, sh.offset, sh.color);
+            if (sh.blur <= 0.01f) {
+                const Rect hardR(p.rect.x + sh.offset.x, p.rect.y + sh.offset.y, p.rect.w, p.rect.h);
+                canvas.DrawRect(hardR, sh.color);
+            } else {
+                canvas.DrawShadow(p.rect, effRadius, sh.blur, sh.offset, sh.color);
+            }
         }
     }
 
@@ -286,7 +291,7 @@ void DefaultStylePainter::DrawDivider(
     keel::f32 thickness
 ) const {
     const bool isHoriz = keel::abs(p1.x - p0.x) >= keel::abs(p1.y - p0.y);
-    if (theme.controlStyle.frameChrome == FrameChrome::Bevel3D) {
+    if (theme.chrome.divider == DividerStyle::Etched3D) {
         if (isHoriz) {
             DrawBevelDividerH(canvas, keel::min(p0.x, p1.x), keel::max(p0.x, p1.x), keel::floor(p0.y), theme.bevel);
         } else {
@@ -295,7 +300,8 @@ void DefaultStylePainter::DrawDivider(
         return;
     }
     if (fallbackColor.a == 0u || thickness <= 0.0f) return;
-    canvas.DrawLine(p0, p1, fallbackColor, thickness);
+    const keel::f32 effThick = (theme.chrome.divider == DividerStyle::Bold) ? keel::max(thickness, 2.0f) : thickness;
+    canvas.DrawLine(p0, p1, fallbackColor, effThick);
 }
 
 void DefaultStylePainter::DrawContainerBorder(
@@ -311,7 +317,7 @@ void DefaultStylePainter::DrawContainerBorder(
 ) const {
     if (r.w <= 0.0f || r.h <= 0.0f) return;
 
-    if (theme.controlStyle.frameChrome == FrameChrome::Bevel3D && radius <= 0.0f) {
+    if (theme.chrome.frame == FrameTreatment::Bevel3D && radius <= 0.0f) {
         switch (role) {
             case ContainerFrameRole::Sidebar: {
                 const keel::f32 x = sidebarRight ? r.x : keel::max(r.x, r.Right() - 2.0f);
@@ -368,10 +374,16 @@ void DefaultStylePainter::DrawControlText(
     keel::f32 alignX,
     keel::f32 alignY
 ) const {
-    if (disabled && theme.controlStyle.disabledText == DisabledTextStyle::Embossed3D && theme.mode == ThemeMode::Light) {
+    if (disabled && theme.chrome.disabledText == DisabledTextStyle::Embossed3D) {
         const Rect shadowR(rect.x + 1.0f, rect.y + 1.0f, rect.w, rect.h);
-        canvas.DrawTextBox(text, shadowR, fontSize, theme.bevel.highlightOuter, alignX, alignY);
-        canvas.DrawTextBox(text, rect, fontSize, theme.bevel.shadowInner, alignX, alignY);
+        const Color hiCol = (theme.mode == ThemeMode::Dark)
+            ? theme.bevel.highlightOuter.WithAlphaF(0.32f)
+            : theme.bevel.highlightOuter;
+        const Color fgCol = (theme.mode == ThemeMode::Dark)
+            ? theme.palette.textDisabled
+            : theme.bevel.shadowInner;
+        canvas.DrawTextBox(text, shadowR, fontSize, hiCol, alignX, alignY);
+        canvas.DrawTextBox(text, rect, fontSize, fgCol, alignX, alignY);
         return;
     }
     canvas.DrawTextBox(text, rect, fontSize, color, alignX, alignY);
@@ -390,7 +402,7 @@ void DefaultStylePainter::DrawSliderTrack(
     keel::f32 cornerRadius,
     bool explicitColor
 ) const {
-    const bool isBevel = (theme.controlStyle.frameChrome == FrameChrome::Bevel3D);
+    const bool isBevel = (theme.chrome.frame == FrameTreatment::Bevel3D);
     const bool sharp = isBevel || (cornerRadius <= 0.01f);
     const keel::f32 trackR = sharp ? 0.0f : ((vertical ? trackRect.w : trackRect.h) * 0.5f);
 
@@ -401,7 +413,7 @@ void DefaultStylePainter::DrawSliderTrack(
         canvas.DrawRoundRect(trackRect, trackR, trackBg, trackBorder, 1.0f);
     }
 
-    if (hasFill && (!theme.controlStyle.neutralSliderTrack || explicitColor)) {
+    if (hasFill && (theme.chrome.sliderTrack == SliderTrackStyle::Filled || explicitColor)) {
         if (sharp) {
             if (isBevel) {
                 const Rect insetFill(
@@ -436,7 +448,7 @@ void DefaultStylePainter::DrawSliderThumb(
     keel::f32 cornerRadius
 ) const {
     const auto& pal = theme.palette;
-    if (theme.controlStyle.sliderThumb == SliderThumbShape::Pointer3D) {
+    if (theme.chrome.sliderThumb == SliderThumbShape::Pointer3D) {
         const Color thumbBg = disabled ? pal.surface.WithAlphaF(theme.disabledOpacity) :
                               active   ? pal.surfaceActive :
                               hovered  ? pal.surfaceHover : pal.surface;
@@ -446,7 +458,7 @@ void DefaultStylePainter::DrawSliderThumb(
 
     const keel::f32 halfThumb = thumbSize * 0.5f;
     const Rect thumbRect(center.x - halfThumb, center.y - halfThumb, thumbSize, thumbSize);
-    const bool sharp = (theme.controlStyle.sliderThumb == SliderThumbShape::Square) || (cornerRadius <= 0.01f);
+    const bool sharp = (theme.chrome.sliderThumb == SliderThumbShape::Square) || (cornerRadius <= 0.01f);
     canvas.DrawRoundRect(thumbRect, sharp ? 0.0f : halfThumb, bg, border, borderWidth);
 }
 
@@ -464,8 +476,8 @@ void DefaultStylePainter::DrawProgressBar(
     keel::f32 cornerRadius,
     bool disabled
 ) const {
-    const bool isSeg3D = (theme.controlStyle.progressStyle == ProgressFillStyle::Segmented3D);
-    const bool sharp = isSeg3D || (theme.controlStyle.frameChrome == FrameChrome::Bevel3D) || (cornerRadius <= 0.01f);
+    const bool isSeg3D = (theme.chrome.progressFill == ProgressFillStyle::Segmented);
+    const bool sharp = isSeg3D || (theme.chrome.frame == FrameTreatment::Bevel3D) || (cornerRadius <= 0.01f);
     const keel::f32 barDim = vertical ? trackRect.w : trackRect.h;
 
     if (isSeg3D) {
@@ -564,7 +576,7 @@ void DefaultStylePainter::DrawSwitch(
     bool disabled,
     keel::f32 themeRadius
 ) const {
-    const bool isBevel = (theme.controlStyle.frameChrome == FrameChrome::Bevel3D);
+    const bool isBevel = (theme.chrome.frame == FrameTreatment::Bevel3D);
     const bool sharp = isBevel || (themeRadius <= 0.01f);
 
     if (isBevel) {
@@ -608,7 +620,7 @@ Color DefaultStylePainter::DrawCheckboxBox(
     bool focused,
     bool disabled
 ) const {
-    if (theme.controlStyle.sunkenCheckbox) {
+    if (theme.chrome.checkControl == CheckControlStyle::SunkenInk) {
         const auto& pal = theme.palette;
         const Color bevelFill = (disabled || pressed) ? pal.surface : pal.inputBackground;
         canvas.DrawRect(boxRect, bevelFill);
@@ -628,7 +640,7 @@ void DefaultStylePainter::DrawTabBarBaseline(
     const UiTheme& theme,
     Rect barRect
 ) const {
-    if (theme.controlStyle.tabChrome == TabBarChrome::Classic3D) {
+    if (theme.chrome.tabChrome == TabBarChrome::Classic3D) {
         const keel::f32 y = keel::floor(barRect.Bottom() - 1.0f);
         canvas.DrawRect(Rect(barRect.x, y, barRect.w, 1.0f), theme.bevel.highlightOuter);
         return;
@@ -652,7 +664,7 @@ keel::f32 DefaultStylePainter::DrawTabChrome(
     keel::f32 radius
 ) const {
     const auto& pal = theme.palette;
-    if (theme.controlStyle.tabChrome == TabBarChrome::Classic3D && style != TabChromeStyle::Folder) {
+    if (theme.chrome.tabChrome == TabBarChrome::Classic3D && style != TabChromeStyle::Folder) {
         const BevelPalette& bc = theme.bevel;
         const keel::f32 topOff = active ? 0.0f : 3.0f;
         const keel::f32 tx = keel::floor(bounds.x);
@@ -802,7 +814,7 @@ void DefaultStylePainter::DrawMenuBarTrigger(
     const auto& pal = theme.palette;
     outTextShift = Vec2{0.0f, 0.0f};
 
-    if (theme.controlStyle.frameChrome == FrameChrome::Bevel3D) {
+    if (theme.chrome.frame == FrameTreatment::Bevel3D) {
         outTextColor = disabled ? pal.textPrimary.WithAlphaF(theme.disabledOpacity) : pal.textPrimary;
         if (!disabled && open) {
             canvas.DrawRect(rect, pal.accent);
@@ -851,9 +863,9 @@ bool DefaultStylePainter::DrawMenuItemHighlight(
 ) const {
     if (disabled) return false;
     const auto& pal = theme.palette;
-    const bool isBevel = (theme.controlStyle.frameChrome == FrameChrome::Bevel3D);
+    const SelectionHighlightStyle selStyle = theme.chrome.selection;
 
-    if (isBevel) {
+    if (selStyle == SelectionHighlightStyle::SolidAccent) {
         if (hovered || selected) {
             canvas.DrawRect(itemRect, isDanger ? dangerColor : pal.accent);
             return true;
@@ -878,6 +890,12 @@ bool DefaultStylePainter::DrawMenuItemHighlight(
             canvas.DrawRect(itemRect, pal.surfaceHover);
         }
     }
+    if (selStyle == SelectionHighlightStyle::LeftAccentBar && (selected || hovered) && itemRect.h > 8.0f) {
+        const keel::f32 barH = keel::max(8.0f, itemRect.h * 0.52f);
+        const Rect barR(itemRect.x + 1.0f, itemRect.y + (itemRect.h - barH) * 0.5f, 3.0f, barH);
+        const Color barCol = isDanger ? dangerColor : pal.accent;
+        canvas.DrawRoundRect(barR, 1.5f, selected ? barCol : barCol.WithAlphaF(0.65f));
+    }
     return false;
 }
 
@@ -892,7 +910,7 @@ void DefaultStylePainter::DrawBadge(
 ) const {
     if (rect.w <= 0.0f || rect.h <= 0.0f) return;
 
-    if (theme.controlStyle.frameChrome == FrameChrome::Bevel3D) {
+    if (theme.chrome.frame == FrameTreatment::Bevel3D) {
         if (bg.a > 0u) {
             canvas.DrawRect(rect, bg);
         }
@@ -900,7 +918,12 @@ void DefaultStylePainter::DrawBadge(
         return;
     }
 
-    const keel::f32 r = theme.controlStyle.pillBadgesAllowed ? fallbackRadius : 0.0f;
+    keel::f32 r = fallbackRadius;
+    if (theme.chrome.badgeShape == BadgeShape::Sharp) {
+        r = 0.0f;
+    } else if (theme.chrome.badgeShape == BadgeShape::Rounded) {
+        r = keel::min(fallbackRadius, 4.0f);
+    }
     canvas.DrawRoundRect(rect, r, bg, border, borderWidth);
 }
 
@@ -1041,9 +1064,12 @@ void DefaultStylePainter::DrawScrollbar(
     // 1. Track background
     const bool drawTrack = sb.alwaysShowTrack || p.hovered || p.dragging || (sb.chrome != ScrollbarChromeStyle::Modern);
     if (drawTrack) {
+        const Color classicTrack = (theme.mode == ThemeMode::Dark)
+            ? Color::Lerp(pal.background, pal.surface, 0.35f)
+            : Color::Lerp(pal.surface, theme.bevel.highlightInner, 0.55f);
         const Color defaultTrackBg = (sb.chrome == ScrollbarChromeStyle::Modern)
             ? pal.borderSubtle
-            : (sb.chrome == ScrollbarChromeStyle::ClassicBevel ? pal.surfaceElevated : pal.surface);
+            : (sb.chrome == ScrollbarChromeStyle::ClassicBevel ? classicTrack : Color::Lerp(pal.background, pal.surface, 0.50f));
         const Color trackBg = sb.trackColor.value_or(defaultTrackBg);
         if (sb.chrome == ScrollbarChromeStyle::Modern) {
             canvas.DrawRoundRect(p.trackRect, p.cornerRadius, trackBg, Color::Transparent(), 0.0f);
@@ -1133,7 +1159,7 @@ void DefaultStylePainter::DrawScrollbar(
                 ? sb.buttonActiveColor.value_or(pal.surfaceActive)
                 : (hov ? sb.buttonHoverColor.value_or(pal.surfaceHover) : sb.buttonColor.value_or(pal.surface));
             const Color arrowCol = (press && sb.chrome == ScrollbarChromeStyle::Flat)
-                ? Color::Hex(0xFFFFFFFF)
+                ? Color::BestTextColor(btnBg, pal.textPrimary, pal.accentText)
                 : sb.arrowColor.value_or(pal.textPrimary);
 
             if (sb.chrome == ScrollbarChromeStyle::ClassicBevel) {

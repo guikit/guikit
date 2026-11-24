@@ -11278,25 +11278,29 @@ void TestZonePartialThemeOverrides() {
     keel::f32 insideRadius = -1.0f;
     bool insideShadows = true;
     ThemePreset insidePreset = ThemePreset::Dark;
-    SurfaceStyle insideSurfaceStyle = SurfaceStyle::Solid;
+    ChromeStyle insideChrome = ChromeStyle::Modern;
+    FillStyle insideFillStyle = FillStyle::Solid;
 
     Color afterZoneBg{};
     Color afterZoneAccent{};
     keel::f32 afterZoneRadius = -1.0f;
-    SurfaceStyle afterZoneSurfaceStyle = SurfaceStyle::Outline;
+    ChromeStyle afterZoneChrome = ChromeStyle::Classic3D;
+    FillStyle afterZoneFillStyle = FillStyle::Outline;
 
     ui.BeginFrame({400.0f, 300.0f});
     if (auto col = guikit::Column(ui, {.gap = 8.0f})) {
         if (auto zone = ui.Zone({
             .preset = ThemePreset::Industrial,
-            .surfaceStyle = SurfaceStyle::Outline,
+            .chrome = ChromeStyle::Fluent,
+            .fillStyle = FillStyle::Outline,
             .accent = Color::Hex(0xE11D48FF),
             .radiusScale = 0.0f,
             .shadowIntensity = 0.0f
         })) {
             const UiTheme& zt = ui.GetTheme();
             insidePreset = zt.preset;
-            insideSurfaceStyle = zt.surfaceStyle;
+            insideChrome = zt.chromeStyle;
+            insideFillStyle = zt.fillStyle;
             insidePresetBg = zt.palette.background;
             insideAccent = zt.palette.accent;
             insideRadius = zt.GetMetrics(UiSize::Md).cornerRadius;
@@ -11308,12 +11312,14 @@ void TestZonePartialThemeOverrides() {
         afterZoneBg = restored.palette.background;
         afterZoneAccent = restored.palette.accent;
         afterZoneRadius = restored.GetMetrics(UiSize::Md).cornerRadius;
-        afterZoneSurfaceStyle = restored.surfaceStyle;
+        afterZoneChrome = restored.chromeStyle;
+        afterZoneFillStyle = restored.fillStyle;
     }
     ui.EndFrame(canvas);
 
     CHECK(insidePreset == ThemePreset::Industrial);
-    CHECK(insideSurfaceStyle == SurfaceStyle::Outline);
+    CHECK(insideChrome == ChromeStyle::Fluent);
+    CHECK(insideFillStyle == FillStyle::Outline);
     CHECK(insidePresetBg == UiTheme::Industrial().palette.background);
     CHECK(insideAccent == Color::Hex(0xE11D48FF));
     CHECK(insideRadius == 0.0f);
@@ -11323,7 +11329,8 @@ void TestZonePartialThemeOverrides() {
     CHECK(afterZoneBg == rootBg);
     CHECK(afterZoneAccent == rootAccent);
     CHECK_NEAR(afterZoneRadius, rootRadius, 0.001f);
-    CHECK(afterZoneSurfaceStyle == SurfaceStyle::Solid);
+    CHECK(afterZoneChrome == ChromeStyle::Modern);
+    CHECK(afterZoneFillStyle == FillStyle::Solid);
 }
 
 int main() {

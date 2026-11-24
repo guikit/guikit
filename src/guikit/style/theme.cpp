@@ -8,27 +8,36 @@ namespace guikit {
 
 namespace {
 
-void PopulateBevelPalette(UiTheme& theme) noexcept {
-    if (theme.mode == ThemeMode::Dark) {
-        const Color base = theme.palette.surface.WithAlpha(255u);
-        theme.bevel = BevelPalette{
-            .highlightOuter = base.Lighten(0.28f),
-            .highlightInner = base.Lighten(0.13f),
-            .shadowInner    = theme.palette.background.Darken(0.14f),
-            .shadowOuter    = Color::Hex(0x000000E8)
-        };
-    } else {
+void PopulateBevelPalette(UiTheme& theme, bool exactWin98 = false) noexcept {
+    if (exactWin98 && theme.preset == ThemePreset::Windows98) {
         theme.bevel = BevelPalette{
             .highlightOuter = Color::Hex(0xFFFFFFFF),
             .highlightInner = Color::Hex(0xDFDFDFFF),
             .shadowInner    = Color::Hex(0x808080FF),
             .shadowOuter    = Color::Hex(0x000000FF)
         };
+        return;
+    }
+    const Color base = theme.palette.surface.WithAlpha(255u);
+    if (theme.mode == ThemeMode::Dark) {
+        theme.bevel = BevelPalette{
+            .highlightOuter = base.Lighten(0.28f),
+            .highlightInner = base.Lighten(0.13f),
+            .shadowInner    = theme.palette.background.Darken(0.22f),
+            .shadowOuter    = Color::Hex(0x000000EB)
+        };
+    } else {
+        theme.bevel = BevelPalette{
+            .highlightOuter = base.Lighten(0.38f),
+            .highlightInner = base.Lighten(0.14f),
+            .shadowInner    = base.Darken(0.28f),
+            .shadowOuter    = base.Darken(0.58f)
+        };
     }
 }
 
-void ApplyScrollbarMetricsForPreset(UiTheme& theme, ScrollbarPreset effectivePreset) noexcept {
-    if (effectivePreset == ScrollbarPreset::Modern || effectivePreset == ScrollbarPreset::Auto) {
+void ApplyScrollbarMetricsForChrome(UiTheme& theme, ScrollbarChromeStyle chromeStyle) noexcept {
+    if (chromeStyle == ScrollbarChromeStyle::Modern) {
         theme.scrollbars = {{
             ScrollbarMetrics{ 0.0f,  0.0f, 0.0f,  0.0f, 0.0f,  0.0f }, // None
             ScrollbarMetrics{ 3.0f, 12.0f, 1.5f, 18.0f, 1.5f,  6.0f }, // Xs
@@ -40,10 +49,7 @@ void ApplyScrollbarMetricsForPreset(UiTheme& theme, ScrollbarPreset effectivePre
         return;
     }
 
-    const bool softEdges = (effectivePreset == ScrollbarPreset::WindowsXp ||
-                            effectivePreset == ScrollbarPreset::WindowsVista ||
-                            effectivePreset == ScrollbarPreset::Windows7);
-    const keel::f32 cr = softEdges ? 1.5f : 0.0f;
+    const keel::f32 cr = (chromeStyle == ScrollbarChromeStyle::Outlined) ? 1.5f : 0.0f;
     theme.scrollbars = {{
         ScrollbarMetrics{  0.0f,  0.0f, 0.0f,  0.0f, 0.0f,  0.0f }, // None
         ScrollbarMetrics{ 12.0f, 16.0f, cr,   18.0f, 0.0f, 12.0f }, // Xs
@@ -54,42 +60,51 @@ void ApplyScrollbarMetricsForPreset(UiTheme& theme, ScrollbarPreset effectivePre
     }};
 }
 
-void PopulateControlStyle(UiTheme& theme, SurfaceStyle style) noexcept {
-    const bool zeroRadius = (theme.GetRadius(UiSize::Md) <= 0.01f);
-    if (style == SurfaceStyle::Bevel) {
-        theme.controlStyle = ControlStyleTokens{
-            .frameChrome        = FrameChrome::Bevel3D,
-            .sliderThumb        = SliderThumbShape::Pointer3D,
-            .progressStyle      = ProgressFillStyle::Segmented3D,
-            .tabChrome          = TabBarChrome::Classic3D,
-            .disabledText       = DisabledTextStyle::Embossed3D,
-            .buttonPressOffset  = 1.0f,
-            .tabGapOverride     = 0.0f,
-            .pillBadgesAllowed  = false,
-            .sunkenCheckbox     = true,
-            .bevelSelectButton  = true,
-            .neutralSliderTrack = true
-        };
-    } else {
-        theme.controlStyle = ControlStyleTokens{
-            .frameChrome        = FrameChrome::Flat,
-            .sliderThumb        = zeroRadius ? SliderThumbShape::Square : SliderThumbShape::Circle,
-            .progressStyle      = ProgressFillStyle::Smooth,
-            .tabChrome          = TabBarChrome::Modern,
-            .disabledText       = DisabledTextStyle::Opacity,
-            .buttonPressOffset  = 0.0f,
-            .tabGapOverride     = -1.0f,
-            .pillBadgesAllowed  = !zeroRadius,
-            .sunkenCheckbox     = false,
-            .bevelSelectButton  = false,
-            .neutralSliderTrack = false
-        };
+void ApplyScrollbarMetricsForPreset(UiTheme& theme, ScrollbarPreset effectivePreset) noexcept {
+    if (effectivePreset == ScrollbarPreset::Modern || effectivePreset == ScrollbarPreset::Auto) {
+        ApplyScrollbarMetricsForChrome(theme, ScrollbarChromeStyle::Modern);
+        return;
     }
+    const bool softEdges = (effectivePreset == ScrollbarPreset::WindowsXp ||
+                            effectivePreset == ScrollbarPreset::WindowsVista ||
+                            effectivePreset == ScrollbarPreset::Windows7);
+    ApplyScrollbarMetricsForChrome(theme, softEdges ? ScrollbarChromeStyle::Outlined : ScrollbarChromeStyle::ClassicBevel);
+}
+
+void SyncAutoScrollbar(UiTheme& theme) noexcept {
     if (theme.scrollbarPreset == ScrollbarPreset::Auto) {
-        const ScrollbarPreset eff = (style == SurfaceStyle::Bevel) ? ScrollbarPreset::Windows98 : ScrollbarPreset::Modern;
-        theme.scrollbarStyle = ScrollbarStyleTokens::FromPreset(eff);
-        ApplyScrollbarMetricsForPreset(theme, eff);
+        theme.scrollbarStyle = ScrollbarStyleTokens::ForChrome(theme.chrome.scrollbar);
+        ApplyScrollbarMetricsForChrome(theme, theme.chrome.scrollbar);
     }
+}
+
+void ResetDefaultRadii(UiTheme& theme) noexcept {
+    theme.radius = {0.0f, 1.5f, 3.0f, 4.5f, 6.0f, 9.0f};
+    constexpr keel::StaticArray<keel::f32, 6> kCompR   = {0.0f, 2.25f, 3.0f, 4.5f, 6.0f, 7.5f};
+    constexpr keel::StaticArray<keel::f32, 6> kCheckR  = {3.0f, 2.0f, 2.25f, 3.0f, 3.75f, 4.5f};
+    constexpr keel::StaticArray<keel::f32, 6> kInputR  = {4.5f, 3.0f, 3.75f, 4.5f, 6.0f, 7.5f};
+    constexpr keel::StaticArray<keel::f32, 6> kSliderR = {6.75f, 4.5f, 5.25f, 6.75f, 8.25f, 9.75f};
+    for (keel::usize i = 0u; i < 6u; ++i) {
+        theme.metrics[i].cornerRadius    = kCompR[i];
+        theme.checkboxes[i].cornerRadius = kCheckR[i];
+        theme.inputs[i].cornerRadius     = kInputR[i];
+        theme.selects[i].cornerRadius    = kInputR[i];
+        theme.sliders[i].cornerRadius    = kSliderR[i];
+    }
+    if (theme.shellStyle == ShellStyle::Floating) {
+        theme.shell.panelRadius = theme.GetRadius(UiSize::Md);
+    }
+}
+
+void PopulateChromeTokens(UiTheme& theme, ChromeStyle style) noexcept {
+    theme.chromeStyle = style;
+    theme.chrome = ChromeTokens::FromStyle(style);
+    const bool zeroRadius = (theme.GetRadius(UiSize::Md) <= 0.01f);
+    if (style == ChromeStyle::Modern && zeroRadius) {
+        theme.chrome.badgeShape = BadgeShape::Sharp;
+        theme.chrome.sliderThumb = SliderThumbShape::Square;
+    }
+    SyncAutoScrollbar(theme);
 }
 
 [[nodiscard]] VariantColors MakeSemanticVariant(Color base, ThemeMode mode, keel::f32 borderWidth = 0.0f) noexcept {
@@ -369,7 +384,8 @@ void PopulateAllMetrics(UiTheme& theme) noexcept {
 
 void ApplyCuratedPresetColors(UiTheme& theme, ThemePreset p) noexcept {
     theme.preset = p;
-    theme.surfaceStyle = SurfaceStyle::Solid;
+    theme.chromeStyle = ChromeStyle::Modern;
+    theme.fillStyle = FillStyle::Solid;
     switch (p) {
         case ThemePreset::Dark:
             theme.mode = ThemeMode::Dark;
@@ -727,7 +743,8 @@ void ApplyCuratedPresetColors(UiTheme& theme, ThemePreset p) noexcept {
 
         case ThemePreset::Windows98:
             theme.mode = ThemeMode::Light;
-            theme.surfaceStyle = SurfaceStyle::Bevel;
+            theme.chromeStyle = ChromeStyle::Classic3D;
+            theme.fillStyle = FillStyle::Solid;
             theme.palette = {
                 .background        = Color::Hex(0xC0C0C0FF), // Classic Win98 COLOR_3DFACE desktop gray
                 .surface           = Color::Hex(0xC8C8C8FF), // Classic Win98 dialog & panel gray
@@ -770,8 +787,8 @@ void ApplyCuratedPresetColors(UiTheme& theme, ThemePreset p) noexcept {
             PopulateShadows(theme, ThemeMode::Light, 0.0f);
             break;
     }
-    PopulateBevelPalette(theme);
-    PopulateControlStyle(theme, theme.surfaceStyle);
+    PopulateBevelPalette(theme, /*exactWin98=*/(p == ThemePreset::Windows98));
+    PopulateChromeTokens(theme, theme.chromeStyle);
 }
 
 // ==============================================================================
@@ -839,21 +856,39 @@ void ApplyCuratedPresetColors(UiTheme& theme, ThemePreset p) noexcept {
     return keel::kNullOpt;
 }
 
-[[nodiscard]] keel::StringRef SurfaceStyleJsonKey(SurfaceStyle s) noexcept {
+[[nodiscard]] keel::StringRef ChromeStyleJsonKey(ChromeStyle s) noexcept {
     switch (s) {
-        case SurfaceStyle::Solid:     return "Solid";
-        case SurfaceStyle::Soft:      return "Soft";
-        case SurfaceStyle::Outline:   return "Outline";
-        case SurfaceStyle::Brutalist: return "Brutalist";
-        case SurfaceStyle::Bevel:     return "Bevel";
+        case ChromeStyle::Modern:    return "Modern";
+        case ChromeStyle::Fluent:    return "Fluent";
+        case ChromeStyle::Classic3D: return "Classic3D";
+        case ChromeStyle::Brutalist: return "Brutalist";
+    }
+    return "Modern";
+}
+
+[[nodiscard]] keel::Optional<ChromeStyle> ParseChromeStyleKey(keel::StringRef s) noexcept {
+    for (keel::usize i = 0u; i < kChromeStyleCount; ++i) {
+        const auto st = keel::from_underlying<ChromeStyle>(i);
+        if (s == ChromeStyleJsonKey(st) || s == ChromeStyleName(st)) {
+            return st;
+        }
+    }
+    return keel::kNullOpt;
+}
+
+[[nodiscard]] keel::StringRef FillStyleJsonKey(FillStyle s) noexcept {
+    switch (s) {
+        case FillStyle::Solid:   return "Solid";
+        case FillStyle::Soft:    return "Soft";
+        case FillStyle::Outline: return "Outline";
     }
     return "Solid";
 }
 
-[[nodiscard]] keel::Optional<SurfaceStyle> ParseSurfaceStyleKey(keel::StringRef s) noexcept {
-    for (keel::usize i = 0u; i < kSurfaceStyleCount; ++i) {
-        const auto st = keel::from_underlying<SurfaceStyle>(i);
-        if (s == SurfaceStyleJsonKey(st) || s == SurfaceStyleName(st)) {
+[[nodiscard]] keel::Optional<FillStyle> ParseFillStyleKey(keel::StringRef s) noexcept {
+    for (keel::usize i = 0u; i < kFillStyleCount; ++i) {
+        const auto st = keel::from_underlying<FillStyle>(i);
+        if (s == FillStyleJsonKey(st) || s == FillStyleName(st)) {
             return st;
         }
     }
@@ -991,8 +1026,11 @@ keel::String ThemeSpec::ToJson() const {
     if (mode.has_value()) {
         out.append(keel::format("  \"mode\": \"{}\",\n", (*mode == ThemeMode::Light) ? "Light" : "Dark"));
     }
-    if (surfaceStyle.has_value()) {
-        out.append(keel::format("  \"surfaceStyle\": \"{}\",\n", SurfaceStyleJsonKey(*surfaceStyle)));
+    if (chrome.has_value()) {
+        out.append(keel::format("  \"chrome\": \"{}\",\n", ChromeStyleJsonKey(*chrome)));
+    }
+    if (fillStyle.has_value()) {
+        out.append(keel::format("  \"fillStyle\": \"{}\",\n", FillStyleJsonKey(*fillStyle)));
     }
     if (syntaxPreset != SyntaxPreset::Auto) {
         out.append(keel::format("  \"syntaxPreset\": \"{}\",\n", SyntaxPresetJsonKey(syntaxPreset)));
@@ -1083,10 +1121,14 @@ keel::Optional<ThemeSpec> ThemeSpec::FromJson(keel::StringRef json) noexcept {
             if (!ParseJsonString(json, pos, val)) return keel::kNullOpt;
             if (val == "Light" || val == "light") spec.mode = ThemeMode::Light;
             else if (val == "Dark" || val == "dark") spec.mode = ThemeMode::Dark;
-        } else if (key == "surfaceStyle") {
+        } else if (key == "chrome") {
             keel::StringRef val;
             if (!ParseJsonString(json, pos, val)) return keel::kNullOpt;
-            if (const auto st = ParseSurfaceStyleKey(val); st.has_value()) spec.surfaceStyle = *st;
+            if (const auto st = ParseChromeStyleKey(val); st.has_value()) spec.chrome = *st;
+        } else if (key == "fillStyle") {
+            keel::StringRef val;
+            if (!ParseJsonString(json, pos, val)) return keel::kNullOpt;
+            if (const auto st = ParseFillStyleKey(val); st.has_value()) spec.fillStyle = *st;
         } else if (key == "syntaxPreset") {
             keel::StringRef val;
             if (!ParseJsonString(json, pos, val)) return keel::kNullOpt;
@@ -1158,11 +1200,17 @@ const IStylePainter& UiTheme::Painter() const noexcept {
 
 void UiTheme::SetScrollbarPreset(ScrollbarPreset p) noexcept {
     scrollbarPreset = p;
-    const ScrollbarPreset eff = (p == ScrollbarPreset::Auto)
-        ? ((surfaceStyle == SurfaceStyle::Bevel) ? ScrollbarPreset::Windows98 : ScrollbarPreset::Modern)
-        : p;
-    scrollbarStyle = ScrollbarStyleTokens::FromPreset(eff);
-    ApplyScrollbarMetricsForPreset(*this, eff);
+    if (p == ScrollbarPreset::Auto) {
+        SyncAutoScrollbar(*this);
+        return;
+    }
+    scrollbarStyle = ScrollbarStyleTokens::FromPreset(p);
+    ApplyScrollbarMetricsForPreset(*this, p);
+}
+
+void UiTheme::SetChromeTokens(const ChromeTokens& tokens) noexcept {
+    chrome = tokens;
+    SyncAutoScrollbar(*this);
 }
 
 void UiTheme::SetScrollbarWidth(keel::f32 mdWidth) noexcept {
@@ -1280,12 +1328,12 @@ void UiTheme::SetRadiusScale(keel::f32 scale) noexcept {
         shell.panelRadius = GetRadius(UiSize::Md);
     }
     const bool zeroRadius = (GetRadius(UiSize::Md) <= 0.01f);
-    if (controlStyle.frameChrome != FrameChrome::Bevel3D) {
-        controlStyle.pillBadgesAllowed = !zeroRadius;
-        if (zeroRadius && controlStyle.sliderThumb == SliderThumbShape::Circle) {
-            controlStyle.sliderThumb = SliderThumbShape::Square;
-        } else if (!zeroRadius && controlStyle.sliderThumb == SliderThumbShape::Square) {
-            controlStyle.sliderThumb = SliderThumbShape::Circle;
+    if (chrome.frame == FrameTreatment::Flat) {
+        chrome.badgeShape = zeroRadius ? BadgeShape::Sharp : BadgeShape::Pill;
+        if (zeroRadius && chrome.sliderThumb == SliderThumbShape::Circle) {
+            chrome.sliderThumb = SliderThumbShape::Square;
+        } else if (!zeroRadius && chrome.sliderThumb == SliderThumbShape::Square) {
+            chrome.sliderThumb = SliderThumbShape::Circle;
         }
     }
 }
@@ -1342,12 +1390,52 @@ void UiTheme::SetShadowIntensity(keel::f32 intensity) noexcept {
     PopulateShadows(*this, mode, intensity);
 }
 
-void UiTheme::SetSurfaceStyle(SurfaceStyle style) noexcept {
-    surfaceStyle = style;
-    PopulateBevelPalette(*this);
-    PopulateControlStyle(*this, style);
+void UiTheme::SetChromeStyle(ChromeStyle style) noexcept {
+    chromeStyle = style;
+    const keel::f32 bwScale = keel::max(borderScale, 0.5f);
+
+    if (style == ChromeStyle::Classic3D) {
+        SetRadiusScale(0.0f);
+        PopulateShadows(*this, mode, 0.0f);
+        shell.panelBorderWidth = 1.0f * bwScale;
+    } else if (style == ChromeStyle::Brutalist) {
+        SetRadiusScale(0.0f);
+        const Color hardCol = (mode == ThemeMode::Dark)
+            ? Color::Hex(0x000000D8)
+            : palette.textPrimary.WithAlpha(220u);
+        shadowsEnabled = true;
+        shadows = {{
+            ShadowStyle{0.0f, {0.0f, 0.0f}, Color(0, 0, 0, 0)},
+            ShadowStyle{0.0f, {2.0f, 2.0f}, hardCol},
+            ShadowStyle{0.0f, {3.0f, 3.0f}, hardCol},
+            ShadowStyle{0.0f, {5.0f, 5.0f}, hardCol}
+        }};
+        shell.panelBorderWidth = 1.5f * bwScale;
+    } else {
+        // Modern / Fluent
+        if (GetRadius(UiSize::Md) <= 0.01f) {
+            ResetDefaultRadii(*this);
+        }
+        if (style == ChromeStyle::Fluent) {
+            ResetDefaultRadii(*this);
+            SetRadiusScale(0.90f);
+        }
+        PopulateShadows(*this, mode, 1.0f);
+        shell.panelBorderWidth = 1.0f * bwScale;
+    }
+
+    PopulateBevelPalette(*this, /*exactWin98=*/(preset == ThemePreset::Windows98 && style == ChromeStyle::Classic3D));
+    PopulateChromeTokens(*this, style);
+    SetFillStyle(fillStyle);
+}
+
+void UiTheme::SetFillStyle(FillStyle style) noexcept {
+    fillStyle = style;
     const bool isDark = (mode == ThemeMode::Dark);
     const keel::f32 bwScale = keel::max(borderScale, 0.5f);
+    const bool isBrutalist = (chrome.frame == FrameTreatment::HardShadow);
+    const bool isBevel = (chrome.frame == FrameTreatment::Bevel3D);
+    const Color boldInk = isDark ? palette.textPrimary : Color::Hex(0x0F172AFF);
 
     auto ensureReadableInk = [](Color ink, Color bg, bool dark) noexcept -> Color {
         Color candidate = ink.WithAlpha(255u);
@@ -1374,16 +1462,32 @@ void UiTheme::SetSurfaceStyle(SurfaceStyle style) noexcept {
         UiVariant::Info
     }};
 
-    if (style == SurfaceStyle::Solid) {
+    if (style == FillStyle::Solid) {
+        const keel::f32 semBw = isBrutalist ? (1.75f * bwScale) : (isBevel ? (1.0f * bwScale) : 0.0f);
         for (const UiVariant v : kSemantics) {
             auto& vc = variants[keel::as<keel::usize>(v)];
             const Color seed = extractSeedColor(vc);
-            vc = MakeSemanticVariant(seed, mode, 0.0f);
+            vc = MakeSemanticVariant(seed, mode, semBw);
+            if (isBrutalist) {
+                vc.border = boldInk;
+            } else if (isBevel) {
+                vc.border = seed.Darken(0.28f);
+            }
+        }
+        for (const UiVariant v : {UiVariant::Default, UiVariant::Secondary}) {
+            auto& vc = variants[keel::as<keel::usize>(v)];
+            vc.bg          = palette.surface;
+            vc.bgHover     = palette.surfaceHover.WithAlpha(255u);
+            vc.bgActive    = palette.surfaceActive.WithAlpha(255u);
+            vc.text        = palette.textPrimary;
+            vc.border      = isBrutalist ? boldInk : palette.border;
+            vc.borderWidth = isBrutalist ? (1.75f * bwScale) : (1.0f * bwScale);
         }
         return;
     }
 
-    if (style == SurfaceStyle::Soft) {
+    if (style == FillStyle::Soft) {
+        const keel::f32 softBw = isBrutalist ? (1.75f * bwScale) : (1.0f * bwScale);
         for (const UiVariant v : kSemantics) {
             auto& vc = variants[keel::as<keel::usize>(v)];
             const Color seed = extractSeedColor(vc);
@@ -1391,85 +1495,45 @@ void UiTheme::SetSurfaceStyle(SurfaceStyle style) noexcept {
             const Color bgHover  = Color::Lerp(palette.surface, seed, isDark ? 0.32f : 0.23f).WithAlpha(255u);
             const Color bgActive = Color::Lerp(palette.surface, seed, isDark ? 0.42f : 0.31f).WithAlpha(255u);
             const Color ink      = ensureReadableInk(isDark ? seed.Lighten(0.18f) : seed.Darken(0.16f), bg, isDark);
-            const Color bdr      = Color::Lerp(palette.border, seed, isDark ? 0.45f : 0.40f).WithAlpha(255u);
-            vc = VariantColors{bg, bgHover, bgActive, ink, bdr, 1.0f * bwScale};
+            const Color bdr      = isBrutalist ? boldInk : Color::Lerp(palette.border, seed, isDark ? 0.45f : 0.40f).WithAlpha(255u);
+            vc = VariantColors{bg, bgHover, bgActive, ink, bdr, softBw};
         }
         for (const UiVariant v : {UiVariant::Default, UiVariant::Secondary}) {
             auto& vc = variants[keel::as<keel::usize>(v)];
             vc.bg          = Color::Lerp(palette.surface, palette.surfaceHover.WithAlpha(255u), 0.35f);
             vc.bgHover     = Color::Lerp(palette.surface, palette.surfaceActive.WithAlpha(255u), 0.65f);
             vc.bgActive    = palette.surfaceActive.WithAlpha(255u);
-            vc.border      = palette.border;
-            vc.borderWidth = 1.0f * bwScale;
+            vc.text        = palette.textPrimary;
+            vc.border      = isBrutalist ? boldInk : palette.border;
+            vc.borderWidth = softBw;
         }
         return;
     }
 
-    if (style == SurfaceStyle::Outline) {
-        for (const UiVariant v : kSemantics) {
-            auto& vc = variants[keel::as<keel::usize>(v)];
-            const Color seed = extractSeedColor(vc);
-            const Color ink = ensureReadableInk(isDark ? seed.Lighten(0.12f) : seed.Darken(0.12f), palette.surface, isDark);
-            vc = VariantColors{
-                Color::Transparent(),
-                seed.WithAlphaF(isDark ? 0.18f : 0.12f),
-                seed.WithAlphaF(isDark ? 0.28f : 0.20f),
-                ink,
-                seed.WithAlphaF(0.85f),
-                1.25f * bwScale
-            };
-        }
-        for (const UiVariant v : {UiVariant::Default, UiVariant::Secondary}) {
-            auto& vc = variants[keel::as<keel::usize>(v)];
-            vc.bg          = Color::Transparent();
-            vc.bgHover     = palette.surfaceHover;
-            vc.bgActive    = palette.surfaceActive;
-            vc.border      = palette.borderHover;
-            vc.borderWidth = 1.15f * bwScale;
-        }
-        return;
-    }
-
-    if (style == SurfaceStyle::Bevel) {
-        for (const UiVariant v : kSemantics) {
-            auto& vc = variants[keel::as<keel::usize>(v)];
-            const Color seed = extractSeedColor(vc);
-            vc = MakeSemanticVariant(seed, mode, 1.0f * bwScale);
-            vc.border = seed.Darken(0.28f);
-        }
-        for (const UiVariant v : {UiVariant::Default, UiVariant::Secondary}) {
-            auto& vc = variants[keel::as<keel::usize>(v)];
-            vc.bg          = palette.surface;
-            vc.bgHover     = palette.surfaceHover.WithAlpha(255u);
-            vc.bgActive    = palette.surfaceActive.WithAlpha(255u);
-            vc.border      = palette.border;
-            vc.borderWidth = 1.0f * bwScale;
-        }
-        PopulateShadows(*this, mode, 0.0f);
-        return;
-    }
-
-    // SurfaceStyle::Brutalist — high-contrast editorial strokes, crisp solid surfaces, flat elevation
-    const Color boldInk = isDark ? palette.textPrimary : Color::Hex(0x0F172AFF);
+    // FillStyle::Outline
+    const keel::f32 outBw = isBrutalist ? (1.75f * bwScale) : (1.25f * bwScale);
     for (const UiVariant v : kSemantics) {
         auto& vc = variants[keel::as<keel::usize>(v)];
         const Color seed = extractSeedColor(vc);
-        vc = MakeSemanticVariant(seed, mode, 1.75f * bwScale);
-        vc.border = boldInk;
+        const Color ink = ensureReadableInk(isDark ? seed.Lighten(0.12f) : seed.Darken(0.12f), palette.surface, isDark);
+        vc = VariantColors{
+            Color::Transparent(),
+            seed.WithAlphaF(isDark ? 0.18f : 0.12f),
+            seed.WithAlphaF(isDark ? 0.28f : 0.20f),
+            ink,
+            seed.WithAlphaF(0.85f),
+            outBw
+        };
     }
     for (const UiVariant v : {UiVariant::Default, UiVariant::Secondary}) {
         auto& vc = variants[keel::as<keel::usize>(v)];
-        vc.bg          = palette.surface;
-        vc.bgHover     = palette.surfaceHover.WithAlpha(255u);
-        vc.bgActive    = palette.surfaceActive.WithAlpha(255u);
-        vc.border      = boldInk;
-        vc.borderWidth = 1.75f * bwScale;
+        vc.bg          = Color::Transparent();
+        vc.bgHover     = palette.surfaceHover;
+        vc.bgActive    = palette.surfaceActive;
+        vc.text        = palette.textPrimary;
+        vc.border      = isBrutalist ? boldInk : palette.borderHover;
+        vc.borderWidth = isBrutalist ? (1.75f * bwScale) : (1.15f * bwScale);
     }
-    palette.border       = Color::Lerp(palette.border, boldInk, 0.55f);
-    palette.borderHover  = boldInk;
-    palette.borderSubtle = Color::Lerp(palette.borderSubtle.WithAlpha(255u), boldInk, 0.35f);
-    palette.inputBorder  = boldInk;
-    shell.panelBorderWidth = 1.5f * bwScale;
 }
 
 void UiTheme::SetSurfaceContrast(keel::f32 contrast) noexcept {
@@ -1609,13 +1673,27 @@ UiTheme UiTheme::Build(const ThemeSpec& spec) noexcept {
     if (spec.danger.has_value())  theme.SetSemanticColor(UiVariant::Danger, *spec.danger);
     if (spec.info.has_value())    theme.SetSemanticColor(UiVariant::Info, *spec.info);
 
-    if (spec.surfaceStyle.has_value()) {
-        theme.SetSurfaceStyle(*spec.surfaceStyle);
+    const bool customPaletteColors = spec.neutral.has_value()
+        || spec.background.has_value()
+        || spec.surface.has_value()
+        || keel::abs(spec.surfaceContrast - 1.0f) > 1.0e-4f;
+
+    if (spec.chrome.has_value()) {
+        theme.SetChromeStyle(*spec.chrome);
+    }
+    if (spec.fillStyle.has_value()) {
+        theme.SetFillStyle(*spec.fillStyle);
+    }
+    if (customPaletteColors) {
+        PopulateBevelPalette(theme, /*exactWin98=*/false);
     }
     if (spec.syntaxPreset != SyntaxPreset::Auto) {
         theme.SetSyntaxPreset(spec.syntaxPreset);
     }
     if (keel::abs(spec.radiusScale - 1.0f) > 1.0e-4f) {
+        if (theme.GetRadius(UiSize::Md) <= 0.01f && spec.radiusScale > 0.0f) {
+            ResetDefaultRadii(theme);
+        }
         theme.SetRadiusScale(spec.radiusScale);
     }
     if (keel::abs(spec.spacingScale - 1.0f) > 1.0e-4f) {
@@ -1636,7 +1714,7 @@ UiTheme UiTheme::Build(const ThemeSpec& spec) noexcept {
     }
     if (keel::abs(spec.shadowIntensity - 1.0f) > 1.0e-4f) {
         theme.SetShadowIntensity(spec.shadowIntensity);
-    } else if (theme.surfaceStyle == SurfaceStyle::Brutalist || theme.surfaceStyle == SurfaceStyle::Bevel) {
+    } else if (theme.chromeStyle == ChromeStyle::Classic3D) {
         theme.SetShadowIntensity(0.0f);
     }
     if (keel::abs(spec.focusRingWidth - 2.0f) > 1.0e-4f) {
@@ -1675,7 +1753,7 @@ UiTheme UiTheme::Lerp(const UiTheme& a, const UiTheme& b, keel::f32 t) noexcept 
     out.bevel.highlightInner = lerpC(a.bevel.highlightInner, b.bevel.highlightInner);
     out.bevel.shadowInner    = lerpC(a.bevel.shadowInner, b.bevel.shadowInner);
     out.bevel.shadowOuter    = lerpC(a.bevel.shadowOuter, b.bevel.shadowOuter);
-    out.controlStyle.buttonPressOffset = lerpF(a.controlStyle.buttonPressOffset, b.controlStyle.buttonPressOffset);
+    out.chrome.buttonPressOffset = lerpF(a.chrome.buttonPressOffset, b.chrome.buttonPressOffset);
 
     // Palette
     out.palette.background        = lerpC(a.palette.background, b.palette.background);

@@ -1094,7 +1094,7 @@ struct ShadowStyle {
     Color color{0, 0, 0, 0};
 
     [[nodiscard]] constexpr bool IsVisible() const noexcept {
-        return blur > 0.0f && color.a > 0u;
+        return color.a > 0u && (blur > 0.0f || offset.x != 0.0f || offset.y != 0.0f);
     }
 
     [[nodiscard]] constexpr ShadowStyle Scaled(keel::f32 geomScale) const noexcept {
@@ -1108,25 +1108,42 @@ enum class ShellStyle : keel::u8 {
     Floating    ///< Detached floating islands (outer window padding, inter-panel gap, rounded corners, 4-sided border)
 };
 
-/// Global visual appearance style for semantic controls and interactive surfaces.
-enum class SurfaceStyle : keel::u8 {
-    Solid = 0,  ///< Saturated semantic fills with high-contrast foreground text (classic default)
-    Soft,       ///< Material 3 / Radix tonal tinted surfaces with matching vibrant ink and hairline borders
-    Outline,    ///< Minimalist transparent fill with crisp semantic borders and tinted hover states
-    Brutalist,  ///< High-structure flat editorial style with bold high-contrast borders
-    Bevel       ///< Classic 3D raised/sunken beveled frames and rectangular controls (Windows 98 style)
+/// Structural visual language / look-and-feel (zero hardcoded colors; orthogonal to `ThemePalette`).
+enum class ChromeStyle : keel::u8 {
+    Modern = 0,  ///< Flat vector surfaces, soft ambient shadows, rounded corners, overlay scrollbars
+    Fluent,      ///< Directional 1px lighting, bottom-accent input fields, left-accent selection bars (Win11 style)
+    Classic3D,   ///< 2px raised/sunken/etched 3D bevels, sharp corners, 1dp press shift, 3D controls (Win98 style)
+    Brutalist    ///< Bold 2px borders, hard offset shadows, sharp corners, flat controls
 };
 
-inline constexpr keel::usize kSurfaceStyleCount = 5u;
+inline constexpr keel::usize kChromeStyleCount = 4u;
 
-/// Human-readable display name for a `SurfaceStyle`.
-[[nodiscard]] constexpr keel::StringRef SurfaceStyleName(SurfaceStyle style) noexcept {
+/// Human-readable display name for a `ChromeStyle`.
+[[nodiscard]] constexpr keel::StringRef ChromeStyleName(ChromeStyle style) noexcept {
     switch (style) {
-        case SurfaceStyle::Solid:     return "Solid";
-        case SurfaceStyle::Soft:      return "Soft (Tonal)";
-        case SurfaceStyle::Outline:   return "Outline";
-        case SurfaceStyle::Brutalist: return "Brutalist";
-        case SurfaceStyle::Bevel:     return "Classic 3D";
+        case ChromeStyle::Modern:    return "Modern";
+        case ChromeStyle::Fluent:    return "Fluent";
+        case ChromeStyle::Classic3D: return "Classic 3D";
+        case ChromeStyle::Brutalist: return "Brutalist";
+    }
+    return "Modern";
+}
+
+/// Semantic accent fill treatment applied to Primary / Success / Warning / Danger / Info variants.
+enum class FillStyle : keel::u8 {
+    Solid = 0,   ///< Saturated semantic fills with high-contrast foreground text (classic default)
+    Soft,        ///< Material 3 / Radix tonal tinted surfaces with matching vibrant ink and hairline borders
+    Outline      ///< Minimalist transparent fill with crisp semantic borders and tinted hover states
+};
+
+inline constexpr keel::usize kFillStyleCount = 3u;
+
+/// Human-readable display name for a `FillStyle`.
+[[nodiscard]] constexpr keel::StringRef FillStyleName(FillStyle style) noexcept {
+    switch (style) {
+        case FillStyle::Solid:   return "Solid";
+        case FillStyle::Soft:    return "Soft (Tonal)";
+        case FillStyle::Outline: return "Outline";
     }
     return "Solid";
 }
@@ -1160,58 +1177,193 @@ inline constexpr keel::usize kSyntaxPresetCount = 8u;
     return "Auto (Match Preset)";
 }
 
-/// 4-tone 3D bevel color palette used by `FrameChrome::Bevel3D` / `SurfaceStyle::Bevel`.
+/// 4-tone 3D bevel color palette dynamically derived from `ThemePalette` (for both Dark and Light palettes).
 struct BevelPalette {
-    Color highlightOuter{255, 255, 255, 255}; ///< Outer top/left bright edge (Win98 COLOR_3DHILIGHT)
-    Color highlightInner{223, 223, 223, 255}; ///< Inner top/left light edge (Win98 COLOR_3DLIGHT)
-    Color shadowInner{128, 128, 128, 255};    ///< Inner bottom/right shadow edge (Win98 COLOR_3DSHADOW)
-    Color shadowOuter{0, 0, 0, 255};          ///< Outer bottom/right deep edge (Win98 COLOR_3DDKSHADOW)
+    Color highlightOuter{255, 255, 255, 255}; ///< Outer top/left bright edge
+    Color highlightInner{223, 223, 223, 255}; ///< Inner top/left light edge
+    Color shadowInner{128, 128, 128, 255};    ///< Inner bottom/right shadow edge
+    Color shadowOuter{0, 0, 0, 255};          ///< Outer bottom/right deep edge
 };
 
-/// Structural frame treatment applied by the active `IStylePainter`.
-enum class FrameChrome : keel::u8 {
-    Flat = 0,     ///< Clean vector stroke / rounded rect (Solid, Soft, Outline, Brutalist)
-    Bevel3D       ///< Classic 2px raised/sunken/etched 3D bevel frames (Windows 98)
+/// Structural frame treatment applied by the active `IStylePainter` to surfaces and buttons.
+enum class FrameTreatment : keel::u8 {
+    Flat = 0,       ///< Clean vector fill + uniform stroke (Modern)
+    Directional1px, ///< Subtle 1px top-bright / bottom-dark directional lighting (Fluent / Win11)
+    Bevel3D,        ///< Classic 2px raised/sunken/etched 3D bevel frames (Classic3D / Win98)
+    HardShadow      ///< High-contrast crisp 2px border + hard non-blurred offset shadow (Brutalist)
 };
 
-/// Structural geometry of `Slider` / `StepSlider` thumb knobs.
+/// Structural treatment for editable input & selection field wells (`fields/`).
+enum class FieldTreatment : keel::u8 {
+    Outlined = 0,   ///< Standard uniform border around input slot (Modern / Brutalist)
+    BottomAccent,   ///< Subtle outline with emphasized bottom accent bar on focus (Fluent)
+    Sunken3D,       ///< Classic 2px sunken 3D input well (Classic3D)
+    Filled          ///< Soft tonal background fill with minimal resting border
+};
+
+/// Structural treatment for inline/embedded field action buttons (`Select` chevron, `DatePicker`, `SpinBox` steppers).
+enum class FieldButtonStyle : keel::u8 {
+    Ghost = 0,      ///< Transparent inline trigger with subtle hover tint (Modern / Fluent)
+    Framed,         ///< Crisp outlined button inside/beside field (Brutalist)
+    Raised3D        ///< Classic raised 3D bevel trigger button (Classic3D)
+};
+
+/// Keyboard focus indicator treatment rendered by `IStylePainter`.
+enum class FocusStyle : keel::u8 {
+    OuterRing = 0,  ///< Standard outer focus ring stroke (Modern / Fluent)
+    InnerFrame,     ///< Classic inset focus outline inside control bounds (Classic3D)
+    BorderAccent    ///< Bold border accent highlight (Brutalist)
+};
+
+/// Selected/hovered row highlight style for menus, popups, lists, sidebars, tables, and trees.
+enum class SelectionHighlightStyle : keel::u8 {
+    Tonal = 0,      ///< Soft surfaceHover / subtle accent tint preserving primary text ink (Modern)
+    LeftAccentBar,  ///< Soft tonal fill + crisp vertical accent pill bar on leading edge (Fluent)
+    SolidAccent     ///< Full solid accent fill with `palette.accentText` foreground ink (Classic3D / Brutalist)
+};
+
+/// Structural treatment for separators and docked panel seams.
+enum class DividerStyle : keel::u8 {
+    Hairline = 0,   ///< Clean 1px hairline stroke (Modern / Fluent)
+    Etched3D,       ///< 2px etched 3D groove (Classic3D)
+    Bold            ///< 2px high-contrast stroke (Brutalist)
+};
+
+/// Structural treatment for `Checkbox` and `Radio` indicators.
+enum class CheckControlStyle : keel::u8 {
+    FilledAccent = 0, ///< Solid accent fill with contrasting check/dot ink when checked (Modern / Fluent / Brutalist)
+    SunkenInk         ///< Sunken inputBackground well with primary-text check/dot ink (Classic3D)
+};
+
+/// Structural geometry of `Slider` / `StepSlider` / `RangeSlider` thumb knobs.
 enum class SliderThumbShape : keel::u8 {
-    Circle = 0,   ///< Modern circular thumb knob
-    Square,       ///< Sharp rectangular thumb (e.g. `radiusScale == 0`)
-    Pointer3D     ///< Classic Windows 98 pentagonal 3D pointer thumb
+    Circle = 0,     ///< Modern circular thumb knob
+    Square,         ///< Sharp rectangular thumb (Brutalist or zero radius)
+    Pointer3D       ///< Classic pentagonal 3D pointer thumb (Classic3D)
+};
+
+/// Structural fill treatment of slider tracks.
+enum class SliderTrackStyle : keel::u8 {
+    Filled = 0,     ///< Active track range filled with semantic accent color
+    NeutralGroove   ///< Neutral recessed groove unless explicit accent is set (Classic3D)
 };
 
 /// Structural fill style for `ProgressBar`.
 enum class ProgressFillStyle : keel::u8 {
-    Smooth = 0,   ///< Continuous bar (rounded or sharp according to theme radius)
-    Segmented3D   ///< Classic Windows 98 sunken 3D trough with segmented rectangular blocks
+    Smooth = 0,     ///< Continuous bar (rounded or sharp according to theme radius)
+    Segmented       ///< Classic sunken trough with segmented rectangular blocks (Classic3D)
 };
 
 /// Structural rendering style for `TabBar`.
 enum class TabBarChrome : keel::u8 {
-    Modern = 0,   ///< Standard GuiKit Underline / Card / Pill / Folder tabs
-    Classic3D     ///< Contiguous chamfered 3D property-sheet tabs (zero gap)
+    Modern = 0,     ///< Standard GuiKit Underline / Card / Pill / Folder tabs
+    Classic3D       ///< Contiguous chamfered 3D property-sheet tabs (zero gap)
+};
+
+/// Structural corner shape for badges, counters, and tags.
+enum class BadgeShape : keel::u8 {
+    Pill = 0,       ///< Fully rounded capsule (height * 0.5)
+    Rounded,        ///< Subtle rounded corners (Fluent)
+    Sharp           ///< 0dp sharp rectangular corners (Classic3D / Brutalist)
 };
 
 /// Text rendering treatment for disabled controls.
 enum class DisabledTextStyle : keel::u8 {
-    Opacity = 0,  ///< Standard alpha attenuation (`theme.disabledOpacity`)
-    Embossed3D    ///< Classic Windows 98 1px white drop + gray foreground embossing
+    Opacity = 0,    ///< Standard alpha attenuation (`theme.disabledOpacity`)
+    Embossed3D      ///< Classic 1px highlight-drop + shadow-ink embossing (derived from `BevelPalette`)
 };
 
-/// Declarative structural look-and-feel tokens consumed by `IStylePainter` and widgets.
-struct ControlStyleTokens {
-    FrameChrome       frameChrome{FrameChrome::Flat};
-    SliderThumbShape  sliderThumb{SliderThumbShape::Circle};
-    ProgressFillStyle progressStyle{ProgressFillStyle::Smooth};
-    TabBarChrome      tabChrome{TabBarChrome::Modern};
-    DisabledTextStyle disabledText{DisabledTextStyle::Opacity};
-    keel::f32         buttonPressOffset{0.0f}; ///< Content shift in dp on pressed/active buttons
-    keel::f32         tabGapOverride{-1.0f};   ///< >= 0 overrides default TabBar item gap (e.g. 0.0f for Win98)
-    bool              pillBadgesAllowed{true}; ///< False forces sharp rectangular badges
-    bool              sunkenCheckbox{false};   ///< True draws sunken input-bg checkbox with ink checkmark
-    bool              bevelSelectButton{false};///< True draws raised 3D dropdown button inside Select
-    bool              neutralSliderTrack{false};///< True keeps slider groove neutral unless explicit color is set
+/// Structural chrome style for scrollbar track, thumb, and stepper buttons.
+enum class ScrollbarChromeStyle : keel::u8 {
+    Modern = 0,     ///< Rounded translucent pill thumb (default GuiKit)
+    ClassicBevel,   ///< 3D raised bevel buttons & thumb, sunken/hatched track
+    Outlined,       ///< Crisp 1px bordered track/thumb/buttons (1988, XP, Vista, 7)
+    Flat            ///< Sharp flat rectangular track, thumb, and buttons (Brutalist / Win 8-10)
+};
+
+/// 16-field declarative structural look-and-feel matrix consumed by `IStylePainter` (zero colors).
+struct ChromeTokens {
+    FrameTreatment          frame{FrameTreatment::Flat};
+    FieldTreatment          field{FieldTreatment::Outlined};
+    FieldButtonStyle        fieldButton{FieldButtonStyle::Ghost};
+    FocusStyle              focus{FocusStyle::OuterRing};
+    SelectionHighlightStyle selection{SelectionHighlightStyle::Tonal};
+    DividerStyle            divider{DividerStyle::Hairline};
+    CheckControlStyle       checkControl{CheckControlStyle::FilledAccent};
+    SliderThumbShape        sliderThumb{SliderThumbShape::Circle};
+    SliderTrackStyle        sliderTrack{SliderTrackStyle::Filled};
+    ProgressFillStyle       progressFill{ProgressFillStyle::Smooth};
+    TabBarChrome            tabChrome{TabBarChrome::Modern};
+    BadgeShape              badgeShape{BadgeShape::Pill};
+    DisabledTextStyle       disabledText{DisabledTextStyle::Opacity};
+    ScrollbarChromeStyle    scrollbar{ScrollbarChromeStyle::Modern};
+    keel::f32               buttonPressOffset{0.0f}; ///< Content shift in dp on pressed/active buttons
+    keel::f32               tabGapOverride{-1.0f};   ///< >= 0 overrides default TabBar item gap (e.g. 0.0f for Classic3D)
+
+    [[nodiscard]] static constexpr ChromeTokens FromStyle(ChromeStyle style) noexcept {
+        switch (style) {
+            case ChromeStyle::Modern:
+                return ChromeTokens{};
+            case ChromeStyle::Fluent:
+                return ChromeTokens{
+                    .frame             = FrameTreatment::Directional1px,
+                    .field             = FieldTreatment::BottomAccent,
+                    .fieldButton       = FieldButtonStyle::Ghost,
+                    .focus             = FocusStyle::OuterRing,
+                    .selection         = SelectionHighlightStyle::LeftAccentBar,
+                    .divider           = DividerStyle::Hairline,
+                    .checkControl      = CheckControlStyle::FilledAccent,
+                    .sliderThumb       = SliderThumbShape::Circle,
+                    .sliderTrack       = SliderTrackStyle::Filled,
+                    .progressFill      = ProgressFillStyle::Smooth,
+                    .tabChrome         = TabBarChrome::Modern,
+                    .badgeShape        = BadgeShape::Rounded,
+                    .disabledText      = DisabledTextStyle::Opacity,
+                    .scrollbar         = ScrollbarChromeStyle::Modern,
+                    .buttonPressOffset = 0.0f,
+                    .tabGapOverride    = -1.0f
+                };
+            case ChromeStyle::Classic3D:
+                return ChromeTokens{
+                    .frame             = FrameTreatment::Bevel3D,
+                    .field             = FieldTreatment::Sunken3D,
+                    .fieldButton       = FieldButtonStyle::Raised3D,
+                    .focus             = FocusStyle::InnerFrame,
+                    .selection         = SelectionHighlightStyle::SolidAccent,
+                    .divider           = DividerStyle::Etched3D,
+                    .checkControl      = CheckControlStyle::SunkenInk,
+                    .sliderThumb       = SliderThumbShape::Pointer3D,
+                    .sliderTrack       = SliderTrackStyle::NeutralGroove,
+                    .progressFill      = ProgressFillStyle::Segmented,
+                    .tabChrome         = TabBarChrome::Classic3D,
+                    .badgeShape        = BadgeShape::Sharp,
+                    .disabledText      = DisabledTextStyle::Embossed3D,
+                    .scrollbar         = ScrollbarChromeStyle::ClassicBevel,
+                    .buttonPressOffset = 1.0f,
+                    .tabGapOverride    = 0.0f
+                };
+            case ChromeStyle::Brutalist:
+                return ChromeTokens{
+                    .frame             = FrameTreatment::HardShadow,
+                    .field             = FieldTreatment::Outlined,
+                    .fieldButton       = FieldButtonStyle::Framed,
+                    .focus             = FocusStyle::BorderAccent,
+                    .selection         = SelectionHighlightStyle::SolidAccent,
+                    .divider           = DividerStyle::Bold,
+                    .checkControl      = CheckControlStyle::FilledAccent,
+                    .sliderThumb       = SliderThumbShape::Square,
+                    .sliderTrack       = SliderTrackStyle::Filled,
+                    .progressFill      = ProgressFillStyle::Smooth,
+                    .tabChrome         = TabBarChrome::Modern,
+                    .badgeShape        = BadgeShape::Sharp,
+                    .disabledText      = DisabledTextStyle::Opacity,
+                    .scrollbar         = ScrollbarChromeStyle::Flat,
+                    .buttonPressOffset = 1.0f,
+                    .tabGapOverride    = 0.0f
+                };
+        }
+        return ChromeTokens{};
+    }
 };
 
 /// Visual style of scrollbar stepper arrow glyphs (Up/Down or Left/Right).
@@ -1229,17 +1381,9 @@ enum class ScrollbarGripStyle : keel::u8 {
     Dots            ///< Centered tactile grip dots
 };
 
-/// Structural chrome style for scrollbar track, thumb, and stepper buttons.
-enum class ScrollbarChromeStyle : keel::u8 {
-    Modern = 0,     ///< Rounded translucent pill thumb (default GuiKit)
-    ClassicBevel,   ///< Windows 98 3D raised bevel buttons & thumb, classic track
-    Outlined,       ///< Crisp 1px bordered track/thumb/buttons (1988, XP, Vista, 7)
-    Flat            ///< Sharp flat rectangular track, thumb, and buttons (Windows 8/10)
-};
-
 /// Curated scrollbar presets covering classic desktop eras through modern overlay scrollbars.
 enum class ScrollbarPreset : keel::u8 {
-    Auto = 0,       ///< Match active ThemePreset / SurfaceStyle
+    Auto = 0,       ///< Match active `ChromeStyle` / `ChromeTokens::scrollbar` using active `ThemePalette` colors
     Modern,         ///< Sleek rounded buttonless scrollbar
     Classic1988,    ///< Windows 1988: navy track, white thumb, 1px black borders, shafted arrows
     Windows98,      ///< Windows 98: 3D beveled square buttons, dithered track, raised thumb
@@ -1292,6 +1436,41 @@ struct ScrollbarStyleTokens {
 
     [[nodiscard]] static constexpr ScrollbarStyleTokens Modern() noexcept {
         return ScrollbarStyleTokens{};
+    }
+
+    /// Palette-pure scrollbar tokens driven by `ScrollbarChromeStyle` (zero hardcoded colors; adapts to any Dark/Light theme).
+    [[nodiscard]] static constexpr ScrollbarStyleTokens ForChrome(ScrollbarChromeStyle c) noexcept {
+        ScrollbarStyleTokens s{};
+        s.chrome = c;
+        switch (c) {
+            case ScrollbarChromeStyle::Modern:
+                return s;
+            case ScrollbarChromeStyle::ClassicBevel:
+                s.arrowStyle      = ScrollbarArrowStyle::Triangle;
+                s.gripStyle       = ScrollbarGripStyle::None;
+                s.showButtons     = true;
+                s.alwaysShowTrack = true;
+                s.trackHatch      = true;
+                s.showCornerBox   = true;
+                return s;
+            case ScrollbarChromeStyle::Outlined:
+                s.arrowStyle      = ScrollbarArrowStyle::Chevron;
+                s.gripStyle       = ScrollbarGripStyle::Lines;
+                s.showButtons     = true;
+                s.alwaysShowTrack = true;
+                s.showCornerBox   = true;
+                s.thumbInset      = 1.0f;
+                s.borderWidth     = 1.0f;
+                return s;
+            case ScrollbarChromeStyle::Flat:
+                s.arrowStyle      = ScrollbarArrowStyle::Chevron;
+                s.gripStyle       = ScrollbarGripStyle::None;
+                s.showButtons     = true;
+                s.alwaysShowTrack = true;
+                s.showCornerBox   = true;
+                return s;
+        }
+        return s;
     }
 
     [[nodiscard]] static constexpr ScrollbarStyleTokens Classic1988() noexcept {
@@ -1449,9 +1628,10 @@ struct ScrollbarStyleTokens {
 /// radius/spacing/font/border/shadow/accessibility scaling, syntax scheme selection,
 /// and zero-dependency JSON export/import (`ToJson` / `FromJson`).
 struct ThemeSpec {
-    ThemePreset base{ThemePreset::Dark};                     ///< Starting curated preset (palette + syntax + variants + default surfaceStyle)
+    ThemePreset base{ThemePreset::Dark};                     ///< Starting curated preset (palette + syntax + default chrome)
     keel::Optional<ThemeMode> mode{keel::kNullOpt};          ///< Optional Dark/Light mode override
-    keel::Optional<SurfaceStyle> surfaceStyle{keel::kNullOpt}; ///< Optional global control appearance override (`Solid`, `Soft`, `Outline`, `Brutalist`, `Bevel`)
+    keel::Optional<ChromeStyle> chrome{keel::kNullOpt};      ///< Optional structural chrome override (`Modern`, `Fluent`, `Classic3D`, `Brutalist`)
+    keel::Optional<FillStyle> fillStyle{keel::kNullOpt};     ///< Optional semantic fill treatment override (`Solid`, `Soft`, `Outline`)
     SyntaxPreset syntaxPreset{SyntaxPreset::Auto};           ///< Independent code editor syntax color scheme (`Auto` = match preset)
     keel::Optional<Color> accent{keel::kNullOpt};    ///< Optional seed brand accent (auto-derives Primary, hover, active, contrast text, focusRing, caret)
     keel::Optional<Color> neutral{keel::kNullOpt};   ///< Optional neutral tint seed blended into surfaces & borders

@@ -175,7 +175,7 @@ void detail::Checkbox::Render(
             boxFill = (hovered && !disabled) ? v.bgHover : v.bg;
             boxStroke = (v.borderWidth > 0.0f) ? v.border : boxFill;
             strokeWidth = (v.borderWidth > 0.0f) ? v.borderWidth : 1.5f;
-            markColor = (v.bg.a == 0u || theme.surfaceStyle == SurfaceStyle::Soft) ? v.text : pal.controlKnobActive;
+            markColor = (v.bg.a == 0u || theme.fillStyle == FillStyle::Soft) ? v.text : pal.controlKnobActive;
         } else if (opts.color.token == StateColorToken::Ghost || (opts.color.normal.has_value() && opts.color.normal->a == 0)) {
             const StateColor resolved = theme.ResolveStateColor(opts.color);
             boxFill = (hovered && !disabled) ? resolved.hover.value_or(theme.GetVariant(UiVariant::Ghost).bgHover) : Color::Transparent();

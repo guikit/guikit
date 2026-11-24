@@ -38,8 +38,11 @@ const Zone* ResolveZone(
         if (opts.accent.has_value()) {
             arenaTheme->SetAccent(*opts.accent);
         }
-        if (opts.surfaceStyle.has_value()) {
-            arenaTheme->SetSurfaceStyle(*opts.surfaceStyle);
+        if (opts.chrome.has_value()) {
+            arenaTheme->SetChromeStyle(*opts.chrome);
+        }
+        if (opts.fillStyle.has_value()) {
+            arenaTheme->SetFillStyle(*opts.fillStyle);
         }
         if (opts.radiusScale.has_value()) {
             arenaTheme->SetRadiusScale(*opts.radiusScale);

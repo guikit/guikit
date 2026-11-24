@@ -61,7 +61,7 @@ void RenderMenuBarSurface(const Node* node, ICanvas& canvas, const UiTheme& them
     if (r.w <= 0.0f || r.h <= 0.0f) return;
 
     if (node->backgroundColor.a > 0) {
-        if (node->cornerRadius > 0.0f && theme.controlStyle.frameChrome != FrameChrome::Bevel3D) {
+        if (node->cornerRadius > 0.0f && theme.chrome.frame != FrameTreatment::Bevel3D) {
             canvas.DrawRoundRect(r, node->cornerRadius, node->backgroundColor, Color::Transparent(), 0.0f);
         } else {
             canvas.DrawRect(r, node->backgroundColor);

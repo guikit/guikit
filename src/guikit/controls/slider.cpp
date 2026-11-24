@@ -757,7 +757,7 @@ void detail::Slider::Render(
     }
 
     // 1 & 2. Draw track groove and optional active fill via active style painter
-    const keel::f32 effTrackH = (theme.controlStyle.frameChrome == FrameChrome::Bevel3D) ? 4.0f : m.trackHeight;
+    const keel::f32 effTrackH = (theme.chrome.frame == FrameTreatment::Bevel3D) ? 4.0f : m.trackHeight;
     const keel::f32 halfTrack = effTrackH * 0.5f;
     const Rect trackBgRect = vertical
         ? Rect(keel::floor(layout.cross - halfTrack), layout.start - layout.length, effTrackH, layout.length)
@@ -1072,8 +1072,8 @@ void detail::StepSlider::Render(
     }
 
     // 1 & 2. Draw track groove and optional active fill via active style painter
-    const bool isPointer3D = (theme.controlStyle.sliderThumb == SliderThumbShape::Pointer3D);
-    const keel::f32 effTrackH = (theme.controlStyle.frameChrome == FrameChrome::Bevel3D) ? 4.0f : m.trackHeight;
+    const bool isPointer3D = (theme.chrome.sliderThumb == SliderThumbShape::Pointer3D);
+    const keel::f32 effTrackH = (theme.chrome.frame == FrameTreatment::Bevel3D) ? 4.0f : m.trackHeight;
     const keel::f32 effHalfTrack = effTrackH * 0.5f;
     const Rect trackBgRect = vertical
         ? Rect(keel::floor(layout.cross - effHalfTrack), layout.start - layout.length, effTrackH, layout.length)

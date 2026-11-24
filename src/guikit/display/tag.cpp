@@ -280,7 +280,7 @@ void detail::Tag::Render(const Node* node, ICanvas& canvas, const UiTheme& theme
     const keel::f32 fontSize = m.fontSize;
     const keel::f32 radius = opts.border.radius.has_value()
         ? *opts.border.radius
-        : ((opts.pill && theme.controlStyle.pillBadgesAllowed) ? rect.h * 0.5f : m.radius);
+        : ((opts.pill && theme.chrome.badgeShape == BadgeShape::Pill) ? rect.h * 0.5f : m.radius);
 
     const TagPalette p = ResolveTagPalette(opts, data->hovered, data->pressed, node->disabled, theme);
     const keel::f32 borderW = (opts.style == TagStyle::Solid && !opts.border.color.HasAny())
