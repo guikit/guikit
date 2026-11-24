@@ -407,48 +407,14 @@ keel::f32 StepSliderLabelsBand(
 }
 
 Color ResolveSliderTrackColor(const StateColor& rawColor, bool disabled, const UiTheme& theme) noexcept {
-    const StateColor color = theme.ResolveStateColor(rawColor);
-    const auto& pal = theme.palette;
-    const Color primaryHue = theme.GetSemanticAccent(UiVariant::Primary);
-    if (!color.HasAny()) {
-        return disabled ? primaryHue.WithAlphaF(theme.disabledOpacity) : primaryHue;
-    }
-    if (rawColor.token == StateColorToken::Primary) {
-        return disabled ? primaryHue.WithAlphaF(theme.disabledOpacity) : primaryHue;
-    }
-    if (rawColor.token == StateColorToken::Success) {
-        const Color c = theme.GetSemanticAccent(UiVariant::Success);
-        return disabled ? c.WithAlphaF(theme.disabledOpacity) : c;
-    }
-    if (rawColor.token == StateColorToken::Warning) {
-        const Color c = theme.GetSemanticAccent(UiVariant::Warning);
-        return disabled ? c.WithAlphaF(theme.disabledOpacity) : c;
-    }
-    if (rawColor.token == StateColorToken::Danger) {
-        const Color c = theme.GetSemanticAccent(UiVariant::Danger);
-        return disabled ? c.WithAlphaF(theme.disabledOpacity) : c;
-    }
-    if (rawColor.token == StateColorToken::Info) {
-        const Color c = theme.GetSemanticAccent(UiVariant::Info);
-        return disabled ? c.WithAlphaF(theme.disabledOpacity) : c;
-    }
-    if (color.normal.has_value() && color.normal->a == 0) {
-        return disabled ? pal.borderHover.WithAlphaF(theme.disabledOpacity) : pal.borderHover;
-    }
-    const Color base = color.normal.value_or(primaryHue);
-    return disabled ? color.disabled.value_or(base.WithAlphaF(theme.disabledOpacity)) : base;
+    return theme.ResolveSemanticAccent(rawColor, UiVariant::Primary, false, false, disabled);
 }
 
 Color ResolveSliderActiveThumbColor(const StateColor& rawColor, const UiTheme& theme) noexcept {
-    const StateColor color = theme.ResolveStateColor(rawColor);
-    const Color primaryActive = theme.GetSemanticAccent(UiVariant::Primary).Darken(0.08f);
-    if (!color.HasAny() || rawColor.token == StateColorToken::Primary) {
-        return primaryActive;
-    }
-    if (color.normal.has_value() && color.normal->a == 0) {
+    if (rawColor.token == StateColorToken::Ghost || (rawColor.normal.has_value() && rawColor.normal->a == 0)) {
         return theme.GetVariant(UiVariant::Ghost).bgActive;
     }
-    return color.active.value_or(color.normal.has_value() ? StateColor::DarkenColor(*color.normal) : primaryActive);
+    return theme.ResolveSemanticAccent(rawColor, UiVariant::Primary, false, true, false);
 }
 
 

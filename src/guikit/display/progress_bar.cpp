@@ -269,8 +269,7 @@ void detail::ProgressBar::Render(
         } else if (opts.color.token == StateColorToken::Ghost || (opts.color.normal.has_value() && opts.color.normal->a == 0)) {
             col = pal.borderHover;
         } else {
-            const StateColor resolved = theme.ResolveStateColor(opts.color);
-            col = resolved.normal.value_or(theme.GetSemanticAccent(UiVariant::Success));
+            col = theme.ResolveSemanticAccent(opts.color, UiVariant::Success, false, false, false);
         }
         return disabled ? col.WithAlphaF(theme.disabledOpacity) : col;
     };

@@ -3140,6 +3140,26 @@ void TestFillStyleOutlineIndicatorsVisible() {
         }
         CHECK(foundContrastingDot);
     }
+
+    // 5. ProgressBar multiZoneColor with custom semantic StateColor::Info() in Outline stays opaque
+    {
+        RecordingCanvas canvas;
+        Context ui;
+        ui.SetTheme(darkOutline);
+        ui.BeginFrame({220.0f, 36.0f}, 0.016f);
+        ProgressBar(ui, 35.0, 0.0, 100.0, {.multiZoneColor = true, .color = StateColor::Info()});
+        ui.EndFrame(canvas);
+
+        const Color expectedInfo = darkOutline.GetSemanticAccent(UiVariant::Info);
+        bool foundInfoFill = false;
+        for (Color c : canvas.fillColors) {
+            if (c == expectedInfo && c.a == 255u) {
+                foundInfoFill = true;
+                break;
+            }
+        }
+        CHECK(foundInfoFill);
+    }
 }
 
 int main() {
