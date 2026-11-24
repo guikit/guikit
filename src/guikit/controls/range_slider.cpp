@@ -33,7 +33,53 @@ struct RangeSliderData {
     keel::f64 min{0.0};
     keel::f64 max{1.0};
     keel::u8 activeThumb{1};
+    keel::u8 hoveredMask{0};
+    keel::u8 activeMask{0};
 };
+
+RangeDragMode ClassifyRangeTarget(
+    keel::f32 pos,
+    keel::f32 lowPos,
+    keel::f32 highPos,
+    keel::f32 thumbSize,
+    bool shiftHeld
+) noexcept {
+    if (shiftHeld) {
+        return RangeDragMode::IntervalSpan;
+    }
+    const keel::f32 hitRadius = thumbSize * 0.675f;
+    const keel::f32 distLow = keel::abs(pos - lowPos);
+    const keel::f32 distHigh = keel::abs(pos - highPos);
+
+    // Direct thumb hits always take priority over interval-span dragging
+    if (distLow <= hitRadius || distHigh <= hitRadius) {
+        if (distLow < distHigh || (distLow == distHigh && pos <= lowPos)) {
+            return RangeDragMode::LowThumb;
+        }
+        return RangeDragMode::HighThumb;
+    }
+
+    const bool insideIntervalBar = (pos > lowPos + hitRadius) &&
+                                   (pos < highPos - hitRadius) &&
+                                   ((highPos - lowPos) > thumbSize * 1.8f);
+    if (insideIntervalBar) {
+        return RangeDragMode::IntervalSpan;
+    }
+    if (distLow < distHigh || (distLow == distHigh && pos <= lowPos)) {
+        return RangeDragMode::LowThumb;
+    }
+    return RangeDragMode::HighThumb;
+}
+
+keel::u8 DragModeToThumbMask(RangeDragMode mode) noexcept {
+    switch (mode) {
+        case RangeDragMode::LowThumb:     return 0x1u;
+        case RangeDragMode::HighThumb:    return 0x2u;
+        case RangeDragMode::IntervalSpan: return 0x3u;
+        case RangeDragMode::None:         return 0x0u;
+    }
+    return 0x0u;
+}
 
 
 void FormatRangeSliderPair(
@@ -140,17 +186,17 @@ Response detail::RangeSlider::Run(
 
     const ControlSpec ctrl = EffectiveSliderControl(optsCopy, activeSize, activeTheme);
     Response res = ctx.Interact(id);
+    keel::u8 hoveredMask = 0x0u;
     if (effectiveDisabled) {
         res.clicked = false;
         res.hovered = false;
         res.pressed = false;
         state.dragMode = RangeDragMode::None;
     } else {
-        const keel::f32 halfThumb = m.thumbSize * 0.5f;
         const SliderControlMetrics cm = ComputeSliderControlMetrics(
             optsCopy.textLeft, optsCopy.textRight, optsCopy.valueFormat, initValBuf,
             optsCopy.showValue, optsCopy.valuePlacement, ctrl.width,
-            0.0f, activeSize, nullptr, activeTheme,
+            0.0f, activeSize, ctx.GetCanvas(), activeTheme,
             keel::ArrayRef<keel::StringRef>(&maxSpanView, 1), false, 0.0, 1.0, false, optsCopy.orientation
         );
         const Rect ctrlRect = prevBounds;
@@ -165,29 +211,29 @@ Response detail::RangeSlider::Run(
         const keel::f32 highRatio = keel::as<keel::f32>(keel::clamp((curHigh - rangeMin) / range, 0.0, 1.0));
         const keel::f32 lowPos = lowRatio * layout.length;
         const keel::f32 highPos = highRatio * layout.length;
+        const keel::f32 pointerPos = layout.Travel(ctx.GetMousePos());
+        const RangeDragMode hoverTarget = ClassifyRangeTarget(
+            pointerPos, lowPos, highPos, m.thumbSize, ctx.GetKeyModifiers().shift
+        );
 
         if (res.clicked || (res.pressed && state.dragMode == RangeDragMode::None)) {
-            const keel::f32 pos = layout.Travel(ctx.GetMousePos());
-            const keel::f32 distLow = keel::abs(pos - lowPos);
-            const keel::f32 distHigh = keel::abs(pos - highPos);
-            const bool insideIntervalBar = (pos > lowPos + halfThumb * 1.15f) &&
-                                           (pos < highPos - halfThumb * 1.15f) &&
-                                           ((highPos - lowPos) > m.thumbSize * 1.8f);
-
-            if (insideIntervalBar || ctx.GetKeyModifiers().shift) {
-                state.dragMode = RangeDragMode::IntervalSpan;
-            } else if (distLow < distHigh || (distLow == distHigh && pos < lowPos)) {
-                state.dragMode = RangeDragMode::LowThumb;
+            state.dragMode = hoverTarget;
+            if (state.dragMode == RangeDragMode::LowThumb) {
                 state.activeThumb = 0;
-            } else {
-                state.dragMode = RangeDragMode::HighThumb;
+            } else if (state.dragMode == RangeDragMode::HighThumb) {
                 state.activeThumb = 1;
             }
             state.dragStartLow = curLow;
             state.dragStartHigh = curHigh;
-            state.dragStartTravel = pos;
+            state.dragStartTravel = pointerPos;
             ctx.SetActiveId(id);
             ctx.RequestFocus(id);
+        }
+
+        if (state.dragMode != RangeDragMode::None) {
+            hoveredMask = DragModeToThumbMask(state.dragMode);
+        } else if (res.hovered) {
+            hoveredMask = DragModeToThumbMask(hoverTarget);
         }
 
         if (state.dragMode != RangeDragMode::None) {
@@ -291,6 +337,11 @@ Response detail::RangeSlider::Run(
     node->pressed = res.pressed || (state.dragMode != RangeDragMode::None);
     node->focused = ctx.IsFocusVisible(id);
 
+    const keel::u8 activeMask = DragModeToThumbMask(state.dragMode);
+    if (activeMask != 0x0u) {
+        hoveredMask = activeMask;
+    }
+
     auto* data = ctx.AllocPayload<RangeSliderData>();
     data->opts = optsCopy;
     data->opts.textLeft = ctx.AllocText(optsCopy.textLeft);
@@ -303,6 +354,8 @@ Response detail::RangeSlider::Run(
     data->min = rangeMin;
     data->max = rangeMax;
     data->activeThumb = state.activeThumb;
+    data->hoveredMask = hoveredMask;
+    data->activeMask = activeMask;
     node->SetPayload(data);
 
     const keel::u64 lowBits = keel::bit_cast<keel::u64>(curLow);
@@ -311,6 +364,8 @@ Response detail::RangeSlider::Run(
         lowBits,
         highBits,
         state.activeThumb,
+        hoveredMask,
+        activeMask,
         keel::as<keel::u8>(data->opts.orientation),
         data->opts.color,
         keel::as<keel::u8>(data->opts.valuePlacement),
@@ -343,7 +398,8 @@ Response detail::RangeSlider::Run(
         if (!d) return;
         detail::RangeSlider::Render(
             canvas, n->computedRect, d->lowValue, d->highValue, d->min, d->max,
-            d->opts, n->uiSize, n->hovered, n->pressed, n->disabled, theme, n->focused, d->activeThumb
+            d->opts, n->uiSize, n->hovered, n->pressed, n->disabled, theme, n->focused,
+            d->activeThumb, d->hoveredMask, d->activeMask
         );
     };
 
@@ -410,7 +466,9 @@ void detail::RangeSlider::Render(
     bool disabled,
     const UiTheme& theme,
     bool focused,
-    keel::u8 activeThumb
+    keel::u8 activeThumb,
+    keel::u8 hoveredMask,
+    keel::u8 activeMask
 ) {
     if (bounds.w <= 0.0f || bounds.h <= 0.0f) return;
 
@@ -480,23 +538,27 @@ void detail::RangeSlider::Render(
     );
 
     // 3. Draw low and high thumb knobs via active style painter
-    auto drawThumb = [&](Vec2 c, bool isFocusedThumb) {
-        const bool thumbActive = active && isFocusedThumb;
+    const keel::u8 effActiveMask = (activeMask != 0x0u)
+        ? activeMask
+        : (active ? keel::as<keel::u8>(activeThumb == 0 ? 0x1u : 0x2u) : 0x0u);
+    auto drawThumb = [&](Vec2 c, keel::u8 thumbBit, bool isFocusedThumb) {
+        const bool thumbActive = active && ((effActiveMask & thumbBit) != 0u);
+        const bool thumbHovered = hovered && ((hoveredMask & thumbBit) != 0u);
         const bool thumbFocused = focused && isFocusedThumb;
         const Color thumbBg = disabled ? pal.surface.WithAlphaF(theme.disabledOpacity) :
                               thumbActive ? ResolveSliderActiveThumbColor(opts.color, theme) : pal.surface;
         const Color thumbBorder = disabled ? pal.border.WithAlphaF(theme.disabledOpacity) :
                                   thumbFocused ? pal.focusRing :
-                                  (active || hovered) ? pal.accent : pal.borderHover;
-        const keel::f32 thumbBorderW = (active || hovered || thumbFocused) ? 2.5f : 2.0f;
+                                  (thumbActive || thumbHovered) ? pal.accent : pal.borderHover;
+        const keel::f32 thumbBorderW = (thumbActive || thumbHovered || thumbFocused) ? 2.5f : 2.0f;
         theme.Painter().DrawSliderThumb(
             canvas, theme, c, m.thumbSize, vertical,
-            thumbBg, thumbBorder, thumbBorderW, hovered, thumbActive, thumbFocused, disabled, m.cornerRadius
+            thumbBg, thumbBorder, thumbBorderW, thumbHovered, thumbActive, thumbFocused, disabled, m.cornerRadius
         );
     };
 
-    drawThumb(lowThumb, activeThumb == 0);
-    drawThumb(highThumb, activeThumb == 1);
+    drawThumb(lowThumb, 0x1u, activeThumb == 0);
+    drawThumb(highThumb, 0x2u, activeThumb == 1);
 }
 
 

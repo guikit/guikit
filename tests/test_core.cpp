@@ -2746,6 +2746,96 @@ void TestMenuButtonAndSplitButton() {
     }
 }
 
+void TestRangeSliderThumbHitTestAndCanvasSync() {
+    using namespace guikit;
+    keel::println("  -> TestRangeSliderThumbHitTestAndCanvasSync...");
+
+    // Proportional font canvas whose measured width is narrower than the nullptr heuristic
+    // (reproduces the exact SplitView "0.05 .. 0.95" readout case where nullptr diverged from Render)
+    class NarrowTextCanvas final : public NullCanvas {
+    public:
+        Vec2 MeasureText(keel::StringRef text, keel::f32 fontSize) override {
+            return {keel::as<keel::f32>(text.size()) * fontSize * 0.38f, fontSize * 1.25f};
+        }
+        Vec2 MeasureTextStyled(keel::StringRef text, keel::f32 fontSize, FontStyle) override {
+            return MeasureText(text, fontSize);
+        }
+    };
+
+    NarrowTextCanvas canvas;
+    Context ui;
+    keel::f32 lo = 0.50f;
+    keel::f32 hi = 0.95f;
+    Response sliderRes{};
+
+    auto renderFrame = [&]() {
+        ui.BeginFrame({320.0f, 120.0f});
+        if (auto col = guikit::Column(ui, {.padding = Padding::All(16.0f)})) {
+            sliderRes = guikit::RangeSlider(ui, lo, hi, 0.05f, 0.95f, {
+                .valueFormat = "%.2f",
+                .step = 0.05f
+            });
+        }
+        ui.EndFrame(canvas);
+    };
+
+    // Warmup frames so prevBounds and m_lastCanvas are populated
+    renderFrame();
+    renderFrame();
+    CHECK(sliderRes.rect.w > 120.0f);
+
+    // Compute exact rendered low-thumb X using the same NarrowTextCanvas
+    const UiTheme& theme = ui.GetTheme();
+    const SliderMetrics& sm = theme.GetSlider(UiSize::Md);
+    const keel::f32 valFont = theme.ResolveFontSize(UiText{"%.2f"}, TextRole::LabelMedium, UiSize::Md);
+    const keel::f32 valW = canvas.MeasureText("0.05 .. 0.95", valFont).x;
+    const keel::f32 rightGutter = 8.0f + valW; // kSliderInnerGap + valReserveW
+    const keel::f32 halfThumb = sm.thumbSize * 0.5f;
+    const keel::f32 trackStart = sliderRes.rect.x + halfThumb;
+    const keel::f32 trackLen = keel::max(1.0f, sliderRes.rect.w - rightGutter - sm.thumbSize);
+    const keel::f32 lowThumbX = trackStart + ((lo - 0.05f) / 0.90f) * trackLen;
+    const keel::f32 midY = sliderRes.rect.y + sliderRes.rect.h * 0.5f;
+
+    // 1. Grab low thumb directly and drag left to ~0.20 -> ONLY lo changes, hi stays 0.95
+    ui.OnMouseMove({lowThumbX, midY});
+    renderFrame();
+    ui.OnMouseDown(1);
+    renderFrame();
+    const keel::f32 targetLowX = trackStart + ((0.20f - 0.05f) / 0.90f) * trackLen;
+    ui.OnMouseMove({targetLowX, midY});
+    renderFrame();
+    ui.OnMouseUp(1);
+    renderFrame();
+    CHECK(lo < 0.30f);
+    CHECK(keel::abs(hi - 0.95f) < 0.001f);
+
+    // 2. Grab midpoint between thumbs (0.20 .. 0.95) and drag left -> IntervalSpan moves both
+    const keel::f32 prevLo = lo;
+    const keel::f32 prevHi = hi;
+    const keel::f32 midX = trackStart + (((lo + hi) * 0.5f - 0.05f) / 0.90f) * trackLen;
+    ui.OnMouseMove({midX, midY});
+    renderFrame();
+    ui.OnMouseDown(1);
+    renderFrame();
+    ui.OnMouseMove({midX - trackLen * 0.15f, midY});
+    renderFrame();
+    ui.OnMouseUp(1);
+    renderFrame();
+    CHECK(lo < prevLo - 0.04f);
+    CHECK(hi < prevHi - 0.04f);
+
+    // 3. Moving hover from low thumb onto interval bar marks visual damage (per-thumb highlight)
+    const keel::f32 curLowX = trackStart + ((lo - 0.05f) / 0.90f) * trackLen;
+    const keel::f32 curMidX = trackStart + (((lo + hi) * 0.5f - 0.05f) / 0.90f) * trackLen;
+    ui.OnMouseMove({curLowX, midY});
+    renderFrame();
+    renderFrame();
+    CHECK(ui.GetDirtyRects().empty());
+    ui.OnMouseMove({curMidX, midY});
+    renderFrame();
+    CHECK(!ui.GetDirtyRects().empty());
+}
+
 int main() {
     keel::println("[RUN] Testing GuiKit Core Foundation...");
 
@@ -2775,6 +2865,7 @@ int main() {
     TestDesignSystemOrthogonalityAndCrossCombos();
     TestStylePainterChromeDispatchAndPolish();
     TestMenuButtonAndSplitButton();
+    TestRangeSliderThumbHitTestAndCanvasSync();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Core tests passed successfully!");

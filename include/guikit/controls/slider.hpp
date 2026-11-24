@@ -258,7 +258,9 @@ public:
         bool disabled,
         const UiTheme& theme,
         bool focused = false,
-        keel::u8 activeThumb = 1
+        keel::u8 activeThumb = 1,
+        keel::u8 hoveredMask = 0x3u,
+        keel::u8 activeMask = 0x0u
     );
 };
 

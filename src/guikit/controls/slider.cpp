@@ -509,7 +509,7 @@ Response detail::Slider::Run(
         const SliderControlMetrics cm = ComputeSliderControlMetrics(
             optsCopy.textLeft, optsCopy.textRight, optsCopy.valueFormat, initValBuf,
             optsCopy.showValue, optsCopy.valuePlacement, ctrl.width,
-            0.0f, activeSize, nullptr, activeTheme,
+            0.0f, activeSize, ctx.GetCanvas(), activeTheme,
             {}, true, rangeMin, rangeMax, valInt != nullptr, optsCopy.orientation
         );
         const Rect ctrlRect = prevBounds;
@@ -819,7 +819,8 @@ Response detail::StepSlider::Run(
         ? optsCopy.valueText.text
         : ((curIdx < optsCopy.stepLabels.size()) ? optsCopy.stepLabels[curIdx] : keel::StringRef{});
     const keel::f32 tickFont = activeTheme.ResolveFontSize(TextRole::LabelSmall, activeSize);
-    const keel::f32 labelsBand = StepSliderLabelsBand(optsCopy, totalSteps, m, tickFont, nullptr);
+    ICanvas* measureCanvas = ctx.GetCanvas();
+    const keel::f32 labelsBand = StepSliderLabelsBand(optsCopy, totalSteps, m, tickFont, measureCanvas);
 
     Rect prevBounds = ctx.GetPrevFrameBounds(id);
     auto& state = ctx.GetOrCreateState<SliderState>(id);
@@ -837,7 +838,7 @@ Response detail::StepSlider::Run(
         const SliderControlMetrics cm = ComputeSliderControlMetrics(
             optsCopy.textLeft, optsCopy.textRight, optsCopy.valueText, initStepStr,
             optsCopy.showValue, optsCopy.valuePlacement, ctrl.width,
-            labelsBand, activeSize, nullptr, activeTheme,
+            labelsBand, activeSize, measureCanvas, activeTheme,
             optsCopy.stepLabels, false, 0.0, 1.0, false, optsCopy.orientation
         );
         const Rect ctrlRect = prevBounds;
