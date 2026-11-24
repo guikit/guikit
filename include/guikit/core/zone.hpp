@@ -1,6 +1,6 @@
 #pragma once
 
-#include "guikit/core/tokens.hpp"
+#include "guikit/style/tokens.hpp"
 #include "keel/core.h"
 #include "keel/optional.h"
 

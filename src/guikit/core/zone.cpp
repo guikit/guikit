@@ -1,5 +1,5 @@
 #include "guikit/core/zone.hpp"
-#include "guikit/core/theme.hpp"
+#include "guikit/style/theme.hpp"
 #include "keel/arena.h"
 
 namespace guikit {

@@ -1,5 +1,5 @@
 #include "guikit/core/damage_tracker.hpp"
-#include "guikit/core/theme.hpp"
+#include "guikit/style/theme.hpp"
 
 namespace guikit {
 

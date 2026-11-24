@@ -1,7 +1,7 @@
 #pragma once
 
 #include "guikit/backend/i_canvas.hpp"
-#include "guikit/core/theme.hpp"
+#include "guikit/style/theme.hpp"
 #include "guikit/core/types.hpp"
 #include "keel/array.h"
 #include "keel/hash_map.h"

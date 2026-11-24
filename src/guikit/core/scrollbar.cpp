@@ -3,7 +3,7 @@
 
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
-#include "guikit/core/style_painter.hpp"
+#include "guikit/style/style_painter.hpp"
 
 namespace guikit {
 

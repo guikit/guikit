@@ -2,7 +2,7 @@
 
 #include <cassert>
 #include "guikit/core/id.hpp"
-#include "guikit/core/tokens.hpp"
+#include "guikit/style/tokens.hpp"
 #include "guikit/core/types.hpp"
 #include "guikit/core/zone.hpp"
 #include "keel/core.h"

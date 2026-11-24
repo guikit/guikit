@@ -1,0 +1,290 @@
+#pragma once
+
+#include "guikit/context.hpp"
+#include "guikit/core/container_scope.hpp"
+#include "guikit/core/id.hpp"
+#include "guikit/core/response.hpp"
+#include "guikit/style/theme.hpp"
+#include "guikit/style/tokens.hpp"
+#include "guikit/core/types.hpp"
+#include "keel/core.h"
+#include "keel/optional.h"
+#include "keel/ref.h"
+
+namespace guikit {
+
+class Context;
+class ICanvas;
+struct Node;
+struct TableData;
+
+/// Sort direction for a sortable table column.
+enum class TableSortDirection : keel::u8 {
+    None = 0,
+    Ascending,
+    Descending
+};
+
+/// Specification for a single column in a Table / DataGrid.
+struct TableColumn {
+    UiText title{};                         ///< Header caption text
+    Icon icon{};                            ///< Optional leading icon in column header
+    keel::f32 width{0.0f};                      ///< Initial fixed width in points (0.0f = proportional flex column)
+    keel::f32 flex{1.0f};                       ///< Proportional flex weight when width <= 0.0f
+    keel::f32 minWidth{52.0f};                  ///< Minimum column width in points (enforced during resize and layout)
+    keel::f32 maxWidth{0.0f};                   ///< Optional maximum column width in points (0.0f = unlimited)
+    Align align{Align::Start};              ///< Horizontal alignment for header and cells in this column
+    bool sortable{false};                   ///< Whether clicking the column header cycles sort direction
+    bool resizable{true};                   ///< Whether the right border of this column can be dragged to resize
+};
+
+/// Per-cell alignment override when using `table.Cell(...)`.
+struct TableCellOptions {
+    keel::Optional<Align> align{keel::kNullOpt}; ///< Override horizontal alignment (nullopt = inherit from TableColumn)
+};
+
+/// Per-row visual & interaction options.
+struct TableRowOptions {
+    keel::Optional<UiVariant> tint{keel::kNullOpt}; ///< Optional subtle row background tint (Success/Warning/Danger/Info/Primary)
+    bool disabled{false};                           ///< Suppresses row selection and dims cell contents
+};
+
+/// Configuration options for the Table / DataGrid container.
+struct TableOptions {
+    UiText tooltip{};                                   ///< Optional tooltip when hovering header
+
+    // --- Virtualization & Row Metrics ---
+    keel::usize totalRows{0};                                ///< Total row count (0 = auto-count; >0 enables O(1) virtualized scrolling)
+    keel::Optional<keel::f32> rowHeight{keel::kNullOpt};    ///< Row height in points (nullopt = derived from UiSize)
+    keel::Optional<keel::f32> headerHeight{keel::kNullOpt}; ///< Sticky header height in points (nullopt = derived from UiSize)
+
+    // --- Selection & Sorting Bindings ---
+    keel::i32* selectedRow{nullptr};                          ///< Optional bound index of selected row (-1 = none)
+    keel::i32* sortColumn{nullptr};                           ///< Optional bound index of sorted column (-1 = none)
+    TableSortDirection* sortDirection{nullptr};         ///< Optional bound sort direction (Ascending / Descending)
+
+    // --- Appearance & Features ---
+    bool stickyHeader{true};                            ///< Pin column header bar at top of viewport
+    bool striped{true};                                 ///< Alternating zebra row background shading
+    bool gridLines{true};                               ///< Draw vertical column & horizontal row grid lines
+    StateColor background{};
+    Border border{.width = 1.0f};
+    bool hoverableRows{true};                           ///< Highlight row under mouse cursor
+    bool resizableColumns{true};                        ///< Allow dragging column dividers in header to resize
+    bool showRowNumbers{false};                         ///< Prepend an automatic '#' row index column on the left
+    bool showFooter{false};                             ///< Show bottom summary footer bar (visible row range, total rows, footerText)
+    UiText footerText{};                                ///< Optional right-aligned summary text in footer bar
+
+    // --- Sizing & Theme ---
+    VisibilityPolicy scrollbar{VisibilityPolicy::Auto};
+    AxisSize width{};                                   ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or fixed `dp`)
+    AxisSize height{SizeMode::Stretch};                 ///< Vertical sizing policy (`Stretch` in flex parent, `Fit` rows, or fixed `dp`)
+    UiSize size{UiSize::Md};                            ///< Row/header density & typography size
+    bool disabled{false};
+};
+
+class TableScope;
+
+/// RAII scope representing a single visible row inside a Table.
+class TableRowScope {
+public:
+    TableRowScope() noexcept = default;
+    TableRowScope(
+        TableScope* table,
+        Context* ctx,
+        keel::usize rowIndex,
+        bool visible,
+        bool selected,
+        bool hovered,
+        bool clicked,
+        bool doubleClicked,
+        bool prevDisabled
+    ) noexcept
+        : m_table(table)
+        , m_ctx(ctx)
+        , m_rowIndex(rowIndex)
+        , m_visible(visible)
+        , m_selected(selected)
+        , m_hovered(hovered)
+        , m_clicked(clicked)
+        , m_doubleClicked(doubleClicked)
+        , m_prevDisabled(prevDisabled) {}
+
+    ~TableRowScope() noexcept;
+
+    TableRowScope(const TableRowScope&) = delete;
+    TableRowScope& operator=(const TableRowScope&) = delete;
+
+    TableRowScope(TableRowScope&& other) noexcept
+        : m_table(other.m_table)
+        , m_ctx(other.m_ctx)
+        , m_rowIndex(other.m_rowIndex)
+        , m_visible(other.m_visible)
+        , m_selected(other.m_selected)
+        , m_hovered(other.m_hovered)
+        , m_clicked(other.m_clicked)
+        , m_doubleClicked(other.m_doubleClicked)
+        , m_prevDisabled(other.m_prevDisabled) {
+        other.m_table = nullptr;
+        other.m_ctx = nullptr;
+        other.m_visible = false;
+    }
+
+    [[nodiscard]] explicit operator bool() const noexcept { return m_visible; }
+    [[nodiscard]] keel::usize RowIndex() const noexcept { return m_rowIndex; }
+    [[nodiscard]] bool Selected() const noexcept { return m_selected; }
+    [[nodiscard]] bool Hovered() const noexcept { return m_hovered; }
+    [[nodiscard]] bool Clicked() const noexcept { return m_clicked; }
+    [[nodiscard]] bool DoubleClicked() const noexcept { return m_doubleClicked; }
+
+private:
+    TableScope* m_table{nullptr};
+    Context* m_ctx{nullptr};
+    keel::usize m_rowIndex{0};
+    bool m_visible{false};
+    bool m_selected{false};
+    bool m_hovered{false};
+    bool m_clicked{false};
+    bool m_doubleClicked{false};
+    bool m_prevDisabled{false};
+};
+
+/// RAII scope returned by `ui.Table(...)` providing row virtualization and cell emission methods.
+class TableScope {
+public:
+    TableScope() noexcept = default;
+    TableScope(Context* ctx, Node* tableNode, TableData* data) noexcept;
+    ~TableScope() noexcept;
+
+    TableScope(const TableScope&) = delete;
+    TableScope& operator=(const TableScope&) = delete;
+
+    TableScope(TableScope&& other) noexcept
+        : m_ctx(other.m_ctx)
+        , m_node(other.m_node)
+        , m_data(other.m_data)
+        , m_nextAutoRow(other.m_nextAutoRow) {
+        other.m_ctx = nullptr;
+        other.m_node = nullptr;
+        other.m_data = nullptr;
+    }
+
+    [[nodiscard]] explicit operator bool() const noexcept { return m_node != nullptr; }
+    [[nodiscard]] Node* GetNode() const noexcept { return m_node; }
+
+    /// First visible row index in the virtualized scroll viewport (inclusive).
+    [[nodiscard]] keel::usize FirstVisibleRow() const noexcept;
+
+    /// One-past-last visible row index in the virtualized scroll viewport (exclusive).
+    [[nodiscard]] keel::usize EndVisibleRow() const noexcept;
+
+    /// Returns true on the frame the user clicked a sortable column header.
+    [[nodiscard]] bool SortChanged() const noexcept;
+
+    /// Active sorted column index (-1 if none).
+    [[nodiscard]] keel::i32 SortedColumn() const noexcept;
+
+    /// Active sort direction (None / Ascending / Descending).
+    [[nodiscard]] TableSortDirection SortDirection() const noexcept;
+
+    /// Returns true on the frame the selected row changed via click or keyboard navigation.
+    [[nodiscard]] bool SelectionChanged() const noexcept;
+
+    /// Currently selected row index (-1 if none).
+    [[nodiscard]] keel::i32 SelectedRow() const noexcept;
+
+    /// Row index currently hovered by the mouse cursor (-1 if none).
+    [[nodiscard]] keel::i32 HoveredRow() const noexcept;
+
+    /// Row index clicked this frame (-1 if none).
+    [[nodiscard]] keel::i32 ClickedRow() const noexcept;
+
+    /// Row index double-clicked this frame (-1 if none).
+    [[nodiscard]] keel::i32 DoubleClickedRow() const noexcept;
+
+    /// Begins a table row at explicit `rowIndex`. Returns false if row is outside the visible virtualized range.
+    [[nodiscard]] TableRowScope Row(keel::usize rowIndex, const TableRowOptions& opts = {});
+
+    /// Begins the next sequential row (for small static tables without explicit row index loop).
+    [[nodiscard]] TableRowScope Row(const TableRowOptions& opts = {}) {
+        return Row(m_nextAutoRow++, opts);
+    }
+
+    /// Opens an explicit multi-widget container cell (`NodeType::Cell`) in the current column of the active row.
+    /// Note: Single widgets (`ui.Text`, `ui.Element`, `ui.Checkbox`, `ui.ProgressBar`, `ui.Button`, etc.)
+    /// placed directly inside `if (auto row = table.Row(r))` automatically occupy sequential columns without needing `table.Cell()`.
+    [[nodiscard]] ContainerScope Cell(const TableCellOptions& opts = {});
+
+    /// Programmatically scrolls the table viewport so `rowIndex` is visible.
+    void ScrollToRow(keel::usize rowIndex);
+
+private:
+    friend class TableRowScope;
+    void EndActiveRow() noexcept;
+
+    Context* m_ctx{nullptr};
+    Node* m_node{nullptr};
+    TableData* m_data{nullptr};
+    keel::usize m_nextAutoRow{0};
+};
+
+/// High-performance virtualized Table / DataGrid container with sticky headers, sorting, and column resizing.
+namespace detail {
+
+class Table {
+public:
+    [[nodiscard]] static TableScope Open(
+        Context& ctx,
+        keel::ArrayRef<TableColumn> columns,
+        const TableOptions& opts = {},
+        keel::SourceLocation loc = keel::SourceLocation::current()
+    );
+
+    [[nodiscard]] static Vec2 Measure(
+        const Node* node,
+        keel::f32 availableWidth,
+        ICanvas* canvas,
+        const UiTheme& theme
+    );
+
+    static void Arrange(
+        Node* node,
+        const Rect& availableRect,
+        const UiTheme& theme
+    );
+
+    [[nodiscard]] static Rect GetBodyClipRect(
+        const Node* node,
+        const UiTheme& theme
+    );
+
+    static void Update(
+        Context& ctx,
+        Node* node
+    );
+
+    static void RenderBody(
+        const Node* node,
+        ICanvas& canvas,
+        const UiTheme& theme
+    );
+
+    static void RenderChromeAndScrollbars(
+        const Node* node,
+        ICanvas& canvas,
+        const UiTheme& theme
+    );
+};
+
+} // namespace detail
+
+[[nodiscard]] inline TableScope Table(
+    Context& ui,
+    keel::ArrayRef<TableColumn> columns,
+    const TableOptions& opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::Table::Open(ui, columns, opts, loc);
+}
+
+} // namespace guikit

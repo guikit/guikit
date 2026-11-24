@@ -1,5 +1,5 @@
 #include "guikit/core/hit_test_tree.hpp"
-#include "guikit/core/theme.hpp"
+#include "guikit/style/theme.hpp"
 #include "keel/math.h"
 
 namespace guikit {

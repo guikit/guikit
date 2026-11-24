@@ -100,9 +100,9 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/core/overlay_manager.cpp
     src/guikit/core/response.cpp
     src/guikit/core/state_store.cpp
-    src/guikit/core/style_painter.cpp
+    src/guikit/style/style_painter.cpp
     src/guikit/core/text_buffer.cpp
-    src/guikit/core/theme.cpp
+    src/guikit/style/theme.cpp
     src/guikit/core/assets.cpp
     src/guikit/core/text_util.cpp
     src/guikit/core/rich_text.cpp
@@ -120,64 +120,64 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/layout/column.cpp
     src/guikit/layout/wrap.cpp
     src/guikit/layout/grid.cpp
-    src/guikit/layout/separator.cpp
+    src/guikit/display/separator.cpp
     src/guikit/layout/spacer.cpp
-    src/guikit/panels/accordion.cpp
-    src/guikit/panels/activity_bar.cpp
-    src/guikit/panels/bottom_panel.cpp
-    src/guikit/panels/box.cpp
-    src/guikit/panels/card.cpp
-    src/guikit/panels/carousel.cpp
-    src/guikit/panels/command_palette.cpp
-    src/guikit/panels/split_view.cpp
-    src/guikit/widgets/breadcrumb.cpp
-    src/guikit/widgets/date_picker.cpp
+    src/guikit/surfaces/accordion.cpp
+    src/guikit/surfaces/activity_bar.cpp
+    src/guikit/surfaces/bottom_panel.cpp
+    src/guikit/surfaces/box.cpp
+    src/guikit/surfaces/card.cpp
+    src/guikit/surfaces/carousel.cpp
+    src/guikit/overlays/command_palette.cpp
+    src/guikit/layout/split_view.cpp
+    src/guikit/actions/breadcrumb.cpp
+    src/guikit/fields/date_picker.cpp
     src/guikit/backend/null_canvas.cpp
     src/guikit/backend/system_theme.cpp
     src/guikit/backend/text_compositor.cpp
-    src/guikit/widgets/level_meter.cpp
-    src/guikit/widgets/pagination.cpp
-    src/guikit/widgets/readout.cpp
-    src/guikit/widgets/tag.cpp
-    src/guikit/widgets/tag_input.cpp
-    src/guikit/panels/context_menu.cpp
-    src/guikit/panels/menu_bar.cpp
-    src/guikit/panels/modal.cpp
-    src/guikit/panels/popover.cpp
-    src/guikit/panels/scroll_area.cpp
-    src/guikit/panels/scene.cpp
-    src/guikit/panels/sidebar.cpp
-    src/guikit/panels/status_bar.cpp
-    src/guikit/panels/table.cpp
-    src/guikit/panels/toolbar.cpp
-    src/guikit/panels/tree_view.cpp
-    src/guikit/widgets/button.cpp
-    src/guikit/widgets/checkbox.cpp
-    src/guikit/widgets/color_picker.cpp
-    src/guikit/widgets/heading.cpp
-    src/guikit/widgets/histogram.cpp
-    src/guikit/widgets/image.cpp
-    src/guikit/widgets/image_view.cpp
-    src/guikit/widgets/input_field.cpp
-    src/guikit/widgets/knob.cpp
-    src/guikit/widgets/markdown.cpp
-    src/guikit/widgets/markdown_parser.cpp
-    src/guikit/widgets/progress_bar.cpp
-    src/guikit/widgets/radio.cpp
-    src/guikit/widgets/range_slider.cpp
-    src/guikit/widgets/segmented.cpp
-    src/guikit/widgets/select.cpp
-    src/guikit/widgets/select_multi.cpp
-    src/guikit/widgets/sidebar_menu.cpp
-    src/guikit/widgets/slider.cpp
-    src/guikit/widgets/spin_box.cpp
-    src/guikit/widgets/switch.cpp
-    src/guikit/widgets/tab_bar.cpp
-    src/guikit/widgets/text.cpp
-    src/guikit/widgets/text_area.cpp
-    src/guikit/widgets/text_area_highlight.cpp
-    src/guikit/widgets/text_area_render.cpp
-    src/guikit/widgets/toast.cpp
+    src/guikit/display/level_meter.cpp
+    src/guikit/actions/pagination.cpp
+    src/guikit/display/readout.cpp
+    src/guikit/display/tag.cpp
+    src/guikit/fields/tag_input.cpp
+    src/guikit/overlays/context_menu.cpp
+    src/guikit/surfaces/menu_bar.cpp
+    src/guikit/overlays/modal.cpp
+    src/guikit/overlays/popover.cpp
+    src/guikit/layout/scroll_area.cpp
+    src/guikit/views/scene.cpp
+    src/guikit/surfaces/sidebar.cpp
+    src/guikit/surfaces/status_bar.cpp
+    src/guikit/views/table.cpp
+    src/guikit/surfaces/toolbar.cpp
+    src/guikit/views/tree_view.cpp
+    src/guikit/actions/button.cpp
+    src/guikit/controls/checkbox.cpp
+    src/guikit/fields/color_picker.cpp
+    src/guikit/display/heading.cpp
+    src/guikit/display/histogram.cpp
+    src/guikit/display/image.cpp
+    src/guikit/views/image_view.cpp
+    src/guikit/fields/input_field.cpp
+    src/guikit/controls/knob.cpp
+    src/guikit/views/markdown.cpp
+    src/guikit/views/markdown_parser.cpp
+    src/guikit/display/progress_bar.cpp
+    src/guikit/controls/radio.cpp
+    src/guikit/controls/range_slider.cpp
+    src/guikit/actions/segmented.cpp
+    src/guikit/fields/select.cpp
+    src/guikit/fields/select_multi.cpp
+    src/guikit/actions/sidebar_menu.cpp
+    src/guikit/controls/slider.cpp
+    src/guikit/fields/spin_box.cpp
+    src/guikit/controls/switch.cpp
+    src/guikit/actions/tab_bar.cpp
+    src/guikit/display/text.cpp
+    src/guikit/fields/text_area.cpp
+    src/guikit/fields/text_area_highlight.cpp
+    src/guikit/fields/text_area_render.cpp
+    src/guikit/overlays/toast.cpp
 )
 
 file(GLOB_RECURSE GUIKIT_EMBEDDED_ASSET_FILES CONFIGURE_DEPENDS

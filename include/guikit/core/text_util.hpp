@@ -1,7 +1,7 @@
 #pragma once
 
 #include "guikit/backend/i_canvas.hpp"
-#include "guikit/core/tokens.hpp"
+#include "guikit/style/tokens.hpp"
 #include "keel/small_array.h"
 #include "keel/string.h"
 

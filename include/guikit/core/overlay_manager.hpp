@@ -1,7 +1,7 @@
 #pragma once
 
 #include "guikit/core/id.hpp"
-#include "guikit/core/tokens.hpp"
+#include "guikit/style/tokens.hpp"
 #include "guikit/core/types.hpp"
 #include "keel/array.h"
 #include "keel/core.h"

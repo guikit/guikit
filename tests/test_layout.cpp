@@ -1,9 +1,9 @@
 #include "guikit/core.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/solver.hpp"
-#include "guikit/core/theme.hpp"
-#include "guikit/panels/carousel.hpp"
-#include "guikit/panels/scroll_area.hpp"
+#include "guikit/style/theme.hpp"
+#include "guikit/surfaces/carousel.hpp"
+#include "guikit/layout/scroll_area.hpp"
 #include "keel/keel.h"
 #include "keel/math.h"
 

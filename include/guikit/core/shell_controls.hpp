@@ -1,10 +1,10 @@
 #pragma once
 
 #include "guikit/core/main_window.hpp"
-#include "guikit/panels/command_palette.hpp"
-#include "guikit/panels/sidebar.hpp"
-#include "guikit/panels/status_bar.hpp"
-#include "guikit/panels/toolbar.hpp"
+#include "guikit/overlays/command_palette.hpp"
+#include "guikit/surfaces/sidebar.hpp"
+#include "guikit/surfaces/status_bar.hpp"
+#include "guikit/surfaces/toolbar.hpp"
 
 namespace guikit {
 

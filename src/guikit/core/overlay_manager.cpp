@@ -1,7 +1,7 @@
 #include "guikit/core/overlay_manager.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/text_util.hpp"
-#include "guikit/core/theme.hpp"
+#include "guikit/style/theme.hpp"
 #include "keel/math.h"
 
 namespace guikit {

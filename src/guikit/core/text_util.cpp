@@ -1,7 +1,7 @@
 #include "guikit/core/text_util.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/rich_text.hpp"
-#include "guikit/core/theme.hpp"
+#include "guikit/style/theme.hpp"
 #include "keel/small_array.h"
 #include "keel/utf8.h"
 #include "keel/math.h"

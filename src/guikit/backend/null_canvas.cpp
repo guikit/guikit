@@ -1,6 +1,6 @@
 #include "guikit/backend/null_canvas.hpp"
 
-#include "guikit/core/tokens.hpp"
+#include "guikit/style/tokens.hpp"
 #include "keel/math.h"
 
 namespace guikit {

@@ -2,7 +2,7 @@
 #include "keel/math.h"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
-#include "guikit/core/theme.hpp"
+#include "guikit/style/theme.hpp"
 
 namespace guikit {
 

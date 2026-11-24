@@ -1,10 +1,11 @@
 #pragma once
 
 // ==============================================================================
-// GuiKit Core Module - Context, Layout Engine, Base Widgets & Panels
+// GuiKit Core Module - Engine, Design System, and 8-Class UI Element Taxonomy
 // Zero External OS / Windowing / GPU Dependencies (Pure C++20 + ICanvas / IPlatformWindow)
 // ==============================================================================
 
+// Engine Core
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/backend/i_platform_window.hpp"
@@ -25,64 +26,85 @@
 #include "guikit/core/scrollbar.hpp"
 #include "guikit/core/shell_controls.hpp"
 #include "guikit/core/solver.hpp"
-#include "guikit/core/style_painter.hpp"
 #include "guikit/core/text_util.hpp"
-#include "guikit/core/theme.hpp"
-#include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
+
+// Design System
+#include "guikit/style/tokens.hpp"
+#include "guikit/style/theme.hpp"
+#include "guikit/style/style_painter.hpp"
+
+// Low-Level Graphics
 #include "guikit/graphics/colormap.hpp"
 #include "guikit/graphics/draw_list.hpp"
 #include "guikit/graphics/icon.hpp"
+
+// 1. Layout (invisible geometry)
 #include "guikit/layout/row.hpp"
 #include "guikit/layout/column.hpp"
 #include "guikit/layout/wrap.hpp"
 #include "guikit/layout/grid.hpp"
-#include "guikit/layout/separator.hpp"
 #include "guikit/layout/spacer.hpp"
-#include "guikit/panels/accordion.hpp"
-#include "guikit/panels/activity_bar.hpp"
-#include "guikit/panels/bottom_panel.hpp"
-#include "guikit/panels/box.hpp"
-#include "guikit/panels/card.hpp"
-#include "guikit/panels/carousel.hpp"
-#include "guikit/panels/command_palette.hpp"
-#include "guikit/panels/scroll_area.hpp"
-#include "guikit/panels/scene.hpp"
-#include "guikit/panels/context_menu.hpp"
-#include "guikit/panels/menu_bar.hpp"
-#include "guikit/panels/modal.hpp"
-#include "guikit/panels/popover.hpp"
-#include "guikit/panels/sidebar.hpp"
-#include "guikit/panels/split_view.hpp"
-#include "guikit/panels/status_bar.hpp"
-#include "guikit/panels/table.hpp"
-#include "guikit/panels/toolbar.hpp"
-#include "guikit/panels/tree_view.hpp"
-#include "guikit/widgets/breadcrumb.hpp"
-#include "guikit/widgets/button.hpp"
-#include "guikit/widgets/checkbox.hpp"
-#include "guikit/widgets/color_picker.hpp"
-#include "guikit/widgets/date_picker.hpp"
-#include "guikit/widgets/heading.hpp"
-#include "guikit/widgets/image.hpp"
-#include "guikit/widgets/input_field.hpp"
-#include "guikit/widgets/knob.hpp"
-#include "guikit/widgets/level_meter.hpp"
-#include "guikit/widgets/markdown.hpp"
-#include "guikit/widgets/pagination.hpp"
-#include "guikit/widgets/radio.hpp"
-#include "guikit/widgets/readout.hpp"
-#include "guikit/widgets/segmented.hpp"
-#include "guikit/widgets/select.hpp"
-#include "guikit/widgets/sidebar_menu.hpp"
-#include "guikit/widgets/slider.hpp"
-#include "guikit/widgets/spin_box.hpp"
-#include "guikit/widgets/switch.hpp"
-#include "guikit/widgets/tab_bar.hpp"
-#include "guikit/widgets/tag.hpp"
-#include "guikit/widgets/tag_input.hpp"
-#include "guikit/widgets/text.hpp"
-#include "guikit/widgets/text_area.hpp"
-#include "guikit/widgets/toast.hpp"
-#include "guikit/widgets/histogram.hpp"
-#include "guikit/widgets/image_view.hpp"
+#include "guikit/layout/scroll_area.hpp"
+#include "guikit/layout/split_view.hpp"
+
+// 2. Surfaces (cards, panels & application chrome)
+#include "guikit/surfaces/box.hpp"
+#include "guikit/surfaces/card.hpp"
+#include "guikit/surfaces/sidebar.hpp"
+#include "guikit/surfaces/activity_bar.hpp"
+#include "guikit/surfaces/toolbar.hpp"
+#include "guikit/surfaces/bottom_panel.hpp"
+#include "guikit/surfaces/status_bar.hpp"
+#include "guikit/surfaces/menu_bar.hpp"
+#include "guikit/surfaces/accordion.hpp"
+#include "guikit/surfaces/carousel.hpp"
+
+// 3. Overlays (out-of-flow portals & notifications)
+#include "guikit/overlays/modal.hpp"
+#include "guikit/overlays/popover.hpp"
+#include "guikit/overlays/context_menu.hpp"
+#include "guikit/overlays/command_palette.hpp"
+#include "guikit/overlays/toast.hpp"
+
+// 4. Actions (buttons & navigation triggers)
+#include "guikit/actions/button.hpp"
+#include "guikit/actions/segmented.hpp"
+#include "guikit/actions/tab_bar.hpp"
+#include "guikit/actions/breadcrumb.hpp"
+#include "guikit/actions/pagination.hpp"
+#include "guikit/actions/sidebar_menu.hpp"
+
+// 5. Fields (text & selection inputs)
+#include "guikit/fields/input_field.hpp"
+#include "guikit/fields/text_area.hpp"
+#include "guikit/fields/select.hpp"
+#include "guikit/fields/spin_box.hpp"
+#include "guikit/fields/date_picker.hpp"
+#include "guikit/fields/tag_input.hpp"
+#include "guikit/fields/color_picker.hpp"
+
+// 6. Controls (toggles & range controls)
+#include "guikit/controls/checkbox.hpp"
+#include "guikit/controls/radio.hpp"
+#include "guikit/controls/switch.hpp"
+#include "guikit/controls/slider.hpp"
+#include "guikit/controls/knob.hpp"
+
+// 7. Display (atomic indicators, typography & media)
+#include "guikit/display/text.hpp"
+#include "guikit/display/heading.hpp"
+#include "guikit/display/tag.hpp"
+#include "guikit/display/readout.hpp"
+#include "guikit/display/separator.hpp"
+#include "guikit/display/progress_bar.hpp"
+#include "guikit/display/level_meter.hpp"
+#include "guikit/display/histogram.hpp"
+#include "guikit/display/image.hpp"
+
+// 8. Views (complex data views & canvases)
+#include "guikit/views/table.hpp"
+#include "guikit/views/tree_view.hpp"
+#include "guikit/views/markdown.hpp"
+#include "guikit/views/image_view.hpp"
+#include "guikit/views/scene.hpp"

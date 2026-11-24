@@ -1,5 +1,5 @@
 #include "guikit/context.hpp"
-#include "guikit/core/style_painter.hpp"
+#include "guikit/style/style_painter.hpp"
 #include "guikit/core/text_util.hpp"
 #include "keel/math.h"
 #include "keel/memory.h"

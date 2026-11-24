@@ -1,6 +1,6 @@
 #include "guikit/graphics/draw_list.hpp"
 
-#include "guikit/core/tokens.hpp"
+#include "guikit/style/tokens.hpp"
 #include "keel/memory.h"
 
 namespace guikit {

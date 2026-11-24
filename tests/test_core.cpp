@@ -1,7 +1,7 @@
 #include <cstring>
 #include "guikit/core.hpp"
 #include "guikit/core/scrollbar.hpp"
-#include "guikit/core/style_painter.hpp"
+#include "guikit/style/style_painter.hpp"
 #include "keel/keel.h"
 #include "keel/math.h"
 

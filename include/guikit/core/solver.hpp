@@ -1,7 +1,7 @@
 #pragma once
 
 #include "guikit/core/node.hpp"
-#include "guikit/core/theme.hpp"
+#include "guikit/style/theme.hpp"
 #include "guikit/core/types.hpp"
 
 namespace guikit {

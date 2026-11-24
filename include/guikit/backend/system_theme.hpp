@@ -1,6 +1,6 @@
 #pragma once
 
-#include "guikit/core/theme.hpp"
+#include "guikit/style/theme.hpp"
 #include "keel/optional.h"
 
 namespace guikit {

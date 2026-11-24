@@ -2,13 +2,13 @@
 
 #include "guikit/core/element.hpp"
 #include "guikit/layout/row.hpp"
-#include "guikit/layout/separator.hpp"
-#include "guikit/panels/card.hpp"
-#include "guikit/panels/popover.hpp"
-#include "guikit/widgets/heading.hpp"
-#include "guikit/widgets/select.hpp"
-#include "guikit/widgets/slider.hpp"
-#include "guikit/widgets/switch.hpp"
+#include "guikit/display/separator.hpp"
+#include "guikit/surfaces/card.hpp"
+#include "guikit/overlays/popover.hpp"
+#include "guikit/display/heading.hpp"
+#include "guikit/fields/select.hpp"
+#include "guikit/controls/slider.hpp"
+#include "guikit/controls/switch.hpp"
 
 namespace guikit {
 

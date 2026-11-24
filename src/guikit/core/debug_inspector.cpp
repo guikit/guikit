@@ -1,6 +1,6 @@
 #include "guikit/core/debug_inspector.hpp"
 #include "guikit/backend/i_canvas.hpp"
-#include "guikit/core/theme.hpp"
+#include "guikit/style/theme.hpp"
 #include "keel/format.h"
 #include "keel/math.h"
 
