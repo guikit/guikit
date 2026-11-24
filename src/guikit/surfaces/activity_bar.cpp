@@ -81,6 +81,8 @@ ActivityBarScope detail::ActivityBar::Open(
     node->backgroundColor = opts.background.IsBackgroundEnabled(true)
         ? theme.ResolveColor(opts.background, false, false, activeDisabled, pal.surface)
         : Color::Transparent();
+    node->SetSurfaceRole(SurfaceRole::DockEdge);
+    node->SetDockSeam((opts.side == SidebarSide::Right) ? DockSeam::Left : DockSeam::Right);
     node->borderWidth = (opts.border.width == 1.0f) ? theme.shell.panelBorderWidth : opts.border.width;
     node->borderColor = (opts.border.width > 0.0f)
         ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, pal.border)

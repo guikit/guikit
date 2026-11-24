@@ -21,14 +21,26 @@ ContainerScope detail::Box::Open(
     node->gap = theme.ResolveGap(opts.gap, UiSize::Md, density);
     node->padding = theme.ResolvePadding(opts.padding, UiSize::None, density);
     const auto& pal = theme.palette;
-    node->backgroundColor = opts.background.IsBackgroundEnabled(false)
-        ? theme.ResolveColor(opts.background, false, false, activeDisabled, pal.surface)
+    const bool hasSurfaceRole = (opts.surface != SurfaceRole::None);
+    const Color defaultBg = (opts.surface == SurfaceRole::Raised || opts.surface == SurfaceRole::Popup)
+        ? pal.surfaceElevated
+        : (opts.surface == SurfaceRole::Sunken ? pal.inputBackground : pal.surface);
+    const Color defaultBorder = (opts.surface == SurfaceRole::Raised || opts.surface == SurfaceRole::Popup)
+        ? pal.borderHover
+        : (opts.surface == SurfaceRole::Sunken ? pal.inputBorder : pal.border);
+    node->backgroundColor = opts.background.IsBackgroundEnabled(hasSurfaceRole)
+        ? theme.ResolveColor(opts.background, false, false, activeDisabled, defaultBg)
         : Color::Transparent();
-    const keel::f32 bw = (opts.border.width > 0.0f) ? opts.border.width : (opts.border.color.HasAny() ? 1.0f : 0.0f);
+    const keel::f32 bw = (opts.border.width > 0.0f)
+        ? opts.border.width
+        : ((opts.border.color.HasAny() || hasSurfaceRole) ? 1.0f : 0.0f);
     node->borderWidth = bw;
-    node->borderColor = (bw > 0.0f) ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, pal.border) : Color::Transparent();
+    node->borderColor = (bw > 0.0f) ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, defaultBorder) : Color::Transparent();
     node->explicitRadius = opts.border.radius.has_value() ? 1 : 0;
-    node->cornerRadius = opts.border.radius.has_value() ? *opts.border.radius : 0.0f;
+    node->cornerRadius = opts.border.radius.has_value()
+        ? *opts.border.radius
+        : (hasSurfaceRole ? theme.ResolveRadius(keel::kNullOpt, UiSize::Md) : 0.0f);
+    node->SetSurfaceRole(hasSurfaceRole ? opts.surface : ((bw > 0.0f) ? SurfaceRole::Flat : SurfaceRole::None));
     node->clipChildren = opts.clipChildren;
     node->widthMode = opts.width.ResolveMode(SizeMode::Stretch);
     node->fixedWidth = opts.width.IsFixed() ? opts.width.Dp() : 0.0f;

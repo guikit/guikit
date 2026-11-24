@@ -9,35 +9,38 @@ namespace guikit {
 
 class ICanvas;
 
-/// Semantic role of a framed UI surface passed to `IStylePainter::DrawFrame`.
+/// Semantic role of a framed interactive control passed to `IStylePainter::DrawFrame`.
 enum class FrameKind : keel::u8 {
     Surface = 0,     ///< Flat card / container backdrop
     Elevated,        ///< Raised dialog / elevated card
     Popup,           ///< Context menu / dropdown popup panel
-    Input,           ///< Editable text field / select box (sunken in 3D)
+    Input,           ///< Editable text field / select box (sunken in Classic3D, bottom-accent in Fluent)
     Button,          ///< Push button (raised, sunken when pressed/active)
-    ToolbarButton,   ///< Flat ghost toolbar / chrome button (thin 3D on hover/active)
+    ToolbarButton,   ///< Flat ghost toolbar / chrome button (thin bevel on hover/active in Classic3D)
     Badge,           ///< Tag / heading badge / status cell
-    DropdownButton   ///< Right-hand combo-box dropdown button inside Select
+    DropdownButton   ///< Embedded field trigger button (Select chevron, DatePicker, SpinBox steppers)
 };
 
-/// Structural role of a container border overlay passed to `IStylePainter::DrawContainerBorder`.
-enum class ContainerFrameRole : keel::u8 {
-    Generic = 0,
-    CardFlat,
-    CardElevated,
-    Sidebar,
-    Toolbar,
-    StatusBar,
-    BottomPanel
-};
-
-/// Tab bar chrome style passed to `IStylePainter::DrawTabChrome` without pulling widget headers into core.
+/// Tab bar chrome style passed to `IStylePainter::DrawTabChrome` without pulling action headers into style/.
 enum class TabChromeStyle : keel::u8 {
     Underline = 0,
     Card,
     Pill,
     Folder
+};
+
+/// Parameters describing a container/overlay/view surface rendered via `DrawSurfaceBg` / `DrawSurfaceFrame`.
+struct SurfacePaintParams {
+    Rect        rect{};
+    SurfaceRole role{SurfaceRole::Flat};
+    DockSeam    dockSeam{DockSeam::None};
+    keel::f32   radius{0.0f};
+    bool        explicitRadius{false};
+    Color       bg{Color::Transparent()};
+    Color       border{Color::Transparent()};
+    keel::f32   borderWidth{0.0f};
+    Elevation   elevation{Elevation::None};
+    keel::f32   shadowScale{1.0f};
 };
 
 /// Parameters describing a generic control or surface frame for `IStylePainter::DrawFrame`.
@@ -55,6 +58,7 @@ struct FramePaintParams {
     bool      disabled{false};
     Elevation elevation{Elevation::None};
     keel::f32 shadowScale{1.0f};
+    Color     accent{Color::Transparent()}; ///< Optional semantic accent color (used e.g. by Fluent BottomAccent focus bar)
 };
 
 /// Parameters describing a scrollbar's layout and interactive state for `IStylePainter::DrawScrollbar`.
@@ -79,15 +83,38 @@ struct ScrollbarPaintParams {
 
 /// Pluggable look-and-feel style painter interface (analogous to Qt QStyle / Flutter ThemeExtension).
 ///
-/// Widgets delegate surface frames, bevels, dividers, tabs, sliders, progress bars, switches,
-/// checkboxes, menus, and badges to `theme.Painter()`. Applications can install a custom subclass
-/// of `DefaultStylePainter` on any `UiTheme` (globally or inside a `ui.Zone`) to customize
-/// individual control families without modifying GuiKit core.
+/// All 8 element classes delegate visual physics (shadows, fills, borders, 3D bevels, directional 1px lighting,
+/// bottom-accent fields, selection bars, dividers, tabs, toggles, sliders, progress bars, badges, scrollbars)
+/// to `theme.Painter()`, reading strictly from `theme.palette`, `theme.bevel`, and `theme.chrome`.
 class IStylePainter {
 public:
     virtual ~IStylePainter() noexcept = default;
 
-    /// Draws elevation shadow, fill background, border/3D bevel, and focus ring for a control surface.
+    /// Draws the background & elevation shadow of a container/overlay/view surface (before children).
+    virtual void DrawSurfaceBg(
+        ICanvas& canvas,
+        const UiTheme& theme,
+        const SurfacePaintParams& p
+    ) const = 0;
+
+    /// Draws the outer border / 3D bevel / directional lighting / dock seam of a surface (after children).
+    virtual void DrawSurfaceFrame(
+        ICanvas& canvas,
+        const UiTheme& theme,
+        const SurfacePaintParams& p
+    ) const = 0;
+
+    /// Convenience helper drawing a self-contained surface (`DrawSurfaceBg` followed by `DrawSurfaceFrame`).
+    void DrawSurface(
+        ICanvas& canvas,
+        const UiTheme& theme,
+        const SurfacePaintParams& p
+    ) const {
+        DrawSurfaceBg(canvas, theme, p);
+        DrawSurfaceFrame(canvas, theme, p);
+    }
+
+    /// Draws elevation shadow, fill background, border/bevel/lighting, and focus indicator for a control frame.
     virtual void DrawFrame(
         ICanvas& canvas,
         const UiTheme& theme,
@@ -95,7 +122,15 @@ public:
         const FramePaintParams& p
     ) const = 0;
 
-    /// Draws a horizontal or vertical divider / separator line (flat hairline or 2px etched 3D groove).
+    /// Returns horizontal/vertical content press-shift in dp for buttons/triggers (0dp in Modern/Fluent, 1dp in Classic3D/Brutalist).
+    [[nodiscard]] virtual keel::f32 GetButtonContentOffset(
+        const UiTheme& theme,
+        bool pressed,
+        bool active,
+        bool disabled
+    ) const noexcept = 0;
+
+    /// Draws a horizontal or vertical divider / separator line (hairline, etched 3D groove, or bold stroke).
     virtual void DrawDivider(
         ICanvas& canvas,
         const UiTheme& theme,
@@ -103,19 +138,6 @@ public:
         Vec2 p1,
         Color fallbackColor,
         keel::f32 thickness = 1.0f
-    ) const = 0;
-
-    /// Draws a container's outer border overlay after children are rendered.
-    virtual void DrawContainerBorder(
-        ICanvas& canvas,
-        const UiTheme& theme,
-        ContainerFrameRole role,
-        Rect rect,
-        keel::f32 radius,
-        Color borderColor,
-        keel::f32 borderWidth,
-        bool sidebarRight = false,
-        bool isVerticalToolbar = false
     ) const = 0;
 
     /// Draws control label text with theme-appropriate disabled treatment (opacity or 3D embossed).
@@ -163,7 +185,7 @@ public:
         keel::f32 cornerRadius
     ) const = 0;
 
-    /// Draws a continuous, indeterminate, or classic 3D segmented progress bar.
+    /// Draws a continuous, indeterminate, or segmented progress bar.
     virtual void DrawProgressBar(
         ICanvas& canvas,
         const UiTheme& theme,
@@ -211,6 +233,22 @@ public:
         bool disabled
     ) const = 0;
 
+    /// Draws a radio circle and returns the resolved inner dot ink color.
+    [[nodiscard]] virtual Color DrawRadioCircle(
+        ICanvas& canvas,
+        const UiTheme& theme,
+        Vec2 center,
+        keel::f32 radius,
+        Color fill,
+        Color stroke,
+        keel::f32 strokeWidth,
+        Color defaultDotColor,
+        bool checked,
+        bool pressed,
+        bool focused,
+        bool disabled
+    ) const = 0;
+
     /// Draws the baseline separator along a `TabBar`.
     virtual void DrawTabBarBaseline(
         ICanvas& canvas,
@@ -247,9 +285,9 @@ public:
         Vec2& outTextShift
     ) const = 0;
 
-    /// Draws a popup menu row highlight (`ContextMenu` / `Select` popup).
+    /// Draws a row highlight for menus, dropdown lists, command palettes, sidebars, tables, and trees.
     /// Returns true when the row uses solid accent highlight requiring `palette.accentText` foreground.
-    [[nodiscard]] virtual bool DrawMenuItemHighlight(
+    [[nodiscard]] virtual bool DrawSelectionHighlight(
         ICanvas& canvas,
         const UiTheme& theme,
         Rect itemRect,
@@ -295,32 +333,35 @@ class DefaultStylePainter : public IStylePainter {
 public:
     ~DefaultStylePainter() noexcept override = default;
 
+    void DrawSurfaceBg(ICanvas& canvas, const UiTheme& theme, const SurfacePaintParams& p) const override;
+    void DrawSurfaceFrame(ICanvas& canvas, const UiTheme& theme, const SurfacePaintParams& p) const override;
     void DrawFrame(ICanvas& canvas, const UiTheme& theme, FrameKind kind, const FramePaintParams& p) const override;
+    [[nodiscard]] keel::f32 GetButtonContentOffset(const UiTheme& theme, bool pressed, bool active, bool disabled) const noexcept override;
     void DrawDivider(ICanvas& canvas, const UiTheme& theme, Vec2 p0, Vec2 p1, Color fallbackColor, keel::f32 thickness = 1.0f) const override;
-    void DrawContainerBorder(ICanvas& canvas, const UiTheme& theme, ContainerFrameRole role, Rect rect, keel::f32 radius, Color borderColor, keel::f32 borderWidth, bool sidebarRight = false, bool isVerticalToolbar = false) const override;
     void DrawControlText(ICanvas& canvas, const UiTheme& theme, keel::StringRef text, Rect rect, keel::f32 fontSize, Color color, bool disabled, keel::f32 alignX = 0.5f, keel::f32 alignY = 0.5f) const override;
     void DrawSliderTrack(ICanvas& canvas, const UiTheme& theme, Rect trackRect, Rect fillRect, bool vertical, bool hasFill, Color trackBg, Color trackBorder, Color fillColor, keel::f32 cornerRadius, bool explicitColor) const override;
     void DrawSliderThumb(ICanvas& canvas, const UiTheme& theme, Vec2 center, keel::f32 thumbSize, bool vertical, Color bg, Color border, keel::f32 borderWidth, bool hovered, bool active, bool focused, bool disabled, keel::f32 cornerRadius) const override;
     void DrawProgressBar(ICanvas& canvas, const UiTheme& theme, Rect trackRect, keel::f32 ratio, bool vertical, bool indeterminate, keel::f32 animPhase, Color trackBg, Color trackBorder, Color fillColor, keel::f32 cornerRadius, bool disabled) const override;
     void DrawSwitch(ICanvas& canvas, const UiTheme& theme, Rect trackRect, keel::f32 knobDiameter, keel::f32 knobPadding, Color trackFill, Color trackStroke, keel::f32 strokeWidth, Color knobFill, bool checked, bool focused, bool disabled, keel::f32 themeRadius) const override;
     [[nodiscard]] Color DrawCheckboxBox(ICanvas& canvas, const UiTheme& theme, Rect boxRect, keel::f32 cornerRadius, Color fill, Color stroke, keel::f32 strokeWidth, Color defaultMarkColor, bool pressed, bool focused, bool disabled) const override;
+    [[nodiscard]] Color DrawRadioCircle(ICanvas& canvas, const UiTheme& theme, Vec2 center, keel::f32 radius, Color fill, Color stroke, keel::f32 strokeWidth, Color defaultDotColor, bool checked, bool pressed, bool focused, bool disabled) const override;
     void DrawTabBarBaseline(ICanvas& canvas, const UiTheme& theme, Rect barRect) const override;
     [[nodiscard]] keel::f32 DrawTabChrome(ICanvas& canvas, const UiTheme& theme, Rect bounds, TabChromeStyle style, bool active, bool hovered, bool focused, bool disabled, bool showSeparator, Color accentCol, Color pillActiveCol, keel::f32 radius) const override;
     void DrawMenuBarTrigger(ICanvas& canvas, const UiTheme& theme, Rect rect, keel::f32 radius, bool hovered, bool open, bool disabled, Color& outTextColor, Vec2& outTextShift) const override;
-    [[nodiscard]] bool DrawMenuItemHighlight(ICanvas& canvas, const UiTheme& theme, Rect itemRect, keel::f32 itemRadius, bool hovered, bool selected, bool subExpanded, bool isDanger, bool disabled, Color dangerColor) const override;
+    [[nodiscard]] bool DrawSelectionHighlight(ICanvas& canvas, const UiTheme& theme, Rect itemRect, keel::f32 itemRadius, bool hovered, bool selected, bool subExpanded, bool isDanger, bool disabled, Color dangerColor) const override;
     void DrawBadge(ICanvas& canvas, const UiTheme& theme, Rect rect, Color bg, Color border, keel::f32 borderWidth, keel::f32 fallbackRadius) const override;
     void DrawScrollbar(ICanvas& canvas, const UiTheme& theme, const ScrollbarPaintParams& p) const override;
     void DrawScrollbarCorner(ICanvas& canvas, const UiTheme& theme, Rect cornerRect) const override;
 
-    // Reusable low-level 3D bevel drawing helpers available to custom painters
-    static void DrawBevelFrame(ICanvas& canvas, Rect r, const BevelPalette& c, bool sunken, bool thin = false);
+    // Reusable low-level 3D bevel helpers exposed to subclasses
+    static void DrawBevelFrame(ICanvas& canvas, Rect r, const BevelPalette& c, bool sunken = false, bool thin = false);
     static void DrawBevelEtchedFrame(ICanvas& canvas, Rect r, const BevelPalette& c);
     static void DrawBevelDividerH(ICanvas& canvas, keel::f32 x0, keel::f32 x1, keel::f32 y, const BevelPalette& c);
     static void DrawBevelDividerV(ICanvas& canvas, keel::f32 x, keel::f32 y0, keel::f32 y1, const BevelPalette& c);
     static void DrawBevelSliderThumb(ICanvas& canvas, Vec2 center, bool vertical, Color fill, const BevelPalette& c, Color focusRing, bool focused);
 };
 
-/// Returns the immutable singleton instance of `DefaultStylePainter`.
+/// Returns the process-wide default `DefaultStylePainter` singleton.
 [[nodiscard]] const IStylePainter& GetDefaultStylePainter() noexcept;
 
 } // namespace guikit

@@ -174,14 +174,16 @@ struct Node {
 
     // Layout configuration & ambient state
     NodeType type{NodeType::Box};
-    keel::u16 colSpan{12};             ///< Grid cell column span or Table cell column index
+    keel::u16 colSpan : 12 {12u};      ///< Grid cell column span or Table cell column index
+    keel::u16 surfaceRoleBits : 4 {0u};///< Packed `SurfaceRole` enum (rendered by IStylePainter)
     UiSize uiSize{UiSize::Md};         ///< Control size token or custom size (does not inherit across containers)
     FlexDirection direction{FlexDirection::Column};
     SizeMode widthMode{SizeMode::Stretch};
     SizeMode heightMode{SizeMode::Fit};
     Alignment align{Alignment::Stretch};
     Justify justify{Justify::Start};
-    keel::u8 dockFlags{dock_flags::kNone};
+    keel::u8 dockFlags : 4 {0u};
+    keel::u8 dockSeamBits : 4 {0u};
     bool isSpacer : 1 {false};
     bool clipChildren : 1 {false};
     bool equalWidths : 1 {false};
@@ -211,7 +213,7 @@ struct Node {
     Vec2 intrinsicSize{0.0f, 0.0f};            ///< Natural content size (bottom-up measure pass)
     Rect computedRect{0.0f, 0.0f, 0.0f, 0.0f}; ///< Final placed coordinates (top-down arrange pass)
 
-    // Visual & text attributes (rendered by backend)
+    // Visual & text attributes (rendered by backend via IStylePainter)
     Color backgroundColor{0, 0, 0, 0};
     Color borderColor{0, 0, 0, 0};
     keel::f32 borderWidth{0.0f};
@@ -236,6 +238,19 @@ struct Node {
     [[nodiscard]] constexpr bool IsSolverScrollable() const noexcept { return scroll != nullptr && scroll->solverManaged; }
     [[nodiscard]] constexpr Vec2 GetScrollOffset() const noexcept { return scroll ? scroll->offset : Vec2{0.0f, 0.0f}; }
     [[nodiscard]] constexpr Vec2 GetScrollContentSize() const noexcept { return scroll ? scroll->contentSize : Vec2{0.0f, 0.0f}; }
+
+    [[nodiscard]] constexpr SurfaceRole GetSurfaceRole() const noexcept {
+        return keel::from_underlying<SurfaceRole>(keel::as<keel::u8>(surfaceRoleBits));
+    }
+    constexpr void SetSurfaceRole(SurfaceRole role) noexcept {
+        surfaceRoleBits = keel::as<keel::u16>(role) & 0x0Fu;
+    }
+    [[nodiscard]] constexpr DockSeam GetDockSeam() const noexcept {
+        return keel::from_underlying<DockSeam>(dockSeamBits);
+    }
+    constexpr void SetDockSeam(DockSeam seam) noexcept {
+        dockSeamBits = keel::as<keel::u8>(seam) & 0x07u;
+    }
 
     [[nodiscard]] constexpr bool IsCollapsed() const noexcept { return (dockFlags & dock_flags::kCollapsed) != 0u; }
     [[nodiscard]] constexpr bool IsDockedRight() const noexcept { return (dockFlags & dock_flags::kRight) != 0u; }

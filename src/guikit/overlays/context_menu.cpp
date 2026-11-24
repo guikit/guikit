@@ -578,10 +578,7 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
 
     ctx.RegisterOverlay([drawPanels, radius, padX, padY, icSz, iconSlotW, submenuSlotW, labelFont, shortcutFont, sectionFont, titleFont, theme, opts](ICanvas& c) {
         const auto& pal = theme.palette;
-        const bool isDark = (theme.mode == ThemeMode::Dark);
-        const Color defaultSurfaceBg = (theme.chrome.frame == FrameTreatment::Bevel3D)
-            ? pal.surfaceElevated.WithAlpha(255u)
-            : (isDark ? pal.surfaceElevated.WithAlpha(250u) : pal.surfaceElevated.WithAlpha(252u));
+        const Color defaultSurfaceBg = pal.surfaceElevated;
         const Color surfaceBg = opts.background.IsBackgroundEnabled(true)
             ? (!opts.background.HasAny()
                 ? defaultSurfaceBg
@@ -589,16 +586,15 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
                     ? defaultSurfaceBg.ScaleAlpha(opts.background.alphaScale)
                     : theme.ResolveColor(opts.background, false, false, false, defaultSurfaceBg)))
             : Color::Transparent();
-        const keel::f32 borderW = (opts.border.width > 0.0f) ? opts.border.width : 0.0f;
-        const Color borderCol = (borderW > 0.0f)
-            ? theme.ResolveColor(opts.border.color, false, false, false, pal.borderHover)
-            : Color::Transparent();
+        const keel::f32 borderW = (opts.border.width > 0.0f) ? opts.border.width : 1.0f;
+        const Color borderCol = theme.ResolveColor(opts.border.color, false, false, false, pal.borderHover);
 
         for (const auto& panel : drawPanels) {
             const Rect& pr = panel.popupRect;
 
-            theme.Painter().DrawFrame(c, theme, FrameKind::Popup, FramePaintParams{
+            theme.Painter().DrawSurface(c, theme, SurfacePaintParams{
                 .rect = pr,
+                .role = SurfaceRole::Popup,
                 .radius = radius,
                 .explicitRadius = opts.border.radius.has_value(),
                 .bg = surfaceBg,
@@ -639,7 +635,7 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
                 const Color dangerCol = theme.GetVariant(UiVariant::Danger).bg;
                 const bool iconWithCheck = it.icon.IsValid() && (it.hasCheck || it.checked);
                 const keel::f32 itemRadius = keel::max(0.0f, radius - 2.0f * s);
-                const bool accentHighlight = theme.Painter().DrawMenuItemHighlight(
+                const bool accentHighlight = theme.Painter().DrawSelectionHighlight(
                     c, theme, it.rect, itemRadius,
                     it.hovered,
                     it.checked && iconWithCheck,

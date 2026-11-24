@@ -1,4 +1,5 @@
 #include "guikit/overlays/toast.hpp"
+#include "guikit/style/style_painter.hpp"
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/text_util.hpp"
@@ -364,16 +365,11 @@ void detail::Toast::RunHost(
 
     ctx.RegisterOverlay([drawList = keel::move(drawList), theme, padX, padY, iconBoxSz, closeBtnSz, titleFont, msgFont, titleLineH, msgLineH](ICanvas& c) {
         const auto& pal = theme.palette;
-        const keel::f32 radius = 10.0f * s;
+        const keel::f32 radius = theme.ResolveRadius(keel::kNullOpt, UiSize::Lg);
 
         for (const auto& dt : drawList) {
             const auto& e = dt;
             const Rect& r = dt.cardRect;
-
-            // Theme-controlled elevation shadow
-            if (const ShadowStyle sh = theme.GetShadow(Elevation::Lg, s); sh.IsVisible()) {
-                c.DrawShadow(r, radius, sh.blur, sh.offset, sh.color);
-            }
 
             Color accentCol = pal.accent;
             if (e.variant != UiVariant::Default && e.variant != UiVariant::Ghost && e.variant != UiVariant::Secondary) {
@@ -382,7 +378,16 @@ void detail::Toast::RunHost(
 
             const Color bgCol = pal.surfaceElevated.WithAlpha(248u);
             const Color borderCol = e.hovered ? accentCol.WithAlphaF(0.65f) : pal.borderHover;
-            c.DrawRoundRect(r, radius, bgCol, borderCol, 1.0f);
+            theme.Painter().DrawSurface(c, theme, SurfacePaintParams{
+                .rect = r,
+                .role = SurfaceRole::Popup,
+                .radius = radius,
+                .bg = bgCol,
+                .border = borderCol,
+                .borderWidth = 1.0f,
+                .elevation = Elevation::Lg,
+                .shadowScale = s
+            });
 
             c.PushClip(r);
 

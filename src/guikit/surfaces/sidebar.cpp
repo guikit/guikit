@@ -385,6 +385,8 @@ SidebarScope detail::Sidebar::Open(
     const bool isScrollable = opts.scrollable && !isCollapsed;
     node->gap = theme.ResolveGap(opts.gap, activeSize, density);
     node->heightMode = SizeMode::Stretch;
+    node->SetSurfaceRole(SurfaceRole::DockEdge);
+    node->SetDockSeam((opts.side == SidebarSide::Right) ? DockSeam::Left : DockSeam::Right);
     node->cornerRadius = opts.border.radius.has_value()
         ? *opts.border.radius
         : (hasFlushSibling ? 0.0f : theme.shell.panelRadius);

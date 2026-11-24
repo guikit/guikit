@@ -191,6 +191,151 @@ void DefaultStylePainter::DrawBevelSliderThumb(
 // DefaultStylePainter — Unified Surface & Control Rendering
 // ==============================================================================
 
+namespace {
+
+void DrawShadowForRect(
+    ICanvas& canvas,
+    const UiTheme& theme,
+    Rect r,
+    keel::f32 radius,
+    Elevation elev,
+    keel::f32 shadowScale
+) {
+    if (elev == Elevation::None) return;
+    const ShadowStyle sh = theme.GetShadow(elev, shadowScale);
+    if (!sh.IsVisible()) return;
+    if (sh.blur <= 0.01f) {
+        const Rect hardR(r.x + sh.offset.x, r.y + sh.offset.y, r.w, r.h);
+        canvas.DrawRect(hardR, sh.color);
+    } else {
+        canvas.DrawShadow(r, radius, sh.blur, sh.offset, sh.color);
+    }
+}
+
+/// Subtle 1px top-bright / bottom-dark directional lighting for `FrameTreatment::Directional1px` (`Fluent`).
+void DrawDirectionalSheen(
+    ICanvas& canvas,
+    const UiTheme& theme,
+    Rect r,
+    keel::f32 radius,
+    bool pressed,
+    bool includeBottomShade
+) {
+    if (r.w < 6.0f || r.h < 6.0f) return;
+    const keel::f32 inset = keel::clamp(radius * 0.65f, 1.0f, r.w * 0.25f);
+    const keel::f32 x0 = r.x + inset;
+    const keel::f32 x1 = r.Right() - inset;
+    if (x1 <= x0) return;
+
+    const bool isDark = (theme.mode == ThemeMode::Dark);
+    if (!pressed) {
+        const Color hi = theme.bevel.highlightOuter.WithAlphaF(isDark ? 0.14f : 0.45f);
+        canvas.DrawLine(Vec2(x0, r.y + 0.75f), Vec2(x1, r.y + 0.75f), hi, 1.0f);
+    }
+    if (includeBottomShade) {
+        const Color lo = theme.bevel.shadowOuter.WithAlphaF(isDark ? 0.34f : 0.14f);
+        canvas.DrawLine(Vec2(x0, r.Bottom() - 0.75f), Vec2(x1, r.Bottom() - 0.75f), lo, 1.0f);
+    }
+}
+
+} // namespace
+
+void DefaultStylePainter::DrawSurfaceBg(
+    ICanvas& canvas,
+    const UiTheme& theme,
+    const SurfacePaintParams& p
+) const {
+    if (p.rect.w <= 0.0f || p.rect.h <= 0.0f) return;
+
+    const bool useBevel = (theme.chrome.frame == FrameTreatment::Bevel3D) && !p.explicitRadius;
+    const keel::f32 effRadius = useBevel ? 0.0f : p.radius;
+
+    Elevation effElev = p.elevation;
+    if (effElev == Elevation::None) {
+        if (p.role == SurfaceRole::Raised) effElev = Elevation::Md;
+        else if (p.role == SurfaceRole::Popup) effElev = Elevation::Lg;
+    }
+    DrawShadowForRect(canvas, theme, p.rect, effRadius, effElev, p.shadowScale);
+
+    if (p.bg.a > 0u) {
+        if (effRadius > 0.0f) {
+            canvas.DrawRoundRect(p.rect, effRadius, p.bg, Color::Transparent(), 0.0f);
+        } else {
+            canvas.DrawRect(p.rect, p.bg);
+        }
+    }
+}
+
+void DefaultStylePainter::DrawSurfaceFrame(
+    ICanvas& canvas,
+    const UiTheme& theme,
+    const SurfacePaintParams& p
+) const {
+    if (p.rect.w <= 0.0f || p.rect.h <= 0.0f || p.role == SurfaceRole::None) return;
+
+    const Rect r = p.rect;
+    const bool useBevel = (theme.chrome.frame == FrameTreatment::Bevel3D) && !p.explicitRadius;
+
+    // Docked single-edge seam for shell panels (Sidebar, Toolbar, MenuBar, BottomPanel, StatusBar)
+    if (p.role == SurfaceRole::DockEdge && p.dockSeam != DockSeam::None && p.radius <= 0.01f) {
+        if (p.borderWidth <= 0.0f || p.border.a == 0u) return;
+        const keel::f32 seamThickness = (theme.chrome.divider == DividerStyle::Etched3D) ? 2.0f : p.borderWidth;
+        switch (p.dockSeam) {
+            case DockSeam::Left:
+                DrawDivider(canvas, theme, Vec2(r.x, r.y), Vec2(r.x, r.Bottom()), p.border, p.borderWidth);
+                return;
+            case DockSeam::Right: {
+                const keel::f32 x = keel::max(r.x, r.Right() - seamThickness);
+                DrawDivider(canvas, theme, Vec2(x, r.y), Vec2(x, r.Bottom()), p.border, p.borderWidth);
+                return;
+            }
+            case DockSeam::Top:
+                DrawDivider(canvas, theme, Vec2(r.x, r.y), Vec2(r.Right(), r.y), p.border, p.borderWidth);
+                return;
+            case DockSeam::Bottom: {
+                const keel::f32 y = keel::max(r.y, r.Bottom() - seamThickness);
+                DrawDivider(canvas, theme, Vec2(r.x, y), Vec2(r.Right(), y), p.border, p.borderWidth);
+                return;
+            }
+            case DockSeam::None:
+                break;
+        }
+    }
+
+    if (useBevel) {
+        if (p.borderWidth <= 0.0f && p.role != SurfaceRole::Popup && p.role != SurfaceRole::Raised && p.role != SurfaceRole::Sunken) {
+            return;
+        }
+        switch (p.role) {
+            case SurfaceRole::Flat:
+                DrawBevelEtchedFrame(canvas, r, theme.bevel);
+                return;
+            case SurfaceRole::Sunken:
+                DrawBevelFrame(canvas, r, theme.bevel, /*sunken=*/true, /*thin=*/false);
+                return;
+            case SurfaceRole::Raised:
+            case SurfaceRole::Popup:
+            case SurfaceRole::DockEdge:
+                DrawBevelFrame(canvas, r, theme.bevel, /*sunken=*/false, /*thin=*/false);
+                return;
+            case SurfaceRole::None:
+                return;
+        }
+    }
+
+    if (p.borderWidth > 0.0f && p.border.a > 0u) {
+        const keel::f32 bw = (theme.chrome.frame == FrameTreatment::HardShadow)
+            ? keel::max(p.borderWidth, 1.5f * keel::max(theme.borderScale, 0.5f))
+            : p.borderWidth;
+        canvas.DrawRoundRect(r, p.radius, Color::Transparent(), p.border, bw);
+    }
+
+    if (theme.chrome.frame == FrameTreatment::Directional1px &&
+        (p.role == SurfaceRole::Raised || p.role == SurfaceRole::Popup || p.role == SurfaceRole::Flat)) {
+        DrawDirectionalSheen(canvas, theme, r, p.radius, /*pressed=*/false, /*includeBottomShade=*/(p.role == SurfaceRole::Raised));
+    }
+}
+
 void DefaultStylePainter::DrawFrame(
     ICanvas& canvas,
     const UiTheme& theme,
@@ -199,21 +344,45 @@ void DefaultStylePainter::DrawFrame(
 ) const {
     if (p.rect.w <= 0.0f || p.rect.h <= 0.0f) return;
 
-    const bool useBevel = (theme.chrome.frame == FrameTreatment::Bevel3D) && !p.explicitRadius;
+    const bool isInput = (kind == FrameKind::Input);
+    const bool useBevel = isInput
+        ? ((theme.chrome.field == FieldTreatment::Sunken3D) && !p.explicitRadius)
+        : ((theme.chrome.frame == FrameTreatment::Bevel3D) && !p.explicitRadius);
     const keel::f32 effRadius = useBevel ? 0.0f : p.radius;
 
-    if (p.elevation != Elevation::None) {
-        if (const ShadowStyle sh = theme.GetShadow(p.elevation, p.shadowScale); sh.IsVisible()) {
-            if (sh.blur <= 0.01f) {
-                const Rect hardR(p.rect.x + sh.offset.x, p.rect.y + sh.offset.y, p.rect.w, p.rect.h);
-                canvas.DrawRect(hardR, sh.color);
-            } else {
-                canvas.DrawShadow(p.rect, effRadius, sh.blur, sh.offset, sh.color);
-            }
-        }
+    Elevation effElev = p.elevation;
+    if (effElev == Elevation::None && kind == FrameKind::Button &&
+        theme.chrome.frame == FrameTreatment::HardShadow &&
+        !p.disabled && !p.pressed && !p.active && p.bg.a > 0u) {
+        effElev = Elevation::Sm;
     }
+    DrawShadowForRect(canvas, theme, p.rect, effRadius, effElev, p.shadowScale);
 
+    // Non-Bevel path: Flat (Modern), Directional1px (Fluent), HardShadow (Brutalist)
     if (!useBevel) {
+        if (isInput && theme.chrome.field == FieldTreatment::BottomAccent) {
+            const Color baseBorder = p.disabled
+                ? p.border
+                : theme.palette.border;
+            const keel::f32 baseBw = (p.borderWidth > 0.0f) ? keel::min(p.borderWidth, 1.0f) : 1.0f;
+            canvas.DrawRoundRect(p.rect, effRadius, p.bg, baseBorder, baseBw);
+
+            if (p.rect.w > 6.0f && p.rect.h > 6.0f) {
+                const keel::f32 inset = keel::clamp(effRadius * 0.55f, 1.0f, p.rect.w * 0.25f);
+                const keel::f32 x0 = p.rect.x + inset;
+                const keel::f32 x1 = p.rect.Right() - inset;
+                if (x1 > x0) {
+                    const Color accentBar = p.focused && !p.disabled
+                        ? ((p.accent.a > 0u) ? p.accent : theme.palette.focusRing)
+                        : (p.disabled ? theme.palette.border.WithAlphaF(theme.disabledOpacity) : theme.palette.borderHover);
+                    const keel::f32 barH = (p.focused && !p.disabled) ? 2.0f : 1.0f;
+                    const keel::f32 barY = p.rect.Bottom() - barH * 0.5f;
+                    canvas.DrawLine(Vec2(x0, barY), Vec2(x1, barY), accentBar, barH);
+                }
+            }
+            return;
+        }
+
         if (effRadius > 0.0f) {
             canvas.DrawRoundRect(p.rect, effRadius, p.bg, p.border, p.borderWidth);
         } else if (p.borderWidth > 0.0f && p.border.a > 0u) {
@@ -221,12 +390,18 @@ void DefaultStylePainter::DrawFrame(
         } else if (p.bg.a > 0u) {
             canvas.DrawRect(p.rect, p.bg);
         }
+
+        if (theme.chrome.frame == FrameTreatment::Directional1px && !p.disabled && p.bg.a > 0u &&
+            (kind == FrameKind::Button || kind == FrameKind::DropdownButton || kind == FrameKind::Elevated || kind == FrameKind::Popup)) {
+            DrawDirectionalSheen(canvas, theme, p.rect, effRadius, p.pressed || p.active, /*includeBottomShade=*/(kind == FrameKind::Button || kind == FrameKind::DropdownButton));
+        }
         return;
     }
 
-    // FrameChrome::Bevel3D path
-    if (p.bg.a > 0u) {
-        canvas.DrawRect(p.rect, p.bg);
+    // FrameTreatment::Bevel3D / FieldTreatment::Sunken3D path
+    const Color effBg = (isInput && p.disabled && p.bg.a > 0u) ? theme.palette.surface : p.bg;
+    if (effBg.a > 0u) {
+        canvas.DrawRect(p.rect, effBg);
     }
 
     switch (kind) {
@@ -244,14 +419,14 @@ void DefaultStylePainter::DrawFrame(
             if (p.focused && !p.disabled && p.rect.w > 6.0f && p.rect.h > 6.0f) {
                 canvas.DrawRoundRect(
                     Rect(p.rect.x + 2.0f, p.rect.y + 2.0f, p.rect.w - 4.0f, p.rect.h - 4.0f),
-                    0.0f, Color::Transparent(), theme.palette.focusRing, 1.0f
+                    0.0f, Color::Transparent(), (p.accent.a > 0u) ? p.accent : theme.palette.focusRing, 1.0f
                 );
             }
             break;
 
         case FrameKind::Button:
         case FrameKind::DropdownButton:
-            if (p.bg.a > 0u) {
+            if (effBg.a > 0u) {
                 DrawBevelFrame(canvas, p.rect, theme.bevel, /*sunken=*/(!p.disabled && (p.pressed || p.active)), /*thin=*/false);
             }
             if (p.focused && !p.disabled && p.rect.w > 8.0f && p.rect.h > 8.0f) {
@@ -282,6 +457,15 @@ void DefaultStylePainter::DrawFrame(
     }
 }
 
+keel::f32 DefaultStylePainter::GetButtonContentOffset(
+    const UiTheme& theme,
+    bool pressed,
+    bool active,
+    bool disabled
+) const noexcept {
+    return (!disabled && (pressed || active)) ? theme.chrome.buttonPressOffset : 0.0f;
+}
+
 void DefaultStylePainter::DrawDivider(
     ICanvas& canvas,
     const UiTheme& theme,
@@ -302,65 +486,6 @@ void DefaultStylePainter::DrawDivider(
     if (fallbackColor.a == 0u || thickness <= 0.0f) return;
     const keel::f32 effThick = (theme.chrome.divider == DividerStyle::Bold) ? keel::max(thickness, 2.0f) : thickness;
     canvas.DrawLine(p0, p1, fallbackColor, effThick);
-}
-
-void DefaultStylePainter::DrawContainerBorder(
-    ICanvas& canvas,
-    const UiTheme& theme,
-    ContainerFrameRole role,
-    Rect r,
-    keel::f32 radius,
-    Color borderColor,
-    keel::f32 borderWidth,
-    bool sidebarRight,
-    bool isVerticalToolbar
-) const {
-    if (r.w <= 0.0f || r.h <= 0.0f) return;
-
-    if (theme.chrome.frame == FrameTreatment::Bevel3D && radius <= 0.0f) {
-        switch (role) {
-            case ContainerFrameRole::Sidebar: {
-                const keel::f32 x = sidebarRight ? r.x : keel::max(r.x, r.Right() - 2.0f);
-                DrawBevelDividerV(canvas, x, r.y, r.Bottom(), theme.bevel);
-                return;
-            }
-            case ContainerFrameRole::BottomPanel:
-            case ContainerFrameRole::StatusBar:
-                DrawBevelDividerH(canvas, r.x, r.Right(), r.y, theme.bevel);
-                return;
-            case ContainerFrameRole::Toolbar:
-                if (isVerticalToolbar) {
-                    DrawBevelDividerV(canvas, keel::max(r.x, r.Right() - 2.0f), r.y, r.Bottom(), theme.bevel);
-                } else {
-                    DrawBevelDividerH(canvas, r.x, r.Right(), keel::max(r.y, r.Bottom() - 2.0f), theme.bevel);
-                }
-                return;
-            case ContainerFrameRole::CardFlat:
-                DrawBevelEtchedFrame(canvas, r, theme.bevel);
-                return;
-            case ContainerFrameRole::CardElevated:
-            case ContainerFrameRole::Generic:
-                DrawBevelFrame(canvas, r, theme.bevel, /*sunken=*/false, /*thin=*/false);
-                return;
-        }
-    }
-
-    if (radius <= 0.0f && role == ContainerFrameRole::Sidebar) {
-        const keel::f32 x = sidebarRight ? r.x : keel::max(r.x, r.Right() - borderWidth);
-        canvas.DrawRect(Rect(x, r.y, borderWidth, r.h), borderColor);
-    } else if (radius <= 0.0f && (role == ContainerFrameRole::BottomPanel || role == ContainerFrameRole::StatusBar)) {
-        canvas.DrawRect(Rect(r.x, r.y, r.w, borderWidth), borderColor);
-    } else if (radius <= 0.0f && role == ContainerFrameRole::Toolbar) {
-        if (isVerticalToolbar) {
-            const keel::f32 x = keel::max(r.x, r.Right() - borderWidth);
-            canvas.DrawRect(Rect(x, r.y, borderWidth, r.h), borderColor);
-        } else {
-            const keel::f32 y = keel::max(r.y, r.Bottom() - borderWidth);
-            canvas.DrawRect(Rect(r.x, y, r.w, borderWidth), borderColor);
-        }
-    } else {
-        canvas.DrawRoundRect(r, radius, Color::Transparent(), borderColor, borderWidth);
-    }
 }
 
 void DefaultStylePainter::DrawControlText(
@@ -635,6 +760,41 @@ Color DefaultStylePainter::DrawCheckboxBox(
     return defaultMarkColor;
 }
 
+Color DefaultStylePainter::DrawRadioCircle(
+    ICanvas& canvas,
+    const UiTheme& theme,
+    Vec2 center,
+    keel::f32 radius,
+    Color fill,
+    Color stroke,
+    keel::f32 strokeWidth,
+    Color defaultDotColor,
+    bool /*checked*/,
+    bool pressed,
+    bool focused,
+    bool disabled
+) const {
+    auto circleRect = [](Vec2 c, keel::f32 rad) noexcept -> Rect {
+        return Rect(c.x - rad, c.y - rad, rad * 2.0f, rad * 2.0f);
+    };
+    if (theme.chrome.checkControl == CheckControlStyle::SunkenInk) {
+        const auto& pal = theme.palette;
+        const Color bevelFill = (disabled || pressed) ? pal.surface : pal.inputBackground;
+        // Sunken circular well: outer bevel highlight rim + inner dark shadow rim
+        canvas.DrawRoundRect(circleRect(center, radius), radius, theme.bevel.shadowInner, theme.bevel.highlightOuter, 1.0f);
+        const keel::f32 innerR = keel::max(1.0f, radius - 1.0f);
+        canvas.DrawRoundRect(circleRect(Vec2(center.x + 0.5f, center.y + 0.5f), innerR), innerR, bevelFill, theme.bevel.shadowOuter, 1.0f);
+        if (focused && !disabled) {
+            const keel::f32 focusR = radius + 1.5f;
+            canvas.DrawRoundRect(circleRect(center, focusR), focusR, Color::Transparent(), pal.focusRing, 1.0f);
+        }
+        return disabled ? pal.textDisabled : pal.textPrimary;
+    }
+
+    canvas.DrawRoundRect(circleRect(center, radius), radius, fill, stroke, strokeWidth);
+    return defaultDotColor;
+}
+
 void DefaultStylePainter::DrawTabBarBaseline(
     ICanvas& canvas,
     const UiTheme& theme,
@@ -849,7 +1009,7 @@ void DefaultStylePainter::DrawMenuBarTrigger(
     }
 }
 
-bool DefaultStylePainter::DrawMenuItemHighlight(
+bool DefaultStylePainter::DrawSelectionHighlight(
     ICanvas& canvas,
     const UiTheme& theme,
     Rect itemRect,

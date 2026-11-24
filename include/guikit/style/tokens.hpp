@@ -1079,6 +1079,25 @@ inline constexpr keel::usize kThemePresetCount = 11u;
     return "Dark";
 }
 
+/// Unified visual surface role shared across `surfaces/`, `overlays/`, `views/`, `Node`, and `IStylePainter`.
+enum class SurfaceRole : keel::u8 {
+    None = 0,       ///< Transparent layout container without surface chrome
+    Flat,           ///< Standard card / panel backdrop (etched 3D groove in Classic3D, 1px hairline in Modern/Fluent)
+    Sunken,         ///< Recessed well / input tray / list / table / tree container (sunken 3D in Classic3D)
+    Raised,         ///< Elevated card / floating dialog / modal surface (shadow in Modern/Fluent, raised 3D in Classic3D, hard shadow in Brutalist)
+    Popup,          ///< Floating dropdown / context menu / toast / command palette overlay
+    DockEdge        ///< Application shell dock panel (1-sided seam divider in Docked mode, full frame in Floating mode)
+};
+
+/// Edge orientation of a `SurfaceRole::DockEdge` seam (for Sidebar, Toolbar, MenuBar, BottomPanel, StatusBar).
+enum class DockSeam : keel::u8 {
+    None = 0,
+    Left,
+    Right,
+    Top,
+    Bottom
+};
+
 /// Elevation levels for theme-controlled drop shadows.
 enum class Elevation : keel::u8 {
     None = 0, ///< Flat (no shadow)

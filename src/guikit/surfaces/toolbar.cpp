@@ -437,6 +437,10 @@ ToolbarScope detail::Toolbar::Open(
 
     node->explicitRadius = (opts.border.radius.has_value() || opts.style != ToolbarStyle::Surface) ? 1 : 0;
     node->borderColor = theme.ResolveColor(opts.border.color, false, false, effectiveDisabled, pal.border);
+    node->SetSurfaceRole((opts.style == ToolbarStyle::Floating) ? SurfaceRole::Raised : SurfaceRole::DockEdge);
+    node->SetDockSeam((opts.style == ToolbarStyle::Floating)
+        ? DockSeam::None
+        : (isVertical ? DockSeam::Right : DockSeam::Bottom));
     if (opts.border.width > 0.0f) {
         node->borderWidth = opts.border.width;
     } else if (opts.border.color.HasAny() || opts.style == ToolbarStyle::Header || opts.style == ToolbarStyle::Floating) {

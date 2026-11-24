@@ -1,4 +1,5 @@
 #include "guikit/surfaces/accordion.hpp"
+#include "guikit/style/style_painter.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
@@ -207,7 +208,7 @@ void detail::Accordion::RenderHeader(
     const keel::f32 iconSize = keel::max(13.0f, titleFont);
     const keel::f32 radius = opts.border.radius.has_value()
         ? *opts.border.radius
-        : keel::max(4.0f, theme.GetRadius(size) * 0.75f);
+        : theme.GetRadius(size);
 
     // 1. Header background & border
     Color bgColor = Color::Transparent();
@@ -256,7 +257,22 @@ void detail::Accordion::RenderHeader(
     }
 
     if (bgColor.a > 0 || strokeW > 0.0f) {
-        canvas.DrawRoundRect(bounds, radius, bgColor, borderCol, strokeW);
+        theme.Painter().DrawFrame(
+            canvas,
+            theme,
+            opts.background.IsNone() ? FrameKind::ToolbarButton : FrameKind::Button,
+            FramePaintParams{
+                .rect = bounds,
+                .radius = radius,
+                .explicitRadius = opts.border.radius.has_value(),
+                .bg = bgColor,
+                .border = borderCol,
+                .borderWidth = strokeW,
+                .hovered = hovered,
+                .pressed = pressed,
+                .disabled = disabled
+            }
+        );
     }
 
     // 2. Colors for text and icons

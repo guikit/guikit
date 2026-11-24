@@ -621,6 +621,7 @@ TreeViewScope detail::TreeView::Open(
         outerNode->flexGrow = Control::ResolveFlexGrow(outerNode->parent, opts.width, opts.height, 1.0f);
     }
 
+    outerNode->SetSurfaceRole((opts.border.width > 0.0f) ? SurfaceRole::Sunken : SurfaceRole::None);
     outerNode->cornerRadius = opts.border.radius.has_value()
         ? *opts.border.radius
         : theme.GetRadius(activeSize);

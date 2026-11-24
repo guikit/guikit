@@ -1271,11 +1271,17 @@ void detail::Table::RenderBody(
         ? *data->opts.border.radius
         : theme.GetRadius(node->uiSize);
 
-    // 1. Draw outer table surface background
+    // 1. Draw outer table surface background via active IStylePainter
     if (data->opts.background.IsBackgroundEnabled(true)) {
         const Color bgCol = theme.ResolveColor(data->opts.background, false, false, node->disabled, pal.surface);
         if (bgCol.a > 0) {
-            canvas.DrawRoundRect(data->frameRect, radius, bgCol);
+            theme.Painter().DrawSurfaceBg(canvas, theme, SurfacePaintParams{
+                .rect = data->frameRect,
+                .role = SurfaceRole::Sunken,
+                .radius = radius,
+                .explicitRadius = data->opts.border.radius.has_value(),
+                .bg = bgCol
+            });
         }
     }
 
@@ -1656,14 +1662,21 @@ void detail::Table::RenderChromeAndScrollbars(
         theme.Painter().DrawScrollbarCorner(canvas, theme, cornerRect);
     }
 
-    // 4. Outer rounded frame border
+    // 4. Outer surface frame / 3D sunken bevel via active IStylePainter
     const keel::f32 bw = (data->opts.border.width > 0.0f) ? data->opts.border.width : 0.0f;
     if (bw > 0.0f) {
         const Color borderCol = (data->state->resizingCol >= 0)
             ? pal.accent
             : data->opts.border.color.Resolve(false, false, node->disabled, pal.border);
         if (borderCol.a > 0) {
-            canvas.DrawRoundRect(data->frameRect, radius, Color::Transparent(), borderCol, bw);
+            theme.Painter().DrawSurfaceFrame(canvas, theme, SurfacePaintParams{
+                .rect = data->frameRect,
+                .role = SurfaceRole::Sunken,
+                .radius = radius,
+                .explicitRadius = data->opts.border.radius.has_value(),
+                .border = borderCol,
+                .borderWidth = bw
+            });
         }
     }
 }

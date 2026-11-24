@@ -25,7 +25,7 @@ struct CardOptions {
     keel::Optional<Padding> padding{keel::kNullOpt};   ///< Card padding (nullopt = auto from theme)
     StateColor background{};
     Border border{.width = 1.0f};
-    bool elevated{false};                           ///< Renders elevated surface background with soft ambient drop shadow
+    SurfaceRole surface{SurfaceRole::Flat};         ///< Surface role (`Flat`, `Sunken`, `Raised`, `Popup`)
     bool clipChildren{true};                        ///< Clip children to prevent content bleeding outside rounded card
     bool disabled{false};
 };

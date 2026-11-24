@@ -192,7 +192,7 @@ void ShellControls::RenderEngineControls(MainWindow& win, ToolbarScope& tb) {
             .width = 296.0f,
             .gap = 8.0f,
             .padding = Padding::All(14.0f),
-            .elevated = true
+            .surface = SurfaceRole::Raised
         })) {
             guikit::Heading(ui, {
                 .label = "Engine Pipeline",

@@ -1776,21 +1776,30 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
 
     const UiTheme& activeTheme = node->GetTheme(parentTheme);
 
-    // 1. Render container background fill before children (skip for self-rendering leaf widgets and out-of-flow overlays)
+    // 1. Render container surface background & shadow before children via active IStylePainter
     const bool isContainerSurface = (!node->IsLeaf() && !node->IsOutOfFlow());
-    const bool hasContainerBorder = isContainerSurface && (node->borderColor.a > 0 && node->borderWidth > 0.0f);
-    if (isContainerSurface && node->backgroundColor.a > 0) {
-        if (node->cornerRadius > 0.0f) {
-            canvas.DrawRoundRect(
-                node->computedRect,
-                node->cornerRadius,
-                node->backgroundColor,
-                Color::Transparent(),
-                0.0f
-            );
-        } else {
-            canvas.DrawRect(node->computedRect, node->backgroundColor);
-        }
+    const SurfaceRole nodeSurfRole = node->GetSurfaceRole();
+    const SurfaceRole resolvedSurfaceRole = (nodeSurfRole != SurfaceRole::None)
+        ? nodeSurfRole
+        : ((node->borderColor.a > 0 && node->borderWidth > 0.0f) ? SurfaceRole::Flat : SurfaceRole::None);
+    const SurfacePaintParams surfParams{
+        .rect = node->computedRect,
+        .role = resolvedSurfaceRole,
+        .dockSeam = node->GetDockSeam(),
+        .radius = node->cornerRadius,
+        .explicitRadius = node->explicitRadius != 0,
+        .bg = node->backgroundColor,
+        .border = node->borderColor,
+        .borderWidth = node->borderWidth,
+        .elevation = (resolvedSurfaceRole == SurfaceRole::Raised) ? Elevation::Md
+                   : (resolvedSurfaceRole == SurfaceRole::Popup ? Elevation::Lg : Elevation::None)
+    };
+    const bool hasContainerBorder = isContainerSurface && resolvedSurfaceRole != SurfaceRole::None &&
+        ((node->borderColor.a > 0 && node->borderWidth > 0.0f) ||
+         resolvedSurfaceRole == SurfaceRole::Sunken ||
+         resolvedSurfaceRole == SurfaceRole::Raised);
+    if (isContainerSurface && (node->backgroundColor.a > 0 || resolvedSurfaceRole == SurfaceRole::Raised || resolvedSurfaceRole == SurfaceRole::Popup)) {
+        activeTheme.Painter().DrawSurfaceBg(canvas, activeTheme, surfParams);
     }
 
     // Render specific widget contents
@@ -1847,31 +1856,9 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
         }
     }
 
-    // 2. Render container border stroke on top of children (after PopClip) so children never overwrite parent border
+    // 2. Render container border / 3D bevel / directional sheen / dock seam on top of children (after PopClip)
     if (hasContainerBorder) {
-        ContainerFrameRole role = ContainerFrameRole::Generic;
-        if (node->type == NodeType::Card) {
-            role = (node->renderFn != nullptr) ? ContainerFrameRole::CardElevated : ContainerFrameRole::CardFlat;
-        } else if (node->type == NodeType::Sidebar) {
-            role = ContainerFrameRole::Sidebar;
-        } else if (node->type == NodeType::Toolbar) {
-            role = ContainerFrameRole::Toolbar;
-        } else if (node->type == NodeType::StatusBar) {
-            role = ContainerFrameRole::StatusBar;
-        } else if (node->type == NodeType::BottomPanel) {
-            role = ContainerFrameRole::BottomPanel;
-        }
-        activeTheme.Painter().DrawContainerBorder(
-            canvas,
-            activeTheme,
-            role,
-            node->computedRect,
-            node->cornerRadius,
-            node->borderColor,
-            node->borderWidth,
-            node->IsDockedRight(),
-            node->direction == FlexDirection::Column
-        );
+        activeTheme.Painter().DrawSurfaceFrame(canvas, activeTheme, surfParams);
     }
 
     // Render post-pass overlay contents (after children and outside clip)

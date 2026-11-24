@@ -10475,7 +10475,7 @@ void TestModalContextMenuAndToastWorkflow() {
                     .width = 360.0f,
                     .gap = 10.0f,
                     .padding = Padding::All(16.0f),
-                    .elevated = true
+                    .surface = SurfaceRole::Raised
                 })) {
                     modalBodyExecuted = true;
                     modalDialogRect = modal.response.rect;
@@ -13373,7 +13373,7 @@ int main() {
                                     .width = 360.0f,
                                     .gap = 10.0f,
                                     .padding = Padding::All(16.0f),
-                                    .elevated = true
+                                    .surface = SurfaceRole::Raised
                                 })) {
                                     modalDialogRect = modal.response.rect;
                                     guikit::Heading(modalUi, {.label = "Configure Station Endpoint", .description = "Edit connection parameters", .level = HeadingLevel::H4});
@@ -15111,7 +15111,7 @@ void TestPopoverComponent() {
                         .width = 280.0f,
                         .gap = 8.0f,
                         .padding = Padding::All(12.0f),
-                        .elevated = true
+                        .surface = SurfaceRole::Raised
                     })) {
                         if (auto el = guikit::Element(ui, {.label = "GPU Shaders", .layout = ElementLayout::Leading})) {
                             switchARes = guikit::Switch(ui, flagA);
@@ -16335,7 +16335,7 @@ void TestPopoverOccludesPanelSashesAndRendersAboveThem() {
                         .gap = 8.0f,
                         .padding = Padding::All(16.0f),
                         .background = {kPopoverBg},
-                        .elevated = true
+                        .surface = SurfaceRole::Raised
                     })) {
                         // Push button down so it straddles the BottomPanel top sash (y ~ 360)
                         guikit::Gap(ui, 268.0f);

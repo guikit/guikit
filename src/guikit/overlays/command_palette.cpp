@@ -1,4 +1,5 @@
 #include "guikit/overlays/command_palette.hpp"
+#include "guikit/style/style_painter.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/scrollbar.hpp"
@@ -556,15 +557,9 @@ CommandPaletteResponse detail::CommandPalette::Run(
             }
         }
 
-        // 2. Multi-layer elevated shadow & surface card
-        const keel::f32 radius = borderOpt.radius.has_value()
-            ? *borderOpt.radius
-            : (10.0f * s);
+        // 2. Elevated popup surface via active IStylePainter
+        const keel::f32 radius = theme.ResolveRadius(borderOpt.radius, UiSize::Lg);
         const keel::f32 borderW = (borderOpt.width > 0.0f) ? borderOpt.width : 1.0f;
-
-        if (const ShadowStyle sh = theme.GetShadow(Elevation::Lg, s); sh.IsVisible()) {
-            c.DrawShadow(cardRect, radius, sh.blur * 1.25f, sh.offset * 1.25f, sh.color);
-        }
 
         const Color defaultSurface = pal.surfaceElevated.WithAlpha(252u);
         const Color surfaceBg = bgOpt.HasAny()
@@ -574,7 +569,17 @@ CommandPaletteResponse detail::CommandPalette::Run(
             ? borderOpt.color.Resolve(false, false, false, pal.borderHover)
             : pal.borderHover;
 
-        c.DrawRoundRect(cardRect, radius, surfaceBg, borderCol, borderW);
+        theme.Painter().DrawSurface(c, theme, SurfacePaintParams{
+            .rect = cardRect,
+            .role = SurfaceRole::Popup,
+            .radius = radius,
+            .explicitRadius = borderOpt.radius.has_value(),
+            .bg = surfaceBg,
+            .border = borderCol,
+            .borderWidth = borderW,
+            .elevation = Elevation::Lg,
+            .shadowScale = s * 1.25f
+        });
 
         // 3. Top Search Bar
         const keel::f32 searchIconSz = icSz;
@@ -656,9 +661,11 @@ CommandPaletteResponse detail::CommandPalette::Run(
         c.DrawTextBox("ESC", escRect, badgeFont, pal.textMuted, 0.5f, 0.5f);
 
         // Divider line below search bar
-        c.DrawRect(
-            Rect(cardRect.x + 1.0f, searchRect.Bottom(), keel::max(0.0f, cardRect.w - 2.0f), 1.0f),
-            pal.borderSubtle
+        theme.Painter().DrawDivider(
+            c, theme,
+            Vec2(cardRect.x + 2.0f, searchRect.Bottom()),
+            Vec2(cardRect.Right() - 2.0f, searchRect.Bottom()),
+            pal.borderSubtle, 1.0f
         );
 
         // 4. Filtered Command Rows (or empty state)
@@ -674,31 +681,18 @@ CommandPaletteResponse detail::CommandPalette::Run(
                 0.5f
             );
         } else {
+            const keel::f32 rowRadius = theme.ResolveRadius(keel::kNullOpt, UiSize::Md);
             for (const auto& row : drawRows) {
                 const Rect& rr = row.rowRect;
 
-                if (row.highlighted) {
-                    c.DrawRoundRect(
-                        rr,
-                        6.0f * s,
-                        primaryCol.WithAlphaF(0.16f),
-                        Color::Transparent(),
-                        0.0f
-                    );
-                    // Left 3px accent bar in primary
-                    const keel::f32 barW = keel::max(2.0f, keel::round(3.0f * s));
-                    const keel::f32 barH = keel::max(8.0f, rr.h - 10.0f * s);
-                    c.DrawRoundRect(
-                        Rect(rr.x + 2.0f * s, keel::round(rr.y + (rr.h - barH) * 0.5f), barW, barH),
-                        barW * 0.5f,
-                        primaryCol,
-                        Color::Transparent(),
-                        0.0f
-                    );
-                }
+                const bool solidAccent = theme.Painter().DrawSelectionHighlight(
+                    c, theme, rr, rowRadius,
+                    /*hovered=*/row.highlighted, /*selected=*/row.highlighted,
+                    /*subExpanded=*/false, /*isDanger=*/false, row.disabled, Color::Transparent()
+                );
 
-                Color fg = row.disabled ? pal.textDisabled : pal.textPrimary;
-                Color mutedFg = row.disabled ? pal.textDisabled : pal.textMuted;
+                Color fg = row.disabled ? pal.textDisabled : (solidAccent ? pal.accentText : pal.textPrimary);
+                Color mutedFg = row.disabled ? pal.textDisabled : (solidAccent ? pal.accentText.WithAlphaF(0.80f) : pal.textMuted);
 
                 keel::f32 curX = rr.x + rowPadX;
                 keel::f32 rightEdge = rr.Right() - 16.0f * s;

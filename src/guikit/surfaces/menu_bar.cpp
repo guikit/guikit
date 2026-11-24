@@ -55,33 +55,6 @@ MenuBarMetrics ComputeMenuBarMetrics(const MenuBarOptions& opts, const UiTheme& 
     return m;
 }
 
-void RenderMenuBarSurface(const Node* node, ICanvas& canvas, const UiTheme& theme) {
-    if (!node) return;
-    const Rect& r = node->computedRect;
-    if (r.w <= 0.0f || r.h <= 0.0f) return;
-
-    if (node->backgroundColor.a > 0) {
-        if (node->cornerRadius > 0.0f && theme.chrome.frame != FrameTreatment::Bevel3D) {
-            canvas.DrawRoundRect(r, node->cornerRadius, node->backgroundColor, Color::Transparent(), 0.0f);
-        } else {
-            canvas.DrawRect(r, node->backgroundColor);
-        }
-    }
-
-    // Header / Compact styles draw a bottom divider; Surface draws full border
-    if (node->borderWidth > 0.0f && node->borderColor.a > 0) {
-        theme.Painter().DrawContainerBorder(
-            canvas,
-            theme,
-            ContainerFrameRole::Toolbar,
-            r,
-            node->cornerRadius,
-            node->borderColor,
-            node->borderWidth
-        );
-    }
-}
-
 void RenderMenuBarTrigger(const Node* node, ICanvas& canvas, const UiTheme& theme) {
     const auto* data = node ? node->As<MenuBarTriggerData>() : nullptr;
     if (!data) return;
@@ -492,9 +465,11 @@ MenuBarScope detail::MenuBar::Open(
     node->cornerRadius = opts.border.radius.has_value()
         ? *opts.border.radius
         : (isSurface ? theme.ResolveRadius(keel::kNullOpt, opts.size) : 0.0f);
+    node->explicitRadius = opts.border.radius.has_value() ? 1 : 0;
     node->borderWidth = (opts.border.width > 0.0f) ? opts.border.width : 1.0f;
     node->borderColor = theme.ResolveColor(opts.border.color, false, false, effDisabled, pal.border);
-    node->renderFn = &RenderMenuBarSurface;
+    node->SetSurfaceRole(isSurface ? SurfaceRole::Flat : SurfaceRole::DockEdge);
+    node->SetDockSeam(isSurface ? DockSeam::None : DockSeam::Bottom);
     node->visualHash = detail::HashArgs(opts.style, opts.size, opts.background, opts.border, effDisabled);
 
     ctx.FinishContainer(node);

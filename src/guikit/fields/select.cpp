@@ -1523,7 +1523,7 @@ void detail::Select::RenderPopup(
         const bool itemDisabled = item.disabled;
         const bool isSelected = (i == selectedIndex);
         const bool isHovered = (keel::as<keel::i32>(i) == hoveredIndex) && !itemDisabled;
-        const bool accentHighlight = theme.Painter().DrawMenuItemHighlight(
+        const bool accentHighlight = theme.Painter().DrawSelectionHighlight(
             canvas,
             theme,
             itemRect,

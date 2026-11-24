@@ -25,6 +25,7 @@ struct BoxOptions {
     keel::Optional<Padding> padding{keel::kNullOpt};   ///< Container padding (nullopt = zero)
     StateColor background{};
     Border border{};
+    SurfaceRole surface{SurfaceRole::None};         ///< Optional visual surface role (`None`, `Flat`, `Sunken`, `Raised`)
     bool clipChildren{false};
     bool disabled{false};
 };

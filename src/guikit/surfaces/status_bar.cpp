@@ -284,6 +284,8 @@ StatusBarScope detail::StatusBar::Open(
         node->backgroundColor = opts.background.IsSurface() ? styleBg.ScaleAlpha(opts.background.alphaScale) : styleBg;
     }
 
+    node->SetSurfaceRole(SurfaceRole::DockEdge);
+    node->SetDockSeam(DockSeam::Top);
     node->borderColor = theme.ResolveColor(opts.border.color, false, false, effectiveDisabled, pal.border);
     node->borderWidth = (opts.style == StatusBarStyle::Accent && !opts.border.color.HasAny())
         ? 0.0f

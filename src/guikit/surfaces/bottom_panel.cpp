@@ -300,6 +300,8 @@ BottomPanelScope detail::BottomPanel::Open(
     const bool isScrollable = opts.scrollable && !isCollapsed;
     node->gap = theme.ResolveGap(opts.gap, activeSize, density);
     node->widthMode = SizeMode::Stretch;
+    node->SetSurfaceRole(SurfaceRole::DockEdge);
+    node->SetDockSeam(DockSeam::Top);
     node->cornerRadius = opts.border.radius.has_value()
         ? *opts.border.radius
         : theme.shell.panelRadius;
