@@ -90,9 +90,15 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/GuiKitGuidelines.cmake")
 set(GUIKIT_CORE_SOURCES
     src/guikit/context.cpp
     src/guikit/core/container_scope.cpp
+    src/guikit/core/damage_tracker.cpp
+    src/guikit/core/debug_inspector.cpp
+    src/guikit/core/focus_manager.cpp
     src/guikit/core/frame_metrics.cpp
+    src/guikit/core/hit_test_tree.cpp
     src/guikit/core/main_window.cpp
+    src/guikit/core/overlay_manager.cpp
     src/guikit/core/response.cpp
+    src/guikit/core/state_store.cpp
     src/guikit/core/style_painter.cpp
     src/guikit/core/theme.cpp
     src/guikit/core/assets.cpp

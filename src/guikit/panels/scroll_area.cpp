@@ -9,6 +9,15 @@
 
 namespace guikit {
 
+const PanelHooks* ScrollArea::Hooks() noexcept {
+    static constexpr PanelHooks kHooks{
+        .contentClip = &ScrollArea::GetContentClipRect,
+        .update = &ScrollArea::Update,
+        .scrollToChild = &ScrollArea::ScrollToChild
+    };
+    return &kHooks;
+}
+
 ContainerScope ScrollArea::Open(
     Context& ctx,
     const ScrollAreaOptions& opts,
@@ -53,6 +62,7 @@ ContainerScope ScrollArea::Open(
     node->uiSize = activeSize;
     node->visualHash = detail::HashArgs(opts.background, opts.border);
     node->postRenderFn = &ScrollArea::RenderScrollbar;
+    node->panelHooks = ScrollArea::Hooks();
 
     // Retrieve persistent scroll state (mouse wheel is handled bottom-up in ScrollArea::Update)
     auto& state = ctx.GetOrCreatePersistentState<ScrollState>(id);

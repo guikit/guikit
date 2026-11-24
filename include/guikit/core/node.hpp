@@ -9,6 +9,7 @@
 
 namespace guikit {
 
+class Context;
 class ICanvas;
 struct Node;
 struct UiTheme;
@@ -20,11 +21,25 @@ using MeasureFunc = Vec2 (*)(const Node* node, keel::f32 availableWidth, ICanvas
 /// Function signature for custom arrangement of a container node and its children.
 using ArrangeFunc = void (*)(Node* node, const Rect& availableRect, const UiTheme& theme);
 
-/// Function signature for resolving the outer bounds of an out-of-flow floating container (e.g. Popover).
-using PlaceOutOfFlowFunc = Rect (*)(const Node* node, keel::f32 targetWidth, keel::f32 targetHeight, const Rect& availableRect);
-
 /// Function signature for rendering an element's visual contents.
 using RenderFunc = void (*)(const Node* node, ICanvas& canvas, const UiTheme& theme);
+
+/// Optional open-closed panel lifecycle hooks attached via static `const PanelHooks*` on `Node`.
+/// Keeps `Context` and `Solver` completely decoupled from concrete panel implementations.
+struct PanelHooks {
+    using PlaceOutOfFlowFn = Rect (*)(const Node* node, keel::f32 targetWidth, keel::f32 targetHeight, const Rect& availableRect);
+    using ContentClipFn    = Rect (*)(const Node* node, const UiTheme& theme);
+    using UpdateFn         = void (*)(Context& ctx, Node* node);
+    using ScrollToChildFn  = void (*)(Context& ctx, Node* container, const Node* target);
+    using RecordBoundsFn   = void (*)(void* user, Id id, Rect rect);
+    using CollectBoundsFn  = void (*)(Node* node, RecordBoundsFn record, void* user, const Rect& parentClip, const Transform2D& space);
+
+    PlaceOutOfFlowFn placeOutOfFlow{nullptr};
+    ContentClipFn    contentClip{nullptr};
+    UpdateFn         update{nullptr};
+    ScrollToChildFn  scrollToChild{nullptr};
+    CollectBoundsFn  collectBounds{nullptr};
+};
 
 /// Arena-allocated scroll configuration and per-frame scrollbar state for scrollable containers.
 struct ScrollData {
@@ -208,10 +223,10 @@ struct Node {
     void* payload{nullptr};
     keel::TypeId payloadType{};
 
-    // Autonomous measure, arrange, placement, and render delegates (polymorphism with zero heap/vtable overhead)
+    // Autonomous measure, arrange, panel lifecycle, and render delegates (polymorphism with zero heap/vtable overhead)
     MeasureFunc measureFn{nullptr};
     ArrangeFunc arrangeFn{nullptr};
-    PlaceOutOfFlowFunc placeFn{nullptr};
+    const PanelHooks* panelHooks{nullptr};
     RenderFunc renderFn{nullptr};
     RenderFunc postRenderFn{nullptr};
 
@@ -456,5 +471,32 @@ struct Node {
 };
 
 static_assert(sizeof(Node) <= 256, "Node must remain compact (<= 256 bytes / 4 cache lines)");
+
+/// Returns the local scale transform a node adds on top of its parent's space (scaling about its top-left corner).
+[[nodiscard]] inline Transform2D NodeLocalTransform(const Node* node) noexcept {
+    if (node == nullptr) {
+        return Transform2D{};
+    }
+    const keel::f32 relScale = node->GetRelativeScale();
+    if (relScale == 1.0f || !(relScale > 0.0f)) {
+        return Transform2D{};
+    }
+    return Transform2D::ScaleAbout(Vec2{node->computedRect.x, node->computedRect.y}, relScale);
+}
+
+/// Returns the transform from `node`'s local coordinate space to frame space, given `parentSpace`.
+[[nodiscard]] inline Transform2D NodeSpace(const Node* node, const Transform2D& parentSpace) noexcept {
+    const Transform2D local = NodeLocalTransform(node);
+    return local.IsIdentity() ? parentSpace : parentSpace.Then(local);
+}
+
+/// Resolves the content clip rect of `node` via its `PanelHooks::contentClip` delegate (or `node->computedRect`).
+[[nodiscard]] inline Rect GetNodeContentClipRect(const Node* node, const UiTheme& theme) {
+    if (!node) return Rect{};
+    if (node->panelHooks && node->panelHooks->contentClip) {
+        return node->panelHooks->contentClip(node, theme);
+    }
+    return node->computedRect;
+}
 
 } // namespace guikit

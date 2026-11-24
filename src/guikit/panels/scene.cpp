@@ -1158,6 +1158,11 @@ SceneScope Scene::OpenWithId(
         if (!p) return {0.0f, 0.0f};
         return Scene::Measure(p->opts, n->uiSize, canvas, th, availableWidth);
     };
+    static constexpr PanelHooks kSceneHooks{
+        .contentClip = [](const Node* n, const UiTheme& th) -> Rect { return Scene::GetViewportRect(n, nullptr, th); },
+        .update = &Scene::Update
+    };
+    node->panelHooks = &kSceneHooks;
     node->renderFn = &Scene::RenderBackgroundAndWorld;
     node->postRenderFn = &Scene::RenderOverlays;
 

@@ -29,8 +29,15 @@ ContainerScope Carousel::Open(
     node->padding = theme.ResolvePadding(opts.padding, UiSize::None, density);
     node->uiSize = activeSize;
 
+    static constexpr PanelHooks kCarouselHooks{
+        .contentClip = [](const Node* n, const UiTheme&) -> Rect { return Carousel::GetContentClipRect(n); },
+        .update = &Carousel::Update,
+        .scrollToChild = &Carousel::ScrollToChild,
+        .collectBounds = &Carousel::CollectBounds
+    };
     node->measureFn = &Carousel::Measure;
     node->arrangeFn = &Carousel::Arrange;
+    node->panelHooks = &kCarouselHooks;
     node->postRenderFn = &Carousel::RenderArrows;
 
     auto* cData = ctx.AllocPayload<CarouselData>();
@@ -601,25 +608,26 @@ void Carousel::ScrollToChild(Context& ctx, Node* carouselNode, const Node* targe
 }
 
 void Carousel::CollectBounds(
-    const Node* node,
-    keel::HashMap<Id, Rect>& outBounds,
-    Rect parentClip,
+    Node* node,
+    void (*recordBounds)(void*, Id, Rect),
+    void* user,
+    const Rect& parentClip,
     const Transform2D& space
 ) {
-    if (!node || (node->type != NodeType::Carousel && node->type != NodeType::Toolbar)) return;
+    if (!node || !recordBounds || (node->type != NodeType::Carousel && node->type != NodeType::Toolbar)) return;
     const auto* cData = node->As<CarouselData>();
     if (!cData) return;
 
     if (cData->showLeftArrow && cData->leftArrowRect.w > 0.0f) {
         const Rect clippedLeft = space.Apply(cData->leftArrowRect).Intersect(parentClip);
         if (clippedLeft.w > 0.0f && clippedLeft.h > 0.0f) {
-            outBounds.put(GetCarouselLeftArrowId(node->id), clippedLeft);
+            recordBounds(user, GetCarouselLeftArrowId(node->id), clippedLeft);
         }
     }
     if (cData->showRightArrow && cData->rightArrowRect.w > 0.0f) {
         const Rect clippedRight = space.Apply(cData->rightArrowRect).Intersect(parentClip);
         if (clippedRight.w > 0.0f && clippedRight.h > 0.0f) {
-            outBounds.put(GetCarouselRightArrowId(node->id), clippedRight);
+            recordBounds(user, GetCarouselRightArrowId(node->id), clippedRight);
         }
     }
 }

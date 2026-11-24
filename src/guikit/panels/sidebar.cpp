@@ -466,6 +466,7 @@ SidebarScope Sidebar::Open(
         node->scroll->policy = opts.scrollbar;
         node->scroll->solverManaged = true;
         node->postRenderFn = &ScrollArea::RenderScrollbar;
+        node->panelHooks = ScrollArea::Hooks();
 
         auto& scrollState = ctx.GetOrCreatePersistentState<ScrollState>(id);
         node->scroll->offset = scrollState.offset;

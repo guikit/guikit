@@ -390,11 +390,25 @@ ToolbarScope Toolbar::Open(
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
 
+    static constexpr PanelHooks kToolbarStaticHooks{
+        .contentClip = [](const Node* n, const UiTheme&) -> Rect { return Toolbar::GetContentClipRect(n); },
+        .scrollToChild = &Carousel::ScrollToChild,
+        .collectBounds = &Carousel::CollectBounds
+    };
+    static constexpr PanelHooks kToolbarScrollHooks{
+        .contentClip = [](const Node* n, const UiTheme&) -> Rect { return Toolbar::GetContentClipRect(n); },
+        .update = &Carousel::Update,
+        .scrollToChild = &Carousel::ScrollToChild,
+        .collectBounds = &Carousel::CollectBounds
+    };
+    node->panelHooks = &kToolbarStaticHooks;
+
     if (!isVertical && (opts.overflow == ToolbarOverflow::AutoCompact || opts.overflow == ToolbarOverflow::Scroll)) {
         auto* cData = ctx.AllocPayload<CarouselData>();
         cData->autoCompact = (opts.overflow == ToolbarOverflow::AutoCompact);
         node->SetPayload(cData);
         node->arrangeFn = &Toolbar::Arrange;
+        node->panelHooks = &kToolbarScrollHooks;
         node->postRenderFn = &Carousel::RenderArrows;
         Carousel::BeginScrollInteraction(ctx, node, cData, true, effectiveDisabled);
     }

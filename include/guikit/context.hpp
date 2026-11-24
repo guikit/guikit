@@ -12,8 +12,14 @@
 #include "keel/small_array.h"
 #include "keel/string.h"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/core/damage_tracker.hpp"
+#include "guikit/core/debug_inspector.hpp"
+#include "guikit/core/focus_manager.hpp"
+#include "guikit/core/hit_test_tree.hpp"
 #include "guikit/core/id.hpp"
+#include "guikit/core/overlay_manager.hpp"
 #include "guikit/core/response.hpp"
+#include "guikit/core/state_store.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
@@ -128,108 +134,6 @@ concept SliderNumeric =
     !keel::IsSame<keel::Decay<T>, bool> &&
     (keel::IsIntegral<keel::Decay<T>> || keel::IsFloatingPoint<keel::Decay<T>>);
 
-namespace detail {
-
-struct StateKey {
-    Id id;
-    keel::TypeId type;
-
-    constexpr bool operator==(const StateKey& other) const noexcept {
-        return id == other.id && type == other.type;
-    }
-};
-
-struct StateKeyHash {
-    keel::u64 operator()(const StateKey& k) const noexcept {
-        const keel::u64 h1 = keel::Hash<Id>{}(k.id);
-        const keel::u64 h2 = keel::Hash<keel::TypeId>{}(k.type);
-        return keel::hash_u64(h1 ^ (h2 + 0x9e3779b97f4a7c15ULL + (h1 << 6) + (h1 >> 2)));
-    }
-};
-
-struct StoredState {
-    void* ptr{nullptr};
-    void (*destroy)(void*) noexcept {nullptr};
-    void (*trim)(void*) noexcept {nullptr};
-    keel::u64 lastFrameActive{0};
-    keel::f64 lastTimeActiveSec{0.0};
-    bool persistent{false};
-    bool cachesTrimmed{false};
-
-    StoredState() noexcept = default;
-
-    template <typename T>
-    static StoredState Create(T&& val, keel::u64 frameIndex, keel::f64 timeSec, bool isPersistent = false) {
-        using Decayed = keel::Decay<T>;
-        Decayed* p = keel::default_allocator()->create<Decayed>(keel::forward<T>(val));
-        StoredState s;
-        s.ptr = p;
-        s.destroy = [](void* raw) noexcept {
-            keel::default_allocator()->destroy(static_cast<Decayed*>(raw));
-        };
-        if constexpr (requires(Decayed& obj) { obj.TrimInactiveCaches(); }) {
-            s.trim = [](void* raw) noexcept {
-                static_cast<Decayed*>(raw)->TrimInactiveCaches();
-            };
-        }
-        s.lastFrameActive = frameIndex;
-        s.lastTimeActiveSec = timeSec;
-        s.persistent = isPersistent;
-        return s;
-    }
-
-    ~StoredState() noexcept {
-        if (ptr && destroy) {
-            destroy(ptr);
-        }
-    }
-
-    StoredState(const StoredState&) = delete;
-    StoredState& operator=(const StoredState&) = delete;
-
-    StoredState(StoredState&& other) noexcept
-        : ptr(other.ptr)
-        , destroy(other.destroy)
-        , trim(other.trim)
-        , lastFrameActive(other.lastFrameActive)
-        , lastTimeActiveSec(other.lastTimeActiveSec)
-        , persistent(other.persistent)
-        , cachesTrimmed(other.cachesTrimmed) {
-        other.ptr = nullptr;
-        other.destroy = nullptr;
-        other.trim = nullptr;
-    }
-
-    StoredState& operator=(StoredState&& other) noexcept {
-        if (this != &other) {
-            if (ptr && destroy) {
-                destroy(ptr);
-            }
-            ptr = other.ptr;
-            destroy = other.destroy;
-            trim = other.trim;
-            lastFrameActive = other.lastFrameActive;
-            lastTimeActiveSec = other.lastTimeActiveSec;
-            persistent = other.persistent;
-            cachesTrimmed = other.cachesTrimmed;
-            other.ptr = nullptr;
-            other.destroy = nullptr;
-            other.trim = nullptr;
-        }
-        return *this;
-    }
-};
-
-} // namespace detail
-
-/// Z-ordering layer for deferred overlay render passes and overlay hit regions.
-enum class OverlayLayer : keel::u8 {
-    Panel        = 1, ///< Panel chrome overlays (Sidebar / BottomPanel / SplitView sashes & toggle pills) rendered below Modals/Popovers.
-    Portal       = 2, ///< Out-of-flow portals (Modal / Popover).
-    Popup        = 3, ///< Top-level interactive popups (Select, DatePicker, ColorPicker, ContextMenu, CommandPalette) rendered above Modals/Popovers.
-    Notification = 4  ///< Global notifications (Toast) rendered above all popups regardless of host call order.
-};
-
 /// Primary immediate mode context coordinating input, layout, and rendering.
 class Context {
 public:
@@ -288,10 +192,10 @@ public:
 
     // --- Dirty Rect & Damage Tracking ---
     /// Enables or disables dirty damage rect tracking (enabled by default).
-    void SetDirtyRectEnabled(bool enabled) noexcept { m_dirtyRectEnabled = enabled; }
+    void SetDirtyRectEnabled(bool enabled) noexcept { m_damage.SetDirtyRectEnabled(enabled); }
 
     /// Returns whether dirty damage rect tracking is currently enabled.
-    [[nodiscard]] bool IsDirtyRectEnabled() const noexcept { return m_dirtyRectEnabled; }
+    [[nodiscard]] bool IsDirtyRectEnabled() const noexcept { return m_damage.IsDirtyRectEnabled(); }
 
     // --- Window Live Resize Policy ---
     /// Enables or disables live UI reflow and redraw during interactive OS window border dragging (enabled by default).
@@ -351,31 +255,27 @@ public:
     // --- Developer Debug & Inspector Tools ---
     /// Sets whether 1px color-coded debug bounding boxes and padding overlays are rendered.
     void SetDebugBounds(bool enabled) noexcept;
-    [[nodiscard]] bool IsDebugBounds() const noexcept { return m_debugBoundsEnabled; }
+    [[nodiscard]] bool IsDebugBounds() const noexcept { return m_inspector.IsDebugBounds(); }
 
     /// Sets whether the interactive element inspector (Chrome DevTools style) is active.
     void SetInspectMode(bool enabled) noexcept;
-    [[nodiscard]] bool IsInspectMode() const noexcept { return m_inspectModeEnabled; }
+    [[nodiscard]] bool IsInspectMode() const noexcept { return m_inspector.IsInspectMode(); }
 
     /// Returns true if this frame produced any visual damage requiring rasterization / blitting.
-    [[nodiscard]] bool HasDirtyDamage() const noexcept { return m_hasDirtyDamage; }
+    [[nodiscard]] bool HasDirtyDamage() const noexcept { return m_damage.HasDirtyDamage(); }
 
     /// Returns true if the entire frame required a full repaint (e.g. window resize or tab switch).
-    [[nodiscard]] bool IsFullRepaint() const noexcept { return m_isFullRepaint; }
+    [[nodiscard]] bool IsFullRepaint() const noexcept { return m_damage.IsFullRepaint(); }
 
     /// Returns the active bounding rectangle of the dirty damage region for this frame (in logical points).
-    [[nodiscard]] Rect GetDirtyRect() const noexcept { return m_dirtyRect; }
+    [[nodiscard]] Rect GetDirtyRect() const noexcept { return m_damage.GetDirtyRect(); }
 
     /// Returns the list of mutually disjoint dirty damage rectangles for this frame (in logical points).
-    [[nodiscard]] keel::ArrayRef<Rect> GetDirtyRects() const noexcept { return m_dirtyRects; }
+    [[nodiscard]] keel::ArrayRef<Rect> GetDirtyRects() const noexcept { return m_damage.GetDirtyRects(); }
 
     /// Returns the active bounding rectangle of the dirty damage region in physical pixels for GPU blitting.
     [[nodiscard]] Rect GetPhysicalDirtyRect() const noexcept {
-        const keel::f32 x1 = keel::floor(m_dirtyRect.x * m_pixelsPerDp);
-        const keel::f32 y1 = keel::floor(m_dirtyRect.y * m_pixelsPerDp);
-        const keel::f32 x2 = keel::ceil(m_dirtyRect.Right() * m_pixelsPerDp);
-        const keel::f32 y2 = keel::ceil(m_dirtyRect.Bottom() * m_pixelsPerDp);
-        return Rect(x1, y1, keel::max(0.0f, x2 - x1), keel::max(0.0f, y2 - y1));
+        return m_damage.GetPhysicalDirtyRect(m_pixelsPerDp);
     }
 
     /// OS / monitor scale of this frame (100% = 1.0), as passed to `BeginFrame`.
@@ -1639,19 +1539,14 @@ public:
     }
 
     // --- Toast Notification System ---
-    keel::u64 ShowToast(ToastOptions opts);
-    void DismissToast(keel::u64 id) noexcept;
-    void ClearToasts() noexcept;
-    [[nodiscard]] keel::usize GetActiveToastCount() const noexcept { return m_toasts.size(); }
-    [[nodiscard]] keel::Array<ToastEntry>& GetToastEntries() noexcept { return m_toasts; }
-    [[nodiscard]] keel::ArrayRef<ToastEntry> GetToastEntries() const noexcept { return m_toasts; }
-    void MarkToastHostVisited() noexcept { m_toastHostVisitedThisFrame = true; }
-    [[nodiscard]] bool HasToastHostVisited() const noexcept { return m_toastHostVisitedThisFrame; }
-    void SetToastHostOptions(const ToastHostOptions& opts) noexcept { m_defaultToastHostOpts = opts; }
-    [[nodiscard]] const ToastHostOptions& GetToastHostOptions() const noexcept { return m_defaultToastHostOpts; }
-    void ToastHost(const ToastHostOptions& opts = {}) {
-        guikit::Toast::RunHost(*this, opts);
-    }
+    keel::u64 ShowToast(ToastOptions opts) { return guikit::Toast::Show(*this, keel::move(opts)); }
+    void DismissToast(keel::u64 id) noexcept { guikit::Toast::Dismiss(*this, id); }
+    void ClearToasts() noexcept { guikit::Toast::Clear(*this); }
+    [[nodiscard]] keel::usize GetActiveToastCount() const noexcept { return guikit::Toast::GetActiveCount(*this); }
+    [[nodiscard]] bool HasToastHostVisited() const noexcept { return guikit::Toast::HasHostVisited(*this); }
+    void SetToastHostOptions(const ToastHostOptions& opts) noexcept { guikit::Toast::SetHostOptions(*this, opts); }
+    [[nodiscard]] ToastHostOptions GetToastHostOptions() const noexcept { return guikit::Toast::GetHostOptions(*this); }
+    void ToastHost(const ToastHostOptions& opts = {}) { guikit::Toast::RunHost(*this, opts); }
 
     // --- String & Formatting Services ---
     [[nodiscard]] keel::StringRef String(keel::StringRef text);
@@ -1733,28 +1628,28 @@ public:
 
     // Imperative actions requested from Response
     void RequestFocus(Id id, FocusReason reason = FocusReason::Auto);
-    [[nodiscard]] Id GetFocusedId() const noexcept { return m_focusedId; }
-    [[nodiscard]] InputModality GetInputModality() const noexcept { return m_inputModality; }
+    [[nodiscard]] Id GetFocusedId() const noexcept { return m_focus.GetFocusedId(); }
+    [[nodiscard]] InputModality GetInputModality() const noexcept { return m_focus.GetInputModality(); }
     [[nodiscard]] bool IsFocused(Id id) const noexcept;
     /// Returns true when `id` has focus AND the focus ring should be drawn (`:focus-visible` semantics:
     /// true for keyboard navigation, false after mouse/pointer click on non-text controls).
     [[nodiscard]] bool IsFocusVisible(Id id) const noexcept {
-        return m_focusVisible && IsFocused(id);
+        return m_focus.IsFocusVisible() && IsFocused(id);
     }
     [[nodiscard]] bool HasActiveTextEdit(Id id) const noexcept { return m_editState.id == id && id.IsValid(); }
     void ClearFocus() noexcept {
-        if (m_editState.id == m_focusedId) {
+        if (m_editState.id == m_focus.GetFocusedId()) {
             FlushActiveEditHistory();
             m_editState.id = Id::Null();
         }
-        m_focusedId = Id::Null();
-        m_focusVisible = false;
+        m_focus.SetFocusedId(Id::Null());
+        m_focus.SetFocusVisible(false);
     }
 
-    [[nodiscard]] Id GetActiveId() const noexcept { return m_activeId; }
-    void SetActiveId(Id id) noexcept { m_activeId = id; }
+    [[nodiscard]] Id GetActiveId() const noexcept { return m_focus.GetActiveId(); }
+    void SetActiveId(Id id) noexcept { m_focus.SetActiveId(id); }
     [[nodiscard]] keel::u64 GetFrameIndex() const noexcept { return m_frameIndex; }
-    [[nodiscard]] keel::usize GetCustomStateCount() const noexcept { return m_customStates.size(); }
+    [[nodiscard]] keel::usize GetCustomStateCount() const noexcept { return m_stateStore.Size(); }
     [[nodiscard]] ICanvas* GetCanvas() const noexcept { return m_lastCanvas; }
 
     // --- Clipboard & Host Services ---
@@ -1829,22 +1724,15 @@ public:
     [[nodiscard]] keel::f64 GetCurrentTimeSec() const noexcept { return m_currentTimeSec; }
 
     // --- Popup, Tooltip, Modal & Overlay Management ---
-    struct OverlayHitRegion {
-        Id id{Id::Null()};
-        Rect rect{};
-        OverlayLayer layer{OverlayLayer::Popup};
-        keel::u8 zLayer{keel::as<keel::u8>(OverlayLayer::Popup)};
-        Id ownerPortalId{Id::Null()};
-    };
-
+    void RegisterEndFrameHook(EndFrameHook hook) { m_overlays.RegisterEndFrameHook(hook); }
     void OpenPopup(Id id, Rect bounds, Rect anchorRect = Rect{});
     void AddOpenPopupRect(Rect bounds);
     void ClosePopup();
-    [[nodiscard]] bool IsPopupOpen(Id id) const noexcept { return m_openPopupId == id && id.IsValid(); }
-    [[nodiscard]] Id GetOpenPopupId() const noexcept { return m_openPopupId; }
-    [[nodiscard]] Rect GetOpenPopupRect() const noexcept { return CurrentSpace().Invert(m_openPopupRect); }
+    [[nodiscard]] bool IsPopupOpen(Id id) const noexcept { return m_overlays.IsPopupOpen(id); }
+    [[nodiscard]] Id GetOpenPopupId() const noexcept { return m_overlays.GetOpenPopupId(); }
+    [[nodiscard]] Rect GetOpenPopupRect() const noexcept { return CurrentSpace().Invert(m_overlays.GetOpenPopupRect()); }
     [[nodiscard]] bool IsPointInOpenPopup(Vec2 framePos) const noexcept;
-    void SetOpenPopupVisualHash(keel::u64 hash) noexcept { m_openPopupVisualHash = hash; }
+    void SetOpenPopupVisualHash(keel::u64 hash) noexcept { m_overlays.SetOpenPopupVisualHash(hash); }
     template <typename F>
         requires requires(keel::Decay<F>& f, ICanvas& c) { f(c); }
     void RegisterOverlay(F&& drawFn, OverlayLayer layer = OverlayLayer::Popup) {
@@ -1855,7 +1743,7 @@ public:
             if (!static_cast<bool>(drawFn)) return;
         }
         Decayed* stored = m_arena.create<Decayed>(keel::forward<F>(drawFn));
-        m_overlayPasses.push_back(OverlayPass{
+        m_overlays.AddOverlayPass(OverlayPass{
             .ctx = stored,
             .invoke = +[](void* p, ICanvas& c) { (*static_cast<Decayed*>(p))(c); },
             .destroy = keel::IsTriviallyDestructible<Decayed>
@@ -1866,7 +1754,7 @@ public:
             .layer = layer
         });
     }
-    void MarkModalOverlayActive() noexcept { m_currFrameModalOverlay = true; }
+    void MarkModalOverlayActive() noexcept { m_overlays.MarkModalOverlayActive(); }
     void RegisterOverlayHitRegion(Id id, Rect rect, OverlayLayer layer = OverlayLayer::Popup);
     template <typename F>
         requires requires(keel::Decay<F>& f) { f(); }
@@ -1876,7 +1764,7 @@ public:
             if (!static_cast<bool>(builderFn)) return;
         }
         Decayed* stored = m_arena.create<Decayed>(keel::forward<F>(builderFn));
-        m_overlayHitBuilders.push_back(OverlayHitBuilder{
+        m_overlays.AddOverlayHitBuilder(OverlayHitBuilder{
             .ctx = stored,
             .invoke = +[](void* p) { (*static_cast<Decayed*>(p))(); },
             .destroy = keel::IsTriviallyDestructible<Decayed>
@@ -1939,7 +1827,7 @@ public:
     [[nodiscard]] bool IsMouseBlockedForCurrentScope() const noexcept;
     void SetTooltip(UiText tooltip, Rect anchorRect);
     /// Tooltip requested during the current frame (empty if none).
-    [[nodiscard]] const UiText& GetActiveTooltip() const noexcept { return m_activeTooltip; }
+    [[nodiscard]] const UiText& GetActiveTooltip() const noexcept { return m_overlays.GetActiveTooltip(); }
     void RegisterFocusable(Id id, bool disabled = false);
 
     void BeginModalScope(Id id, Rect backdropRect) noexcept;
@@ -1947,10 +1835,8 @@ public:
     void ClearModalBlock(Id id = Id::Null()) noexcept;
     void ClearPopoverBlock(Id id) noexcept;
 
-    [[nodiscard]] bool IsInModalScope() const noexcept { return !m_activeModalStack.empty(); }
-    [[nodiscard]] Id GetPrevFrameModalId() const noexcept {
-        return m_prevFrameModals.empty() ? Id::Null() : m_prevFrameModals.back().id;
-    }
+    [[nodiscard]] bool IsInModalScope() const noexcept { return m_overlays.IsInModalScope(); }
+    [[nodiscard]] Id GetPrevFrameModalId() const noexcept { return m_overlays.GetPrevFrameModalId(); }
     [[nodiscard]] bool HasPrevFrameModal(Id id) const noexcept;
     [[nodiscard]] bool IsTopModal(Id id) const noexcept;
     [[nodiscard]] bool HasModalAboveCurrentScope() const noexcept;
@@ -2015,62 +1901,24 @@ public:
     /// Typed state storage across frames for widgets by deterministic Id and Type (garbage-collected if unused for 600+ frames).
     template <typename T>
     [[nodiscard]] T& GetOrCreateState(Id id, T defaultVal = T{}) {
-        detail::StateKey key{id, keel::type_id<T>()};
-        detail::StoredState* found = m_customStates.get(key);
-        if (!found) {
-            detail::StoredState& inserted = m_customStates.get_or_insert(
-                key,
-                detail::StoredState::Create<T>(keel::move(defaultVal), m_frameIndex, m_currentTimeSec, false)
-            );
-            return *static_cast<T*>(inserted.ptr);
-        }
-        found->lastFrameActive = m_frameIndex;
-        found->lastTimeActiveSec = m_currentTimeSec;
-        found->cachesTrimmed = false;
-        return *static_cast<T*>(found->ptr);
+        return m_stateStore.GetOrCreate<T>(id, keel::move(defaultVal), m_frameIndex, m_currentTimeSec, false);
     }
 
     /// Long-lived typed state storage that survives tab switches, collapsed trees, and hidden panels without 600-frame eviction.
     template <typename T>
     [[nodiscard]] T& GetOrCreatePersistentState(Id id, T defaultVal = T{}) {
-        detail::StateKey key{id, keel::type_id<T>()};
-        detail::StoredState* found = m_customStates.get(key);
-        if (!found) {
-            detail::StoredState& inserted = m_customStates.get_or_insert(
-                key,
-                detail::StoredState::Create<T>(keel::move(defaultVal), m_frameIndex, m_currentTimeSec, true)
-            );
-            return *static_cast<T*>(inserted.ptr);
-        }
-        found->lastFrameActive = m_frameIndex;
-        found->lastTimeActiveSec = m_currentTimeSec;
-        found->persistent = true;
-        found->cachesTrimmed = false;
-        return *static_cast<T*>(found->ptr);
+        return m_stateStore.GetOrCreate<T>(id, keel::move(defaultVal), m_frameIndex, m_currentTimeSec, true);
     }
 
     /// Finds persistent typed state associated with a unique widget Id, or nullptr if not found.
     template <typename T>
     [[nodiscard]] const T* FindState(Id id) const {
-        detail::StateKey key{id, keel::type_id<T>()};
-        const detail::StoredState* found = m_customStates.get(key);
-        if (!found) {
-            return nullptr;
-        }
-        return static_cast<const T*>(found->ptr);
+        return m_stateStore.Find<T>(id);
     }
 
     template <typename T>
     [[nodiscard]] T* FindMutableState(Id id) {
-        detail::StateKey key{id, keel::type_id<T>()};
-        detail::StoredState* found = m_customStates.get(key);
-        if (!found) {
-            return nullptr;
-        }
-        found->lastFrameActive = m_frameIndex;
-        found->lastTimeActiveSec = m_currentTimeSec;
-        found->cachesTrimmed = false;
-        return static_cast<T*>(found->ptr);
+        return m_stateStore.FindMutable<T>(id, m_frameIndex, m_currentTimeSec);
     }
 
 private:
@@ -2100,45 +1948,17 @@ private:
     void RenderModalsRecursive(Node* node, ICanvas& canvas, const Rect& dirtyRect, const UiTheme& parentTheme);
     bool UpdateScrollAreasRecursive(Node* node);
 
-    // Widget snapshot for frame-to-frame change detection
-    struct WidgetSnapshot {
-        Rect rect{};
-        keel::u64 visualHash{0};
-        keel::u32 flags{0}; // bits: 0=hovered, 1=pressed, 2=disabled, 3=checked, 4=cursorVisible, 5=activeEdit, 6=tabActive, 7=focused, 8..11=scrollbar
-        keel::usize cursor{0};
-        keel::usize selectionAnchor{0};
-        keel::u32 bgColor{0};
-        keel::u32 borderColor{0};
+    // Core decomposed subsystems
+    StateStore m_stateStore;
+    DamageTracker m_damage;
+    HitTestTree m_hitTree;
+    OverlayManager m_overlays;
+    FocusManager m_focus;
+    DebugInspector m_inspector;
 
-        bool operator==(const WidgetSnapshot& o) const noexcept {
-            return rect == o.rect &&
-                   visualHash == o.visualHash &&
-                   flags == o.flags &&
-                   cursor == o.cursor &&
-                   selectionAnchor == o.selectionAnchor &&
-                   bgColor == o.bgColor &&
-                   borderColor == o.borderColor;
-        }
-
-        bool operator!=(const WidgetSnapshot& o) const noexcept {
-            return !(*this == o);
-        }
-    };
-
-    keel::HashMap<Id, WidgetSnapshot> m_prevSnapshots;
-    keel::Array<Rect> m_explicitDamageRects;
-    keel::Array<Rect> m_dirtyRects;
-    Rect m_dirtyRect{0.0f, 0.0f, 0.0f, 0.0f};
     UiTheme m_theme{UiTheme::Dark()};
     Color m_clearColor{11, 15, 25, 255}; // Tailwind Slate-950 #0B0F19
-    bool m_hasDirtyDamage{true};
-    bool m_isFullRepaint{true};
-    bool m_forceFullRepaint{true};
-    bool m_dirtyRectEnabled{true};
     bool m_liveResizeEnabled{true};
-    bool m_debugBoundsEnabled{false};
-    bool m_inspectModeEnabled{false};
-    bool m_anyScopedInspectActive{false};
 
     keel::Arena m_arena;
     guikit::Zone m_rootZone{&m_theme, 1.0f, 1.0f};
@@ -2177,6 +1997,7 @@ private:
     bool m_middleMouseDown{false};
     bool m_middleMouseClicked{false};
     bool m_middleMouseReleased{false};
+    Vec2 m_mouseWheel{0.0f, 0.0f};
     KeyModifiers m_keyMods{};
     Keymap m_keymap{Keymap::Default()};
     keel::i32 m_repaintFrames{3};
@@ -2187,15 +2008,9 @@ private:
     ClipboardSetFn m_clipboardSetFn{};
     OpenUrlFn m_openUrlFn{};
     keel::String m_clipboardText{};
-
-    Id m_hoveredId{Id::Null()};
-    Id m_activeId{Id::Null()};
-    Id m_focusedId{Id::Null()};
-    InputModality m_inputModality{InputModality::Pointer};
-    bool m_focusVisible{false};
     CursorType m_cursor{CursorType::Default};
 
-    // Active text edit state
+    // Active text edit state (migrated to TextBuffer in Phase 3)
     struct ActiveEditState {
         struct EditSnapshot {
             keel::String text;
@@ -2290,7 +2105,6 @@ private:
         keel::Array<ActiveEditState::EditSnapshot> redoStack;
     };
     keel::HashMap<Id, TextEditHistory> m_editHistories;
-    Id m_savedFocusBeforeModal{Id::Null()};
     bool m_suspendDirectEditInput{false};
 
     struct QueuedKeyEvent {
@@ -2300,111 +2114,18 @@ private:
     keel::Array<keel::String> m_pendingTextInput;
     keel::Array<QueuedKeyEvent> m_pendingKeyEvents;
 
-    // Previous frame widget bounds for instantaneous hit testing
-    struct HitNodeRecord {
-        Id id{Id::Null()};
-        Id portalId{Id::Null()};
-        Rect rect{};
-        keel::u32 preIndex{0};
-        keel::u32 postIndex{0};
-        NodeType type{NodeType::Box};
-        keel::u8 zLayer{0};
-        bool blocksHit{false};
-    };
-
-    keel::HashMap<Id, Rect> m_prevFrameBounds;
-    keel::HashMap<Id, Rect> m_currFrameBounds;
-    keel::HashMap<Id, Rect> m_prevUnclippedBounds;
-    keel::HashMap<Id, Rect> m_currUnclippedBounds;
-    keel::HashMap<Id, Transform2D> m_prevNodeSpaces; ///< Only nodes inside a scaled container (others: identity)
-    keel::HashMap<Id, Transform2D> m_currNodeSpaces;
-    const Transform2D* m_spaceOverride{nullptr};     ///< Space of the overlay hit builder that is running
-    keel::Array<HitNodeRecord> m_prevHitNodes;
-    keel::Array<HitNodeRecord> m_currHitNodes;
-    keel::HashMap<Id, keel::usize> m_prevHitNodeMap;
-    struct OverlayHitBuilder {
-        void* ctx{nullptr};
-        void (*invoke)(void*){nullptr};
-        void (*destroy)(void*) noexcept{nullptr};
-        Transform2D space{};      ///< Space the builder was registered from; current while it runs
-        keel::u8 scopeZLayer{0};  ///< Active container z-layer when the builder was registered
-        Id ownerPortalId{Id::Null()}; ///< Active Modal/Popover container when the builder was registered
-    };
-    struct ModalRecord {
-        Id id{Id::Null()};
-        Rect backdropRect{};
-    };
-    struct ModalFocusableEntry {
-        Id modalId{Id::Null()};
-        Id focusableId{Id::Null()};
-    };
-    keel::Array<OverlayHitRegion> m_prevOverlayHitRegions;
-    keel::Array<OverlayHitRegion> m_currOverlayHitRegions;
-    keel::SmallArray<OverlayHitBuilder, 8> m_overlayHitBuilders;
+    // Active overlay hit-builder / scope tracking
+    const Transform2D* m_spaceOverride{nullptr};
     bool m_runningOverlayHitBuilder{false};
     keel::u8 m_overlayBuilderZLayer{0};
     Id m_overlayBuilderPortalId{Id::Null()};
     Id m_activeOverlayHitCheckId{Id::Null()};
     OverlayLayer m_activeOverlayHitCheckLayer{OverlayLayer::Popup};
     keel::i32 m_widgetExecDepth{0};
-    keel::Array<Id> m_prevFocusableIds;
-    keel::Array<Id> m_currFocusableIds;
-    keel::Array<ModalFocusableEntry> m_prevModalFocusables;
-    keel::Array<ModalFocusableEntry> m_currModalFocusables;
 
-    // Floating popup, tooltip, modal & toast overlay state
-    Id m_openPopupId{Id::Null()};
-    Rect m_openPopupRect{0.0f, 0.0f, 0.0f, 0.0f};
-    Rect m_openPopupAnchorRect{0.0f, 0.0f, 0.0f, 0.0f};
-    keel::SmallArray<Rect, 8> m_openPopupExtraRects;
-    keel::u64 m_openPopupVisualHash{0};
-    Id m_prevOpenPopupId{Id::Null()};
-    Rect m_prevOpenPopupRect{0.0f, 0.0f, 0.0f, 0.0f};
-    keel::SmallArray<Rect, 8> m_prevOpenPopupExtraRects;
-    keel::u64 m_prevOpenPopupVisualHash{0};
-    keel::SmallArray<ModalRecord, 4> m_prevFrameModals;
-    keel::SmallArray<ModalRecord, 4> m_currFrameModals;
-    keel::SmallArray<Id, 4> m_activeModalStack;
-    bool m_hadModalLastFrame{false};
-    bool m_modalClosedThisFrame{false};
-    UiText m_activeTooltip{};
-    Rect m_activeTooltipAnchor{0.0f, 0.0f, 0.0f, 0.0f};
-    Rect m_activeTooltipViewport{0.0f, 0.0f, 0.0f, 0.0f};
-    keel::u64 m_prevTooltipHash{0};
-    bool m_hadTooltipLastFrame{false};
-    keel::Array<ToastEntry> m_toasts;
-    ToastHostOptions m_defaultToastHostOpts{};
-    keel::u64 m_nextToastId{0};
-    bool m_toastHostVisitedThisFrame{false};
-    bool m_hadToastsLastFrame{false};
-    struct OverlayPass {
-        void* ctx{nullptr};
-        void (*invoke)(void*, ICanvas&){nullptr};
-        void (*destroy)(void*) noexcept{nullptr};
-        Rect clipRect{};     ///< Frame space
-        Transform2D space{}; ///< Space the overlay was registered from; it draws in that space
-        OverlayLayer layer{OverlayLayer::Popup};
-    };
-    keel::SmallArray<OverlayPass, 8> m_overlayPasses;
-    void ClearOverlayPasses() noexcept;
-    void ClearOverlayHitBuilders() noexcept;
-    bool m_currFrameModalOverlay{false};
-    bool m_hadModalOverlayLastFrame{false};
-    bool m_hadDebugBoundsLastFrame{false};
-    bool m_hadInspectModeLastFrame{false};
-    Vec2 m_mouseWheel{0.0f, 0.0f};
     keel::HashMap<const char*, keel::u64> m_fileHashCache;
     keel::HashMap<keel::u64, keel::u32> m_childIdCounts;
-    keel::HashMap<detail::StateKey, detail::StoredState, detail::StateKeyHash> m_customStates;
     keel::u64 m_frameIndex{0};
-    keel::f64 m_lastCacheTrimSweepSec{0.0};
-    keel::f64 m_lastTransientPruneSec{0.0};
-    bool m_hasUntrimmedInactiveStates{false};
-
-    void RenderDebugBoundsRecursive(Node* node, ICanvas& canvas, bool inheritedDebugBounds);
-    void RenderTooltipOverlay(ICanvas& canvas, Vec2 logicalSize);
-    Node* FindDeepestNodeAt(Node* root, Vec2 pos, Rect clipRect);
-    void RenderInspectOverlay(Node* root, ICanvas& canvas, Vec2 logicalSize);
 };
 
 } // namespace guikit

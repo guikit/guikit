@@ -970,8 +970,13 @@ TableScope Table::Open(
         data->columnCount,
         activeDisabled
     );
+    static constexpr PanelHooks kTableHooks{
+        .contentClip = &Table::GetBodyClipRect,
+        .update = &Table::Update
+    };
     node->measureFn = &Table::Measure;
     node->arrangeFn = &Table::Arrange;
+    node->panelHooks = &kTableHooks;
     node->renderFn = &Table::RenderBody;
     node->postRenderFn = &Table::RenderChromeAndScrollbars;
 

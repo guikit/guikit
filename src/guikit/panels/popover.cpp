@@ -126,8 +126,11 @@ PopoverScope Popover::Open(
         .viewportRect = viewportRect
     });
     node->SetPayload(payload);
+    static constexpr PanelHooks kPopoverHooks{
+        .placeOutOfFlow = &Popover::ResolvePopoverRect
+    };
     node->measureFn = &Popover::Measure;
-    node->placeFn = &Popover::ResolvePopoverRect;
+    node->panelHooks = &kPopoverHooks;
     node->visualHash = detail::HashArgs(
         opts.anchorRect.x,
         opts.anchorRect.y,

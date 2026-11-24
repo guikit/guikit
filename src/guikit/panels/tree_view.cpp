@@ -882,6 +882,7 @@ TreeViewScope TreeView::Open(
     scrollNode->uiSize = activeSize;
     scrollNode->disabled = activeDisabled;
     scrollNode->postRenderFn = &ScrollArea::RenderScrollbar;
+    scrollNode->panelHooks = ScrollArea::Hooks();
 
     auto& scrollState = ctx.GetOrCreatePersistentState<ScrollState>(idScroll);
     scrollNode->scroll->offset = scrollState.offset;

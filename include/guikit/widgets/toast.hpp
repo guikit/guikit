@@ -65,6 +65,14 @@ struct ToastEntry {
 /// Autonomous Toast notification manager and overlay renderer.
 class Toast {
 public:
+    static keel::u64 Show(Context& ctx, ToastOptions opts);
+    static void Dismiss(Context& ctx, keel::u64 id) noexcept;
+    static void Clear(Context& ctx) noexcept;
+    [[nodiscard]] static keel::usize GetActiveCount(const Context& ctx) noexcept;
+    [[nodiscard]] static bool HasHostVisited(const Context& ctx) noexcept;
+    static void SetHostOptions(Context& ctx, const ToastHostOptions& opts) noexcept;
+    [[nodiscard]] static ToastHostOptions GetHostOptions(const Context& ctx) noexcept;
+
     /// Updates toast timers, processes hover/close interactions, and registers overlay rendering.
     static void RunHost(
         Context& ctx,

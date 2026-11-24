@@ -7,6 +7,121 @@
 
 namespace guikit {
 
+namespace {
+
+inline constexpr Id kToastStoreId{0x544F'4153'545F'5354ULL}; // "TOAST_ST"
+
+struct ToastStore {
+    keel::Array<ToastEntry> entries;
+    ToastHostOptions defaultHostOpts{};
+    keel::u64 nextId{0};
+    keel::u64 lastVisitedFrame{keel::Limits<keel::u64>::kMax};
+};
+
+void ToastEndFrameInvoke(Context& ctx) {
+    auto* store = ctx.FindMutableState<ToastStore>(kToastStoreId);
+    if (!store || store->entries.empty()) {
+        return;
+    }
+    if (store->lastVisitedFrame != ctx.GetFrameIndex()) {
+        Toast::RunHost(ctx, store->defaultHostOpts);
+    }
+}
+
+bool ToastHasActiveContent(const Context& ctx) noexcept {
+    const auto* store = ctx.FindState<ToastStore>(kToastStoreId);
+    return store != nullptr && !store->entries.empty();
+}
+
+bool ToastNeedsRepaint(const Context& ctx) noexcept {
+    const auto* store = ctx.FindState<ToastStore>(kToastStoreId);
+    if (!store) return false;
+    for (const auto& t : store->entries) {
+        if (t.duration > 0.0f) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void EnsureToastHookRegistered(Context& ctx) {
+    static const keel::u8 kToastHookKey = 0;
+    ctx.RegisterEndFrameHook(EndFrameHook{
+        .key = &kToastHookKey,
+        .invoke = &ToastEndFrameInvoke,
+        .hasActiveContent = &ToastHasActiveContent,
+        .needsRepaint = &ToastNeedsRepaint
+    });
+}
+
+} // namespace
+
+keel::u64 Toast::Show(Context& ctx, ToastOptions opts) {
+    EnsureToastHookRegistered(ctx);
+    auto& store = ctx.GetOrCreatePersistentState<ToastStore>(kToastStoreId);
+    const keel::u64 id = ++store.nextId;
+    ToastEntry entry{};
+    entry.id = id;
+    entry.title = keel::String::from(opts.title.text);
+    entry.message = keel::String::from(opts.message.text);
+    entry.titleWrap = opts.title.wrap;
+    entry.messageWrap = opts.message.wrap;
+    entry.variant = opts.variant;
+    entry.icon = opts.icon;
+    if (!opts.icon.GetPath().empty()) {
+        entry.iconPath = keel::String::from(opts.icon.GetPath());
+    }
+    entry.duration = opts.duration;
+    entry.showProgress = opts.showProgress;
+    entry.closable = opts.closable;
+    entry.elapsedSec = 0.0;
+    entry.lastTickSec = ctx.GetCurrentTimeSec();
+    store.entries.push_back(keel::move(entry));
+    ctx.InvalidateAll();
+    return id;
+}
+
+void Toast::Dismiss(Context& ctx, keel::u64 id) noexcept {
+    auto* store = ctx.FindMutableState<ToastStore>(kToastStoreId);
+    if (!store) return;
+    for (keel::usize i = 0; i < store->entries.size(); ++i) {
+        if (store->entries[i].id == id) {
+            store->entries.remove_at(i);
+            ctx.InvalidateAll();
+            return;
+        }
+    }
+}
+
+void Toast::Clear(Context& ctx) noexcept {
+    auto* store = ctx.FindMutableState<ToastStore>(kToastStoreId);
+    if (store && !store->entries.empty()) {
+        store->entries.clear();
+        ctx.InvalidateAll();
+    }
+}
+
+keel::usize Toast::GetActiveCount(const Context& ctx) noexcept {
+    const auto* store = ctx.FindState<ToastStore>(kToastStoreId);
+    return store ? store->entries.size() : 0;
+}
+
+bool Toast::HasHostVisited(const Context& ctx) noexcept {
+    const auto* store = ctx.FindState<ToastStore>(kToastStoreId);
+    return store != nullptr && store->lastVisitedFrame == ctx.GetFrameIndex();
+}
+
+void Toast::SetHostOptions(Context& ctx, const ToastHostOptions& opts) noexcept {
+    EnsureToastHookRegistered(ctx);
+    auto& store = ctx.GetOrCreatePersistentState<ToastStore>(kToastStoreId);
+    store.defaultHostOpts = opts;
+}
+
+ToastHostOptions Toast::GetHostOptions(const Context& ctx) noexcept {
+    const auto* store = ctx.FindState<ToastStore>(kToastStoreId);
+    return store ? store->defaultHostOpts : ToastHostOptions{};
+}
+
 Icon Toast::ResolveDefaultIcon(UiVariant variant, Icon explicitIcon) noexcept {
     if (explicitIcon.IsValid()) {
         return explicitIcon;
@@ -25,8 +140,13 @@ void Toast::RunHost(
     Context& ctx,
     const ToastHostOptions& opts
 ) {
-    ctx.MarkToastHostVisited();
-    auto& entries = ctx.GetToastEntries();
+    EnsureToastHookRegistered(ctx);
+    auto* store = ctx.FindMutableState<ToastStore>(kToastStoreId);
+    if (!store) {
+        return;
+    }
+    store->lastVisitedFrame = ctx.GetFrameIndex();
+    auto& entries = store->entries;
     if (entries.empty()) {
         return;
     }

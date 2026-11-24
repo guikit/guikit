@@ -13,6 +13,7 @@ namespace guikit {
 class Context;
 class ICanvas;
 struct Node;
+struct PanelHooks;
 
 /// Persistent scroll state for ScrollArea and 2D viewports.
 struct ScrollState {
@@ -66,6 +67,9 @@ public:
 
     /// Adjusts scroll offset so the target child node is visible within the viewport.
     static void ScrollToChild(Context& ctx, Node* scrollNode, const Node* targetNode);
+
+    /// Returns static panel lifecycle hooks for solver-managed scroll containers.
+    [[nodiscard]] static const PanelHooks* Hooks() noexcept;
 
     /// Renders scrollbar thumb and track after children (postRenderFn signature).
     static void RenderScrollbar(

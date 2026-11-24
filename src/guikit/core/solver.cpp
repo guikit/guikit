@@ -727,14 +727,14 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             h = keel::min(h, node->maxHeight);
         }
 
-        if (node->placeFn != nullptr) {
+        if (node->panelHooks != nullptr && node->panelHooks->placeOutOfFlow != nullptr) {
             const keel::f32 targetW = (node->widthMode == SizeMode::Fixed && node->fixedWidth > 0.0f)
                 ? node->fixedWidth
                 : node->intrinsicSize.x;
             const keel::f32 resolvedH = (node->heightMode == SizeMode::Fixed && node->fixedHeight > 0.0f)
                 ? node->fixedHeight
                 : ResolveNodeHeightLocal(node, targetW, canvas, activeTheme, depth + 1);
-            node->computedRect = node->placeFn(node, targetW, resolvedH, availableRect);
+            node->computedRect = node->panelHooks->placeOutOfFlow(node, targetW, resolvedH, availableRect);
         } else {
             node->computedRect = Rect(availableRect.x, availableRect.y, w, h);
         }

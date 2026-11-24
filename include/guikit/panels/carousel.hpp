@@ -91,11 +91,12 @@ public:
     /// Adjusts scroll offset so the target child node is visible within the viewport.
     static void ScrollToChild(Context& ctx, Node* carouselNode, const Node* targetNode);
 
-    /// Registers interactive arrow bounds into the bounds map for instantaneous hit testing.
+    /// Registers interactive arrow bounds via the generic `PanelHooks::RecordBoundsFn` callback.
     static void CollectBounds(
-        const Node* node,
-        keel::HashMap<Id, Rect>& outBounds,
-        Rect parentClip,
+        Node* node,
+        void (*recordBounds)(void*, Id, Rect),
+        void* user,
+        const Rect& parentClip,
         const Transform2D& space
     );
 

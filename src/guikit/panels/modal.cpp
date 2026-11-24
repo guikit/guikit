@@ -142,8 +142,12 @@ ModalScope Modal::Open(
         .contentRectOut = &state.contentRect
     });
     node->SetPayload(payload);
+    static constexpr PanelHooks kModalHooks{
+        .contentClip = [](const Node* n, const UiTheme&) -> Rect { return Modal::GetBackdropRect(n); }
+    };
     node->measureFn = &Modal::Measure;
     node->arrangeFn = &Modal::Arrange;
+    node->panelHooks = &kModalHooks;
     node->renderFn = &Modal::Render;
     node->visualHash = detail::HashArgs(
         backdropRect.x,
