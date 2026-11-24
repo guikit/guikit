@@ -241,7 +241,7 @@ FontStyle ResolveTagFontStyle(const TagOptions& opts) noexcept {
         : FontStyle::Regular;
 }
 
-Vec2 Tag::Measure(
+Vec2 detail::Tag::Measure(
     const UiText& text,
     const TagOptions& opts,
     UiSize size,
@@ -268,7 +268,7 @@ Vec2 Tag::Measure(
     return Vec2(keel::ceil(w), keel::ceil(h));
 }
 
-void Tag::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
+void detail::Tag::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
     const auto* data = node ? node->As<TagData>() : nullptr;
     if (!data) return;
 
@@ -334,7 +334,7 @@ void Tag::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
     }
 }
 
-TagResponse Tag::Run(
+TagResponse detail::Tag::Run(
     Context& ctx,
     UiText text,
     const TagOptions& opts,
@@ -431,9 +431,9 @@ TagResponse Tag::Run(
     node->measureFn = [](const Node* n, keel::f32 /*availW*/, ICanvas* canvas, const UiTheme& t) -> Vec2 {
         const auto* d = n->As<TagData>();
         if (!d) return Vec2(40.0f, 24.0f);
-        return Tag::Measure(d->text, d->opts, n->uiSize, canvas, t);
+        return detail::Tag::Measure(d->text, d->opts, n->uiSize, canvas, t);
     };
-    node->renderFn = &Tag::Render;
+    node->renderFn = &detail::Tag::Render;
 
     node->visualHash = detail::HashArgs(
         data->text,

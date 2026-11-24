@@ -67,7 +67,7 @@ void ModalScope::EndModalIfNeeded() noexcept {
     }
 }
 
-ModalScope Modal::Open(
+ModalScope detail::Modal::Open(
     Context& ctx,
     bool& open,
     const ModalOptions& opts,
@@ -143,12 +143,12 @@ ModalScope Modal::Open(
     });
     node->SetPayload(payload);
     static constexpr PanelHooks kModalHooks{
-        .contentClip = [](const Node* n, const UiTheme&) -> Rect { return Modal::GetBackdropRect(n); }
+        .contentClip = [](const Node* n, const UiTheme&) -> Rect { return detail::Modal::GetBackdropRect(n); }
     };
-    node->measureFn = &Modal::Measure;
-    node->arrangeFn = &Modal::Arrange;
+    node->measureFn = &detail::Modal::Measure;
+    node->arrangeFn = &detail::Modal::Arrange;
     node->panelHooks = &kModalHooks;
-    node->renderFn = &Modal::Render;
+    node->renderFn = &detail::Modal::Render;
     node->visualHash = detail::HashArgs(
         backdropRect.x,
         backdropRect.y,
@@ -170,7 +170,7 @@ ModalScope Modal::Open(
     return ModalScope(&ctx, node, &open, res, false);
 }
 
-Vec2 Modal::Measure(
+Vec2 detail::Modal::Measure(
     const Node* node,
     keel::f32 /*availableWidth*/,
     ICanvas* /*canvas*/,
@@ -190,7 +190,7 @@ Vec2 Modal::Measure(
     return {maxW + node->padding.Horizontal(), totalH};
 }
 
-void Modal::Arrange(
+void detail::Modal::Arrange(
     Node* node,
     const Rect& availableRect,
     const UiTheme& theme
@@ -285,7 +285,7 @@ void Modal::Arrange(
     }
 }
 
-Rect Modal::GetBackdropRect(const Node* node) noexcept {
+Rect detail::Modal::GetBackdropRect(const Node* node) noexcept {
     if (!node) return Rect{};
     if (const auto* payload = node->As<ModalPayload>()) {
         return payload->backdropRect;
@@ -293,7 +293,7 @@ Rect Modal::GetBackdropRect(const Node* node) noexcept {
     return node->computedRect;
 }
 
-void Modal::Render(
+void detail::Modal::Render(
     const Node* node,
     ICanvas& canvas,
     const UiTheme& /*theme*/

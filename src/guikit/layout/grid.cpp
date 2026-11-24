@@ -5,7 +5,7 @@
 
 namespace guikit {
 
-GridScope Grid::Open(
+GridScope detail::Grid::Open(
     Context& ctx,
     const GridOptions& opts,
     keel::SourceLocation loc

@@ -9,16 +9,16 @@
 
 namespace guikit {
 
-const PanelHooks* ScrollArea::Hooks() noexcept {
+const PanelHooks* detail::ScrollArea::Hooks() noexcept {
     static constexpr PanelHooks kHooks{
-        .contentClip = &ScrollArea::GetContentClipRect,
-        .update = &ScrollArea::Update,
-        .scrollToChild = &ScrollArea::ScrollToChild
+        .contentClip = &detail::ScrollArea::GetContentClipRect,
+        .update = &detail::ScrollArea::Update,
+        .scrollToChild = &detail::ScrollArea::ScrollToChild
     };
     return &kHooks;
 }
 
-ContainerScope ScrollArea::Open(
+ContainerScope detail::ScrollArea::Open(
     Context& ctx,
     const ScrollAreaOptions& opts,
     keel::SourceLocation loc
@@ -61,8 +61,8 @@ ContainerScope ScrollArea::Open(
     node->cornerRadius = opts.border.radius.has_value() ? *opts.border.radius : 0.0f;
     node->uiSize = activeSize;
     node->visualHash = detail::HashArgs(opts.background, opts.border);
-    node->postRenderFn = &ScrollArea::RenderScrollbar;
-    node->panelHooks = ScrollArea::Hooks();
+    node->postRenderFn = &detail::ScrollArea::RenderScrollbar;
+    node->panelHooks = detail::ScrollArea::Hooks();
 
     // Retrieve persistent scroll state (mouse wheel is handled bottom-up in ScrollArea::Update)
     auto& state = ctx.GetOrCreatePersistentState<ScrollState>(id);
@@ -72,7 +72,7 @@ ContainerScope ScrollArea::Open(
     return ContainerScope(&ctx, node);
 }
 
-void ScrollArea::RenderAxisScrollbar(
+void detail::ScrollArea::RenderAxisScrollbar(
     ICanvas& canvas,
     Rect viewportRect,
     keel::f32 contentLength,
@@ -104,7 +104,7 @@ void ScrollArea::RenderAxisScrollbar(
     Scrollbar::DrawAxis(canvas, geom, isHorizontal, hovered, active, hPart, pPart, m, theme);
 }
 
-void ScrollArea::UpdateAxisScrollbar(
+void detail::ScrollArea::UpdateAxisScrollbar(
     Context& ctx,
     Id ownerId,
     Rect viewportRect,
@@ -246,7 +246,7 @@ void ScrollArea::UpdateAxisScrollbar(
     }
 }
 
-void ScrollArea::RenderScrollbar(
+void detail::ScrollArea::RenderScrollbar(
     const Node* node,
     ICanvas& canvas,
     const UiTheme& theme
@@ -311,7 +311,7 @@ void ScrollArea::RenderScrollbar(
     }
 }
 
-Rect ScrollArea::GetContentClipRect(const Node* node, const UiTheme& theme) {
+Rect detail::ScrollArea::GetContentClipRect(const Node* node, const UiTheme& theme) {
     if (!node) return Rect();
     const ScrollbarMetrics& sm = theme.GetScrollbar(node->uiSize);
     bool showV = false;
@@ -340,7 +340,7 @@ Rect ScrollArea::GetContentClipRect(const Node* node, const UiTheme& theme) {
     );
 }
 
-void ScrollArea::Update(Context& ctx, Node* node) {
+void detail::ScrollArea::Update(Context& ctx, Node* node) {
     if (!node || !node->id.IsValid() || !node->scroll) return;
     ScrollData& sd = *node->scroll;
 
@@ -491,7 +491,7 @@ void ScrollArea::Update(Context& ctx, Node* node) {
     sd.offset = state.offset;
 }
 
-void ScrollArea::ScrollToChild(Context& ctx, Node* scrollNode, const Node* targetNode) {
+void detail::ScrollArea::ScrollToChild(Context& ctx, Node* scrollNode, const Node* targetNode) {
     if (!scrollNode || !targetNode || !scrollNode->id.IsValid() || !scrollNode->scroll) return;
     auto& state = ctx.GetOrCreatePersistentState<ScrollState>(scrollNode->id);
     const keel::f32 targetTop = targetNode->computedRect.y;

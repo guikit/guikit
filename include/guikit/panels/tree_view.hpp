@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/id.hpp"
 #include "guikit/core/response.hpp"
@@ -303,6 +304,8 @@ private:
 };
 
 /// Autonomous immediate-mode TreeView and TreeItem implementation.
+namespace detail {
+
 class TreeView {
 public:
     [[nodiscard]] static TreeViewScope Open(
@@ -355,5 +358,63 @@ public:
         const UiTheme& theme
     ) noexcept;
 };
+
+} // namespace detail
+
+[[nodiscard]] inline TreeViewScope TreeView(
+    Context& ui,
+    TreeViewOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::TreeView::Open(ui, opts, loc);
+}
+
+[[nodiscard]] inline TreeViewScope TreeView(
+    Context& ui,
+    keel::ArrayRef<TableColumn> columns,
+    TreeViewOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    opts.columns = columns;
+    return guikit::TreeView(ui, keel::move(opts), loc);
+}
+
+[[nodiscard]] inline TreeItemScope TreeItem(
+    Context& ui,
+    TreeItemOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::TreeView::OpenItem(ui, nullptr, opts, loc);
+}
+
+[[nodiscard]] inline TreeItemScope TreeItem(
+    Context& ui,
+    keel::StringRef label,
+    TreeItemOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    opts.label.text = label;
+    return detail::TreeView::OpenItem(ui, nullptr, opts, loc);
+}
+
+[[nodiscard]] inline TreeItemScope TreeItem(
+    Context& ui,
+    bool& open,
+    TreeItemOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::TreeView::OpenItem(ui, &open, opts, loc);
+}
+
+[[nodiscard]] inline TreeItemScope TreeItem(
+    Context& ui,
+    bool& open,
+    keel::StringRef label,
+    TreeItemOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    opts.label.text = label;
+    return detail::TreeView::OpenItem(ui, &open, opts, loc);
+}
 
 } // namespace guikit

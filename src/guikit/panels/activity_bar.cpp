@@ -1,4 +1,5 @@
 #include "guikit/panels/activity_bar.hpp"
+#include "guikit/layout/separator.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
@@ -17,12 +18,12 @@ Response ActivityBarScope::Item(
     keel::SourceLocation loc
 ) {
     if (!m_ctx) return Response{};
-    return ActivityBar::Item(*m_ctx, item, m_opts, loc);
+    return detail::ActivityBar::Item(*m_ctx, item, m_opts, loc);
 }
 
 void ActivityBarScope::Separator(keel::SourceLocation loc) {
     if (!m_ctx || !m_node) return;
-    guikit::Separator::Run(*m_ctx, 0.0f, Color::Transparent(), loc);
+    guikit::detail::Separator::Run(*m_ctx, 0.0f, Color::Transparent(), loc);
 }
 
 void ActivityBarScope::Spacer(keel::f32 flex, keel::SourceLocation loc) {
@@ -38,7 +39,7 @@ void ActivityBarScope::Spacer(keel::f32 flex, keel::SourceLocation loc) {
     };
 }
 
-ActivityBarScope ActivityBar::Open(
+ActivityBarScope detail::ActivityBar::Open(
     Context& ctx,
     const ActivityBarOptions& opts,
     keel::SourceLocation loc
@@ -104,7 +105,7 @@ ActivityBarScope ActivityBar::Open(
     return ActivityBarScope(&ctx, node, res, opts);
 }
 
-Response ActivityBar::Run(
+Response detail::ActivityBar::Run(
     Context& ctx,
     keel::i32& activeIndex,
     keel::ArrayRef<ActivityBarItem> items,
@@ -130,7 +131,7 @@ Response ActivityBar::Run(
     return barRes;
 }
 
-Response ActivityBar::Item(
+Response detail::ActivityBar::Item(
     Context& ctx,
     const ActivityBarItem& item,
     const ActivityBarOptions& barOpts,
@@ -204,19 +205,19 @@ Response ActivityBar::Item(
     node->measureFn = [](const Node* n, keel::f32 /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<ActivityBarItemData>();
         if (!d) return {0.0f, 0.0f};
-        return ActivityBar::MeasureItem(d->item, d->barOpts, n->uiSize, canvas, theme);
+        return detail::ActivityBar::MeasureItem(d->item, d->barOpts, n->uiSize, canvas, theme);
     };
 
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* d = n->As<ActivityBarItemData>();
         if (!d) return;
-        ActivityBar::RenderItem(canvas, n->computedRect, d->item, d->barOpts, n->uiSize, n->hovered, n->pressed, n->disabled, theme, n->focused);
+        detail::ActivityBar::RenderItem(canvas, n->computedRect, d->item, d->barOpts, n->uiSize, n->hovered, n->pressed, n->disabled, theme, n->focused);
     };
 
     return res;
 }
 
-Vec2 ActivityBar::MeasureItem(
+Vec2 detail::ActivityBar::MeasureItem(
     const ActivityBarItem& /*item*/,
     const ActivityBarOptions& /*opts*/,
     UiSize size,
@@ -227,7 +228,7 @@ Vec2 ActivityBar::MeasureItem(
     return {m.defaultHeight, m.defaultHeight};
 }
 
-void ActivityBar::RenderItem(
+void detail::ActivityBar::RenderItem(
     ICanvas& canvas,
     Rect bounds,
     const ActivityBarItem& item,

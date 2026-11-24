@@ -1322,7 +1322,7 @@ EditorLayoutRects ComputeEditorLayout(
         ButtonOptions stableCopyOpts{};
         stableCopyOpts.text = "Copy";
         stableCopyOpts.icon = Icon::Copy();
-        stableCopyReserve = Button::Measure(stableCopyOpts, L.toolbarSize, canvas, theme).x + tbGap * 0.75f;
+        stableCopyReserve = detail::Button::Measure(stableCopyOpts, L.toolbarSize, canvas, theme).x + tbGap * 0.75f;
     }
 
     if (!searchOpen && !gotoOpen) {
@@ -1330,7 +1330,7 @@ EditorLayoutRects ComputeEditorLayout(
             ButtonOptions copyOpts{};
             copyOpts.text = copyFeedbackActive ? "Copied" : "Copy";
             copyOpts.icon = copyFeedbackActive ? Icon::Check() : Icon::Copy();
-            const Vec2 copySz = Button::Measure(copyOpts, L.toolbarSize, canvas, theme);
+            const Vec2 copySz = detail::Button::Measure(copyOpts, L.toolbarSize, canvas, theme);
             L.copyBtnRect = Rect(rightCursor - copySz.x, overlayTop, copySz.x, copySz.y);
             rightCursor -= (copySz.x + tbGap * 0.75f);
         }
@@ -1339,7 +1339,7 @@ EditorLayoutRects ComputeEditorLayout(
             char zBuf[16]{};
             ButtonOptions zoomOpts{};
             zoomOpts.text = keel::format_buf(zBuf, "{}%", keel::round_i32(effZoom * 100.0f));
-            const Vec2 zSz = Button::Measure(zoomOpts, L.toolbarSize, canvas, theme);
+            const Vec2 zSz = detail::Button::Measure(zoomOpts, L.toolbarSize, canvas, theme);
             L.zoomBtnRect = Rect(rightCursor - zSz.x, overlayTop, zSz.x, zSz.y);
             rightCursor -= (zSz.x + tbGap * 0.75f);
         }
@@ -1350,7 +1350,7 @@ EditorLayoutRects ComputeEditorLayout(
         ButtonOptions sqOpts{};
         sqOpts.icon = Icon::Close();
         sqOpts.square = true;
-        const Vec2 sqSz = Button::Measure(sqOpts, L.toolbarSize, canvas, theme);
+        const Vec2 sqSz = detail::Button::Measure(sqOpts, L.toolbarSize, canvas, theme);
         const keel::f32 rowH = sqSz.y;
         const keel::f32 sqBtn = sqSz.x;
         const keel::f32 pad = keel::max(4.0f, tbGap * 0.65f);
@@ -1405,12 +1405,12 @@ EditorLayoutRects ComputeEditorLayout(
             ButtonOptions rep1Opts{};
             rep1Opts.text = "1";
             rep1Opts.icon = Icon::Replace();
-            const keel::f32 w1 = Button::Measure(rep1Opts, L.toolbarSize, canvas, theme).x;
+            const keel::f32 w1 = detail::Button::Measure(rep1Opts, L.toolbarSize, canvas, theme).x;
 
             ButtonOptions repAllOpts{};
             repAllOpts.text = "All";
             repAllOpts.icon = Icon::ReplaceAll();
-            const keel::f32 w2 = Button::Measure(repAllOpts, L.toolbarSize, canvas, theme).x;
+            const keel::f32 w2 = detail::Button::Measure(repAllOpts, L.toolbarSize, canvas, theme).x;
 
             S.replaceInputRect = Rect(repX, y2, S.findInputRect.w, rowH);
             keel::f32 rx = S.replaceInputRect.Right() + gap;
@@ -1426,7 +1426,7 @@ EditorLayoutRects ComputeEditorLayout(
         dbgBtnOpts.icon = Icon::DebugContinue();
         dbgBtnOpts.square = true;
         dbgBtnOpts.color = StateColor::Ghost();
-        const Vec2 btnSz = Button::Measure(dbgBtnOpts, L.toolbarSize, canvas, theme);
+        const Vec2 btnSz = detail::Button::Measure(dbgBtnOpts, L.toolbarSize, canvas, theme);
         const keel::f32 btnW = btnSz.x;
         const keel::f32 btnH2 = btnSz.y;
         const keel::f32 gap = keel::max(2.0f, tbGap * 0.50f);
@@ -1641,7 +1641,7 @@ SyntaxConfig SyntaxConfig::ForLanguage(keel::StringRef langTag) noexcept {
     return Cpp();
 }
 
-void TextArea::HighlightLine(
+void detail::TextArea::HighlightLine(
     keel::StringRef lineText,
     keel::usize /*lineIndex*/,
     const SyntaxConfig& config,
@@ -1856,7 +1856,7 @@ void TextArea::HighlightLine(
     }
 }
 
-void TextArea::CppHighlighter(
+void detail::TextArea::CppHighlighter(
     keel::StringRef lineText,
     keel::usize lineIndex,
     keel::Array<TextSpan>& outSpans,
@@ -1865,7 +1865,7 @@ void TextArea::CppHighlighter(
     HighlightLine(lineText, lineIndex, SyntaxConfig::Cpp(), outSpans, theme, nullptr, nullptr);
 }
 
-TextAreaResponse TextArea::Run(
+TextAreaResponse detail::TextArea::Run(
     Context& ctx,
     keel::Optional<keel::StringSink> stringValue,
     keel::StringRef displayFallback,
@@ -2027,7 +2027,7 @@ TextAreaResponse TextArea::Run(
 
     const Rect refBounds = (res.rect.w > 0.0f && res.rect.h > 0.0f)
         ? res.rect
-        : Rect({0.0f, 0.0f}, TextArea::Measure(valStr, optsCopy, activeSize, canvas, theme));
+        : Rect({0.0f, 0.0f}, detail::TextArea::Measure(valStr, optsCopy, activeSize, canvas, theme));
 
     // Synchronize active edit buffer for both editable and readOnly
     if (isFocused || ctx.HasActiveTextEdit(id)) {
@@ -3323,12 +3323,12 @@ TextAreaResponse TextArea::Run(
             mOpts.width = SizeMode::Stretch;
         }
         mOpts.zoom = d->zoom;
-        return TextArea::Measure(d->text, mOpts, n->uiSize, c, t, availableWidth);
+        return detail::TextArea::Measure(d->text, mOpts, n->uiSize, c, t, availableWidth);
     };
     node->renderFn = [](const Node* n, ICanvas& c, const UiTheme& t) {
         const auto* d = n->As<TextAreaData>();
         if (d) {
-            TextArea::Render(
+            detail::TextArea::Render(
                 c,
                 n->computedRect,
                 d->text,
@@ -3365,7 +3365,7 @@ TextAreaResponse TextArea::Run(
     return res;
 }
 
-Vec2 TextArea::Measure(
+Vec2 detail::TextArea::Measure(
     keel::StringRef text,
     const TextAreaOptions& opts,
     UiSize size,
@@ -3376,7 +3376,7 @@ Vec2 TextArea::Measure(
     return MeasureEditorBox(text, opts, size, canvas, theme, opts.zoom, availableWidth);
 }
 
-Vec2 TextArea::Measure(
+Vec2 detail::TextArea::Measure(
     keel::StringRef text,
     const TextAreaOptions& opts,
     UiSize size,
@@ -3385,7 +3385,7 @@ Vec2 TextArea::Measure(
     return Measure(text, opts, size, canvas, UiTheme::Dark(), 0.0f);
 }
 
-void TextArea::Render(
+void detail::TextArea::Render(
     ICanvas& canvas,
     Rect bounds,
     keel::StringRef text,
@@ -4253,7 +4253,7 @@ void TextArea::Render(
             keel::max(1.0f, DT.btnRects[4].x - DT.btnRects[3].Right()),
             DT.panelRect.h
         );
-        Toolbar::RenderSeparator(canvas, sepRect, pal.borderSubtle, theme);
+        detail::Toolbar::RenderSeparator(canvas, sepRect, pal.borderSubtle, theme);
 
         static constexpr keel::StaticArray<IconId, 6> kDbgIcons = {
             IconId::DebugContinue, // Continue (F5)
@@ -4282,7 +4282,7 @@ void TextArea::Render(
             bOpts.color = StateColor::Ghost();
             bOpts.iconColor = bHov ? baseCol : baseCol.WithAlphaF(0.95f);
             bOpts.width = SizeMode::Stretch;
-            Button::Render(canvas, br, bOpts, tbSize, bHov, false, disabled, theme, false);
+            detail::Button::Render(canvas, br, bOpts, tbSize, bHov, false, disabled, theme, false);
         }
     }
 
@@ -4300,7 +4300,7 @@ void TextArea::Render(
             bOpts.color = activeToggle ? StateColor::Primary() : StateColor::Ghost();
             bOpts.active = activeToggle;
             bOpts.width = SizeMode::Stretch;
-            Button::Render(canvas, rBtn, bOpts, tbSize, hovBtn == btnIdx, false, disabled, theme, false);
+            detail::Button::Render(canvas, rBtn, bOpts, tbSize, hovBtn == btnIdx, false, disabled, theme, false);
         };
 
         const keel::f32 inputPadX = keel::max(6.0f, tbCm.paddingX * 0.55f);
@@ -4331,7 +4331,7 @@ void TextArea::Render(
                 caseOpts.color = extData->matchCase ? StateColor::Primary() : StateColor::Ghost();
                 caseOpts.active = extData->matchCase;
                 caseOpts.width = SizeMode::Stretch;
-                Button::Render(canvas, S.caseBtnRect, caseOpts, tbSize, hovBtn == 1, false, disabled, theme, false);
+                detail::Button::Render(canvas, S.caseBtnRect, caseOpts, tbSize, hovBtn == 1, false, disabled, theme, false);
             }
             // Match Whole Word ("ab" with bottom bracket underline) square toggle button
             {
@@ -4341,7 +4341,7 @@ void TextArea::Render(
                 wordOpts.color = extData->wholeWord ? StateColor::Primary() : StateColor::Ghost();
                 wordOpts.active = extData->wholeWord;
                 wordOpts.width = SizeMode::Stretch;
-                Button::Render(canvas, S.wordBtnRect, wordOpts, tbSize, hovBtn == 2, false, disabled, theme, false);
+                detail::Button::Render(canvas, S.wordBtnRect, wordOpts, tbSize, hovBtn == 2, false, disabled, theme, false);
 
                 const Color fg = extData->wholeWord ? theme.GetVariant(UiVariant::Primary).text : ((hovBtn == 2) ? pal.textPrimary : pal.textSecondary);
                 const keel::f32 bx1 = S.wordBtnRect.x + S.wordBtnRect.w * 0.20f;
@@ -4393,7 +4393,7 @@ void TextArea::Render(
                     rep1Opts.icon = Icon::Replace();
                     rep1Opts.color = StateColor::Ghost();
                     rep1Opts.width = SizeMode::Stretch;
-                    Button::Render(canvas, S.replaceOneBtnRect, rep1Opts, tbSize, hovBtn == 6, false, disabled, theme, false);
+                    detail::Button::Render(canvas, S.replaceOneBtnRect, rep1Opts, tbSize, hovBtn == 6, false, disabled, theme, false);
                 }
                 {
                     ButtonOptions repAllOpts{};
@@ -4401,7 +4401,7 @@ void TextArea::Render(
                     repAllOpts.icon = Icon::ReplaceAll();
                     repAllOpts.color = StateColor::Ghost();
                     repAllOpts.width = SizeMode::Stretch;
-                    Button::Render(canvas, S.replaceAllBtnRect, repAllOpts, tbSize, hovBtn == 7, false, disabled, theme, false);
+                    detail::Button::Render(canvas, S.replaceAllBtnRect, repAllOpts, tbSize, hovBtn == 7, false, disabled, theme, false);
                 }
             }
         } else if (gotoOpen) {
@@ -4429,7 +4429,7 @@ void TextArea::Render(
         copyOpts.color = copied ? StateColor::Success() : StateColor::Secondary();
         copyOpts.active = copied;
         copyOpts.width = SizeMode::Stretch;
-        Button::Render(canvas, L.copyBtnRect, copyOpts, tbSize, copyHov, false, disabled, theme, false);
+        detail::Button::Render(canvas, L.copyBtnRect, copyOpts, tbSize, copyHov, false, disabled, theme, false);
     }
 
     if (L.zoomBtnRect.w > 0.0f) {
@@ -4439,7 +4439,7 @@ void TextArea::Render(
         zoomOpts.text = keel::format_buf(zBuf, "{}%", keel::round_i32(effZoom * 100.0f));
         zoomOpts.color = StateColor::Secondary();
         zoomOpts.width = SizeMode::Stretch;
-        Button::Render(canvas, L.zoomBtnRect, zoomOpts, tbSize, zHov, false, disabled, theme, false);
+        detail::Button::Render(canvas, L.zoomBtnRect, zoomOpts, tbSize, zHov, false, disabled, theme, false);
     }
 
     canvas.PopClip();

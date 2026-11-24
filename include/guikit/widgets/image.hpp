@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -45,6 +46,8 @@ struct ImagePayload {
 };
 
 /// Stateless leaf Control widget for rendering vector (SVG) and raster (PNG, JPG) images.
+namespace detail {
+
 class Image {
 public:
     /// Immediate mode entry point for Image widget.
@@ -93,5 +96,26 @@ public:
         keel::f32 cellSize = 10.0f
     );
 };
+
+} // namespace detail
+
+inline Response Image(
+    Context& ui,
+    keel::StringRef source,
+    ImageOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::Image::Run(ui, source, opts, loc);
+}
+
+inline Response Image(
+    Context& ui,
+    ImageOptions opts,
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::Image::Run(ui, opts.source, opts, loc);
+}
 
 } // namespace guikit

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
@@ -261,6 +262,8 @@ struct ImageViewResponse : public Response {
 };
 
 /// Production-ready single-channel (16-bit/float radiograph/scientific) and multi-channel (RGB) Image Viewer.
+namespace detail {
+
 class ImageView {
 public:
     static Vec2 Measure(
@@ -297,5 +300,28 @@ public:
         ChannelTransferParams& ioTransfer
     ) noexcept;
 };
+
+} // namespace detail
+
+inline ImageViewResponse ImageView(
+    Context& ui,
+    const ImageViewData& data,
+    ImageViewParams& params,
+    const ImageViewOptions& opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::ImageView::Run(ui, data, params, opts, loc);
+}
+
+inline ImageViewResponse ImageView(
+    Context& ui,
+    const ImageViewData& data,
+    const ImageViewOptions& opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::ImageView::Run(ui, data, opts, loc);
+}
 
 } // namespace guikit

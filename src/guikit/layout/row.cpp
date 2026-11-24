@@ -5,7 +5,7 @@
 
 namespace guikit {
 
-ContainerScope Row::Open(
+ContainerScope detail::Row::Open(
     Context& ctx,
     const RowOptions& opts,
     keel::SourceLocation loc

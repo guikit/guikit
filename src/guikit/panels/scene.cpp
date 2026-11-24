@@ -950,7 +950,7 @@ void UpdateSceneCameraTransform(
 
         if (showVScroll) {
             keel::f32 scrollY = keel::clamp(-state.pan.y, 0.0f, keel::max(0.0f, worldScreenH - vp.h));
-            ScrollArea::UpdateAxisScrollbar(
+            detail::ScrollArea::UpdateAxisScrollbar(
                 ctx,
                 node->id,
                 vp,
@@ -974,7 +974,7 @@ void UpdateSceneCameraTransform(
 
         if (showHScroll) {
             keel::f32 scrollX = keel::clamp(-state.pan.x, 0.0f, keel::max(0.0f, worldScreenW - vp.w));
-            ScrollArea::UpdateAxisScrollbar(
+            detail::ScrollArea::UpdateAxisScrollbar(
                 ctx,
                 node->id,
                 vp,
@@ -1120,7 +1120,7 @@ void UpdateSceneCameraTransform(
 
 } // namespace
 
-SceneScope Scene::Open(
+SceneScope detail::Scene::Open(
     Context& ctx,
     const SceneOptions& opts,
     keel::SourceLocation loc
@@ -1128,7 +1128,7 @@ SceneScope Scene::Open(
     return OpenWithId(ctx, ctx.MakeChildId(loc), opts);
 }
 
-SceneScope Scene::OpenWithId(
+SceneScope detail::Scene::OpenWithId(
     Context& ctx,
     Id id,
     const SceneOptions& opts
@@ -1156,15 +1156,15 @@ SceneScope Scene::OpenWithId(
     node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& th) noexcept -> Vec2 {
         const auto* p = n->As<ScenePayload>();
         if (!p) return {0.0f, 0.0f};
-        return Scene::Measure(p->opts, n->uiSize, canvas, th, availableWidth);
+        return detail::Scene::Measure(p->opts, n->uiSize, canvas, th, availableWidth);
     };
     static constexpr PanelHooks kSceneHooks{
-        .contentClip = [](const Node* n, const UiTheme& th) -> Rect { return Scene::GetViewportRect(n, nullptr, th); },
-        .update = &Scene::Update
+        .contentClip = [](const Node* n, const UiTheme& th) -> Rect { return detail::Scene::GetViewportRect(n, nullptr, th); },
+        .update = &detail::Scene::Update
     };
     node->panelHooks = &kSceneHooks;
-    node->renderFn = &Scene::RenderBackgroundAndWorld;
-    node->postRenderFn = &Scene::RenderOverlays;
+    node->renderFn = &detail::Scene::RenderBackgroundAndWorld;
+    node->postRenderFn = &detail::Scene::RenderOverlays;
 
     constexpr keel::f32 kDefaultSceneMinHeightDp = 220.0f;
     const keel::f32 effMinHeightDp = optsCopy.height.IsFixed()
@@ -1267,12 +1267,12 @@ SceneScope Scene::OpenWithId(
     return SceneScope(&ctx, node, payload, prevVp);
 }
 
-Rect Scene::GetViewportRect(const Node* node, ICanvas* /*canvas*/, const UiTheme& /*theme*/) noexcept {
+Rect detail::Scene::GetViewportRect(const Node* node, ICanvas* /*canvas*/, const UiTheme& /*theme*/) noexcept {
     if (!node) return {};
     return node->computedRect;
 }
 
-Vec2 Scene::Measure(
+Vec2 detail::Scene::Measure(
     const SceneOptions& opts,
     UiSize /*size*/,
     ICanvas* /*canvas*/,
@@ -1282,7 +1282,7 @@ Vec2 Scene::Measure(
     return ComputeSceneControlSize(opts, theme, availableWidth);
 }
 
-void Scene::Update(Context& ctx, Node* node) {
+void detail::Scene::Update(Context& ctx, Node* node) {
     if (!node || !node->id.IsValid()) return;
     auto* payload = node->As<ScenePayload>();
     if (!payload || !payload->state) return;
@@ -1503,7 +1503,7 @@ void Scene::Update(Context& ctx, Node* node) {
     }
 }
 
-void Scene::RenderBackgroundAndWorld(
+void detail::Scene::RenderBackgroundAndWorld(
     const Node* node,
     ICanvas& canvas,
     const UiTheme& theme
@@ -1525,7 +1525,7 @@ void Scene::RenderBackgroundAndWorld(
 
     // 1. Render Background Pattern
     if (opts.backgroundStyle == SceneBackground::Checkerboard) {
-        Image::DrawCheckerboard(canvas, vp, rad, theme, 12.0f);
+        detail::Image::DrawCheckerboard(canvas, vp, rad, theme, 12.0f);
     } else if (bgCol.a > 0) {
         canvas.DrawRoundRect(vp, rad, bgCol);
     }
@@ -1824,7 +1824,7 @@ void Scene::RenderBackgroundAndWorld(
     canvas.PopClip();
 }
 
-void Scene::RenderOverlays(
+void detail::Scene::RenderOverlays(
     const Node* node,
     ICanvas& canvas,
     const UiTheme& theme
@@ -1850,7 +1850,7 @@ void Scene::RenderOverlays(
     // 1. Render 2D Scrollbars via shared ScrollArea primitive
     const ScrollData* sd = node->scroll;
     if (showVScroll) {
-        ScrollArea::RenderAxisScrollbar(
+        detail::ScrollArea::RenderAxisScrollbar(
             canvas,
             vp,
             worldScreenH,
@@ -1866,7 +1866,7 @@ void Scene::RenderOverlays(
         );
     }
     if (showHScroll) {
-        ScrollArea::RenderAxisScrollbar(
+        detail::ScrollArea::RenderAxisScrollbar(
             canvas,
             vp,
             worldScreenW,

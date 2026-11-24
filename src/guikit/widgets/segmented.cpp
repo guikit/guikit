@@ -160,7 +160,7 @@ Color ResolveContrastingTextOnFill(Color fill, const ThemePalette& pal) noexcept
 
 } // namespace
 
-Vec2 Segmented::Measure(
+Vec2 detail::Segmented::Measure(
     keel::ArrayRef<SegmentedItem> items,
     const SegmentedOptions& opts,
     UiSize size,
@@ -173,7 +173,7 @@ Vec2 Segmented::Measure(
     return Control::Measure(boxDims, ctrl, theme);
 }
 
-Vec2 Segmented::Measure(
+Vec2 detail::Segmented::Measure(
     keel::ArrayRef<SegmentedItem> items,
     const SegmentedOptions& opts,
     UiSize size,
@@ -184,7 +184,7 @@ Vec2 Segmented::Measure(
     return Measure(items, opts, size, canvas, defaultTheme, availableWidth);
 }
 
-Response Segmented::Run(
+Response detail::Segmented::Run(
     Context& ctx,
     keel::usize* selectedIndex,
     keel::i32* selectedIntIndex,
@@ -201,7 +201,7 @@ Response Segmented::Run(
     return Run(ctx, selectedIndex, selectedIntIndex, selectedMask, richItems.as_ref(), opts, loc);
 }
 
-Response Segmented::Run(
+Response detail::Segmented::Run(
     Context& ctx,
     keel::usize* selectedIndex,
     keel::i32* selectedIntIndex,
@@ -405,12 +405,12 @@ Response Segmented::Run(
     node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* c, const UiTheme& t) noexcept -> Vec2 {
         const auto* d = n->As<SegmentedData>();
         if (!d) return {0.0f, 0.0f};
-        return Segmented::Measure(d->items, d->opts, n->uiSize, c, t, availableWidth);
+        return detail::Segmented::Measure(d->items, d->opts, n->uiSize, c, t, availableWidth);
     };
     node->renderFn = [](const Node* n, ICanvas& c, const UiTheme& t) noexcept {
         const auto* d = n->As<SegmentedData>();
         if (!d) return;
-        Segmented::Render(
+        detail::Segmented::Render(
             c,
             n->computedRect,
             d->items,
@@ -438,7 +438,7 @@ Response Segmented::Run(
     return res;
 }
 
-void Segmented::Render(
+void detail::Segmented::Render(
     ICanvas& canvas,
     Rect bounds,
     keel::ArrayRef<SegmentedItem> items,

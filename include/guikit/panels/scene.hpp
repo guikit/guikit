@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/id.hpp"
@@ -447,6 +448,8 @@ private:
 };
 
 /// 2D Camera and World Viewport container implementation.
+namespace detail {
+
 class Scene {
 public:
     /// Opens an immediate mode 2D Scene container.
@@ -492,5 +495,24 @@ public:
         const UiTheme& theme
     );
 };
+
+} // namespace detail
+
+[[nodiscard]] inline SceneScope Scene(
+    Context& ui,
+    SceneOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::Scene::Open(ui, opts, loc);
+}
+
+/// Opens an interactive 2D Scene viewport with an explicit deterministic `Id`.
+[[nodiscard]] inline SceneScope OpenSceneWithId(
+    Context& ui,
+    Id id,
+    const SceneOptions& opts = {}
+) {
+    return detail::Scene::OpenWithId(ui, id, opts);
+}
 
 } // namespace guikit

@@ -731,9 +731,9 @@ Response RunLevelMeterImpl(
     node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<LevelMeterData>();
         if (!d) {
-            return LevelMeter::Measure(1, -60.0, 0.0, LevelMeterOptions{}, n->uiSize, canvas, theme, availableWidth);
+            return detail::LevelMeter::Measure(1, -60.0, 0.0, LevelMeterOptions{}, n->uiSize, canvas, theme, availableWidth);
         }
-        return LevelMeter::Measure(
+        return detail::LevelMeter::Measure(
             d->channelCount,
             d->min,
             d->max,
@@ -745,7 +745,7 @@ Response RunLevelMeterImpl(
         );
     };
 
-    node->renderFn = &LevelMeter::Render;
+    node->renderFn = &detail::LevelMeter::Render;
 
     Control::SetupNode(ctx, node, ctrl);
     return res;
@@ -753,7 +753,7 @@ Response RunLevelMeterImpl(
 
 } // namespace
 
-Response LevelMeter::Run(
+Response detail::LevelMeter::Run(
     Context& ctx,
     keel::f64 value,
     keel::f64 min,
@@ -764,7 +764,7 @@ Response LevelMeter::Run(
     return RunLevelMeterImpl(ctx, &value, 1, min, max, opts, loc);
 }
 
-Response LevelMeter::Run(
+Response detail::LevelMeter::Run(
     Context& ctx,
     keel::ArrayRef<keel::f32> channelValues,
     keel::f32 min,
@@ -786,7 +786,7 @@ Response LevelMeter::Run(
     return RunLevelMeterImpl(ctx, vals.data(), count, keel::as<keel::f64>(min), keel::as<keel::f64>(max), opts, loc);
 }
 
-Vec2 LevelMeter::Measure(
+Vec2 detail::LevelMeter::Measure(
     keel::usize channelCount,
     keel::f64 min,
     keel::f64 max,
@@ -801,7 +801,7 @@ Vec2 LevelMeter::Measure(
     return Control::Measure(mm.intrinsicSize, ctrl, theme);
 }
 
-void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
+void detail::LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
     if (!node) return;
     const auto* d = node->As<LevelMeterData>();
     if (!d) return;

@@ -20,7 +20,7 @@ Rect ComputeTabCloseButtonRect(Rect bounds, const ComponentMetrics& m) noexcept 
 
 } // namespace
 
-TabBarResponse TabBar::Run(
+TabBarResponse detail::TabBar::Run(
     Context& ctx,
     keel::i32& activeIndex,
     keel::ArrayRef<TabItem> tabs,
@@ -42,7 +42,7 @@ TabBarResponse TabBar::Run(
         cOpts.size = activeSize;
         cOpts.disabled = activeDisabled;
 
-        carouselScope.emplace(ctx.Carousel(cOpts, loc));
+        carouselScope.emplace(guikit::Carousel(ctx, cOpts, loc));
         barNode = carouselScope->GetNode();
     } else {
         const Id barId = ctx.MakeChildId(loc);
@@ -217,7 +217,7 @@ TabBarResponse TabBar::Run(
         );
         tabNode->measureFn = [](const Node* n, keel::f32 /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
             const auto* d = n->As<TabItemData>();
-            return TabBar::MeasureTab(
+            return detail::TabBar::MeasureTab(
                 d ? d->item : TabItem{},
                 d ? d->barOpts : TabBarOptions{},
                 n->uiSize,
@@ -227,7 +227,7 @@ TabBarResponse TabBar::Run(
         };
         tabNode->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
             const auto* d = n->As<TabItemData>();
-            TabBar::RenderTab(
+            detail::TabBar::RenderTab(
                 canvas,
                 n->computedRect,
                 d ? d->item : TabItem{},
@@ -261,7 +261,7 @@ TabBarResponse TabBar::Run(
     return res;
 }
 
-Vec2 TabBar::MeasureTab(
+Vec2 detail::TabBar::MeasureTab(
     const TabItem& item,
     const TabBarOptions& opts,
     UiSize size,
@@ -301,7 +301,7 @@ Vec2 TabBar::MeasureTab(
     return {keel::max(m.defaultHeight, totalW), m.defaultHeight};
 }
 
-Vec2 TabBar::MeasureTab(
+Vec2 detail::TabBar::MeasureTab(
     const TabItem& item,
     const TabBarOptions& opts,
     UiSize size,
@@ -310,7 +310,7 @@ Vec2 TabBar::MeasureTab(
     return MeasureTab(item, opts, size, canvas, UiTheme::Dark());
 }
 
-void TabBar::RenderTab(
+void detail::TabBar::RenderTab(
     ICanvas& canvas,
     Rect bounds,
     const TabItem& item,

@@ -86,7 +86,7 @@ SidebarMode PrevSidebarMode(
 
 } // namespace
 
-SidebarScope Sidebar::Open(
+SidebarScope detail::Sidebar::Open(
     Context& ctx,
     SidebarMode* externalMode,
     const SidebarOptions& opts,
@@ -465,8 +465,8 @@ SidebarScope Sidebar::Open(
         node->scroll->orientation = Orientation::Vertical;
         node->scroll->policy = opts.scrollbar;
         node->scroll->solverManaged = true;
-        node->postRenderFn = &ScrollArea::RenderScrollbar;
-        node->panelHooks = ScrollArea::Hooks();
+        node->postRenderFn = &detail::ScrollArea::RenderScrollbar;
+        node->panelHooks = detail::ScrollArea::Hooks();
 
         auto& scrollState = ctx.GetOrCreatePersistentState<ScrollState>(id);
         node->scroll->offset = scrollState.offset;

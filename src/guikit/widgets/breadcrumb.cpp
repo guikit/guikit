@@ -370,7 +370,7 @@ void RenderBreadcrumbPopup(
 
 } // namespace
 
-Vec2 Breadcrumb::Measure(
+Vec2 detail::Breadcrumb::Measure(
     keel::ArrayRef<BreadcrumbItem> items,
     const BreadcrumbOptions& opts,
     UiSize size,
@@ -382,7 +382,7 @@ Vec2 Breadcrumb::Measure(
     return Control::Measure(boxDims, ctrl, theme);
 }
 
-Response Breadcrumb::Run(
+Response detail::Breadcrumb::Run(
     Context& ctx,
     keel::usize& activeIndex,
     keel::ArrayRef<keel::StringRef> items,
@@ -396,7 +396,7 @@ Response Breadcrumb::Run(
     return Run(ctx, activeIndex, keel::ArrayRef<BreadcrumbItem>(richItems, items.size()), opts, loc);
 }
 
-Response Breadcrumb::Run(
+Response detail::Breadcrumb::Run(
     Context& ctx,
     keel::i32& activeIndex,
     keel::ArrayRef<keel::StringRef> items,
@@ -411,7 +411,7 @@ Response Breadcrumb::Run(
     return res;
 }
 
-Response Breadcrumb::Run(
+Response detail::Breadcrumb::Run(
     Context& ctx,
     keel::i32& activeIndex,
     keel::ArrayRef<BreadcrumbItem> items,
@@ -426,7 +426,7 @@ Response Breadcrumb::Run(
     return res;
 }
 
-Response Breadcrumb::Run(
+Response detail::Breadcrumb::Run(
     Context& ctx,
     keel::usize& activeIndex,
     keel::ArrayRef<BreadcrumbItem> items,
@@ -820,9 +820,9 @@ Response Breadcrumb::Run(
     node->measureFn = [](const Node* n, keel::f32 /*availableWidth*/, ICanvas* c, const UiTheme& t) noexcept -> Vec2 {
         const auto* d = n->As<BreadcrumbData>();
         if (!d) return {0.0f, 0.0f};
-        return Breadcrumb::Measure(d->items, d->opts, n->uiSize, c, t);
+        return detail::Breadcrumb::Measure(d->items, d->opts, n->uiSize, c, t);
     };
-    node->renderFn = &Breadcrumb::Render;
+    node->renderFn = &detail::Breadcrumb::Render;
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
@@ -835,7 +835,7 @@ Response Breadcrumb::Run(
     return res;
 }
 
-void Breadcrumb::Render(
+void detail::Breadcrumb::Render(
     const Node* node,
     ICanvas& canvas,
     const UiTheme& theme

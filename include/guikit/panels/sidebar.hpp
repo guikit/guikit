@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/tokens.hpp"
@@ -113,6 +114,8 @@ private:
 };
 
 /// Autonomous immediate mode dockable Sidebar panel container entry point.
+namespace detail {
+
 class Sidebar {
 public:
     [[nodiscard]] static SidebarScope Open(
@@ -130,5 +133,36 @@ public:
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 };
+
+} // namespace detail
+
+[[nodiscard]] inline SidebarScope Sidebar(
+    Context& ui,
+    SidebarOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::Sidebar::Open(ui, nullptr, opts, loc);
+}
+
+[[nodiscard]] inline SidebarScope Sidebar(
+    Context& ui,
+    SidebarMode& mode,
+    SidebarOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::Sidebar::Open(ui, &mode, opts, loc);
+}
+
+[[nodiscard]] inline SidebarScope Sidebar(
+    Context& ui,
+    bool& open,
+    SidebarOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    SidebarMode mode = open ? SidebarMode::Expanded : SidebarMode::Collapsed;
+    SidebarScope scope = detail::Sidebar::Open(ui, &mode, opts, loc);
+    open = (mode != SidebarMode::Collapsed);
+    return scope;
+}
 
 } // namespace guikit

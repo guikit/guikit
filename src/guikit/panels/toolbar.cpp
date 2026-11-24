@@ -1,4 +1,8 @@
 #include "guikit/panels/toolbar.hpp"
+#include "guikit/layout/separator.hpp"
+#include "guikit/layout/spacer.hpp"
+#include "guikit/panels/context_menu.hpp"
+#include "guikit/widgets/button.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
@@ -54,7 +58,7 @@ void RenderToolBadge(const Node* n, const ToolButtonPayload* p, ICanvas& canvas,
 void RenderToolButtonNode(const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
     const auto* p = n->As<ToolButtonPayload>();
     if (!p || !p->isSplit) {
-        Button::Render(canvas, n->computedRect, p ? p->btn : ButtonOptions{}, n->uiSize, n->hovered, n->pressed, n->disabled, theme, n->focused);
+        detail::Button::Render(canvas, n->computedRect, p ? p->btn : ButtonOptions{}, n->uiSize, n->hovered, n->pressed, n->disabled, theme, n->focused);
         RenderToolBadge(n, p, canvas, theme);
         return;
     }
@@ -125,7 +129,7 @@ void RenderToolButtonNode(const Node* n, ICanvas& canvas, const UiTheme& theme) 
     if (!mainBtn.iconColor.has_value()) {
         mainBtn.iconColor = textCol;
     }
-    Button::Render(canvas, mainRect, mainBtn, n->uiSize, false, false, n->disabled, theme, false);
+    detail::Button::Render(canvas, mainRect, mainBtn, n->uiSize, false, false, n->disabled, theme, false);
 
     const keel::f32 sepX = keel::floor(chevRect.x) + 0.5f;
     const keel::f32 sepPadY = (anyHov && !active) ? 2.0f : keel::round(fullRect.h * 0.20f);
@@ -163,7 +167,7 @@ void ToolbarScope::InvalidateContext() noexcept {
 
 void ToolbarScope::Separator(keel::f32 heightRatio, keel::SourceLocation loc) {
     if (!m_ctx || !m_node) return;
-    guikit::Separator::Run(*m_ctx, heightRatio, m_node->borderColor, loc);
+    guikit::detail::Separator::Run(*m_ctx, heightRatio, m_node->borderColor, loc);
 }
 
 void ToolbarScope::Spacer(keel::SourceLocation loc) {
@@ -185,7 +189,7 @@ void ToolbarScope::Spacer(keel::SourceLocation loc) {
 
 void ToolbarScope::Gap(keel::f32 sizeDp, keel::SourceLocation loc) {
     if (!m_ctx) return;
-    guikit::Spacer::Gap(*m_ctx, sizeDp, loc);
+    guikit::detail::Spacer::Gap(*m_ctx, sizeDp, loc);
 }
 
 Response ToolbarScope::ToolButton(
@@ -193,7 +197,7 @@ Response ToolbarScope::ToolButton(
     keel::SourceLocation loc
 ) {
     if (!m_ctx) return Response{};
-    return Toolbar::ToolButton(*m_ctx, opts, loc);
+    return detail::Toolbar::ToolButton(*m_ctx, opts, loc);
 }
 
 Response ToolbarScope::Toggle(
@@ -208,7 +212,7 @@ Response ToolbarScope::Toggle(
     } else if (!active) {
         opts.color = StateColor::Ghost();
     }
-    Response res = Toolbar::ToolButton(*m_ctx, opts, loc);
+    Response res = detail::Toolbar::ToolButton(*m_ctx, opts, loc);
     if (res.clicked) {
         active = !active;
         res.changed = true;
@@ -231,13 +235,13 @@ ContextMenuResponse ToolbarScope::Dropdown(
     struct DropdownMenuState {
         bool open{false};
     };
-    const Response btnRes = Toolbar::ToolButton(*m_ctx, opts, loc);
+    const Response btnRes = detail::Toolbar::ToolButton(*m_ctx, opts, loc);
     auto& state = m_ctx->GetOrCreateState<DropdownMenuState>(btnRes.id);
     if (btnRes.clicked) {
         state.open = !state.open;
     }
     menuOpts.anchorRect = btnRes.rect;
-    return ContextMenu::Run(*m_ctx, state.open, menuItems, menuOpts, loc);
+    return detail::ContextMenu::Run(*m_ctx, state.open, menuItems, menuOpts, loc);
 }
 
 SplitButtonResponse ToolbarScope::SplitButton(
@@ -247,7 +251,7 @@ SplitButtonResponse ToolbarScope::SplitButton(
     keel::SourceLocation loc
 ) {
     if (!m_ctx) return SplitButtonResponse{};
-    return Toolbar::SplitButton(*m_ctx, opts, menuItems, keel::move(menuOpts), loc);
+    return detail::Toolbar::SplitButton(*m_ctx, opts, menuItems, keel::move(menuOpts), loc);
 }
 
 SplitButtonResponse ToolbarScope::SplitToggle(
@@ -298,7 +302,7 @@ SplitButtonResponse ToolbarScope::SplitToggle(
         menuItems.push_back(item);
     }
 
-    SplitButtonResponse res = Toolbar::SplitButton(*m_ctx, opts, menuItems, keel::move(menuOpts), loc);
+    SplitButtonResponse res = detail::Toolbar::SplitButton(*m_ctx, opts, menuItems, keel::move(menuOpts), loc);
     if (res.clicked) {
         active = !active;
         res.toggled = true;
@@ -321,7 +325,7 @@ SplitButtonResponse ToolbarScope::SplitToggle(
     return res;
 }
 
-ToolbarScope Toolbar::Open(
+ToolbarScope detail::Toolbar::Open(
     Context& ctx,
     ToolbarOptions opts,
     keel::SourceLocation loc
@@ -391,15 +395,15 @@ ToolbarScope Toolbar::Open(
     node->disabled = effectiveDisabled;
 
     static constexpr PanelHooks kToolbarStaticHooks{
-        .contentClip = [](const Node* n, const UiTheme&) -> Rect { return Toolbar::GetContentClipRect(n); },
-        .scrollToChild = &Carousel::ScrollToChild,
-        .collectBounds = &Carousel::CollectBounds
+        .contentClip = [](const Node* n, const UiTheme&) -> Rect { return detail::Toolbar::GetContentClipRect(n); },
+        .scrollToChild = &detail::Carousel::ScrollToChild,
+        .collectBounds = &detail::Carousel::CollectBounds
     };
     static constexpr PanelHooks kToolbarScrollHooks{
-        .contentClip = [](const Node* n, const UiTheme&) -> Rect { return Toolbar::GetContentClipRect(n); },
-        .update = &Carousel::Update,
-        .scrollToChild = &Carousel::ScrollToChild,
-        .collectBounds = &Carousel::CollectBounds
+        .contentClip = [](const Node* n, const UiTheme&) -> Rect { return detail::Toolbar::GetContentClipRect(n); },
+        .update = &detail::Carousel::Update,
+        .scrollToChild = &detail::Carousel::ScrollToChild,
+        .collectBounds = &detail::Carousel::CollectBounds
     };
     node->panelHooks = &kToolbarStaticHooks;
 
@@ -407,10 +411,10 @@ ToolbarScope Toolbar::Open(
         auto* cData = ctx.AllocPayload<CarouselData>();
         cData->autoCompact = (opts.overflow == ToolbarOverflow::AutoCompact);
         node->SetPayload(cData);
-        node->arrangeFn = &Toolbar::Arrange;
+        node->arrangeFn = &detail::Toolbar::Arrange;
         node->panelHooks = &kToolbarScrollHooks;
-        node->postRenderFn = &Carousel::RenderArrows;
-        Carousel::BeginScrollInteraction(ctx, node, cData, true, effectiveDisabled);
+        node->postRenderFn = &detail::Carousel::RenderArrows;
+        detail::Carousel::BeginScrollInteraction(ctx, node, cData, true, effectiveDisabled);
     }
 
     const auto& pal = theme.palette;
@@ -472,7 +476,7 @@ ToolbarScope Toolbar::Open(
     return ToolbarScope(&ctx, node, res, opts);
 }
 
-Response Toolbar::ToolButton(
+Response detail::Toolbar::ToolButton(
     Context& ctx,
     const ToolButtonOptions& opts,
     keel::SourceLocation loc
@@ -554,7 +558,7 @@ Response Toolbar::ToolButton(
             p->btn.square = p->origSquare;
             p->btn.text = p->origSquare ? UiText{} : p->origText;
         }
-        Vec2 sz = Button::Measure(p ? p->btn : ButtonOptions{}, n->uiSize, canvas, theme, availableWidth);
+        Vec2 sz = detail::Button::Measure(p ? p->btn : ButtonOptions{}, n->uiSize, canvas, theme, availableWidth);
         if (p) {
             if (p->isSplit) {
                 sz.x += p->splitChevronWidth;
@@ -582,7 +586,7 @@ Response Toolbar::ToolButton(
     return res;
 }
 
-SplitButtonResponse Toolbar::SplitButton(
+SplitButtonResponse detail::Toolbar::SplitButton(
     Context& ctx,
     const ToolButtonOptions& opts,
     keel::ArrayRef<ContextMenuItem> menuItems,
@@ -680,7 +684,7 @@ SplitButtonResponse Toolbar::SplitButton(
     if (!menuOpts.anchorPos.has_value() && prevRect.w > 0.0f && prevRect.h > 0.0f) {
         menuOpts.anchorPos = Vec2{prevRect.x, prevRect.Bottom() + 4.0f};
     }
-    const ContextMenuResponse menuRes = ContextMenu::Run(ctx, dropState.open, menuItems, menuOpts, loc);
+    const ContextMenuResponse menuRes = detail::ContextMenu::Run(ctx, dropState.open, menuItems, menuOpts, loc);
     payload->chevronOpen = menuRes.isOpen;
     payload->chevronPressed = !effectiveDisabled && inChevron && (ctx.IsMouseClicked() || menuRes.isOpen);
 
@@ -721,7 +725,7 @@ SplitButtonResponse Toolbar::SplitButton(
             p->btn.square = p->origSquare;
             p->btn.text = p->origSquare ? UiText{} : p->origText;
         }
-        Vec2 sz = Button::Measure(p ? p->btn : ButtonOptions{}, n->uiSize, canvas, theme, availableWidth);
+        Vec2 sz = detail::Button::Measure(p ? p->btn : ButtonOptions{}, n->uiSize, canvas, theme, availableWidth);
         if (p) {
             sz.x += p->splitChevronWidth;
             p->expandedWidth = sz.x;
@@ -759,14 +763,14 @@ SplitButtonResponse Toolbar::SplitButton(
     return res;
 }
 
-void Toolbar::RenderSeparator(
+void detail::Toolbar::RenderSeparator(
     ICanvas& canvas,
     Rect bounds,
     Color color,
     const UiTheme& theme,
     Orientation orientation
 ) {
-    Separator::Render(
+    detail::Separator::Render(
         canvas,
         bounds,
         color,
@@ -776,7 +780,7 @@ void Toolbar::RenderSeparator(
     );
 }
 
-void Toolbar::Arrange(
+void detail::Toolbar::Arrange(
     Node* node,
     const Rect& availableRect,
     const UiTheme& theme
@@ -921,7 +925,7 @@ void Toolbar::Arrange(
                         p->btn.square = true;
                         p->btn.text = UiText{};
                         child->text = {};
-                        child->intrinsicSize.x = Button::Measure(p->btn, child->uiSize, nullptr, theme).x +
+                        child->intrinsicSize.x = detail::Button::Measure(p->btn, child->uiSize, nullptr, theme).x +
                                                  (p->isSplit ? p->splitChevronWidth : 0.0f);
                     }
                 }
@@ -941,10 +945,10 @@ void Toolbar::Arrange(
         }
     }
 
-    Carousel::Arrange(node, availableRect, theme);
+    detail::Carousel::Arrange(node, availableRect, theme);
 }
 
-Rect Toolbar::GetContentClipRect(const Node* node) noexcept {
+Rect detail::Toolbar::GetContentClipRect(const Node* node) noexcept {
     if (!node) return Rect{};
     if (const auto* cData = node->As<CarouselData>()) {
         if (cData->viewportRect.w > 0.0f || cData->viewportRect.h > 0.0f) {

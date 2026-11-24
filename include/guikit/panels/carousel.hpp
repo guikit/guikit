@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/id.hpp"
 #include "guikit/core/theme.hpp"
@@ -56,6 +57,8 @@ struct CarouselData {
 }
 
 /// Autonomous Carousel container logic (measuring, arrangement, and navigation overlay).
+namespace detail {
+
 class Carousel {
 public:
     /// Primary immediate mode entry point for Carousel container.
@@ -115,5 +118,15 @@ public:
         const UiTheme& theme = UiTheme::Dark()
     );
 };
+
+} // namespace detail
+
+[[nodiscard]] inline ContainerScope Carousel(
+    Context& ui,
+    CarouselOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::Carousel::Open(ui, opts, loc);
+}
 
 } // namespace guikit

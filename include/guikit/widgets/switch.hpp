@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -25,6 +26,8 @@ struct SwitchOptions {
 static_assert(sizeof(SwitchOptions) <= 512, "SwitchOptions must stay compact");
 
 /// Autonomous Switch widget logic (execution, measuring, and rendering).
+namespace detail {
+
 class Switch {
 public:
     /// Primary immediate mode entry point for Switch widget with state pointer and options.
@@ -65,5 +68,29 @@ public:
         bool focused = false
     );
 };
+
+} // namespace detail
+
+inline Response Switch(
+    Context& ui,
+    bool& value,
+    SwitchOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::Switch::Run(ui, &value, value, opts, loc);
+}
+
+inline Response Switch(
+    Context& ui,
+    const bool& checked,
+    SwitchOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::Switch::Run(ui, nullptr, checked, opts, loc);
+}
+
+Response Switch(Context& ui, const bool*, SwitchOptions = {}, keel::SourceLocation = keel::SourceLocation::current()) = delete;
 
 } // namespace guikit

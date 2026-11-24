@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -23,6 +24,8 @@ struct CheckboxOptions {
 static_assert(sizeof(CheckboxOptions) <= 384, "CheckboxOptions must stay compact");
 
 /// Autonomous Checkbox widget logic (execution, measuring, and rendering).
+namespace detail {
+
 class Checkbox {
 public:
     /// Primary immediate mode entry point for Checkbox widget with state pointer and options.
@@ -63,5 +66,29 @@ public:
         bool focused = false
     );
 };
+
+} // namespace detail
+
+inline Response Checkbox(
+    Context& ui,
+    bool& value,
+    CheckboxOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::Checkbox::Run(ui, &value, value, opts, loc);
+}
+
+inline Response Checkbox(
+    Context& ui,
+    const bool& checked,
+    CheckboxOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::Checkbox::Run(ui, nullptr, checked, opts, loc);
+}
+
+Response Checkbox(Context& ui, const bool*, CheckboxOptions = {}, keel::SourceLocation = keel::SourceLocation::current()) = delete;
 
 } // namespace guikit

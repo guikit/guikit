@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -10,6 +11,10 @@
 #include "keel/ref.h"
 
 namespace guikit {
+namespace detail {
+class ContextMenu;
+class MenuBar;
+}
 
 class Context;
 class ICanvas;
@@ -163,8 +168,8 @@ public:
     [[nodiscard]] bool AnyActivated() const noexcept;
 
 private:
-    friend class ContextMenu;
-    friend class MenuBar;
+    friend class detail::ContextMenu;
+    friend class detail::MenuBar;
     friend class MenuBarScope;
 
     MenuScope(detail::MenuTreeFrameSession* session, keel::u32 panelIdx, bool isRoot, bool active) noexcept
@@ -179,6 +184,8 @@ private:
 };
 
 /// Floating ContextMenu / Cascading Dropdown Menu component.
+namespace detail {
+
 class ContextMenu {
 public:
     /// Opens an immediate-mode RAII `MenuScope` supporting `Item`, `Checkbox`, `Radio`, `SubMenu`, `Section`, `Separator`.
@@ -210,5 +217,26 @@ public:
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 };
+
+} // namespace detail
+
+[[nodiscard]] inline MenuScope ContextMenu(
+    Context& ui,
+    bool& open,
+    const ContextMenuOptions& opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::ContextMenu::Open(ui, open, opts, loc);
+}
+
+inline ContextMenuResponse ContextMenu(
+    Context& ui,
+    bool& open,
+    keel::ArrayRef<ContextMenuItem> items,
+    const ContextMenuOptions& opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::ContextMenu::Run(ui, open, items, opts, loc);
+}
 
 } // namespace guikit

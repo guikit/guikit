@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "keel/core.h"
 #include "keel/optional.h"
 #include "keel/ref.h"
@@ -81,6 +82,8 @@ struct DatePickerData {
 };
 
 /// Autonomous DatePicker (calendar date and time popover) widget logic.
+namespace detail {
+
 class DatePicker {
 public:
     /// Primary immediate mode entry point for DatePicker.
@@ -148,5 +151,17 @@ public:
         bool showSeconds = false
     );
 };
+
+} // namespace detail
+
+inline Response DatePicker(
+    Context& ui,
+    DateTime& value,
+    DatePickerOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::DatePicker::Run(ui, value, opts, loc);
+}
 
 } // namespace guikit

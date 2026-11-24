@@ -301,7 +301,7 @@ MenuScope MenuBarScope::Menu(
         return MenuScope{};
     }
     if (!tr.isOpen) {
-        ContextMenu::ResetState(*m_ctx, tr.popupId);
+        detail::ContextMenu::ResetState(*m_ctx, tr.popupId);
         return MenuScope{};
     }
 
@@ -320,7 +320,7 @@ MenuScope MenuBarScope::Menu(
 
     st.openSlotActiveFlag = true;
     m_openedScopeThisFrame = true;
-    MenuScope scope = ContextMenu::OpenWithId(ctx, tr.popupId, st.openSlotActiveFlag, menuOpts, &m_horizNavRequest);
+    MenuScope scope = detail::ContextMenu::OpenWithId(ctx, tr.popupId, st.openSlotActiveFlag, menuOpts, &m_horizNavRequest);
     if (!st.openSlotActiveFlag) {
         m_openSlotClosedByChild = true;
     }
@@ -339,7 +339,7 @@ ContextMenuResponse MenuBarScope::Menu(
         return res;
     }
     if (!tr.isOpen) {
-        ContextMenu::ResetState(*m_ctx, tr.popupId);
+        detail::ContextMenu::ResetState(*m_ctx, tr.popupId);
         return res;
     }
 
@@ -359,7 +359,7 @@ ContextMenuResponse MenuBarScope::Menu(
     bool openFlag = true;
     keel::i32 horizNav = 0;
     {
-        MenuScope root = ContextMenu::OpenWithId(ctx, tr.popupId, openFlag, menuOpts, &horizNav);
+        MenuScope root = detail::ContextMenu::OpenWithId(ctx, tr.popupId, openFlag, menuOpts, &horizNav);
         if (root) {
             auto emitItems = [&](auto&& self, MenuScope& scope, keel::ArrayRef<ContextMenuItem> list, bool isRootLevel) -> void {
                 for (keel::usize i = 0; i < list.size(); ++i) {
@@ -418,7 +418,7 @@ ContextMenuResponse MenuBarScope::Menu(
 
 void MenuBarScope::Spacer(keel::SourceLocation loc) {
     if (!m_ctx || !m_activeBar) return;
-    guikit::Spacer::Run(*m_ctx, 1.0f, loc);
+    guikit::detail::Spacer::Run(*m_ctx, 1.0f, loc);
 }
 
 void MenuBarScope::Separator(keel::f32 heightRatio, keel::SourceLocation loc) {
@@ -457,7 +457,7 @@ void MenuBarScope::CloseMenu() noexcept {
 // MenuBar Entry Point
 // ============================================================================
 
-MenuBarScope MenuBar::Open(
+MenuBarScope detail::MenuBar::Open(
     Context& ctx,
     MenuBarOptions opts,
     keel::SourceLocation loc

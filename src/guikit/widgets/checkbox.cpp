@@ -24,7 +24,7 @@ ControlSpec EffectiveCheckboxControl(UiSize size, const UiTheme& theme) noexcept
 
 } // namespace
 
-Response Checkbox::Run(
+Response detail::Checkbox::Run(
     Context& ctx,
     bool* value,
     bool checkedState,
@@ -82,11 +82,11 @@ Response Checkbox::Run(
     );
     node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* opts = n->As<CheckboxOptions>();
-        return Checkbox::Measure(opts ? *opts : CheckboxOptions{}, n->uiSize, canvas, theme, availableWidth);
+        return detail::Checkbox::Measure(opts ? *opts : CheckboxOptions{}, n->uiSize, canvas, theme, availableWidth);
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* opts = n->As<CheckboxOptions>();
-        Checkbox::Render(
+        detail::Checkbox::Render(
             canvas,
             n->computedRect,
             n->checked,
@@ -111,7 +111,7 @@ Response Checkbox::Run(
     return res;
 }
 
-Vec2 Checkbox::Measure(
+Vec2 detail::Checkbox::Measure(
     const CheckboxOptions& opts,
     UiSize size,
     ICanvas* canvas,
@@ -125,7 +125,7 @@ Vec2 Checkbox::Measure(
     return Control::Measure({m.boxSize, m.boxSize}, ctrl, theme);
 }
 
-Vec2 Checkbox::Measure(
+Vec2 detail::Checkbox::Measure(
     const CheckboxOptions& opts,
     UiSize size,
     ICanvas* canvas,
@@ -135,7 +135,7 @@ Vec2 Checkbox::Measure(
     return Measure(opts, size, canvas, defaultTheme, availableWidth);
 }
 
-void Checkbox::Render(
+void detail::Checkbox::Render(
     ICanvas& canvas,
     Rect bounds,
     bool checked,

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "keel/core.h"
 #include "keel/optional.h"
 #include "keel/ref.h"
@@ -59,6 +60,8 @@ struct ColorPickerData {
 };
 
 /// Autonomous ColorPicker widget logic (execution, HSV conversion, measuring, and rendering).
+namespace detail {
+
 class ColorPicker {
 public:
     /// Primary immediate mode entry point for ColorPicker bound to a Color value.
@@ -126,5 +129,17 @@ public:
         const UiTheme& theme = UiTheme::Dark()
     );
 };
+
+} // namespace detail
+
+inline Response ColorPicker(
+    Context& ui,
+    Color& value,
+    ColorPickerOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::ColorPicker::Run(ui, value, opts, loc);
+}
 
 } // namespace guikit

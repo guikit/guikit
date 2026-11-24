@@ -16,7 +16,7 @@ struct TextPayload {
 
 } // namespace
 
-Response Text::Run(
+Response detail::Text::Run(
     Context& ctx,
     UiText label,
     const TextOptions& opts,
@@ -44,13 +44,13 @@ Response Text::Run(
     node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<TextPayload>();
         if (!d) {
-            return Text::Measure(n->text, TextOptions{}, canvas, theme, availableWidth);
+            return detail::Text::Measure(n->text, TextOptions{}, canvas, theme, availableWidth);
         }
-        return Text::Measure(d->label, d->opts, canvas, theme, availableWidth);
+        return detail::Text::Measure(d->label, d->opts, canvas, theme, availableWidth);
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* d = n->As<TextPayload>();
-        Text::Render(
+        detail::Text::Render(
             canvas,
             n->computedRect,
             d ? d->label : UiText(n->text),
@@ -75,7 +75,7 @@ Response Text::Run(
     return res;
 }
 
-Vec2 Text::Measure(
+Vec2 detail::Text::Measure(
     const UiText& label,
     const TextOptions& opts,
     ICanvas* canvas,
@@ -123,7 +123,7 @@ Vec2 Text::Measure(
     return {w, h};
 }
 
-Vec2 Text::Measure(
+Vec2 detail::Text::Measure(
     const UiText& label,
     const TextOptions& opts,
     ICanvas* canvas,
@@ -133,7 +133,7 @@ Vec2 Text::Measure(
     return Measure(label, opts, canvas, defaultTheme, availableWidth);
 }
 
-void Text::Render(
+void detail::Text::Render(
     ICanvas& canvas,
     Rect bounds,
     const UiText& label,

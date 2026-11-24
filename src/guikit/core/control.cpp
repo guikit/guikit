@@ -158,7 +158,7 @@ void Control::SetupNode(
             if (node->heightMode == SizeMode::Stretch) {
                 ep->anyChildStretchesH = true;
             }
-            Element::SyncWithChildren(ctx, parent);
+            detail::Element::SyncWithChildren(ctx, parent);
         }
         return;
     }

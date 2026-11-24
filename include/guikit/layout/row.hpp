@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
@@ -28,6 +29,8 @@ struct RowOptions {
 };
 
 /// Autonomous immediate mode Row layout entry point.
+namespace detail {
+
 class Row {
 public:
     [[nodiscard]] static ContainerScope Open(
@@ -36,5 +39,15 @@ public:
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 };
+
+} // namespace detail
+
+[[nodiscard]] inline ContainerScope Row(
+    Context& ui,
+    RowOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::Row::Open(ui, opts, loc);
+}
 
 } // namespace guikit

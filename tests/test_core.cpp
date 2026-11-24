@@ -553,18 +553,18 @@ void TestStandaloneCoreModuleZeroDependencies() {
     }};
 
     ui.BeginFrame({640.0f, 480.0f});
-    if (auto card = ui.Card({.padding = Padding::All(12.0f)})) {
-        ui.Heading({.label = "Standalone Core Module"});
-        ui.Button({.text = "Action"});
-        ui.Slider(sliderVal, 0.0f, 1.0f);
-        if (auto el = ui.Element({.label = "Toggle"})) {
-            ui.Switch(switchVal);
+    if (auto card = guikit::Card(ui, {.padding = Padding::All(12.0f)})) {
+        guikit::Heading(ui, {.label = "Standalone Core Module"});
+        guikit::Button(ui, {.text = "Action"});
+        guikit::Slider(ui, sliderVal, 0.0f, 1.0f);
+        if (auto el = guikit::Element(ui, {.label = "Toggle"})) {
+            guikit::Switch(ui, switchVal);
         }
-        if (auto table = ui.Table(cols, {.totalRows = 10, .selectedRow = &selectedRow, .height = 180.0f})) {
+        if (auto table = guikit::Table(ui, cols, {.totalRows = 10, .selectedRow = &selectedRow, .height = 180.0f})) {
             for (keel::usize r = table.FirstVisibleRow(); r < table.EndVisibleRow(); ++r) {
                 if (auto row = table.Row(r)) {
-                    ui.Text(ui.Format("K-{:02}", r));
-                    ui.Element({.badge = {"OK", UiVariant::Success}, .width = SizeMode::Fit});
+                    guikit::Text(ui, ui.Format("K-{:02}", r));
+                    guikit::Element(ui, {.badge = {"OK", UiVariant::Success}, .width = SizeMode::Fit});
                 }
             }
         }
@@ -877,7 +877,7 @@ void TestMainWindowHeadlessBackend() {
             frameRootZoom = ui.GetRootZoom();
             rootDensity = ui.GetDensity();
             logicalViewport = ui.GetLogicalViewport();
-            if (auto tb = ui.Toolbar()) {
+            if (auto tb = guikit::Toolbar(ui)) {
                 RenderThemeControls(tb);
                 RenderDebugControls(tb);
                 RenderEngineControls(tb);
@@ -885,7 +885,7 @@ void TestMainWindowHeadlessBackend() {
             static constexpr keel::StaticArray<CommandPaletteItem, 1> kCmds = {{
                 {.label = "Test Cmd", .category = "Test", .shortcut = "Ctrl+T"}
             }};
-            if (auto sb = ui.StatusBar()) {
+            if (auto sb = guikit::StatusBar(ui)) {
                 (void)RenderCommandPalette(sb, kCmds);
                 RenderTelemetryStatus(sb, true);
             }
@@ -1071,7 +1071,7 @@ void TestMainWindowHeadlessBackend() {
 
         protected:
             void OnRender(Context& ui) override {
-                if (auto tb = ui.Toolbar({})) {
+                if (auto tb = guikit::Toolbar(ui, {})) {
                     tb.Spacer();
                     RenderEngineControls(tb);
                     if (Node* tbNode = tb.GetNode()) {
@@ -1475,13 +1475,13 @@ void TestElementHeadingSpecAndSeparatorSpace() {
         .description = "Preamp stage",
         .width = 240.0f
     };
-    const ElementSpec elemSpec = Element::MakeSpec(elemOpts, UiSize::Md, false, theme);
+    const ElementSpec elemSpec = detail::Element::MakeSpec(elemOpts, UiSize::Md, false, theme);
     CHECK(!elemSpec.hasControl);
     CHECK(elemSpec.width.IsFixed());
     CHECK(elemSpec.width == SizeMode::Fixed);
     CHECK(keel::abs(elemSpec.width.Dp() - 240.0f) < 0.001f);
 
-    const ElementSpec fitSpec = Element::MakeSpec(
+    const ElementSpec fitSpec = detail::Element::MakeSpec(
         ElementOptions{.label = "Compact Tag", .width = SizeMode::Fit}, UiSize::Md, false, theme);
     CHECK(fitSpec.width.IsFit());
     CHECK(fitSpec.width == SizeMode::Fit);
@@ -1501,12 +1501,12 @@ void TestElementHeadingSpecAndSeparatorSpace() {
         .layout = HeadingLayout::Stacked,
         .separator = HeadingSeparator::None
     };
-    const keel::f32 sepSpace = Heading::ComputeBottomSeparatorSpace(h2BottomOpts, theme);
+    const keel::f32 sepSpace = detail::Heading::ComputeBottomSeparatorSpace(h2BottomOpts, theme);
     CHECK(sepSpace > 6.0f);
-    CHECK(keel::abs(Heading::ComputeBottomSeparatorSpace(h2NoneOpts, theme)) < 0.001f);
+    CHECK(keel::abs(detail::Heading::ComputeBottomSeparatorSpace(h2NoneOpts, theme)) < 0.001f);
 
-    const Vec2 mBottom = Heading::Measure(h2BottomOpts, nullptr, theme, 600.0f);
-    const Vec2 mNone = Heading::Measure(h2NoneOpts, nullptr, theme, 600.0f);
+    const Vec2 mBottom = detail::Heading::Measure(h2BottomOpts, nullptr, theme, 600.0f);
+    const Vec2 mNone = detail::Heading::Measure(h2NoneOpts, nullptr, theme, 600.0f);
     CHECK(keel::abs((mBottom.y - mNone.y) - sepSpace) < 0.05f);
 
     // 3. Overline matches Stacked intrinsic height, while Inline places title + subtitle on one horizontal row
@@ -1528,9 +1528,9 @@ void TestElementHeadingSpecAndSeparatorSpace() {
         .level = HeadingLevel::H3,
         .layout = HeadingLayout::Inline
     };
-    const Vec2 mOver = Heading::Measure(overlineOpts, nullptr, theme, 600.0f);
-    const Vec2 mStack = Heading::Measure(stackedH3Opts, nullptr, theme, 600.0f);
-    const Vec2 mInline = Heading::Measure(inlineH3Opts, nullptr, theme, 600.0f);
+    const Vec2 mOver = detail::Heading::Measure(overlineOpts, nullptr, theme, 600.0f);
+    const Vec2 mStack = detail::Heading::Measure(stackedH3Opts, nullptr, theme, 600.0f);
+    const Vec2 mInline = detail::Heading::Measure(inlineH3Opts, nullptr, theme, 600.0f);
     CHECK(keel::abs(mOver.y - mStack.y) < 0.05f);
     CHECK(mInline.x > mStack.x);
     CHECK(mInline.y < mStack.y);
@@ -1541,7 +1541,7 @@ void TestElementHeadingSpecAndSeparatorSpace() {
         .level = HeadingLevel::H4,
         .separator = HeadingSeparator::Trailing
     };
-    CHECK(keel::abs(Heading::ComputeBottomSeparatorSpace(trailingOpts, theme)) < 0.001f);
+    CHECK(keel::abs(detail::Heading::ComputeBottomSeparatorSpace(trailingOpts, theme)) < 0.001f);
 }
 
 void TestMdRefAndPixelRef() {

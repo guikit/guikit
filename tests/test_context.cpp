@@ -63,10 +63,10 @@ void TestImmediateApiWorkflow() {
     WidgetResponse b2;
 
     auto renderUI = [&]() {
-        if (auto row = ui.Row()) {
-            b1 = ui.Button({.text = "Button A"});
-            ui.Spacer();
-            b2 = ui.Button({.text = "Button B"});
+        if (auto row = guikit::Row(ui)) {
+            b1 = guikit::Button(ui, {.text = "Button A"});
+            guikit::Spacer(ui);
+            b2 = guikit::Button(ui, {.text = "Button B"});
         }
     };
 
@@ -168,12 +168,12 @@ void TestHeaderRowTextMetricsAndNoOverlap() {
     WidgetResponse bFlex;
 
     auto renderRow = [&]() {
-        if (auto row = ui.Row({.gap = 8.0f})) {
-            if (auto b1 = ui.Box({.width = 120.0f})) {
-                bOverview = ui.Button({.text = "Overview", .width = SizeMode::Stretch});
+        if (auto row = guikit::Row(ui, {.gap = 8.0f})) {
+            if (auto b1 = guikit::Box(ui, {.width = 120.0f})) {
+                bOverview = guikit::Button(ui, {.text = "Overview", .width = SizeMode::Stretch});
             }
-            if (auto b2 = ui.Box({.width = 150.0f})) {
-                bFlex = ui.Button({.text = "Flexbox Demo", .width = SizeMode::Stretch});
+            if (auto b2 = guikit::Box(ui, {.width = 150.0f})) {
+                bFlex = guikit::Button(ui, {.text = "Flexbox Demo", .width = SizeMode::Stretch});
             }
         }
     };
@@ -206,23 +206,23 @@ void TestFooterExitButtonStaysVisibleInNarrowWindow() {
 
     WidgetResponse exitBtn;
     auto renderUI = [&]() {
-        if (auto col = ui.Column({.gap = 16.0f, .padding = Padding::All(24.0f)})) {
+        if (auto col = guikit::Column(ui, {.gap = 16.0f, .padding = Padding::All(24.0f)})) {
             // Wide header (requires ~600px+)
-            if (auto header = ui.Row({.gap = 12.0f})) {
-                ui.Text("GUIKIT GUI", {.role = TextRole::TitleLarge});
-                ui.Text("| Autonomous Vector GUI Engine", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
-                ui.Spacer();
-                ui.Text("C++20 Immediate + ThorVG", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
+            if (auto header = guikit::Row(ui, {.gap = 12.0f})) {
+                guikit::Text(ui, "GUIKIT GUI", {.role = TextRole::TitleLarge});
+                guikit::Text(ui, "| Autonomous Vector GUI Engine", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
+                guikit::Spacer(ui);
+                guikit::Text(ui, "C++20 Immediate + ThorVG", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
             }
 
-            ui.Spacer();
+            guikit::Spacer(ui);
 
             // Footer with Exit button pushed to right
-            if (auto footer = ui.Row({.gap = 12.0f})) {
-                ui.Text("Zero heap allocations per frame | 0% idle CPU", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
-                ui.Spacer();
-                if (auto b = ui.Box({.width = 80.0f})) {
-                    exitBtn = ui.Button({.text = "Exit", .width = SizeMode::Stretch});
+            if (auto footer = guikit::Row(ui, {.gap = 12.0f})) {
+                guikit::Text(ui, "Zero heap allocations per frame | 0% idle CPU", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
+                guikit::Spacer(ui);
+                if (auto b = guikit::Box(ui, {.width = 80.0f})) {
+                    exitBtn = guikit::Button(ui, {.text = "Exit", .width = SizeMode::Stretch});
                 }
             }
         }
@@ -261,20 +261,20 @@ void TestWrapContainerInContextApi() {
 
     ui.GetTheme().Spacing().md = 10.0f;
     auto renderUI = [&]() {
-        if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(20.0f)})) {
+        if (auto col = guikit::Column(ui, {.gap = 12.0f, .padding = Padding::All(20.0f)})) {
             // Available width inside padding = 300 - 40 = 260.
             // b1 (fixed 120), b2 (fixed 120), b3 (fixed 120)
             // b1 (120) + gap (10) + b2 (120) = 250 <= 260 (Line 1)
             // b3 wraps to Line 2! (y = 20 + 36 + 10 = 66)
-            if (auto wrap = ui.Wrap({.gap = 10.0f, .runGap = 10.0f})) {
-                if (auto box1 = ui.Box({.width = 120.0f, .height = 36.0f})) {
-                    b1 = ui.Button({.text = "Button 1", .width = SizeMode::Stretch});
+            if (auto wrap = guikit::Wrap(ui, {.gap = 10.0f, .runGap = 10.0f})) {
+                if (auto box1 = guikit::Box(ui, {.width = 120.0f, .height = 36.0f})) {
+                    b1 = guikit::Button(ui, {.text = "Button 1", .width = SizeMode::Stretch});
                 }
-                if (auto box2 = ui.Box({.width = 120.0f, .height = 36.0f})) {
-                    b2 = ui.Button({.text = "Button 2", .width = SizeMode::Stretch});
+                if (auto box2 = guikit::Box(ui, {.width = 120.0f, .height = 36.0f})) {
+                    b2 = guikit::Button(ui, {.text = "Button 2", .width = SizeMode::Stretch});
                 }
-                if (auto box3 = ui.Box({.width = 120.0f, .height = 36.0f})) {
-                    b3 = ui.Button({.text = "Button 3", .width = SizeMode::Stretch});
+                if (auto box3 = guikit::Box(ui, {.width = 120.0f, .height = 36.0f})) {
+                    b3 = guikit::Button(ui, {.text = "Button 3", .width = SizeMode::Stretch});
                 }
             }
         }
@@ -312,29 +312,29 @@ void TestFooterExitButtonPushedToBottomWithCardAndWrap() {
 
     WidgetResponse exitBtn;
     auto renderUI = [&]() {
-        if (auto mainCol = ui.Column({.gap = 16.0f, .padding = Padding::All(24.0f)})) {
-            if (auto header = ui.Row({.gap = 12.0f})) {
-                ui.Text("GUIKIT GUI", {.role = TextRole::TitleLarge});
-                ui.Spacer();
+        if (auto mainCol = guikit::Column(ui, {.gap = 16.0f, .padding = Padding::All(24.0f)})) {
+            if (auto header = guikit::Row(ui, {.gap = 12.0f})) {
+                guikit::Text(ui, "GUIKIT GUI", {.role = TextRole::TitleLarge});
+                guikit::Spacer(ui);
             }
-            if (auto navRow = ui.Row({.gap = 8.0f})) {
-                if (auto box = ui.Box({.width = 120.0f})) {
-                    ui.Button({.text = "Overview"});
+            if (auto navRow = guikit::Row(ui, {.gap = 8.0f})) {
+                if (auto box = guikit::Box(ui, {.width = 120.0f})) {
+                    guikit::Button(ui, {.text = "Overview"});
                 }
             }
-            if (auto card = ui.Box({.gap = 16.0f, .padding = Padding::All(20.0f)})) {
-                ui.Text("Card title", {.role = TextRole::HeadlineMedium});
-                if (auto wrap = ui.Wrap({.gap = 12.0f, .runGap = 8.0f})) {
-                    ui.Button({.text = "Btn 1"});
-                    ui.Button({.text = "Btn 2"});
+            if (auto card = guikit::Box(ui, {.gap = 16.0f, .padding = Padding::All(20.0f)})) {
+                guikit::Text(ui, "Card title", {.role = TextRole::HeadlineMedium});
+                if (auto wrap = guikit::Wrap(ui, {.gap = 12.0f, .runGap = 8.0f})) {
+                    guikit::Button(ui, {.text = "Btn 1"});
+                    guikit::Button(ui, {.text = "Btn 2"});
                 }
             }
-            ui.Spacer();
-            if (auto footer = ui.Row({.gap = 12.0f})) {
-                ui.Text("Footer text", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
-                ui.Spacer();
-                if (auto box = ui.Box({.width = 80.0f})) {
-                    exitBtn = ui.Button({.text = "Exit"});
+            guikit::Spacer(ui);
+            if (auto footer = guikit::Row(ui, {.gap = 12.0f})) {
+                guikit::Text(ui, "Footer text", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
+                guikit::Spacer(ui);
+                if (auto box = guikit::Box(ui, {.width = 80.0f})) {
+                    exitBtn = guikit::Button(ui, {.text = "Exit"});
                 }
             }
         }
@@ -408,12 +408,12 @@ void TestTwoLevelDisabledWorkflow() {
     WidgetResponse btnScopedDisabled;
 
     auto renderUI = [&]() {
-        if (auto row = ui.Row()) {
-            btnEnabled = ui.Button({.text = "Active"});
-            btnDirectDisabled = ui.Button({.text = "Local Disabled", .disabled = true});
+        if (auto row = guikit::Row(ui)) {
+            btnEnabled = guikit::Button(ui, {.text = "Active"});
+            btnDirectDisabled = guikit::Button(ui, {.text = "Local Disabled", .disabled = true});
 
-            if (auto disabledCol = ui.Column({.disabled = true})) {
-                btnScopedDisabled = ui.Button({.text = "Scope Disabled"});
+            if (auto disabledCol = guikit::Column(ui, {.disabled = true})) {
+                btnScopedDisabled = guikit::Button(ui, {.text = "Scope Disabled"});
             }
         }
     };
@@ -474,12 +474,12 @@ void TestBoxSlotWithUiSizeToken() {
     WidgetResponse btnSquareIcon;
 
     auto renderUI = [&]() {
-        if (auto col = ui.Column({.gap = 12.0f})) {
-            if (auto slotLg = ui.Box()) {
-                btnLarge = ui.Button({.text = "Large Action", .size = UiSize::Lg, .width = SizeMode::Stretch, .color = StateColor::Primary()});
+        if (auto col = guikit::Column(ui, {.gap = 12.0f})) {
+            if (auto slotLg = guikit::Box(ui)) {
+                btnLarge = guikit::Button(ui, {.text = "Large Action", .size = UiSize::Lg, .width = SizeMode::Stretch, .color = StateColor::Primary()});
             }
-            if (auto slotSquare = ui.Box({.width = 32.0f})) {
-                btnSquareIcon = ui.Button({.icon = Icon::Close(), .size = UiSize::Sm});
+            if (auto slotSquare = guikit::Box(ui, {.width = 32.0f})) {
+                btnSquareIcon = guikit::Button(ui, {.icon = Icon::Close(), .size = UiSize::Sm});
             }
         }
     };
@@ -514,9 +514,9 @@ void TestButtonWidgetRunAndResponseChaining() {
     ButtonResponse btn2;
 
     auto renderUI = [&]() {
-        if (auto row = ui.Row({.gap = 8.0f})) {
+        if (auto row = guikit::Row(ui, {.gap = 8.0f})) {
             // Autonomous Button::Run via ui.Button
-            btn1 = ui.Button({
+            btn1 = guikit::Button(ui, {
                 .text = "Next",
                 .icon = Icon::ChevronRight(),
                 .iconPlacement = Placement::Trailing,
@@ -524,7 +524,7 @@ void TestButtonWidgetRunAndResponseChaining() {
             });
 
             // Direct call to Button::Run
-            btn2 = Button::Run(ui, {
+            btn2 = detail::Button::Run(ui, {
                 .text = "Prev",
                 .icon = Icon::ChevronLeft(),
                 .iconPlacement = Placement::Leading,
@@ -583,9 +583,9 @@ void TestUiStringAndContextFormatting() {
     canvas.SetTarget(pixels.data(), width, height, width);
 
     ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
-    if (auto col = ui.Column({.gap = 8.0f})) {
-        ui.Text(ui.Format("Value: {}", 99));
-        ui.Button({.text = ui.String("Action")});
+    if (auto col = guikit::Column(ui, {.gap = 8.0f})) {
+        guikit::Text(ui, ui.Format("Value: {}", 99));
+        guikit::Button(ui, {.text = ui.String("Action")});
 
         // Verify temporary ui.Format / ui.String returned keel::StringRef points into frame arena (not stack)
         // and does not truncate strings > 64 or > 128 bytes.
@@ -602,18 +602,18 @@ void TestUiStringAndContextFormatting() {
         const SegmentedItem segItems[] = {
             {.text = "Seg", .icon = Icon::File(tempIconPath)}
         };
-        ui.Segmented(segIdx, segItems);
-        if (auto tb = ui.Toolbar()) {
-            ui.ToolButton({.text = "Tool", .icon = Icon::File(tempIconPath)});
+        guikit::Segmented(ui, segIdx, segItems);
+        if (auto tb = guikit::Toolbar(ui)) {
+            guikit::ToolButton(ui, {.text = "Tool", .icon = Icon::File(tempIconPath)});
         }
-        if (auto sb = ui.StatusBar()) {
+        if (auto sb = guikit::StatusBar(ui)) {
             sb.Item({.text = "Status", .icon = Icon::File(tempIconPath)});
         }
         bool paletteOpen = true;
         const CommandPaletteItem cmdItems[] = {
             {.label = ui.Format("Cmd {}", 1), .category = "Cat", .icon = Icon::File(tempIconPath)}
         };
-        ui.CommandPalette(paletteOpen, cmdItems);
+        guikit::CommandPalette(ui, paletteOpen, cmdItems);
         // Clobber stack buffer before EndFrame to catch any dangling string_view
         std::memset(tempIconPath.data(), 'X', tempIconPath.size());
         CHECK(arenaIcon.GetPath() == "assets/icons/custom_dynamic.svg");
@@ -621,9 +621,9 @@ void TestUiStringAndContextFormatting() {
     ui.EndFrame(canvas);
 
     ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
-    if (auto col = ui.Column({.gap = 8.0f})) {
-        ui.Text(ui.Format("Value: {}", 100));
-        ui.Button({.text = ui.String("Action")});
+    if (auto col = guikit::Column(ui, {.gap = 8.0f})) {
+        guikit::Text(ui, ui.Format("Value: {}", 100));
+        guikit::Button(ui, {.text = ui.String("Action")});
     }
     ui.EndFrame(canvas);
 }
@@ -641,9 +641,9 @@ void TestBoxContainerGapSpacing() {
     WidgetResponse b2;
 
     auto renderUI = [&]() {
-        if (auto card = ui.Box({.gap = 16.0f, .padding = Padding::All(10.0f)})) {
-            b1 = ui.Button({.text = "First Item"});
-            b2 = ui.Button({.text = "Second Item"});
+        if (auto card = guikit::Box(ui, {.gap = 16.0f, .padding = Padding::All(10.0f)})) {
+            b1 = guikit::Button(ui, {.text = "First Item"});
+            b2 = guikit::Button(ui, {.text = "Second Item"});
         }
     };
 
@@ -678,8 +678,8 @@ void TestAutonomousTextWidgetAndTypographyRoles() {
     CHECK(mCode.lineHeight == 18.0f);
     CHECK(mCode.isMonospace);
 
-    Vec2 estDisplay = Text::Measure("Heading", {.role = TextRole::DisplayLarge});
-    Vec2 estBody = Text::Measure("Heading", {.role = TextRole::BodyMedium});
+    Vec2 estDisplay = detail::Text::Measure("Heading", {.role = TextRole::DisplayLarge});
+    Vec2 estBody = detail::Text::Measure("Heading", {.role = TextRole::BodyMedium});
     CHECK(estDisplay.x > estBody.x);
     CHECK(estDisplay.y > estBody.y);
 
@@ -701,15 +701,15 @@ void TestAutonomousTextWidgetAndTypographyRoles() {
     Response rCustom;
 
     auto renderUI = [&]() {
-        if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(16.0f)})) {
-            rDisp = ui.Text("Display Title", {.role = TextRole::DisplayLarge});
-            rHead = ui.Text("Headline Section", {.role = TextRole::HeadlineMedium, .variant = UiVariant::Primary});
-            rTitle = ui.Text("Title Header", {.role = TextRole::TitleLarge});
-            rSub = ui.Text("Subtitle Header", {.role = TextRole::TitleMedium});
-            rBody = ui.Text("Standard body text content", {.role = TextRole::BodyMedium});
-            rCap = ui.Text("Muted caption info", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
-            rCode = ui.Text("auto x = 42;", {.role = TextRole::CodeMedium});
-            rCustom = ui.Text("Aligned End", {.role = TextRole::LabelLarge, .variant = UiVariant::Success, .align = Align::End});
+        if (auto col = guikit::Column(ui, {.gap = 8.0f, .padding = Padding::All(16.0f)})) {
+            rDisp = guikit::Text(ui, "Display Title", {.role = TextRole::DisplayLarge});
+            rHead = guikit::Text(ui, "Headline Section", {.role = TextRole::HeadlineMedium, .variant = UiVariant::Primary});
+            rTitle = guikit::Text(ui, "Title Header", {.role = TextRole::TitleLarge});
+            rSub = guikit::Text(ui, "Subtitle Header", {.role = TextRole::TitleMedium});
+            rBody = guikit::Text(ui, "Standard body text content", {.role = TextRole::BodyMedium});
+            rCap = guikit::Text(ui, "Muted caption info", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
+            rCode = guikit::Text(ui, "auto x = 42;", {.role = TextRole::CodeMedium});
+            rCustom = guikit::Text(ui, "Aligned End", {.role = TextRole::LabelLarge, .variant = UiVariant::Success, .align = Align::End});
         }
     };
 
@@ -762,24 +762,24 @@ void TestSwitchAndCheckboxWidgets() {
     const auto theme = UiTheme::Dark();
     // 1. Test measurement
     const SwitchMetrics sm = theme.GetSwitch(UiSize::Md);
-    Vec2 sMeasNoLabel = Switch::Measure({}, UiSize::Md);
+    Vec2 sMeasNoLabel = detail::Switch::Measure({}, UiSize::Md);
     CHECK(sMeasNoLabel.x == sm.trackSize.x);
     CHECK(sMeasNoLabel.y == sm.trackSize.y);
 
-    Vec2 sMeasWithLabel = Element::Measure(sMeasNoLabel, ElementSpec{.label = "Enable", .layout = ElementLayout::Trailing}, nullptr, theme);
+    Vec2 sMeasWithLabel = detail::Element::Measure(sMeasNoLabel, ElementSpec{.label = "Enable", .layout = ElementLayout::Trailing}, nullptr, theme);
     CHECK(sMeasWithLabel.x > sm.trackSize.x);
 
-    Vec2 sMeasWithDesc = Element::Measure(sMeasNoLabel, ElementSpec{.label = "Enable", .description = "Details", .layout = ElementLayout::Trailing}, nullptr, theme);
+    Vec2 sMeasWithDesc = detail::Element::Measure(sMeasNoLabel, ElementSpec{.label = "Enable", .description = "Details", .layout = ElementLayout::Trailing}, nullptr, theme);
     CHECK(sMeasWithDesc.y > sMeasWithLabel.y);
 
-    Vec2 sMeasBoth = Switch::Measure({
+    Vec2 sMeasBoth = detail::Switch::Measure({
         .textLeft = "Dark",
         .textRight = "Light",
         .symmetric = true
     }, UiSize::Md);
     CHECK(sMeasBoth.x > sMeasWithLabel.x);
 
-    Vec2 sMeasBothDesc = Element::Measure(sMeasBoth, ElementSpec{
+    Vec2 sMeasBothDesc = detail::Element::Measure(sMeasBoth, ElementSpec{
         .label = "Theme",
         .description = "Switch theme",
         .layout = ElementLayout::Trailing
@@ -787,14 +787,14 @@ void TestSwitchAndCheckboxWidgets() {
     CHECK(sMeasBothDesc.y > sMeasBoth.y);
 
     const CheckboxMetrics cm = theme.GetCheckbox(UiSize::Md);
-    Vec2 cMeasNoLabel = Checkbox::Measure({}, UiSize::Md);
+    Vec2 cMeasNoLabel = detail::Checkbox::Measure({}, UiSize::Md);
     CHECK(cMeasNoLabel.x == cm.boxSize);
     CHECK(cMeasNoLabel.y == cm.boxSize);
 
-    Vec2 cMeasWithLabel = Element::Measure(cMeasNoLabel, ElementSpec{.label = "Enable", .layout = ElementLayout::Trailing}, nullptr, theme);
+    Vec2 cMeasWithLabel = detail::Element::Measure(cMeasNoLabel, ElementSpec{.label = "Enable", .layout = ElementLayout::Trailing}, nullptr, theme);
     CHECK(cMeasWithLabel.x > cm.boxSize);
 
-    Vec2 cMeasWithDesc = Element::Measure(cMeasNoLabel, ElementSpec{.label = "Enable", .description = "Details", .layout = ElementLayout::Trailing}, nullptr, theme);
+    Vec2 cMeasWithDesc = detail::Element::Measure(cMeasNoLabel, ElementSpec{.label = "Enable", .description = "Details", .layout = ElementLayout::Trailing}, nullptr, theme);
     CHECK(cMeasWithDesc.y > cMeasWithLabel.y);
 
     // 2. Interactive mutation test
@@ -826,45 +826,45 @@ void TestSwitchAndCheckboxWidgets() {
     Response elSwitch, elDesc, elStacked;
 
     auto renderUI = [&]() {
-        if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
-            if (auto el = ui.Element({.label = "Dark Mode"})) {
+        if (auto col = guikit::Column(ui, {.gap = 12.0f, .padding = Padding::All(16.0f)})) {
+            if (auto el = guikit::Element(ui, {.label = "Dark Mode"})) {
                 elSwitch = el.response;
-                rSwitch = ui.Switch(switchState);
+                rSwitch = guikit::Switch(ui, switchState);
             }
-            if (auto el = ui.Element({.label = "VSync"})) {
-                rCheck = ui.Checkbox(checkState);
+            if (auto el = guikit::Element(ui, {.label = "VSync"})) {
+                rCheck = guikit::Checkbox(ui, checkState);
             }
-            if (auto el = ui.Element({.label = "Turbo Mode", .layout = ElementLayout::Leading})) {
-                rToggle = ui.Switch(toggleState);
+            if (auto el = guikit::Element(ui, {.label = "Turbo Mode", .layout = ElementLayout::Leading})) {
+                rToggle = guikit::Switch(ui, toggleState);
             }
-            if (auto el = ui.Element({.label = "Select All"})) {
-                rIndeterminate = ui.Checkbox(false, {.indeterminate = true});
+            if (auto el = guikit::Element(ui, {.label = "Select All"})) {
+                rIndeterminate = guikit::Checkbox(ui, false, {.indeterminate = true});
             }
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "Auto Breakdown",
                 .description = "Automatic stop of testing on load drop"
             })) {
                 elDesc = el.response;
-                rDesc = ui.Switch(descState);
+                rDesc = guikit::Switch(ui, descState);
             }
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "Stacked Mode",
                 .description = "Description below switch control",
                 .layout = ElementLayout::Stacked
             })) {
                 elStacked = el.response;
-                rStacked = ui.Switch(stackedState);
+                rStacked = guikit::Switch(ui, stackedState);
             }
-            rBoth = ui.Switch(bothState, {
+            rBoth = guikit::Switch(ui, bothState, {
                 .textLeft = "Dark",
                 .textRight = "Light",
                 .symmetric = true
             });
-            if (auto el = ui.Element({.label = "Option Switch"})) {
-                rOptSwitch = ui.Switch(optSwitchState);
+            if (auto el = guikit::Element(ui, {.label = "Option Switch"})) {
+                rOptSwitch = guikit::Switch(ui, optSwitchState);
             }
-            if (auto el = ui.Element({.label = "Option Checkbox"})) {
-                rOptCheck = ui.Checkbox(optCheckState);
+            if (auto el = guikit::Element(ui, {.label = "Option Checkbox"})) {
+                rOptCheck = guikit::Checkbox(ui, optCheckState);
             }
         }
     };
@@ -1023,15 +1023,15 @@ void TestInputFieldWidget() {
     Response elOptInput;
 
     auto renderUI = [&]() {
-        if (auto col = ui.Column({.gap = 16.0f, .padding = Padding::All(20.0f)})) {
+        if (auto col = guikit::Column(ui, {.gap = 16.0f, .padding = Padding::All(20.0f)})) {
             // Numeric field with unit and description (as in user screenshot)
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "Speed Drop dF/dt",
                 .description = "Automatic stop of testing on load drop",
                 .layout = ElementLayout::Stacked
             })) {
                 elSpeed = el.response;
-                rSpeed = ui.SpinBox(speedDrop, {
+                rSpeed = guikit::SpinBox(ui, speedDrop, {
                     .suffix = "%",
                     .valueFormat = "%.0f",
                     .stepButtons = false
@@ -1039,33 +1039,33 @@ void TestInputFieldWidget() {
             }
 
             // Integer count with unit suffix
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "Cycle Count",
                 .layout = ElementLayout::Stacked
             })) {
-                rCount = ui.SpinBox(count, {
+                rCount = guikit::SpinBox(ui, count, {
                     .suffix = "cycles",
                     .stepButtons = false
                 });
             }
 
             // Text input with placeholder
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "Sample ID",
                 .layout = ElementLayout::Stacked
             })) {
-                rName = ui.InputField(sampleName, {
+                rName = guikit::InputField(ui, sampleName, {
                     .placeholder = "Enter identifier..."
                 });
             }
 
             // Field with label set via ElementOptions
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "Tolerance Margin",
                 .layout = ElementLayout::Stacked
             })) {
                 elOptInput = el.response;
-                rOptInput = ui.SpinBox(optInputVal, {
+                rOptInput = guikit::SpinBox(ui, optInputVal, {
                     .suffix = "mm",
                     .stepButtons = false
                 });
@@ -1332,27 +1332,27 @@ void TestSelectWidget() {
     Response elBaud;
 
     auto renderUI = [&]() {
-        if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(20.0f)})) {
-            if (auto el = ui.Element({
+        if (auto col = guikit::Column(ui, {.gap = 12.0f, .padding = Padding::All(20.0f)})) {
+            if (auto el = guikit::Element(ui, {
                 .label = "Baud Rate",
                 .description = "Serial bus communication speed",
                 .layout = ElementLayout::Stacked
             })) {
                 elBaud = el.response;
-                rBaud = ui.Select(baudIndex, {"9600", "19200", "38400", "115200"});
+                rBaud = guikit::Select(ui, baudIndex, {"9600", "19200", "38400", "115200"});
             }
 
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "Control Mode",
                 .disabled = disabledMode
             })) {
-                rMode = ui.Select(modeIndex, {"Auto", "Manual", "Direct"}, {
+                rMode = guikit::Select(ui, modeIndex, {"Auto", "Manual", "Direct"}, {
                     .disabled = disabledMode
                 });
             }
 
-            if (auto el = ui.Element({.label = "Profile"})) {
-                rProfile = ui.Select(profile, {"Eco", "Standard", "Performance", "Extreme"});
+            if (auto el = guikit::Element(ui, {.label = "Profile"})) {
+                rProfile = guikit::Select(ui, profile, {"Eco", "Standard", "Performance", "Extreme"});
             }
         }
     };
@@ -1560,8 +1560,8 @@ void TestSelectWidget() {
     keel::usize limIdx = 0;
     WidgetResponse rLim;
     auto renderLimited = [&]() {
-        if (auto el = ui.Element({.label = "Limited Dropdown"})) {
-            rLim = ui.Select(limIdx, {"Item 1", "Item 2", "Item 3", "Item 4", "Item 5"}, {
+        if (auto el = guikit::Element(ui, {.label = "Limited Dropdown"})) {
+            rLim = guikit::Select(ui, limIdx, {"Item 1", "Item 2", "Item 3", "Item 4", "Item 5"}, {
                 .maxVisibleItems = 2
             });
         }
@@ -1661,35 +1661,35 @@ void TestGridAndCardLayout() {
 
     auto renderUI = [&]() {
         // 1. Standalone Grid with 12-column slots
-        if (auto grid = ui.Grid({.gap = 12.0f})) {
+        if (auto grid = guikit::Grid(ui, {.gap = 12.0f})) {
             if (auto c1 = grid.Cell6()) {
-                if (auto el = ui.Element({.label = "Sensor A"})) {
-                    sw1Res = ui.Switch(switchVal1);
+                if (auto el = guikit::Element(ui, {.label = "Sensor A"})) {
+                    sw1Res = guikit::Switch(ui, switchVal1);
                 }
             }
             if (auto c2 = grid.Cell6()) {
-                if (auto el = ui.Element({.label = "Sensor B"})) {
-                    sw2Res = ui.Switch(switchVal2);
+                if (auto el = guikit::Element(ui, {.label = "Sensor B"})) {
+                    sw2Res = guikit::Switch(ui, switchVal2);
                 }
             }
             if (auto c3 = grid.Cell12()) {
-                if (auto el = ui.Element({.label = "Speed Target"})) {
-                    inp1Res = ui.SpinBox(speedVal);
+                if (auto el = guikit::Element(ui, {.label = "Speed Target"})) {
+                    inp1Res = guikit::SpinBox(ui, speedVal);
                 }
             }
         }
 
         // 2. High-level Card surface containing an explicit Grid layout
-        if (auto card = ui.Card()) {
-            ui.Heading({.label = "Motion Controller", .description = "Direct axis tuning"});
-            if (auto grid = ui.Grid()) {
+        if (auto card = guikit::Card(ui)) {
+            guikit::Heading(ui, {.label = "Motion Controller", .description = "Direct axis tuning"});
+            if (auto grid = guikit::Grid(ui)) {
                 if (auto c1 = grid.Cell6()) {
-                    if (auto el = ui.Element({.label = "Device Name"})) {
-                        inp2Res = ui.InputField(nameVal);
+                    if (auto el = guikit::Element(ui, {.label = "Device Name"})) {
+                        inp2Res = guikit::InputField(ui, nameVal);
                     }
                 }
                 if (auto c2 = grid.Cell6()) {
-                    ui.Button({.text = "Calibrate Zero"});
+                    guikit::Button(ui, {.text = "Calibrate Zero"});
                 }
             }
         }
@@ -1766,15 +1766,15 @@ void TestScrollAreaImmediateMode() {
     WidgetResponse btn3Res;
 
     auto renderUI = [&]() {
-        if (auto scroll = ui.ScrollArea()) {
-            if (auto box1 = ui.Box({.height = 200.0f})) {
-                btn1Res = ui.Button({.text = "Top Item", .width = SizeMode::Stretch});
+        if (auto scroll = guikit::ScrollArea(ui)) {
+            if (auto box1 = guikit::Box(ui, {.height = 200.0f})) {
+                btn1Res = guikit::Button(ui, {.text = "Top Item", .width = SizeMode::Stretch});
             }
-            if (auto box2 = ui.Box({.height = 200.0f})) {
-                btn2Res = ui.Button({.text = "Middle Item"});
+            if (auto box2 = guikit::Box(ui, {.height = 200.0f})) {
+                btn2Res = guikit::Button(ui, {.text = "Middle Item"});
             }
-            if (auto box3 = ui.Box({.height = 200.0f})) {
-                btn3Res = ui.Button({.text = "Bottom Item"});
+            if (auto box3 = guikit::Box(ui, {.height = 200.0f})) {
+                btn3Res = guikit::Button(ui, {.text = "Bottom Item"});
             }
         }
     };
@@ -1838,7 +1838,7 @@ void TestScrollAreaImmediateMode() {
 
     // Verify ScrollAreaOptions with gap and horizontal orientation
     ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
-    if (auto scrollH = ui.ScrollArea({.orientation = Orientation::Horizontal, .gap = 8.0f})) {
+    if (auto scrollH = guikit::ScrollArea(ui, {.orientation = Orientation::Horizontal, .gap = 8.0f})) {
         Node* n = scrollH.GetNode();
         CHECK(n != nullptr);
         if (n) {
@@ -1862,9 +1862,9 @@ void TestScrollAreaImmediateMode() {
 
         Node* scrollNode = nullptr;
         auto renderMdScroll = [&]() {
-            if (auto sc = ui.ScrollArea({.padding = Padding::All(8.0f)})) {
+            if (auto sc = guikit::ScrollArea(ui, {.padding = Padding::All(8.0f)})) {
                 scrollNode = sc.GetNode();
-                ui.Markdown(kTallMd);
+                guikit::Markdown(ui, kTallMd);
             }
         };
 
@@ -2009,14 +2009,14 @@ void TestScrollAreaImmediateMode() {
 
         Context uiRich;
         auto buildRichScene = [&]() {
-            if (auto col = uiRich.Column({.gap = 8.0f, .padding = Padding::All(12.0f)})) {
-                uiRich.Text(UiText::Rich("Shortcut: `Ctrl+Shift+P` opens **Command Palette**."));
-                if (auto el = uiRich.Element({
+            if (auto col = guikit::Column(uiRich, {.gap = 8.0f, .padding = Padding::All(12.0f)})) {
+                guikit::Text(uiRich, UiText::Rich("Shortcut: `Ctrl+Shift+P` opens **Command Palette**."));
+                if (auto el = guikit::Element(uiRich, {
                     .label = UiText::Rich("Enable `GPU` **Acceleration**"),
                     .description = UiText::Rich("Uses *hardware* shaders (`OpenGL ES 3.0`) for **60 FPS** rendering.")
                 })) {
                     bool enabled = true;
-                    uiRich.Switch(enabled);
+                    guikit::Switch(uiRich, enabled);
                 }
                 uiRich.SetTooltip(UiText::Rich("Hover tip with `inline code` and **bold** text"), Rect(10.0f, 10.0f, 100.0f, 24.0f));
             }
@@ -2137,13 +2137,13 @@ void TestDirtyRectDamageTracking() {
     canvas.SetTarget(pixels.data(), width, height, width);
 
     auto renderUI = [&](keel::String* editVal = nullptr) {
-        if (auto row = ui.Row()) {
-            if (auto b = ui.Box({.width = 120.0f})) {
-                ui.Button({.text = "Test Button"});
+        if (auto row = guikit::Row(ui)) {
+            if (auto b = guikit::Box(ui, {.width = 120.0f})) {
+                guikit::Button(ui, {.text = "Test Button"});
             }
             if (editVal) {
-                if (auto b = ui.Box({.width = 200.0f})) {
-                    auto res = ui.InputField(*editVal);
+                if (auto b = guikit::Box(ui, {.width = 200.0f})) {
+                    auto res = guikit::InputField(ui, *editVal);
                     if (res.clicked) {
                         res.Focus();
                     }
@@ -2185,9 +2185,9 @@ void TestDirtyRectDamageTracking() {
     keel::String text("Editable");
     bool shouldFocus = true;
     auto renderInput = [&]() {
-        if (auto row = ui.Row()) {
-            if (auto b = ui.Box({.width = 200.0f})) {
-                auto res = ui.InputField(text);
+        if (auto row = guikit::Row(ui)) {
+            if (auto b = guikit::Box(ui, {.width = 200.0f})) {
+                auto res = guikit::InputField(ui, text);
                 if (shouldFocus) {
                     res.Focus();
                     shouldFocus = false;
@@ -2240,8 +2240,8 @@ void TestDirtyRectDamageTracking() {
     keel::i32 tabIdx = 0;
     TabBarStyle currentTabStyle = TabBarStyle::Underline;
     auto renderTabTest = [&]() {
-        if (auto col = ui.Column()) {
-            ui.TabBar(tabIdx, {{"Tab1"}, {"Tab2"}}, {.style = currentTabStyle});
+        if (auto col = guikit::Column(ui)) {
+            guikit::TabBar(ui, tabIdx, {{"Tab1"}, {"Tab2"}}, {.style = currentTabStyle});
         }
     };
 
@@ -2269,8 +2269,8 @@ void TestDirtyRectDamageTracking() {
     keel::f32 sliderVal = 10.0f;
     Response sliderRes;
     auto renderSlider = [&]() {
-        if (auto b = ui.Box({.width = 300.0f})) {
-            sliderRes = ui.Slider(sliderVal, 0.0f, 100.0f);
+        if (auto b = guikit::Box(ui, {.width = 300.0f})) {
+            sliderRes = guikit::Slider(ui, sliderVal, 0.0f, 100.0f);
         }
     };
 
@@ -2325,8 +2325,8 @@ void TestTabBarWidgetWorkflow() {
 
     Response tabRes;
     auto renderUI = [&]() {
-        if (auto col = ui.Column({.padding = Padding::All(20.0f)})) {
-            tabRes = ui.TabBar(activeTab, tabs, {.style = TabBarStyle::Underline});
+        if (auto col = guikit::Column(ui, {.padding = Padding::All(20.0f)})) {
+            tabRes = guikit::TabBar(ui, activeTab, tabs, {.style = TabBarStyle::Underline});
         }
     };
 
@@ -2380,8 +2380,8 @@ void TestTabBarWidgetWorkflow() {
     // Frame: Test Pill style and string_view initializer_list overload
     keel::i32 pillIdx = 0;
     auto renderPill = [&]() {
-        if (auto col = ui.Column({.padding = Padding::All(10.0f)})) {
-            ui.TabBar(pillIdx, {{"Alpha"}, {"Beta"}, {"Gamma"}}, {.style = TabBarStyle::Pill});
+        if (auto col = guikit::Column(ui, {.padding = Padding::All(10.0f)})) {
+            guikit::TabBar(ui, pillIdx, {{"Alpha"}, {"Beta"}, {"Gamma"}}, {.style = TabBarStyle::Pill});
         }
     };
 
@@ -2393,8 +2393,8 @@ void TestTabBarWidgetWorkflow() {
 
     // Verify identical tab geometry between Underline and Pill styles
     for (const auto& tab : tabs) {
-        const Vec2 underDims = TabBar::MeasureTab(tab, {.style = TabBarStyle::Underline}, UiSize::Md);
-        const Vec2 pillDims = TabBar::MeasureTab(tab, {.style = TabBarStyle::Pill}, UiSize::Md);
+        const Vec2 underDims = detail::TabBar::MeasureTab(tab, {.style = TabBarStyle::Underline}, UiSize::Md);
+        const Vec2 pillDims = detail::TabBar::MeasureTab(tab, {.style = TabBarStyle::Pill}, UiSize::Md);
         CHECK_NEAR(underDims.x, pillDims.x, 0.001f);
         CHECK_NEAR(underDims.y, pillDims.y, 0.001f);
     }
@@ -2405,8 +2405,8 @@ void TestTabBarWidgetWorkflow() {
     const Color barBg(30, 32, 40, 255);
     const Color barBorder(80, 85, 95, 255);
     auto renderStyledTabBar = [&]() {
-        if (auto col = ui.Column({.padding = Padding::All(10.0f)})) {
-            styledRes = ui.TabBar(styledIdx, {{"First"}, {"Second"}, {"Third"}}, {
+        if (auto col = guikit::Column(ui, {.padding = Padding::All(10.0f)})) {
+            styledRes = guikit::TabBar(ui, styledIdx, {{"First"}, {"Second"}, {"Third"}}, {
                 .style = TabBarStyle::Pill,
                 .fullWidth = true,
                 .padding = Padding::All(4.0f),
@@ -2437,8 +2437,8 @@ void TestTabBarWidgetWorkflow() {
     // Frame: Test dirty rect damage tracking on TabBar backgroundColor change
     Color dynamicBg(20, 20, 20, 255);
     auto renderDynamicBgTabBar = [&]() {
-        if (auto col = ui.Column({.padding = Padding::All(10.0f)})) {
-            ui.TabBar(styledIdx, {{"One"}, {"Two"}}, {
+        if (auto col = guikit::Column(ui, {.padding = Padding::All(10.0f)})) {
+            guikit::TabBar(ui, styledIdx, {{"One"}, {"Two"}}, {
                 .style = TabBarStyle::Pill,
                 .background = {dynamicBg}
             });
@@ -2478,7 +2478,7 @@ void TestToolbarWidgetWorkflow() {
     bool toolSettingsActive = false;
 
     auto renderToolbar = [&]() {
-        if (auto tb = ui.Toolbar({.padding = UiSize::Sm, .size = UiSize::Md})) {
+        if (auto tb = guikit::Toolbar(ui, {.padding = UiSize::Sm, .size = UiSize::Md})) {
             btnNew = tb.ToolButton({.text = "New", .icon = Icon::Plus()});
             btnSave = tb.ToolButton({.text = "Save", .icon = Icon::Check(), .disabled = true});
             tb.Separator();
@@ -2538,14 +2538,14 @@ void TestToolbarWidgetWorkflow() {
 
     auto renderAdvancedToolbar = [&]() {
         ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
-        if (auto tb = ui.Toolbar({.style = ToolbarStyle::Floating})) {
+        if (auto tb = guikit::Toolbar(ui, {.style = ToolbarStyle::Floating})) {
             floatingTbId = tb.response.id;
             tb.Item(activeTool, 0, {.text = "Select"});
             item1Rect = tb.Item(activeTool, 1, {.text = "Pan", .badge = "2"}).rect;
             tb.Separator();
             toggleRect = tb.Toggle(snapActive, {.text = "Snap"}).rect;
         }
-        if (auto vtb = ui.Toolbar({.style = ToolbarStyle::Surface, .orientation = Orientation::Vertical})) {
+        if (auto vtb = guikit::Toolbar(ui, {.style = ToolbarStyle::Surface, .orientation = Orientation::Vertical})) {
             vtb.Item(activeTool, 0, {.text = "V0", .square = true});
             vtb.Separator();
             vtb.Spacer();
@@ -2586,7 +2586,7 @@ void TestToolbarWidgetWorkflow() {
 
     auto renderSplitToolbar = [&]() {
         ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
-        if (auto tb = ui.Toolbar({.style = ToolbarStyle::Surface})) {
+        if (auto tb = guikit::Toolbar(ui, {.style = ToolbarStyle::Surface})) {
             splitRes = tb.SplitToggle(trigActive, trigMode, kTrigModes, {
                 .text = "Trigger",
                 .icon = Icon::Flash()
@@ -2664,8 +2664,8 @@ void TestLabelVariantsStableSizing() {
     Response btn;
 
     auto render = [&]() {
-        if (auto row = ui.Row({.gap = 8.0f})) {
-            btn = ui.Button({
+        if (auto row = guikit::Row(ui, {.gap = 8.0f})) {
+            btn = guikit::Button(ui, {
                 .text = {state ? "VSync: ON" : "VSync: OFF", {"VSync: ON", "VSync: OFF"}}
             });
         }
@@ -2694,9 +2694,9 @@ void TestLabelVariantsStableSizing() {
     {
         static constexpr keel::StaticArray<keel::StringRef, 2> autoPxVars = {"Auto", "%.0f px"};
         SliderOptions slOpts{.valueFormat = {"Auto", autoPxVars}, .showValue = true, .width = SizeMode::Fit};
-        const Vec2 szAuto = Slider::Measure(slOpts, 0.0, 0.0, 400.0, UiSize::Md, &canvas, ui.GetTheme());
+        const Vec2 szAuto = detail::Slider::Measure(slOpts, 0.0, 0.0, 400.0, UiSize::Md, &canvas, ui.GetTheme());
         slOpts.valueFormat = {"%.0f px", autoPxVars};
-        const Vec2 szPx = Slider::Measure(slOpts, 400.0, 0.0, 400.0, UiSize::Md, &canvas, ui.GetTheme());
+        const Vec2 szPx = detail::Slider::Measure(slOpts, 400.0, 0.0, 400.0, UiSize::Md, &canvas, ui.GetTheme());
         CHECK_NEAR(szAuto.x, szPx.x, 0.001f);
 
         static constexpr keel::StaticArray<keel::StringRef, 3> shortSteps = {"A", "B", "C"};
@@ -2707,9 +2707,9 @@ void TestLabelVariantsStableSizing() {
             .valueText = {"Short", fullNames},
             .width = SizeMode::Fit
         };
-        const Vec2 st0 = StepSlider::Measure(stOpts, 0, 3, UiSize::Md, &canvas, ui.GetTheme());
+        const Vec2 st0 = detail::StepSlider::Measure(stOpts, 0, 3, UiSize::Md, &canvas, ui.GetTheme());
         stOpts.valueText = {"ExtraLongVariantName", fullNames};
-        const Vec2 st2 = StepSlider::Measure(stOpts, 2, 3, UiSize::Md, &canvas, ui.GetTheme());
+        const Vec2 st2 = detail::StepSlider::Measure(stOpts, 2, 3, UiSize::Md, &canvas, ui.GetTheme());
         CHECK_NEAR(st0.x, st2.x, 0.001f);
 
         // Verify InputField Fit auto-width calculation from valueFormat variants (and that placeholder does not affect width)
@@ -2727,9 +2727,9 @@ void TestLabelVariantsStableSizing() {
             .valueFormat = {longEndpointVars},
             .width = SizeMode::Fit
         };
-        const Vec2 szShortIn = InputField::Measure("5", inShortOpts, UiSize::Md, &canvas, ui.GetTheme());
-        const Vec2 szShortIn2 = InputField::Measure("99", inShortOpts, UiSize::Md, &canvas, ui.GetTheme());
-        const Vec2 szLongIn = InputField::Measure("localhost", inLongOpts, UiSize::Md, &canvas, ui.GetTheme());
+        const Vec2 szShortIn = detail::InputField::Measure("5", inShortOpts, UiSize::Md, &canvas, ui.GetTheme());
+        const Vec2 szShortIn2 = detail::InputField::Measure("99", inShortOpts, UiSize::Md, &canvas, ui.GetTheme());
+        const Vec2 szLongIn = detail::InputField::Measure("localhost", inLongOpts, UiSize::Md, &canvas, ui.GetTheme());
         const keel::f32 defInW = ui.GetTheme().GetInputField(UiSize::Md).defaultWidth;
 
         // Short numeric compact input with variants must be narrower than defaultWidth (160pt) even with a long placeholder
@@ -2759,19 +2759,19 @@ void TestContainerSizeInheritanceAndWidgetStretch() {
     Response swLg, swSm, cbLg, cbSm, inLg, inSm, selLg, selSm;
 
     auto renderSizeTest = [&](UiSize sz, bool isLarge) {
-        if (auto col = ui.Column()) {
+        if (auto col = guikit::Column(ui)) {
             if (isLarge) {
-                btnLg = ui.Button({.text = "Large Action", .size = sz});
-                swLg = ui.Switch(switchVal, {.size = sz});
-                cbLg = ui.Checkbox(checkVal, {.size = sz});
-                inLg = ui.InputField(inputVal, {.size = sz});
-                selLg = ui.Select(selectIdx, {"One", "Two"}, {.size = sz});
+                btnLg = guikit::Button(ui, {.text = "Large Action", .size = sz});
+                swLg = guikit::Switch(ui, switchVal, {.size = sz});
+                cbLg = guikit::Checkbox(ui, checkVal, {.size = sz});
+                inLg = guikit::InputField(ui, inputVal, {.size = sz});
+                selLg = guikit::Select(ui, selectIdx, {"One", "Two"}, {.size = sz});
             } else {
-                btnSm = ui.Button({.text = "Small Action", .size = sz});
-                swSm = ui.Switch(switchVal, {.size = sz});
-                cbSm = ui.Checkbox(checkVal, {.size = sz});
-                inSm = ui.InputField(inputVal, {.size = sz});
-                selSm = ui.Select(selectIdx, {"One", "Two"}, {.size = sz});
+                btnSm = guikit::Button(ui, {.text = "Small Action", .size = sz});
+                swSm = guikit::Switch(ui, switchVal, {.size = sz});
+                cbSm = guikit::Checkbox(ui, checkVal, {.size = sz});
+                inSm = guikit::InputField(ui, inputVal, {.size = sz});
+                selSm = guikit::Select(ui, selectIdx, {"One", "Two"}, {.size = sz});
             }
         }
     };
@@ -2814,10 +2814,10 @@ void TestContainerSizeInheritanceAndWidgetStretch() {
     // 2. Verify Button SizeMode::Fit vs SizeMode::Stretch in horizontal Row
     Response btnCompact, btnStretch1, btnStretch2;
     auto renderStretchRow = [&]() {
-        if (auto row = ui.Row()) {
-            btnCompact = ui.Button({.text = "Compact", .width = SizeMode::Fit});
-            btnStretch1 = ui.Button({.text = "Stretch", .width = SizeMode::Stretch});
-            btnStretch2 = ui.Button({.text = "Stretch", .width = SizeMode::Stretch});
+        if (auto row = guikit::Row(ui)) {
+            btnCompact = guikit::Button(ui, {.text = "Compact", .width = SizeMode::Fit});
+            btnStretch1 = guikit::Button(ui, {.text = "Stretch", .width = SizeMode::Stretch});
+            btnStretch2 = guikit::Button(ui, {.text = "Stretch", .width = SizeMode::Stretch});
         }
     };
 
@@ -2862,21 +2862,21 @@ void TestUiStyleAndDensityScaling() {
     WidgetResponse b1, b2, bExplicit1, bExplicit2, bGap1, bGap2;
 
     auto render = [&]() {
-        if (auto col = ui.Column()) {
-            b1 = ui.Button({.text = "First"});
-            b2 = ui.Button({.text = "Second"});
+        if (auto col = guikit::Column(ui)) {
+            b1 = guikit::Button(ui, {.text = "First"});
+            b2 = guikit::Button(ui, {.text = "Second"});
         }
         if (auto densityZ = ui.Zone({.density = 0.5f})) {
-            if (auto explicitCol = ui.Column({.gap = 12.0f})) {
-                bExplicit1 = ui.Button({.text = "Explicit 1"});
-                bExplicit2 = ui.Button({.text = "Explicit 2"});
+            if (auto explicitCol = guikit::Column(ui, {.gap = 12.0f})) {
+                bExplicit1 = guikit::Button(ui, {.text = "Explicit 1"});
+                bExplicit2 = guikit::Button(ui, {.text = "Explicit 2"});
             }
         }
         if (auto gapZ = ui.Zone({.density = 2.0f})) {
-            if (auto gapRow = ui.Row({.gap = 0.0f})) {
-                bGap1 = ui.Button({.text = "Gap 1"});
-                ui.Gap(10.0f);
-                bGap2 = ui.Button({.text = "Gap 2"});
+            if (auto gapRow = guikit::Row(ui, {.gap = 0.0f})) {
+                bGap1 = guikit::Button(ui, {.text = "Gap 1"});
+                guikit::Gap(ui, 10.0f);
+                bGap2 = guikit::Button(ui, {.text = "Gap 2"});
             }
         }
     };
@@ -2960,44 +2960,44 @@ void TestLeafWidgetSizeOverrides() {
     static constexpr keel::StaticArray<keel::StringRef, 2> selItems = {"Option 1", "Option 2"};
 
     auto render = [&]() {
-        if (auto col = ui.Column()) {
+        if (auto col = guikit::Column(ui)) {
             // Buttons: Default (Md), Local override Xl, Local override Xs
-            if (auto r1 = ui.Row()) {
-                btnInherit = ui.Button({.text = "Inherit"});
-                btnXl = ui.Button({.text = "Large", .size = UiSize::Xl});
-                btnXs = ui.Button({.text = "Small", .size = UiSize::Xs});
+            if (auto r1 = guikit::Row(ui)) {
+                btnInherit = guikit::Button(ui, {.text = "Inherit"});
+                btnXl = guikit::Button(ui, {.text = "Large", .size = UiSize::Xl});
+                btnXs = guikit::Button(ui, {.text = "Small", .size = UiSize::Xs});
             }
 
             // Switches: Default (Md), Local override Xl, Local override Xs
-            if (auto r2 = ui.Row()) {
-                swInherit = ui.Switch(swVal);
-                swXl = ui.Switch(swVal, {.size = UiSize::Xl});
-                swXs = ui.Switch(swVal, {.size = UiSize::Xs});
+            if (auto r2 = guikit::Row(ui)) {
+                swInherit = guikit::Switch(ui, swVal);
+                swXl = guikit::Switch(ui, swVal, {.size = UiSize::Xl});
+                swXs = guikit::Switch(ui, swVal, {.size = UiSize::Xs});
             }
 
             // Checkboxes: Default (Md), Local override Xl, Local override Xs
-            if (auto r3 = ui.Row()) {
-                cbInherit = ui.Checkbox(cbVal);
-                cbXl = ui.Checkbox(cbVal, {.size = UiSize::Xl});
-                cbXs = ui.Checkbox(cbVal, {.size = UiSize::Xs});
+            if (auto r3 = guikit::Row(ui)) {
+                cbInherit = guikit::Checkbox(ui, cbVal);
+                cbXl = guikit::Checkbox(ui, cbVal, {.size = UiSize::Xl});
+                cbXs = guikit::Checkbox(ui, cbVal, {.size = UiSize::Xs});
             }
 
             // InputFields: Default (Md), Local override Xl, Local override Xs
-            if (auto r4 = ui.Row()) {
-                inInherit = ui.InputField(inVal);
-                inXl = ui.InputField(inVal, {.size = UiSize::Xl});
-                inXs = ui.InputField(inVal, {.size = UiSize::Xs});
+            if (auto r4 = guikit::Row(ui)) {
+                inInherit = guikit::InputField(ui, inVal);
+                inXl = guikit::InputField(ui, inVal, {.size = UiSize::Xl});
+                inXs = guikit::InputField(ui, inVal, {.size = UiSize::Xs});
             }
 
             // Selects: Default (Md), Local override Xl, Local override Xs
-            if (auto r5 = ui.Row()) {
-                selInherit = ui.Select(selIdx, selItems);
-                selXl = ui.Select(selIdx, selItems, {.size = UiSize::Xl});
-                selXs = ui.Select(selIdx, selItems, {.size = UiSize::Xs});
+            if (auto r5 = guikit::Row(ui)) {
+                selInherit = guikit::Select(ui, selIdx, selItems);
+                selXl = guikit::Select(ui, selIdx, selItems, {.size = UiSize::Xl});
+                selXs = guikit::Select(ui, selIdx, selItems, {.size = UiSize::Xs});
             }
 
             // Toolbar ToolButtons: Inherited (Md), Local override Xl, Local override Xs
-            if (auto tb = ui.Toolbar()) {
+            if (auto tb = guikit::Toolbar(ui)) {
                 toolInherit = tb.ToolButton({.text = "Inherit", .icon = Icon::Play()});
                 toolXl = tb.ToolButton({.text = "Large", .icon = Icon::Play(), .size = UiSize::Xl});
                 toolXs = tb.ToolButton({.text = "Small", .icon = Icon::Play(), .size = UiSize::Xs});
@@ -3061,12 +3061,12 @@ void TestHeadingWidgetWorkflow() {
 
     // 1. Standalone Heading::Measure tests (default level = H3, independent of UiSize)
     HeadingOptions optsTitleOnly{.label = "System Configuration"};
-    Vec2 sizeTitleOnly = Heading::Measure(optsTitleOnly);
+    Vec2 sizeTitleOnly = detail::Heading::Measure(optsTitleOnly);
     CHECK(sizeTitleOnly.x > 0.0f);
     CHECK(sizeTitleOnly.y > 0.0f);
 
     HeadingOptions optsWithSub{.label = "System Configuration", .description = "Hardware line supervision & failsafes"};
-    Vec2 sizeWithSub = Heading::Measure(optsWithSub);
+    Vec2 sizeWithSub = detail::Heading::Measure(optsWithSub);
     CHECK(sizeWithSub.x >= sizeTitleOnly.x);
     // Heading with subtitle must be taller than title-only
     CHECK(sizeWithSub.y > sizeTitleOnly.y);
@@ -3076,7 +3076,7 @@ void TestHeadingWidgetWorkflow() {
         .description = "1000 samples/sec",
         .icon = Icon::Check()
     };
-    Vec2 sizeWithBadgeIcon = Heading::Measure(optsWithBadgeIcon);
+    Vec2 sizeWithBadgeIcon = detail::Heading::Measure(optsWithBadgeIcon);
     CHECK(sizeWithBadgeIcon.x > sizeTitleOnly.x);
 
     // HeadingLevel hierarchy scaling (H6 < H3 default < H1)
@@ -3084,9 +3084,9 @@ void TestHeadingWidgetWorkflow() {
     optsH6.level = HeadingLevel::H6;
     HeadingOptions optsH1 = optsWithBadgeIcon;
     optsH1.level = HeadingLevel::H1;
-    Vec2 sizeH6 = Heading::Measure(optsH6);
-    Vec2 sizeH3 = Heading::Measure(optsWithBadgeIcon);
-    Vec2 sizeH1 = Heading::Measure(optsH1);
+    Vec2 sizeH6 = detail::Heading::Measure(optsH6);
+    Vec2 sizeH3 = detail::Heading::Measure(optsWithBadgeIcon);
+    Vec2 sizeH1 = detail::Heading::Measure(optsH1);
     CHECK(sizeH1.y > sizeH3.y);
     CHECK(sizeH3.y > sizeH6.y);
     CHECK(sizeH1.x > sizeH3.x);
@@ -3148,8 +3148,8 @@ void TestHeadingWidgetWorkflow() {
             .width = 320.0f,
             .separator = HeadingSeparator::Bottom
         };
-        const Vec2 measuredDec = Heading::Measure(optsDecoupled, &spyCanvas, theme, 800.0f);
-        Heading::Render(spyCanvas, Rect(0.0f, 0.0f, 800.0f, measuredDec.y), optsDecoupled, theme);
+        const Vec2 measuredDec = detail::Heading::Measure(optsDecoupled, &spyCanvas, theme, 800.0f);
+        detail::Heading::Render(spyCanvas, Rect(0.0f, 0.0f, 800.0f, measuredDec.y), optsDecoupled, theme);
 
         CHECK(spyCanvas.roundRects.empty());
         CHECK(spyCanvas.lines.size() == 1);
@@ -3162,9 +3162,9 @@ void TestHeadingWidgetWorkflow() {
         // (b) Custom HeadingDivider colors and thickens separator
         spyCanvas.Clear();
         optsDecoupled.separator = {HeadingSeparator::Bottom, StateColor::Primary(), 2.0f};
-        const Vec2 measuredCustomSep = Heading::Measure(optsDecoupled, &spyCanvas, theme, 800.0f);
+        const Vec2 measuredCustomSep = detail::Heading::Measure(optsDecoupled, &spyCanvas, theme, 800.0f);
         CHECK(measuredCustomSep.y > measuredDec.y);
-        Heading::Render(spyCanvas, Rect(0.0f, 0.0f, 800.0f, measuredCustomSep.y), optsDecoupled, theme);
+        detail::Heading::Render(spyCanvas, Rect(0.0f, 0.0f, 800.0f, measuredCustomSep.y), optsDecoupled, theme);
 
         CHECK(spyCanvas.lines.size() == 1);
         if (spyCanvas.lines.size() == 1) {
@@ -3179,14 +3179,14 @@ void TestHeadingWidgetWorkflow() {
         auto runBgDecoupleFrame = [&]() {
             spyCanvas.Clear();
             bgCtx.BeginFrame({800.0f, 200.0f});
-            if (auto card = bgCtx.Card({
+            if (auto card = guikit::Card(bgCtx, {
                 .background = StateColor::Surface().WithAlpha(128),
                 .border = {.width = 1.0f, .color = StateColor::Warning()}
             })) {
-                bgCtx.InputField(textVal, {
+                guikit::InputField(bgCtx, textVal, {
                     .background = StateColor::Surface(), .border = {.width = 1.5f, .color = StateColor::Danger()}
                 });
-                bgCtx.Button({
+                guikit::Button(bgCtx, {
                     .text = "Tinted Action",
                     .background = StateColor::Danger().Tinted(0.15f), .border = {.width = 1.0f, .color = StateColor::Success()}
                 });
@@ -3216,15 +3216,15 @@ void TestHeadingWidgetWorkflow() {
     Response head1, head2, head3, head4;
     keel::String dynamicSubtitle("Initial Subtitle");
     auto renderUI = [&]() {
-        if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
-            head1 = ui.Heading({.label = "System Overview", .description = dynamicSubtitle});
-            head2 = ui.Heading({
+        if (auto col = guikit::Column(ui, {.gap = 12.0f, .padding = Padding::All(16.0f)})) {
+            head1 = guikit::Heading(ui, {.label = "System Overview", .description = dynamicSubtitle});
+            head2 = guikit::Heading(ui, {
                 .label = {"Telemetry Stream", StateColor::Success()},
                 .description = "1000 samples/sec",
                 .icon = Icon::Check()
             });
-            head3 = ui.Heading({.label = "Section Divider", .separator = HeadingSeparator::Bottom});
-            head4 = ui.Heading({.label = "Trailing Divider", .separator = HeadingSeparator::Trailing});
+            head3 = guikit::Heading(ui, {.label = "Section Divider", .separator = HeadingSeparator::Bottom});
+            head4 = guikit::Heading(ui, {.label = "Trailing Divider", .separator = HeadingSeparator::Trailing});
         }
     };
 
@@ -3301,7 +3301,7 @@ void TestDpiScalingAndBackendMetadata() {
     CHECK_NEAR(ui.GetLogicalViewport().x, 1200.0f, 0.01f);
     CHECK_NEAR(ui.GetLogicalViewport().y, 900.0f, 0.01f);
     CHECK_NEAR(ui.GetDisplayScale(), 1.0f, 0.01f);
-    ui.Button({.text = "TestBtn"});
+    guikit::Button(ui, {.text = "TestBtn"});
     ui.EndFrame(canvas);
     CHECK_NEAR(canvas.GetScale(), 1.0f, 0.01f);
 
@@ -3318,7 +3318,7 @@ void TestDpiScalingAndBackendMetadata() {
     CHECK_NEAR(ui.GetMousePos().y, 20.0f, 0.01f);
 
     // Render button and test layout
-    ui.Button({.text = "TestBtn"});
+    guikit::Button(ui, {.text = "TestBtn"});
     ui.EndFrame(canvas);
 
     // Canvas should receive 1.5x scale
@@ -3379,8 +3379,8 @@ void TestSdlMouseCoordsMapToLogicalDp() {
 
         WidgetResponse btn;
         auto renderUI = [&]() {
-            if (auto col = ui.Column({.padding = Padding::All(200.0f)})) {
-                btn = ui.Button({.text = "HiDPI Target"});
+            if (auto col = guikit::Column(ui, {.padding = Padding::All(200.0f)})) {
+                btn = guikit::Button(ui, {.text = "HiDPI Target"});
             }
         };
 
@@ -3427,17 +3427,17 @@ void TestFrameScaleIsUniformAndKeepsPointer() {
         Layout out{};
         for (keel::i32 frame = 0; frame < 2; ++frame) {
             ui.BeginFrame({keel::as<keel::f32>(w), keel::as<keel::f32>(h)}, pixelsPerDp);
-            if (auto card = ui.Card({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
-                out.heading = ui.Heading({.label = "Audio Channel", .separator = HeadingSeparator::Bottom}).rect;
-                if (auto el = ui.Element({.label = "Enable Stage"})) {
-                    out.toggle = ui.Switch(enabled).rect;
+            if (auto card = guikit::Card(ui, {.gap = 12.0f, .padding = Padding::All(16.0f)})) {
+                out.heading = guikit::Heading(ui, {.label = "Audio Channel", .separator = HeadingSeparator::Bottom}).rect;
+                if (auto el = guikit::Element(ui, {.label = "Enable Stage"})) {
+                    out.toggle = guikit::Switch(ui, enabled).rect;
                 }
-                if (auto el = ui.Element({.label = "Gain", .badge = "dB"})) {
-                    out.slider = ui.Slider(gain, -60.0f, 12.0f, {.valueFormat = "%.1f dB"}).rect;
+                if (auto el = guikit::Element(ui, {.label = "Gain", .badge = "dB"})) {
+                    out.slider = guikit::Slider(ui, gain, -60.0f, 12.0f, {.valueFormat = "%.1f dB"}).rect;
                 }
-                out.input = ui.InputField(name).rect;
-                out.button = ui.Button({.text = "Apply"}).rect;
-                out.text = ui.Text("Status: Online").rect;
+                out.input = guikit::InputField(ui, name).rect;
+                out.button = guikit::Button(ui, {.text = "Apply"}).rect;
+                out.text = guikit::Text(ui, "Status: Online").rect;
             }
             ui.EndFrame(canvas);
         }
@@ -3510,16 +3510,16 @@ void TestZonesInheritanceZoomIndependenceAndBalance() {
 
     // --- ui.Zone wrapper inherits everything it does not set, and restores parent on exit ---
     if (auto denseZ = ui.Zone({.density = 0.5f})) {
-        if (auto denseCol = ui.Column()) {
+        if (auto denseCol = guikit::Column(ui)) {
             CHECK_NEAR(ui.GetDensity(), 0.5f, 1e-6f);
             CHECK(&ui.GetTheme() == rootTheme);       // theme inherited, not copied
             CHECK(!ui.IsDisabled());
 
             if (auto nestedZ = ui.Zone({.density = 1.5f})) {
-                if (auto disabledBox = ui.Box({.disabled = true})) {
+                if (auto disabledBox = guikit::Box(ui, {.disabled = true})) {
                     CHECK_NEAR(ui.GetDensity(), 0.75f, 1e-6f);  // density composes multiplicatively
                     CHECK(ui.IsDisabled());
-                    if (auto reenabled = ui.Box({.disabled = false})) {
+                    if (auto reenabled = guikit::Box(ui, {.disabled = false})) {
                         CHECK(ui.IsDisabled());                 // a disabled parent cannot be re-enabled by a child
                     }
                 }
@@ -3534,7 +3534,7 @@ void TestZonesInheritanceZoomIndependenceAndBalance() {
     {
         const UiTheme light = UiTheme::Light();
         if (auto themeZ = ui.Zone({.theme = light})) {
-            if (auto themed = ui.Box()) {
+            if (auto themed = guikit::Box(ui)) {
                 CHECK(ui.GetTheme().mode == ThemeMode::Light);
                 CHECK(ui.GetThemeMode() == ThemeMode::Light);
                 CHECK(!ui.IsDarkMode());
@@ -3543,7 +3543,7 @@ void TestZonesInheritanceZoomIndependenceAndBalance() {
                 CHECK(&ui.GetTheme() != rootTheme);
 
                 // Nested containers inherit the theme from the parent zone
-                if (auto inner = ui.Box({.background = {ui.GetThemePalette().surface}})) {
+                if (auto inner = guikit::Box(ui, {.background = {ui.GetThemePalette().surface}})) {
                     CHECK(inner.GetNode()->GetThemePtr() == &ui.GetTheme());
                     CHECK(ui.GetTheme().mode == ThemeMode::Light);
                     CHECK(inner.GetNode()->backgroundColor == light.palette.surface);
@@ -3567,12 +3567,12 @@ void TestZonesInheritanceZoomIndependenceAndBalance() {
         Id outsideId = Id::Null();
         for (keel::i32 frame = 0; frame < 2; ++frame) {
             ctx.BeginFrame(viewport, 1.5f, rootZoom);
-            if (auto outside = ctx.Box({.width = 100.0f, .height = 20.0f})) {
+            if (auto outside = guikit::Box(ctx, {.width = 100.0f, .height = 20.0f})) {
                 outsideId = outside.GetNode()->id;
             }
             if (auto scaleZ = ctx.Zone({.scale = ctx.ScaleForZoom(1.25f)})) {
-                if (auto preview = ctx.Box()) {
-                    if (auto inside = ctx.Box({.width = 100.0f, .height = 20.0f})) {
+                if (auto preview = guikit::Box(ctx)) {
+                    if (auto inside = guikit::Box(ctx, {.width = 100.0f, .height = 20.0f})) {
                         insideId = inside.GetNode()->id;
                     }
                 }
@@ -3594,9 +3594,9 @@ void TestZonesInheritanceZoomIndependenceAndBalance() {
         CHECK(rootDepth == 1);
 
         {
-            auto row = ctx.Row();
+            auto row = guikit::Row(ctx);
             CHECK(ctx.GetContainerDepth() == rootDepth + 1);
-            if (auto col = ctx.Column({.disabled = true})) {
+            if (auto col = guikit::Column(ctx, {.disabled = true})) {
                 CHECK(ctx.GetContainerDepth() == rootDepth + 2);
                 CHECK(col.GetNode()->disabled);      // the container is disabled...
                 CHECK(ctx.IsDisabled());             // ...and propagates disabled state to its children
@@ -3608,7 +3608,7 @@ void TestZonesInheritanceZoomIndependenceAndBalance() {
         // Closed accordion leaves container stack untouched
         {
             bool open = false;
-            auto acc = ctx.Accordion(open, {.label = "Closed", .size = UiSize::Sm});
+            auto acc = guikit::Accordion(ctx, open, {.label = "Closed", .size = UiSize::Sm});
             CHECK(!acc);
             CHECK(ctx.GetContainerDepth() == rootDepth);
         }
@@ -3616,14 +3616,14 @@ void TestZonesInheritanceZoomIndependenceAndBalance() {
         // Open accordion enters and leaves container cleanly
         {
             bool open = true;
-            auto acc = ctx.Accordion(open, {.label = "Open", .size = UiSize::Sm});
+            auto acc = guikit::Accordion(ctx, open, {.label = "Open", .size = UiSize::Sm});
             CHECK(acc);
             CHECK(ctx.GetContainerDepth() == rootDepth + 1);
         }
         CHECK(ctx.GetContainerDepth() == rootDepth);
 
         // Leaf widgets never enter zones: a disabled button only disables itself
-        ctx.Button({.text = "Leaf", .disabled = true});
+        guikit::Button(ctx, {.text = "Leaf", .disabled = true});
         CHECK(ctx.GetContainerDepth() == rootDepth);
         CHECK(!ctx.IsDisabled());
 
@@ -3635,7 +3635,7 @@ void TestZonesInheritanceZoomIndependenceAndBalance() {
             for (keel::i32 frame = 0; frame < 3; ++frame) {
                 rowsSeen = 0;
                 ctx.BeginFrame(viewport, 1.0f);
-                if (auto table = ctx.Table(kColumns, {.totalRows = 3, .height = 200.0f})) {
+                if (auto table = guikit::Table(ctx, kColumns, {.totalRows = 3, .height = 200.0f})) {
                     for (keel::usize r = table.FirstVisibleRow(); r < table.EndVisibleRow() && r < 3; ++r) {
                         if (auto row = table.Row(r, {.disabled = (r == 1)})) {
                             rowDisabled[r] = ctx.IsDisabled();
@@ -3675,19 +3675,19 @@ void TestZoneThemeReachesNodesBuiltInside() {
     Response nested;
     for (keel::i32 frame = 0; frame < 3; ++frame) {
         ui.BeginFrame(viewport, 1.0f);
-        if (auto col = ui.Column()) {
-            plain = ui.Button({.text = "Button"});
+        if (auto col = guikit::Column(ui)) {
+            plain = guikit::Button(ui, {.text = "Button"});
             if (auto zScale = ui.Zone({.scale = 2.0f})) {
-                if (auto box = ui.Box()) {
-                    scaled = ui.Button({.text = "Button"});
+                if (auto box = guikit::Box(ui)) {
+                    scaled = guikit::Button(ui, {.text = "Button"});
                 }
             }
             if (auto zTheme = ui.Zone({.theme = tallTheme})) {
-                if (auto themedBox = ui.Box()) {
-                    themed = ui.Button({.text = "Button"});
+                if (auto themedBox = guikit::Box(ui)) {
+                    themed = guikit::Button(ui, {.text = "Button"});
                     if (auto zNested = ui.Zone({.scale = 2.0f})) {
-                        if (auto box = ui.Box()) {
-                            nested = ui.Button({.text = "Button"});
+                        if (auto box = guikit::Box(ui)) {
+                            nested = guikit::Button(ui, {.text = "Button"});
                         }
                     }
                 }
@@ -3823,11 +3823,11 @@ void TestScaledContainerSpaces() {
     Id panelId = Id::Null();
     auto frame = [&]() {
         ui.BeginFrame(viewport, 1.0f);
-        if (auto col = ui.Column({.padding = Padding::All(40.0f)})) {
+        if (auto col = guikit::Column(ui, {.padding = Padding::All(40.0f)})) {
             if (auto z = ui.Zone({.scale = 2.0f})) {
-                if (auto panel = ui.Open<ScaledTestPanel>()) {
+                if (auto panel = ScaledTestPanel::Open(ui)) {
                     panelId = panel.GetNode()->id;
-                    btn = ui.Button({.text = "Scaled"});
+                    btn = guikit::Button(ui, {.text = "Scaled"});
                     mouseInside = ui.GetMousePos();
                 }
             }
@@ -3964,7 +3964,7 @@ void TestSdlCanvasBackendInterface() {
     // Verify Context renders into SdlCanvas via ICanvas polymorphism
     Context ui;
     ui.BeginFrame({800.0f, 600.0f}, 1.25f);
-    ui.Button({.text = "GPU Button"});
+    guikit::Button(ui, {.text = "GPU Button"});
     ui.EndFrame(canvas);
 }
 #endif
@@ -3995,15 +3995,15 @@ void TestIndustrialDashboardNoBlackLines() {
         Id cardId = Id::Null();
 
         auto renderUI = [&]() {
-            if (auto mainCol = ui.Column()) {
-                if (auto header = ui.Row({.align = Alignment::Center})) {
-                    ui.Text("GUIKIT GUI", {.role = TextRole::TitleLarge, .variant = UiVariant::Info});
-                    ui.Text("| Autonomous Vector GUI Engine", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
-                    ui.Spacer();
-                    ui.Text("C++20 Immediate + ThorVG", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
+            if (auto mainCol = guikit::Column(ui)) {
+                if (auto header = guikit::Row(ui, {.align = Alignment::Center})) {
+                    guikit::Text(ui, "GUIKIT GUI", {.role = TextRole::TitleLarge, .variant = UiVariant::Info});
+                    guikit::Text(ui, "| Autonomous Vector GUI Engine", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
+                    guikit::Spacer(ui);
+                    guikit::Text(ui, "C++20 Immediate + ThorVG", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
                 }
 
-                if (auto tb = ui.Toolbar()) {
+                if (auto tb = guikit::Toolbar(ui)) {
                     tb.ToolButton({.text = "Density: Standard"});
                     tb.Separator();
                     tb.ToolButton({.text = "Scale: 100%"});
@@ -4016,41 +4016,41 @@ void TestIndustrialDashboardNoBlackLines() {
                     {.label = "Flexbox Demo", .icon = Icon::Settings()},
                     {.label = "Industrial Dashboard", .icon = Icon::Folder(), .badge = "Live"}
                 };
-                ui.TabBar(activeTabIndex, navTabs);
+                guikit::TabBar(ui, activeTabIndex, navTabs);
 
                 if (activeTabIndex == 2) {
-                    if (auto scroll = ui.ScrollArea()) {
-                        if (auto dashboardGrid = ui.Grid()) {
+                    if (auto scroll = guikit::ScrollArea(ui)) {
+                        if (auto dashboardGrid = guikit::Grid(ui)) {
                             if (auto colLeft = dashboardGrid.Cell6()) {
-                                if (auto card1 = ui.Card()) {
+                                if (auto card1 = guikit::Card(ui)) {
                                     cardId = card1.GetNode()->id;
-                                    ui.Heading({.label = "Primary Stop Conditions", .description = "Sensory tripwire thresholds & limits"});
-                                    if (auto grid1 = ui.Grid()) {
+                                    guikit::Heading(ui, {.label = "Primary Stop Conditions", .description = "Sensory tripwire thresholds & limits"});
+                                    if (auto grid1 = guikit::Grid(ui)) {
                                         if (auto c = grid1.Cell12()) {
-                                            if (auto el = ui.Element({
+                                            if (auto el = guikit::Element(ui, {
                                                 .label = "Enable Sensor Drop Limits",
                                                 .description = "Immediate stop on threshold breach"
                                             })) {
-                                                ui.Switch(enableSensors);
+                                                guikit::Switch(ui, enableSensors);
                                             }
                                         }
                                         if (auto c = grid1.Cell6()) {
-                                            if (auto el = ui.Element({.label = "Max Travel"})) {
-                                                ui.SpinBox(maxTravel, {.suffix = "mm", .valueFormat = "%.1f"});
+                                            if (auto el = guikit::Element(ui, {.label = "Max Travel"})) {
+                                                guikit::SpinBox(ui, maxTravel, {.suffix = "mm", .valueFormat = "%.1f"});
                                             }
                                         }
                                         if (auto c = grid1.Cell6()) {
-                                            if (auto el = ui.Element({.label = "Max Velocity"})) {
-                                                ui.SpinBox(maxVelocity, {.suffix = "mm/s", .valueFormat = "%.1f"});
+                                            if (auto el = guikit::Element(ui, {.label = "Max Velocity"})) {
+                                                guikit::SpinBox(ui, maxVelocity, {.suffix = "mm/s", .valueFormat = "%.1f"});
                                             }
                                         }
                                         if (auto c = grid1.Cell12()) {
-                                            if (auto el = ui.Element({
+                                            if (auto el = guikit::Element(ui, {
                                                 .label = "Primary Sensor Channel",
                                                 .description = "Active physical transducer bus",
                                                 .layout = ElementLayout::Stacked
                                             })) {
-                                                ui.Select(sensorChannel, {
+                                                guikit::Select(ui, sensorChannel, {
                                                     "Channel A (Load Cell 50kN)",
                                                     "Channel B (Optical Extensometer)",
                                                     "Channel C (Laser Interferometer)"
@@ -4060,20 +4060,20 @@ void TestIndustrialDashboardNoBlackLines() {
                                     }
                                 }
 
-                                if (auto card2 = ui.Card()) {
-                                    ui.Heading({.label = {"Emergency Interlocks", StateColor::Danger()}, .description = "Hardware line supervision & failsafes"});
-                                    if (auto grid2 = ui.Grid()) {
+                                if (auto card2 = guikit::Card(ui)) {
+                                    guikit::Heading(ui, {.label = {"Emergency Interlocks", StateColor::Danger()}, .description = "Hardware line supervision & failsafes"});
+                                    if (auto grid2 = guikit::Grid(ui)) {
                                         if (auto c = grid2.Cell12()) {
-                                            if (auto el = ui.Element({
+                                            if (auto el = guikit::Element(ui, {
                                                 .label = "Hardware E-Stop Line",
                                                 .description = "Continuous 24V loop monitoring"
                                             })) {
-                                                ui.Switch(hwEstop, {.color = StateColor::Danger()});
+                                                guikit::Switch(ui, hwEstop, {.color = StateColor::Danger()});
                                             }
                                         }
                                         if (auto c = grid2.Cell6()) {
-                                            if (auto el = ui.Element({.label = "Interlock Action"})) {
-                                                ui.Select(interlockMode, {
+                                            if (auto el = guikit::Element(ui, {.label = "Interlock Action"})) {
+                                                guikit::Select(ui, interlockMode, {
                                                     "Immediate Cutoff",
                                                     "Controlled Ramp-down",
                                                     "Hold Position"
@@ -4081,8 +4081,8 @@ void TestIndustrialDashboardNoBlackLines() {
                                             }
                                         }
                                         if (auto c = grid2.Cell6()) {
-                                            if (auto el = ui.Element({.label = "Ramp Duration"})) {
-                                                ui.SpinBox(rampDown, {.suffix = "ms", .valueFormat = "%.0f"});
+                                            if (auto el = guikit::Element(ui, {.label = "Ramp Duration"})) {
+                                                guikit::SpinBox(ui, rampDown, {.suffix = "ms", .valueFormat = "%.0f"});
                                             }
                                         }
                                     }
@@ -4168,13 +4168,13 @@ void TestCarouselWidgetAndTabBarOverflow() {
     WidgetResponse b1, b2, b3;
     Node* carouselNode = nullptr;
     auto renderCarousel = [&]() {
-        if (auto c = ui.Carousel({.gap = 8.0f})) {
+        if (auto c = guikit::Carousel(ui, {.gap = 8.0f})) {
             carouselNode = c.GetNode();
-            b1 = ui.Button({.text = "Button 1"});
-            b2 = ui.Button({.text = "Button 2"});
-            b3 = ui.Button({.text = "Button 3"});
-            ui.Button({.text = "Button 4"});
-            ui.Button({.text = "Button 5"});
+            b1 = guikit::Button(ui, {.text = "Button 1"});
+            b2 = guikit::Button(ui, {.text = "Button 2"});
+            b3 = guikit::Button(ui, {.text = "Button 3"});
+            guikit::Button(ui, {.text = "Button 4"});
+            guikit::Button(ui, {.text = "Button 5"});
         }
     };
 
@@ -4264,7 +4264,7 @@ void TestCarouselWidgetAndTabBarOverflow() {
     };
 
     auto renderTabBar = [&]() {
-        ui.TabBar(activeTab, longTabs);
+        guikit::TabBar(ui, activeTab, longTabs);
     };
 
     ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
@@ -4312,16 +4312,16 @@ void TestDebugBoundsAndInspectMode() {
 
     // Frame with debug bounds and inspect mode enabled
     ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
-    if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(12.0f)})) {
-        if (auto row = ui.Row({.gap = 12.0f})) {
-            ui.Button({.text = "Inspect Me"});
-            ui.Spacer();
-            if (auto el = ui.Element({.label = "Toggle Switch"})) {
-                ui.Switch(false);
+    if (auto col = guikit::Column(ui, {.gap = 8.0f, .padding = Padding::All(12.0f)})) {
+        if (auto row = guikit::Row(ui, {.gap = 12.0f})) {
+            guikit::Button(ui, {.text = "Inspect Me"});
+            guikit::Spacer(ui);
+            if (auto el = guikit::Element(ui, {.label = "Toggle Switch"})) {
+                guikit::Switch(ui, false);
             }
         }
-        if (auto card = ui.Card()) {
-            ui.Text("Card Inner Text");
+        if (auto card = guikit::Card(ui)) {
+            guikit::Text(ui, "Card Inner Text");
         }
     }
     // Hover mouse over button area
@@ -4339,8 +4339,8 @@ void TestDebugBoundsAndInspectMode() {
     CHECK(!ui.IsInspectMode());
 
     ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
-    if (auto col = ui.Column()) {
-        ui.Text("Normal Mode");
+    if (auto col = guikit::Column(ui)) {
+        guikit::Text(ui, "Normal Mode");
     }
     ui.EndFrame(canvas);
 }
@@ -4360,7 +4360,7 @@ void TestPostRenderDelegateWorkflow() {
 
     ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
 
-    if (auto c = ui.Column()) {
+    if (auto c = guikit::Column(ui)) {
         Node* containerNode = c.GetNode();
         CHECK(containerNode != nullptr);
         if (containerNode) {
@@ -4372,7 +4372,7 @@ void TestPostRenderDelegateWorkflow() {
             };
         }
 
-        ui.Button({.text = "Child Button"});
+        guikit::Button(ui, {.text = "Child Button"});
         Node* childNode = containerNode ? containerNode->firstChild : nullptr;
         CHECK(childNode != nullptr);
         if (childNode) {
@@ -4407,80 +4407,80 @@ void TestContainersAndLayoutsReorganization() {
     ui.BeginFrame({800.0f, 600.0f});
 
     // 1. Layouts: Row, Column, Wrap, Grid
-    if (auto col = ui.Column({.gap = 12.0f})) {
-        if (auto row = ui.Row({.gap = 8.0f, .align = Alignment::Center})) {
-            ui.Button({.text = "Btn 1"});
-            ui.Button({.text = "Btn 2"});
+    if (auto col = guikit::Column(ui, {.gap = 12.0f})) {
+        if (auto row = guikit::Row(ui, {.gap = 8.0f, .align = Alignment::Center})) {
+            guikit::Button(ui, {.text = "Btn 1"});
+            guikit::Button(ui, {.text = "Btn 2"});
         }
-        if (auto wrap = ui.Wrap({.gap = 4.0f, .runGap = 8.0f})) {
-            ui.Button({.text = "W1"});
-            ui.Button({.text = "W2"});
+        if (auto wrap = guikit::Wrap(ui, {.gap = 4.0f, .runGap = 8.0f})) {
+            guikit::Button(ui, {.text = "W1"});
+            guikit::Button(ui, {.text = "W2"});
         }
-        if (auto grid = ui.Grid({.columns = 12, .gap = 12.0f})) {
+        if (auto grid = guikit::Grid(ui, {.columns = 12, .gap = 12.0f})) {
             if (auto c6 = grid.Cell6()) {
-                ui.Text("Half Width Cell");
+                guikit::Text(ui, "Half Width Cell");
             }
             if (auto c5 = grid.Cell(5)) {
                 CHECK(c5.GetNode() != nullptr);
                 CHECK(c5.GetNode()->colSpan == 5);
-                ui.Text("Span 5 Cell");
+                guikit::Text(ui, "Span 5 Cell");
             }
             if (auto c7 = grid.Cell(7)) {
                 CHECK(c7.GetNode() != nullptr);
                 CHECK(c7.GetNode()->colSpan == 7);
-                ui.Text("Span 7 Cell");
+                guikit::Text(ui, "Span 7 Cell");
             }
         }
     }
 
     // 2. Panels: Box, Card, ScrollArea, Carousel
-    if (ContainerScope box = ui.Box({.gap = 8.0f, .padding = Padding::All(8.0f), .border = {.radius = 6.0f}})) {
+    if (ContainerScope box = guikit::Box(ui, {.gap = 8.0f, .padding = Padding::All(8.0f), .border = {.radius = 6.0f}})) {
         Node* node = box.GetNode();
         CHECK(node != nullptr);
         CHECK(node->cornerRadius == 6.0f);
         CHECK(node->padding.left == 8.0f);
-        ui.Text("Inside Box");
+        guikit::Text(ui, "Inside Box");
     }
 
-    if (auto card = ui.Card({.gap = 12.0f, .padding = Padding::All(16.0f), .border = {.width = 1.0f, .radius = 8.0f}})) {
+    if (auto card = guikit::Card(ui, {.gap = 12.0f, .padding = Padding::All(16.0f), .border = {.width = 1.0f, .radius = 8.0f}})) {
         Node* node = card.GetNode();
         CHECK(node != nullptr);
         CHECK(node->cornerRadius == 8.0f);
         CHECK(node->padding.top == 16.0f);
-        ui.Text("Inside Card");
+        guikit::Text(ui, "Inside Card");
     }
 
-    if (auto scroll = ui.ScrollArea({.orientation = Orientation::Vertical, .gap = 8.0f, .padding = Padding::Symmetric(12.0f, 0.0f)})) {
+    if (auto scroll = guikit::ScrollArea(ui, {.orientation = Orientation::Vertical, .gap = 8.0f, .padding = Padding::Symmetric(12.0f, 0.0f)})) {
         Node* node = scroll.GetNode();
         CHECK(node != nullptr);
         CHECK(node->padding.left == 12.0f);
         CHECK(node->gap == 8.0f);
-        ui.Button({.text = "Scroll Item 1"});
+        guikit::Button(ui, {.text = "Scroll Item 1"});
     }
 
-    if (auto carousel = ui.Carousel({.gap = 16.0f, .padding = Padding::All(6.0f), .align = Alignment::End, .justify = Justify::Center})) {
+    if (auto carousel = guikit::Carousel(ui, {.gap = 16.0f, .padding = Padding::All(6.0f), .align = Alignment::End, .justify = Justify::Center})) {
         Node* node = carousel.GetNode();
         CHECK(node != nullptr);
         CHECK(node->align == Alignment::End);
         CHECK(node->justify == Justify::Center);
         CHECK(node->padding.left == 6.0f);
         CHECK(node->gap == 16.0f);
-        ui.Button({.text = "Carousel Item 1"});
+        guikit::Button(ui, {.text = "Carousel Item 1"});
     }
 
     // 3. Static layout facades: Row::Open, Column::Open, Wrap::Open, Grid::Open, Spacer::Run
-    if (auto col2 = Column::Open(ui, {.gap = 8.0f})) {
-        if (auto row2 = Row::Open(ui)) {
-            ui.Button({.text = "Static Row Btn"});
-            Spacer::Run(ui);
-            ui.Button({.text = "Static Row Btn 2"});
+    if (auto col2 = detail::Column::Open(ui, {.gap = 8.0f})) {
+        if (auto row2 = detail::Row::Open(ui)) {
+            guikit::Button(ui, {.text = "Static Row Btn"});
+            detail::Spacer::Run(ui);
+            guikit::Button(ui, {.text = "Static Row Btn 2"});
         }
-        if (auto wrap2 = Wrap::Open(ui)) {
-            ui.Button({.text = "Static Wrap Btn"});
+        if (auto wrap2 = detail::Wrap::Open(ui)) {
+            guikit::Button(ui, {.text = "Static Wrap Btn"});
         }
-        if (auto grid2 = Grid::Open(ui)) {
+        if (auto grid2 = detail::Grid::Open(ui)) {
             if (auto cell = grid2.Cell()) {
-                ui.Text("Static Grid Cell");
+                guikit::Text(ui, "Static Grid Cell");
             }
         }
     }
@@ -4523,14 +4523,6 @@ struct MyCustomPanel {
 void TestGenericTemplateFacade() {
     using namespace guikit;
 
-    static_assert(WidgetRunnable<MyCustomBadge, keel::StringRef>);
-    static_assert(WidgetRunnable<MyCustomBadge, keel::StringRef, UiVariant>);
-    static_assert(WidgetRunnable<Button, ButtonOptions>);
-    static_assert(ContainerOpenable<MyCustomPanel>);
-    static_assert(ContainerOpenable<MyCustomPanel, keel::f32>);
-    static_assert(ContainerOpenable<Row, RowOptions>);
-    static_assert(ContainerOpenable<Card, CardOptions>);
-
     Context ui;
     TestCanvas canvas;
     const keel::u32 width = 400;
@@ -4539,12 +4531,12 @@ void TestGenericTemplateFacade() {
     canvas.SetTarget(pixels.data(), width, height, width);
 
     ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
-    if (auto panel = ui.Open<MyCustomPanel>(150.0f)) {
+    if (auto panel = MyCustomPanel::Open(ui, 150.0f)) {
         CHECK(panel.GetNode() != nullptr);
         CHECK(panel.GetNode()->minWidth == 150.0f);
-        auto badge = ui.Run<MyCustomBadge>("LIVE STATUS", UiVariant::Success);
+        auto badge = MyCustomBadge::Run(ui, "LIVE STATUS", UiVariant::Success);
         CHECK(badge.id.IsValid());
-        auto btn = ui.Run<Button>(ButtonOptions{.text = "Generic Button"});
+        auto btn = guikit::Button(ui, ButtonOptions{.text = "Generic Button"});
         CHECK(btn.id.IsValid());
     }
     ui.EndFrame(canvas);
@@ -4669,7 +4661,7 @@ void TestScopedThemeAndScaleOverrides() {
 
     // 1. Zone theme override (even without wrapping in an extra Box)
     if (auto zCustom = ui.Zone({.theme = customTheme})) {
-        if (auto box = ui.Box()) {
+        if (auto box = guikit::Box(ui)) {
             CHECK(ui.GetTheme().palette.surface == Color(123, 234, 45, 255));
         }
     }
@@ -4677,12 +4669,12 @@ void TestScopedThemeAndScaleOverrides() {
 
     // 2. A scaled container does not touch theme tokens; a nested theme zone works inside it
     if (auto zColScale = ui.Zone({.scale = 2.0f})) {
-        if (auto col = ui.Column()) {
+        if (auto col = guikit::Column(ui)) {
             CHECK_NEAR(col.GetNode()->GetScale(), 2.0f, 0.001f);
             CHECK_NEAR(col.GetNode()->GetRelativeScale(), 2.0f, 0.001f);
             CHECK_NEAR(ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight, baseBtnHeight, 0.001f);
             if (auto zInner = ui.Zone({.theme = customTheme})) {
-                if (auto innerCard = ui.Card()) {
+                if (auto innerCard = guikit::Card(ui)) {
                     CHECK(ui.GetTheme().palette.surface == Color(123, 234, 45, 255));
                     CHECK_NEAR(innerCard.GetNode()->GetScale(), 2.0f, 0.001f);          // accumulated zone scale is 2.0x
                     CHECK_NEAR(innerCard.GetNode()->GetRelativeScale(), 1.0f, 0.001f);  // relative scale delta is 1.0x (no double-scaling)
@@ -4695,9 +4687,9 @@ void TestScopedThemeAndScaleOverrides() {
 
     // 3. A toolbar inside a scaled container leaves the container stack balanced
     if (auto zShell = ui.Zone({.scale = 1.5f})) {
-        if (auto shellCol = ui.Column()) {
+        if (auto shellCol = guikit::Column(ui)) {
             const keel::usize depth = ui.GetContainerDepth();
-            if (auto tb = ui.Toolbar()) {
+            if (auto tb = guikit::Toolbar(ui)) {
                 tb.ToolButton({.text = "Action"});
             }
             CHECK(ui.GetContainerDepth() == depth);
@@ -4707,10 +4699,10 @@ void TestScopedThemeAndScaleOverrides() {
 
     // 4. Themed sidebar next to scaled content; debugBounds / inspectMode are zone state that every node built in
     //    the zone records, and nodes outside follow the context setting
-    if (auto row = ui.Row()) {
+    if (auto row = guikit::Row(ui)) {
         CHECK(!row.GetNode()->GetDebugBoundsOverride().has_value());
         if (auto zSidebar = ui.Zone({.theme = inspectorTheme, .debugBounds = false, .inspectMode = false})) {
-            if (auto sidebar = ui.Box()) {
+            if (auto sidebar = guikit::Box(ui)) {
                 CHECK(ui.GetTheme().palette.surface == Color(10, 20, 30, 255));
                 CHECK(sidebar.GetNode()->GetDebugBoundsOverride().has_value());
                 CHECK(*sidebar.GetNode()->GetDebugBoundsOverride() == false);
@@ -4720,14 +4712,14 @@ void TestScopedThemeAndScaleOverrides() {
         }
 
         if (auto zContent = ui.Zone({.scale = 1.5f, .debugBounds = true, .inspectMode = true})) {
-            if (auto content = ui.Card()) {
+            if (auto content = guikit::Card(ui)) {
                 CHECK_NEAR(ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight, baseBtnHeight, 0.001f);
                 CHECK(*content.GetNode()->GetDebugBoundsOverride() == true);
                 CHECK(*content.GetNode()->GetInspectModeOverride() == true);
-                if (auto inner = ui.Box()) {
+                if (auto inner = guikit::Box(ui)) {
                     CHECK(*inner.GetNode()->GetDebugBoundsOverride() == true);   // inherited by nested nodes
                     if (auto zHidden = ui.Zone({.debugBounds = false})) {
-                        if (auto hidden = ui.Box()) {
+                        if (auto hidden = guikit::Box(ui)) {
                             CHECK(*hidden.GetNode()->GetDebugBoundsOverride() == false); // a child zone can turn it off
                             CHECK(*hidden.GetNode()->GetInspectModeOverride() == true);  // and inherits the rest
                         }
@@ -4739,14 +4731,14 @@ void TestScopedThemeAndScaleOverrides() {
 
     // 5. Only the scaled container's outer sizing is converted into parent units; everything inside is local
     if (auto zScaledCol = ui.Zone({.scale = 2.0f})) {
-        if (auto scaledCol = ui.Column({.gap = 10.0f, .padding = Padding::All(12.0f), .width = 150.0f})) {
+        if (auto scaledCol = guikit::Column(ui, {.gap = 10.0f, .padding = Padding::All(12.0f), .width = 150.0f})) {
             const Node* colNode = scaledCol.GetNode();
             CHECK(colNode != nullptr);
             CHECK_NEAR(colNode->fixedWidth, 300.0f, 0.001f);   // outer size: parent units
             CHECK_NEAR(colNode->gap, 10.0f, 0.001f);           // inner spacing: local units
             CHECK_NEAR(colNode->padding.left, 12.0f, 0.001f);
 
-            if (auto fixedBox = ui.Box({.width = 100.0f, .height = 40.0f, .border = {.width = 2.0f, .radius = 6.0f}})) {
+            if (auto fixedBox = guikit::Box(ui, {.width = 100.0f, .height = 40.0f, .border = {.width = 2.0f, .radius = 6.0f}})) {
                 const Node* boxNode = fixedBox.GetNode();
                 CHECK_NEAR(boxNode->fixedWidth, 100.0f, 0.001f);
                 CHECK_NEAR(boxNode->fixedHeight, 40.0f, 0.001f);
@@ -4754,11 +4746,11 @@ void TestScopedThemeAndScaleOverrides() {
                 CHECK_NEAR(boxNode->cornerRadius, 6.0f, 0.001f);
             }
 
-            const Vec2 btnCompact = Button::Measure(ButtonOptions{.text = "OK", .width = 120.0f}, UiSize::Md, &canvas, ui.GetTheme());
+            const Vec2 btnCompact = detail::Button::Measure(ButtonOptions{.text = "OK", .width = 120.0f}, UiSize::Md, &canvas, ui.GetTheme());
             CHECK_NEAR(btnCompact.x, 120.0f, 0.001f);
 
             // SizeMode::Stretch fills the available width
-            const Rect fillBox = Select::GetBoxRect(Rect(0.0f, 0.0f, 400.0f, 60.0f), SelectOptions{.width = SizeMode::Stretch}, UiSize::Md, &canvas, ui.GetTheme());
+            const Rect fillBox = detail::Select::GetBoxRect(Rect(0.0f, 0.0f, 400.0f, 60.0f), SelectOptions{.width = SizeMode::Stretch}, UiSize::Md, &canvas, ui.GetTheme());
             CHECK_NEAR(fillBox.w, 400.0f, 0.01f);
         }
     }
@@ -4786,21 +4778,21 @@ void TestSliderAndStepSliderWidgets() {
 
     Response r1, r2, r3, r4, r5;
     auto renderUI = [&]() {
-        if (auto col = ui.Column()) {
-            if (auto el = ui.Element({.label = "Gain"})) {
-                r1 = ui.Slider(floatVal, 0.0f, 10.0f, {.valueFormat = "%.1f dB"});
+        if (auto col = guikit::Column(ui)) {
+            if (auto el = guikit::Element(ui, {.label = "Gain"})) {
+                r1 = guikit::Slider(ui, floatVal, 0.0f, 10.0f, {.valueFormat = "%.1f dB"});
             }
-            if (auto el = ui.Element({.label = "Columns"})) {
-                r2 = ui.Slider(intVal, 1, 8, {.valueFormat = "%d ch"});
+            if (auto el = guikit::Element(ui, {.label = "Columns"})) {
+                r2 = guikit::Slider(ui, intVal, 1, 8, {.valueFormat = "%d ch"});
             }
-            if (auto el = ui.Element({.label = "Preset"})) {
-                r3 = ui.StepSlider(stepIndex, stepLabels);
+            if (auto el = guikit::Element(ui, {.label = "Preset"})) {
+                r3 = guikit::StepSlider(ui, stepIndex, stepLabels);
             }
-            if (auto el = ui.Element({.label = "Size"})) {
-                r4 = ui.StepSlider(activeSize);
+            if (auto el = guikit::Element(ui, {.label = "Size"})) {
+                r4 = guikit::StepSlider(ui, activeSize);
             }
-            if (auto el = ui.Element({.label = "Radius"})) {
-                r5 = ui.StepSlider(activeRadius, {.includeNone = true});
+            if (auto el = guikit::Element(ui, {.label = "Radius"})) {
+                r5 = guikit::StepSlider(ui, activeRadius, {.includeNone = true});
             }
         }
     };
@@ -4894,8 +4886,8 @@ void TestVerticalSlider() {
                                   .showValue = false,
                                   .height = SizeMode::Fit
 };
-        const Vec2 hSize = Slider::Measure(hOpts, 50.0, 0.0, 100.0, UiSize::Md, &canvas, theme);
-        const Vec2 vSize = Slider::Measure(vOpts, 50.0, 0.0, 100.0, UiSize::Md, &canvas, theme);
+        const Vec2 hSize = detail::Slider::Measure(hOpts, 50.0, 0.0, 100.0, UiSize::Md, &canvas, theme);
+        const Vec2 vSize = detail::Slider::Measure(vOpts, 50.0, 0.0, 100.0, UiSize::Md, &canvas, theme);
         CHECK_NEAR(vSize.x, keel::max(m.defaultHeight, m.thumbSize), 0.5f);
         CHECK_NEAR(vSize.y, m.defaultWidth + m.thumbSize, 0.5f);
         CHECK_NEAR(hSize.x, vSize.y, 0.5f); // same travel, rotated
@@ -4907,7 +4899,7 @@ void TestVerticalSlider() {
                                  .valueFormat = "%.0f dB",
                                  .height = SizeMode::Fit
 };
-        const Vec2 vValSize = Slider::Measure(vVal, 50.0, 0.0, 100.0, UiSize::Md, &canvas, theme);
+        const Vec2 vValSize = detail::Slider::Measure(vVal, 50.0, 0.0, 100.0, UiSize::Md, &canvas, theme);
         CHECK(vValSize.y > vSize.y);
 
         // Explicit height sets the control height
@@ -4916,15 +4908,15 @@ void TestVerticalSlider() {
                                .showValue = false,
                                .height = 300.0f
 };
-        const Vec2 vHSize = Slider::Measure(vH, 50.0, 0.0, 100.0, UiSize::Md, &canvas, theme);
+        const Vec2 vHSize = detail::Slider::Measure(vH, 50.0, 0.0, 100.0, UiSize::Md, &canvas, theme);
         CHECK_NEAR(vHSize.y, 300.0f, 0.5f);
     }
 
     keel::f64 gain = 20.0;
     Response r;
     auto renderUI = [&]() {
-        if (auto col = ui.Column()) {
-            r = ui.Slider(gain, 0.0, 80.0, {.orientation = Orientation::Vertical, .valueFormat = "%.0f dB",
+        if (auto col = guikit::Column(ui)) {
+            r = guikit::Slider(ui, gain, 0.0, 80.0, {.orientation = Orientation::Vertical, .valueFormat = "%.0f dB",
                                             .step = 1.0});
         }
     };
@@ -5007,7 +4999,7 @@ void TestSceneContentDamageAndItemDrag() {
 
     auto frame = [&]() {
         ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
-        if (auto sc = ui.Scene({
+        if (auto sc = guikit::Scene(ui, {
             .worldSize = Vec2{400.0f, 300.0f},
             .backgroundStyle = SceneBackground::Solid,
             .zoomable = false,
@@ -5156,8 +5148,8 @@ void TestVerticalStepAndRangeSliders() {
                                         .stepLabels = steps,
                                         .height = SizeMode::Fit
 };
-        const Vec2 bareSize = StepSlider::Measure(bare, 0, steps.size(), UiSize::Md, &canvas, theme);
-        const Vec2 labeledSize = StepSlider::Measure(labeled, 0, steps.size(), UiSize::Md, &canvas, theme);
+        const Vec2 bareSize = detail::StepSlider::Measure(bare, 0, steps.size(), UiSize::Md, &canvas, theme);
+        const Vec2 labeledSize = detail::StepSlider::Measure(labeled, 0, steps.size(), UiSize::Md, &canvas, theme);
         CHECK_NEAR(bareSize.x, keel::max(m.defaultHeight, m.thumbSize), 0.5f);
         CHECK(labeledSize.x > bareSize.x + m.tickGap);
         CHECK_NEAR(labeledSize.y, bareSize.y, 0.5f); // labels do not add height
@@ -5167,7 +5159,7 @@ void TestVerticalStepAndRangeSliders() {
                                        .showValue = false,
                                        .height = SizeMode::Fit
 };
-        const Vec2 rangeSize = RangeSlider::Measure(range, 20.0, 60.0, 0.0, 80.0, UiSize::Md, &canvas, theme);
+        const Vec2 rangeSize = detail::RangeSlider::Measure(range, 20.0, 60.0, 0.0, 80.0, UiSize::Md, &canvas, theme);
         CHECK_NEAR(rangeSize.x, keel::max(m.defaultHeight, m.thumbSize), 0.5f);
         CHECK_NEAR(rangeSize.y, m.defaultWidth + m.thumbSize, 0.5f);
     }
@@ -5176,9 +5168,9 @@ void TestVerticalStepAndRangeSliders() {
     keel::f64 lo = 20.0, hi = 60.0;
     Response rs, rr;
     auto renderUI = [&]() {
-        if (auto row = ui.Row({.gap = 40.0f, .height = SizeMode::Stretch})) {
-            rs = ui.StepSlider(stepIdx, steps, {.orientation = Orientation::Vertical});
-            rr = ui.RangeSlider(lo, hi, 0.0, 80.0, {.orientation = Orientation::Vertical, .step = 1.0,
+        if (auto row = guikit::Row(ui, {.gap = 40.0f, .height = SizeMode::Stretch})) {
+            rs = guikit::StepSlider(ui, stepIdx, steps, {.orientation = Orientation::Vertical});
+            rr = guikit::RangeSlider(ui, lo, hi, 0.0, 80.0, {.orientation = Orientation::Vertical, .step = 1.0,
                                                     .showValue = false});
         }
     };
@@ -5269,7 +5261,7 @@ void TestPixelGeometryAndWidgetUiSizeDecoupling() {
 
     auto render = [&]() {
         // 1. Explicit arbitrary float pixel values for layout containers
-        if (auto row = ui.Row({.gap = 13.5f, .padding = Padding::Symmetric(15.0f, 7.5f)})) {
+        if (auto row = guikit::Row(ui, {.gap = 13.5f, .padding = Padding::Symmetric(15.0f, 7.5f)})) {
             Node* n = row.GetNode();
             CHECK(n != nullptr);
             CHECK_NEAR(n->gap, 13.5f, 0.001f);
@@ -5277,20 +5269,20 @@ void TestPixelGeometryAndWidgetUiSizeDecoupling() {
             CHECK_NEAR(n->padding.top, 7.5f, 0.001f);
         }
 
-        if (auto col = ui.Column({.gap = 21.25f})) {
+        if (auto col = guikit::Column(ui, {.gap = 21.25f})) {
             Node* n = col.GetNode();
             CHECK(n != nullptr);
             CHECK_NEAR(n->gap, 21.25f, 0.001f);
         }
 
-        if (auto wrap = ui.Wrap({.gap = 9.0f, .runGap = 14.5f})) {
+        if (auto wrap = guikit::Wrap(ui, {.gap = 9.0f, .runGap = 14.5f})) {
             Node* n = wrap.GetNode();
             CHECK(n != nullptr);
             CHECK_NEAR(n->gap, 9.0f, 0.001f);
             CHECK_NEAR(n->runGap, 14.5f, 0.001f);
         }
 
-        if (auto grid = ui.Grid({.gap = 11.0f, .runGap = 18.0f})) {
+        if (auto grid = guikit::Grid(ui, {.gap = 11.0f, .runGap = 18.0f})) {
             Node* n = grid.GetNode();
             CHECK(n != nullptr);
             CHECK_NEAR(n->gap, 11.0f, 0.001f);
@@ -5305,7 +5297,7 @@ void TestPixelGeometryAndWidgetUiSizeDecoupling() {
         }
 
         // 2. Card and Box with float radius and single float padding
-        if (auto card = ui.Card({.gap = 7.0f, .padding = 20.0f, .border = {.width = 1.0f, .radius = 12.5f}})) {
+        if (auto card = guikit::Card(ui, {.gap = 7.0f, .padding = 20.0f, .border = {.width = 1.0f, .radius = 12.5f}})) {
             Node* n = card.GetNode();
             CHECK(n != nullptr);
             CHECK_NEAR(n->gap, 7.0f, 0.001f);
@@ -5313,7 +5305,7 @@ void TestPixelGeometryAndWidgetUiSizeDecoupling() {
             CHECK_NEAR(n->cornerRadius, 12.5f, 0.001f);
         }
 
-        if (auto box = ui.Box({.gap = 16.0f, .padding = 8.0f, .border = {.radius = 4.0f}})) {
+        if (auto box = guikit::Box(ui, {.gap = 16.0f, .padding = 8.0f, .border = {.radius = 4.0f}})) {
             Node* n = box.GetNode();
             CHECK(n != nullptr);
             CHECK_NEAR(n->gap, 16.0f, 0.001f);
@@ -5322,7 +5314,7 @@ void TestPixelGeometryAndWidgetUiSizeDecoupling() {
         }
 
         // 3. Fallback to theme defaults when gap / radius are omitted (nullopt)
-        if (auto defaultCard = ui.Card()) {
+        if (auto defaultCard = guikit::Card(ui)) {
             Node* n = defaultCard.GetNode();
             CHECK(n != nullptr);
             CHECK_NEAR(n->gap, ui.GetTheme().GetGap(UiSize::Md), 0.001f);
@@ -5330,10 +5322,10 @@ void TestPixelGeometryAndWidgetUiSizeDecoupling() {
             CHECK_NEAR(n->padding.left, ui.GetTheme().GetPadding(UiSize::Md).left, 0.001f);
 
             // Explicit UiSize::Lg height (36px)
-            btnLg = ui.Button({.text = "Explicit Lg", .size = UiSize::Lg});
+            btnLg = guikit::Button(ui, {.text = "Explicit Lg", .size = UiSize::Lg});
 
             // Explicit UiSize::Sm height (24px)
-            btnSm = ui.Button({.text = "Explicit Sm", .size = UiSize::Sm});
+            btnSm = guikit::Button(ui, {.text = "Explicit Sm", .size = UiSize::Sm});
         }
     };
 
@@ -5386,8 +5378,8 @@ void TestTextWrappingAndBackendIndependence() {
         .description = {"Sensory tripwire thresholds & limits for automated closed-loop machinery", TextWrap::SingleLine()}
     };
 
-    const keel::f32 hNoWrap = Heading::Measure(optsNoWrap, 150.0f).y;
-    const keel::f32 hWrap = Heading::Measure(optsWrap, 150.0f).y;
+    const keel::f32 hNoWrap = detail::Heading::Measure(optsNoWrap, 150.0f).y;
+    const keel::f32 hWrap = detail::Heading::Measure(optsWrap, 150.0f).y;
     // Multi-line wrapped heading in narrow width must be taller than single-line heading!
     CHECK(hWrap > hNoWrap);
 
@@ -5403,12 +5395,12 @@ void TestTextWrappingAndBackendIndependence() {
     ui.BeginFrame({300.0f, 400.0f}, 1.0f);
     Response headResp;
     Response btn1Resp, btn2Resp, btn3Resp;
-    if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(10.0f)})) {
-        headResp = ui.Heading(optsWrap);
-        if (auto row = ui.Row({.gap = 8.0f})) {
-            btn1Resp = ui.Button({.text = "Col 1 (Stretch)", .width = SizeMode::Stretch});
-            btn2Resp = ui.Button({.text = "Col 2 (Stretch)", .width = SizeMode::Stretch});
-            btn3Resp = ui.Button({.text = "Col 3 (Stretch)", .width = SizeMode::Stretch});
+    if (auto col = guikit::Column(ui, {.gap = 8.0f, .padding = Padding::All(10.0f)})) {
+        headResp = guikit::Heading(ui, optsWrap);
+        if (auto row = guikit::Row(ui, {.gap = 8.0f})) {
+            btn1Resp = guikit::Button(ui, {.text = "Col 1 (Stretch)", .width = SizeMode::Stretch});
+            btn2Resp = guikit::Button(ui, {.text = "Col 2 (Stretch)", .width = SizeMode::Stretch});
+            btn3Resp = guikit::Button(ui, {.text = "Col 3 (Stretch)", .width = SizeMode::Stretch});
         }
     }
     ui.EndFrame(sdlCanvas);
@@ -5448,7 +5440,7 @@ void TestTextWrappingAndBackendIndependence() {
 
         Context tabUi;
         tabUi.BeginFrame({800.0f, 600.0f}, testScale);
-        Response tabRes = tabUi.TabBar(tabIdx, testTabs, {.gap = 12.0f});
+        Response tabRes = guikit::TabBar(tabUi, tabIdx, testTabs, {.gap = 12.0f});
         tabUi.EndFrame(thorCanvas);
         thorCanvas.End();
 
@@ -5479,11 +5471,11 @@ void TestTextAreaWidgetWorkflow() {
     keel::String sampleCode("ui.Button({\n    .label = \"Test\",\n    .variant = guikit::UiVariant::Primary\n});");
 
     // 1. Measure test: autoHeight must scale with line count, Element header, and zoom
-    const auto mSingle = TextArea::Measure("Single Line", {.autoHeight = true}, UiSize::Md, &canvas);
-    const auto mMulti = TextArea::Measure(sampleCode, {.autoHeight = true}, UiSize::Md, &canvas);
-    ElementSpec headerSpec = Element::MakeSpec({.label = "A text area", .description = "This is a text area"}, UiSize::Md, false, UiTheme::Dark());
+    const auto mSingle = detail::TextArea::Measure("Single Line", {.autoHeight = true}, UiSize::Md, &canvas);
+    const auto mMulti = detail::TextArea::Measure(sampleCode, {.autoHeight = true}, UiSize::Md, &canvas);
+    ElementSpec headerSpec = detail::Element::MakeSpec({.label = "A text area", .description = "This is a text area"}, UiSize::Md, false, UiTheme::Dark());
     headerSpec.hasControl = true;
-    const auto mWithHeader = Element::Measure(mMulti, headerSpec, &canvas, UiTheme::Dark());
+    const auto mWithHeader = detail::Element::Measure(mMulti, headerSpec, &canvas, UiTheme::Dark());
     CHECK(mMulti.y > mSingle.y * 2.0f);
     CHECK(mWithHeader.y > mMulti.y);
 
@@ -5491,7 +5483,7 @@ void TestTextAreaWidgetWorkflow() {
     keel::Array<TextSpan> spans;
     const auto theme = UiTheme::Dark();
     const keel::StringRef cppLine = "const int count = Compute(42, \"ok\"); // comment";
-    TextArea::HighlightLine(cppLine, 0, SyntaxConfig::Cpp(), spans, theme);
+    detail::TextArea::HighlightLine(cppLine, 0, SyntaxConfig::Cpp(), spans, theme);
     CHECK(!spans.empty());
     // Verify spans cover the entire line contiguously with no gaps or overlaps
     keel::usize expectedCol = 0;
@@ -5529,7 +5521,7 @@ void TestTextAreaWidgetWorkflow() {
         .types = customTy,
         .lineComment = "#"
     };
-    TextArea::HighlightLine("rule Sensor # note", 0, customCfg, spans, theme);
+    detail::TextArea::HighlightLine("rule Sensor # note", 0, customCfg, spans, theme);
     CHECK(spans.size() >= 3);
     CHECK(spans.front().color == theme.syntax.keyword);
     CHECK(spans.back().color == theme.syntax.comment);
@@ -5539,8 +5531,8 @@ void TestTextAreaWidgetWorkflow() {
     keel::f32 editorZoom = 1.0f;
     Response editRes;
     auto renderEditor = [&]() {
-        if (auto el = ui.Element({.label = "A text area", .description = "This is a text area"})) {
-            editRes = ui.TextArea(editableText, {
+        if (auto el = guikit::Element(ui, {.label = "A text area", .description = "This is a text area"})) {
+            editRes = guikit::TextArea(ui, editableText, {
                 .autoHeight = true,
                 .showLineNumbers = true,
                 .showCopyButton = true,
@@ -5606,7 +5598,7 @@ void TestTextAreaWidgetWorkflow() {
     keel::String coordText("AAAA\nBBBB\nCCCC");
     Response coordRes;
     auto renderCoordEditor = [&]() {
-        coordRes = ui.TextArea(coordText, {
+        coordRes = guikit::TextArea(ui, coordText, {
             .autoHeight = true,
             .showLineNumbers = true,
             .showCopyButton = false,
@@ -5651,7 +5643,7 @@ void TestTextAreaWidgetWorkflow() {
     keel::f32 prevSubZoomH = 0.0f;
     for (keel::i32 step = 0; step <= 4; ++step) {
         const keel::f32 z = 1.0f + keel::as<keel::f32>(step) * 0.01f;
-        const Vec2 measured = TextArea::Measure(coordText, {
+        const Vec2 measured = detail::TextArea::Measure(coordText, {
             .autoHeight = true,
             .showLineNumbers = true,
             .monospace = true,
@@ -5707,45 +5699,45 @@ void TestButtonAlignmentAndProceduralIcons() {
 
     // Render frame with Left-Aligned (Start) navigation rail buttons
     ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)}, 1.0f);
-    if (auto col = ui.Column({.gap = 4.0f})) {
-        ui.Button({
+    if (auto col = guikit::Column(ui, {.gap = 4.0f})) {
+        guikit::Button(ui, {
             .text = "Button",
             .icon = Icon::Play(),
             .align = Align::Start,
             .width = SizeMode::Stretch
         });
-        ui.Button({
+        guikit::Button(ui, {
             .text = "Input",
             .icon = Icon::Edit(),
             .align = Align::Start,
             .width = SizeMode::Stretch
         });
-        ui.Button({
+        guikit::Button(ui, {
             .text = "Containers",
             .icon = Icon::Copy(),
             .align = Align::Start,
             .width = SizeMode::Stretch
         });
-        ui.Button({
+        guikit::Button(ui, {
             .text = "End-Aligned",
             .icon = Icon::Settings(),
             .align = Align::End,
             .width = SizeMode::Stretch
         });
-        ui.Button({
+        guikit::Button(ui, {
             .text = "Center-Aligned",
             .icon = Icon::Folder(),
             .align = Align::Center,
             .width = SizeMode::Stretch
         });
         // Label only left-aligned
-        ui.Button({
+        guikit::Button(ui, {
             .text = "Label Only Left",
             .align = Align::Start,
             .width = SizeMode::Stretch
         });
         // Icon only left-aligned
-        ui.Button({
+        guikit::Button(ui, {
             .icon = Icon::Plus(),
             .align = Align::Start,
             .width = SizeMode::Stretch
@@ -5799,18 +5791,18 @@ void TestButtonAlignmentAndProceduralIcons() {
         .width = 150.0f
     };
 
-    const Vec2 bIntrinsic = Button::Measure(bStart, UiSize::Md, &recCanvas, darkTheme);
-    const ElementGeometry geom = Element::Resolve(widgetBounds, bIntrinsic, elSpec, &recCanvas, darkTheme);
+    const Vec2 bIntrinsic = detail::Button::Measure(bStart, UiSize::Md, &recCanvas, darkTheme);
+    const ElementGeometry geom = detail::Element::Resolve(widgetBounds, bIntrinsic, elSpec, &recCanvas, darkTheme);
 
-    Button::Render(recCanvas, geom.controlRect, bStart, UiSize::Md, false, false, false, darkTheme);
+    detail::Button::Render(recCanvas, geom.controlRect, bStart, UiSize::Md, false, false, false, darkTheme);
     const Rect capStart = recCanvas.lastCapsuleRect;
     const keel::f32 alignXStart = recCanvas.lastAlignX;
 
-    Button::Render(recCanvas, geom.controlRect, bCenter, UiSize::Md, false, false, false, darkTheme);
+    detail::Button::Render(recCanvas, geom.controlRect, bCenter, UiSize::Md, false, false, false, darkTheme);
     const Rect capCenter = recCanvas.lastCapsuleRect;
     const keel::f32 alignXCenter = recCanvas.lastAlignX;
 
-    Button::Render(recCanvas, geom.controlRect, bEnd, UiSize::Md, false, false, false, darkTheme);
+    detail::Button::Render(recCanvas, geom.controlRect, bEnd, UiSize::Md, false, false, false, darkTheme);
     const Rect capEnd = recCanvas.lastCapsuleRect;
     const keel::f32 alignXEnd = recCanvas.lastAlignX;
 
@@ -5843,15 +5835,15 @@ void TestWidgetRadiusOverride() {
     keel::String inputText("hello");
 
     ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)}, 1.0f);
-    if (auto col = ui.Column({.gap = 8.0f})) {
-        auto btnDefault = ui.Button({.text = "Default Radius"});
-        auto btnCustom = ui.Button({.text = "Custom Radius", .border = Border::Rounded(16.0f)});
+    if (auto col = guikit::Column(ui, {.gap = 8.0f})) {
+        auto btnDefault = guikit::Button(ui, {.text = "Default Radius"});
+        auto btnCustom = guikit::Button(ui, {.text = "Custom Radius", .border = Border::Rounded(16.0f)});
         Response inputDefault, inputCustom;
-        if (auto el = ui.Element({.label = "Default Radius Input"})) {
-            inputDefault = ui.InputField(inputText);
+        if (auto el = guikit::Element(ui, {.label = "Default Radius Input"})) {
+            inputDefault = guikit::InputField(ui, inputText);
         }
-        if (auto el = ui.Element({.label = "Custom Radius Input"})) {
-            inputCustom = ui.InputField(inputText, {.border = {.radius = 14.0f}});
+        if (auto el = guikit::Element(ui, {.label = "Custom Radius Input"})) {
+            inputCustom = guikit::InputField(ui, inputText, {.border = {.radius = 14.0f}});
         }
 
         CHECK(btnDefault.id.IsValid());
@@ -5877,13 +5869,13 @@ void TestButtonExternalLabelDescriptionAndPlacement() {
 
     // 1. Measure comparisons
     const UiTheme& theme = UiTheme::Dark();
-    const Vec2 plainSize = Button::Measure({.text = "Deploy"}, UiSize::Md, &canvas, theme);
-    const Vec2 stackedSize = Element::Measure(plainSize, ElementSpec{
+    const Vec2 plainSize = detail::Button::Measure({.text = "Deploy"}, UiSize::Md, &canvas, theme);
+    const Vec2 stackedSize = detail::Element::Measure(plainSize, ElementSpec{
         .label = "Deployment Action",
         .description = "Immediate canary release",
         .layout = ElementLayout::Stacked
     }, &canvas, theme);
-    const Vec2 leadingSize = Element::Measure(plainSize, ElementSpec{
+    const Vec2 leadingSize = detail::Element::Measure(plainSize, ElementSpec{
         .label = "Deployment Action",
         .description = "Immediate canary release",
         .layout = ElementLayout::Leading
@@ -5899,51 +5891,51 @@ void TestButtonExternalLabelDescriptionAndPlacement() {
     static const keel::StaticArray<keel::StringRef, 3> items = {"Alpha", "Beta", "Gamma"};
 
     ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)}, 1.0f);
-    if (auto col = ui.Column({.gap = 8.0f})) {
+    if (auto col = guikit::Column(ui, {.gap = 8.0f})) {
         Response bStacked, bLeading, bTrailing, bTop, bBottom, selRes;
-        if (auto el = ui.Element({
+        if (auto el = guikit::Element(ui, {
             .label = "Action Header",
             .description = "Helper info stacked",
             .layout = ElementLayout::Stacked
         })) {
-            bStacked = ui.Button({.text = "Click Stacked"});
+            bStacked = guikit::Button(ui, {.text = "Click Stacked"});
         }
-        if (auto el = ui.Element({
+        if (auto el = guikit::Element(ui, {
             .label = "Action Header",
             .description = "Helper info leading",
             .layout = ElementLayout::Leading
         })) {
-            bLeading = ui.Button({.text = "Click Leading"});
+            bLeading = guikit::Button(ui, {.text = "Click Leading"});
         }
-        if (auto el = ui.Element({
+        if (auto el = guikit::Element(ui, {
             .label = "Action Header",
             .description = "Helper info trailing",
             .layout = ElementLayout::Trailing
         })) {
-            bTrailing = ui.Button({.text = "Click Trailing"});
+            bTrailing = guikit::Button(ui, {.text = "Click Trailing"});
         }
-        if (auto el = ui.Element({
+        if (auto el = guikit::Element(ui, {
             .label = "Action Header",
             .description = "Helper info top",
             .layout = ElementLayout::Top
         })) {
-            bTop = ui.Button({.text = "Click Top"});
+            bTop = guikit::Button(ui, {.text = "Click Top"});
         }
-        if (auto el = ui.Element({
+        if (auto el = guikit::Element(ui, {
             .label = "Action Header",
             .description = "Helper info bottom",
             .layout = ElementLayout::Bottom
         })) {
-            bBottom = ui.Button({.text = "Click Bottom"});
+            bBottom = guikit::Button(ui, {.text = "Click Bottom"});
         }
 
         // Select with custom radius override
-        if (auto el = ui.Element({
+        if (auto el = guikit::Element(ui, {
             .label = "Select Header",
             .description = "Choose option",
             .layout = ElementLayout::Stacked
         })) {
-            selRes = ui.Select(selIdx, items, {.border = {.radius = 12.0f}});
+            selRes = guikit::Select(ui, selIdx, items, {.border = {.radius = 12.0f}});
         }
 
         CHECK(bStacked.id.IsValid());
@@ -5971,68 +5963,68 @@ void TestWidgetSizeModesAndExplicitWidth() {
     // 1. Button explicit width & minWidth in standalone Measure
     {
         ButtonOptions btnDef{.text = "Go"};
-        Vec2 szDef = Button::Measure(btnDef, UiSize::Md, &canvas, ui.GetTheme());
+        Vec2 szDef = detail::Button::Measure(btnDef, UiSize::Md, &canvas, ui.GetTheme());
         CHECK(szDef.x > 0.0f);
 
         ButtonOptions btnWidth{.text = "Go", .width = 180.0f};
-        Vec2 szWidth = Button::Measure(btnWidth, UiSize::Md, &canvas, ui.GetTheme());
+        Vec2 szWidth = detail::Button::Measure(btnWidth, UiSize::Md, &canvas, ui.GetTheme());
         CHECK_NEAR(szWidth.x, 180.0f, 0.01f);
 
         ButtonOptions btnMinSmall{.text = "Go", .minWidth = 140.0f};
-        Vec2 szMinSmall = Button::Measure(btnMinSmall, UiSize::Md, &canvas, ui.GetTheme());
+        Vec2 szMinSmall = detail::Button::Measure(btnMinSmall, UiSize::Md, &canvas, ui.GetTheme());
         CHECK(szMinSmall.x >= 140.0f);
 
         ButtonOptions btnMinLarge{.text = "Very long button text that exceeds minimum", .minWidth = 50.0f};
-        Vec2 szMinLarge = Button::Measure(btnMinLarge, UiSize::Md, &canvas, ui.GetTheme());
+        Vec2 szMinLarge = detail::Button::Measure(btnMinLarge, UiSize::Md, &canvas, ui.GetTheme());
         CHECK(szMinLarge.x > 100.0f);
     }
 
     // 2. Slider standalone Measure with width
     {
         SliderOptions sDef{.showValue = false};
-        Vec2 szSDef = Slider::Measure(sDef, 50.0, 0.0, 100.0, UiSize::Md, &canvas, ui.GetTheme());
+        Vec2 szSDef = detail::Slider::Measure(sDef, 50.0, 0.0, 100.0, UiSize::Md, &canvas, ui.GetTheme());
         const keel::f32 defaultW = ui.GetTheme().GetSlider(UiSize::Md).defaultWidth;
         const keel::f32 thumbSize = ui.GetTheme().GetSlider(UiSize::Md).thumbSize;
         CHECK_NEAR(szSDef.x, defaultW + thumbSize, 0.01f);
 
         SliderOptions sExplicit{.showValue = false, .width = 240.0f};
-        Vec2 szSExp = Slider::Measure(sExplicit, 50.0, 0.0, 100.0, UiSize::Md, &canvas, ui.GetTheme());
+        Vec2 szSExp = detail::Slider::Measure(sExplicit, 50.0, 0.0, 100.0, UiSize::Md, &canvas, ui.GetTheme());
         CHECK_NEAR(szSExp.x, 240.0f, 0.01f);
 
         SliderOptions sWithVal{.showValue = true};
-        Vec2 szSVal = Slider::Measure(sWithVal, 50.0, 0.0, 100.0, UiSize::Md, &canvas, ui.GetTheme());
+        Vec2 szSVal = detail::Slider::Measure(sWithVal, 50.0, 0.0, 100.0, UiSize::Md, &canvas, ui.GetTheme());
         CHECK(szSVal.x > szSDef.x);
     }
 
     // 3. Select standalone Measure with intrinsic width & explicit width
     {
         SelectOptions selDef;
-        Vec2 szSelDef = Select::Measure(selDef, UiSize::Md, &canvas, ui.GetTheme());
+        Vec2 szSelDef = detail::Select::Measure(selDef, UiSize::Md, &canvas, ui.GetTheme());
         const keel::f32 defW = ui.GetTheme().GetSelect(UiSize::Md).defaultWidth;
         CHECK_NEAR(szSelDef.x, defW, 0.01f);
 
         SelectOptions selExplicit{.width = 320.0f};
-        Vec2 szExp = Select::Measure(selExplicit, UiSize::Md, &canvas, ui.GetTheme());
+        Vec2 szExp = detail::Select::Measure(selExplicit, UiSize::Md, &canvas, ui.GetTheme());
         CHECK_NEAR(szExp.x, 320.0f, 0.01f);
 
         SelectOptions selMin{.minWidth = 250.0f};
-        Vec2 szMin = Select::Measure(selMin, UiSize::Md, &canvas, ui.GetTheme());
+        Vec2 szMin = detail::Select::Measure(selMin, UiSize::Md, &canvas, ui.GetTheme());
         CHECK(szMin.x >= 250.0f);
     }
 
     // 4. InputField standalone Measure with explicit width & minWidth
     {
         InputFieldOptions inDef;
-        Vec2 szInDef = InputField::Measure("", inDef, UiSize::Md, &canvas, ui.GetTheme());
+        Vec2 szInDef = detail::InputField::Measure("", inDef, UiSize::Md, &canvas, ui.GetTheme());
         const keel::f32 defInW = ui.GetTheme().GetInputField(UiSize::Md).defaultWidth;
         CHECK_NEAR(szInDef.x, defInW, 0.01f);
 
         InputFieldOptions inExp{.width = 280.0f};
-        Vec2 szInExp = InputField::Measure("", inExp, UiSize::Md, &canvas, ui.GetTheme());
+        Vec2 szInExp = detail::InputField::Measure("", inExp, UiSize::Md, &canvas, ui.GetTheme());
         CHECK_NEAR(szInExp.x, 280.0f, 0.01f);
 
         InputFieldOptions inMin{.minWidth = 220.0f};
-        Vec2 szInMin = InputField::Measure("", inMin, UiSize::Md, &canvas, ui.GetTheme());
+        Vec2 szInMin = detail::InputField::Measure("", inMin, UiSize::Md, &canvas, ui.GetTheme());
         CHECK(szInMin.x >= 220.0f);
     }
 
@@ -6052,102 +6044,102 @@ void TestWidgetSizeModesAndExplicitWidth() {
     keel::String inText("Test");
 
     auto render = [&]() {
-        if (auto col = ui.Column({.width = SizeMode::Stretch})) {
+        if (auto col = guikit::Column(ui, {.width = SizeMode::Stretch})) {
             // Button Row: Fit vs Stretch
-            if (auto r1 = ui.Row({.gap = 10.0f})) {
-                btnCompact = ui.Button({.text = "Compact", .width = SizeMode::Fit});
-                btnFill1 = ui.Button({.text = "Fill 1", .width = SizeMode::Stretch});
-                btnFill2 = ui.Button({.text = "Fill 2", .width = SizeMode::Stretch});
+            if (auto r1 = guikit::Row(ui, {.gap = 10.0f})) {
+                btnCompact = guikit::Button(ui, {.text = "Compact", .width = SizeMode::Fit});
+                btnFill1 = guikit::Button(ui, {.text = "Fill 1", .width = SizeMode::Stretch});
+                btnFill2 = guikit::Button(ui, {.text = "Fill 2", .width = SizeMode::Stretch});
             }
 
             // Switch in ElementLayout::Leading: Fit vs Stretch
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "Switch Compact",
                 .layout = ElementLayout::Leading,
                 .width = SizeMode::Fit
             })) {
                 swCompact = el.response;
-                ui.Switch(swVal);
+                guikit::Switch(ui, swVal);
             }
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "Switch Stretch",
                 .layout = ElementLayout::Leading,
                 .width = SizeMode::Stretch
             })) {
                 swBetween = el.response;
-                ui.Switch(swVal);
+                guikit::Switch(ui, swVal);
             }
 
             // Checkbox in ElementLayout::Leading: Fit vs Stretch
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "Checkbox Compact",
                 .layout = ElementLayout::Leading,
                 .width = SizeMode::Fit
             })) {
                 cbCompact = el.response;
-                ui.Checkbox(cbVal);
+                guikit::Checkbox(ui, cbVal);
             }
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "Checkbox Stretch",
                 .layout = ElementLayout::Leading,
                 .width = SizeMode::Stretch
             })) {
                 cbBetween = el.response;
-                ui.Checkbox(cbVal);
+                guikit::Checkbox(ui, cbVal);
             }
 
             // Slider: Fit vs Stretch
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "Slider Compact",
                 .layout = ElementLayout::Leading,
                 .width = SizeMode::Fit
             })) {
                 slCompact = el.response;
-                ui.Slider(slVal, 0.0f, 100.0f, {.width = SizeMode::Fit});
+                guikit::Slider(ui, slVal, 0.0f, 100.0f, {.width = SizeMode::Fit});
             }
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "Slider Stretch",
                 .layout = ElementLayout::Leading,
                 .width = SizeMode::Stretch
             })) {
                 slBetween = el.response;
-                ui.Slider(slVal, 0.0f, 100.0f);
+                guikit::Slider(ui, slVal, 0.0f, 100.0f);
             }
 
             // Select: Fit vs Stretch
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "Select Compact",
                 .layout = ElementLayout::Leading,
                 .width = SizeMode::Fit
             })) {
                 selCompact = el.response;
-                ui.Select(selIdx, selOpts, {.width = SizeMode::Fit});
+                guikit::Select(ui, selIdx, selOpts, {.width = SizeMode::Fit});
             }
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "Select Stretch",
                 .layout = ElementLayout::Leading,
                 .width = SizeMode::Stretch
             })) {
                 selBetween = el.response;
-                ui.Select(selIdx, selOpts);
+                guikit::Select(ui, selIdx, selOpts);
             }
 
             // InputField: Fit vs Stretch
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "Input Compact",
                 .layout = ElementLayout::Leading,
                 .width = SizeMode::Fit
             })) {
                 inCompact = el.response;
-                ui.InputField(inText, {.width = SizeMode::Fit});
+                guikit::InputField(ui, inText, {.width = SizeMode::Fit});
             }
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "Input Stretch",
                 .layout = ElementLayout::Leading,
                 .width = SizeMode::Stretch
             })) {
                 inBetween = el.response;
-                ui.InputField(inText);
+                guikit::InputField(ui, inText);
             }
         }
     };
@@ -6196,22 +6188,22 @@ void TestWidgetSizeModesAndExplicitWidth() {
     // 6. Test Button in ElementLayout::Stacked with outer Stretch + Fit vs Stretch inner button
     Response btnStBetween, btnStFill;
     auto renderStackedBtns = [&]() {
-        if (auto col = ui.Column()) {
-            if (auto el = ui.Element({
+        if (auto col = guikit::Column(ui)) {
+            if (auto el = guikit::Element(ui, {
                 .label = "Header",
                 .layout = ElementLayout::Stacked,
                 .width = SizeMode::Stretch
             })) {
                 btnStBetween = el.response;
-                ui.Button({.text = "Action", .width = SizeMode::Fit});
+                guikit::Button(ui, {.text = "Action", .width = SizeMode::Fit});
             }
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "Header",
                 .layout = ElementLayout::Stacked,
                 .width = SizeMode::Stretch
             })) {
                 btnStFill = el.response;
-                ui.Button({.text = "Action", .width = SizeMode::Stretch});
+                guikit::Button(ui, {.text = "Action", .width = SizeMode::Stretch});
             }
         }
     };
@@ -6231,30 +6223,30 @@ void TestWidgetSizeModesAndExplicitWidth() {
     // 7. Test Button in ElementLayout::Trailing with SizeMode::Fit vs SizeMode::Stretch
     Response btnTrCompact, btnTrBetween, btnTrFill;
     auto renderTrailingBtns = [&]() {
-        if (auto col = ui.Column()) {
-            if (auto el = ui.Element({
+        if (auto col = guikit::Column(ui)) {
+            if (auto el = guikit::Element(ui, {
                 .label = "Trailing Label",
                 .layout = ElementLayout::Trailing,
                 .width = SizeMode::Fit
             })) {
                 btnTrCompact = el.response;
-                ui.Button({.text = "Action"});
+                guikit::Button(ui, {.text = "Action"});
             }
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "Trailing Label",
                 .layout = ElementLayout::Trailing,
                 .width = SizeMode::Stretch
             })) {
                 btnTrBetween = el.response;
-                ui.Button({.text = "Action", .width = SizeMode::Fit});
+                guikit::Button(ui, {.text = "Action", .width = SizeMode::Fit});
             }
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "Trailing Label",
                 .layout = ElementLayout::Trailing,
                 .width = SizeMode::Stretch
             })) {
                 btnTrFill = el.response;
-                ui.Button({.text = "Action", .width = SizeMode::Stretch});
+                guikit::Button(ui, {.text = "Action", .width = SizeMode::Stretch});
             }
         }
     };
@@ -6334,10 +6326,10 @@ void TestLabelAlignmentGeometryOptionA() {
             .text = "Click Me",
             .width = 150.0f
         };
-        const Vec2 cSize = Button::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
-        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
-        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
-        Button::Render(recCanvas, geom.controlRect, opts, UiSize::Md, false, false, false, darkTheme);
+        const Vec2 cSize = detail::Button::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = detail::Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        detail::Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        detail::Button::Render(recCanvas, geom.controlRect, opts, UiSize::Md, false, false, false, darkTheme);
 
         const auto* call = recCanvas.FindTextBox("Header Label");
         CHECK(call != nullptr);
@@ -6369,10 +6361,10 @@ void TestLabelAlignmentGeometryOptionA() {
             .text = "Click Me",
             .width = SizeMode::Stretch
         };
-        const Vec2 cSize = Button::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
-        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
-        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
-        Button::Render(recCanvas, geom.controlRect, opts, UiSize::Md, false, false, false, darkTheme);
+        const Vec2 cSize = detail::Button::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = detail::Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        detail::Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        detail::Button::Render(recCanvas, geom.controlRect, opts, UiSize::Md, false, false, false, darkTheme);
 
         const auto* call = recCanvas.FindTextBox("Header Label");
         CHECK(call != nullptr);
@@ -6398,10 +6390,10 @@ void TestLabelAlignmentGeometryOptionA() {
             .text = "Click Me",
             .width = 150.0f
         };
-        const Vec2 cSize = Button::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
-        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
-        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
-        Button::Render(recCanvas, geom.controlRect, opts, UiSize::Md, false, false, false, darkTheme);
+        const Vec2 cSize = detail::Button::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = detail::Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        detail::Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        detail::Button::Render(recCanvas, geom.controlRect, opts, UiSize::Md, false, false, false, darkTheme);
 
         const auto* call = recCanvas.FindTextBox("Header Label");
         CHECK(call != nullptr);
@@ -6429,10 +6421,10 @@ void TestLabelAlignmentGeometryOptionA() {
             .text = "Action",
             .width = 150.0f
         };
-        const Vec2 cSize = Button::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
-        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
-        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
-        Button::Render(recCanvas, geom.controlRect, opts, UiSize::Md, false, false, false, darkTheme);
+        const Vec2 cSize = detail::Button::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = detail::Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        detail::Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        detail::Button::Render(recCanvas, geom.controlRect, opts, UiSize::Md, false, false, false, darkTheme);
 
         const auto* call = recCanvas.FindTextBox("Setting Title");
         CHECK(call != nullptr);
@@ -6461,10 +6453,10 @@ void TestLabelAlignmentGeometryOptionA() {
             .text = "Action",
             .width = 400.0f
         };
-        const Vec2 cSize = Button::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
-        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
-        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
-        Button::Render(recCanvas, geom.controlRect, opts, UiSize::Md, false, false, false, darkTheme);
+        const Vec2 cSize = detail::Button::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = detail::Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        detail::Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        detail::Button::Render(recCanvas, geom.controlRect, opts, UiSize::Md, false, false, false, darkTheme);
 
         CHECK_NEAR(recCanvas.lastRoundRect.w, 400.0f, 0.01f);
         CHECK_NEAR(recCanvas.lastRoundRect.x, 250.0f, 0.01f); // 50 + (800 - 400) * 0.5
@@ -6484,10 +6476,10 @@ void TestLabelAlignmentGeometryOptionA() {
             .text = "Action",
             .width = 720.0f
         };
-        const Vec2 cSize = Button::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
-        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
-        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
-        Button::Render(recCanvas, geom.controlRect, opts, UiSize::Md, false, false, false, darkTheme);
+        const Vec2 cSize = detail::Button::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = detail::Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        detail::Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        detail::Button::Render(recCanvas, geom.controlRect, opts, UiSize::Md, false, false, false, darkTheme);
 
         CHECK_NEAR(recCanvas.lastRoundRect.w, 720.0f, 0.01f);
         CHECK_NEAR(recCanvas.lastRoundRect.x, 130.0f, 0.01f); // 50 + 800 - 720
@@ -6513,10 +6505,10 @@ void TestLabelAlignmentGeometryOptionA() {
         InputFieldOptions opts{
             .width = 200.0f
         };
-        const Vec2 cSize = InputField::Measure("text", opts, UiSize::Md, &recCanvas, darkTheme);
-        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
-        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
-        InputField::Render(recCanvas, geom.controlRect, "text", opts, UiSize::Md, false, false, 0, false, false, 1.5f, darkTheme);
+        const Vec2 cSize = detail::InputField::Measure("text", opts, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = detail::Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        detail::Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        detail::InputField::Render(recCanvas, geom.controlRect, "text", opts, UiSize::Md, false, false, 0, false, false, 1.5f, darkTheme);
 
         const auto* call = recCanvas.FindTextBox("Trailing Field Info");
         CHECK(call != nullptr);
@@ -6545,10 +6537,10 @@ void TestLabelAlignmentGeometryOptionA() {
         InputFieldOptions opts{
             .width = 400.0f
         };
-        const Vec2 cSize = InputField::Measure("text", opts, UiSize::Md, &recCanvas, darkTheme);
-        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
-        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
-        InputField::Render(recCanvas, geom.controlRect, "text", opts, UiSize::Md, false, false, 0, false, false, 1.5f, darkTheme);
+        const Vec2 cSize = detail::InputField::Measure("text", opts, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = detail::Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        detail::Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        detail::InputField::Render(recCanvas, geom.controlRect, "text", opts, UiSize::Md, false, false, 0, false, false, 1.5f, darkTheme);
 
         CHECK_NEAR(recCanvas.lastRoundRect.w, 400.0f, 0.01f);
         CHECK_NEAR(recCanvas.lastRoundRect.x, 450.0f, 0.01f); // 50 + (800 - 400) * 1.0
@@ -6572,10 +6564,10 @@ void TestLabelAlignmentGeometryOptionA() {
         SelectOptions opts{
             .width = 720.0f
         };
-        const Vec2 cSize = Select::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
-        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
-        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
-        Select::Render(recCanvas, geom.controlRect, "Option A", opts, UiSize::Md, false, false, false, darkTheme);
+        const Vec2 cSize = detail::Select::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = detail::Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        detail::Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        detail::Select::Render(recCanvas, geom.controlRect, "Option A", opts, UiSize::Md, false, false, false, darkTheme);
 
         const Rect boxRect = geom.controlRect;
         CHECK_NEAR(boxRect.w, 720.0f, 0.01f);
@@ -6599,10 +6591,10 @@ void TestLabelAlignmentGeometryOptionA() {
             .width = SizeMode::Fit
         };
         SwitchOptions opts{};
-        const Vec2 cSize = Switch::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
-        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
-        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
-        Switch::Render(recCanvas, geom.controlRect, false, opts, UiSize::Md, false, false, false, darkTheme);
+        const Vec2 cSize = detail::Switch::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = detail::Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        detail::Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        detail::Switch::Render(recCanvas, geom.controlRect, false, opts, UiSize::Md, false, false, false, darkTheme);
 
         const auto* call = recCanvas.FindTextBox("Short");
         CHECK(call != nullptr);
@@ -6625,10 +6617,10 @@ void TestLabelAlignmentGeometryOptionA() {
             .width = SizeMode::Stretch
         };
         SwitchOptions opts{};
-        const Vec2 cSize = Switch::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
-        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
-        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
-        Switch::Render(recCanvas, geom.controlRect, false, opts, UiSize::Md, false, false, false, darkTheme);
+        const Vec2 cSize = detail::Switch::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = detail::Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        detail::Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        detail::Switch::Render(recCanvas, geom.controlRect, false, opts, UiSize::Md, false, false, false, darkTheme);
 
         const auto* call = recCanvas.FindTextBox("Power Switch");
         CHECK(call != nullptr);
@@ -6651,10 +6643,10 @@ void TestLabelAlignmentGeometryOptionA() {
             .width = SizeMode::Stretch
         };
         CheckboxOptions opts{};
-        const Vec2 cSize = Checkbox::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
-        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
-        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
-        Checkbox::Render(recCanvas, geom.controlRect, false, opts, UiSize::Md, false, false, false, darkTheme);
+        const Vec2 cSize = detail::Checkbox::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = detail::Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        detail::Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        detail::Checkbox::Render(recCanvas, geom.controlRect, false, opts, UiSize::Md, false, false, false, darkTheme);
 
         const auto* call = recCanvas.FindTextBox("Enable Feature");
         CHECK(call != nullptr);
@@ -6679,10 +6671,10 @@ void TestLabelAlignmentGeometryOptionA() {
         SliderOptions opts{
             .showValue = false
         };
-        const Vec2 cSize = Slider::Measure(opts, 0.5, 0.0, 1.0, UiSize::Md, &recCanvas, darkTheme);
-        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
-        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
-        Slider::Render(recCanvas, geom.controlRect, 0.5f, 0.0f, 1.0f, opts, UiSize::Md, false, false, false, darkTheme);
+        const Vec2 cSize = detail::Slider::Measure(opts, 0.5, 0.0, 1.0, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = detail::Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        detail::Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        detail::Slider::Render(recCanvas, geom.controlRect, 0.5f, 0.0f, 1.0f, opts, UiSize::Md, false, false, false, darkTheme);
 
         const auto* call = recCanvas.FindTextBox("Volume Level");
         CHECK(call != nullptr);
@@ -6709,10 +6701,10 @@ void TestLabelAlignmentGeometryOptionA() {
             .showValue = false,
             .width = 680.0f
         };
-        const Vec2 cSize = Slider::Measure(opts, 0.5, 0.0, 1.0, UiSize::Md, &recCanvas, darkTheme);
-        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
-        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
-        Slider::Render(recCanvas, geom.controlRect, 0.5f, 0.0f, 1.0f, opts, UiSize::Md, false, false, false, darkTheme);
+        const Vec2 cSize = detail::Slider::Measure(opts, 0.5, 0.0, 1.0, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = detail::Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        detail::Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        detail::Slider::Render(recCanvas, geom.controlRect, 0.5f, 0.0f, 1.0f, opts, UiSize::Md, false, false, false, darkTheme);
 
         CHECK(!recCanvas.textBoxCalls.empty());
         if (!recCanvas.textBoxCalls.empty()) {
@@ -6790,10 +6782,10 @@ void TestUiTextAndControlCompanionText() {
             .textRight = {"Light", UiVariant::Info},
             .symmetric = true
         };
-        const Vec2 cSize = Switch::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
-        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
-        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
-        Switch::Render(recCanvas, geom.controlRect, true, opts, UiSize::Md, false, false, false, darkTheme);
+        const Vec2 cSize = detail::Switch::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = detail::Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        detail::Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        detail::Switch::Render(recCanvas, geom.controlRect, true, opts, UiSize::Md, false, false, false, darkTheme);
 
         const auto* lblCall = recCanvas.FindTextBox("System Theme");
         const auto* leftCall = recCanvas.FindTextBox("Dark");
@@ -6834,14 +6826,14 @@ void TestUiTextAndControlCompanionText() {
             .color = StateColor::Danger() // Even with Danger color, value readout defaults to neutral Secondary!
         };
 
-        Vec2 ctrlMeasured = Slider::Measure(opts, 50.0, 0.0, 100.0, UiSize::Md, &recCanvas, darkTheme);
-        Vec2 measured = Element::Measure(ctrlMeasured, elSpec, &recCanvas, darkTheme);
+        Vec2 ctrlMeasured = detail::Slider::Measure(opts, 50.0, 0.0, 100.0, UiSize::Md, &recCanvas, darkTheme);
+        Vec2 measured = detail::Element::Measure(ctrlMeasured, elSpec, &recCanvas, darkTheme);
         CHECK(measured.x > 0.0f);
         CHECK(measured.y > 0.0f);
 
-        const ElementGeometry geom = Element::Resolve(Rect(20.0f, 20.0f, 400.0f, measured.y), ctrlMeasured, elSpec, &recCanvas, darkTheme);
-        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
-        Slider::Render(recCanvas, geom.controlRect, 50.0, 0.0, 100.0, opts, UiSize::Md, false, false, false, darkTheme);
+        const ElementGeometry geom = detail::Element::Resolve(Rect(20.0f, 20.0f, 400.0f, measured.y), ctrlMeasured, elSpec, &recCanvas, darkTheme);
+        detail::Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        detail::Slider::Render(recCanvas, geom.controlRect, 50.0, 0.0, 100.0, opts, UiSize::Md, false, false, false, darkTheme);
 
         const auto* lblCall = recCanvas.FindTextBox("Master Gain");
         const auto* leftCall = recCanvas.FindTextBox("0%");
@@ -6878,7 +6870,7 @@ void TestUiTextAndControlCompanionText() {
             .valueFormat = {"%.1f C", UiVariant::Warning},
             .showValue = true
         };
-        Slider::Render(recCanvas, Rect(20.0f, 20.0f, 300.0f, 60.0f), 36.6, 0.0, 100.0, opts, UiSize::Md, false, false, false, darkTheme);
+        detail::Slider::Render(recCanvas, Rect(20.0f, 20.0f, 300.0f, 60.0f), 36.6, 0.0, 100.0, opts, UiSize::Md, false, false, false, darkTheme);
         const auto* valCall = recCanvas.FindTextBox("36.6 C");
         CHECK(valCall != nullptr);
         if (valCall) {
@@ -6893,7 +6885,7 @@ void TestUiTextAndControlCompanionText() {
             .prefix = {"https://", UiVariant::Info},
             .suffix = ":443"
         };
-        InputField::Render(recCanvas, widgetBounds, "guikit.dev", opts, UiSize::Md, false, false, 0, false, false, 1.5f, darkTheme);
+        detail::InputField::Render(recCanvas, widgetBounds, "guikit.dev", opts, UiSize::Md, false, false, 0, false, false, 1.5f, darkTheme);
         const auto* prefCall = recCanvas.FindTextBox("https://");
         const auto* sufCall = recCanvas.FindTextBox(":443");
         CHECK(prefCall != nullptr);
@@ -6942,29 +6934,29 @@ void TestSidebarAndSidebarMenuWorkflow() {
     Response centerBtn;
 
     auto renderMultiSidebar = [&]() {
-        if (auto workspace = ui.Row({.gap = 10.0f, .padding = Padding::All(0.0f), .height = SizeMode::Stretch})) {
+        if (auto workspace = guikit::Row(ui, {.gap = 10.0f, .padding = Padding::All(0.0f), .height = SizeMode::Stretch})) {
             // Left Sidebar #1: Fixed width 120px -> docks at x = 0..120
-            if (auto sb1 = ui.Sidebar({.side = SidebarSide::Left, .width = 120.0f})) {
+            if (auto sb1 = guikit::Sidebar(ui, {.side = SidebarSide::Left, .width = 120.0f})) {
                 sbLeft1Id = sb1.GetNode()->id;
-                ui.Text("Rail 1");
+                guikit::Text(ui, "Rail 1");
             }
             // Left Sidebar #2: Fixed width 200px -> docks right after Left #1 at x = 130..330
-            if (auto sb2 = ui.Sidebar({.side = SidebarSide::Left, .width = 200.0f})) {
+            if (auto sb2 = guikit::Sidebar(ui, {.side = SidebarSide::Left, .width = 200.0f})) {
                 sbLeft2Id = sb2.GetNode()->id;
-                ui.Text("Inspector 2");
+                guikit::Text(ui, "Inspector 2");
             }
             // Right Sidebar #1: Fixed width 150px -> docks at right edge x = 850..1000
-            if (auto sb3 = ui.Sidebar({.side = SidebarSide::Right, .width = 150.0f})) {
+            if (auto sb3 = guikit::Sidebar(ui, {.side = SidebarSide::Right, .width = 150.0f})) {
                 sbRight1Id = sb3.GetNode()->id;
-                ui.Text("Right 1");
+                guikit::Text(ui, "Right 1");
             }
             // Right Sidebar #2: Fixed width 100px -> docks to the left of Right #1 at x = 740..840
-            if (auto sb4 = ui.Sidebar({.side = SidebarSide::Right, .width = 100.0f})) {
+            if (auto sb4 = guikit::Sidebar(ui, {.side = SidebarSide::Right, .width = 100.0f})) {
                 sbRight2Id = sb4.GetNode()->id;
-                ui.Text("Right 2");
+                guikit::Text(ui, "Right 2");
             }
             // Remaining child occupies the remaining center space: x = 340..730 (width = 390)
-            centerBtn = ui.Button({.text = "Center Workspace", .width = SizeMode::Stretch});
+            centerBtn = guikit::Button(ui, {.text = "Center Workspace", .width = SizeMode::Stretch});
         }
     };
 
@@ -7005,10 +6997,10 @@ void TestSidebarAndSidebarMenuWorkflow() {
     Response item0Res, item1Res;
 
     auto renderAutoFitMenu = [&]() {
-        if (auto workspace = ui.Row({.gap = 8.0f, .height = SizeMode::Stretch})) {
-            if (auto sb = ui.Sidebar({.side = SidebarSide::Left})) {
+        if (auto workspace = guikit::Row(ui, {.gap = 8.0f, .height = SizeMode::Stretch})) {
+            if (auto sb = guikit::Sidebar(ui, {.side = SidebarSide::Left})) {
                 fitSidebarId = sb.GetNode()->id;
-                if (auto menu = ui.SidebarMenu({
+                if (auto menu = guikit::SidebarMenu(ui, {
                     .style = SidebarMenuStyle::Indicator,
                     .collapsed = menuCollapsed,
                     .size = UiSize::Sm
@@ -7069,9 +7061,9 @@ void TestSidebarAndSidebarMenuWorkflow() {
     Id fixedSbId = Id::Null();
     Response spanMenuRes;
     auto renderSpanMenu = [&]() {
-        if (auto sb = ui.Sidebar({.width = 200.0f})) {
+        if (auto sb = guikit::Sidebar(ui, {.width = 200.0f})) {
             fixedSbId = sb.GetNode()->id;
-            spanMenuRes = ui.SidebarMenu(spanIdx, {
+            spanMenuRes = guikit::SidebarMenu(ui, spanIdx, {
                 {.text = "First", .icon = Icon::Play()},
                 {.text = "Second", .icon = Icon::Check(), .badge = "9"}
             }, {.collapsed = fixedSbCollapsed});
@@ -7097,11 +7089,11 @@ void TestSidebarAndSidebarMenuWorkflow() {
         Id scrollSbId = Id::Null();
         Response firstItemRes;
         auto renderOverflowSidebar = [&]() {
-            if (auto workspace = scrollUi.Row({.gap = 8.0f, .height = SizeMode::Stretch})) {
-                if (auto sb = scrollUi.Sidebar({.side = SidebarSide::Left, .width = 180.0f, .scrollable = true})) {
+            if (auto workspace = guikit::Row(scrollUi, {.gap = 8.0f, .height = SizeMode::Stretch})) {
+                if (auto sb = guikit::Sidebar(scrollUi, {.side = SidebarSide::Left, .width = 180.0f, .scrollable = true})) {
                     scrollSbId = sb.GetNode()->id;
                     for (keel::i32 i = 0; i < 30; ++i) {
-                        Response r = scrollUi.Button({.text = scrollUi.Format("Nav Item {}", i)});
+                        Response r = guikit::Button(scrollUi, {.text = scrollUi.Format("Nav Item {}", i)});
                         if (i == 0) {
                             firstItemRes = r;
                         }
@@ -7153,10 +7145,10 @@ void TestUiTextModesAndVerticalSpaceReservation() {
             .description = "Very long description text that should also be cropped on a single line",
             .layout = ElementLayout::Stacked
         };
-        const Vec2 cSize = InputField::Measure("", InputFieldOptions{}, UiSize::Md, &recCanvas, darkTheme);
-        const Vec2 m = Element::Measure(cSize, elSpec, &recCanvas, darkTheme, 120.0f);
-        const ElementGeometry geom = Element::Resolve(Rect(10.0f, 10.0f, 120.0f, m.y), cSize, elSpec, &recCanvas, darkTheme);
-        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        const Vec2 cSize = detail::InputField::Measure("", InputFieldOptions{}, UiSize::Md, &recCanvas, darkTheme);
+        const Vec2 m = detail::Element::Measure(cSize, elSpec, &recCanvas, darkTheme, 120.0f);
+        const ElementGeometry geom = detail::Element::Resolve(Rect(10.0f, 10.0f, 120.0f, m.y), cSize, elSpec, &recCanvas, darkTheme);
+        detail::Element::RenderText(recCanvas, geom, elSpec, darkTheme);
 
         CHECK(recCanvas.textBoxCalls.size() == 2);
         if (recCanvas.textBoxCalls.size() == 2) {
@@ -7183,17 +7175,17 @@ void TestUiTextModesAndVerticalSpaceReservation() {
             .layout = ElementLayout::Stacked
         };
 
-        const Vec2 cSize = InputField::Measure("", InputFieldOptions{}, UiSize::Md, &recCanvas, darkTheme);
-        const Vec2 singleM = Element::Measure(cSize, singleSpec, &recCanvas, darkTheme, 140.0f);
-        const Vec2 multiM = Element::Measure(cSize, multiSpec, &recCanvas, darkTheme, 140.0f);
+        const Vec2 cSize = detail::InputField::Measure("", InputFieldOptions{}, UiSize::Md, &recCanvas, darkTheme);
+        const Vec2 singleM = detail::Element::Measure(cSize, singleSpec, &recCanvas, darkTheme, 140.0f);
+        const Vec2 multiM = detail::Element::Measure(cSize, multiSpec, &recCanvas, darkTheme, 140.0f);
         const keel::f32 descFontSize = darkTheme.ResolveFontSize(multiSpec.description, TextRole::LabelSmall, UiSize::Md);
         const keel::f32 descLineH = descFontSize * kDefaultLineHeightMultiplier;
 
         // Multi-line with Max(2) must be exactly 1 description line taller than single-line
         CHECK_NEAR(multiM.y - singleM.y, descLineH, 0.01f);
 
-        const ElementGeometry geom = Element::Resolve(Rect(10.0f, 10.0f, 140.0f, multiM.y), cSize, multiSpec, &recCanvas, darkTheme);
-        Element::RenderText(recCanvas, geom, multiSpec, darkTheme);
+        const ElementGeometry geom = detail::Element::Resolve(Rect(10.0f, 10.0f, 140.0f, multiM.y), cSize, multiSpec, &recCanvas, darkTheme);
+        detail::Element::RenderText(recCanvas, geom, multiSpec, darkTheme);
         // 1 call for "Username" + 2 calls for the 2 wrapped lines of description
         CHECK(recCanvas.textBoxCalls.size() == 3);
         if (recCanvas.textBoxCalls.size() == 3) {
@@ -7211,8 +7203,8 @@ void TestUiTextModesAndVerticalSpaceReservation() {
         Response submitBtnRes;
 
         auto renderForm = [&]() {
-            if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
-                if (auto el = ui.Element({
+            if (auto col = guikit::Column(ui, {.gap = 12.0f, .padding = Padding::All(16.0f)})) {
+                if (auto el = guikit::Element(ui, {
                     .label = "Email",
                     .description = {
                         hasError ? "Invalid email address format" : "",
@@ -7221,9 +7213,9 @@ void TestUiTextModesAndVerticalSpaceReservation() {
                     }
                 })) {
                     inputRes = el.response;
-                    ui.InputField(email);
+                    guikit::InputField(ui, email);
                 }
-                submitBtnRes = ui.Button({.text = "Submit"});
+                submitBtnRes = guikit::Button(ui, {.text = "Submit"});
             }
         };
 
@@ -7269,8 +7261,8 @@ void TestUiTextModesAndVerticalSpaceReservation() {
                 errText = "Password must be at least 12 characters long and include uppercase, lowercase, numbers, and special symbols";
             }
 
-            if (auto col = ui.Column({.gap = 10.0f, .padding = Padding::All(12.0f)})) {
-                if (auto el = ui.Element({
+            if (auto col = guikit::Column(ui, {.gap = 10.0f, .padding = Padding::All(12.0f)})) {
+                if (auto el = guikit::Element(ui, {
                     .label = "Password",
                     .description = {
                         errText,
@@ -7278,9 +7270,9 @@ void TestUiTextModesAndVerticalSpaceReservation() {
                         TextWrap{.minLines = 2, .maxLines = 2}
                     }
                 })) {
-                    ui.InputField(password);
+                    guikit::InputField(ui, password);
                 }
-                submitBtnRes = ui.Button({.text = "Continue"});
+                submitBtnRes = guikit::Button(ui, {.text = "Continue"});
             }
         };
 
@@ -7313,13 +7305,13 @@ void TestUiTextModesAndVerticalSpaceReservation() {
         Response belowBtn;
 
         auto renderTextDemo = [&]() {
-            if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(10.0f)})) {
-                ui.Text({
+            if (auto col = guikit::Column(ui, {.gap = 8.0f, .padding = Padding::All(10.0f)})) {
+                guikit::Text(ui, {
                     showNotice ? "This standalone text widget wraps across two lines cleanly" : "",
                     UiVariant::Secondary,
                     TextWrap::Fixed(2)
                 });
-                belowBtn = ui.Button({.text = "OK"});
+                belowBtn = guikit::Button(ui, {.text = "OK"});
             }
         };
 
@@ -7366,7 +7358,7 @@ void TestSelectItemsAndUnifiedAffixes() {
         CHECK(opts.suffix.HasText());
         CHECK(opts.suffix.iconPlacement == Placement::Trailing);
 
-        InputField::Render(recCanvas, Rect(20.0f, 20.0f, 400.0f, 70.0f), "guikit.dev", opts, UiSize::Md, false, false, 0, false, false, 1.5f, darkTheme);
+        detail::InputField::Render(recCanvas, Rect(20.0f, 20.0f, 400.0f, 70.0f), "guikit.dev", opts, UiSize::Md, false, false, 0, false, false, 1.5f, darkTheme);
 
         const auto* pCall = recCanvas.FindTextBox("https://");
         const auto* valCall = recCanvas.FindTextBox("guikit.dev");
@@ -7396,9 +7388,9 @@ void TestSelectItemsAndUnifiedAffixes() {
         };
 
         auto renderSelect = [&]() {
-            if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(16.0f)})) {
-                if (auto el = ui.Element({.label = "Resolution", .width = SizeMode::Fit})) {
-                    selRes = ui.Select(selectedIdx, items, {.width = SizeMode::Fit});
+            if (auto col = guikit::Column(ui, {.gap = 8.0f, .padding = Padding::All(16.0f)})) {
+                if (auto el = guikit::Element(ui, {.label = "Resolution", .width = SizeMode::Fit})) {
+                    selRes = guikit::Select(ui, selectedIdx, items, {.width = SizeMode::Fit});
                 }
             }
         };
@@ -7521,12 +7513,12 @@ void TestSelectPopupScrollingWithMaxVisibleItems() {
         WidgetResponse resScroll;
 
         auto renderPair = [&]() {
-            if (auto col = ui.Column({.gap = 8.0f})) {
-                resNoScroll = ui.Select(idxA, items, {
+            if (auto col = guikit::Column(ui, {.gap = 8.0f})) {
+                resNoScroll = guikit::Select(ui, idxA, items, {
                     .maxVisibleItems = 10,
                     .width = SizeMode::Fit
                 });
-                resScroll = ui.Select(idxB, items, {
+                resScroll = guikit::Select(ui, idxB, items, {
                     .maxVisibleItems = 3,
                     .width = SizeMode::Fit
                 });
@@ -7552,16 +7544,16 @@ void TestSelectPopupScrollingWithMaxVisibleItems() {
         WidgetResponse selRes;
 
         auto renderScene = [&]() {
-            if (auto sa = ui.ScrollArea()) {
-                if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
-                    if (auto el = ui.Element({.label = "Scrollable Select"})) {
-                        selRes = ui.Select(selectedIdx, items, {
+            if (auto sa = guikit::ScrollArea(ui)) {
+                if (auto col = guikit::Column(ui, {.gap = 12.0f, .padding = Padding::All(16.0f)})) {
+                    if (auto el = guikit::Element(ui, {.label = "Scrollable Select"})) {
+                        selRes = guikit::Select(ui, selectedIdx, items, {
                             .maxVisibleItems = 3
                         });
                     }
                     // Extra tall content so parent ScrollArea is scrollable if it receives wheel events
                     for (keel::i32 i = 0; i < 15; ++i) {
-                        ui.Button({.text = "Background Filler Row"});
+                        guikit::Button(ui, {.text = "Background Filler Row"});
                     }
                 }
             }
@@ -7722,22 +7714,22 @@ void TestBaseElementsAllInOneEnhancements() {
         Response swElCompact, swElWide, cbElFixed, cbElStretch, swGlyph, cbGlyph;
 
         auto renderWidths = [&]() {
-            if (auto col = ui.Column({.gap = 8.0f})) {
-                if (auto el = ui.Element({.label = "Auto Power", .width = SizeMode::Fit})) {
+            if (auto col = guikit::Column(ui, {.gap = 8.0f})) {
+                if (auto el = guikit::Element(ui, {.label = "Auto Power", .width = SizeMode::Fit})) {
                     swElCompact = el.response;
-                    swGlyph = ui.Switch(sw);
+                    swGlyph = guikit::Switch(ui, sw);
                 }
-                if (auto el = ui.Element({.label = "Auto Power", .width = 240.0f})) {
+                if (auto el = guikit::Element(ui, {.label = "Auto Power", .width = 240.0f})) {
                     swElWide = el.response;
-                    ui.Switch(sw);
+                    guikit::Switch(ui, sw);
                 }
-                if (auto el = ui.Element({.label = "Enable Stage", .width = 200.0f})) {
+                if (auto el = guikit::Element(ui, {.label = "Enable Stage", .width = 200.0f})) {
                     cbElFixed = el.response;
-                    cbGlyph = ui.Checkbox(cb);
+                    cbGlyph = guikit::Checkbox(ui, cb);
                 }
-                if (auto el = ui.Element({.label = "Enable Stage", .width = SizeMode::Stretch})) {
+                if (auto el = guikit::Element(ui, {.label = "Enable Stage", .width = SizeMode::Stretch})) {
                     cbElStretch = el.response;
-                    ui.Checkbox(cb);
+                    guikit::Checkbox(ui, cb);
                 }
             }
         };
@@ -7768,17 +7760,17 @@ void TestBaseElementsAllInOneEnhancements() {
         Response btnRes, cbRes, swRes, slRes;
 
         auto renderFocusScene = [&]() {
-            if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(16.0f)})) {
-                btnRes = ui.Button({.text = "FirstBtn", .tooltip = "Action Tooltip Text"});
+            if (auto col = guikit::Column(ui, {.gap = 8.0f, .padding = Padding::All(16.0f)})) {
+                btnRes = guikit::Button(ui, {.text = "FirstBtn", .tooltip = "Action Tooltip Text"});
                 if (btnRes.clicked) ++btnClicks;
-                if (auto el = ui.Element({.label = "SecondCb"})) {
-                    cbRes = ui.Checkbox(cbChecked);
+                if (auto el = guikit::Element(ui, {.label = "SecondCb"})) {
+                    cbRes = guikit::Checkbox(ui, cbChecked);
                 }
-                if (auto el = ui.Element({.label = "ThirdSw"})) {
-                    swRes = ui.Switch(swState);
+                if (auto el = guikit::Element(ui, {.label = "ThirdSw"})) {
+                    swRes = guikit::Switch(ui, swState);
                 }
-                if (auto el = ui.Element({.label = "FourthSl"})) {
-                    slRes = ui.Slider(sliderVal, 0.0f, 100.0f, {.step = 10.0});
+                if (auto el = guikit::Element(ui, {.label = "FourthSl"})) {
+                    slRes = guikit::Slider(ui, sliderVal, 0.0f, 100.0f, {.step = 10.0});
                 }
             }
         };
@@ -7860,20 +7852,20 @@ void TestBaseElementsAllInOneEnhancements() {
         Response pwdRes, searchRes, numRes;
 
         auto renderInputs = [&]() {
-            if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
-                if (auto el = ui.Element({.label = "Password"})) {
-                    pwdRes = ui.InputField(pwdText, {
+            if (auto col = guikit::Column(ui, {.gap = 12.0f, .padding = Padding::All(16.0f)})) {
+                if (auto el = guikit::Element(ui, {.label = "Password"})) {
+                    pwdRes = guikit::InputField(ui, pwdText, {
                         .password = true,
                         .passwordReveal = true
                     });
                 }
-                if (auto el = ui.Element({.label = "Search"})) {
-                    searchRes = ui.InputField(searchText, {
+                if (auto el = guikit::Element(ui, {.label = "Search"})) {
+                    searchRes = guikit::InputField(ui, searchText, {
                         .clearable = true
                     });
                 }
-                if (auto el = ui.Element({.label = "Count"})) {
-                    numRes = ui.SpinBox(numVal, {
+                if (auto el = guikit::Element(ui, {.label = "Count"})) {
+                    numRes = guikit::SpinBox(ui, numVal, {
                         .min = 0.0,
                         .max = 15.0,
                         .step = 5.0
@@ -7951,34 +7943,34 @@ void TestBaseElementsAllInOneEnhancements() {
         Context ui;
         Response hLeft, hCenter, hRight, hTop, hInline, hCompact;
         auto renderElementHeading = [&]() {
-            if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(16.0f)})) {
-                hLeft = ui.Heading({
+            if (auto col = guikit::Column(ui, {.gap = 8.0f, .padding = Padding::All(16.0f)})) {
+                hLeft = guikit::Heading(ui, {
                     .label = "LeftH",
                     .description = "SubLeft",
                     .align = Align::Start
                 });
-                hCenter = ui.Heading({
+                hCenter = guikit::Heading(ui, {
                     .label = "CenterH",
                     .description = "SubCenter",
                     .align = Align::Center,
                     .separator = HeadingSeparator::Trailing
                 });
-                hRight = ui.Heading({
+                hRight = guikit::Heading(ui, {
                     .label = "RightH",
                     .description = "SubRight",
                     .align = Align::End
                 });
-                hTop = ui.Heading({
+                hTop = guikit::Heading(ui, {
                     .label = "TitleBottom",
                     .description = "OverlineTop",
                     .layout = HeadingLayout::Overline
                 });
-                hInline = ui.Heading({
+                hInline = guikit::Heading(ui, {
                     .label = "InlineTitle",
                     .description = "InlineSub",
                     .layout = HeadingLayout::Inline
                 });
-                hCompact = ui.Heading({
+                hCompact = guikit::Heading(ui, {
                     .label = "CompactH",
                     .width = 220.0f
                 });
@@ -8066,19 +8058,19 @@ void TestImageSceneAndMarkdownWidgets() {
     MarkdownResponse mdRes;
 
     auto renderUI = [&]() {
-        if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
-            if (auto el = ui.Element({
+        if (auto col = guikit::Column(ui, {.gap = 12.0f, .padding = Padding::All(16.0f)})) {
+            if (auto el = guikit::Element(ui, {
                 .label = "Inline Vector SVG",
                 .width = SizeMode::Stretch
             })) {
                 imgRes = el.response;
-                ui.Image(kInlineSvg, {
+                guikit::Image(ui, kInlineSvg, {
                     .checkerboard = true,
                     .width = 384.0f
                 });
             }
 
-            if (auto scene = ui.Scene({
+            if (auto scene = guikit::Scene(ui, {
                 .worldSize = Vec2{1000.0f, 800.0f},
                 .backgroundStyle = SceneBackground::GridDots,
                 .height = 200.0f
@@ -8104,7 +8096,7 @@ void TestImageSceneAndMarkdownWidgets() {
                 selectedCount = scene.GetSelectedCount();
             }
 
-            mdRes = ui.Markdown(kSampleMd, {
+            mdRes = guikit::Markdown(ui, kSampleMd, {
                 .codeLineNumbers = true,
                 .syntaxHighlight = true,
                 .showCopyButton = true
@@ -8177,23 +8169,23 @@ void TestImageSceneAndMarkdownWidgets() {
         Response stageImgRes;
         for (keel::i32 frame = 0; frame < 2; ++frame) {
             ui.BeginFrame({900.0f, 300.0f});
-            if (auto stageBox = ui.Box({
+            if (auto stageBox = guikit::Box(ui, {
                 .width = SizeMode::Stretch,
                 .height = SizeMode::Stretch,
                 .padding = Padding::All(24.0f)
             })) {
-                if (auto centerRow = ui.Row({
+                if (auto centerRow = guikit::Row(ui, {
                     .align = Alignment::Center,
                     .justify = Justify::Center,
                     .height = SizeMode::Stretch
                 })) {
-                    if (auto el = ui.Element({
+                    if (auto el = guikit::Element(ui, {
                         .label = "A vector image",
                         .description = "This is a vector image",
                         .width = SizeMode::Stretch
                     })) {
                         stageImgRes = el.response;
-                        ui.Image(kInlineSvg, {
+                        guikit::Image(ui, kInlineSvg, {
                             .fit = ObjectFit::Contain,
                             .checkerboard = true,
                             .width = SizeMode::Stretch
@@ -8224,14 +8216,14 @@ void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
     const UiTheme& theme = ui.GetTheme();
     {
         ButtonOptions baseBtn{.text = "Click me"};
-        const Vec2 ctrlSz = Button::Measure(baseBtn, UiSize::Md, &canvas, theme);
+        const Vec2 ctrlSz = detail::Button::Measure(baseBtn, UiSize::Md, &canvas, theme);
         ElementSpec baseSpec{.label = "A button", .description = "This is a button"};
         ElementSpec decSpec = baseSpec;
         decSpec.icon = Icon::Edit();
         decSpec.badge = {"v1.0", UiVariant::Info};
 
-        const Vec2 szBase = Element::Measure(ctrlSz, baseSpec, &canvas, theme);
-        const Vec2 szDec  = Element::Measure(ctrlSz, decSpec, &canvas, theme);
+        const Vec2 szBase = detail::Element::Measure(ctrlSz, baseSpec, &canvas, theme);
+        const Vec2 szDec  = detail::Element::Measure(ctrlSz, decSpec, &canvas, theme);
         CHECK(szDec.x > szBase.x);
         CHECK(szDec.y >= szBase.y);
     }
@@ -8247,87 +8239,87 @@ void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
 
     for (keel::i32 frame = 0; frame < 2; ++frame) {
         ui.BeginFrame({800.0f, 900.0f});
-        if (auto card = ui.Card({
+        if (auto card = guikit::Card(ui, {
             .gap = 8.0f,
             .padding = Padding::All(12.0f),
             .background = StateColor::Surface(),
             .border = {.width = 1.0f}
         })) {
-            ui.Heading({
+            guikit::Heading(ui, {
                 .label = "A heading",
                 .description = "This is a heading",
                 .icon = Icon::Edit(),
                 .separator = HeadingSeparator::Bottom
             });
-            ui.Element({
+            guikit::Element(ui, {
                 .label = "An element",
                 .description = "This is an element",
                 .icon = Icon::Settings(),
                 .badge = "Core"
             });
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "A button",
                 .description = "This is a button",
                 .icon = Icon::Edit(),
                 .badge = "Action"
             })) {
-                ui.Button({
+                guikit::Button(ui, {
                     .text = "Click me",
                     .icon = Icon::Play(),
                     .background = StateColor::Surface(), .border = {.width = 1.5f}
                 });
             }
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "A slider",
                 .description = "This is a slider",
                 .icon = Icon::Settings(),
                 .badge = "dB"
             })) {
-                ui.Slider(sliderVal, 0.0f, 100.0f);
+                guikit::Slider(ui, sliderVal, 0.0f, 100.0f);
             }
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "A step slider",
                 .description = "This is a step slider",
                 .icon = Icon::Settings(),
                 .badge = "3-step"
             })) {
-                ui.StepSlider(stepIdx, items);
+                guikit::StepSlider(ui, stepIdx, items);
             }
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "A text input",
                 .description = "This is a text input",
                 .icon = Icon::Edit(),
                 .badge = "UTF-8"
             })) {
-                ui.InputField(inputVal, {
+                guikit::InputField(ui, inputVal, {
                     .background = StateColor::Surface(), .border = {.width = 1.5f}
                 });
             }
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "A select",
                 .description = "This is a select",
                 .icon = Icon::Plus(),
                 .badge = "Menu"
             })) {
-                ui.Select(selectIdx, items, {
+                guikit::Select(ui, selectIdx, items, {
                     .background = StateColor::Surface(), .border = {.width = 1.5f}
                 });
             }
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "A switch",
                 .description = "This is a switch",
                 .icon = Icon::Refresh(),
                 .badge = "Toggle"
             })) {
-                ui.Switch(swVal);
+                guikit::Switch(ui, swVal);
             }
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "A checkbox",
                 .description = "This is a checkbox",
                 .icon = Icon::Check(),
                 .badge = "Bool"
             })) {
-                ui.Checkbox(cbVal);
+                guikit::Checkbox(ui, cbVal);
             }
         }
         ui.EndFrame(canvas);
@@ -8363,13 +8355,13 @@ void TestRangeSliderProgressBarSpinBoxAndRadioButton() {
     WidgetResponse rRadio2;
 
     auto renderUI = [&]() {
-        if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
-            if (auto el = ui.Element({
+        if (auto col = guikit::Column(ui, {.gap = 12.0f, .padding = Padding::All(16.0f)})) {
+            if (auto el = guikit::Element(ui, {
                 .label = "Passband Window",
                 .description = "Band-pass filter cutoff interval",
                 .layout = ElementLayout::Stacked
             })) {
-                rRange = ui.RangeSlider(lowFreq, highFreq, 0.0f, 100.0f, {
+                rRange = guikit::RangeSlider(ui, lowFreq, highFreq, 0.0f, 100.0f, {
                     .valueFormat = "%.0f .. %.0f MHz",
                     .step = 1.0,
                     .minSpan = 5.0,
@@ -8377,21 +8369,21 @@ void TestRangeSliderProgressBarSpinBoxAndRadioButton() {
                 });
             }
 
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "Calibration Progress",
                 .layout = ElementLayout::Stacked
             })) {
-                rProg = ui.ProgressBar(progressVal, 0.0f, 100.0f, {
+                rProg = guikit::ProgressBar(ui, progressVal, 0.0f, 100.0f, {
                     .valueFormat = "%.0f %%",
                     .showValue = true
                 });
             }
 
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "RF Input Level Meter",
                 .layout = ElementLayout::Stacked
             })) {
-                rVu = ui.ProgressBar(vuLevel, 0.0f, 100.0f, {
+                rVu = guikit::ProgressBar(ui, vuLevel, 0.0f, 100.0f, {
                     .valueFormat = "%.0f dBuV",
                     .peakHoldValue = 90.0,
                     .segments = 24,
@@ -8400,11 +8392,11 @@ void TestRangeSliderProgressBarSpinBoxAndRadioButton() {
                 });
             }
 
-            if (auto el = ui.Element({
+            if (auto el = guikit::Element(ui, {
                 .label = "Channel Index",
                 .layout = ElementLayout::Stacked
             })) {
-                rSpin = ui.SpinBox(spinVal, {
+                rSpin = guikit::SpinBox(ui, spinVal, {
                     .min = 0.0,
                     .max = 20.0,
                     .step = 2.0,
@@ -8412,14 +8404,14 @@ void TestRangeSliderProgressBarSpinBoxAndRadioButton() {
                 });
             }
 
-            if (auto el = ui.Element({.label = "CW Mode"})) {
-                rRadio0 = ui.Radio(radioMode, 0);
+            if (auto el = guikit::Element(ui, {.label = "CW Mode"})) {
+                rRadio0 = guikit::Radio(ui, radioMode, 0);
             }
-            if (auto el = ui.Element({.label = "FM Mode"})) {
-                rRadio1 = ui.Radio(radioMode, 1);
+            if (auto el = guikit::Element(ui, {.label = "FM Mode"})) {
+                rRadio1 = guikit::Radio(ui, radioMode, 1);
             }
-            if (auto el = ui.Element({.label = "QAM Mode"})) {
-                rRadio2 = ui.Radio(radioMode, 2);
+            if (auto el = guikit::Element(ui, {.label = "QAM Mode"})) {
+                rRadio2 = guikit::Radio(ui, radioMode, 2);
             }
         }
     };
@@ -8550,8 +8542,8 @@ void TestTableVirtualizedDataGridWorkflow() {
     }};
 
     auto renderUI = [&]() {
-        if (auto col = ui.Column({.padding = Padding::All(16.0f), .width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
-            if (auto table = ui.Table(cols, {
+        if (auto col = guikit::Column(ui, {.padding = Padding::All(16.0f), .width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+            if (auto table = guikit::Table(ui, cols, {
                 .totalRows = kTotalRows,
                 .selectedRow = &selectedRow,
                 .sortColumn = &sortCol,
@@ -8573,19 +8565,19 @@ void TestTableVirtualizedDataGridWorkflow() {
                 for (keel::usize r = visStart; r < visEnd; ++r) {
                     if (auto row = table.Row(r)) {
                         if (r == 0) {
-                            auto rChk = ui.Checkbox(row0Checked, {.size = UiSize::Sm});
+                            auto rChk = guikit::Checkbox(ui, row0Checked, {.size = UiSize::Sm});
                             row0CheckRect = rChk.rect;
                         } else {
                             bool dummy = (r % 2 == 0);
-                            ui.Checkbox(dummy, {.size = UiSize::Sm});
+                            guikit::Checkbox(ui, dummy, {.size = UiSize::Sm});
                         }
-                        ui.Text(ui.Format("ID-{:06}", r));
-                        ui.Text("OFDM-64 Carrier");
-                        auto rProg = ui.ProgressBar(-65.0f, -100.0f, -30.0f, {.size = UiSize::Xs});
+                        guikit::Text(ui, ui.Format("ID-{:06}", r));
+                        guikit::Text(ui, "OFDM-64 Carrier");
+                        auto rProg = guikit::ProgressBar(ui, -65.0f, -100.0f, -30.0f, {.size = UiSize::Xs});
                         if (r == 50000) {
                             firstProgressRect = rProg.rect;
                         }
-                        ui.Element({.badge = {"LOCKED", UiVariant::Success}, .width = SizeMode::Fit});
+                        guikit::Element(ui, {.badge = {"LOCKED", UiVariant::Success}, .width = SizeMode::Fit});
                     }
                 }
             }
@@ -8762,7 +8754,7 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
     TextAreaResponse lastResp{};
 
     auto renderIde = [&]() {
-        lastResp = ui.TextArea(code, {
+        lastResp = guikit::TextArea(ui, code, {
             .autoHeight = false,
             .showLineNumbers = true,
             .syntax = matSyn,
@@ -8972,7 +8964,7 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
     // 7. Test Debug Toolbar grip dragging and debugToolbarAlign presets (Start / Center / End)
     Align dbgAlign = Align::Start;
     auto renderIdeAligned = [&]() {
-        lastResp = ui.TextArea(code, {
+        lastResp = guikit::TextArea(ui, code, {
             .autoHeight = false,
             .showLineNumbers = true,
             .syntax = matSyn,
@@ -9113,9 +9105,9 @@ void TestKeymapAndMarkdownTopTierFeatures() {
     Id scrollId = Id::Null();
 
     auto renderMd = [&]() {
-        if (auto sa = ui.ScrollArea({.padding = Padding::All(4.0f)})) {
+        if (auto sa = guikit::ScrollArea(ui, {.padding = Padding::All(4.0f)})) {
             scrollId = sa.GetNode()->id;
-            mdRes = ui.Markdown(mdDoc, {
+            mdRes = guikit::Markdown(ui, mdDoc, {
                 .allowZoom = true,
                 .zoom = &zoom,
                 .bodyFontSize = 14.0f,
@@ -9254,7 +9246,7 @@ void TestUnifiedColormapHistogramAndImageView() {
     }
     ChannelTransferParams tp{};
     tp.ResetToRange(0.0f, 65535.0f);
-    ImageView::ApplyQuantileAutoWindow(testBins, 0.0f, 65535.0f, AutoWindowTarget::All, AutoWindowStrength::Medium, tp);
+    detail::ImageView::ApplyQuantileAutoWindow(testBins, 0.0f, 65535.0f, AutoWindowTarget::All, AutoWindowStrength::Medium, tp);
     CHECK(tp.Low() > 4000.0f);
     CHECK(tp.High() < 55000.0f);
     CHECK(tp.window < 60000.0f);
@@ -9290,10 +9282,10 @@ void TestUnifiedColormapHistogramAndImageView() {
     auto renderFrame = [&](bool useRgb) {
         if (useRgb) {
             const auto d = ImageViewData::FromFloat(rgbFloat, imgW, imgH, 3, 11);
-            rgbResp = ui.ImageView(d, rgbParams, {.height = 500.0f, .showSidebar = true});
+            rgbResp = guikit::ImageView(ui, d, rgbParams, {.height = 500.0f, .showSidebar = true});
         } else {
             const auto d = ImageViewData::FromU16(mono16, imgW, imgH, 1, 10);
-            monoResp = ui.ImageView(d, monoParams, {.height = 500.0f, .showSidebar = true});
+            monoResp = guikit::ImageView(ui, d, monoParams, {.height = 500.0f, .showSidebar = true});
         }
     };
 
@@ -9361,13 +9353,13 @@ void TestUnifiedElementExplicitHeight() {
     Response rBtn, rInput, rSelect, rSlider, rKnob, rImg;
 
     auto renderFrame = [&]() {
-        if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(16.0f)})) {
-            rBtn = ui.Button({.text = "Tall Button", .height = 64.0f});
-            rInput = ui.InputField(inputVal, {.height = 56.0f});
-            rSelect = ui.Select(selectIdx, selectItems, {.height = 52.0f});
-            rSlider = ui.Slider(sliderVal, 0.0f, 100.0f, {.height = 60.0f});
-            rKnob = ui.Knob(knobVal, 0.0f, 100.0f, {.showValue = false, .diameter = 72.0f});
-            rImg = ui.Image("assets/images/missing_preview.svg", {.width = 120.0f, .height = 90.0f});
+        if (auto col = guikit::Column(ui, {.gap = 8.0f, .padding = Padding::All(16.0f)})) {
+            rBtn = guikit::Button(ui, {.text = "Tall Button", .height = 64.0f});
+            rInput = guikit::InputField(ui, inputVal, {.height = 56.0f});
+            rSelect = guikit::Select(ui, selectIdx, selectItems, {.height = 52.0f});
+            rSlider = guikit::Slider(ui, sliderVal, 0.0f, 100.0f, {.height = 60.0f});
+            rKnob = guikit::Knob(ui, knobVal, 0.0f, 100.0f, {.showValue = false, .diameter = 72.0f});
+            rImg = guikit::Image(ui, "assets/images/missing_preview.svg", {.width = 120.0f, .height = 90.0f});
         }
     };
 
@@ -9438,34 +9430,34 @@ void TestElementOuterFrameAndControlWellFrame() {
     Response rSliderPlain, rSliderFramed, rSwitchWell, rCheckWell, rBtnFramed;
 
     auto renderFrame = [&]() {
-        if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(12.0f)})) {
-            if (auto el = ui.Element({.label = "Plain Slider"})) {
+        if (auto col = guikit::Column(ui, {.gap = 8.0f, .padding = Padding::All(12.0f)})) {
+            if (auto el = guikit::Element(ui, {.label = "Plain Slider"})) {
                 rSliderPlain = el.response;
-                ui.Slider(sliderVal, 0.0f, 1.0f);
+                guikit::Slider(ui, sliderVal, 0.0f, 1.0f);
             }
-            if (auto box = ui.Box({
+            if (auto box = guikit::Box(ui, {
                 .padding = Padding::All(8.0f),
                 .background = StateColor::Surface(),
                 .border = {.width = 1.5f, .radius = 8.0f}
             })) {
-                if (auto el = ui.Element({.label = "Slider Inside Box Surface"})) {
+                if (auto el = guikit::Element(ui, {.label = "Slider Inside Box Surface"})) {
                     rSliderFramed = box.GetNode() ? Response{.id = box.GetNode()->id, .rect = ui.GetPrevFrameBounds(box.GetNode()->id)} : el.response;
-                    ui.Slider(sliderVal, 0.0f, 1.0f);
+                    guikit::Slider(ui, sliderVal, 0.0f, 1.0f);
                 }
             }
-            if (auto el = ui.Element({.label = "Frameless Switch"})) {
-                rSwitchWell = ui.Switch(switchVal);
+            if (auto el = guikit::Element(ui, {.label = "Frameless Switch"})) {
+                rSwitchWell = guikit::Switch(ui, switchVal);
             }
-            if (auto el = ui.Element({.label = "Frameless Checkbox"})) {
-                rCheckWell = ui.Checkbox(checkVal);
+            if (auto el = guikit::Element(ui, {.label = "Frameless Checkbox"})) {
+                rCheckWell = guikit::Checkbox(ui, checkVal);
             }
-            if (auto card = ui.Card({
+            if (auto card = guikit::Card(ui, {
                 .padding = Padding::All(8.0f),
                 .background = {Color::Hex(0x1E293BFF), Color::Hex(0x334155FF)},
                 .border = Border::Solid(1.0f, StateColor::Warning())
             })) {
-                if (auto el = ui.Element({.label = "Button Inside Card Surface"})) {
-                    rBtnFramed = ui.Button({
+                if (auto el = guikit::Element(ui, {.label = "Button Inside Card Surface"})) {
+                    rBtnFramed = guikit::Button(ui, {
                         .text = "Click",
                         .background = StateColor::None(), .border = Border::Solid(2.0f, StateColor::Danger())
                     });
@@ -9557,8 +9549,8 @@ void TestAccordionWidgetWorkflow() {
     Response acc2Res{};
 
     auto renderAccordions = [&]() {
-        if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(12.0f), .width = SizeMode::Stretch})) {
-            if (auto acc1 = ui.Accordion({
+        if (auto col = guikit::Column(ui, {.gap = 8.0f, .padding = Padding::All(12.0f), .width = SizeMode::Stretch})) {
+            if (auto acc1 = guikit::Accordion(ui, {
                 .label = "ELEMENT",
                 .description = "Shared element properties",
                 .icon = Icon::Settings(),
@@ -9567,18 +9559,18 @@ void TestAccordionWidgetWorkflow() {
             })) {
                 acc1Res = acc1.response;
                 ++bodyExecutedCount1;
-                ui.Button({.text = "Inside Element Accordion"});
+                guikit::Button(ui, {.text = "Inside Element Accordion"});
             } else {
                 acc1Res = acc1.response;
             }
 
-            if (auto acc2 = ui.Accordion(externalOpen, {
+            if (auto acc2 = guikit::Accordion(ui, externalOpen, {
                 .label = "CONTROL",
                 .chevronPlacement = Placement::Trailing
             })) {
                 acc2Res = acc2.response;
                 ++bodyExecutedCount2;
-                ui.Button({.text = "Inside Control Accordion"});
+                guikit::Button(ui, {.text = "Inside Control Accordion"});
             } else {
                 acc2Res = acc2.response;
             }
@@ -9657,28 +9649,28 @@ void TestSizeScopeChainingAndIsolation() {
     Response btnAfterSmScope{};
 
     auto renderUI = [&]() {
-        if (auto col = ui.Column({.gap = 8.0f})) {
+        if (auto col = guikit::Column(ui, {.gap = 8.0f})) {
             // 1. Element with Xl size does NOT override explicit or default child widget sizes (pure widget property)
-            if (auto el = ui.Element({.label = "XL Element Header", .size = UiSize::Xl})) {
-                btnInheritedInsideXlElement = ui.Button({.text = "Explicit Xl (42px)", .size = UiSize::Xl});
+            if (auto el = guikit::Element(ui, {.label = "XL Element Header", .size = UiSize::Xl})) {
+                btnInheritedInsideXlElement = guikit::Button(ui, {.text = "Explicit Xl (42px)", .size = UiSize::Xl});
             }
 
             // 2. Element with Xl size + Control with default/None resolves control to Md (30px)
-            if (auto el = ui.Element({.label = "XL Element + Default Control", .size = UiSize::Xl})) {
-                btnNoneInsideXlElement = ui.Button({.text = "Default Md (30px)"});
+            if (auto el = guikit::Element(ui, {.label = "XL Element + Default Control", .size = UiSize::Xl})) {
+                btnNoneInsideXlElement = guikit::Button(ui, {.text = "Default Md (30px)"});
             }
 
             // 3. Element with Xl size + Control with explicit Sm size resolves to Sm (24px)
-            if (auto el = ui.Element({.label = "XL Element + SM Control", .size = UiSize::Xl})) {
-                btnSmInsideXlElement = ui.Button({.text = "Explicit Sm (24px)", .size = UiSize::Sm});
+            if (auto el = guikit::Element(ui, {.label = "XL Element + SM Control", .size = UiSize::Xl})) {
+                btnSmInsideXlElement = guikit::Button(ui, {.text = "Explicit Sm (24px)", .size = UiSize::Sm});
             }
 
             // 4. Custom Factor / Dp sizing on individual controls
-            if (auto el = ui.Element({.label = "Element with Dp button"})) {
-                btnInsideSmScope = ui.Button({.text = "Sm Button (24px)", .size = UiSize::Dp(24.0f)});
+            if (auto el = guikit::Element(ui, {.label = "Element with Dp button"})) {
+                btnInsideSmScope = guikit::Button(ui, {.text = "Sm Button (24px)", .size = UiSize::Dp(24.0f)});
             }
 
-            btnAfterSmScope = ui.Button({.text = "Default Md Button"});
+            btnAfterSmScope = guikit::Button(ui, {.text = "Default Md Button"});
         }
     };
 
@@ -9731,8 +9723,8 @@ void TestTreeViewAndTreeItemWorkflow() {
     auto renderUI = [&]() {
         leafInsideCollapsedRes = Response{};
         checkChangedFlag = false;
-        if (auto col = ui.Column({.padding = Padding::All(12.0f)})) {
-            if (auto tree = ui.TreeView({
+        if (auto col = guikit::Column(ui, {.padding = Padding::All(12.0f)})) {
+            if (auto tree = guikit::TreeView(ui, {
                 .title = "TEST TREE",
                 .guides = TreeGuides::Connected,
                 .searchable = true,
@@ -9741,7 +9733,7 @@ void TestTreeViewAndTreeItemWorkflow() {
                 .selectedIndex = &selectedIndex,
                 .selectedId = &selectedId
             })) {
-                if (auto r1 = ui.TreeItem(rootOpen, {
+                if (auto r1 = guikit::TreeItem(ui, rootOpen, {
                     .label = "Root Branch",
                     .icon = Icon::Folder(),
                     .checked = &chkRoot
@@ -9750,28 +9742,28 @@ void TestTreeViewAndTreeItemWorkflow() {
                     if (r1.checkChanged) {
                         checkChangedFlag = true;
                     }
-                    rootSwitchRes = ui.Switch(rootSwitch);
+                    rootSwitchRes = guikit::Switch(ui, rootSwitch);
 
-                    if (auto c1 = ui.TreeItem("Alpha Leaf", {
+                    if (auto c1 = guikit::TreeItem(ui, "Alpha Leaf", {
                         .detail = "12 KB",
                         .badge = "OK",
                         .checked = &chkLeafA
                     })) {
                         leafARowRes = c1.response;
-                        ui.Slider(leafSlider, 0.0f, 1.0f, {.width = 100.0f});
+                        guikit::Slider(ui, leafSlider, 0.0f, 1.0f, {.width = 100.0f});
                     }
                 }
 
                 // Collapsed branch: its embedded Switch must STILL be laid out & interactive,
                 // while its child TreeItem is not instantiated (yet auto-detected as a branch!)
-                if (auto r2 = ui.TreeItem(collapsedBranchOpen, {
+                if (auto r2 = guikit::TreeItem(ui, collapsedBranchOpen, {
                     .label = "Collapsed Branch",
                     .icon = Icon::Folder()
                 })) {
                     collapsedBranchRowRes = r2.response;
-                    collapsedSwitchRes = ui.Switch(collapsedBranchSwitch);
+                    collapsedSwitchRes = guikit::Switch(ui, collapsedBranchSwitch);
 
-                    if (auto hiddenChild = ui.TreeItem("Deep Hidden Target")) {
+                    if (auto hiddenChild = guikit::TreeItem(ui, "Deep Hidden Target")) {
                         leafInsideCollapsedRes = hiddenChild.response;
                     }
                 }
@@ -9882,7 +9874,7 @@ void TestTreeViewAndTreeItemWorkflow() {
     keel::i32 multiColSelected = -1;
 
     auto renderMultiColTree = [&]() {
-        if (auto tree = ui.TreeView({
+        if (auto tree = guikit::TreeView(ui, {
             {.title = "Node",      .flex = 2.0f, .minWidth = 140.0f},
             {.title = "Status",    .width = 90.0f,  .align = Align::Center},
             {.title = "Controls",  .width = 160.0f, .align = Align::End},
@@ -9892,11 +9884,11 @@ void TestTreeViewAndTreeItemWorkflow() {
             .gridLines = true,
             .selectedIndex = &multiColSelected,
         })) {
-            if (auto item = ui.TreeItem({.label = "Row With Multi-Widget Cell"})) {
-                ui.Element({.badge = "ACTIVE", .width = SizeMode::Fit});
+            if (auto item = guikit::TreeItem(ui, {.label = "Row With Multi-Widget Cell"})) {
+                guikit::Element(ui, {.badge = "ACTIVE", .width = SizeMode::Fit});
                 if (auto cell = item.Cell()) {
-                    cellSwRect = ui.Switch(cellSwitchVal).rect;
-                    auto btn = ui.Button({.text = "Act"});
+                    cellSwRect = guikit::Switch(ui, cellSwitchVal).rect;
+                    auto btn = guikit::Button(ui, {.text = "Act"});
                     cellBtnRect = btn.rect;
                     if (btn.clicked) cellBtnClicked = true;
                 }
@@ -9978,10 +9970,10 @@ void TestKnobSpinBoxAndRadioElements() {
     Response rSingleRadio{};
 
     auto renderScene = [&]() {
-        if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
-            if (auto row = ui.Row({.gap = 16.0f})) {
-                if (auto el = ui.Element({.label = "Rotary Gain", .layout = ElementLayout::Top, .width = SizeMode::Fit})) {
-                    rKnobGain = ui.Knob(knobGain, 0.0f, 100.0f, {
+        if (auto col = guikit::Column(ui, {.gap = 12.0f, .padding = Padding::All(16.0f)})) {
+            if (auto row = guikit::Row(ui, {.gap = 16.0f})) {
+                if (auto el = guikit::Element(ui, {.label = "Rotary Gain", .layout = ElementLayout::Top, .width = SizeMode::Fit})) {
+                    rKnobGain = guikit::Knob(ui, knobGain, 0.0f, 100.0f, {
                         .valueFormat = "%.1f %%",
                         .step = 5.0,
                         .defaultValue = 25.0,
@@ -9993,8 +9985,8 @@ void TestKnobSpinBoxAndRadioElements() {
                         .valuePlacement = Placement::Bottom
                     });
                 }
-                if (auto el = ui.Element({.label = "Stereo Pan", .layout = ElementLayout::Top, .width = SizeMode::Fit})) {
-                    rKnobPan = ui.Knob(knobPan, -50.0f, 50.0f, {
+                if (auto el = guikit::Element(ui, {.label = "Stereo Pan", .layout = ElementLayout::Top, .width = SizeMode::Fit})) {
+                    rKnobPan = guikit::Knob(ui, knobPan, -50.0f, 50.0f, {
                         .valueFormat = "%+.0f",
                         .step = 2.0,
                         .defaultValue = 0.0,
@@ -10004,8 +9996,8 @@ void TestKnobSpinBoxAndRadioElements() {
                 }
             }
 
-            if (auto el = ui.Element({.label = "Center Frequency"})) {
-                rSpinFreq = ui.SpinBox(spinFreq, {
+            if (auto el = guikit::Element(ui, {.label = "Center Frequency"})) {
+                rSpinFreq = guikit::SpinBox(ui, spinFreq, {
                     .suffix = "MHz",
                     .valueFormat = "%.1f",
                     .min = 0.0,
@@ -10016,14 +10008,14 @@ void TestKnobSpinBoxAndRadioElements() {
                 });
             }
 
-            if (auto el = ui.Element({.label = "Mode A"})) {
-                rRadio0 = ui.Radio(radioGroup, 0);
+            if (auto el = guikit::Element(ui, {.label = "Mode A"})) {
+                rRadio0 = guikit::Radio(ui, radioGroup, 0);
             }
-            if (auto el = ui.Element({.label = "Mode B"})) {
-                rRadio1 = ui.Radio(radioGroup, 1);
+            if (auto el = guikit::Element(ui, {.label = "Mode B"})) {
+                rRadio1 = guikit::Radio(ui, radioGroup, 1);
             }
-            if (auto el = ui.Element({.label = "Single Radio"})) {
-                rSingleRadio = ui.Radio(singleRadio);
+            if (auto el = guikit::Element(ui, {.label = "Single Radio"})) {
+                rSingleRadio = guikit::Radio(ui, singleRadio);
             }
         }
     };
@@ -10191,27 +10183,27 @@ void TestSegmentedAndColorPickerElements() {
     Response rColorInline{};
 
     auto renderScene = [&]() {
-        if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
-            if (auto el = ui.Element({.label = "Waveform Mode"})) {
-                rSeg = ui.Segmented(segIndex, {
+        if (auto col = guikit::Column(ui, {.gap = 12.0f, .padding = Padding::All(16.0f)})) {
+            if (auto el = guikit::Element(ui, {.label = "Waveform Mode"})) {
+                rSeg = guikit::Segmented(ui, segIndex, {
                     {.text = "Sine", .icon = Icon::Refresh()},
                     {.text = "Square", .icon = Icon::Settings()},
                     {.text = "Saw", .icon = Icon::Play()},
                     {.text = "Noise", .icon = Icon::Warning()}
                 });
             }
-            if (auto el = ui.Element({.label = "Active Channels"})) {
-                rSegMask = ui.SegmentedMask(segMask, {"CH1", "CH2", "CH3", "CH4"});
+            if (auto el = guikit::Element(ui, {.label = "Active Channels"})) {
+                rSegMask = guikit::SegmentedMask(ui, segMask, {"CH1", "CH2", "CH3", "CH4"});
             }
-            if (auto el = ui.Element({.label = "Trace Color"})) {
-                rColorBtn = ui.ColorPicker(pickedColor, {
+            if (auto el = guikit::Element(ui, {.label = "Trace Color"})) {
+                rColorBtn = guikit::ColorPicker(ui, pickedColor, {
                     .showHex = true,
                     .showAlpha = true,
                     .showSwatches = true
                 });
             }
-            if (auto el = ui.Element({.label = "Inline Palette"})) {
-                rColorInline = ui.ColorPicker(inlineColor, {
+            if (auto el = guikit::Element(ui, {.label = "Inline Palette"})) {
+                rColorInline = guikit::ColorPicker(ui, inlineColor, {
                     .showAlpha = true,
                     .showSwatches = true,
                     .inlinePanel = true
@@ -10268,8 +10260,8 @@ void TestSegmentedAndColorPickerElements() {
 
     // 3. Test HSV <-> RGB round-trip conversion
     keel::f32 h = 0.0f, s = 0.0f, v = 0.0f;
-    ColorPicker::RgbToHsv(Color(239, 68, 68, 200), h, s, v);
-    const Color roundTrip = ColorPicker::HsvToRgb(h, s, v, 200);
+    detail::ColorPicker::RgbToHsv(Color(239, 68, 68, 200), h, s, v);
+    const Color roundTrip = detail::ColorPicker::HsvToRgb(h, s, v, 200);
     CHECK(keel::abs(keel::i32(roundTrip.r) - 239) <= 1);
     CHECK(keel::abs(keel::i32(roundTrip.g) - 68) <= 1);
     CHECK(keel::abs(keel::i32(roundTrip.b) - 68) <= 1);
@@ -10317,8 +10309,8 @@ void TestSidebarResizableCompactAndCollapsedModes() {
 
     auto renderScene = [&]() {
         bodyExecuted = false;
-        if (auto root = ui.Row({.gap = 8.0f, .height = SizeMode::Stretch})) {
-            if (auto sb = ui.Sidebar(sbMode, {
+        if (auto root = guikit::Row(ui, {.gap = 8.0f, .height = SizeMode::Stretch})) {
+            if (auto sb = guikit::Sidebar(ui, sbMode, {
                 .side = SidebarSide::Left,
                 .width = 200.0f,
                 .minWidth = 140.0f,
@@ -10330,14 +10322,14 @@ void TestSidebarResizableCompactAndCollapsedModes() {
                 bodyExecuted = true;
                 sbId = sb.response.id;
                 sbNode = sb.GetNode();
-                if (auto menu = ui.SidebarMenu()) {
+                if (auto menu = guikit::SidebarMenu(ui)) {
                     menu.Section("MAIN");
                     menu.Item(selectedNav, 0, {.text = "Dashboard", .icon = Icon::Folder()});
                     menu.Item(selectedNav, 1, {.text = "Settings", .icon = Icon::Settings()});
                 }
             }
-            if (auto content = ui.Box({.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
-                ui.Text("Workspace");
+            if (auto content = guikit::Box(ui, {.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+                guikit::Text(ui, "Workspace");
             }
         }
     };
@@ -10460,8 +10452,8 @@ void TestModalContextMenuAndToastWorkflow() {
         modalBodyExecuted = false;
 
         ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
-        if (auto root = ui.Column({.gap = 12.0f, .padding = Padding::All(20.0f)})) {
-            auto bgBtn = ui.Button({.text = "Background Action"});
+        if (auto root = guikit::Column(ui, {.gap = 12.0f, .padding = Padding::All(20.0f)})) {
+            auto bgBtn = guikit::Button(ui, {.text = "Background Action"});
             bgBtnRect = bgBtn.rect;
             if (bgBtn.clicked) {
                 bgClicked = true;
@@ -10471,15 +10463,15 @@ void TestModalContextMenuAndToastWorkflow() {
                 ctxOpen = true;
                 ctxPos = ui.GetMousePos();
             }
-            ctxResp = ui.ContextMenu(ctxOpen, menuItems, {
+            ctxResp = guikit::ContextMenu(ui, ctxOpen, menuItems, {
                 .anchorPos = ctxPos
             });
 
-            if (auto modal = ui.Modal(modalOpen, {
+            if (auto modal = guikit::Modal(ui, modalOpen, {
                 .closeOnBackdrop = true,
                 .closeOnEscape = true
             })) {
-                if (auto card = ui.Card({
+                if (auto card = guikit::Card(ui, {
                     .width = 360.0f,
                     .gap = 10.0f,
                     .padding = Padding::All(16.0f),
@@ -10487,8 +10479,8 @@ void TestModalContextMenuAndToastWorkflow() {
                 })) {
                     modalBodyExecuted = true;
                     modalDialogRect = modal.response.rect;
-                    ui.Text("Are you sure you want to reset?");
-                    auto confirmBtn = ui.Button({.text = "Confirm", .color = StateColor::Primary()});
+                    guikit::Text(ui, "Are you sure you want to reset?");
+                    auto confirmBtn = guikit::Button(ui, {.text = "Confirm", .color = StateColor::Primary()});
                     modalConfirmRect = confirmBtn.rect;
                     if (confirmBtn.clicked) {
                         modalConfirmClicked = true;
@@ -10576,35 +10568,35 @@ void TestModalContextMenuAndToastWorkflow() {
     CHECK(modalOpen == false);
 
     // 6. Toast notification lifecycle: ShowToast, timer countdown, and ClearToasts
-    ui.ClearToasts();
-    CHECK(ui.GetActiveToastCount() == 0);
+    guikit::ClearToasts(ui);
+    CHECK(guikit::GetActiveToastCount(ui) == 0);
 
-    const keel::u64 toastId = ui.ShowToast({
+    const keel::u64 toastId = guikit::ShowToast(ui, {
         .title = "Capture Saved",
         .message = "Written 128 KB to capture.iq",
         .variant = UiVariant::Success,
         .duration = 2.0f
     });
     CHECK(toastId != 0);
-    CHECK(ui.GetActiveToastCount() == 1);
+    CHECK(guikit::GetActiveToastCount(ui) == 1);
 
     // Advance 1.0s (toast still active)
     ui.OnMouseMove({10.0f, 10.0f}); // away from BottomRight toast stack
     ui.AdvanceTime(1.0);
     renderScene();
-    CHECK(ui.GetActiveToastCount() == 1);
+    CHECK(guikit::GetActiveToastCount(ui) == 1);
 
     // Advance another 1.5s (total 2.5s > 2.0s duration -> auto-dismissed!)
     ui.AdvanceTime(1.5);
     renderScene();
-    CHECK(ui.GetActiveToastCount() == 0);
+    CHECK(guikit::GetActiveToastCount(ui) == 0);
 
     // Queue two persistent toasts and clear them
-    ui.ShowToast({.title = "Persistent 1", .duration = 0.0f});
-    ui.ShowToast({.title = "Persistent 2", .duration = 0.0f});
-    CHECK(ui.GetActiveToastCount() == 2);
-    ui.ClearToasts();
-    CHECK(ui.GetActiveToastCount() == 0);
+    guikit::ShowToast(ui, {.title = "Persistent 1", .duration = 0.0f});
+    guikit::ShowToast(ui, {.title = "Persistent 2", .duration = 0.0f});
+    CHECK(guikit::GetActiveToastCount(ui) == 2);
+    guikit::ClearToasts(ui);
+    CHECK(guikit::GetActiveToastCount(ui) == 0);
 
     keel::println("  [PASS] TestModalContextMenuAndToastWorkflow completed");
 }
@@ -10632,13 +10624,13 @@ void TestActivityBarAndLinkedSidebarWorkflow() {
     auto renderWorkbench = [&]() {
         actionClicked = false;
         ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
-        if (auto workspace = ui.Box({
+        if (auto workspace = guikit::Box(ui, {
             .gap = 12.0f,
             .width = SizeMode::Stretch,
             .height = SizeMode::Stretch,
             .padding = Padding::All(0.0f)
         })) {
-            if (auto bar = ui.ActivityBar(sbMode, {
+            if (auto bar = guikit::ActivityBar(ui, sbMode, {
                 .side = SidebarSide::Left,
                 .style = ActivityBarStyle::Indicator
             })) {
@@ -10652,8 +10644,8 @@ void TestActivityBarAndLinkedSidebarWorkflow() {
                     .label = "Search",
                     .badge = "5"
                 }).rect;
-                ui.Spacer();
-                ui.Separator();
+                guikit::Spacer(ui);
+                guikit::Separator(ui);
                 auto actRes = bar.Action({
                     .icon = Icon::Settings(),
                     .label = "Settings"
@@ -10664,21 +10656,21 @@ void TestActivityBarAndLinkedSidebarWorkflow() {
                 }
             }
 
-            if (auto sb = ui.Sidebar(sbMode, {
+            if (auto sb = guikit::Sidebar(ui, sbMode, {
                 .side = SidebarSide::Left,
                 .width = 200.0f,
                 .resizable = true,
                 .allowCollapse = true
             })) {
                 sbId = sb.response.id;
-                ui.Text("Sidebar Content");
+                guikit::Text(ui, "Sidebar Content");
             }
 
-            if (auto mainCard = ui.Card({
+            if (auto mainCard = guikit::Card(ui, {
                 .width = SizeMode::Stretch,
                 .height = SizeMode::Stretch
             })) {
-                ui.Text("Main Stage");
+                guikit::Text(ui, "Main Stage");
             }
         }
         ui.EndFrame(canvas);
@@ -10761,19 +10753,19 @@ void TestBottomPanelAndStatusBarWorkflow() {
 
     auto renderWorkbench = [&]() {
         ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
-        if (auto root = ui.Column({
+        if (auto root = guikit::Column(ui, {
             .gap = 0.0f,
             .width = SizeMode::Stretch,
             .height = SizeMode::Stretch
         })) {
-            if (auto mainBox = ui.Box({
+            if (auto mainBox = guikit::Box(ui, {
                 .width = SizeMode::Stretch,
                 .height = SizeMode::Stretch
             })) {
-                ui.Text("Main Canvas");
+                guikit::Text(ui, "Main Canvas");
             }
 
-            if (auto bp = ui.BottomPanel(showPanel, {
+            if (auto bp = guikit::BottomPanel(ui, showPanel, {
                 .height = 180.0f,
                 .minHeight = 90.0f,
                 .maxHeight = 320.0f,
@@ -10781,21 +10773,21 @@ void TestBottomPanelAndStatusBarWorkflow() {
                 .allowCollapse = true
             })) {
                 reportedPanelH = bp.Height();
-                if (auto tb = ui.Toolbar({.style = ToolbarStyle::Header})) {
+                if (auto tb = guikit::Toolbar(ui, {.style = ToolbarStyle::Header})) {
                     tb.Item(activeTab, 0, {.text = "Output"});
                     tb.Item(activeTab, 1, {.text = "Slice 2D"});
                 }
-                ui.Text("Bottom Panel Body");
+                guikit::Text(ui, "Bottom Panel Body");
                 panelRect = bp.response.rect;
             } else {
                 reportedPanelH = bp.Height();
                 panelRect = bp.response.rect;
             }
 
-            if (auto sb = ui.StatusBar({.style = StatusBarStyle::Surface})) {
+            if (auto sb = guikit::StatusBar(ui, {.style = StatusBarStyle::Surface})) {
                 sb.Item({.text = "CUDA Ready", .dotColor = Color(34, 197, 94, 255), .badge = "GPU"});
-                ui.Separator();
-                ui.Spacer();
+                guikit::Separator(ui);
+                guikit::Spacer(ui);
                 Response act = sb.Action({
                     .text = "Toggle Panel",
                     .icon = Icon::ChevronUp(),
@@ -10898,14 +10890,14 @@ void TestBottomPanelAndStatusBarWorkflow() {
     };
     auto renderRightMenu = [&]() {
         ui.BeginFrame({800.0f, 600.0f});
-        if (auto row = ui.Row({ .padding = 12.0f })) {
-            ui.Spacer();
-            auto btn = ui.Button({ .text = "Quick Actions", .active = menuOpen });
+        if (auto row = guikit::Row(ui, { .padding = 12.0f })) {
+            guikit::Spacer(ui);
+            auto btn = guikit::Button(ui, { .text = "Quick Actions", .active = menuOpen });
             btnRect = btn.rect;
             if (btn.clicked) {
                 menuOpen = !menuOpen;
             }
-            menuResp = ui.ContextMenu(menuOpen, items, {
+            menuResp = guikit::ContextMenu(ui, menuOpen, items, {
                 .anchorRect = btn.rect,
                 .minWidth = 220.0f
             });
@@ -10970,14 +10962,14 @@ void TestReviewP0AndP1Regressions() {
 
         auto renderForm = [&]() {
             ui.BeginFrame({800.0f, 600.0f});
-            if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(12.0f)})) {
+            if (auto col = guikit::Column(ui, {.gap = 8.0f, .padding = Padding::All(12.0f)})) {
                 if (showBanner) {
-                    ui.Button({.text = "Warning Banner Action"});
-                    ui.Text("Extra warning description");
+                    guikit::Button(ui, {.text = "Warning Banner Action"});
+                    guikit::Text(ui, "Extra warning description");
                 }
-                inputResp = ui.InputField(query);
+                inputResp = guikit::InputField(ui, query);
                 for (keel::i32 i = 0; i < 3; ++i) {
-                    loopIds[i] = ui.Button({.text = "LoopBtn"}).id;
+                    loopIds[i] = guikit::Button(ui, {.text = "LoopBtn"}).id;
                 }
             }
             ui.EndFrame(canvas);
@@ -11012,29 +11004,29 @@ void TestReviewP0AndP1Regressions() {
             childFolderVisible = false;
             ui.BeginFrame({800.0f, 600.0f});
             if (activeTab == 0) {
-                if (auto row = ui.Row({.gap = 12.0f, .height = SizeMode::Stretch})) {
-                    if (auto sa = ui.ScrollArea({.width = 260.0f, .height = 180.0f})) {
+                if (auto row = guikit::Row(ui, {.gap = 12.0f, .height = SizeMode::Stretch})) {
+                    if (auto sa = guikit::ScrollArea(ui, {.width = 260.0f, .height = 180.0f})) {
                         scrollViewport = sa.GetNode()->computedRect;
                         for (keel::i32 i = 0; i < 12; ++i) {
-                            auto r = ui.Button({.text = ui.Format("Row {}", i)});
+                            auto r = guikit::Button(ui, {.text = ui.Format("Row {}", i)});
                             if (i == 0) firstItemScreenY = r.rect.y;
                         }
                     }
-                    if (auto tv = ui.TreeView({.width = 260.0f, .height = 240.0f})) {
+                    if (auto tv = guikit::TreeView(ui, {.width = 260.0f, .height = 240.0f})) {
                         if (expandTriggered) {
                             tv.ExpandAll();
                             expandTriggered = false;
                         }
-                        if (auto rootNode = ui.TreeItem({.label = "Root", .defaultOpen = true})) {
-                            if (auto subNode = ui.TreeItem({.label = "SubFolder", .defaultOpen = false})) {
+                        if (auto rootNode = guikit::TreeItem(ui, {.label = "Root", .defaultOpen = true})) {
+                            if (auto subNode = guikit::TreeItem(ui, {.label = "SubFolder", .defaultOpen = false})) {
                                 childFolderVisible = subNode.open;
-                                (void)ui.TreeItem({.label = "Leaf.cpp"});
+                                (void)guikit::TreeItem(ui, {.label = "Leaf.cpp"});
                             }
                         }
                     }
                 }
             } else {
-                ui.Text("Secondary Tab Active");
+                guikit::Text(ui, "Secondary Tab Active");
             }
             ui.EndFrame(canvas);
         };
@@ -11077,9 +11069,9 @@ void TestReviewP0AndP1Regressions() {
 
         auto renderFields = [&]() {
             ui.BeginFrame({600.0f, 300.0f});
-            if (auto col = ui.Column({.gap = 8.0f})) {
-                idA = ui.InputField(fieldA).id;
-                idB = ui.InputField(fieldB).id;
+            if (auto col = guikit::Column(ui, {.gap = 8.0f})) {
+                idA = guikit::InputField(ui, fieldA).id;
+                idB = guikit::InputField(ui, fieldB).id;
             }
             ui.EndFrame(canvas);
         };
@@ -11120,13 +11112,13 @@ void TestReviewP0AndP1Regressions() {
 
         auto renderModalScene = [&]() {
             ui.BeginFrame({800.0f, 600.0f});
-            if (auto col = ui.Column({.padding = Padding::All(16.0f)})) {
-                bgId = ui.InputField(bgText).id;
+            if (auto col = guikit::Column(ui, {.padding = Padding::All(16.0f)})) {
+                bgId = guikit::InputField(ui, bgText).id;
             }
-            if (auto m = ui.Modal(modalOpen)) {
-                if (auto box = ui.Box({.width = 320.0f, .padding = Padding::All(12.0f)})) {
-                    ui.Text("Modal body");
-                    ui.Button({.text = "OK"});
+            if (auto m = guikit::Modal(ui, modalOpen)) {
+                if (auto box = guikit::Box(ui, {.width = 320.0f, .padding = Padding::All(12.0f)})) {
+                    guikit::Text(ui, "Modal body");
+                    guikit::Button(ui, {.text = "OK"});
                 }
             }
             ui.EndFrame(canvas);
@@ -11165,7 +11157,7 @@ void TestReviewP0AndP1Regressions() {
 
         auto renderEditor = [&]() {
             ui.BeginFrame({600.0f, 400.0f});
-            taId = ui.TextArea(doc, {.height = 240.0f, .enableSearch = true}).id;
+            taId = guikit::TextArea(ui, doc, {.height = 240.0f, .enableSearch = true}).id;
             ui.EndFrame(canvas);
         };
 
@@ -11189,7 +11181,7 @@ void TestReviewP0AndP1Regressions() {
         Id pwdId{};
         auto renderPwd = [&]() {
             ui.BeginFrame({400.0f, 200.0f});
-            pwdId = ui.InputField(pwd, {.password = true}).id;
+            pwdId = guikit::InputField(ui, pwd, {.password = true}).id;
             ui.EndFrame(canvas);
         };
         renderPwd();
@@ -11215,22 +11207,22 @@ void TestReviewP0AndP1Regressions() {
             Node* wrapNode = nullptr;
             Node* fullCellNode = nullptr;
             ui.BeginFrame({800.0f, 600.0f});
-            if (auto col = ui.Column({.gap = 10.0f, .width = SizeMode::Stretch})) {
-                if (auto sa = ui.ScrollArea({.maxHeight = 140.0f})) {
+            if (auto col = guikit::Column(ui, {.gap = 10.0f, .width = SizeMode::Stretch})) {
+                if (auto sa = guikit::ScrollArea(ui, {.maxHeight = 140.0f})) {
                     saNode = sa.GetNode();
                     for (keel::i32 i = 0; i < 10; ++i) {
-                        ui.Button({.text = ui.Format("Item {}", i)});
+                        guikit::Button(ui, {.text = ui.Format("Item {}", i)});
                     }
                 }
-                if (auto w = ui.Wrap({.gap = 8.0f, .width = SizeMode::Fit})) {
+                if (auto w = guikit::Wrap(ui, {.gap = 8.0f, .width = SizeMode::Fit})) {
                     wrapNode = w.GetNode();
-                    ui.Button({.text = "Tag A"});
-                    ui.Button({.text = "Tag B"});
+                    guikit::Button(ui, {.text = "Tag A"});
+                    guikit::Button(ui, {.text = "Tag B"});
                 }
-                if (auto g = ui.Grid({.columns = 16, .gap = 8.0f})) {
+                if (auto g = guikit::Grid(ui, {.columns = 16, .gap = 8.0f})) {
                     if (auto c = g.Cell()) { // Default span must span all 16 columns!
                         fullCellNode = c.GetNode();
-                        ui.Button({.text = "Full 16-col Span"});
+                        guikit::Button(ui, {.text = "Full 16-col Span"});
                     }
                 }
             }
@@ -11292,7 +11284,7 @@ void TestZonePartialThemeOverrides() {
     SurfaceStyle afterZoneSurfaceStyle = SurfaceStyle::Outline;
 
     ui.BeginFrame({400.0f, 300.0f});
-    if (auto col = ui.Column({.gap = 8.0f})) {
+    if (auto col = guikit::Column(ui, {.gap = 8.0f})) {
         if (auto zone = ui.Zone({
             .preset = ThemePreset::Industrial,
             .surfaceStyle = SurfaceStyle::Outline,
@@ -11307,7 +11299,7 @@ void TestZonePartialThemeOverrides() {
             insideAccent = zt.palette.accent;
             insideRadius = zt.GetMetrics(UiSize::Md).cornerRadius;
             insideShadows = zt.shadowsEnabled;
-            ui.Button({.text = "Patched Button", .color = StateColor::Primary()});
+            guikit::Button(ui, {.text = "Patched Button", .color = StateColor::Primary()});
         }
 
         const UiTheme& restored = ui.GetTheme();
@@ -11458,8 +11450,8 @@ int main() {
 
         for (keel::i32 f = 0; f < 2; ++f) {
             ui.BeginFrame({800.0f, 200.0f});
-            if (auto tb = ui.Toolbar()) {
-                if (auto grp = ui.Row({.equalWidths = true})) {
+            if (auto tb = guikit::Toolbar(ui)) {
+                if (auto grp = guikit::Row(ui, {.equalWidths = true})) {
                     r1 = tb.Toggle(t1, {.text = "GPU", .icon = guikit::Icon::Flash()});
                     r2 = tb.Toggle(t2, {.text = "VSync"});
                     r3 = tb.Toggle(t3, {.text = "React"});
@@ -11467,9 +11459,9 @@ int main() {
                     r5 = tb.Toggle(t5, {.text = "Live"});
                 }
             }
-            if (auto fitRow = ui.Row({.width = guikit::SizeMode::Fit, .equalWidths = true})) {
-                bShort = ui.Button({.text = "OK"});
-                bLong = ui.Button({.text = "Confirm Action"});
+            if (auto fitRow = guikit::Row(ui, {.width = guikit::SizeMode::Fit, .equalWidths = true})) {
+                bShort = guikit::Button(ui, {.text = "OK"});
+                bLong = guikit::Button(ui, {.text = "Confirm Action"});
             }
             ui.EndFrame(canvas);
         }
@@ -11497,13 +11489,13 @@ int main() {
         guikit::Response rSplit{};
 
         auto renderSpin = [&]() {
-            if (auto col = ui.Column({.gap = 8.0f, .padding = guikit::Padding::All(12.0f)})) {
-                rDetached = ui.SpinBox(valDetached, {
+            if (auto col = guikit::Column(ui, {.gap = 8.0f, .padding = guikit::Padding::All(12.0f)})) {
+                rDetached = guikit::SpinBox(ui, valDetached, {
                     .suffix = "MHz",
                     .step = 2.5,
                     .stepStyle = guikit::SpinBoxStepStyle::Detached
                 });
-                rSplit = ui.SpinBox(valSplit, {
+                rSplit = guikit::SpinBox(ui, valSplit, {
                     .step = 5.0,
                     .stepStyle = guikit::SpinBoxStepStyle::Split
                 });
@@ -11580,9 +11572,9 @@ int main() {
         };
 
         auto renderComboUI = [&]() {
-            if (auto col = ui.Column({.gap = 12.0f, .padding = guikit::Padding::All(20.0f)})) {
-                rCombo = ui.ComboBox(comboIdx, items, {.clearable = true});
-                rAuto = ui.Autocomplete(autoVal, items, {.placeholder = "Type or pick...", .clearable = true});
+            if (auto col = guikit::Column(ui, {.gap = 12.0f, .padding = guikit::Padding::All(20.0f)})) {
+                rCombo = guikit::ComboBox(ui, comboIdx, items, {.clearable = true});
+                rAuto = guikit::Autocomplete(ui, autoVal, items, {.placeholder = "Type or pick...", .clearable = true});
             }
         };
 
@@ -11713,37 +11705,37 @@ int main() {
         guikit::CommandPaletteResponse rCmd{};
 
         auto renderAllFive = [&]() {
-            if (auto col = ui.Column({.gap = 8.0f, .padding = guikit::Padding::All(12.0f), .height = guikit::SizeMode::Stretch})) {
-                rMulti = ui.MultiSelect(multiSel, multiItems, {.searchable = true, .clearable = true, .width = 320.0f});
-                rDate = ui.DatePicker(dt, {.mode = guikit::DatePickerMode::DateTime, .showSeconds = true, .width = 240.0f});
-                rCrumb = ui.Breadcrumb(crumbIdx, crumbItems);
-                rPage = ui.Pagination(pageIdx, 10u, {.siblingCount = 1, .showPageInfo = true});
+            if (auto col = guikit::Column(ui, {.gap = 8.0f, .padding = guikit::Padding::All(12.0f), .height = guikit::SizeMode::Stretch})) {
+                rMulti = guikit::MultiSelect(ui, multiSel, multiItems, {.searchable = true, .clearable = true, .width = 320.0f});
+                rDate = guikit::DatePicker(ui, dt, {.mode = guikit::DatePickerMode::DateTime, .showSeconds = true, .width = 240.0f});
+                rCrumb = guikit::Breadcrumb(ui, crumbIdx, crumbItems);
+                rPage = guikit::Pagination(ui, pageIdx, 10u, {.siblingCount = 1, .showPageInfo = true});
 
-                if (auto split = ui.SplitView(splitRatio, {
+                if (auto split = guikit::SplitView(ui, splitRatio, {
                     .orientation = guikit::Orientation::Horizontal,
                     .defaultRatio = 0.5f,
                     .sashSize = 6.0f,
                     .height = 180.0f
                 })) {
                     if (auto p1 = split.First()) {
-                        leftPaneRect = ui.Button({.text = "Left Pane", .width = guikit::SizeMode::Stretch}).rect;
+                        leftPaneRect = guikit::Button(ui, {.text = "Left Pane", .width = guikit::SizeMode::Stretch}).rect;
                     }
                     if (auto p2 = split.Second()) {
-                        rightPaneRect = ui.Button({.text = "Right Pane", .width = guikit::SizeMode::Stretch}).rect;
+                        rightPaneRect = guikit::Button(ui, {.text = "Right Pane", .width = guikit::SizeMode::Stretch}).rect;
                     }
                 }
 
-                rCmd = ui.CommandPalette(cmdOpen, cmdItems);
+                rCmd = guikit::CommandPalette(ui, cmdOpen, cmdItems);
             }
         };
 
         // DatePicker static helper verification
-        CHECK(guikit::DatePicker::IsLeapYear(2024));
-        CHECK(!guikit::DatePicker::IsLeapYear(2026));
-        CHECK(guikit::DatePicker::DaysInMonth(2024, 2) == 29);
-        CHECK(guikit::DatePicker::DaysInMonth(2026, 2) == 28);
-        CHECK(guikit::DatePicker::FormatDateTime(dt, guikit::DatePickerMode::Date, false) == "2026-10-20");
-        CHECK(guikit::DatePicker::FormatDateTime(dt, guikit::DatePickerMode::DateTime, true) == "2026-10-20 14:30:00");
+        CHECK(guikit::detail::DatePicker::IsLeapYear(2024));
+        CHECK(!guikit::detail::DatePicker::IsLeapYear(2026));
+        CHECK(guikit::detail::DatePicker::DaysInMonth(2024, 2) == 29);
+        CHECK(guikit::detail::DatePicker::DaysInMonth(2026, 2) == 28);
+        CHECK(guikit::detail::DatePicker::FormatDateTime(dt, guikit::DatePickerMode::Date, false) == "2026-10-20");
+        CHECK(guikit::detail::DatePicker::FormatDateTime(dt, guikit::DatePickerMode::DateTime, true) == "2026-10-20 14:30:00");
 
         for (keel::i32 i = 0; i < 2; ++i) {
             ui.BeginFrame({800.0f, 600.0f});
@@ -11764,13 +11756,13 @@ int main() {
             guikit::Rect minWDateRect{};
             for (keel::i32 f = 0; f < 2; ++f) {
                 dpUi.BeginFrame({600.0f, 400.0f});
-                if (auto tb = dpUi.Toolbar()) {
-                    tbDateRect = dpUi.DatePicker(dt).rect;
-                    minWDateRect = dpUi.DatePicker(dt, {.minWidth = 260.0f}).rect;
+                if (auto tb = guikit::Toolbar(dpUi)) {
+                    tbDateRect = guikit::DatePicker(dpUi, dt).rect;
+                    minWDateRect = guikit::DatePicker(dpUi, dt, {.minWidth = 260.0f}).rect;
                 }
-                if (auto col = dpUi.Column({.padding = guikit::Padding::All(16.0f), .width = 480.0f})) {
-                    if (auto el = dpUi.Element({.label = "Scheduled Date"})) {
-                        formDateRect = dpUi.DatePicker(dt).rect;
+                if (auto col = guikit::Column(dpUi, {.padding = guikit::Padding::All(16.0f), .width = 480.0f})) {
+                    if (auto el = guikit::Element(dpUi, {.label = "Scheduled Date"})) {
+                        formDateRect = guikit::DatePicker(dpUi, dt).rect;
                     }
                 }
                 dpUi.EndFrame(canvas);
@@ -11847,11 +11839,11 @@ int main() {
 
             guikit::Context cpUi;
             cpUi.BeginFrame({800.0f, 600.0f});
-            const auto rShort = cpUi.CommandPalette(openShort, kShortCmds);
-            const auto rLong = cpUi.CommandPalette(openLong, kLongCmds);
-            const auto rExplicit = cpUi.CommandPalette(openExplicit, kLongCmds, {.width = 500.0f});
-            const auto rXs = cpUi.CommandPalette(openXs, kShortCmds, {.size = guikit::UiSize::Xs});
-            const auto rXl = cpUi.CommandPalette(openXl, kShortCmds, {.size = guikit::UiSize::Xl});
+            const auto rShort = guikit::CommandPalette(cpUi, openShort, kShortCmds);
+            const auto rLong = guikit::CommandPalette(cpUi, openLong, kLongCmds);
+            const auto rExplicit = guikit::CommandPalette(cpUi, openExplicit, kLongCmds, {.width = 500.0f});
+            const auto rXs = guikit::CommandPalette(cpUi, openXs, kShortCmds, {.size = guikit::UiSize::Xs});
+            const auto rXl = guikit::CommandPalette(cpUi, openXl, kShortCmds, {.size = guikit::UiSize::Xl});
             cpUi.EndFrame(canvas);
 
             CHECK(rShort.rect.w >= 480.0f);
@@ -11869,7 +11861,7 @@ int main() {
             bool openScroll = true;
             guikit::CommandPaletteResponse rScroll{};
             auto renderScrollCp = [&]() {
-                rScroll = scrollCpUi.CommandPalette(openScroll, kManyCmds, {.maxVisibleItems = 3});
+                rScroll = guikit::CommandPalette(scrollCpUi, openScroll, kManyCmds, {.maxVisibleItems = 3});
             };
 
             // Frame 1: open palette (maxVisibleItems = 3 -> 8 items overflow)
@@ -11977,9 +11969,9 @@ int main() {
             guikit::UiSize szNoNone = guikit::UiSize::None;
             guikit::Response rAuto{}, rNoNone{};
             auto renderSizeSliders = [&]() {
-                if (auto col = ui.Column({.gap = 8.0f})) {
-                    rAuto = ui.StepSlider(szAuto, {.showTicks = true, .showLabels = true, .includeNone = true});
-                    rNoNone = ui.StepSlider(szNoNone, {.showTicks = true, .showLabels = true, .includeNone = false});
+                if (auto col = guikit::Column(ui, {.gap = 8.0f})) {
+                    rAuto = guikit::StepSlider(ui, szAuto, {.showTicks = true, .showLabels = true, .includeNone = true});
+                    rNoNone = guikit::StepSlider(ui, szNoNone, {.showTicks = true, .showLabels = true, .includeNone = false});
                 }
             };
             for (keel::i32 f = 0; f < 2; ++f) {
@@ -12022,8 +12014,8 @@ int main() {
                 "Workspace", "Clusters", "Production", "Telemetry", "LiveStream"
             };
             auto renderCollapsedBc = [&]() {
-                if (auto col = ui.Column({.gap = 8.0f})) {
-                    rColBc = ui.Breadcrumb(collapsedActive, kDeepTrail, {.maxVisibleItems = 2});
+                if (auto col = guikit::Column(ui, {.gap = 8.0f})) {
+                    rColBc = guikit::Breadcrumb(ui, collapsedActive, kDeepTrail, {.maxVisibleItems = 2});
                 }
             };
             for (keel::i32 f = 0; f < 2; ++f) {
@@ -12063,9 +12055,9 @@ int main() {
 
             // Pagination fixed-slot zero layout shift across all pages 0..19 + Static vs FastJump ellipsis modes
             const guikit::PaginationOptions pgOpts{.siblingCount = 1, .showFirstLast = true, .showPrevNext = true, .showPageInfo = true};
-            const guikit::Vec2 wPage0 = guikit::Pagination::Measure(0, 20, pgOpts, guikit::UiSize::Md, &canvas, ui.GetTheme());
+            const guikit::Vec2 wPage0 = guikit::detail::Pagination::Measure(0, 20, pgOpts, guikit::UiSize::Md, &canvas, ui.GetTheme());
             for (keel::usize p = 1; p < 20; ++p) {
-                const guikit::Vec2 wPageP = guikit::Pagination::Measure(p, 20, pgOpts, guikit::UiSize::Md, &canvas, ui.GetTheme());
+                const guikit::Vec2 wPageP = guikit::detail::Pagination::Measure(p, 20, pgOpts, guikit::UiSize::Md, &canvas, ui.GetTheme());
                 CHECK_NEAR(wPageP.x, wPage0.x, 0.01f);
             }
 
@@ -12073,8 +12065,8 @@ int main() {
             bool fastJump = false;
             guikit::Response rPgMode{};
             auto renderPgMode = [&]() {
-                if (auto col = ui.Column({.gap = 8.0f})) {
-                    rPgMode = ui.Pagination(pgCurr, 20, {.siblingCount = 1, .interactiveEllipsis = fastJump});
+                if (auto col = guikit::Column(ui, {.gap = 8.0f})) {
+                    rPgMode = guikit::Pagination(ui, pgCurr, 20, {.siblingCount = 1, .interactiveEllipsis = fastJump});
                 }
             };
             for (keel::i32 f = 0; f < 2; ++f) {
@@ -12136,21 +12128,21 @@ int main() {
         guikit::Response rTags{};
 
         auto renderMetersAndTags = [&]() {
-            if (auto col = ui.Column({.gap = 8.0f, .padding = guikit::Padding::All(12.0f)})) {
-                rMono = ui.LevelMeter(dbLevel, -60.0, 0.0, {
+            if (auto col = guikit::Column(ui, {.gap = 8.0f, .padding = guikit::Padding::All(12.0f)})) {
+                rMono = guikit::LevelMeter(ui, dbLevel, -60.0, 0.0, {
                     .segments = 24,
                     .multiZoneColor = true,
                     .autoPeakHold = true,
                     .showClipLed = true,
                     .showScale = true
                 });
-                rStereo = ui.LevelMeter(stereoLevels, -60.0f, 0.0f, {
+                rStereo = guikit::LevelMeter(ui, stereoLevels, -60.0f, 0.0f, {
                     .orientation = guikit::Orientation::Vertical,
                     .segments = 16,
                     .channelLabels = kStereoCh,
                     .height = 140.0f
                 });
-                rTags = ui.TagInput(tags, {
+                rTags = guikit::TagInput(ui, tags, {
                     .placeholder = "Add tag...",
                     .maxTags = 6,
                     .allowDuplicates = false,
@@ -12182,49 +12174,49 @@ int main() {
 
             for (keel::i32 f = 0; f < 2; ++f) {
                 vUi.BeginFrame({800.0f, 600.0f});
-                if (auto row = vUi.Row({.gap = 16.0f, .height = guikit::SizeMode::Stretch})) {
-                    rFaderFill = vUi.Slider(faderVal, -60.0f, 0.0f, {
+                if (auto row = guikit::Row(vUi, {.gap = 16.0f, .height = guikit::SizeMode::Stretch})) {
+                    rFaderFill = guikit::Slider(vUi, faderVal, -60.0f, 0.0f, {
                         .orientation = guikit::Orientation::Vertical,
                         .height = guikit::SizeMode::Stretch
                     });
-                    rMeterFill = vUi.LevelMeter(stereoLevels, -60.0f, 0.0f, {
+                    rMeterFill = guikit::LevelMeter(vUi, stereoLevels, -60.0f, 0.0f, {
                         .orientation = guikit::Orientation::Vertical,
                         .height = guikit::SizeMode::Stretch
                     });
-                    rFaderCompact = vUi.Slider(faderVal, -60.0f, 0.0f, {
+                    rFaderCompact = guikit::Slider(vUi, faderVal, -60.0f, 0.0f, {
                         .orientation = guikit::Orientation::Vertical,
                         .height = guikit::SizeMode::Fit
                     });
-                    rMeterCompact = vUi.LevelMeter(stereoLevels, -60.0f, 0.0f, {
+                    rMeterCompact = guikit::LevelMeter(vUi, stereoLevels, -60.0f, 0.0f, {
                         .orientation = guikit::Orientation::Vertical,
                         .height = guikit::SizeMode::Fit
                     });
-                    rFaderExplicitH = vUi.Slider(faderVal, -60.0f, 0.0f, {
+                    rFaderExplicitH = guikit::Slider(vUi, faderVal, -60.0f, 0.0f, {
                         .orientation = guikit::Orientation::Vertical,
                         .height = 200.0f
                     });
-                    rMeterExplicitH = vUi.LevelMeter(stereoLevels, -60.0f, 0.0f, {
+                    rMeterExplicitH = guikit::LevelMeter(vUi, stereoLevels, -60.0f, 0.0f, {
                         .orientation = guikit::Orientation::Vertical,
                         .height = 200.0f
                     });
-                    if (auto el = vUi.Element({.label = "Fader Stretch", .width = guikit::SizeMode::Fit})) {
+                    if (auto el = guikit::Element(vUi, {.label = "Fader Stretch", .width = guikit::SizeMode::Fit})) {
                         rElFaderFill = el.response;
-                        vUi.Slider(faderVal, -60.0f, 0.0f, {.orientation = guikit::Orientation::Vertical});
+                        guikit::Slider(vUi, faderVal, -60.0f, 0.0f, {.orientation = guikit::Orientation::Vertical});
                     }
-                    if (auto el = vUi.Element({.label = "Meter Stretch", .width = guikit::SizeMode::Fit})) {
+                    if (auto el = guikit::Element(vUi, {.label = "Meter Stretch", .width = guikit::SizeMode::Fit})) {
                         rElMeterFill = el.response;
-                        vUi.LevelMeter(stereoLevels, -60.0f, 0.0f, {.orientation = guikit::Orientation::Vertical});
+                        guikit::LevelMeter(vUi, stereoLevels, -60.0f, 0.0f, {.orientation = guikit::Orientation::Vertical});
                     }
-                    if (auto el = vUi.Element({.label = "Fader Fit", .width = guikit::SizeMode::Fit})) {
+                    if (auto el = guikit::Element(vUi, {.label = "Fader Fit", .width = guikit::SizeMode::Fit})) {
                         rElFaderSpace = el.response;
-                        vUi.Slider(faderVal, -60.0f, 0.0f, {
+                        guikit::Slider(vUi, faderVal, -60.0f, 0.0f, {
                             .orientation = guikit::Orientation::Vertical,
                             .height = guikit::SizeMode::Fit
                         });
                     }
-                    if (auto el = vUi.Element({.label = "Meter Fit", .width = guikit::SizeMode::Fit})) {
+                    if (auto el = guikit::Element(vUi, {.label = "Meter Fit", .width = guikit::SizeMode::Fit})) {
                         rElMeterSpace = el.response;
-                        vUi.LevelMeter(stereoLevels, -60.0f, 0.0f, {
+                        guikit::LevelMeter(vUi, stereoLevels, -60.0f, 0.0f, {
                             .orientation = guikit::Orientation::Vertical,
                             .height = guikit::SizeMode::Fit
                         });
@@ -12329,35 +12321,35 @@ int main() {
 
         auto renderShell = [&]() {
             ui.BeginFrame({800.0f, 600.0f});
-            if (auto root = ui.Column({.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
-                if (auto tb = ui.Toolbar()) {
+            if (auto root = guikit::Column(ui, {.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+                if (auto tb = guikit::Toolbar(ui)) {
                     tbNode = tb.GetNode();
                     tbId = tbNode->id;
-                    ui.Text("Top Toolbar");
+                    guikit::Text(ui, "Top Toolbar");
                 }
-                if (auto body = ui.Box({.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
-                    if (auto bar = ui.ActivityBar(sbMode)) {
+                if (auto body = guikit::Box(ui, {.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+                    if (auto bar = guikit::ActivityBar(ui, sbMode)) {
                         barNode = bar.GetNode();
                         barId = barNode->id;
                         keel::i32 tool = 0;
                         bar.Item(tool, 0, {.icon = Icon::Folder(), .label = "Explorer"});
                     }
-                    if (auto sb = ui.Sidebar(sbMode, {.width = 180.0f})) {
+                    if (auto sb = guikit::Sidebar(ui, sbMode, {.width = 180.0f})) {
                         sbNode = sb.GetNode();
                         sbId = sbNode->id;
-                        ui.Text("Sidebar");
+                        guikit::Text(ui, "Sidebar");
                     }
-                    if (auto card = ui.Card({.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+                    if (auto card = guikit::Card(ui, {.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
                         cardNode = card.GetNode();
-                        ui.Text("Canvas");
+                        guikit::Text(ui, "Canvas");
                     }
-                    if (auto bp = ui.BottomPanel(showBp, {.height = 120.0f})) {
+                    if (auto bp = guikit::BottomPanel(ui, showBp, {.height = 120.0f})) {
                         bpNode = bp.GetNode();
                         bpId = bpNode->id;
-                        ui.Text("Bottom Panel");
+                        guikit::Text(ui, "Bottom Panel");
                     }
                 }
-                if (auto st = ui.StatusBar()) {
+                if (auto st = guikit::StatusBar(ui)) {
                     statusNode = st.GetNode();
                     statusId = statusNode->id;
                     st.Item({.text = "Ready"});
@@ -12427,20 +12419,20 @@ int main() {
 
         auto render2D = [&]() {
             ui.BeginFrame({500.0f, 400.0f});
-            if (auto outer = ui.ScrollArea({
+            if (auto outer = guikit::ScrollArea(ui, {
                 .orientation = Orientation::Both,
                 .align = Alignment::Center,
                 .justify = Justify::Center
             })) {
                 outerId = outer.GetNode()->id;
-                if (auto box = ui.Box({
+                if (auto box = guikit::Box(ui, {
                     .width = childW,
                     .height = childH
                 })) {
                     childId = box.GetNode()->id;
-                    if (auto inner = ui.ScrollArea({.orientation = Orientation::Vertical})) {
+                    if (auto inner = guikit::ScrollArea(ui, {.orientation = Orientation::Vertical})) {
                         innerId = inner.GetNode()->id;
-                        if (auto innerContent = ui.Box({
+                        if (auto innerContent = guikit::Box(ui, {
                             .width = SizeMode::Stretch,
                             .height = 900.0f
                         })) {}
@@ -12491,7 +12483,7 @@ int main() {
 
         auto renderCp = [&]() {
             ui.BeginFrame({500.0f, 500.0f});
-            cpRes = ui.ColorPicker(col, {.showHex = true, .showAlpha = true, .showSwatches = true});
+            cpRes = guikit::ColorPicker(ui, col, {.showHex = true, .showAlpha = true, .showSwatches = true});
             ui.EndFrame(canvas);
         };
 
@@ -12528,7 +12520,7 @@ int main() {
         recCanvas.SetTarget(pixels.data(), 400, 200, 400);
 
         // 1. Element::Resolve with SizeMode::Fit preserves a 240px intrinsic control width inside a 280px container
-        const ElementGeometry narrowGeom = Element::Resolve(
+        const ElementGeometry narrowGeom = detail::Element::Resolve(
             Rect(0.0f, 0.0f, 280.0f, 40.0f),
             Vec2(240.0f, 32.0f),
             ElementSpec{.width = SizeMode::Fit},
@@ -12538,7 +12530,7 @@ int main() {
         CHECK_NEAR(narrowGeom.controlRect.w, 240.0f, 0.01f);
 
         // And when the container is narrower than intrinsic (180px < 240px), it clamps cleanly to 180px
-        const ElementGeometry ultraNarrowGeom = Element::Resolve(
+        const ElementGeometry ultraNarrowGeom = detail::Element::Resolve(
             Rect(0.0f, 0.0f, 180.0f, 40.0f),
             Vec2(240.0f, 32.0f),
             ElementSpec{.width = SizeMode::Fit},
@@ -12555,7 +12547,7 @@ int main() {
             {"Sawtooth", IconId::Play},
             {"Noise", IconId::Warning}
         };
-        Segmented::Render(
+        detail::Segmented::Render(
             recCanvas,
             Rect(0.0f, 0.0f, 140.0f, 32.0f),
             items,
@@ -12591,9 +12583,9 @@ int main() {
         auto frameCenter = [&](Id id) { return ui.GetPrevFrameBounds(id).Center(); };
 
         auto renderSimulatedPhoneLandscape = [&](keel::f32 previewZoom = 1.0f) {
-            if (auto outer = ui.Column({.padding = Padding::All(40.0f), .align = Alignment::Center, .justify = Justify::Center})) {
+            if (auto outer = guikit::Column(ui, {.padding = Padding::All(40.0f), .align = Alignment::Center, .justify = Justify::Center})) {
                 if (auto phoneZ = ui.Zone({.scale = previewZoom})) {
-                    if (auto screenBox = ui.Box({
+                    if (auto screenBox = guikit::Box(ui, {
                         .width = 784.0f,   // local units: the zone scale maps them to the parent
                         .height = 375.0f,
                         .padding = Padding(40.0f, 32.0f, 18.0f, 20.0f),
@@ -12602,11 +12594,11 @@ int main() {
                     })) {
                         screenBoxId = screenBox.GetNode()->id;
                         capturedPopupVp = ui.GetPopupViewportRect();
-                        ui.Spacer(1.0f);
-                        datePickerId = ui.DatePicker(dt, {.width = SizeMode::Stretch}).id;
-                        colorPickerId = ui.ColorPicker(col, {.width = SizeMode::Stretch}).id;
-                        selectId = ui.Select(selIdx, {"Option 1", "Option 2", "Option 3", "Option 4", "Option 5", "Option 6", "Option 7", "Option 8"}, {.width = SizeMode::Stretch}).id;
-                        ui.Spacer(1.0f);
+                        guikit::Spacer(ui, 1.0f);
+                        datePickerId = guikit::DatePicker(ui, dt, {.width = SizeMode::Stretch}).id;
+                        colorPickerId = guikit::ColorPicker(ui, col, {.width = SizeMode::Stretch}).id;
+                        selectId = guikit::Select(ui, selIdx, {"Option 1", "Option 2", "Option 3", "Option 4", "Option 5", "Option 6", "Option 7", "Option 8"}, {.width = SizeMode::Stretch}).id;
+                        guikit::Spacer(ui, 1.0f);
                     }
                 }
             }
@@ -12731,8 +12723,8 @@ int main() {
             Response rSelect{}, rPan{}, rMeasure{}, rExport{};
 
             auto renderTb = [&]() {
-                if (auto col = tbUi.Column({.padding = Padding::All(8.0f)})) {
-                    if (auto tb = tbUi.Toolbar({.style = ToolbarStyle::Surface, .overflow = policy})) {
+                if (auto col = guikit::Column(tbUi, {.padding = Padding::All(8.0f)})) {
+                    if (auto tb = guikit::Toolbar(tbUi, {.style = ToolbarStyle::Surface, .overflow = policy})) {
                         tbId = tb.response.id;
                         tbRect = tb.response.rect;
                         rSelect  = tb.Item(activeTool, 0, {.text = "Select",  .icon = Icon::Check()});
@@ -12844,9 +12836,9 @@ int main() {
             Id mdId{};
             for (keel::i32 f = 0; f < 2; ++f) {
                 mdUi.BeginFrame({340.0f, 600.0f});
-                if (auto scroll = mdUi.ScrollArea({.padding = Padding::All(0.0f)})) {
+                if (auto scroll = guikit::ScrollArea(mdUi, {.padding = Padding::All(0.0f)})) {
                     scrollId = scroll.GetNode()->id;
-                    const auto mdRes = mdUi.Markdown(kDoc);
+                    const auto mdRes = guikit::Markdown(mdUi, kDoc);
                     mdId = mdRes.id;
                 }
                 mdUi.EndFrame(mdCanvas);
@@ -12854,8 +12846,8 @@ int main() {
 
             const Rect scrollRect = mdUi.GetPrevFrameBounds(scrollId);
             const Rect mdUnclippedRect = mdUi.GetPrevUnclippedBounds(mdId);
-            const Vec2 defaultMeasured = Markdown::Measure(kDoc, {}, UiSize::Md, &mdCanvas, mdUi.GetTheme(), 0.0f);
-            const Vec2 narrowMeasured  = Markdown::Measure(kDoc, {}, UiSize::Md, &mdCanvas, mdUi.GetTheme(), mdUnclippedRect.w);
+            const Vec2 defaultMeasured = detail::Markdown::Measure(kDoc, {}, UiSize::Md, &mdCanvas, mdUi.GetTheme(), 0.0f);
+            const Vec2 narrowMeasured  = detail::Markdown::Measure(kDoc, {}, UiSize::Md, &mdCanvas, mdUi.GetTheme(), mdUnclippedRect.w);
             CHECK(narrowMeasured.y > defaultMeasured.y + 20.0f);
             CHECK_NEAR(mdUnclippedRect.y, scrollRect.y, 1.0f);
             CHECK_NEAR(mdUnclippedRect.h, narrowMeasured.y, 1.0f);
@@ -12961,9 +12953,9 @@ int main() {
 
                 auto runDragWorkbench = [&]() {
                     dragUi.BeginFrame({1000.0f, 600.0f});
-                    if (auto root = dragUi.Row({ .gap = 0.0f, .padding = Padding::All(0.0f), .height = SizeMode::Stretch })) {
-                        if (auto ws = dragUi.Column({ .gap = 12.0f, .padding = Padding::All(20.0f), .width = SizeMode::Stretch, .height = SizeMode::Stretch })) {
-                            auto rWs = dragUi.Slider(wsSliderVal, 0.0f, 100.0f, {.width = 240.0f});
+                    if (auto root = guikit::Row(dragUi, { .gap = 0.0f, .padding = Padding::All(0.0f), .height = SizeMode::Stretch })) {
+                        if (auto ws = guikit::Column(dragUi, { .gap = 12.0f, .padding = Padding::All(20.0f), .width = SizeMode::Stretch, .height = SizeMode::Stretch })) {
+                            auto rWs = guikit::Slider(dragUi, wsSliderVal, 0.0f, 100.0f, {.width = 240.0f});
                             wsSliderRect = rWs.rect;
 
                             // Simulate PreviewViewport custom window resize grip in workspace (zLayer == 0)
@@ -12982,7 +12974,7 @@ int main() {
                             }
                         }
 
-                        if (auto sb = dragUi.Sidebar(rightSidebarOpen, {
+                        if (auto sb = guikit::Sidebar(dragUi, rightSidebarOpen, {
                             .side = SidebarSide::Right,
                             .width = 280.0f,
                             .minWidth = 180.0f,
@@ -12992,9 +12984,9 @@ int main() {
                             .padding = Padding::All(12.0f)
                         })) {
                             sbPanelRect = sb.response.rect;
-                            auto rSb = dragUi.Slider(sbSliderVal, 0.0f, 100.0f, {.width = 240.0f});
+                            auto rSb = guikit::Slider(dragUi, sbSliderVal, 0.0f, 100.0f, {.width = 240.0f});
                             sbSliderRect = rSb.rect;
-                            auto rBtn = dragUi.Button({ .text = "Sidebar Action" });
+                            auto rBtn = guikit::Button(dragUi, { .text = "Sidebar Action" });
                             sbBtnHoveredDuringDrag = rBtn.hovered;
                         }
                     }
@@ -13118,13 +13110,13 @@ int main() {
 
                 Context mdUi;
                 const UiTheme& mdTheme = mdUi.GetTheme();
-                const Vec2 wideTableSz = Markdown::Measure(tableMd, {}, UiSize::Md, &archCanvas, mdTheme, 1200.0f);
-                const Vec2 narrowTableSz = Markdown::Measure(tableMd, {}, UiSize::Md, &archCanvas, mdTheme, 380.0f);
+                const Vec2 wideTableSz = detail::Markdown::Measure(tableMd, {}, UiSize::Md, &archCanvas, mdTheme, 1200.0f);
+                const Vec2 narrowTableSz = detail::Markdown::Measure(tableMd, {}, UiSize::Md, &archCanvas, mdTheme, 380.0f);
                 // Narrow viewport wraps multi-word table cells and must expand row heights accordingly
                 CHECK(narrowTableSz.y > wideTableSz.y + 20.0f);
 
-                const Vec2 wideCodeSz = Markdown::Measure(longCodeMd, {}, UiSize::Md, &archCanvas, mdTheme, 1200.0f);
-                const Vec2 narrowCodeSz = Markdown::Measure(longCodeMd, {}, UiSize::Md, &archCanvas, mdTheme, 320.0f);
+                const Vec2 wideCodeSz = detail::Markdown::Measure(longCodeMd, {}, UiSize::Md, &archCanvas, mdTheme, 1200.0f);
+                const Vec2 narrowCodeSz = detail::Markdown::Measure(longCodeMd, {}, UiSize::Md, &archCanvas, mdTheme, 320.0f);
                 // Narrow viewport soft-wraps long code line into multiple visual lines
                 CHECK(narrowCodeSz.y > wideCodeSz.y + 14.0f);
 
@@ -13132,15 +13124,15 @@ int main() {
                 // Image caption multi-line wrapping in narrow viewports
                 const keel::String imgCaptionMd(
                     "![GuiKit Brand Icon (1024x1024 PNG - Embedded Native & WASM Asset)](assets/guikit-icon-inter850-1024.png)\n");
-                const Vec2 wideImgSz = Markdown::Measure(imgCaptionMd, {}, UiSize::Md, &archCanvas, mdTheme, 1200.0f);
-                const Vec2 narrowImgSz = Markdown::Measure(imgCaptionMd, {}, UiSize::Md, &archCanvas, mdTheme, 280.0f);
+                const Vec2 wideImgSz = detail::Markdown::Measure(imgCaptionMd, {}, UiSize::Md, &archCanvas, mdTheme, 1200.0f);
+                const Vec2 narrowImgSz = detail::Markdown::Measure(imgCaptionMd, {}, UiSize::Md, &archCanvas, mdTheme, 280.0f);
                 CHECK(narrowImgSz.y > wideImgSz.y + 10.0f);
 #endif
 
                 // Ultra-narrow heading with (`assets/images/lena.png`) splits the code pill at '/' and keeps `)` attached
                 const keel::String headingCodeMd("## 1. Embedded Image Asset (`assets/images/lena.png`)\n");
-                const Vec2 wideHeadSz = Markdown::Measure(headingCodeMd, {}, UiSize::Md, &archCanvas, mdTheme, 1200.0f);
-                const Vec2 ultraNarrowHeadSz = Markdown::Measure(headingCodeMd, {}, UiSize::Md, &archCanvas, mdTheme, 200.0f);
+                const Vec2 wideHeadSz = detail::Markdown::Measure(headingCodeMd, {}, UiSize::Md, &archCanvas, mdTheme, 1200.0f);
+                const Vec2 ultraNarrowHeadSz = detail::Markdown::Measure(headingCodeMd, {}, UiSize::Md, &archCanvas, mdTheme, 200.0f);
                 CHECK(ultraNarrowHeadSz.y > wideHeadSz.y + 20.0f);
                 CHECK(ultraNarrowHeadSz.x <= 200.5f);
 
@@ -13149,7 +13141,7 @@ int main() {
                 const keel::String combinedMd = keel::format("{}\n{}", nestedMd, longCodeMd);
                 auto runMdFrame = [&]() {
                     mdUi.BeginFrame({380.0f, 600.0f});
-                    mdResp = mdUi.Markdown(combinedMd, {.height = 500.0f});
+                    mdResp = guikit::Markdown(mdUi, combinedMd, {.height = 500.0f});
                     mdUi.EndFrame(archCanvas);
                 };
 
@@ -13207,8 +13199,8 @@ int main() {
                 Context retainedUi;
                 auto runRetainedFrame = [&](keel::f32 scrollH) {
                     retainedUi.BeginFrame({420.0f, scrollH});
-                    if (auto sa = retainedUi.ScrollArea()) {
-                        retainedUi.Markdown(bigDoc);
+                    if (auto sa = guikit::ScrollArea(retainedUi)) {
+                        guikit::Markdown(retainedUi, bigDoc);
                     }
                     retainedUi.EndFrame(countCanvas);
                 };
@@ -13278,25 +13270,25 @@ int main() {
                         }
                         // 1200x900 physical px at 125% root zoom -> 960x720 studio dp; 100% preview zone -> relScale = 0.8
                         scaledUi.BeginFrame({1200.0f, 900.0f}, 1.0f, 1.25f);
-                        if (auto rootCol = scaledUi.Column({.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
-                            if (auto topBar = scaledUi.Box({.width = SizeMode::Stretch, .height = 40.0f})) {}
-                            if (auto mainRow = scaledUi.Row({.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
-                                if (auto sideBar = scaledUi.Box({.width = 120.0f, .height = SizeMode::Stretch})) {}
-                                if (auto outerBackdrop = scaledUi.ScrollArea({
+                        if (auto rootCol = guikit::Column(scaledUi, {.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+                            if (auto topBar = guikit::Box(scaledUi, {.width = SizeMode::Stretch, .height = 40.0f})) {}
+                            if (auto mainRow = guikit::Row(scaledUi, {.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+                                if (auto sideBar = guikit::Box(scaledUi, {.width = 120.0f, .height = SizeMode::Stretch})) {}
+                                if (auto outerBackdrop = guikit::ScrollArea(scaledUi, {
                                     .orientation = Orientation::Both,
                                     .scrollbar = VisibilityPolicy::Never,
                                     .padding = Padding::All(18.0f)
                                 })) {
                                     outerNode = outerBackdrop.GetNode();
                                     if (auto previewZ = scaledUi.Zone({.scale = scaledUi.ScaleForZoom(1.0f)})) {
-                                        if (auto winFrame = scaledUi.Box({
+                                        if (auto winFrame = guikit::Box(scaledUi, {
                                             .width = SizeMode::Stretch,
                                             .height = SizeMode::Stretch,
                                             .clipChildren = true
                                         })) {
-                                            if (auto innerScroll = scaledUi.ScrollArea()) {
+                                            if (auto innerScroll = guikit::ScrollArea(scaledUi)) {
                                                 scrollNode = innerScroll.GetNode();
-                                                scaledUi.Markdown(scaledDoc);
+                                                guikit::Markdown(scaledUi, scaledDoc);
                                             }
                                         }
                                     }
@@ -13344,37 +13336,37 @@ int main() {
 
                     auto runModalStage = [&]() {
                         modalUi.BeginFrame({keel::as<keel::f32>(mw), keel::as<keel::f32>(mh)});
-                        if (auto stage = modalUi.Box({
+                        if (auto stage = guikit::Box(modalUi, {
                             .width = SizeMode::Stretch,
                             .height = SizeMode::Stretch,
                             .padding = Padding::All(24.0f),
                             .background = {modalUi.GetTheme().palette.surface},
                             .clipChildren = true
                         })) {
-                            if (auto col = modalUi.Column({
+                            if (auto col = guikit::Column(modalUi, {
                                 .gap = 12.0f,
                                 .align = Alignment::Center,
                                 .justify = Justify::Center,
                                 .height = SizeMode::Stretch
                             })) {
-                                modalUi.Button({.text = "Open Modal Dialog..."});
-                                modalUi.Text(statusText);
+                                guikit::Button(modalUi, {.text = "Open Modal Dialog..."});
+                                guikit::Text(modalUi, statusText);
                             }
 
-                            if (auto modal = modalUi.Modal(modalOpen, {
+                            if (auto modal = guikit::Modal(modalUi, modalOpen, {
                                 .backdropOpacity = 0.55f,
                                 .confineToParent = true,
                                 .padding = Padding::All(16.0f)
                             })) {
-                                if (auto card = modalUi.Card({
+                                if (auto card = guikit::Card(modalUi, {
                                     .width = 360.0f,
                                     .gap = 10.0f,
                                     .padding = Padding::All(16.0f),
                                     .elevated = true
                                 })) {
                                     modalDialogRect = modal.response.rect;
-                                    modalUi.Heading({.label = "Configure Station Endpoint", .description = "Edit connection parameters", .level = HeadingLevel::H4});
-                                    cancelBtnRes = modalUi.Button({.text = "Cancel"});
+                                    guikit::Heading(modalUi, {.label = "Configure Station Endpoint", .description = "Edit connection parameters", .level = HeadingLevel::H4});
+                                    cancelBtnRes = guikit::Button(modalUi, {.text = "Cancel"});
                                     if (cancelBtnRes.clicked) {
                                         statusText.assign("Cancelled Modal");
                                         modal.Close();
@@ -13491,28 +13483,28 @@ int main() {
 
                     auto runSceneBpFrame = [&]() {
                         sceneBpUi.BeginFrame({keel::as<keel::f32>(sw), keel::as<keel::f32>(sh)}, 1.0f);
-                        if (auto rootCol = sceneBpUi.Column({
+                        if (auto rootCol = guikit::Column(sceneBpUi, {
                             .gap = 0.0f,
                             .padding = Padding::All(0.0f),
                             .width = SizeMode::Stretch,
                             .height = SizeMode::Stretch
                         })) {
-                            if (auto workCol = sceneBpUi.Column({
+                            if (auto workCol = guikit::Column(sceneBpUi, {
                                 .width = SizeMode::Stretch,
                                 .height = SizeMode::Stretch
                             })) {
-                                sceneBpUi.Text("Workspace");
+                                guikit::Text(sceneBpUi, "Workspace");
                             }
                             if (showBp) {
-                                if (auto bp = sceneBpUi.BottomPanel({
+                                if (auto bp = guikit::BottomPanel(sceneBpUi, {
                                     .height = 200.0f,
                                     .minHeight = 140.0f,
                                     .padding = Padding::All(0.0f)
                                 })) {
-                                    if (auto tb = sceneBpUi.Toolbar({.size = UiSize::Sm})) {
-                                        sceneBpUi.Text("Prism Schema");
+                                    if (auto tb = guikit::Toolbar(sceneBpUi, {.size = UiSize::Sm})) {
+                                        guikit::Text(sceneBpUi, "Prism Schema");
                                     }
-                                    if (auto sc = sceneBpUi.Scene({
+                                    if (auto sc = guikit::Scene(sceneBpUi, {
                                         .worldBounds = Rect(-10.0f, -25.0f, 50.0f, 25.0f),
                                         .fitPadding = Padding(40.0f, 24.0f, 40.0f, 32.0f),
                                         .zoomable = false,
@@ -13568,7 +13560,7 @@ int main() {
                     bool camMod = false;
                     auto runCamScene = [&]() {
                         sceneBpUi.BeginFrame({400.0f, 300.0f}, 1.0f);
-                        if (auto sc = sceneBpUi.Scene({
+                        if (auto sc = guikit::Scene(sceneBpUi, {
                             .height = 300.0f,
                             .zoomable = true,
                             .pannable = true,
@@ -13630,22 +13622,22 @@ int main() {
 
                         auto runShellFrame = [&]() {
                             idleUi.BeginFrame({800.0f, 600.0f}, 1.0f);
-                            if (auto root = idleUi.Column({.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
-                                if (auto tb = idleUi.Toolbar()) {
+                            if (auto root = guikit::Column(idleUi, {.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+                                if (auto tb = guikit::Toolbar(idleUi)) {
                                     tipBtn = tb.Action({.text = "Action", .tooltip = "Stationary Tooltip Test"});
                                 }
-                                if (auto ws = idleUi.Row({.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
-                                    if (auto sb = idleUi.Sidebar({.width = 200.0f, .resizable = true, .allowCollapse = true})) {
-                                        idleUi.Text("Sidebar Content");
+                                if (auto ws = guikit::Row(idleUi, {.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+                                    if (auto sb = guikit::Sidebar(idleUi, {.width = 200.0f, .resizable = true, .allowCollapse = true})) {
+                                        guikit::Text(idleUi, "Sidebar Content");
                                     }
-                                    if (auto mainCol = idleUi.Column({.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
-                                        idleUi.Text(statusLabel);
-                                        if (auto bp = idleUi.BottomPanel(bpOpen, {.height = 140.0f, .resizable = true, .allowCollapse = true})) {
-                                            idleUi.Text("BottomPanel Content");
+                                    if (auto mainCol = guikit::Column(idleUi, {.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+                                        guikit::Text(idleUi, statusLabel);
+                                        if (auto bp = guikit::BottomPanel(idleUi, bpOpen, {.height = 140.0f, .resizable = true, .allowCollapse = true})) {
+                                            guikit::Text(idleUi, "BottomPanel Content");
                                         }
                                     }
                                 }
-                                if (auto stBar = idleUi.StatusBar()) {
+                                if (auto stBar = guikit::StatusBar(idleUi)) {
                                     stBar.Item({.text = statusLabel});
                                 }
                             }
@@ -13692,18 +13684,18 @@ int main() {
                         // 1. ContainerScope move-assignment & explicit Close()
                         auditUi.BeginFrame({900.0f, 900.0f}, 1.0f);
                         {
-                            auto outerScope = auditUi.Column({.gap = 8.0f});
+                            auto outerScope = guikit::Column(auditUi, {.gap = 8.0f});
                             {
-                                auto activeRow = auditUi.Row({.gap = 4.0f});
-                                auditUi.Text("Row A");
+                                auto activeRow = guikit::Row(auditUi, {.gap = 4.0f});
+                                guikit::Text(auditUi, "Row A");
                                 // Move-assign a new Row into activeRow: must close Row A first, then adopt Row B!
-                                activeRow = auditUi.Row({.gap = 6.0f});
-                                auditUi.Text("Row B");
+                                activeRow = guikit::Row(auditUi, {.gap = 6.0f});
+                                guikit::Text(auditUi, "Row B");
                                 activeRow.Close();
                                 // Second Close() must be a safe no-op
                                 activeRow.Close();
                             }
-                            auditUi.Text("After Rows");
+                            guikit::Text(auditUi, "After Rows");
                             outerScope.Close();
                         }
                         auditUi.EndFrame(auditCanvas);
@@ -13716,23 +13708,23 @@ int main() {
 
                         auto runVisualAudit = [&]() {
                             auditUi.BeginFrame({800.0f, 800.0f}, 1.0f);
-                            if (auto col = auditUi.Column({.padding = Padding::All(0.0f), .width = SizeMode::Stretch})) {
-                                ratioBtn = auditUi.Button({.text = "Half", .width = 400.0f});
-                                if (auto r = auditUi.Row({.gap = 8.0f})) {
-                                    plainBtn = auditUi.Button({.text = "Alerts"});
-                                    badgeBtn = auditUi.Button({.text = "Alerts", .badge = "99+"});
-                                    loadBtn  = auditUi.Button({.text = "Saving", .loading = true});
+                            if (auto col = guikit::Column(auditUi, {.padding = Padding::All(0.0f), .width = SizeMode::Stretch})) {
+                                ratioBtn = guikit::Button(auditUi, {.text = "Half", .width = 400.0f});
+                                if (auto r = guikit::Row(auditUi, {.gap = 8.0f})) {
+                                    plainBtn = guikit::Button(auditUi, {.text = "Alerts"});
+                                    badgeBtn = guikit::Button(auditUi, {.text = "Alerts", .badge = "99+"});
+                                    loadBtn  = guikit::Button(auditUi, {.text = "Saving", .loading = true});
                                     if (loadBtn.clicked) loadClicked = true;
                                 }
-                                h1Resp = auditUi.Heading({.label = "Level 1", .description = "Sub 1", .icon = Icon::Flash(), .badge = "H1", .level = HeadingLevel::H1});
-                                h2Resp = auditUi.Heading({.label = "Level 2", .description = "Sub 2", .icon = Icon::Flash(), .badge = "H2", .level = HeadingLevel::H2});
-                                h3Resp = auditUi.Heading({.label = "Level 3", .description = "Sub 3", .icon = Icon::Flash(), .badge = "H3", .level = HeadingLevel::H3});
-                                h4Resp = auditUi.Heading({.label = "Level 4", .description = "Sub 4", .icon = Icon::Flash(), .badge = "H4", .level = HeadingLevel::H4});
-                                h5Resp = auditUi.Heading({.label = "Level 5", .description = "Sub 5", .icon = Icon::Flash(), .badge = "H5", .level = HeadingLevel::H5});
-                                h6Resp = auditUi.Heading({.label = "Level 6", .description = "Sub 6", .icon = Icon::Flash(), .badge = "H6", .level = HeadingLevel::H6});
-                                if (auto prRow = auditUi.Row({.gap = 12.0f, .height = 90.0f})) {
-                                    vProgResp = auditUi.ProgressBar(0.65f, {.orientation = Orientation::Vertical, .height = SizeMode::Stretch});
-                                    auditUi.ProgressBar(0.0f, {.indeterminate = true, .width = 140.0f});
+                                h1Resp = guikit::Heading(auditUi, {.label = "Level 1", .description = "Sub 1", .icon = Icon::Flash(), .badge = "H1", .level = HeadingLevel::H1});
+                                h2Resp = guikit::Heading(auditUi, {.label = "Level 2", .description = "Sub 2", .icon = Icon::Flash(), .badge = "H2", .level = HeadingLevel::H2});
+                                h3Resp = guikit::Heading(auditUi, {.label = "Level 3", .description = "Sub 3", .icon = Icon::Flash(), .badge = "H3", .level = HeadingLevel::H3});
+                                h4Resp = guikit::Heading(auditUi, {.label = "Level 4", .description = "Sub 4", .icon = Icon::Flash(), .badge = "H4", .level = HeadingLevel::H4});
+                                h5Resp = guikit::Heading(auditUi, {.label = "Level 5", .description = "Sub 5", .icon = Icon::Flash(), .badge = "H5", .level = HeadingLevel::H5});
+                                h6Resp = guikit::Heading(auditUi, {.label = "Level 6", .description = "Sub 6", .icon = Icon::Flash(), .badge = "H6", .level = HeadingLevel::H6});
+                                if (auto prRow = guikit::Row(auditUi, {.gap = 12.0f, .height = 90.0f})) {
+                                    vProgResp = guikit::ProgressBar(auditUi, 0.65f, {.orientation = Orientation::Vertical, .height = SizeMode::Stretch});
+                                    guikit::ProgressBar(auditUi, 0.0f, {.indeterminate = true, .width = 140.0f});
                                 }
                             }
                             auditUi.EndFrame(auditCanvas);
@@ -13773,11 +13765,11 @@ int main() {
 
                         auto runEnumAndTabs = [&](TabBarStyle style) {
                             auditUi.BeginFrame({800.0f, 600.0f}, 1.0f);
-                            if (auto col = auditUi.Column({.gap = 8.0f})) {
-                                tabResp = auditUi.TabBar(tabStage, kClosableTabs, {.style = style});
-                                segResp = auditUi.Segmented(stage, kStageNames, {.width = 300.0f});
-                                auditUi.Select(stage, kStageNames);
-                                auditUi.StepSlider(stage, kStageNames);
+                            if (auto col = guikit::Column(auditUi, {.gap = 8.0f})) {
+                                tabResp = guikit::TabBar(auditUi, tabStage, kClosableTabs, {.style = style});
+                                segResp = guikit::Segmented(auditUi, stage, kStageNames, {.width = 300.0f});
+                                guikit::Select(auditUi, stage, kStageNames);
+                                guikit::StepSlider(auditUi, stage, kStageNames);
                             }
                             auditUi.EndFrame(auditCanvas);
                         };
@@ -13795,8 +13787,8 @@ int main() {
                         // Click close ('X') button on the trailing edge of tab 1 ("Metrics") without changing active tab (0 = LowPass)
                         // First find tab 1's close button near the right edge of tab 1:
                         // Tab 0 and Tab 1 sit at the left of tabResp.rect; let's measure Tab 0 and Tab 1 directly!
-                        const Vec2 t0Sz = TabBar::MeasureTab(kClosableTabs[0], {.style = TabBarStyle::Card}, UiSize::Md, &auditCanvas, auditUi.GetTheme());
-                        const Vec2 t1Sz = TabBar::MeasureTab(kClosableTabs[1], {.style = TabBarStyle::Card}, UiSize::Md, &auditCanvas, auditUi.GetTheme());
+                        const Vec2 t0Sz = detail::TabBar::MeasureTab(kClosableTabs[0], {.style = TabBarStyle::Card}, UiSize::Md, &auditCanvas, auditUi.GetTheme());
+                        const Vec2 t1Sz = detail::TabBar::MeasureTab(kClosableTabs[1], {.style = TabBarStyle::Card}, UiSize::Md, &auditCanvas, auditUi.GetTheme());
                         const keel::f32 gapPx = auditUi.GetTheme().Spacing().xs;
                         const Vec2 tab1ClosePt{
                             tabResp.rect.x + t0Sz.x + gapPx + t1Sz.x - 12.0f,
@@ -13835,16 +13827,16 @@ int main() {
 
                         auto runInputsAndKeel = [&]() {
                             auditUi.BeginFrame({800.0f, 800.0f}, 1.0f);
-                            if (auto col = auditUi.Column({.gap = 8.0f})) {
-                                selAllIn = auditUi.InputField(keelShort, {.selectAllOnFocus = true});
-                                intIn    = auditUi.InputField(keelIntStr, {.filter = InputFilter::Integer});
-                                hexIn    = auditUi.InputField(keelHexStr, {.filter = InputFilter::Hex});
-                                maxIn    = auditUi.InputField(maxLenStr, {.maxLength = 4});
-                                auditUi.MultiSelect(multiIndices, kMultiOpts);
-                                auditUi.TagInput(keelTags);
-                                bigSpinResp = auditUi.SpinBox(bigCounter, keel::i64(0), keel::i64(9000000000LL), keel::i64(1000));
-                                auditUi.SpinBox(cutoffFreq, 20.0f, 20000.0f, 10.0f, {.valueFormat = subFmt});
-                                codeResp = auditUi.CodeEditor(codeBuf, {.rows = 4, .tabSize = 2, .insertSpaces = true});
+                            if (auto col = guikit::Column(auditUi, {.gap = 8.0f})) {
+                                selAllIn = guikit::InputField(auditUi, keelShort, {.selectAllOnFocus = true});
+                                intIn    = guikit::InputField(auditUi, keelIntStr, {.filter = InputFilter::Integer});
+                                hexIn    = guikit::InputField(auditUi, keelHexStr, {.filter = InputFilter::Hex});
+                                maxIn    = guikit::InputField(auditUi, maxLenStr, {.maxLength = 4});
+                                guikit::MultiSelect(auditUi, multiIndices, kMultiOpts);
+                                guikit::TagInput(auditUi, keelTags);
+                                bigSpinResp = guikit::SpinBox(auditUi, bigCounter, keel::i64(0), keel::i64(9000000000LL), keel::i64(1000));
+                                guikit::SpinBox(auditUi, cutoffFreq, 20.0f, 20000.0f, 10.0f, {.valueFormat = subFmt});
+                                codeResp = guikit::CodeEditor(auditUi, codeBuf, {.rows = 4, .tabSize = 2, .insertSpaces = true});
                             }
                             auditUi.EndFrame(auditCanvas);
                         };
@@ -13915,7 +13907,7 @@ int main() {
                         const Color customSwatches[2] = {Color(220, 40, 60, 255), Color(30, 180, 90, 255)};
 
                         auditUi.BeginFrame({800.0f, 600.0f}, 1.0f);
-                        if (auto pickerCol = auditUi.Column({.gap = 8.0f})) {
+                        if (auto pickerCol = guikit::Column(auditUi, {.gap = 8.0f})) {
                             // Pass stack-local arrays that go out of scope BEFORE EndFrame to verify arena-copy safety!
                             {
                                 const keel::StringRef localMonths[12] = {
@@ -13924,7 +13916,7 @@ int main() {
                                 };
                                 const keel::StringRef localDays[7] = {"Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"};
                                 const keel::StringRef localTime[3] = {"ч", "м", "с"};
-                                auditUi.DatePicker(pickedDate, {
+                                guikit::DatePicker(auditUi, pickedDate, {
                                     .mode = DatePickerMode::DateTime,
                                     .minDate = minDt,
                                     .maxDate = maxDt,
@@ -13939,7 +13931,7 @@ int main() {
                                     }
                                 });
                             }
-                            auditUi.ColorPicker(pickedColor, {
+                            guikit::ColorPicker(auditUi, pickedColor, {
                                 .swatches = customSwatches
                             });
                         }
@@ -13951,44 +13943,44 @@ int main() {
                         Response rWideBtn{}, rSquareElemBtn{}, rSquareTopElem{}, rSquareTopBtn{}, rSquareStandalone{};
                         auto runSquareBtnFrame = [&]() {
                             auditUi.BeginFrame({800.0f, 600.0f}, 1.0f);
-                            if (auto col = auditUi.Column({.gap = 8.0f})) {
-                                if (auto el = auditUi.Element({
+                            if (auto col = guikit::Column(auditUi, {.gap = 8.0f})) {
+                                if (auto el = guikit::Element(auditUi, {
                                     .label = "Element Label",
                                     .description = "Secondary description text",
                                     .width = SizeMode::Stretch
                                 })) {
-                                    rWideBtn = auditUi.Button({
+                                    rWideBtn = guikit::Button(auditUi, {
                                         .text = "Click me",
                                         .icon = Icon::Play(),
                                         .square = false,
                                         .width = 400.0f
                                     });
                                 }
-                                if (auto el = auditUi.Element({
+                                if (auto el = guikit::Element(auditUi, {
                                     .label = "Element Label",
                                     .description = "Secondary description text",
                                     .width = SizeMode::Stretch
                                 })) {
-                                    rSquareElemBtn = auditUi.Button({
+                                    rSquareElemBtn = guikit::Button(auditUi, {
                                         .text = "Click me",
                                         .icon = Icon::Play(),
                                         .square = true,
                                         .width = 400.0f
                                     });
                                 }
-                                if (auto el = auditUi.Element({
+                                if (auto el = guikit::Element(auditUi, {
                                     .label = "Top",
                                     .width = 180.0f
                                 })) {
                                     rSquareTopElem = el.response;
-                                    rSquareTopBtn = auditUi.Button({
+                                    rSquareTopBtn = guikit::Button(auditUi, {
                                         .text = "Click me",
                                         .icon = Icon::Play(),
                                         .iconPlacement = Placement::Top,
                                         .square = true
                                     });
                                 }
-                                rSquareStandalone = auditUi.Button({
+                                rSquareStandalone = guikit::Button(auditUi, {
                                     .text = "Click me",
                                     .icon = Icon::Play(),
                                     .square = true,
@@ -14102,41 +14094,41 @@ void TestKeelZeroCopyWidgetBindings() {
 
     auto renderFrame = [&]() {
         ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)}, 1.0f);
-        if (auto col = ui.Column({.gap = 6.0f, .padding = Padding::All(8.0f), .width = SizeMode::Stretch})) {
-            if (auto r1 = ui.Row({.gap = 8.0f})) {
-                rFixed = ui.InputField(fixed16, {.width = 220.0f});
-                rSmall = ui.InputField(small32, {.width = 220.0f});
-                rHeap  = ui.InputField(heapStr, {.width = 220.0f});
+        if (auto col = guikit::Column(ui, {.gap = 6.0f, .padding = Padding::All(8.0f), .width = SizeMode::Stretch})) {
+            if (auto r1 = guikit::Row(ui, {.gap = 8.0f})) {
+                rFixed = guikit::InputField(ui, fixed16, {.width = 220.0f});
+                rSmall = guikit::InputField(ui, small32, {.width = 220.0f});
+                rHeap  = guikit::InputField(ui, heapStr, {.width = 220.0f});
             }
-            if (auto r2 = ui.Row({.gap = 8.0f})) {
-                rCode = ui.CodeEditor(editorCode, {
+            if (auto r2 = guikit::Row(ui, {.gap = 8.0f})) {
+                rCode = guikit::CodeEditor(ui, editorCode, {
                     .rows = 4,
                     .showLineNumbers = true,
                     .width = 420.0f,
                     .enableBreakpoints = true,
                     .breakpoints = &bpSmallArray
                 });
-                rFixedArea = ui.TextArea(fixedArea, {
+                rFixedArea = guikit::TextArea(ui, fixedArea, {
                     .rows = 4,
                     .width = 320.0f
                 });
             }
-            if (auto r3 = ui.Row({.gap = 8.0f})) {
-                rSelFixed   = ui.Select(selFixed, kFilterModes, {.width = 180.0f});
-                rSelHeap    = ui.Select(selHeap, kFilterModes, {.width = 180.0f});
-                rComboFixed = ui.ComboBox(comboFixed, kFilterModes, {.width = 180.0f});
-                rComboHeap  = ui.ComboBox(comboHeap, kFilterModes, {.width = 180.0f});
+            if (auto r3 = guikit::Row(ui, {.gap = 8.0f})) {
+                rSelFixed   = guikit::Select(ui, selFixed, kFilterModes, {.width = 180.0f});
+                rSelHeap    = guikit::Select(ui, selHeap, kFilterModes, {.width = 180.0f});
+                rComboFixed = guikit::ComboBox(ui, comboFixed, kFilterModes, {.width = 180.0f});
+                rComboHeap  = guikit::ComboBox(ui, comboHeap, kFilterModes, {.width = 180.0f});
             }
-            if (auto r4 = ui.Row({.gap = 8.0f})) {
-                rAutoFixed  = ui.Autocomplete(autoFixed, kFilterModes, {.width = 180.0f});
-                rAutoHeap   = ui.Autocomplete(autoHeap, kFilterModes, {.width = 180.0f});
-                rMultiSmall = ui.MultiSelect(multiSmall, kFilterModes, {.searchable = true, .width = 240.0f});
-                rMultiHeap  = ui.MultiSelect(multiHeap, kFilterModes, {.searchable = true, .width = 240.0f});
+            if (auto r4 = guikit::Row(ui, {.gap = 8.0f})) {
+                rAutoFixed  = guikit::Autocomplete(ui, autoFixed, kFilterModes, {.width = 180.0f});
+                rAutoHeap   = guikit::Autocomplete(ui, autoHeap, kFilterModes, {.width = 180.0f});
+                rMultiSmall = guikit::MultiSelect(ui, multiSmall, kFilterModes, {.searchable = true, .width = 240.0f});
+                rMultiHeap  = guikit::MultiSelect(ui, multiHeap, kFilterModes, {.searchable = true, .width = 240.0f});
             }
-            if (auto r5 = ui.Row({.gap = 8.0f})) {
-                rTagsFixed = ui.TagInput(fixedTags, {.splitOnComma = true, .width = 260.0f});
-                rTagsHeap  = ui.TagInput(heapTags, {.splitOnComma = true, .width = 260.0f});
-                rTagsRich  = ui.TagInput(richTags, {.width = 260.0f});
+            if (auto r5 = guikit::Row(ui, {.gap = 8.0f})) {
+                rTagsFixed = guikit::TagInput(ui, fixedTags, {.splitOnComma = true, .width = 260.0f});
+                rTagsHeap  = guikit::TagInput(ui, heapTags, {.splitOnComma = true, .width = 260.0f});
+                rTagsRich  = guikit::TagInput(ui, richTags, {.width = 260.0f});
             }
         }
         ui.EndFrame(canvas);
@@ -14389,31 +14381,31 @@ void TestExternalStlDuckTypedInterop() {
     auto renderStlFrame = [&]() {
         ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)}, 1.0f);
         if (auto colZ = ui.Zone({.scale = optAutoScale})) {
-            if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(12.0f), .width = SizeMode::Stretch})) {
-                rTextStr = ui.Text(stdLabel);
-                rTextSv  = ui.Text(stdBtnText);
-                rBtn     = ui.Button({.text = stdBtnText, .tooltip = stdLabel, .width = 240.0f});
-                rInput   = ui.InputField(stdInput, {.width = AxisSize::Auto()});
+            if (auto col = guikit::Column(ui, {.gap = 8.0f, .padding = Padding::All(12.0f), .width = SizeMode::Stretch})) {
+                rTextStr = guikit::Text(ui, stdLabel);
+                rTextSv  = guikit::Text(ui, stdBtnText);
+                rBtn     = guikit::Button(ui, {.text = stdBtnText, .tooltip = stdLabel, .width = 240.0f});
+                rInput   = guikit::InputField(ui, stdInput, {.width = AxisSize::Auto()});
                 if (auto boxZ = ui.Zone({.scale = optScale})) {
-                    if (auto scaledBox = ui.Box()) {
+                    if (auto scaledBox = guikit::Box(ui)) {
                         (void)scaledBox;
                     }
                 }
-            rCode    = ui.CodeEditor(stdCode, {
+            rCode    = guikit::CodeEditor(ui, stdCode, {
                 .rows = 4,
                 .showLineNumbers = true,
                 .enableBreakpoints = true,
                 .breakpoints = &stdBreakpoints
             });
-            if (auto row = ui.Row({.gap = 8.0f})) {
-                rSelStr  = ui.Select(stdSelStr, stdSelectSpan, {.width = 200.0f});
-                rSelView = ui.Select(stdSelView, stdSelectItems, {.width = 200.0f});
-                rMulti   = ui.MultiSelect(stdMultiIndices, stdSelectSpan, {.searchable = true, .width = 240.0f});
+            if (auto row = guikit::Row(ui, {.gap = 8.0f})) {
+                rSelStr  = guikit::Select(ui, stdSelStr, stdSelectSpan, {.width = 200.0f});
+                rSelView = guikit::Select(ui, stdSelView, stdSelectItems, {.width = 200.0f});
+                rMulti   = guikit::MultiSelect(ui, stdMultiIndices, stdSelectSpan, {.searchable = true, .width = 240.0f});
             }
-            if (auto row2 = ui.Row({.gap = 8.0f})) {
-                rStrTags  = ui.TagInput(stdStringTags, {.splitOnComma = true, .width = 260.0f});
-                rRichTags = ui.TagInput(stdRichTags, {.width = 260.0f});
-                rMeter    = ui.LevelMeter(stdLevelsSpan, -60.0f, 0.0f, {.width = 160.0f});
+            if (auto row2 = guikit::Row(ui, {.gap = 8.0f})) {
+                rStrTags  = guikit::TagInput(ui, stdStringTags, {.splitOnComma = true, .width = 260.0f});
+                rRichTags = guikit::TagInput(ui, stdRichTags, {.width = 260.0f});
+                rMeter    = guikit::LevelMeter(ui, stdLevelsSpan, -60.0f, 0.0f, {.width = 160.0f});
             }
         }
         }
@@ -14536,7 +14528,7 @@ void TestBoundedCachesAndInactiveStateTrimming() {
             if (st.offscreenPixels.empty()) {
                 st.offscreenPixels.assign(16384u, 0xFF112233u);
             }
-            ui.Text("Active screen");
+            guikit::Text(ui, "Active screen");
             ui.EndFrame(canvas);
         }
         {
@@ -14551,7 +14543,7 @@ void TestBoundedCachesAndInactiveStateTrimming() {
         // Idle for 200 frames (> 120-frame threshold): cache trimmed exactly once; persistent user state preserved
         for (keel::i32 f = 0; f < 200; ++f) {
             ui.BeginFrame({320.0f, 240.0f});
-            ui.Text("Other screen");
+            guikit::Text(ui, "Other screen");
             ui.EndFrame(canvas);
         }
         {
@@ -14568,7 +14560,7 @@ void TestBoundedCachesAndInactiveStateTrimming() {
         // Idle past 650 frames total: persistent state STILL survives (not garbage-collected), trimCount stays 1
         for (keel::i32 f = 0; f < 500; ++f) {
             ui.BeginFrame({320.0f, 240.0f});
-            ui.Text("Still on other screen");
+            guikit::Text(ui, "Still on other screen");
             ui.EndFrame(canvas);
         }
         {
@@ -14591,7 +14583,7 @@ void TestBoundedCachesAndInactiveStateTrimming() {
 
         for (keel::i32 f = 0; f < 200; ++f) {
             ui.BeginFrame({320.0f, 240.0f});
-            ui.Text("Idle again");
+            guikit::Text(ui, "Idle again");
             ui.EndFrame(canvas);
         }
         {
@@ -14681,9 +14673,9 @@ void TestBoundedCachesAndInactiveStateTrimming() {
         for (keel::i32 f = 0; f < 3; ++f) {
             ui.AdvanceTime(0.016);
             ui.BeginFrame({480.0f, 360.0f});
-            const Response edRes = ui.CodeEditor(codeSource, {.rows = 6});
+            const Response edRes = guikit::CodeEditor(ui, codeSource, {.rows = 6});
             editorId = edRes.id;
-            const MarkdownResponse mdRes = ui.Markdown(mdSource);
+            const MarkdownResponse mdRes = guikit::Markdown(ui, mdSource);
             initialMdHeight = mdRes.rect.h;
             ui.EndFrame(canvas);
         }
@@ -14704,7 +14696,7 @@ void TestBoundedCachesAndInactiveStateTrimming() {
         for (keel::i32 f = 0; f < 3; ++f) {
             ui.AdvanceTime(0.016);
             ui.BeginFrame({480.0f, 360.0f});
-            ui.Heading({.label = "Static Dashboard"});
+            guikit::Heading(ui, {.label = "Static Dashboard"});
             ui.EndFrame(canvas);
         }
         CHECK(!ui.NeedsRepaint());
@@ -14715,7 +14707,7 @@ void TestBoundedCachesAndInactiveStateTrimming() {
         for (keel::i32 f = 0; f < 4; ++f) {
             ui.AdvanceTime(0.5);
             ui.BeginFrame({480.0f, 360.0f});
-            ui.Heading({.label = "Static Dashboard"});
+            guikit::Heading(ui, {.label = "Static Dashboard"});
             ui.EndFrame(canvas);
         }
         {
@@ -14733,8 +14725,8 @@ void TestBoundedCachesAndInactiveStateTrimming() {
         for (keel::i32 f = 0; f < 2; ++f) {
             ui.AdvanceTime(0.016);
             ui.BeginFrame({480.0f, 360.0f});
-            (void)ui.CodeEditor(codeSource, {.rows = 6});
-            rebuiltMdHeight = ui.Markdown(mdSource).rect.h;
+            (void)guikit::CodeEditor(ui, codeSource, {.rows = 6});
+            rebuiltMdHeight = guikit::Markdown(ui, mdSource).rect.h;
             ui.EndFrame(canvas);
         }
         CHECK_NEAR(rebuiltMdHeight, initialMdHeight, 1.0f);
@@ -14799,42 +14791,42 @@ void TestElementHeadingCompositionAndIndependentSizing() {
             if (f == 1) {
                 ui.InvalidateAll();
             }
-            if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(0.0f)})) {
-                rH5Head = ui.Heading({
+            if (auto col = guikit::Column(ui, {.gap = 12.0f, .padding = Padding::All(0.0f)})) {
+                rH5Head = guikit::Heading(ui, {
                     .label = "Compact Section",
                     .description = "H5 heading typography",
                     .level = HeadingLevel::H5
                 });
 
                 {
-                    rDefaultH3InXs = ui.Heading({
+                    rDefaultH3InXs = guikit::Heading(ui, {
                         .label = "Default H3 Heading",
                         .description = "Independent heading typography"
                     });
-                    rXsBtn = ui.Button({.text = "Action", .size = UiSize::Xs});
+                    rXsBtn = guikit::Button(ui, {.text = "Action", .size = UiSize::Xs});
                 }
                 {
-                    rDefaultH3InXl = ui.Heading({
+                    rDefaultH3InXl = guikit::Heading(ui, {
                         .label = "Default H3 Heading",
                         .description = "Independent heading typography"
                     });
-                    rXlBtn = ui.Button({.text = "Action", .size = UiSize::Xl});
+                    rXlBtn = guikit::Button(ui, {.text = "Action", .size = UiSize::Xl});
                 }
 
-                rH2Head = ui.Heading({
+                rH2Head = guikit::Heading(ui, {
                     .label = "Section Gain",
                     .description = "H2 heading typography",
                     .level = HeadingLevel::H2
                 });
 
-                rH2BottomSepHead = ui.Heading({
+                rH2BottomSepHead = guikit::Heading(ui, {
                     .label = "Section With Bottom Divider",
                     .description = "H2 + Bottom separator",
                     .level = HeadingLevel::H2,
                     .separator = {HeadingSeparator::Bottom, StateColor::Primary(), 2.0f}
                 });
 
-                rInlineTrailHead = ui.Heading({
+                rInlineTrailHead = guikit::Heading(ui, {
                     .label = "Enable Bus",
                     .description = "Inline Subtitle",
                     .badge = "CH1",
@@ -14889,38 +14881,38 @@ void TestElementHeadingCompositionAndIndependentSizing() {
             if (f == 1) {
                 ui.InvalidateAll();
             }
-            if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(0.0f)})) {
-                if (auto el = ui.Element({
+            if (auto col = guikit::Column(ui, {.gap = 12.0f, .padding = Padding::All(0.0f)})) {
+                if (auto el = guikit::Element(ui, {
                     .label = "Centered 480dp Element",
                     .description = "Inner button stays 140dp wide",
                     .align = Align::Center,
                     .width = 480.0f
                 })) {
                     rOuterEl = el.response;
-                    rBtn = ui.Button({
+                    rBtn = guikit::Button(ui, {
                         .text = "Apply",
                         .width = 140.0f
                     });
                 }
 
                 // Composite slot: ui.Row({.gap = 8.0f}) with InputField (Stretch) + Button (Fit)
-                if (auto el = ui.Element({
+                if (auto el = guikit::Element(ui, {
                     .label = "Search Channels",
                     .description = "Composite horizontal slot via ui.Row"
                 })) {
                     rMultiEl = el.response;
-                    if (auto row = ui.Row({.gap = 8.0f})) {
-                        rQueryIn = ui.InputField(query);
-                        rGoBtn = ui.Button({.text = "Search"});
+                    if (auto row = guikit::Row(ui, {.gap = 8.0f})) {
+                        rQueryIn = guikit::InputField(ui, query);
+                        rGoBtn = guikit::Button(ui, {.text = "Search"});
                     }
                 }
 
                 // Auto widthMode resolution: ElementLayout::Trailing Checkbox defaults to SizeMode::Fit (< 800dp)
-                if (auto el = ui.Element({
+                if (auto el = guikit::Element(ui, {
                     .label = "Auto-Fit Checkbox"
                 })) {
                     rAutoFitCbEl = el.response;
-                    ui.Checkbox(cbFlag);
+                    guikit::Checkbox(ui, cbFlag);
                 }
             }
             ui.EndFrame(canvas);
@@ -14946,19 +14938,19 @@ void TestElementHeadingCompositionAndIndependentSizing() {
         Response rFixedClampEl{}, rFixedClampBtn{};
         for (keel::i32 pass = 0; pass < 2; ++pass) {
             ui.BeginFrame({800.0f, 300.0f});
-            if (auto centerRow = ui.Row({
+            if (auto centerRow = guikit::Row(ui, {
                 .align = Alignment::Center,
                 .justify = Justify::Center,
                 .height = SizeMode::Stretch
             })) {
-                if (auto el = ui.Element({
+                if (auto el = guikit::Element(ui, {
                     .label = "Element Label",
                     .description = "Secondary description text",
                     .align = Align::End,
                     .width = 400.0f
                 })) {
                     rFixedClampEl = el.response;
-                    rFixedClampBtn = ui.Button({
+                    rFixedClampBtn = guikit::Button(ui, {
                         .text = "Click me",
                         .width = 480.0f
                     });
@@ -14983,16 +14975,16 @@ void TestElementHeadingCompositionAndIndependentSizing() {
 
         auto runFrame = [&]() {
             ui.BeginFrame({600.0f, 300.0f});
-            if (auto col = ui.Column({.gap = 8.0f})) {
-                ui.Heading({
+            if (auto col = guikit::Column(ui, {.gap = 8.0f})) {
+                guikit::Heading(ui, {
                     .label = "Reactive Section",
                     .description = "Subtitle",
                     .level = dynLevel,
                     .layout = dynHeadLayout,
                     .separator = dynSep
                 });
-                if (auto el = ui.Element({.label = dynElemLabel})) {
-                    ui.Switch(sw);
+                if (auto el = guikit::Element(ui, {.label = dynElemLabel})) {
+                    guikit::Switch(ui, sw);
                 }
             }
             ui.EndFrame(canvas);
@@ -15045,16 +15037,16 @@ void TestElementHeadingCompositionAndIndependentSizing() {
 
         for (keel::i32 f = 0; f < 2; ++f) {
             ui.BeginFrame({800.0f, 300.0f});
-            if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(0.0f)})) {
-                if (auto tb = ui.Toolbar({.overflow = ToolbarOverflow::Clip})) {
-                    rAutoInToolbar = ui.Select(selAuto, items); // Auto -> shrinks to Fit in horizontal Toolbar
-                    rFixedInToolbar = ui.Select(selFixedDp, items, {.width = 160.0f});
+            if (auto col = guikit::Column(ui, {.gap = 8.0f, .padding = Padding::All(0.0f)})) {
+                if (auto tb = guikit::Toolbar(ui, {.overflow = ToolbarOverflow::Clip})) {
+                    rAutoInToolbar = guikit::Select(ui, selAuto, items); // Auto -> shrinks to Fit in horizontal Toolbar
+                    rFixedInToolbar = guikit::Select(ui, selFixedDp, items, {.width = 160.0f});
                 }
-                if (auto tb2 = ui.Toolbar({.overflow = ToolbarOverflow::Clip})) {
-                    rStretchInToolbar = ui.Select(selStretch, items, {.width = SizeMode::Stretch});
+                if (auto tb2 = guikit::Toolbar(ui, {.overflow = ToolbarOverflow::Clip})) {
+                    rStretchInToolbar = guikit::Select(ui, selStretch, items, {.width = SizeMode::Stretch});
                 }
                 // Bare SizeMode::Fixed without dp falls back safely to Fit instead of collapsing to 0 px
-                rBareFixedBtn = ui.Button({.text = "Safe Fallback", .width = SizeMode::Fixed});
+                rBareFixedBtn = guikit::Button(ui, {.text = "Safe Fallback", .width = SizeMode::Fixed});
             }
             ui.EndFrame(canvas);
         }
@@ -15092,32 +15084,32 @@ void TestPopoverComponent() {
 
     auto renderFrame = [&](Vec2 vp = {800.0f, 600.0f}) {
         ui.BeginFrame(vp);
-        if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(0.0f)})) {
-            if (auto tb = ui.Toolbar({})) {
+        if (auto col = guikit::Column(ui, {.gap = 8.0f, .padding = Padding::All(0.0f)})) {
+            if (auto tb = guikit::Toolbar(ui, {})) {
                 tb.Spacer();
                 triggerRes = tb.Toggle(open, {
                     .text = "Engine",
                     .icon = Icon::ChevronDown(),
                     .iconPlacement = Placement::Trailing
                 });
-                if (auto pop = ui.Popover(open, {
+                if (auto pop = guikit::Popover(ui, open, {
                     .anchorRect = triggerRes.rect
                 })) {
                     popRes = pop.response;
-                    if (auto card = ui.Card({
+                    if (auto card = guikit::Card(ui, {
                         .width = 280.0f,
                         .gap = 8.0f,
                         .padding = Padding::All(12.0f),
                         .elevated = true
                     })) {
-                        if (auto el = ui.Element({.label = "GPU Shaders", .layout = ElementLayout::Leading})) {
-                            switchARes = ui.Switch(flagA);
+                        if (auto el = guikit::Element(ui, {.label = "GPU Shaders", .layout = ElementLayout::Leading})) {
+                            switchARes = guikit::Switch(ui, flagA);
                         }
-                        if (auto el = ui.Element({.label = "Reactive Loop", .layout = ElementLayout::Leading})) {
-                            switchBRes = ui.Switch(flagB);
+                        if (auto el = guikit::Element(ui, {.label = "Reactive Loop", .layout = ElementLayout::Leading})) {
+                            switchBRes = guikit::Switch(ui, flagB);
                         }
-                        if (auto el = ui.Element({.label = "Heartbeat", .layout = ElementLayout::Leading})) {
-                            selectRes = ui.Select(modeIdx, modeLabels, {.width = 110.0f});
+                        if (auto el = guikit::Element(ui, {.label = "Heartbeat", .layout = ElementLayout::Leading})) {
+                            selectRes = guikit::Select(ui, modeIdx, modeLabels, {.width = 110.0f});
                         }
                         if (triggerImperativeClose) {
                             triggerImperativeClose = false;
@@ -15126,7 +15118,7 @@ void TestPopoverComponent() {
                     }
                 }
             }
-            behindBtnRect = ui.Button({.text = "Workspace Button"}).rect;
+            behindBtnRect = guikit::Button(ui, {.text = "Workspace Button"}).rect;
         }
         ui.EndFrame(canvas);
     };
@@ -15241,11 +15233,11 @@ void TestPopoverComponent() {
         ThemeMode capturedInsideMode = ThemeMode::Dark;
         for (keel::i32 f = 0; f < 2; ++f) {
             ui.BeginFrame({800.0f, 600.0f});
-            if (auto row = ui.Row({.gap = 8.0f})) {
-                r1 = ui.Button({.text = "Normal"});
+            if (auto row = guikit::Row(ui, {.gap = 8.0f})) {
+                r1 = guikit::Button(ui, {.text = "Normal"});
                 if (auto z = ui.Zone({.theme = light})) {
                     capturedInsideMode = ui.GetThemeMode();
-                    r2 = ui.Button({.text = "Themed"});
+                    r2 = guikit::Button(ui, {.text = "Themed"});
                 }
             }
             ui.EndFrame(canvas);
@@ -15262,13 +15254,13 @@ void TestPopoverComponent() {
         Response boxRes{};
         for (keel::i32 f = 0; f < 2; ++f) {
             ui.BeginFrame({800.0f, 600.0f});
-            if (auto modal = ui.Modal(mOpen, {
+            if (auto modal = guikit::Modal(ui, mOpen, {
                 .padding = Padding::All(20.0f),
                 .align = Alignment::End,
                 .verticalAlign = Alignment::Start
             })) {
-                if (auto b = ui.Box({.width = 200.0f, .height = 100.0f})) {
-                    boxRes = ui.Button({.text = "Inside", .width = SizeMode::Stretch});
+                if (auto b = guikit::Box(ui, {.width = 200.0f, .height = 100.0f})) {
+                    boxRes = guikit::Button(ui, {.text = "Inside", .width = SizeMode::Stretch});
                 }
             }
             ui.EndFrame(canvas);
@@ -15327,8 +15319,8 @@ void TestApiPolish() {
 
     for (keel::i32 f = 0; f < 2; ++f) {
         ui.BeginFrame({800.0f, 600.0f});
-        if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(8.0f)})) {
-            ui.CodeEditor(code, {
+        if (auto col = guikit::Column(ui, {.gap = 8.0f, .padding = Padding::All(8.0f)})) {
+            guikit::CodeEditor(ui, code, {
                 .rows = 3,
                 .syntaxHighlighter = [](keel::StringRef lineText, keel::usize /*lineIndex*/, keel::Array<TextSpan>& outSpans, const UiTheme& theme) {
                     if (!lineText.empty()) {
@@ -15336,10 +15328,10 @@ void TestApiPolish() {
                     }
                 }
             });
-            ui.CodeEditor("auto x = 1;", {
+            guikit::CodeEditor(ui, "auto x = 1;", {
                 .rows = 2,
                 .readOnly = true,
-                .syntaxHighlighter = &TextArea::CppHighlighter
+                .syntaxHighlighter = &detail::TextArea::CppHighlighter
             });
         }
         ui.EndFrame(canvas);
@@ -15360,14 +15352,14 @@ void TestApiPolish() {
         };
         auto renderZone = [&]() {
             ui.BeginFrame({800.0f, 600.0f});
-            if (auto root = ui.Column({.padding = Padding::All(20.0f)})) {
-                if (auto zone = ui.Box({
+            if (auto root = guikit::Column(ui, {.padding = Padding::All(20.0f)})) {
+                if (auto zone = guikit::Box(ui, {
                     .width = 240.0f,
                     .height = 140.0f,
                     .padding = Padding::All(16.0f)
                 })) {
-                    (void)ui.Button({.text = "Inner Btn"});
-                    childBtnRect = ui.Button({.text = "Child"}).rect;
+                    (void)guikit::Button(ui, {.text = "Inner Btn"});
+                    childBtnRect = guikit::Button(ui, {.text = "Child"}).rect;
                     const Response zoneRes = zone.GetResponse();
                     zoneRect = zoneRes.rect;
                     if (zoneRes.IsTriggered(InteractionTrigger::Click)) {
@@ -15377,7 +15369,7 @@ void TestApiPolish() {
                         zoneOpen = true;
                         zoneMenuPos = ui.GetMousePos();
                     }
-                    zoneMenuRes = ui.ContextMenu(zoneOpen, zItems, {
+                    zoneMenuRes = guikit::ContextMenu(ui, zoneOpen, zItems, {
                         .anchorPos = zoneMenuPos
                     });
                 }
@@ -15444,8 +15436,8 @@ void TestApiPolish() {
         const keel::StringRef ruTimeSuffixes[3] = {"ч", "м", "с"};
         auto renderDp = [&]() {
             ui.BeginFrame({800.0f, 600.0f});
-            if (auto col = ui.Column({.padding = Padding::All(20.0f)})) {
-                dpRes = ui.DatePicker(picked, {
+            if (auto col = guikit::Column(ui, {.padding = Padding::All(20.0f)})) {
+                dpRes = guikit::DatePicker(ui, picked, {
                     .mode = DatePickerMode::Time,
                     .showSeconds = false,
                     .labels = {
@@ -15506,7 +15498,7 @@ void TestControlFlatSizingAndStyleOptions() {
         canvas.SetTarget(pixels.data(), width, height, width);
 
         // Standalone Measure checks for Button and InputField with min/max constraints
-        const Vec2 btnMinMax = Button::Measure(
+        const Vec2 btnMinMax = detail::Button::Measure(
             {
                 .text = "A very long action button label that exceeds maxWidth",
                 .minWidth = 80.0f,
@@ -15520,7 +15512,7 @@ void TestControlFlatSizingAndStyleOptions() {
         CHECK_NEAR(btnMinMax.x, 140.0f, 0.5f);
         CHECK_NEAR(btnMinMax.y, 42.0f, 0.5f);
 
-        const Vec2 btnMinClamp = Button::Measure(
+        const Vec2 btnMinClamp = detail::Button::Measure(
             {
                 .text = "OK",
                 .minWidth = 160.0f,
@@ -15534,7 +15526,7 @@ void TestControlFlatSizingAndStyleOptions() {
         CHECK_NEAR(btnMinClamp.x, 160.0f, 0.5f);
         CHECK_NEAR(btnMinClamp.y, 46.0f, 0.5f);
 
-        const Vec2 inMinMax = InputField::Measure(
+        const Vec2 inMinMax = detail::InputField::Measure(
             "short",
             {
                 .width = SizeMode::Fit,
@@ -15557,39 +15549,39 @@ void TestControlFlatSizingAndStyleOptions() {
 
         auto renderLayout = [&]() {
             ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
-            if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(0.0f), .width = SizeMode::Stretch})) {
-                rBtnStretchMax = ui.Button({
+            if (auto col = guikit::Column(ui, {.gap = 8.0f, .padding = Padding::All(0.0f), .width = SizeMode::Stretch})) {
+                rBtnStretchMax = guikit::Button(ui, {
                     .text = "Stretched Button Clamped",
                     .width = SizeMode::Stretch,
                     .minWidth = 120.0f,
                     .maxWidth = 260.0f
                 });
-                rBtnMinH = ui.Button({
+                rBtnMinH = guikit::Button(ui, {
                     .text = "Min Sized",
                     .minWidth = 190.0f,
                     .minHeight = 48.0f
                 });
-                if (auto tallRow = ui.Row({.padding = Padding::All(0.0f), .width = SizeMode::Stretch, .height = 100.0f})) {
-                    rBtnMaxH = ui.Button({
+                if (auto tallRow = guikit::Row(ui, {.padding = Padding::All(0.0f), .width = SizeMode::Stretch, .height = 100.0f})) {
+                    rBtnMaxH = guikit::Button(ui, {
                         .text = "Stretch Clamped H",
                         .width = 180.0f,
                         .height = SizeMode::Stretch,
                         .maxHeight = 44.0f
                     });
                 }
-                rInStretchMax = ui.InputField(inputVal, {
+                rInStretchMax = guikit::InputField(ui, inputVal, {
                     .width = SizeMode::Stretch,
                     .minWidth = 150.0f,
                     .maxWidth = 340.0f,
                     .minHeight = 42.0f
                 });
-                rInFitMin = ui.InputField(inputWide, {
+                rInFitMin = guikit::InputField(ui, inputWide, {
                     .width = SizeMode::Fit,
                     .minWidth = 200.0f,
                     .maxWidth = 280.0f
                 });
-                if (auto tallRow2 = ui.Row({.padding = Padding::All(0.0f), .width = SizeMode::Stretch, .height = 90.0f})) {
-                    rInStretchH = ui.InputField(inputVal, {
+                if (auto tallRow2 = guikit::Row(ui, {.padding = Padding::All(0.0f), .width = SizeMode::Stretch, .height = 90.0f})) {
+                    rInStretchH = guikit::InputField(ui, inputVal, {
                         .width = 250.0f,
                         .height = SizeMode::Stretch,
                         .minHeight = 20.0f,
@@ -15676,16 +15668,16 @@ void TestControlFlatSizingAndStyleOptions() {
 
         auto renderStyled = [&]() {
             ui.BeginFrame({800.0f, 600.0f});
-            if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(12.0f)})) {
-                rBtn = ui.Button({.text = "Danger Action", .size = UiSize::Lg, .color = dangerColor, .background = dangerBg, .border = dangerBorder});
-                rIn  = ui.InputField(inTxt, {.size = UiSize::Lg, .color = dangerColor, .background = dangerBg, .border = dangerBorder});
-                rSel = ui.Select(selIdx, selItems, {.size = UiSize::Lg, .color = dangerColor, .background = dangerBg, .border = dangerBorder});
+            if (auto col = guikit::Column(ui, {.gap = 8.0f, .padding = Padding::All(12.0f)})) {
+                rBtn = guikit::Button(ui, {.text = "Danger Action", .size = UiSize::Lg, .color = dangerColor, .background = dangerBg, .border = dangerBorder});
+                rIn  = guikit::InputField(ui, inTxt, {.size = UiSize::Lg, .color = dangerColor, .background = dangerBg, .border = dangerBorder});
+                rSel = guikit::Select(ui, selIdx, selItems, {.size = UiSize::Lg, .color = dangerColor, .background = dangerBg, .border = dangerBorder});
 
-                rSw  = ui.Switch(swVal, {.size = UiSize::Sm, .color = successColor});
-                rCb  = ui.Checkbox(cbVal, {.size = UiSize::Sm, .color = successColor});
-                rRb  = ui.Radio(rbVal, {.size = UiSize::Sm, .color = successColor});
-                rSl  = ui.Slider(slVal, 0.0f, 1.0f, {.size = UiSize::Sm, .color = successColor});
-                rPb  = ui.ProgressBar(0.5f, {.size = UiSize::Sm, .color = successColor});
+                rSw  = guikit::Switch(ui, swVal, {.size = UiSize::Sm, .color = successColor});
+                rCb  = guikit::Checkbox(ui, cbVal, {.size = UiSize::Sm, .color = successColor});
+                rRb  = guikit::Radio(ui, rbVal, {.size = UiSize::Sm, .color = successColor});
+                rSl  = guikit::Slider(ui, slVal, 0.0f, 1.0f, {.size = UiSize::Sm, .color = successColor});
+                rPb  = guikit::ProgressBar(ui, 0.5f, {.size = UiSize::Sm, .color = successColor});
             }
             ui.EndFrame(spyCanvas);
         };
@@ -15742,16 +15734,16 @@ void TestSceneWorldSizeInsideScrollAreaDoesNotOverflow() {
 
     auto renderFrame = [&]() {
         ui.BeginFrame({800.0f, 500.0f});
-        if (auto backdrop = ui.ScrollArea({
+        if (auto backdrop = guikit::ScrollArea(ui, {
             .orientation = Orientation::Both,
             .scrollbar = VisibilityPolicy::Never,
             .padding = Padding::All(18.0f)
         })) {
-            if (auto windowSlot = ui.Box({
+            if (auto windowSlot = guikit::Box(ui, {
                 .width = SizeMode::Stretch,
                 .height = SizeMode::Stretch
             })) {
-                if (auto sc = ui.Scene({
+                if (auto sc = guikit::Scene(ui, {
                     .worldSize = Vec2{2200.0f, 920.0f},
                     .height = SizeMode::Stretch
                 })) {
@@ -15801,36 +15793,36 @@ void TestApiPolishStretchWeightsTabBarColorAndOptionalMins() {
 
         auto runFrame = [&]() {
             ui.BeginFrame({600.0f, 600.0f});
-            if (auto root = ui.Column({.gap = 0.0f})) {
+            if (auto root = guikit::Column(ui, {.gap = 0.0f})) {
                 // 2:1 direct controls in Row (600dp total -> 400dp + 200dp)
-                if (auto row = ui.Row({.gap = 0.0f})) {
-                    rDirectA = ui.InputField(s1, {.width = AxisSize::Stretch(2.0f)});
-                    rDirectB = ui.InputField(s2, {.width = AxisSize::Stretch(1.0f)});
+                if (auto row = guikit::Row(ui, {.gap = 0.0f})) {
+                    rDirectA = guikit::InputField(ui, s1, {.width = AxisSize::Stretch(2.0f)});
+                    rDirectB = guikit::InputField(ui, s2, {.width = AxisSize::Stretch(1.0f)});
                 }
                 // 3:1 Element-wrapped controls in Row (one on Element, one on inner control -> 450dp + 150dp)
-                if (auto row = ui.Row({.gap = 0.0f})) {
-                    if (auto e1 = ui.Element({.label = "Host", .width = AxisSize::Stretch(3.0f)})) {
-                        rElemA = ui.InputField(s1);
+                if (auto row = guikit::Row(ui, {.gap = 0.0f})) {
+                    if (auto e1 = guikit::Element(ui, {.label = "Host", .width = AxisSize::Stretch(3.0f)})) {
+                        rElemA = guikit::InputField(ui, s1);
                     }
-                    if (auto e2 = ui.Element({.label = "Port"})) {
-                        rElemB = ui.InputField(s2, {.width = AxisSize::Stretch(1.0f)});
+                    if (auto e2 = guikit::Element(ui, {.label = "Port"})) {
+                        rElemB = guikit::InputField(ui, s2, {.width = AxisSize::Stretch(1.0f)});
                     }
                 }
                 // 2:1 vertical stretch weights in fixed-height Column (300dp -> 200dp + 100dp)
-                if (auto col = ui.Column({.gap = 0.0f, .height = 300.0f})) {
-                    if (auto b1 = ui.Box({.height = AxisSize::Stretch(2.0f)})) {
+                if (auto col = guikit::Column(ui, {.gap = 0.0f, .height = 300.0f})) {
+                    if (auto b1 = guikit::Box(ui, {.height = AxisSize::Stretch(2.0f)})) {
                         colBoxA = ui.GetPrevFrameBounds(b1.GetNode()->id);
                     }
-                    if (auto b2 = ui.Box({.height = AxisSize::Stretch(1.0f)})) {
+                    if (auto b2 = guikit::Box(ui, {.height = AxisSize::Stretch(1.0f)})) {
                         colBoxB = ui.GetPrevFrameBounds(b2.GetNode()->id);
                     }
                 }
                 // Existing container .flexGrow continues to work with default SizeMode::Stretch
-                if (auto row = ui.Row({.gap = 0.0f})) {
-                    if (auto b1 = ui.Box({.width = SizeMode::Stretch, .height = 20.0f, .flexGrow = 3.0f})) {
+                if (auto row = guikit::Row(ui, {.gap = 0.0f})) {
+                    if (auto b1 = guikit::Box(ui, {.width = SizeMode::Stretch, .height = 20.0f, .flexGrow = 3.0f})) {
                         legacyFlexA = ui.GetPrevFrameBounds(b1.GetNode()->id);
                     }
-                    if (auto b2 = ui.Box({.width = SizeMode::Stretch, .height = 20.0f, .flexGrow = 1.0f})) {
+                    if (auto b2 = guikit::Box(ui, {.width = SizeMode::Stretch, .height = 20.0f, .flexGrow = 1.0f})) {
                         legacyFlexB = ui.GetPrevFrameBounds(b2.GetNode()->id);
                     }
                 }
@@ -15858,7 +15850,7 @@ void TestApiPolishStretchWeightsTabBarColorAndOptionalMins() {
         StateColor tabColor = StateColor::Danger();
         auto renderTabs = [&]() {
             ui.BeginFrame({480.0f, 120.0f});
-            ui.TabBar(tabIdx, {{"Alpha"}, {"Beta"}}, {
+            guikit::TabBar(ui, tabIdx, {{"Alpha"}, {"Beta"}}, {
                 .style = TabBarStyle::Underline,
                 .color = tabColor
             });
@@ -15880,21 +15872,21 @@ void TestApiPolishStretchWeightsTabBarColorAndOptionalMins() {
 
         auto runFrame = [&]() {
             ui.BeginFrame({600.0f, 600.0f});
-            if (auto col = ui.Column({.gap = 8.0f})) {
-                if (auto row = ui.Row({.gap = 8.0f})) {
-                    if (auto c1 = ui.Card({.width = SizeMode::Fit})) {
-                        ui.Text("Hi");
+            if (auto col = guikit::Column(ui, {.gap = 8.0f})) {
+                if (auto row = guikit::Row(ui, {.gap = 8.0f})) {
+                    if (auto c1 = guikit::Card(ui, {.width = SizeMode::Fit})) {
+                        guikit::Text(ui, "Hi");
                         cardDefaultRect = ui.GetPrevFrameBounds(c1.GetNode()->id);
                     }
-                    if (auto c2 = ui.Card({.minWidth = 260.0f, .width = SizeMode::Fit})) {
-                        ui.Text("Hi");
+                    if (auto c2 = guikit::Card(ui, {.minWidth = 260.0f, .width = SizeMode::Fit})) {
+                        guikit::Text(ui, "Hi");
                         cardMinWRect = ui.GetPrevFrameBounds(c2.GetNode()->id);
                     }
                 }
-                if (auto sc1 = ui.Scene({.height = SizeMode::Fit})) {
+                if (auto sc1 = guikit::Scene(ui, {.height = SizeMode::Fit})) {
                     sceneDefaultRect = sc1.GetViewportRect();
                 }
-                if (auto sc2 = ui.Scene({.height = SizeMode::Fit, .minHeight = 90.0f})) {
+                if (auto sc2 = guikit::Scene(ui, {.height = SizeMode::Fit, .minHeight = 90.0f})) {
                     sceneSmallMinRect = sc2.GetViewportRect();
                 }
             }
@@ -15911,8 +15903,8 @@ void TestApiPolishStretchWeightsTabBarColorAndOptionalMins() {
 
         // HistogramOptions::minHeight default (96dp) vs explicit override (64dp)
         const HistogramData hData{};
-        const Vec2 hDefault = Histogram::Measure(hData, {.height = SizeMode::Stretch}, UiSize::Md, &canvas, ui.GetTheme(), 300.0f);
-        const Vec2 hCustom = Histogram::Measure(hData, {.height = SizeMode::Stretch, .minHeight = 64.0f}, UiSize::Md, &canvas, ui.GetTheme(), 300.0f);
+        const Vec2 hDefault = detail::Histogram::Measure(hData, {.height = SizeMode::Stretch}, UiSize::Md, &canvas, ui.GetTheme(), 300.0f);
+        const Vec2 hCustom = detail::Histogram::Measure(hData, {.height = SizeMode::Stretch, .minHeight = 64.0f}, UiSize::Md, &canvas, ui.GetTheme(), 300.0f);
         CHECK(keel::abs(hDefault.y - 96.0f) < 0.5f);
         CHECK(keel::abs(hCustom.y - 64.0f) < 0.5f);
     }
@@ -15936,16 +15928,16 @@ void TestFocusVisibleModalityAndTabBarFocusRing() {
 
     auto renderFrame = [&]() {
         ui.BeginFrame({520.0f, 260.0f});
-        if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
-            tabResp = ui.TabBar(activeTab, {{"First"}, {"Second"}, {"Third"}}, {
+        if (auto col = guikit::Column(ui, {.gap = 12.0f, .padding = Padding::All(16.0f)})) {
+            tabResp = guikit::TabBar(ui, activeTab, {{"First"}, {"Second"}, {"Third"}}, {
                 .style = TabBarStyle::Folder,
                 .fullWidth = true
             });
-            btnResp = ui.Button({.text = "Action"});
+            btnResp = guikit::Button(ui, {.text = "Action"});
             if (btnResp.clicked) {
                 btnClickedBySpace = true;
             }
-            inputResp = ui.InputField(textVal);
+            inputResp = guikit::InputField(ui, textVal);
         }
         ui.EndFrame(canvas);
     };
@@ -16240,7 +16232,7 @@ void TestSwitchAndRadioSubpixelCentering() {
             canvas.SetTarget(fb.data(), W, H, W);
             canvas.Begin(W, H, 1.0f);
             const Rect trackBounds(16.0f + fracY, 16.0f + fracY, 27.0f, 15.0f);
-            Switch::Render(canvas, trackBounds, true, SwitchOptions{}, UiSize::Md, false, false, false, theme, false);
+            detail::Switch::Render(canvas, trackBounds, true, SwitchOptions{}, UiSize::Md, false, false, false, theme, false);
             canvas.End();
 
             // Outer silhouette (any non-transparent pixel) vs inner white knob (high R, G, B)
@@ -16264,7 +16256,7 @@ void TestSwitchAndRadioSubpixelCentering() {
             canvas.SetTarget(fb.data(), W, H, W);
             canvas.Begin(W, H, 1.0f);
             const Rect radioBounds(16.0f + fracY, 16.0f + fracY, 13.5f, 13.5f);
-            Radio::Render(canvas, radioBounds, true, RadioOptions{}, UiSize::Md, false, false, false, theme, false);
+            detail::Radio::Render(canvas, radioBounds, true, RadioOptions{}, UiSize::Md, false, false, false, theme, false);
             canvas.End();
 
             const keel::f32 ringCenterY = measureCentroidY(fb, [](keel::u32 px) -> keel::f32 {
@@ -16317,16 +16309,16 @@ void TestPopoverOccludesPanelSashesAndRendersAboveThem() {
     auto renderFrame = [&]() {
         popBtnHoveredLast = false;
         ui.BeginFrame({keel::as<keel::f32>(W), keel::as<keel::f32>(H)});
-        if (auto rootCol = ui.Column({.gap = 0.0f, .padding = Padding::All(0.0f)})) {
-            if (auto tb = ui.Toolbar({})) {
+        if (auto rootCol = guikit::Column(ui, {.gap = 0.0f, .padding = Padding::All(0.0f)})) {
+            if (auto tb = guikit::Toolbar(ui, {})) {
                 const Response trig = tb.Toggle(popoverOpen, {.text = "Engine"});
-                if (auto pop = ui.Popover(popoverOpen, {
+                if (auto pop = guikit::Popover(ui, popoverOpen, {
                     .anchorRect = Rect{100.0f, trig.rect.y, 100.0f, trig.rect.h > 0.0f ? trig.rect.h : 28.0f},
                     .placement = PopoverPlacement::BottomStart,
                     .offset = 4.0f
                 })) {
                     popRes = pop.response;
-                    if (auto card = ui.Card({
+                    if (auto card = guikit::Card(ui, {
                         .width = 280.0f,
                         .height = 420.0f,
                         .gap = 8.0f,
@@ -16335,42 +16327,42 @@ void TestPopoverOccludesPanelSashesAndRendersAboveThem() {
                         .elevated = true
                     })) {
                         // Push button down so it straddles the BottomPanel top sash (y ~ 360)
-                        ui.Gap(268.0f);
-                        popBtnRes = ui.Button({.text = "Over Sash Action", .width = SizeMode::Stretch});
+                        guikit::Gap(ui, 268.0f);
+                        popBtnRes = guikit::Button(ui, {.text = "Over Sash Action", .width = SizeMode::Stretch});
                         popBtnHoveredLast = popBtnRes.hovered;
                         if (popBtnRes.clicked) {
                             popBtnClickedAny = true;
                         }
-                        popSelectRes = ui.Select(selectIdx, selectItems, {.width = SizeMode::Stretch});
+                        popSelectRes = guikit::Select(ui, selectIdx, selectItems, {.width = SizeMode::Stretch});
                     }
                 }
             }
-            if (auto midRow = ui.Row({.gap = 0.0f, .padding = Padding::All(0.0f), .height = SizeMode::Stretch})) {
-                if (auto sb = ui.Sidebar(sbMode, {
+            if (auto midRow = guikit::Row(ui, {.gap = 0.0f, .padding = Padding::All(0.0f), .height = SizeMode::Stretch})) {
+                if (auto sb = guikit::Sidebar(ui, sbMode, {
                     .side = SidebarSide::Left,
                     .width = 180.0f,
                     .resizable = true,
                     .showToggleButton = true
                 })) {
                     sbRect = sb.response.rect;
-                    ui.Text("Sidebar");
+                    guikit::Text(ui, "Sidebar");
                 }
-                if (auto sp = ui.SplitView(splitRatio, {
+                if (auto sp = guikit::SplitView(ui, splitRatio, {
                     .orientation = Orientation::Horizontal,
                     .height = SizeMode::Stretch
                 })) {
                     splitActive = sp.IsDragging();
-                    if (auto p1 = sp.First()) { ui.Text("Pane 1"); }
-                    if (auto p2 = sp.Second()) { ui.Text("Pane 2"); }
+                    if (auto p1 = sp.First()) { guikit::Text(ui, "Pane 1"); }
+                    if (auto p2 = sp.Second()) { guikit::Text(ui, "Pane 2"); }
                 }
             }
-            if (auto bp = ui.BottomPanel(bpMode, {
+            if (auto bp = guikit::BottomPanel(ui, bpMode, {
                 .height = 240.0f,
                 .resizable = true,
                 .showToggleButton = true
             })) {
                 bpRect = bp.response.rect;
-                ui.Text("Bottom Panel");
+                guikit::Text(ui, "Bottom Panel");
             }
         }
         ui.EndFrame(canvas);
@@ -16475,25 +16467,25 @@ void TestUnifiedOverlayLayersNestedModalsAndModalSplitView() {
         auto renderNestedModals = [&]() {
             btnAHovered = false;
             ui.BeginFrame({keel::as<keel::f32>(W), keel::as<keel::f32>(H)});
-            if (auto col = ui.Column({})) {
-                ui.Text("Workspace");
-                if (auto mA = ui.Modal(modalAOpen, {
+            if (auto col = guikit::Column(ui, {})) {
+                guikit::Text(ui, "Workspace");
+                if (auto mA = guikit::Modal(ui, modalAOpen, {
                     .padding = Padding::All(40.0f),
                     .align = Alignment::Start,
                     .verticalAlign = Alignment::Start
                 })) {
-                    if (auto cardA = ui.Card({.width = 240.0f, .padding = Padding::All(16.0f)})) {
-                        btnARes = ui.Button({.text = "Modal A Button", .width = SizeMode::Stretch});
+                    if (auto cardA = guikit::Card(ui, {.width = 240.0f, .padding = Padding::All(16.0f)})) {
+                        btnARes = guikit::Button(ui, {.text = "Modal A Button", .width = SizeMode::Stretch});
                         btnAHovered = btnARes.hovered;
                         if (btnARes.clicked) btnAClicked = true;
 
-                        if (auto mB = ui.Modal(modalBOpen, {
+                        if (auto mB = guikit::Modal(ui, modalBOpen, {
                             .padding = Padding::All(40.0f),
                             .align = Alignment::End,
                             .verticalAlign = Alignment::End
                         })) {
-                            if (auto cardB = ui.Card({.width = 220.0f, .padding = Padding::All(16.0f)})) {
-                                btnBRes = ui.Button({.text = "Modal B Button", .width = SizeMode::Stretch});
+                            if (auto cardB = guikit::Card(ui, {.width = 220.0f, .padding = Padding::All(16.0f)})) {
+                                btnBRes = guikit::Button(ui, {.text = "Modal B Button", .width = SizeMode::Stretch});
                                 if (btnBRes.clicked) btnBClicked = true;
                             }
                         }
@@ -16557,35 +16549,35 @@ void TestUnifiedOverlayLayersNestedModalsAndModalSplitView() {
 
         auto renderModalSplit = [&]() {
             ui.BeginFrame({keel::as<keel::f32>(W), keel::as<keel::f32>(H)});
-            if (auto col = ui.Column({})) {
-                if (auto m = ui.Modal(modalOpen, {
+            if (auto col = guikit::Column(ui, {})) {
+                if (auto m = guikit::Modal(ui, modalOpen, {
                     .align = Alignment::Center,
                     .verticalAlign = Alignment::Center
                 })) {
-                    if (auto card = ui.Card({.width = 480.0f, .height = 320.0f, .padding = Padding::All(12.0f)})) {
-                        if (auto sp = ui.SplitView(splitRatio, {
+                    if (auto card = guikit::Card(ui, {.width = 480.0f, .height = 320.0f, .padding = Padding::All(12.0f)})) {
+                        if (auto sp = guikit::SplitView(ui, splitRatio, {
                             .orientation = Orientation::Horizontal,
                             .height = SizeMode::Stretch
                         })) {
                             splitRect = sp.response.rect;
                             if (auto p1 = sp.First()) {
-                                if (auto sc = ui.Scene({.height = SizeMode::Stretch})) {
+                                if (auto sc = guikit::Scene(ui, {.height = SizeMode::Stretch})) {
                                     if (ui.IsMouseClicked()) {
                                         sceneClickedInLeftPane = true;
                                     }
                                 }
                             }
                             if (auto p2 = sp.Second()) {
-                                ui.Text("Right Pane");
+                                guikit::Text(ui, "Right Pane");
                             }
                         }
-                        if (auto pop = ui.Popover(popOpen, {
+                        if (auto pop = guikit::Popover(ui, popOpen, {
                             .anchorRect = Rect{splitRect.Center().x - 60.0f, splitRect.y + 10.0f, 120.0f, 24.0f},
                             .placement = PopoverPlacement::BottomStart,
                             .offset = 4.0f
                         })) {
-                            if (auto pCard = ui.Card({.width = 180.0f, .padding = Padding::All(12.0f)})) {
-                                popBtnRes = ui.Button({.text = "Popover Over Split", .width = SizeMode::Stretch});
+                            if (auto pCard = guikit::Card(ui, {.width = 180.0f, .padding = Padding::All(12.0f)})) {
+                                popBtnRes = guikit::Button(ui, {.text = "Popover Over Split", .width = SizeMode::Stretch});
                                 if (popBtnRes.clicked) popBtnClicked = true;
                             }
                         }
@@ -16696,27 +16688,27 @@ void TestTagAndReadoutWidgets() {
 
         auto renderTags = [&]() {
             ui.BeginFrame({keel::as<keel::f32>(W), keel::as<keel::f32>(H)});
-            if (auto row = ui.Row({.gap = 8.0f, .padding = Padding::All(20.0f)})) {
-                tagClickRes = ui.Tag("# release", {
+            if (auto row = guikit::Row(ui, {.gap = 8.0f, .padding = Padding::All(20.0f)})) {
+                tagClickRes = guikit::Tag(ui, "# release", {
                     .variant = UiVariant::Default,
                     .style = TagStyle::Soft,
                     .clickable = true
                 });
-                tagCloseRes = ui.Tag("Active", {
+                tagCloseRes = guikit::Tag(ui, "Active", {
                     .icon = Icon::Check(),
                     .variant = UiVariant::Success,
                     .style = TagStyle::Soft,
                     .clickable = true,
                     .closable = true
                 });
-                tagDisabledRes = ui.Tag("Disabled", {
+                tagDisabledRes = guikit::Tag(ui, "Disabled", {
                     .variant = UiVariant::Warning,
                     .style = TagStyle::Outline,
                     .clickable = true,
                     .closable = true,
                     .disabled = true
                 });
-                (void)ui.Tag("Solid Pill", {
+                (void)guikit::Tag(ui, "Solid Pill", {
                     .icon = Icon::Target(),
                     .variant = UiVariant::Primary,
                     .style = TagStyle::Solid,
@@ -16841,8 +16833,8 @@ void TestTagAndReadoutWidgets() {
             };
 
             ui.BeginFrame({keel::as<keel::f32>(W), keel::as<keel::f32>(H)});
-            if (auto row = ui.Row({.gap = 12.0f, .padding = Padding::All(20.0f)})) {
-                lastRes = ui.Readout(st, channels, {
+            if (auto row = guikit::Row(ui, {.gap = 12.0f, .padding = Padding::All(20.0f)})) {
+                lastRes = guikit::Readout(ui, st, channels, {
                     .minWidth = 220.0f,
                     .minPrecision = 0,
                     .maxPrecision = 4,
@@ -16969,14 +16961,14 @@ void TestTagAndReadoutWidgets() {
         keel::i32 prec = 1;
         ReadoutResponse r{};
         ui.BeginFrame({keel::as<keel::f32>(W), keel::as<keel::f32>(H)});
-        if (auto card = ui.Card({
+        if (auto card = guikit::Card(ui, {
             .border = {
                 .width = 1.0f,
                 .radius = 8.0f,
                 .color = {.normal = Color(60, 70, 90, 255), .hover = Color(90, 150, 240, 255)}
             }
         })) {
-            r = ui.Readout("TEMP", 25.0, uIdx, prec, kTempUnits);
+            r = guikit::Readout(ui, "TEMP", 25.0, uIdx, prec, kTempUnits);
         }
         ui.EndFrame(canvas);
         CHECK_NEAR(r.displayedValue, 77.0, 1e-6);
@@ -17007,8 +16999,8 @@ void TestMenuBarAndCascadingMenus() {
 
         auto renderBar = [&]() {
             ui.BeginFrame({keel::as<keel::f32>(W), keel::as<keel::f32>(H)});
-            if (auto root = ui.Column({.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
-                if (auto mb = ui.MenuBar({.style = MenuBarStyle::Header})) {
+            if (auto root = guikit::Column(ui, {.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+                if (auto mb = guikit::MenuBar(ui, {.style = MenuBarStyle::Header})) {
                     barRect = mb.GetBounds();
                     anyMenuOpen = mb.IsAnyMenuOpen();
 
@@ -17040,7 +17032,7 @@ void TestMenuBarAndCascadingMenus() {
                         (void)view.Radio("Compact", modeVal, 1);
                     }
                     mb.Spacer();
-                    (void)ui.Tag("Ready", {.variant = UiVariant::Success, .size = UiSize::Xs});
+                    (void)guikit::Tag(ui, "Ready", {.variant = UiVariant::Success, .size = UiSize::Xs});
                 }
             }
             ui.EndFrame(canvas);
@@ -17157,7 +17149,7 @@ void TestMenuBarAndCascadingMenus() {
 
         auto renderDecl = [&]() {
             ui.BeginFrame({keel::as<keel::f32>(W), keel::as<keel::f32>(H)});
-            res = ui.ContextMenu(open, kRootItems, {
+            res = guikit::ContextMenu(ui, open, kRootItems, {
                 .title = "NODE MENU",
                 .anchorPos = Vec2{120.0f, 120.0f},
                 .maxHeight = 200.0f
@@ -17218,9 +17210,9 @@ void TestNullCanvasHeadlessWorkflow() {
     Response btn{};
     auto renderUi = [&]() {
         ui.BeginFrame({640.0f, 480.0f}, 1.0f);
-        if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(16.0f)})) {
-            ui.Heading({.label = "Headless Core"});
-            btn = ui.Button({.text = "Invoke"});
+        if (auto col = guikit::Column(ui, {.gap = 8.0f, .padding = Padding::All(16.0f)})) {
+            guikit::Heading(ui, {.label = "Headless Core"});
+            btn = guikit::Button(ui, {.text = "Invoke"});
         }
         ui.EndFrame(canvas);
     };
@@ -17330,9 +17322,9 @@ void TestPlatformWindowBackendAndStandaloneFreeType() {
         MainWindow app(cfg, keel::move(backend));
         const keel::i32 rc = app.Run([&](Context& ui) {
             ++framesRendered;
-            if (auto col = ui.Column({.padding = Padding::All(12.0f)})) {
-                ui.Heading({.label = "Platform Bridge"});
-                (void)ui.Button({.text = "OK"});
+            if (auto col = guikit::Column(ui, {.padding = Padding::All(12.0f)})) {
+                guikit::Heading(ui, {.label = "Platform Bridge"});
+                (void)guikit::Button(ui, {.text = "OK"});
             }
             ui.SetCursor(CursorType::Pointer);
         });
@@ -17409,10 +17401,10 @@ void TestIdScopeDynamicListStability() {
     Id gammaId = Id::Null();
     auto renderList = [&]() {
         ui.BeginFrame({600.0f, 300.0f});
-        if (auto col = ui.Column({.gap = 8.0f})) {
+        if (auto col = guikit::Column(ui, {.gap = 8.0f})) {
             for (keel::usize i = 0; i < items.size(); ++i) {
                 if (auto scope = ui.IdScope(items[i].key)) {
-                    const Response r = ui.InputField(items[i].text);
+                    const Response r = guikit::InputField(ui, items[i].text);
                     if (items[i].key == 101u) alphaId = r.id;
                     if (items[i].key == 202u) betaId = r.id;
                     if (items[i].key == 303u) gammaId = r.id;
@@ -17448,8 +17440,8 @@ void TestIdScopeDynamicListStability() {
     Id idB = Id::Null();
     Id idNested = Id::Null();
     ui.BeginFrame({600.0f, 300.0f});
-    if (auto col = ui.Column({})) {
-        auto emitBtn = [&]() -> Id { return ui.Button({.text = "Action"}).id; };
+    if (auto col = guikit::Column(ui, {})) {
+        auto emitBtn = [&]() -> Id { return guikit::Button(ui, {.text = "Action"}).id; };
         if (auto s = ui.IdScope("panel_a")) {
             idA = emitBtn();
             if (auto s2 = ui.IdScope(keel::i64{7})) {

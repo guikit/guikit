@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/types.hpp"
@@ -19,6 +20,8 @@ struct TextOptions {
 static_assert(sizeof(TextOptions) == 3, "TextOptions must remain exactly 3 bytes");
 
 /// Autonomous Text widget logic (execution, measuring, and rendering).
+namespace detail {
+
 class Text {
 public:
     /// Primary immediate mode entry point for Text widget.
@@ -55,5 +58,17 @@ public:
         const UiTheme& theme = UiTheme::Dark()
     );
 };
+
+} // namespace detail
+
+inline Response Text(
+    Context& ui,
+    UiText label,
+    TextOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::Text::Run(ui, label, opts, loc);
+}
 
 } // namespace guikit

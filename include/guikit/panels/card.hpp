@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
@@ -30,6 +31,8 @@ struct CardOptions {
 };
 
 /// Autonomous immediate mode Card surface container entry point.
+namespace detail {
+
 class Card {
 public:
     [[nodiscard]] static ContainerScope Open(
@@ -38,5 +41,15 @@ public:
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 };
+
+} // namespace detail
+
+[[nodiscard]] inline ContainerScope Card(
+    Context& ui,
+    CardOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::Card::Open(ui, opts, loc);
+}
 
 } // namespace guikit

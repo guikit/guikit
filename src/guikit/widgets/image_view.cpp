@@ -1,4 +1,9 @@
 #include "guikit/widgets/image_view.hpp"
+#include "guikit/core/element.hpp"
+#include "guikit/layout/spacer.hpp"
+#include "guikit/panels/sidebar.hpp"
+#include "guikit/widgets/histogram.hpp"
+#include "guikit/widgets/switch.hpp"
 #include <cstdio>
 #include <cstring>
 #include "guikit/backend/i_canvas.hpp"
@@ -608,7 +613,7 @@ struct ViewportLayoutGeom {
                 } else {
                     bOpts.text = kToolLabels[i];
                 }
-                const Vec2 bSz = Button::Measure(bOpts, g.toolbarSize, canvas, theme);
+                const Vec2 bSz = detail::Button::Measure(bOpts, g.toolbarSize, canvas, theme);
                 g.toolBtnRects[i] = Rect(bx, by, bSz.x, bSz.y);
                 bx += bSz.x + gap * 0.75f;
             }
@@ -1001,7 +1006,7 @@ ImageViewResponse RunViewportNode(
         if (n->widthMode == SizeMode::Stretch && !effOpts.width.IsFixed()) {
             effOpts.width = SizeMode::Stretch;
         }
-        return ImageView::Measure(p->data, effOpts, n->uiSize, c, th, availableWidth);
+        return detail::ImageView::Measure(p->data, effOpts, n->uiSize, c, th, availableWidth);
     };
 
     node->renderFn = [](const Node* n, ICanvas& c, const UiTheme& th) noexcept {
@@ -1071,7 +1076,7 @@ ImageViewResponse RunViewportNode(
                 bOpts.color = activeToggle ? StateColor::Primary() : StateColor::Secondary();
                 bOpts.active = activeToggle;
                 bOpts.width = SizeMode::Stretch;
-                Button::Render(c, br, bOpts, vg.toolbarSize, isHovered, false, n->disabled, th, false);
+                detail::Button::Render(c, br, bOpts, vg.toolbarSize, isHovered, false, n->disabled, th, false);
             }
 
             // Right side of top bar: active palette / mode badge
@@ -1293,7 +1298,7 @@ ImageViewResponse RunViewportNode(
 
 } // namespace
 
-void ImageView::ApplyQuantileAutoWindow(
+void detail::ImageView::ApplyQuantileAutoWindow(
     keel::ArrayRef<keel::u32> bins,
     keel::f32 minVal,
     keel::f32 maxVal,
@@ -1345,7 +1350,7 @@ void ImageView::ApplyQuantileAutoWindow(
     ioTransfer.SetLowHigh(lo, hi, span * 0.002f);
 }
 
-Vec2 ImageView::Measure(
+Vec2 detail::ImageView::Measure(
     const ImageViewData& /*data*/,
     const ImageViewOptions& opts,
     UiSize /*size*/,
@@ -1400,7 +1405,7 @@ ImageViewResponse RunImageViewImpl(
     ImageViewResponse viewportRes{};
 
     auto renderSidebar = [&]() {
-        if (auto sidePanel = ctx.Sidebar({
+        if (auto sidePanel = guikit::Sidebar(ctx, {
             .side = optsCopy.sidebarOnRight ? SidebarSide::Right : SidebarSide::Left,
             .width = optsCopy.sidebarWidth,
             .scrollable = true,
@@ -1409,7 +1414,7 @@ ImageViewResponse RunImageViewImpl(
             .border = {.radius = 6.0f}
         })) {
             // --- Section 1: Histogram & Interactive Window/Level ---
-            ctx.Text("Histogram & Window/Level", {.role = TextRole::LabelLarge});
+            guikit::Text(ctx, "Histogram & Window/Level", {.role = TextRole::LabelLarge});
 
             const HistogramData histData = (data.channels >= 3)
                 ? HistogramData::Rgb(st.binsLum, st.binsR, st.binsG, st.binsB, st.dataMin, st.dataMax)
@@ -1430,7 +1435,7 @@ ImageViewResponse RunImageViewImpl(
             histOpts.size = UiSize::Sm;
             histOpts.tooltip = "Drag left/right markers for black/white points, center band for level, double-click to reset";
 
-            const HistogramResponse hRes = ctx.Run<Histogram>(histData, activeTp, histOpts);
+            const HistogramResponse hRes = guikit::Histogram(ctx, histData, activeTp, histOpts);
             if (hRes.channelChanged) {
                 params.activeHistChannel = hRes.activeChannel;
             }
@@ -1449,8 +1454,8 @@ ImageViewResponse RunImageViewImpl(
                     "Isolate Luminance"
                 };
                 keel::i32 dispChIdx = keel::as<keel::i32>(params.displayChannel);
-                if (auto el = ctx.Element({.label = "View Mode", .size = UiSize::Sm})) {
-                    if (ctx.Select(dispChIdx, kDispChNames, {.size = UiSize::Sm}).changed) {
+                if (auto el = guikit::Element(ctx, {.label = "View Mode", .size = UiSize::Sm})) {
+                    if (guikit::Select(ctx, dispChIdx, kDispChNames, {.size = UiSize::Sm}).changed) {
                         params.displayChannel = keel::from_underlying<ImageDisplayChannel>(dispChIdx);
                         if (params.displayChannel == ImageDisplayChannel::RedOnly) params.activeHistChannel = HistogramChannel::Red;
                         else if (params.displayChannel == ImageDisplayChannel::GreenOnly) params.activeHistChannel = HistogramChannel::Green;
@@ -1467,8 +1472,8 @@ ImageViewResponse RunImageViewImpl(
             ChannelTransferParams& curTp = params.channels[keel::as<keel::usize>((data.channels >= 3) ? params.activeHistChannel : HistogramChannel::Master)];
             const keel::StringRef wlFmt = (span >= 50.0f) ? "%.0f" : "%.2f";
 
-            if (auto el = ctx.Element({.label = "W (Window)", .size = UiSize::Sm})) {
-                if (ctx.Slider(curTp.window, minW, span * 1.5f, {
+            if (auto el = guikit::Element(ctx, {.label = "W (Window)", .size = UiSize::Sm})) {
+                if (guikit::Slider(ctx, curTp.window, minW, span * 1.5f, {
                     .valueFormat = wlFmt,
                     .showValue = true,
                     .size = UiSize::Sm
@@ -1478,8 +1483,8 @@ ImageViewResponse RunImageViewImpl(
                 }
             }
 
-            if (auto el = ctx.Element({.label = "L (Level)", .size = UiSize::Sm})) {
-                if (ctx.Slider(curTp.level, st.dataMin, st.dataMax, {
+            if (auto el = guikit::Element(ctx, {.label = "L (Level)", .size = UiSize::Sm})) {
+                if (guikit::Slider(ctx, curTp.level, st.dataMin, st.dataMax, {
                     .valueFormat = wlFmt,
                     .showValue = true,
                     .size = UiSize::Sm
@@ -1489,8 +1494,8 @@ ImageViewResponse RunImageViewImpl(
                 }
             }
 
-            if (auto el = ctx.Element({.label = "Gamma", .size = UiSize::Sm})) {
-                if (ctx.Slider(curTp.gamma, 0.15f, 4.0f, {
+            if (auto el = guikit::Element(ctx, {.label = "Gamma", .size = UiSize::Sm})) {
+                if (guikit::Slider(ctx, curTp.gamma, 0.15f, 4.0f, {
                     .valueFormat = "%.2f",
                     .step = 0.05,
                     .showValue = true,
@@ -1500,14 +1505,14 @@ ImageViewResponse RunImageViewImpl(
                 }
             }
 
-            if (auto invRow = ctx.Row({.gap = 8.0f, .align = Alignment::Center})) {
-                if (auto el = ctx.Element({.label = "Invert", .size = UiSize::Sm})) {
-                    if (ctx.Checkbox(curTp.invert, {.size = UiSize::Sm}).changed) {
+            if (auto invRow = guikit::Row(ctx, {.gap = 8.0f, .align = Alignment::Center})) {
+                if (auto el = guikit::Element(ctx, {.label = "Invert", .size = UiSize::Sm})) {
+                    if (guikit::Checkbox(ctx, curTp.invert, {.size = UiSize::Sm}).changed) {
                         sidebarChangedParams = true;
                     }
                 }
-                ctx.Spacer();
-                if (ctx.Button({.text = "Reset W/L", .size = UiSize::Sm, .color = StateColor::Secondary()}).clicked) {
+                guikit::Spacer(ctx);
+                if (guikit::Button(ctx, {.text = "Reset W/L", .size = UiSize::Sm, .color = StateColor::Secondary()}).clicked) {
                     for (auto& ch : params.channels) {
                         ch.ResetToRange(st.dataMin, st.dataMax);
                     }
@@ -1520,13 +1525,13 @@ ImageViewResponse RunImageViewImpl(
             const bool canUseColormap = (data.channels == 1) || (params.displayChannel != ImageDisplayChannel::CompositeRgb);
             {
                 keel::i32 cmapIdx = keel::as<keel::i32>(params.colormap);
-                if (auto el = ctx.Element({
+                if (auto el = guikit::Element(ctx, {
                     .label = "Colormap",
                     .description = canUseColormap ? keel::StringRef{} : "Select an isolated channel to apply Colormap",
                     .size = UiSize::Sm,
                     .disabled = !canUseColormap
                 })) {
-                    if (ctx.Select(cmapIdx, GetAllColormapNames(), {.size = UiSize::Sm}).changed) {
+                    if (guikit::Select(ctx, cmapIdx, GetAllColormapNames(), {.size = UiSize::Sm}).changed) {
                         params.colormap = keel::from_underlying<Colormap>(cmapIdx);
                         sidebarChangedParams = true;
                     }
@@ -1534,10 +1539,10 @@ ImageViewResponse RunImageViewImpl(
             }
 
             // --- Section 3: Auto Window (Quantile Clipping) ---
-            ctx.Text("Auto Window", {.role = TextRole::LabelLarge});
+            guikit::Text(ctx, "Auto Window", {.role = TextRole::LabelLarge});
             static constexpr keel::StaticArray<keel::StringRef, 3> kAutoTargets = {"Black", "White", "All"};
             keel::i32 targetIdx = keel::as<keel::i32>(params.autoTarget);
-            if (ctx.StepSlider(targetIdx, kAutoTargets, {.showValue = false, .size = UiSize::Sm}).changed) {
+            if (guikit::StepSlider(ctx, targetIdx, kAutoTargets, {.showValue = false, .size = UiSize::Sm}).changed) {
                 params.autoTarget = keel::from_underlying<AutoWindowTarget>(targetIdx);
                 if (params.autoStrength != AutoWindowStrength::Off) {
                     keel::ArrayRef<keel::u32> targetBins = st.binsLum;
@@ -1546,17 +1551,17 @@ ImageViewResponse RunImageViewImpl(
                         else if (params.activeHistChannel == HistogramChannel::Green) targetBins = st.binsG;
                         else if (params.activeHistChannel == HistogramChannel::Blue) targetBins = st.binsB;
                     }
-                    ImageView::ApplyQuantileAutoWindow(targetBins, st.dataMin, st.dataMax, params.autoTarget, params.autoStrength, curTp);
+                    detail::ImageView::ApplyQuantileAutoWindow(targetBins, st.dataMin, st.dataMax, params.autoTarget, params.autoStrength, curTp);
                     sidebarChangedParams = true;
                 }
             }
 
-            if (auto strRow = ctx.Row({.gap = 6.0f})) {
+            if (auto strRow = guikit::Row(ctx, {.gap = 6.0f})) {
                 static constexpr keel::StaticArray<keel::StringRef, 3> kStrengthNames = {"Off", "Medium", "Strong"};
                 for (keel::usize i = 0; i < 3; ++i) {
                     const auto sMode = keel::from_underlying<AutoWindowStrength>(i);
                     const bool isSel = (params.autoStrength == sMode);
-                    if (ctx.Button({
+                    if (guikit::Button(ctx, {
                         .text = kStrengthNames[i],
                         .size = UiSize::Sm,
                         .width = SizeMode::Stretch,
@@ -1569,14 +1574,14 @@ ImageViewResponse RunImageViewImpl(
                             else if (params.activeHistChannel == HistogramChannel::Green) targetBins = st.binsG;
                             else if (params.activeHistChannel == HistogramChannel::Blue) targetBins = st.binsB;
                         }
-                        ImageView::ApplyQuantileAutoWindow(targetBins, st.dataMin, st.dataMax, params.autoTarget, params.autoStrength, curTp);
+                        detail::ImageView::ApplyQuantileAutoWindow(targetBins, st.dataMin, st.dataMax, params.autoTarget, params.autoStrength, curTp);
                         sidebarChangedParams = true;
                     }
                 }
             }
 
             if (data.channels >= 3) {
-                if (ctx.Button({
+                if (guikit::Button(ctx, {
                     .text = "Auto White Balance (Per-Channel R/G/B)",
                     .size = UiSize::Sm,
                     .width = SizeMode::Stretch,
@@ -1586,20 +1591,20 @@ ImageViewResponse RunImageViewImpl(
                     const AutoWindowStrength effStr = (params.autoStrength == AutoWindowStrength::Off)
                         ? AutoWindowStrength::Medium
                         : params.autoStrength;
-                    ImageView::ApplyQuantileAutoWindow(st.binsR, st.dataMin, st.dataMax, AutoWindowTarget::All, effStr, params.channels[1]);
-                    ImageView::ApplyQuantileAutoWindow(st.binsG, st.dataMin, st.dataMax, AutoWindowTarget::All, effStr, params.channels[2]);
-                    ImageView::ApplyQuantileAutoWindow(st.binsB, st.dataMin, st.dataMax, AutoWindowTarget::All, effStr, params.channels[3]);
+                    detail::ImageView::ApplyQuantileAutoWindow(st.binsR, st.dataMin, st.dataMax, AutoWindowTarget::All, effStr, params.channels[1]);
+                    detail::ImageView::ApplyQuantileAutoWindow(st.binsG, st.dataMin, st.dataMax, AutoWindowTarget::All, effStr, params.channels[2]);
+                    detail::ImageView::ApplyQuantileAutoWindow(st.binsB, st.dataMin, st.dataMax, AutoWindowTarget::All, effStr, params.channels[3]);
                     sidebarChangedParams = true;
                 }
             }
 
             // --- Section 4: Transform & View ---
-            ctx.Text("Transform & View", {.role = TextRole::LabelLarge});
-            if (auto zRow = ctx.Row({.gap = 6.0f, .align = Alignment::Center})) {
-                if (ctx.Button({.text = "Fit", .size = UiSize::Sm, .width = SizeMode::Stretch, .color = StateColor::Secondary()}).clicked) {
+            guikit::Text(ctx, "Transform & View", {.role = TextRole::LabelLarge});
+            if (auto zRow = guikit::Row(ctx, {.gap = 6.0f, .align = Alignment::Center})) {
+                if (guikit::Button(ctx, {.text = "Fit", .size = UiSize::Sm, .width = SizeMode::Stretch, .color = StateColor::Secondary()}).clicked) {
                     st.fitPending = true;
                 }
-                if (ctx.Button({.text = "100%", .size = UiSize::Sm, .width = SizeMode::Stretch, .color = StateColor::Secondary()}).clicked) {
+                if (guikit::Button(ctx, {.text = "100%", .size = UiSize::Sm, .width = SizeMode::Stretch, .color = StateColor::Secondary()}).clicked) {
                     st.zoom = 1.0f;
                     st.fitPending = false;
                 }
@@ -1607,16 +1612,16 @@ ImageViewResponse RunImageViewImpl(
 
             static constexpr keel::StaticArray<keel::StringRef, 4> kRotLabels = {"0\xC2\xB0", "90\xC2\xB0", "180\xC2\xB0", "270\xC2\xB0"};
             keel::i32 rotIdx = keel::as<keel::i32>(params.rotation);
-            if (auto el = ctx.Element({.label = "Rotate", .size = UiSize::Sm})) {
-                if (ctx.StepSlider(rotIdx, kRotLabels, {.showValue = false, .size = UiSize::Sm}).changed) {
+            if (auto el = guikit::Element(ctx, {.label = "Rotate", .size = UiSize::Sm})) {
+                if (guikit::StepSlider(ctx, rotIdx, kRotLabels, {.showValue = false, .size = UiSize::Sm}).changed) {
                     params.rotation = keel::from_underlying<ImageRotation>(rotIdx);
                     st.fitPending = true;
                     sidebarChangedParams = true;
                 }
             }
 
-            if (auto flipRow = ctx.Row({.gap = 6.0f})) {
-                if (ctx.Button({
+            if (auto flipRow = guikit::Row(ctx, {.gap = 6.0f})) {
+                if (guikit::Button(ctx, {
                     .text = "Flip H",
                     .size = UiSize::Sm,
                     .width = SizeMode::Stretch,
@@ -1625,7 +1630,7 @@ ImageViewResponse RunImageViewImpl(
                     params.flipHorizontal = !params.flipHorizontal;
                     sidebarChangedParams = true;
                 }
-                if (ctx.Button({
+                if (guikit::Button(ctx, {
                     .text = "Flip V",
                     .size = UiSize::Sm,
                     .width = SizeMode::Stretch,
@@ -1645,7 +1650,7 @@ ImageViewResponse RunImageViewImpl(
         ? AxisSize::Fixed(effectiveMinHDp)
         : (optsCopy.height.IsStretch() ? optsCopy.height : AxisSize::Fit());
 
-    if (auto outerRow = ctx.Row({
+    if (auto outerRow = guikit::Row(ctx, {
         .gap = 8.0f,
         .align = Alignment::Stretch,
         .width = outerWidth,
@@ -1706,7 +1711,7 @@ ImageViewResponse RunImageViewImpl(
 
 } // namespace
 
-ImageViewResponse ImageView::Run(
+ImageViewResponse detail::ImageView::Run(
     Context& ctx,
     const ImageViewData& data,
     const ImageViewOptions& opts,
@@ -1715,7 +1720,7 @@ ImageViewResponse ImageView::Run(
     return RunImageViewImpl(ctx, data, nullptr, opts, loc);
 }
 
-ImageViewResponse ImageView::Run(
+ImageViewResponse detail::ImageView::Run(
     Context& ctx,
     const ImageViewData& data,
     ImageViewParams& params,

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "guikit/context.hpp"
+#include "guikit/core/control.hpp"
 #include <initializer_list>
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/response.hpp"
@@ -103,6 +105,8 @@ private:
 };
 
 /// Autonomous SidebarMenu widget logic (scope opening, span execution, item measuring, and rendering).
+namespace detail {
+
 class SidebarMenu {
 public:
     /// Opens an immediate-mode RAII scope for adding Section(), Item(), Separator(), and Spacer().
@@ -158,5 +162,31 @@ public:
         bool focused = false
     );
 };
+
+} // namespace detail
+
+[[nodiscard]] inline SidebarMenuScope SidebarMenu(
+    Context& ui,
+    SidebarMenuOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::SidebarMenu::Open(ui, opts, loc);
+}
+
+template <IndexLike IndexT>
+    requires (!keel::IsConst<IndexT>)
+Response SidebarMenu(
+    Context& ui,
+    IndexT& activeIndex,
+    keel::ArrayRef<SidebarMenuItem> items,
+    SidebarMenuOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    keel::i32 idx = keel::as<keel::i32>(activeIndex);
+    Response r = detail::SidebarMenu::Run(ui, idx, items, opts, loc);
+    if (r.changed && idx >= 0) activeIndex = detail::FromIndexLike<IndexT>(idx);
+    return r;
+}
 
 } // namespace guikit

@@ -948,7 +948,7 @@ bool MenuScope::AnyActivated() const noexcept {
 // ContextMenu Entry Points
 // ============================================================================
 
-MenuScope ContextMenu::OpenWithId(
+MenuScope detail::ContextMenu::OpenWithId(
     Context& ctx,
     Id rootId,
     bool& open,
@@ -1311,14 +1311,14 @@ MenuScope ContextMenu::OpenWithId(
     return MenuScope(sess, 0, true, true);
 }
 
-void ContextMenu::ResetState(Context& ctx, Id rootId) noexcept {
+void detail::ContextMenu::ResetState(Context& ctx, Id rootId) noexcept {
     if (!rootId.IsValid()) return;
     if (auto* st = ctx.FindMutableState<MenuTreePersistState>(rootId)) {
         ResetPersistState(*st);
     }
 }
 
-MenuScope ContextMenu::Open(
+MenuScope detail::ContextMenu::Open(
     Context& ctx,
     bool& open,
     const ContextMenuOptions& opts,
@@ -1328,7 +1328,7 @@ MenuScope ContextMenu::Open(
     return OpenWithId(ctx, rootId, open, opts, nullptr);
 }
 
-ContextMenuResponse ContextMenu::Run(
+ContextMenuResponse detail::ContextMenu::Run(
     Context& ctx,
     bool& open,
     keel::ArrayRef<ContextMenuItem> items,

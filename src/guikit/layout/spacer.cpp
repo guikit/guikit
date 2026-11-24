@@ -4,7 +4,7 @@
 
 namespace guikit {
 
-void Spacer::Run(
+void detail::Spacer::Run(
     Context& ctx,
     keel::f32 flex,
     keel::SourceLocation loc
@@ -29,7 +29,7 @@ void Spacer::Run(
     };
 }
 
-void Spacer::Gap(
+void detail::Spacer::Gap(
     Context& ctx,
     keel::f32 sizeDp,
     keel::SourceLocation loc

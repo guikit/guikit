@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
@@ -43,6 +44,8 @@ struct CommandPaletteResponse : public Response {
     keel::i32 selectedIndex{-1}; ///< Index in `items` triggered this frame (-1 if none)
 };
 
+namespace detail {
+
 class CommandPalette {
 public:
     [[nodiscard]] static CommandPaletteResponse Run(
@@ -53,5 +56,18 @@ public:
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 };
+
+} // namespace detail
+
+inline CommandPaletteResponse CommandPalette(
+    Context& ui,
+    bool& isOpen,
+    keel::ArrayRef<CommandPaletteItem> items,
+    const CommandPaletteOptions& opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::CommandPalette::Run(ui, isOpen, items, opts, loc);
+}
 
 } // namespace guikit

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
@@ -65,6 +66,8 @@ public:
 };
 
 /// Autonomous immediate mode Grid layout entry point.
+namespace detail {
+
 class Grid {
 public:
     [[nodiscard]] static GridScope Open(
@@ -73,5 +76,15 @@ public:
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 };
+
+} // namespace detail
+
+[[nodiscard]] inline GridScope Grid(
+    Context& ui,
+    GridOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::Grid::Open(ui, opts, loc);
+}
 
 } // namespace guikit

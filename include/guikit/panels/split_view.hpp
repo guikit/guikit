@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -84,6 +85,8 @@ private:
     bool m_dragging{false};
 };
 
+namespace detail {
+
 class SplitView {
 public:
     [[nodiscard]] static SplitViewScope Open(
@@ -106,5 +109,24 @@ public:
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 };
+
+} // namespace detail
+
+[[nodiscard]] inline SplitViewScope SplitView(
+    Context& ui,
+    const SplitViewOptions& opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::SplitView::Open(ui, opts, loc);
+}
+
+[[nodiscard]] inline SplitViewScope SplitView(
+    Context& ui,
+    keel::f32& ratio,
+    const SplitViewOptions& opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::SplitView::Open(ui, ratio, opts, loc);
+}
 
 } // namespace guikit

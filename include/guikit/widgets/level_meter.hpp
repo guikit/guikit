@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "keel/core.h"
 #include "keel/optional.h"
 #include "keel/ref.h"
@@ -40,6 +41,8 @@ struct LevelMeterOptions {
     StateColor color{};                              ///< Base zone semantic color override
 };
 
+namespace detail {
+
 class LevelMeter {
 public:
     /// Single-channel LevelMeter.
@@ -75,5 +78,31 @@ public:
 
     static void Render(const Node* node, ICanvas& canvas, const UiTheme& theme);
 };
+
+} // namespace detail
+
+inline Response LevelMeter(
+    Context& ui,
+    keel::f64 value,
+    keel::f64 min = -60.0,
+    keel::f64 max = 0.0,
+    LevelMeterOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::LevelMeter::Run(ui, value, min, max, opts, loc);
+}
+
+inline Response LevelMeter(
+    Context& ui,
+    keel::ArrayRef<keel::f32> channelValues,
+    keel::f32 min = -60.0f,
+    keel::f32 max = 0.0f,
+    LevelMeterOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::LevelMeter::Run(ui, channelValues, min, max, opts, loc);
+}
 
 } // namespace guikit

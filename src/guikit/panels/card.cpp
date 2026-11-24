@@ -36,7 +36,7 @@ void RenderElevatedCard(const Node* node, ICanvas& canvas, const UiTheme& theme)
 
 } // namespace
 
-ContainerScope Card::Open(
+ContainerScope detail::Card::Open(
     Context& ctx,
     const CardOptions& opts,
     keel::SourceLocation loc

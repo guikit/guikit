@@ -253,7 +253,7 @@ keel::StringRef SanitizeInputText(
 
 } // namespace
 
-Response InputField::Run(
+Response detail::InputField::Run(
     Context& ctx,
     keel::Optional<keel::StringSink> stringValue,
     keel::StringRef displayFallback,
@@ -309,7 +309,7 @@ Response InputField::Run(
     ICanvas* canvas = ctx.GetCanvas();
     const Rect refBounds = (res.rect.w > 0.0f && res.rect.h > 0.0f)
         ? res.rect
-        : Rect({0.0f, 0.0f}, InputField::Measure(valStr, optsCopy, activeSize, canvas, theme));
+        : Rect({0.0f, 0.0f}, detail::InputField::Measure(valStr, optsCopy, activeSize, canvas, theme));
 
     const bool showRevealBtn = opts.password && opts.passwordReveal && !effectiveDisabled;
     bool showClearBtn = opts.clearable && !valStr.empty() && !effectiveDisabled && !opts.readOnly;
@@ -572,7 +572,7 @@ Response InputField::Run(
     );
     node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<InputFieldData>();
-        return InputField::Measure(
+        return detail::InputField::Measure(
             d ? d->displayText : keel::StringRef{},
             d ? d->opts : InputFieldOptions{},
             n->uiSize,
@@ -583,7 +583,7 @@ Response InputField::Run(
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* d = n->As<InputFieldData>();
-        InputField::Render(
+        detail::InputField::Render(
             canvas,
             n->computedRect,
             d ? d->displayText : keel::StringRef{},
@@ -618,7 +618,7 @@ Response InputField::Run(
     return res;
 }
 
-Vec2 InputField::Measure(
+Vec2 detail::InputField::Measure(
     keel::StringRef /*displayText*/,
     const InputFieldOptions& opts,
     UiSize size,
@@ -631,7 +631,7 @@ Vec2 InputField::Measure(
     return Control::Measure(boxDims, ctrl, theme);
 }
 
-Vec2 InputField::Measure(
+Vec2 detail::InputField::Measure(
     keel::StringRef displayText,
     const InputFieldOptions& opts,
     UiSize size,
@@ -642,7 +642,7 @@ Vec2 InputField::Measure(
     return Measure(displayText, opts, size, canvas, defaultTheme, availableWidth);
 }
 
-void InputField::Render(
+void detail::InputField::Render(
     ICanvas& canvas,
     Rect bounds,
     keel::StringRef displayText,

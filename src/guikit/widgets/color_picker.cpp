@@ -165,7 +165,7 @@ void FormatHexColor(Color c, bool showAlpha, char* buf, keel::usize bufSize) noe
 
 } // namespace
 
-void ColorPicker::RgbToHsv(Color c, keel::f32& outH, keel::f32& outS, keel::f32& outV) noexcept {
+void detail::ColorPicker::RgbToHsv(Color c, keel::f32& outH, keel::f32& outS, keel::f32& outV) noexcept {
     const keel::f32 r = keel::as<keel::f32>(c.r) / 255.0f;
     const keel::f32 g = keel::as<keel::f32>(c.g) / 255.0f;
     const keel::f32 b = keel::as<keel::f32>(c.b) / 255.0f;
@@ -193,7 +193,7 @@ void ColorPicker::RgbToHsv(Color c, keel::f32& outH, keel::f32& outS, keel::f32&
     outH = keel::clamp(h, 0.0f, 360.0f);
 }
 
-Color ColorPicker::HsvToRgb(keel::f32 h, keel::f32 s, keel::f32 v, keel::u8 a) noexcept {
+Color detail::ColorPicker::HsvToRgb(keel::f32 h, keel::f32 s, keel::f32 v, keel::u8 a) noexcept {
     const keel::f32 clampedH = keel::fmod(keel::max(0.0f, h), 360.0f);
     const keel::f32 clampedS = keel::clamp(s, 0.0f, 1.0f);
     const keel::f32 clampedV = keel::clamp(v, 0.0f, 1.0f);
@@ -225,7 +225,7 @@ Color ColorPicker::HsvToRgb(keel::f32 h, keel::f32 s, keel::f32 v, keel::u8 a) n
     );
 }
 
-Vec2 ColorPicker::Measure(
+Vec2 detail::ColorPicker::Measure(
     const ColorPickerOptions& opts,
     UiSize size,
     ICanvas* canvas,
@@ -237,7 +237,7 @@ Vec2 ColorPicker::Measure(
     return Control::Measure(boxDims, ctrl, theme);
 }
 
-Vec2 ColorPicker::Measure(
+Vec2 detail::ColorPicker::Measure(
     const ColorPickerOptions& opts,
     UiSize size,
     ICanvas* canvas,
@@ -247,7 +247,7 @@ Vec2 ColorPicker::Measure(
     return Measure(opts, size, canvas, defaultTheme, availableWidth);
 }
 
-Response ColorPicker::Run(
+Response detail::ColorPicker::Run(
     Context& ctx,
     Color& value,
     const ColorPickerOptions& opts,
@@ -506,7 +506,7 @@ Response ColorPicker::Run(
             hovSwatch
         ));
         ctx.RegisterOverlay([popRect, curVal, curH, curS, curV, hexView, hovSwatch, optsCopy, activeSize, effectiveDisabled, theme](ICanvas& c) {
-            ColorPicker::RenderPanel(c, popRect, curVal, curH, curS, curV, hexView, hovSwatch, optsCopy, activeSize, true, effectiveDisabled, theme);
+            detail::ColorPicker::RenderPanel(c, popRect, curVal, curH, curS, curV, hexView, hovSwatch, optsCopy, activeSize, true, effectiveDisabled, theme);
         });
     }
 
@@ -552,12 +552,12 @@ Response ColorPicker::Run(
 
     node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* c, const UiTheme& t) noexcept -> Vec2 {
         const auto* d = n->As<ColorPickerData>();
-        return ColorPicker::Measure(d ? d->opts : ColorPickerOptions{}, n->uiSize, c, t, availableWidth);
+        return detail::ColorPicker::Measure(d ? d->opts : ColorPickerOptions{}, n->uiSize, c, t, availableWidth);
     };
     node->renderFn = [](const Node* n, ICanvas& c, const UiTheme& t) noexcept {
         const auto* d = n->As<ColorPickerData>();
         if (!d) return;
-        ColorPicker::Render(
+        detail::ColorPicker::Render(
             c,
             n->computedRect,
             d->value,
@@ -587,7 +587,7 @@ Response ColorPicker::Run(
     return res;
 }
 
-void ColorPicker::Render(
+void detail::ColorPicker::Render(
     ICanvas& canvas,
     Rect bounds,
     Color value,
@@ -693,7 +693,7 @@ void ColorPicker::Render(
     chevron.Draw(canvas, iconRect, disabled ? pal.textMuted : (open ? pal.accent : pal.textSecondary));
 }
 
-void ColorPicker::RenderPanel(
+void detail::ColorPicker::RenderPanel(
     ICanvas& canvas,
     Rect panelRect,
     Color value,

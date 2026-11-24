@@ -80,7 +80,7 @@ keel::SmallArray<FilteredCommandEntry, 64> FilterItems(
 
 } // namespace
 
-CommandPaletteResponse CommandPalette::Run(
+CommandPaletteResponse detail::CommandPalette::Run(
     Context& ctx,
     bool& isOpen,
     keel::ArrayRef<CommandPaletteItem> items,

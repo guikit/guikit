@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -42,6 +43,8 @@ struct ButtonOptions {
 using ButtonResponse = Response;
 
 /// Autonomous Button widget logic (execution, measuring, and rendering).
+namespace detail {
+
 class Button {
 public:
     /// Primary immediate mode entry point for Button widget.
@@ -69,5 +72,16 @@ public:
         keel::f32 loadingPhase = 0.0f
     );
 };
+
+} // namespace detail
+
+inline Response Button(
+    Context& ui,
+    ButtonOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::Button::Run(ui, opts, loc);
+}
 
 } // namespace guikit

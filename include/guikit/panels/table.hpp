@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/id.hpp"
 #include "guikit/core/response.hpp"
@@ -228,6 +229,8 @@ private:
 };
 
 /// High-performance virtualized Table / DataGrid container with sticky headers, sorting, and column resizing.
+namespace detail {
+
 class Table {
 public:
     [[nodiscard]] static TableScope Open(
@@ -272,5 +275,16 @@ public:
         const UiTheme& theme
     );
 };
+
+} // namespace detail
+
+[[nodiscard]] inline TableScope Table(
+    Context& ui,
+    keel::ArrayRef<TableColumn> columns,
+    const TableOptions& opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::Table::Open(ui, columns, opts, loc);
+}
 
 } // namespace guikit

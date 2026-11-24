@@ -277,7 +277,7 @@ BoxScope SplitViewScope::First(
     if (!m_ctx) {
         return BoxScope(nullptr, nullptr);
     }
-    return Box::Open(*m_ctx, opts, loc);
+    return detail::Box::Open(*m_ctx, opts, loc);
 }
 
 BoxScope SplitViewScope::Second(
@@ -287,10 +287,10 @@ BoxScope SplitViewScope::Second(
     if (!m_ctx) {
         return BoxScope(nullptr, nullptr);
     }
-    return Box::Open(*m_ctx, opts, loc);
+    return detail::Box::Open(*m_ctx, opts, loc);
 }
 
-SplitViewScope SplitView::Open(
+SplitViewScope detail::SplitView::Open(
     Context& ctx,
     const SplitViewOptions& opts,
     keel::SourceLocation loc
@@ -298,7 +298,7 @@ SplitViewScope SplitView::Open(
     return Open(ctx, static_cast<keel::f32*>(nullptr), opts, loc);
 }
 
-SplitViewScope SplitView::Open(
+SplitViewScope detail::SplitView::Open(
     Context& ctx,
     keel::f32& ratio,
     const SplitViewOptions& opts,
@@ -307,7 +307,7 @@ SplitViewScope SplitView::Open(
     return Open(ctx, &ratio, opts, loc);
 }
 
-SplitViewScope SplitView::Open(
+SplitViewScope detail::SplitView::Open(
     Context& ctx,
     keel::f32* externalRatio,
     const SplitViewOptions& opts,

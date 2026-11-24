@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/types.hpp"
@@ -98,6 +99,8 @@ private:
 };
 
 /// Out-of-flow non-modal floating portal anchored to a trigger rectangle.
+namespace detail {
+
 class Popover {
 public:
     [[nodiscard]] static PopoverScope Open(
@@ -128,5 +131,16 @@ public:
         const Rect& fallbackViewport
     ) noexcept;
 };
+
+} // namespace detail
+
+[[nodiscard]] inline PopoverScope Popover(
+    Context& ui,
+    bool& open,
+    const PopoverOptions& opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::Popover::Open(ui, open, opts, loc);
+}
 
 } // namespace guikit

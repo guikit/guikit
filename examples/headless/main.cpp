@@ -85,10 +85,10 @@ int main() {
     guikit::MainWindow app(cfg, keel::move(backend));
     const keel::i32 exitCode = app.Run([&](guikit::Context& ui) {
         ++renderedFrames;
-        if (auto col = ui.Column({.gap = 8.0f, .padding = guikit::Padding::All(16.0f)})) {
-            ui.Heading({.label = "GuiKit Headless Platform Blueprint"});
-            ui.Text(ui.Format("Frame #{} rendered via PlatformWindowBackend + NullCanvas", renderedFrames));
-            (void)ui.Button({.text = "Action"});
+        if (auto col = guikit::Column(ui, {.gap = 8.0f, .padding = guikit::Padding::All(16.0f)})) {
+            guikit::Heading(ui, {.label = "GuiKit Headless Platform Blueprint"});
+            guikit::Text(ui, ui.Format("Frame #{} rendered via PlatformWindowBackend + NullCanvas", renderedFrames));
+            (void)guikit::Button(ui, {.text = "Action"});
         }
     });
 

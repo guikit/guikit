@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -48,6 +49,8 @@ struct TagResponse : public Response {
 };
 
 /// Autonomous atomic Tag / Badge / Chip widget.
+namespace detail {
+
 class Tag {
 public:
     static TagResponse Run(
@@ -67,5 +70,17 @@ public:
 
     static void Render(const Node* node, ICanvas& canvas, const UiTheme& theme);
 };
+
+} // namespace detail
+
+inline TagResponse Tag(
+    Context& ui,
+    UiText text,
+    TagOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::Tag::Run(ui, text, opts, loc);
+}
 
 } // namespace guikit

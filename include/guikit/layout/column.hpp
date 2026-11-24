@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
@@ -27,6 +28,8 @@ struct ColumnOptions {
 };
 
 /// Autonomous immediate mode Column layout entry point.
+namespace detail {
+
 class Column {
 public:
     [[nodiscard]] static ContainerScope Open(
@@ -35,5 +38,15 @@ public:
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 };
+
+} // namespace detail
+
+[[nodiscard]] inline ContainerScope Column(
+    Context& ui,
+    ColumnOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::Column::Open(ui, opts, loc);
+}
 
 } // namespace guikit

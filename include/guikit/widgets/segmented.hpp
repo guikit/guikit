@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -54,6 +55,8 @@ struct SegmentedData {
 };
 
 /// Autonomous Segmented control widget logic (execution, measuring, and rendering).
+namespace detail {
+
 class Segmented {
 public:
     /// Primary immediate mode entry point for single-select Segmented control with rich SegmentedItem elements.
@@ -112,5 +115,73 @@ public:
         bool focused = false
     );
 };
+
+} // namespace detail
+
+template <IndexLike IndexT>
+    requires (!keel::IsConst<IndexT>)
+Response Segmented(
+    Context& ui,
+    IndexT& selectedIndex,
+    keel::ArrayRef<SegmentedItem> items,
+    SegmentedOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    if constexpr (keel::IsSame<keel::Decay<IndexT>, keel::usize>) {
+        return detail::Segmented::Run(ui, &selectedIndex, nullptr, nullptr, items, opts, loc);
+    } else {
+        keel::i32 idx = keel::as<keel::i32>(selectedIndex);
+        Response r = detail::Segmented::Run(ui, nullptr, &idx, nullptr, items, opts, loc);
+        if (r.changed && idx >= 0) {
+            selectedIndex = detail::FromIndexLike<IndexT>(idx);
+        }
+        return r;
+    }
+}
+
+template <IndexLike IndexT>
+    requires (!keel::IsConst<IndexT>)
+Response Segmented(
+    Context& ui,
+    IndexT& selectedIndex,
+    keel::ArrayRef<keel::StringRef> items,
+    SegmentedOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    if constexpr (keel::IsSame<keel::Decay<IndexT>, keel::usize>) {
+        return detail::Segmented::Run(ui, &selectedIndex, nullptr, nullptr, items, opts, loc);
+    } else {
+        keel::i32 idx = keel::as<keel::i32>(selectedIndex);
+        Response r = detail::Segmented::Run(ui, nullptr, &idx, nullptr, items, opts, loc);
+        if (r.changed && idx >= 0) {
+            selectedIndex = detail::FromIndexLike<IndexT>(idx);
+        }
+        return r;
+    }
+}
+
+inline Response SegmentedMask(
+    Context& ui,
+    keel::u32& selectedMask,
+    keel::ArrayRef<SegmentedItem> items,
+    SegmentedOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::Segmented::Run(ui, nullptr, nullptr, &selectedMask, items, opts, loc);
+}
+
+inline Response SegmentedMask(
+    Context& ui,
+    keel::u32& selectedMask,
+    keel::ArrayRef<keel::StringRef> items,
+    SegmentedOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::Segmented::Run(ui, nullptr, nullptr, &selectedMask, items, opts, loc);
+}
 
 } // namespace guikit

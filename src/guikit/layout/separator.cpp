@@ -7,7 +7,7 @@
 
 namespace guikit {
 
-void Separator::RenderLine(
+void detail::Separator::RenderLine(
     ICanvas& canvas,
     Vec2 p0,
     Vec2 p1,
@@ -20,7 +20,7 @@ void Separator::RenderLine(
     canvas.DrawLine(p0, p1, color, thickness);
 }
 
-void Separator::Render(
+void detail::Separator::Render(
     ICanvas& canvas,
     Rect bounds,
     Color color,
@@ -40,7 +40,7 @@ void Separator::Render(
     }
 }
 
-void Separator::Run(
+void detail::Separator::Run(
     Context& ctx,
     keel::f32 extentRatio,
     Color colorOverride,
@@ -103,7 +103,7 @@ void Separator::Run(
                 );
                 return;
             }
-            Separator::Render(canvas, n->computedRect, n->borderColor, theme, Orientation::Horizontal, 0.20f);
+            detail::Separator::Render(canvas, n->computedRect, n->borderColor, theme, Orientation::Horizontal, 0.20f);
         };
     } else {
         sep->widthMode = SizeMode::Stretch;

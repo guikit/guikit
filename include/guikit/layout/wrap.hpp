@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
@@ -28,6 +29,8 @@ struct WrapOptions {
 };
 
 /// Autonomous immediate mode Wrap layout entry point.
+namespace detail {
+
 class Wrap {
 public:
     [[nodiscard]] static ContainerScope Open(
@@ -36,5 +39,15 @@ public:
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 };
+
+} // namespace detail
+
+[[nodiscard]] inline ContainerScope Wrap(
+    Context& ui,
+    WrapOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::Wrap::Open(ui, opts, loc);
+}
 
 } // namespace guikit

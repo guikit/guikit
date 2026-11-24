@@ -134,7 +134,7 @@ HeadingLayoutGeometry ResolveHeadingGeometry(
     }
 
     g.bounds = bounds;
-    const keel::f32 bottomSep = Heading::ComputeBottomSeparatorSpace(opts, theme);
+    const keel::f32 bottomSep = detail::Heading::ComputeBottomSeparatorSpace(opts, theme);
     Rect contentBounds = bounds;
     if (bottomSep > 0.0f) {
         contentBounds.h = keel::max(0.0f, contentBounds.h - bottomSep);
@@ -188,7 +188,7 @@ HeadingLayoutGeometry ResolveHeadingGeometry(
 
 } // namespace
 
-keel::f32 Heading::ComputeBottomSeparatorSpace(
+keel::f32 detail::Heading::ComputeBottomSeparatorSpace(
     const HeadingOptions& opts,
     const UiTheme& theme
 ) noexcept {
@@ -201,7 +201,7 @@ keel::f32 Heading::ComputeBottomSeparatorSpace(
     return 0.0f;
 }
 
-Response Heading::Run(
+Response detail::Heading::Run(
     Context& ctx,
     const HeadingOptions& opts,
     keel::SourceLocation loc
@@ -265,11 +265,11 @@ Response Heading::Run(
 
     node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* o = n->As<HeadingOptions>();
-        return Heading::Measure(o ? *o : HeadingOptions{}, canvas, theme, availableWidth);
+        return detail::Heading::Measure(o ? *o : HeadingOptions{}, canvas, theme, availableWidth);
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* o = n->As<HeadingOptions>();
-        Heading::Render(
+        detail::Heading::Render(
             canvas,
             n->computedRect,
             o ? *o : HeadingOptions{},
@@ -284,7 +284,7 @@ Response Heading::Run(
     return res;
 }
 
-Vec2 Heading::Measure(
+Vec2 detail::Heading::Measure(
     const HeadingOptions& opts,
     ICanvas* canvas,
     const UiTheme& theme,
@@ -353,7 +353,7 @@ Vec2 Heading::Measure(
     return {totalW, rawBar.y + m.lineGap + descH + bottomSep};
 }
 
-void Heading::Render(
+void detail::Heading::Render(
     ICanvas& canvas,
     Rect bounds,
     const HeadingOptions& opts,
@@ -490,17 +490,17 @@ void Heading::Render(
             const keel::f32 bridgeStart = barRightX + m.gap;
             const keel::f32 bridgeEnd = g.descRect.x - m.gap;
             if (bridgeEnd > bridgeStart + 4.0f) {
-                Separator::RenderLine(canvas, Vec2(bridgeStart, lineY), Vec2(bridgeEnd, lineY), sepColor, sepStrokeW);
+                detail::Separator::RenderLine(canvas, Vec2(bridgeStart, lineY), Vec2(bridgeEnd, lineY), sepColor, sepStrokeW);
             }
         } else {
             const keel::f32 leftEnd = barLeftX - m.gap;
             const keel::f32 rightStart = barRightX + m.gap;
 
             if (leftEnd > g.bounds.x + 4.0f) {
-                Separator::RenderLine(canvas, Vec2(g.bounds.x, lineY), Vec2(leftEnd, lineY), sepColor, sepStrokeW);
+                detail::Separator::RenderLine(canvas, Vec2(g.bounds.x, lineY), Vec2(leftEnd, lineY), sepColor, sepStrokeW);
             }
             if (g.bounds.Right() > rightStart + 4.0f) {
-                Separator::RenderLine(canvas, Vec2(rightStart, lineY), Vec2(g.bounds.Right(), lineY), sepColor, sepStrokeW);
+                detail::Separator::RenderLine(canvas, Vec2(rightStart, lineY), Vec2(g.bounds.Right(), lineY), sepColor, sepStrokeW);
             }
         }
     }

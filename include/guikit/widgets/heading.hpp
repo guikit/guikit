@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
@@ -36,6 +37,8 @@ struct HeadingOptions {
 };
 
 /// Standalone section heading leaf widget with `HeadingMetrics` typography (`H1`–`H6`, default `H3`) and built-in dividers.
+namespace detail {
+
 class Heading {
 public:
     [[nodiscard]] static keel::f32 ComputeBottomSeparatorSpace(
@@ -92,5 +95,16 @@ public:
         bool active = false
     ) noexcept;
 };
+
+} // namespace detail
+
+inline Response Heading(
+    Context& ui,
+    HeadingOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::Heading::Run(ui, opts, loc);
+}
 
 } // namespace guikit

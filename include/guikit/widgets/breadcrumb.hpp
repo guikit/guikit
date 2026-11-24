@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -59,6 +60,8 @@ struct BreadcrumbData {
 };
 
 /// Autonomous Breadcrumb path navigation widget (execution, measuring, and rendering).
+namespace detail {
+
 class Breadcrumb {
 public:
     static Response Run(
@@ -107,5 +110,47 @@ public:
         const UiTheme& theme
     );
 };
+
+} // namespace detail
+
+template <IndexLike IndexT>
+    requires (!keel::IsConst<IndexT>)
+Response Breadcrumb(
+    Context& ui,
+    IndexT& activeIndex,
+    keel::ArrayRef<BreadcrumbItem> items,
+    BreadcrumbOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    if constexpr (keel::IsSame<keel::Decay<IndexT>, keel::usize>) {
+        return detail::Breadcrumb::Run(ui, activeIndex, items, opts, loc);
+    } else {
+        keel::i32 idx = keel::as<keel::i32>(activeIndex);
+        Response r = detail::Breadcrumb::Run(ui, idx, items, opts, loc);
+        if (r.changed && idx >= 0) activeIndex = detail::FromIndexLike<IndexT>(idx);
+        return r;
+    }
+}
+
+template <IndexLike IndexT>
+    requires (!keel::IsConst<IndexT>)
+Response Breadcrumb(
+    Context& ui,
+    IndexT& activeIndex,
+    keel::ArrayRef<keel::StringRef> items,
+    BreadcrumbOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    if constexpr (keel::IsSame<keel::Decay<IndexT>, keel::usize>) {
+        return detail::Breadcrumb::Run(ui, activeIndex, items, opts, loc);
+    } else {
+        keel::i32 idx = keel::as<keel::i32>(activeIndex);
+        Response r = detail::Breadcrumb::Run(ui, idx, items, opts, loc);
+        if (r.changed && idx >= 0) activeIndex = detail::FromIndexLike<IndexT>(idx);
+        return r;
+    }
+}
 
 } // namespace guikit

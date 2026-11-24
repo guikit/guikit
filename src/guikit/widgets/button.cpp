@@ -117,7 +117,7 @@ Vec2 MeasureButtonCapsule(
 
 } // namespace
 
-Response Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocation loc) {
+Response detail::Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocation loc) {
 
     const Id id = ctx.MakeChildId(loc);
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
@@ -208,11 +208,11 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocati
     );
     node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* p = n->As<ButtonPayload>();
-        return Button::Measure(p ? p->opts : ButtonOptions{}, n->uiSize, canvas, theme, availableWidth);
+        return detail::Button::Measure(p ? p->opts : ButtonOptions{}, n->uiSize, canvas, theme, availableWidth);
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* p = n->As<ButtonPayload>();
-        Button::Render(
+        detail::Button::Render(
             canvas,
             n->computedRect,
             p ? p->opts : ButtonOptions{},
@@ -246,18 +246,18 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocati
     return res;
 }
 
-Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, const UiTheme& theme, keel::f32 /*availableWidth*/) {
+Vec2 detail::Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, const UiTheme& theme, keel::f32 /*availableWidth*/) {
     const ControlSpec ctrl = EffectiveButtonControl(opts, size, theme);
     const Vec2 capsuleDims = MeasureButtonCapsule(opts, ctrl, size, canvas, theme);
     return Control::Measure(capsuleDims, ctrl, theme);
 }
 
-Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, keel::f32 availableWidth) {
+Vec2 detail::Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, keel::f32 availableWidth) {
     static const UiTheme defaultTheme = UiTheme::Dark();
     return Measure(opts, size, canvas, defaultTheme, availableWidth);
 }
 
-void Button::Render(
+void detail::Button::Render(
     ICanvas& canvas,
     Rect bounds,
     const ButtonOptions& opts,

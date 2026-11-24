@@ -1,4 +1,5 @@
 #include "guikit/widgets/sidebar_menu.hpp"
+#include "guikit/layout/separator.hpp"
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
@@ -36,7 +37,7 @@ void SidebarMenuScope::Section(
         return;
     }
 
-    Heading::Run(*m_ctx, HeadingOptions{
+    detail::Heading::Run(*m_ctx, HeadingOptions{
         .label = title,
         .level = HeadingLevel::H6,
         .separator = separator ? HeadingSeparator::Bottom : HeadingSeparator::None
@@ -48,12 +49,12 @@ Response SidebarMenuScope::Item(
     keel::SourceLocation loc
 ) {
     if (!m_ctx) return Response{};
-    return SidebarMenu::Item(*m_ctx, item, m_opts, loc);
+    return detail::SidebarMenu::Item(*m_ctx, item, m_opts, loc);
 }
 
 void SidebarMenuScope::Separator(keel::SourceLocation loc) {
     if (!m_ctx || !m_node) return;
-    guikit::Separator::Run(*m_ctx, 0.0f, Color::Transparent(), loc);
+    guikit::detail::Separator::Run(*m_ctx, 0.0f, Color::Transparent(), loc);
 }
 
 void SidebarMenuScope::Spacer(keel::f32 flex, keel::SourceLocation loc) {
@@ -69,7 +70,7 @@ void SidebarMenuScope::Spacer(keel::f32 flex, keel::SourceLocation loc) {
     };
 }
 
-SidebarMenuScope SidebarMenu::Open(
+SidebarMenuScope detail::SidebarMenu::Open(
     Context& ctx,
     const SidebarMenuOptions& opts,
     keel::SourceLocation loc
@@ -116,7 +117,7 @@ SidebarMenuScope SidebarMenu::Open(
     return SidebarMenuScope(&ctx, node, effectiveOpts);
 }
 
-Response SidebarMenu::Run(
+Response detail::SidebarMenu::Run(
     Context& ctx,
     keel::i32& activeIndex,
     keel::ArrayRef<SidebarMenuItem> items,
@@ -147,7 +148,7 @@ Response SidebarMenu::Run(
     return barRes;
 }
 
-Response SidebarMenu::Item(
+Response detail::SidebarMenu::Item(
     Context& ctx,
     const SidebarMenuItem& item,
     const SidebarMenuOptions& menuOpts,
@@ -223,19 +224,19 @@ Response SidebarMenu::Item(
     node->measureFn = [](const Node* n, keel::f32 /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<SidebarItemData>();
         if (!d) return {0.0f, 0.0f};
-        return SidebarMenu::MeasureItem(d->item, d->menuOpts, n->uiSize, canvas, theme);
+        return detail::SidebarMenu::MeasureItem(d->item, d->menuOpts, n->uiSize, canvas, theme);
     };
 
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* d = n->As<SidebarItemData>();
         if (!d) return;
-        SidebarMenu::RenderItem(canvas, n->computedRect, d->item, d->menuOpts, n->uiSize, n->hovered, n->pressed, n->disabled, theme, n->focused);
+        detail::SidebarMenu::RenderItem(canvas, n->computedRect, d->item, d->menuOpts, n->uiSize, n->hovered, n->pressed, n->disabled, theme, n->focused);
     };
 
     return res;
 }
 
-Vec2 SidebarMenu::MeasureItem(
+Vec2 detail::SidebarMenu::MeasureItem(
     const SidebarMenuItem& item,
     const SidebarMenuOptions& opts,
     UiSize size,
@@ -271,7 +272,7 @@ Vec2 SidebarMenu::MeasureItem(
     return {contentW + m.paddingX * 2.0f, m.defaultHeight};
 }
 
-Vec2 SidebarMenu::MeasureItem(
+Vec2 detail::SidebarMenu::MeasureItem(
     const SidebarMenuItem& item,
     const SidebarMenuOptions& opts,
     UiSize size,
@@ -281,7 +282,7 @@ Vec2 SidebarMenu::MeasureItem(
     return MeasureItem(item, opts, size, canvas, defaultTheme);
 }
 
-void SidebarMenu::RenderItem(
+void detail::SidebarMenu::RenderItem(
     ICanvas& canvas,
     Rect bounds,
     const SidebarMenuItem& item,

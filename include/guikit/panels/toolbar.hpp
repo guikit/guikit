@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -216,6 +217,8 @@ private:
 };
 
 /// Autonomous Toolbar widget logic (measuring, rendering, and tool button utilities).
+namespace detail {
+
 class Toolbar {
 public:
     [[nodiscard]] static ToolbarScope Open(
@@ -254,5 +257,23 @@ public:
 
     [[nodiscard]] static Rect GetContentClipRect(const Node* node) noexcept;
 };
+
+} // namespace detail
+
+[[nodiscard]] inline ToolbarScope Toolbar(
+    Context& ui,
+    ToolbarOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::Toolbar::Open(ui, opts, loc);
+}
+
+inline Response ToolButton(
+    Context& ui,
+    ToolButtonOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::Toolbar::ToolButton(ui, opts, loc);
+}
 
 } // namespace guikit

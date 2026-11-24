@@ -38,7 +38,7 @@ Rect ComputeTopSashHitRect(
 
 } // namespace
 
-BottomPanelScope BottomPanel::Open(
+BottomPanelScope detail::BottomPanel::Open(
     Context& ctx,
     bool* open,
     const BottomPanelOptions& opts,
@@ -53,7 +53,7 @@ BottomPanelScope BottomPanel::Open(
     return scope;
 }
 
-BottomPanelScope BottomPanel::Open(
+BottomPanelScope detail::BottomPanel::Open(
     Context& ctx,
     BottomPanelMode* externalMode,
     const BottomPanelOptions& opts,
@@ -366,8 +366,8 @@ BottomPanelScope BottomPanel::Open(
         node->scroll->orientation = Orientation::Vertical;
         node->scroll->policy = opts.scrollbar;
         node->scroll->solverManaged = true;
-        node->postRenderFn = &ScrollArea::RenderScrollbar;
-        node->panelHooks = ScrollArea::Hooks();
+        node->postRenderFn = &detail::ScrollArea::RenderScrollbar;
+        node->panelHooks = detail::ScrollArea::Hooks();
 
         auto& scrollState = ctx.GetOrCreatePersistentState<ScrollState>(id);
         node->scroll->offset = scrollState.offset;

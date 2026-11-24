@@ -136,14 +136,14 @@ SelectBoxRects ResolveSelectBoxRects(
 
 } // namespace
 
-Rect Select::GetBoxRect(
+Rect detail::Select::GetBoxRect(
     Rect bounds,
     const SelectOptions& opts,
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme
 ) {
-    const Vec2 boxDims = Select::Measure(opts, size, canvas, theme, bounds.w);
+    const Vec2 boxDims = detail::Select::Measure(opts, size, canvas, theme, bounds.w);
     const keel::f32 alignFactor = (opts.align == Align::End) ? 1.0f : ((opts.align == Align::Center) ? 0.5f : 0.0f);
     keel::f32 ctrlW = keel::min(bounds.w, boxDims.x);
     if (opts.width.ResolveMode(SizeMode::Stretch) == SizeMode::Stretch) {
@@ -155,7 +155,7 @@ Rect Select::GetBoxRect(
     return Rect(ctrlX, ctrlY, ctrlW, ctrlH);
 }
 
-Vec2 Select::Measure(
+Vec2 detail::Select::Measure(
     const SelectOptions& opts,
     UiSize size,
     ICanvas* /*canvas*/,
@@ -167,7 +167,7 @@ Vec2 Select::Measure(
     return Control::Measure(boxDims, ctrl, theme);
 }
 
-Vec2 Select::Measure(
+Vec2 detail::Select::Measure(
     const SelectOptions& opts,
     UiSize size,
     ICanvas* canvas,
@@ -177,7 +177,7 @@ Vec2 Select::Measure(
     return Measure(opts, size, canvas, defaultTheme, availableWidth);
 }
 
-Response Select::Run(
+Response detail::Select::Run(
     Context& ctx,
     keel::usize* selectedIndex,
     keel::i32* selectedIntIndex,
@@ -195,7 +195,7 @@ Response Select::Run(
     return Run(ctx, selectedIndex, selectedIntIndex, selectedString, selectedStringView, richItems, opts, loc);
 }
 
-Response Select::Run(
+Response detail::Select::Run(
     Context& ctx,
     keel::usize* selectedIndex,
     keel::i32* selectedIntIndex,
@@ -311,7 +311,7 @@ Response Select::Run(
 
     const ControlSpec ctrl = EffectiveSelectControl(optsCopy, activeSize, theme);
     const Rect prevBounds = ctx.GetPrevFrameBounds(id);
-    Vec2 fallbackDims = Select::Measure(optsCopy, activeSize, canvas, theme);
+    Vec2 fallbackDims = detail::Select::Measure(optsCopy, activeSize, canvas, theme);
     if (effWidthMode == SizeMode::Fit && !optsCopy.width.IsFixed()) {
         fallbackDims.x = intrinsicW;
     }
@@ -1091,7 +1091,7 @@ Response Select::Run(
         popupOpts.emptyText = ctx.AllocText(opts.emptyText);
 
         ctx.RegisterOverlay([currentPopupRect, popupItemsSpan, filteredSelectedIndex, effectiveHoveredIdx, popupOpts, activeSize, theme, popupScrollY, sbHovered, sbActive, highlightQueryStr](ICanvas& canvas) {
-            Select::RenderPopup(
+            detail::Select::RenderPopup(
                 canvas,
                 currentPopupRect,
                 popupItemsSpan,
@@ -1176,7 +1176,7 @@ Response Select::Run(
     );
     node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<SelectData>();
-        Vec2 sz = Select::Measure(d ? d->opts : SelectOptions{}, n->uiSize, canvas, theme, availableWidth);
+        Vec2 sz = detail::Select::Measure(d ? d->opts : SelectOptions{}, n->uiSize, canvas, theme, availableWidth);
         if (d && d->naturalWidth > 0.0f && !d->opts.width.IsFixed()) {
             sz.x = d->naturalWidth;
         }
@@ -1184,7 +1184,7 @@ Response Select::Run(
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* d = n->As<SelectData>();
-        Select::Render(
+        detail::Select::Render(
             canvas,
             n->computedRect,
             d ? d->displayText : UiText{},
@@ -1219,7 +1219,7 @@ Response Select::Run(
     return res;
 }
 
-void Select::Render(
+void detail::Select::Render(
     ICanvas& canvas,
     Rect bounds,
     UiText currentText,
@@ -1441,7 +1441,7 @@ void Select::Render(
     canvas.PopClip();
 }
 
-void Select::RenderPopup(
+void detail::Select::RenderPopup(
     ICanvas& canvas,
     Rect popupRect,
     keel::ArrayRef<keel::StringRef> items,
@@ -1463,7 +1463,7 @@ void Select::RenderPopup(
     RenderPopup(canvas, popupRect, richItems, selectedIndex, hoveredIndex, opts, size, theme, scrollY, scrollbarHovered, scrollbarActive, highlightQuery);
 }
 
-void Select::RenderPopup(
+void detail::Select::RenderPopup(
     ICanvas& canvas,
     Rect popupRect,
     keel::ArrayRef<SelectItem> items,
@@ -2186,7 +2186,7 @@ void RenderMultiPopup(
 
 } // namespace
 
-Response Select::RunMulti(
+Response detail::Select::RunMulti(
     Context& ctx,
     IndexListSink selectedIndices,
     keel::ArrayRef<keel::StringRef> items,
@@ -2201,7 +2201,7 @@ Response Select::RunMulti(
     return RunMulti(ctx, selectedIndices, richItems, opts, loc);
 }
 
-Response Select::RunMulti(
+Response detail::Select::RunMulti(
     Context& ctx,
     IndexListSink selectedIndices,
     keel::ArrayRef<SelectItem> items,
@@ -2283,7 +2283,7 @@ Response Select::RunMulti(
 
     const ControlSpec ctrl = EffectiveSelectControl(optsCopy, activeSize, theme);
     const Rect prevBounds = ctx.GetPrevFrameBounds(id);
-    Vec2 fallbackDims = Select::Measure(optsCopy, activeSize, canvas, theme);
+    Vec2 fallbackDims = detail::Select::Measure(optsCopy, activeSize, canvas, theme);
     if (effWidthMode == SizeMode::Fit && !optsCopy.width.IsFixed()) {
         fallbackDims.x = intrinsicW;
     }
@@ -2925,7 +2925,7 @@ Response Select::RunMulti(
     );
     node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<SelectData>();
-        Vec2 sz = Select::Measure(d ? d->opts : SelectOptions{}, n->uiSize, canvas, theme, availableWidth);
+        Vec2 sz = detail::Select::Measure(d ? d->opts : SelectOptions{}, n->uiSize, canvas, theme, availableWidth);
         if (d && d->naturalWidth > 0.0f && !d->opts.width.IsFixed()) {
             sz.x = d->naturalWidth;
         }

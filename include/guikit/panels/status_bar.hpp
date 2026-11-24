@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/tokens.hpp"
@@ -89,6 +90,8 @@ private:
 };
 
 /// Autonomous immediate mode StatusBar panel component.
+namespace detail {
+
 class StatusBar {
 public:
     [[nodiscard]] static StatusBarScope Open(
@@ -105,5 +108,15 @@ public:
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 };
+
+} // namespace detail
+
+[[nodiscard]] inline StatusBarScope StatusBar(
+    Context& ui,
+    StatusBarOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::StatusBar::Open(ui, opts, loc);
+}
 
 } // namespace guikit

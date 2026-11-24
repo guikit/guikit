@@ -397,7 +397,7 @@ Response RunTagInputImpl(
 
     const Rect prevBounds = (res.rect.w > 0.0f && res.rect.h > 0.0f)
         ? res.rect
-        : Rect({0.0f, 0.0f}, TagInput::Measure({}, optsCopy, activeSize, canvas, theme));
+        : Rect({0.0f, 0.0f}, detail::TagInput::Measure({}, optsCopy, activeSize, canvas, theme));
 
     if (st.chipRemoveRects.size() != tags.size()) {
         auto tempViews = buildTempViews();
@@ -659,7 +659,7 @@ Response RunTagInputImpl(
     node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* c, const UiTheme& t) noexcept -> Vec2 {
         const auto* d = n->As<TagInputNodeData>();
         if (!d) {
-            return TagInput::Measure({}, TagInputOptions{}, n->uiSize, c, t, availableWidth);
+            return detail::TagInput::Measure({}, TagInputOptions{}, n->uiSize, c, t, availableWidth);
         }
         const InputFieldMetrics& m = t.GetInputField(n->uiSize);
         const ControlSpec spec = EffectiveTagInputControl(d->opts, n->uiSize, t);
@@ -701,7 +701,7 @@ Response RunTagInputImpl(
         return Control::Measure({boxW, m.defaultHeight}, spec, t);
     };
 
-    node->renderFn = &TagInput::Render;
+    node->renderFn = &detail::TagInput::Render;
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
@@ -715,7 +715,7 @@ Response RunTagInputImpl(
 
 } // namespace
 
-Response TagInput::Run(
+Response detail::TagInput::Run(
     Context& ctx,
     StringTagListSink tags,
     const TagInputOptions& opts,
@@ -739,7 +739,7 @@ Response TagInput::Run(
     );
 }
 
-Response TagInput::Run(
+Response detail::TagInput::Run(
     Context& ctx,
     TagItemListSink tags,
     const TagInputOptions& opts,
@@ -768,7 +768,7 @@ Response TagInput::Run(
     );
 }
 
-Vec2 TagInput::Measure(
+Vec2 detail::TagInput::Measure(
     keel::ArrayRef<keel::StringRef> tags,
     const TagInputOptions& opts,
     UiSize size,
@@ -820,7 +820,7 @@ Vec2 TagInput::Measure(
     return Control::Measure({boxW, m.defaultHeight}, ctrl, theme);
 }
 
-void TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
+void detail::TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
     if (!node) return;
     const Rect boxRect = node->computedRect;
     if (boxRect.w <= 0.0f || boxRect.h <= 0.0f) return;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/types.hpp"
@@ -90,6 +91,8 @@ private:
 };
 
 /// Out-of-flow modal overlay host with backdrop dimming and focus/input isolation.
+namespace detail {
+
 class Modal {
 public:
     [[nodiscard]] static ModalScope Open(
@@ -121,5 +124,16 @@ public:
     /// Returns the backdrop rectangle in the modal's local coordinate space.
     [[nodiscard]] static Rect GetBackdropRect(const Node* node) noexcept;
 };
+
+} // namespace detail
+
+[[nodiscard]] inline ModalScope Modal(
+    Context& ui,
+    bool& open,
+    const ModalOptions& opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::Modal::Open(ui, open, opts, loc);
+}
 
 } // namespace guikit

@@ -33,12 +33,14 @@ struct PanelHooks {
     using ScrollToChildFn  = void (*)(Context& ctx, Node* container, const Node* target);
     using RecordBoundsFn   = void (*)(void* user, Id id, Rect rect);
     using CollectBoundsFn  = void (*)(Node* node, RecordBoundsFn record, void* user, const Rect& parentClip, const Transform2D& space);
+    using PopContainerFn   = void (*)(Context& ctx, Node* node);
 
     PlaceOutOfFlowFn placeOutOfFlow{nullptr};
     ContentClipFn    contentClip{nullptr};
     UpdateFn         update{nullptr};
     ScrollToChildFn  scrollToChild{nullptr};
     CollectBoundsFn  collectBounds{nullptr};
+    PopContainerFn   onPopContainer{nullptr};
 };
 
 /// Arena-allocated scroll configuration and per-frame scrollbar state for scrollable containers.

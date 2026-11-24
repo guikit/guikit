@@ -1,5 +1,7 @@
 #pragma once
 
+#include "guikit/context.hpp"
+#include "guikit/core/control.hpp"
 #include <initializer_list>
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -61,6 +63,8 @@ struct TabItemData {
 };
 
 /// Autonomous TabBar widget logic (execution, measuring, and rendering).
+namespace detail {
+
 class TabBar {
 public:
     /// Primary immediate mode entry point for TabBar widget.
@@ -103,5 +107,23 @@ public:
         bool closeHovered = false
     );
 };
+
+} // namespace detail
+
+template <IndexLike IndexT>
+    requires (!keel::IsConst<IndexT>)
+TabBarResponse TabBar(
+    Context& ui,
+    IndexT& activeIndex,
+    keel::ArrayRef<TabItem> tabs,
+    TabBarOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    keel::i32 idx = keel::as<keel::i32>(activeIndex);
+    TabBarResponse r = detail::TabBar::Run(ui, idx, tabs, opts, loc);
+    if (r.changed && idx >= 0) activeIndex = detail::FromIndexLike<IndexT>(idx);
+    return r;
+}
 
 } // namespace guikit

@@ -702,8 +702,8 @@ void TestStretchColumnInConstrainedRowWithHugeContent() {
     carousel->heightMode = SizeMode::Fixed;
     carousel->fixedHeight = 40.0f;
     carousel->gap = 10.0f;
-    carousel->measureFn = &Carousel::Measure;
-    carousel->arrangeFn = &Carousel::Arrange;
+    carousel->measureFn = &detail::Carousel::Measure;
+    carousel->arrangeFn = &detail::Carousel::Arrange;
     carousel->scroll = arena.create<ScrollData>();
     carousel->scroll->orientation = Orientation::Horizontal;
     carousel->scroll->solverManaged = false;
@@ -791,8 +791,8 @@ void TestCarouselArrowScaling() {
     c1->widthMode = SizeMode::Stretch;
     c1->heightMode = SizeMode::Fixed;
     c1->fixedHeight = 36.0f;
-    c1->measureFn = &Carousel::Measure;
-    c1->arrangeFn = &Carousel::Arrange;
+    c1->measureFn = &detail::Carousel::Measure;
+    c1->arrangeFn = &detail::Carousel::Arrange;
     auto* d1 = arena.create<CarouselData>();
     c1->payload = d1;
 
@@ -821,8 +821,8 @@ void TestCarouselArrowScaling() {
     c2->widthMode = SizeMode::Stretch;
     c2->heightMode = SizeMode::Fixed;
     c2->fixedHeight = 72.0f;
-    c2->measureFn = &Carousel::Measure;
-    c2->arrangeFn = &Carousel::Arrange;
+    c2->measureFn = &detail::Carousel::Measure;
+    c2->arrangeFn = &detail::Carousel::Arrange;
     auto* d2 = arena.create<CarouselData>();
     c2->payload = d2;
 
@@ -1248,28 +1248,28 @@ void TestGapDpAndContainerSizingConstraints() {
 
     auto renderFrame = [&]() {
         ui.BeginFrame({600.0f, 600.0f}, 1.0f);
-        if (auto root = ui.Column({.gap = 0.0f, .padding = Padding::All(0.0f), .width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+        if (auto root = guikit::Column(ui, {.gap = 0.0f, .padding = Padding::All(0.0f), .width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
             // 1. ui.Gap(24.0f) fixed pixel offset vs ui.Spacer(1.0f) spring
-            if (auto r = ui.Row({.gap = 0.0f, .padding = Padding::All(0.0f), .width = SizeMode::Stretch})) {
-                b1 = ui.Button({.text = "A", .width = 80.0f});
-                ui.Gap(24.0f);
-                b2 = ui.Button({.text = "B", .width = 80.0f});
-                ui.Spacer(1.0f);
-                b3 = ui.Button({.text = "C", .width = 80.0f});
+            if (auto r = guikit::Row(ui, {.gap = 0.0f, .padding = Padding::All(0.0f), .width = SizeMode::Stretch})) {
+                b1 = guikit::Button(ui, {.text = "A", .width = 80.0f});
+                guikit::Gap(ui, 24.0f);
+                b2 = guikit::Button(ui, {.text = "B", .width = 80.0f});
+                guikit::Spacer(ui, 1.0f);
+                b3 = guikit::Button(ui, {.text = "C", .width = 80.0f});
             }
 
             // 2. Weighted flexGrow (1 : 3) across sibling Columns inside a Row
-            if (auto flexRow = ui.Row({.gap = 0.0f, .padding = Padding::All(0.0f), .width = SizeMode::Stretch, .height = 60.0f})) {
-                if (auto c1 = ui.Column({.width = SizeMode::Stretch, .height = SizeMode::Stretch, .flexGrow = 1.0f})) {
+            if (auto flexRow = guikit::Row(ui, {.gap = 0.0f, .padding = Padding::All(0.0f), .width = SizeMode::Stretch, .height = 60.0f})) {
+                if (auto c1 = guikit::Column(ui, {.width = SizeMode::Stretch, .height = SizeMode::Stretch, .flexGrow = 1.0f})) {
                     col1Node = c1.GetNode();
                 }
-                if (auto c2 = ui.Column({.width = SizeMode::Stretch, .height = SizeMode::Stretch, .flexGrow = 3.0f})) {
+                if (auto c2 = guikit::Column(ui, {.width = SizeMode::Stretch, .height = SizeMode::Stretch, .flexGrow = 3.0f})) {
                     col2Node = c2.GetNode();
                 }
             }
 
             // 3. Container maxWidth & minHeight on Box, and minWidth & maxHeight on Card
-            if (auto bx = ui.Box({
+            if (auto bx = guikit::Box(ui, {
                 .width = SizeMode::Stretch,
                 .maxWidth = 280.0f,
                 .minHeight = 90.0f,
@@ -1277,7 +1277,7 @@ void TestGapDpAndContainerSizingConstraints() {
             })) {
                 constrainedBox = bx.GetNode();
             }
-            if (auto cd = ui.Card({
+            if (auto cd = guikit::Card(ui, {
                 .minWidth = 220.0f,
                 .width = SizeMode::Fit,
                 .height = SizeMode::Fit,
@@ -1285,7 +1285,7 @@ void TestGapDpAndContainerSizingConstraints() {
                 .padding = Padding::All(0.0f)
             })) {
                 constrainedCard = cd.GetNode();
-                ui.Button({.text = "Tall", .width = 60.0f, .height = 120.0f});
+                guikit::Button(ui, {.text = "Tall", .width = 60.0f, .height = 120.0f});
             }
         }
         ui.EndFrame(canvas);

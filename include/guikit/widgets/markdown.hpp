@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
@@ -85,6 +86,8 @@ struct MarkdownResponse : public Response {
 };
 
 /// Rich Markdown document viewer widget with inline span flow, alerts, multi-language code blocks, tables, selection, search, and smooth zoom.
+namespace detail {
+
 class Markdown {
 public:
     /// Immediate mode entry point for Markdown widget.
@@ -119,5 +122,17 @@ public:
         const UiTheme& theme = UiTheme::Dark()
     );
 };
+
+} // namespace detail
+
+inline MarkdownResponse Markdown(
+    Context& ui,
+    keel::StringRef markdownText,
+    const MarkdownOptions& opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::Markdown::Run(ui, markdownText, opts, loc);
+}
 
 } // namespace guikit

@@ -185,14 +185,14 @@ struct DayCellEntry {
 keel::StaticArray<DayCellEntry, 42> BuildCalendarGrid(keel::i32 viewYear, keel::i32 viewMonth, bool firstDayMonday) noexcept {
     keel::StaticArray<DayCellEntry, 42> cells{};
     const keel::i32 clampedMonth = keel::clamp(viewMonth, 1, 12);
-    const keel::i32 firstDow = DatePicker::DayOfWeek(viewYear, clampedMonth, 1); // 0 = Sun .. 6 = Sat
+    const keel::i32 firstDow = detail::DatePicker::DayOfWeek(viewYear, clampedMonth, 1); // 0 = Sun .. 6 = Sat
     const keel::i32 leading = firstDayMonday ? ((firstDow + 6) % 7) : firstDow;
-    const keel::i32 daysInCurr = DatePicker::DaysInMonth(viewYear, clampedMonth);
+    const keel::i32 daysInCurr = detail::DatePicker::DaysInMonth(viewYear, clampedMonth);
 
     keel::i32 prevYear = viewYear;
     keel::i32 prevMonth = clampedMonth;
     StepMonth(prevYear, prevMonth, -1);
-    const keel::i32 daysInPrev = DatePicker::DaysInMonth(prevYear, prevMonth);
+    const keel::i32 daysInPrev = detail::DatePicker::DaysInMonth(prevYear, prevMonth);
 
     keel::i32 nextYear = viewYear;
     keel::i32 nextMonth = clampedMonth;
@@ -663,7 +663,7 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
 
 } // namespace
 
-keel::FixedString<32> DatePicker::FormatDateTime(const DateTime& dt, DatePickerMode mode, bool showSeconds) {
+keel::FixedString<32> detail::DatePicker::FormatDateTime(const DateTime& dt, DatePickerMode mode, bool showSeconds) {
     const keel::i32 month = keel::clamp(dt.month, 1, 12);
     const keel::i32 maxDay = DaysInMonth(dt.year, month);
     const keel::i32 day = keel::clamp(dt.day, 1, maxDay);
@@ -695,7 +695,7 @@ keel::FixedString<32> DatePicker::FormatDateTime(const DateTime& dt, DatePickerM
     return keel::FixedString<32>(res);
 }
 
-Vec2 DatePicker::Measure(
+Vec2 detail::DatePicker::Measure(
     const DateTime& value,
     const DatePickerOptions& opts,
     UiSize size,
@@ -721,7 +721,7 @@ Vec2 DatePicker::Measure(
     return Control::Measure({boxW, boxH}, ctrl, theme);
 }
 
-Vec2 DatePicker::Measure(
+Vec2 detail::DatePicker::Measure(
     const DateTime& value,
     const DatePickerOptions& opts,
     UiSize size,
@@ -731,7 +731,7 @@ Vec2 DatePicker::Measure(
     return Measure(value, opts, size, canvas, defaultTheme);
 }
 
-Response DatePicker::Run(
+Response detail::DatePicker::Run(
     Context& ctx,
     DateTime& value,
     const DatePickerOptions& opts,
@@ -786,7 +786,7 @@ Response DatePicker::Run(
     optsCopy.labels.now = ctx.AllocString(opts.labels.now);
     optsCopy.labels.done = ctx.AllocString(opts.labels.done);
 
-    const Vec2 intrinsicDims = DatePicker::Measure(value, optsCopy, activeSize, canvas, theme);
+    const Vec2 intrinsicDims = detail::DatePicker::Measure(value, optsCopy, activeSize, canvas, theme);
 
     const ControlSpec ctrl = EffectiveDatePickerControl(optsCopy, activeSize, theme);
     const Rect prevBounds = ctx.GetPrevFrameBounds(id);
@@ -1086,10 +1086,10 @@ Response DatePicker::Run(
     node->measureFn = [](const Node* n, keel::f32 /*availableWidth*/, ICanvas* c, const UiTheme& t) noexcept -> Vec2 {
         const auto* d = n->As<DatePickerData>();
         return d
-            ? DatePicker::Measure(d->value, d->opts, n->uiSize, c, t)
-            : DatePicker::Measure(DateTime{}, DatePickerOptions{}, n->uiSize, c, t);
+            ? detail::DatePicker::Measure(d->value, d->opts, n->uiSize, c, t)
+            : detail::DatePicker::Measure(DateTime{}, DatePickerOptions{}, n->uiSize, c, t);
     };
-    node->renderFn = &DatePicker::Render;
+    node->renderFn = &detail::DatePicker::Render;
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
@@ -1102,7 +1102,7 @@ Response DatePicker::Run(
     return res;
 }
 
-void DatePicker::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
+void detail::DatePicker::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
     if (!node) return;
     const Rect bounds = node->computedRect;
     if (bounds.w <= 0.0f || bounds.h <= 0.0f) return;

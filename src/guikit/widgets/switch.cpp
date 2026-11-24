@@ -54,7 +54,7 @@ ControlSpec EffectiveSwitchControl(UiSize size, const UiTheme& theme) noexcept {
 
 } // namespace
 
-Response Switch::Run(
+Response detail::Switch::Run(
     Context& ctx,
     bool* value,
     bool checkedState,
@@ -117,11 +117,11 @@ Response Switch::Run(
     );
     node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* opts = n->As<SwitchOptions>();
-        return Switch::Measure(opts ? *opts : SwitchOptions{}, n->uiSize, canvas, theme, availableWidth);
+        return detail::Switch::Measure(opts ? *opts : SwitchOptions{}, n->uiSize, canvas, theme, availableWidth);
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* opts = n->As<SwitchOptions>();
-        Switch::Render(
+        detail::Switch::Render(
             canvas,
             n->computedRect,
             n->checked,
@@ -146,7 +146,7 @@ Response Switch::Run(
     return res;
 }
 
-Vec2 Switch::Measure(
+Vec2 detail::Switch::Measure(
     const SwitchOptions& opts,
     UiSize size,
     ICanvas* canvas,
@@ -158,7 +158,7 @@ Vec2 Switch::Measure(
     return Control::Measure(ctrlDims, ctrl, theme);
 }
 
-Vec2 Switch::Measure(
+Vec2 detail::Switch::Measure(
     const SwitchOptions& opts,
     UiSize size,
     ICanvas* canvas,
@@ -168,7 +168,7 @@ Vec2 Switch::Measure(
     return Measure(opts, size, canvas, defaultTheme, availableWidth);
 }
 
-void Switch::Render(
+void detail::Switch::Render(
     ICanvas& canvas,
     Rect bounds,
     bool checked,

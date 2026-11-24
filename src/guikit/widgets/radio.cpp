@@ -23,7 +23,7 @@ ControlSpec EffectiveRadioControl(UiSize size, const UiTheme& theme) noexcept {
 
 } // namespace
 
-Response Radio::Run(
+Response detail::Radio::Run(
     Context& ctx,
     bool* value,
     bool selectedState,
@@ -80,11 +80,11 @@ Response Radio::Run(
     );
     node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* opts = n->As<RadioOptions>();
-        return Radio::Measure(opts ? *opts : RadioOptions{}, n->uiSize, canvas, theme, availableWidth);
+        return detail::Radio::Measure(opts ? *opts : RadioOptions{}, n->uiSize, canvas, theme, availableWidth);
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* opts = n->As<RadioOptions>();
-        Radio::Render(
+        detail::Radio::Render(
             canvas,
             n->computedRect,
             n->checked,
@@ -109,7 +109,7 @@ Response Radio::Run(
     return res;
 }
 
-Vec2 Radio::Measure(
+Vec2 detail::Radio::Measure(
     const RadioOptions& opts,
     UiSize size,
     ICanvas* canvas,
@@ -123,7 +123,7 @@ Vec2 Radio::Measure(
     return Control::Measure({m.boxSize, m.boxSize}, ctrl, theme);
 }
 
-Vec2 Radio::Measure(
+Vec2 detail::Radio::Measure(
     const RadioOptions& opts,
     UiSize size,
     ICanvas* canvas,
@@ -133,7 +133,7 @@ Vec2 Radio::Measure(
     return Measure(opts, size, canvas, defaultTheme, availableWidth);
 }
 
-void Radio::Render(
+void detail::Radio::Render(
     ICanvas& canvas,
     Rect bounds,
     bool selected,

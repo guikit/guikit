@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
@@ -95,6 +96,8 @@ struct ElementGeometry {
 };
 
 /// Semantic Form-Field `Element` (`Label + [Control Slot] + Description`).
+namespace detail {
+
 class Element {
 public:
     /// Converts `ElementOptions` into a control-less `ElementSpec` for standalone measurement and rendering.
@@ -227,5 +230,15 @@ protected:
         const UiTheme& theme
     ) noexcept;
 };
+
+} // namespace detail
+
+inline ElementScope Element(
+    Context& ui,
+    ElementOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::Element::Open(ui, opts, loc);
+}
 
 } // namespace guikit

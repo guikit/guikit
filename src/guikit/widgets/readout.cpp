@@ -298,7 +298,7 @@ struct ReadoutData {
 
 } // namespace
 
-Vec2 Readout::Measure(
+Vec2 detail::Readout::Measure(
     keel::StringRef headerText,
     keel::StringRef valueText,
     keel::StringRef unitText,
@@ -332,7 +332,7 @@ Vec2 Readout::Measure(
     return Vec2(totalW, totalH);
 }
 
-void Readout::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
+void detail::Readout::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
     const auto* data = node ? node->As<ReadoutData>() : nullptr;
     if (!data) return;
 
@@ -512,7 +512,7 @@ void Readout::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
     canvas.PopClip();
 }
 
-ReadoutResponse Readout::Run(
+ReadoutResponse detail::Readout::Run(
     Context& ctx,
     ReadoutState& state,
     keel::ArrayRef<ReadoutChannel> channels,
@@ -706,7 +706,7 @@ ReadoutResponse Readout::Run(
             }
         }
 
-        const ContextMenuResponse menuRes = ContextMenu::Run(ctx, menuOpen, menuItems, menuOpts, loc);
+        const ContextMenuResponse menuRes = detail::ContextMenu::Run(ctx, menuOpen, menuItems, menuOpts, loc);
         if (menuRes.clickedIndex >= 0) {
             if (persist.openMenu == ReadoutOpenMenu::Channel) {
                 const keel::i32 nextChIdx = keel::clamp(menuRes.clickedIndex, 0, keel::as<keel::i32>(channels.size()) - 1);
@@ -792,9 +792,9 @@ ReadoutResponse Readout::Run(
     node->measureFn = [](const Node* n, keel::f32 /*availW*/, ICanvas* canvas, const UiTheme& t) -> Vec2 {
         const auto* d = n->As<ReadoutData>();
         if (!d) return Vec2(188.0f, 72.0f);
-        return Readout::Measure(d->headerText, d->valueText, d->unitText, d->showAction, d->opts, n->uiSize, canvas, t);
+        return detail::Readout::Measure(d->headerText, d->valueText, d->unitText, d->showAction, d->opts, n->uiSize, canvas, t);
     };
-    node->renderFn = &Readout::Render;
+    node->renderFn = &detail::Readout::Render;
 
     node->visualHash = detail::HashArgs(
         headerText,
@@ -822,7 +822,7 @@ ReadoutResponse Readout::Run(
     return res;
 }
 
-ReadoutResponse Readout::Run(
+ReadoutResponse detail::Readout::Run(
     Context& ctx,
     UiText label,
     keel::f64 value,

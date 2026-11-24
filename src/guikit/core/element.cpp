@@ -67,7 +67,7 @@ ElementSpec MakeSpecFromPayload(
     const bool isActive = n->pressed || n->focused || n->active;
     const Node* slotChild = FirstFlowChild(n);
     if (slotChild == nullptr) {
-        ElementSpec s = Element::MakeSpec(ep.opts, n->uiSize, n->disabled, theme, isHovered, isActive);
+        ElementSpec s = detail::Element::MakeSpec(ep.opts, n->uiSize, n->disabled, theme, isHovered, isActive);
         if (!s.width.IsFixed()) {
             s.width = n->widthMode;
         }
@@ -237,15 +237,15 @@ void ArrangeControlSlot(
 
 } // namespace
 
-keel::f32 Element::ResolveLabelFontSize(const ElementSpec& spec, const UiTheme& theme) noexcept {
+keel::f32 detail::Element::ResolveLabelFontSize(const ElementSpec& spec, const UiTheme& theme) noexcept {
     return theme.ResolveFontSize(spec.label, TextRole::LabelLarge, spec.widgetSize);
 }
 
-keel::f32 Element::ResolveDescFontSize(const ElementSpec& spec, const UiTheme& theme) noexcept {
+keel::f32 detail::Element::ResolveDescFontSize(const ElementSpec& spec, const UiTheme& theme) noexcept {
     return theme.ResolveFontSize(spec.description, TextRole::LabelSmall, spec.widgetSize);
 }
 
-Vec2 Element::MeasureLabelBar(
+Vec2 detail::Element::MeasureLabelBar(
     const ElementSpec& spec,
     keel::f32 labelFontSize,
     ICanvas* canvas,
@@ -288,7 +288,7 @@ Vec2 Element::MeasureLabelBar(
     return {barW, barH};
 }
 
-ElementSpec Element::MakeSpec(
+ElementSpec detail::Element::MakeSpec(
     const ElementOptions& opts,
     UiSize activeSize,
     bool isDisabled,
@@ -320,7 +320,7 @@ ElementSpec Element::MakeSpec(
     };
 }
 
-void Element::SyncWithChildren(Context& /*ctx*/, Node* elNode) noexcept {
+void detail::Element::SyncWithChildren(Context& /*ctx*/, Node* elNode) noexcept {
     if (!elNode) return;
     auto* ep = elNode->As<ElementPayload>();
     if (!ep) return;
@@ -430,7 +430,7 @@ void Element::SyncWithChildren(Context& /*ctx*/, Node* elNode) noexcept {
     );
 }
 
-ElementScope Element::Open(
+ElementScope detail::Element::Open(
     Context& ctx,
     const ElementOptions& opts,
     keel::SourceLocation loc
@@ -484,17 +484,17 @@ ElementScope Element::Open(
             const keel::f32 slotAvailW = ResolveSlotAvailableWidth(spec, availableWidth, canvas, theme, descFs, rawBar);
             slotIntrinsic = MeasureControlSlot(n, slotAvailW, canvas, theme);
         }
-        return Element::Measure(slotIntrinsic, spec, canvas, theme, availableWidth);
+        return detail::Element::Measure(slotIntrinsic, spec, canvas, theme, availableWidth);
     };
 
-    node->arrangeFn = &Element::Arrange;
+    node->arrangeFn = &detail::Element::Arrange;
 
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* ep = n->As<ElementPayload>();
         if (!ep) return;
         const ElementSpec spec = MakeSpecFromPayload(n, *ep, theme);
         if (!spec.hasControl) {
-            Element::Render(canvas, n->computedRect, spec, theme);
+            detail::Element::Render(canvas, n->computedRect, spec, theme);
             return;
         }
         const keel::f32 labelFs = ResolveLabelFontSize(spec, theme);
@@ -502,15 +502,15 @@ ElementScope Element::Open(
         const Vec2 rawBar = HasLabelBar(spec) ? MeasureLabelBar(spec, labelFs, &canvas, theme) : Vec2{0.0f, 0.0f};
         const keel::f32 slotAvailW = ResolveSlotAvailableWidth(spec, n->computedRect.w, &canvas, theme, descFs, rawBar);
         const Vec2 slotIntrinsic = MeasureControlSlot(n, slotAvailW, &canvas, theme);
-        const ElementGeometry geom = Element::Resolve(n->computedRect, slotIntrinsic, spec, &canvas, theme);
-        Element::RenderText(canvas, geom, spec, theme);
+        const ElementGeometry geom = detail::Element::Resolve(n->computedRect, slotIntrinsic, spec, &canvas, theme);
+        detail::Element::RenderText(canvas, geom, spec, theme);
     };
 
     ctx.FinishContainer(node);
     return ElementScope(&ctx, node, res);
 }
 
-void Element::Arrange(
+void detail::Element::Arrange(
     Node* node,
     const Rect& availableRect,
     const UiTheme& theme
@@ -537,11 +537,11 @@ void Element::Arrange(
     const Vec2 rawBar = HasLabelBar(spec) ? MeasureLabelBar(spec, labelFs, ep->lastCanvas, theme) : Vec2{0.0f, 0.0f};
     const keel::f32 slotAvailW = ResolveSlotAvailableWidth(spec, bounds.w, ep->lastCanvas, theme, descFs, rawBar);
     const Vec2 slotIntrinsic = MeasureControlSlot(node, slotAvailW, ep->lastCanvas, theme);
-    const ElementGeometry geom = Element::Resolve(bounds, slotIntrinsic, spec, ep->lastCanvas, theme);
+    const ElementGeometry geom = detail::Element::Resolve(bounds, slotIntrinsic, spec, ep->lastCanvas, theme);
     ArrangeControlSlot(node, geom.controlRect, ep->lastCanvas, theme);
 }
 
-Vec2 Element::Measure(
+Vec2 detail::Element::Measure(
     Vec2 intrinsicControlSize,
     const ElementSpec& spec,
     ICanvas* canvas,
@@ -689,7 +689,7 @@ Vec2 Element::Measure(
     return applyOuterFixedWidth({totalW, totalH});
 }
 
-ElementGeometry Element::Resolve(
+ElementGeometry detail::Element::Resolve(
     Rect bounds,
     Vec2 intrinsicControlSize,
     const ElementSpec& spec,
@@ -928,7 +928,7 @@ ElementGeometry Element::Resolve(
     return geom;
 }
 
-void Element::RenderText(
+void detail::Element::RenderText(
     ICanvas& canvas,
     const ElementGeometry& geom,
     const ElementSpec& spec,

@@ -5,7 +5,7 @@
 
 namespace guikit {
 
-ContainerScope Box::Open(
+ContainerScope detail::Box::Open(
     Context& ctx,
     const BoxOptions& opts,
     keel::SourceLocation loc

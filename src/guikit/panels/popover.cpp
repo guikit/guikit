@@ -45,7 +45,7 @@ void PopoverScope::EndPopoverIfNeeded() noexcept {
     }
 }
 
-PopoverScope Popover::Open(
+PopoverScope detail::Popover::Open(
     Context& ctx,
     bool& open,
     const PopoverOptions& opts,
@@ -127,9 +127,9 @@ PopoverScope Popover::Open(
     });
     node->SetPayload(payload);
     static constexpr PanelHooks kPopoverHooks{
-        .placeOutOfFlow = &Popover::ResolvePopoverRect
+        .placeOutOfFlow = &detail::Popover::ResolvePopoverRect
     };
-    node->measureFn = &Popover::Measure;
+    node->measureFn = &detail::Popover::Measure;
     node->panelHooks = &kPopoverHooks;
     node->visualHash = detail::HashArgs(
         opts.anchorRect.x,
@@ -148,7 +148,7 @@ PopoverScope Popover::Open(
     return PopoverScope(&ctx, node, &open, res, false);
 }
 
-Vec2 Popover::Measure(
+Vec2 detail::Popover::Measure(
     const Node* node,
     keel::f32 availableWidth,
     ICanvas* /*canvas*/,
@@ -176,7 +176,7 @@ Vec2 Popover::Measure(
     return {w, totalH};
 }
 
-void Popover::Arrange(
+void detail::Popover::Arrange(
     Node* /*node*/,
     const Rect& /*availableRect*/,
     const UiTheme& /*theme*/
@@ -184,7 +184,7 @@ void Popover::Arrange(
     // Arranged in Solver::ArrangeNode for NodeType::Popover
 }
 
-Rect Popover::ResolvePopoverRect(
+Rect detail::Popover::ResolvePopoverRect(
     const Node* node,
     keel::f32 resolvedWidth,
     keel::f32 resolvedHeight,

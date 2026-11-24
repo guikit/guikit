@@ -1,4 +1,6 @@
 #include "guikit/panels/status_bar.hpp"
+#include "guikit/layout/separator.hpp"
+#include "guikit/layout/spacer.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
@@ -198,7 +200,7 @@ void StatusBarScope::Item(
     keel::SourceLocation loc
 ) {
     if (!m_ctx) return;
-    StatusBar::RenderSegment(*m_ctx, opts, m_opts.style, false, loc);
+    detail::StatusBar::RenderSegment(*m_ctx, opts, m_opts.style, false, loc);
 }
 
 Response StatusBarScope::Action(
@@ -206,7 +208,7 @@ Response StatusBarScope::Action(
     keel::SourceLocation loc
 ) {
     if (!m_ctx) return Response{};
-    return StatusBar::RenderSegment(*m_ctx, opts, m_opts.style, true, loc);
+    return detail::StatusBar::RenderSegment(*m_ctx, opts, m_opts.style, true, loc);
 }
 
 void StatusBarScope::Separator(keel::f32 heightRatio, keel::SourceLocation loc) {
@@ -214,7 +216,7 @@ void StatusBarScope::Separator(keel::f32 heightRatio, keel::SourceLocation loc) 
     const Color col = (m_opts.style == StatusBarStyle::Accent)
         ? m_ctx->GetTheme().palette.accentText.WithAlphaF(0.3f)
         : m_node->borderColor;
-    guikit::Separator::Run(*m_ctx, heightRatio, col, loc);
+    guikit::detail::Separator::Run(*m_ctx, heightRatio, col, loc);
 }
 
 void StatusBarScope::Spacer(keel::SourceLocation loc) {
@@ -231,10 +233,10 @@ void StatusBarScope::Spacer(keel::SourceLocation loc) {
 
 void StatusBarScope::Gap(keel::f32 sizeDp, keel::SourceLocation loc) {
     if (!m_ctx) return;
-    guikit::Spacer::Gap(*m_ctx, sizeDp, loc);
+    guikit::detail::Spacer::Gap(*m_ctx, sizeDp, loc);
 }
 
-StatusBarScope StatusBar::Open(
+StatusBarScope detail::StatusBar::Open(
     Context& ctx,
     const StatusBarOptions& opts,
     keel::SourceLocation loc
@@ -303,7 +305,7 @@ StatusBarScope StatusBar::Open(
     return StatusBarScope(&ctx, node, res, opts);
 }
 
-Response StatusBar::RenderSegment(
+Response detail::StatusBar::RenderSegment(
     Context& ctx,
     const StatusItemOptions& opts,
     StatusBarStyle barStyle,

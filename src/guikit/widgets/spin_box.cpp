@@ -311,7 +311,7 @@ void FormatNumericValue(
 
 } // namespace
 
-Response SpinBox::Run(
+Response detail::SpinBox::Run(
     Context& ctx,
     keel::f32* floatValue,
     keel::f64* doubleValue,
@@ -377,7 +377,7 @@ Response SpinBox::Run(
     ICanvas* canvas = ctx.GetCanvas();
     const Rect refBounds = (res.rect.w > 0.0f && res.rect.h > 0.0f)
         ? res.rect
-        : Rect({0.0f, 0.0f}, SpinBox::Measure(valStr, optsCopy, activeSize, canvas, theme));
+        : Rect({0.0f, 0.0f}, detail::SpinBox::Measure(valStr, optsCopy, activeSize, canvas, theme));
 
     const SpinBoxStepStyle effStepStyle = ResolveEffectiveStepStyle(optsCopy);
     const bool showStepBtns = (effStepStyle != SpinBoxStepStyle::None);
@@ -659,7 +659,7 @@ Response SpinBox::Run(
     );
     node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<SpinBoxData>();
-        return SpinBox::Measure(
+        return detail::SpinBox::Measure(
             d ? d->displayText : keel::StringRef{},
             d ? d->opts : SpinBoxOptions{},
             n->uiSize,
@@ -670,7 +670,7 @@ Response SpinBox::Run(
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* d = n->As<SpinBoxData>();
-        SpinBox::Render(
+        detail::SpinBox::Render(
             canvas,
             n->computedRect,
             d ? d->displayText : keel::StringRef{},
@@ -708,7 +708,7 @@ Response SpinBox::Run(
     return res;
 }
 
-Vec2 SpinBox::Measure(
+Vec2 detail::SpinBox::Measure(
     keel::StringRef /*displayText*/,
     const SpinBoxOptions& opts,
     UiSize size,
@@ -721,7 +721,7 @@ Vec2 SpinBox::Measure(
     return Control::Measure(boxDims, ctrl, theme);
 }
 
-Vec2 SpinBox::Measure(
+Vec2 detail::SpinBox::Measure(
     keel::StringRef displayText,
     const SpinBoxOptions& opts,
     UiSize size,
@@ -732,7 +732,7 @@ Vec2 SpinBox::Measure(
     return Measure(displayText, opts, size, canvas, defaultTheme, availableWidth);
 }
 
-void SpinBox::Render(
+void detail::SpinBox::Render(
     ICanvas& canvas,
     Rect bounds,
     keel::StringRef displayText,

@@ -77,7 +77,7 @@ Vec2 ComputeControlBoxSize(
 
 } // namespace
 
-Response Image::Run(
+Response detail::Image::Run(
     Context& ctx,
     keel::StringRef source,
     const ImageOptions& opts,
@@ -149,12 +149,12 @@ Response Image::Run(
         if (n->widthMode == SizeMode::Stretch && !effOpts.width.IsFixed()) {
             effOpts.width = SizeMode::Stretch;
         }
-        return Image::Measure(p->source, effOpts, n->uiSize, canvas ? canvas : p->lastCanvas, th, availableWidth);
+        return detail::Image::Measure(p->source, effOpts, n->uiSize, canvas ? canvas : p->lastCanvas, th, availableWidth);
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& th) noexcept {
         const auto* p = n->As<ImagePayload>();
         if (!p) return;
-        Image::Render(canvas, n->computedRect, p->source, p->opts, n->uiSize, n->hovered, n->disabled, th);
+        detail::Image::Render(canvas, n->computedRect, p->source, p->opts, n->uiSize, n->hovered, n->disabled, th);
     };
 
     node->uiSize = activeSize;
@@ -176,7 +176,7 @@ Response Image::Run(
     return res;
 }
 
-Vec2 Image::Measure(
+Vec2 detail::Image::Measure(
     keel::StringRef source,
     const ImageOptions& opts,
     UiSize size,
@@ -190,7 +190,7 @@ Vec2 Image::Measure(
     return Control::Measure(ctrlSize, ctrl, theme);
 }
 
-Vec2 Image::Measure(
+Vec2 detail::Image::Measure(
     keel::StringRef source,
     const ImageOptions& opts,
     UiSize size,
@@ -201,7 +201,7 @@ Vec2 Image::Measure(
     return Measure(source, opts, size, canvas, defaultTheme, availableWidth);
 }
 
-void Image::DrawCheckerboard(
+void detail::Image::DrawCheckerboard(
     ICanvas& canvas,
     Rect rect,
     keel::f32 radius,
@@ -236,7 +236,7 @@ void Image::DrawCheckerboard(
     canvas.PopClip();
 }
 
-void Image::Render(
+void detail::Image::Render(
     ICanvas& canvas,
     Rect bounds,
     keel::StringRef source,

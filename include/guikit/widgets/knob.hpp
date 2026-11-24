@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "keel/core.h"
 #include "keel/optional.h"
 #include "keel/ref.h"
@@ -48,6 +49,8 @@ struct KnobData {
 };
 
 /// Autonomous rotary Knob widget logic (execution, measuring, and rendering).
+namespace detail {
+
 class Knob {
 public:
     static Response Run(
@@ -92,5 +95,33 @@ public:
         bool focused = false
     );
 };
+
+} // namespace detail
+
+template <SliderNumeric T>
+Response Knob(
+    Context& ui,
+    T& value,
+    T min,
+    T max,
+    KnobOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    if constexpr (keel::IsSame<keel::Decay<T>, keel::f64>) {
+        return detail::Knob::Run(ui, &value, nullptr, nullptr, min, max, opts, loc);
+    } else if constexpr (keel::IsSame<keel::Decay<T>, keel::f32>) {
+        return detail::Knob::Run(ui, nullptr, &value, nullptr, keel::as<keel::f64>(min), keel::as<keel::f64>(max), opts, loc);
+    } else if constexpr (keel::IsSame<keel::Decay<T>, keel::i64>) {
+        return detail::Knob::Run(ui, nullptr, nullptr, &value, keel::as<keel::f64>(min), keel::as<keel::f64>(max), opts, loc);
+    } else {
+        keel::i64 valInt = keel::as<keel::i64>(value);
+        Response res = detail::Knob::Run(ui, nullptr, nullptr, &valInt, keel::as<keel::f64>(min), keel::as<keel::f64>(max), opts, loc);
+        if (res.changed) {
+            value = keel::as<T>(valInt);
+        }
+        return res;
+    }
+}
 
 } // namespace guikit

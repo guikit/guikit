@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -82,6 +83,8 @@ private:
 };
 
 /// Autonomous immediate-mode Accordion collapsible section container.
+namespace detail {
+
 class Accordion {
 public:
     [[nodiscard]] static AccordionScope Open(
@@ -118,5 +121,54 @@ public:
         const UiTheme& theme
     ) noexcept;
 };
+
+} // namespace detail
+
+[[nodiscard]] inline AccordionScope Accordion(
+    Context& ui,
+    AccordionOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::Accordion::Open(ui, nullptr, opts, loc);
+}
+
+[[nodiscard]] inline AccordionScope Accordion(
+    Context& ui,
+    keel::StringRef label,
+    AccordionOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    opts.label.text = label;
+    return detail::Accordion::Open(ui, nullptr, opts, loc);
+}
+
+[[nodiscard]] inline AccordionScope Accordion(
+    Context& ui,
+    bool& open,
+    AccordionOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::Accordion::Open(ui, &open, opts, loc);
+}
+
+template <typename T, typename U>
+    requires (!keel::IsSame<keel::Decay<T>, bool> && requires(T& a, const U& b) {
+        static_cast<bool>(a == b);
+        a = static_cast<T>(b);
+    })
+[[nodiscard]] AccordionScope Accordion(
+    Context& ui,
+    T& activeValue,
+    const U& sectionValue,
+    AccordionOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    bool isOpen = static_cast<bool>(activeValue == sectionValue);
+    auto scope = detail::Accordion::Open(ui, &isOpen, opts, loc);
+    if (scope.response.changed && isOpen) {
+        activeValue = static_cast<T>(sectionValue);
+    }
+    return scope;
+}
 
 } // namespace guikit

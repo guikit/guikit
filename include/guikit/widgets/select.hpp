@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -82,6 +83,8 @@ struct SelectData {
 };
 
 /// Autonomous Select (dropdown combo box) widget logic.
+namespace detail {
+
 class Select {
 public:
     /// Primary immediate mode entry point for Select with rich SelectItem elements.
@@ -206,5 +209,181 @@ public:
         keel::StringRef highlightQuery = {}
     );
 };
+
+} // namespace detail
+
+template <SelectTarget T>
+Response Select(
+    Context& ui,
+    T& selected,
+    keel::ArrayRef<SelectItem> items,
+    SelectOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    if constexpr (keel::IsSame<keel::Decay<T>, keel::usize>) {
+        return detail::Select::Run(ui, &selected, nullptr, keel::Optional<keel::StringSink>{}, nullptr, items, opts, loc);
+    } else if constexpr (keel::IsSame<keel::Decay<T>, keel::i32>) {
+        return detail::Select::Run(ui, nullptr, &selected, keel::Optional<keel::StringSink>{}, nullptr, items, opts, loc);
+    } else if constexpr (IndexLike<T>) {
+        constexpr bool isSignedIndex = []() constexpr {
+            if constexpr (keel::IsEnum<keel::Decay<T>>) {
+                return keel::IsSigned<keel::UnderlyingType<keel::Decay<T>>>;
+            } else {
+                return keel::IsSigned<keel::Decay<T>>;
+            }
+        }();
+        if constexpr (isSignedIndex) {
+            keel::i32 idx = keel::as<keel::i32>(selected);
+            Response r = detail::Select::Run(ui, nullptr, &idx, keel::Optional<keel::StringSink>{}, nullptr, items, opts, loc);
+            if (r.changed) {
+                selected = detail::FromIndexLike<T>(idx);
+            }
+            return r;
+        } else {
+            keel::usize idx = keel::as<keel::usize>(selected);
+            Response r = detail::Select::Run(ui, &idx, nullptr, keel::Optional<keel::StringSink>{}, nullptr, items, opts, loc);
+            if (r.changed) {
+                selected = detail::FromIndexLike<T>(idx);
+            }
+            return r;
+        }
+    } else if constexpr (keel::WritableString<T>) {
+        return detail::Select::Run(ui, nullptr, nullptr, keel::Optional<keel::StringSink>(keel::StringSink(selected)), nullptr, items, opts, loc);
+    } else if constexpr (keel::IsSame<keel::RemoveCvRef<T>, keel::StringRef>) {
+        return detail::Select::Run(ui, nullptr, nullptr, keel::Optional<keel::StringSink>{}, &selected, items, opts, loc);
+    } else if constexpr (MutableForeignStringView<T>) {
+        keel::StringRef sr(selected.data(), keel::as<keel::usize>(selected.size()));
+        Response r = detail::Select::Run(ui, nullptr, nullptr, keel::Optional<keel::StringSink>{}, &sr, items, opts, loc);
+        if (r.changed) {
+            selected = keel::RemoveCvRef<T>(sr.data(), sr.size());
+        }
+        return r;
+    }
+}
+
+template <SelectTarget T>
+Response Select(
+    Context& ui,
+    T& selected,
+    keel::ArrayRef<keel::StringRef> items,
+    SelectOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    if constexpr (keel::IsSame<keel::Decay<T>, keel::usize>) {
+        return detail::Select::Run(ui, &selected, nullptr, keel::Optional<keel::StringSink>{}, nullptr, items, opts, loc);
+    } else if constexpr (keel::IsSame<keel::Decay<T>, keel::i32>) {
+        return detail::Select::Run(ui, nullptr, &selected, keel::Optional<keel::StringSink>{}, nullptr, items, opts, loc);
+    } else if constexpr (IndexLike<T>) {
+        constexpr bool isSignedIndex = []() constexpr {
+            if constexpr (keel::IsEnum<keel::Decay<T>>) {
+                return keel::IsSigned<keel::UnderlyingType<keel::Decay<T>>>;
+            } else {
+                return keel::IsSigned<keel::Decay<T>>;
+            }
+        }();
+        if constexpr (isSignedIndex) {
+            keel::i32 idx = keel::as<keel::i32>(selected);
+            Response r = detail::Select::Run(ui, nullptr, &idx, keel::Optional<keel::StringSink>{}, nullptr, items, opts, loc);
+            if (r.changed) {
+                selected = detail::FromIndexLike<T>(idx);
+            }
+            return r;
+        } else {
+            keel::usize idx = keel::as<keel::usize>(selected);
+            Response r = detail::Select::Run(ui, &idx, nullptr, keel::Optional<keel::StringSink>{}, nullptr, items, opts, loc);
+            if (r.changed) {
+                selected = detail::FromIndexLike<T>(idx);
+            }
+            return r;
+        }
+    } else if constexpr (keel::WritableString<T>) {
+        return detail::Select::Run(ui, nullptr, nullptr, keel::Optional<keel::StringSink>(keel::StringSink(selected)), nullptr, items, opts, loc);
+    } else if constexpr (keel::IsSame<keel::RemoveCvRef<T>, keel::StringRef>) {
+        return detail::Select::Run(ui, nullptr, nullptr, keel::Optional<keel::StringSink>{}, &selected, items, opts, loc);
+    } else if constexpr (MutableForeignStringView<T>) {
+        keel::StringRef sr(selected.data(), keel::as<keel::usize>(selected.size()));
+        Response r = detail::Select::Run(ui, nullptr, nullptr, keel::Optional<keel::StringSink>{}, &sr, items, opts, loc);
+        if (r.changed) {
+            selected = keel::RemoveCvRef<T>(sr.data(), sr.size());
+        }
+        return r;
+    }
+}
+
+template <SelectTarget T>
+Response ComboBox(
+    Context& ui,
+    T& selected,
+    keel::ArrayRef<SelectItem> items,
+    SelectOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    opts.searchable = true;
+    return guikit::Select(ui, selected, items, keel::move(opts), loc);
+}
+
+template <SelectTarget T>
+Response ComboBox(
+    Context& ui,
+    T& selected,
+    keel::ArrayRef<keel::StringRef> items,
+    SelectOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    opts.searchable = true;
+    return guikit::Select(ui, selected, items, keel::move(opts), loc);
+}
+
+template <keel::WritableString S>
+Response Autocomplete(
+    Context& ui,
+    S& value,
+    keel::ArrayRef<SelectItem> items,
+    SelectOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    opts.searchable = true;
+    opts.editable = true;
+    return guikit::Select(ui, value, items, keel::move(opts), loc);
+}
+
+template <keel::WritableString S>
+Response Autocomplete(
+    Context& ui,
+    S& value,
+    keel::ArrayRef<keel::StringRef> items,
+    SelectOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    opts.searchable = true;
+    opts.editable = true;
+    return guikit::Select(ui, value, items, keel::move(opts), loc);
+}
+
+template <WritableIndexList Arr>
+Response MultiSelect(
+    Context& ui,
+    Arr& selectedIndices,
+    keel::ArrayRef<SelectItem> items,
+    SelectOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::Select::RunMulti(ui, IndexListSink(selectedIndices), items, opts, loc);
+}
+
+template <WritableIndexList Arr>
+Response MultiSelect(
+    Context& ui,
+    Arr& selectedIndices,
+    keel::ArrayRef<keel::StringRef> items,
+    SelectOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::Select::RunMulti(ui, IndexListSink(selectedIndices), items, opts, loc);
+}
 
 } // namespace guikit

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -97,6 +98,8 @@ struct ReadoutResponse : public Response {
 };
 
 /// Autonomous engineering Digital Readout widget with direct-click channel, precision, unit dropdowns and trailing action button.
+namespace detail {
+
 class Readout {
 public:
     /// Multi-channel engineering Readout slot (header -> channel, value -> precision, unit -> units, trailing -> action).
@@ -133,5 +136,32 @@ public:
 
     static void Render(const Node* node, ICanvas& canvas, const UiTheme& theme);
 };
+
+} // namespace detail
+
+inline ReadoutResponse Readout(
+    Context& ui,
+    ReadoutState& state,
+    keel::ArrayRef<ReadoutChannel> channels,
+    ReadoutOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::Readout::Run(ui, state, channels, opts, loc);
+}
+
+inline ReadoutResponse Readout(
+    Context& ui,
+    UiText label,
+    keel::f64 value,
+    keel::i32& unitIndex,
+    keel::i32& precision,
+    keel::ArrayRef<ReadoutUnit> units = {},
+    ReadoutOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::Readout::Run(ui, label, value, unitIndex, precision, units, opts, loc);
+}
 
 } // namespace guikit

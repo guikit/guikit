@@ -92,7 +92,7 @@ void DrawAnnularArc(
 
 } // namespace
 
-Response Knob::Run(
+Response detail::Knob::Run(
     Context& ctx,
     keel::f64* doubleVal,
     keel::f32* floatVal,
@@ -290,7 +290,7 @@ Response Knob::Run(
     );
     node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<KnobData>();
-        return Knob::Measure(
+        return detail::Knob::Measure(
             d ? d->opts : KnobOptions{},
             d ? d->valueText : keel::StringRef{},
             n->uiSize,
@@ -301,7 +301,7 @@ Response Knob::Run(
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* d = n->As<KnobData>();
-        Knob::Render(
+        detail::Knob::Render(
             canvas,
             n->computedRect,
             d ? d->normalizedValue : 0.0f,
@@ -328,7 +328,7 @@ Response Knob::Run(
     return res;
 }
 
-Vec2 Knob::Measure(
+Vec2 detail::Knob::Measure(
     const KnobOptions& opts,
     keel::StringRef valueText,
     UiSize size,
@@ -373,7 +373,7 @@ Vec2 Knob::Measure(
     return Control::Measure({w, h}, ctrl, theme);
 }
 
-Vec2 Knob::Measure(
+Vec2 detail::Knob::Measure(
     const KnobOptions& opts,
     keel::StringRef valueText,
     UiSize size,
@@ -384,7 +384,7 @@ Vec2 Knob::Measure(
     return Measure(opts, valueText, size, canvas, defaultTheme, availableWidth);
 }
 
-void Knob::Render(
+void detail::Knob::Render(
     ICanvas& canvas,
     Rect bounds,
     keel::f32 normalizedValue,

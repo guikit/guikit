@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/types.hpp"
 #include "keel/core.h"
@@ -10,6 +11,8 @@ class Context;
 class ICanvas;
 
 /// Autonomous immediate-mode Separator layout primitive and line renderer.
+namespace detail {
+
 class Separator {
 public:
     /// Creates a Separator layout node that adapts to the current container orientation
@@ -43,5 +46,34 @@ public:
         keel::f32 insetRatio = 0.20f
     ) noexcept;
 };
+
+} // namespace detail
+
+inline void Separator(
+    Context& ui,
+    keel::f32 extentRatio = 0.0f,
+    Color colorOverride = Color::Transparent(),
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    detail::Separator::Run(ui, extentRatio, colorOverride, loc);
+}
+
+inline void Separator(
+    Context& ui,
+    Color colorOverride,
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    detail::Separator::Run(ui, 0.0f, colorOverride, loc);
+}
+
+inline void Separator(
+    Context& ui,
+    Orientation lineOrientation,
+    keel::f32 extentRatio = 0.0f,
+    Color colorOverride = Color::Transparent(),
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    detail::Separator::Run(ui, extentRatio, colorOverride, loc, lineOrientation);
+}
 
 } // namespace guikit

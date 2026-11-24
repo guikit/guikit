@@ -1,4 +1,14 @@
 #include "guikit/core/main_window.hpp"
+#include "guikit/core/element.hpp"
+#include "guikit/layout/column.hpp"
+#include "guikit/layout/row.hpp"
+#include "guikit/layout/separator.hpp"
+#include "guikit/panels/card.hpp"
+#include "guikit/panels/popover.hpp"
+#include "guikit/widgets/heading.hpp"
+#include "guikit/widgets/select.hpp"
+#include "guikit/widgets/slider.hpp"
+#include "guikit/widgets/switch.hpp"
 
 #include "keel/core.h"
 #include "keel/format.h"
@@ -202,7 +212,7 @@ void MainWindow::RenderFrame() {
         }
 
         if (m_config.autoShellScope) {
-            if (auto mainCol = m_ui.Column({})) {
+            if (auto mainCol = guikit::Column(m_ui, {})) {
                 OnRender(m_ui);
             }
         } else {
@@ -497,7 +507,7 @@ void MainWindow::RenderThemeControls(ToolbarScope& tb) {
         ThemePresetName(ThemePreset::Windows98)
     }};
 
-    if (m_ui.Select(m_shellScaleIndex, kScaleLabels, {.size = UiSize::Sm, .width = 88.0f}).changed) {
+    if (guikit::Select(m_ui, m_shellScaleIndex, kScaleLabels, {.size = UiSize::Sm, .width = 88.0f}).changed) {
         SetShellScaleIndex(m_shellScaleIndex);
     }
 
@@ -505,11 +515,11 @@ void MainWindow::RenderThemeControls(ToolbarScope& tb) {
     if (presetIndex >= kThemePresetCount) {
         presetIndex = 0u;
     }
-    if (m_ui.Select(presetIndex, kPresetLabels, {.size = UiSize::Sm, .width = 152.0f}).changed) {
+    if (guikit::Select(m_ui, presetIndex, kPresetLabels, {.size = UiSize::Sm, .width = 152.0f}).changed) {
         SetShellThemePreset(keel::from_underlying<ThemePreset>(presetIndex));
     }
 
-    if (m_ui.Switch(m_shellFloating, {
+    if (guikit::Switch(m_ui, m_shellFloating, {
         .textLeft = "Dock",
         .textRight = "Float",
         .symmetric = true
@@ -519,7 +529,7 @@ void MainWindow::RenderThemeControls(ToolbarScope& tb) {
 }
 
 void MainWindow::RenderDebugControls(ToolbarScope& tb) {
-    if (auto debugGroup = m_ui.Row({.equalWidths = true})) {
+    if (auto debugGroup = guikit::Row(m_ui, {.equalWidths = true})) {
         bool boundsActive = m_ui.IsDebugBounds();
         if (tb.Toggle(boundsActive, {
             .text = "Bounds",
@@ -556,61 +566,61 @@ void MainWindow::RenderEngineControls(ToolbarScope& tb) {
         .iconPlacement = Placement::Trailing
     });
 
-    if (auto pop = m_ui.Popover(m_enginePopoverOpen, {
+    if (auto pop = guikit::Popover(m_ui, m_enginePopoverOpen, {
         .anchorRect = engineBtn.rect
     })) {
-        if (auto card = m_ui.Card({
+        if (auto card = guikit::Card(m_ui, {
             .width = 296.0f,
             .gap = 8.0f,
             .padding = Padding::All(14.0f),
             .elevated = true
         })) {
-            m_ui.Heading({
+            guikit::Heading(m_ui, {
                 .label = "Engine Pipeline",
                 .level = HeadingLevel::H5,
                 .separator = HeadingSeparator::Bottom
             });
 
             bool gpuEnabled = IsGpuShadersEnabled();
-            if (auto el = m_ui.Element({
+            if (auto el = guikit::Element(m_ui, {
                 .label = "GPU Shaders",
                 .description = "Hardware shader underlays",
                 .layout = ElementLayout::Leading,
                 .disabled = !IsGpuShadersAvailable()
             })) {
-                if (m_ui.Switch(gpuEnabled, {.size = UiSize::Sm})) {
+                if (guikit::Switch(m_ui, gpuEnabled, {.size = UiSize::Sm})) {
                     SetGpuShadersEnabled(gpuEnabled);
                 }
             }
 
             bool vsync = IsVsyncEnabled();
-            if (auto el = m_ui.Element({
+            if (auto el = guikit::Element(m_ui, {
                 .label = "VSync",
                 .description = "Synchronize swap interval",
                 .layout = ElementLayout::Leading
             })) {
-                if (m_ui.Switch(vsync, {.size = UiSize::Sm})) {
+                if (guikit::Switch(m_ui, vsync, {.size = UiSize::Sm})) {
                     SetVsyncEnabled(vsync);
                 }
             }
 
-            if (auto el = m_ui.Element({
+            if (auto el = guikit::Element(m_ui, {
                 .label = "Reactive Loop",
                 .description = "Idle sleep at 0% CPU",
                 .layout = ElementLayout::Leading
             })) {
-                if (m_ui.Switch(m_reactiveMode, {.size = UiSize::Sm})) {
+                if (guikit::Switch(m_ui, m_reactiveMode, {.size = UiSize::Sm})) {
                     SetReactiveMode(m_reactiveMode);
                 }
             }
 
             bool dirtyActive = m_ui.IsDirtyRectEnabled();
-            if (auto el = m_ui.Element({
+            if (auto el = guikit::Element(m_ui, {
                 .label = "Dirty-Rect Raster",
                 .description = "Disjoint partial redraws",
                 .layout = ElementLayout::Leading
             })) {
-                if (m_ui.Switch(dirtyActive, {.size = UiSize::Sm})) {
+                if (guikit::Switch(m_ui, dirtyActive, {.size = UiSize::Sm})) {
                     m_ui.SetDirtyRectEnabled(dirtyActive);
                     if (!dirtyActive) {
                         m_ui.InvalidateAll();
@@ -619,33 +629,33 @@ void MainWindow::RenderEngineControls(ToolbarScope& tb) {
             }
 
             bool liveResizeActive = m_ui.IsLiveResizeEnabled();
-            if (auto el = m_ui.Element({
+            if (auto el = guikit::Element(m_ui, {
                 .label = "Live Window Resize",
                 .description = "Reflow while dragging edge",
                 .layout = ElementLayout::Leading
             })) {
-                if (m_ui.Switch(liveResizeActive, {.size = UiSize::Sm})) {
+                if (guikit::Switch(m_ui, liveResizeActive, {.size = UiSize::Sm})) {
                     m_ui.SetLiveResize(liveResizeActive);
                 }
             }
 
-            m_ui.Separator();
+            guikit::Separator(m_ui);
 
-            if (auto el = m_ui.Element({
+            if (auto el = guikit::Element(m_ui, {
                 .label = "Idle Heartbeat",
                 .layout = ElementLayout::Leading,
                 .disabled = !m_reactiveMode
             })) {
                 keel::usize hbIdx = m_heartbeatIndex;
-                if (m_ui.Select(hbIdx, kHeartbeatShortLabels, {.size = UiSize::Sm, .width = 128.0f})) {
+                if (guikit::Select(m_ui, hbIdx, kHeartbeatShortLabels, {.size = UiSize::Sm, .width = 128.0f})) {
                     m_heartbeatIndex = hbIdx % kHeartbeatMsValues.size();
                     m_ui.SetIdleHeartbeatMs(kHeartbeatMsValues[m_heartbeatIndex]);
                 }
             }
 
-            m_ui.Separator();
+            guikit::Separator(m_ui);
 
-            m_ui.Heading({
+            guikit::Heading(m_ui, {
                 .label = "Text Rendering",
                 .badge = {m_backend ? m_backend->GetCanvas().GetTextEngineName() : keel::StringRef{"Default"}, StateColor::Primary()},
                 .level = HeadingLevel::H5
@@ -668,44 +678,44 @@ void MainWindow::RenderEngineControls(ToolbarScope& tb) {
             const bool supportsHinting = m_backend && m_backend->GetCanvas().SupportsFontHinting();
             bool textChanged = false;
 
-            if (auto el = m_ui.Element({
+            if (auto el = guikit::Element(m_ui, {
                 .label = "Smoothing",
                 .layout = ElementLayout::Leading
             })) {
                 keel::usize smoothIdx = keel::as<keel::usize>(textCfg.smoothing);
-                if (m_ui.Select(smoothIdx, kSmoothingLabels, {.size = UiSize::Sm, .width = 128.0f})) {
+                if (guikit::Select(m_ui, smoothIdx, kSmoothingLabels, {.size = UiSize::Sm, .width = 128.0f})) {
                     textCfg.smoothing = keel::from_underlying<FontSmoothing>(smoothIdx % kSmoothingLabels.size());
                     textChanged = true;
                 }
             }
 
-            if (auto el = m_ui.Element({
+            if (auto el = guikit::Element(m_ui, {
                 .label = "Hinting",
                 .layout = ElementLayout::Leading,
                 .disabled = !supportsHinting
             })) {
                 keel::usize hintIdx = keel::as<keel::usize>(textCfg.hinting);
-                if (m_ui.Select(hintIdx, kHintingLabels, {.disabled = !supportsHinting, .size = UiSize::Sm, .width = 128.0f})) {
+                if (guikit::Select(m_ui, hintIdx, kHintingLabels, {.disabled = !supportsHinting, .size = UiSize::Sm, .width = 128.0f})) {
                     textCfg.hinting = keel::from_underlying<FontHinting>(hintIdx % kHintingLabels.size());
                     textChanged = true;
                 }
             }
 
-            if (auto el = m_ui.Element({
+            if (auto el = guikit::Element(m_ui, {
                 .label = "Gamma Blending",
                 .description = "Linear sRGB text compositing",
                 .layout = ElementLayout::Leading
             })) {
-                if (m_ui.Switch(textCfg.gammaCorrectBlending, {.size = UiSize::Sm})) {
+                if (guikit::Switch(m_ui, textCfg.gammaCorrectBlending, {.size = UiSize::Sm})) {
                     textChanged = true;
                 }
             }
 
-            if (auto el = m_ui.Element({
+            if (auto el = guikit::Element(m_ui, {
                 .label = "Contrast",
                 .layout = ElementLayout::Leading
             })) {
-                if (m_ui.Slider(textCfg.contrast, 0.6f, 1.8f, {
+                if (guikit::Slider(m_ui, textCfg.contrast, 0.6f, 1.8f, {
                     .valueFormat = "%.2f",
                     .size = UiSize::Sm,
                     .width = 136.0f
@@ -714,11 +724,11 @@ void MainWindow::RenderEngineControls(ToolbarScope& tb) {
                 }
             }
 
-            if (auto el = m_ui.Element({
+            if (auto el = guikit::Element(m_ui, {
                 .label = "Stem Darkening",
                 .layout = ElementLayout::Leading
             })) {
-                if (m_ui.Slider(textCfg.stemDarkening, 0.0f, 0.45f, {
+                if (guikit::Slider(m_ui, textCfg.stemDarkening, 0.0f, 0.45f, {
                     .valueFormat = "%.2f",
                     .size = UiSize::Sm,
                     .width = 136.0f
@@ -795,7 +805,7 @@ CommandPaletteResponse MainWindow::RenderCommandPalette(
         m_ui.InvalidateAll();
     }
 
-    return m_ui.CommandPalette(m_commandPaletteOpen, items, {
+    return guikit::CommandPalette(m_ui, m_commandPaletteOpen, items, {
         .placeholder = placeholder
     });
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "keel/core.h"
 #include "keel/optional.h"
 #include "keel/ref.h"
@@ -127,6 +128,8 @@ struct SliderState {
 };
 
 /// Autonomous Slider widget logic.
+namespace detail {
+
 class Slider {
 public:
     static Response Run(
@@ -176,7 +179,11 @@ public:
     );
 };
 
+} // namespace detail
+
 /// Autonomous discrete N-position StepSlider widget logic.
+namespace detail {
+
 class StepSlider {
 public:
     static Response Run(
@@ -221,7 +228,11 @@ public:
     );
 };
 
+} // namespace detail
+
 /// Autonomous two-thumb RangeSlider ([low .. high] + draggable interval span) widget logic.
+namespace detail {
+
 class RangeSlider {
 public:
     static Response Run(
@@ -278,7 +289,11 @@ public:
     );
 };
 
+} // namespace detail
+
 /// Autonomous ProgressBar & Segmented LED / VU LevelMeter widget logic.
+namespace detail {
+
 class ProgressBar {
 public:
     static Response Run(
@@ -324,5 +339,131 @@ public:
         keel::f32 animPhase = 0.0f
     );
 };
+
+} // namespace detail
+
+template <SliderNumeric T>
+Response Slider(
+    Context& ui,
+    T& value,
+    T min,
+    T max,
+    SliderOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    if constexpr (keel::IsSame<keel::Decay<T>, keel::f64>) {
+        return detail::Slider::Run(ui, &value, nullptr, nullptr, min, max, opts, loc);
+    } else if constexpr (keel::IsSame<keel::Decay<T>, keel::f32>) {
+        return detail::Slider::Run(ui, nullptr, &value, nullptr, keel::as<keel::f64>(min), keel::as<keel::f64>(max), opts, loc);
+    } else {
+        keel::i64 val64 = keel::as<keel::i64>(value);
+        Response res = detail::Slider::Run(ui, nullptr, nullptr, &val64, keel::as<keel::f64>(min), keel::as<keel::f64>(max), opts, loc);
+        if (res.changed) {
+            value = keel::as<T>(val64);
+        }
+        return res;
+    }
+}
+
+template <SliderNumeric T>
+Response RangeSlider(
+    Context& ui,
+    T& lowValue,
+    T& highValue,
+    T min,
+    T max,
+    RangeSliderOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    if constexpr (keel::IsSame<keel::Decay<T>, keel::f64>) {
+        return detail::RangeSlider::Run(ui, &lowValue, &highValue, nullptr, nullptr, nullptr, nullptr, min, max, opts, loc);
+    } else if constexpr (keel::IsSame<keel::Decay<T>, keel::f32>) {
+        return detail::RangeSlider::Run(ui, nullptr, nullptr, &lowValue, &highValue, nullptr, nullptr, keel::as<keel::f64>(min), keel::as<keel::f64>(max), opts, loc);
+    } else {
+        keel::i64 low64 = keel::as<keel::i64>(lowValue);
+        keel::i64 high64 = keel::as<keel::i64>(highValue);
+        Response res = detail::RangeSlider::Run(ui, nullptr, nullptr, nullptr, nullptr, &low64, &high64, keel::as<keel::f64>(min), keel::as<keel::f64>(max), opts, loc);
+        if (res.changed) {
+            lowValue = keel::as<T>(low64);
+            highValue = keel::as<T>(high64);
+        }
+        return res;
+    }
+}
+
+inline Response ProgressBar(
+    Context& ui,
+    keel::f64 value,
+    keel::f64 min,
+    keel::f64 max,
+    ProgressBarOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::ProgressBar::Run(ui, value, min, max, opts, loc);
+}
+
+inline Response ProgressBar(
+    Context& ui,
+    keel::f64 percent0to100,
+    ProgressBarOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::ProgressBar::Run(ui, percent0to100, 0.0, 100.0, opts, loc);
+}
+
+template <IndexLike IndexT>
+    requires (!keel::IsConst<IndexT>)
+Response StepSlider(
+    Context& ui,
+    IndexT& index,
+    keel::usize totalSteps,
+    StepSliderOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    if constexpr (keel::IsSame<keel::Decay<IndexT>, keel::usize>) {
+        return detail::StepSlider::Run(ui, &index, nullptr, totalSteps, opts, loc);
+    } else if constexpr (keel::IsSame<keel::Decay<IndexT>, keel::i32>) {
+        return detail::StepSlider::Run(ui, nullptr, &index, totalSteps, opts, loc);
+    } else {
+        keel::i32 idxInt = keel::as<keel::i32>(index);
+        Response res = detail::StepSlider::Run(ui, nullptr, &idxInt, totalSteps, opts, loc);
+        if (res.changed) {
+            index = detail::FromIndexLike<IndexT>(idxInt);
+        }
+        return res;
+    }
+}
+
+template <IndexLike IndexT>
+    requires (!keel::IsConst<IndexT>)
+Response StepSlider(
+    Context& ui,
+    IndexT& index,
+    keel::ArrayRef<keel::StringRef> labels,
+    StepSliderOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    opts.stepLabels = labels;
+    return guikit::StepSlider(ui, index, labels.size(), opts, loc);
+}
+
+Response StepSlider(
+    Context& ui,
+    UiSize& size,
+    StepSliderOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+);
+
+Response StepSlider(
+    Context& ui,
+    UiVariant& variant,
+    StepSliderOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+);
 
 } // namespace guikit

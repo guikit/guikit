@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -275,6 +276,8 @@ struct TagInputOptions {
     Border border{};                                 ///< Optional border width, color, and radius override
 };
 
+namespace detail {
+
 class TagInput {
 public:
     [[nodiscard]] static Response Run(
@@ -302,5 +305,29 @@ public:
 
     static void Render(const Node* node, ICanvas& canvas, const UiTheme& theme);
 };
+
+} // namespace detail
+
+template <WritableTagStringList Arr>
+Response TagInput(
+    Context& ui,
+    Arr& tags,
+    TagInputOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::TagInput::Run(ui, StringTagListSink(tags), opts, loc);
+}
+
+template <WritableTagItemList Arr>
+Response TagInput(
+    Context& ui,
+    Arr& tags,
+    TagInputOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::TagInput::Run(ui, TagItemListSink(tags), opts, loc);
+}
 
 } // namespace guikit

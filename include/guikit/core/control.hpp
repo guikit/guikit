@@ -4,6 +4,8 @@
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
 #include "keel/core.h"
+#include "keel/ref.h"
+#include "keel/string.h"
 
 namespace guikit {
 
@@ -116,5 +118,39 @@ public:
         const ControlSpec& spec
     ) noexcept;
 };
+
+/// Zero-header concept for non-const duck-typed string_view-like targets (e.g. external `std::string_view`).
+template <typename SV>
+concept MutableForeignStringView =
+    !keel::IsConst<keel::RemoveReference<SV>> &&
+    !keel::IsSame<keel::RemoveCvRef<SV>, keel::StringRef> &&
+    !keel::WritableString<SV> &&
+    keel::IsTriviallyCopyable<keel::RemoveCvRef<SV>> &&
+    requires(SV& sv, const char* d, keel::usize n) {
+        typename keel::RemoveCvRef<SV>::traits_type;
+        { sv.data() } -> keel::detail::ConvertibleTo<const char*>;
+        { sv.size() } -> keel::detail::ConvertibleTo<keel::usize>;
+        sv = keel::RemoveCvRef<SV>(d, n);
+    };
+
+template <typename T>
+concept SpinBoxNumeric =
+    !keel::IsConst<keel::RemoveReference<T>> &&
+    !keel::IsSame<keel::Decay<T>, bool> &&
+    (keel::IsIntegral<keel::Decay<T>> || keel::IsFloatingPoint<keel::Decay<T>>);
+
+template <typename T>
+concept SelectTarget =
+    !keel::IsConst<keel::RemoveReference<T>> &&
+    (IndexLike<T> ||
+     keel::WritableString<T> ||
+     keel::IsSame<keel::RemoveCvRef<T>, keel::StringRef> ||
+     MutableForeignStringView<T>);
+
+template <typename T>
+concept SliderNumeric =
+    !keel::IsConst<keel::RemoveReference<T>> &&
+    !keel::IsSame<keel::Decay<T>, bool> &&
+    (keel::IsIntegral<keel::Decay<T>> || keel::IsFloatingPoint<keel::Decay<T>>);
 
 } // namespace guikit

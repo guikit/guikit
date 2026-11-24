@@ -1,6 +1,10 @@
 #pragma once
 
 #include "guikit/context.hpp"
+#include "guikit/panels/command_palette.hpp"
+#include "guikit/panels/sidebar.hpp"
+#include "guikit/panels/status_bar.hpp"
+#include "guikit/panels/toolbar.hpp"
 #include "guikit/backend/i_window_backend.hpp"
 #include "guikit/core/frame_metrics.hpp"
 #include "keel/core.h"

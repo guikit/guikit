@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/tokens.hpp"
@@ -103,6 +104,8 @@ private:
 };
 
 /// Autonomous immediate mode dockable BottomPanel container entry point.
+namespace detail {
+
 class BottomPanel {
 public:
     [[nodiscard]] static BottomPanelScope Open(
@@ -127,5 +130,51 @@ public:
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 };
+
+} // namespace detail
+
+[[nodiscard]] inline BottomPanelScope BottomPanel(
+    Context& ui,
+    BottomPanelOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::BottomPanel::Open(ui, opts, loc);
+}
+
+[[nodiscard]] inline BottomPanelScope BottomPanel(
+    Context& ui,
+    BottomPanelMode& mode,
+    BottomPanelOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::BottomPanel::Open(ui, &mode, opts, loc);
+}
+
+[[nodiscard]] inline BottomPanelScope BottomPanel(
+    Context& ui,
+    BottomPanelMode* mode,
+    BottomPanelOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::BottomPanel::Open(ui, mode, opts, loc);
+}
+
+[[nodiscard]] inline BottomPanelScope BottomPanel(
+    Context& ui,
+    bool& open,
+    BottomPanelOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::BottomPanel::Open(ui, &open, opts, loc);
+}
+
+[[nodiscard]] inline BottomPanelScope BottomPanel(
+    Context& ui,
+    bool* open,
+    BottomPanelOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::BottomPanel::Open(ui, open, opts, loc);
+}
 
 } // namespace guikit

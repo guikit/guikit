@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/types.hpp"
 #include "guikit/graphics/icon.hpp"
@@ -63,6 +64,8 @@ struct ToastEntry {
 };
 
 /// Autonomous Toast notification manager and overlay renderer.
+namespace detail {
+
 class Toast {
 public:
     static keel::u64 Show(Context& ctx, ToastOptions opts);
@@ -82,5 +85,23 @@ public:
     /// Resolves default semantic icon for a toast variant when no explicit icon is provided.
     [[nodiscard]] static Icon ResolveDefaultIcon(UiVariant variant, Icon explicitIcon) noexcept;
 };
+
+} // namespace detail
+
+inline keel::u64 ShowToast(Context& ui, ToastOptions opts) { return detail::Toast::Show(ui, keel::move(opts)); }
+
+inline void DismissToast(Context& ui, keel::u64 id) noexcept { detail::Toast::Dismiss(ui, id); }
+
+inline void ClearToasts(Context& ui) noexcept { detail::Toast::Clear(ui); }
+
+[[nodiscard]] inline keel::usize GetActiveToastCount(const Context& ui) noexcept { return detail::Toast::GetActiveCount(ui); }
+
+[[nodiscard]] inline bool HasToastHostVisited(const Context& ui) noexcept { return detail::Toast::HasHostVisited(ui); }
+
+inline void SetToastHostOptions(Context& ui, const ToastHostOptions& opts) noexcept { detail::Toast::SetHostOptions(ui, opts); }
+
+[[nodiscard]] inline ToastHostOptions GetToastHostOptions(const Context& ui) noexcept { return detail::Toast::GetHostOptions(ui); }
+
+inline void ToastHost(Context& ui, const ToastHostOptions& opts = {}) { detail::Toast::RunHost(ui, opts); }
 
 } // namespace guikit

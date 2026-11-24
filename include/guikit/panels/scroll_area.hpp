@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/id.hpp"
 #include "guikit/core/theme.hpp"
@@ -50,6 +51,8 @@ struct ScrollAreaOptions {
 };
 
 /// ScrollArea container logic and shared 1D/2D scrollbar primitives.
+namespace detail {
+
 class ScrollArea {
 public:
     /// Primary immediate mode entry point for ScrollArea container.
@@ -115,5 +118,24 @@ public:
         keel::f64* ioNextRepeatSec = nullptr
     );
 };
+
+} // namespace detail
+
+[[nodiscard]] inline ContainerScope ScrollArea(
+    Context& ui,
+    ScrollAreaOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::ScrollArea::Open(ui, opts, loc);
+}
+
+/// Renders scrollbar thumb and track after children (postRenderFn signature).
+inline void RenderScrollbar(
+    const Node* node,
+    ICanvas& canvas,
+    const UiTheme& theme = UiTheme::Dark()
+) {
+    detail::ScrollArea::RenderScrollbar(node, canvas, theme);
+}
 
 } // namespace guikit

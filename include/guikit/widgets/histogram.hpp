@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
@@ -166,6 +167,8 @@ struct HistogramResponse : public Response {
 };
 
 /// Autonomous interactive Histogram & Window/Level transfer curve widget.
+namespace detail {
+
 class Histogram {
 public:
     static Vec2 Measure(
@@ -185,5 +188,18 @@ public:
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 };
+
+} // namespace detail
+
+inline HistogramResponse Histogram(
+    Context& ui,
+    const HistogramData& data,
+    ChannelTransferParams& transfer,
+    const HistogramOptions& opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::Histogram::Run(ui, data, transfer, opts, loc);
+}
 
 } // namespace guikit

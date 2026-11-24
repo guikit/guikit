@@ -1,5 +1,7 @@
 #pragma once
 
+#include "guikit/context.hpp"
+#include "guikit/core/control.hpp"
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -130,6 +132,8 @@ private:
 };
 
 /// Autonomous immediate-mode ActivityBar panel & item logic.
+namespace detail {
+
 class ActivityBar {
 public:
     /// Opens an immediate-mode RAII scope for building an ActivityBar with Item(), Action(), Spacer(), and Separator().
@@ -190,5 +194,46 @@ public:
         bool focused = false
     );
 };
+
+} // namespace detail
+
+[[nodiscard]] inline ActivityBarScope ActivityBar(
+    Context& ui,
+    ActivityBarOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::ActivityBar::Open(ui, opts, loc);
+}
+
+[[nodiscard]] inline ActivityBarScope ActivityBar(
+    Context& ui,
+    SidebarMode& linkedSidebarMode,
+    ActivityBarOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::ActivityBar::Open(ui, linkedSidebarMode, keel::move(opts), loc);
+}
+
+template <IndexLike IndexT>
+    requires (!keel::IsConst<IndexT>)
+Response ActivityBar(
+    Context& ui,
+    IndexT& activeIndex,
+    keel::ArrayRef<ActivityBarItem> items,
+    ActivityBarOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    if constexpr (keel::IsSame<keel::Decay<IndexT>, keel::i32>) {
+        return detail::ActivityBar::Run(ui, activeIndex, items, opts, loc);
+    } else {
+        keel::i32 idx = keel::as<keel::i32>(activeIndex);
+        Response r = detail::ActivityBar::Run(ui, idx, items, opts, loc);
+        if (r.changed && idx >= 0) {
+            activeIndex = detail::FromIndexLike<IndexT>(idx);
+        }
+        return r;
+    }
+}
 
 } // namespace guikit

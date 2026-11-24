@@ -542,7 +542,7 @@ void TableScope::ScrollToRow(keel::usize rowIndex) {
 // Table::Open
 // ============================================================================
 
-TableScope Table::Open(
+TableScope detail::Table::Open(
     Context& ctx,
     keel::ArrayRef<TableColumn> columns,
     const TableOptions& opts,
@@ -659,7 +659,7 @@ TableScope Table::Open(
         keel::u8 hovPartV = 0u;
         const Id vScrollId(id.value ^ 0x517CC1B727220A95ULL);
         if (state.resizingCol < 0) {
-            ScrollArea::UpdateAxisScrollbar(
+            detail::ScrollArea::UpdateAxisScrollbar(
                 ctx,
                 vScrollId,
                 data->bodyViewportRect,
@@ -692,7 +692,7 @@ TableScope Table::Open(
         keel::u8 hovPartH = 0u;
         const Id hScrollId(id.value ^ 0x9E3779B97F4A7C15ULL);
         if (state.resizingCol < 0) {
-            ScrollArea::UpdateAxisScrollbar(
+            detail::ScrollArea::UpdateAxisScrollbar(
                 ctx,
                 hScrollId,
                 data->bodyViewportRect,
@@ -971,14 +971,14 @@ TableScope Table::Open(
         activeDisabled
     );
     static constexpr PanelHooks kTableHooks{
-        .contentClip = &Table::GetBodyClipRect,
-        .update = &Table::Update
+        .contentClip = &detail::Table::GetBodyClipRect,
+        .update = &detail::Table::Update
     };
-    node->measureFn = &Table::Measure;
-    node->arrangeFn = &Table::Arrange;
+    node->measureFn = &detail::Table::Measure;
+    node->arrangeFn = &detail::Table::Arrange;
     node->panelHooks = &kTableHooks;
-    node->renderFn = &Table::RenderBody;
-    node->postRenderFn = &Table::RenderChromeAndScrollbars;
+    node->renderFn = &detail::Table::RenderBody;
+    node->postRenderFn = &detail::Table::RenderChromeAndScrollbars;
 
     if (node->parent && node->parent->type == NodeType::Element) {
         Control::SetupNode(
@@ -1011,7 +1011,7 @@ TableScope Table::Open(
 // Table::Measure & Table::Arrange & Table::GetBodyClipRect
 // ============================================================================
 
-Vec2 Table::Measure(
+Vec2 detail::Table::Measure(
     const Node* node,
     keel::f32 availableWidth,
     ICanvas* canvas,
@@ -1058,7 +1058,7 @@ Vec2 Table::Measure(
     return {naturalW, naturalTableH};
 }
 
-void Table::Arrange(
+void detail::Table::Arrange(
     Node* node,
     const Rect& availableRect,
     const UiTheme& theme
@@ -1207,7 +1207,7 @@ void Table::Arrange(
     }
 }
 
-Rect Table::GetBodyClipRect(
+Rect detail::Table::GetBodyClipRect(
     const Node* node,
     const UiTheme& theme
 ) {
@@ -1222,7 +1222,7 @@ Rect Table::GetBodyClipRect(
     return tmp.bodyViewportRect;
 }
 
-void Table::Update(
+void detail::Table::Update(
     Context& ctx,
     Node* node
 ) {
@@ -1246,7 +1246,7 @@ void Table::Update(
         if (node->scroll) {
             node->scroll->offset = data->state->scrollOffset;
         }
-        Table::Arrange(node, node->computedRect, theme);
+        detail::Table::Arrange(node, node->computedRect, theme);
         ctx.InvalidateRect(data->frameRect);
         ctx.RequestRepaint(2);
     }
@@ -1256,7 +1256,7 @@ void Table::Update(
 // Table::RenderBody & Table::RenderChromeAndScrollbars
 // ============================================================================
 
-void Table::RenderBody(
+void detail::Table::RenderBody(
     const Node* node,
     ICanvas& canvas,
     const UiTheme& theme
@@ -1397,7 +1397,7 @@ void Table::RenderBody(
     }
 }
 
-void Table::RenderChromeAndScrollbars(
+void detail::Table::RenderChromeAndScrollbars(
     const Node* node,
     ICanvas& canvas,
     const UiTheme& theme
@@ -1615,7 +1615,7 @@ void Table::RenderChromeAndScrollbars(
     const keel::f32 cornerReserve = (showV && showH) ? (sm.trackWidth + sm.margin) : 0.0f;
 
     if (showV) {
-        ScrollArea::RenderAxisScrollbar(
+        detail::ScrollArea::RenderAxisScrollbar(
             canvas,
             data->bodyViewportRect,
             scrollContent.y,
@@ -1631,7 +1631,7 @@ void Table::RenderChromeAndScrollbars(
         );
     }
     if (showH) {
-        ScrollArea::RenderAxisScrollbar(
+        detail::ScrollArea::RenderAxisScrollbar(
             canvas,
             data->bodyViewportRect,
             scrollContent.x,

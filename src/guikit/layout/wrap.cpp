@@ -5,7 +5,7 @@
 
 namespace guikit {
 
-ContainerScope Wrap::Open(
+ContainerScope detail::Wrap::Open(
     Context& ctx,
     const WrapOptions& opts,
     keel::SourceLocation loc

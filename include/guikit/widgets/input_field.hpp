@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -69,6 +70,8 @@ struct InputFieldData {
 };
 
 /// Autonomous text InputField widget logic (execution, measuring, and rendering).
+namespace detail {
+
 class InputField {
 public:
     /// Primary immediate mode entry point for InputField with editable StringSink or display fallback.
@@ -121,5 +124,28 @@ public:
         bool passwordRevealed = false
     );
 };
+
+} // namespace detail
+
+template <keel::WritableString S>
+Response InputField(
+    Context& ui,
+    S& value,
+    InputFieldOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::InputField::Run(ui, keel::Optional<keel::StringSink>(keel::StringSink(value)), keel::StringRef{}, opts, loc);
+}
+
+inline Response InputField(
+    Context& ui,
+    keel::StringRef value,
+    InputFieldOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::InputField::Run(ui, keel::Optional<keel::StringSink>{}, value, opts, loc);
+}
 
 } // namespace guikit

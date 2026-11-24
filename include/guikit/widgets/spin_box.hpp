@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "keel/core.h"
 #include "keel/optional.h"
 #include "keel/ref.h"
@@ -72,6 +73,8 @@ struct SpinBoxData {
 };
 
 /// Autonomous SpinBox widget logic (execution, measuring, and rendering).
+namespace detail {
+
 class SpinBox {
 public:
     /// Primary immediate mode entry point for SpinBox with editable numeric value pointers.
@@ -128,5 +131,76 @@ public:
         bool stepPlusPressed = false
     );
 };
+
+} // namespace detail
+
+template <SpinBoxNumeric T>
+Response SpinBox(
+    Context& ui,
+    T& value,
+    SpinBoxOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    using Decayed = keel::Decay<T>;
+    if constexpr (keel::IsSame<Decayed, keel::f32>) {
+        return detail::SpinBox::Run(ui, &value, nullptr, nullptr, opts, loc);
+    } else if constexpr (keel::IsSame<Decayed, keel::f64>) {
+        return detail::SpinBox::Run(ui, nullptr, &value, nullptr, opts, loc);
+    } else if constexpr (keel::IsFloatingPoint<Decayed>) {
+        keel::f64 tmp = keel::as<keel::f64>(value);
+        Response r = detail::SpinBox::Run(ui, nullptr, &tmp, nullptr, opts, loc);
+        if (r.changed) {
+            value = keel::as<Decayed>(tmp);
+        }
+        return r;
+    } else if constexpr (keel::IsSame<Decayed, keel::i64>) {
+        return detail::SpinBox::Run(ui, nullptr, nullptr, &value, opts, loc);
+    } else {
+        constexpr keel::i64 kInt64Max = keel::Limits<keel::i64>::kMax;
+        constexpr keel::i64 kInt64Min = keel::Limits<keel::i64>::kMin;
+        constexpr keel::i64 kTypeMin = keel::IsUnsigned<Decayed>
+            ? keel::i64{0}
+            : ((sizeof(Decayed) >= sizeof(keel::i64)) ? kInt64Min : keel::as<keel::i64>(keel::Limits<Decayed>::kMin));
+        constexpr keel::i64 kTypeMax = keel::IsUnsigned<Decayed>
+            ? ((sizeof(Decayed) >= sizeof(keel::u64))
+                   ? kInt64Max
+                   : keel::as<keel::i64>(keel::Limits<Decayed>::kMax))
+            : ((sizeof(Decayed) >= sizeof(keel::i64))
+                   ? kInt64Max
+                   : keel::as<keel::i64>(keel::Limits<Decayed>::kMax));
+        if constexpr (keel::IsUnsigned<Decayed>) {
+            if (!opts.min.has_value()) {
+                opts.min = 0.0;
+            } else {
+                opts.min = keel::max(0.0, *opts.min);
+            }
+        }
+        keel::i64 tmp = (keel::IsUnsigned<Decayed> && keel::as<keel::u64>(value) > keel::as<keel::u64>(kTypeMax))
+            ? kTypeMax
+            : keel::as<keel::i64>(value);
+        Response r = detail::SpinBox::Run(ui, nullptr, nullptr, &tmp, opts, loc);
+        if (r.changed) {
+            value = keel::as<Decayed>(keel::clamp(tmp, kTypeMin, kTypeMax));
+        }
+        return r;
+    }
+}
+
+template <SpinBoxNumeric T>
+Response SpinBox(
+    Context& ui,
+    T& value,
+    keel::f64 minVal,
+    keel::f64 maxVal,
+    keel::f64 stepVal = 1.0,
+    SpinBoxOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    if (!opts.min.has_value()) opts.min = minVal;
+    if (!opts.max.has_value()) opts.max = maxVal;
+    if (!opts.step.has_value()) opts.step = stepVal;
+    return guikit::SpinBox(ui, value, keel::move(opts), loc);
+}
 
 } // namespace guikit

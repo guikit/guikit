@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -22,6 +23,8 @@ struct RadioOptions {
 static_assert(sizeof(RadioOptions) <= 384, "RadioOptions must stay compact");
 
 /// Autonomous Radio widget logic (execution, measuring, and rendering).
+namespace detail {
+
 class Radio {
 public:
     /// Primary immediate mode entry point for Radio widget with state pointer and options.
@@ -62,5 +65,72 @@ public:
         bool focused = false
     );
 };
+
+} // namespace detail
+
+template <typename T, typename U = T>
+    requires requires(const T& a, const U& b) { static_cast<bool>(a == b); }
+Response Radio(
+    Context& ui,
+    T& currentValue,
+    const U& optionValue,
+    RadioOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    const bool isSelected = static_cast<bool>(currentValue == optionValue);
+    bool state = isSelected;
+    Response r = detail::Radio::Run(ui, &state, isSelected, opts, loc);
+    if (r.clicked && !isSelected) {
+        currentValue = static_cast<T>(optionValue);
+        r.changed = true;
+    } else {
+        r.changed = false;
+    }
+    return r;
+}
+
+inline Response Radio(
+    Context& ui,
+    bool& value,
+    RadioOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::Radio::Run(ui, &value, value, opts, loc);
+}
+
+inline Response Radio(
+    Context& ui,
+    const bool& checked,
+    RadioOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::Radio::Run(ui, nullptr, checked, opts, loc);
+}
+
+Response Radio(Context& ui, const bool*, RadioOptions = {}, keel::SourceLocation = keel::SourceLocation::current()) = delete;
+
+template <typename T, typename U = T>
+    requires requires(const T& a, const U& b) { static_cast<bool>(a == b); }
+Response RadioButton(
+    Context& ui,
+    T& currentValue,
+    const U& optionValue,
+    RadioOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return guikit::Radio(ui, currentValue, optionValue, keel::move(opts), loc);
+}
+
+inline Response RadioButton(
+    Context& ui,
+    bool& checked,
+    RadioOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return guikit::Radio(ui, checked, keel::move(opts), loc);
+}
 
 } // namespace guikit

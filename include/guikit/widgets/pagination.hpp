@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -44,6 +45,8 @@ struct PaginationData {
 };
 
 /// Autonomous Pagination control widget (execution, measuring, and rendering).
+namespace detail {
+
 class Pagination {
 public:
     static Response Run(
@@ -77,5 +80,27 @@ public:
         const UiTheme& theme
     );
 };
+
+} // namespace detail
+
+template <IndexLike IndexT, IndexLike CountT>
+    requires (!keel::IsConst<IndexT>)
+Response Pagination(
+    Context& ui,
+    IndexT& currentPage,
+    CountT totalPages,
+    PaginationOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    if constexpr (keel::IsSame<keel::Decay<IndexT>, keel::usize>) {
+        return detail::Pagination::Run(ui, currentPage, keel::as<keel::usize>(totalPages), opts, loc);
+    } else {
+        keel::i32 page = keel::as<keel::i32>(currentPage);
+        Response r = detail::Pagination::Run(ui, page, keel::as<keel::i32>(totalPages), opts, loc);
+        if (r.changed && page >= 0) currentPage = detail::FromIndexLike<IndexT>(page);
+        return r;
+    }
+}
 
 } // namespace guikit

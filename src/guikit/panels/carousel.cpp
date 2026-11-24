@@ -8,7 +8,7 @@
 
 namespace guikit {
 
-ContainerScope Carousel::Open(
+ContainerScope detail::Carousel::Open(
     Context& ctx,
     const CarouselOptions& opts,
     keel::SourceLocation loc
@@ -30,15 +30,15 @@ ContainerScope Carousel::Open(
     node->uiSize = activeSize;
 
     static constexpr PanelHooks kCarouselHooks{
-        .contentClip = [](const Node* n, const UiTheme&) -> Rect { return Carousel::GetContentClipRect(n); },
-        .update = &Carousel::Update,
-        .scrollToChild = &Carousel::ScrollToChild,
-        .collectBounds = &Carousel::CollectBounds
+        .contentClip = [](const Node* n, const UiTheme&) -> Rect { return detail::Carousel::GetContentClipRect(n); },
+        .update = &detail::Carousel::Update,
+        .scrollToChild = &detail::Carousel::ScrollToChild,
+        .collectBounds = &detail::Carousel::CollectBounds
     };
-    node->measureFn = &Carousel::Measure;
-    node->arrangeFn = &Carousel::Arrange;
+    node->measureFn = &detail::Carousel::Measure;
+    node->arrangeFn = &detail::Carousel::Arrange;
     node->panelHooks = &kCarouselHooks;
-    node->postRenderFn = &Carousel::RenderArrows;
+    node->postRenderFn = &detail::Carousel::RenderArrows;
 
     auto* cData = ctx.AllocPayload<CarouselData>();
     cData->opts = opts;
@@ -56,7 +56,7 @@ ContainerScope Carousel::Open(
     return ContainerScope(&ctx, node);
 }
 
-void Carousel::BeginScrollInteraction(
+void detail::Carousel::BeginScrollInteraction(
     Context& ctx,
     Node* node,
     CarouselData* cData,
@@ -123,7 +123,7 @@ void Carousel::BeginScrollInteraction(
     }
 }
 
-Vec2 Carousel::Measure(const Node* node, keel::f32 /*availableWidth*/, ICanvas* /*canvas*/, const UiTheme& /*theme*/) {
+Vec2 detail::Carousel::Measure(const Node* node, keel::f32 /*availableWidth*/, ICanvas* /*canvas*/, const UiTheme& /*theme*/) {
     if (!node) return {0.0f, 0.0f};
 
     keel::f32 totalWidth = node->padding.Horizontal();
@@ -154,11 +154,11 @@ Vec2 Carousel::Measure(const Node* node, keel::f32 /*availableWidth*/, ICanvas* 
     }
 }
 
-Vec2 Carousel::Measure(const Node* node, keel::f32 availableWidth, ICanvas* canvas) {
+Vec2 detail::Carousel::Measure(const Node* node, keel::f32 availableWidth, ICanvas* canvas) {
     return Measure(node, availableWidth, canvas, UiTheme::Dark());
 }
 
-void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& theme) {
+void detail::Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& theme) {
     if (!node) return;
 
     keel::f32 w = availableRect.w;
@@ -446,11 +446,11 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
     }
 }
 
-void Carousel::Arrange(Node* node, const Rect& availableRect) {
+void detail::Carousel::Arrange(Node* node, const Rect& availableRect) {
     Arrange(node, availableRect, UiTheme::Dark());
 }
 
-void Carousel::RenderArrows(
+void detail::Carousel::RenderArrows(
     const Node* node,
     ICanvas& canvas,
     const UiTheme& theme
@@ -459,7 +459,7 @@ void Carousel::RenderArrows(
     RenderArrows(canvas, const_cast<Node*>(node), node->uiSize, theme);
 }
 
-void Carousel::RenderArrows(
+void detail::Carousel::RenderArrows(
     ICanvas& canvas,
     Node* node,
     UiSize size,
@@ -524,13 +524,13 @@ void Carousel::RenderArrows(
     }
 }
 
-Rect Carousel::GetContentClipRect(const Node* node) {
+Rect detail::Carousel::GetContentClipRect(const Node* node) {
     if (!node) return Rect();
     const auto* cData = node->As<CarouselData>();
     return cData ? cData->viewportRect : node->computedRect;
 }
 
-void Carousel::Update(Context& ctx, Node* node) {
+void detail::Carousel::Update(Context& ctx, Node* node) {
     if (!node || !node->id.IsValid() || !node->scroll) return;
     ScrollData& sd = *node->scroll;
     auto& state = ctx.GetOrCreatePersistentState<ScrollState>(node->id);
@@ -585,7 +585,7 @@ void Carousel::Update(Context& ctx, Node* node) {
     }
 }
 
-void Carousel::ScrollToChild(Context& ctx, Node* carouselNode, const Node* targetNode) {
+void detail::Carousel::ScrollToChild(Context& ctx, Node* carouselNode, const Node* targetNode) {
     if (!carouselNode || !targetNode || !carouselNode->id.IsValid()) return;
     auto& state = ctx.GetOrCreatePersistentState<ScrollState>(carouselNode->id);
     const keel::f32 targetLeft = targetNode->computedRect.x;
@@ -607,7 +607,7 @@ void Carousel::ScrollToChild(Context& ctx, Node* carouselNode, const Node* targe
     }
 }
 
-void Carousel::CollectBounds(
+void detail::Carousel::CollectBounds(
     Node* node,
     void (*recordBounds)(void*, Id, Rect),
     void* user,

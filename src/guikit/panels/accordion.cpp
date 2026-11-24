@@ -6,7 +6,7 @@
 
 namespace guikit {
 
-AccordionScope Accordion::Open(
+AccordionScope detail::Accordion::Open(
     Context& ctx,
     bool* externalOpen,
     const AccordionOptions& opts,
@@ -95,11 +95,11 @@ AccordionScope Accordion::Open(
     );
     headerNode->measureFn = [](const Node* n, keel::f32 /*availableWidth*/, ICanvas* canvas, const UiTheme& th) noexcept -> Vec2 {
         const auto* d = n->As<AccordionHeaderData>();
-        return Accordion::MeasureHeader(d ? d->opts : AccordionOptions{}, n->uiSize, canvas, th);
+        return detail::Accordion::MeasureHeader(d ? d->opts : AccordionOptions{}, n->uiSize, canvas, th);
     };
     headerNode->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& th) noexcept {
         const auto* d = n->As<AccordionHeaderData>();
-        Accordion::RenderHeader(
+        detail::Accordion::RenderHeader(
             canvas,
             n->computedRect,
             d ? d->opts : AccordionOptions{},
@@ -135,7 +135,7 @@ AccordionScope Accordion::Open(
     return AccordionScope(nullptr, nullptr, res, false);
 }
 
-Vec2 Accordion::MeasureHeader(
+Vec2 detail::Accordion::MeasureHeader(
     const AccordionOptions& opts,
     UiSize size,
     ICanvas* canvas,
@@ -179,7 +179,7 @@ Vec2 Accordion::MeasureHeader(
     return Vec2{rowW, totalH};
 }
 
-void Accordion::RenderHeader(
+void detail::Accordion::RenderHeader(
     ICanvas& canvas,
     Rect bounds,
     const AccordionOptions& opts,

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -340,6 +341,8 @@ struct TextAreaData {
 };
 
 /// Autonomous high-performance TextArea / Code Editor widget logic (execution, measuring, and virtualized rendering).
+namespace detail {
+
 class TextArea {
 public:
     /// Primary immediate mode entry point for TextArea (editable or read-only).
@@ -405,8 +408,49 @@ public:
     );
 };
 
-using CodeEditor = TextArea;
+} // namespace detail
+
 using CodeEditorOptions = TextAreaOptions;
 using CodeEditorResponse = TextAreaResponse;
+
+template <keel::WritableString S>
+TextAreaResponse TextArea(
+    Context& ui,
+    S& value,
+    const TextAreaOptions& opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::TextArea::Run(ui, keel::Optional<keel::StringSink>(keel::StringSink(value)), keel::StringRef{}, opts, loc);
+}
+
+inline TextAreaResponse TextArea(
+    Context& ui,
+    keel::StringRef value,
+    const TextAreaOptions& opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::TextArea::Run(ui, keel::Optional<keel::StringSink>{}, value, opts, loc);
+}
+
+template <keel::WritableString S>
+CodeEditorResponse CodeEditor(
+    Context& ui,
+    S& value,
+    const CodeEditorOptions& opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return guikit::TextArea(ui, value, opts, loc);
+}
+
+inline CodeEditorResponse CodeEditor(
+    Context& ui,
+    keel::StringRef value,
+    const CodeEditorOptions& opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return guikit::TextArea(ui, value, opts, loc);
+}
 
 } // namespace guikit

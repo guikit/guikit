@@ -230,7 +230,7 @@ constexpr keel::f32 kDefaultHistogramMinHeightDp = 96.0f;
 
 } // namespace
 
-Vec2 Histogram::Measure(
+Vec2 detail::Histogram::Measure(
     const HistogramData& /*data*/,
     const HistogramOptions& opts,
     UiSize /*size*/,
@@ -248,7 +248,7 @@ Vec2 Histogram::Measure(
     return {w, h};
 }
 
-HistogramResponse Histogram::Run(
+HistogramResponse detail::Histogram::Run(
     Context& ctx,
     const HistogramData& data,
     ChannelTransferParams& transfer,
@@ -486,7 +486,7 @@ HistogramResponse Histogram::Run(
         if (n->widthMode == SizeMode::Stretch && !effOpts.width.IsFixed()) {
             effOpts.width = SizeMode::Stretch;
         }
-        return Histogram::Measure(p->data, effOpts, n->uiSize, c, th, availableWidth);
+        return detail::Histogram::Measure(p->data, effOpts, n->uiSize, c, th, availableWidth);
     };
 
     node->renderFn = [](const Node* n, ICanvas& c, const UiTheme& th) noexcept {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
@@ -29,6 +30,8 @@ struct BoxOptions {
 };
 
 /// Autonomous immediate mode Box container entry point.
+namespace detail {
+
 class Box {
 public:
     [[nodiscard]] static ContainerScope Open(
@@ -37,5 +40,15 @@ public:
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 };
+
+} // namespace detail
+
+[[nodiscard]] inline ContainerScope Box(
+    Context& ui,
+    BoxOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::Box::Open(ui, opts, loc);
+}
 
 } // namespace guikit

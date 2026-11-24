@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/context.hpp"
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -11,6 +12,10 @@
 #include "keel/ref.h"
 
 namespace guikit {
+namespace detail {
+class ContextMenu;
+class MenuBar;
+}
 
 class Context;
 class ICanvas;
@@ -77,7 +82,7 @@ public:
     void CloseMenu() noexcept;
 
 private:
-    friend class MenuBar;
+    friend class detail::MenuBar;
 
     MenuBarScope(Context* ctx, Node* node, Id barId, const MenuBarOptions& opts, Response res) noexcept;
     void FinishBarIfNeeded() noexcept;
@@ -102,6 +107,8 @@ private:
 };
 
 /// Autonomous desktop MenuBar container.
+namespace detail {
+
 class MenuBar {
 public:
     [[nodiscard]] static MenuBarScope Open(
@@ -110,5 +117,15 @@ public:
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 };
+
+} // namespace detail
+
+[[nodiscard]] inline MenuBarScope MenuBar(
+    Context& ui,
+    MenuBarOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::MenuBar::Open(ui, opts, loc);
+}
 
 } // namespace guikit

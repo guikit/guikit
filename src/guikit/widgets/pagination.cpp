@@ -303,7 +303,7 @@ void DrawDoubleChevron(
 
 } // namespace
 
-Vec2 Pagination::Measure(
+Vec2 detail::Pagination::Measure(
     keel::usize currentPage,
     keel::usize totalPages,
     const PaginationOptions& opts,
@@ -316,7 +316,7 @@ Vec2 Pagination::Measure(
     return Control::Measure(boxDims, ctrl, theme);
 }
 
-Response Pagination::Run(
+Response detail::Pagination::Run(
     Context& ctx,
     keel::i32& currentPage,
     keel::i32 totalPages,
@@ -332,7 +332,7 @@ Response Pagination::Run(
     return res;
 }
 
-Response Pagination::Run(
+Response detail::Pagination::Run(
     Context& ctx,
     keel::usize& currentPage,
     keel::usize totalPages,
@@ -469,9 +469,9 @@ Response Pagination::Run(
     node->measureFn = [](const Node* n, keel::f32 /*availableWidth*/, ICanvas* c, const UiTheme& t) noexcept -> Vec2 {
         const auto* d = n->As<PaginationData>();
         if (!d) return {0.0f, 0.0f};
-        return Pagination::Measure(d->currentPage, d->totalPages, d->opts, n->uiSize, c, t);
+        return detail::Pagination::Measure(d->currentPage, d->totalPages, d->opts, n->uiSize, c, t);
     };
-    node->renderFn = &Pagination::Render;
+    node->renderFn = &detail::Pagination::Render;
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
@@ -484,7 +484,7 @@ Response Pagination::Run(
     return res;
 }
 
-void Pagination::Render(
+void detail::Pagination::Render(
     const Node* node,
     ICanvas& canvas,
     const UiTheme& theme

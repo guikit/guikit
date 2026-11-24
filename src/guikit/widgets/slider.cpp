@@ -7,6 +7,7 @@
 #include "guikit/core/text_util.hpp"
 #include "keel/format.h"
 #include "keel/math.h"
+#include "keel/static_array.h"
 
 namespace guikit {
 
@@ -549,7 +550,7 @@ Color ResolveSliderActiveThumbColor(const StateColor& rawColor, const UiTheme& t
 // Slider (Continuous / Stepped Numeric Slider)
 // ============================================================================
 
-Response Slider::Run(
+Response detail::Slider::Run(
     Context& ctx,
     keel::f64* valDouble,
     keel::f32* valFloat,
@@ -728,7 +729,7 @@ Response Slider::Run(
 
     node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<SliderData>();
-        return Slider::Measure(d ? d->opts : SliderOptions{},
+        return detail::Slider::Measure(d ? d->opts : SliderOptions{},
                                d ? d->value : 0.0,
                                d ? d->min : 0.0,
                                d ? d->max : 1.0,
@@ -738,7 +739,7 @@ Response Slider::Run(
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* d = n->As<SliderData>();
         if (!d) return;
-        Slider::Render(canvas, n->computedRect, d->value, d->min, d->max,
+        detail::Slider::Render(canvas, n->computedRect, d->value, d->min, d->max,
                        d->opts, n->uiSize, n->hovered, n->pressed, n->disabled, theme, n->focused);
     };
 
@@ -746,7 +747,7 @@ Response Slider::Run(
     return res;
 }
 
-Vec2 Slider::Measure(
+Vec2 detail::Slider::Measure(
     const SliderOptions& opts,
     keel::f64 value,
     keel::f64 min,
@@ -773,7 +774,7 @@ Vec2 Slider::Measure(
     return Control::Measure(cm.intrinsicControlSize, ctrl, theme);
 }
 
-Vec2 Slider::Measure(
+Vec2 detail::Slider::Measure(
     const SliderOptions& opts,
     keel::f64 value,
     keel::f64 min,
@@ -786,7 +787,7 @@ Vec2 Slider::Measure(
     return Measure(opts, value, min, max, size, canvas, defaultTheme, availableWidth);
 }
 
-void Slider::Render(
+void detail::Slider::Render(
     ICanvas& canvas,
     Rect bounds,
     keel::f64 value,
@@ -879,7 +880,7 @@ void Slider::Render(
 // StepSlider (Discrete N-Position Step Slider)
 // ============================================================================
 
-Response StepSlider::Run(
+Response detail::StepSlider::Run(
     Context& ctx,
     keel::usize* indexSizeT,
     keel::i32* indexInt,
@@ -1046,7 +1047,7 @@ Response StepSlider::Run(
 
     node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<StepSliderData>();
-        return StepSlider::Measure(d ? d->opts : StepSliderOptions{},
+        return detail::StepSlider::Measure(d ? d->opts : StepSliderOptions{},
                                    d ? d->index : 0,
                                    d ? d->totalSteps : 1,
                                    n->uiSize, canvas, theme, availableWidth);
@@ -1055,7 +1056,7 @@ Response StepSlider::Run(
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* d = n->As<StepSliderData>();
         if (!d) return;
-        StepSlider::Render(canvas, n->computedRect, d->index, d->totalSteps,
+        detail::StepSlider::Render(canvas, n->computedRect, d->index, d->totalSteps,
                            d->opts, n->uiSize, n->hovered, n->pressed, n->disabled, theme, n->focused);
     };
 
@@ -1063,7 +1064,7 @@ Response StepSlider::Run(
     return res;
 }
 
-Vec2 StepSlider::Measure(
+Vec2 detail::StepSlider::Measure(
     const StepSliderOptions& opts,
     keel::usize index,
     keel::usize totalSteps,
@@ -1091,7 +1092,7 @@ Vec2 StepSlider::Measure(
     return Control::Measure(cm.intrinsicControlSize, ctrl, theme);
 }
 
-Vec2 StepSlider::Measure(
+Vec2 detail::StepSlider::Measure(
     const StepSliderOptions& opts,
     keel::usize index,
     keel::usize totalSteps,
@@ -1103,7 +1104,7 @@ Vec2 StepSlider::Measure(
     return Measure(opts, index, totalSteps, size, canvas, defaultTheme, availableWidth);
 }
 
-void StepSlider::Render(
+void detail::StepSlider::Render(
     ICanvas& canvas,
     Rect bounds,
     keel::usize index,
@@ -1385,7 +1386,7 @@ void FormatRangeSliderPair(
 
 } // namespace
 
-Response RangeSlider::Run(
+Response detail::RangeSlider::Run(
     Context& ctx,
     keel::f64* lowDouble,
     keel::f64* highDouble,
@@ -1627,7 +1628,7 @@ Response RangeSlider::Run(
 
     node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<RangeSliderData>();
-        return RangeSlider::Measure(
+        return detail::RangeSlider::Measure(
             d ? d->opts : RangeSliderOptions{},
             d ? d->lowValue : 0.0,
             d ? d->highValue : 1.0,
@@ -1640,7 +1641,7 @@ Response RangeSlider::Run(
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* d = n->As<RangeSliderData>();
         if (!d) return;
-        RangeSlider::Render(
+        detail::RangeSlider::Render(
             canvas, n->computedRect, d->lowValue, d->highValue, d->min, d->max,
             d->opts, n->uiSize, n->hovered, n->pressed, n->disabled, theme, n->focused, d->activeThumb
         );
@@ -1650,7 +1651,7 @@ Response RangeSlider::Run(
     return res;
 }
 
-Vec2 RangeSlider::Measure(
+Vec2 detail::RangeSlider::Measure(
     const RangeSliderOptions& opts,
     keel::f64 lowValue,
     keel::f64 highValue,
@@ -1681,7 +1682,7 @@ Vec2 RangeSlider::Measure(
     return Control::Measure(cm.intrinsicControlSize, ctrl, theme);
 }
 
-Vec2 RangeSlider::Measure(
+Vec2 detail::RangeSlider::Measure(
     const RangeSliderOptions& opts,
     keel::f64 lowValue,
     keel::f64 highValue,
@@ -1695,7 +1696,7 @@ Vec2 RangeSlider::Measure(
     return Measure(opts, lowValue, highValue, min, max, size, canvas, defaultTheme, availableWidth);
 }
 
-void RangeSlider::Render(
+void detail::RangeSlider::Render(
     ICanvas& canvas,
     Rect bounds,
     keel::f64 lowValue,
@@ -1803,7 +1804,7 @@ void RangeSlider::Render(
 // ProgressBar (Continuous Progress Bar & Segmented LED / VU LevelMeter)
 // ============================================================================
 
-Response ProgressBar::Run(
+Response detail::ProgressBar::Run(
     Context& ctx,
     keel::f64 value,
     keel::f64 min,
@@ -1891,7 +1892,7 @@ Response ProgressBar::Run(
 
     node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<ProgressBarData>();
-        return ProgressBar::Measure(
+        return detail::ProgressBar::Measure(
             d ? d->opts : ProgressBarOptions{},
             d ? d->value : 0.0,
             d ? d->min : 0.0,
@@ -1903,7 +1904,7 @@ Response ProgressBar::Run(
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* d = n->As<ProgressBarData>();
         if (!d) return;
-        ProgressBar::Render(
+        detail::ProgressBar::Render(
             canvas, n->computedRect, d->value, d->min, d->max,
             d->opts, n->uiSize, n->hovered, n->disabled, theme, d->animPhase
         );
@@ -1913,7 +1914,7 @@ Response ProgressBar::Run(
     return res;
 }
 
-Vec2 ProgressBar::Measure(
+Vec2 detail::ProgressBar::Measure(
     const ProgressBarOptions& opts,
     keel::f64 value,
     keel::f64 min,
@@ -1962,7 +1963,7 @@ Vec2 ProgressBar::Measure(
     return Control::Measure(cm.intrinsicControlSize, ctrl, theme);
 }
 
-Vec2 ProgressBar::Measure(
+Vec2 detail::ProgressBar::Measure(
     const ProgressBarOptions& opts,
     keel::f64 value,
     keel::f64 min,
@@ -1975,7 +1976,7 @@ Vec2 ProgressBar::Measure(
     return Measure(opts, value, min, max, size, canvas, defaultTheme, availableWidth);
 }
 
-void ProgressBar::Render(
+void detail::ProgressBar::Render(
     ICanvas& canvas,
     Rect bounds,
     keel::f64 value,
@@ -2241,6 +2242,93 @@ void ProgressBar::Render(
             }
         }
     }
+}
+
+Response StepSlider(
+    Context& ui,
+    UiSize& size,
+    StepSliderOptions opts,
+    keel::SourceLocation loc
+) {
+    static constexpr keel::StaticArray<keel::StringRef, 6> kSizeLabelsWithNone = {{"A", "XS", "SM", "MD", "LG", "XL"}};
+    static constexpr keel::StaticArray<UiSize, 6> kSizesWithNone = {{
+        UiSize::None, UiSize::Xs, UiSize::Sm, UiSize::Md, UiSize::Lg, UiSize::Xl
+    }};
+
+    static constexpr keel::StaticArray<keel::StringRef, 5> kSizeLabels = {{"XS", "SM", "MD", "LG", "XL"}};
+    static constexpr keel::StaticArray<UiSize, 5> kSizes = {{
+        UiSize::Xs, UiSize::Sm, UiSize::Md, UiSize::Lg, UiSize::Xl
+    }};
+
+    const bool hasNone = opts.includeNone;
+    const keel::ArrayRef<UiSize> sizesSpan = hasNone ? kSizesWithNone.as_ref() : kSizes.as_ref();
+    const keel::ArrayRef<keel::StringRef> labelsSpan = hasNone ? kSizeLabelsWithNone.as_ref() : kSizeLabels.as_ref();
+
+    keel::usize idx = hasNone ? 0 : 2;
+    for (keel::usize i = 0; i < sizesSpan.size(); ++i) {
+        if (sizesSpan[i] == size) {
+            idx = i;
+            break;
+        }
+    }
+
+    if (opts.stepLabels.empty()) {
+        opts.stepLabels = labelsSpan;
+    }
+
+    Response res = guikit::StepSlider(ui, idx, opts.stepLabels.size(), opts, loc);
+    if (res.changed && idx < sizesSpan.size()) {
+        size = sizesSpan[idx];
+    }
+    return res;
+}
+
+Response StepSlider(
+    Context& ui,
+    UiVariant& variant,
+    StepSliderOptions opts,
+    keel::SourceLocation loc
+) {
+    static constexpr keel::StaticArray<keel::StringRef, 8> kVariantLabels = {{
+        "Def", "Pri", "Sec", "Suc", "Wrn", "Dgr", "Inf", "Gho"
+    }};
+    static constexpr keel::StaticArray<keel::StringRef, 8> kVariantFullNames = {{
+        "Default", "Primary", "Secondary", "Success", "Warning", "Danger", "Info", "Ghost"
+    }};
+    static constexpr keel::StaticArray<UiVariant, 8> kVariants = {{
+        UiVariant::Default, UiVariant::Primary, UiVariant::Secondary, UiVariant::Success,
+        UiVariant::Warning, UiVariant::Danger, UiVariant::Info, UiVariant::Ghost
+    }};
+
+    keel::usize idx = 0;
+    for (keel::usize i = 0; i < kVariants.size(); ++i) {
+        if (kVariants[i] == variant) {
+            idx = i;
+            break;
+        }
+    }
+
+    if (opts.stepLabels.empty()) {
+        opts.stepLabels = kVariantLabels.as_ref();
+    }
+    if (opts.valueText.empty() && idx < kVariantFullNames.size()) {
+        opts.valueText.text = kVariantFullNames[idx];
+    }
+    if (opts.valueText.variants.empty()) {
+        opts.valueText.variants = kVariantFullNames.as_ref();
+    }
+    if (!opts.valueText.color.HasAny() && variant != UiVariant::Default) {
+        opts.valueText.color = StateColor::FromTextVariant(variant);
+    }
+    if (!opts.color.HasAny() && variant != UiVariant::Default) {
+        opts.color = StateColor::FromTextVariant(variant);
+    }
+
+    Response res = guikit::StepSlider(ui, idx, opts.stepLabels.size(), opts, loc);
+    if (res.changed && idx < kVariants.size()) {
+        variant = kVariants[idx];
+    }
+    return res;
 }
 
 } // namespace guikit

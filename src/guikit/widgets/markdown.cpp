@@ -821,7 +821,7 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                     const keel::StringRef lineStr = codeLines[ln];
                     syntaxSpans.clear();
                     if (opts.syntaxHighlight && !lineStr.empty()) {
-                        TextArea::HighlightLine(
+                        detail::TextArea::HighlightLine(
                             lineStr,
                             ln,
                             synCfg,
@@ -1604,7 +1604,7 @@ void RenderMarkdownDocumentLayout(
             case BlockKind::ImageBlock: {
                 const Rect imgRect = OffsetRect(bl.imgLocalRect, docOrigin);
                 if (opts.imageCheckerboard) {
-                    Image::DrawCheckerboard(canvas, imgRect, bl.imgRadius, theme, 10.0f);
+                    detail::Image::DrawCheckerboard(canvas, imgRect, bl.imgRadius, theme, 10.0f);
                 } else {
                     canvas.DrawRoundRect(imgRect, bl.imgRadius, theme.palette.surfaceElevated);
                 }
@@ -1790,7 +1790,7 @@ struct MarkdownPayload {
 
 } // namespace
 
-MarkdownResponse Markdown::Run(
+MarkdownResponse detail::Markdown::Run(
     Context& ctx,
     keel::StringRef markdownText,
     const MarkdownOptions& opts,
@@ -2226,7 +2226,7 @@ MarkdownResponse Markdown::Run(
         }
         keel::f32 z = p->zoom;
         mOpts.zoom = &z;
-        return Markdown::Measure(p->text, mOpts, n->uiSize, canvas ? canvas : p->lastCanvas, th, availableWidth);
+        return detail::Markdown::Measure(p->text, mOpts, n->uiSize, canvas ? canvas : p->lastCanvas, th, availableWidth);
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& th) noexcept {
         const auto* p = n->As<MarkdownPayload>();
@@ -2368,7 +2368,7 @@ MarkdownResponse Markdown::Run(
     return res;
 }
 
-Vec2 Markdown::Measure(
+Vec2 detail::Markdown::Measure(
     keel::StringRef markdownText,
     const MarkdownOptions& opts,
     UiSize size,
@@ -2395,7 +2395,7 @@ Vec2 Markdown::Measure(
     return { keel::max(ctrlW, layout->totalWidth), finalH };
 }
 
-void Markdown::Render(
+void detail::Markdown::Render(
     ICanvas& canvas,
     Rect bounds,
     keel::StringRef markdownText,

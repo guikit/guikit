@@ -1,4 +1,10 @@
 #include "guikit/panels/tree_view.hpp"
+#include "guikit/layout/row.hpp"
+#include "guikit/layout/spacer.hpp"
+#include "guikit/panels/box.hpp"
+#include "guikit/widgets/button.hpp"
+#include "guikit/widgets/input_field.hpp"
+#include "guikit/widgets/text.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
@@ -315,7 +321,7 @@ void TreeViewScope::Finalize() noexcept {
     m_payload = nullptr;
 
     if (!p->activeFilter.empty() && p->visibleItemCount == 0 && m_node) {
-        m_ctx->Text("No matching items", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
+        guikit::Text(*m_ctx, "No matching items", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
     }
 
     if (p->state) {
@@ -467,7 +473,7 @@ void TreeItemScope::Finalize() noexcept {
     }
 }
 
-TreeViewScope TreeView::Open(
+TreeViewScope detail::TreeView::Open(
     Context& ctx,
     const TreeViewOptions& opts,
     keel::SourceLocation loc
@@ -750,7 +756,7 @@ TreeViewScope TreeView::Open(
     }
 
     outerNode->SetPayload(payload);
-    outerNode->postRenderFn = &TreeView::RenderOverlay;
+    outerNode->postRenderFn = &detail::TreeView::RenderOverlay;
 
     ctx.FinishContainer(outerNode);
 
@@ -758,25 +764,25 @@ TreeViewScope TreeView::Open(
         const ComponentMetrics& cm = theme.GetMetrics(activeSize);
         const keel::f32 barPad = keel::max(4.0f, keel::round(cm.paddingY * 0.85f));
         const keel::f32 barGap = keel::max(4.0f, keel::round(cm.itemGap * 0.85f));
-        if (auto bar = ctx.Row({
+        if (auto bar = guikit::Row(ctx, {
             .gap = barGap,
             .padding = Padding(barPad, barPad, barPad, barPad),
             .align = Alignment::Center
         })) {
             if (!opts.title.empty()) {
-                ctx.Text(opts.title, {
+                guikit::Text(ctx, opts.title, {
                     .role = TextRole::LabelSmall,
                     .variant = UiVariant::Secondary
                 });
                 if (!opts.searchable) {
-                    ctx.Spacer();
+                    guikit::Spacer(ctx);
                 }
             }
             if (opts.searchable) {
                 if (opts.filterText.valid()) {
                     st.filterText.assign(opts.filterText.as_ref());
                 }
-                if (ctx.InputField(st.filterText, {
+                if (guikit::InputField(ctx, st.filterText, {
                     .placeholder = opts.searchPlaceholder,
                     .prefix = Icon::Search(),
                     .clearable = true,
@@ -789,11 +795,11 @@ TreeViewScope TreeView::Open(
                     ctx.InvalidateAll();
                 }
             } else if (opts.title.empty()) {
-                ctx.Spacer();
+                guikit::Spacer(ctx);
             }
 
             if (opts.showToolbar) {
-                if (ctx.Button({
+                if (guikit::Button(ctx, {
                     .text = "Expand",
                     .icon = Icon::ChevronDown(),
                     .tooltip = "Expand all tree branches",
@@ -805,7 +811,7 @@ TreeViewScope TreeView::Open(
                     st.bulkToggleOpen = true;
                     ctx.InvalidateAll();
                 }
-                if (ctx.Button({
+                if (guikit::Button(ctx, {
                     .text = "Collapse",
                     .icon = Icon::ChevronRight(),
                     .tooltip = "Collapse all tree branches",
@@ -819,7 +825,7 @@ TreeViewScope TreeView::Open(
                 }
             }
         }
-        if (auto sep = ctx.Box({
+        if (auto sep = guikit::Box(ctx, {
             .width = SizeMode::Stretch,
             .height = 1.0f,
             .background = {pal.borderSubtle}
@@ -835,7 +841,7 @@ TreeViewScope TreeView::Open(
         headerNode->uiSize = activeSize;
         headerNode->disabled = activeDisabled;
         headerNode->SetPayload(payload);
-        headerNode->renderFn = &TreeView::RenderHeader;
+        headerNode->renderFn = &detail::TreeView::RenderHeader;
         keel::u64 hHash = detail::HashArgs(colCount, st.resizingCol, payload->hoveredDividerCol, activeDisabled);
         for (keel::u16 i = 0; i < colCount; ++i) {
             hHash = detail::HashArgs(hHash, payload->columns[i].title, st.userColWidths[i], st.hasUserColWidth[i]);
@@ -881,8 +887,8 @@ TreeViewScope TreeView::Open(
     scrollNode->scroll->solverManaged = true;
     scrollNode->uiSize = activeSize;
     scrollNode->disabled = activeDisabled;
-    scrollNode->postRenderFn = &ScrollArea::RenderScrollbar;
-    scrollNode->panelHooks = ScrollArea::Hooks();
+    scrollNode->postRenderFn = &detail::ScrollArea::RenderScrollbar;
+    scrollNode->panelHooks = detail::ScrollArea::Hooks();
 
     auto& scrollState = ctx.GetOrCreatePersistentState<ScrollState>(idScroll);
     scrollNode->scroll->offset = scrollState.offset;
@@ -893,7 +899,7 @@ TreeViewScope TreeView::Open(
     return TreeViewScope(&ctx, scrollNode, payload);
 }
 
-TreeItemScope TreeView::OpenItem(
+TreeItemScope detail::TreeView::OpenItem(
     Context& ctx,
     bool* externalOpen,
     const TreeItemOptions& opts,
@@ -1059,7 +1065,7 @@ TreeItemScope TreeView::OpenItem(
     branchNode->gap = (treePayload && treePayload->scrollNode) ? treePayload->scrollNode->gap : (2.0f * itemDensity);
     branchNode->uiSize = activeSize;
     branchNode->disabled = activeDisabled;
-    branchNode->postRenderFn = &TreeView::RenderBranchGuides;
+    branchNode->postRenderFn = &detail::TreeView::RenderBranchGuides;
     if (targetParent) {
         targetParent->AddChild(branchNode);
     }
@@ -1159,9 +1165,9 @@ TreeItemScope TreeView::OpenItem(
         payload->visibleRowIndex & 1
     );
 
-    rowNode->measureFn = &TreeView::MeasureRow;
-    rowNode->arrangeFn = &TreeView::ArrangeRow;
-    rowNode->renderFn = &TreeView::RenderRow;
+    rowNode->measureFn = &detail::TreeView::MeasureRow;
+    rowNode->arrangeFn = &detail::TreeView::ArrangeRow;
+    rowNode->renderFn = &detail::TreeView::RenderRow;
 
     // Reset current-frame hit rects until ArrangeRow computes fresh ones
     st.chevronRect = Rect{};
@@ -1174,7 +1180,7 @@ TreeItemScope TreeView::OpenItem(
     return TreeItemScope(&ctx, rowNode, payload, res, isOpen, wasToggled, isSelected, wasCheckChanged);
 }
 
-Vec2 TreeView::MeasureRow(
+Vec2 detail::TreeView::MeasureRow(
     const Node* rowNode,
     keel::f32 availableWidth,
     ICanvas* canvas,
@@ -1356,7 +1362,7 @@ void ArrangeEmbeddedContainerChildren(
 
 } // namespace
 
-void TreeView::ArrangeRow(
+void detail::TreeView::ArrangeRow(
     Node* rowNode,
     const Rect& availableRect,
     const UiTheme& theme
@@ -1551,7 +1557,7 @@ void TreeView::ArrangeRow(
     p->state->controlsRect = unionControls;
 }
 
-void TreeView::RenderRow(
+void detail::TreeView::RenderRow(
     const Node* rowNode,
     ICanvas& canvas,
     const UiTheme& theme
@@ -1778,7 +1784,7 @@ void TreeView::RenderRow(
     }
 }
 
-void TreeView::RenderHeader(
+void detail::TreeView::RenderHeader(
     const Node* headerNode,
     ICanvas& canvas,
     const UiTheme& theme
@@ -1876,7 +1882,7 @@ void TreeView::RenderHeader(
     canvas.PopClip();
 }
 
-void TreeView::RenderOverlay(
+void detail::TreeView::RenderOverlay(
     const Node* outerNode,
     ICanvas& canvas,
     const UiTheme& theme
@@ -1932,7 +1938,7 @@ void TreeView::RenderOverlay(
     canvas.PopClip();
 }
 
-void TreeView::RenderBranchGuides(
+void detail::TreeView::RenderBranchGuides(
     const Node* branchNode,
     ICanvas& canvas,
     const UiTheme& theme

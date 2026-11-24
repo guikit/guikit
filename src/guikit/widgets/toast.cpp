@@ -24,7 +24,7 @@ void ToastEndFrameInvoke(Context& ctx) {
         return;
     }
     if (store->lastVisitedFrame != ctx.GetFrameIndex()) {
-        Toast::RunHost(ctx, store->defaultHostOpts);
+        detail::Toast::RunHost(ctx, store->defaultHostOpts);
     }
 }
 
@@ -56,7 +56,7 @@ void EnsureToastHookRegistered(Context& ctx) {
 
 } // namespace
 
-keel::u64 Toast::Show(Context& ctx, ToastOptions opts) {
+keel::u64 detail::Toast::Show(Context& ctx, ToastOptions opts) {
     EnsureToastHookRegistered(ctx);
     auto& store = ctx.GetOrCreatePersistentState<ToastStore>(kToastStoreId);
     const keel::u64 id = ++store.nextId;
@@ -81,7 +81,7 @@ keel::u64 Toast::Show(Context& ctx, ToastOptions opts) {
     return id;
 }
 
-void Toast::Dismiss(Context& ctx, keel::u64 id) noexcept {
+void detail::Toast::Dismiss(Context& ctx, keel::u64 id) noexcept {
     auto* store = ctx.FindMutableState<ToastStore>(kToastStoreId);
     if (!store) return;
     for (keel::usize i = 0; i < store->entries.size(); ++i) {
@@ -93,7 +93,7 @@ void Toast::Dismiss(Context& ctx, keel::u64 id) noexcept {
     }
 }
 
-void Toast::Clear(Context& ctx) noexcept {
+void detail::Toast::Clear(Context& ctx) noexcept {
     auto* store = ctx.FindMutableState<ToastStore>(kToastStoreId);
     if (store && !store->entries.empty()) {
         store->entries.clear();
@@ -101,28 +101,28 @@ void Toast::Clear(Context& ctx) noexcept {
     }
 }
 
-keel::usize Toast::GetActiveCount(const Context& ctx) noexcept {
+keel::usize detail::Toast::GetActiveCount(const Context& ctx) noexcept {
     const auto* store = ctx.FindState<ToastStore>(kToastStoreId);
     return store ? store->entries.size() : 0;
 }
 
-bool Toast::HasHostVisited(const Context& ctx) noexcept {
+bool detail::Toast::HasHostVisited(const Context& ctx) noexcept {
     const auto* store = ctx.FindState<ToastStore>(kToastStoreId);
     return store != nullptr && store->lastVisitedFrame == ctx.GetFrameIndex();
 }
 
-void Toast::SetHostOptions(Context& ctx, const ToastHostOptions& opts) noexcept {
+void detail::Toast::SetHostOptions(Context& ctx, const ToastHostOptions& opts) noexcept {
     EnsureToastHookRegistered(ctx);
     auto& store = ctx.GetOrCreatePersistentState<ToastStore>(kToastStoreId);
     store.defaultHostOpts = opts;
 }
 
-ToastHostOptions Toast::GetHostOptions(const Context& ctx) noexcept {
+ToastHostOptions detail::Toast::GetHostOptions(const Context& ctx) noexcept {
     const auto* store = ctx.FindState<ToastStore>(kToastStoreId);
     return store ? store->defaultHostOpts : ToastHostOptions{};
 }
 
-Icon Toast::ResolveDefaultIcon(UiVariant variant, Icon explicitIcon) noexcept {
+Icon detail::Toast::ResolveDefaultIcon(UiVariant variant, Icon explicitIcon) noexcept {
     if (explicitIcon.IsValid()) {
         return explicitIcon;
     }
@@ -136,7 +136,7 @@ Icon Toast::ResolveDefaultIcon(UiVariant variant, Icon explicitIcon) noexcept {
     }
 }
 
-void Toast::RunHost(
+void detail::Toast::RunHost(
     Context& ctx,
     const ToastHostOptions& opts
 ) {
@@ -390,7 +390,7 @@ void Toast::RunHost(
             c.DrawRect(Rect(r.x, r.y, 3.5f * s, r.h), accentCol);
 
             // Leading icon badge
-            const Icon effIcon = Toast::ResolveDefaultIcon(e.variant, e.icon);
+            const Icon effIcon = detail::Toast::ResolveDefaultIcon(e.variant, e.icon);
             const Rect badgeRect(r.x + padX, r.y + padY, iconBoxSz, iconBoxSz);
             c.DrawRoundRect(
                 badgeRect,
