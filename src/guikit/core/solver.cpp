@@ -10,6 +10,10 @@ namespace {
 
 static constexpr keel::u32 kMaxLayoutDepth = 128;
 
+[[nodiscard]] constexpr keel::f32 ResolveRunGap(const Node* node) noexcept {
+    return (node->runGap >= 0.0f) ? node->runGap : node->gap;
+}
+
 /// While a node with its own scale processes itself, its outer sizing fields (kept in the parent's units) are
 /// viewed in the node's local units, so the layout code below works in one unit system. The originals are
 /// restored exactly on exit; in `Measure` mode the freshly measured intrinsic size is published in parent units.
@@ -310,7 +314,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         } else if (node->direction == FlexDirection::Grid) {
             const keel::i32 totalCols = keel::as<keel::i32>(node->GetGridColumns());
             const keel::f32 gap = node->gap;
-            const keel::f32 runGap = (node->runGap >= 0.0f) ? node->runGap : gap;
+            const keel::f32 runGap = ResolveRunGap(node);
 
             keel::f32 maxLineWidth = 0.0f;
             keel::f32 totalHeight = 0.0f;
@@ -496,7 +500,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 }
 
                 if (hasLines) {
-                    totalH += (node->runGap >= 0.0f) ? node->runGap : node->gap;
+                    totalH += ResolveRunGap(node);
                 }
                 totalH += lineMaxH;
                 hasLines = true;
@@ -596,7 +600,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             const keel::i32 totalCols = keel::as<keel::i32>(node->GetGridColumns());
             const keel::f32 minColW = node->GetMinColWidth();
             const keel::f32 gap = node->gap;
-            const keel::f32 runGap = (node->runGap >= 0.0f) ? node->runGap : node->gap;
+            const keel::f32 runGap = ResolveRunGap(node);
 
             keel::f32 totalH = 0.0f;
             bool hasLines = false;
@@ -1193,7 +1197,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             }
 
             if (hasLines) {
-                currentY += (node->runGap >= 0.0f) ? node->runGap : node->gap;
+                currentY += ResolveRunGap(node);
             }
 
             // Main axis justification for this line
@@ -1368,7 +1372,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         const keel::i32 totalCols = keel::as<keel::i32>(node->GetGridColumns());
         const keel::f32 minColW = node->GetMinColWidth();
         const keel::f32 gap = node->gap;
-        const keel::f32 runGap = (node->runGap >= 0.0f) ? node->runGap : node->gap;
+        const keel::f32 runGap = ResolveRunGap(node);
 
         keel::f32 currentY = contentRect.y;
         bool hasLines = false;

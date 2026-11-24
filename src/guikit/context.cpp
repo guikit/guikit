@@ -1762,6 +1762,86 @@ void Context::EndFrame(ICanvas& canvas) {
     m_containerStack.clear();
 }
 
+namespace {
+
+/// Masks outer corner wedges when a rounded clipping container hosts children that actually touch
+/// the corner regions (e.g. full-bleed toolbars, titlebars, or sidebars) so rectangular child fills
+/// never bleed outside the parent's rounded corners.
+void MaskRoundedContainerCorners(
+    ICanvas& canvas,
+    const Node* node,
+    const Rect& childClipRect,
+    Color clearColor
+) {
+    if (!node || !node->clipChildren || node->cornerRadius <= 1.5f || node->firstChild == nullptr) {
+        return;
+    }
+
+    const Rect& r = node->computedRect;
+    const keel::f32 rad = keel::clamp(node->cornerRadius, 0.0f, keel::min(r.w, r.h) * 0.5f);
+    if (rad <= 1.5f) {
+        return;
+    }
+
+    const Rect tlCorner(r.x, r.y, rad, rad);
+    const Rect trCorner(r.Right() - rad, r.y, rad, rad);
+    const Rect blCorner(r.x, r.Bottom() - rad, rad, rad);
+    const Rect brCorner(r.Right() - rad, r.Bottom() - rad, rad, rad);
+    bool maskTL = false;
+    bool maskTR = false;
+    bool maskBL = false;
+    bool maskBR = false;
+    for (const Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
+        if (child->IsOutOfFlow()) continue;
+        const Rect childBounds = NodeLocalTransform(child).Apply(child->computedRect).Intersect(childClipRect);
+        if (childBounds.w <= 0.0f || childBounds.h <= 0.0f) continue;
+        if (childBounds.Intersects(tlCorner)) maskTL = true;
+        if (childBounds.Intersects(trCorner)) maskTR = true;
+        if (childBounds.Intersects(blCorner)) maskBL = true;
+        if (childBounds.Intersects(brCorner)) maskBR = true;
+        if (maskTL && maskTR && maskBL && maskBR) break;
+    }
+    if (!(maskTL || maskTR || maskBL || maskBR)) {
+        return;
+    }
+
+    keel::SmallArray<Color, 8> semiLayers;
+    Color outerBg = clearColor;
+    for (const Node* anc = node->parent; anc != nullptr; anc = anc->parent) {
+        if (anc->backgroundColor.a == 255u) {
+            outerBg = anc->backgroundColor;
+            break;
+        }
+        if (anc->backgroundColor.a > 0u) {
+            semiLayers.push_back(anc->backgroundColor);
+        }
+    }
+    for (keel::usize li = semiLayers.size(); li > 0u; --li) {
+        const Color layer = semiLayers[li - 1u];
+        outerBg = Color::Mix255(outerBg, layer.WithAlpha(255u), layer.a);
+    }
+    if (outerBg.a == 0u) {
+        return;
+    }
+
+    const keel::i32 steps = keel::ceil_i32(rad);
+    for (keel::i32 i = 0; i < steps; ++i) {
+        const keel::f32 dy = keel::as<keel::f32>(i);
+        const keel::f32 rem = keel::max(0.0f, rad - dy - 0.35f);
+        const keel::f32 dx = keel::max(0.0f, rad - keel::sqrt(keel::max(0.0f, rad * rad - rem * rem)));
+        if (dx > 0.25f) {
+            const keel::f32 w = keel::min(dx + 0.5f, r.w * 0.5f);
+            const keel::f32 h = keel::min(1.25f, r.h - dy);
+            if (maskTL) canvas.DrawRect(Rect(r.x, r.y + dy, w, h), outerBg);
+            if (maskTR) canvas.DrawRect(Rect(r.Right() - w, r.y + dy, w, h), outerBg);
+            if (maskBL) canvas.DrawRect(Rect(r.x, r.Bottom() - dy - h, w, h), outerBg);
+            if (maskBR) canvas.DrawRect(Rect(r.Right() - w, r.Bottom() - dy - h, w, h), outerBg);
+        }
+    }
+}
+
+} // namespace
+
 void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirtyRect, const UiTheme& parentTheme) {
     if (!node) return;
     if (node->computedRect.w <= 0.0f || node->computedRect.h <= 0.0f) return;
@@ -1827,67 +1907,8 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
         canvas.PopClip();
     }
 
-    // Mask outer corner wedges when a rounded clipping container hosts children that actually touch
-    // the corner regions (e.g. full-bleed toolbars, titlebars, or sidebars) so rectangular child fills
-    // never bleed outside the parent's rounded corners.
-    if (isContainerSurface && node->clipChildren && node->cornerRadius > 1.5f && node->firstChild != nullptr) {
-        const Rect& r = node->computedRect;
-        const keel::f32 rad = keel::clamp(node->cornerRadius, 0.0f, keel::min(r.w, r.h) * 0.5f);
-        if (rad > 1.5f) {
-            const Rect tlCorner(r.x, r.y, rad, rad);
-            const Rect trCorner(r.Right() - rad, r.y, rad, rad);
-            const Rect blCorner(r.x, r.Bottom() - rad, rad, rad);
-            const Rect brCorner(r.Right() - rad, r.Bottom() - rad, rad, rad);
-            bool maskTL = false;
-            bool maskTR = false;
-            bool maskBL = false;
-            bool maskBR = false;
-            for (const Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-                if (child->IsOutOfFlow()) continue;
-                const Rect childBounds = NodeLocalTransform(child).Apply(child->computedRect).Intersect(childClipRect);
-                if (childBounds.w <= 0.0f || childBounds.h <= 0.0f) continue;
-                if (childBounds.Intersects(tlCorner)) maskTL = true;
-                if (childBounds.Intersects(trCorner)) maskTR = true;
-                if (childBounds.Intersects(blCorner)) maskBL = true;
-                if (childBounds.Intersects(brCorner)) maskBR = true;
-                if (maskTL && maskTR && maskBL && maskBR) break;
-            }
-
-            if (maskTL || maskTR || maskBL || maskBR) {
-                keel::SmallArray<Color, 8> semiLayers;
-                Color outerBg = m_clearColor;
-                for (const Node* anc = node->parent; anc != nullptr; anc = anc->parent) {
-                    if (anc->backgroundColor.a == 255u) {
-                        outerBg = anc->backgroundColor;
-                        break;
-                    }
-                    if (anc->backgroundColor.a > 0u) {
-                        semiLayers.push_back(anc->backgroundColor);
-                    }
-                }
-                for (keel::usize li = semiLayers.size(); li > 0u; --li) {
-                    const Color layer = semiLayers[li - 1u];
-                    outerBg = Color::Mix255(outerBg, layer.WithAlpha(255u), layer.a);
-                }
-
-                if (outerBg.a > 0u) {
-                    const keel::i32 steps = keel::ceil_i32(rad);
-                    for (keel::i32 i = 0; i < steps; ++i) {
-                        const keel::f32 dy = keel::as<keel::f32>(i);
-                        const keel::f32 rem = keel::max(0.0f, rad - dy - 0.35f);
-                        const keel::f32 dx = keel::max(0.0f, rad - keel::sqrt(keel::max(0.0f, rad * rad - rem * rem)));
-                        if (dx > 0.25f) {
-                            const keel::f32 w = keel::min(dx + 0.5f, r.w * 0.5f);
-                            const keel::f32 h = keel::min(1.25f, r.h - dy);
-                            if (maskTL) canvas.DrawRect(Rect(r.x, r.y + dy, w, h), outerBg);
-                            if (maskTR) canvas.DrawRect(Rect(r.Right() - w, r.y + dy, w, h), outerBg);
-                            if (maskBL) canvas.DrawRect(Rect(r.x, r.Bottom() - dy - h, w, h), outerBg);
-                            if (maskBR) canvas.DrawRect(Rect(r.Right() - w, r.Bottom() - dy - h, w, h), outerBg);
-                        }
-                    }
-                }
-            }
-        }
+    if (isContainerSurface) {
+        MaskRoundedContainerCorners(canvas, node, childClipRect, m_clearColor);
     }
 
     // 2. Render container border / 3D bevel / directional sheen / dock seam on top of children (after PopClip)
