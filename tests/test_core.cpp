@@ -2914,6 +2914,97 @@ void TestSplitViewGeometryConstraints() {
     }
 }
 
+void TestRoundedContainerCornerMasking() {
+    using namespace guikit;
+
+    struct RecordingCanvas final : NullCanvas {
+        struct RectCall {
+            Rect rect;
+            Color color;
+        };
+        keel::Array<RectCall> rects{};
+
+        void DrawRect(Rect rect, Color color) override {
+            rects.push_back({rect, color});
+        }
+    };
+
+    const Color baseBg(100, 120, 140, 255);
+    const Color semiBg(20, 30, 40, 128);
+    const Color expectedBlended = Color::Mix255(baseBg, semiBg.WithAlpha(255u), semiBg.a);
+
+    // 1. Padded rounded Card (padding 12 > radius 8) over semi-transparent parent must NOT emit corner mask rects
+    {
+        RecordingCanvas canvas;
+        Context ui;
+        ui.SetTheme(UiTheme::Dark());
+        ui.BeginFrame({300.0f, 200.0f}, 0.016f);
+        if (auto outer = Box(ui, {.width = SizeMode::Stretch, .height = SizeMode::Stretch, .background = {baseBg}})) {
+            if (auto semi = Box(ui, {.width = SizeMode::Stretch, .height = SizeMode::Stretch, .padding = Padding::All(16.0f), .background = {semiBg}})) {
+                if (auto card = Card(ui, {
+                    .width = 160.0f,
+                    .height = 80.0f,
+                    .padding = Padding::All(12.0f),
+                    .border = {.width = 1.0f, .radius = 8.0f}
+                })) {
+                    Text(ui, "Padded");
+                }
+            }
+        }
+        ui.EndFrame(canvas);
+
+        bool foundCornerMask = false;
+        for (const auto& rc : canvas.rects) {
+            if (rc.rect.h <= 2.0f && rc.rect.w <= 12.0f) {
+                foundCornerMask = true;
+                break;
+            }
+        }
+        CHECK(!foundCornerMask);
+    }
+
+    // 2. Full-bleed rounded clipping container over semi-transparent parent MUST mask corners with composited outerBg
+    {
+        RecordingCanvas canvas;
+        Context ui;
+        ui.SetTheme(UiTheme::Dark());
+        ui.BeginFrame({300.0f, 200.0f}, 0.016f);
+        if (auto outer = Box(ui, {.width = SizeMode::Stretch, .height = SizeMode::Stretch, .background = {baseBg}})) {
+            if (auto semi = Box(ui, {.width = SizeMode::Stretch, .height = SizeMode::Stretch, .padding = Padding::All(16.0f), .background = {semiBg}})) {
+                if (auto fullBleed = Box(ui, {
+                    .width = 160.0f,
+                    .height = 80.0f,
+                    .padding = Padding::All(0.0f),
+                    .background = {Color(40, 50, 70, 255)},
+                    .border = {.width = 1.0f, .radius = 8.0f},
+                    .clipChildren = true
+                })) {
+                    if (auto hdr = Box(ui, {
+                        .width = SizeMode::Stretch,
+                        .height = 24.0f,
+                        .background = {Color(200, 60, 60, 255)}
+                    })) {}
+                }
+            }
+        }
+        ui.EndFrame(canvas);
+
+        keel::usize maskCount = 0u;
+        bool allBlended = true;
+        bool anyStaleBase = false;
+        for (const auto& rc : canvas.rects) {
+            if (rc.rect.h <= 2.0f && rc.rect.w <= 12.0f) {
+                ++maskCount;
+                if (rc.color != expectedBlended) allBlended = false;
+                if (rc.color == baseBg) anyStaleBase = true;
+            }
+        }
+        CHECK(maskCount > 0u);
+        CHECK(allBlended);
+        CHECK(!anyStaleBase);
+    }
+}
+
 int main() {
     keel::println("[RUN] Testing GuiKit Core Foundation...");
 
@@ -2945,6 +3036,7 @@ int main() {
     TestMenuButtonAndSplitButton();
     TestRangeSliderThumbHitTestAndCanvasSync();
     TestSplitViewGeometryConstraints();
+    TestRoundedContainerCornerMasking();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Core tests passed successfully!");
