@@ -24,16 +24,6 @@ struct SplitButtonPayload {
     bool chevronOpen{false};
 };
 
-struct ResolvedSplitPalette {
-    Color baseBg{Color::Transparent()};
-    Color mainBg{Color::Transparent()};
-    Color chevBg{Color::Transparent()};
-    Color textCol{Color::Transparent()};
-    Color borderCol{Color::Transparent()};
-    keel::f32 borderW{0.0f};
-    bool isGhost{false};
-};
-
 keel::f32 ComputeChevronWidth(const ComponentMetrics& m) noexcept {
     return keel::round(keel::clamp(m.defaultHeight * 0.72f, 20.0f, 32.0f));
 }
@@ -50,150 +40,6 @@ ControlSpec EffectiveSplitControl(const ButtonOptions& opts, UiSize size, const 
         inputMetrics.descGap,
         m.paddingX
     );
-}
-
-ResolvedSplitPalette ResolveSplitColors(
-    const ButtonOptions& opts,
-    const UiTheme& theme,
-    bool mainHov,
-    bool mainPress,
-    bool chevHov,
-    bool chevPress,
-    bool disabled,
-    bool focused
-) noexcept {
-    ResolvedSplitPalette out{};
-    const auto& pal = theme.palette;
-    const bool isDark = (theme.mode == ThemeMode::Dark);
-    const bool hasCtrlBg = opts.background.IsBackgroundEnabled(true);
-    const bool anyHov = mainHov || chevHov;
-    const bool anyPress = mainPress || chevPress;
-    const bool isGhostBtn = (opts.style == ButtonStyle::Ghost) ||
-                            (opts.style == ButtonStyle::Default && opts.variant == UiVariant::Ghost);
-    const bool isSemantic = (opts.variant == UiVariant::Primary ||
-                             opts.variant == UiVariant::Success ||
-                             opts.variant == UiVariant::Warning ||
-                             opts.variant == UiVariant::Danger  ||
-                             opts.variant == UiVariant::Info);
-
-    out.isGhost = isGhostBtn;
-    out.borderW = (opts.border.width > 0.0f) ? opts.border.width : 0.0f;
-
-    Color restBg = Color::Transparent();
-    Color hovBg = Color::Transparent();
-    Color actBg = Color::Transparent();
-    Color defaultText = pal.textPrimary;
-
-    if (isGhostBtn) {
-        const VariantColors& ghost = theme.GetVariant(UiVariant::Ghost);
-        if (isSemantic) {
-            const Color seed = theme.GetSemanticAccent(opts.variant);
-            defaultText = theme.EnsureReadableInk(seed, pal.surface);
-            if (hasCtrlBg) {
-                hovBg = seed.WithAlphaF(theme.SoftTintAlpha(false, false));
-                actBg = seed.WithAlphaF(theme.SoftTintAlpha(false, true));
-            }
-        } else {
-            defaultText = ghost.text;
-            if (hasCtrlBg) {
-                hovBg = ghost.bgHover;
-                actBg = ghost.bgActive;
-            }
-        }
-        out.borderCol = (opts.border.width > 0.0f) ? pal.border : ghost.border;
-        if (!disabled && (opts.active || anyHov)) {
-            out.borderCol = opts.active ? defaultText.WithAlphaF(0.35f) : pal.borderSubtle;
-            out.borderW = keel::max(out.borderW, 1.0f);
-        }
-    } else if (opts.style == ButtonStyle::Default) {
-        const UiVariant effVar = isSemantic ? opts.variant : UiVariant::Secondary;
-        const VariantColors& vc = theme.GetVariant(effVar);
-        defaultText = vc.text;
-        out.borderCol = vc.border;
-        if (opts.border.width <= 0.0f) out.borderW = vc.borderWidth;
-        if (hasCtrlBg) {
-            restBg = vc.bg;
-            hovBg = vc.bgHover;
-            actBg = vc.bgActive;
-        }
-    } else if (opts.style == ButtonStyle::Solid) {
-        const Color seed = isSemantic ? theme.GetSemanticAccent(opts.variant) : pal.accent;
-        defaultText = Color::BestTextColor(seed, Color::Hex(0x0F172AFF), Color::Hex(0xFFFFFFFF));
-        if (hasCtrlBg) {
-            restBg = seed;
-            hovBg = isDark ? seed.Lighten(0.08f) : seed.Lighten(0.07f);
-            actBg = isDark ? seed.Darken(0.08f) : seed.Darken(0.09f);
-        }
-        if (opts.border.width > 0.0f) {
-            out.borderCol = defaultText.WithAlphaF(0.65f);
-        }
-    } else if (opts.style == ButtonStyle::Soft) {
-        const Color seed = isSemantic ? theme.GetSemanticAccent(opts.variant) : pal.accent;
-        const Color softRest = Color::Lerp(pal.surface, seed, isDark ? 0.22f : 0.15f).WithAlpha(255u);
-        defaultText = theme.EnsureReadableInk(isDark ? seed.Lighten(0.18f) : seed.Darken(0.16f), softRest);
-        out.borderCol = Color::Lerp(pal.border, seed, isDark ? 0.45f : 0.40f).WithAlpha(255u);
-        if (opts.border.width <= 0.0f) out.borderW = 1.0f * keel::max(theme.borderScale, 0.5f);
-        if (hasCtrlBg) {
-            restBg = softRest;
-            hovBg = Color::Lerp(pal.surface, seed, isDark ? 0.32f : 0.23f).WithAlpha(255u);
-            actBg = Color::Lerp(pal.surface, seed, isDark ? 0.42f : 0.31f).WithAlpha(255u);
-        }
-    } else {
-        // ButtonStyle::Outline
-        const Color seed = isSemantic ? theme.GetSemanticAccent(opts.variant) : pal.borderHover;
-        defaultText = isSemantic ? theme.EnsureReadableInk(seed, pal.surface) : pal.textPrimary;
-        out.borderCol = isSemantic ? seed.WithAlphaF(0.85f) : pal.borderHover;
-        if (opts.border.width <= 0.0f) out.borderW = 1.25f * keel::max(theme.borderScale, 0.5f);
-        if (hasCtrlBg) {
-            hovBg = isSemantic ? seed.WithAlphaF(theme.SoftTintAlpha(false, false)) : pal.surfaceHover;
-            actBg = isSemantic ? seed.WithAlphaF(theme.SoftTintAlpha(false, true)) : pal.surfaceActive;
-        }
-    }
-
-    if (hasCtrlBg && opts.background.HasAny() && !opts.background.IsNone()) {
-        if (opts.background.IsSurface()) {
-            if (opts.background.HasAlphaScale()) {
-                restBg = restBg.ScaleAlpha(opts.background.alphaScale);
-                hovBg = hovBg.ScaleAlpha(opts.background.alphaScale);
-                actBg = actBg.ScaleAlpha(opts.background.alphaScale);
-            }
-        } else {
-            restBg = theme.ResolveColor(opts.background, false, opts.active, disabled, restBg);
-            hovBg = theme.ResolveColor(opts.background, true, false, disabled, hovBg);
-            actBg = theme.ResolveColor(opts.background, false, true, disabled, actBg);
-            if (!opts.text.color.HasAny() && restBg.a >= 180u) {
-                defaultText = Color::BestTextColor(restBg, Color::Hex(0x0F172AFF), Color::Hex(0xFFFFFFFF));
-            }
-        }
-    }
-
-    if (disabled) {
-        out.baseBg = restBg.WithAlphaF(theme.disabledOpacity);
-        out.mainBg = out.baseBg;
-        out.chevBg = out.baseBg;
-        out.borderCol = out.borderCol.WithAlphaF(theme.disabledOpacity);
-    } else {
-        out.baseBg = opts.active ? actBg : restBg;
-        out.mainBg = mainPress ? actBg : (mainHov ? hovBg : out.baseBg);
-        out.chevBg = chevPress ? actBg : (chevHov ? hovBg : out.baseBg);
-    }
-
-    out.textCol = opts.text.color.HasAny()
-        ? theme.ResolveTextStateColor(opts.text.color).Resolve(anyHov, anyPress || opts.active, disabled, defaultText)
-        : (disabled ? defaultText.WithAlphaF(theme.disabledOpacity) : defaultText);
-
-    if (opts.border.color.HasAny()) {
-        out.borderCol = theme.ResolveColor(opts.border.color, anyHov, anyPress || opts.active || focused, disabled, out.borderCol);
-    }
-
-    if (focused && !disabled) {
-        if (!opts.border.color.active.has_value()) {
-            out.borderCol = pal.focusRing;
-        }
-        out.borderW = keel::max(out.borderW, theme.focusRingWidth);
-    }
-
-    return out;
 }
 
 void RenderSplitButtonNode(const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
@@ -215,19 +61,29 @@ void RenderSplitButtonNode(const Node* n, ICanvas& canvas, const UiTheme& theme)
     const bool anyHov = mainHov || chevHov;
     const bool anyPress = mainPress || chevPress;
 
-    const ResolvedSplitPalette palRes = ResolveSplitColors(
-        p->btn, theme, mainHov, mainPress, chevHov, chevPress, n->disabled, n->focused
+    const detail::ButtonResolvedColors rc = detail::Button::ResolveColors(
+        p->btn, theme, anyHov, anyPress, n->disabled, n->focused
     );
+    const Color baseBg = n->disabled ? rc.restBg : (p->btn.active ? rc.activeBg : rc.restBg);
+    const Color mainBg = n->disabled ? baseBg : (mainPress ? rc.activeBg : (mainHov ? rc.hoverBg : baseBg));
+    const Color chevBg = n->disabled ? baseBg : (chevPress ? rc.activeBg : (chevHov ? rc.hoverBg : baseBg));
+    const Color borderCol = (rc.isGhost && !n->disabled && anyHov && !p->btn.active && rc.borderW <= 0.0f)
+        ? theme.palette.borderSubtle
+        : rc.borderCol;
+    const keel::f32 borderW = (rc.isGhost && !n->disabled && anyHov && !p->btn.active && rc.borderW <= 0.0f)
+        ? 1.0f
+        : rc.borderW;
+
     const keel::f32 radius = p->btn.border.radius.value_or(m.cornerRadius);
-    const FrameKind frameKind = palRes.isGhost ? FrameKind::ToolbarButton : FrameKind::Button;
+    const FrameKind frameKind = rc.isGhost ? FrameKind::ToolbarButton : FrameKind::Button;
 
     theme.Painter().DrawFrame(canvas, theme, frameKind, FramePaintParams{
         .rect = fullRect,
         .radius = radius,
         .explicitRadius = p->btn.border.radius.has_value(),
-        .bg = palRes.baseBg,
-        .border = palRes.borderCol,
-        .borderWidth = palRes.borderW,
+        .bg = baseBg,
+        .border = borderCol,
+        .borderWidth = borderW,
         .hovered = anyHov,
         .pressed = anyPress,
         .active = p->btn.active,
@@ -236,16 +92,26 @@ void RenderSplitButtonNode(const Node* n, ICanvas& canvas, const UiTheme& theme)
         .accent = theme.palette.accent
     });
 
+    // Preserve outer frame border and 3D bevels when highlighting an individual half
+    const keel::f32 frameInset = keel::max(borderW, theme.Painter().GetChromeMetrics(theme).frameBevelInset);
+    const Rect innerRect(
+        fullRect.x + frameInset,
+        fullRect.y + frameInset,
+        keel::max(0.0f, fullRect.w - frameInset * 2.0f),
+        keel::max(0.0f, fullRect.h - frameInset * 2.0f)
+    );
+    const keel::f32 innerRadius = keel::max(0.0f, radius - frameInset);
+
     canvas.PushClip(fullRect);
 
-    if (palRes.mainBg.a > 0 && palRes.mainBg != palRes.baseBg && mainRect.w > 0.0f) {
+    if (mainBg.a > 0 && mainBg != baseBg && mainRect.w > 0.0f && innerRect.w > 0.0f && innerRect.h > 0.0f) {
         canvas.PushClip(mainRect);
-        canvas.DrawRoundRect(fullRect, radius, palRes.mainBg, Color::Transparent(), 0.0f);
+        canvas.DrawRoundRect(innerRect, innerRadius, mainBg, Color::Transparent(), 0.0f);
         canvas.PopClip();
     }
-    if (palRes.chevBg.a > 0 && palRes.chevBg != palRes.baseBg && chevRect.w > 0.0f) {
+    if (chevBg.a > 0 && chevBg != baseBg && chevRect.w > 0.0f && innerRect.w > 0.0f && innerRect.h > 0.0f) {
         canvas.PushClip(chevRect);
-        canvas.DrawRoundRect(fullRect, radius, palRes.chevBg, Color::Transparent(), 0.0f);
+        canvas.DrawRoundRect(innerRect, innerRadius, chevBg, Color::Transparent(), 0.0f);
         canvas.PopClip();
     }
 
@@ -258,9 +124,9 @@ void RenderSplitButtonNode(const Node* n, ICanvas& canvas, const UiTheme& theme)
     mainBtn.border = {.width = 0.0f};
     mainBtn.active = false;
     mainBtn.trailingIcon = {};
-    mainBtn.text.color = StateColor{palRes.textCol, palRes.textCol, palRes.textCol, palRes.textCol};
+    mainBtn.text.color = StateColor{rc.textCol, rc.textCol, rc.textCol, rc.textCol};
     if (!mainBtn.iconColor.has_value()) {
-        mainBtn.iconColor = palRes.textCol;
+        mainBtn.iconColor = rc.textCol;
     }
     detail::Button::Render(
         canvas,
@@ -281,7 +147,7 @@ void RenderSplitButtonNode(const Node* n, ICanvas& canvas, const UiTheme& theme)
     const Color sepBase = (p->btn.style == ButtonStyle::Solid || p->btn.variant == UiVariant::Primary ||
                            p->btn.variant == UiVariant::Success || p->btn.variant == UiVariant::Warning ||
                            p->btn.variant == UiVariant::Danger  || p->btn.variant == UiVariant::Info)
-        ? palRes.textCol.WithAlphaF(n->disabled ? 0.14f : 0.28f)
+        ? rc.textCol.WithAlphaF(n->disabled ? 0.14f : 0.28f)
         : theme.palette.border.WithAlphaF(n->disabled ? 0.20f : (anyHov ? 0.85f : 0.55f));
     theme.Painter().DrawDivider(
         canvas,
@@ -301,7 +167,7 @@ void RenderSplitButtonNode(const Node* n, ICanvas& canvas, const UiTheme& theme)
         chevIconSz,
         chevIconSz
     );
-    const Color chevCol = palRes.textCol.WithAlphaF(n->disabled ? theme.disabledOpacity : (chevHov ? 0.96f : 0.80f));
+    const Color chevCol = rc.textCol.WithAlphaF(n->disabled ? theme.disabledOpacity : (chevHov ? 0.96f : 0.80f));
     Icon::ChevronDown().Draw(canvas, chevIconRect, chevCol);
 
     canvas.PopClip();

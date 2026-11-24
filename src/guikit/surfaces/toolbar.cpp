@@ -81,56 +81,21 @@ void RenderToolButtonNode(const Node* n, ICanvas& canvas, const UiTheme& theme) 
     const bool anyHov = mainHov || chevHov;
     const bool anyPress = mainPress || chevPress;
 
-    const bool isGhost = !active && (p->btn.style == ButtonStyle::Ghost) && !p->btn.background.HasAny();
-    const UiVariant effVar = (p->btn.variant == UiVariant::Default) ? UiVariant::Primary : p->btn.variant;
-    const VariantColors& v = theme.GetVariant(effVar);
+    const detail::ButtonResolvedColors rc = detail::Button::ResolveColors(
+        p->btn, theme, anyHov, anyPress, n->disabled, n->focused
+    );
+    const Color baseBg = n->disabled ? rc.restBg : (active ? rc.activeBg : rc.restBg);
+    const Color mainBg = n->disabled ? baseBg : (mainPress ? rc.activeBg : (mainHov ? rc.hoverBg : baseBg));
+    const Color chevBg = n->disabled ? baseBg : (chevPress ? rc.activeBg : (chevHov ? rc.hoverBg : baseBg));
+    const Color textCol = rc.textCol;
+    const Color borderCol = (rc.isGhost && !n->disabled && anyHov && !active && rc.borderW <= 0.0f)
+        ? pal.borderSubtle
+        : rc.borderCol;
+    const keel::f32 borderW = (rc.isGhost && !n->disabled && anyHov && !active && rc.borderW <= 0.0f)
+        ? 1.0f
+        : rc.borderW;
 
-    Color baseBg = Color::Transparent();
-    Color mainBg = Color::Transparent();
-    Color chevBg = Color::Transparent();
-    Color textCol = pal.textPrimary;
-    Color borderCol = Color::Transparent();
-    keel::f32 borderW = 0.0f;
-
-    if (p->btn.background.HasAny()) {
-        baseBg = theme.ResolveColor(p->btn.background, false, active, n->disabled, v.bg);
-        const Color hovBg = theme.ResolveColor(p->btn.background, true, false, n->disabled, v.bgHover);
-        const Color pressBg = theme.ResolveColor(p->btn.background, false, true, n->disabled, v.bgActive);
-        mainBg = mainPress ? pressBg : (mainHov ? hovBg : baseBg);
-        chevBg = chevPress ? pressBg : (chevHov ? hovBg : baseBg);
-        textCol = n->disabled ? v.text.WithAlphaF(theme.disabledOpacity) : v.text;
-    } else if (isGhost) {
-        const VariantColors& ghost = theme.GetVariant(UiVariant::Ghost);
-        mainBg = mainPress ? ghost.bgActive : (mainHov ? ghost.bgHover : Color::Transparent());
-        chevBg = chevPress ? ghost.bgActive : (chevHov ? ghost.bgHover : Color::Transparent());
-        textCol = n->disabled ? ghost.text.WithAlphaF(theme.disabledOpacity) : ghost.text;
-        if (n->disabled) {
-            mainBg = mainBg.WithAlphaF(theme.disabledOpacity);
-            chevBg = chevBg.WithAlphaF(theme.disabledOpacity);
-        } else if (anyHov) {
-            borderCol = pal.borderSubtle;
-            borderW = 1.0f;
-        }
-    } else {
-        baseBg = active ? v.bgActive : v.bg;
-        mainBg = mainPress ? v.bgActive : (mainHov ? v.bgHover : baseBg);
-        chevBg = chevPress ? v.bgActive : (chevHov ? v.bgHover : baseBg);
-        textCol = n->disabled ? v.text.WithAlphaF(theme.disabledOpacity) : v.text;
-        if (n->disabled) {
-            mainBg = mainBg.WithAlphaF(theme.disabledOpacity);
-            chevBg = chevBg.WithAlphaF(theme.disabledOpacity);
-        }
-    }
-
-    if (p->btn.border.color.HasAny()) {
-        borderCol = theme.ResolveColor(p->btn.border.color, anyHov, anyPress || active, n->disabled, pal.border);
-        borderW = (p->btn.border.width > 0.0f) ? p->btn.border.width : 1.0f;
-    } else if (p->btn.border.width > 0.0f) {
-        borderCol = pal.border;
-        borderW = p->btn.border.width;
-    }
-
-    const FrameKind splitKind = isGhost ? FrameKind::ToolbarButton : FrameKind::Button;
+    const FrameKind splitKind = rc.isGhost ? FrameKind::ToolbarButton : FrameKind::Button;
     theme.Painter().DrawFrame(canvas, theme, splitKind, FramePaintParams{
         .rect = fullRect,
         .radius = radius,
@@ -146,16 +111,25 @@ void RenderToolButtonNode(const Node* n, ICanvas& canvas, const UiTheme& theme) 
         .accent = pal.accent
     });
 
+    const keel::f32 frameInset = keel::max(borderW, theme.Painter().GetChromeMetrics(theme).frameBevelInset);
+    const Rect innerRect(
+        fullRect.x + frameInset,
+        fullRect.y + frameInset,
+        keel::max(0.0f, fullRect.w - frameInset * 2.0f),
+        keel::max(0.0f, fullRect.h - frameInset * 2.0f)
+    );
+    const keel::f32 innerRadius = keel::max(0.0f, radius - frameInset);
+
     canvas.PushClip(fullRect);
 
-    if (mainBg.a > 0 && mainBg != baseBg && mainRect.w > 0.0f) {
+    if (mainBg.a > 0 && mainBg != baseBg && mainRect.w > 0.0f && innerRect.w > 0.0f && innerRect.h > 0.0f) {
         canvas.PushClip(mainRect);
-        canvas.DrawRoundRect(fullRect, radius, mainBg, Color::Transparent(), 0.0f);
+        canvas.DrawRoundRect(innerRect, innerRadius, mainBg, Color::Transparent(), 0.0f);
         canvas.PopClip();
     }
-    if (chevBg.a > 0 && chevBg != baseBg && chevRect.w > 0.0f) {
+    if (chevBg.a > 0 && chevBg != baseBg && chevRect.w > 0.0f && innerRect.w > 0.0f && innerRect.h > 0.0f) {
         canvas.PushClip(chevRect);
-        canvas.DrawRoundRect(fullRect, radius, chevBg, Color::Transparent(), 0.0f);
+        canvas.DrawRoundRect(innerRect, innerRadius, chevBg, Color::Transparent(), 0.0f);
         canvas.PopClip();
     }
 
@@ -269,20 +243,33 @@ ContextMenuResponse ToolbarScope::Dropdown(
     keel::SourceLocation loc
 ) {
     if (!m_ctx) return ContextMenuResponse{};
-    if (!opts.icon.IsValid() && !opts.square) {
-        opts.icon = Icon::ChevronDown();
-        opts.iconPlacement = Placement::Trailing;
+    const bool hasExplicitTrailing =
+        opts.trailingIcon.IsValid() ||
+        (opts.icon.IsValid() && opts.iconPlacement == Placement::Trailing);
+    if (!opts.square && !hasExplicitTrailing) {
+        opts.trailingIcon = Icon::ChevronDown();
     }
     struct DropdownMenuState {
         bool open{false};
+        Id popupId{};
     };
-    const Response btnRes = detail::Toolbar::ToolButton(*m_ctx, opts, loc);
-    auto& state = m_ctx->GetOrCreateState<DropdownMenuState>(btnRes.id);
-    if (btnRes.clicked) {
+    const Id rootId = m_ctx->MakeChildId(loc);
+    auto& state = m_ctx->GetOrCreateState<DropdownMenuState>(rootId);
+    const bool visualOpen = state.open && state.popupId.IsValid() && m_ctx->IsPopupOpen(state.popupId);
+    opts.active = opts.active || visualOpen;
+
+    auto scope = m_ctx->IdScope(rootId.value);
+    const Response btnRes = detail::Toolbar::ToolButton(*m_ctx, opts, keel::SourceLocation::current());
+    if (opts.disabled || m_ctx->IsDisabled()) {
+        state.open = false;
+    } else if (btnRes.clicked) {
         state.open = !state.open;
+        m_ctx->InvalidateAll();
     }
     menuOpts.anchorRect = btnRes.rect;
-    return detail::ContextMenu::Run(*m_ctx, state.open, menuItems, menuOpts, loc);
+    ContextMenuResponse res = detail::ContextMenu::Run(*m_ctx, state.open, menuItems, menuOpts, keel::SourceLocation::current());
+    state.popupId = res.id;
+    return res;
 }
 
 SplitButtonResponse ToolbarScope::SplitButton(
@@ -572,6 +559,7 @@ Response detail::Toolbar::ToolButton(
     payload->btn.tooltip = ctx.AllocText(opts.tooltip);
     node->text = payload->btn.text.text;
     payload->btn.icon = ctx.AllocIcon(opts.icon);
+    payload->btn.trailingIcon = ctx.AllocIcon(opts.trailingIcon);
     payload->btn.style = opts.style;
     payload->btn.variant = opts.variant;
     payload->btn.background = opts.background;
@@ -702,6 +690,7 @@ SplitButtonResponse detail::Toolbar::SplitButton(
     payload->btn.tooltip = ctx.AllocText(opts.tooltip);
     node->text = payload->btn.text.text;
     payload->btn.icon = ctx.AllocIcon(opts.icon);
+    payload->btn.trailingIcon = ctx.AllocIcon(opts.trailingIcon);
     payload->btn.style = opts.style;
     payload->btn.variant = opts.variant;
     payload->btn.background = opts.background;

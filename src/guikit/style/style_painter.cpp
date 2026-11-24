@@ -456,6 +456,7 @@ ChromeMetrics DefaultStylePainter::GetChromeMetrics(const UiTheme& theme) const 
     m.buttonPressOffset = theme.chrome.buttonPressOffset;
     m.tabGapOverride = theme.chrome.tabGapOverride;
     if (theme.chrome.frame == FrameTreatment::Bevel3D) {
+        m.frameBevelInset = 2.0f;
         m.sliderTrackHeight = 4.0f;
         m.rangeSliderTrackHeight = 6.0f;
     }

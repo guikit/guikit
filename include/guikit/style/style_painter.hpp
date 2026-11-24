@@ -23,6 +23,7 @@ enum class FrameKind : keel::u8 {
 /// Chrome-driven layout & geometry metrics returned by `IStylePainter::GetChromeMetrics`.
 struct ChromeMetrics {
     keel::f32  buttonPressOffset{0.0f};      ///< Pressed/active button content shift in dp
+    keel::f32  frameBevelInset{0.0f};        ///< Inner frame/bevel inset in dp (e.g. 2.0f for Bevel3D)
     keel::f32  tabGapOverride{-1.0f};        ///< Explicit TabBar gap in dp (< 0 uses theme default)
     keel::f32  sliderTrackHeight{0.0f};      ///< Fixed slider track height in dp (<= 0 uses widget default)
     keel::f32  rangeSliderTrackHeight{0.0f}; ///< Fixed range slider track height in dp (<= 0 uses widget default)

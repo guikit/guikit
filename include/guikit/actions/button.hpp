@@ -47,8 +47,30 @@ using ButtonResponse = Response;
 /// Autonomous Button widget logic (execution, measuring, and rendering).
 namespace detail {
 
+/// Theme-resolved color tokens for button chrome (shared by `Button`, `SplitButton`, and `Toolbar::SplitButton`).
+struct ButtonResolvedColors {
+    Color restBg{Color::Transparent()};
+    Color hoverBg{Color::Transparent()};
+    Color activeBg{Color::Transparent()};
+    Color bg{Color::Transparent()};
+    Color textCol{Color::Transparent()};
+    Color borderCol{Color::Transparent()};
+    keel::f32 borderW{0.0f};
+    bool isGhost{false};
+};
+
 class Button {
 public:
+    /// Resolves semantic button chrome colors across all 5 `ButtonStyle` variants, overrides, focus, and disabled state.
+    [[nodiscard]] static ButtonResolvedColors ResolveColors(
+        const ButtonOptions& opts,
+        const UiTheme& theme,
+        bool hovered,
+        bool pressed,
+        bool disabled,
+        bool focused = false
+    ) noexcept;
+
     /// Primary immediate mode entry point for Button widget.
     static Response Run(
         Context& ctx,

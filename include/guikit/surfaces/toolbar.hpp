@@ -39,6 +39,7 @@ struct ToolButtonOptions {
     UiText text{};
     UiText tooltip{};
     Icon icon{};
+    Icon trailingIcon{};
     ButtonStyle style{ButtonStyle::Ghost};
     UiVariant variant{UiVariant::Default};
     StateColor background{};
