@@ -131,7 +131,7 @@ Color ResolveZoneColor(
             }
         }
     }
-    return disabled ? col.WithAlphaF(0.40f) : col;
+    return disabled ? col.WithAlphaF(theme.disabledOpacity) : col;
 }
 
 struct LevelMeterMetrics {
@@ -309,8 +309,8 @@ void DrawChannelBarHorizontal(
         trackRect.w + housingPad * 2.0f,
         trackRect.h + housingPad * 2.0f
     );
-    const Color housingBg = disabled ? pal.surface.WithAlphaF(0.4f) : pal.surface;
-    const Color housingBorder = disabled ? pal.border.WithAlphaF(0.3f) : pal.border;
+    const Color housingBg = disabled ? pal.surface.WithAlphaF(theme.disabledOpacity) : pal.surface;
+    const Color housingBorder = disabled ? pal.border.WithAlphaF(theme.disabledOpacity) : pal.border;
     canvas.DrawRoundRect(housingRect, keel::min(3.0f, housingRect.h * 0.22f), housingBg, housingBorder, 1.0f);
 
     if (opts.segments > 0) {
@@ -409,10 +409,10 @@ void DrawChannelBarHorizontal(
         const bool isClip = ch.clipped || (ch.ratio >= 0.995f);
         const Color dangerBg = theme.GetVariant(UiVariant::Danger).bg;
         const Color clipFill = isClip
-            ? (disabled ? dangerBg.WithAlphaF(0.45f) : dangerBg)
+            ? (disabled ? dangerBg.WithAlphaF(theme.disabledOpacity) : dangerBg)
             : dangerBg.WithAlphaF(disabled ? 0.08f : 0.18f);
         const Color clipBorder = isClip
-            ? (disabled ? dangerBg.WithAlphaF(0.4f) : dangerBg)
+            ? (disabled ? dangerBg.WithAlphaF(theme.disabledOpacity) : dangerBg)
             : (disabled ? pal.border.WithAlphaF(0.25f) : pal.border.WithAlphaF(0.65f));
         canvas.DrawRoundRect(clipRect, keel::min(2.5f, clipRect.w * 0.3f), clipFill, clipBorder, 1.0f);
     }
@@ -456,8 +456,8 @@ void DrawChannelBarVertical(
         trackRect.w + housingPad * 2.0f,
         trackRect.h + housingPad * 2.0f
     );
-    const Color housingBg = disabled ? pal.surface.WithAlphaF(0.4f) : pal.surface;
-    const Color housingBorder = disabled ? pal.border.WithAlphaF(0.3f) : pal.border;
+    const Color housingBg = disabled ? pal.surface.WithAlphaF(theme.disabledOpacity) : pal.surface;
+    const Color housingBorder = disabled ? pal.border.WithAlphaF(theme.disabledOpacity) : pal.border;
     canvas.DrawRoundRect(housingRect, keel::min(3.0f, housingRect.w * 0.22f), housingBg, housingBorder, 1.0f);
 
     if (opts.segments > 0) {
@@ -561,10 +561,10 @@ void DrawChannelBarVertical(
         const bool isClip = ch.clipped || (ch.ratio >= 0.995f);
         const Color dangerBg = theme.GetVariant(UiVariant::Danger).bg;
         const Color clipFill = isClip
-            ? (disabled ? dangerBg.WithAlphaF(0.45f) : dangerBg)
+            ? (disabled ? dangerBg.WithAlphaF(theme.disabledOpacity) : dangerBg)
             : dangerBg.WithAlphaF(disabled ? 0.08f : 0.18f);
         const Color clipBorder = isClip
-            ? (disabled ? dangerBg.WithAlphaF(0.4f) : dangerBg)
+            ? (disabled ? dangerBg.WithAlphaF(theme.disabledOpacity) : dangerBg)
             : (disabled ? pal.border.WithAlphaF(0.25f) : pal.border.WithAlphaF(0.65f));
         canvas.DrawRoundRect(clipRect, keel::min(2.5f, clipRect.h * 0.3f), clipFill, clipBorder, 1.0f);
     }
@@ -821,10 +821,10 @@ void detail::LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme
     const LevelMeterMetrics mm = ComputeLevelMeterMetrics(numCh, d->min, d->max, opts, size, &canvas, theme);
     const keel::f64 span = keel::max(1e-6, d->max - d->min);
 
-    const Color labelCol = disabled ? pal.textSecondary.WithAlphaF(0.4f) : pal.textSecondary;
+    const Color labelCol = disabled ? pal.textSecondary.WithAlphaF(theme.disabledOpacity) : pal.textSecondary;
     const Color valCol = theme.ResolveTextColor(opts.valueFormat, UiVariant::Secondary, disabled);
-    const Color scaleTickCol = disabled ? pal.border.WithAlphaF(0.35f) : pal.borderHover;
-    const Color scaleTextCol = disabled ? pal.textMuted.WithAlphaF(0.35f) : pal.textMuted;
+    const Color scaleTickCol = disabled ? pal.border.WithAlphaF(theme.disabledOpacity) : pal.borderHover;
+    const Color scaleTextCol = disabled ? pal.textMuted.WithAlphaF(theme.disabledOpacity) : pal.textMuted;
 
     if (opts.orientation == Orientation::Horizontal) {
         keel::f32 leftW = (mm.labelReserveW > 0.0f) ? (mm.labelReserveW + 6.0f) : 0.0f;

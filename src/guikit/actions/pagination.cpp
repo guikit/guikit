@@ -464,6 +464,7 @@ Response detail::Pagination::Run(
         optsCopy.maxWidth.value_or(0.0f),
         optsCopy.minHeight.value_or(0.0f),
         optsCopy.maxHeight.value_or(0.0f),
+        keel::as<keel::u8>(optsCopy.variant),
         optsCopy.color
     );
 
@@ -525,9 +526,12 @@ void detail::Pagination::Render(
         const bool isPressed = !tokDisabled && (d->pressedToken == keel::as<keel::i32>(i));
         const bool isActivePage = (tok.type == PageTokenType::PageNumber) && (tok.targetPage == d->currentPage);
 
-        const Color accentColor = d->opts.color.HasAny()
-            ? d->opts.color.Resolve(isHovered, isPressed, tokDisabled, pal.accent)
+        const Color baseAccent = (d->opts.variant != UiVariant::Default)
+            ? theme.GetSemanticAccent(d->opts.variant)
             : pal.accent;
+        const Color accentColor = d->opts.color.HasAny()
+            ? theme.ResolveColor(d->opts.color, isHovered, isPressed, tokDisabled, baseAccent)
+            : baseAccent;
 
         Color pillFill = Color::Transparent();
         Color pillStroke = pal.borderSubtle;

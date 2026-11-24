@@ -50,7 +50,8 @@ struct TabBarOptions {
     keel::Optional<keel::f32> gap{keel::kNullOpt};   ///< Gap between consecutive tab items (nullopt = from theme)
     keel::Optional<Padding> padding{keel::kNullOpt};   ///< Container padding around tabs (nullopt = auto based on style)
     UiSize size{UiSize::Md};                     ///< Component size scale
-    StateColor color{};                          ///< Optional semantic/custom accent color for active tab indicator / pill
+    UiVariant variant{UiVariant::Default};       ///< Default semantic accent variant for active tab indicator / pill (overridden by `TabItem::variant`)
+    StateColor color{};                          ///< Optional custom accent color override for active tab indicator / pill
     StateColor background{};                     ///< Optional background fill color for the tab bar
     Border border{};                             ///< Optional border configuration (color, width, radius)
 };

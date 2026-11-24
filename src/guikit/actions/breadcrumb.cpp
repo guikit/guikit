@@ -320,9 +320,12 @@ void RenderBreadcrumbPopup(
 
         const bool isSelected = (keel::as<keel::i32>(i) == activeRow);
         const bool isHovered = (keel::as<keel::i32>(i) == hoveredRow);
-        const Color accentColor = opts.color.HasAny()
-            ? opts.color.Resolve(isHovered, false, false, pal.accent)
+        const Color baseAccent = (opts.variant != UiVariant::Default)
+            ? theme.GetSemanticAccent(opts.variant)
             : pal.accent;
+        const Color accentColor = opts.color.HasAny()
+            ? theme.ResolveColor(opts.color, isHovered, false, false, baseAccent)
+            : baseAccent;
 
         const bool solidHighlight = theme.Painter().DrawSelectionHighlight(
             canvas, theme, itemRect, 4.0f,
@@ -818,6 +821,7 @@ Response detail::Breadcrumb::Run(
         optsCopy.maxWidth.value_or(0.0f),
         optsCopy.minHeight.value_or(0.0f),
         optsCopy.maxHeight.value_or(0.0f),
+        keel::as<keel::u8>(optsCopy.variant),
         optsCopy.color
     );
 
@@ -889,9 +893,13 @@ void detail::Breadcrumb::Render(
         const bool isPressed = !disabled && (d->pressedToken == keel::as<keel::i32>(i));
         const bool isActiveItem = !tok.isEllipsis && (tok.itemIndex == d->activeIndex);
 
-        const Color accentColor = d->opts.color.HasAny()
-            ? d->opts.color.Resolve(isHovered, isPressed, disabled, pal.accent)
+        const bool hasAccentOverride = d->opts.color.HasAny() || (d->opts.variant != UiVariant::Default);
+        const Color baseAccent = (d->opts.variant != UiVariant::Default)
+            ? theme.GetSemanticAccent(d->opts.variant)
             : pal.accent;
+        const Color accentColor = d->opts.color.HasAny()
+            ? theme.ResolveColor(d->opts.color, isHovered, isPressed, disabled, baseAccent)
+            : baseAccent;
 
         if (tok.isEllipsis) {
             const bool isOpenTrigger = d->popupOpen && !disabled;
@@ -926,7 +934,7 @@ void detail::Breadcrumb::Render(
 
         // Pill background for active or hovered breadcrumb item
         if (isActiveItem) {
-            const Color activeFill = d->opts.color.HasAny()
+            const Color activeFill = hasAccentOverride
                 ? accentColor.WithAlphaF(disabled ? 0.10f : (isHovered ? 0.24f : 0.16f))
                 : pal.accent.WithAlphaF(disabled ? 0.10f : (isHovered ? 0.22f : 0.14f));
             const Color activeStroke = (focused && !disabled)
@@ -961,7 +969,7 @@ void detail::Breadcrumb::Render(
         Color fgColor = disabled
             ? pal.textDisabled
             : (isActiveItem
-                ? (d->opts.color.HasAny() ? accentColor : pal.textPrimary)
+                ? (hasAccentOverride ? accentColor : pal.textPrimary)
                 : (isHovered ? pal.textPrimary : pal.textSecondary));
 
         const keel::f32 iconGap = 5.0f;

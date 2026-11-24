@@ -400,7 +400,7 @@ void detail::Toast::RunHost(
             c.DrawRoundRect(
                 badgeRect,
                 7.0f * s,
-                accentCol.WithAlphaF(theme.mode == ThemeMode::Dark ? 0.18f : 0.14f),
+                accentCol.WithAlphaF(theme.SoftTintAlpha()),
                 accentCol.WithAlphaF(0.32f),
                 1.0f
             );

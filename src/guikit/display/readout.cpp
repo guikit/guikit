@@ -393,7 +393,7 @@ void detail::Readout::Render(const Node* node, ICanvas& canvas, const UiTheme& t
             headerCol = pal.textPrimary;
         }
         if (disabled) {
-            headerCol = headerCol.WithAlphaF(0.45f);
+            headerCol = headerCol.WithAlphaF(theme.disabledOpacity);
         }
         canvas.DrawTextBoxStyled(
             data->headerText,
@@ -424,7 +424,7 @@ void detail::Readout::Render(const Node* node, ICanvas& canvas, const UiTheme& t
             valCol = pal.textSecondary;
         }
         if (disabled) {
-            valCol = valCol.WithAlphaF(0.45f);
+            valCol = valCol.WithAlphaF(theme.disabledOpacity);
         }
 
         canvas.DrawTextBoxStyled(
@@ -450,7 +450,7 @@ void detail::Readout::Render(const Node* node, ICanvas& canvas, const UiTheme& t
             unitCol = pal.textPrimary;
         }
         if (disabled) {
-            unitCol = unitCol.WithAlphaF(0.45f);
+            unitCol = unitCol.WithAlphaF(theme.disabledOpacity);
         }
 
         canvas.DrawTextBoxStyled(
@@ -493,9 +493,9 @@ void detail::Readout::Render(const Node* node, ICanvas& canvas, const UiTheme& t
                 iconCol = data->actionActive ? pal.accent : pal.textPrimary;
             }
         } else {
-            btnBg = btnBg.WithAlphaF(0.45f);
-            btnBorder = btnBorder.WithAlphaF(0.45f);
-            iconCol = iconCol.WithAlphaF(0.35f);
+            btnBg = btnBg.WithAlphaF(theme.disabledOpacity);
+            btnBorder = btnBorder.WithAlphaF(theme.disabledOpacity);
+            iconCol = iconCol.WithAlphaF(theme.disabledOpacity);
         }
 
         const keel::f32 btnRadius = keel::max(4.0f, radius - 2.0f);

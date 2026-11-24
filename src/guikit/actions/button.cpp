@@ -291,15 +291,6 @@ void detail::Button::Render(
                              opts.variant == UiVariant::Danger  ||
                              opts.variant == UiVariant::Info);
 
-    auto ensureInk = [&](Color ink, Color surfaceRef) noexcept -> Color {
-        Color c = ink.WithAlpha(255u);
-        for (keel::i32 step = 0; step < 5; ++step) {
-            if (Color::ContrastRatio(c, surfaceRef) >= 4.5f) return c;
-            c = isDark ? c.Lighten(0.10f) : c.Darken(0.10f);
-        }
-        return Color::BestTextColor(surfaceRef, Color::Hex(0x0F172AFF), Color::Hex(0xFFFFFFFF));
-    };
-
     Color bg = Color::Transparent();
     Color defaultText = pal.textPrimary;
     Color borderCol = Color::Transparent();
@@ -309,11 +300,11 @@ void detail::Button::Render(
         const VariantColors& ghost = theme.GetVariant(UiVariant::Ghost);
         if (isSemantic) {
             const Color seed = theme.GetSemanticAccent(opts.variant);
-            defaultText = ensureInk(seed, pal.surface);
+            defaultText = theme.EnsureReadableInk(seed, pal.surface);
             if (hasCtrlBg) {
-                if (pressed) bg = seed.WithAlphaF(isDark ? 0.28f : 0.20f);
-                else if (opts.active) bg = hovered ? seed.WithAlphaF(isDark ? 0.24f : 0.16f) : seed.WithAlphaF(isDark ? 0.18f : 0.12f);
-                else if (hovered) bg = seed.WithAlphaF(isDark ? 0.16f : 0.10f);
+                if (pressed) bg = seed.WithAlphaF(theme.SoftTintAlpha(false, true));
+                else if (opts.active) bg = seed.WithAlphaF(theme.SoftTintAlpha(hovered, false));
+                else if (hovered) bg = seed.WithAlphaF(theme.SoftTintAlpha(false, false));
             }
         } else {
             defaultText = ghost.text;
@@ -368,7 +359,7 @@ void detail::Button::Render(
         const Color baseBg = Color::Lerp(pal.surface, seed, isDark ? 0.22f : 0.15f).WithAlpha(255u);
         const Color hovBg  = Color::Lerp(pal.surface, seed, isDark ? 0.32f : 0.23f).WithAlpha(255u);
         const Color actBg  = Color::Lerp(pal.surface, seed, isDark ? 0.42f : 0.31f).WithAlpha(255u);
-        defaultText = ensureInk(isDark ? seed.Lighten(0.18f) : seed.Darken(0.16f), baseBg);
+        defaultText = theme.EnsureReadableInk(isDark ? seed.Lighten(0.18f) : seed.Darken(0.16f), baseBg);
         borderCol = Color::Lerp(pal.border, seed, isDark ? 0.45f : 0.40f).WithAlpha(255u);
         if (opts.border.width <= 0.0f) borderW = 1.0f * keel::max(theme.borderScale, 0.5f);
         if (hasCtrlBg) {
@@ -382,13 +373,13 @@ void detail::Button::Render(
     } else {
         // ButtonStyle::Outline
         const Color seed = isSemantic ? theme.GetSemanticAccent(opts.variant) : pal.borderHover;
-        defaultText = isSemantic ? ensureInk(seed, pal.surface) : pal.textPrimary;
+        defaultText = isSemantic ? theme.EnsureReadableInk(seed, pal.surface) : pal.textPrimary;
         borderCol = isSemantic ? seed.WithAlphaF(0.85f) : pal.borderHover;
         if (opts.border.width <= 0.0f) borderW = 1.25f * keel::max(theme.borderScale, 0.5f);
         if (hasCtrlBg) {
             if (disabled) bg = Color::Transparent();
-            else if (pressed || opts.active) bg = isSemantic ? seed.WithAlphaF(isDark ? 0.28f : 0.20f) : pal.surfaceActive;
-            else if (hovered) bg = isSemantic ? seed.WithAlphaF(isDark ? 0.18f : 0.12f) : pal.surfaceHover;
+            else if (pressed || opts.active) bg = isSemantic ? seed.WithAlphaF(theme.SoftTintAlpha(false, true)) : pal.surfaceActive;
+            else if (hovered) bg = isSemantic ? seed.WithAlphaF(theme.SoftTintAlpha(false, false)) : pal.surfaceHover;
         }
         if (disabled) borderCol = borderCol.WithAlphaF(theme.disabledOpacity);
     }

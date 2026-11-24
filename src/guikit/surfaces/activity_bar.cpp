@@ -292,9 +292,9 @@ void detail::ActivityBar::RenderItem(
     }
 
     if (disabled) {
-        bg = bg.WithAlphaF(0.40f);
-        textCol = textCol.WithAlphaF(0.40f);
-        iconCol = iconCol.WithAlphaF(0.40f);
+        bg = bg.WithAlphaF(theme.disabledOpacity);
+        textCol = textCol.WithAlphaF(theme.disabledOpacity);
+        iconCol = iconCol.WithAlphaF(theme.disabledOpacity);
     } else if (focused) {
         borderCol = pal.focusRing;
         borderW = 1.5f;
@@ -314,7 +314,7 @@ void detail::ActivityBar::RenderItem(
             ? (bounds.Right() - barW - 1.0f)
             : (bounds.x + 1.0f);
         const Rect barRect(barX, bounds.y + barPadY, barW, keel::max(4.0f, bounds.h - barPadY * 2.0f));
-        const Color barCol = disabled ? v.bg.WithAlphaF(0.40f) : v.bg;
+        const Color barCol = disabled ? v.bg.WithAlphaF(theme.disabledOpacity) : v.bg;
         canvas.DrawRoundRect(barRect, barW * 0.5f, barCol);
     }
 
@@ -345,10 +345,10 @@ void detail::ActivityBar::RenderItem(
             badgeW,
             badgeH
         );
-        const Color badgeBg = disabled ? v.bg.WithAlphaF(0.45f) : v.bg;
+        const Color badgeBg = disabled ? v.bg.WithAlphaF(theme.disabledOpacity) : v.bg;
         const Color badgeTextCol = item.badge.color.HasAny()
             ? item.badge.color.Resolve(hovered, item.active, disabled, v.text)
-            : (disabled ? v.text.WithAlphaF(0.55f) : v.text);
+            : (disabled ? v.text.WithAlphaF(theme.disabledOpacity) : v.text);
         const Color cutoutCol = (opts.background.HasAny() && !opts.background.IsSurface())
             ? opts.background.Resolve(false, false, disabled, pal.surface)
             : pal.surface;

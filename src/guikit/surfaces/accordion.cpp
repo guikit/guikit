@@ -238,7 +238,7 @@ void detail::Accordion::RenderHeader(
             pal.surface,
             pal.surfaceHover,
             pal.surfaceActive,
-            pal.surface.WithAlphaF(0.45f)
+            pal.surface.WithAlphaF(theme.disabledOpacity)
         );
     }
 
@@ -252,7 +252,7 @@ void detail::Accordion::RenderHeader(
             pal.borderSubtle,
             pal.borderHover,
             pal.focusRing,
-            pal.borderSubtle.WithAlphaF(0.40f)
+            pal.borderSubtle.WithAlphaF(theme.disabledOpacity)
         );
     }
 
@@ -338,7 +338,7 @@ void detail::Accordion::RenderHeader(
             badgeBg = resolvedBadgeCol.WithAlphaF(disabled ? 0.12f : 0.22f);
             badgeFg = disabled ? pal.textDisabled : resolvedBadgeCol;
         } else if (disabled) {
-            badgeBg = badgeBg.WithAlphaF(0.40f);
+            badgeBg = badgeBg.WithAlphaF(theme.disabledOpacity);
             badgeFg = pal.textDisabled;
         }
 

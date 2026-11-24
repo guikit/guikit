@@ -32,7 +32,8 @@ struct PaginationOptions {
     keel::Optional<keel::f32> maxWidth{keel::kNullOpt};  ///< Optional maximum width in logical dp
     keel::Optional<keel::f32> minHeight{keel::kNullOpt}; ///< Optional minimum height in logical dp
     keel::Optional<keel::f32> maxHeight{keel::kNullOpt}; ///< Optional maximum height in logical dp
-    StateColor color{};                              ///< Per-state semantic accent color override
+    UiVariant variant{UiVariant::Default};           ///< Semantic accent variant (`Default` = theme accent, `Primary`, `Success`, `Warning`, `Danger`, `Info`)
+    StateColor color{};                              ///< Optional custom per-state accent color override
 };
 
 /// Internal runtime payload allocated in frame arena for Pagination nodes.

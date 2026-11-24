@@ -258,7 +258,7 @@ void detail::Image::Render(
     if (opts.checkerboard) {
         DrawCheckerboard(canvas, box, rad, theme);
     } else if (opts.background.IsBackgroundEnabled(false)) {
-        const Color defaultBg = disabled ? theme.palette.surfaceElevated.WithAlphaF(0.40f) : theme.palette.surfaceElevated;
+        const Color defaultBg = disabled ? theme.palette.surfaceElevated.WithAlphaF(theme.disabledOpacity) : theme.palette.surfaceElevated;
         const Color bg = (!opts.background.HasAny())
             ? defaultBg
             : (opts.background.IsSurface()
@@ -288,14 +288,14 @@ void detail::Image::Render(
 
     if (!drawn) {
         // Clean vector placeholder card when image is missing or empty
-        const Color defaultBg = disabled ? theme.palette.surfaceElevated.WithAlphaF(0.40f) : theme.palette.surfaceElevated;
+        const Color defaultBg = disabled ? theme.palette.surfaceElevated.WithAlphaF(theme.disabledOpacity) : theme.palette.surfaceElevated;
         const Color bg = (!opts.background.HasAny())
             ? defaultBg
             : (opts.background.IsSurface()
                 ? defaultBg.ScaleAlpha(opts.background.alphaScale)
                 : theme.ResolveColor(opts.background, hovered, false, disabled, defaultBg));
         const Color border = theme.palette.borderSubtle;
-        canvas.DrawRoundRect(box, rad, bg, disabled ? border.WithAlphaF(0.40f) : border, 1.0f);
+        canvas.DrawRoundRect(box, rad, bg, disabled ? border.WithAlphaF(theme.disabledOpacity) : border, 1.0f);
 
         const keel::f32 fs = cm.companionFontSize;
         keel::StringRef fallbackText = !opts.alt.empty() ? opts.alt.text : (!source.empty() ? source : keel::StringRef("Image Placeholder"));
@@ -303,7 +303,7 @@ void detail::Image::Render(
     }
 
     if (opts.border.width > 0.0f) {
-        Color bCol = disabled ? theme.palette.borderSubtle.WithAlphaF(0.40f) : theme.palette.borderSubtle;
+        Color bCol = disabled ? theme.palette.borderSubtle.WithAlphaF(theme.disabledOpacity) : theme.palette.borderSubtle;
         if (opts.border.color.HasAny()) {
             bCol = theme.ResolveColor(opts.border.color, hovered, false, disabled, bCol);
         }

@@ -1316,7 +1316,7 @@ void detail::Select::Render(
         const keel::f32 inputFont = theme.ResolveFontSize(currentText, TextRole::LabelMedium, size);
         const Color textCol = currentText.color.HasAny()
             ? theme.ResolveTextColor(currentText, UiVariant::Default, disabled, hovered, open || focused)
-            : (disabled ? pal.textPrimary.WithAlphaF(0.40f) : pal.textPrimary);
+            : (disabled ? pal.textPrimary.WithAlphaF(theme.disabledOpacity) : pal.textPrimary);
 
         if (!disabled && selStart != selEnd && !displayText.empty()) {
             const keel::usize s0 = keel::min(keel::min(selStart, selEnd), displayText.size());
@@ -1468,8 +1468,8 @@ void detail::Select::RenderPopup(
             ? pal.accentText
             : (item.text.color.HasAny()
                 ? theme.ResolveTextColor(item.text, UiVariant::Default, itemDisabled, isHovered, isSelected)
-                : (isSelected ? (itemDisabled ? pal.accent.WithAlphaF(0.40f) : pal.accent)
-                              : (itemDisabled ? pal.textPrimary.WithAlphaF(0.40f) : pal.textPrimary)));
+                : (isSelected ? (itemDisabled ? pal.accent.WithAlphaF(theme.disabledOpacity) : pal.accent)
+                              : (itemDisabled ? pal.textPrimary.WithAlphaF(theme.disabledOpacity) : pal.textPrimary)));
 
         // Right side: checkmark (if selected) + item suffix
         keel::f32 textRightX = itemRect.x + itemRect.w - m.paddingX;

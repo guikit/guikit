@@ -203,6 +203,7 @@ TabBarResponse detail::TabBar::Run(
         tabNode->visualHash = detail::HashArgs(
             opts.style,
             opts.showSeparator,
+            opts.variant,
             opts.color,
             opts.border.radius.value_or(-1.0f),
             item.variant,
@@ -331,8 +332,9 @@ void detail::TabBar::RenderTab(
 
     canvas.PushClip(bounds);
 
-    const Color defaultAccent = (item.variant != UiVariant::Default)
-        ? theme.GetVariant(item.variant).bg
+    const UiVariant effVariant = (item.variant != UiVariant::Default) ? item.variant : opts.variant;
+    const Color defaultAccent = (effVariant != UiVariant::Default)
+        ? theme.GetSemanticAccent(effVariant)
         : pal.accent;
     const Color accentCol = opts.color.HasAny()
         ? theme.ResolveColor(opts.color, hovered, active, disabled, defaultAccent)
@@ -356,8 +358,8 @@ void detail::TabBar::RenderTab(
             tabRadius = (*opts.border.radius == 0.0f) ? 0.0f : keel::max(0.0f, *opts.border.radius - padTop);
         }
     }
-    const Color defaultPillCol = (item.variant != UiVariant::Default)
-        ? theme.GetVariant(item.variant).bgActive
+    const Color defaultPillCol = (effVariant != UiVariant::Default)
+        ? theme.GetVariant(effVariant).bgActive
         : pal.surfaceActive;
     const Color pillActiveCol = opts.color.HasAny()
         ? theme.ResolveColor(opts.color, hovered, active, disabled, defaultPillCol)

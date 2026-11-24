@@ -472,12 +472,13 @@ void detail::Knob::Render(
         : (active && !disabled ? accentCol : pal.textSecondary);
 
     if (disabled) {
-        accentCol = accentCol.WithAlphaF(0.40f);
-        trackCol = trackCol.WithAlphaF(0.40f);
-        rotorFill = rotorFill.WithAlphaF(0.40f);
-        rotorBorder = rotorBorder.WithAlphaF(0.40f);
-        tickMutedCol = tickMutedCol.WithAlphaF(0.35f);
-        textCol = textCol.WithAlphaF(0.40f);
+        const keel::f32 da = theme.disabledOpacity;
+        accentCol = accentCol.WithAlphaF(da);
+        trackCol = trackCol.WithAlphaF(da);
+        rotorFill = rotorFill.WithAlphaF(da);
+        rotorBorder = rotorBorder.WithAlphaF(da);
+        tickMutedCol = tickMutedCol.WithAlphaF(da);
+        textCol = textCol.WithAlphaF(da);
     }
 
     const keel::f32 normVal = keel::clamp(normalizedValue, 0.0f, 1.0f);

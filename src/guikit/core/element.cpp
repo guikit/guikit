@@ -1017,8 +1017,8 @@ void detail::Element::RenderText(
                 badgeBorderCol = resolvedBadge.WithAlphaF(spec.disabled ? 0.25f : 0.50f);
                 badgeBorderW = 1.0f;
             } else if (spec.disabled) {
-                badgeBg = badgeBg.WithAlphaF(0.40f);
-                badgeTextCol = badgeTextCol.WithAlphaF(0.40f);
+                badgeBg = badgeBg.WithAlphaF(theme.disabledOpacity);
+                badgeTextCol = badgeTextCol.WithAlphaF(theme.disabledOpacity);
             }
 
             canvas.DrawRoundRect(Rect(curX, badgeY, badgeW, badgeH), badgeH * 0.5f, badgeBg, badgeBorderCol, badgeBorderW);

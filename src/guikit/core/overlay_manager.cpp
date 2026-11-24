@@ -1,6 +1,7 @@
 #include "guikit/core/overlay_manager.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/text_util.hpp"
+#include "guikit/style/style_painter.hpp"
 #include "guikit/style/theme.hpp"
 #include "keel/math.h"
 
@@ -344,10 +345,15 @@ void OverlayManager::RenderTooltipOverlay(
     canvas.PushClip(vp);
     const Rect boxRect(bx, by, boxW, boxH);
     const keel::f32 tipRadius = theme.GetRadius(UiSize::Md);
-    if (const ShadowStyle sh = theme.GetShadow(Elevation::Sm); sh.IsVisible()) {
-        canvas.DrawShadow(boxRect, tipRadius, sh.blur, sh.offset, sh.color);
-    }
-    canvas.DrawRoundRect(boxRect, tipRadius, theme.palette.surfaceElevated.WithAlpha(248u), theme.palette.borderHover, 1.0f);
+    theme.Painter().DrawSurface(canvas, theme, SurfacePaintParams{
+        .rect = boxRect,
+        .role = SurfaceRole::Popup,
+        .radius = tipRadius,
+        .bg = theme.palette.surfaceElevated.WithAlpha(248u),
+        .border = theme.palette.borderHover,
+        .borderWidth = 1.0f,
+        .elevation = Elevation::Sm
+    });
 
     const Color textColor = theme.ResolveTextColor(m_activeTooltip, theme.palette.textPrimary);
 

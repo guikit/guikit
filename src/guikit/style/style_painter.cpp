@@ -392,8 +392,8 @@ void DefaultStylePainter::DrawFrame(
         }
 
         if (theme.chrome.frame == FrameTreatment::Directional1px && !p.disabled && p.bg.a > 0u &&
-            (kind == FrameKind::Button || kind == FrameKind::DropdownButton || kind == FrameKind::Elevated || kind == FrameKind::Popup)) {
-            DrawDirectionalSheen(canvas, theme, p.rect, effRadius, p.pressed || p.active, /*includeBottomShade=*/(kind == FrameKind::Button || kind == FrameKind::DropdownButton));
+            (kind == FrameKind::Button || kind == FrameKind::DropdownButton)) {
+            DrawDirectionalSheen(canvas, theme, p.rect, effRadius, p.pressed || p.active, /*includeBottomShade=*/true);
         }
         return;
     }
@@ -405,15 +405,6 @@ void DefaultStylePainter::DrawFrame(
     }
 
     switch (kind) {
-        case FrameKind::Surface:
-            DrawBevelEtchedFrame(canvas, p.rect, theme.bevel);
-            break;
-
-        case FrameKind::Elevated:
-        case FrameKind::Popup:
-            DrawBevelFrame(canvas, p.rect, theme.bevel, /*sunken=*/false, /*thin=*/false);
-            break;
-
         case FrameKind::Input:
             DrawBevelFrame(canvas, p.rect, theme.bevel, /*sunken=*/true, /*thin=*/false);
             if (p.focused && !p.disabled && p.rect.w > 6.0f && p.rect.h > 6.0f) {
@@ -457,20 +448,20 @@ void DefaultStylePainter::DrawFrame(
     }
 }
 
-keel::f32 DefaultStylePainter::GetButtonContentOffset(
-    const UiTheme& theme,
-    bool pressed,
-    bool active,
-    bool disabled
-) const noexcept {
-    return (!disabled && (pressed || active)) ? theme.chrome.buttonPressOffset : 0.0f;
-}
-
-keel::f32 DefaultStylePainter::GetTabGap(
-    const UiTheme& theme,
-    keel::f32 fallbackGap
-) const noexcept {
-    return (theme.chrome.tabGapOverride >= 0.0f) ? theme.chrome.tabGapOverride : fallbackGap;
+ChromeMetrics DefaultStylePainter::GetChromeMetrics(const UiTheme& theme) const noexcept {
+    ChromeMetrics m{};
+    m.buttonPressOffset = theme.chrome.buttonPressOffset;
+    m.tabGapOverride = theme.chrome.tabGapOverride;
+    if (theme.chrome.frame == FrameTreatment::Bevel3D) {
+        m.sliderTrackHeight = 4.0f;
+        m.rangeSliderTrackHeight = 6.0f;
+    }
+    if (theme.chrome.progressFill == ProgressFillStyle::Segmented) {
+        m.progressBarMinHeight = 14.0f;
+        m.progressBarHeightBonus = 4.0f;
+    }
+    m.badgeShape = theme.chrome.badgeShape;
+    return m;
 }
 
 keel::f32 DefaultStylePainter::DrawFieldButton(
@@ -565,17 +556,6 @@ void DefaultStylePainter::DrawDropdownSurface(
     });
 }
 
-keel::f32 DefaultStylePainter::GetSliderTrackHeight(
-    const UiTheme& theme,
-    keel::f32 defaultHeight,
-    bool isRange
-) const noexcept {
-    if (theme.chrome.frame == FrameTreatment::Bevel3D) {
-        return isRange ? 6.0f : 4.0f;
-    }
-    return defaultHeight;
-}
-
 void DefaultStylePainter::DrawSliderTick(
     ICanvas& canvas,
     const UiTheme& theme,
@@ -601,31 +581,6 @@ void DefaultStylePainter::DrawSliderTick(
         tickR,
         color
     );
-}
-
-keel::f32 DefaultStylePainter::GetProgressBarThickness(
-    const UiTheme& theme,
-    keel::f32 defaultThickness
-) const noexcept {
-    if (theme.chrome.progressFill == ProgressFillStyle::Segmented) {
-        return keel::max(defaultThickness + 4.0f, 14.0f);
-    }
-    return defaultThickness;
-}
-
-keel::f32 DefaultStylePainter::GetBadgeRadius(
-    const UiTheme& theme,
-    keel::f32 height,
-    keel::f32 defaultRadius,
-    bool pill
-) const noexcept {
-    if (theme.chrome.badgeShape == BadgeShape::Sharp) {
-        return 0.0f;
-    }
-    if (pill && theme.chrome.badgeShape == BadgeShape::Pill) {
-        return height * 0.5f;
-    }
-    return defaultRadius;
 }
 
 void DefaultStylePainter::DrawDivider(
@@ -768,7 +723,7 @@ void DefaultStylePainter::DrawProgressBar(
     const keel::f32 barDim = vertical ? trackRect.w : trackRect.h;
 
     if (isSeg3D) {
-        const Color bg = disabled ? theme.palette.background.WithAlphaF(0.5f) : theme.palette.background;
+        const Color bg = disabled ? theme.palette.background.WithAlphaF(theme.disabledOpacity) : theme.palette.background;
         canvas.DrawRect(trackRect, bg);
         DrawBevelFrame(canvas, trackRect, theme.bevel, /*sunken=*/true, /*thin=*/false);
 

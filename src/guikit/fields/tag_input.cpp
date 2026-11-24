@@ -896,7 +896,7 @@ void detail::TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& 
     if (layout.counterRect.w > 0.0f) {
         const bool atLimit = (opts.maxTags > 0 && chips.size() >= opts.maxTags);
         const Color badgeAccent = atLimit ? theme.GetVariant(UiVariant::Warning).bg : pal.textSecondary;
-        const Color badgeBg = atLimit ? badgeAccent.WithAlphaF(0.18f) : pal.surfaceHover.WithAlphaF(disabled ? 0.35f : 0.85f);
+        const Color badgeBg = atLimit ? badgeAccent.WithAlphaF(0.18f) : pal.surfaceHover.WithAlphaF(disabled ? theme.disabledOpacity : 0.85f);
         const Color badgeBorder = atLimit ? badgeAccent.WithAlphaF(0.45f) : pal.border.WithAlphaF(disabled ? 0.25f : 0.50f);
         const Color badgeText = atLimit ? badgeAccent : unitCol;
         canvas.DrawRoundRect(layout.counterRect, 4.0f, badgeBg, badgeBorder, 1.0f);
@@ -949,7 +949,7 @@ void detail::TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& 
             ? pal.textPrimary
             : ((effectiveVar == UiVariant::Ghost || effectiveVar == UiVariant::Muted) ? pal.textSecondary : accent);
         if (disabled) {
-            chipTextCol = chipTextCol.WithAlphaF(0.45f);
+            chipTextCol = chipTextCol.WithAlphaF(theme.disabledOpacity);
         }
 
         canvas.DrawRoundRect(cRect, 4.0f, chipBg, chipBorder, 1.0f);

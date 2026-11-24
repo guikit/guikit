@@ -292,8 +292,8 @@ void detail::ProgressBar::Render(
 
         if (opts.indeterminate) {
             const Rect trackBgRect(barX, trackTop, barWInt, trackH);
-            const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(0.4f) : pal.surfaceActive;
-            const Color trackBorder = disabled ? pal.border.WithAlphaF(0.3f) : pal.border;
+            const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(theme.disabledOpacity) : pal.surfaceActive;
+            const Color trackBorder = disabled ? pal.border.WithAlphaF(theme.disabledOpacity) : pal.border;
             canvas.DrawRoundRect(trackBgRect, barWInt * 0.5f, trackBg, trackBorder, 1.0f);
 
             const keel::f32 shuttleH = keel::max(barWInt, trackH * 0.32f);
@@ -311,7 +311,7 @@ void detail::ProgressBar::Render(
             const keel::f32 segH = keel::max(2.0f, keel::floor((keel::round(trackH) - totalGaps) / keel::as<keel::f32>(segCount)));
             const keel::f32 bottomY = keel::round(trackTop + trackH);
             const bool useRound = (keel::min(barWInt, segH) >= 8.0f);
-            const Color unlitBg = disabled ? pal.surfaceActive.WithAlphaF(0.35f) : pal.surfaceActive;
+            const Color unlitBg = disabled ? pal.surfaceActive.WithAlphaF(theme.disabledOpacity) : pal.surfaceActive;
             const Color unlitBorder = disabled ? pal.border.WithAlphaF(0.25f) : pal.border.WithAlphaF(0.65f);
 
             keel::i32 peakSegIdx = -1;
@@ -344,8 +344,8 @@ void detail::ProgressBar::Render(
             }
         } else {
             const Rect trackBgRect(barX, trackTop, barWInt, trackH);
-            const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(0.4f) : pal.surfaceActive;
-            const Color trackBorder = disabled ? pal.border.WithAlphaF(0.3f) : pal.border;
+            const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(theme.disabledOpacity) : pal.surfaceActive;
+            const Color trackBorder = disabled ? pal.border.WithAlphaF(theme.disabledOpacity) : pal.border;
             canvas.DrawRoundRect(trackBgRect, barWInt * 0.5f, trackBg, trackBorder, 1.0f);
 
             if (fillH > 0.5f) {
@@ -386,8 +386,8 @@ void detail::ProgressBar::Render(
 
     if (opts.indeterminate) {
         const Rect trackBgRect(trackRegionX, barY, trackRegionW, effBarThick);
-        const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(0.4f) : pal.surfaceActive;
-        const Color trackBorder = disabled ? pal.border.WithAlphaF(0.3f) : pal.border;
+        const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(theme.disabledOpacity) : pal.surfaceActive;
+        const Color trackBorder = disabled ? pal.border.WithAlphaF(theme.disabledOpacity) : pal.border;
         theme.Painter().DrawProgressBar(
             canvas, theme, trackBgRect, 0.0f, false, true, animPhase,
             trackBg, trackBorder, ResolveSliderTrackColor(opts.color, disabled, theme), m.cornerRadius, disabled
@@ -403,7 +403,7 @@ void detail::ProgressBar::Render(
         const keel::f32 segW = keel::max(2.0f, keel::floor((keel::round(trackRegionW) - totalGaps) / keel::as<keel::f32>(segCount)));
         const keel::f32 startX = keel::round(trackRegionX);
         const bool useRound = !sharpRect && (keel::min(segW, barHInt) >= 8.0f);
-        const Color unlitBg = disabled ? pal.surfaceActive.WithAlphaF(0.35f) : pal.surfaceActive;
+        const Color unlitBg = disabled ? pal.surfaceActive.WithAlphaF(theme.disabledOpacity) : pal.surfaceActive;
         const Color unlitBorder = disabled ? pal.border.WithAlphaF(0.25f) : pal.border.WithAlphaF(0.65f);
 
         keel::i32 peakSegIdx = -1;
@@ -443,8 +443,8 @@ void detail::ProgressBar::Render(
         }
     } else {
         const Rect trackBgRect(trackRegionX, barY, trackRegionW, effBarThick);
-        const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(0.4f) : pal.surfaceActive;
-        const Color trackBorder = disabled ? pal.border.WithAlphaF(0.3f) : pal.border;
+        const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(theme.disabledOpacity) : pal.surfaceActive;
+        const Color trackBorder = disabled ? pal.border.WithAlphaF(theme.disabledOpacity) : pal.border;
         theme.Painter().DrawProgressBar(
             canvas, theme, trackBgRect, ratio, false, false, animPhase,
             trackBg, trackBorder, resolveZoneColor(ratio), m.cornerRadius, disabled

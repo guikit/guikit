@@ -650,8 +650,8 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
                     : (isDanger ? dangerCol : (it.checked ? pal.accent : pal.textPrimary));
                 Color mutedFg = accentHighlight ? pal.accentText : pal.textSecondary;
                 if (it.disabled) {
-                    fg = fg.WithAlphaF(0.4f);
-                    mutedFg = mutedFg.WithAlphaF(0.4f);
+                    fg = fg.WithAlphaF(theme.disabledOpacity);
+                    mutedFg = mutedFg.WithAlphaF(theme.disabledOpacity);
                 }
 
                 keel::f32 textX = it.rect.x + padX - 2.0f * s;

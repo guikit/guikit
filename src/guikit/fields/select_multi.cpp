@@ -254,7 +254,7 @@ void RenderMultiSelectNode(
 
     const Color chipBg = disabled ? primaryCol.WithAlphaF(0.08f) : primaryCol.WithAlphaF(0.16f);
     const Color chipBorder = disabled ? primaryCol.WithAlphaF(0.20f) : primaryCol.WithAlphaF(0.40f);
-    const Color chipTextCol = disabled ? pal.textPrimary.WithAlphaF(0.40f) : pal.textPrimary;
+    const Color chipTextCol = disabled ? pal.textPrimary.WithAlphaF(theme.disabledOpacity) : pal.textPrimary;
 
     keel::f32 curX = textRect.x;
     for (keel::usize i = 0; i < data.chipCount && i < SelectData::kMaxChips; ++i) {
@@ -272,7 +272,7 @@ void RenderMultiSelectNode(
         keel::f32 innerX = curX + 6.0f;
         if (!chip.prefix.icon.IsEmpty()) {
             const Rect icRect(innerX, chipY + (chipH - chipIconSz) * 0.5f, chipIconSz, chipIconSz);
-            chip.prefix.icon.Draw(canvas, icRect, disabled ? primaryCol.WithAlphaF(0.40f) : primaryCol);
+            chip.prefix.icon.Draw(canvas, icRect, disabled ? primaryCol.WithAlphaF(theme.disabledOpacity) : primaryCol);
             innerX += chipIconSz + 4.0f;
         }
 
@@ -293,7 +293,7 @@ void RenderMultiSelectNode(
         );
         const Color remIcCol = (chip.removeHovered && !disabled)
             ? pal.textPrimary
-            : (disabled ? pal.textSecondary.WithAlphaF(0.40f) : pal.textSecondary);
+            : (disabled ? pal.textSecondary.WithAlphaF(theme.disabledOpacity) : pal.textSecondary);
         Icon::Close().Draw(canvas, remIcRect, remIcCol);
 
         curX += w + chipGap;
@@ -316,7 +316,7 @@ void RenderMultiSelectNode(
     const keel::StringRef displayText = data.displayText.text;
     if (data.isEditing) {
         const keel::f32 inputFont = theme.ResolveFontSize(data.displayText, TextRole::LabelMedium, size);
-        const Color textCol = disabled ? pal.textPrimary.WithAlphaF(0.40f) : pal.textPrimary;
+        const Color textCol = disabled ? pal.textPrimary.WithAlphaF(theme.disabledOpacity) : pal.textPrimary;
         const Rect editRect(curX, boxRect.y, keel::max(0.0f, textRect.Right() - curX), boxRect.h);
 
         if (displayText.empty() && data.totalSelectedCount == 0 && !opts.placeholder.empty()) {
@@ -421,7 +421,7 @@ void RenderMultiPopup(
 
         Color itemTextCol = item.text.color.HasAny()
             ? theme.ResolveTextColor(item.text, UiVariant::Default, itemDisabled, isHovered, isSelected)
-            : (itemDisabled ? pal.textPrimary.WithAlphaF(0.40f) : pal.textPrimary);
+            : (itemDisabled ? pal.textPrimary.WithAlphaF(theme.disabledOpacity) : pal.textPrimary);
 
         // Right side: item suffix
         keel::f32 textRightX = itemRect.x + itemRect.w - m.paddingX;
@@ -438,7 +438,7 @@ void RenderMultiPopup(
         keel::f32 textLeftX = itemRect.x + m.paddingX;
         const Rect cbRect(textLeftX, itemRect.y + (itemRect.h - cbSize) * 0.5f, cbSize, cbSize);
         if (isSelected) {
-            const Color cbFill = itemDisabled ? primaryCol.WithAlphaF(0.40f) : primaryCol;
+            const Color cbFill = itemDisabled ? primaryCol.WithAlphaF(theme.disabledOpacity) : primaryCol;
             canvas.DrawRoundRect(cbRect, 3.5f, cbFill, cbFill, 1.0f);
             const Rect checkRect(cbRect.x + 2.0f, cbRect.y + 2.0f, cbSize - 4.0f, cbSize - 4.0f);
             Icon::Check().Draw(canvas, checkRect, Color(255, 255, 255, 255));

@@ -562,7 +562,7 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
             const bool isHovered = !cellDisabled && (d.hoveredDayCell == idx);
 
             if (isSelected) {
-                canvas.DrawRoundRect(pillRect, 5.0f, cellDisabled ? accentCol.WithAlphaF(0.45f) : accentCol);
+                canvas.DrawRoundRect(pillRect, 5.0f, cellDisabled ? accentCol.WithAlphaF(d.theme.disabledOpacity) : accentCol);
             } else if (isHovered) {
                 canvas.DrawRoundRect(pillRect, 5.0f, pal.surfaceHover);
                 if (isToday) {

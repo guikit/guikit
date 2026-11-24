@@ -38,7 +38,8 @@ struct SegmentedOptions {
     keel::Optional<keel::f32> maxWidth{keel::kNullOpt};  ///< Optional maximum width in logical dp
     keel::Optional<keel::f32> minHeight{keel::kNullOpt}; ///< Optional minimum height in logical dp
     keel::Optional<keel::f32> maxHeight{keel::kNullOpt}; ///< Optional maximum height in logical dp
-    StateColor color{};                              ///< Active segment fill semantic color override
+    UiVariant variant{UiVariant::Default};           ///< Semantic active segment variant (`Default` = theme accent tint, `Primary`, `Success`, `Warning`, `Danger`, `Info`)
+    StateColor color{};                              ///< Optional custom active segment fill override
     StateColor background{};                         ///< Optional outer track background override (`{}` = theme default, `StateColor::None()` = transparent)
     Border border{};                                 ///< Optional border width, color, and radius override
 };

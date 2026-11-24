@@ -211,6 +211,7 @@ Response detail::SidebarMenu::Item(
         keel::as<keel::u8>(menuOpts.style),
         menuOpts.collapsed,
         menuOpts.border,
+        keel::as<keel::u8>(item.variant != UiVariant::Default ? item.variant : menuOpts.variant),
         item.color.HasAny() ? item.color : menuOpts.color,
         item.active,
         effectiveDisabled,
@@ -298,22 +299,31 @@ void detail::SidebarMenu::RenderItem(
 
     const ComponentMetrics& m = theme.GetMetrics(size);
     const auto& pal = theme.palette;
+    const UiVariant effVariant = (item.variant != UiVariant::Default) ? item.variant : opts.variant;
     const StateColor& effColor = item.color.HasAny() ? item.color : opts.color;
-    const VariantColors& vDefault = theme.GetVariant(UiVariant::Primary);
+    const VariantColors& vDefault = theme.GetVariant(effVariant != UiVariant::Default ? effVariant : UiVariant::Primary);
     VariantColors v = vDefault;
+    if (effVariant != UiVariant::Default) {
+        const Color semSeed = theme.GetSemanticAccent(effVariant);
+        v.bg = semSeed;
+        v.bgHover = StateColor::BrightenColor(semSeed);
+        v.bgActive = StateColor::DarkenColor(semSeed);
+        v.text = Color::BestTextColor(semSeed, Color::Hex(0x0F172AFF), Color::Hex(0xFFFFFFFF));
+    }
     if (effColor.HasAny()) {
-        v.bg = effColor.Resolve(false, false, false, vDefault.bg);
-        v.bgHover = effColor.hover.has_value() ? *effColor.hover : v.bg.WithAlphaF(0.85f);
-        v.bgActive = effColor.active.has_value() ? *effColor.active : v.bg.WithAlphaF(0.75f);
+        v.bg = theme.ResolveColor(effColor, false, false, false, v.bg);
+        v.bgHover = theme.ResolveColor(effColor, true, false, false, StateColor::BrightenColor(v.bg));
+        v.bgActive = theme.ResolveColor(effColor, false, true, false, StateColor::DarkenColor(v.bg));
+        v.text = Color::BestTextColor(v.bg, Color::Hex(0x0F172AFF), Color::Hex(0xFFFFFFFF));
     }
     const keel::f32 radius = opts.border.radius.value_or(m.cornerRadius);
-    const bool useSelectionPainter = (opts.style == SidebarMenuStyle::Indicator && !effColor.HasAny());
+    const bool useSelectionPainter = (opts.style == SidebarMenuStyle::Indicator && !effColor.HasAny() && effVariant == UiVariant::Default);
 
     Color bg = Color::Transparent();
     Color borderCol = Color::Transparent();
     keel::f32 borderW = 0.0f;
     Color textCol = item.text.color.HasAny()
-        ? item.text.color.Resolve(hovered, pressed || item.active, disabled, pal.textPrimary)
+        ? theme.ResolveTextStateColor(item.text.color).Resolve(hovered, pressed || item.active, disabled, pal.textPrimary)
         : pal.textPrimary;
     Color iconCol = pal.textSecondary;
 
@@ -462,10 +472,10 @@ void detail::SidebarMenu::RenderItem(
                 badgeW,
                 badgeH
             );
-            Color badgeBg = disabled ? v.bg.WithAlphaF(0.45f) : v.bg;
+            Color badgeBg = disabled ? v.bg.WithAlphaF(theme.disabledOpacity) : v.bg;
             Color badgeTextCol = item.badge.color.HasAny()
                 ? item.badge.color.Resolve(hovered, item.active, disabled, v.text)
-                : (disabled ? v.text.WithAlphaF(0.55f) : v.text);
+                : (disabled ? v.text.WithAlphaF(theme.disabledOpacity) : v.text);
             theme.Painter().DrawBadge(canvas, theme, badgeRect, badgeBg, pal.surface, 1.5f, badgeH * 0.5f);
             canvas.DrawTextBox(item.badge.text, badgeRect, badgeFont, badgeTextCol, 0.5f, 0.5f);
         }
@@ -507,9 +517,9 @@ void detail::SidebarMenu::RenderItem(
         const Color defaultBadgeTextCol = (item.active && opts.style == SidebarMenuStyle::Pill) ? textCol : pal.textSecondary;
         Color badgeTextCol = item.badge.color.HasAny()
             ? item.badge.color.Resolve(hovered, item.active, disabled, defaultBadgeTextCol)
-            : (disabled ? defaultBadgeTextCol.WithAlphaF(0.40f) : defaultBadgeTextCol);
+            : (disabled ? defaultBadgeTextCol.WithAlphaF(theme.disabledOpacity) : defaultBadgeTextCol);
         if (disabled) {
-            badgeBg = badgeBg.WithAlphaF(0.40f);
+            badgeBg = badgeBg.WithAlphaF(theme.disabledOpacity);
         }
         theme.Painter().DrawBadge(canvas, theme, badgeRect, badgeBg, Color::Transparent(), 0.0f, badgeH * 0.5f);
         canvas.DrawTextBox(item.badge.text, badgeRect, badgeFont, badgeTextCol, 0.5f, 0.5f);

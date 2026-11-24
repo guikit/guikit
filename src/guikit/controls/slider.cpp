@@ -765,8 +765,8 @@ void detail::Slider::Render(
     const Rect fillRect = vertical
         ? Rect(trackBgRect.x, thumbCenter.y, effTrackH, fillLen)
         : Rect(layout.start, trackBgRect.y, fillLen, effTrackH);
-    const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(0.4f) : pal.surfaceActive;
-    const Color trackBorder = disabled ? pal.border.WithAlphaF(0.3f) : pal.border;
+    const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(theme.disabledOpacity) : pal.surfaceActive;
+    const Color trackBorder = disabled ? pal.border.WithAlphaF(theme.disabledOpacity) : pal.border;
     const Color fillCol = ResolveSliderTrackColor(opts.color, disabled, theme);
     theme.Painter().DrawSliderTrack(
         canvas, theme, trackBgRect, fillRect, vertical, fillLen > 0.0f,
@@ -774,9 +774,9 @@ void detail::Slider::Render(
     );
 
     // 3. Draw thumb knob via active style painter
-    const Color thumbBg = disabled ? pal.surface.WithAlphaF(0.5f) :
+    const Color thumbBg = disabled ? pal.surface.WithAlphaF(theme.disabledOpacity) :
                           active   ? ResolveSliderActiveThumbColor(opts.color, theme) : pal.surface;
-    const Color thumbBorder = disabled ? pal.border.WithAlphaF(0.4f) :
+    const Color thumbBorder = disabled ? pal.border.WithAlphaF(theme.disabledOpacity) :
                               focused  ? pal.focusRing :
                               (active || hovered) ? pal.accent : pal.borderHover;
     const keel::f32 thumbBorderW = (active || hovered || focused) ? 2.5f : 2.0f;
@@ -1080,8 +1080,8 @@ void detail::StepSlider::Render(
     const Rect fillRect = vertical
         ? Rect(trackBgRect.x, thumbCenter.y, effTrackH, fillLen)
         : Rect(layout.start, trackBgRect.y, fillLen, effTrackH);
-    const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(0.4f) : pal.surfaceActive;
-    const Color trackBorder = disabled ? pal.border.WithAlphaF(0.3f) : pal.border;
+    const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(theme.disabledOpacity) : pal.surfaceActive;
+    const Color trackBorder = disabled ? pal.border.WithAlphaF(theme.disabledOpacity) : pal.border;
     const Color fillCol = ResolveSliderTrackColor(opts.color, disabled, theme);
     theme.Painter().DrawSliderTrack(
         canvas, theme, trackBgRect, fillRect, vertical, fillLen > 0.0f,
@@ -1099,9 +1099,9 @@ void detail::StepSlider::Render(
     }
 
     // 4. Draw thumb knob via active style painter
-    const Color thumbBg = disabled ? pal.surface.WithAlphaF(0.5f) :
+    const Color thumbBg = disabled ? pal.surface.WithAlphaF(theme.disabledOpacity) :
                           active   ? ResolveSliderActiveThumbColor(opts.color, theme) : pal.surface;
-    const Color thumbBorder = disabled ? pal.border.WithAlphaF(0.4f) :
+    const Color thumbBorder = disabled ? pal.border.WithAlphaF(theme.disabledOpacity) :
                               focused  ? pal.focusRing :
                               (active || hovered) ? pal.accent : pal.borderHover;
     const keel::f32 thumbBorderW = (active || hovered || focused) ? 2.5f : 2.0f;

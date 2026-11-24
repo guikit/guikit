@@ -135,6 +135,25 @@ struct UiTheme {
         return vc.bg;
     }
 
+    /// Returns theme-appropriate translucent tint alpha for soft/ghost semantic fills (slightly higher on dark surfaces).
+    [[nodiscard]] constexpr keel::f32 SoftTintAlpha(bool hovered = false, bool active = false) const noexcept {
+        const bool isDark = (mode == ThemeMode::Dark);
+        if (active)  return isDark ? 0.28f : 0.20f;
+        if (hovered) return isDark ? 0.22f : 0.14f;
+        return isDark ? 0.18f : 0.12f;
+    }
+
+    /// Returns a readable semantic foreground color (WCAG AA >= 4.5:1) against `surfaceRef`.
+    [[nodiscard]] Color EnsureReadableInk(Color seed, Color surfaceRef) const noexcept {
+        const bool isDark = (mode == ThemeMode::Dark);
+        Color c = seed.WithAlpha(255u);
+        for (keel::i32 step = 0; step < 5; ++step) {
+            if (Color::ContrastRatio(c, surfaceRef) >= 4.5f) return c;
+            c = isDark ? c.Lighten(0.10f) : c.Darken(0.10f);
+        }
+        return Color::BestTextColor(surfaceRef, Color::Hex(0x0F172AFF), Color::Hex(0xFFFFFFFF));
+    }
+
     [[nodiscard]] constexpr Color GetTextColor(UiVariant variant) const noexcept {
         switch (variant) {
             case UiVariant::Default:   return palette.textPrimary;
@@ -274,7 +293,7 @@ struct UiTheme {
                 .normal   = vc.bg,
                 .hover    = vc.bgHover,
                 .active   = vc.bgActive,
-                .disabled = vc.bg.WithAlphaF(0.40f),
+                .disabled = vc.bg.WithAlphaF(disabledOpacity),
                 .token    = tok
             };
         };
@@ -341,7 +360,7 @@ struct UiTheme {
                     .normal   = palette.surface,
                     .hover    = opaqueHover,
                     .active   = opaqueActive,
-                    .disabled = palette.surface.WithAlphaF(0.40f),
+                    .disabled = palette.surface.WithAlphaF(disabledOpacity),
                     .token    = sc.token
                 };
                 break;

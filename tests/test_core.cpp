@@ -2378,6 +2378,229 @@ void TestDesignSystemOrthogonalityAndCrossCombos() {
     }
 }
 
+void TestStylePainterChromeDispatchAndPolish() {
+    using namespace guikit;
+    keel::println("  -> TestStylePainterChromeDispatchAndPolish...");
+
+    struct SpyCanvas : public NullCanvas {
+        struct LineCall { Vec2 p0; Vec2 p1; Color col; keel::f32 width; };
+        struct ShadowCall { Rect r; keel::f32 radius; keel::f32 blur; Vec2 offset; Color col; };
+        keel::Array<LineCall> lines;
+        keel::Array<ShadowCall> shadows;
+        keel::Array<Rect> rects;
+        keel::u64 rectDraws{0};
+        keel::u64 roundRectDraws{0};
+
+        void ResetSpy() noexcept {
+            lines.clear();
+            shadows.clear();
+            rects.clear();
+            rectDraws = 0;
+            roundRectDraws = 0;
+        }
+        void DrawRect(Rect rect, Color fill) override {
+            ++rectDraws;
+            rects.push_back(rect);
+            NullCanvas::DrawRect(rect, fill);
+        }
+        void DrawRoundRect(Rect rect, keel::f32 radius, Color fill, Color stroke = Color(0, 0, 0, 0), keel::f32 strokeWidth = 0.0f) override {
+            ++roundRectDraws;
+            NullCanvas::DrawRoundRect(rect, radius, fill, stroke, strokeWidth);
+        }
+        void DrawLine(Vec2 p0, Vec2 p1, Color color, keel::f32 thickness = 1.0f) override {
+            lines.push_back(LineCall{p0, p1, color, thickness});
+            NullCanvas::DrawLine(p0, p1, color, thickness);
+        }
+        void DrawShadow(Rect rect, keel::f32 cornerRadius, keel::f32 blurRadius, Vec2 offset = {0.0f, 4.0f}, Color color = Color(0, 0, 0, 96), keel::f32 spread = 0.0f) override {
+            shadows.push_back(ShadowCall{rect, cornerRadius, blurRadius, offset, color});
+            NullCanvas::DrawShadow(rect, cornerRadius, blurRadius, offset, color, spread);
+        }
+    };
+
+    struct SpyPainter : public DefaultStylePainter {
+        mutable keel::u32 popupBgCalls{0};
+        mutable keel::u32 popupFrameCalls{0};
+        void DrawSurfaceBg(ICanvas& c, const UiTheme& t, const SurfacePaintParams& p) const override {
+            if (p.role == SurfaceRole::Popup) ++popupBgCalls;
+            DefaultStylePainter::DrawSurfaceBg(c, t, p);
+        }
+        void DrawSurfaceFrame(ICanvas& c, const UiTheme& t, const SurfacePaintParams& p) const override {
+            if (p.role == SurfaceRole::Popup) ++popupFrameCalls;
+            DefaultStylePainter::DrawSurfaceFrame(c, t, p);
+        }
+    };
+
+    SpyCanvas spy;
+    spy.Begin(640u, 480u, 1.0f);
+
+    // 1. Fluent focused InputField emits 2px bottom accent DrawLine (Modern does not)
+    {
+        UiTheme fluent = UiTheme::Light();
+        fluent.SetChromeStyle(ChromeStyle::Fluent);
+        spy.ResetSpy();
+        FieldFrame::Draw(spy, fluent, FieldFrameParams{
+            .rect = Rect(10.0f, 10.0f, 200.0f, 32.0f),
+            .style = FieldStyle::Default,
+            .status = UiVariant::Danger,
+            .focused = true
+        });
+        bool foundBottomAccent = false;
+        for (const auto& ln : spy.lines) {
+            if (ln.width >= 1.9f && keel::abs(ln.p0.y - ln.p1.y) < 0.1f && ln.p0.y > 38.0f) {
+                foundBottomAccent = true;
+            }
+        }
+        CHECK(foundBottomAccent);
+
+        UiTheme modern = UiTheme::Light();
+        modern.SetChromeStyle(ChromeStyle::Modern);
+        spy.ResetSpy();
+        FieldFrame::Draw(spy, modern, FieldFrameParams{
+            .rect = Rect(10.0f, 10.0f, 200.0f, 32.0f),
+            .style = FieldStyle::Default,
+            .status = UiVariant::Danger,
+            .focused = true
+        });
+        CHECK(spy.lines.empty());
+    }
+
+    // 2. Classic3D emits 3D bevel DrawRect primitives & returns Classic3D ChromeMetrics
+    {
+        UiTheme classic = UiTheme::Dark();
+        classic.SetChromeStyle(ChromeStyle::Classic3D);
+        const ChromeMetrics cm = classic.Painter().GetChromeMetrics(classic);
+        CHECK(cm.buttonPressOffset == 1.0f);
+        CHECK(cm.sliderTrackHeight == 4.0f);
+        CHECK(cm.rangeSliderTrackHeight == 6.0f);
+        CHECK(cm.progressBarMinHeight == 14.0f);
+        CHECK(cm.badgeShape == BadgeShape::Sharp);
+        CHECK(classic.Painter().GetBadgeRadius(classic, 20.0f, 6.0f, true) == 0.0f);
+
+        spy.ResetSpy();
+        FieldFrame::Draw(spy, classic, FieldFrameParams{
+            .rect = Rect(10.0f, 10.0f, 180.0f, 30.0f),
+            .focused = false
+        });
+        CHECK(spy.rectDraws >= 8u); // fill + 8 sunken 3D bevel edges
+    }
+
+    // 3. Brutalist raised surface emits hard zero-blur offset rect (never soft DrawShadow), whereas Modern emits soft DrawShadow
+    {
+        UiTheme brut = UiTheme::Light();
+        brut.SetChromeStyle(ChromeStyle::Brutalist);
+        const ChromeMetrics bm = brut.Painter().GetChromeMetrics(brut);
+        CHECK(bm.buttonPressOffset == 1.0f);
+        CHECK(bm.badgeShape == BadgeShape::Sharp);
+
+        const ShadowStyle brutSh = brut.GetShadow(Elevation::Md);
+        CHECK(brutSh.blur == 0.0f);
+        CHECK(brutSh.offset.x > 0.0f || brutSh.offset.y > 0.0f);
+
+        spy.ResetSpy();
+        brut.Painter().DrawSurface(spy, brut, SurfacePaintParams{
+            .rect = Rect(20.0f, 20.0f, 160.0f, 90.0f),
+            .role = SurfaceRole::Raised,
+            .bg = brut.palette.surfaceElevated,
+            .border = brut.palette.border,
+            .borderWidth = 1.0f,
+            .elevation = Elevation::Md
+        });
+        CHECK(spy.shadows.empty());
+        bool foundHardShadowRect = false;
+        for (const Rect& r : spy.rects) {
+            if (keel::abs(r.x - (20.0f + brutSh.offset.x)) < 0.1f &&
+                keel::abs(r.y - (20.0f + brutSh.offset.y)) < 0.1f &&
+                keel::abs(r.w - 160.0f) < 0.1f &&
+                keel::abs(r.h - 90.0f) < 0.1f) {
+                foundHardShadowRect = true;
+            }
+        }
+        CHECK(foundHardShadowRect);
+
+        UiTheme modern = UiTheme::Light();
+        modern.SetChromeStyle(ChromeStyle::Modern);
+        spy.ResetSpy();
+        modern.Painter().DrawSurface(spy, modern, SurfacePaintParams{
+            .rect = Rect(20.0f, 20.0f, 160.0f, 90.0f),
+            .role = SurfaceRole::Raised,
+            .bg = modern.palette.surfaceElevated,
+            .border = modern.palette.border,
+            .borderWidth = 1.0f,
+            .elevation = Elevation::Md
+        });
+        CHECK(!spy.shadows.empty());
+        CHECK(spy.shadows[0].blur > 0.0f);
+    }
+
+    spy.End();
+
+    // 4. Tooltip renders via IStylePainter::DrawSurface (SurfaceRole::Popup)
+    {
+        SpyPainter spyPainter;
+        UiTheme th = UiTheme::Dark();
+        th.SetStylePainter(&spyPainter);
+
+        Context ui;
+        ui.SetTheme(th);
+        ui.BeginFrame({480.0f, 240.0f});
+        ui.SetTooltip("Architectural Tooltip", Rect(20.0f, 20.0f, 100.0f, 30.0f));
+        ui.EndFrame(spy);
+        CHECK(spyPainter.popupBgCalls >= 1u);
+        CHECK(spyPainter.popupFrameCalls >= 1u);
+    }
+
+    // 5. disabledOpacity propagates uniformly & SoftTintAlpha / EnsureReadableInk meet contrast invariants
+    {
+        UiTheme th = UiTheme::Dark();
+        th.disabledOpacity = 0.25f;
+        const StateColor resPrimary = th.ResolveStateColor(StateColor::Primary());
+        const StateColor resSurface = th.ResolveStateColor(StateColor::Surface());
+        CHECK(resPrimary.disabled.has_value());
+        CHECK(resSurface.disabled.has_value());
+        CHECK(keel::abs(keel::as<keel::f32>(resPrimary.disabled->a) / 255.0f - 0.25f) < 0.02f);
+        CHECK(keel::abs(keel::as<keel::f32>(resSurface.disabled->a) / 255.0f - 0.25f) < 0.02f);
+
+        CHECK(th.SoftTintAlpha(false, false) < th.SoftTintAlpha(true, false));
+        CHECK(th.SoftTintAlpha(true, false) < th.SoftTintAlpha(false, true));
+        const Color darkInk = th.EnsureReadableInk(th.GetSemanticAccent(UiVariant::Primary), th.palette.surface);
+        CHECK(Color::ContrastRatio(darkInk, th.palette.surface) >= 4.5f);
+
+        const UiTheme light = UiTheme::Light();
+        const Color lightInk = light.EnsureReadableInk(light.GetSemanticAccent(UiVariant::Warning), light.palette.surface);
+        CHECK(Color::ContrastRatio(lightInk, light.palette.surface) >= 4.5f);
+    }
+
+    // 6. Unified UiVariant across actions/ widgets triggers visual damage on variant change
+    {
+        Context ui;
+        NullCanvas nullCanvas;
+        keel::usize segIdx = 0, pgIdx = 0, bcIdx = 1;
+        keel::i32 tabIdx = 0, sideIdx = 0;
+        UiVariant activeVar = UiVariant::Primary;
+
+        auto renderActions = [&]() {
+            ui.BeginFrame({640.0f, 400.0f});
+            if (auto col = guikit::Column(ui, {.gap = 8.0f})) {
+                guikit::Segmented(ui, segIdx, {"A", "B"}, {.variant = activeVar});
+                guikit::TabBar(ui, tabIdx, {{"One"}, {"Two"}}, {.variant = activeVar});
+                guikit::Pagination(ui, pgIdx, 5u, {.variant = activeVar});
+                guikit::Breadcrumb(ui, bcIdx, {"Root", "Sub"}, {.variant = activeVar});
+                if (auto menu = guikit::SidebarMenu(ui, {.variant = activeVar})) {
+                    menu.Item(sideIdx, 0, {.text = "Home"});
+                    menu.Item(sideIdx, 1, {.text = "Settings", .variant = UiVariant::Success});
+                }
+            }
+            ui.EndFrame(nullCanvas);
+        };
+        renderActions();
+        renderActions();
+        CHECK(ui.GetDirtyRects().empty());
+        activeVar = UiVariant::Danger;
+        renderActions();
+        CHECK(!ui.GetDirtyRects().empty());
+    }
+}
+
 int main() {
     keel::println("[RUN] Testing GuiKit Core Foundation...");
 
@@ -2405,6 +2628,7 @@ int main() {
     TestScrollbarCustomizationPresetsAndGeometry();
     TestDrawListAndImageCache();
     TestDesignSystemOrthogonalityAndCrossCombos();
+    TestStylePainterChromeDispatchAndPolish();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Core tests passed successfully!");

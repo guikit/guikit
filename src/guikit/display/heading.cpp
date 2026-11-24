@@ -441,8 +441,8 @@ void detail::Heading::Render(
                 badgeBorderCol = resolvedBadge.WithAlphaF(effDisabled ? 0.25f : 0.50f);
                 badgeBorderW = 1.0f;
             } else if (effDisabled) {
-                badgeBg = badgeBg.WithAlphaF(0.40f);
-                badgeTextCol = badgeTextCol.WithAlphaF(0.40f);
+                badgeBg = badgeBg.WithAlphaF(theme.disabledOpacity);
+                badgeTextCol = badgeTextCol.WithAlphaF(theme.disabledOpacity);
             }
 
             const Rect badgeR(curX, badgeY, badgeW, badgeH);
@@ -473,7 +473,7 @@ void detail::Heading::Render(
         pal.borderSubtle,
         pal.borderHover,
         pal.focusRing,
-        pal.borderSubtle.WithAlphaF(0.40f)
+        pal.borderSubtle.WithAlphaF(theme.disabledOpacity)
     );
     const keel::f32 sepStrokeW = opts.separator.width;
 

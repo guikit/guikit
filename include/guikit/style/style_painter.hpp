@@ -4,21 +4,31 @@
 #include "guikit/style/tokens.hpp"
 #include "guikit/core/types.hpp"
 #include "keel/core.h"
+#include "keel/math.h"
 
 namespace guikit {
 
 class ICanvas;
 
-/// Semantic role of a framed interactive control passed to `IStylePainter::DrawFrame`.
+/// Semantic role of an interactive control frame passed to `IStylePainter::DrawFrame`.
+/// (Container/panel/popup surfaces use `DrawSurfaceBg` / `DrawSurfaceFrame` with `SurfaceRole`.)
 enum class FrameKind : keel::u8 {
-    Surface = 0,     ///< Flat card / container backdrop
-    Elevated,        ///< Raised dialog / elevated card
-    Popup,           ///< Context menu / dropdown popup panel
-    Input,           ///< Editable text field / select box (sunken in Classic3D, bottom-accent in Fluent)
+    Input = 0,       ///< Editable text field / select box (sunken in Classic3D, bottom-accent in Fluent)
     Button,          ///< Push button (raised, sunken when pressed/active)
     ToolbarButton,   ///< Flat ghost toolbar / chrome button (thin bevel on hover/active in Classic3D)
     Badge,           ///< Tag / heading badge / status cell
     DropdownButton   ///< Embedded field trigger button (Select chevron, DatePicker, SpinBox steppers)
+};
+
+/// Chrome-driven layout & geometry metrics returned by `IStylePainter::GetChromeMetrics`.
+struct ChromeMetrics {
+    keel::f32  buttonPressOffset{0.0f};      ///< Pressed/active button content shift in dp
+    keel::f32  tabGapOverride{-1.0f};        ///< Explicit TabBar gap in dp (< 0 uses theme default)
+    keel::f32  sliderTrackHeight{0.0f};      ///< Fixed slider track height in dp (<= 0 uses widget default)
+    keel::f32  rangeSliderTrackHeight{0.0f}; ///< Fixed range slider track height in dp (<= 0 uses widget default)
+    keel::f32  progressBarMinHeight{0.0f};   ///< Minimum progress bar thickness in dp
+    keel::f32  progressBarHeightBonus{0.0f}; ///< Extra progress bar thickness in dp (e.g. segmented 3D well)
+    BadgeShape badgeShape{BadgeShape::Pill}; ///< Badge/tag corner rounding policy
 };
 
 /// Tab bar chrome style passed to `IStylePainter::DrawTabChrome` without pulling action headers into style/.
@@ -122,19 +132,65 @@ public:
         const FramePaintParams& p
     ) const = 0;
 
-    /// Returns horizontal/vertical content press-shift in dp for buttons/triggers (0dp in Modern/Fluent, 1dp in Classic3D/Brutalist).
-    [[nodiscard]] virtual keel::f32 GetButtonContentOffset(
+    /// Returns chrome-driven geometry & sizing metrics for the active theme.
+    [[nodiscard]] virtual ChromeMetrics GetChromeMetrics(
+        const UiTheme& theme
+    ) const noexcept = 0;
+
+    /// Returns horizontal/vertical content press-shift in dp for buttons/triggers.
+    [[nodiscard]] keel::f32 GetButtonContentOffset(
         const UiTheme& theme,
         bool pressed,
         bool active,
         bool disabled
-    ) const noexcept = 0;
+    ) const noexcept {
+        return (!disabled && (pressed || active)) ? GetChromeMetrics(theme).buttonPressOffset : 0.0f;
+    }
 
-    /// Returns resolved horizontal gap between consecutive `TabBar` items (`chrome.tabGapOverride` if >= 0, else `fallbackGap`).
-    [[nodiscard]] virtual keel::f32 GetTabGap(
+    /// Returns resolved horizontal gap between consecutive `TabBar` items.
+    [[nodiscard]] keel::f32 GetTabGap(
         const UiTheme& theme,
         keel::f32 fallbackGap
-    ) const noexcept = 0;
+    ) const noexcept {
+        const keel::f32 overrideGap = GetChromeMetrics(theme).tabGapOverride;
+        return (overrideGap >= 0.0f) ? overrideGap : fallbackGap;
+    }
+
+    /// Returns effective slider track thickness in dp for the active chrome.
+    [[nodiscard]] keel::f32 GetSliderTrackHeight(
+        const UiTheme& theme,
+        keel::f32 defaultHeight,
+        bool isRange = false
+    ) const noexcept {
+        const ChromeMetrics m = GetChromeMetrics(theme);
+        const keel::f32 fixed = isRange ? m.rangeSliderTrackHeight : m.sliderTrackHeight;
+        return (fixed > 0.0f) ? fixed : defaultHeight;
+    }
+
+    /// Returns effective progress bar thickness in dp for the active chrome.
+    [[nodiscard]] keel::f32 GetProgressBarThickness(
+        const UiTheme& theme,
+        keel::f32 defaultThickness
+    ) const noexcept {
+        const ChromeMetrics m = GetChromeMetrics(theme);
+        if (m.progressBarMinHeight > 0.0f || m.progressBarHeightBonus > 0.0f) {
+            return keel::max(defaultThickness + m.progressBarHeightBonus, m.progressBarMinHeight);
+        }
+        return defaultThickness;
+    }
+
+    /// Returns effective badge/tag corner radius in dp honoring `chrome.badgeShape`.
+    [[nodiscard]] keel::f32 GetBadgeRadius(
+        const UiTheme& theme,
+        keel::f32 height,
+        keel::f32 defaultRadius,
+        bool pill
+    ) const noexcept {
+        const BadgeShape shape = GetChromeMetrics(theme).badgeShape;
+        if (shape == BadgeShape::Sharp) return 0.0f;
+        if (pill && shape == BadgeShape::Pill) return height * 0.5f;
+        return defaultRadius;
+    }
 
     /// Draws an embedded right-side field trigger button (e.g., Select/DatePicker/ColorPicker chevron) according to
     /// `chrome.fieldButton`, writing the resolved icon rect & color and returning the remaining `rightX` for content.
@@ -164,13 +220,6 @@ public:
         keel::f32 cornerRadius
     ) const = 0;
 
-    /// Returns effective slider track thickness in dp for the active chrome (`defaultHeight` in flat chromes, bevel groove in Classic3D).
-    [[nodiscard]] virtual keel::f32 GetSliderTrackHeight(
-        const UiTheme& theme,
-        keel::f32 defaultHeight,
-        bool isRange = false
-    ) const noexcept = 0;
-
     /// Draws a single discrete slider tick mark (below/beside track for `Pointer3D`, centered dot otherwise).
     virtual void DrawSliderTick(
         ICanvas& canvas,
@@ -182,20 +231,6 @@ public:
         Color color,
         bool disabled
     ) const = 0;
-
-    /// Returns effective progress bar thickness in dp for the active chrome (taller well for segmented 3D bars).
-    [[nodiscard]] virtual keel::f32 GetProgressBarThickness(
-        const UiTheme& theme,
-        keel::f32 defaultThickness
-    ) const noexcept = 0;
-
-    /// Returns effective badge/tag corner radius in dp honoring `chrome.badgeShape`.
-    [[nodiscard]] virtual keel::f32 GetBadgeRadius(
-        const UiTheme& theme,
-        keel::f32 height,
-        keel::f32 defaultRadius,
-        bool pill
-    ) const noexcept = 0;
 
     /// Draws a horizontal or vertical divider / separator line (hairline, etched 3D groove, or bold stroke).
     virtual void DrawDivider(
@@ -403,14 +438,10 @@ public:
     void DrawSurfaceBg(ICanvas& canvas, const UiTheme& theme, const SurfacePaintParams& p) const override;
     void DrawSurfaceFrame(ICanvas& canvas, const UiTheme& theme, const SurfacePaintParams& p) const override;
     void DrawFrame(ICanvas& canvas, const UiTheme& theme, FrameKind kind, const FramePaintParams& p) const override;
-    [[nodiscard]] keel::f32 GetButtonContentOffset(const UiTheme& theme, bool pressed, bool active, bool disabled) const noexcept override;
-    [[nodiscard]] keel::f32 GetTabGap(const UiTheme& theme, keel::f32 fallbackGap) const noexcept override;
+    [[nodiscard]] ChromeMetrics GetChromeMetrics(const UiTheme& theme) const noexcept override;
     [[nodiscard]] keel::f32 DrawFieldButton(ICanvas& canvas, const UiTheme& theme, Rect fieldRect, keel::f32 paddingX, keel::f32 iconSize, keel::f32 cornerRadius, bool explicitRadius, bool hovered, bool pressed, bool active, bool disabled, bool showHoverPill, Color fallbackIconCol, Rect& outIconRect, Color& outIconColor) const override;
     void DrawDropdownSurface(ICanvas& canvas, const UiTheme& theme, Rect popupRect, keel::f32 cornerRadius) const override;
-    [[nodiscard]] keel::f32 GetSliderTrackHeight(const UiTheme& theme, keel::f32 defaultHeight, bool isRange = false) const noexcept override;
     void DrawSliderTick(ICanvas& canvas, const UiTheme& theme, Vec2 tickCenter, keel::f32 crossCoord, bool vertical, keel::f32 tickSize, Color color, bool disabled) const override;
-    [[nodiscard]] keel::f32 GetProgressBarThickness(const UiTheme& theme, keel::f32 defaultThickness) const noexcept override;
-    [[nodiscard]] keel::f32 GetBadgeRadius(const UiTheme& theme, keel::f32 height, keel::f32 defaultRadius, bool pill) const noexcept override;
     void DrawDivider(ICanvas& canvas, const UiTheme& theme, Vec2 p0, Vec2 p1, Color fallbackColor, keel::f32 thickness = 1.0f) const override;
     void DrawControlText(ICanvas& canvas, const UiTheme& theme, keel::StringRef text, Rect rect, keel::f32 fontSize, Color color, bool disabled, keel::f32 alignX = 0.5f, keel::f32 alignY = 0.5f) const override;
     void DrawSliderTrack(ICanvas& canvas, const UiTheme& theme, Rect trackRect, Rect fillRect, bool vertical, bool hasFill, Color trackBg, Color trackBorder, Color fillColor, keel::f32 cornerRadius, bool explicitColor) const override;

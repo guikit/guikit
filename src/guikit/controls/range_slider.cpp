@@ -471,8 +471,8 @@ void detail::RangeSlider::Render(
     const Rect fillRect = vertical
         ? Rect(trackBgRect.x, highThumb.y, effTrackH, fillLen)
         : Rect(lowThumb.x, trackBgRect.y, fillLen, effTrackH);
-    const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(0.4f) : pal.surfaceActive;
-    const Color trackBorder = disabled ? pal.border.WithAlphaF(0.3f) : pal.border;
+    const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(theme.disabledOpacity) : pal.surfaceActive;
+    const Color trackBorder = disabled ? pal.border.WithAlphaF(theme.disabledOpacity) : pal.border;
     const Color fillCol = ResolveSliderTrackColor(opts.color, disabled, theme);
     theme.Painter().DrawSliderTrack(
         canvas, theme, trackBgRect, fillRect, vertical, fillLen > 0.0f,
@@ -483,9 +483,9 @@ void detail::RangeSlider::Render(
     auto drawThumb = [&](Vec2 c, bool isFocusedThumb) {
         const bool thumbActive = active && isFocusedThumb;
         const bool thumbFocused = focused && isFocusedThumb;
-        const Color thumbBg = disabled ? pal.surface.WithAlphaF(0.5f) :
+        const Color thumbBg = disabled ? pal.surface.WithAlphaF(theme.disabledOpacity) :
                               thumbActive ? ResolveSliderActiveThumbColor(opts.color, theme) : pal.surface;
-        const Color thumbBorder = disabled ? pal.border.WithAlphaF(0.4f) :
+        const Color thumbBorder = disabled ? pal.border.WithAlphaF(theme.disabledOpacity) :
                                   thumbFocused ? pal.focusRing :
                                   (active || hovered) ? pal.accent : pal.borderHover;
         const keel::f32 thumbBorderW = (active || hovered || thumbFocused) ? 2.5f : 2.0f;

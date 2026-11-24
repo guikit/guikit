@@ -32,7 +32,8 @@ struct SidebarMenuItem {
     UiText badge{};                                     ///< Optional trailing badge/counter (default role: LabelSmall)
     UiText section{};                                   ///< Optional section heading above this item (used in span overload)
     UiText tooltip{};                                   ///< Optional floating tooltip (defaults to item.text when menu is collapsed)
-    StateColor color{};                                 ///< Optional per-item highlight color override (empty = inherit menu color)
+    UiVariant variant{UiVariant::Default};              ///< Optional per-item semantic accent variant (`Default` = inherit menu variant)
+    StateColor color{};                                 ///< Optional per-item custom highlight color override (empty = inherit menu color)
     bool active{false};                                 ///< Whether this item is currently selected/active
     bool disabled{false};
 };
@@ -41,7 +42,8 @@ struct SidebarMenuItem {
 struct SidebarMenuOptions {
     SidebarMenuStyle style{SidebarMenuStyle::Pill};
     bool collapsed{false};                          ///< Compact icon-only rail mode (hides text, badges, and section titles)
-    StateColor color{};                             ///< Default highlight color for active items (Default = theme Primary)
+    UiVariant variant{UiVariant::Default};          ///< Default semantic highlight variant for active items (`Default` = theme Primary)
+    StateColor color{};                             ///< Optional custom highlight color override for active items
     keel::Optional<keel::f32> gap{4.0f};                ///< Vertical gap between consecutive menu items
     keel::f32 sectionGap{8.0f};                         ///< Extra top spacing before a non-first Section header
     keel::Optional<keel::f32> width{keel::kNullOpt};    ///< Optional explicit menu width (nullopt = Fit/Stretch to container)

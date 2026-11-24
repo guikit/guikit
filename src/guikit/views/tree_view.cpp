@@ -634,7 +634,7 @@ TreeViewScope detail::TreeView::Open(
             pal.borderSubtle,
             pal.borderHover,
             pal.focusRing,
-            pal.borderSubtle.WithAlphaF(0.40f)
+            pal.borderSubtle.WithAlphaF(theme.disabledOpacity)
         );
     }
     if (opts.background.IsNone()) {
@@ -652,7 +652,7 @@ TreeViewScope detail::TreeView::Open(
             pal.surface,
             pal.surfaceHover,
             pal.surfaceActive,
-            pal.surface.WithAlphaF(0.40f)
+            pal.surface.WithAlphaF(theme.disabledOpacity)
         );
     }
 
@@ -1636,7 +1636,7 @@ void detail::TreeView::RenderRow(
         const keel::f32 barW = 3.0f;
         const keel::f32 barPadY = keel::max(4.0f, bounds.h * 0.18f);
         const Rect barRect(bounds.x + 1.0f, bounds.y + barPadY, barW, keel::max(4.0f, bounds.h - barPadY * 2.0f));
-        canvas.DrawRoundRect(barRect, barW * 0.5f, disabled ? accentCol.WithAlphaF(0.40f) : accentCol);
+        canvas.DrawRoundRect(barRect, barW * 0.5f, disabled ? accentCol.WithAlphaF(theme.disabledOpacity) : accentCol);
     }
 
     // Focus ring
@@ -1653,7 +1653,7 @@ void detail::TreeView::RenderRow(
         const keel::f32 chevY = bounds.y + (bounds.h - rm.chevronSize) * 0.5f;
         const bool chevHover = hovered && p->state && p->state->chevronRect.Contains(p->ctx ? p->ctx->GetMousePos() : Vec2{-1.0f, -1.0f});
         Color chevCol = selected ? accentCol : (chevHover ? pal.textPrimary : pal.textSecondary);
-        if (disabled) chevCol = chevCol.WithAlphaF(0.40f);
+        if (disabled) chevCol = chevCol.WithAlphaF(theme.disabledOpacity);
         chevIcon.Draw(canvas, Rect(chevX, chevY, rm.chevronSize, rm.chevronSize), chevCol);
     }
     curX += rm.chevronSlotW + rm.gap;
@@ -1669,12 +1669,12 @@ void detail::TreeView::RenderRow(
         Color boxBg = (isChecked || isIndet) ? accentCol : pal.surface;
         Color boxBorder = (isChecked || isIndet) ? accentCol : pal.border;
         if (disabled) {
-            boxBg = boxBg.WithAlphaF(0.40f);
-            boxBorder = boxBorder.WithAlphaF(0.40f);
+            boxBg = boxBg.WithAlphaF(theme.disabledOpacity);
+            boxBorder = boxBorder.WithAlphaF(theme.disabledOpacity);
         }
         canvas.DrawRoundRect(chkRect, chkRadius, boxBg, boxBorder, 1.25f);
 
-        const Color glyphCol = disabled ? pal.textPrimary.WithAlphaF(0.45f) : Color(255, 255, 255, 255);
+        const Color glyphCol = disabled ? pal.textPrimary.WithAlphaF(theme.disabledOpacity) : Color(255, 255, 255, 255);
         if (isIndet) {
             const keel::f32 dashW = rm.checkboxSize * 0.52f;
             const keel::f32 dashH = 2.0f;
@@ -1696,7 +1696,7 @@ void detail::TreeView::RenderRow(
         Color iconCol = selected ? accentCol : theme.ResolveTextColor(p->opts.label, UiVariant::Secondary, disabled, hovered, selected);
         if (!p->opts.label.color.HasAny() && !selected) {
             iconCol = hovered ? pal.textPrimary : pal.textSecondary;
-            if (disabled) iconCol = iconCol.WithAlphaF(0.40f);
+            if (disabled) iconCol = iconCol.WithAlphaF(theme.disabledOpacity);
         }
         activeIcon.Draw(canvas, Rect(curX, iconY, rm.iconSize, rm.iconSize), iconCol);
         curX += rm.iconSize + rm.gap;
@@ -1724,8 +1724,8 @@ void detail::TreeView::RenderRow(
             badgeBg = resolved.WithAlphaF(disabled ? 0.12f : 0.20f);
             badgeTextCol = resolved;
         } else if (disabled) {
-            badgeBg = badgeBg.WithAlphaF(0.40f);
-            badgeTextCol = badgeTextCol.WithAlphaF(0.40f);
+            badgeBg = badgeBg.WithAlphaF(theme.disabledOpacity);
+            badgeTextCol = badgeTextCol.WithAlphaF(theme.disabledOpacity);
         }
 
         const Rect badgeR(badgeX, badgeY, badgeW, badgeH);
@@ -1829,7 +1829,7 @@ void detail::TreeView::RenderHeader(
             keel::max(0.0f, colW - cellPadX * 2.0f),
             headerRect.h
         );
-        const Color titleCol = headerNode->disabled ? pal.textSecondary.WithAlphaF(0.45f) : pal.textSecondary;
+        const Color titleCol = headerNode->disabled ? pal.textSecondary.WithAlphaF(theme.disabledOpacity) : pal.textSecondary;
 
         if (col.icon.IsValid()) {
             const keel::f32 iconSz = keel::min(13.0f * scale, headerRect.h * 0.55f);

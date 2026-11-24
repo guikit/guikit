@@ -396,6 +396,7 @@ Response detail::Segmented::Run(
         optsCopy.maxWidth.value_or(0.0f),
         optsCopy.minHeight.value_or(0.0f),
         optsCopy.maxHeight.value_or(0.0f),
+        keel::as<keel::u8>(optsCopy.variant),
         optsCopy.color,
         optsCopy.background,
         optsCopy.border,
@@ -545,6 +546,13 @@ void detail::Segmented::Render(
 
             if (opts.color.HasAny()) {
                 pillFill = theme.ResolveColor(opts.color, hovered, pressed, segDisabled, pal.accent);
+                fgColor = segDisabled ? pal.textMuted : ResolveContrastingTextOnFill(pillFill, pal);
+            } else if (opts.variant != UiVariant::Default) {
+                const Color semSeed = theme.GetSemanticAccent(opts.variant);
+                pillFill = segDisabled
+                    ? semSeed.WithAlphaF(theme.disabledOpacity)
+                    : (pressed ? StateColor::DarkenColor(semSeed)
+                               : (hovered ? StateColor::BrightenColor(semSeed) : semSeed));
                 fgColor = segDisabled ? pal.textMuted : ResolveContrastingTextOnFill(pillFill, pal);
             } else {
                 const Color basePill = Color::Lerp(pal.surfaceHover, pal.accent, 0.24f);

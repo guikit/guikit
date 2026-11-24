@@ -167,12 +167,12 @@ void detail::Text::Render(
             fallback,
             pal.textPrimary,
             pal.textPrimary,
-            fallback.WithAlphaF(0.40f)
+            fallback.WithAlphaF(theme.disabledOpacity)
         );
     } else {
         color = theme.GetTextColor(opts.variant);
         if (disabled) {
-            color = color.WithAlphaF(0.40f);
+            color = color.WithAlphaF(theme.disabledOpacity);
         } else if (hovered) {
             if (opts.variant == UiVariant::Default || opts.variant == UiVariant::Secondary || opts.variant == UiVariant::Muted || opts.variant == UiVariant::Ghost) {
                 color = pal.textPrimary;
