@@ -317,4 +317,11 @@ if (GUIKIT_BUILD_TESTS)
             "-DSCRATCH_ROOT=${CMAKE_CURRENT_BINARY_DIR}/guidelines_self_test"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_guidelines_enforcement.cmake"
     )
+
+    add_test(
+        NAME guikit_style_architecture_guard
+        COMMAND ${CMAKE_COMMAND}
+            "-DGUIKIT_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_style_architecture_guard.cmake"
+    )
 endif()

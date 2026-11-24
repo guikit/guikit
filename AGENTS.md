@@ -25,36 +25,44 @@ int main(int, char*[]) {
     });
 
     return app.Run([&](guikit::Context& ui) {
-        if (auto card = ui.Card({.gap = 12.0f, .padding = guikit::Padding::All(16.0f)})) {
-            ui.Heading({.label = "Audio Channel", .separator = guikit::HeadingSeparator::Bottom});
-            if (auto el = ui.Element({.label = "Enable Stage"})) {
-                ui.Switch(enabled);
+        if (auto card = guikit::Card(ui, {.gap = 12.0f, .padding = guikit::Padding::All(16.0f)})) {
+            guikit::Heading(ui, {.label = "Audio Channel", .separator = guikit::HeadingSeparator::Bottom});
+            if (auto el = guikit::Element(ui, {.label = "Enable Stage"})) {
+                guikit::Switch(ui, enabled);
             }
-            if (auto el = ui.Element({.label = "Gain", .badge = "dB"})) {
-                ui.Slider(gainDb, -60.0f, 12.0f, {.valueFormat = "%.1f dB"});
+            if (auto el = guikit::Element(ui, {.label = "Gain", .badge = "dB"})) {
+                guikit::Slider(ui, gainDb, -60.0f, 12.0f, {.valueFormat = "%.1f dB"});
             }
         }
     });
 }
 ```
 
-### Rule 2: Wrap Form Controls in `ui.Element(...)` & Use `ui.Heading(...)` for Section Headers — Do NOT Build Manual Label/Row Scaffolding
+### Rule 2: Wrap Form Controls in `guikit::Element(ui, ...)` & Use `guikit::Heading(ui, ...)` for Section Headers — Do NOT Build Manual Label/Row Scaffolding
 Never manually nest `Column` + `Row` + `Text` just to attach a label, description, icon, or badge to one or more controls:
-- **`ui.Element(...)`** is a pure semantic single-slot form-field wrapper (`Label + [Control Slot] + Description`) with 5 self-contained `ElementLayout` placements (`Stacked`, `Top`, `Bottom`, `Leading`, `Trailing`) and automatic `AxisSize` / `SizeMode` resolution. For composite multi-control slots, place a `ui.Row(...)` / `ui.Column(...)` / `ui.Wrap(...)` inside `ui.Element(...)`.
-- **`ui.Heading(...)`** is a standalone section header leaf widget (`HeadingLevel::H1`–`H6`, default `H3`, independent of `UiSize`, with `HeadingLayout::Stacked` / `Overline` / `Inline` and `HeadingSeparator::None` / `Bottom` / `Trailing`).
-- **Surfaces & Borders** (`.background` / `.border`) belong solely to `Panels` (`ui.Card(...)`, `ui.Box(...)`, `Modal`, `Table`, `Scene`, etc.) and intrinsic-box controls (`Button`, `InputField`, `Select`, `SpinBox`, `Segmented`, `DatePicker`, `ColorPicker`, `TagInput`, `Image`, `TextArea`) — never on `Element`, `Heading`, or frameless controls (`Switch`, `Checkbox`, `Radio`, `Knob`, `Slider`, `StepSlider`, `RangeSlider`, `ProgressBar`, `LevelMeter`, `Breadcrumb`, `Pagination`, which expose `.size` and `.color` only).
+- **Free-Function API**: All widgets, panels, and layouts are free functions taking `guikit::Context& ui` as the first argument (`guikit::Button(ui, ...)`, `guikit::Card(ui, ...)`, `guikit::InputField(ui, ...)`, `guikit::Row(ui, ...)`). Never add widget forwarding methods onto `guikit::Context`.
+- **`guikit::Element(ui, ...)`** is a pure semantic single-slot form-field wrapper (`Label + [Control Slot] + Description`) with 5 self-contained `ElementLayout` placements (`Stacked`, `Top`, `Bottom`, `Leading`, `Trailing`) and automatic `AxisSize` / `SizeMode` resolution. For composite multi-control slots, place a `guikit::Row(ui, ...)` / `guikit::Column(ui, ...)` / `guikit::Wrap(ui, ...)` inside `Element`.
+- **`guikit::Heading(ui, ...)`** is a standalone section header leaf widget (`HeadingLevel::H1`–`H6`, default `H3`, independent of `UiSize`, with `HeadingLayout::Stacked` / `Overline` / `Inline` and `HeadingSeparator::None` / `Bottom` / `Trailing`).
+- **Orthogonal Design System (`style/` layer) — Zero Ad-Hoc Styling**:
+  - `ThemeSpec = ThemePreset/ThemePalette (Colors only) × ChromeStyle/ChromeTokens (16 structural tokens, 0 colors) × FillStyle (Solid | Soft | Outline)`.
+  - Any color palette (`Dark`, `Light`, `Nord`, `Dracula`, `Industrial`, `Windows98`, custom) composes orthogonally with any `ChromeStyle` (`Modern`, `Fluent`, `Classic3D`, `Brutalist`) and `FillStyle`.
+  - **Widget API Styling**:
+    - `actions/` (`Button`, `ToolButton`): `.style` (`ButtonStyle`: `Default`, `Solid`, `Soft`, `Outline`, `Ghost`), `.variant` (`UiVariant`), flat `.background` & `.border` overrides.
+    - `fields/` (`InputField`, `TextArea`, `Select`, `MultiSelect`, `SpinBox`, `DatePicker`, `TagInput`, `ColorPicker`): `.style` (`FieldStyle`: `Default`, `Filled`, `Borderless`), `.status` (`UiVariant`), flat `.background` & `.border` overrides, rendered via shared `FieldFrame`.
+    - `surfaces/` & `display/Readout`: `.surface` (`SurfaceRole`: `None`, `Flat`, `Sunken`, `Raised`, `Popup`, `DockEdge`), flat `.background` & `.border` overrides.
+  - **No Ad-Hoc Chrome Checks in Widgets**: Element implementations in `src/guikit/{actions,fields,controls,surfaces,overlays,display,views}/` must **never** reference `theme.chrome.*`, `ThemePreset::`, `ChromeStyle::`, or `FrameTreatment::*`. All visual physics routes through `theme.Painter()` (`IStylePainter`). Enforced automatically by CTest `guikit_style_architecture_guard`.
 
 ```cpp
-// GOOD: Section Heading + declarative Element form-field wrapper (use ui.Row inside Element for multi-control slots)
-ui.Heading({.label = "Filter Stage", .level = guikit::HeadingLevel::H3, .separator = guikit::HeadingSeparator::Bottom});
-if (auto el = ui.Element({
+// GOOD: Section Heading + declarative Element form-field wrapper
+guikit::Heading(ui, {.label = "Filter Stage", .level = guikit::HeadingLevel::H3, .separator = guikit::HeadingSeparator::Bottom});
+if (auto el = guikit::Element(ui, {
     .label = "Cutoff Frequency",
     .description = "Low-pass filter corner (-3 dB)",
     .icon = guikit::Icon::Flash(),
     .badge = "Hz",
     .layout = guikit::ElementLayout::Leading
 })) {
-    ui.SpinBox(cutoffHz, 20.0f, 20000.0f, 10.0f, {.valueFormat = "%.0f Hz"});
+    guikit::SpinBox(ui, cutoffHz, 20.0f, 20000.0f, 10.0f, {.valueFormat = "%.0f Hz"});
 }
 
 // BAD: Do NOT manually construct Row + Column + Text(label) + Text(description) + Spacer + Control
@@ -64,13 +72,13 @@ if (auto el = ui.Element({
 GuiKit provides `UiSize` (`UiSize::Xs`, `Sm`, `Md`, `Lg`, `Xl`, or custom `UiSize::Dp(dp)` / `UiSize::Factor(f)`). Size is a direct top-level property of the control itself (`Md` by default), NOT an ambient zone property inherited by children:
 
 ```cpp
-if (ui.Button({.text = "Compact Action", .size = guikit::UiSize::Sm})) { /* ... */ }
-if (ui.Button({.text = "Custom Height", .size = guikit::UiSize::Dp(34.0f), .width = guikit::SizeMode::Stretch})) { /* ... */ }
+if (guikit::Button(ui, {.text = "Compact Action", .size = guikit::UiSize::Sm, .variant = guikit::UiVariant::Primary})) { /* ... */ }
+if (guikit::Button(ui, {.text = "Ghost Action", .size = guikit::UiSize::Dp(34.0f), .width = guikit::SizeMode::Stretch, .style = guikit::ButtonStyle::Ghost})) { /* ... */ }
 ```
 
 All widgets and panels expose uniform flat top-level options in a canonical declaration order (after widget-specific fields, `.tooltip`, and `.disabled`):
 - **Geometry**: `.size` (`UiSize`), `.width`, `.height` (`AxisSize`), `.minWidth`, `.maxWidth`, `.minHeight`, `.maxHeight` (fixed-glyph indicators `Switch`, `Checkbox`, `Radio` omit `width`/`height`; rotary `Knob` exposes scalar `.diameter`).
-- **Visuals**: `.color` (`StateColor`) for all controls, plus `.background` (`StateColor{}` = theme/variant default, `StateColor::None()` = transparent) and `.border` (`Border`) for boxed controls and panels.
+- **Visuals**: Semantic style/variant/status (`.style` + `.variant` on buttons, `.style` + `.status` on fields, `.surface` on cards/boxes/readout, `.color` on frameless controls), plus flat `.background` (`StateColor{}` = theme/variant default, `StateColor::None()` = transparent) and `.border` (`Border`) overrides on boxed controls and surfaces.
 
 ### Rule 3b: Wrap Subtrees in `ui.Zone(...)` for Ambient Environment & Geometry — Do NOT Pass Themes or Divide by the Shell Zoom by Hand
 Ambient state flows through the transparent RAII scope wrapper `ui.Zone(ZoneOptions)` (`.theme`, `.scale`, `.density`, `.debugBounds`, `.inspectMode`). `ui.Zone(...)` creates no layout node and composes cleanly around containers or widget groups, inheriting unset fields from `ui.GetZone()` (`const guikit::Zone*`):
@@ -242,8 +250,18 @@ Before drawing custom shapes on `ICanvas`, check this inventory:
 
 When modifying or extending GuiKit itself:
 
-1. **Header & Source File Naming (`snake_case` only) & Zero-STL Header Purity**:
-   - Public headers live in `include/guikit/<module>/<file_name>.hpp` and implementation files in `src/guikit/<module>/<file_name>.cpp`.
+1. **8-Class Element Taxonomy, `snake_case` Naming & Zero-STL Header Purity**:
+   - Public headers live in `include/guikit/<category>/<file_name>.hpp` and implementation files in `src/guikit/<category>/<file_name>.cpp`:
+     - `core/`, `backend/`, `graphics/` — engine core, `ICanvas`, `IPlatformWindow`, `DrawList`, `Icon`
+     - `style/` — `tokens.hpp`, `theme.hpp`, `style_painter.hpp`, `field_frame.hpp`
+     - `layout/` — `row`, `column`, `wrap`, `grid`, `spacer`, `scroll_area`, `split_view`
+     - `surfaces/` — `box`, `card`, `sidebar`, `activity_bar`, `toolbar`, `bottom_panel`, `status_bar`, `menu_bar`, `accordion`, `carousel`
+     - `overlays/` — `modal`, `popover`, `context_menu`, `command_palette`, `toast`
+     - `actions/` — `button`, `segmented`, `tab_bar`, `breadcrumb`, `pagination`, `sidebar_menu`
+     - `fields/` — `input_field`, `text_area`, `select`, `spin_box`, `date_picker`, `tag_input`, `color_picker`
+     - `controls/` — `switch`, `checkbox`, `radio`, `slider`, `knob`
+     - `display/` — `heading`, `text`, `separator`, `tag`, `progress_bar`, `level_meter`, `readout`, `histogram`, `image`
+     - `views/` — `markdown`, `table`, `tree_view`, `scene`, `image_view`
    - **`keel` is the sole foundational systems layer** (do NOT define `keel` re-export aliases in `namespace guikit`; use `keel::*` directly, including `keel::i8`..`keel::i64`, `keel::u8`..`keel::u64`, `keel::isize`, `keel::usize`, and `keel::kInvalidIndex` instead of raw `int`, `unsigned`, `size_t`, or `<cstdint>` types).
    - Public headers in `include/guikit/` must **never** include `<cstdint>`, `<cstddef>`, `<cmath>`, or STL container/utility headers (`<string>`, `<string_view>`, `<vector>`, `<span>`, `<optional>`, `<array>`, `<functional>`, `<memory>`, `<unordered_map>`, `<variant>`, `<chrono>`, `<source_location>`, `<typeindex>`, `<algorithm>`, `<type_traits>`, `<utility>`, `<concepts>`, `<compare>`, `<limits>`) or leak `<windows.h>`, `<SDL3/SDL.h>`, `"thorvg.h"`, or internal `using namespace` directives. Only minimal C/freestanding headers (`<cassert>`, `<cstring>`, `<exception>`, `<initializer_list>`, `<new>`) and `"keel/*.h"` (including `"keel/math.h"` and `"keel/bits.h"`) are allowed (`guikit_enforce_guidelines` / `keel_enforce_guidelines` enforce this automatically).
    - **C++ Exceptions & Opt-In Downstream CMake Guidelines**:

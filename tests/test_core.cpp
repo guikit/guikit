@@ -2263,6 +2263,121 @@ void TestDrawListAndImageCache() {
     }
 }
 
+void TestDesignSystemOrthogonalityAndCrossCombos() {
+    using namespace guikit;
+    keel::println("  -> TestDesignSystemOrthogonalityAndCrossCombos...");
+
+    // 1. Dark palette + Classic3D chrome must derive dark-adapted bevels & palette-pure scrollbars (zero Win98 light grays)
+    {
+        ThemeSpec dracula3d{};
+        dracula3d.base = ThemePreset::Dracula;
+        dracula3d.chrome = ChromeStyle::Classic3D;
+        dracula3d.fillStyle = FillStyle::Soft;
+
+        const UiTheme t = UiTheme::Build(dracula3d);
+        CHECK(t.preset == ThemePreset::Dracula);
+        CHECK(t.mode == ThemeMode::Dark);
+        CHECK(t.chromeStyle == ChromeStyle::Classic3D);
+        CHECK(t.fillStyle == FillStyle::Soft);
+        CHECK(t.chrome.frame == FrameTreatment::Bevel3D);
+        CHECK(t.chrome.field == FieldTreatment::Sunken3D);
+        CHECK(t.chrome.fieldButton == FieldButtonStyle::Raised3D);
+        CHECK(t.chrome.checkControl == CheckControlStyle::SunkenInk);
+        CHECK(t.chrome.sliderThumb == SliderThumbShape::Pointer3D);
+        CHECK(t.chrome.progressFill == ProgressFillStyle::Segmented);
+        CHECK(t.chrome.disabledText == DisabledTextStyle::Embossed3D);
+        CHECK(t.chrome.buttonPressOffset > 0.5f);
+
+        // Dark-adapted bevel must not hardcode Win98 pure white (#FFFFFF) highlight
+        CHECK(t.bevel.highlightOuter != Color::Hex(0xFFFFFFFF));
+        CHECK(t.bevel.highlightOuter.RelativeLuminance() > t.palette.surface.RelativeLuminance());
+        CHECK(t.bevel.shadowOuter.RelativeLuminance() < t.palette.surface.RelativeLuminance());
+
+        // Palette-pure auto scrollbar derives from ThemePalette (all color overrides remain kNullOpt)
+        CHECK(t.scrollbarPreset == ScrollbarPreset::Auto);
+        CHECK(t.scrollbarStyle.chrome == ScrollbarChromeStyle::ClassicBevel);
+        CHECK(t.scrollbarStyle.showButtons);
+        CHECK(!t.scrollbarStyle.trackColor.has_value());
+        CHECK(!t.scrollbarStyle.thumbColor.has_value());
+        CHECK(!t.scrollbarStyle.buttonColor.has_value());
+    }
+
+    // 2. Windows98 palette + Modern chrome must flatten bevels into modern surfaces while preserving Win98 colors
+    {
+        ThemeSpec winModern{};
+        winModern.base = ThemePreset::Windows98;
+        winModern.chrome = ChromeStyle::Modern;
+        winModern.fillStyle = FillStyle::Solid;
+
+        const UiTheme t = UiTheme::Build(winModern);
+        CHECK(t.preset == ThemePreset::Windows98);
+        CHECK(t.chromeStyle == ChromeStyle::Modern);
+        CHECK(t.chrome.frame == FrameTreatment::Flat);
+        CHECK(t.chrome.field == FieldTreatment::Outlined);
+        CHECK(t.chrome.fieldButton == FieldButtonStyle::Ghost);
+        CHECK(t.chrome.checkControl == CheckControlStyle::FilledAccent);
+        CHECK(t.scrollbarStyle.chrome == ScrollbarChromeStyle::Modern);
+        CHECK(!t.scrollbarStyle.showButtons);
+    }
+
+    // 3. All 4 ChromeStyle x 3 FillStyle combinations round-trip cleanly through ThemeSpec JSON and render via IStylePainter
+    {
+        NullCanvas canvas;
+        canvas.Begin(400, 300, 1.0f);
+        for (keel::usize ci = 0; ci < kChromeStyleCount; ++ci) {
+            const auto cs = keel::from_underlying<ChromeStyle>(ci);
+            for (keel::usize fi = 0; fi < kFillStyleCount; ++fi) {
+                const auto fs = keel::from_underlying<FillStyle>(fi);
+                ThemeSpec sp{};
+                sp.base = (ci % 2 == 0) ? ThemePreset::Dark : ThemePreset::Light;
+                sp.chrome = cs;
+                sp.fillStyle = fs;
+
+                const keel::String js = sp.ToJson();
+                const auto reparsed = ThemeSpec::FromJson(js);
+                CHECK(reparsed.has_value());
+                if (reparsed.has_value()) {
+                    CHECK(reparsed->chrome.has_value() && *reparsed->chrome == cs);
+                    CHECK(reparsed->fillStyle.has_value() && *reparsed->fillStyle == fs);
+                }
+
+                const UiTheme built = UiTheme::Build(sp);
+                CHECK(built.chromeStyle == cs);
+                CHECK(built.fillStyle == fs);
+
+                // Exercise FieldFrame across all 3 FieldStyles and ButtonStyle rendering without crashes
+                const FieldStyle fStyles[3] = {FieldStyle::Default, FieldStyle::Filled, FieldStyle::Borderless};
+                for (FieldStyle fStyle : fStyles) {
+                    FieldFrame::Draw(canvas, built, FieldFrameParams{
+                        .rect = Rect(10.0f, 10.0f, 180.0f, 32.0f),
+                        .style = fStyle,
+                        .status = UiVariant::Danger,
+                        .focused = true
+                    });
+                }
+                const ButtonStyle bStyles[5] = {
+                    ButtonStyle::Default, ButtonStyle::Solid, ButtonStyle::Soft, ButtonStyle::Outline, ButtonStyle::Ghost
+                };
+                for (ButtonStyle bStyle : bStyles) {
+                    detail::Button::Render(
+                        canvas,
+                        Rect(10.0f, 60.0f, 120.0f, 32.0f),
+                        ButtonOptions{.text = "Test", .style = bStyle, .variant = UiVariant::Primary},
+                        UiSize::Md,
+                        false,
+                        false,
+                        false,
+                        built,
+                        true
+                    );
+                }
+            }
+        }
+        canvas.End();
+        CHECK(canvas.GetStats().drawRectCount + canvas.GetStats().drawRoundRectCount > 0u);
+    }
+}
+
 int main() {
     keel::println("[RUN] Testing GuiKit Core Foundation...");
 
@@ -2289,6 +2404,7 @@ int main() {
     TestThemeSystemColorSciencePresetsSpecJsonAndLerp();
     TestScrollbarCustomizationPresetsAndGeometry();
     TestDrawListAndImageCache();
+    TestDesignSystemOrthogonalityAndCrossCombos();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Core tests passed successfully!");
