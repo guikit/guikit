@@ -20,6 +20,7 @@
 #include "guikit/core/overlay_manager.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/state_store.hpp"
+#include "guikit/core/text_buffer.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
@@ -61,8 +62,25 @@ public:
     void OnMouseDown(keel::i32 button);
     void OnMouseUp(keel::i32 button);
     void OnTextInput(keel::StringRef utf8Text);
+    void OnTextComposition(keel::StringRef preeditText, keel::usize cursor = 0, keel::usize selectionLength = 0);
+    void OnTextCompositionEnd(keel::StringRef committedText = {});
     void OnKeyDown(Key key, KeyModifiers mods = {});
     void OnMouseWheel(keel::f32 x, keel::f32 y);
+    void OnFilesDropped(keel::ArrayRef<keel::StringRef> paths, Vec2 posPx);
+
+    // --- IME Composition & OS File Drop Queries ---
+    [[nodiscard]] const ImeCompositionState& GetImeComposition() const noexcept { return m_ime; }
+    [[nodiscard]] bool IsImeComposing() const noexcept { return m_ime.active && !m_ime.text.empty(); }
+    void SetImeTargetRect(Rect rect) noexcept { m_imeTargetRect = CurrentSpace().Apply(rect); }
+    [[nodiscard]] Rect GetImeTargetRect() const noexcept { return m_imeTargetRect; }
+    [[nodiscard]] bool WantsTextInput() const noexcept {
+        return m_focus.GetFocusedId().IsValid() && m_editState.id == m_focus.GetFocusedId() && !m_editState.readOnly;
+    }
+
+    [[nodiscard]] bool HasDroppedFiles() const noexcept { return !m_droppedFiles.empty(); }
+    [[nodiscard]] keel::ArrayRef<keel::String> GetDroppedFiles() const noexcept { return m_droppedFiles; }
+    [[nodiscard]] Vec2 GetDroppedFilesPos() const noexcept { return CurrentSpace().Invert(m_droppedFilesPos); }
+    void ConsumeDroppedFiles() noexcept { m_droppedFiles.clear(); }
 
     /// Sets the requested OS mouse cursor shape for the current frame.
     void SetCursor(CursorType cursor) noexcept { m_cursor = cursor; }
@@ -624,6 +642,7 @@ public:
 private:
     friend class TableScope;
     friend class TableRowScope;
+    friend class TextBuffer;
 
     // Frame-space variants used by the context's own hit testing and damage tracking
     [[nodiscard]] keel::u8 CurrentScopeZLayer() const noexcept;
@@ -710,101 +729,13 @@ private:
     keel::String m_clipboardText{};
     CursorType m_cursor{CursorType::Default};
 
-    // Active text edit state (migrated to TextBuffer in Phase 3)
-    struct ActiveEditState {
-        struct EditSnapshot {
-            keel::String text;
-            keel::usize cursor{0};
-            keel::usize selectionAnchor{0};
-        };
-
-        Id id{Id::Null()};
-        keel::String text;
-        keel::usize cursor{0};
-        keel::usize selectionAnchor{0};
-        keel::Array<EditSnapshot> undoStack;
-        keel::Array<EditSnapshot> redoStack;
-        keel::Optional<keel::usize> preferredColumn;
-        bool changed{false};
-        bool submitted{false};
-        bool multiline{false};
-        bool readOnly{false};
-        bool autoCloseBrackets{false};
-        keel::u8 tabSize{4};
-        bool insertSpaces{true};
-
-        [[nodiscard]] bool HasSelection() const noexcept { return cursor != selectionAnchor; }
-        [[nodiscard]] keel::usize SelectionStart() const noexcept { return keel::min(cursor, selectionAnchor); }
-        [[nodiscard]] keel::usize SelectionEnd() const noexcept { return keel::max(cursor, selectionAnchor); }
-
-        [[nodiscard]] keel::StringRef SelectedText() const noexcept {
-            if (!HasSelection()) return {};
-            const keel::usize s = keel::min(SelectionStart(), text.size());
-            const keel::usize e = keel::min(SelectionEnd(), text.size());
-            return text.substr(s, e - s);
-        }
-
-        void SaveUndo() {
-            if (undoStack.empty() || undoStack.back().text != text) {
-                if (undoStack.size() >= 64) {
-                    undoStack.remove_at(0);
-                }
-                undoStack.push_back(EditSnapshot{text.clone(), cursor, selectionAnchor});
-                redoStack.clear();
-            }
-        }
-
-        bool Undo() {
-            while (!undoStack.empty()) {
-                EditSnapshot snap = keel::move(undoStack.back());
-                undoStack.pop_back();
-                if (snap.text != text) {
-                    redoStack.push_back(EditSnapshot{text.clone(), cursor, selectionAnchor});
-                    text = keel::move(snap.text);
-                    cursor = keel::min(snap.cursor, text.size());
-                    selectionAnchor = keel::min(snap.selectionAnchor, text.size());
-                    preferredColumn.reset();
-                    changed = true;
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        bool Redo() {
-            while (!redoStack.empty()) {
-                EditSnapshot snap = keel::move(redoStack.back());
-                redoStack.pop_back();
-                if (snap.text != text) {
-                    undoStack.push_back(EditSnapshot{text.clone(), cursor, selectionAnchor});
-                    text = keel::move(snap.text);
-                    cursor = keel::min(snap.cursor, text.size());
-                    selectionAnchor = keel::min(snap.selectionAnchor, text.size());
-                    preferredColumn.reset();
-                    changed = true;
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        void SelectAll() noexcept {
-            selectionAnchor = 0;
-            cursor = text.size();
-            preferredColumn.reset();
-        }
-
-        bool DeleteSelection();
-        void Insert(keel::StringRef utf8Text);
-        bool HandleKey(Context& ctx, Key key, KeyModifiers mods, bool& outLostFocus);
-    };
-    ActiveEditState m_editState;
-    struct TextEditHistory {
-        keel::String lastText;
-        keel::Array<ActiveEditState::EditSnapshot> undoStack;
-        keel::Array<ActiveEditState::EditSnapshot> redoStack;
-    };
+    // Active text editing buffer, diff undo/redo histories, IME & OS file drop state
+    TextBuffer m_editState;
     keel::HashMap<Id, TextEditHistory> m_editHistories;
+    ImeCompositionState m_ime;
+    Rect m_imeTargetRect{0.0f, 0.0f, 0.0f, 0.0f};
+    keel::Array<keel::String> m_droppedFiles;
+    Vec2 m_droppedFilesPos{0.0f, 0.0f};
     bool m_suspendDirectEditInput{false};
 
     struct QueuedKeyEvent {

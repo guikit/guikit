@@ -3069,6 +3069,20 @@ TextAreaResponse detail::TextArea::Run(
             state.prevCursor = cursor;
             state.prevTextSize = displayText.size();
         }
+
+        if (isFocused && !opts.readOnly && state.overlayFocus == 0 && !visualLines.empty() && L.textViewport.w > 0.0f) {
+            const keel::usize curVisRow = FindVisualLineForOffset(visualLines, cursor);
+            const VisualLine& cvl = visualLines[curVisRow];
+            const keel::usize colOffset = (cursor >= cvl.startOffset)
+                ? keel::min(cursor - cvl.startOffset, cvl.length)
+                : 0u;
+            const keel::StringRef prefix = displayText.substr(cvl.startOffset, colOffset);
+            const keel::f32 caretX = L.textViewport.x - state.scrollX +
+                MeasureSegmentWidth(canvas, prefix, L.fontSize, textStyle, opts.tabSize);
+            const keel::f32 caretY = L.textViewport.y - state.scrollY +
+                keel::as<keel::f32>(curVisRow) * L.lineHeight;
+            ctx.SetImeTargetRect(Rect(caretX, caretY, 2.0f, L.lineHeight));
+        }
     } else {
         state.selectionStart = state.cursor;
         state.selectionEnd = state.cursor;

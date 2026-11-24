@@ -108,6 +108,7 @@ public:
     virtual void SetGpuShadersEnabled(bool enabled) noexcept = 0;
 
     virtual void UpdateSystemCursor(CursorType cursor) noexcept = 0;
+    virtual void SetTextInputActive(bool /*active*/, Rect /*caretRectPx*/) noexcept {}
     virtual void OpenUrl(keel::StringRef url) const noexcept = 0;
 
     /// Queries the OS/browser preferred color scheme (`ThemeMode::Dark` or `ThemeMode::Light`),

@@ -56,6 +56,7 @@ struct InputFieldOptions {
 struct InputFieldData {
     InputFieldOptions opts{};
     keel::StringRef displayText{};
+    keel::StringRef imePreedit{};
     keel::usize cursor{0};
     keel::usize selStart{0};
     keel::usize selEnd{0};
@@ -121,7 +122,8 @@ public:
         bool clearHovered = false,
         bool showRevealBtn = false,
         bool revealHovered = false,
-        bool passwordRevealed = false
+        bool passwordRevealed = false,
+        keel::StringRef imePreedit = {}
     );
 };
 

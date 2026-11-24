@@ -271,6 +271,12 @@ void PlatformWindowBackend::UpdateSystemCursor(CursorType cursor) noexcept {
     }
 }
 
+void PlatformWindowBackend::SetTextInputActive(bool active, Rect caretRectPx) noexcept {
+    if (m_window) {
+        m_window->SetTextInputActive(active, caretRectPx);
+    }
+}
+
 void PlatformWindowBackend::OpenUrl(keel::StringRef url) const noexcept {
     if (m_window) {
         m_window->OpenUrl(url);

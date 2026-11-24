@@ -65,6 +65,7 @@ public:
     void SetGpuShadersEnabled(bool enabled) noexcept override;
 
     void UpdateSystemCursor(CursorType cursor) noexcept override;
+    void SetTextInputActive(bool active, Rect caretRectPx) noexcept override;
     void OpenUrl(keel::StringRef url) const noexcept override;
     [[nodiscard]] keel::Optional<ThemeMode> QuerySystemTheme() const noexcept override;
 

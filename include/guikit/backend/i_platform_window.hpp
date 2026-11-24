@@ -97,6 +97,7 @@ public:
     virtual void SetVsyncEnabled(bool /*enabled*/) noexcept {}
 
     virtual void SetCursor(CursorType /*cursor*/) noexcept {}
+    virtual void SetTextInputActive(bool /*active*/, Rect /*caretRectPx*/) noexcept {}
     virtual void OpenUrl(keel::StringRef /*url*/) const noexcept {}
 
     /// Queries the OS/browser preferred color scheme (`ThemeMode::Dark` or `ThemeMode::Light`),

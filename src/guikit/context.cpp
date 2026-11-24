@@ -2,73 +2,11 @@
 #include "guikit/core/style_painter.hpp"
 #include "guikit/core/text_util.hpp"
 #include "keel/math.h"
-#include "keel/static_array.h"
-#include "keel/time.h"
-#include "keel/utf8.h"
-#include <cassert>
 #include "keel/memory.h"
+#include "keel/time.h"
+#include <cassert>
 
 namespace guikit {
-
-namespace {
-
-/// Searches backwards in `s[0 .. maxExclusivePos - 1]` for `c`, returning `keel::StringRef::npos` if not found.
-[[nodiscard]] keel::usize StrRfindBefore(keel::StringRef s, char c, keel::usize maxExclusivePos) noexcept {
-    if (maxExclusivePos == 0 || s.empty()) {
-        return keel::StringRef::npos;
-    }
-    return s.substr(0, keel::min(maxExclusivePos, s.size())).rfind(c);
-}
-
-void StrEraseRange(keel::String& s, keel::usize pos, keel::usize count) noexcept {
-    if (pos >= s.size() || count == 0) {
-        return;
-    }
-    const keel::usize actual = keel::min(count, s.size() - pos);
-    const keel::usize tail = s.size() - (pos + actual);
-    if (tail > 0) {
-        keel::mem_move(s.data() + pos, s.data() + pos + actual, tail);
-    }
-    s.resize(s.size() - actual);
-}
-
-void StrInsert(keel::String& s, keel::usize pos, keel::StringRef ins) {
-    if (ins.empty()) {
-        return;
-    }
-    pos = keel::min(pos, s.size());
-    if (pos == s.size()) {
-        s.append(ins);
-        return;
-    }
-    if (s.data() != nullptr && ins.data() >= s.data() && ins.data() <= s.data() + s.size()) {
-        keel::String copy = keel::String::from(ins);
-        StrInsert(s, pos, copy.as_ref());
-        return;
-    }
-    const keel::usize oldLen = s.size();
-    const keel::usize insLen = ins.size();
-    s.resize(oldLen + insLen);
-    keel::mem_move(s.data() + pos + insLen, s.data() + pos, oldLen - pos);
-    keel::mem_copy(s.data() + pos, ins.data(), insLen);
-}
-
-void StrInsertChar(keel::String& s, keel::usize pos, char c) {
-    StrInsert(s, pos, keel::StringRef(&c, 1));
-}
-
-void StrReplace(keel::String& s, keel::usize pos, keel::usize count, keel::StringRef rep) {
-    pos = keel::min(pos, s.size());
-    if (s.data() != nullptr && rep.data() >= s.data() && rep.data() <= s.data() + s.size()) {
-        keel::String copy = keel::String::from(rep);
-        StrReplace(s, pos, count, copy.as_ref());
-        return;
-    }
-    StrEraseRange(s, pos, count);
-    StrInsert(s, pos, rep);
-}
-
-} // namespace
 
 Context::Context()
     : m_startTimeNs(keel::monotonic_ns()) {
@@ -587,684 +525,6 @@ keel::String Context::GetClipboardText() const {
     return m_clipboardText.clone();
 }
 
-bool Context::ActiveEditState::DeleteSelection() {
-    if (!HasSelection() || readOnly) {
-        return false;
-    }
-    SaveUndo();
-    preferredColumn.reset();
-    const keel::usize s = keel::min(SelectionStart(), text.size());
-    const keel::usize e = keel::min(SelectionEnd(), text.size());
-    if (e > s) {
-        StrEraseRange(text, s, e - s);
-        cursor = s;
-        selectionAnchor = s;
-        changed = true;
-        return true;
-    }
-    selectionAnchor = cursor;
-    return false;
-}
-
-void Context::ActiveEditState::Insert(keel::StringRef utf8Text) {
-    if (readOnly || utf8Text.empty()) {
-        return;
-    }
-
-    keel::String sanitized = keel::String::with_capacity(utf8Text.size());
-    for (char c : utf8Text) {
-        const keel::u8 u = keel::as<keel::u8>(c);
-        if (c == '\r') {
-            continue;
-        }
-        if (c == '\n') {
-            if (multiline) {
-                sanitized.push_back('\n');
-            }
-            continue;
-        }
-        if (u < 32 && c != '\t') {
-            continue;
-        }
-        sanitized.push_back(c);
-    }
-
-    if (sanitized.empty() && !HasSelection()) {
-        return;
-    }
-
-    preferredColumn.reset();
-
-    if (autoCloseBrackets && multiline && !readOnly && sanitized.size() == 1) {
-        const char c = sanitized[0];
-        const keel::usize safeCur = keel::min(cursor, text.size());
-
-        // Overtype closing bracket/quote if cursor is right before it
-        if (!HasSelection() && safeCur < text.size() &&
-            (c == ')' || c == ']' || c == '}' || c == '"' || c == '\'') &&
-            text[safeCur] == c) {
-            cursor = safeCur + 1;
-            selectionAnchor = cursor;
-            return;
-        }
-
-        char closeChar = 0;
-        if (c == '(') closeChar = ')';
-        else if (c == '[') closeChar = ']';
-        else if (c == '{') closeChar = '}';
-        else if (c == '"') closeChar = '"';
-        else if (c == '\'') closeChar = '\'';
-
-        if (closeChar != 0) {
-            if (HasSelection()) {
-                SaveUndo();
-                const keel::usize s = keel::min(SelectionStart(), text.size());
-                const keel::usize e = keel::min(SelectionEnd(), text.size());
-                StrInsertChar(text, e, closeChar);
-                StrInsertChar(text, s, c);
-                selectionAnchor = s + 1;
-                cursor = e + 1;
-                changed = true;
-                return;
-            } else {
-                bool allowAutoClose = true;
-                if (c == '\'' && safeCur > 0) {
-                    const char prev = text[safeCur - 1];
-                    const bool prevIdentOrClose =
-                        (prev >= 'a' && prev <= 'z') ||
-                        (prev >= 'A' && prev <= 'Z') ||
-                        (prev >= '0' && prev <= '9') ||
-                        prev == '_' || prev == ')' || prev == ']' || prev == '}' || prev == '.';
-                    if (prevIdentOrClose) {
-                        allowAutoClose = false; // e.g. MATLAB matrix transpose A' or A.'
-                    }
-                }
-                if ((c == '"' || c == '\'') && safeCur > 0 && (text[safeCur - 1] == '\\' || text[safeCur - 1] == c)) {
-                    allowAutoClose = false;
-                }
-                const bool nextOk = (safeCur == text.size()) ||
-                                    text[safeCur] == '\n' || text[safeCur] == ' ' || text[safeCur] == '\t' ||
-                                    text[safeCur] == ')' || text[safeCur] == ']' || text[safeCur] == '}' ||
-                                    text[safeCur] == ',' || text[safeCur] == ';';
-                if (allowAutoClose && nextOk) {
-                    SaveUndo();
-                    const char pairStr[2] = {c, closeChar};
-                    StrInsert(text, safeCur, keel::StringRef(pairStr, 2));
-                    cursor = safeCur + 1;
-                    selectionAnchor = cursor;
-                    changed = true;
-                    return;
-                }
-            }
-        }
-    }
-
-    SaveUndo();
-    if (HasSelection()) {
-        const keel::usize s = keel::min(SelectionStart(), text.size());
-        const keel::usize e = keel::min(SelectionEnd(), text.size());
-        if (e > s) {
-            StrEraseRange(text, s, e - s);
-        }
-        cursor = s;
-        selectionAnchor = s;
-    }
-
-    if (cursor > text.size()) {
-        cursor = text.size();
-    }
-    if (!sanitized.empty()) {
-        StrInsert(text, cursor, sanitized.as_ref());
-        cursor += sanitized.size();
-        selectionAnchor = cursor;
-    }
-    changed = true;
-}
-
-bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mods, bool& outLostFocus) {
-    const KeyAction action = ctx.ResolveAction(key, mods);
-    const bool isVerticalMove =
-        action == KeyAction::MoveUp || action == KeyAction::SelectUp ||
-        action == KeyAction::MoveDown || action == KeyAction::SelectDown ||
-        action == KeyAction::MovePageUp || action == KeyAction::SelectPageUp ||
-        action == KeyAction::MovePageDown || action == KeyAction::SelectPageDown;
-    if (!isVerticalMove) {
-        preferredColumn.reset();
-    }
-
-    auto utf8OffsetAtColumn = [](keel::StringRef lineSv, keel::usize targetCodepointCol) noexcept -> keel::usize {
-        keel::usize byteOff = 0;
-        for (keel::usize colIdx = 0; colIdx < targetCodepointCol && byteOff < lineSv.size(); ++colIdx) {
-            byteOff = keel::utf8_next_boundary(lineSv, byteOff);
-        }
-        return keel::min(byteOff, lineSv.size());
-    };
-
-    auto moveLinesVertically = [&](keel::i32 lineDelta, bool extendSel) -> bool {
-        if (!multiline) return false;
-        const keel::usize safeCur = keel::min(cursor, text.size());
-        const keel::usize prevNl = StrRfindBefore(text.as_ref(), '\n', safeCur);
-        keel::usize curLineStart = (prevNl == keel::StringRef::npos) ? 0 : (prevNl + 1);
-        const keel::usize col = keel::utf8_codepoint_count(
-            text.substr(curLineStart, safeCur - curLineStart)
-        );
-        if (!preferredColumn.has_value()) {
-            preferredColumn = col;
-        }
-        const keel::usize targetCol = *preferredColumn;
-
-        if (lineDelta < 0) {
-            const keel::i32 steps = -lineDelta;
-            for (keel::i32 s = 0; s < steps; ++s) {
-                if (curLineStart == 0) {
-                    if (s == 0) {
-                        cursor = 0;
-                        if (!extendSel) selectionAnchor = cursor;
-                        return true;
-                    }
-                    break;
-                }
-                const keel::usize prevLineEnd = curLineStart - 1;
-                const keel::usize prevPrevNl = StrRfindBefore(text.as_ref(), '\n', prevLineEnd);
-                curLineStart = (prevPrevNl == keel::StringRef::npos) ? 0 : (prevPrevNl + 1);
-            }
-            keel::usize lineEnd = text.find('\n', curLineStart);
-            if (lineEnd == keel::StringRef::npos) lineEnd = text.size();
-            const keel::StringRef targetLine = text.substr(curLineStart, lineEnd - curLineStart);
-            cursor = curLineStart + utf8OffsetAtColumn(targetLine, targetCol);
-        } else if (lineDelta > 0) {
-            const keel::i32 steps = lineDelta;
-            keel::usize curLineEnd = text.find('\n', curLineStart);
-            for (keel::i32 s = 0; s < steps; ++s) {
-                if (curLineEnd == keel::StringRef::npos) {
-                    if (s == 0) {
-                        cursor = text.size();
-                        if (!extendSel) selectionAnchor = cursor;
-                        return true;
-                    }
-                    break;
-                }
-                curLineStart = curLineEnd + 1;
-                curLineEnd = text.find('\n', curLineStart);
-            }
-            const keel::usize lineEnd = (curLineEnd == keel::StringRef::npos) ? text.size() : curLineEnd;
-            const keel::StringRef targetLine = text.substr(curLineStart, lineEnd - curLineStart);
-            cursor = curLineStart + utf8OffsetAtColumn(targetLine, targetCol);
-        }
-
-        if (!extendSel) {
-            selectionAnchor = cursor;
-        }
-        return true;
-    };
-
-    switch (action) {
-        case KeyAction::MoveLineUp:
-        case KeyAction::MoveLineDown: {
-            if (!multiline || readOnly) return false;
-            const keel::usize safeCur = keel::min(cursor, text.size());
-            const keel::usize prevNl = StrRfindBefore(text.as_ref(), '\n', safeCur);
-            const keel::usize curLineStart = (prevNl == keel::StringRef::npos) ? 0 : (prevNl + 1);
-            keel::usize curLineEnd = text.find('\n', safeCur);
-            if (curLineEnd == keel::StringRef::npos) curLineEnd = text.size();
-            const keel::usize col = safeCur - curLineStart;
-
-            if (action == KeyAction::MoveLineUp) {
-                if (curLineStart > 0) {
-                    SaveUndo();
-                    const keel::usize prevLineEnd = curLineStart - 1;
-                    const keel::usize prevPrevNl = StrRfindBefore(text.as_ref(), '\n', prevLineEnd);
-                    const keel::usize prevLineStart = (prevPrevNl == keel::StringRef::npos) ? 0 : (prevPrevNl + 1);
-                    keel::String curLine = keel::String::from(text.substr(curLineStart, curLineEnd - curLineStart));
-                    keel::String prevLine = keel::String::from(text.substr(prevLineStart, prevLineEnd - prevLineStart));
-                    keel::String swapped = keel::String::with_capacity(curLine.size() + 1 + prevLine.size());
-                    swapped.append(curLine.as_ref());
-                    swapped.push_back('\n');
-                    swapped.append(prevLine.as_ref());
-                    StrReplace(text, prevLineStart, curLineEnd - prevLineStart, swapped.as_ref());
-                    cursor = prevLineStart + keel::min(col, curLine.size());
-                    selectionAnchor = cursor;
-                    changed = true;
-                }
-            } else {
-                if (curLineEnd < text.size()) {
-                    SaveUndo();
-                    const keel::usize nextLineStart = curLineEnd + 1;
-                    keel::usize nextLineEnd = text.find('\n', nextLineStart);
-                    if (nextLineEnd == keel::StringRef::npos) nextLineEnd = text.size();
-                    keel::String curLine = keel::String::from(text.substr(curLineStart, curLineEnd - curLineStart));
-                    keel::String nextLine = keel::String::from(text.substr(nextLineStart, nextLineEnd - nextLineStart));
-                    keel::String swapped = keel::String::with_capacity(nextLine.size() + 1 + curLine.size());
-                    swapped.append(nextLine.as_ref());
-                    swapped.push_back('\n');
-                    swapped.append(curLine.as_ref());
-                    StrReplace(text, curLineStart, nextLineEnd - curLineStart, swapped.as_ref());
-                    cursor = curLineStart + nextLine.size() + 1 + keel::min(col, curLine.size());
-                    selectionAnchor = cursor;
-                    changed = true;
-                }
-            }
-            return true;
-        }
-
-        case KeyAction::SelectAll:
-            SelectAll();
-            return true;
-
-        case KeyAction::Copy:
-            if (HasSelection()) {
-                ctx.SetClipboardText(SelectedText());
-            }
-            return true;
-
-        case KeyAction::Cut:
-            if (HasSelection()) {
-                ctx.SetClipboardText(SelectedText());
-                if (!readOnly) {
-                    DeleteSelection();
-                }
-            }
-            return true;
-
-        case KeyAction::Paste:
-            if (!readOnly) {
-                const keel::String clip = ctx.GetClipboardText();
-                if (!clip.empty()) {
-                    Insert(clip.as_ref());
-                }
-            }
-            return true;
-
-        case KeyAction::Undo:
-            if (!readOnly) {
-                Undo();
-            }
-            return true;
-
-        case KeyAction::Redo:
-            if (!readOnly) {
-                Redo();
-            }
-            return true;
-
-        case KeyAction::DuplicateLine: {
-            if (!multiline || readOnly) return false;
-            if (HasSelection()) {
-                const keel::String sel = keel::String::from(SelectedText());
-                if (!sel.empty()) {
-                    keel::usize nextPos = text.find(sel.as_ref(), SelectionEnd());
-                    if (nextPos == keel::StringRef::npos) {
-                        nextPos = text.find(sel.as_ref(), 0);
-                    }
-                    if (nextPos != keel::StringRef::npos && nextPos != SelectionStart()) {
-                        selectionAnchor = nextPos;
-                        cursor = nextPos + sel.size();
-                        return true;
-                    }
-                }
-            }
-            const keel::usize safeCur = keel::min(cursor, text.size());
-            const keel::usize prevNl = StrRfindBefore(text.as_ref(), '\n', safeCur);
-            const keel::usize curLineStart = (prevNl == keel::StringRef::npos) ? 0 : (prevNl + 1);
-            keel::usize curLineEnd = text.find('\n', safeCur);
-            if (curLineEnd == keel::StringRef::npos) curLineEnd = text.size();
-            const keel::usize col = safeCur - curLineStart;
-            keel::String dup = keel::String::with_capacity(1 + (curLineEnd - curLineStart));
-            dup.push_back('\n');
-            dup.append(text.substr(curLineStart, curLineEnd - curLineStart));
-            SaveUndo();
-            StrInsert(text, curLineEnd, dup.as_ref());
-            cursor = curLineEnd + 1 + col;
-            selectionAnchor = cursor;
-            changed = true;
-            return true;
-        }
-
-        case KeyAction::DeleteLine: {
-            if (!multiline || readOnly) return false;
-            SaveUndo();
-            const keel::usize safeCur = keel::min(cursor, text.size());
-            const keel::usize prevNl = StrRfindBefore(text.as_ref(), '\n', safeCur);
-            const keel::usize curLineStart = (prevNl == keel::StringRef::npos) ? 0 : (prevNl + 1);
-            keel::usize curLineEnd = text.find('\n', safeCur);
-            if (curLineEnd != keel::StringRef::npos) {
-                StrEraseRange(text, curLineStart, curLineEnd - curLineStart + 1);
-                cursor = keel::min(curLineStart, text.size());
-            } else if (curLineStart > 0) {
-                StrEraseRange(text, curLineStart - 1, text.size() - (curLineStart - 1));
-                cursor = text.size();
-            } else {
-                text.clear();
-                cursor = 0;
-            }
-            selectionAnchor = cursor;
-            changed = true;
-            return true;
-        }
-
-        case KeyAction::DeletePrevChar:
-        case KeyAction::DeletePrevWord: {
-            if (readOnly) return true;
-            const bool byWord = (action == KeyAction::DeletePrevWord);
-            if (HasSelection()) {
-                DeleteSelection();
-            } else if (cursor > 0 && !text.empty()) {
-                SaveUndo();
-                const keel::usize safeCur = keel::min(cursor, text.size());
-                if (autoCloseBrackets && multiline && !byWord && safeCur < text.size()) {
-                    const char prevC = text[safeCur - 1];
-                    const char nextC = text[safeCur];
-                    if ((prevC == '(' && nextC == ')') ||
-                        (prevC == '[' && nextC == ']') ||
-                        (prevC == '{' && nextC == '}') ||
-                        (prevC == '"' && nextC == '"') ||
-                        (prevC == '\'' && nextC == '\'')) {
-                        StrEraseRange(text, safeCur - 1, 2);
-                        cursor = safeCur - 1;
-                        selectionAnchor = cursor;
-                        changed = true;
-                        return true;
-                    }
-                }
-                const keel::usize prev = byWord
-                    ? TextUtil::PrevWordBoundary(text.as_ref(), safeCur)
-                    : TextUtil::PrevCharBoundary(text.as_ref(), safeCur);
-                if (safeCur > prev) {
-                    StrEraseRange(text, prev, safeCur - prev);
-                    cursor = prev;
-                    selectionAnchor = cursor;
-                    changed = true;
-                }
-            } else {
-                return false;
-            }
-            return true;
-        }
-
-        case KeyAction::DeleteNextChar:
-        case KeyAction::DeleteNextWord: {
-            if (readOnly) return true;
-            const bool byWord = (action == KeyAction::DeleteNextWord);
-            if (HasSelection()) {
-                DeleteSelection();
-            } else if (cursor < text.size()) {
-                SaveUndo();
-                const keel::usize next = byWord
-                    ? TextUtil::NextWordBoundary(text.as_ref(), cursor)
-                    : TextUtil::NextCharBoundary(text.as_ref(), cursor);
-                if (next > cursor) {
-                    StrEraseRange(text, cursor, next - cursor);
-                    selectionAnchor = cursor;
-                    changed = true;
-                }
-            }
-            return true;
-        }
-
-        case KeyAction::MoveLeft:
-        case KeyAction::SelectLeft:
-        case KeyAction::MoveWordLeft:
-        case KeyAction::SelectWordLeft: {
-            const bool extendSel = (action == KeyAction::SelectLeft || action == KeyAction::SelectWordLeft);
-            const bool byWord = (action == KeyAction::MoveWordLeft || action == KeyAction::SelectWordLeft);
-            if (!extendSel && HasSelection()) {
-                if (byWord) {
-                    cursor = TextUtil::PrevWordBoundary(text.as_ref(), SelectionStart());
-                } else {
-                    cursor = SelectionStart();
-                }
-                selectionAnchor = cursor;
-            } else {
-                cursor = byWord
-                    ? TextUtil::PrevWordBoundary(text.as_ref(), cursor)
-                    : TextUtil::PrevCharBoundary(text.as_ref(), cursor);
-                if (!extendSel) {
-                    selectionAnchor = cursor;
-                }
-            }
-            return true;
-        }
-
-        case KeyAction::MoveRight:
-        case KeyAction::SelectRight:
-        case KeyAction::MoveWordRight:
-        case KeyAction::SelectWordRight: {
-            const bool extendSel = (action == KeyAction::SelectRight || action == KeyAction::SelectWordRight);
-            const bool byWord = (action == KeyAction::MoveWordRight || action == KeyAction::SelectWordRight);
-            if (!extendSel && HasSelection()) {
-                if (byWord) {
-                    cursor = TextUtil::NextWordBoundary(text.as_ref(), SelectionEnd());
-                } else {
-                    cursor = SelectionEnd();
-                }
-                selectionAnchor = cursor;
-            } else {
-                cursor = byWord
-                    ? TextUtil::NextWordBoundary(text.as_ref(), cursor)
-                    : TextUtil::NextCharBoundary(text.as_ref(), cursor);
-                if (!extendSel) {
-                    selectionAnchor = cursor;
-                }
-            }
-            return true;
-        }
-
-        case KeyAction::MoveUp:
-            return moveLinesVertically(-1, false);
-        case KeyAction::SelectUp:
-            return moveLinesVertically(-1, true);
-        case KeyAction::MoveDown:
-            return moveLinesVertically(1, false);
-        case KeyAction::SelectDown:
-            return moveLinesVertically(1, true);
-        case KeyAction::MovePageUp:
-            return moveLinesVertically(-20, false);
-        case KeyAction::SelectPageUp:
-            return moveLinesVertically(-20, true);
-        case KeyAction::MovePageDown:
-            return moveLinesVertically(20, false);
-        case KeyAction::SelectPageDown:
-            return moveLinesVertically(20, true);
-
-        case KeyAction::MoveLineStart:
-        case KeyAction::SelectLineStart:
-        case KeyAction::MoveDocStart:
-        case KeyAction::SelectDocStart: {
-            const bool extendSel = (action == KeyAction::SelectLineStart || action == KeyAction::SelectDocStart);
-            const bool docStart = (action == KeyAction::MoveDocStart || action == KeyAction::SelectDocStart);
-            if (multiline && !docStart) {
-                const keel::usize safeCur = keel::min(cursor, text.size());
-                const keel::usize prevNl = StrRfindBefore(text.as_ref(), '\n', safeCur);
-                const keel::usize lineStart = (prevNl == keel::StringRef::npos) ? 0 : prevNl + 1;
-                keel::usize firstNonWs = lineStart;
-                while (firstNonWs < text.size() && (text[firstNonWs] == ' ' || text[firstNonWs] == '\t')) {
-                    ++firstNonWs;
-                }
-                if (safeCur == lineStart && firstNonWs > lineStart && autoCloseBrackets) {
-                    cursor = firstNonWs;
-                } else if (safeCur > firstNonWs && firstNonWs > lineStart && autoCloseBrackets) {
-                    cursor = firstNonWs;
-                } else {
-                    cursor = lineStart;
-                }
-            } else {
-                cursor = 0;
-            }
-            if (!extendSel) {
-                selectionAnchor = cursor;
-            }
-            return true;
-        }
-
-        case KeyAction::MoveLineEnd:
-        case KeyAction::SelectLineEnd:
-        case KeyAction::MoveDocEnd:
-        case KeyAction::SelectDocEnd: {
-            const bool extendSel = (action == KeyAction::SelectLineEnd || action == KeyAction::SelectDocEnd);
-            const bool docEnd = (action == KeyAction::MoveDocEnd || action == KeyAction::SelectDocEnd);
-            if (multiline && !docEnd) {
-                const keel::usize nextNl = text.find('\n', cursor);
-                cursor = (nextNl == keel::StringRef::npos) ? text.size() : nextNl;
-            } else {
-                cursor = text.size();
-            }
-            if (!extendSel) {
-                selectionAnchor = cursor;
-            }
-            return true;
-        }
-
-        case KeyAction::Indent:
-        case KeyAction::Unindent: {
-            if (multiline && !readOnly) {
-                const keel::usize stepCols = keel::clamp<keel::usize>(tabSize, 1, 16);
-                keel::FixedString<20> indentUnit;
-                if (insertSpaces) {
-                    for (keel::usize i = 0; i < stepCols; ++i) indentUnit.push_back(' ');
-                } else {
-                    indentUnit.push_back('\t');
-                }
-                const keel::usize unitLen = indentUnit.size();
-                const bool unindent = (action == KeyAction::Unindent);
-                const bool multiLineSel = HasSelection() && (SelectedText().find('\n') != keel::StringRef::npos);
-                if (unindent || multiLineSel) {
-                    const keel::usize selS = keel::min(SelectionStart(), text.size());
-                    keel::usize selE = keel::min(SelectionEnd(), text.size());
-                    if (selE > selS && text[selE - 1] == '\n') {
-                        --selE;
-                    }
-                    const keel::usize prevNl = StrRfindBefore(text.as_ref(), '\n', selS);
-                    const keel::usize blockStart = (prevNl == keel::StringRef::npos) ? 0 : (prevNl + 1);
-                    keel::usize blockEnd = text.find('\n', selE);
-                    if (blockEnd == keel::StringRef::npos) blockEnd = text.size();
-
-                    SaveUndo();
-                    keel::usize pos = blockStart;
-                    bool anyModified = false;
-                    while (pos <= blockEnd && pos <= text.size()) {
-                        keel::usize lineEnd = text.find('\n', pos);
-                        if (lineEnd == keel::StringRef::npos) lineEnd = text.size();
-
-                        if (!unindent) {
-                            StrInsert(text, pos, indentUnit.as_ref());
-                            if (cursor >= pos) cursor += unitLen;
-                            if (selectionAnchor >= pos) selectionAnchor += unitLen;
-                            blockEnd += unitLen;
-                            lineEnd += unitLen;
-                            anyModified = true;
-                        } else {
-                            keel::usize rem = 0;
-                            if (pos < lineEnd && text[pos] == '\t') {
-                                rem = 1;
-                            } else {
-                                while (rem < stepCols && (pos + rem) < lineEnd && text[pos + rem] == ' ') {
-                                    ++rem;
-                                }
-                            }
-                            if (rem > 0) {
-                                StrEraseRange(text, pos, rem);
-                                if (cursor > pos) {
-                                    cursor = (cursor >= pos + rem) ? (cursor - rem) : pos;
-                                }
-                                if (selectionAnchor > pos) {
-                                    selectionAnchor = (selectionAnchor >= pos + rem) ? (selectionAnchor - rem) : pos;
-                                }
-                                blockEnd -= rem;
-                                lineEnd -= rem;
-                                anyModified = true;
-                            }
-                        }
-
-                        if (lineEnd >= blockEnd || lineEnd >= text.size()) {
-                            break;
-                        }
-                        pos = lineEnd + 1;
-                    }
-                    if (anyModified) {
-                        changed = true;
-                    }
-                    return true;
-                }
-                Insert(indentUnit.as_ref());
-                return true;
-            }
-            return false;
-        }
-
-        case KeyAction::Confirm:
-            if (multiline) {
-                if (!readOnly) {
-                    const keel::usize stepCols = keel::clamp<keel::usize>(tabSize, 1, 16);
-                    keel::FixedString<20> indentUnit;
-                    if (insertSpaces) {
-                        for (keel::usize i = 0; i < stepCols; ++i) indentUnit.push_back(' ');
-                    } else {
-                        indentUnit.push_back('\t');
-                    }
-                    const keel::usize safeCur = keel::min(cursor, text.size());
-                    const keel::usize prevNl = StrRfindBefore(text.as_ref(), '\n', safeCur);
-                    const keel::usize curLineStart = (prevNl == keel::StringRef::npos) ? 0 : (prevNl + 1);
-                    keel::String indent;
-                    for (keel::usize i = curLineStart; i < safeCur && (text[i] == ' ' || text[i] == '\t'); ++i) {
-                        indent.push_back(text[i]);
-                    }
-                    if (autoCloseBrackets && !HasSelection() && safeCur > 0 && safeCur < text.size()) {
-                        const char prevC = text[safeCur - 1];
-                        const char nextC = text[safeCur];
-                        if ((prevC == '{' && nextC == '}') ||
-                            (prevC == '[' && nextC == ']') ||
-                            (prevC == '(' && nextC == ')')) {
-                            SaveUndo();
-                            keel::String mid = keel::String::with_capacity(1 + indent.size() + indentUnit.size());
-                            mid.push_back('\n');
-                            mid.append(indent.as_ref());
-                            mid.append(indentUnit.as_ref());
-                            keel::String full = keel::String::with_capacity(mid.size() + 1 + indent.size());
-                            full.append(mid.as_ref());
-                            full.push_back('\n');
-                            full.append(indent.as_ref());
-                            StrInsert(text, safeCur, full.as_ref());
-                            cursor = safeCur + mid.size();
-                            selectionAnchor = cursor;
-                            changed = true;
-                            return true;
-                        }
-                    }
-                    if (autoCloseBrackets && !HasSelection() && safeCur > curLineStart) {
-                        keel::usize checkPos = safeCur;
-                        while (checkPos > curLineStart && (text[checkPos - 1] == ' ' || text[checkPos - 1] == '\t')) {
-                            --checkPos;
-                        }
-                        if (checkPos > curLineStart && (text[checkPos - 1] == '{' || text[checkPos - 1] == '[' || text[checkPos - 1] == '(')) {
-                            indent.append(indentUnit.as_ref());
-                        }
-                    }
-                    keel::String nlIndent = keel::String::with_capacity(1 + indent.size());
-                    nlIndent.push_back('\n');
-                    nlIndent.append(indent.as_ref());
-                    Insert(nlIndent.as_ref());
-                }
-                return true;
-            }
-            submitted = true;
-            outLostFocus = true;
-            return true;
-
-        case KeyAction::Cancel:
-            if (HasSelection()) {
-                selectionAnchor = cursor;
-                return true;
-            }
-            ctx.FlushActiveEditHistory();
-            outLostFocus = true;
-            id = Id::Null();
-            return true;
-
-        default:
-            return false;
-    }
-}
-
 void Context::RequestRepaint(keel::i32 frames) noexcept {
     if (frames <= 0) return;
     const keel::i32 target = (!m_containerStack.empty() && frames == 1) ? 2 : frames;
@@ -1383,6 +643,7 @@ bool Context::IsDirectEditAllowed() const noexcept {
 }
 
 void Context::OnTextInput(keel::StringRef utf8Text) {
+    m_ime.Clear();
     ResetCursorBlink();
     RequestRepaint(3);
     if (IsDirectEditAllowed()) {
@@ -1390,6 +651,43 @@ void Context::OnTextInput(keel::StringRef utf8Text) {
     } else {
         m_pendingTextInput.push_back(keel::String::from(utf8Text));
     }
+}
+
+void Context::OnTextComposition(keel::StringRef preeditText, keel::usize cursor, keel::usize selectionLength) {
+    ResetCursorBlink();
+    RequestRepaint(3);
+    if (preeditText.empty()) {
+        m_ime.Clear();
+    } else {
+        m_ime.text.assign(preeditText);
+        m_ime.cursor = keel::min(cursor, m_ime.text.size());
+        m_ime.selectionLength = keel::min(selectionLength, m_ime.text.size() - m_ime.cursor);
+        m_ime.active = true;
+    }
+    InvalidateAll();
+}
+
+void Context::OnTextCompositionEnd(keel::StringRef committedText) {
+    m_ime.Clear();
+    if (!committedText.empty()) {
+        OnTextInput(committedText);
+    } else {
+        RequestRepaint(2);
+        InvalidateAll();
+    }
+}
+
+void Context::OnFilesDropped(keel::ArrayRef<keel::StringRef> paths, Vec2 posPx) {
+    m_droppedFiles.clear();
+    m_droppedFiles.reserve(paths.size());
+    for (keel::StringRef p : paths) {
+        if (!p.empty()) {
+            m_droppedFiles.push_back(keel::String::from(p));
+        }
+    }
+    const keel::f32 scale = (m_pixelsPerDp > 0.0f) ? m_pixelsPerDp : 1.0f;
+    m_droppedFilesPos = posPx / scale;
+    RequestRepaint(3);
 }
 
 static bool IsKeyboardFocusTriggerKey(Key key, KeyModifiers mods) noexcept {
@@ -1900,7 +1198,7 @@ void Context::FlushActiveEditHistory() noexcept {
     if (!m_editState.id.IsValid()) {
         return;
     }
-    if (!m_editState.undoStack.empty() || !m_editState.redoStack.empty()) {
+    if (!m_editState.undoOps.empty() || !m_editState.redoOps.empty()) {
         TextEditHistory* hist = m_editHistories.get(m_editState.id);
         if (!hist) {
             m_editHistories.put(m_editState.id, TextEditHistory{});
@@ -1908,15 +1206,15 @@ void Context::FlushActiveEditHistory() noexcept {
         }
         if (hist) {
             hist->lastText.assign(m_editState.text.as_ref());
-            hist->undoStack = keel::move(m_editState.undoStack);
-            hist->redoStack = keel::move(m_editState.redoStack);
+            hist->undoOps = keel::move(m_editState.undoOps);
+            hist->redoOps = keel::move(m_editState.redoOps);
         }
-        m_editState.undoStack.clear();
-        m_editState.redoStack.clear();
+        m_editState.undoOps.clear();
+        m_editState.redoOps.clear();
     } else if (TextEditHistory* existing = m_editHistories.get(m_editState.id)) {
         existing->lastText.assign(m_editState.text.as_ref());
-        existing->undoStack.clear();
-        existing->redoStack.clear();
+        existing->undoOps.clear();
+        existing->redoOps.clear();
     }
 }
 
@@ -1928,21 +1226,22 @@ keel::StringRef Context::EnsureTextEdit(
 ) {
     if (m_editState.id != id) {
         FlushActiveEditHistory();
+        m_ime.Clear();
         m_editState.id = id;
         m_editState.text.assign(initialText);
         m_editState.cursor = m_editState.text.size();
         m_editState.selectionAnchor = m_editState.cursor;
-        m_editState.undoStack.clear();
-        m_editState.redoStack.clear();
+        m_editState.undoOps.clear();
+        m_editState.redoOps.clear();
         if (id.IsValid()) {
             if (TextEditHistory* hist = m_editHistories.get(id)) {
                 if (hist->lastText == initialText) {
-                    m_editState.undoStack = keel::move(hist->undoStack);
-                    m_editState.redoStack = keel::move(hist->redoStack);
+                    m_editState.undoOps = keel::move(hist->undoOps);
+                    m_editState.redoOps = keel::move(hist->redoOps);
                 } else {
                     hist->lastText.assign(initialText);
-                    hist->undoStack.clear();
-                    hist->redoStack.clear();
+                    hist->undoOps.clear();
+                    hist->redoOps.clear();
                 }
             }
         }
@@ -1961,8 +1260,8 @@ keel::StringRef Context::EnsureTextEdit(
             m_editState.text.assign(initialText);
             m_editState.cursor = keel::min(m_editState.cursor, m_editState.text.size());
             m_editState.selectionAnchor = keel::min(m_editState.selectionAnchor, m_editState.text.size());
-            m_editState.undoStack.clear();
-            m_editState.redoStack.clear();
+            m_editState.undoOps.clear();
+            m_editState.redoOps.clear();
             m_editState.preferredColumn.reset();
         }
     }
@@ -2065,12 +1364,7 @@ void Context::SetTextEditIndentation(Id id, keel::u8 tabSize, bool insertSpaces)
 
 void Context::ApplyTextEditChange(Id id, keel::StringRef newText, keel::usize newCursor, keel::usize newSelectionAnchor) {
     if (!id.IsValid() || m_editState.id != id || m_editState.readOnly) return;
-    m_editState.SaveUndo();
-    m_editState.text.assign(newText);
-    m_editState.cursor = keel::min(newCursor, m_editState.text.size());
-    m_editState.selectionAnchor = keel::min(newSelectionAnchor, m_editState.text.size());
-    m_editState.preferredColumn.reset();
-    m_editState.changed = true;
+    m_editState.ApplyDiff(newText, newCursor, newSelectionAnchor);
     ResetCursorBlink();
 }
 
@@ -2412,6 +1706,7 @@ void Context::EndFrame(ICanvas& canvas) {
 
     m_pendingKeyEvents.clear();
     m_pendingTextInput.clear();
+    m_droppedFiles.clear();
 
     bool trimmedAny = m_stateStore.Maintain(
         m_frameIndex,
@@ -2420,11 +1715,7 @@ void Context::EndFrame(ICanvas& canvas) {
         m_focus.GetFocusedId(),
         m_focus.GetActiveId()
     );
-    if (!m_focus.GetFocusedId().IsValid() && !m_editState.id.IsValid() &&
-        (m_editState.text.capacity() > 4096 || !m_editState.undoStack.empty() || !m_editState.redoStack.empty())) {
-        m_editState.text = {};
-        m_editState.undoStack = {};
-        m_editState.redoStack = {};
+    if (!m_focus.GetFocusedId().IsValid() && !m_editState.id.IsValid() && m_editState.TrimIdleMemory()) {
         trimmedAny = true;
     }
 

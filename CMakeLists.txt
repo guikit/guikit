@@ -100,6 +100,7 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/core/response.cpp
     src/guikit/core/state_store.cpp
     src/guikit/core/style_painter.cpp
+    src/guikit/core/text_buffer.cpp
     src/guikit/core/theme.cpp
     src/guikit/core/assets.cpp
     src/guikit/core/text_util.cpp

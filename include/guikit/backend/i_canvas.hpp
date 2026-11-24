@@ -170,6 +170,17 @@ public:
         return false;
     }
 
+    /// Appends a fallback font face from memory used when primary style faces lack a glyph (e.g. CJK, symbols, math).
+    virtual bool AddFallbackFontMemory(
+        keel::ArrayRef<keel::u8> /*data*/,
+        bool /*copyData*/ = true
+    ) {
+        return false;
+    }
+
+    /// Clears all registered fallback font faces.
+    virtual void ClearFallbackFonts() noexcept {}
+
     /// Prepares the canvas for a new frame with dimensions and optional DPI / UI scale factor.
     virtual void Begin(keel::u32 width, keel::u32 height, keel::f32 scale = 1.0f) = 0;
 

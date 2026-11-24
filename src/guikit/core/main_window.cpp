@@ -231,6 +231,17 @@ void MainWindow::RenderFrame() {
     }
     m_ui.EndFrame(m_backend->GetCanvas());
     m_backend->UpdateSystemCursor(m_ui.GetCursor());
+    {
+        const keel::f32 pxPerDp = m_ui.GetPixelsPerDp();
+        const Rect imeLogical = m_ui.GetImeTargetRect();
+        const Rect imePx(
+            imeLogical.x * pxPerDp,
+            imeLogical.y * pxPerDp,
+            imeLogical.w * pxPerDp,
+            imeLogical.h * pxPerDp
+        );
+        m_backend->SetTextInputActive(m_ui.WantsTextInput(), imePx);
+    }
     m_metrics.MarkCpuDone();
 
     const bool shouldPresent = m_ui.HasDirtyDamage() || !m_reactiveMode;

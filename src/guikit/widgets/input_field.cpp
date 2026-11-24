@@ -504,6 +504,13 @@ Response detail::InputField::Run(
             }
             const keel::f32 maxScroll = keel::max(0.0f, fullTextW - visibleW);
             state.scrollX = keel::clamp(state.scrollX, 0.0f, maxScroll);
+
+            if (!opts.readOnly) {
+                const keel::f32 caretX = rects.textRect.x - state.scrollX + cursorX;
+                const keel::f32 caretH = inputFont * 1.15f;
+                const keel::f32 caretY = rects.boxRect.y + (rects.boxRect.h - caretH) * 0.5f;
+                ctx.SetImeTargetRect(Rect(caretX, caretY, 2.0f, caretH));
+            }
         } else if (!isFocused) {
             state.scrollX = 0.0f;
         }
@@ -528,6 +535,9 @@ Response detail::InputField::Run(
     auto* data = ctx.AllocPayload<InputFieldData>();
     data->opts = optsCopy;
     data->displayText = renderedText;
+    if (isFocused && !opts.readOnly && !maskRendered && ctx.IsImeComposing()) {
+        data->imePreedit = ctx.AllocString(ctx.GetImeComposition().text.as_ref());
+    }
     node->text = data->displayText.empty() ? optsCopy.placeholder.text : data->displayText;
     data->cursor = renderCursor;
     data->selStart = renderSelStart;
@@ -556,6 +566,7 @@ Response detail::InputField::Run(
         optsCopy.passwordReveal,
         optsCopy.clearable,
         data->displayText,
+        data->imePreedit,
         data->cursor,
         data->selStart,
         data->selEnd,
@@ -603,7 +614,8 @@ Response detail::InputField::Run(
             d ? d->clearHovered : false,
             d ? d->showRevealBtn : false,
             d ? d->revealHovered : false,
-            d ? d->passwordRevealed : false
+            d ? d->passwordRevealed : false,
+            d ? d->imePreedit : keel::StringRef{}
         );
     };
 
@@ -662,7 +674,8 @@ void detail::InputField::Render(
     bool clearHovered,
     bool showRevealBtn,
     bool revealHovered,
-    bool passwordRevealed
+    bool passwordRevealed,
+    keel::StringRef imePreedit
 ) {
     if (bounds.w <= 0.0f || bounds.h <= 0.0f) {
         return;
@@ -804,11 +817,29 @@ void detail::InputField::Render(
         }
     }
 
-    if (displayText.empty() && !opts.placeholder.empty() && !focused) {
+    if (displayText.empty() && imePreedit.empty() && !opts.placeholder.empty() && !focused) {
         const keel::f32 phFont = !opts.placeholder.size.IsAuto()
             ? theme.ResolveFontSize(opts.placeholder, TextRole::LabelMedium, size)
             : inputFont;
         canvas.DrawTextBox(opts.placeholder.text, textRect, phFont, placeholderCol, 0.0f, 0.5f);
+    } else if (!imePreedit.empty() && focused && !disabled && !opts.readOnly) {
+        const keel::usize safeCursor = keel::min(cursor, displayText.size());
+        const keel::StringRef before = displayText.substr(0, safeCursor);
+        const keel::StringRef after = displayText.substr(safeCursor);
+        const keel::f32 beforeW = before.empty() ? 0.0f : canvas.MeasureText(before, inputFont).x;
+        const keel::f32 preeditW = canvas.MeasureText(imePreedit, inputFont).x;
+        const keel::f32 afterW = after.empty() ? 0.0f : canvas.MeasureText(after, inputFont).x;
+        const keel::f32 baseX = textRect.x - scrollX;
+        if (!before.empty()) {
+            canvas.DrawTextBox(before, Rect(baseX, textRect.y, beforeW + 4.0f, textRect.h), inputFont, textCol, 0.0f, 0.5f);
+        }
+        const keel::f32 preX = baseX + beforeW;
+        canvas.DrawTextBox(imePreedit, Rect(preX, textRect.y, preeditW + 4.0f, textRect.h), inputFont, textCol, 0.0f, 0.5f);
+        const keel::f32 underlineY = boxRect.y + (boxRect.h + inputFont * 1.05f) * 0.5f;
+        canvas.DrawLine({preX, underlineY}, {preX + preeditW, underlineY}, pal.accent, 1.5f);
+        if (!after.empty()) {
+            canvas.DrawTextBox(after, Rect(preX + preeditW, textRect.y, afterW + 4.0f, textRect.h), inputFont, textCol, 0.0f, 0.5f);
+        }
     } else if (!displayText.empty()) {
         if (focused || scrollX > 0.0f) {
             const keel::f32 fullW = keel::max(textRect.w, canvas.MeasureText(displayText, inputFont).x + 8.0f);
@@ -822,7 +853,8 @@ void detail::InputField::Render(
     if (focused && !disabled && !opts.readOnly && cursorVisible) {
         const keel::usize safeCursor = keel::min(cursor, displayText.size());
         const keel::StringRef sub = displayText.substr(0, safeCursor);
-        const keel::f32 subW = canvas.MeasureText(sub, inputFont).x;
+        const keel::f32 subW = canvas.MeasureText(sub, inputFont).x +
+            (imePreedit.empty() ? 0.0f : canvas.MeasureText(imePreedit, inputFont).x);
         const keel::f32 caretX = textRect.x - scrollX + subW;
         const keel::f32 caretH = inputFont * 1.15f;
         const keel::f32 caretY = boxRect.y + (boxRect.h - caretH) * 0.5f;

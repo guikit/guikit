@@ -11257,6 +11257,8 @@ void TestMenuBarAndCascadingMenus();
 void TestNullCanvasHeadlessWorkflow();
 void TestPlatformWindowBackendAndStandaloneFreeType();
 void TestIdScopeDynamicListStability();
+void TestTextBufferDiffUndoRedo();
+void TestImeCompositionAndFileDrop();
 
 void TestZonePartialThemeOverrides() {
     using namespace guikit;
@@ -11330,6 +11332,8 @@ int main() {
     TestNullCanvasHeadlessWorkflow();
     TestPlatformWindowBackendAndStandaloneFreeType();
     TestIdScopeDynamicListStability();
+    TestTextBufferDiffUndoRedo();
+    TestImeCompositionAndFileDrop();
     TestTextWrappingAndBackendIndependence();
 
 #if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
@@ -17457,6 +17461,153 @@ void TestIdScopeDynamicListStability() {
     CHECK(idA != idB && idA != idNested && idB != idNested);
 
     keel::println("  [PASS] TestIdScopeDynamicListStability completed");
+}
+
+void TestTextBufferDiffUndoRedo() {
+    using namespace guikit;
+    keel::println("  -> TestTextBufferDiffUndoRedo...");
+
+    TextBuffer buf;
+    // Build a 16 KB baseline document
+    keel::String baseDoc;
+    baseDoc.reserve(16384u);
+    for (keel::usize i = 0u; i < 512u; ++i) {
+        baseDoc.append("0123456789abcdef0123456789abcde\n");
+    }
+    const keel::usize baseSize = baseDoc.size();
+    CHECK(baseSize == 16384u);
+
+    buf.id = Id{42u};
+    buf.text = baseDoc.clone();
+    buf.multiline = true;
+    buf.readOnly = false;
+    CHECK(buf.text.as_ref() == baseDoc.as_ref());
+    CHECK(buf.UndoCount() == 0u);
+    CHECK(buf.RedoCount() == 0u);
+
+    // Perform 80 small 1-byte edits via ReplaceRange
+    for (keel::usize i = 0u; i < 80u; ++i) {
+        const keel::usize pos = i * 64u;
+        const char ch[2] = {keel::as<char>('A' + (i % 26u)), '\0'};
+        buf.cursor = pos;
+        buf.selectionAnchor = pos;
+        buf.ReplaceRange(pos, 0u, keel::StringRef(ch, 1u), pos + 1u, pos + 1u, /*recordUndo=*/true);
+    }
+    CHECK(buf.text.size() == baseSize + 80u);
+    CHECK(buf.UndoCount() == 80u);
+    CHECK(buf.RedoCount() == 0u);
+
+    // Verify O(delta) memory footprint: 80 single-byte inserts store 80 bytes total (not 80 * 16KB = 1.3MB!)
+    keel::usize totalDeltaBytes = 0u;
+    for (const TextEditOp& op : buf.undoOps) {
+        totalDeltaBytes += op.deletedText.size() + op.insertedText.size();
+    }
+    CHECK(totalDeltaBytes == 80u);
+
+    // ApplyDiff against an externally modified string (replace a 2-byte span in the middle)
+    keel::String externalMod = buf.text.clone();
+    externalMod[100u] = '!';
+    externalMod[101u] = '@';
+    buf.ApplyDiff(externalMod.as_ref(), 102u, 102u);
+    CHECK(buf.text.as_ref() == externalMod.as_ref());
+    CHECK(buf.UndoCount() == 81u);
+    CHECK(buf.undoOps.back().deletedText.size() == 2u);
+    CHECK(buf.undoOps.back().insertedText.as_ref() == "!@");
+
+    // Undo the ApplyDiff op
+    CHECK(buf.Undo());
+    CHECK(buf.text.size() == baseSize + 80u);
+    CHECK(buf.RedoCount() == 1u);
+
+    // Redo it and verify exact restoration
+    CHECK(buf.Redo());
+    CHECK(buf.text.as_ref() == externalMod.as_ref());
+
+    // Undo all 81 operations back to the exact original 16 KB document
+    for (keel::usize i = 0u; i < 81u; ++i) {
+        CHECK(buf.Undo());
+    }
+    CHECK(buf.UndoCount() == 0u);
+    CHECK(buf.RedoCount() == 81u);
+    CHECK(buf.text.as_ref() == baseDoc.as_ref());
+
+    // Redo all 81 operations back to externalMod
+    for (keel::usize i = 0u; i < 81u; ++i) {
+        CHECK(buf.Redo());
+    }
+    CHECK(buf.RedoCount() == 0u);
+    CHECK(buf.text.as_ref() == externalMod.as_ref());
+
+    keel::println("  [PASS] TestTextBufferDiffUndoRedo completed");
+}
+
+void TestImeCompositionAndFileDrop() {
+    using namespace guikit;
+    keel::println("  -> TestImeCompositionAndFileDrop...");
+
+    Context ui;
+    NullCanvas canvas;
+    keel::String fieldVal("Hello ");
+    Id fieldId = Id::Null();
+
+    auto runFrame = [&]() {
+        ui.BeginFrame({600.0f, 300.0f}, 2.0f, 1.0f);
+        if (auto col = guikit::Column(ui, {.padding = Padding::All(16.0f)})) {
+            const Response r = guikit::InputField(ui, fieldVal);
+            fieldId = r.id;
+        }
+        ui.EndFrame(canvas);
+    };
+
+    // Frame 1: unfocused -> WantsTextInput() is false
+    runFrame();
+    CHECK(fieldId.IsValid());
+    CHECK(!ui.WantsTextInput());
+    CHECK(!ui.IsImeComposing());
+
+    // Focus the InputField and run a frame
+    ui.RequestFocus(fieldId);
+    runFrame();
+    CHECK(ui.IsFocused(fieldId));
+    CHECK(ui.WantsTextInput());
+    CHECK(ui.GetImeTargetRect().h > 0.0f);
+
+    // Start IME composition preedit
+    ui.OnTextComposition("にほん", 3, 0);
+    CHECK(ui.IsImeComposing());
+    CHECK(ui.GetImeComposition().text.as_ref() == "にほん");
+    CHECK(ui.GetImeComposition().cursor == 3);
+    runFrame();
+    CHECK(ui.IsImeComposing());
+    CHECK(fieldVal.as_ref() == "Hello "); // Preedit does not mutate committed buffer yet
+
+    // Commit final text via OnTextInput -> clears preedit and inserts into field
+    ui.OnTextInput("日本");
+    CHECK(!ui.IsImeComposing());
+    runFrame();
+    CHECK(fieldVal.as_ref() == "Hello 日本");
+
+    // OS File Drop: dropped files are visible during the frame with logical dp coordinates
+    const keel::StringRef droppedPaths[2] = {"C:/data/chart.geojson", "C:/data/log.csv"};
+    ui.OnFilesDropped(keel::ArrayRef<keel::StringRef>(droppedPaths, 2u), Vec2{240.0f, 160.0f});
+    CHECK(ui.HasDroppedFiles());
+    CHECK(ui.GetDroppedFiles().size() == 2u);
+    CHECK(ui.GetDroppedFiles()[0].as_ref() == "C:/data/chart.geojson");
+    CHECK(ui.GetDroppedFiles()[1].as_ref() == "C:/data/log.csv");
+    CHECK_NEAR(ui.GetDroppedFilesPos().x, 120.0f, 0.01f); // 240px / 2.0 dpiScale
+    CHECK_NEAR(ui.GetDroppedFilesPos().y, 80.0f, 0.01f);  // 160px / 2.0 dpiScale
+
+    // Consume clears immediately
+    ui.ConsumeDroppedFiles();
+    CHECK(!ui.HasDroppedFiles());
+
+    // Unconsumed dropped files auto-clear on EndFrame
+    ui.OnFilesDropped(keel::ArrayRef<keel::StringRef>(droppedPaths, 1u), Vec2{100.0f, 100.0f});
+    CHECK(ui.HasDroppedFiles());
+    runFrame();
+    CHECK(!ui.HasDroppedFiles());
+
+    keel::println("  [PASS] TestImeCompositionAndFileDrop completed");
 }
 
 
