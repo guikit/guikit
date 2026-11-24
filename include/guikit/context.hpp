@@ -24,6 +24,7 @@
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
+#include "guikit/graphics/draw_list.hpp"
 #include "guikit/graphics/icon.hpp"
 #include "guikit/core/solver.hpp"
 #include "guikit/core/zone.hpp"
@@ -368,6 +369,11 @@ public:
     void SetActiveId(Id id) noexcept { m_focus.SetActiveId(id); }
     [[nodiscard]] keel::u64 GetFrameIndex() const noexcept { return m_frameIndex; }
     [[nodiscard]] keel::usize GetCustomStateCount() const noexcept { return m_stateStore.Size(); }
+
+    /// Enables or disables recording frame draw commands into the arena-backed `DrawList` before `ICanvas::Submit`.
+    void SetDrawListEnabled(bool enabled) noexcept { m_drawListEnabled = enabled; }
+    [[nodiscard]] bool IsDrawListEnabled() const noexcept { return m_drawListEnabled; }
+    [[nodiscard]] const DrawList& GetLastDrawList() const noexcept { return m_drawList; }
     [[nodiscard]] ICanvas* GetCanvas() const noexcept { return m_lastCanvas; }
 
     // --- Clipboard & Host Services ---
@@ -678,8 +684,10 @@ private:
     UiTheme m_theme{UiTheme::Dark()};
     Color m_clearColor{11, 15, 25, 255}; // Tailwind Slate-950 #0B0F19
     bool m_liveResizeEnabled{true};
+    bool m_drawListEnabled{true};
 
     keel::Arena m_arena;
+    DrawList m_drawList;
     guikit::Zone m_rootZone{&m_theme, 1.0f, 1.0f};
     keel::SmallArray<const guikit::Zone*, 16> m_zoneStack;
     keel::SmallArray<keel::u64, 16> m_idStack;

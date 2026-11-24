@@ -769,8 +769,14 @@ void TestUiVectorAndArenaVector() {
 void TestMainWindowHeadlessBackend() {
     using namespace guikit;
 
-    class HeadlessCanvas final : public ICanvas {
+    class HeadlessCanvas final : public ICanvas, public IGpuPassRenderer {
     public:
+        [[nodiscard]] IGpuPassRenderer* QueryGpuPassRenderer() noexcept override { return this; }
+        [[nodiscard]] const IGpuPassRenderer* QueryGpuPassRenderer() const noexcept override { return this; }
+        void SetGpuShadersEnabled(bool enabled) noexcept override { m_gpuShadersEnabled = enabled; }
+        [[nodiscard]] bool SupportsGpuShaders() const noexcept override { return m_gpuShadersEnabled; }
+        [[nodiscard]] bool HasActiveGpuPasses() const noexcept override { return !m_passes.empty(); }
+
         void Begin(keel::u32, keel::u32, keel::f32 scale = 1.0f) override {
             m_scale = scale;
             m_passes.clear();
@@ -804,6 +810,7 @@ void TestMainWindowHeadlessBackend() {
 
         keel::f32 m_scale{1.0f};
         keel::usize drawCount{0};
+        bool m_gpuShadersEnabled{true};
         keel::Array<GpuShaderPassDesc> m_passes;
     };
 
@@ -2126,6 +2133,93 @@ void TestScrollbarCustomizationPresetsAndGeometry() {
     }
 }
 
+void TestDrawListAndImageCache() {
+    using namespace guikit;
+    keel::println("  -> TestDrawListAndImageCache...");
+
+    // 1. Shared ImageCache: probe without decoding pixels, then full decode & clear
+    {
+        ImageCache cache;
+        CHECK(cache.EntryCount() == 0u);
+        CHECK(cache.ByteUsage() == 0u);
+
+        const Vec2 probed = cache.ProbeSize("assets/guikit-icon-inter850-1024.png");
+        CHECK(keel::abs(probed.x - 1024.0f) < 0.5f && keel::abs(probed.y - 1024.0f) < 0.5f);
+        CHECK(cache.EntryCount() == 1u);
+        CHECK(cache.ByteUsage() == 0u); // Header probe must not allocate pixel buffer
+
+        const CachedImageEntry* img = cache.ResolvePixels("assets/guikit-icon-inter850-1024.png");
+        CHECK(img != nullptr && img->valid && !img->probedOnly);
+        CHECK(img->width == 1024u && img->height == 1024u);
+        CHECK(!img->Pixels().Empty());
+        CHECK(cache.ByteUsage() == 1024u * 1024u * sizeof(keel::u32));
+
+        // Second lookup is cached
+        const CachedImageEntry* cachedAgain = cache.ResolvePixels("assets/guikit-icon-inter850-1024.png");
+        CHECK(cachedAgain == img);
+
+        // Missing image returns null cleanly
+        CHECK(cache.ProbeSize("assets/does_not_exist.png").x == 0.0f);
+        CHECK(cache.ResolvePixels("assets/does_not_exist.png") == nullptr);
+
+        cache.Clear();
+        CHECK(cache.EntryCount() == 0u);
+        CHECK(cache.ByteUsage() == 0u);
+    }
+
+    // 2. Arena-backed DrawList + DrawListRecorder + ICanvas::Submit + capability split
+    {
+        NullCanvas target;
+        CHECK(target.QueryCpuSurface() == nullptr);
+        CHECK(target.QueryGpuPassRenderer() != nullptr);
+        CHECK(!target.UsesCpuFramebuffer());
+
+        keel::Arena frameArena(8192);
+        DrawList list;
+        list.Reset(&frameArena);
+
+        DrawListRecorder rec(list, &target);
+        rec.Begin(640, 480, 1.0f);
+        rec.Clear(Color(10, 20, 30, 255));
+        rec.PushClip(Rect(0.0f, 0.0f, 640.0f, 480.0f));
+        rec.PushTransform(Transform2D{1.0f, Vec2{8.0f, 4.0f}});
+        rec.DrawRect(Rect(0.0f, 0.0f, 100.0f, 40.0f), Color(255, 0, 0, 255));
+        rec.DrawRoundRect(Rect(10.0f, 50.0f, 80.0f, 30.0f), 6.0f, Color(0, 128, 255, 255));
+        rec.DrawShadow(Rect(10.0f, 50.0f, 80.0f, 30.0f), 6.0f, 12.0f);
+        rec.DrawText("Hello DrawList", {12.0f, 12.0f}, 14.0f, Color(255, 255, 255, 255));
+        rec.DrawTextBox("Box", Rect(10.0f, 90.0f, 80.0f, 24.0f), 14.0f, Color(255, 255, 255, 255));
+        rec.DrawLine({0.0f, 0.0f}, {50.0f, 50.0f}, Color(255, 255, 0, 255), 2.0f);
+        rec.DrawArc({120.0f, 120.0f}, 20.0f, 0.0f, 1.5f, Color(0, 255, 128, 255), 2.0f, true);
+        rec.DrawTriangle({0.0f, 0.0f}, {20.0f, 0.0f}, {10.0f, 20.0f}, Color(200, 100, 50, 255));
+        VectorPath vp;
+        vp.MoveTo({0.0f, 0.0f});
+        vp.LineTo({30.0f, 0.0f});
+        vp.LineTo({30.0f, 30.0f});
+        vp.Close();
+        rec.DrawPath(vp, PathPaint{.fillColor = Color(80, 160, 240, 255), .renderFill = true});
+        (void)rec.DrawImage("assets/guikit-icon-inter850-1024.png", Rect(200.0f, 10.0f, 48.0f, 48.0f));
+        rec.DrawTexture(7u, Rect(260.0f, 10.0f, 32.0f, 32.0f));
+        rec.PopTransform();
+        rec.PopClip();
+
+        CHECK(list.CommandCount() == 16u);
+        target.Begin(640, 480, 1.0f);
+        target.Submit(list);
+        target.End();
+
+        const auto& st = target.GetStats();
+        CHECK(st.clearCount == 1u);
+        CHECK(st.drawRectCount == 1u);
+        CHECK(st.drawRoundRectCount == 2u); // DrawRoundRect + DrawShadow
+        CHECK(st.drawTextCount == 2u);      // DrawText + DrawTextBox
+        CHECK(st.drawLineCount == 1u);
+        CHECK(st.drawTriangleCount == 1u);
+        CHECK(st.drawPathCount == 2u);      // DrawArc + DrawPath
+        CHECK(st.drawImageCount == 1u);
+        CHECK(st.drawTextureCount == 1u);
+    }
+}
+
 int main() {
     keel::println("[RUN] Testing GuiKit Core Foundation...");
 
@@ -2151,6 +2245,7 @@ int main() {
     TestBuiltInImageDecoding();
     TestThemeSystemColorSciencePresetsSpecJsonAndLerp();
     TestScrollbarCustomizationPresetsAndGeometry();
+    TestDrawListAndImageCache();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Core tests passed successfully!");

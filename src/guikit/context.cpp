@@ -1629,76 +1629,109 @@ void Context::EndFrame(ICanvas& canvas) {
     m_inspector.CommitFrameState(anyDebugBounds, anyInspectMode);
 
     // Overlays draw (and query the context) in the space they were registered from
-    auto invokeOverlay = [&](const OverlayPass& pass) {
+    auto invokeOverlay = [&](const OverlayPass& pass, ICanvas& sink) {
         const bool transformed = !pass.space.IsIdentity();
         if (transformed) {
-            canvas.PushTransform(pass.space);
+            sink.PushTransform(pass.space);
         }
         m_spaceOverride = &pass.space;
-        pass.invoke(pass.ctx, canvas);
+        pass.invoke(pass.ctx, sink);
         m_spaceOverride = nullptr;
         if (transformed) {
-            canvas.PopTransform();
+            sink.PopTransform();
         }
     };
 
-    auto runOverlayPasses = [&](OverlayLayer targetLayer, const Rect& clipBounds, bool intersectWithClip) {
+    auto runOverlayPasses = [&](ICanvas& sink, OverlayLayer targetLayer, const Rect& clipBounds, bool intersectWithClip) {
         for (const auto& pass : m_overlays.GetOverlayPasses()) {
             if (pass.layer != targetLayer) continue;
             if (pass.clipRect.w > 0.0f && pass.clipRect.h > 0.0f) {
                 if (intersectWithClip) {
                     const Rect clip = pass.clipRect.Intersect(clipBounds);
                     if (clip.w <= 0.0f || clip.h <= 0.0f) continue;
-                    canvas.PushClip(clip);
-                    invokeOverlay(pass);
-                    canvas.PopClip();
+                    sink.PushClip(clip);
+                    invokeOverlay(pass, sink);
+                    sink.PopClip();
                 } else {
                     if (!pass.clipRect.Intersects(clipBounds)) continue;
-                    canvas.PushClip(pass.clipRect);
-                    invokeOverlay(pass);
-                    canvas.PopClip();
+                    sink.PushClip(pass.clipRect);
+                    invokeOverlay(pass, sink);
+                    sink.PopClip();
                 }
             } else {
-                invokeOverlay(pass);
+                invokeOverlay(pass, sink);
             }
         }
     };
 
     // If damage exists, clear target buffer and rasterize scene graph
     if (m_damage.HasDirtyDamage()) {
-        canvas.Begin(keel::as<keel::u32>(m_viewportSize.x), keel::as<keel::u32>(m_viewportSize.y), m_pixelsPerDp);
+        const keel::u32 vpW = keel::as<keel::u32>(m_viewportSize.x);
+        const keel::u32 vpH = keel::as<keel::u32>(m_viewportSize.y);
+        canvas.Begin(vpW, vpH, m_pixelsPerDp);
+
+        auto renderFullPass = [&](ICanvas& sink, const Rect& dirty) {
+            sink.PushClip(dirty);
+            sink.Clear(m_clearColor);
+            RenderNodeRecursive(m_root, sink, dirty, m_theme);
+            runOverlayPasses(sink, OverlayLayer::Panel, dirty, false);
+            RenderModalsRecursive(m_root, sink, dirty, m_theme);
+            runOverlayPasses(sink, OverlayLayer::Popup, dirty, false);
+            runOverlayPasses(sink, OverlayLayer::Notification, dirty, false);
+            if (ovSummary.hasTooltip) {
+                m_overlays.RenderTooltipOverlay(sink, logicalSize, m_mousePos, m_theme);
+            }
+            if (anyDebugBounds) {
+                m_inspector.RenderDebugBounds(m_root, sink, m_theme);
+            }
+            if (anyInspectMode) {
+                m_inspector.RenderInspectOverlay(m_root, sink, logicalSize, m_mousePos, m_theme, m_hitTree);
+            }
+            sink.PopClip();
+        };
+
+        auto renderDirtyRectPass = [&](ICanvas& sink, const Rect& dr) {
+            sink.PushClip(dr);
+            sink.Clear(m_clearColor, dr);
+            RenderNodeRecursive(m_root, sink, dr, m_theme);
+            runOverlayPasses(sink, OverlayLayer::Panel, dr, true);
+            RenderModalsRecursive(m_root, sink, dr, m_theme);
+            runOverlayPasses(sink, OverlayLayer::Popup, dr, true);
+            runOverlayPasses(sink, OverlayLayer::Notification, dr, true);
+            sink.PopClip();
+        };
 
         if (m_damage.IsFullRepaint()) {
             const Rect dirty = m_damage.GetDirtyRect();
-            canvas.PushClip(dirty);
-            canvas.Clear(m_clearColor);
-            RenderNodeRecursive(m_root, canvas, dirty, m_theme);
-            runOverlayPasses(OverlayLayer::Panel, dirty, false);
-            RenderModalsRecursive(m_root, canvas, dirty, m_theme);
-            runOverlayPasses(OverlayLayer::Popup, dirty, false);
-            runOverlayPasses(OverlayLayer::Notification, dirty, false);
-            if (ovSummary.hasTooltip) {
-                m_overlays.RenderTooltipOverlay(canvas, logicalSize, m_mousePos, m_theme);
+            if (m_drawListEnabled) {
+                m_drawList.Reset(&m_arena);
+                DrawListRecorder recorder(m_drawList, &canvas);
+                recorder.Begin(vpW, vpH, m_pixelsPerDp);
+                renderFullPass(recorder, dirty);
+                if (recorder.HadPartialFlush()) {
+                    recorder.FlushToTarget();
+                } else {
+                    canvas.Submit(m_drawList);
+                }
+            } else {
+                renderFullPass(canvas, dirty);
             }
-            if (anyDebugBounds) {
-                m_inspector.RenderDebugBounds(m_root, canvas, m_theme);
-            }
-            if (anyInspectMode) {
-                m_inspector.RenderInspectOverlay(m_root, canvas, logicalSize, m_mousePos, m_theme, m_hitTree);
-            }
-
-            canvas.PopClip();
             canvas.End();
         } else {
             for (const Rect& dr : m_damage.GetDirtyRects()) {
-                canvas.PushClip(dr);
-                canvas.Clear(m_clearColor, dr);
-                RenderNodeRecursive(m_root, canvas, dr, m_theme);
-                runOverlayPasses(OverlayLayer::Panel, dr, true);
-                RenderModalsRecursive(m_root, canvas, dr, m_theme);
-                runOverlayPasses(OverlayLayer::Popup, dr, true);
-                runOverlayPasses(OverlayLayer::Notification, dr, true);
-                canvas.PopClip();
+                if (m_drawListEnabled) {
+                    m_drawList.Reset(&m_arena);
+                    DrawListRecorder recorder(m_drawList, &canvas);
+                    recorder.Begin(vpW, vpH, m_pixelsPerDp);
+                    renderDirtyRectPass(recorder, dr);
+                    if (recorder.HadPartialFlush()) {
+                        recorder.FlushToTarget();
+                    } else {
+                        canvas.Submit(m_drawList);
+                    }
+                } else {
+                    renderDirtyRectPass(canvas, dr);
+                }
                 canvas.End();
             }
         }

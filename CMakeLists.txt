@@ -95,6 +95,7 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/core/focus_manager.cpp
     src/guikit/core/frame_metrics.cpp
     src/guikit/core/hit_test_tree.cpp
+    src/guikit/core/image_cache.cpp
     src/guikit/core/main_window.cpp
     src/guikit/core/overlay_manager.cpp
     src/guikit/core/response.cpp
@@ -113,6 +114,7 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/core/solver.cpp
     src/guikit/core/zone.cpp
     src/guikit/graphics/colormap.cpp
+    src/guikit/graphics/draw_list.cpp
     src/guikit/graphics/icon.cpp
     src/guikit/layout/row.cpp
     src/guikit/layout/column.cpp

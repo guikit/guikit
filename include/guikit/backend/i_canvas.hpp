@@ -6,6 +6,8 @@
 
 namespace guikit {
 
+class DrawList;
+
 /// Typographic style variants for rich text and Markdown rendering.
 enum class FontStyle : keel::u8 {
     Regular = 0,
@@ -36,8 +38,8 @@ struct TextRenderSettings {
     FontSmoothing smoothing{FontSmoothing::Auto};
     FontHinting hinting{FontHinting::Auto};
     bool gammaCorrectBlending{true};  ///< Perceptual text gamma + polarity-aware stem compositing
-    keel::f32 contrast{1.0f};             ///< Stroke contrast multiplier [0.5 .. 2.0] (1.0 = neutral)
-    keel::f32 stemDarkening{0.15f};       ///< Subtle coverage boost on small sizes [0.0 .. 0.5] (CoreText/DirectWrite style)
+    keel::f32 contrast{1.0f};         ///< Stroke contrast multiplier [0.5 .. 2.0] (1.0 = neutral)
+    keel::f32 stemDarkening{0.15f};   ///< Subtle coverage boost on small sizes [0.0 .. 0.5] (CoreText/DirectWrite style)
 
     [[nodiscard]] constexpr bool operator==(const TextRenderSettings& other) const noexcept = default;
 };
@@ -136,24 +138,159 @@ struct PathPaint {
     keel::f32 dashOffPx{4.0f};
 };
 
-/// Abstract interface for vector graphics rendering backends.
-class ICanvas {
+/// Multi-API fragment shader source bundle for hardware GPU underlay passes.
+struct GpuShaderSource {
+    keel::StringRef shaderId;     ///< Unique program cache key (e.g. "guikit.sonar.v1")
+    keel::StringRef glslEs2;      ///< OpenGL 2.1 / OpenGL ES 2.0 / WebGL 1.0 & 2.0 fragment shader source
+    keel::StringRef wgsl{};       ///< Optional WebGPU WGSL source
+    keel::StringRef hlsl{};       ///< Optional Direct3D 11/12 HLSL source
+    keel::StringRef msl{};        ///< Optional Apple Metal MSL source
+};
+
+/// Generic 16-byte aligned `float4` uniform register (`std140` / `cbuffer` layout).
+struct GpuFloat4 {
+    keel::f32 x{0.0f};
+    keel::f32 y{0.0f};
+    keel::f32 z{0.0f};
+    keel::f32 w{0.0f};
+};
+
+/// Declarative, domain-agnostic descriptor for a 2D hardware GPU shader underlay pass.
+struct GpuShaderPassDesc {
+    keel::u64 widgetId{0};
+    GpuShaderSource shader{};
+
+    Rect plotRect{};
+    Rect clipRect{};
+    Color bgColor{0, 0, 0, 255};
+
+    // 2D Data Texture (Slot 0: `u_DataTex`)
+    keel::MdRef<keel::f32, 2> dataField{};    ///< Contiguous row-major [rows (texHeight) x cols (texWidth)] float field
+    keel::u64 fullGeneration{0};              ///< Incremented when the full 2D grid changes
+    keel::u64 sliceGeneration{0};             ///< Optional: incremented when a single row is written in a circular ring buffer
+    keel::u32 headRow{0};                     ///< Optional: ring-buffer head row index [0 .. rows-1] for O(1) sub-row upload
+    keel::f32 dataNormOffset{0.0f};           ///< Value mapped to 0.0 in RG16 upload (0.0 for [0..1] data, -140.0 for dB data)
+    keel::f32 dataNormScale{1.0f};            ///< Span mapped to [0..1] in RG16 upload (1.0 for [0..1] data, 160.0 for dB data)
+
+    // 1D Colormap LUT Texture (Slot 1: `u_LutTex`, 256 x 1 ABGR8888)
+    keel::u8 colormapId{0};
+    keel::ArrayRef<keel::u32> lutAbgr256{};   ///< Persistent 256-entry ABGR8888 LUT slice (zero-copy)
+
+    // Standard 8 x float4 (128-byte std140) uniform parameter bank (`uniform vec4 u_Params[8]`)
+    keel::StaticArray<GpuFloat4, 8> params{};
+};
+
+/// Optional capability interface for canvases backed by a CPU 32-bit pixel surface (e.g. `ThorCanvas`).
+/// Retrieved via `ICanvas::QueryCpuSurface()`.
+class ICpuSurfaceCanvas {
 public:
-    virtual ~ICanvas() = default;
+    virtual ~ICpuSurfaceCanvas() = default;
 
     /// Returns the native 32-bit pixel format written by this canvas into its target buffer.
-    [[nodiscard]] virtual SurfacePixelFormat GetPixelFormat() const noexcept {
-        return SurfacePixelFormat::ABGR8888_Premul;
-    }
-
-    /// Returns true if this canvas rasterizes into a CPU-side 32-bit pixel buffer bound via `SetTarget(...)`,
-    /// or false if it renders directly to a hardware GPU / window surface without a CPU framebuffer.
-    [[nodiscard]] virtual bool UsesCpuFramebuffer() const noexcept {
-        return true;
-    }
+    [[nodiscard]] virtual SurfacePixelFormat GetPixelFormat() const noexcept = 0;
 
     /// Binds an in-memory 32-bit pixel buffer as the rendering target.
-    virtual void SetTarget(keel::u32* /*buffer*/, keel::u32 /*width*/, keel::u32 /*height*/, keel::u32 /*stride*/) {}
+    virtual void SetTarget(keel::u32* buffer, keel::u32 width, keel::u32 height, keel::u32 stride) = 0;
+
+    /// Flushes pending draw commands and captures a physical pixel snapshot of `rect` for retained base-layer caching.
+    virtual bool CaptureRegion(Rect rect, keel::Array<keel::u32>& outPixels, keel::u32& outW, keel::u32& outH) = 0;
+
+    /// Flushes pending draw commands and blits a previously captured pixel snapshot directly into the target surface.
+    virtual bool RestoreRegion(Rect rect, PixelRef pixels) = 0;
+};
+
+/// Optional capability interface for canvases supporting 2D hardware GPU shader underlay/overlay passes.
+/// Retrieved via `ICanvas::QueryGpuPassRenderer()`.
+class IGpuPassRenderer {
+public:
+    virtual ~IGpuPassRenderer() = default;
+
+    /// Enables or disables GPU shader pass recording/execution on this canvas.
+    virtual void SetGpuShadersEnabled(bool enabled) noexcept = 0;
+
+    /// Returns true if GPU shader field rendering is active on this canvas.
+    [[nodiscard]] virtual bool SupportsGpuShaders() const noexcept = 0;
+
+    /// Returns true if one or more GPU shader passes were recorded in the current frame.
+    [[nodiscard]] virtual bool HasActiveGpuPasses() const noexcept = 0;
+
+    /// Returns recorded GPU shader underlay passes for the current frame (empty for inline GPU canvases).
+    [[nodiscard]] virtual keel::ArrayRef<GpuShaderPassDesc> GetGpuShaderPasses() const noexcept {
+        return {};
+    }
+
+    /// Queues or executes a generic 2D GPU shader pass and optionally punches a transparent hole in a CPU layer.
+    virtual bool DrawGpuShaderPass(const GpuShaderPassDesc& pass, bool punchHole = true) = 0;
+};
+
+/// Abstract 2D vector, text, and image drawing sink for rendering backends.
+/// Optional CPU framebuffer operations live in `ICpuSurfaceCanvas` (`QueryCpuSurface()`) and
+/// optional GPU shader passes live in `IGpuPassRenderer` (`QueryGpuPassRenderer()`).
+class ICanvas {
+public:
+    using GpuShaderSource = guikit::GpuShaderSource;
+    using GpuFloat4 = guikit::GpuFloat4;
+    using GpuShaderPassDesc = guikit::GpuShaderPassDesc;
+
+    virtual ~ICanvas() = default;
+
+    /// Queries optional CPU-surface capability (non-null for software/hybrid framebuffer canvases like `ThorCanvas`).
+    [[nodiscard]] virtual ICpuSurfaceCanvas* QueryCpuSurface() noexcept { return nullptr; }
+    [[nodiscard]] virtual const ICpuSurfaceCanvas* QueryCpuSurface() const noexcept { return nullptr; }
+
+    /// Queries optional GPU shader pass capability (`ThorCanvas`, `GlEs3Canvas`, `NullCanvas`).
+    [[nodiscard]] virtual IGpuPassRenderer* QueryGpuPassRenderer() noexcept { return nullptr; }
+    [[nodiscard]] virtual const IGpuPassRenderer* QueryGpuPassRenderer() const noexcept { return nullptr; }
+
+    // Non-virtual capability forwarding helpers (zero vtable bloat)
+    [[nodiscard]] bool UsesCpuFramebuffer() const noexcept { return QueryCpuSurface() != nullptr; }
+
+    [[nodiscard]] SurfacePixelFormat GetPixelFormat() const noexcept {
+        const auto* cpu = QueryCpuSurface();
+        return cpu ? cpu->GetPixelFormat() : SurfacePixelFormat::ABGR8888_Premul;
+    }
+
+    void SetTarget(keel::u32* buffer, keel::u32 width, keel::u32 height, keel::u32 stride) {
+        if (auto* cpu = QueryCpuSurface()) {
+            cpu->SetTarget(buffer, width, height, stride);
+        }
+    }
+
+    bool CaptureRegion(Rect rect, keel::Array<keel::u32>& outPixels, keel::u32& outW, keel::u32& outH) {
+        auto* cpu = QueryCpuSurface();
+        return cpu ? cpu->CaptureRegion(rect, outPixels, outW, outH) : false;
+    }
+
+    bool RestoreRegion(Rect rect, PixelRef pixels) {
+        auto* cpu = QueryCpuSurface();
+        return cpu ? cpu->RestoreRegion(rect, pixels) : false;
+    }
+
+    void SetGpuShadersEnabled(bool enabled) noexcept {
+        if (auto* gpu = QueryGpuPassRenderer()) {
+            gpu->SetGpuShadersEnabled(enabled);
+        }
+    }
+
+    [[nodiscard]] bool SupportsGpuShaders() const noexcept {
+        const auto* gpu = QueryGpuPassRenderer();
+        return gpu ? gpu->SupportsGpuShaders() : false;
+    }
+
+    [[nodiscard]] bool HasActiveGpuPasses() const noexcept {
+        const auto* gpu = QueryGpuPassRenderer();
+        return gpu ? gpu->HasActiveGpuPasses() : false;
+    }
+
+    [[nodiscard]] keel::ArrayRef<GpuShaderPassDesc> GetGpuShaderPasses() const noexcept {
+        const auto* gpu = QueryGpuPassRenderer();
+        return gpu ? gpu->GetGpuShaderPasses() : keel::ArrayRef<GpuShaderPassDesc>{};
+    }
+
+    bool DrawGpuShaderPass(const GpuShaderPassDesc& pass, bool punchHole = true) {
+        auto* gpu = QueryGpuPassRenderer();
+        return gpu ? gpu->DrawGpuShaderPass(pass, punchHole) : false;
+    }
 
     /// Loads a TrueType/OpenType font from a virtual asset path or filesystem path for the specified `FontStyle` slot.
     virtual bool LoadFontFile(keel::StringRef /*path*/, FontStyle /*style*/ = FontStyle::Regular) {
@@ -187,21 +324,22 @@ public:
     /// Finalizes and commits all recorded rendering commands.
     virtual void End() = 0;
 
+    /// Submits a recorded `DrawList` to this canvas (defaults to replaying commands in order).
+    virtual void Submit(const DrawList& list);
+
     /// Returns the current number of physical pixels per logical unit, including any pushed transforms.
     [[nodiscard]] virtual keel::f32 GetScale() const noexcept = 0;
 
     /// Sets or overrides the current canvas scale factor.
     virtual void SetScale(keel::f32 scale) = 0;
 
-    /// Enters a local coordinate system: a point `p` drawn after this call lands where `transform.Apply(p)` would
-    /// land before it. Transforms nest; text and strokes are rasterized at the resulting pixel scale, so scaled
-    /// content stays crisp. Must be balanced by `PopTransform()`.
+    /// Enters a local coordinate system. Must be balanced by `PopTransform()`.
     virtual void PushTransform(const Transform2D& transform) = 0;
 
     /// Leaves the innermost transform pushed with `PushTransform()`.
     virtual void PopTransform() = 0;
 
-    /// Human-readable backend identifier name (e.g. "ThorVG (Vector Software)", "Blend2D (JIT SIMD)", "SDL3 (Direct GPU)").
+    /// Human-readable backend identifier name (e.g. "ThorVG (Vector Software)", "OpenGL 3.3 Core (Native GPU)").
     [[nodiscard]] virtual keel::StringRef GetBackendName() const noexcept = 0;
 
     /// Clears the entire canvas surface or a targeted sub-rectangle to a specified background color.
@@ -288,8 +426,6 @@ public:
     }
 
     /// Draws a soft Gaussian drop shadow for a rounded rectangle.
-    /// GPU SDF backends (`GlEs3Canvas`) evaluate an analytical blurred rounded-box shadow in a single quad;
-    /// other canvases fall back to a soft multi-layer rounded-rect approximation.
     virtual void DrawShadow(
         Rect rect,
         keel::f32 cornerRadius,
@@ -303,8 +439,6 @@ public:
     virtual void DrawLine(Vec2 p1, Vec2 p2, Color color, keel::f32 strokeWidth = 1.0f) = 0;
 
     /// Draws a smooth circular arc (angles in radians: 0 = +X right, increasing clockwise in screen space).
-    /// GPU SDF backends (`GlEs3Canvas`) render this in a single pixel-exact quad; other canvases fall back
-    /// to an exact cubic-Bezier annular path with integrated round or flat endcaps.
     virtual void DrawArc(
         Vec2 center,
         keel::f32 radius,
@@ -389,13 +523,11 @@ public:
     }
 
     /// Queries the natural (unscaled) dimensions of a vector/raster image (SVG, PNG, JPG, or inline <svg>).
-    /// Returns {0, 0} if the image cannot be found or loaded.
     virtual Vec2 GetImageSize(keel::StringRef /*source*/) {
         return {0.0f, 0.0f};
     }
 
     /// Draws a vector or raster image (SVG, PNG, JPG, or inline <svg>) stretched to `destRect`.
-    /// Returns true if the image was loaded and queued for rendering.
     virtual bool DrawImage(
         keel::StringRef /*source*/,
         Rect /*destRect*/,
@@ -443,80 +575,10 @@ public:
         Color /*tint*/ = Color(255, 255, 255, 255)
     ) {}
 
-    /// Multi-API fragment shader source bundle for hardware GPU underlay passes.
-    struct GpuShaderSource {
-        keel::StringRef shaderId;     ///< Unique program cache key (e.g. "guikit.sonar.v1")
-        keel::StringRef glslEs2;      ///< OpenGL 2.1 / OpenGL ES 2.0 / WebGL 1.0 & 2.0 fragment shader source
-        keel::StringRef wgsl{};       ///< Optional WebGPU WGSL source
-        keel::StringRef hlsl{};       ///< Optional Direct3D 11/12 HLSL source
-        keel::StringRef msl{};        ///< Optional Apple Metal MSL source
-    };
-
-    /// Generic 16-byte aligned `float4` uniform register (`std140` / `cbuffer` layout).
-    struct GpuFloat4 {
-        keel::f32 x{0.0f};
-        keel::f32 y{0.0f};
-        keel::f32 z{0.0f};
-        keel::f32 w{0.0f};
-    };
-
-    /// Declarative, domain-agnostic descriptor for a 2D hardware GPU shader underlay pass.
-    struct GpuShaderPassDesc {
-        keel::u64 widgetId{0};
-        GpuShaderSource shader{};
-
-        Rect plotRect{};
-        Rect clipRect{};
-        Color bgColor{0, 0, 0, 255};
-
-        // 2D Data Texture (Slot 0: `u_DataTex`)
-        keel::MdRef<keel::f32, 2> dataField{};    ///< Contiguous row-major [rows (texHeight) x cols (texWidth)] float field
-        keel::u64 fullGeneration{0};          ///< Incremented when the full 2D grid changes
-        keel::u64 sliceGeneration{0};         ///< Optional: incremented when a single row is written in a circular ring buffer
-        keel::u32 headRow{0};                 ///< Optional: ring-buffer head row index [0 .. rows-1] for O(1) sub-row upload
-        keel::f32 dataNormOffset{0.0f};          ///< Value mapped to 0.0 in RG16 upload (0.0 for [0..1] data, -140.0 for dB data)
-        keel::f32 dataNormScale{1.0f};           ///< Span mapped to [0..1] in RG16 upload (1.0 for [0..1] data, 160.0 for dB data)
-
-        // 1D Colormap LUT Texture (Slot 1: `u_LutTex`, 256 x 1 ABGR8888)
-        keel::u8 colormapId{0};
-        keel::ArrayRef<keel::u32> lutAbgr256{}; ///< Persistent 256-entry ABGR8888 LUT slice (zero-copy)
-
-        // Standard 8 x float4 (128-byte std140) uniform parameter bank (`uniform vec4 u_Params[8]`)
-        keel::StaticArray<GpuFloat4, 8> params{};
-    };
-
-    /// Enables or disables GPU shader underlay pass recording on this canvas.
-    virtual void SetGpuShadersEnabled(bool /*enabled*/) noexcept {}
-
-    /// Returns true if GPU shader field rendering is active on this canvas.
-    [[nodiscard]] virtual bool SupportsGpuShaders() const noexcept { return false; }
-
-    /// Returns true if one or more GPU shader underlay passes were recorded in the current frame.
-    [[nodiscard]] virtual bool HasActiveGpuPasses() const noexcept { return false; }
-
-    /// Returns recorded GPU shader underlay passes for the current frame.
-    [[nodiscard]] virtual keel::ArrayRef<GpuShaderPassDesc> GetGpuShaderPasses() const noexcept {
-        return {};
-    }
-
-    /// Queues a generic 2D GPU shader underlay pass and optionally punches a transparent window in the CPU layer.
-    /// Returns true if handled by GPU, or false if the caller should fall back to CPU rasterization.
-    virtual bool DrawGpuShaderPass(const GpuShaderPassDesc& /*pass*/, bool /*punchHole*/ = true) { return false; }
-
-    /// Flushes pending draw commands and captures a physical pixel snapshot of `rect` for retained base-layer caching.
-    virtual bool CaptureRegion(Rect /*rect*/, keel::Array<keel::u32>& /*outPixels*/, keel::u32& /*outW*/, keel::u32& /*outH*/) {
-        return false;
-    }
-
-    /// Flushes pending draw commands and blits a previously captured pixel snapshot directly into the target surface.
-    virtual bool RestoreRegion(Rect /*rect*/, PixelRef /*pixels*/) {
-        return false;
-    }
-
     /// Releases regenerable internal glyph, shape, image, and scratch caches when a canvas goes idle.
     virtual void TrimCaches() noexcept {}
 
-    /// Returns the active text rasterizer backend name (e.g. "ThorVG", "FreeType", "FreeType + HarfBuzz").
+    /// Returns the active text rasterizer backend name (e.g. "ThorVG", "FreeType", "keel::font").
     [[nodiscard]] virtual keel::StringRef GetTextEngineName() const noexcept { return "Default"; }
 
     /// Returns true if the active text rasterizer honors `TextRenderSettings::hinting`.

@@ -9,7 +9,7 @@ namespace guikit {
 /// Zero-dependency headless `ICanvas` implementation built into `guikit::core`.
 /// Provides deterministic typographic metrics, transform/clip stacks, GPU shader pass
 /// recording, and draw-call counters for backend-free builds, unit tests, and custom host scaffolding.
-class NullCanvas : public ICanvas {
+class NullCanvas : public ICanvas, public IGpuPassRenderer {
 public:
     struct Stats {
         keel::u64 beginCount{0};
@@ -34,12 +34,8 @@ public:
     NullCanvas() noexcept = default;
     ~NullCanvas() override = default;
 
-    [[nodiscard]] bool UsesCpuFramebuffer() const noexcept override { return false; }
-
-    void SetTarget(keel::u32* /*buffer*/, keel::u32 width, keel::u32 height, keel::u32 /*stride*/) override {
-        m_width = width;
-        m_height = height;
-    }
+    [[nodiscard]] IGpuPassRenderer* QueryGpuPassRenderer() noexcept override { return this; }
+    [[nodiscard]] const IGpuPassRenderer* QueryGpuPassRenderer() const noexcept override { return this; }
 
     void Begin(keel::u32 width, keel::u32 height, keel::f32 scale = 1.0f) override;
     void End() override;
