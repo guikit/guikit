@@ -1451,6 +1451,110 @@ void TestPayloadTypeIdAndSolverMeasurePurity() {
     CHECK_NEAR(shellRoot->gap, 8.0f, 0.001f);
 }
 
+void TestRowAndColumnJustifySpaceBetween() {
+    using namespace guikit;
+
+    keel::Arena arena;
+
+    // 1. Row SpaceBetween: width=600, 3 fixed children of width 100 -> x = 0, 250, 500
+    {
+        Node* row = arena.create<Node>();
+        row->direction = FlexDirection::Row;
+        row->widthMode = SizeMode::Stretch;
+        row->heightMode = SizeMode::Stretch;
+        row->justify = Justify::SpaceBetween;
+        row->gap = 10.0f;
+
+        Node* a = arena.create<Node>();
+        a->widthMode = SizeMode::Fixed;
+        a->fixedWidth = 100.0f;
+        a->heightMode = SizeMode::Fixed;
+        a->fixedHeight = 40.0f;
+        row->AddChild(a);
+
+        Node* b = arena.create<Node>();
+        b->widthMode = SizeMode::Fixed;
+        b->fixedWidth = 100.0f;
+        b->heightMode = SizeMode::Fixed;
+        b->fixedHeight = 40.0f;
+        row->AddChild(b);
+
+        Node* c = arena.create<Node>();
+        c->widthMode = SizeMode::Fixed;
+        c->fixedWidth = 100.0f;
+        c->heightMode = SizeMode::Fixed;
+        c->fixedHeight = 40.0f;
+        row->AddChild(c);
+
+        Solver::Measure(row);
+        Solver::Arrange(row, Rect(0.0f, 0.0f, 600.0f, 100.0f));
+
+        CHECK_NEAR(a->computedRect.x, 0.0f, 0.001f);
+        CHECK_NEAR(b->computedRect.x, 250.0f, 0.001f);
+        CHECK_NEAR(c->computedRect.x, 500.0f, 0.001f);
+        CHECK_NEAR(c->computedRect.Right(), 600.0f, 0.001f);
+    }
+
+    // 2. Column SpaceBetween: height=400, 3 fixed children of height 50 -> y = 0, 175, 350
+    {
+        Node* col = arena.create<Node>();
+        col->direction = FlexDirection::Column;
+        col->widthMode = SizeMode::Stretch;
+        col->heightMode = SizeMode::Stretch;
+        col->justify = Justify::SpaceBetween;
+        col->gap = 8.0f;
+
+        Node* a = arena.create<Node>();
+        a->widthMode = SizeMode::Fixed;
+        a->fixedWidth = 120.0f;
+        a->heightMode = SizeMode::Fixed;
+        a->fixedHeight = 50.0f;
+        col->AddChild(a);
+
+        Node* b = arena.create<Node>();
+        b->widthMode = SizeMode::Fixed;
+        b->fixedWidth = 120.0f;
+        b->heightMode = SizeMode::Fixed;
+        b->fixedHeight = 50.0f;
+        col->AddChild(b);
+
+        Node* c = arena.create<Node>();
+        c->widthMode = SizeMode::Fixed;
+        c->fixedWidth = 120.0f;
+        c->heightMode = SizeMode::Fixed;
+        c->fixedHeight = 50.0f;
+        col->AddChild(c);
+
+        Solver::Measure(col);
+        Solver::Arrange(col, Rect(0.0f, 0.0f, 200.0f, 400.0f));
+
+        CHECK_NEAR(a->computedRect.y, 0.0f, 0.001f);
+        CHECK_NEAR(b->computedRect.y, 175.0f, 0.001f);
+        CHECK_NEAR(c->computedRect.y, 350.0f, 0.001f);
+        CHECK_NEAR(c->computedRect.Bottom(), 400.0f, 0.001f);
+    }
+
+    // 3. Single child with SpaceBetween stays pinned at Start without divide-by-zero
+    {
+        Node* row = arena.create<Node>();
+        row->direction = FlexDirection::Row;
+        row->widthMode = SizeMode::Stretch;
+        row->heightMode = SizeMode::Stretch;
+        row->justify = Justify::SpaceBetween;
+
+        Node* solo = arena.create<Node>();
+        solo->widthMode = SizeMode::Fixed;
+        solo->fixedWidth = 80.0f;
+        solo->heightMode = SizeMode::Fixed;
+        solo->fixedHeight = 40.0f;
+        row->AddChild(solo);
+
+        Solver::Measure(row);
+        Solver::Arrange(row, Rect(0.0f, 0.0f, 400.0f, 80.0f));
+        CHECK_NEAR(solo->computedRect.x, 0.0f, 0.001f);
+    }
+}
+
 int main() {
     keel::println("[RUN] Testing GuiKit Layout Solver...");
 
@@ -1474,6 +1578,7 @@ int main() {
     TestScrollAreaMaxHeightWrapFitAndDeepTreeGuard();
     TestGapDpAndContainerSizingConstraints();
     TestPayloadTypeIdAndSolverMeasurePurity();
+    TestRowAndColumnJustifySpaceBetween();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Layout tests passed successfully!");

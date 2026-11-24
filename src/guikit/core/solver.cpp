@@ -1050,6 +1050,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         const keel::f32 takeFromShortText = keel::min(postStage1Deficit, totalRemainingTextW);
 
         // Main axis justification when there are no stretch elements
+        keel::f32 itemGap = node->gap;
         if (flexCount == 0) {
             keel::f32 effectiveFreeSpace = rawFreeSpace + takeFromLongText + takeFromShortText;
             if (constrainedRow && flowChildCount == 1 && effectiveFreeSpace < 0.0f) {
@@ -1068,6 +1069,8 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 currentX += effectiveFreeSpace * 0.5f;
             } else if (node->justify == Justify::End && freeSpace > 0.0f) {
                 currentX += freeSpace;
+            } else if (node->justify == Justify::SpaceBetween && freeSpace > 0.0f && flowChildCount > 1u) {
+                itemGap += freeSpace / keel::as<keel::f32>(flowChildCount - 1u);
             }
         }
 
@@ -1136,12 +1139,12 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             }
 
             ArrangeNode(child, Rect(currentX, childY, childW, childH), theme, canvas, depth);
-            currentX += childW + node->gap;
+            currentX += childW + itemGap;
         }
 
         if (node->widthMode == SizeMode::Fit && node->type != NodeType::ScrollArea) {
             node->computedRect.w = (currentX > contentRect.x)
-                ? (currentX - contentRect.x - node->gap) + node->padding.Horizontal()
+                ? (currentX - contentRect.x - itemGap) + node->padding.Horizontal()
                 : node->padding.Horizontal();
             if (node->minWidth > 0.0f) {
                 node->computedRect.w = keel::max(node->computedRect.w, node->minWidth);
@@ -1297,11 +1300,14 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         keel::f32 currentY = contentRect.y;
 
         // Main axis justification when there are no stretch elements
+        keel::f32 itemGap = node->gap;
         if (flexCount == 0 && freeSpace > 0.0f) {
             if (node->justify == Justify::Center) {
                 currentY += freeSpace * 0.5f;
             } else if (node->justify == Justify::End) {
                 currentY += freeSpace;
+            } else if (node->justify == Justify::SpaceBetween && flowChildCount > 1u) {
+                itemGap += freeSpace / keel::as<keel::f32>(flowChildCount - 1u);
             }
         }
 
@@ -1309,7 +1315,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             if (child->type == NodeType::Sidebar || child->IsOutOfFlow()) continue;
             if (child->type == NodeType::BottomPanel && child->IsCollapsed()) {
                 const keel::f32 edgeY = (currentY > contentRect.y)
-                    ? keel::clamp(currentY - node->gap, contentRect.y, contentRect.Bottom())
+                    ? keel::clamp(currentY - itemGap, contentRect.y, contentRect.Bottom())
                     : contentRect.Bottom();
                 child->computedRect = Rect(contentRect.x, edgeY, contentRect.w, 0.0f);
                 continue;
@@ -1341,12 +1347,12 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             }
 
             ArrangeNode(child, Rect(childX, currentY, childW, childH), theme, canvas, depth);
-            currentY += child->computedRect.h * child->GetRelativeScale() + node->gap;
+            currentY += child->computedRect.h * child->GetRelativeScale() + itemGap;
         }
 
         if (node->heightMode == SizeMode::Fit && !node->IsOutOfFlow() && node->type != NodeType::ScrollArea) {
             node->computedRect.h = (currentY > contentRect.y)
-                ? (currentY - contentRect.y - node->gap) + node->padding.Vertical()
+                ? (currentY - contentRect.y - itemGap) + node->padding.Vertical()
                 : node->padding.Vertical();
             if (node->minHeight > 0.0f) {
                 node->computedRect.h = keel::max(node->computedRect.h, node->minHeight);
