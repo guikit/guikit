@@ -3005,6 +3005,49 @@ void TestRoundedContainerCornerMasking() {
     }
 }
 
+void TestSwitchKnobCenterSymmetry() {
+    using namespace guikit;
+
+    struct RecordingCanvas final : NullCanvas {
+        keel::Array<Rect> roundRects{};
+        void DrawRoundRect(Rect rect, keel::f32, Color, Color, keel::f32) override {
+            roundRects.push_back(rect);
+        }
+    };
+
+    const UiTheme theme = UiTheme::Dark();
+    static constexpr keel::StaticArray<UiSize, 5> kSizes = {
+        UiSize::Xs, UiSize::Sm, UiSize::Md, UiSize::Lg, UiSize::Xl
+    };
+    for (UiSize sz : kSizes) {
+        const SwitchMetrics& m = theme.GetSwitch(sz);
+        const Rect track(10.0f, 20.0f, m.trackSize.x, m.trackSize.y);
+        for (bool checked : {false, true}) {
+            RecordingCanvas canvas;
+            theme.Painter().DrawSwitch(
+                canvas, theme, track, m.knobDiameter, m.knobPadding,
+                Color(40, 50, 70, 255), Color::Transparent(), 0.0f,
+                Color(255, 255, 255, 255), checked, false, false, theme.GetRadius(sz)
+            );
+            CHECK(canvas.roundRects.size() == 2u);
+            if (canvas.roundRects.size() == 2u) {
+                const Rect tr = canvas.roundRects[0];
+                const Rect kb = canvas.roundRects[1];
+                const keel::f32 topGap = kb.y - tr.y;
+                const keel::f32 botGap = tr.Bottom() - kb.Bottom();
+                CHECK(keel::abs(topGap - botGap) < 0.001f);
+                CHECK(keel::abs(kb.w - m.knobDiameter) < 0.001f);
+                CHECK(keel::abs(kb.h - m.knobDiameter) < 0.001f);
+                if (!checked) {
+                    CHECK(keel::abs((kb.x - tr.x) - m.knobPadding) < 0.001f);
+                } else {
+                    CHECK(keel::abs((tr.Right() - kb.Right()) - m.knobPadding) < 0.001f);
+                }
+            }
+        }
+    }
+}
+
 int main() {
     keel::println("[RUN] Testing GuiKit Core Foundation...");
 
@@ -3037,6 +3080,7 @@ int main() {
     TestRangeSliderThumbHitTestAndCanvasSync();
     TestSplitViewGeometryConstraints();
     TestRoundedContainerCornerMasking();
+    TestSwitchKnobCenterSymmetry();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Core tests passed successfully!");

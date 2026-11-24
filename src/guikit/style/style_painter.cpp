@@ -843,14 +843,15 @@ void DefaultStylePainter::DrawSwitch(
     const keel::f32 knobX = checked
         ? (trackRect.x + trackRect.w - knobW - pad)
         : (trackRect.x + pad);
-    const Rect knobRect(keel::floor(knobX), keel::floor(knobY), keel::floor(knobW), keel::floor(knobH));
 
     if (isBevel) {
+        const Rect knobRect(keel::round(knobX), keel::round(knobY), keel::round(knobW), keel::round(knobH));
         const Color bevelKnobBg = disabled ? theme.palette.surface.WithAlphaF(theme.disabledOpacity) : theme.palette.surface;
         canvas.DrawRect(knobRect, bevelKnobBg);
         DrawBevelFrame(canvas, knobRect, theme.bevel, /*sunken=*/false, /*thin=*/false);
     } else {
-        canvas.DrawRoundRect(knobRect, sharp ? 0.0f : (knobDiameter * 0.5f), knobFill);
+        const Rect knobRect(knobX, knobY, knobW, knobH);
+        canvas.DrawRoundRect(knobRect, sharp ? 0.0f : (knobH * 0.5f), knobFill);
     }
 }
 
