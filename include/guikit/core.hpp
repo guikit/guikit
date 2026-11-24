@@ -70,6 +70,8 @@
 
 // 4. Actions (buttons & navigation triggers)
 #include "guikit/actions/button.hpp"
+#include "guikit/actions/menu_button.hpp"
+#include "guikit/actions/split_button.hpp"
 #include "guikit/actions/segmented.hpp"
 #include "guikit/actions/tab_bar.hpp"
 #include "guikit/actions/breadcrumb.hpp"

@@ -153,6 +153,8 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/surfaces/toolbar.cpp
     src/guikit/views/tree_view.cpp
     src/guikit/actions/button.cpp
+    src/guikit/actions/menu_button.cpp
+    src/guikit/actions/split_button.cpp
     src/guikit/controls/checkbox.cpp
     src/guikit/fields/color_picker.cpp
     src/guikit/display/heading.cpp

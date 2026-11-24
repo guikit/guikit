@@ -64,6 +64,7 @@ Vec2 MeasureButtonCapsule(
     const keel::f32 capFontSize = theme.ResolveFontSize(opts.text, TextRole::LabelLarge, size);
     const keel::f32 badgeFontSize = theme.ResolveFontSize(opts.badge, m.fontSize * 0.78f);
     const bool hasIcon = opts.loading || opts.icon.IsValid();
+    const bool hasTrailingIcon = opts.trailingIcon.IsValid();
     const bool hasCapsuleText = !opts.text.empty();
     const bool hasBadge = opts.badge.HasContentOrReserve();
     const keel::f32 baseH = ctrl.height.IsFixed() ? ctrl.height.Dp() : m.defaultHeight;
@@ -72,7 +73,7 @@ Vec2 MeasureButtonCapsule(
     if (opts.square) {
         return {baseH, baseH};
     }
-    if (hasIcon && !hasCapsuleText && opts.text.variants.empty() && !hasBadge) {
+    if (hasIcon && !hasTrailingIcon && !hasCapsuleText && opts.text.variants.empty() && !hasBadge) {
         const keel::f32 w = ctrl.width.IsFixed() ? ctrl.width.Dp() : baseH;
         return {w, baseH};
     }
@@ -102,6 +103,15 @@ Vec2 MeasureButtonCapsule(
             contentW += 6.0f;
         }
         contentW += badgeW;
+    }
+
+    if (hasTrailingIcon) {
+        const keel::f32 trailSz = keel::round(m.iconSize * 0.82f);
+        const keel::f32 trailGap = keel::max(4.0f, m.paddingX * 0.45f);
+        if (contentW > 0.0f) {
+            contentW += trailGap;
+        }
+        contentW += trailSz;
     }
 
     keel::f32 totalW = contentW + m.paddingX * 2.0f;
@@ -169,6 +179,9 @@ Response detail::Button::Run(Context& ctx, const ButtonOptions& opts, keel::Sour
     if (!opts.icon.GetPath().empty()) {
         optsCopy.icon = Icon::File(ctx.AllocString(opts.icon.GetPath()));
     }
+    if (!opts.trailingIcon.GetPath().empty()) {
+        optsCopy.trailingIcon = Icon::File(ctx.AllocString(opts.trailingIcon.GetPath()));
+    }
 
     struct ButtonPayload {
         ButtonOptions opts;
@@ -204,6 +217,9 @@ Response detail::Button::Run(Context& ctx, const ButtonOptions& opts, keel::Sour
         keel::as<keel::u8>(bOpts->icon.GetType()),
         keel::as<keel::u8>(bOpts->icon.GetId()),
         bOpts->icon.GetPath(),
+        keel::as<keel::u8>(bOpts->trailingIcon.GetType()),
+        keel::as<keel::u8>(bOpts->trailingIcon.GetId()),
+        bOpts->trailingIcon.GetPath(),
         bOpts->text,
         bOpts->badge
     );
@@ -445,7 +461,18 @@ void detail::Button::Render(
         : textCol;
     const keel::f32 padX = opts.square ? keel::min(m.paddingX, 2.0f) : m.paddingX;
 
-    // Reserve optional trailing badge inside capsule
+    // Reserve optional trailing icon and trailing badge inside capsule
+    const keel::f32 trailSz = keel::round(m.iconSize * 0.82f);
+    const keel::f32 trailGap = keel::max(4.0f, m.paddingX * 0.45f);
+    bool drawTrailingIcon = false;
+    keel::f32 trailReserve = 0.0f;
+    if (opts.trailingIcon.IsValid() && !opts.square) {
+        if (capsuleRect.w >= padX * 2.0f + trailSz) {
+            drawTrailingIcon = true;
+            trailReserve = trailSz + ((hasIcon || hasCapsuleText) ? trailGap : 0.0f);
+        }
+    }
+
     const keel::f32 badgeFontSize = theme.ResolveFontSize(opts.badge, m.fontSize * 0.78f);
     keel::f32 badgeW = 0.0f;
     keel::f32 badgeGap = 0.0f;
@@ -453,22 +480,33 @@ void detail::Button::Render(
     if (!opts.badge.empty() && !opts.square) {
         badgeW = TextUtil::MeasureWidth(opts.badge, badgeFontSize, &canvas) + 10.0f;
         badgeGap = (hasIcon || hasCapsuleText) ? 6.0f : 0.0f;
-        if (capsuleRect.w >= padX * 2.0f + badgeW + badgeGap + (hasCapsuleText ? capFontSize * 1.5f : (hasIcon ? m.iconSize : 0.0f))) {
+        if (capsuleRect.w >= padX * 2.0f + trailReserve + badgeW + badgeGap + (hasCapsuleText ? capFontSize * 1.5f : (hasIcon ? m.iconSize : 0.0f))) {
             drawBadge = true;
         }
     }
     const keel::f32 pressShift = theme.Painter().GetButtonContentOffset(theme, pressed, opts.active, disabled);
+    const keel::f32 rightReserved = (drawBadge ? (badgeW + badgeGap) : 0.0f) + trailReserve;
     const Rect contentBounds(
         capsuleRect.x + pressShift,
         capsuleRect.y + pressShift,
-        keel::max(0.0f, capsuleRect.w - (drawBadge ? (badgeW + badgeGap) : 0.0f)),
+        keel::max(0.0f, capsuleRect.w - rightReserved),
         capsuleRect.h
     );
+    if (drawTrailingIcon) {
+        const Rect trailRect(
+            capsuleRect.Right() - padX - trailSz + pressShift,
+            capsuleRect.y + (capsuleRect.h - trailSz) * 0.5f + pressShift,
+            trailSz,
+            trailSz
+        );
+        const Color trailCol = icoCol.WithAlphaF(disabled ? 0.55f : (hovered || pressed || opts.active ? 0.95f : 0.78f));
+        opts.trailingIcon.Draw(canvas, trailRect, trailCol);
+    }
     if (drawBadge) {
         const keel::f32 badgeH = keel::min(capsuleRect.h - 4.0f, badgeFontSize + 5.0f);
         const Rect badgeRect(
-            capsuleRect.Right() - padX - badgeW,
-            capsuleRect.y + (capsuleRect.h - badgeH) * 0.5f,
+            capsuleRect.Right() - padX - trailReserve - badgeW + pressShift,
+            capsuleRect.y + (capsuleRect.h - badgeH) * 0.5f + pressShift,
             badgeW,
             badgeH
         );
@@ -501,7 +539,7 @@ void detail::Button::Render(
         DrawButtonGlyph(canvas, opts, iconBounds, icoCol, loadingPhase);
     } else if (!hasIcon && hasCapsuleText) {
         // Label-only with automatic ellipsis
-        const keel::f32 rightPad = drawBadge ? 0.0f : padX;
+        const keel::f32 rightPad = (drawBadge && !drawTrailingIcon) ? 0.0f : padX;
         const keel::f32 availW = keel::max(0.0f, contentBounds.w - padX - rightPad);
         const Rect textRect(contentBounds.x + padX, contentBounds.y, availW, contentBounds.h);
         keel::f32 alignX = 0.5f;
@@ -515,7 +553,7 @@ void detail::Button::Render(
         theme.Painter().DrawControlText(canvas, theme, effectiveCapsuleText.text, textRect, capFontSize, textCol, disabled, alignX, 0.5f);
     } else if (hasIcon && hasCapsuleText) {
         // Icon + Label
-        const keel::f32 rightPad = drawBadge ? 0.0f : padX;
+        const keel::f32 rightPad = (drawBadge && !drawTrailingIcon) ? 0.0f : padX;
         const keel::f32 gap = keel::max(4.0f, m.paddingX * 0.55f);
         if (opts.iconPlacement == Placement::Top) {
             const keel::f32 vGap = 4.0f;

@@ -2601,6 +2601,151 @@ void TestStylePainterChromeDispatchAndPolish() {
     }
 }
 
+void TestMenuButtonAndSplitButton() {
+    using namespace guikit;
+    keel::println("  -> TestMenuButtonAndSplitButton...");
+
+    const UiTheme theme = UiTheme::Dark();
+    NullCanvas canvas;
+
+    // 1. ButtonOptions::trailingIcon expands capsule width vs icon-only/text-only button
+    const ButtonOptions plainBtn{.text = "Export", .icon = Icon::Save()};
+    const ButtonOptions trailBtn{.text = "Export", .icon = Icon::Save(), .trailingIcon = Icon::ChevronDown()};
+    const Vec2 plainSz = detail::Button::Measure(plainBtn, UiSize::Md, &canvas, theme, 400.0f);
+    const Vec2 trailSz = detail::Button::Measure(trailBtn, UiSize::Md, &canvas, theme, 400.0f);
+    CHECK(trailSz.x > plainSz.x + 8.0f);
+    CHECK(keel::abs(trailSz.y - plainSz.y) < 0.01f);
+
+    // 2. MenuButton (MenuScope overload): autonomous open/close on click & outside click
+    {
+        Context ui;
+        bool scopeOpened = false;
+
+        auto renderFrame = [&]() {
+            scopeOpened = false;
+            ui.BeginFrame({640.0f, 400.0f});
+            if (auto col = guikit::Column(ui, {.padding = Padding::All(20.0f)})) {
+                if (auto menu = guikit::MenuButton(ui, {.text = "Export", .icon = Icon::Save(), .variant = UiVariant::Primary})) {
+                    scopeOpened = true;
+                    (void)menu.Item("PNG Image");
+                    (void)menu.Item("SVG Vector");
+                }
+            }
+            ui.EndFrame(canvas);
+        };
+        auto clickAt = [&](Vec2 pos) {
+            ui.OnMouseMove(pos);
+            ui.OnMouseDown(1);
+            renderFrame();
+            ui.OnMouseUp(1);
+            renderFrame();
+        };
+
+        // Frame 1: measure & layout
+        renderFrame();
+        CHECK(!scopeOpened);
+
+        // Click inside button (placed at padding 20,20) -> opens MenuScope
+        clickAt({44.0f, 34.0f});
+        CHECK(scopeOpened);
+
+        // Idle frame -> stays open
+        renderFrame();
+        CHECK(scopeOpened);
+
+        // Click far outside -> dismisses popup
+        clickAt({580.0f, 350.0f});
+        renderFrame();
+        CHECK(!scopeOpened);
+    }
+
+    // 3. MenuButton (declarative array overload) + SplitButton (both overloads)
+    {
+        Context ui;
+        static constexpr keel::StaticArray<ContextMenuItem, 2> kItems = {{
+            {.label = "Option A", .id = 10},
+            {.label = "Option B", .id = 20}
+        }};
+
+        SplitButtonResponse splitRes{};
+        ContextMenuResponse menuBtnRes{};
+        bool splitScopePrimary = false;
+        bool splitScopeOpen = false;
+
+        auto renderFrame = [&]() {
+            splitScopePrimary = false;
+            splitScopeOpen = false;
+            ui.BeginFrame({640.0f, 400.0f});
+            if (auto col = guikit::Column(ui, {.gap = 12.0f, .padding = Padding::All(20.0f)})) {
+                splitRes = guikit::SplitButton(ui, kItems, {
+                    .text = "Build Project",
+                    .icon = Icon::Play(),
+                    .style = ButtonStyle::Solid,
+                    .variant = UiVariant::Primary
+                });
+                menuBtnRes = guikit::MenuButton(ui, kItems, {
+                    .text = "Quick Actions",
+                    .style = ButtonStyle::Soft,
+                    .variant = UiVariant::Secondary
+                });
+                if (auto sm = guikit::SplitButton(ui, splitScopePrimary, {
+                    .text = "Deploy",
+                    .style = ButtonStyle::Outline,
+                    .variant = UiVariant::Success
+                })) {
+                    splitScopeOpen = true;
+                    (void)sm.Item("Staging");
+                    (void)sm.Item("Production");
+                }
+            }
+            ui.EndFrame(canvas);
+        };
+        auto clickAt = [&](Vec2 pos) {
+            ui.OnMouseMove(pos);
+            ui.OnMouseDown(1);
+            renderFrame();
+            ui.OnMouseUp(1);
+            renderFrame();
+        };
+
+        // Frames 1-2: initial layout populates prevFrameBounds on Frame 2
+        renderFrame();
+        renderFrame();
+        CHECK(splitRes.rect.w > 60.0f);
+        CHECK(!splitRes.clicked);
+        CHECK(!splitRes.isOpen);
+        CHECK(!menuBtnRes.isOpen);
+
+        const Rect sRect = splitRes.rect;
+        // Click left primary zone of SplitButton -> triggers primary, keeps menu closed
+        clickAt({sRect.x + 16.0f, sRect.y + sRect.h * 0.5f});
+        CHECK(splitRes.clicked);
+        CHECK(splitRes.toggled);
+        CHECK(!splitRes.isOpen);
+
+        // Click right chevron zone of SplitButton -> opens menu, does NOT trigger primary
+        ui.OnMouseMove({sRect.Right() - 8.0f, sRect.y + sRect.h * 0.5f});
+        ui.OnMouseDown(1);
+        renderFrame();
+        ui.OnMouseUp(1);
+        renderFrame();
+        CHECK(!splitRes.clicked);
+        CHECK(splitRes.isOpen);
+
+        // Click outside to dismiss SplitButton menu, then click MenuButton
+        clickAt({580.0f, 350.0f});
+        renderFrame();
+        CHECK(!splitRes.isOpen);
+
+        const Rect mRect = menuBtnRes.rect;
+        CHECK(mRect.w > 40.0f);
+        clickAt({mRect.x + 20.0f, mRect.y + mRect.h * 0.5f});
+        CHECK(menuBtnRes.isOpen);
+        CHECK(!splitScopePrimary);
+        CHECK(!splitScopeOpen);
+    }
+}
+
 int main() {
     keel::println("[RUN] Testing GuiKit Core Foundation...");
 
@@ -2629,6 +2774,7 @@ int main() {
     TestDrawListAndImageCache();
     TestDesignSystemOrthogonalityAndCrossCombos();
     TestStylePainterChromeDispatchAndPolish();
+    TestMenuButtonAndSplitButton();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Core tests passed successfully!");

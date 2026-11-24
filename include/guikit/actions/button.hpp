@@ -25,6 +25,7 @@ struct ButtonOptions {
     bool loading{false};                            ///< Renders an animated vector spinner and suppresses click activation
     bool square{false};                             ///< Force square (defaultHeight x defaultHeight) button geometry
     keel::Optional<Color> iconColor{keel::kNullOpt}; ///< Optional custom icon tint override
+    Icon trailingIcon{};                            ///< Optional trailing icon (e.g. ChevronDown in MenuButton or arrow indicator)
     UiText tooltip{};                               ///< Optional floating tooltip text on hover
     bool disabled{false};
     UiSize size{UiSize::Md};                        ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)

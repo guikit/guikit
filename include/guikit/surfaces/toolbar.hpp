@@ -1,5 +1,6 @@
 #pragma once
 
+#include "guikit/actions/split_button.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/response.hpp"
@@ -52,14 +53,6 @@ struct ToolButtonOptions {
     keel::Optional<Color> iconColor{keel::kNullOpt}; ///< Optional custom icon tint override
     UiText badge{};                             ///< Optional compact corner/trailing badge counter
     keel::Optional<UiSize> size{keel::kNullOpt};///< Optional per-button size override (nullopt = inherit ToolbarOptions::size)
-};
-
-/// Extended response returned by Toolbar SplitButton and SplitToggle controls.
-struct SplitButtonResponse : public Response {
-    keel::i32 selectedIndex{-1};        ///< Selected item index (or clicked item index for stateless SplitButton)
-    bool toggled{false};          ///< True when the main button action/toggle was triggered this frame
-    bool selectionChanged{false}; ///< True when a dropdown item was selected this frame
-    bool isOpen{false};           ///< True while the dropdown selector menu is open
 };
 
 /// Configuration options for Toolbar container.
