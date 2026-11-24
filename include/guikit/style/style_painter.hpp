@@ -130,6 +130,12 @@ public:
         bool disabled
     ) const noexcept = 0;
 
+    /// Returns resolved horizontal gap between consecutive `TabBar` items (`chrome.tabGapOverride` if >= 0, else `fallbackGap`).
+    [[nodiscard]] virtual keel::f32 GetTabGap(
+        const UiTheme& theme,
+        keel::f32 fallbackGap
+    ) const noexcept = 0;
+
     /// Draws a horizontal or vertical divider / separator line (hairline, etched 3D groove, or bold stroke).
     virtual void DrawDivider(
         ICanvas& canvas,
@@ -337,6 +343,7 @@ public:
     void DrawSurfaceFrame(ICanvas& canvas, const UiTheme& theme, const SurfacePaintParams& p) const override;
     void DrawFrame(ICanvas& canvas, const UiTheme& theme, FrameKind kind, const FramePaintParams& p) const override;
     [[nodiscard]] keel::f32 GetButtonContentOffset(const UiTheme& theme, bool pressed, bool active, bool disabled) const noexcept override;
+    [[nodiscard]] keel::f32 GetTabGap(const UiTheme& theme, keel::f32 fallbackGap) const noexcept override;
     void DrawDivider(ICanvas& canvas, const UiTheme& theme, Vec2 p0, Vec2 p1, Color fallbackColor, keel::f32 thickness = 1.0f) const override;
     void DrawControlText(ICanvas& canvas, const UiTheme& theme, keel::StringRef text, Rect rect, keel::f32 fontSize, Color color, bool disabled, keel::f32 alignX = 0.5f, keel::f32 alignY = 0.5f) const override;
     void DrawSliderTrack(ICanvas& canvas, const UiTheme& theme, Rect trackRect, Rect fillRect, bool vertical, bool hasFill, Color trackBg, Color trackBorder, Color fillColor, keel::f32 cornerRadius, bool explicitColor) const override;

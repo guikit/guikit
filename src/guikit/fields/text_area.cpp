@@ -1217,7 +1217,7 @@ EditorLayoutRects ComputeEditorLayout(
         ButtonOptions dbgBtnOpts{};
         dbgBtnOpts.icon = Icon::DebugContinue();
         dbgBtnOpts.square = true;
-        dbgBtnOpts.color = StateColor::Ghost();
+        dbgBtnOpts.style = ButtonStyle::Ghost;
         const Vec2 btnSz = detail::Button::Measure(dbgBtnOpts, L.toolbarSize, canvas, theme);
         const keel::f32 btnW = btnSz.x;
         const keel::f32 btnH2 = btnSz.y;

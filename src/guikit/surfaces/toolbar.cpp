@@ -21,7 +21,7 @@ struct ToolButtonPayload {
     ButtonOptions btn{};
     UiText origText{};
     UiText badge{};
-    StateColor badgeColor{};
+    UiVariant badgeVariant{UiVariant::Primary};
     keel::f32 expandedWidth{0.0f};
     keel::f32 splitChevronWidth{0.0f};
     bool origSquare{false};
@@ -34,10 +34,10 @@ struct ToolButtonPayload {
 void RenderToolBadge(const Node* n, const ToolButtonPayload* p, ICanvas& canvas, const UiTheme& theme) noexcept {
     if (!p || p->badge.empty()) return;
     const auto& pal = theme.palette;
-    const VariantColors& v = theme.GetVariant(UiVariant::Primary);
+    const VariantColors& v = theme.GetVariant(p->badgeVariant);
     const Color resolvedBg = p->badge.color.HasAny()
         ? p->badge.color.Resolve(n->hovered, n->pressed, n->disabled, v.bg)
-        : p->badgeColor.Resolve(n->hovered, n->pressed, n->disabled, v.bg);
+        : v.bg;
     const keel::f32 badgeFont = keel::max(9.0f, theme.ResolveFontSize(p->badge, TextRole::LabelSmall, n->uiSize) - 1.5f);
     const Vec2 badgeDims = canvas.MeasureText(p->badge.text, badgeFont);
     const keel::f32 badgeH = keel::min(n->computedRect.h * 0.48f, keel::max(13.0f, badgeFont + 3.0f));
@@ -49,8 +49,8 @@ void RenderToolBadge(const Node* n, const ToolButtonPayload* p, ICanvas& canvas,
         badgeW,
         badgeH
     );
-    const Color badgeBg = n->disabled ? resolvedBg.WithAlphaF(0.45f) : resolvedBg;
-    const Color badgeTextCol = n->disabled ? v.text.WithAlphaF(0.55f) : v.text;
+    const Color badgeBg = n->disabled ? resolvedBg.WithAlphaF(theme.disabledOpacity) : resolvedBg;
+    const Color badgeTextCol = n->disabled ? v.text.WithAlphaF(theme.disabledOpacity) : v.text;
     theme.Painter().DrawBadge(canvas, theme, badgeRect, badgeBg, pal.surface, 1.5f, badgeH * 0.5f);
     canvas.DrawTextBox(p->badge.text, badgeRect, badgeFont, badgeTextCol, 0.5f, 0.5f);
 }
@@ -71,57 +71,98 @@ void RenderToolButtonNode(const Node* n, ICanvas& canvas, const UiTheme& theme) 
     const Rect chevRect(fullRect.Right() - chevW, fullRect.y, chevW, fullRect.h);
 
     const ComponentMetrics& m = theme.GetMetrics(n->uiSize);
-    const keel::f32 radius = m.cornerRadius;
+    const auto& pal = theme.palette;
+    const keel::f32 radius = p->btn.border.radius.value_or(m.cornerRadius);
     const bool active = p->btn.active;
     const bool mainHov = n->hovered;
     const bool mainPress = n->pressed;
     const bool chevHov = p->chevronHovered || p->chevronOpen;
     const bool chevPress = p->chevronPressed || p->chevronOpen;
     const bool anyHov = mainHov || chevHov;
+    const bool anyPress = mainPress || chevPress;
 
+    const bool isGhost = !active && (p->btn.style == ButtonStyle::Ghost) && !p->btn.background.HasAny();
+    const UiVariant effVar = (p->btn.variant == UiVariant::Default) ? UiVariant::Primary : p->btn.variant;
+    const VariantColors& v = theme.GetVariant(effVar);
+
+    Color baseBg = Color::Transparent();
     Color mainBg = Color::Transparent();
     Color chevBg = Color::Transparent();
-    Color textCol = theme.palette.textPrimary;
+    Color textCol = pal.textPrimary;
     Color borderCol = Color::Transparent();
+    keel::f32 borderW = 0.0f;
 
-    if (!active && (!p->btn.color.HasAny() || p->btn.color == StateColor::Ghost())) {
+    if (p->btn.background.HasAny()) {
+        baseBg = theme.ResolveColor(p->btn.background, false, active, n->disabled, v.bg);
+        const Color hovBg = theme.ResolveColor(p->btn.background, true, false, n->disabled, v.bgHover);
+        const Color pressBg = theme.ResolveColor(p->btn.background, false, true, n->disabled, v.bgActive);
+        mainBg = mainPress ? pressBg : (mainHov ? hovBg : baseBg);
+        chevBg = chevPress ? pressBg : (chevHov ? hovBg : baseBg);
+        textCol = n->disabled ? v.text.WithAlphaF(theme.disabledOpacity) : v.text;
+    } else if (isGhost) {
         const VariantColors& ghost = theme.GetVariant(UiVariant::Ghost);
         mainBg = mainPress ? ghost.bgActive : (mainHov ? ghost.bgHover : Color::Transparent());
         chevBg = chevPress ? ghost.bgActive : (chevHov ? ghost.bgHover : Color::Transparent());
-        textCol = n->disabled ? ghost.text.WithAlphaF(0.40f) : ghost.text;
+        textCol = n->disabled ? ghost.text.WithAlphaF(theme.disabledOpacity) : ghost.text;
         if (n->disabled) {
-            mainBg = mainBg.WithAlphaF(0.40f);
-            chevBg = chevBg.WithAlphaF(0.40f);
+            mainBg = mainBg.WithAlphaF(theme.disabledOpacity);
+            chevBg = chevBg.WithAlphaF(theme.disabledOpacity);
         } else if (anyHov) {
-            borderCol = theme.palette.borderSubtle;
+            borderCol = pal.borderSubtle;
+            borderW = 1.0f;
         }
     } else {
-        const VariantColors& prim = theme.GetVariant(UiVariant::Primary);
-        const Color baseBg = p->btn.color.Resolve(false, active, n->disabled, prim.bg, prim.bgHover, prim.bgActive, prim.bg.WithAlphaF(0.40f));
-        const Color hovBg = p->btn.color.Resolve(true, false, n->disabled, prim.bg, prim.bgHover, prim.bgActive, prim.bg.WithAlphaF(0.40f));
-        const Color pressBg = p->btn.color.Resolve(false, true, n->disabled, prim.bg, prim.bgHover, prim.bgActive, prim.bg.WithAlphaF(0.40f));
-        mainBg = mainPress ? pressBg : (mainHov ? hovBg : baseBg);
-        chevBg = chevPress ? pressBg : (chevHov ? hovBg : baseBg);
-        const Color baseText = (p->btn.color == StateColor::Warning() && theme.mode == ThemeMode::Dark)
-            ? Color::Hex(0x0F172AFF)
-            : Color::Hex(0xFFFFFFFF);
-        textCol = n->disabled ? baseText.WithAlphaF(0.40f) : baseText;
+        baseBg = active ? v.bgActive : v.bg;
+        mainBg = mainPress ? v.bgActive : (mainHov ? v.bgHover : baseBg);
+        chevBg = chevPress ? v.bgActive : (chevHov ? v.bgHover : baseBg);
+        textCol = n->disabled ? v.text.WithAlphaF(theme.disabledOpacity) : v.text;
+        if (n->disabled) {
+            mainBg = mainBg.WithAlphaF(theme.disabledOpacity);
+            chevBg = chevBg.WithAlphaF(theme.disabledOpacity);
+        }
     }
+
+    if (p->btn.border.color.HasAny()) {
+        borderCol = theme.ResolveColor(p->btn.border.color, anyHov, anyPress || active, n->disabled, pal.border);
+        borderW = (p->btn.border.width > 0.0f) ? p->btn.border.width : 1.0f;
+    } else if (p->btn.border.width > 0.0f) {
+        borderCol = pal.border;
+        borderW = p->btn.border.width;
+    }
+
+    const FrameKind splitKind = isGhost ? FrameKind::ToolbarButton : FrameKind::Button;
+    theme.Painter().DrawFrame(canvas, theme, splitKind, FramePaintParams{
+        .rect = fullRect,
+        .radius = radius,
+        .explicitRadius = p->btn.border.radius.has_value(),
+        .bg = baseBg,
+        .border = borderCol,
+        .borderWidth = borderW,
+        .hovered = anyHov,
+        .pressed = anyPress,
+        .active = active,
+        .focused = n->focused && !n->disabled,
+        .disabled = n->disabled,
+        .accent = pal.accent
+    });
 
     canvas.PushClip(fullRect);
 
-    if (mainBg.a > 0 && mainRect.w > 0.0f) {
+    if (mainBg.a > 0 && mainBg != baseBg && mainRect.w > 0.0f) {
         canvas.PushClip(mainRect);
         canvas.DrawRoundRect(fullRect, radius, mainBg, Color::Transparent(), 0.0f);
         canvas.PopClip();
     }
-    if (chevBg.a > 0 && chevRect.w > 0.0f) {
+    if (chevBg.a > 0 && chevBg != baseBg && chevRect.w > 0.0f) {
         canvas.PushClip(chevRect);
         canvas.DrawRoundRect(fullRect, radius, chevBg, Color::Transparent(), 0.0f);
         canvas.PopClip();
     }
 
+    const keel::f32 mainShift = theme.Painter().GetButtonContentOffset(theme, mainPress, active, n->disabled);
+    const Rect shiftedMainRect(mainRect.x + mainShift, mainRect.y + mainShift, mainRect.w, mainRect.h);
     ButtonOptions mainBtn = p->btn;
+    mainBtn.style = ButtonStyle::Ghost;
     mainBtn.background = StateColor::None();
     mainBtn.border = {.width = 0.0f};
     mainBtn.active = false;
@@ -129,30 +170,25 @@ void RenderToolButtonNode(const Node* n, ICanvas& canvas, const UiTheme& theme) 
     if (!mainBtn.iconColor.has_value()) {
         mainBtn.iconColor = textCol;
     }
-    detail::Button::Render(canvas, mainRect, mainBtn, n->uiSize, false, false, n->disabled, theme, false);
+    detail::Button::Render(canvas, shiftedMainRect, mainBtn, n->uiSize, false, false, n->disabled, theme, false);
 
     const keel::f32 sepX = keel::floor(chevRect.x) + 0.5f;
     const keel::f32 sepPadY = (anyHov && !active) ? 2.0f : keel::round(fullRect.h * 0.20f);
     const Color sepCol = active
         ? textCol.WithAlphaF(n->disabled ? 0.15f : 0.28f)
-        : theme.palette.border.WithAlphaF(n->disabled ? 0.20f : (anyHov ? 0.85f : 0.45f));
-    canvas.DrawLine(Vec2(sepX, fullRect.y + sepPadY), Vec2(sepX, fullRect.Bottom() - sepPadY), sepCol, 1.0f);
+        : pal.border.WithAlphaF(n->disabled ? 0.20f : (anyHov ? 0.85f : 0.45f));
+    theme.Painter().DrawDivider(canvas, theme, Vec2(sepX, fullRect.y + sepPadY), Vec2(sepX, fullRect.Bottom() - sepPadY), sepCol, 1.0f);
 
+    const keel::f32 chevShift = theme.Painter().GetButtonContentOffset(theme, chevPress, false, n->disabled);
     const keel::f32 chevIconSz = keel::round(m.iconSize * 0.72f);
     const Rect chevIconRect(
-        chevRect.x + (chevRect.w - chevIconSz) * 0.5f,
-        chevRect.y + (chevRect.h - chevIconSz) * 0.5f,
+        chevRect.x + (chevRect.w - chevIconSz) * 0.5f + chevShift,
+        chevRect.y + (chevRect.h - chevIconSz) * 0.5f + chevShift,
         chevIconSz,
         chevIconSz
     );
-    const Color chevCol = textCol.WithAlphaF(n->disabled ? 0.40f : (chevHov || active ? 0.95f : 0.75f));
+    const Color chevCol = textCol.WithAlphaF(n->disabled ? theme.disabledOpacity : (chevHov || active ? 0.95f : 0.75f));
     Icon::ChevronDown().Draw(canvas, chevIconRect, chevCol);
-
-    if (n->focused && !n->disabled) {
-        canvas.DrawRoundRect(fullRect, radius, Color::Transparent(), theme.palette.focusRing, 2.0f);
-    } else if (borderCol.a > 0) {
-        canvas.DrawRoundRect(fullRect, radius, Color::Transparent(), borderCol, 1.0f);
-    }
 
     RenderToolBadge(n, p, canvas, theme);
     canvas.PopClip();
@@ -207,10 +243,15 @@ Response ToolbarScope::Toggle(
 ) {
     if (!m_ctx) return Response{};
     opts.active = active;
-    if (active && (!opts.color.HasAny() || opts.color == StateColor::Ghost())) {
-        opts.color = StateColor::Primary();
-    } else if (!active) {
-        opts.color = StateColor::Ghost();
+    if (active) {
+        if (opts.style == ButtonStyle::Ghost && !opts.background.HasAny()) {
+            opts.style = ButtonStyle::Solid;
+            if (opts.variant == UiVariant::Default) {
+                opts.variant = UiVariant::Primary;
+            }
+        }
+    } else if (!opts.background.HasAny()) {
+        opts.style = ButtonStyle::Ghost;
     }
     Response res = detail::Toolbar::ToolButton(*m_ctx, opts, loc);
     if (res.clicked) {
@@ -285,10 +326,15 @@ SplitButtonResponse ToolbarScope::SplitToggle(
 ) {
     if (!m_ctx) return SplitButtonResponse{};
     opts.active = active;
-    if (active && (!opts.color.HasAny() || opts.color == StateColor::Ghost())) {
-        opts.color = StateColor::Primary();
-    } else if (!active) {
-        opts.color = StateColor::Ghost();
+    if (active) {
+        if (opts.style == ButtonStyle::Ghost && !opts.background.HasAny()) {
+            opts.style = ButtonStyle::Solid;
+            if (opts.variant == UiVariant::Default) {
+                opts.variant = UiVariant::Primary;
+            }
+        }
+    } else if (!opts.background.HasAny()) {
+        opts.style = ButtonStyle::Ghost;
     }
 
     keel::SmallArray<ContextMenuItem, 16> menuItems;
@@ -526,7 +572,10 @@ Response detail::Toolbar::ToolButton(
     payload->btn.tooltip = ctx.AllocText(opts.tooltip);
     node->text = payload->btn.text.text;
     payload->btn.icon = ctx.AllocIcon(opts.icon);
-    payload->btn.color = opts.color.HasAny() ? opts.color : StateColor::Ghost();
+    payload->btn.style = opts.style;
+    payload->btn.variant = opts.variant;
+    payload->btn.background = opts.background;
+    payload->btn.border = opts.border;
     payload->btn.iconPlacement = opts.iconPlacement;
     payload->btn.align = opts.align;
     payload->btn.width = opts.width;
@@ -536,13 +585,14 @@ Response detail::Toolbar::ToolButton(
     payload->btn.square = opts.square;
     payload->btn.iconColor = opts.iconColor;
     payload->badge = ctx.AllocText(opts.badge);
-    payload->badgeColor = ( !opts.color.HasAny() || opts.color == StateColor::Ghost() )
-        ? StateColor::Primary()
-        : opts.color;
+    payload->badgeVariant = (opts.variant == UiVariant::Default) ? UiVariant::Primary : opts.variant;
 
     node->SetPayload(payload);
     node->visualHash = detail::HashArgs(
-        opts.color,
+        keel::as<keel::u8>(opts.style),
+        keel::as<keel::u8>(opts.variant),
+        opts.background,
+        opts.border,
         opts.iconPlacement,
         opts.active,
         opts.square,
@@ -652,7 +702,10 @@ SplitButtonResponse detail::Toolbar::SplitButton(
     payload->btn.tooltip = ctx.AllocText(opts.tooltip);
     node->text = payload->btn.text.text;
     payload->btn.icon = ctx.AllocIcon(opts.icon);
-    payload->btn.color = opts.color.HasAny() ? opts.color : StateColor::Ghost();
+    payload->btn.style = opts.style;
+    payload->btn.variant = opts.variant;
+    payload->btn.background = opts.background;
+    payload->btn.border = opts.border;
     payload->btn.iconPlacement = opts.iconPlacement;
     payload->btn.align = opts.align;
     payload->btn.width = opts.width;
@@ -662,9 +715,7 @@ SplitButtonResponse detail::Toolbar::SplitButton(
     payload->btn.square = opts.square;
     payload->btn.iconColor = opts.iconColor;
     payload->badge = ctx.AllocText(opts.badge);
-    payload->badgeColor = (!opts.color.HasAny() || opts.color == StateColor::Ghost())
-        ? StateColor::Primary()
-        : opts.color;
+    payload->badgeVariant = (opts.variant == UiVariant::Default) ? UiVariant::Primary : opts.variant;
     payload->isSplit = true;
     payload->splitChevronWidth = chevW;
     payload->chevronHovered = !effectiveDisabled && inChevron;
@@ -705,7 +756,10 @@ SplitButtonResponse detail::Toolbar::SplitButton(
 
     node->SetPayload(payload);
     node->visualHash = detail::HashArgs(
-        opts.color,
+        keel::as<keel::u8>(opts.style),
+        keel::as<keel::u8>(opts.variant),
+        opts.background,
+        opts.border,
         opts.iconPlacement,
         opts.active,
         opts.square,

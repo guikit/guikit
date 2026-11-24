@@ -1073,7 +1073,7 @@ ImageViewResponse RunViewportNode(
                 } else {
                     bOpts.text = ViewportLayoutGeom::kToolLabels[i];
                 }
-                bOpts.color = activeToggle ? StateColor::Primary() : StateColor::Secondary();
+                bOpts.variant = activeToggle ? UiVariant::Primary : UiVariant::Secondary;
                 bOpts.active = activeToggle;
                 bOpts.width = SizeMode::Stretch;
                 detail::Button::Render(c, br, bOpts, vg.toolbarSize, isHovered, false, n->disabled, th, false);
@@ -1512,7 +1512,7 @@ ImageViewResponse RunImageViewImpl(
                     }
                 }
                 guikit::Spacer(ctx);
-                if (guikit::Button(ctx, {.text = "Reset W/L", .size = UiSize::Sm, .color = StateColor::Secondary()}).clicked) {
+                if (guikit::Button(ctx, {.text = "Reset W/L", .size = UiSize::Sm, .variant = UiVariant::Secondary}).clicked) {
                     for (auto& ch : params.channels) {
                         ch.ResetToRange(st.dataMin, st.dataMax);
                     }
@@ -1565,7 +1565,7 @@ ImageViewResponse RunImageViewImpl(
                         .text = kStrengthNames[i],
                         .size = UiSize::Sm,
                         .width = SizeMode::Stretch,
-                        .color = isSel ? StateColor::Primary() : StateColor::Secondary()
+                        .variant = isSel ? UiVariant::Primary : UiVariant::Secondary
                     }).clicked) {
                         params.autoStrength = sMode;
                         keel::ArrayRef<keel::u32> targetBins = st.binsLum;
@@ -1585,7 +1585,7 @@ ImageViewResponse RunImageViewImpl(
                     .text = "Auto White Balance (Per-Channel R/G/B)",
                     .size = UiSize::Sm,
                     .width = SizeMode::Stretch,
-                    .color = StateColor::Secondary()
+                    .variant = UiVariant::Secondary
                 }).clicked) {
                     params.channels[0].ResetToRange(st.dataMin, st.dataMax);
                     const AutoWindowStrength effStr = (params.autoStrength == AutoWindowStrength::Off)
@@ -1601,10 +1601,10 @@ ImageViewResponse RunImageViewImpl(
             // --- Section 4: Transform & View ---
             guikit::Text(ctx, "Transform & View", {.role = TextRole::LabelLarge});
             if (auto zRow = guikit::Row(ctx, {.gap = 6.0f, .align = Alignment::Center})) {
-                if (guikit::Button(ctx, {.text = "Fit", .size = UiSize::Sm, .width = SizeMode::Stretch, .color = StateColor::Secondary()}).clicked) {
+                if (guikit::Button(ctx, {.text = "Fit", .size = UiSize::Sm, .width = SizeMode::Stretch, .variant = UiVariant::Secondary}).clicked) {
                     st.fitPending = true;
                 }
-                if (guikit::Button(ctx, {.text = "100%", .size = UiSize::Sm, .width = SizeMode::Stretch, .color = StateColor::Secondary()}).clicked) {
+                if (guikit::Button(ctx, {.text = "100%", .size = UiSize::Sm, .width = SizeMode::Stretch, .variant = UiVariant::Secondary}).clicked) {
                     st.zoom = 1.0f;
                     st.fitPending = false;
                 }
@@ -1625,7 +1625,7 @@ ImageViewResponse RunImageViewImpl(
                     .text = "Flip H",
                     .size = UiSize::Sm,
                     .width = SizeMode::Stretch,
-                    .color = params.flipHorizontal ? StateColor::Primary() : StateColor::Secondary()
+                    .variant = params.flipHorizontal ? UiVariant::Primary : UiVariant::Secondary
                 }).clicked) {
                     params.flipHorizontal = !params.flipHorizontal;
                     sidebarChangedParams = true;
@@ -1634,7 +1634,7 @@ ImageViewResponse RunImageViewImpl(
                     .text = "Flip V",
                     .size = UiSize::Sm,
                     .width = SizeMode::Stretch,
-                    .color = params.flipVertical ? StateColor::Primary() : StateColor::Secondary()
+                    .variant = params.flipVertical ? UiVariant::Primary : UiVariant::Secondary
                 }).clicked) {
                     params.flipVertical = !params.flipVertical;
                     sidebarChangedParams = true;

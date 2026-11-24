@@ -38,7 +38,10 @@ struct ToolButtonOptions {
     UiText text{};
     UiText tooltip{};
     Icon icon{};
-    StateColor color{StateColor::Ghost()};
+    ButtonStyle style{ButtonStyle::Ghost};
+    UiVariant variant{UiVariant::Default};
+    StateColor background{};
+    Border border{};
     Placement iconPlacement{Placement::Leading};
     Align align{Align::Center};                 ///< Content horizontal alignment (Start = left, Center, End = right)
     AxisSize width{SizeMode::Fit};              ///< Horizontal sizing policy (`Fit`, `Stretch`, or explicit `dp`)
@@ -121,10 +124,15 @@ public:
     ) {
         const bool isSelected = (selectedValue == itemValue);
         opts.active = isSelected;
-        if (isSelected && (!opts.color.HasAny() || opts.color == StateColor::Ghost())) {
-            opts.color = StateColor::Primary();
-        } else if (!isSelected) {
-            opts.color = StateColor::Ghost();
+        if (isSelected) {
+            if (opts.style == ButtonStyle::Ghost && !opts.background.HasAny()) {
+                opts.style = ButtonStyle::Solid;
+                if (opts.variant == UiVariant::Default) {
+                    opts.variant = UiVariant::Primary;
+                }
+            }
+        } else if (!opts.background.HasAny()) {
+            opts.style = ButtonStyle::Ghost;
         }
         Response res = ToolButton(keel::move(opts), loc);
         if (res.clicked && !isSelected) {

@@ -466,6 +466,13 @@ keel::f32 DefaultStylePainter::GetButtonContentOffset(
     return (!disabled && (pressed || active)) ? theme.chrome.buttonPressOffset : 0.0f;
 }
 
+keel::f32 DefaultStylePainter::GetTabGap(
+    const UiTheme& theme,
+    keel::f32 fallbackGap
+) const noexcept {
+    return (theme.chrome.tabGapOverride >= 0.0f) ? theme.chrome.tabGapOverride : fallbackGap;
+}
+
 void DefaultStylePainter::DrawDivider(
     ICanvas& canvas,
     const UiTheme& theme,

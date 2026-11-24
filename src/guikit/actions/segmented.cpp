@@ -3,6 +3,7 @@
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
+#include "guikit/style/style_painter.hpp"
 #include "keel/math.h"
 #include "keel/small_array.h"
 
@@ -481,10 +482,18 @@ void detail::Segmented::Render(
     keel::f32 trackStrokeW = (opts.border.width > 0.0f) ? opts.border.width : sm.strokeWidth;
     if (focused && !disabled && trackStrokeW > 0.0f) trackStrokeW += 0.5f;
     if (disabled) {
-        trackBg = trackBg.WithAlphaF(0.40f);
-        trackBorder = trackBorder.WithAlphaF(0.40f);
+        trackBg = trackBg.WithAlphaF(theme.disabledOpacity);
+        trackBorder = trackBorder.WithAlphaF(theme.disabledOpacity);
     }
-    canvas.DrawRoundRect(trackRect, trackRadius, trackBg, trackBorder, trackStrokeW);
+    theme.Painter().DrawSurface(canvas, theme, SurfacePaintParams{
+        .rect = trackRect,
+        .role = SurfaceRole::Sunken,
+        .radius = trackRadius,
+        .explicitRadius = opts.border.radius.has_value(),
+        .bg = trackBg,
+        .border = trackBorder,
+        .borderWidth = trackStrokeW
+    });
 
     if (items.empty()) return;
 
@@ -511,7 +520,7 @@ void detail::Segmented::Render(
                 const Rect& r = segRects[i];
                 const keel::f32 x = keel::round(r.Right());
                 const keel::f32 padY = keel::max(4.0f, r.h * 0.22f);
-                canvas.DrawLine({x, r.y + padY}, {x, r.Bottom() - padY}, divCol, 1.0f);
+                theme.Painter().DrawDivider(canvas, theme, {x, r.y + padY}, {x, r.Bottom() - padY}, divCol, 1.0f);
             }
         }
     }
@@ -538,26 +547,53 @@ void detail::Segmented::Render(
                 pillFill = theme.ResolveColor(opts.color, hovered, pressed, segDisabled, pal.accent);
                 fgColor = segDisabled ? pal.textMuted : ResolveContrastingTextOnFill(pillFill, pal);
             } else {
-                // Default elevated segment pill with subtle primary accent tint & crisp border
                 const Color basePill = Color::Lerp(pal.surfaceHover, pal.accent, 0.24f);
                 pillFill = segDisabled
-                    ? pal.surface.WithAlphaF(0.45f)
+                    ? pal.surface.WithAlphaF(theme.disabledOpacity)
                     : (pressed ? StateColor::DarkenColor(basePill)
                                : (hovered ? StateColor::BrightenColor(basePill) : basePill));
                 pillStroke = segDisabled ? pal.borderSubtle : pal.accent.WithAlpha(165);
                 pillStrokeW = 1.0f;
                 fgColor = segDisabled ? pal.textMuted : pal.textPrimary;
             }
-            canvas.DrawRoundRect(sr, pillRadius, pillFill, pillStroke, pillStrokeW);
+            theme.Painter().DrawFrame(canvas, theme, FrameKind::Button, FramePaintParams{
+                .rect = sr,
+                .radius = pillRadius,
+                .explicitRadius = opts.border.radius.has_value(),
+                .bg = pillFill,
+                .border = pillStroke,
+                .borderWidth = pillStrokeW,
+                .hovered = hovered,
+                .pressed = pressed,
+                .active = false,
+                .focused = focused && !segDisabled,
+                .disabled = segDisabled,
+                .accent = pal.accent
+            });
         } else if (hovered || pressed) {
             const Color hovFill = pressed
                 ? pal.surfaceActive.WithAlpha(160)
                 : pal.surfaceHover.WithAlpha(115);
-            canvas.DrawRoundRect(sr, pillRadius, hovFill);
+            theme.Painter().DrawFrame(canvas, theme, FrameKind::ToolbarButton, FramePaintParams{
+                .rect = sr,
+                .radius = pillRadius,
+                .explicitRadius = opts.border.radius.has_value(),
+                .bg = hovFill,
+                .border = Color::Transparent(),
+                .borderWidth = 0.0f,
+                .hovered = hovered,
+                .pressed = pressed,
+                .active = false,
+                .focused = false,
+                .disabled = segDisabled,
+                .accent = pal.accent
+            });
         }
 
         // Draw icon and/or text inside segment rect (strictly clipped to segment bounds)
         canvas.PushClip(sr);
+        const keel::f32 pressShift = theme.Painter().GetButtonContentOffset(theme, pressed, false, segDisabled);
+        const Rect contentRect(sr.x + pressShift, sr.y + pressShift, sr.w, sr.h);
 
         const bool hasIcon = item.icon.IsValid();
         const bool hasText = !item.text.empty();
@@ -566,36 +602,36 @@ void detail::Segmented::Render(
 
         if (hasIcon && hasText) {
             if (item.iconPlacement == Placement::Top || item.iconPlacement == Placement::Bottom) {
-                const keel::f32 padX = keel::min(3.0f, sr.w * 0.10f);
-                const keel::f32 availW = keel::max(0.0f, sr.w - padX * 2.0f);
+                const keel::f32 padX = keel::min(3.0f, contentRect.w * 0.10f);
+                const keel::f32 availW = keel::max(0.0f, contentRect.w - padX * 2.0f);
                 const keel::f32 gapY = 2.0f;
                 const keel::f32 totalH = iconSz + gapY + fontSize;
-                if (availW < fontSize * 1.15f || sr.h < iconSz + fontSize * 0.85f) {
-                    const Rect iconRect(sr.x + (sr.w - iconSz) * 0.5f, sr.y + (sr.h - iconSz) * 0.5f, iconSz, iconSz);
+                if (availW < fontSize * 1.15f || contentRect.h < iconSz + fontSize * 0.85f) {
+                    const Rect iconRect(contentRect.x + (contentRect.w - iconSz) * 0.5f, contentRect.y + (contentRect.h - iconSz) * 0.5f, iconSz, iconSz);
                     item.icon.Draw(canvas, iconRect, fgColor);
                 } else {
-                    const keel::f32 startY = sr.y + (sr.h - totalH) * 0.5f;
+                    const keel::f32 startY = contentRect.y + (contentRect.h - totalH) * 0.5f;
                     if (item.iconPlacement == Placement::Top) {
-                        const Rect iconRect(sr.x + (sr.w - iconSz) * 0.5f, startY, iconSz, iconSz);
+                        const Rect iconRect(contentRect.x + (contentRect.w - iconSz) * 0.5f, startY, iconSz, iconSz);
                         item.icon.Draw(canvas, iconRect, fgColor);
-                        const Rect textRect(sr.x + padX, startY + iconSz + gapY, availW, fontSize + 2.0f);
-                        canvas.DrawTextBox(item.text.text, textRect, fontSize, fgColor, 0.5f, 0.5f);
+                        const Rect textRect(contentRect.x + padX, startY + iconSz + gapY, availW, fontSize + 2.0f);
+                        theme.Painter().DrawControlText(canvas, theme, item.text.text, textRect, fontSize, fgColor, segDisabled, 0.5f, 0.5f);
                     } else {
-                        const Rect textRect(sr.x + padX, startY, availW, fontSize + 2.0f);
-                        canvas.DrawTextBox(item.text.text, textRect, fontSize, fgColor, 0.5f, 0.5f);
-                        const Rect iconRect(sr.x + (sr.w - iconSz) * 0.5f, startY + fontSize + gapY, iconSz, iconSz);
+                        const Rect textRect(contentRect.x + padX, startY, availW, fontSize + 2.0f);
+                        theme.Painter().DrawControlText(canvas, theme, item.text.text, textRect, fontSize, fgColor, segDisabled, 0.5f, 0.5f);
+                        const Rect iconRect(contentRect.x + (contentRect.w - iconSz) * 0.5f, startY + fontSize + gapY, iconSz, iconSz);
                         item.icon.Draw(canvas, iconRect, fgColor);
                     }
                 }
             } else {
-                const keel::f32 padX = keel::min(4.0f, sr.w * 0.12f);
-                const keel::f32 gapX = keel::min(5.0f, keel::max(2.0f, sr.w * 0.08f));
-                const keel::f32 availW = keel::max(0.0f, sr.w - padX * 2.0f);
+                const keel::f32 padX = keel::min(4.0f, contentRect.w * 0.12f);
+                const keel::f32 gapX = keel::min(5.0f, keel::max(2.0f, contentRect.w * 0.08f));
+                const keel::f32 availW = keel::max(0.0f, contentRect.w - padX * 2.0f);
                 const keel::f32 availTextW = availW - iconSz - gapX;
 
                 // When segment is too narrow to show meaningful text beside the icon, auto-collapse to centered icon
                 if (availTextW < fontSize * 1.45f) {
-                    const Rect iconRect(sr.x + (sr.w - iconSz) * 0.5f, sr.y + (sr.h - iconSz) * 0.5f, iconSz, iconSz);
+                    const Rect iconRect(contentRect.x + (contentRect.w - iconSz) * 0.5f, contentRect.y + (contentRect.h - iconSz) * 0.5f, iconSz, iconSz);
                     item.icon.Draw(canvas, iconRect, fgColor);
                 } else {
                     keel::FixedString<256> truncatedLabel;
@@ -607,27 +643,27 @@ void detail::Segmented::Render(
                         textW = keel::min(availTextW, canvas.MeasureText(displayLabel, fontSize).x);
                     }
                     const keel::f32 totalW = iconSz + gapX + textW;
-                    const keel::f32 startX = sr.x + keel::max(padX, (sr.w - totalW) * 0.5f);
-                    const keel::f32 iconY = sr.y + (sr.h - iconSz) * 0.5f;
+                    const keel::f32 startX = contentRect.x + keel::max(padX, (contentRect.w - totalW) * 0.5f);
+                    const keel::f32 iconY = contentRect.y + (contentRect.h - iconSz) * 0.5f;
                     if (item.iconPlacement == Placement::Trailing) {
-                        const Rect textRect(startX, sr.y, availTextW, sr.h);
-                        canvas.DrawTextBox(displayLabel, textRect, fontSize, fgColor, 0.0f, 0.5f);
+                        const Rect textRect(startX, contentRect.y, availTextW, contentRect.h);
+                        theme.Painter().DrawControlText(canvas, theme, displayLabel, textRect, fontSize, fgColor, segDisabled, 0.0f, 0.5f);
                         const Rect iconRect(startX + textW + gapX, iconY, iconSz, iconSz);
                         item.icon.Draw(canvas, iconRect, fgColor);
                     } else {
                         const Rect iconRect(startX, iconY, iconSz, iconSz);
                         item.icon.Draw(canvas, iconRect, fgColor);
-                        const Rect textRect(startX + iconSz + gapX, sr.y, availTextW, sr.h);
-                        canvas.DrawTextBox(displayLabel, textRect, fontSize, fgColor, 0.0f, 0.5f);
+                        const Rect textRect(startX + iconSz + gapX, contentRect.y, availTextW, contentRect.h);
+                        theme.Painter().DrawControlText(canvas, theme, displayLabel, textRect, fontSize, fgColor, segDisabled, 0.0f, 0.5f);
                     }
                 }
             }
         } else if (hasIcon) {
-            const Rect iconRect(sr.x + (sr.w - iconSz) * 0.5f, sr.y + (sr.h - iconSz) * 0.5f, iconSz, iconSz);
+            const Rect iconRect(contentRect.x + (contentRect.w - iconSz) * 0.5f, contentRect.y + (contentRect.h - iconSz) * 0.5f, iconSz, iconSz);
             item.icon.Draw(canvas, iconRect, fgColor);
         } else if (hasText) {
-            const keel::f32 padX = keel::min(4.0f, sr.w * 0.12f);
-            canvas.DrawTextBox(item.text.text, sr.Inset(padX, 0.0f), fontSize, fgColor, 0.5f, 0.5f);
+            const keel::f32 padX = keel::min(4.0f, contentRect.w * 0.12f);
+            theme.Painter().DrawControlText(canvas, theme, item.text.text, contentRect.Inset(padX, 0.0f), fontSize, fgColor, segDisabled, 0.5f, 0.5f);
         }
 
         canvas.PopClip();

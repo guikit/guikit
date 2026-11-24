@@ -476,7 +476,7 @@ void TestBoxSlotWithUiSizeToken() {
     auto renderUI = [&]() {
         if (auto col = guikit::Column(ui, {.gap = 12.0f})) {
             if (auto slotLg = guikit::Box(ui)) {
-                btnLarge = guikit::Button(ui, {.text = "Large Action", .size = UiSize::Lg, .width = SizeMode::Stretch, .color = StateColor::Primary()});
+                btnLarge = guikit::Button(ui, {.text = "Large Action", .size = UiSize::Lg, .width = SizeMode::Stretch, .variant = UiVariant::Primary});
             }
             if (auto slotSquare = guikit::Box(ui, {.width = 32.0f})) {
                 btnSquareIcon = guikit::Button(ui, {.icon = Icon::Close(), .size = UiSize::Sm});
@@ -515,12 +515,12 @@ void TestButtonWidgetRunAndResponseChaining() {
 
     auto renderUI = [&]() {
         if (auto row = guikit::Row(ui, {.gap = 8.0f})) {
-            // Autonomous Button::Run via ui.Button
+            // Autonomous Button::Run via guikit::Button
             btn1 = guikit::Button(ui, {
                 .text = "Next",
                 .icon = Icon::ChevronRight(),
                 .iconPlacement = Placement::Trailing,
-                .color = StateColor::Primary()
+                .variant = UiVariant::Primary
             });
 
             // Direct call to Button::Run
@@ -528,7 +528,7 @@ void TestButtonWidgetRunAndResponseChaining() {
                 .text = "Prev",
                 .icon = Icon::ChevronLeft(),
                 .iconPlacement = Placement::Leading,
-                .color = StateColor::Secondary()
+                .variant = UiVariant::Secondary
             });
         }
     };
@@ -10480,7 +10480,7 @@ void TestModalContextMenuAndToastWorkflow() {
                     modalBodyExecuted = true;
                     modalDialogRect = modal.response.rect;
                     guikit::Text(ui, "Are you sure you want to reset?");
-                    auto confirmBtn = guikit::Button(ui, {.text = "Confirm", .color = StateColor::Primary()});
+                    auto confirmBtn = guikit::Button(ui, {.text = "Confirm", .variant = UiVariant::Primary});
                     modalConfirmRect = confirmBtn.rect;
                     if (confirmBtn.clicked) {
                         modalConfirmClicked = true;
@@ -11305,7 +11305,7 @@ void TestZonePartialThemeOverrides() {
             insideAccent = zt.palette.accent;
             insideRadius = zt.GetMetrics(UiSize::Md).cornerRadius;
             insideShadows = zt.shadowsEnabled;
-            guikit::Button(ui, {.text = "Patched Button", .color = StateColor::Primary()});
+            guikit::Button(ui, {.text = "Patched Button", .variant = UiVariant::Primary});
         }
 
         const UiTheme& restored = ui.GetTheme();
@@ -15680,7 +15680,7 @@ void TestControlFlatSizingAndStyleOptions() {
         auto renderStyled = [&]() {
             ui.BeginFrame({800.0f, 600.0f});
             if (auto col = guikit::Column(ui, {.gap = 8.0f, .padding = Padding::All(12.0f)})) {
-                rBtn = guikit::Button(ui, {.text = "Danger Action", .size = UiSize::Lg, .color = dangerColor, .background = dangerBg, .border = dangerBorder});
+                rBtn = guikit::Button(ui, {.text = "Danger Action", .size = UiSize::Lg, .variant = UiVariant::Danger, .background = dangerBg, .border = dangerBorder});
                 rIn  = guikit::InputField(ui, inTxt, {.size = UiSize::Lg, .color = dangerColor, .background = dangerBg, .border = dangerBorder});
                 rSel = guikit::Select(ui, selIdx, selItems, {.size = UiSize::Lg, .color = dangerColor, .background = dangerBg, .border = dangerBorder});
 

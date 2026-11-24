@@ -20,6 +20,15 @@ enum class UiVariant : keel::u8 {
     Muted       ///< Subdued / secondary styling (slate-400)
 };
 
+/// Visual emphasis style for buttons and action triggers (`actions/`).
+enum class ButtonStyle : keel::u8 {
+    Default = 0, ///< Standard neutral/semantic button following the active theme's `FillStyle` & `ChromeStyle`
+    Solid,       ///< Saturated semantic emphasis fill with contrasting foreground ink
+    Soft,        ///< Tonal tinted surface with matching semantic accent ink
+    Outline,     ///< Transparent fill with crisp semantic border and tinted hover state
+    Ghost        ///< Borderless transparent trigger revealing chrome on hover/active (toolbars, chrome icons)
+};
+
 /// Universal relative placement for companion elements (e.g. icons or value readouts inside controls).
 enum class Placement : keel::u8 {
     Leading,    ///< Placed before primary element (left / start)

@@ -34,9 +34,10 @@ struct ButtonOptions {
     keel::Optional<keel::f32> maxWidth{keel::kNullOpt}; ///< Optional maximum width in logical dp
     keel::Optional<keel::f32> minHeight{keel::kNullOpt};///< Optional minimum height in logical dp
     keel::Optional<keel::f32> maxHeight{keel::kNullOpt};///< Optional maximum height in logical dp
-    StateColor color{};                             ///< Per-state semantic fill/accent color override
-    StateColor background{};                        ///< Optional background fill override (`{}` = theme/variant default, `StateColor::None()` = transparent)
-    Border border{};                                ///< Optional border width, color, and radius override
+    ButtonStyle style{ButtonStyle::Default};        ///< Visual emphasis style (`Default`, `Solid`, `Soft`, `Outline`, `Ghost`)
+    UiVariant variant{UiVariant::Default};          ///< Semantic tone (`Default`, `Primary`, `Success`, `Warning`, `Danger`, `Info`)
+    StateColor background{};                        ///< Optional low-level background fill override (`{}` = theme default, `StateColor::None()` = transparent)
+    Border border{};                                ///< Optional low-level border width, color, and radius override
 };
 
 /// Type alias for button response.

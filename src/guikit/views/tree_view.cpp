@@ -806,7 +806,7 @@ TreeViewScope detail::TreeView::Open(
                     .tooltip = "Expand all tree branches",
                     .disabled = activeDisabled,
                     .width = SizeMode::Fit,
-                    .color = StateColor::Ghost()
+                    .style = ButtonStyle::Ghost
                 })) {
                     st.bulkToggleGen++;
                     st.bulkToggleOpen = true;
@@ -818,7 +818,7 @@ TreeViewScope detail::TreeView::Open(
                     .tooltip = "Collapse all tree branches",
                     .disabled = activeDisabled,
                     .width = SizeMode::Fit,
-                    .color = StateColor::Ghost()
+                    .style = ButtonStyle::Ghost
                 })) {
                     st.bulkToggleGen++;
                     st.bulkToggleOpen = false;

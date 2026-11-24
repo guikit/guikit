@@ -37,11 +37,14 @@ bool ShellControls::RenderSidebarCycleButton(
     const Icon& icon
 ) {
     Context& ui = win.GetUi();
-    const StateColor btnColor = (mode == SidebarMode::Expanded)
-        ? StateColor::Primary()
+    const ButtonStyle btnStyle = (mode == SidebarMode::Collapsed)
+        ? ButtonStyle::Ghost
+        : ButtonStyle::Solid;
+    const UiVariant btnVariant = (mode == SidebarMode::Expanded)
+        ? UiVariant::Primary
         : (mode == SidebarMode::Compact)
-            ? StateColor::Info()
-            : StateColor::Ghost();
+            ? UiVariant::Info
+            : UiVariant::Default;
 
     const keel::StringRef tooltip = (mode == SidebarMode::Expanded)
         ? ui.Format("{}: Expanded (Click for Compact Icons, Right-click to Collapse)", sidebarTitle)
@@ -53,7 +56,8 @@ bool ShellControls::RenderSidebarCycleButton(
         .text = label,
         .tooltip = tooltip,
         .icon = icon,
-        .color = btnColor,
+        .style = btnStyle,
+        .variant = btnVariant,
         .active = (mode != SidebarMode::Collapsed)
     });
 
@@ -96,7 +100,7 @@ bool ShellControls::RenderSidebarToggle(
         .text = label,
         .tooltip = tooltip,
         .icon = icon,
-        .color = StateColor::Primary()
+        .variant = UiVariant::Primary
     }).changed) {
         mode = visible ? SidebarMode::Expanded : SidebarMode::Collapsed;
         ui.InvalidateAll();
@@ -152,7 +156,7 @@ void ShellControls::RenderDebugControls(MainWindow& win, ToolbarScope& tb) {
         if (tb.Toggle(boundsActive, {
             .text = "Bounds",
             .icon = boundsActive ? Icon::Eye() : Icon::EyeOff(),
-            .color = StateColor::Info()
+            .variant = UiVariant::Info
         }).changed) {
             ui.SetDebugBounds(boundsActive);
         }
@@ -161,7 +165,7 @@ void ShellControls::RenderDebugControls(MainWindow& win, ToolbarScope& tb) {
         if (tb.Toggle(inspectActive, {
             .text = "Inspect",
             .icon = Icon::Search(),
-            .color = StateColor::Warning()
+            .variant = UiVariant::Warning
         }).changed) {
             ui.SetInspectMode(inspectActive);
         }

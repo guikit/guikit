@@ -5,6 +5,7 @@
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
 #include "guikit/graphics/icon.hpp"
+#include "guikit/style/style_painter.hpp"
 #include "keel/math.h"
 #include "keel/small_array.h"
 
@@ -534,33 +535,68 @@ void detail::Pagination::Render(
         Color fgColor = tokDisabled ? pal.textDisabled : (isHovered ? pal.textPrimary : pal.textSecondary);
 
         if (isActivePage) {
-            pillFill = tokDisabled ? accentColor.WithAlphaF(0.40f) : accentColor;
+            pillFill = tokDisabled ? accentColor.WithAlphaF(theme.disabledOpacity) : accentColor;
             pillStroke = (focused && !tokDisabled) ? pal.focusRing : Color::Transparent();
             pillStrokeW = (focused && !tokDisabled) ? 1.5f : 0.0f;
             fgColor = tokDisabled ? pal.textDisabled : ResolveContrastingTextOnFill(pillFill, pal);
+            theme.Painter().DrawFrame(canvas, theme, FrameKind::Button, FramePaintParams{
+                .rect = tr,
+                .radius = pillRadius,
+                .bg = pillFill,
+                .border = pillStroke,
+                .borderWidth = pillStrokeW,
+                .hovered = isHovered,
+                .pressed = isPressed,
+                .active = true,
+                .focused = focused && !tokDisabled,
+                .disabled = tokDisabled,
+                .accent = accentColor
+            });
         } else if (isEllipsis) {
             fgColor = disabled ? pal.textDisabled : pal.textSecondary;
             if (d->opts.interactiveEllipsis && (isHovered || isPressed)) {
                 pillFill = isPressed ? pal.surfaceActive : pal.surfaceHover;
                 pillStroke = accentColor.WithAlphaF(0.65f);
-            } else {
-                pillStrokeW = 0.0f;
+                theme.Painter().DrawFrame(canvas, theme, FrameKind::ToolbarButton, FramePaintParams{
+                    .rect = tr,
+                    .radius = pillRadius,
+                    .bg = pillFill,
+                    .border = pillStroke,
+                    .borderWidth = 1.0f,
+                    .hovered = isHovered,
+                    .pressed = isPressed,
+                    .disabled = tokDisabled,
+                    .accent = accentColor
+                });
             }
         } else {
             pillFill = tokDisabled
-                ? pal.surface.WithAlphaF(0.35f)
+                ? pal.surface.WithAlphaF(theme.disabledOpacity)
                 : (isPressed ? pal.surfaceActive : (isHovered ? pal.surfaceHover : pal.surface));
-            pillStroke = tokDisabled ? pal.borderSubtle.WithAlphaF(0.45f) : (isHovered ? pal.borderHover : pal.borderSubtle);
+            pillStroke = tokDisabled ? pal.borderSubtle.WithAlphaF(theme.disabledOpacity) : (isHovered ? pal.borderHover : pal.borderSubtle);
+            theme.Painter().DrawFrame(canvas, theme, FrameKind::Button, FramePaintParams{
+                .rect = tr,
+                .radius = pillRadius,
+                .bg = pillFill,
+                .border = pillStroke,
+                .borderWidth = pillStrokeW,
+                .hovered = isHovered,
+                .pressed = isPressed,
+                .active = false,
+                .focused = false,
+                .disabled = tokDisabled,
+                .accent = accentColor
+            });
         }
 
-        if (pillStrokeW > 0.0f || pillFill.a > 0) {
-            canvas.DrawRoundRect(tr, pillRadius, pillFill, pillStroke, pillStrokeW);
-        }
-
-        const Vec2 center = tr.Center();
+        const keel::f32 shift = isEllipsis
+            ? 0.0f
+            : theme.Painter().GetButtonContentOffset(theme, isPressed, isActivePage, tokDisabled);
+        const Rect shiftedTr(tr.x + shift, tr.y + shift, tr.w, tr.h);
+        const Vec2 center = shiftedTr.Center();
         switch (tok.type) {
             case PageTokenType::First: {
-                DrawDoubleChevron(canvas, tr, true, iconSz, fgColor);
+                DrawDoubleChevron(canvas, shiftedTr, true, iconSz, fgColor);
                 break;
             }
             case PageTokenType::Prev: {
@@ -574,22 +610,22 @@ void detail::Pagination::Render(
                 break;
             }
             case PageTokenType::Last: {
-                DrawDoubleChevron(canvas, tr, false, iconSz, fgColor);
+                DrawDoubleChevron(canvas, shiftedTr, false, iconSz, fgColor);
                 break;
             }
             case PageTokenType::LeftEllipsis:
             case PageTokenType::RightEllipsis: {
                 if (d->opts.interactiveEllipsis && isHovered) {
-                    DrawDoubleChevron(canvas, tr, tok.type == PageTokenType::LeftEllipsis, iconSz * 0.90f, accentColor);
+                    DrawDoubleChevron(canvas, shiftedTr, tok.type == PageTokenType::LeftEllipsis, iconSz * 0.90f, accentColor);
                 } else {
-                    canvas.DrawTextBox("...", tr, fontSize, fgColor, 0.5f, 0.5f);
+                    theme.Painter().DrawControlText(canvas, theme, "...", shiftedTr, fontSize, fgColor, tokDisabled, 0.5f, 0.5f);
                 }
                 break;
             }
             case PageTokenType::PageNumber: {
                 char buf[24];
                 std::snprintf(buf, sizeof(buf), "%zu", tok.targetPage + 1);
-                canvas.DrawTextBox(buf, tr, fontSize, fgColor, 0.5f, 0.5f);
+                theme.Painter().DrawControlText(canvas, theme, buf, shiftedTr, fontSize, fgColor, tokDisabled, 0.5f, 0.5f);
                 break;
             }
         }

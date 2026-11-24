@@ -183,7 +183,8 @@ Response detail::Button::Run(Context& ctx, const ButtonOptions& opts, keel::Sour
 
     const ControlSpec ctrl = EffectiveButtonControl(*bOpts, activeSize, ctx.GetTheme());
     node->visualHash = detail::HashArgs(
-        bOpts->color,
+        keel::as<keel::u8>(bOpts->style),
+        keel::as<keel::u8>(bOpts->variant),
         bOpts->iconPlacement,
         keel::as<keel::u8>(bOpts->align),
         bOpts->active,
@@ -279,91 +280,130 @@ void detail::Button::Render(
 
     const Rect capsuleRect = bounds;
 
+    const auto& pal = theme.palette;
+    const bool isDark = (theme.mode == ThemeMode::Dark);
     const bool hasCtrlBg = opts.background.IsBackgroundEnabled(true);
-    const bool overrideBg = opts.background.HasAny() && !opts.background.IsSurface() && !opts.background.IsNone();
-    StateColor rawEffColor = overrideBg ? opts.background : opts.color;
-    if (!overrideBg && opts.background.IsSurface() && opts.background.HasAlphaScale()) {
-        rawEffColor = rawEffColor.WithAlpha(opts.background.alphaScale);
-    }
-    const StateColor effColor = theme.ResolveStateColor(rawEffColor);
+    const bool isGhostBtn = (opts.style == ButtonStyle::Ghost) ||
+                            (opts.style == ButtonStyle::Default && opts.variant == UiVariant::Ghost);
+    const bool isSemantic = (opts.variant == UiVariant::Primary ||
+                             opts.variant == UiVariant::Success ||
+                             opts.variant == UiVariant::Warning ||
+                             opts.variant == UiVariant::Danger  ||
+                             opts.variant == UiVariant::Info);
+
+    auto ensureInk = [&](Color ink, Color surfaceRef) noexcept -> Color {
+        Color c = ink.WithAlpha(255u);
+        for (keel::i32 step = 0; step < 5; ++step) {
+            if (Color::ContrastRatio(c, surfaceRef) >= 4.5f) return c;
+            c = isDark ? c.Lighten(0.10f) : c.Darken(0.10f);
+        }
+        return Color::BestTextColor(surfaceRef, Color::Hex(0x0F172AFF), Color::Hex(0xFFFFFFFF));
+    };
 
     Color bg = Color::Transparent();
-    Color defaultText = theme.palette.textPrimary;
+    Color defaultText = pal.textPrimary;
     Color borderCol = Color::Transparent();
     keel::f32 borderW = (opts.border.width > 0.0f) ? opts.border.width : 0.0f;
 
-    if (!effColor.HasAny() || effColor.token == StateColorToken::Secondary) {
-        const VariantColors& colors = theme.GetVariant(UiVariant::Secondary);
-        defaultText = colors.text;
-        borderCol = colors.border;
-        if (opts.border.width <= 0.0f) borderW = colors.borderWidth;
-        if (hasCtrlBg) {
-            if (disabled) {
-                bg = effColor.disabled.value_or(colors.bg.WithAlphaF(theme.disabledOpacity));
-            } else if (pressed) {
-                bg = effColor.active.value_or(colors.bgActive);
-            } else if (opts.active) {
-                bg = hovered ? effColor.hover.value_or(colors.bgHover) : effColor.active.value_or(colors.bgActive);
-            } else if (hovered) {
-                bg = effColor.hover.value_or(colors.bgHover);
-            } else {
-                bg = effColor.normal.value_or(colors.bg);
+    if (isGhostBtn) {
+        const VariantColors& ghost = theme.GetVariant(UiVariant::Ghost);
+        if (isSemantic) {
+            const Color seed = theme.GetSemanticAccent(opts.variant);
+            defaultText = ensureInk(seed, pal.surface);
+            if (hasCtrlBg) {
+                if (pressed) bg = seed.WithAlphaF(isDark ? 0.28f : 0.20f);
+                else if (opts.active) bg = hovered ? seed.WithAlphaF(isDark ? 0.24f : 0.16f) : seed.WithAlphaF(isDark ? 0.18f : 0.12f);
+                else if (hovered) bg = seed.WithAlphaF(isDark ? 0.16f : 0.10f);
             }
-            if (!effColor.HasAny() && rawEffColor.HasAlphaScale()) {
-                bg = bg.ScaleAlpha(rawEffColor.alphaScale);
+        } else {
+            defaultText = ghost.text;
+            if (hasCtrlBg) {
+                if (pressed) bg = ghost.bgActive;
+                else if (opts.active) bg = hovered ? ghost.bgHover : ghost.bgActive;
+                else if (hovered) bg = ghost.bgHover;
             }
         }
-        if (disabled) {
-            borderCol = borderCol.WithAlphaF(theme.disabledOpacity);
-        }
-    } else if (effColor.token == StateColorToken::Ghost || (effColor.normal.has_value() && effColor.normal->a == 0)) {
-        const VariantColors& colors = theme.GetVariant(UiVariant::Ghost);
-        defaultText = colors.text;
-        borderCol = (opts.border.width > 0.0f) ? theme.palette.border : colors.border;
-        if (hasCtrlBg) {
-            if (pressed) bg = effColor.active.value_or(colors.bgActive);
-            else if (opts.active) bg = hovered ? effColor.hover.value_or(colors.bgHover) : effColor.active.value_or(colors.bgActive);
-            else if (hovered) bg = effColor.hover.value_or(colors.bgHover);
-            else bg = Color::Transparent();
-        }
+        borderCol = (opts.border.width > 0.0f) ? pal.border : ghost.border;
         if (!disabled && opts.active) {
-            borderCol = colors.text.WithAlphaF(0.35f);
+            borderCol = defaultText.WithAlphaF(0.35f);
             borderW = keel::max(borderW, 1.0f);
         }
         if (disabled) {
             bg = bg.WithAlphaF(theme.disabledOpacity);
             borderCol = borderCol.WithAlphaF(theme.disabledOpacity);
         }
-    } else {
-        UiVariant matchedVar = UiVariant::Primary;
-        bool hasMatchedVar = false;
-        switch (effColor.token) {
-            case StateColorToken::Primary: matchedVar = UiVariant::Primary; hasMatchedVar = true; break;
-            case StateColorToken::Success: matchedVar = UiVariant::Success; hasMatchedVar = true; break;
-            case StateColorToken::Warning: matchedVar = UiVariant::Warning; hasMatchedVar = true; break;
-            case StateColorToken::Danger:  matchedVar = UiVariant::Danger;  hasMatchedVar = true; break;
-            case StateColorToken::Info:    matchedVar = UiVariant::Info;    hasMatchedVar = true; break;
-            default: break;
-        }
-        const VariantColors& fallback = theme.GetVariant(matchedVar);
-        if (rawEffColor.IsTinted() && rawEffColor.GetTint() < 0.55f) {
-            defaultText = hasMatchedVar ? theme.GetTextColor(matchedVar) : theme.palette.textPrimary;
-        } else {
-            defaultText = hasMatchedVar ? fallback.text : Color::Hex(0xFFFFFFFF);
-        }
+    } else if (opts.style == ButtonStyle::Default) {
+        const UiVariant effVar = isSemantic ? opts.variant : UiVariant::Secondary;
+        const VariantColors& vc = theme.GetVariant(effVar);
+        defaultText = vc.text;
+        borderCol = vc.border;
+        if (opts.border.width <= 0.0f) borderW = vc.borderWidth;
         if (hasCtrlBg) {
-            if (opts.active && !pressed && hovered && !disabled) {
-                bg = effColor.hover.value_or(effColor.normal.value_or(fallback.bgHover));
-            } else {
-                bg = effColor.Resolve(hovered, pressed || opts.active, disabled, fallback.bg, fallback.bgHover, fallback.bgActive, fallback.bg.WithAlphaF(theme.disabledOpacity));
-            }
+            if (disabled) bg = vc.bg.WithAlphaF(theme.disabledOpacity);
+            else if (pressed) bg = vc.bgActive;
+            else if (opts.active) bg = hovered ? vc.bgHover : vc.bgActive;
+            else if (hovered) bg = vc.bgHover;
+            else bg = vc.bg;
+        }
+        if (disabled) {
+            borderCol = borderCol.WithAlphaF(theme.disabledOpacity);
+        }
+    } else if (opts.style == ButtonStyle::Solid) {
+        const Color seed = isSemantic ? theme.GetSemanticAccent(opts.variant) : pal.accent;
+        const Color hov = isDark ? seed.Lighten(0.08f) : seed.Lighten(0.07f);
+        const Color act = isDark ? seed.Darken(0.08f) : seed.Darken(0.09f);
+        defaultText = Color::BestTextColor(seed, Color::Hex(0x0F172AFF), Color::Hex(0xFFFFFFFF));
+        if (hasCtrlBg) {
+            if (disabled) bg = seed.WithAlphaF(theme.disabledOpacity);
+            else if (pressed) bg = act;
+            else if (opts.active) bg = hovered ? hov : act;
+            else if (hovered) bg = hov;
+            else bg = seed;
         }
         if (opts.border.width > 0.0f) {
-            borderCol = defaultText.WithAlphaF(0.65f);
-            if (disabled) borderCol = borderCol.WithAlphaF(theme.disabledOpacity);
-        } else if (hasMatchedVar && fallback.borderWidth > 0.0f) {
-            borderCol = disabled ? fallback.border.WithAlphaF(theme.disabledOpacity) : fallback.border;
-            borderW = fallback.borderWidth;
+            borderCol = disabled ? defaultText.WithAlphaF(0.65f * theme.disabledOpacity) : defaultText.WithAlphaF(0.65f);
+        }
+    } else if (opts.style == ButtonStyle::Soft) {
+        const Color seed = isSemantic ? theme.GetSemanticAccent(opts.variant) : pal.accent;
+        const Color baseBg = Color::Lerp(pal.surface, seed, isDark ? 0.22f : 0.15f).WithAlpha(255u);
+        const Color hovBg  = Color::Lerp(pal.surface, seed, isDark ? 0.32f : 0.23f).WithAlpha(255u);
+        const Color actBg  = Color::Lerp(pal.surface, seed, isDark ? 0.42f : 0.31f).WithAlpha(255u);
+        defaultText = ensureInk(isDark ? seed.Lighten(0.18f) : seed.Darken(0.16f), baseBg);
+        borderCol = Color::Lerp(pal.border, seed, isDark ? 0.45f : 0.40f).WithAlpha(255u);
+        if (opts.border.width <= 0.0f) borderW = 1.0f * keel::max(theme.borderScale, 0.5f);
+        if (hasCtrlBg) {
+            if (disabled) bg = baseBg.WithAlphaF(theme.disabledOpacity);
+            else if (pressed) bg = actBg;
+            else if (opts.active) bg = hovered ? hovBg : actBg;
+            else if (hovered) bg = hovBg;
+            else bg = baseBg;
+        }
+        if (disabled) borderCol = borderCol.WithAlphaF(theme.disabledOpacity);
+    } else {
+        // ButtonStyle::Outline
+        const Color seed = isSemantic ? theme.GetSemanticAccent(opts.variant) : pal.borderHover;
+        defaultText = isSemantic ? ensureInk(seed, pal.surface) : pal.textPrimary;
+        borderCol = isSemantic ? seed.WithAlphaF(0.85f) : pal.borderHover;
+        if (opts.border.width <= 0.0f) borderW = 1.25f * keel::max(theme.borderScale, 0.5f);
+        if (hasCtrlBg) {
+            if (disabled) bg = Color::Transparent();
+            else if (pressed || opts.active) bg = isSemantic ? seed.WithAlphaF(isDark ? 0.28f : 0.20f) : pal.surfaceActive;
+            else if (hovered) bg = isSemantic ? seed.WithAlphaF(isDark ? 0.18f : 0.12f) : pal.surfaceHover;
+        }
+        if (disabled) borderCol = borderCol.WithAlphaF(theme.disabledOpacity);
+    }
+
+    // Explicit low-level flat background override (never alters ButtonStyle / FrameKind)
+    if (hasCtrlBg && opts.background.HasAny() && !opts.background.IsNone()) {
+        if (opts.background.IsSurface()) {
+            if (opts.background.HasAlphaScale()) {
+                bg = bg.ScaleAlpha(opts.background.alphaScale);
+            }
+        } else {
+            bg = theme.ResolveColor(opts.background, hovered, pressed || opts.active, disabled, bg);
+            if (!effectiveCapsuleText.color.HasAny() && bg.a >= 180u) {
+                defaultText = Color::BestTextColor(bg, Color::Hex(0x0F172AFF), Color::Hex(0xFFFFFFFF));
+            }
         }
     }
 
@@ -377,7 +417,7 @@ void detail::Button::Render(
 
     if (focused && !disabled) {
         if (!opts.border.color.active.has_value()) {
-            borderCol = theme.palette.focusRing;
+            borderCol = pal.focusRing;
         }
         borderW = keel::max(borderW, theme.focusRingWidth);
     }
@@ -386,8 +426,6 @@ void detail::Button::Render(
     canvas.PushClip(capsuleRect);
 
     // Background & border via active style painter
-    const bool isGhostBtn = (effColor.token == StateColorToken::Ghost) ||
-                            (effColor.normal.has_value() && effColor.normal->a == 0u);
     const keel::f32 radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
 
     theme.Painter().DrawFrame(
@@ -428,7 +466,7 @@ void detail::Button::Render(
             drawBadge = true;
         }
     }
-    const keel::f32 pressShift = (!disabled && (pressed || opts.active)) ? theme.chrome.buttonPressOffset : 0.0f;
+    const keel::f32 pressShift = theme.Painter().GetButtonContentOffset(theme, pressed, opts.active, disabled);
     const Rect contentBounds(
         capsuleRect.x + pressShift,
         capsuleRect.y + pressShift,

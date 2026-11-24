@@ -4,6 +4,7 @@
 #include "guikit/core/node.hpp"
 #include "guikit/core/solver.hpp"
 #include "guikit/layout/scroll_area.hpp"
+#include "guikit/style/style_painter.hpp"
 #include "keel/math.h"
 
 namespace guikit {
@@ -485,14 +486,22 @@ void detail::Carousel::RenderArrows(
             iconCol = ghost.text;
         }
 
-        if (bg.a > 0) {
-            canvas.DrawRoundRect(rect, cm.cornerRadius, bg);
+        if (bg.a > 0 || hovered || pressed) {
+            theme.Painter().DrawFrame(canvas, theme, FrameKind::ToolbarButton, FramePaintParams{
+                .rect = rect,
+                .radius = cm.cornerRadius,
+                .bg = bg,
+                .hovered = hovered,
+                .pressed = pressed,
+                .accent = pal.accent
+            });
         }
 
+        const keel::f32 shift = theme.Painter().GetButtonContentOffset(theme, pressed, false, false);
         const keel::f32 isz = keel::min(rect.w, cm.iconSize);
         const Rect iconBounds(
-            rect.x + (rect.w - isz) * 0.5f,
-            rect.y + (rect.h - isz) * 0.5f,
+            rect.x + (rect.w - isz) * 0.5f + shift,
+            rect.y + (rect.h - isz) * 0.5f + shift,
             isz, isz
         );
 
@@ -512,13 +521,13 @@ void detail::Carousel::RenderArrows(
         drawArrow(cData->leftArrowRect, cData->leftArrowHovered, cData->leftArrowPressed, true);
         if (sepY2 > sepY1) {
             const keel::f32 sepX = keel::floor(cData->viewportRect.x) + 0.5f;
-            canvas.DrawLine(Vec2(sepX, sepY1), Vec2(sepX, sepY2), sepCol, 1.0f);
+            theme.Painter().DrawDivider(canvas, theme, Vec2(sepX, sepY1), Vec2(sepX, sepY2), sepCol, 1.0f);
         }
     }
     if (cData->showRightArrow) {
         if (sepY2 > sepY1) {
             const keel::f32 sepX = keel::floor(cData->viewportRect.Right()) - 0.5f;
-            canvas.DrawLine(Vec2(sepX, sepY1), Vec2(sepX, sepY2), sepCol, 1.0f);
+            theme.Painter().DrawDivider(canvas, theme, Vec2(sepX, sepY1), Vec2(sepX, sepY2), sepCol, 1.0f);
         }
         drawArrow(cData->rightArrowRect, cData->rightArrowHovered, cData->rightArrowPressed, false);
     }

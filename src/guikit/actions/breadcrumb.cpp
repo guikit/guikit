@@ -3,6 +3,7 @@
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
+#include "guikit/style/style_painter.hpp"
 #include "keel/math.h"
 #include "keel/small_array.h"
 
@@ -280,11 +281,16 @@ void RenderBreadcrumbPopup(
     const ComponentMetrics& cm = theme.GetMetrics(size);
     const auto& pal = theme.palette;
 
-    // Elevated dropdown card with theme-controlled shadow and border
-    if (const ShadowStyle sh = theme.GetShadow(Elevation::Md); sh.IsVisible()) {
-        canvas.DrawShadow(popupRect, sm.cornerRadius, sh.blur, sh.offset, sh.color);
-    }
-    canvas.DrawRoundRect(popupRect, sm.cornerRadius, pal.surfaceElevated, pal.border, 1.0f);
+    // Elevated dropdown card routed through IStylePainter
+    theme.Painter().DrawSurface(canvas, theme, SurfacePaintParams{
+        .rect = popupRect,
+        .role = SurfaceRole::Popup,
+        .radius = sm.cornerRadius,
+        .bg = pal.surfaceElevated,
+        .border = pal.border,
+        .borderWidth = 1.0f,
+        .elevation = Elevation::Md
+    });
 
     const keel::f32 viewportH = keel::max(0.0f, popupRect.h - 8.0f);
     const keel::f32 totalContentH = keel::as<keel::f32>(collapsedItems.size()) * sm.itemHeight;
@@ -318,16 +324,14 @@ void RenderBreadcrumbPopup(
             ? opts.color.Resolve(isHovered, false, false, pal.accent)
             : pal.accent;
 
-        if (isSelected) {
-            const Color selFill = accentColor.WithAlphaF(isHovered ? 0.22f : 0.14f);
-            canvas.DrawRoundRect(itemRect, 4.0f, selFill);
-        } else if (isHovered) {
-            canvas.DrawRoundRect(itemRect, 4.0f, pal.surfaceHover);
-        }
+        const bool solidHighlight = theme.Painter().DrawSelectionHighlight(
+            canvas, theme, itemRect, 4.0f,
+            isHovered, isSelected, false, false, false, Color::Transparent()
+        );
 
-        const Color fgColor = isSelected
-            ? accentColor
-            : (isHovered ? pal.textPrimary : pal.textSecondary);
+        const Color fgColor = solidHighlight
+            ? pal.accentText
+            : (isSelected ? accentColor : (isHovered ? pal.textPrimary : pal.textSecondary));
 
         keel::f32 leftX = itemRect.x + sm.paddingX;
         keel::f32 rightX = itemRect.Right() - sm.paddingX;
@@ -337,7 +341,7 @@ void RenderBreadcrumbPopup(
             const keel::f32 checkSz = cm.iconSize;
             rightX -= checkSz;
             const Rect checkRect(rightX, centerY - checkSz * 0.5f, checkSz, checkSz);
-            Icon::Check().Draw(canvas, checkRect, accentColor);
+            Icon::Check().Draw(canvas, checkRect, solidHighlight ? pal.accentText : accentColor);
             rightX -= 6.0f;
         }
 
@@ -347,21 +351,21 @@ void RenderBreadcrumbPopup(
             rightX -= badgeW;
             const Rect badgeR(rightX, centerY - badgeH * 0.5f, badgeW, badgeH);
             const Color badgeBg = isSelected ? accentColor.WithAlphaF(0.25f) : pal.surfaceHover;
-            const Color badgeFg = isSelected ? accentColor : pal.textSecondary;
-            canvas.DrawRoundRect(badgeR, 4.0f, badgeBg);
+            const Color badgeFg = solidHighlight ? pal.accentText : (isSelected ? accentColor : pal.textSecondary);
+            theme.Painter().DrawBadge(canvas, theme, badgeR, badgeBg, Color::Transparent(), 0.0f, 4.0f);
             canvas.DrawTextBox(item.badge, badgeR, badgeFontSize, badgeFg, 0.5f, 0.5f);
             rightX -= badgeGap;
         }
 
         if (item.icon.IsValid()) {
             const Rect iconR(leftX, centerY - cm.iconSize * 0.5f, cm.iconSize, cm.iconSize);
-            item.icon.Draw(canvas, iconR, isSelected ? accentColor : fgColor);
+            item.icon.Draw(canvas, iconR, solidHighlight ? pal.accentText : (isSelected ? accentColor : fgColor));
             leftX += cm.iconSize + iconGap;
         }
 
         if (!item.label.empty() && rightX > leftX) {
             const Rect textR(leftX, itemRect.y, rightX - leftX, itemRect.h);
-            canvas.DrawTextBox(item.label, textR, fontSize, isSelected ? accentColor : pal.textPrimary, 0.0f, 0.5f);
+            canvas.DrawTextBox(item.label, textR, fontSize, solidHighlight ? pal.accentText : (isSelected ? accentColor : pal.textPrimary), 0.0f, 0.5f);
         }
     }
 
@@ -897,12 +901,23 @@ void detail::Breadcrumb::Render(
             const Color pillBorder = isOpenTrigger
                 ? accentColor.WithAlphaF(0.65f)
                 : (isHovered ? pal.borderHover : pal.borderSubtle);
-            canvas.DrawRoundRect(pillRect, pillRadius, pillBg, pillBorder, 1.0f);
+            theme.Painter().DrawFrame(canvas, theme, FrameKind::ToolbarButton, FramePaintParams{
+                .rect = pillRect,
+                .radius = pillRadius,
+                .bg = pillBg,
+                .border = pillBorder,
+                .borderWidth = 1.0f,
+                .hovered = isHovered,
+                .pressed = isPressed,
+                .active = isOpenTrigger,
+                .disabled = disabled,
+                .accent = accentColor
+            });
 
             const Color dotsCol = disabled
                 ? pal.textDisabled
                 : (isOpenTrigger ? accentColor : (isHovered ? pal.textPrimary : pal.textSecondary));
-            canvas.DrawTextBox("...", pillRect, fontSize, dotsCol, 0.5f, 0.5f);
+            theme.Painter().DrawControlText(canvas, theme, "...", pillRect, fontSize, dotsCol, disabled, 0.5f, 0.5f);
             continue;
         }
 
@@ -917,10 +932,30 @@ void detail::Breadcrumb::Render(
             const Color activeStroke = (focused && !disabled)
                 ? pal.focusRing
                 : accentColor.WithAlphaF(disabled ? 0.20f : 0.45f);
-            canvas.DrawRoundRect(pillRect, pillRadius, activeFill, activeStroke, 1.0f);
+            theme.Painter().DrawFrame(canvas, theme, FrameKind::ToolbarButton, FramePaintParams{
+                .rect = pillRect,
+                .radius = pillRadius,
+                .bg = activeFill,
+                .border = activeStroke,
+                .borderWidth = 1.0f,
+                .hovered = isHovered,
+                .pressed = isPressed,
+                .active = true,
+                .focused = focused && !disabled,
+                .disabled = disabled,
+                .accent = accentColor
+            });
         } else if (isHovered || isPressed) {
             const Color hovFill = isPressed ? pal.surfaceActive : pal.surfaceHover;
-            canvas.DrawRoundRect(pillRect, pillRadius, hovFill);
+            theme.Painter().DrawFrame(canvas, theme, FrameKind::ToolbarButton, FramePaintParams{
+                .rect = pillRect,
+                .radius = pillRadius,
+                .bg = hovFill,
+                .hovered = isHovered,
+                .pressed = isPressed,
+                .disabled = disabled,
+                .accent = accentColor
+            });
         }
 
         Color fgColor = disabled
@@ -983,7 +1018,7 @@ void detail::Breadcrumb::Render(
 
         if (showLabel) {
             const Rect textR(curX, tr.y, labelW + 2.0f, tr.h);
-            canvas.DrawTextBox(displayLabel, textR, fontSize, fgColor, 0.0f, 0.5f);
+            theme.Painter().DrawControlText(canvas, theme, displayLabel, textR, fontSize, fgColor, disabled, 0.0f, 0.5f);
             curX += labelW;
         }
 
@@ -993,7 +1028,7 @@ void detail::Breadcrumb::Render(
             const Rect badgeR(curX, centerY - badgeH * 0.5f, badgeW, badgeH);
             const Color badgeBg = isActiveItem ? accentColor.WithAlphaF(0.25f) : pal.surfaceHover;
             const Color badgeFg = isActiveItem ? accentColor : pal.textSecondary;
-            canvas.DrawRoundRect(badgeR, 4.0f, badgeBg);
+            theme.Painter().DrawBadge(canvas, theme, badgeR, badgeBg, Color::Transparent(), 0.0f, 4.0f);
             canvas.DrawTextBox(item.badge, badgeR, badgeFontSize, badgeFg, 0.5f, 0.5f);
         }
     }

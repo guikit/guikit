@@ -938,7 +938,7 @@ void detail::TextArea::Render(
             ButtonOptions bOpts{};
             bOpts.icon = Icon(kDbgIcons[keel::as<keel::usize>(i)]);
             bOpts.square = true;
-            bOpts.color = StateColor::Ghost();
+            bOpts.style = ButtonStyle::Ghost;
             bOpts.iconColor = bHov ? baseCol : baseCol.WithAlphaF(0.95f);
             bOpts.width = SizeMode::Stretch;
             detail::Button::Render(canvas, br, bOpts, tbSize, bHov, false, disabled, theme, false);
@@ -956,7 +956,8 @@ void detail::TextArea::Render(
             ButtonOptions bOpts{};
             bOpts.icon = Icon(iconId);
             bOpts.square = true;
-            bOpts.color = activeToggle ? StateColor::Primary() : StateColor::Ghost();
+            bOpts.style = activeToggle ? ButtonStyle::Solid : ButtonStyle::Ghost;
+            bOpts.variant = activeToggle ? UiVariant::Primary : UiVariant::Default;
             bOpts.active = activeToggle;
             bOpts.width = SizeMode::Stretch;
             detail::Button::Render(canvas, rBtn, bOpts, tbSize, hovBtn == btnIdx, false, disabled, theme, false);
@@ -987,7 +988,8 @@ void detail::TextArea::Render(
                 ButtonOptions caseOpts{};
                 caseOpts.text = "Aa";
                 caseOpts.square = true;
-                caseOpts.color = extData->matchCase ? StateColor::Primary() : StateColor::Ghost();
+                caseOpts.style = extData->matchCase ? ButtonStyle::Solid : ButtonStyle::Ghost;
+                caseOpts.variant = extData->matchCase ? UiVariant::Primary : UiVariant::Default;
                 caseOpts.active = extData->matchCase;
                 caseOpts.width = SizeMode::Stretch;
                 detail::Button::Render(canvas, S.caseBtnRect, caseOpts, tbSize, hovBtn == 1, false, disabled, theme, false);
@@ -997,7 +999,8 @@ void detail::TextArea::Render(
                 ButtonOptions wordOpts{};
                 wordOpts.text = "ab";
                 wordOpts.square = true;
-                wordOpts.color = extData->wholeWord ? StateColor::Primary() : StateColor::Ghost();
+                wordOpts.style = extData->wholeWord ? ButtonStyle::Solid : ButtonStyle::Ghost;
+                wordOpts.variant = extData->wholeWord ? UiVariant::Primary : UiVariant::Default;
                 wordOpts.active = extData->wholeWord;
                 wordOpts.width = SizeMode::Stretch;
                 detail::Button::Render(canvas, S.wordBtnRect, wordOpts, tbSize, hovBtn == 2, false, disabled, theme, false);
@@ -1050,7 +1053,7 @@ void detail::TextArea::Render(
                     ButtonOptions rep1Opts{};
                     rep1Opts.text = "1";
                     rep1Opts.icon = Icon::Replace();
-                    rep1Opts.color = StateColor::Ghost();
+                    rep1Opts.style = ButtonStyle::Ghost;
                     rep1Opts.width = SizeMode::Stretch;
                     detail::Button::Render(canvas, S.replaceOneBtnRect, rep1Opts, tbSize, hovBtn == 6, false, disabled, theme, false);
                 }
@@ -1058,7 +1061,7 @@ void detail::TextArea::Render(
                     ButtonOptions repAllOpts{};
                     repAllOpts.text = "All";
                     repAllOpts.icon = Icon::ReplaceAll();
-                    repAllOpts.color = StateColor::Ghost();
+                    repAllOpts.style = ButtonStyle::Ghost;
                     repAllOpts.width = SizeMode::Stretch;
                     detail::Button::Render(canvas, S.replaceAllBtnRect, repAllOpts, tbSize, hovBtn == 7, false, disabled, theme, false);
                 }
@@ -1085,7 +1088,7 @@ void detail::TextArea::Render(
         ButtonOptions copyOpts{};
         copyOpts.text = copied ? "Copied" : "Copy";
         copyOpts.icon = copied ? Icon::Check() : Icon::Copy();
-        copyOpts.color = copied ? StateColor::Success() : StateColor::Secondary();
+        copyOpts.variant = copied ? UiVariant::Success : UiVariant::Secondary;
         copyOpts.active = copied;
         copyOpts.width = SizeMode::Stretch;
         detail::Button::Render(canvas, L.copyBtnRect, copyOpts, tbSize, copyHov, false, disabled, theme, false);
@@ -1096,7 +1099,7 @@ void detail::TextArea::Render(
         char zBuf[16]{};
         ButtonOptions zoomOpts{};
         zoomOpts.text = keel::format_buf(zBuf, "{}%", keel::round_i32(effZoom * 100.0f));
-        zoomOpts.color = StateColor::Secondary();
+        zoomOpts.variant = UiVariant::Secondary;
         zoomOpts.width = SizeMode::Stretch;
         detail::Button::Render(canvas, L.zoomBtnRect, zoomOpts, tbSize, zHov, false, disabled, theme, false);
     }

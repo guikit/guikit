@@ -307,6 +307,7 @@ void detail::SidebarMenu::RenderItem(
         v.bgActive = effColor.active.has_value() ? *effColor.active : v.bg.WithAlphaF(0.75f);
     }
     const keel::f32 radius = opts.border.radius.value_or(m.cornerRadius);
+    const bool useSelectionPainter = (opts.style == SidebarMenuStyle::Indicator && !effColor.HasAny());
 
     Color bg = Color::Transparent();
     Color borderCol = Color::Transparent();
@@ -316,7 +317,33 @@ void detail::SidebarMenu::RenderItem(
         : pal.textPrimary;
     Color iconCol = pal.textSecondary;
 
-    if (opts.style == SidebarMenuStyle::Pill) {
+    canvas.PushClip(bounds);
+
+    if (useSelectionPainter) {
+        const bool solidHighlight = theme.Painter().DrawSelectionHighlight(
+            canvas, theme, bounds, radius,
+            hovered || pressed, item.active, false, false, disabled, Color::Transparent()
+        );
+        if (solidHighlight) {
+            if (!item.text.color.HasAny()) textCol = pal.accentText;
+            iconCol = pal.accentText;
+        } else if (item.active) {
+            iconCol = pal.accent;
+        } else if (hovered || pressed) {
+            iconCol = pal.textPrimary;
+        }
+        if (focused && !disabled) {
+            theme.Painter().DrawFrame(canvas, theme, FrameKind::ToolbarButton, FramePaintParams{
+                .rect = bounds,
+                .radius = radius,
+                .explicitRadius = opts.border.radius.has_value(),
+                .bg = Color::Transparent(),
+                .border = pal.focusRing,
+                .borderWidth = 1.5f,
+                .focused = true
+            });
+        }
+    } else if (opts.style == SidebarMenuStyle::Pill) {
         if (item.active) {
             bg = pressed ? v.bgActive : (hovered ? v.bgHover : v.bg);
             textCol = item.text.color.HasAny()
@@ -330,7 +357,40 @@ void detail::SidebarMenu::RenderItem(
             bg = pal.surfaceHover;
             iconCol = pal.textPrimary;
         }
-    } else { // SidebarMenuStyle::Indicator
+        if (disabled) {
+            bg = bg.WithAlphaF(theme.disabledOpacity);
+        }
+        if (item.active) {
+            theme.Painter().DrawFrame(canvas, theme, FrameKind::Button, FramePaintParams{
+                .rect = bounds,
+                .radius = radius,
+                .explicitRadius = opts.border.radius.has_value(),
+                .bg = bg,
+                .border = Color::Transparent(),
+                .borderWidth = 0.0f,
+                .hovered = hovered,
+                .pressed = pressed,
+                .active = true,
+                .focused = focused && !disabled,
+                .disabled = disabled,
+                .accent = v.bg
+            });
+        } else if (bg.a > 0 || (focused && !disabled)) {
+            theme.Painter().DrawFrame(canvas, theme, FrameKind::ToolbarButton, FramePaintParams{
+                .rect = bounds,
+                .radius = radius,
+                .explicitRadius = opts.border.radius.has_value(),
+                .bg = bg,
+                .border = borderCol,
+                .borderWidth = borderW,
+                .hovered = hovered,
+                .pressed = pressed,
+                .focused = focused && !disabled,
+                .disabled = disabled,
+                .accent = v.bg
+            });
+        }
+    } else { // SidebarMenuStyle::Indicator with custom effColor
         if (item.active) {
             bg = pressed ? v.bg.WithAlphaF(0.28f) : (hovered ? v.bg.WithAlphaF(0.22f) : v.bg.WithAlphaF(0.16f));
             textCol = item.text.color.HasAny()
@@ -344,31 +404,38 @@ void detail::SidebarMenu::RenderItem(
             bg = pal.surfaceHover;
             iconCol = pal.textPrimary;
         }
+        if (disabled) {
+            bg = bg.WithAlphaF(theme.disabledOpacity);
+        }
+        if (bg.a > 0 || (focused && !disabled)) {
+            theme.Painter().DrawFrame(canvas, theme, FrameKind::ToolbarButton, FramePaintParams{
+                .rect = bounds,
+                .radius = radius,
+                .explicitRadius = opts.border.radius.has_value(),
+                .bg = bg,
+                .border = borderCol,
+                .borderWidth = borderW,
+                .hovered = hovered,
+                .pressed = pressed,
+                .focused = focused && !disabled,
+                .disabled = disabled,
+                .accent = v.bg
+            });
+        }
+        if (item.active) {
+            const keel::f32 barW = 3.0f;
+            const keel::f32 barPadY = keel::min(6.0f, bounds.h * 0.22f);
+            const Rect barRect(bounds.x + 2.0f, bounds.y + barPadY, barW, keel::max(4.0f, bounds.h - barPadY * 2.0f));
+            Color barCol = disabled ? v.bg.WithAlphaF(theme.disabledOpacity) : v.bg;
+            canvas.DrawRoundRect(barRect, barW * 0.5f, barCol);
+        }
     }
 
     if (disabled) {
-        bg = bg.WithAlphaF(0.40f);
         if (!item.text.color.HasAny()) {
-            textCol = textCol.WithAlphaF(0.40f);
+            textCol = textCol.WithAlphaF(theme.disabledOpacity);
         }
-        iconCol = iconCol.WithAlphaF(0.40f);
-    } else if (focused) {
-        borderCol = pal.focusRing;
-        borderW = 1.5f;
-    }
-
-    canvas.PushClip(bounds);
-
-    if (bg.a > 0 || borderW > 0.0f) {
-        canvas.DrawRoundRect(bounds, radius, bg, borderCol, borderW);
-    }
-
-    if (opts.style == SidebarMenuStyle::Indicator && item.active) {
-        const keel::f32 barW = 3.0f;
-        const keel::f32 barPadY = keel::min(6.0f, bounds.h * 0.22f);
-        const Rect barRect(bounds.x + 2.0f, bounds.y + barPadY, barW, keel::max(4.0f, bounds.h - barPadY * 2.0f));
-        Color barCol = disabled ? v.bg.WithAlphaF(0.40f) : v.bg;
-        canvas.DrawRoundRect(barRect, barW * 0.5f, barCol);
+        iconCol = iconCol.WithAlphaF(theme.disabledOpacity);
     }
 
     if (opts.collapsed) {
@@ -454,7 +521,7 @@ void detail::SidebarMenu::RenderItem(
         const keel::f32 fontSize = theme.ResolveFontSize(item.text, TextRole::LabelLarge, size);
         const Rect textRect(leftX, bounds.y, rightX - leftX, bounds.h);
         canvas.PushClip(textRect);
-        canvas.DrawTextBox(item.text.text, textRect, fontSize, textCol, 0.0f, 0.5f);
+        theme.Painter().DrawControlText(canvas, theme, item.text.text, textRect, fontSize, textCol, disabled, 0.0f, 0.5f);
         canvas.PopClip();
     }
 
