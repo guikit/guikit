@@ -100,35 +100,23 @@ Color ResolveZoneColor(
     bool disabled,
     const UiTheme& theme
 ) noexcept {
-    const auto& pal = theme.palette;
     const keel::f32 warnT = keel::clamp(opts.warningRatio, 0.05f, 0.98f);
     const keel::f32 dangerT = keel::clamp(opts.dangerRatio, warnT + 0.01f, 0.995f);
 
-    Color col;
-    const StateColor resolvedColor = theme.ResolveStateColor(opts.color);
     if (!opts.multiZoneColor) {
-        const VariantColors& primary = theme.GetVariant(UiVariant::Primary);
-        if (!opts.color.HasAny()) {
-            col = primary.bg;
-        } else if (resolvedColor.normal.has_value() && resolvedColor.normal->a == 0) {
-            col = pal.borderHover;
-        } else {
-            col = resolvedColor.normal.value_or(primary.bg);
-        }
+        return theme.ResolveSemanticAccent(opts.color, UiVariant::Primary, false, false, disabled);
+    }
+
+    Color col;
+    if (normPos >= dangerT) {
+        col = theme.GetSemanticAccent(UiVariant::Danger);
+    } else if (normPos >= warnT) {
+        col = theme.GetSemanticAccent(UiVariant::Warning);
     } else {
-        if (normPos >= dangerT) {
-            col = theme.GetVariant(UiVariant::Danger).bg;
-        } else if (normPos >= warnT) {
-            col = theme.GetVariant(UiVariant::Warning).bg;
+        if (!opts.color.HasAny() || opts.color == StateColor::Primary() || opts.color.token == StateColorToken::Ghost) {
+            col = theme.GetSemanticAccent(UiVariant::Success);
         } else {
-            const Color defaultSafe = theme.GetVariant(UiVariant::Success).bg;
-            if (!opts.color.HasAny() || opts.color == StateColor::Primary()) {
-                col = defaultSafe;
-            } else if (resolvedColor.normal.has_value() && resolvedColor.normal->a == 0) {
-                col = defaultSafe;
-            } else {
-                col = resolvedColor.normal.value_or(defaultSafe);
-            }
+            col = theme.ResolveSemanticAccent(opts.color, UiVariant::Success, false, false, false);
         }
     }
     return disabled ? col.WithAlphaF(theme.disabledOpacity) : col;
@@ -407,7 +395,7 @@ void DrawChannelBarHorizontal(
             trackRect.h
         );
         const bool isClip = ch.clipped || (ch.ratio >= 0.995f);
-        const Color dangerBg = theme.GetVariant(UiVariant::Danger).bg;
+        const Color dangerBg = theme.GetSemanticAccent(UiVariant::Danger);
         const Color clipFill = isClip
             ? (disabled ? dangerBg.WithAlphaF(theme.disabledOpacity) : dangerBg)
             : dangerBg.WithAlphaF(disabled ? 0.08f : 0.18f);
@@ -559,7 +547,7 @@ void DrawChannelBarVertical(
             clipH
         );
         const bool isClip = ch.clipped || (ch.ratio >= 0.995f);
-        const Color dangerBg = theme.GetVariant(UiVariant::Danger).bg;
+        const Color dangerBg = theme.GetSemanticAccent(UiVariant::Danger);
         const Color clipFill = isClip
             ? (disabled ? dangerBg.WithAlphaF(theme.disabledOpacity) : dangerBg)
             : dangerBg.WithAlphaF(disabled ? 0.08f : 0.18f);

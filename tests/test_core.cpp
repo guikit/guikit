@@ -3048,6 +3048,100 @@ void TestSwitchKnobCenterSymmetry() {
     }
 }
 
+void TestFillStyleOutlineIndicatorsVisible() {
+    using namespace guikit;
+
+    struct RecordingCanvas final : NullCanvas {
+        keel::Array<Color> lineColors{};
+        keel::Array<Color> fillColors{};
+
+        void DrawLine(Vec2, Vec2, Color color, keel::f32) override {
+            lineColors.push_back(color);
+        }
+        void DrawRect(Rect, Color color) override {
+            fillColors.push_back(color);
+        }
+        void DrawRoundRect(Rect, keel::f32, Color fill, Color, keel::f32) override {
+            if (fill.a > 0u) fillColors.push_back(fill);
+        }
+    };
+
+    ThemeSpec darkSpec{};
+    darkSpec.base = ThemePreset::Dark;
+    darkSpec.chrome = ChromeStyle::Classic3D;
+    darkSpec.fillStyle = FillStyle::Outline;
+    const UiTheme darkOutline = UiTheme::Build(darkSpec);
+
+    ThemeSpec lightSpec{};
+    lightSpec.base = ThemePreset::Light;
+    lightSpec.chrome = ChromeStyle::Modern;
+    lightSpec.fillStyle = FillStyle::Outline;
+    const UiTheme lightOutline = UiTheme::Build(lightSpec);
+
+    // 1. ResolveSemanticAccent must always return opaque accent even in Outline/Soft
+    CHECK(darkOutline.GetVariant(UiVariant::Primary).bg.a == 0u);
+    CHECK(darkOutline.ResolveSemanticAccent(StateColor{}, UiVariant::Primary).a == 255u);
+    CHECK(darkOutline.ResolveSemanticAccent(StateColor::Info(), UiVariant::Primary).a == 255u);
+    CHECK(darkOutline.ResolveSemanticAccent(StateColor::Success(), UiVariant::Primary).a == 255u);
+
+    // 2. Knob resting (unhovered) in Outline must draw opaque accent pointer needle (a == 255)
+    {
+        RecordingCanvas canvas;
+        const Color expectedAccent = darkOutline.GetSemanticAccent(UiVariant::Primary);
+        detail::Knob::Render(
+            canvas, Rect(0.0f, 0.0f, 72.0f, 88.0f), 0.45f, 0.0f, "45.0 %",
+            KnobOptions{.showValue = true, .showTicks = true, .showArc = true},
+            UiSize::Md, false, false, false, darkOutline, false
+        );
+        bool foundOpaqueAccentLine = false;
+        for (Color c : canvas.lineColors) {
+            if (c == expectedAccent && c.a == 255u) {
+                foundOpaqueAccentLine = true;
+                break;
+            }
+        }
+        CHECK(foundOpaqueAccentLine);
+    }
+
+    // 3. LevelMeter in Outline must draw opaque semantic zone bars
+    {
+        RecordingCanvas canvas;
+        Context ui;
+        ui.SetTheme(darkOutline);
+        ui.BeginFrame({240.0f, 60.0f}, 0.016f);
+        LevelMeter(ui, -6.0, -60.0, 0.0, {.segments = 16u, .multiZoneColor = true, .showClipLed = true});
+        ui.EndFrame(canvas);
+
+        const Color expectedSuccess = darkOutline.GetSemanticAccent(UiVariant::Success);
+        bool foundSuccessBar = false;
+        for (Color c : canvas.fillColors) {
+            if (c == expectedSuccess && c.a == 255u) {
+                foundSuccessBar = true;
+                break;
+            }
+        }
+        CHECK(foundSuccessBar);
+    }
+
+    // 4. Radio selected dot in Light + Outline must use contrasting ink (not white-on-white)
+    {
+        RecordingCanvas canvas;
+        detail::Radio::Render(
+            canvas, Rect(0.0f, 0.0f, 24.0f, 24.0f), true,
+            RadioOptions{}, UiSize::Md, false, false, false, lightOutline, false
+        );
+        const Color expectedDot = lightOutline.GetVariant(UiVariant::Primary).text;
+        bool foundContrastingDot = false;
+        for (Color c : canvas.fillColors) {
+            if (c == expectedDot && c != Color(255, 255, 255, 255)) {
+                foundContrastingDot = true;
+                break;
+            }
+        }
+        CHECK(foundContrastingDot);
+    }
+}
+
 int main() {
     keel::println("[RUN] Testing GuiKit Core Foundation...");
 
@@ -3081,6 +3175,7 @@ int main() {
     TestSplitViewGeometryConstraints();
     TestRoundedContainerCornerMasking();
     TestSwitchKnobCenterSymmetry();
+    TestFillStyleOutlineIndicatorsVisible();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Core tests passed successfully!");

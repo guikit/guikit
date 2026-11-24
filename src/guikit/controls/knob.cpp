@@ -454,14 +454,8 @@ void detail::Knob::Render(
     );
     const keel::f32 outerR = keel::max(6.0f, dialDiameter * 0.5f - 1.5f);
 
-    // Resolve colors
-    const VariantColors& primaryVar = theme.GetVariant(UiVariant::Primary);
-    Color accentCol;
-    if (!opts.color.HasAny()) {
-        accentCol = active ? primaryVar.bgActive : (hovered ? primaryVar.bgHover : primaryVar.bg);
-    } else {
-        accentCol = theme.ResolveColor(opts.color, hovered && !disabled, active && !disabled, disabled, primaryVar.bg, primaryVar.bgHover, primaryVar.bgActive, primaryVar.bg);
-    }
+    // Resolve colors (always use solid semantic accent so arc, ticks & needle stay visible in Outline/Soft fill styles)
+    Color accentCol = theme.ResolveSemanticAccent(opts.color, UiVariant::Primary, hovered, active, disabled);
 
     Color trackCol = (hovered && !disabled) ? pal.controlTrackHover : pal.controlTrack;
     Color rotorFill = (active && !disabled) ? pal.surfaceHover : ((hovered && !disabled) ? pal.surfaceElevated : pal.surface);
@@ -473,7 +467,6 @@ void detail::Knob::Render(
 
     if (disabled) {
         const keel::f32 da = theme.disabledOpacity;
-        accentCol = accentCol.WithAlphaF(da);
         trackCol = trackCol.WithAlphaF(da);
         rotorFill = rotorFill.WithAlphaF(da);
         rotorBorder = rotorBorder.WithAlphaF(da);

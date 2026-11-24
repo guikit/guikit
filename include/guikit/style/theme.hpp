@@ -135,6 +135,59 @@ struct UiTheme {
         return vc.bg;
     }
 
+    /// Resolves a solid semantic accent color for indicators, arcs, meters, and slider tracks
+    /// even when `fillStyle` is `Soft` or `Outline` (where `VariantColors::bg` is tinted/transparent).
+    [[nodiscard]] constexpr Color ResolveSemanticAccent(
+        const StateColor& sc,
+        UiVariant defaultVariant = UiVariant::Primary,
+        bool isHovered = false,
+        bool isActive = false,
+        bool isDisabled = false
+    ) const noexcept {
+        auto applyStates = [this, isHovered, isActive, isDisabled](Color base, keel::u8 alphaScale = 255u) constexpr noexcept -> Color {
+            Color c = base.ScaleAlpha(alphaScale);
+            if (isDisabled) {
+                return c.WithAlphaF(disabledOpacity);
+            }
+            if (isActive) {
+                return (mode == ThemeMode::Dark) ? c.Lighten(0.10f) : c.Darken(0.10f);
+            }
+            if (isHovered) {
+                return (mode == ThemeMode::Dark) ? c.Lighten(0.06f) : c.Darken(0.06f);
+            }
+            return c;
+        };
+        if (!sc.HasAny()) {
+            return applyStates(GetSemanticAccent(defaultVariant));
+        }
+        switch (sc.token) {
+            case StateColorToken::Primary:   return applyStates(GetSemanticAccent(UiVariant::Primary), sc.alphaScale);
+            case StateColorToken::Secondary: return applyStates(GetSemanticAccent(UiVariant::Secondary), sc.alphaScale);
+            case StateColorToken::Success:   return applyStates(GetSemanticAccent(UiVariant::Success), sc.alphaScale);
+            case StateColorToken::Warning:   return applyStates(GetSemanticAccent(UiVariant::Warning), sc.alphaScale);
+            case StateColorToken::Danger:    return applyStates(GetSemanticAccent(UiVariant::Danger), sc.alphaScale);
+            case StateColorToken::Info:      return applyStates(GetSemanticAccent(UiVariant::Info), sc.alphaScale);
+            case StateColorToken::Ghost:     return applyStates(palette.borderHover, sc.alphaScale);
+            case StateColorToken::Muted:     return applyStates(palette.textMuted, sc.alphaScale);
+            default: break;
+        }
+        const Color base = GetSemanticAccent(defaultVariant);
+        const Color resolved = ResolveColor(
+            sc,
+            isHovered && !isDisabled,
+            isActive && !isDisabled,
+            isDisabled,
+            base,
+            applyStates(base),
+            applyStates(base),
+            base.WithAlphaF(disabledOpacity)
+        );
+        if (resolved.a == 0u && sc.normal.has_value() && sc.normal->a == 0u) {
+            return applyStates(palette.borderHover, sc.alphaScale);
+        }
+        return resolved;
+    }
+
     /// Returns theme-appropriate translucent tint alpha for soft/ghost semantic fills (slightly higher on dark surfaces).
     [[nodiscard]] constexpr keel::f32 SoftTintAlpha(bool hovered = false, bool active = false) const noexcept {
         const bool isDark = (mode == ThemeMode::Dark);
