@@ -1,6 +1,6 @@
 #include "guikit/graphics/colormap.hpp"
-#include <cstring>
 #include "guikit/backend/i_canvas.hpp"
+#include "keel/algo.h"
 #include "keel/math.h"
 #include "keel/static_array.h"
 
@@ -252,7 +252,7 @@ const keel::StaticArray<keel::u32, 256>& GetColormapLutAbgr(Colormap map, bool i
 void CopyColormapLutAbgr(Colormap map, keel::u32 outAbgr[256], bool invert) noexcept {
     if (!outAbgr) return;
     const auto& lut = GetColormapLutAbgr(map, invert);
-    std::memcpy(outAbgr, lut.data(), 256 * sizeof(keel::u32));
+    keel::copy_n(outAbgr, lut.data(), 256);
 }
 
 keel::StringRef GetColormapName(Colormap map) noexcept {

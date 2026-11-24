@@ -921,19 +921,18 @@ public:
         } else if constexpr (keel::IsSame<Decayed, keel::i64>) {
             return Run<guikit::SpinBox>(nullptr, nullptr, &value, opts, loc);
         } else {
-            constexpr keel::i64 kInt64Max = keel::as<keel::i64>((~keel::u64{0}) >> 1);
-            constexpr keel::i64 kInt64Min = -kInt64Max - 1;
-            constexpr keel::usize kBits = sizeof(Decayed) * 8;
+            constexpr keel::i64 kInt64Max = keel::Limits<keel::i64>::kMax;
+            constexpr keel::i64 kInt64Min = keel::Limits<keel::i64>::kMin;
             constexpr keel::i64 kTypeMin = keel::IsUnsigned<Decayed>
                 ? keel::i64{0}
-                : ((sizeof(Decayed) >= sizeof(keel::i64)) ? kInt64Min : -(keel::i64{1} << (kBits - 1)));
+                : ((sizeof(Decayed) >= sizeof(keel::i64)) ? kInt64Min : keel::as<keel::i64>(keel::Limits<Decayed>::kMin));
             constexpr keel::i64 kTypeMax = keel::IsUnsigned<Decayed>
                 ? ((sizeof(Decayed) >= sizeof(keel::u64))
                        ? kInt64Max
-                       : keel::as<keel::i64>(keel::as<Decayed>(~Decayed{0})))
+                       : keel::as<keel::i64>(keel::Limits<Decayed>::kMax))
                 : ((sizeof(Decayed) >= sizeof(keel::i64))
                        ? kInt64Max
-                       : ((keel::i64{1} << (kBits - 1)) - 1));
+                       : keel::as<keel::i64>(keel::Limits<Decayed>::kMax));
             if constexpr (keel::IsUnsigned<Decayed>) {
                 if (!opts.min.has_value()) {
                     opts.min = 0.0;
@@ -1837,7 +1836,9 @@ public:
         requires requires(keel::Decay<F>& f, ICanvas& c) { f(c); }
     void RegisterOverlay(F&& drawFn, OverlayLayer layer = OverlayLayer::Popup) {
         using Decayed = keel::Decay<F>;
-        if constexpr (keel::IsPointer<Decayed> || requires(const Decayed& f) { static_cast<bool>(f); }) {
+        if constexpr (keel::IsPointer<Decayed>) {
+            if (!drawFn) return;
+        } else if constexpr (requires(const Decayed& f) { f.operator bool(); }) {
             if (!static_cast<bool>(drawFn)) return;
         }
         Decayed* stored = m_arena.create<Decayed>(keel::forward<F>(drawFn));

@@ -155,7 +155,7 @@ void TestBumpAllocator() {
     CHECK(fillChunk0 != nullptr);
     void* oversizedInChunk1 = allocator.alloc(4096, 16);
     CHECK(oversizedInChunk1 != nullptr);
-    std::memset(oversizedInChunk1, 0xAB, 4096);
+    keel::mem_set(oversizedInChunk1, 0xAB, 4096);
 
     // Non-trivially destructible objects & arrays must invoke ~T() in LIFO order on reset() and ~Arena()
     keel::Array<keel::i32> dtorOrder;

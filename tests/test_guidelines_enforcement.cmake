@@ -46,10 +46,10 @@ endfunction()
 
 # 1. Valid keel::* + C++ exceptions (<exception>, try/catch/throw) + URL inside quotes + keel-lint: ignore + main() -> PASS
 run_guideline_case("valid_keel_and_exceptions" TRUE "app.cpp"
-"#include <cmath>
-#include <exception>
+"#include <exception>
 #include \"keel/core.h\"
 #include \"keel/exception.h\"
+#include \"keel/math.h\"
 
 extern \"C\" long c_abi_call(); // keel-lint: ignore
 
@@ -160,4 +160,9 @@ run_guideline_case("reject_raw_float" FALSE "bad_raw_float.cpp"
 keel::f32 Baz(float v) { return v; }
 " "")
 
-message(STATUS "All 13 Keel/GuiKit guideline self-tests passed.")
+# 14. Forbidden `#include <cmath>` -> FAIL
+run_guideline_case("reject_cmath" FALSE "bad_cmath.cpp"
+"#include <cmath>
+" "")
+
+message(STATUS "All 14 Keel/GuiKit guideline self-tests passed.")

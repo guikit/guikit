@@ -94,8 +94,7 @@ constexpr keel::f32 kDefaultImageViewMinHeightDp = 360.0f;
     for (keel::usize i = 0; i < probes; ++i) {
         const keel::usize idx = (i * (data.sampleCount - 1)) / keel::max<keel::usize>(1, probes - 1);
         const keel::f32 v = ReadSampleAsFloat(data, idx);
-        keel::u32 bits = 0;
-        std::memcpy(&bits, &v, sizeof(keel::f32));
+        const keel::u32 bits = keel::bit_cast<keel::u32>(v);
         h = detail::HashArgs(h, bits);
     }
     return h;

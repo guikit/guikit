@@ -169,7 +169,7 @@ keel::StringRef AllocPasswordMask(Context& ctx, keel::StringRef text) noexcept {
     if (!buf) {
         return {};
     }
-    std::memset(buf, '*', cpCount);
+    keel::mem_set(buf, keel::as<keel::u8>('*'), cpCount);
     return {buf, cpCount};
 }
 

@@ -707,8 +707,7 @@ Response Slider::Run(
     data->formattedValue = formattedStr;
     node->SetPayload(data);
 
-    keel::u64 valBits = 0;
-    std::memcpy(&valBits, &currentVal, sizeof(keel::f64));
+    const keel::u64 valBits = keel::bit_cast<keel::u64>(currentVal);
     node->visualHash = detail::HashArgs(
         valBits,
         keel::as<keel::u8>(data->opts.orientation),
@@ -1605,9 +1604,8 @@ Response RangeSlider::Run(
     data->activeThumb = state.activeThumb;
     node->SetPayload(data);
 
-    keel::u64 lowBits = 0, highBits = 0;
-    std::memcpy(&lowBits, &curLow, sizeof(keel::f64));
-    std::memcpy(&highBits, &curHigh, sizeof(keel::f64));
+    const keel::u64 lowBits = keel::bit_cast<keel::u64>(curLow);
+    const keel::u64 highBits = keel::bit_cast<keel::u64>(curHigh);
     node->visualHash = detail::HashArgs(
         lowBits,
         highBits,
@@ -1862,11 +1860,9 @@ Response ProgressBar::Run(
     data->animPhase = animPhase;
     node->SetPayload(data);
 
-    keel::u64 valBits = 0;
-    std::memcpy(&valBits, &clampedVal, sizeof(keel::f64));
+    const keel::u64 valBits = keel::bit_cast<keel::u64>(clampedVal);
     const keel::f64 peakVal = data->opts.peakHoldValue.value_or(-1e9);
-    keel::u64 peakBits = 0;
-    std::memcpy(&peakBits, &peakVal, sizeof(keel::f64));
+    const keel::u64 peakBits = keel::bit_cast<keel::u64>(peakVal);
 
     node->visualHash = detail::HashArgs(
         valBits,
