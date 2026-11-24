@@ -201,7 +201,7 @@ struct Node {
     keel::f32 fixedHeight{0.0f};
     keel::f32 flexGrow{1.0f};       ///< Distribution factor for Stretch/Spacer elements
     keel::f32 gap{0.0f};            ///< Gap between consecutive children on same line
-    keel::f32 runGap{0.0f};         ///< Vertical gap between consecutive wrapped lines
+    keel::f32 runGap{-1.0f};        ///< Vertical gap between consecutive wrapped lines (< 0 = match gap)
     keel::f32 minWidth{0.0f};       ///< Minimum width constraint for responsive wrapping
     keel::f32 minHeight{0.0f};      ///< Minimum height constraint for 2D elements and Stretch fallback
     keel::f32 maxWidth{0.0f};       ///< Optional maximum width constraint (> 0 clamps width)

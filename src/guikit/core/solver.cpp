@@ -310,7 +310,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         } else if (node->direction == FlexDirection::Grid) {
             const keel::i32 totalCols = keel::as<keel::i32>(node->GetGridColumns());
             const keel::f32 gap = node->gap;
-            const keel::f32 runGap = (node->runGap > 0.0f) ? node->runGap : gap;
+            const keel::f32 runGap = (node->runGap >= 0.0f) ? node->runGap : gap;
 
             keel::f32 maxLineWidth = 0.0f;
             keel::f32 totalHeight = 0.0f;
@@ -496,7 +496,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 }
 
                 if (hasLines) {
-                    totalH += node->runGap;
+                    totalH += (node->runGap >= 0.0f) ? node->runGap : node->gap;
                 }
                 totalH += lineMaxH;
                 hasLines = true;
@@ -596,7 +596,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             const keel::i32 totalCols = keel::as<keel::i32>(node->GetGridColumns());
             const keel::f32 minColW = node->GetMinColWidth();
             const keel::f32 gap = node->gap;
-            const keel::f32 runGap = (node->runGap > 0.0f) ? node->runGap : node->gap;
+            const keel::f32 runGap = (node->runGap >= 0.0f) ? node->runGap : node->gap;
 
             keel::f32 totalH = 0.0f;
             bool hasLines = false;
@@ -1193,7 +1193,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             }
 
             if (hasLines) {
-                currentY += node->runGap;
+                currentY += (node->runGap >= 0.0f) ? node->runGap : node->gap;
             }
 
             // Main axis justification for this line
@@ -1368,7 +1368,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         const keel::i32 totalCols = keel::as<keel::i32>(node->GetGridColumns());
         const keel::f32 minColW = node->GetMinColWidth();
         const keel::f32 gap = node->gap;
-        const keel::f32 runGap = (node->runGap > 0.0f) ? node->runGap : node->gap;
+        const keel::f32 runGap = (node->runGap >= 0.0f) ? node->runGap : node->gap;
 
         keel::f32 currentY = contentRect.y;
         bool hasLines = false;

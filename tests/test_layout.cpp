@@ -1555,6 +1555,49 @@ void TestRowAndColumnJustifySpaceBetween() {
     }
 }
 
+void TestGridZeroRunGapIndependentOfColumnGap() {
+    using namespace guikit;
+
+    keel::Arena arena;
+
+    // Grid width 600, gap = 12, explicit runGap = 0 -> horizontal gap is 12, vertical row gap must stay 0!
+    Node* grid = arena.create<Node>();
+    grid->direction = FlexDirection::Grid;
+    grid->SetPayload(arena.create<GridData>(GridData{.columns = 12}));
+    grid->gap = 12.0f;
+    grid->runGap = 0.0f;
+    grid->widthMode = SizeMode::Fixed;
+    grid->fixedWidth = 600.0f;
+    grid->heightMode = SizeMode::Fit;
+
+    Node* r1a = arena.create<Node>();
+    r1a->colSpan = 6;
+    r1a->heightMode = SizeMode::Fixed;
+    r1a->fixedHeight = 40.0f;
+    grid->AddChild(r1a);
+
+    Node* r1b = arena.create<Node>();
+    r1b->colSpan = 6;
+    r1b->heightMode = SizeMode::Fixed;
+    r1b->fixedHeight = 40.0f;
+    grid->AddChild(r1b);
+
+    Node* r2 = arena.create<Node>();
+    r2->colSpan = 12;
+    r2->heightMode = SizeMode::Fixed;
+    r2->fixedHeight = 50.0f;
+    grid->AddChild(r2);
+
+    Solver::Measure(grid);
+    Solver::Arrange(grid, Rect(0.0f, 0.0f, 600.0f, 0.0f));
+
+    // Row 1: two 6-col cells separated by column gap = 12px
+    CHECK_NEAR(r1b->computedRect.x - r1a->computedRect.Right(), 12.0f, 0.001f);
+    // Row 2: directly flush underneath Row 1 with 0px vertical gap
+    CHECK_NEAR(r2->computedRect.y, 40.0f, 0.001f);
+    CHECK_NEAR(grid->computedRect.h, 90.0f, 0.001f);
+}
+
 int main() {
     keel::println("[RUN] Testing GuiKit Layout Solver...");
 
@@ -1579,6 +1622,7 @@ int main() {
     TestGapDpAndContainerSizingConstraints();
     TestPayloadTypeIdAndSolverMeasurePurity();
     TestRowAndColumnJustifySpaceBetween();
+    TestGridZeroRunGapIndependentOfColumnGap();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Layout tests passed successfully!");

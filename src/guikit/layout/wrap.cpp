@@ -16,7 +16,7 @@ ContainerScope detail::Wrap::Open(
     const keel::f32 density = node->GetDensity();
     node->direction = FlexDirection::Wrap;
     node->gap = theme.ResolveGap(opts.gap, UiSize::Md, density);
-    node->runGap = opts.runGap.has_value() ? (*opts.runGap * density) : node->gap;
+    node->runGap = opts.runGap.has_value() ? keel::max(0.0f, *opts.runGap * density) : node->gap;
     node->padding = theme.ResolvePadding(opts.padding, UiSize::None, density);
     node->align = opts.align;
     node->justify = opts.justify;
