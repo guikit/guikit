@@ -84,7 +84,7 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/GuiKitGuidelines.cmake")
 # ==============================================================================
 # 1. Module: guikit::core
 #    Context, LayoutSolver, Element, Theme, ICanvas, IPlatformWindow, MainWindow,
-#    NullCanvas, PlatformWindowBackend, Base Widgets & Panels
+#    NullCanvas, Base Widgets & Panels
 #    Zero external OS / Windowing / GPU / C-Library dependencies (Pure C++20 + keel)
 # ==============================================================================
 set(GUIKIT_CORE_SOURCES
@@ -161,9 +161,13 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/widgets/input_field.cpp
     src/guikit/widgets/knob.cpp
     src/guikit/widgets/markdown.cpp
+    src/guikit/widgets/markdown_parser.cpp
+    src/guikit/widgets/progress_bar.cpp
     src/guikit/widgets/radio.cpp
+    src/guikit/widgets/range_slider.cpp
     src/guikit/widgets/segmented.cpp
     src/guikit/widgets/select.cpp
+    src/guikit/widgets/select_multi.cpp
     src/guikit/widgets/sidebar_menu.cpp
     src/guikit/widgets/slider.cpp
     src/guikit/widgets/spin_box.cpp
@@ -171,6 +175,8 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/widgets/tab_bar.cpp
     src/guikit/widgets/text.cpp
     src/guikit/widgets/text_area.cpp
+    src/guikit/widgets/text_area_highlight.cpp
+    src/guikit/widgets/text_area_render.cpp
     src/guikit/widgets/toast.cpp
 )
 
