@@ -247,7 +247,8 @@ void DefaultStylePainter::DrawSurfaceBg(
 ) const {
     if (p.rect.w <= 0.0f || p.rect.h <= 0.0f) return;
 
-    const bool useBevel = (theme.chrome.frame == FrameTreatment::Bevel3D) && !p.explicitRadius;
+    const bool roundedOverride = p.explicitRadius && (p.radius > 0.01f);
+    const bool useBevel = (theme.chrome.frame == FrameTreatment::Bevel3D) && !roundedOverride;
     const keel::f32 effRadius = useBevel ? 0.0f : p.radius;
 
     Elevation effElev = p.elevation;
@@ -274,7 +275,8 @@ void DefaultStylePainter::DrawSurfaceFrame(
     if (p.rect.w <= 0.0f || p.rect.h <= 0.0f || p.role == SurfaceRole::None) return;
 
     const Rect r = p.rect;
-    const bool useBevel = (theme.chrome.frame == FrameTreatment::Bevel3D) && !p.explicitRadius;
+    const bool roundedOverride = p.explicitRadius && (p.radius > 0.01f);
+    const bool useBevel = (theme.chrome.frame == FrameTreatment::Bevel3D) && !roundedOverride;
 
     // Docked single-edge seam for shell panels (Sidebar, Toolbar, MenuBar, BottomPanel, StatusBar)
     if (p.role == SurfaceRole::DockEdge && p.dockSeam != DockSeam::None && p.radius <= 0.01f) {
@@ -345,9 +347,10 @@ void DefaultStylePainter::DrawFrame(
     if (p.rect.w <= 0.0f || p.rect.h <= 0.0f) return;
 
     const bool isInput = (kind == FrameKind::Input);
+    const bool roundedOverride = p.explicitRadius && (p.radius > 0.01f);
     const bool useBevel = isInput
-        ? ((theme.chrome.field == FieldTreatment::Sunken3D) && !p.explicitRadius)
-        : ((theme.chrome.frame == FrameTreatment::Bevel3D) && !p.explicitRadius);
+        ? ((theme.chrome.field == FieldTreatment::Sunken3D) && !roundedOverride)
+        : ((theme.chrome.frame == FrameTreatment::Bevel3D) && !roundedOverride);
     const keel::f32 effRadius = useBevel ? 0.0f : p.radius;
 
     Elevation effElev = p.elevation;
@@ -482,7 +485,8 @@ keel::f32 DefaultStylePainter::DrawFieldButton(
     Color& outIconColor
 ) const {
     const auto& pal = theme.palette;
-    const bool useRaised = (theme.chrome.fieldButton == FieldButtonStyle::Raised3D) && !explicitRadius;
+    const bool roundedOverride = explicitRadius && (cornerRadius > 0.01f);
+    const bool useRaised = (theme.chrome.fieldButton == FieldButtonStyle::Raised3D) && !roundedOverride;
     const bool useFramed = (theme.chrome.fieldButton == FieldButtonStyle::Framed);
 
     if (useRaised || useFramed) {
