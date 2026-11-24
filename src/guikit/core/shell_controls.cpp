@@ -1,7 +1,6 @@
 #include "guikit/core/shell_controls.hpp"
 
 #include "guikit/core/element.hpp"
-#include "guikit/layout/row.hpp"
 #include "guikit/display/separator.hpp"
 #include "guikit/surfaces/card.hpp"
 #include "guikit/overlays/popover.hpp"
@@ -151,24 +150,22 @@ void ShellControls::RenderThemeControls(MainWindow& win, ToolbarScope& tb) {
 
 void ShellControls::RenderDebugControls(MainWindow& win, ToolbarScope& tb) {
     Context& ui = win.GetUi();
-    if (auto debugGroup = guikit::Row(ui, {.equalWidths = true})) {
-        bool boundsActive = ui.IsDebugBounds();
-        if (tb.Toggle(boundsActive, {
-            .text = "Bounds",
-            .icon = boundsActive ? Icon::Eye() : Icon::EyeOff(),
-            .variant = UiVariant::Info
-        }).changed) {
-            ui.SetDebugBounds(boundsActive);
-        }
+    bool boundsActive = ui.IsDebugBounds();
+    if (tb.Toggle(boundsActive, {
+        .text = "Bounds",
+        .icon = boundsActive ? Icon::Eye() : Icon::EyeOff(),
+        .variant = UiVariant::Info
+    }).changed) {
+        ui.SetDebugBounds(boundsActive);
+    }
 
-        bool inspectActive = ui.IsInspectMode();
-        if (tb.Toggle(inspectActive, {
-            .text = "Inspect",
-            .icon = Icon::Search(),
-            .variant = UiVariant::Warning
-        }).changed) {
-            ui.SetInspectMode(inspectActive);
-        }
+    bool inspectActive = ui.IsInspectMode();
+    if (tb.Toggle(inspectActive, {
+        .text = "Inspect",
+        .icon = Icon::Search(),
+        .variant = UiVariant::Warning
+    }).changed) {
+        ui.SetInspectMode(inspectActive);
     }
 }
 
