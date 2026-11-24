@@ -171,48 +171,26 @@ void RenderMultiSelectNode(
     const auto& pal = theme.palette;
     const Color primaryCol = ResolvePrimaryColor(pal);
 
-    const bool hasBg = opts.background.IsBackgroundEnabled(true);
-    Color boxBg = hasBg
-        ? ((hovered && !disabled) ? pal.surface : pal.inputBackground)
-        : Color::Transparent();
-    Color boxBorder;
-    keel::f32 strokeW = (opts.border.width > 0.0f) ? opts.border.width : m.strokeWidth;
-
-    if ((open || focused) && !disabled) {
-        boxBorder = opts.color.HasAny()
-            ? theme.ResolveColor(opts.color, hovered, open || focused, disabled, pal.focusRing)
-            : pal.focusRing;
-        if (opts.border.width > 0.0f || m.strokeWidth > 0.0f) strokeW += 0.5f;
-    } else if (hovered && !disabled) {
-        boxBorder = pal.borderHover;
-    } else {
-        boxBorder = pal.inputBorder;
-    }
-
     Color placeholderCol = theme.ResolveTextColor(opts.placeholder, UiVariant::Muted, disabled);
-    Color chevronCol = open ? primaryCol : ((data.chevronHovered && !disabled) ? pal.textPrimary : pal.textSecondary);
-    Color unitCol = pal.textSecondary;
-
+    Color chevronCol = open ? FieldFrame::ResolveAccent(theme, opts.status, disabled) : ((data.chevronHovered && !disabled) ? pal.textPrimary : pal.textSecondary);
+    Color unitCol = disabled ? pal.textSecondary.WithAlphaF(theme.disabledOpacity) : pal.textSecondary;
     if (disabled) {
-        boxBg = boxBg.WithAlphaF(0.40f);
-        boxBorder = boxBorder.WithAlphaF(0.40f);
-        chevronCol = chevronCol.WithAlphaF(0.40f);
-        unitCol = unitCol.WithAlphaF(0.40f);
+        chevronCol = chevronCol.WithAlphaF(theme.disabledOpacity);
     }
 
-    if (hasBg && opts.background.HasAny()) {
-        if (!opts.background.IsSurface()) {
-            boxBg = theme.ResolveColor(opts.background, hovered, open || focused, disabled, boxBg);
-        } else if (opts.background.HasAlphaScale()) {
-            boxBg = boxBg.ScaleAlpha(opts.background.alphaScale);
-        }
-    }
-    if (opts.border.color.HasAny()) {
-        boxBorder = theme.ResolveColor(opts.border.color, hovered, open || focused, disabled, boxBorder);
-    }
-
-    const keel::f32 radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
-    canvas.DrawRoundRect(boxRect, radius, boxBg, boxBorder, strokeW);
+    FieldFrame::Draw(canvas, theme, FieldFrameParams{
+        .rect = boxRect,
+        .style = opts.style,
+        .status = opts.status,
+        .background = opts.background,
+        .border = opts.border,
+        .defaultRadius = m.cornerRadius,
+        .defaultStrokeWidth = m.strokeWidth,
+        .hovered = hovered,
+        .focused = focused,
+        .active = open,
+        .disabled = disabled
+    });
 
     // Left prefix
     keel::f32 leftX = boxRect.x + m.paddingX;
@@ -227,15 +205,12 @@ void RenderMultiSelectNode(
 
     // Right elements (chevron + clear button + suffix)
     const keel::f32 btnSize = m.iconSize + 4.0f;
-    keel::f32 rightX = boxRect.x + boxRect.w - m.paddingX - m.iconSize;
-    if (data.chevronHovered && !disabled && opts.searchable) {
-        const Rect chevBtnRect(rightX - 2.0f, boxRect.y + (boxRect.h - btnSize) * 0.5f, btnSize, btnSize);
-        canvas.DrawRoundRect(chevBtnRect, 4.0f, pal.surfaceHover, Color::Transparent(), 0.0f);
-    }
-    const Rect chevronRect(rightX, boxRect.y + (boxRect.h - m.iconSize) * 0.5f, m.iconSize, m.iconSize);
     const Icon chevron = open ? Icon::ChevronUp() : Icon::ChevronDown();
-    chevron.Draw(canvas, chevronRect, chevronCol);
-    rightX -= 6.0f;
+    keel::f32 rightX = FieldFrame::DrawTrigger(
+        canvas, theme, boxRect, chevron,
+        m.paddingX, m.iconSize, m.cornerRadius, opts.border.radius.has_value(),
+        data.chevronHovered, false, open, disabled, opts.searchable, chevronCol
+    );
 
     if (data.showClearBtn) {
         rightX -= btnSize;
@@ -396,13 +371,7 @@ void RenderMultiPopup(
     const auto& pal = theme.palette;
     const Color primaryCol = ResolvePrimaryColor(pal);
 
-    const Color popupBg = pal.surfaceElevated;
-    const Color popupBorder = pal.border;
-
-    if (const ShadowStyle sh = theme.GetShadow(Elevation::Md); sh.IsVisible()) {
-        canvas.DrawShadow(popupRect, m.cornerRadius, sh.blur, sh.offset, sh.color);
-    }
-    canvas.DrawRoundRect(popupRect, m.cornerRadius, popupBg, popupBorder, 1.0f);
+    theme.Painter().DrawDropdownSurface(canvas, theme, popupRect, m.cornerRadius);
 
     if (items.empty()) {
         const Rect emptyRect(popupRect.x + m.paddingX, popupRect.y + 4.0f, keel::max(0.0f, popupRect.w - m.paddingX * 2.0f), keel::max(0.0f, popupRect.h - 8.0f));
@@ -1279,7 +1248,8 @@ Response detail::Select::RunMulti(
         optsCopy.placeholder,
         optsCopy.prefix,
         optsCopy.suffix,
-        optsCopy.color,
+        keel::as<keel::u8>(optsCopy.style),
+        keel::as<keel::u8>(optsCopy.status),
         optsCopy.background,
         optsCopy.border
     );

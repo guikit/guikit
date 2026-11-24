@@ -2696,7 +2696,8 @@ TextAreaResponse detail::TextArea::Run(
     node->visualHash = detail::HashArgs(
         data ? data->text : displayText,
         optsCopy.placeholder,
-        optsCopy.color,
+        keel::as<keel::u8>(optsCopy.style),
+        keel::as<keel::u8>(optsCopy.status),
         optsCopy.width,
         optsCopy.height,
         optsCopy.minWidth.value_or(0.0f),

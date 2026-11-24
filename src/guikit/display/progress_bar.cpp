@@ -379,9 +379,8 @@ void detail::ProgressBar::Render(
         effShowVal, opts.valuePlacement, disabled, theme
     );
 
-    const bool isSeg3D = (theme.chrome.progressFill == ProgressFillStyle::Segmented);
-    const bool sharpRect = isSeg3D || (m.cornerRadius <= 0.01f);
-    const keel::f32 effBarThick = isSeg3D ? keel::max(barThick + 4.0f, 14.0f) : barThick;
+    const keel::f32 effBarThick = theme.Painter().GetProgressBarThickness(theme, barThick);
+    const bool sharpRect = (m.cornerRadius <= 0.01f);
     const keel::f32 barY = keel::round(centerY - effBarThick * 0.5f);
     const keel::f32 barHInt = keel::max(2.0f, keel::round(effBarThick));
 

@@ -15681,8 +15681,8 @@ void TestControlFlatSizingAndStyleOptions() {
             ui.BeginFrame({800.0f, 600.0f});
             if (auto col = guikit::Column(ui, {.gap = 8.0f, .padding = Padding::All(12.0f)})) {
                 rBtn = guikit::Button(ui, {.text = "Danger Action", .size = UiSize::Lg, .variant = UiVariant::Danger, .background = dangerBg, .border = dangerBorder});
-                rIn  = guikit::InputField(ui, inTxt, {.size = UiSize::Lg, .color = dangerColor, .background = dangerBg, .border = dangerBorder});
-                rSel = guikit::Select(ui, selIdx, selItems, {.size = UiSize::Lg, .color = dangerColor, .background = dangerBg, .border = dangerBorder});
+                rIn  = guikit::InputField(ui, inTxt, {.size = UiSize::Lg, .status = UiVariant::Danger, .background = dangerBg, .border = dangerBorder});
+                rSel = guikit::Select(ui, selIdx, selItems, {.size = UiSize::Lg, .status = UiVariant::Danger, .background = dangerBg, .border = dangerBorder});
 
                 rSw  = guikit::Switch(ui, swVal, {.size = UiSize::Sm, .color = successColor});
                 rCb  = guikit::Checkbox(ui, cbVal, {.size = UiSize::Sm, .color = successColor});

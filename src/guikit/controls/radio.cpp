@@ -2,6 +2,7 @@
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
+#include "guikit/style/style_painter.hpp"
 
 namespace guikit {
 
@@ -189,16 +190,20 @@ void detail::Radio::Render(
     }
 
     if (disabled) {
-        ringFill = ringFill.WithAlphaF(0.40f);
-        ringStroke = ringStroke.WithAlphaF(0.40f);
-        dotColor = dotColor.WithAlphaF(0.40f);
+        ringFill = ringFill.WithAlphaF(theme.disabledOpacity);
+        ringStroke = ringStroke.WithAlphaF(theme.disabledOpacity);
+        dotColor = dotColor.WithAlphaF(theme.disabledOpacity);
     } else if (focused) {
         ringStroke = pal.focusRing;
-        strokeWidth = keel::max(strokeWidth, 2.0f);
+        strokeWidth = keel::max(strokeWidth, theme.focusRingWidth);
     }
 
     const keel::f32 outerRadius = boxRect.w * 0.5f;
-    canvas.DrawRoundRect(boxRect, outerRadius, ringFill, ringStroke, strokeWidth);
+    const Color resolvedDotColor = theme.Painter().DrawRadioCircle(
+        canvas, theme, boxRect.Center(), outerRadius,
+        ringFill, ringStroke, strokeWidth, dotColor,
+        selected, pressed, focused, disabled
+    );
 
     if (selected) {
         // Choose dot diameter so (boxRect.w - dotDia) * 0.5 lands on a clean 0.25-dp grid (eliminating relative subpixel drift)
@@ -211,7 +216,7 @@ void detail::Radio::Render(
             dotDia,
             dotDia
         );
-        canvas.DrawRoundRect(dotRect, dotDia * 0.5f, dotColor);
+        canvas.DrawRoundRect(dotRect, dotDia * 0.5f, resolvedDotColor);
     }
 }
 

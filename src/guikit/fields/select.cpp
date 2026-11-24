@@ -1157,7 +1157,8 @@ Response detail::Select::Run(
         optsCopy.placeholder,
         optsCopy.prefix,
         optsCopy.suffix,
-        optsCopy.color,
+        keel::as<keel::u8>(optsCopy.style),
+        keel::as<keel::u8>(optsCopy.status),
         optsCopy.background,
         optsCopy.border
     );
@@ -1234,62 +1235,26 @@ void detail::Select::Render(
 
     const SelectMetrics& m = theme.GetSelect(size);
     const Rect boxRect = bounds;
-
-    // Determine colors
     const auto& pal = theme.palette;
-    const bool hasBg = opts.background.IsBackgroundEnabled(true);
-    Color boxBg = hasBg
-        ? ((hovered && !disabled) ? pal.surface : pal.inputBackground)
-        : Color::Transparent();
-    Color boxBorder;
-    keel::f32 strokeW = (opts.border.width > 0.0f) ? opts.border.width : m.strokeWidth;
-
-    if ((open || focused) && !disabled) {
-        boxBorder = opts.color.HasAny()
-            ? theme.ResolveColor(opts.color, hovered, open || focused, disabled, pal.focusRing)
-            : pal.focusRing;
-        if (opts.border.width > 0.0f || m.strokeWidth > 0.0f) strokeW += 0.5f;
-    } else if (hovered && !disabled) {
-        boxBorder = pal.borderHover;
-    } else {
-        boxBorder = pal.inputBorder;
-    }
 
     Color placeholderCol = theme.ResolveTextColor(opts.placeholder, UiVariant::Secondary, disabled);
-    Color chevronCol = open ? pal.accent : ((chevronHovered && !disabled) ? pal.textPrimary : pal.textSecondary);
-    Color unitCol = pal.textSecondary;
-
+    Color chevronCol = open ? FieldFrame::ResolveAccent(theme, opts.status, disabled) : ((chevronHovered && !disabled) ? pal.textPrimary : pal.textSecondary);
+    Color unitCol = disabled ? pal.textSecondary.WithAlphaF(theme.disabledOpacity) : pal.textSecondary;
     if (disabled) {
-        boxBg = boxBg.WithAlphaF(0.40f);
-        boxBorder = boxBorder.WithAlphaF(0.40f);
-        chevronCol = chevronCol.WithAlphaF(0.40f);
-        unitCol = unitCol.WithAlphaF(0.40f);
+        chevronCol = chevronCol.WithAlphaF(theme.disabledOpacity);
     }
 
-    if (hasBg && opts.background.HasAny()) {
-        if (!opts.background.IsSurface()) {
-            boxBg = theme.ResolveColor(opts.background, hovered, open || focused, disabled, boxBg);
-        } else if (opts.background.HasAlphaScale()) {
-            boxBg = boxBg.ScaleAlpha(opts.background.alphaScale);
-        }
-    }
-    if (opts.border.color.HasAny()) {
-        boxBorder = theme.ResolveColor(opts.border.color, hovered, open || focused, disabled, boxBorder);
-    }
-
-    // Draw box background and border via active style painter
-    const bool useBevelDropBtn = (theme.chrome.fieldButton == FieldButtonStyle::Raised3D) && !opts.border.radius.has_value();
-    const keel::f32 radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
-    theme.Painter().DrawFrame(canvas, theme, FrameKind::Input, FramePaintParams{
+    FieldFrame::Draw(canvas, theme, FieldFrameParams{
         .rect = boxRect,
-        .radius = radius,
-        .explicitRadius = opts.border.radius.has_value(),
-        .bg = (disabled && useBevelDropBtn) ? pal.surface : boxBg,
-        .border = boxBorder,
-        .borderWidth = strokeW,
+        .style = opts.style,
+        .status = opts.status,
+        .background = opts.background,
+        .border = opts.border,
+        .defaultRadius = m.cornerRadius,
+        .defaultStrokeWidth = m.strokeWidth,
         .hovered = hovered,
-        .active = open,
         .focused = focused,
+        .active = open,
         .disabled = disabled
     });
 
@@ -1304,43 +1269,14 @@ void detail::Select::Render(
         leftX += pW + 6.0f;
     }
 
-    // Right elements (chevron indicator + optional clear button + optional suffix)
+    // Right elements (chevron trigger button + optional clear button + optional suffix)
     const keel::f32 btnSize = m.iconSize + 4.0f;
-    keel::f32 rightX = boxRect.x + boxRect.w - m.paddingX - m.iconSize;
-    if (useBevelDropBtn) {
-        const keel::f32 dropBtnW = keel::max(18.0f, keel::min(boxRect.h - 4.0f, m.paddingX + m.iconSize + 4.0f));
-        const Rect dropBtnRect(
-            keel::floor(boxRect.Right() - 2.0f - dropBtnW),
-            keel::floor(boxRect.y + 2.0f),
-            keel::floor(dropBtnW),
-            keel::max(4.0f, keel::floor(boxRect.h - 4.0f))
-        );
-        theme.Painter().DrawFrame(canvas, theme, FrameKind::DropdownButton, FramePaintParams{
-            .rect = dropBtnRect,
-            .bg = disabled ? pal.surface : (open ? pal.surfaceActive : pal.surface),
-            .active = open,
-            .disabled = disabled
-        });
-        const keel::f32 shift = (!disabled && open) ? theme.chrome.buttonPressOffset : 0.0f;
-        const Rect chevronRect(
-            dropBtnRect.x + (dropBtnRect.w - m.iconSize) * 0.5f + shift,
-            dropBtnRect.y + (dropBtnRect.h - m.iconSize) * 0.5f + shift,
-            m.iconSize,
-            m.iconSize
-        );
-        const Icon chevron = open ? Icon::ChevronUp() : Icon::ChevronDown();
-        chevron.Draw(canvas, chevronRect, disabled ? pal.textDisabled : pal.textPrimary);
-        rightX = dropBtnRect.x - 4.0f;
-    } else {
-        if (chevronHovered && !disabled && (opts.searchable || opts.editable)) {
-            const Rect chevBtnRect(rightX - 2.0f, boxRect.y + (boxRect.h - btnSize) * 0.5f, btnSize, btnSize);
-            canvas.DrawRoundRect(chevBtnRect, keel::min(4.0f, m.cornerRadius), pal.surfaceHover, Color::Transparent(), 0.0f);
-        }
-        const Rect chevronRect(rightX, boxRect.y + (boxRect.h - m.iconSize) * 0.5f, m.iconSize, m.iconSize);
-        const Icon chevron = open ? Icon::ChevronUp() : Icon::ChevronDown();
-        chevron.Draw(canvas, chevronRect, chevronCol);
-        rightX -= 6.0f;
-    }
+    const Icon chevron = open ? Icon::ChevronUp() : Icon::ChevronDown();
+    keel::f32 rightX = FieldFrame::DrawTrigger(
+        canvas, theme, boxRect, chevron,
+        m.paddingX, m.iconSize, m.cornerRadius, opts.border.radius.has_value(),
+        chevronHovered, false, open, disabled, (opts.searchable || opts.editable), chevronCol
+    );
 
     if (showClearBtn) {
         rightX -= btnSize;
@@ -1474,16 +1410,7 @@ void detail::Select::RenderPopup(
     const auto& pal = theme.palette;
 
     // Dropdown container styling via active style painter
-    const bool useClassicList = (theme.chrome.frame == FrameTreatment::Bevel3D);
-    const Color popupBg = useClassicList ? pal.inputBackground : pal.surfaceElevated;
-    const Color popupBorder = useClassicList ? theme.bevel.shadowOuter : pal.border;
-    const keel::f32 popupRadius = useClassicList ? 0.0f : m.cornerRadius;
-
-    if (const ShadowStyle sh = theme.GetShadow(Elevation::Md); sh.IsVisible()) {
-        canvas.DrawShadow(popupRect, popupRadius, sh.blur, sh.offset, sh.color);
-    }
-
-    canvas.DrawRoundRect(popupRect, popupRadius, popupBg, popupBorder, 1.0f);
+    theme.Painter().DrawDropdownSurface(canvas, theme, popupRect, m.cornerRadius);
 
     if (items.empty()) {
         const Rect emptyRect(popupRect.x + m.paddingX, popupRect.y + 4.0f, keel::max(0.0f, popupRect.w - m.paddingX * 2.0f), keel::max(0.0f, popupRect.h - 8.0f));
@@ -1529,7 +1456,7 @@ void detail::Select::RenderPopup(
             itemRect,
             keel::min(4.0f, m.cornerRadius),
             isHovered,
-            isSelected && (!useClassicList || hoveredIndex < 0),
+            isSelected && (hoveredIndex < 0 || isHovered),
             false,
             false,
             itemDisabled,

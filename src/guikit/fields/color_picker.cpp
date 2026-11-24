@@ -4,6 +4,8 @@
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
+#include "guikit/style/field_frame.hpp"
+#include "guikit/style/style_painter.hpp"
 #include "keel/math.h"
 #include "keel/static_array.h"
 
@@ -541,7 +543,8 @@ Response detail::ColorPicker::Run(
         optsCopy.maxWidth.value_or(0.0f),
         optsCopy.minHeight.value_or(0.0f),
         optsCopy.maxHeight.value_or(0.0f),
-        optsCopy.color,
+        keel::as<keel::u8>(optsCopy.style),
+        keel::as<keel::u8>(optsCopy.status),
         optsCopy.background,
         optsCopy.border,
         optsCopy.showHex,
@@ -616,33 +619,19 @@ void detail::ColorPicker::Render(
     const auto& pal = theme.palette;
     const keel::f32 radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
 
-    const bool hasBg = opts.background.IsBackgroundEnabled(true);
-    Color boxBg = hasBg
-        ? ((hovered && !disabled) ? pal.surface : pal.inputBackground)
-        : Color::Transparent();
-    Color boxBorder = ((open || focused) && !disabled)
-        ? (opts.color.HasAny() ? theme.ResolveColor(opts.color, hovered, open || focused, disabled, pal.focusRing) : pal.focusRing)
-        : ((hovered && !disabled) ? pal.borderHover : pal.inputBorder);
-    keel::f32 strokeW = (opts.border.width > 0.0f) ? opts.border.width : m.strokeWidth;
-    if ((open || focused) && !disabled && (opts.border.width > 0.0f || m.strokeWidth > 0.0f)) {
-        strokeW += 0.5f;
-    }
-    if (disabled) {
-        boxBg = boxBg.WithAlphaF(0.40f);
-        boxBorder = boxBorder.WithAlphaF(0.40f);
-    }
-    if (hasBg && opts.background.HasAny()) {
-        if (!opts.background.IsSurface()) {
-            boxBg = theme.ResolveColor(opts.background, hovered, open || focused, disabled, boxBg);
-        } else if (opts.background.HasAlphaScale()) {
-            boxBg = boxBg.ScaleAlpha(opts.background.alphaScale);
-        }
-    }
-    if (opts.border.color.HasAny()) {
-        boxBorder = theme.ResolveColor(opts.border.color, hovered, open || focused, disabled, boxBorder);
-    }
-
-    canvas.DrawRoundRect(ctrlRect, radius, boxBg, boxBorder, strokeW);
+    FieldFrame::Draw(canvas, theme, FieldFrameParams{
+        .rect = ctrlRect,
+        .style = opts.style,
+        .status = opts.status,
+        .background = opts.background,
+        .border = opts.border,
+        .defaultRadius = m.cornerRadius,
+        .defaultStrokeWidth = m.strokeWidth,
+        .hovered = hovered,
+        .focused = focused,
+        .active = open,
+        .disabled = disabled
+    });
 
     const keel::f32 pad = keel::max(4.0f, ctrlRect.h * 0.16f);
     const keel::f32 swatchH = keel::max(8.0f, ctrlRect.h - pad * 2.0f);
@@ -650,20 +639,28 @@ void detail::ColorPicker::Render(
 
     if (!opts.showHex) {
         const Rect fullSwatch = ctrlRect.Inset(pad);
-        DrawCheckerboardSwatch(canvas, fullSwatch, disabled ? value.WithAlphaF(0.45f) : value, swatchRadius, pal.borderHover.WithAlpha(150));
+        DrawCheckerboardSwatch(canvas, fullSwatch, disabled ? value.WithAlphaF(theme.disabledOpacity) : value, swatchRadius, pal.borderHover.WithAlpha(150));
         return;
     }
 
     const keel::f32 swatchW = keel::min(ctrlRect.w - pad * 2.0f, keel::max(swatchH * 1.25f, 22.0f));
     const Rect swatchRect(ctrlRect.x + pad, ctrlRect.y + pad, swatchW, swatchH);
-    DrawCheckerboardSwatch(canvas, swatchRect, disabled ? value.WithAlphaF(0.45f) : value, swatchRadius, pal.borderHover.WithAlpha(150));
+    DrawCheckerboardSwatch(canvas, swatchRect, disabled ? value.WithAlphaF(theme.disabledOpacity) : value, swatchRadius, pal.borderHover.WithAlpha(150));
 
-    // Draw #HEX code and optional alpha percentage + chevron
+    // Chevron trigger on right via FieldFrame::DrawTrigger
+    const Icon chevron = open ? Icon::ChevronUp() : Icon::ChevronDown();
+    const Color chevCol = disabled ? pal.textMuted : (open ? FieldFrame::ResolveAccent(theme, opts.status, false) : pal.textSecondary);
+    const keel::f32 rightEdgeX = FieldFrame::DrawTrigger(
+        canvas, theme, ctrlRect, chevron,
+        m.paddingX * 0.75f, m.iconSize, m.cornerRadius, opts.border.radius.has_value(),
+        hovered, false, open, disabled, false, chevCol
+    );
+
+    // Draw #HEX code and optional alpha percentage
     const keel::f32 fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
     const Color textCol = disabled ? pal.textMuted : pal.textPrimary;
-    const keel::f32 chevronSpace = m.iconSize + m.paddingX;
     const keel::f32 textStartX = swatchRect.Right() + 8.0f;
-    const keel::f32 textW = keel::max(0.0f, ctrlRect.Right() - chevronSpace - textStartX);
+    const keel::f32 textW = keel::max(0.0f, rightEdgeX - textStartX);
     if (textW > 8.0f) {
         const keel::f32 hexW = canvas.MeasureText(hexText, fontSize).x;
         char alphaBuf[16]{};
@@ -681,16 +678,6 @@ void detail::ColorPicker::Render(
             canvas.DrawTextBox(alphaBuf, alphaRect.Inset(4.0f, 0.0f), fontSize * 0.9f, pal.textSecondary, 1.0f, 0.5f);
         }
     }
-
-    // Chevron indicator on right
-    const Icon chevron = open ? Icon::ChevronUp() : Icon::ChevronDown();
-    const Rect iconRect(
-        ctrlRect.Right() - m.paddingX * 0.75f - m.iconSize,
-        ctrlRect.y + (ctrlRect.h - m.iconSize) * 0.5f,
-        m.iconSize,
-        m.iconSize
-    );
-    chevron.Draw(canvas, iconRect, disabled ? pal.textMuted : (open ? pal.accent : pal.textSecondary));
 }
 
 void detail::ColorPicker::RenderPanel(
@@ -713,8 +700,16 @@ void detail::ColorPicker::RenderPanel(
     const auto& pal = theme.palette;
     const keel::f32 radius = opts.border.radius.has_value() ? *opts.border.radius : 8.0f;
     if (isFloatingPopup) {
-        canvas.DrawRoundRect(Rect(panelRect.x, panelRect.y + 3.0f, panelRect.w, panelRect.h), radius + 1.0f, Color(0, 0, 0, 95));
-        canvas.DrawRoundRect(panelRect, radius, pal.surface, pal.borderHover, 1.0f);
+        theme.Painter().DrawSurface(canvas, theme, SurfacePaintParams{
+            .rect = panelRect,
+            .role = SurfaceRole::Popup,
+            .radius = radius,
+            .explicitRadius = opts.border.radius.has_value(),
+            .bg = pal.surfaceElevated,
+            .border = pal.borderHover,
+            .borderWidth = 1.0f,
+            .elevation = Elevation::Md
+        });
     } else {
         (void)size;
         const bool hasBg = opts.background.IsBackgroundEnabled(true);
@@ -730,7 +725,15 @@ void detail::ColorPicker::RenderPanel(
             ? theme.ResolveColor(opts.border.color, false, false, disabled, pal.inputBorder)
             : pal.inputBorder;
         const keel::f32 strokeW = (opts.border.width > 0.0f) ? opts.border.width : 1.0f;
-        canvas.DrawRoundRect(panelRect, radius, panelBg, panelBorder, strokeW);
+        theme.Painter().DrawSurface(canvas, theme, SurfacePaintParams{
+            .rect = panelRect,
+            .role = SurfaceRole::Flat,
+            .radius = radius,
+            .explicitRadius = opts.border.radius.has_value(),
+            .bg = panelBg,
+            .border = panelBorder,
+            .borderWidth = strokeW
+        });
     }
 
     const PanelLayout L = ComputePanelLayout(panelRect, opts);

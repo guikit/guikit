@@ -29,6 +29,13 @@ enum class ButtonStyle : keel::u8 {
     Ghost        ///< Borderless transparent trigger revealing chrome on hover/active (toolbars, chrome icons)
 };
 
+/// Visual presentation style for text and selection input fields (`fields/`).
+enum class FieldStyle : keel::u8 {
+    Default = 0, ///< Theme-driven input well (outlined, bottom-accent, sunken 3D, or brutalist)
+    Filled,      ///< Soft tinted surface fill with subtle hover/focus accent
+    Borderless   ///< Minimal inline input well (no resting outline; subtle focus indicator)
+};
+
 /// Universal relative placement for companion elements (e.g. icons or value readouts inside controls).
 enum class Placement : keel::u8 {
     Leading,    ///< Placed before primary element (left / start)

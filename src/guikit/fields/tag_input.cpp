@@ -4,6 +4,8 @@
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
+#include "guikit/style/field_frame.hpp"
+#include "guikit/style/style_painter.hpp"
 #include "keel/core.h"
 #include "keel/small_array.h"
 #include "keel/string.h"
@@ -318,31 +320,22 @@ TagLayoutResult ComputeTagLayout(
 Color ResolveChipAccentColor(
     UiVariant chipVariant,
     UiVariant defaultVariant,
-    const StateColor& colorOverride,
-    bool hovered,
-    bool focused,
-    bool disabled,
+    UiVariant statusOverride,
     const UiTheme& theme
 ) noexcept {
-    const UiVariant effectiveVar = (chipVariant != UiVariant::Default) ? chipVariant : defaultVariant;
-    Color baseAccent;
+    const UiVariant effectiveVar = (chipVariant != UiVariant::Default)
+        ? chipVariant
+        : ((statusOverride != UiVariant::Default) ? statusOverride : defaultVariant);
     switch (effectiveVar) {
         case UiVariant::Default:
         case UiVariant::Secondary:
-            baseAccent = theme.palette.textSecondary;
-            break;
+            return theme.palette.textSecondary;
         case UiVariant::Ghost:
         case UiVariant::Muted:
-            baseAccent = theme.palette.textMuted;
-            break;
+            return theme.palette.textMuted;
         default:
-            baseAccent = theme.GetVariant(effectiveVar).bg;
-            break;
+            return theme.GetVariant(effectiveVar).bg;
     }
-    if (chipVariant == UiVariant::Default && colorOverride.HasAny()) {
-        baseAccent = theme.ResolveColor(colorOverride, hovered, focused, disabled, baseAccent);
-    }
-    return baseAccent;
 }
 
 template <typename SinkT, typename GetChipFn, typename PushTokenFn>
@@ -637,7 +630,8 @@ Response RunTagInputImpl(
         optsCopy.clearable,
         optsCopy.showCounter,
         optsCopy.readOnly,
-        optsCopy.color,
+        keel::as<keel::u8>(optsCopy.style),
+        keel::as<keel::u8>(optsCopy.status),
         optsCopy.background,
         optsCopy.border,
         optsCopy.width,
@@ -836,48 +830,22 @@ void detail::TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& 
     const InputFieldMetrics& m = theme.GetInputField(size);
     const auto& pal = theme.palette;
 
-    const bool hasBg = opts.background.IsBackgroundEnabled(true);
-    Color boxBg = hasBg
-        ? ((hovered && !disabled) ? pal.surface : pal.inputBackground)
-        : Color::Transparent();
-    Color boxBorder;
-    keel::f32 strokeW = (opts.border.width > 0.0f) ? opts.border.width : m.strokeWidth;
-
-    if (focused && !disabled) {
-        boxBorder = opts.color.HasAny()
-            ? theme.ResolveColor(opts.color, hovered, focused, disabled, pal.focusRing)
-            : pal.focusRing;
-        if (opts.border.width > 0.0f || m.strokeWidth > 0.0f) {
-            strokeW += 0.5f;
-        }
-    } else if (hovered && !disabled) {
-        boxBorder = pal.borderHover;
-    } else {
-        boxBorder = pal.inputBorder;
-    }
-
-    Color textCol = disabled ? pal.textPrimary.WithAlphaF(0.40f) : pal.textPrimary;
+    Color textCol = disabled ? pal.textPrimary.WithAlphaF(theme.disabledOpacity) : pal.textPrimary;
     Color placeholderCol = theme.ResolveTextColor(opts.placeholder, UiVariant::Secondary, disabled, hovered, focused);
-    Color unitCol = disabled ? pal.textSecondary.WithAlphaF(0.40f) : pal.textSecondary;
+    Color unitCol = disabled ? pal.textSecondary.WithAlphaF(theme.disabledOpacity) : pal.textSecondary;
 
-    if (disabled) {
-        boxBg = boxBg.WithAlphaF(0.40f);
-        boxBorder = boxBorder.WithAlphaF(0.40f);
-    }
-
-    if (hasBg && opts.background.HasAny()) {
-        if (!opts.background.IsSurface()) {
-            boxBg = theme.ResolveColor(opts.background, hovered, focused, disabled, boxBg);
-        } else if (opts.background.HasAlphaScale()) {
-            boxBg = boxBg.ScaleAlpha(opts.background.alphaScale);
-        }
-    }
-    if (opts.border.color.HasAny()) {
-        boxBorder = theme.ResolveColor(opts.border.color, hovered, focused, disabled, boxBorder);
-    }
-
-    const keel::f32 radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
-    canvas.DrawRoundRect(boxRect, radius, boxBg, boxBorder, strokeW);
+    FieldFrame::Draw(canvas, theme, FieldFrameParams{
+        .rect = boxRect,
+        .style = opts.style,
+        .status = opts.status,
+        .background = opts.background,
+        .border = opts.border,
+        .defaultRadius = m.cornerRadius,
+        .defaultStrokeWidth = m.strokeWidth,
+        .hovered = hovered,
+        .focused = focused,
+        .disabled = disabled
+    });
 
     if (opts.prefix.HasContentOrReserve()) {
         const keel::f32 pFont = theme.ResolveFontSize(opts.prefix.text, TextRole::LabelMedium, size);
@@ -971,10 +939,7 @@ void detail::TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& 
         const Color accent = ResolveChipAccentColor(
             chip.variant,
             opts.tagVariant,
-            opts.color,
-            hovered,
-            focused,
-            disabled,
+            opts.status,
             theme
         );
 

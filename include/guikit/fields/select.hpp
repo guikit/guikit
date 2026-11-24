@@ -46,7 +46,8 @@ struct SelectOptions {
     keel::Optional<keel::f32> maxWidth{keel::kNullOpt};            ///< Optional maximum width in logical dp
     keel::Optional<keel::f32> minHeight{keel::kNullOpt};           ///< Optional minimum height in logical dp
     keel::Optional<keel::f32> maxHeight{keel::kNullOpt};           ///< Optional maximum height in logical dp
-    StateColor color{};                                        ///< Per-state semantic tint/accent color override
+    FieldStyle style{FieldStyle::Default};                     ///< Visual field presentation (Default, Filled, Borderless)
+    UiVariant status{UiVariant::Default};                      ///< Validation / semantic accent status (Default, Success, Warning, Danger, Info)
     StateColor background{};                                   ///< Optional background fill override (`{}` = theme default, `StateColor::None()` = transparent)
     Border border{};                                           ///< Optional border width, color, and radius override
 };

@@ -7,6 +7,8 @@
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
 #include "guikit/graphics/icon.hpp"
+#include "guikit/style/field_frame.hpp"
+#include "guikit/style/style_painter.hpp"
 
 namespace guikit {
 
@@ -33,12 +35,8 @@ constexpr Color ResolveThemePrimary(const Pal& pal) noexcept {
     }
 }
 
-Color ResolveAccentColor(const DatePickerOptions& opts, const UiTheme& theme, bool hovered = false, bool active = false, bool disabled = false) noexcept {
-    const Color fallback = ResolveThemePrimary(theme.palette);
-    if (opts.color.HasAny()) {
-        return theme.ResolveColor(opts.color, hovered, active, disabled, fallback);
-    }
-    return disabled ? fallback.WithAlphaF(0.40f) : fallback;
+Color ResolveAccentColor(const DatePickerOptions& opts, const UiTheme& theme, bool /*hovered*/ = false, bool /*active*/ = false, bool disabled = false) noexcept {
+    return FieldFrame::ResolveAccent(theme, opts.status, disabled);
 }
 
 constexpr keel::i32 CompareDateOnly(keel::i32 y1, keel::i32 m1, keel::i32 d1, keel::i32 y2, keel::i32 m2, keel::i32 d2) noexcept {
@@ -484,11 +482,16 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
     const auto& pal = d.theme.palette;
     const Color accentCol = ResolveAccentColor(d.opts, d.theme);
 
-    // Theme-controlled elevation shadow and elevated card surface
-    if (const ShadowStyle sh = d.theme.GetShadow(Elevation::Lg); sh.IsVisible()) {
-        canvas.DrawShadow(popupRect, m.cornerRadius + 1.0f, sh.blur, sh.offset, sh.color);
-    }
-    canvas.DrawRoundRect(popupRect, m.cornerRadius + 1.0f, pal.surfaceElevated, pal.border, 1.0f);
+    // Theme-controlled popover surface via IStylePainter
+    d.theme.Painter().DrawSurface(canvas, d.theme, SurfacePaintParams{
+        .rect = popupRect,
+        .role = SurfaceRole::Popup,
+        .radius = m.cornerRadius + 1.0f,
+        .bg = pal.surfaceElevated,
+        .border = pal.border,
+        .borderWidth = 1.0f,
+        .elevation = Elevation::Lg
+    });
 
     const keel::f32 bodyFont = d.theme.ResolveFontSize(UiText{}, TextRole::LabelMedium, d.size);
     const keel::f32 smallFont = d.theme.ResolveFontSize(UiText{}, TextRole::LabelSmall, d.size);
@@ -1076,7 +1079,8 @@ Response detail::DatePicker::Run(
         optsCopy.maxWidth,
         optsCopy.minHeight,
         optsCopy.maxHeight,
-        optsCopy.color,
+        keel::as<keel::u8>(optsCopy.style),
+        keel::as<keel::u8>(optsCopy.status),
         optsCopy.background,
         optsCopy.border,
         data->formattedText,
@@ -1119,44 +1123,25 @@ void detail::DatePicker::Render(const Node* node, ICanvas& canvas, const UiTheme
     const auto& pal = theme.palette;
     const Color accentCol = ResolveAccentColor(opts, theme, hovered, open || focused, disabled);
 
-    const bool hasBg = opts.background.IsBackgroundEnabled(true);
-    Color boxBg = hasBg
-        ? ((hovered && !disabled) ? pal.surface : pal.inputBackground)
-        : Color::Transparent();
-    Color boxBorder;
-    keel::f32 strokeW = (opts.border.width > 0.0f) ? opts.border.width : m.strokeWidth;
-
-    if ((open || focused) && !disabled) {
-        boxBorder = opts.color.HasAny() ? accentCol : pal.focusRing;
-        if (opts.border.width > 0.0f || m.strokeWidth > 0.0f) strokeW += 0.5f;
-    } else if (hovered && !disabled) {
-        boxBorder = pal.borderHover;
-    } else {
-        boxBorder = pal.inputBorder;
-    }
-
     Color chevronCol = open ? accentCol : (((d && d->chevronHovered) && !disabled) ? pal.textPrimary : pal.textSecondary);
-    Color leadIconCol = open ? accentCol : (disabled ? pal.textSecondary.WithAlphaF(0.40f) : accentCol);
-
+    Color leadIconCol = open ? accentCol : (disabled ? pal.textSecondary.WithAlphaF(theme.disabledOpacity) : accentCol);
     if (disabled) {
-        boxBg = boxBg.WithAlphaF(0.40f);
-        boxBorder = boxBorder.WithAlphaF(0.40f);
-        chevronCol = chevronCol.WithAlphaF(0.40f);
+        chevronCol = chevronCol.WithAlphaF(theme.disabledOpacity);
     }
 
-    if (hasBg && opts.background.HasAny()) {
-        if (!opts.background.IsSurface()) {
-            boxBg = theme.ResolveColor(opts.background, hovered, open || focused, disabled, boxBg);
-        } else if (opts.background.HasAlphaScale()) {
-            boxBg = boxBg.ScaleAlpha(opts.background.alphaScale);
-        }
-    }
-    if (opts.border.color.HasAny()) {
-        boxBorder = theme.ResolveColor(opts.border.color, hovered, open || focused, disabled, boxBorder);
-    }
-
-    const keel::f32 radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
-    canvas.DrawRoundRect(bounds, radius, boxBg, boxBorder, strokeW);
+    FieldFrame::Draw(canvas, theme, FieldFrameParams{
+        .rect = bounds,
+        .style = opts.style,
+        .status = opts.status,
+        .background = opts.background,
+        .border = opts.border,
+        .defaultRadius = m.cornerRadius,
+        .defaultStrokeWidth = m.strokeWidth,
+        .hovered = hovered,
+        .focused = focused,
+        .active = open,
+        .disabled = disabled
+    });
 
     // Left vector calendar / clock icon
     keel::f32 leftX = bounds.x + m.paddingX;
@@ -1168,20 +1153,22 @@ void detail::DatePicker::Render(const Node* node, ICanvas& canvas, const UiTheme
     }
     leftX += m.iconSize + 8.0f;
 
-    // Right chevron icon
-    const keel::f32 rightX = bounds.x + bounds.w - m.paddingX - m.iconSize;
-    const Rect chevronRect(rightX, bounds.y + (bounds.h - m.iconSize) * 0.5f, m.iconSize, m.iconSize);
+    // Right chevron trigger via FieldFrame::DrawTrigger
     const Icon chevron = open ? Icon::ChevronUp() : Icon::ChevronDown();
-    chevron.Draw(canvas, chevronRect, chevronCol);
+    const keel::f32 rightEdgeX = FieldFrame::DrawTrigger(
+        canvas, theme, bounds, chevron,
+        m.paddingX, m.iconSize, m.cornerRadius, opts.border.radius.has_value(),
+        (d && d->chevronHovered), false, open, disabled, false, chevronCol
+    );
 
     // Formatted date/time text
-    const keel::f32 availW = keel::max(0.0f, (rightX - 6.0f) - leftX);
+    const keel::f32 availW = keel::max(0.0f, rightEdgeX - leftX);
     const Rect textRect(leftX, bounds.y, availW, bounds.h);
     canvas.PushClip(textRect);
 
     const UiText displayTxt = d ? d->formattedText : UiText{"2026-10-20"};
     const keel::f32 font = theme.ResolveFontSize(displayTxt, TextRole::LabelMedium, size);
-    const Color textCol = disabled ? pal.textPrimary.WithAlphaF(0.40f) : pal.textPrimary;
+    const Color textCol = disabled ? pal.textPrimary.WithAlphaF(theme.disabledOpacity) : pal.textPrimary;
     TextUtil::DrawUiText(canvas, displayTxt, textRect, font, bounds.h, textCol, 0.0f, 0.5f, &theme);
 
     canvas.PopClip();

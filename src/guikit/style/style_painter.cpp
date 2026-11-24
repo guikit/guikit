@@ -473,6 +473,161 @@ keel::f32 DefaultStylePainter::GetTabGap(
     return (theme.chrome.tabGapOverride >= 0.0f) ? theme.chrome.tabGapOverride : fallbackGap;
 }
 
+keel::f32 DefaultStylePainter::DrawFieldButton(
+    ICanvas& canvas,
+    const UiTheme& theme,
+    Rect fieldRect,
+    keel::f32 paddingX,
+    keel::f32 iconSize,
+    keel::f32 cornerRadius,
+    bool explicitRadius,
+    bool hovered,
+    bool pressed,
+    bool active,
+    bool disabled,
+    bool showHoverPill,
+    Color fallbackIconCol,
+    Rect& outIconRect,
+    Color& outIconColor
+) const {
+    const auto& pal = theme.palette;
+    const bool useRaised = (theme.chrome.fieldButton == FieldButtonStyle::Raised3D) && !explicitRadius;
+    const bool useFramed = (theme.chrome.fieldButton == FieldButtonStyle::Framed);
+
+    if (useRaised || useFramed) {
+        const keel::f32 inset = useRaised ? 2.0f : 1.0f;
+        const keel::f32 dropBtnW = keel::max(18.0f, keel::min(fieldRect.h - inset * 2.0f, paddingX + iconSize + 4.0f));
+        const Rect dropBtnRect(
+            keel::floor(fieldRect.Right() - inset - dropBtnW),
+            keel::floor(fieldRect.y + inset),
+            keel::floor(dropBtnW),
+            keel::max(4.0f, keel::floor(fieldRect.h - inset * 2.0f))
+        );
+        const Color btnBg = disabled
+            ? pal.surface.WithAlphaF(theme.disabledOpacity)
+            : ((pressed || active) ? pal.surfaceActive : (hovered ? pal.surfaceHover : pal.surface));
+        DrawFrame(canvas, theme, FrameKind::DropdownButton, FramePaintParams{
+            .rect = dropBtnRect,
+            .radius = useRaised ? 0.0f : keel::max(0.0f, cornerRadius - 1.0f),
+            .explicitRadius = explicitRadius,
+            .bg = btnBg,
+            .border = useFramed ? pal.border : Color::Transparent(),
+            .borderWidth = useFramed ? 1.0f : 0.0f,
+            .hovered = hovered,
+            .pressed = pressed,
+            .active = active,
+            .disabled = disabled,
+            .accent = pal.accent
+        });
+        const keel::f32 shift = GetButtonContentOffset(theme, pressed, active, disabled);
+        outIconRect = Rect(
+            dropBtnRect.x + (dropBtnRect.w - iconSize) * 0.5f + shift,
+            dropBtnRect.y + (dropBtnRect.h - iconSize) * 0.5f + shift,
+            iconSize,
+            iconSize
+        );
+        outIconColor = disabled ? pal.textDisabled : pal.textPrimary;
+        return dropBtnRect.x - 4.0f;
+    }
+
+    const keel::f32 iconX = fieldRect.x + fieldRect.w - paddingX - iconSize;
+    if (showHoverPill && hovered && !disabled) {
+        const keel::f32 btnSize = iconSize + 4.0f;
+        const Rect chevBtnRect(iconX - 2.0f, fieldRect.y + (fieldRect.h - btnSize) * 0.5f, btnSize, btnSize);
+        canvas.DrawRoundRect(chevBtnRect, keel::min(4.0f, cornerRadius), pal.surfaceHover, Color::Transparent(), 0.0f);
+    }
+    outIconRect = Rect(iconX, fieldRect.y + (fieldRect.h - iconSize) * 0.5f, iconSize, iconSize);
+    outIconColor = fallbackIconCol;
+    return iconX - 6.0f;
+}
+
+void DefaultStylePainter::DrawDropdownSurface(
+    ICanvas& canvas,
+    const UiTheme& theme,
+    Rect popupRect,
+    keel::f32 cornerRadius
+) const {
+    if (popupRect.w <= 0.0f || popupRect.h <= 0.0f) return;
+    const auto& pal = theme.palette;
+    if (theme.chrome.frame == FrameTreatment::Bevel3D) {
+        DrawShadowForRect(canvas, theme, popupRect, 0.0f, Elevation::Md, 1.0f);
+        canvas.DrawRoundRect(popupRect, 0.0f, pal.inputBackground, theme.bevel.shadowOuter, 1.0f);
+        return;
+    }
+    DrawSurface(canvas, theme, SurfacePaintParams{
+        .rect = popupRect,
+        .role = SurfaceRole::Popup,
+        .radius = cornerRadius,
+        .bg = pal.surfaceElevated,
+        .border = pal.border,
+        .borderWidth = 1.0f,
+        .elevation = Elevation::Md
+    });
+}
+
+keel::f32 DefaultStylePainter::GetSliderTrackHeight(
+    const UiTheme& theme,
+    keel::f32 defaultHeight,
+    bool isRange
+) const noexcept {
+    if (theme.chrome.frame == FrameTreatment::Bevel3D) {
+        return isRange ? 6.0f : 4.0f;
+    }
+    return defaultHeight;
+}
+
+void DefaultStylePainter::DrawSliderTick(
+    ICanvas& canvas,
+    const UiTheme& theme,
+    Vec2 tickCenter,
+    keel::f32 crossCoord,
+    bool vertical,
+    keel::f32 tickSize,
+    Color color,
+    bool disabled
+) const {
+    if (theme.chrome.sliderThumb == SliderThumbShape::Pointer3D) {
+        const Color tickCol = disabled ? theme.palette.textDisabled : theme.palette.border;
+        if (vertical) {
+            canvas.DrawRect(Rect(keel::floor(crossCoord + 10.0f), keel::floor(tickCenter.y), 3.0f, 1.0f), tickCol);
+        } else {
+            canvas.DrawRect(Rect(keel::floor(tickCenter.x), keel::floor(crossCoord + 10.0f), 1.0f, 3.0f), tickCol);
+        }
+        return;
+    }
+    const keel::f32 tickR = tickSize * 0.5f;
+    canvas.DrawRoundRect(
+        Rect(tickCenter.x - tickR, tickCenter.y - tickR, tickSize, tickSize),
+        tickR,
+        color
+    );
+}
+
+keel::f32 DefaultStylePainter::GetProgressBarThickness(
+    const UiTheme& theme,
+    keel::f32 defaultThickness
+) const noexcept {
+    if (theme.chrome.progressFill == ProgressFillStyle::Segmented) {
+        return keel::max(defaultThickness + 4.0f, 14.0f);
+    }
+    return defaultThickness;
+}
+
+keel::f32 DefaultStylePainter::GetBadgeRadius(
+    const UiTheme& theme,
+    keel::f32 height,
+    keel::f32 defaultRadius,
+    bool pill
+) const noexcept {
+    if (theme.chrome.badgeShape == BadgeShape::Sharp) {
+        return 0.0f;
+    }
+    if (pill && theme.chrome.badgeShape == BadgeShape::Pill) {
+        return height * 0.5f;
+    }
+    return defaultRadius;
+}
+
 void DefaultStylePainter::DrawDivider(
     ICanvas& canvas,
     const UiTheme& theme,

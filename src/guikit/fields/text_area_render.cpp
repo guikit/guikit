@@ -124,26 +124,21 @@ void detail::TextArea::Render(
     const Rect editorBox = L.editorBox;
     if (editorBox.w <= 0.0f || editorBox.h <= 0.0f) return;
 
-    // Render editor container frame
+    // Render editor container frame via FieldFrame
     const keel::f32 r = theme.ResolveRadius(opts.border.radius, size);
-    const Color defaultBg = disabled ? editorBgCol.WithAlphaF(0.45f) : editorBgCol;
-    const Color bgCol = theme.ResolveColor(opts.background, hovered, false, disabled, defaultBg);
-    Color defaultBorderCol = pal.inputBorder;
-    keel::f32 defaultStrokeW = 1.0f;
-    if (!disabled) {
-        if (focused) {
-            defaultBorderCol = theme.ResolveColor(opts.color, false, false, false, pal.focusRing);
-            defaultStrokeW = 1.5f;
-        } else if (hovered) {
-            defaultBorderCol = pal.borderHover;
-        }
-    } else {
-        defaultBorderCol = defaultBorderCol.WithAlphaF(0.45f);
-    }
-    const Color borderCol = theme.ResolveColor(opts.border.color, hovered, focused, disabled, defaultBorderCol);
-    const keel::f32 strokeW = (opts.border.width > 0.0f) ? opts.border.width : defaultStrokeW;
-
-    canvas.DrawRoundRect(editorBox, r, bgCol, borderCol, strokeW);
+    FieldFrame::Draw(canvas, theme, FieldFrameParams{
+        .rect = editorBox,
+        .style = opts.style,
+        .status = opts.status,
+        .background = opts.background,
+        .border = opts.border,
+        .defaultRadius = r,
+        .defaultStrokeWidth = 1.0f,
+        .defaultBgOverride = editorBgCol,
+        .hovered = hovered,
+        .focused = focused,
+        .disabled = disabled
+    });
 
     const Rect innerBounds = L.innerBounds;
     if (innerBounds.w <= 2.0f || innerBounds.h <= 2.0f) return;

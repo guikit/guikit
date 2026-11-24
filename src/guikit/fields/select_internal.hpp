@@ -5,6 +5,7 @@
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/scrollbar.hpp"
+#include "guikit/style/field_frame.hpp"
 #include "guikit/style/style_painter.hpp"
 #include "guikit/core/text_util.hpp"
 #include "keel/core.h"

@@ -65,7 +65,7 @@ struct ReadoutOptions {
     keel::Optional<Padding> padding{keel::kNullOpt};
     StateColor background{};
     Border border{.width = 1.0f};
-    bool elevated{false};
+    SurfaceRole surface{SurfaceRole::Flat};
     bool disabled{false};
 
     // Interactive behavior & numeric formatting

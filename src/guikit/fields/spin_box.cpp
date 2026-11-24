@@ -3,6 +3,8 @@
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
+#include "guikit/style/field_frame.hpp"
+#include "guikit/style/style_painter.hpp"
 #include "keel/format.h"
 #include "keel/math.h"
 #include "keel/number.h"
@@ -622,7 +624,8 @@ Response detail::SpinBox::Run(
     node->SetPayload(data);
     node->visualHash = detail::HashArgs(
         keel::as<keel::u8>(optsCopy.stepStyle),
-        optsCopy.color,
+        keel::as<keel::u8>(optsCopy.style),
+        keel::as<keel::u8>(optsCopy.status),
         optsCopy.background,
         optsCopy.border,
         optsCopy.width,
@@ -769,51 +772,29 @@ void detail::SpinBox::Render(
     const bool inputHovered = hovered && (!isExternalStepBtns || (!stepMinusHovered && !stepPlusHovered));
 
     const auto& pal = theme.palette;
-    const bool hasBg = opts.background.IsBackgroundEnabled(true);
-    Color boxBg = hasBg
-        ? ((inputHovered && !disabled) ? pal.surface : pal.inputBackground)
-        : Color::Transparent();
-    Color boxBorder;
-    keel::f32 strokeW = (opts.border.width > 0.0f) ? opts.border.width : m.strokeWidth;
-
-    const VariantColors& primaryVar = theme.GetVariant(UiVariant::Primary);
-    const Color accentCol = opts.color.HasAny()
-        ? theme.ResolveColor(opts.color, hovered && !disabled, focused && !disabled, disabled, primaryVar.bg, primaryVar.bgHover, primaryVar.bgActive, primaryVar.bg)
-        : primaryVar.bg;
-
-    if (focused && !disabled) {
-        boxBorder = opts.color.HasAny() ? accentCol : pal.focusRing;
-        if (opts.border.width > 0.0f || m.strokeWidth > 0.0f) strokeW += 0.5f;
-    } else if (inputHovered && !disabled) {
-        boxBorder = pal.borderHover;
-    } else {
-        boxBorder = pal.inputBorder;
-    }
+    const bool hasBg = opts.background.IsBackgroundEnabled(opts.style != FieldStyle::Borderless);
+    const bool hasStatus = (opts.status != UiVariant::Default);
+    const Color accentCol = FieldFrame::ResolveAccent(theme, opts.status, disabled);
 
     Color textCol = opts.valueFormat.color.HasAny()
         ? theme.ResolveTextColor(opts.valueFormat, UiVariant::Default, disabled, inputHovered, focused)
-        : (disabled ? pal.textPrimary.WithAlphaF(0.40f) : pal.textPrimary);
-    Color unitCol = pal.textSecondary;
+        : (disabled ? pal.textPrimary.WithAlphaF(theme.disabledOpacity) : pal.textPrimary);
+    Color unitCol = disabled ? pal.textSecondary.WithAlphaF(theme.disabledOpacity) : pal.textSecondary;
 
-    if (disabled) {
-        boxBg = boxBg.WithAlphaF(0.40f);
-        boxBorder = boxBorder.WithAlphaF(0.40f);
-        unitCol = unitCol.WithAlphaF(0.40f);
-    }
-
-    if (hasBg && opts.background.HasAny()) {
-        if (!opts.background.IsSurface()) {
-            boxBg = theme.ResolveColor(opts.background, inputHovered, focused, disabled, boxBg);
-        } else if (opts.background.HasAlphaScale()) {
-            boxBg = boxBg.ScaleAlpha(opts.background.alphaScale);
-        }
-    }
-    if (opts.border.color.HasAny()) {
-        boxBorder = theme.ResolveColor(opts.border.color, inputHovered, focused, disabled, boxBorder);
-    }
+    FieldFrame::Draw(canvas, theme, FieldFrameParams{
+        .rect = boxRect,
+        .style = opts.style,
+        .status = opts.status,
+        .background = opts.background,
+        .border = opts.border,
+        .defaultRadius = m.cornerRadius,
+        .defaultStrokeWidth = m.strokeWidth,
+        .hovered = inputHovered,
+        .focused = focused,
+        .disabled = disabled
+    });
 
     const keel::f32 radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
-    canvas.DrawRoundRect(boxRect, radius, boxBg, boxBorder, strokeW);
 
     // Optional fill bar along the bottom inside the SpinBox input field
     if (opts.showFillBar && fillRatio > 0.001f) {
@@ -823,7 +804,7 @@ void detail::SpinBox::Render(
         const keel::f32 barW = maxBarW * keel::clamp(fillRatio, 0.0f, 1.0f);
         if (barW > 1.0f) {
             const Rect barRect(boxRect.x + padX, boxRect.Bottom() - barH - 1.5f, barW, barH);
-            const Color barCol = disabled ? accentCol.WithAlphaF(0.35f) : accentCol.WithAlphaF(0.85f);
+            const Color barCol = disabled ? accentCol.WithAlphaF(theme.disabledOpacity) : accentCol.WithAlphaF(0.85f);
             canvas.DrawRoundRect(barRect, barH * 0.5f, barCol, Color::Transparent(), 0.0f);
         }
     }
@@ -838,7 +819,7 @@ void detail::SpinBox::Render(
         auto drawSquareStepBtn = [&](const Rect& btnRect, const Icon& ic, bool btnHov, bool btnPress, bool btnDis) {
             if (btnRect.w <= 0.0f || btnRect.h <= 0.0f) return;
             const bool effDis = disabled || btnDis;
-            Color btnBg = hasBg ? pal.inputBackground : Color::Transparent();
+            Color btnBg = hasBg ? pal.surface : Color::Transparent();
             if (hasBg && opts.background.HasAny() && !opts.background.IsSurface()) {
                 btnBg = theme.ResolveColor(opts.background, btnHov && !effDis, btnPress && !effDis, effDis, btnBg);
             } else {
@@ -859,27 +840,39 @@ void detail::SpinBox::Render(
                 if (btnPress) {
                     btnBorder = accentCol;
                 } else if (btnHov) {
-                    btnBorder = opts.color.HasAny() ? accentCol.WithAlphaF(0.75f) : pal.borderHover;
+                    btnBorder = hasStatus ? accentCol.WithAlphaF(0.75f) : pal.borderHover;
                 }
             }
             if (opts.border.color.HasAny()) {
                 btnBorder = theme.ResolveColor(opts.border.color, btnHov && !effDis, btnPress && !effDis, effDis, btnBorder);
             }
             if (effDis) {
-                btnBg = btnBg.WithAlphaF(0.40f);
-                btnBorder = btnBorder.WithAlphaF(0.40f);
+                btnBg = btnBg.WithAlphaF(theme.disabledOpacity);
+                btnBorder = btnBorder.WithAlphaF(theme.disabledOpacity);
             }
 
-            canvas.DrawRoundRect(btnRect, radius, btnBg, btnBorder, baseStrokeW);
+            theme.Painter().DrawFrame(canvas, theme, FrameKind::Button, FramePaintParams{
+                .rect = btnRect,
+                .radius = radius,
+                .explicitRadius = opts.border.radius.has_value(),
+                .bg = btnBg,
+                .border = btnBorder,
+                .borderWidth = baseStrokeW,
+                .hovered = btnHov && !effDis,
+                .pressed = btnPress && !effDis,
+                .disabled = effDis,
+                .accent = accentCol
+            });
+            const keel::f32 shift = theme.Painter().GetButtonContentOffset(theme, btnPress, false, effDis);
             const Rect icRect(
-                btnRect.x + (btnRect.w - iconSz) * 0.5f,
-                btnRect.y + (btnRect.h - iconSz) * 0.5f,
+                btnRect.x + (btnRect.w - iconSz) * 0.5f + shift,
+                btnRect.y + (btnRect.h - iconSz) * 0.5f + shift,
                 iconSz,
                 iconSz
             );
             const Color icCol = effDis
-                ? unitCol.WithAlphaF(0.35f)
-                : ((btnHov || btnPress) ? (opts.color.HasAny() ? accentCol : pal.textPrimary) : pal.textPrimary);
+                ? unitCol.WithAlphaF(theme.disabledOpacity)
+                : ((btnHov || btnPress) ? (hasStatus ? accentCol : pal.textPrimary) : pal.textPrimary);
             ic.Draw(canvas, icRect, icCol);
         };
 
@@ -913,19 +906,30 @@ void detail::SpinBox::Render(
                     btnBorder = accentCol;
                 } else if (btnHov) {
                     btnBg = pal.surfaceHover;
-                    btnBorder = opts.color.HasAny() ? accentCol.WithAlphaF(0.75f) : pal.borderHover;
+                    btnBorder = hasStatus ? accentCol.WithAlphaF(0.75f) : pal.borderHover;
                 }
             }
-            canvas.DrawRoundRect(btnRect, btnRadius, btnBg, btnBorder, 1.0f);
+            theme.Painter().DrawFrame(canvas, theme, FrameKind::DropdownButton, FramePaintParams{
+                .rect = btnRect,
+                .radius = btnRadius,
+                .bg = btnBg,
+                .border = btnBorder,
+                .borderWidth = 1.0f,
+                .hovered = btnHov && !effDis,
+                .pressed = btnPress && !effDis,
+                .disabled = effDis,
+                .accent = accentCol
+            });
+            const keel::f32 shift = theme.Painter().GetButtonContentOffset(theme, btnPress, false, effDis);
             const Rect icRect(
-                btnRect.x + (btnRect.w - iconSz) * 0.5f,
-                btnRect.y + (btnRect.h - iconSz) * 0.5f,
+                btnRect.x + (btnRect.w - iconSz) * 0.5f + shift,
+                btnRect.y + (btnRect.h - iconSz) * 0.5f + shift,
                 iconSz,
                 iconSz
             );
             const Color icCol = effDis
-                ? unitCol.WithAlphaF(0.35f)
-                : ((btnHov || btnPress) ? (opts.color.HasAny() ? accentCol : pal.textPrimary) : pal.textPrimary);
+                ? unitCol.WithAlphaF(theme.disabledOpacity)
+                : ((btnHov || btnPress) ? (hasStatus ? accentCol : pal.textPrimary) : pal.textPrimary);
             ic.Draw(canvas, icRect, icCol);
         };
 
@@ -933,7 +937,8 @@ void detail::SpinBox::Render(
         drawInlineStepBtn(rects.stepMinusRect, effMinusIcon, stepMinusHovered, stepMinusPressed, stepMinusDisabled);
 
         // Subtle vertical separator before stepper buttons
-        canvas.DrawLine(
+        theme.Painter().DrawDivider(
+            canvas, theme,
             {rects.stepSepX, boxRect.y + sepInsetY},
             {rects.stepSepX, boxRect.Bottom() - sepInsetY},
             disabled ? pal.border.WithAlphaF(0.25f) : pal.border.WithAlphaF(0.65f),

@@ -4,6 +4,7 @@
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
 #include "guikit/overlays/context_menu.hpp"
+#include "guikit/style/style_painter.hpp"
 #include "keel/format.h"
 #include "keel/math.h"
 #include "keel/small_array.h"
@@ -346,15 +347,9 @@ void detail::Readout::Render(const Node* node, ICanvas& canvas, const UiTheme& t
     const bool disabled = node->disabled;
     const keel::f32 radius = opts.border.radius.has_value() ? *opts.border.radius : m.radius;
 
-    // 1. Optional theme-controlled drop shadow when elevated
-    if (opts.elevated) {
-        if (const ShadowStyle sh = theme.GetShadow(Elevation::Sm); sh.IsVisible()) {
-            canvas.DrawShadow(rect, radius, sh.blur, sh.offset, sh.color);
-        }
-    }
-
-    // 2. Card surface & border
-    const Color defaultBg = opts.elevated ? pal.surfaceElevated : pal.surface;
+    // 1 & 2. Card surface, shadow & border routed through IStylePainter
+    const bool isRaised = (opts.surface == SurfaceRole::Raised || opts.surface == SurfaceRole::Popup);
+    const Color defaultBg = isRaised ? pal.surfaceElevated : pal.surface;
     const Color defaultBorder = (data->openMenu != ReadoutOpenMenu::None)
         ? pal.accent.WithAlphaF(0.65f)
         : (data->cardHovered && !disabled ? pal.borderHover : pal.border);
@@ -365,7 +360,16 @@ void detail::Readout::Render(const Node* node, ICanvas& canvas, const UiTheme& t
         ? theme.ResolveColor(opts.border.color, data->cardHovered, data->openMenu != ReadoutOpenMenu::None, disabled, defaultBorder)
         : Color::Transparent();
 
-    canvas.DrawRoundRect(rect, radius, bg, borderCol, opts.border.width);
+    theme.Painter().DrawSurface(canvas, theme, SurfacePaintParams{
+        .rect = rect,
+        .role = opts.surface,
+        .radius = radius,
+        .explicitRadius = opts.border.radius.has_value(),
+        .bg = bg,
+        .border = borderCol,
+        .borderWidth = opts.border.width,
+        .elevation = isRaised ? Elevation::Sm : Elevation::None
+    });
 
     // 3. Deterministic sub-element geometry
     const ReadoutGeometry g = ComputeReadoutGeometry(
@@ -495,13 +499,25 @@ void detail::Readout::Render(const Node* node, ICanvas& canvas, const UiTheme& t
         }
 
         const keel::f32 btnRadius = keel::max(4.0f, radius - 2.0f);
-        canvas.DrawRoundRect(g.actionRect, btnRadius, btnBg, btnBorder, 1.0f);
+        theme.Painter().DrawFrame(canvas, theme, FrameKind::Button, FramePaintParams{
+            .rect = g.actionRect,
+            .radius = btnRadius,
+            .bg = btnBg,
+            .border = btnBorder,
+            .borderWidth = 1.0f,
+            .hovered = data->actionHovered && !actDis,
+            .pressed = data->actionPressed && !actDis,
+            .active = data->actionActive && !actDis,
+            .disabled = actDis,
+            .accent = pal.accent
+        });
 
         if (opts.actionIcon.IsValid()) {
+            const keel::f32 shift = theme.Painter().GetButtonContentOffset(theme, data->actionPressed, data->actionActive, actDis);
             const keel::f32 icSz = keel::min(m.actionIconSize, g.actionRect.w * 0.65f);
             const Rect icRect(
-                g.actionRect.x + (g.actionRect.w - icSz) * 0.5f,
-                g.actionRect.y + (g.actionRect.h - icSz) * 0.5f,
+                g.actionRect.x + (g.actionRect.w - icSz) * 0.5f + shift,
+                g.actionRect.y + (g.actionRect.h - icSz) * 0.5f + shift,
                 icSz,
                 icSz
             );
@@ -807,7 +823,7 @@ ReadoutResponse detail::Readout::Run(
         opts.actionIcon,
         opts.background,
         opts.border,
-        opts.elevated,
+        keel::as<keel::u8>(opts.surface),
         activeSize,
         effectiveDisabled,
         cardHovered,

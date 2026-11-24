@@ -757,7 +757,7 @@ void detail::Slider::Render(
     }
 
     // 1 & 2. Draw track groove and optional active fill via active style painter
-    const keel::f32 effTrackH = (theme.chrome.frame == FrameTreatment::Bevel3D) ? 4.0f : m.trackHeight;
+    const keel::f32 effTrackH = theme.Painter().GetSliderTrackHeight(theme, m.trackHeight, /*isRange=*/false);
     const keel::f32 halfTrack = effTrackH * 0.5f;
     const Rect trackBgRect = vertical
         ? Rect(keel::floor(layout.cross - halfTrack), layout.start - layout.length, effTrackH, layout.length)
@@ -1072,8 +1072,7 @@ void detail::StepSlider::Render(
     }
 
     // 1 & 2. Draw track groove and optional active fill via active style painter
-    const bool isPointer3D = (theme.chrome.sliderThumb == SliderThumbShape::Pointer3D);
-    const keel::f32 effTrackH = (theme.chrome.frame == FrameTreatment::Bevel3D) ? 4.0f : m.trackHeight;
+    const keel::f32 effTrackH = theme.Painter().GetSliderTrackHeight(theme, m.trackHeight, /*isRange=*/false);
     const keel::f32 effHalfTrack = effTrackH * 0.5f;
     const Rect trackBgRect = vertical
         ? Rect(keel::floor(layout.cross - effHalfTrack), layout.start - layout.length, effTrackH, layout.length)
@@ -1089,32 +1088,13 @@ void detail::StepSlider::Render(
         trackBg, trackBorder, fillCol, m.cornerRadius, opts.color.HasAny()
     );
 
-    // 3. Draw tick marks on track
+    // 3. Draw tick marks via active style painter
     if (opts.showTicks && totalSteps > 1) {
-        if (isPointer3D) {
-            const Color tickCol = disabled ? pal.textDisabled : pal.border;
-            for (keel::usize i = 0; i < totalSteps; ++i) {
-                const Vec2 tick = layout.ThumbCenter(stepRatio(i));
-                if (vertical) {
-                    canvas.DrawRect(Rect(keel::floor(layout.cross + 10.0f), keel::floor(tick.y), 3.0f, 1.0f), tickCol);
-                } else {
-                    canvas.DrawRect(Rect(keel::floor(tick.x), keel::floor(layout.cross + 10.0f), 1.0f, 3.0f), tickCol);
-                }
-            }
-        } else {
-            const keel::f32 tickR = m.tickSize * 0.5f;
-            const bool sharpTick = (m.cornerRadius <= 0.01f);
-            for (keel::usize i = 0; i < totalSteps; ++i) {
-                const Vec2 tick = layout.ThumbCenter(stepRatio(i));
-                const Rect tickRect(tick.x - tickR, tick.y - tickR, m.tickSize, m.tickSize);
-                Color tickCol = (i <= index) ? pal.surface : pal.textDisabled;
-                if (disabled) tickCol = tickCol.WithAlphaF(0.4f);
-                if (sharpTick) {
-                    canvas.DrawRect(tickRect, tickCol);
-                } else {
-                    canvas.DrawRoundRect(tickRect, tickR, tickCol);
-                }
-            }
+        for (keel::usize i = 0; i < totalSteps; ++i) {
+            const Vec2 tick = layout.ThumbCenter(stepRatio(i));
+            Color tickCol = (i <= index) ? pal.surface : pal.textDisabled;
+            if (disabled) tickCol = tickCol.WithAlphaF(theme.disabledOpacity);
+            theme.Painter().DrawSliderTick(canvas, theme, tick, layout.cross, vertical, m.tickSize, tickCol, disabled);
         }
     }
 

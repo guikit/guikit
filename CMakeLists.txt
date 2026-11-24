@@ -100,6 +100,7 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/core/overlay_manager.cpp
     src/guikit/core/response.cpp
     src/guikit/core/state_store.cpp
+    src/guikit/style/field_frame.cpp
     src/guikit/style/style_painter.cpp
     src/guikit/core/text_buffer.cpp
     src/guikit/style/theme.cpp

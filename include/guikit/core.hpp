@@ -33,6 +33,7 @@
 #include "guikit/style/tokens.hpp"
 #include "guikit/style/theme.hpp"
 #include "guikit/style/style_painter.hpp"
+#include "guikit/style/field_frame.hpp"
 
 // Low-Level Graphics
 #include "guikit/graphics/colormap.hpp"

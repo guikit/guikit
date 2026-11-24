@@ -2,6 +2,7 @@
 #include <cstring>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
+#include "guikit/style/field_frame.hpp"
 #include "guikit/style/style_painter.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
@@ -552,7 +553,8 @@ Response detail::InputField::Run(
     data->passwordRevealed = state.passwordRevealed;
     node->SetPayload(data);
     node->visualHash = detail::HashArgs(
-        optsCopy.color,
+        keel::as<keel::u8>(optsCopy.style),
+        keel::as<keel::u8>(optsCopy.status),
         optsCopy.background,
         optsCopy.border,
         optsCopy.width,
@@ -683,60 +685,22 @@ void detail::InputField::Render(
 
     const InputFieldMetrics& m = theme.GetInputField(size);
     const Rect boxRect = bounds;
-
     const auto& pal = theme.palette;
-    const bool hasBg = opts.background.IsBackgroundEnabled(true);
-    Color boxBg = hasBg
-        ? ((hovered && !disabled) ? pal.surface : pal.inputBackground)
-        : Color::Transparent();
-    Color boxBorder;
-    keel::f32 strokeW = (opts.border.width > 0.0f) ? opts.border.width : m.strokeWidth;
-
-    if (focused && !disabled) {
-        boxBorder = opts.color.HasAny()
-            ? theme.ResolveColor(opts.color, hovered, focused, disabled, pal.focusRing)
-            : pal.focusRing;
-        if (opts.border.width > 0.0f || m.strokeWidth > 0.0f) {
-            strokeW = keel::max(strokeW + 0.5f, theme.focusRingWidth);
-        }
-    } else if (hovered && !disabled) {
-        boxBorder = pal.borderHover;
-    } else {
-        boxBorder = pal.inputBorder;
-    }
 
     Color textCol = opts.valueFormat.color.HasAny()
         ? theme.ResolveTextColor(opts.valueFormat, UiVariant::Default, disabled, hovered, focused)
         : (disabled ? pal.textPrimary.WithAlphaF(theme.disabledOpacity) : pal.textPrimary);
     Color placeholderCol = theme.ResolveTextColor(opts.placeholder, UiVariant::Secondary, disabled, hovered, focused);
-    Color unitCol = pal.textSecondary;
+    Color unitCol = disabled ? pal.textSecondary.WithAlphaF(theme.disabledOpacity) : pal.textSecondary;
 
-    if (disabled) {
-        boxBg = boxBg.WithAlphaF(theme.disabledOpacity);
-        boxBorder = boxBorder.WithAlphaF(theme.disabledOpacity);
-        unitCol = unitCol.WithAlphaF(theme.disabledOpacity);
-    }
-
-    if (hasBg && opts.background.HasAny()) {
-        if (!opts.background.IsSurface()) {
-            boxBg = theme.ResolveColor(opts.background, hovered, focused, disabled, boxBg);
-        } else if (opts.background.HasAlphaScale()) {
-            boxBg = boxBg.ScaleAlpha(opts.background.alphaScale);
-        }
-    }
-    if (opts.border.color.HasAny()) {
-        boxBorder = theme.ResolveColor(opts.border.color, hovered, focused, disabled, boxBorder);
-    }
-
-    const keel::f32 radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
-    const Color effBoxBg = (disabled && theme.chrome.frame == FrameTreatment::Bevel3D) ? pal.surface : boxBg;
-    theme.Painter().DrawFrame(canvas, theme, FrameKind::Input, FramePaintParams{
+    FieldFrame::Draw(canvas, theme, FieldFrameParams{
         .rect = boxRect,
-        .radius = radius,
-        .explicitRadius = opts.border.radius.has_value(),
-        .bg = effBoxBg,
-        .border = boxBorder,
-        .borderWidth = strokeW,
+        .style = opts.style,
+        .status = opts.status,
+        .background = opts.background,
+        .border = opts.border,
+        .defaultRadius = m.cornerRadius,
+        .defaultStrokeWidth = m.strokeWidth,
         .hovered = hovered,
         .focused = focused,
         .disabled = disabled

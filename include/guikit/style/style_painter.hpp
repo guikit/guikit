@@ -136,6 +136,67 @@ public:
         keel::f32 fallbackGap
     ) const noexcept = 0;
 
+    /// Draws an embedded right-side field trigger button (e.g., Select/DatePicker/ColorPicker chevron) according to
+    /// `chrome.fieldButton`, writing the resolved icon rect & color and returning the remaining `rightX` for content.
+    [[nodiscard]] virtual keel::f32 DrawFieldButton(
+        ICanvas& canvas,
+        const UiTheme& theme,
+        Rect fieldRect,
+        keel::f32 paddingX,
+        keel::f32 iconSize,
+        keel::f32 cornerRadius,
+        bool explicitRadius,
+        bool hovered,
+        bool pressed,
+        bool active,
+        bool disabled,
+        bool showHoverPill,
+        Color fallbackIconCol,
+        Rect& outIconRect,
+        Color& outIconColor
+    ) const = 0;
+
+    /// Draws a floating dropdown list surface (e.g., Select/Autocomplete/MultiSelect popup) according to active chrome.
+    virtual void DrawDropdownSurface(
+        ICanvas& canvas,
+        const UiTheme& theme,
+        Rect popupRect,
+        keel::f32 cornerRadius
+    ) const = 0;
+
+    /// Returns effective slider track thickness in dp for the active chrome (`defaultHeight` in flat chromes, bevel groove in Classic3D).
+    [[nodiscard]] virtual keel::f32 GetSliderTrackHeight(
+        const UiTheme& theme,
+        keel::f32 defaultHeight,
+        bool isRange = false
+    ) const noexcept = 0;
+
+    /// Draws a single discrete slider tick mark (below/beside track for `Pointer3D`, centered dot otherwise).
+    virtual void DrawSliderTick(
+        ICanvas& canvas,
+        const UiTheme& theme,
+        Vec2 tickCenter,
+        keel::f32 crossCoord,
+        bool vertical,
+        keel::f32 tickSize,
+        Color color,
+        bool disabled
+    ) const = 0;
+
+    /// Returns effective progress bar thickness in dp for the active chrome (taller well for segmented 3D bars).
+    [[nodiscard]] virtual keel::f32 GetProgressBarThickness(
+        const UiTheme& theme,
+        keel::f32 defaultThickness
+    ) const noexcept = 0;
+
+    /// Returns effective badge/tag corner radius in dp honoring `chrome.badgeShape`.
+    [[nodiscard]] virtual keel::f32 GetBadgeRadius(
+        const UiTheme& theme,
+        keel::f32 height,
+        keel::f32 defaultRadius,
+        bool pill
+    ) const noexcept = 0;
+
     /// Draws a horizontal or vertical divider / separator line (hairline, etched 3D groove, or bold stroke).
     virtual void DrawDivider(
         ICanvas& canvas,
@@ -344,6 +405,12 @@ public:
     void DrawFrame(ICanvas& canvas, const UiTheme& theme, FrameKind kind, const FramePaintParams& p) const override;
     [[nodiscard]] keel::f32 GetButtonContentOffset(const UiTheme& theme, bool pressed, bool active, bool disabled) const noexcept override;
     [[nodiscard]] keel::f32 GetTabGap(const UiTheme& theme, keel::f32 fallbackGap) const noexcept override;
+    [[nodiscard]] keel::f32 DrawFieldButton(ICanvas& canvas, const UiTheme& theme, Rect fieldRect, keel::f32 paddingX, keel::f32 iconSize, keel::f32 cornerRadius, bool explicitRadius, bool hovered, bool pressed, bool active, bool disabled, bool showHoverPill, Color fallbackIconCol, Rect& outIconRect, Color& outIconColor) const override;
+    void DrawDropdownSurface(ICanvas& canvas, const UiTheme& theme, Rect popupRect, keel::f32 cornerRadius) const override;
+    [[nodiscard]] keel::f32 GetSliderTrackHeight(const UiTheme& theme, keel::f32 defaultHeight, bool isRange = false) const noexcept override;
+    void DrawSliderTick(ICanvas& canvas, const UiTheme& theme, Vec2 tickCenter, keel::f32 crossCoord, bool vertical, keel::f32 tickSize, Color color, bool disabled) const override;
+    [[nodiscard]] keel::f32 GetProgressBarThickness(const UiTheme& theme, keel::f32 defaultThickness) const noexcept override;
+    [[nodiscard]] keel::f32 GetBadgeRadius(const UiTheme& theme, keel::f32 height, keel::f32 defaultRadius, bool pill) const noexcept override;
     void DrawDivider(ICanvas& canvas, const UiTheme& theme, Vec2 p0, Vec2 p1, Color fallbackColor, keel::f32 thickness = 1.0f) const override;
     void DrawControlText(ICanvas& canvas, const UiTheme& theme, keel::StringRef text, Rect rect, keel::f32 fontSize, Color color, bool disabled, keel::f32 alignX = 0.5f, keel::f32 alignY = 0.5f) const override;
     void DrawSliderTrack(ICanvas& canvas, const UiTheme& theme, Rect trackRect, Rect fillRect, bool vertical, bool hasFill, Color trackBg, Color trackBorder, Color fillColor, keel::f32 cornerRadius, bool explicitColor) const override;
