@@ -48,12 +48,29 @@ keel::f32 ClampSplitRatio(
     if (availSpan > 1.0f) {
         const keel::f32 minFirstPx = keel::max(0.0f, opts.minFirstSize) * scale;
         const keel::f32 minSecondPx = keel::max(0.0f, opts.minSecondSize) * scale;
-        const keel::f32 reqMinR = keel::min(0.5f, minFirstPx / availSpan);
-        const keel::f32 reqMaxR = keel::max(0.5f, 1.0f - (minSecondPx / availSpan));
-        minR = keel::max(minR, reqMinR);
-        maxR = keel::min(maxR, reqMaxR);
-        if (minR > maxR) {
-            minR = maxR = 0.5f;
+        const keel::f32 minSumPx = minFirstPx + minSecondPx;
+
+        keel::f32 reqMinR = 0.0f;
+        keel::f32 reqMaxR = 1.0f;
+        if (minSumPx <= availSpan) {
+            reqMinR = minFirstPx / availSpan;
+            reqMaxR = 1.0f - (minSecondPx / availSpan);
+        } else if (minSumPx > 0.0f) {
+            const keel::f32 prop = minFirstPx / minSumPx;
+            reqMinR = prop;
+            reqMaxR = prop;
+        }
+
+        const keel::f32 effMinR = keel::max(minR, reqMinR);
+        const keel::f32 effMaxR = keel::min(maxR, reqMaxR);
+        if (effMinR <= effMaxR) {
+            minR = effMinR;
+            maxR = effMaxR;
+        } else {
+            // Ratio bounds and pixel minimums conflict: preserve pixel minimums at the nearest bound
+            const keel::f32 resolved = keel::clamp(minR, reqMinR, reqMaxR);
+            minR = resolved;
+            maxR = resolved;
         }
     }
 
@@ -322,12 +339,20 @@ SplitViewScope detail::SplitView::Open(
     const UiTheme& theme = ctx.GetTheme();
 
     auto& st = ctx.GetOrCreatePersistentState<SplitViewPersistState>(id);
+    const bool isHoriz = (opts.orientation == Orientation::Horizontal);
+    const keel::f32 sashPx = keel::max(2.0f, keel::round(opts.sashSize));
+    const keel::f32 prevContainerSpan = isHoriz ? st.prevContainerRect.w : st.prevContainerRect.h;
+    const keel::f32 prevAvailSpan = (prevContainerSpan > sashPx + 1.0f) ? (prevContainerSpan - sashPx) : 0.0f;
+
     if (!st.initialized) {
         st.initialized = true;
-        st.ratio = keel::clamp(opts.defaultRatio, 0.0f, 1.0f);
+        st.ratio = ClampSplitRatio(opts.defaultRatio, prevAvailSpan, safeScale, opts);
     }
     if (externalRatio != nullptr) {
         st.ratio = keel::clamp(*externalRatio, 0.0f, 1.0f);
+    }
+    if (!st.dragging) {
+        st.ratio = ClampSplitRatio(st.ratio, prevAvailSpan, safeScale, opts);
     }
 
     Response res{};
@@ -339,7 +364,6 @@ SplitViewScope detail::SplitView::Open(
     const bool prevDragging = st.dragging;
     st.sashHovered = false;
 
-    const bool isHoriz = (opts.orientation == Orientation::Horizontal);
     const bool hasPrevSash = (st.prevSashRect.w > 0.0f && st.prevSashRect.h > 0.0f);
 
     if (!activeDisabled && hasPrevSash) {
@@ -356,11 +380,7 @@ SplitViewScope detail::SplitView::Open(
                 res.hovered = true;
 
                 if (ctx.IsMouseDoubleClicked()) {
-                    const keel::f32 resetTarget = keel::clamp(
-                        opts.defaultRatio,
-                        keel::clamp(opts.minRatio, 0.0f, 1.0f),
-                        keel::clamp(opts.maxRatio, 0.0f, 1.0f)
-                    );
+                    const keel::f32 resetTarget = ClampSplitRatio(opts.defaultRatio, prevAvailSpan, safeScale, opts);
                     if (keel::abs(st.ratio - resetTarget) > 1e-5f) {
                         st.ratio = resetTarget;
                         res.changed = true;
@@ -387,9 +407,7 @@ SplitViewScope detail::SplitView::Open(
         if (st.dragging) {
             if (ctx.IsMouseDown()) {
                 res.pressed = true;
-                const keel::f32 sashPx = keel::max(2.0f, keel::round(opts.sashSize));
-                const keel::f32 containerSpan = isHoriz ? st.prevContainerRect.w : st.prevContainerRect.h;
-                const keel::f32 availSpan = keel::max(1.0f, containerSpan - sashPx);
+                const keel::f32 availSpan = keel::max(1.0f, prevContainerSpan - sashPx);
                 const keel::f32 delta = isHoriz
                     ? (mouse.x - st.dragStartMouse.x)
                     : (mouse.y - st.dragStartMouse.y);
@@ -491,6 +509,10 @@ SplitViewScope detail::SplitView::Open(
         st.sashHovered,
         st.dragging,
         keel::as<keel::u8>(opts.orientation),
+        opts.minRatio,
+        opts.maxRatio,
+        opts.minFirstSize,
+        opts.minSecondSize,
         opts.sashSize,
         opts.showGrip,
         opts.collapsible,

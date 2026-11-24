@@ -2836,6 +2836,84 @@ void TestRangeSliderThumbHitTestAndCanvasSync() {
     CHECK(!ui.GetDirtyRects().empty());
 }
 
+void TestSplitViewGeometryConstraints() {
+    using namespace guikit;
+    keel::println("  -> TestSplitViewGeometryConstraints...");
+
+    NullCanvas canvas;
+
+    // 1. External ratio is clamped to [minRatio, maxRatio] and synced to Scope::Ratio()
+    {
+        Context ui;
+        keel::f32 ratio = 0.05f;
+        keel::f32 reportedRatio = 0.0f;
+        SplitViewOptions opts{
+            .defaultRatio = 0.50f,
+            .minRatio = 0.30f,
+            .maxRatio = 0.70f,
+            .minFirstSize = 48.0f,
+            .minSecondSize = 48.0f,
+            .sashSize = 6.0f,
+            .collapsible = false
+        };
+
+        auto frame = [&](Vec2 vpSize) {
+            ui.BeginFrame(vpSize);
+            if (auto sv = guikit::SplitView(ui, ratio, opts)) {
+                reportedRatio = sv.Ratio();
+                if (auto a = sv.First()) {}
+                if (auto b = sv.Second()) {}
+            }
+            ui.EndFrame(canvas);
+        };
+
+        frame({406.0f, 200.0f});
+        CHECK(keel::abs(ratio - 0.30f) < 0.001f);
+        CHECK(keel::abs(reportedRatio - 0.30f) < 0.001f);
+
+        // 2. Asymmetric minFirstSize > 50% of availSpan (200 dp in 300 dp span -> 0.667, NOT capped at 0.5)
+        opts.minRatio = 0.10f;
+        opts.maxRatio = 0.90f;
+        opts.minFirstSize = 200.0f;
+        opts.minSecondSize = 48.0f;
+        ratio = 0.25f;
+        frame({306.0f, 200.0f}); // updates prevContainerRect to 306x200 (availSpan = 300)
+        frame({306.0f, 200.0f}); // clamps ratio using availSpan = 300
+        CHECK(keel::abs(ratio - (200.0f / 300.0f)) < 0.01f);
+        CHECK(keel::abs(reportedRatio - ratio) < 0.001f);
+
+        // 3. Container smaller than minFirstSize + minSecondSize -> proportional split 200/(200+100) = 0.667
+        opts.minFirstSize = 200.0f;
+        opts.minSecondSize = 100.0f;
+        ratio = 0.20f;
+        frame({156.0f, 200.0f}); // availSpan = 150 < 300
+        frame({156.0f, 200.0f});
+        CHECK(keel::abs(ratio - (200.0f / 300.0f)) < 0.01f);
+
+        // 4. Visual damage triggered when minRatio changes even if ratio stays inside bounds
+        opts.minFirstSize = 24.0f;
+        opts.minSecondSize = 24.0f;
+        opts.minRatio = 0.15f;
+        opts.maxRatio = 0.85f;
+        ratio = 0.50f;
+        frame({406.0f, 200.0f});
+        frame({406.0f, 200.0f});
+        CHECK(ui.GetDirtyRects().empty());
+        opts.minRatio = 0.25f;
+        frame({406.0f, 200.0f});
+        CHECK(!ui.GetDirtyRects().empty());
+
+        // 5. Collapsible allows 0.0f / 1.0f even when minRatio/maxRatio are tighter
+        opts.collapsible = true;
+        ratio = 0.0f;
+        frame({406.0f, 200.0f});
+        CHECK(keel::abs(ratio) < 0.001f);
+        ratio = 1.0f;
+        frame({406.0f, 200.0f});
+        CHECK(keel::abs(ratio - 1.0f) < 0.001f);
+    }
+}
+
 int main() {
     keel::println("[RUN] Testing GuiKit Core Foundation...");
 
@@ -2866,6 +2944,7 @@ int main() {
     TestStylePainterChromeDispatchAndPolish();
     TestMenuButtonAndSplitButton();
     TestRangeSliderThumbHitTestAndCanvasSync();
+    TestSplitViewGeometryConstraints();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Core tests passed successfully!");
