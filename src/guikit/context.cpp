@@ -179,6 +179,7 @@ void Context::BeginFrame(Vec2 viewportSize, keel::f32 displayScale, keel::f32 ro
     m_currModalFocusables.clear();
     m_currFrameModals.clear();
     m_activeModalStack.clear();
+    m_idStack.clear();
     m_modalClosedThisFrame = false;
     m_toastHostVisitedThisFrame = false;
     m_activeTooltip = {};
@@ -342,6 +343,61 @@ void Context::PopZone() noexcept {
     }
 }
 
+ScopedId::~ScopedId() noexcept {
+    PopIfNeeded();
+}
+
+void ScopedId::PopIfNeeded() noexcept {
+    if (m_ctx != nullptr) {
+        m_ctx->PopId();
+        m_ctx = nullptr;
+    }
+}
+
+ScopedId Context::IdScope(keel::StringRef key) {
+    PushId(key);
+    return ScopedId(this);
+}
+
+ScopedId Context::IdScope(keel::u64 key) {
+    PushId(key);
+    return ScopedId(this);
+}
+
+ScopedId Context::IdScope(keel::i64 key) {
+    PushId(key);
+    return ScopedId(this);
+}
+
+ScopedId Context::IdScope(const void* ptr) {
+    PushId(ptr);
+    return ScopedId(this);
+}
+
+void Context::PushId(keel::StringRef key) {
+    const keel::u64 base = m_idStack.empty() ? detail::Fnv1aOffsetBasis : m_idStack.back();
+    m_idStack.push_back(detail::HashStringView(key, base));
+}
+
+void Context::PushId(keel::u64 key) {
+    const keel::u64 base = m_idStack.empty() ? detail::Fnv1aOffsetBasis : m_idStack.back();
+    m_idStack.push_back(detail::HashInt64(key, base));
+}
+
+void Context::PushId(keel::i64 key) {
+    PushId(keel::as<keel::u64>(key));
+}
+
+void Context::PushId(const void* ptr) {
+    PushId(keel::as<keel::u64>(reinterpret_cast<keel::usize>(ptr)));
+}
+
+void Context::PopId() noexcept {
+    if (!m_idStack.empty()) {
+        m_idStack.pop_back();
+    }
+}
+
 Node* Context::CreateNode(NodeType type, Id id, bool disabled) {
     Node* node = m_arena.create<Node>();
     node->type = type;
@@ -356,6 +412,9 @@ Node* Context::CreateNode(NodeType type, Id id, bool disabled) {
 }
 
 Id Context::MakeChildIdForParent(Id parentId, keel::SourceLocation loc) {
+    const Id effectiveParent = m_idStack.empty()
+        ? parentId
+        : Id(detail::HashArgs(parentId.value, m_idStack.back()));
     const char* filePtr = loc.file_name();
     keel::u64 fileHash = detail::Fnv1aOffsetBasis;
     if (filePtr != nullptr) {
@@ -367,7 +426,7 @@ Id Context::MakeChildIdForParent(Id parentId, keel::SourceLocation loc) {
         }
     }
     const keel::u64 callsiteHash = detail::HashCallsiteWithFileHash(
-        parentId, fileHash, loc.line(), loc.column()
+        effectiveParent, fileHash, loc.line(), loc.column()
     );
     const keel::u32 occurrenceIndex = m_childIdCounts.get_or_insert(callsiteHash, 0u)++;
     return detail::FinalizeCallsiteId(callsiteHash, occurrenceIndex);
@@ -531,7 +590,7 @@ Rect Context::GetParentPrevFrameBounds() const {
                 ? m_containerStack[keel::as<keel::usize>(i + 1)]
                 : c->lastChild;
             for (const Node* ch = c->firstChild; ch != nullptr && ch != stopChild; ch = ch->nextSibling) {
-                if (ch->heightMode == SizeMode::Fixed && ch->fixedHeight > 0.0f && !ch->sidebarCollapsed) {
+                if (ch->heightMode == SizeMode::Fixed && ch->fixedHeight > 0.0f && !ch->IsCollapsed()) {
                     const keel::f32 consumeH = (ch->fixedHeight + c->gap) * localToFrame;
                     r.y += consumeH;
                     r.h = keel::max(0.0f, r.h - consumeH);
@@ -2385,10 +2444,10 @@ bool Context::IsMouseBlockedForCurrentScope() const noexcept {
             if (IsMouseOccludedInFrame(sceneId, m_mousePos)) {
                 return true;
             }
-            if (topContainer->scrollbarActive || topContainer->scrollbarActiveX) {
+            if (topContainer->scroll && (topContainer->scroll->activeY || topContainer->scroll->activeX)) {
                 return true;
             }
-            if ((topContainer->scrollbarHovered || topContainer->scrollbarHoveredX) && m_activeId != sceneId) {
+            if (topContainer->scroll && (topContainer->scroll->hoveredY || topContainer->scroll->hoveredX) && m_activeId != sceneId) {
                 return true;
             }
             const Rect* vpRect = m_prevFrameBounds.get(sceneId);
@@ -2722,7 +2781,7 @@ bool Context::IsCursorVisible(keel::Optional<CursorBlinkMode> modeOverride) cons
 
 static Rect GetNodeContentClipRect(const Node* node, const UiTheme& theme) {
     if (!node) return Rect();
-    if (node->type == NodeType::ScrollArea || ((node->type == NodeType::Sidebar || node->type == NodeType::BottomPanel) && node->sidebarScrollable)) {
+    if (node->IsSolverScrollable()) {
         return ScrollArea::GetContentClipRect(node, theme);
     }
     if (node->type == NodeType::Scene) {
@@ -2754,7 +2813,7 @@ static bool DoesNodeBlockHit(const Node* node) noexcept {
             return false;
         case NodeType::Sidebar:
         case NodeType::BottomPanel:
-            return !node->sidebarCollapsed;
+            return !node->IsCollapsed();
         case NodeType::StatusBar:
         case NodeType::Toolbar:
         case NodeType::Card:
@@ -2772,7 +2831,6 @@ static bool DoesNodeBlockHit(const Node* node) noexcept {
         case NodeType::Wrap:
         case NodeType::Grid:
         case NodeType::Cell:
-        case NodeType::Container:
         case NodeType::Box:
         case NodeType::ScrollArea:
         case NodeType::TreeBranch:
@@ -2820,7 +2878,7 @@ static void CollectBoundsRecursive(
         parentClip = Rect(-100000.0f, -100000.0f, 200000.0f, 200000.0f);
         curZLayer = 2;
         if (node->id.IsValid()) curPortalId = node->id;
-    } else if ((node->type == NodeType::Sidebar || node->type == NodeType::BottomPanel) && !node->sidebarCollapsed) {
+    } else if ((node->type == NodeType::Sidebar || node->type == NodeType::BottomPanel) && !node->IsCollapsed()) {
         curZLayer = keel::max<keel::u8>(curZLayer, 1);
     } else if (node->type == NodeType::StatusBar) {
         curZLayer = keel::max<keel::u8>(curZLayer, 1);
@@ -2908,21 +2966,23 @@ bool Context::UpdateScrollAreasRecursive(Node* node) {
         }
     }
 
-    const Vec2 prevScroll = node->scrollOffset;
+    const Vec2 prevScroll = node->GetScrollOffset();
 
     ++m_widgetExecDepth;
-    if (node->type == NodeType::ScrollArea || ((node->type == NodeType::Sidebar || node->type == NodeType::BottomPanel) && node->sidebarScrollable)) {
+    if (node->IsSolverScrollable()) {
         ScrollArea::Update(*this, node);
-        if (keel::abs(node->scrollOffset.x - prevScroll.x) > 0.01f ||
-            keel::abs(node->scrollOffset.y - prevScroll.y) > 0.01f) {
+        const Vec2 curScroll = node->GetScrollOffset();
+        if (keel::abs(curScroll.x - prevScroll.x) > 0.01f ||
+            keel::abs(curScroll.y - prevScroll.y) > 0.01f) {
             scrollChanged = true;
         }
     } else if (node->type == NodeType::Scene) {
         Scene::Update(*this, node);
     } else if (node->type == NodeType::Carousel || (node->type == NodeType::Toolbar && node->As<CarouselData>() != nullptr)) {
         Carousel::Update(*this, node);
-        if (keel::abs(node->scrollOffset.x - prevScroll.x) > 0.01f ||
-            keel::abs(node->scrollOffset.y - prevScroll.y) > 0.01f) {
+        const Vec2 curScroll = node->GetScrollOffset();
+        if (keel::abs(curScroll.x - prevScroll.x) > 0.01f ||
+            keel::abs(curScroll.y - prevScroll.y) > 0.01f) {
             scrollChanged = true;
         }
     } else if (node->type == NodeType::Table) {
@@ -2960,7 +3020,7 @@ void Context::ScrollToId(Id id) {
     if (!target) return;
 
     for (Node* p = target->parent; p != nullptr; p = p->parent) {
-        if ((p->type == NodeType::ScrollArea || ((p->type == NodeType::Sidebar || p->type == NodeType::BottomPanel) && p->sidebarScrollable)) && p->id.IsValid()) {
+        if (p->IsSolverScrollable() && p->id.IsValid()) {
             ScrollArea::ScrollToChild(*this, p, target);
             break;
         } else if ((p->type == NodeType::Carousel || p->type == NodeType::Toolbar) && p->id.IsValid()) {
@@ -2973,16 +3033,18 @@ void Context::ScrollToId(Id id) {
 void Context::EndFrame(ICanvas& canvas) {
     m_lastCanvas = &canvas;
 
-    // Balance any unclosed container & zone scopes
+    // Balance any unclosed container, zone, and identity scopes
     while (m_containerStack.size() > 1) {
         m_containerStack.pop_back();
     }
     m_zoneStack.clear();
+    m_idStack.clear();
     m_activeModalStack.clear();
 
     const Vec2 logicalSize = m_viewportSize / m_pixelsPerDp;
 
-    // Resolve geometry using canvas font metrics
+    // Resolve shell styling before pure geometric layout passes
+    Solver::ResolveShellStyles(m_root, m_theme);
     Solver::Measure(m_root, &canvas, m_theme);
     Solver::Arrange(m_root, Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y), m_theme, &canvas);
 
@@ -3144,13 +3206,14 @@ void Context::EndFrame(ICanvas& canvas) {
                          (n->checked ? 8u : 0u) |
                          (n->active ? 64u : 0u) |
                          (n->focused ? 128u : 0u) |
-                         (n->scrollbarHovered ? 256u : 0u) |
-                         (n->scrollbarActive ? 512u : 0u) |
-                         (n->scrollbarHoveredX ? 1024u : 0u) |
-                         (n->scrollbarActiveX ? 2048u : 0u);
+                         ((n->scroll && n->scroll->hoveredY) ? 256u : 0u) |
+                         ((n->scroll && n->scroll->activeY) ? 512u : 0u) |
+                         ((n->scroll && n->scroll->hoveredX) ? 1024u : 0u) |
+                         ((n->scroll && n->scroll->activeX) ? 2048u : 0u);
             snap.bgColor = n->backgroundColor.ToUint32();
             snap.borderColor = n->borderColor.ToUint32();
 
+            const Vec2 scrollOff = n->GetScrollOffset();
             keel::u64 h = n->visualHash != 0 ? n->visualHash : detail::HashStringView(n->text);
             h = detail::HashArgs(
                 h,
@@ -3158,8 +3221,8 @@ void Context::EndFrame(ICanvas& canvas) {
                 n->computedRect.y,
                 n->computedRect.w,
                 n->computedRect.h,
-                n->scrollOffset.x,
-                n->scrollOffset.y
+                scrollOff.x,
+                scrollOff.y
             );
             if (m_editState.id.IsValid() && n->id == m_editState.id) {
                 snap.flags |= (cursorVis ? 16u : 0u) | 32u;
@@ -3628,7 +3691,7 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
             node->cornerRadius,
             node->borderColor,
             node->borderWidth,
-            node->sidebarRight,
+            node->IsDockedRight(),
             node->direction == FlexDirection::Column
         );
     }

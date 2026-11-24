@@ -87,7 +87,7 @@ SidebarMenuScope SidebarMenu::Open(
     SidebarMenuOptions effectiveOpts = opts;
     for (Node* p = node->parent; p != nullptr; p = p->parent) {
         if (p->type == NodeType::Sidebar) {
-            if (p->sidebarCompact) {
+            if (p->IsCompactDock()) {
                 effectiveOpts.collapsed = true;
             }
             break;

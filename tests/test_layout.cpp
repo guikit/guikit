@@ -416,7 +416,7 @@ void TestGridLayoutSolver() {
     // Grid container with width 600, gap 12, runGap 16
     Node* grid = arena.create<Node>();
     grid->direction = FlexDirection::Grid;
-    grid->gridColumns = 12;
+    grid->SetPayload(arena.create<GridData>(GridData{.columns = 12}));
     grid->gap = 12.0f;
     grid->runGap = 16.0f;
     grid->widthMode = SizeMode::Fixed;
@@ -512,7 +512,7 @@ void TestGridResponsiveWrapAndExpand() {
     // Grid container with width 400, gap 10, runGap 15
     Node* grid = arena.create<Node>();
     grid->direction = FlexDirection::Grid;
-    grid->gridColumns = 12;
+    grid->SetPayload(arena.create<GridData>(GridData{.columns = 12}));
     grid->gap = 10.0f;
     grid->runGap = 15.0f;
     grid->widthMode = SizeMode::Fixed;
@@ -579,7 +579,8 @@ void TestScrollAreaLayoutSolver() {
     scroll->clipChildren = true;
     scroll->widthMode = SizeMode::Stretch;
     scroll->heightMode = SizeMode::Stretch;
-    scroll->scrollOffset = {0.0f, 50.0f};
+    scroll->scroll = arena.create<ScrollData>();
+    scroll->scroll->offset = {0.0f, 50.0f};
 
     // 3 children, 150px height each -> total content height = 450px
     Node* c1 = arena.create<Node>();
@@ -603,7 +604,7 @@ void TestScrollAreaLayoutSolver() {
     // ScrollArea viewport dimensions remain strictly bounded
     CHECK_NEAR(scroll->computedRect.w, 400.0f, 0.001f);
     CHECK_NEAR(scroll->computedRect.h, 300.0f, 0.001f);
-    CHECK_NEAR(scroll->scrollContentSize.y, 450.0f, 0.001f);
+    CHECK_NEAR(scroll->scroll->contentSize.y, 450.0f, 0.001f);
 
     // Children are offset by -50px
     CHECK_NEAR(c1->computedRect.y, -50.0f, 0.001f);
@@ -612,22 +613,22 @@ void TestScrollAreaLayoutSolver() {
 
     // Verify that content width strictly reserves scrollbar gutter (so scrollbar never overlays children)
     const ScrollbarMetrics& sm = UiTheme::Dark().GetScrollbar(scroll->uiSize);
-    CHECK_NEAR(scroll->scrollContentSize.x, 400.0f - sm.gutter, 0.001f);
+    CHECK_NEAR(scroll->scroll->contentSize.x, 400.0f - sm.gutter, 0.001f);
     CHECK_NEAR(c1->computedRect.w, 400.0f - sm.gutter, 0.001f);
 
     // Verify over-scroll clamping (offset 500 clamped to max 450 - 300 = 150)
-    scroll->scrollOffset = {0.0f, 500.0f};
+    scroll->scroll->offset = {0.0f, 500.0f};
     Solver::Arrange(scroll, Rect(0.0f, 0.0f, 400.0f, 300.0f));
 
-    CHECK_NEAR(scroll->scrollOffset.y, 150.0f, 0.001f);
+    CHECK_NEAR(scroll->scroll->offset.y, 150.0f, 0.001f);
     CHECK_NEAR(c1->computedRect.y, -150.0f, 0.001f);
     CHECK_NEAR(c2->computedRect.y, 0.0f, 0.001f);
     CHECK_NEAR(c3->computedRect.y, 150.0f, 0.001f);
 
     // Verify that when scrollbar policy is Never, no gutter is reserved and children occupy full 400px
-    scroll->scrollbarPolicy = VisibilityPolicy::Never;
+    scroll->scroll->policy = VisibilityPolicy::Never;
     Solver::Arrange(scroll, Rect(0.0f, 0.0f, 400.0f, 300.0f));
-    CHECK_NEAR(scroll->scrollContentSize.x, 400.0f, 0.001f);
+    CHECK_NEAR(scroll->scroll->contentSize.x, 400.0f, 0.001f);
     CHECK_NEAR(c1->computedRect.w, 400.0f, 0.001f);
 }
 
@@ -703,9 +704,12 @@ void TestStretchColumnInConstrainedRowWithHugeContent() {
     carousel->gap = 10.0f;
     carousel->measureFn = &Carousel::Measure;
     carousel->arrangeFn = &Carousel::Arrange;
+    carousel->scroll = arena.create<ScrollData>();
+    carousel->scroll->orientation = Orientation::Horizontal;
+    carousel->scroll->solverManaged = false;
 
     auto* cData = arena.create<CarouselData>();
-    carousel->payload = cData;
+    carousel->SetPayload(cData);
 
     // Add 10 tabs, each 150px wide = 1500px + 90px gap = 1590px total
     for (keel::i32 i = 0; i < 10; ++i) {
@@ -720,7 +724,7 @@ void TestStretchColumnInConstrainedRowWithHugeContent() {
     // Also a Grid with two Cell6 items (span 6 each), each containing a card with 380px intrinsic width
     Node* grid = arena.create<Node>();
     grid->direction = FlexDirection::Grid;
-    grid->gridColumns = 12;
+    grid->SetPayload(arena.create<GridData>(GridData{.columns = 12}));
     grid->widthMode = SizeMode::Stretch;
     grid->heightMode = SizeMode::Fit;
     grid->gap = 16.0f;
@@ -758,7 +762,7 @@ void TestStretchColumnInConstrainedRowWithHugeContent() {
 
     // 3. Carousel is constrained to contentCol's width (680px)
     CHECK_NEAR(carousel->computedRect.w, 680.0f, 0.001f);
-    CHECK(carousel->scrollContentSize.x > 1500.0f);
+    CHECK(carousel->GetScrollContentSize().x > 1500.0f);
 
     // Since content (1590px) > available (680px), right arrow must be visible!
     CHECK(cData->showRightArrow == true);
@@ -1054,7 +1058,8 @@ void TestRowTextDeficitShrinkAndCenterClamp() {
     Node* scrollBackdrop = arena.create<Node>();
     scrollBackdrop->type = NodeType::ScrollArea;
     scrollBackdrop->direction = FlexDirection::Column;
-    scrollBackdrop->scrollbarPolicy = VisibilityPolicy::Never;
+    scrollBackdrop->scroll = arena.create<ScrollData>();
+    scrollBackdrop->scroll->policy = VisibilityPolicy::Never;
     scrollBackdrop->padding = Padding::All(18.0f);
     scrollBackdrop->widthMode = SizeMode::Stretch;
     scrollBackdrop->heightMode = SizeMode::Stretch;
@@ -1087,7 +1092,6 @@ void TestRowTextDeficitShrinkAndCenterClamp() {
     bpNode->widthMode = SizeMode::Stretch;
     bpNode->heightMode = SizeMode::Fixed;
     bpNode->fixedHeight = 180.0f;
-    bpNode->sidebarScrollable = false;
     bpNode->clipChildren = true;
 
     Node* tbNode = arena.create<Node>();
@@ -1134,9 +1138,8 @@ void TestScrollAreaMaxHeightWrapFitAndDeepTreeGuard() {
     scroll->clipChildren = true;
     scroll->widthMode = SizeMode::Stretch;
     scroll->heightMode = SizeMode::Fit;
-    auto* saData = arena.create<ScrollAreaLayoutData>();
-    saData->maxHeight = 200.0f;
-    scroll->SetPayload(saData);
+    scroll->scroll = arena.create<ScrollData>();
+    scroll->scroll->maxHeight = 200.0f;
 
     Node* item1 = arena.create<Node>();
     item1->heightMode = SizeMode::Fixed;
@@ -1158,7 +1161,7 @@ void TestScrollAreaMaxHeightWrapFitAndDeepTreeGuard() {
     Solver::Arrange(parentCol, Rect(0.0f, 0.0f, 400.0f, 0.0f));
     CHECK_NEAR(scroll->intrinsicSize.y, 200.0f, 0.001f);
     CHECK_NEAR(scroll->computedRect.h, 200.0f, 0.001f);
-    CHECK_NEAR(scroll->scrollContentSize.y, 450.0f, 0.001f);
+    CHECK_NEAR(scroll->scroll->contentSize.y, 450.0f, 0.001f);
     CHECK_NEAR(parentCol->computedRect.h, 200.0f, 0.001f);
 
     // 2. Wrap container with widthMode = SizeMode::Fit shrink-wraps to single-line content width
@@ -1394,6 +1397,60 @@ void TestScaledNodeLaysOutInLocalUnits() {
     }
 }
 
+void TestPayloadTypeIdAndSolverMeasurePurity() {
+    using namespace guikit;
+
+    keel::Arena arena;
+
+    // 1. Node payload type verification uses zero-RTTI keel::TypeId
+    struct PayloadA { keel::i32 value{42}; };
+    struct PayloadB { keel::f32 value{3.5f}; };
+
+    Node* n = arena.create<Node>();
+    auto* a = arena.create<PayloadA>();
+    n->SetPayload(a);
+    CHECK(n->As<PayloadA>() == a);
+    CHECK(n->As<PayloadB>() == nullptr);
+    n->SetPayload<PayloadA>(nullptr);
+    CHECK(n->As<PayloadA>() == nullptr);
+
+    // 2. Solver::Measure must remain pure (never mutating visual styling like cornerRadius/borderWidth);
+    //    Solver::ResolveShellStyles applies shell panel styling explicitly before Measure.
+    UiTheme floatingTheme = UiTheme::Dark();
+    floatingTheme.shellStyle = ShellStyle::Floating;
+    floatingTheme.shell.panelRadius = 10.0f;
+    floatingTheme.shell.panelBorderWidth = 1.5f;
+    floatingTheme.shell.panelGap = 8.0f;
+
+    Node* shellRoot = arena.create<Node>();
+    shellRoot->type = NodeType::Row;
+    shellRoot->direction = FlexDirection::Row;
+    shellRoot->gap = 0.0f;
+
+    Node* sb = arena.create<Node>();
+    sb->type = NodeType::Sidebar;
+    sb->widthMode = SizeMode::Fixed;
+    sb->fixedWidth = 200.0f;
+    shellRoot->AddChild(sb);
+
+    Node* mainCard = arena.create<Node>();
+    mainCard->type = NodeType::Card;
+    mainCard->backgroundColor = Color(30, 35, 45, 255);
+    mainCard->cornerRadius = 0.0f;
+    mainCard->borderWidth = 0.0f;
+    shellRoot->AddChild(mainCard);
+
+    Solver::Measure(shellRoot, nullptr, floatingTheme);
+    CHECK_NEAR(mainCard->cornerRadius, 0.0f, 0.001f);
+    CHECK_NEAR(mainCard->borderWidth, 0.0f, 0.001f);
+    CHECK_NEAR(shellRoot->gap, 0.0f, 0.001f);
+
+    Solver::ResolveShellStyles(shellRoot, floatingTheme);
+    CHECK_NEAR(mainCard->cornerRadius, 10.0f, 0.001f);
+    CHECK_NEAR(mainCard->borderWidth, 1.5f, 0.001f);
+    CHECK_NEAR(shellRoot->gap, 8.0f, 0.001f);
+}
+
 int main() {
     keel::println("[RUN] Testing GuiKit Layout Solver...");
 
@@ -1416,6 +1473,7 @@ int main() {
     TestRowTextDeficitShrinkAndCenterClamp();
     TestScrollAreaMaxHeightWrapFitAndDeepTreeGuard();
     TestGapDpAndContainerSizingConstraints();
+    TestPayloadTypeIdAndSolverMeasurePurity();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Layout tests passed successfully!");

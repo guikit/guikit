@@ -46,7 +46,7 @@ TabBarResponse TabBar::Run(
         barNode = carouselScope->GetNode();
     } else {
         const Id barId = ctx.MakeChildId(loc);
-        barNode = ctx.CreateNode(NodeType::Container, barId);
+        barNode = ctx.CreateNode(NodeType::Row, barId);
         barNode->direction = FlexDirection::Row;
         barNode->align = Alignment::Center;
         barNode->uiSize = activeSize;

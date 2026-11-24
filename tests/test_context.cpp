@@ -1875,9 +1875,9 @@ void TestScrollAreaImmediateMode() {
             ui.EndFrame(canvas);
         }
         CHECK(!ui.HasDirtyDamage());
-        CHECK(scrollNode != nullptr);
-        CHECK(scrollNode->scrollContentSize.y > 220.0f);
-        CHECK_NEAR(scrollNode->scrollOffset.y, 0.0f, 0.01f);
+        CHECK(scrollNode != nullptr && scrollNode->scroll != nullptr);
+        CHECK(scrollNode->GetScrollContentSize().y > 220.0f);
+        CHECK_NEAR(scrollNode->GetScrollOffset().y, 0.0f, 0.01f);
 
         // 1. Mouse wheel scroll over Markdown must scroll and produce dirty damage
         ui.OnMouseMove({200.0f, 100.0f});
@@ -1887,14 +1887,14 @@ void TestScrollAreaImmediateMode() {
         ui.EndFrame(canvas);
 
         CHECK(ui.HasDirtyDamage());
-        CHECK(scrollNode->scrollOffset.y > 10.0f);
-        const keel::f32 wheelScrollY = scrollNode->scrollOffset.y;
+        CHECK(scrollNode->GetScrollOffset().y > 10.0f);
+        const keel::f32 wheelScrollY = scrollNode->GetScrollOffset().y;
 
         // 2. Drag vertical scrollbar thumb further down -> must update scrollOffset and child computedRect in same frame
         const keel::f32 sbX = 600.0f - sm.margin - sm.trackWidth * 0.5f;
         const keel::f32 trackLen = 220.0f - 2.0f * sm.margin;
-        const keel::f32 maxScroll = scrollNode->scrollContentSize.y - 220.0f;
-        const keel::f32 thumbLen = keel::clamp((220.0f / scrollNode->scrollContentSize.y) * trackLen, sm.minThumbLength, trackLen);
+        const keel::f32 maxScroll = scrollNode->GetScrollContentSize().y - 220.0f;
+        const keel::f32 thumbLen = keel::clamp((220.0f / scrollNode->GetScrollContentSize().y) * trackLen, sm.minThumbLength, trackLen);
         const keel::f32 travel = keel::max(0.0f, trackLen - thumbLen);
         const keel::f32 thumbY = sm.margin + (wheelScrollY / maxScroll) * travel + thumbLen * 0.5f;
 
@@ -1903,7 +1903,7 @@ void TestScrollAreaImmediateMode() {
         ui.BeginFrame({600.0f, 220.0f});
         renderMdScroll();
         ui.EndFrame(canvas);
-        CHECK(scrollNode->scrollbarActive);
+        CHECK(scrollNode->scroll && scrollNode->scroll->activeY);
 
         ui.OnMouseMove({sbX, thumbY + 40.0f});
         ui.BeginFrame({600.0f, 220.0f});
@@ -1911,10 +1911,10 @@ void TestScrollAreaImmediateMode() {
         ui.EndFrame(canvas);
 
         CHECK(ui.HasDirtyDamage());
-        CHECK(scrollNode->scrollOffset.y > wheelScrollY + 10.0f);
+        CHECK(scrollNode->GetScrollOffset().y > wheelScrollY + 10.0f);
         CHECK(scrollNode->firstChild != nullptr);
         if (scrollNode->firstChild) {
-            CHECK_NEAR(scrollNode->firstChild->computedRect.y, 8.0f - scrollNode->scrollOffset.y, 0.5f);
+            CHECK_NEAR(scrollNode->firstChild->computedRect.y, 8.0f - scrollNode->GetScrollOffset().y, 0.5f);
         }
 
         ui.OnMouseUp(1);
@@ -3797,7 +3797,7 @@ struct ScaledTestPanel {
     static guikit::ContainerScope Open(guikit::Context& ctx, keel::SourceLocation loc = keel::SourceLocation::current()) {
         using namespace guikit;
         const Id id = ctx.MakeChildId(loc);
-        Node* node = ctx.CreateNode(NodeType::Container, id);
+        Node* node = ctx.CreateNode(NodeType::Box, id);
         node->direction = FlexDirection::Column;
         node->widthMode = SizeMode::Fit;
         node->heightMode = SizeMode::Fit;
@@ -4509,7 +4509,7 @@ struct MyCustomBadge {
 struct MyCustomPanel {
     static ContainerScope Open(Context& ctx, keel::f32 minWidth = 100.0f, keel::SourceLocation loc = keel::SourceLocation::current()) {
         const Id id = ctx.MakeChildId(loc);
-        Node* node = ctx.CreateNode(NodeType::Container, id);
+        Node* node = ctx.CreateNode(NodeType::Box, id);
         node->direction = FlexDirection::Column;
         node->minWidth = minWidth;
         node->widthMode = SizeMode::Stretch;
@@ -11264,6 +11264,7 @@ void TestTagAndReadoutWidgets();
 void TestMenuBarAndCascadingMenus();
 void TestNullCanvasHeadlessWorkflow();
 void TestPlatformWindowBackendAndStandaloneFreeType();
+void TestIdScopeDynamicListStability();
 
 void TestZonePartialThemeOverrides() {
     using namespace guikit;
@@ -11336,6 +11337,7 @@ int main() {
 
     TestNullCanvasHeadlessWorkflow();
     TestPlatformWindowBackendAndStandaloneFreeType();
+    TestIdScopeDynamicListStability();
     TestTextWrappingAndBackendIndependence();
 
 #if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
@@ -13316,13 +13318,13 @@ int main() {
 
                     // Scroll down organically via mouse wheel (no InvalidateAll) and verify full scroll range & repaint
                     scaledUi.OnMouseMove({700.0f, 500.0f});
-                    const keel::f32 maxScrollY = keel::max(0.0f, scrollNode->scrollContentSize.y - scrollNode->computedRect.h);
+                    const keel::f32 maxScrollY = keel::max(0.0f, scrollNode->GetScrollContentSize().y - scrollNode->computedRect.h);
                     CHECK(maxScrollY > 300.0f);
-                    for (keel::i32 step = 0; step < 30 && scrollNode->scrollOffset.y + 0.5f < maxScrollY; ++step) {
+                    for (keel::i32 step = 0; step < 30 && scrollNode->GetScrollOffset().y + 0.5f < maxScrollY; ++step) {
                         scaledUi.OnMouseWheel(0.0f, -3.0f);
                         runScaledFrame(true);
                     }
-                    CHECK_NEAR(scrollNode->scrollOffset.y, maxScrollY, 1.0f);
+                    CHECK_NEAR(scrollNode->GetScrollOffset().y, maxScrollY, 1.0f);
                     CHECK(scaledCanvas.sawOffscreen);
                 }
 
@@ -17384,6 +17386,85 @@ void TestPlatformWindowBackendAndStandaloneFreeType() {
 #endif
 
     keel::println("  [PASS] TestPlatformWindowBackendAndStandaloneFreeType completed");
+}
+
+void TestIdScopeDynamicListStability() {
+    using namespace guikit;
+    keel::println("  -> TestIdScopeDynamicListStability...");
+
+    Context ui;
+    NullCanvas canvas;
+
+    struct RowItem {
+        keel::u64 key;
+        keel::FixedString<32> text;
+    };
+    keel::SmallArray<RowItem, 4> items;
+    items.push_back(RowItem{101u, "Alpha"});
+    items.push_back(RowItem{202u, "Beta"});
+    items.push_back(RowItem{303u, "Gamma"});
+
+    Id alphaId = Id::Null();
+    Id betaId = Id::Null();
+    Id gammaId = Id::Null();
+    auto renderList = [&]() {
+        ui.BeginFrame({600.0f, 300.0f});
+        if (auto col = ui.Column({.gap = 8.0f})) {
+            for (keel::usize i = 0; i < items.size(); ++i) {
+                if (auto scope = ui.IdScope(items[i].key)) {
+                    const Response r = ui.InputField(items[i].text);
+                    if (items[i].key == 101u) alphaId = r.id;
+                    if (items[i].key == 202u) betaId = r.id;
+                    if (items[i].key == 303u) gammaId = r.id;
+                }
+            }
+        }
+        ui.EndFrame(canvas);
+    };
+
+    renderList();
+    CHECK(alphaId.IsValid() && betaId.IsValid() && gammaId.IsValid());
+    CHECK(alphaId != betaId && betaId != gammaId && alphaId != gammaId);
+
+    // Focus the third item ("Gamma"), then remove the first item ("Alpha") from the list.
+    ui.RequestFocus(gammaId);
+    CHECK(ui.IsFocused(gammaId));
+
+    const Id prevBetaId = betaId;
+    const Id prevGammaId = gammaId;
+    items.remove_at(0); // Remove "Alpha" — indices of "Beta" and "Gamma" shift!
+
+    betaId = Id::Null();
+    gammaId = Id::Null();
+    renderList();
+
+    // With IdScope(key), both IDs and keyboard focus remain 100% stable across middle/head removals!
+    CHECK(betaId == prevBetaId);
+    CHECK(gammaId == prevGammaId);
+    CHECK(ui.IsFocused(gammaId));
+
+    // Also verify string & nested IdScopes disambiguate identically-located widgets
+    Id idA = Id::Null();
+    Id idB = Id::Null();
+    Id idNested = Id::Null();
+    ui.BeginFrame({600.0f, 300.0f});
+    if (auto col = ui.Column({})) {
+        auto emitBtn = [&]() -> Id { return ui.Button({.text = "Action"}).id; };
+        if (auto s = ui.IdScope("panel_a")) {
+            idA = emitBtn();
+            if (auto s2 = ui.IdScope(keel::i64{7})) {
+                idNested = emitBtn();
+            }
+        }
+        if (auto s = ui.IdScope("panel_b")) {
+            idB = emitBtn();
+        }
+    }
+    ui.EndFrame(canvas);
+    CHECK(idA.IsValid() && idB.IsValid() && idNested.IsValid());
+    CHECK(idA != idB && idA != idNested && idB != idNested);
+
+    keel::println("  [PASS] TestIdScopeDynamicListStability completed");
 }
 
 

@@ -875,14 +875,16 @@ TreeViewScope TreeView::Open(
     } else {
         scrollNode->padding = Padding::All(6.0f * density);
     }
-    scrollNode->scrollOrientation = Orientation::Vertical;
-    scrollNode->scrollbarPolicy = opts.scrollbar;
+    scrollNode->scroll = ctx.AllocPayload<ScrollData>();
+    scrollNode->scroll->orientation = Orientation::Vertical;
+    scrollNode->scroll->policy = opts.scrollbar;
+    scrollNode->scroll->solverManaged = true;
     scrollNode->uiSize = activeSize;
     scrollNode->disabled = activeDisabled;
     scrollNode->postRenderFn = &ScrollArea::RenderScrollbar;
 
     auto& scrollState = ctx.GetOrCreatePersistentState<ScrollState>(idScroll);
-    scrollNode->scrollOffset = scrollState.offset;
+    scrollNode->scroll->offset = scrollState.offset;
     payload->scrollNode = scrollNode;
 
     ctx.PushContainer(scrollNode);

@@ -295,22 +295,21 @@ BottomPanelScope BottomPanel::Open(
 
     const keel::f32 density = node->GetDensity();
     node->direction = FlexDirection::Column;
-    node->sidebarCollapsed = (state.mode == BottomPanelMode::Collapsed);
-    node->sidebarScrollable = opts.scrollable && !node->sidebarCollapsed;
+    const bool isCollapsed = (state.mode == BottomPanelMode::Collapsed);
+    node->dockFlags = isCollapsed ? dock_flags::kCollapsed : dock_flags::kNone;
+    const bool isScrollable = opts.scrollable && !isCollapsed;
     node->gap = theme.ResolveGap(opts.gap, activeSize, density);
     node->widthMode = SizeMode::Stretch;
     node->cornerRadius = opts.border.radius.has_value()
         ? *opts.border.radius
         : theme.shell.panelRadius;
     node->clipChildren = opts.clipChildren;
-    node->scrollOrientation = Orientation::Vertical;
-    node->scrollbarPolicy = opts.scrollbar;
     node->uiSize = activeSize;
 
     const auto& pal = theme.palette;
     keel::f32 reportedLogicalH = 0.0f;
 
-    if (node->sidebarCollapsed) {
+    if (isCollapsed) {
         node->heightMode = SizeMode::Fixed;
         node->fixedHeight = 0.0f;
         node->minHeight = 0.0f;
@@ -362,11 +361,15 @@ BottomPanelScope BottomPanel::Open(
 
     ctx.FinishContainer(node);
 
-    if (node->sidebarScrollable) {
+    if (isScrollable) {
+        node->scroll = ctx.AllocPayload<ScrollData>();
+        node->scroll->orientation = Orientation::Vertical;
+        node->scroll->policy = opts.scrollbar;
+        node->scroll->solverManaged = true;
         node->postRenderFn = &ScrollArea::RenderScrollbar;
 
         auto& scrollState = ctx.GetOrCreatePersistentState<ScrollState>(id);
-        node->scrollOffset = scrollState.offset;
+        node->scroll->offset = scrollState.offset;
     }
 
     const bool drawToggle = showToggle;

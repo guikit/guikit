@@ -3,22 +3,12 @@
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/theme.hpp"
-#include "guikit/panels/modal.hpp"
-#include "guikit/panels/popover.hpp"
-#include "guikit/panels/scroll_area.hpp"
 
 namespace guikit {
 
 namespace {
 
 static constexpr keel::u32 kMaxLayoutDepth = 128;
-thread_local keel::u32 g_layoutDepth = 0;
-
-struct LayoutDepthGuard {
-    keel::u32& depth;
-    explicit LayoutDepthGuard(keel::u32& d) noexcept : depth(d) { ++depth; }
-    ~LayoutDepthGuard() noexcept { --depth; }
-};
 
 /// While a node with its own scale processes itself, its outer sizing fields (kept in the parent's units) are
 /// viewed in the node's local units, so the layout code below works in one unit system. The originals are
@@ -79,22 +69,19 @@ private:
 };
 
 static keel::f32 GetScrollAreaMaxHeight(const Node* node) noexcept {
-    if (!node || node->type != NodeType::ScrollArea) {
+    if (!node || !node->scroll) {
         return 0.0f;
     }
-    if (const auto* d = node->As<ScrollAreaLayoutData>()) {
-        return d->maxHeight;
-    }
-    return 0.0f;
+    return node->scroll->maxHeight;
 }
 
-static void MeasureNode(Node* node, ICanvas* canvas, const UiTheme& theme);
-static void ArrangeNode(Node* node, Rect availableRect, const UiTheme& theme, ICanvas* canvas = nullptr);
-static keel::f32 ResolveNodeHeight(Node* node, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme);
-static void ArrangeRow(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas);
-static void ArrangeWrap(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas);
-static void ArrangeColumn(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas);
-static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas);
+static void MeasureNode(Node* node, ICanvas* canvas, const UiTheme& theme, keel::u32 depth);
+static void ArrangeNode(Node* node, Rect availableRect, const UiTheme& theme, ICanvas* canvas, keel::u32 depth);
+static keel::f32 ResolveNodeHeight(Node* node, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme, keel::u32 depth);
+static void ArrangeRow(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas, keel::u32 depth);
+static void ArrangeWrap(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas, keel::u32 depth);
+static void ArrangeColumn(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas, keel::u32 depth);
+static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas, keel::u32 depth);
 
     static bool HasDirectShellPanel(const Node* node) noexcept {
         if (node == nullptr) return false;
@@ -134,17 +121,8 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         return false;
     }
 
-    static void MeasureNodeLocal(Node* node, ICanvas* canvas, const UiTheme& theme);
-
-    /// Measures `node` and leaves its intrinsic size in its parent's units.
-    static void MeasureNode(Node* node, ICanvas* canvas, const UiTheme& theme) {
-        const LocalUnitsView local(node, LocalUnitsView::Mode::Measure);
-        MeasureNodeLocal(node, canvas, theme);
-    }
-
-    static void MeasureNodeLocal(Node* node, ICanvas* canvas, const UiTheme& theme) {
-        if (!node || g_layoutDepth >= kMaxLayoutDepth) return;
-        const LayoutDepthGuard depthGuard(g_layoutDepth);
+    static void ResolveShellStylesRecursive(Node* node, const UiTheme& theme, keel::u32 depth) noexcept {
+        if (!node || depth >= kMaxLayoutDepth) return;
         const UiTheme& activeTheme = node->GetTheme(theme);
 
         if (IsShellContainer(node)) {
@@ -176,9 +154,26 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             }
         }
 
+        for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
+            ResolveShellStylesRecursive(child, activeTheme, depth + 1);
+        }
+    }
+
+    static void MeasureNodeLocal(Node* node, ICanvas* canvas, const UiTheme& theme, keel::u32 depth);
+
+    /// Measures `node` and leaves its intrinsic size in its parent's units.
+    static void MeasureNode(Node* node, ICanvas* canvas, const UiTheme& theme, keel::u32 depth) {
+        const LocalUnitsView local(node, LocalUnitsView::Mode::Measure);
+        MeasureNodeLocal(node, canvas, theme, depth);
+    }
+
+    static void MeasureNodeLocal(Node* node, ICanvas* canvas, const UiTheme& theme, keel::u32 depth) {
+        if (!node || depth >= kMaxLayoutDepth) return;
+        const UiTheme& activeTheme = node->GetTheme(theme);
+
         // Measure children bottom-up first
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-            MeasureNode(child, canvas, activeTheme);
+            MeasureNode(child, canvas, activeTheme, depth + 1);
         }
 
         // Custom autonomous measure delegate (leaves or specialized containers)
@@ -206,8 +201,10 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         }
 
         if (node->type == NodeType::ScrollArea || node->type == NodeType::Sidebar || node->type == NodeType::BottomPanel) {
-            if ((node->type == NodeType::Sidebar || node->type == NodeType::BottomPanel) && node->sidebarCollapsed) {
-                node->scrollContentSize = {0.0f, 0.0f};
+            if ((node->type == NodeType::Sidebar || node->type == NodeType::BottomPanel) && node->IsCollapsed()) {
+                if (node->scroll) {
+                    node->scroll->contentSize = {0.0f, 0.0f};
+                }
                 node->intrinsicSize = {0.0f, 0.0f};
                 return;
             }
@@ -228,7 +225,9 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 totalHeight += keel::as<keel::f32>(activeChildren - 1) * node->gap;
             }
             const keel::f32 contentW = maxWidth + node->padding.Horizontal();
-            node->scrollContentSize = {contentW, totalHeight};
+            if (node->scroll) {
+                node->scroll->contentSize = {contentW, totalHeight};
+            }
             if (node->type == NodeType::Sidebar) {
                 keel::f32 w = (node->widthMode == SizeMode::Fixed) ? node->fixedWidth : contentW;
                 if (node->minWidth > 0.0f) {
@@ -309,7 +308,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             }
             node->intrinsicSize = {totalWidth, maxHeight + node->padding.Vertical()};
         } else if (node->direction == FlexDirection::Grid) {
-            const keel::i32 totalCols = (node->gridColumns > 0) ? node->gridColumns : 12;
+            const keel::i32 totalCols = keel::as<keel::i32>(node->GetGridColumns());
             const keel::f32 gap = node->gap;
             const keel::f32 runGap = (node->runGap > 0.0f) ? node->runGap : gap;
 
@@ -375,7 +374,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
             for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
                 if (child->IsOutOfFlow()) continue;
-                if (child->type == NodeType::BottomPanel && child->sidebarCollapsed) continue;
+                if (child->type == NodeType::BottomPanel && child->IsCollapsed()) continue;
                 const keel::f32 cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
                 const keel::f32 ch = (child->heightMode == SizeMode::Fixed) ? child->fixedHeight : child->intrinsicSize.y;
                 totalHeight += ch;
@@ -422,18 +421,17 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         return childW;
     }
 
-    static keel::f32 ResolveNodeHeightLocal(Node* node, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme);
+    static keel::f32 ResolveNodeHeightLocal(Node* node, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme, keel::u32 depth);
 
     /// Resolves a node's height for an available width, both in its parent's units.
-    static keel::f32 ResolveNodeHeight(Node* node, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) {
+    static keel::f32 ResolveNodeHeight(Node* node, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme, keel::u32 depth) {
         const LocalUnitsView local(node, LocalUnitsView::Mode::Use);
         const keel::f32 s = local.Scale();
-        return ResolveNodeHeightLocal(node, availableWidth / s, canvas, theme) * s;
+        return ResolveNodeHeightLocal(node, availableWidth / s, canvas, theme, depth) * s;
     }
 
-    static keel::f32 ResolveNodeHeightLocal(Node* node, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) {
-        if (!node || g_layoutDepth >= kMaxLayoutDepth) return 0.0f;
-        const LayoutDepthGuard depthGuard(g_layoutDepth);
+    static keel::f32 ResolveNodeHeightLocal(Node* node, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme, keel::u32 depth) {
+        if (!node || depth >= kMaxLayoutDepth) return 0.0f;
         if (node->heightMode == SizeMode::Fixed) {
             return node->fixedHeight;
         }
@@ -551,7 +549,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 if (child->minWidth > 0.0f) {
                     childW = keel::max(childW, child->minWidth);
                 }
-                const keel::f32 ch = ResolveNodeHeight(child, childW, canvas, activeTheme);
+                const keel::f32 ch = ResolveNodeHeight(child, childW, canvas, activeTheme, depth + 1);
                 maxH = keel::max(maxH, ch);
             }
             keel::f32 resolvedH = keel::max(node->minHeight, maxH + node->padding.Vertical());
@@ -572,9 +570,9 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
             for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
                 if (child->isSpacer || child->type == NodeType::Sidebar || child->IsOutOfFlow()) continue;
-                if (child->type == NodeType::BottomPanel && child->sidebarCollapsed) continue;
+                if (child->type == NodeType::BottomPanel && child->IsCollapsed()) continue;
                 const keel::f32 cw = ResolveColumnChildWidth(node, child, childAvailW);
-                const keel::f32 ch = ResolveNodeHeight(child, cw, canvas, activeTheme);
+                const keel::f32 ch = ResolveNodeHeight(child, cw, canvas, activeTheme, depth + 1);
                 sumH += ch;
                 ++activeChildren;
             }
@@ -595,7 +593,8 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
         if (node->direction == FlexDirection::Grid) {
             const keel::f32 availW = keel::max(0.0f, availableWidth - node->padding.Horizontal());
-            const keel::i32 totalCols = (node->gridColumns > 0) ? node->gridColumns : 12;
+            const keel::i32 totalCols = keel::as<keel::i32>(node->GetGridColumns());
+            const keel::f32 minColW = node->GetMinColWidth();
             const keel::f32 gap = node->gap;
             const keel::f32 runGap = (node->runGap > 0.0f) ? node->runGap : node->gap;
 
@@ -616,7 +615,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                     }
 
                     keel::i32 span = keel::clamp<keel::i32>(lineEnd->colSpan, 1, totalCols);
-                    const keel::f32 reqMinW = (lineEnd->minWidth > 0.0f) ? lineEnd->minWidth : ((node->minColWidth > 0.0f) ? node->minColWidth : lineEnd->intrinsicSize.x);
+                    const keel::f32 reqMinW = (lineEnd->minWidth > 0.0f) ? lineEnd->minWidth : ((minColW > 0.0f) ? minColW : lineEnd->intrinsicSize.x);
 
                     if (itemsInLine > 0) {
                         if (currentLineSpan + span > totalCols) {
@@ -638,7 +637,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                     }
 
                     const keel::f32 childW = keel::max(0.0f, (keel::as<keel::f32>(span) / keel::as<keel::f32>(totalCols)) * (availW + gap) - gap);
-                    const keel::f32 childH = ResolveNodeHeight(lineEnd, childW, canvas, activeTheme);
+                    const keel::f32 childH = ResolveNodeHeight(lineEnd, childW, canvas, activeTheme, depth + 1);
 
                     lineMaxH = keel::max(lineMaxH, childH);
                     currentLineSpan += span;
@@ -652,7 +651,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
                 if (itemsInLine == 1 && lineEnd != nullptr) {
                     const keel::f32 childW = availW;
-                    lineMaxH = ResolveNodeHeight(lineStart, childW, canvas, activeTheme);
+                    lineMaxH = ResolveNodeHeight(lineStart, childW, canvas, activeTheme, depth + 1);
                 }
 
                 if (hasLines) {
@@ -673,19 +672,18 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         return node->intrinsicSize.y;
     }
 
-    static void ArrangeNodeLocal(Node* node, Rect availableRect, const UiTheme& theme, ICanvas* canvas);
+    static void ArrangeNodeLocal(Node* node, Rect availableRect, const UiTheme& theme, ICanvas* canvas, keel::u32 depth);
 
     /// Arranges `node` into `availableRect` (parent units). A scaled node keeps the rect's top-left corner and
     /// lays itself and its subtree out in its local units, so `computedRect` ends up in local units.
-    static void ArrangeNode(Node* node, Rect availableRect, const UiTheme& theme, ICanvas* canvas) {
+    static void ArrangeNode(Node* node, Rect availableRect, const UiTheme& theme, ICanvas* canvas, keel::u32 depth) {
         const LocalUnitsView local(node, LocalUnitsView::Mode::Use);
         const keel::f32 s = local.Scale();
-        ArrangeNodeLocal(node, Rect(availableRect.x, availableRect.y, availableRect.w / s, availableRect.h / s), theme, canvas);
+        ArrangeNodeLocal(node, Rect(availableRect.x, availableRect.y, availableRect.w / s, availableRect.h / s), theme, canvas, depth);
     }
 
-    static void ArrangeNodeLocal(Node* node, Rect availableRect, const UiTheme& theme, ICanvas* canvas) {
-        if (!node || g_layoutDepth >= kMaxLayoutDepth) return;
-        const LayoutDepthGuard depthGuard(g_layoutDepth);
+    static void ArrangeNodeLocal(Node* node, Rect availableRect, const UiTheme& theme, ICanvas* canvas, keel::u32 depth) {
+        if (!node || depth >= kMaxLayoutDepth) return;
 
         const UiTheme& activeTheme = node->GetTheme(theme);
 
@@ -694,7 +692,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             node->arrangeFn(node, availableRect, activeTheme);
             for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
                 if (child->IsOutOfFlow()) {
-                    ArrangeNode(child, node->computedRect, activeTheme, canvas);
+                    ArrangeNode(child, node->computedRect, activeTheme, canvas, depth + 1);
                 }
             }
             return;
@@ -712,7 +710,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             }
 
             if (node->heightMode == SizeMode::Fit) {
-                h = ResolveNodeHeightLocal(node, w, canvas, activeTheme);
+                h = ResolveNodeHeightLocal(node, w, canvas, activeTheme, depth + 1);
             } else if (node->heightMode == SizeMode::Fixed) {
                 h = node->fixedHeight;
             }
@@ -729,14 +727,14 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             h = keel::min(h, node->maxHeight);
         }
 
-        if (node->type == NodeType::Popover) {
+        if (node->placeFn != nullptr) {
             const keel::f32 targetW = (node->widthMode == SizeMode::Fixed && node->fixedWidth > 0.0f)
                 ? node->fixedWidth
                 : node->intrinsicSize.x;
             const keel::f32 resolvedH = (node->heightMode == SizeMode::Fixed && node->fixedHeight > 0.0f)
                 ? node->fixedHeight
-                : ResolveNodeHeightLocal(node, targetW, canvas, activeTheme);
-            node->computedRect = Popover::ResolvePopoverRect(node, targetW, resolvedH, availableRect);
+                : ResolveNodeHeightLocal(node, targetW, canvas, activeTheme, depth + 1);
+            node->computedRect = node->placeFn(node, targetW, resolvedH, availableRect);
         } else {
             node->computedRect = Rect(availableRect.x, availableRect.y, w, h);
         }
@@ -747,16 +745,17 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
             if (child->IsOutOfFlow()) {
-                ArrangeNode(child, node->computedRect, activeTheme, canvas);
+                ArrangeNode(child, node->computedRect, activeTheme, canvas, depth + 1);
             }
         }
 
-        if (node->type == NodeType::ScrollArea || ((node->type == NodeType::Sidebar || node->type == NodeType::BottomPanel) && node->sidebarScrollable)) {
+        if (node->IsSolverScrollable()) {
+            ScrollData& sd = *node->scroll;
             const ScrollbarMetrics& sm = activeTheme.GetScrollbar(node->uiSize);
             const keel::f32 fullW = keel::max(0.0f, node->computedRect.w - node->padding.Horizontal());
             const keel::f32 fullH = keel::max(0.0f, node->computedRect.h - node->padding.Vertical());
-            const bool allowV = (node->scrollOrientation == Orientation::Vertical || node->scrollOrientation == Orientation::Both);
-            const bool allowH = (node->scrollOrientation == Orientation::Horizontal || node->scrollOrientation == Orientation::Both);
+            const bool allowV = (sd.orientation == Orientation::Vertical || sd.orientation == Orientation::Both);
+            const bool allowH = (sd.orientation == Orientation::Horizontal || sd.orientation == Orientation::Both);
 
             // 1. Determine if horizontal scrollbar is required
             keel::f32 naturalContentW = 0.0f;
@@ -790,16 +789,16 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             }
 
             const bool needScrollbarX = allowH && (
-                node->scrollbarPolicy == VisibilityPolicy::Always ||
-                (node->scrollbarPolicy == VisibilityPolicy::Auto && naturalContentW > fullW + 0.5f)
+                sd.policy == VisibilityPolicy::Always ||
+                (sd.policy == VisibilityPolicy::Auto && naturalContentW > fullW + 0.5f)
             );
             const keel::f32 gutterY = needScrollbarX ? sm.gutter : 0.0f;
             const keel::f32 viewportH = keel::max(0.0f, fullH - gutterY);
             const keel::f32 totalViewportH = keel::max(0.0f, node->computedRect.h - gutterY);
 
             // 2. Determine if vertical scrollbar is required
-            bool needScrollbarY = allowV && (node->scrollbarPolicy == VisibilityPolicy::Always);
-            if (!needScrollbarY && allowV && node->scrollbarPolicy == VisibilityPolicy::Auto) {
+            bool needScrollbarY = allowV && (sd.policy == VisibilityPolicy::Always);
+            if (!needScrollbarY && allowV && sd.policy == VisibilityPolicy::Auto) {
                 const keel::f32 measureW = allowH ? keel::max(fullW, naturalContentW) : fullW;
                 keel::f32 testH = 0.0f;
                 keel::u32 active = 0;
@@ -808,7 +807,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                     const bool isFullStretchViewport = (child->widthMode == SizeMode::Stretch && child->heightMode == SizeMode::Stretch && child->clipChildren);
                     testH += isFullStretchViewport
                         ? keel::max(viewportH, child->minHeight)
-                        : ResolveNodeHeight(child, measureW, canvas, activeTheme);
+                        : ResolveNodeHeight(child, measureW, canvas, activeTheme, depth + 1);
                     ++active;
                 }
                 if (active > 1) {
@@ -833,7 +832,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 const bool isFullStretchViewport = (child->widthMode == SizeMode::Stretch && child->heightMode == SizeMode::Stretch && child->clipChildren);
                 const keel::f32 ch = isFullStretchViewport
                     ? keel::max(viewportH, child->minHeight)
-                    : ResolveNodeHeight(child, effectiveContentW, canvas, activeTheme);
+                    : ResolveNodeHeight(child, effectiveContentW, canvas, activeTheme, depth + 1);
                 if (node->direction == FlexDirection::Row) {
                     contentH = keel::max(contentH, ch);
                 } else {
@@ -846,29 +845,29 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             }
             contentH += node->padding.Vertical();
 
-            node->scrollContentSize = {effectiveContentW + node->padding.Horizontal(), contentH};
+            sd.contentSize = {effectiveContentW + node->padding.Horizontal(), contentH};
 
             const keel::f32 maxScrollY = allowV ? keel::max(0.0f, contentH - totalViewportH) : 0.0f;
-            const keel::f32 maxScrollX = allowH ? keel::max(0.0f, node->scrollContentSize.x - totalViewportW) : 0.0f;
-            node->scrollOffset.y = keel::clamp(node->scrollOffset.y, 0.0f, maxScrollY);
-            node->scrollOffset.x = keel::clamp(node->scrollOffset.x, 0.0f, maxScrollX);
+            const keel::f32 maxScrollX = allowH ? keel::max(0.0f, sd.contentSize.x - totalViewportW) : 0.0f;
+            sd.offset.y = keel::clamp(sd.offset.y, 0.0f, maxScrollY);
+            sd.offset.x = keel::clamp(sd.offset.x, 0.0f, maxScrollX);
 
             const keel::f32 effectiveContentH = allowV
                 ? keel::max(viewportH, contentH - node->padding.Vertical())
                 : viewportH;
             const Rect scrollContentRect(
-                node->computedRect.x + node->padding.left - node->scrollOffset.x,
-                node->computedRect.y + node->padding.top - node->scrollOffset.y,
+                node->computedRect.x + node->padding.left - sd.offset.x,
+                node->computedRect.y + node->padding.top - sd.offset.y,
                 effectiveContentW,
                 effectiveContentH
             );
 
             if (node->direction == FlexDirection::Grid) {
-                ArrangeGrid(node, scrollContentRect, activeTheme, canvas);
+                ArrangeGrid(node, scrollContentRect, activeTheme, canvas, depth + 1);
             } else if (node->direction == FlexDirection::Row) {
-                ArrangeRow(node, scrollContentRect, activeTheme, canvas);
+                ArrangeRow(node, scrollContentRect, activeTheme, canvas, depth + 1);
             } else {
-                ArrangeColumn(node, scrollContentRect, activeTheme, canvas);
+                ArrangeColumn(node, scrollContentRect, activeTheme, canvas, depth + 1);
             }
             return;
         }
@@ -905,17 +904,18 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
                 if (child->type != NodeType::Sidebar) continue;
 
-                if (child->sidebarCollapsed) {
-                    const keel::f32 edgeX = !child->sidebarRight ? leftX : rightX;
+                if (child->IsCollapsed()) {
+                    const keel::f32 edgeX = !child->IsDockedRight() ? leftX : rightX;
                     child->computedRect = Rect(edgeX, topY, 0.0f, availH);
                     continue;
                 }
 
                 const UiTheme& childTheme = child->GetTheme(activeTheme);
                 keel::f32 sbW = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
-                if (child->widthMode != SizeMode::Fixed && child->sidebarScrollable) {
-                    const bool needSb = (child->scrollbarPolicy == VisibilityPolicy::Always) ||
-                        (child->scrollbarPolicy == VisibilityPolicy::Auto && child->scrollContentSize.y > availH + 0.5f);
+                if (child->widthMode != SizeMode::Fixed && child->IsSolverScrollable()) {
+                    const ScrollData& csd = *child->scroll;
+                    const bool needSb = (csd.policy == VisibilityPolicy::Always) ||
+                        (csd.policy == VisibilityPolicy::Auto && csd.contentSize.y > availH + 0.5f);
                     if (needSb) {
                         sbW += childTheme.GetScrollbar(child->uiSize).gutter;
                     }
@@ -924,23 +924,23 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                     sbW = keel::max(sbW, child->minWidth);
                 }
 
-                if (!child->sidebarRight) {
+                if (!child->IsDockedRight()) {
                     if (leftSidebarCount > 0 && !prevLeftFlush) {
                         leftX += node->gap;
                     }
                     sbW = keel::min(sbW, keel::max(0.0f, rightX - leftX));
-                    ArrangeNode(child, Rect(leftX, topY, sbW, availH), activeTheme, canvas);
+                    ArrangeNode(child, Rect(leftX, topY, sbW, availH), activeTheme, canvas, depth + 1);
                     leftX += sbW;
-                    prevLeftFlush = (child->sidebarFlush != 0);
+                    prevLeftFlush = child->IsFlushDock();
                     ++leftSidebarCount;
                 } else {
                     if (rightSidebarCount > 0 && !prevRightFlush) {
                         rightX -= node->gap;
                     }
                     sbW = keel::min(sbW, keel::max(0.0f, rightX - leftX));
-                    ArrangeNode(child, Rect(rightX - sbW, topY, sbW, availH), activeTheme, canvas);
+                    ArrangeNode(child, Rect(rightX - sbW, topY, sbW, availH), activeTheme, canvas, depth + 1);
                     rightX -= sbW;
-                    prevRightFlush = (child->sidebarFlush != 0);
+                    prevRightFlush = child->IsFlushDock();
                     ++rightSidebarCount;
                 }
             }
@@ -959,17 +959,17 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         }
 
         if (node->direction == FlexDirection::Row) {
-            ArrangeRow(node, contentRect, activeTheme, canvas);
+            ArrangeRow(node, contentRect, activeTheme, canvas, depth + 1);
         } else if (node->direction == FlexDirection::Wrap) {
-            ArrangeWrap(node, contentRect, activeTheme, canvas);
+            ArrangeWrap(node, contentRect, activeTheme, canvas, depth + 1);
         } else if (node->direction == FlexDirection::Grid) {
-            ArrangeGrid(node, contentRect, activeTheme, canvas);
+            ArrangeGrid(node, contentRect, activeTheme, canvas, depth + 1);
         } else {
-            ArrangeColumn(node, contentRect, activeTheme, canvas);
+            ArrangeColumn(node, contentRect, activeTheme, canvas, depth + 1);
         }
     }
 
-    static void ArrangeRow(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas) {
+    static void ArrangeRow(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas, keel::u32 depth) {
         keel::u32 flowChildCount = 0;
         keel::f32 baseSum = 0.0f;
         keel::f32 totalFlexGrow = 0.0f;
@@ -1116,7 +1116,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             if (child->heightMode == SizeMode::Fixed) {
                 childH = child->fixedHeight;
             } else if (child->heightMode == SizeMode::Fit || (child->heightMode != SizeMode::Stretch && node->align != Alignment::Stretch)) {
-                childH = ResolveNodeHeight(child, childW, canvas, theme);
+                childH = ResolveNodeHeight(child, childW, canvas, theme, depth);
             }
             if (!child->isSpacer && child->minHeight > 0.0f) {
                 childH = keel::max(childH, child->minHeight);
@@ -1135,7 +1135,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 childY = contentRect.Bottom() - childH;
             }
 
-            ArrangeNode(child, Rect(currentX, childY, childW, childH), theme, canvas);
+            ArrangeNode(child, Rect(currentX, childY, childW, childH), theme, canvas, depth);
             currentX += childW + node->gap;
         }
 
@@ -1152,7 +1152,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         }
     }
 
-    static void ArrangeWrap(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas) {
+    static void ArrangeWrap(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas, keel::u32 depth) {
         const keel::f32 maxLineWidth = keel::max(0.0f, contentRect.w);
         Node* lineStart = node->firstChild;
         keel::f32 currentY = contentRect.y;
@@ -1224,7 +1224,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                     childY = currentY + (lineMaxH - ch);
                 }
 
-                ArrangeNode(child, Rect(itemX, childY, cw, ch), theme, canvas);
+                ArrangeNode(child, Rect(itemX, childY, cw, ch), theme, canvas, depth);
                 itemX += cw + itemGap;
             }
 
@@ -1254,10 +1254,14 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         }
     }
 
-    static void ArrangeColumn(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas) {
+    static void ArrangeColumn(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas, keel::u32 depth) {
+        const bool isScrollAreaWithVisibleBar = (node->type == NodeType::ScrollArea) &&
+            (!node->scroll || node->scroll->policy != VisibilityPolicy::Never);
+        const bool isDockedScrollable = (node->type == NodeType::Sidebar || node->type == NodeType::BottomPanel) &&
+            node->IsSolverScrollable();
         const bool parentHasDefiniteHeight = (node->heightMode != SizeMode::Fit) &&
-            (node->type != NodeType::ScrollArea || node->scrollbarPolicy == VisibilityPolicy::Never) &&
-            !((node->type == NodeType::Sidebar || node->type == NodeType::BottomPanel) && node->sidebarScrollable);
+            !isScrollAreaWithVisibleBar &&
+            !isDockedScrollable;
 
         auto isChildStretchHeight = [&](const Node* child) noexcept {
             if (child->heightMode != SizeMode::Stretch) return false;
@@ -1272,7 +1276,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
             if (child->type == NodeType::Sidebar || child->IsOutOfFlow()) continue;
-            if (child->type == NodeType::BottomPanel && child->sidebarCollapsed) continue;
+            if (child->type == NodeType::BottomPanel && child->IsCollapsed()) continue;
             ++flowChildCount;
             if (child->isSpacer || isChildStretchHeight(child)) {
                 totalFlexGrow += keel::max(0.01f, child->flexGrow);
@@ -1281,7 +1285,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 baseSum += child->fixedHeight;
             } else if (!child->isSpacer) { // SizeMode::Fit or Stretch inside Fit/ScrollArea parent
                 const keel::f32 cw = ResolveColumnChildWidth(node, child, contentRect.w);
-                baseSum += ResolveNodeHeight(child, cw, canvas, theme);
+                baseSum += ResolveNodeHeight(child, cw, canvas, theme, depth);
             }
         }
 
@@ -1303,7 +1307,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
             if (child->type == NodeType::Sidebar || child->IsOutOfFlow()) continue;
-            if (child->type == NodeType::BottomPanel && child->sidebarCollapsed) {
+            if (child->type == NodeType::BottomPanel && child->IsCollapsed()) {
                 const keel::f32 edgeY = (currentY > contentRect.y)
                     ? keel::clamp(currentY - node->gap, contentRect.y, contentRect.Bottom())
                     : contentRect.Bottom();
@@ -1323,7 +1327,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             } else if (child->heightMode == SizeMode::Fixed) {
                 childH = child->fixedHeight;
             } else if (!child->isSpacer) { // SizeMode::Fit or Stretch inside Fit/ScrollArea parent
-                childH = ResolveNodeHeight(child, childW, canvas, theme);
+                childH = ResolveNodeHeight(child, childW, canvas, theme, depth);
             }
             if (child->maxHeight > 0.0f) {
                 childH = keel::min(childH, child->maxHeight);
@@ -1336,7 +1340,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 childX = contentRect.Right() - childW;
             }
 
-            ArrangeNode(child, Rect(childX, currentY, childW, childH), theme, canvas);
+            ArrangeNode(child, Rect(childX, currentY, childW, childH), theme, canvas, depth);
             currentY += child->computedRect.h * child->GetRelativeScale() + node->gap;
         }
 
@@ -1353,9 +1357,10 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         }
     }
 
-    static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas) {
+    static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas, keel::u32 depth) {
         const keel::f32 availW = contentRect.w;
-        const keel::i32 totalCols = (node->gridColumns > 0) ? node->gridColumns : 12;
+        const keel::i32 totalCols = keel::as<keel::i32>(node->GetGridColumns());
+        const keel::f32 minColW = node->GetMinColWidth();
         const keel::f32 gap = node->gap;
         const keel::f32 runGap = (node->runGap > 0.0f) ? node->runGap : node->gap;
 
@@ -1377,7 +1382,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 }
 
                 keel::i32 span = keel::clamp<keel::i32>(lineEnd->colSpan, 1, totalCols);
-                const keel::f32 reqMinW = (lineEnd->minWidth > 0.0f) ? lineEnd->minWidth : ((node->minColWidth > 0.0f) ? node->minColWidth : lineEnd->intrinsicSize.x);
+                const keel::f32 reqMinW = (lineEnd->minWidth > 0.0f) ? lineEnd->minWidth : ((minColW > 0.0f) ? minColW : lineEnd->intrinsicSize.x);
 
                 if (itemsInLine > 0) {
                     if (currentLineSpan + span > totalCols) {
@@ -1403,7 +1408,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 if (lineEnd->heightMode == SizeMode::Fixed) {
                     childH = lineEnd->fixedHeight;
                 } else {
-                    childH = ResolveNodeHeight(lineEnd, childW, canvas, theme);
+                    childH = ResolveNodeHeight(lineEnd, childW, canvas, theme, depth);
                 }
 
                 lineMaxH = keel::max(lineMaxH, childH);
@@ -1420,7 +1425,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 const keel::f32 childW = availW;
                 lineMaxH = (lineStart->heightMode == SizeMode::Fixed)
                     ? lineStart->fixedHeight
-                    : ResolveNodeHeight(lineStart, childW, canvas, theme);
+                    : ResolveNodeHeight(lineStart, childW, canvas, theme, depth);
             }
 
             if (hasLines) {
@@ -1433,7 +1438,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 if (child->isSpacer || child->type == NodeType::Sidebar || child->IsOutOfFlow()) continue;
 
                 keel::i32 span = keel::clamp<keel::i32>(child->colSpan, 1, totalCols);
-                const keel::f32 reqMinW = (child->minWidth > 0.0f) ? child->minWidth : ((node->minColWidth > 0.0f) ? node->minColWidth : child->intrinsicSize.x);
+                const keel::f32 reqMinW = (child->minWidth > 0.0f) ? child->minWidth : ((minColW > 0.0f) ? minColW : child->intrinsicSize.x);
                 if (itemsInLine == 1 && (lineEnd != nullptr || (reqMinW > 0.0f && ((keel::as<keel::f32>(span) / keel::as<keel::f32>(totalCols)) * (availW + gap) - gap) < reqMinW))) {
                     span = totalCols;
                 }
@@ -1446,7 +1451,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 } else if (child->heightMode == SizeMode::Stretch || node->align == Alignment::Stretch) {
                     childH = lineMaxH;
                 } else {
-                    childH = ResolveNodeHeight(child, childW, canvas, theme);
+                    childH = ResolveNodeHeight(child, childW, canvas, theme, depth);
                 }
 
                 keel::f32 childY = currentY;
@@ -1456,7 +1461,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                     childY = currentY + (lineMaxH - childH);
                 }
 
-                ArrangeNode(child, Rect(currentX, childY, childW, childH), theme, canvas);
+                ArrangeNode(child, Rect(currentX, childY, childW, childH), theme, canvas, depth);
                 currentX += childW + gap;
             }
 
@@ -1480,9 +1485,14 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
 } // namespace
 
+void Solver::ResolveShellStyles(Node* root, const UiTheme& theme) {
+    if (!root) return;
+    ResolveShellStylesRecursive(root, theme, 0);
+}
+
 void Solver::Measure(Node* root, ICanvas* canvas, const UiTheme& theme) {
     if (!root) return;
-    MeasureNode(root, canvas, theme);
+    MeasureNode(root, canvas, theme, 0);
 }
 
 void Solver::Measure(Node* root, ICanvas* canvas) {
@@ -1491,12 +1501,12 @@ void Solver::Measure(Node* root, ICanvas* canvas) {
 }
 
 keel::f32 Solver::ResolveHeight(Node* node, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) {
-    return ResolveNodeHeight(node, availableWidth, canvas, theme);
+    return ResolveNodeHeight(node, availableWidth, canvas, theme, 0);
 }
 
 void Solver::Arrange(Node* root, Rect availableRect, const UiTheme& theme, ICanvas* canvas) {
     if (!root) return;
-    ArrangeNode(root, availableRect, theme, canvas);
+    ArrangeNode(root, availableRect, theme, canvas, 0);
 }
 
 void Solver::Arrange(Node* root, Rect availableRect) {

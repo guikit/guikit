@@ -15,8 +15,11 @@ GridScope Grid::Open(
     const UiTheme& theme = node->GetTheme(ctx.GetTheme());
     const keel::f32 density = node->GetDensity();
     node->direction = FlexDirection::Grid;
-    node->gridColumns = keel::as<keel::u8>(keel::clamp(opts.columns, 1, 24));
-    node->minColWidth = opts.minColWidth;
+    auto* gridData = ctx.AllocPayload<GridData>(GridData{
+        .columns = keel::as<keel::u8>(keel::clamp(opts.columns, 1, 24)),
+        .minColWidth = opts.minColWidth
+    });
+    node->SetPayload(gridData);
     node->gap = theme.ResolveGap(opts.gap, UiSize::Md, density);
     node->runGap = opts.runGap.has_value() ? (*opts.runGap * density) : node->gap;
     node->padding = theme.ResolvePadding(opts.padding, UiSize::None, density);
@@ -49,12 +52,12 @@ ContainerScope GridScope::Cell(keel::i32 span, CellOptions opts, keel::SourceLoc
     if (!m_ctx) return ContainerScope(nullptr, nullptr);
 
     const Id id = m_ctx->MakeChildId(loc);
-    const keel::i32 maxCols = (m_node && m_node->gridColumns > 0) ? keel::as<keel::i32>(m_node->gridColumns) : 12;
+    const keel::i32 maxCols = m_node ? keel::as<keel::i32>(m_node->GetGridColumns()) : 12;
     Node* node = m_ctx->CreateNode(NodeType::Cell, id, opts.disabled);
     const UiTheme& theme = node->GetTheme(m_ctx->GetTheme());
     const keel::f32 density = node->GetDensity();
     node->direction = FlexDirection::Column;
-    node->colSpan = keel::as<keel::u8>(keel::clamp(span, 1, maxCols));
+    node->colSpan = keel::as<keel::u16>(keel::clamp(span, 1, maxCols));
     if (opts.minWidth.has_value() && *opts.minWidth > 0.0f) {
         node->minWidth = *opts.minWidth;
     }
@@ -82,7 +85,7 @@ ContainerScope GridScope::Cell(keel::i32 span, CellOptions opts, keel::SourceLoc
 }
 
 ContainerScope GridScope::Cell(CellOptions opts, keel::SourceLocation loc) {
-    const keel::i32 maxCols = (m_node && m_node->gridColumns > 0) ? keel::as<keel::i32>(m_node->gridColumns) : 12;
+    const keel::i32 maxCols = m_node ? keel::as<keel::i32>(m_node->GetGridColumns()) : 12;
     return Cell(maxCols, opts, loc);
 }
 

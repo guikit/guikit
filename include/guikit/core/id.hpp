@@ -6,6 +6,8 @@
 
 namespace guikit {
 
+class Context;
+
 /// 64-bit unique widget identifier generated automatically without manual string tags.
 struct Id {
     keel::u64 value{0};
@@ -182,6 +184,37 @@ constexpr keel::u64 HashArgs(const Args&... args) noexcept {
     );
     return detail::FinalizeCallsiteId(callsiteHash, childIndex);
 }
+
+/// Transparent RAII scope guard returned by `ui.IdScope(...)` that mixes an explicit stable key
+/// (string, integer, or pointer) into all descendant widget IDs without creating a layout node.
+class [[nodiscard]] ScopedId {
+public:
+    ScopedId() noexcept = default;
+    explicit ScopedId(Context* ctx) noexcept : m_ctx(ctx) {}
+    ~ScopedId() noexcept;
+
+    ScopedId(const ScopedId&) = delete;
+    ScopedId& operator=(const ScopedId&) = delete;
+
+    ScopedId(ScopedId&& other) noexcept : m_ctx(other.m_ctx) {
+        other.m_ctx = nullptr;
+    }
+
+    ScopedId& operator=(ScopedId&& other) noexcept {
+        if (this != &other) {
+            PopIfNeeded();
+            m_ctx = other.m_ctx;
+            other.m_ctx = nullptr;
+        }
+        return *this;
+    }
+
+    explicit operator bool() const noexcept { return m_ctx != nullptr; }
+
+private:
+    void PopIfNeeded() noexcept;
+    Context* m_ctx{nullptr};
+};
 
 } // namespace guikit
 

@@ -127,7 +127,7 @@ void Separator::Run(
                 padX = keel::max(0.0f, n->computedRect.w * (1.0f - n->fixedWidth) * 0.5f);
             } else if (n->parent && n->parent->type == NodeType::Toolbar) {
                 padX = keel::max(2.0f, n->computedRect.w * 0.18f);
-            } else if (n->parent && n->parent->type == NodeType::Sidebar && n->parent->sidebarCompact) {
+            } else if (n->parent && n->parent->type == NodeType::Sidebar && n->parent->IsCompactDock()) {
                 padX = keel::min(6.0f, n->computedRect.w * 0.18f);
             }
             theme.Painter().DrawDivider(

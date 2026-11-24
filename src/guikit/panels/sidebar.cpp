@@ -98,8 +98,8 @@ SidebarScope Sidebar::Open(
     if (parent != nullptr) {
         const bool isRight = (opts.side == SidebarSide::Right);
         for (const Node* c = parent->firstChild; c != nullptr; c = c->nextSibling) {
-            if (c->type == NodeType::Sidebar && c->sidebarRight == isRight) {
-                if (c->sidebarFlush) {
+            if (c->type == NodeType::Sidebar && c->IsDockedRight() == isRight) {
+                if (c->IsFlushDock()) {
                     hasFlushSibling = true;
                 } else {
                     ++sameSideIndex;
@@ -376,18 +376,19 @@ SidebarScope Sidebar::Open(
     Node* node = ctx.CreateNode(NodeType::Sidebar, id, opts.disabled);
     const keel::f32 density = node->GetDensity();
     node->direction = FlexDirection::Column;
-    node->sidebarRight = (opts.side == SidebarSide::Right);
-    node->sidebarCompact = (state.mode == SidebarMode::Compact);
-    node->sidebarCollapsed = (state.mode == SidebarMode::Collapsed);
-    node->sidebarScrollable = opts.scrollable && !node->sidebarCollapsed;
+    const bool isCollapsed = (state.mode == SidebarMode::Collapsed);
+    const bool isCompact = (state.mode == SidebarMode::Compact);
+    node->dockFlags =
+        ((opts.side == SidebarSide::Right) ? dock_flags::kRight : dock_flags::kNone) |
+        (isCompact ? dock_flags::kCompact : dock_flags::kNone) |
+        (isCollapsed ? dock_flags::kCollapsed : dock_flags::kNone);
+    const bool isScrollable = opts.scrollable && !isCollapsed;
     node->gap = theme.ResolveGap(opts.gap, activeSize, density);
     node->heightMode = SizeMode::Stretch;
     node->cornerRadius = opts.border.radius.has_value()
         ? *opts.border.radius
         : (hasFlushSibling ? 0.0f : theme.shell.panelRadius);
     node->clipChildren = opts.clipChildren;
-    node->scrollOrientation = Orientation::Vertical;
-    node->scrollbarPolicy = opts.scrollbar;
     node->uiSize = activeSize;
 
     const auto& pal = theme.palette;
@@ -400,7 +401,7 @@ SidebarScope Sidebar::Open(
     const keel::f32 resolvedBorderW = (opts.border.width == 1.0f) ? theme.shell.panelBorderWidth : opts.border.width;
     keel::f32 reportedLogicalW = 0.0f;
 
-    if (node->sidebarCollapsed) {
+    if (isCollapsed) {
         node->widthMode = SizeMode::Fixed;
         node->fixedWidth = 0.0f;
         node->minWidth = 0.0f;
@@ -409,7 +410,7 @@ SidebarScope Sidebar::Open(
         node->borderColor = Color::Transparent();
         node->borderWidth = 0.0f;
         reportedLogicalW = 0.0f;
-    } else if (node->sidebarCompact) {
+    } else if (isCompact) {
         node->widthMode = SizeMode::Fit;
         node->fixedWidth = 0.0f;
         node->minWidth = 0.0f;
@@ -459,11 +460,15 @@ SidebarScope Sidebar::Open(
 
     ctx.FinishContainer(node);
 
-    if (node->sidebarScrollable) {
+    if (isScrollable) {
+        node->scroll = ctx.AllocPayload<ScrollData>();
+        node->scroll->orientation = Orientation::Vertical;
+        node->scroll->policy = opts.scrollbar;
+        node->scroll->solverManaged = true;
         node->postRenderFn = &ScrollArea::RenderScrollbar;
 
         auto& scrollState = ctx.GetOrCreatePersistentState<ScrollState>(id);
-        node->scrollOffset = scrollState.offset;
+        node->scroll->offset = scrollState.offset;
     }
 
     const bool drawToggle = showToggle;

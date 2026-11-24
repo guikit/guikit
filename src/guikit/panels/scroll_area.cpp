@@ -30,10 +30,12 @@ ContainerScope ScrollArea::Open(
     node->heightMode = opts.height.ResolveMode(SizeMode::Stretch);
     node->fixedHeight = opts.height.IsFixed() ? opts.height.Dp() : 0.0f;
     node->flexGrow = Control::ResolveFlexGrow(node->parent, opts.width, opts.height, 1.0f);
+    node->scroll = ctx.AllocPayload<ScrollData>();
+    node->scroll->orientation = opts.orientation;
+    node->scroll->policy = opts.scrollbar;
+    node->scroll->solverManaged = true;
     if (!opts.height.IsFixed() && opts.maxHeight.has_value() && *opts.maxHeight > 0.0f) {
-        auto* layoutData = ctx.AllocPayload<ScrollAreaLayoutData>();
-        layoutData->maxHeight = *opts.maxHeight;
-        node->SetPayload(layoutData);
+        node->scroll->maxHeight = *opts.maxHeight;
         if (node->heightMode == SizeMode::Stretch) {
             node->heightMode = SizeMode::Fit;
         }
@@ -48,15 +50,13 @@ ContainerScope ScrollArea::Open(
     node->borderWidth = bw;
     node->borderColor = (bw > 0.0f) ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, pal.border) : Color::Transparent();
     node->cornerRadius = opts.border.radius.has_value() ? *opts.border.radius : 0.0f;
-    node->scrollOrientation = opts.orientation;
-    node->scrollbarPolicy = opts.scrollbar;
     node->uiSize = activeSize;
     node->visualHash = detail::HashArgs(opts.background, opts.border);
     node->postRenderFn = &ScrollArea::RenderScrollbar;
 
     // Retrieve persistent scroll state (mouse wheel is handled bottom-up in ScrollArea::Update)
     auto& state = ctx.GetOrCreatePersistentState<ScrollState>(id);
-    node->scrollOffset = state.offset;
+    node->scroll->offset = state.offset;
 
     ctx.FinishContainer(node);
     return ContainerScope(&ctx, node);
@@ -241,17 +241,18 @@ void ScrollArea::RenderScrollbar(
     ICanvas& canvas,
     const UiTheme& theme
 ) {
-    if (!node) return;
-    const bool allowV = (node->scrollOrientation == Orientation::Vertical || node->scrollOrientation == Orientation::Both);
-    const bool allowH = (node->scrollOrientation == Orientation::Horizontal || node->scrollOrientation == Orientation::Both);
+    if (!node || !node->scroll) return;
+    const ScrollData& sd = *node->scroll;
+    const bool allowV = (sd.orientation == Orientation::Vertical || sd.orientation == Orientation::Both);
+    const bool allowH = (sd.orientation == Orientation::Horizontal || sd.orientation == Orientation::Both);
 
     const bool showV = allowV && (
-        node->scrollbarPolicy == VisibilityPolicy::Always ||
-        (node->scrollbarPolicy == VisibilityPolicy::Auto && node->scrollContentSize.y > node->computedRect.h + 0.5f)
+        sd.policy == VisibilityPolicy::Always ||
+        (sd.policy == VisibilityPolicy::Auto && sd.contentSize.y > node->computedRect.h + 0.5f)
     );
     const bool showH = allowH && (
-        node->scrollbarPolicy == VisibilityPolicy::Always ||
-        (node->scrollbarPolicy == VisibilityPolicy::Auto && node->scrollContentSize.x > node->computedRect.w + 0.5f)
+        sd.policy == VisibilityPolicy::Always ||
+        (sd.policy == VisibilityPolicy::Auto && sd.contentSize.x > node->computedRect.w + 0.5f)
     );
 
     const ScrollbarMetrics& m = theme.GetScrollbar(node->uiSize);
@@ -261,32 +262,32 @@ void ScrollArea::RenderScrollbar(
         RenderAxisScrollbar(
             canvas,
             node->computedRect,
-            node->scrollContentSize.y,
-            node->scrollOffset.y,
+            sd.contentSize.y,
+            sd.offset.y,
             false,
-            node->scrollbarHovered,
-            node->scrollbarActive,
+            sd.hoveredY,
+            sd.activeY,
             node->uiSize,
             theme,
             cornerReserve,
-            node->scrollbarPartHoveredY,
-            node->scrollbarPartPressedY
+            sd.partHoveredY,
+            sd.partPressedY
         );
     }
     if (showH) {
         RenderAxisScrollbar(
             canvas,
             node->computedRect,
-            node->scrollContentSize.x,
-            node->scrollOffset.x,
+            sd.contentSize.x,
+            sd.offset.x,
             true,
-            node->scrollbarHoveredX,
-            node->scrollbarActiveX,
+            sd.hoveredX,
+            sd.activeX,
             node->uiSize,
             theme,
             cornerReserve,
-            node->scrollbarPartHoveredX,
-            node->scrollbarPartPressedX
+            sd.partHoveredX,
+            sd.partPressedX
         );
     }
     if (showV && showH) {
@@ -303,17 +304,21 @@ void ScrollArea::RenderScrollbar(
 Rect ScrollArea::GetContentClipRect(const Node* node, const UiTheme& theme) {
     if (!node) return Rect();
     const ScrollbarMetrics& sm = theme.GetScrollbar(node->uiSize);
-    const bool allowV = (node->scrollOrientation == Orientation::Vertical || node->scrollOrientation == Orientation::Both);
-    const bool allowH = (node->scrollOrientation == Orientation::Horizontal || node->scrollOrientation == Orientation::Both);
+    bool showV = false;
+    bool showH = false;
+    if (const ScrollData* sd = node->scroll) {
+        const bool allowV = (sd->orientation == Orientation::Vertical || sd->orientation == Orientation::Both);
+        const bool allowH = (sd->orientation == Orientation::Horizontal || sd->orientation == Orientation::Both);
 
-    const bool showV = allowV && (
-        node->scrollbarPolicy == VisibilityPolicy::Always ||
-        (node->scrollbarPolicy == VisibilityPolicy::Auto && node->scrollContentSize.y > node->computedRect.h + 0.5f)
-    );
-    const bool showH = allowH && (
-        node->scrollbarPolicy == VisibilityPolicy::Always ||
-        (node->scrollbarPolicy == VisibilityPolicy::Auto && node->scrollContentSize.x > node->computedRect.w + 0.5f)
-    );
+        showV = allowV && (
+            sd->policy == VisibilityPolicy::Always ||
+            (sd->policy == VisibilityPolicy::Auto && sd->contentSize.y > node->computedRect.h + 0.5f)
+        );
+        showH = allowH && (
+            sd->policy == VisibilityPolicy::Always ||
+            (sd->policy == VisibilityPolicy::Auto && sd->contentSize.x > node->computedRect.w + 0.5f)
+        );
+    }
 
     const keel::f32 gutterX = showV ? sm.gutter : 0.0f;
     const keel::f32 gutterY = showH ? sm.gutter : 0.0f;
@@ -326,7 +331,8 @@ Rect ScrollArea::GetContentClipRect(const Node* node, const UiTheme& theme) {
 }
 
 void ScrollArea::Update(Context& ctx, Node* node) {
-    if (!node || !node->id.IsValid()) return;
+    if (!node || !node->id.IsValid() || !node->scroll) return;
+    ScrollData& sd = *node->scroll;
 
     auto& state = ctx.GetOrCreatePersistentState<ScrollState>(node->id);
     if (node->disabled) {
@@ -334,28 +340,28 @@ void ScrollArea::Update(Context& ctx, Node* node) {
         state.draggingX = false;
         state.pressedButtonY = 0u;
         state.pressedButtonX = 0u;
-        node->scrollbarHovered = false;
-        node->scrollbarActive = false;
-        node->scrollbarHoveredX = false;
-        node->scrollbarActiveX = false;
-        node->scrollbarPartHoveredY = 0u;
-        node->scrollbarPartPressedY = 0u;
-        node->scrollbarPartHoveredX = 0u;
-        node->scrollbarPartPressedX = 0u;
+        sd.hoveredY = false;
+        sd.activeY = false;
+        sd.hoveredX = false;
+        sd.activeX = false;
+        sd.partHoveredY = 0u;
+        sd.partPressedY = 0u;
+        sd.partHoveredX = 0u;
+        sd.partPressedX = 0u;
         return;
     }
 
     const UiTheme* resolvedTheme = &node->GetTheme(ctx.GetTheme());
 
-    const bool allowV = (node->scrollOrientation == Orientation::Vertical || node->scrollOrientation == Orientation::Both);
-    const bool allowH = (node->scrollOrientation == Orientation::Horizontal || node->scrollOrientation == Orientation::Both);
+    const bool allowV = (sd.orientation == Orientation::Vertical || sd.orientation == Orientation::Both);
+    const bool allowH = (sd.orientation == Orientation::Horizontal || sd.orientation == Orientation::Both);
     const bool showV = allowV && (
-        node->scrollbarPolicy == VisibilityPolicy::Always ||
-        (node->scrollbarPolicy == VisibilityPolicy::Auto && node->scrollContentSize.y > node->computedRect.h + 0.5f)
+        sd.policy == VisibilityPolicy::Always ||
+        (sd.policy == VisibilityPolicy::Auto && sd.contentSize.y > node->computedRect.h + 0.5f)
     );
     const bool showH = allowH && (
-        node->scrollbarPolicy == VisibilityPolicy::Always ||
-        (node->scrollbarPolicy == VisibilityPolicy::Auto && node->scrollContentSize.x > node->computedRect.w + 0.5f)
+        sd.policy == VisibilityPolicy::Always ||
+        (sd.policy == VisibilityPolicy::Auto && sd.contentSize.x > node->computedRect.w + 0.5f)
     );
     const ScrollbarMetrics& m = resolvedTheme->GetScrollbar(node->uiSize);
     const keel::f32 cornerReserve = (showV && showH) ? (m.trackWidth + m.margin) : 0.0f;
@@ -367,12 +373,12 @@ void ScrollArea::Update(Context& ctx, Node* node) {
             node->computedRect.Contains(mousePos) &&
             !ctx.IsMouseOccluded(node->id, mousePos) &&
             !ctx.GetKeyModifiers().ctrl) {
-            const keel::f32 maxScrollY = allowV ? keel::max(0.0f, node->scrollContentSize.y - node->computedRect.h) : 0.0f;
-            const keel::f32 maxScrollX = allowH ? keel::max(0.0f, node->scrollContentSize.x - node->computedRect.w) : 0.0f;
+            const keel::f32 maxScrollY = allowV ? keel::max(0.0f, sd.contentSize.y - node->computedRect.h) : 0.0f;
+            const keel::f32 maxScrollX = allowH ? keel::max(0.0f, sd.contentSize.x - node->computedRect.w) : 0.0f;
             const Vec2 prevOffset = state.offset;
 
-            if (node->scrollOrientation == Orientation::Horizontal ||
-                (node->scrollOrientation == Orientation::Both && ctx.GetKeyModifiers().shift && wheel.x == 0.0f)) {
+            if (sd.orientation == Orientation::Horizontal ||
+                (sd.orientation == Orientation::Both && ctx.GetKeyModifiers().shift && wheel.x == 0.0f)) {
                 const keel::f32 delta = (wheel.x != 0.0f) ? wheel.x : wheel.y;
                 if (allowH) {
                     state.offset.x = keel::clamp(state.offset.x - delta * m.scrollStep, 0.0f, maxScrollX);
@@ -401,7 +407,7 @@ void ScrollArea::Update(Context& ctx, Node* node) {
             ctx,
             node->id,
             node->computedRect,
-            node->scrollContentSize.y,
+            sd.contentSize.y,
             state.offset.y,
             state.draggingY,
             state.dragStartOffset,
@@ -417,7 +423,7 @@ void ScrollArea::Update(Context& ctx, Node* node) {
             &state.nextRepeatSecY
         );
     } else if (allowV) {
-        const keel::f32 maxScrollY = keel::max(0.0f, node->scrollContentSize.y - node->computedRect.h);
+        const keel::f32 maxScrollY = keel::max(0.0f, sd.contentSize.y - node->computedRect.h);
         state.offset.y = keel::clamp(state.offset.y, 0.0f, maxScrollY);
         state.draggingY = false;
         state.pressedButtonY = 0u;
@@ -426,10 +432,10 @@ void ScrollArea::Update(Context& ctx, Node* node) {
         state.draggingY = false;
         state.pressedButtonY = 0u;
     }
-    node->scrollbarHovered = hovY;
-    node->scrollbarActive = actY;
-    node->scrollbarPartHoveredY = hovPartY;
-    node->scrollbarPartPressedY = state.draggingY
+    sd.hoveredY = hovY;
+    sd.activeY = actY;
+    sd.partHoveredY = hovPartY;
+    sd.partPressedY = state.draggingY
         ? static_cast<keel::u8>(ScrollbarPart::Thumb)
         : state.pressedButtonY;
 
@@ -440,7 +446,7 @@ void ScrollArea::Update(Context& ctx, Node* node) {
             ctx,
             node->id,
             node->computedRect,
-            node->scrollContentSize.x,
+            sd.contentSize.x,
             state.offset.x,
             state.draggingX,
             state.dragStartOffsetX,
@@ -456,7 +462,7 @@ void ScrollArea::Update(Context& ctx, Node* node) {
             &state.nextRepeatSecX
         );
     } else if (allowH) {
-        const keel::f32 maxScrollX = keel::max(0.0f, node->scrollContentSize.x - node->computedRect.w);
+        const keel::f32 maxScrollX = keel::max(0.0f, sd.contentSize.x - node->computedRect.w);
         state.offset.x = keel::clamp(state.offset.x, 0.0f, maxScrollX);
         state.draggingX = false;
         state.pressedButtonX = 0u;
@@ -465,18 +471,18 @@ void ScrollArea::Update(Context& ctx, Node* node) {
         state.draggingX = false;
         state.pressedButtonX = 0u;
     }
-    node->scrollbarHoveredX = hovX;
-    node->scrollbarActiveX = actX;
-    node->scrollbarPartHoveredX = hovPartX;
-    node->scrollbarPartPressedX = state.draggingX
+    sd.hoveredX = hovX;
+    sd.activeX = actX;
+    sd.partHoveredX = hovPartX;
+    sd.partPressedX = state.draggingX
         ? static_cast<keel::u8>(ScrollbarPart::Thumb)
         : state.pressedButtonX;
 
-    node->scrollOffset = state.offset;
+    sd.offset = state.offset;
 }
 
 void ScrollArea::ScrollToChild(Context& ctx, Node* scrollNode, const Node* targetNode) {
-    if (!scrollNode || !targetNode || !scrollNode->id.IsValid()) return;
+    if (!scrollNode || !targetNode || !scrollNode->id.IsValid() || !scrollNode->scroll) return;
     auto& state = ctx.GetOrCreatePersistentState<ScrollState>(scrollNode->id);
     const keel::f32 targetTop = targetNode->computedRect.y;
     const keel::f32 targetBottom = targetNode->computedRect.Bottom();
@@ -489,7 +495,7 @@ void ScrollArea::ScrollToChild(Context& ctx, Node* scrollNode, const Node* targe
         state.offset.y += (targetBottom - viewBottom);
     }
     if (state.offset.y < 0.0f) state.offset.y = 0.0f;
-    scrollNode->scrollOffset = state.offset;
+    scrollNode->scroll->offset = state.offset;
 }
 
 } // namespace guikit

@@ -58,12 +58,11 @@ ActivityBarScope ActivityBar::Open(
     node->direction = FlexDirection::Column;
     node->align = Alignment::Center;
     node->justify = Justify::Start;
-    node->sidebarRight = (opts.side == SidebarSide::Right);
     const bool effectiveFlush = opts.flushWithSidebar.value_or(theme.shellStyle == ShellStyle::Docked);
-    node->sidebarCompact = 1;
-    node->sidebarCollapsed = 0;
-    node->sidebarScrollable = false;
-    node->sidebarFlush = effectiveFlush ? 1 : 0;
+    node->dockFlags =
+        ((opts.side == SidebarSide::Right) ? dock_flags::kRight : dock_flags::kNone) |
+        dock_flags::kCompact |
+        (effectiveFlush ? dock_flags::kFlush : dock_flags::kNone);
     node->gap = (opts.gap.has_value() ? *opts.gap : 4.0f) * density;
     node->heightMode = SizeMode::Stretch;
 

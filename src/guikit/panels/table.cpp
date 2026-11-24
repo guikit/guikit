@@ -297,10 +297,12 @@ TableScope::~TableScope() noexcept {
         if (m_data->state) {
             m_data->state->prevTotalRows = totalRows;
         }
-        m_node->scrollContentSize = Vec2(
-            m_data->totalColumnsW,
-            keel::as<keel::f32>(totalRows) * m_data->rowHeight
-        );
+        if (m_node->scroll) {
+            m_node->scroll->contentSize = Vec2(
+                m_data->totalColumnsW,
+                keel::as<keel::f32>(totalRows) * m_data->rowHeight
+            );
+        }
 
         // Recompute actual childCount of m_node after virtualized row ID seeding
         keel::u32 actualChildren = 0;
@@ -314,6 +316,7 @@ TableScope::~TableScope() noexcept {
         // repaints the entire Table coherently.
         keel::u64 h = m_node->visualHash;
         if (m_data->state) {
+            const ScrollData* sd = m_node->scroll;
             h = detail::HashArgs(
                 h,
                 m_data->state->scrollOffset.x,
@@ -321,10 +324,10 @@ TableScope::~TableScope() noexcept {
                 m_data->state->resizingCol,
                 m_data->state->draggingScrollbarV,
                 m_data->state->draggingScrollbarH,
-                m_node->scrollbarHovered,
-                m_node->scrollbarActive,
-                m_node->scrollbarHoveredX,
-                m_node->scrollbarActiveX,
+                sd ? sd->hoveredY : false,
+                sd ? sd->activeY : false,
+                sd ? sd->hoveredX : false,
+                sd ? sd->activeX : false,
                 m_data->state->selectedRow,
                 m_data->state->sortColumn,
                 keel::as<keel::u8>(m_data->state->sortDirection),
@@ -462,7 +465,7 @@ void TableScope::EndActiveRow() noexcept {
             : m_node->firstChild;
         keel::u16 colIdx = 0;
         for (Node* c = startChild; c != nullptr; c = c->nextSibling) {
-            c->colSpan = keel::as<keel::u8>(keel::min<keel::u16>(colIdx++, 255));
+            c->colSpan = colIdx++;
             c->childIndex = keel::as<keel::u32>(m_data->activeRowIndex);
         }
     }
@@ -495,7 +498,7 @@ ContainerScope TableScope::Cell(const TableCellOptions& opts) {
     cellNode->padding = Padding::Symmetric(6.0f * cellDensity, 2.0f * cellDensity);
     cellNode->gap = 4.0f * cellDensity;
     cellNode->clipChildren = true;
-    cellNode->colSpan = keel::as<keel::u8>(colIdx);
+    cellNode->colSpan = colIdx;
     cellNode->childIndex = keel::as<keel::u32>(m_data->activeRowIndex);
 
     m_ctx->PushContainer(cellNode);
@@ -521,7 +524,9 @@ void TableScope::ScrollToRow(keel::usize rowIndex) {
     }
     UpdateVisibleRowRange(*m_data);
     if (m_node) {
-        m_node->scrollOffset = m_data->state->scrollOffset;
+        if (m_node && m_node->scroll) {
+        m_node->scroll->offset = m_data->state->scrollOffset;
+    }
     }
     if (m_ctx) {
         if (m_data->frameRect.w > 0.0f && m_data->frameRect.h > 0.0f) {
@@ -552,8 +557,10 @@ TableScope Table::Open(
     const bool activeDisabled = node->disabled;
     node->direction = FlexDirection::Column;
     node->clipChildren = true;
-    node->scrollOrientation = Orientation::Both;
-    node->scrollbarPolicy = optsCopy.scrollbar;
+    node->scroll = ctx.AllocPayload<ScrollData>();
+    node->scroll->orientation = Orientation::Both;
+    node->scroll->policy = optsCopy.scrollbar;
+    node->scroll->solverManaged = false;
     node->uiSize = activeSize;
 
     node->widthMode = Control::ResolveWidthMode(ctx, optsCopy.width, SizeMode::Stretch);
@@ -641,10 +648,11 @@ TableScope Table::Open(
 
         // 0. Interactive vertical & horizontal scrollbars (evaluated first so virtualization uses updated scrollOffset!)
         const ScrollbarMetrics& sm = theme.GetScrollbar(activeSize);
-        const bool showV = (node->scrollbarPolicy == VisibilityPolicy::Always) ||
-            (node->scrollbarPolicy == VisibilityPolicy::Auto && estContentH > data->bodyViewportRect.h + 0.5f);
-        const bool showH = (node->scrollbarPolicy == VisibilityPolicy::Always) ||
-            (node->scrollbarPolicy == VisibilityPolicy::Auto && data->totalColumnsW > data->bodyViewportRect.w + 0.5f);
+        const VisibilityPolicy sbPol = node->scroll ? node->scroll->policy : VisibilityPolicy::Auto;
+        const bool showV = (sbPol == VisibilityPolicy::Always) ||
+            (sbPol == VisibilityPolicy::Auto && estContentH > data->bodyViewportRect.h + 0.5f);
+        const bool showH = (sbPol == VisibilityPolicy::Always) ||
+            (sbPol == VisibilityPolicy::Auto && data->totalColumnsW > data->bodyViewportRect.w + 0.5f);
         const keel::f32 cornerReserve = (showV && showH) ? (sm.trackWidth + sm.margin) : 0.0f;
 
         bool hovV = false, actV = false;
@@ -671,12 +679,14 @@ TableScope Table::Open(
                 &state.nextRepeatSecV
             );
         }
-        node->scrollbarHovered = hovV;
-        node->scrollbarActive = actV;
-        node->scrollbarPartHoveredY = hovPartV;
-        node->scrollbarPartPressedY = state.draggingScrollbarV
-            ? static_cast<keel::u8>(ScrollbarPart::Thumb)
-            : state.pressedButtonV;
+        if (node->scroll) {
+            node->scroll->hoveredY = hovV;
+            node->scroll->activeY = actV;
+            node->scroll->partHoveredY = hovPartV;
+            node->scroll->partPressedY = state.draggingScrollbarV
+                ? static_cast<keel::u8>(ScrollbarPart::Thumb)
+                : state.pressedButtonV;
+        }
 
         bool hovH = false, actH = false;
         keel::u8 hovPartH = 0u;
@@ -702,12 +712,14 @@ TableScope Table::Open(
                 &state.nextRepeatSecH
             );
         }
-        node->scrollbarHoveredX = hovH;
-        node->scrollbarActiveX = actH;
-        node->scrollbarPartHoveredX = hovPartH;
-        node->scrollbarPartPressedX = state.draggingScrollbarH
-            ? static_cast<keel::u8>(ScrollbarPart::Thumb)
-            : state.pressedButtonH;
+        if (node->scroll) {
+            node->scroll->hoveredX = hovH;
+            node->scroll->activeX = actH;
+            node->scroll->partHoveredX = hovPartH;
+            node->scroll->partPressedX = state.draggingScrollbarH
+                ? static_cast<keel::u8>(ScrollbarPart::Thumb)
+                : state.pressedButtonH;
+        }
 
         const bool interactingScrollbar = state.draggingScrollbarV || state.draggingScrollbarH || hovV || hovH;
         const bool tableHovered = ctx.IsRectHovered(id, data->frameRect);
@@ -940,7 +952,9 @@ TableScope Table::Open(
     const keel::usize cap = keel::min<keel::usize>(visibleCount + 2, 128);
     state.visibleRows.reserve(cap);
 
-    node->scrollOffset = state.scrollOffset;
+    if (node->scroll) {
+        node->scroll->offset = state.scrollOffset;
+    }
     node->SetPayload(data);
     node->visualHash = detail::HashArgs(
         optsCopy.striped,
@@ -1068,9 +1082,10 @@ void Table::Arrange(
             continue;
         }
 
+        const Vec2 scrollOff = node->GetScrollOffset();
         const keel::usize rowIndex = keel::as<keel::usize>(child->childIndex);
-        const keel::f32 cellX = data->bodyViewportRect.x + data->resolvedColX[colIdx] - node->scrollOffset.x;
-        const keel::f32 cellY = data->bodyViewportRect.y + keel::as<keel::f32>(rowIndex) * data->rowHeight - node->scrollOffset.y;
+        const keel::f32 cellX = data->bodyViewportRect.x + data->resolvedColX[colIdx] - scrollOff.x;
+        const keel::f32 cellY = data->bodyViewportRect.y + keel::as<keel::f32>(rowIndex) * data->rowHeight - scrollOff.y;
         const keel::f32 cellW = data->resolvedColW[colIdx];
         const keel::f32 cellH = data->rowHeight;
 
@@ -1214,14 +1229,18 @@ void Table::Update(
     ComputeTableRegions(node, *data, node->computedRect, theme);
     ResolveColumnWidths(*data, data->frameRect.w, theme);
 
-    const keel::f32 maxScrollY = keel::max(0.0f, node->scrollContentSize.y - data->bodyViewportRect.h);
-    const keel::f32 maxScrollX = keel::max(0.0f, node->scrollContentSize.x - data->bodyViewportRect.w);
+    const Vec2 scrollContent = node->GetScrollContentSize();
+    const Vec2 scrollOff = node->GetScrollOffset();
+    const keel::f32 maxScrollY = keel::max(0.0f, scrollContent.y - data->bodyViewportRect.h);
+    const keel::f32 maxScrollX = keel::max(0.0f, scrollContent.x - data->bodyViewportRect.w);
     data->state->scrollOffset.y = keel::clamp(data->state->scrollOffset.y, 0.0f, maxScrollY);
     data->state->scrollOffset.x = keel::clamp(data->state->scrollOffset.x, 0.0f, maxScrollX);
 
-    if (keel::abs(data->state->scrollOffset.x - node->scrollOffset.x) > 0.01f ||
-        keel::abs(data->state->scrollOffset.y - node->scrollOffset.y) > 0.01f) {
-        node->scrollOffset = data->state->scrollOffset;
+    if (keel::abs(data->state->scrollOffset.x - scrollOff.x) > 0.01f ||
+        keel::abs(data->state->scrollOffset.y - scrollOff.y) > 0.01f) {
+        if (node->scroll) {
+            node->scroll->offset = data->state->scrollOffset;
+        }
         Table::Arrange(node, node->computedRect, theme);
         ctx.InvalidateRect(data->frameRect);
         ctx.RequestRepaint(2);
@@ -1263,9 +1282,10 @@ void Table::RenderBody(
         const keel::f32 cellPadX = 8.0f * scale;
 
         // Draw row backgrounds (zebra striping, tint, hover, selection, horizontal grid lines)
+        const Vec2 scrollOff = node->GetScrollOffset();
         for (const auto& rowRec : data->state->visibleRows) {
             const keel::usize rIdx = rowRec.rowIndex;
-            const keel::f32 rowY = data->bodyViewportRect.y + keel::as<keel::f32>(rIdx) * data->rowHeight - node->scrollOffset.y;
+            const keel::f32 rowY = data->bodyViewportRect.y + keel::as<keel::f32>(rIdx) * data->rowHeight - scrollOff.y;
             const Rect rowRect(data->bodyViewportRect.x, rowY, data->bodyViewportRect.w, data->rowHeight);
 
             if (!rowRect.Intersects(data->bodyViewportRect)) continue;
@@ -1292,7 +1312,7 @@ void Table::RenderBody(
                 char numBuf[24]{};
                 const keel::StringRef numStr = keel::format_buf(numBuf, "%zu", rIdx + 1);
                 const Rect numRect(
-                    data->bodyViewportRect.x - node->scrollOffset.x + cellPadX * 0.5f,
+                    data->bodyViewportRect.x - scrollOff.x + cellPadX * 0.5f,
                     rowY,
                     keel::max(0.0f, data->rowNumberColW - cellPadX),
                     data->rowHeight
@@ -1321,7 +1341,7 @@ void Table::RenderBody(
         // Draw vertical column grid lines across the body viewport
         if (data->opts.gridLines) {
             if (data->opts.showRowNumbers && data->rowNumberColW > 0.0f) {
-                const keel::f32 divX = keel::floor(data->bodyViewportRect.x + data->rowNumberColW - node->scrollOffset.x) + 0.5f;
+                const keel::f32 divX = keel::floor(data->bodyViewportRect.x + data->rowNumberColW - scrollOff.x) + 0.5f;
                 if (divX >= data->bodyViewportRect.x && divX <= data->bodyViewportRect.Right()) {
                     canvas.DrawLine(
                         Vec2(divX, data->bodyViewportRect.y),
@@ -1333,7 +1353,7 @@ void Table::RenderBody(
             }
             for (keel::u16 i = 0; i < data->columnCount; ++i) {
                 const keel::f32 divX = keel::floor(
-                    data->bodyViewportRect.x + data->resolvedColX[i] + data->resolvedColW[i] - node->scrollOffset.x
+                    data->bodyViewportRect.x + data->resolvedColX[i] + data->resolvedColW[i] - scrollOff.x
                 ) + 0.5f;
                 if (divX >= data->bodyViewportRect.x && divX < data->bodyViewportRect.Right() - 0.5f) {
                     canvas.DrawLine(
@@ -1353,7 +1373,7 @@ void Table::RenderBody(
         if (activeDivCol >= 0 && keel::as<keel::u16>(activeDivCol) < data->columnCount) {
             const keel::u16 colIdx = keel::as<keel::u16>(activeDivCol);
             const keel::f32 guideX = keel::clamp(
-                keel::floor(data->bodyViewportRect.x + data->resolvedColX[colIdx] + data->resolvedColW[colIdx] - node->scrollOffset.x) + 0.5f,
+                keel::floor(data->bodyViewportRect.x + data->resolvedColX[colIdx] + data->resolvedColW[colIdx] - scrollOff.x) + 0.5f,
                 data->bodyViewportRect.x + 1.0f,
                 data->bodyViewportRect.Right() - 1.5f
             );
@@ -1389,6 +1409,7 @@ void Table::RenderChromeAndScrollbars(
     const keel::f32 cellPadX = 8.0f * scale;
 
     // 1. Render sticky column header bar
+    const Vec2 scrollOff = node->GetScrollOffset();
     if (data->opts.stickyHeader && data->headerRect.w > 0.0f && data->headerRect.h > 0.0f) {
         canvas.PushClip(data->headerRect);
         canvas.DrawRect(data->headerRect, pal.surfaceElevated);
@@ -1397,7 +1418,7 @@ void Table::RenderChromeAndScrollbars(
 
         if (data->opts.showRowNumbers && data->rowNumberColW > 0.0f) {
             const Rect numHdrRect(
-                data->headerRect.x - node->scrollOffset.x + cellPadX * 0.5f,
+                data->headerRect.x - scrollOff.x + cellPadX * 0.5f,
                 data->headerRect.y,
                 keel::max(0.0f, data->rowNumberColW - cellPadX),
                 data->headerRect.h
@@ -1407,7 +1428,7 @@ void Table::RenderChromeAndScrollbars(
 
         for (keel::u16 i = 0; i < data->columnCount; ++i) {
             const auto& col = data->columns[i];
-            const keel::f32 colX = data->headerRect.x + data->resolvedColX[i] - node->scrollOffset.x;
+            const keel::f32 colX = data->headerRect.x + data->resolvedColX[i] - scrollOff.x;
             const keel::f32 colW = data->resolvedColW[i];
             const Rect colHdrRect(colX, data->headerRect.y, colW, data->headerRect.h);
 
@@ -1575,12 +1596,15 @@ void Table::RenderChromeAndScrollbars(
     }
 
     // 3. Render vertical & horizontal scrollbars on the body viewport
-    const bool showV = (node->scrollbarPolicy == VisibilityPolicy::Always) ||
-        (node->scrollbarPolicy == VisibilityPolicy::Auto &&
-         node->scrollContentSize.y > data->bodyViewportRect.h + 0.5f);
-    const bool showH = (node->scrollbarPolicy == VisibilityPolicy::Always) ||
-        (node->scrollbarPolicy == VisibilityPolicy::Auto &&
-         node->scrollContentSize.x > data->bodyViewportRect.w + 0.5f);
+    const ScrollData* sd = node->scroll;
+    const VisibilityPolicy sbPol = sd ? sd->policy : VisibilityPolicy::Auto;
+    const Vec2 scrollContent = node->GetScrollContentSize();
+    const bool showV = (sbPol == VisibilityPolicy::Always) ||
+        (sbPol == VisibilityPolicy::Auto &&
+         scrollContent.y > data->bodyViewportRect.h + 0.5f);
+    const bool showH = (sbPol == VisibilityPolicy::Always) ||
+        (sbPol == VisibilityPolicy::Auto &&
+         scrollContent.x > data->bodyViewportRect.w + 0.5f);
 
     const ScrollbarMetrics& sm = theme.GetScrollbar(node->uiSize);
     const keel::f32 cornerReserve = (showV && showH) ? (sm.trackWidth + sm.margin) : 0.0f;
@@ -1589,32 +1613,32 @@ void Table::RenderChromeAndScrollbars(
         ScrollArea::RenderAxisScrollbar(
             canvas,
             data->bodyViewportRect,
-            node->scrollContentSize.y,
-            node->scrollOffset.y,
+            scrollContent.y,
+            scrollOff.y,
             false,
-            node->scrollbarHovered,
-            node->scrollbarActive,
+            sd ? sd->hoveredY : false,
+            sd ? sd->activeY : false,
             node->uiSize,
             theme,
             cornerReserve,
-            node->scrollbarPartHoveredY,
-            node->scrollbarPartPressedY
+            sd ? sd->partHoveredY : 0u,
+            sd ? sd->partPressedY : 0u
         );
     }
     if (showH) {
         ScrollArea::RenderAxisScrollbar(
             canvas,
             data->bodyViewportRect,
-            node->scrollContentSize.x,
-            node->scrollOffset.x,
+            scrollContent.x,
+            scrollOff.x,
             true,
-            node->scrollbarHoveredX,
-            node->scrollbarActiveX,
+            sd ? sd->hoveredX : false,
+            sd ? sd->activeX : false,
             node->uiSize,
             theme,
             cornerReserve,
-            node->scrollbarPartHoveredX,
-            node->scrollbarPartPressedX
+            sd ? sd->partHoveredX : 0u,
+            sd ? sd->partPressedX : 0u
         );
     }
     if (showV && showH) {

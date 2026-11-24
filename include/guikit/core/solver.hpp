@@ -11,6 +11,9 @@ class ICanvas;
 /// Resolves 2D flex layout for an arbitrary tree of GuiKit nodes.
 class Solver {
 public:
+    /// Resolves shell-container spacing and border defaults prior to geometric measurement.
+    static void ResolveShellStyles(Node* root, const UiTheme& theme);
+
     /// Measures intrinsic content sizes bottom-up with the given theme.
     static void Measure(Node* root, ICanvas* canvas, const UiTheme& theme);
 

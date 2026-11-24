@@ -57,6 +57,11 @@ void Carousel::BeginScrollInteraction(
     bool disabled
 ) {
     if (!node || !cData || !node->id.IsValid()) return;
+    if (!node->scroll) {
+        node->scroll = ctx.AllocPayload<ScrollData>();
+        node->scroll->orientation = Orientation::Horizontal;
+        node->scroll->solverManaged = false;
+    }
     const Id id = node->id;
     const CarouselMetrics& cm = ctx.GetTheme().GetCarousel(node->uiSize);
     auto& state = ctx.GetOrCreatePersistentState<ScrollState>(id);
@@ -106,7 +111,9 @@ void Carousel::BeginScrollInteraction(
         }
     }
 
-    node->scrollOffset = state.offset;
+    if (node->scroll) {
+        node->scroll->offset = state.offset;
+    }
 }
 
 Vec2 Carousel::Measure(const Node* node, keel::f32 /*availableWidth*/, ICanvas* /*canvas*/, const UiTheme& /*theme*/) {
@@ -128,7 +135,9 @@ Vec2 Carousel::Measure(const Node* node, keel::f32 /*availableWidth*/, ICanvas* 
         totalWidth += keel::as<keel::f32>(activeChildren - 1) * node->gap;
     }
     const Vec2 size = {totalWidth, maxHeight + node->padding.Vertical()};
-    const_cast<Node*>(node)->scrollContentSize = size;
+    if (node->scroll) {
+        node->scroll->contentSize = size;
+    }
     if (node->widthMode == SizeMode::Fit) {
         return size;
     } else if (node->widthMode == SizeMode::Fixed) {
@@ -188,7 +197,9 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
     if (activeChildren > 1) {
         totalChildrenW += keel::as<keel::f32>(activeChildren - 1) * node->gap;
     }
-    node->scrollContentSize = {totalChildrenW, fullH};
+    if (node->scroll) {
+        node->scroll->contentSize = {totalChildrenW, fullH};
+    }
 
     // 2. Check if overflow occurs
     auto* cData = node->As<CarouselData>();
@@ -204,7 +215,9 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
             cData->animatingX = false;
             cData->stepDirection = 0;
         }
-        node->scrollOffset.x = 0.0f;
+        if (node->scroll) {
+            node->scroll->offset.x = 0.0f;
+        }
 
         // Arrange children in a standard row
         keel::f32 curX = startX;
@@ -345,10 +358,12 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
         cData->animatingX = true;
     }
 
+    keel::f32 scrollX = node->scroll ? node->scroll->offset.x : 0.0f;
+
     // Auto-scroll to active tab if requested
     if (cData && cData->scrollToActiveTab) {
         cData->scrollToActiveTab = false;
-        const keel::f32 baseX = cData->animatingX ? cData->targetOffsetX : node->scrollOffset.x;
+        const keel::f32 baseX = cData->animatingX ? cData->targetOffsetX : scrollX;
         const keel::f32 visLeft = baseX + ((baseX > 1.0f) ? btnGutter : 0.0f);
         const keel::f32 visRight = baseX + fullW - ((baseX < maxScrollX - 1.0f) ? btnGutter : 0.0f);
         keel::f32 relX = 0.0f;
@@ -367,7 +382,7 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
                         : ((relX + cw) - (fullW - btnGutter));
                 }
                 newTarget = keel::clamp(newTarget, 0.0f, maxScrollX);
-                if (keel::abs(newTarget - node->scrollOffset.x) > 0.5f) {
+                if (keel::abs(newTarget - scrollX) > 0.5f) {
                     cData->targetOffsetX = newTarget;
                     cData->animatingX = true;
                 }
@@ -378,12 +393,15 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
     }
 
     // Clamp scroll offset
-    node->scrollOffset.x = keel::clamp(node->scrollOffset.x, 0.0f, maxScrollX);
+    scrollX = keel::clamp(scrollX, 0.0f, maxScrollX);
+    if (node->scroll) {
+        node->scroll->offset.x = scrollX;
+    }
 
     // Dynamic gutters: only allocate gutter space when an arrow is active
-    const bool canScrollLeft = (node->scrollOffset.x > 1.0f);
+    const bool canScrollLeft = (scrollX > 1.0f);
     const keel::f32 leftGutter = canScrollLeft ? btnGutter : 0.0f;
-    const bool canScrollRight = (node->scrollOffset.x < maxScrollX - 1.0f);
+    const bool canScrollRight = (scrollX < maxScrollX - 1.0f);
     const keel::f32 rightGutter = canScrollRight ? btnGutter : 0.0f;
 
     const keel::f32 viewportX = startX + leftGutter;
@@ -403,7 +421,7 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
     }
 
     // Arrange children smoothly relative to startX so toggling leftGutter never causes a position jump
-    keel::f32 curX = startX - node->scrollOffset.x;
+    keel::f32 curX = startX - scrollX;
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
         if (child->IsOutOfFlow()) continue;
         keel::f32 childW = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
@@ -506,18 +524,19 @@ Rect Carousel::GetContentClipRect(const Node* node) {
 }
 
 void Carousel::Update(Context& ctx, Node* node) {
-    if (!node || !node->id.IsValid()) return;
+    if (!node || !node->id.IsValid() || !node->scroll) return;
+    ScrollData& sd = *node->scroll;
     auto& state = ctx.GetOrCreatePersistentState<ScrollState>(node->id);
     auto* cData = node->As<CarouselData>();
     const keel::f32 fullW = keel::max(0.0f, node->computedRect.w - node->padding.Horizontal());
-    const keel::f32 maxScrollX = keel::max(0.0f, node->scrollContentSize.x - fullW);
+    const keel::f32 maxScrollX = keel::max(0.0f, sd.contentSize.x - fullW);
 
     if (maxScrollX <= 0.5f) {
         state.offset.x = 0.0f;
         state.targetOffsetX = 0.0f;
         state.animatingX = false;
         if (cData) cData->animatingX = false;
-        node->scrollOffset.x = 0.0f;
+        sd.offset.x = 0.0f;
         return;
     }
 
@@ -525,7 +544,7 @@ void Carousel::Update(Context& ctx, Node* node) {
         state.targetOffsetX = keel::clamp(cData->targetOffsetX, 0.0f, maxScrollX);
         state.animatingX = true;
     } else if (!state.animatingX) {
-        state.offset.x = keel::clamp(node->scrollOffset.x, 0.0f, maxScrollX);
+        state.offset.x = keel::clamp(sd.offset.x, 0.0f, maxScrollX);
         state.targetOffsetX = state.offset.x;
     }
 
@@ -552,9 +571,9 @@ void Carousel::Update(Context& ctx, Node* node) {
             if (cData) cData->animatingX = true;
             ctx.RequestRepaint(2);
         }
-        node->scrollOffset.x = state.offset.x;
+        sd.offset.x = state.offset.x;
     } else {
-        state.offset.x = node->scrollOffset.x;
+        state.offset.x = sd.offset.x;
         state.targetOffsetX = state.offset.x;
     }
 }
@@ -576,7 +595,9 @@ void Carousel::ScrollToChild(Context& ctx, Node* carouselNode, const Node* targe
     if (state.offset.x < 0.0f) state.offset.x = 0.0f;
     state.targetOffsetX = state.offset.x;
     state.animatingX = false;
-    carouselNode->scrollOffset = state.offset;
+    if (carouselNode->scroll) {
+        carouselNode->scroll->offset = state.offset;
+    }
 }
 
 void Carousel::CollectBounds(

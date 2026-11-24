@@ -812,7 +812,9 @@ void Toolbar::Arrange(
             cData->animatingX = false;
             cData->stepDirection = 0;
         }
-        node->scrollOffset.x = 0.0f;
+        if (node->scroll) {
+            node->scroll->offset.x = 0.0f;
+        }
 
         keel::f32 nonFlexSum = 0.0f;
         keel::f32 totalFlexGrow = 0.0f;
@@ -831,7 +833,9 @@ void Toolbar::Arrange(
 
         const keel::f32 totalGap = (flowCount > 1) ? keel::as<keel::f32>(flowCount - 1) * node->gap : 0.0f;
         const keel::f32 freeSpace = keel::max(0.0f, fW - totalGap - nonFlexSum);
-        node->scrollContentSize = {nonFlexSum + totalGap, fH};
+        if (node->scroll) {
+            node->scroll->contentSize = {nonFlexSum + totalGap, fH};
+        }
 
         keel::f32 curX = sX;
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {

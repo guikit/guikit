@@ -127,6 +127,7 @@ PopoverScope Popover::Open(
     });
     node->SetPayload(payload);
     node->measureFn = &Popover::Measure;
+    node->placeFn = &Popover::ResolvePopoverRect;
     node->visualHash = detail::HashArgs(
         opts.anchorRect.x,
         opts.anchorRect.y,

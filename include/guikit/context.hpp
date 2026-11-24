@@ -710,12 +710,25 @@ public:
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
-    // --- Environment Zone Wrapper & Queries ---
+    // --- Environment Zone & Identity Scope Wrappers ---
     /// Opens a transparent environment scope overriding `theme`, `scale`, `density`, `debugBounds`, or `inspectMode`.
     [[nodiscard]] ZoneScope Zone(const ZoneOptions& opts = {});
 
     void PushZone(const ZoneOptions& opts);
     void PopZone() noexcept;
+
+    /// Opens a transparent RAII identity scope mixing a stable key into all descendant widget IDs
+    /// (prevents focus/state shifts when inserting, removing, or reordering dynamic list items).
+    [[nodiscard]] ScopedId IdScope(keel::StringRef key);
+    [[nodiscard]] ScopedId IdScope(keel::u64 key);
+    [[nodiscard]] ScopedId IdScope(keel::i64 key);
+    [[nodiscard]] ScopedId IdScope(const void* ptr);
+
+    void PushId(keel::StringRef key);
+    void PushId(keel::u64 key);
+    void PushId(keel::i64 key);
+    void PushId(const void* ptr);
+    void PopId() noexcept;
 
     [[nodiscard]] const guikit::Zone* GetZone() const noexcept {
         if (!m_zoneStack.empty() && m_zoneStack.back() != nullptr) {
@@ -2130,6 +2143,7 @@ private:
     keel::Arena m_arena;
     guikit::Zone m_rootZone{&m_theme, 1.0f, 1.0f};
     keel::SmallArray<const guikit::Zone*, 16> m_zoneStack;
+    keel::SmallArray<keel::u64, 16> m_idStack;
     keel::SmallArray<Node*, 16> m_containerStack;
     keel::f32 m_rootDensity{1.0f};
     bool m_rowDisabled{false};
@@ -2293,7 +2307,7 @@ private:
         Rect rect{};
         keel::u32 preIndex{0};
         keel::u32 postIndex{0};
-        NodeType type{NodeType::Container};
+        NodeType type{NodeType::Box};
         keel::u8 zLayer{0};
         bool blocksHit{false};
     };

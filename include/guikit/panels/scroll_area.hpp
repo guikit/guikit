@@ -31,11 +31,6 @@ struct ScrollState {
     keel::f64 nextRepeatSecX{0.0};
 };
 
-/// Internal layout payload for ScrollArea constraints.
-struct ScrollAreaLayoutData {
-    keel::f32 maxHeight{0.0f};
-};
-
 /// Options for configuring a ScrollArea viewport.
 struct ScrollAreaOptions {
     Orientation orientation{Orientation::Vertical};

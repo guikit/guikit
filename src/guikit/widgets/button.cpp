@@ -170,11 +170,16 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocati
         optsCopy.icon = Icon::File(ctx.AllocString(opts.icon.GetPath()));
     }
 
+    struct ButtonPayload {
+        ButtonOptions opts;
+        keel::f32 loadingPhase{0.0f};
+    };
+
     Node* node = ctx.CreateNode(NodeType::Button, id);
-    node->scrollOffset.x = loadingPhase;
-    auto* bOpts = ctx.AllocPayload<ButtonOptions>(optsCopy);
+    auto* payload = ctx.AllocPayload<ButtonPayload>(ButtonPayload{optsCopy, loadingPhase});
+    const ButtonOptions* bOpts = &payload->opts;
     node->text = bOpts->text.text;
-    node->SetPayload(bOpts);
+    node->SetPayload(payload);
 
     const ControlSpec ctrl = EffectiveButtonControl(*bOpts, activeSize, ctx.GetTheme());
     node->visualHash = detail::HashArgs(
@@ -202,22 +207,22 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocati
         bOpts->badge
     );
     node->measureFn = [](const Node* n, keel::f32 availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
-        const auto* b = n->As<ButtonOptions>();
-        return Button::Measure(b ? *b : ButtonOptions{}, n->uiSize, canvas, theme, availableWidth);
+        const auto* p = n->As<ButtonPayload>();
+        return Button::Measure(p ? p->opts : ButtonOptions{}, n->uiSize, canvas, theme, availableWidth);
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
-        const auto* b = n->As<ButtonOptions>();
+        const auto* p = n->As<ButtonPayload>();
         Button::Render(
             canvas,
             n->computedRect,
-            b ? *b : ButtonOptions{},
+            p ? p->opts : ButtonOptions{},
             n->uiSize,
             n->hovered,
             n->pressed,
             n->disabled,
             theme,
             n->focused,
-            n->scrollOffset.x
+            p ? p->loadingPhase : 0.0f
         );
     };
     node->uiSize = activeSize;

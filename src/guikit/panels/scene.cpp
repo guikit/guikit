@@ -996,14 +996,16 @@ void UpdateSceneCameraTransform(
             state.draggingScrollX = false;
         }
     }
-    node->scrollbarHovered = hovY || hudConsumed;
-    node->scrollbarActive = actY;
-    node->scrollbarHoveredX = hovX;
-    node->scrollbarActiveX = actX;
-    node->scrollbarPartHoveredY = hovPartY;
-    node->scrollbarPartHoveredX = hovPartX;
-    node->scrollbarPartPressedY = state.draggingScrollY ? static_cast<keel::u8>(ScrollbarPart::Thumb) : 0u;
-    node->scrollbarPartPressedX = state.draggingScrollX ? static_cast<keel::u8>(ScrollbarPart::Thumb) : 0u;
+    if (node->scroll) {
+        node->scroll->hoveredY = hovY || hudConsumed;
+        node->scroll->activeY = actY;
+        node->scroll->hoveredX = hovX;
+        node->scroll->activeX = actX;
+        node->scroll->partHoveredY = hovPartY;
+        node->scroll->partHoveredX = hovPartX;
+        node->scroll->partPressedY = state.draggingScrollY ? static_cast<keel::u8>(ScrollbarPart::Thumb) : 0u;
+        node->scroll->partPressedX = state.draggingScrollX ? static_cast<keel::u8>(ScrollbarPart::Thumb) : 0u;
+    }
 
     const bool scrollbarBusy = hovY || actY || hovX || actX;
 
@@ -1139,6 +1141,9 @@ SceneScope Scene::OpenWithId(
     node->direction = FlexDirection::Column;
     node->clipChildren = true;
     node->uiSize = activeSize;
+    node->scroll = ctx.AllocPayload<ScrollData>();
+    node->scroll->orientation = Orientation::Both;
+    node->scroll->solverManaged = false;
 
     auto* payload = ctx.AllocPayload<ScenePayload>();
     payload->opts = optsCopy;
@@ -1189,8 +1194,7 @@ SceneScope Scene::OpenWithId(
 
     bool inScrollableAncestor = false;
     for (const Node* anc = node->parent; anc != nullptr; anc = anc->parent) {
-        if (anc->type == NodeType::ScrollArea ||
-            ((anc->type == NodeType::Sidebar || anc->type == NodeType::BottomPanel) && anc->sidebarScrollable)) {
+        if (anc->IsSolverScrollable()) {
             inScrollableAncestor = true;
             break;
         }
@@ -1488,8 +1492,10 @@ void Scene::Update(Context& ctx, Node* node) {
         state.boxSelectCurrentWorld.y
     );
 
-    node->scrollContentSize = { worldScreenW, worldScreenH };
-    node->scrollOffset = { keel::max(0.0f, -state.pan.x), keel::max(0.0f, -state.pan.y) };
+    if (node->scroll) {
+        node->scroll->contentSize = { worldScreenW, worldScreenH };
+        node->scroll->offset = { keel::max(0.0f, -state.pan.x), keel::max(0.0f, -state.pan.y) };
+    }
 }
 
 void Scene::RenderBackgroundAndWorld(
@@ -1837,6 +1843,7 @@ void Scene::RenderOverlays(
     const keel::f32 cornerReserve = (showVScroll && showHScroll) ? (sm.trackWidth + sm.margin) : 0.0f;
 
     // 1. Render 2D Scrollbars via shared ScrollArea primitive
+    const ScrollData* sd = node->scroll;
     if (showVScroll) {
         ScrollArea::RenderAxisScrollbar(
             canvas,
@@ -1844,13 +1851,13 @@ void Scene::RenderOverlays(
             worldScreenH,
             keel::max(0.0f, -state.pan.y),
             false,
-            node->scrollbarHovered,
-            node->scrollbarActive,
+            sd ? sd->hoveredY : false,
+            sd ? sd->activeY : false,
             node->uiSize,
             theme,
             cornerReserve,
-            node->scrollbarPartHoveredY,
-            node->scrollbarPartPressedY
+            sd ? sd->partHoveredY : 0u,
+            sd ? sd->partPressedY : 0u
         );
     }
     if (showHScroll) {
@@ -1860,13 +1867,13 @@ void Scene::RenderOverlays(
             worldScreenW,
             keel::max(0.0f, -state.pan.x),
             true,
-            node->scrollbarHoveredX,
-            node->scrollbarActiveX,
+            sd ? sd->hoveredX : false,
+            sd ? sd->activeX : false,
             node->uiSize,
             theme,
             cornerReserve,
-            node->scrollbarPartHoveredX,
-            node->scrollbarPartPressedX
+            sd ? sd->partHoveredX : 0u,
+            sd ? sd->partPressedX : 0u
         );
     }
     if (showVScroll && showHScroll) {

@@ -9,19 +9,6 @@
 
 namespace guikit {
 
-namespace detail {
-inline keel::u16 NextPayloadTypeId() noexcept {
-    static keel::u16 counter = 0;
-    return ++counter;
-}
-
-template <typename T>
-[[nodiscard]] inline keel::u16 GetPayloadTypeId() noexcept {
-    static const keel::u16 id = NextPayloadTypeId();
-    return id;
-}
-} // namespace detail
-
 class ICanvas;
 struct Node;
 struct UiTheme;
@@ -33,8 +20,44 @@ using MeasureFunc = Vec2 (*)(const Node* node, keel::f32 availableWidth, ICanvas
 /// Function signature for custom arrangement of a container node and its children.
 using ArrangeFunc = void (*)(Node* node, const Rect& availableRect, const UiTheme& theme);
 
+/// Function signature for resolving the outer bounds of an out-of-flow floating container (e.g. Popover).
+using PlaceOutOfFlowFunc = Rect (*)(const Node* node, keel::f32 targetWidth, keel::f32 targetHeight, const Rect& availableRect);
+
 /// Function signature for rendering an element's visual contents.
 using RenderFunc = void (*)(const Node* node, ICanvas& canvas, const UiTheme& theme);
+
+/// Arena-allocated scroll configuration and per-frame scrollbar state for scrollable containers.
+struct ScrollData {
+    Vec2 offset{0.0f, 0.0f};            ///< Active scroll offset in logical dp
+    Vec2 contentSize{0.0f, 0.0f};       ///< Total extent of child content
+    keel::f32 maxHeight{0.0f};          ///< Optional maximum viewport height (> 0 clamps Fit/Stretch viewport)
+    Orientation orientation{Orientation::Vertical};
+    VisibilityPolicy policy{VisibilityPolicy::Auto};
+    bool solverManaged{true};           ///< True for solver-laid-out scroll containers (ScrollArea, Sidebar, BottomPanel)
+    bool hoveredY{false};
+    bool activeY{false};
+    bool hoveredX{false};
+    bool activeX{false};
+    keel::u8 partHoveredY{0};
+    keel::u8 partPressedY{0};
+    keel::u8 partHoveredX{0};
+    keel::u8 partPressedX{0};
+};
+
+/// Compact docking flag bits for shell panels (`Sidebar`, `ActivityBar`, `BottomPanel`).
+namespace dock_flags {
+inline constexpr keel::u8 kNone      = 0u;
+inline constexpr keel::u8 kRight     = 1u << 0;
+inline constexpr keel::u8 kCompact   = 1u << 1;
+inline constexpr keel::u8 kCollapsed = 1u << 2;
+inline constexpr keel::u8 kFlush     = 1u << 3;
+} // namespace dock_flags
+
+/// Arena-allocated configuration payload for `NodeType::Grid` containers.
+struct GridData {
+    keel::u8 columns{12};
+    keel::f32 minColWidth{0.0f};
+};
 
 /// Fundamental semantic category of a scene graph element.
 enum class NodeCategory : keel::u8 {
@@ -59,7 +82,6 @@ enum class NodeType : keel::u16 {
     Box         = 101,
     ScrollArea  = 102,
     Carousel    = 103,
-    Container   = 104,  ///< General container alias for backward compatibility
     Sidebar     = 105,  ///< Dockable vertical sidebar container (Left or Right)
     Scene       = 106,  ///< Interactive 2D world camera & pan/zoom viewport
     Table       = 107,  ///< Virtualized data grid / table container with sticky header and columns
@@ -134,43 +156,27 @@ struct Node {
     keel::u64 visualHash{0};     ///< Fast visual fingerprint for frame-to-frame damage tracking
 
     // Layout configuration & ambient state
-    NodeType type{NodeType::Container};
+    NodeType type{NodeType::Box};
+    keel::u16 colSpan{12};             ///< Grid cell column span or Table cell column index
     UiSize uiSize{UiSize::Md};         ///< Control size token or custom size (does not inherit across containers)
-    keel::u8 gridColumns : 6 {12};     ///< Number of columns in Grid layout container
-    keel::u8 colSpan : 6 {12};         ///< Number of grid columns occupied by this item (1..12)
-    FlexDirection direction : 3 {FlexDirection::Column};
-    SizeMode widthMode : 2 {SizeMode::Stretch};
-    SizeMode heightMode : 2 {SizeMode::Fit};
+    FlexDirection direction{FlexDirection::Column};
+    SizeMode widthMode{SizeMode::Stretch};
+    SizeMode heightMode{SizeMode::Fit};
+    Alignment align{Alignment::Stretch};
+    Justify justify{Justify::Start};
+    keel::u8 dockFlags{dock_flags::kNone};
     bool isSpacer : 1 {false};
-    Orientation scrollOrientation : 2 {Orientation::Vertical};
-    VisibilityPolicy scrollbarPolicy : 2 {VisibilityPolicy::Auto};
-    Alignment align : 3 {Alignment::Stretch};
     bool clipChildren : 1 {false};
-    Justify justify : 3 {Justify::Start};
-    bool scrollbarHovered : 1 {false};
-    bool scrollbarActive : 1 {false};
-    bool scrollbarHoveredX : 1 {false};
-    bool scrollbarActiveX : 1 {false};
-    keel::u8 scrollbarPartHoveredY : 3 {0};
-    keel::u8 scrollbarPartPressedY : 3 {0};
-    keel::u8 scrollbarPartHoveredX : 3 {0};
-    keel::u8 scrollbarPartPressedX : 3 {0};
+    bool equalWidths : 1 {false};
     bool disabled : 1 {false};
     bool hovered : 1 {false};
     bool pressed : 1 {false};
     bool focused : 1 {false};
     bool checked : 1 {false};
     bool active : 1 {false};
-    bool sidebarRight : 1 {false};
-    bool sidebarScrollable : 1 {true};
-    keel::u16 equalWidths : 1 {0};
-    keel::u16 sidebarCompact : 1 {0};
-    keel::u16 sidebarCollapsed : 1 {0};
-    keel::u16 sidebarFlush : 1 {0};
-    keel::u16 explicitGap : 1 {0};
-    keel::u16 explicitPadding : 1 {0};
-    keel::u16 explicitRadius : 1 {0};
-    keel::u16 payloadTypeId : 9 {0};   ///< Runtime type tag for safe Node::As<T>() casting
+    bool explicitGap : 1 {false};
+    bool explicitPadding : 1 {false};
+    bool explicitRadius : 1 {false};
 
     keel::f32 fixedWidth{0.0f};
     keel::f32 fixedHeight{0.0f};
@@ -182,15 +188,10 @@ struct Node {
     keel::f32 maxWidth{0.0f};       ///< Optional maximum width constraint (> 0 clamps width)
     keel::f32 maxHeight{0.0f};      ///< Optional maximum height constraint (> 0 clamps height)
     keel::f32 aspectRatio{0.0f};    ///< Optional width/height ratio (> 0 enables automatic height from width)
-    keel::f32 minColWidth{0.0f};    ///< Minimum column width constraint for Grid container
-    Padding padding{};          ///< Internal padding inside container
-
-    // Scroll area configuration and state
-    Vec2 scrollOffset{0.0f, 0.0f};      ///< Active scroll offset in points
-    Vec2 scrollContentSize{0.0f, 0.0f}; ///< Total extent of child content
+    Padding padding{};              ///< Internal padding inside container
 
     // Measured and computed bounds
-    Vec2 intrinsicSize{0.0f, 0.0f};  ///< Natural content size (bottom-up measure pass)
+    Vec2 intrinsicSize{0.0f, 0.0f};            ///< Natural content size (bottom-up measure pass)
     Rect computedRect{0.0f, 0.0f, 0.0f, 0.0f}; ///< Final placed coordinates (top-down arrange pass)
 
     // Visual & text attributes (rendered by backend)
@@ -200,14 +201,43 @@ struct Node {
     keel::f32 cornerRadius{0.0f};
     keel::StringRef text{};
 
-    // Generic arena-allocated widget payload (ButtonOptions, InputFieldData, CarouselData, user data, etc.)
-    void* payload{nullptr};
+    // Optional arena-allocated scroll extension (null for non-scrollable nodes)
+    ScrollData* scroll{nullptr};
 
-    // Autonomous measure, arrange, and render delegates (polymorphism with zero heap/vtable overhead)
+    // Generic arena-allocated widget payload (ButtonPayload, InputFieldData, GridData, user data, etc.)
+    void* payload{nullptr};
+    keel::TypeId payloadType{};
+
+    // Autonomous measure, arrange, placement, and render delegates (polymorphism with zero heap/vtable overhead)
     MeasureFunc measureFn{nullptr};
     ArrangeFunc arrangeFn{nullptr};
+    PlaceOutOfFlowFunc placeFn{nullptr};
     RenderFunc renderFn{nullptr};
     RenderFunc postRenderFn{nullptr};
+
+    [[nodiscard]] constexpr bool IsScrollable() const noexcept { return scroll != nullptr; }
+    [[nodiscard]] constexpr bool IsSolverScrollable() const noexcept { return scroll != nullptr && scroll->solverManaged; }
+    [[nodiscard]] constexpr Vec2 GetScrollOffset() const noexcept { return scroll ? scroll->offset : Vec2{0.0f, 0.0f}; }
+    [[nodiscard]] constexpr Vec2 GetScrollContentSize() const noexcept { return scroll ? scroll->contentSize : Vec2{0.0f, 0.0f}; }
+
+    [[nodiscard]] constexpr bool IsCollapsed() const noexcept { return (dockFlags & dock_flags::kCollapsed) != 0u; }
+    [[nodiscard]] constexpr bool IsDockedRight() const noexcept { return (dockFlags & dock_flags::kRight) != 0u; }
+    [[nodiscard]] constexpr bool IsCompactDock() const noexcept { return (dockFlags & dock_flags::kCompact) != 0u; }
+    [[nodiscard]] constexpr bool IsFlushDock() const noexcept { return (dockFlags & dock_flags::kFlush) != 0u; }
+
+    [[nodiscard]] keel::u8 GetGridColumns() const noexcept {
+        if (const auto* g = As<GridData>()) {
+            return (g->columns > 0) ? g->columns : 12;
+        }
+        return 12;
+    }
+
+    [[nodiscard]] keel::f32 GetMinColWidth() const noexcept {
+        if (const auto* g = As<GridData>()) {
+            return g->minColWidth;
+        }
+        return 0.0f;
+    }
 
     [[nodiscard]] constexpr const UiTheme& GetTheme(const UiTheme& fallback) const noexcept {
         return (zone->theme != nullptr) ? *zone->theme : fallback;
@@ -258,18 +288,18 @@ struct Node {
         maxHeight *= s;
     }
 
-    /// Attaches a typed arena-allocated payload to this node with runtime type verification.
+    /// Attaches a typed arena-allocated payload to this node with zero-RTTI runtime type verification.
     template <typename T>
     void SetPayload(T* ptr) noexcept {
         payload = ptr;
-        payloadTypeId = ptr ? detail::GetPayloadTypeId<keel::RemoveCv<T>>() : 0;
+        payloadType = ptr ? keel::type_id<keel::RemoveCv<T>>() : keel::TypeId{};
     }
 
     /// Casts payload to the specified widget data type, returning nullptr on type mismatch.
     template <typename T>
     [[nodiscard]] T* As() noexcept {
         if (!payload) return nullptr;
-        if (payloadTypeId != 0 && payloadTypeId != detail::GetPayloadTypeId<keel::RemoveCv<T>>()) {
+        if (payloadType != keel::TypeId{} && payloadType != keel::type_id<keel::RemoveCv<T>>()) {
             return nullptr;
         }
         return static_cast<T*>(payload);
@@ -279,7 +309,7 @@ struct Node {
     template <typename T>
     [[nodiscard]] const T* As() const noexcept {
         if (!payload) return nullptr;
-        if (payloadTypeId != 0 && payloadTypeId != detail::GetPayloadTypeId<keel::RemoveCv<T>>()) {
+        if (payloadType != keel::TypeId{} && payloadType != keel::type_id<keel::RemoveCv<T>>()) {
             return nullptr;
         }
         return static_cast<const T*>(payload);
@@ -323,7 +353,6 @@ struct Node {
             case NodeType::Box:         return "Box";
             case NodeType::ScrollArea:  return "ScrollArea";
             case NodeType::Carousel:    return "Carousel";
-            case NodeType::Container:   return "Container";
             case NodeType::Sidebar:     return "Sidebar";
             case NodeType::Scene:       return "Scene";
             case NodeType::Table:       return "Table";
@@ -338,6 +367,7 @@ struct Node {
             case NodeType::Toolbar:     return "Toolbar";
             case NodeType::SplitView:   return "SplitView";
             case NodeType::Popover:     return "Popover";
+            case NodeType::MenuBar:     return "MenuBar";
             case NodeType::Button:      return "Button";
             case NodeType::InputField:  return "InputField";
             case NodeType::Select:      return "Select";
@@ -371,6 +401,8 @@ struct Node {
             case NodeType::CommandPalette:  return "CommandPalette";
             case NodeType::LevelMeter:      return "LevelMeter";
             case NodeType::TagInput:        return "TagInput";
+            case NodeType::Tag:             return "Tag";
+            case NodeType::Readout:         return "Readout";
             default:
                 if (keel::as<keel::u16>(type) >= keel::as<keel::u16>(NodeType::User)) {
                     return !text.empty() ? text : keel::StringRef("UserWidget");
