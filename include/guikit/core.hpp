@@ -2,15 +2,13 @@
 
 // ==============================================================================
 // GuiKit Core Module - Context, Layout Engine, Base Widgets & Panels
-// Zero External OS / Windowing / GPU Dependencies (Pure C++20 + ICanvas / IWindowBackend)
+// Zero External OS / Windowing / GPU Dependencies (Pure C++20 + ICanvas / IPlatformWindow)
 // ==============================================================================
 
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/backend/i_platform_window.hpp"
-#include "guikit/backend/i_window_backend.hpp"
 #include "guikit/backend/null_canvas.hpp"
-#include "guikit/backend/platform_window_backend.hpp"
 #include "guikit/backend/system_theme.hpp"
 #include "guikit/backend/vector_backend.hpp"
 #include "guikit/core/assets.hpp"
@@ -24,6 +22,7 @@
 #include "guikit/core/response.hpp"
 #include "guikit/core/rich_text.hpp"
 #include "guikit/core/scrollbar.hpp"
+#include "guikit/core/shell_controls.hpp"
 #include "guikit/core/solver.hpp"
 #include "guikit/core/style_painter.hpp"
 #include "guikit/core/text_util.hpp"

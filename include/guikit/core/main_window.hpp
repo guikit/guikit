@@ -1,44 +1,103 @@
 #pragma once
 
+#include "guikit/backend/i_platform_window.hpp"
+#include "guikit/backend/vector_backend.hpp"
 #include "guikit/context.hpp"
-#include "guikit/panels/command_palette.hpp"
-#include "guikit/panels/sidebar.hpp"
-#include "guikit/panels/status_bar.hpp"
-#include "guikit/panels/toolbar.hpp"
-#include "guikit/backend/i_window_backend.hpp"
 #include "guikit/core/frame_metrics.hpp"
+#include "keel/array.h"
 #include "keel/core.h"
 
 namespace guikit {
 
-/// Platform-agnostic base window and application loop host for GuiKit applications.
-/// Lives in `guikit::core` with zero OS, windowing, or GPU dependencies.
-/// Delegates low-level windowing and swapchain presentation to an interchangeable `IWindowBackend`.
+/// Configuration options for initializing a `guikit::MainWindow` application host.
+struct MainWindowConfig {
+    keel::FixedString<128> title{"GuiKit Application"};
+    keel::i32 width = 1380;
+    keel::i32 height = 800;
+    keel::i32 minWidth = 320;
+    keel::i32 minHeight = 240;
+    bool resizable = true;
+    bool maximized = false;
+    bool fullscreen = false;
+    bool borderless = false;
+    bool highDpi = true;
+    bool vsync = true;
+    bool reactiveMode = true;
+    bool gpuShaders = true;
+    bool debugShortcuts = true; ///< Enables Ctrl+I / Ctrl+Shift+C (Inspect) and Ctrl+B (Bounds)
+    bool scaleShortcuts = true; ///< Enables Ctrl+Plus / Ctrl+Minus / Ctrl+0 UI shell scaling
+    bool autoShellScope = true; ///< Wraps OnRender() in a root Column with shellTheme (shell zoom is always frame-wide)
+    keel::i32 idleHeartbeatMs = 500;  ///< Periodic wakeup interval in reactive mode (-1 to disable)
+    keel::f32 targetFps = 60.0f;      ///< Target frame rate for telemetry budget and non-VSync frame pacing
+    keel::f32 initialScale = 1.0f;    ///< Initial shell UI scale, snapped to the nearest `MainWindow::kScaleValues` preset
+    ThemeMode initialThemeMode = ThemeMode::Dark;
+    keel::Optional<ThemePreset> initialThemePreset = keel::kNullOpt; ///< Optional curated theme preset (overrides `initialThemeMode`)
+    bool followSystemTheme = false; ///< If true (and `initialTheme` / `initialThemePreset` are unset), adopts OS dark/light theme on startup
+    keel::f32 initialDensity = 1.0f; ///< Initial layout gap/padding density multiplier (1.0f = standard)
+    ShellStyle initialShellStyle = ShellStyle::Docked;
+    keel::Optional<UiTheme> initialTheme = keel::kNullOpt; ///< Optional complete initial theme override
+    TextRenderSettings textRender{};                       ///< Initial text anti-aliasing, hinting, gamma & contrast settings
+    VectorCanvasFactory canvasFactory = nullptr;           ///< Optional per-window custom `ICanvas` factory override
+};
+
+/// Platform-agnostic window and application loop host for GuiKit applications.
+/// Lives in `guikit::core` with zero OS, windowing, or widget dependencies.
+/// Composes a single `IPlatformWindow` + `ICanvas` directly (supports both single-window `Run()`
+/// and multi-window cooperative `Initialize()` / `StepFrame()` / `Shutdown()` hosting).
 class MainWindow {
 public:
     using RenderCallback = keel::Function<void(Context& ui)>;
 
-    explicit MainWindow(MainWindowConfig config = {}, keel::UniquePtr<IWindowBackend> backend = nullptr);
+    explicit MainWindow(
+        MainWindowConfig config = {},
+        keel::UniquePtr<IPlatformWindow> window = nullptr,
+        keel::UniquePtr<ICanvas> canvas = nullptr,
+        GraphicsApi graphicsApi = GraphicsApi::None
+    );
+
+    MainWindow(
+        MainWindowConfig config,
+        keel::UniquePtr<IPlatformWindow> window,
+        PlatformCanvasFactory canvasFactory,
+        GraphicsApi graphicsApi = GraphicsApi::OpenGLES3
+    );
+
     virtual ~MainWindow();
 
     MainWindow(const MainWindow&) = delete;
     MainWindow& operator=(const MainWindow&) = delete;
 
-    /// Initializes the window backend and enters the main application loop.
-    /// Invokes `OnInit()`, then `OnRender(ui)` each frame, and `OnShutdown()` before exit.
+    /// Initializes the OS window, graphics context, canvas, and calls `OnInit()`.
+    /// Enables cooperative multi-window loops via `StepFrame()` + `Shutdown()`.
+    bool Initialize();
+
+    /// Pumps OS events and renders one frame if needed. Returns `false` when the window has closed.
+    bool StepFrame();
+
+    /// Releases the canvas, framebuffer, and OS window after calling `OnShutdown()`.
+    void Shutdown() noexcept;
+
+    /// Initializes the window and enters the main application loop until closed.
     keel::i32 Run();
 
     /// Convenience overload that runs the main loop using the provided per-frame `renderCallback`.
     keel::i32 Run(RenderCallback renderCallback);
 
-    /// Requests the main loop to terminate cleanly at the end of the current step.
+    /// Sets the per-frame render callback (useful before `Initialize()` / `StepFrame()`).
+    void SetRenderCallback(RenderCallback renderCallback) noexcept {
+        m_renderCallback = keel::move(renderCallback);
+    }
+
+    /// Requests the window loop to terminate cleanly at the end of the current step.
     void Close() noexcept { m_running = false; }
 
+    /// Returns true while the window is initialized and running.
+    [[nodiscard]] bool IsRunning() const noexcept { return m_initialized && m_running; }
+
     /// Thread-safe wakeup signal: interrupts reactive idle sleep immediately so a new frame is rendered.
-    /// Safe to call from any background thread (e.g. hardware acquisition or compute pipeline callbacks).
     void WakeUp() noexcept;
 
-    /// Opens an external URL in the user's default system browser via the active `IWindowBackend`.
+    /// Opens an external URL in the user's default system browser via the active `IPlatformWindow`.
     void OpenUrl(keel::StringRef url) const noexcept;
 
     // =========================================================================
@@ -48,13 +107,14 @@ public:
     [[nodiscard]] Context& GetUi() noexcept { return m_ui; }
     [[nodiscard]] const Context& GetUi() const noexcept { return m_ui; }
 
-    [[nodiscard]] IWindowBackend* GetBackend() noexcept { return m_backend.get(); }
-    [[nodiscard]] const IWindowBackend* GetBackend() const noexcept { return m_backend.get(); }
+    [[nodiscard]] IPlatformWindow* GetPlatformWindow() noexcept { return m_window.get(); }
+    [[nodiscard]] const IPlatformWindow* GetPlatformWindow() const noexcept { return m_window.get(); }
 
-    [[nodiscard]] ICanvas& GetCanvas() noexcept { return m_backend->GetCanvas(); }
-    [[nodiscard]] const ICanvas& GetCanvas() const noexcept { return m_backend->GetCanvas(); }
+    [[nodiscard]] ICanvas& GetCanvas() noexcept;
+    [[nodiscard]] const ICanvas& GetCanvas() const noexcept;
 
     [[nodiscard]] const FrameMetrics& GetMetrics() const noexcept { return m_metrics; }
+    [[nodiscard]] const MainWindowConfig& GetConfig() const noexcept { return m_config; }
 
     [[nodiscard]] keel::i32 GetWidth() const noexcept;
     [[nodiscard]] keel::i32 GetHeight() const noexcept;
@@ -95,62 +155,14 @@ public:
     [[nodiscard]] bool IsShellFloating() const noexcept { return m_shellFloating; }
     void SetShellFloating(bool floating) noexcept;
 
-    /// Shell UI scale is always one of `kScaleValues`, so the toolbar selector shows the real scale.
+    /// Shell UI scale is always one of `kScaleValues`.
     [[nodiscard]] keel::f32 GetShellScale() const noexcept { return m_shellScale; }
     /// Snaps `scale` to the nearest `kScaleValues` preset.
     void SetShellScale(keel::f32 scale) noexcept;
     [[nodiscard]] keel::usize GetShellScaleIndex() const noexcept { return m_shellScaleIndex; }
     void SetShellScaleIndex(keel::usize index) noexcept;
     /// Moves `steps` presets up (positive) or down (negative), clamped to the preset range.
-    /// Used by the `Ctrl+Plus` / `Ctrl+Minus` shortcuts.
     void StepShellScale(keel::i32 steps) noexcept;
-
-    [[nodiscard]] bool IsCommandPaletteOpen() const noexcept { return m_commandPaletteOpen; }
-    void SetCommandPaletteOpen(bool open) noexcept;
-
-    // =========================================================================
-    // Composable Shell UI Helpers (Opt-In Toolbar / StatusBar Building Blocks)
-    // =========================================================================
-
-    /// Renders a 3-state sidebar cycle button (`Expanded -> Compact -> Collapsed` on LMB, toggle collapse on RMB).
-    bool RenderSidebarCycleButton(
-        ToolbarScope& tb,
-        SidebarMode& mode,
-        keel::StringRef label = "Nav",
-        keel::StringRef sidebarTitle = "Navigation Sidebar",
-        const Icon& icon = Icon::Folder()
-    );
-
-    /// Renders a 2-state sidebar collapse/expand toggle button (`Expanded <-> Collapsed`).
-    bool RenderSidebarToggle(
-        ToolbarScope& tb,
-        SidebarMode& mode,
-        keel::StringRef label = "Inspector",
-        keel::StringRef sidebarTitle = "Inspector Sidebar",
-        const Icon& icon = Icon::Settings()
-    );
-
-    /// Renders the UI scale selector (`75%..200%`), theme preset selector, and `Dock/Float` shell switch.
-    void RenderThemeControls(ToolbarScope& tb);
-
-    /// Renders the `Bounds` (`Ctrl+B`) and `Inspect` (`Ctrl+I`) debug overlay toggles.
-    void RenderDebugControls(ToolbarScope& tb);
-
-    /// Renders the compact `Engine` popover trigger and its floating pipeline settings menu
-    /// (`GPU Shaders`, `VSync`, `Reactive Loop`, `Dirty-Rect Raster`, `Live Window Resize`, and `Idle Heartbeat`).
-    void RenderEngineControls(ToolbarScope& tb);
-
-    /// Renders the GPU shader status indicator (`Ready` / `Active` / `CPU Fallback`) and non-jumping
-    /// `FPS | CPU | GPU | RAM` telemetry segments inside an active `StatusBarScope`.
-    void RenderTelemetryStatus(StatusBarScope& sb, bool gpuSceneActive = false);
-
-    /// Handles the `Ctrl+K` global shortcut, renders the `"Command Palette"` action button in `sb`,
-    /// and renders the modal `CommandPalette` overlay.
-    CommandPaletteResponse RenderCommandPalette(
-        StatusBarScope& sb,
-        keel::ArrayRef<CommandPaletteItem> items,
-        UiText placeholder = "Jump to screen or run command..."
-    );
 
     static constexpr keel::StaticArray<keel::f32, 7> kScaleValues = {{0.75f, 0.9f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f}};
     static constexpr keel::StaticArray<keel::StringRef, 7> kScaleLabels = {{
@@ -173,7 +185,7 @@ public:
     }};
 
 protected:
-    /// Called once after the `IWindowBackend` and `guikit::Context` have been initialized.
+    /// Called once after the `IPlatformWindow`, `ICanvas`, and `Context` have been initialized.
     virtual void OnInit() {}
 
     /// Called every frame to construct the immediate-mode UI tree.
@@ -186,34 +198,48 @@ protected:
     }
 
     /// Called when the user or OS requests the window to close.
-    /// Return `true` to allow closing, or `false` to veto and keep the window open (e.g., to show an unsaved-changes modal).
+    /// Return `true` to allow closing, or `false` to veto and keep the window open.
     virtual bool OnCloseRequested() { return true; }
 
     /// Called once before the window and GPU resources are destroyed.
     virtual void OnShutdown() {}
 
 private:
+    void PrepareFrameTarget();
+    void PresentFrame(bool forcePresent);
+    void PaceFrame(keel::f64 elapsedMs, bool presented) noexcept;
     void RenderFrame();
 
     MainWindowConfig m_config;
-    keel::UniquePtr<IWindowBackend> m_backend;
+    keel::UniquePtr<IPlatformWindow> m_window;
+    PlatformCanvasFactory m_canvasFactory;
+    keel::UniquePtr<ICanvas> m_canvas;
+    GraphicsApi m_graphicsApi{GraphicsApi::None};
+    bool m_hasExplicitWindow{false};
     RenderCallback m_renderCallback;
 
     Context m_ui;
     FrameMetrics m_metrics;
+
+    keel::Array<keel::u32> m_cpuFramebuffer;
+    keel::u32 m_fbWidth{0};
+    keel::u32 m_fbHeight{0};
 
     UiTheme m_shellTheme = UiTheme::Dark();
     bool m_shellLightMode = false;
     bool m_shellFloating = false;
     keel::f32 m_shellScale = 1.0f;
     keel::usize m_shellScaleIndex = 2; // kScaleValues[2] == 1.0f
-    keel::usize m_heartbeatIndex = 2;
-    bool m_enginePopoverOpen = false;
-    bool m_commandPaletteOpen = false;
 
+    bool m_initialized = false;
     bool m_running = false;
     bool m_reactiveMode = true;
+    bool m_gpuShadersEnabled = true;
     bool m_inRenderFrame = false;
 };
+
+/// Cooperative multi-window event & render loop: initializes all provided `MainWindow` instances
+/// and steps them until every window has closed.
+keel::i32 RunWindows(keel::ArrayRef<MainWindow*> windows);
 
 } // namespace guikit

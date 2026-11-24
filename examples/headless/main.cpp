@@ -67,14 +67,6 @@ int main() {
     auto platformWindow = keel::make_unique<HeadlessPlatformWindow>(3);
     auto* rawWindow = platformWindow.get();
 
-    auto backend = keel::make_unique<guikit::PlatformWindowBackend>(
-        keel::move(platformWindow),
-        [](guikit::IPlatformWindow& /*win*/) -> keel::UniquePtr<guikit::ICanvas> {
-            return keel::make_unique<guikit::NullCanvas>();
-        },
-        guikit::GraphicsApi::None
-    );
-
     guikit::MainWindowConfig cfg{};
     cfg.title = "GuiKit Headless Custom Backend";
     cfg.width = 800;
@@ -82,12 +74,17 @@ int main() {
     cfg.reactiveMode = false;
 
     keel::i32 renderedFrames = 0;
-    guikit::MainWindow app(cfg, keel::move(backend));
+    guikit::MainWindow app(
+        cfg,
+        keel::move(platformWindow),
+        keel::make_unique<guikit::NullCanvas>(),
+        guikit::GraphicsApi::None
+    );
     const keel::i32 exitCode = app.Run([&](guikit::Context& ui) {
         ++renderedFrames;
         if (auto col = guikit::Column(ui, {.gap = 8.0f, .padding = guikit::Padding::All(16.0f)})) {
             guikit::Heading(ui, {.label = "GuiKit Headless Platform Blueprint"});
-            guikit::Text(ui, ui.Format("Frame #{} rendered via PlatformWindowBackend + NullCanvas", renderedFrames));
+            guikit::Text(ui, ui.Format("Frame #{} rendered via IPlatformWindow + NullCanvas", renderedFrames));
             (void)guikit::Button(ui, {.text = "Action"});
         }
     });

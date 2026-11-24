@@ -1,9 +1,10 @@
 #pragma once
 
 #include "guikit/backend/i_canvas.hpp"
-#include "guikit/backend/i_window_backend.hpp"
 #include "guikit/backend/system_theme.hpp"
+#include "keel/array.h"
 #include "keel/function.h"
+#include "keel/smart_ptr.h"
 #include "keel/string.h"
 
 namespace guikit {
@@ -12,9 +13,16 @@ class Context;
 
 /// Graphics context API requested from a native platform window surface.
 enum class GraphicsApi : keel::u8 {
-    None = 0,       ///< Headless or CPU framebuffer presentation (no GPU context)
-    OpenGLES3 = 1,  ///< OpenGL ES 3.0 / WebGL 2.0 context (EGL on Linux/X11/Wayland, EGL/WGL on Win32)
-    OpenGL3 = 2     ///< Desktop OpenGL 3.3+ Core profile context
+    None = 0,       ///< Headless, SDL renderer, or CPU framebuffer presentation (no raw GL context required)
+    OpenGLES3 = 1,  ///< OpenGL ES 3.0 / WebGL 2.0 context (EGL on Linux/X11/Wayland, WebGL2 on Emscripten)
+    OpenGL3 = 2     ///< Desktop OpenGL 3.3+ Core profile context (WGL on Win32)
+};
+
+/// Callbacks invoked by an `IPlatformWindow` into its hosting `MainWindow`.
+struct WindowHostCallbacks {
+    keel::Function<bool()> onCloseRequested;
+    keel::Function<void(keel::i32 width, keel::i32 height)> onResize;
+    keel::Function<void()> onLiveResizeRender;
 };
 
 /// Platform-neutral window creation descriptor passed to `IPlatformWindow::Create(...)`.
@@ -30,22 +38,24 @@ struct PlatformWindowDesc {
     bool borderless{false};
     bool highDpi{true};
     bool vsync{true};
+    bool gpuShaders{true};
+    bool debugShortcuts{true};
     GraphicsApi graphicsApi{GraphicsApi::OpenGLES3};
 };
 
 /// Function pointer signature for resolving OpenGL / OpenGL ES entry points from a live context.
 using GlProcAddressFn = void*(*)(const char* procName);
 
-/// Abstract OS window + native graphics surface contract (X11, Wayland, Win32, Emscripten, Headless).
+/// Abstract OS window + native graphics surface contract (SDL3, Win32, X11, Wayland, Emscripten, Headless).
 ///
-/// Decouples platform windowing, OS input dispatch, and swapchain presentation from the
-/// 2D rendering canvas (`ICanvas`, e.g. `GlEs3Canvas`, `ThorCanvas`, `NullCanvas`), so a single
-/// GPU or software renderer works identically across every platform window implementation.
+/// Single unified platform windowing abstraction across the entire GuiKit ecosystem:
+/// decouples OS window lifecycle, input/IME/file-drop dispatch, and swapchain/framebuffer presentation
+/// from the 2D rendering canvas (`ICanvas`, e.g. `GlEs3Canvas`, `ThorCanvas`, `SdlCanvas`, `NullCanvas`).
 class IPlatformWindow {
 public:
     virtual ~IPlatformWindow() = default;
 
-    /// Creates the OS window (and optional GL/ES3 context) and binds platform callbacks (e.g. clipboard) to `ui`.
+    /// Creates the OS window (and optional GL/ES3 or renderer context) and binds platform callbacks (e.g. clipboard) to `ui`.
     virtual bool Create(const PlatformWindowDesc& desc, Context& ui, WindowHostCallbacks callbacks) = 0;
 
     /// Releases the native window, graphics context, cursors, and OS handles.
@@ -73,6 +83,17 @@ public:
     /// Returns the GL/ES3 procedure loader for the active context, or `nullptr` if no GL context is active.
     [[nodiscard]] virtual GlProcAddressFn GetGlProcAddressFn() const noexcept { return nullptr; }
 
+    /// Optional factory hook allowing a platform window to instantiate its preferred default `ICanvas`
+    /// once the native window/renderer is created (e.g. `SdlPlatformWindow` -> `ThorCanvas` or `SdlCanvas`).
+    [[nodiscard]] virtual keel::UniquePtr<ICanvas> CreateDefaultCanvas() { return nullptr; }
+
+    /// Optional hook called when an externally provided `ICanvas` is attached to this window
+    /// (e.g. binding `SdlCanvas` to `SDL_Renderer`).
+    virtual void AttachCanvas(ICanvas& /*canvas*/) noexcept {}
+
+    /// Optional hook called before `ui.BeginFrame(...)` each frame (e.g. ticking shader caches or clearing renderer).
+    virtual void BeginFrameTarget(ICanvas& /*canvas*/, Context& /*ui*/) {}
+
     /// Optional presentation hook for CPU-framebuffer canvases (`ICanvas::UsesCpuFramebuffer() == true`).
     virtual void PresentCpuFramebuffer(
         const keel::u32* /*pixels*/,
@@ -80,8 +101,22 @@ public:
         keel::u32 /*height*/,
         keel::u32 /*stride*/,
         SurfacePixelFormat /*format*/,
-        keel::Optional<Rect> /*dirtyRect*/
+        keel::ArrayRef<Rect> /*dirtyRects*/,
+        bool /*fullRepaint*/,
+        ICanvas& /*canvas*/
     ) noexcept {}
+
+    /// Optional presentation hook for direct GPU canvases (`ICanvas::UsesCpuFramebuffer() == false`).
+    /// Defaults to calling `SwapBuffers()`.
+    virtual void PresentGpuFrame(ICanvas& /*canvas*/) noexcept {
+        SwapBuffers();
+    }
+
+    /// Returns true if this window hosts a dedicated GPU shader underlay engine (e.g. SDL3 GL shader underlays).
+    [[nodiscard]] virtual bool SupportsUnderlayShaders() const noexcept { return false; }
+
+    /// Enables or disables this window's dedicated GPU shader underlay engine.
+    virtual void SetUnderlayShadersEnabled(bool /*enabled*/) noexcept {}
 
     [[nodiscard]] virtual keel::i32 GetFramebufferWidth() const noexcept = 0;
     [[nodiscard]] virtual keel::i32 GetFramebufferHeight() const noexcept = 0;
@@ -104,8 +139,25 @@ public:
     /// or `keel::kNullOpt` if unavailable or unknown.
     [[nodiscard]] virtual keel::Optional<ThemeMode> QuerySystemTheme() const noexcept { return QueryOsSystemTheme(); }
 
-    /// Human-readable platform identifier (e.g. "X11 + EGL", "Wayland + EGL", "Win32 + WGL", "Headless").
+    /// Human-readable platform identifier (e.g. "SDL3", "Win32 + WGL", "X11 + EGL", "Headless").
     [[nodiscard]] virtual keel::StringRef GetPlatformName() const noexcept = 0;
 };
+
+/// Factory callback that instantiates an `ICanvas` bound to an already-created `IPlatformWindow`
+/// (e.g. constructing a `GlEs3Canvas` after the native GL/EGL context is current).
+using PlatformCanvasFactory = keel::Function<keel::UniquePtr<ICanvas>(IPlatformWindow& window)>;
+
+/// Default platform registration descriptor populated by a windowing module (`guikit::sdl` or `guikit::native`).
+struct PlatformRegistration {
+    keel::UniquePtr<IPlatformWindow> (*createWindow)() = nullptr;
+    keel::UniquePtr<ICanvas> (*createCanvas)(IPlatformWindow& window) = nullptr;
+    GraphicsApi graphicsApi{GraphicsApi::None};
+};
+
+/// Registers the default platform window & canvas factory used by `MainWindow` when no explicit window is injected.
+void RegisterDefaultPlatform(PlatformRegistration reg) noexcept;
+
+/// Returns the currently registered default platform descriptor.
+[[nodiscard]] PlatformRegistration GetDefaultPlatform() noexcept;
 
 } // namespace guikit

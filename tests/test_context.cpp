@@ -8,7 +8,7 @@
 #if defined(GUIKIT_HAS_BACKEND_SDL3) && GUIKIT_HAS_BACKEND_SDL3
 #include "guikit/backend/sdl_canvas.hpp"
 #include "guikit/backend/sdl_gl_shader_engine.hpp"
-#include "guikit/backend/sdl_window_backend.hpp"
+#include "guikit/backend/sdl_platform_window.hpp"
 #endif
 #include "guikit/backend/text_compositor.hpp"
 #if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
@@ -12917,18 +12917,18 @@ int main() {
             SdlCanvas directGpuCanvas(nullptr);
             CHECK(directGpuCanvas.UsesCpuFramebuffer() == false);
 
-            SdlWindowBackend customWinBackend(keel::make_unique<SdlCanvas>(nullptr));
-            CHECK(customWinBackend.GetCanvas().UsesCpuFramebuffer() == false);
-            CHECK(customWinBackend.GetCanvas().GetBackendName() == "SDL3 (Direct GPU)");
+            SdlPlatformWindow sdlWin;
+            CHECK(sdlWin.GetPlatformName() == "SDL3");
 
-            // When no default vector canvas factory is registered, SdlWindowBackend falls back to native SdlCanvas
+            // When no default vector canvas factory is registered, SdlPlatformWindow falls back to native SdlCanvas
             RegisterDefaultVectorCanvasFactory(nullptr);
             CHECK(HasDefaultVectorCanvasFactory() == false);
             CHECK(CreateVectorCanvas(false) == nullptr);
             {
-                SdlWindowBackend fallbackWinBackend;
-                CHECK(fallbackWinBackend.GetCanvas().UsesCpuFramebuffer() == false);
-                CHECK(fallbackWinBackend.GetCanvas().GetBackendName() == "SDL3 (Direct GPU)");
+                auto fallbackCanvas = sdlWin.CreateDefaultCanvas();
+                CHECK(fallbackCanvas != nullptr);
+                CHECK(fallbackCanvas->UsesCpuFramebuffer() == false);
+                CHECK(fallbackCanvas->GetBackendName() == "SDL3 (Direct GPU)");
             }
 #endif
 
@@ -17306,7 +17306,14 @@ void TestPlatformWindowBackendAndStandaloneFreeType() {
         bool factoryReceivedPlatformWindow = false;
         NullCanvas* rawCanvas = nullptr;
 
-        auto backend = keel::make_unique<PlatformWindowBackend>(
+        MainWindowConfig cfg{};
+        cfg.width = 640;
+        cfg.height = 480;
+        cfg.reactiveMode = false;
+
+        keel::i32 framesRendered = 0;
+        MainWindow app(
+            cfg,
             keel::move(mockWin),
             [&](IPlatformWindow& win) -> keel::UniquePtr<ICanvas> {
                 factoryReceivedPlatformWindow = (win.GetPlatformName() == "MockES3");
@@ -17316,14 +17323,6 @@ void TestPlatformWindowBackendAndStandaloneFreeType() {
             },
             GraphicsApi::OpenGLES3
         );
-
-        MainWindowConfig cfg{};
-        cfg.width = 640;
-        cfg.height = 480;
-        cfg.reactiveMode = false;
-
-        keel::i32 framesRendered = 0;
-        MainWindow app(cfg, keel::move(backend));
         const keel::i32 rc = app.Run([&](Context& ui) {
             ++framesRendered;
             if (auto col = guikit::Column(ui, {.padding = Padding::All(12.0f)})) {
@@ -17344,6 +17343,37 @@ void TestPlatformWindowBackendAndStandaloneFreeType() {
         CHECK(rawWin->swapCount >= 1);
         CHECK(rawWin->width == 800 && rawWin->height == 600);
         CHECK(rawWin->lastCursor == CursorType::Pointer);
+
+        // 1b. Cooperative multi-window loop via guikit::RunWindows({&winA, &winB})
+        {
+            auto winAImpl = keel::make_unique<MockPlatformWindow>();
+            auto winBImpl = keel::make_unique<MockPlatformWindow>();
+            MockPlatformWindow* rawA = winAImpl.get();
+            MockPlatformWindow* rawB = winBImpl.get();
+            keel::i32 framesA = 0;
+            keel::i32 framesB = 0;
+
+            MainWindow winA(cfg, keel::move(winAImpl), keel::make_unique<NullCanvas>(), GraphicsApi::None);
+            MainWindow winB(cfg, keel::move(winBImpl), keel::make_unique<NullCanvas>(), GraphicsApi::None);
+            winA.SetRenderCallback([&](Context& ui) {
+                ++framesA;
+                (void)guikit::Button(ui, {.text = "Win A"});
+                if (framesA >= 2) {
+                    winA.Close();
+                }
+            });
+            winB.SetRenderCallback([&](Context& ui) {
+                ++framesB;
+                (void)guikit::Button(ui, {.text = "Win B"});
+            });
+
+            MainWindow* list[2] = {&winA, &winB};
+            CHECK(RunWindows(keel::ArrayRef<MainWindow*>(list, 2u)) == 0);
+            CHECK(rawA->created && rawA->destroyed);
+            CHECK(rawB->created && rawB->destroyed);
+            CHECK(framesA == 2);
+            CHECK(framesB == 3);
+        }
     }
 
     // 2. Verify standalone TextEngine (decoupled from ThorVG) rasterizes glyphs for GPU atlas upload

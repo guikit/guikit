@@ -2,8 +2,9 @@
 #include "guikit/guikit.hpp"
 #include "guikit/backend/i_platform_window.hpp"
 #include "guikit/backend/null_canvas.hpp"
-#include "guikit/backend/platform_window_backend.hpp"
 #include "guikit/backend/text_compositor.hpp"
+#include "guikit/core/shell_controls.hpp"
+#include "guikit/core/text_buffer.hpp"
 
 // 1. Verify zero OS / C / third-party header & macro pollution in public headers
 #if defined(_WINDOWS_) || defined(_INC_WINDOWS)

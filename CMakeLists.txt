@@ -106,6 +106,7 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/core/text_util.cpp
     src/guikit/core/rich_text.cpp
     src/guikit/core/scrollbar.cpp
+    src/guikit/core/shell_controls.cpp
     src/guikit/core/vector_backend.cpp
     src/guikit/core/control.cpp
     src/guikit/core/element.cpp
@@ -130,7 +131,6 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/widgets/breadcrumb.cpp
     src/guikit/widgets/date_picker.cpp
     src/guikit/backend/null_canvas.cpp
-    src/guikit/backend/platform_window_backend.cpp
     src/guikit/backend/system_theme.cpp
     src/guikit/backend/text_compositor.cpp
     src/guikit/widgets/level_meter.cpp

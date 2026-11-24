@@ -807,43 +807,40 @@ void TestMainWindowHeadlessBackend() {
         keel::Array<GpuShaderPassDesc> m_passes;
     };
 
-    class MockWindowBackend final : public IWindowBackend {
+    class MockPlatformWin final : public IPlatformWindow {
     public:
-        bool Initialize(const MainWindowConfig& cfg, Context&, WindowHostCallbacks) override {
-            m_cfg = cfg;
+        bool Create(const PlatformWindowDesc& desc, Context&, WindowHostCallbacks) override {
+            m_desc = desc;
             initialized = true;
             return true;
         }
-        void Shutdown() noexcept override {
+        void Destroy() noexcept override {
             shutdownCalled = true;
         }
         bool PumpEvents(Context&, bool, keel::i32) override {
             return true;
         }
-        ICanvas& GetCanvas() noexcept override { return m_canvas; }
-        const ICanvas& GetCanvas() const noexcept override { return m_canvas; }
-        void PrepareFrameTarget(Context&) override {}
-        void PresentFrame(const Context&, FrameMetrics& metrics, bool) override {
-            metrics.MarkGpuStart();
-            metrics.MarkGpuDone();
+        void PresentCpuFramebuffer(
+            const keel::u32*, keel::u32, keel::u32, keel::u32,
+            SurfacePixelFormat, keel::ArrayRef<Rect>, bool, ICanvas&
+        ) noexcept override {
             ++framesPresented;
         }
-        keel::i32 GetWidth() const noexcept override { return m_cfg.width; }
-        keel::i32 GetHeight() const noexcept override { return m_cfg.height; }
-        keel::f32 GetDpiScale() const noexcept override { return m_dpi; }
-        keel::f32 GetDisplayPixelsPerMm() const noexcept override { return 4.0f; }
-        bool IsMinimized() const noexcept override { return false; }
-        bool IsLiveResizeFrame() const noexcept override { return false; }
-        bool IsVsyncEnabled() const noexcept override { return m_vsync; }
+        void PresentGpuFrame(ICanvas&) noexcept override {
+            ++framesPresented;
+        }
+        [[nodiscard]] bool SupportsUnderlayShaders() const noexcept override { return true; }
+        void SetUnderlayShadersEnabled(bool enabled) noexcept override { m_gpuShaders = enabled; }
+        [[nodiscard]] keel::i32 GetFramebufferWidth() const noexcept override { return m_desc.width; }
+        [[nodiscard]] keel::i32 GetFramebufferHeight() const noexcept override { return m_desc.height; }
+        [[nodiscard]] keel::f32 GetDpiScale() const noexcept override { return m_dpi; }
+        [[nodiscard]] keel::f32 GetDisplayPixelsPerMm() const noexcept override { return 4.0f; }
+        [[nodiscard]] bool IsVsyncEnabled() const noexcept override { return m_vsync; }
         void SetVsyncEnabled(bool enabled) noexcept override { m_vsync = enabled; }
-        bool IsGpuShadersEnabled() const noexcept override { return m_gpuShaders; }
-        bool IsGpuShadersAvailable() const noexcept override { return true; }
-        void SetGpuShadersEnabled(bool enabled) noexcept override { m_gpuShaders = enabled; }
-        void UpdateSystemCursor(CursorType cursor) noexcept override { lastCursor = cursor; }
-        void OpenUrl(keel::StringRef) const noexcept override {}
+        void SetCursor(CursorType cursor) noexcept override { lastCursor = cursor; }
+        [[nodiscard]] keel::StringRef GetPlatformName() const noexcept override { return "MockPlatform"; }
 
-        MainWindowConfig m_cfg{};
-        HeadlessCanvas m_canvas{};
+        PlatformWindowDesc m_desc{};
         keel::f32 m_dpi{1.0f};
         bool m_vsync{true};
         bool m_gpuShaders{true};
@@ -863,8 +860,13 @@ void TestMainWindowHeadlessBackend() {
         keel::f32 framePixelsPerDp{0.0f};
         keel::f32 frameDisplayScale{0.0f};
         keel::f32 frameRootZoom{0.0f};
+        keel::f32 canvasScale{0.0f};
         keel::f32 rootDensity{0.0f};
         Vec2 logicalViewport{};
+        keel::usize gpuPassCount{0};
+        keel::usize canvasDrawCount{0};
+        keel::String lastShaderId;
+        ShellControls shellControls{};
 
     protected:
         void OnInit() override {
@@ -878,16 +880,16 @@ void TestMainWindowHeadlessBackend() {
             rootDensity = ui.GetDensity();
             logicalViewport = ui.GetLogicalViewport();
             if (auto tb = guikit::Toolbar(ui)) {
-                RenderThemeControls(tb);
-                RenderDebugControls(tb);
-                RenderEngineControls(tb);
+                shellControls.RenderThemeControls(*this, tb);
+                shellControls.RenderDebugControls(*this, tb);
+                shellControls.RenderEngineControls(*this, tb);
             }
             static constexpr keel::StaticArray<CommandPaletteItem, 1> kCmds = {{
                 {.label = "Test Cmd", .category = "Test", .shortcut = "Ctrl+T"}
             }};
             if (auto sb = guikit::StatusBar(ui)) {
-                (void)RenderCommandPalette(sb, kCmds);
-                RenderTelemetryStatus(sb, true);
+                (void)shellControls.RenderCommandPalette(*this, sb, kCmds);
+                shellControls.RenderTelemetryStatus(*this, sb, true);
             }
 
             // Emit a universal GPU shader pass descriptor
@@ -898,6 +900,11 @@ void TestMainWindowHeadlessBackend() {
             pass.shader.glslEs2 = "void main() {}";
             pass.params[0] = {1.0f, 2.0f, 3.0f, 4.0f};
             (void)GetCanvas().DrawGpuShaderPass(pass);
+            const auto passes = GetCanvas().GetGpuShaderPasses();
+            gpuPassCount = passes.size();
+            if (!passes.empty()) {
+                lastShaderId.assign(passes[0].shader.shaderId);
+            }
 
             if (guiCount >= 3) {
                 Close();
@@ -905,39 +912,47 @@ void TestMainWindowHeadlessBackend() {
         }
         void OnShutdown() override {
             shutdownCalled = true;
+            canvasScale = GetCanvas().GetScale();
+            canvasDrawCount = static_cast<const HeadlessCanvas&>(GetCanvas()).drawCount;
         }
     };
 
-    auto backend = keel::make_unique<MockWindowBackend>();
-    MockWindowBackend* rawBackend = backend.get();
+    auto win = keel::make_unique<MockPlatformWin>();
+    MockPlatformWin* rawWin = win.get();
+    auto canvas = keel::make_unique<HeadlessCanvas>();
 
     TestAppWindow app(
         {.title = "Headless Test", .width = 1000, .height = 800, .reactiveMode = false},
-        keel::move(backend)
+        keel::move(win),
+        keel::move(canvas)
     );
     const keel::i32 exitCode = app.Run();
     CHECK(exitCode == 0);
     CHECK(app.initCalled);
     CHECK(app.shutdownCalled);
     CHECK(app.guiCount == 3);
-    CHECK(rawBackend->initialized);
-    CHECK(rawBackend->shutdownCalled);
-    CHECK(rawBackend->framesPresented == 3);
-    CHECK(rawBackend->m_canvas.drawCount > 0);
-    CHECK(rawBackend->m_canvas.GetGpuShaderPasses().size() == 1);
-    CHECK(rawBackend->m_canvas.GetGpuShaderPasses()[0].shader.shaderId == "test.custom_shader");
+    CHECK(rawWin->initialized);
+    CHECK(rawWin->shutdownCalled);
+    CHECK(rawWin->framesPresented == 3);
+    CHECK(app.canvasDrawCount > 0);
+    CHECK(app.gpuPassCount == 1);
+    CHECK(app.lastShaderId.as_ref() == "test.custom_shader");
 
     // Default density: MainWindow starts at density 1.0f unless overridden in the config
     CHECK(keel::abs(app.rootDensity - 1.0f) < 1e-6f);
     {
-        TestAppWindow touchApp({.reactiveMode = false, .initialDensity = 1.35f}, keel::make_unique<MockWindowBackend>());
+        TestAppWindow touchApp(
+            {.reactiveMode = false, .initialDensity = 1.35f},
+            keel::make_unique<MockPlatformWin>(),
+            keel::make_unique<HeadlessCanvas>()
+        );
         (void)touchApp.Run();
         CHECK(keel::abs(touchApp.rootDensity - 1.35f) < 1e-6f);
     }
 
     // Shell scale is always a toolbar preset, so the selector label matches the applied scale
     {
-        TestAppWindow scaleApp({}, keel::make_unique<MockWindowBackend>());
+        TestAppWindow scaleApp({}, keel::make_unique<MockPlatformWin>(), keel::make_unique<HeadlessCanvas>());
         auto label = [&]() { return MainWindow::kScaleLabels[scaleApp.GetShellScaleIndex()]; };
         auto scale = [&]() { return scaleApp.GetShellScale(); };
 
@@ -969,23 +984,23 @@ void TestMainWindowHeadlessBackend() {
         CHECK(keel::abs(scale() - 2.0f) < 1e-6f);
         CHECK(label() == "200%");
 
-        TestAppWindow initApp({.initialScale = 0.8f}, keel::make_unique<MockWindowBackend>());
+        TestAppWindow initApp({.initialScale = 0.8f}, keel::make_unique<MockPlatformWin>(), keel::make_unique<HeadlessCanvas>());
         CHECK(keel::abs(initApp.GetShellScale() - 0.75f) < 1e-6f);
     }
 
     // Shell zoom is a frame-wide factor: pixelsPerDp = OS display scale x shell zoom, applied once by the
     // canvas. The widget tree itself stays at scale 1, so nothing can be left unscaled by a missed multiply.
     {
-        auto zoomBackend = keel::make_unique<MockWindowBackend>();
-        MockWindowBackend* rawZoomBackend = zoomBackend.get();
-        rawZoomBackend->m_dpi = 1.5f;
+        auto zoomWin = keel::make_unique<MockPlatformWin>();
+        zoomWin->m_dpi = 1.5f;
         TestAppWindow zoomApp(
             {.width = 1500, .height = 900, .reactiveMode = false, .initialScale = 1.25f},
-            keel::move(zoomBackend)
+            keel::move(zoomWin),
+            keel::make_unique<HeadlessCanvas>()
         );
         CHECK(zoomApp.Run() == 0);
         CHECK(keel::abs(zoomApp.framePixelsPerDp - 1.875f) < 1e-5f);
-        CHECK(keel::abs(rawZoomBackend->m_canvas.GetScale() - 1.875f) < 1e-5f);
+        CHECK(keel::abs(zoomApp.canvasScale - 1.875f) < 1e-5f);
         CHECK(keel::abs(zoomApp.frameDisplayScale - 1.5f) < 1e-6f);
         CHECK(keel::abs(zoomApp.frameRootZoom - 1.25f) < 1e-6f);
         CHECK(keel::abs(zoomApp.logicalViewport.x - 800.0f) < 0.01f);
@@ -994,12 +1009,12 @@ void TestMainWindowHeadlessBackend() {
 
     // Engine toolbar button opens Popover with working Switches & Heartbeat Select while staying open
     {
-        struct EnginePumpBackend final : public IWindowBackend {
-            bool Initialize(const MainWindowConfig& cfg, Context&, WindowHostCallbacks) override {
-                m_cfg = cfg;
+        struct EnginePumpWindow final : public IPlatformWindow {
+            bool Create(const PlatformWindowDesc& desc, Context&, WindowHostCallbacks) override {
+                m_desc = desc;
                 return true;
             }
-            void Shutdown() noexcept override {}
+            void Destroy() noexcept override {}
             bool PumpEvents(Context& ui, bool, keel::i32) override {
                 switch (step) {
                     case 0:
@@ -1031,26 +1046,16 @@ void TestMainWindowHeadlessBackend() {
                 }
                 return true;
             }
-            ICanvas& GetCanvas() noexcept override { return m_canvas; }
-            const ICanvas& GetCanvas() const noexcept override { return m_canvas; }
-            void PrepareFrameTarget(Context&) override {}
-            void PresentFrame(const Context&, FrameMetrics&, bool) override {}
-            keel::i32 GetWidth() const noexcept override { return m_cfg.width; }
-            keel::i32 GetHeight() const noexcept override { return m_cfg.height; }
-            keel::f32 GetDpiScale() const noexcept override { return 1.0f; }
-            keel::f32 GetDisplayPixelsPerMm() const noexcept override { return 4.0f; }
-            bool IsMinimized() const noexcept override { return false; }
-            bool IsLiveResizeFrame() const noexcept override { return false; }
-            bool IsVsyncEnabled() const noexcept override { return vsync; }
+            [[nodiscard]] bool SupportsUnderlayShaders() const noexcept override { return true; }
+            void SetUnderlayShadersEnabled(bool enabled) noexcept override { gpu = enabled; }
+            [[nodiscard]] keel::i32 GetFramebufferWidth() const noexcept override { return m_desc.width; }
+            [[nodiscard]] keel::i32 GetFramebufferHeight() const noexcept override { return m_desc.height; }
+            [[nodiscard]] keel::f32 GetDisplayPixelsPerMm() const noexcept override { return 4.0f; }
+            [[nodiscard]] bool IsVsyncEnabled() const noexcept override { return vsync; }
             void SetVsyncEnabled(bool enabled) noexcept override { vsync = enabled; }
-            bool IsGpuShadersEnabled() const noexcept override { return gpu; }
-            bool IsGpuShadersAvailable() const noexcept override { return true; }
-            void SetGpuShadersEnabled(bool enabled) noexcept override { gpu = enabled; }
-            void UpdateSystemCursor(CursorType) noexcept override {}
-            void OpenUrl(keel::StringRef) const noexcept override {}
+            [[nodiscard]] keel::StringRef GetPlatformName() const noexcept override { return "EnginePump"; }
 
-            MainWindowConfig m_cfg{};
-            HeadlessCanvas m_canvas{};
+            PlatformWindowDesc m_desc{};
             keel::i32 step{0};
             bool vsync{true};
             bool gpu{true};
@@ -1062,25 +1067,30 @@ void TestMainWindowHeadlessBackend() {
 
         class EnginePopoverApp final : public MainWindow {
         public:
-            EnginePopoverApp(EnginePumpBackend* b, keel::UniquePtr<IWindowBackend> owned)
-                : MainWindow({.width = 1000, .height = 700, .reactiveMode = false}, keel::move(owned))
-                , m_b(b) {}
+            EnginePopoverApp(EnginePumpWindow* w, keel::UniquePtr<IPlatformWindow> owned)
+                : MainWindow(
+                    {.width = 1000, .height = 700, .reactiveMode = false},
+                    keel::move(owned),
+                    keel::make_unique<HeadlessCanvas>()
+                )
+                , m_w(w) {}
 
             bool sawPopover{false};
             keel::i32 switchCount{0};
+            ShellControls shellControls{};
 
         protected:
             void OnRender(Context& ui) override {
                 if (auto tb = guikit::Toolbar(ui, {})) {
                     tb.Spacer();
-                    RenderEngineControls(tb);
+                    shellControls.RenderEngineControls(*this, tb);
                     if (Node* tbNode = tb.GetNode()) {
                         for (Node* c = tbNode->firstChild; c != nullptr; c = c->nextSibling) {
                             if (c->type == NodeType::Button && c->text == "Engine") {
                                 const Rect r = ui.GetPrevFrameBounds(c->id);
-                                if (r.w > 1.0f && !m_b->hasClickTarget) {
-                                    m_b->nextClickPos = r.Center();
-                                    m_b->hasClickTarget = true;
+                                if (r.w > 1.0f && !m_w->hasClickTarget) {
+                                    m_w->nextClickPos = r.Center();
+                                    m_w->hasClickTarget = true;
                                 }
                             } else if (c->type == NodeType::Popover) {
                                 sawPopover = true;
@@ -1093,9 +1103,9 @@ void TestMainWindowHeadlessBackend() {
                                         pChild->firstChild->type == NodeType::Switch) {
                                         if (idx == 1) { // VSync switch
                                             const Rect sr = ui.GetPrevUnclippedBounds(pChild->firstChild->id);
-                                            if (sr.w > 1.0f && !m_b->hasSwitchTarget) {
-                                                m_b->nextSwitchPos = sr.Center();
-                                                m_b->hasSwitchTarget = true;
+                                            if (sr.w > 1.0f && !m_w->hasSwitchTarget) {
+                                                m_w->nextSwitchPos = sr.Center();
+                                                m_w->hasSwitchTarget = true;
                                             }
                                         }
                                         ++idx;
@@ -1106,23 +1116,23 @@ void TestMainWindowHeadlessBackend() {
                         }
                     }
                 }
-                if ((m_b->step >= 4 && postDoneFrames++ >= 1) || safetyFrames++ >= 20) {
+                if ((m_w->step >= 4 && postDoneFrames++ >= 1) || safetyFrames++ >= 20) {
                     Close();
                 }
             }
 
-            EnginePumpBackend* m_b{nullptr};
+            EnginePumpWindow* m_w{nullptr};
             keel::i32 postDoneFrames{0};
             keel::i32 safetyFrames{0};
         };
 
-        auto engBackend = keel::make_unique<EnginePumpBackend>();
-        EnginePumpBackend* rawB = engBackend.get();
-        EnginePopoverApp engApp(rawB, keel::move(engBackend));
+        auto engWin = keel::make_unique<EnginePumpWindow>();
+        EnginePumpWindow* rawW = engWin.get();
+        EnginePopoverApp engApp(rawW, keel::move(engWin));
         CHECK(engApp.Run() == 0);
         CHECK(engApp.sawPopover);
         CHECK(engApp.switchCount == 6); // 5 pipeline switches + Gamma Blending
-        CHECK(!rawB->vsync); // VSync toggled off via Engine popover Switch
+        CHECK(!rawW->vsync); // VSync toggled off via Engine popover Switch
     }
 }
 

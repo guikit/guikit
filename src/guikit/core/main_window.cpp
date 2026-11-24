@@ -1,15 +1,7 @@
 #include "guikit/core/main_window.hpp"
-#include "guikit/core/element.hpp"
-#include "guikit/layout/column.hpp"
-#include "guikit/layout/row.hpp"
-#include "guikit/layout/separator.hpp"
-#include "guikit/panels/card.hpp"
-#include "guikit/panels/popover.hpp"
-#include "guikit/widgets/heading.hpp"
-#include "guikit/widgets/select.hpp"
-#include "guikit/widgets/slider.hpp"
-#include "guikit/widgets/switch.hpp"
 
+#include "guikit/backend/null_canvas.hpp"
+#include "guikit/layout/column.hpp"
 #include "keel/core.h"
 #include "keel/format.h"
 #include "keel/math.h"
@@ -19,24 +11,29 @@ namespace guikit {
 
 namespace {
 
-WindowBackendFactory g_defaultWindowBackendFactory = nullptr;
+PlatformRegistration g_defaultPlatform{};
 
 } // namespace
 
-void RegisterDefaultWindowBackendFactory(WindowBackendFactory factory) noexcept {
-    g_defaultWindowBackendFactory = factory;
+void RegisterDefaultPlatform(PlatformRegistration reg) noexcept {
+    g_defaultPlatform = reg;
 }
 
-keel::UniquePtr<IWindowBackend> CreateDefaultWindowBackend() {
-    if (g_defaultWindowBackendFactory != nullptr) {
-        return g_defaultWindowBackendFactory();
-    }
-    return nullptr;
+PlatformRegistration GetDefaultPlatform() noexcept {
+    return g_defaultPlatform;
 }
 
-MainWindow::MainWindow(MainWindowConfig config, keel::UniquePtr<IWindowBackend> backend)
+MainWindow::MainWindow(
+    MainWindowConfig config,
+    keel::UniquePtr<IPlatformWindow> window,
+    keel::UniquePtr<ICanvas> canvas,
+    GraphicsApi graphicsApi
+)
     : m_config(keel::move(config))
-    , m_backend(backend ? keel::move(backend) : CreateDefaultWindowBackend())
+    , m_window(keel::move(window))
+    , m_canvas(keel::move(canvas))
+    , m_graphicsApi(graphicsApi)
+    , m_hasExplicitWindow(m_window != nullptr)
     , m_shellTheme(m_config.initialTheme.has_value()
                    ? *m_config.initialTheme
                    : (m_config.initialThemePreset.has_value()
@@ -48,38 +45,54 @@ MainWindow::MainWindow(MainWindowConfig config, keel::UniquePtr<IWindowBackend> 
     , m_shellFloating(m_config.initialTheme.has_value()
                       ? (m_shellTheme.shellStyle == ShellStyle::Floating)
                       : (m_config.initialShellStyle == ShellStyle::Floating))
-    , m_reactiveMode(m_config.reactiveMode) {
+    , m_reactiveMode(m_config.reactiveMode)
+    , m_gpuShadersEnabled(m_config.gpuShaders) {
     if (!m_config.initialTheme.has_value()) {
         m_shellTheme.SetShellStyle(m_config.initialShellStyle);
     }
     m_ui.SetDensity(m_config.initialDensity);
     m_ui.SetOpenUrlCallback([this](keel::StringRef url) { OpenUrl(url); });
     SetShellScale(m_config.initialScale);
-    for (keel::usize i = 0; i < kHeartbeatMsValues.size(); ++i) {
-        if (kHeartbeatMsValues[i] == m_config.idleHeartbeatMs) {
-            m_heartbeatIndex = i;
-            break;
-        }
-    }
+}
+
+MainWindow::MainWindow(
+    MainWindowConfig config,
+    keel::UniquePtr<IPlatformWindow> window,
+    PlatformCanvasFactory canvasFactory,
+    GraphicsApi graphicsApi
+)
+    : MainWindow(keel::move(config), keel::move(window), keel::UniquePtr<ICanvas>{}, graphicsApi) {
+    m_canvasFactory = keel::move(canvasFactory);
 }
 
 MainWindow::~MainWindow() {
-    if (m_backend) {
-        m_backend->Shutdown();
+    Shutdown();
+}
+
+bool MainWindow::Initialize() {
+    if (m_initialized) {
+        return true;
     }
-}
 
-keel::i32 MainWindow::Run(RenderCallback renderCallback) {
-    m_renderCallback = keel::move(renderCallback);
-    return Run();
-}
-
-keel::i32 MainWindow::Run() {
-    if (!m_backend) {
-        m_backend = CreateDefaultWindowBackend();
-        if (!m_backend) {
-            keel::eprintln("guikit::MainWindow::Run() failed: no IWindowBackend registered or provided.");
-            return 1;
+    PlatformRegistration reg = GetDefaultPlatform();
+    if (!m_window) {
+        if (reg.createWindow == nullptr) {
+            keel::eprintln("guikit::MainWindow::Initialize() failed: no default IPlatformWindow registered or provided.");
+            return false;
+        }
+        m_window = reg.createWindow();
+        if (!m_window) {
+            keel::eprintln("guikit::MainWindow::Initialize() failed: default platform window factory returned null.");
+            return false;
+        }
+        if (!m_hasExplicitWindow) {
+            m_graphicsApi = reg.graphicsApi;
+            if (!m_canvas && !m_canvasFactory && reg.createCanvas != nullptr) {
+                auto createFn = reg.createCanvas;
+                m_canvasFactory = [createFn](IPlatformWindow& w) -> keel::UniquePtr<ICanvas> {
+                    return createFn(w);
+                };
+            }
         }
     }
 
@@ -103,19 +116,69 @@ keel::i32 MainWindow::Run() {
         }
     };
 
-    if (!m_backend->Initialize(m_config, m_ui, keel::move(hostCallbacks))) {
-        return 1;
+    PlatformWindowDesc desc{};
+    desc.title = m_config.title;
+    desc.width = m_config.width;
+    desc.height = m_config.height;
+    desc.minWidth = m_config.minWidth;
+    desc.minHeight = m_config.minHeight;
+    desc.resizable = m_config.resizable;
+    desc.maximized = m_config.maximized;
+    desc.fullscreen = m_config.fullscreen;
+    desc.borderless = m_config.borderless;
+    desc.highDpi = m_config.highDpi;
+    desc.vsync = m_config.vsync;
+    desc.gpuShaders = m_config.gpuShaders;
+    desc.debugShortcuts = m_config.debugShortcuts;
+    desc.graphicsApi = m_graphicsApi;
+
+    if (!m_window->Create(desc, m_ui, keel::move(hostCallbacks))) {
+        return false;
     }
-    m_backend->GetCanvas().SetTextRenderSettings(m_config.textRender);
+
+    if (!m_window->MakeContextCurrent()) {
+        m_window->Destroy();
+        return false;
+    }
+
+    if (!m_canvas) {
+        if (m_canvasFactory) {
+            m_canvas = m_canvasFactory(*m_window);
+        } else if (m_config.canvasFactory != nullptr) {
+            m_canvas = m_config.canvasFactory(true);
+        } else if (auto defaultCanvas = m_window->CreateDefaultCanvas()) {
+            m_canvas = keel::move(defaultCanvas);
+        } else {
+            m_canvas = CreateVectorCanvas(true);
+        }
+    }
+    if (!m_canvas) {
+        m_canvas = keel::make_unique<NullCanvas>();
+    }
+
+    m_window->AttachCanvas(*m_canvas);
+    m_gpuShadersEnabled = m_config.gpuShaders;
+    m_window->SetUnderlayShadersEnabled(m_gpuShadersEnabled);
+    const bool effectiveGpuShaders = m_gpuShadersEnabled &&
+        (m_window->SupportsUnderlayShaders() || m_canvas->SupportsGpuShaders());
+    m_canvas->SetGpuShadersEnabled(effectiveGpuShaders || m_gpuShadersEnabled);
+
+    if (!m_canvas->UsesCpuFramebuffer()) {
+        // Double/triple-buffered GPU swapchains do not preserve backbuffer contents across SwapBuffers()
+        m_ui.SetDirtyRectEnabled(false);
+    }
+
+    m_canvas->SetTextRenderSettings(m_config.textRender);
 
     if (m_config.followSystemTheme &&
         !m_config.initialTheme.has_value() &&
         !m_config.initialThemePreset.has_value()) {
-        if (const keel::Optional<ThemeMode> sysTheme = m_backend->QuerySystemTheme(); sysTheme.has_value()) {
+        if (const keel::Optional<ThemeMode> sysTheme = QuerySystemTheme(); sysTheme.has_value()) {
             SetShellLightMode(*sysTheme == ThemeMode::Light);
         }
     }
 
+    m_initialized = true;
     m_running = true;
     OnInit();
 
@@ -131,45 +194,77 @@ keel::i32 MainWindow::Run() {
         m_shellLightMode = (m_shellTheme.mode == ThemeMode::Light);
         m_shellFloating = (m_shellTheme.shellStyle == ShellStyle::Floating);
     }
+    return true;
+}
 
-    if (m_backend->UsesMainLoopCallback()) {
-        m_backend->RunMainLoopCallback([this]() -> bool {
-            if (!m_running) {
-                OnShutdown();
-                m_backend->Shutdown();
+void MainWindow::Shutdown() noexcept {
+    if (!m_initialized) {
+        return;
+    }
+    m_running = false;
+    OnShutdown();
+    m_initialized = false;
+    m_cpuFramebuffer.clear();
+    m_fbWidth = 0;
+    m_fbHeight = 0;
+    if (m_window) {
+        (void)m_window->MakeContextCurrent();
+    }
+    m_canvas.reset();
+    if (m_window) {
+        m_window->Destroy();
+    }
+}
+
+bool MainWindow::StepFrame() {
+    if (!m_initialized || !m_running || !m_window) {
+        return false;
+    }
+    const bool minimized = m_window->IsMinimized();
+    const bool effectiveReactive = m_reactiveMode || minimized;
+    const keel::i32 sleepTimeoutMs = m_ui.GetRecommendedSleepTimeoutMs();
+    const keel::i32 effectiveTimeout = minimized
+        ? ((sleepTimeoutMs < 0) ? sleepTimeoutMs : keel::max(sleepTimeoutMs, 250))
+        : sleepTimeoutMs;
+
+    if (!m_window->PumpEvents(m_ui, effectiveReactive, effectiveTimeout)) {
+        m_running = false;
+        return false;
+    }
+    if (!m_running) {
+        return false;
+    }
+    if (m_window->ShouldRenderFrame()) {
+        RenderFrame();
+    }
+    return m_running;
+}
+
+keel::i32 MainWindow::Run(RenderCallback renderCallback) {
+    m_renderCallback = keel::move(renderCallback);
+    return Run();
+}
+
+keel::i32 MainWindow::Run() {
+    if (!Initialize()) {
+        return 1;
+    }
+
+    if (m_window->UsesMainLoopCallback()) {
+        m_window->RunMainLoopCallback([this]() -> bool {
+            if (!StepFrame()) {
+                Shutdown();
                 return false;
             }
-            const keel::i32 timeoutMs = m_ui.GetRecommendedSleepTimeoutMs();
-            if (!m_backend->PumpEvents(m_ui, m_reactiveMode, timeoutMs)) {
-                m_running = false;
-                OnShutdown();
-                m_backend->Shutdown();
-                return false;
-            }
-            if (m_backend->ShouldRenderFrame()) {
-                RenderFrame();
-            }
-            return m_running;
+            return true;
         });
         return 0;
     }
 
-    while (m_running) {
-        const keel::i32 timeoutMs = m_ui.GetRecommendedSleepTimeoutMs();
-        if (!m_backend->PumpEvents(m_ui, m_reactiveMode, timeoutMs)) {
-            m_running = false;
-            break;
-        }
-        if (!m_running) {
-            break;
-        }
-        if (m_backend->ShouldRenderFrame()) {
-            RenderFrame();
-        }
+    while (StepFrame()) {
     }
 
-    OnShutdown();
-    m_backend->Shutdown();
+    Shutdown();
     return 0;
 }
 
@@ -179,12 +274,89 @@ void MainWindow::OnRender(Context& ui) {
     }
 }
 
-void MainWindow::RenderFrame() {
-    if (m_inRenderFrame || !m_backend) {
+void MainWindow::PrepareFrameTarget() {
+    if (!m_window || !m_canvas) {
         return;
     }
-    const keel::i32 winW = m_backend->GetWidth();
-    const keel::i32 winH = m_backend->GetHeight();
+    (void)m_window->MakeContextCurrent();
+    m_window->BeginFrameTarget(*m_canvas, m_ui);
+
+    if (!m_canvas->UsesCpuFramebuffer()) {
+        return;
+    }
+
+    const keel::i32 w = m_window->GetFramebufferWidth();
+    const keel::i32 h = m_window->GetFramebufferHeight();
+    if (w <= 0 || h <= 0) {
+        return;
+    }
+    const auto uw = keel::as<keel::u32>(w);
+    const auto uh = keel::as<keel::u32>(h);
+    if (uw != m_fbWidth || uh != m_fbHeight || m_cpuFramebuffer.size() != keel::as<keel::usize>(uw) * uh) {
+        m_fbWidth = uw;
+        m_fbHeight = uh;
+        m_cpuFramebuffer.resize(keel::as<keel::usize>(uw) * uh, 0u);
+        m_ui.InvalidateAll();
+    }
+    m_canvas->SetTarget(m_cpuFramebuffer.data(), m_fbWidth, m_fbHeight, m_fbWidth);
+}
+
+void MainWindow::PresentFrame(bool forcePresent) {
+    if (!m_window || !m_canvas) {
+        return;
+    }
+    if (!forcePresent && !m_ui.HasDirtyDamage() && !m_canvas->HasActiveGpuPasses()) {
+        return;
+    }
+
+    m_metrics.MarkGpuStart();
+    if (m_canvas->UsesCpuFramebuffer()) {
+        if (!m_cpuFramebuffer.empty() && m_fbWidth > 0 && m_fbHeight > 0) {
+            m_window->PresentCpuFramebuffer(
+                m_cpuFramebuffer.data(),
+                m_fbWidth,
+                m_fbHeight,
+                m_fbWidth,
+                m_canvas->GetPixelFormat(),
+                m_ui.GetDirtyRects(),
+                m_ui.IsFullRepaint(),
+                *m_canvas
+            );
+        }
+    } else {
+        m_window->PresentGpuFrame(*m_canvas);
+    }
+    m_metrics.MarkGpuDone();
+    m_metrics.MarkFramePresented();
+}
+
+void MainWindow::PaceFrame(keel::f64 elapsedMs, bool presented) noexcept {
+#ifndef __EMSCRIPTEN__
+    if (IsVsyncEnabled()) {
+        return;
+    }
+    const keel::f64 targetFps = keel::max(1.0, keel::as<keel::f64>(m_config.targetFps));
+    const keel::f64 targetMs = 1000.0 / targetFps;
+    if (elapsedMs + 1.0 < targetMs) {
+        const keel::f64 sleepMs = presented
+            ? (targetMs - elapsedMs)
+            : keel::min(4.0, targetMs - elapsedMs);
+        if (sleepMs > 0.5) {
+            keel::sleep_us(keel::as<keel::u64>((sleepMs - 0.5) * 1000.0));
+        }
+    }
+#else
+    (void)elapsedMs;
+    (void)presented;
+#endif
+}
+
+void MainWindow::RenderFrame() {
+    if (m_inRenderFrame || !m_window || !m_canvas) {
+        return;
+    }
+    const keel::i32 winW = m_window->GetFramebufferWidth();
+    const keel::i32 winH = m_window->GetFramebufferHeight();
     if (winW <= 0 || winH <= 0) {
         return;
     }
@@ -195,14 +367,11 @@ void MainWindow::RenderFrame() {
         ~FrameGuard() { flag = false; }
     } frameGuard{m_inRenderFrame};
 
-    m_backend->PrepareFrameTarget(m_ui);
+    PrepareFrameTarget();
 
     const keel::u64 frameWorkStartNs = keel::monotonic_ns();
     m_metrics.BeginFrame();
 
-    // One dp -> pixel factor for the whole frame: OS display scale x root zoom (the shell zoom). The canvas applies
-    // it uniformly, so the shell zoom behaves exactly like a different monitor DPI and nothing in the
-    // tree needs to be scaled by hand.
     m_ui.BeginFrame({keel::as<keel::f32>(winW), keel::as<keel::f32>(winH)}, GetDpiScale(), GetShellScale());
     {
         const ShellStyle activeShellStyle = m_shellFloating ? ShellStyle::Floating : ShellStyle::Docked;
@@ -229,8 +398,8 @@ void MainWindow::RenderFrame() {
             }
         }
     }
-    m_ui.EndFrame(m_backend->GetCanvas());
-    m_backend->UpdateSystemCursor(m_ui.GetCursor());
+    m_ui.EndFrame(*m_canvas);
+    m_window->SetCursor(m_ui.GetCursor());
     {
         const keel::f32 pxPerDp = m_ui.GetPixelsPerDp();
         const Rect imeLogical = m_ui.GetImeTargetRect();
@@ -240,21 +409,21 @@ void MainWindow::RenderFrame() {
             imeLogical.w * pxPerDp,
             imeLogical.h * pxPerDp
         );
-        m_backend->SetTextInputActive(m_ui.WantsTextInput(), imePx);
+        m_window->SetTextInputActive(m_ui.WantsTextInput(), imePx);
     }
     m_metrics.MarkCpuDone();
 
     const bool shouldPresent = m_ui.HasDirtyDamage() || !m_reactiveMode;
     if (shouldPresent) {
-        m_backend->PresentFrame(m_ui, m_metrics, !m_reactiveMode);
+        PresentFrame(!m_reactiveMode);
     }
 
-    if (shouldPresent && !m_backend->IsVsyncEnabled() && !m_reactiveMode) {
+    if (shouldPresent && !IsVsyncEnabled() && !m_reactiveMode) {
         const keel::u64 frameEndNs = keel::monotonic_ns();
         const keel::f64 frameElapsedMs = (frameEndNs > frameWorkStartNs)
             ? (keel::as<keel::f64>(frameEndNs - frameWorkStartNs) * 1e-6)
             : 0.0;
-        m_backend->PaceFrame(frameElapsedMs, true);
+        PaceFrame(frameElapsedMs, true);
     }
 
     m_metrics.EndFrame(keel::max(1.0f, m_config.targetFps));
@@ -264,54 +433,65 @@ void MainWindow::RenderFrame() {
         const keel::f64 frameElapsedMs = (frameEndNs > frameWorkStartNs)
             ? (keel::as<keel::f64>(frameEndNs - frameWorkStartNs) * 1e-6)
             : 0.0;
-        m_backend->PaceFrame(frameElapsedMs, false);
+        PaceFrame(frameElapsedMs, false);
     }
 }
 
 void MainWindow::WakeUp() noexcept {
-    if (m_backend) {
-        m_backend->WakeUp();
+    if (m_window) {
+        m_window->WakeUp();
     }
 }
 
 void MainWindow::OpenUrl(keel::StringRef url) const noexcept {
-    if (m_backend) {
-        m_backend->OpenUrl(url);
+    if (m_window) {
+        m_window->OpenUrl(url);
     }
 }
 
+ICanvas& MainWindow::GetCanvas() noexcept {
+    if (!m_canvas) {
+        m_canvas = keel::make_unique<NullCanvas>();
+    }
+    return *m_canvas;
+}
+
+const ICanvas& MainWindow::GetCanvas() const noexcept {
+    return const_cast<MainWindow*>(this)->GetCanvas();
+}
+
 keel::i32 MainWindow::GetWidth() const noexcept {
-    return m_backend ? m_backend->GetWidth() : m_config.width;
+    return m_window ? m_window->GetFramebufferWidth() : m_config.width;
 }
 
 keel::i32 MainWindow::GetHeight() const noexcept {
-    return m_backend ? m_backend->GetHeight() : m_config.height;
+    return m_window ? m_window->GetFramebufferHeight() : m_config.height;
 }
 
 keel::f32 MainWindow::GetDpiScale() const noexcept {
-    return m_backend ? m_backend->GetDpiScale() : 1.0f;
+    return m_window ? m_window->GetDpiScale() : 1.0f;
 }
 
 keel::f32 MainWindow::GetDisplayPixelsPerMm() const noexcept {
-    return m_backend ? m_backend->GetDisplayPixelsPerMm() : (96.0f / 25.4f);
+    return m_window ? m_window->GetDisplayPixelsPerMm() : (96.0f / 25.4f);
 }
 
 bool MainWindow::IsLiveResizeFrame() const noexcept {
-    return m_backend && m_backend->IsLiveResizeFrame();
+    return m_window && m_window->IsLiveResizeFrame();
 }
 
 bool MainWindow::IsMinimized() const noexcept {
-    return m_backend && m_backend->IsMinimized();
+    return m_window && m_window->IsMinimized();
 }
 
 bool MainWindow::IsVsyncEnabled() const noexcept {
-    return m_backend ? m_backend->IsVsyncEnabled() : m_config.vsync;
+    return m_window ? m_window->IsVsyncEnabled() : m_config.vsync;
 }
 
 void MainWindow::SetVsyncEnabled(bool enabled) noexcept {
     m_config.vsync = enabled;
-    if (m_backend) {
-        m_backend->SetVsyncEnabled(enabled);
+    if (m_window) {
+        m_window->SetVsyncEnabled(enabled);
     }
 }
 
@@ -323,33 +503,41 @@ void MainWindow::SetReactiveMode(bool enabled) noexcept {
 }
 
 bool MainWindow::IsGpuShadersEnabled() const noexcept {
-    return m_backend ? m_backend->IsGpuShadersEnabled() : m_config.gpuShaders;
+    return m_gpuShadersEnabled && IsGpuShadersAvailable();
 }
 
 bool MainWindow::IsGpuShadersAvailable() const noexcept {
-    return m_backend && m_backend->IsGpuShadersAvailable();
+    const bool underlay = m_window && m_window->SupportsUnderlayShaders();
+    const bool direct = m_canvas && !m_canvas->UsesCpuFramebuffer() && m_canvas->SupportsGpuShaders();
+    const bool cpuWithUnderlay = m_canvas && m_canvas->UsesCpuFramebuffer() && underlay;
+    const bool canvasCap = m_canvas && m_canvas->SupportsGpuShaders();
+    return underlay || direct || cpuWithUnderlay || canvasCap;
 }
 
 void MainWindow::SetGpuShadersEnabled(bool enabled) noexcept {
     m_config.gpuShaders = enabled;
-    if (m_backend) {
-        m_backend->SetGpuShadersEnabled(enabled);
+    m_gpuShadersEnabled = enabled;
+    if (m_window) {
+        m_window->SetUnderlayShadersEnabled(enabled);
+    }
+    if (m_canvas) {
+        m_canvas->SetGpuShadersEnabled(enabled);
     }
     m_ui.InvalidateAll();
     m_ui.RequestRepaint(2);
 }
 
 const TextRenderSettings& MainWindow::GetTextRenderSettings() const noexcept {
-    if (m_backend) {
-        return m_backend->GetCanvas().GetTextRenderSettings();
+    if (m_canvas) {
+        return m_canvas->GetTextRenderSettings();
     }
     return m_config.textRender;
 }
 
 void MainWindow::SetTextRenderSettings(const TextRenderSettings& settings) noexcept {
     m_config.textRender = settings;
-    if (m_backend) {
-        m_backend->GetCanvas().SetTextRenderSettings(settings);
+    if (m_canvas) {
+        m_canvas->SetTextRenderSettings(settings);
     }
     m_ui.InvalidateAll();
     m_ui.RequestRepaint(2);
@@ -375,7 +563,12 @@ void MainWindow::SetShellThemePreset(ThemePreset preset) noexcept {
 }
 
 keel::Optional<ThemeMode> MainWindow::QuerySystemTheme() const noexcept {
-    return m_backend ? m_backend->QuerySystemTheme() : QueryOsSystemTheme();
+    if (m_window) {
+        if (const auto mode = m_window->QuerySystemTheme(); mode.has_value()) {
+            return mode;
+        }
+    }
+    return QueryOsSystemTheme();
 }
 
 void MainWindow::SetShellLightMode(bool lightMode) noexcept {
@@ -418,407 +611,42 @@ void MainWindow::StepShellScale(keel::i32 steps) noexcept {
     SetShellScaleIndex(keel::as<keel::usize>(target));
 }
 
-void MainWindow::SetCommandPaletteOpen(bool open) noexcept {
-    if (m_commandPaletteOpen != open) {
-        m_commandPaletteOpen = open;
-        m_ui.InvalidateAll();
+keel::i32 RunWindows(keel::ArrayRef<MainWindow*> windows) {
+    if (windows.empty()) {
+        return 0;
     }
-}
-
-// =========================================================================
-// Composable Shell UI Helpers
-// =========================================================================
-
-bool MainWindow::RenderSidebarCycleButton(
-    ToolbarScope& tb,
-    SidebarMode& mode,
-    keel::StringRef label,
-    keel::StringRef sidebarTitle,
-    const Icon& icon
-) {
-    const StateColor btnColor = (mode == SidebarMode::Expanded)
-        ? StateColor::Primary()
-        : (mode == SidebarMode::Compact)
-            ? StateColor::Info()
-            : StateColor::Ghost();
-
-    const keel::StringRef tooltip = (mode == SidebarMode::Expanded)
-        ? m_ui.Format("{}: Expanded (Click for Compact Icons, Right-click to Collapse)", sidebarTitle)
-        : (mode == SidebarMode::Compact)
-            ? m_ui.Format("{}: Compact Icons (Click to Collapse, Right-click to Expand)", sidebarTitle)
-            : m_ui.Format("{}: Collapsed (Click to Expand)", sidebarTitle);
-
-    const auto btn = tb.ToolButton({
-        .text = label,
-        .tooltip = tooltip,
-        .icon = icon,
-        .color = btnColor,
-        .active = (mode != SidebarMode::Collapsed)
-    });
-
-    if (btn.clicked) {
-        if (mode == SidebarMode::Expanded) {
-            mode = SidebarMode::Compact;
-        } else if (mode == SidebarMode::Compact) {
-            mode = SidebarMode::Collapsed;
-        } else {
-            mode = SidebarMode::Expanded;
-        }
-        m_ui.InvalidateAll();
-        return true;
-    }
-    if (btn.rightClicked) {
-        mode = (mode == SidebarMode::Collapsed)
-            ? SidebarMode::Expanded
-            : SidebarMode::Collapsed;
-        m_ui.InvalidateAll();
-        return true;
-    }
-    return false;
-}
-
-bool MainWindow::RenderSidebarToggle(
-    ToolbarScope& tb,
-    SidebarMode& mode,
-    keel::StringRef label,
-    keel::StringRef sidebarTitle,
-    const Icon& icon
-) {
-    bool visible = (mode != SidebarMode::Collapsed);
-    const keel::StringRef tooltip = visible
-        ? m_ui.Format("{}: Expanded (Click to Collapse)", sidebarTitle)
-        : m_ui.Format("{}: Collapsed (Click to Expand)", sidebarTitle);
-
-    if (tb.Toggle(visible, {
-        .text = label,
-        .tooltip = tooltip,
-        .icon = icon,
-        .color = StateColor::Primary()
-    }).changed) {
-        mode = visible ? SidebarMode::Expanded : SidebarMode::Collapsed;
-        m_ui.InvalidateAll();
-        return true;
-    }
-    return false;
-}
-
-void MainWindow::RenderThemeControls(ToolbarScope& tb) {
-    (void)tb;
-    static constexpr keel::StaticArray<keel::StringRef, kThemePresetCount> kPresetLabels = {{
-        ThemePresetName(ThemePreset::Dark),
-        ThemePresetName(ThemePreset::Light),
-        ThemePresetName(ThemePreset::Nord),
-        ThemePresetName(ThemePreset::Dracula),
-        ThemePresetName(ThemePreset::CatppuccinMocha),
-        ThemePresetName(ThemePreset::CatppuccinLatte),
-        ThemePresetName(ThemePreset::Industrial),
-        ThemePresetName(ThemePreset::IndustrialLight),
-        ThemePresetName(ThemePreset::HighContrastDark),
-        ThemePresetName(ThemePreset::HighContrastLight),
-        ThemePresetName(ThemePreset::Windows98)
-    }};
-
-    if (guikit::Select(m_ui, m_shellScaleIndex, kScaleLabels, {.size = UiSize::Sm, .width = 88.0f}).changed) {
-        SetShellScaleIndex(m_shellScaleIndex);
-    }
-
-    keel::usize presetIndex = keel::as<keel::usize>(m_shellTheme.preset);
-    if (presetIndex >= kThemePresetCount) {
-        presetIndex = 0u;
-    }
-    if (guikit::Select(m_ui, presetIndex, kPresetLabels, {.size = UiSize::Sm, .width = 152.0f}).changed) {
-        SetShellThemePreset(keel::from_underlying<ThemePreset>(presetIndex));
-    }
-
-    if (guikit::Switch(m_ui, m_shellFloating, {
-        .textLeft = "Dock",
-        .textRight = "Float",
-        .symmetric = true
-    }).changed) {
-        SetShellFloating(m_shellFloating);
-    }
-}
-
-void MainWindow::RenderDebugControls(ToolbarScope& tb) {
-    if (auto debugGroup = guikit::Row(m_ui, {.equalWidths = true})) {
-        bool boundsActive = m_ui.IsDebugBounds();
-        if (tb.Toggle(boundsActive, {
-            .text = "Bounds",
-            .icon = boundsActive ? Icon::Eye() : Icon::EyeOff(),
-            .color = StateColor::Info()
-        }).changed) {
-            m_ui.SetDebugBounds(boundsActive);
-        }
-
-        bool inspectActive = m_ui.IsInspectMode();
-        if (tb.Toggle(inspectActive, {
-            .text = "Inspect",
-            .icon = Icon::Search(),
-            .color = StateColor::Warning()
-        }).changed) {
-            m_ui.SetInspectMode(inspectActive);
+    for (MainWindow* win : windows) {
+        if (win && !win->Initialize()) {
+            for (MainWindow* started : windows) {
+                if (started && started->IsRunning()) {
+                    started->Shutdown();
+                }
+            }
+            return 1;
         }
     }
-}
 
-void MainWindow::RenderEngineControls(ToolbarScope& tb) {
-    static constexpr keel::StaticArray<keel::StringRef, 5> kHeartbeatShortLabels = {{
-        "Off",
-        "4 Hz (250 ms)",
-        "2 Hz (500 ms)",
-        "1 Hz (1000 ms)",
-        "0.5 Hz (2000 ms)"
-    }};
-
-    const Response engineBtn = tb.Toggle(m_enginePopoverOpen, {
-        .text = "Engine",
-        .tooltip = "Engine & Render Pipeline Settings",
-        .icon = Icon::ChevronDown(),
-        .iconPlacement = Placement::Trailing
-    });
-
-    if (auto pop = guikit::Popover(m_ui, m_enginePopoverOpen, {
-        .anchorRect = engineBtn.rect
-    })) {
-        if (auto card = guikit::Card(m_ui, {
-            .width = 296.0f,
-            .gap = 8.0f,
-            .padding = Padding::All(14.0f),
-            .elevated = true
-        })) {
-            guikit::Heading(m_ui, {
-                .label = "Engine Pipeline",
-                .level = HeadingLevel::H5,
-                .separator = HeadingSeparator::Bottom
-            });
-
-            bool gpuEnabled = IsGpuShadersEnabled();
-            if (auto el = guikit::Element(m_ui, {
-                .label = "GPU Shaders",
-                .description = "Hardware shader underlays",
-                .layout = ElementLayout::Leading,
-                .disabled = !IsGpuShadersAvailable()
-            })) {
-                if (guikit::Switch(m_ui, gpuEnabled, {.size = UiSize::Sm})) {
-                    SetGpuShadersEnabled(gpuEnabled);
-                }
+    bool anyAlive = true;
+    while (anyAlive) {
+        anyAlive = false;
+        for (MainWindow* win : windows) {
+            if (!win || !win->IsRunning()) {
+                continue;
             }
-
-            bool vsync = IsVsyncEnabled();
-            if (auto el = guikit::Element(m_ui, {
-                .label = "VSync",
-                .description = "Synchronize swap interval",
-                .layout = ElementLayout::Leading
-            })) {
-                if (guikit::Switch(m_ui, vsync, {.size = UiSize::Sm})) {
-                    SetVsyncEnabled(vsync);
-                }
-            }
-
-            if (auto el = guikit::Element(m_ui, {
-                .label = "Reactive Loop",
-                .description = "Idle sleep at 0% CPU",
-                .layout = ElementLayout::Leading
-            })) {
-                if (guikit::Switch(m_ui, m_reactiveMode, {.size = UiSize::Sm})) {
-                    SetReactiveMode(m_reactiveMode);
-                }
-            }
-
-            bool dirtyActive = m_ui.IsDirtyRectEnabled();
-            if (auto el = guikit::Element(m_ui, {
-                .label = "Dirty-Rect Raster",
-                .description = "Disjoint partial redraws",
-                .layout = ElementLayout::Leading
-            })) {
-                if (guikit::Switch(m_ui, dirtyActive, {.size = UiSize::Sm})) {
-                    m_ui.SetDirtyRectEnabled(dirtyActive);
-                    if (!dirtyActive) {
-                        m_ui.InvalidateAll();
-                    }
-                }
-            }
-
-            bool liveResizeActive = m_ui.IsLiveResizeEnabled();
-            if (auto el = guikit::Element(m_ui, {
-                .label = "Live Window Resize",
-                .description = "Reflow while dragging edge",
-                .layout = ElementLayout::Leading
-            })) {
-                if (guikit::Switch(m_ui, liveResizeActive, {.size = UiSize::Sm})) {
-                    m_ui.SetLiveResize(liveResizeActive);
-                }
-            }
-
-            guikit::Separator(m_ui);
-
-            if (auto el = guikit::Element(m_ui, {
-                .label = "Idle Heartbeat",
-                .layout = ElementLayout::Leading,
-                .disabled = !m_reactiveMode
-            })) {
-                keel::usize hbIdx = m_heartbeatIndex;
-                if (guikit::Select(m_ui, hbIdx, kHeartbeatShortLabels, {.size = UiSize::Sm, .width = 128.0f})) {
-                    m_heartbeatIndex = hbIdx % kHeartbeatMsValues.size();
-                    m_ui.SetIdleHeartbeatMs(kHeartbeatMsValues[m_heartbeatIndex]);
-                }
-            }
-
-            guikit::Separator(m_ui);
-
-            guikit::Heading(m_ui, {
-                .label = "Text Rendering",
-                .badge = {m_backend ? m_backend->GetCanvas().GetTextEngineName() : keel::StringRef{"Default"}, StateColor::Primary()},
-                .level = HeadingLevel::H5
-            });
-
-            static constexpr keel::StaticArray<keel::StringRef, 4> kSmoothingLabels = {{
-                "Auto",
-                "Grayscale",
-                "Subpixel RGB",
-                "Subpixel BGR"
-            }};
-            static constexpr keel::StaticArray<keel::StringRef, 4> kHintingLabels = {{
-                "None",
-                "Light",
-                "Normal",
-                "Auto"
-            }};
-
-            TextRenderSettings textCfg = GetTextRenderSettings();
-            const bool supportsHinting = m_backend && m_backend->GetCanvas().SupportsFontHinting();
-            bool textChanged = false;
-
-            if (auto el = guikit::Element(m_ui, {
-                .label = "Smoothing",
-                .layout = ElementLayout::Leading
-            })) {
-                keel::usize smoothIdx = keel::as<keel::usize>(textCfg.smoothing);
-                if (guikit::Select(m_ui, smoothIdx, kSmoothingLabels, {.size = UiSize::Sm, .width = 128.0f})) {
-                    textCfg.smoothing = keel::from_underlying<FontSmoothing>(smoothIdx % kSmoothingLabels.size());
-                    textChanged = true;
-                }
-            }
-
-            if (auto el = guikit::Element(m_ui, {
-                .label = "Hinting",
-                .layout = ElementLayout::Leading,
-                .disabled = !supportsHinting
-            })) {
-                keel::usize hintIdx = keel::as<keel::usize>(textCfg.hinting);
-                if (guikit::Select(m_ui, hintIdx, kHintingLabels, {.disabled = !supportsHinting, .size = UiSize::Sm, .width = 128.0f})) {
-                    textCfg.hinting = keel::from_underlying<FontHinting>(hintIdx % kHintingLabels.size());
-                    textChanged = true;
-                }
-            }
-
-            if (auto el = guikit::Element(m_ui, {
-                .label = "Gamma Blending",
-                .description = "Linear sRGB text compositing",
-                .layout = ElementLayout::Leading
-            })) {
-                if (guikit::Switch(m_ui, textCfg.gammaCorrectBlending, {.size = UiSize::Sm})) {
-                    textChanged = true;
-                }
-            }
-
-            if (auto el = guikit::Element(m_ui, {
-                .label = "Contrast",
-                .layout = ElementLayout::Leading
-            })) {
-                if (guikit::Slider(m_ui, textCfg.contrast, 0.6f, 1.8f, {
-                    .valueFormat = "%.2f",
-                    .size = UiSize::Sm,
-                    .width = 136.0f
-                })) {
-                    textChanged = true;
-                }
-            }
-
-            if (auto el = guikit::Element(m_ui, {
-                .label = "Stem Darkening",
-                .layout = ElementLayout::Leading
-            })) {
-                if (guikit::Slider(m_ui, textCfg.stemDarkening, 0.0f, 0.45f, {
-                    .valueFormat = "%.2f",
-                    .size = UiSize::Sm,
-                    .width = 136.0f
-                })) {
-                    textChanged = true;
-                }
-            }
-
-            if (textChanged) {
-                SetTextRenderSettings(textCfg);
+            if (win->StepFrame()) {
+                anyAlive = true;
+            } else {
+                win->Shutdown();
             }
         }
     }
-}
 
-void MainWindow::RenderTelemetryStatus(StatusBarScope& sb, bool gpuSceneActive) {
-    if (IsGpuShadersAvailable()) {
-        sb.Item({
-            .text = {
-                gpuSceneActive ? "GPU Shaders: Active" : "GPU Shaders: Ready",
-                {"GPU Shaders: Active", "GPU Shaders: Ready"}
-            },
-            .dotColor = gpuSceneActive
-                ? m_shellTheme.GetVariant(UiVariant::Success).bg
-                : m_shellTheme.GetVariant(UiVariant::Info).bg,
-            .color = gpuSceneActive ? StateColor::Success() : StateColor::Info()
-        });
-    } else {
-        sb.Item({
-            .text = "GPU Shaders: CPU Fallback",
-            .dotColor = m_shellTheme.GetVariant(UiVariant::Warning).bg,
-            .color = StateColor::Warning()
-        });
+    for (MainWindow* win : windows) {
+        if (win) {
+            win->Shutdown();
+        }
     }
-
-    sb.Separator();
-    sb.Item({
-        .text = {m_metrics.GetFpsString(), {"0 FPS (Idle)", "999 FPS"}},
-        .color = StateColor::Secondary()
-    });
-    sb.Separator();
-    sb.Item({
-        .text = {m_metrics.GetCpuString(), {"CPU: 99.99 ms (100.0%)"}},
-        .color = StateColor::Secondary()
-    });
-    sb.Separator();
-    sb.Item({
-        .text = {m_metrics.GetGpuString(), {"GPU: 99.99 ms (100% budget)"}},
-        .color = StateColor::Secondary()
-    });
-    sb.Separator();
-    sb.Item({
-        .text = {m_metrics.GetRamString(), {"RAM: 9999.9 MB"}},
-        .color = StateColor::Secondary()
-    });
-}
-
-CommandPaletteResponse MainWindow::RenderCommandPalette(
-    StatusBarScope& sb,
-    keel::ArrayRef<CommandPaletteItem> items,
-    UiText placeholder
-) {
-    if (m_ui.ConsumeShortcut(Key::K, true)) {
-        m_commandPaletteOpen = !m_commandPaletteOpen;
-        m_ui.InvalidateAll();
-    }
-    if (sb.Action({
-        .text = "Command Palette",
-        .icon = Icon::Search(),
-        .tooltip = "Open Global Command Palette (Ctrl+K)",
-        .active = m_commandPaletteOpen
-    }).clicked) {
-        m_commandPaletteOpen = !m_commandPaletteOpen;
-        m_ui.InvalidateAll();
-    }
-
-    return guikit::CommandPalette(m_ui, m_commandPaletteOpen, items, {
-        .placeholder = placeholder
-    });
+    return 0;
 }
 
 } // namespace guikit
