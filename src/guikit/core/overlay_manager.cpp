@@ -109,9 +109,10 @@ void OverlayManager::OpenPopup(
     Id id,
     Rect frameBounds,
     Rect anchorFrameBounds,
-    keel::SmallArray<Rect, 16>& outInvalidated
+    keel::SmallArray<Rect, 16>& outInvalidated,
+    Id portalId
 ) {
-    if (m_openPopupId != id || m_openPopupRect != frameBounds || m_openPopupAnchorRect != anchorFrameBounds) {
+    if (m_openPopupId != id || m_openPopupPortalId != portalId || m_openPopupRect != frameBounds || m_openPopupAnchorRect != anchorFrameBounds) {
         if (m_openPopupId.IsValid() && m_openPopupRect.w > 0.0f && m_openPopupRect.h > 0.0f) {
             outInvalidated.push_back(ExpandPopupDamageRect(m_openPopupRect));
         }
@@ -121,6 +122,7 @@ void OverlayManager::OpenPopup(
             }
         }
         m_openPopupId = id;
+        m_openPopupPortalId = portalId;
         m_openPopupRect = frameBounds;
         m_openPopupAnchorRect = anchorFrameBounds;
         if (m_openPopupRect.w > 0.0f && m_openPopupRect.h > 0.0f) {
@@ -128,6 +130,12 @@ void OverlayManager::OpenPopup(
         }
     }
     m_openPopupExtraRects.clear();
+}
+
+void OverlayManager::UpdateOpenPopupRect(Rect frameBounds) noexcept {
+    if (m_openPopupId.IsValid() && frameBounds.w > 0.0f && frameBounds.h > 0.0f) {
+        m_openPopupRect = frameBounds;
+    }
 }
 
 void OverlayManager::AddOpenPopupRect(Rect frameBounds) {
@@ -166,6 +174,7 @@ bool OverlayManager::ClosePopup(keel::SmallArray<Rect, 16>& outInvalidated) {
         }
     }
     m_openPopupId = Id::Null();
+    m_openPopupPortalId = Id::Null();
     m_openPopupRect = Rect{};
     m_openPopupAnchorRect = Rect{};
     m_openPopupExtraRects.clear();

@@ -109,13 +109,15 @@ public:
     }
 
     /// Opens or updates the active popup in frame coordinates; appends any invalidated rects to `outInvalidated`.
-    void OpenPopup(Id id, Rect frameBounds, Rect anchorFrameBounds, keel::SmallArray<Rect, 16>& outInvalidated);
+    void OpenPopup(Id id, Rect frameBounds, Rect anchorFrameBounds, keel::SmallArray<Rect, 16>& outInvalidated, Id portalId = Id::Null());
+    void UpdateOpenPopupRect(Rect frameBounds) noexcept;
     void AddOpenPopupRect(Rect frameBounds);
     [[nodiscard]] bool IsPointInOpenPopup(Vec2 framePos) const noexcept;
     /// Closes the active popup; returns true if a popup was open and appends invalidated rects to `outInvalidated`.
     bool ClosePopup(keel::SmallArray<Rect, 16>& outInvalidated);
 
     [[nodiscard]] Id GetOpenPopupId() const noexcept { return m_openPopupId; }
+    [[nodiscard]] Id GetOpenPopupPortalId() const noexcept { return m_openPopupPortalId; }
     [[nodiscard]] bool IsPopupOpen(Id id) const noexcept { return m_openPopupId == id && id.IsValid(); }
     [[nodiscard]] bool WasPopupDismissedThisFrame() const noexcept { return m_popupDismissedThisFrame; }
     [[nodiscard]] Rect GetOpenPopupRect() const noexcept { return m_openPopupRect; }
@@ -176,6 +178,7 @@ private:
     keel::SmallArray<EndFrameHook, 4> m_endFrameHooks;
 
     Id m_openPopupId{Id::Null()};
+    Id m_openPopupPortalId{Id::Null()};
     Rect m_openPopupRect{0.0f, 0.0f, 0.0f, 0.0f};
     Rect m_openPopupAnchorRect{0.0f, 0.0f, 0.0f, 0.0f};
     keel::SmallArray<Rect, 8> m_openPopupExtraRects;

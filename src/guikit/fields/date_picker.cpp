@@ -2,13 +2,21 @@
 #include "keel/math.h"
 #include "keel/static_array.h"
 #include "keel/time.h"
+#include "guikit/actions/button.hpp"
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
+#include "guikit/display/separator.hpp"
+#include "guikit/display/text.hpp"
+#include "guikit/fields/spin_box.hpp"
 #include "guikit/graphics/icon.hpp"
+#include "guikit/layout/row.hpp"
+#include "guikit/layout/spacer.hpp"
+#include "guikit/overlays/popover.hpp"
 #include "guikit/style/field_frame.hpp"
 #include "guikit/style/style_painter.hpp"
+#include "guikit/surfaces/card.hpp"
 
 namespace guikit {
 
@@ -262,406 +270,111 @@ void DrawClockIcon(ICanvas& canvas, Rect r, Color col) {
     canvas.DrawLine(center, {center.x + sz * 0.22f, center.y + sz * 0.08f}, col, 1.4f);
 }
 
-struct DatePickerPopoverLayout {
-    Rect popupRect{};
-    bool hasCalendar{true};
-    bool hasTime{false};
-
-    // Calendar header navigation buttons & title
-    Rect prevYearRect{};
-    Rect prevMonthRect{};
-    Rect titleRect{};
-    Rect nextMonthRect{};
-    Rect nextYearRect{};
-
-    // Weekday & 6x7 day grid
-    Rect weekdayRowRect{};
-    Rect gridRect{};
-    keel::f32 cellW{0.0f};
-    keel::f32 cellH{0.0f};
-
-    // Time selector bar
-    Rect timeBarRect{};
-    keel::i32 timeUnitCount{0};
-    keel::StaticArray<Rect, 3> timeUnitRects{};
-    keel::StaticArray<Rect, 3> timeMinusRects{};
-    keel::StaticArray<Rect, 3> timeValueRects{};
-    keel::StaticArray<Rect, 3> timePlusRects{};
-
-    // Footer bar
-    Rect footerRect{};
-    Rect todayBtnRect{};
-    Rect doneBtnRect{};
-};
-
-DatePickerPopoverLayout ComputePopoverLayout(
-    Rect boxRect,
-    const DatePickerOptions& opts,
-    const UiTheme& theme,
-    Rect vpRect,
-    ICanvas* canvas
-) noexcept {
-    DatePickerPopoverLayout l{};
-    l.hasCalendar = (opts.mode != DatePickerMode::Time);
-    l.hasTime = (opts.mode == DatePickerMode::DateTime || opts.mode == DatePickerMode::Time);
-
-    keel::f32 pad = 10.0f;
-    keel::f32 headerH = l.hasCalendar ? 30.0f : 0.0f;
-    keel::f32 weekdayH = l.hasCalendar ? 22.0f : 0.0f;
-    keel::f32 cellH = l.hasCalendar ? 28.0f : 0.0f;
-    keel::f32 timeH = l.hasTime ? 42.0f : 0.0f;
-    keel::f32 footerH = 36.0f;
-    keel::f32 headerGap = 4.0f;
-    keel::f32 sectionGap = 6.0f;
-
-    const keel::f32 smallFont = theme.ResolveFontSize(UiText{}, TextRole::LabelSmall, opts.size);
-    const keel::StringRef todayLabel = ResolveTodayLabel(opts);
-    const keel::StringRef doneLabel = ResolveDoneLabel(opts);
-    constexpr keel::f32 kFooterBtnPadX = 12.0f;
-    keel::f32 todayW = opts.showTodayButton
-        ? keel::max(64.0f, keel::ceil(TextUtil::MeasureWidth(todayLabel, smallFont, canvas)) + kFooterBtnPadX * 2.0f)
-        : 0.0f;
-    keel::f32 doneW = keel::max(62.0f, keel::ceil(TextUtil::MeasureWidth(doneLabel, smallFont, canvas)) + kFooterBtnPadX * 2.0f);
-    const keel::f32 footerMinInnerW = opts.showTodayButton ? (todayW + 8.0f + doneW) : doneW;
-
-    keel::f32 popupW = l.hasCalendar
-        ? 264.0f
-        : (opts.showSeconds ? 258.0f : 196.0f);
-    popupW = keel::max(popupW, footerMinInnerW + pad * 2.0f);
-    if (vpRect.w > 40.0f && popupW > vpRect.w - 8.0f) {
-        popupW = keel::max(140.0f, vpRect.w - 8.0f);
-    }
-
-    keel::f32 gridH = l.hasCalendar ? (cellH * 6.0f) : 0.0f;
-    keel::f32 totalH = pad * 2.0f + footerH;
-    if (l.hasCalendar) {
-        totalH += headerH + headerGap + weekdayH + gridH + sectionGap;
-    }
-    if (l.hasTime) {
-        totalH += timeH + sectionGap;
-    }
-
-    if (vpRect.h > 60.0f && totalH > vpRect.h - 12.0f) {
-        const keel::f32 fitScale = keel::clamp((vpRect.h - 12.0f) / totalH, 0.56f, 1.0f);
-        pad = keel::floor(pad * fitScale);
-        headerH = keel::floor(headerH * fitScale);
-        weekdayH = keel::floor(weekdayH * fitScale);
-        cellH = keel::floor(cellH * fitScale);
-        gridH = l.hasCalendar ? (cellH * 6.0f) : 0.0f;
-        timeH = keel::floor(timeH * fitScale);
-        footerH = keel::floor(footerH * fitScale);
-        headerGap = keel::floor(headerGap * fitScale);
-        sectionGap = keel::floor(sectionGap * fitScale);
-
-        totalH = pad * 2.0f + footerH;
-        if (l.hasCalendar) {
-            totalH += headerH + headerGap + weekdayH + gridH + sectionGap;
-        }
-        if (l.hasTime) {
-            totalH += timeH + sectionGap;
-        }
-    }
-
-    keel::f32 popupX = boxRect.x;
-    keel::f32 popupY = boxRect.y + boxRect.h + 4.0f;
-    if (vpRect.w > 0.0f && vpRect.h > 0.0f) {
-        const keel::f32 margin = 6.0f;
-        const keel::f32 downY = boxRect.Bottom() + 4.0f;
-        const keel::f32 upY = boxRect.y - 4.0f - totalH;
-        const bool fitsDown = (downY + totalH <= vpRect.Bottom() - margin);
-        const bool fitsUp = (upY >= vpRect.y + margin);
-
-        if (fitsDown) {
-            popupY = downY;
-        } else if (fitsUp) {
-            popupY = upY;
-        } else {
-            const keel::f32 rightX = boxRect.Right() + 6.0f;
-            const keel::f32 leftX = boxRect.x - 6.0f - popupW;
-            if (rightX + popupW <= vpRect.Right() - margin) {
-                popupX = rightX;
-                popupY = boxRect.y;
-            } else if (leftX >= vpRect.x + margin) {
-                popupX = leftX;
-                popupY = boxRect.y;
-            } else {
-                const keel::f32 availDown = vpRect.Bottom() - downY - margin;
-                const keel::f32 availUp = boxRect.y - 4.0f - (vpRect.y + margin);
-                popupY = (availUp > availDown) ? upY : downY;
-            }
-        }
-        popupX = keel::clamp(popupX, vpRect.x + 4.0f, keel::max(vpRect.x + 4.0f, vpRect.Right() - popupW - 4.0f));
-        popupY = keel::clamp(popupY, vpRect.y + 4.0f, keel::max(vpRect.y + 4.0f, vpRect.Bottom() - totalH - 4.0f));
-    }
-
-    l.popupRect = Rect(popupX, popupY, popupW, totalH);
-
-    keel::f32 curY = popupY + pad;
-    const keel::f32 innerX = popupX + pad;
-    const keel::f32 innerW = popupW - pad * 2.0f;
-
-    if (l.hasCalendar) {
-        const keel::f32 navBtnSz = keel::min(headerH, 26.0f);
-        const keel::f32 navY = curY + (headerH - navBtnSz) * 0.5f;
-        l.prevYearRect = Rect(innerX, navY, navBtnSz, navBtnSz);
-        l.prevMonthRect = Rect(innerX + navBtnSz + 2.0f, navY, navBtnSz, navBtnSz);
-        l.nextYearRect = Rect(innerX + innerW - navBtnSz, navY, navBtnSz, navBtnSz);
-        l.nextMonthRect = Rect(innerX + innerW - (navBtnSz * 2.0f + 2.0f), navY, navBtnSz, navBtnSz);
-        const keel::f32 titleX = l.prevMonthRect.Right() + 4.0f;
-        l.titleRect = Rect(titleX, curY, keel::max(0.0f, l.nextMonthRect.x - 4.0f - titleX), headerH);
-        curY += headerH + headerGap;
-
-        l.weekdayRowRect = Rect(innerX, curY, innerW, weekdayH);
-        curY += weekdayH;
-
-        l.cellW = innerW / 7.0f;
-        l.cellH = cellH;
-        l.gridRect = Rect(innerX, curY, innerW, gridH);
-        curY += gridH + sectionGap;
-    }
-
-    if (l.hasTime) {
-        l.timeBarRect = Rect(innerX, curY, innerW, timeH);
-        l.timeUnitCount = opts.showSeconds ? 3 : 2;
-        const keel::f32 unitGap = 8.0f;
-        const keel::f32 unitH = keel::min(keel::max(16.0f, timeH - 2.0f), 28.0f);
-        const keel::f32 unitY = curY + (timeH - unitH) * 0.5f;
-        const keel::f32 totalGap = unitGap * keel::as<keel::f32>(l.timeUnitCount - 1);
-        const keel::f32 unitW = (innerW - totalGap) / keel::as<keel::f32>(l.timeUnitCount);
-        const keel::f32 stepBtnW = 22.0f;
-
-        for (keel::i32 u = 0; u < l.timeUnitCount; ++u) {
-            const keel::f32 ux = innerX + keel::as<keel::f32>(u) * (unitW + unitGap);
-            l.timeUnitRects[keel::as<keel::usize>(u)] = Rect(ux, unitY, unitW, unitH);
-            l.timeMinusRects[keel::as<keel::usize>(u)] = Rect(ux, unitY, stepBtnW, unitH);
-            l.timePlusRects[keel::as<keel::usize>(u)] = Rect(ux + unitW - stepBtnW, unitY, stepBtnW, unitH);
-            l.timeValueRects[keel::as<keel::usize>(u)] = Rect(ux + stepBtnW, unitY, keel::max(0.0f, unitW - stepBtnW * 2.0f), unitH);
-        }
-        curY += timeH + sectionGap;
-    }
-
-    l.footerRect = Rect(innerX, popupY + totalH - pad - footerH, innerW, footerH);
-    const keel::f32 btnH = keel::min(keel::max(16.0f, footerH - 2.0f), 26.0f);
-    const keel::f32 btnY = l.footerRect.y + (footerH - btnH) * 0.5f + 1.0f;
-    if (opts.showTodayButton) {
-        const keel::f32 maxButtonsW = keel::max(0.0f, innerW - 6.0f);
-        if (todayW + doneW > maxButtonsW && maxButtonsW > 0.0f) {
-            const keel::f32 ratio = maxButtonsW / (todayW + doneW);
-            todayW = keel::floor(todayW * ratio);
-            doneW = keel::max(24.0f, maxButtonsW - todayW);
-        }
-        l.todayBtnRect = Rect(innerX, btnY, todayW, btnH);
-    } else {
-        doneW = keel::min(doneW, innerW);
-    }
-    l.doneBtnRect = Rect(innerX + innerW - doneW, btnY, doneW, btnH);
-
-    return l;
-}
-
-struct DatePickerPopupRenderData {
-    DatePickerPopoverLayout layout{};
+struct CalendarGridData {
     DateTime value{};
     keel::i32 viewYear{2026};
     keel::i32 viewMonth{10};
     DatePickerOptions opts{};
     UiSize size{UiSize::Md};
-    UiTheme theme{};
-    keel::i32 hoveredNavBtn{-1};
     keel::i32 hoveredDayCell{-1};
-    keel::i32 hoveredTimeBtn{-1};
-    bool todayHovered{false};
-    bool doneHovered{false};
+    keel::f32 weekdayH{22.0f};
+    keel::f32 cellH{28.0f};
+    keel::f32 minWidth{238.0f};
 };
 
-void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d) {
-    const Rect& popupRect = d.layout.popupRect;
-    if (popupRect.w <= 0.0f || popupRect.h <= 0.0f) return;
+[[nodiscard]] UiSize ResolvePopupControlSize(UiSize pickerSize) noexcept {
+    switch (pickerSize.TableIndex()) {
+        case 0:  return UiSize::Xs;
+        case 1:  return UiSize::Sm;
+        case 2:  return UiSize::Sm;
+        case 3:  return UiSize::Md;
+        default: return UiSize::Lg;
+    }
+}
 
-    const SelectMetrics& m = d.theme.GetSelect(d.size);
-    const auto& pal = d.theme.palette;
-    const Color accentCol = ResolveAccentColor(d.opts, d.theme);
+void RenderCalendarGridNode(const Node* node, ICanvas& canvas, const UiTheme& theme) noexcept {
+    if (!node) return;
+    const Rect bounds = node->computedRect;
+    if (bounds.w <= 0.0f || bounds.h <= 0.0f) return;
 
-    // Theme-controlled popover surface via IStylePainter
-    d.theme.Painter().DrawSurface(canvas, d.theme, SurfacePaintParams{
-        .rect = popupRect,
-        .role = SurfaceRole::Popup,
-        .radius = m.cornerRadius + 1.0f,
-        .bg = pal.surfaceElevated,
-        .border = pal.border,
-        .borderWidth = 1.0f,
-        .elevation = Elevation::Lg
-    });
+    const auto* d = node->As<CalendarGridData>();
+    if (!d) return;
 
-    const keel::f32 bodyFont = d.theme.ResolveFontSize(UiText{}, TextRole::LabelMedium, d.size);
-    const keel::f32 smallFont = d.theme.ResolveFontSize(UiText{}, TextRole::LabelSmall, d.size);
+    const SelectMetrics& m = theme.GetSelect(d->size);
+    const auto& pal = theme.palette;
+    const Color accentCol = ResolveAccentColor(d->opts, theme);
+    const keel::f32 cellRadius = keel::min(5.0f, m.cornerRadius);
+    const keel::f32 smallFont = theme.ResolveFontSize(UiText{}, TextRole::LabelSmall, d->size);
 
-    if (d.layout.hasCalendar) {
-        // Navigation buttons: «, ‹, ›, »
-        const keel::StaticArray<Rect, 4> navRects = {
-            d.layout.prevYearRect,
-            d.layout.prevMonthRect,
-            d.layout.nextMonthRect,
-            d.layout.nextYearRect
-        };
-        const keel::StaticArray<keel::StringRef, 4> navLabels = {"\xC2\xAB", "\xE2\x80\xB9", "\xE2\x80\xBA", "\xC2\xBB"};
-        for (keel::i32 i = 0; i < 4; ++i) {
-            const bool hov = (d.hoveredNavBtn == i);
-            if (hov) {
-                canvas.DrawRoundRect(navRects[keel::as<keel::usize>(i)], 4.0f, pal.surfaceHover);
-            }
-            const Color navCol = hov ? pal.textPrimary : pal.textSecondary;
-            canvas.DrawTextBox(navLabels[keel::as<keel::usize>(i)], navRects[keel::as<keel::usize>(i)], bodyFont * 1.15f, navCol, 0.5f, 0.45f);
-        }
+    const keel::f32 cellW = bounds.w / 7.0f;
+    const keel::f32 weekdayH = keel::min(d->weekdayH, bounds.h);
+    const keel::f32 gridH = keel::max(0.0f, bounds.h - weekdayH);
+    const keel::f32 cellH = gridH / 6.0f;
+    const Rect gridRect(bounds.x, bounds.y + weekdayH, bounds.w, gridH);
 
-        // Month & year title ("October 2026")
-        char titleBuf[96];
-        const keel::StringRef mName = MonthName(d.viewMonth, d.opts.labels.monthNames);
-        const auto titleStr = keel::format_buf(titleBuf, "%s %04d", mName, d.viewYear);
-        canvas.DrawTextBox(titleStr, d.layout.titleRect, bodyFont, pal.textPrimary, 0.5f, 0.5f);
-
-        // Weekday column headers (indexed 0 = Sunday .. 6 = Saturday)
-        static constexpr keel::StaticArray<keel::StringRef, 7> kDefaultWeekdaysSun = {"Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"};
-        for (keel::i32 col = 0; col < 7; ++col) {
-            const keel::i32 dow = (col + (d.opts.firstDayMonday ? 1 : 0)) % 7;
-            const keel::StringRef wLabel = (d.opts.labels.weekdayNames.size() >= 7 && !d.opts.labels.weekdayNames[keel::as<keel::usize>(dow)].empty())
-                ? d.opts.labels.weekdayNames[keel::as<keel::usize>(dow)]
-                : kDefaultWeekdaysSun[keel::as<keel::usize>(dow)];
-            const Rect wRect(
-                d.layout.weekdayRowRect.x + keel::as<keel::f32>(col) * d.layout.cellW,
-                d.layout.weekdayRowRect.y,
-                d.layout.cellW,
-                d.layout.weekdayRowRect.h
-            );
-            canvas.DrawTextBox(wLabel, wRect, smallFont, pal.textMuted, 0.5f, 0.5f);
-        }
-
-        // 6x7 day grid (42 cells)
-        const DateTime todayRef = d.opts.todayOverride.value_or(DateTime::Today());
-        const auto cells = BuildCalendarGrid(d.viewYear, d.viewMonth, d.opts.firstDayMonday);
-        for (keel::i32 idx = 0; idx < 42; ++idx) {
-            const keel::i32 row = idx / 7;
-            const keel::i32 col = idx % 7;
-            const Rect cellRect(
-                d.layout.gridRect.x + keel::as<keel::f32>(col) * d.layout.cellW,
-                d.layout.gridRect.y + keel::as<keel::f32>(row) * d.layout.cellH,
-                d.layout.cellW,
-                d.layout.cellH
-            );
-            const Rect pillRect(
-                cellRect.x + 2.0f,
-                cellRect.y + 1.5f,
-                keel::max(0.0f, cellRect.w - 4.0f),
-                keel::max(0.0f, cellRect.h - 3.0f)
-            );
-
-            const DayCellEntry& cell = cells[keel::as<keel::usize>(idx)];
-            const bool cellDisabled = IsDayCellDisabled(cell.year, cell.month, cell.day, d.opts);
-            const bool isSelected = (cell.year == d.value.year && cell.month == d.value.month && cell.day == d.value.day);
-            const bool isToday = (cell.year == todayRef.year && cell.month == todayRef.month && cell.day == todayRef.day);
-            const bool isHovered = !cellDisabled && (d.hoveredDayCell == idx);
-
-            if (isSelected) {
-                canvas.DrawRoundRect(pillRect, 5.0f, cellDisabled ? accentCol.WithAlphaF(d.theme.disabledOpacity) : accentCol);
-            } else if (isHovered) {
-                canvas.DrawRoundRect(pillRect, 5.0f, pal.surfaceHover);
-                if (isToday) {
-                    canvas.DrawRoundRect(pillRect, 5.0f, Color::Transparent(), accentCol.WithAlphaF(0.65f), 1.0f);
-                }
-            } else if (isToday) {
-                canvas.DrawRoundRect(pillRect, 5.0f, accentCol.WithAlphaF(0.10f), accentCol.WithAlphaF(0.55f), 1.0f);
-            }
-
-            Color dayCol = pal.textPrimary;
-            if (isSelected) {
-                dayCol = Color(255, 255, 255, 255);
-            } else if (cellDisabled) {
-                dayCol = pal.textMuted.WithAlphaF(0.32f);
-            } else if (!cell.isCurrentMonth) {
-                dayCol = pal.textMuted.WithAlphaF(0.55f);
-            } else if (isToday) {
-                dayCol = accentCol;
-            }
-
-            char dayBuf[16];
-            const auto dayStr = keel::format_buf(dayBuf, "%d", cell.day);
-            canvas.DrawTextBox(dayStr, cellRect, smallFont, dayCol, 0.5f, 0.5f);
-        }
+    // Weekday column headers (indexed 0 = Sunday .. 6 = Saturday)
+    static constexpr keel::StaticArray<keel::StringRef, 7> kDefaultWeekdaysSun = {"Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"};
+    for (keel::i32 col = 0; col < 7; ++col) {
+        const keel::i32 dow = (col + (d->opts.firstDayMonday ? 1 : 0)) % 7;
+        const keel::StringRef wLabel = (d->opts.labels.weekdayNames.size() >= 7 && !d->opts.labels.weekdayNames[keel::as<keel::usize>(dow)].empty())
+            ? d->opts.labels.weekdayNames[keel::as<keel::usize>(dow)]
+            : kDefaultWeekdaysSun[keel::as<keel::usize>(dow)];
+        const Rect wRect(bounds.x + keel::as<keel::f32>(col) * cellW, bounds.y, cellW, weekdayH);
+        canvas.DrawTextBox(wLabel, wRect, smallFont, pal.textMuted, 0.5f, 0.5f);
     }
 
-    if (d.layout.hasTime) {
-        if (d.layout.hasCalendar) {
-            const keel::f32 sepY = d.layout.timeBarRect.y - 2.0f;
-            canvas.DrawLine(
-                {d.layout.timeBarRect.x, sepY},
-                {d.layout.timeBarRect.Right(), sepY},
-                pal.borderSubtle,
-                1.0f
-            );
+    // 6x7 day grid (42 cells)
+    const DateTime todayRef = d->opts.todayOverride.value_or(DateTime::Today());
+    const auto cells = BuildCalendarGrid(d->viewYear, d->viewMonth, d->opts.firstDayMonday);
+    for (keel::i32 idx = 0; idx < 42; ++idx) {
+        const keel::i32 row = idx / 7;
+        const keel::i32 col = idx % 7;
+        const Rect cellRect(
+            gridRect.x + keel::as<keel::f32>(col) * cellW,
+            gridRect.y + keel::as<keel::f32>(row) * cellH,
+            cellW,
+            cellH
+        );
+        const Rect pillRect(
+            cellRect.x + 2.0f,
+            cellRect.y + 1.5f,
+            keel::max(0.0f, cellRect.w - 4.0f),
+            keel::max(0.0f, cellRect.h - 3.0f)
+        );
+
+        const DayCellEntry& cell = cells[keel::as<keel::usize>(idx)];
+        const bool cellDisabled = IsDayCellDisabled(cell.year, cell.month, cell.day, d->opts);
+        const bool isSelected = (cell.year == d->value.year && cell.month == d->value.month && cell.day == d->value.day);
+        const bool isToday = (cell.year == todayRef.year && cell.month == todayRef.month && cell.day == todayRef.day);
+        const bool isHovered = !cellDisabled && (d->hoveredDayCell == idx);
+
+        if (isSelected) {
+            const Color selBg = cellDisabled ? accentCol.WithAlphaF(theme.disabledOpacity) : accentCol;
+            canvas.DrawRoundRect(pillRect, cellRadius, selBg);
+        } else if (isHovered) {
+            canvas.DrawRoundRect(pillRect, cellRadius, pal.surfaceHover);
+            if (isToday) {
+                canvas.DrawRoundRect(pillRect, cellRadius, Color::Transparent(), accentCol.WithAlphaF(0.65f), 1.0f);
+            }
+        } else if (isToday) {
+            canvas.DrawRoundRect(pillRect, cellRadius, accentCol.WithAlphaF(0.10f), accentCol.WithAlphaF(0.55f), 1.0f);
         }
 
-        const keel::StaticArray<keel::i32, 3> vals = {
-            keel::clamp(d.value.hour, 0, 23),
-            keel::clamp(d.value.minute, 0, 59),
-            keel::clamp(d.value.second, 0, 59)
-        };
-        const keel::StaticArray<keel::StringRef, 3> suffixes = {
-            ResolveTimeSuffix(0, d.opts),
-            ResolveTimeSuffix(1, d.opts),
-            ResolveTimeSuffix(2, d.opts)
-        };
-
-        for (keel::i32 u = 0; u < d.layout.timeUnitCount; ++u) {
-            const keel::usize su = keel::as<keel::usize>(u);
-            const Rect& unitRect = d.layout.timeUnitRects[su];
-            const Rect& minusRect = d.layout.timeMinusRects[su];
-            const Rect& valRect = d.layout.timeValueRects[su];
-            const Rect& plusRect = d.layout.timePlusRects[su];
-
-            canvas.DrawRoundRect(unitRect, 5.0f, pal.inputBackground, pal.inputBorder, 1.0f);
-
-            const bool minusHov = (d.hoveredTimeBtn == u * 2);
-            const bool plusHov = (d.hoveredTimeBtn == u * 2 + 1);
-            if (minusHov) {
-                canvas.DrawRoundRect(minusRect, 4.0f, pal.surfaceHover);
-            }
-            if (plusHov) {
-                canvas.DrawRoundRect(plusRect, 4.0f, pal.surfaceHover);
-            }
-
-            canvas.DrawTextBox("-", minusRect, bodyFont, minusHov ? pal.textPrimary : pal.textSecondary, 0.5f, 0.5f);
-            canvas.DrawTextBox("+", plusRect, bodyFont, plusHov ? pal.textPrimary : pal.textSecondary, 0.5f, 0.5f);
-
-            char valBuf[16];
-            const auto valStr = keel::format_buf(valBuf, "%02d%s", vals[su], suffixes[su]);
-            canvas.DrawTextBox(valStr, valRect, smallFont, pal.textPrimary, 0.5f, 0.5f);
-
-            if (u + 1 < d.layout.timeUnitCount) {
-                const keel::f32 colonX = unitRect.Right() + (d.layout.timeUnitRects[su + 1].x - unitRect.Right()) * 0.5f;
-                const Rect colonRect(colonX - 4.0f, unitRect.y, 8.0f, unitRect.h);
-                canvas.DrawTextBox(":", colonRect, bodyFont, pal.textSecondary, 0.5f, 0.5f);
-            }
+        Color dayCol = pal.textPrimary;
+        if (isSelected) {
+            dayCol = pal.accentText;
+        } else if (cellDisabled) {
+            dayCol = pal.textMuted.WithAlphaF(0.32f);
+        } else if (!cell.isCurrentMonth) {
+            dayCol = pal.textMuted.WithAlphaF(0.55f);
+        } else if (isToday) {
+            dayCol = accentCol;
         }
+
+        char dayBuf[16];
+        const auto dayStr = keel::format_buf(dayBuf, "%d", cell.day);
+        canvas.DrawTextBox(dayStr, cellRect, smallFont, dayCol, 0.5f, 0.5f);
     }
-
-    // Footer divider & buttons
-    canvas.DrawLine(
-        {d.layout.footerRect.x, d.layout.footerRect.y},
-        {d.layout.footerRect.Right(), d.layout.footerRect.y},
-        pal.borderSubtle,
-        1.0f
-    );
-
-    if (d.opts.showTodayButton) {
-        const Color todayBg = d.todayHovered ? accentCol.WithAlphaF(0.20f) : accentCol.WithAlphaF(0.10f);
-        const Color todayBorder = accentCol.WithAlphaF(0.35f);
-        canvas.DrawRoundRect(d.layout.todayBtnRect, 4.0f, todayBg, todayBorder, 1.0f);
-        canvas.DrawTextBox(ResolveTodayLabel(d.opts), d.layout.todayBtnRect, smallFont, accentCol, 0.5f, 0.5f);
-    }
-
-    const Color doneBg = d.doneHovered ? accentCol.WithAlphaF(0.88f) : accentCol;
-    canvas.DrawRoundRect(d.layout.doneBtnRect, 4.0f, doneBg);
-    canvas.DrawTextBox(ResolveDoneLabel(d.opts), d.layout.doneBtnRect, smallFont, Color(255, 255, 255, 255), 0.5f, 0.5f);
 }
 
 } // namespace
@@ -832,212 +545,284 @@ Response detail::DatePicker::Run(
         }
     }
 
-    const DatePickerPopoverLayout popLayout = ComputePopoverLayout(boxRect, optsCopy, theme, ctx.GetPopupViewportRect(), canvas);
-    if (isOpen) {
-        ctx.OpenPopup(id, popLayout.popupRect);
-        ctx.RegisterOverlayHitRegion(id, popLayout.popupRect);
-    }
+    if (isOpen && !effectiveDisabled) {
+        auto popupIdScope = ctx.IdScope(id.value);
+        bool popoverOpen = true;
+        const bool hasCalendar = (optsCopy.mode != DatePickerMode::Time);
+        const bool hasTime = (optsCopy.mode == DatePickerMode::DateTime || optsCopy.mode == DatePickerMode::Time);
+        const UiSize popupCtrlSize = ResolvePopupControlSize(activeSize);
+        const ComponentMetrics& popMetrics = theme.GetMetrics(popupCtrlSize);
 
-    keel::i32 hoveredNavBtn = -1;
-    keel::i32 hoveredDayCell = -1;
-    keel::i32 hoveredTimeBtn = -1;
-    bool todayHovered = false;
-    bool doneHovered = false;
+        if (auto pop = guikit::Popover(ctx, popoverOpen, {
+            .anchorRect = boxRect,
+            .placement = PopoverPlacement::Auto,
+            .offset = 4.0f,
+            .closeOnClickOutside = false,
+            .closeOnEscape = false
+        })) {
+            const Id portalId = pop.response.id;
+            ctx.OpenPopup(id, pop.response.rect, boxRect, portalId);
 
-    if (isOpen && wasOpen && !effectiveDisabled) {
-        auto hitScope = ctx.ScopedOverlayHitCheck(id);
-        const Vec2 mouse = ctx.GetMousePos();
-        const bool mouseClicked = ctx.IsMouseClicked();
-
-        if (popLayout.hasCalendar) {
-            const keel::StaticArray<Rect, 4> navRects = {
-                popLayout.prevYearRect,
-                popLayout.prevMonthRect,
-                popLayout.nextMonthRect,
-                popLayout.nextYearRect
-            };
-            for (keel::i32 i = 0; i < 4; ++i) {
-                if (navRects[keel::as<keel::usize>(i)].Contains(mouse)) {
-                    hoveredNavBtn = i;
-                    if (mouseClicked) {
-                        if (i == 0) state.viewYear -= 1;
-                        else if (i == 1) StepMonth(state.viewYear, state.viewMonth, -1);
-                        else if (i == 2) StepMonth(state.viewYear, state.viewMonth, +1);
-                        else if (i == 3) state.viewYear += 1;
-                        ctx.ConsumeMouseClick();
-                    }
-                    break;
-                }
-            }
-
-            if (popLayout.gridRect.Contains(mouse)) {
-                const keel::i32 col = keel::clamp(keel::as<keel::i32>((mouse.x - popLayout.gridRect.x) / popLayout.cellW), 0, 6);
-                const keel::i32 row = keel::clamp(keel::as<keel::i32>((mouse.y - popLayout.gridRect.y) / popLayout.cellH), 0, 5);
-                const keel::i32 cellIdx = row * 7 + col;
-                const auto cells = BuildCalendarGrid(state.viewYear, state.viewMonth, optsCopy.firstDayMonday);
-                const DayCellEntry& chosen = cells[keel::as<keel::usize>(cellIdx)];
-                const bool cellDisabled = IsDayCellDisabled(chosen.year, chosen.month, chosen.day, optsCopy);
-                if (!cellDisabled) {
-                    hoveredDayCell = cellIdx;
-                }
-                if (mouseClicked) {
-                    if (!cellDisabled) {
-                        DateTime candidate = value;
-                        candidate.year = chosen.year;
-                        candidate.month = chosen.month;
-                        candidate.day = chosen.day;
-                        ClampDateTimeToBounds(candidate, optsCopy);
-                        if (value != candidate) {
-                            value = candidate;
-                            res.changed = true;
+            if (auto card = guikit::Card(ctx, {
+                .width = SizeMode::Fit,
+                .height = SizeMode::Fit,
+                .gap = 6.0f,
+                .padding = Padding::All(10.0f),
+                .surface = SurfaceRole::Popup,
+                .clipChildren = false
+            })) {
+                if (hasCalendar) {
+                    // Calendar navigation header row: « ‹ Month Year › »
+                    if (auto hdr = guikit::Row(ctx, {
+                        .gap = 2.0f,
+                        .align = Alignment::Center,
+                        .width = SizeMode::Stretch
+                    })) {
+                        if (guikit::Button(ctx, {
+                            .text = UiText{"\xC2\xAB"},
+                            .square = true,
+                            .size = popupCtrlSize,
+                            .style = ButtonStyle::Ghost
+                        }).clicked) {
+                            state.viewYear -= 1;
                         }
-                        state.viewYear = value.year;
-                        state.viewMonth = value.month;
-                        state.syncedYear = value.year;
-                        state.syncedMonth = value.month;
+                        if (guikit::Button(ctx, {
+                            .text = UiText{"\xE2\x80\xB9"},
+                            .square = true,
+                            .size = popupCtrlSize,
+                            .style = ButtonStyle::Ghost
+                        }).clicked) {
+                            StepMonth(state.viewYear, state.viewMonth, -1);
+                        }
+
+                        guikit::Spacer(ctx);
+                        char titleBuf[96];
+                        const keel::StringRef mName = MonthName(state.viewMonth, optsCopy.labels.monthNames);
+                        const auto titleStr = keel::format_buf(titleBuf, "%s %04d", mName, state.viewYear);
+                        guikit::Text(ctx, UiText{ctx.AllocString(titleStr)}, {.role = TextRole::LabelMedium});
+                        guikit::Spacer(ctx);
+
+                        if (guikit::Button(ctx, {
+                            .text = UiText{"\xE2\x80\xBA"},
+                            .square = true,
+                            .size = popupCtrlSize,
+                            .style = ButtonStyle::Ghost
+                        }).clicked) {
+                            StepMonth(state.viewYear, state.viewMonth, +1);
+                        }
+                        if (guikit::Button(ctx, {
+                            .text = UiText{"\xC2\xBB"},
+                            .square = true,
+                            .size = popupCtrlSize,
+                            .style = ButtonStyle::Ghost
+                        }).clicked) {
+                            state.viewYear += 1;
+                        }
                     }
-                    ctx.ConsumeMouseClick();
-                }
-            }
-        }
 
-        if (popLayout.hasTime) {
-            const Vec2 wheel = ctx.GetMouseWheel();
-            for (keel::i32 u = 0; u < popLayout.timeUnitCount; ++u) {
-                const keel::usize su = keel::as<keel::usize>(u);
-                if (popLayout.timeMinusRects[su].Contains(mouse)) {
-                    hoveredTimeBtn = u * 2;
-                    if (mouseClicked) {
-                        const DateTime prev = value;
-                        if (u == 0) value.hour = (value.hour + 23) % 24;
-                        else if (u == 1) value.minute = (value.minute + 59) % 60;
-                        else value.second = (value.second + 59) % 60;
-                        ClampDateTimeToBounds(value, optsCopy);
-                        if (value != prev) res.changed = true;
-                        ctx.ConsumeMouseClick();
+                    // Compact 6x7 day grid leaf node scaled with popupCtrlSize
+                    const keel::f32 cellH = popMetrics.defaultHeight;
+                    const keel::f32 weekdayH = keel::round(cellH * 0.78f);
+                    const keel::f32 calendarMinW = keel::round(cellH * 7.0f + 42.0f);
+                    const Id calId = ctx.MakeChildId(loc);
+                    const Rect prevCalRect = ctx.GetPrevFrameBounds(calId);
+                    keel::i32 hoveredDayCell = -1;
+                    if (wasOpen && prevCalRect.w > 0.0f && prevCalRect.h > weekdayH && ctx.IsRectHovered(calId, prevCalRect)) {
+                        const Vec2 mouse = ctx.GetMousePos();
+                        const Rect gridRect(prevCalRect.x, prevCalRect.y + weekdayH, prevCalRect.w, prevCalRect.h - weekdayH);
+                        if (gridRect.Contains(mouse)) {
+                            const keel::f32 cellW = gridRect.w / 7.0f;
+                            const keel::f32 hitCellH = gridRect.h / 6.0f;
+                            const keel::i32 col = keel::clamp(keel::as<keel::i32>((mouse.x - gridRect.x) / cellW), 0, 6);
+                            const keel::i32 row = keel::clamp(keel::as<keel::i32>((mouse.y - gridRect.y) / hitCellH), 0, 5);
+                            const keel::i32 cellIdx = row * 7 + col;
+                            const auto cells = BuildCalendarGrid(state.viewYear, state.viewMonth, optsCopy.firstDayMonday);
+                            const DayCellEntry& chosen = cells[keel::as<keel::usize>(cellIdx)];
+                            const bool cellDisabled = IsDayCellDisabled(chosen.year, chosen.month, chosen.day, optsCopy);
+                            if (!cellDisabled) {
+                                hoveredDayCell = cellIdx;
+                            }
+                            if (ctx.IsMouseClicked()) {
+                                if (!cellDisabled) {
+                                    DateTime candidate = value;
+                                    candidate.year = chosen.year;
+                                    candidate.month = chosen.month;
+                                    candidate.day = chosen.day;
+                                    ClampDateTimeToBounds(candidate, optsCopy);
+                                    if (value != candidate) {
+                                        value = candidate;
+                                        res.changed = true;
+                                    }
+                                    state.viewYear = value.year;
+                                    state.viewMonth = value.month;
+                                    state.syncedYear = value.year;
+                                    state.syncedMonth = value.month;
+                                }
+                                ctx.ConsumeMouseClick();
+                            }
+                        }
                     }
-                } else if (popLayout.timePlusRects[su].Contains(mouse)) {
-                    hoveredTimeBtn = u * 2 + 1;
-                    if (mouseClicked) {
-                        const DateTime prev = value;
-                        if (u == 0) value.hour = (value.hour + 1) % 24;
-                        else if (u == 1) value.minute = (value.minute + 1) % 60;
-                        else value.second = (value.second + 1) % 60;
-                        ClampDateTimeToBounds(value, optsCopy);
-                        if (value != prev) res.changed = true;
-                        ctx.ConsumeMouseClick();
+
+                    Node* calNode = ctx.CreateNode(NodeType::Custom, calId);
+                    auto* calData = ctx.AllocPayload<CalendarGridData>(CalendarGridData{
+                        .value = value,
+                        .viewYear = state.viewYear,
+                        .viewMonth = state.viewMonth,
+                        .opts = optsCopy,
+                        .size = activeSize,
+                        .hoveredDayCell = hoveredDayCell,
+                        .weekdayH = weekdayH,
+                        .cellH = cellH,
+                        .minWidth = calendarMinW
+                    });
+                    calNode->SetPayload(calData);
+                    calNode->widthMode = SizeMode::Stretch;
+                    calNode->minWidth = calendarMinW;
+                    calNode->heightMode = SizeMode::Fixed;
+                    calNode->fixedHeight = weekdayH + cellH * 6.0f;
+                    calNode->measureFn = [](const Node* n, keel::f32 /*availW*/, ICanvas* /*c*/, const UiTheme& /*t*/) noexcept -> Vec2 {
+                        const auto* cd = n->As<CalendarGridData>();
+                        return cd
+                            ? Vec2{cd->minWidth, cd->weekdayH + cd->cellH * 6.0f}
+                            : Vec2{238.0f, 190.0f};
+                    };
+                    calNode->renderFn = &RenderCalendarGridNode;
+                    calNode->visualHash = detail::HashArgs(
+                        value.year,
+                        value.month,
+                        value.day,
+                        state.viewYear,
+                        state.viewMonth,
+                        optsCopy.firstDayMonday,
+                        hoveredDayCell,
+                        popupCtrlSize
+                    );
+                }
+
+                if (hasTime) {
+                    if (hasCalendar) {
+                        guikit::Separator(ctx);
+                    }
+                    if (auto timeRow = guikit::Row(ctx, {
+                        .gap = 4.0f,
+                        .align = Alignment::Center,
+                        .justify = Justify::Center,
+                        .width = SizeMode::Stretch
+                    })) {
+                        static constexpr keel::StaticArray<keel::StringRef, 1> kTwoDigits = {"00"};
+                        const keel::i32 timeUnitCount = optsCopy.showSeconds ? 3 : 2;
+                        for (keel::i32 u = 0; u < timeUnitCount; ++u) {
+                            auto unitScope = ctx.IdScope(keel::as<keel::u64>(u));
+                            const keel::i32 maxUnit = (u == 0) ? 23 : 59;
+                            keel::i32 unitVal = (u == 0) ? value.hour : ((u == 1) ? value.minute : value.second);
+                            const keel::StringRef sfx = ResolveTimeSuffix(keel::as<keel::usize>(u), optsCopy);
+                            const Response spinRes = guikit::SpinBox(ctx, unitVal, {
+                                .suffix = UiAffix{sfx},
+                                .valueFormat = UiText{"{:02d}", kTwoDigits},
+                                .min = -1.0,
+                                .max = keel::as<keel::f64>(maxUnit + 1),
+                                .step = 1.0,
+                                .stepStyle = SpinBoxStepStyle::Split,
+                                .size = popupCtrlSize,
+                                .width = SizeMode::Fit,
+                                .style = optsCopy.style,
+                                .status = optsCopy.status
+                            });
+                            if (spinRes.changed) {
+                                if (unitVal < 0) {
+                                    unitVal = maxUnit;
+                                } else if (unitVal > maxUnit) {
+                                    unitVal = 0;
+                                }
+                                DateTime candidate = value;
+                                if (u == 0) candidate.hour = unitVal;
+                                else if (u == 1) candidate.minute = unitVal;
+                                else candidate.second = unitVal;
+                                ClampDateTimeToBounds(candidate, optsCopy);
+                                if (value != candidate) {
+                                    value = candidate;
+                                    res.changed = true;
+                                }
+                            }
+                            if (u + 1 < timeUnitCount) {
+                                guikit::Text(ctx, ":", {.role = TextRole::LabelMedium, .variant = UiVariant::Secondary});
+                            }
+                        }
                     }
                 }
 
-                if (wheel.y != 0.0f && popLayout.timeUnitRects[su].Contains(mouse)) {
-                    const DateTime prev = value;
-                    const keel::i32 step = (wheel.y > 0.0f) ? 1 : -1;
-                    if (u == 0) value.hour = (value.hour + 24 + step) % 24;
-                    else if (u == 1) value.minute = (value.minute + 60 + step) % 60;
-                    else value.second = (value.second + 60 + step) % 60;
-                    ClampDateTimeToBounds(value, optsCopy);
-                    if (value != prev) res.changed = true;
-                    ctx.ConsumeMouseWheel();
+                guikit::Separator(ctx);
+
+                // Footer action buttons: Today/Now + Done
+                if (auto footerRow = guikit::Row(ctx, {
+                    .gap = 8.0f,
+                    .align = Alignment::Center,
+                    .width = SizeMode::Stretch
+                })) {
+                    if (optsCopy.showTodayButton) {
+                        if (guikit::Button(ctx, {
+                            .text = UiText{ResolveTodayLabel(optsCopy)},
+                            .size = popupCtrlSize,
+                            .style = ButtonStyle::Default,
+                            .variant = UiVariant::Default
+                        }).clicked) {
+                            const DateTime todayVal = optsCopy.todayOverride.value_or(DateTime::Today());
+                            DateTime candidate = value;
+                            if (optsCopy.mode == DatePickerMode::Date) {
+                                candidate.year = todayVal.year;
+                                candidate.month = todayVal.month;
+                                candidate.day = todayVal.day;
+                            } else if (optsCopy.mode == DatePickerMode::Time) {
+                                candidate.hour = todayVal.hour;
+                                candidate.minute = todayVal.minute;
+                                candidate.second = todayVal.second;
+                            } else {
+                                candidate = todayVal;
+                            }
+                            ClampDateTimeToBounds(candidate, optsCopy);
+                            if (value != candidate) {
+                                value = candidate;
+                                res.changed = true;
+                            }
+                            state.viewYear = value.year;
+                            state.viewMonth = value.month;
+                            state.syncedYear = value.year;
+                            state.syncedMonth = value.month;
+                        }
+                    }
+
+                    guikit::Spacer(ctx);
+
+                    if (guikit::Button(ctx, {
+                        .text = UiText{ResolveDoneLabel(optsCopy)},
+                        .size = popupCtrlSize,
+                        .style = ButtonStyle::Default,
+                        .variant = UiVariant::Primary
+                    }).clicked) {
+                        res.submitted = true;
+                        pop.Close();
+                        ctx.ClosePopup();
+                        isOpen = false;
+                        ctx.RequestFocus(id);
+                    }
+                }
+            }
+
+            if (isOpen && wasOpen) {
+                if (ctx.ConsumeKey(Key::Escape)) {
+                    pop.Close();
+                    ctx.ClosePopup();
+                    isOpen = false;
+                    ctx.RequestFocus(id);
+                } else if (ctx.ConsumeKey(Key::Enter)) {
+                    res.submitted = true;
+                    pop.Close();
+                    ctx.ClosePopup();
+                    isOpen = false;
+                    ctx.RequestFocus(id);
                 }
             }
         }
-
-        if (optsCopy.showTodayButton && popLayout.todayBtnRect.Contains(mouse)) {
-            todayHovered = true;
-            if (mouseClicked) {
-                const DateTime todayVal = optsCopy.todayOverride.value_or(DateTime::Today());
-                DateTime candidate = value;
-                if (optsCopy.mode == DatePickerMode::Date) {
-                    candidate.year = todayVal.year;
-                    candidate.month = todayVal.month;
-                    candidate.day = todayVal.day;
-                } else if (optsCopy.mode == DatePickerMode::Time) {
-                    candidate.hour = todayVal.hour;
-                    candidate.minute = todayVal.minute;
-                    candidate.second = todayVal.second;
-                } else {
-                    candidate = todayVal;
-                }
-                ClampDateTimeToBounds(candidate, optsCopy);
-                if (value != candidate) {
-                    value = candidate;
-                    res.changed = true;
-                }
-                state.viewYear = value.year;
-                state.viewMonth = value.month;
-                state.syncedYear = value.year;
-                state.syncedMonth = value.month;
-                ctx.ConsumeMouseClick();
-            }
-        }
-
-        if (popLayout.doneBtnRect.Contains(mouse)) {
-            doneHovered = true;
-            if (mouseClicked) {
-                res.submitted = true;
-                ctx.ClosePopup();
-                isOpen = false;
-                ctx.ConsumeMouseClick();
-                ctx.RequestFocus(id);
-            }
-        }
-
-        if (isOpen && ctx.ConsumeKey(Key::Escape)) {
-            ctx.ClosePopup();
-            isOpen = false;
-            ctx.RequestFocus(id);
-        } else if (isOpen && ctx.ConsumeKey(Key::Enter)) {
-            res.submitted = true;
-            ctx.ClosePopup();
-            isOpen = false;
-            ctx.RequestFocus(id);
-        }
-    }
-
-    if (isOpen) {
-        DatePickerPopupRenderData renderData{
-            .layout = popLayout,
-            .value = value,
-            .viewYear = state.viewYear,
-            .viewMonth = state.viewMonth,
-            .opts = optsCopy,
-            .size = activeSize,
-            .theme = theme,
-            .hoveredNavBtn = hoveredNavBtn,
-            .hoveredDayCell = hoveredDayCell,
-            .hoveredTimeBtn = hoveredTimeBtn,
-            .todayHovered = todayHovered,
-            .doneHovered = doneHovered
-        };
-
-        ctx.SetOpenPopupVisualHash(detail::HashArgs(
-            popLayout.popupRect.x,
-            popLayout.popupRect.y,
-            popLayout.popupRect.w,
-            popLayout.popupRect.h,
-            value.year,
-            value.month,
-            value.day,
-            value.hour,
-            value.minute,
-            value.second,
-            state.viewYear,
-            state.viewMonth,
-            keel::as<keel::u8>(optsCopy.mode),
-            optsCopy.showSeconds,
-            optsCopy.showTodayButton,
-            optsCopy.firstDayMonday,
-            hoveredNavBtn,
-            hoveredDayCell,
-            hoveredTimeBtn,
-            todayHovered,
-            doneHovered,
-            detail::HashArgs(ResolveTodayLabel(optsCopy), ResolveDoneLabel(optsCopy))
-        ));
-
-        ctx.RegisterOverlay([renderData](ICanvas& overlayCanvas) {
-            RenderDatePickerPopover(overlayCanvas, renderData);
-        });
     }
 
     if (res.hovered && !isOpen && !opts.tooltip.empty()) {

@@ -8,6 +8,18 @@ namespace guikit {
 // Reusable 3D Bevel Primitives (Windows 98 EDGE_RAISED / EDGE_SUNKEN / EDGE_ETCHED)
 // ==============================================================================
 
+namespace {
+
+[[nodiscard]] Rect SnapBevelRect(Rect r) noexcept {
+    const keel::f32 x0 = keel::floor(r.x + 0.5f);
+    const keel::f32 y0 = keel::floor(r.y + 0.5f);
+    const keel::f32 x1 = keel::floor(r.Right() + 0.5f);
+    const keel::f32 y1 = keel::floor(r.Bottom() + 0.5f);
+    return Rect(x0, y0, keel::max(0.0f, x1 - x0), keel::max(0.0f, y1 - y0));
+}
+
+} // namespace
+
 void DefaultStylePainter::DrawBevelFrame(
     ICanvas& canvas,
     Rect r,
@@ -15,10 +27,11 @@ void DefaultStylePainter::DrawBevelFrame(
     bool sunken,
     bool thin
 ) {
-    const keel::f32 x = keel::floor(r.x);
-    const keel::f32 y = keel::floor(r.y);
-    const keel::f32 w = keel::floor(r.w);
-    const keel::f32 h = keel::floor(r.h);
+    const Rect snapped = SnapBevelRect(r);
+    const keel::f32 x = snapped.x;
+    const keel::f32 y = snapped.y;
+    const keel::f32 w = snapped.w;
+    const keel::f32 h = snapped.h;
     if (w < 3.0f || h < 3.0f) return;
 
     const Color tlOuter = sunken ? c.shadowInner    : c.highlightOuter;
@@ -46,10 +59,11 @@ void DefaultStylePainter::DrawBevelEtchedFrame(
     Rect r,
     const BevelPalette& c
 ) {
-    const keel::f32 x = keel::floor(r.x);
-    const keel::f32 y = keel::floor(r.y);
-    const keel::f32 w = keel::floor(r.w);
-    const keel::f32 h = keel::floor(r.h);
+    const Rect snapped = SnapBevelRect(r);
+    const keel::f32 x = snapped.x;
+    const keel::f32 y = snapped.y;
+    const keel::f32 w = snapped.w;
+    const keel::f32 h = snapped.h;
     if (w < 4.0f || h < 4.0f) return;
 
     canvas.DrawRect(Rect(x + 1.0f, y + 1.0f, w - 2.0f, 1.0f), c.highlightOuter);
@@ -254,7 +268,7 @@ void DefaultStylePainter::DrawSurfaceBg(
         if (effRadius > 0.0f) {
             canvas.DrawRoundRect(p.rect, effRadius, p.bg, Color::Transparent(), 0.0f);
         } else {
-            canvas.DrawRect(p.rect, p.bg);
+            canvas.DrawRect(useBevel ? SnapBevelRect(p.rect) : p.rect, p.bg);
         }
     }
 }
@@ -394,17 +408,18 @@ void DefaultStylePainter::DrawFrame(
     }
 
     // FrameTreatment::Bevel3D / FieldTreatment::Sunken3D path
+    const Rect bevelRect = SnapBevelRect(p.rect);
     const Color effBg = (isInput && p.disabled && p.bg.a > 0u) ? theme.palette.surface : p.bg;
     if (effBg.a > 0u) {
-        canvas.DrawRect(p.rect, effBg);
+        canvas.DrawRect(bevelRect, effBg);
     }
 
     switch (kind) {
         case FrameKind::Input:
-            DrawBevelFrame(canvas, p.rect, theme.bevel, /*sunken=*/true, /*thin=*/false);
-            if (p.focused && !p.disabled && p.rect.w > 6.0f && p.rect.h > 6.0f) {
+            DrawBevelFrame(canvas, bevelRect, theme.bevel, /*sunken=*/true, /*thin=*/false);
+            if (p.focused && !p.disabled && bevelRect.w > 6.0f && bevelRect.h > 6.0f) {
                 canvas.DrawRoundRect(
-                    Rect(p.rect.x + 2.0f, p.rect.y + 2.0f, p.rect.w - 4.0f, p.rect.h - 4.0f),
+                    Rect(bevelRect.x + 2.0f, bevelRect.y + 2.0f, bevelRect.w - 4.0f, bevelRect.h - 4.0f),
                     0.0f, Color::Transparent(), (p.accent.a > 0u) ? p.accent : theme.palette.focusRing, 1.0f
                 );
             }
@@ -413,11 +428,11 @@ void DefaultStylePainter::DrawFrame(
         case FrameKind::Button:
         case FrameKind::DropdownButton:
             if (effBg.a > 0u) {
-                DrawBevelFrame(canvas, p.rect, theme.bevel, /*sunken=*/(!p.disabled && (p.pressed || p.active)), /*thin=*/false);
+                DrawBevelFrame(canvas, bevelRect, theme.bevel, /*sunken=*/(!p.disabled && (p.pressed || p.active)), /*thin=*/false);
             }
-            if (p.focused && !p.disabled && p.rect.w > 8.0f && p.rect.h > 8.0f) {
+            if (p.focused && !p.disabled && bevelRect.w > 8.0f && bevelRect.h > 8.0f) {
                 canvas.DrawRoundRect(
-                    Rect(p.rect.x + 3.0f, p.rect.y + 3.0f, p.rect.w - 6.0f, p.rect.h - 6.0f),
+                    Rect(bevelRect.x + 3.0f, bevelRect.y + 3.0f, bevelRect.w - 6.0f, bevelRect.h - 6.0f),
                     0.0f, Color::Transparent(), theme.palette.focusRing, 1.0f
                 );
             }
@@ -425,20 +440,20 @@ void DefaultStylePainter::DrawFrame(
 
         case FrameKind::ToolbarButton:
             if (!p.disabled && (p.pressed || p.active)) {
-                DrawBevelFrame(canvas, p.rect, theme.bevel, /*sunken=*/true, /*thin=*/true);
+                DrawBevelFrame(canvas, bevelRect, theme.bevel, /*sunken=*/true, /*thin=*/true);
             } else if (!p.disabled && p.hovered) {
-                DrawBevelFrame(canvas, p.rect, theme.bevel, /*sunken=*/false, /*thin=*/true);
+                DrawBevelFrame(canvas, bevelRect, theme.bevel, /*sunken=*/false, /*thin=*/true);
             }
-            if (p.focused && !p.disabled && p.rect.w > 6.0f && p.rect.h > 6.0f) {
+            if (p.focused && !p.disabled && bevelRect.w > 6.0f && bevelRect.h > 6.0f) {
                 canvas.DrawRoundRect(
-                    Rect(p.rect.x + 2.0f, p.rect.y + 2.0f, p.rect.w - 4.0f, p.rect.h - 4.0f),
+                    Rect(bevelRect.x + 2.0f, bevelRect.y + 2.0f, bevelRect.w - 4.0f, bevelRect.h - 4.0f),
                     0.0f, Color::Transparent(), theme.palette.focusRing, 1.0f
                 );
             }
             break;
 
         case FrameKind::Badge:
-            DrawBevelFrame(canvas, p.rect, theme.bevel, /*sunken=*/true, /*thin=*/true);
+            DrawBevelFrame(canvas, bevelRect, theme.bevel, /*sunken=*/true, /*thin=*/true);
             break;
     }
 }
@@ -1299,10 +1314,11 @@ void DefaultStylePainter::DrawBadge(
     if (rect.w <= 0.0f || rect.h <= 0.0f) return;
 
     if (theme.chrome.frame == FrameTreatment::Bevel3D) {
+        const Rect bevelRect = SnapBevelRect(rect);
         if (bg.a > 0u) {
-            canvas.DrawRect(rect, bg);
+            canvas.DrawRect(bevelRect, bg);
         }
-        DrawBevelFrame(canvas, rect, theme.bevel, /*sunken=*/true, /*thin=*/true);
+        DrawBevelFrame(canvas, bevelRect, theme.bevel, /*sunken=*/true, /*thin=*/true);
         return;
     }
 

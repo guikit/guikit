@@ -620,7 +620,9 @@ void Context::OnMouseWheel(keel::f32 x, keel::f32 y) {
 bool Context::IsFocused(Id id) const noexcept {
     if (!id.IsValid() || m_focus.GetFocusedId() != id) return false;
     const Id openPopup = m_overlays.GetOpenPopupId();
-    if (openPopup.IsValid() && openPopup != id) return false;
+    const Id openPopupPortal = m_overlays.GetOpenPopupPortalId();
+    const bool insideOpenPopupPortal = openPopupPortal.IsValid() && CurrentPortalId() == openPopupPortal;
+    if (openPopup.IsValid() && openPopup != id && !insideOpenPopupPortal) return false;
     if (HasModalAboveCurrentScope()) return false;
     return true;
 }
@@ -632,7 +634,11 @@ bool Context::IsDirectEditAllowed() const noexcept {
     }
     const Id openPopup = m_overlays.GetOpenPopupId();
     if (openPopup.IsValid() && openPopup != curFocused) {
-        return false;
+        const Id openPopupPortal = m_overlays.GetOpenPopupPortalId();
+        const HitNodeRecord* focHit = openPopupPortal.IsValid() ? m_hitTree.FindPrevHitNode(curFocused) : nullptr;
+        if (!focHit || focHit->portalId != openPopupPortal) {
+            return false;
+        }
     }
     const Id topModalId = m_overlays.GetPrevFrameModalId();
     if (topModalId.IsValid() && !m_focus.IsInsideModal(topModalId, curFocused)) {
@@ -723,6 +729,15 @@ void Context::OnKeyDown(Key key, KeyModifiers mods) {
     RequestRepaint(3);
 
     if (m_keymap.Matches(KeyAction::Cancel, key, mods) && m_overlays.GetOpenPopupId().IsValid()) {
+        if (IsDirectEditAllowed() && m_overlays.GetOpenPopupPortalId().IsValid()) {
+            bool lostFocus = false;
+            if (m_editState.HandleKey(*this, key, mods, lostFocus)) {
+                if (lostFocus) {
+                    m_focus.SetFocusedId(Id::Null());
+                }
+                return;
+            }
+        }
         ClosePopup();
         return;
     }
@@ -739,13 +754,13 @@ void Context::OnKeyDown(Key key, KeyModifiers mods) {
     m_pendingKeyEvents.push_back({key, mods});
 }
 
-void Context::OpenPopup(Id id, Rect bounds, Rect anchorRect) {
+void Context::OpenPopup(Id id, Rect bounds, Rect anchorRect, Id portalId) {
     const Rect frameBounds = CurrentSpace().Apply(bounds);
     const Rect anchorFrameBounds = (anchorRect.w > 0.0f && anchorRect.h > 0.0f)
         ? CurrentSpace().Apply(anchorRect)
         : Rect{};
     keel::SmallArray<Rect, 16> invalidated;
-    m_overlays.OpenPopup(id, frameBounds, anchorFrameBounds, invalidated);
+    m_overlays.OpenPopup(id, frameBounds, anchorFrameBounds, invalidated, portalId);
     for (const Rect& r : invalidated) {
         InvalidateFrameRect(r);
     }
@@ -763,8 +778,12 @@ bool Context::IsPointInOpenPopup(Vec2 framePos) const noexcept {
 }
 
 void Context::ClosePopup() {
+    const Id portalId = m_overlays.GetOpenPopupPortalId();
     keel::SmallArray<Rect, 16> invalidated;
     if (m_overlays.ClosePopup(invalidated)) {
+        if (portalId.IsValid()) {
+            ClearPopoverBlock(portalId);
+        }
         for (const Rect& r : invalidated) {
             InvalidateFrameRect(r);
         }
@@ -931,8 +950,9 @@ bool Context::IsOverlayOccludedInFrame(Id id, Vec2 pos, OverlayLayer layer) cons
     const keel::u8 layerRank = keel::as<keel::u8>(layer);
 
     const Id openPopup = m_overlays.GetOpenPopupId();
+    const Id openPopupPortal = m_overlays.GetOpenPopupPortalId();
     if (layerRank <= keel::as<keel::u8>(OverlayLayer::Popup) &&
-        openPopup.IsValid() && openPopup != id && IsPointInOpenPopup(pos)) {
+        openPopup.IsValid() && openPopup != id && openPopupPortal != id && IsPointInOpenPopup(pos)) {
         return true;
     }
     for (const auto& ov : m_overlays.GetPrevOverlayHitRegions()) {
@@ -966,7 +986,9 @@ bool Context::IsMouseOccluded(Id id, Vec2 pos) const noexcept {
 
 bool Context::IsMouseOccludedInFrame(Id id, Vec2 pos) const noexcept {
     const Id openPopup = m_overlays.GetOpenPopupId();
-    if (openPopup.IsValid() && id != openPopup && IsPointInOpenPopup(pos)) {
+    const Id openPopupPortal = m_overlays.GetOpenPopupPortalId();
+    const bool insideOpenPopupPortal = openPopupPortal.IsValid() && CurrentPortalId() == openPopupPortal;
+    if (openPopup.IsValid() && id != openPopup && !insideOpenPopupPortal && IsPointInOpenPopup(pos)) {
         return true;
     }
     if (IsModalBlockingInFrame(pos)) {
@@ -1064,7 +1086,9 @@ bool Context::IsMouseBlockedForCurrentScope() const noexcept {
         return IsOverlayOccludedInFrame(m_activeOverlayHitCheckId, m_mousePos, m_activeOverlayHitCheckLayer);
     }
 
-    if (m_overlays.GetOpenPopupId().IsValid() && IsPointInOpenPopup(m_mousePos)) {
+    const Id openPopupPortal = m_overlays.GetOpenPopupPortalId();
+    const bool insideOpenPopupPortal = openPopupPortal.IsValid() && CurrentPortalId() == openPopupPortal;
+    if (m_overlays.GetOpenPopupId().IsValid() && !insideOpenPopupPortal && IsPointInOpenPopup(m_mousePos)) {
         return true;
     }
     if (IsModalBlockingInFrame(m_mousePos)) {
@@ -1553,6 +1577,13 @@ void Context::EndFrame(ICanvas& canvas) {
     m_overlays.CommitOverlayHitRegions();
     m_hitTree.CommitFrame();
     m_focus.CommitFrame();
+
+    if (const Id portalId = m_overlays.GetOpenPopupPortalId(); portalId.IsValid()) {
+        const Rect portalRect = m_hitTree.GetPrevUnclippedBounds(portalId);
+        if (portalRect.w > 0.0f && portalRect.h > 0.0f) {
+            m_overlays.UpdateOpenPopupRect(portalRect);
+        }
+    }
 
     // Suspend focus from occluded background widgets when a Modal opens, and restore it when all Modals close
     if (m_overlays.HasCurrFrameModals()) {

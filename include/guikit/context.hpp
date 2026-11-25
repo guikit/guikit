@@ -449,12 +449,13 @@ public:
 
     // --- Popup, Tooltip, Modal & Overlay Management ---
     void RegisterEndFrameHook(EndFrameHook hook) { m_overlays.RegisterEndFrameHook(hook); }
-    void OpenPopup(Id id, Rect bounds, Rect anchorRect = Rect{});
+    void OpenPopup(Id id, Rect bounds, Rect anchorRect = Rect{}, Id portalId = Id::Null());
     void AddOpenPopupRect(Rect bounds);
     void ClosePopup();
     [[nodiscard]] bool IsPopupOpen(Id id) const noexcept { return m_overlays.IsPopupOpen(id); }
     [[nodiscard]] bool WasPopupDismissedThisFrame() const noexcept { return m_overlays.WasPopupDismissedThisFrame(); }
     [[nodiscard]] Id GetOpenPopupId() const noexcept { return m_overlays.GetOpenPopupId(); }
+    [[nodiscard]] Id GetOpenPopupPortalId() const noexcept { return m_overlays.GetOpenPopupPortalId(); }
     [[nodiscard]] Rect GetOpenPopupRect() const noexcept { return CurrentSpace().Invert(m_overlays.GetOpenPopupRect()); }
     [[nodiscard]] bool IsPointInOpenPopup(Vec2 framePos) const noexcept;
     void SetOpenPopupVisualHash(keel::u64 hash) noexcept { m_overlays.SetOpenPopupVisualHash(hash); }

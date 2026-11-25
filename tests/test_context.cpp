@@ -11261,6 +11261,7 @@ void TestTextBufferDiffUndoRedo();
 void TestImeCompositionAndFileDrop();
 void TestPopupDismissOutsidePassesClickThrough();
 void TestSelectPopupSelectedVsHoverStability();
+void TestDatePickerPopoverWidgets();
 
 void TestZonePartialThemeOverrides() {
     using namespace guikit;
@@ -11345,6 +11346,7 @@ int main() {
     TestImeCompositionAndFileDrop();
     TestPopupDismissOutsidePassesClickThrough();
     TestSelectPopupSelectedVsHoverStability();
+    TestDatePickerPopoverWidgets();
     TestTextWrappingAndBackendIndependence();
 
 #if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
@@ -18009,6 +18011,81 @@ void TestSelectPopupSelectedVsHoverStability() {
     }
 
     keel::println("  [PASS] TestSelectPopupSelectedVsHoverStability completed");
+}
+
+void TestDatePickerPopoverWidgets() {
+    using namespace guikit;
+    keel::println("  -> TestDatePickerPopoverWidgets...");
+
+    Context ui;
+    ui.SetTheme(UiTheme::Windows98());
+    NullCanvas canvas;
+
+    DateTime dt{.year = 2026, .month = 10, .day = 20, .hour = 23, .minute = 30, .second = 0};
+    const DateTime fixedToday{.year = 2026, .month = 11, .day = 5, .hour = 9, .minute = 15, .second = 0};
+    keel::i32 outsideClicks = 0;
+    Response dpRes{};
+    Response btnRes{};
+
+    auto runFrame = [&]() {
+        ui.BeginFrame({800.0f, 600.0f});
+        if (auto row = guikit::Row(ui, {.gap = 16.0f, .padding = Padding::All(20.0f)})) {
+            dpRes = guikit::DatePicker(ui, dt, {
+                .mode = DatePickerMode::DateTime,
+                .showSeconds = false,
+                .showTodayButton = true,
+                .todayOverride = fixedToday,
+                .width = 220.0f
+            });
+            btnRes = guikit::Button(ui, {.text = "Outside"});
+            if (btnRes.clicked) {
+                ++outsideClicks;
+            }
+        }
+        ui.EndFrame(canvas);
+    };
+
+    auto clickAt = [&](Vec2 pos) {
+        ui.OnMouseMove(pos);
+        ui.OnMouseDown(1);
+        runFrame();
+        ui.OnMouseUp(1);
+        runFrame();
+    };
+
+    runFrame();
+    runFrame();
+    CHECK(dpRes.rect.w > 0.0f);
+    CHECK(btnRes.rect.w > 0.0f);
+
+    // 1. Open DatePicker popover -> registers openPopupId + backing portalId + laid-out popup rect on frame 1
+    clickAt(dpRes.rect.Center());
+    CHECK(ui.GetOpenPopupId() == dpRes.id);
+    CHECK(ui.GetOpenPopupPortalId().IsValid());
+    const Rect popRect = ui.GetOpenPopupRect();
+    CHECK(popRect.w > 200.0f);
+    CHECK(popRect.h > 200.0f);
+
+    // 2. Click Done button (bottom-right of popover card) -> submits & closes
+    clickAt({popRect.Right() - 30.0f, popRect.Bottom() - 22.0f});
+    CHECK(!ui.GetOpenPopupId().IsValid());
+    CHECK(!ui.GetOpenPopupPortalId().IsValid());
+    CHECK(dpRes.submitted);
+
+    // 3. Reopen, click Today button (bottom-left of popover card) -> sets fixedToday while keeping popup open
+    clickAt(dpRes.rect.Center());
+    CHECK(ui.GetOpenPopupId() == dpRes.id);
+    const Rect popRect2 = ui.GetOpenPopupRect();
+    clickAt({popRect2.x + 35.0f, popRect2.Bottom() - 22.0f});
+    CHECK(ui.GetOpenPopupId() == dpRes.id);
+    CHECK(dt.year == 2026 && dt.month == 11 && dt.day == 5 && dt.hour == 9 && dt.minute == 15);
+
+    // 4. Click outside Button while DatePicker is open -> closes DatePicker AND fires outside Button in 1 click
+    clickAt(btnRes.rect.Center());
+    CHECK(!ui.GetOpenPopupId().IsValid());
+    CHECK(outsideClicks == 1);
+
+    keel::println("  [PASS] TestDatePickerPopoverWidgets completed");
 }
 
 

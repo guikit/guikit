@@ -737,6 +737,8 @@ void detail::ColorPicker::RenderPanel(
     }
 
     const PanelLayout L = ComputePanelLayout(panelRect, opts);
+    const keel::f32 elemRadius = keel::min(4.0f, radius);
+    const keel::f32 trackRadius = (elemRadius > 0.01f) ? (L.hueRect.h * 0.5f) : 0.0f;
 
     // 1. Render 2D Saturation-Value (SV) gradient square via DrawPixels (48x36)
     constexpr keel::u32 kSvW = 48;
@@ -750,8 +752,8 @@ void detail::ColorPicker::RenderPanel(
             svPixels[py * kSvW + px] = c.ToUint32();
         }
     }
-    canvas.DrawPixels({svPixels, kSvW, kSvH}, L.svRect, 4.0f, disabled ? 130 : 255);
-    canvas.DrawRoundRect(L.svRect, 4.0f, Color::Transparent(), pal.borderSubtle, 1.0f);
+    canvas.DrawPixels({svPixels, kSvW, kSvH}, L.svRect, elemRadius, disabled ? 130 : 255);
+    canvas.DrawRoundRect(L.svRect, elemRadius, Color::Transparent(), pal.borderSubtle, 1.0f);
 
     // SV thumb ring
     const keel::f32 svThumbX = L.svRect.x + keel::clamp(s, 0.0f, 1.0f) * L.svRect.w;
@@ -767,8 +769,8 @@ void detail::ColorPicker::RenderPanel(
         const keel::f32 deg = (keel::as<keel::f32>(px) / keel::as<keel::f32>(kHueW - 1)) * 360.0f;
         huePixels[px] = HsvToRgb(deg, 1.0f, 1.0f, 255).ToUint32();
     }
-    canvas.DrawPixels({huePixels, kHueW, 1}, L.hueRect, L.hueRect.h * 0.5f, disabled ? 130 : 255);
-    canvas.DrawRoundRect(L.hueRect, L.hueRect.h * 0.5f, Color::Transparent(), pal.borderSubtle, 1.0f);
+    canvas.DrawPixels({huePixels, kHueW, 1}, L.hueRect, trackRadius, disabled ? 130 : 255);
+    canvas.DrawRoundRect(L.hueRect, trackRadius, Color::Transparent(), pal.borderSubtle, 1.0f);
 
     const keel::f32 hueNorm = keel::clamp(h / 360.0f, 0.0f, 1.0f);
     const keel::f32 hueThumbX = L.hueRect.x + hueNorm * L.hueRect.w;
@@ -796,8 +798,8 @@ void detail::ColorPicker::RenderPanel(
                 alphaPixels[py * kAlphaW + px] = blended.ToUint32();
             }
         }
-        canvas.DrawPixels({alphaPixels, kAlphaW, kAlphaH}, L.alphaRect, L.alphaRect.h * 0.5f, disabled ? 130 : 255);
-        canvas.DrawRoundRect(L.alphaRect, L.alphaRect.h * 0.5f, Color::Transparent(), pal.borderSubtle, 1.0f);
+        canvas.DrawPixels({alphaPixels, kAlphaW, kAlphaH}, L.alphaRect, trackRadius, disabled ? 130 : 255);
+        canvas.DrawRoundRect(L.alphaRect, trackRadius, Color::Transparent(), pal.borderSubtle, 1.0f);
 
         const keel::f32 alphaNorm = keel::clamp(keel::as<keel::f32>(value.a) / 255.0f, 0.0f, 1.0f);
         const keel::f32 alphaThumbX = L.alphaRect.x + alphaNorm * L.alphaRect.w;
@@ -810,9 +812,16 @@ void detail::ColorPicker::RenderPanel(
         );
     }
 
-    // 4. Render Live Preview Swatch + HEX pill + RGBA summary
-    DrawCheckerboardSwatch(canvas, L.previewSwatchRect, value, 4.0f, pal.borderHover);
-    canvas.DrawRoundRect(L.hexTextRect, 4.0f, pal.inputBackground, pal.borderSubtle, 1.0f);
+    // 4. Render Live Preview Swatch + HEX field (via FieldFrame) + RGBA summary
+    DrawCheckerboardSwatch(canvas, L.previewSwatchRect, value, elemRadius, pal.borderHover);
+    FieldFrame::Draw(canvas, theme, FieldFrameParams{
+        .rect = L.hexTextRect,
+        .style = opts.style,
+        .status = opts.status,
+        .defaultRadius = elemRadius,
+        .defaultStrokeWidth = 1.0f,
+        .disabled = disabled
+    });
     const keel::f32 fontSm = theme.GetFontSize(TextRole::LabelSmall, size);
     canvas.DrawTextBox(hexText, L.hexTextRect.Inset(4.0f, 0.0f), fontSm, disabled ? pal.textMuted : pal.textPrimary, 0.5f, 0.5f);
 
@@ -834,6 +843,7 @@ void detail::ColorPicker::RenderPanel(
             const keel::f32 gap = 5.0f;
             const keel::f32 countF = keel::as<keel::f32>(swatches.size());
             const keel::f32 swW = keel::max(10.0f, (L.swatchesRowRect.w - gap * (countF - 1.0f)) / countF);
+            const keel::f32 innerSwRadius = (elemRadius > 0.01f) ? keel::min(2.5f, elemRadius) : 0.0f;
             for (keel::usize i = 0; i < swatches.size(); ++i) {
                 Rect sr(L.swatchesRowRect.x + keel::as<keel::f32>(i) * (swW + gap), L.swatchesRowRect.y, swW, L.swatchesRowRect.h);
                 const bool isHovered = !disabled && (hoveredSwatch == keel::as<keel::i32>(i));
@@ -842,9 +852,9 @@ void detail::ColorPicker::RenderPanel(
                     sr = sr.Inset(-1.0f);
                 }
                 const Color borderCol = isSelected ? Color(255, 255, 255, 240) : (isHovered ? pal.textPrimary : pal.borderSubtle);
-                DrawCheckerboardSwatch(canvas, sr, swatches[i], 4.0f, borderCol);
+                DrawCheckerboardSwatch(canvas, sr, swatches[i], elemRadius, borderCol);
                 if (isSelected) {
-                    canvas.DrawRoundRect(sr.Inset(2.0f), 2.5f, Color::Transparent(), Color(0, 0, 0, 140), 1.0f);
+                    canvas.DrawRoundRect(sr.Inset(2.0f), innerSwRadius, Color::Transparent(), Color(0, 0, 0, 140), 1.0f);
                 }
             }
         }
