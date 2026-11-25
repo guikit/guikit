@@ -49,33 +49,19 @@ void ApplyScrollbarMetricsForChrome(UiTheme& theme, ScrollbarChromeStyle chromeS
         return;
     }
 
-    const keel::f32 cr = (chromeStyle == ScrollbarChromeStyle::Outlined) ? 1.5f : 0.0f;
     theme.scrollbars = {{
         ScrollbarMetrics{  0.0f,  0.0f, 0.0f,  0.0f, 0.0f,  0.0f }, // None
-        ScrollbarMetrics{ 12.0f, 16.0f, cr,   18.0f, 0.0f, 12.0f }, // Xs
-        ScrollbarMetrics{ 14.0f, 18.0f, cr,   24.0f, 0.0f, 14.0f }, // Sm
-        ScrollbarMetrics{ 16.0f, 20.0f, cr,   30.0f, 0.0f, 16.0f }, // Md
-        ScrollbarMetrics{ 18.0f, 24.0f, cr,   36.0f, 0.0f, 18.0f }, // Lg
-        ScrollbarMetrics{ 20.0f, 28.0f, cr,   42.0f, 0.0f, 20.0f }  // Xl
+        ScrollbarMetrics{ 12.0f, 16.0f, 0.0f, 18.0f, 0.0f, 12.0f }, // Xs
+        ScrollbarMetrics{ 14.0f, 18.0f, 0.0f, 24.0f, 0.0f, 14.0f }, // Sm
+        ScrollbarMetrics{ 16.0f, 20.0f, 0.0f, 30.0f, 0.0f, 16.0f }, // Md
+        ScrollbarMetrics{ 18.0f, 24.0f, 0.0f, 36.0f, 0.0f, 18.0f }, // Lg
+        ScrollbarMetrics{ 20.0f, 28.0f, 0.0f, 42.0f, 0.0f, 20.0f }  // Xl
     }};
 }
 
-void ApplyScrollbarMetricsForPreset(UiTheme& theme, ScrollbarPreset effectivePreset) noexcept {
-    if (effectivePreset == ScrollbarPreset::Modern || effectivePreset == ScrollbarPreset::Auto) {
-        ApplyScrollbarMetricsForChrome(theme, ScrollbarChromeStyle::Modern);
-        return;
-    }
-    const bool softEdges = (effectivePreset == ScrollbarPreset::WindowsXp ||
-                            effectivePreset == ScrollbarPreset::WindowsVista ||
-                            effectivePreset == ScrollbarPreset::Windows7);
-    ApplyScrollbarMetricsForChrome(theme, softEdges ? ScrollbarChromeStyle::Outlined : ScrollbarChromeStyle::ClassicBevel);
-}
-
-void SyncAutoScrollbar(UiTheme& theme) noexcept {
-    if (theme.scrollbarPreset == ScrollbarPreset::Auto) {
-        theme.scrollbarStyle = ScrollbarStyleTokens::ForChrome(theme.chrome.scrollbar);
-        ApplyScrollbarMetricsForChrome(theme, theme.chrome.scrollbar);
-    }
+void SyncScrollbar(UiTheme& theme) noexcept {
+    theme.scrollbarStyle = ScrollbarStyleTokens::ForChrome(theme.chrome.scrollbar);
+    ApplyScrollbarMetricsForChrome(theme, theme.chrome.scrollbar);
 }
 
 void ResetDefaultRadii(UiTheme& theme) noexcept {
@@ -104,7 +90,7 @@ void PopulateChromeTokens(UiTheme& theme, ChromeStyle style) noexcept {
         theme.chrome.badgeShape = BadgeShape::Sharp;
         theme.chrome.sliderThumb = SliderThumbShape::Square;
     }
-    SyncAutoScrollbar(theme);
+    SyncScrollbar(theme);
 }
 
 [[nodiscard]] VariantColors MakeSemanticVariant(Color base, ThemeMode mode, keel::f32 borderWidth = 0.0f) noexcept {
@@ -919,30 +905,6 @@ void ApplyCuratedPresetColors(UiTheme& theme, ThemePreset p) noexcept {
     return keel::kNullOpt;
 }
 
-[[nodiscard]] keel::StringRef ScrollbarPresetJsonKey(ScrollbarPreset p) noexcept {
-    switch (p) {
-        case ScrollbarPreset::Auto:         return "Auto";
-        case ScrollbarPreset::Modern:       return "Modern";
-        case ScrollbarPreset::Classic1988:  return "Classic1988";
-        case ScrollbarPreset::Windows98:    return "Windows98";
-        case ScrollbarPreset::WindowsXp:    return "WindowsXp";
-        case ScrollbarPreset::WindowsVista: return "WindowsVista";
-        case ScrollbarPreset::Windows7:     return "Windows7";
-        case ScrollbarPreset::WindowsFlat:  return "WindowsFlat";
-    }
-    return "Auto";
-}
-
-[[nodiscard]] keel::Optional<ScrollbarPreset> ParseScrollbarPresetKey(keel::StringRef s) noexcept {
-    for (keel::usize i = 0u; i < kScrollbarPresetCount; ++i) {
-        const auto p = keel::from_underlying<ScrollbarPreset>(i);
-        if (s == ScrollbarPresetJsonKey(p) || s == ScrollbarPresetName(p)) {
-            return p;
-        }
-    }
-    return keel::kNullOpt;
-}
-
 void SkipWs(keel::StringRef s, keel::usize& pos) noexcept {
     while (pos < s.size()) {
         const char c = s[pos];
@@ -1065,9 +1027,6 @@ keel::String ThemeSpec::ToJson() const {
     if (info.has_value()) {
         out.append(keel::format("  \"info\": \"{}\",\n", FormatHexColor(*info)));
     }
-    if (scrollbarPreset.has_value()) {
-        out.append(keel::format("  \"scrollbarPreset\": \"{}\",\n", ScrollbarPresetJsonKey(*scrollbarPreset)));
-    }
     if (scrollbarWidth.has_value()) {
         out.append(keel::format("  \"scrollbarWidth\": {:.2f},\n", *scrollbarWidth));
     }
@@ -1133,10 +1092,6 @@ keel::Optional<ThemeSpec> ThemeSpec::FromJson(keel::StringRef json) noexcept {
             keel::StringRef val;
             if (!ParseJsonString(json, pos, val)) return keel::kNullOpt;
             if (const auto sp = ParseSyntaxPresetKey(val); sp.has_value()) spec.syntaxPreset = *sp;
-        } else if (key == "scrollbarPreset") {
-            keel::StringRef val;
-            if (!ParseJsonString(json, pos, val)) return keel::kNullOpt;
-            if (const auto sbp = ParseScrollbarPresetKey(val); sbp.has_value()) spec.scrollbarPreset = *sbp;
         } else if (key == "scrollbarWidth") {
             keel::f32 num = 0.0f;
             if (!ParseJsonNumber(json, pos, num)) return keel::kNullOpt;
@@ -1198,19 +1153,17 @@ const IStylePainter& UiTheme::Painter() const noexcept {
     return (stylePainter != nullptr) ? *stylePainter : GetDefaultStylePainter();
 }
 
-void UiTheme::SetScrollbarPreset(ScrollbarPreset p) noexcept {
-    scrollbarPreset = p;
-    if (p == ScrollbarPreset::Auto) {
-        SyncAutoScrollbar(*this);
-        return;
-    }
-    scrollbarStyle = ScrollbarStyleTokens::FromPreset(p);
-    ApplyScrollbarMetricsForPreset(*this, p);
-}
-
 void UiTheme::SetChromeTokens(const ChromeTokens& tokens) noexcept {
     chrome = tokens;
-    SyncAutoScrollbar(*this);
+    SyncScrollbar(*this);
+}
+
+void UiTheme::SetScrollbarStyle(const ScrollbarStyleTokens& style) noexcept {
+    const bool chromeChanged = (style.chrome != scrollbarStyle.chrome);
+    scrollbarStyle = style;
+    if (chromeChanged) {
+        ApplyScrollbarMetricsForChrome(*this, style.chrome);
+    }
 }
 
 void UiTheme::SetScrollbarWidth(keel::f32 mdWidth) noexcept {
@@ -1722,9 +1675,6 @@ UiTheme UiTheme::Build(const ThemeSpec& spec) noexcept {
     }
     theme.disabledOpacity = keel::clamp(spec.disabledOpacity, 0.15f, 0.85f);
     theme.animationScale = keel::clamp(spec.animationScale, 0.0f, 2.0f);
-    if (spec.scrollbarPreset.has_value()) {
-        theme.SetScrollbarPreset(*spec.scrollbarPreset);
-    }
     if (spec.scrollbarWidth.has_value()) {
         theme.SetScrollbarWidth(*spec.scrollbarWidth);
     }

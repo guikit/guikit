@@ -33,7 +33,6 @@ struct UiTheme {
     // 0c. 3D bevel color palette & declarative structural chrome matrix (zero hardcoded colors)
     BevelPalette bevel{};
     ChromeTokens chrome{};
-    ScrollbarPreset scrollbarPreset{ScrollbarPreset::Auto};
     ScrollbarStyleTokens scrollbarStyle{};
 
     // 0d. Optional custom look-and-feel painter (nullptr = built-in DefaultStylePainter)
@@ -774,11 +773,8 @@ struct UiTheme {
     /// Replaces individual structural chrome tokens without switching the active palette.
     void SetChromeTokens(const ChromeTokens& tokens) noexcept;
 
-    /// Applies a curated `ScrollbarPreset` (updating `scrollbarStyle` and `scrollbars[]` metrics).
-    void SetScrollbarPreset(ScrollbarPreset preset) noexcept;
-
     /// Replaces the declarative `ScrollbarStyleTokens` for fine-grained scrollbar customization.
-    void SetScrollbarStyle(const ScrollbarStyleTokens& style) noexcept { scrollbarStyle = style; }
+    void SetScrollbarStyle(const ScrollbarStyleTokens& style) noexcept;
 
     /// Scales scrollbar track widths and gutters proportionally around the specified `UiSize::Md` width in dp.
     void SetScrollbarWidth(keel::f32 mdWidth) noexcept;

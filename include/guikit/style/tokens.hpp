@@ -1308,12 +1308,11 @@ enum class DisabledTextStyle : keel::u8 {
     Embossed3D      ///< Classic 1px highlight-drop + shadow-ink embossing (derived from `BevelPalette`)
 };
 
-/// Structural chrome style for scrollbar track, thumb, and stepper buttons.
+/// Structural chrome style for scrollbar track, thumb, and optional stepper buttons.
 enum class ScrollbarChromeStyle : keel::u8 {
-    Modern = 0,     ///< Rounded translucent pill thumb (default GuiKit)
-    ClassicBevel,   ///< 3D raised bevel buttons & thumb, sunken/hatched track
-    Outlined,       ///< Crisp 1px bordered track/thumb/buttons (1988, XP, Vista, 7)
-    Flat            ///< Sharp flat rectangular track, thumb, and buttons (Brutalist / Win 8-10)
+    Modern = 0,     ///< Rounded pill thumb without stepper buttons (Modern / Fluent)
+    ClassicBevel,   ///< 3D raised bevel buttons & thumb, sunken track (Classic3D)
+    Framed          ///< Sharp 0dp geometric scrollbar with bold rail divider, bordered thumb & chevron buttons (Brutalist)
 };
 
 /// 16-field declarative structural look-and-feel matrix consumed by `IStylePainter` (zero colors).
@@ -1392,7 +1391,7 @@ struct ChromeTokens {
                     .tabChrome         = TabBarChrome::Modern,
                     .badgeShape        = BadgeShape::Sharp,
                     .disabledText      = DisabledTextStyle::Opacity,
-                    .scrollbar         = ScrollbarChromeStyle::Flat,
+                    .scrollbar         = ScrollbarChromeStyle::Framed,
                     .buttonPressOffset = 1.0f,
                     .tabGapOverride    = 0.0f
                 };
@@ -1404,70 +1403,19 @@ struct ChromeTokens {
 /// Visual style of scrollbar stepper arrow glyphs (Up/Down or Left/Right).
 enum class ScrollbarArrowStyle : keel::u8 {
     None = 0,       ///< Buttonless scrollbar
-    Triangle,       ///< Solid filled triangle (Windows 98 / Windows 7)
-    Chevron,        ///< Vector V-chevron (Windows XP / Vista / Windows 8–10)
-    Arrow           ///< Classic shafted arrow (Windows 1988)
+    Triangle,       ///< Solid filled triangle (Classic3D)
+    Chevron         ///< Vector V-chevron (Framed / Brutalist)
 };
 
-/// Visual style of the grip indicator centered inside the scrollbar thumb.
-enum class ScrollbarGripStyle : keel::u8 {
-    None = 0,       ///< Clean thumb surface (1988, 1998, 2012, Modern)
-    Lines,          ///< Etched horizontal/vertical grip bars (Windows XP / Vista / 7)
-    Dots            ///< Centered tactile grip dots
-};
-
-/// Curated scrollbar presets covering classic desktop eras through modern overlay scrollbars.
-enum class ScrollbarPreset : keel::u8 {
-    Auto = 0,       ///< Match active `ChromeStyle` / `ChromeTokens::scrollbar` using active `ThemePalette` colors
-    Modern,         ///< Sleek rounded buttonless scrollbar
-    Classic1988,    ///< Windows 1988: navy track, white thumb, 1px black borders, shafted arrows
-    Windows98,      ///< Windows 98: 3D beveled square buttons, dithered track, raised thumb
-    WindowsXp,      ///< Windows XP (2001): blue-tinted outlined thumb & chevron buttons with grip lines
-    WindowsVista,   ///< Windows Vista (2006): cool ice-glass outlined thumb & chevron buttons with grip lines
-    Windows7,       ///< Windows 7 (2009): silver outlined thumb with grip lines & subtle triangles
-    WindowsFlat     ///< Windows 8/10 (2012): flat borderless track, sharp gray thumb & chevrons
-};
-
-inline constexpr keel::usize kScrollbarPresetCount = 8u;
-
-/// Human-readable display name for a `ScrollbarPreset`.
-[[nodiscard]] constexpr keel::StringRef ScrollbarPresetName(ScrollbarPreset preset) noexcept {
-    switch (preset) {
-        case ScrollbarPreset::Auto:         return "Auto (Match Theme)";
-        case ScrollbarPreset::Modern:       return "Modern (Overlay)";
-        case ScrollbarPreset::Classic1988:  return "Classic 1988";
-        case ScrollbarPreset::Windows98:    return "Windows 98";
-        case ScrollbarPreset::WindowsXp:    return "Windows XP (2001)";
-        case ScrollbarPreset::WindowsVista: return "Windows Vista (2006)";
-        case ScrollbarPreset::Windows7:     return "Windows 7 (2009)";
-        case ScrollbarPreset::WindowsFlat:  return "Windows Flat (2012)";
-    }
-    return "Auto (Match Theme)";
-}
-
-/// Comprehensive declarative scrollbar customization tokens in `UiTheme`.
+/// Structural scrollbar configuration tokens in `UiTheme` (zero hardcoded colors; all colors derive from `ThemePalette`).
 struct ScrollbarStyleTokens {
-    ScrollbarChromeStyle  chrome{ScrollbarChromeStyle::Modern};
-    ScrollbarArrowStyle   arrowStyle{ScrollbarArrowStyle::None};
-    ScrollbarGripStyle    gripStyle{ScrollbarGripStyle::None};
-    bool                  showButtons{false};     ///< Show Up/Down (or Left/Right) stepper buttons
-    bool                  alwaysShowTrack{true};  ///< Render track background even when not hovered
-    bool                  trackHatch{false};      ///< Subtle classic Win98 dither/checkered track pattern
-    bool                  showCornerBox{false};   ///< Fill bottom-right intersection when both V & H scrollbars are visible
-    keel::f32             thumbInset{0.0f};       ///< Cross-axis inset of thumb inside track in dp
-    keel::f32             buttonSize{0.0f};       ///< Stepper button length along scroll axis (0 = square matching trackWidth)
-    keel::f32             borderWidth{0.0f};      ///< Border stroke thickness for Outlined chrome
-    keel::Optional<Color> trackColor{keel::kNullOpt};
-    keel::Optional<Color> trackBorderColor{keel::kNullOpt};
-    keel::Optional<Color> thumbColor{keel::kNullOpt};
-    keel::Optional<Color> thumbHoverColor{keel::kNullOpt};
-    keel::Optional<Color> thumbActiveColor{keel::kNullOpt};
-    keel::Optional<Color> thumbBorderColor{keel::kNullOpt};
-    keel::Optional<Color> buttonColor{keel::kNullOpt};
-    keel::Optional<Color> buttonHoverColor{keel::kNullOpt};
-    keel::Optional<Color> buttonActiveColor{keel::kNullOpt};
-    keel::Optional<Color> arrowColor{keel::kNullOpt};
-    keel::Optional<Color> gripColor{keel::kNullOpt};
+    ScrollbarChromeStyle chrome{ScrollbarChromeStyle::Modern};
+    ScrollbarArrowStyle  arrowStyle{ScrollbarArrowStyle::None};
+    bool                 showButtons{false};     ///< Show Up/Down (or Left/Right) stepper buttons
+    bool                 alwaysShowTrack{true};  ///< Render track background even when not hovered
+    bool                 showCornerBox{false};   ///< Fill bottom-right intersection when both V & H scrollbars are visible
+    keel::f32            thumbInset{0.0f};       ///< Cross-axis inset of thumb inside track in dp
+    keel::f32            buttonSize{0.0f};       ///< Stepper button length along scroll axis (0 = square matching trackWidth)
 
     [[nodiscard]] static constexpr ScrollbarStyleTokens Modern() noexcept {
         return ScrollbarStyleTokens{};
@@ -1482,179 +1430,19 @@ struct ScrollbarStyleTokens {
                 return s;
             case ScrollbarChromeStyle::ClassicBevel:
                 s.arrowStyle      = ScrollbarArrowStyle::Triangle;
-                s.gripStyle       = ScrollbarGripStyle::None;
                 s.showButtons     = true;
                 s.alwaysShowTrack = true;
-                s.trackHatch      = true;
                 s.showCornerBox   = true;
                 return s;
-            case ScrollbarChromeStyle::Outlined:
+            case ScrollbarChromeStyle::Framed:
                 s.arrowStyle      = ScrollbarArrowStyle::Chevron;
-                s.gripStyle       = ScrollbarGripStyle::Lines;
                 s.showButtons     = true;
                 s.alwaysShowTrack = true;
                 s.showCornerBox   = true;
-                s.thumbInset      = 1.0f;
-                s.borderWidth     = 1.0f;
-                return s;
-            case ScrollbarChromeStyle::Flat:
-                s.arrowStyle      = ScrollbarArrowStyle::Chevron;
-                s.gripStyle       = ScrollbarGripStyle::None;
-                s.showButtons     = true;
-                s.alwaysShowTrack = true;
-                s.showCornerBox   = true;
+                s.thumbInset      = 2.0f;
                 return s;
         }
         return s;
-    }
-
-    [[nodiscard]] static constexpr ScrollbarStyleTokens Classic1988() noexcept {
-        ScrollbarStyleTokens s{};
-        s.chrome           = ScrollbarChromeStyle::Outlined;
-        s.arrowStyle       = ScrollbarArrowStyle::Arrow;
-        s.gripStyle        = ScrollbarGripStyle::None;
-        s.showButtons      = true;
-        s.alwaysShowTrack  = true;
-        s.showCornerBox    = true;
-        s.borderWidth      = 1.0f;
-        s.trackColor       = Color::Hex(0x00005AFF);
-        s.trackBorderColor = Color::Hex(0x000000FF);
-        s.thumbColor       = Color::Hex(0xFFFFFFFF);
-        s.thumbHoverColor  = Color::Hex(0xF0F0F0FF);
-        s.thumbActiveColor = Color::Hex(0xD8D8D8FF);
-        s.thumbBorderColor = Color::Hex(0x000000FF);
-        s.buttonColor      = Color::Hex(0xFFFFFFFF);
-        s.buttonHoverColor = Color::Hex(0xE8E8E8FF);
-        s.buttonActiveColor= Color::Hex(0xC0C0C0FF);
-        s.arrowColor       = Color::Hex(0x000000FF);
-        return s;
-    }
-
-    [[nodiscard]] static constexpr ScrollbarStyleTokens Windows98() noexcept {
-        ScrollbarStyleTokens s{};
-        s.chrome          = ScrollbarChromeStyle::ClassicBevel;
-        s.arrowStyle      = ScrollbarArrowStyle::Triangle;
-        s.gripStyle       = ScrollbarGripStyle::None;
-        s.showButtons     = true;
-        s.alwaysShowTrack = true;
-        s.trackHatch      = true;
-        s.showCornerBox   = true;
-        s.trackColor      = Color::Hex(0xDFDFDFFF);
-        s.thumbColor      = Color::Hex(0xC0C0C0FF);
-        s.thumbHoverColor = Color::Hex(0xC8C8C8FF);
-        s.thumbActiveColor= Color::Hex(0xB4B4B4FF);
-        s.buttonColor     = Color::Hex(0xC0C0C0FF);
-        s.buttonHoverColor= Color::Hex(0xC8C8C8FF);
-        s.buttonActiveColor= Color::Hex(0xB4B4B4FF);
-        s.arrowColor      = Color::Hex(0x000000FF);
-        return s;
-    }
-
-    [[nodiscard]] static constexpr ScrollbarStyleTokens WindowsXp() noexcept {
-        ScrollbarStyleTokens s{};
-        s.chrome           = ScrollbarChromeStyle::Outlined;
-        s.arrowStyle       = ScrollbarArrowStyle::Chevron;
-        s.gripStyle        = ScrollbarGripStyle::Lines;
-        s.showButtons      = true;
-        s.alwaysShowTrack  = true;
-        s.showCornerBox    = true;
-        s.thumbInset       = 1.0f;
-        s.borderWidth      = 1.0f;
-        s.trackColor       = Color::Hex(0xF3F5F9FF);
-        s.trackBorderColor = Color::Hex(0xD4D9E2FF);
-        s.thumbColor       = Color::Hex(0xB6CEF8FF);
-        s.thumbHoverColor  = Color::Hex(0x9BBDF5FF);
-        s.thumbActiveColor = Color::Hex(0x7DA7EEFF);
-        s.thumbBorderColor = Color::Hex(0x7B9CD4FF);
-        s.buttonColor      = Color::Hex(0xDCE7FBFF);
-        s.buttonHoverColor = Color::Hex(0xC5D8FAFF);
-        s.buttonActiveColor= Color::Hex(0x9CBBF5FF);
-        s.arrowColor       = Color::Hex(0x2B4C8CFF);
-        s.gripColor        = Color::Hex(0xFFFFFFFF);
-        return s;
-    }
-
-    [[nodiscard]] static constexpr ScrollbarStyleTokens WindowsVista() noexcept {
-        ScrollbarStyleTokens s{};
-        s.chrome           = ScrollbarChromeStyle::Outlined;
-        s.arrowStyle       = ScrollbarArrowStyle::Chevron;
-        s.gripStyle        = ScrollbarGripStyle::Lines;
-        s.showButtons      = true;
-        s.alwaysShowTrack  = true;
-        s.showCornerBox    = true;
-        s.thumbInset       = 1.0f;
-        s.borderWidth      = 1.0f;
-        s.trackColor       = Color::Hex(0xEAF4FCFF);
-        s.trackBorderColor = Color::Hex(0xC5DAE8FF);
-        s.thumbColor       = Color::Hex(0xD5EBF9FF);
-        s.thumbHoverColor  = Color::Hex(0xB8E0F8FF);
-        s.thumbActiveColor = Color::Hex(0x95CEF2FF);
-        s.thumbBorderColor = Color::Hex(0x6FA1C4FF);
-        s.buttonColor      = Color::Hex(0xE1F0FAFF);
-        s.buttonHoverColor = Color::Hex(0xC7E5F9FF);
-        s.buttonActiveColor= Color::Hex(0xA6D4F4FF);
-        s.arrowColor       = Color::Hex(0x274059FF);
-        s.gripColor        = Color::Hex(0x688BA4FF);
-        return s;
-    }
-
-    [[nodiscard]] static constexpr ScrollbarStyleTokens Windows7() noexcept {
-        ScrollbarStyleTokens s{};
-        s.chrome           = ScrollbarChromeStyle::Outlined;
-        s.arrowStyle       = ScrollbarArrowStyle::Triangle;
-        s.gripStyle        = ScrollbarGripStyle::Lines;
-        s.showButtons      = true;
-        s.alwaysShowTrack  = true;
-        s.showCornerBox    = true;
-        s.thumbInset       = 1.0f;
-        s.borderWidth      = 1.0f;
-        s.trackColor       = Color::Hex(0xF0F0F0FF);
-        s.trackBorderColor = Color::Hex(0xD8D8D8FF);
-        s.thumbColor       = Color::Hex(0xE4E4E4FF);
-        s.thumbHoverColor  = Color::Hex(0xD2E8F8FF);
-        s.thumbActiveColor = Color::Hex(0xB3D7F3FF);
-        s.thumbBorderColor = Color::Hex(0x9A9A9AFF);
-        s.buttonColor      = Color::Hex(0xF0F0F0FF);
-        s.buttonHoverColor = Color::Hex(0xD6EBF9FF);
-        s.buttonActiveColor= Color::Hex(0xB8DDF6FF);
-        s.arrowColor       = Color::Hex(0x555555FF);
-        s.gripColor        = Color::Hex(0x5A5A5AFF);
-        return s;
-    }
-
-    [[nodiscard]] static constexpr ScrollbarStyleTokens WindowsFlat() noexcept {
-        ScrollbarStyleTokens s{};
-        s.chrome           = ScrollbarChromeStyle::Flat;
-        s.arrowStyle       = ScrollbarArrowStyle::Chevron;
-        s.gripStyle        = ScrollbarGripStyle::None;
-        s.showButtons      = true;
-        s.alwaysShowTrack  = true;
-        s.showCornerBox    = true;
-        s.thumbInset       = 0.0f;
-        s.borderWidth      = 0.0f;
-        s.trackColor       = Color::Hex(0xF0F0F0FF);
-        s.thumbColor       = Color::Hex(0xCDCDCDFF);
-        s.thumbHoverColor  = Color::Hex(0xA6A6A6FF);
-        s.thumbActiveColor = Color::Hex(0x606060FF);
-        s.buttonColor      = Color::Hex(0xF0F0F0FF);
-        s.buttonHoverColor = Color::Hex(0xDADADAFF);
-        s.buttonActiveColor= Color::Hex(0x606060FF);
-        s.arrowColor       = Color::Hex(0x404040FF);
-        return s;
-    }
-
-    [[nodiscard]] static constexpr ScrollbarStyleTokens FromPreset(ScrollbarPreset preset) noexcept {
-        switch (preset) {
-            case ScrollbarPreset::Classic1988:  return Classic1988();
-            case ScrollbarPreset::Windows98:    return Windows98();
-            case ScrollbarPreset::WindowsXp:    return WindowsXp();
-            case ScrollbarPreset::WindowsVista: return WindowsVista();
-            case ScrollbarPreset::Windows7:     return Windows7();
-            case ScrollbarPreset::WindowsFlat:  return WindowsFlat();
-            case ScrollbarPreset::Auto:
-            case ScrollbarPreset::Modern:
-            default:                            return Modern();
-        }
     }
 };
 
@@ -1689,8 +1477,7 @@ struct ThemeSpec {
     keel::Optional<Color> warning{keel::kNullOpt};   ///< Optional semantic Warning color override
     keel::Optional<Color> danger{keel::kNullOpt};    ///< Optional semantic Danger color override
     keel::Optional<Color> info{keel::kNullOpt};      ///< Optional semantic Info color override
-    keel::Optional<ScrollbarPreset> scrollbarPreset{keel::kNullOpt}; ///< Optional scrollbar look-and-feel preset override
-    keel::Optional<keel::f32> scrollbarWidth{keel::kNullOpt};        ///< Optional Md scrollbar track width in dp (4..24)
+    keel::Optional<keel::f32> scrollbarWidth{keel::kNullOpt};        ///< Optional Md scrollbar track width in dp (4..28)
 
     /// Serializes this `ThemeSpec` to a compact, human-readable JSON object.
     [[nodiscard]] keel::String ToJson() const;

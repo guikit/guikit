@@ -1827,10 +1827,8 @@ void TestThemeSystemColorSciencePresetsSpecJsonAndLerp() {
         CHECK(w98.chrome.badgeShape == BadgeShape::Sharp);
         CHECK(w98.chrome.tabGapOverride == 0.0f);
         CHECK(w98.GetMetrics(UiSize::Md).cornerRadius == 0.0f);
-        // Palette-pure auto scrollbar: no hardcoded RGB colors on ScrollbarStyleTokens
-        CHECK(!w98.scrollbarStyle.trackColor.has_value());
-        CHECK(!w98.scrollbarStyle.thumbColor.has_value());
-        CHECK(!w98.scrollbarStyle.buttonColor.has_value());
+        CHECK(w98.scrollbarStyle.chrome == ScrollbarChromeStyle::ClassicBevel);
+        CHECK(w98.scrollbarStyle.showButtons);
 
         // Default ThemeSpec with Windows98 preserves preset's Classic3D chrome
         ThemeSpec w98Spec{};
@@ -1862,7 +1860,7 @@ void TestThemeSystemColorSciencePresetsSpecJsonAndLerp() {
         CHECK(drac3d.bevel.shadowInner.RelativeLuminance() < drac3d.palette.surface.RelativeLuminance());
         CHECK(drac3d.bevel.highlightOuter.RelativeLuminance() < 0.60f); // dark-derived, never hardcoded white
         CHECK(drac3d.scrollbarStyle.chrome == ScrollbarChromeStyle::ClassicBevel);
-        CHECK(!drac3d.scrollbarStyle.trackColor.has_value());
+        CHECK(drac3d.scrollbarStyle.showButtons);
 
         // Dark palette x Fluent chrome
         ThemeSpec fluentSpec{};
@@ -2044,9 +2042,8 @@ void TestThemeSystemColorSciencePresetsSpecJsonAndLerp() {
 void TestScrollbarCustomizationPresetsAndGeometry() {
     using namespace guikit;
 
-    // 1. Default theme uses Modern scrollbar; Windows98 auto-selects ClassicBevel 16dp with stepper buttons
+    // 1. Default Modern/Fluent themes use buttonless Modern scrollbar; Classic3D uses ClassicBevel; Brutalist uses Framed
     const UiTheme dark = UiTheme::Dark();
-    CHECK(dark.scrollbarPreset == ScrollbarPreset::Auto);
     CHECK(dark.scrollbarStyle.chrome == ScrollbarChromeStyle::Modern);
     CHECK(!dark.scrollbarStyle.showButtons);
     CHECK(keel::abs(dark.GetScrollbar(UiSize::Md).trackWidth - 6.0f) < 0.01f);
@@ -2059,61 +2056,52 @@ void TestScrollbarCustomizationPresetsAndGeometry() {
     CHECK(keel::abs(win98.GetScrollbar(UiSize::Md).trackWidth - 16.0f) < 0.01f);
     CHECK(keel::abs(win98.GetScrollbar(UiSize::Md).margin - 0.0f) < 0.01f);
 
-    // 2. All Windows-era presets produce valid distinct tokens & metrics
-    UiTheme t = UiTheme::Light();
-    for (keel::usize i = 0; i < kScrollbarPresetCount; ++i) {
-        const auto preset = keel::from_underlying<ScrollbarPreset>(i);
-        CHECK(!ScrollbarPresetName(preset).empty());
-        t.SetScrollbarPreset(preset);
-        CHECK(t.scrollbarPreset == preset);
-        if (preset == ScrollbarPreset::Classic1988) {
-            CHECK(t.scrollbarStyle.chrome == ScrollbarChromeStyle::Outlined);
-            CHECK(t.scrollbarStyle.arrowStyle == ScrollbarArrowStyle::Arrow);
-            CHECK(t.scrollbarStyle.showButtons);
-        } else if (preset == ScrollbarPreset::WindowsXp) {
-            CHECK(t.scrollbarStyle.gripStyle == ScrollbarGripStyle::Lines);
-            CHECK(t.scrollbarStyle.arrowStyle == ScrollbarArrowStyle::Chevron);
-            CHECK(t.scrollbarStyle.showButtons);
-        } else if (preset == ScrollbarPreset::Windows7) {
-            CHECK(t.scrollbarStyle.gripStyle == ScrollbarGripStyle::Lines);
-            CHECK(t.scrollbarStyle.arrowStyle == ScrollbarArrowStyle::Triangle);
-            CHECK(t.scrollbarStyle.showButtons);
-        } else if (preset == ScrollbarPreset::WindowsFlat) {
-            CHECK(t.scrollbarStyle.chrome == ScrollbarChromeStyle::Flat);
-            CHECK(t.scrollbarStyle.arrowStyle == ScrollbarArrowStyle::Chevron);
-            CHECK(t.scrollbarStyle.showButtons);
-        }
-    }
+    ThemeSpec brutalSpec{};
+    brutalSpec.base = ThemePreset::HighContrastLight;
+    brutalSpec.chrome = ChromeStyle::Brutalist;
+    const UiTheme brutal = UiTheme::Build(brutalSpec);
+    CHECK(brutal.scrollbarStyle.chrome == ScrollbarChromeStyle::Framed);
+    CHECK(brutal.scrollbarStyle.showButtons);
+    CHECK(brutal.scrollbarStyle.arrowStyle == ScrollbarArrowStyle::Chevron);
+    CHECK(brutal.scrollbarStyle.showCornerBox);
+    CHECK(keel::abs(brutal.GetScrollbar(UiSize::Md).trackWidth - 16.0f) < 0.01f);
 
-    // 3. Explicit scrollbar width scaling
-    t.SetScrollbarPreset(ScrollbarPreset::Windows98);
+    // 2. Explicit SetScrollbarStyle updates metrics cleanly when chrome changes & SetScrollbarWidth scales proportionally
+    UiTheme t = UiTheme::Light();
+    t.SetScrollbarStyle(ScrollbarStyleTokens::ForChrome(ScrollbarChromeStyle::Framed));
+    CHECK(keel::abs(t.GetScrollbar(UiSize::Md).trackWidth - 16.0f) < 0.01f);
     t.SetScrollbarWidth(20.0f);
     CHECK(keel::abs(t.GetScrollbar(UiSize::Md).trackWidth - 20.0f) < 0.01f);
     CHECK(t.GetScrollbar(UiSize::Sm).trackWidth < t.GetScrollbar(UiSize::Md).trackWidth);
     CHECK(t.GetScrollbar(UiSize::Lg).trackWidth > t.GetScrollbar(UiSize::Md).trackWidth);
 
-    // 4. ThemeSpec JSON round-trip for scrollbarPreset and scrollbarWidth
+    // 3. ThemeSpec JSON round-trip for scrollbarWidth (and graceful ignore of legacy scrollbarPreset JSON keys)
     {
         ThemeSpec spec{};
         spec.base = ThemePreset::Light;
-        spec.scrollbarPreset = ScrollbarPreset::WindowsXp;
+        spec.chrome = ChromeStyle::Brutalist;
         spec.scrollbarWidth = 18.0f;
 
         const keel::String json = spec.ToJson();
         const auto parsed = ThemeSpec::FromJson(json);
         CHECK(parsed.has_value());
         if (parsed.has_value()) {
-            CHECK(parsed->scrollbarPreset.has_value() && *parsed->scrollbarPreset == ScrollbarPreset::WindowsXp);
+            CHECK(parsed->chrome.has_value() && *parsed->chrome == ChromeStyle::Brutalist);
             CHECK(parsed->scrollbarWidth.has_value() && keel::abs(*parsed->scrollbarWidth - 18.0f) < 0.01f);
         }
 
         const UiTheme built = UiTheme::Build(spec);
-        CHECK(built.scrollbarPreset == ScrollbarPreset::WindowsXp);
-        CHECK(built.scrollbarStyle.gripStyle == ScrollbarGripStyle::Lines);
+        CHECK(built.scrollbarStyle.chrome == ScrollbarChromeStyle::Framed);
         CHECK(keel::abs(built.GetScrollbar(UiSize::Md).trackWidth - 18.0f) < 0.01f);
+
+        const auto legacy = ThemeSpec::FromJson("{\"base\":\"Light\",\"scrollbarPreset\":\"WindowsXp\",\"scrollbarWidth\":14.0}");
+        CHECK(legacy.has_value());
+        if (legacy.has_value()) {
+            CHECK(legacy->scrollbarWidth.has_value() && keel::abs(*legacy->scrollbarWidth - 14.0f) < 0.01f);
+        }
     }
 
-    // 5. Scrollbar::ComputeAxis vertical & horizontal with stepper buttons & cornerReserve
+    // 4. Scrollbar::ComputeAxis vertical & horizontal with stepper buttons & cornerReserve
     {
         const Rect vp(0.0f, 0.0f, 300.0f, 200.0f);
         const ScrollbarMetrics& m = win98.GetScrollbar(UiSize::Md);
@@ -2140,6 +2128,130 @@ void TestScrollbarCustomizationPresetsAndGeometry() {
         CHECK(keel::abs(hGeom.trackRect.Right() - hGeom.endButtonRect.x) < 0.01f);
         CHECK(hGeom.thumbRect.x >= hGeom.trackRect.x);
         CHECK(hGeom.thumbRect.Right() <= hGeom.trackRect.Right());
+    }
+
+    // 5. Full 11 ThemePreset x 4 ChromeStyle x 3 FillStyle contrast & geometry audit
+    {
+        struct CapturedRect {
+            Rect rect{};
+            Color fill{};
+            Color border{};
+            keel::f32 borderW{0.0f};
+        };
+        struct CaptureScrollbarCanvas final : public NullCanvas {
+            keel::Array<CapturedRect> rects{};
+            keel::Array<Color> lineColors{};
+            keel::Array<Color> pathColors{};
+
+            void Reset() {
+                rects.clear();
+                lineColors.clear();
+                pathColors.clear();
+            }
+            void DrawRect(Rect rect, Color color) override {
+                rects.push_back(CapturedRect{rect, color, Color::Transparent(), 0.0f});
+                NullCanvas::DrawRect(rect, color);
+            }
+            void DrawRoundRect(Rect rect, keel::f32 radius, Color fillColor, Color borderColor, keel::f32 borderWidth) override {
+                rects.push_back(CapturedRect{rect, fillColor, borderColor, borderWidth});
+                NullCanvas::DrawRoundRect(rect, radius, fillColor, borderColor, borderWidth);
+            }
+            void DrawLine(Vec2 p1, Vec2 p2, Color color, keel::f32 thickness) override {
+                lineColors.push_back(color);
+                NullCanvas::DrawLine(p1, p2, color, thickness);
+            }
+            void DrawPath(const VectorPath& path, const PathPaint& paint) override {
+                if (paint.renderFill) pathColors.push_back(paint.fillColor);
+                NullCanvas::DrawPath(path, paint);
+            }
+        };
+
+        CaptureScrollbarCanvas cap{};
+        cap.Begin(400, 300, 1.0f);
+        const Rect vp(0.0f, 0.0f, 300.0f, 200.0f);
+
+        for (keel::usize pi = 0u; pi < kThemePresetCount; ++pi) {
+            const auto preset = keel::from_underlying<ThemePreset>(pi);
+            const bool isHighContrast = (preset == ThemePreset::HighContrastDark || preset == ThemePreset::HighContrastLight);
+            for (keel::usize ci = 0u; ci < kChromeStyleCount; ++ci) {
+                const auto chrome = keel::from_underlying<ChromeStyle>(ci);
+                for (keel::usize fi = 0u; fi < kFillStyleCount; ++fi) {
+                    const auto fillStyle = keel::from_underlying<FillStyle>(fi);
+                    ThemeSpec spec{};
+                    spec.base = preset;
+                    spec.chrome = chrome;
+                    spec.fillStyle = fillStyle;
+                    const UiTheme th = UiTheme::Build(spec);
+                    const ScrollbarMetrics& m = th.GetScrollbar(UiSize::Md);
+                    const ScrollbarGeometry g = Scrollbar::ComputeAxis(
+                        vp, 900.0f, 180.0f, false, m, th.scrollbarStyle, 0.0f
+                    );
+                    CHECK(g.visible);
+
+                    for (keel::i32 stateIdx = 0; stateIdx < 3; ++stateIdx) {
+                        const bool hov = (stateIdx == 1);
+                        const bool drag = (stateIdx == 2);
+                        cap.Reset();
+                        Scrollbar::DrawAxis(
+                            cap, g, false, hov, drag,
+                            hov ? ScrollbarPart::Thumb : ScrollbarPart::None,
+                            drag ? ScrollbarPart::Thumb : ScrollbarPart::None,
+                            m, th
+                        );
+
+                        // Locate track background rect & thumb fill rect
+                        bool foundTrack = false;
+                        Color trackBg{};
+                        bool foundThumb = false;
+                        CapturedRect thumbCap{};
+                        for (const auto& cr : cap.rects) {
+                            if (!foundTrack &&
+                                keel::abs(cr.rect.x - g.trackRect.x) < 0.5f &&
+                                keel::abs(cr.rect.y - g.trackRect.y) < 0.5f &&
+                                keel::abs(cr.rect.w - g.trackRect.w) < 0.5f &&
+                                keel::abs(cr.rect.h - g.trackRect.h) < 0.5f) {
+                                foundTrack = true;
+                                trackBg = cr.fill;
+                            }
+                            if (!foundThumb &&
+                                cr.rect.y >= g.thumbRect.y - 0.5f &&
+                                cr.rect.Bottom() <= g.thumbRect.Bottom() + 0.5f &&
+                                cr.rect.h >= g.thumbRect.h * 0.8f &&
+                                cr.rect.w >= 3.0f &&
+                                cr.fill.a > 0u) {
+                                foundThumb = true;
+                                thumbCap = cr;
+                            }
+                        }
+
+                        CHECK(foundTrack);
+                        CHECK(foundThumb);
+                        if (th.scrollbarStyle.chrome == ScrollbarChromeStyle::ClassicBevel) {
+                            // Recessed track must visually separate from raised 3D surface even on Light / High Contrast
+                            CHECK(Color::ContrastRatio(trackBg, th.palette.surface) >= 1.08f);
+                            CHECK(cap.pathColors.size() >= 2u);
+                            for (const Color& ac : cap.pathColors) {
+                                CHECK(Color::ContrastRatio(ac, th.palette.surface) >= 4.5f);
+                            }
+                        } else {
+                            // Modern / Fluent / Brutalist (Framed): strong thumb-vs-track contrast across all 11 presets
+                            const keel::f32 minRatio = isHighContrast ? 4.5f : 1.9f;
+                            CHECK(Color::ContrastRatio(thumbCap.fill, trackBg) >= minRatio);
+                            if (th.scrollbarStyle.chrome == ScrollbarChromeStyle::Framed) {
+                                CHECK(thumbCap.borderW >= 1.0f);
+                                CHECK(Color::ContrastRatio(thumbCap.border, thumbCap.fill) >= 1.3f);
+                                CHECK(thumbCap.rect.x > g.trackRect.x + 1.0f);
+                                CHECK(cap.lineColors.size() >= 4u); // 2 chevrons x 2 strokes
+                                for (const Color& lc : cap.lineColors) {
+                                    CHECK(Color::ContrastRatio(lc, th.palette.surface) >= 4.5f);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        cap.End();
     }
 
     // 6. Custom IStylePainter override receives DrawScrollbar & DrawScrollbarCorner
@@ -2293,13 +2405,9 @@ void TestDesignSystemOrthogonalityAndCrossCombos() {
         CHECK(t.bevel.highlightOuter.RelativeLuminance() > t.palette.surface.RelativeLuminance());
         CHECK(t.bevel.shadowOuter.RelativeLuminance() < t.palette.surface.RelativeLuminance());
 
-        // Palette-pure auto scrollbar derives from ThemePalette (all color overrides remain kNullOpt)
-        CHECK(t.scrollbarPreset == ScrollbarPreset::Auto);
+        // Palette-pure scrollbar derives purely from ChromeTokens & ThemePalette
         CHECK(t.scrollbarStyle.chrome == ScrollbarChromeStyle::ClassicBevel);
         CHECK(t.scrollbarStyle.showButtons);
-        CHECK(!t.scrollbarStyle.trackColor.has_value());
-        CHECK(!t.scrollbarStyle.thumbColor.has_value());
-        CHECK(!t.scrollbarStyle.buttonColor.has_value());
     }
 
     // 2. Windows98 palette + Modern chrome must flatten bevels into modern surfaces while preserving Win98 colors
