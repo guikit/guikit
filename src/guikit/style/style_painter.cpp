@@ -472,6 +472,7 @@ ChromeMetrics DefaultStylePainter::GetChromeMetrics(const UiTheme& theme) const 
         m.progressBarHeightBonus = 4.0f;
     }
     m.badgeShape = theme.chrome.badgeShape;
+    m.solidSelectionHighlight = (theme.chrome.selection == SelectionHighlightStyle::SolidAccent);
     return m;
 }
 

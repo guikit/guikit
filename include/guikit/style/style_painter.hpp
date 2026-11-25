@@ -30,6 +30,7 @@ struct ChromeMetrics {
     keel::f32  progressBarMinHeight{0.0f};   ///< Minimum progress bar thickness in dp
     keel::f32  progressBarHeightBonus{0.0f}; ///< Extra progress bar thickness in dp (e.g. segmented 3D well)
     BadgeShape badgeShape{BadgeShape::Pill}; ///< Badge/tag corner rounding policy
+    bool       solidSelectionHighlight{false}; ///< True when selected rows use solid accent fill requiring accentText foreground
 };
 
 /// Tab bar chrome style passed to `IStylePainter::DrawTabChrome` without pulling action headers into style/.

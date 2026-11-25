@@ -98,7 +98,8 @@ public:
         bool hovered,
         bool clicked,
         bool doubleClicked,
-        bool prevDisabled
+        bool prevDisabled,
+        bool pushedZone = false
     ) noexcept
         : m_table(table)
         , m_ctx(ctx)
@@ -108,7 +109,8 @@ public:
         , m_hovered(hovered)
         , m_clicked(clicked)
         , m_doubleClicked(doubleClicked)
-        , m_prevDisabled(prevDisabled) {}
+        , m_prevDisabled(prevDisabled)
+        , m_pushedZone(pushedZone) {}
 
     ~TableRowScope() noexcept;
 
@@ -124,10 +126,12 @@ public:
         , m_hovered(other.m_hovered)
         , m_clicked(other.m_clicked)
         , m_doubleClicked(other.m_doubleClicked)
-        , m_prevDisabled(other.m_prevDisabled) {
+        , m_prevDisabled(other.m_prevDisabled)
+        , m_pushedZone(other.m_pushedZone) {
         other.m_table = nullptr;
         other.m_ctx = nullptr;
         other.m_visible = false;
+        other.m_pushedZone = false;
     }
 
     [[nodiscard]] explicit operator bool() const noexcept { return m_visible; }
@@ -147,6 +151,7 @@ private:
     bool m_clicked{false};
     bool m_doubleClicked{false};
     bool m_prevDisabled{false};
+    bool m_pushedZone{false};
 };
 
 /// RAII scope returned by `ui.Table(...)` providing row virtualization and cell emission methods.
@@ -177,6 +182,15 @@ public:
 
     /// One-past-last visible row index in the virtualized scroll viewport (exclusive).
     [[nodiscard]] keel::usize EndVisibleRow() const noexcept;
+
+    /// First visible column index in the horizontal scroll viewport (inclusive).
+    [[nodiscard]] keel::usize FirstVisibleColumn() const noexcept;
+
+    /// One-past-last visible column index in the horizontal scroll viewport (exclusive).
+    [[nodiscard]] keel::usize EndVisibleColumn() const noexcept;
+
+    /// Total number of columns in this table.
+    [[nodiscard]] keel::usize ColumnCount() const noexcept;
 
     /// Returns true on the frame the user clicked a sortable column header.
     [[nodiscard]] bool SortChanged() const noexcept;

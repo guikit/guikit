@@ -11263,6 +11263,7 @@ void TestPopupDismissOutsidePassesClickThrough();
 void TestSelectPopupSelectedVsHoverStability();
 void TestDatePickerPopoverWidgets();
 void TestDrawListRecorderCopiesTransientPixels();
+void TestTableUnlimitedColumnsAndSelection();
 
 void TestZonePartialThemeOverrides() {
     using namespace guikit;
@@ -11349,6 +11350,7 @@ int main() {
     TestSelectPopupSelectedVsHoverStability();
     TestDatePickerPopoverWidgets();
     TestDrawListRecorderCopiesTransientPixels();
+    TestTableUnlimitedColumnsAndSelection();
     TestTextWrappingAndBackendIndependence();
 
 #if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
@@ -18135,6 +18137,119 @@ void TestDrawListRecorderCopiesTransientPixels() {
     }
 
     keel::println("  [PASS] TestDrawListRecorderCopiesTransientPixels completed");
+}
+
+void TestTableUnlimitedColumnsAndSelection() {
+    using namespace guikit;
+    keel::println("  -> TestTableUnlimitedColumnsAndSelection...");
+
+    Context ui;
+    ui.SetTheme(UiTheme::Windows98());
+    NullCanvas canvas;
+
+    // 1. 24-column wide table (proves no 16-column limit, arena allocation, horizontal culling, and O(1) Cell binding)
+    keel::Array<TableColumn> wideCols;
+    wideCols.reserve(24);
+    for (keel::usize i = 0; i < 24; ++i) {
+        wideCols.push_back(TableColumn{.title = "Col", .width = 100.0f, .minWidth = 60.0f});
+    }
+
+    keel::i32 selectedRow = 0;
+    keel::usize colCount = 0;
+    keel::usize firstCol = 999;
+    keel::usize endCol = 0;
+    Rect col22Rect{};
+    Rect col23BtnARect{};
+    Rect col23BtnBRect{};
+    Rect wideTableRect{};
+    Color selectedRowTextCol{};
+    Color normalRowTextCol{};
+
+    auto runWideFrame = [&]() {
+        ui.BeginFrame({640.0f, 320.0f});
+        if (auto scroll = guikit::ScrollArea(ui, {.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+            if (auto table = guikit::Table(ui, wideCols, {
+                .totalRows = 20,
+                .selectedRow = &selectedRow,
+                .showRowNumbers = false,
+                .height = SizeMode::Stretch
+            })) {
+                wideTableRect = ui.GetPrevFrameBounds(table.GetNode()->id);
+                colCount = table.ColumnCount();
+                firstCol = table.FirstVisibleColumn();
+                endCol = table.EndVisibleColumn();
+                for (keel::usize r = table.FirstVisibleRow(); r < table.EndVisibleRow(); ++r) {
+                    if (auto row = table.Row(r)) {
+                        if (r == 0) selectedRowTextCol = ui.GetTheme().palette.textPrimary;
+                        if (r == 1) normalRowTextCol = ui.GetTheme().palette.textPrimary;
+                        for (keel::usize c = 0; c < 23; ++c) {
+                            const auto res = guikit::Text(ui, ui.Format("R{}C{}", r, c));
+                            if (r == 0 && c == 22) {
+                                col22Rect = res.rect;
+                            }
+                        }
+                        if (auto cell = table.Cell()) {
+                            const auto a = guikit::Button(ui, {.text = "A", .size = UiSize::Xs});
+                            const auto b = guikit::Button(ui, {.text = "B", .size = UiSize::Xs});
+                            if (r == 0) {
+                                col23BtnARect = a.rect;
+                                col23BtnBRect = b.rect;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        ui.EndFrame(canvas);
+    };
+
+    runWideFrame();
+    runWideFrame();
+
+    CHECK(colCount == 24u);
+    CHECK(wideTableRect.w > 0.0f && wideTableRect.w <= 640.0f); // Stretch table never overflows parent width!
+    CHECK(wideTableRect.h > 0.0f && wideTableRect.h <= 320.0f); // Stretch table never overflows parent height!
+    CHECK(firstCol == 0u);
+    CHECK(endCol > 0u && endCol < 24u); // 640px viewport culls off-screen columns
+    CHECK(col22Rect.x >= 2200.0f);       // Column 22 is laid out at ~2200px (not clamped at 16!)
+    CHECK(col23BtnARect.x >= 2300.0f);   // Multi-widget Cell() in Column 23 laid out at ~2300px
+    CHECK(col23BtnBRect.x > col23BtnARect.x);
+
+    // Selected row in Classic 3D (SolidAccent) gets accentText foreground for legibility
+    CHECK(selectedRowTextCol == ui.GetTheme().palette.accentText);
+    CHECK(normalRowTextCol == ui.GetTheme().palette.textPrimary);
+
+    // 2. Flex columns respect vertical scrollbar gutter (no spurious horizontal overflow)
+    ui.SetTheme(UiTheme::Dark());
+    static constexpr keel::StaticArray<TableColumn, 3> kFlexCols = {{
+        {.title = "ID",    .width = 80.0f},
+        {.title = "Title", .flex = 2.0f},
+        {.title = "State", .flex = 1.0f}
+    }};
+    Rect lastColRect{};
+    Rect tableFrameRect{};
+    auto runFlexFrame = [&]() {
+        ui.BeginFrame({600.0f, 240.0f});
+        if (auto table = guikit::Table(ui, kFlexCols, {.totalRows = 50, .height = 200.0f})) {
+            tableFrameRect = ui.GetPrevFrameBounds(table.GetNode()->id);
+            for (keel::usize r = table.FirstVisibleRow(); r < table.EndVisibleRow(); ++r) {
+                if (auto row = table.Row(r)) {
+                    guikit::Text(ui, ui.Format("#{}", r));
+                    guikit::Text(ui, "Sample item");
+                    const auto st = guikit::Button(ui, {.text = "OK", .size = UiSize::Xs, .width = SizeMode::Stretch});
+                    if (r == 0) lastColRect = st.rect;
+                }
+            }
+        }
+        ui.EndFrame(canvas);
+    };
+    runFlexFrame();
+    runFlexFrame();
+    const ScrollbarMetrics& sm = ui.GetTheme().GetScrollbar(UiSize::Md);
+    const keel::f32 gutterW = sm.trackWidth + sm.margin * 2.0f;
+    CHECK(lastColRect.Right() <= tableFrameRect.Right() - gutterW + 1.0f);
+
+    keel::println("  [PASS] TestTableUnlimitedColumnsAndSelection completed");
 }
 
 
