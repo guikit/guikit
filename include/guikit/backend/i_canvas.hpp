@@ -345,8 +345,18 @@ public:
     /// Clears the entire canvas surface or a targeted sub-rectangle to a specified background color.
     virtual void Clear(Color color, keel::Optional<Rect> rect = keel::kNullOpt) = 0;
 
+    /// Returns true if this canvas natively clips arbitrary primitives against rounded-rectangle clips (`PushRoundedClip`).
+    [[nodiscard]] virtual bool SupportsRoundedClip() const noexcept { return false; }
+
     /// Pushes a rectangular clipping boundary.
     virtual void PushClip(Rect clipRect) = 0;
+
+    /// Pushes a rounded-rectangle clipping boundary (balanced by `PopClip()`).
+    /// Backends without native rounded clipping fall back to rectangular `PushClip(clipRect)`.
+    virtual void PushRoundedClip(Rect clipRect, keel::f32 cornerRadius) {
+        (void)cornerRadius;
+        PushClip(clipRect);
+    }
 
     /// Restores the previous clipping boundary.
     virtual void PopClip() = 0;

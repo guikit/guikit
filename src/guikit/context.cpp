@@ -1887,11 +1887,48 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
         node->renderFn(node, canvas, activeTheme);
     }
 
+    keel::f32 borderInset = 0.0f;
+    const Rect innerContainerRect = hasContainerBorder
+        ? GetNodeInnerBorderRect(node, &borderInset)
+        : node->computedRect;
+
+    const bool roundedOverride = (node->explicitRadius != 0) && (node->cornerRadius > 0.01f);
+    const bool useBevel = (activeTheme.Painter().GetChromeMetrics(activeTheme).frameBevelInset > 0.0f) && !roundedOverride;
+    const keel::f32 effOuterRadius = useBevel ? 0.0f : node->cornerRadius;
+    const keel::f32 innerRadius = keel::max(0.0f, effOuterRadius - borderInset);
+    const RenderFunc chromeFn = (node->panelHooks && node->panelHooks->renderChrome)
+        ? node->panelHooks->renderChrome
+        : nullptr;
+
     Rect childClipRect = node->computedRect;
     Rect childDirtyRect = nodeDirty;
+    const bool nativeRoundedClip = canvas.SupportsRoundedClip();
+    bool pushedOuterClip = false;
+    bool pushedChildClip = false;
+
     if (node->clipChildren) {
-        childClipRect = GetNodeContentClipRect(node, activeTheme);
-        canvas.PushClip(childClipRect);
+        childClipRect = GetNodeContentClipRect(node, activeTheme).Intersect(innerContainerRect);
+        const bool sameAsInner =
+            keel::abs(childClipRect.x - innerContainerRect.x) < 0.01f &&
+            keel::abs(childClipRect.y - innerContainerRect.y) < 0.01f &&
+            keel::abs(childClipRect.w - innerContainerRect.w) < 0.01f &&
+            keel::abs(childClipRect.h - innerContainerRect.h) < 0.01f;
+
+        if (chromeFn != nullptr || (nativeRoundedClip && innerRadius > 0.5f)) {
+            if (nativeRoundedClip && innerRadius > 0.5f) {
+                canvas.PushRoundedClip(innerContainerRect, innerRadius);
+            } else {
+                canvas.PushClip(innerContainerRect);
+            }
+            pushedOuterClip = true;
+            if (!sameAsInner) {
+                canvas.PushClip(childClipRect);
+                pushedChildClip = true;
+            }
+        } else {
+            canvas.PushClip(childClipRect);
+            pushedChildClip = true;
+        }
         childDirtyRect = nodeDirty.Intersect(childClipRect);
     }
 
@@ -1903,20 +1940,30 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
         }
     }
 
-    if (node->clipChildren) {
+    if (pushedChildClip) {
         canvas.PopClip();
     }
 
-    if (isContainerSurface) {
-        MaskRoundedContainerCorners(canvas, node, childClipRect, m_clearColor);
+    // Internal container chrome (e.g. ScrollArea scrollbars) renders inside the container's rounded clip & border
+    if (chromeFn != nullptr) {
+        chromeFn(node, canvas, activeTheme);
     }
 
-    // 2. Render container border / 3D bevel / directional sheen / dock seam on top of children (after PopClip)
+    if (pushedOuterClip) {
+        canvas.PopClip();
+    }
+
+    // Legacy fallback corner mask ONLY for canvases without native PushRoundedClip (e.g. legacy 2D SDL renderer)
+    if (isContainerSurface && !nativeRoundedClip) {
+        MaskRoundedContainerCorners(canvas, node, innerContainerRect, m_clearColor);
+    }
+
+    // 2. Render container border / 3D bevel / directional sheen / dock seam on top of children & internal chrome
     if (hasContainerBorder) {
         activeTheme.Painter().DrawSurfaceFrame(canvas, activeTheme, surfParams);
     }
 
-    // Render post-pass overlay contents (after children and outside clip)
+    // Render post-pass external overlay decorations (after border and outside clip)
     if (node->postRenderFn) {
         node->postRenderFn(node, canvas, activeTheme);
     }

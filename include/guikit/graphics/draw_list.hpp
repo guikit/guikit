@@ -78,7 +78,7 @@ public:
     [[nodiscard]] keel::ArrayRef<DrawCommand> Commands() const noexcept { return m_commands.as_ref(); }
 
     void PushClear(Color color, keel::Optional<Rect> rect = keel::kNullOpt);
-    void PushClip(Rect clipRect);
+    void PushClip(Rect clipRect, keel::f32 cornerRadius = 0.0f);
     void PopClip();
     void PushTransform(const Transform2D& transform);
     void PopTransform();
@@ -155,8 +155,12 @@ public:
         return m_target ? m_target->GetBackendName() : keel::StringRef("DrawListRecorder");
     }
 
+    [[nodiscard]] bool SupportsRoundedClip() const noexcept override {
+        return m_target ? m_target->SupportsRoundedClip() : true;
+    }
     void Clear(Color color, keel::Optional<Rect> rect = keel::kNullOpt) override;
     void PushClip(Rect clipRect) override;
+    void PushRoundedClip(Rect clipRect, keel::f32 cornerRadius) override;
     void PopClip() override;
 
     void DrawRect(Rect rect, Color fill) override;

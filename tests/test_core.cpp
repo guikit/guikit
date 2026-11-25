@@ -2923,7 +2923,11 @@ void TestRoundedContainerCornerMasking() {
             Color color;
         };
         keel::Array<RectCall> rects{};
+        keel::Array<Rect> clips{};
 
+        void PushClip(Rect clipRect) override {
+            clips.push_back(clipRect);
+        }
         void DrawRect(Rect rect, Color color) override {
             rects.push_back({rect, color});
         }
@@ -3002,6 +3006,123 @@ void TestRoundedContainerCornerMasking() {
         CHECK(maskCount > 0u);
         CHECK(allBlended);
         CHECK(!anyStaleBase);
+
+        // 3. Bordered clipping container with padding = 0 insets child clip by borderWidth so
+        //    integer scissor expansion never leaks child strokes outside the rounded outer edge
+        bool foundInsetClip = false;
+        for (const Rect& cr : canvas.clips) {
+            if (keel::abs(cr.x - 17.0f) < 0.01f &&
+                keel::abs(cr.y - 17.0f) < 0.01f &&
+                keel::abs(cr.w - 158.0f) < 0.01f &&
+                keel::abs(cr.h - 78.0f) < 0.01f) {
+                foundInsetClip = true;
+                break;
+            }
+        }
+        CHECK(foundInsetClip);
+    }
+
+    // 4. Native SupportsRoundedClip() canvas uses PushRoundedClip(innerRect, rad - bw),
+    //    draws ScrollArea scrollbar chrome INSIDE the rounded clip & before container border,
+    //    and skips the legacy MaskRoundedContainerCorners scanline workaround
+    {
+        struct NativeRoundedClipCanvas final : NullCanvas {
+            struct RoundedClipCall {
+                Rect rect;
+                keel::f32 radius;
+            };
+            keel::Array<RoundedClipCall> roundedClips{};
+            keel::Array<Rect> scanlineMasks{};
+            keel::i32 clipDepth{0};
+            keel::i32 borderClipDepth{-1};
+            keel::i32 scrollbarMinClipDepth{99};
+            keel::i32 scrollbarDrawCallsInsideClip{0};
+
+            [[nodiscard]] bool SupportsRoundedClip() const noexcept override { return true; }
+            void PushClip(Rect) override { ++clipDepth; }
+            void PushRoundedClip(Rect r, keel::f32 rad) override {
+                ++clipDepth;
+                roundedClips.push_back({r, rad});
+            }
+            void PopClip() override { --clipDepth; }
+            void DrawRect(Rect r, Color) override {
+                if (r.h <= 2.0f && r.w <= 12.0f && clipDepth <= 1) {
+                    scanlineMasks.push_back(r);
+                }
+            }
+            void DrawRoundRect(Rect r, keel::f32 rad, Color fill, Color stroke, keel::f32 strokeW) override {
+                if (fill.a == 0u && stroke.a > 0u && strokeW > 0.0f && keel::abs(rad - 8.0f) < 0.01f) {
+                    borderClipDepth = clipDepth;
+                }
+                if (fill.a > 0u && r.w <= 14.0f && r.h >= 20.0f) {
+                    scrollbarMinClipDepth = keel::min(scrollbarMinClipDepth, clipDepth);
+                    ++scrollbarDrawCallsInsideClip;
+                }
+            }
+        };
+
+        NativeRoundedClipCanvas canvas;
+        Context ui;
+        ui.SetTheme(UiTheme::Dark());
+        ui.BeginFrame({240.0f, 160.0f}, 0.016f);
+        if (auto scroll = ScrollArea(ui, {
+            .orientation = Orientation::Vertical,
+            .scrollbar = VisibilityPolicy::Always,
+            .padding = Padding::All(0.0f),
+            .width = 200.0f,
+            .height = 120.0f,
+            .background = {Color(30, 40, 55, 255)},
+            .border = {.width = 1.0f, .radius = 8.0f, .color = {Color(120, 140, 170, 255)}}
+        })) {
+            for (keel::u32 i = 0; i < 10u; ++i) {
+                auto scope = ui.IdScope(keel::as<keel::u64>(i));
+                if (auto card = Card(ui, {.width = SizeMode::Stretch, .height = 40.0f})) {
+                    Text(ui, "Row");
+                }
+            }
+        }
+        ui.EndFrame(canvas);
+
+        bool foundScrollRoundedClip = false;
+        for (const auto& rc : canvas.roundedClips) {
+            if (keel::abs(rc.rect.w - 198.0f) < 0.01f &&
+                keel::abs(rc.rect.h - 118.0f) < 0.01f &&
+                keel::abs(rc.radius - 7.0f) < 0.01f) {
+                foundScrollRoundedClip = true;
+                break;
+            }
+        }
+        CHECK(foundScrollRoundedClip);
+        CHECK(canvas.scanlineMasks.empty());
+        CHECK(canvas.borderClipDepth >= 0);
+        CHECK(canvas.scrollbarDrawCallsInsideClip > 0);
+        CHECK(canvas.scrollbarMinClipDepth > canvas.borderClipDepth);
+    }
+
+    // 5. DrawList + DrawListRecorder round-trip PushRoundedClip faithfully
+    {
+        struct ClipSpyCanvas final : NullCanvas {
+            keel::i32 roundedCalls{0};
+            keel::f32 lastRadius{0.0f};
+            Rect lastRect{};
+            [[nodiscard]] bool SupportsRoundedClip() const noexcept override { return true; }
+            void PushRoundedClip(Rect r, keel::f32 rad) override {
+                ++roundedCalls;
+                lastRect = r;
+                lastRadius = rad;
+            }
+        };
+
+        ClipSpyCanvas spy;
+        DrawList list;
+        DrawListRecorder rec(list, &spy);
+        CHECK(rec.SupportsRoundedClip());
+        rec.PushRoundedClip(Rect(10.0f, 20.0f, 100.0f, 50.0f), 9.0f);
+        rec.PopClip();
+        list.Replay(spy);
+        CHECK(spy.roundedCalls == 1);
+        CHECK(keel::abs(spy.lastRadius - 9.0f) < 0.001f);
+        CHECK(keel::abs(spy.lastRect.x - 10.0f) < 0.001f);
     }
 }
 

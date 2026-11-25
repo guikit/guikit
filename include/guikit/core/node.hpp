@@ -41,6 +41,7 @@ struct PanelHooks {
     ScrollToChildFn  scrollToChild{nullptr};
     CollectBoundsFn  collectBounds{nullptr};
     PopContainerFn   onPopContainer{nullptr};
+    RenderFunc       renderChrome{nullptr}; ///< Internal container chrome rendered inside rounded clip & border (e.g. scrollbars)
 };
 
 /// Arena-allocated scroll configuration and per-frame scrollbar state for scrollable containers.
@@ -505,6 +506,30 @@ static_assert(sizeof(Node) <= 256, "Node must remain compact (<= 256 bytes / 4 c
 [[nodiscard]] inline Transform2D NodeSpace(const Node* node, const Transform2D& parentSpace) noexcept {
     const Transform2D local = NodeLocalTransform(node);
     return local.IsIdentity() ? parentSpace : parentSpace.Then(local);
+}
+
+/// Resolves the inner container rectangle inset by `borderWidth` when `node` draws a full non-dock border.
+[[nodiscard]] inline Rect GetNodeInnerBorderRect(const Node* node, keel::f32* outInset = nullptr) noexcept {
+    if (!node) {
+        if (outInset) *outInset = 0.0f;
+        return Rect{};
+    }
+    const bool hasFullBorder =
+        node->borderWidth > 0.0f &&
+        node->borderColor.a > 0u &&
+        node->GetSurfaceRole() != SurfaceRole::DockEdge;
+    if (!hasFullBorder) {
+        if (outInset) *outInset = 0.0f;
+        return node->computedRect;
+    }
+    const keel::f32 bw = node->borderWidth;
+    if (outInset) *outInset = bw;
+    return Rect(
+        node->computedRect.x + bw,
+        node->computedRect.y + bw,
+        keel::max(0.0f, node->computedRect.w - bw * 2.0f),
+        keel::max(0.0f, node->computedRect.h - bw * 2.0f)
+    );
 }
 
 /// Resolves the content clip rect of `node` via its `PanelHooks::contentClip` delegate (or `node->computedRect`).

@@ -888,7 +888,6 @@ TreeViewScope detail::TreeView::Open(
     scrollNode->scroll->solverManaged = true;
     scrollNode->uiSize = activeSize;
     scrollNode->disabled = activeDisabled;
-    scrollNode->postRenderFn = &detail::ScrollArea::RenderScrollbar;
     scrollNode->panelHooks = detail::ScrollArea::Hooks();
 
     auto& scrollState = ctx.GetOrCreatePersistentState<ScrollState>(idScroll);

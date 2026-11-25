@@ -13,7 +13,8 @@ const PanelHooks* detail::ScrollArea::Hooks() noexcept {
     static constexpr PanelHooks kHooks{
         .contentClip = &detail::ScrollArea::GetContentClipRect,
         .update = &detail::ScrollArea::Update,
-        .scrollToChild = &detail::ScrollArea::ScrollToChild
+        .scrollToChild = &detail::ScrollArea::ScrollToChild,
+        .renderChrome = &detail::ScrollArea::RenderScrollbar
     };
     return &kHooks;
 }
@@ -59,9 +60,9 @@ ContainerScope detail::ScrollArea::Open(
     node->borderWidth = bw;
     node->borderColor = (bw > 0.0f) ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, pal.border) : Color::Transparent();
     node->cornerRadius = opts.border.radius.has_value() ? *opts.border.radius : 0.0f;
+    node->explicitRadius = opts.border.radius.has_value() ? 1 : 0;
     node->uiSize = activeSize;
     node->visualHash = detail::HashArgs(opts.background, opts.border);
-    node->postRenderFn = &detail::ScrollArea::RenderScrollbar;
     node->panelHooks = detail::ScrollArea::Hooks();
 
     // Retrieve persistent scroll state (mouse wheel is handled bottom-up in ScrollArea::Update)
@@ -267,11 +268,12 @@ void detail::ScrollArea::RenderScrollbar(
 
     const ScrollbarMetrics& m = theme.GetScrollbar(node->uiSize);
     const keel::f32 cornerReserve = (showV && showH) ? (m.trackWidth + m.margin) : 0.0f;
+    const Rect sbViewport = GetNodeInnerBorderRect(node);
 
     if (showV) {
         RenderAxisScrollbar(
             canvas,
-            node->computedRect,
+            sbViewport,
             sd.contentSize.y,
             sd.offset.y,
             false,
@@ -287,7 +289,7 @@ void detail::ScrollArea::RenderScrollbar(
     if (showH) {
         RenderAxisScrollbar(
             canvas,
-            node->computedRect,
+            sbViewport,
             sd.contentSize.x,
             sd.offset.x,
             true,
@@ -302,8 +304,8 @@ void detail::ScrollArea::RenderScrollbar(
     }
     if (showV && showH) {
         const Rect cornerRect(
-            keel::floor(node->computedRect.Right() - m.trackWidth - m.margin),
-            keel::floor(node->computedRect.Bottom() - m.trackWidth - m.margin),
+            keel::floor(sbViewport.Right() - m.trackWidth - m.margin),
+            keel::floor(sbViewport.Bottom() - m.trackWidth - m.margin),
             m.trackWidth,
             m.trackWidth
         );
@@ -410,13 +412,15 @@ void detail::ScrollArea::Update(Context& ctx, Node* node) {
         }
     }
 
+    const Rect sbViewport = GetNodeInnerBorderRect(node);
+
     bool hovY = false, actY = false;
     keel::u8 hovPartY = 0u;
     if (showV) {
         UpdateAxisScrollbar(
             ctx,
             node->id,
-            node->computedRect,
+            sbViewport,
             sd.contentSize.y,
             state.offset.y,
             state.draggingY,
@@ -455,7 +459,7 @@ void detail::ScrollArea::Update(Context& ctx, Node* node) {
         UpdateAxisScrollbar(
             ctx,
             node->id,
-            node->computedRect,
+            sbViewport,
             sd.contentSize.x,
             state.offset.x,
             state.draggingX,

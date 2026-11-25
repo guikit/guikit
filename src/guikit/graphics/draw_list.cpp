@@ -40,10 +40,11 @@ void DrawList::PushClear(Color color, keel::Optional<Rect> rect) {
     m_commands.push_back(cmd);
 }
 
-void DrawList::PushClip(Rect clipRect) {
+void DrawList::PushClip(Rect clipRect, keel::f32 cornerRadius) {
     DrawCommand cmd{};
     cmd.type = DrawCommandType::PushClip;
     cmd.rect = clipRect;
+    cmd.p0 = cornerRadius;
     m_commands.push_back(cmd);
 }
 
@@ -282,7 +283,11 @@ void DrawList::Replay(ICanvas& target) const {
                 target.Clear(cmd.color, cmd.flag ? keel::Optional<Rect>(cmd.rect) : keel::kNullOpt);
                 break;
             case DrawCommandType::PushClip:
-                target.PushClip(cmd.rect);
+                if (cmd.p0 > 0.0f) {
+                    target.PushRoundedClip(cmd.rect, cmd.p0);
+                } else {
+                    target.PushClip(cmd.rect);
+                }
                 break;
             case DrawCommandType::PopClip:
                 target.PopClip();
@@ -390,7 +395,11 @@ void DrawListRecorder::FlushToTarget() {
                 m_target->Clear(cmd.color, cmd.flag ? keel::Optional<Rect>(cmd.rect) : keel::kNullOpt);
                 break;
             case DrawCommandType::PushClip:
-                m_target->PushClip(cmd.rect);
+                if (cmd.p0 > 0.0f) {
+                    m_target->PushRoundedClip(cmd.rect, cmd.p0);
+                } else {
+                    m_target->PushClip(cmd.rect);
+                }
                 break;
             case DrawCommandType::PopClip:
                 m_target->PopClip();
@@ -563,6 +572,10 @@ void DrawListRecorder::Clear(Color color, keel::Optional<Rect> rect) {
 
 void DrawListRecorder::PushClip(Rect clipRect) {
     m_list.PushClip(clipRect);
+}
+
+void DrawListRecorder::PushRoundedClip(Rect clipRect, keel::f32 cornerRadius) {
+    m_list.PushClip(clipRect, cornerRadius);
 }
 
 void DrawListRecorder::PopClip() {

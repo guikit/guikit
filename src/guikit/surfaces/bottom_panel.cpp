@@ -368,7 +368,6 @@ BottomPanelScope detail::BottomPanel::Open(
         node->scroll->orientation = Orientation::Vertical;
         node->scroll->policy = opts.scrollbar;
         node->scroll->solverManaged = true;
-        node->postRenderFn = &detail::ScrollArea::RenderScrollbar;
         node->panelHooks = detail::ScrollArea::Hooks();
 
         auto& scrollState = ctx.GetOrCreatePersistentState<ScrollState>(id);
