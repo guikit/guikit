@@ -232,9 +232,13 @@ void DrawList::PushPixels(PixelRef pixels, Rect destRect, keel::f32 cornerRadius
         const keel::usize count = keel::as<keel::usize>(pixels.Width()) * pixels.Height();
         keel::u32* buf = ActiveArena().alloc_array<keel::u32>(count);
         if (!buf) return;
-        for (keel::u32 y = 0u; y < pixels.Height(); ++y) {
-            const auto row = pixels.Row(y);
-            keel::mem_copy(buf + keel::as<keel::usize>(y) * pixels.Width(), row.data(), pixels.Width() * sizeof(keel::u32));
+        if (pixels.RowStride() == pixels.Width()) {
+            keel::mem_copy(buf, pixels.Data(), count * sizeof(keel::u32));
+        } else {
+            for (keel::u32 y = 0u; y < pixels.Height(); ++y) {
+                const auto row = pixels.Row(y);
+                keel::mem_copy(buf + keel::as<keel::usize>(y) * pixels.Width(), row.data(), pixels.Width() * sizeof(keel::u32));
+            }
         }
         stored = PixelRef(keel::ArrayRef<keel::u32>(buf, count), pixels.Width(), pixels.Height());
     }
@@ -663,7 +667,7 @@ bool DrawListRecorder::DrawPixels(PixelRef pixels, Rect destRect, keel::f32 corn
     if (pixels.Empty() || opacity == 0u || destRect.w <= 0.0f || destRect.h <= 0.0f) {
         return false;
     }
-    m_list.PushPixels(pixels, destRect, cornerRadius, opacity, false);
+    m_list.PushPixels(pixels, destRect, cornerRadius, opacity, true);
     return true;
 }
 

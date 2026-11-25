@@ -11262,6 +11262,7 @@ void TestImeCompositionAndFileDrop();
 void TestPopupDismissOutsidePassesClickThrough();
 void TestSelectPopupSelectedVsHoverStability();
 void TestDatePickerPopoverWidgets();
+void TestDrawListRecorderCopiesTransientPixels();
 
 void TestZonePartialThemeOverrides() {
     using namespace guikit;
@@ -11347,6 +11348,7 @@ int main() {
     TestPopupDismissOutsidePassesClickThrough();
     TestSelectPopupSelectedVsHoverStability();
     TestDatePickerPopoverWidgets();
+    TestDrawListRecorderCopiesTransientPixels();
     TestTextWrappingAndBackendIndependence();
 
 #if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
@@ -18086,6 +18088,53 @@ void TestDatePickerPopoverWidgets() {
     CHECK(outsideClicks == 1);
 
     keel::println("  [PASS] TestDatePickerPopoverWidgets completed");
+}
+
+void TestDrawListRecorderCopiesTransientPixels() {
+    using namespace guikit;
+    keel::println("  -> TestDrawListRecorderCopiesTransientPixels...");
+
+    class PixelVerifyCanvas : public NullCanvas {
+    public:
+        keel::Array<keel::u32> captured{};
+        keel::u32 capturedW{0};
+        keel::u32 capturedH{0};
+
+        bool DrawPixels(PixelRef pixels, Rect /*destRect*/, keel::f32 /*cornerRadius*/, keel::u8 /*opacity*/) override {
+            capturedW = pixels.Width();
+            capturedH = pixels.Height();
+            captured.resize(pixels.Size());
+            keel::mem_copy(captured.data(), pixels.Data(), pixels.Size() * sizeof(keel::u32));
+            return true;
+        }
+    };
+
+    DrawList list;
+    PixelVerifyCanvas target;
+    DrawListRecorder recorder(list, &target);
+
+    // Record from a stack-local buffer and explicitly clobber it before Replay()
+    {
+        keel::StaticArray<keel::u32, 16 * 12> transient{};
+        for (keel::usize i = 0; i < transient.size(); ++i) {
+            transient[i] = 0xFF000000u | keel::as<keel::u32>((i * 2654435761u) & 0x00FFFFFFu);
+        }
+        CHECK(recorder.DrawPixels({transient, 16u, 12u}, Rect(0.0f, 0.0f, 160.0f, 120.0f), 4.0f, 255u));
+        for (keel::usize i = 0; i < transient.size(); ++i) {
+            transient[i] = 0xDEADBEEFu;
+        }
+    }
+
+    list.Replay(target);
+    CHECK(target.capturedW == 16u);
+    CHECK(target.capturedH == 12u);
+    CHECK(target.captured.size() == 16u * 12u);
+    for (keel::usize i = 0; i < target.captured.size(); ++i) {
+        const keel::u32 expected = 0xFF000000u | keel::as<keel::u32>((i * 2654435761u) & 0x00FFFFFFu);
+        CHECK(target.captured[i] == expected);
+    }
+
+    keel::println("  [PASS] TestDrawListRecorderCopiesTransientPixels completed");
 }
 
 
