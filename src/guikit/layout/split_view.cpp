@@ -4,6 +4,7 @@
 #include "guikit/core/control.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/solver.hpp"
+#include "guikit/style/style_painter.hpp"
 #include "keel/math.h"
 
 namespace guikit {
@@ -244,45 +245,16 @@ void RenderSplitView(
         return;
     }
 
-    const auto& pal = theme.palette;
-    const keel::f32 s = 1.0f;
-    const bool isHoriz = (payload->opts.orientation == Orientation::Horizontal);
-    const bool active = payload->sashHovered || payload->dragging;
-    const Color primaryCol = theme.GetVariant(UiVariant::Primary).bg;
-
-    // Highlighted sash track on hover/drag
-    if (active) {
-        canvas.DrawRect(sashRect, primaryCol.WithAlphaF(payload->dragging ? 0.32f : 0.25f));
-    } else {
-        canvas.DrawRect(sashRect, pal.surfaceHover.WithAlphaF(0.35f));
-    }
-
-    // Center divider line (subtle line or highlighted primary line)
-    const Color lineCol = active ? primaryCol.WithAlphaF(0.85f) : pal.borderSubtle;
-    if (isHoriz) {
-        const keel::f32 lineX = keel::round(sashRect.Center().x);
-        canvas.DrawRect(Rect(lineX, sashRect.y, 1.0f, sashRect.h), lineCol);
-    } else {
-        const keel::f32 lineY = keel::round(sashRect.Center().y);
-        canvas.DrawRect(Rect(sashRect.x, lineY, sashRect.w, 1.0f), lineCol);
-    }
-
-    // Center grip pill (3x24 for Horizontal or 24x3 for Vertical)
-    if (payload->opts.showGrip) {
-        const keel::f32 gripW = isHoriz ? keel::max(2.0f, keel::round(3.0f * s)) : keel::round(24.0f * s);
-        const keel::f32 gripH = isHoriz ? keel::round(24.0f * s) : keel::max(2.0f, keel::round(3.0f * s));
-        if (sashRect.w >= (isHoriz ? 2.0f : gripW) && sashRect.h >= (isHoriz ? gripH : 2.0f)) {
-            const Rect gripRect(
-                keel::round(sashRect.Center().x - gripW * 0.5f),
-                keel::round(sashRect.Center().y - gripH * 0.5f),
-                gripW,
-                gripH
-            );
-            const Color gripCol = active ? primaryCol : pal.textMuted.WithAlphaF(0.65f);
-            const keel::f32 gripRadius = keel::min(gripW, gripH) * 0.5f;
-            canvas.DrawRoundRect(gripRect, gripRadius, gripCol, Color::Transparent(), 0.0f);
-        }
-    }
+    theme.Painter().DrawSplitSash(
+        canvas,
+        theme,
+        sashRect,
+        payload->opts.orientation == Orientation::Horizontal,
+        payload->opts.showGrip,
+        payload->sashHovered,
+        payload->dragging,
+        node->disabled
+    );
 }
 
 } // namespace

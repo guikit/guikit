@@ -427,6 +427,19 @@ public:
         const UiTheme& theme,
         Rect cornerRect
     ) const = 0;
+
+    /// Draws an interactive SplitView resize sash and optional grip handle according to active chrome.
+    /// `verticalBar` is true for a vertical sash bar separating left/right panes (`Orientation::Horizontal`).
+    virtual void DrawSplitSash(
+        ICanvas& canvas,
+        const UiTheme& theme,
+        Rect sashRect,
+        bool verticalBar,
+        bool showGrip,
+        bool hovered,
+        bool dragging,
+        bool disabled
+    ) const = 0;
 };
 
 /// Built-in default look-and-feel painter supporting all `ChromeStyle`, `ChromeTokens`, and `FillStyle` modes
@@ -458,6 +471,7 @@ public:
     void DrawBadge(ICanvas& canvas, const UiTheme& theme, Rect rect, Color bg, Color border, keel::f32 borderWidth, keel::f32 fallbackRadius) const override;
     void DrawScrollbar(ICanvas& canvas, const UiTheme& theme, const ScrollbarPaintParams& p) const override;
     void DrawScrollbarCorner(ICanvas& canvas, const UiTheme& theme, Rect cornerRect) const override;
+    void DrawSplitSash(ICanvas& canvas, const UiTheme& theme, Rect sashRect, bool verticalBar, bool showGrip, bool hovered, bool dragging, bool disabled) const override;
 
     // Reusable low-level 3D bevel helpers exposed to subclasses
     static void DrawBevelFrame(ICanvas& canvas, Rect r, const BevelPalette& c, bool sunken = false, bool thin = false);

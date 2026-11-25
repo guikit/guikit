@@ -1476,6 +1476,112 @@ void DefaultStylePainter::DrawScrollbarCorner(
     canvas.DrawRect(cornerRect, fill);
 }
 
+void DefaultStylePainter::DrawSplitSash(
+    ICanvas& canvas,
+    const UiTheme& theme,
+    Rect sashRect,
+    bool verticalBar,
+    bool showGrip,
+    bool hovered,
+    bool dragging,
+    bool disabled
+) const {
+    if (sashRect.w <= 0.0f || sashRect.h <= 0.0f) return;
+
+    const auto& pal = theme.palette;
+    const bool active = !disabled && (hovered || dragging);
+    const keel::f32 thick = verticalBar ? sashRect.w : sashRect.h;
+    const keel::f32 span = verticalBar ? sashRect.h : sashRect.w;
+
+    // 1. Classic 3D (Bevel3D / Etched3D): raised 3D splitter bar + embossed 3D grip dots
+    if (theme.chrome.frame == FrameTreatment::Bevel3D || theme.chrome.divider == DividerStyle::Etched3D) {
+        const Color baseBg = disabled
+            ? pal.surface
+            : (dragging ? pal.surfaceActive : (hovered ? pal.surfaceHover : pal.surface));
+        canvas.DrawRect(sashRect, baseBg);
+
+        if (thick < 4.0f) {
+            if (verticalBar) {
+                const keel::f32 x = keel::floor(sashRect.Center().x - 1.0f);
+                DrawBevelDividerV(canvas, x, sashRect.y, sashRect.Bottom(), theme.bevel);
+            } else {
+                const keel::f32 y = keel::floor(sashRect.Center().y - 1.0f);
+                DrawBevelDividerH(canvas, sashRect.x, sashRect.Right(), y, theme.bevel);
+            }
+        } else {
+            const bool thinBevel = (thick < 8.0f);
+            DrawBevelFrame(canvas, sashRect, theme.bevel, /*sunken=*/(dragging && !disabled), thinBevel);
+
+            if (showGrip && span >= 24.0f) {
+                const keel::f32 cx = keel::floor(sashRect.x) + keel::floor(keel::floor(sashRect.w) * 0.5f);
+                const keel::f32 cy = keel::floor(sashRect.y) + keel::floor(keel::floor(sashRect.h) * 0.5f);
+                const Color dotShadow = disabled
+                    ? theme.bevel.shadowInner.WithAlphaF(theme.disabledOpacity)
+                    : theme.bevel.shadowInner;
+                const Color dotHi = disabled
+                    ? theme.bevel.highlightOuter.WithAlphaF(theme.disabledOpacity)
+                    : theme.bevel.highlightOuter;
+
+                for (keel::i32 i = -2; i <= 2; ++i) {
+                    const keel::f32 off = keel::as<keel::f32>(i) * 4.0f;
+                    if (verticalBar) {
+                        const keel::f32 dy = cy + off;
+                        canvas.DrawRect(Rect(cx - 1.0f, dy - 1.0f, 1.0f, 1.0f), dotShadow);
+                        canvas.DrawRect(Rect(cx,        dy,        1.0f, 1.0f), dotHi);
+                    } else {
+                        const keel::f32 dx = cx + off;
+                        canvas.DrawRect(Rect(dx - 1.0f, cy - 1.0f, 1.0f, 1.0f), dotShadow);
+                        canvas.DrawRect(Rect(dx,        cy,        1.0f, 1.0f), dotHi);
+                    }
+                }
+            }
+        }
+        return;
+    }
+
+    // 2. Brutalist (HardShadow / Bold) & Modern / Fluent: shared exact-center track, divider, and grip
+    const bool isBrutalist =
+        (theme.chrome.frame == FrameTreatment::HardShadow || theme.chrome.divider == DividerStyle::Bold);
+    const Color accentCol = pal.accent;
+    const Vec2 center = sashRect.Center();
+
+    const Color trackBg = active
+        ? accentCol.WithAlphaF(isBrutalist ? (dragging ? 0.30f : 0.20f) : (dragging ? 0.32f : 0.25f))
+        : (isBrutalist ? pal.surface : pal.surfaceHover.WithAlphaF(0.35f));
+    canvas.DrawRect(sashRect, trackBg);
+
+    const keel::f32 lineT = isBrutalist ? keel::min(2.0f, thick) : 1.0f;
+    const Color lineCol = active
+        ? (isBrutalist ? accentCol : accentCol.WithAlphaF(0.85f))
+        : (isBrutalist ? pal.border : pal.borderSubtle);
+    const Rect lineRect = verticalBar
+        ? Rect(center.x - lineT * 0.5f, sashRect.y, lineT, sashRect.h)
+        : Rect(sashRect.x, center.y - lineT * 0.5f, sashRect.w, lineT);
+    canvas.DrawRect(lineRect, lineCol);
+
+    if (showGrip) {
+        const keel::f32 gripT = isBrutalist
+            ? ((thick >= 4.0f) ? 4.0f : lineT)
+            : ((thick >= 3.0f) ? 3.0f : thick);
+        const keel::f32 gripLen = 24.0f;
+        const keel::f32 gripW = verticalBar ? gripT : gripLen;
+        const keel::f32 gripH = verticalBar ? gripLen : gripT;
+        if (sashRect.w >= (verticalBar ? keel::min(2.0f, gripW) : gripW) &&
+            sashRect.h >= (verticalBar ? gripH : keel::min(2.0f, gripH)) &&
+            thick >= (isBrutalist ? gripT : 2.0f)) {
+            const Rect gripRect(center.x - gripW * 0.5f, center.y - gripH * 0.5f, gripW, gripH);
+            const Color gripCol = active
+                ? accentCol
+                : (isBrutalist ? pal.textPrimary : pal.textMuted.WithAlphaF(0.65f));
+            if (isBrutalist) {
+                canvas.DrawRect(gripRect, gripCol);
+            } else {
+                canvas.DrawRoundRect(gripRect, keel::min(gripW, gripH) * 0.5f, gripCol, Color::Transparent(), 0.0f);
+            }
+        }
+    }
+}
+
 const IStylePainter& GetDefaultStylePainter() noexcept {
     static const DefaultStylePainter kDefaultPainter{};
     return kDefaultPainter;

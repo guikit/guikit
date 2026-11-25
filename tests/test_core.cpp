@@ -3162,6 +3162,165 @@ void TestFillStyleOutlineIndicatorsVisible() {
     }
 }
 
+void TestSplitViewSashChromeStyles() {
+    using namespace guikit;
+    keel::println("  -> TestSplitViewSashChromeStyles...");
+
+    struct SashRecordingCanvas final : public NullCanvas {
+        keel::Array<Rect> rects{};
+        keel::Array<Color> rectColors{};
+        keel::Array<Rect> roundRects{};
+        keel::Array<Color> roundRectColors{};
+        void DrawRect(Rect r, Color fill) override {
+            if (fill.a > 0u) {
+                rects.push_back(r);
+                rectColors.push_back(fill);
+            }
+        }
+        void DrawRoundRect(Rect r, keel::f32, Color fill, Color, keel::f32) override {
+            if (fill.a > 0u) {
+                roundRects.push_back(r);
+                roundRectColors.push_back(fill);
+            }
+        }
+    };
+
+    const Rect sash(100.0f, 0.0f, 6.0f, 200.0f);
+
+    // 1. Classic 3D: raised 3D bevel + embossed grip dots, zero rounded pills
+    {
+        ThemeSpec spec{};
+        spec.base = ThemePreset::Dark;
+        spec.chrome = ChromeStyle::Classic3D;
+        spec.fillStyle = FillStyle::Solid;
+        const UiTheme classic = UiTheme::Build(spec);
+
+        SashRecordingCanvas canvas;
+        classic.Painter().DrawSplitSash(canvas, classic, sash, true, true, false, false, false);
+
+        bool foundHighlight = false;
+        bool foundShadow = false;
+        for (Color c : canvas.rectColors) {
+            if (c == classic.bevel.highlightOuter) foundHighlight = true;
+            if (c == classic.bevel.shadowOuter) foundShadow = true;
+        }
+        CHECK(foundHighlight);
+        CHECK(foundShadow);
+        CHECK(canvas.roundRectColors.empty());
+    }
+
+    // 2. Brutalist: track, 2px line, and 4px grip share exact center even at fractional positions
+    {
+        ThemeSpec spec{};
+        spec.base = ThemePreset::Dark;
+        spec.chrome = ChromeStyle::Brutalist;
+        spec.fillStyle = FillStyle::Solid;
+        const UiTheme brutal = UiTheme::Build(spec);
+
+        for (keel::f32 origin : {100.0f, 100.5f}) {
+            for (keel::f32 thick : {6.0f, 7.0f}) {
+                // Horizontal orientation (vertical sash bar)
+                {
+                    SashRecordingCanvas canvas;
+                    const Rect r(origin, 0.0f, thick, 200.0f);
+                    brutal.Painter().DrawSplitSash(canvas, brutal, r, true, true, false, false, false);
+                    CHECK(canvas.rects.size() == 3u); // track, 2px line, 4px grip
+                    CHECK(canvas.roundRectColors.empty());
+                    if (canvas.rects.size() == 3u) {
+                        const Rect trackR = canvas.rects[0];
+                        const Rect lineR = canvas.rects[1];
+                        const Rect gripR = canvas.rects[2];
+                        CHECK(keel::abs(trackR.Center().x - lineR.Center().x) < 0.001f);
+                        CHECK(keel::abs(trackR.Center().x - gripR.Center().x) < 0.001f);
+                    }
+                }
+                // Vertical orientation (horizontal sash bar)
+                {
+                    SashRecordingCanvas canvas;
+                    const Rect r(0.0f, origin, 200.0f, thick);
+                    brutal.Painter().DrawSplitSash(canvas, brutal, r, false, true, false, false, false);
+                    CHECK(canvas.rects.size() == 3u);
+                    CHECK(canvas.roundRectColors.empty());
+                    if (canvas.rects.size() == 3u) {
+                        const Rect trackR = canvas.rects[0];
+                        const Rect lineR = canvas.rects[1];
+                        const Rect gripR = canvas.rects[2];
+                        CHECK(keel::abs(trackR.Center().y - lineR.Center().y) < 0.001f);
+                        CHECK(keel::abs(trackR.Center().y - gripR.Center().y) < 0.001f);
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. Modern + FillStyle::Outline: track, 1px line, and accent pill share exact center
+    {
+        ThemeSpec spec{};
+        spec.base = ThemePreset::Dark;
+        spec.chrome = ChromeStyle::Modern;
+        spec.fillStyle = FillStyle::Outline;
+        const UiTheme modernOutline = UiTheme::Build(spec);
+
+        for (keel::f32 origin : {100.0f, 100.5f}) {
+            for (keel::f32 thick : {6.0f, 7.0f}) {
+                SashRecordingCanvas canvas;
+                const Rect r(origin, 0.0f, thick, 200.0f);
+                modernOutline.Painter().DrawSplitSash(canvas, modernOutline, r, true, true, true, false, false);
+                CHECK(canvas.rects.size() == 2u);      // track + 1px center line
+                CHECK(canvas.roundRects.size() == 1u); // 3px pill grip
+                if (canvas.rects.size() == 2u && canvas.roundRects.size() == 1u) {
+                    CHECK(keel::abs(canvas.rects[0].Center().x - canvas.rects[1].Center().x) < 0.001f);
+                    CHECK(keel::abs(canvas.rects[0].Center().x - canvas.roundRects[0].Center().x) < 0.001f);
+                    CHECK(canvas.roundRectColors[0] == modernOutline.palette.accent && canvas.roundRectColors[0].a == 255u);
+                }
+            }
+        }
+    }
+
+    // 4. SplitView dispatches sash rendering through custom IStylePainter::DrawSplitSash
+    {
+        struct SpySashPainter final : public DefaultStylePainter {
+            mutable keel::i32 sashCalls{0};
+            mutable bool lastVerticalBar{false};
+            void DrawSplitSash(
+                ICanvas& c,
+                const UiTheme& th,
+                Rect r,
+                bool verticalBar,
+                bool showGrip,
+                bool hovered,
+                bool dragging,
+                bool disabled
+            ) const override {
+                ++sashCalls;
+                lastVerticalBar = verticalBar;
+                DefaultStylePainter::DrawSplitSash(c, th, r, verticalBar, showGrip, hovered, dragging, disabled);
+            }
+        };
+
+        SpySashPainter spy{};
+        UiTheme customTheme = UiTheme::Windows98();
+        customTheme.stylePainter = &spy;
+
+        NullCanvas canvas;
+        Context ui;
+        ui.SetTheme(customTheme);
+        ui.BeginFrame({320.0f, 200.0f}, 0.016f);
+        if (auto split = SplitView(ui, {.orientation = Orientation::Horizontal, .sashSize = 6.0f})) {
+            if (auto p1 = split.First()) {
+                Text(ui, "A");
+            }
+            if (auto p2 = split.Second()) {
+                Text(ui, "B");
+            }
+        }
+        ui.EndFrame(canvas);
+
+        CHECK(spy.sashCalls == 1);
+        CHECK(spy.lastVerticalBar == true);
+    }
+}
+
 int main() {
     keel::println("[RUN] Testing GuiKit Core Foundation...");
 
@@ -3196,6 +3355,7 @@ int main() {
     TestRoundedContainerCornerMasking();
     TestSwitchKnobCenterSymmetry();
     TestFillStyleOutlineIndicatorsVisible();
+    TestSplitViewSashChromeStyles();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Core tests passed successfully!");
