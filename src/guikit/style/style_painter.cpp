@@ -1287,6 +1287,10 @@ void DrawScrollbarArrowGlyph(
         : pal.borderHover;
 }
 
+[[nodiscard]] keel::f32 ResolveFramedScrollbarLineWidth(const UiTheme& theme) noexcept {
+    return keel::max(1.0f, 1.5f * keel::max(theme.borderScale, 0.5f));
+}
+
 } // namespace
 
 void DefaultStylePainter::DrawScrollbar(
@@ -1298,10 +1302,11 @@ void DefaultStylePainter::DrawScrollbar(
 
     const auto& pal = theme.palette;
     const ScrollbarStyleTokens& sb = theme.scrollbarStyle;
+    const bool isFramed = (sb.chrome == ScrollbarChromeStyle::Framed);
     const Color accent = (p.accentColor.a > 0u) ? p.accentColor : pal.accent;
     const Color trackBg = ResolveScrollbarTrackBg(theme, sb.chrome);
-    const Color railBorder = ResolveFramedScrollbarBorder(pal, trackBg);
-    const keel::f32 framedLineW = keel::max(1.0f, 1.5f * keel::max(theme.borderScale, 0.5f));
+    const Color railBorder = isFramed ? ResolveFramedScrollbarBorder(pal, trackBg) : Color::Transparent();
+    const keel::f32 framedLineW = isFramed ? ResolveFramedScrollbarLineWidth(theme) : 0.0f;
 
     // 1. Track background
     const bool drawTrack = sb.alwaysShowTrack || p.hovered || p.dragging || (sb.chrome != ScrollbarChromeStyle::Modern);
@@ -1333,7 +1338,7 @@ void DefaultStylePainter::DrawScrollbar(
     if (p.thumbRect.w > 0.0f && p.thumbRect.h > 0.0f) {
         const keel::f32 inset = keel::max(0.0f, sb.thumbInset);
         Rect thumbR = p.thumbRect;
-        if (sb.chrome == ScrollbarChromeStyle::Framed) {
+        if (isFramed) {
             // Keep thumb cleanly inside the rail interior past the content-side divider
             if (p.horizontal && thumbR.h > framedLineW + 2.0f) {
                 thumbR.y += framedLineW;
@@ -1354,31 +1359,27 @@ void DefaultStylePainter::DrawScrollbar(
         }
 
         const bool thumbHot = p.thumbHovered || (p.hovered && !p.startHovered && !p.endHovered);
-        if (sb.chrome == ScrollbarChromeStyle::Modern) {
-            const Color thumbCol = p.dragging
-                ? accent
-                : (thumbHot ? pal.textSecondary : pal.textMuted);
-            canvas.DrawRoundRect(thumbR, p.cornerRadius, thumbCol, Color::Transparent(), 0.0f);
-        } else if (sb.chrome == ScrollbarChromeStyle::Flat) {
-            const Color thumbCol = p.dragging
-                ? accent
-                : (thumbHot ? pal.textSecondary : pal.textMuted);
-            canvas.DrawRect(thumbR, thumbCol);
-        } else if (sb.chrome == ScrollbarChromeStyle::ClassicBevel) {
+        if (sb.chrome == ScrollbarChromeStyle::ClassicBevel) {
             const Color thumbCol = p.dragging
                 ? pal.surfaceActive.WithAlpha(255u)
                 : (thumbHot ? pal.surfaceHover.WithAlpha(255u) : pal.surface);
             canvas.DrawRect(thumbR, thumbCol);
             DrawBevelFrame(canvas, thumbR, theme.bevel, /*sunken=*/false, /*thin=*/false);
         } else {
-            // ScrollbarChromeStyle::Framed (Brutalist): high-contrast fill + crisp 0dp border
             const Color thumbCol = p.dragging
                 ? accent
                 : (thumbHot ? pal.textSecondary : pal.textMuted);
-            const Color thumbBorder = (Color::ContrastRatio(pal.borderHover, thumbCol) >= 1.35f)
-                ? pal.borderHover
-                : Color::BestTextColor(thumbCol, pal.textPrimary, pal.background);
-            canvas.DrawRoundRect(thumbR, 0.0f, thumbCol, thumbBorder, keel::min(framedLineW, 1.5f));
+            if (sb.chrome == ScrollbarChromeStyle::Modern) {
+                canvas.DrawRoundRect(thumbR, p.cornerRadius, thumbCol, Color::Transparent(), 0.0f);
+            } else if (sb.chrome == ScrollbarChromeStyle::Flat) {
+                canvas.DrawRect(thumbR, thumbCol);
+            } else {
+                // ScrollbarChromeStyle::Framed (Brutalist): high-contrast fill + crisp 0dp border
+                const Color thumbBorder = (Color::ContrastRatio(pal.borderHover, thumbCol) >= 1.35f)
+                    ? pal.borderHover
+                    : Color::BestTextColor(thumbCol, pal.textPrimary, pal.background);
+                canvas.DrawRoundRect(thumbR, 0.0f, thumbCol, thumbBorder, keel::min(framedLineW, 1.5f));
+            }
         }
     }
 
@@ -1395,7 +1396,7 @@ void DefaultStylePainter::DrawScrollbar(
             if (sb.chrome == ScrollbarChromeStyle::ClassicBevel) {
                 canvas.DrawRect(r, btnBg);
                 DrawBevelFrame(canvas, r, theme.bevel, /*sunken=*/press, /*thin=*/false);
-            } else if (sb.chrome == ScrollbarChromeStyle::Framed) {
+            } else if (isFramed) {
                 canvas.DrawRect(r, btnBg);
                 // Continuous content-side rail divider + junction divider separating button from track
                 if (p.horizontal) {
@@ -1449,7 +1450,7 @@ void DefaultStylePainter::DrawScrollbarCorner(
     canvas.DrawRect(cornerRect, trackBg);
     if (sb.chrome == ScrollbarChromeStyle::Framed) {
         const Color railBorder = ResolveFramedScrollbarBorder(pal, trackBg);
-        const keel::f32 framedLineW = keel::max(1.0f, 1.5f * keel::max(theme.borderScale, 0.5f));
+        const keel::f32 framedLineW = ResolveFramedScrollbarLineWidth(theme);
         canvas.DrawRect(Rect(cornerRect.x, cornerRect.y, cornerRect.w, framedLineW), railBorder);
         canvas.DrawRect(Rect(cornerRect.x, cornerRect.y, framedLineW, cornerRect.h), railBorder);
     }

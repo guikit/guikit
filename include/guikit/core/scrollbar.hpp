@@ -97,18 +97,7 @@ public:
         Color accentColor = Color::Transparent()
     );
 
-    /// Renders a vertical scrollbar track and thumb into `canvas` according to `geom` and interaction state.
-    static void DrawVertical(
-        ICanvas& canvas,
-        const ScrollbarGeometry& geom,
-        bool hovered,
-        bool dragging,
-        const ScrollbarMetrics& metrics,
-        const ThemePalette& pal,
-        Color accentColor
-    );
-
-    /// Theme-aware overload rendering vertical scrollbar via `theme.Painter().DrawScrollbar(...)`.
+    /// Renders a vertical scrollbar via `theme.Painter().DrawScrollbar(...)`.
     static void DrawVertical(
         ICanvas& canvas,
         const ScrollbarGeometry& geom,

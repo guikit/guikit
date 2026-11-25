@@ -2066,9 +2066,10 @@ void TestScrollbarCustomizationPresetsAndGeometry() {
     CHECK(brutal.scrollbarStyle.showCornerBox);
     CHECK(keel::abs(brutal.GetScrollbar(UiSize::Md).trackWidth - 16.0f) < 0.01f);
 
-    // 2. Explicit SetScrollbarStyle updates metrics cleanly when chrome changes & SetScrollbarWidth scales proportionally
+    // 2. Explicit SetScrollbarStyle updates chrome.scrollbar & metrics cleanly, and SetScrollbarWidth scales proportionally
     UiTheme t = UiTheme::Light();
     t.SetScrollbarStyle(ScrollbarStyleTokens::ForChrome(ScrollbarChromeStyle::Framed));
+    CHECK(t.chrome.scrollbar == ScrollbarChromeStyle::Framed);
     CHECK(keel::abs(t.GetScrollbar(UiSize::Md).trackWidth - 16.0f) < 0.01f);
     t.SetScrollbarWidth(20.0f);
     CHECK(keel::abs(t.GetScrollbar(UiSize::Md).trackWidth - 20.0f) < 0.01f);
@@ -2093,6 +2094,7 @@ void TestScrollbarCustomizationPresetsAndGeometry() {
         }
 
         const UiTheme built = UiTheme::Build(spec);
+        CHECK(built.chrome.scrollbar == ScrollbarChromeStyle::Flat);
         CHECK(built.scrollbarStyle.chrome == ScrollbarChromeStyle::Flat);
         CHECK(built.scrollbarStyle.showButtons);
         CHECK(built.scrollbarStyle.arrowStyle == ScrollbarArrowStyle::Chevron);

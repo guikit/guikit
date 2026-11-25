@@ -280,44 +280,6 @@ void Scrollbar::DrawAxis(
 void Scrollbar::DrawVertical(
     ICanvas& canvas,
     const ScrollbarGeometry& geom,
-    bool hovered,
-    bool dragging,
-    const ScrollbarMetrics& metrics,
-    const ThemePalette& pal,
-    Color accentColor
-) {
-    if (!geom.visible || geom.trackRect.h <= 0.0f || geom.thumbRect.h <= 0.0f) {
-        return;
-    }
-
-    if (hovered || dragging) {
-        canvas.DrawRoundRect(
-            geom.trackRect,
-            metrics.cornerRadius,
-            pal.surfaceHover.WithAlphaF(0.45f),
-            Color::Transparent(),
-            0.0f
-        );
-    }
-
-    const Color thumbCol = dragging
-        ? accentColor
-        : (hovered
-            ? pal.textSecondary.WithAlphaF(0.85f)
-            : pal.textMuted.WithAlphaF(0.50f));
-
-    canvas.DrawRoundRect(
-        geom.thumbRect,
-        metrics.cornerRadius,
-        thumbCol,
-        Color::Transparent(),
-        0.0f
-    );
-}
-
-void Scrollbar::DrawVertical(
-    ICanvas& canvas,
-    const ScrollbarGeometry& geom,
     const ScrollbarState& state,
     const ScrollbarMetrics& metrics,
     const UiTheme& theme,

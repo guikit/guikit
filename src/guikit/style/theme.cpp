@@ -1188,6 +1188,7 @@ void UiTheme::SetChromeTokens(const ChromeTokens& tokens) noexcept {
 void UiTheme::SetScrollbarStyle(const ScrollbarStyleTokens& style) noexcept {
     const bool chromeChanged = (style.chrome != scrollbarStyle.chrome);
     scrollbarStyle = style;
+    chrome.scrollbar = style.chrome;
     if (chromeChanged) {
         ApplyScrollbarMetricsForChrome(*this, style.chrome);
     }
