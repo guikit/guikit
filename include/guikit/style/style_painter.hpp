@@ -92,6 +92,19 @@ struct ScrollbarPaintParams {
     Color     accentColor{Color::Transparent()};
 };
 
+/// Unified parameters for `IStylePainter::DrawSliderThumb`.
+struct SliderThumbPaintParams {
+    Vec2      center{};
+    keel::f32 thumbSize{13.5f};
+    bool      vertical{false};
+    Color     accent{Color::Transparent()}; ///< Semantic active/accent color for this slider (falls back to `palette.accent`)
+    bool      hovered{false};
+    bool      active{false};
+    bool      focused{false};
+    bool      disabled{false};
+    keel::f32 cornerRadius{0.0f};
+};
+
 /// Pluggable look-and-feel style painter interface (analogous to Qt QStyle / Flutter ThemeExtension).
 ///
 /// All 8 element classes delegate visual physics (shadows, fills, borders, 3D bevels, directional 1px lighting,
@@ -221,7 +234,7 @@ public:
         keel::f32 cornerRadius
     ) const = 0;
 
-    /// Draws a single discrete slider tick mark (below/beside track for `Pointer3D`, centered dot otherwise).
+    /// Draws a single discrete slider tick mark (below/beside track for `Pointer3D` scaled to `thumbSize`, centered dot otherwise).
     virtual void DrawSliderTick(
         ICanvas& canvas,
         const UiTheme& theme,
@@ -229,6 +242,7 @@ public:
         keel::f32 crossCoord,
         bool vertical,
         keel::f32 tickSize,
+        keel::f32 thumbSize,
         Color color,
         bool disabled
     ) const = 0;
@@ -271,21 +285,11 @@ public:
         bool explicitColor
     ) const = 0;
 
-    /// Draws a slider / step-slider thumb knob (circular, square, or pentagonal 3D pointer).
+    /// Draws a slider / step-slider / range-slider thumb knob according to `theme.chrome.sliderThumb`.
     virtual void DrawSliderThumb(
         ICanvas& canvas,
         const UiTheme& theme,
-        Vec2 center,
-        keel::f32 thumbSize,
-        bool vertical,
-        Color bg,
-        Color border,
-        keel::f32 borderWidth,
-        bool hovered,
-        bool active,
-        bool focused,
-        bool disabled,
-        keel::f32 cornerRadius
+        const SliderThumbPaintParams& p
     ) const = 0;
 
     /// Draws a continuous, indeterminate, or segmented progress bar.
@@ -455,11 +459,11 @@ public:
     [[nodiscard]] ChromeMetrics GetChromeMetrics(const UiTheme& theme) const noexcept override;
     [[nodiscard]] keel::f32 DrawFieldButton(ICanvas& canvas, const UiTheme& theme, Rect fieldRect, keel::f32 paddingX, keel::f32 iconSize, keel::f32 cornerRadius, bool explicitRadius, bool hovered, bool pressed, bool active, bool disabled, bool showHoverPill, Color fallbackIconCol, Rect& outIconRect, Color& outIconColor) const override;
     void DrawDropdownSurface(ICanvas& canvas, const UiTheme& theme, Rect popupRect, keel::f32 cornerRadius) const override;
-    void DrawSliderTick(ICanvas& canvas, const UiTheme& theme, Vec2 tickCenter, keel::f32 crossCoord, bool vertical, keel::f32 tickSize, Color color, bool disabled) const override;
+    void DrawSliderTick(ICanvas& canvas, const UiTheme& theme, Vec2 tickCenter, keel::f32 crossCoord, bool vertical, keel::f32 tickSize, keel::f32 thumbSize, Color color, bool disabled) const override;
     void DrawDivider(ICanvas& canvas, const UiTheme& theme, Vec2 p0, Vec2 p1, Color fallbackColor, keel::f32 thickness = 1.0f) const override;
     void DrawControlText(ICanvas& canvas, const UiTheme& theme, keel::StringRef text, Rect rect, keel::f32 fontSize, Color color, bool disabled, keel::f32 alignX = 0.5f, keel::f32 alignY = 0.5f) const override;
     void DrawSliderTrack(ICanvas& canvas, const UiTheme& theme, Rect trackRect, Rect fillRect, bool vertical, bool hasFill, Color trackBg, Color trackBorder, Color fillColor, keel::f32 cornerRadius, bool explicitColor) const override;
-    void DrawSliderThumb(ICanvas& canvas, const UiTheme& theme, Vec2 center, keel::f32 thumbSize, bool vertical, Color bg, Color border, keel::f32 borderWidth, bool hovered, bool active, bool focused, bool disabled, keel::f32 cornerRadius) const override;
+    void DrawSliderThumb(ICanvas& canvas, const UiTheme& theme, const SliderThumbPaintParams& p) const override;
     void DrawProgressBar(ICanvas& canvas, const UiTheme& theme, Rect trackRect, keel::f32 ratio, bool vertical, bool indeterminate, keel::f32 animPhase, Color trackBg, Color trackBorder, Color fillColor, keel::f32 cornerRadius, bool disabled) const override;
     void DrawSwitch(ICanvas& canvas, const UiTheme& theme, Rect trackRect, keel::f32 knobDiameter, keel::f32 knobPadding, Color trackFill, Color trackStroke, keel::f32 strokeWidth, Color knobFill, bool checked, bool focused, bool disabled, keel::f32 themeRadius) const override;
     [[nodiscard]] Color DrawCheckboxBox(ICanvas& canvas, const UiTheme& theme, Rect boxRect, keel::f32 cornerRadius, Color fill, Color stroke, keel::f32 strokeWidth, Color defaultMarkColor, bool pressed, bool focused, bool disabled) const override;
@@ -478,7 +482,7 @@ public:
     static void DrawBevelEtchedFrame(ICanvas& canvas, Rect r, const BevelPalette& c);
     static void DrawBevelDividerH(ICanvas& canvas, keel::f32 x0, keel::f32 x1, keel::f32 y, const BevelPalette& c);
     static void DrawBevelDividerV(ICanvas& canvas, keel::f32 x, keel::f32 y0, keel::f32 y1, const BevelPalette& c);
-    static void DrawBevelSliderThumb(ICanvas& canvas, Vec2 center, bool vertical, Color fill, const BevelPalette& c, Color focusRing, bool focused);
+    static void DrawBevelSliderThumb(ICanvas& canvas, Vec2 center, keel::f32 thumbSize, bool vertical, Color fill, const BevelPalette& c, Color focusRing, bool focused);
 };
 
 /// Returns the process-wide default `DefaultStylePainter` singleton.

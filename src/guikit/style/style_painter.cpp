@@ -96,94 +96,86 @@ void DefaultStylePainter::DrawBevelDividerV(
 void DefaultStylePainter::DrawBevelSliderThumb(
     ICanvas& canvas,
     Vec2 center,
+    keel::f32 thumbSize,
     bool vertical,
     Color fill,
     const BevelPalette& c,
     Color focusRing,
     bool focused
 ) {
-    if (!vertical) {
-        const keel::f32 w = 11.0f;
-        const keel::f32 bodyH = 14.0f;
-        const keel::f32 tipH = 5.0f;
-        const keel::f32 totalH = bodyH + tipH;
-        const keel::f32 x = keel::floor(center.x - w * 0.5f);
-        const keel::f32 y = keel::floor(center.y - totalH * 0.5f);
-        const keel::f32 cx = x + 5.0f;
+    // Smooth vector 5-vertex pentagonal pointer scaled cleanly from thumbSize (0 staircase pixels at any DPI).
+    const keel::f32 w = keel::round(keel::max(9.0f, thumbSize * 0.82f));
+    const keel::f32 hw = w * 0.5f;
+    const keel::f32 tipH = keel::round(keel::max(3.5f, w * 0.45f));
+    const keel::f32 bodyH = keel::round(keel::max(9.0f, thumbSize * 1.04f));
+    const keel::f32 totalH = bodyH + tipH;
+    const keel::f32 halfTotal = totalH * 0.5f;
+    const keel::f32 yTop = -halfTotal;
+    const keel::f32 yShoulder = yTop + bodyH;
+    const keel::f32 yTip = halfTotal;
 
-        canvas.DrawRect(Rect(x, y, w, bodyH), fill);
-        for (keel::i32 row = 0; row < 5; ++row) {
-            const keel::f32 inset = keel::as<keel::f32>(row + 1);
-            const keel::f32 rw = w - inset * 2.0f;
-            if (rw > 0.0f) {
-                canvas.DrawRect(Rect(x + inset, y + bodyH + keel::as<keel::f32>(row), rw, 1.0f), fill);
-            }
-        }
+    const keel::f32 diagLen = keel::sqrt(hw * hw + tipH * tipH);
+    const keel::f32 tipInsetPerDp = diagLen / hw;
+    const keel::f32 shoulderShiftPerDp = (diagLen - tipH) / hw;
 
-        canvas.DrawRect(Rect(x, y, w - 1.0f, 1.0f), c.highlightOuter);
-        canvas.DrawRect(Rect(x, y, 1.0f, bodyH), c.highlightOuter);
-        canvas.DrawRect(Rect(x + 1.0f, y + 1.0f, w - 3.0f, 1.0f), c.highlightInner);
-        canvas.DrawRect(Rect(x + 1.0f, y + 1.0f, 1.0f, bodyH - 1.0f), c.highlightInner);
-        canvas.DrawRect(Rect(x + w - 1.0f, y, 1.0f, bodyH), c.shadowOuter);
-        canvas.DrawRect(Rect(x + w - 2.0f, y + 1.0f, 1.0f, bodyH - 1.0f), c.shadowInner);
+    auto mapPt = [&](keel::f32 along, keel::f32 cross) noexcept -> Vec2 {
+        return vertical
+            ? Vec2(center.x + cross, center.y + along)
+            : Vec2(center.x + along, center.y + cross);
+    };
 
-        for (keel::i32 row = 0; row < 5; ++row) {
-            const keel::f32 fy = y + bodyH + keel::as<keel::f32>(row);
-            const keel::f32 lx = x + keel::as<keel::f32>(row + 1);
-            const keel::f32 rx = x + w - 2.0f - keel::as<keel::f32>(row);
-            canvas.DrawRect(Rect(lx, fy, 1.0f, 1.0f), c.highlightOuter);
-            if (row < 4) {
-                canvas.DrawRect(Rect(lx + 1.0f, fy, 1.0f, 1.0f), c.highlightInner);
-                canvas.DrawRect(Rect(rx - 1.0f, fy, 1.0f, 1.0f), c.shadowInner);
-            }
-            canvas.DrawRect(Rect(rx, fy, 1.0f, 1.0f), c.shadowOuter);
-        }
-        canvas.DrawRect(Rect(cx, y + totalH - 1.0f, 1.0f, 1.0f), c.shadowOuter);
+    auto insetVerts = [&](keel::f32 d, Vec2 (&out)[5]) noexcept {
+        const keel::f32 ihw = keel::max(0.5f, hw - d);
+        const keel::f32 iyTop = yTop + d;
+        const keel::f32 iyShoulder = yShoulder - d * shoulderShiftPerDp;
+        const keel::f32 iyTip = yTip - d * tipInsetPerDp;
+        out[0] = mapPt(-ihw, iyTop);
+        out[1] = mapPt(+ihw, iyTop);
+        out[2] = mapPt(+ihw, iyShoulder);
+        out[3] = mapPt(0.0f, iyTip);
+        out[4] = mapPt(-ihw, iyShoulder);
+    };
 
-        if (focused) {
-            canvas.DrawRoundRect(Rect(x + 2.0f, y + 2.0f, w - 4.0f, bodyH - 3.0f), 0.0f, Color::Transparent(), focusRing, 1.0f);
-        }
-    } else {
-        const keel::f32 h = 11.0f;
-        const keel::f32 bodyW = 14.0f;
-        const keel::f32 tipW = 5.0f;
-        const keel::f32 totalW = bodyW + tipW;
-        const keel::f32 x = keel::floor(center.x - totalW * 0.5f);
-        const keel::f32 y = keel::floor(center.y - h * 0.5f);
-        const keel::f32 cy = y + 5.0f;
+    // 1. Filled smooth vector pentagon
+    Vec2 polyV[5];
+    insetVerts(0.0f, polyV);
+    VectorPath poly;
+    poly.MoveTo(polyV[0]);
+    for (keel::i32 i = 1; i < 5; ++i) {
+        poly.LineTo(polyV[i]);
+    }
+    poly.Close();
+    PathPaint fillPaint{};
+    fillPaint.fillColor = fill;
+    fillPaint.renderFill = true;
+    fillPaint.renderStroke = false;
+    canvas.DrawPath(poly, fillPaint);
 
-        canvas.DrawRect(Rect(x, y, bodyW, h), fill);
-        for (keel::i32 col = 0; col < 5; ++col) {
-            const keel::f32 inset = keel::as<keel::f32>(col + 1);
-            const keel::f32 rh = h - inset * 2.0f;
-            if (rh > 0.0f) {
-                canvas.DrawRect(Rect(x + bodyW + keel::as<keel::f32>(col), y + inset, 1.0f, rh), fill);
-            }
-        }
+    // 2. Smooth 2-layer 3D bevel along all 5 edges (lit: 0-1, 0-4, 4-3; shadow: 1-2, 2-3)
+    const keel::f32 strokeW = 1.0f;
+    if (hw >= 3.0f) {
+        Vec2 inV[5];
+        insetVerts(1.5f, inV);
+        canvas.DrawLine(inV[0], inV[1], c.highlightInner, strokeW);
+        canvas.DrawLine(inV[0], inV[4], c.highlightInner, strokeW);
+        canvas.DrawLine(inV[4], inV[3], c.highlightInner, strokeW);
+        canvas.DrawLine(inV[1], inV[2], c.shadowInner, strokeW);
+        canvas.DrawLine(inV[2], inV[3], c.shadowInner, strokeW);
+    }
 
-        canvas.DrawRect(Rect(x, y, bodyW, 1.0f), c.highlightOuter);
-        canvas.DrawRect(Rect(x, y, 1.0f, h - 1.0f), c.highlightOuter);
-        canvas.DrawRect(Rect(x + 1.0f, y + 1.0f, bodyW - 1.0f, 1.0f), c.highlightInner);
-        canvas.DrawRect(Rect(x + 1.0f, y + 1.0f, 1.0f, h - 3.0f), c.highlightInner);
-        canvas.DrawRect(Rect(x, y + h - 1.0f, bodyW, 1.0f), c.shadowOuter);
-        canvas.DrawRect(Rect(x + 1.0f, y + h - 2.0f, bodyW - 1.0f, 1.0f), c.shadowInner);
+    Vec2 outV[5];
+    insetVerts(0.5f, outV);
+    canvas.DrawLine(outV[0], outV[1], c.highlightOuter, strokeW);
+    canvas.DrawLine(outV[0], outV[4], c.highlightOuter, strokeW);
+    canvas.DrawLine(outV[4], outV[3], c.highlightOuter, strokeW);
+    canvas.DrawLine(outV[1], outV[2], c.shadowOuter, strokeW);
+    canvas.DrawLine(outV[2], outV[3], c.shadowOuter, strokeW);
 
-        for (keel::i32 col = 0; col < 5; ++col) {
-            const keel::f32 fx = x + bodyW + keel::as<keel::f32>(col);
-            const keel::f32 ty = y + keel::as<keel::f32>(col + 1);
-            const keel::f32 by = y + h - 2.0f - keel::as<keel::f32>(col);
-            canvas.DrawRect(Rect(fx, ty, 1.0f, 1.0f), c.highlightOuter);
-            if (col < 4) {
-                canvas.DrawRect(Rect(fx, ty + 1.0f, 1.0f, 1.0f), c.highlightInner);
-                canvas.DrawRect(Rect(fx, by - 1.0f, 1.0f, 1.0f), c.shadowInner);
-            }
-            canvas.DrawRect(Rect(fx, by, 1.0f, 1.0f), c.shadowOuter);
-        }
-        canvas.DrawRect(Rect(x + totalW - 1.0f, cy, 1.0f, 1.0f), c.shadowOuter);
-
-        if (focused) {
-            canvas.DrawRoundRect(Rect(x + 2.0f, y + 2.0f, bodyW - 3.0f, h - 4.0f), 0.0f, Color::Transparent(), focusRing, 1.0f);
-        }
+    if (focused && hw >= 3.5f && bodyH >= 6.0f) {
+        const Rect fRect = vertical
+            ? Rect(center.x + yTop + 2.5f, center.y - hw + 2.5f, bodyH - 3.5f, w - 5.0f)
+            : Rect(center.x - hw + 2.5f, center.y + yTop + 2.5f, w - 5.0f, bodyH - 3.5f);
+        canvas.DrawRoundRect(fRect, 0.0f, Color::Transparent(), focusRing, 1.0f);
     }
 }
 
@@ -568,15 +560,17 @@ void DefaultStylePainter::DrawSliderTick(
     keel::f32 crossCoord,
     bool vertical,
     keel::f32 tickSize,
+    keel::f32 thumbSize,
     Color color,
     bool disabled
 ) const {
     if (theme.chrome.sliderThumb == SliderThumbShape::Pointer3D) {
         const Color tickCol = disabled ? theme.palette.textDisabled : theme.palette.border;
+        const keel::f32 tickOffset = keel::round(keel::max(6.0f, thumbSize * 0.75f));
         if (vertical) {
-            canvas.DrawRect(Rect(keel::floor(crossCoord + 10.0f), keel::floor(tickCenter.y), 3.0f, 1.0f), tickCol);
+            canvas.DrawRect(Rect(keel::floor(crossCoord + tickOffset), keel::floor(tickCenter.y), 3.0f, 1.0f), tickCol);
         } else {
-            canvas.DrawRect(Rect(keel::floor(tickCenter.x), keel::floor(crossCoord + 10.0f), 1.0f, 3.0f), tickCol);
+            canvas.DrawRect(Rect(keel::floor(tickCenter.x), keel::floor(crossCoord + tickOffset), 1.0f, 3.0f), tickCol);
         }
         return;
     }
@@ -649,13 +643,24 @@ void DefaultStylePainter::DrawSliderTrack(
     keel::f32 cornerRadius,
     bool explicitColor
 ) const {
+    const auto& pal = theme.palette;
     const bool isBevel = (theme.chrome.frame == FrameTreatment::Bevel3D);
-    const bool sharp = isBevel || (cornerRadius <= 0.01f);
+    const bool isBrutal = (theme.chrome.frame == FrameTreatment::HardShadow);
+    const bool sharp = isBevel || isBrutal || (cornerRadius <= 0.01f);
     const keel::f32 trackR = sharp ? 0.0f : ((vertical ? trackRect.w : trackRect.h) * 0.5f);
 
     if (isBevel) {
-        canvas.DrawRect(trackRect, theme.palette.background);
+        const Color grooveBg = (Color::ContrastRatio(pal.background, pal.surface) >= 1.08f)
+            ? pal.background
+            : pal.controlTrack;
+        canvas.DrawRect(trackRect, grooveBg);
         DrawBevelFrame(canvas, trackRect, theme.bevel, /*sunken=*/true, /*thin=*/false);
+    } else if (isBrutal) {
+        const keel::f32 bw = keel::max(1.5f, 1.5f * keel::max(theme.borderScale, 0.5f));
+        const Color bdr = (Color::ContrastRatio(trackBorder, trackBg) >= 1.25f)
+            ? trackBorder
+            : pal.borderHover;
+        canvas.DrawRoundRect(trackRect, 0.0f, trackBg, bdr, bw);
     } else {
         canvas.DrawRoundRect(trackRect, trackR, trackBg, trackBorder, 1.0f);
     }
@@ -682,31 +687,124 @@ void DefaultStylePainter::DrawSliderTrack(
 void DefaultStylePainter::DrawSliderThumb(
     ICanvas& canvas,
     const UiTheme& theme,
-    Vec2 center,
-    keel::f32 thumbSize,
-    bool vertical,
-    Color bg,
-    Color border,
-    keel::f32 borderWidth,
-    bool hovered,
-    bool active,
-    bool focused,
-    bool disabled,
-    keel::f32 cornerRadius
+    const SliderThumbPaintParams& p
 ) const {
     const auto& pal = theme.palette;
-    if (theme.chrome.sliderThumb == SliderThumbShape::Pointer3D) {
-        const Color thumbBg = disabled ? pal.surface.WithAlphaF(theme.disabledOpacity) :
-                              active   ? pal.surfaceActive :
-                              hovered  ? pal.surfaceHover : pal.surface;
-        DrawBevelSliderThumb(canvas, center, vertical, thumbBg, theme.bevel, pal.focusRing, focused && !disabled);
+    const Color accent = (p.accent.a > 0u) ? p.accent : pal.accent;
+    const SliderThumbShape shape = theme.chrome.sliderThumb;
+
+    // 1. Classic 3D vector pentagonal pointer
+    if (shape == SliderThumbShape::Pointer3D) {
+        const Color thumbBg = p.disabled ? pal.surface.WithAlphaF(theme.disabledOpacity) :
+                              p.active   ? pal.surfaceActive.WithAlpha(255u) :
+                              p.hovered  ? pal.surfaceHover.WithAlpha(255u) : pal.surface;
+        DrawBevelSliderThumb(canvas, p.center, p.thumbSize, p.vertical, thumbBg, theme.bevel, pal.focusRing, p.focused && !p.disabled);
         return;
     }
 
-    const keel::f32 halfThumb = thumbSize * 0.5f;
-    const Rect thumbRect(center.x - halfThumb, center.y - halfThumb, thumbSize, thumbSize);
-    const bool sharp = (theme.chrome.sliderThumb == SliderThumbShape::Square) || (cornerRadius <= 0.01f);
-    canvas.DrawRoundRect(thumbRect, sharp ? 0.0f : halfThumb, bg, border, borderWidth);
+    // 2. Fluent concentric ring (outer elevated shell + responsive inner accent core)
+    if (shape == SliderThumbShape::Ring) {
+        const keel::f32 halfThumb = p.thumbSize * 0.5f;
+        const Rect outerRect(p.center.x - halfThumb, p.center.y - halfThumb, p.thumbSize, p.thumbSize);
+        if (!p.disabled && theme.shadowsEnabled) {
+            DrawShadowForRect(canvas, theme, outerRect, halfThumb, Elevation::Sm, 0.55f);
+        }
+        const Color outerBg = p.disabled ? pal.surface.WithAlphaF(theme.disabledOpacity) : pal.surfaceElevated;
+        const Color outerBdr = p.disabled ? pal.border.WithAlphaF(theme.disabledOpacity) :
+                               p.focused  ? pal.focusRing :
+                               (p.hovered || p.active) ? pal.borderHover : pal.border;
+        const keel::f32 outerBw = p.focused ? 2.0f : 1.0f;
+        canvas.DrawRoundRect(outerRect, halfThumb, outerBg, outerBdr, outerBw);
+
+        const keel::f32 coreRatio = p.active ? 0.42f : (p.hovered ? 0.64f : 0.52f);
+        const keel::f32 coreDiam = keel::max(4.0f, p.thumbSize * coreRatio);
+        const keel::f32 coreHalf = coreDiam * 0.5f;
+        const Color coreCol = p.disabled ? pal.textDisabled : accent;
+        canvas.DrawRoundRect(
+            Rect(p.center.x - coreHalf, p.center.y - coreHalf, coreDiam, coreDiam),
+            coreHalf, coreCol, Color::Transparent(), 0.0f
+        );
+        return;
+    }
+
+    // 3. Cross-axis fader bar with tactile center indicator notch (DAW / SCADA / CAD)
+    if (shape == SliderThumbShape::Bar) {
+        const keel::f32 thick = keel::round(keel::max(7.0f, p.thumbSize * 0.58f));
+        const keel::f32 span  = keel::round(keel::max(12.0f, p.thumbSize * 1.15f));
+        const keel::f32 w = p.vertical ? span : thick;
+        const keel::f32 h = p.vertical ? thick : span;
+        const Rect barRect(p.center.x - w * 0.5f, p.center.y - h * 0.5f, w, h);
+
+        const bool isBevel = (theme.chrome.frame == FrameTreatment::Bevel3D);
+        const bool isBrutal = (theme.chrome.frame == FrameTreatment::HardShadow);
+        const bool sharp = isBevel || isBrutal || (p.cornerRadius <= 0.01f);
+        const keel::f32 rad = sharp ? 0.0f : keel::min(p.cornerRadius, 2.5f);
+
+        if (isBrutal && !p.disabled && !p.active) {
+            const keel::f32 off = p.hovered ? 1.0f : 2.0f;
+            const ShadowStyle sh = theme.GetShadow(Elevation::Sm);
+            if (sh.color.a > 0u) {
+                canvas.DrawRect(Rect(barRect.x + off, barRect.y + off, barRect.w, barRect.h), sh.color);
+            }
+        }
+
+        const Color barBg = p.disabled ? pal.surface.WithAlphaF(theme.disabledOpacity) :
+                            p.active   ? pal.surfaceActive.WithAlpha(255u) :
+                            p.hovered  ? pal.surfaceHover.WithAlpha(255u) : pal.surfaceElevated;
+        if (isBevel) {
+            canvas.DrawRect(barRect, barBg);
+            DrawBevelFrame(canvas, barRect, theme.bevel, /*sunken=*/false, /*thin=*/true);
+            if (p.focused && !p.disabled) {
+                canvas.DrawRoundRect(barRect, 0.0f, Color::Transparent(), pal.focusRing, 1.0f);
+            }
+        } else {
+            const Color barBdr = p.disabled ? pal.border.WithAlphaF(theme.disabledOpacity) :
+                                 p.focused  ? pal.focusRing :
+                                 (p.active || p.hovered) ? accent :
+                                 (isBrutal ? Color::BestTextColor(barBg, pal.textPrimary, pal.background) : pal.borderHover);
+            const keel::f32 bw = isBrutal
+                ? keel::max(1.5f, 1.5f * keel::max(theme.borderScale, 0.5f))
+                : ((p.focused || p.active) ? 1.5f : 1.0f);
+            canvas.DrawRoundRect(barRect, rad, barBg, barBdr, bw);
+        }
+
+        // Signature center indicator notch perpendicular to travel axis
+        const Color notchCol = p.disabled ? pal.textDisabled : accent;
+        if (p.vertical) {
+            const keel::f32 notchW = keel::max(4.0f, w * 0.52f);
+            canvas.DrawRect(Rect(p.center.x - notchW * 0.5f, p.center.y - 0.75f, notchW, 1.5f), notchCol);
+        } else {
+            const keel::f32 notchH = keel::max(4.0f, h * 0.52f);
+            canvas.DrawRect(Rect(p.center.x - 0.75f, p.center.y - notchH * 0.5f, 1.5f, notchH), notchCol);
+        }
+        return;
+    }
+
+    // 4. Circle (Modern) & Square (Brutalist or zero-radius)
+    const keel::f32 halfThumb = p.thumbSize * 0.5f;
+    const Rect thumbRect(p.center.x - halfThumb, p.center.y - halfThumb, p.thumbSize, p.thumbSize);
+    const bool isBrutal = (theme.chrome.frame == FrameTreatment::HardShadow);
+    const bool sharp = (shape == SliderThumbShape::Square) || isBrutal || (p.cornerRadius <= 0.01f);
+
+    if (isBrutal && !p.disabled && !p.active) {
+        const keel::f32 off = p.hovered ? 1.0f : 2.0f;
+        const ShadowStyle sh = theme.GetShadow(Elevation::Sm);
+        if (sh.color.a > 0u) {
+            canvas.DrawRect(Rect(thumbRect.x + off, thumbRect.y + off, thumbRect.w, thumbRect.h), sh.color);
+        }
+    }
+
+    const Color thumbBg = p.disabled ? pal.surface.WithAlphaF(theme.disabledOpacity) :
+                          p.active   ? accent : pal.surface;
+    const Color thumbBorder = p.disabled ? pal.border.WithAlphaF(theme.disabledOpacity) :
+                              p.focused  ? pal.focusRing :
+                              (p.active || p.hovered) ? accent :
+                              (isBrutal ? Color::BestTextColor(thumbBg, pal.textPrimary, pal.background) : pal.borderHover);
+    const keel::f32 thumbBorderW = isBrutal
+        ? (keel::max(1.5f, 1.5f * keel::max(theme.borderScale, 0.5f)) + ((p.active || p.focused) ? 0.5f : 0.0f))
+        : ((p.active || p.hovered || p.focused) ? 2.5f : 2.0f);
+
+    canvas.DrawRoundRect(thumbRect, sharp ? 0.0f : halfThumb, thumbBg, thumbBorder, thumbBorderW);
 }
 
 void DefaultStylePainter::DrawProgressBar(

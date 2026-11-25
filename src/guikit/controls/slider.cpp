@@ -740,16 +740,18 @@ void detail::Slider::Render(
     );
 
     // 3. Draw thumb knob via active style painter
-    const Color thumbBg = disabled ? pal.surface.WithAlphaF(theme.disabledOpacity) :
-                          active   ? ResolveSliderActiveThumbColor(opts.color, theme) : pal.surface;
-    const Color thumbBorder = disabled ? pal.border.WithAlphaF(theme.disabledOpacity) :
-                              focused  ? pal.focusRing :
-                              (active || hovered) ? pal.accent : pal.borderHover;
-    const keel::f32 thumbBorderW = (active || hovered || focused) ? 2.5f : 2.0f;
-    theme.Painter().DrawSliderThumb(
-        canvas, theme, thumbCenter, m.thumbSize, vertical,
-        thumbBg, thumbBorder, thumbBorderW, hovered, active, focused, disabled, m.cornerRadius
-    );
+    const Color thumbAccent = active ? ResolveSliderActiveThumbColor(opts.color, theme) : fillCol;
+    theme.Painter().DrawSliderThumb(canvas, theme, SliderThumbPaintParams{
+        .center       = thumbCenter,
+        .thumbSize    = m.thumbSize,
+        .vertical     = vertical,
+        .accent       = thumbAccent,
+        .hovered      = hovered,
+        .active       = active,
+        .focused      = focused,
+        .disabled     = disabled,
+        .cornerRadius = m.cornerRadius
+    });
 }
 
 // ============================================================================
@@ -1061,21 +1063,23 @@ void detail::StepSlider::Render(
             const Vec2 tick = layout.ThumbCenter(stepRatio(i));
             Color tickCol = (i <= index) ? pal.surface : pal.textDisabled;
             if (disabled) tickCol = tickCol.WithAlphaF(theme.disabledOpacity);
-            theme.Painter().DrawSliderTick(canvas, theme, tick, layout.cross, vertical, m.tickSize, tickCol, disabled);
+            theme.Painter().DrawSliderTick(canvas, theme, tick, layout.cross, vertical, m.tickSize, m.thumbSize, tickCol, disabled);
         }
     }
 
     // 4. Draw thumb knob via active style painter
-    const Color thumbBg = disabled ? pal.surface.WithAlphaF(theme.disabledOpacity) :
-                          active   ? ResolveSliderActiveThumbColor(opts.color, theme) : pal.surface;
-    const Color thumbBorder = disabled ? pal.border.WithAlphaF(theme.disabledOpacity) :
-                              focused  ? pal.focusRing :
-                              (active || hovered) ? pal.accent : pal.borderHover;
-    const keel::f32 thumbBorderW = (active || hovered || focused) ? 2.5f : 2.0f;
-    theme.Painter().DrawSliderThumb(
-        canvas, theme, thumbCenter, m.thumbSize, vertical,
-        thumbBg, thumbBorder, thumbBorderW, hovered, active, focused, disabled, m.cornerRadius
-    );
+    const Color thumbAccent = active ? ResolveSliderActiveThumbColor(opts.color, theme) : fillCol;
+    theme.Painter().DrawSliderThumb(canvas, theme, SliderThumbPaintParams{
+        .center       = thumbCenter,
+        .thumbSize    = m.thumbSize,
+        .vertical     = vertical,
+        .accent       = thumbAccent,
+        .hovered      = hovered,
+        .active       = active,
+        .focused      = focused,
+        .disabled     = disabled,
+        .cornerRadius = m.cornerRadius
+    });
 
     // 5. Draw step labels (with collision culling so labels never overlap): a row below the track
     //    when horizontal, a column right of the ticks when vertical

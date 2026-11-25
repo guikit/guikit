@@ -545,16 +545,18 @@ void detail::RangeSlider::Render(
         const bool thumbActive = active && ((effActiveMask & thumbBit) != 0u);
         const bool thumbHovered = hovered && ((hoveredMask & thumbBit) != 0u);
         const bool thumbFocused = focused && isFocusedThumb;
-        const Color thumbBg = disabled ? pal.surface.WithAlphaF(theme.disabledOpacity) :
-                              thumbActive ? ResolveSliderActiveThumbColor(opts.color, theme) : pal.surface;
-        const Color thumbBorder = disabled ? pal.border.WithAlphaF(theme.disabledOpacity) :
-                                  thumbFocused ? pal.focusRing :
-                                  (thumbActive || thumbHovered) ? pal.accent : pal.borderHover;
-        const keel::f32 thumbBorderW = (thumbActive || thumbHovered || thumbFocused) ? 2.5f : 2.0f;
-        theme.Painter().DrawSliderThumb(
-            canvas, theme, c, m.thumbSize, vertical,
-            thumbBg, thumbBorder, thumbBorderW, thumbHovered, thumbActive, thumbFocused, disabled, m.cornerRadius
-        );
+        const Color thumbAccent = thumbActive ? ResolveSliderActiveThumbColor(opts.color, theme) : fillCol;
+        theme.Painter().DrawSliderThumb(canvas, theme, SliderThumbPaintParams{
+            .center       = c,
+            .thumbSize    = m.thumbSize,
+            .vertical     = vertical,
+            .accent       = thumbAccent,
+            .hovered      = thumbHovered,
+            .active       = thumbActive,
+            .focused      = thumbFocused,
+            .disabled     = disabled,
+            .cornerRadius = m.cornerRadius
+        });
     };
 
     drawThumb(lowThumb, 0x1u, activeThumb == 0);

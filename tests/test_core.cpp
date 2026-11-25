@@ -3610,6 +3610,195 @@ void TestSplitViewSashChromeStyles() {
     }
 }
 
+void TestSliderThumbShapesAndContrast() {
+    using namespace guikit;
+    keel::println("  -> TestSliderThumbShapesAndContrast...");
+
+    // 1. Default ChromeStyle -> SliderThumbShape mapping (4 distinct styles)
+    CHECK(UiTheme::Build({.base = ThemePreset::Dark, .chrome = ChromeStyle::Modern}).chrome.sliderThumb == SliderThumbShape::Circle);
+    CHECK(UiTheme::Build({.base = ThemePreset::Dark, .chrome = ChromeStyle::Fluent}).chrome.sliderThumb == SliderThumbShape::Ring);
+    CHECK(UiTheme::Build({.base = ThemePreset::Dark, .chrome = ChromeStyle::Classic3D}).chrome.sliderThumb == SliderThumbShape::Pointer3D);
+    CHECK(UiTheme::Build({.base = ThemePreset::Dark, .chrome = ChromeStyle::Brutalist}).chrome.sliderThumb == SliderThumbShape::Square);
+
+    // 2. ThemeSpec::sliderThumb JSON round-trip & priority over radiusScale = 0
+    {
+        ThemeSpec spec{};
+        spec.base = ThemePreset::Dark;
+        spec.chrome = ChromeStyle::Modern;
+        spec.radiusScale = 0.0f;
+        spec.sliderThumb = SliderThumbShape::Bar;
+
+        const keel::String json = spec.ToJson();
+        const auto parsed = ThemeSpec::FromJson(json);
+        CHECK(parsed.has_value());
+        if (parsed.has_value()) {
+            CHECK(parsed->sliderThumb.has_value() && *parsed->sliderThumb == SliderThumbShape::Bar);
+        }
+
+        const UiTheme built = UiTheme::Build(spec);
+        CHECK(built.chrome.sliderThumb == SliderThumbShape::Bar);
+    }
+
+    struct CaptureSliderCanvas final : public NullCanvas {
+        struct RectDraw { Rect rect{}; Color fill{}; Color border{}; keel::f32 borderW{0.0f}; keel::f32 radius{0.0f}; };
+        keel::Array<RectDraw> rects{};
+        keel::i32 oneByOneRects{0};
+        keel::i32 pathDraws{0};
+        keel::i32 lineDraws{0};
+        keel::f32 maxLineSpan{0.0f};
+
+        void Reset() {
+            rects.clear();
+            oneByOneRects = 0;
+            pathDraws = 0;
+            lineDraws = 0;
+            maxLineSpan = 0.0f;
+        }
+        void DrawRect(Rect rect, Color color) override {
+            if (rect.w <= 1.01f && rect.h <= 1.01f) ++oneByOneRects;
+            rects.push_back(RectDraw{rect, color, Color::Transparent(), 0.0f, 0.0f});
+            NullCanvas::DrawRect(rect, color);
+        }
+        void DrawRoundRect(Rect rect, keel::f32 radius, Color fillColor, Color borderColor, keel::f32 borderWidth) override {
+            rects.push_back(RectDraw{rect, fillColor, borderColor, borderWidth, radius});
+            NullCanvas::DrawRoundRect(rect, radius, fillColor, borderColor, borderWidth);
+        }
+        void DrawLine(Vec2 p1, Vec2 p2, Color color, keel::f32 thickness) override {
+            ++lineDraws;
+            const keel::f32 dx = p2.x - p1.x;
+            const keel::f32 dy = p2.y - p1.y;
+            maxLineSpan = keel::max(maxLineSpan, keel::sqrt(dx * dx + dy * dy));
+            NullCanvas::DrawLine(p1, p2, color, thickness);
+        }
+        void DrawPath(const VectorPath& path, const PathPaint& paint) override {
+            ++pathDraws;
+            NullCanvas::DrawPath(path, paint);
+        }
+    };
+
+    CaptureSliderCanvas cap{};
+    cap.Begin(400, 300, 1.0f);
+
+    // 3. Vector Pointer3D: 0 staircase 1x1 rects, smooth DrawPath + bevel DrawLines, scales with thumbSize (Xs < Md < Xl)
+    {
+        const UiTheme w98 = UiTheme::Windows98();
+        keel::f32 spanXs = 0.0f, spanMd = 0.0f, spanXl = 0.0f;
+        for (bool vert : {false, true}) {
+            auto runSize = [&](UiSize sz) -> keel::f32 {
+                cap.Reset();
+                w98.Painter().DrawSliderThumb(cap, w98, SliderThumbPaintParams{
+                    .center = {100.0f, 100.0f},
+                    .thumbSize = w98.GetSlider(sz).thumbSize,
+                    .vertical = vert,
+                    .accent = w98.palette.accent
+                });
+                CHECK(cap.oneByOneRects == 0);
+                CHECK(cap.pathDraws == 1);
+                CHECK(cap.lineDraws >= 10);
+                return cap.maxLineSpan;
+            };
+            spanXs = runSize(UiSize::Xs);
+            spanMd = runSize(UiSize::Md);
+            spanXl = runSize(UiSize::Xl);
+            CHECK(spanXs < spanMd);
+            CHECK(spanMd < spanXl);
+        }
+    }
+
+    // 4. Fluent Ring: responsive core expands on hover and shrinks on active, respects custom semantic accent
+    {
+        const UiTheme fluent = UiTheme::Build({.base = ThemePreset::Dark, .chrome = ChromeStyle::Fluent});
+        const Color danger = Color::Hex(0xEF4444FF);
+        auto coreWidth = [&](bool hov, bool act) -> keel::f32 {
+            cap.Reset();
+            fluent.Painter().DrawSliderThumb(cap, fluent, SliderThumbPaintParams{
+                .center = {100.0f, 100.0f},
+                .thumbSize = 14.0f,
+                .vertical = false,
+                .accent = danger,
+                .hovered = hov,
+                .active = act
+            });
+            for (const auto& r : cap.rects) {
+                if (r.fill == danger) return r.rect.w;
+            }
+            return 0.0f;
+        };
+        const keel::f32 wRest = coreWidth(false, false);
+        const keel::f32 wHov  = coreWidth(true, false);
+        const keel::f32 wAct  = coreWidth(false, true);
+        CHECK(wAct > 0.0f);
+        CHECK(wAct < wRest);
+        CHECK(wRest < wHov);
+    }
+
+    // 5. Bar (Fader): cross-axis aspect ratio flips for vertical vs horizontal and draws center accent notch
+    {
+        const UiTheme barTheme = UiTheme::Build({.base = ThemePreset::Dark, .sliderThumb = SliderThumbShape::Bar});
+        const Color customCol = Color::Hex(0x10B981FF);
+        for (bool vert : {false, true}) {
+            cap.Reset();
+            barTheme.Painter().DrawSliderThumb(cap, barTheme, SliderThumbPaintParams{
+                .center = {100.0f, 100.0f},
+                .thumbSize = 14.0f,
+                .vertical = vert,
+                .accent = customCol
+            });
+            bool foundNotch = false;
+            bool foundBody = false;
+            for (const auto& r : cap.rects) {
+                if (r.fill == customCol) {
+                    foundNotch = true;
+                } else if (r.rect.w >= 6.0f && r.rect.h >= 6.0f && r.fill.a > 0u) {
+                    foundBody = true;
+                    if (vert) CHECK(r.rect.w > r.rect.h);
+                    else      CHECK(r.rect.h > r.rect.w);
+                }
+            }
+            CHECK(foundBody);
+            CHECK(foundNotch);
+        }
+    }
+
+    // 6. Classic3D track groove remains distinct from surface on High Contrast Light (background == surface)
+    {
+        const UiTheme hcClassic = UiTheme::Build({
+            .base = ThemePreset::HighContrastLight,
+            .chrome = ChromeStyle::Classic3D
+        });
+        cap.Reset();
+        hcClassic.Painter().DrawSliderTrack(
+            cap, hcClassic, Rect(10.0f, 20.0f, 180.0f, 4.0f), Rect(10.0f, 20.0f, 90.0f, 4.0f),
+            false, true, hcClassic.palette.surfaceActive, hcClassic.palette.border,
+            hcClassic.palette.accent, 0.0f, false
+        );
+        CHECK(!cap.rects.empty());
+        CHECK(Color::ContrastRatio(cap.rects[0].fill, hcClassic.palette.surface) >= 1.08f);
+    }
+
+    // 7. Brutalist Square thumb draws hard shadow at rest and collapses it on active drag
+    {
+        const UiTheme brutal = UiTheme::Build({.base = ThemePreset::HighContrastLight, .chrome = ChromeStyle::Brutalist});
+        cap.Reset();
+        brutal.Painter().DrawSliderThumb(cap, brutal, SliderThumbPaintParams{
+            .center = {100.0f, 100.0f},
+            .thumbSize = 14.0f,
+            .active = false
+        });
+        const keel::usize restRects = cap.rects.size();
+        cap.Reset();
+        brutal.Painter().DrawSliderThumb(cap, brutal, SliderThumbPaintParams{
+            .center = {100.0f, 100.0f},
+            .thumbSize = 14.0f,
+            .active = true
+        });
+        const keel::usize activeRects = cap.rects.size();
+        CHECK(restRects == activeRects + 1u);
+    }
+
+    cap.End();
+}
+
 int main() {
     keel::println("[RUN] Testing GuiKit Core Foundation...");
 
@@ -3645,6 +3834,7 @@ int main() {
     TestSwitchKnobCenterSymmetry();
     TestFillStyleOutlineIndicatorsVisible();
     TestSplitViewSashChromeStyles();
+    TestSliderThumbShapesAndContrast();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Core tests passed successfully!");

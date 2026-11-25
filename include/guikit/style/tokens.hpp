@@ -1272,10 +1272,26 @@ enum class CheckControlStyle : keel::u8 {
 
 /// Structural geometry of `Slider` / `StepSlider` / `RangeSlider` thumb knobs.
 enum class SliderThumbShape : keel::u8 {
-    Circle = 0,     ///< Modern circular thumb knob
-    Square,         ///< Sharp rectangular thumb (Brutalist or zero radius)
-    Pointer3D       ///< Classic pentagonal 3D pointer thumb (Classic3D)
+    Circle = 0,     ///< Modern circular thumb knob (`Modern`)
+    Ring,           ///< Concentric outer ring with responsive accent inner core (`Fluent` / Win11)
+    Square,         ///< Sharp rectangular thumb with bold border & hard shadow (`Brutalist` or zero radius)
+    Pointer3D,      ///< Smooth vector pentagonal 3D pointer thumb with bevel edges (`Classic3D`)
+    Bar             ///< Tactile cross-axis fader handle with center indicator notch (DAW / SCADA / CAD)
 };
+
+inline constexpr keel::usize kSliderThumbShapeCount = 5u;
+
+/// Human-readable display name for a `SliderThumbShape`.
+[[nodiscard]] constexpr keel::StringRef SliderThumbShapeName(SliderThumbShape shape) noexcept {
+    switch (shape) {
+        case SliderThumbShape::Circle:    return "Circle";
+        case SliderThumbShape::Ring:      return "Ring (Fluent)";
+        case SliderThumbShape::Square:    return "Square";
+        case SliderThumbShape::Pointer3D: return "Pointer 3D";
+        case SliderThumbShape::Bar:       return "Bar (Fader)";
+    }
+    return "Circle";
+}
 
 /// Structural fill treatment of slider tracks.
 enum class SliderTrackStyle : keel::u8 {
@@ -1361,7 +1377,7 @@ struct ChromeTokens {
                     .selection         = SelectionHighlightStyle::LeftAccentBar,
                     .divider           = DividerStyle::Hairline,
                     .checkControl      = CheckControlStyle::FilledAccent,
-                    .sliderThumb       = SliderThumbShape::Circle,
+                    .sliderThumb       = SliderThumbShape::Ring,
                     .sliderTrack       = SliderTrackStyle::Filled,
                     .progressFill      = ProgressFillStyle::Smooth,
                     .tabChrome         = TabBarChrome::Modern,
@@ -1500,6 +1516,7 @@ struct ThemeSpec {
     keel::Optional<Color> info{keel::kNullOpt};      ///< Optional semantic Info color override
     keel::Optional<ScrollbarChromeStyle> scrollbarChrome{keel::kNullOpt}; ///< Optional scrollbar chrome override (`Modern`, `Flat`, `ClassicBevel`, `Framed`)
     keel::Optional<keel::f32> scrollbarWidth{keel::kNullOpt};             ///< Optional Md scrollbar track width in dp (4..28)
+    keel::Optional<SliderThumbShape> sliderThumb{keel::kNullOpt};         ///< Optional slider thumb shape override (`Circle`, `Ring`, `Square`, `Pointer3D`, `Bar`)
 
     /// Serializes this `ThemeSpec` to a compact, human-readable JSON object.
     [[nodiscard]] keel::String ToJson() const;

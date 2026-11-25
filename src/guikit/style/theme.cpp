@@ -925,6 +925,27 @@ void ApplyCuratedPresetColors(UiTheme& theme, ThemePreset p) noexcept {
     return keel::kNullOpt;
 }
 
+[[nodiscard]] keel::StringRef SliderThumbJsonKey(SliderThumbShape s) noexcept {
+    switch (s) {
+        case SliderThumbShape::Circle:    return "Circle";
+        case SliderThumbShape::Ring:      return "Ring";
+        case SliderThumbShape::Square:    return "Square";
+        case SliderThumbShape::Pointer3D: return "Pointer3D";
+        case SliderThumbShape::Bar:       return "Bar";
+    }
+    return "Circle";
+}
+
+[[nodiscard]] keel::Optional<SliderThumbShape> ParseSliderThumbKey(keel::StringRef s) noexcept {
+    for (keel::usize i = 0u; i < kSliderThumbShapeCount; ++i) {
+        const auto st = keel::from_underlying<SliderThumbShape>(i);
+        if (s == SliderThumbJsonKey(st) || s == SliderThumbShapeName(st)) {
+            return st;
+        }
+    }
+    return keel::kNullOpt;
+}
+
 void SkipWs(keel::StringRef s, keel::usize& pos) noexcept {
     while (pos < s.size()) {
         const char c = s[pos];
@@ -1053,6 +1074,9 @@ keel::String ThemeSpec::ToJson() const {
     if (scrollbarWidth.has_value()) {
         out.append(keel::format("  \"scrollbarWidth\": {:.2f},\n", *scrollbarWidth));
     }
+    if (sliderThumb.has_value()) {
+        out.append(keel::format("  \"sliderThumb\": \"{}\",\n", SliderThumbJsonKey(*sliderThumb)));
+    }
     out.append(keel::format("  \"surfaceContrast\": {:.2f},\n", surfaceContrast));
     out.append(keel::format("  \"radiusScale\": {:.2f},\n", radiusScale));
     out.append(keel::format("  \"spacingScale\": {:.2f},\n", spacingScale));
@@ -1123,6 +1147,10 @@ keel::Optional<ThemeSpec> ThemeSpec::FromJson(keel::StringRef json) noexcept {
             keel::f32 num = 0.0f;
             if (!ParseJsonNumber(json, pos, num)) return keel::kNullOpt;
             spec.scrollbarWidth = keel::clamp(num, 4.0f, 28.0f);
+        } else if (key == "sliderThumb") {
+            keel::StringRef val;
+            if (!ParseJsonString(json, pos, val)) return keel::kNullOpt;
+            if (const auto st = ParseSliderThumbKey(val); st.has_value()) spec.sliderThumb = *st;
         } else if (key == "shellStyle") {
             keel::StringRef val;
             if (!ParseJsonString(json, pos, val)) return keel::kNullOpt;
@@ -1708,6 +1736,9 @@ UiTheme UiTheme::Build(const ThemeSpec& spec) noexcept {
     }
     if (spec.scrollbarWidth.has_value()) {
         theme.SetScrollbarWidth(*spec.scrollbarWidth);
+    }
+    if (spec.sliderThumb.has_value()) {
+        theme.chrome.sliderThumb = *spec.sliderThumb;
     }
     theme.SetShellStyle(spec.shellStyle);
     return theme;
