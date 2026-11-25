@@ -453,6 +453,7 @@ public:
     void AddOpenPopupRect(Rect bounds);
     void ClosePopup();
     [[nodiscard]] bool IsPopupOpen(Id id) const noexcept { return m_overlays.IsPopupOpen(id); }
+    [[nodiscard]] bool WasPopupDismissedThisFrame() const noexcept { return m_overlays.WasPopupDismissedThisFrame(); }
     [[nodiscard]] Id GetOpenPopupId() const noexcept { return m_overlays.GetOpenPopupId(); }
     [[nodiscard]] Rect GetOpenPopupRect() const noexcept { return CurrentSpace().Invert(m_overlays.GetOpenPopupRect()); }
     [[nodiscard]] bool IsPointInOpenPopup(Vec2 framePos) const noexcept;

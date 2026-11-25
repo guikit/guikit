@@ -11259,6 +11259,8 @@ void TestPlatformWindowBackendAndStandaloneFreeType();
 void TestIdScopeDynamicListStability();
 void TestTextBufferDiffUndoRedo();
 void TestImeCompositionAndFileDrop();
+void TestPopupDismissOutsidePassesClickThrough();
+void TestSelectPopupSelectedVsHoverStability();
 
 void TestZonePartialThemeOverrides() {
     using namespace guikit;
@@ -11341,6 +11343,8 @@ int main() {
     TestIdScopeDynamicListStability();
     TestTextBufferDiffUndoRedo();
     TestImeCompositionAndFileDrop();
+    TestPopupDismissOutsidePassesClickThrough();
+    TestSelectPopupSelectedVsHoverStability();
     TestTextWrappingAndBackendIndependence();
 
 #if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
@@ -17645,6 +17649,366 @@ void TestImeCompositionAndFileDrop() {
     CHECK(!ui.HasDroppedFiles());
 
     keel::println("  [PASS] TestImeCompositionAndFileDrop completed");
+}
+
+void TestPopupDismissOutsidePassesClickThrough() {
+    using namespace guikit;
+    keel::println("  -> TestPopupDismissOutsidePassesClickThrough...");
+
+    Context ui;
+    NullCanvas canvas;
+    static constexpr keel::StaticArray<keel::StringRef, 3> kItems = {"Alpha", "Beta", "Gamma"};
+    keel::usize selA = 0;
+    keel::usize selB = 1;
+    keel::i32 btnClicks = 0;
+    Response resA{};
+    Response resB{};
+    Response btnRes{};
+
+    auto runFrame = [&]() {
+        ui.BeginFrame({800.0f, 500.0f});
+        if (auto row = guikit::Row(ui, {.gap = 16.0f, .padding = Padding::All(20.0f)})) {
+            resA = guikit::ComboBox(ui, selA, kItems, {.width = 180.0f});
+            resB = guikit::Select(ui, selB, kItems, {.width = 180.0f});
+            btnRes = guikit::Button(ui, {.text = "Trigger"});
+            if (btnRes.clicked) {
+                ++btnClicks;
+            }
+        }
+        ui.EndFrame(canvas);
+    };
+
+    auto clickAt = [&](Vec2 pos) {
+        ui.OnMouseMove(pos);
+        ui.OnMouseDown(1);
+        runFrame();
+        ui.OnMouseUp(1);
+        runFrame();
+    };
+
+    // Two warmup frames so previous-frame rects are populated in immediate mode
+    runFrame();
+    runFrame();
+    CHECK(resA.rect.w > 0.0f);
+    CHECK(resB.rect.w > 0.0f);
+    CHECK(btnRes.rect.w > 0.0f);
+
+    // 1. Open ComboBox A, then click outside Button -> closes ComboBox AND triggers Button in 1 click
+    clickAt(resA.rect.Center());
+    CHECK(ui.GetOpenPopupId() == resA.id);
+    CHECK(btnClicks == 0);
+
+    clickAt(btnRes.rect.Center());
+    CHECK(!ui.GetOpenPopupId().IsValid());
+    CHECK(btnClicks == 1);
+
+    // 2. Open ComboBox A, then click Select B -> closes A AND opens B in 1 click
+    clickAt(resA.rect.Center());
+    CHECK(ui.GetOpenPopupId() == resA.id);
+
+    clickAt(resB.rect.Center());
+    CHECK(ui.GetOpenPopupId() == resB.id);
+
+    // 3. Clicking inside the open popup selects an item and never leaks to outside widgets
+    const Rect popRect = ui.GetOpenPopupRect();
+    CHECK(popRect.w > 0.0f);
+    CHECK(popRect.h > 0.0f);
+    clickAt({popRect.x + popRect.w * 0.5f, popRect.y + 16.0f});
+    CHECK(!ui.GetOpenPopupId().IsValid());
+    CHECK(btnClicks == 1);
+
+    // 4. Inside a Modal (closeOnBackdrop=true):
+    //    - clicking dark backdrop dismisses ONLY the open ComboBox (keeps Modal open)
+    //    - clicking an inside Button closes ComboBox AND triggers Button in 1 click
+    bool modalOpen = true;
+    keel::usize modalSel = 0;
+    keel::i32 modalBtnClicks = 0;
+    Response modalComboRes{};
+    Response modalBtnRes{};
+    auto runModalFrame = [&]() {
+        ui.BeginFrame({800.0f, 500.0f});
+        if (auto m = guikit::Modal(ui, modalOpen, {.closeOnBackdrop = true})) {
+            if (auto card = guikit::Card(ui, {.width = 400.0f, .padding = Padding::All(16.0f)})) {
+                if (auto row = guikit::Row(ui, {.gap = 12.0f})) {
+                    modalComboRes = guikit::ComboBox(ui, modalSel, kItems, {.width = 180.0f});
+                    modalBtnRes = guikit::Button(ui, {.text = "Apply"});
+                    if (modalBtnRes.clicked) {
+                        ++modalBtnClicks;
+                    }
+                }
+            }
+        }
+        ui.EndFrame(canvas);
+    };
+    auto clickModalAt = [&](Vec2 pos) {
+        ui.OnMouseMove(pos);
+        ui.OnMouseDown(1);
+        runModalFrame();
+        ui.OnMouseUp(1);
+        runModalFrame();
+    };
+    runModalFrame();
+    runModalFrame();
+    CHECK(modalOpen);
+    CHECK(modalComboRes.rect.w > 0.0f);
+    CHECK(modalBtnRes.rect.w > 0.0f);
+
+    // Open ComboBox inside Modal, click backdrop corner -> only ComboBox closes, Modal stays open
+    clickModalAt(modalComboRes.rect.Center());
+    CHECK(ui.GetOpenPopupId() == modalComboRes.id);
+    clickModalAt({10.0f, 10.0f});
+    CHECK(!ui.GetOpenPopupId().IsValid());
+    CHECK(modalOpen);
+    CHECK(modalBtnClicks == 0);
+
+    // Open ComboBox again, click Button inside Modal -> closes ComboBox AND clicks Button in 1 click
+    clickModalAt(modalComboRes.rect.Center());
+    CHECK(ui.GetOpenPopupId() == modalComboRes.id);
+    clickModalAt(modalBtnRes.rect.Center());
+    CHECK(!ui.GetOpenPopupId().IsValid());
+    CHECK(modalOpen);
+    CHECK(modalBtnClicks == 1);
+
+    // Now with no popup open, clicking backdrop closes Modal
+    clickModalAt({10.0f, 10.0f});
+    CHECK(!modalOpen);
+
+    keel::println("  [PASS] TestPopupDismissOutsidePassesClickThrough completed");
+}
+
+void TestSelectPopupSelectedVsHoverStability() {
+    using namespace guikit;
+    keel::println("  -> TestSelectPopupSelectedVsHoverStability...");
+
+    struct FillRecord {
+        Rect rect{};
+        Color fill{};
+    };
+    class FillSpyCanvas : public NullCanvas {
+    public:
+        keel::Array<FillRecord> fills{};
+
+        void ClearRecords() { fills.clear(); }
+
+        void DrawRect(Rect rect, Color fill) override {
+            if (fill.a > 0u) fills.push_back({rect, fill});
+        }
+        void DrawRoundRect(Rect rect, keel::f32 /*radius*/, Color fill, Color /*stroke*/, keel::f32 /*strokeWidth*/) override {
+            if (fill.a > 0u) fills.push_back({rect, fill});
+        }
+    };
+
+    Context ui;
+    ui.SetTheme(UiTheme::Dark());
+    FillSpyCanvas canvas;
+
+    static constexpr keel::StaticArray<keel::StringRef, 4> kItems = {
+        "Option Alpha", "Option Beta", "Option Gamma", "Option Delta"
+    };
+    keel::usize selIdx = 0;
+    Response selRes{};
+
+    auto runFrame = [&]() {
+        canvas.ClearRecords();
+        ui.BeginFrame({800.0f, 500.0f});
+        if (auto row = guikit::Row(ui, {.padding = Padding::All(20.0f)})) {
+            selRes = guikit::Select(ui, selIdx, kItems, {.width = 200.0f});
+        }
+        ui.EndFrame(canvas);
+    };
+
+    runFrame();
+    runFrame();
+    CHECK(selRes.rect.w > 0.0f);
+
+    // Open Select popup
+    ui.OnMouseMove(selRes.rect.Center());
+    ui.OnMouseDown(1);
+    runFrame();
+    ui.OnMouseUp(1);
+    runFrame();
+    CHECK(ui.GetOpenPopupId() == selRes.id);
+
+    const Rect popRect = ui.GetOpenPopupRect();
+    const keel::f32 itemH = ui.GetTheme().GetSelect(UiSize::Md).itemHeight;
+    const auto rowRect = [&](keel::usize row) -> Rect {
+        return Rect(popRect.x + 4.0f, popRect.y + 4.0f + keel::as<keel::f32>(row) * itemH, popRect.w - 8.0f, itemH);
+    };
+    const auto findRowFill = [&](keel::usize row) -> keel::Optional<Color> {
+        const Rect expected = rowRect(row);
+        for (const auto& rec : canvas.fills) {
+            if (keel::abs(rec.rect.x - expected.x) < 1.0f &&
+                keel::abs(rec.rect.y - expected.y) < 1.0f &&
+                keel::abs(rec.rect.w - expected.w) < 1.0f &&
+                keel::abs(rec.rect.h - expected.h) < 1.0f) {
+                return rec.fill;
+            }
+        }
+        return keel::kNullOpt;
+    };
+
+    const ThemePalette& pal = ui.GetTheme().palette;
+    const Color expectedSelTint = pal.accent.WithAlphaF(0.16f);
+
+    // 1. Hover Row 2 ("Option Gamma"): Row 0 stays consistently selected (accent tint), Row 2 shows surfaceHover
+    ui.OnMouseMove(rowRect(2).Center());
+    runFrame();
+    const auto row0WhileHover2 = findRowFill(0);
+    const auto row2WhileHover2 = findRowFill(2);
+    CHECK(row0WhileHover2.has_value());
+    CHECK(row2WhileHover2.has_value());
+    if (row0WhileHover2.has_value()) {
+        CHECK(*row0WhileHover2 == expectedSelTint);
+    }
+    if (row2WhileHover2.has_value()) {
+        CHECK(*row2WhileHover2 == pal.surfaceHover);
+    }
+
+    // 2. Move mouse outside the dropdown popup: Row 2 hover clears cleanly, Row 0 selected fill is unchanged (no jump!)
+    ui.OnMouseMove({popRect.Right() + 80.0f, popRect.Center().y});
+    runFrame();
+    const auto row0AfterLeave = findRowFill(0);
+    const auto row2AfterLeave = findRowFill(2);
+    CHECK(row0AfterLeave.has_value());
+    CHECK(!row2AfterLeave.has_value());
+    if (row0AfterLeave.has_value()) {
+        CHECK(*row0AfterLeave == expectedSelTint);
+    }
+
+    // 3. ComboBox: mouse-open has no phantom hover, mouse-leave clears hover cleanly,
+    //    and keyboard filter still highlights top match so Enter commits it
+    keel::usize comboIdx = 0;
+    Response comboRes{};
+    auto runComboFrame = [&]() {
+        canvas.ClearRecords();
+        ui.BeginFrame({800.0f, 500.0f});
+        if (auto row = guikit::Row(ui, {.padding = Padding::All(20.0f)})) {
+            comboRes = guikit::ComboBox(ui, comboIdx, kItems, {.width = 200.0f});
+        }
+        ui.EndFrame(canvas);
+    };
+    ui.ClosePopup();
+    runComboFrame();
+    runComboFrame();
+    ui.OnMouseMove(comboRes.rect.Center());
+    ui.OnMouseDown(1);
+    runComboFrame();
+    ui.OnMouseUp(1);
+    runComboFrame();
+    CHECK(ui.GetOpenPopupId() == comboRes.id);
+
+    const Rect comboPopRect = ui.GetOpenPopupRect();
+    const auto comboRowRect = [&](keel::usize row) -> Rect {
+        return Rect(comboPopRect.x + 4.0f, comboPopRect.y + 4.0f + keel::as<keel::f32>(row) * itemH, comboPopRect.w - 8.0f, itemH);
+    };
+    const auto findComboRowFill = [&](keel::usize row) -> keel::Optional<Color> {
+        const Rect expected = comboRowRect(row);
+        for (const auto& rec : canvas.fills) {
+            if (keel::abs(rec.rect.x - expected.x) < 1.0f &&
+                keel::abs(rec.rect.y - expected.y) < 1.0f &&
+                keel::abs(rec.rect.w - expected.w) < 1.0f &&
+                keel::abs(rec.rect.h - expected.h) < 1.0f) {
+                return rec.fill;
+            }
+        }
+        return keel::kNullOpt;
+    };
+
+    // Opened by mouse click: Row 0 has unhovered selected tint (not hovered-selected tint)
+    const auto comboRow0Open = findComboRowFill(0);
+    CHECK(comboRow0Open.has_value());
+    if (comboRow0Open.has_value()) {
+        CHECK(*comboRow0Open == expectedSelTint);
+    }
+
+    // Hover Row 2, then leave popup -> Row 2 hover clears cleanly (no stuck hover)
+    ui.OnMouseMove(comboRowRect(2).Center());
+    runComboFrame();
+    const auto comboRow2Hov = findComboRowFill(2);
+    CHECK(comboRow2Hov.has_value());
+    if (comboRow2Hov.has_value()) {
+        CHECK(*comboRow2Hov == pal.surfaceHover);
+    }
+
+    ui.OnMouseMove({comboPopRect.Right() + 80.0f, comboPopRect.Center().y});
+    runComboFrame();
+    CHECK(!findComboRowFill(2).has_value());
+    const auto comboRow0Leave = findComboRowFill(0);
+    CHECK(comboRow0Leave.has_value());
+    if (comboRow0Leave.has_value()) {
+        CHECK(*comboRow0Leave == expectedSelTint);
+    }
+
+    // Typing filter while mouse is outside still highlights top match and Enter selects "Option Gamma" (index 2)
+    ui.OnTextInput("gam");
+    runComboFrame();
+    ui.OnKeyDown(Key::Enter);
+    runComboFrame();
+    CHECK(!ui.GetOpenPopupId().IsValid());
+    CHECK(comboIdx == 2);
+
+    // 4. MultiSelect: uses DrawSelectionHighlight (accent tint on selected rows), no phantom hover on mouse-open,
+    //    and mouse-leave clears hover cleanly
+    keel::SmallArray<keel::usize, 4> multiSel = keel::SmallArray<keel::usize, 4>::from({0});
+    Response multiRes{};
+    auto runMultiFrame = [&]() {
+        canvas.ClearRecords();
+        ui.BeginFrame({800.0f, 500.0f});
+        if (auto row = guikit::Row(ui, {.padding = Padding::All(20.0f)})) {
+            multiRes = guikit::MultiSelect(ui, multiSel, kItems, {.searchable = true, .width = 240.0f});
+        }
+        ui.EndFrame(canvas);
+    };
+    runMultiFrame();
+    runMultiFrame();
+    ui.OnMouseMove({multiRes.rect.Right() - 12.0f, multiRes.rect.Center().y});
+    ui.OnMouseDown(1);
+    runMultiFrame();
+    ui.OnMouseUp(1);
+    runMultiFrame();
+    CHECK(ui.GetOpenPopupId() == multiRes.id);
+
+    const Rect multiPopRect = ui.GetOpenPopupRect();
+    const auto multiRowRect = [&](keel::usize row) -> Rect {
+        return Rect(multiPopRect.x + 4.0f, multiPopRect.y + 4.0f + keel::as<keel::f32>(row) * itemH, multiPopRect.w - 8.0f, itemH);
+    };
+    const auto findMultiRowFill = [&](keel::usize row) -> keel::Optional<Color> {
+        const Rect expected = multiRowRect(row);
+        for (const auto& rec : canvas.fills) {
+            if (keel::abs(rec.rect.x - expected.x) < 1.0f &&
+                keel::abs(rec.rect.y - expected.y) < 1.0f &&
+                keel::abs(rec.rect.w - expected.w) < 1.0f &&
+                keel::abs(rec.rect.h - expected.h) < 1.0f) {
+                return rec.fill;
+            }
+        }
+        return keel::kNullOpt;
+    };
+
+    const auto multiRow0Open = findMultiRowFill(0);
+    CHECK(multiRow0Open.has_value());
+    if (multiRow0Open.has_value()) {
+        CHECK(*multiRow0Open == expectedSelTint);
+    }
+
+    ui.OnMouseMove(multiRowRect(2).Center());
+    runMultiFrame();
+    const auto multiRow2Hov = findMultiRowFill(2);
+    CHECK(multiRow2Hov.has_value());
+    if (multiRow2Hov.has_value()) {
+        CHECK(*multiRow2Hov == pal.surfaceHover);
+    }
+
+    ui.OnMouseMove({multiPopRect.Right() + 80.0f, multiPopRect.Center().y});
+    runMultiFrame();
+    CHECK(!findMultiRowFill(2).has_value());
+    const auto multiRow0Leave = findMultiRowFill(0);
+    CHECK(multiRow0Leave.has_value());
+    if (multiRow0Leave.has_value()) {
+        CHECK(*multiRow0Leave == expectedSelTint);
+    }
+
+    keel::println("  [PASS] TestSelectPopupSelectedVsHoverStability completed");
 }
 
 

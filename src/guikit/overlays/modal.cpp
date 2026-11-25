@@ -98,7 +98,7 @@ ModalScope detail::Modal::Open(
     res.ctx = &ctx;
 
     const Vec2 mouse = ctx.GetMousePos();
-    const bool popupOpen = ctx.GetOpenPopupId().IsValid();
+    const bool popupOpen = ctx.GetOpenPopupId().IsValid() || ctx.WasPopupDismissedThisFrame();
     const bool isTopModal = ctx.IsTopModal(id);
     const bool hasPopoverAbove = ctx.HasPrevFramePopoverOver(id);
 

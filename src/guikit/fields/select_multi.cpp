@@ -413,44 +413,72 @@ void RenderMultiPopup(
         const bool isSelected = (i < itemSelectedFlags.size()) && (itemSelectedFlags[i] != 0);
         const bool isHovered = (keel::as<keel::i32>(i) == hoveredIndex) && !itemDisabled;
 
-        if (isHovered) {
-            canvas.DrawRoundRect(itemRect, 4.0f, isSelected ? pal.surfaceActive : pal.surfaceHover);
-        } else if (isSelected) {
-            canvas.DrawRoundRect(itemRect, 4.0f, primaryCol.WithAlphaF(0.08f));
-        }
+        const bool accentHighlight = theme.Painter().DrawSelectionHighlight(
+            canvas,
+            theme,
+            itemRect,
+            keel::min(4.0f, m.cornerRadius),
+            isHovered,
+            isSelected,
+            false,
+            false,
+            itemDisabled,
+            Color::Transparent()
+        );
 
-        Color itemTextCol = item.text.color.HasAny()
-            ? theme.ResolveTextColor(item.text, UiVariant::Default, itemDisabled, isHovered, isSelected)
-            : (itemDisabled ? pal.textPrimary.WithAlphaF(theme.disabledOpacity) : pal.textPrimary);
+        Color itemTextCol = accentHighlight
+            ? pal.accentText
+            : (item.text.color.HasAny()
+                ? theme.ResolveTextColor(item.text, UiVariant::Default, itemDisabled, isHovered, isSelected)
+                : (itemDisabled ? pal.textPrimary.WithAlphaF(theme.disabledOpacity) : pal.textPrimary));
 
         // Right side: item suffix
         keel::f32 textRightX = itemRect.x + itemRect.w - m.paddingX;
         if (item.suffix.HasContentOrReserve()) {
             const keel::f32 sFont = theme.ResolveFontSize(item.suffix.text, TextRole::LabelMedium, size);
-            const Color sTextCol = theme.ResolveTextColor(item.suffix.text, UiVariant::Muted, itemDisabled);
+            const Color sTextCol = accentHighlight
+                ? pal.accentText.WithAlphaF(0.85f)
+                : theme.ResolveTextColor(item.suffix.text, UiVariant::Muted, itemDisabled);
             const keel::f32 sW = TextUtil::MeasureAffixWidth(item.suffix, sFont, m.iconSize, 4.0f, &canvas);
             textRightX -= sW;
             TextUtil::DrawAffix(canvas, item.suffix, Rect(textRightX, itemRect.y, sW, itemRect.h), sFont, m.iconSize, sTextCol, sTextCol, 4.0f);
             textRightX -= 6.0f;
         }
 
-        // Left side: 14x14 rounded checkbox + optional prefix + main text
+        // Left side: 14x14 checkbox + optional prefix + main text
         keel::f32 textLeftX = itemRect.x + m.paddingX;
         const Rect cbRect(textLeftX, itemRect.y + (itemRect.h - cbSize) * 0.5f, cbSize, cbSize);
+        const keel::f32 cbRadius = keel::min(3.5f, m.cornerRadius);
+        const Color cbFill = isSelected
+            ? (itemDisabled ? primaryCol.WithAlphaF(theme.disabledOpacity) : primaryCol)
+            : (itemDisabled ? pal.surface.WithAlphaF(theme.disabledOpacity) : pal.surface);
+        const Color cbBorder = isSelected
+            ? (accentHighlight ? pal.accentText : cbFill)
+            : (accentHighlight ? pal.accentText : (isHovered ? pal.borderHover : pal.border));
+        const Color cbMarkCol = theme.Painter().DrawCheckboxBox(
+            canvas,
+            theme,
+            cbRect,
+            cbRadius,
+            cbFill,
+            cbBorder,
+            1.0f,
+            pal.accentText,
+            /*pressed=*/false,
+            /*focused=*/false,
+            itemDisabled
+        );
         if (isSelected) {
-            const Color cbFill = itemDisabled ? primaryCol.WithAlphaF(theme.disabledOpacity) : primaryCol;
-            canvas.DrawRoundRect(cbRect, 3.5f, cbFill, cbFill, 1.0f);
             const Rect checkRect(cbRect.x + 2.0f, cbRect.y + 2.0f, cbSize - 4.0f, cbSize - 4.0f);
-            Icon::Check().Draw(canvas, checkRect, Color(255, 255, 255, 255));
-        } else {
-            const Color cbBorder = isHovered ? pal.borderHover : pal.border;
-            canvas.DrawRoundRect(cbRect, 3.5f, pal.surface, cbBorder, 1.0f);
+            Icon::Check().Draw(canvas, checkRect, cbMarkCol);
         }
         textLeftX += cbSize + 8.0f;
 
         if (item.prefix.HasContentOrReserve()) {
             const keel::f32 pFont = theme.ResolveFontSize(item.prefix.text, TextRole::LabelMedium, size);
-            const Color pTextCol = theme.ResolveTextColor(item.prefix.text, UiVariant::Secondary, itemDisabled);
+            const Color pTextCol = accentHighlight
+                ? pal.accentText
+                : theme.ResolveTextColor(item.prefix.text, UiVariant::Secondary, itemDisabled);
             const keel::f32 pW = TextUtil::MeasureAffixWidth(item.prefix, pFont, m.iconSize, 4.0f, &canvas);
             TextUtil::DrawAffix(canvas, item.prefix, Rect(textLeftX, itemRect.y, pW, itemRect.h), pFont, m.iconSize, pTextCol, pTextCol, 4.0f);
             textLeftX += pW + 6.0f;
@@ -631,6 +659,8 @@ Response detail::Select::RunMulti(
         keel::f32 scrollX{0.0f};
         bool actionBtnDown{false};
         keel::i32 highlightedFilteredIdx{-1};
+        bool highlightFromMouse{false};
+        Vec2 lastPopupMousePos{-1e6f, -1e6f};
     };
     auto& popupState = ctx.GetOrCreateState<MultiSelectPopupState>(id);
     if (popupState.actionBtnDown) {
@@ -644,6 +674,7 @@ Response detail::Select::RunMulti(
         popupState.filterText.clear();
         popupState.scrollX = 0.0f;
         popupState.highlightedFilteredIdx = -1;
+        popupState.highlightFromMouse = false;
     }
 
     auto hasValidSelections = [&]() -> bool {
@@ -762,12 +793,14 @@ Response detail::Select::RunMulti(
         popupState.filterText.assign(editDisplayText);
         if (editChanged) {
             popupState.highlightedFilteredIdx = 0;
+            popupState.highlightFromMouse = false;
         }
     }
 
     bool isOpen = wasOpen;
     bool wantOpen = false;
     bool wantClose = false;
+    bool openedByKeyboard = false;
 
     if (!effectiveDisabled) {
         if (!wasOpen) {
@@ -776,11 +809,13 @@ Response detail::Select::RunMulti(
             } else if (isFocused) {
                 if (ctx.ConsumeKey(Key::Down) || (popupState.filterText.empty() && ctx.ConsumeKey(Key::Space))) {
                     wantOpen = true;
+                    openedByKeyboard = true;
                     res.clicked = true;
                 } else if (isSearchable && editChanged && !popupState.filterText.empty()) {
                     wantOpen = true;
                 } else if (editSubmitted || (!isSearchable && ctx.ConsumeKey(Key::Enter))) {
                     wantOpen = true;
+                    openedByKeyboard = true;
                     editSubmitted = false;
                     ctx.RequestFocus(id);
                 }
@@ -802,6 +837,8 @@ Response detail::Select::RunMulti(
         popupState.draggingScrollbar = false;
         popupState.scrollbarHovered = false;
         popupState.scrollbarActive = false;
+        popupState.highlightedFilteredIdx = -1;
+        popupState.highlightFromMouse = false;
         if (isSearchable) {
             popupState.filterText.clear();
             popupState.scrollX = 0.0f;
@@ -813,6 +850,8 @@ Response detail::Select::RunMulti(
         popupState.draggingScrollbar = false;
         popupState.scrollbarHovered = false;
         popupState.scrollbarActive = false;
+        popupState.lastPopupMousePos = mousePos;
+        popupState.highlightFromMouse = false;
         if (isSearchable && !editChanged) {
             popupState.filterText.clear();
             popupState.scrollX = 0.0f;
@@ -821,7 +860,7 @@ Response detail::Select::RunMulti(
             cursor = 0;
             selAnchor = 0;
         }
-        popupState.highlightedFilteredIdx = 0;
+        popupState.highlightedFilteredIdx = (openedByKeyboard || editChanged) ? 0 : -1;
     }
 
     if (isSearchable) {
@@ -841,13 +880,21 @@ Response detail::Select::RunMulti(
     }
 
     if (isOpen) {
-        if (popupState.highlightedFilteredIdx < 0 ||
-            popupState.highlightedFilteredIdx >= keel::as<keel::i32>(filteredIndices.size())) {
+        const bool hasHighlight = popupState.highlightedFilteredIdx >= 0;
+        const bool outOfBounds = hasHighlight &&
+            popupState.highlightedFilteredIdx >= keel::as<keel::i32>(filteredIndices.size());
+        const bool pointsDisabled = hasHighlight && !outOfBounds &&
+            items[filteredIndices[keel::as<keel::usize>(popupState.highlightedFilteredIdx)]].disabled;
+        const bool needsAutoInit = !hasHighlight && (openedByKeyboard || editChanged || !activeQuery.empty());
+        if (outOfBounds || pointsDisabled || needsAutoInit) {
             popupState.highlightedFilteredIdx = -1;
-            for (keel::usize fi = 0; fi < filteredIndices.size(); ++fi) {
-                if (!items[filteredIndices[fi]].disabled) {
-                    popupState.highlightedFilteredIdx = keel::as<keel::i32>(fi);
-                    break;
+            popupState.highlightFromMouse = false;
+            if (!activeQuery.empty() || openedByKeyboard || editChanged) {
+                for (keel::usize fi = 0; fi < filteredIndices.size(); ++fi) {
+                    if (!items[filteredIndices[fi]].disabled) {
+                        popupState.highlightedFilteredIdx = keel::as<keel::i32>(fi);
+                        break;
+                    }
                 }
             }
         }
@@ -1007,6 +1054,8 @@ Response detail::Select::RunMulti(
 
         const keel::f32 itemW = keel::max(0.0f, popupRect.w - 8.0f - (hasScrollbar ? sm.gutter : 0.0f));
         const Rect itemsViewport(popupRect.x + 4.0f, popupRect.y + 4.0f, itemW, viewportH);
+        const bool mouseMoved = (mouse != popupState.lastPopupMousePos);
+        popupState.lastPopupMousePos = mouse;
 
         if (!popupState.draggingScrollbar && !popupState.scrollbarHovered && itemsViewport.Contains(mouse)) {
             for (keel::usize fi = 0; fi < filteredIndices.size(); ++fi) {
@@ -1022,8 +1071,11 @@ Response detail::Select::RunMulti(
                 }
                 if (itemRect.Contains(mouse)) {
                     if (!items[origIdx].disabled) {
-                        hoveredItem = keel::as<keel::i32>(fi);
-                        popupState.highlightedFilteredIdx = hoveredItem;
+                        if (mouseMoved || popupState.highlightFromMouse || popupState.highlightedFilteredIdx < 0) {
+                            hoveredItem = keel::as<keel::i32>(fi);
+                            popupState.highlightedFilteredIdx = hoveredItem;
+                            popupState.highlightFromMouse = true;
+                        }
                     }
                     if (ctx.IsMouseReleased()) {
                         if (!items[origIdx].disabled) {
@@ -1037,12 +1089,19 @@ Response detail::Select::RunMulti(
                 }
             }
         }
+        if (hoveredItem < 0 && popupState.highlightFromMouse &&
+            (mouseMoved || !itemsViewport.Contains(mouse) || popupState.scrollbarHovered || popupState.draggingScrollbar)) {
+            popupState.highlightedFilteredIdx = -1;
+            popupState.highlightFromMouse = false;
+        }
 
         if (isOpen) {
             if (ctx.ConsumeKey(Key::Escape)) {
                 ctx.ClosePopup();
                 isOpen = false;
                 popupState.draggingScrollbar = false;
+                popupState.highlightedFilteredIdx = -1;
+                popupState.highlightFromMouse = false;
                 if (isSearchable) {
                     popupState.filterText.clear();
                     ctx.SetTextEditBuffer(id, "");
@@ -1066,6 +1125,7 @@ Response detail::Select::RunMulti(
                     for (keel::usize fi = startFi; fi < filteredIndices.size(); ++fi) {
                         if (!items[filteredIndices[fi]].disabled) {
                             popupState.highlightedFilteredIdx = keel::as<keel::i32>(fi);
+                            popupState.highlightFromMouse = false;
                             scrollItemIntoView(fi, viewportH, maxScrollY);
                             break;
                         }
@@ -1077,6 +1137,7 @@ Response detail::Select::RunMulti(
                         const keel::usize candidateFi = fi - 1;
                         if (!items[filteredIndices[candidateFi]].disabled) {
                             popupState.highlightedFilteredIdx = keel::as<keel::i32>(candidateFi);
+                            popupState.highlightFromMouse = false;
                             scrollItemIntoView(candidateFi, viewportH, maxScrollY);
                             break;
                         }

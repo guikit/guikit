@@ -1258,17 +1258,24 @@ bool DefaultStylePainter::DrawSelectionHighlight(
     if (hovered) {
         const Color hovBg = isDanger
             ? dangerColor.WithAlphaF(isDark ? 0.22f : 0.14f)
-            : ((subExpanded || selected) ? pal.surfaceActive : pal.surfaceHover);
+            : ((selStyle == SelectionHighlightStyle::Tonal && selected && !subExpanded)
+                ? pal.accent.WithAlphaF(isDark ? 0.24f : 0.18f)
+                : ((subExpanded || selected) ? pal.surfaceActive : pal.surfaceHover));
         if (itemRadius > 0.0f) {
             canvas.DrawRoundRect(itemRect, itemRadius, hovBg, Color::Transparent(), 0.0f);
         } else {
             canvas.DrawRect(itemRect, hovBg);
         }
     } else if (selected) {
+        const Color selBg = isDanger
+            ? dangerColor.WithAlphaF(isDark ? 0.16f : 0.10f)
+            : ((selStyle == SelectionHighlightStyle::Tonal)
+                ? pal.accent.WithAlphaF(isDark ? 0.16f : 0.12f)
+                : pal.surfaceHover);
         if (itemRadius > 0.0f) {
-            canvas.DrawRoundRect(itemRect, itemRadius, pal.surfaceHover, Color::Transparent(), 0.0f);
+            canvas.DrawRoundRect(itemRect, itemRadius, selBg, Color::Transparent(), 0.0f);
         } else {
-            canvas.DrawRect(itemRect, pal.surfaceHover);
+            canvas.DrawRect(itemRect, selBg);
         }
     }
     if (selStyle == SelectionHighlightStyle::LeftAccentBar && (selected || hovered) && itemRect.h > 8.0f) {

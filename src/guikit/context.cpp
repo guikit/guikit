@@ -90,7 +90,6 @@ void Context::BeginFrame(Vec2 viewportSize, keel::f32 displayScale, keel::f32 ro
         const bool overPopup = IsPointInOpenPopup(m_mousePos);
         if (!overSelect && !overAnchor && !overPopup) {
             ClosePopup();
-            ConsumeMouseClick();
         }
     }
 

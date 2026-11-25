@@ -57,6 +57,7 @@ void OverlayManager::BeginFrame() noexcept {
     m_currFrameModals.clear();
     m_activeModalStack.clear();
     m_modalClosedThisFrame = false;
+    m_popupDismissedThisFrame = false;
     m_activeTooltip = {};
     m_activeTooltipAnchor = {};
     m_activeTooltipViewport = {};
@@ -169,6 +170,7 @@ bool OverlayManager::ClosePopup(keel::SmallArray<Rect, 16>& outInvalidated) {
     m_openPopupAnchorRect = Rect{};
     m_openPopupExtraRects.clear();
     m_openPopupVisualHash = 0;
+    m_popupDismissedThisFrame = true;
     EraseIf(m_prevOverlayHitRegions, [closedId](const OverlayHitRegion& r) { return r.id == closedId; });
     EraseIf(m_currOverlayHitRegions, [closedId](const OverlayHitRegion& r) { return r.id == closedId; });
     return true;

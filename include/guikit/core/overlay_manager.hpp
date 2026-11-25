@@ -117,6 +117,7 @@ public:
 
     [[nodiscard]] Id GetOpenPopupId() const noexcept { return m_openPopupId; }
     [[nodiscard]] bool IsPopupOpen(Id id) const noexcept { return m_openPopupId == id && id.IsValid(); }
+    [[nodiscard]] bool WasPopupDismissedThisFrame() const noexcept { return m_popupDismissedThisFrame; }
     [[nodiscard]] Rect GetOpenPopupRect() const noexcept { return m_openPopupRect; }
     [[nodiscard]] Rect GetOpenPopupAnchorRect() const noexcept { return m_openPopupAnchorRect; }
     void SetOpenPopupVisualHash(keel::u64 hash) noexcept { m_openPopupVisualHash = hash; }
@@ -190,6 +191,7 @@ private:
     keel::SmallArray<Id, 4> m_activeModalStack;
     bool m_hadModalLastFrame{false};
     bool m_modalClosedThisFrame{false};
+    bool m_popupDismissedThisFrame{false};
 
     UiText m_activeTooltip{};
     Rect m_activeTooltipAnchor{0.0f, 0.0f, 0.0f, 0.0f};
