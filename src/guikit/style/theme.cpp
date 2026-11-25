@@ -905,6 +905,26 @@ void ApplyCuratedPresetColors(UiTheme& theme, ThemePreset p) noexcept {
     return keel::kNullOpt;
 }
 
+[[nodiscard]] keel::StringRef ScrollbarChromeJsonKey(ScrollbarChromeStyle s) noexcept {
+    switch (s) {
+        case ScrollbarChromeStyle::Modern:       return "Modern";
+        case ScrollbarChromeStyle::Flat:         return "Flat";
+        case ScrollbarChromeStyle::ClassicBevel: return "ClassicBevel";
+        case ScrollbarChromeStyle::Framed:       return "Framed";
+    }
+    return "Modern";
+}
+
+[[nodiscard]] keel::Optional<ScrollbarChromeStyle> ParseScrollbarChromeKey(keel::StringRef s) noexcept {
+    for (keel::usize i = 0u; i < kScrollbarChromeStyleCount; ++i) {
+        const auto st = keel::from_underlying<ScrollbarChromeStyle>(i);
+        if (s == ScrollbarChromeJsonKey(st) || s == ScrollbarChromeStyleName(st)) {
+            return st;
+        }
+    }
+    return keel::kNullOpt;
+}
+
 void SkipWs(keel::StringRef s, keel::usize& pos) noexcept {
     while (pos < s.size()) {
         const char c = s[pos];
@@ -1027,6 +1047,9 @@ keel::String ThemeSpec::ToJson() const {
     if (info.has_value()) {
         out.append(keel::format("  \"info\": \"{}\",\n", FormatHexColor(*info)));
     }
+    if (scrollbarChrome.has_value()) {
+        out.append(keel::format("  \"scrollbarChrome\": \"{}\",\n", ScrollbarChromeJsonKey(*scrollbarChrome)));
+    }
     if (scrollbarWidth.has_value()) {
         out.append(keel::format("  \"scrollbarWidth\": {:.2f},\n", *scrollbarWidth));
     }
@@ -1092,6 +1115,10 @@ keel::Optional<ThemeSpec> ThemeSpec::FromJson(keel::StringRef json) noexcept {
             keel::StringRef val;
             if (!ParseJsonString(json, pos, val)) return keel::kNullOpt;
             if (const auto sp = ParseSyntaxPresetKey(val); sp.has_value()) spec.syntaxPreset = *sp;
+        } else if (key == "scrollbarChrome") {
+            keel::StringRef val;
+            if (!ParseJsonString(json, pos, val)) return keel::kNullOpt;
+            if (const auto sc = ParseScrollbarChromeKey(val); sc.has_value()) spec.scrollbarChrome = *sc;
         } else if (key == "scrollbarWidth") {
             keel::f32 num = 0.0f;
             if (!ParseJsonNumber(json, pos, num)) return keel::kNullOpt;
@@ -1675,6 +1702,9 @@ UiTheme UiTheme::Build(const ThemeSpec& spec) noexcept {
     }
     theme.disabledOpacity = keel::clamp(spec.disabledOpacity, 0.15f, 0.85f);
     theme.animationScale = keel::clamp(spec.animationScale, 0.0f, 2.0f);
+    if (spec.scrollbarChrome.has_value()) {
+        theme.SetScrollbarStyle(ScrollbarStyleTokens::ForChrome(*spec.scrollbarChrome));
+    }
     if (spec.scrollbarWidth.has_value()) {
         theme.SetScrollbarWidth(*spec.scrollbarWidth);
     }

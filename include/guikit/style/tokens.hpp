@@ -1311,9 +1311,23 @@ enum class DisabledTextStyle : keel::u8 {
 /// Structural chrome style for scrollbar track, thumb, and optional stepper buttons.
 enum class ScrollbarChromeStyle : keel::u8 {
     Modern = 0,     ///< Rounded pill thumb without stepper buttons (Modern / Fluent)
+    Flat,           ///< Wide sharp 0dp flat rectangular track, thumb & borderless chevron buttons (Windows 10 / VS Code)
     ClassicBevel,   ///< 3D raised bevel buttons & thumb, sunken track (Classic3D)
     Framed          ///< Sharp 0dp geometric scrollbar with bold rail divider, bordered thumb & chevron buttons (Brutalist)
 };
+
+inline constexpr keel::usize kScrollbarChromeStyleCount = 4u;
+
+/// Human-readable display name for a `ScrollbarChromeStyle`.
+[[nodiscard]] constexpr keel::StringRef ScrollbarChromeStyleName(ScrollbarChromeStyle style) noexcept {
+    switch (style) {
+        case ScrollbarChromeStyle::Modern:       return "Modern";
+        case ScrollbarChromeStyle::Flat:         return "Flat";
+        case ScrollbarChromeStyle::ClassicBevel: return "Classic 3D";
+        case ScrollbarChromeStyle::Framed:       return "Framed";
+    }
+    return "Modern";
+}
 
 /// 16-field declarative structural look-and-feel matrix consumed by `IStylePainter` (zero colors).
 struct ChromeTokens {
@@ -1428,6 +1442,13 @@ struct ScrollbarStyleTokens {
         switch (c) {
             case ScrollbarChromeStyle::Modern:
                 return s;
+            case ScrollbarChromeStyle::Flat:
+                s.arrowStyle      = ScrollbarArrowStyle::Chevron;
+                s.showButtons     = true;
+                s.alwaysShowTrack = true;
+                s.showCornerBox   = true;
+                s.thumbInset      = 0.0f;
+                return s;
             case ScrollbarChromeStyle::ClassicBevel:
                 s.arrowStyle      = ScrollbarArrowStyle::Triangle;
                 s.showButtons     = true;
@@ -1477,7 +1498,8 @@ struct ThemeSpec {
     keel::Optional<Color> warning{keel::kNullOpt};   ///< Optional semantic Warning color override
     keel::Optional<Color> danger{keel::kNullOpt};    ///< Optional semantic Danger color override
     keel::Optional<Color> info{keel::kNullOpt};      ///< Optional semantic Info color override
-    keel::Optional<keel::f32> scrollbarWidth{keel::kNullOpt};        ///< Optional Md scrollbar track width in dp (4..28)
+    keel::Optional<ScrollbarChromeStyle> scrollbarChrome{keel::kNullOpt}; ///< Optional scrollbar chrome override (`Modern`, `Flat`, `ClassicBevel`, `Framed`)
+    keel::Optional<keel::f32> scrollbarWidth{keel::kNullOpt};             ///< Optional Md scrollbar track width in dp (4..28)
 
     /// Serializes this `ThemeSpec` to a compact, human-readable JSON object.
     [[nodiscard]] keel::String ToJson() const;

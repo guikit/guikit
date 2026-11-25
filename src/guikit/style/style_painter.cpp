@@ -1308,6 +1308,8 @@ void DefaultStylePainter::DrawScrollbar(
     if (drawTrack) {
         if (sb.chrome == ScrollbarChromeStyle::Modern) {
             canvas.DrawRoundRect(p.trackRect, p.cornerRadius, trackBg, Color::Transparent(), 0.0f);
+        } else if (sb.chrome == ScrollbarChromeStyle::Flat) {
+            canvas.DrawRect(p.trackRect, trackBg);
         } else if (sb.chrome == ScrollbarChromeStyle::ClassicBevel) {
             canvas.DrawRect(p.trackRect, trackBg);
             const Color edgeTint = theme.bevel.shadowInner.WithAlphaF(0.20f);
@@ -1357,6 +1359,11 @@ void DefaultStylePainter::DrawScrollbar(
                 ? accent
                 : (thumbHot ? pal.textSecondary : pal.textMuted);
             canvas.DrawRoundRect(thumbR, p.cornerRadius, thumbCol, Color::Transparent(), 0.0f);
+        } else if (sb.chrome == ScrollbarChromeStyle::Flat) {
+            const Color thumbCol = p.dragging
+                ? accent
+                : (thumbHot ? pal.textSecondary : pal.textMuted);
+            canvas.DrawRect(thumbR, thumbCol);
         } else if (sb.chrome == ScrollbarChromeStyle::ClassicBevel) {
             const Color thumbCol = p.dragging
                 ? pal.surfaceActive.WithAlpha(255u)
@@ -1379,9 +1386,9 @@ void DefaultStylePainter::DrawScrollbar(
     if (p.hasButtons) {
         auto drawBtn = [&](Rect r, bool isStart, bool hov, bool press) {
             if (r.w <= 1.0f || r.h <= 1.0f) return;
-            const Color btnBg = press
-                ? pal.surfaceActive.WithAlpha(255u)
-                : (hov ? pal.surfaceHover.WithAlpha(255u) : pal.surface);
+            const Color btnBg = (sb.chrome == ScrollbarChromeStyle::Flat)
+                ? (press ? accent : (hov ? pal.controlTrackHover : trackBg))
+                : (press ? pal.surfaceActive.WithAlpha(255u) : (hov ? pal.surfaceHover.WithAlpha(255u) : pal.surface));
             const Color arrowCol = Color::BestTextColor(btnBg, pal.textPrimary, pal.accentText);
 
             Rect glyphRect = r;
@@ -1412,7 +1419,9 @@ void DefaultStylePainter::DrawScrollbar(
                 canvas.DrawRect(r, btnBg);
             }
 
-            const keel::f32 shift = press ? theme.chrome.buttonPressOffset : 0.0f;
+            const keel::f32 shift = (press && sb.chrome != ScrollbarChromeStyle::Flat)
+                ? theme.chrome.buttonPressOffset
+                : 0.0f;
             DrawScrollbarArrowGlyph(canvas, glyphRect, p.horizontal, isStart, sb.arrowStyle, arrowCol, shift);
         };
 

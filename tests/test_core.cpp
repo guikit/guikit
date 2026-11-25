@@ -2075,23 +2075,27 @@ void TestScrollbarCustomizationPresetsAndGeometry() {
     CHECK(t.GetScrollbar(UiSize::Sm).trackWidth < t.GetScrollbar(UiSize::Md).trackWidth);
     CHECK(t.GetScrollbar(UiSize::Lg).trackWidth > t.GetScrollbar(UiSize::Md).trackWidth);
 
-    // 3. ThemeSpec JSON round-trip for scrollbarWidth (and graceful ignore of legacy scrollbarPreset JSON keys)
+    // 3. ThemeSpec JSON round-trip for scrollbarChrome & scrollbarWidth (and graceful ignore of legacy scrollbarPreset)
     {
         ThemeSpec spec{};
         spec.base = ThemePreset::Light;
-        spec.chrome = ChromeStyle::Brutalist;
+        spec.chrome = ChromeStyle::Modern;
+        spec.scrollbarChrome = ScrollbarChromeStyle::Flat;
         spec.scrollbarWidth = 18.0f;
 
         const keel::String json = spec.ToJson();
         const auto parsed = ThemeSpec::FromJson(json);
         CHECK(parsed.has_value());
         if (parsed.has_value()) {
-            CHECK(parsed->chrome.has_value() && *parsed->chrome == ChromeStyle::Brutalist);
+            CHECK(parsed->chrome.has_value() && *parsed->chrome == ChromeStyle::Modern);
+            CHECK(parsed->scrollbarChrome.has_value() && *parsed->scrollbarChrome == ScrollbarChromeStyle::Flat);
             CHECK(parsed->scrollbarWidth.has_value() && keel::abs(*parsed->scrollbarWidth - 18.0f) < 0.01f);
         }
 
         const UiTheme built = UiTheme::Build(spec);
-        CHECK(built.scrollbarStyle.chrome == ScrollbarChromeStyle::Framed);
+        CHECK(built.scrollbarStyle.chrome == ScrollbarChromeStyle::Flat);
+        CHECK(built.scrollbarStyle.showButtons);
+        CHECK(built.scrollbarStyle.arrowStyle == ScrollbarArrowStyle::Chevron);
         CHECK(keel::abs(built.GetScrollbar(UiSize::Md).trackWidth - 18.0f) < 0.01f);
 
         const auto legacy = ThemeSpec::FromJson("{\"base\":\"Light\",\"scrollbarPreset\":\"WindowsXp\",\"scrollbarWidth\":14.0}");
@@ -2234,7 +2238,7 @@ void TestScrollbarCustomizationPresetsAndGeometry() {
                                 CHECK(Color::ContrastRatio(ac, th.palette.surface) >= 4.5f);
                             }
                         } else {
-                            // Modern / Fluent / Brutalist (Framed): strong thumb-vs-track contrast across all 11 presets
+                            // Modern / Flat / Framed: strong thumb-vs-track contrast across all 11 presets
                             const keel::f32 minRatio = isHighContrast ? 4.5f : 1.9f;
                             CHECK(Color::ContrastRatio(thumbCap.fill, trackBg) >= minRatio);
                             if (th.scrollbarStyle.chrome == ScrollbarChromeStyle::Framed) {
@@ -2248,6 +2252,60 @@ void TestScrollbarCustomizationPresetsAndGeometry() {
                             }
                         }
                     }
+                }
+            }
+
+            // Also verify explicit ScrollbarChromeStyle::Flat (wide Win10/VS Code style) across all 11 presets
+            ThemeSpec flatSpec{};
+            flatSpec.base = preset;
+            flatSpec.scrollbarChrome = ScrollbarChromeStyle::Flat;
+            const UiTheme flatTh = UiTheme::Build(flatSpec);
+            const ScrollbarMetrics& fm = flatTh.GetScrollbar(UiSize::Md);
+            CHECK(keel::abs(fm.trackWidth - 16.0f) < 0.01f);
+            const ScrollbarGeometry fg = Scrollbar::ComputeAxis(
+                vp, 900.0f, 180.0f, false, fm, flatTh.scrollbarStyle, 0.0f
+            );
+            CHECK(fg.visible && fg.hasButtons);
+            for (keel::i32 stateIdx = 0; stateIdx < 3; ++stateIdx) {
+                const bool hov = (stateIdx == 1);
+                const bool drag = (stateIdx == 2);
+                cap.Reset();
+                Scrollbar::DrawAxis(
+                    cap, fg, false, hov, drag,
+                    hov ? ScrollbarPart::Thumb : ScrollbarPart::None,
+                    drag ? ScrollbarPart::Thumb : ScrollbarPart::None,
+                    fm, flatTh
+                );
+                bool foundTrack = false;
+                Color trackBg{};
+                bool foundThumb = false;
+                CapturedRect thumbCap{};
+                for (const auto& cr : cap.rects) {
+                    if (!foundTrack &&
+                        keel::abs(cr.rect.x - fg.trackRect.x) < 0.5f &&
+                        keel::abs(cr.rect.y - fg.trackRect.y) < 0.5f &&
+                        keel::abs(cr.rect.w - fg.trackRect.w) < 0.5f &&
+                        keel::abs(cr.rect.h - fg.trackRect.h) < 0.5f) {
+                        foundTrack = true;
+                        trackBg = cr.fill;
+                    }
+                    if (!foundThumb &&
+                        keel::abs(cr.rect.x - fg.thumbRect.x) < 0.5f &&
+                        keel::abs(cr.rect.y - fg.thumbRect.y) < 0.5f &&
+                        keel::abs(cr.rect.w - fg.thumbRect.w) < 0.5f &&
+                        keel::abs(cr.rect.h - fg.thumbRect.h) < 0.5f) {
+                        foundThumb = true;
+                        thumbCap = cr;
+                    }
+                }
+                CHECK(foundTrack);
+                CHECK(foundThumb);
+                CHECK(thumbCap.borderW == 0.0f); // Flat thumb has no border
+                const keel::f32 minRatio = isHighContrast ? 4.5f : 1.9f;
+                CHECK(Color::ContrastRatio(thumbCap.fill, trackBg) >= minRatio);
+                CHECK(cap.lineColors.size() >= 4u);
+                for (const Color& lc : cap.lineColors) {
+                    CHECK(Color::ContrastRatio(lc, trackBg) >= 4.5f);
                 }
             }
         }
