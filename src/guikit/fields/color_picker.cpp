@@ -145,14 +145,19 @@ void DrawCheckerboardSwatch(ICanvas& canvas, Rect rect, Color color, keel::f32 r
     if (rect.w <= 0.0f || rect.h <= 0.0f) return;
 
     if (color.a < 255) {
-        const Color cLight(210, 214, 224, 255);
-        const Color cDark(132, 138, 152, 255);
-        canvas.DrawRoundRect(rect, radius, cLight);
-        const Rect inner = rect.Inset(1.5f);
-        const keel::f32 midX = inner.x + inner.w * 0.5f;
-        const keel::f32 midY = inner.y + inner.h * 0.5f;
-        canvas.DrawRect(Rect(inner.x, inner.y, inner.w * 0.5f, inner.h * 0.5f), cDark);
-        canvas.DrawRect(Rect(midX, midY, inner.w * 0.5f, inner.h * 0.5f), cDark);
+        const Color cLight(216, 220, 228, 255);
+        const Color cDark(148, 154, 166, 255);
+        if (radius > 0.01f) {
+            canvas.PushRoundedClip(rect, radius);
+        } else {
+            canvas.PushClip(rect);
+        }
+        canvas.DrawRect(rect, cLight);
+        const keel::f32 halfW = rect.w * 0.5f;
+        const keel::f32 halfH = rect.h * 0.5f;
+        canvas.DrawRect(Rect(rect.x, rect.y, halfW, halfH), cDark);
+        canvas.DrawRect(Rect(rect.x + halfW, rect.y + halfH, rect.w - halfW, rect.h - halfH), cDark);
+        canvas.PopClip();
     }
     canvas.DrawRoundRect(rect, radius, color, borderCol, 1.0f);
 }
@@ -698,7 +703,7 @@ void detail::ColorPicker::RenderPanel(
     if (panelRect.w <= 10.0f || panelRect.h <= 10.0f) return;
 
     const auto& pal = theme.palette;
-    const keel::f32 radius = opts.border.radius.has_value() ? *opts.border.radius : 8.0f;
+    const keel::f32 radius = theme.ResolveRadius(opts.border.radius, size);
     if (isFloatingPopup) {
         theme.Painter().DrawSurface(canvas, theme, SurfacePaintParams{
             .rect = panelRect,
@@ -711,7 +716,6 @@ void detail::ColorPicker::RenderPanel(
             .elevation = Elevation::Md
         });
     } else {
-        (void)size;
         const bool hasBg = opts.background.IsBackgroundEnabled(true);
         Color panelBg = hasBg ? pal.surface : Color::Transparent();
         if (hasBg && opts.background.HasAny()) {
@@ -739,6 +743,8 @@ void detail::ColorPicker::RenderPanel(
     const PanelLayout L = ComputePanelLayout(panelRect, opts);
     const keel::f32 elemRadius = keel::min(4.0f, radius);
     const keel::f32 trackRadius = (elemRadius > 0.01f) ? (L.hueRect.h * 0.5f) : 0.0f;
+    const keel::f32 bevelInset = theme.Painter().GetChromeMetrics(theme).frameBevelInset;
+    const keel::f32 sliderThumbSz = keel::max(12.0f, L.hueRect.h + 1.0f);
 
     // 1. Render 2D Saturation-Value (SV) gradient square via DrawPixels (48x36)
     constexpr keel::u32 kSvW = 48;
@@ -752,12 +758,19 @@ void detail::ColorPicker::RenderPanel(
             svPixels[py * kSvW + px] = c.ToUint32();
         }
     }
-    canvas.DrawPixels({svPixels, kSvW, kSvH}, L.svRect, elemRadius, disabled ? 130 : 255);
-    canvas.DrawRoundRect(L.svRect, elemRadius, Color::Transparent(), pal.borderSubtle, 1.0f);
+    const Rect svInner = (bevelInset > 0.0f) ? L.svRect.Inset(bevelInset) : L.svRect;
+    canvas.DrawPixels({svPixels, kSvW, kSvH}, svInner, elemRadius, disabled ? 130 : 255);
+    theme.Painter().DrawSurfaceFrame(canvas, theme, SurfacePaintParams{
+        .rect = L.svRect,
+        .role = SurfaceRole::Sunken,
+        .radius = elemRadius,
+        .border = pal.borderSubtle,
+        .borderWidth = 1.0f
+    });
 
     // SV thumb ring
-    const keel::f32 svThumbX = L.svRect.x + keel::clamp(s, 0.0f, 1.0f) * L.svRect.w;
-    const keel::f32 svThumbY = L.svRect.y + (1.0f - keel::clamp(v, 0.0f, 1.0f)) * L.svRect.h;
+    const keel::f32 svThumbX = svInner.x + keel::clamp(s, 0.0f, 1.0f) * svInner.w;
+    const keel::f32 svThumbY = svInner.y + (1.0f - keel::clamp(v, 0.0f, 1.0f)) * svInner.h;
     const keel::f32 svR = 5.5f;
     canvas.DrawRoundRect(Rect(svThumbX - svR - 1.0f, svThumbY - svR - 1.0f, (svR + 1.0f) * 2.0f, (svR + 1.0f) * 2.0f), svR + 1.0f, Color::Transparent(), Color(0, 0, 0, 190), 1.5f);
     canvas.DrawRoundRect(Rect(svThumbX - svR, svThumbY - svR, svR * 2.0f, svR * 2.0f), svR, HsvToRgb(h, s, v, 255), Color(255, 255, 255, 245), 2.0f);
@@ -769,47 +782,91 @@ void detail::ColorPicker::RenderPanel(
         const keel::f32 deg = (keel::as<keel::f32>(px) / keel::as<keel::f32>(kHueW - 1)) * 360.0f;
         huePixels[px] = HsvToRgb(deg, 1.0f, 1.0f, 255).ToUint32();
     }
-    canvas.DrawPixels({huePixels, kHueW, 1}, L.hueRect, trackRadius, disabled ? 130 : 255);
-    canvas.DrawRoundRect(L.hueRect, trackRadius, Color::Transparent(), pal.borderSubtle, 1.0f);
+    const Rect hueInner = (bevelInset > 0.0f) ? L.hueRect.Inset(bevelInset) : L.hueRect;
+    canvas.DrawPixels({huePixels, kHueW, 1}, hueInner, trackRadius, disabled ? 130 : 255);
+    theme.Painter().DrawSurfaceFrame(canvas, theme, SurfacePaintParams{
+        .rect = L.hueRect,
+        .role = SurfaceRole::Sunken,
+        .radius = trackRadius,
+        .border = pal.borderSubtle,
+        .borderWidth = 1.0f
+    });
 
     const keel::f32 hueNorm = keel::clamp(h / 360.0f, 0.0f, 1.0f);
-    const keel::f32 hueThumbX = L.hueRect.x + hueNorm * L.hueRect.w;
-    const keel::f32 barThumbR = L.hueRect.h * 0.58f;
-    canvas.DrawRoundRect(
-        Rect(hueThumbX - barThumbR, L.hueRect.Center().y - barThumbR, barThumbR * 2.0f, barThumbR * 2.0f),
-        barThumbR,
-        HsvToRgb(h, 1.0f, 1.0f, 255),
-        Color(255, 255, 255, 240),
-        2.0f
-    );
+    const keel::f32 hueThumbX = hueInner.x + hueNorm * hueInner.w;
+    theme.Painter().DrawSliderThumb(canvas, theme, SliderThumbPaintParams{
+        .center = {hueThumbX, L.hueRect.Center().y},
+        .thumbSize = sliderThumbSz,
+        .vertical = false,
+        .accent = HsvToRgb(h, 1.0f, 1.0f, 255),
+        .hovered = false,
+        .active = false,
+        .focused = false,
+        .disabled = disabled,
+        .cornerRadius = elemRadius
+    });
 
-    // 3. Render Alpha slider if enabled
-    constexpr keel::u32 kAlphaW = 64;
-    constexpr keel::u32 kAlphaH = 8;
-    keel::StaticArray<keel::u32, kAlphaW * kAlphaH> alphaPixels{};
+    // 3. Render Alpha slider with crisp vector checkerboard + smooth alpha gradient
     if (opts.showAlpha) {
-        const Color solidRgb = HsvToRgb(h, s, v, 255);
-        for (keel::u32 py = 0; py < kAlphaH; ++py) {
-            for (keel::u32 px = 0; px < kAlphaW; ++px) {
-                const bool darkCell = (((px / 4) + (py / 4)) & 1u) != 0u;
-                const Color checker = darkCell ? Color(132, 138, 152, 255) : Color(210, 214, 224, 255);
-                const keel::f32 aFactor = keel::as<keel::f32>(px) / keel::as<keel::f32>(kAlphaW - 1);
-                const Color blended = Color::Lerp(checker, solidRgb, aFactor);
-                alphaPixels[py * kAlphaW + px] = blended.ToUint32();
+        const Rect alphaInner = (bevelInset > 0.0f) ? L.alphaRect.Inset(bevelInset) : L.alphaRect;
+        if (trackRadius > 0.01f) {
+            canvas.PushRoundedClip(alphaInner, trackRadius);
+        } else {
+            canvas.PushClip(alphaInner);
+        }
+
+        const Color cLight(216, 220, 228, 255);
+        const Color cDark(148, 154, 166, 255);
+        canvas.DrawRect(alphaInner, cLight);
+
+        const keel::f32 cell = keel::max(4.0f, keel::round(alphaInner.h * 0.5f));
+        for (keel::i32 row = 0; row < 2; ++row) {
+            const keel::f32 cy = alphaInner.y + keel::as<keel::f32>(row) * cell;
+            const keel::f32 ch = keel::min(cell, alphaInner.Bottom() - cy);
+            if (ch <= 0.0f) continue;
+            for (keel::i32 col = (row & 1); ; col += 2) {
+                const keel::f32 cx = alphaInner.x + keel::as<keel::f32>(col) * cell;
+                if (cx >= alphaInner.Right()) break;
+                const keel::f32 cw = keel::min(cell, alphaInner.Right() - cx);
+                canvas.DrawRect(Rect(cx, cy, cw, ch), cDark);
             }
         }
-        canvas.DrawPixels({alphaPixels, kAlphaW, kAlphaH}, L.alphaRect, trackRadius, disabled ? 130 : 255);
-        canvas.DrawRoundRect(L.alphaRect, trackRadius, Color::Transparent(), pal.borderSubtle, 1.0f);
+
+        const Color solidRgb = HsvToRgb(h, s, v, 255);
+        constexpr keel::i32 kAlphaSteps = 64;
+        const keel::f32 maxAlphaF = disabled ? 130.0f : 255.0f;
+        for (keel::i32 step = 0; step < kAlphaSteps; ++step) {
+            const keel::f32 x0 = alphaInner.x + (alphaInner.w * keel::as<keel::f32>(step)) / keel::as<keel::f32>(kAlphaSteps);
+            const keel::f32 x1 = alphaInner.x + (alphaInner.w * keel::as<keel::f32>(step + 1)) / keel::as<keel::f32>(kAlphaSteps);
+            const keel::f32 t = (keel::as<keel::f32>(step) + 0.5f) / keel::as<keel::f32>(kAlphaSteps);
+            const keel::u8 aByte = keel::as<keel::u8>(keel::clamp(keel::round_i32(t * maxAlphaF), 0, 255));
+            if (aByte > 0u) {
+                canvas.DrawRect(Rect(x0, alphaInner.y, keel::max(0.5f, x1 - x0), alphaInner.h), Color(solidRgb.r, solidRgb.g, solidRgb.b, aByte));
+            }
+        }
+        canvas.PopClip();
+
+        theme.Painter().DrawSurfaceFrame(canvas, theme, SurfacePaintParams{
+            .rect = L.alphaRect,
+            .role = SurfaceRole::Sunken,
+            .radius = trackRadius,
+            .border = pal.borderSubtle,
+            .borderWidth = 1.0f
+        });
 
         const keel::f32 alphaNorm = keel::clamp(keel::as<keel::f32>(value.a) / 255.0f, 0.0f, 1.0f);
-        const keel::f32 alphaThumbX = L.alphaRect.x + alphaNorm * L.alphaRect.w;
-        canvas.DrawRoundRect(
-            Rect(alphaThumbX - barThumbR, L.alphaRect.Center().y - barThumbR, barThumbR * 2.0f, barThumbR * 2.0f),
-            barThumbR,
-            value,
-            Color(255, 255, 255, 240),
-            2.0f
-        );
+        const keel::f32 alphaThumbX = alphaInner.x + alphaNorm * alphaInner.w;
+        theme.Painter().DrawSliderThumb(canvas, theme, SliderThumbPaintParams{
+            .center = {alphaThumbX, L.alphaRect.Center().y},
+            .thumbSize = sliderThumbSz,
+            .vertical = false,
+            .accent = solidRgb,
+            .hovered = false,
+            .active = false,
+            .focused = false,
+            .disabled = disabled,
+            .cornerRadius = elemRadius
+        });
     }
 
     // 4. Render Live Preview Swatch + HEX field (via FieldFrame) + RGBA summary
