@@ -246,6 +246,18 @@ void TestFrameMetrics() {
     CHECK(metrics.GetCpuPercent() >= 0.0f && metrics.GetCpuPercent() <= 100.0f);
     CHECK(metrics.GetCpuTimeMs() >= 0.0f);
     CHECK(metrics.GetGpuTimeMs() >= 0.0f);
+
+    const keel::ProcessMemoryInfo mem = keel::process_memory_info();
+#if defined(_WIN32) || defined(__linux__) || defined(__APPLE__)
+    CHECK(mem.rss_bytes > 0u);
+    CHECK(mem.private_bytes > 0u);
+    CHECK(mem.private_bytes <= mem.rss_bytes + (64ULL << 20));
+    CHECK(mem.commit_bytes > 0u);
+    CHECK(metrics.GetRamUsageBytes() > 0u);
+    CHECK(metrics.GetRamUsageMb() > 0.0f);
+#else
+    (void)mem;
+#endif
     CHECK(metrics.GetGpuBudgetPercent() >= 0.0f && metrics.GetGpuBudgetPercent() <= 100.0f);
     CHECK(metrics.GetRamUsageBytes() > 0);
     CHECK(metrics.GetRamUsageMb() > 0.0f);

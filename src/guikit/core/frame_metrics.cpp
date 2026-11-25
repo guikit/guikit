@@ -229,7 +229,8 @@ void FrameMetrics::RefreshDisplayStrings(keel::u64 nowNs, keel::f32 targetFps) n
 }
 
 keel::usize FrameMetrics::QueryProcessRamBytes() noexcept {
-    return keel::as<keel::usize>(keel::process_rss_bytes());
+    const keel::ProcessMemoryInfo mem = keel::process_memory_info();
+    return keel::as<keel::usize>((mem.private_bytes > 0u) ? mem.private_bytes : mem.rss_bytes);
 }
 
 keel::f64 FrameMetrics::QueryProcessCpuSeconds() noexcept {
