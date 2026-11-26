@@ -5,6 +5,7 @@
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
+#include "guikit/style/style_painter.hpp"
 #include "guikit/surfaces/toolbar.hpp"
 #include "keel/math.h"
 
@@ -186,9 +187,9 @@ void RenderStatusSegment(
             : p.accent.WithAlphaF(0.18f * alphaMul);
         const Color pillFg = (payload->barStyle == StatusBarStyle::Accent)
             ? p.accentText.WithAlphaF(alphaMul)
-            : p.accent.WithAlphaF(alphaMul);
+            : theme.EnsureReadableInk(p.accent, p.surface).WithAlphaF(alphaMul);
 
-        canvas.DrawRoundRect(pillRect, pillH * 0.5f, pillBg);
+        theme.Painter().DrawBadge(canvas, theme, pillRect, pillBg, Color::Transparent(), 0.0f, pillH * 0.5f);
         canvas.DrawTextBox(o.badge.text, pillRect, badgeFont, pillFg, 0.5f, 0.5f);
     }
 }
@@ -290,6 +291,7 @@ StatusBarScope detail::StatusBar::Open(
     node->borderWidth = (opts.style == StatusBarStyle::Accent && !opts.border.color.HasAny())
         ? 0.0f
         : ((opts.border.width == 1.0f) ? theme.shell.panelBorderWidth : opts.border.width);
+    node->explicitBorder = opts.border.HasExplicitStroke() ? 1 : 0;
     node->cornerRadius = opts.border.radius.has_value()
         ? *opts.border.radius
         : theme.shell.panelRadius;

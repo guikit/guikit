@@ -127,6 +127,23 @@ Vec2 MeasureButtonCapsule(
 
 } // namespace
 
+namespace {
+
+struct ButtonPayload {
+    ButtonOptions opts{};
+    keel::f32 loadingPhase{0.0f};
+};
+
+} // namespace
+
+bool detail::Button::IsGhostNode(const Node* node) noexcept {
+    if (!node || node->type != NodeType::Button) return false;
+    const auto* p = node->As<ButtonPayload>();
+    if (!p) return false;
+    return (p->opts.style == ButtonStyle::Ghost) ||
+           (p->opts.style == ButtonStyle::Default && p->opts.variant == UiVariant::Ghost);
+}
+
 Response detail::Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocation loc) {
 
     const Id id = ctx.MakeChildId(loc);
@@ -182,11 +199,6 @@ Response detail::Button::Run(Context& ctx, const ButtonOptions& opts, keel::Sour
     if (!opts.trailingIcon.GetPath().empty()) {
         optsCopy.trailingIcon = Icon::File(ctx.AllocString(opts.trailingIcon.GetPath()));
     }
-
-    struct ButtonPayload {
-        ButtonOptions opts;
-        keel::f32 loadingPhase{0.0f};
-    };
 
     Node* node = ctx.CreateNode(NodeType::Button, id);
     auto* payload = ctx.AllocPayload<ButtonPayload>(ButtonPayload{optsCopy, loadingPhase});
@@ -461,6 +473,7 @@ void detail::Button::Render(
             .bg = rc.bg,
             .border = rc.borderCol,
             .borderWidth = rc.borderW,
+            .explicitBorder = opts.border.HasExplicitStroke(),
             .hovered = hovered,
             .pressed = pressed,
             .active = opts.active,

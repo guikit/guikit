@@ -361,7 +361,7 @@ void OverlayManager::RenderTooltipOverlay(
         .role = SurfaceRole::Popup,
         .radius = tipRadius,
         .bg = theme.palette.surfaceElevated.WithAlpha(248u),
-        .border = theme.palette.borderHover,
+        .border = theme.palette.border,
         .borderWidth = 1.0f,
         .elevation = Elevation::Sm
     });

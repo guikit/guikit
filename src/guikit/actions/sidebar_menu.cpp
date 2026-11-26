@@ -474,7 +474,7 @@ void detail::SidebarMenu::RenderItem(
             );
             Color badgeBg = disabled ? v.bg.WithAlphaF(theme.disabledOpacity) : v.bg;
             Color badgeTextCol = item.badge.color.HasAny()
-                ? item.badge.color.Resolve(hovered, item.active, disabled, v.text)
+                ? theme.ResolveColor(item.badge.color, hovered, item.active, disabled, v.text)
                 : (disabled ? v.text.WithAlphaF(theme.disabledOpacity) : v.text);
             theme.Painter().DrawBadge(canvas, theme, badgeRect, badgeBg, pal.surface, 1.5f, badgeH * 0.5f);
             canvas.DrawTextBox(item.badge.text, badgeRect, badgeFont, badgeTextCol, 0.5f, 0.5f);
@@ -516,7 +516,7 @@ void detail::SidebarMenu::RenderItem(
             : pal.surfaceActive;
         const Color defaultBadgeTextCol = (item.active && opts.style == SidebarMenuStyle::Pill) ? textCol : pal.textSecondary;
         Color badgeTextCol = item.badge.color.HasAny()
-            ? item.badge.color.Resolve(hovered, item.active, disabled, defaultBadgeTextCol)
+            ? theme.ResolveColor(item.badge.color, hovered, item.active, disabled, defaultBadgeTextCol)
             : (disabled ? defaultBadgeTextCol.WithAlphaF(theme.disabledOpacity) : defaultBadgeTextCol);
         if (disabled) {
             badgeBg = badgeBg.WithAlphaF(theme.disabledOpacity);

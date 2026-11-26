@@ -493,7 +493,8 @@ void detail::Segmented::Render(
         .explicitRadius = opts.border.radius.has_value(),
         .bg = trackBg,
         .border = trackBorder,
-        .borderWidth = trackStrokeW
+        .borderWidth = trackStrokeW,
+        .explicitBorder = opts.border.HasExplicitStroke()
     });
 
     if (items.empty()) return;

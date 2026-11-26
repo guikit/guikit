@@ -51,6 +51,7 @@ struct SurfacePaintParams {
     Color       bg{Color::Transparent()};
     Color       border{Color::Transparent()};
     keel::f32   borderWidth{0.0f};
+    bool        explicitBorder{false};
     Elevation   elevation{Elevation::None};
     keel::f32   shadowScale{1.0f};
 };
@@ -63,6 +64,7 @@ struct FramePaintParams {
     Color     bg{Color::Transparent()};
     Color     border{Color::Transparent()};
     keel::f32 borderWidth{0.0f};
+    bool      explicitBorder{false};
     bool      hovered{false};
     bool      pressed{false};
     bool      active{false};
@@ -71,6 +73,7 @@ struct FramePaintParams {
     Elevation elevation{Elevation::None};
     keel::f32 shadowScale{1.0f};
     Color     accent{Color::Transparent()}; ///< Optional semantic accent color (used e.g. by Fluent BottomAccent focus bar)
+    bool      hasStatusAccent{false};       ///< True when field has an active semantic status (Success/Warning/Danger/Info)
 };
 
 /// Parameters describing a scrollbar's layout and interactive state for `IStylePainter::DrawScrollbar`.
@@ -104,6 +107,18 @@ struct SliderThumbPaintParams {
     bool      focused{false};
     bool      disabled{false};
     keel::f32 cornerRadius{0.0f};
+};
+
+/// Parameters describing a single Table column header cell for `IStylePainter::DrawTableHeaderCell`.
+struct TableHeaderCellPaintParams {
+    Rect rect{};
+    bool hovered{false};
+    bool pressed{false};
+    bool sorted{false};
+    bool sortable{false};
+    bool dividerActive{false};
+    bool showRightDivider{true};
+    bool isFrozenSeam{false};
 };
 
 /// Pluggable look-and-feel style painter interface (analogous to Qt QStyle / Flutter ThemeExtension).
@@ -445,6 +460,13 @@ public:
         bool dragging,
         bool disabled
     ) const = 0;
+
+    /// Draws a single Table column header cell (background, 3D bevel or flat divider) according to active chrome.
+    virtual void DrawTableHeaderCell(
+        ICanvas& canvas,
+        const UiTheme& theme,
+        const TableHeaderCellPaintParams& p
+    ) const = 0;
 };
 
 /// Built-in default look-and-feel painter supporting all `ChromeStyle`, `ChromeTokens`, and `FillStyle` modes
@@ -477,6 +499,7 @@ public:
     void DrawScrollbar(ICanvas& canvas, const UiTheme& theme, const ScrollbarPaintParams& p) const override;
     void DrawScrollbarCorner(ICanvas& canvas, const UiTheme& theme, Rect cornerRect) const override;
     void DrawSplitSash(ICanvas& canvas, const UiTheme& theme, Rect sashRect, bool verticalBar, bool showGrip, bool hovered, bool dragging, bool disabled) const override;
+    void DrawTableHeaderCell(ICanvas& canvas, const UiTheme& theme, const TableHeaderCellPaintParams& p) const override;
 
     // Reusable low-level 3D bevel helpers exposed to subclasses
     static void DrawBevelFrame(ICanvas& canvas, Rect r, const BevelPalette& c, bool sunken = false, bool thin = false);

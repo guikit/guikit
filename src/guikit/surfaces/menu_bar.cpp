@@ -466,6 +466,7 @@ MenuBarScope detail::MenuBar::Open(
         ? *opts.border.radius
         : (isSurface ? theme.ResolveRadius(keel::kNullOpt, opts.size) : 0.0f);
     node->explicitRadius = opts.border.radius.has_value() ? 1 : 0;
+    node->explicitBorder = opts.border.HasExplicitStroke() ? 1 : 0;
     node->borderWidth = (opts.border.width > 0.0f) ? opts.border.width : 1.0f;
     node->borderColor = theme.ResolveColor(opts.border.color, false, false, effDisabled, pal.border);
     node->SetSurfaceRole(isSurface ? SurfaceRole::Flat : SurfaceRole::DockEdge);

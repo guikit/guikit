@@ -245,7 +245,8 @@ void detail::Accordion::RenderHeader(
     const keel::f32 strokeW = opts.border.HasStroke() ? opts.border.width : 0.0f;
     Color borderCol = Color::Transparent();
     if (strokeW > 0.0f) {
-        borderCol = opts.border.color.Resolve(
+        borderCol = theme.ResolveColor(
+            opts.border.color,
             hovered,
             pressed,
             disabled,
@@ -260,7 +261,7 @@ void detail::Accordion::RenderHeader(
         theme.Painter().DrawFrame(
             canvas,
             theme,
-            opts.background.IsNone() ? FrameKind::ToolbarButton : FrameKind::Button,
+            (opts.background.IsNone() || strokeW <= 0.0f) ? FrameKind::ToolbarButton : FrameKind::Button,
             FramePaintParams{
                 .rect = bounds,
                 .radius = radius,
@@ -268,6 +269,7 @@ void detail::Accordion::RenderHeader(
                 .bg = bgColor,
                 .border = borderCol,
                 .borderWidth = strokeW,
+                .explicitBorder = opts.border.HasExplicitStroke(),
                 .hovered = hovered,
                 .pressed = pressed,
                 .disabled = disabled
@@ -333,16 +335,20 @@ void detail::Accordion::RenderHeader(
 
         Color badgeBg = pal.surfaceHover;
         Color badgeFg = pal.textPrimary;
+        Color badgeBorder = Color::Transparent();
+        keel::f32 badgeBorderW = 0.0f;
         if (opts.badge.color.HasAny()) {
-            const Color resolvedBadgeCol = opts.badge.color.Resolve(hovered, pressed, disabled, pal.textPrimary);
-            badgeBg = resolvedBadgeCol.WithAlphaF(disabled ? 0.12f : 0.22f);
-            badgeFg = disabled ? pal.textDisabled : resolvedBadgeCol;
+            const Color resolvedBadgeCol = theme.ResolveColor(opts.badge.color, hovered, pressed, disabled, pal.textPrimary);
+            badgeBg = resolvedBadgeCol.WithAlphaF(disabled ? 0.12f : 0.20f);
+            badgeFg = disabled ? pal.textDisabled : theme.EnsureReadableInk(resolvedBadgeCol, pal.surface);
+            badgeBorder = resolvedBadgeCol.WithAlphaF(disabled ? 0.25f : 0.45f);
+            badgeBorderW = 1.0f;
         } else if (disabled) {
             badgeBg = badgeBg.WithAlphaF(theme.disabledOpacity);
             badgeFg = pal.textDisabled;
         }
 
-        canvas.DrawRoundRect(badgeRect, badgeH * 0.35f, badgeBg);
+        theme.Painter().DrawBadge(canvas, theme, badgeRect, badgeBg, badgeBorder, badgeBorderW, badgeH * 0.5f);
         canvas.DrawTextBox(opts.badge.text, badgeRect, badgeFont, badgeFg, 0.5f, 0.5f);
         rightX = badgeRect.x - itemGap;
     }

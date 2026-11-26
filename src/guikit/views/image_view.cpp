@@ -1026,10 +1026,10 @@ ImageViewResponse RunViewportNode(
         const bool isDark = (th.mode == ThemeMode::Dark);
         const keel::f32 rad = o.border.radius.has_value() ? *o.border.radius : th.GetRadius(n->uiSize);
         const Color defaultBgOuter = isDark ? Color(12, 16, 24, 255) : Color(241, 245, 249, 255);
-        const Color bgOuter   = o.background.Resolve(n->hovered, n->active, n->disabled, defaultBgOuter);
+        const Color bgOuter   = th.ResolveColor(o.background, n->hovered, n->active, n->disabled, defaultBgOuter);
         const Color bgCanvas  = isDark ? Color(8, 10, 16, 255)  : Color(226, 232, 240, 255);
         const Color barBg     = isDark ? Color(17, 24, 39, 255) : Color(248, 250, 252, 255);
-        const Color borderCol = o.border.color.Resolve(n->hovered, n->active, n->disabled, th.palette.borderSubtle);
+        const Color borderCol = th.ResolveColor(o.border.color, n->hovered, n->active, n->disabled, th.palette.borderSubtle);
         const keel::f32 borderW   = (o.border.width > 0.0f) ? o.border.width : 1.0f;
         const keel::f32 smallFs = th.GetFontSize(TextRole::LabelSmall) * 0.92f;
 

@@ -437,7 +437,7 @@ void detail::Heading::Render(
             if (opts.badge.color.HasAny()) {
                 const Color resolvedBadge = theme.ResolveColor(opts.badge.color, hovered, active, effDisabled, pal.textPrimary);
                 badgeBg = resolvedBadge.WithAlphaF(effDisabled ? 0.12f : 0.22f);
-                badgeTextCol = resolvedBadge;
+                badgeTextCol = effDisabled ? resolvedBadge.WithAlphaF(theme.disabledOpacity) : theme.EnsureReadableInk(resolvedBadge, pal.surface);
                 badgeBorderCol = resolvedBadge.WithAlphaF(effDisabled ? 0.25f : 0.50f);
                 badgeBorderW = 1.0f;
             } else if (effDisabled) {

@@ -18,6 +18,102 @@ namespace {
     return Rect(x0, y0, keel::max(0.0f, x1 - x0), keel::max(0.0f, y1 - y0));
 }
 
+[[nodiscard]] Color ResolveContrastInk(Color bg, Color preferredInk, const BevelPalette& bevel) noexcept {
+    return (Color::ContrastRatio(bg, preferredInk) >= 4.5f)
+        ? preferredInk
+        : Color::BestTextColor(bg, bevel.shadowOuter, bevel.highlightOuter);
+}
+
+[[nodiscard]] BevelPalette DeriveBevelPalette(Color base, const BevelPalette& ref) noexcept {
+    const keel::u8 a = base.a;
+    return BevelPalette{
+        .highlightOuter = ref.highlightOuter.WithAlpha(a),
+        .highlightInner = Color::Lerp(base, ref.highlightOuter, 0.35f).WithAlpha(a),
+        .shadowInner    = base,
+        .shadowOuter    = Color::Lerp(base, ref.shadowOuter, 0.65f).WithAlpha(a)
+    };
+}
+
+void DrawCustomBevelFrame(
+    ICanvas& canvas,
+    Rect r,
+    Color baseColor,
+    const BevelPalette& refBevel,
+    keel::f32 borderWidth,
+    bool sunken,
+    bool etched
+) {
+    const Rect snapped = SnapBevelRect(r);
+    if (snapped.w < 3.0f || snapped.h < 3.0f || borderWidth <= 0.0f || baseColor.a == 0u) {
+        return;
+    }
+    const BevelPalette tinted = DeriveBevelPalette(baseColor, refBevel);
+    const keel::f32 x = snapped.x;
+    const keel::f32 y = snapped.y;
+    const keel::f32 w = snapped.w;
+    const keel::f32 h = snapped.h;
+
+    if (etched) {
+        if (borderWidth < 1.0f) {
+            DefaultStylePainter::DrawBevelFrame(canvas, snapped, tinted, /*sunken=*/true, /*thin=*/true);
+            return;
+        }
+        if (w < 4.0f || h < 4.0f) {
+            return;
+        }
+        const keel::f32 maxG = keel::max(1.0f, keel::floor(keel::min(w, h) * 0.5f) - 1.0f);
+        const keel::f32 g = keel::min(keel::max(1.0f, keel::round(borderWidth)), maxG);
+
+        // Groove of exact thickness g in baseColor, paired with crisp 1px theme highlight edge (+1,+1)
+        canvas.DrawRect(Rect(x, y, w - 1.0f, g), baseColor);
+        canvas.DrawRect(Rect(x, y + h - 1.0f - g, w - 1.0f, g), baseColor);
+        if (h - 1.0f > g * 2.0f) {
+            canvas.DrawRect(Rect(x, y + g, g, h - 1.0f - g * 2.0f), baseColor);
+            canvas.DrawRect(Rect(x + w - 1.0f - g, y + g, g, h - 1.0f - g * 2.0f), baseColor);
+        }
+
+        canvas.DrawRect(Rect(x, y + h - 1.0f, w, 1.0f), tinted.highlightOuter);
+        canvas.DrawRect(Rect(x + w - 1.0f, y, 1.0f, h), tinted.highlightOuter);
+        if (w > g * 2.0f + 1.0f && h > g * 2.0f + 1.0f) {
+            canvas.DrawRect(Rect(x + g, y + g, w - g * 2.0f - 1.0f, 1.0f), tinted.highlightOuter);
+            canvas.DrawRect(Rect(x + g, y + g, 1.0f, h - g * 2.0f - 1.0f), tinted.highlightOuter);
+        }
+        return;
+    }
+
+    const keel::f32 bw = keel::max(1.0f, keel::round(borderWidth));
+    if (bw <= 1.5f) {
+        DefaultStylePainter::DrawBevelFrame(canvas, snapped, tinted, sunken, /*thin=*/borderWidth < 1.0f);
+        return;
+    }
+
+    // Thick 3D raised/sunken frame (bw >= 2 px): solid base body of exact thickness bw + crisp 1px 3D light/shadow edges
+    const keel::f32 effBw = keel::min(bw, keel::min(w, h) * 0.5f);
+    canvas.DrawRect(Rect(x, y, w, effBw), baseColor);
+    canvas.DrawRect(Rect(x, y + h - effBw, w, effBw), baseColor);
+    if (h > effBw * 2.0f) {
+        canvas.DrawRect(Rect(x, y + effBw, effBw, h - effBw * 2.0f), baseColor);
+        canvas.DrawRect(Rect(x + w - effBw, y + effBw, effBw, h - effBw * 2.0f), baseColor);
+    }
+
+    const Color tlOuter = sunken ? tinted.shadowOuter    : tinted.highlightOuter;
+    const Color brOuter = sunken ? tinted.highlightOuter : tinted.shadowOuter;
+    canvas.DrawRect(Rect(x, y, w - 1.0f, 1.0f), tlOuter);
+    canvas.DrawRect(Rect(x, y, 1.0f, h - 1.0f), tlOuter);
+    canvas.DrawRect(Rect(x, y + h - 1.0f, w, 1.0f), brOuter);
+    canvas.DrawRect(Rect(x + w - 1.0f, y, 1.0f, h), brOuter);
+
+    if (w > effBw * 2.0f + 1.0f && h > effBw * 2.0f + 1.0f) {
+        const keel::f32 inOff = effBw - 1.0f;
+        const Color tlInner = sunken ? tinted.shadowInner    : tinted.highlightInner;
+        const Color brInner = sunken ? tinted.highlightInner : tinted.shadowInner;
+        canvas.DrawRect(Rect(x + inOff, y + inOff, w - inOff * 2.0f - 1.0f, 1.0f), tlInner);
+        canvas.DrawRect(Rect(x + inOff, y + inOff, 1.0f, h - inOff * 2.0f - 1.0f), tlInner);
+        canvas.DrawRect(Rect(x + inOff, y + h - effBw, w - inOff * 2.0f, 1.0f), brInner);
+        canvas.DrawRect(Rect(x + w - effBw, y + inOff, 1.0f, h - inOff * 2.0f), brInner);
+    }
+}
+
 } // namespace
 
 void DefaultStylePainter::DrawBevelFrame(
@@ -257,14 +353,14 @@ void DefaultStylePainter::DrawSurfaceBg(
     const bool useBevel = (theme.chrome.frame == FrameTreatment::Bevel3D) && !roundedOverride;
     const keel::f32 effRadius = useBevel ? 0.0f : p.radius;
 
-    Elevation effElev = p.elevation;
-    if (effElev == Elevation::None) {
-        if (p.role == SurfaceRole::Raised) effElev = Elevation::Md;
-        else if (p.role == SurfaceRole::Popup) effElev = Elevation::Lg;
-    }
-    DrawShadowForRect(canvas, theme, p.rect, effRadius, effElev, p.shadowScale);
-
     if (p.bg.a > 0u) {
+        Elevation effElev = p.elevation;
+        if (effElev == Elevation::None) {
+            if (p.role == SurfaceRole::Raised) effElev = Elevation::Md;
+            else if (p.role == SurfaceRole::Popup) effElev = Elevation::Lg;
+        }
+        DrawShadowForRect(canvas, theme, p.rect, effRadius, effElev, p.shadowScale);
+
         if (effRadius > 0.0f) {
             canvas.DrawRoundRect(p.rect, effRadius, p.bg, Color::Transparent(), 0.0f);
         } else {
@@ -287,22 +383,60 @@ void DefaultStylePainter::DrawSurfaceFrame(
     // Docked single-edge seam for shell panels (Sidebar, Toolbar, MenuBar, BottomPanel, StatusBar)
     if (p.role == SurfaceRole::DockEdge && p.dockSeam != DockSeam::None && p.radius <= 0.01f) {
         if (p.borderWidth <= 0.0f || p.border.a == 0u) return;
-        const keel::f32 seamThickness = (theme.chrome.divider == DividerStyle::Etched3D) ? 2.0f : p.borderWidth;
+        const bool isEtchedChrome = (theme.chrome.divider == DividerStyle::Etched3D);
+        const bool thinSeam = (p.borderWidth < 1.0f);
+        const keel::f32 seamThickness = (isEtchedChrome && !thinSeam)
+            ? keel::max(2.0f, keel::round(p.borderWidth))
+            : p.borderWidth;
+        auto drawEdge = [&](Vec2 a, Vec2 b) {
+            const bool horiz = (keel::abs(a.y - b.y) < 0.01f);
+            if (isEtchedChrome && !thinSeam) {
+                const BevelPalette seamPal = p.explicitBorder
+                    ? DeriveBevelPalette(p.border, theme.bevel)
+                    : theme.bevel;
+                if (seamThickness <= 2.01f) {
+                    if (horiz) {
+                        DrawBevelDividerH(canvas, a.x, b.x, a.y, seamPal);
+                    } else {
+                        DrawBevelDividerV(canvas, a.x, a.y, b.y, seamPal);
+                    }
+                } else {
+                    const Rect band = horiz
+                        ? Rect(keel::floor(a.x), keel::floor(a.y), keel::floor(b.x - a.x), seamThickness)
+                        : Rect(keel::floor(a.x), keel::floor(a.y), seamThickness, keel::floor(b.y - a.y));
+                    canvas.DrawRect(band, p.border);
+                    if (horiz) {
+                        canvas.DrawRect(Rect(band.x, band.y, band.w, 1.0f), seamPal.shadowOuter);
+                        canvas.DrawRect(Rect(band.x, band.Bottom() - 1.0f, band.w, 1.0f), seamPal.highlightOuter);
+                    } else {
+                        canvas.DrawRect(Rect(band.x, band.y, 1.0f, band.h), seamPal.shadowOuter);
+                        canvas.DrawRect(Rect(band.Right() - 1.0f, band.y, 1.0f, band.h), seamPal.highlightOuter);
+                    }
+                }
+            } else if (!isEtchedChrome) {
+                DrawDivider(canvas, theme, a, b, p.border, p.borderWidth);
+            } else {
+                const Rect lineRect = horiz
+                    ? Rect(keel::min(a.x, b.x), a.y, keel::abs(b.x - a.x), seamThickness)
+                    : Rect(a.x, keel::min(a.y, b.y), seamThickness, keel::abs(b.y - a.y));
+                canvas.DrawRect(lineRect, p.border);
+            }
+        };
         switch (p.dockSeam) {
             case DockSeam::Left:
-                DrawDivider(canvas, theme, Vec2(r.x, r.y), Vec2(r.x, r.Bottom()), p.border, p.borderWidth);
+                drawEdge(Vec2(r.x, r.y), Vec2(r.x, r.Bottom()));
                 return;
             case DockSeam::Right: {
                 const keel::f32 x = keel::max(r.x, r.Right() - seamThickness);
-                DrawDivider(canvas, theme, Vec2(x, r.y), Vec2(x, r.Bottom()), p.border, p.borderWidth);
+                drawEdge(Vec2(x, r.y), Vec2(x, r.Bottom()));
                 return;
             }
             case DockSeam::Top:
-                DrawDivider(canvas, theme, Vec2(r.x, r.y), Vec2(r.Right(), r.y), p.border, p.borderWidth);
+                drawEdge(Vec2(r.x, r.y), Vec2(r.Right(), r.y));
                 return;
             case DockSeam::Bottom: {
                 const keel::f32 y = keel::max(r.y, r.Bottom() - seamThickness);
-                DrawDivider(canvas, theme, Vec2(r.x, y), Vec2(r.Right(), y), p.border, p.borderWidth);
+                drawEdge(Vec2(r.x, y), Vec2(r.Right(), y));
                 return;
             }
             case DockSeam::None:
@@ -314,17 +448,33 @@ void DefaultStylePainter::DrawSurfaceFrame(
         if (p.borderWidth <= 0.0f && p.role != SurfaceRole::Popup && p.role != SurfaceRole::Raised && p.role != SurfaceRole::Sunken) {
             return;
         }
+        const bool hasCustomBevel = p.explicitBorder && p.borderWidth > 0.0f && p.border.a > 0u;
+        const bool thinBevel = (p.borderWidth > 0.0f && p.borderWidth < 1.0f);
         switch (p.role) {
             case SurfaceRole::Flat:
-                DrawBevelEtchedFrame(canvas, r, theme.bevel);
+                if (hasCustomBevel) {
+                    DrawCustomBevelFrame(canvas, r, p.border, theme.bevel, p.borderWidth, /*sunken=*/false, /*etched=*/true);
+                } else if (thinBevel) {
+                    DrawBevelFrame(canvas, r, theme.bevel, /*sunken=*/true, /*thin=*/true);
+                } else {
+                    DrawBevelEtchedFrame(canvas, r, theme.bevel);
+                }
                 return;
             case SurfaceRole::Sunken:
-                DrawBevelFrame(canvas, r, theme.bevel, /*sunken=*/true, /*thin=*/false);
+                if (hasCustomBevel) {
+                    DrawCustomBevelFrame(canvas, r, p.border, theme.bevel, p.borderWidth, /*sunken=*/true, /*etched=*/false);
+                } else {
+                    DrawBevelFrame(canvas, r, theme.bevel, /*sunken=*/true, thinBevel);
+                }
                 return;
             case SurfaceRole::Raised:
             case SurfaceRole::Popup:
             case SurfaceRole::DockEdge:
-                DrawBevelFrame(canvas, r, theme.bevel, /*sunken=*/false, /*thin=*/false);
+                if (hasCustomBevel) {
+                    DrawCustomBevelFrame(canvas, r, p.border, theme.bevel, p.borderWidth, /*sunken=*/false, /*etched=*/false);
+                } else {
+                    DrawBevelFrame(canvas, r, theme.bevel, /*sunken=*/false, thinBevel);
+                }
                 return;
             case SurfaceRole::None:
                 return;
@@ -367,7 +517,7 @@ void DefaultStylePainter::DrawFrame(
     }
     DrawShadowForRect(canvas, theme, p.rect, effRadius, effElev, p.shadowScale);
 
-    // Non-Bevel path: Flat (Modern), Directional1px (Fluent), HardShadow (Brutalist)
+    // Non-Bevel path: Flat (Modern), Directional1px (Fluent), HardShadow (Brutalist), or rounded override
     if (!useBevel) {
         if (isInput && theme.chrome.field == FieldTreatment::BottomAccent) {
             const Color baseBorder = p.disabled
@@ -414,27 +564,52 @@ void DefaultStylePainter::DrawFrame(
         canvas.DrawRect(bevelRect, effBg);
     }
 
+    const bool hasCustomBevel = p.explicitBorder && p.borderWidth > 0.0f && p.border.a > 0u;
+    const bool thinBevel = (p.borderWidth > 0.0f && p.borderWidth < 1.0f);
     switch (kind) {
         case FrameKind::Input:
-            DrawBevelFrame(canvas, bevelRect, theme.bevel, /*sunken=*/true, /*thin=*/false);
-            if (p.focused && !p.disabled && bevelRect.w > 6.0f && bevelRect.h > 6.0f) {
-                canvas.DrawRoundRect(
-                    Rect(bevelRect.x + 2.0f, bevelRect.y + 2.0f, bevelRect.w - 4.0f, bevelRect.h - 4.0f),
-                    0.0f, Color::Transparent(), (p.accent.a > 0u) ? p.accent : theme.palette.focusRing, 1.0f
-                );
+            if (hasCustomBevel) {
+                DrawCustomBevelFrame(canvas, bevelRect, p.border, theme.bevel, p.borderWidth, /*sunken=*/true, /*etched=*/false);
+            } else {
+                DrawBevelFrame(canvas, bevelRect, theme.bevel, /*sunken=*/true, thinBevel);
+            }
+            if ((p.focused || p.hasStatusAccent) && !p.disabled && bevelRect.w > 6.0f && bevelRect.h > 6.0f) {
+                const keel::f32 ringInset = hasCustomBevel
+                    ? keel::max(2.0f, keel::round(p.borderWidth))
+                    : (thinBevel ? 1.0f : 2.0f);
+                if (bevelRect.w > ringInset * 2.0f + 2.0f && bevelRect.h > ringInset * 2.0f + 2.0f) {
+                    canvas.DrawRoundRect(
+                        Rect(
+                            bevelRect.x + ringInset,
+                            bevelRect.y + ringInset,
+                            bevelRect.w - ringInset * 2.0f,
+                            bevelRect.h - ringInset * 2.0f
+                        ),
+                        0.0f, Color::Transparent(), (p.accent.a > 0u) ? p.accent : theme.palette.focusRing, 1.0f
+                    );
+                }
             }
             break;
 
         case FrameKind::Button:
         case FrameKind::DropdownButton:
-            if (effBg.a > 0u) {
-                DrawBevelFrame(canvas, bevelRect, theme.bevel, /*sunken=*/(!p.disabled && (p.pressed || p.active)), /*thin=*/false);
+            if (hasCustomBevel) {
+                DrawCustomBevelFrame(
+                    canvas, bevelRect, p.border, theme.bevel, p.borderWidth,
+                    /*sunken=*/(!p.disabled && (p.pressed || p.active)),
+                    /*etched=*/false
+                );
+            } else if (effBg.a > 0u) {
+                DrawBevelFrame(canvas, bevelRect, theme.bevel, /*sunken=*/(!p.disabled && (p.pressed || p.active)), thinBevel);
             }
             if (p.focused && !p.disabled && bevelRect.w > 8.0f && bevelRect.h > 8.0f) {
-                canvas.DrawRoundRect(
-                    Rect(bevelRect.x + 3.0f, bevelRect.y + 3.0f, bevelRect.w - 6.0f, bevelRect.h - 6.0f),
-                    0.0f, Color::Transparent(), theme.palette.focusRing, 1.0f
-                );
+                const keel::f32 focusInset = hasCustomBevel ? keel::max(3.0f, keel::round(p.borderWidth) + 1.0f) : 3.0f;
+                if (bevelRect.w > focusInset * 2.0f + 2.0f && bevelRect.h > focusInset * 2.0f + 2.0f) {
+                    canvas.DrawRoundRect(
+                        Rect(bevelRect.x + focusInset, bevelRect.y + focusInset, bevelRect.w - focusInset * 2.0f, bevelRect.h - focusInset * 2.0f),
+                        0.0f, Color::Transparent(), theme.palette.focusRing, 1.0f
+                    );
+                }
             }
             break;
 
@@ -530,7 +705,7 @@ keel::f32 DefaultStylePainter::DrawFieldButton(
             iconSize,
             iconSize
         );
-        outIconColor = disabled ? pal.textDisabled : pal.textPrimary;
+        outIconColor = disabled ? pal.textDisabled : ResolveContrastInk(btnBg, pal.textPrimary, theme.bevel);
         return dropBtnRect.x - 4.0f;
     }
 
@@ -990,7 +1165,8 @@ Color DefaultStylePainter::DrawCheckboxBox(
         if (focused && !disabled) {
             canvas.DrawRoundRect(boxRect, 0.0f, Color::Transparent(), pal.focusRing, 1.0f);
         }
-        return disabled ? pal.textDisabled : pal.textPrimary;
+        if (disabled) return pal.textDisabled;
+        return ResolveContrastInk(bevelFill, pal.textPrimary, theme.bevel);
     }
 
     canvas.DrawRoundRect(boxRect, cornerRadius, fill, stroke, strokeWidth);
@@ -1025,7 +1201,8 @@ Color DefaultStylePainter::DrawRadioCircle(
             const keel::f32 focusR = radius + 1.5f;
             canvas.DrawRoundRect(circleRect(center, focusR), focusR, Color::Transparent(), pal.focusRing, 1.0f);
         }
-        return disabled ? pal.textDisabled : pal.textPrimary;
+        if (disabled) return pal.textDisabled;
+        return ResolveContrastInk(bevelFill, pal.textPrimary, theme.bevel);
     }
 
     canvas.DrawRoundRect(circleRect(center, radius), radius, fill, stroke, strokeWidth);
@@ -1681,6 +1858,49 @@ void DefaultStylePainter::DrawSplitSash(
                 canvas.DrawRoundRect(gripRect, keel::min(gripW, gripH) * 0.5f, gripCol, Color::Transparent(), 0.0f);
             }
         }
+    }
+}
+
+void DefaultStylePainter::DrawTableHeaderCell(
+    ICanvas& canvas,
+    const UiTheme& theme,
+    const TableHeaderCellPaintParams& p
+) const {
+    if (p.rect.w <= 0.0f || p.rect.h <= 0.0f) return;
+    const auto& pal = theme.palette;
+
+    if (theme.chrome.frame == FrameTreatment::Bevel3D) {
+        const Rect sr = SnapBevelRect(p.rect);
+        const Color faceCol = p.pressed ? pal.surfaceActive : pal.surface;
+        canvas.DrawRect(sr, faceCol);
+        DrawBevelFrame(canvas, sr, theme.bevel, p.pressed, false);
+        if (p.dividerActive && p.showRightDivider) {
+            const keel::f32 divX = sr.Right() - 1.0f;
+            canvas.DrawLine(Vec2(divX, sr.y), Vec2(divX, sr.Bottom()), pal.accent, 2.0f);
+        }
+        return;
+    }
+
+    const bool isBold =
+        (theme.chrome.frame == FrameTreatment::HardShadow || theme.chrome.divider == DividerStyle::Bold);
+    const Color fillCol = p.hovered
+        ? pal.surfaceHover
+        : (p.sorted ? pal.accent.WithAlpha(isBold ? 28 : 20) : pal.surfaceElevated);
+    canvas.DrawRect(p.rect, fillCol);
+
+    if (p.showRightDivider) {
+        const keel::f32 divX = keel::floor(p.rect.Right()) - 0.5f;
+        const Color divCol = p.dividerActive
+            ? pal.accent
+            : (p.isFrozenSeam ? pal.borderHover : pal.border);
+        const keel::f32 divThick = p.dividerActive ? 2.0f : (isBold ? 1.5f : 1.0f);
+        const keel::f32 padY = (p.isFrozenSeam || isBold) ? 0.0f : 4.0f;
+        canvas.DrawLine(
+            Vec2(divX, p.rect.y + padY),
+            Vec2(divX, p.rect.Bottom() - padY),
+            divCol,
+            divThick
+        );
     }
 }
 

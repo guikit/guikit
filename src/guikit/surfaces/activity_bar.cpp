@@ -3,6 +3,7 @@
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
+#include "guikit/style/style_painter.hpp"
 #include "keel/math.h"
 
 namespace guikit {
@@ -347,12 +348,12 @@ void detail::ActivityBar::RenderItem(
         );
         const Color badgeBg = disabled ? v.bg.WithAlphaF(theme.disabledOpacity) : v.bg;
         const Color badgeTextCol = item.badge.color.HasAny()
-            ? item.badge.color.Resolve(hovered, item.active, disabled, v.text)
+            ? theme.ResolveColor(item.badge.color, hovered, item.active, disabled, v.text)
             : (disabled ? v.text.WithAlphaF(theme.disabledOpacity) : v.text);
         const Color cutoutCol = (opts.background.HasAny() && !opts.background.IsSurface())
-            ? opts.background.Resolve(false, false, disabled, pal.surface)
+            ? theme.ResolveColor(opts.background, false, false, disabled, pal.surface)
             : pal.surface;
-        canvas.DrawRoundRect(badgeRect, badgeH * 0.5f, badgeBg, cutoutCol, 1.5f);
+        theme.Painter().DrawBadge(canvas, theme, badgeRect, badgeBg, cutoutCol, 1.5f, badgeH * 0.5f);
         canvas.DrawTextBox(item.badge.text, badgeRect, badgeFont, badgeTextCol, 0.5f, 0.5f);
     }
 

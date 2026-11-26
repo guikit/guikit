@@ -1989,7 +1989,7 @@ void detail::Scene::RenderOverlays(
     // 3. Render Viewport Frame Border
     if (opts.border.width > 0.0f) {
         const keel::f32 rad = opts.border.radius.has_value() ? *opts.border.radius : 0.0f;
-        const Color bCol = opts.border.color.Resolve(false, false, node->disabled, theme.palette.borderSubtle);
+        const Color bCol = theme.ResolveColor(opts.border.color, false, false, node->disabled, theme.palette.borderSubtle);
         if (bCol.a > 0) {
             canvas.DrawRoundRect(vp, rad, Color::Transparent(), bCol, opts.border.width);
         }

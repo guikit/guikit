@@ -453,6 +453,7 @@ SplitViewScope detail::SplitView::Open(
         : Color::Transparent();
     const keel::f32 bw = (opts.border.width > 0.0f) ? opts.border.width : (opts.border.color.HasAny() ? 1.0f : 0.0f);
     outerNode->borderWidth = bw;
+    outerNode->explicitBorder = opts.border.HasExplicitStroke() ? 1 : 0;
     outerNode->borderColor = (bw > 0.0f)
         ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, pal.border)
         : Color::Transparent();

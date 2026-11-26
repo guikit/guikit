@@ -112,11 +112,13 @@ void FieldFrame::Draw(
         .bg = boxBg,
         .border = boxBorder,
         .borderWidth = strokeW,
+        .explicitBorder = p.border.HasExplicitStroke(),
         .hovered = p.hovered,
         .active = p.active,
         .focused = p.focused,
         .disabled = p.disabled,
-        .accent = hasStatus ? statusCol : pal.focusRing
+        .accent = hasStatus ? statusCol : pal.focusRing,
+        .hasStatusAccent = hasStatus && !p.disabled
     });
 }
 

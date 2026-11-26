@@ -451,6 +451,10 @@ struct Border {
         return width > 0.0f;
     }
 
+    [[nodiscard]] constexpr bool HasExplicitStroke() const noexcept {
+        return color.HasAny() || width > 1.5f;
+    }
+
     [[nodiscard]] constexpr bool HasAny() const noexcept {
         return width > 0.0f || radius.has_value() || color.HasAny();
     }

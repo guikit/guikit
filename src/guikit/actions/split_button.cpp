@@ -84,6 +84,7 @@ void RenderSplitButtonNode(const Node* n, ICanvas& canvas, const UiTheme& theme)
         .bg = baseBg,
         .border = borderCol,
         .borderWidth = borderW,
+        .explicitBorder = p->btn.border.HasExplicitStroke(),
         .hovered = anyHov,
         .pressed = anyPress,
         .active = p->btn.active,

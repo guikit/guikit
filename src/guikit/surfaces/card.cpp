@@ -37,6 +37,7 @@ ContainerScope detail::Card::Open(
     outerNode->flexGrow = Control::ResolveFlexGrow(outerNode->parent, opts.width, opts.height, opts.flexGrow);
     outerNode->padding = theme.ResolvePadding(opts.padding, UiSize::Md, density);
     outerNode->explicitRadius = opts.border.radius.has_value() ? 1 : 0;
+    outerNode->explicitBorder = opts.border.HasExplicitStroke() ? 1 : 0;
     outerNode->cornerRadius = theme.ResolveRadius(opts.border.radius, UiSize::Md);
     outerNode->clipChildren = opts.clipChildren;
     outerNode->uiSize = UiSize::Md;
@@ -46,7 +47,7 @@ ContainerScope detail::Card::Open(
     const bool isRaised = (opts.surface == SurfaceRole::Raised || opts.surface == SurfaceRole::Popup);
     const bool isSunken = (opts.surface == SurfaceRole::Sunken);
     const Color defaultBg = isRaised ? pal.surfaceElevated : (isSunken ? pal.inputBackground : pal.surface);
-    const Color defaultBorder = isRaised ? pal.borderHover : (isSunken ? pal.inputBorder : pal.border);
+    const Color defaultBorder = isSunken ? pal.inputBorder : pal.border;
     const bool wantsBgHover = opts.background.hover.has_value();
     const bool wantsBorderHover = opts.border.width > 0.0f && opts.border.color.hover.has_value();
     bool isHovered = false;

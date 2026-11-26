@@ -626,8 +626,10 @@ TreeViewScope detail::TreeView::Open(
         ? *opts.border.radius
         : theme.GetRadius(activeSize);
     outerNode->borderWidth = (opts.border.width > 0.0f) ? opts.border.width : 0.0f;
+    outerNode->explicitBorder = opts.border.HasExplicitStroke() ? 1 : 0;
     if (outerNode->borderWidth > 0.0f) {
-        outerNode->borderColor = opts.border.color.Resolve(
+        outerNode->borderColor = theme.ResolveColor(
+            opts.border.color,
             treeHovered,
             anyRowFocusVisible,
             activeDisabled,
@@ -1615,7 +1617,7 @@ void detail::TreeView::RenderRow(
     const keel::f32 borderW = (p->opts.border.width > 0.0f) ? p->opts.border.width : 0.0f;
     Color borderCol = Color::Transparent();
     if (borderW > 0.0f) {
-        borderCol = p->opts.border.color.Resolve(hovered, selected, disabled, pal.borderSubtle, pal.borderHover, accentCol, pal.borderSubtle);
+        borderCol = theme.ResolveColor(p->opts.border.color, hovered, selected, disabled, pal.borderSubtle, pal.borderHover, accentCol, pal.borderSubtle);
     }
     if (rowBg.a > 0 || borderW > 0.0f) {
         if (radius > 0.0f) {
@@ -1719,9 +1721,9 @@ void detail::TreeView::RenderRow(
         Color badgeBg = selected ? accentCol.WithAlphaF(0.24f) : pal.surfaceHover;
         Color badgeTextCol = selected ? accentCol : pal.textSecondary;
         if (p->opts.badge.color.HasAny()) {
-            const Color resolved = p->opts.badge.color.Resolve(hovered, selected, disabled, accentCol);
+            const Color resolved = theme.ResolveColor(p->opts.badge.color, hovered, selected, disabled, accentCol);
             badgeBg = resolved.WithAlphaF(disabled ? 0.12f : 0.20f);
-            badgeTextCol = resolved;
+            badgeTextCol = disabled ? resolved.WithAlphaF(theme.disabledOpacity) : theme.EnsureReadableInk(resolved, pal.surface);
         } else if (disabled) {
             badgeBg = badgeBg.WithAlphaF(theme.disabledOpacity);
             badgeTextCol = badgeTextCol.WithAlphaF(theme.disabledOpacity);

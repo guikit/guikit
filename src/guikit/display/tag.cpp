@@ -294,6 +294,7 @@ void detail::Tag::Render(const Node* node, ICanvas& canvas, const UiTheme& theme
         .bg = p.bg,
         .border = borderW > 0.0f ? p.border : Color::Transparent(),
         .borderWidth = borderW,
+        .explicitBorder = opts.border.HasExplicitStroke(),
         .hovered = data->hovered,
         .pressed = data->pressed,
         .disabled = node->disabled

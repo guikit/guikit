@@ -1901,6 +1901,7 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
         .bg = node->backgroundColor,
         .border = node->borderColor,
         .borderWidth = node->borderWidth,
+        .explicitBorder = node->explicitBorder != 0,
         .elevation = (resolvedSurfaceRole == SurfaceRole::Raised) ? Elevation::Md
                    : (resolvedSurfaceRole == SurfaceRole::Popup ? Elevation::Lg : Elevation::None)
     };
@@ -1908,7 +1909,7 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
         ((node->borderColor.a > 0 && node->borderWidth > 0.0f) ||
          resolvedSurfaceRole == SurfaceRole::Sunken ||
          resolvedSurfaceRole == SurfaceRole::Raised);
-    if (isContainerSurface && (node->backgroundColor.a > 0 || resolvedSurfaceRole == SurfaceRole::Raised || resolvedSurfaceRole == SurfaceRole::Popup)) {
+    if (isContainerSurface && node->backgroundColor.a > 0) {
         activeTheme.Painter().DrawSurfaceBg(canvas, activeTheme, surfParams);
     }
 

@@ -505,9 +505,9 @@ HistogramResponse detail::Histogram::Run(
         const bool isDark = (th.mode == ThemeMode::Dark);
         const keel::f32 rad = o.border.radius.has_value() ? *o.border.radius : th.GetRadius(n->uiSize);
         const Color defaultBgSurface = isDark ? Color(15, 20, 30, 255) : Color(245, 248, 252, 255);
-        const Color bgSurface = o.background.Resolve(n->hovered, n->active, n->disabled, defaultBgSurface);
+        const Color bgSurface = th.ResolveColor(o.background, n->hovered, n->active, n->disabled, defaultBgSurface);
         const Color plotBg    = isDark ? Color(10, 14, 22, 255) : Color(255, 255, 255, 255);
-        const Color borderCol = o.border.color.Resolve(n->hovered, n->active, n->disabled, th.palette.borderSubtle);
+        const Color borderCol = th.ResolveColor(o.border.color, n->hovered, n->active, n->disabled, th.palette.borderSubtle);
         const keel::f32 borderW   = (o.border.width > 0.0f) ? o.border.width : 1.0f;
         const Color gridCol   = isDark ? Color(51, 65, 85, 70) : Color(203, 213, 225, 110);
 

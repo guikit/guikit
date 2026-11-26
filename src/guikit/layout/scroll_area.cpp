@@ -61,6 +61,7 @@ ContainerScope detail::ScrollArea::Open(
     node->borderColor = (bw > 0.0f) ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, pal.border) : Color::Transparent();
     node->cornerRadius = opts.border.radius.has_value() ? *opts.border.radius : 0.0f;
     node->explicitRadius = opts.border.radius.has_value() ? 1 : 0;
+    node->explicitBorder = opts.border.HasExplicitStroke() ? 1 : 0;
     node->uiSize = activeSize;
     node->visualHash = detail::HashArgs(opts.background, opts.border);
     node->panelHooks = detail::ScrollArea::Hooks();

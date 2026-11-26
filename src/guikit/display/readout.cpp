@@ -368,6 +368,7 @@ void detail::Readout::Render(const Node* node, ICanvas& canvas, const UiTheme& t
         .bg = bg,
         .border = borderCol,
         .borderWidth = opts.border.width,
+        .explicitBorder = opts.border.HasExplicitStroke(),
         .elevation = isRaised ? Elevation::Sm : Elevation::None
     });
 

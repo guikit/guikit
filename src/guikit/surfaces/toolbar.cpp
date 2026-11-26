@@ -36,7 +36,7 @@ void RenderToolBadge(const Node* n, const ToolButtonPayload* p, ICanvas& canvas,
     const auto& pal = theme.palette;
     const VariantColors& v = theme.GetVariant(p->badgeVariant);
     const Color resolvedBg = p->badge.color.HasAny()
-        ? p->badge.color.Resolve(n->hovered, n->pressed, n->disabled, v.bg)
+        ? theme.ResolveColor(p->badge.color, n->hovered, n->pressed, n->disabled, v.bg)
         : v.bg;
     const keel::f32 badgeFont = keel::max(9.0f, theme.ResolveFontSize(p->badge, TextRole::LabelSmall, n->uiSize) - 1.5f);
     const Vec2 badgeDims = canvas.MeasureText(p->badge.text, badgeFont);
@@ -103,6 +103,7 @@ void RenderToolButtonNode(const Node* n, ICanvas& canvas, const UiTheme& theme) 
         .bg = baseBg,
         .border = borderCol,
         .borderWidth = borderW,
+        .explicitBorder = p->btn.border.HasExplicitStroke(),
         .hovered = anyHov,
         .pressed = anyPress,
         .active = active,

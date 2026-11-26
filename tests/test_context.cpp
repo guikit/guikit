@@ -11264,6 +11264,8 @@ void TestSelectPopupSelectedVsHoverStability();
 void TestDatePickerPopoverWidgets();
 void TestDrawListRecorderCopiesTransientPixels();
 void TestTableUnlimitedColumnsAndSelection();
+void TestTableProductionFeatures();
+void TestClassicBorderOverrides();
 
 void TestZonePartialThemeOverrides() {
     using namespace guikit;
@@ -11351,6 +11353,8 @@ int main() {
     TestDatePickerPopoverWidgets();
     TestDrawListRecorderCopiesTransientPixels();
     TestTableUnlimitedColumnsAndSelection();
+    TestTableProductionFeatures();
+    TestClassicBorderOverrides();
     TestTextWrappingAndBackendIndependence();
 
 #if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
@@ -18165,6 +18169,8 @@ void TestTableUnlimitedColumnsAndSelection() {
     Color selectedRowTextCol{};
     Color normalRowTextCol{};
 
+    Node* wideTableNode = nullptr;
+
     auto runWideFrame = [&]() {
         ui.BeginFrame({640.0f, 320.0f});
         if (auto scroll = guikit::ScrollArea(ui, {.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
@@ -18174,14 +18180,13 @@ void TestTableUnlimitedColumnsAndSelection() {
                 .showRowNumbers = false,
                 .height = SizeMode::Stretch
             })) {
-                wideTableRect = ui.GetPrevFrameBounds(table.GetNode()->id);
+                wideTableNode = table.GetNode();
+                wideTableRect = ui.GetPrevFrameBounds(wideTableNode->id);
                 colCount = table.ColumnCount();
                 firstCol = table.FirstVisibleColumn();
                 endCol = table.EndVisibleColumn();
                 for (keel::usize r = table.FirstVisibleRow(); r < table.EndVisibleRow(); ++r) {
                     if (auto row = table.Row(r)) {
-                        if (r == 0) selectedRowTextCol = ui.GetTheme().palette.textPrimary;
-                        if (r == 1) normalRowTextCol = ui.GetTheme().palette.textPrimary;
                         for (keel::usize c = 0; c < 23; ++c) {
                             const auto res = guikit::Text(ui, ui.Format("R{}C{}", r, c));
                             if (r == 0 && c == 22) {
@@ -18206,6 +18211,17 @@ void TestTableUnlimitedColumnsAndSelection() {
     runWideFrame();
     runWideFrame();
 
+    if (wideTableNode) {
+        keel::usize textSeen = 0;
+        for (const Node* ch = wideTableNode->firstChild; ch != nullptr; ch = ch->nextSibling) {
+            if (ch->type == NodeType::Text) {
+                if (textSeen == 0) selectedRowTextCol = ch->GetTheme(ui.GetTheme()).palette.textPrimary;
+                if (textSeen == 23) normalRowTextCol = ch->GetTheme(ui.GetTheme()).palette.textPrimary;
+                ++textSeen;
+            }
+        }
+    }
+
     CHECK(colCount == 24u);
     CHECK(wideTableRect.w > 0.0f && wideTableRect.w <= 640.0f); // Stretch table never overflows parent width!
     CHECK(wideTableRect.h > 0.0f && wideTableRect.h <= 320.0f); // Stretch table never overflows parent height!
@@ -18215,7 +18231,8 @@ void TestTableUnlimitedColumnsAndSelection() {
     CHECK(col23BtnARect.x >= 2300.0f);   // Multi-widget Cell() in Column 23 laid out at ~2300px
     CHECK(col23BtnBRect.x > col23BtnARect.x);
 
-    // Selected row in Classic 3D (SolidAccent) gets accentText foreground for legibility
+    // Selected row Text in Classic 3D (SolidAccent) gets accentText foreground for legibility,
+    // while non-selected rows keep normal textPrimary
     CHECK(selectedRowTextCol == ui.GetTheme().palette.accentText);
     CHECK(normalRowTextCol == ui.GetTheme().palette.textPrimary);
 
@@ -18250,6 +18267,690 @@ void TestTableUnlimitedColumnsAndSelection() {
     CHECK(lastColRect.Right() <= tableFrameRect.Right() - gutterW + 1.0f);
 
     keel::println("  [PASS] TestTableUnlimitedColumnsAndSelection completed");
+}
+
+void TestTableProductionFeatures() {
+    using namespace guikit;
+    keel::println("  -> TestTableProductionFeatures...");
+
+    // 1. Empty state placeholder (emptyText) + IStylePainter::DrawTableHeaderCell spy
+    class TextSpyCanvas : public NullCanvas {
+    public:
+        keel::Array<keel::String> drawnTexts{};
+        void ClearTexts() { drawnTexts.clear(); }
+        void DrawTextBox(
+            keel::StringRef text,
+            Rect /*rect*/,
+            keel::f32 /*fontSize*/,
+            Color /*color*/,
+            keel::f32 /*alignX*/,
+            keel::f32 /*alignY*/
+        ) override {
+            drawnTexts.push_back(keel::String(text));
+        }
+        bool SawText(keel::StringRef needle) const noexcept {
+            for (const auto& s : drawnTexts) {
+                if (s.as_ref() == needle) return true;
+            }
+            return false;
+        }
+    };
+
+    class HeaderSpyPainter : public DefaultStylePainter {
+    public:
+        mutable keel::usize headerCalls{0};
+        mutable bool sawSorted{false};
+        mutable bool sawFrozenSeam{false};
+        void DrawTableHeaderCell(
+            ICanvas& canvas,
+            const UiTheme& theme,
+            const TableHeaderCellPaintParams& params
+        ) const override {
+            ++headerCalls;
+            if (params.sorted) sawSorted = true;
+            if (params.isFrozenSeam) sawFrozenSeam = true;
+            DefaultStylePainter::DrawTableHeaderCell(canvas, theme, params);
+        }
+    };
+
+    {
+        Context ui;
+        HeaderSpyPainter spyPainter;
+        UiTheme win98 = UiTheme::Windows98();
+        win98.SetStylePainter(&spyPainter);
+        ui.SetTheme(win98);
+        TextSpyCanvas canvas;
+
+        static const keel::StaticArray<TableColumn, 3> kCols = {{
+            {.title = "ID",    .width = 80.0f, .sortable = true},
+            {.title = "Title", .flex = 1.0f,   .sortable = true},
+            {.title = "State", .width = 90.0f, .sortable = false}
+        }};
+
+        keel::i32 sortCol = 0;
+        TableSortDirection sortDir = TableSortDirection::Ascending;
+        keel::usize rowCount = 0;
+
+        auto runEmptyFrame = [&]() {
+            canvas.ClearTexts();
+            spyPainter.headerCalls = 0;
+            spyPainter.sawSorted = false;
+            spyPainter.sawFrozenSeam = false;
+            ui.BeginFrame({500.0f, 240.0f});
+            if (auto table = guikit::Table(ui, kCols, {
+                .totalRows = rowCount,
+                .sortColumn = &sortCol,
+                .sortDirection = &sortDir,
+                .stickyHeader = true,
+                .frozenColumns = 1,
+                .showRowNumbers = true,
+                .emptyText = "No matching tasks",
+                .height = 200.0f
+            })) {
+                for (keel::usize r = table.FirstVisibleRow(); r < table.EndVisibleRow() && r < rowCount; ++r) {
+                    if (auto row = table.Row(r)) {
+                        guikit::Text(ui, ui.Format("#{}", r));
+                        guikit::Text(ui, "Item");
+                        guikit::Text(ui, "OK");
+                    }
+                }
+            }
+            ui.EndFrame(canvas);
+        };
+
+        runEmptyFrame();
+        runEmptyFrame();
+        CHECK(canvas.SawText("No matching tasks"));
+        CHECK(spyPainter.headerCalls >= 4u); // '#' + 3 columns
+        CHECK(spyPainter.sawSorted);
+        CHECK(spyPainter.sawFrozenSeam);
+
+        rowCount = 3;
+        runEmptyFrame();
+        runEmptyFrame();
+        CHECK(!canvas.SawText("No matching tasks"));
+    }
+
+    // 2. Frozen columns (2 pinned) + clip panes + O(1) horizontal virtualization via CellAt() on 500 columns
+    {
+        Context ui;
+        ui.SetTheme(UiTheme::Dark());
+        NullCanvas canvas;
+
+        keel::Array<TableColumn> cols500;
+        cols500.reserve(500);
+        for (keel::usize i = 0; i < 500; ++i) {
+            cols500.push_back(TableColumn{.title = "C", .width = 100.0f, .minWidth = 60.0f});
+        }
+
+        keel::usize colCount = 0;
+        keel::usize frozenCount = 0;
+        keel::usize firstVisCol = 0;
+        keel::usize endVisCol = 0;
+        keel::usize emittedCellsRow0 = 0;
+        Rect col0Rect{};
+        Rect col1Rect{};
+        Rect tableRect{};
+        Node* tableNode = nullptr;
+
+        auto run500Frame = [&]() {
+            emittedCellsRow0 = 0;
+            ui.BeginFrame({640.0f, 300.0f});
+            if (auto table = guikit::Table(ui, cols500, {
+                .totalRows = 10,
+                .frozenColumns = 2,
+                .showRowNumbers = false,
+                .showFooter = false,
+                .height = 260.0f
+            })) {
+                tableNode = table.GetNode();
+                tableRect = ui.GetPrevFrameBounds(tableNode->id);
+                colCount = table.ColumnCount();
+                frozenCount = table.FrozenColumnCount();
+                firstVisCol = table.FirstVisibleColumn();
+                endVisCol = table.EndVisibleColumn();
+                for (keel::usize r = table.FirstVisibleRow(); r < table.EndVisibleRow(); ++r) {
+                    if (auto row = table.Row(r)) {
+                        for (keel::usize c = 0; c < frozenCount; ++c) {
+                            if (auto cell = table.CellAt(c)) {
+                                const auto t = guikit::Text(ui, ui.Format("F{}", c));
+                                if (r == 0) {
+                                    ++emittedCellsRow0;
+                                    if (c == 0) col0Rect = t.rect;
+                                    if (c == 1) col1Rect = t.rect;
+                                }
+                            }
+                        }
+                        for (keel::usize c = firstVisCol; c < endVisCol; ++c) {
+                            if (auto cell = table.CellAt(c)) {
+                                guikit::Text(ui, ui.Format("S{}", c));
+                                if (r == 0) ++emittedCellsRow0;
+                            }
+                        }
+                    }
+                }
+            }
+            ui.EndFrame(canvas);
+        };
+
+        run500Frame();
+        run500Frame();
+
+        CHECK(colCount == 500u);
+        CHECK(frozenCount == 2u);
+        CHECK(firstVisCol == 2u);
+        CHECK(endVisCol > 2u && endVisCol < 15u);
+        CHECK(emittedCellsRow0 > 2u && emittedCellsRow0 < 15u); // O(1) sparse emission, not 500!
+        CHECK(tableNode != nullptr && tableNode->childCount == 2u);
+        if (tableNode && tableNode->childCount == 2u) {
+            const Node* scrollPane = tableNode->firstChild;
+            const Node* frozenPane = scrollPane ? scrollPane->nextSibling : nullptr;
+            CHECK(scrollPane != nullptr && frozenPane != nullptr);
+            if (scrollPane && frozenPane) {
+                CHECK(scrollPane->clipChildren && frozenPane->clipChildren);
+                CHECK_NEAR(frozenPane->computedRect.w, 200.0f, 1.0f);
+                CHECK_NEAR(scrollPane->computedRect.x, frozenPane->computedRect.Right(), 0.5f);
+            }
+        }
+
+        const keel::f32 initialCol0X = col0Rect.x;
+        const keel::f32 initialCol1X = col1Rect.x;
+
+        // Scroll horizontally via Shift + MouseWheel -> frozen columns stay pinned, visible scrollable range advances!
+        ui.OnMouseMove(tableRect.Center());
+        ui.SetKeyModifiers({.shift = true});
+        ui.OnMouseWheel(0.0f, -15.0f);
+        run500Frame();
+        ui.SetKeyModifiers({});
+        run500Frame();
+
+        CHECK(firstVisCol > 2u);
+        CHECK_NEAR(col0Rect.x, initialCol0X, 0.5f);
+        CHECK_NEAR(col1Rect.x, initialCol1X, 0.5f);
+    }
+
+    // 3. Multi-row selection: Click, Ctrl+Click toggle, Shift+Click range, Shift+Down, Ctrl+A, ClearSelection & IndexListSink
+    {
+        Context ui;
+        ui.SetTheme(UiTheme::Dark());
+        NullCanvas canvas;
+
+        static const keel::StaticArray<TableColumn, 2> kMultiCols = {{
+            {.title = "ID",   .width = 80.0f},
+            {.title = "Name", .flex = 1.0f}
+        }};
+
+        keel::i32 primaryRow = -1;
+        keel::Array<keel::usize> extSelected{};
+        bool requestClear = false;
+        keel::usize scopeSelCount = 0;
+        bool scopeRow1Sel = false;
+        bool scopeRow4Sel = false;
+        Rect tableRect{};
+
+        auto runMultiFrame = [&]() {
+            ui.BeginFrame({500.0f, 400.0f});
+            if (auto table = guikit::Table(ui, kMultiCols, {
+                .totalRows = 10,
+                .rowHeight = 30.0f,
+                .headerHeight = 30.0f,
+                .selectedRow = &primaryRow,
+                .multiSelect = true,
+                .selectedRows = &extSelected,
+                .stickyHeader = true,
+                .showFooter = false,
+                .height = 340.0f
+            })) {
+                if (requestClear) {
+                    table.ClearSelection();
+                    requestClear = false;
+                }
+                tableRect = ui.GetPrevFrameBounds(table.GetNode()->id);
+                scopeSelCount = table.SelectedRowCount();
+                scopeRow1Sel = table.IsRowSelected(1);
+                scopeRow4Sel = table.IsRowSelected(4);
+                for (keel::usize r = table.FirstVisibleRow(); r < table.EndVisibleRow(); ++r) {
+                    if (auto row = table.Row(r)) {
+                        guikit::Text(ui, ui.Format("#{}", r));
+                        guikit::Text(ui, ui.Format("Row {}", r));
+                    }
+                }
+            }
+            ui.EndFrame(canvas);
+        };
+
+        auto clickRow = [&](keel::usize r, KeyModifiers mods = {}) {
+            const Vec2 pos(tableRect.x + 120.0f, tableRect.y + 30.0f + keel::as<keel::f32>(r) * 30.0f + 15.0f);
+            ui.SetKeyModifiers(mods);
+            ui.OnMouseMove(pos);
+            ui.OnMouseDown(1);
+            runMultiFrame();
+            ui.OnMouseUp(1);
+            runMultiFrame();
+            ui.SetKeyModifiers({});
+        };
+
+        runMultiFrame();
+        runMultiFrame();
+
+        // Plain click row 1 -> {1}
+        clickRow(1);
+        CHECK(primaryRow == 1);
+        CHECK(extSelected.size() == 1u && extSelected[0] == 1u);
+        CHECK(scopeSelCount == 1u && scopeRow1Sel && !scopeRow4Sel);
+
+        // Ctrl+Click row 4 -> {1, 4}
+        clickRow(4, {.ctrl = true});
+        CHECK(primaryRow == 4);
+        CHECK(extSelected.size() == 2u && extSelected[0] == 1u && extSelected[1] == 4u);
+        CHECK(scopeSelCount == 2u && scopeRow1Sel && scopeRow4Sel);
+
+        // Shift+Click row 6 (anchor = 4) -> {4, 5, 6}
+        clickRow(6, {.shift = true});
+        CHECK(primaryRow == 6);
+        CHECK(extSelected.size() == 3u && extSelected[0] == 4u && extSelected[1] == 5u && extSelected[2] == 6u);
+
+        // Ctrl+Click row 5 -> toggles off 5 -> {4, 6}
+        clickRow(5, {.ctrl = true});
+        CHECK(extSelected.size() == 2u && extSelected[0] == 4u && extSelected[1] == 6u);
+
+        // Shift+Down -> extends range from anchor 4 to row 7 -> {4, 5, 6, 7}
+        ui.OnKeyDown(Key::Down, {.shift = true});
+        runMultiFrame();
+        CHECK(primaryRow == 7);
+        CHECK(extSelected.size() == 4u && extSelected[0] == 4u && extSelected[3] == 7u);
+
+        // Ctrl+A -> selects all 10 rows
+        ui.OnKeyDown(Key::A, {.ctrl = true});
+        runMultiFrame();
+        CHECK(extSelected.size() == 10u);
+
+        // ClearSelection() -> empty
+        requestClear = true;
+        runMultiFrame();
+        CHECK(extSelected.empty());
+        CHECK(primaryRow == -1);
+    }
+
+    // 4. Regression: Checkbox inside selected Classic 3D (Windows 98) Table row must toggle AND remain visible
+    //    (SunkenInk checkmark must contrast with white inputBackground, never inherit white accentText from row zone!)
+    {
+        class LineSpyCanvas : public NullCanvas {
+        public:
+            struct LineRec { Vec2 a; Vec2 b; Color color; };
+            keel::Array<LineRec> lines{};
+            void ClearLines() { lines.clear(); }
+            void DrawLine(Vec2 a, Vec2 b, Color color, keel::f32 /*thickness*/) override {
+                lines.push_back({a, b, color});
+            }
+        };
+
+        Context ui;
+        const UiTheme win98 = UiTheme::Windows98();
+        ui.SetTheme(win98);
+        LineSpyCanvas canvas;
+
+        static const keel::StaticArray<TableColumn, 3> kCols = {{
+            {.title = "Done",     .width = 64.0f,  .align = Align::Center},
+            {.title = "Category", .width = 110.0f, .align = Align::Start},
+            {.title = "Task",     .flex = 1.0f}
+        }};
+        static const keel::StaticArray<keel::StringRef, 2> kCats = {"UI", "Core"};
+
+        keel::i32 selRow = 0;
+        bool row0Done = false;
+        bool row1Done = false;
+        keel::usize row0Cat = 0;
+        keel::usize row1Cat = 1;
+        Rect row1CheckRect{};
+        Node* win98TableNode = nullptr;
+
+        auto runWin98Frame = [&]() {
+            canvas.ClearLines();
+            ui.BeginFrame({480.0f, 240.0f});
+            if (auto table = guikit::Table(ui, kCols, {
+                .totalRows = 2,
+                .selectedRow = &selRow,
+                .stickyHeader = true,
+                .showFooter = false,
+                .height = 180.0f
+            })) {
+                win98TableNode = table.GetNode();
+                for (keel::usize r = table.FirstVisibleRow(); r < table.EndVisibleRow(); ++r) {
+                    if (auto row = table.Row(r)) {
+                        bool& doneRef = (r == 0) ? row0Done : row1Done;
+                        keel::usize& catRef = (r == 0) ? row0Cat : row1Cat;
+                        const auto chk = guikit::Checkbox(ui, doneRef, {.size = UiSize::Sm, .color = StateColor::Primary()});
+                        if (r == 1) row1CheckRect = chk.rect;
+                        guikit::Select(ui, catRef, kCats, {.searchable = true, .size = UiSize::Sm, .width = SizeMode::Stretch});
+                        guikit::Text(ui, (r == 0) ? "Task A" : "Task B");
+                    }
+                }
+            }
+            ui.EndFrame(canvas);
+        };
+
+        runWin98Frame();
+        runWin98Frame();
+        CHECK(row1CheckRect.w > 0.0f && row1CheckRect.h > 0.0f);
+
+        // Click Checkbox on row 1 -> selects row 1 AND checks row1Done
+        ui.OnMouseMove(row1CheckRect.Center());
+        ui.OnMouseDown(1);
+        runWin98Frame();
+        ui.OnMouseUp(1);
+        runWin98Frame();
+        CHECK(selRow == 1);
+        CHECK(row1Done == true);
+
+        // Verify Select inside selected Win98 row keeps dark textPrimary (not white-on-white!),
+        // while plain Text on row 1 gets accentText for contrast on SolidAccent blue background
+        bool sawSelectedSelectNormalInk = false;
+        bool sawSelectedTextAccentInk = false;
+        if (win98TableNode) {
+            keel::usize selCount = 0;
+            keel::usize txtCount = 0;
+            for (const Node* ch = win98TableNode->firstChild; ch != nullptr; ch = ch->nextSibling) {
+                if (ch->type == NodeType::Select) {
+                    if (selCount == 1) {
+                        sawSelectedSelectNormalInk = (ch->GetTheme(win98).palette.textPrimary == win98.palette.textPrimary);
+                    }
+                    ++selCount;
+                } else if (ch->type == NodeType::Text) {
+                    if (txtCount == 1) {
+                        sawSelectedTextAccentInk = (ch->GetTheme(win98).palette.textPrimary == win98.palette.accentText);
+                    }
+                    ++txtCount;
+                }
+            }
+        }
+        CHECK(sawSelectedSelectNormalInk);
+        CHECK(sawSelectedTextAccentInk);
+
+        // Verify checkmark lines drawn inside row1CheckRect have high contrast against white inputBackground
+        bool foundVisibleCheckmark = false;
+        for (const auto& line : canvas.lines) {
+            if (row1CheckRect.Contains(line.a) && row1CheckRect.Contains(line.b) &&
+                Color::ContrastRatio(win98.palette.inputBackground, line.color) >= 4.5f) {
+                foundVisibleCheckmark = true;
+                break;
+            }
+        }
+        CHECK(foundVisibleCheckmark);
+    }
+
+    // 5. TableOptions::size controls row/header height density without distorting header/row-number typography,
+    //    while explicit UiText fontSize overrides on column titles are respected
+    {
+        class FontSpyCanvas : public NullCanvas {
+        public:
+            keel::f32 headerTitleFont{0.0f};
+            keel::f32 customTitleFont{0.0f};
+            keel::f32 rowNumFont{0.0f};
+            void Clear() { headerTitleFont = 0.0f; customTitleFont = 0.0f; rowNumFont = 0.0f; }
+            void DrawTextBox(
+                keel::StringRef text,
+                Rect /*rect*/,
+                keel::f32 fontSize,
+                Color /*color*/,
+                keel::f32 /*alignX*/,
+                keel::f32 /*alignY*/
+            ) override {
+                if (text == "DefaultCol") headerTitleFont = fontSize;
+                else if (text == "CustomCol") customTitleFont = fontSize;
+                else if (text == "1") rowNumFont = fontSize;
+            }
+        };
+
+        Context ui;
+        ui.SetTheme(UiTheme::Dark());
+        FontSpyCanvas canvas;
+
+        static const keel::StaticArray<TableColumn, 2> kCols = {{
+            {.title = "DefaultCol", .width = 120.0f},
+            {.title = UiText{"CustomCol", 18.0f}, .flex = 1.0f}
+        }};
+
+        auto sampleSize = [&](UiSize sz, keel::f32& outHdr, keel::f32& outCustom, keel::f32& outNum) {
+            canvas.Clear();
+            for (keel::i32 f = 0; f < 2; ++f) {
+                ui.BeginFrame({480.0f, 220.0f});
+                if (auto table = guikit::Table(ui, kCols, {
+                    .totalRows = 2,
+                    .stickyHeader = true,
+                    .showRowNumbers = true,
+                    .height = 180.0f,
+                    .size = sz
+                })) {
+                    for (keel::usize r = table.FirstVisibleRow(); r < table.EndVisibleRow(); ++r) {
+                        if (auto row = table.Row(r)) {
+                            guikit::Text(ui, "A");
+                            guikit::Text(ui, "B");
+                        }
+                    }
+                }
+                ui.EndFrame(canvas);
+            }
+            outHdr = canvas.headerTitleFont;
+            outCustom = canvas.customTitleFont;
+            outNum = canvas.rowNumFont;
+        };
+
+        keel::f32 hdrXs = 0.0f, customXs = 0.0f, numXs = 0.0f;
+        keel::f32 hdrXl = 0.0f, customXl = 0.0f, numXl = 0.0f;
+        sampleSize(UiSize::Xs, hdrXs, customXs, numXs);
+        sampleSize(UiSize::Xl, hdrXl, customXl, numXl);
+
+        CHECK(hdrXs > 0.0f && numXs > 0.0f);
+        CHECK_NEAR(hdrXs, hdrXl, 0.01f);
+        CHECK_NEAR(numXs, numXl, 0.01f);
+        CHECK_NEAR(customXs, 18.0f, 0.01f);
+        CHECK_NEAR(customXl, 18.0f, 0.01f);
+    }
+
+    // 6. Regression: Box with transparent background + SurfaceRole::Raised must not emit filled shadow rects
+    {
+        class FillSpyCanvas : public NullCanvas {
+        public:
+            keel::usize nonTransparentFills{0};
+            void DrawRect(Rect /*rect*/, Color fill) override {
+                if (fill.a > 0u) ++nonTransparentFills;
+            }
+            void DrawRoundRect(Rect /*rect*/, keel::f32 /*radius*/, Color fill, Color /*stroke*/, keel::f32 /*strokeWidth*/) override {
+                if (fill.a > 0u) ++nonTransparentFills;
+            }
+        };
+
+        Context ui;
+        ui.SetTheme(UiTheme::Dark());
+        FillSpyCanvas canvas;
+
+        ui.BeginFrame({400.0f, 300.0f});
+        if (auto box = guikit::Box(ui, {
+            .width = 200.0f,
+            .height = 100.0f,
+            .background = StateColor::None(),
+            .border = {.width = 1.0f, .radius = 12.0f, .color = StateColor::Danger()},
+            .surface = SurfaceRole::Raised
+        })) {}
+        ui.EndFrame(canvas);
+
+        CHECK(canvas.nonTransparentFills == 0u);
+    }
+
+    keel::println("  [PASS] TestTableProductionFeatures completed");
+}
+
+void TestClassicBorderOverrides() {
+    using namespace guikit;
+    keel::println("  -> TestClassicBorderOverrides...");
+
+    // Classic 3D (Win98) explicit border override, borderWidth == 0, and FieldFrame status accent
+    {
+        class BorderSpyCanvas : public NullCanvas {
+        public:
+            struct StrokeCall {
+                Color color{};
+                keel::f32 width{0.0f};
+                keel::f32 radius{0.0f};
+            };
+            struct RectCall {
+                Rect rect{};
+                Color color{};
+            };
+            keel::Array<StrokeCall> strokes;
+            keel::Array<RectCall> rectCalls;
+            keel::usize bevelEdgeRects{0};
+            void Clear() { strokes.clear(); rectCalls.clear(); bevelEdgeRects = 0; }
+            void DrawRect(Rect r, Color fill) override {
+                if (fill.a > 0u) {
+                    rectCalls.push_back({r, fill});
+                    if (r.w <= 1.5f || r.h <= 1.5f) {
+                        ++bevelEdgeRects;
+                    }
+                }
+            }
+            void DrawRoundRect(Rect /*r*/, keel::f32 radius, Color /*fill*/, Color stroke, keel::f32 strokeWidth) override {
+                if (strokeWidth > 0.0f && stroke.a > 0u) {
+                    strokes.push_back({stroke, strokeWidth, radius});
+                }
+            }
+        };
+
+        const UiTheme win98 = UiTheme::Windows98();
+        const Color dangerCol = win98.GetVariant(UiVariant::Danger).bg;
+
+        // 7a. Box(Flat, borderWidth=0) draws zero bevel/border edges
+        {
+            Context ui;
+            ui.SetTheme(win98);
+            BorderSpyCanvas canvas;
+            ui.BeginFrame({320.0f, 160.0f});
+            if (auto box = guikit::Box(ui, {
+                .width = 200.0f,
+                .height = 80.0f,
+                .border = {.width = 0.0f},
+                .surface = SurfaceRole::Flat
+            })) {}
+            ui.EndFrame(canvas);
+            CHECK(canvas.bevelEdgeRects == 0u);
+            CHECK(canvas.strokes.empty());
+        }
+
+        // 7b. Box(Flat, width=3.0, Danger) preserves crisp theme highlight edge + exact 3px Danger groove
+        {
+            Context ui;
+            ui.SetTheme(win98);
+            BorderSpyCanvas canvas;
+            ui.BeginFrame({320.0f, 160.0f});
+            if (auto box = guikit::Box(ui, {
+                .width = 200.0f,
+                .height = 80.0f,
+                .border = {.width = 3.0f, .color = StateColor::Danger()},
+                .surface = SurfaceRole::Flat
+            })) {}
+            ui.EndFrame(canvas);
+            bool sawDanger3Strip = false;
+            keel::usize crispHighlightEdges = 0;
+            for (const auto& rc : canvas.rectCalls) {
+                if (rc.color == dangerCol && (keel::abs(rc.rect.h - 3.0f) < 0.01f || keel::abs(rc.rect.w - 3.0f) < 0.01f)) {
+                    sawDanger3Strip = true;
+                }
+                if (rc.color == win98.bevel.highlightOuter && (rc.rect.w <= 1.5f || rc.rect.h <= 1.5f)) {
+                    ++crispHighlightEdges;
+                }
+            }
+            CHECK(sawDanger3Strip);
+            CHECK(crispHighlightEdges == 4u);
+        }
+
+        // 7b2. Box(Flat, width=3.0, radius=10.0, Danger) switches to rounded DrawRoundRect stroke
+        {
+            Context ui;
+            ui.SetTheme(win98);
+            BorderSpyCanvas canvas;
+            ui.BeginFrame({320.0f, 160.0f});
+            if (auto box = guikit::Box(ui, {
+                .width = 200.0f,
+                .height = 80.0f,
+                .border = {.width = 3.0f, .radius = 10.0f, .color = StateColor::Danger()},
+                .surface = SurfaceRole::Flat
+            })) {}
+            ui.EndFrame(canvas);
+            bool sawRoundedDanger3 = false;
+            for (const auto& s : canvas.strokes) {
+                if (s.color == dangerCol && keel::abs(s.width - 3.0f) < 0.01f && keel::abs(s.radius - 10.0f) < 0.01f) {
+                    sawRoundedDanger3 = true;
+                }
+            }
+            CHECK(sawRoundedDanger3);
+        }
+
+        // 7c. Accordion(borderWidth=0) draws flat borderless header in Classic 3D (no bevel edges)
+        {
+            Context ui;
+            ui.SetTheme(win98);
+            BorderSpyCanvas canvas;
+            bool open = false;
+            ui.BeginFrame({320.0f, 160.0f});
+            if (auto acc = guikit::Accordion(ui, open, {
+                .label = "Flat Header",
+                .border = {.width = 0.0f}
+            })) {}
+            ui.EndFrame(canvas);
+            CHECK(canvas.bevelEdgeRects == 0u);
+            CHECK(canvas.strokes.empty());
+        }
+
+        // 7d. InputField(status=Danger) shows Danger status ring inside Sunken3D bevel even unfocused
+        {
+            Context ui;
+            ui.SetTheme(win98);
+            BorderSpyCanvas canvas;
+            keel::SmallString<32> text{"bad"};
+            ui.BeginFrame({320.0f, 160.0f});
+            guikit::InputField(ui, text, {.status = UiVariant::Danger});
+            ui.EndFrame(canvas);
+            CHECK(canvas.bevelEdgeRects >= 4u);
+            bool sawDangerStatusRing = false;
+            for (const auto& s : canvas.strokes) {
+                if (s.color == dangerCol && keel::abs(s.width - 1.0f) < 0.01f) {
+                    sawDangerStatusRing = true;
+                }
+            }
+            CHECK(sawDangerStatusRing);
+        }
+
+        // 7e. Card(Raised, width=3.0, default border color) uses neutral pal.border, NOT hover accent pal.borderHover
+        {
+            Context ui;
+            ui.SetTheme(win98);
+            BorderSpyCanvas canvas;
+            ui.BeginFrame({320.0f, 160.0f});
+            if (auto card = guikit::Card(ui, {
+                .width = 200.0f,
+                .border = {.width = 3.0f},
+                .surface = SurfaceRole::Raised
+            })) {
+                guikit::Text(ui, "Raised");
+            }
+            ui.EndFrame(canvas);
+            bool sawNavyHoverBorder = false;
+            bool sawNeutralBorderStrip = false;
+            for (const auto& rc : canvas.rectCalls) {
+                if (rc.color == win98.palette.borderHover) {
+                    sawNavyHoverBorder = true;
+                }
+                if (rc.color == win98.palette.border && (keel::abs(rc.rect.h - 3.0f) < 0.01f || keel::abs(rc.rect.w - 3.0f) < 0.01f)) {
+                    sawNeutralBorderStrip = true;
+                }
+            }
+            CHECK(!sawNavyHoverBorder);
+            CHECK(sawNeutralBorderStrip);
+        }
+    }
+
+    keel::println("  [PASS] TestClassicBorderOverrides completed");
 }
 
 

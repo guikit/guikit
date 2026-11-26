@@ -59,12 +59,15 @@ struct TableOptions {
     keel::Optional<keel::f32> headerHeight{keel::kNullOpt}; ///< Sticky header height in points (nullopt = derived from UiSize)
 
     // --- Selection & Sorting Bindings ---
-    keel::i32* selectedRow{nullptr};                          ///< Optional bound index of selected row (-1 = none)
+    keel::i32* selectedRow{nullptr};                          ///< Optional bound index of active/primary selected row (-1 = none)
+    bool multiSelect{false};                                  ///< Enable Ctrl+Click toggle, Shift+Click range, Shift+Up/Down & Ctrl+A selection
+    IndexListSink selectedRows{};                             ///< Optional bound list of selected row indices when `multiSelect = true`
     keel::i32* sortColumn{nullptr};                           ///< Optional bound index of sorted column (-1 = none)
     TableSortDirection* sortDirection{nullptr};         ///< Optional bound sort direction (Ascending / Descending)
 
     // --- Appearance & Features ---
     bool stickyHeader{true};                            ///< Pin column header bar at top of viewport
+    keel::u32 frozenColumns{0};                         ///< Number of leftmost data columns pinned during horizontal scroll (also pins `#`)
     bool striped{true};                                 ///< Alternating zebra row background shading
     bool gridLines{true};                               ///< Draw vertical column & horizontal row grid lines
     StateColor background{};
@@ -74,12 +77,13 @@ struct TableOptions {
     bool showRowNumbers{false};                         ///< Prepend an automatic '#' row index column on the left
     bool showFooter{false};                             ///< Show bottom summary footer bar (visible row range, total rows, footerText)
     UiText footerText{};                                ///< Optional right-aligned summary text in footer bar
+    UiText emptyText{};                                 ///< Optional centered placeholder text rendered when `totalRows == 0`
 
     // --- Sizing & Theme ---
     VisibilityPolicy scrollbar{VisibilityPolicy::Auto};
     AxisSize width{};                                   ///< Horizontal sizing policy (`Auto` -> `Stretch`, `Fit`, or fixed `dp`)
     AxisSize height{SizeMode::Stretch};                 ///< Vertical sizing policy (`Stretch` in flex parent, `Fit` rows, or fixed `dp`)
-    UiSize size{UiSize::Md};                            ///< Row/header density & typography size
+    UiSize size{UiSize::Md};                            ///< Row/header height & density preset (independent of cell/header typography)
     bool disabled{false};
 };
 
@@ -98,8 +102,7 @@ public:
         bool hovered,
         bool clicked,
         bool doubleClicked,
-        bool prevDisabled,
-        bool pushedZone = false
+        bool prevDisabled
     ) noexcept
         : m_table(table)
         , m_ctx(ctx)
@@ -109,8 +112,7 @@ public:
         , m_hovered(hovered)
         , m_clicked(clicked)
         , m_doubleClicked(doubleClicked)
-        , m_prevDisabled(prevDisabled)
-        , m_pushedZone(pushedZone) {}
+        , m_prevDisabled(prevDisabled) {}
 
     ~TableRowScope() noexcept;
 
@@ -126,12 +128,10 @@ public:
         , m_hovered(other.m_hovered)
         , m_clicked(other.m_clicked)
         , m_doubleClicked(other.m_doubleClicked)
-        , m_prevDisabled(other.m_prevDisabled)
-        , m_pushedZone(other.m_pushedZone) {
+        , m_prevDisabled(other.m_prevDisabled) {
         other.m_table = nullptr;
         other.m_ctx = nullptr;
         other.m_visible = false;
-        other.m_pushedZone = false;
     }
 
     [[nodiscard]] explicit operator bool() const noexcept { return m_visible; }
@@ -151,7 +151,6 @@ private:
     bool m_clicked{false};
     bool m_doubleClicked{false};
     bool m_prevDisabled{false};
-    bool m_pushedZone{false};
 };
 
 /// RAII scope returned by `ui.Table(...)` providing row virtualization and cell emission methods.
@@ -183,11 +182,14 @@ public:
     /// One-past-last visible row index in the virtualized scroll viewport (exclusive).
     [[nodiscard]] keel::usize EndVisibleRow() const noexcept;
 
-    /// First visible column index in the horizontal scroll viewport (inclusive).
+    /// First visible scrollable column index in the horizontal scroll viewport (inclusive).
     [[nodiscard]] keel::usize FirstVisibleColumn() const noexcept;
 
-    /// One-past-last visible column index in the horizontal scroll viewport (exclusive).
+    /// One-past-last visible scrollable column index in the horizontal scroll viewport (exclusive).
     [[nodiscard]] keel::usize EndVisibleColumn() const noexcept;
+
+    /// Number of left-pinned frozen data columns currently active (clamped to `ColumnCount()`).
+    [[nodiscard]] keel::usize FrozenColumnCount() const noexcept;
 
     /// Total number of columns in this table.
     [[nodiscard]] keel::usize ColumnCount() const noexcept;
@@ -201,11 +203,23 @@ public:
     /// Active sort direction (None / Ascending / Descending).
     [[nodiscard]] TableSortDirection SortDirection() const noexcept;
 
-    /// Returns true on the frame the selected row changed via click or keyboard navigation.
+    /// Returns true on the frame the selected row(s) changed via click or keyboard navigation.
     [[nodiscard]] bool SelectionChanged() const noexcept;
 
-    /// Currently selected row index (-1 if none).
+    /// Currently active/primary selected row index (-1 if none).
     [[nodiscard]] keel::i32 SelectedRow() const noexcept;
+
+    /// Returns true if `rowIndex` is currently selected (supports both single and multi-select).
+    [[nodiscard]] bool IsRowSelected(keel::usize rowIndex) const noexcept;
+
+    /// Total number of currently selected rows (0 or 1 in single-select; 0..totalRows in multi-select).
+    [[nodiscard]] keel::usize SelectedRowCount() const noexcept;
+
+    /// Sorted ascending view of all currently selected row indices (empty if none).
+    [[nodiscard]] keel::ArrayRef<keel::usize> SelectedRows() const noexcept;
+
+    /// Clears all selected rows and resets the active selection anchor.
+    void ClearSelection() noexcept;
 
     /// Row index currently hovered by the mouse cursor (-1 if none).
     [[nodiscard]] keel::i32 HoveredRow() const noexcept;
@@ -225,9 +239,14 @@ public:
     }
 
     /// Opens an explicit multi-widget container cell (`NodeType::Cell`) in the current column of the active row.
-    /// Note: Single widgets (`ui.Text`, `ui.Element`, `ui.Checkbox`, `ui.ProgressBar`, `ui.Button`, etc.)
+    /// Note: Single widgets (`guikit::Text`, `guikit::Checkbox`, `guikit::ProgressBar`, `guikit::Button`, etc.)
     /// placed directly inside `if (auto row = table.Row(r))` automatically occupy sequential columns without needing `table.Cell()`.
     [[nodiscard]] ContainerScope Cell(const TableCellOptions& opts = {});
+
+    /// Opens a cell bound to an explicit column index `colIndex` in the active row.
+    /// Enables O(1) horizontal column virtualization: emit only frozen columns `0..FrozenColumnCount()`
+    /// and visible scrollable columns `FirstVisibleColumn()..EndVisibleColumn()`.
+    [[nodiscard]] ContainerScope CellAt(keel::usize colIndex, const TableCellOptions& opts = {});
 
     /// Programmatically scrolls the table viewport so `rowIndex` is visible.
     void ScrollToRow(keel::usize rowIndex);

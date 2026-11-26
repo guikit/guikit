@@ -563,11 +563,11 @@ CommandPaletteResponse detail::CommandPalette::Run(
 
         const Color defaultSurface = pal.surfaceElevated.WithAlpha(252u);
         const Color surfaceBg = bgOpt.HasAny()
-            ? bgOpt.Resolve(false, false, false, defaultSurface)
+            ? theme.ResolveColor(bgOpt, false, false, false, defaultSurface)
             : defaultSurface;
         const Color borderCol = borderOpt.color.HasAny()
-            ? borderOpt.color.Resolve(false, false, false, pal.borderHover)
-            : pal.borderHover;
+            ? theme.ResolveColor(borderOpt.color, false, false, false, pal.border)
+            : pal.border;
 
         theme.Painter().DrawSurface(c, theme, SurfacePaintParams{
             .rect = cardRect,
@@ -577,6 +577,7 @@ CommandPaletteResponse detail::CommandPalette::Run(
             .bg = surfaceBg,
             .border = borderCol,
             .borderWidth = borderW,
+            .explicitBorder = borderOpt.HasExplicitStroke(),
             .elevation = Elevation::Lg,
             .shadowScale = s * 1.25f
         });

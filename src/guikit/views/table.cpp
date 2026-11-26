@@ -1,4 +1,5 @@
 #include "guikit/views/table.hpp"
+#include "guikit/actions/button.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
@@ -49,6 +50,8 @@ struct TableState {
     keel::f32 resizeStartWidth{0.0f};
 
     keel::i32 selectedRow{-1};
+    keel::i32 selectionAnchor{-1};
+    keel::Array<keel::usize> selectedRows{};
     keel::i32 sortColumn{-1};
     TableSortDirection sortDirection{TableSortDirection::None};
 
@@ -120,11 +123,8 @@ keel::f32 ResolveDefaultFooterHeight(UiSize size, const UiTheme& theme, keel::f3
     return keel::max(18.0f, keel::round(base * density));
 }
 
-keel::f32 ResolveTableFontSize(UiSize size, const UiTheme& theme, bool isHeader) noexcept {
-    if (isHeader) {
-        return theme.ResolveFontSize(UiText{}, TextRole::LabelSmall, size);
-    }
-    return theme.ResolveFontSize(UiText{}, TextRole::BodyMedium, size);
+keel::f32 ResolveTableFontSize(const UiText& text, TextRole defaultRole, const UiTheme& theme) noexcept {
+    return theme.ResolveFontSize(text, defaultRole, UiSize::Md);
 }
 
 keel::f32 AlignToFactor(Align align) noexcept {
@@ -142,10 +142,12 @@ struct TableData {
     TableState* state{nullptr};
 
     keel::usize columnCount{0};
+    keel::usize frozenColCount{0};
     TableColumn* columns{nullptr};
     keel::f32* resolvedColX{nullptr};
     keel::f32* resolvedColW{nullptr};
     keel::f32 rowNumberColW{0.0f};
+    keel::f32 frozenAreaW{0.0f};
     keel::f32 totalColumnsW{0.0f};
     keel::f32 scrollbarGutterW{0.0f};
     keel::f32 scrollbarGutterH{0.0f};
@@ -162,12 +164,19 @@ struct TableData {
     keel::usize emittedRowCount{0};
 
     bool hasActiveRow{false};
+    bool activeRowSelected{false};
+    bool activeRowDisabled{false};
     keel::usize activeRowIndex{0};
     keel::usize activeColCursor{0};
+    keel::usize activeRowBindingStart{0};
     Node* activeRowLastScannedChild{nullptr};
+    Node* scrollPane{nullptr};
+    Node* frozenPane{nullptr};
+    const Zone* selectedTextZone{nullptr};
     mutable ICanvas* lastCanvas{nullptr};
 
     keel::i32 hoveredHeaderCol{-1};
+    keel::i32 pressedHeaderCol{-1};
     keel::i32 hoveredDividerCol{-1};
     keel::i32 hoveredRow{-1};
     keel::i32 clickedRow{-1};
@@ -183,6 +192,22 @@ struct TableData {
 };
 
 namespace {
+
+void ApplySelectedRowZone(Node* n, const Zone* selZone) noexcept {
+    if (!n || !selZone) return;
+    if (n->type == NodeType::Cell) {
+        for (Node* gc = n->firstChild; gc != nullptr; gc = gc->nextSibling) {
+            ApplySelectedRowZone(gc, selZone);
+        }
+        return;
+    }
+    if (n->type == NodeType::Text ||
+        n->type == NodeType::Heading ||
+        n->type == NodeType::Readout ||
+        detail::Button::IsGhostNode(n)) {
+        n->zone = selZone;
+    }
+}
 
 void SyncActiveRowCells(Node* tableNode, TableData& data) noexcept {
     if (!tableNode || !data.state || !data.hasActiveRow) return;
@@ -200,17 +225,114 @@ void SyncActiveRowCells(Node* tableNode, TableData& data) noexcept {
     }
 }
 
+bool HasSelectedRow(const keel::Array<keel::usize>& rows, keel::usize target) noexcept {
+    keel::usize lo = 0;
+    keel::usize hi = rows.size();
+    while (lo < hi) {
+        const keel::usize mid = lo + (hi - lo) / 2;
+        if (rows[mid] < target) {
+            lo = mid + 1;
+        } else {
+            hi = mid;
+        }
+    }
+    return lo < rows.size() && rows[lo] == target;
+}
+
+void InsertSelectedRow(keel::Array<keel::usize>& rows, keel::usize target) {
+    keel::usize lo = 0;
+    keel::usize hi = rows.size();
+    while (lo < hi) {
+        const keel::usize mid = lo + (hi - lo) / 2;
+        if (rows[mid] < target) {
+            lo = mid + 1;
+        } else {
+            hi = mid;
+        }
+    }
+    if (lo < rows.size() && rows[lo] == target) return;
+    rows.push_back(target);
+    for (keel::usize i = rows.size() - 1; i > lo; --i) {
+        rows[i] = rows[i - 1];
+    }
+    rows[lo] = target;
+}
+
+void RemoveSelectedRow(keel::Array<keel::usize>& rows, keel::usize target) noexcept {
+    keel::usize lo = 0;
+    keel::usize hi = rows.size();
+    while (lo < hi) {
+        const keel::usize mid = lo + (hi - lo) / 2;
+        if (rows[mid] < target) {
+            lo = mid + 1;
+        } else {
+            hi = mid;
+        }
+    }
+    if (lo >= rows.size() || rows[lo] != target) return;
+    for (keel::usize i = lo + 1; i < rows.size(); ++i) {
+        rows[i - 1] = rows[i];
+    }
+    rows.pop_back();
+}
+
+void SetSingleSelection(TableState& st, keel::usize row) {
+    st.selectedRows.clear();
+    st.selectedRows.push_back(row);
+    st.selectedRow = keel::as<keel::i32>(row);
+    st.selectionAnchor = st.selectedRow;
+}
+
+void SetRangeSelection(TableState& st, keel::usize a, keel::usize b, bool additive) {
+    const keel::usize first = keel::min(a, b);
+    const keel::usize last = keel::max(a, b);
+    if (!additive) {
+        st.selectedRows.clear();
+        st.selectedRows.reserve(last - first + 1);
+        for (keel::usize r = first; r <= last; ++r) {
+            st.selectedRows.push_back(r);
+        }
+    } else {
+        for (keel::usize r = first; r <= last; ++r) {
+            InsertSelectedRow(st.selectedRows, r);
+        }
+    }
+}
+
+void SyncExternalSelectedRowsIn(TableState& st, const IndexListSink& sink) {
+    st.selectedRows.clear();
+    const keel::ArrayRef<keel::usize> src = sink.as_ref();
+    st.selectedRows.reserve(src.size());
+    for (keel::usize i = 0; i < src.size(); ++i) {
+        InsertSelectedRow(st.selectedRows, src[i]);
+    }
+}
+
+void SyncExternalSelectedRowsOut(const TableState& st, const IndexListSink& sink) {
+    if (!sink.has_target()) return;
+    sink.clear();
+    for (keel::usize i = 0; i < st.selectedRows.size(); ++i) {
+        sink.push_back(st.selectedRows[i]);
+    }
+}
+
 void UpdateVisibleColRange(TableData& data) noexcept {
     if (data.columnCount == 0 || !data.resolvedColX || !data.resolvedColW) {
         data.firstVisibleCol = 0;
         data.endVisibleCol = 0;
         return;
     }
+    const keel::usize scrollStart = keel::min(data.frozenColCount, data.columnCount);
+    if (scrollStart >= data.columnCount) {
+        data.firstVisibleCol = scrollStart;
+        data.endVisibleCol = scrollStart;
+        return;
+    }
     const keel::f32 scrollX = data.state ? data.state->scrollOffset.x : 0.0f;
-    const keel::f32 viewLeft = scrollX;
+    const keel::f32 viewLeft = data.frozenAreaW + scrollX;
     const keel::f32 viewRight = scrollX + keel::max(0.0f, data.bodyViewportRect.w);
 
-    keel::usize lo = 0;
+    keel::usize lo = scrollStart;
     keel::usize hi = data.columnCount;
     while (lo < hi) {
         const keel::usize mid = lo + (hi - lo) / 2;
@@ -358,6 +480,9 @@ void ResolveColumnWidths(TableData& data, keel::f32 viewportW, const UiTheme& /*
     }
 
     data.totalColumnsW = curX;
+    data.frozenAreaW = (data.frozenColCount > 0 && data.frozenColCount <= data.columnCount)
+        ? (data.resolvedColX[data.frozenColCount - 1] + data.resolvedColW[data.frozenColCount - 1])
+        : 0.0f;
     UpdateVisibleColRange(data);
 }
 
@@ -432,9 +557,6 @@ TableRowScope::~TableRowScope() noexcept {
     if (m_table && m_visible) {
         m_table->EndActiveRow();
     }
-    if (m_ctx && m_pushedZone) {
-        m_ctx->PopZone();
-    }
     if (m_ctx && m_visible) {
         m_ctx->PopRowDisabled(m_prevDisabled);
         m_ctx->PopId();
@@ -484,17 +606,23 @@ TableScope::~TableScope() noexcept {
                 sd ? sd->hoveredX : false,
                 sd ? sd->activeX : false,
                 m_data->state->selectedRow,
+                m_data->state->selectedRows.size(),
                 m_data->state->sortColumn,
                 keel::as<keel::u8>(m_data->state->sortDirection),
                 m_data->hoveredRow,
                 m_data->hoveredHeaderCol,
+                m_data->pressedHeaderCol,
                 m_data->hoveredDividerCol,
                 m_data->firstVisibleRow,
                 m_data->endVisibleRow,
                 m_data->firstVisibleCol,
                 m_data->endVisibleCol,
+                m_data->frozenColCount,
                 m_data->state->visibleRows.size()
             );
+            for (keel::usize i = 0; i < m_data->state->selectedRows.size(); ++i) {
+                h = detail::HashArgs(h, m_data->state->selectedRows[i]);
+            }
             for (keel::usize i = 0; i < m_data->columnCount; ++i) {
                 h = detail::HashArgs(h, m_data->resolvedColX[i], m_data->resolvedColW[i]);
             }
@@ -533,6 +661,50 @@ TableScope::~TableScope() noexcept {
             }
         }
         m_node->visualHash = h;
+
+        // When frozenColumns > 0, partition bound cell children into two sibling clip panes:
+        // scrollPane (rendered first, clipped to [frozenW .. right]) and frozenPane (rendered on top,
+        // clipped to [0 .. frozenW]) so horizontally scrolled widgets never bleed over pinned columns.
+        if (m_data->frozenColCount > 0 && m_data->state && !m_data->state->cellBindings.empty()) {
+            m_node->firstChild = nullptr;
+            m_node->lastChild = nullptr;
+            m_node->childCount = 0;
+
+            const Id scrollPaneId(detail::HashArgs(m_node->id.value, keel::u64(0x5343524FULL)));
+            const Id frozenPaneId(detail::HashArgs(m_node->id.value, keel::u64(0x46525A4EULL)));
+            Node* scrollPane = m_ctx->CreateNode(NodeType::Box, scrollPaneId, m_node->disabled);
+            Node* frozenPane = m_ctx->CreateNode(NodeType::Box, frozenPaneId, m_node->disabled);
+            scrollPane->clipChildren = true;
+            frozenPane->clipChildren = true;
+            scrollPane->renderFn = nullptr;
+            frozenPane->renderFn = nullptr;
+
+            auto appendChild = [](Node* parent, Node* child) noexcept {
+                child->parent = parent;
+                child->nextSibling = nullptr;
+                if (!parent->firstChild) {
+                    parent->firstChild = child;
+                    parent->lastChild = child;
+                } else {
+                    parent->lastChild->nextSibling = child;
+                    parent->lastChild = child;
+                }
+                ++parent->childCount;
+            };
+
+            for (const auto& binding : m_data->state->cellBindings) {
+                Node* child = binding.child;
+                if (!child) continue;
+                if (binding.colIndex < m_data->frozenColCount) {
+                    appendChild(frozenPane, child);
+                } else {
+                    appendChild(scrollPane, child);
+                }
+            }
+
+            m_data->scrollPane = scrollPane;
+            m_data->frozenPane = frozenPane;
+        }
     }
 
     m_ctx->PopContainer(m_node);
@@ -552,6 +724,10 @@ keel::usize TableScope::FirstVisibleColumn() const noexcept {
 
 keel::usize TableScope::EndVisibleColumn() const noexcept {
     return m_data ? m_data->endVisibleCol : 0;
+}
+
+keel::usize TableScope::FrozenColumnCount() const noexcept {
+    return m_data ? m_data->frozenColCount : 0;
 }
 
 keel::usize TableScope::ColumnCount() const noexcept {
@@ -576,6 +752,36 @@ bool TableScope::SelectionChanged() const noexcept {
 
 keel::i32 TableScope::SelectedRow() const noexcept {
     return (m_data && m_data->state) ? m_data->state->selectedRow : -1;
+}
+
+bool TableScope::IsRowSelected(keel::usize rowIndex) const noexcept {
+    if (!m_data || !m_data->state) return false;
+    return HasSelectedRow(m_data->state->selectedRows, rowIndex);
+}
+
+keel::usize TableScope::SelectedRowCount() const noexcept {
+    return (m_data && m_data->state) ? m_data->state->selectedRows.size() : 0;
+}
+
+keel::ArrayRef<keel::usize> TableScope::SelectedRows() const noexcept {
+    if (!m_data || !m_data->state || m_data->state->selectedRows.empty()) return {};
+    return keel::ArrayRef<keel::usize>(m_data->state->selectedRows.data(), m_data->state->selectedRows.size());
+}
+
+void TableScope::ClearSelection() noexcept {
+    if (!m_data || !m_data->state) return;
+    if (m_data->state->selectedRow < 0 && m_data->state->selectedRows.empty()) return;
+    m_data->state->selectedRow = -1;
+    m_data->state->selectionAnchor = -1;
+    m_data->state->selectedRows.clear();
+    m_data->selectionChanged = true;
+    if (m_data->opts.selectedRow) {
+        *m_data->opts.selectedRow = -1;
+    }
+    SyncExternalSelectedRowsOut(*m_data->state, m_data->opts.selectedRows);
+    if (m_ctx) {
+        m_ctx->InvalidateRect(m_data->frameRect);
+    }
 }
 
 keel::i32 TableScope::HoveredRow() const noexcept {
@@ -608,6 +814,7 @@ TableRowScope TableScope::Row(keel::usize rowIndex, const TableRowOptions& opts)
     m_data->hasActiveRow = true;
     m_data->activeRowIndex = rowIndex;
     m_data->activeColCursor = 0;
+    m_data->activeRowBindingStart = m_data->state->cellBindings.size();
     m_data->activeRowLastScannedChild = m_node ? m_node->lastChild : nullptr;
 
     m_data->state->visibleRows.push_back(TableRowRecord{
@@ -616,31 +823,28 @@ TableRowScope TableScope::Row(keel::usize rowIndex, const TableRowOptions& opts)
     });
 
     const keel::i32 iRow = keel::as<keel::i32>(rowIndex);
-    const bool selected = (m_data->state->selectedRow == iRow);
+    const bool selected = HasSelectedRow(m_data->state->selectedRows, rowIndex);
     const bool hovered = (m_data->hoveredRow == iRow) && !opts.disabled;
     const bool clicked = (m_data->clickedRow == iRow) && !opts.disabled;
     const bool dblClicked = (m_data->doubleClickedRow == iRow) && !opts.disabled;
 
+    m_data->activeRowSelected = selected;
+    m_data->activeRowDisabled = opts.disabled;
+
     m_ctx->PushId(keel::as<keel::u64>(rowIndex));
     const bool prevDisabled = m_ctx->PushRowDisabled(opts.disabled);
 
-    bool pushedZone = false;
-    const UiTheme& tableTheme = m_node ? m_node->GetTheme(m_ctx->GetTheme()) : m_ctx->GetTheme();
-    if (selected && !opts.disabled && tableTheme.Painter().GetChromeMetrics(tableTheme).solidSelectionHighlight) {
-        UiTheme selTheme = tableTheme;
-        selTheme.palette.textPrimary = tableTheme.palette.accentText;
-        selTheme.palette.textSecondary = tableTheme.palette.accentText.WithAlphaF(0.85f);
-        selTheme.palette.textMuted = tableTheme.palette.accentText.WithAlphaF(0.70f);
-        m_ctx->PushZone(ZoneOptions{.theme = selTheme});
-        pushedZone = true;
-    }
-
-    return TableRowScope(this, m_ctx, rowIndex, true, selected, hovered, clicked, dblClicked, prevDisabled, pushedZone);
+    return TableRowScope(this, m_ctx, rowIndex, true, selected, hovered, clicked, dblClicked, prevDisabled);
 }
 
 void TableScope::EndActiveRow() noexcept {
     if (!m_data || !m_data->hasActiveRow) return;
     SyncActiveRowCells(m_node, *m_data);
+    if (m_data->activeRowSelected && !m_data->activeRowDisabled && m_data->selectedTextZone && m_data->state) {
+        for (keel::usize i = m_data->activeRowBindingStart; i < m_data->state->cellBindings.size(); ++i) {
+            ApplySelectedRowZone(m_data->state->cellBindings[i].child, m_data->selectedTextZone);
+        }
+    }
     m_data->hasActiveRow = false;
 }
 
@@ -649,16 +853,23 @@ ContainerScope TableScope::Cell(const TableCellOptions& opts) {
         return ContainerScope(nullptr, nullptr);
     }
     SyncActiveRowCells(m_node, *m_data);
-    const keel::usize colIdx = m_data->activeColCursor;
-    if (colIdx >= m_data->columnCount) {
+    return CellAt(m_data->activeColCursor, opts);
+}
+
+ContainerScope TableScope::CellAt(keel::usize colIndex, const TableCellOptions& opts) {
+    if (!m_ctx || !m_node || !m_data || !m_data->state || !m_data->hasActiveRow) {
+        return ContainerScope(nullptr, nullptr);
+    }
+    SyncActiveRowCells(m_node, *m_data);
+    if (colIndex >= m_data->columnCount) {
         return ContainerScope(nullptr, nullptr);
     }
 
-    const Id cellId(detail::HashArgs(m_node->id.value, m_data->activeRowIndex, colIdx));
+    const Id cellId(detail::HashArgs(m_node->id.value, m_data->activeRowIndex, colIndex));
     Node* cellNode = m_ctx->CreateNode(NodeType::Cell, cellId);
     cellNode->direction = FlexDirection::Row;
     cellNode->align = Alignment::Center;
-    const Align effectiveAlign = opts.align.value_or(m_data->columns[colIdx].align);
+    const Align effectiveAlign = opts.align.value_or(m_data->columns[colIndex].align);
     cellNode->justify = (effectiveAlign == Align::Center)
         ? Justify::Center
         : ((effectiveAlign == Align::End) ? Justify::End : Justify::Start);
@@ -670,8 +881,9 @@ ContainerScope TableScope::Cell(const TableCellOptions& opts) {
     m_data->state->cellBindings.push_back(TableCellBinding{
         .child = cellNode,
         .rowIndex = m_data->activeRowIndex,
-        .colIndex = m_data->activeColCursor++
+        .colIndex = colIndex
     });
+    m_data->activeColCursor = colIndex + 1;
     m_data->activeRowLastScannedChild = cellNode;
 
     m_ctx->PushContainer(cellNode);
@@ -765,8 +977,37 @@ TableScope detail::Table::Open(
     }
 
     // Sync external bindings into persistent state
-    if (optsCopy.selectedRow) {
-        state.selectedRow = *optsCopy.selectedRow;
+    if (optsCopy.multiSelect) {
+        if (optsCopy.selectedRows.has_target()) {
+            SyncExternalSelectedRowsIn(state, optsCopy.selectedRows);
+            if (optsCopy.selectedRow) {
+                state.selectedRow = *optsCopy.selectedRow;
+            } else if (state.selectedRow >= 0 &&
+                       !HasSelectedRow(state.selectedRows, keel::as<keel::usize>(state.selectedRow))) {
+                state.selectedRow = state.selectedRows.empty()
+                    ? -1
+                    : keel::as<keel::i32>(state.selectedRows[state.selectedRows.size() - 1]);
+            }
+        } else if (optsCopy.selectedRow && *optsCopy.selectedRow != state.selectedRow) {
+            if (*optsCopy.selectedRow >= 0) {
+                SetSingleSelection(state, keel::as<keel::usize>(*optsCopy.selectedRow));
+            } else {
+                state.selectedRow = -1;
+                state.selectionAnchor = -1;
+                state.selectedRows.clear();
+            }
+        }
+    } else {
+        if (optsCopy.selectedRow) {
+            state.selectedRow = *optsCopy.selectedRow;
+        }
+        state.selectedRows.clear();
+        if (state.selectedRow >= 0) {
+            state.selectedRows.push_back(keel::as<keel::usize>(state.selectedRow));
+            state.selectionAnchor = state.selectedRow;
+        } else {
+            state.selectionAnchor = -1;
+        }
     }
     if (optsCopy.sortColumn) {
         state.sortColumn = *optsCopy.sortColumn;
@@ -779,9 +1020,20 @@ TableScope detail::Table::Open(
     data->opts = optsCopy;
     data->opts.tooltip = ctx.AllocText(optsCopy.tooltip);
     data->opts.footerText = ctx.AllocText(optsCopy.footerText);
+    data->opts.emptyText = ctx.AllocText(optsCopy.emptyText);
     data->state = &state;
+    if (theme.Painter().GetChromeMetrics(theme).solidSelectionHighlight) {
+        auto* selTheme = ctx.AllocPayload<UiTheme>(theme);
+        selTheme->palette.textPrimary = theme.palette.accentText;
+        selTheme->palette.textSecondary = theme.palette.accentText.WithAlphaF(0.85f);
+        selTheme->palette.textMuted = theme.palette.accentText.WithAlphaF(0.70f);
+        auto* selZone = ctx.AllocPayload<Zone>(*node->zone);
+        selZone->theme = selTheme;
+        data->selectedTextZone = selZone;
+    }
 
     data->columnCount = colCount;
+    data->frozenColCount = keel::min<keel::usize>(optsCopy.frozenColumns, colCount);
     if (colCount > 0) {
         auto& arena = ctx.GetArena();
         data->columns = arena.alloc_array<TableColumn>(colCount);
@@ -965,77 +1217,120 @@ TableScope detail::Table::Open(
                 ctx.RequestRepaint(2);
             }
         } else if (!interactingScrollbar && optsCopy.stickyHeader && headerHitRect.Contains(mousePos) && !ctx.IsMouseOccluded(id, mousePos)) {
-            const keel::f32 localHeaderX = mousePos.x - data->headerRect.x + state.scrollOffset.x;
+            const keel::f32 frozenClipW = (data->frozenColCount > 0)
+                ? keel::clamp(data->frozenAreaW, 0.0f, keel::max(0.0f, data->headerRect.w))
+                : 0.0f;
+            const keel::f32 frozenBoundaryX = data->headerRect.x + frozenClipW;
 
-            // Check column divider grips first (within visible column range)
+            // Check column divider grips first (frozen columns take priority over scrolled columns)
             if (optsCopy.resizableColumns) {
-                const keel::usize hitStart = (data->firstVisibleCol > 0) ? (data->firstVisibleCol - 1) : 0;
-                for (keel::usize i = hitStart; i < data->endVisibleCol; ++i) {
-                    if (!data->columns[i].resizable) continue;
-                    const keel::f32 divX = data->resolvedColX[i] + data->resolvedColW[i];
-                    if (keel::abs(localHeaderX - divX) <= gripHalfW) {
-                        data->hoveredDividerCol = keel::as<keel::i32>(i);
-                        ctx.SetCursor(CursorType::ResizeEW);
-                        if (mouseClicked) {
-                            const keel::f64 now = (ctx.GetCurrentTime)();
-                            if (state.lastDividerCol == keel::as<keel::i32>(i) && (now - state.lastDividerClickTime) <= 0.35) {
-                                for (keel::usize k = 0; k < state.hasUserColWidth.size(); ++k) {
-                                    state.hasUserColWidth[k] = 0u;
-                                }
-                                state.resizingCol = -1;
-                                ResolveColumnWidths(*data, visibleColsW, theme);
-                                const keel::f32 newMaxScrollX = keel::max(0.0f, data->totalColumnsW - visibleColsW);
-                                state.scrollOffset.x = keel::clamp(state.scrollOffset.x, 0.0f, newMaxScrollX);
-                                UpdateVisibleColRange(*data);
-                                ctx.InvalidateRect(data->frameRect);
-                                ctx.RequestRepaint(2);
-                            } else {
-                                // Snapshot all current resolved column widths so flex columns to the left
-                                // do not counter-shrink or shift the left border of column `i` during drag!
-                                for (keel::usize j = 0; j < data->columnCount; ++j) {
-                                    if (state.hasUserColWidth[j] == 0u) {
-                                        state.userColWidths[j] = data->resolvedColW[j];
-                                        state.hasUserColWidth[j] = 1u;
-                                    }
-                                }
-                                state.resizingCol = keel::as<keel::i32>(i);
-                                state.resizeStartX = mousePos.x;
-                                state.resizeStartWidth = data->resolvedColW[i];
-                                ctx.SetActiveId(id);
-                                ctx.InvalidateRect(data->frameRect);
-                                ctx.RequestRepaint(2);
-                            }
-                            state.lastDividerClickTime = now;
-                            state.lastDividerCol = keel::as<keel::i32>(i);
+                keel::i32 hitDivCol = -1;
+                if (frozenClipW > 0.0f && mousePos.x <= frozenBoundaryX + gripHalfW) {
+                    for (keel::usize i = 0; i < data->frozenColCount; ++i) {
+                        if (!data->columns[i].resizable) continue;
+                        const keel::f32 divScreenX = data->headerRect.x + data->resolvedColX[i] + data->resolvedColW[i];
+                        if (divScreenX <= frozenBoundaryX + gripHalfW && keel::abs(mousePos.x - divScreenX) <= gripHalfW) {
+                            hitDivCol = keel::as<keel::i32>(i);
+                            break;
                         }
-                        break;
+                    }
+                }
+                if (hitDivCol < 0 && mousePos.x > frozenBoundaryX) {
+                    const keel::usize hitStart = (data->firstVisibleCol > data->frozenColCount)
+                        ? (data->firstVisibleCol - 1)
+                        : data->frozenColCount;
+                    for (keel::usize i = hitStart; i < data->endVisibleCol; ++i) {
+                        if (!data->columns[i].resizable) continue;
+                        const keel::f32 divScreenX = data->headerRect.x + data->resolvedColX[i] + data->resolvedColW[i] - state.scrollOffset.x;
+                        if (divScreenX > frozenBoundaryX && keel::abs(mousePos.x - divScreenX) <= gripHalfW) {
+                            hitDivCol = keel::as<keel::i32>(i);
+                            break;
+                        }
+                    }
+                }
+
+                if (hitDivCol >= 0) {
+                    const keel::usize colIdx = keel::as<keel::usize>(hitDivCol);
+                    data->hoveredDividerCol = hitDivCol;
+                    ctx.SetCursor(CursorType::ResizeEW);
+                    if (mouseClicked) {
+                        const keel::f64 now = (ctx.GetCurrentTime)();
+                        if (state.lastDividerCol == hitDivCol && (now - state.lastDividerClickTime) <= 0.35) {
+                            for (keel::usize k = 0; k < state.hasUserColWidth.size(); ++k) {
+                                state.hasUserColWidth[k] = 0u;
+                            }
+                            state.resizingCol = -1;
+                            ResolveColumnWidths(*data, visibleColsW, theme);
+                            const keel::f32 newMaxScrollX = keel::max(0.0f, data->totalColumnsW - visibleColsW);
+                            state.scrollOffset.x = keel::clamp(state.scrollOffset.x, 0.0f, newMaxScrollX);
+                            UpdateVisibleColRange(*data);
+                            ctx.InvalidateRect(data->frameRect);
+                            ctx.RequestRepaint(2);
+                        } else {
+                            // Snapshot all current resolved column widths so flex columns to the left
+                            // do not counter-shrink or shift the left border of column `colIdx` during drag!
+                            for (keel::usize j = 0; j < data->columnCount; ++j) {
+                                if (state.hasUserColWidth[j] == 0u) {
+                                    state.userColWidths[j] = data->resolvedColW[j];
+                                    state.hasUserColWidth[j] = 1u;
+                                }
+                            }
+                            state.resizingCol = hitDivCol;
+                            state.resizeStartX = mousePos.x;
+                            state.resizeStartWidth = data->resolvedColW[colIdx];
+                            ctx.SetActiveId(id);
+                            ctx.InvalidateRect(data->frameRect);
+                            ctx.RequestRepaint(2);
+                        }
+                        state.lastDividerClickTime = now;
+                        state.lastDividerCol = hitDivCol;
                     }
                 }
             }
 
             // If not hovering a resize divider, check column header hover & click-to-sort
             if (data->hoveredDividerCol < 0 && data->headerRect.Contains(mousePos)) {
-                for (keel::usize i = data->firstVisibleCol; i < data->endVisibleCol; ++i) {
-                    const keel::f32 colLeft = data->resolvedColX[i];
-                    const keel::f32 colRight = colLeft + data->resolvedColW[i];
-                    if (localHeaderX >= colLeft && localHeaderX < colRight) {
-                        data->hoveredHeaderCol = keel::as<keel::i32>(i);
-                        if (mouseClicked && data->columns[i].sortable) {
-                            if (state.sortColumn == keel::as<keel::i32>(i)) {
-                                state.sortDirection = (state.sortDirection == TableSortDirection::Ascending)
-                                    ? TableSortDirection::Descending
-                                    : TableSortDirection::Ascending;
-                            } else {
-                                state.sortColumn = keel::as<keel::i32>(i);
-                                state.sortDirection = TableSortDirection::Ascending;
-                            }
-                            data->sortChanged = true;
-                            if (optsCopy.sortColumn) *optsCopy.sortColumn = state.sortColumn;
-                            if (optsCopy.sortDirection) *optsCopy.sortDirection = state.sortDirection;
-                            ctx.InvalidateRect(data->frameRect);
-                            ctx.RequestRepaint(2);
+                keel::i32 hitHdrCol = -1;
+                if (frozenClipW > 0.0f && mousePos.x <= frozenBoundaryX) {
+                    for (keel::usize i = 0; i < data->frozenColCount; ++i) {
+                        const keel::f32 colLeft = data->headerRect.x + data->resolvedColX[i];
+                        const keel::f32 colRight = colLeft + data->resolvedColW[i];
+                        if (mousePos.x >= colLeft && mousePos.x < colRight) {
+                            hitHdrCol = keel::as<keel::i32>(i);
+                            break;
                         }
-                        break;
+                    }
+                } else {
+                    for (keel::usize i = data->firstVisibleCol; i < data->endVisibleCol; ++i) {
+                        const keel::f32 colLeft = data->headerRect.x + data->resolvedColX[i] - state.scrollOffset.x;
+                        const keel::f32 colRight = colLeft + data->resolvedColW[i];
+                        if (mousePos.x >= colLeft && mousePos.x < colRight) {
+                            hitHdrCol = keel::as<keel::i32>(i);
+                            break;
+                        }
+                    }
+                }
+
+                if (hitHdrCol >= 0) {
+                    const keel::usize colIdx = keel::as<keel::usize>(hitHdrCol);
+                    data->hoveredHeaderCol = hitHdrCol;
+                    if (mouseDown && data->columns[colIdx].sortable) {
+                        data->pressedHeaderCol = hitHdrCol;
+                    }
+                    if (mouseClicked && data->columns[colIdx].sortable) {
+                        if (state.sortColumn == hitHdrCol) {
+                            state.sortDirection = (state.sortDirection == TableSortDirection::Ascending)
+                                ? TableSortDirection::Descending
+                                : TableSortDirection::Ascending;
+                        } else {
+                            state.sortColumn = hitHdrCol;
+                            state.sortDirection = TableSortDirection::Ascending;
+                        }
+                        data->sortChanged = true;
+                        if (optsCopy.sortColumn) *optsCopy.sortColumn = state.sortColumn;
+                        if (optsCopy.sortDirection) *optsCopy.sortDirection = state.sortDirection;
+                        ctx.InvalidateRect(data->frameRect);
+                        ctx.RequestRepaint(2);
                     }
                 }
             }
@@ -1053,23 +1348,63 @@ TableScope detail::Table::Open(
             const keel::f32 contentY = (mousePos.y - data->bodyViewportRect.y) + state.scrollOffset.y;
             if (contentY >= 0.0f && data->rowHeight > 0.0f) {
                 const keel::usize hitRow = keel::as<keel::usize>(contentY / data->rowHeight);
-                if (knownTotalRows == 0 || hitRow < knownTotalRows) {
-                    data->hoveredRow = keel::as<keel::i32>(hitRow);
+                if (knownTotalRows > 0 && hitRow < knownTotalRows) {
+                    const keel::i32 iHitRow = keel::as<keel::i32>(hitRow);
+                    data->hoveredRow = iHitRow;
                     if (mouseClicked) {
-                        data->clickedRow = keel::as<keel::i32>(hitRow);
+                        data->clickedRow = iHitRow;
                         const keel::f64 now = (ctx.GetCurrentTime)();
-                        if (state.lastClickRow == keel::as<keel::i32>(hitRow) && (now - state.lastClickTime) <= 0.35) {
-                            data->doubleClickedRow = keel::as<keel::i32>(hitRow);
+                        if (state.lastClickRow == iHitRow && (now - state.lastClickTime) <= 0.35) {
+                            data->doubleClickedRow = iHitRow;
                         }
                         state.lastClickTime = now;
-                        state.lastClickRow = keel::as<keel::i32>(hitRow);
+                        state.lastClickRow = iHitRow;
 
-                        if (state.selectedRow != keel::as<keel::i32>(hitRow)) {
-                            state.selectedRow = keel::as<keel::i32>(hitRow);
+                        const KeyModifiers mods = ctx.GetKeyModifiers();
+                        const bool ctrlOrCmd = mods.ctrl;
+                        bool selMutated = false;
+
+                        if (optsCopy.multiSelect) {
+                            if (mods.shift && state.selectionAnchor >= 0) {
+                                SetRangeSelection(state, keel::as<keel::usize>(state.selectionAnchor), hitRow, ctrlOrCmd);
+                                state.selectedRow = iHitRow;
+                                selMutated = true;
+                            } else if (ctrlOrCmd) {
+                                if (HasSelectedRow(state.selectedRows, hitRow)) {
+                                    RemoveSelectedRow(state.selectedRows, hitRow);
+                                    if (state.selectedRow == iHitRow) {
+                                        state.selectedRow = state.selectedRows.empty()
+                                            ? -1
+                                            : keel::as<keel::i32>(state.selectedRows[state.selectedRows.size() - 1]);
+                                    }
+                                } else {
+                                    InsertSelectedRow(state.selectedRows, hitRow);
+                                    state.selectedRow = iHitRow;
+                                    state.selectionAnchor = iHitRow;
+                                }
+                                selMutated = true;
+                            } else {
+                                const bool alreadyOnlyThis = (state.selectedRows.size() == 1 &&
+                                    state.selectedRows[0] == hitRow &&
+                                    state.selectedRow == iHitRow);
+                                if (!alreadyOnlyThis) {
+                                    SetSingleSelection(state, hitRow);
+                                    selMutated = true;
+                                }
+                            }
+                        } else {
+                            if (state.selectedRow != iHitRow || state.selectedRows.size() != 1 || state.selectedRows[0] != hitRow) {
+                                SetSingleSelection(state, hitRow);
+                                selMutated = true;
+                            }
+                        }
+
+                        if (selMutated) {
                             data->selectionChanged = true;
                             if (optsCopy.selectedRow) {
                                 *optsCopy.selectedRow = state.selectedRow;
                             }
+                            SyncExternalSelectedRowsOut(state, optsCopy.selectedRows);
                             ctx.InvalidateRect(data->frameRect);
                         }
                         const Id focusedId = ctx.GetFocusedId();
@@ -1086,39 +1421,79 @@ TableScope detail::Table::Open(
 
         // 4. Keyboard navigation when table is focused or hovered
         if ((ctx.IsFocused(id) || tableHovered) && knownTotalRows > 0) {
-            keel::i32 nextSel = state.selectedRow;
-            if (ctx.ConsumeAction(KeyAction::MoveDown)) {
-                nextSel = keel::clamp(nextSel + 1, 0, keel::as<keel::i32>(knownTotalRows) - 1);
-            } else if (ctx.ConsumeAction(KeyAction::MoveUp)) {
-                nextSel = keel::clamp((nextSel < 0 ? 0 : nextSel - 1), 0, keel::as<keel::i32>(knownTotalRows) - 1);
-            } else if (ctx.ConsumeAction(KeyAction::MoveLineStart) || ctx.ConsumeAction(KeyAction::MoveDocStart)) {
-                nextSel = 0;
-            } else if (ctx.ConsumeAction(KeyAction::MoveLineEnd) || ctx.ConsumeAction(KeyAction::MoveDocEnd)) {
-                nextSel = keel::as<keel::i32>(knownTotalRows) - 1;
-            } else if (ctx.ConsumeAction(KeyAction::MovePageDown)) {
-                const keel::i32 pageStep = keel::max(1, keel::as<keel::i32>(state.lastViewportHeight / keel::max(1.0f, data->rowHeight)));
-                nextSel = keel::clamp((nextSel < 0 ? 0 : nextSel) + pageStep, 0, keel::as<keel::i32>(knownTotalRows) - 1);
-            } else if (ctx.ConsumeAction(KeyAction::MovePageUp)) {
-                const keel::i32 pageStep = keel::max(1, keel::as<keel::i32>(state.lastViewportHeight / keel::max(1.0f, data->rowHeight)));
-                nextSel = keel::clamp((nextSel < 0 ? 0 : nextSel) - pageStep, 0, keel::as<keel::i32>(knownTotalRows) - 1);
-            }
-
-            if (nextSel != state.selectedRow && nextSel >= 0) {
-                state.selectedRow = nextSel;
+            const keel::i32 maxRow = keel::as<keel::i32>(knownTotalRows) - 1;
+            if (optsCopy.multiSelect && ctx.IsFocused(id) && ctx.ConsumeAction(KeyAction::SelectAll)) {
+                SetRangeSelection(state, 0, knownTotalRows - 1, false);
+                if (state.selectedRow < 0) state.selectedRow = 0;
+                if (state.selectionAnchor < 0) state.selectionAnchor = 0;
                 data->selectionChanged = true;
                 if (optsCopy.selectedRow) {
                     *optsCopy.selectedRow = state.selectedRow;
                 }
-                // Keep newly selected row in view (above any horizontal scrollbar)
-                const keel::f32 rTop = keel::as<keel::f32>(nextSel) * data->rowHeight;
-                const keel::f32 rBot = rTop + data->rowHeight;
-                if (rTop < state.scrollOffset.y) {
-                    state.scrollOffset.y = rTop;
-                } else if (rBot > state.scrollOffset.y + visibleRowsH) {
-                    state.scrollOffset.y = keel::max(0.0f, rBot - visibleRowsH);
-                }
+                SyncExternalSelectedRowsOut(state, optsCopy.selectedRows);
                 ctx.InvalidateRect(data->frameRect);
                 ctx.RequestRepaint(2);
+            } else {
+                keel::i32 nextSel = state.selectedRow;
+                bool extendRange = false;
+                bool moved = false;
+
+                if (optsCopy.multiSelect && ctx.ConsumeAction(KeyAction::SelectDown)) {
+                    nextSel = keel::clamp(nextSel + 1, 0, maxRow);
+                    extendRange = true;
+                    moved = true;
+                } else if (optsCopy.multiSelect && ctx.ConsumeAction(KeyAction::SelectUp)) {
+                    nextSel = keel::clamp((nextSel < 0 ? 0 : nextSel - 1), 0, maxRow);
+                    extendRange = true;
+                    moved = true;
+                } else if (ctx.ConsumeAction(KeyAction::MoveDown)) {
+                    nextSel = keel::clamp(nextSel + 1, 0, maxRow);
+                    moved = true;
+                } else if (ctx.ConsumeAction(KeyAction::MoveUp)) {
+                    nextSel = keel::clamp((nextSel < 0 ? 0 : nextSel - 1), 0, maxRow);
+                    moved = true;
+                } else if (ctx.ConsumeAction(KeyAction::MoveLineStart) || ctx.ConsumeAction(KeyAction::MoveDocStart)) {
+                    nextSel = 0;
+                    moved = true;
+                } else if (ctx.ConsumeAction(KeyAction::MoveLineEnd) || ctx.ConsumeAction(KeyAction::MoveDocEnd)) {
+                    nextSel = maxRow;
+                    moved = true;
+                } else if (ctx.ConsumeAction(KeyAction::MovePageDown)) {
+                    const keel::i32 pageStep = keel::max(1, keel::as<keel::i32>(state.lastViewportHeight / keel::max(1.0f, data->rowHeight)));
+                    nextSel = keel::clamp((nextSel < 0 ? 0 : nextSel) + pageStep, 0, maxRow);
+                    moved = true;
+                } else if (ctx.ConsumeAction(KeyAction::MovePageUp)) {
+                    const keel::i32 pageStep = keel::max(1, keel::as<keel::i32>(state.lastViewportHeight / keel::max(1.0f, data->rowHeight)));
+                    nextSel = keel::clamp((nextSel < 0 ? 0 : nextSel) - pageStep, 0, maxRow);
+                    moved = true;
+                }
+
+                if (moved && nextSel >= 0 && (nextSel != state.selectedRow || (!extendRange && state.selectedRows.size() > 1))) {
+                    if (extendRange) {
+                        if (state.selectionAnchor < 0) {
+                            state.selectionAnchor = (state.selectedRow >= 0) ? state.selectedRow : nextSel;
+                        }
+                        SetRangeSelection(state, keel::as<keel::usize>(state.selectionAnchor), keel::as<keel::usize>(nextSel), false);
+                        state.selectedRow = nextSel;
+                    } else {
+                        SetSingleSelection(state, keel::as<keel::usize>(nextSel));
+                    }
+                    data->selectionChanged = true;
+                    if (optsCopy.selectedRow) {
+                        *optsCopy.selectedRow = state.selectedRow;
+                    }
+                    SyncExternalSelectedRowsOut(state, optsCopy.selectedRows);
+                    // Keep newly selected row in view (above any horizontal scrollbar)
+                    const keel::f32 rTop = keel::as<keel::f32>(nextSel) * data->rowHeight;
+                    const keel::f32 rBot = rTop + data->rowHeight;
+                    if (rTop < state.scrollOffset.y) {
+                        state.scrollOffset.y = rTop;
+                    } else if (rBot > state.scrollOffset.y + visibleRowsH) {
+                        state.scrollOffset.y = keel::max(0.0f, rBot - visibleRowsH);
+                    }
+                    ctx.InvalidateRect(data->frameRect);
+                    ctx.RequestRepaint(2);
+                }
             }
         }
 
@@ -1153,6 +1528,12 @@ TableScope detail::Table::Open(
         optsCopy.showRowNumbers,
         optsCopy.showFooter,
         optsCopy.footerText.text,
+        optsCopy.emptyText.text,
+        optsCopy.frozenColumns,
+        optsCopy.multiSelect,
+        data->rowHeight,
+        data->headerHeight,
+        data->footerHeight,
         data->columnCount,
         activeDisabled
     );
@@ -1281,6 +1662,27 @@ void detail::Table::Arrange(
         data->state->lastViewportHeight = data->bodyViewportRect.h;
     }
 
+    // Update frozen/scroll clip pane bounds when frozenColumns > 0
+    const keel::f32 frozenClipW = (data->frozenColCount > 0)
+        ? keel::clamp(data->frozenAreaW, 0.0f, keel::max(0.0f, data->bodyViewportRect.w))
+        : 0.0f;
+    if (data->scrollPane) {
+        data->scrollPane->computedRect = Rect(
+            data->bodyViewportRect.x + frozenClipW,
+            data->bodyViewportRect.y,
+            keel::max(0.0f, data->bodyViewportRect.w - frozenClipW),
+            data->bodyViewportRect.h
+        );
+    }
+    if (data->frozenPane) {
+        data->frozenPane->computedRect = Rect(
+            data->bodyViewportRect.x,
+            data->bodyViewportRect.y,
+            frozenClipW,
+            data->bodyViewportRect.h
+        );
+    }
+
     // Position all bound cell children (both direct widgets and explicit NodeType::Cell containers)
     // inside the virtualized body viewport
     const Vec2 scrollOff = node->GetScrollOffset();
@@ -1294,7 +1696,8 @@ void detail::Table::Arrange(
         }
 
         const keel::usize rowIndex = binding.rowIndex;
-        const keel::f32 cellX = data->bodyViewportRect.x + data->resolvedColX[colIdx] - scrollOff.x;
+        const bool isFrozen = (colIdx < data->frozenColCount);
+        const keel::f32 cellX = data->bodyViewportRect.x + data->resolvedColX[colIdx] - (isFrozen ? 0.0f : scrollOff.x);
         const keel::f32 cellY = data->bodyViewportRect.y + keel::as<keel::f32>(rowIndex) * data->rowHeight - scrollOff.y;
         const keel::f32 cellW = data->resolvedColW[colIdx];
         const keel::f32 cellH = data->rowHeight;
@@ -1499,11 +1902,15 @@ void detail::Table::RenderBody(
         }
         canvas.PushClip(data->bodyViewportRect);
 
-        const keel::f32 bodyFontSize = ResolveTableFontSize(node->uiSize, theme, false);
+        const keel::f32 bodyFontSize = ResolveTableFontSize(UiText{}, TextRole::BodyMedium, theme);
         const keel::f32 cellPadX = 8.0f;
+        const keel::f32 frozenClipW = (data->frozenColCount > 0)
+            ? keel::clamp(data->frozenAreaW, 0.0f, keel::max(0.0f, data->bodyViewportRect.w))
+            : 0.0f;
 
         // Draw row backgrounds (selection/hover via IStylePainter, tint, zebra striping, horizontal grid lines)
         const Vec2 scrollOff = node->GetScrollOffset();
+        const keel::f32 rowNumScrollX = (data->frozenColCount > 0) ? 0.0f : scrollOff.x;
         for (const auto& rowRec : data->state->visibleRows) {
             const keel::usize rIdx = rowRec.rowIndex;
             const keel::f32 rowY = data->bodyViewportRect.y + keel::as<keel::f32>(rIdx) * data->rowHeight - scrollOff.y;
@@ -1512,7 +1919,7 @@ void detail::Table::RenderBody(
             if (!rowRect.Intersects(data->bodyViewportRect)) continue;
 
             const keel::i32 iRow = keel::as<keel::i32>(rIdx);
-            const bool isSelected = (data->state->selectedRow == iRow);
+            const bool isSelected = HasSelectedRow(data->state->selectedRows, rIdx);
             const bool isHovered = data->opts.hoverableRows && (data->hoveredRow == iRow) && !rowRec.opts.disabled;
 
             bool usedSolidSelection = false;
@@ -1554,12 +1961,12 @@ void detail::Table::RenderBody(
                 canvas.DrawRect(rowRect, pal.surfaceElevated.WithAlpha(90));
             }
 
-            // Optional automatic '#' row number cell
+            // Optional automatic '#' row number cell (pinned when frozenColumns > 0)
             if (data->opts.showRowNumbers && data->rowNumberColW > 0.0f) {
                 char numBuf[24]{};
                 const keel::StringRef numStr = keel::format_buf(numBuf, "%zu", rIdx + 1);
                 const Rect numRect(
-                    data->bodyViewportRect.x - scrollOff.x + cellPadX * 0.5f,
+                    data->bodyViewportRect.x - rowNumScrollX + cellPadX * 0.5f,
                     rowY,
                     keel::max(0.0f, data->rowNumberColW - cellPadX),
                     data->rowHeight
@@ -1585,10 +1992,10 @@ void detail::Table::RenderBody(
             }
         }
 
-        // Draw vertical column grid lines across the body viewport (culled to visible columns)
+        // Draw vertical column grid lines across the body viewport (frozen + visible scrollable columns)
         if (data->opts.gridLines) {
             if (data->opts.showRowNumbers && data->rowNumberColW > 0.0f) {
-                const keel::f32 divX = keel::floor(data->bodyViewportRect.x + data->rowNumberColW - scrollOff.x) + 0.5f;
+                const keel::f32 divX = keel::floor(data->bodyViewportRect.x + data->rowNumberColW - rowNumScrollX) + 0.5f;
                 if (divX >= data->bodyViewportRect.x && divX <= data->bodyViewportRect.Right()) {
                     canvas.DrawLine(
                         Vec2(divX, data->bodyViewportRect.y),
@@ -1598,11 +2005,25 @@ void detail::Table::RenderBody(
                     );
                 }
             }
+            for (keel::usize i = 0; i < data->frozenColCount; ++i) {
+                const keel::f32 divX = keel::floor(
+                    data->bodyViewportRect.x + data->resolvedColX[i] + data->resolvedColW[i]
+                ) + 0.5f;
+                if (divX >= data->bodyViewportRect.x && divX < data->bodyViewportRect.Right() - 0.5f) {
+                    canvas.DrawLine(
+                        Vec2(divX, data->bodyViewportRect.y),
+                        Vec2(divX, data->bodyViewportRect.Bottom()),
+                        pal.borderSubtle.WithAlpha(95),
+                        1.0f
+                    );
+                }
+            }
+            const keel::f32 scrollLeftBound = data->bodyViewportRect.x + frozenClipW + 0.5f;
             for (keel::usize i = data->firstVisibleCol; i < data->endVisibleCol; ++i) {
                 const keel::f32 divX = keel::floor(
                     data->bodyViewportRect.x + data->resolvedColX[i] + data->resolvedColW[i] - scrollOff.x
                 ) + 0.5f;
-                if (divX >= data->bodyViewportRect.x && divX < data->bodyViewportRect.Right() - 0.5f) {
+                if (divX > scrollLeftBound && divX < data->bodyViewportRect.Right() - 0.5f) {
                     canvas.DrawLine(
                         Vec2(divX, data->bodyViewportRect.y),
                         Vec2(divX, data->bodyViewportRect.Bottom()),
@@ -1613,14 +2034,39 @@ void detail::Table::RenderBody(
             }
         }
 
+        // Draw centered empty-state placeholder when dataset is empty
+        const keel::usize totalRows = (data->opts.totalRows > 0)
+            ? data->opts.totalRows
+            : data->emittedRowCount;
+        if (totalRows == 0 && !data->opts.emptyText.empty()) {
+            const Rect emptyRect(
+                data->bodyViewportRect.x + 16.0f,
+                data->bodyViewportRect.y + 8.0f,
+                keel::max(0.0f, data->bodyViewportRect.w - data->scrollbarGutterW - 32.0f),
+                keel::max(0.0f, data->bodyViewportRect.h - data->scrollbarGutterH - 16.0f)
+            );
+            if (emptyRect.w > 4.0f && emptyRect.h > 4.0f) {
+                const keel::f32 emptyFontSize = ResolveTableFontSize(data->opts.emptyText, TextRole::BodyMedium, theme);
+                canvas.DrawTextBox(
+                    data->opts.emptyText.text,
+                    emptyRect,
+                    emptyFontSize,
+                    theme.ResolveColor(data->opts.emptyText.color, false, false, node->disabled, pal.textMuted),
+                    0.5f,
+                    0.5f
+                );
+            }
+        }
+
         // Draw full-height vertical resize guide line when hovering or dragging a column divider
         const keel::i32 activeDivCol = (data->state->resizingCol >= 0)
             ? data->state->resizingCol
             : data->hoveredDividerCol;
         if (activeDivCol >= 0 && keel::as<keel::usize>(activeDivCol) < data->columnCount) {
             const keel::usize colIdx = keel::as<keel::usize>(activeDivCol);
+            const bool divFrozen = (colIdx < data->frozenColCount);
             const keel::f32 guideX = keel::clamp(
-                keel::floor(data->bodyViewportRect.x + data->resolvedColX[colIdx] + data->resolvedColW[colIdx] - scrollOff.x) + 0.5f,
+                keel::floor(data->bodyViewportRect.x + data->resolvedColX[colIdx] + data->resolvedColW[colIdx] - (divFrozen ? 0.0f : scrollOff.x)) + 0.5f,
                 data->bodyViewportRect.x + 1.0f,
                 data->bodyViewportRect.Right() - 1.5f
             );
@@ -1663,46 +2109,72 @@ void detail::Table::RenderChromeAndScrollbars(
         canvas.PushRoundedClip(data->innerFrameRect, innerRadius);
     }
 
-    // 1. Render sticky column header bar (culled to visible columns)
+    // 1. Render sticky column header bar (scrollable + frozen columns via IStylePainter::DrawTableHeaderCell)
     const Vec2 scrollOff = node->GetScrollOffset();
+    const keel::f32 headerFrozenClipW = (data->frozenColCount > 0)
+        ? keel::clamp(data->frozenAreaW, 0.0f, keel::max(0.0f, data->headerRect.w))
+        : 0.0f;
+
     if (data->opts.stickyHeader && data->headerRect.w > 0.0f && data->headerRect.h > 0.0f) {
         canvas.PushClip(data->headerRect);
         canvas.DrawRect(data->headerRect, pal.surfaceElevated);
 
-        const keel::f32 headerFontSize = ResolveTableFontSize(node->uiSize, theme, true);
+        const keel::f32 headerFontSize = ResolveTableFontSize(UiText{}, TextRole::LabelSmall, theme);
 
-        if (data->opts.showRowNumbers && data->rowNumberColW > 0.0f) {
+        auto drawRowNumHeader = [&](keel::f32 x) {
+            const Rect cellRect(x, data->headerRect.y, data->rowNumberColW, data->headerRect.h);
+            if (!cellRect.Intersects(data->headerRect)) return;
+            theme.Painter().DrawTableHeaderCell(canvas, theme, TableHeaderCellPaintParams{
+                .rect = cellRect,
+                .hovered = false,
+                .pressed = false,
+                .sorted = false,
+                .sortable = false,
+                .dividerActive = false,
+                .showRightDivider = true,
+                .isFrozenSeam = false
+            });
             const Rect numHdrRect(
-                data->headerRect.x - scrollOff.x + cellPadX * 0.5f,
+                x + cellPadX * 0.5f,
                 data->headerRect.y,
                 keel::max(0.0f, data->rowNumberColW - cellPadX),
                 data->headerRect.h
             );
             canvas.DrawTextBox("#", numHdrRect, headerFontSize, pal.textMuted, 1.0f, 0.5f);
-        }
+        };
 
-        for (keel::usize i = data->firstVisibleCol; i < data->endVisibleCol; ++i) {
+        auto drawHeaderCol = [&](keel::usize i, keel::f32 colX, bool isFrozenSeam) {
             const auto& col = data->columns[i];
-            const keel::f32 colX = data->headerRect.x + data->resolvedColX[i] - scrollOff.x;
             const keel::f32 colW = data->resolvedColW[i];
             const Rect colHdrRect(colX, data->headerRect.y, colW, data->headerRect.h);
+            if (!colHdrRect.Intersects(data->headerRect)) return;
 
-            if (!colHdrRect.Intersects(data->headerRect)) continue;
-
-            const bool isHovered = (data->hoveredHeaderCol == keel::as<keel::i32>(i)) && col.sortable;
-            const bool isSorted = (data->state->sortColumn == keel::as<keel::i32>(i)) &&
+            const keel::i32 iCol = keel::as<keel::i32>(i);
+            const bool isHovered = (data->hoveredHeaderCol == iCol) && col.sortable;
+            const bool isPressed = (data->pressedHeaderCol == iCol) && col.sortable;
+            const bool isSorted = (data->state->sortColumn == iCol) &&
                                   (data->state->sortDirection != TableSortDirection::None);
+            const bool dividerActive = (data->state->resizingCol == iCol) ||
+                                       (data->hoveredDividerCol == iCol);
 
-            if (isHovered) {
-                canvas.DrawRect(colHdrRect, pal.surfaceHover);
-            } else if (isSorted) {
-                canvas.DrawRect(colHdrRect, pal.accent.WithAlpha(20));
-            }
+            theme.Painter().DrawTableHeaderCell(canvas, theme, TableHeaderCellPaintParams{
+                .rect = colHdrRect,
+                .hovered = isHovered,
+                .pressed = isPressed,
+                .sorted = isSorted,
+                .sortable = col.sortable,
+                .dividerActive = dividerActive,
+                .showRightDivider = true,
+                .isFrozenSeam = isFrozenSeam
+            });
+
+            const keel::f32 pressShift = theme.Painter().GetButtonContentOffset(theme, isPressed, false, node->disabled);
+            const Vec2 pressOff(pressShift, pressShift);
 
             const keel::f32 sortArrowReserve = col.sortable ? 14.0f : 0.0f;
             Rect titleRect(
-                colX + cellPadX,
-                data->headerRect.y,
+                colX + cellPadX + pressOff.x,
+                data->headerRect.y + pressOff.y,
                 keel::max(0.0f, colW - cellPadX * 2.0f - sortArrowReserve),
                 data->headerRect.h
             );
@@ -1710,24 +2182,33 @@ void detail::Table::RenderChromeAndScrollbars(
             const Color titleCol = isSorted ? pal.accent : pal.textSecondary;
             if (col.icon.IsValid()) {
                 const keel::f32 iconSz = 13.0f;
-                const Rect iconRect(titleRect.x, data->headerRect.y + (data->headerRect.h - iconSz) * 0.5f, iconSz, iconSz);
+                const Rect iconRect(
+                    titleRect.x,
+                    data->headerRect.y + (data->headerRect.h - iconSz) * 0.5f + pressOff.y,
+                    iconSz,
+                    iconSz
+                );
                 col.icon.Draw(canvas, iconRect, titleCol);
                 titleRect.x += iconSz + 5.0f;
                 titleRect.w = keel::max(0.0f, titleRect.w - (iconSz + 5.0f));
             }
 
             if (!col.title.empty() && titleRect.w > 2.0f) {
+                const keel::f32 colFontSize = ResolveTableFontSize(col.title, TextRole::LabelSmall, theme);
+                const Color resolvedTitleCol = isSorted
+                    ? titleCol
+                    : theme.ResolveColor(col.title.color, isHovered, isPressed, node->disabled, titleCol);
                 const auto truncated = TextUtil::TruncateWithEllipsis(
                     col.title.text,
                     titleRect.w,
-                    headerFontSize,
+                    colFontSize,
                     &canvas
                 );
                 canvas.DrawTextBox(
                     truncated,
                     titleRect,
-                    headerFontSize,
-                    titleCol,
+                    colFontSize,
+                    resolvedTitleCol,
                     AlignToFactor(col.align),
                     0.5f
                 );
@@ -1735,8 +2216,8 @@ void detail::Table::RenderChromeAndScrollbars(
 
             // Draw sort indicator chevron/triangle
             if (col.sortable) {
-                const keel::f32 arrowCx = colX + colW - cellPadX - 4.0f;
-                const keel::f32 arrowCy = data->headerRect.Center().y;
+                const keel::f32 arrowCx = colX + colW - cellPadX - 4.0f + pressOff.x;
+                const keel::f32 arrowCy = data->headerRect.Center().y + pressOff.y;
                 const keel::f32 s = 3.5f;
                 if (isSorted) {
                     if (data->state->sortDirection == TableSortDirection::Ascending) {
@@ -1755,19 +2236,54 @@ void detail::Table::RenderChromeAndScrollbars(
                     canvas.DrawLine(Vec2(arrowCx, arrowCy + s), Vec2(arrowCx + s * 0.8f, arrowCy + 1.5f), hintCol, 1.2f);
                 }
             }
+        };
 
-            // Column divider line + resize handle highlight
-            const keel::f32 divX = keel::min(keel::floor(colX + colW) + 0.5f, data->headerRect.Right() - 1.5f);
-            const bool dividerActive = (data->state->resizingCol == keel::as<keel::i32>(i)) ||
-                                       (data->hoveredDividerCol == keel::as<keel::i32>(i));
-            const Color divCol = dividerActive ? pal.accent : pal.border;
-            const keel::f32 divThickness = dividerActive ? 2.0f : 1.0f;
-            canvas.DrawLine(
-                Vec2(divX, data->headerRect.y + 4.0f),
-                Vec2(divX, data->headerRect.Bottom() - 4.0f),
-                divCol,
-                divThickness
-            );
+        // 1a. Scrollable header columns (clipped to [frozenClipW .. headerRect.Right()])
+        const bool hasFrozenHdr = (headerFrozenClipW > 0.0f);
+        if (hasFrozenHdr) {
+            canvas.PushClip(Rect(
+                data->headerRect.x + headerFrozenClipW,
+                data->headerRect.y,
+                keel::max(0.0f, data->headerRect.w - headerFrozenClipW),
+                data->headerRect.h
+            ));
+        }
+
+        if (!hasFrozenHdr && data->opts.showRowNumbers && data->rowNumberColW > 0.0f) {
+            drawRowNumHeader(data->headerRect.x - scrollOff.x);
+        }
+        for (keel::usize i = data->firstVisibleCol; i < data->endVisibleCol; ++i) {
+            drawHeaderCol(i, data->headerRect.x + data->resolvedColX[i] - scrollOff.x, false);
+        }
+        const keel::f32 colsEndX = keel::max(
+            data->headerRect.x + headerFrozenClipW,
+            data->headerRect.x + data->totalColumnsW - scrollOff.x
+        );
+        if (colsEndX < data->headerRect.Right() - 0.5f) {
+            theme.Painter().DrawTableHeaderCell(canvas, theme, TableHeaderCellPaintParams{
+                .rect = Rect(colsEndX, data->headerRect.y, data->headerRect.Right() - colsEndX, data->headerRect.h),
+                .hovered = false,
+                .pressed = false,
+                .sorted = false,
+                .sortable = false,
+                .dividerActive = false,
+                .showRightDivider = false,
+                .isFrozenSeam = false
+            });
+        }
+
+        if (hasFrozenHdr) {
+            canvas.PopClip();
+
+            // 1b. Frozen header columns pinned on the left
+            canvas.PushClip(Rect(data->headerRect.x, data->headerRect.y, headerFrozenClipW, data->headerRect.h));
+            if (data->opts.showRowNumbers && data->rowNumberColW > 0.0f) {
+                drawRowNumHeader(data->headerRect.x);
+            }
+            for (keel::usize i = 0; i < data->frozenColCount; ++i) {
+                drawHeaderCol(i, data->headerRect.x + data->resolvedColX[i], (i + 1 == data->frozenColCount));
+            }
+            canvas.PopClip();
         }
 
         // Bottom separator line under sticky header
@@ -1779,6 +2295,38 @@ void detail::Table::RenderChromeAndScrollbars(
             1.0f
         );
         canvas.PopClip();
+    }
+
+    // 1c. Frozen column vertical seam & subtle right drop shadow across header + body
+    if (data->frozenColCount > 0) {
+        const keel::f32 maxFrozenW = keel::max(0.0f, data->bodyViewportRect.w - data->scrollbarGutterW);
+        const keel::f32 seamW = keel::clamp(data->frozenAreaW, 0.0f, maxFrozenW);
+        if (seamW > 0.5f && seamW < maxFrozenW - 0.5f) {
+            const keel::f32 seamTop = (data->opts.stickyHeader && data->headerRect.h > 0.0f)
+                ? data->headerRect.y
+                : data->bodyViewportRect.y;
+            const keel::f32 seamBottom = keel::max(seamTop, data->bodyViewportRect.Bottom() - data->scrollbarGutterH);
+            const keel::f32 seamX = keel::floor(data->bodyViewportRect.x + seamW) + 0.5f;
+            canvas.DrawLine(
+                Vec2(seamX, seamTop),
+                Vec2(seamX, seamBottom),
+                pal.borderHover,
+                1.0f
+            );
+            if (scrollOff.x > 0.5f && seamBottom > seamTop) {
+                const keel::f32 shadowBaseX = seamX + 0.5f;
+                const keel::f32 shadowH = seamBottom - seamTop;
+                const keel::f32 maxShadowW = keel::max(0.0f, data->bodyViewportRect.x + maxFrozenW - shadowBaseX);
+                static constexpr keel::StaticArray<keel::u8, 4> kShadowAlphas = {42u, 26u, 14u, 6u};
+                for (keel::usize s = 0; s < kShadowAlphas.size(); ++s) {
+                    if (keel::as<keel::f32>(s) >= maxShadowW) break;
+                    canvas.DrawRect(
+                        Rect(shadowBaseX + keel::as<keel::f32>(s), seamTop, 1.0f, shadowH),
+                        Color(0, 0, 0, kShadowAlphas[s])
+                    );
+                }
+            }
+        }
     }
 
     // 2. Render optional footer bar (showing visible rows / total rows + custom footerText)
@@ -1793,7 +2341,7 @@ void detail::Table::RenderChromeAndScrollbars(
             1.0f
         );
 
-        const keel::f32 footerFontSize = ResolveTableFontSize(node->uiSize, theme, true);
+        const keel::f32 footerFontSize = ResolveTableFontSize(UiText{}, TextRole::LabelSmall, theme);
         const keel::usize totalRows = (data->opts.totalRows > 0)
             ? data->opts.totalRows
             : data->emittedRowCount;
@@ -1803,7 +2351,17 @@ void detail::Table::RenderChromeAndScrollbars(
         if (totalRows > 0) {
             const keel::usize dispFirst = keel::min(totalRows, data->firstVisibleRow + 1);
             const keel::usize dispLast = keel::min(totalRows, data->endVisibleRow);
-            if (data->state->selectedRow >= 0) {
+            const keel::usize selCount = data->state->selectedRows.size();
+            if (selCount > 1) {
+                summaryStr = keel::format_buf(
+                    summaryBuf,
+                    "Rows %zu..%zu of %zu  |  Selected: %zu rows",
+                    dispFirst,
+                    dispLast,
+                    totalRows,
+                    selCount
+                );
+            } else if (data->state->selectedRow >= 0) {
                 summaryStr = keel::format_buf(
                     summaryBuf,
                     "Rows %zu..%zu of %zu  |  Selected: #%d",
@@ -1838,11 +2396,12 @@ void detail::Table::RenderChromeAndScrollbars(
                 keel::max(0.0f, data->footerRect.w * 0.6f - cellPadX),
                 data->footerRect.h
             );
+            const keel::f32 customFooterFont = ResolveTableFontSize(data->opts.footerText, TextRole::LabelSmall, theme);
             canvas.DrawTextBox(
                 data->opts.footerText.text,
                 rightRect,
-                footerFontSize,
-                pal.textSecondary,
+                customFooterFont,
+                theme.ResolveColor(data->opts.footerText.color, false, false, node->disabled, pal.textSecondary),
                 1.0f,
                 0.5f
             );
@@ -1917,7 +2476,7 @@ void detail::Table::RenderChromeAndScrollbars(
     if (bw > 0.0f) {
         const Color borderCol = (data->state->resizingCol >= 0)
             ? pal.accent
-            : data->opts.border.color.Resolve(false, false, node->disabled, pal.border);
+            : theme.ResolveColor(data->opts.border.color, false, false, node->disabled, pal.border);
         if (borderCol.a > 0) {
             theme.Painter().DrawSurfaceFrame(canvas, theme, SurfacePaintParams{
                 .rect = data->frameRect,
@@ -1925,7 +2484,8 @@ void detail::Table::RenderChromeAndScrollbars(
                 .radius = radius,
                 .explicitRadius = data->opts.border.radius.has_value(),
                 .border = borderCol,
-                .borderWidth = bw
+                .borderWidth = bw,
+                .explicitBorder = data->opts.border.HasExplicitStroke()
             });
         }
     }

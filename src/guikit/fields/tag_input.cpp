@@ -898,8 +898,8 @@ void detail::TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& 
         const Color badgeAccent = atLimit ? theme.GetVariant(UiVariant::Warning).bg : pal.textSecondary;
         const Color badgeBg = atLimit ? badgeAccent.WithAlphaF(0.18f) : pal.surfaceHover.WithAlphaF(disabled ? theme.disabledOpacity : 0.85f);
         const Color badgeBorder = atLimit ? badgeAccent.WithAlphaF(0.45f) : pal.border.WithAlphaF(disabled ? 0.25f : 0.50f);
-        const Color badgeText = atLimit ? badgeAccent : unitCol;
-        canvas.DrawRoundRect(layout.counterRect, 4.0f, badgeBg, badgeBorder, 1.0f);
+        const Color badgeText = atLimit ? theme.EnsureReadableInk(badgeAccent, pal.inputBackground) : unitCol;
+        theme.Painter().DrawBadge(canvas, theme, layout.counterRect, badgeBg, badgeBorder, 1.0f, 4.0f);
         canvas.DrawTextBox(layout.counterStr, layout.counterRect, chipFont, badgeText, 0.5f, 0.5f);
     }
 

@@ -587,7 +587,7 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
                     : theme.ResolveColor(opts.background, false, false, false, defaultSurfaceBg)))
             : Color::Transparent();
         const keel::f32 borderW = (opts.border.width > 0.0f) ? opts.border.width : 1.0f;
-        const Color borderCol = theme.ResolveColor(opts.border.color, false, false, false, pal.borderHover);
+        const Color borderCol = theme.ResolveColor(opts.border.color, false, false, false, pal.border);
 
         for (const auto& panel : drawPanels) {
             const Rect& pr = panel.popupRect;
@@ -600,6 +600,7 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
                 .bg = surfaceBg,
                 .border = borderCol,
                 .borderWidth = borderW,
+                .explicitBorder = opts.border.HasExplicitStroke(),
                 .elevation = Elevation::Lg,
                 .shadowScale = s
             });

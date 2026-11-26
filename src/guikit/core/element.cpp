@@ -4,6 +4,7 @@
 #include "guikit/core/node.hpp"
 #include "guikit/core/solver.hpp"
 #include "guikit/core/text_util.hpp"
+#include "guikit/style/style_painter.hpp"
 
 namespace guikit {
 
@@ -1013,7 +1014,7 @@ void detail::Element::RenderText(
             if (spec.badge.color.HasAny()) {
                 const Color resolvedBadge = theme.ResolveColor(spec.badge.color, spec.hovered, spec.active, spec.disabled, pal.textPrimary);
                 badgeBg = resolvedBadge.WithAlphaF(spec.disabled ? 0.12f : 0.22f);
-                badgeTextCol = resolvedBadge;
+                badgeTextCol = spec.disabled ? resolvedBadge.WithAlphaF(theme.disabledOpacity) : theme.EnsureReadableInk(resolvedBadge, pal.surface);
                 badgeBorderCol = resolvedBadge.WithAlphaF(spec.disabled ? 0.25f : 0.50f);
                 badgeBorderW = 1.0f;
             } else if (spec.disabled) {
@@ -1021,8 +1022,9 @@ void detail::Element::RenderText(
                 badgeTextCol = badgeTextCol.WithAlphaF(theme.disabledOpacity);
             }
 
-            canvas.DrawRoundRect(Rect(curX, badgeY, badgeW, badgeH), badgeH * 0.5f, badgeBg, badgeBorderCol, badgeBorderW);
-            canvas.DrawTextBox(spec.badge.text, Rect(curX, badgeY, badgeW, badgeH), badgeFont, badgeTextCol, 0.5f, 0.5f);
+            const Rect badgeR(curX, badgeY, badgeW, badgeH);
+            theme.Painter().DrawBadge(canvas, theme, badgeR, badgeBg, badgeBorderCol, badgeBorderW, badgeH * 0.5f);
+            canvas.DrawTextBox(spec.badge.text, badgeR, badgeFont, badgeTextCol, 0.5f, 0.5f);
             curX += badgeW;
         }
     }

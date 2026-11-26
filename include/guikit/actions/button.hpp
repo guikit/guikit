@@ -78,6 +78,9 @@ public:
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
+    /// Returns true if `node` is a `NodeType::Button` rendered with transparent ghost styling.
+    [[nodiscard]] static bool IsGhostNode(const Node* node) noexcept;
+
     /// Measures intrinsic dimensions based on content (icon + label + padding for current UiSize).
     static Vec2 Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, const UiTheme& theme, keel::f32 availableWidth = 0.0f);
     static Vec2 Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas = nullptr, keel::f32 availableWidth = 0.0f);

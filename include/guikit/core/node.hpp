@@ -197,6 +197,7 @@ struct Node {
     bool explicitGap : 1 {false};
     bool explicitPadding : 1 {false};
     bool explicitRadius : 1 {false};
+    bool explicitBorder : 1 {false};
 
     keel::f32 fixedWidth{0.0f};
     keel::f32 fixedHeight{0.0f};

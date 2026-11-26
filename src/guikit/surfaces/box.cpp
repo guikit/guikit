@@ -25,18 +25,19 @@ ContainerScope detail::Box::Open(
     const Color defaultBg = (opts.surface == SurfaceRole::Raised || opts.surface == SurfaceRole::Popup)
         ? pal.surfaceElevated
         : (opts.surface == SurfaceRole::Sunken ? pal.inputBackground : pal.surface);
-    const Color defaultBorder = (opts.surface == SurfaceRole::Raised || opts.surface == SurfaceRole::Popup)
-        ? pal.borderHover
-        : (opts.surface == SurfaceRole::Sunken ? pal.inputBorder : pal.border);
+    const Color defaultBorder = (opts.surface == SurfaceRole::Sunken)
+        ? pal.inputBorder
+        : pal.border;
     node->backgroundColor = opts.background.IsBackgroundEnabled(hasSurfaceRole)
         ? theme.ResolveColor(opts.background, false, false, activeDisabled, defaultBg)
         : Color::Transparent();
     const keel::f32 bw = (opts.border.width > 0.0f)
         ? opts.border.width
-        : ((opts.border.color.HasAny() || hasSurfaceRole) ? 1.0f : 0.0f);
+        : (opts.border.color.HasAny() ? 1.0f : 0.0f);
     node->borderWidth = bw;
     node->borderColor = (bw > 0.0f) ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, defaultBorder) : Color::Transparent();
     node->explicitRadius = opts.border.radius.has_value() ? 1 : 0;
+    node->explicitBorder = opts.border.HasExplicitStroke() ? 1 : 0;
     node->cornerRadius = opts.border.radius.has_value()
         ? *opts.border.radius
         : (hasSurfaceRole ? theme.ResolveRadius(keel::kNullOpt, UiSize::Md) : 0.0f);
@@ -61,7 +62,15 @@ ContainerScope detail::Box::Open(
     node->flexGrow = Control::ResolveFlexGrow(node->parent, opts.width, opts.height, opts.flexGrow);
 
     node->uiSize = UiSize::Md;
-    node->visualHash = detail::HashArgs(opts.background, opts.border);
+    node->visualHash = detail::HashArgs(
+        opts.background,
+        opts.border,
+        keel::as<keel::u8>(opts.surface),
+        node->backgroundColor,
+        node->borderWidth,
+        node->borderColor,
+        node->cornerRadius
+    );
 
     ctx.FinishContainer(node);
     return ContainerScope(&ctx, node);
