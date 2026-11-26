@@ -1152,10 +1152,11 @@ enum class ChromeStyle : keel::u8 {
     Modern = 0,  ///< Flat vector surfaces, soft ambient shadows, rounded corners, overlay scrollbars
     Fluent,      ///< Directional 1px lighting, bottom-accent input fields, left-accent selection bars (Win11 style)
     Classic3D,   ///< 2px raised/sunken/etched 3D bevels, sharp corners, 1dp press shift, 3D controls (Win98 style)
-    Brutalist    ///< Bold 2px borders, hard offset shadows, sharp corners, flat controls
+    Brutalist,   ///< Bold 2px borders, hard offset shadows, sharp corners, flat controls
+    Glass        ///< Frosted & refractive translucent glass with GPU backdrop blur and specular rim lighting
 };
 
-inline constexpr keel::usize kChromeStyleCount = 4u;
+inline constexpr keel::usize kChromeStyleCount = 5u;
 
 /// Human-readable display name for a `ChromeStyle`.
 [[nodiscard]] constexpr keel::StringRef ChromeStyleName(ChromeStyle style) noexcept {
@@ -1164,6 +1165,7 @@ inline constexpr keel::usize kChromeStyleCount = 4u;
         case ChromeStyle::Fluent:    return "Fluent";
         case ChromeStyle::Classic3D: return "Classic 3D";
         case ChromeStyle::Brutalist: return "Brutalist";
+        case ChromeStyle::Glass:     return "Glass";
     }
     return "Modern";
 }
@@ -1229,7 +1231,8 @@ enum class FrameTreatment : keel::u8 {
     Flat = 0,       ///< Clean vector fill + uniform stroke (Modern)
     Directional1px, ///< Subtle 1px top-bright / bottom-dark directional lighting (Fluent / Win11)
     Bevel3D,        ///< Classic 2px raised/sunken/etched 3D bevel frames (Classic3D / Win98)
-    HardShadow      ///< High-contrast crisp 2px border + hard non-blurred offset shadow (Brutalist)
+    HardShadow,     ///< High-contrast crisp 2px border + hard non-blurred offset shadow (Brutalist)
+    Glass           ///< Refractive & frosted backdrop-blur glass with specular rim lighting (Glass)
 };
 
 /// Structural treatment for editable input & selection field wells (`fields/`).
@@ -1428,6 +1431,25 @@ struct ChromeTokens {
                     .scrollbar         = ScrollbarChromeStyle::Framed,
                     .buttonPressOffset = 1.0f,
                     .tabGapOverride    = 0.0f
+                };
+            case ChromeStyle::Glass:
+                return ChromeTokens{
+                    .frame             = FrameTreatment::Glass,
+                    .field             = FieldTreatment::Filled,
+                    .fieldButton       = FieldButtonStyle::Ghost,
+                    .focus             = FocusStyle::OuterRing,
+                    .selection         = SelectionHighlightStyle::Tonal,
+                    .divider           = DividerStyle::Hairline,
+                    .checkControl      = CheckControlStyle::FilledAccent,
+                    .sliderThumb       = SliderThumbShape::Circle,
+                    .sliderTrack       = SliderTrackStyle::Filled,
+                    .progressFill      = ProgressFillStyle::Smooth,
+                    .tabChrome         = TabBarChrome::Modern,
+                    .badgeShape        = BadgeShape::Pill,
+                    .disabledText      = DisabledTextStyle::Opacity,
+                    .scrollbar         = ScrollbarChromeStyle::Modern,
+                    .buttonPressOffset = 0.0f,
+                    .tabGapOverride    = -1.0f
                 };
         }
         return ChromeTokens{};

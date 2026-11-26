@@ -340,6 +340,139 @@ void DrawDirectionalSheen(
     }
 }
 
+/// Estimates chroma [0..1] of an sRGB color to distinguish saturated semantic tints from neutral surfaces.
+[[nodiscard]] keel::f32 EstimateColorChroma(Color c) noexcept {
+    const keel::u8 hi = keel::max(c.r, keel::max(c.g, c.b));
+    const keel::u8 lo = keel::min(c.r, keel::min(c.g, c.b));
+    return keel::as<keel::f32>(hi - lo) / 255.0f;
+}
+
+/// Derives palette-pure `GlassParams` for container surfaces (`SurfaceRole::Flat..DockEdge`).
+[[nodiscard]] GlassParams BuildSurfaceGlassParams(
+    const UiTheme& theme,
+    const SurfacePaintParams& p
+) noexcept {
+    const bool isDark = (theme.mode == ThemeMode::Dark);
+    const keel::f32 srcA = keel::as<keel::f32>(p.bg.a) / 255.0f;
+    GlassParams gp{};
+    gp.rimColor = theme.bevel.highlightOuter;
+    gp.borderWidth = 0.0f; // Drawn in DrawSurfaceFrame on top of clipped children
+    gp.borderColor = Color::Transparent();
+
+    keel::f32 targetAlpha = isDark ? 0.42f : 0.56f;
+    switch (p.role) {
+        case SurfaceRole::Popup:
+            targetAlpha   = isDark ? 0.70f : 0.80f;
+            gp.blurRadius = 18.0f;
+            gp.frost      = 0.86f;
+            gp.refraction = 0.30f;
+            gp.dispersion = 0.16f;
+            gp.rimLight   = isDark ? 0.50f : 0.65f;
+            gp.saturation = 1.24f;
+            break;
+        case SurfaceRole::Raised:
+            targetAlpha   = isDark ? 0.46f : 0.58f;
+            gp.blurRadius = 15.0f;
+            gp.frost      = 0.72f;
+            gp.refraction = 0.38f;
+            gp.dispersion = 0.22f;
+            gp.rimLight   = isDark ? 0.55f : 0.70f;
+            gp.saturation = 1.28f;
+            break;
+        case SurfaceRole::DockEdge:
+            targetAlpha   = isDark ? 0.54f : 0.66f;
+            gp.blurRadius = 14.0f;
+            gp.frost      = 0.78f;
+            gp.refraction = 0.22f;
+            gp.dispersion = 0.12f;
+            gp.rimLight   = isDark ? 0.36f : 0.52f;
+            gp.saturation = 1.20f;
+            break;
+        case SurfaceRole::Sunken:
+            targetAlpha   = isDark ? 0.52f : 0.62f;
+            gp.blurRadius = 10.0f;
+            gp.frost      = 0.82f;
+            gp.refraction = 0.14f;
+            gp.dispersion = 0.06f;
+            gp.rimLight   = isDark ? 0.18f : 0.32f;
+            gp.saturation = 1.12f;
+            break;
+        case SurfaceRole::Flat:
+        default:
+            targetAlpha   = isDark ? 0.40f : 0.54f;
+            gp.blurRadius = 12.0f;
+            gp.frost      = 0.70f;
+            gp.refraction = 0.32f;
+            gp.dispersion = 0.18f;
+            gp.rimLight   = isDark ? 0.42f : 0.58f;
+            gp.saturation = 1.22f;
+            break;
+    }
+
+    // Preserve explicit low-alpha translucency if caller intentionally dimmed p.bg
+    const keel::f32 effAlpha = (srcA < 0.99f) ? keel::min(srcA, targetAlpha) : targetAlpha;
+    gp.tint = p.bg.WithAlphaF(effAlpha);
+    return gp;
+}
+
+/// Derives palette-pure `GlassParams` for interactive controls (`Button`, `Input`, `DropdownButton`).
+[[nodiscard]] GlassParams BuildFrameGlassParams(
+    const UiTheme& theme,
+    FrameKind kind,
+    const FramePaintParams& p
+) noexcept {
+    const bool isDark = (theme.mode == ThemeMode::Dark);
+    const auto& pal = theme.palette;
+    const keel::f32 srcA = keel::as<keel::f32>(p.bg.a) / 255.0f;
+    const keel::f32 chroma = EstimateColorChroma(p.bg);
+    const bool isSemanticFill = (chroma >= 0.22f) && (srcA >= 0.75f);
+
+    GlassParams gp{};
+    gp.rimColor = theme.bevel.highlightOuter;
+
+    const Color defaultGlassBorder = Color::Lerp(
+        (p.border.a > 0u) ? p.border : pal.border,
+        theme.bevel.highlightOuter,
+        isDark ? 0.24f : 0.42f
+    );
+    gp.borderColor = (p.explicitBorder || p.focused || p.hasStatusAccent)
+        ? p.border
+        : defaultGlassBorder.WithAlphaF(p.disabled ? theme.disabledOpacity : (isDark ? 0.55f : 0.72f));
+    gp.borderWidth = (p.borderWidth > 0.0f)
+        ? p.borderWidth
+        : (1.0f * keel::max(theme.borderScale, 0.5f));
+
+    if (kind == FrameKind::Input) {
+        const keel::f32 baseA = isDark ? 0.54f : 0.68f;
+        gp.tint       = p.bg.WithAlphaF(keel::min(srcA, baseA));
+        gp.blurRadius = 10.0f;
+        gp.frost      = 0.84f;
+        gp.refraction = 0.14f;
+        gp.dispersion = 0.06f;
+        gp.rimLight   = p.focused && !p.disabled ? 0.46f : 0.22f;
+        gp.saturation = 1.12f;
+        return gp;
+    }
+
+    // Button / DropdownButton / ToolbarButton / Keycap
+    keel::f32 baseA = isSemanticFill
+        ? (isDark ? 0.78f : 0.82f)
+        : (isDark ? 0.38f : 0.54f);
+    if (!p.disabled) {
+        if (p.pressed || p.active) baseA = keel::min(0.92f, baseA + 0.10f);
+        else if (p.hovered)        baseA = keel::min(0.88f, baseA + 0.06f);
+    }
+    const keel::f32 effA = (srcA < 0.75f) ? srcA : baseA;
+    gp.tint       = p.bg.WithAlphaF(effA);
+    gp.blurRadius = 11.0f;
+    gp.frost      = isSemanticFill ? 0.68f : 0.58f;
+    gp.refraction = p.disabled ? 0.12f : (p.hovered || p.active ? 0.44f : 0.34f);
+    gp.dispersion = p.disabled ? 0.05f : (p.hovered || p.active ? 0.24f : 0.18f);
+    gp.rimLight   = p.disabled ? 0.18f : (p.hovered || p.active ? 0.68f : 0.48f);
+    gp.saturation = 1.26f;
+    return gp;
+}
+
 } // namespace
 
 void DefaultStylePainter::DrawSurfaceBg(
@@ -360,6 +493,19 @@ void DefaultStylePainter::DrawSurfaceBg(
             else if (p.role == SurfaceRole::Popup) effElev = Elevation::Lg;
         }
         DrawShadowForRect(canvas, theme, p.rect, effRadius, effElev, p.shadowScale);
+
+        const bool isViewportBackdrop =
+            (p.role == SurfaceRole::Flat) &&
+            (p.bg == theme.palette.background) &&
+            (effRadius <= 0.01f) &&
+            (p.borderWidth <= 0.0f);
+        if (theme.chrome.frame == FrameTreatment::Glass &&
+            p.role != SurfaceRole::None &&
+            !isViewportBackdrop) {
+            const GlassParams gp = BuildSurfaceGlassParams(theme, p);
+            canvas.DrawGlassRect(p.rect, effRadius, gp);
+            return;
+        }
 
         if (effRadius > 0.0f) {
             canvas.DrawRoundRect(p.rect, effRadius, p.bg, Color::Transparent(), 0.0f);
@@ -485,7 +631,13 @@ void DefaultStylePainter::DrawSurfaceFrame(
         const keel::f32 bw = (theme.chrome.frame == FrameTreatment::HardShadow)
             ? keel::max(p.borderWidth, 1.5f * keel::max(theme.borderScale, 0.5f))
             : p.borderWidth;
-        canvas.DrawRoundRect(r, p.radius, Color::Transparent(), p.border, bw);
+        Color strokeCol = p.border;
+        if (theme.chrome.frame == FrameTreatment::Glass && !p.explicitBorder) {
+            const bool isDark = (theme.mode == ThemeMode::Dark);
+            strokeCol = Color::Lerp(p.border, theme.bevel.highlightOuter, isDark ? 0.24f : 0.45f)
+                .WithAlphaF(isDark ? 0.52f : 0.70f);
+        }
+        canvas.DrawRoundRect(r, p.radius, Color::Transparent(), strokeCol, bw);
     }
 
     if (theme.chrome.frame == FrameTreatment::Directional1px &&
@@ -546,6 +698,12 @@ void DefaultStylePainter::DrawFrame(
                     canvas.DrawLine(Vec2(x0, barY), Vec2(x1, barY), accentBar, barH);
                 }
             }
+            return;
+        }
+
+        if (theme.chrome.frame == FrameTreatment::Glass && p.bg.a > 0u) {
+            const GlassParams gp = BuildFrameGlassParams(theme, kind, p);
+            canvas.DrawGlassRect(p.rect, effRadius, gp);
             return;
         }
 
@@ -1007,6 +1165,28 @@ void DefaultStylePainter::DrawSliderThumb(
         ? (keel::max(1.5f, 1.5f * keel::max(theme.borderScale, 0.5f)) + ((p.active || p.focused) ? 0.5f : 0.0f))
         : ((p.active || p.hovered || p.focused) ? 2.5f : 2.0f);
 
+    if (theme.chrome.frame == FrameTreatment::Glass && !sharp) {
+        const bool isDark = (theme.mode == ThemeMode::Dark);
+        if (!p.disabled && theme.shadowsEnabled) {
+            DrawShadowForRect(canvas, theme, thumbRect, halfThumb, Elevation::Sm, 0.45f);
+        }
+        GlassParams gp{};
+        gp.tint = thumbBg.WithAlphaF(p.disabled ? theme.disabledOpacity : (p.active ? 0.55f : (isDark ? 0.34f : 0.52f)));
+        gp.blurRadius = 6.0f;
+        gp.frost = 0.25f;
+        gp.refraction = p.disabled ? 0.15f : 0.58f;
+        gp.dispersion = p.disabled ? 0.05f : 0.28f;
+        gp.rimLight = p.disabled ? 0.25f : 0.78f;
+        gp.saturation = 1.30f;
+        gp.borderWidth = (p.focused || p.active) ? 1.75f : 1.0f;
+        gp.borderColor = (p.focused || p.active || p.hovered)
+            ? thumbBorder
+            : Color::Lerp(pal.border, theme.bevel.highlightOuter, 0.55f).WithAlphaF(0.75f);
+        gp.rimColor = theme.bevel.highlightOuter;
+        canvas.DrawGlassRect(thumbRect, halfThumb, gp);
+        return;
+    }
+
     canvas.DrawRoundRect(thumbRect, sharp ? 0.0f : halfThumb, thumbBg, thumbBorder, thumbBorderW);
 }
 
@@ -1376,7 +1556,24 @@ keel::f32 DefaultStylePainter::DrawTabChrome(
         const Color focusBorder = (focused && !disabled) ? pal.focusRing : Color::Transparent();
         const keel::f32 focusBorderW = (focused && !disabled) ? 1.5f : 0.0f;
         if (active) {
-            canvas.DrawRoundRect(bounds, radius, pillActiveCol, focusBorder, focusBorderW);
+            if (theme.chrome.frame == FrameTreatment::Glass) {
+                GlassParams gp{};
+                gp.tint = pillActiveCol.WithAlphaF(0.76f);
+                gp.blurRadius = 10.0f;
+                gp.frost = 0.65f;
+                gp.refraction = 0.35f;
+                gp.dispersion = 0.18f;
+                gp.rimLight = 0.58f;
+                gp.saturation = 1.24f;
+                gp.borderWidth = (focusBorderW > 0.0f) ? focusBorderW : 1.0f;
+                gp.borderColor = (focusBorderW > 0.0f)
+                    ? focusBorder
+                    : theme.bevel.highlightOuter.WithAlphaF(theme.mode == ThemeMode::Dark ? 0.35f : 0.55f);
+                gp.rimColor = theme.bevel.highlightOuter;
+                canvas.DrawGlassRect(bounds, radius, gp);
+            } else {
+                canvas.DrawRoundRect(bounds, radius, pillActiveCol, focusBorder, focusBorderW);
+            }
         } else if (hovered && !disabled) {
             canvas.DrawRoundRect(bounds, radius, pal.surfaceHover, focusBorder, focusBorderW);
         } else if (focused && !disabled) {

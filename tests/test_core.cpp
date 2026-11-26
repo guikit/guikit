@@ -2000,6 +2000,44 @@ void TestThemeSystemColorSciencePresetsSpecJsonAndLerp() {
     CHECK(brutal.GetShadow(Elevation::Md).IsVisible());
     CHECK(brutal.GetVariant(UiVariant::Primary).borderWidth >= 1.5f);
 
+    // 4c. ChromeStyle::Glass token matrix, Dark & Light builds, JSON round-trip & Lerp
+    {
+        static_assert(kChromeStyleCount == 5u);
+        CHECK(ChromeStyleName(ChromeStyle::Glass) == "Glass");
+        const ChromeTokens glassTok = ChromeTokens::FromStyle(ChromeStyle::Glass);
+        CHECK(glassTok.frame == FrameTreatment::Glass);
+        CHECK(glassTok.field == FieldTreatment::Filled);
+        CHECK(glassTok.badgeShape == BadgeShape::Pill);
+        CHECK(glassTok.scrollbar == ScrollbarChromeStyle::Modern);
+
+        ThemeSpec glassDarkSpec{};
+        glassDarkSpec.base = ThemePreset::Dark;
+        glassDarkSpec.chrome = ChromeStyle::Glass;
+        const UiTheme glassDark = UiTheme::Build(glassDarkSpec);
+        CHECK(glassDark.chromeStyle == ChromeStyle::Glass);
+        CHECK(glassDark.chrome.frame == FrameTreatment::Glass);
+        CHECK(glassDark.shadowsEnabled);
+        CHECK(glassDark.GetRadius(UiSize::Md) > UiTheme::Dark().GetRadius(UiSize::Md));
+
+        ThemeSpec glassLightSpec{};
+        glassLightSpec.base = ThemePreset::Light;
+        glassLightSpec.chrome = ChromeStyle::Glass;
+        const UiTheme glassLight = UiTheme::Build(glassLightSpec);
+        CHECK(glassLight.chromeStyle == ChromeStyle::Glass);
+        CHECK(glassLight.chrome.frame == FrameTreatment::Glass);
+
+        const keel::String glassJson = glassDarkSpec.ToJson();
+        const keel::Optional<ThemeSpec> parsedGlass = ThemeSpec::FromJson(glassJson);
+        CHECK(parsedGlass.has_value());
+        if (parsedGlass.has_value()) {
+            CHECK(parsedGlass->chrome.has_value() && *parsedGlass->chrome == ChromeStyle::Glass);
+        }
+
+        const UiTheme lerpToGlass = UiTheme::Lerp(UiTheme::Dark(), glassLight, 0.75f);
+        CHECK(lerpToGlass.chromeStyle == ChromeStyle::Glass);
+        CHECK(lerpToGlass.chrome.frame == FrameTreatment::Glass);
+    }
+
     ThemeSpec lowC{};
     lowC.surfaceContrast = 0.6f;
     ThemeSpec highC{};
@@ -2756,6 +2794,89 @@ void TestStylePainterChromeDispatchAndPolish() {
         });
         CHECK(!spy.shadows.empty());
         CHECK(spy.shadows[0].blur > 0.0f);
+    }
+
+    // 3b. ChromeStyle::Glass dispatches DrawGlassRect via DefaultStylePainter; non-Glass styles emit 0 DrawGlassRect calls
+    {
+        NullCanvas nc;
+        CHECK(!nc.SupportsBackdropBlur());
+        nc.Begin(640u, 480u, 1.0f);
+
+        const UiTheme glassTheme = UiTheme::Build({.base = ThemePreset::Dark, .chrome = ChromeStyle::Glass});
+        nc.ResetStats();
+        glassTheme.Painter().DrawSurface(nc, glassTheme, SurfacePaintParams{
+            .rect = Rect(16.0f, 16.0f, 200.0f, 120.0f),
+            .role = SurfaceRole::Raised,
+            .bg = glassTheme.palette.surfaceElevated,
+            .border = glassTheme.palette.border,
+            .borderWidth = 1.0f,
+            .elevation = Elevation::Md
+        });
+        glassTheme.Painter().DrawSurface(nc, glassTheme, SurfacePaintParams{
+            .rect = Rect(40.0f, 40.0f, 180.0f, 90.0f),
+            .role = SurfaceRole::Popup,
+            .bg = glassTheme.palette.surfaceElevated,
+            .border = glassTheme.palette.border,
+            .borderWidth = 1.0f,
+            .elevation = Elevation::Lg
+        });
+        glassTheme.Painter().DrawFrame(nc, glassTheme, FrameKind::Button, FramePaintParams{
+            .rect = Rect(24.0f, 150.0f, 110.0f, 34.0f),
+            .radius = 8.0f,
+            .bg = glassTheme.palette.accent,
+            .border = glassTheme.palette.border,
+            .borderWidth = 1.0f,
+            .hovered = true
+        });
+        glassTheme.Painter().DrawSliderThumb(nc, glassTheme, SliderThumbPaintParams{
+            .center = {100.0f, 220.0f},
+            .thumbSize = 18.0f,
+            .hovered = true,
+            .cornerRadius = 9.0f
+        });
+        (void)glassTheme.Painter().DrawTabChrome(
+            nc,
+            glassTheme,
+            Rect(24.0f, 240.0f, 96.0f, 30.0f),
+            TabChromeStyle::Pill,
+            /*active=*/true,
+            /*hovered=*/false,
+            /*focused=*/false,
+            /*disabled=*/false,
+            /*showSeparator=*/false,
+            glassTheme.palette.accent,
+            glassTheme.palette.surfaceElevated,
+            15.0f
+        );
+        CHECK(nc.GetStats().drawGlassRectCount >= 5u);
+
+        static constexpr ChromeStyle kNonGlassStyles[4] = {
+            ChromeStyle::Modern,
+            ChromeStyle::Fluent,
+            ChromeStyle::Classic3D,
+            ChromeStyle::Brutalist
+        };
+        for (ChromeStyle style : kNonGlassStyles) {
+            const UiTheme t = UiTheme::Build({.base = ThemePreset::Dark, .chrome = style});
+            nc.ResetStats();
+            t.Painter().DrawSurface(nc, t, SurfacePaintParams{
+                .rect = Rect(16.0f, 16.0f, 200.0f, 120.0f),
+                .role = SurfaceRole::Raised,
+                .bg = t.palette.surfaceElevated,
+                .border = t.palette.border,
+                .borderWidth = 1.0f,
+                .elevation = Elevation::Md
+            });
+            t.Painter().DrawFrame(nc, t, FrameKind::Button, FramePaintParams{
+                .rect = Rect(24.0f, 150.0f, 110.0f, 34.0f),
+                .radius = 8.0f,
+                .bg = t.palette.accent,
+                .border = t.palette.border,
+                .borderWidth = 1.0f
+            });
+            CHECK(nc.GetStats().drawGlassRectCount == 0u);
+        }
+        nc.End();
     }
 
     spy.End();

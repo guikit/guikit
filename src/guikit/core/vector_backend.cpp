@@ -417,4 +417,30 @@ void ICanvas::DrawShadow(
     }
 }
 
+void ICanvas::DrawGlassRect(Rect rect, keel::f32 radius, const GlassParams& params) {
+    if (rect.w <= 0.0f || rect.h <= 0.0f) {
+        return;
+    }
+    const keel::f32 r = keel::clamp(radius, 0.0f, keel::min(rect.w, rect.h) * 0.5f);
+    Color fill = params.tint;
+    if (fill.a > 0u) {
+        // Software/vector fallback has no real backdrop blur: boost opacity slightly with frost for legibility.
+        const keel::f32 baseA = keel::as<keel::f32>(fill.a) / 255.0f;
+        const keel::f32 frostBoost = keel::clamp(params.frost, 0.0f, 1.0f) * 0.42f;
+        const keel::f32 effA = keel::clamp(baseA + (1.0f - baseA) * frostBoost, 0.0f, 0.94f);
+        fill.a = keel::as<keel::u8>(keel::round_i32(effA * 255.0f));
+    }
+    DrawRoundRect(rect, r, fill, params.borderColor, params.borderWidth);
+
+    if (params.rimLight > 0.01f && rect.w > 8.0f && rect.h > 4.0f) {
+        const keel::f32 inset = keel::clamp(r * 0.65f, 1.5f, rect.w * 0.25f);
+        const keel::f32 x0 = rect.x + inset;
+        const keel::f32 x1 = rect.Right() - inset;
+        if (x1 > x0) {
+            const Color rim = params.rimColor.WithAlphaF(keel::clamp(params.rimLight * 0.55f, 0.0f, 0.85f));
+            DrawLine(Vec2(x0, rect.y + 0.75f), Vec2(x1, rect.y + 0.75f), rim, 1.0f);
+        }
+    }
+}
+
 } // namespace guikit

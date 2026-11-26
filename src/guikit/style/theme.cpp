@@ -848,6 +848,7 @@ void ApplyCuratedPresetColors(UiTheme& theme, ThemePreset p) noexcept {
         case ChromeStyle::Fluent:    return "Fluent";
         case ChromeStyle::Classic3D: return "Classic3D";
         case ChromeStyle::Brutalist: return "Brutalist";
+        case ChromeStyle::Glass:     return "Glass";
     }
     return "Modern";
 }
@@ -1421,15 +1422,21 @@ void UiTheme::SetChromeStyle(ChromeStyle style) noexcept {
         }};
         shell.panelBorderWidth = 1.5f * bwScale;
     } else {
-        // Modern / Fluent
+        // Modern / Fluent / Glass
         if (GetRadius(UiSize::Md) <= 0.01f) {
             ResetDefaultRadii(*this);
         }
         if (style == ChromeStyle::Fluent) {
             ResetDefaultRadii(*this);
             SetRadiusScale(0.90f);
+            PopulateShadows(*this, mode, 1.0f);
+        } else if (style == ChromeStyle::Glass) {
+            ResetDefaultRadii(*this);
+            SetRadiusScale(1.25f);
+            PopulateShadows(*this, mode, 0.90f);
+        } else {
+            PopulateShadows(*this, mode, 1.0f);
         }
-        PopulateShadows(*this, mode, 1.0f);
         shell.panelBorderWidth = 1.0f * bwScale;
     }
 

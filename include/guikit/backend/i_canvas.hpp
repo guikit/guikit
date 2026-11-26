@@ -445,6 +445,13 @@ public:
         keel::f32 spread = 0.0f
     );
 
+    /// Returns true if this canvas supports real-time GPU backdrop blur & refractive glass.
+    [[nodiscard]] virtual bool SupportsBackdropBlur() const noexcept { return false; }
+
+    /// Draws a frosted / refractive glass rounded rectangle sampling the live backdrop underneath.
+    /// Default fallback for CPU / headless canvases renders a readable translucent tinted surface with specular rim.
+    virtual void DrawGlassRect(Rect rect, keel::f32 radius, const GlassParams& params);
+
     /// Draws a line segment between two points.
     virtual void DrawLine(Vec2 p1, Vec2 p2, Color color, keel::f32 strokeWidth = 1.0f) = 0;
 

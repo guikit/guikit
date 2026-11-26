@@ -140,6 +140,11 @@ void NullCanvas::DrawShadow(
     ++m_stats.drawRoundRectCount;
 }
 
+void NullCanvas::DrawGlassRect(Rect rect, keel::f32 /*radius*/, const GlassParams& /*params*/) {
+    if (rect.w <= 0.0f || rect.h <= 0.0f) return;
+    ++m_stats.drawGlassRectCount;
+}
+
 Vec2 NullCanvas::MeasureText(keel::StringRef text, keel::f32 fontSize) {
     return MeasureTextStyled(text, fontSize, FontStyle::Regular);
 }

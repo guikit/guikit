@@ -1439,4 +1439,19 @@ constexpr MutStridedPixelRef MutPixelRef::Subrect(
     return MutStridedPixelRef(md.strided().slice_axis(0, y, h).slice_axis(1, x, w));
 }
 
+/// Declarative backdrop-blur & refractive glass parameters for `ICanvas::DrawGlassRect`.
+/// Palette-pure: tint, borderColor, and rimColor are derived from the active `ThemePalette` / `BevelPalette`.
+struct GlassParams {
+    Color tint{0, 0, 0, 0};             ///< Translucent surface tint from ThemePalette / VariantColors
+    keel::f32 blurRadius{14.0f};        ///< Backdrop blur radius in logical dp
+    keel::f32 refraction{0.35f};        ///< SDF-edge lens refraction strength [0..1]
+    keel::f32 dispersion{0.20f};        ///< Subtle RGB chromatic dispersion on edge [0..1]
+    keel::f32 rimLight{0.45f};          ///< Directional top-left specular rim highlight [0..1]
+    keel::f32 saturation{1.20f};        ///< Backdrop saturation boost to prevent muddy gray blur
+    keel::f32 frost{0.75f};             ///< Balance between sharp refracted backdrop (0) and frosted blur (1)
+    keel::f32 borderWidth{1.0f};        ///< Hairline glass outline width in logical dp
+    Color borderColor{0, 0, 0, 0};      ///< Outline stroke color derived from ThemePalette
+    Color rimColor{255, 255, 255, 255}; ///< Specular edge highlight color derived from BevelPalette
+};
+
 } // namespace guikit

@@ -17,6 +17,7 @@ public:
         keel::u64 clearCount{0};
         keel::u64 drawRectCount{0};
         keel::u64 drawRoundRectCount{0};
+        keel::u64 drawGlassRectCount{0};
         keel::u64 drawTextCount{0};
         keel::u64 drawLineCount{0};
         keel::u64 drawTriangleCount{0};
@@ -70,6 +71,7 @@ public:
         Color color = Color(0, 0, 0, 96),
         keel::f32 spread = 0.0f
     ) override;
+    void DrawGlassRect(Rect rect, keel::f32 radius, const GlassParams& params) override;
 
     Vec2 MeasureText(keel::StringRef text, keel::f32 fontSize) override;
     Vec2 MeasureTextStyled(keel::StringRef text, keel::f32 fontSize, FontStyle style) override;
