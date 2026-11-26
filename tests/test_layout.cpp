@@ -1598,6 +1598,130 @@ void TestGridZeroRunGapIndependentOfColumnGap() {
     CHECK_NEAR(grid->computedRect.h, 90.0f, 0.001f);
 }
 
+void TestDockLayoutTreeAndSerialization() {
+    using namespace guikit;
+
+    DockLayout layout;
+    CHECK(layout.IsEmpty());
+
+    // 1. Build IDE layout via DockPanel across all sides (Center, Left, Right, Top, Bottom)
+    CHECK(layout.DockPanel("editor"));
+    CHECK(layout.DockPanel("preview", DockSide::Center, "editor"));
+    CHECK(layout.DockPanel("files", DockSide::Left, "editor", 0.22f));
+    CHECK(layout.DockPanel("log", DockSide::Bottom, "editor", 0.28f));
+    CHECK(layout.DockPanel("terminal", DockSide::Center, "log"));
+    CHECK(layout.DockPanel("inspector", DockSide::Right, "editor", 0.25f));
+    CHECK(layout.DockPanel("header", DockSide::Top, "editor", 0.20f));
+
+    CHECK(!layout.IsEmpty());
+    CHECK(layout.HasDockedPanel("files"));
+    CHECK(layout.HasDockedPanel("editor"));
+    CHECK(layout.HasDockedPanel("preview"));
+    CHECK(layout.HasDockedPanel("log"));
+    CHECK(layout.HasDockedPanel("terminal"));
+    CHECK(layout.HasDockedPanel("inspector"));
+    CHECK(layout.HasDockedPanel("header"));
+
+    // 2. Reorder tab inside a multi-tab group while preserving active panel
+    CHECK(layout.SetActivePanel("editor"));
+    CHECK(layout.IsPanelActive("editor"));
+    CHECK(!layout.IsPanelActive("preview"));
+    const keel::u32 edNode = layout.FindPanelNode("editor");
+    CHECK(edNode != kDockInvalidNode);
+    CHECK(layout.ReorderTab(edNode, 0u, 1u));
+    CHECK(layout.IsPanelActive("editor"));
+    CHECK(layout.Nodes()[edNode].panelIds[1].as_ref() == "editor");
+
+    // 2b. Atomic MovePanelToNode with explicit insertIndex (insert at index 0)
+    CHECK(layout.MovePanelToNode("terminal", edNode, DockSide::Center, 0.5f, 0u));
+    const keel::u32 edNode2 = layout.FindPanelNode("editor");
+    CHECK(edNode2 != kDockInvalidNode);
+    CHECK(layout.Nodes()[edNode2].panelIds[0].as_ref() == "terminal");
+    CHECK(layout.IsPanelActive("terminal"));
+    // Move terminal back to log group so subsequent checks match
+    CHECK(layout.DockPanel("terminal", DockSide::Center, "log"));
+    CHECK(layout.SetActivePanel("editor"));
+
+    // 3. RemovePanel collapses orphaned Split ancestors and compacts node pool
+    CHECK(layout.RemovePanel("header"));
+    CHECK(!layout.HasPanel("header"));
+    CHECK(layout.RemovePanel("inspector"));
+    CHECK(!layout.HasPanel("inspector"));
+    CHECK(layout.HasDockedPanel("editor"));
+
+    // 4. FloatPanel & RedockPanel remember prior dock location
+    CHECK(layout.FloatPanel("preview", Rect(120.0f, 60.0f, 340.0f, 240.0f)));
+    CHECK(layout.IsPanelFloating("preview"));
+    CHECK(!layout.HasDockedPanel("preview"));
+    CHECK(layout.IsPanelActive("preview"));
+
+    // 5. ClosePanel & ReopenPanel
+    CHECK(layout.ClosePanel("terminal"));
+    CHECK(layout.IsPanelClosed("terminal"));
+    CHECK(!layout.HasPanel("terminal"));
+    CHECK(layout.ReopenPanel("terminal"));
+    CHECK(!layout.IsPanelClosed("terminal"));
+    CHECK(layout.HasDockedPanel("terminal"));
+
+    // 6. Round-trip SaveLayout / LoadLayout (D2 with floating card)
+    const keel::String savedWithFloat = layout.SaveLayout();
+    CHECK(savedWithFloat.starts_with("D2("));
+    CHECK(savedWithFloat.contains(";F(preview,"));
+
+    DockLayout restored;
+    CHECK(restored.LoadLayout(savedWithFloat.as_ref()));
+    CHECK(restored.HasDockedPanel("files"));
+    CHECK(restored.HasDockedPanel("editor"));
+    CHECK(restored.HasDockedPanel("log"));
+    CHECK(restored.HasDockedPanel("terminal"));
+    CHECK(restored.IsPanelFloating("preview"));
+    const DockFloatCard* rf = restored.FindFloatCard("preview");
+    CHECK(rf != nullptr);
+    if (rf) {
+        CHECK_NEAR(rf->bounds.x, 120.0f, 0.5f);
+        CHECK_NEAR(rf->bounds.y, 60.0f, 0.5f);
+        CHECK_NEAR(rf->bounds.w, 340.0f, 0.5f);
+        CHECK_NEAR(rf->bounds.h, 240.0f, 0.5f);
+    }
+
+    // 7. Redock floating card and verify plain-tree serialization format
+    CHECK(layout.RedockPanel("preview"));
+    CHECK(!layout.IsPanelFloating("preview"));
+    CHECK(layout.HasDockedPanel("preview"));
+    const keel::String savedPlain = layout.SaveLayout();
+    CHECK(savedPlain.starts_with("H(") || savedPlain.starts_with("V(") || savedPlain.starts_with("T("));
+    DockLayout restoredPlain;
+    CHECK(restoredPlain.LoadLayout(savedPlain.as_ref()));
+    CHECK(restoredPlain.SaveLayout() == savedPlain);
+
+    // 8. Parse explicit spec example strings
+    DockLayout specTree;
+    CHECK(specTree.LoadLayout("H(0.22,T(0;files),V(0.72,T(0;editor,preview),T(0;log,terminal)))"));
+    CHECK(specTree.HasDockedPanel("files"));
+    CHECK(specTree.IsPanelActive("editor"));
+    CHECK(!specTree.IsPanelActive("preview"));
+    CHECK(specTree.IsPanelActive("log"));
+
+    DockLayout specFloat;
+    CHECK(specFloat.LoadLayout("D2(H(0.3,T(0;files),T(0;editor));F(inspector,420,80,320,260))"));
+    CHECK(specFloat.HasDockedPanel("files"));
+    CHECK(specFloat.HasDockedPanel("editor"));
+    CHECK(specFloat.IsPanelFloating("inspector"));
+
+    // 9. Invalid strings must fail without corrupting existing layout
+    const keel::String beforeBad = specFloat.SaveLayout();
+    CHECK(!specFloat.LoadLayout(""));
+    CHECK(!specFloat.LoadLayout("H(0.5,T(0;a))"));                                 // missing 2nd child
+    CHECK(!specFloat.LoadLayout("H(1.5,T(0;a),T(0;b))"));                          // ratio >= 1
+    CHECK(!specFloat.LoadLayout("H(0.0,T(0;a),T(0;b))"));                          // ratio <= 0
+    CHECK(!specFloat.LoadLayout("T(2;a,b)"));                                      // activeTab out of range
+    CHECK(!specFloat.LoadLayout("H(0.5,T(0;dup),T(0;dup))"));                      // duplicate panel ID
+    CHECK(!specFloat.LoadLayout("D2(T(0;dup);F(dup,10,10,200,200))"));             // duplicate across dock/float
+    CHECK(!specFloat.LoadLayout("D2(T(0;a);F(b,10,10,-50,200))"));                 // negative width
+    CHECK(!specFloat.LoadLayout("T(0;a) trailing"));                               // trailing garbage
+    CHECK(specFloat.SaveLayout() == beforeBad);
+}
+
 int main() {
     keel::println("[RUN] Testing GuiKit Layout Solver...");
 
@@ -1623,6 +1747,7 @@ int main() {
     TestPayloadTypeIdAndSolverMeasurePurity();
     TestRowAndColumnJustifySpaceBetween();
     TestGridZeroRunGapIndependentOfColumnGap();
+    TestDockLayoutTreeAndSerialization();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Layout tests passed successfully!");

@@ -60,6 +60,7 @@
 #include "guikit/surfaces/menu_bar.hpp"
 #include "guikit/surfaces/accordion.hpp"
 #include "guikit/surfaces/carousel.hpp"
+#include "guikit/surfaces/dock_area.hpp"
 
 // 3. Overlays (out-of-flow portals & notifications)
 #include "guikit/overlays/modal.hpp"

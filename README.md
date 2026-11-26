@@ -1,35 +1,35 @@
 # GuiKit
 
-**GuiKit** is a modern, autonomous C++20 immediate-mode vector GUI and 2D visualization library powered by **ThorVG**, **SDL3**, and **WebGL2 / OpenGL GLSL** for both Native Desktop and WebAssembly.
+**GuiKit** is a modern, autonomous C++20 immediate-mode vector GUI and 2D visualization library for Native Desktop and WebAssembly. It features its own lightweight native platform & GPU rendering backend (**Win32 / X11 / Wayland / Emscripten + OpenGL ES 3.0 / GL 3.3 / WebGL2** via `guikit::native`) and built-in **`keel::font`** C++20 TrueType/OpenType glyph rasterizer (`guikit::text`), with **optional** **SDL3**, **ThorVG**, and **FreeType** backends.
 
 ## 👉 [Live Interactive Demo (WebAssembly): https://guikit.github.io/demo/](https://guikit.github.io/demo/)
 
 ![Workspace & Rich Markdown Engine](docs/screenshots/markdown_workspace.png)
 
-> Looking for the full interactive showcase (`guikit_demo`) combining all widgets and domain modules (GIS, Signal/Radar, Cockpit, BPMN)? See **[`guikit/bundle`](https://github.com/guikit/bundle)**.
+> Looking for the full interactive showcase (`guikit_demo_native` / `guikit_demo`) combining all widgets and domain modules (GIS, Signal/Radar, Cockpit, BPMN)? See **[`guikit/bundle`](https://github.com/guikit/bundle)**.
 
 ---
 
 ## Key Highlights
 
-- **Pure Vector Rendering & GLSL Underlays**: Razor-sharp UI at any DPI and scale via **ThorVG**, combined with hardware-accelerated **OpenGL / WebGL2 GLSL** shader underlays (`SdlGlShaderEngine`) for real-time 2D visualizations.
-- **100% Autonomous C++20 Immediate Mode**: Zero dependency on Dear ImGui and zero STL headers in public headers (powered by [`keel`](https://github.com/keelcpp/keel)). Clean, composable `Element` + `Control` architecture using designated initializers, RAII container scopes, `ui.Zone(...)` ambient scoping, and reactive dirty-rectangle damage tracking:
+- **Own Native Backend + Optional Backends**: Ships with GuiKit's own native windowing and hardware-accelerated **OpenGL ES 3.0 / GL 3.3 / WebGL2** 2D vector & GLSL shader backend (`guikit::native`) plus the zero-dependency **`keel::font`** TrueType/OpenType glyph rasterizer (`guikit::text`), while also offering **optional** **SDL3**, **ThorVG** CPU vector rasterizer (`guikit::sdl`), and **FreeType** backends.
+- **100% Autonomous C++20 Immediate Mode**: Zero dependency on Dear ImGui and zero STL headers in public headers (built on [`keel`](https://github.com/keelcpp/keel)). Clean, composable free-function widget API (`guikit::Card`, `guikit::Button`, `guikit::Element`) using designated initializers, RAII container scopes, `ui.Zone(...)` ambient scoping, and reactive dirty-rectangle damage tracking:
   ```cpp
-  if (auto card = ui.Card({
+  if (auto card = guikit::Card(ui, {
       .gap = 12.0f,
       .padding = guikit::Padding::All(16.0f),
       .border = {.width = 1.0f, .radius = 8.0f}
   })) {
-      ui.Heading({
+      guikit::Heading(ui, {
           .label = "Mission Control",
           .description = "Closed-loop attitude & thruster telemetry",
           .icon = guikit::Icon::Play(),
           .separator = guikit::HeadingSeparator::Bottom
       });
-      if (auto el = ui.Element({.label = "Main Thruster Output"})) {
-          ui.Slider(thrustPct, 0.0f, 100.0f, {.valueFormat = "%.1f %%"});
+      if (auto el = guikit::Element(ui, {.label = "Main Thruster Output"})) {
+          guikit::Slider(ui, thrustPct, 0.0f, 100.0f, {.valueFormat = "%.1f %%"});
       }
-      if (ui.Button({
+      if (guikit::Button(ui, {
           .text = "Engage Autopilot",
           .icon = guikit::Icon::Flash(),
           .color = guikit::StateColor::Primary()
@@ -54,7 +54,7 @@
 
 ### 2. Layouts, Panels, Navigation & Overlays
 - **Layout Solver**: `Row`, `Column`, `Wrap`, `Grid` (12-column responsive layout), `Spacer`, `Gap`, `Zone` (ambient theme, scale & density)
-- **Panels & Containers**: `Box`, `Card`, `SplitView`, `Accordion`, `ScrollArea`, `Sidebar`, `ActivityBar`, `BottomPanel`, `StatusBar`, `Carousel`
+- **Surfaces & Containers**: `Box`, `Card`, `SplitView`, `DockArea` (binary split docking tree, tab groups, floating cards & layout serialization), `Accordion`, `ScrollArea`, `Sidebar`, `ActivityBar`, `BottomPanel`, `StatusBar`, `Carousel`
 - **Navigation**: `TabBar`, `Breadcrumb`, `Pagination`, `Toolbar`, `SidebarMenu`
 - **Hierarchical & Virtualized Data**: `TreeView` (multi-column, filterable hierarchy), `Table` (virtualized data grid supporting **100,000+ rows**)
 - **Overlays & Notifications**: `Modal` (stacked dialog portals with focus trap), `Popover`, `ContextMenu`, `CommandPalette` (`Ctrl+K` fuzzy launcher), `Toast`
@@ -64,11 +64,14 @@
 
 ## GuiKit Ecosystem
 
-Domain-specific visualization and workstation modules live in dedicated companion repositories:
+Platform backends, text rendering, and domain-specific visualization modules live in dedicated companion repositories:
 
 | Repository | CMake Target | Components |
 | :--- | :--- | :--- |
-| **[`guikit/bundle`](https://github.com/guikit/bundle)** | `guikit::all` | Unified workspace combining all modules + full interactive `guikit_demo` (Desktop & WebAssembly) |
+| **[`guikit/bundle`](https://github.com/guikit/bundle)** | `guikit::all` | Unified workspace combining all modules + full 39-screen interactive showcase (Desktop & WebAssembly) |
+| **[`guikit/native`](https://github.com/guikit/native)** | `guikit::native` | GuiKit's own native platform windowing (Win32 / X11 / Wayland / Emscripten) & OpenGL ES 3.0 / GL 3.3 / WebGL2 2D vector renderer (zero SDL3, zero ThorVG) |
+| **[`guikit/text`](https://github.com/guikit/text)** | `guikit::text` | Standalone glyph rasterizer & LRU glyph cache powered by built-in `keel::font` (TrueType/OpenType) with optional **FreeType** backend |
+| **[`guikit/sdl`](https://github.com/guikit/sdl)** | `guikit::sdl` | *(Optional)* **SDL3** windowing, GLSL shader underlays & **ThorVG** CPU vector rasterizer backend |
 | **[`guikit/geo`](https://github.com/guikit/geo)** | `guikit::geo` | Multi-CRS geodesy, GeoJSON I/O, S-52/ENC marine vector GIS engine, OSM tiles & `MapView` |
 | **[`guikit/signal`](https://github.com/guikit/signal)** | `guikit::signal` | DSP Waveform + STFT Spectrogram (`SignalView`), Polar Sonar/Radar (`SonarView`), RTSA Waterfall (`WaterfallView`) |
 | **[`guikit/cockpit`](https://github.com/guikit/cockpit)** | `guikit::cockpit` | Avionics Primary Flight Display (`AttitudeView`) & Automotive Instrument Cluster (`CarClusterView`) |
@@ -81,23 +84,28 @@ Domain-specific visualization and workstation modules live in dedicated companio
 ```text
 guikit/
 ├── include/guikit/      # Public C++20 headers (zero-STL pure)
-│   ├── backend/         # Canvas & GPU shader abstractions (ThorCanvas, SdlCanvas, SdlGlShaderEngine)
-│   ├── core/            # Tokens, Theme, Types, Control, Element, Assets, Allocator, Id, FrameMetrics
-│   ├── graphics/        # Procedural vector Icons & Colormaps
-│   ├── layout/          # Flexbox & 12-column Grid solver (Row, Column, Wrap, Grid, Spacer)
-│   ├── panels/          # Containers, splitters, overlays & viewports (Box, Card, SplitView, Table, Scene...)
-│   ├── widgets/         # Autonomous immediate-mode widgets
+│   ├── backend/         # Abstract ICanvas, IPlatformWindow, NullCanvas & TextCompositor interfaces
+│   ├── core/            # Types, Control, Element, Assets, Allocator, Id, Solver, FrameMetrics
+│   ├── style/           # Orthogonal ThemePalette × ChromeTokens × FillStyle, IStylePainter, FieldFrame
+│   ├── graphics/        # Procedural vector Icons, DrawList & Colormaps
+│   ├── layout/          # Flexbox & 12-column Grid solver (Row, Column, Wrap, Grid, SplitView, ScrollArea)
+│   ├── surfaces/        # Structural containers (Box, Card, DockArea, Sidebar, BottomPanel, StatusBar...)
+│   ├── overlays/        # Portals & popups (Modal, Popover, ContextMenu, CommandPalette, Toast)
+│   ├── actions/         # Buttons, TabBar, Segmented, Breadcrumb, Pagination, SidebarMenu
+│   ├── fields/          # InputField, TextArea, Select, MultiSelect, SpinBox, TagInput, ColorPicker, DatePicker
+│   ├── controls/        # Checkbox, Radio, Switch, Slider, RangeSlider, Knob
+│   ├── display/         # Heading, Text, Image, ProgressBar, LevelMeter, Histogram, Readout, Tag, Separator
+│   ├── views/           # Scene, ImageView, Table, TreeView, Markdown
 │   ├── context.hpp      # Primary immediate-mode UI Context
 │   ├── core.hpp         # Lightweight core + widgets header
 │   └── guikit.hpp       # Master umbrella include & version macros
 ├── src/guikit/          # Implementation units (.cpp)
 ├── examples/
-│   └── minimal/         # Single-file quickstart application (guikit_minimal)
+│   └── headless/        # Zero-dependency headless example (guikit_headless)
 ├── assets/              # Embedded fonts and application icon
 ├── cmake/               # Asset embedding & guideline enforcement CMake helpers
-├── scripts/             # Dependency install & desktop build scripts
 ├── tests/               # Automated unit tests (test_core, test_layout, test_context, header purity)
-└── third_party/         # keel, SDL3, and ThorVG submodules
+└── third_party/         # keel foundation library (0BSD)
 ```
 
 ---
@@ -108,28 +116,28 @@ guikit/
 - C++20 compiler (MSVC 2022+, Clang 15+, GCC 12+, or Emscripten for WebAssembly)
 - CMake 3.21+
 - Git
-- **Linux (Ubuntu / Debian / Fedora / Arch)** — X11, Wayland, and OpenGL development headers required when building the `SDL3` desktop backend:
+- **Linux (Ubuntu / Debian / Fedora / Arch)** — X11, Wayland, and OpenGL development headers required when building desktop windowing backends (`guikit::native` or optional `guikit::sdl`):
   ```bash
   ./scripts/linux/install-deps.sh
   ```
 
-### Clone & Build Standalone
+### Clone & Build Standalone Core
 ```bash
 git clone --recursive https://github.com/guikit/guikit.git
 cd guikit
 cmake -S . -B build
 cmake --build build --config Release --parallel
 ctest --test-dir build -C Release --output-on-failure
-./build/guikit_minimal
+./build/guikit_headless
 ```
 
-For the full 38-screen interactive showcase (`guikit_demo`) and WebAssembly build/publish pipeline, clone [`guikit/bundle`](https://github.com/guikit/bundle).
+For the full 39-screen interactive showcase (`guikit_demo_native` / `guikit_demo`), native & optional SDL3/ThorVG/FreeType backends, and WebAssembly build/publish pipeline, clone [`guikit/bundle`](https://github.com/guikit/bundle).
 
 ---
 
 ## Integrating GuiKit into Your CMake Project
 
-Add GuiKit via `add_subdirectory` or `FetchContent` and link against `guikit::guikit` (full desktop/WASM target) or `guikit::core` (headless pure C++20 UI core):
+Add GuiKit via `add_subdirectory` or `FetchContent` and link against `guikit::core` (pure headless C++20 UI core) together with `guikit::native` (GuiKit's own native backend) or the optional `guikit::sdl` backend:
 
 ```cmake
 include(FetchContent)
@@ -145,7 +153,7 @@ add_executable(my_app main.cpp)
 target_link_libraries(my_app PRIVATE guikit::guikit)
 ```
 
-See [`examples/minimal/main.cpp`](examples/minimal/main.cpp) for a complete single-file starter template, and [`AGENTS.md`](AGENTS.md) for the complete architecture, component selection, and best-practices guide for developers and AI coding agents.
+See [`examples/headless/main.cpp`](examples/headless/main.cpp) for a standalone starter example, and [`AGENTS.md`](AGENTS.md) for the complete architecture, component selection, and best-practices guide for developers and AI coding agents.
 
 ---
 

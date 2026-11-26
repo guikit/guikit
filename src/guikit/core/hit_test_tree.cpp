@@ -48,6 +48,9 @@ void CollectBoundsRecursive(
         parentClip = Rect(-100000.0f, -100000.0f, 200000.0f, 200000.0f);
         curZLayer = 2;
         if (node->id.IsValid()) curPortalId = node->id;
+    } else if (node->type == NodeType::DockFloat) {
+        curZLayer = keel::max<keel::u8>(curZLayer, 1);
+        if (node->id.IsValid()) curPortalId = node->id;
     } else if ((node->type == NodeType::Sidebar || node->type == NodeType::BottomPanel) && !node->IsCollapsed()) {
         curZLayer = keel::max<keel::u8>(curZLayer, 1);
     } else if (node->type == NodeType::StatusBar) {
@@ -212,6 +215,7 @@ bool HitTestTree::DoesNodeBlockHit(const Node* node) noexcept {
         case NodeType::StatusBar:
         case NodeType::Toolbar:
         case NodeType::Card:
+        case NodeType::DockFloat:
         case NodeType::Accordion:
         case NodeType::AccordionHeader:
         case NodeType::Modal:

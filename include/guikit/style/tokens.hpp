@@ -36,6 +36,14 @@ enum class FieldStyle : keel::u8 {
     Borderless   ///< Minimal inline input well (no resting outline; subtle focus indicator)
 };
 
+/// Visual presentation style for tab strips (`TabBar` and `DockArea`).
+enum class TabBarStyle : keel::u8 {
+    Underline,  ///< Classic desktop/IDE style: transparent tab background with an accent bottom indicator line
+    Pill,       ///< Segmented capsule style: active tab has a rounded background fill
+    Card,       ///< Outlined card tabs docked to baseline (open bottom on active tab)
+    Folder      ///< Browser/editor folder tabs with angled/tapered shoulders and top accent line
+};
+
 /// Universal relative placement for companion elements (e.g. icons or value readouts inside controls).
 enum class Placement : keel::u8 {
     Leading,    ///< Placed before primary element (left / start)

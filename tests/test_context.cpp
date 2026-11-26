@@ -11827,6 +11827,7 @@ void TestDrawListRecorderCopiesTransientPixels();
 void TestTableUnlimitedColumnsAndSelection();
 void TestTableProductionFeatures();
 void TestClassicBorderOverrides();
+void TestDockAreaInteractiveWorkflow();
 
 void TestZonePartialThemeOverrides() {
     using namespace guikit;
@@ -11916,6 +11917,7 @@ int main() {
     TestTableUnlimitedColumnsAndSelection();
     TestTableProductionFeatures();
     TestClassicBorderOverrides();
+    TestDockAreaInteractiveWorkflow();
     TestTextWrappingAndBackendIndependence();
 
 #if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
@@ -19911,6 +19913,437 @@ void TestClassicBorderOverrides() {
     }
 
     keel::println("  [PASS] TestClassicBorderOverrides completed");
+}
+
+void TestDockAreaInteractiveWorkflow() {
+    using namespace guikit;
+    keel::println("  -> TestDockAreaInteractiveWorkflow...");
+
+    Context ui;
+    UiTheme theme = UiTheme::Dark();
+    theme.animationScale = 0.0f; // deterministic geometry for mouse hit-test coordinates
+    ui.SetTheme(theme);
+    NullCanvas canvas;
+    const Vec2 vp{800.0f, 500.0f};
+
+    DockLayout layout;
+    CHECK(layout.LoadLayout("H(0.5,T(0;files),T(0;editor,preview))"));
+
+    keel::i32 filesRuns = 0;
+    keel::i32 editorRuns = 0;
+    keel::i32 previewRuns = 0;
+    bool editorClosedSeen = false;
+    keel::String lastClosedId;
+    Id editorBtnId = Id::Null();
+    Rect editorBtnRect{};
+    bool editorBtnClicked = false;
+    bool floatBtnClicked = false;
+    Rect filesBounds{};
+    Rect editorBounds{};
+    Rect previewBounds{};
+
+    auto runFrame = [&](bool animate = false) {
+        filesRuns = 0;
+        editorRuns = 0;
+        previewRuns = 0;
+        editorClosedSeen = false;
+        editorBtnClicked = false;
+        floatBtnClicked = false;
+        lastClosedId.clear();
+
+        ui.BeginFrame(vp, 1.0f);
+        if (auto dock = guikit::DockArea(ui, layout, {
+            .sashSize = 6.0f,
+            .minPaneSize = 120.0f,
+            .resizable = true,
+            .reorderable = true,
+            .dockable = true,
+            .tearable = true,
+            .animateLayout = animate
+        })) {
+            if (!dock.ClosedPanelId().empty()) {
+                lastClosedId.assign(dock.ClosedPanelId());
+            }
+            if (auto p = dock.Panel("files", {.title = "Explorer"})) {
+                ++filesRuns;
+                filesBounds = p.Bounds();
+                if (guikit::Button(ui, {.text = "Files Action"}).clicked) {
+                    // docked button in left pane
+                }
+            }
+            {
+                auto p = dock.Panel("editor", {.title = "main.cpp", .closable = true});
+                if (p.Closed()) {
+                    editorClosedSeen = true;
+                }
+                if (p) {
+                    ++editorRuns;
+                    editorBounds = p.Bounds();
+                    Response r = guikit::Button(ui, {.text = "Run Editor"});
+                    editorBtnId = r.id;
+                    editorBtnRect = r.rect;
+                    editorBtnClicked = r.clicked;
+                }
+            }
+            if (auto p = dock.Panel("preview", {.title = "Preview", .closable = true})) {
+                ++previewRuns;
+                previewBounds = p.Bounds();
+                if (guikit::Button(ui, {.text = "Preview Action"}).clicked) {
+                    floatBtnClicked = true;
+                }
+            }
+        }
+        ui.EndFrame(canvas);
+    };
+
+    // 1. Lazy tab execution: only active tabs ("files", "editor") execute; inactive "preview" is skipped
+    ui.SetCurrentTime(1.0);
+    runFrame();
+    runFrame();
+    CHECK(filesRuns == 1);
+    CHECK(editorRuns == 1);
+    CHECK(previewRuns == 0);
+    CHECK(filesBounds.w > 300.0f && editorBounds.w > 300.0f);
+
+    // Preserve widget Id & persistent state inside "editor" before moving it
+    const Id savedEditorBtnId = editorBtnId;
+    CHECK(savedEditorBtnId.IsValid());
+    ui.GetOrCreatePersistentState<keel::i32>(savedEditorBtnId) = 42;
+
+    auto leftClickAt = [&](Vec2 pt) {
+        ui.AdvanceTime(0.5); // avoid accidental double-click from previous test step
+        ui.OnMouseMove(pt);
+        runFrame();
+        ui.OnMouseDown(1);
+        runFrame();
+        ui.OnMouseUp(1);
+        runFrame();
+    };
+    auto doubleClickAt = [&](Vec2 pt) {
+        ui.AdvanceTime(0.5);
+        ui.OnMouseMove(pt);
+        runFrame();
+        ui.OnMouseDown(1);
+        runFrame();
+        ui.OnMouseUp(1);
+        runFrame();
+        ui.AdvanceTime(0.08);
+        ui.OnMouseDown(1);
+        runFrame();
+        ui.OnMouseUp(1);
+        runFrame();
+    };
+
+    // 2. Resize split sash by mouse drag (sash sits near x = 400)
+    const Vec2 sashMid{400.0f, 250.0f};
+    ui.AdvanceTime(0.5);
+    ui.OnMouseMove(sashMid);
+    runFrame();
+    ui.OnMouseDown(1);
+    runFrame();
+    ui.OnMouseMove({280.0f, 250.0f});
+    runFrame();
+    ui.OnMouseUp(1);
+    runFrame();
+    runFrame();
+    CHECK(filesBounds.w < 300.0f);
+    CHECK(editorBounds.w > 460.0f);
+
+    // Drag sash past minimum pane size (minPaneSize = 120): left pane must stay >= 115dp
+    ui.AdvanceTime(0.5);
+    ui.OnMouseMove({filesBounds.Right() + 3.0f, 250.0f});
+    runFrame();
+    ui.OnMouseDown(1);
+    runFrame();
+    ui.OnMouseMove({10.0f, 250.0f});
+    runFrame();
+    ui.OnMouseUp(1);
+    runFrame();
+    runFrame();
+    CHECK(filesBounds.w >= 115.0f);
+
+    // Double-click sash resets ratio back to 0.5
+    doubleClickAt({filesBounds.Right() + 3.0f, 250.0f});
+    runFrame();
+    CHECK_NEAR(filesBounds.w, editorBounds.w, 6.0f);
+
+    // 3. Click inactive "preview" tab in right group -> switches active tab lazily
+    const Vec2 previewTabPos{editorBounds.x + 150.0f, 16.0f};
+    leftClickAt(previewTabPos);
+    CHECK(layout.IsPanelActive("preview"));
+    CHECK(!layout.IsPanelActive("editor"));
+    CHECK(previewRuns == 1);
+    CHECK(editorRuns == 0);
+
+    // 4. Drag "preview" tab into left group's center (merge) — first cancel with Escape
+    ui.AdvanceTime(0.5);
+    ui.OnMouseMove(previewTabPos);
+    runFrame();
+    ui.OnMouseDown(1);
+    runFrame();
+    ui.OnMouseMove({200.0f, 250.0f}); // center of left group
+    runFrame();
+    ui.OnKeyDown(Key::Escape);
+    runFrame();
+    ui.OnMouseUp(1);
+    runFrame();
+    // Escape cancelled: preview still in right group
+    CHECK(layout.FindPanelNode("preview") == layout.FindPanelNode("editor"));
+
+    // Now complete the drag into left group's center (merge into tabs)
+    ui.AdvanceTime(0.5);
+    ui.OnMouseMove(previewTabPos);
+    runFrame();
+    ui.OnMouseDown(1);
+    runFrame();
+    ui.OnMouseMove({200.0f, 250.0f});
+    runFrame();
+    ui.OnMouseUp(1);
+    runFrame();
+    runFrame();
+    CHECK(layout.FindPanelNode("preview") == layout.FindPanelNode("files"));
+    CHECK(layout.IsPanelActive("editor")); // editor became active again in right group
+
+    // 5. Verify internal widget Id & persistent state survived panel moves via IdScope
+    CHECK(editorBtnId == savedEditorBtnId);
+    const keel::i32* preserved = ui.FindState<keel::i32>(savedEditorBtnId);
+    CHECK(preserved != nullptr && *preserved == 42);
+
+    // 6. Drag "preview" tab onto right group's right edge -> splits right group into 3 panes
+    const Vec2 previewInLeftTabPos{filesBounds.x + 135.0f, 16.0f};
+    ui.AdvanceTime(0.5);
+    ui.OnMouseMove(previewInLeftTabPos);
+    runFrame();
+    ui.OnMouseDown(1);
+    runFrame();
+    ui.OnMouseMove({editorBounds.Right() - 40.0f, 250.0f}); // right quadrant of right group (inside outer edge strip)
+    runFrame();
+    ui.OnMouseUp(1);
+    runFrame();
+    runFrame();
+    CHECK(layout.FindPanelNode("preview") != layout.FindPanelNode("files"));
+    CHECK(layout.FindPanelNode("preview") != layout.FindPanelNode("editor"));
+
+    // 7. Tear "preview" into a floating card by dragging outside docked area, then test occlusion & redock
+    const Vec2 previewSoloTabPos{previewBounds.x + 30.0f, 16.0f};
+    ui.AdvanceTime(0.5);
+    ui.OnMouseMove(previewSoloTabPos);
+    runFrame();
+    ui.OnMouseDown(1);
+    runFrame();
+    ui.OnMouseMove({-40.0f, -40.0f}); // outside DockArea -> tear into floating card!
+    runFrame();
+    ui.OnMouseUp(1);
+    runFrame();
+    runFrame();
+    CHECK(layout.IsPanelFloating("preview"));
+
+    // Move floating card directly on top of editorBtnRect (below editor's tab bar) and verify occlusion
+    CHECK(layout.FloatPanel("preview", Rect(editorBtnRect.x - 10.0f, editorBtnRect.y + 2.0f, 260.0f, 180.0f)));
+    runFrame();
+    runFrame();
+    CHECK(previewRuns == 1);
+    CHECK(editorRuns == 1);
+
+    // Clicking on editorBtnRect's position must be occluded by floating "preview" card above it!
+    leftClickAt(editorBtnRect.Center());
+    CHECK(!editorBtnClicked);
+
+    // Drag floating card title bar horizontally across docked body (must move freely without accidentally redocking),
+    // then double-click title bar to redock cleanly!
+    const DockFloatCard* fc = layout.FindFloatCard("preview");
+    CHECK(fc != nullptr);
+    const keel::f32 beforeX = fc->bounds.x;
+    const Vec2 floatTitlePos{fc->bounds.x + 40.0f, fc->bounds.y + 14.0f};
+    ui.AdvanceTime(0.5);
+    ui.OnMouseMove(floatTitlePos);
+    runFrame();
+    ui.OnMouseDown(1);
+    runFrame();
+    ui.OnMouseMove({floatTitlePos.x - 30.0f, floatTitlePos.y});
+    runFrame();
+    ui.OnMouseUp(1);
+    runFrame();
+    fc = layout.FindFloatCard("preview");
+    CHECK(fc != nullptr);
+    if (fc != nullptr) {
+        CHECK(fc->bounds.x != beforeX);
+        doubleClickAt({fc->bounds.x + 40.0f, fc->bounds.y + 14.0f});
+        runFrame();
+    }
+    CHECK(!layout.IsPanelFloating("preview"));
+    CHECK(layout.HasDockedPanel("preview"));
+
+    // 8. Close "editor" via middle-click on its closable tab -> Closed() fires, no auto-bind resurrection
+    CHECK(layout.HasDockedPanel("editor"));
+    const keel::f32 edTabX = editorBounds.x + 32.0f;
+    ui.AdvanceTime(0.5);
+    ui.OnMouseMove({edTabX, 16.0f});
+    runFrame();
+    ui.OnMouseDown(2); // middle click closes closable tab
+    runFrame();
+    CHECK(editorClosedSeen);
+    CHECK(lastClosedId == "editor");
+    ui.OnMouseUp(2);
+    runFrame();
+    CHECK(layout.IsPanelClosed("editor"));
+    CHECK(!layout.HasPanel("editor"));
+
+    // Next frame: auto-bind must NOT resurrect closed panel!
+    runFrame();
+    CHECK(layout.IsPanelClosed("editor"));
+    CHECK(!layout.HasPanel("editor"));
+    CHECK(editorRuns == 0);
+
+    // ReopenPanel brings it right back
+    CHECK(layout.ReopenPanel("editor"));
+    runFrame();
+    CHECK(layout.HasDockedPanel("editor"));
+
+    // 9. Two overlapping floating cards: clicking lower card raises its zOrder above the upper card
+    CHECK(layout.FloatPanel("editor", Rect(100.0f, 80.0f, 260.0f, 180.0f)));
+    CHECK(layout.FloatPanel("preview", Rect(200.0f, 120.0f, 260.0f, 180.0f)));
+    runFrame();
+    runFrame();
+    const DockFloatCard* fEd = layout.FindFloatCard("editor");
+    const DockFloatCard* fPr = layout.FindFloatCard("preview");
+    CHECK(fEd != nullptr && fPr != nullptr);
+    CHECK(fPr->zOrder > fEd->zOrder);
+    // Click exposed top-left corner of lower "editor" floating card -> raises it above "preview"
+    leftClickAt({120.0f, 95.0f});
+    fEd = layout.FindFloatCard("editor");
+    fPr = layout.FindFloatCard("preview");
+    CHECK(fEd != nullptr && fPr != nullptr);
+    CHECK(fEd->zOrder > fPr->zOrder);
+
+    // 10. Production UX checks:
+    // (a) Split Top on a short horizontal bottom panel works cleanly inside top 25% of contentRect (below tabBar)
+    // (b) Cross-group drop onto left side of tab bar inserts at index 0
+    // (c) Scrollable floating card scrolls via mouse wheel
+    // (d) Narrow overflowing tab bar exposes '▼' overflow button & dropdown selection
+    {
+        Context ui2;
+        ui2.SetTheme(theme);
+        ui2.SetCurrentTime(1.0);
+        DockLayout l2;
+        CHECK(l2.LoadLayout("V(0.70,T(0;top),T(0;botA,botB))"));
+        Rect botContent{};
+        keel::f32 floatScrollY = 0.0f;
+
+        auto frame2 = [&](Vec2 size = {800.0f, 500.0f}) {
+            ui2.BeginFrame(size, 1.0f);
+            if (auto dock = guikit::DockArea(ui2, l2, {
+                .sashSize = 6.0f,
+                .minPaneSize = 60.0f,
+                .animateLayout = false
+            })) {
+                if (auto p = dock.Panel("top", {.title = "Top Panel", .scrollable = true})) {
+                    if (p.GetNode() && p.GetNode()->scroll) {
+                        floatScrollY = p.GetNode()->scroll->offset.y;
+                    }
+                    for (keel::i64 i = 0; i < 16; ++i) {
+                        auto sc = ui2.IdScope(i);
+                        guikit::Button(ui2, {.text = "Tall Row", .height = 28.0f});
+                    }
+                }
+                if (auto p = dock.Panel("botA", {.title = "Output"})) {
+                    botContent = p.Bounds();
+                    guikit::Text(ui2, "Log");
+                }
+                if (auto p = dock.Panel("botB", {.title = "Problems"})) {
+                    guikit::Text(ui2, "Problems");
+                }
+            }
+            ui2.EndFrame(canvas);
+        };
+
+        frame2();
+        frame2();
+        CHECK(botContent.h > 80.0f);
+
+        // (a) Drag "top" tab onto top 15% of botContent (below Output's tab bar!) -> MUST Split Top, not merge as tab!
+        ui2.AdvanceTime(0.5);
+        ui2.OnMouseMove({40.0f, 16.0f});
+        frame2();
+        ui2.OnMouseDown(1);
+        frame2();
+        ui2.OnMouseMove({400.0f, botContent.y + 10.0f});
+        frame2();
+        ui2.OnMouseUp(1);
+        frame2();
+        frame2();
+        CHECK(l2.FindPanelNode("top") != l2.FindPanelNode("botA"));
+
+        // (b) Drag "top" tab onto the very left edge of botA's tab bar -> InsertTab at index 0!
+        CHECK(l2.LoadLayout("V(0.70,T(0;top),T(0;botA,botB))"));
+        frame2();
+        frame2();
+        ui2.AdvanceTime(0.5);
+        ui2.OnMouseMove({40.0f, 16.0f});
+        frame2();
+        ui2.OnMouseDown(1);
+        frame2();
+        ui2.OnMouseMove({8.0f, botContent.y - 12.0f}); // left edge of bottom tab bar
+        frame2();
+        ui2.OnMouseUp(1);
+        frame2();
+        frame2();
+        const keel::u32 mergedNode = l2.FindPanelNode("top");
+        CHECK(mergedNode == l2.FindPanelNode("botA"));
+        CHECK(l2.Nodes()[mergedNode].panelIds[0].as_ref() == "top");
+
+        // (c) Float scrollable "top" card (short height 140dp) and scroll down with mouse wheel!
+        CHECK(l2.FloatPanel("top", Rect(60.0f, 40.0f, 240.0f, 140.0f)));
+        frame2();
+        frame2();
+        ui2.OnMouseMove({150.0f, 110.0f});
+        ui2.OnMouseWheel(0.0f, -3.0f);
+        frame2();
+        frame2();
+        CHECK(floatScrollY > 0.0f);
+
+        // (d) Tab overflow dropdown: 6 tabs in a 220dp-wide DockArea -> click '▼' button and pick last tab!
+        DockLayout l3;
+        CHECK(l3.LoadLayout("T(0;t1,t2,t3,t4,t5,t6)"));
+        auto frame3 = [&]() {
+            ui2.BeginFrame({220.0f, 240.0f}, 1.0f);
+            if (auto dock = guikit::DockArea(ui2, l3, {.animateLayout = false})) {
+                if (auto p = dock.Panel("t1", {.title = "First Tab"})) { guikit::Text(ui2, "1"); }
+                if (auto p = dock.Panel("t2", {.title = "Second Tab"})) { guikit::Text(ui2, "2"); }
+                if (auto p = dock.Panel("t3", {.title = "Third Tab"})) { guikit::Text(ui2, "3"); }
+                if (auto p = dock.Panel("t4", {.title = "Fourth Tab"})) { guikit::Text(ui2, "4"); }
+                if (auto p = dock.Panel("t5", {.title = "Fifth Tab"})) { guikit::Text(ui2, "5"); }
+                if (auto p = dock.Panel("t6", {.title = "Sixth Tab"})) { guikit::Text(ui2, "6"); }
+            }
+            ui2.EndFrame(canvas);
+        };
+        frame3();
+        frame3();
+        CHECK(l3.IsPanelActive("t1"));
+        // Click overflow '▼' button near right edge of tab bar (x = 208, y = 16)
+        ui2.AdvanceTime(0.5);
+        ui2.OnMouseMove({208.0f, 16.0f});
+        frame3();
+        ui2.OnMouseDown(1);
+        frame3();
+        ui2.OnMouseUp(1);
+        frame3();
+        CHECK(ui2.GetOpenPopupId().IsValid());
+        // Click 6th item ("Sixth Tab") in the open overflow dropdown menu
+        const Rect popR = ui2.GetOpenPopupRect();
+        CHECK(popR.w > 100.0f && popR.h > 100.0f);
+        ui2.AdvanceTime(0.5);
+        ui2.OnMouseMove({popR.Center().x, popR.Bottom() - 14.0f});
+        frame3();
+        ui2.OnMouseDown(1);
+        frame3();
+        ui2.OnMouseUp(1);
+        frame3();
+        CHECK(l3.IsPanelActive("t6"));
+        CHECK(!ui2.GetOpenPopupId().IsValid());
+    }
+
+    keel::println("  [PASS] TestDockAreaInteractiveWorkflow completed");
 }
 
 

@@ -245,11 +245,29 @@ public:
     [[nodiscard]] ScopedId IdScope(keel::StringRef key);
     [[nodiscard]] ScopedId IdScope(keel::u64 key);
     [[nodiscard]] ScopedId IdScope(keel::i64 key);
+    template <typename T>
+        requires(keel::IsIntegral<T> && !keel::IsSame<T, bool> && !keel::IsSame<T, keel::u64> && !keel::IsSame<T, keel::i64>)
+    [[nodiscard]] ScopedId IdScope(T key) {
+        if constexpr (keel::IsSigned<T>) {
+            return IdScope(keel::as<keel::i64>(key));
+        } else {
+            return IdScope(keel::as<keel::u64>(key));
+        }
+    }
     [[nodiscard]] ScopedId IdScope(const void* ptr);
 
     void PushId(keel::StringRef key);
     void PushId(keel::u64 key);
     void PushId(keel::i64 key);
+    template <typename T>
+        requires(keel::IsIntegral<T> && !keel::IsSame<T, bool> && !keel::IsSame<T, keel::u64> && !keel::IsSame<T, keel::i64>)
+    void PushId(T key) {
+        if constexpr (keel::IsSigned<T>) {
+            PushId(keel::as<keel::i64>(key));
+        } else {
+            PushId(keel::as<keel::u64>(key));
+        }
+    }
     void PushId(const void* ptr);
     void PopId() noexcept;
 

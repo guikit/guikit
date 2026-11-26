@@ -17,14 +17,6 @@ namespace guikit {
 class Context;
 class ICanvas;
 
-/// Visual presentation style for TabBar.
-enum class TabBarStyle : keel::u8 {
-    Underline,  ///< Classic desktop/IDE style: transparent tab background with an accent bottom indicator line
-    Pill,       ///< Segmented capsule style: active tab has a rounded background fill
-    Card,       ///< Outlined card tabs docked to baseline (open bottom on active tab)
-    Folder      ///< Browser/editor folder tabs with angled/tapered shoulders and top accent line
-};
-
 /// Definition of an individual tab item.
 struct TabItem {
     UiText label{};

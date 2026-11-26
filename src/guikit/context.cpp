@@ -876,7 +876,8 @@ keel::u8 Context::CurrentScopeZLayer() const noexcept {
             zLayer = keel::max<keel::u8>(zLayer, 2);
         } else if (n->type == NodeType::Sidebar ||
                    n->type == NodeType::BottomPanel ||
-                   n->type == NodeType::StatusBar) {
+                   n->type == NodeType::StatusBar ||
+                   n->type == NodeType::DockFloat) {
             zLayer = keel::max<keel::u8>(zLayer, 1);
         }
     }
@@ -886,7 +887,7 @@ keel::u8 Context::CurrentScopeZLayer() const noexcept {
 Id Context::CurrentPortalId() const noexcept {
     for (keel::usize i = m_containerStack.size(); i > 0; --i) {
         const Node* n = m_containerStack[i - 1];
-        if (n && n->IsOutOfFlow() && n->id.IsValid()) {
+        if (n && (n->IsOutOfFlow() || n->type == NodeType::DockFloat) && n->id.IsValid()) {
             return n->id;
         }
     }
@@ -1088,6 +1089,9 @@ bool Context::IsMouseOccludedInFrame(Id id, Vec2 pos) const noexcept {
             if (b.zLayer > target.zLayer) {
                 return true;
             }
+            if (b.zLayer == target.zLayer && b.type == NodeType::DockFloat && b.preIndex > target.postIndex) {
+                return true;
+            }
             if (b.zLayer == target.zLayer && target.type == NodeType::Scene && b.preIndex > target.postIndex) {
                 return true;
             }
@@ -1167,8 +1171,17 @@ bool Context::IsMouseBlockedForCurrentScope() const noexcept {
     }
 
     if (currentZLayer < 2 && !hasActiveCapture) {
+        const HitNodeRecord* curPortalHit = currentPortalId.IsValid() ? m_hitTree.FindPrevHitNode(currentPortalId) : nullptr;
         for (const auto& b : m_hitTree.GetPrevHitNodes()) {
-            if (b.blocksHit && b.zLayer > currentZLayer && b.rect.Contains(m_mousePos)) {
+            if (!b.blocksHit || !b.rect.Contains(m_mousePos)) {
+                continue;
+            }
+            if (b.zLayer > currentZLayer) {
+                return true;
+            }
+            if (b.zLayer == currentZLayer && b.type == NodeType::DockFloat &&
+                curPortalHit != nullptr && curPortalHit->type == NodeType::DockFloat &&
+                b.id != curPortalHit->id && b.preIndex > curPortalHit->postIndex) {
                 return true;
             }
         }

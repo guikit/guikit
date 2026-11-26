@@ -129,6 +129,8 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/surfaces/box.cpp
     src/guikit/surfaces/card.cpp
     src/guikit/surfaces/carousel.cpp
+    src/guikit/surfaces/dock_area.cpp
+    src/guikit/surfaces/dock_layout.cpp
     src/guikit/overlays/command_palette.cpp
     src/guikit/layout/split_view.cpp
     src/guikit/actions/breadcrumb.cpp

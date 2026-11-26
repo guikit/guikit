@@ -639,19 +639,21 @@ TreeViewScope detail::TreeView::Open(
             pal.borderSubtle.WithAlphaF(theme.disabledOpacity)
         );
     }
+    const bool recessedWell = theme.Painter().GetChromeMetrics(theme).recessedRegions && (opts.border.width > 0.0f);
+    const Color defaultBg = recessedWell ? pal.inputBackground : pal.surface;
     if (opts.background.IsNone()) {
         outerNode->backgroundColor = Color::Transparent();
     } else if (!opts.background.HasAny() || opts.background.IsSurface()) {
         outerNode->backgroundColor = opts.background.IsSurface()
-            ? pal.surface.ScaleAlpha(opts.background.alphaScale)
-            : pal.surface;
+            ? defaultBg.ScaleAlpha(opts.background.alphaScale)
+            : defaultBg;
     } else {
         outerNode->backgroundColor = theme.ResolveColor(
             opts.background,
             treeHovered,
             anyRowFocusVisible,
             activeDisabled,
-            pal.surface,
+            defaultBg,
             pal.surfaceHover,
             pal.surfaceActive,
             pal.surface.WithAlphaF(theme.disabledOpacity)

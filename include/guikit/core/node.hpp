@@ -115,6 +115,8 @@ enum class NodeType : keel::u16 {
     SplitView   = 117,  ///< Resizable two-pane split container with draggable sash
     Popover     = 118,  ///< Out-of-flow non-modal floating popover anchored to a trigger rect
     MenuBar     = 119,  ///< Desktop top-level menu bar hosting cascading menus with hover-scrubbing
+    DockArea    = 120,  ///< Interactive docking workspace with binary split tree, tab groups, and floating cards
+    DockFloat   = 121,  ///< In-window floating dock card rendered above docked panes with z-ordered hit occlusion
 
     // --- Leaf Widgets (200..999): Self-rendering elements ---
     Button      = 200,
