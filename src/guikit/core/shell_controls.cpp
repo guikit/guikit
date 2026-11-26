@@ -38,7 +38,7 @@ bool ShellControls::RenderSidebarCycleButton(
     Context& ui = win.GetUi();
     const ButtonStyle btnStyle = (mode == SidebarMode::Collapsed)
         ? ButtonStyle::Ghost
-        : ButtonStyle::Solid;
+        : ButtonStyle::Default;
     const UiVariant btnVariant = (mode == SidebarMode::Expanded)
         ? UiVariant::Primary
         : (mode == SidebarMode::Compact)

@@ -2576,6 +2576,31 @@ void TestDesignSystemOrthogonalityAndCrossCombos() {
         }
         canvas.End();
         CHECK(canvas.GetStats().drawRectCount + canvas.GetStats().drawRoundRectCount > 0u);
+
+        // Verify ButtonStyle::Solid and ButtonStyle::Soft maintain >= 4.5:1 WCAG AA ink contrast
+        // in both resting and active states across Dark & Light themes (including after SetFillStyle).
+        for (ThemePreset preset : {ThemePreset::Dark, ThemePreset::Light}) {
+            UiTheme t = UiTheme::FromPreset(preset);
+            t.SetFillStyle(FillStyle::Solid);
+            const auto solidRest = detail::Button::ResolveColors(
+                ButtonOptions{.active = false, .style = ButtonStyle::Solid, .variant = UiVariant::Primary},
+                t, false, false, false, false
+            );
+            const auto solidAct = detail::Button::ResolveColors(
+                ButtonOptions{.active = true, .style = ButtonStyle::Solid, .variant = UiVariant::Primary},
+                t, false, false, false, false
+            );
+            CHECK(Color::ContrastRatio(solidRest.textCol, solidRest.bg) >= 4.5f);
+            CHECK(Color::ContrastRatio(solidAct.textCol, solidAct.bg) >= 4.5f);
+            CHECK(solidRest.textCol == Color::Hex(0xFFFFFFFF));
+            CHECK(solidAct.textCol == Color::Hex(0xFFFFFFFF));
+
+            const auto softAct = detail::Button::ResolveColors(
+                ButtonOptions{.active = true, .style = ButtonStyle::Soft, .variant = UiVariant::Primary},
+                t, false, false, false, false
+            );
+            CHECK(Color::ContrastRatio(softAct.textCol, softAct.bg) >= 4.5f);
+        }
     }
 }
 

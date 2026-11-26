@@ -229,7 +229,7 @@ void PopulateVariants(UiTheme& theme, ThemeMode mode) noexcept {
     } else {
         theme.variants = {{
             VariantColors{ Color::Hex(0x334155FF), Color::Hex(0x475569FF), Color::Hex(0x1E293BFF), Color::Hex(0xF8FAFCFF), Color::Hex(0x64748B40), 1.0f },
-            VariantColors{ Color::Hex(0x3B82F6FF), Color::Hex(0x60A5FAFF), Color::Hex(0x2563EBFF), Color::Hex(0xFFFFFFFF), Color::Hex(0x00000000), 0.0f },
+            VariantColors{ Color::Hex(0x2563EBFF), Color::Hex(0x3B82F6FF), Color::Hex(0x1D4ED8FF), Color::Hex(0xFFFFFFFF), Color::Hex(0x00000000), 0.0f },
             VariantColors{ Color::Hex(0x334155FF), Color::Hex(0x475569FF), Color::Hex(0x1E293BFF), Color::Hex(0xF8FAFCFF), Color::Hex(0x64748B40), 1.0f },
             VariantColors{ Color::Hex(0x10B981FF), Color::Hex(0x34D399FF), Color::Hex(0x059669FF), Color::Hex(0xFFFFFFFF), Color::Hex(0x00000000), 0.0f },
             VariantColors{ Color::Hex(0xF59E0BFF), Color::Hex(0xFBBF24FF), Color::Hex(0xD97706FF), Color::Hex(0x0F172AFF), Color::Hex(0x00000000), 0.0f },

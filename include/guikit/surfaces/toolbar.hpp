@@ -210,7 +210,7 @@ private:
         opts.active = isActive;
         if (isActive) {
             if (effStyle == ButtonStyle::Ghost && !opts.background.HasAny()) {
-                opts.style = ButtonStyle::Solid;
+                opts.style = ButtonStyle::Default;
                 if (opts.variant == UiVariant::Default) {
                     opts.variant = UiVariant::Primary;
                 }

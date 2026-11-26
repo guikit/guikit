@@ -347,12 +347,29 @@ detail::ButtonResolvedColors detail::Button::ResolveColors(
             actBg = vc.bgActive;
         }
     } else if (opts.style == ButtonStyle::Solid) {
+        const bool useCuratedSolid = isSemantic && (theme.fillStyle == FillStyle::Solid);
         const Color seed = isSemantic ? theme.GetSemanticAccent(opts.variant) : pal.accent;
-        defaultText = Color::BestTextColor(seed, Color::Hex(0x0F172AFF), Color::Hex(0xFFFFFFFF));
         if (hasCtrlBg) {
-            restBg = seed;
-            hovBg = isDark ? seed.Lighten(0.08f) : seed.Lighten(0.07f);
-            actBg = isDark ? seed.Darken(0.08f) : seed.Darken(0.09f);
+            if (useCuratedSolid) {
+                const VariantColors& vc = theme.GetVariant(opts.variant);
+                restBg = vc.bg;
+                hovBg = vc.bgHover;
+                actBg = vc.bgActive;
+            } else {
+                restBg = seed;
+                hovBg = isDark ? seed.Lighten(0.08f) : seed.Lighten(0.07f);
+                actBg = isDark ? seed.Darken(0.08f) : seed.Darken(0.09f);
+            }
+        }
+        const Color effBg = hasCtrlBg
+            ? (pressed ? actBg : (opts.active ? (hovered ? hovBg : actBg) : (hovered ? hovBg : restBg)))
+            : seed;
+        const Color autoText = Color::BestTextColor(effBg, Color::Hex(0x0F172AFF), Color::Hex(0xFFFFFFFF));
+        if (useCuratedSolid) {
+            const VariantColors& vc = theme.GetVariant(opts.variant);
+            defaultText = (Color::ContrastRatio(vc.text, effBg) >= 4.5f) ? vc.text : autoText;
+        } else {
+            defaultText = autoText;
         }
         if (opts.border.width > 0.0f) {
             out.borderCol = defaultText.WithAlphaF(0.65f);
@@ -360,7 +377,6 @@ detail::ButtonResolvedColors detail::Button::ResolveColors(
     } else if (opts.style == ButtonStyle::Soft) {
         const Color seed = isSemantic ? theme.GetSemanticAccent(opts.variant) : pal.accent;
         const Color baseBg = Color::Lerp(pal.surface, seed, isDark ? 0.22f : 0.15f).WithAlpha(255u);
-        defaultText = theme.EnsureReadableInk(isDark ? seed.Lighten(0.18f) : seed.Darken(0.16f), baseBg);
         out.borderCol = Color::Lerp(pal.border, seed, isDark ? 0.45f : 0.40f).WithAlpha(255u);
         if (opts.border.width <= 0.0f) out.borderW = 1.0f * keel::max(theme.borderScale, 0.5f);
         if (hasCtrlBg) {
@@ -368,6 +384,10 @@ detail::ButtonResolvedColors detail::Button::ResolveColors(
             hovBg = Color::Lerp(pal.surface, seed, isDark ? 0.32f : 0.23f).WithAlpha(255u);
             actBg = Color::Lerp(pal.surface, seed, isDark ? 0.42f : 0.31f).WithAlpha(255u);
         }
+        const Color effBg = hasCtrlBg
+            ? (pressed ? actBg : (opts.active ? (hovered ? hovBg : actBg) : (hovered ? hovBg : restBg)))
+            : pal.surface;
+        defaultText = theme.EnsureReadableInk(isDark ? seed.Lighten(0.18f) : seed.Darken(0.16f), effBg);
     } else {
         // ButtonStyle::Outline
         const Color seed = isSemantic ? theme.GetSemanticAccent(opts.variant) : pal.borderHover;
