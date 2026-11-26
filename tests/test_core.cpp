@@ -301,6 +301,18 @@ void TestFrameMetrics() {
     CHECK(metrics.IsIdle());
     CHECK(metrics.GetFpsString() == "0 FPS (Idle)");
     CHECK(metrics.GetCpuTimeMs() == 0.0f);
+
+    // Hardware GPU timer override (e.g. OpenGL GL_TIME_ELAPSED) must be honored instead of wall-clock SwapBuffers()
+    FrameMetrics hwMetrics;
+    for (keel::i32 i = 0; i < 4; ++i) {
+        hwMetrics.BeginFrame();
+        hwMetrics.MarkCpuDone();
+        hwMetrics.MarkGpuStart();
+        hwMetrics.MarkGpuDone(2.50f);
+        hwMetrics.MarkFramePresented();
+        hwMetrics.EndFrame(60.0f);
+    }
+    CHECK(hwMetrics.GetGpuTimeMs() > 2.0f && hwMetrics.GetGpuTimeMs() < 3.0f);
 }
 
 void TestNodeFootprint() {

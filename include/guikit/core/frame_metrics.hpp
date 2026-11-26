@@ -1,5 +1,6 @@
 #pragma once
 
+#include "keel/optional.h"
 #include "keel/ref.h"
 #include "keel/string.h"
 
@@ -25,7 +26,8 @@ public:
     void MarkGpuStart() noexcept;
 
     /// Call right after GPU texture upload and render commands are submitted.
-    void MarkGpuDone() noexcept;
+    /// Pass `hardwareGpuMs` when an asynchronous hardware GPU timer (e.g. `GL_TIME_ELAPSED`) is available.
+    void MarkGpuDone(keel::Optional<keel::f32> hardwareGpuMs = keel::kNullOpt) noexcept;
 
     /// Call at the end of the frame (after present / delay).
     void EndFrame(keel::f32 targetFps = 60.0f) noexcept;

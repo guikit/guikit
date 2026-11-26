@@ -323,10 +323,11 @@ void MainWindow::PresentFrame(bool forcePresent) {
                 *m_canvas
             );
         }
+        m_metrics.MarkGpuDone();
     } else {
         m_window->PresentGpuFrame(*m_canvas);
+        m_metrics.MarkGpuDone(m_canvas->GetLastGpuFrameTimeMs());
     }
-    m_metrics.MarkGpuDone();
     m_metrics.MarkFramePresented();
 }
 
@@ -419,6 +420,9 @@ void MainWindow::RenderFrame() {
     const bool shouldPresent = m_ui.HasDirtyDamage() || !m_reactiveMode;
     if (shouldPresent) {
         PresentFrame(!m_reactiveMode);
+        if (IsVsyncEnabled() && !m_canvas->UsesCpuFramebuffer() && !m_window->IsLiveResizeFrame()) {
+            m_window->WaitForVBlank();
+        }
     }
 
     if (shouldPresent && !IsVsyncEnabled() && !m_reactiveMode) {

@@ -107,10 +107,13 @@ void FrameMetrics::MarkGpuStart() noexcept {
     m_gpuStartNs = keel::monotonic_ns();
 }
 
-void FrameMetrics::MarkGpuDone() noexcept {
+void FrameMetrics::MarkGpuDone(keel::Optional<keel::f32> hardwareGpuMs) noexcept {
     m_gpuDoneNs = keel::monotonic_ns();
-    const keel::f32 gpuMs = DeltaMillisecondsF(m_gpuDoneNs, m_gpuStartNs);
-    m_accumulatedWorkSec += keel::as<keel::f64>(keel::max(0.0f, gpuMs)) * 1e-3;
+    const keel::f32 submitMs = DeltaMillisecondsF(m_gpuDoneNs, m_gpuStartNs);
+    const keel::f32 gpuMs = hardwareGpuMs.has_value()
+        ? keel::max(0.0f, *hardwareGpuMs)
+        : submitMs;
+    m_accumulatedWorkSec += keel::as<keel::f64>(keel::max(0.0f, submitMs)) * 1e-3;
     if (m_wokeFromIdle) {
         m_pendingWakeGpuMs = gpuMs;
         return;

@@ -112,6 +112,11 @@ public:
         SwapBuffers();
     }
 
+    /// Optional post-present VSync pacing hook executed after CPU and GPU work timers complete.
+    /// Prevents asynchronous swapchain drivers (e.g. Win32 WGL + DWM) from blocking inside
+    /// the next frame's CPU command submission.
+    virtual void WaitForVBlank() noexcept {}
+
     /// Returns true if this window hosts a dedicated GPU shader underlay engine (e.g. SDL3 GL shader underlays).
     [[nodiscard]] virtual bool SupportsUnderlayShaders() const noexcept { return false; }
 

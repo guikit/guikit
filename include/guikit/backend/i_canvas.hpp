@@ -588,6 +588,12 @@ public:
     /// Releases regenerable internal glyph, shape, image, and scratch caches when a canvas goes idle.
     virtual void TrimCaches() noexcept {}
 
+    /// Optional asynchronous hardware GPU frame execution time in milliseconds (e.g. via OpenGL `GL_TIME_ELAPSED`).
+    /// Returns `keel::kNullOpt` on software canvases or when hardware timer queries are unavailable.
+    [[nodiscard]] virtual keel::Optional<keel::f32> GetLastGpuFrameTimeMs() const noexcept {
+        return keel::kNullOpt;
+    }
+
     /// Returns the active text rasterizer backend name (e.g. "ThorVG", "FreeType", "keel::font").
     [[nodiscard]] virtual keel::StringRef GetTextEngineName() const noexcept { return "Default"; }
 
