@@ -480,10 +480,24 @@ void DrawDirectionalSheen(
     const Color topLeft = Color::Lerp(
         baseBorder,
         theme.bevel.highlightOuter,
-        emphasize ? (isDark ? 0.56f : 0.72f) : (isDark ? 0.38f : 0.56f)
-    ).WithAlphaF(isDark ? 0.78f : 0.88f);
-    const Color botRight = baseBorder.WithAlphaF(isDark ? 0.42f : 0.62f);
+        emphasize ? (isDark ? 0.62f : 0.78f) : (isDark ? 0.42f : 0.60f)
+    ).WithAlphaF(isDark ? 0.84f : 0.92f);
+    const Color botRight = baseBorder.WithAlphaF(isDark ? 0.40f : 0.60f);
     return Gradient::Linear(topLeft, botRight, 135.0f);
+}
+
+/// Renders a subtle dual-corner studio ambient backdrop (palette-pure: top-left accent + bottom-right secondary accent)
+/// behind Floating shells, Luminous cards, and Glass panels without any hardcoded colors.
+void DrawAmbientStudioBackdrop(ICanvas& canvas, const UiTheme& theme, Rect rect, Color baseBg) {
+    const bool isDark = (theme.mode == ThemeMode::Dark);
+    canvas.DrawRect(rect, baseBg);
+
+    const Color glowA = theme.palette.accent.WithAlphaF(isDark ? 0.11f : 0.065f);
+    const Color glowB = theme.GetSemanticAccent(UiVariant::Success).WithAlphaF(isDark ? 0.085f : 0.055f);
+    const Gradient cornerA = Gradient::Radial(glowA, glowA.WithAlpha(0u), Vec2{0.12f, 0.08f}, 1.25f);
+    const Gradient cornerB = Gradient::Radial(glowB, glowB.WithAlpha(0u), Vec2{0.90f, 0.92f}, 1.20f);
+    canvas.DrawGradientRoundRect(rect, 0.0f, cornerA, Color::Transparent(), 0.0f);
+    canvas.DrawGradientRoundRect(rect, 0.0f, cornerB, Color::Transparent(), 0.0f);
 }
 
 /// Derives palette-pure `GlassParams` for interactive controls (`Button`, `Input`, `DropdownButton`).
@@ -591,9 +605,11 @@ void DefaultStylePainter::DrawSurfaceBg(
             (p.bg == theme.palette.background) &&
             (effRadius <= 0.01f) &&
             (p.borderWidth <= 0.0f);
-        if (theme.chrome.frame == FrameTreatment::Glass &&
-            p.role != SurfaceRole::None &&
-            !isViewportBackdrop) {
+        if (theme.chrome.frame == FrameTreatment::Glass && p.role != SurfaceRole::None) {
+            if (isViewportBackdrop) {
+                DrawAmbientStudioBackdrop(canvas, theme, p.rect, p.bg);
+                return;
+            }
             const GlassParams gp = BuildSurfaceGlassParams(theme, p);
             canvas.DrawGlassRect(p.rect, effRadius, gp);
             return;
@@ -606,14 +622,7 @@ void DefaultStylePainter::DrawSurfaceBg(
 
         if (theme.chrome.frame == FrameTreatment::GradientSurface && p.role != SurfaceRole::None) {
             if (isViewportBackdrop) {
-                const bool isDark = (theme.mode == ThemeMode::Dark);
-                const Color topTint = Color::Lerp(
-                    p.bg.ShiftLightness(isDark ? 0.025f : -0.010f),
-                    theme.palette.accent,
-                    isDark ? 0.055f : 0.030f
-                ).WithAlpha(255u);
-                const Gradient ambient = Gradient::Radial(topTint, p.bg, Vec2{0.5f, 0.08f}, 1.35f);
-                canvas.DrawGradientRoundRect(p.rect, 0.0f, ambient, Color::Transparent(), 0.0f);
+                DrawAmbientStudioBackdrop(canvas, theme, p.rect, p.bg);
             } else {
                 const Gradient surfGrad = BuildLuminousSurfaceGradient(theme, p.role, p.bg);
                 canvas.DrawGradientRoundRect(p.rect, effRadius, surfGrad, Color::Transparent(), 0.0f);

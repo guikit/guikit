@@ -1177,10 +1177,12 @@ enum class ThemePreset : keel::u8 {
     IndustrialLight,  ///< Daylight brushed-steel & amber SCADA / engineering HMI (Light)
     HighContrastDark, ///< WCAG AAA high-contrast dark (sharp borders, max legibility)
     HighContrastLight,///< WCAG AAA high-contrast light
-    Windows98         ///< Classic retro Windows 98 silver-gray & navy blue (0dp sharp corners)
+    Windows98,        ///< Classic retro Windows 98 silver-gray & navy blue (0dp sharp corners)
+    Pulse,            ///< Signature GuiKit gradient dark theme (Obsidian + Hot Magenta + Electric Lime, Luminous x Gradient)
+    PulseLight        ///< Signature GuiKit gradient light theme (Pearl + Berry Magenta + Vivid Lime, Luminous x Gradient)
 };
 
-inline constexpr keel::usize kThemePresetCount = 11u;
+inline constexpr keel::usize kThemePresetCount = 13u;
 
 /// Human-readable display name for a `ThemePreset`.
 [[nodiscard]] constexpr keel::StringRef ThemePresetName(ThemePreset preset) noexcept {
@@ -1196,6 +1198,8 @@ inline constexpr keel::usize kThemePresetCount = 11u;
         case ThemePreset::HighContrastDark:  return "High Contrast Dark";
         case ThemePreset::HighContrastLight: return "High Contrast Light";
         case ThemePreset::Windows98:         return "Windows 98";
+        case ThemePreset::Pulse:             return "Pulse";
+        case ThemePreset::PulseLight:        return "Pulse Light";
     }
     return "Dark";
 }

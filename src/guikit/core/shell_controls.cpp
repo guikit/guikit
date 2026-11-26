@@ -122,7 +122,9 @@ void ShellControls::RenderThemeControls(MainWindow& win, ToolbarScope& tb, bool 
         ThemePresetName(ThemePreset::IndustrialLight),
         ThemePresetName(ThemePreset::HighContrastDark),
         ThemePresetName(ThemePreset::HighContrastLight),
-        ThemePresetName(ThemePreset::Windows98)
+        ThemePresetName(ThemePreset::Windows98),
+        ThemePresetName(ThemePreset::Pulse),
+        ThemePresetName(ThemePreset::PulseLight)
     }};
 
     keel::usize scaleIdx = win.GetShellScaleIndex();

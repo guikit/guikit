@@ -772,6 +772,102 @@ void ApplyCuratedPresetColors(UiTheme& theme, ThemePreset p) noexcept {
             theme.syntax.selectionBg   = Color::Hex(0x00008040);
             PopulateShadows(theme, ThemeMode::Light, 0.0f);
             break;
+
+        case ThemePreset::Pulse:
+            theme.mode = ThemeMode::Dark;
+            theme.chromeStyle = ChromeStyle::Luminous;
+            theme.fillStyle = FillStyle::Gradient;
+            theme.shellStyle = ShellStyle::Floating;
+            theme.palette = {
+                .background        = Color::Hex(0x0C0C10FF), // Deep velvet obsidian
+                .surface           = Color::Hex(0x14141BFF), // Studio graphite card
+                .surfaceHover      = Color::Hex(0x22202ECC),
+                .surfaceActive     = Color::Hex(0x2C283BFF),
+                .surfaceElevated   = Color::Hex(0x1B1A24FF), // Elevated luminous surface
+                .border            = Color::Hex(0x2D2A3BFF),
+                .borderHover       = Color::Hex(0x52364DFF), // Subtle magenta rim catchlight
+                .borderSubtle      = Color::Hex(0x23212FCC),
+                .focusRing         = Color::Hex(0xC4F500FF), // Signature GuiKit Electric Lime focus ring
+                .textPrimary       = Color::Hex(0xF5F5F7FF), // 18:1 AAA crisp white
+                .textSecondary     = Color::Hex(0xB8B8C8FF),
+                .textMuted         = Color::Hex(0x7E7E94FF),
+                .textDisabled      = Color::Hex(0x7E7E9480),
+                .inputBackground   = Color::Hex(0x101016FF),
+                .inputBorder       = Color::Hex(0x322E42FF),
+                .caret             = Color::Hex(0xC4F500FF), // Electric Lime caret
+                .controlTrack      = Color::Hex(0x262433FF),
+                .controlTrackHover = Color::Hex(0x343045FF),
+                .controlKnob       = Color::Hex(0xF5F5F7FF),
+                .controlKnobHover  = Color::Hex(0xFFFFFFFF),
+                .controlKnobActive = Color::Hex(0xC4F500FF),
+                .accent            = Color::Hex(0xD91A72FF), // Signature GuiKit Hot Magenta (4.84:1 AA with white)
+                .accentHover       = Color::Hex(0xF02884FF),
+                .accentText        = Color::Hex(0xFFFFFFFF)
+            };
+            PopulateVariants(theme, ThemeMode::Dark);
+            theme.variants[keel::as<keel::usize>(UiVariant::Primary)] = MakeSemanticVariant(Color::Hex(0xD91A72FF), ThemeMode::Dark);
+            theme.variants[keel::as<keel::usize>(UiVariant::Success)] = MakeSemanticVariant(Color::Hex(0xB8F200FF), ThemeMode::Dark); // Electric Lime
+            theme.variants[keel::as<keel::usize>(UiVariant::Warning)] = MakeSemanticVariant(Color::Hex(0xF59E0BFF), ThemeMode::Dark); // Sunset Amber
+            theme.variants[keel::as<keel::usize>(UiVariant::Danger)]  = MakeSemanticVariant(Color::Hex(0xDC2626FF), ThemeMode::Dark); // Crisp Crimson
+            theme.variants[keel::as<keel::usize>(UiVariant::Info)]    = MakeSemanticVariant(Color::Hex(0x22D3EEFF), ThemeMode::Dark); // Electric Cyan
+            theme.syntax = SyntaxPalette::Dracula();
+            theme.syntax.editorBg      = Color::Hex(0x101016FF);
+            theme.syntax.gutterBg      = Color::Hex(0x14141BFF);
+            theme.syntax.keyword       = Color::Hex(0xFF4DA6FF);
+            theme.syntax.function      = Color::Hex(0xC4F500FF);
+            theme.syntax.string        = Color::Hex(0xFBBF24FF);
+            theme.syntax.type          = Color::Hex(0x38BDF8FF);
+            theme.syntax.lineHighlight = Color::Hex(0xD91A721C);
+            theme.syntax.selectionBg   = Color::Hex(0xD91A7244);
+            PopulateShadows(theme, ThemeMode::Dark, 1.05f);
+            break;
+
+        case ThemePreset::PulseLight:
+            theme.mode = ThemeMode::Light;
+            theme.chromeStyle = ChromeStyle::Luminous;
+            theme.fillStyle = FillStyle::Gradient;
+            theme.shellStyle = ShellStyle::Floating;
+            theme.palette = {
+                .background        = Color::Hex(0xF4F3F8FF), // Soft pearl canvas
+                .surface           = Color::Hex(0xFCFBFEFF), // Crisp luminous card
+                .surfaceHover      = Color::Hex(0xEFEBF6E0),
+                .surfaceActive     = Color::Hex(0xE5DFF0FF),
+                .surfaceElevated   = Color::Hex(0xFFFFFFFF), // Pure elevated white
+                .border            = Color::Hex(0xDCD9E6FF),
+                .borderHover       = Color::Hex(0xC8AFC2FF), // Soft berry catchlight
+                .borderSubtle      = Color::Hex(0xE8E6F0FF),
+                .focusRing         = Color::Hex(0xD91A72FF), // Berry Magenta focus ring
+                .textPrimary       = Color::Hex(0x111118FF), // 16.9:1 AAA deep obsidian ink
+                .textSecondary     = Color::Hex(0x4B4A5CFF),
+                .textMuted         = Color::Hex(0x747388FF),
+                .textDisabled      = Color::Hex(0x74738880),
+                .inputBackground   = Color::Hex(0xFFFFFFFF),
+                .inputBorder       = Color::Hex(0xCFCBD9FF),
+                .caret             = Color::Hex(0xC21365FF),
+                .controlTrack      = Color::Hex(0xE2DFEBFF),
+                .controlTrackHover = Color::Hex(0xD4D0E0FF),
+                .controlKnob       = Color::Hex(0xFFFFFFFF),
+                .controlKnobHover  = Color::Hex(0xFFFFFFFF),
+                .controlKnobActive = Color::Hex(0xC21365FF),
+                .accent            = Color::Hex(0xC21365FF), // Deep Berry Magenta (5.86:1 AA+ with white)
+                .accentHover       = Color::Hex(0xD91A72FF),
+                .accentText        = Color::Hex(0xFFFFFFFF)
+            };
+            PopulateVariants(theme, ThemeMode::Light);
+            theme.variants[keel::as<keel::usize>(UiVariant::Primary)] = MakeSemanticVariant(Color::Hex(0xC21365FF), ThemeMode::Light);
+            theme.variants[keel::as<keel::usize>(UiVariant::Success)] = MakeSemanticVariant(Color::Hex(0x84CC16FF), ThemeMode::Light); // Vivid Lime (9.8:1 dark ink)
+            theme.variants[keel::as<keel::usize>(UiVariant::Warning)] = MakeSemanticVariant(Color::Hex(0xF59E0BFF), ThemeMode::Light); // Warm Amber
+            theme.variants[keel::as<keel::usize>(UiVariant::Danger)]  = MakeSemanticVariant(Color::Hex(0xDC2626FF), ThemeMode::Light); // Crisp Crimson
+            theme.variants[keel::as<keel::usize>(UiVariant::Info)]    = MakeSemanticVariant(Color::Hex(0x0284C7FF), ThemeMode::Light); // Clear Cyan-Blue
+            theme.syntax = SyntaxPalette::GitHubLight();
+            theme.syntax.editorBg      = Color::Hex(0xFFFFFFFF);
+            theme.syntax.gutterBg      = Color::Hex(0xF4F3F8FF);
+            theme.syntax.keyword       = Color::Hex(0xC21365FF);
+            theme.syntax.function      = Color::Hex(0x4D7C0FFF);
+            theme.syntax.lineHighlight = Color::Hex(0xC2136510);
+            theme.syntax.selectionBg   = Color::Hex(0xC2136528);
+            PopulateShadows(theme, ThemeMode::Light, 0.95f);
+            break;
     }
     PopulateBevelPalette(theme, /*exactWin98=*/(p == ThemePreset::Windows98));
     PopulateChromeTokens(theme, theme.chromeStyle);
@@ -828,6 +924,8 @@ void ApplyCuratedPresetColors(UiTheme& theme, ThemePreset p) noexcept {
         case ThemePreset::HighContrastDark:  return "HighContrastDark";
         case ThemePreset::HighContrastLight: return "HighContrastLight";
         case ThemePreset::Windows98:         return "Windows98";
+        case ThemePreset::Pulse:             return "Pulse";
+        case ThemePreset::PulseLight:        return "PulseLight";
     }
     return "Dark";
 }
@@ -1651,6 +1749,9 @@ UiTheme UiTheme::FromPreset(ThemePreset p) noexcept {
         theme.SetBorderScale(1.5f);
     } else if (p == ThemePreset::Windows98) {
         theme.SetRadiusScale(0.0f);
+    } else if (p == ThemePreset::Pulse || p == ThemePreset::PulseLight) {
+        theme.SetChromeStyle(ChromeStyle::Luminous);
+        theme.SetShellStyle(ShellStyle::Floating);
     }
     return theme;
 }
@@ -1666,6 +1767,8 @@ UiTheme UiTheme::IndustrialLight() noexcept   { return FromPreset(ThemePreset::I
 UiTheme UiTheme::HighContrastDark() noexcept  { return FromPreset(ThemePreset::HighContrastDark); }
 UiTheme UiTheme::HighContrastLight() noexcept { return FromPreset(ThemePreset::HighContrastLight); }
 UiTheme UiTheme::Windows98() noexcept         { return FromPreset(ThemePreset::Windows98); }
+UiTheme UiTheme::Pulse() noexcept             { return FromPreset(ThemePreset::Pulse); }
+UiTheme UiTheme::PulseLight() noexcept        { return FromPreset(ThemePreset::PulseLight); }
 
 UiTheme UiTheme::Build(const ThemeSpec& spec) noexcept {
     UiTheme theme = FromPreset(spec.base);

@@ -2054,6 +2054,35 @@ void TestThemeSystemColorSciencePresetsSpecJsonAndLerp() {
         CHECK(lumGrad.chromeStyle == ChromeStyle::Luminous);
         CHECK(lumGrad.chrome.frame == FrameTreatment::GradientSurface);
         CHECK(lumGrad.fillStyle == FillStyle::Gradient);
+
+        // 4e. Signature Pulse & PulseLight curated gradient presets
+        {
+            static_assert(kThemePresetCount == 13u);
+            const UiTheme pulse = UiTheme::Pulse();
+            CHECK(pulse.preset == ThemePreset::Pulse);
+            CHECK(pulse.mode == ThemeMode::Dark);
+            CHECK(pulse.chromeStyle == ChromeStyle::Luminous);
+            CHECK(pulse.chrome.frame == FrameTreatment::GradientSurface);
+            CHECK(pulse.fillStyle == FillStyle::Gradient);
+            CHECK(pulse.shellStyle == ShellStyle::Floating);
+
+            const UiTheme pulseLight = UiTheme::PulseLight();
+            CHECK(pulseLight.preset == ThemePreset::PulseLight);
+            CHECK(pulseLight.mode == ThemeMode::Light);
+            CHECK(pulseLight.chromeStyle == ChromeStyle::Luminous);
+            CHECK(pulseLight.fillStyle == FillStyle::Gradient);
+            CHECK(pulseLight.shellStyle == ShellStyle::Floating);
+
+            ThemeSpec pulseSpec{};
+            pulseSpec.base = ThemePreset::Pulse;
+            const auto parsedPulse = ThemeSpec::FromJson(pulseSpec.ToJson());
+            CHECK(parsedPulse.has_value() && parsedPulse->base == ThemePreset::Pulse);
+
+            ThemeSpec pulseLightSpec{};
+            pulseLightSpec.base = ThemePreset::PulseLight;
+            const auto parsedPulseLight = ThemeSpec::FromJson(pulseLightSpec.ToJson());
+            CHECK(parsedPulseLight.has_value() && parsedPulseLight->base == ThemePreset::PulseLight);
+        }
         const auto& primVc = lumGrad.GetVariant(UiVariant::Primary);
         const Gradient accentG = lumGrad.DeriveAccentGradient(primVc.bg, 135.0f);
         CHECK(accentG.IsValid());

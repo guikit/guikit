@@ -870,6 +870,8 @@ struct UiTheme {
     [[nodiscard]] static UiTheme HighContrastDark() noexcept;
     [[nodiscard]] static UiTheme HighContrastLight() noexcept;
     [[nodiscard]] static UiTheme Windows98() noexcept;
+    [[nodiscard]] static UiTheme Pulse() noexcept;
+    [[nodiscard]] static UiTheme PulseLight() noexcept;
     [[nodiscard]] static UiTheme Standard() noexcept { return Dark(); }
 
     /// Constructs a curated theme from a `ThemePreset` enum value.
