@@ -17,6 +17,7 @@ ContainerScope detail::Row::Open(
     node->direction = FlexDirection::Row;
     node->explicitGap = opts.gap.has_value() ? 1 : 0;
     node->explicitPadding = opts.padding.has_value() ? 1 : 0;
+    node->isShell = opts.shell;
     if (!opts.gap.has_value() && node->parent != nullptr && node->parent->type == NodeType::Toolbar) {
         const keel::f32 parentDensity = node->parent->GetDensity();
         const keel::f32 relDensity = (parentDensity > 0.0f) ? (density / parentDensity) : density;

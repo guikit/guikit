@@ -441,11 +441,18 @@ ToolbarScope detail::Toolbar::Open(
     }
 
     const auto& pal = theme.palette;
+    const Node* surfaceParent = node->parent;
+    while (surfaceParent != nullptr &&
+           surfaceParent->backgroundColor.a == 0u &&
+           (surfaceParent->type == NodeType::Row || surfaceParent->type == NodeType::Column) &&
+           surfaceParent->padding.left == 0.0f && surfaceParent->padding.top == 0.0f) {
+        surfaceParent = surfaceParent->parent;
+    }
     const bool insideRoundedSurface =
         (opts.style == ToolbarStyle::Header) &&
-        (node->parent != nullptr) &&
-        (node->parent->cornerRadius > 0.0f) &&
-        (node->parent->backgroundColor.a > 0);
+        (surfaceParent != nullptr) &&
+        (surfaceParent->cornerRadius > 0.0f) &&
+        (surfaceParent->backgroundColor.a > 0u);
 
     const Color styleBg = (opts.style == ToolbarStyle::Floating)
         ? pal.surfaceElevated
@@ -461,7 +468,9 @@ ToolbarScope detail::Toolbar::Open(
     node->explicitRadius = (opts.border.radius.has_value() || opts.style != ToolbarStyle::Surface) ? 1 : 0;
     node->borderColor = theme.ResolveColor(opts.border.color, false, false, effectiveDisabled, pal.border);
     node->SetSurfaceRole((opts.style == ToolbarStyle::Floating) ? SurfaceRole::Raised : SurfaceRole::DockEdge);
-    node->SetDockSeam((opts.style == ToolbarStyle::Floating)
+    const bool isFloatingPanel = (opts.style == ToolbarStyle::Floating) ||
+        (opts.style == ToolbarStyle::Surface && theme.shellStyle == ShellStyle::Floating);
+    node->SetDockSeam(isFloatingPanel
         ? DockSeam::None
         : (isVertical ? DockSeam::Right : DockSeam::Bottom));
     node->borderWidth = (opts.border.width > 0.0f) ? opts.border.width : theme.shell.panelBorderWidth;
@@ -473,12 +482,13 @@ ToolbarScope detail::Toolbar::Open(
     } else if (opts.style == ToolbarStyle::Floating) {
         node->cornerRadius = theme.ResolveRadius(keel::kNullOpt, activeSize) + 2.0f;
     } else {
-        node->cornerRadius = theme.ResolveRadius(keel::kNullOpt, activeSize);
+        node->cornerRadius = theme.shell.panelRadius;
     }
 
     const auto* tbCar = node->As<CarouselData>();
     node->uiSize = activeSize;
     node->visualHash = detail::HashArgs(
+        keel::as<keel::u8>(theme.shellStyle),
         keel::as<keel::u8>(opts.style),
         keel::as<keel::u8>(opts.orientation),
         keel::as<keel::u8>(opts.overflow),

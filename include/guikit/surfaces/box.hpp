@@ -28,6 +28,7 @@ struct BoxOptions {
     SurfaceRole surface{SurfaceRole::None};         ///< Optional visual surface role (`None`, `Flat`, `Sunken`, `Raised`)
     bool clipChildren{false};
     bool disabled{false};
+    bool shell{false}; ///< Opt-in as an application shell container (applies theme.shell windowPadding, panelGap, and child panel framing)
 };
 
 /// Autonomous immediate mode Box container entry point.

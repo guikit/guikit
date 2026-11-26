@@ -301,7 +301,7 @@ BottomPanelScope detail::BottomPanel::Open(
     node->gap = theme.ResolveGap(opts.gap, activeSize, density);
     node->widthMode = SizeMode::Stretch;
     node->SetSurfaceRole(SurfaceRole::DockEdge);
-    node->SetDockSeam(DockSeam::Top);
+    node->SetDockSeam((theme.shellStyle == ShellStyle::Floating) ? DockSeam::None : DockSeam::Top);
     node->explicitBorder = opts.border.HasExplicitStroke() ? 1 : 0;
     node->explicitRadius = opts.border.radius.has_value() ? 1 : 0;
     node->cornerRadius = opts.border.radius.has_value()
@@ -354,6 +354,7 @@ BottomPanelScope detail::BottomPanel::Open(
 
     node->visualHash = detail::HashArgs(
         keel::as<keel::u8>(state.mode),
+        keel::as<keel::u8>(theme.shellStyle),
         state.customHeight,
         state.sashHovered,
         state.draggingSash,

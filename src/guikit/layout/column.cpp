@@ -17,6 +17,7 @@ ContainerScope detail::Column::Open(
     node->direction = FlexDirection::Column;
     node->explicitGap = opts.gap.has_value() ? 1 : 0;
     node->explicitPadding = opts.padding.has_value() ? 1 : 0;
+    node->isShell = opts.shell;
     node->gap = theme.ResolveGap(opts.gap, UiSize::Md, density);
     node->padding = theme.ResolvePadding(opts.padding, UiSize::None, density);
     node->align = opts.align;

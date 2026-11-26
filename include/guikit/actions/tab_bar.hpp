@@ -1,6 +1,7 @@
 #pragma once
 
 #include "guikit/context.hpp"
+#include "guikit/core/container_scope.hpp"
 #include "guikit/core/control.hpp"
 #include <initializer_list>
 #include "guikit/core/response.hpp"
@@ -56,6 +57,19 @@ struct TabBarOptions {
     Border border{};                             ///< Optional border configuration (color, width, radius)
 };
 
+/// Compact action button options for trailing or leading controls inside `TabBarScope`.
+struct TabBarActionOptions {
+    UiText text{};
+    UiText tooltip{};
+    Icon icon{};
+    UiVariant variant{UiVariant::Default};
+    ButtonStyle style{ButtonStyle::Ghost};
+    bool square{false};
+    bool active{false};
+    bool disabled{false};
+    keel::Optional<UiSize> size{keel::kNullOpt}; ///< Optional size override (nullopt = inherit TabBarOptions::size)
+};
+
 /// Internal runtime state allocated in frame arena for TabItem nodes.
 struct TabItemData {
     TabItem item{};
@@ -63,17 +77,43 @@ struct TabItemData {
     bool closeHovered{false};
 };
 
+class TabBarScope;
+
 /// Autonomous TabBar widget logic (execution, measuring, and rendering).
 namespace detail {
 
 class TabBar {
 public:
+    /// Opens an RAII TabBar header scope supporting a scrollable tab strip (`Items()`) plus leading/trailing controls (`Action()`, widgets).
+    [[nodiscard]] static TabBarScope Open(
+        Context& ctx,
+        const TabBarOptions& opts = {},
+        keel::SourceLocation loc = keel::SourceLocation::current()
+    );
+
     /// Primary immediate mode entry point for TabBar widget.
     static TabBarResponse Run(
         Context& ctx,
         keel::i32& activeIndex,
         keel::ArrayRef<TabItem> tabs,
         const TabBarOptions& opts,
+        keel::SourceLocation loc = keel::SourceLocation::current()
+    );
+
+    /// Renders the scrollable tab strip inside an open `TabBarScope` (baseline is owned by the outer bar).
+    static TabBarResponse RunStrip(
+        Context& ctx,
+        keel::i32& activeIndex,
+        keel::ArrayRef<TabItem> tabs,
+        const TabBarOptions& opts,
+        keel::SourceLocation loc = keel::SourceLocation::current()
+    );
+
+    /// Renders a compact trailing/leading action button inside an open `TabBarScope`.
+    static Response ActionButton(
+        Context& ctx,
+        const TabBarActionOptions& opts,
+        const TabBarOptions& barOpts,
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
@@ -110,6 +150,57 @@ public:
 };
 
 } // namespace detail
+
+/// RAII scope returned by `guikit::TabBar(ui, opts)` for composing a full-width tab header
+/// with a unified baseline, scrollable tab strip (`Items()`), and leading/trailing controls (`Action()`, widgets).
+class [[nodiscard]] TabBarScope : public ContainerScope {
+public:
+    Response response{};
+
+    TabBarScope() noexcept : ContainerScope(nullptr, nullptr) {}
+    TabBarScope(Context* ctx, Node* node, Response res, const TabBarOptions& opts) noexcept
+        : ContainerScope(ctx, node), response(res), m_opts(opts) {}
+
+    /// Renders the interactive tab strip inside this TabBar header, stretching to keep trailing controls pinned right.
+    template <IndexLike IndexT>
+        requires (!keel::IsConst<IndexT>)
+    TabBarResponse Items(
+        IndexT& activeIndex,
+        keel::ArrayRef<TabItem> tabs,
+        keel::SourceLocation loc = keel::SourceLocation::current()
+    ) {
+        if (!m_ctx) return TabBarResponse{};
+        WidgetExecGuard guard(*m_ctx);
+        keel::i32 idx = keel::as<keel::i32>(activeIndex);
+        TabBarResponse r = detail::TabBar::RunStrip(*m_ctx, idx, tabs, m_opts, loc);
+        if (r.changed && idx >= 0) {
+            activeIndex = detail::FromIndexLike<IndexT>(idx);
+        }
+        return r;
+    }
+
+    /// Adds a compact trailing/leading action button (inheriting `TabBarOptions::size` and defaulting to `ButtonStyle::Ghost`).
+    Response Action(
+        TabBarActionOptions opts = {},
+        keel::SourceLocation loc = keel::SourceLocation::current()
+    ) {
+        if (!m_ctx) return Response{};
+        return detail::TabBar::ActionButton(*m_ctx, opts, m_opts, loc);
+    }
+
+    [[nodiscard]] const Response* operator->() const noexcept { return &response; }
+
+private:
+    TabBarOptions m_opts{};
+};
+
+[[nodiscard]] inline TabBarScope TabBar(
+    Context& ui,
+    TabBarOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return detail::TabBar::Open(ui, opts, loc);
+}
 
 template <IndexLike IndexT>
     requires (!keel::IsConst<IndexT>)

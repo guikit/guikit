@@ -84,7 +84,9 @@ ActivityBarScope detail::ActivityBar::Open(
         ? theme.ResolveColor(opts.background, false, false, activeDisabled, pal.surface)
         : Color::Transparent();
     node->SetSurfaceRole(SurfaceRole::DockEdge);
-    node->SetDockSeam((opts.side == SidebarSide::Right) ? DockSeam::Left : DockSeam::Right);
+    node->SetDockSeam(!effectiveFlush
+        ? DockSeam::None
+        : ((opts.side == SidebarSide::Right) ? DockSeam::Left : DockSeam::Right));
     node->explicitBorder = opts.border.HasExplicitStroke() ? 1 : 0;
     node->explicitRadius = opts.border.radius.has_value() ? 1 : 0;
     node->borderWidth = (opts.border.width == 1.0f) ? theme.shell.panelBorderWidth : opts.border.width;
@@ -98,6 +100,7 @@ ActivityBarScope detail::ActivityBar::Open(
     node->uiSize = activeSize;
 
     node->visualHash = detail::HashArgs(
+        keel::as<keel::u8>(theme.shellStyle),
         keel::as<keel::u8>(opts.side),
         keel::as<keel::u8>(opts.style),
         keel::as<keel::u8>(opts.buttonStyle),

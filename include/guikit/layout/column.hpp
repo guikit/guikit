@@ -25,6 +25,7 @@ struct ColumnOptions {
     keel::Optional<keel::f32> maxHeight{keel::kNullOpt};
     keel::f32 flexGrow{1.0f};
     bool disabled{false};
+    bool shell{false}; ///< Opt-in as an application shell container (applies theme.shell windowPadding, panelGap, and child panel framing)
 };
 
 /// Autonomous immediate mode Column layout entry point.

@@ -138,13 +138,14 @@ void ShellControls::RenderThemeControls(MainWindow& win, ToolbarScope& tb) {
         win.SetShellThemePreset(keel::from_underlying<ThemePreset>(presetIndex));
     }
 
-    bool floating = win.IsShellFloating();
-    if (guikit::Switch(ui, floating, {
-        .textLeft = "Dock",
-        .textRight = "Float",
-        .symmetric = true
+    static constexpr keel::StaticArray<keel::StringRef, 2> kShellLabels = {{"Docked", "Floating"}};
+    keel::usize shellIdx = win.IsShellFloating() ? 1u : 0u;
+    if (guikit::Select(ui, shellIdx, kShellLabels, {
+        .tooltip = "Application Shell Frame (Docked vs Floating)",
+        .size = UiSize::Sm,
+        .width = 104.0f
     }).changed) {
-        win.SetShellFloating(floating);
+        win.SetShellFloating(shellIdx == 1u);
     }
 }
 

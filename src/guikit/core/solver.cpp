@@ -99,6 +99,9 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
     static bool IsShellContainer(const Node* node) noexcept {
         if (node == nullptr) return false;
+        if (node->isShell) {
+            return true;
+        }
         if (node->type != NodeType::Column && node->type != NodeType::Row && node->type != NodeType::Box) {
             return false;
         }
@@ -134,12 +137,16 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             if (!node->explicitGap) {
                 node->gap = activeTheme.shell.panelGap * d;
             }
-            const bool isTopLevelShell = !IsShellContainer(node->parent);
+            const bool parentOwnsShellPadding = IsShellContainer(node->parent) &&
+                !node->parent->explicitPadding &&
+                (node->parent->GetTheme(theme).shellStyle == activeTheme.shellStyle);
+            const bool isTopLevelShell = !parentOwnsShellPadding;
             if (isTopLevelShell && !node->explicitPadding) {
                 node->padding = activeTheme.shell.windowPadding.ScaledBy(d);
             }
             for (Node* c = node->firstChild; c != nullptr; c = c->nextSibling) {
-                if (c->type == NodeType::Toolbar && !c->explicitRadius && c->widthMode == SizeMode::Stretch) {
+                if (c->type == NodeType::Toolbar && !c->explicitRadius &&
+                    (c->widthMode == SizeMode::Stretch || c->heightMode == SizeMode::Stretch)) {
                     c->cornerRadius = activeTheme.shell.panelRadius;
                     if (c->borderWidth <= 0.0f) {
                         c->borderWidth = activeTheme.shell.panelBorderWidth;
@@ -1266,6 +1273,8 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             (!node->scroll || node->scroll->policy != VisibilityPolicy::Never);
         const bool isDockedScrollable = (node->type == NodeType::Sidebar || node->type == NodeType::BottomPanel) &&
             node->IsSolverScrollable();
+        const bool isScrollViewport = (node->heightMode != SizeMode::Fit) &&
+            (isScrollAreaWithVisibleBar || isDockedScrollable);
         const bool parentHasDefiniteHeight = (node->heightMode != SizeMode::Fit) &&
             !isScrollAreaWithVisibleBar &&
             !isDockedScrollable;
@@ -1274,6 +1283,12 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             if (child->heightMode != SizeMode::Stretch) return false;
             if (parentHasDefiniteHeight) return true;
             return child->widthMode == SizeMode::Stretch && child->clipChildren;
+        };
+
+        auto isChildScrollGrowHeight = [&](const Node* child) noexcept {
+            return isScrollViewport &&
+                child->heightMode == SizeMode::Stretch &&
+                !isChildStretchHeight(child);
         };
 
         keel::u32 flowChildCount = 0;
@@ -1288,9 +1303,14 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             if (child->isSpacer || isChildStretchHeight(child)) {
                 totalFlexGrow += keel::max(0.01f, child->flexGrow);
                 ++flexCount;
+            } else if (isChildScrollGrowHeight(child)) {
+                const keel::f32 cw = ResolveColumnChildWidth(node, child, contentRect.w);
+                baseSum += ResolveNodeHeight(child, cw, canvas, theme, depth);
+                totalFlexGrow += keel::max(0.01f, child->flexGrow);
+                ++flexCount;
             } else if (child->heightMode == SizeMode::Fixed) {
                 baseSum += child->fixedHeight;
-            } else if (!child->isSpacer) { // SizeMode::Fit or Stretch inside Fit/ScrollArea parent
+            } else if (!child->isSpacer) { // SizeMode::Fit or Stretch inside Fit parent
                 const keel::f32 cw = ResolveColumnChildWidth(node, child, contentRect.w);
                 baseSum += ResolveNodeHeight(child, cw, canvas, theme, depth);
             }
@@ -1334,9 +1354,15 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 if (!child->isSpacer && !parentHasDefiniteHeight && child->minHeight > 0.0f) {
                     childH = keel::max(childH, child->minHeight);
                 }
+            } else if (isChildScrollGrowHeight(child)) {
+                const keel::f32 baseH = ResolveNodeHeight(child, childW, canvas, theme, depth);
+                const keel::f32 extraH = (totalFlexGrow > 0.0f)
+                    ? (freeSpace * (keel::max(0.01f, child->flexGrow) / totalFlexGrow))
+                    : 0.0f;
+                childH = baseH + extraH;
             } else if (child->heightMode == SizeMode::Fixed) {
                 childH = child->fixedHeight;
-            } else if (!child->isSpacer) { // SizeMode::Fit or Stretch inside Fit/ScrollArea parent
+            } else if (!child->isSpacer) { // SizeMode::Fit or Stretch inside Fit parent
                 childH = ResolveNodeHeight(child, childW, canvas, theme, depth);
             }
             if (child->maxHeight > 0.0f) {

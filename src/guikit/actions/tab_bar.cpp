@@ -1,4 +1,5 @@
 #include "guikit/actions/tab_bar.hpp"
+#include "guikit/actions/button.hpp"
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/style/style_painter.hpp"
@@ -18,13 +19,71 @@ Rect ComputeTabCloseButtonRect(Rect bounds, const ComponentMetrics& m) noexcept 
     return Rect(bx, by, btnSz, btnSz);
 }
 
-} // namespace
+struct TabBarResolvedChrome {
+    Color resolvedBg{};
+    Color resolvedBorderCol{};
+    keel::f32 effectiveBorderWidth{0.0f};
+    keel::f32 resolvedRadius{0.0f};
+    Padding resolvedPadding{};
+    keel::f32 activeTabGap{0.0f};
+    keel::f32 fixedHeight{0.0f};
+    bool hasBaselineSeparator{false};
+};
 
-TabBarResponse detail::TabBar::Run(
+TabBarResolvedChrome ResolveTabBarChrome(
+    const UiTheme& theme,
+    const TabBarOptions& opts,
+    UiSize activeSize,
+    keel::f32 barDensity,
+    bool activeDisabled
+) noexcept {
+    TabBarResolvedChrome out{};
+    const ComponentMetrics& m = theme.GetMetrics(activeSize);
+    const keel::f32 fallbackTabGap = (opts.style == TabBarStyle::Card || opts.style == TabBarStyle::Folder)
+        ? 2.0f
+        : ((theme.SizeFactor(activeSize) < 0.90f) ? theme.GetGap(UiSize::Xs) : theme.GetGap(UiSize::Sm));
+    const keel::f32 defaultTabGap = theme.Painter().GetTabGap(theme, fallbackTabGap);
+    out.activeTabGap = (opts.gap.has_value() ? *opts.gap : defaultTabGap) * barDensity;
+
+    out.resolvedBg = opts.background.IsBackgroundEnabled(false)
+        ? (opts.background.IsSurface()
+            ? theme.palette.surfaceElevated.ScaleAlpha(opts.background.alphaScale)
+            : theme.ResolveColor(opts.background, false, false, activeDisabled, theme.palette.surfaceElevated))
+        : Color::Transparent();
+    out.resolvedBorderCol = (opts.border.width > 0.0f || opts.border.color.HasAny())
+        ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, theme.palette.borderSubtle)
+        : Color::Transparent();
+    const bool hasCustomBgOrBorder = (out.resolvedBg.a > 0 || out.resolvedBorderCol.a > 0 || opts.border.width > 0.0f);
+
+    if (opts.padding.has_value()) {
+        out.resolvedPadding = theme.ResolvePadding(opts.padding, UiSize::Md, barDensity);
+    } else if (opts.style == TabBarStyle::Pill && hasCustomBgOrBorder) {
+        const keel::f32 defaultPad = ((theme.SizeFactor(activeSize) < 0.90f) ? 2.0f : 3.0f) * barDensity;
+        out.resolvedPadding = Padding{defaultPad, defaultPad, defaultPad, defaultPad};
+    }
+
+    if (opts.border.radius.has_value()) {
+        out.resolvedRadius = *opts.border.radius;
+    } else if (opts.style == TabBarStyle::Pill && hasCustomBgOrBorder) {
+        out.resolvedRadius = m.cornerRadius + 2.0f;
+    }
+
+    out.effectiveBorderWidth = (opts.border.width > 0.0f)
+        ? opts.border.width
+        : (out.resolvedBorderCol.a > 0 ? 1.0f : 0.0f);
+    out.fixedHeight = m.defaultHeight + out.resolvedPadding.Vertical();
+    out.hasBaselineSeparator = opts.showSeparator &&
+        (opts.style == TabBarStyle::Underline || opts.style == TabBarStyle::Card || opts.style == TabBarStyle::Folder);
+    return out;
+}
+
+TabBarResponse RunTabBarImpl(
     Context& ctx,
     keel::i32& activeIndex,
     keel::ArrayRef<TabItem> tabs,
     const TabBarOptions& opts,
+    bool drawBaseline,
+    bool stretchInScope,
     keel::SourceLocation loc
 ) {
     TabBarResponse res;
@@ -51,73 +110,44 @@ TabBarResponse detail::TabBar::Run(
         barNode->align = Alignment::Center;
         barNode->uiSize = activeSize;
         barNode->disabled = activeDisabled;
-        barNode->widthMode = opts.fullWidth ? SizeMode::Stretch : SizeMode::Fit;
+        barNode->widthMode = (opts.fullWidth || stretchInScope) ? SizeMode::Stretch : SizeMode::Fit;
+        if (stretchInScope) {
+            barNode->flexGrow = 1.0f;
+        }
 
         ctx.PushContainer(barNode);
     }
 
-    const UiTheme& theme = ctx.GetTheme();
+    const UiTheme& theme = barNode->GetTheme(ctx.GetTheme());
     const ComponentMetrics& m = theme.GetMetrics(activeSize);
     const keel::f32 barDensity = barNode->GetDensity();
-    const keel::f32 fallbackTabGap = (opts.style == TabBarStyle::Card || opts.style == TabBarStyle::Folder)
-        ? 2.0f
-        : ((theme.SizeFactor(activeSize) < 0.90f) ? theme.GetGap(UiSize::Xs) : theme.GetGap(UiSize::Sm));
-    const keel::f32 defaultTabGap = theme.Painter().GetTabGap(theme, fallbackTabGap);
-    const keel::f32 activeTabGap = (opts.gap.has_value() ? *opts.gap : defaultTabGap) * barDensity;
+    const TabBarResolvedChrome chrome = ResolveTabBarChrome(theme, opts, activeSize, barDensity, activeDisabled);
 
-    const Color resolvedBg = opts.background.IsBackgroundEnabled(false)
-        ? (opts.background.IsSurface()
-            ? theme.palette.surfaceElevated.ScaleAlpha(opts.background.alphaScale)
-            : theme.ResolveColor(opts.background, false, false, activeDisabled, theme.palette.surfaceElevated))
-        : Color::Transparent();
-    const Color resolvedBorderCol = (opts.border.width > 0.0f || opts.border.color.HasAny())
-        ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, theme.palette.borderSubtle)
-        : Color::Transparent();
-    const bool hasCustomBgOrBorder = (resolvedBg.a > 0 || resolvedBorderCol.a > 0 || opts.border.width > 0.0f);
-
-    Padding resolvedPadding{};
-    if (opts.padding.has_value()) {
-        resolvedPadding = theme.ResolvePadding(opts.padding, UiSize::Md, barDensity);
-    } else if (opts.style == TabBarStyle::Pill && hasCustomBgOrBorder) {
-        const keel::f32 defaultPad = ((theme.SizeFactor(activeSize) < 0.90f) ? 2.0f : 3.0f) * barDensity;
-        resolvedPadding = Padding{defaultPad, defaultPad, defaultPad, defaultPad};
-    }
-
-    keel::f32 resolvedRadius = 0.0f;
-    if (opts.border.radius.has_value()) {
-        resolvedRadius = *opts.border.radius;
-    } else if (opts.style == TabBarStyle::Pill && hasCustomBgOrBorder) {
-        resolvedRadius = m.cornerRadius + 2.0f;
-    }
-
-    const keel::f32 effectiveBorderWidth = (opts.border.width > 0.0f)
-        ? opts.border.width
-        : (resolvedBorderCol.a > 0 ? 1.0f : 0.0f);
-
-    barNode->gap = activeTabGap;
-    barNode->padding = resolvedPadding;
-    barNode->heightMode = SizeMode::Fixed;
-    barNode->fixedHeight = m.defaultHeight + resolvedPadding.Vertical();
-    barNode->backgroundColor = resolvedBg;
-    barNode->borderColor = resolvedBorderCol;
-    barNode->borderWidth = effectiveBorderWidth;
-    barNode->cornerRadius = resolvedRadius;
-    if (resolvedRadius > 0.0f) {
+    barNode->gap = chrome.activeTabGap;
+    barNode->padding = chrome.resolvedPadding;
+    barNode->heightMode = stretchInScope ? SizeMode::Stretch : SizeMode::Fixed;
+    barNode->fixedHeight = stretchInScope ? 0.0f : chrome.fixedHeight;
+    barNode->backgroundColor = chrome.resolvedBg;
+    barNode->borderColor = chrome.resolvedBorderCol;
+    barNode->borderWidth = chrome.effectiveBorderWidth;
+    barNode->explicitBorder = opts.border.HasExplicitStroke() ? 1 : 0;
+    barNode->explicitRadius = opts.border.radius.has_value() ? 1 : 0;
+    barNode->cornerRadius = chrome.resolvedRadius;
+    if (chrome.resolvedRadius > 0.0f) {
         barNode->clipChildren = true;
     }
     barNode->visualHash = detail::HashArgs(
         opts.style,
         opts.showSeparator,
-        resolvedBg.ToUint32(),
-        resolvedBorderCol.ToUint32(),
-        effectiveBorderWidth,
-        resolvedRadius,
-        resolvedPadding.top,
-        resolvedPadding.left
+        drawBaseline,
+        chrome.resolvedBg.ToUint32(),
+        chrome.resolvedBorderCol.ToUint32(),
+        chrome.effectiveBorderWidth,
+        chrome.resolvedRadius,
+        chrome.resolvedPadding.top,
+        chrome.resolvedPadding.left
     );
-    const bool hasBaselineSeparator = opts.showSeparator &&
-        (opts.style == TabBarStyle::Underline || opts.style == TabBarStyle::Card || opts.style == TabBarStyle::Folder);
-    if (hasBaselineSeparator) {
+    if (drawBaseline && chrome.hasBaselineSeparator) {
         barNode->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& th) noexcept {
             th.Painter().DrawTabBarBaseline(canvas, th, n->computedRect);
         };
@@ -215,17 +245,17 @@ TabBarResponse detail::TabBar::Run(
             keel::as<keel::u8>(tData->item.icon.GetId()),
             tData->item.icon.GetPath()
         );
-        tabNode->measureFn = [](const Node* n, keel::f32 /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+        tabNode->measureFn = [](const Node* n, keel::f32 /*availableWidth*/, ICanvas* canvas, const UiTheme& th) noexcept -> Vec2 {
             const auto* d = n->As<TabItemData>();
             return detail::TabBar::MeasureTab(
                 d ? d->item : TabItem{},
                 d ? d->barOpts : TabBarOptions{},
                 n->uiSize,
                 canvas,
-                theme
+                th
             );
         };
-        tabNode->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
+        tabNode->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& th) noexcept {
             const auto* d = n->As<TabItemData>();
             detail::TabBar::RenderTab(
                 canvas,
@@ -237,7 +267,7 @@ TabBarResponse detail::TabBar::Run(
                 n->hovered,
                 n->pressed,
                 n->disabled,
-                theme,
+                th,
                 n->focused,
                 d ? d->closeHovered : false
             );
@@ -259,6 +289,108 @@ TabBarResponse detail::TabBar::Run(
 
     res.rect = ctx.GetPrevFrameBounds(barNode->id);
     return res;
+}
+
+} // namespace
+
+TabBarScope detail::TabBar::Open(
+    Context& ctx,
+    const TabBarOptions& opts,
+    keel::SourceLocation loc
+) {
+    const Id barId = ctx.MakeChildId(loc);
+    const UiSize activeSize = opts.size;
+    Node* barNode = ctx.CreateNode(NodeType::Row, barId, opts.disabled);
+    const UiTheme& theme = barNode->GetTheme(ctx.GetTheme());
+    const bool activeDisabled = barNode->disabled;
+    const keel::f32 barDensity = barNode->GetDensity();
+    const TabBarResolvedChrome chrome = ResolveTabBarChrome(theme, opts, activeSize, barDensity, activeDisabled);
+
+    Response res{};
+    res.id = barId;
+    res.rect = ctx.GetPrevUnclippedBounds(barId);
+    res.ctx = &ctx;
+
+    barNode->direction = FlexDirection::Row;
+    barNode->align = Alignment::Center;
+    barNode->gap = keel::max(4.0f, theme.GetGap(UiSize::Xs)) * barDensity;
+    barNode->padding = chrome.resolvedPadding;
+    barNode->widthMode = SizeMode::Stretch;
+    barNode->heightMode = SizeMode::Fixed;
+    barNode->fixedHeight = chrome.fixedHeight;
+    barNode->uiSize = activeSize;
+    barNode->backgroundColor = chrome.resolvedBg;
+    barNode->borderColor = chrome.resolvedBorderCol;
+    barNode->borderWidth = chrome.effectiveBorderWidth;
+    barNode->explicitBorder = opts.border.HasExplicitStroke() ? 1 : 0;
+    barNode->explicitRadius = opts.border.radius.has_value() ? 1 : 0;
+    barNode->cornerRadius = chrome.resolvedRadius;
+    if (chrome.resolvedRadius > 0.0f) {
+        barNode->clipChildren = true;
+    }
+    barNode->visualHash = detail::HashArgs(
+        opts.style,
+        opts.showSeparator,
+        chrome.resolvedBg.ToUint32(),
+        chrome.resolvedBorderCol.ToUint32(),
+        chrome.effectiveBorderWidth,
+        chrome.resolvedRadius,
+        chrome.resolvedPadding.top,
+        chrome.resolvedPadding.left,
+        chrome.resolvedPadding.right,
+        chrome.resolvedPadding.bottom
+    );
+    if (chrome.hasBaselineSeparator) {
+        barNode->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& th) noexcept {
+            th.Painter().DrawTabBarBaseline(canvas, th, n->computedRect);
+        };
+    }
+
+    ctx.FinishContainer(barNode);
+    return TabBarScope(&ctx, barNode, res, opts);
+}
+
+TabBarResponse detail::TabBar::Run(
+    Context& ctx,
+    keel::i32& activeIndex,
+    keel::ArrayRef<TabItem> tabs,
+    const TabBarOptions& opts,
+    keel::SourceLocation loc
+) {
+    return RunTabBarImpl(ctx, activeIndex, tabs, opts, /*drawBaseline=*/true, /*stretchInScope=*/false, loc);
+}
+
+TabBarResponse detail::TabBar::RunStrip(
+    Context& ctx,
+    keel::i32& activeIndex,
+    keel::ArrayRef<TabItem> tabs,
+    const TabBarOptions& opts,
+    keel::SourceLocation loc
+) {
+    TabBarOptions stripOpts = opts;
+    stripOpts.background = StateColor::None();
+    stripOpts.border = Border{.width = 0.0f};
+    stripOpts.padding = Padding{};
+    return RunTabBarImpl(ctx, activeIndex, tabs, stripOpts, /*drawBaseline=*/false, /*stretchInScope=*/true, loc);
+}
+
+Response detail::TabBar::ActionButton(
+    Context& ctx,
+    const TabBarActionOptions& opts,
+    const TabBarOptions& barOpts,
+    keel::SourceLocation loc
+) {
+    ButtonOptions btnOpts{};
+    btnOpts.text = opts.text;
+    btnOpts.tooltip = opts.tooltip;
+    btnOpts.icon = opts.icon;
+    btnOpts.style = opts.style;
+    btnOpts.variant = opts.variant;
+    btnOpts.square = opts.square;
+    btnOpts.active = opts.active;
+    btnOpts.disabled = opts.disabled || barOpts.disabled;
+    btnOpts.size = opts.size.value_or(barOpts.size);
+    return detail::Button::Run(ctx, btnOpts, loc);
 }
 
 Vec2 detail::TabBar::MeasureTab(

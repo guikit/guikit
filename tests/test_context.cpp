@@ -2461,6 +2461,73 @@ void TestTabBarWidgetWorkflow() {
     renderDynamicBgTabBar();
     ui.EndFrame(canvas);
     CHECK(ui.HasDirtyDamage());
+
+    // 7. Test RAII TabBarScope (full-width single baseline + scrollable Items() + pinned trailing Action())
+    {
+        class BaselineSpyPainter : public DefaultStylePainter {
+        public:
+            mutable keel::usize baselineCalls{0};
+            mutable Rect lastBaselineRect{};
+            void DrawTabBarBaseline(ICanvas& c, const UiTheme& t, Rect r) const override {
+                ++baselineCalls;
+                lastBaselineRect = r;
+                DefaultStylePainter::DrawTabBarBaseline(c, t, r);
+            }
+        };
+
+        BaselineSpyPainter spyPainter;
+        UiTheme win98 = UiTheme::Windows98();
+        win98.SetStylePainter(&spyPainter);
+        Context scopeUi;
+        scopeUi.SetTheme(win98);
+        keel::usize tabIdx = 0;
+        bool closeClicked = false;
+        Rect barRect{};
+        Rect closeRect{};
+        static const keel::StaticArray<TabItem, 3> kScopeTabs = {{
+            {.label = "Output"},
+            {.label = "Problems"},
+            {.label = "Terminal"}
+        }};
+
+        auto renderScopeBar = [&]() {
+            spyPainter.baselineCalls = 0;
+            closeClicked = false;
+            scopeUi.InvalidateAll();
+            scopeUi.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
+            if (auto bar = guikit::TabBar(scopeUi, {
+                .style = TabBarStyle::Underline,
+                .padding = Padding{0.0f, 4.0f, 4.0f, 0.0f},
+                .size = UiSize::Sm
+            })) {
+                barRect = bar.response.rect;
+                bar.Items(tabIdx, kScopeTabs);
+                const Response act = bar.Action({.tooltip = "Close", .icon = Icon::Close(), .square = true});
+                closeRect = act.rect;
+                closeClicked = act.clicked;
+            }
+            scopeUi.EndFrame(canvas);
+        };
+
+        renderScopeBar();
+        renderScopeBar();
+
+        // Single continuous baseline spans full 800px header width (including under trailing action button)
+        CHECK(spyPainter.baselineCalls == 1u);
+        CHECK_NEAR(spyPainter.lastBaselineRect.w, keel::as<keel::f32>(width), 1.0f);
+        CHECK(barRect.w >= 799.0f);
+        // Trailing action button is pinned at the far right edge
+        CHECK(closeRect.Right() >= barRect.Right() - 8.0f);
+
+        // Clicking trailing Action fires clicked without altering active tab
+        scopeUi.OnMouseMove(closeRect.Center());
+        scopeUi.OnMouseDown(1);
+        renderScopeBar();
+        scopeUi.OnMouseUp(1);
+        renderScopeBar();
+        CHECK(closeClicked == true);
+        CHECK(tabIdx == 0u);
+    }
 }
 
 void TestToolbarWidgetWorkflow() {
@@ -2762,6 +2829,140 @@ void TestToolbarWidgetWorkflow() {
 
         CHECK(sepSpy.verticalSepLines >= 1u);
         CHECK(sepSpy.horizontalSepLines == 0u);
+    }
+
+    // 9. Explicit shell opt-in (Column/Row .shell = true) + ToolbarStyle::Surface x ShellStyle orthogonality
+    {
+        Context shellUi;
+        NullCanvas nullCanvas;
+        UiTheme t = UiTheme::Dark();
+        t.SetShellStyle(ShellStyle::Docked);
+        shellUi.SetTheme(t);
+
+        Id tbId{};
+        Id cardId{};
+        Id embeddedTbId{};
+        const Node* tbNode = nullptr;
+        const Node* cardNode = nullptr;
+        const Node* embNode = nullptr;
+        const Node* hdrNode = nullptr;
+
+        auto runShellFrame = [&](bool optInShell, bool vertical) {
+            tbNode = nullptr;
+            cardNode = nullptr;
+            embNode = nullptr;
+            hdrNode = nullptr;
+            shellUi.BeginFrame({800.0f, 600.0f});
+            if (vertical) {
+                if (auto shell = guikit::Row(shellUi, {
+                    .width = SizeMode::Stretch,
+                    .height = SizeMode::Stretch,
+                    .shell = optInShell
+                })) {
+                    if (auto tb = guikit::Toolbar(shellUi, {
+                        .style = ToolbarStyle::Surface,
+                        .orientation = Orientation::Vertical
+                    })) {
+                        tbId = tb.response.id;
+                        tbNode = tb.GetNode();
+                        tb.ToolButton({.text = "A", .square = true});
+                    }
+                    if (auto card = guikit::Card(shellUi, {
+                        .width = SizeMode::Stretch,
+                        .height = SizeMode::Stretch
+                    })) {
+                        cardNode = card.GetNode();
+                        cardId = cardNode->id;
+                    }
+                }
+            } else {
+                if (auto shell = guikit::Column(shellUi, {
+                    .width = SizeMode::Stretch,
+                    .height = SizeMode::Stretch,
+                    .shell = optInShell
+                })) {
+                    if (auto tb = guikit::Toolbar(shellUi, {.style = ToolbarStyle::Surface})) {
+                        tbId = tb.response.id;
+                        tbNode = tb.GetNode();
+                        tb.ToolButton({.text = "A"});
+                    }
+                    if (auto card = guikit::Card(shellUi, {
+                        .width = SizeMode::Stretch,
+                        .height = SizeMode::Stretch
+                    })) {
+                        cardNode = card.GetNode();
+                        cardId = cardNode->id;
+                        if (auto inner = guikit::Column(shellUi, {
+                            .gap = 0.0f,
+                            .width = SizeMode::Stretch,
+                            .height = SizeMode::Fit
+                        })) {
+                            if (auto etb = guikit::Toolbar(shellUi, {.style = ToolbarStyle::Surface})) {
+                                embeddedTbId = etb.response.id;
+                                embNode = etb.GetNode();
+                                etb.ToolButton({.text = "Inner"});
+                            }
+                            if (auto htb = guikit::Toolbar(shellUi, {.style = ToolbarStyle::Header})) {
+                                hdrNode = htb.GetNode();
+                                htb.ToolButton({.text = "Header"});
+                            }
+                        }
+                    }
+                }
+            }
+            shellUi.EndFrame(nullCanvas);
+        };
+
+        // 9a. Docked shell: flush toolbar + card with 0px gap, 0px padding, 0px radius, DockSeam::Bottom
+        runShellFrame(true, false);
+        const Rect dockedTb = shellUi.GetPrevFrameBounds(tbId);
+        const Rect dockedCard = shellUi.GetPrevFrameBounds(cardId);
+        CHECK(tbNode != nullptr && cardNode != nullptr);
+        CHECK(dockedTb.x == 0.0f && dockedTb.y == 0.0f);
+        CHECK(dockedTb.w == 800.0f);
+        CHECK(keel::abs(dockedCard.y - dockedTb.Bottom()) < 0.5f);
+        CHECK(tbNode->cornerRadius == 0.0f);
+        CHECK(tbNode->GetDockSeam() == DockSeam::Bottom);
+        CHECK(cardNode->cornerRadius == 0.0f);
+        CHECK(cardNode->borderWidth == 0.0f);
+
+        // 9b. Floating shell: windowPadding + panelGap + rounded 4-sided toolbar & card;
+        //     embedded non-shell Column does NOT get windowPadding injected; Header stays 0px radius
+        t.SetShellStyle(ShellStyle::Floating);
+        shellUi.SetTheme(t);
+        runShellFrame(true, false);
+        const Rect floatTb = shellUi.GetPrevFrameBounds(tbId);
+        const Rect floatCard = shellUi.GetPrevFrameBounds(cardId);
+        const Rect floatEmb = shellUi.GetPrevFrameBounds(embeddedTbId);
+        CHECK(tbNode != nullptr && cardNode != nullptr && embNode != nullptr && hdrNode != nullptr);
+        CHECK(floatTb.x > 0.0f && floatTb.y > 0.0f);
+        CHECK(floatTb.w < 800.0f);
+        CHECK(floatCard.y - floatTb.Bottom() > 0.0f);
+        CHECK(tbNode->cornerRadius > 0.0f);
+        CHECK(tbNode->GetDockSeam() == DockSeam::None);
+        CHECK(cardNode->cornerRadius > 0.0f);
+        CHECK(cardNode->borderWidth > 0.0f);
+        // Embedded Column inside Card did NOT get extra shell windowPadding (flush with Card inner padding)
+        CHECK(keel::abs(floatEmb.x - (floatCard.x + cardNode->padding.left)) < 0.5f);
+        CHECK(embNode->cornerRadius == t.shell.panelRadius);
+        CHECK(hdrNode->cornerRadius == 0.0f);
+        CHECK(hdrNode->GetDockSeam() == DockSeam::Bottom);
+
+        // 9c. Non-shell Column (.shell = false) in Floating mode gets NO windowPadding
+        runShellFrame(false, false);
+        const Rect nonShellTb = shellUi.GetPrevFrameBounds(tbId);
+        CHECK(nonShellTb.x == 0.0f && nonShellTb.y == 0.0f);
+        CHECK(nonShellTb.w == 800.0f);
+
+        // 9d. Vertical Row(.shell = true) in Floating mode: inset + horizontal panelGap + rounded vertical toolbar
+        runShellFrame(true, true);
+        const Rect vTb = shellUi.GetPrevFrameBounds(tbId);
+        const Rect vCard = shellUi.GetPrevFrameBounds(cardId);
+        CHECK(tbNode != nullptr);
+        CHECK(vTb.x > 0.0f && vTb.y > 0.0f);
+        CHECK(vCard.x - vTb.Right() > 0.0f);
+        CHECK(tbNode->cornerRadius > 0.0f);
+        CHECK(tbNode->GetDockSeam() == DockSeam::None);
     }
 }
 
@@ -11148,6 +11349,96 @@ void TestBottomPanelAndStatusBarWorkflow() {
         CHECK(toggleCanvas.roundedRects == 0u);
         CHECK(toggleCanvas.bevelEdges >= 8u);
         CHECK(toggleCanvas.filledPaths >= 2u);
+
+        // Floating ShellStyle in zero-radius Classic3D (Windows98) must draw a 4-sided raised frame
+        // (including vertical left/right bevel edges) rather than a single top seam.
+        {
+            class FloatingEdgeSpy : public NullCanvas {
+            public:
+                keel::usize verticalEdges{0};
+                void DrawRect(Rect r, Color fill) override {
+                    if (fill.a > 0u && r.w <= 1.5f && r.h > 40.0f) {
+                        ++verticalEdges;
+                    }
+                }
+            };
+            FloatingEdgeSpy floatSpy;
+            UiTheme floatWin98 = UiTheme::Windows98();
+            floatWin98.SetShellStyle(ShellStyle::Floating);
+            Context floatUi;
+            bool fOpen = true;
+            Rect floatBpRect{};
+            auto renderNestedFloating = [&]() {
+                floatSpy.verticalEdges = 0;
+                floatUi.InvalidateAll();
+                floatUi.BeginFrame({600.0f, 400.0f});
+                // Simulate PreviewViewport outer Box with explicit padding=0 in default Docked theme
+                if (auto hostClient = guikit::Box(floatUi, {
+                    .width = SizeMode::Stretch,
+                    .height = SizeMode::Stretch,
+                    .padding = Padding::All(0.0f),
+                    .clipChildren = true
+                })) {
+                    if (auto zone = floatUi.Zone({.theme = floatWin98})) {
+                        if (auto root = guikit::Column(floatUi, {.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+                            if (auto body = guikit::Card(floatUi, {.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+                                guikit::Text(floatUi, "Body");
+                            }
+                            if (auto bp = guikit::BottomPanel(floatUi, fOpen, {.height = 120.0f})) {
+                                floatBpRect = bp.response.rect;
+                                guikit::Text(floatUi, "Floating Bottom");
+                            }
+                        }
+                    }
+                }
+                floatUi.EndFrame(floatSpy);
+            };
+            renderNestedFloating();
+            renderNestedFloating();
+            CHECK(floatSpy.verticalEdges >= 2u);
+            // Nested Floating Zone must receive windowPadding around BottomPanel (not flush 0px)
+            CHECK(floatBpRect.x >= 4.0f);
+            CHECK(floatBpRect.Right() <= 596.0f);
+            CHECK(floatBpRect.Bottom() <= 396.0f);
+        }
+
+        // Scrollable BottomPanel with a Stretch Column -> TextArea child must fill remaining viewport
+        // height (flex-basis: auto; flex-grow: 1) instead of shrinking to ~84px with dead void below.
+        {
+            Context scrollStretchUi;
+            bool sOpen = true;
+            Rect taRect{};
+            auto renderScrollStretch = [&]() {
+                scrollStretchUi.BeginFrame({600.0f, 400.0f});
+                if (auto root = guikit::Column(scrollStretchUi, {.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+                    if (auto top = guikit::Column(scrollStretchUi, {.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+                        guikit::Text(scrollStretchUi, "Top");
+                    }
+                    if (auto bp = guikit::BottomPanel(scrollStretchUi, sOpen, {.height = 190.0f, .scrollable = true})) {
+                        static const keel::StaticArray<TabItem, 2> kT = {{{.label = "Output"}, {.label = "Problems"}}};
+                        keel::usize ti = 0;
+                        guikit::TabBar(scrollStretchUi, ti, kT, {.size = UiSize::Sm});
+                        if (auto body = guikit::Column(scrollStretchUi, {
+                            .padding = Padding::All(6.0f),
+                            .width = SizeMode::Stretch,
+                            .height = SizeMode::Stretch
+                        })) {
+                            taRect = guikit::TextArea(scrollStretchUi, "Line 1\nLine 2\nLine 3", {
+                                .readOnly = true,
+                                .size = UiSize::Sm,
+                                .width = SizeMode::Stretch,
+                                .height = SizeMode::Stretch
+                            }).rect;
+                        }
+                    }
+                }
+                scrollStretchUi.EndFrame(canvas);
+            };
+            renderScrollStretch();
+            renderScrollStretch();
+            // 190px panel - ~28px TabBar - 12px padding = ~150px TextArea height
+            CHECK(taRect.h >= 135.0f);
+        }
     }
 
     // 5. Right-edge LeftClick ContextMenu stability when hovering inside popup (no X-position oscillation)

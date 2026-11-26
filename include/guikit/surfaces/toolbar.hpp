@@ -21,7 +21,7 @@ struct Node;
 
 /// Visual presentation and sizing mode for a Toolbar container.
 enum class ToolbarStyle : keel::u8 {
-    Surface,    ///< Standard rounded surface bar stretching across the parent container
+    Surface,    ///< Adaptive shell toolbar stretching across the parent container (follows theme.shellStyle: flush in Docked, rounded panel in Floating)
     Header,     ///< Flush edge-to-edge header strip (0px corner radius, 1px subtle border)
     Floating    ///< Compact fit-to-content floating pill/island with elevated surface & border
 };

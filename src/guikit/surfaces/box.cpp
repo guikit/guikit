@@ -18,6 +18,7 @@ ContainerScope detail::Box::Open(
     node->direction = FlexDirection::Column;
     node->explicitGap = opts.gap.has_value() ? 1 : 0;
     node->explicitPadding = opts.padding.has_value() ? 1 : 0;
+    node->isShell = opts.shell;
     node->gap = theme.ResolveGap(opts.gap, UiSize::Md, density);
     node->padding = theme.ResolvePadding(opts.padding, UiSize::None, density);
     const auto& pal = theme.palette;
@@ -63,6 +64,7 @@ ContainerScope detail::Box::Open(
 
     node->uiSize = UiSize::Md;
     node->visualHash = detail::HashArgs(
+        keel::as<keel::u8>(theme.shellStyle),
         opts.background,
         opts.border,
         keel::as<keel::u8>(opts.surface),

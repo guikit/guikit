@@ -68,7 +68,7 @@ ContainerScope detail::Card::Open(
     outerNode->borderColor = (outerNode->borderWidth > 0.0f)
         ? theme.ResolveColor(opts.border.color, wantsBorderHover && isHovered, false, activeDisabled, defaultBorder)
         : Color::Transparent();
-    outerNode->visualHash = detail::HashArgs(opts.background, opts.border, opts.surface, isHovered);
+    outerNode->visualHash = detail::HashArgs(keel::as<keel::u8>(theme.shellStyle), opts.background, opts.border, opts.surface, isHovered);
 
     ctx.FinishContainer(outerNode);
     return ContainerScope(&ctx, outerNode);

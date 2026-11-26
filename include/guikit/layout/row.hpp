@@ -26,6 +26,7 @@ struct RowOptions {
     keel::f32 flexGrow{1.0f};
     bool equalWidths{false};
     bool disabled{false};
+    bool shell{false}; ///< Opt-in as an application shell container (applies theme.shell windowPadding, panelGap, and child panel framing)
 };
 
 /// Autonomous immediate mode Row layout entry point.

@@ -298,7 +298,7 @@ StatusBarScope detail::StatusBar::Open(
     }
 
     node->SetSurfaceRole(SurfaceRole::DockEdge);
-    node->SetDockSeam(DockSeam::Top);
+    node->SetDockSeam((theme.shellStyle == ShellStyle::Floating) ? DockSeam::None : DockSeam::Top);
     node->borderColor = theme.ResolveColor(opts.border.color, false, false, effectiveDisabled, pal.border);
     node->borderWidth = (opts.style == StatusBarStyle::Accent && !opts.border.color.HasAny())
         ? 0.0f
@@ -311,6 +311,7 @@ StatusBarScope detail::StatusBar::Open(
 
     node->uiSize = activeSize;
     node->visualHash = detail::HashArgs(
+        keel::as<keel::u8>(theme.shellStyle),
         keel::as<keel::u8>(opts.style),
         node->fixedHeight,
         opts.background,
