@@ -452,6 +452,17 @@ SidebarScope detail::Sidebar::Open(
         node->borderColor = resolvedBorderCol;
         node->borderWidth = resolvedBorderW;
     }
+    if (!isCollapsed) {
+        ctx.ApplySurfaceGradients(
+            node,
+            theme,
+            opts.background.IsBackgroundEnabled(true) ? opts.background : StateColor{},
+            (node->borderWidth > 0.0f) ? opts.border.color : StateColor{},
+            false,
+            false,
+            activeDisabled
+        );
+    }
 
     node->visualHash = detail::HashArgs(
         keel::as<keel::u8>(state.mode),

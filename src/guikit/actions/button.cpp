@@ -412,8 +412,20 @@ detail::ButtonResolvedColors detail::Button::ResolveColors(
             restBg = theme.ResolveColor(opts.background, false, opts.active, disabled, restBg);
             hovBg = theme.ResolveColor(opts.background, true, false, disabled, hovBg);
             actBg = theme.ResolveColor(opts.background, false, true, disabled, actBg);
-            if (!opts.text.color.HasAny() && restBg.a >= 180u) {
-                defaultText = Color::BestTextColor(restBg, Color::Hex(0x0F172AFF), Color::Hex(0xFFFFFFFF));
+            if (!opts.text.color.HasAny()) {
+                if (const auto bgGrad = theme.ResolveGradient(opts.background, false, false, false)) {
+                    const Color darkInk = Color::Hex(0x0F172AFF);
+                    const Color lightInk = Color::Hex(0xFFFFFFFF);
+                    const Color c0 = bgGrad->stops[0].color;
+                    const Color c1 = bgGrad->stops[(bgGrad->stopCount > 1u) ? (bgGrad->stopCount - 1u) : 0u].color;
+                    if (c0.a >= 180u || c1.a >= 180u) {
+                        const keel::f32 minDark = keel::min(Color::ContrastRatio(darkInk, c0), Color::ContrastRatio(darkInk, c1));
+                        const keel::f32 minLight = keel::min(Color::ContrastRatio(lightInk, c0), Color::ContrastRatio(lightInk, c1));
+                        defaultText = (minLight >= minDark) ? lightInk : darkInk;
+                    }
+                } else if (restBg.a >= 180u) {
+                    defaultText = Color::BestTextColor(restBg, Color::Hex(0x0F172AFF), Color::Hex(0xFFFFFFFF));
+                }
             }
         }
     }
@@ -481,6 +493,12 @@ void detail::Button::Render(
 
     // Background & border via active style painter
     const keel::f32 radius = opts.border.radius.has_value() ? *opts.border.radius : m.cornerRadius;
+    const keel::Optional<Gradient> bgGrad = opts.background.IsBackgroundEnabled(true)
+        ? theme.ResolveGradient(opts.background, hovered, pressed || opts.active, disabled)
+        : keel::kNullOpt;
+    const keel::Optional<Gradient> bdrGrad = (rc.borderW > 0.0f)
+        ? theme.ResolveGradient(opts.border.color, hovered, pressed || opts.active || focused, disabled)
+        : keel::kNullOpt;
 
     theme.Painter().DrawFrame(
         canvas,
@@ -498,7 +516,9 @@ void detail::Button::Render(
             .pressed = pressed,
             .active = opts.active,
             .focused = focused,
-            .disabled = disabled
+            .disabled = disabled,
+            .bgGradient = bgGrad.has_value() ? &(*bgGrad) : nullptr,
+            .borderGradient = bdrGrad.has_value() ? &(*bdrGrad) : nullptr
         }
     );
 

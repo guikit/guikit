@@ -145,6 +145,22 @@ void NullCanvas::DrawGlassRect(Rect rect, keel::f32 /*radius*/, const GlassParam
     ++m_stats.drawGlassRectCount;
 }
 
+void NullCanvas::DrawGradientRoundRect(
+    Rect rect,
+    keel::f32 /*radius*/,
+    const Gradient& fill,
+    Color stroke,
+    keel::f32 strokeWidth,
+    const Gradient* strokeGradient
+) {
+    if (rect.w <= 0.0f || rect.h <= 0.0f) return;
+    const bool hasFill = fill.HasVisibleColor();
+    const bool hasStroke = (strokeWidth > 0.0f) &&
+        (stroke.a > 0u || (strokeGradient != nullptr && strokeGradient->HasVisibleColor()));
+    if (!hasFill && !hasStroke) return;
+    ++m_stats.drawGradientRectCount;
+}
+
 Vec2 NullCanvas::MeasureText(keel::StringRef text, keel::f32 fontSize) {
     return MeasureTextStyled(text, fontSize, FontStyle::Regular);
 }

@@ -303,6 +303,15 @@ StatusBarScope detail::StatusBar::Open(
     node->borderWidth = (opts.style == StatusBarStyle::Accent && !opts.border.color.HasAny())
         ? 0.0f
         : ((opts.border.width == 1.0f) ? theme.shell.panelBorderWidth : opts.border.width);
+    ctx.ApplySurfaceGradients(
+        node,
+        theme,
+        opts.background.IsBackgroundEnabled(true) ? opts.background : StateColor{},
+        (node->borderWidth > 0.0f) ? opts.border.color : StateColor{},
+        false,
+        false,
+        effectiveDisabled
+    );
     node->explicitBorder = opts.border.HasExplicitStroke() ? 1 : 0;
     node->explicitRadius = opts.border.radius.has_value() ? 1 : 0;
     node->cornerRadius = opts.border.radius.has_value()

@@ -452,6 +452,17 @@ public:
     /// Default fallback for CPU / headless canvases renders a readable translucent tinted surface with specular rim.
     virtual void DrawGlassRect(Rect rect, keel::f32 radius, const GlassParams& params);
 
+    /// Draws a rounded rectangle filled with a multi-stop Linear or Radial gradient and optional solid or gradient stroke.
+    /// Default fallback renders an averaged-color rounded rectangle for minimal custom canvases.
+    virtual void DrawGradientRoundRect(
+        Rect rect,
+        keel::f32 radius,
+        const Gradient& fill,
+        Color stroke = Color(0, 0, 0, 0),
+        keel::f32 strokeWidth = 0.0f,
+        const Gradient* strokeGradient = nullptr
+    );
+
     /// Draws a line segment between two points.
     virtual void DrawLine(Vec2 p1, Vec2 p2, Color color, keel::f32 strokeWidth = 1.0f) = 0;
 

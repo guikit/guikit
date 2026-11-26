@@ -412,14 +412,86 @@ void DrawDirectionalSheen(
     // Preserve explicit low-alpha translucency if caller intentionally dimmed p.bg
     const keel::f32 effAlpha = (srcA < 0.99f) ? keel::min(srcA, targetAlpha) : targetAlpha;
     gp.tint = p.bg.WithAlphaF(effAlpha);
+
+    if (p.bgGradient != nullptr && p.bgGradient->IsValid()) {
+        const Gradient& g = *p.bgGradient;
+        const Color c0 = g.stops[0].color;
+        const Color c1 = g.stops[(g.stopCount > 1u) ? (g.stopCount - 1u) : 0u].color;
+        const keel::f32 a0 = (keel::as<keel::f32>(c0.a) / 255.0f < 0.99f) ? keel::min(keel::as<keel::f32>(c0.a) / 255.0f, targetAlpha) : targetAlpha;
+        const keel::f32 a1 = (keel::as<keel::f32>(c1.a) / 255.0f < 0.99f) ? keel::min(keel::as<keel::f32>(c1.a) / 255.0f, targetAlpha) : targetAlpha;
+        gp.tint = c0.WithAlphaF(a0);
+        gp.tintEnd = c1.WithAlphaF(a1);
+        gp.tintRadial = (g.kind == GradientKind::Radial);
+        if (!gp.tintRadial) {
+            const keel::f32 dx = g.end.x - g.start.x;
+            const keel::f32 dy = g.end.y - g.start.y;
+            gp.tintAngleDeg = keel::rad_to_deg(keel::atan2(dx, -dy));
+        }
+    } else if (theme.fillStyle == FillStyle::Gradient || p.role == SurfaceRole::Raised || p.role == SurfaceRole::Popup) {
+        const keel::f32 topLift = isDark ? 0.055f : 0.040f;
+        const keel::f32 botDrop = isDark ? -0.035f : -0.025f;
+        const Color cTop = p.bg.ShiftLightness(topLift);
+        const Color cBot = (theme.fillStyle == FillStyle::Gradient)
+            ? Color::Lerp(p.bg.ShiftLightness(botDrop), theme.palette.accent, isDark ? 0.14f : 0.08f)
+            : p.bg.ShiftLightness(botDrop);
+        gp.tint = cTop.WithAlphaF(effAlpha);
+        gp.tintEnd = cBot.WithAlphaF(keel::min(0.92f, effAlpha + 0.05f));
+        gp.tintAngleDeg = 145.0f;
+        if (!p.explicitBorder && p.border.a > 0u) {
+            gp.borderColor = Color::Lerp(p.border, theme.bevel.highlightOuter, isDark ? 0.44f : 0.65f)
+                .WithAlphaF(isDark ? 0.65f : 0.80f);
+            gp.borderColorEnd = p.border.WithAlphaF(isDark ? 0.34f : 0.48f);
+        }
+    }
     return gp;
+}
+
+/// Builds a subtle studio tonal gradient for `ChromeStyle::Luminous` (`FrameTreatment::GradientSurface`) surfaces.
+[[nodiscard]] Gradient BuildLuminousSurfaceGradient(
+    const UiTheme& theme,
+    SurfaceRole role,
+    Color base
+) noexcept {
+    const bool isDark = (theme.mode == ThemeMode::Dark);
+    if (role == SurfaceRole::Sunken) {
+        return Gradient::Linear(
+            base.ShiftLightness(isDark ? -0.022f : -0.018f),
+            base.ShiftLightness(isDark ? 0.016f : 0.012f),
+            180.0f
+        );
+    }
+    if (role == SurfaceRole::Raised || role == SurfaceRole::Popup) {
+        const Color c0 = base.ShiftLightness(isDark ? 0.048f : 0.022f);
+        const Color c1 = base.ShiftLightness(isDark ? -0.024f : -0.022f);
+        return Gradient::Linear(c0, c1, 165.0f);
+    }
+    const Color c0 = base.ShiftLightness(isDark ? 0.026f : 0.014f);
+    const Color c1 = base.ShiftLightness(isDark ? -0.014f : -0.014f);
+    return Gradient::Linear(c0, c1, 180.0f);
+}
+
+/// Builds a directional top-left luminous 1px border gradient for studio cards and controls.
+[[nodiscard]] Gradient BuildLuminousBorderGradient(
+    const UiTheme& theme,
+    Color baseBorder,
+    bool emphasize
+) noexcept {
+    const bool isDark = (theme.mode == ThemeMode::Dark);
+    const Color topLeft = Color::Lerp(
+        baseBorder,
+        theme.bevel.highlightOuter,
+        emphasize ? (isDark ? 0.56f : 0.72f) : (isDark ? 0.38f : 0.56f)
+    ).WithAlphaF(isDark ? 0.78f : 0.88f);
+    const Color botRight = baseBorder.WithAlphaF(isDark ? 0.42f : 0.62f);
+    return Gradient::Linear(topLeft, botRight, 135.0f);
 }
 
 /// Derives palette-pure `GlassParams` for interactive controls (`Button`, `Input`, `DropdownButton`).
 [[nodiscard]] GlassParams BuildFrameGlassParams(
     const UiTheme& theme,
     FrameKind kind,
-    const FramePaintParams& p
+    const FramePaintParams& p,
+    const Gradient* activeFillGrad = nullptr
 ) noexcept {
     const bool isDark = (theme.mode == ThemeMode::Dark);
     const auto& pal = theme.palette;
@@ -455,17 +527,35 @@ void DrawDirectionalSheen(
     }
 
     // Button / DropdownButton / ToolbarButton / Keycap
-    keel::f32 baseA = isSemanticFill
+    const bool hasGrad = (activeFillGrad != nullptr && activeFillGrad->IsValid());
+    keel::f32 baseA = (isSemanticFill || hasGrad)
         ? (isDark ? 0.78f : 0.82f)
         : (isDark ? 0.38f : 0.54f);
     if (!p.disabled) {
         if (p.pressed || p.active) baseA = keel::min(0.92f, baseA + 0.10f);
         else if (p.hovered)        baseA = keel::min(0.88f, baseA + 0.06f);
     }
-    const keel::f32 effA = (srcA < 0.75f) ? srcA : baseA;
-    gp.tint       = p.bg.WithAlphaF(effA);
+    const keel::f32 effA = (srcA < 0.75f && !hasGrad) ? srcA : baseA;
+    if (hasGrad) {
+        const Color c0 = activeFillGrad->stops[0].color;
+        const Color c1 = activeFillGrad->stops[(activeFillGrad->stopCount > 1u) ? (activeFillGrad->stopCount - 1u) : 0u].color;
+        gp.tint = c0.WithAlphaF(effA);
+        gp.tintEnd = c1.WithAlphaF(effA);
+        gp.tintRadial = (activeFillGrad->kind == GradientKind::Radial);
+        if (!gp.tintRadial) {
+            const keel::f32 dx = activeFillGrad->end.x - activeFillGrad->start.x;
+            const keel::f32 dy = activeFillGrad->end.y - activeFillGrad->start.y;
+            gp.tintAngleDeg = keel::rad_to_deg(keel::atan2(dx, -dy));
+        }
+        if (!p.explicitBorder && !p.focused) {
+            gp.borderColor = Color::Lerp(c0, theme.bevel.highlightOuter, 0.48f).WithAlphaF(0.75f);
+            gp.borderColorEnd = Color::Lerp(c1, theme.bevel.highlightOuter, 0.16f).WithAlphaF(0.45f);
+        }
+    } else {
+        gp.tint = p.bg.WithAlphaF(effA);
+    }
     gp.blurRadius = 11.0f;
-    gp.frost      = isSemanticFill ? 0.68f : 0.58f;
+    gp.frost      = (isSemanticFill || hasGrad) ? 0.68f : 0.58f;
     gp.refraction = p.disabled ? 0.12f : (p.hovered || p.active ? 0.44f : 0.34f);
     gp.dispersion = p.disabled ? 0.05f : (p.hovered || p.active ? 0.24f : 0.18f);
     gp.rimLight   = p.disabled ? 0.18f : (p.hovered || p.active ? 0.68f : 0.48f);
@@ -485,8 +575,9 @@ void DefaultStylePainter::DrawSurfaceBg(
     const bool roundedOverride = p.explicitRadius && (p.radius > 0.01f);
     const bool useBevel = (theme.chrome.frame == FrameTreatment::Bevel3D) && !roundedOverride;
     const keel::f32 effRadius = useBevel ? 0.0f : p.radius;
+    const bool hasExplicitGrad = (p.bgGradient != nullptr && p.bgGradient->HasVisibleColor());
 
-    if (p.bg.a > 0u) {
+    if (p.bg.a > 0u || hasExplicitGrad) {
         Elevation effElev = p.elevation;
         if (effElev == Elevation::None) {
             if (p.role == SurfaceRole::Raised) effElev = Elevation::Md;
@@ -495,6 +586,7 @@ void DefaultStylePainter::DrawSurfaceBg(
         DrawShadowForRect(canvas, theme, p.rect, effRadius, effElev, p.shadowScale);
 
         const bool isViewportBackdrop =
+            !hasExplicitGrad &&
             (p.role == SurfaceRole::Flat) &&
             (p.bg == theme.palette.background) &&
             (effRadius <= 0.01f) &&
@@ -504,6 +596,28 @@ void DefaultStylePainter::DrawSurfaceBg(
             !isViewportBackdrop) {
             const GlassParams gp = BuildSurfaceGlassParams(theme, p);
             canvas.DrawGlassRect(p.rect, effRadius, gp);
+            return;
+        }
+
+        if (hasExplicitGrad) {
+            canvas.DrawGradientRoundRect(p.rect, effRadius, *p.bgGradient, Color::Transparent(), 0.0f);
+            return;
+        }
+
+        if (theme.chrome.frame == FrameTreatment::GradientSurface && p.role != SurfaceRole::None) {
+            if (isViewportBackdrop) {
+                const bool isDark = (theme.mode == ThemeMode::Dark);
+                const Color topTint = Color::Lerp(
+                    p.bg.ShiftLightness(isDark ? 0.025f : -0.010f),
+                    theme.palette.accent,
+                    isDark ? 0.055f : 0.030f
+                ).WithAlpha(255u);
+                const Gradient ambient = Gradient::Radial(topTint, p.bg, Vec2{0.5f, 0.08f}, 1.35f);
+                canvas.DrawGradientRoundRect(p.rect, 0.0f, ambient, Color::Transparent(), 0.0f);
+            } else {
+                const Gradient surfGrad = BuildLuminousSurfaceGradient(theme, p.role, p.bg);
+                canvas.DrawGradientRoundRect(p.rect, effRadius, surfGrad, Color::Transparent(), 0.0f);
+            }
             return;
         }
 
@@ -627,17 +741,29 @@ void DefaultStylePainter::DrawSurfaceFrame(
         }
     }
 
-    if (p.borderWidth > 0.0f && p.border.a > 0u) {
+    const bool hasBorderGrad = (p.borderGradient != nullptr && p.borderGradient->HasVisibleColor());
+    if (p.borderWidth > 0.0f && (p.border.a > 0u || hasBorderGrad)) {
         const keel::f32 bw = (theme.chrome.frame == FrameTreatment::HardShadow)
             ? keel::max(p.borderWidth, 1.5f * keel::max(theme.borderScale, 0.5f))
             : p.borderWidth;
-        Color strokeCol = p.border;
-        if (theme.chrome.frame == FrameTreatment::Glass && !p.explicitBorder) {
-            const bool isDark = (theme.mode == ThemeMode::Dark);
-            strokeCol = Color::Lerp(p.border, theme.bevel.highlightOuter, isDark ? 0.24f : 0.45f)
-                .WithAlphaF(isDark ? 0.52f : 0.70f);
+        if (hasBorderGrad) {
+            canvas.DrawGradientRoundRect(r, p.radius, Gradient{}, p.border, bw, p.borderGradient);
+        } else if (theme.chrome.frame == FrameTreatment::GradientSurface && !p.explicitBorder) {
+            const Gradient lumBdr = BuildLuminousBorderGradient(
+                theme,
+                p.border,
+                p.role == SurfaceRole::Raised || p.role == SurfaceRole::Popup
+            );
+            canvas.DrawGradientRoundRect(r, p.radius, Gradient{}, p.border, bw, &lumBdr);
+        } else {
+            Color strokeCol = p.border;
+            if (theme.chrome.frame == FrameTreatment::Glass && !p.explicitBorder) {
+                const bool isDark = (theme.mode == ThemeMode::Dark);
+                strokeCol = Color::Lerp(p.border, theme.bevel.highlightOuter, isDark ? 0.24f : 0.45f)
+                    .WithAlphaF(isDark ? 0.52f : 0.70f);
+            }
+            canvas.DrawRoundRect(r, p.radius, Color::Transparent(), strokeCol, bw);
         }
-        canvas.DrawRoundRect(r, p.radius, Color::Transparent(), strokeCol, bw);
     }
 
     if (theme.chrome.frame == FrameTreatment::Directional1px &&
@@ -701,9 +827,70 @@ void DefaultStylePainter::DrawFrame(
             return;
         }
 
-        if (theme.chrome.frame == FrameTreatment::Glass && p.bg.a > 0u) {
-            const GlassParams gp = BuildFrameGlassParams(theme, kind, p);
+        const bool hasExplicitBgGrad = (p.bgGradient != nullptr && p.bgGradient->HasVisibleColor());
+        const bool hasExplicitBdrGrad = (p.borderGradient != nullptr && p.borderGradient->HasVisibleColor());
+        const bool isSemanticSolid = !isInput && (p.bg.a >= 180u) && (EstimateColorChroma(p.bg) >= 0.22f);
+        const bool autoGradFill = !hasExplicitBgGrad && (theme.fillStyle == FillStyle::Gradient) && isSemanticSolid;
+        const bool isLuminousSurface = (theme.chrome.frame == FrameTreatment::GradientSurface) && !isInput && (p.bg.a > 0u);
+
+        Gradient derivedBgGrad{};
+        const Gradient* effBgGrad = nullptr;
+        if (hasExplicitBgGrad) {
+            effBgGrad = p.bgGradient;
+        } else if (autoGradFill) {
+            derivedBgGrad = theme.DeriveAccentGradient(p.bg, 135.0f);
+            if (p.disabled) {
+                derivedBgGrad = derivedBgGrad.WithAlphaF(theme.disabledOpacity);
+            }
+            effBgGrad = &derivedBgGrad;
+        } else if (isLuminousSurface) {
+            const bool isDark = (theme.mode == ThemeMode::Dark);
+            const Color topC = p.bg.ShiftLightness(isDark ? 0.042f : 0.025f);
+            const Color botC = p.bg.ShiftLightness(isDark ? -0.028f : -0.024f);
+            derivedBgGrad = Gradient::Linear(topC, botC, 180.0f);
+            effBgGrad = &derivedBgGrad;
+        }
+
+        // Subtle colored ambient glow on luminous / gradient semantic buttons
+        if (!p.disabled && (autoGradFill || (isLuminousSurface && isSemanticSolid) || hasExplicitBgGrad) &&
+            (kind == FrameKind::Button || kind == FrameKind::DropdownButton) &&
+            theme.shadowsEnabled && !p.pressed) {
+            const Color glowSeed = effBgGrad ? effBgGrad->AverageColor() : p.bg;
+            if (glowSeed.a >= 160u && EstimateColorChroma(glowSeed) >= 0.18f) {
+                const bool isDark = (theme.mode == ThemeMode::Dark);
+                const keel::f32 glowA = p.hovered ? (isDark ? 0.34f : 0.24f) : (isDark ? 0.20f : 0.14f);
+                canvas.DrawShadow(p.rect, effRadius, p.hovered ? 12.0f : 8.0f, Vec2{0.0f, 3.0f}, glowSeed.WithAlphaF(glowA), 0.0f);
+            }
+        }
+
+        if (theme.chrome.frame == FrameTreatment::Glass && (p.bg.a > 0u || effBgGrad != nullptr)) {
+            const GlassParams gp = BuildFrameGlassParams(theme, kind, p, effBgGrad);
             canvas.DrawGlassRect(p.rect, effRadius, gp);
+            return;
+        }
+
+        Gradient derivedBdrGrad{};
+        const Gradient* effBdrGrad = nullptr;
+        keel::f32 effBw = p.borderWidth;
+        Color effBdrCol = p.border;
+        if (hasExplicitBdrGrad) {
+            effBdrGrad = p.borderGradient;
+        } else if ((isLuminousSurface || autoGradFill) && !p.explicitBorder && !p.focused && !p.hasStatusAccent &&
+                   theme.chrome.frame != FrameTreatment::HardShadow) {
+            const Color bdrSeed = (p.border.a > 0u) ? p.border : (effBgGrad ? effBgGrad->stops[0].color : theme.palette.border);
+            derivedBdrGrad = BuildLuminousBorderGradient(theme, bdrSeed, p.hovered || p.active || isSemanticSolid);
+            effBdrGrad = &derivedBdrGrad;
+            if (effBw <= 0.0f) {
+                effBw = 1.0f * keel::max(theme.borderScale, 0.5f);
+            }
+            effBdrCol = bdrSeed;
+        }
+
+        if (effBgGrad != nullptr || effBdrGrad != nullptr) {
+            const Gradient fillArg = (effBgGrad != nullptr)
+                ? *effBgGrad
+                : ((p.bg.a > 0u) ? Gradient::Linear(p.bg, p.bg, 180.0f) : Gradient{});
+            canvas.DrawGradientRoundRect(p.rect, effRadius, fillArg, effBdrCol, effBw, effBdrGrad);
             return;
         }
 
@@ -1039,6 +1226,9 @@ void DefaultStylePainter::DrawSliderTrack(
             } else {
                 canvas.DrawRect(fillRect, fillColor);
             }
+        } else if (theme.fillStyle == FillStyle::Gradient) {
+            const Gradient fillGrad = theme.DeriveAccentGradient(fillColor, vertical ? 0.0f : 90.0f);
+            canvas.DrawGradientRoundRect(fillRect, trackR, fillGrad);
         } else {
             canvas.DrawRoundRect(fillRect, trackR, fillColor);
         }
@@ -1261,6 +1451,15 @@ void DefaultStylePainter::DrawProgressBar(
 
     // Modern smooth or sharp bar
     const keel::f32 r = sharp ? 0.0f : (barDim * 0.5f);
+    const bool useGradFill = (theme.fillStyle == FillStyle::Gradient) && !disabled;
+    auto drawBarFill = [&](Rect fillR) {
+        if (useGradFill) {
+            const Gradient fillGrad = theme.DeriveAccentGradient(fillColor, vertical ? 0.0f : 90.0f);
+            canvas.DrawGradientRoundRect(fillR, r, fillGrad);
+        } else {
+            canvas.DrawRoundRect(fillR, r, fillColor);
+        }
+    };
     canvas.DrawRoundRect(trackRect, r, trackBg, trackBorder, 1.0f);
     if (indeterminate) {
         const keel::f32 pingPong = 1.0f - keel::abs(keel::fmod(animPhase * 2.0f, 2.0f) - 1.0f);
@@ -1268,22 +1467,22 @@ void DefaultStylePainter::DrawProgressBar(
         if (vertical) {
             const keel::f32 shuttleH = keel::max(trackRect.w, trackRect.h * 0.32f);
             const keel::f32 shuttleY = trackRect.y + (1.0f - smoothT) * keel::max(0.0f, trackRect.h - shuttleH);
-            canvas.DrawRoundRect(Rect(trackRect.x, shuttleY, trackRect.w, shuttleH), r, fillColor);
+            drawBarFill(Rect(trackRect.x, shuttleY, trackRect.w, shuttleH));
         } else {
             const keel::f32 shuttleW = keel::max(trackRect.h, trackRect.w * 0.32f);
             const keel::f32 shuttleX = trackRect.x + smoothT * keel::max(0.0f, trackRect.w - shuttleW);
-            canvas.DrawRoundRect(Rect(shuttleX, trackRect.y, shuttleW, trackRect.h), r, fillColor);
+            drawBarFill(Rect(shuttleX, trackRect.y, shuttleW, trackRect.h));
         }
     } else if (ratio > 0.001f) {
         if (vertical) {
             const keel::f32 fillH = ratio * trackRect.h;
             if (fillH > 0.5f) {
-                canvas.DrawRoundRect(Rect(trackRect.x, trackRect.Bottom() - fillH, trackRect.w, fillH), r, fillColor);
+                drawBarFill(Rect(trackRect.x, trackRect.Bottom() - fillH, trackRect.w, fillH));
             }
         } else {
             const keel::f32 fillW = ratio * trackRect.w;
             if (fillW > 0.5f) {
-                canvas.DrawRoundRect(Rect(trackRect.x, trackRect.y, fillW, trackRect.h), r, fillColor);
+                drawBarFill(Rect(trackRect.x, trackRect.y, fillW, trackRect.h));
             }
         }
     }
@@ -1313,6 +1512,9 @@ void DefaultStylePainter::DrawSwitch(
         if (focused && !disabled) {
             canvas.DrawRoundRect(trackRect, 0.0f, Color::Transparent(), theme.palette.focusRing, 1.0f);
         }
+    } else if (checked && theme.fillStyle == FillStyle::Gradient && !disabled) {
+        const Gradient trackGrad = theme.DeriveAccentGradient(trackFill, 90.0f);
+        canvas.DrawGradientRoundRect(trackRect, sharp ? 0.0f : (trackRect.h * 0.5f), trackGrad, trackStroke, strokeWidth);
     } else {
         canvas.DrawRoundRect(trackRect, sharp ? 0.0f : (trackRect.h * 0.5f), trackFill, trackStroke, strokeWidth);
     }
@@ -1556,9 +1758,17 @@ keel::f32 DefaultStylePainter::DrawTabChrome(
         const Color focusBorder = (focused && !disabled) ? pal.focusRing : Color::Transparent();
         const keel::f32 focusBorderW = (focused && !disabled) ? 1.5f : 0.0f;
         if (active) {
+            const bool isGradPill = (theme.fillStyle == FillStyle::Gradient) && !disabled;
             if (theme.chrome.frame == FrameTreatment::Glass) {
                 GlassParams gp{};
-                gp.tint = pillActiveCol.WithAlphaF(0.76f);
+                if (isGradPill) {
+                    const Gradient g = theme.DeriveAccentGradient(pillActiveCol, 135.0f);
+                    gp.tint = g.stops[0].color.WithAlphaF(0.76f);
+                    gp.tintEnd = g.stops[1].color.WithAlphaF(0.76f);
+                    gp.tintAngleDeg = 135.0f;
+                } else {
+                    gp.tint = pillActiveCol.WithAlphaF(0.76f);
+                }
                 gp.blurRadius = 10.0f;
                 gp.frost = 0.65f;
                 gp.refraction = 0.35f;
@@ -1571,6 +1781,9 @@ keel::f32 DefaultStylePainter::DrawTabChrome(
                     : theme.bevel.highlightOuter.WithAlphaF(theme.mode == ThemeMode::Dark ? 0.35f : 0.55f);
                 gp.rimColor = theme.bevel.highlightOuter;
                 canvas.DrawGlassRect(bounds, radius, gp);
+            } else if (isGradPill) {
+                const Gradient g = theme.DeriveAccentGradient(pillActiveCol, 135.0f);
+                canvas.DrawGradientRoundRect(bounds, radius, g, focusBorder, focusBorderW);
             } else {
                 canvas.DrawRoundRect(bounds, radius, pillActiveCol, focusBorder, focusBorderW);
             }
@@ -1715,7 +1928,12 @@ void DefaultStylePainter::DrawBadge(
     } else if (theme.chrome.badgeShape == BadgeShape::Rounded) {
         r = keel::min(fallbackRadius, 4.0f);
     }
-    canvas.DrawRoundRect(rect, r, bg, border, borderWidth);
+    if (theme.fillStyle == FillStyle::Gradient && bg.a >= 180u && EstimateColorChroma(bg) >= 0.22f) {
+        const Gradient badgeGrad = theme.DeriveAccentGradient(bg, 135.0f);
+        canvas.DrawGradientRoundRect(rect, r, badgeGrad, border, borderWidth);
+    } else {
+        canvas.DrawRoundRect(rect, r, bg, border, borderWidth);
+    }
 }
 
 namespace {

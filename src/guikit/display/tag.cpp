@@ -287,6 +287,16 @@ void detail::Tag::Render(const Node* node, ICanvas& canvas, const UiTheme& theme
         ? 0.0f
         : keel::max(0.0f, opts.border.width);
 
+    keel::Optional<Gradient> bgGrad = (opts.style != TagStyle::Outline && opts.color.HasGradient())
+        ? theme.ResolveGradient(opts.color, data->hovered, data->pressed, node->disabled)
+        : keel::kNullOpt;
+    if (bgGrad.has_value() && opts.style == TagStyle::Soft) {
+        bgGrad = bgGrad->WithAlphaF(theme.mode == ThemeMode::Dark ? 0.28f : 0.20f);
+    }
+    const keel::Optional<Gradient> bdrGrad = (borderW > 0.0f)
+        ? theme.ResolveGradient(opts.border.color, data->hovered, data->pressed, node->disabled)
+        : keel::kNullOpt;
+
     theme.Painter().DrawFrame(canvas, theme, FrameKind::Badge, FramePaintParams{
         .rect = rect,
         .radius = keel::min(radius, rect.h * 0.5f),
@@ -297,7 +307,9 @@ void detail::Tag::Render(const Node* node, ICanvas& canvas, const UiTheme& theme
         .explicitBorder = opts.border.HasExplicitStroke(),
         .hovered = data->hovered,
         .pressed = data->pressed,
-        .disabled = node->disabled
+        .disabled = node->disabled,
+        .bgGradient = bgGrad.has_value() ? &(*bgGrad) : nullptr,
+        .borderGradient = bdrGrad.has_value() ? &(*bdrGrad) : nullptr
     });
 
     keel::f32 curX = rect.x + m.padX;

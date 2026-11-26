@@ -472,6 +472,15 @@ MenuBarScope detail::MenuBar::Open(
         ? opts.border.width
         : (isSurface ? 1.0f : theme.shell.panelBorderWidth);
     node->borderColor = theme.ResolveColor(opts.border.color, false, false, effDisabled, pal.border);
+    ctx.ApplySurfaceGradients(
+        node,
+        theme,
+        opts.background.IsBackgroundEnabled(true) ? opts.background : StateColor{},
+        (node->borderWidth > 0.0f) ? opts.border.color : StateColor{},
+        false,
+        false,
+        effDisabled
+    );
     node->SetSurfaceRole(isSurface ? SurfaceRole::Flat : SurfaceRole::DockEdge);
     node->SetDockSeam((isSurface || isFloatingShell) ? DockSeam::None : DockSeam::Bottom);
     node->visualHash = detail::HashArgs(

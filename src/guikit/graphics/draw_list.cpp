@@ -105,6 +105,49 @@ void DrawList::PushShadow(Rect rect, keel::f32 cornerRadius, keel::f32 blurRadiu
     m_commands.push_back(cmd);
 }
 
+void DrawList::PushGlassRect(Rect rect, keel::f32 radius, const GlassParams& params) {
+    if (rect.w <= 0.0f || rect.h <= 0.0f) return;
+    auto* payload = ActiveArena().alloc_array<GlassParams>(1u);
+    if (!payload) return;
+    *payload = params;
+    DrawCommand cmd{};
+    cmd.type = DrawCommandType::DrawGlassRect;
+    cmd.rect = rect;
+    cmd.p0 = radius;
+    cmd.payload = payload;
+    m_commands.push_back(cmd);
+}
+
+void DrawList::PushGradientRoundRect(
+    Rect rect,
+    keel::f32 radius,
+    const Gradient& fill,
+    Color stroke,
+    keel::f32 strokeWidth,
+    const Gradient* strokeGradient
+) {
+    if (rect.w <= 0.0f || rect.h <= 0.0f) return;
+    const bool hasFill = fill.HasVisibleColor();
+    const bool hasStrokeGrad = (strokeGradient != nullptr && strokeGradient->HasVisibleColor());
+    const bool hasStroke = (strokeWidth > 0.0f) && (stroke.a > 0u || hasStrokeGrad);
+    if (!hasFill && !hasStroke) return;
+    auto* payload = ActiveArena().alloc_array<DrawGradientPayload>(1u);
+    if (!payload) return;
+    payload->fill = fill;
+    payload->hasStrokeGradient = hasStrokeGrad;
+    if (hasStrokeGrad) {
+        payload->strokeGradient = *strokeGradient;
+    }
+    DrawCommand cmd{};
+    cmd.type = DrawCommandType::DrawGradientRoundRect;
+    cmd.rect = rect;
+    cmd.strokeColor = stroke;
+    cmd.p0 = radius;
+    cmd.p1 = strokeWidth;
+    cmd.payload = payload;
+    m_commands.push_back(cmd);
+}
+
 void DrawList::PushText(keel::StringRef text, Vec2 pos, keel::f32 fontSize, Color color) {
     if (text.empty() || fontSize <= 0.0f || color.a == 0u) return;
     DrawCommand cmd{};
@@ -311,6 +354,23 @@ void DrawList::Replay(ICanvas& target) const {
             case DrawCommandType::DrawShadow:
                 target.DrawShadow(cmd.rect, cmd.p0, cmd.p1, Vec2{cmd.p2, cmd.p3}, cmd.color, cmd.auxRect.x);
                 break;
+            case DrawCommandType::DrawGlassRect:
+                if (const auto* gp = static_cast<const GlassParams*>(cmd.payload)) {
+                    target.DrawGlassRect(cmd.rect, cmd.p0, *gp);
+                }
+                break;
+            case DrawCommandType::DrawGradientRoundRect:
+                if (const auto* gp = static_cast<const DrawGradientPayload*>(cmd.payload)) {
+                    target.DrawGradientRoundRect(
+                        cmd.rect,
+                        cmd.p0,
+                        gp->fill,
+                        cmd.strokeColor,
+                        cmd.p1,
+                        gp->hasStrokeGradient ? &gp->strokeGradient : nullptr
+                    );
+                }
+                break;
             case DrawCommandType::DrawText:
                 target.DrawText(cmd.text, Vec2{cmd.rect.x, cmd.rect.y}, cmd.p0, cmd.color);
                 break;
@@ -422,6 +482,23 @@ void DrawListRecorder::FlushToTarget() {
                 break;
             case DrawCommandType::DrawShadow:
                 m_target->DrawShadow(cmd.rect, cmd.p0, cmd.p1, Vec2{cmd.p2, cmd.p3}, cmd.color, cmd.auxRect.x);
+                break;
+            case DrawCommandType::DrawGlassRect:
+                if (const auto* gp = static_cast<const GlassParams*>(cmd.payload)) {
+                    m_target->DrawGlassRect(cmd.rect, cmd.p0, *gp);
+                }
+                break;
+            case DrawCommandType::DrawGradientRoundRect:
+                if (const auto* gp = static_cast<const DrawGradientPayload*>(cmd.payload)) {
+                    m_target->DrawGradientRoundRect(
+                        cmd.rect,
+                        cmd.p0,
+                        gp->fill,
+                        cmd.strokeColor,
+                        cmd.p1,
+                        gp->hasStrokeGradient ? &gp->strokeGradient : nullptr
+                    );
+                }
                 break;
             case DrawCommandType::DrawText:
                 m_target->DrawText(cmd.text, Vec2{cmd.rect.x, cmd.rect.y}, cmd.p0, cmd.color);
@@ -596,6 +673,21 @@ void DrawListRecorder::DrawRoundRect(Rect rect, keel::f32 radius, Color fill, Co
 
 void DrawListRecorder::DrawShadow(Rect rect, keel::f32 cornerRadius, keel::f32 blurRadius, Vec2 offset, Color color, keel::f32 spread) {
     m_list.PushShadow(rect, cornerRadius, blurRadius, offset, color, spread);
+}
+
+void DrawListRecorder::DrawGlassRect(Rect rect, keel::f32 radius, const GlassParams& params) {
+    m_list.PushGlassRect(rect, radius, params);
+}
+
+void DrawListRecorder::DrawGradientRoundRect(
+    Rect rect,
+    keel::f32 radius,
+    const Gradient& fill,
+    Color stroke,
+    keel::f32 strokeWidth,
+    const Gradient* strokeGradient
+) {
+    m_list.PushGradientRoundRect(rect, radius, fill, stroke, strokeWidth, strokeGradient);
 }
 
 Vec2 DrawListRecorder::MeasureText(keel::StringRef text, keel::f32 fontSize) {

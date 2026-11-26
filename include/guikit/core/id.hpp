@@ -107,6 +107,10 @@ constexpr keel::u64 HashVal(const T& val, keel::u64 hash = Fnv1aOffsetBasis) noe
             hash = HashBytes(&val.surfaceTint, sizeof(val.surfaceTint), hash);
             hash = HashBytes(&val.alphaScale, sizeof(val.alphaScale), hash);
         }
+        if constexpr (requires { val.gradientAngleDeg; val.gradientFlags; }) {
+            hash = HashBytes(&val.gradientAngleDeg, sizeof(val.gradientAngleDeg), hash);
+            hash = HashBytes(&val.gradientFlags, sizeof(val.gradientFlags), hash);
+        }
         return hash;
     } else if constexpr (requires { val.width; val.radius; val.color; }) {
         hash = HashBytes(&val.width, sizeof(val.width), hash);

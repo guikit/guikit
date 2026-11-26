@@ -2002,13 +2002,21 @@ void TestThemeSystemColorSciencePresetsSpecJsonAndLerp() {
 
     // 4c. ChromeStyle::Glass token matrix, Dark & Light builds, JSON round-trip & Lerp
     {
-        static_assert(kChromeStyleCount == 5u);
+        static_assert(kChromeStyleCount == 6u);
+        static_assert(kFillStyleCount == 4u);
         CHECK(ChromeStyleName(ChromeStyle::Glass) == "Glass");
+        CHECK(ChromeStyleName(ChromeStyle::Luminous) == "Luminous");
+        CHECK(FillStyleName(FillStyle::Gradient) == "Gradient");
         const ChromeTokens glassTok = ChromeTokens::FromStyle(ChromeStyle::Glass);
         CHECK(glassTok.frame == FrameTreatment::Glass);
         CHECK(glassTok.field == FieldTreatment::Filled);
         CHECK(glassTok.badgeShape == BadgeShape::Pill);
         CHECK(glassTok.scrollbar == ScrollbarChromeStyle::Modern);
+
+        const ChromeTokens lumTok = ChromeTokens::FromStyle(ChromeStyle::Luminous);
+        CHECK(lumTok.frame == FrameTreatment::GradientSurface);
+        CHECK(lumTok.field == FieldTreatment::Filled);
+        CHECK(lumTok.sliderThumb == SliderThumbShape::Ring);
 
         ThemeSpec glassDarkSpec{};
         glassDarkSpec.base = ThemePreset::Dark;
@@ -2036,6 +2044,62 @@ void TestThemeSystemColorSciencePresetsSpecJsonAndLerp() {
         const UiTheme lerpToGlass = UiTheme::Lerp(UiTheme::Dark(), glassLight, 0.75f);
         CHECK(lerpToGlass.chromeStyle == ChromeStyle::Glass);
         CHECK(lerpToGlass.chrome.frame == FrameTreatment::Glass);
+
+        // 4d. ChromeStyle::Luminous + FillStyle::Gradient + StateColor gradients + DrawList replay
+        ThemeSpec lumGradSpec{};
+        lumGradSpec.base = ThemePreset::Nord;
+        lumGradSpec.chrome = ChromeStyle::Luminous;
+        lumGradSpec.fillStyle = FillStyle::Gradient;
+        const UiTheme lumGrad = UiTheme::Build(lumGradSpec);
+        CHECK(lumGrad.chromeStyle == ChromeStyle::Luminous);
+        CHECK(lumGrad.chrome.frame == FrameTreatment::GradientSurface);
+        CHECK(lumGrad.fillStyle == FillStyle::Gradient);
+        const auto& primVc = lumGrad.GetVariant(UiVariant::Primary);
+        const Gradient accentG = lumGrad.DeriveAccentGradient(primVc.bg, 135.0f);
+        CHECK(accentG.IsValid());
+        CHECK(accentG.stops[0].color != accentG.stops[1].color);
+        CHECK(keel::min(
+            Color::ContrastRatio(primVc.text, accentG.stops[0].color),
+            Color::ContrastRatio(primVc.text, accentG.stops[1].color)
+        ) >= 4.5f);
+
+        const keel::String lumJson = lumGradSpec.ToJson();
+        const keel::Optional<ThemeSpec> parsedLum = ThemeSpec::FromJson(lumJson);
+        CHECK(parsedLum.has_value());
+        if (parsedLum.has_value()) {
+            CHECK(parsedLum->chrome.has_value() && *parsedLum->chrome == ChromeStyle::Luminous);
+            CHECK(parsedLum->fillStyle.has_value() && *parsedLum->fillStyle == FillStyle::Gradient);
+        }
+
+        const StateColor customGrad = StateColor::LinearGradient(Color::Hex(0x6366F1FF), Color::Hex(0x06B6D4FF), 135.0f);
+        CHECK(customGrad.HasGradient());
+        const auto resolvedCustom = lumGrad.ResolveGradient(customGrad, false, false, false);
+        CHECK(resolvedCustom.has_value() && resolvedCustom->IsValid());
+        const StateColor autoGrad = StateColor::Primary().AsGradient(90.0f);
+        CHECK(autoGrad.HasGradient() && autoGrad.IsAutoGradient());
+        CHECK(lumGrad.ResolveStateColor(autoGrad).HasGradient());
+        const auto resolvedAuto = lumGrad.ResolveGradient(autoGrad, true, false, false);
+        CHECK(resolvedAuto.has_value() && resolvedAuto->IsValid());
+
+        // DrawList lossless recording & replay for both DrawGlassRect and DrawGradientRoundRect
+        DrawList dl;
+        NullCanvas nc;
+        nc.Begin(320u, 240u, 1.0f);
+        {
+            DrawListRecorder rec(dl, &nc);
+            rec.Begin(320u, 240u, 1.0f);
+            rec.DrawGlassRect(Rect(10.0f, 10.0f, 100.0f, 50.0f), 10.0f, GlassParams{
+                .tint = Color(20, 30, 50, 140),
+                .tintEnd = Color(40, 80, 120, 140)
+            });
+            rec.DrawGradientRoundRect(Rect(20.0f, 70.0f, 120.0f, 40.0f), 8.0f, accentG, Color::Transparent(), 1.0f, &accentG);
+            rec.End();
+        }
+        nc.ResetStats();
+        dl.Replay(nc);
+        CHECK(nc.GetStats().drawGlassRectCount == 1u);
+        CHECK(nc.GetStats().drawGradientRectCount == 1u);
+        nc.End();
     }
 
     ThemeSpec lowC{};
@@ -2875,6 +2939,47 @@ void TestStylePainterChromeDispatchAndPolish() {
                 .borderWidth = 1.0f
             });
             CHECK(nc.GetStats().drawGlassRectCount == 0u);
+        }
+
+        // 3c. ChromeStyle::Luminous and FillStyle::Gradient dispatch DrawGradientRoundRect via DefaultStylePainter
+        {
+            const UiTheme lumTheme = UiTheme::Build({
+                .base = ThemePreset::Dark,
+                .chrome = ChromeStyle::Luminous,
+                .fillStyle = FillStyle::Gradient
+            });
+            nc.ResetStats();
+            lumTheme.Painter().DrawSurface(nc, lumTheme, SurfacePaintParams{
+                .rect = Rect(16.0f, 16.0f, 200.0f, 120.0f),
+                .role = SurfaceRole::Raised,
+                .bg = lumTheme.palette.surfaceElevated,
+                .border = lumTheme.palette.border,
+                .borderWidth = 1.0f,
+                .elevation = Elevation::Md
+            });
+            lumTheme.Painter().DrawFrame(nc, lumTheme, FrameKind::Button, FramePaintParams{
+                .rect = Rect(24.0f, 150.0f, 110.0f, 34.0f),
+                .radius = 8.0f,
+                .bg = lumTheme.palette.accent,
+                .border = lumTheme.palette.border,
+                .borderWidth = 1.0f
+            });
+            lumTheme.Painter().DrawProgressBar(
+                nc,
+                lumTheme,
+                Rect(24.0f, 200.0f, 160.0f, 10.0f),
+                0.65f,
+                false,
+                false,
+                0.0f,
+                lumTheme.palette.controlTrack,
+                lumTheme.palette.border,
+                lumTheme.palette.accent,
+                5.0f,
+                false
+            );
+            CHECK(nc.GetStats().drawGlassRectCount == 0u);
+            CHECK(nc.GetStats().drawGradientRectCount >= 4u);
         }
         nc.End();
     }

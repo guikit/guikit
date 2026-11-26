@@ -17,6 +17,8 @@ enum class DrawCommandType : keel::u8 {
     DrawRect,
     DrawRoundRect,
     DrawShadow,
+    DrawGlassRect,
+    DrawGradientRoundRect,
     DrawText,
     DrawTextStyled,
     DrawTextBox,
@@ -42,6 +44,13 @@ struct DrawPathPayload {
 struct DrawGpuPassPayload {
     GpuShaderPassDesc desc{};
     bool punchHole{true};
+};
+
+/// Arena-allocated payload for `DrawCommandType::DrawGradientRoundRect`.
+struct DrawGradientPayload {
+    Gradient fill{};
+    Gradient strokeGradient{};
+    bool hasStrokeGradient{false};
 };
 
 /// Compact POD command record stored in `DrawList`.
@@ -85,6 +94,15 @@ public:
     void PushRect(Rect rect, Color fill);
     void PushRoundRect(Rect rect, keel::f32 radius, Color fill, Color stroke = Color(0, 0, 0, 0), keel::f32 strokeWidth = 0.0f);
     void PushShadow(Rect rect, keel::f32 cornerRadius, keel::f32 blurRadius, Vec2 offset, Color color, keel::f32 spread);
+    void PushGlassRect(Rect rect, keel::f32 radius, const GlassParams& params);
+    void PushGradientRoundRect(
+        Rect rect,
+        keel::f32 radius,
+        const Gradient& fill,
+        Color stroke = Color(0, 0, 0, 0),
+        keel::f32 strokeWidth = 0.0f,
+        const Gradient* strokeGradient = nullptr
+    );
     void PushText(keel::StringRef text, Vec2 pos, keel::f32 fontSize, Color color);
     void PushTextStyled(keel::StringRef text, Vec2 pos, keel::f32 fontSize, Color color, FontStyle style, keel::f32 angleDeg = 0.0f);
     void PushTextBox(keel::StringRef text, Rect bounds, keel::f32 fontSize, Color color, keel::f32 alignX = 0.0f, keel::f32 alignY = 0.5f);
@@ -158,6 +176,9 @@ public:
     [[nodiscard]] bool SupportsRoundedClip() const noexcept override {
         return m_target ? m_target->SupportsRoundedClip() : true;
     }
+    [[nodiscard]] bool SupportsBackdropBlur() const noexcept override {
+        return m_target ? m_target->SupportsBackdropBlur() : false;
+    }
     void Clear(Color color, keel::Optional<Rect> rect = keel::kNullOpt) override;
     void PushClip(Rect clipRect) override;
     void PushRoundedClip(Rect clipRect, keel::f32 cornerRadius) override;
@@ -166,6 +187,15 @@ public:
     void DrawRect(Rect rect, Color fill) override;
     void DrawRoundRect(Rect rect, keel::f32 radius, Color fill, Color stroke = Color(0, 0, 0, 0), keel::f32 strokeWidth = 0.0f) override;
     void DrawShadow(Rect rect, keel::f32 cornerRadius, keel::f32 blurRadius, Vec2 offset = {0.0f, 4.0f}, Color color = Color(0, 0, 0, 96), keel::f32 spread = 0.0f) override;
+    void DrawGlassRect(Rect rect, keel::f32 radius, const GlassParams& params) override;
+    void DrawGradientRoundRect(
+        Rect rect,
+        keel::f32 radius,
+        const Gradient& fill,
+        Color stroke = Color(0, 0, 0, 0),
+        keel::f32 strokeWidth = 0.0f,
+        const Gradient* strokeGradient = nullptr
+    ) override;
 
     Vec2 MeasureText(keel::StringRef text, keel::f32 fontSize) override;
     Vec2 MeasureTextStyled(keel::StringRef text, keel::f32 fontSize, FontStyle style) override;

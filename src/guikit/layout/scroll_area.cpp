@@ -59,6 +59,15 @@ ContainerScope detail::ScrollArea::Open(
     const keel::f32 bw = (opts.border.width > 0.0f) ? opts.border.width : (opts.border.color.HasAny() ? 1.0f : 0.0f);
     node->borderWidth = bw;
     node->borderColor = (bw > 0.0f) ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, pal.border) : Color::Transparent();
+    ctx.ApplySurfaceGradients(
+        node,
+        theme,
+        opts.background.IsBackgroundEnabled(false) ? opts.background : StateColor{},
+        (bw > 0.0f) ? opts.border.color : StateColor{},
+        false,
+        false,
+        activeDisabled
+    );
     node->cornerRadius = opts.border.radius.has_value() ? *opts.border.radius : 0.0f;
     node->explicitRadius = opts.border.radius.has_value() ? 1 : 0;
     node->explicitBorder = opts.border.HasExplicitStroke() ? 1 : 0;

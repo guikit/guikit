@@ -849,6 +849,7 @@ void ApplyCuratedPresetColors(UiTheme& theme, ThemePreset p) noexcept {
         case ChromeStyle::Classic3D: return "Classic3D";
         case ChromeStyle::Brutalist: return "Brutalist";
         case ChromeStyle::Glass:     return "Glass";
+        case ChromeStyle::Luminous:  return "Luminous";
     }
     return "Modern";
 }
@@ -865,9 +866,10 @@ void ApplyCuratedPresetColors(UiTheme& theme, ThemePreset p) noexcept {
 
 [[nodiscard]] keel::StringRef FillStyleJsonKey(FillStyle s) noexcept {
     switch (s) {
-        case FillStyle::Solid:   return "Solid";
-        case FillStyle::Soft:    return "Soft";
-        case FillStyle::Outline: return "Outline";
+        case FillStyle::Solid:    return "Solid";
+        case FillStyle::Soft:     return "Soft";
+        case FillStyle::Outline:  return "Outline";
+        case FillStyle::Gradient: return "Gradient";
     }
     return "Solid";
 }
@@ -1434,6 +1436,10 @@ void UiTheme::SetChromeStyle(ChromeStyle style) noexcept {
             ResetDefaultRadii(*this);
             SetRadiusScale(1.25f);
             PopulateShadows(*this, mode, 0.90f);
+        } else if (style == ChromeStyle::Luminous) {
+            ResetDefaultRadii(*this);
+            SetRadiusScale(1.12f);
+            PopulateShadows(*this, mode, 1.05f);
         } else {
             PopulateShadows(*this, mode, 1.0f);
         }
@@ -1478,13 +1484,28 @@ void UiTheme::SetFillStyle(FillStyle style) noexcept {
         UiVariant::Info
     }};
 
-    if (style == FillStyle::Solid) {
-        const keel::f32 semBw = isBrutalist ? (1.75f * bwScale) : (isBevel ? (1.0f * bwScale) : 0.0f);
+    if (style == FillStyle::Solid || style == FillStyle::Gradient) {
+        const bool isGrad = (style == FillStyle::Gradient);
+        const keel::f32 semBw = isBrutalist ? (1.75f * bwScale) : ((isBevel || isGrad) ? (1.0f * bwScale) : 0.0f);
         for (const UiVariant v : kSemantics) {
             auto& vc = variants[keel::as<keel::usize>(v)];
             const Color seed = extractSeedColor(vc);
             vc = MakeSemanticVariant(seed, mode, semBw);
-            if (isBrutalist) {
+            if (isGrad) {
+                const Gradient g = DeriveAccentGradient(seed, 135.0f);
+                const Color darkInk = Color::Hex(0x0F172AFF);
+                const Color lightInk = Color::Hex(0xFFFFFFFF);
+                const keel::f32 minDark = keel::min(
+                    Color::ContrastRatio(darkInk, g.stops[0].color),
+                    Color::ContrastRatio(darkInk, g.stops[1].color)
+                );
+                const keel::f32 minLight = keel::min(
+                    Color::ContrastRatio(lightInk, g.stops[0].color),
+                    Color::ContrastRatio(lightInk, g.stops[1].color)
+                );
+                vc.text = (minLight >= minDark) ? lightInk : darkInk;
+                vc.border = isBrutalist ? boldInk : Color::Lerp(seed, bevel.highlightOuter, isDark ? 0.36f : 0.25f).WithAlphaF(0.65f);
+            } else if (isBrutalist) {
                 vc.border = boldInk;
             } else if (isBevel) {
                 vc.border = seed.Darken(0.28f);

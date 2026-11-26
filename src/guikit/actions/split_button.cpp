@@ -76,6 +76,12 @@ void RenderSplitButtonNode(const Node* n, ICanvas& canvas, const UiTheme& theme)
 
     const keel::f32 radius = p->btn.border.radius.value_or(m.cornerRadius);
     const FrameKind frameKind = rc.isGhost ? FrameKind::ToolbarButton : FrameKind::Button;
+    const keel::Optional<Gradient> bgGrad = p->btn.background.IsBackgroundEnabled(true)
+        ? theme.ResolveGradient(p->btn.background, anyHov, anyPress || p->btn.active, n->disabled)
+        : keel::kNullOpt;
+    const keel::Optional<Gradient> bdrGrad = (borderW > 0.0f)
+        ? theme.ResolveGradient(p->btn.border.color, anyHov, anyPress || p->btn.active || n->focused, n->disabled)
+        : keel::kNullOpt;
 
     theme.Painter().DrawFrame(canvas, theme, frameKind, FramePaintParams{
         .rect = fullRect,
@@ -90,7 +96,9 @@ void RenderSplitButtonNode(const Node* n, ICanvas& canvas, const UiTheme& theme)
         .active = p->btn.active,
         .focused = n->focused && !n->disabled,
         .disabled = n->disabled,
-        .accent = theme.palette.accent
+        .accent = theme.palette.accent,
+        .bgGradient = bgGrad.has_value() ? &(*bgGrad) : nullptr,
+        .borderGradient = bdrGrad.has_value() ? &(*bdrGrad) : nullptr
     });
 
     // Preserve outer frame border and 3D bevels when highlighting an individual half

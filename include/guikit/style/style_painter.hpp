@@ -56,6 +56,8 @@ struct SurfacePaintParams {
     bool        explicitBorder{false};
     Elevation   elevation{Elevation::None};
     keel::f32   shadowScale{1.0f};
+    const Gradient* bgGradient{nullptr};     ///< Optional explicit per-surface background gradient (arena/stack lifetime)
+    const Gradient* borderGradient{nullptr}; ///< Optional explicit per-surface border gradient (arena/stack lifetime)
 };
 
 /// Parameters describing a generic control or surface frame for `IStylePainter::DrawFrame`.
@@ -76,6 +78,8 @@ struct FramePaintParams {
     keel::f32 shadowScale{1.0f};
     Color     accent{Color::Transparent()}; ///< Optional semantic accent color (used e.g. by Fluent BottomAccent focus bar)
     bool      hasStatusAccent{false};       ///< True when field has an active semantic status (Success/Warning/Danger/Info)
+    const Gradient* bgGradient{nullptr};     ///< Optional explicit per-control background gradient
+    const Gradient* borderGradient{nullptr}; ///< Optional explicit per-control border gradient
 };
 
 /// Parameters describing a scrollbar's layout and interactive state for `IStylePainter::DrawScrollbar`.

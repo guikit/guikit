@@ -318,6 +318,26 @@ public:
 
     [[nodiscard]] keel::Arena& GetArena() noexcept { return m_arena; }
 
+    /// Optional per-node arena-backed surface gradients (zero bytes added to `sizeof(Node)`).
+    struct NodeGradients {
+        const Gradient* bg{nullptr};
+        const Gradient* border{nullptr};
+    };
+
+    /// Attaches resolved background/border gradients from `StateColor` onto a container `node` for the current frame.
+    /// Fast no-op when neither `StateColor` specifies a gradient.
+    void ApplySurfaceGradients(
+        Node* node,
+        const UiTheme& theme,
+        const StateColor& bg,
+        const StateColor& border,
+        bool hovered = false,
+        bool active = false,
+        bool disabled = false
+    );
+
+    [[nodiscard]] NodeGradients GetNodeGradients(const Node* node) const noexcept;
+
     void AdaptChildToContainer(Node* node);
     [[nodiscard]] Rect GetPrevFrameBounds(Id id) const;
     [[nodiscard]] Rect GetPrevUnclippedBounds(Id id) const;
@@ -766,6 +786,7 @@ private:
 
     keel::HashMap<const char*, keel::u64> m_fileHashCache;
     keel::HashMap<keel::u64, keel::u32> m_childIdCounts;
+    keel::HashMap<const Node*, NodeGradients> m_nodeGradients;
     keel::u64 m_frameIndex{0};
 };
 

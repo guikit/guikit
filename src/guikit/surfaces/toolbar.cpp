@@ -97,6 +97,12 @@ void RenderToolButtonNode(const Node* n, ICanvas& canvas, const UiTheme& theme) 
         : rc.borderW;
 
     const FrameKind splitKind = rc.isGhost ? FrameKind::ToolbarButton : FrameKind::Button;
+    const keel::Optional<Gradient> bgGrad = p->btn.background.IsBackgroundEnabled(true)
+        ? theme.ResolveGradient(p->btn.background, anyHov, anyPress || active, n->disabled)
+        : keel::kNullOpt;
+    const keel::Optional<Gradient> bdrGrad = (borderW > 0.0f)
+        ? theme.ResolveGradient(p->btn.border.color, anyHov, anyPress || active || n->focused, n->disabled)
+        : keel::kNullOpt;
     theme.Painter().DrawFrame(canvas, theme, splitKind, FramePaintParams{
         .rect = fullRect,
         .radius = radius,
@@ -110,7 +116,9 @@ void RenderToolButtonNode(const Node* n, ICanvas& canvas, const UiTheme& theme) 
         .active = active,
         .focused = n->focused && !n->disabled,
         .disabled = n->disabled,
-        .accent = pal.accent
+        .accent = pal.accent,
+        .bgGradient = bgGrad.has_value() ? &(*bgGrad) : nullptr,
+        .borderGradient = bdrGrad.has_value() ? &(*bdrGrad) : nullptr
     });
 
     const keel::f32 frameInset = keel::max(borderW, theme.Painter().GetChromeMetrics(theme).frameBevelInset);
@@ -468,6 +476,15 @@ ToolbarScope detail::Toolbar::Open(
 
     node->explicitRadius = (opts.border.radius.has_value() || opts.style != ToolbarStyle::Surface) ? 1 : 0;
     node->borderColor = theme.ResolveColor(opts.border.color, false, false, effectiveDisabled, pal.border);
+    ctx.ApplySurfaceGradients(
+        node,
+        theme,
+        opts.background.IsBackgroundEnabled(true) ? opts.background : StateColor{},
+        opts.border.color,
+        false,
+        false,
+        effectiveDisabled
+    );
     node->SetSurfaceRole((opts.style == ToolbarStyle::Floating) ? SurfaceRole::Raised : SurfaceRole::DockEdge);
     const bool isFloatingPanel = (opts.style == ToolbarStyle::Floating) ||
         (opts.style == ToolbarStyle::Surface && theme.shellStyle == ShellStyle::Floating);

@@ -257,7 +257,13 @@ void detail::Accordion::RenderHeader(
         );
     }
 
-    if (bgColor.a > 0 || strokeW > 0.0f) {
+    const keel::Optional<Gradient> bgGrad = opts.background.IsBackgroundEnabled(true)
+        ? theme.ResolveGradient(opts.background, hovered, pressed, disabled)
+        : keel::kNullOpt;
+    const keel::Optional<Gradient> bdrGrad = (strokeW > 0.0f)
+        ? theme.ResolveGradient(opts.border.color, hovered, pressed, disabled)
+        : keel::kNullOpt;
+    if (bgColor.a > 0 || strokeW > 0.0f || bgGrad.has_value() || bdrGrad.has_value()) {
         theme.Painter().DrawFrame(
             canvas,
             theme,
@@ -272,7 +278,9 @@ void detail::Accordion::RenderHeader(
                 .explicitBorder = opts.border.HasExplicitStroke(),
                 .hovered = hovered,
                 .pressed = pressed,
-                .disabled = disabled
+                .disabled = disabled,
+                .bgGradient = bgGrad.has_value() ? &(*bgGrad) : nullptr,
+                .borderGradient = bdrGrad.has_value() ? &(*bdrGrad) : nullptr
             }
         );
     }

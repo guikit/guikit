@@ -137,13 +137,107 @@ struct StateColor {
     StateColorToken token{StateColorToken::Custom}; ///< Optional semantic theme token resolved via UiTheme
     keel::u8 surfaceTint{255};                       ///< Surface mix weight (255 = pure color, 0 = pure theme surface)
     keel::u8 alphaScale{255};                        ///< Post-resolve alpha multiplier (255 = 100% opacity, 0 = 0% opacity)
+    keel::u16 gradientAngleDeg{135u};                ///< Clockwise CSS linear gradient angle in degrees [0..359]
+    keel::u8 gradientFlags{0u};                      ///< Bit 0: enabled, Bit 1: radial, Bit 2: semantic auto, Bit 3: explicit stops in normal/hover(end)/active(mid)
+
+    static constexpr keel::u8 kGradEnabled      = 1u << 0;
+    static constexpr keel::u8 kGradRadial       = 1u << 1;
+    static constexpr keel::u8 kGradSemanticAuto = 1u << 2;
+    static constexpr keel::u8 kGradExplicitEnd  = 1u << 3;
+    static constexpr keel::u8 kGradHasMid       = 1u << 4;
+
+    [[nodiscard]] constexpr bool HasGradient() const noexcept {
+        return (gradientFlags & kGradEnabled) != 0u;
+    }
+
+    [[nodiscard]] constexpr bool IsRadialGradient() const noexcept {
+        return (gradientFlags & kGradRadial) != 0u;
+    }
+
+    [[nodiscard]] constexpr bool IsAutoGradient() const noexcept {
+        return (gradientFlags & kGradSemanticAuto) != 0u;
+    }
+
+    [[nodiscard]] constexpr bool HasExplicitGradientStops() const noexcept {
+        return (gradientFlags & kGradExplicitEnd) != 0u && normal.has_value() && hover.has_value();
+    }
+
+    [[nodiscard]] constexpr Color GradientStartColor() const noexcept {
+        return normal.value_or(Color::Transparent());
+    }
+
+    [[nodiscard]] constexpr Color GradientEndColor() const noexcept {
+        return hover.value_or(normal.value_or(Color::Transparent()));
+    }
+
+    [[nodiscard]] constexpr keel::Optional<Color> GradientMidColor() const noexcept {
+        return ((gradientFlags & kGradHasMid) != 0u) ? active : keel::kNullOpt;
+    }
 
     [[nodiscard]] constexpr bool HasAny() const noexcept {
         return token != StateColorToken::Custom
             || normal.has_value()
             || hover.has_value()
             || active.has_value()
-            || disabled.has_value();
+            || disabled.has_value()
+            || HasGradient();
+    }
+
+    /// Converts this semantic or custom `StateColor` into a palette-harmonized hue-shifted gradient.
+    [[nodiscard]] constexpr StateColor AsGradient(keel::f32 angleDeg = 135.0f) const noexcept {
+        StateColor copy = *this;
+        keel::i32 deg = keel::round_i32(angleDeg) % 360;
+        if (deg < 0) deg += 360;
+        copy.gradientAngleDeg = keel::as<keel::u16>(deg);
+        copy.gradientFlags = keel::as<keel::u8>(kGradEnabled | kGradSemanticAuto);
+        return copy;
+    }
+
+    /// Constructs a 2-stop linear gradient `StateColor` usable on any button, toolbar, card, box, sidebar, or border.
+    [[nodiscard]] static constexpr StateColor LinearGradient(
+        Color start,
+        Color end,
+        keel::f32 angleDeg = 135.0f
+    ) noexcept {
+        keel::i32 deg = keel::round_i32(angleDeg) % 360;
+        if (deg < 0) deg += 360;
+        StateColor sc{};
+        sc.normal = start;
+        sc.hover = end;
+        sc.gradientAngleDeg = keel::as<keel::u16>(deg);
+        sc.gradientFlags = keel::as<keel::u8>(kGradEnabled | kGradExplicitEnd);
+        return sc;
+    }
+
+    /// Constructs a 3-stop linear gradient `StateColor` usable on any button, toolbar, card, box, sidebar, or border.
+    [[nodiscard]] static constexpr StateColor LinearGradient3(
+        Color start,
+        Color mid,
+        Color end,
+        keel::f32 angleDeg = 135.0f
+    ) noexcept {
+        keel::i32 deg = keel::round_i32(angleDeg) % 360;
+        if (deg < 0) deg += 360;
+        StateColor sc{};
+        sc.normal = start;
+        sc.hover = end;
+        sc.active = mid;
+        sc.gradientAngleDeg = keel::as<keel::u16>(deg);
+        sc.gradientFlags = keel::as<keel::u8>(kGradEnabled | kGradExplicitEnd | kGradHasMid);
+        return sc;
+    }
+
+    /// Constructs a 2-stop radial gradient `StateColor` centered in the widget bounds.
+    [[nodiscard]] static constexpr StateColor RadialGradient(
+        Color centerColor,
+        Color edgeColor
+    ) noexcept {
+        StateColor sc{};
+        sc.normal = centerColor;
+        sc.hover = edgeColor;
+        sc.gradientAngleDeg = 0u;
+        sc.gradientFlags = keel::as<keel::u8>(kGradEnabled | kGradRadial | kGradExplicitEnd);
+        return sc;
     }
 
     /// Mixes this semantic/custom color onto the theme's opaque `surface` palette token (`0.0f` = pure surface, `1.0f` = full accent).
@@ -217,6 +311,13 @@ struct StateColor {
         auto applyScale = [this](Color c) constexpr noexcept -> Color {
             return (alphaScale < 255 && HasAny()) ? c.ScaleAlpha(alphaScale) : c;
         };
+        if (HasExplicitGradientStops()) {
+            const Color base = GradientMidColor().value_or(Color::Lerp(GradientStartColor(), GradientEndColor(), 0.5f));
+            if (isDisabled) return applyScale(base.WithAlphaF(0.40f));
+            if (isActive)   return applyScale(DarkenColor(base));
+            if (isHovered)  return applyScale(BrightenColor(base));
+            return applyScale(base);
+        }
         if (isDisabled) {
             if (disabled.has_value()) return applyScale(*disabled);
             if (normal.has_value()) return applyScale(normal->WithAlphaF(0.40f));
@@ -1153,10 +1254,11 @@ enum class ChromeStyle : keel::u8 {
     Fluent,      ///< Directional 1px lighting, bottom-accent input fields, left-accent selection bars (Win11 style)
     Classic3D,   ///< 2px raised/sunken/etched 3D bevels, sharp corners, 1dp press shift, 3D controls (Win98 style)
     Brutalist,   ///< Bold 2px borders, hard offset shadows, sharp corners, flat controls
-    Glass        ///< Frosted & refractive translucent glass with GPU backdrop blur and specular rim lighting
+    Glass,       ///< Frosted & refractive translucent glass with GPU backdrop blur and specular rim lighting
+    Luminous     ///< Modern studio tonal gradient surfaces with luminous top-left gradient borders (single-pass, zero blur)
 };
 
-inline constexpr keel::usize kChromeStyleCount = 5u;
+inline constexpr keel::usize kChromeStyleCount = 6u;
 
 /// Human-readable display name for a `ChromeStyle`.
 [[nodiscard]] constexpr keel::StringRef ChromeStyleName(ChromeStyle style) noexcept {
@@ -1166,6 +1268,7 @@ inline constexpr keel::usize kChromeStyleCount = 5u;
         case ChromeStyle::Classic3D: return "Classic 3D";
         case ChromeStyle::Brutalist: return "Brutalist";
         case ChromeStyle::Glass:     return "Glass";
+        case ChromeStyle::Luminous:  return "Luminous";
     }
     return "Modern";
 }
@@ -1174,17 +1277,19 @@ inline constexpr keel::usize kChromeStyleCount = 5u;
 enum class FillStyle : keel::u8 {
     Solid = 0,   ///< Saturated semantic fills with high-contrast foreground text (classic default)
     Soft,        ///< Material 3 / Radix tonal tinted surfaces with matching vibrant ink and hairline borders
-    Outline      ///< Minimalist transparent fill with crisp semantic borders and tinted hover states
+    Outline,     ///< Minimalist transparent fill with crisp semantic borders and tinted hover states
+    Gradient     ///< Palette-harmonized multi-hue gradients with luminous borders and Glass gradient tinting
 };
 
-inline constexpr keel::usize kFillStyleCount = 3u;
+inline constexpr keel::usize kFillStyleCount = 4u;
 
 /// Human-readable display name for a `FillStyle`.
 [[nodiscard]] constexpr keel::StringRef FillStyleName(FillStyle style) noexcept {
     switch (style) {
-        case FillStyle::Solid:   return "Solid";
-        case FillStyle::Soft:    return "Soft (Tonal)";
-        case FillStyle::Outline: return "Outline";
+        case FillStyle::Solid:    return "Solid";
+        case FillStyle::Soft:     return "Soft (Tonal)";
+        case FillStyle::Outline:  return "Outline";
+        case FillStyle::Gradient: return "Gradient";
     }
     return "Solid";
 }
@@ -1232,7 +1337,8 @@ enum class FrameTreatment : keel::u8 {
     Directional1px, ///< Subtle 1px top-bright / bottom-dark directional lighting (Fluent / Win11)
     Bevel3D,        ///< Classic 2px raised/sunken/etched 3D bevel frames (Classic3D / Win98)
     HardShadow,     ///< High-contrast crisp 2px border + hard non-blurred offset shadow (Brutalist)
-    Glass           ///< Refractive & frosted backdrop-blur glass with specular rim lighting (Glass)
+    Glass,          ///< Refractive & frosted backdrop-blur glass with specular rim lighting (Glass)
+    GradientSurface ///< Studio tonal gradient surfaces + directional luminous gradient borders (Luminous)
 };
 
 /// Structural treatment for editable input & selection field wells (`fields/`).
@@ -1442,6 +1548,25 @@ struct ChromeTokens {
                     .divider           = DividerStyle::Hairline,
                     .checkControl      = CheckControlStyle::FilledAccent,
                     .sliderThumb       = SliderThumbShape::Circle,
+                    .sliderTrack       = SliderTrackStyle::Filled,
+                    .progressFill      = ProgressFillStyle::Smooth,
+                    .tabChrome         = TabBarChrome::Modern,
+                    .badgeShape        = BadgeShape::Pill,
+                    .disabledText      = DisabledTextStyle::Opacity,
+                    .scrollbar         = ScrollbarChromeStyle::Modern,
+                    .buttonPressOffset = 0.0f,
+                    .tabGapOverride    = -1.0f
+                };
+            case ChromeStyle::Luminous:
+                return ChromeTokens{
+                    .frame             = FrameTreatment::GradientSurface,
+                    .field             = FieldTreatment::Filled,
+                    .fieldButton       = FieldButtonStyle::Ghost,
+                    .focus             = FocusStyle::OuterRing,
+                    .selection         = SelectionHighlightStyle::Tonal,
+                    .divider           = DividerStyle::Hairline,
+                    .checkControl      = CheckControlStyle::FilledAccent,
+                    .sliderThumb       = SliderThumbShape::Ring,
                     .sliderTrack       = SliderTrackStyle::Filled,
                     .progressFill      = ProgressFillStyle::Smooth,
                     .tabChrome         = TabBarChrome::Modern,

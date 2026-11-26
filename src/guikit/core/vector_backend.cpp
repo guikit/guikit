@@ -422,15 +422,34 @@ void ICanvas::DrawGlassRect(Rect rect, keel::f32 radius, const GlassParams& para
         return;
     }
     const keel::f32 r = keel::clamp(radius, 0.0f, keel::min(rect.w, rect.h) * 0.5f);
-    Color fill = params.tint;
-    if (fill.a > 0u) {
-        // Software/vector fallback has no real backdrop blur: boost opacity slightly with frost for legibility.
-        const keel::f32 baseA = keel::as<keel::f32>(fill.a) / 255.0f;
+    auto boostFrostAlpha = [&params](Color c) noexcept -> Color {
+        if (c.a == 0u) return c;
+        const keel::f32 baseA = keel::as<keel::f32>(c.a) / 255.0f;
         const keel::f32 frostBoost = keel::clamp(params.frost, 0.0f, 1.0f) * 0.42f;
         const keel::f32 effA = keel::clamp(baseA + (1.0f - baseA) * frostBoost, 0.0f, 0.94f);
-        fill.a = keel::as<keel::u8>(keel::round_i32(effA * 255.0f));
+        c.a = keel::as<keel::u8>(keel::round_i32(effA * 255.0f));
+        return c;
+    };
+
+    const Color fillStart = boostFrostAlpha(params.tint);
+    if (params.tintEnd.a > 0u) {
+        const Color fillEnd = boostFrostAlpha(params.tintEnd);
+        const Gradient fillGrad = params.tintRadial
+            ? Gradient::Radial(fillStart, fillEnd)
+            : Gradient::Linear(fillStart, fillEnd, params.tintAngleDeg);
+        if (params.borderColorEnd.a > 0u && params.borderWidth > 0.0f) {
+            const Gradient bdrGrad = Gradient::Linear(params.borderColor, params.borderColorEnd, params.tintAngleDeg);
+            DrawGradientRoundRect(rect, r, fillGrad, params.borderColor, params.borderWidth, &bdrGrad);
+        } else {
+            DrawGradientRoundRect(rect, r, fillGrad, params.borderColor, params.borderWidth, nullptr);
+        }
+    } else if (params.borderColorEnd.a > 0u && params.borderWidth > 0.0f) {
+        const Gradient solidFill = Gradient::Linear(fillStart, fillStart, params.tintAngleDeg);
+        const Gradient bdrGrad = Gradient::Linear(params.borderColor, params.borderColorEnd, params.tintAngleDeg);
+        DrawGradientRoundRect(rect, r, solidFill, params.borderColor, params.borderWidth, &bdrGrad);
+    } else {
+        DrawRoundRect(rect, r, fillStart, params.borderColor, params.borderWidth);
     }
-    DrawRoundRect(rect, r, fill, params.borderColor, params.borderWidth);
 
     if (params.rimLight > 0.01f && rect.w > 8.0f && rect.h > 4.0f) {
         const keel::f32 inset = keel::clamp(r * 0.65f, 1.5f, rect.w * 0.25f);
@@ -441,6 +460,24 @@ void ICanvas::DrawGlassRect(Rect rect, keel::f32 radius, const GlassParams& para
             DrawLine(Vec2(x0, rect.y + 0.75f), Vec2(x1, rect.y + 0.75f), rim, 1.0f);
         }
     }
+}
+
+void ICanvas::DrawGradientRoundRect(
+    Rect rect,
+    keel::f32 radius,
+    const Gradient& fill,
+    Color stroke,
+    keel::f32 strokeWidth,
+    const Gradient* strokeGradient
+) {
+    if (rect.w <= 0.0f || rect.h <= 0.0f) {
+        return;
+    }
+    const Color avgFill = fill.IsValid() ? fill.AverageColor() : Color::Transparent();
+    const Color avgStroke = (strokeGradient && strokeGradient->IsValid())
+        ? strokeGradient->AverageColor()
+        : stroke;
+    DrawRoundRect(rect, radius, avgFill, avgStroke, strokeWidth);
 }
 
 } // namespace guikit

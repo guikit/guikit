@@ -112,6 +112,7 @@ void Context::BeginFrame(Vec2 viewportSize, keel::f32 displayScale, keel::f32 ro
 
     m_arena.reset();
     m_childIdCounts.clear();
+    m_nodeGradients.clear();
     m_containerStack.clear();
     m_zoneStack.clear();
     m_runningOverlayHitBuilder = false;
@@ -239,6 +240,48 @@ Node* Context::CreateNode(NodeType type, Id id, bool disabled) {
         m_containerStack.back()->AddChild(node);
     }
     return node;
+}
+
+void Context::ApplySurfaceGradients(
+    Node* node,
+    const UiTheme& theme,
+    const StateColor& bg,
+    const StateColor& border,
+    bool hovered,
+    bool active,
+    bool disabled
+) {
+    if (!node || (!bg.HasGradient() && !border.HasGradient())) {
+        return;
+    }
+    NodeGradients entry{};
+    if (bg.HasGradient()) {
+        if (const auto resolved = theme.ResolveGradient(bg, hovered, active, disabled)) {
+            if (auto* copy = m_arena.create<Gradient>(*resolved)) {
+                entry.bg = copy;
+            }
+        }
+    }
+    if (border.HasGradient()) {
+        if (const auto resolved = theme.ResolveGradient(border, hovered, active, disabled)) {
+            if (auto* copy = m_arena.create<Gradient>(*resolved)) {
+                entry.border = copy;
+            }
+        }
+    }
+    if (entry.bg != nullptr || entry.border != nullptr) {
+        m_nodeGradients.put(node, entry);
+    }
+}
+
+Context::NodeGradients Context::GetNodeGradients(const Node* node) const noexcept {
+    if (!node || m_nodeGradients.empty()) {
+        return {};
+    }
+    if (const NodeGradients* found = m_nodeGradients.get(node)) {
+        return *found;
+    }
+    return {};
 }
 
 Id Context::MakeChildIdForParent(Id parentId, keel::SourceLocation loc) {
@@ -1895,10 +1938,11 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
 
     // 1. Render container surface background & shadow before children via active IStylePainter
     const bool isContainerSurface = (!node->IsLeaf() && !node->IsOutOfFlow());
+    const NodeGradients nodeGrads = isContainerSurface ? GetNodeGradients(node) : NodeGradients{};
     const SurfaceRole nodeSurfRole = node->GetSurfaceRole();
     const SurfaceRole resolvedSurfaceRole = (nodeSurfRole != SurfaceRole::None)
         ? nodeSurfRole
-        : ((node->borderColor.a > 0 && node->borderWidth > 0.0f) ? SurfaceRole::Flat : SurfaceRole::None);
+        : (((node->borderColor.a > 0 || nodeGrads.border != nullptr) && node->borderWidth > 0.0f) ? SurfaceRole::Flat : SurfaceRole::None);
     const SurfacePaintParams surfParams{
         .rect = node->computedRect,
         .role = resolvedSurfaceRole,
@@ -1910,13 +1954,15 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
         .borderWidth = node->borderWidth,
         .explicitBorder = node->explicitBorder != 0,
         .elevation = (resolvedSurfaceRole == SurfaceRole::Raised) ? Elevation::Md
-                   : (resolvedSurfaceRole == SurfaceRole::Popup ? Elevation::Lg : Elevation::None)
+                   : (resolvedSurfaceRole == SurfaceRole::Popup ? Elevation::Lg : Elevation::None),
+        .bgGradient = nodeGrads.bg,
+        .borderGradient = nodeGrads.border
     };
     const bool hasContainerBorder = isContainerSurface && resolvedSurfaceRole != SurfaceRole::None &&
-        ((node->borderColor.a > 0 && node->borderWidth > 0.0f) ||
+        (((node->borderColor.a > 0 || nodeGrads.border != nullptr) && node->borderWidth > 0.0f) ||
          resolvedSurfaceRole == SurfaceRole::Sunken ||
          resolvedSurfaceRole == SurfaceRole::Raised);
-    if (isContainerSurface && node->backgroundColor.a > 0) {
+    if (isContainerSurface && (node->backgroundColor.a > 0 || nodeGrads.bg != nullptr)) {
         activeTheme.Painter().DrawSurfaceBg(canvas, activeTheme, surfParams);
     }
 

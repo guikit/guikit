@@ -37,6 +37,7 @@ ContainerScope detail::Box::Open(
         : (opts.border.color.HasAny() ? 1.0f : 0.0f);
     node->borderWidth = bw;
     node->borderColor = (bw > 0.0f) ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, defaultBorder) : Color::Transparent();
+    ctx.ApplySurfaceGradients(node, theme, opts.background, (bw > 0.0f) ? opts.border.color : StateColor{}, false, false, activeDisabled);
     node->explicitRadius = opts.border.radius.has_value() ? 1 : 0;
     node->explicitBorder = opts.border.HasExplicitStroke() ? 1 : 0;
     node->cornerRadius = opts.border.radius.has_value()

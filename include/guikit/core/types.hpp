@@ -403,6 +403,22 @@ struct Color {
         return FromHsl(h, s, keel::clamp(l + deltaL, 0.0f, 1.0f), a);
     }
 
+    /// Shifts HSL hue by `deltaDeg` degrees, with optional saturation & lightness adjustments.
+    [[nodiscard]] constexpr Color ShiftHue(
+        keel::f32 deltaDeg,
+        keel::f32 deltaS = 0.0f,
+        keel::f32 deltaL = 0.0f
+    ) const noexcept {
+        keel::f32 h = 0.0f, s = 0.0f, l = 0.0f;
+        ToHsl(h, s, l);
+        return FromHsl(
+            h + deltaDeg,
+            keel::clamp(s + deltaS, 0.0f, 1.0f),
+            keel::clamp(l + deltaL, 0.0f, 1.0f),
+            a
+        );
+    }
+
     [[nodiscard]] constexpr Color Lighten(keel::f32 amount) const noexcept {
         return ShiftLightness(keel::clamp(amount, 0.0f, 1.0f));
     }
@@ -1439,6 +1455,185 @@ constexpr MutStridedPixelRef MutPixelRef::Subrect(
     return MutStridedPixelRef(md.strided().slice_axis(0, y, h).slice_axis(1, x, w));
 }
 
+/// Gradient geometry kind for `Gradient` and `ICanvas::DrawGradientRoundRect`.
+enum class GradientKind : keel::u8 {
+    Linear = 0, ///< Directional linear gradient from normalized `start` to `end` inside the target rect
+    Radial      ///< Radial gradient centered at normalized `start` with normalized radius `end.x`
+};
+
+/// Single color stop along a normalized `[0..1]` gradient ramp.
+struct GradientStop {
+    keel::f32 offset{0.0f};
+    Color     color{0, 0, 0, 0};
+};
+
+/// Zero-heap POD gradient specification (Linear or Radial, up to 4 stops, normalized `[0..1]` rect coordinates).
+struct Gradient {
+    GradientKind kind{GradientKind::Linear};
+    Vec2 start{0.0f, 0.0f};
+    Vec2 end{1.0f, 1.0f};
+    keel::StaticArray<GradientStop, 4> stops{};
+    keel::u8 stopCount{0u};
+
+    [[nodiscard]] constexpr bool IsValid() const noexcept {
+        return stopCount >= 2u;
+    }
+
+    [[nodiscard]] constexpr bool HasVisibleColor() const noexcept {
+        if (stopCount < 2u) return false;
+        for (keel::u8 i = 0u; i < stopCount && i < 4u; ++i) {
+            if (stops[i].color.a > 0u) return true;
+        }
+        return false;
+    }
+
+    /// Computes normalized `start` and `end` endpoints for CSS-style clockwise angle in degrees
+    /// (`0` = bottom->top, `90` = left->right, `135` = top-left->bottom-right, `180` = top->bottom).
+    static inline void EndpointsFromAngle(keel::f32 angleDeg, Vec2& outStart, Vec2& outEnd) noexcept {
+        const keel::f32 rad = keel::deg_to_rad(angleDeg);
+        const keel::f32 dx = keel::sin(rad);
+        const keel::f32 dy = -keel::cos(rad);
+        const keel::f32 maxAxis = keel::max(keel::abs(dx), keel::abs(dy));
+        const keel::f32 halfSpan = (maxAxis > 1.0e-5f) ? (0.5f / maxAxis) : 0.5f;
+        outStart = Vec2{0.5f - dx * halfSpan, 0.5f - dy * halfSpan};
+        outEnd   = Vec2{0.5f + dx * halfSpan, 0.5f + dy * halfSpan};
+    }
+
+    [[nodiscard]] static constexpr Gradient LinearPoints(Color c0, Color c1, Vec2 p0, Vec2 p1) noexcept {
+        Gradient g{};
+        g.kind = GradientKind::Linear;
+        g.start = p0;
+        g.end = p1;
+        g.stops[0] = GradientStop{0.0f, c0};
+        g.stops[1] = GradientStop{1.0f, c1};
+        g.stopCount = 2u;
+        return g;
+    }
+
+    [[nodiscard]] static inline Gradient Linear(Color c0, Color c1, keel::f32 angleDeg = 135.0f) noexcept {
+        Vec2 p0{};
+        Vec2 p1{};
+        EndpointsFromAngle(angleDeg, p0, p1);
+        return LinearPoints(c0, c1, p0, p1);
+    }
+
+    [[nodiscard]] static inline Gradient Linear3(
+        Color c0,
+        Color c1,
+        Color c2,
+        keel::f32 angleDeg = 135.0f,
+        keel::f32 midOffset = 0.5f
+    ) noexcept {
+        Gradient g{};
+        g.kind = GradientKind::Linear;
+        EndpointsFromAngle(angleDeg, g.start, g.end);
+        g.stops[0] = GradientStop{0.0f, c0};
+        g.stops[1] = GradientStop{keel::clamp(midOffset, 0.05f, 0.95f), c1};
+        g.stops[2] = GradientStop{1.0f, c2};
+        g.stopCount = 3u;
+        return g;
+    }
+
+    [[nodiscard]] static constexpr Gradient Radial(
+        Color centerColor,
+        Color edgeColor,
+        Vec2 center = Vec2{0.5f, 0.5f},
+        keel::f32 radius = 1.0f
+    ) noexcept {
+        Gradient g{};
+        g.kind = GradientKind::Radial;
+        g.start = center;
+        g.end = Vec2{keel::max(0.05f, radius), 0.0f};
+        g.stops[0] = GradientStop{0.0f, centerColor};
+        g.stops[1] = GradientStop{1.0f, edgeColor};
+        g.stopCount = 2u;
+        return g;
+    }
+
+    [[nodiscard]] static constexpr Gradient Radial3(
+        Color c0,
+        Color c1,
+        Color c2,
+        Vec2 center = Vec2{0.5f, 0.5f},
+        keel::f32 radius = 1.0f,
+        keel::f32 midOffset = 0.5f
+    ) noexcept {
+        Gradient g{};
+        g.kind = GradientKind::Radial;
+        g.start = center;
+        g.end = Vec2{keel::max(0.05f, radius), 0.0f};
+        g.stops[0] = GradientStop{0.0f, c0};
+        g.stops[1] = GradientStop{keel::clamp(midOffset, 0.05f, 0.95f), c1};
+        g.stops[2] = GradientStop{1.0f, c2};
+        g.stopCount = 3u;
+        return g;
+    }
+
+    /// Evaluates the gradient at normalized position `t` in `[0..1]`.
+    [[nodiscard]] constexpr Color Sample(keel::f32 t) const noexcept {
+        if (stopCount == 0u) return Color::Transparent();
+        if (stopCount == 1u) return stops[0].color;
+        const keel::u8 n = (stopCount > 4u) ? 4u : stopCount;
+        const keel::f32 ct = keel::clamp(t, 0.0f, 1.0f);
+        if (ct <= stops[0].offset) return stops[0].color;
+        for (keel::u8 i = 1u; i < n; ++i) {
+            if (ct <= stops[i].offset) {
+                const keel::f32 span = stops[i].offset - stops[i - 1u].offset;
+                const keel::f32 localT = (span > 1.0e-5f) ? ((ct - stops[i - 1u].offset) / span) : 1.0f;
+                return Color::Lerp(stops[i - 1u].color, stops[i].color, localT);
+            }
+        }
+        return stops[n - 1u].color;
+    }
+
+    /// Representative midpoint color for solid fallback renderers and WCAG contrast estimation.
+    [[nodiscard]] constexpr Color AverageColor() const noexcept {
+        return Sample(0.5f);
+    }
+
+    [[nodiscard]] constexpr Gradient WithAlphaF(keel::f32 factor) const noexcept {
+        Gradient out = *this;
+        const keel::u8 n = (out.stopCount > 4u) ? 4u : out.stopCount;
+        for (keel::u8 i = 0u; i < n; ++i) {
+            out.stops[i].color = out.stops[i].color.WithAlphaF(factor);
+        }
+        return out;
+    }
+
+    [[nodiscard]] constexpr Gradient ScaleAlpha(keel::u8 factor) const noexcept {
+        if (factor == 255u) return *this;
+        Gradient out = *this;
+        const keel::u8 n = (out.stopCount > 4u) ? 4u : out.stopCount;
+        for (keel::u8 i = 0u; i < n; ++i) {
+            out.stops[i].color = out.stops[i].color.ScaleAlpha(factor);
+        }
+        return out;
+    }
+
+    /// Adjusts all stops for hover / active / disabled interaction states.
+    [[nodiscard]] constexpr Gradient AdjustedForState(
+        bool hovered,
+        bool active,
+        bool disabled,
+        keel::f32 disabledOpacity = 0.45f
+    ) const noexcept {
+        Gradient out = *this;
+        const keel::u8 n = (out.stopCount > 4u) ? 4u : out.stopCount;
+        for (keel::u8 i = 0u; i < n; ++i) {
+            Color c = out.stops[i].color;
+            if (disabled) {
+                c = c.WithAlphaF(disabledOpacity);
+            } else if (active) {
+                c = c.ShiftLightness(-0.07f);
+            } else if (hovered) {
+                c = c.ShiftLightness(0.06f);
+            }
+            out.stops[i].color = c;
+        }
+        return out;
+    }
+};
+
 /// Declarative backdrop-blur & refractive glass parameters for `ICanvas::DrawGlassRect`.
 /// Palette-pure: tint, borderColor, and rimColor are derived from the active `ThemePalette` / `BevelPalette`.
 struct GlassParams {
@@ -1452,6 +1647,10 @@ struct GlassParams {
     keel::f32 borderWidth{1.0f};        ///< Hairline glass outline width in logical dp
     Color borderColor{0, 0, 0, 0};      ///< Outline stroke color derived from ThemePalette
     Color rimColor{255, 255, 255, 255}; ///< Specular edge highlight color derived from BevelPalette
+    Color tintEnd{0, 0, 0, 0};          ///< Optional second tint stop (a > 0 enables directional gradient glass tint)
+    keel::f32 tintAngleDeg{135.0f};     ///< Clockwise CSS angle in degrees for linear gradient tint & border
+    Color borderColorEnd{0, 0, 0, 0};   ///< Optional second border stop (a > 0 enables luminous directional border)
+    bool tintRadial{false};             ///< True to evaluate tint->tintEnd as a centered radial glass gradient
 };
 
 } // namespace guikit

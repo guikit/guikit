@@ -48,8 +48,8 @@ ContainerScope detail::Card::Open(
     const bool isSunken = (opts.surface == SurfaceRole::Sunken);
     const Color defaultBg = isRaised ? pal.surfaceElevated : (isSunken ? pal.inputBackground : pal.surface);
     const Color defaultBorder = isSunken ? pal.inputBorder : pal.border;
-    const bool wantsBgHover = opts.background.hover.has_value();
-    const bool wantsBorderHover = opts.border.width > 0.0f && opts.border.color.hover.has_value();
+    const bool wantsBgHover = !opts.background.HasExplicitGradientStops() && opts.background.hover.has_value();
+    const bool wantsBorderHover = opts.border.width > 0.0f && !opts.border.color.HasExplicitGradientStops() && opts.border.color.hover.has_value();
     bool isHovered = false;
     if (!activeDisabled && (wantsBgHover || wantsBorderHover)) {
         const Rect prevRect = ctx.GetPrevFrameBounds(idOuter);
@@ -68,6 +68,15 @@ ContainerScope detail::Card::Open(
     outerNode->borderColor = (outerNode->borderWidth > 0.0f)
         ? theme.ResolveColor(opts.border.color, wantsBorderHover && isHovered, false, activeDisabled, defaultBorder)
         : Color::Transparent();
+    ctx.ApplySurfaceGradients(
+        outerNode,
+        theme,
+        opts.background.IsBackgroundEnabled(defaultBgOn) ? opts.background : StateColor{},
+        (outerNode->borderWidth > 0.0f) ? opts.border.color : StateColor{},
+        (wantsBgHover || wantsBorderHover) && isHovered,
+        false,
+        activeDisabled
+    );
     outerNode->visualHash = detail::HashArgs(keel::as<keel::u8>(theme.shellStyle), opts.background, opts.border, opts.surface, isHovered);
 
     ctx.FinishContainer(outerNode);

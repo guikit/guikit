@@ -350,6 +350,15 @@ BottomPanelScope detail::BottomPanel::Open(
         node->borderColor = (opts.border.width > 0.0f)
             ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, pal.border)
             : Color::Transparent();
+        ctx.ApplySurfaceGradients(
+            node,
+            theme,
+            opts.background.IsBackgroundEnabled(true) ? opts.background : StateColor{},
+            (node->borderWidth > 0.0f) ? opts.border.color : StateColor{},
+            false,
+            false,
+            activeDisabled
+        );
     }
 
     node->visualHash = detail::HashArgs(
