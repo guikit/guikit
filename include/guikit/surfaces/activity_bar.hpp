@@ -31,6 +31,7 @@ struct ActivityBarItem {
     UiText label{};                                     ///< Item name (used as fallback monogram and default tooltip)
     UiText tooltip{};                                   ///< Explicit floating tooltip override (defaults to label)
     UiText badge{};                                     ///< Optional corner badge counter/status (e.g. "3", "9+", "!")
+    keel::Optional<ButtonStyle> style{keel::kNullOpt};  ///< Optional per-item button style override (nullopt = inherit ActivityBarOptions::buttonStyle)
     StateColor color{};                                 ///< Optional per-item accent color override
     bool active{false};                                 ///< Whether this item is currently active/selected
     bool disabled{false};
@@ -40,6 +41,7 @@ struct ActivityBarItem {
 struct ActivityBarOptions {
     SidebarSide side{SidebarSide::Left};                ///< Docking edge (Left or Right)
     ActivityBarStyle style{ActivityBarStyle::Indicator}; ///< Active item indicator style
+    ButtonStyle buttonStyle{ButtonStyle::Ghost};        ///< Default button presentation style for rail items (Ghost, Default, Soft, Outline, Solid)
     StateColor color{};                                 ///< Default accent color for active items and badges (Default = theme accent)
     SidebarMode* linkedSidebarMode{nullptr};            ///< Optional companion Sidebar mode for VS Code click-to-toggle/expand behavior
     keel::Optional<bool> flushWithSidebar{keel::kNullOpt}; ///< Dock adjacent same-side Sidebar flush (nullopt = auto from theme.shellStyle)

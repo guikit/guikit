@@ -1,4 +1,5 @@
 #include "guikit/surfaces/activity_bar.hpp"
+#include "guikit/actions/button.hpp"
 #include "guikit/display/separator.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
@@ -84,6 +85,8 @@ ActivityBarScope detail::ActivityBar::Open(
         : Color::Transparent();
     node->SetSurfaceRole(SurfaceRole::DockEdge);
     node->SetDockSeam((opts.side == SidebarSide::Right) ? DockSeam::Left : DockSeam::Right);
+    node->explicitBorder = opts.border.HasExplicitStroke() ? 1 : 0;
+    node->explicitRadius = opts.border.radius.has_value() ? 1 : 0;
     node->borderWidth = (opts.border.width == 1.0f) ? theme.shell.panelBorderWidth : opts.border.width;
     node->borderColor = (opts.border.width > 0.0f)
         ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, pal.border)
@@ -97,6 +100,7 @@ ActivityBarScope detail::ActivityBar::Open(
     node->visualHash = detail::HashArgs(
         keel::as<keel::u8>(opts.side),
         keel::as<keel::u8>(opts.style),
+        keel::as<keel::u8>(opts.buttonStyle),
         opts.color,
         opts.flushWithSidebar,
         opts.background,
@@ -169,8 +173,8 @@ Response detail::ActivityBar::Item(
         }
     }
 
-    const ComponentMetrics& m = ctx.GetTheme().GetMetrics(activeSize);
     Node* node = ctx.CreateNode(NodeType::SidebarItem, id);
+    const ComponentMetrics& m = node->GetTheme(ctx.GetTheme()).GetMetrics(activeSize);
     auto* data = ctx.AllocPayload<ActivityBarItemData>();
     data->item = item;
     data->item.label = ctx.AllocText(item.label);
@@ -195,6 +199,7 @@ Response detail::ActivityBar::Item(
     node->visualHash = detail::HashArgs(
         keel::as<keel::u8>(barOpts.side),
         keel::as<keel::u8>(barOpts.style),
+        keel::as<keel::u8>(item.style.value_or(barOpts.buttonStyle)),
         item.color.HasAny() ? item.color : barOpts.color,
         item.active,
         effectiveDisabled,
@@ -249,89 +254,120 @@ void detail::ActivityBar::RenderItem(
     const auto& pal = theme.palette;
     const StateColor& effColor = item.color.HasAny() ? item.color : opts.color;
     const VariantColors& vDefault = theme.GetVariant(UiVariant::Primary);
-    VariantColors v = vDefault;
-    if (effColor.HasAny()) {
-        v.bg = effColor.Resolve(false, false, false, vDefault.bg);
-        v.bgHover = effColor.hover.has_value() ? *effColor.hover : v.bg.WithAlphaF(0.85f);
-        v.bgActive = effColor.active.has_value() ? *effColor.active : v.bg.WithAlphaF(0.75f);
-    }
-    const keel::f32 radius = m.cornerRadius;
+    const Color accentBase = effColor.HasAny()
+        ? theme.ResolveColor(effColor, false, false, false, vDefault.bg)
+        : vDefault.bg;
 
-    Color bg = Color::Transparent();
-    Color borderCol = Color::Transparent();
-    keel::f32 borderW = 0.0f;
-    Color textCol = item.label.color.HasAny()
-        ? item.label.color.Resolve(hovered, pressed || item.active, disabled, pal.textPrimary)
-        : pal.textPrimary;
+    const ButtonStyle effStyle = item.style.value_or(opts.buttonStyle);
+    const bool isPillActive = (opts.style == ActivityBarStyle::Pill) && item.active;
+    const bool isIndicatorActive = (opts.style == ActivityBarStyle::Indicator) && item.active;
+
+    ButtonOptions btnOpts{};
+    btnOpts.style = isPillActive ? ButtonStyle::Solid : effStyle;
+    btnOpts.variant = UiVariant::Default;
+    btnOpts.active = item.active;
+    btnOpts.disabled = disabled;
+    if (isPillActive) {
+        const bool isDark = (theme.mode == ThemeMode::Dark);
+        const Color pillHover = effColor.hover.has_value()
+            ? theme.ResolveColor(effColor, true, false, false, accentBase)
+            : (isDark ? accentBase.Lighten(0.08f) : accentBase.Lighten(0.07f));
+        const Color pillActive = effColor.active.has_value()
+            ? theme.ResolveColor(effColor, false, true, false, accentBase)
+            : (isDark ? accentBase.Darken(0.08f) : accentBase.Darken(0.09f));
+        btnOpts.background = StateColor{accentBase, pillHover, pillActive, accentBase};
+    }
+
+    const detail::ButtonResolvedColors rc = detail::Button::ResolveColors(
+        btnOpts, theme, hovered, pressed, disabled, focused
+    );
+
+    Color bg = rc.bg;
+    Color borderCol = rc.borderCol;
+    keel::f32 borderW = rc.borderW;
+
+    if (isIndicatorActive && effStyle == ButtonStyle::Ghost) {
+        const keel::f32 washAlpha = pressed ? 0.28f : (hovered ? 0.22f : 0.16f);
+        bg = accentBase.WithAlphaF(disabled ? washAlpha * theme.disabledOpacity : washAlpha);
+        if (!focused) {
+            borderCol = Color::Transparent();
+            borderW = 0.0f;
+        }
+    }
+
+    const Color iconSurface = (bg.a >= 160u) ? bg : pal.surface;
     Color iconCol = pal.textSecondary;
-
-    if (opts.style == ActivityBarStyle::Pill) {
-        if (item.active) {
-            bg = pressed ? v.bgActive : (hovered ? v.bgHover : v.bg);
-            textCol = item.label.color.HasAny()
-                ? item.label.color.Resolve(hovered, true, disabled, v.text)
-                : v.text;
-            iconCol = textCol;
-        } else if (pressed) {
-            bg = pal.surfaceActive;
-            iconCol = pal.textPrimary;
-        } else if (hovered) {
-            bg = pal.surfaceHover;
-            iconCol = pal.textPrimary;
-        }
-    } else { // ActivityBarStyle::Indicator
-        if (item.active) {
-            bg = pressed ? v.bg.WithAlphaF(0.28f) : (hovered ? v.bg.WithAlphaF(0.22f) : v.bg.WithAlphaF(0.16f));
-            iconCol = v.bg;
-        } else if (pressed) {
-            bg = pal.surfaceActive;
-            iconCol = pal.textPrimary;
-        } else if (hovered) {
-            bg = pal.surfaceHover;
-            iconCol = pal.textPrimary;
-        }
+    if (isPillActive) {
+        iconCol = item.label.color.HasAny()
+            ? theme.ResolveTextStateColor(item.label.color).Resolve(hovered, true, disabled, rc.textCol)
+            : rc.textCol;
+    } else if (isIndicatorActive) {
+        const Color readableAccent = theme.EnsureReadableInk(accentBase, iconSurface);
+        iconCol = item.label.color.HasAny()
+            ? theme.ResolveTextStateColor(item.label.color).Resolve(hovered, true, disabled, readableAccent)
+            : (disabled ? readableAccent.WithAlphaF(theme.disabledOpacity) : readableAccent);
+    } else {
+        const Color baseInk = (hovered || pressed) ? pal.textPrimary : pal.textSecondary;
+        iconCol = item.label.color.HasAny()
+            ? theme.ResolveTextStateColor(item.label.color).Resolve(hovered, pressed, disabled, baseInk)
+            : (disabled ? baseInk.WithAlphaF(theme.disabledOpacity) : baseInk);
     }
 
-    if (disabled) {
-        bg = bg.WithAlphaF(theme.disabledOpacity);
-        textCol = textCol.WithAlphaF(theme.disabledOpacity);
-        iconCol = iconCol.WithAlphaF(theme.disabledOpacity);
-    } else if (focused) {
-        borderCol = pal.focusRing;
-        borderW = 1.5f;
-    }
+    const FrameKind frameKind = (btnOpts.style == ButtonStyle::Ghost)
+        ? FrameKind::ToolbarButton
+        : FrameKind::Button;
 
     canvas.PushClip(bounds);
 
-    if (bg.a > 0 || borderW > 0.0f) {
-        canvas.DrawRoundRect(bounds, radius, bg, borderCol, borderW);
-    }
+    theme.Painter().DrawFrame(canvas, theme, frameKind, FramePaintParams{
+        .rect = bounds,
+        .radius = m.cornerRadius,
+        .explicitRadius = false,
+        .bg = bg,
+        .border = borderCol,
+        .borderWidth = borderW,
+        .explicitBorder = false,
+        .hovered = hovered,
+        .pressed = pressed,
+        .active = item.active,
+        .focused = focused && !disabled,
+        .disabled = disabled,
+        .accent = accentBase
+    });
 
-    // 1. Active edge indicator bar (drawn on Left edge when docked Left, Right edge when docked Right)
-    if (opts.style == ActivityBarStyle::Indicator && item.active) {
+    // 1. Active edge indicator bar (drawn on Left edge when docked Left, Right edge when docked Right,
+    //    inset cleanly inside any chrome bevel frame)
+    if (isIndicatorActive) {
+        const ChromeMetrics cm = theme.Painter().GetChromeMetrics(theme);
+        const keel::f32 bevelInset = (effStyle == ButtonStyle::Ghost)
+            ? ((cm.frameBevelInset > 0.0f) ? 1.0f : 0.0f)
+            : cm.frameBevelInset;
+        const keel::f32 edgeInset = (bevelInset > 0.0f) ? (bevelInset + 1.0f) : 1.0f;
         const keel::f32 barW = 3.0f;
-        const keel::f32 barPadY = keel::min(6.0f, bounds.h * 0.20f);
+        const keel::f32 barPadY = keel::max(edgeInset + 1.0f, keel::min(6.0f, bounds.h * 0.20f));
         const keel::f32 barX = (opts.side == SidebarSide::Right)
-            ? (bounds.Right() - barW - 1.0f)
-            : (bounds.x + 1.0f);
+            ? (bounds.Right() - barW - edgeInset)
+            : (bounds.x + edgeInset);
         const Rect barRect(barX, bounds.y + barPadY, barW, keel::max(4.0f, bounds.h - barPadY * 2.0f));
-        const Color barCol = disabled ? v.bg.WithAlphaF(theme.disabledOpacity) : v.bg;
-        canvas.DrawRoundRect(barRect, barW * 0.5f, barCol);
+        const Color barCol = disabled ? accentBase.WithAlphaF(theme.disabledOpacity) : accentBase;
+        canvas.DrawRoundRect(barRect, keel::min(barW * 0.5f, m.cornerRadius), barCol);
     }
 
     // 2. Centered Icon (or fallback monogram letter)
+    const keel::f32 pressShift = theme.Painter().GetButtonContentOffset(theme, pressed, item.active, disabled);
     const keel::f32 iconSz = keel::min(bounds.w * 0.56f, keel::round(m.iconSize * 1.12f));
     if (item.icon.IsValid()) {
         const Rect iconRect(
-            bounds.x + (bounds.w - iconSz) * 0.5f,
-            bounds.y + (bounds.h - iconSz) * 0.5f,
+            bounds.x + (bounds.w - iconSz) * 0.5f + pressShift,
+            bounds.y + (bounds.h - iconSz) * 0.5f + pressShift,
             iconSz,
             iconSz
         );
         item.icon.Draw(canvas, iconRect, iconCol);
     } else if (!item.label.empty()) {
         const keel::f32 fontSize = theme.ResolveFontSize(item.label, TextRole::LabelLarge, size);
-        canvas.DrawTextBox(item.label.text.substr(0, 1), bounds, fontSize, iconCol, 0.5f, 0.5f);
+        const Rect monoRect(bounds.x + pressShift, bounds.y + pressShift, bounds.w, bounds.h);
+        canvas.DrawTextBox(item.label.text.substr(0, 1), monoRect, fontSize, iconCol, 0.5f, 0.5f);
     }
 
     // 3. Corner Badge (compact counter pill in the bottom-right corner with surface cutout border)
@@ -346,10 +382,11 @@ void detail::ActivityBar::RenderItem(
             badgeW,
             badgeH
         );
-        const Color badgeBg = disabled ? v.bg.WithAlphaF(theme.disabledOpacity) : v.bg;
+        const Color badgeBg = disabled ? accentBase.WithAlphaF(theme.disabledOpacity) : accentBase;
+        const Color badgeDefaultFg = Color::BestTextColor(accentBase, Color::Hex(0x0F172AFF), Color::Hex(0xFFFFFFFF));
         const Color badgeTextCol = item.badge.color.HasAny()
-            ? theme.ResolveColor(item.badge.color, hovered, item.active, disabled, v.text)
-            : (disabled ? v.text.WithAlphaF(theme.disabledOpacity) : v.text);
+            ? theme.ResolveTextStateColor(item.badge.color).Resolve(hovered, item.active, disabled, badgeDefaultFg)
+            : (disabled ? badgeDefaultFg.WithAlphaF(theme.disabledOpacity) : badgeDefaultFg);
         const Color cutoutCol = (opts.background.HasAny() && !opts.background.IsSurface())
             ? theme.ResolveColor(opts.background, false, false, disabled, pal.surface)
             : pal.surface;

@@ -333,7 +333,12 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
 
     persist.prevPanels.clear();
 
-    const bool fromAnchorRect = !opts.anchorPos.has_value() && persist.anchorRect.h > 0.0f;
+    const bool hasAnchorRect = (persist.anchorRect.h > 0.0f);
+    const bool fromAnchorRect = !opts.anchorPos.has_value() && hasAnchorRect;
+    const keel::f32 anchorGap = hasAnchorRect
+        ? keel::max(2.0f, persist.rootAnchorPos.y - persist.anchorRect.Bottom())
+        : 4.0f;
+    bool rootOpenedBelowAnchor = false;
 
     for (keel::usize pIdx = 0; pIdx < sess.panels.size(); ++pIdx) {
         const RecordedMenuPanel& rec = sess.panels[pIdx];
@@ -382,8 +387,68 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
 
         const keel::f32 headerBlockH = titleH + titleSepH;
         const keel::f32 naturalH = padY * 2.0f + headerBlockH + keel::max(rowH, itemsTotalH);
-        const bool needsScroll = (naturalH > maxAllowedH + 0.5f);
-        const keel::f32 menuH = needsScroll ? keel::round(maxAllowedH) : keel::round(naturalH);
+        const keel::f32 targetH = keel::round(keel::min(naturalH, maxAllowedH));
+        keel::f32 menuH = targetH;
+        keel::f32 px = 0.0f;
+        keel::f32 py = 0.0f;
+
+        if (pIdx == 0) {
+            px = persist.rootAnchorPos.x;
+            py = persist.rootAnchorPos.y;
+            if (vp.h > 0.0f && hasAnchorRect) {
+                // Anchored dropdown (MenuBar, MenuButton, SplitButton, etc.):
+                // never overlap the anchor bar/trigger when vertical space exists above or below;
+                // clamp menu height and enable internal scrolling instead of sliding over the MenuBar.
+                const keel::f32 belowTop = persist.anchorRect.Bottom() + anchorGap;
+                const keel::f32 availBelow = keel::max(0.0f, (vp.Bottom() - 6.0f) - belowTop);
+                const keel::f32 availAbove = keel::max(0.0f, (persist.anchorRect.y - anchorGap) - (vp.y + 6.0f));
+
+                if (targetH <= availBelow + 0.5f) {
+                    py = belowTop;
+                    menuH = targetH;
+                    rootOpenedBelowAnchor = true;
+                } else if (targetH <= availAbove + 0.5f) {
+                    menuH = targetH;
+                    py = persist.anchorRect.y - anchorGap - menuH;
+                    rootOpenedBelowAnchor = false;
+                } else if (availBelow >= availAbove && availBelow >= 32.0f) {
+                    menuH = keel::floor(keel::min(targetH, availBelow));
+                    py = belowTop;
+                    rootOpenedBelowAnchor = true;
+                } else if (availAbove >= 32.0f) {
+                    menuH = keel::floor(keel::min(targetH, availAbove));
+                    py = persist.anchorRect.y - anchorGap - menuH;
+                    rootOpenedBelowAnchor = false;
+                } else if (py + menuH > vp.Bottom() - 6.0f) {
+                    py = vp.Bottom() - menuH - 6.0f;
+                }
+            } else if (vp.h > 0.0f && py + menuH > vp.Bottom() - 6.0f) {
+                py = vp.Bottom() - menuH - 6.0f;
+            }
+        } else {
+            const Rect& parentPopup = computedPanels[rec.parentPanelIdx].popupRect;
+            const Rect& parentRow = (rec.parentItemIdx < panelItemRects[rec.parentPanelIdx].size())
+                ? panelItemRects[rec.parentPanelIdx][rec.parentItemIdx]
+                : parentPopup;
+            const keel::f32 minSubY = (rootOpenedBelowAnchor && hasAnchorRect)
+                ? keel::max(vp.y + 6.0f, persist.anchorRect.Bottom() + 2.0f)
+                : (vp.y + 6.0f);
+            if (vp.h > 0.0f) {
+                const keel::f32 maxSubAvail = keel::max(32.0f, (vp.Bottom() - 6.0f) - minSubY);
+                if (menuH > maxSubAvail) {
+                    menuH = keel::floor(maxSubAvail);
+                }
+            }
+            py = parentRow.y - padY;
+            if (vp.h > 0.0f && py + menuH > vp.Bottom() - 6.0f) {
+                py = vp.Bottom() - menuH - 6.0f;
+            }
+            if (vp.h > 0.0f && py < minSubY) {
+                py = minSubY;
+            }
+        }
+
+        const bool needsScroll = (naturalH > menuH + 0.5f);
 
         keel::f32 menuW = maxContentW + padX * 2.0f + 8.0f * s + (needsScroll ? scrollbarW : 0.0f);
         if (pIdx == 0) {
@@ -398,12 +463,8 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
         }
         menuW = keel::round(menuW);
 
-        // Compute anchored position with auto-flip
-        keel::f32 px = 0.0f;
-        keel::f32 py = 0.0f;
+        // Compute horizontal position with auto-flip
         if (pIdx == 0) {
-            px = persist.rootAnchorPos.x;
-            py = persist.rootAnchorPos.y;
             if (vp.w > 0.0f && px + menuW > vp.Right() - 6.0f) {
                 if (fromAnchorRect && persist.anchorRect.w > 0.0f) {
                     px = persist.anchorRect.Right() - menuW;
@@ -411,18 +472,8 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
                     px = persist.rootAnchorPos.x - menuW;
                 }
             }
-            if (vp.h > 0.0f && py + menuH > vp.Bottom() - 6.0f) {
-                if (fromAnchorRect && persist.anchorRect.h > 0.0f && persist.anchorRect.y - menuH - 4.0f >= vp.y + 6.0f) {
-                    py = persist.anchorRect.y - menuH - 4.0f;
-                } else {
-                    py = vp.Bottom() - menuH - 6.0f;
-                }
-            }
         } else {
             const Rect& parentPopup = computedPanels[rec.parentPanelIdx].popupRect;
-            const Rect& parentRow = (rec.parentItemIdx < panelItemRects[rec.parentPanelIdx].size())
-                ? panelItemRects[rec.parentPanelIdx][rec.parentItemIdx]
-                : parentPopup;
             // Open to the right of parent menu with a clean 4dp breathing gap; flip to left if clipped
             constexpr keel::f32 kSubmenuGap = 4.0f;
             px = parentPopup.Right() + kSubmenuGap * s;
@@ -432,17 +483,16 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
                     px = flippedX;
                 }
             }
-            py = parentRow.y - padY;
-            if (vp.h > 0.0f && py + menuH > vp.Bottom() - 6.0f) {
-                py = vp.Bottom() - menuH - 6.0f;
-            }
         }
 
         if (vp.w > 0.0f) {
             px = keel::clamp(px, vp.x + 6.0f, keel::max(vp.x + 6.0f, vp.Right() - menuW - 6.0f));
         }
         if (vp.h > 0.0f) {
-            py = keel::clamp(py, vp.y + 6.0f, keel::max(vp.y + 6.0f, vp.Bottom() - menuH - 6.0f));
+            const keel::f32 minClampY = (rootOpenedBelowAnchor && hasAnchorRect)
+                ? keel::max(vp.y + 6.0f, persist.anchorRect.Bottom() + 2.0f)
+                : (vp.y + 6.0f);
+            py = keel::clamp(py, minClampY, keel::max(minClampY, vp.Bottom() - menuH - 6.0f));
         }
 
         const Rect popupRect(keel::round(px), keel::round(py), menuW, menuH);

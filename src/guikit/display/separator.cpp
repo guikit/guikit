@@ -51,7 +51,7 @@ void detail::Separator::Run(
     Node* parent = ctx.GetCurrentContainer();
     const bool drawVerticalLine = lineOrientationOverride.has_value()
         ? (*lineOrientationOverride == Orientation::Vertical)
-        : (parent != nullptr && parent->direction == FlexDirection::Row);
+        : (parent != nullptr && (parent->direction == FlexDirection::Row || parent->direction == FlexDirection::Wrap));
 
     Node* sep = ctx.CreateNode(NodeType::Separator, id);
     if (colorOverride.a > 0) {
@@ -74,7 +74,9 @@ void detail::Separator::Run(
             const keel::f32 ratio = (clampedExtent > 0.0f) ? keel::clamp(clampedExtent, minR, maxR) : 0.55f;
             const keel::f32 parentH = (parent != nullptr && parent->fixedHeight > 0.0f)
                 ? parent->fixedHeight
-                : (isStatusBar ? 26.0f : 32.0f);
+                : ((parent != nullptr && parent->minHeight > 0.0f)
+                    ? parent->minHeight
+                    : (isStatusBar ? 26.0f : 32.0f));
             sep->heightMode = SizeMode::Fixed;
             sep->fixedHeight = parentH * ratio;
         } else {

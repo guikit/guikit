@@ -2649,6 +2649,120 @@ void TestToolbarWidgetWorkflow() {
     CHECK(splitRes.selectionChanged);
     CHECK(trigMode == 2);
     CHECK(!splitRes.isOpen);
+
+    // 7. Test ToolbarOptions::buttonStyle inheritance & per-button style override
+    {
+        class ToolbarSpyCanvas : public NullCanvas {
+        public:
+            struct FillCall {
+                Rect rect{};
+                Color color{};
+            };
+            keel::Array<FillCall> fills;
+            void Clear() { fills.clear(); }
+            void DrawRect(Rect r, Color fill) override {
+                if (fill.a > 0u) fills.push_back({r, fill});
+            }
+            void DrawRoundRect(Rect r, keel::f32 /*radius*/, Color fill, Color /*stroke*/, keel::f32 /*strokeWidth*/) override {
+                if (fill.a > 0u) fills.push_back({r, fill});
+            }
+        };
+
+        Context btnUi;
+        btnUi.SetTheme(UiTheme::Windows98());
+        ToolbarSpyCanvas spy;
+        keel::i32 sel = 0;
+        Response rSel{};
+        Response rPan{};
+        Response rAct{};
+        Response rGhost{};
+
+        auto renderFramed = [&]() {
+            spy.Clear();
+            btnUi.InvalidateAll();
+            btnUi.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
+            if (auto tb = guikit::Toolbar(btnUi, {
+                .style = ToolbarStyle::Surface,
+                .buttonStyle = ButtonStyle::Default
+            })) {
+                rSel = tb.Item(sel, 0, {.text = "Select", .variant = UiVariant::Primary});
+                rPan = tb.Item(sel, 1, {.text = "Pan", .variant = UiVariant::Primary});
+                rAct = tb.ToolButton({.text = "Act"});
+                rGhost = tb.ToolButton({.text = "Flat", .style = ButtonStyle::Ghost});
+            }
+            btnUi.EndFrame(spy);
+        };
+
+        renderFramed();
+        renderFramed();
+
+        const auto insideBtn = [](const Rect& call, const Rect& btn) noexcept -> bool {
+            return call.x >= btn.x - 0.5f && call.y >= btn.y - 0.5f &&
+                   call.Right() <= btn.Right() + 0.5f && call.Bottom() <= btn.Bottom() + 0.5f;
+        };
+        const auto hasBevel = [&](const Rect& btn) -> bool {
+            for (const auto& f : spy.fills) {
+                if (insideBtn(f.rect, btn) && (f.rect.w <= 1.5f || f.rect.h <= 1.5f)) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        const auto bodyFill = [&](const Rect& btn) -> Color {
+            for (const auto& f : spy.fills) {
+                if (insideBtn(f.rect, btn) && f.rect.w >= btn.w - 6.0f && f.rect.h >= btn.h - 6.0f) {
+                    return f.color;
+                }
+            }
+            return Color::Transparent();
+        };
+
+        // Act inherits Default (framed 3D bevel); Flat overrides to Ghost (no bevel)
+        CHECK(hasBevel(rAct.rect));
+        CHECK(!hasBevel(rGhost.rect));
+        // Inactive Item ("Pan") with variant=Primary stays neutral Default like "Act", NOT Primary blue
+        CHECK(hasBevel(rPan.rect));
+        CHECK(bodyFill(rPan.rect) == bodyFill(rAct.rect));
+        // Active Item ("Select") renders with Primary fill + sunken bevel, distinct from inactive "Pan"
+        CHECK(hasBevel(rSel.rect));
+        CHECK(bodyFill(rSel.rect) != bodyFill(rPan.rect));
+    }
+
+    // 8. Test Toolbar(Wrap) separator stays vertical (|) rather than horizontal (—)
+    {
+        class SepLineSpyCanvas : public NullCanvas {
+        public:
+            keel::usize verticalSepLines{0};
+            keel::usize horizontalSepLines{0};
+            void DrawLine(Vec2 p0, Vec2 p1, Color color, keel::f32 /*thickness*/) override {
+                if (color.a == 0u) return;
+                const keel::f32 dx = keel::abs(p1.x - p0.x);
+                const keel::f32 dy = keel::abs(p1.y - p0.y);
+                if (dx < 0.5f && dy > 4.0f) {
+                    ++verticalSepLines;
+                } else if (dy < 0.5f && dx > 4.0f && p0.y < 36.0f) {
+                    ++horizontalSepLines;
+                }
+            }
+        };
+
+        Context wrapUi;
+        SepLineSpyCanvas sepSpy;
+        wrapUi.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
+        if (auto tb = guikit::Toolbar(wrapUi, {
+            .style = ToolbarStyle::Surface,
+            .orientation = Orientation::Horizontal,
+            .overflow = ToolbarOverflow::Wrap
+        })) {
+            tb.ToolButton({.text = "A"});
+            tb.Separator();
+            tb.ToolButton({.text = "B"});
+        }
+        wrapUi.EndFrame(sepSpy);
+
+        CHECK(sepSpy.verticalSepLines >= 1u);
+        CHECK(sepSpy.horizontalSepLines == 0u);
+    }
 }
 
 void TestLabelVariantsStableSizing() {
@@ -10729,6 +10843,87 @@ void TestActivityBarAndLinkedSidebarWorkflow() {
     CHECK(activeTool == 1);
     CHECK(sbMode == SidebarMode::Expanded);
 
+    // 6. Test ActivityBarOptions::buttonStyle, per-item style override, Win98 bevel inset for Indicator bar,
+    //    and semantic StateColor resolution through theme
+    {
+        class ActivitySpyCanvas : public NullCanvas {
+        public:
+            struct FillCall {
+                Rect rect{};
+                Color color{};
+            };
+            keel::Array<FillCall> fills;
+            void Clear() { fills.clear(); }
+            void DrawRect(Rect r, Color fill) override {
+                if (fill.a > 0u) fills.push_back({r, fill});
+            }
+            void DrawRoundRect(Rect r, keel::f32 /*radius*/, Color fill, Color /*stroke*/, keel::f32 /*strokeWidth*/) override {
+                if (fill.a > 0u) fills.push_back({r, fill});
+            }
+        };
+
+        const UiTheme win98 = UiTheme::Windows98();
+        const Color successBg = win98.GetVariant(UiVariant::Success).bg;
+        Context styleUi;
+        styleUi.SetTheme(win98);
+        ActivitySpyCanvas spy;
+        keel::i32 sel = 0;
+        Rect rActive{};
+        Rect rInactive{};
+        Rect rGhostOverride{};
+
+        auto renderStyled = [&]() {
+            spy.Clear();
+            styleUi.InvalidateAll();
+            styleUi.BeginFrame({400.0f, 300.0f});
+            if (auto bar = guikit::ActivityBar(styleUi, {
+                .side = SidebarSide::Left,
+                .style = ActivityBarStyle::Indicator,
+                .buttonStyle = ButtonStyle::Default,
+                .color = StateColor::Success()
+            })) {
+                rActive = bar.Item(sel, 0, {.icon = Icon::Folder(), .label = "Explorer"}).rect;
+                rInactive = bar.Item(sel, 1, {.icon = Icon::Search(), .label = "Search"}).rect;
+                rGhostOverride = bar.Action({
+                    .icon = Icon::Settings(),
+                    .label = "Flat",
+                    .style = ButtonStyle::Ghost
+                }).rect;
+            }
+            styleUi.EndFrame(spy);
+        };
+
+        renderStyled();
+        renderStyled();
+
+        const auto insideCell = [](const Rect& call, const Rect& cell) noexcept -> bool {
+            return call.x >= cell.x - 0.5f && call.y >= cell.y - 0.5f &&
+                   call.Right() <= cell.Right() + 0.5f && call.Bottom() <= cell.Bottom() + 0.5f;
+        };
+        const auto hasBevel = [&](const Rect& cell) -> bool {
+            for (const auto& f : spy.fills) {
+                if (insideCell(f.rect, cell) && (f.rect.w <= 1.5f || f.rect.h <= 1.5f)) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        bool foundInsetSuccessBar = false;
+        for (const auto& f : spy.fills) {
+            if (insideCell(f.rect, rActive) &&
+                f.color == successBg &&
+                f.rect.w >= 2.5f && f.rect.w <= 3.5f &&
+                f.rect.x >= rActive.x + 2.5f) {
+                foundInsetSuccessBar = true;
+            }
+        }
+
+        CHECK(hasBevel(rActive));
+        CHECK(hasBevel(rInactive));
+        CHECK(!hasBevel(rGhostOverride));
+        CHECK(foundInsetSuccessBar);
+    }
+
     keel::println("  [PASS] TestActivityBarAndLinkedSidebarWorkflow completed");
 }
 
@@ -17199,6 +17394,53 @@ void TestMenuBarAndCascadingMenus() {
         CHECK(res.clicked);
         CHECK(res.clickedId == 102);
         CHECK(!open);
+    }
+
+    // 3. Regression: long scrollable MenuBar dropdown in a short viewport clamps height below MenuBar (never overlaps it)
+    {
+        Context ui;
+        NullCanvas spyCanvas;
+        constexpr keel::f32 kShortW = 480.0f;
+        constexpr keel::f32 kShortH = 180.0f;
+        Rect barRect{};
+        Rect toolsPopupRect{};
+
+        auto renderShortBar = [&]() {
+            ui.BeginFrame({kShortW, kShortH});
+            if (auto col = guikit::Column(ui, {.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+                if (auto mb = guikit::MenuBar(ui)) {
+                    barRect = mb.response.rect;
+                    if (auto tools = mb.Menu("Tools", {.maxHeight = 260.0f})) {
+                        tools.Section("SCROLLABLE TOOLBOX");
+                        for (keel::i32 i = 0; i < 16; ++i) {
+                            (void)tools.Item(ui.Format("Tool Item {}", i + 1));
+                        }
+                    }
+                }
+            }
+            ui.EndFrame(spyCanvas);
+            if (ui.GetOpenPopupId().IsValid()) {
+                toolsPopupRect = ui.GetOpenPopupRect();
+            }
+        };
+
+        renderShortBar();
+        renderShortBar();
+        CHECK(barRect.h > 0.0f);
+
+        // Click "Tools" trigger near left edge of MenuBar
+        const Vec2 clickPt(barRect.x + 24.0f, barRect.y + barRect.h * 0.5f);
+        ui.OnMouseMove(clickPt);
+        ui.OnMouseDown(1);
+        renderShortBar();
+        ui.OnMouseUp(1);
+        renderShortBar();
+        renderShortBar();
+
+        CHECK(ui.GetOpenPopupId().IsValid());
+        CHECK(toolsPopupRect.h > 0.0f);
+        CHECK(toolsPopupRect.y >= barRect.Bottom());
+        CHECK(toolsPopupRect.Bottom() <= kShortH);
     }
 
     keel::println("  [PASS] TestMenuBarAndCascadingMenus completed");

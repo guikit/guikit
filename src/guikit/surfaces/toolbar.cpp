@@ -208,6 +208,9 @@ Response ToolbarScope::ToolButton(
     keel::SourceLocation loc
 ) {
     if (!m_ctx) return Response{};
+    if (!opts.style.has_value()) {
+        opts.style = m_opts.buttonStyle;
+    }
     return detail::Toolbar::ToolButton(*m_ctx, opts, loc);
 }
 
@@ -217,17 +220,7 @@ Response ToolbarScope::Toggle(
     keel::SourceLocation loc
 ) {
     if (!m_ctx) return Response{};
-    opts.active = active;
-    if (active) {
-        if (opts.style == ButtonStyle::Ghost && !opts.background.HasAny()) {
-            opts.style = ButtonStyle::Solid;
-            if (opts.variant == UiVariant::Default) {
-                opts.variant = UiVariant::Primary;
-            }
-        }
-    } else if (!opts.background.HasAny()) {
-        opts.style = ButtonStyle::Ghost;
-    }
+    ApplyToggleStyle(opts, m_opts.buttonStyle, active);
     Response res = detail::Toolbar::ToolButton(*m_ctx, opts, loc);
     if (res.clicked) {
         active = !active;
@@ -244,6 +237,9 @@ ContextMenuResponse ToolbarScope::Dropdown(
     keel::SourceLocation loc
 ) {
     if (!m_ctx) return ContextMenuResponse{};
+    if (!opts.style.has_value()) {
+        opts.style = m_opts.buttonStyle;
+    }
     const bool hasExplicitTrailing =
         opts.trailingIcon.IsValid() ||
         (opts.icon.IsValid() && opts.iconPlacement == Placement::Trailing);
@@ -280,6 +276,9 @@ SplitButtonResponse ToolbarScope::SplitButton(
     keel::SourceLocation loc
 ) {
     if (!m_ctx) return SplitButtonResponse{};
+    if (!opts.style.has_value()) {
+        opts.style = m_opts.buttonStyle;
+    }
     return detail::Toolbar::SplitButton(*m_ctx, opts, menuItems, keel::move(menuOpts), loc);
 }
 
@@ -313,17 +312,7 @@ SplitButtonResponse ToolbarScope::SplitToggle(
     keel::SourceLocation loc
 ) {
     if (!m_ctx) return SplitButtonResponse{};
-    opts.active = active;
-    if (active) {
-        if (opts.style == ButtonStyle::Ghost && !opts.background.HasAny()) {
-            opts.style = ButtonStyle::Solid;
-            if (opts.variant == UiVariant::Default) {
-                opts.variant = UiVariant::Primary;
-            }
-        }
-    } else if (!opts.background.HasAny()) {
-        opts.style = ButtonStyle::Ghost;
-    }
+    ApplyToggleStyle(opts, m_opts.buttonStyle, active);
 
     keel::SmallArray<ContextMenuItem, 16> menuItems;
     menuItems.reserve(items.size());
@@ -475,13 +464,7 @@ ToolbarScope detail::Toolbar::Open(
     node->SetDockSeam((opts.style == ToolbarStyle::Floating)
         ? DockSeam::None
         : (isVertical ? DockSeam::Right : DockSeam::Bottom));
-    if (opts.border.width > 0.0f) {
-        node->borderWidth = opts.border.width;
-    } else if (opts.border.color.HasAny() || opts.style == ToolbarStyle::Header || opts.style == ToolbarStyle::Floating) {
-        node->borderWidth = theme.shell.panelBorderWidth;
-    } else {
-        node->borderWidth = 0.0f;
-    }
+    node->borderWidth = (opts.border.width > 0.0f) ? opts.border.width : theme.shell.panelBorderWidth;
 
     if (opts.border.radius.has_value()) {
         node->cornerRadius = *opts.border.radius;
@@ -499,6 +482,7 @@ ToolbarScope detail::Toolbar::Open(
         keel::as<keel::u8>(opts.style),
         keel::as<keel::u8>(opts.orientation),
         keel::as<keel::u8>(opts.overflow),
+        keel::as<keel::u8>(opts.buttonStyle),
         node->cornerRadius,
         node->borderWidth,
         opts.background,
@@ -561,7 +545,8 @@ Response detail::Toolbar::ToolButton(
     node->text = payload->btn.text.text;
     payload->btn.icon = ctx.AllocIcon(opts.icon);
     payload->btn.trailingIcon = ctx.AllocIcon(opts.trailingIcon);
-    payload->btn.style = opts.style;
+    const ButtonStyle resolvedStyle = opts.style.value_or(ButtonStyle::Ghost);
+    payload->btn.style = resolvedStyle;
     payload->btn.variant = opts.variant;
     payload->btn.background = opts.background;
     payload->btn.border = opts.border;
@@ -578,7 +563,7 @@ Response detail::Toolbar::ToolButton(
 
     node->SetPayload(payload);
     node->visualHash = detail::HashArgs(
-        keel::as<keel::u8>(opts.style),
+        keel::as<keel::u8>(resolvedStyle),
         keel::as<keel::u8>(opts.variant),
         opts.background,
         opts.border,
@@ -692,7 +677,8 @@ SplitButtonResponse detail::Toolbar::SplitButton(
     node->text = payload->btn.text.text;
     payload->btn.icon = ctx.AllocIcon(opts.icon);
     payload->btn.trailingIcon = ctx.AllocIcon(opts.trailingIcon);
-    payload->btn.style = opts.style;
+    const ButtonStyle resolvedStyle = opts.style.value_or(ButtonStyle::Ghost);
+    payload->btn.style = resolvedStyle;
     payload->btn.variant = opts.variant;
     payload->btn.background = opts.background;
     payload->btn.border = opts.border;
@@ -746,7 +732,7 @@ SplitButtonResponse detail::Toolbar::SplitButton(
 
     node->SetPayload(payload);
     node->visualHash = detail::HashArgs(
-        keel::as<keel::u8>(opts.style),
+        keel::as<keel::u8>(resolvedStyle),
         keel::as<keel::u8>(opts.variant),
         opts.background,
         opts.border,

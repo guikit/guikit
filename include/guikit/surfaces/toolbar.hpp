@@ -40,7 +40,7 @@ struct ToolButtonOptions {
     UiText tooltip{};
     Icon icon{};
     Icon trailingIcon{};
-    ButtonStyle style{ButtonStyle::Ghost};
+    keel::Optional<ButtonStyle> style{keel::kNullOpt}; ///< Optional per-button style override (nullopt = inherit ToolbarOptions::buttonStyle)
     UiVariant variant{UiVariant::Default};
     StateColor background{};
     Border border{};
@@ -61,6 +61,7 @@ struct ToolbarOptions {
     ToolbarStyle style{ToolbarStyle::Surface};              ///< Surface (default), Header (flush), or Floating (compact island)
     Orientation orientation{Orientation::Horizontal};       ///< Horizontal bar or Vertical tool palette
     ToolbarOverflow overflow{ToolbarOverflow::AutoCompact}; ///< Overflow behavior when tools exceed horizontal space
+    ButtonStyle buttonStyle{ButtonStyle::Ghost};            ///< Default button presentation style inherited by toolbar items (Ghost, Default, Soft, Outline, Solid)
     keel::Optional<keel::f32> gap{keel::kNullOpt};                 ///< Gap between toolbar items (nullopt = inherit size)
     keel::Optional<Padding> padding{keel::kNullOpt};       ///< Internal toolbar padding token or explicit insets
     StateColor background{};
@@ -117,17 +118,7 @@ public:
         keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
         const bool isSelected = (selectedValue == itemValue);
-        opts.active = isSelected;
-        if (isSelected) {
-            if (opts.style == ButtonStyle::Ghost && !opts.background.HasAny()) {
-                opts.style = ButtonStyle::Solid;
-                if (opts.variant == UiVariant::Default) {
-                    opts.variant = UiVariant::Primary;
-                }
-            }
-        } else if (!opts.background.HasAny()) {
-            opts.style = ButtonStyle::Ghost;
-        }
+        ApplyToggleStyle(opts, m_opts.buttonStyle, isSelected);
         Response res = ToolButton(keel::move(opts), loc);
         if (res.clicked && !isSelected) {
             selectedValue = itemValue;
@@ -214,6 +205,26 @@ public:
     [[nodiscard]] const Response* operator->() const noexcept { return &response; }
 
 private:
+    static void ApplyToggleStyle(ToolButtonOptions& opts, ButtonStyle defaultStyle, bool isActive) noexcept {
+        const ButtonStyle effStyle = opts.style.value_or(defaultStyle);
+        opts.active = isActive;
+        if (isActive) {
+            if (effStyle == ButtonStyle::Ghost && !opts.background.HasAny()) {
+                opts.style = ButtonStyle::Solid;
+                if (opts.variant == UiVariant::Default) {
+                    opts.variant = UiVariant::Primary;
+                }
+            } else {
+                opts.style = effStyle;
+            }
+        } else {
+            opts.style = effStyle;
+            if (!opts.background.HasAny()) {
+                opts.variant = UiVariant::Default;
+            }
+        }
+    }
+
     void InvalidateContext() noexcept;
     ToolbarOptions m_opts{};
 };
