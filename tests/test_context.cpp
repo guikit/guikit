@@ -18053,6 +18053,114 @@ void TestMenuBarAndCascadingMenus() {
         CHECK(toolsPopupRect.Bottom() <= kShortH);
     }
 
+    // 9. ShellStyle::Docked vs ShellStyle::Floating adaptation for MenuBar inside a shell container
+    {
+        auto runShellCase = [&](ShellStyle shellStyle, Rect& outBarRect, Rect& outBodyRect,
+                                keel::f32& outRadius, keel::f32& outBorderW,
+                                DockSeam& outSeam, SurfaceRole& outRole) {
+            Context ui;
+            NullCanvas spyCanvas;
+            UiTheme t = UiTheme::Dark();
+            t.SetShellStyle(shellStyle);
+            ui.SetTheme(t);
+            const Node* mbNode = nullptr;
+            const Node* bodyNode = nullptr;
+
+            auto renderShell = [&]() {
+                ui.BeginFrame({640.0f, 360.0f});
+                if (auto root = guikit::Column(ui, {
+                    .width = SizeMode::Stretch,
+                    .height = SizeMode::Stretch,
+                    .shell = true
+                })) {
+                    if (auto mb = guikit::MenuBar(ui)) {
+                        mbNode = mb.GetNode();
+                        if (auto f = mb.Menu("File")) {
+                            (void)f.Item("Open");
+                        }
+                    }
+                    if (auto body = guikit::Card(ui, {
+                        .width = SizeMode::Stretch,
+                        .height = SizeMode::Stretch
+                    })) {
+                        bodyNode = body.GetNode();
+                    }
+                }
+                ui.EndFrame(spyCanvas);
+            };
+
+            renderShell();
+            CHECK(mbNode != nullptr);
+            CHECK(bodyNode != nullptr);
+            outBarRect = mbNode->computedRect;
+            outBodyRect = bodyNode->computedRect;
+            outRadius = mbNode->cornerRadius;
+            outBorderW = mbNode->borderWidth;
+            outSeam = mbNode->GetDockSeam();
+            outRole = mbNode->GetSurfaceRole();
+        };
+
+        Rect dockedBar{}, dockedBody{};
+        keel::f32 dockedRadius = -1.0f, dockedBorderW = -1.0f;
+        DockSeam dockedSeam = DockSeam::None;
+        SurfaceRole dockedRole = SurfaceRole::None;
+        runShellCase(ShellStyle::Docked, dockedBar, dockedBody, dockedRadius, dockedBorderW, dockedSeam, dockedRole);
+
+        CHECK_NEAR(dockedRadius, 0.0f, 0.01f);
+        CHECK(dockedSeam == DockSeam::Bottom);
+        CHECK(dockedRole == SurfaceRole::DockEdge);
+        CHECK_NEAR(dockedBar.x, 0.0f, 0.5f);
+        CHECK_NEAR(dockedBar.y, 0.0f, 0.5f);
+        CHECK_NEAR(dockedBar.w, 640.0f, 0.5f);
+        CHECK_NEAR(dockedBody.y - dockedBar.Bottom(), 0.0f, 0.5f);
+
+        Rect floatBar{}, floatBody{};
+        keel::f32 floatRadius = -1.0f, floatBorderW = -1.0f;
+        DockSeam floatSeam = DockSeam::Bottom;
+        SurfaceRole floatRole = SurfaceRole::None;
+        runShellCase(ShellStyle::Floating, floatBar, floatBody, floatRadius, floatBorderW, floatSeam, floatRole);
+
+        UiTheme floatTheme = UiTheme::Dark();
+        floatTheme.SetShellStyle(ShellStyle::Floating);
+        CHECK_NEAR(floatRadius, floatTheme.shell.panelRadius, 0.01f);
+        CHECK(floatRadius > 0.0f);
+        CHECK(floatBorderW >= floatTheme.shell.panelBorderWidth);
+        CHECK(floatSeam == DockSeam::None);
+        CHECK(floatRole == SurfaceRole::DockEdge);
+        CHECK(floatBar.x > 0.0f);
+        CHECK(floatBar.y > 0.0f);
+        CHECK(floatBar.w < 640.0f);
+        CHECK(floatBody.y - floatBar.Bottom() > 0.0f);
+
+        // Embedded MenuBarStyle::Surface inside a Docked shell must keep its own rounded radius & Flat role
+        {
+            Context ui;
+            NullCanvas spyCanvas;
+            UiTheme t = UiTheme::Dark();
+            t.SetShellStyle(ShellStyle::Docked);
+            ui.SetTheme(t);
+            const Node* surfaceMb = nullptr;
+            ui.BeginFrame({640.0f, 360.0f});
+            if (auto root = guikit::Column(ui, {
+                .width = SizeMode::Stretch,
+                .height = SizeMode::Stretch,
+                .shell = true
+            })) {
+                if (auto mb = guikit::MenuBar(ui, {.style = MenuBarStyle::Surface})) {
+                    surfaceMb = mb.GetNode();
+                    if (auto f = mb.Menu("File")) {
+                        (void)f.Item("Open");
+                    }
+                }
+            }
+            ui.EndFrame(spyCanvas);
+            CHECK(surfaceMb != nullptr);
+            CHECK(surfaceMb->cornerRadius > 0.0f);
+            CHECK(surfaceMb->GetSurfaceRole() == SurfaceRole::Flat);
+            CHECK(surfaceMb->GetDockSeam() == DockSeam::None);
+        }
+    }
+
     keel::println("  [PASS] TestMenuBarAndCascadingMenus completed");
 }
 

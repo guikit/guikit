@@ -120,7 +120,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         }
         if (HasDirectShellPanel(node->parent)) {
             for (const Node* c = node->firstChild; c != nullptr; c = c->nextSibling) {
-                if (c->type == NodeType::Toolbar) {
+                if (c->type == NodeType::Toolbar || c->type == NodeType::MenuBar) {
                     return true;
                 }
             }
@@ -145,7 +145,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 node->padding = activeTheme.shell.windowPadding.ScaledBy(d);
             }
             for (Node* c = node->firstChild; c != nullptr; c = c->nextSibling) {
-                if (c->type == NodeType::Toolbar && !c->explicitRadius &&
+                if ((c->type == NodeType::Toolbar || c->type == NodeType::MenuBar) && !c->explicitRadius &&
                     (c->widthMode == SizeMode::Stretch || c->heightMode == SizeMode::Stretch)) {
                     c->cornerRadius = activeTheme.shell.panelRadius;
                     if (c->borderWidth <= 0.0f) {

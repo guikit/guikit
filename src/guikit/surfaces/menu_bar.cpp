@@ -462,16 +462,26 @@ MenuBarScope detail::MenuBar::Open(
     node->backgroundColor = opts.background.IsBackgroundEnabled(true)
         ? theme.ResolveColor(opts.background, false, false, effDisabled, defaultBg)
         : Color::Transparent();
+    const bool isFloatingShell = (theme.shellStyle == ShellStyle::Floating);
     node->cornerRadius = opts.border.radius.has_value()
         ? *opts.border.radius
-        : (isSurface ? theme.ResolveRadius(keel::kNullOpt, opts.size) : 0.0f);
-    node->explicitRadius = opts.border.radius.has_value() ? 1 : 0;
+        : (isSurface ? theme.ResolveRadius(keel::kNullOpt, opts.size) : theme.shell.panelRadius);
+    node->explicitRadius = (opts.border.radius.has_value() || isSurface) ? 1 : 0;
     node->explicitBorder = opts.border.HasExplicitStroke() ? 1 : 0;
-    node->borderWidth = (opts.border.width > 0.0f) ? opts.border.width : 1.0f;
+    node->borderWidth = (opts.border.width > 0.0f)
+        ? opts.border.width
+        : (isSurface ? 1.0f : theme.shell.panelBorderWidth);
     node->borderColor = theme.ResolveColor(opts.border.color, false, false, effDisabled, pal.border);
     node->SetSurfaceRole(isSurface ? SurfaceRole::Flat : SurfaceRole::DockEdge);
-    node->SetDockSeam(isSurface ? DockSeam::None : DockSeam::Bottom);
-    node->visualHash = detail::HashArgs(opts.style, opts.size, opts.background, opts.border, effDisabled);
+    node->SetDockSeam((isSurface || isFloatingShell) ? DockSeam::None : DockSeam::Bottom);
+    node->visualHash = detail::HashArgs(
+        keel::as<keel::u8>(theme.shellStyle),
+        opts.style,
+        opts.size,
+        opts.background,
+        opts.border,
+        effDisabled
+    );
 
     ctx.FinishContainer(node);
 
