@@ -2,8 +2,8 @@
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
-#include "guikit/graphics/icon.hpp"
 #include "guikit/layout/scroll_area.hpp"
+#include "guikit/style/style_painter.hpp"
 #include "keel/math.h"
 
 namespace guikit {
@@ -387,6 +387,8 @@ SidebarScope detail::Sidebar::Open(
     node->heightMode = SizeMode::Stretch;
     node->SetSurfaceRole(SurfaceRole::DockEdge);
     node->SetDockSeam((opts.side == SidebarSide::Right) ? DockSeam::Left : DockSeam::Right);
+    node->explicitBorder = opts.border.HasExplicitStroke() ? 1 : 0;
+    node->explicitRadius = opts.border.radius.has_value() ? 1 : 0;
     node->cornerRadius = opts.border.radius.has_value()
         ? *opts.border.radius
         : (hasFlushSibling ? 0.0f : theme.shell.panelRadius);
@@ -507,6 +509,7 @@ SidebarScope detail::Sidebar::Open(
             const keel::f32 curEdgeX = (side == SidebarSide::Left) ? r.Right() : r.x;
 
             // 1. Draw interactive splitter (sash) highlight when hovered or actively dragged
+            const keel::f32 maxChromeRadius = themeSnap.GetRadius(UiSize::Sm);
             if (sashHov || sashDrag) {
                 const keel::f32 cornerInset = keel::max(2.0f * activeScale, node->cornerRadius);
                 const keel::f32 glowW = 6.0f * activeScale;
@@ -515,45 +518,33 @@ SidebarScope detail::Sidebar::Open(
                 const Rect glowRect(curEdgeX - glowW * 0.5f, r.y + cornerInset, glowW, spanH);
                 const Rect lineRect(curEdgeX - lineW * 0.5f, r.y + cornerInset, lineW, spanH);
                 canvas.DrawRect(glowRect, p.accent.WithAlphaF(sashDrag ? 0.25f : 0.14f));
-                canvas.DrawRoundRect(lineRect, lineW * 0.5f, sashDrag ? p.accent : p.accent.WithAlphaF(0.85f));
+                canvas.DrawRoundRect(lineRect, keel::min(lineW * 0.5f, maxChromeRadius), sashDrag ? p.accent : p.accent.WithAlphaF(0.85f));
 
                 if (!drawToggle) {
                     const keel::f32 gripW = 4.0f * activeScale;
                     const keel::f32 gripH = 24.0f * activeScale;
                     const Rect gripRect(curEdgeX - gripW * 0.5f, r.Center().y - gripH * 0.5f, gripW, gripH);
-                    canvas.DrawRoundRect(gripRect, gripW * 0.5f, p.accent);
+                    canvas.DrawRoundRect(gripRect, keel::min(gripW * 0.5f, maxChromeRadius), p.accent);
                 }
             }
 
-            // 2. Draw edge mode-toggle pill button
+            // 2. Draw edge mode-toggle button via active IStylePainter
             if (drawToggle) {
                 const Rect btnRect = ComputeToggleRect(r, side, curMode, sameSideIndex, activeScale);
                 const bool highlighted = togHov || togPress || sashHov || sashDrag || (curMode == SidebarMode::Collapsed);
-                const keel::f32 alphaMul = highlighted ? 1.0f : 0.80f;
-
-                Color bg = togPress ? p.surfaceActive : (togHov ? p.surfaceHover : p.surfaceElevated);
-                Color border = (togHov || togPress || sashDrag) ? p.accent : p.border;
-                bg = bg.WithAlphaF(alphaMul);
-                border = border.WithAlphaF(alphaMul);
-
-                canvas.DrawRoundRect(btnRect, 5.0f * activeScale, bg, border, 1.0f * activeScale);
-
                 const SidebarMode nextM = NextSidebarMode(curMode, allowComp, allowColl);
                 const bool shrinksTowardWall = (nextM == SidebarMode::Compact || nextM == SidebarMode::Collapsed) &&
                     (curMode != SidebarMode::Collapsed);
                 const bool pointLeft = (side == SidebarSide::Left) ? shrinksTowardWall : !shrinksTowardWall;
-                const Icon chevron = pointLeft ? Icon::ChevronLeft() : Icon::ChevronRight();
 
-                const keel::f32 iconSz = 10.0f * activeScale;
-                const Rect iconRect(
-                    btnRect.Center().x - iconSz * 0.5f,
-                    btnRect.Center().y - iconSz * 0.5f,
-                    iconSz,
-                    iconSz
-                );
-                Color iconCol = (togHov || togPress) ? p.accent : p.textSecondary;
-                iconCol = iconCol.WithAlphaF(alphaMul);
-                chevron.Draw(canvas, iconRect, iconCol);
+                themeSnap.Painter().DrawPanelToggle(canvas, themeSnap, PanelTogglePaintParams{
+                    .rect = btnRect,
+                    .direction = pointLeft ? PanelToggleDirection::Left : PanelToggleDirection::Right,
+                    .hovered = togHov,
+                    .pressed = togPress,
+                    .highlighted = highlighted,
+                    .scale = activeScale
+                });
             }
         }, OverlayLayer::Panel);
     }

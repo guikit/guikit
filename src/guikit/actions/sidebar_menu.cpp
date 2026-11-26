@@ -357,7 +357,7 @@ void detail::SidebarMenu::RenderItem(
         if (item.active) {
             bg = pressed ? v.bgActive : (hovered ? v.bgHover : v.bg);
             textCol = item.text.color.HasAny()
-                ? item.text.color.Resolve(hovered, true, disabled, v.text)
+                ? theme.ResolveTextStateColor(item.text.color).Resolve(hovered, true, disabled, v.text)
                 : v.text;
             iconCol = textCol;
         } else if (pressed) {
@@ -404,7 +404,7 @@ void detail::SidebarMenu::RenderItem(
         if (item.active) {
             bg = pressed ? v.bg.WithAlphaF(0.28f) : (hovered ? v.bg.WithAlphaF(0.22f) : v.bg.WithAlphaF(0.16f));
             textCol = item.text.color.HasAny()
-                ? item.text.color.Resolve(hovered, true, disabled, pal.textPrimary)
+                ? theme.ResolveTextStateColor(item.text.color).Resolve(hovered, true, disabled, pal.textPrimary)
                 : pal.textPrimary;
             iconCol = v.bg;
         } else if (pressed) {
@@ -437,7 +437,7 @@ void detail::SidebarMenu::RenderItem(
             const keel::f32 barPadY = keel::min(6.0f, bounds.h * 0.22f);
             const Rect barRect(bounds.x + 2.0f, bounds.y + barPadY, barW, keel::max(4.0f, bounds.h - barPadY * 2.0f));
             Color barCol = disabled ? v.bg.WithAlphaF(theme.disabledOpacity) : v.bg;
-            canvas.DrawRoundRect(barRect, barW * 0.5f, barCol);
+            canvas.DrawRoundRect(barRect, keel::min(barW * 0.5f, m.cornerRadius), barCol);
         }
     }
 

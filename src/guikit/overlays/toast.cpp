@@ -399,7 +399,7 @@ void detail::Toast::RunHost(
             const Rect badgeRect(r.x + padX, r.y + padY, iconBoxSz, iconBoxSz);
             c.DrawRoundRect(
                 badgeRect,
-                7.0f * s,
+                keel::min(7.0f * s, theme.GetRadius(UiSize::Md)),
                 accentCol.WithAlphaF(theme.SoftTintAlpha()),
                 accentCol.WithAlphaF(0.32f),
                 1.0f
@@ -450,7 +450,13 @@ void detail::Toast::RunHost(
             // Close button [X]
             if (e.closable) {
                 if (e.closeHovered) {
-                    c.DrawRoundRect(dt.closeRect, 5.0f * s, pal.surfaceHover, Color::Transparent(), 0.0f);
+                    theme.Painter().DrawFrame(c, theme, FrameKind::ToolbarButton, FramePaintParams{
+                        .rect = dt.closeRect,
+                        .radius = keel::min(5.0f * s, theme.GetRadius(UiSize::Sm)),
+                        .bg = pal.surfaceHover,
+                        .hovered = true,
+                        .accent = accentCol
+                    });
                 }
                 const keel::f32 xSz = 11.0f * s;
                 Icon::Close().Draw(

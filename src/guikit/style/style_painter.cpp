@@ -1861,6 +1861,53 @@ void DefaultStylePainter::DrawSplitSash(
     }
 }
 
+void DefaultStylePainter::DrawPanelToggle(
+    ICanvas& canvas,
+    const UiTheme& theme,
+    const PanelTogglePaintParams& p
+) const {
+    if (p.rect.w <= 0.0f || p.rect.h <= 0.0f) return;
+
+    const auto& pal = theme.palette;
+    const bool isBevel = (theme.chrome.frame == FrameTreatment::Bevel3D);
+    const bool isBrutal = (theme.chrome.frame == FrameTreatment::HardShadow);
+    const keel::f32 s = keel::max(0.5f, p.scale);
+    const keel::f32 alphaMul = (isBevel || isBrutal || p.highlighted) ? 1.0f : 0.80f;
+
+    const Color baseBg = isBevel
+        ? (p.pressed ? pal.surfaceActive : (p.hovered ? pal.surfaceHover : pal.surface))
+        : (p.pressed ? pal.surfaceActive : (p.hovered ? pal.surfaceHover : pal.surfaceElevated));
+    const Color bg = baseBg.WithAlphaF(alphaMul);
+    const Color border = ((p.hovered || p.pressed) ? pal.accent : pal.border).WithAlphaF(alphaMul);
+    const keel::f32 radius = (isBevel || isBrutal)
+        ? 0.0f
+        : keel::min(5.0f * s, theme.GetRadius(UiSize::Sm));
+
+    DrawFrame(canvas, theme, FrameKind::Button, FramePaintParams{
+        .rect = p.rect,
+        .radius = radius,
+        .explicitRadius = false,
+        .bg = bg,
+        .border = border,
+        .borderWidth = 1.0f * s,
+        .hovered = p.hovered,
+        .pressed = p.pressed,
+        .accent = pal.accent
+    });
+
+    const bool horizontal = (p.direction == PanelToggleDirection::Left || p.direction == PanelToggleDirection::Right);
+    const bool isStart = (p.direction == PanelToggleDirection::Up || p.direction == PanelToggleDirection::Left);
+    const ScrollbarArrowStyle arrowStyle = (isBevel || theme.scrollbarStyle.arrowStyle == ScrollbarArrowStyle::Triangle)
+        ? ScrollbarArrowStyle::Triangle
+        : ScrollbarArrowStyle::Chevron;
+    const Color arrowCol = isBevel
+        ? pal.textPrimary
+        : ((p.hovered || p.pressed) ? pal.accent : pal.textSecondary).WithAlphaF(alphaMul);
+    const keel::f32 shift = GetButtonContentOffset(theme, p.pressed, false, false);
+    const Rect glyphRect = isBevel ? SnapBevelRect(p.rect) : p.rect;
+    DrawScrollbarArrowGlyph(canvas, glyphRect, horizontal, isStart, arrowStyle, arrowCol, shift);
+}
+
 void DefaultStylePainter::DrawTableHeaderCell(
     ICanvas& canvas,
     const UiTheme& theme,

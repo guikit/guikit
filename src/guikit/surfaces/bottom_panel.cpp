@@ -2,8 +2,8 @@
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
-#include "guikit/graphics/icon.hpp"
 #include "guikit/layout/scroll_area.hpp"
+#include "guikit/style/style_painter.hpp"
 #include "keel/math.h"
 
 namespace guikit {
@@ -302,6 +302,8 @@ BottomPanelScope detail::BottomPanel::Open(
     node->widthMode = SizeMode::Stretch;
     node->SetSurfaceRole(SurfaceRole::DockEdge);
     node->SetDockSeam(DockSeam::Top);
+    node->explicitBorder = opts.border.HasExplicitStroke() ? 1 : 0;
+    node->explicitRadius = opts.border.radius.has_value() ? 1 : 0;
     node->cornerRadius = opts.border.radius.has_value()
         ? *opts.border.radius
         : theme.shell.panelRadius;
@@ -405,6 +407,7 @@ BottomPanelScope detail::BottomPanel::Open(
             const keel::f32 curEdgeY = r.y;
 
             // 1. Draw interactive top splitter (sash) highlight when hovered or actively dragged
+            const keel::f32 maxChromeRadius = themeSnap.GetRadius(UiSize::Sm);
             if (sashHov || sashDrag) {
                 const keel::f32 cornerInset = keel::max(2.0f * activeScale, node->cornerRadius);
                 const keel::f32 glowH = 6.0f * activeScale;
@@ -413,48 +416,35 @@ BottomPanelScope detail::BottomPanel::Open(
                 const Rect glowRect(r.x + cornerInset, curEdgeY - glowH * 0.5f, spanW, glowH);
                 const Rect lineRect(r.x + cornerInset, curEdgeY - lineH * 0.5f, spanW, lineH);
                 canvas.DrawRect(glowRect, p.accent.WithAlphaF(sashDrag ? 0.25f : 0.14f));
-                canvas.DrawRoundRect(lineRect, lineH * 0.5f, sashDrag ? p.accent : p.accent.WithAlphaF(0.85f));
+                canvas.DrawRoundRect(lineRect, keel::min(lineH * 0.5f, maxChromeRadius), sashDrag ? p.accent : p.accent.WithAlphaF(0.85f));
 
                 if (!drawToggle) {
                     const keel::f32 gripW = 24.0f * activeScale;
                     const keel::f32 gripH = 4.0f * activeScale;
                     const Rect gripRect(r.Center().x - gripW * 0.5f, curEdgeY - gripH * 0.5f, gripW, gripH);
-                    canvas.DrawRoundRect(gripRect, gripH * 0.5f, p.accent);
+                    canvas.DrawRoundRect(gripRect, keel::min(gripH * 0.5f, maxChromeRadius), p.accent);
                 }
             } else if (curMode == BottomPanelMode::Collapsed && !drawToggle) {
                 const keel::f32 gripW = 28.0f * activeScale;
                 const keel::f32 gripH = 3.0f * activeScale;
                 const Rect gripRect(r.Center().x - gripW * 0.5f, curEdgeY - gripH, gripW, gripH);
-                canvas.DrawRoundRect(gripRect, gripH * 0.5f, p.border.WithAlphaF(0.85f));
+                canvas.DrawRoundRect(gripRect, keel::min(gripH * 0.5f, maxChromeRadius), p.border.WithAlphaF(0.85f));
             }
 
-            // 2. Draw top edge mode-toggle pill button
+            // 2. Draw top edge mode-toggle button via active IStylePainter
             if (drawToggle) {
                 const Rect btnRect = ComputeTopToggleRect(r, activeScale);
                 const bool highlighted = togHov || togPress || sashHov || sashDrag || (curMode == BottomPanelMode::Collapsed);
-                const keel::f32 alphaMul = highlighted ? 1.0f : 0.80f;
-
-                Color bg = togPress ? p.surfaceActive : (togHov ? p.surfaceHover : p.surfaceElevated);
-                Color border = (togHov || togPress || sashDrag) ? p.accent : p.border;
-                bg = bg.WithAlphaF(alphaMul);
-                border = border.WithAlphaF(alphaMul);
-
-                canvas.DrawRoundRect(btnRect, 5.0f * activeScale, bg, border, 1.0f * activeScale);
-
-                const Icon chevron = (curMode == BottomPanelMode::Collapsed)
-                    ? Icon::ChevronUp()
-                    : Icon::ChevronDown();
-
-                const keel::f32 iconSz = 10.0f * activeScale;
-                const Rect iconRect(
-                    btnRect.Center().x - iconSz * 0.5f,
-                    btnRect.Center().y - iconSz * 0.5f,
-                    iconSz,
-                    iconSz
-                );
-                Color iconCol = (togHov || togPress) ? p.accent : p.textSecondary;
-                iconCol = iconCol.WithAlphaF(alphaMul);
-                chevron.Draw(canvas, iconRect, iconCol);
+                themeSnap.Painter().DrawPanelToggle(canvas, themeSnap, PanelTogglePaintParams{
+                    .rect = btnRect,
+                    .direction = (curMode == BottomPanelMode::Collapsed)
+                        ? PanelToggleDirection::Up
+                        : PanelToggleDirection::Down,
+                    .hovered = togHov,
+                    .pressed = togPress,
+                    .highlighted = highlighted,
+                    .scale = activeScale
+                });
             }
         }, OverlayLayer::Panel);
     }

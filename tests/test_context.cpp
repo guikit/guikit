@@ -11075,6 +11075,81 @@ void TestBottomPanelAndStatusBarWorkflow() {
     renderWorkbench();
     CHECK(keel::abs(panelRect.h - 150.0f) < 1.5f);
 
+    // 4b. Verify BottomPanel & Sidebar collapse toggles route through IStylePainter::DrawPanelToggle
+    //     and render Win98 3D bevel + filled triangle (zero rounded pills)
+    {
+        class TogglePainterSpy : public DefaultStylePainter {
+        public:
+            mutable keel::usize toggleCalls{0};
+            mutable PanelToggleDirection lastDir{PanelToggleDirection::Down};
+            void DrawPanelToggle(ICanvas& c, const UiTheme& t, const PanelTogglePaintParams& p) const override {
+                ++toggleCalls;
+                lastDir = p.direction;
+                DefaultStylePainter::DrawPanelToggle(c, t, p);
+            }
+        };
+        class ToggleCanvasSpy : public NullCanvas {
+        public:
+            keel::usize roundedRects{0};
+            keel::usize bevelEdges{0};
+            keel::usize filledPaths{0};
+            void Reset() { roundedRects = 0; bevelEdges = 0; filledPaths = 0; }
+            void DrawRect(Rect r, Color fill) override {
+                if (fill.a > 0u && (r.w <= 1.5f || r.h <= 1.5f)) {
+                    ++bevelEdges;
+                }
+            }
+            void DrawRoundRect(Rect /*r*/, keel::f32 radius, Color /*fill*/, Color /*stroke*/, keel::f32 /*strokeWidth*/) override {
+                if (radius > 0.5f) {
+                    ++roundedRects;
+                }
+            }
+            void DrawPath(const VectorPath& /*path*/, const PathPaint& paint) override {
+                if (paint.renderFill && paint.fillColor.a > 0u) {
+                    ++filledPaths;
+                }
+            }
+        };
+
+        TogglePainterSpy painterSpy;
+        ToggleCanvasSpy toggleCanvas;
+        UiTheme win98 = UiTheme::Windows98();
+        win98.SetStylePainter(&painterSpy);
+        Context togUi;
+        togUi.SetTheme(win98);
+        bool bpOpen = true;
+        bool sbOpen = true;
+
+        auto renderToggleFrame = [&]() {
+            toggleCanvas.Reset();
+            painterSpy.toggleCalls = 0;
+            togUi.InvalidateAll();
+            togUi.BeginFrame({600.0f, 400.0f});
+            if (auto root = guikit::Column(togUi, {.gap = 0.0f, .width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+                if (auto mid = guikit::Row(togUi, {.gap = 0.0f, .width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+                    if (auto sb = guikit::Sidebar(togUi, sbOpen, {.side = SidebarSide::Left, .width = 160.0f, .allowCollapse = true, .showToggleButton = true})) {
+                        guikit::Text(togUi, "Side");
+                    }
+                    if (auto body = guikit::Box(togUi, {.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+                        guikit::Text(togUi, "Body");
+                    }
+                }
+                if (auto bp = guikit::BottomPanel(togUi, bpOpen, {.height = 120.0f, .allowCollapse = true, .showToggleButton = true})) {
+                    guikit::Text(togUi, "Bottom");
+                }
+            }
+            togUi.EndFrame(toggleCanvas);
+        };
+
+        renderToggleFrame();
+        renderToggleFrame();
+
+        CHECK(painterSpy.toggleCalls == 2u);
+        CHECK(toggleCanvas.roundedRects == 0u);
+        CHECK(toggleCanvas.bevelEdges >= 8u);
+        CHECK(toggleCanvas.filledPaths >= 2u);
+    }
+
     // 5. Right-edge LeftClick ContextMenu stability when hovering inside popup (no X-position oscillation)
     Rect btnRect{};
     bool menuOpen = false;

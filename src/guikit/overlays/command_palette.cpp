@@ -644,7 +644,13 @@ CommandPaletteResponse detail::CommandPalette::Run(
         // Clear 'x' button when query is non-empty
         if (!queryCopy.empty()) {
             if (clearBtnHovered) {
-                c.DrawRoundRect(clearRect, 5.0f * s, pal.surfaceHover, Color::Transparent(), 0.0f);
+                theme.Painter().DrawFrame(c, theme, FrameKind::ToolbarButton, FramePaintParams{
+                    .rect = clearRect,
+                    .radius = keel::min(5.0f * s, theme.GetRadius(UiSize::Sm)),
+                    .bg = pal.surfaceHover,
+                    .hovered = true,
+                    .accent = primaryCol
+                });
             }
             const keel::f32 xSz = keel::round(icSz * 0.75f);
             const Rect xBox(
@@ -658,7 +664,7 @@ CommandPaletteResponse detail::CommandPalette::Run(
 
         // [ESC] keycap pill on the right of search bar
         const Color keycapBg = escPillHovered ? pal.surfaceActive : pal.surfaceHover;
-        c.DrawRoundRect(escRect, 4.0f * s, keycapBg, pal.borderSubtle, 1.0f);
+        theme.Painter().DrawBadge(c, theme, escRect, keycapBg, pal.borderSubtle, 1.0f, 4.0f * s);
         c.DrawTextBox("ESC", escRect, badgeFont, pal.textMuted, 0.5f, 0.5f);
 
         // Divider line below search bar
@@ -708,12 +714,12 @@ CommandPaletteResponse detail::CommandPalette::Run(
                         pillW,
                         keyPillH
                     );
-                    c.DrawRoundRect(
-                        pillRect,
-                        4.0f * s,
+                    theme.Painter().DrawBadge(
+                        c, theme, pillRect,
                         row.highlighted ? pal.surfaceActive.WithAlphaF(0.85f) : pal.surfaceHover.WithAlphaF(0.75f),
                         pal.borderSubtle,
-                        1.0f
+                        1.0f,
+                        4.0f * s
                     );
                     c.DrawTextBox(row.shortcut, pillRect, badgeFont, mutedFg, 0.5f, 0.5f);
                     rightEdge = pillRect.x - 10.0f * s;
@@ -743,12 +749,12 @@ CommandPaletteResponse detail::CommandPalette::Run(
                             catColW,
                             catPillH
                         );
-                        c.DrawRoundRect(
-                            catRect,
-                            4.0f * s,
+                        theme.Painter().DrawBadge(
+                            c, theme, catRect,
                             primaryCol.WithAlphaF(row.highlighted ? 0.22f : 0.12f),
                             Color::Transparent(),
-                            0.0f
+                            0.0f,
+                            4.0f * s
                         );
                         const auto truncCat = TextUtil::TruncateWithEllipsis(
                             row.category,
@@ -870,7 +876,7 @@ CommandPaletteResponse detail::CommandPalette::Run(
                     break;
                 }
                 const Rect kcapRect(hintX, kcapY, kcapW, kcapH);
-                c.DrawRoundRect(kcapRect, 3.5f * s, pal.surfaceHover, pal.borderSubtle, 1.0f);
+                theme.Painter().DrawBadge(c, theme, kcapRect, pal.surfaceHover, pal.borderSubtle, 1.0f, 3.5f * s);
                 c.DrawTextBox(h.key, kcapRect, badgeFont, pal.textSecondary, 0.5f, 0.5f);
 
                 const Rect actRect(hintX + kcapW + 5.0f * s, footerRect.y, aw + 4.0f * s, footerRect.h);

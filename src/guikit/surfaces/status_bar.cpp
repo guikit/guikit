@@ -44,10 +44,10 @@ Color ResolveSegmentTextColor(
         ? p.accentText
         : (hovered ? p.textPrimary : p.textSecondary);
     if (opts.color.HasAny()) {
-        return opts.color.Resolve(hovered, opts.active, opts.disabled, fallback);
+        return theme.ResolveColor(opts.color, hovered, opts.active, opts.disabled, fallback);
     }
     if (opts.text.color.HasAny()) {
-        return opts.text.color.Resolve(hovered, opts.active, opts.disabled, fallback);
+        return theme.ResolveTextStateColor(opts.text.color).Resolve(hovered, opts.active, opts.disabled, fallback);
     }
     return fallback;
 }
@@ -114,7 +114,7 @@ void RenderStatusSegment(
     const auto& p = theme.palette;
     const keel::f32 alphaMul = node->disabled ? 0.45f : 1.0f;
 
-    // 1. Interactive hover / active background pill
+    // 1. Interactive hover / active background frame via active IStylePainter
     if (payload->interactive || o.active) {
         Color bg = Color::Transparent();
         if (payload->barStyle == StatusBarStyle::Accent) {
@@ -132,16 +132,28 @@ void RenderStatusSegment(
                 bg = p.surfaceHover.WithAlphaF(alphaMul);
             }
         }
-        if (bg.a > 0) {
-            canvas.DrawRoundRect(r, 4.0f * scale, bg);
+        if (bg.a > 0 || (!node->disabled && (node->hovered || node->pressed || o.active))) {
+            theme.Painter().DrawFrame(canvas, theme, FrameKind::ToolbarButton, FramePaintParams{
+                .rect = r,
+                .radius = keel::min(4.0f * scale, theme.GetRadius(UiSize::Sm)),
+                .bg = bg,
+                .hovered = node->hovered,
+                .pressed = node->pressed,
+                .active = o.active,
+                .disabled = node->disabled,
+                .accent = p.accent
+            });
         }
     }
 
+    const keel::f32 pressShift = payload->interactive
+        ? theme.Painter().GetButtonContentOffset(theme, node->pressed, o.active, node->disabled)
+        : 0.0f;
     const keel::f32 fontSize = theme.ResolveFontSize(o.text, TextRole::LabelSmall, node->uiSize);
     const keel::f32 padX = (payload->interactive ? 6.0f : 4.0f) * scale;
     const keel::f32 itemGap = 5.0f * scale;
-    keel::f32 curX = r.x + padX;
-    const keel::f32 centerY = r.Center().y;
+    keel::f32 curX = r.x + padX + pressShift;
+    const keel::f32 centerY = r.Center().y + pressShift;
 
     Color fg = ResolveSegmentTextColor(o, payload->barStyle, theme, node->hovered || o.active);
     if (o.active && payload->barStyle != StatusBarStyle::Accent && !o.color.HasAny() && !o.text.color.HasAny()) {
@@ -292,6 +304,7 @@ StatusBarScope detail::StatusBar::Open(
         ? 0.0f
         : ((opts.border.width == 1.0f) ? theme.shell.panelBorderWidth : opts.border.width);
     node->explicitBorder = opts.border.HasExplicitStroke() ? 1 : 0;
+    node->explicitRadius = opts.border.radius.has_value() ? 1 : 0;
     node->cornerRadius = opts.border.radius.has_value()
         ? *opts.border.radius
         : theme.shell.panelRadius;

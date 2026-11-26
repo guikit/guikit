@@ -109,6 +109,24 @@ struct SliderThumbPaintParams {
     keel::f32 cornerRadius{0.0f};
 };
 
+/// Direction of a dockable panel collapse/expand edge toggle arrow (`BottomPanel` / `Sidebar`).
+enum class PanelToggleDirection : keel::u8 {
+    Up = 0,
+    Down,
+    Left,
+    Right
+};
+
+/// Parameters describing an edge collapse/expand toggle button for `IStylePainter::DrawPanelToggle`.
+struct PanelTogglePaintParams {
+    Rect                 rect{};
+    PanelToggleDirection direction{PanelToggleDirection::Down};
+    bool                 hovered{false};
+    bool                 pressed{false};
+    bool                 highlighted{false};
+    keel::f32            scale{1.0f};
+};
+
 /// Parameters describing a single Table column header cell for `IStylePainter::DrawTableHeaderCell`.
 struct TableHeaderCellPaintParams {
     Rect rect{};
@@ -461,6 +479,13 @@ public:
         bool disabled
     ) const = 0;
 
+    /// Draws a dockable panel collapse/expand edge toggle button (`BottomPanel` / `Sidebar`) according to active chrome.
+    virtual void DrawPanelToggle(
+        ICanvas& canvas,
+        const UiTheme& theme,
+        const PanelTogglePaintParams& p
+    ) const = 0;
+
     /// Draws a single Table column header cell (background, 3D bevel or flat divider) according to active chrome.
     virtual void DrawTableHeaderCell(
         ICanvas& canvas,
@@ -499,6 +524,7 @@ public:
     void DrawScrollbar(ICanvas& canvas, const UiTheme& theme, const ScrollbarPaintParams& p) const override;
     void DrawScrollbarCorner(ICanvas& canvas, const UiTheme& theme, Rect cornerRect) const override;
     void DrawSplitSash(ICanvas& canvas, const UiTheme& theme, Rect sashRect, bool verticalBar, bool showGrip, bool hovered, bool dragging, bool disabled) const override;
+    void DrawPanelToggle(ICanvas& canvas, const UiTheme& theme, const PanelTogglePaintParams& p) const override;
     void DrawTableHeaderCell(ICanvas& canvas, const UiTheme& theme, const TableHeaderCellPaintParams& p) const override;
 
     // Reusable low-level 3D bevel helpers exposed to subclasses

@@ -1581,9 +1581,9 @@ void detail::TreeView::RenderRow(
 
     const TreeSelectionStyle selStyle = p->tree ? p->tree->opts.selectionStyle : TreeSelectionStyle::Indicator;
     const Color accentCol = p->opts.color.HasAny()
-        ? p->opts.color.Resolve(hovered, selected, disabled, pal.accent)
+        ? theme.ResolveColor(p->opts.color, hovered, selected, disabled, pal.accent)
         : ((p->tree && p->tree->opts.color.HasAny())
-            ? p->tree->opts.color.Resolve(hovered, selected, disabled, pal.accent)
+            ? theme.ResolveColor(p->tree->opts.color, hovered, selected, disabled, pal.accent)
             : pal.accent);
     const bool hasGridLines = (p->tree != nullptr && p->tree->opts.gridLines);
     const keel::f32 radius = p->opts.border.radius.has_value()
@@ -1596,7 +1596,8 @@ void detail::TreeView::RenderRow(
         rowBg = pal.surfaceHover.WithAlphaF(0.22f);
     }
     if (p->opts.background.HasAny()) {
-        rowBg = p->opts.background.Resolve(
+        rowBg = theme.ResolveColor(
+            p->opts.background,
             hovered,
             pressed || selected,
             disabled,
@@ -1970,9 +1971,9 @@ void detail::TreeView::RenderBranchGuides(
 
     const auto& pal = theme.palette;
     const Color accentCol = p->opts.color.HasAny()
-        ? p->opts.color.Resolve(false, p->selected, parentRow->disabled, pal.accent)
+        ? theme.ResolveColor(p->opts.color, false, p->selected, parentRow->disabled, pal.accent)
         : ((p->tree && p->tree->opts.color.HasAny())
-            ? p->tree->opts.color.Resolve(false, p->selected, parentRow->disabled, pal.accent)
+            ? theme.ResolveColor(p->tree->opts.color, false, p->selected, parentRow->disabled, pal.accent)
             : pal.accent);
     const Color guideCol = p->selected
         ? accentCol.WithAlphaF(0.55f)
