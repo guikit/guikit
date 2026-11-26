@@ -38,8 +38,8 @@ public:
         const Icon& icon = Icon::Settings()
     );
 
-    /// Renders the UI scale selector (`75%..200%`), theme preset selector, and `Dock/Float` shell switch.
-    void RenderThemeControls(MainWindow& win, ToolbarScope& tb);
+    /// Renders the UI scale selector (`75%..200%`), theme preset selector, and optional `Docked/Floating` shell selector.
+    void RenderThemeControls(MainWindow& win, ToolbarScope& tb, bool showShellStyle = true);
 
     /// Renders the `Bounds` (`Ctrl+B`) and `Inspect` (`Ctrl+I`) debug overlay toggles.
     void RenderDebugControls(MainWindow& win, ToolbarScope& tb);

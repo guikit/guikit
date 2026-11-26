@@ -137,6 +137,9 @@ public:
     [[nodiscard]] bool IsGpuShadersAvailable() const noexcept;
     void SetGpuShadersEnabled(bool enabled) noexcept;
 
+    /// Returns true when the active canvas owns a persistent CPU framebuffer safe for partial dirty-rect redraws.
+    [[nodiscard]] bool IsDirtyRectAvailable() const noexcept;
+
     [[nodiscard]] const TextRenderSettings& GetTextRenderSettings() const noexcept;
     void SetTextRenderSettings(const TextRenderSettings& settings) noexcept;
 

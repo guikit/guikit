@@ -108,7 +108,7 @@ bool ShellControls::RenderSidebarToggle(
     return false;
 }
 
-void ShellControls::RenderThemeControls(MainWindow& win, ToolbarScope& tb) {
+void ShellControls::RenderThemeControls(MainWindow& win, ToolbarScope& tb, bool showShellStyle) {
     (void)tb;
     Context& ui = win.GetUi();
     static constexpr keel::StaticArray<keel::StringRef, kThemePresetCount> kPresetLabels = {{
@@ -138,14 +138,16 @@ void ShellControls::RenderThemeControls(MainWindow& win, ToolbarScope& tb) {
         win.SetShellThemePreset(keel::from_underlying<ThemePreset>(presetIndex));
     }
 
-    static constexpr keel::StaticArray<keel::StringRef, 2> kShellLabels = {{"Docked", "Floating"}};
-    keel::usize shellIdx = win.IsShellFloating() ? 1u : 0u;
-    if (guikit::Select(ui, shellIdx, kShellLabels, {
-        .tooltip = "Application Shell Frame (Docked vs Floating)",
-        .size = UiSize::Sm,
-        .width = 104.0f
-    }).changed) {
-        win.SetShellFloating(shellIdx == 1u);
+    if (showShellStyle) {
+        static constexpr keel::StaticArray<keel::StringRef, 2> kShellLabels = {{"Docked", "Floating"}};
+        keel::usize shellIdx = win.IsShellFloating() ? 1u : 0u;
+        if (guikit::Select(ui, shellIdx, kShellLabels, {
+            .tooltip = "Application Shell Frame (Docked vs Floating)",
+            .size = UiSize::Sm,
+            .width = 104.0f
+        }).changed) {
+            win.SetShellFloating(shellIdx == 1u);
+        }
     }
 }
 
@@ -236,11 +238,13 @@ void ShellControls::RenderEngineControls(MainWindow& win, ToolbarScope& tb) {
                 }
             }
 
-            bool dirtyActive = ui.IsDirtyRectEnabled();
+            const bool dirtyAvailable = win.IsDirtyRectAvailable();
+            bool dirtyActive = dirtyAvailable && ui.IsDirtyRectEnabled();
             if (auto el = guikit::Element(ui, {
                 .label = "Dirty-Rect Raster",
-                .description = "Disjoint partial redraws",
-                .layout = ElementLayout::Leading
+                .description = dirtyAvailable ? "Disjoint partial redraws" : "CPU framebuffer only (GPU swapchain)",
+                .layout = ElementLayout::Leading,
+                .disabled = !dirtyAvailable
             })) {
                 if (guikit::Switch(ui, dirtyActive, {.size = UiSize::Sm})) {
                     ui.SetDirtyRectEnabled(dirtyActive);

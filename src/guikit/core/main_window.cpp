@@ -398,6 +398,9 @@ void MainWindow::RenderFrame() {
             }
         }
     }
+    if (!IsDirtyRectAvailable() && m_ui.IsDirtyRectEnabled()) {
+        m_ui.SetDirtyRectEnabled(false);
+    }
     m_ui.EndFrame(*m_canvas);
     m_window->SetCursor(m_ui.GetCursor());
     {
@@ -512,6 +515,10 @@ bool MainWindow::IsGpuShadersAvailable() const noexcept {
     const bool cpuWithUnderlay = m_canvas && m_canvas->UsesCpuFramebuffer() && underlay;
     const bool canvasCap = m_canvas && m_canvas->SupportsGpuShaders();
     return underlay || direct || cpuWithUnderlay || canvasCap;
+}
+
+bool MainWindow::IsDirtyRectAvailable() const noexcept {
+    return m_canvas && m_canvas->UsesCpuFramebuffer();
 }
 
 void MainWindow::SetGpuShadersEnabled(bool enabled) noexcept {

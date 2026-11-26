@@ -925,6 +925,15 @@ void TestMainWindowHeadlessBackend() {
                 lastShaderId.assign(passes[0].shader.shaderId);
             }
 
+            if (guiCount == 1) {
+                CHECK(!IsDirtyRectAvailable());
+                CHECK(!ui.IsDirtyRectEnabled());
+                // Attempting to enable dirty-rect on a non-CPU GPU swapchain canvas must be clamped off before EndFrame
+                ui.SetDirtyRectEnabled(true);
+            } else if (guiCount >= 2) {
+                CHECK(!ui.IsDirtyRectEnabled());
+            }
+
             if (guiCount >= 3) {
                 Close();
             }
