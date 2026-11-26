@@ -326,11 +326,11 @@ keel::f32 HeadingFontSize(keel::u8 level, const MarkdownOptions& opts, const UiT
 
 Color AlertAccentColor(AlertKind kind, const UiTheme& theme) noexcept {
     switch (kind) {
-        case AlertKind::Note:      return theme.GetVariant(UiVariant::Info).bg;
-        case AlertKind::Tip:       return theme.GetVariant(UiVariant::Success).bg;
-        case AlertKind::Important: return theme.GetVariant(UiVariant::Primary).bg;
-        case AlertKind::Warning:   return theme.GetVariant(UiVariant::Warning).bg;
-        case AlertKind::Caution:   return theme.GetVariant(UiVariant::Danger).bg;
+        case AlertKind::Note:      return theme.GetSemanticAccent(UiVariant::Info);
+        case AlertKind::Tip:       return theme.GetSemanticAccent(UiVariant::Success);
+        case AlertKind::Important: return theme.GetSemanticAccent(UiVariant::Primary);
+        case AlertKind::Warning:   return theme.GetSemanticAccent(UiVariant::Warning);
+        case AlertKind::Caution:   return theme.GetSemanticAccent(UiVariant::Danger);
         default:                   return theme.palette.accent;
     }
 }

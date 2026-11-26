@@ -416,7 +416,7 @@ void detail::Readout::Render(const Node* node, ICanvas& canvas, const UiTheme& t
         const bool valueOpen = (data->openMenu == ReadoutOpenMenu::Precision);
         Color valCol = (data->valueVariant == UiVariant::Default)
             ? pal.textPrimary
-            : theme.GetVariant(data->valueVariant).bg;
+            : theme.GetSemanticAccent(data->valueVariant);
         if (data->valueVariant == UiVariant::Primary) {
             valCol = isDark
                 ? Color::Lerp(pal.accent, Color(255, 255, 255, pal.accent.a), 0.10f)

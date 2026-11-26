@@ -18,8 +18,8 @@ class HitTestTree;
 /// Z-ordering layer for deferred overlay render passes and overlay hit regions.
 enum class OverlayLayer : keel::u8 {
     Panel        = 1, ///< Panel chrome overlays (Sidebar / BottomPanel / SplitView sashes & toggle pills) rendered below Modals/Popovers.
-    Portal       = 2, ///< Out-of-flow portals (Modal / Popover).
-    Popup        = 3, ///< Top-level interactive popups (Select, DatePicker, ColorPicker, ContextMenu, CommandPalette) rendered above Modals/Popovers.
+    Portal       = 2, ///< Out-of-flow portals and modal overlays (Modal, Popover, CommandPalette).
+    Popup        = 3, ///< Top-level interactive popups (Select, DatePicker, ColorPicker, ContextMenu) rendered above Modals/Popovers/CommandPalette.
     Notification = 4  ///< Global notifications (Toast) rendered above all popups regardless of host call order.
 };
 

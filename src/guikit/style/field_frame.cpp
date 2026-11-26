@@ -11,7 +11,7 @@ Color FieldFrame::ResolveAccent(
 ) noexcept {
     const Color base = (status == UiVariant::Default || status == UiVariant::Primary)
         ? theme.palette.accent
-        : theme.GetVariant(status).bg;
+        : theme.GetSemanticAccent(status);
     return disabled ? base.WithAlphaF(theme.disabledOpacity) : base;
 }
 
@@ -25,7 +25,7 @@ void FieldFrame::Draw(
     const auto& pal = theme.palette;
     const bool isActive = p.focused || p.active;
     const bool hasStatus = (p.status != UiVariant::Default);
-    const Color statusCol = hasStatus ? theme.GetVariant(p.status).bg : pal.focusRing;
+    const Color statusCol = hasStatus ? theme.GetSemanticAccent(p.status) : pal.focusRing;
 
     const bool hasBg = p.background.IsBackgroundEnabled(p.style != FieldStyle::Borderless);
     Color baseFill = (p.defaultBgOverride.a > 0u) ? p.defaultBgOverride : pal.inputBackground;

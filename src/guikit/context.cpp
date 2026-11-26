@@ -962,17 +962,22 @@ bool Context::IsOverlayOccludedInFrame(Id id, Vec2 pos, OverlayLayer layer) cons
     }
 
     if (layerRank < keel::as<keel::u8>(OverlayLayer::Popup)) {
-        const Id exemptModal = (layer == OverlayLayer::Portal) ? m_overlays.FindModalIdInPrevOrCurr(id) : Id::Null();
-        if (IsModalBlockingInFrame(pos, exemptModal)) {
-            return true;
-        }
         if (layer == OverlayLayer::Panel) {
+            if (IsModalBlockingInFrame(pos, Id::Null())) {
+                return true;
+            }
             if (IsPopoverBlockingInFrame(pos)) {
                 return true;
             }
-        } else if (layer == OverlayLayer::Portal && exemptModal.IsValid()) {
-            if (IsPopoverBlockingInFrame(pos, exemptModal)) {
-                return true;
+        } else if (layer == OverlayLayer::Portal) {
+            const Id exemptModal = m_overlays.FindModalIdInPrevOrCurr(id);
+            if (exemptModal.IsValid()) {
+                if (IsModalBlockingInFrame(pos, exemptModal)) {
+                    return true;
+                }
+                if (IsPopoverBlockingInFrame(pos, exemptModal)) {
+                    return true;
+                }
             }
         }
     }
@@ -1706,6 +1711,7 @@ void Context::EndFrame(ICanvas& canvas) {
             RenderNodeRecursive(m_root, sink, dirty, m_theme);
             runOverlayPasses(sink, OverlayLayer::Panel, dirty, false);
             RenderModalsRecursive(m_root, sink, dirty, m_theme);
+            runOverlayPasses(sink, OverlayLayer::Portal, dirty, false);
             runOverlayPasses(sink, OverlayLayer::Popup, dirty, false);
             runOverlayPasses(sink, OverlayLayer::Notification, dirty, false);
             if (ovSummary.hasTooltip) {
@@ -1726,6 +1732,7 @@ void Context::EndFrame(ICanvas& canvas) {
             RenderNodeRecursive(m_root, sink, dr, m_theme);
             runOverlayPasses(sink, OverlayLayer::Panel, dr, true);
             RenderModalsRecursive(m_root, sink, dr, m_theme);
+            runOverlayPasses(sink, OverlayLayer::Portal, dr, true);
             runOverlayPasses(sink, OverlayLayer::Popup, dr, true);
             runOverlayPasses(sink, OverlayLayer::Notification, dr, true);
             sink.PopClip();

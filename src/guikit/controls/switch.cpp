@@ -258,10 +258,15 @@ void detail::Switch::Render(
             strokeWidth = 1.0f;
             knobFill = pal.controlKnobActive;
         } else {
-            trackFill = theme.ResolveColor(opts.color, hovered && !disabled, pressed && !disabled, false, v.bg, v.bgHover, v.bgActive, v.bg);
+            const Color resolved = theme.ResolveColor(opts.color, hovered && !disabled, pressed && !disabled, false, v.bg, v.bgHover, v.bgActive, v.bg);
+            const Color solidAccent = theme.ResolveSemanticAccent(opts.color, UiVariant::Primary, hovered && !disabled, pressed && !disabled, false);
+            const bool isOutlineTrack = (resolved.a == 0u);
+            trackFill = isOutlineTrack ? solidAccent : resolved;
             trackStroke = Color::Transparent();
             strokeWidth = 0.0f;
-            knobFill = pal.controlKnobActive;
+            knobFill = isOutlineTrack
+                ? Color::BestTextColor(solidAccent, Color::Hex(0x0F172AFF), Color::Hex(0xFFFFFFFF))
+                : ((theme.fillStyle == FillStyle::Soft) ? solidAccent : pal.controlKnobActive);
         }
     } else {
         trackFill = (hovered && !disabled) ? pal.controlTrackHover : pal.controlTrack;

@@ -177,7 +177,7 @@ void detail::Text::Render(
             if (opts.variant == UiVariant::Default || opts.variant == UiVariant::Secondary || opts.variant == UiVariant::Muted || opts.variant == UiVariant::Ghost) {
                 color = pal.textPrimary;
             } else {
-                color = theme.GetVariant(opts.variant).bgHover;
+                color = (theme.mode == ThemeMode::Dark) ? color.Lighten(0.12f) : color.Darken(0.12f);
             }
         }
     }

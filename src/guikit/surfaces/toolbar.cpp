@@ -34,10 +34,10 @@ struct ToolButtonPayload {
 void RenderToolBadge(const Node* n, const ToolButtonPayload* p, ICanvas& canvas, const UiTheme& theme) noexcept {
     if (!p || p->badge.empty()) return;
     const auto& pal = theme.palette;
-    const VariantColors& v = theme.GetVariant(p->badgeVariant);
+    const Color semanticBg = theme.GetSemanticAccent(p->badgeVariant);
     const Color resolvedBg = p->badge.color.HasAny()
-        ? theme.ResolveColor(p->badge.color, n->hovered, n->pressed, n->disabled, v.bg)
-        : v.bg;
+        ? theme.ResolveSemanticAccent(p->badge.color, p->badgeVariant, n->hovered, n->pressed, false)
+        : semanticBg;
     const keel::f32 badgeFont = keel::max(9.0f, theme.ResolveFontSize(p->badge, TextRole::LabelSmall, n->uiSize) - 1.5f);
     const Vec2 badgeDims = canvas.MeasureText(p->badge.text, badgeFont);
     const keel::f32 badgeH = keel::min(n->computedRect.h * 0.48f, keel::max(13.0f, badgeFont + 3.0f));
@@ -50,7 +50,8 @@ void RenderToolBadge(const Node* n, const ToolButtonPayload* p, ICanvas& canvas,
         badgeH
     );
     const Color badgeBg = n->disabled ? resolvedBg.WithAlphaF(theme.disabledOpacity) : resolvedBg;
-    const Color badgeTextCol = n->disabled ? v.text.WithAlphaF(theme.disabledOpacity) : v.text;
+    const Color baseInk = Color::BestTextColor(resolvedBg, Color::Hex(0x0F172AFF), Color::Hex(0xFFFFFFFF));
+    const Color badgeTextCol = n->disabled ? baseInk.WithAlphaF(theme.disabledOpacity) : baseInk;
     theme.Painter().DrawBadge(canvas, theme, badgeRect, badgeBg, pal.surface, 1.5f, badgeH * 0.5f);
     canvas.DrawTextBox(p->badge.text, badgeRect, badgeFont, badgeTextCol, 0.5f, 0.5f);
 }

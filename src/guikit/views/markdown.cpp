@@ -296,14 +296,15 @@ void RenderMarkdownDocumentLayout(
                         copyBtnW,
                         copyBtnH
                     );
+                    const Color okAccent = theme.GetSemanticAccent(UiVariant::Success);
                     const Color btnBg = isCopied
-                        ? theme.GetVariant(UiVariant::Success).bg.WithAlpha(40)
+                        ? okAccent.WithAlpha(40)
                         : (isHov ? theme.palette.accent.WithAlpha(35) : codeBg);
                     const Color btnBorder = isCopied
-                        ? theme.GetVariant(UiVariant::Success).bg
+                        ? okAccent
                         : (isHov ? theme.palette.accent : theme.palette.borderSubtle);
                     const Color btnText = isCopied
-                        ? theme.GetVariant(UiVariant::Success).bg
+                        ? okAccent
                         : (isHov ? theme.palette.accent : defaultCodeCol);
                     canvas.DrawRoundRect(copyBtnRect, 4.0f * s, btnBg, btnBorder, 1.0f);
                     canvas.DrawTextBox(

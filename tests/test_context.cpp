@@ -12509,6 +12509,250 @@ int main() {
             scrollCpUi.OnMouseUp(1);
             CHECK(!openScroll);
             CHECK(rScroll.selectedIndex >= 4);
+
+            // 2c. CommandPalette Windows 98 / Bevel3D: sharp 3D popup (0 rounded corners), sunken white input & list wells,
+            //     and high-contrast icon / category / shortcut text on the highlighted navy row
+            {
+                class CpWin98Spy : public guikit::NullCanvas {
+                public:
+                    keel::usize roundedCardCalls{0};
+                    keel::usize inputBgRects{0};
+                    guikit::Color dangerTextColor{guikit::Color::Transparent()};
+                    guikit::Color delTextColor{guikit::Color::Transparent()};
+                    guikit::Color expectedInputBg{};
+
+                    void DrawRoundRect(guikit::Rect r, keel::f32 radius, guikit::Color, guikit::Color, keel::f32) override {
+                        if (radius > 0.5f && r.w > 200.0f && r.h > 80.0f) {
+                            ++roundedCardCalls;
+                        }
+                    }
+                    void DrawRect(guikit::Rect r, guikit::Color color) override {
+                        if (color == expectedInputBg && r.w > 120.0f && r.h >= 24.0f) {
+                            ++inputBgRects;
+                        }
+                    }
+                    void DrawTextBox(keel::StringRef text, guikit::Rect, keel::f32, guikit::Color color, keel::f32, keel::f32) override {
+                        if (text == "Danger") {
+                            dangerTextColor = color;
+                        } else if (text == "Del") {
+                            delTextColor = color;
+                        }
+                    }
+                };
+
+                guikit::Context w98Ui;
+                const guikit::UiTheme w98 = guikit::UiTheme::Windows98();
+                w98Ui.SetTheme(w98);
+                CpWin98Spy spy;
+                spy.expectedInputBg = w98.palette.inputBackground;
+
+                static const keel::StaticArray<guikit::CommandPaletteItem, 2> kW98Cmds = {{
+                    {.label = "Delete Selected Item...", .category = "Danger", .description = "Remove active item", .shortcut = "Del", .icon = guikit::Icon::Trash()},
+                    {.label = "Reset Layout", .category = "View", .shortcut = "Alt+R", .icon = guikit::Icon::Refresh()}
+                }};
+
+                bool w98Open = true;
+                w98Ui.BeginFrame({800.0f, 600.0f});
+                const auto rW98 = guikit::CommandPalette(w98Ui, w98Open, kW98Cmds);
+                w98Ui.EndFrame(spy);
+
+                // Default border.radius is kNullOpt -> no rounded card on Windows 98
+                CHECK(spy.roundedCardCalls == 0u);
+                // Both sunken search input well and sunken list well filled with white inputBackground
+                CHECK(spy.inputBgRects >= 2u);
+                // Highlighted row #0 ("Danger" / "Del"): both badge & keycap text must be readable against pal.surface
+                CHECK(spy.dangerTextColor.a > 0u);
+                CHECK(spy.delTextColor.a > 0u);
+                CHECK(guikit::Color::ContrastRatio(spy.dangerTextColor, w98.palette.surface) >= 4.5f);
+                CHECK(guikit::Color::ContrastRatio(spy.delTextColor, w98.palette.surface) >= 4.5f);
+
+                // Click [ESC] 3D push button at top-right of the palette -> closes palette
+                w98Ui.OnMouseMove({rW98.rect.Right() - 20.0f, rW98.rect.y + 20.0f});
+                w98Ui.OnMouseDown(1);
+                w98Ui.BeginFrame({800.0f, 600.0f});
+                (void)guikit::CommandPalette(w98Ui, w98Open, kW98Cmds);
+                w98Ui.EndFrame(spy);
+                w98Ui.OnMouseUp(1);
+                CHECK(!w98Open);
+            }
+
+            // 2d. Confined CommandPalette (OverlayLayer::Portal) + toolbar Select (OverlayLayer::Popup):
+            //     Select renders ABOVE CommandPalette, receives clicks overlapping the palette,
+            //     and owns Escape without closing CommandPalette; opening CommandPalette closes an open Select.
+            {
+                class ZOrderSpy : public guikit::NullCanvas {
+                public:
+                    keel::i32 seq{0};
+                    keel::i32 lastPaletteSeq{-1};
+                    keel::i32 lastSelectSeq{-1};
+                    void record(keel::StringRef text) noexcept {
+                        ++seq;
+                        if (text == "PaletteCmd" || text == "PaletteCat") {
+                            lastPaletteSeq = seq;
+                        } else if (text == "ThemeDracula") {
+                            lastSelectSeq = seq;
+                        }
+                    }
+                    void DrawText(keel::StringRef text, guikit::Vec2, keel::f32, guikit::Color) override {
+                        record(text);
+                    }
+                    void DrawTextBox(keel::StringRef text, guikit::Rect, keel::f32, guikit::Color, keel::f32, keel::f32) override {
+                        record(text);
+                    }
+                };
+
+                static constexpr keel::StaticArray<keel::StringRef, 5> kThemes = {
+                    "ThemeDark", "ThemeLight", "ThemeNord", "ThemeDracula", "ThemeWin98"
+                };
+                static const keel::StaticArray<guikit::CommandPaletteItem, 2> kStageCmds = {{
+                    {.label = "PaletteCmd", .category = "PaletteCat"},
+                    {.label = "SecondCmd",  .category = "Edit"}
+                }};
+
+                guikit::Context zUi;
+                ZOrderSpy zSpy;
+                keel::usize themeIdx = 0;
+                bool palOpen = true;
+                guikit::Response selRes{};
+                guikit::CommandPaletteResponse palRes{};
+
+                auto renderStageWithToolbar = [&]() {
+                    zSpy.seq = 0;
+                    zSpy.lastPaletteSeq = -1;
+                    zSpy.lastSelectSeq = -1;
+                    zUi.BeginFrame({800.0f, 600.0f});
+                    if (auto root = guikit::Column(zUi, {.gap = 0.0f, .width = guikit::SizeMode::Stretch, .height = guikit::SizeMode::Stretch})) {
+                        if (auto bar = guikit::Row(zUi, {.padding = guikit::Padding::All(6.0f), .width = guikit::SizeMode::Stretch, .height = guikit::SizeMode::Fit})) {
+                            selRes = guikit::Select(zUi, themeIdx, kThemes, {.width = 180.0f});
+                        }
+                        if (auto stage = guikit::Box(zUi, {.width = guikit::SizeMode::Stretch, .height = guikit::SizeMode::Stretch})) {
+                            palRes = guikit::CommandPalette(zUi, palOpen, kStageCmds, {.confineToParent = true});
+                        }
+                    }
+                    zUi.EndFrame(zSpy);
+                };
+
+                // Frame 1-2: establish layout with confined CommandPalette open
+                renderStageWithToolbar();
+                renderStageWithToolbar();
+                CHECK(palOpen);
+                CHECK(selRes.rect.w > 100.0f);
+
+                // Frame 3: click Select in toolbar (outside confined CommandPalette backdrop) -> opens Select above palette
+                zUi.OnMouseMove(selRes.rect.Center());
+                zUi.OnMouseDown(1);
+                renderStageWithToolbar();
+                zUi.OnMouseUp(1);
+                renderStageWithToolbar();
+                CHECK(palOpen);
+                CHECK(zUi.GetOpenPopupId().IsValid());
+                // Select dropdown (OverlayLayer::Popup) MUST render AFTER CommandPalette (OverlayLayer::Portal)
+                CHECK(zSpy.lastPaletteSeq >= 0);
+                CHECK(zSpy.lastSelectSeq > zSpy.lastPaletteSeq);
+
+                // Frame 5: pressing Escape closes Select dropdown WITHOUT closing CommandPalette
+                zUi.OnKeyDown(guikit::Key::Escape);
+                renderStageWithToolbar();
+                CHECK(!zUi.GetOpenPopupId().IsValid());
+                CHECK(palOpen);
+
+                // Frame 6: reopen Select, then close & reopen CommandPalette -> CommandPalette must close the stale Select
+                zUi.OnMouseMove(selRes.rect.Center());
+                zUi.OnMouseDown(1);
+                renderStageWithToolbar();
+                zUi.OnMouseUp(1);
+                renderStageWithToolbar();
+                CHECK(zUi.GetOpenPopupId().IsValid());
+
+                palOpen = false;
+                renderStageWithToolbar();
+                palOpen = true;
+                renderStageWithToolbar();
+                CHECK(!zUi.GetOpenPopupId().IsValid());
+                CHECK(palOpen);
+            }
+
+            // 2e. FillStyle::Outline regression: semantic accents must remain opaque (never Color::Transparent())
+            //     across CommandPalette (non-highlighted category badges & caret) and Toast accent stripe
+            {
+                class OutlineAccentSpy : public guikit::NullCanvas {
+                public:
+                    guikit::Color viewCatText{guikit::Color::Transparent()};
+                    keel::usize opaqueAccentRects{0};
+                    guikit::Color expectedAccent{};
+
+                    void DrawTextBox(keel::StringRef text, guikit::Rect, keel::f32, guikit::Color color, keel::f32, keel::f32) override {
+                        if (text == "ViewCat") {
+                            viewCatText = color;
+                        }
+                    }
+                    void DrawRect(guikit::Rect, guikit::Color color) override {
+                        if (color == expectedAccent && color.a == 255u) {
+                            ++opaqueAccentRects;
+                        }
+                    }
+                };
+
+                guikit::Context outUi;
+                guikit::UiTheme outTheme = guikit::UiTheme::Windows98();
+                outTheme.SetChromeStyle(guikit::ChromeStyle::Brutalist);
+                outTheme.SetFillStyle(guikit::FillStyle::Outline);
+                outUi.SetTheme(outTheme);
+
+                // Sanity: GetVariant(Primary).bg is transparent in Outline, while GetSemanticAccent(Primary) is opaque
+                CHECK(outTheme.GetVariant(guikit::UiVariant::Primary).bg.a == 0u);
+                CHECK(outTheme.GetSemanticAccent(guikit::UiVariant::Primary).a == 255u);
+                CHECK(outTheme.GetSemanticAccent(guikit::UiVariant::Danger).a == 255u);
+
+                OutlineAccentSpy outSpy;
+                outSpy.expectedAccent = outTheme.GetSemanticAccent(guikit::UiVariant::Primary);
+
+                static const keel::StaticArray<guikit::CommandPaletteItem, 2> kOutCmds = {{
+                    {.label = "FirstCmd", .category = "Dialog"},
+                    {.label = "SecondCmd", .category = "ViewCat"}
+                }};
+
+                bool outOpen = true;
+                outUi.BeginFrame({800.0f, 600.0f});
+                (void)guikit::CommandPalette(outUi, outOpen, kOutCmds);
+                outUi.EndFrame(outSpy);
+
+                // Non-highlighted row #1 category ("ViewCat") must render with opaque semantic primary ink (not Transparent!)
+                CHECK(outSpy.viewCatText.a == 255u);
+                CHECK(outSpy.opaqueAccentRects >= 1u); // Caret rendered with opaque primary accent
+
+                // Colored Checkbox, Switch, and Toolbar badge in FillStyle::Outline must also remain visible (opaque accent)
+                class OutlineControlsSpy : public guikit::NullCanvas {
+                public:
+                    guikit::Color targetSuccess{};
+                    keel::usize successCalls{0};
+                    void DrawRoundRect(guikit::Rect, keel::f32, guikit::Color fill, guikit::Color stroke, keel::f32) override {
+                        if (fill == targetSuccess || stroke == targetSuccess) ++successCalls;
+                    }
+                    void DrawRect(guikit::Rect, guikit::Color color) override {
+                        if (color == targetSuccess) ++successCalls;
+                    }
+                    void DrawPath(const guikit::VectorPath&, const guikit::PathPaint& paint) override {
+                        if (paint.fillColor == targetSuccess || paint.strokeColor == targetSuccess) ++successCalls;
+                    }
+                };
+
+                OutlineControlsSpy ctrlSpy;
+                ctrlSpy.targetSuccess = outTheme.GetSemanticAccent(guikit::UiVariant::Success);
+                bool cbVal = true;
+                bool swVal = true;
+                outOpen = false;
+                outUi.BeginFrame({800.0f, 600.0f});
+                if (auto row = guikit::Row(outUi, {.gap = 8.0f})) {
+                    guikit::Checkbox(outUi, cbVal, {.color = guikit::StateColor::Success()});
+                    guikit::Switch(outUi, swVal, {.color = guikit::StateColor::Success()});
+                    if (auto tb = guikit::Toolbar(outUi)) {
+                        tb.ToolButton({.text = "Live", .variant = guikit::UiVariant::Success, .badge = "LIVE"});
+                    }
+                }
+                outUi.EndFrame(ctrlSpy);
+                CHECK(ctrlSpy.successCalls >= 3u);
+            }
         }
 
         // 3. keel::FixedString Rule-of-Zero copy safety + Breadcrumb & Pagination interactive click tests

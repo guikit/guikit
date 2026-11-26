@@ -507,7 +507,14 @@ void DefaultStylePainter::DrawFrame(
     const bool useBevel = isInput
         ? ((theme.chrome.field == FieldTreatment::Sunken3D) && !roundedOverride)
         : ((theme.chrome.frame == FrameTreatment::Bevel3D) && !roundedOverride);
-    const keel::f32 effRadius = useBevel ? 0.0f : p.radius;
+    keel::f32 effRadius = useBevel ? 0.0f : p.radius;
+    if (!useBevel && kind == FrameKind::Keycap) {
+        if (theme.chrome.badgeShape == BadgeShape::Sharp) {
+            effRadius = 0.0f;
+        } else if (theme.chrome.badgeShape == BadgeShape::Rounded) {
+            effRadius = keel::min(effRadius, 4.0f);
+        }
+    }
 
     Elevation effElev = p.elevation;
     if (effElev == Elevation::None && kind == FrameKind::Button &&
@@ -630,6 +637,10 @@ void DefaultStylePainter::DrawFrame(
         case FrameKind::Badge:
             DrawBevelFrame(canvas, bevelRect, theme.bevel, /*sunken=*/true, /*thin=*/true);
             break;
+
+        case FrameKind::Keycap:
+            DrawBevelFrame(canvas, bevelRect, theme.bevel, /*sunken=*/(!p.disabled && p.pressed), /*thin=*/true);
+            break;
     }
 }
 
@@ -641,6 +652,7 @@ ChromeMetrics DefaultStylePainter::GetChromeMetrics(const UiTheme& theme) const 
         m.frameBevelInset = 2.0f;
         m.sliderTrackHeight = 4.0f;
         m.rangeSliderTrackHeight = 6.0f;
+        m.recessedRegions = true;
     }
     if (theme.chrome.progressFill == ProgressFillStyle::Segmented) {
         m.progressBarMinHeight = 14.0f;

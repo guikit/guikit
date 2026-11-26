@@ -36,7 +36,7 @@ struct CommandPaletteOptions {
     bool showFooterHints{true};
     bool confineToParent{false};
     StateColor background{};
-    Border border{.width = 1.0f, .radius = 10.0f};
+    Border border{.width = 1.0f};
     UiSize size{UiSize::Md};
 };
 

@@ -1923,7 +1923,7 @@ void detail::Table::RenderBody(
             const bool isHovered = data->opts.hoverableRows && (data->hoveredRow == iRow) && !rowRec.opts.disabled;
 
             bool usedSolidSelection = false;
-            const Color dangerBg = theme.GetVariant(UiVariant::Danger).bg;
+            const Color dangerBg = theme.GetSemanticAccent(UiVariant::Danger);
             if (isSelected) {
                 usedSolidSelection = theme.Painter().DrawSelectionHighlight(
                     canvas,
@@ -1955,7 +1955,7 @@ void detail::Table::RenderBody(
                     );
                 }
             } else if (rowRec.opts.tint.has_value()) {
-                const Color tintCol = theme.GetVariant(*rowRec.opts.tint).bg.WithAlpha(28);
+                const Color tintCol = theme.GetSemanticAccent(*rowRec.opts.tint).WithAlpha(28);
                 canvas.DrawRect(rowRect, tintCol);
             } else if (data->opts.striped && (rIdx % 2 == 1)) {
                 canvas.DrawRect(rowRect, pal.surfaceElevated.WithAlpha(90));

@@ -479,11 +479,12 @@ void DrawTokenSelectionAndSearchHighlights(
             const auto [x0, x1] = SubRangePixelBounds(&canvas, tok, fullPlainText, m.start, m.end);
             if (x1 > x0) {
                 const bool isActive = (keel::as<keel::i32>(mi) == overlay->activeSearchMatch);
+                const Color warnAccent = theme.GetSemanticAccent(UiVariant::Warning);
                 const Color hlBg = isActive
-                    ? theme.GetVariant(UiVariant::Warning).bg.WithAlpha(140)
-                    : theme.GetVariant(UiVariant::Warning).bg.WithAlpha(65);
+                    ? warnAccent.WithAlpha(140)
+                    : warnAccent.WithAlpha(65);
                 const Color hlBorder = isActive
-                    ? theme.GetVariant(UiVariant::Warning).bg
+                    ? warnAccent
                     : Color::Transparent();
                 canvas.DrawRoundRect(
                     Rect(docOrigin.x + x0, docOrigin.y + tok.rect.y, x1 - x0, tok.rect.h),

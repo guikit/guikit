@@ -377,14 +377,14 @@ void ShellControls::RenderTelemetryStatus(MainWindow& win, StatusBarScope& sb, b
                 {"GPU Shaders: Active", "GPU Shaders: Ready"}
             },
             .dotColor = gpuSceneActive
-                ? theme.GetVariant(UiVariant::Success).bg
-                : theme.GetVariant(UiVariant::Info).bg,
+                ? theme.GetSemanticAccent(UiVariant::Success)
+                : theme.GetSemanticAccent(UiVariant::Info),
             .color = gpuSceneActive ? StateColor::Success() : StateColor::Info()
         });
     } else {
         sb.Item({
             .text = "GPU Shaders: CPU Fallback",
-            .dotColor = theme.GetVariant(UiVariant::Warning).bg,
+            .dotColor = theme.GetSemanticAccent(UiVariant::Warning),
             .color = StateColor::Warning()
         });
     }

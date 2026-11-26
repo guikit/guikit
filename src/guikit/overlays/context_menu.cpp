@@ -683,7 +683,7 @@ void FinalizeMenuSession(detail::MenuTreeFrameSession& sess) {
                 }
 
                 const bool isDanger = (it.variant == UiVariant::Danger);
-                const Color dangerCol = theme.GetVariant(UiVariant::Danger).bg;
+                const Color dangerCol = theme.GetSemanticAccent(UiVariant::Danger);
                 const bool iconWithCheck = it.icon.IsValid() && (it.hasCheck || it.checked);
                 const keel::f32 itemRadius = keel::max(0.0f, radius - 2.0f * s);
                 const bool accentHighlight = theme.Painter().DrawSelectionHighlight(

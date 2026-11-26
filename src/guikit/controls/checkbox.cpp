@@ -184,9 +184,10 @@ void detail::Checkbox::Render(
             markColor = pal.textPrimary;
         } else {
             boxFill = theme.ResolveColor(opts.color, hovered && !disabled, pressed && !disabled, false, v.bg, v.bgHover, v.bgActive, v.bg);
-            boxStroke = boxFill;
+            const Color solidAccent = theme.ResolveSemanticAccent(opts.color, UiVariant::Primary, hovered && !disabled, pressed && !disabled, false);
+            boxStroke = (boxFill.a == 0u || theme.fillStyle == FillStyle::Soft) ? solidAccent : boxFill;
             strokeWidth = 1.5f;
-            markColor = pal.controlKnobActive;
+            markColor = (boxFill.a == 0u || theme.fillStyle == FillStyle::Soft) ? solidAccent : pal.controlKnobActive;
         }
     } else {
         boxFill = (hovered && !disabled) ? pal.controlTrackHover : pal.controlTrack;

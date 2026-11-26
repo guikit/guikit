@@ -373,7 +373,7 @@ void detail::Toast::RunHost(
 
             Color accentCol = pal.accent;
             if (e.variant != UiVariant::Default && e.variant != UiVariant::Ghost && e.variant != UiVariant::Secondary) {
-                accentCol = theme.GetVariant(e.variant).bg;
+                accentCol = theme.GetSemanticAccent(e.variant);
             }
 
             const Color bgCol = pal.surfaceElevated.WithAlpha(248u);

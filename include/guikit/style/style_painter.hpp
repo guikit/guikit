@@ -17,7 +17,8 @@ enum class FrameKind : keel::u8 {
     Button,          ///< Push button (raised, sunken when pressed/active)
     ToolbarButton,   ///< Flat ghost toolbar / chrome button (thin bevel on hover/active in Classic3D)
     Badge,           ///< Tag / heading badge / status cell
-    DropdownButton   ///< Embedded field trigger button (Select chevron, DatePicker, SpinBox steppers)
+    DropdownButton,  ///< Embedded field trigger button (Select chevron, DatePicker, SpinBox steppers)
+    Keycap           ///< Keyboard shortcut keycap pill (raised 1px 3D key in Classic3D, subtle bordered pill otherwise)
 };
 
 /// Chrome-driven layout & geometry metrics returned by `IStylePainter::GetChromeMetrics`.
@@ -31,6 +32,7 @@ struct ChromeMetrics {
     keel::f32  progressBarHeightBonus{0.0f}; ///< Extra progress bar thickness in dp (e.g. segmented 3D well)
     BadgeShape badgeShape{BadgeShape::Pill}; ///< Badge/tag corner rounding policy
     bool       solidSelectionHighlight{false}; ///< True when selected rows use solid accent fill requiring accentText foreground
+    bool       recessedRegions{false};         ///< True when dialog/overlay inputs & lists render as inset sunken wells (Bevel3D)
 };
 
 /// Tab bar chrome style passed to `IStylePainter::DrawTabChrome` without pulling action headers into style/.

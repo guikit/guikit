@@ -598,9 +598,9 @@ void detail::TabBar::RenderTab(
             badgeBg = resolved.WithAlphaF(0.25f);
             badgeText = resolved;
         } else if (item.badge.text == "Live") {
-            const VariantColors success = theme.GetVariant(UiVariant::Success);
-            badgeBg = success.bg.WithAlphaF(0.5f);
-            badgeText = success.text;
+            const Color okCol = theme.GetSemanticAccent(UiVariant::Success);
+            badgeBg = okCol.WithAlphaF(0.25f);
+            badgeText = theme.EnsureReadableInk(okCol, pal.surface);
         }
 
         theme.Painter().DrawBadge(canvas, theme, badgeR, badgeBg, Color::Transparent(), 0.0f, 4.0f);
