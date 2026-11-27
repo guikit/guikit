@@ -1424,6 +1424,53 @@ enum class SliderTrackStyle : keel::u8 {
     NeutralGroove   ///< Neutral recessed groove unless explicit accent is set (Classic3D)
 };
 
+inline constexpr keel::usize kSliderTrackStyleCount = 2u;
+
+/// Human-readable display name for a `SliderTrackStyle`.
+[[nodiscard]] constexpr keel::StringRef SliderTrackStyleName(SliderTrackStyle style) noexcept {
+    switch (style) {
+        case SliderTrackStyle::Filled:        return "Filled";
+        case SliderTrackStyle::NeutralGroove: return "Neutral Groove";
+    }
+    return "Filled";
+}
+
+/// Visual style of discrete tick marks on `StepSlider` and `HybridSlider`.
+enum class SliderTickStyle : keel::u8 {
+    Dot = 0,        ///< Centered dots on the track (Modern / Fluent)
+    Line,           ///< Short hairline marks below/beside the track (Classic3D / DAW / instruments)
+    Notch           ///< Thin perpendicular notches cutting across the track
+};
+
+inline constexpr keel::usize kSliderTickStyleCount = 3u;
+
+/// Human-readable display name for a `SliderTickStyle`.
+[[nodiscard]] constexpr keel::StringRef SliderTickStyleName(SliderTickStyle style) noexcept {
+    switch (style) {
+        case SliderTickStyle::Dot:   return "Dot";
+        case SliderTickStyle::Line:  return "Line";
+        case SliderTickStyle::Notch: return "Notch";
+    }
+    return "Dot";
+}
+
+/// End-cap shape of slider tracks (`Slider`, `StepSlider`, `RangeSlider`, `HybridSlider`).
+enum class SliderTrackCaps : keel::u8 {
+    Round = 0,      ///< Pill-rounded end caps (radius = thickness * 0.5)
+    Square          ///< Crisp 0dp rectangular end caps (DAW / SCADA / Classic3D / Brutalist)
+};
+
+inline constexpr keel::usize kSliderTrackCapsCount = 2u;
+
+/// Human-readable display name for a `SliderTrackCaps`.
+[[nodiscard]] constexpr keel::StringRef SliderTrackCapsName(SliderTrackCaps caps) noexcept {
+    switch (caps) {
+        case SliderTrackCaps::Round:  return "Round";
+        case SliderTrackCaps::Square: return "Square";
+    }
+    return "Round";
+}
+
 /// Structural fill style for `ProgressBar`.
 enum class ProgressFillStyle : keel::u8 {
     Smooth = 0,     ///< Continuous bar (rounded or sharp according to theme radius)
@@ -1646,6 +1693,33 @@ struct ScrollbarStyleTokens {
     }
 };
 
+/// Structural slider configuration tokens in `UiTheme` (zero hardcoded colors; shared by Slider, StepSlider, RangeSlider, HybridSlider).
+struct SliderStyleTokens {
+    SliderThumbShape thumbShape{SliderThumbShape::Circle};
+    SliderTrackStyle trackStyle{SliderTrackStyle::Filled};
+    SliderTickStyle  tickStyle{SliderTickStyle::Dot};
+    SliderTrackCaps  trackCaps{SliderTrackCaps::Round};
+    keel::f32        trackHeight{0.0f}; ///< Optional Md track thickness override in dp (<= 0 = theme/chrome default)
+    keel::f32        thumbSize{0.0f};   ///< Optional Md thumb size override in dp (<= 0 = theme size default)
+
+    [[nodiscard]] static constexpr SliderStyleTokens Modern() noexcept {
+        return SliderStyleTokens{};
+    }
+
+    [[nodiscard]] static constexpr SliderStyleTokens ForChrome(const ChromeTokens& chrome) noexcept {
+        SliderStyleTokens s{};
+        s.thumbShape = chrome.sliderThumb;
+        s.trackStyle = chrome.sliderTrack;
+        s.tickStyle  = (chrome.sliderThumb == SliderThumbShape::Pointer3D)
+            ? SliderTickStyle::Line
+            : SliderTickStyle::Dot;
+        s.trackCaps  = (chrome.frame == FrameTreatment::Bevel3D || chrome.frame == FrameTreatment::HardShadow)
+            ? SliderTrackCaps::Square
+            : SliderTrackCaps::Round;
+        return s;
+    }
+};
+
 /// Compact declarative recipe for generating a complete `UiTheme` via `UiTheme::Build(spec)`.
 /// Supports seed-based accent/neutral derivation, surface appearance styles, layer contrast,
 /// radius/spacing/font/border/shadow/accessibility scaling, syntax scheme selection,
@@ -1680,6 +1754,11 @@ struct ThemeSpec {
     keel::Optional<ScrollbarChromeStyle> scrollbarChrome{keel::kNullOpt}; ///< Optional scrollbar chrome override (`Modern`, `Flat`, `ClassicBevel`, `Framed`)
     keel::Optional<keel::f32> scrollbarWidth{keel::kNullOpt};             ///< Optional Md scrollbar track width in dp (4..28)
     keel::Optional<SliderThumbShape> sliderThumb{keel::kNullOpt};         ///< Optional slider thumb shape override (`Circle`, `Ring`, `Square`, `Pointer3D`, `Bar`)
+    keel::Optional<SliderTrackStyle> sliderTrackStyle{keel::kNullOpt};    ///< Optional slider track fill style (`Filled`, `NeutralGroove`)
+    keel::Optional<SliderTickStyle>  sliderTickStyle{keel::kNullOpt};     ///< Optional slider tick mark style (`Dot`, `Line`, `Notch`)
+    keel::Optional<SliderTrackCaps>  sliderTrackCaps{keel::kNullOpt};     ///< Optional slider track end-cap shape (`Round`, `Square`)
+    keel::Optional<keel::f32>        sliderTrackHeight{keel::kNullOpt};   ///< Optional Md slider track thickness in dp (2..12)
+    keel::Optional<keel::f32>        sliderThumbSize{keel::kNullOpt};     ///< Optional Md slider thumb size in dp (10..24)
 
     /// Serializes this `ThemeSpec` to a compact, human-readable JSON object.
     [[nodiscard]] keel::String ToJson() const;

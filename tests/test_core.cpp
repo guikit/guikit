@@ -2198,6 +2198,46 @@ void TestThemeSystemColorSciencePresetsSpecJsonAndLerp() {
     CHECK(colorMorphFull.mode == ThemeMode::Dark);
     CHECK(UiTheme::LerpColors(win98, dark, 0.0f).palette.background == win98.palette.background);
 
+    // 6b. SliderStyleTokens & ThemeSpec slider customization JSON round-trip
+    {
+        ThemeSpec sliderSpec{};
+        sliderSpec.base = ThemePreset::Dark;
+        sliderSpec.sliderThumb = SliderThumbShape::Bar;
+        sliderSpec.sliderTrackStyle = SliderTrackStyle::NeutralGroove;
+        sliderSpec.sliderTickStyle = SliderTickStyle::Notch;
+        sliderSpec.sliderTrackCaps = SliderTrackCaps::Square;
+        sliderSpec.sliderTrackHeight = 8.0f;
+        sliderSpec.sliderThumbSize = 18.0f;
+
+        const UiTheme built = UiTheme::Build(sliderSpec);
+        CHECK(built.sliderStyle.thumbShape == SliderThumbShape::Bar);
+        CHECK(built.chrome.sliderThumb == SliderThumbShape::Bar);
+        CHECK(built.sliderStyle.trackStyle == SliderTrackStyle::NeutralGroove);
+        CHECK(built.sliderStyle.tickStyle == SliderTickStyle::Notch);
+        CHECK(built.sliderStyle.trackCaps == SliderTrackCaps::Square);
+        CHECK(keel::abs(built.GetSlider(UiSize::Md).trackHeight - 8.0f) < 0.01f);
+        CHECK(keel::abs(built.GetSlider(UiSize::Md).thumbSize - 18.0f) < 0.01f);
+
+        // Resetting back to default tokens restores default trackHeight / thumbSize / row height cleanly
+        UiTheme resetSlider = built;
+        resetSlider.SetSliderStyle(SliderStyleTokens::Modern());
+        CHECK(keel::abs(resetSlider.GetSlider(UiSize::Md).trackHeight - 3.75f) < 0.01f);
+        CHECK(keel::abs(resetSlider.GetSlider(UiSize::Md).thumbSize - 13.5f) < 0.01f);
+        CHECK(keel::abs(resetSlider.GetSlider(UiSize::Md).defaultHeight - 19.5f) < 0.01f);
+
+        const keel::String sliderJson = sliderSpec.ToJson();
+        const keel::Optional<ThemeSpec> parsedSlider = ThemeSpec::FromJson(sliderJson);
+        CHECK(parsedSlider.has_value());
+        if (parsedSlider.has_value()) {
+            CHECK(parsedSlider->sliderThumb.has_value() && *parsedSlider->sliderThumb == SliderThumbShape::Bar);
+            CHECK(parsedSlider->sliderTrackStyle.has_value() && *parsedSlider->sliderTrackStyle == SliderTrackStyle::NeutralGroove);
+            CHECK(parsedSlider->sliderTickStyle.has_value() && *parsedSlider->sliderTickStyle == SliderTickStyle::Notch);
+            CHECK(parsedSlider->sliderTrackCaps.has_value() && *parsedSlider->sliderTrackCaps == SliderTrackCaps::Square);
+            CHECK(parsedSlider->sliderTrackHeight.has_value() && keel::abs(*parsedSlider->sliderTrackHeight - 8.0f) < 0.01f);
+            CHECK(parsedSlider->sliderThumbSize.has_value() && keel::abs(*parsedSlider->sliderThumbSize - 18.0f) < 0.01f);
+        }
+    }
+
     // 7. Shared OS system theme query helper (QueryOsSystemTheme)
     {
         const keel::Optional<ThemeMode> probed = QueryOsSystemTheme();

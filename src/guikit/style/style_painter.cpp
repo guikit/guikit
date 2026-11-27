@@ -1121,13 +1121,27 @@ void DefaultStylePainter::DrawSliderTick(
     Color color,
     bool disabled
 ) const {
-    if (theme.chrome.sliderThumb == SliderThumbShape::Pointer3D) {
+    const SliderTickStyle tickStyle = theme.sliderStyle.tickStyle;
+    if (tickStyle == SliderTickStyle::Line) {
         const Color tickCol = disabled ? theme.palette.textDisabled : theme.palette.border;
         const keel::f32 tickOffset = keel::round(keel::max(6.0f, thumbSize * 0.75f));
         if (vertical) {
             canvas.DrawRect(Rect(keel::floor(crossCoord + tickOffset), keel::floor(tickCenter.y), 3.0f, 1.0f), tickCol);
         } else {
             canvas.DrawRect(Rect(keel::floor(tickCenter.x), keel::floor(crossCoord + tickOffset), 1.0f, 3.0f), tickCol);
+        }
+        return;
+    }
+    if (tickStyle == SliderTickStyle::Notch) {
+        const keel::f32 span = keel::max(tickSize + 4.0f, 8.0f);
+        const keel::f32 halfSpan = span * 0.5f;
+        const Color notchCol = disabled ? color.WithAlphaF(theme.disabledOpacity) : color;
+        if (vertical) {
+            const keel::f32 y = keel::floor(tickCenter.y) + 0.5f;
+            canvas.DrawLine(Vec2(crossCoord - halfSpan, y), Vec2(crossCoord + halfSpan, y), notchCol, 1.5f);
+        } else {
+            const keel::f32 x = keel::floor(tickCenter.x) + 0.5f;
+            canvas.DrawLine(Vec2(x, crossCoord - halfSpan), Vec2(x, crossCoord + halfSpan), notchCol, 1.5f);
         }
         return;
     }
@@ -1197,13 +1211,13 @@ void DefaultStylePainter::DrawSliderTrack(
     Color trackBg,
     Color trackBorder,
     Color fillColor,
-    keel::f32 cornerRadius,
+    keel::f32 /*cornerRadius*/,
     bool explicitColor
 ) const {
     const auto& pal = theme.palette;
     const bool isBevel = (theme.chrome.frame == FrameTreatment::Bevel3D);
     const bool isBrutal = (theme.chrome.frame == FrameTreatment::HardShadow);
-    const bool sharp = isBevel || isBrutal || (cornerRadius <= 0.01f);
+    const bool sharp = isBevel || (theme.sliderStyle.trackCaps == SliderTrackCaps::Square);
     const keel::f32 trackR = sharp ? 0.0f : ((vertical ? trackRect.w : trackRect.h) * 0.5f);
 
     if (isBevel) {
@@ -1217,27 +1231,25 @@ void DefaultStylePainter::DrawSliderTrack(
         const Color bdr = (Color::ContrastRatio(trackBorder, trackBg) >= 1.25f)
             ? trackBorder
             : pal.borderHover;
-        canvas.DrawRoundRect(trackRect, 0.0f, trackBg, bdr, bw);
+        canvas.DrawRoundRect(trackRect, trackR, trackBg, bdr, bw);
     } else {
         canvas.DrawRoundRect(trackRect, trackR, trackBg, trackBorder, 1.0f);
     }
 
-    if (hasFill && (theme.chrome.sliderTrack == SliderTrackStyle::Filled || explicitColor)) {
-        if (sharp) {
-            if (isBevel) {
-                const Rect insetFill(
-                    fillRect.x + (vertical ? 1.5f : 1.0f),
-                    fillRect.y + (vertical ? 0.0f : 1.5f),
-                    keel::max(1.0f, fillRect.w - (vertical ? 3.0f : 1.0f)),
-                    keel::max(1.0f, fillRect.h - (vertical ? 1.0f : 3.0f))
-                );
-                canvas.DrawRect(insetFill, fillColor);
-            } else {
-                canvas.DrawRect(fillRect, fillColor);
-            }
+    if (hasFill && (theme.sliderStyle.trackStyle == SliderTrackStyle::Filled || explicitColor)) {
+        if (isBevel) {
+            const Rect insetFill(
+                fillRect.x + (vertical ? 1.5f : 1.0f),
+                fillRect.y + (vertical ? 0.0f : 1.5f),
+                keel::max(1.0f, fillRect.w - (vertical ? 3.0f : 1.0f)),
+                keel::max(1.0f, fillRect.h - (vertical ? 1.0f : 3.0f))
+            );
+            canvas.DrawRect(insetFill, fillColor);
         } else if (theme.fillStyle == FillStyle::Gradient) {
             const Gradient fillGrad = theme.DeriveAccentGradient(fillColor, vertical ? 0.0f : 90.0f);
             canvas.DrawGradientRoundRect(fillRect, trackR, fillGrad);
+        } else if (sharp) {
+            canvas.DrawRect(fillRect, fillColor);
         } else {
             canvas.DrawRoundRect(fillRect, trackR, fillColor);
         }
@@ -1251,7 +1263,7 @@ void DefaultStylePainter::DrawSliderThumb(
 ) const {
     const auto& pal = theme.palette;
     const Color accent = (p.accent.a > 0u) ? p.accent : pal.accent;
-    const SliderThumbShape shape = theme.chrome.sliderThumb;
+    const SliderThumbShape shape = theme.sliderStyle.thumbShape;
 
     // 1. Classic 3D vector pentagonal pointer
     if (shape == SliderThumbShape::Pointer3D) {

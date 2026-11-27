@@ -90,6 +90,10 @@ void PopulateChromeTokens(UiTheme& theme, ChromeStyle style) noexcept {
         theme.chrome.badgeShape = BadgeShape::Sharp;
         theme.chrome.sliderThumb = SliderThumbShape::Square;
     }
+    theme.sliderStyle = SliderStyleTokens::ForChrome(theme.chrome);
+    if (style == ChromeStyle::Modern && zeroRadius) {
+        theme.sliderStyle.trackCaps = SliderTrackCaps::Square;
+    }
     SyncScrollbar(theme);
 }
 
@@ -1047,6 +1051,61 @@ void ApplyCuratedPresetColors(UiTheme& theme, ThemePreset p) noexcept {
     return keel::kNullOpt;
 }
 
+[[nodiscard]] keel::StringRef SliderTrackStyleJsonKey(SliderTrackStyle s) noexcept {
+    switch (s) {
+        case SliderTrackStyle::Filled:        return "Filled";
+        case SliderTrackStyle::NeutralGroove: return "NeutralGroove";
+    }
+    return "Filled";
+}
+
+[[nodiscard]] keel::Optional<SliderTrackStyle> ParseSliderTrackStyleKey(keel::StringRef s) noexcept {
+    for (keel::usize i = 0u; i < kSliderTrackStyleCount; ++i) {
+        const auto st = keel::from_underlying<SliderTrackStyle>(i);
+        if (s == SliderTrackStyleJsonKey(st) || s == SliderTrackStyleName(st)) {
+            return st;
+        }
+    }
+    return keel::kNullOpt;
+}
+
+[[nodiscard]] keel::StringRef SliderTickStyleJsonKey(SliderTickStyle s) noexcept {
+    switch (s) {
+        case SliderTickStyle::Dot:   return "Dot";
+        case SliderTickStyle::Line:  return "Line";
+        case SliderTickStyle::Notch: return "Notch";
+    }
+    return "Dot";
+}
+
+[[nodiscard]] keel::Optional<SliderTickStyle> ParseSliderTickStyleKey(keel::StringRef s) noexcept {
+    for (keel::usize i = 0u; i < kSliderTickStyleCount; ++i) {
+        const auto st = keel::from_underlying<SliderTickStyle>(i);
+        if (s == SliderTickStyleJsonKey(st) || s == SliderTickStyleName(st)) {
+            return st;
+        }
+    }
+    return keel::kNullOpt;
+}
+
+[[nodiscard]] keel::StringRef SliderTrackCapsJsonKey(SliderTrackCaps s) noexcept {
+    switch (s) {
+        case SliderTrackCaps::Round:  return "Round";
+        case SliderTrackCaps::Square: return "Square";
+    }
+    return "Round";
+}
+
+[[nodiscard]] keel::Optional<SliderTrackCaps> ParseSliderTrackCapsKey(keel::StringRef s) noexcept {
+    for (keel::usize i = 0u; i < kSliderTrackCapsCount; ++i) {
+        const auto st = keel::from_underlying<SliderTrackCaps>(i);
+        if (s == SliderTrackCapsJsonKey(st) || s == SliderTrackCapsName(st)) {
+            return st;
+        }
+    }
+    return keel::kNullOpt;
+}
+
 void SkipWs(keel::StringRef s, keel::usize& pos) noexcept {
     while (pos < s.size()) {
         const char c = s[pos];
@@ -1178,6 +1237,21 @@ keel::String ThemeSpec::ToJson() const {
     if (sliderThumb.has_value()) {
         out.append(keel::format("  \"sliderThumb\": \"{}\",\n", SliderThumbJsonKey(*sliderThumb)));
     }
+    if (sliderTrackStyle.has_value()) {
+        out.append(keel::format("  \"sliderTrackStyle\": \"{}\",\n", SliderTrackStyleJsonKey(*sliderTrackStyle)));
+    }
+    if (sliderTickStyle.has_value()) {
+        out.append(keel::format("  \"sliderTickStyle\": \"{}\",\n", SliderTickStyleJsonKey(*sliderTickStyle)));
+    }
+    if (sliderTrackCaps.has_value()) {
+        out.append(keel::format("  \"sliderTrackCaps\": \"{}\",\n", SliderTrackCapsJsonKey(*sliderTrackCaps)));
+    }
+    if (sliderTrackHeight.has_value()) {
+        out.append(keel::format("  \"sliderTrackHeight\": {:.2f},\n", *sliderTrackHeight));
+    }
+    if (sliderThumbSize.has_value()) {
+        out.append(keel::format("  \"sliderThumbSize\": {:.2f},\n", *sliderThumbSize));
+    }
     out.append(keel::format("  \"surfaceContrast\": {:.2f},\n", surfaceContrast));
     out.append(keel::format("  \"radiusScale\": {:.2f},\n", radiusScale));
     out.append(keel::format("  \"spacingScale\": {:.2f},\n", spacingScale));
@@ -1252,6 +1326,26 @@ keel::Optional<ThemeSpec> ThemeSpec::FromJson(keel::StringRef json) noexcept {
             keel::StringRef val;
             if (!ParseJsonString(json, pos, val)) return keel::kNullOpt;
             if (const auto st = ParseSliderThumbKey(val); st.has_value()) spec.sliderThumb = *st;
+        } else if (key == "sliderTrackStyle") {
+            keel::StringRef val;
+            if (!ParseJsonString(json, pos, val)) return keel::kNullOpt;
+            if (const auto st = ParseSliderTrackStyleKey(val); st.has_value()) spec.sliderTrackStyle = *st;
+        } else if (key == "sliderTickStyle") {
+            keel::StringRef val;
+            if (!ParseJsonString(json, pos, val)) return keel::kNullOpt;
+            if (const auto st = ParseSliderTickStyleKey(val); st.has_value()) spec.sliderTickStyle = *st;
+        } else if (key == "sliderTrackCaps") {
+            keel::StringRef val;
+            if (!ParseJsonString(json, pos, val)) return keel::kNullOpt;
+            if (const auto st = ParseSliderTrackCapsKey(val); st.has_value()) spec.sliderTrackCaps = *st;
+        } else if (key == "sliderTrackHeight") {
+            keel::f32 num = 0.0f;
+            if (!ParseJsonNumber(json, pos, num)) return keel::kNullOpt;
+            spec.sliderTrackHeight = keel::clamp(num, 2.0f, 12.0f);
+        } else if (key == "sliderThumbSize") {
+            keel::f32 num = 0.0f;
+            if (!ParseJsonNumber(json, pos, num)) return keel::kNullOpt;
+            spec.sliderThumbSize = keel::clamp(num, 10.0f, 24.0f);
         } else if (key == "shellStyle") {
             keel::StringRef val;
             if (!ParseJsonString(json, pos, val)) return keel::kNullOpt;
@@ -1331,6 +1425,71 @@ void UiTheme::SetScrollbarWidth(keel::f32 mdWidth) noexcept {
         scrollbars[i].trackWidth = keel::max(3.0f, keel::round(scrollbars[i].trackWidth * scale));
         scrollbars[i].gutter = scrollbars[i].trackWidth + scrollbars[i].margin * 2.0f;
     }
+}
+
+namespace {
+
+constexpr keel::StaticArray<keel::f32, 6> kBaseSliderRowH   = {19.5f, 13.5f, 16.5f, 19.5f, 24.0f, 28.5f};
+constexpr keel::StaticArray<keel::f32, 6> kBaseSliderTrackH = {3.75f,  2.25f,  3.0f, 3.75f,  4.5f,  6.0f};
+constexpr keel::StaticArray<keel::f32, 6> kBaseSliderThumb  = {13.5f,  9.0f, 10.5f, 13.5f, 16.5f, 19.5f};
+
+void RecomputeSliderRowHeights(UiTheme& theme) noexcept {
+    for (keel::usize i = 0u; i < theme.sliders.size(); ++i) {
+        const keel::f32 need = keel::max(theme.sliders[i].thumbSize, theme.sliders[i].trackHeight) + 4.0f;
+        theme.sliders[i].defaultHeight = keel::max(kBaseSliderRowH[i], need);
+    }
+}
+
+void ApplySliderTrackHeight(UiTheme& theme, keel::f32 mdHeight) noexcept {
+    if (mdHeight <= 0.0f) {
+        for (keel::usize i = 0u; i < theme.sliders.size(); ++i) {
+            theme.sliders[i].trackHeight = kBaseSliderTrackH[i];
+        }
+        theme.sliderStyle.trackHeight = 0.0f;
+    } else {
+        const keel::f32 targetMd = keel::clamp(mdHeight, 2.0f, 12.0f);
+        const keel::f32 scale = targetMd / kBaseSliderTrackH[keel::as<keel::usize>(UiSize::Preset::Md)];
+        for (keel::usize i = 0u; i < theme.sliders.size(); ++i) {
+            theme.sliders[i].trackHeight = keel::clamp(keel::round(kBaseSliderTrackH[i] * scale * 2.0f) * 0.5f, 1.5f, 16.0f);
+        }
+        theme.sliderStyle.trackHeight = targetMd;
+    }
+    RecomputeSliderRowHeights(theme);
+}
+
+void ApplySliderThumbSize(UiTheme& theme, keel::f32 mdSize) noexcept {
+    if (mdSize <= 0.0f) {
+        for (keel::usize i = 0u; i < theme.sliders.size(); ++i) {
+            theme.sliders[i].thumbSize = kBaseSliderThumb[i];
+        }
+        theme.sliderStyle.thumbSize = 0.0f;
+    } else {
+        const keel::f32 targetMd = keel::clamp(mdSize, 10.0f, 24.0f);
+        const keel::f32 scale = targetMd / kBaseSliderThumb[keel::as<keel::usize>(UiSize::Preset::Md)];
+        for (keel::usize i = 0u; i < theme.sliders.size(); ++i) {
+            theme.sliders[i].thumbSize = keel::clamp(keel::round(kBaseSliderThumb[i] * scale * 2.0f) * 0.5f, 8.0f, 30.0f);
+        }
+        theme.sliderStyle.thumbSize = targetMd;
+    }
+    RecomputeSliderRowHeights(theme);
+}
+
+} // namespace
+
+void UiTheme::SetSliderStyle(const SliderStyleTokens& style) noexcept {
+    sliderStyle = style;
+    chrome.sliderThumb = style.thumbShape;
+    chrome.sliderTrack = style.trackStyle;
+    ApplySliderTrackHeight(*this, style.trackHeight);
+    ApplySliderThumbSize(*this, style.thumbSize);
+}
+
+void UiTheme::SetSliderTrackHeight(keel::f32 mdHeight) noexcept {
+    ApplySliderTrackHeight(*this, mdHeight);
+}
+
+void UiTheme::SetSliderThumbSize(keel::f32 mdSize) noexcept {
+    ApplySliderThumbSize(*this, mdSize);
 }
 
 void UiTheme::SetMode(ThemeMode m) noexcept {
@@ -1445,6 +1604,8 @@ void UiTheme::SetRadiusScale(keel::f32 scale) noexcept {
         } else if (!zeroRadius && chrome.sliderThumb == SliderThumbShape::Square) {
             chrome.sliderThumb = SliderThumbShape::Circle;
         }
+        sliderStyle.thumbShape = chrome.sliderThumb;
+        sliderStyle.trackCaps = zeroRadius ? SliderTrackCaps::Square : SliderTrackCaps::Round;
     }
 }
 
@@ -1870,6 +2031,23 @@ UiTheme UiTheme::Build(const ThemeSpec& spec) noexcept {
     }
     if (spec.sliderThumb.has_value()) {
         theme.chrome.sliderThumb = *spec.sliderThumb;
+        theme.sliderStyle.thumbShape = *spec.sliderThumb;
+    }
+    if (spec.sliderTrackStyle.has_value()) {
+        theme.chrome.sliderTrack = *spec.sliderTrackStyle;
+        theme.sliderStyle.trackStyle = *spec.sliderTrackStyle;
+    }
+    if (spec.sliderTickStyle.has_value()) {
+        theme.sliderStyle.tickStyle = *spec.sliderTickStyle;
+    }
+    if (spec.sliderTrackCaps.has_value()) {
+        theme.sliderStyle.trackCaps = *spec.sliderTrackCaps;
+    }
+    if (spec.sliderTrackHeight.has_value()) {
+        theme.SetSliderTrackHeight(*spec.sliderTrackHeight);
+    }
+    if (spec.sliderThumbSize.has_value()) {
+        theme.SetSliderThumbSize(*spec.sliderThumbSize);
     }
     theme.SetShellStyle(spec.shellStyle);
     return theme;

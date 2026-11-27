@@ -35,6 +35,9 @@ struct UiTheme {
     ChromeTokens chrome{};
     ScrollbarStyleTokens scrollbarStyle{};
 
+    // 0c-2. Structural slider customization tokens (shared by Slider, StepSlider, RangeSlider, HybridSlider)
+    SliderStyleTokens sliderStyle{};
+
     // 0d. Optional custom look-and-feel painter (nullptr = built-in DefaultStylePainter)
     const IStylePainter* stylePainter{nullptr};
 
@@ -854,6 +857,15 @@ struct UiTheme {
 
     /// Scales scrollbar track widths and gutters proportionally around the specified `UiSize::Md` width in dp.
     void SetScrollbarWidth(keel::f32 mdWidth) noexcept;
+
+    /// Replaces the declarative `SliderStyleTokens` for fine-grained slider customization across all slider widgets.
+    void SetSliderStyle(const SliderStyleTokens& style) noexcept;
+
+    /// Scales slider track thickness proportionally around the specified `UiSize::Md` thickness in dp (2..12).
+    void SetSliderTrackHeight(keel::f32 mdHeight) noexcept;
+
+    /// Scales slider thumb size proportionally around the specified `UiSize::Md` diameter in dp (10..24).
+    void SetSliderThumbSize(keel::f32 mdSize) noexcept;
 
     /// Installs a custom non-owning `IStylePainter` for this theme (pass `nullptr` to restore built-in default).
     void SetStylePainter(const IStylePainter* painter) noexcept { stylePainter = painter; }

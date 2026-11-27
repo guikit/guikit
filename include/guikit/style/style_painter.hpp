@@ -216,6 +216,9 @@ public:
         keel::f32 defaultHeight,
         bool isRange = false
     ) const noexcept {
+        if (theme.sliderStyle.trackHeight > 0.0f) {
+            return defaultHeight;
+        }
         const ChromeMetrics m = GetChromeMetrics(theme);
         const keel::f32 fixed = isRange ? m.rangeSliderTrackHeight : m.sliderTrackHeight;
         return (fixed > 0.0f) ? fixed : defaultHeight;
