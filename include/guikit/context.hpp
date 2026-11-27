@@ -670,6 +670,8 @@ public:
     // --- Input Queries & Consumption ---
     /// Mouse position in the current space (see `CurrentSpace()`).
     [[nodiscard]] Vec2 GetMousePos() const noexcept { return CurrentSpace().Invert(m_mousePos); }
+    /// Mouse position at the moment the left button was pressed (stable even if the cursor moved later in the same frame).
+    [[nodiscard]] Vec2 GetMousePressPos() const noexcept { return CurrentSpace().Invert(m_mousePressPos); }
     [[nodiscard]] bool IsMouseDown() const noexcept { return m_mouseDown && !IsMouseBlockedForCurrentScope(); }
     [[nodiscard]] bool IsMouseClicked() const noexcept { return m_mouseClicked && !IsMouseBlockedForCurrentScope(); }
     [[nodiscard]] bool IsMouseReleased() const noexcept { return m_mouseReleased; }
@@ -799,8 +801,10 @@ private:
     bool m_manualTime{false};
 
     // Input state
-    Vec2 m_mousePos{-10000.0f, -10000.0f};   ///< dp
-    Vec2 m_mousePosPx{-10000.0f, -10000.0f}; ///< physical pixels, source of truth across scale changes
+    Vec2 m_mousePos{-10000.0f, -10000.0f};        ///< dp
+    Vec2 m_mousePosPx{-10000.0f, -10000.0f};      ///< physical pixels, source of truth across scale changes
+    Vec2 m_mousePressPos{-10000.0f, -10000.0f};   ///< dp at last left-button press
+    Vec2 m_mousePressPosPx{-10000.0f, -10000.0f}; ///< physical pixels at last left-button press
     bool m_mouseDown{false};
     bool m_mouseClicked{false};
     bool m_mouseReleased{false};

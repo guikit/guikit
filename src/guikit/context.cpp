@@ -28,6 +28,7 @@ void Context::BeginFrame(Vec2 viewportSize, keel::f32 displayScale, keel::f32 ro
     if (m_pixelsPerDp != effScale) {
         // The cursor did not move on screen; only its dp coordinate changed
         m_mousePos = m_mousePosPx / effScale;
+        m_mousePressPos = m_mousePressPosPx / effScale;
     }
     m_viewportSize = viewportSize;
     m_displayScale = effDisplay;
@@ -620,6 +621,8 @@ void Context::OnMouseDown(keel::i32 button) {
     if (button == 1) { // Left mouse button
         m_mouseDown = true;
         m_mouseClicked = true;
+        m_mousePressPos = m_mousePos;
+        m_mousePressPosPx = m_mousePosPx;
         const keel::f64 now = m_currentTimeSec;
         const keel::f32 dx = m_mousePos.x - m_lastClickPos.x;
         const keel::f32 dy = m_mousePos.y - m_lastClickPos.y;
@@ -1176,8 +1179,25 @@ bool Context::IsMouseBlockedForCurrentScope() const noexcept {
 
     if (currentZLayer < 2 && !hasActiveCapture) {
         const HitNodeRecord* curPortalHit = currentPortalId.IsValid() ? m_hitTree.FindPrevHitNode(currentPortalId) : nullptr;
+        const HitNodeRecord* curContainerHit = nullptr;
+        for (keel::usize sIdx = m_containerStack.size(); sIdx > 0; --sIdx) {
+            const Node* cNode = m_containerStack[sIdx - 1];
+            if (cNode && cNode->id.IsValid()) {
+                if (const HitNodeRecord* rec = m_hitTree.FindPrevHitNode(cNode->id)) {
+                    curContainerHit = rec;
+                    break;
+                }
+            }
+        }
         for (const auto& b : m_hitTree.GetPrevHitNodes()) {
             if (!b.blocksHit || !b.rect.Contains(m_mousePos)) {
+                continue;
+            }
+            if (curContainerHit != nullptr &&
+                curContainerHit->type != NodeType::Scene &&
+                b.zLayer < 2 &&
+                curContainerHit->preIndex < b.preIndex &&
+                b.postIndex <= curContainerHit->postIndex) {
                 continue;
             }
             if (b.zLayer > currentZLayer) {

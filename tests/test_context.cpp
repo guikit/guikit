@@ -21000,6 +21000,53 @@ void TestHeaderBarAndSystemDialogsWorkflow() {
 
         // Windows 98 (Classic3D / Bevel3D) HeaderBar uses accent caption metrics & compact 20x18 beveled controls
         const UiTheme win98 = UiTheme::Windows98();
+        // Verify Context::GetMousePressPos preserves exact press coordinates even when mouse moves later in the same frame
+        {
+            Context mpUi;
+            mpUi.BeginFrame({400.0f, 300.0f}, 1.0f);
+            mpUi.EndFrame(canvas);
+            mpUi.OnMouseMove({120.0f, 80.0f});
+            mpUi.OnMouseDown(1);
+            mpUi.OnMouseMove({145.0f, 95.0f}); // Coalesced drag movement in same frame
+            mpUi.BeginFrame({400.0f, 300.0f}, 1.0f);
+            CHECK(mpUi.IsMouseClicked());
+            CHECK_NEAR(mpUi.GetMousePressPos().x, 120.0f, 0.1f);
+            CHECK_NEAR(mpUi.GetMousePressPos().y, 80.0f, 0.1f);
+            CHECK_NEAR(mpUi.GetMousePos().x, 145.0f, 0.1f);
+            CHECK_NEAR(mpUi.GetMousePos().y, 95.0f, 0.1f);
+            mpUi.EndFrame(canvas);
+        }
+
+        // Verify a descendant StatusBar (zLayer=1) inside a Box (zLayer=0) does NOT block IsMouseClicked/IsMouseDown on the parent Box
+        {
+            Context zUi;
+            bool parentSawClick = false;
+            bool parentSawDown = false;
+            Rect sbRect{};
+            auto runZ = [&]() {
+                zUi.BeginFrame({400.0f, 300.0f}, 1.0f);
+                if (auto slot = guikit::Box(zUi, {.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+                    parentSawClick = zUi.IsMouseClicked();
+                    parentSawDown = zUi.IsMouseDown();
+                    guikit::Spacer(zUi);
+                    if (auto sb = guikit::StatusBar(zUi, {.size = UiSize::Sm})) {
+                        sbRect = sb.response.rect;
+                        sb.Item({.text = "Contrast 18.5:1"});
+                    }
+                }
+                zUi.EndFrame(canvas);
+            };
+            runZ();
+            runZ();
+            CHECK(sbRect.w > 100.0f && sbRect.h > 10.0f);
+            zUi.OnMouseMove({sbRect.Right() - 4.0f, sbRect.Bottom() - 4.0f});
+            zUi.OnMouseDown(1);
+            runZ();
+            CHECK(parentSawClick);
+            CHECK(parentSawDown);
+            zUi.OnMouseUp(1);
+            runZ();
+        }
         CHECK(win98.ResolveWindowCorners() == WindowCornerStyle::Square);
         CHECK_NEAR(win98.GetWindowCornerRadius(), 0.0f, 0.01f);
         CHECK(win98.ResolveWindowCorners(WindowCornerStyle::RoundSmall) == WindowCornerStyle::RoundSmall);
