@@ -2552,11 +2552,21 @@ void DefaultStylePainter::DrawHeaderBar(
         return;
     }
 
-    DrawSurfaceBg(canvas, theme, SurfacePaintParams{
-        .rect = p.rect,
-        .role = SurfaceRole::Flat,
-        .bg = p.bg
-    });
+    if (p.topRadius > 0.5f) {
+        const keel::f32 tr = keel::min(p.topRadius, p.rect.h * 0.5f);
+        canvas.PushClip(Rect(p.rect.x, p.rect.y, p.rect.w, tr));
+        canvas.DrawRoundRect(p.rect, tr, p.bg);
+        canvas.PopClip();
+        if (p.rect.h > tr) {
+            canvas.DrawRect(Rect(p.rect.x, p.rect.y + tr, p.rect.w, p.rect.h - tr), p.bg);
+        }
+    } else {
+        DrawSurfaceBg(canvas, theme, SurfacePaintParams{
+            .rect = p.rect,
+            .role = SurfaceRole::Flat,
+            .bg = p.bg
+        });
+    }
 
     if (p.drawBottomBorder && p.borderWidth > 0.0f && p.borderColor.a > 0u) {
         const keel::f32 y = p.rect.Bottom() - p.borderWidth * 0.5f;

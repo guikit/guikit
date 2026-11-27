@@ -663,6 +663,44 @@ struct UiTheme {
         return explicitRadius.has_value() ? *explicitRadius : GetRadius(fallbackSize);
     }
 
+    /// Resolves the effective OS/frame window corner style (`Auto` derives from `GetRadius(UiSize::Md)`).
+    [[nodiscard]] constexpr WindowCornerStyle ResolveWindowCorners(
+        keel::Optional<WindowCornerStyle> overrideStyle = keel::kNullOpt
+    ) const noexcept {
+        const WindowCornerStyle style = overrideStyle.value_or(shell.windowCorners);
+        if (style != WindowCornerStyle::Auto) {
+            return style;
+        }
+        const keel::f32 mdRadius = GetRadius(UiSize::Md);
+        if (mdRadius <= 0.01f) {
+            return WindowCornerStyle::Square;
+        }
+        if (mdRadius <= 3.5f) {
+            return WindowCornerStyle::RoundSmall;
+        }
+        return WindowCornerStyle::Round;
+    }
+
+    /// Returns the logical corner radius in dp for a top-level or simulated window frame.
+    [[nodiscard]] constexpr keel::f32 GetWindowCornerRadius(
+        keel::Optional<WindowCornerStyle> overrideStyle = keel::kNullOpt
+    ) const noexcept {
+        const WindowCornerStyle resolved = ResolveWindowCorners(overrideStyle);
+        switch (resolved) {
+            case WindowCornerStyle::Square:     return 0.0f;
+            case WindowCornerStyle::RoundSmall: return 4.0f;
+            case WindowCornerStyle::Round:
+            case WindowCornerStyle::Auto:
+            default: {
+                const WindowCornerStyle requested = overrideStyle.value_or(shell.windowCorners);
+                if (requested == WindowCornerStyle::Round) {
+                    return 10.0f;
+                }
+                return keel::clamp(GetRadius(UiSize::Lg), 4.0f, 10.0f);
+            }
+        }
+    }
+
     [[nodiscard]] constexpr Padding GetPadding(UiSize size) const noexcept {
         if (size.IsNone()) return Padding{};
         const keel::f32 val = (size == UiSize::Xs) ? spacing[UiSize::Sm.TableIndex()] :

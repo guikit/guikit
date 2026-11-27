@@ -24,6 +24,7 @@ struct HeaderBarRenderPayload {
     bool drawBottomBorder{true};
     Color borderColor{};
     keel::f32 borderWidth{1.0f};
+    keel::f32 topRadius{0.0f};
     UiSize size{UiSize::Md};
 };
 
@@ -96,6 +97,7 @@ void RenderHeaderBarBackground(const Node* node, ICanvas& canvas, const UiTheme&
         .explicitBg = payload->explicitBg,
         .borderColor = payload->borderColor,
         .borderWidth = payload->borderWidth,
+        .topRadius = payload->topRadius,
         .drawBottomBorder = payload->drawBottomBorder,
         .focused = payload->focused
     });
@@ -628,6 +630,12 @@ HeaderBarScope detail::HeaderBar::Open(
     const UiText allocSub = ctx.AllocText(opts.subtitle);
     const Icon allocIcon = ctx.AllocIcon(opts.icon);
 
+    const keel::f32 inheritedTopRadius = opts.border.radius.has_value()
+        ? *opts.border.radius
+        : ((!opts.bindToWindow && node->parent != nullptr && node->parent->cornerRadius > 0.5f)
+            ? keel::max(0.0f, node->parent->cornerRadius - node->parent->borderWidth * 0.5f)
+            : 0.0f);
+
     auto* renderPayload = ctx.AllocPayload<HeaderBarRenderPayload>(HeaderBarRenderPayload{
         .centeredTitle = allocTitle,
         .centeredSubtitle = allocSub,
@@ -639,6 +647,7 @@ HeaderBarScope detail::HeaderBar::Open(
         .drawBottomBorder = (opts.border.width > 0.0f && resolvedBorder.a > 0u),
         .borderColor = resolvedBorder,
         .borderWidth = opts.border.width,
+        .topRadius = inheritedTopRadius,
         .size = opts.size
     });
     node->SetPayload(renderPayload);
@@ -649,6 +658,7 @@ HeaderBarScope detail::HeaderBar::Open(
         explicitBg,
         resolvedBorder.ToUint32(),
         opts.border.width,
+        inheritedTopRadius,
         opts.centerTitle,
         maximized,
         focused,

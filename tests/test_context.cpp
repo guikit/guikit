@@ -21000,6 +21000,14 @@ void TestHeaderBarAndSystemDialogsWorkflow() {
 
         // Windows 98 (Classic3D / Bevel3D) HeaderBar uses accent caption metrics & compact 20x18 beveled controls
         const UiTheme win98 = UiTheme::Windows98();
+        CHECK(win98.ResolveWindowCorners() == WindowCornerStyle::Square);
+        CHECK_NEAR(win98.GetWindowCornerRadius(), 0.0f, 0.01f);
+        CHECK(win98.ResolveWindowCorners(WindowCornerStyle::RoundSmall) == WindowCornerStyle::RoundSmall);
+        CHECK_NEAR(win98.GetWindowCornerRadius(WindowCornerStyle::RoundSmall), 4.0f, 0.01f);
+        const UiTheme modernDark = UiTheme::Dark();
+        CHECK(modernDark.ResolveWindowCorners() == WindowCornerStyle::Round);
+        CHECK(modernDark.GetWindowCornerRadius() >= 6.0f);
+        CHECK_NEAR(modernDark.GetWindowCornerRadius(WindowCornerStyle::Square), 0.0f, 0.01f);
         const HeaderBarChromeMetrics win98Metrics = win98.Painter().GetHeaderBarMetrics(win98, true);
         CHECK(win98Metrics.accentCaption);
         CHECK_NEAR(win98Metrics.controlBtnWidth, 20.0f, 0.1f);

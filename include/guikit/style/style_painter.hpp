@@ -172,6 +172,7 @@ struct HeaderBarPaintParams {
     bool      explicitBg{false};
     Color     borderColor{Color::Transparent()};
     keel::f32 borderWidth{1.0f};
+    keel::f32 topRadius{0.0f};
     bool      drawBottomBorder{true};
     bool      focused{true};
 };

@@ -605,17 +605,7 @@ void MainWindow::SyncWindowFrameAppearance() noexcept {
     if (!m_window) {
         return;
     }
-    WindowCornerStyle style = m_windowCornerOverride.value_or(m_shellTheme.shell.windowCorners);
-    if (style == WindowCornerStyle::Auto) {
-        const keel::f32 mdRadius = m_shellTheme.GetRadius(UiSize::Md);
-        if (mdRadius <= 0.01f) {
-            style = WindowCornerStyle::Square;
-        } else if (mdRadius <= 3.5f) {
-            style = WindowCornerStyle::RoundSmall;
-        } else {
-            style = WindowCornerStyle::Round;
-        }
-    }
+    const WindowCornerStyle style = m_shellTheme.ResolveWindowCorners(m_windowCornerOverride);
     m_window->SetWindowCornerStyle(style);
     m_window->SetWindowBorderColor(m_shellTheme.palette.border);
 }
