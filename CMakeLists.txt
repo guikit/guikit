@@ -151,6 +151,7 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/views/scene.cpp
     src/guikit/surfaces/sidebar.cpp
     src/guikit/surfaces/status_bar.cpp
+    src/guikit/surfaces/header_bar.cpp
     src/guikit/views/table.cpp
     src/guikit/surfaces/toolbar.cpp
     src/guikit/views/tree_view.cpp

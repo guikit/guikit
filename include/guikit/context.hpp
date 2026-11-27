@@ -12,6 +12,7 @@
 #include "keel/small_array.h"
 #include "keel/string.h"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/backend/system_dialogs.hpp"
 #include "guikit/core/damage_tracker.hpp"
 #include "guikit/core/debug_inspector.hpp"
 #include "guikit/core/focus_manager.hpp"
@@ -34,6 +35,28 @@
 namespace guikit {
 
 class Context;
+
+/// Optional host-window & OS dialog service bound to a `Context` by `MainWindow` (or tests).
+struct WindowHostService {
+    keel::Function<void(keel::StringRef)> setTitle;
+    keel::Function<keel::String()> getTitle;
+    keel::Function<void()> minimize;
+    keel::Function<void()> maximize;
+    keel::Function<void()> restore;
+    keel::Function<void()> requestClose;
+    keel::Function<bool()> isMaximized;
+    keel::Function<bool()> isFocused;
+    keel::Function<bool()> supportsCustomTitleBar;
+    keel::Function<bool()> isCustomTitleBar;
+    keel::Function<bool(bool)> setCustomTitleBar;
+    keel::Function<bool()> isResizable;
+    keel::Function<void()> startSystemMove;
+    keel::Function<void(WindowHitRegion)> startSystemResize;
+    keel::Function<bool()> supportsFileDialogs;
+    keel::Function<FileDialogResult(const FileDialogOptions&)> showFileDialog;
+    keel::Function<void(const FileDialogOptions&, keel::Function<void(FileDialogResult)>)> showFileDialogAsync;
+    keel::Function<MessageBoxChoice(const MessageBoxOptions&)> showMessageBox;
+};
 
 /// Primary immediate mode context coordinating input, layout, and rendering.
 class Context {
@@ -430,6 +453,32 @@ public:
         }
     }
 
+    /// Binds OS window-control and native dialog callbacks (called automatically by `MainWindow`).
+    void SetWindowHostService(WindowHostService service) { m_windowHost = keel::move(service); }
+    [[nodiscard]] const WindowHostService& GetWindowHostService() const noexcept { return m_windowHost; }
+
+    /// Registers a rectangle in the current coordinate space as a window caption/drag area for CSD hit-testing.
+    void RegisterWindowDragRect(Rect rect);
+    /// Registers a layout node whose laid-out bounds become a window caption/drag area at end of frame.
+    void RegisterWindowDragNode(Id nodeId);
+    /// Registers an explicit rectangle for a semantic window control button (`MinimizeButton`/`MaximizeButton`/`CloseButton`).
+    void RegisterWindowControlRect(WindowHitRegion region, Rect rect);
+    /// Registers a layout node whose laid-out bounds map to a semantic window control button at end of frame.
+    void RegisterWindowControlNode(WindowHitRegion region, Id nodeId);
+
+    /// Resolves the OS CSD hit-test region at `logicalPos` (`clientPx / dpiScale`) using host resizable/maximized state.
+    [[nodiscard]] WindowHitRegion ResolveWindowHitRegion(Vec2 logicalPos, keel::f32 resizeBorderDp = 6.0f) const noexcept;
+    /// Resolves the OS CSD hit-test region at `logicalPos` with explicit `resizable` and `maximized` flags.
+    [[nodiscard]] WindowHitRegion ResolveWindowHitRegion(
+        Vec2 logicalPos,
+        bool resizable,
+        bool maximized,
+        keel::f32 resizeBorderDp = 6.0f
+    ) const noexcept;
+
+    /// Clears held mouse button state after a blocking native OS modal dialog returns (prevents stuck button press).
+    void ResetMouseButtonsAfterModalDialog() noexcept;
+
     keel::StringRef EnsureTextEdit(
         Id id,
         keel::StringRef initialText,
@@ -774,8 +823,25 @@ private:
     ClipboardGetFn m_clipboardGetFn{};
     ClipboardSetFn m_clipboardSetFn{};
     OpenUrlFn m_openUrlFn{};
+    WindowHostService m_windowHost{};
     keel::String m_clipboardText{};
     CursorType m_cursor{CursorType::Default};
+
+    // Per-frame & retained Client-Side Decoration (CSD) window drag and control regions
+    struct WindowControlRect {
+        WindowHitRegion region{WindowHitRegion::Client};
+        Rect rect{};
+    };
+    struct WindowControlNodeRef {
+        WindowHitRegion region{WindowHitRegion::Client};
+        Id nodeId{Id::Null()};
+    };
+    keel::SmallArray<Rect, 8> m_currWindowDragRects;
+    keel::SmallArray<Id, 8> m_currWindowDragNodes;
+    keel::SmallArray<Rect, 8> m_prevWindowDragRects;
+    keel::SmallArray<WindowControlRect, 6> m_currWindowControlRects;
+    keel::SmallArray<WindowControlNodeRef, 6> m_currWindowControlNodes;
+    keel::SmallArray<WindowControlRect, 6> m_prevWindowControlRegions;
 
     // Active text editing buffer, diff undo/redo histories, IME & OS file drop state
     TextBuffer m_editState;

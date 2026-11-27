@@ -113,6 +113,9 @@ bool MainWindow::Initialize() {
         },
         .onLiveResizeRender = [this]() {
             RenderFrame();
+        },
+        .onHitTest = [this](Vec2 logicalPos) -> WindowHitRegion {
+            return m_ui.ResolveWindowHitRegion(logicalPos);
         }
     };
 
@@ -126,6 +129,7 @@ bool MainWindow::Initialize() {
     desc.maximized = m_config.maximized;
     desc.fullscreen = m_config.fullscreen;
     desc.borderless = m_config.borderless;
+    desc.customTitleBar = m_config.customTitleBar;
     desc.highDpi = m_config.highDpi;
     desc.vsync = m_config.vsync;
     desc.gpuShaders = m_config.gpuShaders;
@@ -135,6 +139,47 @@ bool MainWindow::Initialize() {
     if (!m_window->Create(desc, m_ui, keel::move(hostCallbacks))) {
         return false;
     }
+
+    m_ui.SetWindowHostService(WindowHostService{
+        .setTitle = [this](keel::StringRef title) { SetTitle(title); },
+        .getTitle = [this]() -> keel::String { return keel::String::from(m_config.title.as_ref()); },
+        .minimize = [this]() { Minimize(); },
+        .maximize = [this]() { Maximize(); },
+        .restore = [this]() { Restore(); },
+        .requestClose = [this]() {
+            if (m_window) {
+                m_window->RequestClose();
+            } else if (OnCloseRequested()) {
+                m_running = false;
+            }
+        },
+        .isMaximized = [this]() -> bool { return IsMaximized(); },
+        .isFocused = [this]() -> bool { return IsFocused(); },
+        .supportsCustomTitleBar = [this]() -> bool { return SupportsCustomTitleBar(); },
+        .isCustomTitleBar = [this]() -> bool { return IsCustomTitleBar(); },
+        .setCustomTitleBar = [this](bool enabled) -> bool { return SetCustomTitleBar(enabled); },
+        .isResizable = [this]() -> bool { return m_config.resizable; },
+        .startSystemMove = [this]() {
+            if (m_window) {
+                m_window->StartSystemMove();
+            }
+        },
+        .startSystemResize = [this](WindowHitRegion edge) {
+            if (m_window) {
+                m_window->StartSystemResize(edge);
+            }
+        },
+        .supportsFileDialogs = [this]() -> bool { return m_window && m_window->SupportsFileDialogs(); },
+        .showFileDialog = [this](const FileDialogOptions& opts) -> FileDialogResult {
+            return ShowFileDialog(opts);
+        },
+        .showFileDialogAsync = [this](const FileDialogOptions& opts, keel::Function<void(FileDialogResult)> onDone) {
+            ShowFileDialogAsync(opts, keel::move(onDone));
+        },
+        .showMessageBox = [this](const MessageBoxOptions& opts) -> MessageBoxChoice {
+            return ShowMessageBox(opts);
+        }
+    });
 
     if (!m_window->MakeContextCurrent()) {
         m_window->Destroy();
@@ -203,6 +248,7 @@ void MainWindow::Shutdown() noexcept {
     }
     m_running = false;
     OnShutdown();
+    m_ui.SetWindowHostService(WindowHostService{});
     m_initialized = false;
     m_cpuFramebuffer.clear();
     m_fbWidth = 0;
@@ -620,6 +666,95 @@ void MainWindow::StepShellScale(keel::i32 steps) noexcept {
     const keel::i64 maxIdx = keel::as<keel::i64>(kScaleValues.size()) - 1;
     const keel::i64 target = keel::clamp(keel::as<keel::i64>(m_shellScaleIndex) + steps, keel::i64{0}, maxIdx);
     SetShellScaleIndex(keel::as<keel::usize>(target));
+}
+
+void MainWindow::SetTitle(keel::StringRef title) noexcept {
+    m_config.title = keel::FixedString<128>(title);
+    if (m_window) {
+        m_window->SetTitle(title);
+    }
+    m_ui.InvalidateAll();
+}
+
+void MainWindow::Minimize() noexcept {
+    if (m_window) {
+        m_window->Minimize();
+    }
+}
+
+void MainWindow::Maximize() noexcept {
+    if (m_window) {
+        m_window->Maximize();
+        m_ui.InvalidateAll();
+    }
+}
+
+void MainWindow::Restore() noexcept {
+    if (m_window) {
+        m_window->Restore();
+        m_ui.InvalidateAll();
+    }
+}
+
+bool MainWindow::IsMaximized() const noexcept {
+    return m_window ? m_window->IsMaximized() : false;
+}
+
+bool MainWindow::IsFocused() const noexcept {
+    return m_window ? m_window->IsFocused() : true;
+}
+
+bool MainWindow::SupportsCustomTitleBar() const noexcept {
+    return m_window ? m_window->SupportsCustomTitleBar() : false;
+}
+
+bool MainWindow::IsCustomTitleBar() const noexcept {
+    return m_window ? m_window->IsCustomTitleBar() : m_config.customTitleBar;
+}
+
+bool MainWindow::SetCustomTitleBar(bool enabled) noexcept {
+    if (!m_window) {
+        m_config.customTitleBar = enabled;
+        return true;
+    }
+    if (!m_window->SetCustomTitleBar(enabled)) {
+        return false;
+    }
+    m_config.customTitleBar = m_window->IsCustomTitleBar();
+    m_ui.InvalidateAll();
+    m_ui.RequestRepaint(2);
+    return true;
+}
+
+FileDialogResult MainWindow::ShowFileDialog(const FileDialogOptions& opts) {
+    if (!m_window) {
+        return FileDialogResult{.accepted = false, .supported = false, .paths = {}};
+    }
+    FileDialogResult res = m_window->ShowFileDialog(opts);
+    m_ui.ResetMouseButtonsAfterModalDialog();
+    return res;
+}
+
+void MainWindow::ShowFileDialogAsync(
+    const FileDialogOptions& opts,
+    keel::Function<void(FileDialogResult)> onDone
+) {
+    if (!m_window) {
+        if (onDone) {
+            onDone(FileDialogResult{.accepted = false, .supported = false, .paths = {}});
+        }
+        return;
+    }
+    m_window->ShowFileDialogAsync(opts, keel::move(onDone));
+}
+
+MessageBoxChoice MainWindow::ShowMessageBox(const MessageBoxOptions& opts) {
+    if (!m_window) {
+        return MessageBoxChoice::Cancel;
+    }
+    const MessageBoxChoice choice = m_window->ShowMessageBox(opts);
+    m_ui.ResetMouseButtonsAfterModalDialog();
+    return choice;
 }
 
 keel::i32 RunWindows(keel::ArrayRef<MainWindow*> windows) {

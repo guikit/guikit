@@ -117,6 +117,7 @@ enum class NodeType : keel::u16 {
     MenuBar     = 119,  ///< Desktop top-level menu bar hosting cascading menus with hover-scrubbing
     DockArea    = 120,  ///< Interactive docking workspace with binary split tree, tab groups, and floating cards
     DockFloat   = 121,  ///< In-window floating dock card rendered above docked panes with z-ordered hit occlusion
+    HeaderBar   = 122,  ///< Custom Client-Side Decoration (CSD) window title bar container
 
     // --- Leaf Widgets (200..999): Self-rendering elements ---
     Button      = 200,

@@ -113,6 +113,10 @@ void Context::BeginFrame(Vec2 viewportSize, keel::f32 displayScale, keel::f32 ro
     m_arena.reset();
     m_childIdCounts.clear();
     m_nodeGradients.clear();
+    m_currWindowDragRects.clear();
+    m_currWindowDragNodes.clear();
+    m_currWindowControlRects.clear();
+    m_currWindowControlNodes.clear();
     m_containerStack.clear();
     m_zoneStack.clear();
     m_runningOverlayHitBuilder = false;
@@ -1639,6 +1643,32 @@ void Context::EndFrame(ICanvas& canvas) {
     m_hitTree.CommitFrame();
     m_focus.CommitFrame();
 
+    // Resolve CSD window drag & control regions in frame logical coordinates for OS hit-testing
+    m_prevWindowDragRects.clear();
+    for (const Rect& r : m_currWindowDragRects) {
+        if (r.w > 0.0f && r.h > 0.0f) {
+            m_prevWindowDragRects.push_back(r);
+        }
+    }
+    for (const Id nid : m_currWindowDragNodes) {
+        const Rect r = m_hitTree.GetPrevFrameBounds(nid);
+        if (r.w > 0.0f && r.h > 0.0f) {
+            m_prevWindowDragRects.push_back(r);
+        }
+    }
+    m_prevWindowControlRegions.clear();
+    for (const auto& cr : m_currWindowControlRects) {
+        if (cr.rect.w > 0.0f && cr.rect.h > 0.0f) {
+            m_prevWindowControlRegions.push_back(cr);
+        }
+    }
+    for (const auto& cn : m_currWindowControlNodes) {
+        const Rect r = m_hitTree.GetPrevFrameBounds(cn.nodeId);
+        if (r.w > 0.0f && r.h > 0.0f) {
+            m_prevWindowControlRegions.push_back(WindowControlRect{.region = cn.region, .rect = r});
+        }
+    }
+
     if (const Id portalId = m_overlays.GetOpenPopupPortalId(); portalId.IsValid()) {
         const Rect portalRect = m_hitTree.GetPrevUnclippedBounds(portalId);
         if (portalRect.w > 0.0f && portalRect.h > 0.0f) {
@@ -2117,6 +2147,200 @@ void Context::SetInspectMode(bool enabled) noexcept {
     if (m_inspector.SetInspectMode(enabled)) {
         InvalidateAll();
     }
+}
+
+void Context::RegisterWindowDragRect(Rect rect) {
+    const Rect frameRect = CurrentSpace().Apply(rect);
+    if (frameRect.w > 0.0f && frameRect.h > 0.0f) {
+        m_currWindowDragRects.push_back(frameRect);
+    }
+}
+
+void Context::RegisterWindowDragNode(Id nodeId) {
+    if (nodeId.IsValid()) {
+        m_currWindowDragNodes.push_back(nodeId);
+    }
+}
+
+void Context::RegisterWindowControlRect(WindowHitRegion region, Rect rect) {
+    const Rect frameRect = CurrentSpace().Apply(rect);
+    if (frameRect.w > 0.0f && frameRect.h > 0.0f) {
+        m_currWindowControlRects.push_back(WindowControlRect{.region = region, .rect = frameRect});
+    }
+}
+
+void Context::RegisterWindowControlNode(WindowHitRegion region, Id nodeId) {
+    if (nodeId.IsValid()) {
+        m_currWindowControlNodes.push_back(WindowControlNodeRef{.region = region, .nodeId = nodeId});
+    }
+}
+
+void Context::ResetMouseButtonsAfterModalDialog() noexcept {
+    m_mouseDown = false;
+    m_mouseClicked = false;
+    m_mouseReleased = false;
+    m_mouseDoubleClicked = false;
+    m_rightMouseDown = false;
+    m_rightMouseClicked = false;
+    m_rightMouseReleased = false;
+    m_middleMouseDown = false;
+    m_middleMouseClicked = false;
+    m_middleMouseReleased = false;
+    m_focus.SetActiveId(Id::Null());
+    InvalidateAll();
+}
+
+WindowHitRegion Context::ResolveWindowHitRegion(Vec2 logicalPos, keel::f32 resizeBorderDp) const noexcept {
+    const bool resizable = m_windowHost.isResizable ? m_windowHost.isResizable() : true;
+    const bool maximized = m_windowHost.isMaximized ? m_windowHost.isMaximized() : false;
+    return ResolveWindowHitRegion(logicalPos, resizable, maximized, resizeBorderDp);
+}
+
+namespace {
+
+[[nodiscard]] bool IsPassiveWindowDragNodeType(NodeType t) noexcept {
+    switch (t) {
+        case NodeType::Row:
+        case NodeType::Column:
+        case NodeType::Wrap:
+        case NodeType::Grid:
+        case NodeType::Cell:
+        case NodeType::Box:
+        case NodeType::Card:
+        case NodeType::HeaderBar:
+        case NodeType::StatusBar:
+        case NodeType::Toolbar:
+        case NodeType::Text:
+        case NodeType::Heading:
+        case NodeType::Separator:
+        case NodeType::Spacer:
+        case NodeType::Image:
+        case NodeType::Tag:
+            return true;
+        default:
+            return false;
+    }
+}
+
+} // namespace
+
+WindowHitRegion Context::ResolveWindowHitRegion(
+    Vec2 logicalPos,
+    bool resizable,
+    bool maximized,
+    keel::f32 resizeBorderDp
+) const noexcept {
+    const Vec2 logicalSize = (m_pixelsPerDp > 0.001f) ? (m_viewportSize / m_pixelsPerDp) : m_viewportSize;
+
+    // 1. 8-edge window resize borders (only when resizable and not maximized)
+    if (resizable && !maximized && logicalSize.x > 16.0f && logicalSize.y > 16.0f && resizeBorderDp > 0.0f) {
+        const keel::f32 b = resizeBorderDp;
+        const bool onLeft   = logicalPos.x >= 0.0f && logicalPos.x < b;
+        const bool onRight  = logicalPos.x <= logicalSize.x && logicalPos.x >= (logicalSize.x - b);
+        const bool onTop    = logicalPos.y >= 0.0f && logicalPos.y < b;
+        const bool onBottom = logicalPos.y <= logicalSize.y && logicalPos.y >= (logicalSize.y - b);
+
+        if (onTop && onLeft)     return WindowHitRegion::ResizeTopLeft;
+        if (onTop && onRight)    return WindowHitRegion::ResizeTopRight;
+        if (onBottom && onLeft)  return WindowHitRegion::ResizeBottomLeft;
+        if (onBottom && onRight) return WindowHitRegion::ResizeBottomRight;
+        if (onLeft)              return WindowHitRegion::ResizeLeft;
+        if (onRight)             return WindowHitRegion::ResizeRight;
+        if (onTop)               return WindowHitRegion::ResizeTop;
+        if (onBottom)            return WindowHitRegion::ResizeBottom;
+    }
+
+    // Active popups or modals always receive client input (never intercepted as window caption/controls)
+    if (m_overlays.GetOpenPopupId().IsValid() || m_overlays.GetPrevFrameModalId().IsValid()) {
+        return WindowHitRegion::Client;
+    }
+
+    // 2. Registered semantic window control buttons (Minimize / Maximize / Close)
+    for (const auto& ctrl : m_prevWindowControlRegions) {
+        if (ctrl.rect.Contains(logicalPos)) {
+            return ctrl.region;
+        }
+    }
+
+    // 3. Registered window drag regions (Caption unless covered by an interactive widget)
+    bool inDragRect = false;
+    for (const Rect& r : m_prevWindowDragRects) {
+        if (r.Contains(logicalPos)) {
+            inDragRect = true;
+            break;
+        }
+    }
+    if (!inDragRect) {
+        return WindowHitRegion::Client;
+    }
+
+    // Future-proof check: any non-passive node, overlay portal (zLayer >= 2), or focusable widget keeps Client input
+    for (const HitNodeRecord& rec : m_hitTree.GetPrevHitNodes()) {
+        if (!rec.rect.Contains(logicalPos)) {
+            continue;
+        }
+        if (rec.zLayer >= 2u || !IsPassiveWindowDragNodeType(rec.type) || m_focus.IsInPrevFocusables(rec.id)) {
+            return WindowHitRegion::Client;
+        }
+    }
+
+    return WindowHitRegion::Caption;
+}
+
+FileDialogResult ShowFileDialog(Context& ui, const FileDialogOptions& opts) {
+    const WindowHostService& host = ui.GetWindowHostService();
+    if (!host.showFileDialog) {
+        return FileDialogResult{.accepted = false, .supported = false, .paths = {}};
+    }
+    FileDialogResult res = host.showFileDialog(opts);
+    ui.ResetMouseButtonsAfterModalDialog();
+    return res;
+}
+
+FileDialogResult ShowOpenFileDialog(Context& ui, FileDialogOptions opts) {
+    opts.kind = FileDialogKind::OpenFile;
+    return ShowFileDialog(ui, opts);
+}
+
+FileDialogResult ShowOpenFilesDialog(Context& ui, FileDialogOptions opts) {
+    opts.kind = FileDialogKind::OpenFiles;
+    return ShowFileDialog(ui, opts);
+}
+
+FileDialogResult ShowSaveFileDialog(Context& ui, FileDialogOptions opts) {
+    opts.kind = FileDialogKind::SaveFile;
+    return ShowFileDialog(ui, opts);
+}
+
+FileDialogResult ShowSelectFolderDialog(Context& ui, FileDialogOptions opts) {
+    opts.kind = FileDialogKind::SelectFolder;
+    return ShowFileDialog(ui, opts);
+}
+
+void ShowFileDialogAsync(
+    Context& ui,
+    FileDialogOptions opts,
+    keel::Function<void(FileDialogResult)> onDone
+) {
+    const WindowHostService& host = ui.GetWindowHostService();
+    if (host.showFileDialogAsync) {
+        host.showFileDialogAsync(opts, keel::move(onDone));
+        return;
+    }
+    FileDialogResult res = ShowFileDialog(ui, opts);
+    if (onDone) {
+        onDone(keel::move(res));
+    }
+}
+
+MessageBoxChoice ShowMessageBox(Context& ui, const MessageBoxOptions& opts) {
+    const WindowHostService& host = ui.GetWindowHostService();
+    if (!host.showMessageBox) {
+        return MessageBoxChoice::Cancel;
+    }
+    const MessageBoxChoice choice = host.showMessageBox(opts);
+    ui.ResetMouseButtonsAfterModalDialog();
+    return choice;
 }
 
 } // namespace guikit

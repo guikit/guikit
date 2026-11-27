@@ -1,6 +1,7 @@
 #pragma once
 
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/backend/system_dialogs.hpp"
 #include "guikit/backend/system_theme.hpp"
 #include "keel/array.h"
 #include "keel/function.h"
@@ -23,6 +24,9 @@ struct WindowHostCallbacks {
     keel::Function<bool()> onCloseRequested;
     keel::Function<void(keel::i32 width, keel::i32 height)> onResize;
     keel::Function<void()> onLiveResizeRender;
+    /// Invoked by the OS windowing system (e.g. WM_NCHITTEST / SDL_SetWindowHitTest)
+    /// with cursor coordinates in local window logical dp (`clientPx / dpiScale`).
+    keel::Function<WindowHitRegion(Vec2 logicalPos)> onHitTest;
 };
 
 /// Platform-neutral window creation descriptor passed to `IPlatformWindow::Create(...)`.
@@ -36,6 +40,7 @@ struct PlatformWindowDesc {
     bool maximized{false};
     bool fullscreen{false};
     bool borderless{false};
+    bool customTitleBar{false}; ///< Hide the OS title bar while preserving native frame, shadow, snap & resize (CSD)
     bool highDpi{true};
     bool vsync{true};
     bool gpuShaders{true};
@@ -139,6 +144,37 @@ public:
     virtual void SetCursor(CursorType /*cursor*/) noexcept {}
     virtual void SetTextInputActive(bool /*active*/, Rect /*caretRectPx*/) noexcept {}
     virtual void OpenUrl(keel::StringRef /*url*/) const noexcept {}
+
+    // --- Window Management & Client-Side Decorations (CSD) ---
+    virtual void SetTitle(keel::StringRef /*title*/) noexcept {}
+    virtual void Minimize() noexcept {}
+    virtual void Maximize() noexcept {}
+    virtual void Restore() noexcept {}
+    virtual void RequestClose() noexcept {}
+    [[nodiscard]] virtual bool IsMaximized() const noexcept { return false; }
+    [[nodiscard]] virtual bool IsFocused() const noexcept { return true; }
+    [[nodiscard]] virtual bool SupportsCustomTitleBar() const noexcept { return false; }
+    [[nodiscard]] virtual bool IsCustomTitleBar() const noexcept { return false; }
+    virtual bool SetCustomTitleBar(bool /*enabled*/) noexcept { return false; }
+    virtual void StartSystemMove() noexcept {}
+    virtual void StartSystemResize(WindowHitRegion /*edge*/) noexcept {}
+
+    // --- Native OS System Dialogs ---
+    [[nodiscard]] virtual bool SupportsFileDialogs() const noexcept { return false; }
+    virtual FileDialogResult ShowFileDialog(const FileDialogOptions& /*opts*/) {
+        return FileDialogResult{.accepted = false, .supported = false, .paths = {}};
+    }
+    virtual void ShowFileDialogAsync(
+        const FileDialogOptions& opts,
+        keel::Function<void(FileDialogResult)> onDone
+    ) {
+        if (onDone) {
+            onDone(ShowFileDialog(opts));
+        }
+    }
+    virtual MessageBoxChoice ShowMessageBox(const MessageBoxOptions& /*opts*/) {
+        return MessageBoxChoice::Cancel;
+    }
 
     /// Queries the OS/browser preferred color scheme (`ThemeMode::Dark` or `ThemeMode::Light`),
     /// or `keel::kNullOpt` if unavailable or unknown.

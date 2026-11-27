@@ -11829,6 +11829,7 @@ void TestTableProductionFeatures();
 void TestClassicBorderOverrides();
 void TestDockAreaInteractiveWorkflow();
 void TestHybridSliderWorkflow();
+void TestHeaderBarAndSystemDialogsWorkflow();
 
 void TestZonePartialThemeOverrides() {
     using namespace guikit;
@@ -11920,6 +11921,7 @@ int main() {
     TestClassicBorderOverrides();
     TestDockAreaInteractiveWorkflow();
     TestHybridSliderWorkflow();
+    TestHeaderBarAndSystemDialogsWorkflow();
     TestTextWrappingAndBackendIndependence();
 
 #if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
@@ -20732,6 +20734,272 @@ void TestHybridSliderWorkflow() {
     }
 
     keel::println("  [PASS] TestHybridSliderWorkflow completed");
+}
+
+void TestHeaderBarAndSystemDialogsWorkflow() {
+    keel::println("  -> TestHeaderBarAndSystemDialogsWorkflow...");
+    using namespace guikit;
+    NullCanvas canvas;
+
+    // 1. SystemDialogs safe fallback when no WindowHostService is bound
+    {
+        Context ui;
+        const FileDialogResult r1 = guikit::ShowOpenFileDialog(ui, {.title = "Open"});
+        CHECK(!r1.supported);
+        CHECK(!r1.accepted);
+        CHECK(r1.paths.empty());
+
+        bool asyncCalled = false;
+        guikit::ShowFileDialogAsync(ui, {.kind = FileDialogKind::SelectFolder}, [&](FileDialogResult res) {
+            asyncCalled = true;
+            CHECK(!res.supported);
+            CHECK(!res.accepted);
+        });
+        CHECK(asyncCalled);
+
+        const MessageBoxChoice mc = guikit::ShowMessageBox(ui, {.title = "T", .message = "M"});
+        CHECK(mc == MessageBoxChoice::Cancel);
+    }
+
+    // 2. SystemDialogs routed through mock WindowHostService (sync, async, message box + mouse button reset)
+    {
+        Context ui;
+        FileDialogKind lastKind = FileDialogKind::OpenFile;
+        keel::String lastTitle;
+        keel::String lastDefaultName;
+        MessageBoxButtons lastButtons = MessageBoxButtons::Ok;
+        bool asyncUsed = false;
+
+        ui.SetWindowHostService(WindowHostService{
+            .supportsFileDialogs = []() -> bool { return true; },
+            .showFileDialog = [&](const FileDialogOptions& opts) -> FileDialogResult {
+                lastKind = opts.kind;
+                lastTitle = keel::String::from(opts.title);
+                lastDefaultName = keel::String::from(opts.defaultName);
+                FileDialogResult res{};
+                res.supported = true;
+                res.accepted = true;
+                res.paths.push_back(keel::String("/tmp/проект_файл.cpp"));
+                if (opts.kind == FileDialogKind::OpenFiles) {
+                    res.paths.push_back(keel::String("/tmp/second.hpp"));
+                }
+                return res;
+            },
+            .showFileDialogAsync = [&](const FileDialogOptions& opts, keel::Function<void(FileDialogResult)> onDone) {
+                asyncUsed = true;
+                lastKind = opts.kind;
+                FileDialogResult res{};
+                res.supported = true;
+                res.accepted = true;
+                res.paths.push_back(keel::String("/tmp/async_folder"));
+                if (onDone) onDone(keel::move(res));
+            },
+            .showMessageBox = [&](const MessageBoxOptions& opts) -> MessageBoxChoice {
+                lastButtons = opts.buttons;
+                return MessageBoxChoice::Yes;
+            }
+        });
+
+        // Simulate held LMB before invoking blocking dialog -> must be reset afterward
+        ui.OnMouseDown(1);
+        CHECK(ui.IsMouseDown());
+        const FileDialogResult openRes = guikit::ShowOpenFileDialog(ui, {.title = "Open C++"});
+        CHECK(openRes.supported && openRes.accepted);
+        CHECK(openRes.paths.size() == 1u);
+        CHECK(openRes.paths[0].as_ref() == "/tmp/проект_файл.cpp");
+        CHECK(lastKind == FileDialogKind::OpenFile);
+        CHECK(lastTitle.as_ref() == "Open C++");
+        CHECK(!ui.IsMouseDown());
+
+        const FileDialogResult multiRes = guikit::ShowOpenFilesDialog(ui);
+        CHECK(multiRes.accepted && multiRes.paths.size() == 2u);
+        CHECK(lastKind == FileDialogKind::OpenFiles);
+
+        const FileDialogResult saveRes = guikit::ShowSaveFileDialog(ui, {.defaultName = "out.cpp"});
+        CHECK(saveRes.accepted && lastKind == FileDialogKind::SaveFile && lastDefaultName.as_ref() == "out.cpp");
+
+        const FileDialogResult dirRes = guikit::ShowSelectFolderDialog(ui);
+        CHECK(dirRes.accepted && lastKind == FileDialogKind::SelectFolder);
+
+        keel::String asyncPath;
+        guikit::ShowFileDialogAsync(ui, {.kind = FileDialogKind::SelectFolder}, [&](FileDialogResult res) {
+            if (res.accepted && !res.paths.empty()) {
+                asyncPath = res.paths[0].clone();
+            }
+        });
+        CHECK(asyncUsed);
+        CHECK(asyncPath.as_ref() == "/tmp/async_folder");
+
+        const MessageBoxChoice choice = guikit::ShowMessageBox(ui, {
+            .title = "Confirm",
+            .message = "Save?",
+            .buttons = MessageBoxButtons::YesNo,
+            .icon = MessageBoxIcon::Question
+        });
+        CHECK(choice == MessageBoxChoice::Yes);
+        CHECK(lastButtons == MessageBoxButtons::YesNo);
+    }
+
+    // 3. HeaderBar layout, CSD window control callbacks & ResolveWindowHitRegion (8 edges + interactive widgets)
+    {
+        Context ui;
+        ui.SetCurrentTime(1.0);
+        bool isMax = false;
+        bool isFocused = true;
+        bool isResizable = true;
+        keel::i32 minCalls = 0;
+        keel::i32 maxCalls = 0;
+        keel::i32 restoreCalls = 0;
+        keel::i32 closeCalls = 0;
+
+        ui.SetWindowHostService(WindowHostService{
+            .getTitle = []() -> keel::String { return keel::String("Host Window"); },
+            .minimize = [&]() { ++minCalls; },
+            .maximize = [&]() { ++maxCalls; isMax = true; },
+            .restore = [&]() { ++restoreCalls; isMax = false; },
+            .requestClose = [&]() { ++closeCalls; },
+            .isMaximized = [&]() -> bool { return isMax; },
+            .isFocused = [&]() -> bool { return isFocused; },
+            .isResizable = [&]() -> bool { return isResizable; }
+        });
+
+        keel::String searchVal;
+        Rect barRect{};
+        Rect btnRect{};
+        Rect inputRect{};
+        Rect menuRect{};
+        WindowControlsPlacement placement = WindowControlsPlacement::Right;
+        bool centerTitle = false;
+
+        auto frame = [&]() {
+            ui.BeginFrame({800.0f, 500.0f}, 1.0f);
+            if (auto col = guikit::Column(ui, {.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+                if (auto hb = guikit::HeaderBar(ui, {
+                    .title = "GuiKit Studio",
+                    .icon = Icon::Copy(),
+                    .centerTitle = centerTitle,
+                    .controlsPlacement = placement,
+                    .height = 40.0f
+                })) {
+                    barRect = hb.response.rect;
+                    if (auto mb = guikit::MenuBar(ui, {.style = MenuBarStyle::Compact, .size = UiSize::Sm})) {
+                        menuRect = mb.response.rect;
+                        if (auto m = mb.Menu("File")) {
+                            (void)m.Item("New");
+                        }
+                    }
+                    hb.Spacer();
+                    inputRect = guikit::InputField(ui, searchVal, {
+                        .placeholder = "Search",
+                        .size = UiSize::Xs,
+                        .width = AxisSize::Fixed(140.0f)
+                    }).rect;
+                    btnRect = guikit::Button(ui, {.text = "Run", .size = UiSize::Xs}).rect;
+                }
+            }
+            ui.EndFrame(canvas);
+        };
+
+        auto clickAt = [&](Vec2 pt) {
+            ui.AdvanceTime(0.5);
+            ui.OnMouseMove(pt);
+            frame();
+            ui.OnMouseDown(1);
+            frame();
+            ui.OnMouseUp(1);
+            frame();
+        };
+
+        frame();
+        frame();
+
+        CHECK_NEAR(barRect.h, 40.0f, 1.0f);
+        CHECK_NEAR(barRect.w, 800.0f, 1.0f);
+        CHECK(btnRect.w > 20.0f && inputRect.w > 100.0f);
+
+        // 8-edge resize borders when resizable && !maximized
+        CHECK(ui.ResolveWindowHitRegion({2.0f, 2.0f})     == WindowHitRegion::ResizeTopLeft);
+        CHECK(ui.ResolveWindowHitRegion({400.0f, 2.0f})   == WindowHitRegion::ResizeTop);
+        CHECK(ui.ResolveWindowHitRegion({798.0f, 2.0f})   == WindowHitRegion::ResizeTopRight);
+        CHECK(ui.ResolveWindowHitRegion({2.0f, 250.0f})   == WindowHitRegion::ResizeLeft);
+        CHECK(ui.ResolveWindowHitRegion({798.0f, 250.0f}) == WindowHitRegion::ResizeRight);
+        CHECK(ui.ResolveWindowHitRegion({2.0f, 498.0f})   == WindowHitRegion::ResizeBottomLeft);
+        CHECK(ui.ResolveWindowHitRegion({400.0f, 498.0f}) == WindowHitRegion::ResizeBottom);
+        CHECK(ui.ResolveWindowHitRegion({798.0f, 498.0f}) == WindowHitRegion::ResizeBottomRight);
+
+        // Free space inside HeaderBar (and over passive title text) -> Caption
+        CHECK(ui.ResolveWindowHitRegion({360.0f, 20.0f}) == WindowHitRegion::Caption);
+        CHECK(ui.ResolveWindowHitRegion({40.0f, 20.0f})  == WindowHitRegion::Caption);
+
+        // Interactive widgets inside HeaderBar -> Client (never intercepted as Caption!)
+        CHECK(ui.ResolveWindowHitRegion(btnRect.Center())   == WindowHitRegion::Client);
+        CHECK(ui.ResolveWindowHitRegion(inputRect.Center()) == WindowHitRegion::Client);
+        if (menuRect.w > 4.0f) {
+            CHECK(ui.ResolveWindowHitRegion(menuRect.Center()) == WindowHitRegion::Client);
+        }
+
+        // Right-edge window controls hit regions & clicks
+        const Vec2 closeCenter{777.0f, 20.0f};
+        const Vec2 maxCenter{733.0f, 20.0f};
+        const Vec2 minCenter{689.0f, 20.0f};
+        CHECK(ui.ResolveWindowHitRegion(closeCenter) == WindowHitRegion::CloseButton);
+        CHECK(ui.ResolveWindowHitRegion(maxCenter)   == WindowHitRegion::MaximizeButton);
+        CHECK(ui.ResolveWindowHitRegion(minCenter)   == WindowHitRegion::MinimizeButton);
+
+        clickAt(minCenter);
+        CHECK(minCalls == 1);
+        clickAt(maxCenter);
+        CHECK(maxCalls == 1 && isMax);
+
+        // When maximized, window edges must NOT return Resize*!
+        CHECK(ui.ResolveWindowHitRegion({2.0f, 250.0f})   == WindowHitRegion::Client);
+        CHECK(ui.ResolveWindowHitRegion({798.0f, 250.0f}) == WindowHitRegion::Client);
+        CHECK(ui.ResolveWindowHitRegion({400.0f, 498.0f}) == WindowHitRegion::Client);
+
+        // Second click on Maximize button invokes Restore
+        clickAt(maxCenter);
+        CHECK(restoreCalls == 1 && !isMax);
+
+        clickAt(closeCenter);
+        CHECK(closeCalls == 1);
+
+        // Left placement (macOS traffic lights) & centerTitle smoke test
+        placement = WindowControlsPlacement::Left;
+        centerTitle = true;
+        frame();
+        frame();
+        CHECK(ui.ResolveWindowHitRegion({18.0f, 20.0f}) == WindowHitRegion::CloseButton);
+        CHECK(ui.ResolveWindowHitRegion({400.0f, 20.0f}) == WindowHitRegion::Caption);
+
+        // None placement hides all window controls
+        placement = WindowControlsPlacement::None;
+        frame();
+        frame();
+        CHECK(ui.ResolveWindowHitRegion({777.0f, 20.0f}) != WindowHitRegion::CloseButton);
+
+        // Minimal HeaderBar without explicit hb.Spacer() must still pin right controls to the right edge
+        auto minimalFrame = [&]() {
+            ui.BeginFrame({800.0f, 500.0f}, 1.0f);
+            if (auto col = guikit::Column(ui, {.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+                if (auto hb = guikit::HeaderBar(ui, {
+                    .title = "Minimal App",
+                    .controlsPlacement = WindowControlsPlacement::Right,
+                    .height = 40.0f
+                })) {
+                    // Intentionally empty (no hb.Spacer())
+                }
+            }
+            ui.EndFrame(canvas);
+        };
+        minimalFrame();
+        minimalFrame();
+        CHECK(ui.ResolveWindowHitRegion({777.0f, 20.0f}) == WindowHitRegion::CloseButton);
+        CHECK(ui.ResolveWindowHitRegion({733.0f, 20.0f}) == WindowHitRegion::MaximizeButton);
+        CHECK(ui.ResolveWindowHitRegion({689.0f, 20.0f}) == WindowHitRegion::MinimizeButton);
+        CHECK(ui.ResolveWindowHitRegion({400.0f, 20.0f}) == WindowHitRegion::Caption);
+    }
+
+    keel::println("  [PASS] TestHeaderBarAndSystemDialogsWorkflow completed");
 }
 
 

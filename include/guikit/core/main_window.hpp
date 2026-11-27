@@ -20,6 +20,7 @@ struct MainWindowConfig {
     bool maximized = false;
     bool fullscreen = false;
     bool borderless = false;
+    bool customTitleBar = false; ///< Hide OS title bar while preserving native frame, shadow, snap & resize (CSD)
     bool highDpi = true;
     bool vsync = true;
     bool reactiveMode = true;
@@ -99,6 +100,21 @@ public:
 
     /// Opens an external URL in the user's default system browser via the active `IPlatformWindow`.
     void OpenUrl(keel::StringRef url) const noexcept;
+
+    /// Window management & native OS dialog convenience helpers.
+    void SetTitle(keel::StringRef title) noexcept;
+    [[nodiscard]] keel::StringRef GetTitle() const noexcept { return m_config.title.as_ref(); }
+    void Minimize() noexcept;
+    void Maximize() noexcept;
+    void Restore() noexcept;
+    [[nodiscard]] bool IsMaximized() const noexcept;
+    [[nodiscard]] bool IsFocused() const noexcept;
+    [[nodiscard]] bool SupportsCustomTitleBar() const noexcept;
+    [[nodiscard]] bool IsCustomTitleBar() const noexcept;
+    bool SetCustomTitleBar(bool enabled) noexcept;
+    [[nodiscard]] FileDialogResult ShowFileDialog(const FileDialogOptions& opts);
+    void ShowFileDialogAsync(const FileDialogOptions& opts, keel::Function<void(FileDialogResult)> onDone);
+    [[nodiscard]] MessageBoxChoice ShowMessageBox(const MessageBoxOptions& opts);
 
     // =========================================================================
     // Subsystems & State Accessors
